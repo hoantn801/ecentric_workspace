@@ -1,0 +1,18 @@
+include MANIFEST.in
+include requirements.txt
+include *.json
+include *.md
+include *.py
+include *.txt
+recursive-include ecentric_workspace *.css
+recursive-include ecentric_workspace *.csv
+recursive-include ecentric_workspace *.html
+recursive-include ecentric_workspace *.ico
+recursive-include ecentric_workspace *.js
+recursive-include ecentric_workspace *.json
+recursive-include ecentric_workspace *.md
+recursive-include ecentric_workspace *.png
+recursive-include ecentric_workspace *.py
+recursive-include ecentric_workspace *.svg
+recursive-include ecentric_workspace *.txt
+recursive-exclude ecentric_workspace *.pyc
