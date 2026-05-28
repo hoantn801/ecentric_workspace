@@ -38,9 +38,15 @@ DEPT_CODE_MAP = {
     "Service": "SVC",
     "Media": "MED",
     "Production": "PRD",
+    # Current Frappe Department naming (Style A canonical, per 2026-05-29)
+    "Operation & Data & System": "ODS",
+    "Human Resources": "HRD",
+    "Finance & Accounting": "FNA",
+    # Back-compat: existing records may have legacy values
     "Operation, Data & System": "ODS",
     "HR": "HRD",
-    "Finance & Accounting": "FNA",
+    # Used by Weekly Report only, not approval forms (per user 2026-05-29)
+    "Management": "MGT",
 }
 
 APPROVAL_RECIPES = {
