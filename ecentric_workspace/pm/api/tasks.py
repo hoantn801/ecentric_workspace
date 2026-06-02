@@ -70,6 +70,56 @@ def get(name):
     return {"task": doc.as_dict(), "subtasks": subtasks}
 
 
+@frappe.whitelist()
+def gantt(project):
+    """Gantt data for ONE project (permission-scoped). Never loads all tasks.
+
+    Returns rows with id/name/subject/project/start/end/progress/workflow_state/
+    parent_task/dependencies. Dependencies use native Task Depends On if present,
+    else an empty list (no custom field invented).
+    """
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    if not project:
+        frappe.throw(_("Project is required for the Gantt view."))
+    if not pmperm.can_view_project(project, user):
+        frappe.throw(_("Not permitted to view this project."), frappe.PermissionError)
+
+    tasks = frappe.get_all(
+        "Task", filters={"project": project},
+        fields=["name", "subject", "project", "exp_start_date", "exp_end_date",
+                "progress", "workflow_state", "parent_task"],
+        order_by="exp_start_date asc, creation asc",
+    )
+    task_names = [t["name"] for t in tasks]
+
+    deps = {}
+    if task_names:
+        try:
+            for d in frappe.get_all("Task Depends On",
+                                    filters={"parent": ["in", task_names]},
+                                    fields=["parent", "task"]):
+                deps.setdefault(d["parent"], []).append(d["task"])
+        except Exception:
+            deps = {}  # native depends_on table absent -> no dependencies
+
+    rows = []
+    for t in tasks:
+        rows.append({
+            "id": t["name"],
+            "name": t["name"],
+            "subject": t["subject"],
+            "project": t["project"],
+            "start": t.get("exp_start_date"),
+            "end": t.get("exp_end_date"),
+            "progress": t.get("progress") or 0,
+            "workflow_state": t.get("workflow_state"),
+            "parent_task": t.get("parent_task"),
+            "dependencies": deps.get(t["name"], []),
+        })
+    return {"project": project, "rows": rows}
+
+
 # --------------------------------------------------------------------------
 # WRITE (PM1-T06) - permission validated in service layer; DocPerm + audit apply
 # --------------------------------------------------------------------------
