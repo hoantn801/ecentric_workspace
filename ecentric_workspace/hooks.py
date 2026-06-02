@@ -44,4 +44,8 @@ fixtures = [
         "dt": "Custom Field",
         "filters": [["name", "in", ["Project-ec_department", "Project-ec_manager"]]],
     },
+    {
+        "dt": "Role",
+        "filters": [["name", "in", ["PM Manager", "PM Member"]]],
+    },
 ]
