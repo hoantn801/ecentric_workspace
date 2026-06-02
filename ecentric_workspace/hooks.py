@@ -34,3 +34,14 @@ app_license = "MIT"
 # Override standard whitelisted methods
 # -------------------------------------
 # override_whitelisted_methods = {}
+
+# Fixtures
+# --------
+# PM v2 custom fields owned by this app (PM1-T01). Filtered so only these two
+# Custom Fields are exported/synced -- never every Custom Field on the site.
+fixtures = [
+    {
+        "dt": "Custom Field",
+        "filters": [["name", "in", ["Project-ec_department", "Project-ec_manager"]]],
+    },
+]
