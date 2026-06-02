@@ -13,11 +13,12 @@ import json
 import frappe
 from frappe import _
 from frappe.desk.form.assign_to import add as _assign_add
+from frappe.model.workflow import apply_workflow, get_transitions as _wf_get_transitions
 
 from ecentric_workspace.pm import permissions as pmperm
 
 _FIELDS = [
-    "name", "subject", "status", "project", "parent_task", "is_group",
+    "name", "subject", "status", "workflow_state", "project", "parent_task", "is_group",
     "exp_start_date", "exp_end_date", "priority", "_assign", "owner", "modified",
 ]
 
@@ -139,14 +140,16 @@ def assign(name, users):
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to assign this task."), frappe.PermissionError)
 
+    # NOTE: builtin `list` is shadowed by the read service `def list` in this
+    # module, so do NOT reference the `list` type here. Parse via str checks only.
     if isinstance(users, str):
         try:
             users = json.loads(users)
         except Exception:
             users = [users]
-    if not isinstance(users, list):
+    if isinstance(users, str):  # JSON decoded to a bare string (single email)
         users = [users]
-    users = [u for u in users if u]
+    users = [u for u in (users or []) if u]
     if not users:
         frappe.throw(_("No users to assign."))
 
@@ -156,21 +159,32 @@ def assign(name, users):
 
 
 @frappe.whitelist()
-def set_status(name, status):
-    """Set Task status (validated against Task.status options).
+def get_transitions(name):
+    """Allowed PM Task Workflow actions for the current user + task state (UI buttons)."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    doc = frappe.get_doc("Task", name)
+    if not pmperm.can_view_task(doc.as_dict(), user):
+        frappe.throw(_("Not permitted."), frappe.PermissionError)
+    trans = _wf_get_transitions(doc)
+    return {
+        "current": doc.get("workflow_state"),
+        "transitions": [{"action": t.get("action"), "next_state": t.get("next_state")} for t in trans],
+    }
 
-    INTERIM: direct status write with permission + audit. PM1-T07 will route this
-    through the Task Workflow (apply_workflow) for governed transitions.
+
+@frappe.whitelist()
+def set_status(name, action):
+    """Apply a PM Task Workflow transition by ACTION name (governed + audited).
+
+    PM1-T07: replaces direct status writes. apply_workflow validates the
+    transition is legal for the current workflow_state AND allowed for the
+    user's role, and records the change in the document's audit trail.
     """
     pmperm.require_pm_access()
     user = frappe.session.user
     doc = frappe.get_doc("Task", name)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to change this task."), frappe.PermissionError)
-
-    options = [o for o in (frappe.get_meta("Task").get_field("status").options or "").split("\n") if o]
-    if options and status not in options:
-        frappe.throw(_("Invalid status: {0}").format(status))
-    doc.status = status
-    doc.save()  # honors DocPerm 'write'; audit trail
-    return {"name": doc.name, "status": doc.status}
+    doc = apply_workflow(doc, action)
+    return {"name": doc.name, "workflow_state": doc.get("workflow_state")}

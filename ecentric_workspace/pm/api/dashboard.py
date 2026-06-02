@@ -14,7 +14,9 @@ import frappe
 
 from ecentric_workspace.pm import permissions as pmperm
 
-_FINISHED = ["Completed", "Cancelled"]
+# PM workflow terminal states (PM1-T07). PM status is workflow_state, NOT native
+# Task.status (which ERPNext manages on its own).
+_FINISHED = ["Done", "Cancelled"]
 
 
 def _count(and_filters, or_filters):
@@ -35,8 +37,8 @@ def summary():
     scope = pmperm.task_scope_or_filters(user)  # None = all in PM
     mine = [["_assign", "like", "%{0}%".format(user)]]
 
-    overdue_f = {"exp_end_date": ["<", today], "status": ["not in", _FINISHED]}
-    week_f = {"exp_end_date": ["between", [today, week]], "status": ["not in", _FINISHED]}
+    overdue_f = {"exp_end_date": ["<", today], "workflow_state": ["not in", _FINISHED]}
+    week_f = {"exp_end_date": ["between", [today, week]], "workflow_state": ["not in", _FINISHED]}
 
     return {
         "my_tasks": _count(None, mine),
