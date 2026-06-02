@@ -78,7 +78,12 @@ def execute():
 
     wf.set("states", [])
     for state, style in STATES:
-        wf.append("states", {"state": state, "doc_status": "0", "style": style})
+        wf.append("states", {
+            "state": state,
+            "doc_status": "0",
+            "allow_edit": "PM Manager",   # required field; Phase: PM Manager for all states
+            "style": style,
+        })
 
     wf.set("transitions", [])
     for from_state, action, next_state in TRANSITIONS:
