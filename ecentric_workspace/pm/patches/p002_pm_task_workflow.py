@@ -18,7 +18,7 @@ ROLES = ["PM Manager", "PM Member"]
 
 # state -> style
 STATES = [
-    ("Backlog", "Default"),
+    ("Backlog", ""),
     ("To Do", "Primary"),
     ("In Progress", "Info"),
     ("Blocked", "Danger"),
