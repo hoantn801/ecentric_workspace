@@ -29,12 +29,10 @@ app_license = "MIT"
 
 # Permissions
 # -----------
-# PM v2 row-level visibility (PM1-T03 activation). Backend-enforced for Project
-# and Task. Non-PM users get "" (unchanged) so other modules are NOT affected.
-permission_query_conditions = {
-    "Project": "ecentric_workspace.pm.permissions.get_permission_query_conditions_for_project",
-    "Task": "ecentric_workspace.pm.permissions.get_permission_query_conditions_for_task",
-}
+# PM v2 uses SERVICE-LAYER permission (ecentric_workspace.pm.api.*), NOT global
+# permission_query_conditions, to avoid affecting other modules (GBS / Approval /
+# Project dropdowns / reports). Revisit global hooks after UAT (PM1-T03 revised).
+# permission_query_conditions = {}
 
 # Override standard whitelisted methods
 # -------------------------------------
