@@ -1,5 +1,7 @@
 # Patches for ecentric_workspace
 # Format: <category>.<module>.<patch_file_name>
 
+[pre_model_sync]
+
 [post_model_sync]
 ecentric_workspace.pm.patches.p001_pm_baseline_permissions
