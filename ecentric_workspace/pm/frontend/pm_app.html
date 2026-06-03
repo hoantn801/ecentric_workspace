@@ -314,7 +314,7 @@
   function toast(msg,e){var t=el("pm-toast");t.textContent=msg;t.className="pm-toast show"+(e?" err":"");setTimeout(function(){t.className="pm-toast";},2400);}
   function spin(c){c.innerHTML='<div class="pm-state"><span class="spin"></span></div>';}
   function errOf(e){return (e&&e.message)||(e&&e._server_messages)||e||"loi";}
-  function errBox(c,e){c.innerHTML='<div class="pm-err">Không tải được dữ liệu: '+esc(errOf(e))+'</div>';}
+  function errBox(c,e){c.innerHTML='<div class="pm-err" title="'+esc(errOf(e))+'">Không tải được dữ liệu. Vui lòng thử lại.</div>';}
   function emptyBox(c,msg){c.innerHTML='<div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>'+esc(msg)+'</div></div>';}
 
   function head(title,sub,right){return '<div class="pm-head"><div><h1>'+esc(title)+'</h1>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div><div>'+(right||'')+'</div></div>';}
@@ -529,7 +529,7 @@
       function loadParents(){api(PM+"tasks.list",{project:el("nt-project").value,page_length:200}).then(function(d){el("nt-parent").innerHTML='<option value="">— Không —</option>'+(d.rows||[]).map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.subject||t.name)+'</option>';}).join("");}).catch(function(){});}
       el("nt-project").onchange=loadParents; loadParents();
       el("nt-cancel").onclick=closeD;
-      el("nt-create").onclick=function(){var s=el("nt-subject").value.trim();if(!s){toast("Nhập tiêu đề",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang tạo...";
+      el("nt-create").onclick=function(){var s=el("nt-subject").value.trim();if(!s){toast("Nhập tiêu đề",true);return;}var sd=el("nt-start").value,ed=el("nt-end").value;if(sd&&ed&&ed<sd){toast("Hạn không được trước ngày bắt đầu",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang tạo...";
         api(PM+"tasks.create",{project:el("nt-project").value,subject:s,parent_task:el("nt-parent").value||null,assignee:el("nt-assignee").value.trim()||null,priority:el("nt-priority").value,exp_start_date:el("nt-start").value||null,exp_end_date:el("nt-end").value||null,description:el("nt-desc").value||null}).then(function(r){toast("Đã tạo "+r.name);closeD();go("board");}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML='Tạo nhiệm vụ';});};
     }).catch(function(e){errBox(c,e);});}
   function editTask(name){var c=el("pm-dbody");spin(c);
@@ -545,15 +545,15 @@
         '<div style="display:flex;gap:8px"><button class="pm-btn primary" id="et-save">Lưu</button><button class="pm-btn" id="et-cancel">Huỷ</button></div>';
       _niFix(c);
       el("et-cancel").onclick=function(){openTask(name);};
-      el("et-save").onclick=function(){var s=el("et-subject").value.trim();if(!s){toast("Nhập tiêu đề",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang lưu...";var na=el("et-assignee").value.trim();
+      el("et-save").onclick=function(){var s=el("et-subject").value.trim();if(!s){toast("Nhập tiêu đề",true);return;}var sd=el("et-start").value,ed=el("et-end").value;if(sd&&ed&&ed<sd){toast("Hạn không được trước ngày bắt đầu",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang lưu...";var na=el("et-assignee").value.trim();
         api(PM+"tasks.update",{name:name,subject:s,project:el("et-project").value,priority:el("et-priority").value,exp_start_date:el("et-start").value||null,exp_end_date:el("et-end").value||null,description:el("et-desc").value||null}).then(function(){
           if(na&&a.indexOf(na)<0){return api(PM+"tasks.assign",{name:name,users:[na]});}
         }).then(function(){toast("Đã lưu");openTask(name);}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu";});};
     }).catch(function(e){errBox(c,e);});}
 
   function gColor(s){return {"Backlog":"#9ca3af","To Do":"#2f6fb3","In Progress":"#15917a","Blocked":"#c0392b","Review":"#b8860b","Done":"#0a7a4f","Cancelled":"#cbd5e1"}[s]||"#2C3DA6";}
-  function dnum(s){return s?new Date(s+"T00:00:00").getTime():null;}
-  function fmtD(ms){var d=new Date(ms);return (d.getMonth()+1)+"/"+d.getDate();}
+  function dnum(s){if(!s)return null;var d=new Date(String(s).slice(0,10)+"T00:00:00");var t=d.getTime();return isNaN(t)?null:t;}
+  function fmtD(ms){if(ms==null||isNaN(ms))return "—";var d=new Date(ms);return (d.getMonth()+1)+"/"+d.getDate();}
   function showGantt(){var c=el("pm-view");spin(c);
     api(PM+"projects.list",{page_length:200}).then(function(r){var rows=r.rows||[];var sel=window._pm_gproj||"";
       c.innerHTML=head("Gantt","Tiến độ theo thời gian — theo từng dự án",'<select class="pm-sel" id="g-proj" style="min-width:230px"><option value="">— Chọn dự án —</option>'+rows.map(function(p){return opt(p.name,p.project_name||p.name,sel);}).join("")+'</select>')+
@@ -565,7 +565,7 @@
     spin(b); api(PM+"tasks.gantt",{project:window._pm_gproj}).then(function(d){renderGantt(b,d.rows||[]);}).catch(function(e){errBox(b,e);});}
   function renderGantt(b,rows){
     if(!rows.length){return emptyBox(b,"Dự án chưa có nhiệm vụ.");}
-    var sched=rows.filter(function(t){return t.start&&t.end;}); var unsched=rows.filter(function(t){return !t.start||!t.end;});
+    var sched=rows.filter(function(t){return dnum(t.start)!=null&&dnum(t.end)!=null;}); var unsched=rows.filter(function(t){return dnum(t.start)==null||dnum(t.end)==null;});
     var html="";
     if(sched.length){
       var starts=sched.map(function(t){return dnum(t.start);}); var ends=sched.map(function(t){return dnum(t.end);});
