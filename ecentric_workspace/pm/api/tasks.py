@@ -138,9 +138,17 @@ def create(project, subject, parent_task=None, priority=None,
     if not pmperm.can_view_project(project, user):
         frappe.throw(_("Not permitted to create a task in this project."), frappe.PermissionError)
     if parent_task:
-        pt = frappe.db.get_value("Task", parent_task, ["project"], as_dict=True)
-        if not pt or pt.get("project") != project:
+        # ERPNext Task is a NestedSet tree: a parent can only hold children if it is a
+        # Group Task (is_group=1). Ensure that before inserting the child, with the same
+        # service-layer permission checks. No schema change (is_group is a native field).
+        parent = frappe.get_doc("Task", parent_task)
+        if not pmperm.can_view_task(parent.as_dict(), user):
+            frappe.throw(_("Not permitted to add a sub-task to this task."), frappe.PermissionError)
+        if parent.get("project") != project:
             frappe.throw(_("Parent task must belong to the same project."))
+        if not parent.get("is_group"):
+            parent.is_group = 1
+            parent.save()  # honors DocPerm 'write' + audit; NestedSet handles the flag
 
     doc = frappe.get_doc({
         "doctype": "Task",
