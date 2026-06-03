@@ -161,12 +161,18 @@ def report(user=None, project=None, task=None, from_date=None, to_date=None):
     for r in rows:
         hrs = r.get("hours") or 0
         total += hrs
-        d = (r.get("from_time") or "")[:10]
-        if not d:
+        ft = r.get("from_time")
+        if not ft:
             continue
-        by_day[d] = by_day.get(d, 0) + hrs
-        by_month[d[:7]] = by_month.get(d[:7], 0) + hrs
-        iso = frappe.utils.getdate(d).isocalendar()
+        try:
+            dobj = frappe.utils.getdate(ft)  # date object (handles datetime / str)
+        except Exception:
+            continue
+        dkey = dobj.isoformat()              # "YYYY-MM-DD" string
+        by_day[dkey] = by_day.get(dkey, 0) + hrs
+        mkey = dkey[:7]                       # slice on ISO string (safe)
+        by_month[mkey] = by_month.get(mkey, 0) + hrs
+        iso = dobj.isocalendar()
         wkey = "%04d-W%02d" % (iso[0], iso[1])
         by_week[wkey] = by_week.get(wkey, 0) + hrs
     return {"rows": rows, "total_hours": total,
