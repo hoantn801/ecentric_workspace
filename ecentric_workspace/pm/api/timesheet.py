@@ -41,6 +41,27 @@ def _default_activity_type():
     return frappe.db.get_value("Activity Type", {}, "name")
 
 
+def _create_timesheet(user, task, project, hours, description=None, from_time=None):
+    """Shared helper: create one Draft Timesheet (single time_log) for a Task.
+
+    Used by manual log AND by the timer Stop. Returns the Timesheet name.
+    """
+    company = _company_for(project)
+    if not company:
+        frappe.throw(_("No Company found. Set Project.company or a default Company."))
+    if not from_time:
+        from_time = frappe.utils.nowdate() + " 09:00:00"
+    row = {"task": task, "project": project, "from_time": str(from_time),
+           "hours": hours, "description": description}
+    at = _default_activity_type()
+    if at:
+        row["activity_type"] = at
+    ts = frappe.get_doc({"doctype": "Timesheet", "company": company,
+                         "employee": _employee_for(user), "time_logs": [row]})
+    ts.insert(ignore_permissions=True)  # scope already checked by caller; native audit
+    return ts.name
+
+
 @frappe.whitelist()
 def log(task, hours, log_date=None, description=None):
     """Log worktime hours against a Task (one Draft Timesheet, single row)."""
@@ -59,31 +80,10 @@ def log(task, hours, log_date=None, description=None):
     if hrs <= 0:
         frappe.throw(_("Hours must be greater than 0."))
 
-    project = doc.get("project")
-    company = _company_for(project)
-    if not company:
-        frappe.throw(_("No Company found. Set Project.company or a default Company."))
-
     day = log_date or frappe.utils.nowdate()
-    row = {
-        "task": task,
-        "project": project,
-        "from_time": day + " 09:00:00",
-        "hours": hrs,
-        "description": description,
-    }
-    at = _default_activity_type()
-    if at:
-        row["activity_type"] = at
-
-    ts = frappe.get_doc({
-        "doctype": "Timesheet",
-        "company": company,
-        "employee": _employee_for(user),
-        "time_logs": [row],
-    })
-    ts.insert(ignore_permissions=True)  # scope already checked; native audit preserved
-    return {"timesheet": ts.name, "task": task, "hours": hrs, "date": day}
+    name = _create_timesheet(user, task, doc.get("project"), hrs, description,
+                             from_time=day + " 09:00:00")
+    return {"timesheet": name, "task": task, "hours": hrs, "date": day}
 
 
 @frappe.whitelist()

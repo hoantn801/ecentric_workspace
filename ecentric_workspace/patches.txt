@@ -6,3 +6,4 @@
 [post_model_sync]
 ecentric_workspace.pm.patches.p001_pm_baseline_permissions
 ecentric_workspace.pm.patches.p002_pm_task_workflow
+ecentric_workspace.pm.patches.p003_pm_timer
