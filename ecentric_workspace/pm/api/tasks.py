@@ -65,7 +65,7 @@ def get(name):
         frappe.throw(_("Not permitted to view this task."), frappe.PermissionError)
     subtasks = frappe.get_all(
         "Task", filters={"parent_task": name},
-        fields=["name", "subject", "status", "_assign", "exp_end_date"],
+        fields=["name", "subject", "status", "workflow_state", "_assign", "exp_end_date"],
         order_by="creation asc",
     )
     return {"task": doc.as_dict(), "subtasks": subtasks}
