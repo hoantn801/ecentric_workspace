@@ -131,3 +131,36 @@ def detail(name):
     progress = int(round(risk["completed"] * 100.0 / total)) if total else 0
     return {"project": doc.as_dict(), "total": total, "risk": risk,
             "risk_level": level, "progress": progress}
+
+
+@frappe.whitelist()
+def create(project_name, manager=None, expected_start_date=None,
+           expected_end_date=None, priority=None, description=None):
+    """Create a Project. LEADER-ONLY (Management dept or System Manager) — Project is a
+    master object. Additive, native Project fields + existing custom ec_manager. No schema.
+    """
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    if not pmperm.can_see_all_pm_data(user):
+        frappe.throw(frappe._("Only PM leaders can create projects."), frappe.PermissionError)
+    if not project_name:
+        frappe.throw(frappe._("Project name is required."))
+    if (expected_start_date and expected_end_date
+            and str(expected_end_date) < str(expected_start_date)):
+        frappe.throw(frappe._("End date cannot be before start date."))
+
+    company = (frappe.defaults.get_user_default("Company")
+               or frappe.db.get_single_value("Global Defaults", "default_company"))
+    doc = frappe.get_doc({
+        "doctype": "Project",
+        "project_name": project_name,
+        "status": "Open",
+        "company": company,
+        "expected_start_date": expected_start_date or None,
+        "expected_end_date": expected_end_date or None,
+        "priority": priority or None,
+        "notes": description or None,
+        "ec_manager": manager or None,   # existing custom field (Link User)
+    })
+    doc.insert()  # honors DocPerm 'create' + audit; ec_manager link validated by Frappe
+    return {"name": doc.name, "project_name": doc.project_name}
