@@ -207,9 +207,8 @@
       <a class="nav-item" data-view="board"><svg class="icon"><use href="#p-kanban"/></svg><span>Kanban</span></a>
       <a class="nav-item" data-view="gantt"><svg class="icon"><use href="#p-gantt"/></svg><span>Gantt</span></a>
       <a class="nav-item" data-view="recurring"><svg class="icon"><use href="#p-repeat"/></svg><span>Recurring</span></a>
-      <div class="nav-label" style="margin-top:10px;">Sắp có</div>
-      <a class="nav-item" data-view="timesheet"><svg class="icon"><use href="#p-clock"/></svg><span>Timesheet</span><span class="soon">soon</span></a>
-      <a class="nav-item" data-view="notifications"><svg class="icon"><use href="#p-bell"/></svg><span>Thông báo</span><span class="soon">soon</span></a>
+      <a class="nav-item" data-view="notifications"><svg class="icon"><use href="#p-bell"/></svg><span>Thông báo</span></a>
+      <a class="nav-item" data-view="timesheet"><svg class="icon"><use href="#p-clock"/></svg><span>Timesheet</span></a>
       <div class="nav-label" style="margin-top:10px;">Khác</div>
       <a class="nav-item" href="/home"><svg class="icon"><use href="#p-back"/></svg><span>Về Workspace</span></a>
     </nav>
@@ -258,7 +257,7 @@
     if(!r.ok){var mm=j.exception||j._server_messages||j.exc_type||("HTTP "+r.status);throw new Error(typeof mm==="string"?mm:JSON.stringify(mm));}
     return j.message;});}
   function apiFetch(method,args){
-    var read=/\.(list|get|summary|gantt|get_transitions|get_active|get_for_task)$/.test(method)||/get_logged_user/.test(method);
+    var read=/\.(list|get|summary|gantt|get_transitions|get_active|get_for_task|list_mine|report)$/.test(method)||/get_logged_user/.test(method);
     if(read){var qs=Object.keys(args).map(function(k){return encodeURIComponent(k)+"="+encodeURIComponent(args[k]);}).join("&");
       return fetch("/api/method/"+method+(qs?("?"+qs):""),{method:"GET",credentials:"include",headers:{"Accept":"application/json"}}).then(_parseR);}
     return fetch("/api/method/"+method,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json","X-Frappe-CSRF-Token":getCsrf()},body:JSON.stringify(args)}).then(_parseR);}
@@ -303,6 +302,9 @@
     else if(m==="recurrence.pause"){var rp=(M.rec||[]).filter(function(x){return x.name===args.name;})[0];if(rp)rp.status="Paused";res(rp||{});}
     else if(m==="recurrence.resume"){var rr2=(M.rec||[]).filter(function(x){return x.name===args.name;})[0];if(rr2)rr2.status="Active";res(rr2||{});}
     else if(m==="recurrence.cancel"){var rcn=(M.rec||[]).filter(function(x){return x.name===args.name;})[0];if(rcn)rcn.status="Cancelled";res(rcn||{});}
+    else if(m==="notifications.list_mine"){if(!M.notif){M.notif=[{name:"N1",subject:"Bạn được giao nhiệm vụ: Design homepage",document_name:"TASK-1000",read:0,creation:"2026-06-03 09:10",from_user:"vinh@ecentric.vn",type:"Alert"},{name:"N2",subject:"Nhiệm vụ 'API auth' -> In Progress",document_name:"TASK-1001",read:1,creation:"2026-06-02 16:00",from_user:"hoan.tran@ecentric.vn",type:"Alert"},{name:"N3",subject:"[Overdue] Nhiệm vụ quá hạn: Migrate data",document_name:"TASK-1003",read:0,creation:"2026-06-03 06:00",from_user:"Administrator",type:"Alert"}];}res({rows:M.notif,unread:M.notif.filter(function(x){return !x.read;}).length});}
+    else if(m==="notifications.mark_read"){if(M.notif)M.notif.forEach(function(x){x.read=1;});res({ok:true});}
+    else if(m==="timesheet.report"){if(!M.ts)M.ts=[];var rws=M.ts.filter(function(r){return (!args.task||r.task===args.task)&&(!args.project||r.project===args.project)&&(!args.user||r.owner===args.user);});var tot=0,bd={},bw={},bm={};rws.forEach(function(r){tot+=r.hours;var dt=(r.from_time||"").slice(0,10);if(dt){bd[dt]=(bd[dt]||0)+r.hours;bm[dt.slice(0,7)]=(bm[dt.slice(0,7)]||0)+r.hours;bw[dt.slice(0,7)+"-W"]=(bw[dt.slice(0,7)+"-W"]||0)+r.hours;}});res({rows:rws,total_hours:tot,by_day:bd,by_week:bw,by_month:bm});}
     else res({});
   },240);});}
 
@@ -576,10 +578,52 @@
       Array.prototype.forEach.call(b.querySelectorAll(".rc-a"),function(btn){btn.onclick=function(){api(PM+"recurrence."+btn.getAttribute("data-a"),{name:btn.getAttribute("data-n")}).then(function(){showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};});
     }).catch(function(e){errBox(c,e);});}
 
+  function tsSum(rows,pred){var s=0;rows.forEach(function(r){if(pred(r))s+=(r.hours||0);});return Math.round(s*100)/100;}
+  function showTimesheet(){var c=el("pm-view");spin(c);
+    api(PM+"timesheet.report",window._tsF||{}).then(function(d){renderTimesheet(c,d);}).catch(function(e){errBox(c,e);});}
+  function renderTimesheet(c,d){var rows=d.rows||[];var F=window._tsF||{};
+    var projs=uniq(rows.map(function(r){return r.project;}));var users=uniq(rows.map(function(r){return r.owner;}));
+    var mon=new Date().toISOString().slice(0,7);
+    var dd=new Date();var dow=(dd.getDay()+6)%7;var m0=new Date(dd);m0.setDate(dd.getDate()-dow);var ws=m0.toISOString().slice(0,10);var we=new Date(m0);we.setDate(m0.getDate()+6);var weStr=we.toISOString().slice(0,10);
+    c.innerHTML=head("Timesheet","Tổng hợp worktime từ native Timesheet")+
+      '<div class="pm-filters">'+
+        '<select class="pm-sel" id="ts-user"><option value="">Mọi người</option>'+users.map(function(u){return opt(u,u,F.user);}).join("")+'</select>'+
+        '<select class="pm-sel" id="ts-proj"><option value="">Mọi dự án</option>'+projs.map(function(p){return opt(p,p,F.project);}).join("")+'</select>'+
+        '<input class="pm-input" id="ts-task" placeholder="Task..." value="'+esc(F.task||"")+'" style="background-image:none;padding-left:11px;min-width:140px">'+
+        '<input class="pm-input" id="ts-from" type="date" value="'+esc(F.from_date||"")+'" style="background-image:none;padding-left:11px" title="Từ">'+
+        '<input class="pm-input" id="ts-to" type="date" value="'+esc(F.to_date||"")+'" style="background-image:none;padding-left:11px" title="Đến">'+
+        '<button class="pm-btn primary" id="ts-apply">Lọc</button><button class="pm-btn" id="ts-clear">Xoá lọc</button></div>'+
+      '<div class="stats-strip">'+sc("s-navy","Tổng giờ",Math.round((d.total_hours||0)*100)/100)+sc("s-yellow","Tuần này",tsSum(rows,function(r){var x=(r.from_time||"").slice(0,10);return x>=ws&&x<=weStr;}))+sc("s-pink","Tháng này",tsSum(rows,function(r){return (r.from_time||"").slice(0,7)===mon;}))+sc("s-green","Số log",rows.length)+'</div>'+
+      '<div class="panel"><div class="panel-header"><div class="panel-title">Tổng hợp</div><div class="seg"><button data-sum="by_month" class="active">Tháng</button><button data-sum="by_week">Tuần</button><button data-sum="by_day">Ngày</button></div></div><div id="ts-sum"></div></div>'+
+      '<div class="panel"><div class="panel-header"><div class="panel-title">Chi tiết log</div></div><div id="ts-tbl"></div></div>';
+    el("ts-apply").onclick=function(){window._tsF={user:el("ts-user").value||null,project:el("ts-proj").value||null,task:el("ts-task").value||null,from_date:el("ts-from").value||null,to_date:el("ts-to").value||null};showTimesheet();};
+    el("ts-clear").onclick=function(){window._tsF={};showTimesheet();};
+    Array.prototype.forEach.call(c.querySelectorAll("[data-sum]"),function(b){b.onclick=function(){Array.prototype.forEach.call(c.querySelectorAll("[data-sum]"),function(x){x.classList.toggle("active",x===b);});renderSum(d,b.getAttribute("data-sum"));};});
+    renderSum(d,"by_month");
+    var tb=el("ts-tbl");
+    if(!rows.length){return emptyBox(tb,"Không có log worktime.");}
+    tb.innerHTML='<table class="pm-tbl"><thead><tr><th>Ngày</th><th>Task</th><th>Dự án</th><th>Giờ</th><th>Mô tả</th><th>Người</th></tr></thead><tbody>'+
+      rows.map(function(r){return '<tr><td>'+esc((r.from_time||"").slice(0,10))+'</td><td class="t-main" data-task="'+esc(r.task||"")+'" style="cursor:pointer">'+esc(r.task||"-")+'</td><td>'+esc(r.project||"-")+'</td><td>'+esc(r.hours)+'h</td><td>'+esc(r.description||"")+'</td><td>'+esc(r.owner||"")+'</td></tr>';}).join("")+'</tbody></table>';
+    Array.prototype.forEach.call(tb.querySelectorAll("[data-task]"),function(x){x.onclick=function(){var t=x.getAttribute("data-task");if(t)openTask(t);};});}
+  function renderSum(d,key){var m=d[key]||{};var ks=Object.keys(m).sort().reverse();var b=el("ts-sum");
+    if(!ks.length){return emptyBox(b,"Không có dữ liệu.");}
+    b.innerHTML='<table class="pm-tbl"><tbody>'+ks.map(function(k){return '<tr><td class="t-main">'+esc(k)+'</td><td style="text-align:right">'+(Math.round(m[k]*100)/100)+'h</td></tr>';}).join("")+'</tbody></table>';}
+
+  function showNotifications(){var c=el("pm-view");spin(c);
+    api(PM+"notifications.list_mine",{limit:50}).then(function(d){var rows=d.rows||[];
+      c.innerHTML=head("Thông báo","Thông báo trong ứng dụng (assign / chuyển trạng thái / quá hạn / recurring)",(d.unread?'<button class="pm-btn" id="nt-readall">Đánh dấu đã đọc ('+d.unread+')</button>':''))+
+        '<div class="panel"><div id="nt-list"></div></div>';
+      if(el("nt-readall"))el("nt-readall").onclick=function(){api(PM+"notifications.mark_read",{}).then(function(){showNotifications();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};
+      var b=el("nt-list");
+      if(!rows.length){return emptyBox(b,"Chưa có thông báo.");}
+      b.innerHTML=rows.map(function(n){return '<div class="pm-sub" data-task="'+esc(n.document_name||"")+'" style="cursor:pointer;'+(n.read?"":"background:var(--navy-50);")+'"><span>'+(n.read?"":'<b style="color:var(--navy)">● </b>')+esc(n.subject)+'</span><span style="font-size:11px;color:var(--gray-400)">'+esc((n.creation||"").slice(0,16))+'</span></div>';}).join("");
+      Array.prototype.forEach.call(b.querySelectorAll("[data-task]"),function(x){x.onclick=function(){var t=x.getAttribute("data-task");if(t)openTask(t);};});
+    }).catch(function(e){errBox(c,e);});}
+
   function soon(view){var c=el("pm-view");var map={gantt:["Gantt","Biểu đồ Gantt theo ngày bắt đầu/kết thúc của nhiệm vụ."],timesheet:["Timesheet","Ghi nhận giờ làm việc theo nhiệm vụ (native Timesheet)."],recurring:["Recurring","Nhiệm vụ lặp: daily / weekly / biweekly / monthly."],notifications:["Thông báo","Thông báo giao việc, cập nhật, quá hạn."]};
     var v=map[view]||["Sắp có",""]; c.innerHTML=head(v[0],v[1])+'<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-'+(view==="notifications"?"bell":view==="timesheet"?"clock":view==="recurring"?"repeat":"gantt")+'"/></svg><div>Đang phát triển — sẽ có ở bước tiếp theo của Phase này.</div></div></div>';}
 
-  var VIEWS={dashboard:showDashboard,projects:showProjects,tasks:showTasks,board:showBoard,gantt:showGantt,timesheet:function(){soon("timesheet");},recurring:showRecurring,notifications:function(){soon("notifications");}};
+  var VIEWS={dashboard:showDashboard,projects:showProjects,tasks:showTasks,board:showBoard,gantt:showGantt,timesheet:showTimesheet,recurring:showRecurring,notifications:showNotifications};
   function go(v){Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.classList.toggle("active",b.getAttribute("data-view")===v);});
     el("pm-crumb").textContent=CRUMB[v]||"Tổng quan"; (VIEWS[v]||showDashboard)();}
   Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.onclick=function(){go(b.getAttribute("data-view"));};});
