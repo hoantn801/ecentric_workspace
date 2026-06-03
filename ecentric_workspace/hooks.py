@@ -27,6 +27,13 @@ app_license = "MIT"
 #     }
 # }
 
+# PM v2 recurring tasks: daily generation of due PM Recurrence rules.
+scheduler_events = {
+    "daily": [
+        "ecentric_workspace.pm.api.recurrence.run_due",
+    ],
+}
+
 # Permissions
 # -----------
 # PM v2 uses SERVICE-LAYER permission (ecentric_workspace.pm.api.*), NOT global
