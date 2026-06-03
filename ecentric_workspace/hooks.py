@@ -31,6 +31,7 @@ app_license = "MIT"
 scheduler_events = {
     "daily": [
         "ecentric_workspace.pm.api.recurrence.run_due",
+        "ecentric_workspace.pm.api.notifications.pm_overdue_scan",
     ],
 }
 

@@ -124,3 +124,50 @@ def list(task=None, project=None, user=None, from_date=None, to_date=None):
     for r in rows:
         total += (r.get("hours") or 0)
     return {"rows": rows, "total_hours": total}
+
+
+@frappe.whitelist()
+def report(user=None, project=None, task=None, from_date=None, to_date=None):
+    """Aggregated worktime report for the Timesheet page.
+
+    Filters: user / project / task / date range. Permission: managers and
+    Management see all; everyone else sees only their own logs (owner = me).
+    Returns rows + total_hours + by_day/by_week/by_month summaries.
+    """
+    pmperm.require_pm_access()
+    me = frappe.session.user
+    conds = []
+    if task:
+        conds.append(["task", "=", task])
+    if project:
+        conds.append(["project", "=", project])
+    if from_date:
+        conds.append(["from_time", ">=", from_date + " 00:00:00"])
+    if to_date:
+        conds.append(["from_time", "<=", to_date + " 23:59:59"])
+    if pmperm.can_see_all_pm_data(me):
+        if user:
+            conds.append(["owner", "=", user])
+    else:
+        conds.append(["owner", "=", me])  # non-managers: own logs only
+
+    rows = frappe.get_all(
+        "Timesheet Detail", filters=conds,
+        fields=["name", "parent", "task", "project", "from_time", "hours", "description", "owner"],
+        order_by="from_time desc", limit_page_length=0)
+
+    total = 0
+    by_day, by_week, by_month = {}, {}, {}
+    for r in rows:
+        hrs = r.get("hours") or 0
+        total += hrs
+        d = (r.get("from_time") or "")[:10]
+        if not d:
+            continue
+        by_day[d] = by_day.get(d, 0) + hrs
+        by_month[d[:7]] = by_month.get(d[:7], 0) + hrs
+        iso = frappe.utils.getdate(d).isocalendar()
+        wkey = "%04d-W%02d" % (iso[0], iso[1])
+        by_week[wkey] = by_week.get(wkey, 0) + hrs
+    return {"rows": rows, "total_hours": total,
+            "by_day": by_day, "by_week": by_week, "by_month": by_month}

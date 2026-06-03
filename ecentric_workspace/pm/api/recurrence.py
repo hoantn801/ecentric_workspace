@@ -14,6 +14,7 @@ from frappe import _
 from frappe.utils import nowdate, getdate, add_days, add_months
 
 from ecentric_workspace.pm import permissions as pmperm
+from ecentric_workspace.pm.api import notifications as pmnotif
 
 DT = "PM Recurrence"
 _DAYS = {"Daily": 1, "Weekly": 7, "Biweekly": 14}
@@ -177,6 +178,12 @@ def _process(name, today):
         r.save(ignore_permissions=True)
         return
     new_task = _clone(r, nrd)
+    try:
+        pmnotif.notify_users([r.owner], "Recurring tao nhiem vu moi: " +
+                             (frappe.db.get_value("Task", new_task, "subject") or new_task),
+                             new_task, from_user="Administrator")
+    except Exception:
+        pass
     r.occurrences_done = (r.occurrences_done or 0) + 1
     r.last_task = new_task
     r.last_run_date = nrd

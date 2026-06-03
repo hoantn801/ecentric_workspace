@@ -16,6 +16,7 @@ from frappe.desk.form.assign_to import add as _assign_add
 from frappe.model.workflow import apply_workflow, get_transitions as _wf_get_transitions
 
 from ecentric_workspace.pm import permissions as pmperm
+from ecentric_workspace.pm.api import notifications as pmnotif
 
 _FIELDS = [
     "name", "subject", "status", "workflow_state", "project", "parent_task", "is_group",
@@ -204,6 +205,7 @@ def assign(name, users):
         frappe.throw(_("No users to assign."))
 
     _assign_add({"doctype": "Task", "name": name, "assign_to": users})
+    pmnotif.notify_users(users, "Ban duoc giao nhiem vu: " + (doc.get("subject") or name), name)
     return {"name": name, "assigned": users,
             "_assign": frappe.db.get_value("Task", name, "_assign")}
 
@@ -237,4 +239,6 @@ def set_status(name, action):
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to change this task."), frappe.PermissionError)
     doc = apply_workflow(doc, action)
+    pmnotif.notify_users(pmnotif._task_recipients(doc.as_dict(), exclude=user),
+                         "Nhiem vu '" + (doc.get("subject") or name) + "' -> " + (doc.get("workflow_state") or ""), name)
     return {"name": doc.name, "workflow_state": doc.get("workflow_state")}
