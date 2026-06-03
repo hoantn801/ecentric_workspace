@@ -24,7 +24,7 @@ _FIELDS = [
 ]
 
 # Fields a client may edit via tasks.update (whitelist -> no arbitrary injection).
-_EDITABLE = ("subject", "description", "priority", "exp_start_date", "exp_end_date")
+_EDITABLE = ("subject", "description", "priority", "exp_start_date", "exp_end_date", "project")
 
 
 # --------------------------------------------------------------------------
@@ -126,7 +126,7 @@ def gantt(project):
 # --------------------------------------------------------------------------
 @frappe.whitelist()
 def create(project, subject, parent_task=None, priority=None,
-           exp_start_date=None, exp_end_date=None, description=None):
+           exp_start_date=None, exp_end_date=None, description=None, assignee=None):
     """Create a Task (or sub-task via parent_task) under a project the user may see."""
     pmperm.require_pm_access()
     user = frappe.session.user
@@ -152,13 +152,19 @@ def create(project, subject, parent_task=None, priority=None,
         "description": description,
     })
     doc.insert()  # honors DocPerm 'create'; sets owner/creation (audit)
+    if assignee:
+        try:
+            _assign_add({"doctype": "Task", "name": doc.name, "assign_to": [assignee]})
+            pmnotif.notify_users([assignee], "Ban duoc giao nhiem vu: " + (doc.subject or doc.name), doc.name)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "PM create assign")
     return {"name": doc.name, "subject": doc.subject,
             "project": doc.project, "parent_task": doc.parent_task}
 
 
 @frappe.whitelist()
 def update(name, subject=None, description=None, priority=None,
-           exp_start_date=None, exp_end_date=None):
+           exp_start_date=None, exp_end_date=None, project=None):
     """Update whitelisted Task fields. Status changes go through set_status."""
     pmperm.require_pm_access()
     user = frappe.session.user
@@ -169,6 +175,7 @@ def update(name, subject=None, description=None, priority=None,
     incoming = {
         "subject": subject, "description": description, "priority": priority,
         "exp_start_date": exp_start_date, "exp_end_date": exp_end_date,
+        "project": project,
     }
     changed = []
     for field in _EDITABLE:
