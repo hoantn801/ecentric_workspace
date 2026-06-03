@@ -206,9 +206,9 @@
       <a class="nav-item" data-view="tasks"><svg class="icon"><use href="#p-list"/></svg><span>Nhiệm vụ</span></a>
       <a class="nav-item" data-view="board"><svg class="icon"><use href="#p-kanban"/></svg><span>Kanban</span></a>
       <a class="nav-item" data-view="gantt"><svg class="icon"><use href="#p-gantt"/></svg><span>Gantt</span></a>
+      <a class="nav-item" data-view="recurring"><svg class="icon"><use href="#p-repeat"/></svg><span>Recurring</span></a>
       <div class="nav-label" style="margin-top:10px;">Sắp có</div>
       <a class="nav-item" data-view="timesheet"><svg class="icon"><use href="#p-clock"/></svg><span>Timesheet</span><span class="soon">soon</span></a>
-      <a class="nav-item" data-view="recurring"><svg class="icon"><use href="#p-repeat"/></svg><span>Recurring</span><span class="soon">soon</span></a>
       <a class="nav-item" data-view="notifications"><svg class="icon"><use href="#p-bell"/></svg><span>Thông báo</span><span class="soon">soon</span></a>
       <div class="nav-label" style="margin-top:10px;">Khác</div>
       <a class="nav-item" href="/home"><svg class="icon"><use href="#p-back"/></svg><span>Về Workspace</span></a>
@@ -258,7 +258,7 @@
     if(!r.ok){var mm=j.exception||j._server_messages||j.exc_type||("HTTP "+r.status);throw new Error(typeof mm==="string"?mm:JSON.stringify(mm));}
     return j.message;});}
   function apiFetch(method,args){
-    var read=/\.(list|get|summary|gantt|get_transitions|get_active)$/.test(method)||/get_logged_user/.test(method);
+    var read=/\.(list|get|summary|gantt|get_transitions|get_active|get_for_task)$/.test(method)||/get_logged_user/.test(method);
     if(read){var qs=Object.keys(args).map(function(k){return encodeURIComponent(k)+"="+encodeURIComponent(args[k]);}).join("&");
       return fetch("/api/method/"+method+(qs?("?"+qs):""),{method:"GET",credentials:"include",headers:{"Accept":"application/json"}}).then(_parseR);}
     return fetch("/api/method/"+method,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json","X-Frappe-CSRF-Token":getCsrf()},body:JSON.stringify(args)}).then(_parseR);}
@@ -297,6 +297,12 @@
     else if(m==="timer.pause"){if(M.tm&&M.tm.status==="Running"){M.tm.acc+=Math.floor((Date.now()-M.tm.t0)/1000);M.tm.status="Paused";}res({active:!!M.tm});}
     else if(m==="timer.resume"){if(M.tm&&M.tm.status==="Paused"){M.tm.t0=Date.now();M.tm.status="Running";}res({active:!!M.tm});}
     else if(m==="timer.stop"){var tm=M.tm||{acc:0,t0:Date.now(),status:"Running",task:args.task};var tot=tm.acc+(tm.status==="Running"?Math.floor((Date.now()-tm.t0)/1000):0);var hr=Math.round(tot/3600*100)/100;if(!M.ts)M.ts=[];M.ts.push({task:tm.task,from_time:"2026-06-03 09:00:00",hours:hr,description:"Timer",owner:"you@ecentric.vn"});M.tm=null;res({timesheet:"TS",task:tm.task,hours:hr,seconds:tot});}
+    else if(m==="recurrence.get_for_task"){if(!M.rec)M.rec=[];var rg=M.rec.filter(function(x){return x.source_task===args.task&&(x.status==="Active"||x.status==="Paused");})[0];res(rg?Object.assign({exists:true},rg):{exists:false});}
+    else if(m==="recurrence.create"){if(!M.rec)M.rec=[];var rc={name:"REC-"+(M.rec.length+1),source_task:args.source_task,project:"PROJ-0001",frequency:args.frequency,status:"Active",start_date:args.start_date,next_run_date:args.start_date,end_date:args.end_date,max_occurrences:parseInt(args.max_occurrences)||0,occurrences_done:0,last_task:null};M.rec.push(rc);res(rc);}
+    else if(m==="recurrence.list"){if(!M.rec)M.rec=[];res({rows:M.rec});}
+    else if(m==="recurrence.pause"){var rp=(M.rec||[]).filter(function(x){return x.name===args.name;})[0];if(rp)rp.status="Paused";res(rp||{});}
+    else if(m==="recurrence.resume"){var rr2=(M.rec||[]).filter(function(x){return x.name===args.name;})[0];if(rr2)rr2.status="Active";res(rr2||{});}
+    else if(m==="recurrence.cancel"){var rcn=(M.rec||[]).filter(function(x){return x.name===args.name;})[0];if(rcn)rcn.status="Cancelled";res(rcn||{});}
     else res({});
   },240);});}
 
@@ -438,13 +444,14 @@
         '<div class="pm-field"><label>Chuyển trạng thái</label><div class="pm-actions">'+(tr.length?tr.map(function(x){return '<button class="pm-btn pm-act" data-act="'+esc(x.action)+'">'+esc(x.action)+'</button>';}).join(""):'<span style="color:var(--gray-400);font-size:13px">Không có</span>')+'</div></div>'+
         '<div class="pm-field"><label>Giao việc (email)</label><div class="pm-assign-row"><input class="pm-input" id="pm-asg" placeholder="user@ecentric.vn" style="padding-left:11px;background-image:none"><button class="pm-btn primary" id="pm-asgb">Giao</button></div></div>';
       h+='<div class="pm-field"><label>Worktime</label><div id="pm-wt"><span class="spin"></span></div></div>';
+      h+='<div class="pm-field"><label>Lặp lại (Recurring)</label><div id="pm-rec"><span class="spin"></span></div></div>';
       if(subs.length){h+='<div class="pm-field"><label>Nhiệm vụ con</label>'+subs.map(function(s){return '<div class="pm-sub"><span>'+esc(s.subject)+'</span>'+badge(s.workflow_state)+'</div>';}).join("")+'</div>';}
       c.innerHTML=h;
       Array.prototype.forEach.call(c.querySelectorAll(".pm-act"),function(b){b.onclick=function(){b.disabled=true;
         api(PM+"tasks.set_status",{name:name,action:b.getAttribute("data-act")}).then(function(r){toast("Trạng thái: "+r.workflow_state);openTask(name);}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};});
       el("pm-asgb").onclick=function(){var v=el("pm-asg").value.trim();if(!v){toast("Nhập email",true);return;}
         api(PM+"tasks.assign",{name:name,users:[v]}).then(function(){toast("Đã giao cho "+v);openTask(name);}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};
-      loadWorktime(name);
+      loadWorktime(name); loadRecurrence(name);
     }).catch(function(e){errBox(c,e);});}
 
   function fmtDur(s){s=Math.max(0,Math.floor(s));var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),x=s%60;return (h<10?"0":"")+h+":"+(m<10?"0":"")+m+":"+(x<10?"0":"")+x;}
@@ -531,10 +538,48 @@
     b.innerHTML=html;
     Array.prototype.forEach.call(b.querySelectorAll("[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});}
 
+  var FREQ_VN={Daily:"Hằng ngày",Weekly:"Hằng tuần",Biweekly:"2 tuần/lần",Monthly:"Hằng tháng"};
+  function loadRecurrence(task){var b=el("pm-rec");if(!b)return;
+    api(PM+"recurrence.get_for_task",{task:task}).then(function(r){renderRec(b,task,r);}).catch(function(e){b.innerHTML='<div class="pm-err">'+esc(errOf(e))+'</div>';});}
+  function recForm(task,b){
+    b.innerHTML='<select class="pm-sel" id="rc-freq" style="width:100%;margin-bottom:8px"><option value="Daily">Hằng ngày</option><option value="Weekly">Hằng tuần</option><option value="Biweekly">2 tuần/lần</option><option value="Monthly">Hằng tháng</option></select>'+
+      '<div style="display:flex;gap:8px;margin-bottom:8px"><input class="pm-input" id="rc-start" type="date" style="flex:1;padding-left:11px;background-image:none"><input class="pm-input" id="rc-end" type="date" style="flex:1;padding-left:11px;background-image:none" title="Kết thúc (tuỳ chọn)"></div>'+
+      '<input class="pm-input" id="rc-max" type="number" min="0" placeholder="Số lần tối đa (tuỳ chọn)" style="padding-left:11px;background-image:none;margin-bottom:8px;width:100%">'+
+      '<div style="display:flex;gap:8px"><button class="pm-btn primary" id="rc-create">Tạo lặp</button><button class="pm-btn" id="rc-back">Huỷ</button></div>';
+    var s=el("rc-start");if(s)s.value=new Date().toISOString().slice(0,10);
+    el("rc-back").onclick=function(){loadRecurrence(task);};
+    el("rc-create").onclick=function(){this.disabled=true;
+      api(PM+"recurrence.create",{source_task:task,frequency:el("rc-freq").value,start_date:el("rc-start").value,end_date:el("rc-end").value||null,max_occurrences:el("rc-max").value||0}).then(function(){toast("Đã tạo lịch lặp");loadRecurrence(task);}).catch(function(e){toast("Lỗi: "+errOf(e),true);loadRecurrence(task);});};}
+  function renderRec(b,task,r){
+    if(r&&r.exists){
+      b.innerHTML='<div style="font-size:13px;margin-bottom:8px"><b>'+esc(FREQ_VN[r.frequency]||r.frequency)+'</b> · '+esc(r.status)+' · lần kế: '+esc(r.next_run_date||"-")+' · đã tạo: '+(r.occurrences_done||0)+(r.end_date?(" · đến "+esc(r.end_date)):"")+(r.max_occurrences?(" · tối đa "+r.max_occurrences):"")+'</div>'+
+        '<div style="display:flex;gap:8px">'+(r.status==="Active"?'<button class="pm-btn" id="rc-pause">Tạm dừng</button>':r.status==="Paused"?'<button class="pm-btn" id="rc-resume">Tiếp tục</button>':'')+((r.status==="Active"||r.status==="Paused")?'<button class="pm-btn" id="rc-cancel">Huỷ lặp</button>':'')+'</div>';
+      function act(m2){api(PM+"recurrence."+m2,{name:r.name}).then(function(){loadRecurrence(task);}).catch(function(e){toast("Lỗi: "+errOf(e),true);});}
+      if(el("rc-pause"))el("rc-pause").onclick=function(){act("pause");};
+      if(el("rc-resume"))el("rc-resume").onclick=function(){act("resume");};
+      if(el("rc-cancel"))el("rc-cancel").onclick=function(){act("cancel");};
+    } else {
+      b.innerHTML='<button class="pm-btn" id="rc-make"><svg class="icon icon-sm"><use href="#p-repeat"/></svg> Make recurring</button>';
+      el("rc-make").onclick=function(){recForm(task,b);};
+    }}
+  function recBadge(s){return s==="Active"?"st-Done":s==="Paused"?"st-Review":s==="Cancelled"?"st-Cancelled":"st-Backlog";}
+  function showRecurring(){var c=el("pm-view");spin(c);
+    api(PM+"recurrence.list").then(function(d){var rows=d.rows||[];
+      c.innerHTML=head("Recurring","Quy tắc lặp tạo nhiệm vụ tự động (scheduler hằng ngày)")+
+        '<div class="panel"><div class="panel-header"><div class="panel-title">Danh sách quy tắc</div></div><div id="rec-tbl"></div></div>';
+      var b=el("rec-tbl");
+      if(!rows.length){return emptyBox(b,"Chưa có quy tắc lặp. Mở 1 nhiệm vụ → Make recurring.");}
+      var h='<table class="pm-tbl"><thead><tr><th>Task gốc</th><th>Tần suất</th><th>Lần kế</th><th>Đã tạo</th><th>Task mới nhất</th><th>Trạng thái</th><th></th></tr></thead><tbody>';
+      rows.forEach(function(r){h+='<tr><td class="t-main">'+esc(r.source_task)+'</td><td>'+esc(FREQ_VN[r.frequency]||r.frequency)+'</td><td>'+esc(r.next_run_date||"-")+'</td><td>'+(r.occurrences_done||0)+'</td><td>'+esc(r.last_task||"-")+'</td><td><span class="pm-badge '+recBadge(r.status)+'">'+esc(r.status)+'</span></td>'+
+        '<td style="text-align:right;white-space:nowrap">'+(r.status==="Active"?'<button class="pm-btn rc-a" data-a="pause" data-n="'+esc(r.name)+'">Tạm dừng</button>':r.status==="Paused"?'<button class="pm-btn rc-a" data-a="resume" data-n="'+esc(r.name)+'">Tiếp tục</button>':'')+((r.status==="Active"||r.status==="Paused")?' <button class="pm-btn rc-a" data-a="cancel" data-n="'+esc(r.name)+'">Huỷ</button>':'')+'</td></tr>';});
+      b.innerHTML=h+'</tbody></table>';
+      Array.prototype.forEach.call(b.querySelectorAll(".rc-a"),function(btn){btn.onclick=function(){api(PM+"recurrence."+btn.getAttribute("data-a"),{name:btn.getAttribute("data-n")}).then(function(){showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};});
+    }).catch(function(e){errBox(c,e);});}
+
   function soon(view){var c=el("pm-view");var map={gantt:["Gantt","Biểu đồ Gantt theo ngày bắt đầu/kết thúc của nhiệm vụ."],timesheet:["Timesheet","Ghi nhận giờ làm việc theo nhiệm vụ (native Timesheet)."],recurring:["Recurring","Nhiệm vụ lặp: daily / weekly / biweekly / monthly."],notifications:["Thông báo","Thông báo giao việc, cập nhật, quá hạn."]};
     var v=map[view]||["Sắp có",""]; c.innerHTML=head(v[0],v[1])+'<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-'+(view==="notifications"?"bell":view==="timesheet"?"clock":view==="recurring"?"repeat":"gantt")+'"/></svg><div>Đang phát triển — sẽ có ở bước tiếp theo của Phase này.</div></div></div>';}
 
-  var VIEWS={dashboard:showDashboard,projects:showProjects,tasks:showTasks,board:showBoard,gantt:showGantt,timesheet:function(){soon("timesheet");},recurring:function(){soon("recurring");},notifications:function(){soon("notifications");}};
+  var VIEWS={dashboard:showDashboard,projects:showProjects,tasks:showTasks,board:showBoard,gantt:showGantt,timesheet:function(){soon("timesheet");},recurring:showRecurring,notifications:function(){soon("notifications");}};
   function go(v){Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.classList.toggle("active",b.getAttribute("data-view")===v);});
     el("pm-crumb").textContent=CRUMB[v]||"Tổng quan"; (VIEWS[v]||showDashboard)();}
   Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.onclick=function(){go(b.getAttribute("data-view"));};});
