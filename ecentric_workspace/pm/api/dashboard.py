@@ -158,3 +158,76 @@ def control_center():
             "review": _slim([t for t in allt if t.get("workflow_state") == "Review"][:10]),
         }
     return out
+
+
+@frappe.whitelist()
+def my_tasklist():
+    """Daily execution view for the CURRENT session user: ONLY tasks assigned to them,
+    grouped + de-duplicated (each task in exactly one group). Additive, no schema, no
+    scheduler, no custom field. Groups:
+      attention = overdue / due-today / blocked / waiting-review (active)
+      week      = due-this-week / in-progress (active, not already in attention)
+      nodue     = assigned, active, no due date
+      done      = recently-modified Done (max 10)
+    Active future-dated To-Do tasks are intentionally NOT surfaced here (use Nhiem vu).
+    """
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    today = frappe.utils.nowdate()
+    week_end = frappe.utils.add_days(today, 7)
+    FIELDS = ["name", "subject", "project", "workflow_state", "exp_start_date",
+              "exp_end_date", "_assign", "priority", "modified"]
+    rows = frappe.get_all(
+        "Task", filters=[["_assign", "like", "%" + user + "%"]],
+        fields=FIELDS, limit_page_length=0, order_by="modified desc",
+    )
+
+    def d10(t):
+        v = t.get("exp_end_date")
+        return str(v)[:10] if v else None
+
+    def active(t):
+        return t.get("workflow_state") not in _FINISHED
+
+    def is_overdue(t):
+        dd = d10(t)
+        return bool(dd and dd < today and active(t))
+
+    def is_today(t):
+        return d10(t) == today and active(t)
+
+    def is_week(t):
+        dd = d10(t)
+        return bool(dd and today <= dd <= week_end and active(t))
+
+    attention, week, nodue, done = [], [], [], []
+    for t in rows:
+        ws = t.get("workflow_state")
+        if ws == "Done":
+            done.append(t)
+            continue
+        if not active(t):
+            continue
+        if is_overdue(t) or is_today(t) or ws == "Blocked" or ws == "Review":
+            attention.append(t)
+        elif is_week(t) or ws == "In Progress":
+            week.append(t)
+        elif not t.get("exp_end_date"):
+            nodue.append(t)
+
+    attention.sort(key=lambda t: d10(t) or "9999-12-31")
+    week.sort(key=lambda t: d10(t) or "9999-12-31")
+    done = done[:10]
+
+    timer = None
+    if frappe.db.exists("PM Timer", user):
+        tt = frappe.get_doc("PM Timer", user)
+        timer = {"task": tt.task, "status": tt.status}
+
+    return {
+        "user": user, "timer": timer,
+        "counts": {"attention": len(attention), "week": len(week),
+                   "nodue": len(nodue), "done": len(done)},
+        "attention": _slim(attention), "week": _slim(week),
+        "nodue": _slim(nodue), "done": _slim(done),
+    }
