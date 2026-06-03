@@ -251,6 +251,7 @@
   function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"})[c];});}
   function stripTags(s){return (s==null?"":String(s)).replace(/<[^>]*>/g,"");}
   function pmFieldInput(label,inner){return '<div class="pm-field"><label>'+label+'</label>'+inner+'</div>';}
+  function ymd(s){return s?String(s).slice(0,10):"";}
   function badge(s){return '<span class="pm-badge '+st(s)+'">'+esc(s||"-")+'</span>';}
   function names(a){if(!a)return [];try{return JSON.parse(a);}catch(e){return [a];}}
   function ini(em){if(!em)return "?";var p=em.split("@")[0].split(/[._]/);return ((p[0]||"")[0]||"").toUpperCase()+((p[1]||"")[0]||"").toUpperCase();}
@@ -540,15 +541,13 @@
       c.innerHTML=pmFieldInput("Tiêu đề *",'<input class="pm-input ni" id="et-subject" value="'+esc(t.subject||"")+'">')+
         pmFieldInput("Dự án",'<select class="pm-sel" id="et-project" style="width:100%">'+opts+'</select>')+
         pmFieldInput("Người nhận (email)",'<input class="pm-input ni" id="et-assignee" value="'+esc(a[0]||"")+'" placeholder="user@ecentric.vn">')+
-        '<div style="display:flex;gap:10px">'+pmFieldInput("Ưu tiên",'<select class="pm-sel" id="et-priority" style="width:100%">'+pri+'</select>')+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="et-start" type="date" value="'+esc(t.exp_start_date||"")+'">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="et-end" type="date" value="'+esc(t.exp_end_date||"")+'">')+'</div>'+
+        '<div style="display:flex;gap:10px">'+pmFieldInput("Ưu tiên",'<select class="pm-sel" id="et-priority" style="width:100%">'+pri+'</select>')+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="et-start" type="date" value="'+esc(ymd(t.exp_start_date))+'">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="et-end" type="date" value="'+esc(ymd(t.exp_end_date))+'">')+'</div>'+
         pmFieldInput("Mô tả",'<textarea class="pm-input ni" id="et-desc" rows="3" style="resize:vertical">'+esc(t.description||"")+'</textarea>')+
         '<div style="display:flex;gap:8px"><button class="pm-btn primary" id="et-save">Lưu</button><button class="pm-btn" id="et-cancel">Huỷ</button></div>';
       _niFix(c);
       el("et-cancel").onclick=function(){openTask(name);};
       el("et-save").onclick=function(){var s=el("et-subject").value.trim();if(!s){toast("Nhập tiêu đề",true);return;}var sd=el("et-start").value,ed=el("et-end").value;if(sd&&ed&&ed<sd){toast("Hạn không được trước ngày bắt đầu",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang lưu...";var na=el("et-assignee").value.trim();
-        api(PM+"tasks.update",{name:name,subject:s,project:el("et-project").value,priority:el("et-priority").value,exp_start_date:el("et-start").value||null,exp_end_date:el("et-end").value||null,description:el("et-desc").value||null}).then(function(){
-          if(na&&a.indexOf(na)<0){return api(PM+"tasks.assign",{name:name,users:[na]});}
-        }).then(function(){toast("Đã lưu");openTask(name);}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu";});};
+        api(PM+"tasks.update",{name:name,subject:s,project:el("et-project").value,priority:el("et-priority").value,exp_start_date:el("et-start").value||null,exp_end_date:el("et-end").value||null,description:el("et-desc").value||null,assignee:el("et-assignee").value.trim()||null}).then(function(){toast("Đã lưu");openTask(name);if(window._curView&&VIEWS[window._curView]){try{VIEWS[window._curView]();}catch(e){}}}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu";});};
     }).catch(function(e){errBox(c,e);});}
 
   function gColor(s){return {"Backlog":"#9ca3af","To Do":"#2f6fb3","In Progress":"#15917a","Blocked":"#c0392b","Review":"#b8860b","Done":"#0a7a4f","Cancelled":"#cbd5e1"}[s]||"#2C3DA6";}
@@ -671,7 +670,7 @@
     var v=map[view]||["Sắp có",""]; c.innerHTML=head(v[0],v[1])+'<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-'+(view==="notifications"?"bell":view==="timesheet"?"clock":view==="recurring"?"repeat":"gantt")+'"/></svg><div>Đang phát triển — sẽ có ở bước tiếp theo của Phase này.</div></div></div>';}
 
   var VIEWS={dashboard:showDashboard,projects:showProjects,tasks:showTasks,board:showBoard,gantt:showGantt,timesheet:showTimesheet,recurring:showRecurring,notifications:showNotifications};
-  function go(v){Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.classList.toggle("active",b.getAttribute("data-view")===v);});
+  function go(v){window._curView=v;Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.classList.toggle("active",b.getAttribute("data-view")===v);});
     el("pm-crumb").textContent=CRUMB[v]||"Tổng quan"; (VIEWS[v]||showDashboard)();}
   Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.onclick=function(){go(b.getAttribute("data-view"));};});
   el("pm-search").addEventListener("keydown",function(e){if(e.key==="Enter"){F.q=this.value.trim().toLowerCase();go("tasks");}});
