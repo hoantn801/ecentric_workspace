@@ -36,6 +36,26 @@ def list(start=0, page_length=20, status=None):
         "Project", filters=filters, fields=_FIELDS,
         start=int(start), page_length=int(page_length), order_by="modified desc",
     )
+    # Computed progress from task completion (native percent_complete is unreliable
+    # here since PM uses workflow_state). Same definition as projects.detail:
+    # progress = Done / total_tasks. Single aggregate query for the page's projects.
+    names = [r["name"] for r in rows]
+    if names:
+        agg = {}
+        for t in frappe.get_all(
+            "Task", filters={"project": ["in", names]},
+            fields=["project", "workflow_state"], limit_page_length=0,
+        ):
+            a = agg.setdefault(t["project"], {"total": 0, "done": 0})
+            a["total"] += 1
+            if t.get("workflow_state") == "Done":
+                a["done"] += 1
+        for r in rows:
+            a = agg.get(r["name"], {"total": 0, "done": 0})
+            r["task_total"] = a["total"]
+            r["task_done"] = a["done"]
+            r["progress"] = int(round(a["done"] * 100.0 / a["total"])) if a["total"] else 0
+
     total = frappe.db.count("Project", filters)
     return {"rows": rows, "total": total}
 
