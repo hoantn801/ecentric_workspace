@@ -329,7 +329,7 @@
       var wl={};M.t.forEach(function(t){_as(t).forEach(function(uu){var w=wl[uu]||(wl[uu]={assignee:uu,active:0,overdue:0,due_week:0,in_progress:0,blocked:0});if(_ac(t))w.active++;if(t.workflow_state==="In Progress")w.in_progress++;if(t.workflow_state==="Blocked")w.blocked++;});});
       var ovd=M.t.filter(function(t){return t.exp_end_date&&t.exp_end_date<td2&&_ac(t);});var blk=M.t.filter(function(t){return t.workflow_state==="Blocked";});var rvw=M.t.filter(function(t){return t.workflow_state==="Review";});
       res({is_leader:true,unread:2,timer:M.tm?{task:M.tm.task,status:M.tm.status}:null,my:{counts:mc,overdue:mn.filter(function(t){return t.workflow_state==="Blocked";}),review:mn.filter(function(t){return t.workflow_state==="Review";}),blocked:mn.filter(function(t){return t.workflow_state==="Blocked";})},team:{active:M.t.filter(_ac).length,overdue:ovd.length,blocked:blk.length,review:rvw.length,no_assignee:M.t.filter(function(t){return _as(t).length===0;}).length,no_due:M.t.filter(function(t){return !t.exp_end_date;}).length,completed_week:M.t.filter(function(t){return t.workflow_state==="Done";}).length},workload:Object.keys(wl).map(function(k){return wl[k];}),attention:{overdue:ovd,blocked:blk,review:rvw}});}
-    else if(m==="projects.list"){res({rows:M.p,total:M.p.length});}
+    else if(m==="projects.list"){var rws=M.p.map(function(p){var ts=M.t.filter(function(t){return t.project===p.name;});var dn=ts.filter(function(t){return t.workflow_state==="Done";}).length;return Object.assign({},p,{task_total:ts.length,task_done:dn,progress:ts.length?Math.round(dn*100/ts.length):0});});res({rows:rws,total:rws.length});}
     else if(m==="projects.get"){var p=M.p.filter(function(x){return x.name===args.name;})[0];var c={};M.t.filter(function(t){return t.project===args.name;}).forEach(function(t){c[t.workflow_state]=(c[t.workflow_state]||0)+1;});res({project:p,task_status_counts:c});}
     else if(m==="projects.detail"){var pp=M.p.filter(function(x){return x.name===args.name;})[0]||{};var tt=M.t.filter(function(t){return t.project===args.name;});var asg2=function(t){return names(t._assign);};var ac2=function(t){return ["Done","Cancelled"].indexOf(t.workflow_state)<0;};var td3=new Date().toISOString().slice(0,10);var risk={active:tt.filter(ac2).length,overdue:tt.filter(function(t){return t.exp_end_date&&t.exp_end_date<td3&&ac2(t);}).length,blocked:tt.filter(function(t){return t.workflow_state==="Blocked";}).length,review:tt.filter(function(t){return t.workflow_state==="Review";}).length,no_assignee:tt.filter(function(t){return asg2(t).length===0;}).length,no_due:tt.filter(function(t){return !t.exp_end_date;}).length,completed:tt.filter(function(t){return t.workflow_state==="Done";}).length};var total2=tt.length;var lvl=(risk.overdue>0||risk.blocked>0)?"high":((risk.no_assignee+risk.no_due)>=Math.max(3,total2/2)?"medium":"low");res({project:pp,total:total2,risk:risk,risk_level:lvl,progress:total2?Math.round(risk.completed*100/total2):0});}
     else if(m==="tasks.list"){res({rows:M.t.filter(function(t){return !args.project||t.project===args.project;}),view:args.view||"list"});}
@@ -433,8 +433,8 @@
     rows=rows.filter(function(p){return (!q||(p.project_name||p.name).toLowerCase().indexOf(q)>=0)&&(!f||p.status===f);});
     var c=el("pm-ptbl"); if(!rows.length){return emptyBox(c,"Không có dự án phù hợp.");}
     var h='<table class="pm-tbl"><thead><tr><th>Dự án</th><th>Trạng thái</th><th>Tiến độ</th><th>Phòng ban</th><th>Quản lý</th></tr></thead><tbody>';
-    rows.forEach(function(p){h+='<tr data-proj="'+esc(p.name)+'"><td class="t-main">'+esc(p.project_name||p.name)+'</td><td><span class="pm-badge '+pst(p.status)+'">'+esc(p.status||"-")+'</span></td>'+
-      '<td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;background:var(--gray-100);border-radius:4px;min-width:60px"><div style="height:6px;border-radius:4px;background:var(--navy);width:'+(p.percent_complete||0)+'%"></div></div><span style="font-size:12px;color:var(--gray-500)">'+(p.percent_complete||0)+'%</span></div></td>'+
+    rows.forEach(function(p){var prog=(p.progress!=null?p.progress:(p.percent_complete||0));h+='<tr data-proj="'+esc(p.name)+'"><td class="t-main">'+esc(p.project_name||p.name)+'</td><td><span class="pm-badge '+pst(p.status)+'">'+esc(p.status||"-")+'</span></td>'+
+      '<td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;background:var(--gray-100);border-radius:4px;min-width:60px"><div style="height:6px;border-radius:4px;background:var(--navy);width:'+prog+'%"></div></div><span style="font-size:12px;color:var(--gray-500)" title="'+(p.task_done||0)+'/'+(p.task_total||0)+' hoàn thành">'+prog+'%</span></div></td>'+
       '<td>'+esc(p.ec_department||"-")+'</td><td>'+esc(p.ec_manager||"-")+'</td></tr>';});
     c.innerHTML=h+'</tbody></table>';
     Array.prototype.forEach.call(c.querySelectorAll("tr[data-proj]"),function(tr){tr.onclick=function(){openProject(tr.getAttribute("data-proj"));};});}
@@ -523,14 +523,14 @@
       '<select class="pm-sel" id="f-project"><option value="">Mọi dự án</option>'+projs.map(function(p){return opt(p,p,F.project);}).join("")+'</select>'+
       '<select class="pm-sel" id="f-assignee"><option value="">Mọi người nhận</option>'+asg.map(function(a){return opt(a,a,F.assignee);}).join("")+'</select>'+
       '<select class="pm-sel" id="f-priority"><option value="">Mọi ưu tiên</option>'+pri.map(function(p){return opt(p,p,F.priority);}).join("")+'</select>'+
-      '<label class="pm-chk"><input type="checkbox" id="f-overdue"'+(F.overdue?' checked':'')+'> Quá hạn</label>'+
+      '<button class="pm-btn'+(F.overdue?' primary':'')+'" id="f-overdue">Quá hạn</button>'+
       '<button class="pm-btn" id="f-clear">Xóa lọc</button></div>';}
   function wireFilters(rerender){
     var q=el("f-q");if(q)q.oninput=function(){F.q=this.value.toLowerCase();rerender();};
     ["status","project","assignee","priority"].forEach(function(k){var e2=el("f-"+k);if(e2)e2.onchange=function(){F[k]=this.value;rerender();};});
-    var ov=el("f-overdue");if(ov)ov.onchange=function(){F.overdue=this.checked;rerender();};
+    var ov=el("f-overdue");if(ov)ov.onclick=function(){F.overdue=!F.overdue;this.classList.toggle("primary",F.overdue);rerender();};
     var cl=el("f-clear");if(cl)cl.onclick=function(){F={status:"",project:"",assignee:"",priority:"",overdue:false,q:"",preset:""};
-      var x=el("f-q");if(x)x.value="";["f-status","f-project","f-assignee","f-priority"].forEach(function(id){var e3=el(id);if(e3)e3.value="";});var o2=el("f-overdue");if(o2)o2.checked=false;Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"),function(x){x.classList.remove("primary");});rerender();};
+      var x=el("f-q");if(x)x.value="";["f-status","f-project","f-assignee","f-priority"].forEach(function(id){var e3=el(id);if(e3)e3.value="";});var o2=el("f-overdue");if(o2)o2.classList.remove("primary");Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"),function(x){x.classList.remove("primary");});rerender();};
     Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"),function(b){b.onclick=function(){var p=b.getAttribute("data-preset");F.preset=(F.preset===p?"":p);Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"),function(x){x.classList.toggle("primary",x.getAttribute("data-preset")===F.preset);});rerender();};});}
   function segActions(active){return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div class="seg"><button data-seg="list" class="'+(active==="list"?"active":"")+'">Danh sách</button><button data-seg="board" class="'+(active==="board"?"active":"")+'">Kanban</button></div><button class="pm-btn primary" data-new="1"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button></div>';}
   function wireSeg(){Array.prototype.forEach.call(el("pm-view").querySelectorAll("[data-seg]"),function(b){b.onclick=function(){b.getAttribute("data-seg")==="board"?showBoard():showTasks();};});var n=el("pm-view").querySelector("[data-new]");if(n)n.onclick=function(){newTask(null);};}
@@ -601,7 +601,7 @@
         '<div class="pm-field"><label>Giao việc (email)</label><div class="pm-assign-row"><input class="pm-input" id="pm-asg" placeholder="user@ecentric.vn" style="padding-left:11px;background-image:none"><button class="pm-btn primary" id="pm-asgb">Giao</button></div></div>'+
         '<div class="pm-dsec">Worktime</div><div id="pm-wt"><span class="spin"></span></div>'+
         '<div class="pm-dsec">Lặp lại (Recurring)</div><div id="pm-rec"><span class="spin"></span></div>'+
-        '<div class="pm-dsec">Nhiệm vụ con'+(subs.length?' ('+subs.length+')':'')+'</div>';
+        '<div class="pm-dsec" style="display:flex;justify-content:space-between;align-items:center">Nhiệm vụ con'+(subs.length?' ('+subs.length+')':'')+'<button class="pm-btn g-add" id="pm-addsub" style="text-transform:none;font-weight:600">+ Tạo nhiệm vụ con</button></div>';
       if(subs.length){h+=subs.map(function(s){return '<div class="pm-sub" data-task="'+esc(s.name)+'" style="cursor:pointer"><span>'+esc(s.subject)+'</span>'+badge(s.workflow_state)+'</div>';}).join("");}
       else{h+='<div style="font-size:12.5px;color:var(--gray-400);padding:4px 0">Chưa có nhiệm vụ con.</div>';}
       h+='<div class="pm-dsec">Hoạt động</div><div style="font-size:12.5px;color:var(--gray-400);padding:4px 0">Lịch sử hoạt động &amp; thông báo — sẽ bổ sung sau.</div>';
@@ -612,6 +612,7 @@
         api(PM+"tasks.assign",{name:name,users:[v]}).then(function(){toast("Đã giao cho "+v);openTask(name);}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};
       if(el("pm-edit"))el("pm-edit").onclick=function(){editTask(name);};
       Array.prototype.forEach.call(c.querySelectorAll(".pm-sub[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});
+      if(el("pm-addsub"))el("pm-addsub").onclick=function(){newTask(t.project,name);};
       loadWorktime(name); loadRecurrence(name);
     }).catch(function(e){errBox(c,e);});}
 
@@ -654,7 +655,7 @@
       api(PM+"timesheet.log",{task:task,hours:hrs,log_date:day,description:ds}).then(function(){toast("Đã lưu "+hrs+"h");loadWorktime(task);}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu giờ";});};}
 
   function _niFix(c){Array.prototype.forEach.call(c.querySelectorAll(".ni"),function(i){i.style.backgroundImage="none";i.style.paddingLeft="11px";i.style.width="100%";});}
-  function newTask(project){openD();el("pm-dt").textContent="Tạo nhiệm vụ";var c=el("pm-dbody");spin(c);
+  function newTask(project,parentTask){openD();el("pm-dt").textContent=parentTask?"Tạo nhiệm vụ con":"Tạo nhiệm vụ";var c=el("pm-dbody");spin(c);
     api(PM+"projects.list",{page_length:200}).then(function(r){var rows=r.rows||[];
       if(!rows.length){c.innerHTML='<div class="pm-err">Chưa có dự án trong phạm vi để tạo nhiệm vụ.</div>';return;}
       var opts=rows.map(function(p){return '<option value="'+esc(p.name)+'"'+(p.name===project?' selected':'')+'>'+esc(p.project_name||p.name)+'</option>';}).join("");
@@ -667,11 +668,11 @@
         pmFieldInput("Mô tả",'<textarea class="pm-input ni" id="nt-desc" rows="3" style="resize:vertical"></textarea>')+
         '<div style="display:flex;gap:8px"><button class="pm-btn primary" id="nt-create"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button><button class="pm-btn" id="nt-cancel">Huỷ</button></div>';
       _niFix(c);
-      function loadParents(){api(PM+"tasks.list",{project:el("nt-project").value,page_length:200}).then(function(d){el("nt-parent").innerHTML='<option value="">— Không —</option>'+(d.rows||[]).map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.subject||t.name)+'</option>';}).join("");}).catch(function(){});}
-      el("nt-project").onchange=loadParents; loadParents();
+      function loadParents(pre){api(PM+"tasks.list",{project:el("nt-project").value,page_length:200}).then(function(d){el("nt-parent").innerHTML='<option value="">— Không —</option>'+(d.rows||[]).map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.subject||t.name)+'</option>';}).join("");if(pre)el("nt-parent").value=pre;}).catch(function(){});}
+      el("nt-project").onchange=function(){loadParents();}; loadParents(parentTask);
       el("nt-cancel").onclick=closeD;
       el("nt-create").onclick=function(){var s=el("nt-subject").value.trim();if(!s){toast("Nhập tiêu đề",true);return;}var sd=el("nt-start").value,ed=el("nt-end").value;if(sd&&ed&&ed<sd){toast("Hạn không được trước ngày bắt đầu",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang tạo...";
-        api(PM+"tasks.create",{project:el("nt-project").value,subject:s,parent_task:el("nt-parent").value||null,assignee:el("nt-assignee").value.trim()||null,priority:el("nt-priority").value,exp_start_date:el("nt-start").value||null,exp_end_date:el("nt-end").value||null,description:el("nt-desc").value||null}).then(function(r){toast("Đã tạo "+r.name);closeD();go("board");}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML='Tạo nhiệm vụ';});};
+        api(PM+"tasks.create",{project:el("nt-project").value,subject:s,parent_task:el("nt-parent").value||null,assignee:el("nt-assignee").value.trim()||null,priority:el("nt-priority").value,exp_start_date:el("nt-start").value||null,exp_end_date:el("nt-end").value||null,description:el("nt-desc").value||null}).then(function(r){toast("Đã tạo "+r.name);if(parentTask){openTask(parentTask);}else{closeD();go("board");}}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML='Tạo nhiệm vụ';});};
     }).catch(function(e){errBox(c,e);});}
   function editTask(name){var c=el("pm-dbody");spin(c);
     Promise.all([api(PM+"tasks.get",{name:name}),api(PM+"projects.list",{page_length:200})]).then(function(res){
