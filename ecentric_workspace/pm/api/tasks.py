@@ -164,8 +164,8 @@ def create(project, subject, parent_task=None, priority=None,
 
 @frappe.whitelist()
 def update(name, subject=None, description=None, priority=None,
-           exp_start_date=None, exp_end_date=None, project=None):
-    """Update whitelisted Task fields. Status changes go through set_status."""
+           exp_start_date=None, exp_end_date=None, project=None, assignee=None):
+    """Update whitelisted Task fields + optional assignee. Status -> set_status."""
     pmperm.require_pm_access()
     user = frappe.session.user
     doc = frappe.get_doc("Task", name)
@@ -183,9 +183,24 @@ def update(name, subject=None, description=None, priority=None,
         if val is not None:
             doc.set(field, val)
             changed.append(field)
+    if changed:
+        doc.save()  # honors DocPerm 'write'; audit trail
+
+    if assignee:
+        try:
+            current = frappe.parse_json(doc.get("_assign") or "[]") or []
+        except Exception:
+            current = []
+        if assignee not in current:
+            try:
+                _assign_add({"doctype": "Task", "name": doc.name, "assign_to": [assignee]})
+                pmnotif.notify_users([assignee], "Ban duoc giao nhiem vu: " + (doc.subject or doc.name), doc.name)
+                changed.append("assignee")
+            except Exception:
+                frappe.log_error(frappe.get_traceback(), "PM update assign")
+
     if not changed:
-        frappe.throw(_("No editable fields provided."))
-    doc.save()  # honors DocPerm 'write'; audit trail
+        frappe.throw(_("No changes provided."))
     return {"name": doc.name, "changed": changed}
 
 
