@@ -164,6 +164,15 @@
   .pm-subwrap{ overflow-x:auto; margin-top:4px; }
   .pm-subtbl{ font-size:12px; min-width:100%; }
   .pm-subtbl th, .pm-subtbl td{ padding:6px 7px; white-space:nowrap; }
+  .pm-props{ display:grid; grid-template-columns:1fr 1fr; gap:11px 16px; margin-bottom:2px; }
+  .pm-prop label{ display:block; font-size:10.5px; color:var(--gray-500); text-transform:uppercase; letter-spacing:.03em; margin-bottom:3px; }
+  .pm-prop .v{ font-size:13px; color:var(--gray-900); }
+  .pm-cmt{ padding:9px 0; border-top:1px solid var(--gray-100); }
+  .pm-cmt:first-child{ border-top:none; }
+  .pm-cmt-head{ display:flex; align-items:center; gap:7px; font-size:12px; margin-bottom:3px; }
+  .pm-cmt-head b{ color:var(--gray-900); }
+  .pm-cmt-time{ color:var(--gray-400); font-size:11px; margin-left:auto; }
+  .pm-cmt-body{ font-size:13px; color:var(--gray-800); white-space:pre-wrap; padding-left:27px; line-height:1.45; }
   .pm-tbl tbody tr{ transition:background .1s; }
   .pm-drawer .body{ padding:20px 22px; }
   .pm-field{ margin-bottom:18px; }
@@ -701,14 +710,17 @@
       var t=res[0].task||{},subs=res[0].subtasks||[],tr=res[1].transitions||[];var a=names(t._assign);
       var _seen={};tr=tr.filter(function(x){if(_seen[x.action])return false;_seen[x.action]=1;return true;});
       el("pm-dt").textContent=t.subject||name;
-      var h='<div class="pm-tags" style="margin-bottom:12px">'+badge(t.workflow_state)+taskTags(t)+'</div>'+
-        '<div style="margin-bottom:4px"><button class="pm-btn" id="pm-edit">Sửa thông tin</button></div>'+
+      var prTag=t.priority?'<span class="pm-tag '+({Urgent:"tg-urgent",High:"tg-high",Medium:"tg-medium",Low:"tg-low"}[t.priority]||"tg-low")+'">'+esc(t.priority)+'</span>':'-';
+      var h='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px"><div class="pm-tags">'+badge(t.workflow_state)+taskTags(t)+'</div><button class="pm-btn" id="pm-edit" style="flex:0 0 auto">Sửa thông tin</button></div>'+
         '<div class="pm-dsec">Thông tin chính</div>'+
-        '<div class="pm-field"><label>Dự án</label><div class="v">'+esc(t.project||"-")+'</div></div>'+
-        '<div class="pm-field"><label>Người nhận</label><div class="v">'+(a.length?a.join(", "):"-")+'</div></div>'+
-        '<div class="pm-field"><label>Bắt đầu</label><div class="v">'+esc(ymd(t.exp_start_date)||"-")+'</div></div>'+
-        '<div class="pm-field"><label>Hạn</label><div class="v">'+esc(t.exp_end_date||"-")+'</div></div>'+
-        (t.description?'<div class="pm-field"><label>Mô tả</label><div class="v" style="white-space:pre-wrap">'+esc(t.description)+'</div></div>':'')+
+        '<div class="pm-props">'+
+          '<div class="pm-prop"><label>Dự án</label><div class="v">'+esc(t.project||"-")+'</div></div>'+
+          '<div class="pm-prop"><label>Ưu tiên</label><div class="v">'+prTag+'</div></div>'+
+          '<div class="pm-prop" style="grid-column:1/-1"><label>Người nhận</label><div class="v">'+(a.length?esc(a.join(", ")):"-")+'</div></div>'+
+          '<div class="pm-prop"><label>Bắt đầu</label><div class="v">'+esc(ymd(t.exp_start_date)||"-")+'</div></div>'+
+          '<div class="pm-prop"><label>Hạn</label><div class="v">'+esc(t.exp_end_date||"-")+'</div></div>'+
+        '</div>'+
+        '<div class="pm-dsec">Mô tả</div><div style="font-size:13px;color:var(--gray-800);white-space:pre-wrap;line-height:1.5">'+(t.description?esc(t.description):'<span style="color:var(--gray-400)">Chưa có mô tả.</span>')+'</div>'+
         '<div class="pm-dsec">Workflow</div>'+
         '<div class="pm-field"><label>Chuyển trạng thái</label><div class="pm-actions">'+(tr.length?tr.map(function(x){return '<button class="pm-btn pm-act" data-act="'+esc(x.action)+'">'+esc(x.action)+'</button>';}).join(""):'<span style="color:var(--gray-400);font-size:13px">Không có</span>')+'</div></div>'+
         '<div class="pm-field"><label>Giao việc (email)</label><div class="pm-assign-row"><input class="pm-input" id="pm-asg" placeholder="user@ecentric.vn" style="padding-left:11px;background-image:none"><button class="pm-btn primary" id="pm-asgb">Giao</button></div></div>'+
@@ -718,7 +730,8 @@
       if(subs.length){h+='<div class="pm-subwrap"><table class="pm-tbl pm-subtbl"><thead><tr><th>Tiêu đề</th><th>Trạng thái</th><th>Người nhận</th><th>Hạn</th><th>Ưu tiên</th></tr></thead><tbody>'+
         subs.map(function(s){var sa=names(s._assign);var pc=s.priority?'<span class="pm-tag '+({Urgent:"tg-urgent",High:"tg-high",Medium:"tg-medium",Low:"tg-low"}[s.priority]||"tg-low")+'">'+esc(s.priority)+'</span>':'-';return '<tr data-task="'+esc(s.name)+'" style="cursor:pointer"><td class="t-main">'+esc(s.subject)+'</td><td>'+badge(s.workflow_state)+'</td><td>'+(sa.length?'<span class="pm-mini-av" title="'+esc(sa[0])+'">'+ini(sa[0])+'</span>':'-')+'</td><td>'+esc(s.exp_end_date||"-")+'</td><td>'+pc+'</td></tr>';}).join("")+'</tbody></table></div>';}
       else{h+='<div style="font-size:12.5px;color:var(--gray-400);padding:4px 0">Chưa có nhiệm vụ con.</div>';}
-      h+='<div class="pm-dsec">Hoạt động</div><div style="font-size:12.5px;color:var(--gray-400);padding:4px 0">Lịch sử hoạt động &amp; thông báo — sẽ bổ sung sau.</div>';
+      h+='<div class="pm-dsec">Bình luận</div><div id="pm-comments"><span class="spin"></span></div>'+
+        '<div style="margin-top:8px"><textarea class="pm-input" id="pm-cmt-input" rows="2" placeholder="Viết bình luận..." style="resize:vertical;background-image:none;padding-left:11px;width:100%"></textarea><div style="display:flex;justify-content:flex-end;margin-top:6px"><button class="pm-btn primary" id="pm-cmt-send">Gửi</button></div></div>';
       c.innerHTML=h;
       Array.prototype.forEach.call(c.querySelectorAll(".pm-act"),function(b){b.onclick=function(){b.disabled=true;
         api(PM+"tasks.set_status",{name:name,action:b.getAttribute("data-act")}).then(function(r){toast("Trạng thái: "+r.workflow_state);openTask(name);}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};});
@@ -727,9 +740,15 @@
       if(el("pm-edit"))el("pm-edit").onclick=function(){editTask(name);};
       Array.prototype.forEach.call(c.querySelectorAll(".pm-subtbl tr[data-task], .pm-sub[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});
       if(el("pm-addsub"))el("pm-addsub").onclick=function(){newTask(t.project,name);};
-      loadWorktime(name); loadRecurrence(name);
+      loadWorktime(name); loadRecurrence(name); loadComments(name);
+      if(el("pm-cmt-send"))el("pm-cmt-send").onclick=function(){var v=el("pm-cmt-input").value.trim();if(!v){toast("Nhập bình luận",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang gửi...";
+        api("frappe.client.insert",{doc:{doctype:"Comment",comment_type:"Comment",reference_doctype:"Task",reference_name:name,content:v}}).then(function(){el("pm-cmt-input").value="";loadComments(name);btn.disabled=false;btn.textContent="Gửi";}).catch(function(e){toast("Lỗi gửi bình luận: "+errOf(e),true);btn.disabled=false;btn.textContent="Gửi";});};
     }).catch(function(e){errBox(c,e);});}
 
+  function loadComments(task){var b=el("pm-comments");if(!b)return;
+    api("frappe.client.get_list",{doctype:"Comment",filters:{reference_doctype:"Task",reference_name:task,comment_type:"Comment"},fields:["name","content","owner","creation"],order_by:"creation asc",limit_page_length:50}).then(function(rows){if(el("pm-comments"))renderComments(el("pm-comments"),rows||[]);}).catch(function(e){if(el("pm-comments"))el("pm-comments").innerHTML='<div style="font-size:12.5px;color:var(--gray-400);padding:4px 0">Không tải được bình luận.</div>';});}
+  function renderComments(b,rows){if(!rows.length){b.innerHTML='<div style="font-size:12.5px;color:var(--gray-400);padding:4px 0">Chưa có bình luận.</div>';return;}
+    b.innerHTML=rows.map(function(cm){var who=(cm.owner||"").split("@")[0];return '<div class="pm-cmt"><div class="pm-cmt-head"><span class="pm-mini-av">'+ini(cm.owner||"?")+'</span><b>'+esc(who)+'</b><span class="pm-cmt-time">'+esc((cm.creation||"").slice(0,16))+'</span></div><div class="pm-cmt-body">'+esc(stripTags(cm.content||""))+'</div></div>';}).join("");}
   function fmtDur(s){s=Math.max(0,Math.floor(s));var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),x=s%60;return (h<10?"0":"")+h+":"+(m<10?"0":"")+m+":"+(x<10?"0":"")+x;}
   function clearTick(){if(window._pmTick){clearInterval(window._pmTick);window._pmTick=null;}}
   function loadWorktime(task){var b=el("pm-wt");if(!b)return;clearTick();b.innerHTML='<span class="spin"></span>';
