@@ -90,7 +90,7 @@ def gantt(project):
     tasks = frappe.get_all(
         "Task", filters={"project": project},
         fields=["name", "subject", "project", "exp_start_date", "exp_end_date",
-                "progress", "workflow_state", "parent_task"],
+                "progress", "workflow_state", "parent_task", "priority", "_assign"],
         order_by="exp_start_date asc, creation asc",
     )
     task_names = [t["name"] for t in tasks]
@@ -117,6 +117,8 @@ def gantt(project):
             "progress": t.get("progress") or 0,
             "workflow_state": t.get("workflow_state"),
             "parent_task": t.get("parent_task"),
+            "priority": t.get("priority"),
+            "_assign": t.get("_assign"),
             "dependencies": deps.get(t["name"], []),
         })
     return {"project": project, "rows": rows}
