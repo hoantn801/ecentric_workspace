@@ -227,6 +227,19 @@
   .cal-whead{ padding:8px; text-align:center; border-bottom:1px solid var(--gray-100); }
   .cal-whead.cal-today{ background:var(--navy-50); }
   .cal-wbody{ padding:6px; display:flex; flex-direction:column; gap:4px; overflow-y:auto; }
+  .pm-editform{ max-width:640px; }
+  .pm-fdiv{ width:1px; align-self:stretch; background:var(--gray-200); margin:2px 5px; }
+  .cal-layout{ display:grid; grid-template-columns:1fr 264px; gap:16px; align-items:start; }
+  .cal-aside{ display:flex; flex-direction:column; gap:14px; }
+  .cal-aside-sec{ border:1px solid var(--gray-200); border-radius:10px; padding:10px 12px; }
+  .cal-aside-h{ font-size:11.5px; font-weight:700; color:var(--gray-600); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; }
+  .cal-aside .cal-chip{ margin-bottom:5px; }
+  @media (max-width:960px){
+    .pm-drawer.expanded{ width:calc(100vw - 24px); top:3vh; height:94vh; }
+    .pm-drawer.expanded .pm-dcols{ display:block; }
+    .pm-drawer.expanded .pm-d-side{ border-left:none; padding-left:0; border-top:1px solid var(--gray-200); padding-top:12px; margin-top:14px; }
+  }
+  @media (max-width:900px){ .cal-layout{ grid-template-columns:1fr; } }
   .gantt-bar{ cursor:grab; }
   .gantt-bar.g-dragging{ cursor:grabbing; opacity:.85; z-index:5; box-shadow:0 2px 8px rgba(0,0,0,.25); }
   .g-rh{ position:absolute; top:0; bottom:0; width:7px; cursor:ew-resize; z-index:3; }
@@ -638,13 +651,17 @@
     var projs=uniq(ts.map(function(t){return t.project;}));
     var asg=uniq([].concat.apply([],ts.map(function(t){return names(t._assign);})));
     var pri=uniq(ts.map(function(t){return t.priority;}));
+    var P=[["mine","Của tôi"],["today","Hôm nay"],["week","Tuần này"],["overdue","Quá hạn"],["blocked","Blocked"],["review","Chờ duyệt"],["noassignee","Chưa giao"],["nodue","Chưa hạn"]];
     return '<div class="pm-filters">'+
-      '<input class="pm-input" id="f-q" placeholder="Tìm nhiệm vụ..." value="'+esc(F.q)+'">'+
-      '<select class="pm-sel" id="f-status"><option value="">Mọi trạng thái</option>'+COLS.map(function(s){return opt(s,s,F.status);}).join("")+'</select>'+
-      '<select class="pm-sel" id="f-project"><option value="">Mọi dự án</option>'+projs.map(function(p){return opt(p,p,F.project);}).join("")+'</select>'+
-      '<select class="pm-sel" id="f-assignee"><option value="">Mọi người nhận</option>'+asg.map(function(a){return opt(a,a,F.assignee);}).join("")+'</select>'+
-      '<select class="pm-sel" id="f-priority"><option value="">Mọi ưu tiên</option>'+pri.map(function(p){return opt(p,p,F.priority);}).join("")+'</select>'+
-      '<button class="pm-btn" id="f-clear">Xóa lọc</button></div>';}
+      '<input class="pm-input" id="f-q" placeholder="Tìm..." value="'+esc(F.q)+'" style="max-width:170px">'+
+      '<select class="pm-sel" id="f-status"><option value="">Trạng thái</option>'+COLS.map(function(s){return opt(s,s,F.status);}).join("")+'</select>'+
+      '<select class="pm-sel" id="f-assignee"><option value="">Người nhận</option>'+asg.map(function(a){return opt(a,a,F.assignee);}).join("")+'</select>'+
+      '<select class="pm-sel" id="f-project"><option value="">Dự án</option>'+projs.map(function(p){return opt(p,p,F.project);}).join("")+'</select>'+
+      '<select class="pm-sel" id="f-priority"><option value="">Ưu tiên</option>'+pri.map(function(p){return opt(p,p,F.priority);}).join("")+'</select>'+
+      '<button class="pm-btn" id="f-clear">Xóa</button>'+
+      '<span class="pm-fdiv"></span>'+
+      P.map(function(p){return '<button class="pm-btn pm-preset'+(F.preset===p[0]?" primary":"")+'" data-preset="'+p[0]+'">'+p[1]+'</button>';}).join("")+
+      '</div>';}
   function wireFilters(rerender){
     var q=el("f-q");if(q)q.oninput=function(){F.q=this.value.toLowerCase();rerender();};
     ["status","project","assignee","priority"].forEach(function(k){var e2=el("f-"+k);if(e2)e2.onchange=function(){F[k]=this.value;rerender();};});
@@ -663,7 +680,7 @@
   function showTasks(asTable){var c=el("pm-view");spin(c);
     loadTasks(function(){
       c.innerHTML=workHeader(asTable?"table":"list")+
-        presetBar()+filterBar()+'<div class="panel"><div id="pm-ttbl"></div></div>';
+        filterBar()+'<div class="panel"><div id="pm-ttbl"></div></div>';
       wireWorkTabs(); wireFilters(renderTasks); renderTasks();
     },c);}
   function renderTasks(){taskTable(el("pm-ttbl"),filteredTasks());}
@@ -680,7 +697,7 @@
   function showBoard(){var c=el("pm-view");spin(c);
     loadTasks(function(){
       c.innerHTML=workHeader("board")+
-        presetBar()+filterBar()+'<div id="pm-boardwrap"></div>';
+        filterBar()+'<div id="pm-boardwrap"></div>';
       wireWorkTabs(); wireFilters(renderBoard); renderBoard();
     },c);}
   function renderBoard(){renderBoardInto(el("pm-boardwrap"),filteredTasks(),showBoard);}
@@ -837,12 +854,15 @@
       var t=res[0].task||{};var projs=res[1].rows||[];var a=names(t._assign);
       var opts=projs.map(function(p){return '<option value="'+esc(p.name)+'"'+(p.name===t.project?' selected':'')+'>'+esc(p.project_name||p.name)+'</option>';}).join("");
       var pri=["Low","Medium","High","Urgent"].map(function(x){return '<option'+(x===t.priority?' selected':'')+'>'+x+'</option>';}).join("");
-      c.innerHTML=pmFieldInput("Tiêu đề *",'<input class="pm-input ni" id="et-subject" value="'+esc(t.subject||"")+'">')+
-        pmFieldInput("Dự án",'<select class="pm-sel" id="et-project" style="width:100%">'+opts+'</select>')+
+      c.innerHTML='<div class="pm-editform">'+
+        '<div class="pm-dsec" style="margin-top:0">Sửa nhiệm vụ</div>'+
+        pmFieldInput("Tiêu đề *",'<input class="pm-input ni" id="et-subject" value="'+esc(t.subject||"")+'">')+
+        '<div style="display:flex;gap:10px">'+pmFieldInput("Dự án",'<select class="pm-sel" id="et-project" style="width:100%">'+opts+'</select>')+pmFieldInput("Ưu tiên",'<select class="pm-sel" id="et-priority" style="width:100%">'+pri+'</select>')+'</div>'+
         pmFieldInput("Người nhận (email)",'<input class="pm-input ni" id="et-assignee" value="'+esc(a[0]||"")+'" placeholder="user@ecentric.vn">')+
-        '<div style="display:flex;gap:10px">'+pmFieldInput("Ưu tiên",'<select class="pm-sel" id="et-priority" style="width:100%">'+pri+'</select>')+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="et-start" type="date" value="'+esc(ymd(t.exp_start_date))+'">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="et-end" type="date" value="'+esc(ymd(t.exp_end_date))+'">')+'</div>'+
-        pmFieldInput("Mô tả",'<textarea class="pm-input ni" id="et-desc" rows="3" style="resize:vertical">'+esc(t.description||"")+'</textarea>')+
-        '<div style="display:flex;gap:8px"><button class="pm-btn primary" id="et-save">Lưu</button><button class="pm-btn" id="et-cancel">Huỷ</button></div>';
+        '<div style="display:flex;gap:10px">'+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="et-start" type="date" value="'+esc(ymd(t.exp_start_date))+'">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="et-end" type="date" value="'+esc(ymd(t.exp_end_date))+'">')+'</div>'+
+        pmFieldInput("Mô tả",'<textarea class="pm-input ni" id="et-desc" rows="4" style="resize:vertical">'+esc(t.description||"")+'</textarea>')+
+        '<div style="display:flex;gap:8px;margin-top:10px"><button class="pm-btn primary" id="et-save">Lưu</button><button class="pm-btn" id="et-cancel">Huỷ</button></div>'+
+        '</div>';
       _niFix(c);
       el("et-cancel").onclick=function(){openTask(name);};
       el("et-save").onclick=function(){var s=el("et-subject").value.trim();if(!s){toast("Nhập tiêu đề",true);return;}var sd=el("et-start").value,ed=el("et-end").value;if(sd&&ed&&ed<sd){toast("Hạn không được trước ngày bắt đầu",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang lưu...";var na=el("et-assignee").value.trim();
@@ -928,6 +948,18 @@
       if(F.overdue){var e=t.end?String(t.end).slice(0,10):null;if(!(e&&e<td&&["Done","Cancelled"].indexOf(t.workflow_state)<0))return false;}
       return true;});}
   function calIndex(){var map={};calFiltered().forEach(function(t){var e=t.end?String(t.end).slice(0,10):null;if(!e)return;(map[e]=map[e]||[]).push(t);});return map;}
+  function calBaseFiltered(){var rows=window._calRows||[];var F=window._calF||{};var u=window._pmUser||"";
+    return rows.filter(function(t){
+      if(F.project&&t.project!==F.project)return false;
+      if(F.status&&t.workflow_state!==F.status)return false;
+      if(F.assignee&&names(t._assign).indexOf(F.assignee)<0)return false;
+      if(F.mine&&names(t._assign).indexOf(u)<0)return false;
+      return true;});}
+  function renderCalAside(){var base=calBaseFiltered();var td=calYmd(new Date());
+    var nodue=base.filter(function(t){return !t.end&&["Done","Cancelled"].indexOf(t.workflow_state)<0;});
+    var od=base.filter(function(t){var e=t.end?String(t.end).slice(0,10):null;return e&&e<td&&["Done","Cancelled"].indexOf(t.workflow_state)<0;});
+    function sec(title,arr,cls){return '<div class="cal-aside-sec"><div class="cal-aside-h">'+title+' <span style="color:var(--gray-400)">('+arr.length+')</span></div>'+(arr.length?arr.slice(0,40).map(function(t){return '<div class="cal-chip '+(cls||"")+'" data-task="'+esc(t.id||t.name)+'" title="'+esc((t.subject||"")+(t.project_name?(" · "+t.project_name):""))+'"><span class="cal-dot" style="background:'+gColor(t.workflow_state)+'"></span><span style="overflow:hidden;text-overflow:ellipsis">'+esc(t.subject||t.name)+'</span></div>';}).join(""):'<div style="font-size:11.5px;color:var(--gray-300);padding:4px 0">Không có.</div>')+'</div>';}
+    return sec("Quá hạn",od,"cal-od")+sec("Chưa có hạn",nodue,"");}
   function calChip(t){var od=calOd(t);return '<div class="cal-chip'+(od?' cal-od':'')+'" data-task="'+esc(t.id||t.name)+'" title="'+esc((t.subject||"")+(t.project_name?(" · "+t.project_name):""))+'"><span class="cal-dot" style="background:'+gColor(t.workflow_state)+'"></span><span style="overflow:hidden;text-overflow:ellipsis">'+esc(t.subject||t.name)+'</span>'+(t.priority==="Urgent"?'<span class="pm-tag tg-urgent" style="padding:0 5px;font-size:10px;flex:0 0 auto">U</span>':'')+'</div>';}
   function renderCalMonth(){var ref=window._calRef;var y=ref.getFullYear(),m=ref.getMonth();var first=new Date(y,m,1);var dow=(first.getDay()+6)%7;var start=new Date(y,m,1-dow);
     var byDate=calIndex(),todayStr=calYmd(new Date()),dows=["T2","T3","T4","T5","T6","T7","CN"];
@@ -947,7 +979,7 @@
     var projs=uniq(rows.map(function(t){return t.project;}));var asg=uniq([].concat.apply([],rows.map(function(t){return names(t._assign);})));
     var headh='<div class="cal-head"><button class="pm-btn" id="cal-today">Hôm nay</button><button class="pm-btn" id="cal-prev">‹</button><button class="pm-btn" id="cal-next">›</button><div style="font-weight:700;font-size:16px;min-width:160px">'+esc(label)+'</div>'+gSeg("cal-view","calview",[["month","Tháng"],["week","Tuần"]],view)+'</div>';
     var filt='<div class="pm-filters" style="margin-bottom:14px"><select class="pm-sel" id="cal-proj"><option value="">Mọi dự án</option>'+projs.map(function(p){var pn=(rows.filter(function(t){return t.project===p;})[0]||{}).project_name||p;return '<option value="'+esc(p)+'"'+(F.project===p?' selected':'')+'>'+esc(pn)+'</option>';}).join("")+'</select><select class="pm-sel" id="cal-status"><option value="">Mọi trạng thái</option>'+COLS.map(function(s){return opt(s,s,F.status);}).join("")+'</select><select class="pm-sel" id="cal-asg"><option value="">Mọi người nhận</option>'+asg.map(function(a){return opt(a,a,F.assignee);}).join("")+'</select><button class="pm-btn'+(F.mine?' primary':'')+'" id="cal-mine">Việc của tôi</button><button class="pm-btn'+(F.overdue?' primary':'')+'" id="cal-od">Quá hạn</button></div>';
-    c.innerHTML=workHeader("calendar")+headh+filt+'<div id="cal-body">'+((view==="month")?renderCalMonth():renderCalWeek())+'</div>';
+    c.innerHTML=workHeader("calendar")+headh+filt+'<div class="cal-layout"><div class="cal-main" id="cal-body">'+((view==="month")?renderCalMonth():renderCalWeek())+'</div><div class="cal-aside">'+renderCalAside()+'</div></div>';
     wireWorkTabs();
     el("cal-today").onclick=function(){window._calRef=new Date();renderCalendar();};
     el("cal-prev").onclick=function(){calStep(-1);};el("cal-next").onclick=function(){calStep(1);};
