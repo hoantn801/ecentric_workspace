@@ -868,7 +868,7 @@
   function gVScrollEl(){var x=el("g-body");while(x){var s;try{s=getComputedStyle(x);}catch(_){return null;}if((s.overflowY==="auto"||s.overflowY==="scroll")&&x.scrollHeight>x.clientHeight+2)return x;x=x.parentElement;}return null;}
   function gScrollState(){var wrap=document.querySelector("#g-body .gantt-wrap");var v=gVScrollEl();return {sl:wrap?wrap.scrollLeft:0,st:v?v.scrollTop:0,win:window.scrollY||window.pageYOffset||0};}
   function gRestoreScroll(st){if(!st)return;requestAnimationFrame(function(){var wrap=document.querySelector("#g-body .gantt-wrap");if(wrap)wrap.scrollLeft=st.sl;var v=gVScrollEl();if(v)v.scrollTop=st.st;if(st.win)window.scrollTo(0,st.win);});}
-  function loadGantt(keep){var b=el("g-body");var st=keep?gScrollState():null;spin(b);
+  function loadGantt(keep){var b=el("g-body");var st=keep?gScrollState():null;if(!keep)spin(b);
     var pj=(window._pm_gproj&&window._pm_gproj!=="all")?window._pm_gproj:null;
     api(PM+"tasks.gantt_all",pj?{project:pj}:{}).then(function(d){window._gRows=d.rows||[];buildGFilters();applyGantt();if(st)gRestoreScroll(st);}).catch(function(e){errBox(b,e);});}
   function buildGFilters(){var fb=el("g-filterbar");if(!fb)return;var rows=window._gRows||[];var F=window._gF||(window._gF={status:"",priority:"",assignee:"",overdue:false});
@@ -890,8 +890,16 @@
       if(F.overdue){var e=t.end?String(t.end).slice(0,10):null;if(!(e&&e<today&&["Done","Cancelled"].indexOf(t.workflow_state)<0))return false;}
       return true;});
     renderGantt(el("g-body"),filtered);}
+  // Stable display order across reloads: a task keeps its first-seen position even after
+  // its dates change (backend sorts by start_date; we re-impose the session order). New
+  // tasks append at the end. Keeps rows from jumping after a move.
+  function gStableOrder(rows){window._gRowOrder=window._gRowOrder||{};var ord=window._gRowOrder,mx=0,k;
+    for(k in ord){if(ord[k]>mx)mx=ord[k];}
+    rows.forEach(function(t){if(ord[t.id]==null){mx+=1;ord[t.id]=mx;}});
+    return rows.slice().sort(function(a,b){return ord[a.id]-ord[b.id];});}
   function renderGantt(b,rows){
     if(!rows.length){return emptyBox(b,"Không có nhiệm vụ phù hợp.");}
+    rows=gStableOrder(rows);
     var sched=rows.filter(function(t){return dnum(t.start)!=null&&dnum(t.end)!=null;});
     var unsched=rows.filter(function(t){return dnum(t.start)==null||dnum(t.end)==null;});
     var dom=gDomain(rows),min=dom[0],max=dom[1],span=Math.max(max-min,86400000);
@@ -899,7 +907,7 @@
     if(window._gLabelW==null){var _lw=null;try{_lw=parseInt(localStorage.getItem("pm_g_label_w"),10);}catch(_e){}window._gLabelW=(_lw&&_lw>=220&&_lw<=520)?_lw:220;}
     var ticks=gTicks(min,max),chartW=Math.max(680,ticks.length*gCellW());window._gChartW=chartW;var labelW=window._gLabelW;
     var todayMs=dnum(new Date().toISOString().slice(0,10));
-    var tickHtml=ticks.map(function(tk){return '<div class="tick" style="left:'+((tk.ms-min)/span*100)+'%">'+esc(tk.label)+'</div>';}).join("");
+    var tickHtml=ticks.map(function(tk){var p=(tk.ms-min)/span*100;var ts=p<3?'left:'+p+'%;transform:none;padding-left:8px':'left:'+p+'%';return '<div class="tick" style="'+ts+'">'+esc(tk.label)+'</div>';}).join("");
     var gridHtml=ticks.map(function(tk){return '<div class="gl" style="left:'+((tk.ms-min)/span*100)+'%"></div>';}).join("");
     if(todayMs!=null&&todayMs>=min&&todayMs<=max)gridHtml+='<div class="g-today" style="left:'+((todayMs-min)/span*100)+'%"></div>';
     var html='<div class="gantt-wrap"><div class="gantt" style="min-width:'+(chartW+labelW)+'px;--g-label-w:'+labelW+'px"><div class="g-divider"></div>';
