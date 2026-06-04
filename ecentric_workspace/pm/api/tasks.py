@@ -69,7 +69,9 @@ def get(name):
                 "exp_end_date", "priority"],
         order_by="creation asc",
     )
-    return {"task": doc.as_dict(), "subtasks": subtasks}
+    d = doc.as_dict()
+    d["_assign"] = doc.get("_assign")  # as_dict() doesn't reliably surface the _assign column; needed so the modal shows assignees
+    return {"task": d, "subtasks": subtasks}
 
 
 @frappe.whitelist()
