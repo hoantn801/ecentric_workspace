@@ -814,6 +814,7 @@
     api(PM+"projects.list",{page_length:200}).then(function(r){var rows=r.rows||[];window._pm_projects=rows;var sel=window._pm_gproj||"";
       c.innerHTML=head("Gantt","Tất cả dự án trong phạm vi — nhóm theo dự án",'<select class="pm-sel" id="g-proj" style="min-width:230px"><option value="all"'+((window._pm_gproj||"all")==="all"?" selected":"")+'>Tất cả dự án</option>'+rows.map(function(p){return opt(p.name,p.project_name||p.name,window._pm_gproj);}).join("")+'</select>')+
         '<div class="panel"><div class="g-ctrlbar">'+
+          '<span style="font-size:12px;color:var(--gray-500)">Nhóm:</span>'+gSeg("g-group","group",[["project","Dự án"],["people","Người"]],window._gGroup||"project")+'<span style="display:inline-block;width:8px"></span>'+
           '<span style="font-size:12px;color:var(--gray-500)">Mức:</span>'+gSeg("g-scale","scale",[["day","Ngày"],["week","Tuần"],["month","Tháng"]],window._gScale||"week")+
           '<span style="font-size:12px;color:var(--gray-500);margin-left:6px">Phạm vi:</span>'+gSeg("g-range","range",[["today","Hôm nay"],["week","Tuần này"],["month","Tháng này"],["all","Tất cả"],["custom","Tuỳ chọn"]],window._gRange||"all")+
           '<span id="g-custom" style="display:'+((window._gRange==="custom")?"inline-flex":"none")+';gap:6px;align-items:center"><input class="pm-input" id="g-from" type="date" style="background-image:none;padding-left:10px" value="'+esc((window._gCustom&&window._gCustom.from)||"")+'"><input class="pm-input" id="g-to" type="date" style="background-image:none;padding-left:10px" value="'+esc((window._gCustom&&window._gCustom.to)||"")+'"><button class="pm-btn" id="g-apply">Áp dụng</button></span>'+
@@ -821,6 +822,7 @@
       el("g-proj").onchange=function(){window._pm_gproj=this.value;window._gCollapsed={};loadGantt();};
       Array.prototype.forEach.call(el("g-scale").children,function(btn){btn.onclick=function(){window._gScale=btn.getAttribute("data-scale");Array.prototype.forEach.call(el("g-scale").children,function(x){x.classList.toggle("active",x===btn);});loadGantt();};});
       Array.prototype.forEach.call(el("g-range").children,function(btn){btn.onclick=function(){window._gRange=btn.getAttribute("data-range");Array.prototype.forEach.call(el("g-range").children,function(x){x.classList.toggle("active",x===btn);});el("g-custom").style.display=(window._gRange==="custom")?"inline-flex":"none";if(window._gRange!=="custom")loadGantt();};});
+      Array.prototype.forEach.call(el("g-group").children,function(btn){btn.onclick=function(){window._gGroup=btn.getAttribute("data-group");window._gCollapsed={};Array.prototype.forEach.call(el("g-group").children,function(x){x.classList.toggle("active",x===btn);});applyGantt();};});
       if(el("g-apply"))el("g-apply").onclick=function(){window._gCustom={from:el("g-from").value,to:el("g-to").value};loadGantt();};
       loadGantt();
     }).catch(function(e){errBox(c,e);});}
@@ -859,19 +861,28 @@
     if(todayMs!=null&&todayMs>=min&&todayMs<=max)gridHtml+='<div class="g-today" style="left:'+((todayMs-min)/span*100)+'%"></div>';
     var html='<div class="gantt-wrap"><div class="gantt" style="min-width:'+chartW+'px">';
     html+='<div class="gantt-axis"><div></div><div class="ticks">'+tickHtml+'</div></div>';
-    function gRow(it){var t=it.t,s=dnum(t.start),e=dnum(t.end);
+    function gRow(it,showProj){var t=it.t,s=dnum(t.start),e=dnum(t.end);
       var cs=Math.max(s,min),ce=Math.min(e,max),inDom=(ce>min&&cs<max);
       var left=(cs-min)/span*100,w=Math.max((ce-cs)/span*100,0.8);
       var col=gColor(t.workflow_state),prog=Math.max(0,Math.min(100,Math.round(t.progress||0))),od=gOverdue(t);
       var caret=it.hasChildren?'<span class="g-caret'+(gIsCollapsed(t.id)?' collapsed':'')+'" data-collapse="'+esc(t.id)+'">▾</span>':'';
       var bar=inDom?('<div class="gantt-bar'+(od?' is-overdue':'')+'" data-task="'+esc(t.id)+'" title="'+esc((t.subject||"")+" · "+(t.workflow_state||"")+" · "+prog+"%")+'" style="left:'+left+'%;width:'+w+'%;background:'+col+'"><div class="fill" style="width:'+prog+'%"></div><div class="lab">'+(w>10?esc(t.subject||""):"")+'</div></div>'):'';
-      return '<div class="gantt-row"><div class="gantt-label'+(it.hasChildren?' is-parent':'')+'" data-task="'+esc(t.id)+'" style="padding-left:'+(12+it.depth*14)+'px">'+caret+esc(t.subject||t.id)+(od?' <span class="pm-tag tg-overdue" style="margin-left:6px">Quá hạn</span>':(t.priority==="Urgent"?' <span class="pm-tag tg-urgent" style="margin-left:6px">Urgent</span>':''))+'</div>'+
+      return '<div class="gantt-row"><div class="gantt-label'+(it.hasChildren?' is-parent':'')+'" data-task="'+esc(t.id)+'" style="padding-left:'+(12+it.depth*14)+'px">'+caret+esc(t.subject||t.id)+(showProj&&t.project_name?' <span style="color:var(--gray-400);font-size:11px">· '+esc(t.project_name)+'</span>':'')+(od?' <span class="pm-tag tg-overdue" style="margin-left:6px">Quá hạn</span>':(t.priority==="Urgent"?' <span class="pm-tag tg-urgent" style="margin-left:6px">Urgent</span>':''))+'</div>'+
         '<div class="gantt-track"><div class="gantt-grid">'+gridHtml+'</div>'+bar+'</div></div>';}
-    var byProj={},projOrder=[];sched.forEach(function(t){var p=t.project||"—";if(!byProj[p]){byProj[p]=[];projOrder.push(p);}byProj[p].push(t);});
-    projOrder.forEach(function(p){var pname=(byProj[p][0]||{}).project_name||p;var ck="proj:"+p;var col2=gIsCollapsed(ck);
-      html+='<div class="g-proj-row"><div class="g-proj-label" data-collapse="'+esc(ck)+'"><span class="g-caret'+(col2?' collapsed':'')+'">▾</span> '+esc(pname)+' <span style="color:var(--gray-400);font-weight:500">('+byProj[p].length+')</span></div><div class="gantt-track"><div class="gantt-grid">'+gridHtml+'</div></div></div>';
-      if(!col2)gOrder(byProj[p]).forEach(function(it){html+=gRow(it);});
-    });
+    if((window._gGroup||"project")==="people"){
+      var byA={},aOrder=[];sched.forEach(function(t){var as=names(t._assign);if(!as.length)as=["__none__"];as.forEach(function(u){if(!byA[u]){byA[u]=[];aOrder.push(u);}byA[u].push(t);});});
+      aOrder.sort(function(a,b){if(a==="__none__")return 1;if(b==="__none__")return -1;return a<b?-1:1;});
+      aOrder.forEach(function(u){var label=(u==="__none__")?"Chưa giao":u;var ck="asg:"+u;var col2=gIsCollapsed(ck);
+        html+='<div class="g-proj-row"><div class="g-proj-label" data-collapse="'+esc(ck)+'"><span class="g-caret'+(col2?' collapsed':'')+'">▾</span> '+esc(label)+' <span style="color:var(--gray-400);font-weight:500">('+byA[u].length+')</span></div><div class="gantt-track"><div class="gantt-grid">'+gridHtml+'</div></div></div>';
+        if(!col2)byA[u].forEach(function(t){html+=gRow({t:t,depth:0,hasChildren:false},true);});
+      });
+    } else {
+      var byProj={},projOrder=[];sched.forEach(function(t){var p=t.project||"—";if(!byProj[p]){byProj[p]=[];projOrder.push(p);}byProj[p].push(t);});
+      projOrder.forEach(function(p){var pname=(byProj[p][0]||{}).project_name||p;var ck="proj:"+p;var col2=gIsCollapsed(ck);
+        html+='<div class="g-proj-row"><div class="g-proj-label" data-collapse="'+esc(ck)+'"><span class="g-caret'+(col2?' collapsed':'')+'">▾</span> '+esc(pname)+' <span style="color:var(--gray-400);font-weight:500">('+byProj[p].length+')</span></div><div class="gantt-track"><div class="gantt-grid">'+gridHtml+'</div></div></div>';
+        if(!col2)gOrder(byProj[p]).forEach(function(it){html+=gRow(it);});
+      });
+    }
     html+='</div></div>';
     if(unsched.length){ html+='<div style="padding:12px 16px;border-top:1px solid var(--gray-100)"><div style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Chưa lên lịch ('+unsched.length+') — thêm ngày để hiện trên timeline</div>'+
         unsched.map(function(t){return '<div class="pm-sub" draggable="true" data-drag-task="'+esc(t.id)+'" title="Kéo lên timeline để đặt lịch"><span data-task="'+esc(t.id)+'" style="cursor:pointer;flex:1">'+esc(t.subject||t.id)+(t.project_name?' <span style="color:var(--gray-400);font-size:11px">· '+esc(t.project_name)+'</span>':'')+'</span><span style="display:flex;align-items:center;gap:8px">'+badge(t.workflow_state)+'<button class="pm-btn g-add" data-add="'+esc(t.id)+'">+ Thêm ngày</button></span></div>';}).join("")+'</div>'; }
