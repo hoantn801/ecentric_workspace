@@ -124,6 +124,66 @@ def gantt(project):
     return {"project": project, "rows": rows}
 
 
+@frappe.whitelist()
+def gantt_all(project=None, assignee=None, status=None, priority=None, overdue=None):
+    """All-project Gantt (UX-4E2). Permission-scoped via the service layer. If `project`
+    is empty/'all', returns every task in the user's PM scope grouped client-side by
+    project (each row carries project + project_name). Additive, no schema.
+    """
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    today = frappe.utils.nowdate()
+
+    and_filters = {}
+    or_filters = None
+    if project and project != "all":
+        if not pmperm.can_view_project(project, user):
+            frappe.throw(_("Not permitted to view this project."), frappe.PermissionError)
+        and_filters["project"] = project
+    else:
+        or_filters = pmperm.task_scope_or_filters(user)  # None = all in PM
+    if status:
+        and_filters["workflow_state"] = status
+    if priority:
+        and_filters["priority"] = priority
+
+    tasks = frappe.get_all(
+        "Task", filters=and_filters or None, or_filters=or_filters,
+        fields=["name", "subject", "project", "exp_start_date", "exp_end_date",
+                "progress", "workflow_state", "parent_task", "priority", "_assign"],
+        order_by="project asc, exp_start_date asc, creation asc", limit_page_length=0,
+    )
+
+    if assignee:
+        tasks = [t for t in tasks
+                 if assignee in (frappe.parse_json(t.get("_assign") or "[]") or [])]
+    if overdue in (1, "1", True, "true", "True", "yes"):
+        def _od(t):
+            d = t.get("exp_end_date")
+            d = str(d)[:10] if d else None
+            return bool(d and d < today and t.get("workflow_state") not in ("Done", "Cancelled"))
+        tasks = [t for t in tasks if _od(t)]
+
+    proj_ids = list({t["project"] for t in tasks if t.get("project")})
+    pnames = {}
+    if proj_ids:
+        for r in frappe.get_all("Project", filters={"name": ["in", proj_ids]},
+                                fields=["name", "project_name"]):
+            pnames[r["name"]] = r.get("project_name")
+
+    rows = []
+    for t in tasks:
+        rows.append({
+            "id": t["name"], "name": t["name"], "subject": t["subject"],
+            "project": t["project"], "project_name": pnames.get(t["project"]) or t["project"],
+            "start": t.get("exp_start_date"), "end": t.get("exp_end_date"),
+            "progress": t.get("progress") or 0, "workflow_state": t.get("workflow_state"),
+            "parent_task": t.get("parent_task"), "priority": t.get("priority"),
+            "_assign": t.get("_assign"),
+        })
+    return {"rows": rows}
+
+
 # --------------------------------------------------------------------------
 # WRITE (PM1-T06) - permission validated in service layer; DocPerm + audit apply
 # --------------------------------------------------------------------------
