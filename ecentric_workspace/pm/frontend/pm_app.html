@@ -304,13 +304,10 @@
       <a class="nav-item" data-view="dashboard"><svg class="icon"><use href="#p-grid"/></svg><span>Tổng quan</span></a>
       <a class="nav-item" data-view="mytasks"><svg class="icon"><use href="#p-inbox"/></svg><span>Việc của tôi</span></a>
       <a class="nav-item" data-view="projects"><svg class="icon"><use href="#p-folder"/></svg><span>Dự án</span></a>
-      <a class="nav-item" data-view="tasks"><svg class="icon"><use href="#p-list"/></svg><span>Nhiệm vụ</span></a>
-      <a class="nav-item" data-view="board"><svg class="icon"><use href="#p-kanban"/></svg><span>Kanban</span></a>
-      <a class="nav-item" data-view="gantt"><svg class="icon"><use href="#p-gantt"/></svg><span>Gantt</span></a>
-      <a class="nav-item" data-view="calendar"><svg class="icon"><use href="#p-calendar"/></svg><span>Lịch</span></a>
+      <a class="nav-item" data-view="work"><svg class="icon"><use href="#p-list"/></svg><span>Công việc</span></a>
+      <a class="nav-item" data-view="timesheet"><svg class="icon"><use href="#p-clock"/></svg><span>Timesheet</span></a>
       <a class="nav-item" data-view="recurring"><svg class="icon"><use href="#p-repeat"/></svg><span>Recurring</span></a>
       <a class="nav-item" data-view="notifications"><svg class="icon"><use href="#p-bell"/></svg><span>Thông báo</span></a>
-      <a class="nav-item" data-view="timesheet"><svg class="icon"><use href="#p-clock"/></svg><span>Timesheet</span></a>
       <div class="nav-label" style="margin-top:10px;">Khác</div>
       <a class="nav-item" href="/home"><svg class="icon"><use href="#p-back"/></svg><span>Về Workspace</span></a>
     </nav>
@@ -346,7 +343,7 @@
 (function(){
   var PM="ecentric_workspace.pm.api.";
   var COLS=["Backlog","To Do","In Progress","Blocked","Review","Done","Cancelled"];
-  var CRUMB={dashboard:"Tổng quan",mytasks:"Việc của tôi",projects:"Dự án",tasks:"Nhiệm vụ",board:"Kanban",gantt:"Gantt",calendar:"Lịch",timesheet:"Timesheet",recurring:"Recurring",notifications:"Thông báo"};
+  var CRUMB={dashboard:"Tổng quan",mytasks:"Việc của tôi",projects:"Dự án",work:"Công việc",tasks:"Công việc",board:"Công việc",gantt:"Công việc",calendar:"Công việc",timesheet:"Timesheet",recurring:"Recurring",notifications:"Thông báo"};
   var LIVE=(location.protocol!=="file:");  // live over http(s); mock only for offline file:// preview
   var el=function(id){return document.getElementById(id);};
   function st(s){return "st-"+(s||"Backlog").replace(/\s/g,"");}
@@ -644,11 +641,18 @@
     Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"),function(b){b.onclick=function(){var p=b.getAttribute("data-preset");F.preset=(F.preset===p?"":p);Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"),function(x){x.classList.toggle("primary",x.getAttribute("data-preset")===F.preset);});rerender();};});}
   function segActions(active){return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div class="seg"><button data-seg="list" class="'+(active==="list"?"active":"")+'">Danh sách</button><button data-seg="board" class="'+(active==="board"?"active":"")+'">Kanban</button></div><button class="pm-btn primary" data-new="1"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button></div>';}
   function wireSeg(){Array.prototype.forEach.call(el("pm-view").querySelectorAll("[data-seg]"),function(b){b.onclick=function(){b.getAttribute("data-seg")==="board"?showBoard():showTasks();};});var n=el("pm-view").querySelector("[data-new]");if(n)n.onclick=function(){newTask(null);};}
-  function showTasks(){var c=el("pm-view");spin(c);
+  // ---- Unified "Công việc" page: tabbed views (Danh sách/Kanban/Lịch/Gantt/Bảng) ----
+  function workTabs(active){var T=[["tasks","list","Danh sách"],["board","board","Kanban"],["calendar","calendar","Lịch"],["gantt","gantt","Gantt"],["table","table","Bảng"]];
+    return '<div class="seg work-tabs">'+T.map(function(t){return '<button data-wt="'+t[0]+'"'+(active===t[1]?' class="active"':'')+'>'+t[2]+'</button>';}).join("")+'</div>';}
+  function workHeader(active){return '<div class="pm-head"><div><h1>Công việc</h1></div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+workTabs(active)+'<button class="pm-btn primary" data-new="1"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button></div></div>';}
+  function wireWorkTabs(){Array.prototype.forEach.call(el("pm-view").querySelectorAll("[data-wt]"),function(b){b.onclick=function(){go(b.getAttribute("data-wt"));};});var n=el("pm-view").querySelector("[data-new]");if(n)n.onclick=function(){newTask(null);};}
+  function showWork(){var v=window._workView;if(!v){try{v=localStorage.getItem("pm_work_view");}catch(_){}window._workView=v=v||"list";}
+    if(v==="board")showBoard();else if(v==="calendar")showCalendar();else if(v==="gantt")showGantt();else if(v==="table")showTasks(true);else showTasks();}
+  function showTasks(asTable){var c=el("pm-view");spin(c);
     loadTasks(function(){
-      c.innerHTML=head("Nhiệm vụ",(window._pm_tasks.length)+" nhiệm vụ trong phạm vi của bạn",segActions("list"))+
+      c.innerHTML=workHeader(asTable?"table":"list")+
         presetBar()+filterBar()+'<div class="panel"><div id="pm-ttbl"></div></div>';
-      wireSeg(); wireFilters(renderTasks); renderTasks();
+      wireWorkTabs(); wireFilters(renderTasks); renderTasks();
     },c);}
   function renderTasks(){taskTable(el("pm-ttbl"),filteredTasks());}
 
@@ -663,9 +667,9 @@
 
   function showBoard(){var c=el("pm-view");spin(c);
     loadTasks(function(){
-      c.innerHTML=head("Kanban","Kéo thẻ sang cột khác để chuyển trạng thái",segActions("board"))+
+      c.innerHTML=workHeader("board")+
         presetBar()+filterBar()+'<div id="pm-boardwrap"></div>';
-      wireSeg(); wireFilters(renderBoard); renderBoard();
+      wireWorkTabs(); wireFilters(renderBoard); renderBoard();
     },c);}
   function renderBoard(){renderBoardInto(el("pm-boardwrap"),filteredTasks(),showBoard);}
   function renderBoardInto(host,rows,after){var by={};COLS.forEach(function(s){by[s]=[];});rows.forEach(function(t){var s=t.workflow_state||"Backlog";(by[s]=by[s]||[]).push(t);});
@@ -919,7 +923,8 @@
     var projs=uniq(rows.map(function(t){return t.project;}));var asg=uniq([].concat.apply([],rows.map(function(t){return names(t._assign);})));
     var headh='<div class="cal-head"><button class="pm-btn" id="cal-today">Hôm nay</button><button class="pm-btn" id="cal-prev">‹</button><button class="pm-btn" id="cal-next">›</button><div style="font-weight:700;font-size:16px;min-width:160px">'+esc(label)+'</div>'+gSeg("cal-view","calview",[["month","Tháng"],["week","Tuần"]],view)+'</div>';
     var filt='<div class="pm-filters" style="margin-bottom:14px"><select class="pm-sel" id="cal-proj"><option value="">Mọi dự án</option>'+projs.map(function(p){var pn=(rows.filter(function(t){return t.project===p;})[0]||{}).project_name||p;return '<option value="'+esc(p)+'"'+(F.project===p?' selected':'')+'>'+esc(pn)+'</option>';}).join("")+'</select><select class="pm-sel" id="cal-status"><option value="">Mọi trạng thái</option>'+COLS.map(function(s){return opt(s,s,F.status);}).join("")+'</select><select class="pm-sel" id="cal-asg"><option value="">Mọi người nhận</option>'+asg.map(function(a){return opt(a,a,F.assignee);}).join("")+'</select><button class="pm-btn'+(F.mine?' primary':'')+'" id="cal-mine">Việc của tôi</button><button class="pm-btn'+(F.overdue?' primary':'')+'" id="cal-od">Quá hạn</button></div>';
-    c.innerHTML=head("Lịch","Kế hoạch theo ngày — theo hạn (due date)")+headh+filt+'<div id="cal-body">'+((view==="month")?renderCalMonth():renderCalWeek())+'</div>';
+    c.innerHTML=workHeader("calendar")+headh+filt+'<div id="cal-body">'+((view==="month")?renderCalMonth():renderCalWeek())+'</div>';
+    wireWorkTabs();
     el("cal-today").onclick=function(){window._calRef=new Date();renderCalendar();};
     el("cal-prev").onclick=function(){calStep(-1);};el("cal-next").onclick=function(){calStep(1);};
     Array.prototype.forEach.call(el("cal-view").children,function(btn){btn.onclick=function(){window._calView=btn.getAttribute("data-calview");renderCalendar();};});
@@ -932,8 +937,9 @@
 
   function showGantt(){var c=el("pm-view");spin(c);
     api(PM+"projects.list",{page_length:200}).then(function(r){var rows=r.rows||[];window._pm_projects=rows;var sel=window._pm_gproj||"";
-      c.innerHTML=head("Gantt","Tất cả dự án trong phạm vi — nhóm theo dự án",'<select class="pm-sel" id="g-proj" style="min-width:230px"><option value="all"'+((window._pm_gproj||"all")==="all"?" selected":"")+'>Tất cả dự án</option>'+rows.map(function(p){return opt(p.name,p.project_name||p.name,window._pm_gproj);}).join("")+'</select>')+
+      c.innerHTML=workHeader("gantt")+
         '<div class="panel"><div class="g-ctrlbar">'+
+          '<span style="font-size:12px;color:var(--gray-500)">Dự án:</span><select class="pm-sel" id="g-proj" style="min-width:190px"><option value="all"'+((window._pm_gproj||"all")==="all"?" selected":"")+'>Tất cả dự án</option>'+rows.map(function(p){return opt(p.name,p.project_name||p.name,window._pm_gproj);}).join("")+'</select><span style="display:inline-block;width:8px"></span>'+
           '<span style="font-size:12px;color:var(--gray-500)">Nhóm:</span>'+gSeg("g-group","group",[["project","Dự án"],["people","Người"]],window._gGroup||"project")+'<span style="display:inline-block;width:8px"></span>'+
           '<span style="font-size:12px;color:var(--gray-500)">Mức:</span>'+gSeg("g-scale","scale",[["day","Ngày"],["week","Tuần"],["month","Tháng"]],window._gScale||"week")+
           '<span style="font-size:12px;color:var(--gray-500);margin-left:6px">Phạm vi:</span>'+gSeg("g-range","range",[["today","Hôm nay"],["week","Tuần này"],["month","Tháng này"],["all","Tất cả"],["custom","Tuỳ chọn"]],window._gRange||"all")+
@@ -944,6 +950,7 @@
       Array.prototype.forEach.call(el("g-range").children,function(btn){btn.onclick=function(){window._gRange=btn.getAttribute("data-range");Array.prototype.forEach.call(el("g-range").children,function(x){x.classList.toggle("active",x===btn);});el("g-custom").style.display=(window._gRange==="custom")?"inline-flex":"none";if(window._gRange!=="custom")loadGantt();};});
       Array.prototype.forEach.call(el("g-group").children,function(btn){btn.onclick=function(){window._gGroup=btn.getAttribute("data-group");window._gCollapsed={};Array.prototype.forEach.call(el("g-group").children,function(x){x.classList.toggle("active",x===btn);});applyGantt();};});
       if(el("g-apply"))el("g-apply").onclick=function(){window._gCustom={from:el("g-from").value,to:el("g-to").value};loadGantt();};
+      wireWorkTabs();
       loadGantt();
     }).catch(function(e){errBox(c,e);});}
   function gVScrollEl(){var x=el("g-body");while(x){var s;try{s=getComputedStyle(x);}catch(_){return null;}if((s.overflowY==="auto"||s.overflowY==="scroll")&&x.scrollHeight>x.clientHeight+2)return x;x=x.parentElement;}return null;}
@@ -1133,9 +1140,12 @@
   function soon(view){var c=el("pm-view");var map={gantt:["Gantt","Biểu đồ Gantt theo ngày bắt đầu/kết thúc của nhiệm vụ."],timesheet:["Timesheet","Ghi nhận giờ làm việc theo nhiệm vụ (native Timesheet)."],recurring:["Recurring","Nhiệm vụ lặp: daily / weekly / biweekly / monthly."],notifications:["Thông báo","Thông báo giao việc, cập nhật, quá hạn."]};
     var v=map[view]||["Sắp có",""]; c.innerHTML=head(v[0],v[1])+'<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-'+(view==="notifications"?"bell":view==="timesheet"?"clock":view==="recurring"?"repeat":"gantt")+'"/></svg><div>Đang phát triển — sẽ có ở bước tiếp theo của Phase này.</div></div></div>';}
 
-  var VIEWS={dashboard:showDashboard,mytasks:showMyTasks,projects:showProjects,tasks:showTasks,board:showBoard,gantt:showGantt,calendar:showCalendar,timesheet:showTimesheet,recurring:showRecurring,notifications:showNotifications};
-  function go(v){window._curView=v;Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.classList.toggle("active",b.getAttribute("data-view")===v);});
-    el("pm-crumb").textContent=CRUMB[v]||"Tổng quan"; (VIEWS[v]||showDashboard)();}
+  var VIEWS={dashboard:showDashboard,mytasks:showMyTasks,projects:showProjects,work:showWork,tasks:showTasks,board:showBoard,gantt:showGantt,calendar:showCalendar,timesheet:showTimesheet,recurring:showRecurring,notifications:showNotifications};
+  function go(v){var WM={tasks:"list",board:"board",gantt:"gantt",calendar:"calendar",table:"table",work:null};var isW=Object.prototype.hasOwnProperty.call(WM,v);var navKey=isW?"work":v;
+    window._curView=navKey;Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.classList.toggle("active",b.getAttribute("data-view")===navKey);});
+    el("pm-crumb").textContent=isW?"Công việc":(CRUMB[v]||"Tổng quan");
+    if(isW){if(WM[v])window._workView=WM[v];try{localStorage.setItem("pm_work_view",window._workView||"list");}catch(_){}showWork();}
+    else (VIEWS[v]||showDashboard)();}
   Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.onclick=function(){go(b.getAttribute("data-view"));};});
   el("pm-search").addEventListener("keydown",function(e){if(e.key==="Enter"){F.q=this.value.trim().toLowerCase();go("tasks");}});
 
