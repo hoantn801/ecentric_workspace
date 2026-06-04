@@ -108,7 +108,8 @@
   .seg{ display:inline-flex; background:var(--gray-100); border-radius:8px; padding:3px; }
   .seg button{ border:none; background:transparent; padding:6px 12px; border-radius:6px; font-size:13px; font-weight:600; color:var(--gray-500); cursor:pointer; font-family:inherit; }
   .seg button.active{ background:#fff; color:var(--navy); box-shadow:0 1px 2px rgba(0,0,0,.06); }
-  .pm-filters{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+  .pm-filters{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+  .pm-preset{ font-size:12px; padding:5px 11px; font-weight:500; }
   .pm-filters .pm-input{ min-width:170px; }
   .pm-chk{ display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--gray-600); border:1px solid var(--gray-200); border-radius:8px; padding:7px 12px; cursor:pointer; background:#fff; user-select:none; }
   .pm-chk input{ accent-color:var(--navy); margin:0; }
@@ -630,21 +631,19 @@
       '<select class="pm-sel" id="f-project"><option value="">Mọi dự án</option>'+projs.map(function(p){return opt(p,p,F.project);}).join("")+'</select>'+
       '<select class="pm-sel" id="f-assignee"><option value="">Mọi người nhận</option>'+asg.map(function(a){return opt(a,a,F.assignee);}).join("")+'</select>'+
       '<select class="pm-sel" id="f-priority"><option value="">Mọi ưu tiên</option>'+pri.map(function(p){return opt(p,p,F.priority);}).join("")+'</select>'+
-      '<button class="pm-btn'+(F.overdue?' primary':'')+'" id="f-overdue">Quá hạn</button>'+
       '<button class="pm-btn" id="f-clear">Xóa lọc</button></div>';}
   function wireFilters(rerender){
     var q=el("f-q");if(q)q.oninput=function(){F.q=this.value.toLowerCase();rerender();};
     ["status","project","assignee","priority"].forEach(function(k){var e2=el("f-"+k);if(e2)e2.onchange=function(){F[k]=this.value;rerender();};});
-    var ov=el("f-overdue");if(ov)ov.onclick=function(){F.overdue=!F.overdue;this.classList.toggle("primary",F.overdue);rerender();};
     var cl=el("f-clear");if(cl)cl.onclick=function(){F={status:"",project:"",assignee:"",priority:"",overdue:false,q:"",preset:""};
-      var x=el("f-q");if(x)x.value="";["f-status","f-project","f-assignee","f-priority"].forEach(function(id){var e3=el(id);if(e3)e3.value="";});var o2=el("f-overdue");if(o2)o2.classList.remove("primary");Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"),function(x){x.classList.remove("primary");});rerender();};
+      var x=el("f-q");if(x)x.value="";["f-status","f-project","f-assignee","f-priority"].forEach(function(id){var e3=el(id);if(e3)e3.value="";});Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"),function(x){x.classList.remove("primary");});rerender();};
     Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"),function(b){b.onclick=function(){var p=b.getAttribute("data-preset");F.preset=(F.preset===p?"":p);Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"),function(x){x.classList.toggle("primary",x.getAttribute("data-preset")===F.preset);});rerender();};});}
   function segActions(active){return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div class="seg"><button data-seg="list" class="'+(active==="list"?"active":"")+'">Danh sách</button><button data-seg="board" class="'+(active==="board"?"active":"")+'">Kanban</button></div><button class="pm-btn primary" data-new="1"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button></div>';}
   function wireSeg(){Array.prototype.forEach.call(el("pm-view").querySelectorAll("[data-seg]"),function(b){b.onclick=function(){b.getAttribute("data-seg")==="board"?showBoard():showTasks();};});var n=el("pm-view").querySelector("[data-new]");if(n)n.onclick=function(){newTask(null);};}
   // ---- Unified "Công việc" page: tabbed views (Danh sách/Kanban/Lịch/Gantt/Bảng) ----
   function workTabs(active){var T=[["tasks","list","Danh sách"],["board","board","Kanban"],["calendar","calendar","Lịch"],["gantt","gantt","Gantt"],["table","table","Bảng"]];
     return '<div class="seg work-tabs">'+T.map(function(t){return '<button data-wt="'+t[0]+'"'+(active===t[1]?' class="active"':'')+'>'+t[2]+'</button>';}).join("")+'</div>';}
-  function workHeader(active){return '<div class="pm-head"><div><h1>Công việc</h1></div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+workTabs(active)+'<button class="pm-btn primary" data-new="1"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button></div></div>';}
+  function workHeader(active){return '<div class="pm-head"><div><h1>Công việc</h1></div><div>'+workTabs(active)+'</div></div>';}
   function wireWorkTabs(){Array.prototype.forEach.call(el("pm-view").querySelectorAll("[data-wt]"),function(b){b.onclick=function(){go(b.getAttribute("data-wt"));};});var n=el("pm-view").querySelector("[data-new]");if(n)n.onclick=function(){newTask(null);};}
   function showWork(){var v=window._workView;if(!v){try{v=localStorage.getItem("pm_work_view");}catch(_){}window._workView=v=v||"list";}
     if(v==="board")showBoard();else if(v==="calendar")showCalendar();else if(v==="gantt")showGantt();else if(v==="table")showTasks(true);else showTasks();}
@@ -675,7 +674,7 @@
   function renderBoardInto(host,rows,after){var by={};COLS.forEach(function(s){by[s]=[];});rows.forEach(function(t){var s=t.workflow_state||"Backlog";(by[s]=by[s]||[]).push(t);});
     host.innerHTML='<div class="pm-board">'+COLS.map(function(s){return '<div class="pm-col" data-col="'+esc(s)+'"><h3>'+badge(s)+'<span class="col-count">'+by[s].length+'</span></h3><div class="col-body" data-body="'+esc(s)+'">'+by[s].map(card).join("")+'</div></div>';}).join("")+'</div>';
     wireBoard(host,after);}
-  function card(t){var a=names(t._assign);var tags=tagsCompact(t,3);
+  function card(t){var a=names(t._assign);var tags=tagsCompact(t,2);
     return '<div class="pm-card'+(isOverdue(t)?' card-overdue':'')+'" draggable="true" data-task="'+esc(t.name)+'" data-state="'+esc(t.workflow_state)+'">'+
       '<div class="c-title">'+esc(t.subject||t.name)+'</div>'+
       (tags?'<div class="c-tags pm-tags">'+tags+'</div>':'')+
