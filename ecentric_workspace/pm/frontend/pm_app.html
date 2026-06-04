@@ -181,6 +181,17 @@
   .gantt-bar{ position:absolute; top:7px; height:18px; border-radius:5px; cursor:pointer; overflow:hidden; min-width:6px; box-shadow:0 1px 2px rgba(0,0,0,.12); }
   .gantt-bar .fill{ position:absolute; left:0; top:0; height:100%; background:rgba(0,0,0,.20); }
   .gantt-bar .lab{ position:relative; font-size:10.5px; color:#fff; padding:0 6px; line-height:18px; white-space:nowrap; font-weight:600; }
+  .gantt-bar.is-overdue{ outline:2px solid var(--pink); outline-offset:-1px; }
+  .g-ctrlbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:10px 14px; border-bottom:1px solid var(--gray-100); }
+  .g-seg{ display:inline-flex; border:1px solid var(--gray-200); border-radius:8px; overflow:hidden; }
+  .g-seg button{ background:#fff; border:none; padding:6px 12px; font-size:12.5px; color:var(--gray-600); cursor:pointer; border-left:1px solid var(--gray-200); }
+  .g-seg button:first-child{ border-left:none; }
+  .g-seg button.active{ background:var(--navy); color:#fff; font-weight:600; }
+  .g-proj-row{ display:grid; grid-template-columns:220px 1fr; align-items:center; background:var(--gray-50); border-bottom:1px solid var(--gray-200); }
+  .g-proj-label{ padding:9px 12px; font-weight:700; font-size:13px; color:var(--gray-900); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .g-caret{ display:inline-block; width:14px; color:var(--gray-500); cursor:pointer; }
+  .g-caret.collapsed{ display:inline-block; transform:rotate(-90deg); }
+  .gantt-label.is-parent{ font-weight:600; color:var(--gray-900); }
 
   .pm-board{ display:flex; gap:12px; overflow-x:auto; padding-bottom:10px; }
   .pm-col{ min-width:230px; flex:1; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:12px; display:flex; flex-direction:column; }
@@ -353,7 +364,7 @@
     else if(m==="tasks.set_status"){var t=M.t.filter(function(x){return x.name===args.name;})[0];var nx=(TR[t.workflow_state]||[]).filter(function(a){return a[0]===args.action;})[0];if(nx)t.workflow_state=nx[1];res({name:t.name,workflow_state:t.workflow_state});}
     else if(m==="tasks.create"){var nm="TASK-"+(2000+M.t.length);M.t.push({name:nm,subject:args.subject,workflow_state:"Backlog",status:"Open",project:args.project,parent_task:args.parent_task||null,_assign:null,owner:"you@ecentric.vn"});res({name:nm,subject:args.subject,project:args.project});}
     else if(m==="tasks.assign"){var t=M.t.filter(function(x){return x.name===args.name;})[0];t._assign=JSON.stringify(args.users);res({name:t.name,assigned:args.users,_assign:t._assign});}
-    else if(m==="tasks.gantt"){var gt=M.t.filter(function(t){return t.project===args.project;});res({project:args.project,rows:gt.map(function(t,i){return {id:t.name,name:t.name,subject:t.subject,project:t.project,start:(i===gt.length-1?null:"2026-06-0"+(i+1)),end:(i===gt.length-1?null:"2026-06-1"+i),progress:[20,55,80,100,0,40,65][i%7],workflow_state:t.workflow_state,parent_task:t.parent_task,dependencies:[]};})});}
+    else if(m==="tasks.gantt"){var gt=M.t.filter(function(t){return t.project===args.project;});res({project:args.project,rows:gt.map(function(t,i){return {id:t.name,name:t.name,subject:t.subject,project:t.project,start:(i===gt.length-1?null:"2026-06-0"+(i+1)),end:(i===gt.length-1?null:"2026-06-1"+i),progress:[20,55,80,100,0,40,65][i%7],workflow_state:t.workflow_state,parent_task:t.parent_task,priority:t.priority,_assign:t._assign,dependencies:[]};})});}
     else if(m==="timesheet.list"){if(!M.ts)M.ts=[];var tr=M.ts.filter(function(x){return x.task===args.task;});res({rows:tr,total_hours:tr.reduce(function(a,b){return a+b.hours;},0)});}
     else if(m==="timesheet.log"){if(!M.ts)M.ts=[];var w={task:args.task,project:null,from_time:(args.log_date||"2026-06-02")+" 09:00:00",hours:parseFloat(args.hours),description:args.description,owner:"you@ecentric.vn"};M.ts.push(w);res({timesheet:"TS-"+M.ts.length,task:args.task,hours:w.hours});}
     else if(m==="timer.get_active"){if(!M.tm)return res({active:false});var e3=M.tm.acc+(M.tm.status==="Running"?Math.floor((Date.now()-M.tm.t0)/1000):0);res({active:true,task:M.tm.task,project:null,status:M.tm.status,elapsed_seconds:e3});}
@@ -764,40 +775,80 @@
   function gColor(s){return {"Backlog":"#9ca3af","To Do":"#2f6fb3","In Progress":"#15917a","Blocked":"#c0392b","Review":"#b8860b","Done":"#0a7a4f","Cancelled":"#cbd5e1"}[s]||"#2C3DA6";}
   function dnum(s){if(!s)return null;var d=new Date(String(s).slice(0,10)+"T00:00:00");var t=d.getTime();return isNaN(t)?null:t;}
   function fmtD(ms){if(ms==null||isNaN(ms))return "—";var d=new Date(ms);return (d.getMonth()+1)+"/"+d.getDate();}
+  // ---- Gantt advanced core (UX-4E): range / scale / grid / hierarchy / collapse ----
+  function gStartOfDay(ms){var d=new Date(ms);d.setHours(0,0,0,0);return d.getTime();}
+  function gStartOfWeek(ms){var d=new Date(ms);var dow=(d.getDay()+6)%7;d.setDate(d.getDate()-dow);d.setHours(0,0,0,0);return d.getTime();}
+  function gFmtMonth(ms){var d=new Date(ms);return "Th"+(d.getMonth()+1)+"/"+(""+d.getFullYear()).slice(2);}
+  function gIsCollapsed(id){return !!(window._gCollapsed&&window._gCollapsed[id]);}
+  function gOverdue(t){var e=dnum(t.end);if(e==null)return false;return e<dnum(new Date().toISOString().slice(0,10))&&["Done","Cancelled"].indexOf(t.workflow_state)<0;}
+  function gDomain(rows){var r=window._gRange||"all";var todayMs=dnum(new Date().toISOString().slice(0,10));
+    if(r==="today")return [gStartOfDay(todayMs),gStartOfDay(todayMs)+86400000];
+    if(r==="week"){var ws=gStartOfWeek(todayMs);return [ws,ws+7*86400000];}
+    if(r==="month"){var d=new Date();return [new Date(d.getFullYear(),d.getMonth(),1).getTime(),new Date(d.getFullYear(),d.getMonth()+1,1).getTime()];}
+    if(r==="custom"&&window._gCustom&&window._gCustom.from&&window._gCustom.to){var a=dnum(window._gCustom.from),b=dnum(window._gCustom.to);if(a!=null&&b!=null&&b>=a)return [a,b+86400000];}
+    var st=rows.map(function(t){return dnum(t.start);}).filter(function(x){return x!=null;});var en=rows.map(function(t){return dnum(t.end);}).filter(function(x){return x!=null;});
+    if(!st.length)return [gStartOfDay(todayMs),gStartOfDay(todayMs)+30*86400000];
+    var mn=Math.min.apply(null,st),mx=Math.max.apply(null,en);if(mx<=mn)mx=mn+86400000;return [mn-86400000,mx+86400000];}
+  function gTicks(min,max){var scale=window._gScale||"week";var ticks=[],t;
+    if(scale==="day"){for(t=gStartOfDay(min);t<=max;t+=86400000)ticks.push({ms:t,label:fmtD(t)});}
+    else if(scale==="week"){for(t=gStartOfWeek(min);t<=max;t+=7*86400000)ticks.push({ms:t,label:fmtD(t)});}
+    else{var d=new Date(min);t=new Date(d.getFullYear(),d.getMonth(),1).getTime();while(t<=max){ticks.push({ms:t,label:gFmtMonth(t)});var dd=new Date(t);t=new Date(dd.getFullYear(),dd.getMonth()+1,1).getTime();}}
+    if(ticks.length>120){var step=Math.ceil(ticks.length/120);ticks=ticks.filter(function(x,i){return i%step===0;});}
+    return ticks;}
+  function gCellW(){return {day:46,week:72,month:96}[window._gScale||"week"]||72;}
+  function gOrder(rows){var byP={},roots=[],ids={};rows.forEach(function(t){ids[t.id]=t;});
+    rows.forEach(function(t){var p=t.parent_task;if(p&&ids[p])(byP[p]=byP[p]||[]).push(t);else roots.push(t);});
+    var out=[];function walk(t,dep){var hc=!!(byP[t.id]&&byP[t.id].length);out.push({t:t,depth:dep,hasChildren:hc});if(hc&&!gIsCollapsed(t.id))byP[t.id].forEach(function(c){walk(c,dep+1);});}
+    roots.forEach(function(t){walk(t,0);});return out;}
+  function gSeg(id,attr,opts,cur){return '<div class="g-seg" id="'+id+'">'+opts.map(function(o){return '<button data-'+attr+'="'+o[0]+'"'+(cur===o[0]?' class="active"':'')+'>'+o[1]+'</button>';}).join("")+'</div>';}
   function showGantt(){var c=el("pm-view");spin(c);
-    api(PM+"projects.list",{page_length:200}).then(function(r){var rows=r.rows||[];var sel=window._pm_gproj||"";
+    api(PM+"projects.list",{page_length:200}).then(function(r){var rows=r.rows||[];window._pm_projects=rows;var sel=window._pm_gproj||"";
       c.innerHTML=head("Gantt","Tiến độ theo thời gian — theo từng dự án",'<select class="pm-sel" id="g-proj" style="min-width:230px"><option value="">— Chọn dự án —</option>'+rows.map(function(p){return opt(p.name,p.project_name||p.name,sel);}).join("")+'</select>')+
-        '<div class="panel"><div id="g-body"></div></div>';
-      el("g-proj").onchange=function(){window._pm_gproj=this.value;loadGantt();};
+        '<div class="panel"><div class="g-ctrlbar">'+
+          '<span style="font-size:12px;color:var(--gray-500)">Mức:</span>'+gSeg("g-scale","scale",[["day","Ngày"],["week","Tuần"],["month","Tháng"]],window._gScale||"week")+
+          '<span style="font-size:12px;color:var(--gray-500);margin-left:6px">Phạm vi:</span>'+gSeg("g-range","range",[["today","Hôm nay"],["week","Tuần này"],["month","Tháng này"],["all","Tất cả"],["custom","Tuỳ chọn"]],window._gRange||"all")+
+          '<span id="g-custom" style="display:'+((window._gRange==="custom")?"inline-flex":"none")+';gap:6px;align-items:center"><input class="pm-input" id="g-from" type="date" style="background-image:none;padding-left:10px" value="'+esc((window._gCustom&&window._gCustom.from)||"")+'"><input class="pm-input" id="g-to" type="date" style="background-image:none;padding-left:10px" value="'+esc((window._gCustom&&window._gCustom.to)||"")+'"><button class="pm-btn" id="g-apply">Áp dụng</button></span>'+
+        '</div><div id="g-body"></div></div>';
+      el("g-proj").onchange=function(){window._pm_gproj=this.value;window._gCollapsed={};loadGantt();};
+      Array.prototype.forEach.call(el("g-scale").children,function(btn){btn.onclick=function(){window._gScale=btn.getAttribute("data-scale");Array.prototype.forEach.call(el("g-scale").children,function(x){x.classList.toggle("active",x===btn);});loadGantt();};});
+      Array.prototype.forEach.call(el("g-range").children,function(btn){btn.onclick=function(){window._gRange=btn.getAttribute("data-range");Array.prototype.forEach.call(el("g-range").children,function(x){x.classList.toggle("active",x===btn);});el("g-custom").style.display=(window._gRange==="custom")?"inline-flex":"none";if(window._gRange!=="custom")loadGantt();};});
+      if(el("g-apply"))el("g-apply").onclick=function(){window._gCustom={from:el("g-from").value,to:el("g-to").value};loadGantt();};
       loadGantt();
     }).catch(function(e){errBox(c,e);});}
   function loadGantt(){var b=el("g-body");if(!window._pm_gproj){return emptyBox(b,"Chọn một dự án để xem Gantt.");}
     spin(b); api(PM+"tasks.gantt",{project:window._pm_gproj}).then(function(d){renderGantt(b,d.rows||[]);}).catch(function(e){errBox(b,e);});}
   function renderGantt(b,rows){
     if(!rows.length){return emptyBox(b,"Dự án chưa có nhiệm vụ.");}
-    var sched=rows.filter(function(t){return dnum(t.start)!=null&&dnum(t.end)!=null;}); var unsched=rows.filter(function(t){return dnum(t.start)==null||dnum(t.end)==null;});
-    var html="";
-    if(sched.length){
-      var starts=sched.map(function(t){return dnum(t.start);}); var ends=sched.map(function(t){return dnum(t.end);});
-      var min=Math.min.apply(null,starts); var max=Math.max.apply(null,ends); if(max<=min){max=min+86400000;} var span=max-min;
-      var T=5, ticks="", grid="";
-      for(var i=0;i<=T;i++){var p=i/T*100; ticks+='<div class="tick" style="left:'+p+'%">'+fmtD(min+span*i/T)+'</div>'; grid+='<div class="gl" style="left:'+p+'%"></div>';}
-      var todayMs=dnum(new Date().toISOString().slice(0,10));
-      if(todayMs!=null&&todayMs>=min&&todayMs<=max){grid+='<div class="g-today" style="left:'+((todayMs-min)/span*100)+'%"></div>';}
-      html+='<div class="gantt-wrap"><div class="gantt"><div class="gantt-axis"><div></div><div class="ticks">'+ticks+'</div></div>';
-      sched.forEach(function(t){var s=dnum(t.start),e=dnum(t.end); var left=(s-min)/span*100; var w=Math.max((e-s)/span*100,1.5);
-        var col=gColor(t.workflow_state); var prog=Math.max(0,Math.min(100,Math.round(t.progress||0)));
-        var ind=t.parent_task?'<span class="ind"></span>':'';
-        html+='<div class="gantt-row"><div class="gantt-label" data-task="'+esc(t.id)+'">'+ind+esc(t.subject||t.id)+'</div>'+
-          '<div class="gantt-track"><div class="gantt-grid">'+grid+'</div>'+
-          '<div class="gantt-bar" data-task="'+esc(t.id)+'" title="'+esc((t.subject||"")+" · "+(t.workflow_state||"")+" · "+prog+"%")+'" style="left:'+left+'%;width:'+w+'%;background:'+col+'"><div class="fill" style="width:'+prog+'%"></div><div class="lab">'+(w>12?esc(t.workflow_state||"")+(prog?" "+prog+"%":""):"")+'</div></div></div></div>';
+    var sched=rows.filter(function(t){return dnum(t.start)!=null&&dnum(t.end)!=null;});
+    var unsched=rows.filter(function(t){return dnum(t.start)==null||dnum(t.end)==null;});
+    var dom=gDomain(rows),min=dom[0],max=dom[1],span=Math.max(max-min,86400000);
+    var ticks=gTicks(min,max),chartW=Math.max(680,ticks.length*gCellW());
+    var todayMs=dnum(new Date().toISOString().slice(0,10));
+    var tickHtml=ticks.map(function(tk){return '<div class="tick" style="left:'+((tk.ms-min)/span*100)+'%">'+esc(tk.label)+'</div>';}).join("");
+    var gridHtml=ticks.map(function(tk){return '<div class="gl" style="left:'+((tk.ms-min)/span*100)+'%"></div>';}).join("");
+    if(todayMs!=null&&todayMs>=min&&todayMs<=max)gridHtml+='<div class="g-today" style="left:'+((todayMs-min)/span*100)+'%"></div>';
+    var projCollapsed=gIsCollapsed("__project__");
+    var projName=(window._pm_projects&&(window._pm_projects.filter(function(p){return p.name===window._pm_gproj;})[0]||{}).project_name)||window._pm_gproj;
+    var html='<div class="gantt-wrap"><div class="gantt" style="min-width:'+chartW+'px">';
+    html+='<div class="gantt-axis"><div></div><div class="ticks">'+tickHtml+'</div></div>';
+    html+='<div class="g-proj-row"><div class="g-proj-label" data-collapse="__project__"><span class="g-caret'+(projCollapsed?' collapsed':'')+'">▾</span> '+esc(projName)+' <span style="color:var(--gray-400);font-weight:500">('+sched.length+')</span></div><div class="gantt-track"><div class="gantt-grid">'+gridHtml+'</div></div></div>';
+    if(!projCollapsed){
+      gOrder(sched).forEach(function(it){var t=it.t,s=dnum(t.start),e=dnum(t.end);
+        var cs=Math.max(s,min),ce=Math.min(e,max),inDom=(ce>min&&cs<max);
+        var left=(cs-min)/span*100,w=Math.max((ce-cs)/span*100,0.8);
+        var col=gColor(t.workflow_state),prog=Math.max(0,Math.min(100,Math.round(t.progress||0))),od=gOverdue(t);
+        var caret=it.hasChildren?'<span class="g-caret'+(gIsCollapsed(t.id)?' collapsed':'')+'" data-collapse="'+esc(t.id)+'">▾</span>':'';
+        var bar=inDom?('<div class="gantt-bar'+(od?' is-overdue':'')+'" data-task="'+esc(t.id)+'" title="'+esc((t.subject||"")+" · "+(t.workflow_state||"")+" · "+prog+"%")+'" style="left:'+left+'%;width:'+w+'%;background:'+col+'"><div class="fill" style="width:'+prog+'%"></div><div class="lab">'+(w>10?esc(t.subject||""):"")+'</div></div>'):'';
+        html+='<div class="gantt-row"><div class="gantt-label'+(it.hasChildren?' is-parent':'')+'" data-task="'+esc(t.id)+'" style="padding-left:'+(12+it.depth*14)+'px">'+caret+esc(t.subject||t.id)+(od?' <span class="pm-tag tg-overdue" style="margin-left:6px">Quá hạn</span>':(t.priority==="Urgent"?' <span class="pm-tag tg-urgent" style="margin-left:6px">Urgent</span>':''))+'</div>'+
+          '<div class="gantt-track"><div class="gantt-grid">'+gridHtml+'</div>'+bar+'</div></div>';
       });
-      html+='</div></div>';
-    } else { html+='<div class="pm-state">Chưa có nhiệm vụ nào đủ ngày bắt đầu/kết thúc.</div>'; }
+    }
+    html+='</div></div>';
     if(unsched.length){ html+='<div style="padding:12px 16px;border-top:1px solid var(--gray-100)"><div style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Chưa lên lịch ('+unsched.length+') — thêm ngày để hiện trên timeline</div>'+
         unsched.map(function(t){return '<div class="pm-sub"><span data-task="'+esc(t.id)+'" style="cursor:pointer;flex:1">'+esc(t.subject||t.id)+'</span><span style="display:flex;align-items:center;gap:8px">'+badge(t.workflow_state)+'<button class="pm-btn g-add" data-add="'+esc(t.id)+'">+ Thêm ngày</button></span></div>';}).join("")+'</div>'; }
     b.innerHTML=html;
-    Array.prototype.forEach.call(b.querySelectorAll("[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});
+    Array.prototype.forEach.call(b.querySelectorAll("[data-collapse]"),function(x){x.onclick=function(e){e.stopPropagation();var id=x.getAttribute("data-collapse");window._gCollapsed=window._gCollapsed||{};window._gCollapsed[id]=!window._gCollapsed[id];renderGantt(b,rows);};});
+    Array.prototype.forEach.call(b.querySelectorAll(".gantt-label[data-task], .gantt-bar[data-task], .pm-sub [data-task]"),function(x){x.onclick=function(e){if(e)e.stopPropagation();openTask(x.getAttribute("data-task"));};});
     Array.prototype.forEach.call(b.querySelectorAll("[data-add]"),function(x){x.onclick=function(e){e.stopPropagation();openTaskEdit(x.getAttribute("data-add"));};});}
 
   var FREQ_VN={Daily:"Hằng ngày",Weekly:"Hằng tuần",Biweekly:"2 tuần/lần",Monthly:"Hằng tháng"};
