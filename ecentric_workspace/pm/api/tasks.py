@@ -164,7 +164,9 @@ def gantt_all(project=None, assignee=None, status=None, priority=None, overdue=N
             return bool(d and d < today and t.get("workflow_state") not in ("Done", "Cancelled"))
         tasks = [t for t in tasks if _od(t)]
 
-    proj_ids = list({t["project"] for t in tasks if t.get("project")})
+    # NOTE: this module defines `def list(...)`, which shadows the builtin `list`.
+    # Calling bare list(...) here would invoke tasks.list() -> bad SQL. Use sorted().
+    proj_ids = sorted({t["project"] for t in tasks if t.get("project")})
     pnames = {}
     if proj_ids:
         for r in frappe.get_all("Project", filters={"name": ["in", proj_ids]},
