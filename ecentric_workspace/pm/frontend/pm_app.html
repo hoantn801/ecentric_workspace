@@ -195,9 +195,10 @@
   .gantt-track.g-drop-active{ background:var(--navy-50); box-shadow:inset 0 0 0 1px var(--navy-100); }
   .pm-sub[draggable="true"]{ cursor:grab; }
   .pm-sub[draggable="true"]:active{ cursor:grabbing; }
-  .gantt-label{ background:#fff; position:relative; z-index:3; }
+  .gantt-label{ background:#fff; position:sticky; left:0; z-index:6; border-right:1px solid var(--gray-200); }
   .gantt-row:hover .gantt-label{ background:var(--gray-50); }
-  .g-proj-label{ background:var(--gray-50); position:relative; z-index:3; }
+  .g-proj-label{ background:var(--gray-50); position:sticky; left:0; z-index:6; border-right:1px solid var(--gray-200); }
+  .g-axis-corner{ position:sticky; left:0; z-index:6; background:#fff; border-right:1px solid var(--gray-200); }
   .gantt-bar{ cursor:grab; }
   .gantt-bar.g-dragging{ cursor:grabbing; opacity:.85; z-index:5; box-shadow:0 2px 8px rgba(0,0,0,.25); }
   .g-rh{ position:absolute; top:0; bottom:0; width:7px; cursor:ew-resize; z-index:3; }
@@ -929,7 +930,7 @@
     var gridHtml=ticks.map(function(tk){return '<div class="gl" style="left:'+((tk.ms-min)/span*100)+'%"></div>';}).join("");
     if(todayMs!=null&&todayMs>=min&&todayMs<=max)gridHtml+='<div class="g-today" style="left:'+((todayMs-min)/span*100)+'%"></div>';
     var html='<div class="gantt-wrap"><div class="gantt" style="min-width:'+(chartW+labelW)+'px;--g-label-w:'+labelW+'px"><div class="g-divider"></div>';
-    html+='<div class="gantt-axis"><div></div><div class="ticks">'+tickHtml+'</div></div>';
+    html+='<div class="gantt-axis"><div class="g-axis-corner"></div><div class="ticks">'+tickHtml+'</div></div>';
     function gRow(it,showProj){var t=it.t,s=dnum(t.start),e=dnum(t.end);
       var cs=Math.max(s,min),ce=Math.min(e,max),inDom=(ce>min&&cs<max);
       var left=(cs-min)/span*100,w=Math.max((ce-cs)/span*100,0.8);
@@ -959,9 +960,12 @@
     Array.prototype.forEach.call(b.querySelectorAll("[data-collapse]"),function(x){x.onclick=function(e){e.stopPropagation();var id=x.getAttribute("data-collapse");window._gCollapsed=window._gCollapsed||{};window._gCollapsed[id]=!window._gCollapsed[id];renderGantt(b,rows);};});
     Array.prototype.forEach.call(b.querySelectorAll(".gantt-label[data-task], .pm-sub [data-task]"),function(x){x.onclick=function(e){if(e)e.stopPropagation();openTask(x.getAttribute("data-task"));};});
     Array.prototype.forEach.call(b.querySelectorAll(".gantt-bar[data-task]"),wireBarDrag);
-    var divider=b.querySelector(".g-divider");
+    var wrap=b.querySelector(".gantt-wrap");var divider=b.querySelector(".g-divider");
+    function gSyncDivider(){if(divider&&wrap)divider.style.left=(wrap.scrollLeft+(window._gLabelW||220))+"px";}
+    if(wrap)wrap.addEventListener("scroll",gSyncDivider,{passive:true});
+    gSyncDivider();
     if(divider)divider.addEventListener("pointerdown",function(e){e.preventDefault();var gantt=b.querySelector(".gantt");var startX=e.clientX,startW=window._gLabelW||220,cw=window._gChartW||680;try{divider.setPointerCapture(e.pointerId);}catch(_){}
-      function mv(ev){var nw=Math.max(220,Math.min(520,startW+(ev.clientX-startX)));window._gLabelW=nw;gantt.style.setProperty("--g-label-w",nw+"px");gantt.style.minWidth=(cw+nw)+"px";}
+      function mv(ev){var nw=Math.max(220,Math.min(520,startW+(ev.clientX-startX)));window._gLabelW=nw;gantt.style.setProperty("--g-label-w",nw+"px");gantt.style.minWidth=(cw+nw)+"px";gSyncDivider();}
       function up(){try{divider.releasePointerCapture(e.pointerId);}catch(_){}divider.removeEventListener("pointermove",mv);divider.removeEventListener("pointerup",up);try{localStorage.setItem("pm_g_label_w",window._gLabelW);}catch(_){}}
       divider.addEventListener("pointermove",mv);divider.addEventListener("pointerup",up);});
     Array.prototype.forEach.call(b.querySelectorAll("[data-add]"),function(x){x.onclick=function(e){e.stopPropagation();openTaskEdit(x.getAttribute("data-add"));};});
