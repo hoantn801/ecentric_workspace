@@ -123,8 +123,10 @@ def control_center():
                "review": _slim(my_review), "blocked": _slim(my_blocked)},
     }
 
+    scope = mine
     if pmperm.can_see_all_pm_data(user):
         allt = frappe.get_all("Task", fields=FIELDS, limit_page_length=0)
+        scope = allt
         wstart = frappe.utils.add_days(today, -frappe.utils.getdate(today).weekday())
         out["team"] = {
             "active": len([t for t in allt if is_active(t)]),
@@ -157,6 +159,45 @@ def control_center():
             "blocked": _slim([t for t in allt if t.get("workflow_state") == "Blocked"][:10]),
             "review": _slim([t for t in allt if t.get("workflow_state") == "Review"][:10]),
         }
+        # per-project risk (lightweight; aggregated from allt already fetched)
+        prisk = {}
+        for t in allt:
+            p = t.get("project")
+            if not p:
+                continue
+            a = prisk.setdefault(p, {"project": p, "total": 0, "overdue": 0,
+                                     "blocked": 0, "review": 0})
+            a["total"] += 1
+            if is_overdue(t):
+                a["overdue"] += 1
+            if t.get("workflow_state") == "Blocked":
+                a["blocked"] += 1
+            if t.get("workflow_state") == "Review":
+                a["review"] += 1
+        pnames = {}
+        if prisk:
+            for r in frappe.get_all("Project", filters={"name": ["in", list(prisk.keys())]},
+                                    fields=["name", "project_name"]):
+                pnames[r["name"]] = r.get("project_name")
+        project_risk = []
+        for p, a in prisk.items():
+            a["project_name"] = pnames.get(p) or p
+            a["risk_level"] = "high" if (a["overdue"] > 0 or a["blocked"] > 0) else "low"
+            project_risk.append(a)
+        project_risk.sort(key=lambda x: (0 if x["risk_level"] == "high" else 1, -x["overdue"]))
+        out["project_risk"] = project_risk
+
+    # distributions over the relevant scope (team for leaders, own tasks otherwise)
+    status_order = ["Backlog", "To Do", "In Progress", "Blocked", "Review", "Done", "Cancelled"]
+    status_dist = {s: 0 for s in status_order}
+    priority_dist = {"Urgent": 0, "High": 0, "Medium": 0, "Low": 0, "—": 0}
+    for t in scope:
+        ws = t.get("workflow_state") or "Backlog"
+        status_dist[ws] = status_dist.get(ws, 0) + 1
+        pr = t.get("priority") or "—"
+        priority_dist[pr] = priority_dist.get(pr, 0) + 1
+    out["status_dist"] = status_dist
+    out["priority_dist"] = priority_dist
     return out
 
 
