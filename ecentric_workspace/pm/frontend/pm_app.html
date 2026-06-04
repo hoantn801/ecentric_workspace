@@ -242,6 +242,8 @@
 
   .pm-toast{ position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(10px); background:var(--gray-900); color:#fff; padding:11px 20px; border-radius:10px; font-size:13.5px; z-index:90; opacity:0; transition:.2s; pointer-events:none; }
   .pm-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); } .pm-toast.err{ background:#a32d2d; }
+  .pm-toast.has-action{ pointer-events:auto; }
+  .pm-toast-act{ pointer-events:auto; }
 
   @media (max-width:1100px){ #ec-pm-root{ grid-template-columns:64px 1fr; }
     .ec-sidebar .sidebar-search, .ec-sidebar .nav-label, .ec-sidebar .nav-item span:not(.badge), .ec-sidebar .brand-name, .ec-sidebar .user-info, .ec-sidebar .nav-item .soon{ display:none; }
@@ -402,11 +404,15 @@
   },240);});}
 
   function toast(msg,e){var t=el("pm-toast");if(window._toastTimer){clearTimeout(window._toastTimer);window._toastTimer=null;}t.textContent=msg;t.className="pm-toast show"+(e?" err":"");setTimeout(function(){t.className="pm-toast";},2400);}
-  function toastAction(msg,actionLabel,onAction){var t=el("pm-toast");if(window._toastTimer){clearTimeout(window._toastTimer);}
-    t.innerHTML=esc(msg)+' <button class="pm-toast-act" style="margin-left:12px;background:none;border:none;color:#fff;text-decoration:underline;font-weight:700;cursor:pointer;font-size:inherit;padding:0">'+esc(actionLabel)+'</button>';
-    t.className="pm-toast show";
-    var btn=t.querySelector(".pm-toast-act");if(btn)btn.onclick=function(){if(window._toastTimer){clearTimeout(window._toastTimer);window._toastTimer=null;}t.className="pm-toast";t.textContent="";onAction();};
-    window._toastTimer=setTimeout(function(){t.className="pm-toast";t.textContent="";window._toastTimer=null;},5500);}
+  function toastAction(msg,actionLabel,onAction){var t=el("pm-toast");if(window._toastTimer){clearTimeout(window._toastTimer);window._toastTimer=null;}
+    t.textContent="";
+    var span=document.createElement("span");span.textContent=msg;t.appendChild(span);
+    var btn=document.createElement("button");btn.className="pm-toast-act";btn.textContent=actionLabel;
+    btn.style.cssText="margin-left:12px;background:none;border:none;color:#fff;text-decoration:underline;font-weight:700;cursor:pointer;font-size:inherit;padding:0;pointer-events:auto";
+    btn.addEventListener("click",function(ev){ev.stopPropagation();ev.preventDefault();if(window._toastTimer){clearTimeout(window._toastTimer);window._toastTimer=null;}t.className="pm-toast";t.textContent="";try{onAction();}catch(er){toast("Lỗi: "+errOf(er),true);}});
+    t.appendChild(btn);
+    t.className="pm-toast show has-action";
+    window._toastTimer=setTimeout(function(){t.className="pm-toast";t.textContent="";window._toastTimer=null;},6000);}
   function spin(c){c.innerHTML='<div class="pm-state"><span class="spin"></span></div>';}
   function errOf(e){return (e&&e.message)||(e&&e._server_messages)||e||"loi";}
   function errBox(c,e){c.innerHTML='<div class="pm-err" title="'+esc(errOf(e))+'">Không tải được dữ liệu. Vui lòng thử lại.</div>';}
