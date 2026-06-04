@@ -199,6 +199,10 @@
   .g-proj-label{ position:relative; z-index:1; }
   .gantt-bar{ cursor:grab; }
   .gantt-bar.g-dragging{ cursor:grabbing; opacity:.85; z-index:5; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+  .g-rh{ position:absolute; top:0; bottom:0; width:7px; cursor:ew-resize; z-index:3; }
+  .g-rh-l{ left:0; } .g-rh-r{ right:0; }
+  .gantt-bar:hover .g-rh::after{ content:''; position:absolute; top:3px; bottom:3px; width:2px; border-radius:1px; background:rgba(255,255,255,.85); }
+  .g-rh-l::after{ left:1px; } .g-rh-r::after{ right:1px; }
   .gantt{ position:relative; }
   .gantt-axis, .gantt-row, .g-proj-row{ grid-template-columns:var(--g-label-w,220px) 1fr; }
   .g-divider{ position:absolute; top:0; bottom:0; left:var(--g-label-w,220px); width:9px; margin-left:-4px; cursor:col-resize; z-index:7; }
@@ -806,24 +810,31 @@
     api(PM+"tasks.update",{name:taskId,exp_start_date:msToYmd(startMs),exp_end_date:msToYmd(endMs)}).then(function(){toast("Đã thêm lịch cho nhiệm vụ");loadGantt(true);}).catch(function(e){toast("Lỗi: "+errOf(e),true);});}
   // Move existing bar: pointer drag preserves duration, snaps to day, commits via tasks.update.
   // <4px movement = click -> openTask. trackRect re-read so horizontal scroll is respected.
+  // Bar pointer engine: move (body), resize-left (g-rh-l), resize-right (g-rh-r).
+  // Snap to day, min duration 1 day (clamp), commit via tasks.update, keep-scroll reload + undo.
   function wireBarDrag(bar){
     bar.addEventListener("pointerdown",function(e){
       if(e.button){return;}
       var id=bar.getAttribute("data-task");var dom=window._gDom;if(!dom){return;}
       var s0=dnum(bar.getAttribute("data-start")),e0=dnum(bar.getAttribute("data-end"));if(s0==null||e0==null){return;}
+      var tc=(e.target&&e.target.classList)||{contains:function(){return false;}};
+      var mode=tc.contains("g-rh-l")?"rl":(tc.contains("g-rh-r")?"rr":"mv");
       var trackEl=bar.parentNode;var rect=trackEl.getBoundingClientRect();
-      var durMs=Math.max(e0-s0,0),originX=e.clientX,moved=false,ns=s0;
+      var durMs=Math.max(e0-s0,86400000),originX=e.clientX,moved=false,ns=s0,ne=e0,DAY=86400000;
       try{bar.setPointerCapture(e.pointerId);}catch(_){}
       function mv(ev){var dx=ev.clientX-originX;if(!moved&&Math.abs(dx)<4){return;}moved=true;bar.classList.add("g-dragging");
-        ns=gStartOfDay(s0+dx/rect.width*dom.span);
-        bar.style.left=((ns-dom.min)/dom.span*100)+"%";bar.style.width=(durMs/dom.span*100)+"%";
-        bar.title=msToYmd(ns)+" → "+msToYmd(ns+durMs);}
+        var deltaMs=dx/rect.width*dom.span;
+        if(mode==="mv"){ns=gStartOfDay(s0+deltaMs);ne=ns+durMs;}
+        else if(mode==="rl"){ns=gStartOfDay(s0+deltaMs);if(ns>e0-DAY){ns=gStartOfDay(e0-DAY);}ne=e0;}
+        else{ne=gStartOfDay(e0+deltaMs);if(ne<s0+DAY){ne=gStartOfDay(s0+DAY);}ns=s0;}
+        bar.style.left=((ns-dom.min)/dom.span*100)+"%";bar.style.width=(Math.max(ne-ns,DAY)/dom.span*100)+"%";
+        bar.title=msToYmd(ns)+" → "+msToYmd(ne);}
       function up(){try{bar.releasePointerCapture(e.pointerId);}catch(_){}
         bar.removeEventListener("pointermove",mv);bar.removeEventListener("pointerup",up);bar.classList.remove("g-dragging");
         if(!moved){openTask(id);return;}
-        var os=msToYmd(s0),oe=msToYmd(e0);
-        api(PM+"tasks.update",{name:id,exp_start_date:msToYmd(ns),exp_end_date:msToYmd(ns+durMs)}).then(function(){
-          toastAction("Đã dời lịch","Hoàn tác",function(){api(PM+"tasks.update",{name:id,exp_start_date:os,exp_end_date:oe}).then(function(){toast("Đã hoàn tác");loadGantt(true);}).catch(function(er2){toast("Lỗi: "+errOf(er2),true);loadGantt(true);});});
+        var os=msToYmd(s0),oe=msToYmd(e0),msg=(mode==="mv")?"Đã dời lịch":"Đã đổi thời lượng";
+        api(PM+"tasks.update",{name:id,exp_start_date:msToYmd(ns),exp_end_date:msToYmd(ne)}).then(function(){
+          toastAction(msg,"Hoàn tác",function(){api(PM+"tasks.update",{name:id,exp_start_date:os,exp_end_date:oe}).then(function(){toast("Đã hoàn tác");loadGantt(true);}).catch(function(er2){toast("Lỗi: "+errOf(er2),true);loadGantt(true);});});
           loadGantt(true);
         }).catch(function(er){toast("Lỗi: "+errOf(er),true);loadGantt(true);});}
       bar.addEventListener("pointermove",mv);bar.addEventListener("pointerup",up);
@@ -917,7 +928,7 @@
       var left=(cs-min)/span*100,w=Math.max((ce-cs)/span*100,0.8);
       var col=gColor(t.workflow_state),prog=Math.max(0,Math.min(100,Math.round(t.progress||0))),od=gOverdue(t);
       var caret=it.hasChildren?'<span class="g-caret'+(gIsCollapsed(t.id)?' collapsed':'')+'" data-collapse="'+esc(t.id)+'">▾</span>':'';
-      var bar=inDom?('<div class="gantt-bar'+(od?' is-overdue':'')+'" data-task="'+esc(t.id)+'" data-start="'+esc(t.start||"")+'" data-end="'+esc(t.end||"")+'" title="'+esc((t.subject||"")+" · "+(t.workflow_state||"")+" · "+prog+"%")+'" style="left:'+left+'%;width:'+w+'%;background:'+col+'"><div class="fill" style="width:'+prog+'%"></div><div class="lab">'+(w>10?esc(t.subject||""):"")+'</div></div>'):'';
+      var bar=inDom?('<div class="gantt-bar'+(od?' is-overdue':'')+'" data-task="'+esc(t.id)+'" data-start="'+esc(t.start||"")+'" data-end="'+esc(t.end||"")+'" title="'+esc((t.subject||"")+" · "+(t.workflow_state||"")+" · "+prog+"%")+'" style="left:'+left+'%;width:'+w+'%;background:'+col+'"><div class="fill" style="width:'+prog+'%"></div><div class="lab">'+(w>10?esc(t.subject||""):"")+'</div><div class="g-rh g-rh-l"></div><div class="g-rh g-rh-r"></div></div>'):'';
       return '<div class="gantt-row"><div class="gantt-label'+(it.hasChildren?' is-parent':'')+'" data-task="'+esc(t.id)+'" title="'+esc(t.subject||t.id)+'" style="padding-left:'+(12+it.depth*14)+'px">'+caret+esc(t.subject||t.id)+(showProj&&t.project_name?' <span style="color:var(--gray-400);font-size:11px">· '+esc(t.project_name)+'</span>':'')+(od?' <span class="pm-tag tg-overdue" style="margin-left:6px">Quá hạn</span>':(t.priority==="Urgent"?' <span class="pm-tag tg-urgent" style="margin-left:6px">Urgent</span>':''))+'</div>'+
         '<div class="gantt-track"><div class="gantt-grid">'+gridHtml+'</div>'+bar+'</div></div>';}
     if((window._gGroup||"project")==="people"){
