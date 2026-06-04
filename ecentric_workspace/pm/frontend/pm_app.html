@@ -56,17 +56,17 @@
   .ec-sidebar .logout-btn svg{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
 
   .ec-main{ min-width:0; display:flex; flex-direction:column; }
-  .ec-main .topbar{ background:#fff; border-bottom:1px solid var(--gray-200); padding:12px 32px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; }
+  .ec-main .topbar{ background:#fff; border-bottom:1px solid var(--gray-200); padding:8px 32px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; }
   .ec-main .breadcrumb{ font-size:13px; color:var(--gray-500); }
   .ec-main .breadcrumb strong{ color:var(--gray-900); font-weight:600; }
   .ec-main .topbar-actions{ display:flex; align-items:center; gap:6px; }
   .ec-main .preview-tag{ font-size:11px; font-weight:600; color:#92400e; background:#fff7e6; border:1px solid #ffd591; padding:3px 10px; border-radius:6px; }
   .ec-main .icon-btn{ width:34px; height:34px; border-radius:8px; border:none; background:transparent; display:flex; align-items:center; justify-content:center; color:var(--gray-500); cursor:pointer; }
   .ec-main .icon-btn:hover{ background:var(--gray-100); color:var(--gray-900); }
-  .ec-main .content{ padding:24px 32px 40px; max-width:1400px; width:100%; }
+  .ec-main .content{ padding:16px 32px 40px; max-width:1400px; width:100%; }
 
-  .pm-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; gap:12px; flex-wrap:wrap; }
-  .pm-head h1{ font-size:22px; font-weight:700; color:var(--gray-900); letter-spacing:-0.4px; margin:0; }
+  .pm-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:12px; flex-wrap:wrap; }
+  .pm-head h1{ font-size:18px; font-weight:700; color:var(--gray-900); letter-spacing:-0.3px; margin:0; }
   .pm-head .sub{ color:var(--gray-500); font-size:13px; margin-top:2px; }
 
   .stats-strip{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:22px; }
@@ -243,15 +243,15 @@
   .cal-chip.cal-od{ background:#fdeaea; color:#a32d2d; }
   .cal-dot{ width:7px; height:7px; border-radius:50%; flex:0 0 auto; }
   .cal-more{ font-size:10.5px; color:var(--navy); cursor:pointer; padding:1px 4px; font-weight:600; }
-  .cal-week{ display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--gray-200); border:1px solid var(--gray-200); border-radius:10px; overflow:hidden; }
-  .cal-wcol{ background:#fff; min-height:360px; display:flex; flex-direction:column; }
+  .cal-week{ display:grid; grid-template-columns:repeat(7,minmax(104px,1fr)); gap:1px; background:var(--gray-200); border:1px solid var(--gray-200); border-radius:10px; overflow:hidden; min-width:760px; }
+  .cal-wcol{ background:#fff; min-height:300px; display:flex; flex-direction:column; }
   .cal-whead{ padding:8px; text-align:center; border-bottom:1px solid var(--gray-100); }
   .cal-whead.cal-today{ background:var(--navy-50); }
   .cal-wbody{ padding:6px; display:flex; flex-direction:column; gap:4px; overflow-y:auto; }
   .pm-editform{ max-width:860px; margin:0 auto; }
   .pm-fdiv{ width:1px; align-self:stretch; background:var(--gray-200); margin:2px 5px; }
   .cal-layout{ display:grid; grid-template-columns:1fr 280px; gap:16px; align-items:stretch; }
-  .cal-main{ min-width:0; }
+  .cal-main{ min-width:0; overflow-x:auto; }
   .cal-aside{ display:flex; flex-direction:column; gap:14px; min-width:0; }
   .cal-aside-sec{ border:1px solid var(--gray-200); border-radius:10px; padding:10px 12px; background:#fff; }
   .cal-aside-h{ font-size:11.5px; font-weight:700; color:var(--gray-600); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; }
@@ -302,8 +302,9 @@
   .pm-drawer{ position:fixed; top:0; right:0; height:100%; width:440px; max-width:94vw; background:#fff; box-shadow:-10px 0 40px rgba(0,0,0,.16); transform:translateX(100%); transition:transform .2s; z-index:81; display:flex; flex-direction:column; }
   .pm-drawer.open{ transform:none; }
   /* Task modal: centered popup, fade+scale only (no side slide). 'from' state = already centered. */
-  .pm-drawer.expanded{ right:auto; left:50%; top:50%; height:94vh; width:min(1380px, calc(100vw - 40px)); border-radius:14px; box-shadow:0 24px 70px rgba(0,0,0,.28); transform:translate(-50%,-50%) scale(.98); opacity:0; transition:opacity .14s ease, transform .14s ease; }
-  .pm-drawer.expanded.open{ transform:translate(-50%,-50%) scale(1); opacity:1; }
+  /* A1: centered modal, OPACITY-ONLY transition. Static transform => no slide is ever possible, regardless of class timing or drawer baseline. */
+  .pm-drawer.expanded{ right:auto; left:50%; top:50%; height:94vh; width:min(1380px, calc(100vw - 40px)); border-radius:14px; box-shadow:0 24px 70px rgba(0,0,0,.28); transform:translate(-50%,-50%); opacity:0; transition:opacity .12s ease; }
+  .pm-drawer.expanded.open{ transform:translate(-50%,-50%); opacity:1; }
   /* ClickUp-style 2-col: body becomes a flex container; main scrolls, right side is gray with sticky composer. Only when body has .pm-cols (task detail); edit/create forms keep normal scroll. */
   .pm-drawer.expanded .body.pm-cols{ padding:0; overflow:hidden; display:flex; flex-direction:column; }
   .pm-drawer.expanded .body.pm-cols .pm-dcols{ flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:0; align-items:stretch; }
@@ -606,7 +607,7 @@
         '<div class="pd-tabs">'+TABS.map(function(t){return '<button class="pd-tab" data-tab="'+t[0]+'">'+t[1]+'</button>';}).join("")+'</div><div id="pd-body"></div>';
       el("pm-back").onclick=showProjects; el("pm-newt").onclick=function(){newTask(name);};
       var tabs=c.querySelectorAll(".pd-tab");
-      function sel(tab){Array.prototype.forEach.call(tabs,function(b){b.classList.toggle("active",b.getAttribute("data-tab")===tab);});pdRender(tab);}
+      function sel(tab){window._pdCurTab=tab;Array.prototype.forEach.call(tabs,function(b){b.classList.toggle("active",b.getAttribute("data-tab")===tab);});pdRender(tab);}
       window._pdSel=sel; /* card-click in overview drills into tasks tab with a filter (keeps window._pdFilter) */
       Array.prototype.forEach.call(tabs,function(b){b.onclick=function(){window._pdFilter="";sel(b.getAttribute("data-tab"));};}); /* manual tab switch clears the card filter */
       sel("overview");
@@ -815,7 +816,7 @@
         else if(field==="end"){t.exp_end_date=payload.exp_end_date;}
         else if(field==="desc"){t.description=payload.description;}
         toast("Đã lưu");rewire(renderInlineDisplay(field,t));
-        if(window._curView&&VIEWS[window._curView]){try{VIEWS[window._curView]();}catch(e){}}
+        refreshTaskContext(); /* A3: refresh underlying in place; modal stays open, no navigation */
       }).catch(function(e){toast("Lỗi: "+errOf(e),true);done=false;rewire(prev);});
     }
     ctrl.addEventListener("keydown",function(e){
@@ -828,6 +829,13 @@
     Array.prototype.forEach.call(container.querySelectorAll(".pm-inline[data-inline]"),function(elx){elx.title="Bấm để sửa";elx.onclick=function(){startInline(elx,t,name);};});
     var dt=el("pm-dt");if(dt){dt.classList.add("pm-inline");dt.setAttribute("data-inline","subject");dt.innerHTML=renderInlineDisplay("subject",t);dt.title="Bấm để sửa tiêu đề";dt.onclick=function(){startInline(dt,t,name);};}}
   function clearDtInline(){var dt=el("pm-dt");if(dt){dt.classList.remove("pm-inline");dt.removeAttribute("data-inline");dt.removeAttribute("data-editing");dt.onclick=null;dt.title="";}}
+  // A3: refresh the underlying view IN PLACE after a task write, without leaving the current context.
+  // If inside a Project workspace (pd-body present), re-render the active project tab — never bounce to the project LIST.
+  // Otherwise re-render the current work/nav view. Modal stays open either way.
+  function refreshTaskContext(){try{
+    if(window._pd&&el("pd-body")){pdRender(window._pdCurTab||"overview");return;}
+    if(window._curView&&VIEWS[window._curView]){VIEWS[window._curView]();}
+  }catch(e){}}
   function openTask(name){if(!name){toast("Thiếu mã nhiệm vụ",true);return;} /* guard: never open a blank modal on an empty/missing task id */
     openD();el("pm-dt").textContent=name;var c=el("pm-dbody");c.classList.remove("pm-cols");spin(c);
     Promise.all([api(PM+"tasks.get",{name:name}),api(PM+"tasks.get_transitions",{name:name})]).then(function(res){
@@ -835,7 +843,7 @@
       var _seen={};tr=tr.filter(function(x){if(_seen[x.action])return false;_seen[x.action]=1;return true;});
       el("pm-dt").textContent=t.subject||name;
       var h='<div class="pm-dcols"><div class="pm-d-main">'+
-        '<div class="pm-dtopbar"><div class="pm-tags">'+badge(t.workflow_state)+taskTags(t)+'</div><button class="pm-btn" id="pm-edit" style="flex:0 0 auto">Sửa (form)</button></div>'+
+        '<div class="pm-dtopbar"><div class="pm-tags">'+badge(t.workflow_state)+taskTags(t)+'</div></div>'+
         '<div class="pm-dsec">Thông tin chính</div>'+
         '<div class="pm-props">'+
           '<div class="pm-prop"><label>Dự án</label><div class="v">'+esc(t.project||"-")+'</div></div>'+
@@ -864,10 +872,10 @@
         '<button class="pm-btn primary" id="pm-cmt-send">'+SVG_SEND+'Gửi</button></div></div></div></div>';
       c.innerHTML=h;c.classList.add("pm-cols");
       Array.prototype.forEach.call(c.querySelectorAll(".pm-act"),function(b){b.onclick=function(){b.disabled=true;
-        api(PM+"tasks.set_status",{name:name,action:b.getAttribute("data-act")}).then(function(r){toast("Trạng thái: "+r.workflow_state);openTask(name);}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};});
+        api(PM+"tasks.set_status",{name:name,action:b.getAttribute("data-act")}).then(function(r){toast("Trạng thái: "+r.workflow_state);openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};});
       el("pm-asgb").onclick=function(){var v=el("pm-asg").value.trim();if(!v){toast("Nhập email",true);return;}
-        api(PM+"tasks.assign",{name:name,users:[v]}).then(function(){toast("Đã giao cho "+v);openTask(name);}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};
-      if(el("pm-edit"))el("pm-edit").onclick=function(){editTask(name);};
+        api(PM+"tasks.assign",{name:name,users:[v]}).then(function(){toast("Đã giao cho "+v);openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};
+      /* A2: "Sửa (form)" button removed — inline edit is the primary path. editTask() kept as internal fallback only. */
       inlineWire(c,t,name); /* C1-B: click-to-edit priority/start/end/desc in main + title in header */
       Array.prototype.forEach.call(c.querySelectorAll(".pm-subtbl tr[data-task], .pm-sub[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});
       if(el("pm-addsub"))el("pm-addsub").onclick=function(){newTask(t.project,name);};
@@ -975,7 +983,7 @@
       _niFix(c);
       el("et-cancel").onclick=function(){openTask(name);};
       el("et-save").onclick=function(){var s=el("et-subject").value.trim();if(!s){toast("Nhập tiêu đề",true);return;}var sd=el("et-start").value,ed=el("et-end").value;if(sd&&ed&&ed<sd){toast("Hạn không được trước ngày bắt đầu",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang lưu...";var na=el("et-assignee").value.trim();
-        api(PM+"tasks.update",{name:name,subject:s,project:el("et-project").value,priority:el("et-priority").value,exp_start_date:el("et-start").value||null,exp_end_date:el("et-end").value||null,description:el("et-desc").value||null,assignee:el("et-assignee").value.trim()||null}).then(function(){toast("Đã lưu");openTask(name);if(window._curView&&VIEWS[window._curView]){try{VIEWS[window._curView]();}catch(e){}}}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu";});};
+        api(PM+"tasks.update",{name:name,subject:s,project:el("et-project").value,priority:el("et-priority").value,exp_start_date:el("et-start").value||null,exp_end_date:el("et-end").value||null,description:el("et-desc").value||null,assignee:el("et-assignee").value.trim()||null}).then(function(){toast("Đã lưu");openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu";});};
     }).catch(function(e){errBox(c,e);});}
 
   function openTaskEdit(name){openD();el("pm-dt").textContent=name;editTask(name);}
