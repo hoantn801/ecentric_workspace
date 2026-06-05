@@ -155,6 +155,23 @@
   .pd-pill.s-pink .pd-pill-n{ color:var(--pink); }
   .pd-pill.s-yellow .pd-pill-n{ color:#b8860b; }
   .pd-pill.s-green .pd-pill-n{ color:#0a7a4f; }
+  /* Batch B polish: project Danh sách as a clean card + hierarchy */
+  .pd-tbl-wrap{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.05); overflow:hidden; }
+  .pd-tbl{ margin:0; width:100%; border-collapse:collapse; }
+  .pd-tbl thead th{ background:var(--gray-50); font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--gray-500); font-weight:600; padding:10px 14px; border-bottom:1px solid var(--gray-200); text-align:left; }
+  .pd-tbl tbody td{ padding:10px 14px; border-bottom:1px solid var(--gray-100); font-size:13px; color:var(--gray-800); vertical-align:middle; }
+  .pd-tbl tbody tr:last-child td{ border-bottom:none; }
+  .pd-tbl tbody tr{ cursor:pointer; transition:background .1s; }
+  .pd-tbl tbody tr:hover{ background:var(--navy-50); }
+  .pd-tname{ display:inline-flex; align-items:center; gap:6px; }
+  .pd-ttitle{ font-weight:600; color:var(--gray-900); }
+  .pd-child .pd-ttitle{ font-weight:500; color:var(--gray-600); }
+  .pd-tcaret{ display:inline-flex; width:16px; justify-content:center; color:var(--gray-500); cursor:pointer; transition:transform .12s; flex:0 0 auto; }
+  .pd-tcaret.collapsed{ transform:rotate(-90deg); }
+  .pd-tcaret:hover{ color:var(--navy); }
+  .pd-tcaret-sp{ display:inline-block; width:16px; flex:0 0 auto; }
+  .pd-tlead{ color:var(--gray-300); width:16px; display:inline-flex; justify-content:center; flex:0 0 auto; }
+  .pd-tcount{ font-size:11px; color:var(--gray-400); font-weight:500; }
   .g-today{ position:absolute; top:0; bottom:0; width:2px; background:var(--pink); opacity:.7; z-index:2; }
   .g-add{ font-size:11.5px; padding:3px 9px; }
   /* UX-4A: badge system, timer chip, drawer sections, kanban card */
@@ -686,7 +703,7 @@
       setView("tasks");syncPills();
     }).catch(function(e){errBox(c,e);});}
   function pdRender(tab){if(!window._pd)return;var name=window._pd.name;var b=el("pd-body");if(!b)return;
-    if(tab==="tasks"){spin(b);return api(PM+"tasks.list",{project:name,page_length:500}).then(function(r){b.innerHTML='<div id="pd-tflt"></div><div id="pd-ttbl"></div>';renderPdFilterChip(el("pd-tflt"),(r.rows||[]).length);taskTable(el("pd-ttbl"),pdFilterRows(r.rows));}).catch(function(e){errBox(b,e);});}
+    if(tab==="tasks"){spin(b);return api(PM+"tasks.list",{project:name,page_length:500}).then(function(r){b.innerHTML='<div id="pd-tflt"></div><div id="pd-ttbl"></div>';renderPdFilterChip(el("pd-tflt"),(r.rows||[]).length);pdTaskTable(el("pd-ttbl"),r.rows||[]);}).catch(function(e){errBox(b,e);});}
     if(tab==="board"){spin(b);return api(PM+"tasks.list",{project:name,page_length:500}).then(function(r){b.innerHTML='<div id="pd-bflt"></div><div id="pd-board"></div>';renderPdFilterChip(el("pd-bflt"),(r.rows||[]).length);renderBoardInto(el("pd-board"),pdFilterRows(r.rows||[]),function(){pdRender("board");});}).catch(function(e){errBox(b,e);});}
     if(tab==="gantt"){spin(b);return api(PM+"tasks.gantt",{project:name}).then(function(d){b.innerHTML='<div class="panel"><div id="pd-gantt"></div></div>';renderGantt(el("pd-gantt"),d.rows||[]);}).catch(function(e){errBox(b,e);});}
     if(tab==="timesheet"){spin(b);return api(PM+"timesheet.report",{project:name}).then(function(d){pdTimesheet(b,d);}).catch(function(e){errBox(b,e);});}}
@@ -703,6 +720,35 @@
   function renderPdFilterChip(host,total){if(!host)return;var k=window._pdFilter;if(!k){host.innerHTML="";return;}
     host.innerHTML='<div style="margin-bottom:10px;display:flex;align-items:center;gap:8px"><span class="cal-pcard">Lọc: '+esc(PDF_LBL[k]||k)+' <span class="x" id="pd-fclear" title="Bỏ lọc">✕</span></span><span style="font-size:11.5px;color:var(--gray-400)">trong '+(total||0)+' nhiệm vụ</span></div>';
     if(el("pd-fclear"))el("pd-fclear").onclick=function(){window._pdFilter="";if(window._pdSel)window._pdSel(window._pdCurTab||"tasks");if(window._pdSyncPills)window._pdSyncPills();};}
+  // Project-workspace-only list renderer: hierarchy (parent->child, indented, collapsible) when unfiltered;
+  // flat filtered list when a health metric is active. Columns: Nhiệm vụ / Trạng thái / Ưu tiên / Hạn / Người nhận (no Dự án).
+  // Does NOT touch the global taskTable used by Công việc + My Work.
+  function pdRow(t,depth,hasChildren,childCount,collapsed){var a=names(t._assign);
+    var pri=t.priority?'<span class="pm-tag '+({Urgent:"tg-urgent",High:"tg-high",Medium:"tg-medium",Low:"tg-low"}[t.priority]||"tg-low")+'">'+esc(t.priority)+'</span>':'<span style="color:var(--gray-300)">-</span>';
+    var lead=hasChildren?'<span class="pd-tcaret'+(collapsed?' collapsed':'')+'" data-tcol="'+esc(t.name)+'" title="Thu/mở">▾</span>':(depth>0?'<span class="pd-tlead">↳</span>':'<span class="pd-tcaret-sp"></span>');
+    var cnt=hasChildren?' <span class="pd-tcount">'+childCount+' nv con</span>':'';
+    return '<tr data-task="'+esc(t.name)+'" class="pd-trow'+(depth>0?' pd-child':'')+'"><td class="t-main"><span class="pd-tname" style="padding-left:'+(depth*20)+'px">'+lead+'<span class="pd-ttitle">'+esc(t.subject||t.name)+'</span>'+cnt+'</span></td><td>'+badge(t.workflow_state)+'</td><td>'+pri+'</td><td>'+esc(t.exp_end_date||'-')+'</td><td>'+(a.length?'<span class="pm-mini-av" title="'+esc(a[0])+'">'+ini(a[0])+'</span>':'<span style="color:var(--gray-400)">-</span>')+'</td></tr>';}
+  function pdTaskTable(host,rows){if(!host)return;rows=rows||[];
+    if(!rows.length){return emptyBox(host,"Chưa có nhiệm vụ.");}
+    var head='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Nhiệm vụ</th><th>Trạng thái</th><th>Ưu tiên</th><th>Hạn</th><th>Người nhận</th></tr></thead><tbody>';
+    var body="";
+    if(window._pdFilter){ /* filtered -> flat (avoid orphaned children) */
+      var fr=pdFilterRows(rows);
+      if(!fr.length){return emptyBox(host,"Không có nhiệm vụ khớp bộ lọc.");}
+      body=fr.map(function(t){return pdRow(t,0,false,0,false);}).join("");
+    } else { /* unfiltered -> hierarchy */
+      var byId={},byParent={},roots=[];
+      rows.forEach(function(t){byId[t.name]=t;});
+      rows.forEach(function(t){var p=t.parent_task;if(p&&byId[p]){(byParent[p]=byParent[p]||[]).push(t);}else{roots.push(t);}});
+      window._pdTreeCollapsed=window._pdTreeCollapsed||{};
+      function walk(t,depth){var kids=byParent[t.name]||[];var hc=kids.length>0;var col=!!window._pdTreeCollapsed[t.name];
+        body+=pdRow(t,depth,hc,kids.length,col);
+        if(hc&&!col)kids.forEach(function(c){walk(c,depth+1);});}
+      roots.forEach(function(t){walk(t,0);});
+    }
+    host.innerHTML=head+body+'</tbody></table></div>';
+    Array.prototype.forEach.call(host.querySelectorAll("tr[data-task]"),function(tr){tr.onclick=function(){openTask(tr.getAttribute("data-task"));};});
+    Array.prototype.forEach.call(host.querySelectorAll(".pd-tcaret[data-tcol]"),function(x){x.onclick=function(e){e.stopPropagation();var id=x.getAttribute("data-tcol");window._pdTreeCollapsed=window._pdTreeCollapsed||{};window._pdTreeCollapsed[id]=!window._pdTreeCollapsed[id];pdTaskTable(host,rows);};});}
   function renderSumInto(host,m){if(!host)return;var ks=Object.keys(m||{}).sort().reverse();if(!ks.length){return emptyBox(host,"Không có dữ liệu.");}
     host.innerHTML='<table class="pm-tbl"><tbody>'+ks.map(function(k){return '<tr><td class="t-main">'+esc(k)+'</td><td style="text-align:right">'+(Math.round(m[k]*100)/100)+'h</td></tr>';}).join("")+'</tbody></table>';}
   function pdTimesheet(b,d){var rows=d.rows||[];var total=Math.round((d.total_hours||0)*100)/100;
