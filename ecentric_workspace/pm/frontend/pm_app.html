@@ -142,6 +142,33 @@
   .dc-pad{ padding:14px 20px; font-size:13.5px; color:var(--gray-500); }
   .dc-link{ color:var(--navy); cursor:pointer; font-weight:600; }
   .dc-link:hover{ text-decoration:underline; }
+  /* Batch C manager dashboard */
+  .dc-reason{ font-size:11px; font-weight:600; padding:2px 8px; border-radius:6px; white-space:nowrap; display:inline-block; }
+  .dc-mini{ display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+  .dc-block{ margin-bottom:22px; }
+  .dc-analytics{ margin-top:8px; margin-bottom:24px; }
+  .dc-analytics summary{ cursor:pointer; font-size:12.5px; color:var(--gray-500); font-weight:600; padding:8px 0; }
+  .dc-analytics summary:hover{ color:var(--navy); }
+  .dc-analytics[open] summary{ margin-bottom:10px; }
+  /* Batch C.2 charts (CSS-only) */
+  .dc-charts{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:22px; }
+  @media (max-width:1000px){ .dc-charts{ grid-template-columns:1fr; } }
+  .dc-charts .panel{ margin-bottom:0; }
+  .seg-bar{ display:flex; height:14px; border-radius:7px; overflow:hidden; background:var(--gray-100); margin-bottom:10px; }
+  .seg-seg{ height:14px; }
+  .seg-legend{ display:flex; flex-wrap:wrap; gap:8px 14px; font-size:12px; color:var(--gray-600); }
+  .seg-li{ display:inline-flex; align-items:center; gap:6px; }
+  .seg-li i{ width:10px; height:10px; border-radius:3px; display:inline-block; }
+  .seg-li b{ color:var(--gray-900); }
+  .wl-bars{ display:flex; flex-direction:column; gap:9px; padding:14px 18px; }
+  .wl-brow{ display:grid; grid-template-columns:120px 1fr 96px; align-items:center; gap:10px; cursor:pointer; }
+  .wl-brow:hover .wl-name{ color:var(--navy); }
+  .wl-name{ font-size:12.5px; color:var(--gray-700); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .wl-track{ height:14px; background:var(--gray-100); border-radius:7px; overflow:hidden; }
+  .wl-fill{ height:14px; background:var(--navy); border-radius:7px; position:relative; min-width:2px; }
+  .wl-risk{ position:absolute; right:0; top:0; height:14px; background:var(--pink); border-radius:0 7px 7px 0; }
+  .wl-num{ font-size:12px; color:var(--gray-600); text-align:right; }
+  .wl-risknum{ color:var(--pink); font-weight:600; }
   .dc-att{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 20px; border-top:1px solid var(--gray-100); cursor:pointer; }
   .dc-att:first-child{ border-top:none; }
   .dc-att:hover{ background:var(--gray-100); }
@@ -610,65 +637,116 @@
     b.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:10px;padding:14px 20px">'+rows.slice(0,12).map(function(p){var lv=p.risk_level==="high"?["Rủi ro cao","st-Blocked"]:["Ổn định","st-Done"];return '<div class="prisk-card" data-proj="'+esc(p.project)+'"><div style="font-weight:600;font-size:13px;margin-bottom:6px">'+esc(p.project_name||p.project)+'</div><span class="pm-badge '+lv[1]+'">'+lv[0]+'</span><div style="font-size:11.5px;color:var(--gray-500);margin-top:7px">Quá hạn '+(p.overdue||0)+' · Blocked '+(p.blocked||0)+' · Chờ duyệt '+(p.review||0)+' · '+(p.total||0)+' task</div></div>';}).join("")+'</div>';
     Array.prototype.forEach.call(b.querySelectorAll("[data-proj]"),function(x){x.onclick=function(){openProject(x.getAttribute("data-proj"));};});}
 
+  // ---- Batch C: Manager Overview Dashboard (client-side aggregation from tasks.list + projects.list) ----
+  function dcD(t){return t.exp_end_date?String(t.exp_end_date).slice(0,10):null;}
+  function dcActive(t){return ["Done","Cancelled"].indexOf(t.workflow_state)<0;}
+  function dcToday10(){return new Date().toISOString().slice(0,10);}
+  function dcWeek10(){var e=new Date();e.setDate(e.getDate()+7);return e.toISOString().slice(0,10);}
+  function dcIsOverdue(t){var d=dcD(t);return !!(d&&d<dcToday10()&&dcActive(t));}
+  function dcIsToday(t){return dcD(t)===dcToday10()&&dcActive(t);}
+  function dcIsWeek(t){var d=dcD(t);return !!(d&&d>dcToday10()&&d<=dcWeek10()&&dcActive(t));}
+  var DC_REASON={overdue:["Quá hạn","#c0392b","#fcebeb"],blocked:["Blocked","#a32d2d","#fcebeb"],review:["Chờ duyệt","#925f00","#fff7e6"],today:["Hôm nay","#1f2d80","#eef0fb"],week:["Tuần này","#185fa5","#e6f1fb"],noassignee:["Chưa giao","#925f00","#fff7e6"],nodue:["Chưa có hạn","#4b5563","#f3f4f6"]};
+  function dcReasonBadge(r){var m=DC_REASON[r]||["","",""];return '<span class="dc-reason" style="color:'+m[1]+';background:'+m[2]+'">'+m[0]+'</span>';}
+  function dcReasonOf(t){if(!dcActive(t))return null;
+    if(dcIsOverdue(t))return "overdue";
+    if(t.workflow_state==="Blocked")return "blocked";
+    if(t.workflow_state==="Review")return "review";
+    if(dcIsToday(t))return "today";
+    if(dcIsWeek(t))return "week";
+    if(names(t._assign).length===0)return "noassignee";
+    if(!t.exp_end_date)return "nodue";
+    return null;}
+  function dcProjectHealth(tasks,projs){var by={};
+    tasks.forEach(function(t){var p=t.project;if(!p)return;var a=by[p]||(by[p]={open:0,overdue:0,blocked:0,review:0,noass:0,nodue:0,total:0,done:0});
+      a.total++;if(t.workflow_state==="Done")a.done++;if(dcActive(t))a.open++;if(dcIsOverdue(t))a.overdue++;if(t.workflow_state==="Blocked")a.blocked++;if(t.workflow_state==="Review")a.review++;if(dcActive(t)&&names(t._assign).length===0)a.noass++;if(dcActive(t)&&!t.exp_end_date)a.nodue++;});
+    var out=projs.map(function(p){var a=by[p.name]||{open:0,overdue:0,blocked:0,review:0,noass:0,nodue:0,total:0,done:0};
+      var lvl=(a.overdue>0||a.blocked>0)?"high":((a.review>0||a.noass>0)?"attention":"stable");
+      return {name:p.name,project_name:p.project_name||p.name,manager:p.ec_manager||"-",progress:(p.progress!=null?p.progress:0),lvl:lvl,a:a};});
+    var rank={high:0,attention:1,stable:2};
+    out.sort(function(x,y){return (rank[x.lvl]-rank[y.lvl])||(y.a.overdue-x.a.overdue)||(y.a.open-x.a.open);});return out;}
+  function dcWorkload(tasks){var wl={};
+    tasks.forEach(function(t){names(t._assign).forEach(function(u){var w=wl[u]||(wl[u]={u:u,open:0,overdue:0,today:0,week:0,blocked:0,review:0,nodue:0});
+      if(dcActive(t))w.open++;if(dcIsOverdue(t))w.overdue++;if(dcIsToday(t))w.today++;if(dcIsWeek(t))w.week++;if(t.workflow_state==="Blocked")w.blocked++;if(t.workflow_state==="Review")w.review++;if(dcActive(t)&&!t.exp_end_date)w.nodue++;});});
+    return Object.keys(wl).map(function(k){return wl[k];}).sort(function(a,b){return b.open-a.open;});}
+  function dcFocus(tasks){var out=[];tasks.forEach(function(t){var r=dcReasonOf(t);if(r)out.push({t:t,r:r});});
+    var rank={overdue:0,blocked:1,review:2,today:3,week:4,noassignee:5,nodue:6};
+    out.sort(function(x,y){return (rank[x.r]-rank[y.r])||((dcD(x.t)||"9999")<(dcD(y.t)||"9999")?-1:1);});return out;}
+  function dcRiskBadge(lvl){var m={high:["Rủi ro cao","st-Blocked"],attention:["Cần chú ý","st-Review"],stable:["Ổn định","st-Done"]}[lvl]||["Ổn định","st-Done"];return '<span class="pm-badge '+m[1]+'">'+m[0]+'</span>';}
+  function dcHealthTable(host,rows){if(!host)return;if(!rows.length){return emptyBox(host,"Chưa có dự án.");}
+    host.innerHTML='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Dự án</th><th>Rủi ro</th><th>Tiến độ</th><th>Mở</th><th>Quá hạn</th><th>Blocked</th><th>Chưa giao</th><th>Chưa có hạn</th><th>Quản lý</th></tr></thead><tbody>'+
+      rows.map(function(p){var a=p.a;return '<tr data-proj="'+esc(p.name)+'"><td class="t-main">'+esc(p.project_name)+'</td><td>'+dcRiskBadge(p.lvl)+'</td><td>'+p.progress+'%</td><td>'+a.open+'</td><td'+(a.overdue?' style="color:var(--pink);font-weight:600"':'')+'>'+a.overdue+'</td><td'+(a.blocked?' style="color:var(--pink);font-weight:600"':'')+'>'+a.blocked+'</td><td>'+a.noass+'</td><td>'+a.nodue+'</td><td>'+esc(p.manager)+'</td></tr>';}).join("")+'</tbody></table></div>';
+    Array.prototype.forEach.call(host.querySelectorAll("tr[data-proj]"),function(tr){tr.onclick=function(){openProject(tr.getAttribute("data-proj"));};});}
+  function dcWlTable(host,rows){if(!host)return;if(!rows.length){return emptyBox(host,"Chưa có dữ liệu workload.");}
+    host.innerHTML='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Người nhận</th><th>Mở</th><th>Quá hạn</th><th>Hôm nay</th><th>Tuần này</th><th>Blocked</th><th>Chờ duyệt</th><th>Chưa có hạn</th></tr></thead><tbody>'+
+      rows.map(function(w){return '<tr data-assignee="'+esc(w.u)+'" style="cursor:pointer"><td class="t-main">'+esc(w.u)+'</td><td>'+w.open+'</td><td'+(w.overdue?' style="color:var(--pink);font-weight:600"':'')+'>'+w.overdue+'</td><td>'+w.today+'</td><td>'+w.week+'</td><td'+(w.blocked?' style="color:var(--pink);font-weight:600"':'')+'>'+w.blocked+'</td><td>'+w.review+'</td><td>'+w.nodue+'</td></tr>';}).join("")+'</tbody></table></div>';
+    Array.prototype.forEach.call(host.querySelectorAll("tr[data-assignee]"),function(tr){tr.onclick=function(){navAssignee(tr.getAttribute("data-assignee"));};});}
+  function dcFocusList(host,rows){if(!host)return;if(!rows.length){return emptyBox(host,"Không có việc cần xử lý.");}
+    host.innerHTML='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Nhiệm vụ</th><th>Dự án</th><th>Trạng thái</th><th>Người nhận</th><th>Hạn</th><th>Ưu tiên</th><th>Lý do</th></tr></thead><tbody>'+
+      rows.slice(0,40).map(function(x){var t=x.t;var a=names(t._assign);return '<tr data-task="'+esc(t.name)+'"><td class="t-main">'+esc(t.subject||t.name)+'</td><td>'+esc(t.project||"-")+'</td><td>'+badge(t.workflow_state)+'</td><td>'+(a.length?'<span class="pm-mini-av" title="'+esc(a[0])+'">'+ini(a[0])+'</span>':'<span style="color:var(--gray-400)">-</span>')+'</td><td>'+esc(t.exp_end_date||"-")+'</td><td>'+(t.priority?esc(t.priority):"-")+'</td><td>'+dcReasonBadge(x.r)+'</td></tr>';}).join("")+'</tbody></table></div>';
+    Array.prototype.forEach.call(host.querySelectorAll("tr[data-task]"),function(tr){tr.onclick=function(){openTask(tr.getAttribute("data-task"));};});}
+  function dcMiniCard(label,n,preset,k){return '<div class="stat-card '+k+'" data-nav-preset="'+preset+'" style="cursor:pointer;padding:12px 14px"><div class="stat-label">'+label+'</div><div class="stat-value" style="font-size:22px">'+(n||0)+'</div></div>';}
+  // Batch C.2 charts (CSS-only)
+  function segBar(segs){var total=segs.reduce(function(a,s){return a+(s[1]||0);},0)||1;
+    return '<div class="seg-bar">'+segs.map(function(s){var pct=Math.round((s[1]||0)/total*100);return (s[1]?'<div class="seg-seg" style="width:'+pct+'%;background:'+s[2]+'" title="'+esc(s[0])+': '+s[1]+'"></div>':'');}).join("")+'</div>'+
+      '<div class="seg-legend">'+segs.map(function(s){return '<span class="seg-li"><i style="background:'+s[2]+'"></i>'+esc(s[0])+' <b>'+(s[1]||0)+'</b></span>';}).join("")+'</div>';}
+  function wlBar(host,rows){if(!host)return;rows=(rows||[]).slice(0,8);if(!rows.length){return emptyBox(host,"Chưa có dữ liệu workload.");}
+    var max=Math.max.apply(null,rows.map(function(w){return w.open||0;}).concat([1]));
+    host.innerHTML='<div class="wl-bars">'+rows.map(function(w){var op=w.open||0;var risk=Math.min((w.overdue||0)+(w.blocked||0),op);var fullPct=Math.round(op/max*100);var riskPct=op?Math.round(risk/op*100):0;
+      return '<div class="wl-brow" data-assignee="'+esc(w.u)+'"><div class="wl-name" title="'+esc(w.u)+'">'+esc((w.u||"").split("@")[0])+'</div><div class="wl-track"><div class="wl-fill" style="width:'+Math.max(fullPct,2)+'%"><div class="wl-risk" style="width:'+riskPct+'%"></div></div></div><div class="wl-num">'+op+(risk?' <span class="wl-risknum">('+risk+')</span>':'')+'</div></div>';}).join("")+'</div>';
+    Array.prototype.forEach.call(host.querySelectorAll(".wl-brow[data-assignee]"),function(x){x.onclick=function(){navAssignee(x.getAttribute("data-assignee"));};});}
   function showDashboard(){var c=el("pm-view");spin(c);
-    api(PM+"dashboard.control_center").then(function(d){
-      window._isLeader=!!d.is_leader;
-      var my=d.my||{counts:{}};var mc=my.counts||{};
-      var h=head("Tổng quan công việc","Việc của tôi"+(d.is_leader?" + tổng quan team":""));
-      h+='<div class="dc-sec-title">Việc của tôi</div>';
-      h+='<div class="stats-strip" style="grid-template-columns:repeat(5,1fr)">'+
-        ccard("s-pink","Quá hạn",mc.overdue,"overdue")+
-        ccard("s-navy","Hôm nay",mc.today,"today")+
-        ccard("s-yellow","Tuần này",mc.week,"week")+
-        ccard("s-navy","Chờ duyệt",mc.review,"review")+
-        ccard("s-pink","Blocked",mc.blocked,"blocked")+'</div>';
-      h+='<div class="dc-row">'+
-        '<div class="panel dc-card"><div class="panel-header"><div class="panel-title">Timer đang chạy</div></div><div class="dc-pad" id="dc-timer"></div></div>'+
-        '<div class="panel dc-card"><div class="panel-header"><div class="panel-title">Thông báo chưa đọc</div></div><div class="dc-pad"><b id="dc-unread" class="dc-link">'+(d.unread||0)+'</b> thông báo mới</div></div>'+
-        '</div>';
-      h+='<div class="panel"><div class="panel-header"><div class="panel-title">Cần chú ý (của tôi)</div></div><div id="dc-my-att"></div></div>';
-      h+='<div class="dc-sec-title">Phân tích</div>';
-      h+=distPanel("Phân bố trạng thái",d.status_dist,["Backlog","To Do","In Progress","Blocked","Review","Done","Cancelled"],{"In Progress":"db-navy",Blocked:"db-pink",Review:"db-yellow",Done:"db-green"});
-      h+=distPanel("Phân bố ưu tiên",d.priority_dist,["Urgent","High","Medium","Low","—"],{Urgent:"db-pink",High:"db-orange",Medium:"db-navy",Low:"db-gray"});
-      if(d.is_leader&&d.team){var tm=d.team;
-        h+='<div class="dc-sec-title">Tổng quan team</div>';
-        h+='<div class="stats-strip">'+
-          ccard("s-navy","Đang mở",tm.active,"")+
-          ccard("s-pink","Quá hạn",tm.overdue,"overdue")+
-          ccard("s-pink","Blocked",tm.blocked,"blocked")+
-          ccard("s-yellow","Chờ duyệt",tm.review,"review")+'</div>';
-        h+='<div class="stats-strip">'+
-          ccard("s-yellow","Chưa giao",tm.no_assignee,"noassignee")+
-          ccard("s-navy","Chưa có hạn",tm.no_due,"nodue")+
-          ccard("s-green","Hoàn thành tuần",tm.completed_week,"")+
-          '<div></div></div>';
-        h+='<div class="panel"><div class="panel-header"><div class="panel-title">Workload theo người</div></div><div id="dc-wl"></div></div>';
-        h+='<div class="panel"><div class="panel-header"><div class="panel-title">Rủi ro dự án</div></div><div id="dc-prisk"></div></div>';
-        h+='<div class="panel"><div class="panel-header"><div class="panel-title">Cần chú ý (team)</div></div><div id="dc-team-att"></div></div>';
+    Promise.all([api(PM+"dashboard.control_center"),api(PM+"tasks.list",{page_length:2000}),api(PM+"projects.list",{page_length:200})]).then(function(res){
+      var cc=res[0]||{};var tasks=(res[1]&&res[1].rows)||[];var projs=(res[2]&&res[2].rows)||[];
+      window._isLeader=!!cc.is_leader;var leader=window._isLeader;var user=window._pmUser||"";
+      var ph=leader?dcProjectHealth(tasks,projs):[];
+      var h=head("Tổng quan công việc",leader?"Bảng điều khiển quản lý":"Việc cần xử lý của tôi");
+      if(leader){
+        var atRisk=ph.filter(function(p){return p.lvl!=="stable";}).length;
+        var kOverdue=tasks.filter(dcIsOverdue).length,kToday=tasks.filter(dcIsToday).length,kWeek=tasks.filter(dcIsWeek).length;
+        var kBlocked=tasks.filter(function(t){return t.workflow_state==="Blocked";}).length;
+        var kReview=tasks.filter(function(t){return t.workflow_state==="Review";}).length;
+        var kNoass=tasks.filter(function(t){return dcActive(t)&&names(t._assign).length===0;}).length;
+        var kNodue=tasks.filter(function(t){return dcActive(t)&&!t.exp_end_date;}).length;
+        var nStable=ph.filter(function(p){return p.lvl==="stable";}).length,nAtt=ph.filter(function(p){return p.lvl==="attention";}).length,nHigh=ph.filter(function(p){return p.lvl==="high";}).length;
+        var sd={};tasks.forEach(function(t){var ws=t.workflow_state||"Backlog";sd[ws]=(sd[ws]||0)+1;});
+        h+='<div class="dc-sec-title">Tổng quan</div>';
+        h+='<div class="stats-strip dc-block" style="grid-template-columns:repeat(7,1fr)">'+
+          ccard("s-navy","Dự án",projs.length,"")+ccard("s-yellow","Cần chú ý",atRisk,"")+ccard("s-pink","Quá hạn",kOverdue,"overdue")+ccard("s-pink","Blocked",kBlocked,"blocked")+ccard("s-yellow","Chờ duyệt",kReview,"review")+ccard("s-yellow","Chưa giao",kNoass,"noassignee")+ccard("s-navy","Chưa có hạn",kNodue,"nodue")+'</div>';
+        var riskPanel='<div class="panel"><div class="panel-header"><div class="panel-title">Rủi ro dự án</div></div><div style="padding:14px 18px">'+segBar([["Ổn định",nStable,"#0a7a4f"],["Cần chú ý",nAtt,"#b8860b"],["Rủi ro cao",nHigh,"#c0392b"]])+'</div></div>';
+        var duePanel=distPanel("Áp lực hạn",{"Quá hạn":kOverdue,"Hôm nay":kToday,"Tuần này":kWeek,"Chưa có hạn":kNodue},["Quá hạn","Hôm nay","Tuần này","Chưa có hạn"],{"Quá hạn":"db-pink","Hôm nay":"db-navy","Tuần này":"db-yellow","Chưa có hạn":"db-gray"});
+        var statusPanel=distPanel("Phân bố trạng thái",sd,["Backlog","To Do","In Progress","Blocked","Review","Done","Cancelled"],{"In Progress":"db-navy",Blocked:"db-pink",Review:"db-yellow",Done:"db-green"});
+        h+='<div class="dc-charts">'+riskPanel+duePanel+statusPanel+'</div>';
+        h+='<div class="dc-sec-title">Sức khỏe dự án</div><div class="dc-block" id="dc-health"></div>';
+        h+='<div class="dc-sec-title">Workload theo người</div><div class="panel dc-block" id="dc-wlbar"></div>';
       }
+      // Non-leader: Focus chỉ trên task được giao cho chính họ (an toàn), không chỉ dựa vào permission-scope.
+      var focusTasks=leader?tasks:tasks.filter(function(t){return names(t._assign).indexOf(user)>=0;});
+      h+='<div class="dc-sec-title">Cần xử lý (Focus)</div><div class="dc-block" id="dc-focus"></div>';
+      if(leader){h+='<details class="dc-analytics"><summary>Phân tích chi tiết</summary><div id="dc-prio"></div><div class="dc-sec-title" style="margin-top:12px">Workload chi tiết</div><div id="dc-wltbl"></div></details>';}
       c.innerHTML=h;
-      var tb=el("dc-timer");
-      if(d.timer&&d.timer.task){tb.innerHTML='<b class="dc-link" data-task="'+esc(d.timer.task)+'">'+esc(d.timer.task)+'</b> · '+esc(d.timer.status);}
-      else{tb.innerHTML='<span>Không có timer đang chạy</span>';}
+      if(leader){dcHealthTable(el("dc-health"),ph);var wl=dcWorkload(tasks);wlBar(el("dc-wlbar"),wl);dcWlTable(el("dc-wltbl"),wl);
+        var pd2={};tasks.forEach(function(t){var pr=t.priority||"—";pd2[pr]=(pd2[pr]||0)+1;});el("dc-prio").innerHTML=distPanel("Phân bố ưu tiên",pd2,["Urgent","High","Medium","Low","—"],{Urgent:"db-pink",High:"db-orange",Medium:"db-navy",Low:"db-gray"});}
+      dcFocusList(el("dc-focus"),dcFocus(focusTasks));
       Array.prototype.forEach.call(c.querySelectorAll("[data-nav-preset]"),function(b){b.onclick=function(){navPreset(b.getAttribute("data-nav-preset"));};});
-      if(el("dc-unread"))el("dc-unread").onclick=function(){go("notifications");};
-      Array.prototype.forEach.call(c.querySelectorAll("[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});
-      attList(el("dc-my-att"),[].concat(my.overdue||[],my.review||[],my.blocked||[]));
-      if(d.is_leader&&d.team){wlTable(el("dc-wl"),d.workload);renderPRisk(el("dc-prisk"),d.project_risk||[]);attList(el("dc-team-att"),[].concat((d.attention&&d.attention.overdue)||[],(d.attention&&d.attention.blocked)||[],(d.attention&&d.attention.review)||[]));}
     }).catch(function(e){errBox(c,e);});}
 
   function showMyTasks(){var c=el("pm-view");spin(c);
-    api(PM+"dashboard.my_tasklist").then(function(d){
+    Promise.all([api(PM+"dashboard.my_tasklist"),api(PM+"dashboard.control_center")]).then(function(res){
+      var d=res[0]||{};var cc=res[1]||{};var mc=(cc.my&&cc.my.counts)||{};var tmr=cc.timer||d.timer;
       var groups=[["attention","Đang cần xử lý",d.attention||[]],["week","Tuần này",d.week||[]],["nodue","Chưa có hạn",d.nodue||[]],["done","Đã hoàn thành gần đây",d.done||[]]];
       var total=groups.reduce(function(a,g){return a+g[2].length;},0);
       var cn=d.counts||{};
-      var h=head("Việc của tôi","Việc của bạn — "+total+" mục"+(cn.attention?(" · "+cn.attention+" cần xử lý ngay"):""));
-      if(d.timer&&d.timer.task){h+='<div class="panel" style="margin-bottom:14px"><div class="dc-pad"><span class="tg-dot"></span> Timer đang chạy: <b class="dc-link" id="mt-timer">'+esc(d.timer.task)+'</b> · '+esc(d.timer.status)+'</div></div>';}
-      if(!total){c.innerHTML=h+'<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>Không có việc nào được giao cho bạn.</div></div></div>';if(el("mt-timer"))el("mt-timer").onclick=function(){openTask(d.timer.task);};return;}
+      var h=head("Việc của tôi","Cockpit cá nhân — "+total+" mục"+(cn.attention?(" · "+cn.attention+" cần xử lý ngay"):""));
+      h+='<div class="dc-mini dc-block">'+dcMiniCard("Quá hạn",mc.overdue,"overdue","s-pink")+dcMiniCard("Hôm nay",mc.today,"today","s-navy")+dcMiniCard("Tuần này",mc.week,"week","s-yellow")+dcMiniCard("Chờ duyệt",mc.review,"review","s-navy")+dcMiniCard("Blocked",mc.blocked,"blocked","s-pink")+'</div>';
+      if(tmr&&tmr.task){h+='<div class="panel" style="margin-bottom:14px"><div class="dc-pad"><span class="tg-dot"></span> Timer đang chạy: <b class="dc-link" id="mt-timer">'+esc(tmr.task)+'</b> · '+esc(tmr.status)+'</div></div>';}
+      if(!total){c.innerHTML=h+'<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>Không có việc nào được giao cho bạn.</div></div></div>';
+        if(el("mt-timer"))el("mt-timer").onclick=function(){openTask(tmr.task);};
+        Array.prototype.forEach.call(c.querySelectorAll("[data-nav-preset]"),function(b){b.onclick=function(){navPreset(b.getAttribute("data-nav-preset"));};});return;}
       groups.forEach(function(g){if(g[2].length)h+='<div class="panel"><div class="panel-header"><div class="panel-title">'+g[1]+' <span style="color:var(--gray-400);font-weight:500">('+g[2].length+')</span></div></div><div id="mt-'+g[0]+'"></div></div>';});
       c.innerHTML=h;
       groups.forEach(function(g){if(g[2].length)taskTable(el("mt-"+g[0]),g[2]);});
-      if(el("mt-timer"))el("mt-timer").onclick=function(){openTask(d.timer.task);};
+      if(el("mt-timer"))el("mt-timer").onclick=function(){openTask(tmr.task);};
+      Array.prototype.forEach.call(c.querySelectorAll("[data-nav-preset]"),function(b){b.onclick=function(){navPreset(b.getAttribute("data-nav-preset"));};});
     }).catch(function(e){errBox(c,e);});}
 
   function pmProjView(){try{return localStorage.getItem("pm_project_view")||"card";}catch(_){return "card";}}
@@ -842,7 +920,7 @@
     var projs=uniq(ts.map(function(t){return t.project;}));
     var asg=uniq([].concat.apply([],ts.map(function(t){return names(t._assign);})));
     var pri=uniq(ts.map(function(t){return t.priority;}));
-    var P=[["mine","Của tôi"],["today","Hôm nay"],["week","Tuần này"],["overdue","Quá hạn"],["blocked","Blocked"],["review","Chờ duyệt"],["noassignee","Chưa giao"],["nodue","Chưa hạn"]];
+    var P=[["mine","Của tôi"],["today","Hôm nay"],["week","Tuần này"],["overdue","Quá hạn"],["blocked","Blocked"],["review","Chờ duyệt"],["noassignee","Chưa giao"],["nodue","Chưa có hạn"]];
     return '<div class="pm-filters">'+
       '<input class="pm-input" id="f-q" placeholder="Tìm..." value="'+esc(F.q)+'" style="max-width:170px">'+
       '<select class="pm-sel" id="f-status"><option value="">Trạng thái</option>'+COLS.map(function(s){return opt(s,s,F.status);}).join("")+'</select>'+
