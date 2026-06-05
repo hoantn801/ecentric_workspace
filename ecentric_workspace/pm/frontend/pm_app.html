@@ -180,6 +180,12 @@
   .donut-li i{ width:11px; height:11px; border-radius:3px; flex:0 0 auto; }
   .donut-li span{ flex:1; }
   .donut-li b{ color:var(--gray-900); }
+  /* Batch D.2 recurring alerts */
+  .rec-alert{ display:flex; align-items:center; gap:10px; padding:9px 14px; border-bottom:1px solid var(--gray-100); cursor:pointer; }
+  .rec-alert:last-child{ border-bottom:none; }
+  .rec-alert:hover{ background:var(--gray-50); }
+  .rec-alert-main{ flex:1; font-size:13px; color:var(--gray-800); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rec-alert-rule{ font-size:11.5px; color:var(--gray-400); white-space:nowrap; }
   .dc-att{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 20px; border-top:1px solid var(--gray-100); cursor:pointer; }
   .dc-att:first-child{ border-top:none; }
   .dc-att:hover{ background:var(--gray-100); }
@@ -1538,15 +1544,59 @@
       el("rc-make").onclick=function(){recForm(task,b);};
     }}
   function recBadge(s){return s==="Active"?"st-Done":s==="Paused"?"st-Review":s==="Cancelled"?"st-Cancelled":"st-Backlog";}
+  // Batch D.2 — alert/health derivation (frontend-only, from recurrence.list + tasks.list)
+  var REC_REASON={done:["Hoàn thành","#0a7a4f","#eaf6ef"],overdue:["Quá hạn","#c0392b","#fcebeb"],blocked:["Blocked","#a32d2d","#fcebeb"],review:["Chờ duyệt","#925f00","#fff7e6"],noassignee:["Chưa giao","#925f00","#fff7e6"],pending:["Cần làm hôm nay","#1f2d80","#eef0fb"]};
+  function recReasonBadge(k){var m=REC_REASON[k]||["","",""];return '<span class="dc-reason" style="color:'+m[1]+';background:'+m[2]+'">'+m[0]+'</span>';}
+  function recTaskReason(t){if(!t)return "pending";
+    if(t.workflow_state==="Done")return "done";
+    if(dcIsOverdue(t))return "overdue";
+    if(t.workflow_state==="Blocked")return "blocked";
+    if(t.workflow_state==="Review")return "review";
+    if(names(t._assign).length===0)return "noassignee";
+    return "pending";}
+  function ruleHealth(r,t){
+    var maxed=r.status==="Completed"||((r.max_occurrences||0)>0&&(r.occurrences_done||0)>=r.max_occurrences);
+    if(maxed)return "maxed";
+    if(r.status!=="Active")return null; /* Paused/Cancelled have no health */
+    var today=new Date().toISOString().slice(0,10);
+    var nrd=r.next_run_date?String(r.next_run_date).slice(0,10):null;var lrd=r.last_run_date?String(r.last_run_date).slice(0,10):null;
+    if(nrd&&nrd<=today&&lrd!==today)return "notgen";
+    if(t&&(dcIsOverdue(t)||t.workflow_state==="Blocked"))return "risk";
+    if(t&&dcActive(t)&&(lrd===today||names(t._assign).length===0))return "attention";
+    return "stable";}
+  function ruleHealthBadge(k){
+    if(k==="maxed")return '<span class="pm-badge st-Backlog">Đã đủ số lần</span>';
+    if(k==="notgen")return '<span class="pm-badge" style="background:#fdebd0;color:#a05a00">Chưa sinh hôm nay</span>';
+    if(k==="risk")return '<span class="pm-badge st-Blocked">Rủi ro</span>';
+    if(k==="attention")return '<span class="pm-badge st-Review">Cần chú ý</span>';
+    if(k==="stable")return '<span class="pm-badge st-Done">Ổn định</span>';
+    return '<span style="color:var(--gray-300)">—</span>';}
+  function recAlerts(rules,tmap){var today=new Date().toISOString().slice(0,10);var out=[];
+    rules.forEach(function(r){var t=r.last_task&&tmap[r.last_task];
+      if(r.status==="Active"){var nrd=r.next_run_date?String(r.next_run_date).slice(0,10):null;var lrd=r.last_run_date?String(r.last_run_date).slice(0,10):null;
+        if(nrd&&nrd<=today&&lrd!==today)out.push({kind:"notgen",r:r,t:null,task:r.source_task});}
+      if(t){
+        if(dcIsOverdue(t))out.push({kind:"overdue",r:r,t:t,task:t.name});
+        else if(t.workflow_state==="Blocked")out.push({kind:"blocked",r:r,t:t,task:t.name});
+        if(dcActive(t)&&names(t._assign).length===0)out.push({kind:"noassignee",r:r,t:t,task:t.name});
+      }});
+    return out;}
+  function recAlertList(host,alerts){if(!host)return;
+    if(!alerts.length){host.innerHTML='<div class="dc-pad" style="color:#0a7a4f;font-weight:600">Không có cảnh báo định kỳ.</div>';return;}
+    host.innerHTML=alerts.slice(0,20).map(function(x){
+      var bd=x.kind==="notgen"?'<span class="dc-reason" style="color:#a05a00;background:#fdebd0">Chưa sinh hôm nay</span>':recReasonBadge(x.kind);
+      var title=x.t?(x.t.subject||x.t.name):("Chưa sinh: "+x.r.source_task);var proj=(x.t&&x.t.project)||x.r.project||"";
+      return '<div class="rec-alert" data-task="'+esc(x.task)+'">'+bd+'<span class="rec-alert-main">'+esc(title)+(proj?' <span style="color:var(--gray-400)">· '+esc(proj)+'</span>':'')+'</span><span class="rec-alert-rule">'+esc(x.r.source_task)+'</span></div>';}).join("");
+    Array.prototype.forEach.call(host.querySelectorAll("[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});}
   function recTodayTable(host,rows){if(!host)return;if(!rows.length){return emptyBox(host,"Hôm nay chưa có nhiệm vụ định kỳ nào được sinh.");}
-    host.innerHTML='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Nhiệm vụ</th><th>Dự án</th><th>Người nhận</th><th>Trạng thái</th><th>Hạn</th><th>Quy tắc nguồn</th><th></th></tr></thead><tbody>'+
-      rows.map(function(x){var t=x.t,r=x.r;var a=t?names(t._assign):[];
-        return '<tr'+(t?' data-task="'+esc(t.name)+'"':'')+'><td class="t-main">'+esc(t?(t.subject||t.name):r.last_task)+'</td><td>'+esc((t&&t.project)||r.project||"-")+'</td><td>'+(a.length?'<span class="pm-mini-av" title="'+esc(a[0])+'">'+ini(a[0])+'</span>':'<span style="color:var(--gray-400)">Chưa giao</span>')+'</td><td>'+(t?badge(t.workflow_state):"-")+'</td><td>'+esc((t&&t.exp_end_date)||"-")+'</td><td>'+esc(r.source_task)+'</td><td style="text-align:right">'+(t?'<button class="pm-btn rec-open" data-task="'+esc(t.name)+'">Mở</button>':'')+'</td></tr>';}).join("")+'</tbody></table></div>';
+    host.innerHTML='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Nhiệm vụ</th><th>Dự án</th><th>Người nhận</th><th>Trạng thái</th><th>Hạn</th><th>Quy tắc nguồn</th><th>Tình trạng</th><th></th></tr></thead><tbody>'+
+      rows.map(function(x){var t=x.t,r=x.r;var a=t?names(t._assign):[];var noass=t&&a.length===0;
+        return '<tr'+(t?' data-task="'+esc(t.name)+'"':'')+'><td class="t-main">'+esc(t?(t.subject||t.name):r.last_task)+'</td><td>'+esc((t&&t.project)||r.project||"-")+'</td><td>'+(a.length?'<span class="pm-mini-av" title="'+esc(a[0])+'">'+ini(a[0])+'</span>':'<span style="color:var(--gray-400)">Chưa giao</span>')+'</td><td>'+(t?badge(t.workflow_state):"-")+'</td><td>'+esc((t&&t.exp_end_date)||"-")+'</td><td>'+esc(r.source_task)+'</td><td>'+recReasonBadge(recTaskReason(t))+(noass&&recTaskReason(t)!=="noassignee"?' <span class="dc-reason" style="color:#925f00;background:#fff7e6">Chưa giao</span>':'')+'</td><td style="text-align:right">'+(t?'<button class="pm-btn rec-open" data-task="'+esc(t.name)+'">Mở</button>':'')+'</td></tr>';}).join("")+'</tbody></table></div>';
     Array.prototype.forEach.call(host.querySelectorAll("[data-task]"),function(x){x.onclick=function(e){if(e)e.stopPropagation();openTask(x.getAttribute("data-task"));};});}
   function recRuleTable(host,rules,tmap,showActions){if(!host)return;if(!rules.length){return emptyBox(host,"Không có quy tắc.");}
-    host.innerHTML='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Task gốc</th><th>Tần suất</th><th>Lần kế</th><th>Đã tạo</th><th>Tối đa</th><th>Task mới nhất</th><th>Trạng thái</th>'+(showActions?'<th></th>':'')+'</tr></thead><tbody>'+
+    host.innerHTML='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Task gốc</th><th>Tần suất</th><th>Lần kế</th><th>Đã tạo</th><th>Tối đa</th><th>Task mới nhất</th><th>Trạng thái</th><th>Health</th>'+(showActions?'<th></th>':'')+'</tr></thead><tbody>'+
       rules.map(function(r){var lt=r.last_task&&tmap[r.last_task];
-        return '<tr><td class="t-main">'+esc(r.source_task)+'</td><td>'+esc(FREQ_VN[r.frequency]||r.frequency)+'</td><td>'+esc(r.next_run_date||"-")+'</td><td>'+(r.occurrences_done||0)+'</td><td>'+(r.max_occurrences?r.max_occurrences:"—")+'</td><td'+(lt?' class="dc-link" data-task="'+esc(r.last_task)+'" style="cursor:pointer"':'')+'>'+esc(r.last_task||"-")+'</td><td><span class="pm-badge '+recBadge(r.status)+'">'+esc(r.status)+'</span></td>'+
+        return '<tr><td class="t-main">'+esc(r.source_task)+'</td><td>'+esc(FREQ_VN[r.frequency]||r.frequency)+'</td><td>'+esc(r.next_run_date||"-")+'</td><td>'+(r.occurrences_done||0)+'</td><td>'+(r.max_occurrences?r.max_occurrences:"—")+'</td><td'+(lt?' class="dc-link" data-task="'+esc(r.last_task)+'" style="cursor:pointer"':'')+'>'+esc(r.last_task||"-")+'</td><td><span class="pm-badge '+recBadge(r.status)+'">'+esc(r.status)+'</span></td><td>'+ruleHealthBadge(ruleHealth(r,lt))+'</td>'+
           (showActions?'<td style="text-align:right;white-space:nowrap">'+(r.status==="Active"?'<button class="pm-btn rc-a" data-a="pause" data-n="'+esc(r.name)+'">Tạm dừng</button>':r.status==="Paused"?'<button class="pm-btn rc-a" data-a="resume" data-n="'+esc(r.name)+'">Tiếp tục</button>':'')+((r.status==="Active"||r.status==="Paused")?' <button class="pm-btn rc-a" data-a="cancel" data-n="'+esc(r.name)+'">Huỷ</button>':'')+'</td>':'')+'</tr>';}).join("")+'</tbody></table></div>';
     Array.prototype.forEach.call(host.querySelectorAll("[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});
     Array.prototype.forEach.call(host.querySelectorAll(".rc-a"),function(btn){btn.onclick=function(){api(PM+"recurrence."+btn.getAttribute("data-a"),{name:btn.getAttribute("data-n")}).then(function(){showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};});}
@@ -1562,13 +1612,18 @@
       var genToday=rules.filter(function(r){return d10(r.last_run_date)===today&&r.last_task;}).map(function(r){return {r:r,t:tmap[r.last_task]};});
       var pendingToday=genToday.filter(function(x){return x.t&&dcActive(x.t);}).length;
       var overdueGen=rules.filter(function(r){var t=r.last_task&&tmap[r.last_task];return t&&dcIsOverdue(t);}).length;
-      h+='<div class="stats-strip dc-block" style="grid-template-columns:repeat(6,1fr)">'+
-        ccard("s-green","Đang chạy",active.length,"")+ccard("s-yellow","Tạm dừng",paused.length,"")+ccard("s-navy","Đã huỷ/xong",ended.length,"")+
-        ccard("s-navy","Sinh hôm nay",genToday.length,"")+ccard("s-yellow","Chờ xử lý hôm nay",pendingToday,"")+ccard("s-pink","Quá hạn (sinh ra)",overdueGen,"")+'</div>';
+      var noassGen=rules.filter(function(r){var t=r.last_task&&tmap[r.last_task];return t&&dcActive(t)&&names(t._assign).length===0;}).length;
+      var blockedGen=rules.filter(function(r){var t=r.last_task&&tmap[r.last_task];return t&&t.workflow_state==="Blocked";}).length;
+      var ruleRisk=active.filter(function(r){var hh=ruleHealth(r,r.last_task&&tmap[r.last_task]);return hh==="notgen"||hh==="risk"||hh==="attention";}).length;
+      var alerts=recAlerts(rules,tmap);
+      h+='<div class="stats-strip dc-block" style="grid-template-columns:repeat(7,1fr)">'+
+        ccard("s-green","Đang chạy",active.length,"")+ccard("s-pink","Rule rủi ro",ruleRisk,"")+ccard("s-navy","Sinh hôm nay",genToday.length,"")+ccard("s-yellow","Chờ xử lý hôm nay",pendingToday,"")+ccard("s-pink","Quá hạn sinh ra",overdueGen,"")+ccard("s-yellow","Chưa giao sinh ra",noassGen,"")+ccard("s-pink","Blocked sinh ra",blockedGen,"")+'</div>';
+      h+='<div class="dc-sec-title">Cảnh báo định kỳ'+(alerts.length?' <span style="color:var(--gray-400);font-weight:500">('+alerts.length+')</span>':'')+'</div><div class="panel dc-block" id="rec-alerts"></div>';
       h+='<div class="dc-sec-title">Nhiệm vụ sinh hôm nay</div><div class="dc-block" id="rec-today"></div>';
       h+='<div class="dc-sec-title">Quy tắc đang chạy</div><div class="dc-block" id="rec-active"></div>';
-      h+='<details class="dc-analytics"><summary>Tạm dừng / Đã huỷ / Hoàn thành ('+(paused.length+ended.length)+')</summary><div id="rec-other"></div></details>';
+      h+='<details class="dc-analytics"><summary>Tạm dừng ('+paused.length+') / Đã huỷ-xong ('+ended.length+')</summary><div id="rec-other"></div></details>';
       c.innerHTML=h;
+      recAlertList(el("rec-alerts"),alerts);
       recTodayTable(el("rec-today"),genToday);
       recRuleTable(el("rec-active"),active,tmap,true);
       recRuleTable(el("rec-other"),paused.concat(ended),tmap,true);
