@@ -169,6 +169,17 @@
   .wl-risk{ position:absolute; right:0; top:0; height:14px; background:var(--pink); border-radius:0 7px 7px 0; }
   .wl-num{ font-size:12px; color:var(--gray-600); text-align:right; }
   .wl-risknum{ color:var(--pink); font-weight:600; }
+  /* Batch C.3 donut (CSS conic-gradient) */
+  .donut-wrap{ display:flex; align-items:center; gap:18px; padding:14px 18px; flex-wrap:wrap; }
+  .donut{ width:120px; height:120px; border-radius:50%; flex:0 0 auto; position:relative; }
+  .donut-hole{ position:absolute; inset:22px; background:#fff; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .donut-num{ font-size:26px; font-weight:700; color:var(--gray-900); line-height:1; }
+  .donut-lbl{ font-size:10.5px; color:var(--gray-500); margin-top:2px; text-transform:uppercase; letter-spacing:.03em; }
+  .donut-legend{ display:flex; flex-direction:column; gap:7px; flex:1; min-width:120px; }
+  .donut-li{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--gray-600); }
+  .donut-li i{ width:11px; height:11px; border-radius:3px; flex:0 0 auto; }
+  .donut-li span{ flex:1; }
+  .donut-li b{ color:var(--gray-900); }
   .dc-att{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 20px; border-top:1px solid var(--gray-100); cursor:pointer; }
   .dc-att:first-child{ border-top:none; }
   .dc-att:hover{ background:var(--gray-100); }
@@ -686,6 +697,15 @@
     Array.prototype.forEach.call(host.querySelectorAll("tr[data-task]"),function(tr){tr.onclick=function(){openTask(tr.getAttribute("data-task"));};});}
   function dcMiniCard(label,n,preset,k){return '<div class="stat-card '+k+'" data-nav-preset="'+preset+'" style="cursor:pointer;padding:12px 14px"><div class="stat-label">'+label+'</div><div class="stat-value" style="font-size:22px">'+(n||0)+'</div></div>';}
   // Batch C.2 charts (CSS-only)
+  // NOTE: no line/trend chart — that needs historical time-series snapshots. tasks.list/
+  // projects.list/control_center only give the CURRENT snapshot, so a line chart would be
+  // misleading. Add later via a backend aggregate/history endpoint that stores periodic snapshots.
+  function donut(segs,centerNum,centerLabel){var total=segs.reduce(function(a,s){return a+(s[1]||0);},0);
+    var grad;
+    if(total<=0){grad="var(--gray-200) 0deg 360deg";} /* zero-state: gray ring, no error */
+    else{var acc=0;grad=segs.map(function(s){var from=acc/total*360;acc+=(s[1]||0);var to=acc/total*360;return s[2]+" "+from+"deg "+to+"deg";}).join(",");}
+    return '<div class="donut-wrap"><div class="donut" style="background:conic-gradient('+grad+')"><div class="donut-hole"><div class="donut-num">'+(centerNum||0)+'</div><div class="donut-lbl">'+esc(centerLabel||"")+'</div></div></div>'+
+      '<div class="donut-legend">'+segs.map(function(s){return '<div class="donut-li"><i style="background:'+s[2]+'"></i><span>'+esc(s[0])+'</span><b>'+(s[1]||0)+'</b></div>';}).join("")+'</div></div>';}
   function segBar(segs){var total=segs.reduce(function(a,s){return a+(s[1]||0);},0)||1;
     return '<div class="seg-bar">'+segs.map(function(s){var pct=Math.round((s[1]||0)/total*100);return (s[1]?'<div class="seg-seg" style="width:'+pct+'%;background:'+s[2]+'" title="'+esc(s[0])+': '+s[1]+'"></div>':'');}).join("")+'</div>'+
       '<div class="seg-legend">'+segs.map(function(s){return '<span class="seg-li"><i style="background:'+s[2]+'"></i>'+esc(s[0])+' <b>'+(s[1]||0)+'</b></span>';}).join("")+'</div>';}
@@ -712,7 +732,7 @@
         h+='<div class="dc-sec-title">Tổng quan</div>';
         h+='<div class="stats-strip dc-block" style="grid-template-columns:repeat(7,1fr)">'+
           ccard("s-navy","Dự án",projs.length,"")+ccard("s-yellow","Cần chú ý",atRisk,"")+ccard("s-pink","Quá hạn",kOverdue,"overdue")+ccard("s-pink","Blocked",kBlocked,"blocked")+ccard("s-yellow","Chờ duyệt",kReview,"review")+ccard("s-yellow","Chưa giao",kNoass,"noassignee")+ccard("s-navy","Chưa có hạn",kNodue,"nodue")+'</div>';
-        var riskPanel='<div class="panel"><div class="panel-header"><div class="panel-title">Rủi ro dự án</div></div><div style="padding:14px 18px">'+segBar([["Ổn định",nStable,"#0a7a4f"],["Cần chú ý",nAtt,"#b8860b"],["Rủi ro cao",nHigh,"#c0392b"]])+'</div></div>';
+        var riskPanel='<div class="panel"><div class="panel-header"><div class="panel-title">Rủi ro dự án</div></div>'+donut([["Ổn định",nStable,"#0a7a4f"],["Cần chú ý",nAtt,"#b8860b"],["Rủi ro cao",nHigh,"#c0392b"]],projs.length,"dự án")+'</div>';
         var duePanel=distPanel("Áp lực hạn",{"Quá hạn":kOverdue,"Hôm nay":kToday,"Tuần này":kWeek,"Chưa có hạn":kNodue},["Quá hạn","Hôm nay","Tuần này","Chưa có hạn"],{"Quá hạn":"db-pink","Hôm nay":"db-navy","Tuần này":"db-yellow","Chưa có hạn":"db-gray"});
         var statusPanel=distPanel("Phân bố trạng thái",sd,["Backlog","To Do","In Progress","Blocked","Review","Done","Cancelled"],{"In Progress":"db-navy",Blocked:"db-pink",Review:"db-yellow",Done:"db-green"});
         h+='<div class="dc-charts">'+riskPanel+duePanel+statusPanel+'</div>';
