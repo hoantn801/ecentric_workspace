@@ -137,6 +137,24 @@
   .pd-tab{ background:none; border:none; padding:9px 16px; font-size:13.5px; font-weight:500; color:var(--gray-500); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
   .pd-tab:hover{ color:var(--gray-900); }
   .pd-tab.active{ color:var(--navy); border-bottom-color:var(--navy); font-weight:600; }
+  /* Batch B: project workspace header + health pill strip */
+  .pd-workhead{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:12px; }
+  .pd-wh-main{ min-width:0; flex:1 1 auto; }
+  .pd-wh-title{ font-size:18px; font-weight:700; color:var(--gray-900); letter-spacing:-0.3px; }
+  .pd-wh-sub{ font-size:12.5px; color:var(--gray-500); margin-top:2px; }
+  .pd-wh-prog{ display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+  .pd-wh-bar{ width:120px; height:7px; background:var(--gray-100); border-radius:5px; overflow:hidden; }
+  .pd-wh-bar > div{ height:7px; background:var(--navy); border-radius:5px; }
+  .pd-wh-pct{ font-size:12px; font-weight:600; color:var(--gray-600); }
+  .pd-health{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+  .pd-pill{ display:inline-flex; align-items:center; gap:7px; border:1px solid var(--gray-200); background:#fff; border-radius:9px; padding:6px 11px; cursor:pointer; font-size:12.5px; color:var(--gray-600); transition:border-color .12s, background .12s; }
+  .pd-pill:hover{ border-color:var(--navy-100); background:var(--navy-50); }
+  .pd-pill.active{ border-color:var(--navy); background:var(--navy-50); color:var(--navy); font-weight:600; }
+  .pd-pill-n{ font-weight:700; font-size:14px; color:var(--gray-900); }
+  .pd-pill.active .pd-pill-n{ color:var(--navy); }
+  .pd-pill.s-pink .pd-pill-n{ color:var(--pink); }
+  .pd-pill.s-yellow .pd-pill-n{ color:#b8860b; }
+  .pd-pill.s-green .pd-pill-n{ color:#0a7a4f; }
   .g-today{ position:absolute; top:0; bottom:0; width:2px; background:var(--pink); opacity:.7; z-index:2; }
   .g-add{ font-size:11.5px; padding:3px 9px; }
   /* UX-4A: badge system, timer chip, drawer sections, kanban card */
@@ -634,23 +652,42 @@
     c.innerHTML=h+'</tbody></table>';
     Array.prototype.forEach.call(c.querySelectorAll("tr[data-proj]"),function(tr){tr.onclick=function(){openProject(tr.getAttribute("data-proj"));};});}
 
-  function openProject(name){var c=el("pm-view");spin(c);window._pdFilter="";
+  // Batch B: single project workspace = compact header + always-on health pill strip + in-place view switcher.
+  function pdWorkHead(p,d){var lvl=d.risk_level||"low";var prog=Math.round(d.progress||0);
+    var L={high:["Rủi ro cao","st-Blocked"],medium:["Cần chú ý","st-Review"],low:["Ổn định","st-Done"]}[lvl]||["Ổn định","st-Done"];
+    return '<div class="pd-workhead"><div class="pd-wh-main"><div class="pd-wh-title">'+esc(p.project_name||window._pd.name)+'</div>'+
+      '<div class="pd-wh-sub">Quản lý: '+esc(p.ec_manager||"-")+(p.ec_department?(" · "+esc(p.ec_department)):"")+'</div></div>'+
+      '<div class="pd-wh-prog"><span class="pm-badge '+L[1]+'">'+L[0]+'</span><div class="pd-wh-bar"><div style="width:'+prog+'%"></div></div><span class="pd-wh-pct">'+prog+'%</span></div>'+
+      '<button class="pm-btn primary" id="pm-newt"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button></div>';}
+  function pdHealthPills(d){var rk=d.risk||{};
+    var P=[["open","Đang mở",rk.active,"s-navy"],["overdue","Quá hạn",rk.overdue,"s-pink"],["blocked","Blocked",rk.blocked,"s-pink"],["review","Chờ duyệt",rk.review,"s-yellow"],["noassignee","Chưa giao",rk.no_assignee,"s-yellow"],["nodue","Chưa có hạn",rk.no_due,"s-navy"],["completed","Hoàn thành",rk.completed,"s-green"]];
+    return P.map(function(p){return '<button class="pd-pill '+p[3]+'" data-card="'+p[0]+'" title="Lọc: '+esc(p[1])+'"><span class="pd-pill-n">'+(p[2]||0)+'</span><span class="pd-pill-l">'+p[1]+'</span></button>';}).join("");}
+  function openProject(name){var c=el("pm-view");spin(c);window._pdFilter="";window._pdCurTab="tasks";
     api(PM+"projects.detail",{name:name}).then(function(d){var p=d.project||{};window._pd={name:name,d:d};
-      var TABS=[["overview","Tổng quan"],["tasks","Nhiệm vụ"],["board","Kanban"],["gantt","Gantt"],["timesheet","Timesheet"]];
-      c.innerHTML='<button class="pm-btn" id="pm-back" style="margin-bottom:14px"><svg class="icon icon-sm"><use href="#p-back"/></svg> Dự án</button>'+
-        head(p.project_name||name,"Quản lý: "+(p.ec_manager||"-")+(p.ec_department?(" · "+p.ec_department):""),'<button class="pm-btn primary" id="pm-newt"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button>')+
-        '<div class="pd-tabs">'+TABS.map(function(t){return '<button class="pd-tab" data-tab="'+t[0]+'">'+t[1]+'</button>';}).join("")+'</div><div id="pd-body"></div>';
-      el("pm-back").onclick=showProjects; el("pm-newt").onclick=function(){newTask(name);};
-      var tabs=c.querySelectorAll(".pd-tab");
-      function sel(tab){window._pdCurTab=tab;Array.prototype.forEach.call(tabs,function(b){b.classList.toggle("active",b.getAttribute("data-tab")===tab);});pdRender(tab);}
-      window._pdSel=sel; /* card-click in overview drills into tasks tab with a filter (keeps window._pdFilter) */
-      Array.prototype.forEach.call(tabs,function(b){b.onclick=function(){window._pdFilter="";sel(b.getAttribute("data-tab"));};}); /* manual tab switch clears the card filter */
-      sel("overview");
+      var VIEWSW=[["tasks","Danh sách"],["board","Kanban"],["gantt","Gantt"],["timesheet","Timesheet"]];
+      c.innerHTML='<button class="pm-btn" id="pm-back" style="margin-bottom:12px"><svg class="icon icon-sm"><use href="#p-back"/></svg> Dự án</button>'+
+        pdWorkHead(p,d)+
+        '<div class="pd-health" id="pd-health">'+pdHealthPills(d)+'</div>'+
+        '<div class="pd-tabs" id="pd-switch">'+VIEWSW.map(function(t){return '<button class="pd-tab" data-view="'+t[0]+'">'+t[1]+'</button>';}).join("")+'</div>'+
+        '<div id="pd-body"></div>';
+      el("pm-back").onclick=showProjects;
+      if(el("pm-newt"))el("pm-newt").onclick=function(){newTask(name,null,function(){openProject(name);});}; /* refresh workspace + health after create */
+      var sw=c.querySelectorAll("#pd-switch .pd-tab");
+      function setView(v){window._pdCurTab=v;Array.prototype.forEach.call(sw,function(b){b.classList.toggle("active",b.getAttribute("data-view")===v);});pdRender(v);}
+      window._pdSel=setView; /* metric-click / post-write refresh re-render the current view (keeps _pdFilter) */
+      function syncPills(){Array.prototype.forEach.call(c.querySelectorAll("#pd-health .pd-pill[data-card]"),function(x){x.classList.toggle("active",x.getAttribute("data-card")===window._pdFilter);});}
+      window._pdSyncPills=syncPills;
+      Array.prototype.forEach.call(sw,function(b){b.onclick=function(){var v=b.getAttribute("data-view");if(v==="gantt"||v==="timesheet"){window._pdFilter="";}setView(v);syncPills();};}); /* manual switch to Gantt/Timesheet clears metric filter */
+      Array.prototype.forEach.call(c.querySelectorAll("#pd-health .pd-pill[data-card]"),function(x){x.onclick=function(){
+        var k=x.getAttribute("data-card");window._pdFilter=(window._pdFilter===k)?"":k; /* toggle off if same pill */
+        if(window._pdFilter&&window._pdCurTab!=="tasks"&&window._pdCurTab!=="board"){setView("tasks");}else{pdRender(window._pdCurTab);}
+        syncPills();
+      };});
+      setView("tasks");syncPills();
     }).catch(function(e){errBox(c,e);});}
   function pdRender(tab){if(!window._pd)return;var name=window._pd.name;var b=el("pd-body");if(!b)return;
-    if(tab==="overview"){return pdOverview(b);}
     if(tab==="tasks"){spin(b);return api(PM+"tasks.list",{project:name,page_length:500}).then(function(r){b.innerHTML='<div id="pd-tflt"></div><div id="pd-ttbl"></div>';renderPdFilterChip(el("pd-tflt"),(r.rows||[]).length);taskTable(el("pd-ttbl"),pdFilterRows(r.rows));}).catch(function(e){errBox(b,e);});}
-    if(tab==="board"){spin(b);return api(PM+"tasks.list",{project:name,page_length:500}).then(function(r){b.innerHTML='<div id="pd-board"></div>';renderBoardInto(el("pd-board"),r.rows||[],function(){pdRender("board");});}).catch(function(e){errBox(b,e);});}
+    if(tab==="board"){spin(b);return api(PM+"tasks.list",{project:name,page_length:500}).then(function(r){b.innerHTML='<div id="pd-bflt"></div><div id="pd-board"></div>';renderPdFilterChip(el("pd-bflt"),(r.rows||[]).length);renderBoardInto(el("pd-board"),pdFilterRows(r.rows||[]),function(){pdRender("board");});}).catch(function(e){errBox(b,e);});}
     if(tab==="gantt"){spin(b);return api(PM+"tasks.gantt",{project:name}).then(function(d){b.innerHTML='<div class="panel"><div id="pd-gantt"></div></div>';renderGantt(el("pd-gantt"),d.rows||[]);}).catch(function(e){errBox(b,e);});}
     if(tab==="timesheet"){spin(b);return api(PM+"timesheet.report",{project:name}).then(function(d){pdTimesheet(b,d);}).catch(function(e){errBox(b,e);});}}
   var PDF_LBL={open:"Đang mở",overdue:"Quá hạn",blocked:"Blocked",review:"Chờ duyệt",noassignee:"Chưa giao",nodue:"Chưa có hạn",completed:"Hoàn thành"};
@@ -665,16 +702,7 @@
     return true;});}
   function renderPdFilterChip(host,total){if(!host)return;var k=window._pdFilter;if(!k){host.innerHTML="";return;}
     host.innerHTML='<div style="margin-bottom:10px;display:flex;align-items:center;gap:8px"><span class="cal-pcard">Lọc: '+esc(PDF_LBL[k]||k)+' <span class="x" id="pd-fclear" title="Bỏ lọc">✕</span></span><span style="font-size:11.5px;color:var(--gray-400)">trong '+(total||0)+' nhiệm vụ</span></div>';
-    if(el("pd-fclear"))el("pd-fclear").onclick=function(){window._pdFilter="";if(window._pdSel)window._pdSel("tasks");};}
-  function pdOverview(b){var d=window._pd.d;var rk=d.risk||{};var lvl=d.risk_level||"low";var prog=Math.round(d.progress||0);
-    var L={high:["Rủi ro cao","st-Blocked"],medium:["Cần chú ý","st-Review"],low:["Ổn định","st-Done"]}[lvl]||["Ổn định","st-Done"];
-    var cd=function(k,label,n,card){return '<div class="stat-card '+k+'" data-card="'+card+'" style="cursor:pointer" title="Xem nhiệm vụ: '+esc(label)+'"><div class="stat-label">'+label+'</div><div class="stat-value">'+(n||0)+'</div></div>';};
-    b.innerHTML='<div class="panel"><div class="panel-header"><div class="panel-title">Sức khỏe dự án</div><span class="pm-badge '+L[1]+'">'+L[0]+'</span></div>'+
-      '<div style="padding:16px 20px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><div style="flex:1;height:8px;background:var(--gray-100);border-radius:5px"><div style="height:8px;border-radius:5px;background:var(--navy);width:'+prog+'%"></div></div><span style="font-size:12.5px;color:var(--gray-600);font-weight:600">'+prog+'%</span></div>'+
-      '<div style="font-size:12px;color:var(--gray-500)">'+(rk.completed||0)+' hoàn thành / '+(d.total||0)+' nhiệm vụ</div></div></div>'+
-      '<div class="stats-strip" style="grid-template-columns:repeat(4,1fr)">'+cd("s-navy","Đang mở",rk.active,"open")+cd("s-pink","Quá hạn",rk.overdue,"overdue")+cd("s-pink","Blocked",rk.blocked,"blocked")+cd("s-yellow","Chờ duyệt",rk.review,"review")+'</div>'+
-      '<div class="stats-strip" style="grid-template-columns:repeat(4,1fr)">'+cd("s-yellow","Chưa giao",rk.no_assignee,"noassignee")+cd("s-navy","Chưa có hạn",rk.no_due,"nodue")+cd("s-green","Hoàn thành",rk.completed,"completed")+'<div></div></div>';
-    Array.prototype.forEach.call(b.querySelectorAll(".stat-card[data-card]"),function(x){x.onclick=function(){window._pdFilter=x.getAttribute("data-card");if(window._pdSel)window._pdSel("tasks");};});}
+    if(el("pd-fclear"))el("pd-fclear").onclick=function(){window._pdFilter="";if(window._pdSel)window._pdSel(window._pdCurTab||"tasks");if(window._pdSyncPills)window._pdSyncPills();};}
   function renderSumInto(host,m){if(!host)return;var ks=Object.keys(m||{}).sort().reverse();if(!ks.length){return emptyBox(host,"Không có dữ liệu.");}
     host.innerHTML='<table class="pm-tbl"><tbody>'+ks.map(function(k){return '<tr><td class="t-main">'+esc(k)+'</td><td style="text-align:right">'+(Math.round(m[k]*100)/100)+'h</td></tr>';}).join("")+'</tbody></table>';}
   function pdTimesheet(b,d){var rows=d.rows||[];var total=Math.round((d.total_hours||0)*100)/100;
@@ -869,7 +897,7 @@
   // If inside a Project workspace (pd-body present), re-render the active project tab — never bounce to the project LIST.
   // Otherwise re-render the current work/nav view. Modal stays open either way.
   function refreshTaskContext(){try{
-    if(window._pd&&el("pd-body")){pdRender(window._pdCurTab||"overview");return;}
+    if(window._pd&&el("pd-body")){pdRender(window._pdCurTab||"tasks");return;}
     if(window._curView&&VIEWS[window._curView]){VIEWS[window._curView]();}
   }catch(e){}}
   // Compact subtask row: status dot + title + due + assignee avatar. One level (direct children) per modal.
