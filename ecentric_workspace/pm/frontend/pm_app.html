@@ -56,19 +56,15 @@
   .ec-sidebar .logout-btn svg{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
 
   .ec-main{ min-width:0; display:flex; flex-direction:column; }
-  .ec-main .topbar{ background:var(--bg); border-bottom:none; min-height:0; padding:10px 32px 0; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; }
+  .ec-main .topbar{ background:#fff; border-bottom:1px solid var(--gray-200); min-height:64px; padding:0 32px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; }
   .ec-main .breadcrumb{ font-size:13px; color:var(--gray-500); }
-  .ec-main .topbar .breadcrumb{ display:none; } /* breadcrumb moved into page header (head/workHeader); topbar = action shell only */
-  .ec-main .topbar .topbar-actions{ margin-left:auto; } /* keep actions right-aligned now that breadcrumb is hidden */
-  .pm-crumb-line{ display:block; font-size:12px; line-height:1.4; color:var(--gray-400); margin-bottom:8px; }
-  .pm-crumb-line strong{ color:var(--gray-600); font-weight:600; }
-  .pm-head h1{ margin-top:0; }
+  .ec-main .topbar .topbar-actions{ margin-left:auto; } /* keep actions right-aligned */
   .ec-main .breadcrumb strong{ color:var(--gray-900); font-weight:600; }
   .ec-main .topbar-actions{ display:flex; align-items:center; gap:6px; }
   .ec-main .preview-tag{ font-size:11px; font-weight:600; color:#92400e; background:#fff7e6; border:1px solid #ffd591; padding:3px 10px; border-radius:6px; }
   .ec-main .icon-btn{ width:34px; height:34px; border-radius:8px; border:none; background:transparent; display:flex; align-items:center; justify-content:center; color:var(--gray-500); cursor:pointer; }
   .ec-main .icon-btn:hover{ background:var(--gray-100); color:var(--gray-900); }
-  .ec-main .content{ padding:4px 32px 40px; max-width:1400px; width:100%; }
+  .ec-main .content{ padding:20px 32px 40px; max-width:1400px; width:100%; }
   /* card-view toolbar (standalone, no outer panel wrapper around the grid) */
   .project-toolbar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
   .project-toolbar-r{ margin-left:auto; display:flex; gap:10px; flex-wrap:wrap; }
@@ -592,7 +588,7 @@
   function errBox(c,e){c.innerHTML='<div class="pm-err" title="'+esc(errOf(e))+'">Không tải được dữ liệu. Vui lòng thử lại.</div>';}
   function emptyBox(c,msg){c.innerHTML='<div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>'+esc(msg)+'</div></div>';}
 
-  function head(title,sub,right){return '<div class="pm-head"><div><div class="pm-crumb-line">Project Management / <strong>'+esc(title)+'</strong></div><h1>'+esc(title)+'</h1>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div><div>'+(right||'')+'</div></div>';}
+  function head(title,sub,right){return '<div class="pm-head"><div><h1>'+esc(title)+'</h1>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div><div>'+(right||'')+'</div></div>';}
 
   function sc(k,l,n){return '<div class="stat-card '+k+'"><div class="stat-label">'+l+'</div><div class="stat-value">'+(n==null?"-":n)+'</div></div>';}
   function ccard(k,label,n,preset){return '<div class="stat-card '+k+'"'+(preset?' data-nav-preset="'+preset+'" style="cursor:pointer"':'')+'><div class="stat-label">'+esc(label)+'</div><div class="stat-value">'+(n||0)+'</div></div>';}
@@ -868,7 +864,7 @@
   // ---- Unified "Công việc" page: tabbed views (Danh sách/Kanban/Lịch/Gantt/Bảng) ----
   function workTabs(active){var T=[["tasks","list","Danh sách"],["board","board","Kanban"],["calendar","calendar","Lịch"],["gantt","gantt","Gantt"],["table","table","Bảng"]];
     return '<div class="seg work-tabs">'+T.map(function(t){return '<button data-wt="'+t[0]+'"'+(active===t[1]?' class="active"':'')+'>'+t[2]+'</button>';}).join("")+'</div>';}
-  function workHeader(active){return '<div class="pm-head"><div><div class="pm-crumb-line">Project Management / <strong>Công việc</strong></div><h1>Công việc</h1></div><div>'+workTabs(active)+'</div></div>';}
+  function workHeader(active){return '<div class="pm-head"><div><h1>Công việc</h1></div><div>'+workTabs(active)+'</div></div>';}
   function wireWorkTabs(){Array.prototype.forEach.call(el("pm-view").querySelectorAll("[data-wt]"),function(b){b.onclick=function(){go(b.getAttribute("data-wt"));};});var n=el("pm-view").querySelector("[data-new]");if(n)n.onclick=function(){newTask(null);};}
   function showWork(){var v=window._workView;if(!v){try{v=localStorage.getItem("pm_work_view");}catch(_){}window._workView=v=v||"list";}
     if(v==="board")showBoard();else if(v==="calendar")showCalendar();else if(v==="gantt")showGantt();else if(v==="table")showTasks(true);else showTasks();}
