@@ -199,7 +199,11 @@
   .pm-sub-open svg{ width:14px; height:14px; }
   /* S1 inline-create form */
   .pm-subform{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding:6px 4px; }
-  .pm-subform .pm-input, .pm-subform .pm-sel{ font-size:13px; padding:6px 9px; }
+  .pm-subform .pm-input, .pm-subform .pm-sel, .pm-subform .pm-btn{ height:34px; box-sizing:border-box; font-size:13px; }
+  .pm-subform .pm-input, .pm-subform .pm-sel{ padding:6px 9px; }
+  .pm-subform input[type=date]{ -webkit-appearance:none; appearance:none; line-height:normal; display:inline-flex; align-items:center; color:var(--gray-800); }
+  .pm-subform input[type=date]::-webkit-calendar-picker-indicator{ margin-left:auto; opacity:.55; cursor:pointer; }
+  .pm-subform input[type=date]:hover::-webkit-calendar-picker-indicator{ opacity:.85; }
   .pm-subf-title{ flex:2 1 180px; min-width:140px; background-image:none !important; }
   .pm-subf-asg{ flex:1 1 150px; min-width:120px; background-image:none !important; }
   .pm-subf-start{ flex:0 0 142px; }
@@ -898,17 +902,23 @@
     function create(){if(busy)return;
       var sub=titleI.value.trim();if(!sub){toast("Tiêu đề nhiệm vụ con là bắt buộc",true);titleI.focus();return;}
       var sd=add.querySelector(".pm-subf-start").value,due=add.querySelector(".pm-subf-due").value;
-      if(sd&&due&&due<sd){toast("Hạn không được trước ngày bắt đầu",true);return;}
-      if(sd&&pS&&sd<pS){toast("Ngày bắt đầu của nhiệm vụ con không được trước ngày bắt đầu của nhiệm vụ cha",true);return;}
-      if(due&&pE&&due>pE){toast("Hạn của nhiệm vụ con không được sau hạn của nhiệm vụ cha",true);return;}
-      busy=true;var payload={project:project,subject:sub,parent_task:parentName};
+      if(sd&&due&&due<sd){toast("Hạn không được trước ngày bắt đầu",true);return;} /* still block invalid child range */
+      var payload={project:project,subject:sub,parent_task:parentName};
       var asg=add.querySelector(".pm-subf-asg").value.trim();if(asg)payload.assignee=asg;
       if(sd)payload.exp_start_date=sd;if(due)payload.exp_end_date=due;
       var pri=add.querySelector(".pm-subf-pri").value;if(pri)payload.priority=pri;
-      api(PM+"tasks.create",payload).then(function(){toast("Đã thêm nhiệm vụ con");
-        api(PM+"tasks.get",{name:parentName}).then(function(r){renderSubs(host,r.subtasks||[],project,parentName,pStart,pEnd);}).catch(function(){back();});
-        refreshTaskContext();
-      }).catch(function(err){toast("Lỗi: "+errOf(err),true);busy=false;}); /* keep form open on backend reject */}
+      // Auto-expand parent range to COVER the child (ERPNext requires parent range to contain child dates), instead of blocking.
+      var upd={name:parentName},expand=false;
+      if(sd&&(!pS||sd<pS)){upd.exp_start_date=sd;expand=true;}
+      if(due&&(!pE||due>pE)){upd.exp_end_date=due;expand=true;}
+      busy=true;
+      function doCreate(){api(PM+"tasks.create",payload).then(function(){toast("Đã thêm nhiệm vụ con");openTask(parentName);/*re-fetch parent (new dates)+subs, modal stays open*/refreshTaskContext();}).catch(function(err){toast("Lỗi: "+errOf(err),true);busy=false;});}
+      if(expand){api(PM+"tasks.update",upd).then(function(){toast("Đã mở rộng thời gian nhiệm vụ cha để bao phủ nhiệm vụ con");
+          if(upd.exp_start_date){pStart=upd.exp_start_date;pS=upd.exp_start_date;}
+          if(upd.exp_end_date){pEnd=upd.exp_end_date;pE=upd.exp_end_date;}
+          doCreate();
+        }).catch(function(err){toast("Lỗi mở rộng nhiệm vụ cha: "+errOf(err),true);busy=false;});} /* keep form open if parent update fails */
+      else{doCreate();}}
     add.querySelector(".pm-subf-add").onclick=create;
     add.querySelector(".pm-subf-cancel").onclick=function(){back();};
     titleI.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();create();}else if(e.key==="Escape"){e.preventDefault();back();}});
