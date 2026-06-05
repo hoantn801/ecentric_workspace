@@ -751,22 +751,26 @@
     }).catch(function(e){errBox(c,e);});}
 
   function showMyTasks(){var c=el("pm-view");spin(c);
-    Promise.all([api(PM+"dashboard.my_tasklist"),api(PM+"dashboard.control_center")]).then(function(res){
+    Promise.all([api(PM+"dashboard.my_tasklist"),api(PM+"dashboard.control_center"),api(PM+"recurrence.list").catch(function(){return {rows:[]};}),api(PM+"tasks.list",{page_length:2000}).catch(function(){return {rows:[]};})]).then(function(res){
       var d=res[0]||{};var cc=res[1]||{};var mc=(cc.my&&cc.my.counts)||{};var tmr=cc.timer||d.timer;
+      var recRules=(res[2]&&res[2].rows)||[];var vTasks=(res[3]&&res[3].rows)||[];var tmap={};vTasks.forEach(function(t){tmap[t.name]=t;});
+      var today=new Date().toISOString().slice(0,10);
+      var recToday=recRules.filter(function(r){return r.last_run_date&&String(r.last_run_date).slice(0,10)===today&&r.last_task&&tmap[r.last_task];}).map(function(r){return {r:r,t:tmap[r.last_task]};});
       var groups=[["attention","Đang cần xử lý",d.attention||[]],["week","Tuần này",d.week||[]],["nodue","Chưa có hạn",d.nodue||[]],["done","Đã hoàn thành gần đây",d.done||[]]];
       var total=groups.reduce(function(a,g){return a+g[2].length;},0);
       var cn=d.counts||{};
       var h=head("Việc của tôi","Cockpit cá nhân — "+total+" mục"+(cn.attention?(" · "+cn.attention+" cần xử lý ngay"):""));
       h+='<div class="dc-mini dc-block">'+dcMiniCard("Quá hạn",mc.overdue,"overdue","s-pink")+dcMiniCard("Hôm nay",mc.today,"today","s-navy")+dcMiniCard("Tuần này",mc.week,"week","s-yellow")+dcMiniCard("Chờ duyệt",mc.review,"review","s-navy")+dcMiniCard("Blocked",mc.blocked,"blocked","s-pink")+'</div>';
       if(tmr&&tmr.task){h+='<div class="panel" style="margin-bottom:14px"><div class="dc-pad"><span class="tg-dot"></span> Timer đang chạy: <b class="dc-link" id="mt-timer">'+esc(tmr.task)+'</b> · '+esc(tmr.status)+'</div></div>';}
-      if(!total){c.innerHTML=h+'<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>Không có việc nào được giao cho bạn.</div></div></div>';
-        if(el("mt-timer"))el("mt-timer").onclick=function(){openTask(tmr.task);};
-        Array.prototype.forEach.call(c.querySelectorAll("[data-nav-preset]"),function(b){b.onclick=function(){navPreset(b.getAttribute("data-nav-preset"));};});return;}
+      if(recToday.length){h+='<div class="dc-sec-title">Nhiệm vụ định kỳ hôm nay <span style="color:var(--gray-400);font-weight:500">('+recToday.length+')</span></div><div class="dc-block" id="mt-rec"></div>';}
+      function wireMt(){if(el("mt-timer"))el("mt-timer").onclick=function(){openTask(tmr.task);};
+        if(el("mt-rec"))recTodayTable(el("mt-rec"),recToday);
+        Array.prototype.forEach.call(c.querySelectorAll("[data-nav-preset]"),function(b){b.onclick=function(){navPreset(b.getAttribute("data-nav-preset"));};});}
+      if(!total){c.innerHTML=h+(recToday.length?'':'<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>Không có việc nào được giao cho bạn.</div></div></div>');wireMt();return;}
       groups.forEach(function(g){if(g[2].length)h+='<div class="panel"><div class="panel-header"><div class="panel-title">'+g[1]+' <span style="color:var(--gray-400);font-weight:500">('+g[2].length+')</span></div></div><div id="mt-'+g[0]+'"></div></div>';});
       c.innerHTML=h;
       groups.forEach(function(g){if(g[2].length)taskTable(el("mt-"+g[0]),g[2]);});
-      if(el("mt-timer"))el("mt-timer").onclick=function(){openTask(tmr.task);};
-      Array.prototype.forEach.call(c.querySelectorAll("[data-nav-preset]"),function(b){b.onclick=function(){navPreset(b.getAttribute("data-nav-preset"));};});
+      wireMt();
     }).catch(function(e){errBox(c,e);});}
 
   function pmProjView(){try{return localStorage.getItem("pm_project_view")||"card";}catch(_){return "card";}}
@@ -1534,17 +1538,40 @@
       el("rc-make").onclick=function(){recForm(task,b);};
     }}
   function recBadge(s){return s==="Active"?"st-Done":s==="Paused"?"st-Review":s==="Cancelled"?"st-Cancelled":"st-Backlog";}
+  function recTodayTable(host,rows){if(!host)return;if(!rows.length){return emptyBox(host,"Hôm nay chưa có nhiệm vụ định kỳ nào được sinh.");}
+    host.innerHTML='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Nhiệm vụ</th><th>Dự án</th><th>Người nhận</th><th>Trạng thái</th><th>Hạn</th><th>Quy tắc nguồn</th><th></th></tr></thead><tbody>'+
+      rows.map(function(x){var t=x.t,r=x.r;var a=t?names(t._assign):[];
+        return '<tr'+(t?' data-task="'+esc(t.name)+'"':'')+'><td class="t-main">'+esc(t?(t.subject||t.name):r.last_task)+'</td><td>'+esc((t&&t.project)||r.project||"-")+'</td><td>'+(a.length?'<span class="pm-mini-av" title="'+esc(a[0])+'">'+ini(a[0])+'</span>':'<span style="color:var(--gray-400)">Chưa giao</span>')+'</td><td>'+(t?badge(t.workflow_state):"-")+'</td><td>'+esc((t&&t.exp_end_date)||"-")+'</td><td>'+esc(r.source_task)+'</td><td style="text-align:right">'+(t?'<button class="pm-btn rec-open" data-task="'+esc(t.name)+'">Mở</button>':'')+'</td></tr>';}).join("")+'</tbody></table></div>';
+    Array.prototype.forEach.call(host.querySelectorAll("[data-task]"),function(x){x.onclick=function(e){if(e)e.stopPropagation();openTask(x.getAttribute("data-task"));};});}
+  function recRuleTable(host,rules,tmap,showActions){if(!host)return;if(!rules.length){return emptyBox(host,"Không có quy tắc.");}
+    host.innerHTML='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Task gốc</th><th>Tần suất</th><th>Lần kế</th><th>Đã tạo</th><th>Tối đa</th><th>Task mới nhất</th><th>Trạng thái</th>'+(showActions?'<th></th>':'')+'</tr></thead><tbody>'+
+      rules.map(function(r){var lt=r.last_task&&tmap[r.last_task];
+        return '<tr><td class="t-main">'+esc(r.source_task)+'</td><td>'+esc(FREQ_VN[r.frequency]||r.frequency)+'</td><td>'+esc(r.next_run_date||"-")+'</td><td>'+(r.occurrences_done||0)+'</td><td>'+(r.max_occurrences?r.max_occurrences:"—")+'</td><td'+(lt?' class="dc-link" data-task="'+esc(r.last_task)+'" style="cursor:pointer"':'')+'>'+esc(r.last_task||"-")+'</td><td><span class="pm-badge '+recBadge(r.status)+'">'+esc(r.status)+'</span></td>'+
+          (showActions?'<td style="text-align:right;white-space:nowrap">'+(r.status==="Active"?'<button class="pm-btn rc-a" data-a="pause" data-n="'+esc(r.name)+'">Tạm dừng</button>':r.status==="Paused"?'<button class="pm-btn rc-a" data-a="resume" data-n="'+esc(r.name)+'">Tiếp tục</button>':'')+((r.status==="Active"||r.status==="Paused")?' <button class="pm-btn rc-a" data-a="cancel" data-n="'+esc(r.name)+'">Huỷ</button>':'')+'</td>':'')+'</tr>';}).join("")+'</tbody></table></div>';
+    Array.prototype.forEach.call(host.querySelectorAll("[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});
+    Array.prototype.forEach.call(host.querySelectorAll(".rc-a"),function(btn){btn.onclick=function(){api(PM+"recurrence."+btn.getAttribute("data-a"),{name:btn.getAttribute("data-n")}).then(function(){showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};});}
   function showRecurring(){var c=el("pm-view");spin(c);
-    api(PM+"recurrence.list").then(function(d){var rows=d.rows||[];
-      c.innerHTML=head("Recurring","Quy tắc lặp tạo nhiệm vụ tự động (scheduler hằng ngày)")+
-        '<div class="panel"><div class="panel-header"><div class="panel-title">Danh sách quy tắc</div></div><div id="rec-tbl"></div></div>';
-      var b=el("rec-tbl");
-      if(!rows.length){return emptyBox(b,"Chưa có quy tắc lặp. Mở 1 nhiệm vụ → Make recurring.");}
-      var h='<table class="pm-tbl"><thead><tr><th>Task gốc</th><th>Tần suất</th><th>Lần kế</th><th>Đã tạo</th><th>Task mới nhất</th><th>Trạng thái</th><th></th></tr></thead><tbody>';
-      rows.forEach(function(r){h+='<tr><td class="t-main">'+esc(r.source_task)+'</td><td>'+esc(FREQ_VN[r.frequency]||r.frequency)+'</td><td>'+esc(r.next_run_date||"-")+'</td><td>'+(r.occurrences_done||0)+'</td><td>'+esc(r.last_task||"-")+'</td><td><span class="pm-badge '+recBadge(r.status)+'">'+esc(r.status)+'</span></td>'+
-        '<td style="text-align:right;white-space:nowrap">'+(r.status==="Active"?'<button class="pm-btn rc-a" data-a="pause" data-n="'+esc(r.name)+'">Tạm dừng</button>':r.status==="Paused"?'<button class="pm-btn rc-a" data-a="resume" data-n="'+esc(r.name)+'">Tiếp tục</button>':'')+((r.status==="Active"||r.status==="Paused")?' <button class="pm-btn rc-a" data-a="cancel" data-n="'+esc(r.name)+'">Huỷ</button>':'')+'</td></tr>';});
-      b.innerHTML=h+'</tbody></table>';
-      Array.prototype.forEach.call(b.querySelectorAll(".rc-a"),function(btn){btn.onclick=function(){api(PM+"recurrence."+btn.getAttribute("data-a"),{name:btn.getAttribute("data-n")}).then(function(){showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};});
+    Promise.all([api(PM+"recurrence.list"),api(PM+"tasks.list",{page_length:2000})]).then(function(res){
+      var rules=(res[0]&&res[0].rows)||[];var tasks=(res[1]&&res[1].rows)||[];var tmap={};tasks.forEach(function(t){tmap[t.name]=t;});
+      var today=new Date().toISOString().slice(0,10);function d10(v){return v?String(v).slice(0,10):null;}
+      var h=head("Recurring","Quy tắc lặp và nhiệm vụ định kỳ hằng ngày");
+      if(!rules.length){c.innerHTML=h+'<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-repeat"/></svg><div>Chưa có quy tắc lặp.<br>Mở một nhiệm vụ → bấm <b>Lặp lại</b> để tạo quy tắc.</div></div></div>';return;}
+      var active=rules.filter(function(r){return r.status==="Active";});
+      var paused=rules.filter(function(r){return r.status==="Paused";});
+      var ended=rules.filter(function(r){return r.status==="Cancelled"||r.status==="Completed";});
+      var genToday=rules.filter(function(r){return d10(r.last_run_date)===today&&r.last_task;}).map(function(r){return {r:r,t:tmap[r.last_task]};});
+      var pendingToday=genToday.filter(function(x){return x.t&&dcActive(x.t);}).length;
+      var overdueGen=rules.filter(function(r){var t=r.last_task&&tmap[r.last_task];return t&&dcIsOverdue(t);}).length;
+      h+='<div class="stats-strip dc-block" style="grid-template-columns:repeat(6,1fr)">'+
+        ccard("s-green","Đang chạy",active.length,"")+ccard("s-yellow","Tạm dừng",paused.length,"")+ccard("s-navy","Đã huỷ/xong",ended.length,"")+
+        ccard("s-navy","Sinh hôm nay",genToday.length,"")+ccard("s-yellow","Chờ xử lý hôm nay",pendingToday,"")+ccard("s-pink","Quá hạn (sinh ra)",overdueGen,"")+'</div>';
+      h+='<div class="dc-sec-title">Nhiệm vụ sinh hôm nay</div><div class="dc-block" id="rec-today"></div>';
+      h+='<div class="dc-sec-title">Quy tắc đang chạy</div><div class="dc-block" id="rec-active"></div>';
+      h+='<details class="dc-analytics"><summary>Tạm dừng / Đã huỷ / Hoàn thành ('+(paused.length+ended.length)+')</summary><div id="rec-other"></div></details>';
+      c.innerHTML=h;
+      recTodayTable(el("rec-today"),genToday);
+      recRuleTable(el("rec-active"),active,tmap,true);
+      recRuleTable(el("rec-other"),paused.concat(ended),tmap,true);
     }).catch(function(e){errBox(c,e);});}
 
   function tsSum(rows,pred){var s=0;rows.forEach(function(r){if(pred(r))s+=(r.hours||0);});return Math.round(s*100)/100;}

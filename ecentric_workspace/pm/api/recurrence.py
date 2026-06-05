@@ -108,7 +108,8 @@ def list(task=None, project=None):
     rows = frappe.get_all(
         DT, filters=conds,
         fields=["name", "source_task", "project", "frequency", "next_run_date",
-                "occurrences_done", "last_task", "status", "end_date", "max_occurrences"],
+                "occurrences_done", "last_task", "status", "end_date", "max_occurrences",
+                "last_run_date"],  # additive: lets the UI identify tasks generated TODAY
         order_by="modified desc", limit_page_length=200)
     if pmperm.can_see_all_pm_data(me):
         return {"rows": rows}
