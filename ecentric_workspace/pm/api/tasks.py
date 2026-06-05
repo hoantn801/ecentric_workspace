@@ -256,6 +256,42 @@ def _expand_ancestor_dates(parent_task, child_start, child_end, user):
             anc.save()  # normal validated save -> audit/history intact
 
 
+def _expand_project_dates(project, child_start, child_end, user):
+    """Widen the Project's expected date range so it covers a task/subtask's dates.
+    ERPNext validates Task.exp_end_date <= Project.expected_end_date, so a task whose
+    dates exceed the project would be rejected -- and so would any ancestor task save.
+    MUST run BEFORE ancestor expansion (ancestor task saves are also project-validated).
+    Permission via existing can_view_project; normal doc.save() -> validation + audit
+    intact (no ignore_validate / flags). Additive, no schema.
+    """
+    if not project or (not child_start and not child_end):
+        return
+    cs = frappe.utils.getdate(child_start) if child_start else None
+    ce = frappe.utils.getdate(child_end) if child_end else None
+    try:
+        proj = frappe.get_doc("Project", project)
+    except frappe.DoesNotExistError:
+        return  # missing project link -> stop gracefully
+    if not pmperm.can_view_project(project, user):
+        frappe.throw(
+            _("Not permitted to adjust the date range of project {0}.").format(project),
+            frappe.PermissionError,
+        )
+    changed = False
+    if cs is not None:
+        p_start = frappe.utils.getdate(proj.expected_start_date) if proj.get("expected_start_date") else None
+        if p_start is None or cs < p_start:
+            proj.expected_start_date = cs
+            changed = True
+    if ce is not None:
+        p_end = frappe.utils.getdate(proj.expected_end_date) if proj.get("expected_end_date") else None
+        if p_end is None or ce > p_end:
+            proj.expected_end_date = ce
+            changed = True
+    if changed:
+        proj.save()  # normal validated save -> audit/history intact
+
+
 @frappe.whitelist()
 def create(project, subject, parent_task=None, priority=None,
            exp_start_date=None, exp_end_date=None, description=None, assignee=None):
@@ -281,7 +317,10 @@ def create(project, subject, parent_task=None, priority=None,
             parent.is_group = 1
             parent.save()  # honors DocPerm 'write' + audit; NestedSet handles the flag
 
-    # Widen the whole ancestor chain so it covers the new child's dates (nested-safe).
+    # Widen Project range FIRST (ERPNext validates task end <= project end), then the
+    # whole ancestor task chain, before inserting the child.
+    if project and (exp_start_date or exp_end_date):
+        _expand_project_dates(project, exp_start_date, exp_end_date, user)
     if parent_task and (exp_start_date or exp_end_date):
         _expand_ancestor_dates(parent_task, exp_start_date, exp_end_date, user)
 
@@ -327,9 +366,12 @@ def update(name, subject=None, description=None, priority=None,
         if val is not None:
             doc.set(field, val)
             changed.append(field)
-    # If a parented task's dates moved, widen the ancestor chain first (fixes Gantt move/
-    # resize, drag-unscheduled, inline date edit, and any other date update path).
-    if doc.get("parent_task") and (("exp_start_date" in changed) or ("exp_end_date" in changed)):
+    # If the task's dates moved, widen Project range FIRST then the ancestor chain (fixes
+    # Gantt move/resize, drag-unscheduled, inline date edit, and any other date path).
+    _date_changed = ("exp_start_date" in changed) or ("exp_end_date" in changed)
+    if _date_changed and doc.get("project"):
+        _expand_project_dates(doc.get("project"), doc.get("exp_start_date"), doc.get("exp_end_date"), user)
+    if _date_changed and doc.get("parent_task"):
         _expand_ancestor_dates(doc.get("parent_task"), doc.get("exp_start_date"), doc.get("exp_end_date"), user)
     if changed:
         doc.save()  # honors DocPerm 'write'; audit trail

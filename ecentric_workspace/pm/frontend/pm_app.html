@@ -252,6 +252,11 @@
   .g-caret{ display:inline-block; width:14px; color:var(--gray-500); cursor:pointer; }
   .g-caret.collapsed{ display:inline-block; transform:rotate(-90deg); }
   .gantt-label.is-parent{ font-weight:600; color:var(--gray-900); }
+  /* hover "+" to add a child task / top-level task from the Gantt label column */
+  .g-label-add{ position:absolute; right:6px; top:50%; transform:translateY(-50%); width:18px; height:18px; border-radius:5px; display:inline-flex; align-items:center; justify-content:center; color:var(--gray-400); font-weight:700; font-size:15px; line-height:1; cursor:pointer; opacity:0; transition:opacity .12s; background:#fff; }
+  .gantt-row:hover .gantt-label .g-label-add{ opacity:1; }
+  .g-proj-row:hover .g-proj-label .g-label-add{ opacity:1; background:var(--gray-50); }
+  .g-label-add:hover{ color:var(--navy); box-shadow:inset 0 0 0 1px var(--navy-100); }
   .gantt-track.g-drop-active{ background:var(--navy-50); box-shadow:inset 0 0 0 1px var(--navy-100); }
   .pm-sub[draggable="true"]{ cursor:grab; }
   .pm-sub[draggable="true"]:active{ cursor:grabbing; }
@@ -1002,7 +1007,7 @@
       api(PM+"timesheet.log",{task:task,hours:hrs,log_date:day,description:ds}).then(function(){toast("Đã lưu "+hrs+"h");loadWorktime(task);}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu giờ";});};}
 
   function _niFix(c){Array.prototype.forEach.call(c.querySelectorAll(".ni"),function(i){i.style.backgroundImage="none";i.style.paddingLeft="11px";i.style.width="100%";});}
-  function newTask(project,parentTask){openD();el("pm-dt").textContent=parentTask?"Tạo nhiệm vụ con":"Tạo nhiệm vụ";var c=el("pm-dbody");c.classList.remove("pm-cols");clearDtInline();spin(c);
+  function newTask(project,parentTask,onCreated){openD();el("pm-dt").textContent=parentTask?"Tạo nhiệm vụ con":"Tạo nhiệm vụ";var c=el("pm-dbody");c.classList.remove("pm-cols");clearDtInline();spin(c);
     api(PM+"projects.list",{page_length:200}).then(function(r){var rows=r.rows||[];
       if(!rows.length){c.innerHTML='<div class="pm-err">Chưa có dự án trong phạm vi để tạo nhiệm vụ.</div>';return;}
       var opts=rows.map(function(p){return '<option value="'+esc(p.name)+'"'+(p.name===project?' selected':'')+'>'+esc(p.project_name||p.name)+'</option>';}).join("");
@@ -1026,7 +1031,7 @@
       el("nt-project").onchange=function(){loadParents();}; loadParents(parentTask);
       el("nt-cancel").onclick=closeD;
       el("nt-create").onclick=function(){var s=el("nt-subject").value.trim();if(!s){toast("Nhập tiêu đề",true);return;}var sd=el("nt-start").value,ed=el("nt-end").value;if(sd&&ed&&ed<sd){toast("Hạn không được trước ngày bắt đầu",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang tạo...";
-        api(PM+"tasks.create",{project:el("nt-project").value,subject:s,parent_task:el("nt-parent").value||null,assignee:el("nt-assignee").value.trim()||null,priority:el("nt-priority").value,exp_start_date:el("nt-start").value||null,exp_end_date:el("nt-end").value||null,description:el("nt-desc").value||null}).then(function(r){toast("Đã tạo "+r.name);if(parentTask){openTask(parentTask);}else{closeD();go("board");}}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML='Tạo nhiệm vụ';});};
+        api(PM+"tasks.create",{project:el("nt-project").value,subject:s,parent_task:el("nt-parent").value||null,assignee:el("nt-assignee").value.trim()||null,priority:el("nt-priority").value,exp_start_date:el("nt-start").value||null,exp_end_date:el("nt-end").value||null,description:el("nt-desc").value||null}).then(function(r){toast("Đã tạo "+r.name);if(onCreated){closeD();try{onCreated();}catch(_){}}else if(parentTask){openTask(parentTask);}else{closeD();go("board");}}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML='Tạo nhiệm vụ';});};
     }).catch(function(e){errBox(c,e);});}
   function newProject(){openD();el("pm-dt").textContent="Tạo dự án";var c=el("pm-dbody");
     var pri=["Low","Medium","High"].map(function(x){return '<option'+(x==="Medium"?' selected':'')+'>'+x+'</option>';}).join("");
@@ -1253,7 +1258,7 @@
       var col=gColor(t.workflow_state),prog=Math.max(0,Math.min(100,Math.round(t.progress||0))),od=gOverdue(t);
       var caret=it.hasChildren?'<span class="g-caret'+(gIsCollapsed(t.id)?' collapsed':'')+'" data-collapse="'+esc(t.id)+'">▾</span>':'';
       var bar=inDom?('<div class="gantt-bar'+(od?' is-overdue':'')+'" data-task="'+esc(t.id)+'" data-start="'+esc(t.start||"")+'" data-end="'+esc(t.end||"")+'" title="'+esc((t.subject||"")+" · "+(t.workflow_state||"")+" · "+prog+"%")+'" style="left:'+left+'%;width:'+w+'%;background:'+col+'"><div class="fill" style="width:'+prog+'%"></div><div class="lab">'+(w>10?esc(t.subject||""):"")+'</div><div class="g-rh g-rh-l"></div><div class="g-rh g-rh-r"></div></div>'):'';
-      return '<div class="gantt-row"><div class="gantt-label'+(it.hasChildren?' is-parent':'')+'" data-task="'+esc(t.id)+'" title="'+esc(t.subject||t.id)+'" style="padding-left:'+(12+it.depth*14)+'px">'+caret+esc(t.subject||t.id)+(showProj&&t.project_name?' <span style="color:var(--gray-400);font-size:11px">· '+esc(t.project_name)+'</span>':'')+(od?' <span class="pm-tag tg-overdue" style="margin-left:6px">Quá hạn</span>':(t.priority==="Urgent"?' <span class="pm-tag tg-urgent" style="margin-left:6px">Urgent</span>':''))+'</div>'+
+      return '<div class="gantt-row"><div class="gantt-label'+(it.hasChildren?' is-parent':'')+'" data-task="'+esc(t.id)+'" title="'+esc(t.subject||t.id)+'" style="padding-left:'+(12+it.depth*14)+'px;padding-right:26px">'+caret+esc(t.subject||t.id)+(showProj&&t.project_name?' <span style="color:var(--gray-400);font-size:11px">· '+esc(t.project_name)+'</span>':'')+(od?' <span class="pm-tag tg-overdue" style="margin-left:6px">Quá hạn</span>':(t.priority==="Urgent"?' <span class="pm-tag tg-urgent" style="margin-left:6px">Urgent</span>':''))+'<span class="g-label-add" data-add-child="'+esc(t.id)+'" data-add-proj="'+esc(t.project||"")+'" title="Thêm nhiệm vụ con">+</span></div>'+
         '<div class="gantt-track"><div class="gantt-grid">'+gridHtml+'</div>'+bar+'</div></div>';}
     if((window._gGroup||"project")==="people"){
       var byA={},aOrder=[];sched.forEach(function(t){var as=names(t._assign);if(!as.length)as=["__none__"];as.forEach(function(u){if(!byA[u]){byA[u]=[];aOrder.push(u);}byA[u].push(t);});});
@@ -1265,7 +1270,7 @@
     } else {
       var byProj={},projOrder=[];sched.forEach(function(t){var p=t.project||"—";if(!byProj[p]){byProj[p]=[];projOrder.push(p);}byProj[p].push(t);});
       projOrder.forEach(function(p){var pname=(byProj[p][0]||{}).project_name||p;var ck="proj:"+p;var col2=gIsCollapsed(ck);
-        html+='<div class="g-proj-row"><div class="g-proj-label" data-collapse="'+esc(ck)+'" title="'+esc(pname)+'"><span class="g-caret'+(col2?' collapsed':'')+'">▾</span> '+esc(pname)+' <span style="color:var(--gray-400);font-weight:500">('+byProj[p].length+')</span></div><div class="gantt-track"><div class="gantt-grid">'+gridHtml+'</div></div></div>';
+        html+='<div class="g-proj-row"><div class="g-proj-label" data-collapse="'+esc(ck)+'" title="'+esc(pname)+'" style="padding-right:26px"><span class="g-caret'+(col2?' collapsed':'')+'">▾</span> '+esc(pname)+' <span style="color:var(--gray-400);font-weight:500">('+byProj[p].length+')</span>'+(p!=="—"?'<span class="g-label-add" data-add-top="'+esc(p)+'" title="Thêm nhiệm vụ trong dự án">+</span>':'')+'</div><div class="gantt-track"><div class="gantt-grid">'+gridHtml+'</div></div></div>';
         if(!col2)gOrder(byProj[p]).forEach(function(it){html+=gRow(it);});
       });
     }
@@ -1275,6 +1280,11 @@
     b.innerHTML=html;
     Array.prototype.forEach.call(b.querySelectorAll("[data-collapse]"),function(x){x.onclick=function(e){e.stopPropagation();var id=x.getAttribute("data-collapse");window._gCollapsed=window._gCollapsed||{};window._gCollapsed[id]=!window._gCollapsed[id];renderGantt(b,rows);};});
     Array.prototype.forEach.call(b.querySelectorAll(".gantt-label[data-task], .pm-sub [data-task]"),function(x){x.onclick=function(e){if(e)e.stopPropagation();openTask(x.getAttribute("data-task"));};});
+    // Hover "+" : task row -> add direct child; project-group row -> add top-level task. After create, reload Gantt keeping scroll.
+    Array.prototype.forEach.call(b.querySelectorAll(".g-label-add"),function(x){x.onclick=function(e){e.stopPropagation();
+      var child=x.getAttribute("data-add-child"),proj=x.getAttribute("data-add-proj"),top=x.getAttribute("data-add-top");
+      if(child){newTask(proj||null,child,function(){loadGantt(true);});}
+      else if(top){newTask(top,null,function(){loadGantt(true);});}};});
     Array.prototype.forEach.call(b.querySelectorAll(".gantt-bar[data-task]"),wireBarDrag);
     var wrap=b.querySelector(".gantt-wrap");var divider=b.querySelector(".g-divider");
     function gSyncDivider(){if(divider&&wrap)divider.style.left=(wrap.scrollLeft+(window._gLabelW||220))+"px";}
