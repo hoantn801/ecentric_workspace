@@ -897,28 +897,19 @@
       '<button class="pm-btn pm-subf-cancel" type="button">Huỷ</button>'+
     '</div>';
     var titleI=add.querySelector(".pm-subf-title");titleI.focus();var busy=false;
-    var pS=pStart?String(pStart).slice(0,10):"",pE=pEnd?String(pEnd).slice(0,10):"";
     function back(){renderSubs(host,subs,project,parentName,pStart,pEnd);}
+    // Backend (_expand_ancestor_dates) now widens the whole ancestor chain on create, so the
+    // frontend only validates title + due>=start and lets the server handle parent ranges.
     function create(){if(busy)return;
       var sub=titleI.value.trim();if(!sub){toast("Tiêu đề nhiệm vụ con là bắt buộc",true);titleI.focus();return;}
       var sd=add.querySelector(".pm-subf-start").value,due=add.querySelector(".pm-subf-due").value;
-      if(sd&&due&&due<sd){toast("Hạn không được trước ngày bắt đầu",true);return;} /* still block invalid child range */
+      if(sd&&due&&due<sd){toast("Hạn không được trước ngày bắt đầu",true);return;} /* only invalid child range is blocked */
       var payload={project:project,subject:sub,parent_task:parentName};
       var asg=add.querySelector(".pm-subf-asg").value.trim();if(asg)payload.assignee=asg;
       if(sd)payload.exp_start_date=sd;if(due)payload.exp_end_date=due;
       var pri=add.querySelector(".pm-subf-pri").value;if(pri)payload.priority=pri;
-      // Auto-expand parent range to COVER the child (ERPNext requires parent range to contain child dates), instead of blocking.
-      var upd={name:parentName},expand=false;
-      if(sd&&(!pS||sd<pS)){upd.exp_start_date=sd;expand=true;}
-      if(due&&(!pE||due>pE)){upd.exp_end_date=due;expand=true;}
       busy=true;
-      function doCreate(){api(PM+"tasks.create",payload).then(function(){toast("Đã thêm nhiệm vụ con");openTask(parentName);/*re-fetch parent (new dates)+subs, modal stays open*/refreshTaskContext();}).catch(function(err){toast("Lỗi: "+errOf(err),true);busy=false;});}
-      if(expand){api(PM+"tasks.update",upd).then(function(){toast("Đã mở rộng thời gian nhiệm vụ cha để bao phủ nhiệm vụ con");
-          if(upd.exp_start_date){pStart=upd.exp_start_date;pS=upd.exp_start_date;}
-          if(upd.exp_end_date){pEnd=upd.exp_end_date;pE=upd.exp_end_date;}
-          doCreate();
-        }).catch(function(err){toast("Lỗi mở rộng nhiệm vụ cha: "+errOf(err),true);busy=false;});} /* keep form open if parent update fails */
-      else{doCreate();}}
+      api(PM+"tasks.create",payload).then(function(){toast("Đã thêm nhiệm vụ con");openTask(parentName);/*re-fetch parent(new dates)+subs; modal stays open*/refreshTaskContext();}).catch(function(err){toast("Lỗi: "+errOf(err),true);busy=false;/*keep form open on backend reject*/});}
     add.querySelector(".pm-subf-add").onclick=create;
     add.querySelector(".pm-subf-cancel").onclick=function(){back();};
     titleI.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();create();}else if(e.key==="Escape"){e.preventDefault();back();}});

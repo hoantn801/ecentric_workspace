@@ -191,6 +191,71 @@ def gantt_all(project=None, assignee=None, status=None, priority=None, overdue=N
 # --------------------------------------------------------------------------
 # WRITE (PM1-T06) - permission validated in service layer; DocPerm + audit apply
 # --------------------------------------------------------------------------
+def _expand_ancestor_dates(parent_task, child_start, child_end, user):
+    """Widen the WHOLE ancestor chain (root -> direct parent) so it covers a child's
+    date range. ERPNext validates a task's exp_end_date <= its parent's exp_end_date,
+    so a nested subtask whose dates exceed an ancestor would be rejected. We expand the
+    chain first.
+
+    Safe by construction:
+    - cycle/runaway guarded (visited-set + max depth);
+    - permission pre-flight on every ancestor (atomic: throw before any write, and the
+      request transaction rolls back any partial save on a later error);
+    - saves TOP-DOWN (root first) so each doc.save() is individually valid against its
+      own (already-widened) parent -> NO ignore_validate, NO flags, audit trail intact;
+    - missing parent link / empty dates handled gracefully.
+    Additive, no schema change.
+    """
+    if not parent_task or (not child_start and not child_end):
+        return
+
+    cs = frappe.utils.getdate(child_start) if child_start else None
+    ce = frappe.utils.getdate(child_end) if child_end else None
+
+    # 1. Walk direct-parent -> root, collecting ancestor docs (guarded).
+    chain = []
+    seen = set()
+    cur = parent_task
+    depth = 0
+    while cur and cur not in seen and depth < 25:
+        seen.add(cur)
+        depth += 1
+        try:
+            anc = frappe.get_doc("Task", cur)
+        except frappe.DoesNotExistError:
+            break  # broken parent link -> stop gracefully
+        chain.append(anc)
+        cur = anc.get("parent_task")
+
+    if not chain:
+        return
+
+    # 2. Permission pre-flight on every ancestor (same gate as other writes).
+    for anc in chain:
+        if not pmperm.can_view_task(anc.as_dict(), user):
+            frappe.throw(
+                _("Not permitted to adjust the date range of parent task {0}.").format(anc.name),
+                frappe.PermissionError,
+            )
+
+    # 3. Save TOP-DOWN (root -> direct parent): when each ancestor is saved its own
+    #    parent has already been widened, so ERPNext's parent-date check passes.
+    for anc in reversed(chain):
+        changed = False
+        if cs is not None:
+            anc_start = frappe.utils.getdate(anc.exp_start_date) if anc.get("exp_start_date") else None
+            if anc_start is None or cs < anc_start:
+                anc.exp_start_date = cs
+                changed = True
+        if ce is not None:
+            anc_end = frappe.utils.getdate(anc.exp_end_date) if anc.get("exp_end_date") else None
+            if anc_end is None or ce > anc_end:
+                anc.exp_end_date = ce
+                changed = True
+        if changed:
+            anc.save()  # normal validated save -> audit/history intact
+
+
 @frappe.whitelist()
 def create(project, subject, parent_task=None, priority=None,
            exp_start_date=None, exp_end_date=None, description=None, assignee=None):
@@ -215,6 +280,10 @@ def create(project, subject, parent_task=None, priority=None,
         if not parent.get("is_group"):
             parent.is_group = 1
             parent.save()  # honors DocPerm 'write' + audit; NestedSet handles the flag
+
+    # Widen the whole ancestor chain so it covers the new child's dates (nested-safe).
+    if parent_task and (exp_start_date or exp_end_date):
+        _expand_ancestor_dates(parent_task, exp_start_date, exp_end_date, user)
 
     doc = frappe.get_doc({
         "doctype": "Task",
@@ -258,6 +327,10 @@ def update(name, subject=None, description=None, priority=None,
         if val is not None:
             doc.set(field, val)
             changed.append(field)
+    # If a parented task's dates moved, widen the ancestor chain first (fixes Gantt move/
+    # resize, drag-unscheduled, inline date edit, and any other date update path).
+    if doc.get("parent_task") and (("exp_start_date" in changed) or ("exp_end_date" in changed)):
+        _expand_ancestor_dates(doc.get("parent_task"), doc.get("exp_start_date"), doc.get("exp_end_date"), user)
     if changed:
         doc.save()  # honors DocPerm 'write'; audit trail
 
