@@ -49,6 +49,7 @@ def maybe_create_lock_action(alert_name, log, line, policy, confidence, rule_cod
         "shop": log.shop,
         "item": line.item,
         "seller_sku": line.seller_sku,
+        "external_product_id": line.external_product_id,
         "lock_until": add_to_date(now_datetime(), minutes=minutes),
         "lock_reason": "%s: unit price %s vs reference %s (policy %s, confidence %s)" % (
             rule_code, line.unit_check_price, line.baseline_price_at_check or line.min_price_at_check,
