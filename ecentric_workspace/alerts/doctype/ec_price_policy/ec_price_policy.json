@@ -1,0 +1,170 @@
+{
+ "doctype": "DocType",
+ "name": "EC Price Policy",
+ "module": "Alerts",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "allow_import": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "brand",
+  "platform",
+  "shop",
+  "item",
+  "seller_sku",
+  "is_brand_fallback",
+  "cb_0",
+  "min_price",
+  "reference_price",
+  "high_alert_percent",
+  "severe_drop_percent",
+  "enable_stock_safety_lock",
+  "stock_lock_duration_minutes",
+  "sec_validity",
+  "effective_from",
+  "effective_to",
+  "cb_1",
+  "status"
+ ],
+ "fields": [
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "options": "Brand Approver",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Policies are strictly brand-scoped. A policy of one brand is never applied to another brand."
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "label": "Platform",
+   "options": "All\nShopee\nLazada\nTikTok",
+   "default": "All",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "shop",
+   "fieldtype": "Link",
+   "label": "Shop",
+   "options": "EC Marketplace Shop"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "seller_sku",
+   "fieldtype": "Data",
+   "label": "Seller SKU",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "is_brand_fallback",
+   "fieldtype": "Check",
+   "label": "Is Brand-level Fallback",
+   "default": "0",
+   "description": "Explicit opt-in for lookup priority 6 (brand-level fallback without SKU). Without this flag a policy must target item or seller_sku."
+  },
+  {
+   "fieldname": "cb_0",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "min_price",
+   "fieldtype": "Currency",
+   "label": "Min Price",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "reference_price",
+   "fieldtype": "Currency",
+   "label": "Reference Price"
+  },
+  {
+   "fieldname": "high_alert_percent",
+   "fieldtype": "Percent",
+   "label": "High Alert Percent"
+  },
+  {
+   "fieldname": "severe_drop_percent",
+   "fieldtype": "Percent",
+   "label": "Severe Drop Percent",
+   "default": "70"
+  },
+  {
+   "fieldname": "enable_stock_safety_lock",
+   "fieldtype": "Check",
+   "label": "Enable Stock Safety Lock",
+   "default": "0"
+  },
+  {
+   "fieldname": "stock_lock_duration_minutes",
+   "fieldtype": "Int",
+   "label": "Stock Lock Duration (Minutes)",
+   "default": "120"
+  },
+  {
+   "fieldname": "sec_validity",
+   "fieldtype": "Section Break",
+   "label": "Validity"
+  },
+  {
+   "fieldname": "effective_from",
+   "fieldtype": "Date",
+   "label": "Effective From"
+  },
+  {
+   "fieldname": "effective_to",
+   "fieldtype": "Date",
+   "label": "Effective To"
+  },
+  {
+   "fieldname": "cb_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nInactive",
+   "default": "Active",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "format:EC-PP-{#####}",
+ "naming_rule": "Expression",
+ "title_field": ""
+}
