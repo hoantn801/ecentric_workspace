@@ -1571,15 +1571,17 @@
   function chkRow(it){var done=it.is_done?1:0;
     var meta=(done&&it.completed_by)?'<span class="pm-chk-meta">'+esc((it.completed_by||"").split("@")[0])+(it.completed_at?(" · "+esc(String(it.completed_at).slice(0,16))):"")+'</span>':'';
     return '<div class="pm-chk-item'+(done?' done':'')+'" data-row="'+esc(it.name)+'" data-done="'+done+'"><span class="pm-chk-box">'+(done?'✓':'')+'</span><span class="pm-chk-label">'+esc(it.item_label)+(it.is_required?' <span class="pm-chk-req">*</span>':'')+'</span>'+meta+'</div>';}
-  function renderChecklist(b,task,d){if(!b)return;var rows=(d&&d.rows)||[];
+  function renderChecklist(b,task,d){if(!b)return;b.style.pointerEvents="";b._chkBusy=false; /* G3.1: every re-render re-enables interaction */
+    var rows=(d&&d.rows)||[];
     if(!rows.length){b.innerHTML="";return;} /* no checklist -> no section */
     var pct=d.total?Math.round(d.done/d.total*100):0;
     b.innerHTML='<div class="pm-dsec" style="display:flex;justify-content:space-between;align-items:center">Checklist <span style="color:var(--gray-400);font-weight:500">'+d.done+'/'+d.total+'</span></div>'+
       '<div class="pm-prog" style="margin-bottom:10px"><i style="width:'+pct+'%"></i></div>'+
       '<div class="pm-chk-list">'+rows.map(chkRow).join("")+'</div>';
-    Array.prototype.forEach.call(b.querySelectorAll(".pm-chk-item"),function(x){x.onclick=function(){
-      var rn=x.getAttribute("data-row");var nv=x.getAttribute("data-done")==="1"?0:1;b.style.pointerEvents="none";
-      api(PM+"checklist.set_item",{task:task,row_name:rn,is_done:nv}).then(function(res){renderChecklist(b,task,res);}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.style.pointerEvents="";});
+    Array.prototype.forEach.call(b.querySelectorAll(".pm-chk-item"),function(x){x.onclick=function(e){if(e)e.stopPropagation();
+      if(b._chkBusy)return;b._chkBusy=true;b.style.pointerEvents="none"; /* guard double-click only on the checklist, not the modal */
+      var rn=x.getAttribute("data-row");var nv=x.getAttribute("data-done")==="1"?0:1;
+      api(PM+"checklist.set_item",{task:task,row_name:rn,is_done:nv}).then(function(res){renderChecklist(b,task,res);/* re-render clears busy + re-enables */}).catch(function(err){b._chkBusy=false;b.style.pointerEvents="";toast("Lỗi: "+errOf(err),true);loadChecklist(task);/* resync from backend */});
     };});}
   function loadChecklist(task){var b=el("pm-chk");if(!b)return;
     api(PM+"checklist.get_for_task",{task:task}).then(function(d){if(el("pm-chk"))renderChecklist(el("pm-chk"),task,d);}).catch(function(){if(el("pm-chk"))el("pm-chk").innerHTML="";});}
