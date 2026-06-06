@@ -53,7 +53,11 @@ scheduler_events = {
 fixtures = [
     {
         "dt": "Custom Field",
-        "filters": [["name", "in", ["Project-ec_department", "Project-ec_manager"]]],
+        "filters": [["name", "in", [
+            "Project-ec_department", "Project-ec_manager",
+            # PM v2 Batch G1 checklist foundation (created by p005_pm_checklist):
+            "PM Recurrence-checklist_template", "Task-pm_checklist",
+        ]]],
     },
     {
         "dt": "Role",
