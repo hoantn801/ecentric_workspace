@@ -187,7 +187,9 @@ def _clone(r, occ_date):
                         "item_label": it.item_label,
                         "is_required": it.is_required,
                         "is_done": 0,
-                        "source_template_item": it.item_label,
+                        # G2.1: store the template item ROW ID for stable traceability;
+                        # fall back to the label only if the row name is missing.
+                        "source_template_item": (it.name or it.item_label),
                     })
                 if items:
                     t.save(ignore_permissions=True)

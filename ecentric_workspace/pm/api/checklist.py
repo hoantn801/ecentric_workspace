@@ -35,7 +35,7 @@ def get_template(name):
     pmperm.require_pm_access()
     doc = frappe.get_doc(DT, name)
     items = [
-        {"idx": i.idx, "item_label": i.item_label,
+        {"name": i.name, "idx": i.idx, "item_label": i.item_label,
          "is_required": i.is_required, "item_description": i.get("item_description")}
         for i in (doc.get("items") or [])
     ]
