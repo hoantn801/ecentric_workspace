@@ -1,0 +1,108 @@
+{
+ "doctype": "DocType",
+ "name": "EC Marketplace Shop",
+ "module": "Alerts",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "allow_import": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "shop_code",
+  "shop_name",
+  "platform",
+  "status",
+  "cb_0",
+  "brand",
+  "omisell_shop_id",
+  "kam_owner"
+ ],
+ "fields": [
+  {
+   "fieldname": "shop_code",
+   "fieldtype": "Data",
+   "label": "Shop Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "shop_name",
+   "fieldtype": "Data",
+   "label": "Shop Name",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "label": "Platform",
+   "options": "Shopee\nLazada\nTikTok\nOther",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nInactive",
+   "default": "Active",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cb_0",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "options": "Brand Approver",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Brand source of truth. Every shop maps to exactly one brand."
+  },
+  {
+   "fieldname": "omisell_shop_id",
+   "fieldtype": "Data",
+   "label": "Omisell Shop ID",
+   "unique": 1,
+   "in_list_view": 1,
+   "description": "Join key for Omisell order ingestion (brand resolution keystone)."
+  },
+  {
+   "fieldname": "kam_owner",
+   "fieldtype": "Link",
+   "label": "KAM Owner (Shop Override)",
+   "options": "User",
+   "description": "Optional shop-level owner override. Resolution: shop.kam_owner -> brand.kam_owner -> brand.manager_email -> brand.leader_email."
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "field:shop_code",
+ "naming_rule": "By fieldname",
+ "title_field": ""
+}

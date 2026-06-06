@@ -1,0 +1,145 @@
+{
+ "doctype": "DocType",
+ "name": "EC Automation Pause",
+ "module": "Alerts",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "allow_import": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "automation_type",
+  "brand",
+  "platform",
+  "shop",
+  "cb_0",
+  "item",
+  "seller_sku",
+  "paused_by",
+  "sec_window",
+  "pause_from",
+  "pause_until",
+  "cb_1",
+  "status",
+  "reason"
+ ],
+ "fields": [
+  {
+   "fieldname": "automation_type",
+   "fieldtype": "Select",
+   "label": "Automation Type",
+   "options": "Stock Safety Lock",
+   "default": "Stock Safety Lock",
+   "reqd": 1
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "options": "Brand Approver",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Pause is strictly brand-scoped: a pause for Brand A never affects Brand B."
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "label": "Platform",
+   "options": "All\nShopee\nLazada\nTikTok",
+   "default": "All"
+  },
+  {
+   "fieldname": "shop",
+   "fieldtype": "Link",
+   "label": "Shop",
+   "options": "EC Marketplace Shop"
+  },
+  {
+   "fieldname": "cb_0",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "seller_sku",
+   "fieldtype": "Data",
+   "label": "Seller SKU"
+  },
+  {
+   "fieldname": "paused_by",
+   "fieldtype": "Link",
+   "label": "Paused By",
+   "options": "User",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_window",
+   "fieldtype": "Section Break",
+   "label": "Window"
+  },
+  {
+   "fieldname": "pause_from",
+   "fieldtype": "Datetime",
+   "label": "Pause From",
+   "reqd": 1
+  },
+  {
+   "fieldname": "pause_until",
+   "fieldtype": "Datetime",
+   "label": "Pause Until",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "cb_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nExpired\nCancelled",
+   "default": "Active",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Reason"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "format:EC-AP-{#####}",
+ "naming_rule": "Expression",
+ "title_field": ""
+}

@@ -57,6 +57,9 @@ fixtures = [
             "Project-ec_department", "Project-ec_manager",
             # PM v2 Batch G1 checklist foundation (created by p005_pm_checklist):
             "PM Recurrence-checklist_template", "Task-pm_checklist",
+            # Alert Center Phase B (ALERT_CENTER/01_PHASE_B_PLAN.md, decision D1):
+            # daily KAM owner for marketplace alerts - NOT the approval manager.
+            "Brand Approver-kam_owner",
         ]]],
     },
     {

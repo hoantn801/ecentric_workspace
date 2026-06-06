@@ -1,0 +1,159 @@
+{
+ "doctype": "DocType",
+ "name": "EC Brand Integration Settings",
+ "module": "Alerts",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "allow_import": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "brand",
+  "integration_type",
+  "enabled",
+  "cb_0",
+  "credential_status",
+  "base_url",
+  "sec_credentials",
+  "api_key",
+  "api_secret",
+  "cb_1",
+  "token",
+  "sec_behavior",
+  "dry_run_stock_lock",
+  "default_platform_scope",
+  "cb_2",
+  "last_sync_at",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "options": "Brand Approver",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "integration_type",
+   "fieldtype": "Select",
+   "label": "Integration Type",
+   "options": "Omisell",
+   "default": "Omisell",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "0"
+  },
+  {
+   "fieldname": "cb_0",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "credential_status",
+   "fieldtype": "Select",
+   "label": "Credential Status",
+   "options": "Active\nInactive\nExpired",
+   "default": "Inactive",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "base_url",
+   "fieldtype": "Data",
+   "label": "Base URL"
+  },
+  {
+   "fieldname": "sec_credentials",
+   "fieldtype": "Section Break",
+   "label": "Credentials (System Manager only - never logged, never sent to frontend)"
+  },
+  {
+   "fieldname": "api_key",
+   "fieldtype": "Password",
+   "label": "API Key"
+  },
+  {
+   "fieldname": "api_secret",
+   "fieldtype": "Password",
+   "label": "API Secret"
+  },
+  {
+   "fieldname": "cb_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "token",
+   "fieldtype": "Password",
+   "label": "Token"
+  },
+  {
+   "fieldname": "sec_behavior",
+   "fieldtype": "Section Break",
+   "label": "Behavior"
+  },
+  {
+   "fieldname": "dry_run_stock_lock",
+   "fieldtype": "Check",
+   "label": "Dry Run Stock Lock",
+   "default": "1",
+   "description": "SAFETY DEFAULT 1: Stock Safety Lock actions for this brand are recorded as Dry Run and never call the real Omisell API. Flip per brand only after the Omisell stock API contract is confirmed (OMISELL_API_CHECKLIST.md gate)."
+  },
+  {
+   "fieldname": "default_platform_scope",
+   "fieldtype": "Select",
+   "label": "Default Platform Scope",
+   "options": "All\nShopee\nLazada\nTikTok",
+   "default": "All"
+  },
+  {
+   "fieldname": "cb_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "last_sync_at",
+   "fieldtype": "Datetime",
+   "label": "Last Sync At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "format:EC-BIS-{####}",
+ "naming_rule": "Expression",
+ "title_field": ""
+}

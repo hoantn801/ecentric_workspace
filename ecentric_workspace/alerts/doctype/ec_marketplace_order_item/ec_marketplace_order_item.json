@@ -1,0 +1,110 @@
+{
+ "doctype": "DocType",
+ "name": "EC Marketplace Order Item",
+ "module": "Alerts",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "allow_import": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "external_line_id",
+  "item",
+  "seller_sku",
+  "product_name",
+  "quantity",
+  "list_price",
+  "seller_discount",
+  "platform_discount",
+  "customer_paid_price",
+  "unit_check_price",
+  "min_price_at_check",
+  "baseline_price_at_check",
+  "check_result"
+ ],
+ "fields": [
+  {
+   "fieldname": "external_line_id",
+   "fieldtype": "Data",
+   "label": "External Line ID"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "seller_sku",
+   "fieldtype": "Data",
+   "label": "Seller SKU",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "product_name",
+   "fieldtype": "Data",
+   "label": "Product Name",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "label": "Quantity",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "list_price",
+   "fieldtype": "Currency",
+   "label": "List Price"
+  },
+  {
+   "fieldname": "seller_discount",
+   "fieldtype": "Currency",
+   "label": "Seller Discount"
+  },
+  {
+   "fieldname": "platform_discount",
+   "fieldtype": "Currency",
+   "label": "Platform Discount"
+  },
+  {
+   "fieldname": "customer_paid_price",
+   "fieldtype": "Currency",
+   "label": "Customer Paid Price",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "unit_check_price",
+   "fieldtype": "Currency",
+   "label": "Unit Check Price",
+   "in_list_view": 1,
+   "description": "Price actually used for checking (default customer_paid_price / quantity). Snapshot at check time."
+  },
+  {
+   "fieldname": "min_price_at_check",
+   "fieldtype": "Currency",
+   "label": "Min Price At Check"
+  },
+  {
+   "fieldname": "baseline_price_at_check",
+   "fieldtype": "Currency",
+   "label": "Baseline Price At Check"
+  },
+  {
+   "fieldname": "check_result",
+   "fieldtype": "Select",
+   "label": "Check Result",
+   "options": "OK\nBelow Min\nAbove High\nSevere Price Drop\nPossible Missing Zero\nMissing Rule\nMissing Brand Mapping",
+   "in_list_view": 1
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

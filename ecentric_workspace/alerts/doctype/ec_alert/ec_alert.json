@@ -1,0 +1,268 @@
+{
+ "doctype": "DocType",
+ "name": "EC Alert",
+ "module": "Alerts",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "allow_import": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "alert_type",
+  "rule_code",
+  "severity",
+  "cb_0",
+  "status",
+  "title",
+  "message",
+  "sec_context",
+  "brand",
+  "platform",
+  "shop",
+  "item",
+  "seller_sku",
+  "cb_1",
+  "owner_user",
+  "source_system",
+  "reference_doctype",
+  "reference_name",
+  "sec_price",
+  "actual_price",
+  "min_price",
+  "baseline_price",
+  "cb_2",
+  "gap_percent",
+  "recommended_action",
+  "detected_at",
+  "dedupe_key",
+  "sec_resolution",
+  "resolved_at",
+  "resolved_by",
+  "cb_3",
+  "resolution_note"
+ ],
+ "fields": [
+  {
+   "fieldname": "alert_type",
+   "fieldtype": "Select",
+   "label": "Alert Type",
+   "options": "Price Compliance\nPrice Anomaly\nStock\nSLA\nApproval\nTask",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "rule_code",
+   "fieldtype": "Select",
+   "label": "Rule Code",
+   "options": "below_min\nabove_high\nsevere_price_drop\npossible_missing_zero\nmissing_policy\nmissing_brand_mapping\nmissing_integration_credential\nstock_lock_api_failed",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "severity",
+   "fieldtype": "Select",
+   "label": "Severity",
+   "options": "Critical\nWarning\nInfo",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cb_0",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Open\nIn Review\nResolved\nIgnored",
+   "default": "Open",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "message",
+   "fieldtype": "Small Text",
+   "label": "Message"
+  },
+  {
+   "fieldname": "sec_context",
+   "fieldtype": "Section Break",
+   "label": "Context"
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "options": "Brand Approver",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "label": "Platform",
+   "options": "Shopee\nLazada\nTikTok\nOther",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "shop",
+   "fieldtype": "Link",
+   "label": "Shop",
+   "options": "EC Marketplace Shop"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "seller_sku",
+   "fieldtype": "Data",
+   "label": "Seller SKU",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cb_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "owner_user",
+   "fieldtype": "Link",
+   "label": "Owner (KAM)",
+   "options": "User",
+   "in_standard_filter": 1,
+   "description": "Resolved owner: shop.kam_owner -> brand.kam_owner -> brand.manager_email -> brand.leader_email -> fallback."
+  },
+  {
+   "fieldname": "source_system",
+   "fieldtype": "Select",
+   "label": "Source System",
+   "options": "Omisell\nERP\nManual",
+   "default": "Omisell"
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference DocType",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference Name",
+   "options": "reference_doctype"
+  },
+  {
+   "fieldname": "sec_price",
+   "fieldtype": "Section Break",
+   "label": "Price Check"
+  },
+  {
+   "fieldname": "actual_price",
+   "fieldtype": "Currency",
+   "label": "Actual Price"
+  },
+  {
+   "fieldname": "min_price",
+   "fieldtype": "Currency",
+   "label": "Min Price"
+  },
+  {
+   "fieldname": "baseline_price",
+   "fieldtype": "Currency",
+   "label": "Baseline Price"
+  },
+  {
+   "fieldname": "cb_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "gap_percent",
+   "fieldtype": "Percent",
+   "label": "Gap Percent"
+  },
+  {
+   "fieldname": "recommended_action",
+   "fieldtype": "Select",
+   "label": "Recommended Action",
+   "options": "Notify Only\nStock Safety Lock"
+  },
+  {
+   "fieldname": "detected_at",
+   "fieldtype": "Datetime",
+   "label": "Detected At"
+  },
+  {
+   "fieldname": "dedupe_key",
+   "fieldtype": "Data",
+   "label": "Dedupe Key",
+   "unique": 1,
+   "read_only": 1,
+   "description": "omisell|{external_order_id}|{external_line_id}|price|{rule_code}. Unique constraint = hard dedupe; service layer also checks Open/In Review duplicates."
+  },
+  {
+   "fieldname": "sec_resolution",
+   "fieldtype": "Section Break",
+   "label": "Resolution"
+  },
+  {
+   "fieldname": "resolved_at",
+   "fieldtype": "Datetime",
+   "label": "Resolved At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resolved_by",
+   "fieldtype": "Link",
+   "label": "Resolved By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_3",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "resolution_note",
+   "fieldtype": "Small Text",
+   "label": "Resolution Note"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "format:EC-AL-{######}",
+ "naming_rule": "Expression",
+ "title_field": ""
+}

@@ -1,0 +1,223 @@
+{
+ "doctype": "DocType",
+ "name": "EC Alert Action",
+ "module": "Alerts",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "allow_import": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "alert",
+  "action_type",
+  "status",
+  "cb_0",
+  "source_system",
+  "brand",
+  "platform",
+  "shop",
+  "sec_target",
+  "item",
+  "seller_sku",
+  "external_product_id",
+  "cb_1",
+  "previous_available_stock",
+  "lock_until",
+  "lock_reason",
+  "sec_exec",
+  "requested_at",
+  "executed_at",
+  "executed_by",
+  "release_status",
+  "cb_2",
+  "api_response",
+  "error_message",
+  "dedupe_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "alert",
+   "fieldtype": "Link",
+   "label": "Alert",
+   "options": "EC Alert",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "action_type",
+   "fieldtype": "Select",
+   "label": "Action Type",
+   "options": "Notify Only\nStock Safety Lock\nRelease Stock Safety Lock",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "No Off Listing / price-change action exists by design. Stock Safety Lock only holds inventory / sets available stock to 0."
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Pending\nProcessing\nSuccess\nFailed\nCancelled\nSkipped\nDry Run",
+   "default": "Pending",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cb_0",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "source_system",
+   "fieldtype": "Select",
+   "label": "Source System",
+   "options": "Omisell",
+   "default": "Omisell"
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "options": "Brand Approver",
+   "reqd": 1,
+   "in_standard_filter": 1,
+   "description": "Credential lookup key: execution loads EC Brand Integration Settings of THIS brand only. No cross-brand credential reuse."
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "label": "Platform",
+   "options": "Shopee\nLazada\nTikTok\nOther"
+  },
+  {
+   "fieldname": "shop",
+   "fieldtype": "Link",
+   "label": "Shop",
+   "options": "EC Marketplace Shop"
+  },
+  {
+   "fieldname": "sec_target",
+   "fieldtype": "Section Break",
+   "label": "Target"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "seller_sku",
+   "fieldtype": "Data",
+   "label": "Seller SKU",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "external_product_id",
+   "fieldtype": "Data",
+   "label": "External Product ID"
+  },
+  {
+   "fieldname": "cb_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "previous_available_stock",
+   "fieldtype": "Float",
+   "label": "Previous Available Stock",
+   "read_only": 1
+  },
+  {
+   "fieldname": "lock_until",
+   "fieldtype": "Datetime",
+   "label": "Lock Until"
+  },
+  {
+   "fieldname": "lock_reason",
+   "fieldtype": "Small Text",
+   "label": "Lock Reason"
+  },
+  {
+   "fieldname": "sec_exec",
+   "fieldtype": "Section Break",
+   "label": "Execution"
+  },
+  {
+   "fieldname": "requested_at",
+   "fieldtype": "Datetime",
+   "label": "Requested At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "executed_at",
+   "fieldtype": "Datetime",
+   "label": "Executed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "executed_by",
+   "fieldtype": "Link",
+   "label": "Executed By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "release_status",
+   "fieldtype": "Select",
+   "label": "Release Status",
+   "options": "Not Required\nPending\nReleased\nFailed",
+   "default": "Not Required"
+  },
+  {
+   "fieldname": "cb_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "api_response",
+   "fieldtype": "Small Text",
+   "label": "API Response",
+   "description": "Sanitized response only. Never store credentials or auth headers here."
+  },
+  {
+   "fieldname": "error_message",
+   "fieldtype": "Small Text",
+   "label": "Error Message"
+  },
+  {
+   "fieldname": "dedupe_key",
+   "fieldtype": "Data",
+   "label": "Dedupe Key",
+   "unique": 1,
+   "read_only": 1,
+   "description": "omisell|{external_order_id}|{external_line_id}|stock_safety_lock|{rule_code}"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "format:EC-AA-{######}",
+ "naming_rule": "Expression",
+ "title_field": ""
+}

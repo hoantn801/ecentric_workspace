@@ -1,0 +1,157 @@
+{
+ "doctype": "DocType",
+ "name": "EC Marketplace Order Log",
+ "module": "Alerts",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "allow_import": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "source_system",
+  "external_order_id",
+  "order_key",
+  "platform",
+  "cb_0",
+  "shop",
+  "brand",
+  "order_datetime",
+  "order_status",
+  "sec_sync",
+  "sync_status",
+  "raw_payload_hash",
+  "cb_1",
+  "sync_error",
+  "sec_items",
+  "items"
+ ],
+ "fields": [
+  {
+   "fieldname": "source_system",
+   "fieldtype": "Select",
+   "label": "Source System",
+   "options": "Omisell\nERP\nManual",
+   "default": "Omisell",
+   "reqd": 1
+  },
+  {
+   "fieldname": "external_order_id",
+   "fieldtype": "Data",
+   "label": "External Order ID",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "order_key",
+   "fieldtype": "Data",
+   "label": "Order Key",
+   "unique": 1,
+   "read_only": 1,
+   "description": "Dedupe key = source_system|external_order_id. Set automatically; re-syncing the same order must not create a second log."
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "label": "Platform",
+   "options": "Shopee\nLazada\nTikTok\nOther",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cb_0",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "shop",
+   "fieldtype": "Link",
+   "label": "Shop",
+   "options": "EC Marketplace Shop",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "options": "Brand Approver",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Resolved at ingestion via EC Marketplace Shop mapping. Empty = unresolved -> missing_brand_mapping alert path, no policy check, no stock lock."
+  },
+  {
+   "fieldname": "order_datetime",
+   "fieldtype": "Datetime",
+   "label": "Order Datetime",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "order_status",
+   "fieldtype": "Data",
+   "label": "Order Status"
+  },
+  {
+   "fieldname": "sec_sync",
+   "fieldtype": "Section Break",
+   "label": "Sync"
+  },
+  {
+   "fieldname": "sync_status",
+   "fieldtype": "Select",
+   "label": "Sync Status",
+   "options": "Pending\nSuccess\nFailed",
+   "default": "Pending",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "raw_payload_hash",
+   "fieldtype": "Data",
+   "label": "Raw Payload Hash"
+  },
+  {
+   "fieldname": "cb_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "sync_error",
+   "fieldtype": "Small Text",
+   "label": "Sync Error"
+  },
+  {
+   "fieldname": "sec_items",
+   "fieldtype": "Section Break",
+   "label": "Items"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "EC Marketplace Order Item"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "format:EC-MOL-{######}",
+ "naming_rule": "Expression",
+ "title_field": ""
+}
