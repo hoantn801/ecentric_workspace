@@ -44,6 +44,7 @@ def _as_dict(r):
         "end_date": str(r.end_date) if r.end_date else None,
         "max_occurrences": r.max_occurrences or 0, "occurrences_done": r.occurrences_done or 0,
         "last_task": r.last_task, "last_run_date": str(r.last_run_date) if r.last_run_date else None,
+        "checklist_template": r.get("checklist_template"),
     }
 
 
@@ -62,7 +63,8 @@ def _manage(name):
 # CRUD / control (service-layer permission)
 # --------------------------------------------------------------------------
 @frappe.whitelist()
-def create(source_task, frequency, start_date=None, end_date=None, max_occurrences=None):
+def create(source_task, frequency, start_date=None, end_date=None, max_occurrences=None,
+           checklist_template=None):
     pmperm.require_pm_access()
     user = frappe.session.user
     if not source_task or not frequency:
@@ -81,6 +83,7 @@ def create(source_task, frequency, start_date=None, end_date=None, max_occurrenc
         "end_date": getdate(end_date) if end_date else None,
         "max_occurrences": int(max_occurrences) if max_occurrences else 0,
         "occurrences_done": 0, "status": "Active",
+        "checklist_template": checklist_template or None,  # G2: optional; unchanged if None
     })
     r.insert(ignore_permissions=True)
     return _as_dict(r)
@@ -110,7 +113,8 @@ def list(task=None, project=None):
         DT, filters=conds,
         fields=["name", "source_task", "project", "frequency", "next_run_date",
                 "occurrences_done", "last_task", "status", "end_date", "max_occurrences",
-                "last_run_date"],  # additive: lets the UI identify tasks generated TODAY
+                "last_run_date",  # lets the UI identify tasks generated TODAY
+                "checklist_template"],  # G2: rule's linked checklist template
         order_by="modified desc", limit_page_length=200)
     if pmperm.can_see_all_pm_data(me):
         return {"rows": rows}
@@ -169,6 +173,26 @@ def _clone(r, occ_date):
             _assign_add({"doctype": "Task", "name": t.name, "assign_to": users, "notify": 0})
     except Exception:
         frappe.log_error(frappe.get_traceback(), "Recurring assignment failed: " + t.name)
+    # G2: snapshot the rule's checklist template into the generated task's pm_checklist.
+    # SNAPSHOT (copy) -> later template edits never mutate past generated tasks (auditable).
+    # Missing/inactive/empty template -> task still created (never fail generation).
+    try:
+        tmpl_name = r.get("checklist_template")
+        if tmpl_name and frappe.db.exists("PM Checklist Template", tmpl_name):
+            tmpl = frappe.get_doc("PM Checklist Template", tmpl_name)
+            if tmpl.get("is_active"):
+                items = sorted(tmpl.get("items") or [], key=lambda x: (x.idx or 0))
+                for it in items:
+                    t.append("pm_checklist", {
+                        "item_label": it.item_label,
+                        "is_required": it.is_required,
+                        "is_done": 0,
+                        "source_template_item": it.item_label,
+                    })
+                if items:
+                    t.save(ignore_permissions=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Recurring checklist copy failed: " + t.name)
     return t.name
 
 
