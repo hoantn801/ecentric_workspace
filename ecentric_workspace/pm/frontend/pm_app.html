@@ -295,6 +295,16 @@
   .pm-subadd{ display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:8px; cursor:pointer; color:var(--gray-500); font-size:13px; }
   .pm-subadd:hover{ background:var(--gray-50); color:var(--navy); }
   .pm-sub-plus{ font-weight:700; font-size:15px; line-height:1; }
+  /* G3 checklist (tick/untick generated checklist instance) */
+  .pm-chk-list{ display:flex; flex-direction:column; gap:2px; }
+  .pm-chk-item{ display:flex; align-items:center; gap:9px; padding:6px 8px; border-radius:8px; cursor:pointer; }
+  .pm-chk-item:hover{ background:var(--gray-50); }
+  .pm-chk-box{ width:18px; height:18px; border:1.5px solid var(--gray-300); border-radius:5px; display:inline-flex; align-items:center; justify-content:center; font-size:12px; color:#fff; flex:0 0 auto; }
+  .pm-chk-item.done .pm-chk-box{ background:var(--navy); border-color:var(--navy); }
+  .pm-chk-label{ font-size:13px; color:var(--gray-800); flex:1; }
+  .pm-chk-item.done .pm-chk-label{ color:var(--gray-400); text-decoration:line-through; }
+  .pm-chk-req{ color:var(--pink); font-weight:700; }
+  .pm-chk-meta{ font-size:11px; color:var(--gray-400); white-space:nowrap; }
   .pm-sub-open{ display:inline-flex; align-items:center; color:var(--gray-300); cursor:pointer; flex:0 0 auto; }
   .pm-sub-open:hover{ color:var(--navy); }
   .pm-sub-open svg{ width:14px; height:14px; }
@@ -1189,6 +1199,7 @@
           '<div class="pm-prop"><label>Hạn</label><div class="v"><span class="pm-inline" data-inline="end">'+renderInlineDisplay("end",t)+'</span></div></div>'+
         '</div>'+
         '<div class="pm-dsec">Mô tả</div><div class="pm-inline pm-desc-inline" data-inline="desc">'+renderInlineDisplay("desc",t)+'</div>'+
+        '<div id="pm-chk"></div>'+ /* G3: checklist section (rendered only if task has pm_checklist items) */
         '<div class="pm-dsec">Workflow</div>'+
         '<div class="pm-field"><label>Chuyển trạng thái</label><div class="pm-actions">'+(tr.length?tr.map(function(x){return '<button class="pm-btn pm-act" data-act="'+esc(x.action)+'">'+esc(x.action)+'</button>';}).join(""):'<span style="color:var(--gray-400);font-size:13px">Không có</span>')+'</div></div>'+
         '<div class="pm-field"><label>Giao việc (email)</label><div class="pm-assign-row"><input class="pm-input" id="pm-asg" placeholder="user@ecentric.vn" style="padding-left:11px;background-image:none"><button class="pm-btn primary" id="pm-asgb">Giao</button></div></div>'+
@@ -1211,7 +1222,7 @@
       /* A2: "Sửa (form)" button removed — inline edit is the primary path. editTask() kept as internal fallback only. */
       inlineWire(c,t,name); /* C1-B: click-to-edit priority/start/end/desc in main + title in header */
       renderSubs(el("pm-subs"),subs,t.project,name,t.exp_start_date,t.exp_end_date); /* compact direct-child rows + inline add (reuses tasks.create); parent dates for child-range validation */
-      loadWorktime(name); loadRecurrence(name); loadComments(name);
+      loadWorktime(name); loadRecurrence(name); loadComments(name); loadChecklist(name);
       if(el("pm-cmt-send"))el("pm-cmt-send").onclick=function(){var v=el("pm-cmt-input").value.trim();if(!v){toast("Nhập bình luận",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang gửi...";
         api("frappe.client.insert",{doc:{doctype:"Comment",comment_type:"Comment",reference_doctype:"Task",reference_name:name,content:v}}).then(function(){el("pm-cmt-input").value="";loadComments(name);btn.disabled=false;btn.textContent="Gửi";}).catch(function(e){toast("Lỗi gửi bình luận: "+errOf(e),true);btn.disabled=false;btn.textContent="Gửi";});};
       if(el("pm-cmt-input"))el("pm-cmt-input").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(el("pm-cmt-send"))el("pm-cmt-send").click();}});
@@ -1556,6 +1567,22 @@
       tr.ondrop=function(e){e.preventDefault();tr.classList.remove("g-drop-active");gDropSchedule(e.dataTransfer.getData("text/plain"),tr,e.clientX);};});}
 
   var FREQ_VN={Daily:"Hằng ngày",Weekly:"Hằng tuần",Biweekly:"2 tuần/lần",Monthly:"Hằng tháng"};
+  // G3 checklist: render the task's checklist instance (tick/untick). Section hidden if no items.
+  function chkRow(it){var done=it.is_done?1:0;
+    var meta=(done&&it.completed_by)?'<span class="pm-chk-meta">'+esc((it.completed_by||"").split("@")[0])+(it.completed_at?(" · "+esc(String(it.completed_at).slice(0,16))):"")+'</span>':'';
+    return '<div class="pm-chk-item'+(done?' done':'')+'" data-row="'+esc(it.name)+'" data-done="'+done+'"><span class="pm-chk-box">'+(done?'✓':'')+'</span><span class="pm-chk-label">'+esc(it.item_label)+(it.is_required?' <span class="pm-chk-req">*</span>':'')+'</span>'+meta+'</div>';}
+  function renderChecklist(b,task,d){if(!b)return;var rows=(d&&d.rows)||[];
+    if(!rows.length){b.innerHTML="";return;} /* no checklist -> no section */
+    var pct=d.total?Math.round(d.done/d.total*100):0;
+    b.innerHTML='<div class="pm-dsec" style="display:flex;justify-content:space-between;align-items:center">Checklist <span style="color:var(--gray-400);font-weight:500">'+d.done+'/'+d.total+'</span></div>'+
+      '<div class="pm-prog" style="margin-bottom:10px"><i style="width:'+pct+'%"></i></div>'+
+      '<div class="pm-chk-list">'+rows.map(chkRow).join("")+'</div>';
+    Array.prototype.forEach.call(b.querySelectorAll(".pm-chk-item"),function(x){x.onclick=function(){
+      var rn=x.getAttribute("data-row");var nv=x.getAttribute("data-done")==="1"?0:1;b.style.pointerEvents="none";
+      api(PM+"checklist.set_item",{task:task,row_name:rn,is_done:nv}).then(function(res){renderChecklist(b,task,res);}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.style.pointerEvents="";});
+    };});}
+  function loadChecklist(task){var b=el("pm-chk");if(!b)return;
+    api(PM+"checklist.get_for_task",{task:task}).then(function(d){if(el("pm-chk"))renderChecklist(el("pm-chk"),task,d);}).catch(function(){if(el("pm-chk"))el("pm-chk").innerHTML="";});}
   function loadRecurrence(task){var b=el("pm-rec");if(!b)return;
     Promise.all([api(PM+"recurrence.get_for_task",{task:task}),api(PM+"recurrence.list").catch(function(){return {rows:[]};})]).then(function(res){
       var r=res[0]||{};var rules=(res[1]&&res[1].rows)||[];
