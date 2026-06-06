@@ -34,7 +34,8 @@ from frappe.utils import now_datetime
 
 from . import alert_engine, brand_resolver
 
-LINE_FIELDS = ("external_line_id", "seller_sku", "product_name", "quantity",
+LINE_FIELDS = ("external_line_id", "seller_sku", "external_product_id",
+               "product_name", "quantity",
                "list_price", "seller_discount", "platform_discount",
                "customer_paid_price")
 
@@ -86,6 +87,8 @@ def _ingest_one(o, run_checks):
         "source_system": src,
         "external_order_id": eid,
         "platform": o.get("platform") or "Other",
+        "omisell_shop_id": (str(o.get("omisell_shop_id")).strip()
+                            if o.get("omisell_shop_id") else None),
         "shop": shop,
         "brand": brand,
         "order_datetime": o.get("order_datetime") or now_datetime(),

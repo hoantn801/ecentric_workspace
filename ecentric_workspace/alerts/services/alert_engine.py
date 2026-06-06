@@ -47,14 +47,16 @@ def check_order_log(order_log_name, raw_shop_id=None):
             if price is not None:
                 line.unit_check_price = price
             key = dedupe_keys.missing_brand_mapping_key(
-                log.platform, raw_shop_id or log.shop, line.seller_sku, yyyymmdd,
-                external_product_id=None)
+                log.platform, raw_shop_id or log.omisell_shop_id or log.shop,
+                line.seller_sku, yyyymmdd,
+                external_product_id=line.external_product_id)
             created = _create_alert(
                 log, line, rule_code="missing_brand_mapping", severity="Warning",
                 dedupe_key=key, price=price, policy=None, baseline=None, gap=None,
                 recommended_action="Notify Only",
                 title="Missing brand mapping: shop %s / SKU %s" % (
-                    raw_shop_id or log.shop or "?", line.seller_sku or "?"),
+                    raw_shop_id or log.omisell_shop_id or log.shop or "?",
+                    line.seller_sku or "?"),
                 message=("Order %s (%s) could not be resolved to a brand. "
                          "Map this shop in EC Marketplace Shop. Price policy check "
                          "and Stock Safety Lock were NOT run.") % (
@@ -77,7 +79,7 @@ def check_order_log(order_log_name, raw_shop_id=None):
         if not policy:
             key = dedupe_keys.missing_policy_key(
                 log.brand, log.platform, log.shop, line.seller_sku, yyyymmdd,
-                external_product_id=None)
+                external_product_id=line.external_product_id)
             created = _create_alert(
                 log, line, rule_code="missing_policy", severity="Warning",
                 dedupe_key=key, price=price, policy=None, baseline=None, gap=None,

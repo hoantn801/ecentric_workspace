@@ -33,6 +33,16 @@ scheduler_events = {
         "ecentric_workspace.pm.api.recurrence.run_due",
         "ecentric_workspace.pm.api.notifications.pm_overdue_scan",
     ],
+    # Alert Center Phase E (decision D2-E): both jobs are dry-run-safe and
+    # kill-switchable via site_config `ec_alerts_scheduler_disabled: 1`.
+    "hourly": [
+        "ecentric_workspace.alerts.tasks.expire_automation_pauses",
+    ],
+    "cron": {
+        "*/10 * * * *": [
+            "ecentric_workspace.alerts.tasks.process_action_queue_job",
+        ],
+    },
 }
 
 # Permissions

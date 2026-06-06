@@ -20,6 +20,7 @@
   "platform",
   "cb_0",
   "shop",
+  "omisell_shop_id",
   "brand",
   "order_datetime",
   "order_status",
@@ -73,6 +74,12 @@
    "label": "Shop",
    "options": "EC Marketplace Shop",
    "in_standard_filter": 1
+  },
+  {
+   "fieldname": "omisell_shop_id",
+   "fieldtype": "Data",
+   "label": "Omisell Shop ID",
+   "description": "Raw shop id from the payload - kept even when unmapped so missing_brand_mapping dedupe keys survive re-checks (decision D3-E)."
   },
   {
    "fieldname": "brand",

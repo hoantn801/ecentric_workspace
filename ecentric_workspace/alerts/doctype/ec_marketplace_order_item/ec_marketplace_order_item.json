@@ -17,6 +17,7 @@
   "external_line_id",
   "item",
   "seller_sku",
+  "external_product_id",
   "product_name",
   "quantity",
   "list_price",
@@ -45,6 +46,12 @@
    "fieldtype": "Data",
    "label": "Seller SKU",
    "in_list_view": 1
+  },
+  {
+   "fieldname": "external_product_id",
+   "fieldtype": "Data",
+   "label": "External Product ID",
+   "description": "Omisell/marketplace product or listing id. Used in C1 dedupe keys and future stock-action targeting (decision D3-E)."
   },
   {
    "fieldname": "product_name",
