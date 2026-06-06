@@ -11,6 +11,7 @@ per source_task. Permission enforced in this service layer.
 
 import frappe
 from frappe import _
+from frappe.desk.form.assign_to import add as _assign_add
 from frappe.utils import nowdate, getdate, add_days, add_months
 
 from ecentric_workspace.pm import permissions as pmperm
@@ -159,6 +160,15 @@ def _clone(r, occ_date):
         fields["exp_end_date"] = add_days(occ_date, max(0, dur))
     t = frappe.get_doc(fields)
     t.insert(ignore_permissions=True)  # active workflow sets workflow_state=Backlog on insert
+    # F1: inherit the source task's assignee(s) so the generated daily task lands in the
+    # right person's "Việc của tôi". notify=0 -> no daily assignment spam (the recurring
+    # notification below still goes to the rule owner). Never fail generation on assign error.
+    try:
+        users = [u for u in frappe.parse_json(src.get("_assign") or "[]") if u]
+        if users:
+            _assign_add({"doctype": "Task", "name": t.name, "assign_to": users, "notify": 0})
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Recurring assignment failed: " + t.name)
     return t.name
 
 
