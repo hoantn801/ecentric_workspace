@@ -1,7 +1,14 @@
 """Omisell payload -> normalized order dict (the shape services/ingestion.py
 already accepts). Pure transformation - NO network, NO writes.
 
-Status filtering (decision Q-D2) is CENTRALIZED here and configurable:
+Status filtering (decision Q-D2, FINALIZED 2026-06-10 as "PRICE-RISK /
+CUSTOMER-CHECKOUT statuses" - not "real sales"): if a customer could place
+an order at a price, the price exposure already happened, even if the order
+is later cancelled (e.g. 702 Huy boi doi tac IS included). Production
+allowlist lives in site_config:
+  ec_alerts_omisell_allowed_status_ids = [250, 300, 400, 460, 500, 600, 702, 900]
+Excluded: draft / unpaid / payment-failed / invalid / pre-creation failures.
+Mechanism is CENTRALIZED here and configurable:
   * If site_config `ec_alerts_omisell_allowed_status_ids` (list of ints) is
     set, it is authoritative (use after T2/T3 confirm the real ids).
   * Otherwise a conservative keyword rule on status_name applies:
@@ -26,7 +33,9 @@ PLATFORM_MAP = (("shopee", "Shopee"), ("lazada", "Lazada"), ("tiktok", "TikTok")
 
 
 def is_real_sale(status_id, status_name):
-    """Returns (bool, reason). Conservative: unknown -> excluded."""
+    """'real sale' kept as the FUNCTION NAME for API stability; semantics are
+    'price-risk / customer-checkout' per the finalized Q-D2 decision (see
+    module docstring). Returns (bool, reason). Conservative: unknown -> excluded."""
     try:
         allowed = frappe.conf.get("ec_alerts_omisell_allowed_status_ids")
     except Exception:
