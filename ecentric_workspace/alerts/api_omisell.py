@@ -17,6 +17,52 @@ from ecentric_workspace.alerts.services.omisell_client import (
 
 MAX_WINDOW_SECONDS = 3600  # hard MVP guard on pull_orders
 MAX_LIST_PAGES = 20
+# Phase D.1 capacity hardening (approved 2026-06-09):
+MAX_DETAILS_PER_RUN = 300        # per-run order-detail cap (config-tunable)
+MAX_CHUNKS_PER_RUN = 4           # catch-up chunks (<=1h each) per pull_recent run
+CIRCUIT_BREAKER_LIMIT = 3        # consecutive failed runs -> brand refused
+
+
+def chunk_windows(start, end, chunk_seconds=MAX_WINDOW_SECONDS, max_chunks=MAX_CHUNKS_PER_RUN):
+    """PURE helper: split [start, end] into <=chunk_seconds windows, capped at
+    max_chunks (leftover handled by the next run). start/end = datetimes."""
+    from datetime import timedelta
+    chunks = []
+    cur = start
+    while cur < end and len(chunks) < max_chunks:
+        nxt = min(cur + timedelta(seconds=chunk_seconds), end)
+        chunks.append((cur, nxt))
+        cur = nxt
+    return chunks
+
+
+def _details_cap():
+    try:
+        return int(frappe.conf.get("ec_alerts_pull_max_details") or MAX_DETAILS_PER_RUN)
+    except Exception:
+        return MAX_DETAILS_PER_RUN
+
+
+def _pull_disabled():
+    try:
+        return bool(frappe.conf.get("ec_alerts_pull_disabled"))
+    except Exception:
+        return True  # fail safe
+
+
+def _breaker_check(bis):
+    if int(bis.consecutive_failures or 0) >= CIRCUIT_BREAKER_LIMIT:
+        frappe.throw(_(
+            "Circuit breaker OPEN for brand {0}: {1} consecutive failed pulls. "
+            "Investigate the ingestion_api_failed alert, then reset "
+            "Consecutive Failures to 0 on {2} to re-enable.").format(
+                bis.brand, bis.consecutive_failures, bis.name))
+
+
+def _breaker_record(bis, success):
+    bis.reload()
+    bis.consecutive_failures = 0 if success else int(bis.consecutive_failures or 0) + 1
+    bis.save(ignore_permissions=True)
 
 
 def _get_bis(brand, require_enabled=True):
@@ -161,7 +207,10 @@ def pull_orders(brand, updated_from, updated_to):
         frappe.throw(_("Invalid window."))
     if (t - f).total_seconds() > MAX_WINDOW_SECONDS:
         frappe.throw(_("Window exceeds {0}s (MVP hard guard).").format(MAX_WINDOW_SECONDS))
+    if _pull_disabled():
+        frappe.throw(_("Pulls are disabled (ec_alerts_pull_disabled is set)."))
     bis = _get_bis(brand)
+    _breaker_check(bis)
     client = OmisellClient(bis.name)
     f_ts, t_ts = int(f.timestamp()), int(t.timestamp())
 
@@ -186,6 +235,10 @@ def pull_orders(brand, updated_from, updated_to):
         frappe.throw(_("Order list failed: {0}").format(str(e)))
 
     summary["listed"] = len(headers)
+    cap = _details_cap()
+    if len(headers) > cap:
+        summary["capped_at"] = cap
+        headers = headers[:cap]
     batch = []
     for h in headers:
         number = h.get("omisell_order_number")
@@ -213,12 +266,64 @@ def pull_orders(brand, updated_from, updated_to):
         summary["ingested"] = len([r for r in ing if r.get("status") in ("created", "updated", "unchanged")])
         summary["failed"] += len([r for r in ing if r.get("status") in ("failed", "check_failed")])
         summary["action_queue"] = action_queue.process_pending_actions()
-    if summary["failed"] == 0:
+    if summary["failed"] == 0 and not summary.get("capped_at"):
         bis.reload()
         bis.last_sync_at = t
         bis.save(ignore_permissions=True)
         summary["last_sync_at_advanced"] = True
+        _breaker_record(bis, success=True)
     else:
-        _ingestion_failure_alert(brand, "%d failures in window %s..%s" % (summary["failed"], f, t))
+        if summary["failed"]:
+            _ingestion_failure_alert(brand, "%d failures in window %s..%s" % (summary["failed"], f, t))
+            _breaker_record(bis, success=False)
         summary["last_sync_at_advanced"] = False
     return summary
+
+
+@frappe.whitelist(methods=["POST"])
+def pull_recent(brand, max_chunks=None):
+    """Phase D.1: MANUAL catch-up - successive <=1h chunks from last_sync_at to
+    now, chunk-level checkpointing (last_sync_at advances per successful chunk
+    via pull_orders), capped per run. This is the future scheduler body but is
+    NOT scheduled - SM-only manual call, double kill switch.
+    """
+    frappe.only_for("System Manager")
+    if _pull_disabled():
+        frappe.throw(_("Pulls are disabled (ec_alerts_pull_disabled is set)."))
+    # NOTE: ec_alerts_scheduler_disabled intentionally does NOT block manual
+    # pulls - it gates scheduler jobs only. Manual = this SM-only endpoint.
+    bis = _get_bis(brand)
+    _breaker_check(bis)
+    start = (get_datetime(bis.last_sync_at) if bis.last_sync_at
+             else get_datetime(now_datetime()) - timedelta(hours=1))
+    end = get_datetime(now_datetime())
+    chunks = chunk_windows(start, end,
+                           max_chunks=int(max_chunks or MAX_CHUNKS_PER_RUN))
+    run = {"brand": brand, "from": str(start), "to": str(end),
+           "chunks_planned": len(chunks), "chunks_done": 0, "summaries": []}
+    for cf, ct in chunks:
+        s = pull_orders(brand, str(cf), str(ct))
+        run["summaries"].append({k: s.get(k) for k in
+                                 ("window", "listed", "ingested", "skipped_status",
+                                  "failed", "capped_at", "last_sync_at_advanced")})
+        if not s.get("last_sync_at_advanced"):
+            run["stopped"] = "chunk did not fully succeed (failed or capped) - checkpoint holds"
+            break
+        run["chunks_done"] += 1
+    run["caught_up"] = run["chunks_done"] == len(chunks) and         (not chunks or chunks[-1][1] >= end)
+    return run
+
+
+@frappe.whitelist(methods=["POST"])
+def capacity_stats():
+    """Phase D.1 row-count measurement (decision: measure first, archive later;
+    review trigger ~2M rows for Log+Item combined). Read-only."""
+    frappe.only_for("System Manager")
+    stats = {dt: frappe.db.count(dt) for dt in
+             ("EC Marketplace Order Log", "EC Marketplace Order Item",
+              "EC Alert", "EC Alert Action", "EC Automation Pause")}
+    stats["log_plus_item"] = stats["EC Marketplace Order Log"] + stats["EC Marketplace Order Item"]
+    stats["archive_review_trigger"] = 2000000
+    stats["archive_review_due"] = stats["log_plus_item"] >= 2000000
+    frappe.logger("alerts").info({"capacity_stats": stats})
+    return stats

@@ -147,7 +147,8 @@
    "label": "Owner (KAM)",
    "options": "User",
    "in_standard_filter": 1,
-   "description": "Resolved owner: shop.kam_owner -> brand.kam_owner -> brand.manager_email -> brand.leader_email -> fallback."
+   "description": "Resolved owner: shop.kam_owner -> brand.kam_owner -> brand.manager_email -> brand.leader_email -> fallback.",
+   "search_index": 1
   },
   {
    "fieldname": "source_system",
@@ -207,7 +208,8 @@
   {
    "fieldname": "detected_at",
    "fieldtype": "Datetime",
-   "label": "Detected At"
+   "label": "Detected At",
+   "search_index": 1
   },
   {
    "fieldname": "dedupe_key",
