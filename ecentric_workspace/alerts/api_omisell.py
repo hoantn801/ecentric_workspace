@@ -322,7 +322,18 @@ def pull_orders(brand, updated_from, updated_to, time_budget=None):
         _auth_failure(bis, brand)
         frappe.throw(_("Auth failed: {0}").format(str(e)))
     except OmisellError as e:
-        _ingestion_failure_alert(brand, str(e))
+        # Hardening 2026-06-10: list-phase failures now COUNT toward the
+        # circuit breaker (previously only detail/ingest failures did - a
+        # recurring order-list 500 could retry forever without opening it).
+        _breaker_record(bis, success=False)
+        _ingestion_failure_alert(
+            brand,
+            "LIST-PHASE failure (client already retried transient 5xx): %s | "
+            "window %s..%s | checkpoint held at last_sync_at=%s | "
+            "breaker %s/%s" % (e, f, t, bis.last_sync_at,
+                               int(bis.consecutive_failures or 0),
+                               CIRCUIT_BREAKER_LIMIT),
+            context=summary)
         frappe.throw(_("Order list failed: {0}").format(str(e)))
 
     summary["listed"] = len(headers)
