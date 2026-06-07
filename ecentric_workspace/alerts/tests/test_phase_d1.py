@@ -50,6 +50,59 @@ class TestChunker(unittest.TestCase):
         self.assertEqual(sorted(public), ["get_order_detail", "get_orders", "get_shops"])
 
 
+class TestPullSafety(unittest.TestCase):
+    """Hotfix 2026-06-09 (bench 502): pull_recent must enqueue, never do paced
+    API work inside a web request; pull_orders must be timeboxed."""
+
+    def _api(self):
+        from ecentric_workspace.alerts import api_omisell
+        return api_omisell
+
+    def test_budgets_sane(self):
+        api = self._api()
+        self.assertLessEqual(api.SYNC_TIME_BUDGET, 60)   # < gunicorn timeout
+        self.assertGreaterEqual(api.JOB_TIME_BUDGET, 600)
+        self.assertGreater(api.JOB_RQ_TIMEOUT, api.JOB_TIME_BUDGET)
+
+    def test_pull_recent_enqueues_not_inline(self):
+        import inspect
+        api = self._api()
+        body = inspect.getsource(api.pull_recent)
+        self.assertIn("frappe.enqueue", body)
+        self.assertNotIn("pull_orders(", body)  # no inline pulling in web request
+        self.assertIn("_running_key", body)     # concurrency lock
+
+    def test_job_exists_and_not_whitelisted(self):
+        import inspect
+        api = self._api()
+        self.assertTrue(callable(api.pull_recent_job))
+        src_all = inspect.getsource(api)
+        block = src_all.split("def pull_recent_job")[0]
+        self.assertFalse(block.rstrip().endswith('@frappe.whitelist(methods=["POST"])')
+                         and False)  # structural guard below is the real check
+        # the line directly above pull_recent_job must NOT be a whitelist decorator
+        lines = src_all.splitlines()
+        idx = [i for i, l in enumerate(lines) if l.startswith("def pull_recent_job")][0]
+        self.assertNotIn("whitelist", lines[idx - 1])
+
+    def test_pull_orders_has_timebox_param(self):
+        import inspect
+        api = self._api()
+        sig = inspect.signature(api.pull_orders)
+        self.assertIn("time_budget", sig.parameters)
+        body = inspect.getsource(api.pull_orders)
+        self.assertIn("timeboxed", body)
+        self.assertIn("time.monotonic", body)
+
+    def test_preview_is_count_only(self):
+        import inspect
+        api = self._api()
+        body = inspect.getsource(api.pull_preview)
+        self.assertIn("page_size=1", body)
+        self.assertNotIn("get_order_detail", body)
+        self.assertNotIn("ingest_orders", body)
+
+
 class TestNoSqlFunctionStrings(unittest.TestCase):
     """Hotfix 2026-06-09 regression guard: newer Frappe rejects SQL function
     strings in SELECT fields (e.g. fields=["count(name) as c"]). Static lint
