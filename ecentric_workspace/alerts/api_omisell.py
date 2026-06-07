@@ -87,6 +87,19 @@ def _pull_disabled():
         return True  # fail safe: cannot READ config -> do nothing
 
 
+def _skip_orders():
+    """Manual poison-pill list (diag hotfix 2026-06-10): site_config
+    ec_alerts_pull_skip_orders = ["OMI-...", ...]. Orders listed here are
+    skipped (reported as skipped_manual) instead of failing the chunk -
+    lets a window with known-bad orders complete and advance the checkpoint.
+    Default empty; every use is visible in the run summary."""
+    try:
+        v = frappe.conf.get("ec_alerts_pull_skip_orders") or []
+        return {str(x).strip() for x in v} if isinstance(v, (list, tuple)) else set()
+    except Exception:
+        return set()
+
+
 def _breaker_check(bis):
     if int(bis.consecutive_failures or 0) >= CIRCUIT_BREAKER_LIMIT:
         frappe.throw(_(
@@ -131,16 +144,48 @@ def _auth_failure(bis, brand):
         }).insert(ignore_permissions=True)
 
 
-def _ingestion_failure_alert(brand, message):
+def _format_failure_context(message, context=None):
+    """Actionable, secret-free alert body (observability hotfix 2026-06-10)."""
+    lines = [message or ""]
+    c = context or {}
+    if c.get("window"):
+        lines.append("window: %s -> %s" % tuple(c["window"]))
+    lines.append("listed=%s ingested=%s skipped_status=%s failed=%s" % (
+        c.get("listed", "?"), c.get("ingested", "?"),
+        c.get("skipped_status", "?"), c.get("failed", "?")))
+    if c.get("failed_order_numbers"):
+        lines.append("failed orders: %s" % ", ".join(
+            str(x) for x in c["failed_order_numbers"][:10]))
+    for num, err in list((c.get("failed_error_summary") or {}).items())[:10]:
+        lines.append("  %s: %s" % (num, err))
+    if c.get("skipped_status_detail"):
+        lines.append("skipped statuses: " + "; ".join(
+            "%s x%s" % (k, v) for k, v in c["skipped_status_detail"].items()))
+    if c.get("skipped_manual"):
+        lines.append("manually skipped (config): %s" % ", ".join(
+            str(x) for x in c["skipped_manual"]))
+    return "\n".join(lines)[:1800]
+
+
+def _ingestion_failure_alert(brand, message, context=None):
+    body = _format_failure_context(message, context)
     key = dedupe_keys.ingestion_failed_key(brand, nowdate().replace("-", ""))
-    if frappe.db.exists("EC Alert", {"dedupe_key": key}):
+    existing = frappe.db.get_value("EC Alert", {"dedupe_key": key},
+                                   ["name", "status"], as_dict=True)
+    if existing:
+        # daily-deduped: refresh the body with the LATEST diagnostics while
+        # the alert is still being worked (track_changes keeps history)
+        if existing.status in ("Open", "In Review"):
+            doc = frappe.get_doc("EC Alert", existing.name)
+            doc.message = body
+            doc.save(ignore_permissions=True)
         return
     frappe.get_doc({
         "doctype": "EC Alert", "alert_type": "Price Compliance",
         "rule_code": "ingestion_api_failed", "severity": "Warning",
         "status": "Open", "brand": brand, "source_system": "Omisell",
         "title": "Omisell ingestion API failure for brand %s" % brand,
-        "message": (message or "")[:500],
+        "message": body,
         "owner_user": brand_resolver.resolve_owner(None, brand),
         "recommended_action": "Notify Only", "dedupe_key": key,
         "detected_at": now_datetime(),
@@ -258,7 +303,8 @@ def pull_orders(brand, updated_from, updated_to, time_budget=None):
 
     summary = {"brand": brand, "window": [str(f), str(t)], "listed": 0,
                "ingested": 0, "skipped_status": 0, "skipped_status_detail": {},
-               "failed": 0, "results": []}
+               "failed": 0, "failed_order_numbers": [], "failed_error_summary": {},
+               "listed_order_numbers": [], "skipped_manual": [], "results": []}
     headers, page = [], 1
     try:
         while page <= MAX_LIST_PAGES:
@@ -280,6 +326,9 @@ def pull_orders(brand, updated_from, updated_to, time_budget=None):
         frappe.throw(_("Order list failed: {0}").format(str(e)))
 
     summary["listed"] = len(headers)
+    summary["listed_order_numbers"] = [h.get("omisell_order_number")
+                                       for h in headers[:20]]
+    skip_list = _skip_orders()
     cap = _details_cap()
     if len(headers) > cap:
         summary["capped_at"] = cap
@@ -290,14 +339,21 @@ def pull_orders(brand, updated_from, updated_to, time_budget=None):
             summary["timeboxed"] = summary.get("timeboxed") or "during_details"
             break
         number = h.get("omisell_order_number")
+        if number and str(number).strip() in skip_list:
+            summary["skipped_manual"].append(number)
+            continue
         try:
             detail = (client.get_order_detail(number) or {}).get("data") or {}
-        except OmisellAuthError:
+        except OmisellAuthError as e:
             summary["failed"] += 1
+            summary["failed_order_numbers"].append(number)
+            summary["failed_error_summary"][str(number)] = ("auth: %s" % e)[:140]
             _auth_failure(bis, brand)
             break
         except OmisellError as e:
             summary["failed"] += 1
+            summary["failed_order_numbers"].append(number)
+            summary["failed_error_summary"][str(number)] = str(e)[:140]
             frappe.log_error(str(e), "alerts.omisell.pull_orders %s" % number)
             continue
         o = norm.normalize_order_detail(detail)
@@ -312,7 +368,12 @@ def pull_orders(brand, updated_from, updated_to, time_budget=None):
         ing = ingestion.ingest_orders(batch)
         summary["results"] = ing
         summary["ingested"] = len([r for r in ing if r.get("status") in ("created", "updated", "unchanged")])
-        summary["failed"] += len([r for r in ing if r.get("status") in ("failed", "check_failed")])
+        for r in ing:
+            if r.get("status") in ("failed", "check_failed"):
+                summary["failed"] += 1
+                num = r.get("external_order_id") or r.get("order")
+                summary["failed_order_numbers"].append(num)
+                summary["failed_error_summary"][str(num)] = "ingest_%s (see Error Log)" % r.get("status")
         summary["action_queue"] = action_queue.process_pending_actions()
     summary["elapsed_seconds"] = round(time.monotonic() - t0, 1)
     if summary["failed"] == 0 and not summary.get("capped_at") and not summary.get("timeboxed"):
@@ -323,7 +384,9 @@ def pull_orders(brand, updated_from, updated_to, time_budget=None):
         _breaker_record(bis, success=True)
     else:
         if summary["failed"]:
-            _ingestion_failure_alert(brand, "%d failures in window %s..%s" % (summary["failed"], f, t))
+            _ingestion_failure_alert(
+                brand, "%d failures in window %s..%s" % (summary["failed"], f, t),
+                context=summary)
             _breaker_record(bis, success=False)
         summary["last_sync_at_advanced"] = False
     return summary
@@ -376,7 +439,10 @@ def pull_recent_job(brand, max_chunks=MAX_CHUNKS_PER_RUN):
             s = pull_orders(brand, str(cf), str(ct), time_budget=budget_per_chunk)
             run["summaries"].append({k: s.get(k) for k in
                                      ("window", "listed", "ingested", "skipped_status",
-                                      "failed", "capped_at", "timeboxed",
+                                      "skipped_status_detail", "skipped_manual",
+                                      "failed", "failed_order_numbers",
+                                      "failed_error_summary", "listed_order_numbers",
+                                      "capped_at", "timeboxed",
                                       "elapsed_seconds", "last_sync_at_advanced")})
             if not s.get("last_sync_at_advanced"):
                 run["stopped"] = "chunk incomplete (failed/capped/timeboxed) - checkpoint holds"
