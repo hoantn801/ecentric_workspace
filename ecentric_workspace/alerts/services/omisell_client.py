@@ -16,10 +16,11 @@ Auth (official docs developers.omisell.com/doc-400887): API key (created in
 app.omisell.com) exchanged for {token, expired_time, refresh_token}; requests
 carry `Authorization: Omi <token>`; token expires ~daily. Exact auth path/body
 key are confirmed at T0 - both configurable via site_config without redeploy:
-  ec_alerts_omisell_auth_path   (default /api/v2/public/login/)
-  ec_alerts_omisell_auth_field  (default api_key)
+  ec_alerts_omisell_auth_path   (default /api/v2/auth/token/get/ - official)
   ec_alerts_omisell_auth_scheme (default Omi; set "Account" to send a static
                                  account key with no token exchange)
+Auth body (confirmed): JSON {"api_key": ..., "api_secret": ...} - BOTH from
+EC Brand Integration Settings; either missing -> clean OmisellAuthError.
 """
 import json
 import time
@@ -32,7 +33,7 @@ from frappe.utils import add_to_date, get_datetime, now_datetime
 
 ALLOWED_METHODS = frozenset({"GET"})
 DEFAULT_BASE = "https://api.omisell.com"
-DEFAULT_AUTH_PATH = "/api/v2/public/login/"
+DEFAULT_AUTH_PATH = "/api/v2/auth/token/get/"  # confirmed from official docs code sample
 RATE_HEADER = "X-Omisell-Api-Call-Limit"
 THROTTLE_AT = 70          # of bucket 100
 MIN_INTERVAL = 1.0        # seconds between calls (<=1 req/sec)
@@ -115,11 +116,15 @@ class OmisellClient:
 
     def _authenticate(self):
         api_key = self.bis.get_password("api_key", raise_exception=False)
-        if not api_key:
-            raise OmisellAuthError(_("No api_key configured on {0}").format(self.bis.name))
-        field = frappe.conf.get("ec_alerts_omisell_auth_field") or "api_key"
+        api_secret = self.bis.get_password("api_secret", raise_exception=False)
+        if not api_key or not api_secret:
+            raise OmisellAuthError(
+                _("api_key AND api_secret are required on {0} (official auth "
+                  "contract: POST /api/v2/auth/token/get/).").format(self.bis.name))
         payload = self._request("POST", self._auth_paths()[0],
-                                json_body={field: api_key}, auth=False)
+                                json_body={"api_key": api_key,
+                                           "api_secret": api_secret},
+                                auth=False)
         data = (payload or {}).get("data") or {}
         token = data.get("token")
         if not token:
