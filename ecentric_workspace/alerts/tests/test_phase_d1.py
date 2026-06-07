@@ -103,6 +103,25 @@ class TestPullSafety(unittest.TestCase):
         self.assertNotIn("ingest_orders", body)
 
 
+class TestDisabledFlagParser(unittest.TestCase):
+    """Hotfix 2026-06-09: bool("0") is True - flag needs a real parser."""
+
+    def _parse(self):
+        from ecentric_workspace.alerts.api_omisell import parse_disabled_flag
+        return parse_disabled_flag
+
+    def test_disabled_values(self):
+        p = self._parse()
+        for v in (1, "1", True, "true", "TRUE", " yes ", "on", "On", 1.0):
+            self.assertTrue(p(v), repr(v))
+
+    def test_not_disabled_values(self):
+        p = self._parse()
+        for v in (0, "0", False, "false", "FALSE", "no", "off", "", "  ",
+                  None, 2, -1, "2", "random", 0.0):
+            self.assertFalse(p(v), repr(v))
+
+
 class TestNoSqlFunctionStrings(unittest.TestCase):
     """Hotfix 2026-06-09 regression guard: newer Frappe rejects SQL function
     strings in SELECT fields (e.g. fields=["count(name) as c"]). Static lint
