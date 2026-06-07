@@ -66,7 +66,8 @@ def list_alerts(filters=None, start=0, page_len=50):
         "EC Alert", filters=flt, fields=LIST_FIELDS,
         order_by="detected_at desc, creation desc",
         start=cint(start), page_length=min(cint(page_len) or 50, MAX_PAGE))
-    total = len(frappe.get_all("EC Alert", filters=flt, pluck="name", limit_page_length=0))
+    total = frappe.get_all("EC Alert", filters=flt, fields=["count(name) as c"],
+                           limit_page_length=1)[0].c
     # latest lock-action status per alert (Action Status column)
     names = [r.name for r in rows]
     if names:
@@ -87,35 +88,30 @@ def list_alerts(filters=None, start=0, page_len=50):
 
 @frappe.whitelist()
 def get_cards():
+    """COUNT(*)-based KPIs (Phase D.1): constant memory at any table size,
+    served by the (brand, status, detected_at) composite index."""
     allowed = perms.require_alert_center_access()
-    base = []
-    if allowed != perms.ALL_BRANDS:
-        base = [["EC Alert", "brand", "in", list(allowed)]]
+    scope = None if allowed == perms.ALL_BRANDS else list(allowed)
 
     def count(extra):
-        return len(frappe.get_all("EC Alert", filters=base + extra,
-                                  pluck="name", limit_page_length=0))
+        f = dict(extra)
+        if scope is not None:
+            f["brand"] = ("in", scope)
+        return frappe.db.count("EC Alert", f)
 
-    open_states = ["EC Alert", "status", "in", ["Open", "In Review"]]
-    today = nowdate()
-    abase = []
-    if allowed != perms.ALL_BRANDS:
-        abase = [["EC Alert Action", "brand", "in", list(allowed)]]
-    lock_pending = len(frappe.get_all(
-        "EC Alert Action",
-        filters=abase + [["EC Alert Action", "action_type", "=", "Stock Safety Lock"],
-                         ["EC Alert Action", "status", "in", ["Pending", "Dry Run"]]],
-        pluck="name", limit_page_length=0))
+    open_states = {"status": ("in", ["Open", "In Review"])}
+    af = {"action_type": "Stock Safety Lock", "status": ("in", ["Pending", "Dry Run"])}
+    if scope is not None:
+        af["brand"] = ("in", scope)
     return {
-        "open": count([open_states]),
-        "critical": count([open_states, ["EC Alert", "severity", "=", "Critical"]]),
-        "warning": count([open_states, ["EC Alert", "severity", "=", "Warning"]]),
-        "missing_policy": count([open_states,
-                                 ["EC Alert", "rule_code", "in",
-                                  ["missing_policy", "missing_brand_mapping"]]]),
-        "lock_pending": lock_pending,
-        "resolved_today": count([["EC Alert", "status", "=", "Resolved"],
-                                 ["EC Alert", "resolved_at", ">=", today + " 00:00:00"]]),
+        "open": count(open_states),
+        "critical": count(dict(open_states, severity="Critical")),
+        "warning": count(dict(open_states, severity="Warning")),
+        "missing_policy": count(dict(open_states,
+                                     rule_code=("in", ["missing_policy", "missing_brand_mapping"]))),
+        "lock_pending": frappe.db.count("EC Alert Action", af),
+        "resolved_today": count({"status": "Resolved",
+                                 "resolved_at": (">=", nowdate() + " 00:00:00")}),
     }
 
 

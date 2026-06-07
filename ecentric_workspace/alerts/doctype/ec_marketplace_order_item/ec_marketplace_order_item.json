@@ -33,19 +33,22 @@
   {
    "fieldname": "external_line_id",
    "fieldtype": "Data",
-   "label": "External Line ID"
+   "label": "External Line ID",
+   "search_index": 1
   },
   {
    "fieldname": "item",
    "fieldtype": "Link",
    "label": "Item",
-   "options": "Item"
+   "options": "Item",
+   "search_index": 1
   },
   {
    "fieldname": "seller_sku",
    "fieldtype": "Data",
    "label": "Seller SKU",
-   "in_list_view": 1
+   "in_list_view": 1,
+   "search_index": 1
   },
   {
    "fieldname": "external_product_id",

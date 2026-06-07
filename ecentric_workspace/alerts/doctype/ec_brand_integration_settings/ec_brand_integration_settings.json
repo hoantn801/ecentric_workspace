@@ -31,6 +31,7 @@
   "cb_2",
   "last_sync_at",
   "token_expired_at",
+  "consecutive_failures",
   "notes"
  ],
  "fields": [
@@ -138,6 +139,14 @@
    "label": "Token Expired At",
    "read_only": 1,
    "description": "Omisell access-token expiry (cached by omisell_client for clean refresh). Decision Q-D6."
+  },
+  {
+   "fieldname": "consecutive_failures",
+   "fieldtype": "Int",
+   "label": "Consecutive Failures",
+   "read_only": 1,
+   "default": "0",
+   "description": "Circuit breaker (Phase D.1): incremented per failed pull run, reset on success. At >=3 pulls for this brand are refused until manually reset."
   },
   {
    "fieldname": "notes",
