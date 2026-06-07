@@ -55,6 +55,7 @@ def maybe_create_lock_action(alert_name, log, line, policy, confidence, rule_cod
             rule_code, line.unit_check_price, line.baseline_price_at_check or line.min_price_at_check,
             policy.name, confidence),
         "requested_at": now_datetime(),
+        "review_status": "Pending Review",  # Phase F: KAM/Lead dry-run review queue
         "dedupe_key": key,
         "error_message": ("Skipped at creation: active EC Automation Pause %s" % pause) if pause else None,
     })

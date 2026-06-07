@@ -44,6 +44,11 @@
   "locked_quantity",
   "release_required",
   "release_strategy",
+  "sec_review",
+  "review_status",
+  "reviewed_by",
+  "reviewed_at",
+  "review_note",
   "cb_2",
   "api_response",
   "error_message",
@@ -236,6 +241,36 @@
    "fieldtype": "Select",
    "label": "Release Strategy",
    "options": "\nRestore Previous Buffer\nReduce By Locked Quantity\nManual"
+  },
+  {
+   "fieldname": "sec_review",
+   "fieldtype": "Section Break",
+   "label": "Dry-Run Review (Phase F - approval is a prerequisite for any FUTURE real execution)"
+  },
+  {
+   "fieldname": "review_status",
+   "fieldtype": "Select",
+   "label": "Review Status",
+   "options": "\nPending Review\nApproved\nRejected",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "reviewed_by",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Reviewed By",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reviewed_at",
+   "fieldtype": "Datetime",
+   "label": "Reviewed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "review_note",
+   "fieldtype": "Small Text",
+   "label": "Review Note"
   },
   {
    "fieldname": "cb_2",

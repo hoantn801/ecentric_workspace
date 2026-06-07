@@ -9,7 +9,7 @@ import frappe
 from frappe.utils import now_datetime, nowdate
 
 from . import (action_queue, baseline as baseline_mod, brand_resolver,
-               dedupe_keys, policy_lookup, pricing, rules)
+               dedupe_keys, policy_lookup, pricing, rule_overlay, rules)
 
 CHECK_RESULT_LABEL = {
     "possible_missing_zero": "Possible Missing Zero",
@@ -99,11 +99,16 @@ def check_order_log(order_log_name, raw_shop_id=None):
             exclude_order_log=log.name)
         line.baseline_price_at_check = base
 
-        hit = rules.evaluate(price, {
+        # Phase F rule-config overlay - rules_map == {} (the default when no
+        # Active EC Alert Rule matches) keeps everything byte-identical.
+        rules_map = rule_overlay.find_rules(
+            log.brand, log.platform, log.shop, line.item, line.seller_sku)
+        params = rule_overlay.overlay_params({
             "min_price": policy.min_price,
             "high_alert_percent": policy.high_alert_percent,
             "severe_drop_percent": policy.severe_drop_percent,
-        }, base)
+        }, rules_map)
+        hit = rule_overlay.overlay_hit(rules.evaluate(price, params, base), rules_map)
 
         if not hit:
             line.check_result = "OK"
@@ -129,8 +134,12 @@ def check_order_log(order_log_name, raw_shop_id=None):
             return_name=True)
         s["alerts_created" if created else "alerts_deduped"] += 1
 
-        outcome, _action = action_queue.maybe_create_lock_action(
-            alert_name, log, line, policy, confidence, rule_code)
+        if rule_overlay.lock_narrowing(rule_code, rules_map):
+            outcome, _action = action_queue.maybe_create_lock_action(
+                alert_name, log, line, policy, confidence, rule_code)
+        else:
+            outcome = ("rule_config_disabled_lock"
+                       if rule_code in rule_overlay.LOCKABLE_RULES else "rule_not_lockable")
         s["actions"][outcome] = s["actions"].get(outcome, 0) + 1
 
     log.sync_status = "Success"

@@ -19,10 +19,12 @@
   "shop",
   "item",
   "seller_sku",
+  "product_name",
   "is_brand_fallback",
   "cb_0",
   "min_price",
   "reference_price",
+  "target_price",
   "high_alert_percent",
   "severe_drop_percent",
   "enable_stock_safety_lock",
@@ -31,7 +33,9 @@
   "effective_from",
   "effective_to",
   "cb_1",
-  "status"
+  "status",
+  "owner_user",
+  "import_batch"
  ],
  "fields": [
   {
@@ -73,6 +77,12 @@
    "in_standard_filter": 1
   },
   {
+   "fieldname": "product_name",
+   "fieldtype": "Data",
+   "label": "Product Name",
+   "in_list_view": 1
+  },
+  {
    "fieldname": "is_brand_fallback",
    "fieldtype": "Check",
    "label": "Is Brand-level Fallback",
@@ -94,6 +104,12 @@
    "fieldname": "reference_price",
    "fieldtype": "Currency",
    "label": "Reference Price"
+  },
+  {
+   "fieldname": "target_price",
+   "fieldtype": "Currency",
+   "label": "Target Price / RSP",
+   "description": "Display/reporting only in Phase F - NOT consumed by the rules engine."
   },
   {
    "fieldname": "high_alert_percent",
@@ -142,10 +158,25 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Status",
-   "options": "Active\nInactive",
+   "options": "Draft\nActive\nPaused\nExpired\nInactive",
    "default": "Active",
    "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Engine matches Active ONLY (find_policy filter) - Draft/Paused/Expired/Inactive are inert by construction. Inactive kept for back-compat."
+  },
+  {
+   "fieldname": "owner_user",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Owner (KAM)",
    "in_standard_filter": 1
+  },
+  {
+   "fieldname": "import_batch",
+   "fieldtype": "Data",
+   "label": "Import Batch",
+   "read_only": 1,
+   "description": "CSV import traceability (batch id = timestamp+user)."
   }
  ],
  "permissions": [
