@@ -61,11 +61,30 @@ def _details_cap():
         return MAX_DETAILS_PER_RUN
 
 
+DISABLED_VALUES = {"1", "true", "yes", "on"}
+ENABLED_VALUES = {"0", "false", "no", "off", ""}
+
+
+def parse_disabled_flag(value):
+    """PURE safe boolean parser (hotfix 2026-06-09: bool("0") is True in
+    Python - a site_config value of "0" wrongly kept pulls disabled).
+    Disabled ONLY for: 1, "1", true, "true", "yes", "on" (case/space
+    insensitive). Everything else - 0, "0", false, "false", "no", "off",
+    empty string, None/missing - means NOT disabled."""
+    if value is True:
+        return True
+    if value is None or value is False:
+        return False
+    if isinstance(value, (int, float)):
+        return value == 1
+    return str(value).strip().lower() in DISABLED_VALUES
+
+
 def _pull_disabled():
     try:
-        return bool(frappe.conf.get("ec_alerts_pull_disabled"))
+        return parse_disabled_flag(frappe.conf.get("ec_alerts_pull_disabled"))
     except Exception:
-        return True  # fail safe
+        return True  # fail safe: cannot READ config -> do nothing
 
 
 def _breaker_check(bis):
@@ -395,10 +414,16 @@ def pull_status(brand):
     last = cache.get_value(_last_run_key(brand))
     if isinstance(last, bytes):
         last = last.decode()
+    try:
+        raw_flag = frappe.conf.get("ec_alerts_pull_disabled")
+    except Exception:
+        raw_flag = "<config read error>"
     return {"brand": brand,
             "running_since": cache.get_value(_running_key(brand)),
             "last_sync_at": str(bis.last_sync_at) if bis.last_sync_at else None,
             "consecutive_failures": int(bis.consecutive_failures or 0),
+            "pull_disabled": _pull_disabled(),
+            "pull_disabled_raw": None if raw_flag is None else str(raw_flag),
             "last_run": json.loads(last) if last else None}
 
 
