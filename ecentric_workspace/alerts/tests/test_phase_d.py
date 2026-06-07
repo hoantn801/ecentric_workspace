@@ -61,6 +61,55 @@ class TestNoWrite(unittest.TestCase):
         with self.assertRaises(Exception):
             client._request("POST", "/api/v2/public/order/list", auth=False)
 
+    def test_auth_post_body_contains_both_credentials(self):
+        """Hotfix 2026-06-08: official contract = POST /api/v2/auth/token/get/
+        with JSON body {api_key, api_secret} - BOTH from BIS."""
+        client = oc.OmisellClient.__new__(oc.OmisellClient)
+
+        class BisStub:
+            name = "BIS-TEST"
+            token_expired_at = None
+            def get_password(self, field, raise_exception=True):
+                return {"api_key": "K", "api_secret": "S"}.get(field)
+            def save(self, **kw):
+                pass
+        client.bis = BisStub()
+        client.base = "https://api.omisell.com"
+        client.last_rate_header = None
+        client._last_call = 0.0
+        captured = {}
+
+        def fake_request(method, path, params=None, json_body=None, auth=True):
+            captured.update({"method": method, "path": path,
+                             "json_body": json_body, "auth": auth})
+            return {"data": {"token": "T", "expired_time": 1765200000}}
+        client._request = fake_request
+        token = client._authenticate()
+        self.assertEqual(token, "T")
+        self.assertEqual(captured["method"], "POST")
+        self.assertEqual(captured["path"], oc.DEFAULT_AUTH_PATH)
+        self.assertEqual(captured["json_body"],
+                         {"api_key": "K", "api_secret": "S"})
+        self.assertFalse(captured["auth"])
+
+    def test_auth_default_path_is_official(self):
+        self.assertEqual(oc.DEFAULT_AUTH_PATH, "/api/v2/auth/token/get/")
+
+    def test_auth_requires_both_credentials(self):
+        client = oc.OmisellClient.__new__(oc.OmisellClient)
+
+        class BisStub:
+            name = "BIS-TEST"
+            token_expired_at = None
+            def get_password(self, field, raise_exception=True):
+                return {"api_key": "K"}.get(field)  # api_secret missing
+        client.bis = BisStub()
+        client.base = "https://api.omisell.com"
+        client.last_rate_header = None
+        client._last_call = 0.0
+        with self.assertRaises(Exception):
+            client._authenticate()
+
     def test_sanitize_strips_credentials(self):
         dirty = {"token": "x", "data": {"api_key": "y", "refresh_token": "z",
                                         "results": [{"authorization": "a", "ok": 1}]}}
