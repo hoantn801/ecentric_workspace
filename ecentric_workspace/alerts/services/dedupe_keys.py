@@ -37,6 +37,11 @@ def missing_brand_mapping_key(platform, shop, seller_sku, yyyymmdd, external_pro
         _s(platform), _s(shop), _s(seller_sku), _s(yyyymmdd)))
 
 
+def ingestion_failed_key(brand, yyyymmdd):
+    """Daily per-brand key for ingestion_api_failed (decision Q-D3)."""
+    return _fit("omisell|%s|ingestion_api_failed|%s" % (_s(brand), _s(yyyymmdd)))
+
+
 def missing_credential_key(brand, yyyymmdd):
     """Daily per-brand key for missing_integration_credential (format proposed
     in 05_PHASE_C_REPORT - not part of the user-specified C1 list)."""

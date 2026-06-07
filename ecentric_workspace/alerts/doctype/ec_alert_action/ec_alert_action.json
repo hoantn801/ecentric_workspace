@@ -35,6 +35,15 @@
   "executed_at",
   "executed_by",
   "release_status",
+  "sec_ds1",
+  "actual_stock_before",
+  "available_stock_before",
+  "buffer_stock_before",
+  "cb_ds1",
+  "buffer_stock_after",
+  "locked_quantity",
+  "release_required",
+  "release_strategy",
   "cb_2",
   "api_response",
   "error_message",
@@ -175,6 +184,58 @@
    "label": "Release Status",
    "options": "Not Required\nPending\nReleased\nFailed",
    "default": "Not Required"
+  },
+  {
+   "fieldname": "sec_ds1",
+   "fieldtype": "Section Break",
+   "label": "Stock Audit (DS1 - buffer mechanism; written only by the future real executor)"
+  },
+  {
+   "fieldname": "actual_stock_before",
+   "fieldtype": "Float",
+   "label": "Actual Stock Before",
+   "read_only": 1
+  },
+  {
+   "fieldname": "available_stock_before",
+   "fieldtype": "Float",
+   "label": "Available Stock Before",
+   "read_only": 1
+  },
+  {
+   "fieldname": "buffer_stock_before",
+   "fieldtype": "Float",
+   "label": "Buffer Stock Before",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_ds1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "buffer_stock_after",
+   "fieldtype": "Float",
+   "label": "Buffer Stock After",
+   "read_only": 1
+  },
+  {
+   "fieldname": "locked_quantity",
+   "fieldtype": "Float",
+   "label": "Locked Quantity",
+   "read_only": 1
+  },
+  {
+   "fieldname": "release_required",
+   "fieldtype": "Check",
+   "label": "Release Required",
+   "default": "0"
+  },
+  {
+   "fieldname": "release_strategy",
+   "fieldtype": "Select",
+   "label": "Release Strategy",
+   "options": "\nRestore Previous Buffer\nReduce By Locked Quantity\nManual"
   },
   {
    "fieldname": "cb_2",

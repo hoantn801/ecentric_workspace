@@ -30,6 +30,7 @@
   "default_platform_scope",
   "cb_2",
   "last_sync_at",
+  "token_expired_at",
   "notes"
  ],
  "fields": [
@@ -130,6 +131,13 @@
    "fieldtype": "Datetime",
    "label": "Last Sync At",
    "read_only": 1
+  },
+  {
+   "fieldname": "token_expired_at",
+   "fieldtype": "Datetime",
+   "label": "Token Expired At",
+   "read_only": 1,
+   "description": "Omisell access-token expiry (cached by omisell_client for clean refresh). Decision Q-D6."
   },
   {
    "fieldname": "notes",

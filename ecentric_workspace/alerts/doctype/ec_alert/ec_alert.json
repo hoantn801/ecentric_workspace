@@ -60,7 +60,7 @@
    "fieldname": "rule_code",
    "fieldtype": "Select",
    "label": "Rule Code",
-   "options": "below_min\nabove_high\nsevere_price_drop\npossible_missing_zero\nmissing_policy\nmissing_brand_mapping\nmissing_integration_credential\nstock_lock_api_failed",
+   "options": "below_min\nabove_high\nsevere_price_drop\npossible_missing_zero\nmissing_policy\nmissing_brand_mapping\nmissing_integration_credential\nstock_lock_api_failed\ningestion_api_failed",
    "in_list_view": 1,
    "in_standard_filter": 1
   },
