@@ -38,6 +38,7 @@ RATE_HEADER = "X-Omisell-Api-Call-Limit"
 THROTTLE_AT = 70          # of bucket 100
 MIN_INTERVAL = 1.0        # seconds between calls (<=1 req/sec)
 BACKOFFS = (30, 60, 120)  # seconds, on HTTP 429
+BACKOFFS_5XX = (5, 15)    # bounded retry on Omisell server errors (hardening 2026-06-10)
 TIMEOUT = 30
 SENSITIVE_KEYS = ("token", "refresh_token", "api_key", "api_secret",
                   "authorization", "password", "secret")
@@ -149,17 +150,27 @@ class OmisellClient:
         url = self.base + path
         headers = self._headers() if auth else {"Content-Type": "application/json"}
 
-        attempt = 0
+        attempt_429 = 0
+        attempt_5xx = 0
         while True:
             self._pace()
             resp = requests.request(method, url, params=params, json=json_body,
                                     headers=headers, timeout=TIMEOUT)
             self.last_rate_header = resp.headers.get(RATE_HEADER)
             if resp.status_code == 429:
-                if attempt >= len(BACKOFFS):
+                if attempt_429 >= len(BACKOFFS):
                     raise OmisellError(_("Rate limited (429) after retries: {0}").format(path))
-                time.sleep(BACKOFFS[attempt])
-                attempt += 1
+                time.sleep(BACKOFFS[attempt_429])
+                attempt_429 += 1
+                continue
+            if resp.status_code >= 500:
+                # transient server errors: bounded retry (5s, 15s) then surface
+                # with the retry count so alerts/logs are unambiguous
+                if attempt_5xx >= len(BACKOFFS_5XX):
+                    raise OmisellError(_("HTTP {0} on {1} (after {2} retries)").format(
+                        resp.status_code, path, attempt_5xx))
+                time.sleep(BACKOFFS_5XX[attempt_5xx])
+                attempt_5xx += 1
                 continue
             if resp.status_code in (401, 403):
                 raise OmisellAuthError(

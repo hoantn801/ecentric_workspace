@@ -103,6 +103,73 @@ class TestPullSafety(unittest.TestCase):
         self.assertNotIn("ingest_orders", body)
 
 
+class TestServerErrorRetry(unittest.TestCase):
+    """Hardening 2026-06-10: bounded 5xx retry + list-phase breaker."""
+
+    def _client(self):
+        from ecentric_workspace.alerts.services import omisell_client as oc
+        c = oc.OmisellClient.__new__(oc.OmisellClient)
+        c.base = "https://api.omisell.com"
+        c.bis = None
+        c.last_rate_header = None
+        c._last_call = 0.0
+        return c, oc
+
+    def _run_with_responses(self, codes):
+        """Stub requests + sleep; return (payload_or_exc, sleeps)."""
+        import types
+
+        class Resp:
+            def __init__(self, code):
+                self.status_code = code
+                self.headers = {}
+            def json(self):
+                return {"data": {"ok": 1}, "error": False, "error_code": 0}
+        c, oc = self._client()
+        seq = list(codes)
+        sleeps = []
+        orig_req, orig_sleep = oc.requests.request, oc.time.sleep
+        oc.requests.request = lambda *a, **k: Resp(seq.pop(0))
+        oc.time.sleep = lambda s: sleeps.append(s)
+        try:
+            try:
+                out = c._request("GET", "/api/v2/public/order/list", auth=False)
+            except Exception as e:
+                out = e
+        finally:
+            oc.requests.request, oc.time.sleep = orig_req, orig_sleep
+        return out, sleeps
+
+    def test_5xx_then_success(self):
+        out, sleeps = self._run_with_responses([500, 500, 200])
+        self.assertIsInstance(out, dict)        # succeeded on 3rd try
+        self.assertEqual([s for s in sleeps if s in (5, 15)], [5, 15])
+
+    def test_5xx_exhausted_raises_with_retry_count(self):
+        out, _ = self._run_with_responses([500, 502, 503])
+        self.assertIsInstance(out, Exception)
+        self.assertIn("after 2 retries", str(out))
+
+    def test_429_handling_unchanged(self):
+        out, sleeps = self._run_with_responses([429, 200])
+        self.assertIsInstance(out, dict)
+        self.assertIn(30, sleeps)               # first 429 backoff still 30s
+
+    def test_4xx_no_retry(self):
+        out, sleeps = self._run_with_responses([404])
+        self.assertIsInstance(out, Exception)
+        self.assertEqual([s for s in sleeps if s in (5, 15, 30)], [])
+
+    def test_list_phase_increments_breaker(self):
+        import inspect
+        from ecentric_workspace.alerts import api_omisell
+        body = inspect.getsource(api_omisell.pull_orders)
+        list_except = body.split("Order list failed")[0]
+        self.assertIn("_breaker_record(bis, success=False)", list_except)
+        self.assertIn("LIST-PHASE failure", list_except)
+        self.assertIn("checkpoint held at last_sync_at", list_except)
+
+
 class TestSchedulerGates(unittest.TestCase):
     """Narrow scheduler (2026-06-10): gate matrix + no-new-pull-logic proofs."""
 
