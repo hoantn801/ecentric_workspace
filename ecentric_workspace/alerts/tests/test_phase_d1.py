@@ -103,6 +103,68 @@ class TestPullSafety(unittest.TestCase):
         self.assertNotIn("ingest_orders", body)
 
 
+class TestSchedulerGates(unittest.TestCase):
+    """Narrow scheduler (2026-06-10): gate matrix + no-new-pull-logic proofs."""
+
+    def _tasks(self):
+        from ecentric_workspace.alerts import tasks
+        return tasks
+
+    def test_brand_allowlist_parser(self):
+        import ecentric_workspace.alerts.tasks as tasks
+        import frappe
+        cases = [
+            (["FES-VN"], ["FES-VN"]),
+            (["FES-VN ", " BBT-VN"], ["FES-VN", "BBT-VN"]),
+            ([], []), (None, []), ("FES-VN", []),   # non-list -> fail-safe []
+            ({"a": 1}, []), ([""], []), ([" "], []),
+        ]
+        orig = frappe.conf
+        try:
+            for value, expect in cases:
+                frappe.conf = {"ec_alerts_scheduled_pull_brands": value}
+                self.assertEqual(tasks._scheduled_brands(), expect, repr(value))
+            frappe.conf = {}
+            self.assertEqual(tasks._scheduled_brands(), [])
+        finally:
+            frappe.conf = orig
+
+    def test_gate_order_and_noop_paths(self):
+        import inspect
+        body = inspect.getsource(self._tasks().scheduled_omisell_pull)
+        # gates referenced in order, all four present
+        self.assertLess(body.index("_disabled()"), body.index("_pull_disabled()"))
+        self.assertLess(body.index("_pull_disabled()"), body.index("_scheduled_brands()"))
+        for needle in ("scheduler_disabled", "pull_disabled", "no_brands_configured",
+                       "bis_missing_or_disabled", "credential_not_active",
+                       "circuit_breaker_open", "already_running"):
+            self.assertIn(needle, body, needle)
+
+    def test_reuses_verified_job_no_new_pull_logic(self):
+        import inspect
+        tasks = self._tasks()
+        body = inspect.getsource(tasks.scheduled_omisell_pull)
+        self.assertIn("pull_recent_job", body)          # verified job reused
+        whole = inspect.getsource(tasks)
+        for forbidden in ("get_order_detail", "get_orders(", "ingest_orders",
+                          "OmisellClient("):
+            self.assertNotIn(forbidden, whole, forbidden)  # no pull logic here
+
+    def test_scheduler_switch_uses_safe_parser(self):
+        import inspect
+        body = inspect.getsource(self._tasks()._disabled)
+        self.assertIn("parse_disabled_flag", body)
+
+    def test_hooks_cron_entry_registered(self):
+        import os
+        hooks_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "hooks.py")
+        body = open(hooks_path, encoding="utf-8").read()
+        self.assertIn('"*/15 * * * *"', body)
+        self.assertIn("scheduled_omisell_pull", body)
+
+
 class TestObservability(unittest.TestCase):
     """Diag hotfix 2026-06-10: failure context must reach job summary + alert."""
 

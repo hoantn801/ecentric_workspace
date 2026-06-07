@@ -42,6 +42,12 @@ scheduler_events = {
         "*/10 * * * *": [
             "ecentric_workspace.alerts.tasks.process_action_queue_job",
         ],
+        # Narrow Omisell pull scheduler (approved 2026-06-10): quadruple-gated
+        # in tasks.scheduled_omisell_pull - runs nothing until site_config
+        # ec_alerts_scheduled_pull_brands lists at least one brand.
+        "*/15 * * * *": [
+            "ecentric_workspace.alerts.tasks.scheduled_omisell_pull",
+        ],
     },
 }
 
