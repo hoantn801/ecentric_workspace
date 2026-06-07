@@ -50,6 +50,27 @@ class TestChunker(unittest.TestCase):
         self.assertEqual(sorted(public), ["get_order_detail", "get_orders", "get_shops"])
 
 
+class TestNoSqlFunctionStrings(unittest.TestCase):
+    """Hotfix 2026-06-09 regression guard: newer Frappe rejects SQL function
+    strings in SELECT fields (e.g. fields=["count(name) as c"]). Static lint
+    over all alerts/ python sources - runs anywhere, no site needed."""
+
+    def test_no_sql_function_strings_in_fields(self):
+        import os, re
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        pattern = re.compile(r"""fields\s*=\s*\[[^\]]*(count|sum|avg|min|max)\s*\(""", re.I)
+        offenders = []
+        for root, _dirs, files in os.walk(base):
+            if "__pycache__" in root or os.sep + "tests" in root:
+                continue
+            for fn in files:
+                if fn.endswith(".py"):
+                    body = open(os.path.join(root, fn), encoding="utf-8").read()
+                    if pattern.search(body):
+                        offenders.append(fn)
+        self.assertEqual(offenders, [])
+
+
 class TestSchemaD1(unittest.TestCase):
     """Bench-only: indexes + fields landed."""
 
@@ -82,6 +103,14 @@ class TestSchemaD1(unittest.TestCase):
         df = frappe.get_meta("EC Brand Integration Settings").get_field("consecutive_failures")
         self.assertIsNotNone(df)
         self.assertEqual(df.fieldtype, "Int")
+
+    def test_list_alerts_total_matches_rows(self):
+        self._need_site()
+        from ecentric_workspace.alerts import api_alerts
+        frappe.set_user("Administrator")
+        res = api_alerts.list_alerts(page_len=100)
+        raw = len(frappe.get_all("EC Alert", pluck="name", limit_page_length=0))
+        self.assertEqual(res["total"], raw)
 
     def test_get_cards_counts_match_old_method(self):
         self._need_site()
