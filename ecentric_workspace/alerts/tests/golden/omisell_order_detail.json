@@ -1,0 +1,54 @@
+{
+  "_comment": "SANITIZED PLACEHOLDER shaped per official docs (developers.omisell.com/api-5183983). Replace with a real sanitized capture from T2 (pull_one_order capture_golden=1).",
+  "seller_id": 0,
+  "shop_id": 12345,
+  "shop_name": "Golden Test Shop",
+  "platform": "shopee",
+  "platform_name": "Shopee",
+  "order_number": "2406PLATFORM001",
+  "omisell_order_number": "OMI-GOLD-0001",
+  "order_type": "normal",
+  "status_id": 12,
+  "status_name": "Delivered",
+  "is_fulfilled": true,
+  "parcels": [
+    {
+      "package_number": "PKG-1",
+      "pickup_id": 1,
+      "catalogue_items": [
+        {
+          "catalogue_sku": "GOLD-SKU-A",
+          "product_name": "Golden product A",
+          "product_type": "single",
+          "quantity": 2,
+          "weight": 100,
+          "original_price": 120000,
+          "discounted_price": 99000,
+          "discount_seller": 10000,
+          "discount_platform": 5000,
+          "voucher_seller": 6000,
+          "voucher_platform": 0
+        },
+        {
+          "catalogue_sku": "GOLD-SKU-B",
+          "product_name": "Golden product B",
+          "product_type": "single",
+          "quantity": 1,
+          "weight": 50,
+          "original_price": 50000,
+          "discounted_price": 9900,
+          "discount_seller": 0,
+          "discount_platform": 0,
+          "voucher_seller": 0,
+          "voucher_platform": 0
+        }
+      ],
+      "inventory_items": []
+    }
+  ],
+  "payment_information": [
+    {"payment_method": "COD", "transaction_amount": 207900}
+  ],
+  "created_time": 1765152000,
+  "updated_time": 1765155600
+}

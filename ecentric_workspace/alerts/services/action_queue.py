@@ -145,8 +145,9 @@ def _process_one(name):
         a.status = "Dry Run"
         a.executed_at = now_datetime()
         a.executed_by = frappe.session.user
-        a.api_response = ("DRY RUN: would set available stock to 0 until %s. "
-                          "No API was called." % a.lock_until)
+        a.api_response = ("DRY RUN: would set/increase Omisell BUFFER STOCK to lock "
+                          "the sellable quantity until %s (available -> 0, physical "
+                          "stock untouched - decision DS1). No API was called." % a.lock_until)
         a.save(ignore_permissions=True)
         return "dry_run"
 
