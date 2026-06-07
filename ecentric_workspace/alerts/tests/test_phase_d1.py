@@ -103,6 +103,44 @@ class TestPullSafety(unittest.TestCase):
         self.assertNotIn("ingest_orders", body)
 
 
+class TestObservability(unittest.TestCase):
+    """Diag hotfix 2026-06-10: failure context must reach job summary + alert."""
+
+    def _api(self):
+        from ecentric_workspace.alerts import api_omisell
+        return api_omisell
+
+    def test_job_copies_diagnostic_fields(self):
+        import inspect
+        body = inspect.getsource(self._api().pull_recent_job)
+        for key in ("skipped_status_detail", "failed_order_numbers",
+                    "failed_error_summary", "listed_order_numbers", "skipped_manual"):
+            self.assertIn('"%s"' % key, body, key)
+
+    def test_format_failure_context(self):
+        api = self._api()
+        body = api._format_failure_context("2 failures", {
+            "window": ["2026-06-07 13:00:00", "2026-06-07 14:00:00"],
+            "listed": 5, "ingested": 0, "skipped_status": 3, "failed": 2,
+            "failed_order_numbers": ["OMI-1", "OMI-2"],
+            "failed_error_summary": {"OMI-1": "HTTP 404 on /api/...", "OMI-2": "Omisell error 400: x"},
+            "skipped_status_detail": {"20|Cancelled": 2, "1|Draft": 1},
+        })
+        for needle in ("2 failures", "13:00:00 -> 2026-06-07 14:00:00",
+                       "listed=5", "OMI-1", "HTTP 404", "Cancelled x2"):
+            self.assertIn(needle, body, needle)
+        self.assertLessEqual(len(body), 1800)
+        self.assertNotIn("api_key", body.lower())
+
+    def test_skip_list_parser_safe(self):
+        import inspect
+        api = self._api()
+        body = inspect.getsource(api._skip_orders)
+        self.assertIn("ec_alerts_pull_skip_orders", body)
+        body2 = inspect.getsource(api.pull_orders)
+        self.assertIn("skipped_manual", body2)
+
+
 class TestDisabledFlagParser(unittest.TestCase):
     """Hotfix 2026-06-09: bool("0") is True - flag needs a real parser."""
 
