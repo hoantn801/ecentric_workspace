@@ -5,6 +5,10 @@ EC Brand Integration Settings required. Returns are sanitized - no token /
 key / Authorization material can appear in any response or log.
 T0-T3 manual flow per ALERT_CENTER/13_PHASE_D_PLAN.md s6.
 """
+import json
+import time
+from datetime import timedelta
+
 import frappe
 from frappe import _
 from frappe.utils import get_datetime, now_datetime, nowdate
@@ -21,12 +25,26 @@ MAX_LIST_PAGES = 20
 MAX_DETAILS_PER_RUN = 300        # per-run order-detail cap (config-tunable)
 MAX_CHUNKS_PER_RUN = 4           # catch-up chunks (<=1h each) per pull_recent run
 CIRCUIT_BREAKER_LIMIT = 3        # consecutive failed runs -> brand refused
+# Hotfix 2026-06-09 (bench 502 incident): client pacing (~1s/call) x hundreds
+# of detail GETs cannot run inside a synchronous web request (gunicorn worker
+# timeout -> worker killed -> Bad Gateway). Hence: timeboxes + background job.
+SYNC_TIME_BUDGET = 50            # s - hard timebox for DIRECT pull_orders calls
+JOB_TIME_BUDGET = 3000           # s - timebox inside the background job
+JOB_RQ_TIMEOUT = 3600            # rq hard kill above the budget
+RUNNING_FLAG_TTL = 3900          # s - per-brand concurrent-run lock
+
+
+def _running_key(brand):
+    return "ec_alerts_pull_running_%s" % brand
+
+
+def _last_run_key(brand):
+    return "ec_alerts_pull_last_%s" % brand
 
 
 def chunk_windows(start, end, chunk_seconds=MAX_WINDOW_SECONDS, max_chunks=MAX_CHUNKS_PER_RUN):
     """PURE helper: split [start, end] into <=chunk_seconds windows, capped at
     max_chunks (leftover handled by the next run). start/end = datetimes."""
-    from datetime import timedelta
     chunks = []
     cur = start
     while cur < end and len(chunks) < max_chunks:
@@ -198,10 +216,15 @@ def pull_one_order(brand, omisell_order_number, capture_golden=0):
 
 
 @frappe.whitelist(methods=["POST"])
-def pull_orders(brand, updated_from, updated_to):
+def pull_orders(brand, updated_from, updated_to, time_budget=None):
     """T3: pull an updated-time window. HARD GUARD: window <= 3600 seconds.
-    last_sync_at advances ONLY when the whole window succeeds (no failures)."""
+    last_sync_at advances ONLY when the whole window fully succeeds (no
+    failures, no cap, no timebox). time_budget seconds: direct web calls
+    default to SYNC_TIME_BUDGET (50s) so a request can never approach the
+    gunicorn worker timeout; the background job passes JOB_TIME_BUDGET."""
     frappe.only_for("System Manager")
+    budget = float(time_budget or SYNC_TIME_BUDGET)
+    t0 = time.monotonic()
     f, t = get_datetime(updated_from), get_datetime(updated_to)
     if not f or not t or t <= f:
         frappe.throw(_("Invalid window."))
@@ -220,6 +243,9 @@ def pull_orders(brand, updated_from, updated_to):
     headers, page = [], 1
     try:
         while page <= MAX_LIST_PAGES:
+            if time.monotonic() - t0 > budget:
+                summary["timeboxed"] = "during_list"
+                break
             payload = client.get_orders(f_ts, t_ts, page=page)
             data = (payload or {}).get("data") or {}
             results = data.get("results") or []
@@ -241,6 +267,9 @@ def pull_orders(brand, updated_from, updated_to):
         headers = headers[:cap]
     batch = []
     for h in headers:
+        if time.monotonic() - t0 > budget:
+            summary["timeboxed"] = summary.get("timeboxed") or "during_details"
+            break
         number = h.get("omisell_order_number")
         try:
             detail = (client.get_order_detail(number) or {}).get("data") or {}
@@ -266,7 +295,8 @@ def pull_orders(brand, updated_from, updated_to):
         summary["ingested"] = len([r for r in ing if r.get("status") in ("created", "updated", "unchanged")])
         summary["failed"] += len([r for r in ing if r.get("status") in ("failed", "check_failed")])
         summary["action_queue"] = action_queue.process_pending_actions()
-    if summary["failed"] == 0 and not summary.get("capped_at"):
+    summary["elapsed_seconds"] = round(time.monotonic() - t0, 1)
+    if summary["failed"] == 0 and not summary.get("capped_at") and not summary.get("timeboxed"):
         bis.reload()
         bis.last_sync_at = t
         bis.save(ignore_permissions=True)
@@ -282,36 +312,114 @@ def pull_orders(brand, updated_from, updated_to):
 
 @frappe.whitelist(methods=["POST"])
 def pull_recent(brand, max_chunks=None):
-    """Phase D.1: MANUAL catch-up - successive <=1h chunks from last_sync_at to
-    now, chunk-level checkpointing (last_sync_at advances per successful chunk
-    via pull_orders), capped per run. This is the future scheduler body but is
-    NOT scheduled - SM-only manual call, double kill switch.
-    """
+    """Hotfix 2026-06-09: ENQUEUES the catch-up as a background job (queue
+    "long") and returns immediately - heavy paced API work never runs inside
+    a web request again. Concurrency: one run per brand (cache lock).
+    Follow progress with pull_status(brand)."""
     frappe.only_for("System Manager")
     if _pull_disabled():
         frappe.throw(_("Pulls are disabled (ec_alerts_pull_disabled is set)."))
-    # NOTE: ec_alerts_scheduler_disabled intentionally does NOT block manual
-    # pulls - it gates scheduler jobs only. Manual = this SM-only endpoint.
     bis = _get_bis(brand)
     _breaker_check(bis)
+    cache = frappe.cache()
+    if cache.get_value(_running_key(brand)):
+        frappe.throw(_("A pull for brand {0} is already running. "
+                       "Check pull_status.").format(brand))
+    cache.set_value(_running_key(brand), now_datetime().isoformat(),
+                    expires_in_sec=RUNNING_FLAG_TTL)
+    job = frappe.enqueue(
+        "ecentric_workspace.alerts.api_omisell.pull_recent_job",
+        queue="long", timeout=JOB_RQ_TIMEOUT, job_name="omisell_pull_%s" % brand,
+        brand=brand, max_chunks=int(max_chunks or MAX_CHUNKS_PER_RUN))
+    return {"queued": True, "brand": brand,
+            "job_id": getattr(job, "id", None),
+            "note": "Background job started. Poll "
+                    "ecentric_workspace.alerts.api_omisell.pull_status."}
+
+
+def pull_recent_job(brand, max_chunks=MAX_CHUNKS_PER_RUN):
+    """Background worker body (NOT whitelisted, NOT scheduled). Chunk-level
+    checkpointing via pull_orders; generous per-chunk timebox; summary stored
+    in cache (24h) + as a Comment on the BIS record for audit."""
+    cache = frappe.cache()
+    run = {"brand": brand, "started_at": str(now_datetime()),
+           "chunks_done": 0, "summaries": [], "state": "running"}
+    try:
+        bis = _get_bis(brand)
+        start = (get_datetime(bis.last_sync_at) if bis.last_sync_at
+                 else get_datetime(now_datetime()) - timedelta(hours=1))
+        end = get_datetime(now_datetime())
+        chunks = chunk_windows(start, end, max_chunks=int(max_chunks))
+        run.update({"from": str(start), "to": str(end),
+                    "chunks_planned": len(chunks)})
+        budget_per_chunk = JOB_TIME_BUDGET / max(len(chunks), 1)
+        for cf, ct in chunks:
+            s = pull_orders(brand, str(cf), str(ct), time_budget=budget_per_chunk)
+            run["summaries"].append({k: s.get(k) for k in
+                                     ("window", "listed", "ingested", "skipped_status",
+                                      "failed", "capped_at", "timeboxed",
+                                      "elapsed_seconds", "last_sync_at_advanced")})
+            if not s.get("last_sync_at_advanced"):
+                run["stopped"] = "chunk incomplete (failed/capped/timeboxed) - checkpoint holds"
+                break
+            run["chunks_done"] += 1
+        run["caught_up"] = run["chunks_done"] == len(chunks)
+        run["state"] = "done"
+    except Exception as e:
+        run["state"] = "error"
+        run["error"] = str(e)[:300]
+        frappe.log_error(frappe.get_traceback(), "alerts.omisell.pull_recent_job %s" % brand)
+    finally:
+        cache.delete_value(_running_key(brand))
+        run["finished_at"] = str(now_datetime())
+        cache.set_value(_last_run_key(brand), json.dumps(run, default=str),
+                        expires_in_sec=86400)
+        try:
+            bis_name = frappe.db.get_value(
+                "EC Brand Integration Settings",
+                {"brand": brand, "integration_type": "Omisell"}, "name")
+            if bis_name:
+                frappe.get_doc("EC Brand Integration Settings", bis_name).add_comment(
+                    "Comment", "pull_recent_job: %s" % json.dumps(run, default=str)[:1500])
+        except Exception:
+            pass
+    return run
+
+
+@frappe.whitelist(methods=["POST"])
+def pull_status(brand):
+    """Read-only: running flag + last run summary + checkpoint state."""
+    frappe.only_for("System Manager")
+    bis = _get_bis(brand, require_enabled=False)
+    cache = frappe.cache()
+    last = cache.get_value(_last_run_key(brand))
+    if isinstance(last, bytes):
+        last = last.decode()
+    return {"brand": brand,
+            "running_since": cache.get_value(_running_key(brand)),
+            "last_sync_at": str(bis.last_sync_at) if bis.last_sync_at else None,
+            "consecutive_failures": int(bis.consecutive_failures or 0),
+            "last_run": json.loads(last) if last else None}
+
+
+@frappe.whitelist(methods=["POST"])
+def pull_preview(brand, hours=1):
+    """Read-only DRY-RUN COUNT: how many orders would the next window list?
+    Calls ONLY the order-list endpoint (no details, no DB writes) - cheap and
+    safe to run any time before a real pull."""
+    frappe.only_for("System Manager")
+    bis = _get_bis(brand)
+    client = OmisellClient(bis.name)
     start = (get_datetime(bis.last_sync_at) if bis.last_sync_at
              else get_datetime(now_datetime()) - timedelta(hours=1))
-    end = get_datetime(now_datetime())
-    chunks = chunk_windows(start, end,
-                           max_chunks=int(max_chunks or MAX_CHUNKS_PER_RUN))
-    run = {"brand": brand, "from": str(start), "to": str(end),
-           "chunks_planned": len(chunks), "chunks_done": 0, "summaries": []}
-    for cf, ct in chunks:
-        s = pull_orders(brand, str(cf), str(ct))
-        run["summaries"].append({k: s.get(k) for k in
-                                 ("window", "listed", "ingested", "skipped_status",
-                                  "failed", "capped_at", "last_sync_at_advanced")})
-        if not s.get("last_sync_at_advanced"):
-            run["stopped"] = "chunk did not fully succeed (failed or capped) - checkpoint holds"
-            break
-        run["chunks_done"] += 1
-    run["caught_up"] = run["chunks_done"] == len(chunks) and         (not chunks or chunks[-1][1] >= end)
-    return run
+    end = min(start + timedelta(hours=min(int(hours or 1), 4)),
+              get_datetime(now_datetime()))
+    payload = client.get_orders(int(start.timestamp()), int(end.timestamp()),
+                                page=1, page_size=1)
+    data = (payload or {}).get("data") or {}
+    return {"brand": brand, "window": [str(start), str(end)],
+            "would_list": data.get("count"),
+            "rate_limit_header": client.last_rate_header}
 
 
 @frappe.whitelist(methods=["POST"])
