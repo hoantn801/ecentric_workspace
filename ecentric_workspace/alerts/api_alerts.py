@@ -37,22 +37,22 @@ def _scoped_filters(f, allowed):
     flt = []
     for k in ("status", "severity", "alert_type", "rule_code", "platform", "owner_user"):
         if f.get(k):
-            flt.append(["EC Alert", k, "=", f[k]])
+            flt.append([k, "=", f[k]])
     if f.get("from_date"):
-        flt.append(["EC Alert", "detected_at", ">=", f["from_date"]])
+        flt.append(["detected_at", ">=", f["from_date"]])
     if f.get("to_date"):
-        flt.append(["EC Alert", "detected_at", "<=", str(f["to_date"]) + " 23:59:59"
+        flt.append(["detected_at", "<=", str(f["to_date"]) + " 23:59:59"
                     if len(str(f["to_date"])) == 10 else f["to_date"]])
     if allowed == perms.ALL_BRANDS:
         if f.get("brand"):
-            flt.append(["EC Alert", "brand", "=", f["brand"]])
+            flt.append(["brand", "=", f["brand"]])
     else:
         scope = list(allowed)
         if f.get("brand"):
             scope = [b for b in scope if b == f.get("brand")]
         if not scope:
             return None
-        flt.append(["EC Alert", "brand", "in", scope])
+        flt.append(["brand", "in", scope])
     return flt
 
 
@@ -66,8 +66,9 @@ def list_alerts(filters=None, start=0, page_len=50):
         "EC Alert", filters=flt, fields=LIST_FIELDS,
         order_by="detected_at desc, creation desc",
         start=cint(start), page_length=min(cint(page_len) or 50, MAX_PAGE))
-    total = frappe.get_all("EC Alert", filters=flt, fields=["count(name) as c"],
-                           limit_page_length=1)[0].c
+    # Frappe-safe count (no SQL function strings - hotfix 2026-06-09);
+    # frappe.db.count accepts the same 3-element list filters as get_all.
+    total = frappe.db.count("EC Alert", filters=flt)
     # latest lock-action status per alert (Action Status column)
     names = [r.name for r in rows]
     if names:
