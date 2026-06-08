@@ -133,6 +133,24 @@ def can_cancel_pause(user, brand):
     return get_brand_role(user, brand) in ("manager", "leader", "supervisor")
 
 
+def can_manage_policy(user, brand):
+    """Phase F: EC Price Policy create/edit/status within own brand (master
+    data input is the KAM's job; manager included; leader is read-only)."""
+    return get_brand_role(user, brand) in ("kam", "manager", "supervisor")
+
+
+def can_activate_rule(user, brand):
+    """Phase F decision F-2: KAM edits Draft rules; ACTIVATION (and pausing)
+    is the approval step - manager/leader/System Manager only."""
+    return get_brand_role(user, brand) in ("manager", "leader", "supervisor")
+
+
+def can_review_lock(user, brand):
+    """Phase F: approve/reject DRY-RUN lock actions (real execution remains
+    System Manager + DS1 gate, untouched here)."""
+    return get_brand_role(user, brand) in ("kam", "manager", "leader", "supervisor")
+
+
 def can_manage_credentials(user=None):
     """EC Brand Integration Settings: System Manager only (MVP). API keys are
     never readable by KAM or any frontend code path."""

@@ -1,0 +1,189 @@
+{
+ "doctype": "DocType",
+ "name": "EC Alert Rule",
+ "module": "Alerts",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "allow_import": 1,
+ "autoname": "format:EC-AR-{#####}",
+ "naming_rule": "Expression",
+ "title_field": "",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "rule_code",
+  "status",
+  "enabled",
+  "cb_0",
+  "brand",
+  "platform",
+  "shop",
+  "item",
+  "seller_sku",
+  "sec_cfg",
+  "severity_override",
+  "threshold_percent",
+  "cb_1",
+  "recommend_stock_lock",
+  "effective_from",
+  "effective_to",
+  "sec_audit",
+  "approved_by",
+  "cb_2",
+  "approved_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "rule_code",
+   "fieldtype": "Select",
+   "label": "Rule Code",
+   "options": "below_min\nabove_high\nsevere_price_drop\npossible_missing_zero",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nActive\nPaused",
+   "default": "Draft",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "KAM creates/edits Draft; ONLY Lead/System Manager can Activate/Pause (decision F-2). Engine consults Active rules only."
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1"
+  },
+  {
+   "fieldname": "cb_0",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "options": "Brand Approver",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "label": "Platform",
+   "options": "All\nShopee\nLazada\nTikTok",
+   "default": "All",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "shop",
+   "fieldtype": "Link",
+   "label": "Shop",
+   "options": "EC Marketplace Shop"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "seller_sku",
+   "fieldtype": "Data",
+   "label": "Seller SKU",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Scope priority when the engine picks a rule: SKU > Shop > Platform > Brand."
+  },
+  {
+   "fieldname": "sec_cfg",
+   "fieldtype": "Section Break",
+   "label": "Overrides (blank = keep engine default)"
+  },
+  {
+   "fieldname": "severity_override",
+   "fieldtype": "Select",
+   "label": "Severity Override",
+   "options": "\nCritical\nWarning\nInfo"
+  },
+  {
+   "fieldname": "threshold_percent",
+   "fieldtype": "Percent",
+   "label": "Threshold Percent",
+   "description": "Meaning depends on rule_code: below_min = escalate-to-Critical when gap >= X% under min; severe_price_drop = drop % vs baseline; above_high = % above reference."
+  },
+  {
+   "fieldname": "cb_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "recommend_stock_lock",
+   "fieldtype": "Check",
+   "label": "Recommend Stock Lock",
+   "default": "0",
+   "description": "Only honored for severe_price_drop / possible_missing_zero AND only NARROWS: a lock still requires policy.enable_stock_safety_lock. below_min/above_high can NEVER lock (code-enforced hard matrix)."
+  },
+  {
+   "fieldname": "effective_from",
+   "fieldtype": "Date",
+   "label": "Effective From"
+  },
+  {
+   "fieldname": "effective_to",
+   "fieldtype": "Date",
+   "label": "Effective To"
+  },
+  {
+   "fieldname": "sec_audit",
+   "fieldtype": "Section Break",
+   "label": "Approval Audit"
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approved By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "approved_at",
+   "fieldtype": "Datetime",
+   "label": "Approved At",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}
