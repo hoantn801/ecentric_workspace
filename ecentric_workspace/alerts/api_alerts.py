@@ -143,8 +143,13 @@ def set_status(alert, new_status, note=None):
 
 @frappe.whitelist()
 def my_scope():
-    """Allowed brands + role per brand for the UI (filter dropdown, defaults)."""
+    """Allowed brands + role per brand for the UI (filter dropdown, defaults).
+    Supervisors (System Manager) have implicit access to ALL brands, so we
+    return the full active Brand Approver list for them too - otherwise the
+    brand <select> in the policy/rule drawers would be blank (UAT bug)."""
     allowed = perms.require_alert_center_access()
     if allowed == perms.ALL_BRANDS:
-        return {"supervisor": True, "brands": {}}
+        brands = {b: "supervisor" for b in frappe.get_all(
+            "Brand Approver", filters={"status": "Active"}, pluck="name")}
+        return {"supervisor": True, "brands": brands}
     return {"supervisor": False, "brands": allowed}
