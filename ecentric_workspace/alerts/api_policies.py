@@ -90,6 +90,74 @@ def set_policy_status(name, status):
 
 
 @frappe.whitelist()
+def policy_conflicts(brand):
+    """G2.x Policy Conflict Guard - badge data. Returns, per Active policy name,
+    flags: 'duplicate' (another Active policy of the EXACT same scope with
+    overlapping validity exists) and/or 'overridden' (a more specific Active
+    policy supersedes this one per Shop+Platform+SKU > Platform+SKU > All+SKU).
+    Read-only, brand-scoped."""
+    _scope()
+    perms.require_brand_access(frappe.session.user, brand)
+    acts = frappe.get_all(
+        "EC Price Policy", filters={"brand": brand, "status": "Active"},
+        fields=["name", "platform", "shop", "seller_sku", "item",
+                "is_brand_fallback", "effective_from", "effective_to"])
+    flags = {}
+
+    def tag(name, t):
+        flags.setdefault(name, set()).add(t)
+
+    def tgt(p):
+        return (p.get("seller_sku") or "").strip() or (p.get("item") or "").strip()
+
+    def scope(p):
+        return ((p.get("platform") or "All"), (p.get("shop") or ""),
+                tgt(p) or ("__fallback__" if int(p.get("is_brand_fallback") or 0) else ""))
+
+    def overlap(a, b):
+        af, at = a.get("effective_from"), a.get("effective_to")
+        bf, bt = b.get("effective_from"), b.get("effective_to")
+        if af and bt and str(af) > str(bt):
+            return False
+        if bf and at and str(bf) > str(at):
+            return False
+        return True
+
+    # exact-scope duplicates (overlapping validity)
+    groups = {}
+    for p in acts:
+        groups.setdefault(scope(p), []).append(p)
+    for members in groups.values():
+        n = len(members)
+        for i in range(n):
+            for j in range(i + 1, n):
+                if overlap(members[i], members[j]):
+                    tag(members[i].name, "duplicate")
+                    tag(members[j].name, "duplicate")
+
+    # overridden by a more-specific Active policy (same SKU/item target)
+    for p in acts:
+        t = tgt(p)
+        if not t:
+            continue
+        p_all = (p.get("platform") or "All") == "All"
+        p_noshop = not (p.get("shop") or "")
+        for q in acts:
+            if q.name == p.name or tgt(q) != t:
+                continue
+            more_specific = (
+                (p_all and (q.get("platform") or "All") != "All")
+                or (p_noshop and (q.get("shop") or "")))
+            if more_specific and overlap(p, q):
+                tag(p.name, "overridden")
+                break
+
+    return {"brand": brand,
+            "flags": {n: sorted(list(t)) for n, t in flags.items()},
+            "duplicate_count": sum(1 for t in flags.values() if "duplicate" in t)}
+
+
+@frappe.whitelist()
 def csv_template():
     """Contract for the Download CSV Template button."""
     _scope()
