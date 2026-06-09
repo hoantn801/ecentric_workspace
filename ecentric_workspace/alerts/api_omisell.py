@@ -24,6 +24,7 @@ MAX_LIST_PAGES = 20
 # Phase D.1 capacity hardening (approved 2026-06-09):
 MAX_DETAILS_PER_RUN = 300        # per-run order-detail cap (config-tunable)
 MAX_CHUNKS_PER_RUN = 4           # catch-up chunks (<=1h each) per pull_recent run
+MAX_OVERLAP_CHUNKS = 12          # hard cap when the overlap re-scan widens the window
 CIRCUIT_BREAKER_LIMIT = 3        # consecutive failed runs -> brand refused
 # Hotfix 2026-06-09 (bench 502 incident): client pacing (~1s/call) x hundreds
 # of detail GETs cannot run inside a synchronous web request (gunicorn worker
@@ -389,9 +390,15 @@ def pull_orders(brand, updated_from, updated_to, time_budget=None):
     summary["elapsed_seconds"] = round(time.monotonic() - t0, 1)
     if summary["failed"] == 0 and not summary.get("capped_at") and not summary.get("timeboxed"):
         bis.reload()
-        bis.last_sync_at = t
+        # MONOTONIC checkpoint (overlap hotfix 2026-06-10): never move
+        # last_sync_at backward. The scheduled pull re-scans
+        # [last_sync_at - overlap, now]; an overlap/re-scan chunk that ends in
+        # already-checkpointed time must NOT regress the checkpoint.
+        prev = get_datetime(bis.last_sync_at) if bis.last_sync_at else None
+        bis.last_sync_at = prev if (prev and prev > t) else t
         bis.save(ignore_permissions=True)
         summary["last_sync_at_advanced"] = True
+        summary["checkpoint_held"] = bool(prev and prev > t)
         _breaker_record(bis, success=True)
     else:
         if summary["failed"]:
@@ -430,6 +437,24 @@ def pull_recent(brand, max_chunks=None):
                     "ecentric_workspace.alerts.api_omisell.pull_status."}
 
 
+def _overlap_minutes():
+    """Scheduled-pull overlap (2026-06-10 hotfix): re-scan effective_from =
+    last_sync_at - overlap so the order-list API's late/out-of-order updates
+    are not missed. Order Log is upserted + Alert Occurrence deduped, so the
+    overlap creates NO duplicate business records. site_config
+    ec_alerts_pull_overlap_minutes (default 360); fail-safe to default."""
+    try:
+        v = frappe.conf.get("ec_alerts_pull_overlap_minutes")
+    except Exception:
+        return 360
+    if v is None or v == "":
+        return 360
+    try:
+        return max(0, int(float(v)))
+    except (TypeError, ValueError):
+        return 360
+
+
 def pull_recent_job(brand, max_chunks=MAX_CHUNKS_PER_RUN):
     """Background worker body (NOT whitelisted, NOT scheduled). Chunk-level
     checkpointing via pull_orders; generous per-chunk timebox; summary stored
@@ -439,11 +464,27 @@ def pull_recent_job(brand, max_chunks=MAX_CHUNKS_PER_RUN):
            "chunks_done": 0, "summaries": [], "state": "running"}
     try:
         bis = _get_bis(brand)
-        start = (get_datetime(bis.last_sync_at) if bis.last_sync_at
-                 else get_datetime(now_datetime()) - timedelta(hours=1))
+        requested_from = (get_datetime(bis.last_sync_at) if bis.last_sync_at
+                          else get_datetime(now_datetime()) - timedelta(hours=1))
+        overlap = _overlap_minutes()
         end = get_datetime(now_datetime())
-        chunks = chunk_windows(start, end, max_chunks=int(max_chunks))
-        run.update({"from": str(start), "to": str(end),
+        # overlap re-scan: pull from (last_sync_at - overlap). The checkpoint
+        # (last_sync_at) still advances ONLY on a fully-successful chunk inside
+        # pull_orders - the overlap changes the START, never the checkpoint.
+        start = requested_from - timedelta(minutes=overlap)
+        if start > end:
+            start = end
+        # Enough <=1h chunks to span [effective_from, now] so the run REACHES
+        # now (forward progress) instead of stopping mid-window and letting the
+        # monotonic guard pin the checkpoint. Bounded by MAX_OVERLAP_CHUNKS to
+        # cap work (empty windows are ~1 cheap list call each).
+        span_chunks = int((end - start).total_seconds() // MAX_WINDOW_SECONDS) + 1
+        eff_chunks = min(max(int(max_chunks), span_chunks), MAX_OVERLAP_CHUNKS)
+        chunks = chunk_windows(start, end, max_chunks=eff_chunks)
+        run.update({"requested_from": str(requested_from),
+                    "effective_from_after_overlap": str(start),
+                    "overlap_minutes": overlap,
+                    "from": str(start), "to": str(end),
                     "chunks_planned": len(chunks)})
         budget_per_chunk = JOB_TIME_BUDGET / max(len(chunks), 1)
         for cf, ct in chunks:
@@ -459,6 +500,15 @@ def pull_recent_job(brand, max_chunks=MAX_CHUNKS_PER_RUN):
                 run["stopped"] = "chunk incomplete (failed/capped/timeboxed) - checkpoint holds"
                 break
             run["chunks_done"] += 1
+        # run-level rollup of what the order-list API actually returned (for
+        # pull_status visibility / verifying the overlap caught the order)
+        seen = []
+        for s in run["summaries"]:
+            for n in (s.get("listed_order_numbers") or []):
+                if n not in seen:
+                    seen.append(n)
+        run["listed_order_numbers"] = seen
+        run["listed_total"] = sum(int(s.get("listed") or 0) for s in run["summaries"])
         run["caught_up"] = run["chunks_done"] == len(chunks)
         run["state"] = "done"
     except Exception as e:
@@ -501,6 +551,7 @@ def pull_status(brand):
             "consecutive_failures": int(bis.consecutive_failures or 0),
             "pull_disabled": _pull_disabled(),
             "pull_disabled_raw": None if raw_flag is None else str(raw_flag),
+            "overlap_minutes": _overlap_minutes(),
             "last_run": json.loads(last) if last else None}
 
 
