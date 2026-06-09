@@ -9,7 +9,8 @@ import frappe
 from frappe.utils import now_datetime, nowdate
 
 from . import (action_queue, baseline as baseline_mod, brand_resolver,
-               dedupe_keys, policy_lookup, pricing, rule_overlay, rules)
+               dedupe_keys, policy_lookup, pricing, rule_overlay, rules,
+               sku_catalog)
 
 CHECK_RESULT_LABEL = {
     "possible_missing_zero": "Possible Missing Zero",
@@ -69,6 +70,13 @@ def check_order_log(order_log_name, raw_shop_id=None):
 
     flags = _brand_price_flags(log.brand)
     for line in log.items:
+        # G2.1: grow the order-derived SKU catalog. FAIL-OPEN - a catalog
+        # hiccup must never break ingestion/pull (no Omisell/stock write here).
+        try:
+            sku_catalog.upsert_from_order_line(log, line)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "alerts.sku_catalog.inline")
+
         ev = pricing.evaluate_components(line.as_dict(), flags)
         price = ev["effective_check_price"]
         if price is None:
