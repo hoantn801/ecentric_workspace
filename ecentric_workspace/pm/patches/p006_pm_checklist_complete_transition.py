@@ -20,13 +20,14 @@ ACTION = "Hoàn thành"
 FROM_STATES = ["Backlog", "To Do", "In Progress", "Review"]
 ROLES = ["PM Manager", "PM Member"]
 
-# safe_eval-compatible (no all()/any()): checklist exists AND no REQUIRED item left
-# undone AND (there is >=1 required item, OR nothing at all is left undone).
+# safe_eval-compatible: Frappe Workflow safe_eval exposes NO len()/all()/any().
+# Use list TRUTHINESS instead: a non-empty list is truthy, `not []` is True.
+#   has checklist  AND  no required item left undone  AND  (>=1 required item OR nothing undone)
 CONDITION = (
-    "len(doc.pm_checklist or []) > 0 "
-    "and len([d for d in doc.pm_checklist if d.is_required and not d.is_done]) == 0 "
-    "and (len([d for d in doc.pm_checklist if d.is_required]) > 0 "
-    "or len([d for d in doc.pm_checklist if not d.is_done]) == 0)"
+    "doc.pm_checklist "
+    "and not [d for d in doc.pm_checklist if d.is_required and not d.is_done] "
+    "and ([d for d in doc.pm_checklist if d.is_required] "
+    "or not [d for d in doc.pm_checklist if not d.is_done])"
 )
 
 
