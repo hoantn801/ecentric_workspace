@@ -29,6 +29,8 @@
   "sec_cfg",
   "severity_override",
   "threshold_percent",
+  "severe_drop_percent",
+  "high_alert_percent",
   "cb_1",
   "recommend_stock_lock",
   "effective_from",
@@ -123,6 +125,18 @@
    "fieldtype": "Percent",
    "label": "Threshold Percent",
    "description": "Meaning depends on rule_code: below_min = escalate-to-Critical when gap >= X% under min; severe_price_drop = drop % vs baseline; above_high = % above reference."
+  },
+  {
+   "fieldname": "severe_drop_percent",
+   "fieldtype": "Percent",
+   "label": "Severe Drop Percent",
+   "description": "G1.1: Rules own this threshold (moved from Price Policy). Drop % vs baseline that flags severe_price_drop. Blank = fall back to Policy (deprecated) then system default."
+  },
+  {
+   "fieldname": "high_alert_percent",
+   "fieldtype": "Percent",
+   "label": "High Alert Percent",
+   "description": "G1.1: Rules own this threshold (moved from Price Policy). % above reference that flags above_high. Blank = fall back to Policy (deprecated) then system default."
   },
   {
    "fieldname": "cb_1",

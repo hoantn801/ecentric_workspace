@@ -21,6 +21,14 @@ def lock_action_key(external_order_id, external_line_id, rule_code):
     return _fit("omisell|%s|%s|stock_safety_lock|%s" % (_s(external_order_id), _s(external_line_id), _s(rule_code)))
 
 
+def occurrence_key(external_order_id, external_line_id, rule_code):
+    """G1.1: per-order-line price-violation evidence key (EC Alert Occurrence).
+    One immutable row per (order, line, rule); re-pull of the same line is a
+    no-op, a different order/line is a new occurrence."""
+    return _fit("omisell|%s|%s|occ|%s" % (
+        _s(external_order_id), _s(external_line_id), _s(rule_code)))
+
+
 def missing_policy_key(brand, platform, shop, seller_sku, yyyymmdd, external_product_id=None):
     if external_product_id:
         return _fit("omisell|%s|%s|%s|%s|%s|missing_policy|%s" % (

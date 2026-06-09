@@ -1,0 +1,45 @@
+{
+ "doctype": "DocType",
+ "name": "EC Brand Alert Config",
+ "module": "Alerts",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "allow_import": 1,
+ "autoname": "field:brand",
+ "naming_rule": "By fieldname",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "brand",
+  "sec_basis",
+  "include_seller_discount",
+  "include_seller_voucher",
+  "include_platform_discount",
+  "cb_basis",
+  "include_platform_voucher",
+  "use_customer_paid_if_available",
+  "notes"
+ ],
+ "fields": [
+  {"fieldname": "brand", "fieldtype": "Link", "label": "Brand", "options": "Brand Approver", "reqd": 1, "unique": 1, "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "sec_basis", "fieldtype": "Section Break", "label": "Price evaluation basis (which discount components are subtracted from RSP for the min-price check)"},
+  {"fieldname": "include_seller_discount", "fieldtype": "Check", "label": "Include Seller Discount", "default": "1", "in_list_view": 1, "description": "Subtract product-level seller discount (Omisell discount_seller) from RSP."},
+  {"fieldname": "include_seller_voucher", "fieldtype": "Check", "label": "Include Seller / Shop Voucher", "default": "1", "in_list_view": 1, "description": "Subtract seller/shop voucher (Omisell voucher_seller)."},
+  {"fieldname": "include_platform_discount", "fieldtype": "Check", "label": "Include Platform Discount", "default": "0", "in_list_view": 1, "description": "Subtract platform discount (Omisell discount_platform). OFF = platform subsidy excluded (seller-funded view)."},
+  {"fieldname": "cb_basis", "fieldtype": "Column Break"},
+  {"fieldname": "include_platform_voucher", "fieldtype": "Check", "label": "Include Platform Voucher", "default": "0", "in_list_view": 1, "description": "Subtract platform voucher (Omisell voucher_platform)."},
+  {"fieldname": "use_customer_paid_if_available", "fieldtype": "Check", "label": "Use Customer-Paid Price If Available", "default": "0", "description": "If a reliable final customer-paid unit price exists, use it directly instead of the RSP-minus-components calculation."},
+  {"fieldname": "notes", "fieldtype": "Small Text", "label": "Notes"}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "report": 1, "share": 1}
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

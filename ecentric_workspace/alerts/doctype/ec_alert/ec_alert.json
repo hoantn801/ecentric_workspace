@@ -41,6 +41,14 @@
   "recommended_action",
   "detected_at",
   "dedupe_key",
+  "sec_evidence",
+  "occurrence_count",
+  "first_seen_at",
+  "last_seen_at",
+  "cb_ev",
+  "worst_gap_percent",
+  "effective_check_price",
+  "price_components_used",
   "sec_resolution",
   "resolved_at",
   "resolved_by",
@@ -217,7 +225,55 @@
    "label": "Dedupe Key",
    "unique": 1,
    "read_only": 1,
-   "description": "omisell|{external_order_id}|{external_line_id}|price|{rule_code}. Unique constraint = hard dedupe; service layer also checks Open/In Review duplicates."
+   "description": "Price rules (G1.1): Case key = case|{brand}|{seller_sku}|{rule_code}|{first_order}|{first_line} (one open Case per brand+sku+rule; per-order-line evidence lives in EC Alert Occurrence). master-data rules keep their daily SKU key."
+  },
+  {
+   "fieldname": "sec_evidence",
+   "fieldtype": "Section Break",
+   "label": "Evidence rollup (G1.1)"
+  },
+  {
+   "fieldname": "occurrence_count",
+   "fieldtype": "Int",
+   "label": "Occurrence Count",
+   "default": "0",
+   "in_list_view": 1,
+   "description": "How many violating order lines (EC Alert Occurrence) this Case aggregates."
+  },
+  {
+   "fieldname": "first_seen_at",
+   "fieldtype": "Datetime",
+   "label": "First Seen At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_seen_at",
+   "fieldtype": "Datetime",
+   "label": "Last Seen At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_ev",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "worst_gap_percent",
+   "fieldtype": "Percent",
+   "label": "Worst Gap Percent",
+   "read_only": 1
+  },
+  {
+   "fieldname": "effective_check_price",
+   "fieldtype": "Currency",
+   "label": "Effective Check Price",
+   "read_only": 1,
+   "description": "The price actually compared to min (RSP minus the brand's included discount components per EC Brand Alert Config). Legacy alias: actual_price."
+  },
+  {
+   "fieldname": "price_components_used",
+   "fieldtype": "Data",
+   "label": "Price Components Used",
+   "read_only": 1
   },
   {
    "fieldname": "sec_resolution",

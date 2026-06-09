@@ -94,9 +94,16 @@ def normalize_order_detail(d):
                 "seller_sku": sku,
                 "product_name": item.get("product_name"),
                 "quantity": _f(item.get("quantity")),
-                "list_price": _f(item.get("original_price")),
+                "list_price": _f(item.get("original_price")),  # RSP / listed
                 # Q-D5 PROVISIONAL - confirm unit/voucher/subsidy semantics at T2
                 "unit_check_price": _f(item.get("discounted_price")) or None,
+                # G1.1: keep each discount component SEPARATE (component-based
+                # price basis). discounted_price = original - all four (per docs).
+                "seller_discount_amount": _f(item.get("discount_seller")),
+                "seller_voucher_amount": _f(item.get("voucher_seller")),
+                "platform_discount_amount": _f(item.get("discount_platform")),
+                "platform_voucher_amount": _f(item.get("voucher_platform")),
+                # legacy summed fields (back-compat with pre-G1.1 Order Item cols)
                 "seller_discount": _f(item.get("discount_seller")) + _f(item.get("voucher_seller")),
                 "platform_discount": _f(item.get("discount_platform")) + _f(item.get("voucher_platform")),
                 "customer_paid_price": None,

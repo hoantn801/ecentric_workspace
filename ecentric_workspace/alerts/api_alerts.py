@@ -23,6 +23,20 @@ LIST_FIELDS = [
     "actual_price", "min_price", "baseline_price", "gap_percent",
     "recommended_action", "detected_at", "reference_doctype",
     "reference_name", "resolved_by", "resolved_at",
+    # G1.1 evidence rollup
+    "occurrence_count", "effective_check_price", "price_components_used",
+    "first_seen_at", "last_seen_at", "worst_gap_percent",
+]
+
+# G1.1 per-order-line evidence projection (EC Alert Occurrence) - the price
+# breakdown columns the drawer renders (RSP - components = effective).
+OCC_FIELDS = [
+    "name", "external_order_id", "order_datetime", "order_status",
+    "seller_sku", "product_name", "rsp_price", "seller_discount_amount",
+    "seller_voucher_amount", "platform_discount_amount", "platform_voucher_amount",
+    "customer_paid_price", "effective_check_price", "price_components_used",
+    "min_price_at_check", "baseline_price_at_check", "gap_percent",
+    "rule_code", "severity", "detected_at",
 ]
 
 
@@ -139,6 +153,61 @@ def set_status(alert, new_status, note=None):
     doc.save(ignore_permissions=True)  # controller stamps resolved_by/resolved_at
     return {"name": doc.name, "status": doc.status,
             "resolved_by": doc.resolved_by, "resolved_at": doc.resolved_at}
+
+
+@frappe.whitelist(methods=["POST"])
+def bulk_set_status(names, new_status, note=None):
+    """G1.1: apply a status to multiple Cases at once. Per-row brand scope is
+    enforced (same rule as set_status); a denied/failed row never aborts the
+    batch. Returns {ok, denied, failed} name lists."""
+    perms.require_alert_center_access()
+    if new_status not in HANDLE_STATUSES:
+        frappe.throw(_("Invalid status {0}.").format(new_status))
+    if isinstance(names, str):
+        names = json.loads(names or "[]")
+    if new_status in NOTE_REQUIRED and not (note and str(note).strip()):
+        frappe.throw(_("A note is required to mark alerts {0}.").format(new_status))
+    note = str(note).strip() if (note and str(note).strip()) else None
+    user = frappe.session.user
+    res = {"ok": [], "denied": [], "failed": []}
+    for nm in (names or []):
+        try:
+            doc = frappe.get_doc("EC Alert", nm)
+            if doc.brand:
+                if not perms.can_handle_alert(user, doc.brand):
+                    res["denied"].append(nm)
+                    continue
+            elif not perms.is_global_supervisor(user):
+                res["denied"].append(nm)
+                continue
+            doc.status = new_status
+            if note:
+                doc.resolution_note = note
+            doc.save(ignore_permissions=True)
+            res["ok"].append(nm)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "alerts.bulk_set_status %s" % nm)
+            res["failed"].append(nm)
+    return res
+
+
+@frappe.whitelist()
+def alert_occurrences(alert, start=0, page_len=50):
+    """G1.1: per-order-line evidence rows for one Case (brand-scoped)."""
+    perms.require_alert_center_access()
+    row = frappe.db.get_value("EC Alert", alert, ["brand"], as_dict=True)
+    if not row:
+        frappe.throw(_("Alert {0} not found.").format(alert))
+    if row.brand:
+        perms.require_brand_access(frappe.session.user, row.brand)
+    elif not perms.is_global_supervisor(frappe.session.user):
+        frappe.throw(_("Only supervisors can view unmapped-brand evidence."),
+                     frappe.PermissionError)
+    rows = frappe.get_all(
+        "EC Alert Occurrence", filters={"case": alert}, fields=OCC_FIELDS,
+        order_by="detected_at desc, creation desc",
+        start=cint(start), page_length=min(cint(page_len) or 50, MAX_PAGE))
+    return {"rows": rows, "total": frappe.db.count("EC Alert Occurrence", {"case": alert})}
 
 
 @frappe.whitelist()
