@@ -37,7 +37,10 @@ from . import alert_engine, brand_resolver
 LINE_FIELDS = ("external_line_id", "seller_sku", "external_product_id",
                "product_name", "quantity",
                "list_price", "seller_discount", "platform_discount",
-               "customer_paid_price")
+               "customer_paid_price",
+               # G1.1 component-based price-basis amounts (kept separate)
+               "seller_discount_amount", "seller_voucher_amount",
+               "platform_discount_amount", "platform_voucher_amount")
 
 
 def ingest_orders(orders, run_checks=True):

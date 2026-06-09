@@ -281,3 +281,56 @@ def policy_coverage(brand, days=30, sample=500):
     heaviest query)."""
     perms.require_brand_access(frappe.session.user, brand)
     return _coverage(brand, int(days or 30), int(sample or 500))
+
+
+# --- G1.1: brand COMPONENT-BASED price config (EC Brand Alert Config) --------
+from ecentric_workspace.alerts.services import pricing as _pricing
+
+_FLAG_FIELDS = _pricing.COMPONENT_FLAGS  # the include_* / use_customer_paid flags
+
+
+@frappe.whitelist()
+def get_brand_alert_config(brand):
+    """Read the brand's price-component include flags (defaults = seller-funded
+    when no row). Brand-scoped read."""
+    perms.require_brand_access(frappe.session.user, brand)
+    row = frappe.db.get_value("EC Brand Alert Config", {"brand": brand},
+                              list(_FLAG_FIELDS), as_dict=True)
+    flags = ({k: int(row.get(k) or 0) for k in _FLAG_FIELDS} if row
+             else dict(_pricing.DEFAULT_FLAGS))
+    return {"brand": brand, "flags": flags, "configured": bool(row),
+            "fields": list(_FLAG_FIELDS), "defaults": dict(_pricing.DEFAULT_FLAGS)}
+
+
+@frappe.whitelist(methods=["POST"])
+def set_brand_alert_config(brand, flags=None, **kwargs):
+    """Set the brand's price-component include flags. Manager-level
+    (can_manage_policy); upserts the single EC Brand Alert Config row. `flags`
+    may be a JSON object or the individual include_* booleans as kwargs."""
+    perms.require_brand_access(frappe.session.user, brand)
+    if not perms.can_manage_policy(frappe.session.user, brand):
+        frappe.throw(_("You cannot change alert config for brand {0}.").format(brand),
+                     frappe.PermissionError)
+    data = json.loads(flags) if isinstance(flags, str) else (flags or {})
+    data = dict(data)
+    for k in _FLAG_FIELDS:
+        if k in kwargs:
+            data[k] = kwargs[k]
+    name = frappe.db.get_value("EC Brand Alert Config", {"brand": brand}, "name")
+    if name:
+        doc = frappe.get_doc("EC Brand Alert Config", name)
+    else:
+        doc = frappe.new_doc("EC Brand Alert Config")
+        doc.brand = brand
+    for k in _FLAG_FIELDS:
+        if k in data:
+            doc.set(k, 1 if _truthy(data[k]) else 0)
+    doc.save(ignore_permissions=True)
+    return {"brand": brand,
+            "flags": {k: int(doc.get(k) or 0) for k in _FLAG_FIELDS}}
+
+
+def _truthy(v):
+    if isinstance(v, str):
+        return v.strip() not in ("", "0", "false", "False", "no", "No")
+    return bool(v)

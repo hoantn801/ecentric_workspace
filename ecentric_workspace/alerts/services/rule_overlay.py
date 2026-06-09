@@ -25,6 +25,7 @@ def find_rules(brand, platform=None, shop=None, item=None, seller_sku=None, on_d
             filters={"brand": brand, "status": "Active", "enabled": 1},
             fields=["name", "rule_code", "platform", "shop", "item", "seller_sku",
                     "severity_override", "threshold_percent",
+                    "severe_drop_percent", "high_alert_percent",
                     "recommend_stock_lock", "effective_from", "effective_to"],
             limit_page_length=200)
     except Exception:
@@ -71,12 +72,18 @@ def overlay_params(params, rules_map):
     if not rules_map:
         return params
     out = dict(params)
+    # G1.1: Rules own the thresholds. Prefer the explicit rule field, fall back
+    # to the legacy generic threshold_percent (pre-G1.1 rules).
     r = rules_map.get("severe_price_drop")
-    if r and r.get("threshold_percent"):
-        out["severe_drop_percent"] = float(r["threshold_percent"])
+    if r:
+        v = r.get("severe_drop_percent") or r.get("threshold_percent")
+        if v:
+            out["severe_drop_percent"] = float(v)
     r = rules_map.get("above_high")
-    if r and r.get("threshold_percent"):
-        out["high_alert_percent"] = float(r["threshold_percent"])
+    if r:
+        v = r.get("high_alert_percent") or r.get("threshold_percent")
+        if v:
+            out["high_alert_percent"] = float(v)
     return out
 
 

@@ -24,6 +24,12 @@
   "seller_discount",
   "platform_discount",
   "customer_paid_price",
+  "seller_discount_amount",
+  "seller_voucher_amount",
+  "platform_discount_amount",
+  "platform_voucher_amount",
+  "effective_check_price",
+  "price_components_used",
   "unit_check_price",
   "min_price_at_check",
   "baseline_price_at_check",
@@ -90,11 +96,47 @@
    "in_list_view": 1
   },
   {
+   "fieldname": "seller_discount_amount",
+   "fieldtype": "Currency",
+   "label": "Seller Discount Amount",
+   "description": "Per-unit product-level seller discount (Omisell discount_seller). G1.1 component-basis audit."
+  },
+  {
+   "fieldname": "seller_voucher_amount",
+   "fieldtype": "Currency",
+   "label": "Seller / Shop Voucher Amount",
+   "description": "Per-unit seller/shop voucher (Omisell voucher_seller)."
+  },
+  {
+   "fieldname": "platform_discount_amount",
+   "fieldtype": "Currency",
+   "label": "Platform Discount Amount",
+   "description": "Per-unit platform discount (Omisell discount_platform)."
+  },
+  {
+   "fieldname": "platform_voucher_amount",
+   "fieldtype": "Currency",
+   "label": "Platform Voucher Amount",
+   "description": "Per-unit platform voucher (Omisell voucher_platform)."
+  },
+  {
+   "fieldname": "effective_check_price",
+   "fieldtype": "Currency",
+   "label": "Effective Check Price",
+   "description": "RSP minus the included discount components, per the brand's EC Brand Alert Config flags. unit_check_price is a legacy alias."
+  },
+  {
+   "fieldname": "price_components_used",
+   "fieldtype": "Data",
+   "label": "Price Components Used",
+   "description": "Which components were subtracted (e.g. seller_discount+seller_voucher) or 'customer_paid'."
+  },
+  {
    "fieldname": "unit_check_price",
    "fieldtype": "Currency",
-   "label": "Unit Check Price",
+   "label": "Unit Check Price (legacy alias)",
    "in_list_view": 1,
-   "description": "Price actually used for checking (default customer_paid_price / quantity). Snapshot at check time."
+   "description": "Legacy alias of effective_check_price (kept for backward compatibility)."
   },
   {
    "fieldname": "min_price_at_check",
