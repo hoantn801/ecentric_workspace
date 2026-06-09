@@ -157,3 +157,24 @@ def trend(filters=None, days=DEFAULT_DAYS):
                                                [["status", "=", "Ignored"],
                                                 ["resolved_at", ">=", d0], ["resolved_at", "<=", d1]])})
     return {"rows": out}
+
+
+@frappe.whitelist()
+def hourly_trend(filters=None):
+    """Alerts detected per hour-of-day (0-23): total + critical. Honors the
+    same dashboard filters/scope. Read-only, parameterized SQL."""
+    flt = _flt(filters)
+    empty = [{"hour": h, "total": 0, "critical": 0} for h in range(24)]
+    if flt is None:
+        return {"rows": empty}
+    where, params = _where(flt)
+    rows = frappe.db.sql(
+        """SELECT HOUR(detected_at) AS h, COUNT(*) AS total,
+                  SUM(CASE WHEN severity = 'Critical' THEN 1 ELSE 0 END) AS critical
+           FROM `tabEC Alert` WHERE %s AND detected_at IS NOT NULL
+           GROUP BY HOUR(detected_at)""" % where, params, as_dict=True)
+    by = {int(r.h): r for r in rows if r.h is not None}
+    return {"rows": [{"hour": h,
+                      "total": int(by[h].total) if h in by else 0,
+                      "critical": int(by[h].critical or 0) if h in by else 0}
+                     for h in range(24)]}
