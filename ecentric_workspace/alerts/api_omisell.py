@@ -18,6 +18,7 @@ from ecentric_workspace.alerts.services import brand_resolver, dedupe_keys
 from ecentric_workspace.alerts.services import omisell_normalizer as norm
 from ecentric_workspace.alerts.services.omisell_client import (
     OmisellAuthError, OmisellClient, OmisellError, sanitize)
+from ecentric_workspace.alerts.services.time_windows import epoch_in_tz, utc_str
 
 MAX_WINDOW_SECONDS = 3600  # hard MVP guard on pull_orders
 MAX_LIST_PAGES = 20
@@ -53,6 +54,25 @@ def chunk_windows(start, end, chunk_seconds=MAX_WINDOW_SECONDS, max_chunks=MAX_C
         chunks.append((cur, nxt))
         cur = nxt
     return chunks
+
+
+def _site_timezone():
+    """Site tz from System Settings; fail-safe to Asia/Ho_Chi_Minh (the only
+    deployed site tz). Read per call - cheap, and a tz change needs no restart."""
+    try:
+        return (frappe.db.get_single_value("System Settings", "time_zone")
+                or "Asia/Ho_Chi_Minh")
+    except Exception:
+        return "Asia/Ho_Chi_Minh"
+
+
+def _to_epoch(dt):
+    """TZ-FIX 2026-06-10: SITE-TZ-aware UTC epoch for Omisell order/list
+    updated_from/updated_to. Replaces int(naive.timestamp()), which used the
+    SERVER timezone (UTC on Frappe Cloud) and shifted every window ~7h into
+    the future (diagnostic 46, drift_seconds = -25200). Pure conversion lives
+    in services.time_windows.epoch_in_tz."""
+    return epoch_in_tz(get_datetime(dt), _site_timezone())
 
 
 def _details_cap():
@@ -300,9 +320,13 @@ def pull_orders(brand, updated_from, updated_to, time_budget=None):
     bis = _get_bis(brand)
     _breaker_check(bis)
     client = OmisellClient(bis.name)
-    f_ts, t_ts = int(f.timestamp()), int(t.timestamp())
+    # TZ-FIX 2026-06-10: site-tz-aware conversion (was int(f.timestamp()),
+    # which used SERVER tz = UTC and queried ~7h in the future).
+    f_ts, t_ts = _to_epoch(f), _to_epoch(t)
 
-    summary = {"brand": brand, "window": [str(f), str(t)], "listed": 0,
+    summary = {"brand": brand, "window": [str(f), str(t)],
+               "epoch_window": [f_ts, t_ts],
+               "utc_window": [utc_str(f_ts), utc_str(t_ts)], "listed": 0,
                "ingested": 0, "skipped_status": 0, "skipped_status_detail": {},
                "failed": 0, "failed_order_numbers": [], "failed_error_summary": {},
                "listed_order_numbers": [], "skipped_manual": [], "results": []}
@@ -481,16 +505,24 @@ def pull_recent_job(brand, max_chunks=MAX_CHUNKS_PER_RUN):
         span_chunks = int((end - start).total_seconds() // MAX_WINDOW_SECONDS) + 1
         eff_chunks = min(max(int(max_chunks), span_chunks), MAX_OVERLAP_CHUNKS)
         chunks = chunk_windows(start, end, max_chunks=eff_chunks)
+        # TZ-FIX 2026-06-10 diagnostics: the exact epochs the run will send
+        # and their UTC read-back, so pull_status proves windows are correct
+        # (utc_from should equal site time minus the site-tz offset, -7h).
         run.update({"requested_from": str(requested_from),
                     "effective_from_after_overlap": str(start),
                     "overlap_minutes": overlap,
+                    "epoch_from": _to_epoch(start), "epoch_to": _to_epoch(end),
+                    "utc_from": utc_str(_to_epoch(start)),
+                    "utc_to": utc_str(_to_epoch(end)),
+                    "site_time_zone": _site_timezone(),
                     "from": str(start), "to": str(end),
                     "chunks_planned": len(chunks)})
         budget_per_chunk = JOB_TIME_BUDGET / max(len(chunks), 1)
         for cf, ct in chunks:
             s = pull_orders(brand, str(cf), str(ct), time_budget=budget_per_chunk)
             run["summaries"].append({k: s.get(k) for k in
-                                     ("window", "listed", "ingested", "skipped_status",
+                                     ("window", "epoch_window", "utc_window",
+                                      "listed", "ingested", "skipped_status",
                                       "skipped_status_detail", "skipped_manual",
                                       "failed", "failed_order_numbers",
                                       "failed_error_summary", "listed_order_numbers",
@@ -552,6 +584,7 @@ def pull_status(brand):
             "pull_disabled": _pull_disabled(),
             "pull_disabled_raw": None if raw_flag is None else str(raw_flag),
             "overlap_minutes": _overlap_minutes(),
+            "site_time_zone": _site_timezone(),  # TZ-FIX 2026-06-10
             "last_run": json.loads(last) if last else None}
 
 
@@ -567,10 +600,13 @@ def pull_preview(brand, hours=1):
              else get_datetime(now_datetime()) - timedelta(hours=1))
     end = min(start + timedelta(hours=min(int(hours or 1), 4)),
               get_datetime(now_datetime()))
-    payload = client.get_orders(int(start.timestamp()), int(end.timestamp()),
-                                page=1, page_size=1)
+    # TZ-FIX 2026-06-10: site-tz-aware (was int(start.timestamp()) = server tz)
+    s_ts, e_ts = _to_epoch(start), _to_epoch(end)
+    payload = client.get_orders(s_ts, e_ts, page=1, page_size=1)
     data = (payload or {}).get("data") or {}
     return {"brand": brand, "window": [str(start), str(end)],
+            "epoch_window": [s_ts, e_ts],
+            "utc_window": [utc_str(s_ts), utc_str(e_ts)],
             "would_list": data.get("count"),
             "rate_limit_header": client.last_rate_header}
 
