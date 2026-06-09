@@ -10,3 +10,4 @@ ecentric_workspace.pm.patches.p003_pm_timer
 ecentric_workspace.pm.patches.p004_pm_recurrence
 ecentric_workspace.pm.patches.p005_pm_checklist
 ecentric_workspace.alerts.patches.p001_capacity_indexes
+ecentric_workspace.pm.patches.p006_pm_checklist_complete_transition

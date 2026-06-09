@@ -7,12 +7,22 @@ complete arrive in later phases (G2+). Manage templates in Desk for now.
 Module path: ecentric_workspace.pm.api.checklist
 """
 
+import json
+
 import frappe
 from frappe import _
+from frappe.model.workflow import apply_workflow
 
 from ecentric_workspace.pm import permissions as pmperm
 
 DT = "PM Checklist Template"
+
+
+def _is_complete(required_total, required_done, total, done):
+    """Required-driven rule: if any required items, all required done; else all items done."""
+    if required_total > 0:
+        return required_done == required_total
+    return total > 0 and done == total
 
 
 @frappe.whitelist()
@@ -108,3 +118,64 @@ def set_item(task, row_name, is_done):
         row.completed_at = None
     doc.save(ignore_permissions=True)  # service-layer gate above is the trust boundary
     return _summary(frappe.get_doc("Task", task))
+
+
+@frappe.whitelist()
+def counts(task_names):
+    """G4: batch checklist progress for a list of task names (read-only, no N calls).
+    Names come from already permission-scoped frontend lists; counts are non-sensitive."""
+    pmperm.require_pm_access()
+    if isinstance(task_names, str):
+        try:
+            task_names = json.loads(task_names)
+        except Exception:
+            task_names = [task_names]
+    task_names = [t for t in (task_names or []) if t]
+    out = {}
+    if not task_names:
+        return {"counts": out}
+    rows = frappe.get_all(
+        "PM Task Checklist Item",
+        filters={"parent": ["in", task_names], "parenttype": "Task"},
+        fields=["parent", "is_required", "is_done"], limit_page_length=0,
+    )
+    for r in rows:
+        a = out.setdefault(r["parent"], {"total": 0, "done": 0,
+                                         "required_total": 0, "required_done": 0})
+        a["total"] += 1
+        if r["is_required"]:
+            a["required_total"] += 1
+        if r["is_done"]:
+            a["done"] += 1
+            if r["is_required"]:
+                a["required_done"] += 1
+    for a in out.values():
+        a["complete"] = _is_complete(a["required_total"], a["required_done"], a["total"], a["done"])
+    return {"counts": out}
+
+
+@frappe.whitelist()
+def complete_task(task):
+    """G4: mark a checklist task Done via the governed 'Hoàn thành' workflow transition.
+    Re-validates checklist completion server-side (defense in depth) -> never trusts the
+    client; never sets status directly. Notification = whatever the native Workflow does
+    (send_email_alert=0 on PM Task Workflow)."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    doc = frappe.get_doc("Task", task)
+    if not pmperm.can_view_task(doc.as_dict(), user):
+        frappe.throw(_("Not permitted to complete this task."), frappe.PermissionError)
+    items = doc.get("pm_checklist") or []
+    if not items:
+        frappe.throw(_("Nhiệm vụ này không có checklist."))
+    required = [d for d in items if d.is_required]
+    if required:
+        undone = [d for d in required if not d.is_done]
+        if undone:
+            frappe.throw(_("Còn {0} mục bắt buộc chưa hoàn thành.").format(len(undone)))
+    else:
+        undone_all = [d for d in items if not d.is_done]
+        if undone_all:
+            frappe.throw(_("Còn {0} mục chưa hoàn thành.").format(len(undone_all)))
+    doc = apply_workflow(doc, "Hoàn thành")  # governed + audited; condition re-checked too
+    return {"name": doc.name, "workflow_state": doc.get("workflow_state")}
