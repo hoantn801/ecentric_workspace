@@ -39,6 +39,7 @@ THROTTLE_AT = 70          # of bucket 100
 MIN_INTERVAL = 1.0        # seconds between calls (<=1 req/sec)
 BACKOFFS = (30, 60, 120)  # seconds, on HTTP 429
 BACKOFFS_5XX = (5, 15)    # bounded retry on Omisell server errors (hardening 2026-06-10)
+BACKOFFS_TIMEOUT = (2, 5)  # read/connect timeout retry, GET ONLY (resilience 2026-06-11)
 TIMEOUT = 30
 SENSITIVE_KEYS = ("token", "refresh_token", "api_key", "api_secret",
                   "authorization", "password", "secret")
@@ -152,10 +153,23 @@ class OmisellClient:
 
         attempt_429 = 0
         attempt_5xx = 0
+        attempt_timeout = 0
         while True:
             self._pace()
-            resp = requests.request(method, url, params=params, json=json_body,
-                                    headers=headers, timeout=TIMEOUT)
+            try:
+                resp = requests.request(method, url, params=params, json=json_body,
+                                        headers=headers, timeout=TIMEOUT)
+            except (requests.Timeout, requests.ConnectionError) as e:
+                # Resilience 2026-06-11 (LOF read-timeout incident): bounded
+                # retry (2s, 5s) for GET ONLY - GETs are read-only so a replay
+                # is always safe. The auth POST is never retried here: a
+                # timed-out POST may have succeeded server-side.
+                if method == "GET" and attempt_timeout < len(BACKOFFS_TIMEOUT):
+                    time.sleep(BACKOFFS_TIMEOUT[attempt_timeout])
+                    attempt_timeout += 1
+                    continue
+                raise OmisellError(_("TIMEOUT on {0} {1} (after {2} retries): {3}").format(
+                    method, path, attempt_timeout, str(e)[:120]))
             self.last_rate_header = resp.headers.get(RATE_HEADER)
             if resp.status_code == 429:
                 if attempt_429 >= len(BACKOFFS):
