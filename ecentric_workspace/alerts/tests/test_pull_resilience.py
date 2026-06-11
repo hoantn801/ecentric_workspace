@@ -181,7 +181,7 @@ class TestApiOmisellResilienceWiring(unittest.TestCase):
         self.assertIn("ec_alerts_pull_chunk_seconds", s)
         self.assertIn("return 1800", s)
         self.assertIn("max(300, min(int(float(v)), MAX_WINDOW_SECONDS))", s)
-        self.assertIn("chunk_windows(start, end, chunk_seconds=cs, max_chunks=eff_chunks)", s)
+        self.assertIn("pull_planner.plan(start, end, cs, int(max_chunks),", s)
         self.assertIn("ADAPTIVE_LISTED_HI = 60", s)
 
     def test_monotonic_model(self):
