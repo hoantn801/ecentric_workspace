@@ -133,7 +133,8 @@ def check_order_log(order_log_name, raw_shop_id=None):
         rule_code = hit["rule_code"]
         line.check_result = CHECK_RESULT_LABEL[rule_code]
         # G1.1: two-tier - one immutable Occurrence per order line (evidence) +
-        # an upserted Case (EC Alert) per brand+sku+rule that KAM works.
+        # an upserted Case (EC Alert) per brand+platform+shop+sku+rule
+        # (platform/shop added 2026-06-11 - case grouping fix).
         occ_name, created, case_name = _record_price_violation(
             log, line, rule_code, hit, price, ev, policy, base, confidence, level)
         s["alerts_created" if created else "alerts_deduped"] += 1
@@ -213,7 +214,7 @@ def _brand_price_flags(brand):
 def _record_price_violation(log, line, rule_code, hit, price, ev, policy, base,
                             confidence, level):
     """Insert one immutable EC Alert Occurrence (per order line) and upsert its
-    Case (EC Alert per brand+sku+rule while open). Returns
+    Case (EC Alert per brand+platform+shop+sku+rule while open). Returns
     (occurrence_name, created_bool, case_name). Re-pull of the same line is a
     no-op (occurrence dedupe) and does NOT touch a resolved Case."""
     occ_key = dedupe_keys.occurrence_key(
@@ -265,16 +266,21 @@ def _record_price_violation(log, line, rule_code, hit, price, ev, policy, base,
 
 def _find_or_create_case(log, line, rule_code, hit, price, ev, policy, base,
                          confidence, level):
-    """One open Case per brand+seller_sku+rule_code. Returns (name, created)."""
+    """One open Case per brand+PLATFORM+SHOP+seller_sku+rule_code.
+    Returns (name, created).
+
+    FIXED 2026-06-11: lookup and key now include platform + shop. The old
+    brand+sku+rule grouping attached Lazada occurrences to an open Shopee
+    case (EC-AL-000708). Existing mixed cases: api_repair.repair_case_grouping."""
     open_case = frappe.db.get_value("EC Alert", {
-        "brand": log.brand, "seller_sku": line.seller_sku, "rule_code": rule_code,
+        "brand": log.brand, "platform": log.platform, "shop": log.shop,
+        "seller_sku": line.seller_sku, "rule_code": rule_code,
         "status": ["in", ["Open", "In Review"]]}, "name")
     if open_case:
         return open_case, False
-    case_key = dedupe_keys._fit("case|%s|%s|%s|%s|%s" % (
-        dedupe_keys._s(log.brand), dedupe_keys._s(line.seller_sku),
-        dedupe_keys._s(rule_code), dedupe_keys._s(log.external_order_id),
-        dedupe_keys._s(line.external_line_id)))
+    case_key = dedupe_keys.case_key(
+        log.brand, log.platform, log.shop, line.seller_sku, rule_code,
+        log.external_order_id, line.external_line_id)
     doc = frappe.get_doc({
         "doctype": "EC Alert",
         "alert_type": ALERT_TYPE[rule_code],
