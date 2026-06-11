@@ -118,7 +118,7 @@ class TestApiOmisellSourceWiring(unittest.TestCase):
         self.assertIn("prev if (prev and prev > t) else t", self.src)
         self.assertIn("def _overlap_minutes():", self.src)
         self.assertIn("requested_from - timedelta(minutes=overlap)", self.src)
-        self.assertIn("chunk_windows(start, end, max_chunks=eff_chunks)", self.src)
+        self.assertIn("chunk_windows(start, end, chunk_seconds=cs, max_chunks=eff_chunks)", self.src)
         self.assertIn("MAX_OVERLAP_CHUNKS = 12", self.src)
 
     def test_diagnostic_fields_in_run_summary(self):
