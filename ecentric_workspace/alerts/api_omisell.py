@@ -19,7 +19,6 @@ from ecentric_workspace.alerts.services import omisell_normalizer as norm
 from ecentric_workspace.alerts.services.omisell_client import (
     OmisellAuthError, OmisellClient, OmisellError, sanitize)
 from ecentric_workspace.alerts.services.time_windows import epoch_in_tz, utc_str
-from ecentric_workspace.alerts.services import pull_planner
 
 MAX_WINDOW_SECONDS = 3600  # hard MVP guard on pull_orders
 MAX_LIST_PAGES = 20
@@ -27,11 +26,6 @@ MAX_LIST_PAGES = 20
 MAX_DETAILS_PER_RUN = 300        # per-run order-detail cap (config-tunable)
 MAX_CHUNKS_PER_RUN = 4           # catch-up chunks (<=1h each) per pull_recent run
 MAX_OVERLAP_CHUNKS = 12          # hard cap when the overlap re-scan widens the window
-# Catch-up fix 2026-06-12: the per-run work cap is a SPAN (12h - what the old
-# "12 chunks x 1h" cap really meant), NOT a chunk count. With adaptive 30m
-# chunks a fixed count of 12 covered only 6h = the overlap itself, so a stale
-# checkpoint could never reach `now` (LOF-VN incident).
-MAX_CATCHUP_SPAN_SECONDS = MAX_OVERLAP_CHUNKS * MAX_WINDOW_SECONDS  # 12h
 CIRCUIT_BREAKER_LIMIT = 3        # consecutive failed runs -> brand refused
 # Hotfix 2026-06-09 (bench 502 incident): client pacing (~1s/call) x hundreds
 # of detail GETs cannot run inside a synchronous web request (gunicorn worker
@@ -546,13 +540,9 @@ def pull_recent_job(brand, max_chunks=MAX_CHUNKS_PER_RUN):
         # monotonic guard pin the checkpoint. Bounded by MAX_OVERLAP_CHUNKS to
         # cap work (empty windows are ~1 cheap list call each).
         cs = _chunk_seconds(brand)
-        # Catch-up fix 2026-06-12: span-based planning (pure, tested in
-        # services/pull_planner.py). required = ceil(window/cs); cap = 12h
-        # of span regardless of chunk size; truncation is REPORTED, never
-        # silently dressed up as caught_up.
-        p = pull_planner.plan(start, end, cs, int(max_chunks),
-                              MAX_CATCHUP_SPAN_SECONDS)
-        chunks = p["chunks"]
+        span_chunks = int((end - start).total_seconds() // cs) + 1
+        eff_chunks = min(max(int(max_chunks), span_chunks), MAX_OVERLAP_CHUNKS)
+        chunks = chunk_windows(start, end, chunk_seconds=cs, max_chunks=eff_chunks)
         # TZ-FIX 2026-06-10 diagnostics: the exact epochs the run will send
         # and their UTC read-back, so pull_status proves windows are correct
         # (utc_from should equal site time minus the site-tz offset, -7h).
@@ -564,12 +554,9 @@ def pull_recent_job(brand, max_chunks=MAX_CHUNKS_PER_RUN):
                     "utc_to": utc_str(_to_epoch(end)),
                     "site_time_zone": _site_timezone(),
                     "chunk_seconds": cs,
-                    "required_chunks": p["required_chunks"],
-                    "planned_to": str(p["planned_end"]),
                     "from": str(start), "to": str(end),
                     "chunks_planned": len(chunks)})
         budget_per_chunk = JOB_TIME_BUDGET / max(len(chunks), 1)
-        last_end = None  # end of the last fully successful chunk
         for cf, ct in chunks:
             try:
                 s = pull_orders(brand, str(cf), str(ct), time_budget=budget_per_chunk)
@@ -602,7 +589,6 @@ def pull_recent_job(brand, max_chunks=MAX_CHUNKS_PER_RUN):
                 run["stopped"] = "chunk incomplete (failed/capped/timeboxed) - checkpoint holds"
                 break
             run["chunks_done"] += 1
-            last_end = ct  # checkpoint advanced to here (monotonic, inside pull_orders)
         # run-level rollup of what the order-list API actually returned (for
         # pull_status visibility / verifying the overlap caught the order)
         seen = []
@@ -612,18 +598,8 @@ def pull_recent_job(brand, max_chunks=MAX_CHUNKS_PER_RUN):
                     seen.append(n)
         run["listed_order_numbers"] = seen
         run["listed_total"] = sum(int(s.get("listed") or 0) for s in run["summaries"])
-        # Catch-up fix 2026-06-12: caught_up ONLY when every planned chunk
-        # completed AND the plan actually reaches `to` (the old count-based
-        # check reported caught_up=true on a span-truncated plan).
-        done_all = run["chunks_done"] == len(chunks)
-        run["caught_up"] = bool(done_all and not p["truncated"])
-        if not run["caught_up"]:
-            nf = last_end or start
-            if p["truncated"]:
-                run["capped_at"] = len(chunks)
-            run["next_from"] = str(nf)
-            run["remaining_seconds"] = max(0, int((end - nf).total_seconds()))
-        run["state"] = "done" if run["caught_up"] else "done_partial"
+        run["caught_up"] = run["chunks_done"] == len(chunks)
+        run["state"] = "done"
     except Exception as e:
         run["state"] = "error"
         run["error"] = str(e)[:300]
