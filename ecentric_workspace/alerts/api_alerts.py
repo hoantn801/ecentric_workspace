@@ -52,6 +52,16 @@ def _scoped_filters(f, allowed):
     for k in ("status", "severity", "alert_type", "rule_code", "platform", "owner_user"):
         if f.get(k):
             flt.append([k, "=", f[k]])
+    if f.get("seller_sku"):
+        # UX polish 2026-06-10: EXACT match by default so P02056 never mixes
+        # with P02056X2; a '*' in the query opts into wildcard (like) matching.
+        # (Before this, the seller_sku filter key was silently ignored.)
+        v = str(f["seller_sku"]).strip()
+        if v:
+            if "*" in v:
+                flt.append(["seller_sku", "like", v.replace("*", "%")])
+            else:
+                flt.append(["seller_sku", "=", v])
     if f.get("from_date"):
         flt.append(["detected_at", ">=", f["from_date"]])
     if f.get("to_date"):
