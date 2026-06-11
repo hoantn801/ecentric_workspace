@@ -29,6 +29,20 @@ def occurrence_key(external_order_id, external_line_id, rule_code):
         _s(external_order_id), _s(external_line_id), _s(rule_code)))
 
 
+def case_key(brand, platform, shop, seller_sku, rule_code,
+             external_order_id, external_line_id):
+    """G1.1 Case identity - FIXED 2026-06-11: now includes platform + shop.
+
+    Bug: the original key (and the open-case lookup) grouped by
+    brand+sku+rule only, so a Lazada occurrence attached to an open Shopee
+    case (EC-AL-000708). One open Case per
+    brand+platform+shop+seller_sku+rule_code; first order/line make the key
+    unique across case generations of the same scope."""
+    return _fit("case|%s|%s|%s|%s|%s|%s|%s" % (
+        _s(brand), _s(platform), _s(shop), _s(seller_sku), _s(rule_code),
+        _s(external_order_id), _s(external_line_id)))
+
+
 def missing_policy_key(brand, platform, shop, seller_sku, yyyymmdd, external_product_id=None):
     if external_product_id:
         return _fit("omisell|%s|%s|%s|%s|%s|missing_policy|%s" % (
