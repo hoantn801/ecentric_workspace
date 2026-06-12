@@ -108,6 +108,14 @@ class OmisellClient:
         return self._request(
             "GET", "/api/v2/public/order/%s" % str(omisell_order_number).strip())
 
+    def get_catalogues(self, page=1, page_size=50):
+        """G2.2 (2026-06-12): catalogue list - the per-shop SKU source of
+        truth (includes platform/shop_id/status/external_id/images/variants).
+        READ-ONLY like everything else behind the GET chokepoint. Path
+        confirmed live by the G2.2 probe on FES-VN + LOF-VN."""
+        return self._request("GET", "/api/v2/public/catalogue/list",
+                             params={"page": page, "page_size": page_size})
+
     # ----- auth --------------------------------------------------------------
     def _auth_scheme(self):
         return frappe.conf.get("ec_alerts_omisell_auth_scheme") or "Omi"
