@@ -451,10 +451,16 @@ def pull_recent(brand, max_chunks=None):
                        "Check pull_status.").format(brand))
     cache.set_value(_running_key(brand), now_datetime().isoformat(),
                     expires_in_sec=RUNNING_FLAG_TTL)
-    job = frappe.enqueue(
-        "ecentric_workspace.alerts.api_omisell.pull_recent_job",
-        queue="long", timeout=JOB_RQ_TIMEOUT, job_name="omisell_pull_%s" % brand,
-        brand=brand, max_chunks=int(max_chunks or MAX_CHUNKS_PER_RUN))
+    try:
+        job = frappe.enqueue(
+            "ecentric_workspace.alerts.api_omisell.pull_recent_job",
+            queue="long", timeout=JOB_RQ_TIMEOUT, job_name="omisell_pull_%s" % brand,
+            brand=brand, max_chunks=int(max_chunks or MAX_CHUNKS_PER_RUN))
+    except Exception:
+        # Hotfix 2026-06-12: a failed enqueue must not leave the brand locked
+        # for RUNNING_FLAG_TTL (the job's own finally never runs in that case).
+        cache.delete_value(_running_key(brand))
+        raise
     return {"queued": True, "brand": brand,
             "job_id": getattr(job, "id", None),
             "note": "Background job started. Poll "
@@ -519,7 +525,25 @@ def pull_recent_job(brand, max_chunks=MAX_CHUNKS_PER_RUN):
                     "chunks_planned": len(chunks)})
         budget_per_chunk = JOB_TIME_BUDGET / max(len(chunks), 1)
         for cf, ct in chunks:
-            s = pull_orders(brand, str(cf), str(ct), time_budget=budget_per_chunk)
+            try:
+                s = pull_orders(brand, str(cf), str(ct), time_budget=budget_per_chunk)
+            except Exception as e:
+                # Hotfix 2026-06-12: classify + record the failed chunk so
+                # pull_status is actionable. Checkpoint of COMPLETED chunks is
+                # already saved inside pull_orders - re-raise lets the outer
+                # handler set state=error; the finally block clears the lock;
+                # the NEXT run resumes from last_sync_at - overlap.
+                msg = str(e)
+                low = msg.lower()
+                run["failed_chunk_window"] = [str(cf), str(ct)]
+                run["timeout"] = ("timeout" in low or "timed out" in low)
+                run["failed_stage"] = ("list" if "Order list failed" in msg
+                                       else "auth" if "Auth" in msg
+                                       else "detail" if "Order fetch" in msg
+                                       else "other")
+                run["stopped"] = ("chunk raised - checkpoint holds at last "
+                                  "successful chunk")
+                raise
             run["summaries"].append({k: s.get(k) for k in
                                      ("window", "epoch_window", "utc_window",
                                       "listed", "ingested", "skipped_status",
