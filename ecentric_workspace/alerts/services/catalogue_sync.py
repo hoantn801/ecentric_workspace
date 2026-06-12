@@ -148,6 +148,58 @@ def build_note(row, price_confidence):
                       ensure_ascii=True)[:NOTE_MAX]
 
 
+# --- confirm/preview param resolution (PURE; hotfix 2026-06-12) -------------
+# Bad Gateway root cause: confirm defaulted to 40 pages and silently IGNORED
+# caller cap params sent under alias names (pages_requested / row_cap /
+# limit) - a heavy synchronous run blew the gunicorn timeout. All alias
+# resolution + clamping is pure and unit-tested here.
+CONFIRM_DEFAULT_PAGES = 2
+CONFIRM_DEFAULT_ROWS = 300
+CONFIRM_MAX_PAGES_SYNC = 5      # hard sync cap unless allow_heavy=1 (SM)
+CONFIRM_MAX_PAGES_HEAVY = 40
+CONFIRM_MAX_ROWS = 5000
+PAGE_SIZE_DEFAULT = 50
+PAGE_SIZE_MAX = 100
+TRUTHY = ("1", "true", "yes", "on")
+
+
+def _first(*vals):
+    for v in vals:
+        if v not in (None, ""):
+            return v
+    return None
+
+
+def _toint(v, default):
+    try:
+        return int(float(v))
+    except (TypeError, ValueError):
+        return default
+
+
+def resolve_confirm_params(pages=None, max_pages=None, pages_requested=None,
+                           page_size=None, max_rows=None, row_cap=None,
+                           limit=None, start_page=None, allow_heavy=0):
+    """Honor ALL caller aliases, clamp to sync-safe bounds, echo effective
+    values. pages aliases: pages|max_pages|pages_requested (default 2,
+    hard <=5 unless allow_heavy). rows aliases: max_rows|row_cap|limit
+    (default 300, hard <=5000)."""
+    heavy = str(allow_heavy).strip().lower() in TRUTHY
+    req_pages = _toint(_first(pages, max_pages, pages_requested),
+                       CONFIRM_DEFAULT_PAGES)
+    pages_cap = CONFIRM_MAX_PAGES_HEAVY if heavy else CONFIRM_MAX_PAGES_SYNC
+    return {
+        "effective_pages_requested": max(1, min(req_pages, pages_cap)),
+        "effective_page_size": max(1, min(_toint(page_size, PAGE_SIZE_DEFAULT),
+                                          PAGE_SIZE_MAX)),
+        "effective_row_cap": max(1, min(_toint(_first(max_rows, row_cap, limit),
+                                               CONFIRM_DEFAULT_ROWS),
+                                        CONFIRM_MAX_ROWS)),
+        "start_page": max(1, _toint(start_page, 1)),
+        "allow_heavy": heavy,
+    }
+
+
 def row_hash(row):
     raw = "|".join(_s(row.get(k)) for k in (
         "seller_sku", "product_name", "price", "price_sale", "image_url",
