@@ -99,10 +99,21 @@ class TestNormalizeFlatten(unittest.TestCase):
         self.assertTrue(all(r["is_variant"] for r in rows))
 
     def test_platform_normalization(self):
-        for raw, want in (("shopee", "Shopee"), ("Lazada", "Lazada"),
-                          ("TIKTOK", "TikTok"), ("amazon", "Other"),
-                          ("", "Other"), (None, "Other")):
-            self.assertEqual(cs.norm_platform(raw), want)
+        """Blocker fix 2026-06-12: FES preview had platform_raw='shopee_v2'
+        normalized to 'Other'. Aliases/prefixes must map to the Select value."""
+        for raw, want in (("shopee", "Shopee"), ("shopee_v2", "Shopee"),
+                          ("shopee-v2", "Shopee"), ("SHOPEE_V2", "Shopee"),
+                          ("Lazada", "Lazada"), ("lazada_v2", "Lazada"),
+                          ("TIKTOK", "TikTok"), ("tiktok_shop", "TikTok"),
+                          ("tiktok-v2", "TikTok"),
+                          ("amazon", "Other"), ("", "Other"), (None, "Other")):
+            self.assertEqual(cs.norm_platform(raw), want, raw)
+
+    def test_platform_v2_rows_normalize_in_full_row(self):
+        raw = dict(RAW, platform="shopee_v2")
+        rows = cs.normalize_catalogue(raw)
+        self.assertTrue(all(r["platform"] == "Shopee" for r in rows))
+        self.assertTrue(all(r["platform_raw"] == "shopee_v2" for r in rows))
 
 
 class TestShopScopedKeys(unittest.TestCase):

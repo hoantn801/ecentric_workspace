@@ -23,7 +23,12 @@ note JSON carries src='catalogue/list').
 import hashlib
 import json
 
-PLATFORM_MAP = {"shopee": "Shopee", "lazada": "Lazada", "tiktok": "TikTok"}
+# Platform aliases (blocker fix 2026-06-12: FES preview returned
+# platform_raw='shopee_v2' -> wrongly normalized to 'Other'). Matching is
+# prefix-based on the lowercased, '-'->'_' form, so shopee / shopee_v2 /
+# shopee-v2 / lazada_v2 / tiktok_shop all map correctly.
+PLATFORM_PREFIXES = (("shopee", "Shopee"), ("lazada", "Lazada"),
+                     ("tiktok", "TikTok"))
 PRICE_TOLERANCE = 0.005          # 0.5% relative tolerance for "match"
 NOTE_MAX = 1200
 IMAGE_URL_MAX = 300
@@ -41,7 +46,11 @@ def _f(v):
 
 
 def norm_platform(raw):
-    return PLATFORM_MAP.get(_s(raw).lower(), "Other")
+    v = _s(raw).lower().replace("-", "_")
+    for prefix, name in PLATFORM_PREFIXES:
+        if v.startswith(prefix):
+            return name
+    return "Other"
 
 
 def compare_price(catalogue_price, order_rsp, tolerance=PRICE_TOLERANCE):
