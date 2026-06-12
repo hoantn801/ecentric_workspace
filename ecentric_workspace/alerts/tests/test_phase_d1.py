@@ -47,7 +47,10 @@ class TestChunker(unittest.TestCase):
         from ecentric_workspace.alerts.services import omisell_client as oc
         self.assertEqual(oc.ALLOWED_METHODS, frozenset({"GET"}))
         public = [n for n in dir(oc.OmisellClient) if not n.startswith("_")]
-        self.assertEqual(sorted(public), ["get_order_detail", "get_orders", "get_shops"])
+        # G2.2 2026-06-12: +get_catalogues (READ-ONLY catalogue list). The
+        # surface stays a frozen contract - update deliberately, never ad hoc.
+        self.assertEqual(sorted(public), ["get_catalogues", "get_order_detail",
+                                          "get_orders", "get_shops"])
 
 
 class TestPullSafety(unittest.TestCase):
