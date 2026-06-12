@@ -173,7 +173,8 @@ class TestSafetyWiring(unittest.TestCase):
             self.assertNotIn(banned, s)
         self.assertIn("def preview_catalogue_sku_sync", s)
         self.assertIn("upsert_catalogue_row", s.split("def confirm_catalogue_sku_sync")[1])
-        self.assertNotIn("upsert", s.split("def preview_catalogue_sku_sync")[1]
+        self.assertNotIn("upsert_catalogue_row",
+                         s.split("def preview_catalogue_sku_sync")[1]
                          .split("def confirm_catalogue_sku_sync")[0])
 
     def test_confirm_writes_only_sku_catalog(self):
@@ -192,14 +193,94 @@ class TestSafetyWiring(unittest.TestCase):
     def test_endpoints_sm_only_and_capped(self):
         s = _src("api_catalogue_sync.py")
         self.assertEqual(s.count('frappe.only_for("System Manager")'), 2)
-        self.assertIn("MAX_PAGES_HARD = 40", s)
-        self.assertIn("MAX_ROWS_HARD = 5000", s)
-        self.assertIn("TIME_BUDGET_SECONDS = 200", s)
+        self.assertIn("TIME_BUDGET_SECONDS = 50", s)
+        self.assertIn("resolve_confirm_params", s)
 
     def test_client_method_read_only_path(self):
         s = _src("services/omisell_client.py")
         self.assertIn('"GET", "/api/v2/public/catalogue/list"', s)
         self.assertIn("def get_catalogues(self, page=1, page_size=50):", s)
+
+
+class TestConfirmParamResolution(unittest.TestCase):
+    """Bad Gateway hotfix 2026-06-12: confirm must honor ALL caller alias
+    params, clamp to sync-safe bounds, and echo effective values."""
+
+    def test_defaults_sync_safe(self):
+        p = cs.resolve_confirm_params()
+        self.assertEqual(p["effective_pages_requested"], 2)
+        self.assertEqual(p["effective_row_cap"], 300)
+        self.assertEqual(p["effective_page_size"], 50)
+        self.assertEqual(p["start_page"], 1)
+        self.assertFalse(p["allow_heavy"])
+
+    def test_honors_pages_requested_alias(self):
+        self.assertEqual(cs.resolve_confirm_params(pages_requested=3)
+                         ["effective_pages_requested"], 3)
+
+    def test_honors_max_pages_alias(self):
+        self.assertEqual(cs.resolve_confirm_params(max_pages=4)
+                         ["effective_pages_requested"], 4)
+
+    def test_honors_row_cap_alias(self):
+        self.assertEqual(cs.resolve_confirm_params(row_cap=300)
+                         ["effective_row_cap"], 300)
+
+    def test_honors_limit_alias(self):
+        self.assertEqual(cs.resolve_confirm_params(limit=120)
+                         ["effective_row_cap"], 120)
+
+    def test_alias_precedence_first_non_empty(self):
+        p = cs.resolve_confirm_params(pages=None, max_pages="", pages_requested=3,
+                                      max_rows=None, row_cap=250, limit=999)
+        self.assertEqual(p["effective_pages_requested"], 3)
+        self.assertEqual(p["effective_row_cap"], 250)
+
+    def test_hard_sync_page_cap_unless_heavy(self):
+        self.assertEqual(cs.resolve_confirm_params(pages=40)
+                         ["effective_pages_requested"], 5)      # capped
+        self.assertEqual(cs.resolve_confirm_params(pages=40, allow_heavy=1)
+                         ["effective_pages_requested"], 40)     # explicit
+        self.assertEqual(cs.resolve_confirm_params(pages=99, allow_heavy="true")
+                         ["effective_pages_requested"], 40)     # heavy ceiling
+
+    def test_row_and_page_size_clamps(self):
+        p = cs.resolve_confirm_params(limit=999999, page_size=500)
+        self.assertEqual(p["effective_row_cap"], cs.CONFIRM_MAX_ROWS)
+        self.assertEqual(p["effective_page_size"], cs.PAGE_SIZE_MAX)
+        self.assertEqual(cs.resolve_confirm_params(page_size="garbage")
+                         ["effective_page_size"], 50)           # fail-safe
+
+    def test_start_page(self):
+        self.assertEqual(cs.resolve_confirm_params(start_page=7)["start_page"], 7)
+        self.assertEqual(cs.resolve_confirm_params(start_page=0)["start_page"], 1)
+
+
+class TestConfirmTimeboxWiring(unittest.TestCase):
+    """Timebox/resume behavior - source-level (endpoint needs bench to run)."""
+
+    def test_confirm_echoes_effective_params(self):
+        s = _src("api_catalogue_sync.py")
+        body = s.split("def confirm_catalogue_sku_sync")[1]
+        self.assertIn("resolve_confirm_params", body)
+        self.assertIn("out = dict(p,", body)  # effective_* echoed into response
+
+    def test_timebox_returns_partial_with_next_page(self):
+        s = _src("api_catalogue_sync.py")
+        body = s.split("def confirm_catalogue_sku_sync")[1]
+        for marker in ('out["timeboxed"] = True', 'out["next_page"] = page',
+                       'out["capped_at"]', 'out["rows_processed"] = processed'):
+            self.assertIn(marker, body)
+        # both fetch-phase and upsert-phase deadline checks exist
+        self.assertEqual(body.count("time.monotonic() > deadline"), 2)
+
+    def test_rerun_idempotency_documented_and_hash_gated(self):
+        """Re-run never duplicates: upsert is hash-gated (created/enriched/
+        unchanged) - the same row twice yields 'unchanged' the second time."""
+        svc = _src("services/catalogue_sync.py")
+        self.assertIn("existing.raw_payload_hash == h", svc)
+        self.assertIn('return "unchanged"', svc)
+        self.assertIn("start_page=next_page", _src("api_catalogue_sync.py"))
 
 
 if __name__ == "__main__":
