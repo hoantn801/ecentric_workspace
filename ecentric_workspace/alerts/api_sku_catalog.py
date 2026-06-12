@@ -44,26 +44,71 @@ def list_sku_catalog(filters=None, start=0, page_len=50):
     return {"rows": rows, "total": frappe.db.count("EC Marketplace SKU Catalog", filters=flt)}
 
 
+def resolve_search_query(q=None, query=None, search=None, keyword=None):
+    """PURE: first non-empty of the supported query aliases, stripped.
+    Fix 2026-06-12: callers sent `q=` which the old signature silently
+    ignored -> the endpoint returned unrelated top-N brand rows."""
+    for v in (q, query, search, keyword):
+        if v not in (None, ""):
+            s = str(v).strip()
+            if s:
+                return s
+    return ""
+
+
+def rank_sku_match(q, seller_sku, product_name):
+    """PURE ranking (case-insensitive, LITERAL containment - no SQL
+    wildcards): 0 = exact seller_sku, 1 = seller_sku contains q,
+    2 = product_name contains q, 3 = no match (row must be dropped)."""
+    ql = (q or "").strip().lower()
+    if not ql:
+        return 3
+    sku = (seller_sku or "").strip().lower()
+    if sku == ql:
+        return 0
+    if ql in sku:
+        return 1
+    if ql in (product_name or "").strip().lower():
+        return 2
+    return 3
+
+
 @frappe.whitelist()
-def search_skus(brand, platform=None, shop=None, keyword="", limit=20):
+def search_skus(brand, platform=None, shop=None, keyword="", limit=20,
+                q=None, query=None, search=None):
     """Powers the policy-drawer SKU autofill. Brand-scoped. Matches seller_sku
-    OR product_name."""
+    OR product_name.
+
+    Fix 2026-06-12 (LOF GBS_LOF_8936025777042-48 incident): honors
+    q/query/search/keyword aliases; exact seller_sku ranks first, then
+    partial-SKU, then product-name; literal-containment re-check drops SQL
+    LIKE wildcard false hits (q often contains '_'); no match -> empty rows,
+    never unrelated brand rows."""
     perms.require_brand_access(frappe.session.user, brand)
     flt = [["brand", "=", brand], ["is_active", "=", 1]]
     if platform and platform != "All":
         flt.append(["platform", "=", platform])
     if shop:
         flt.append(["shop", "=", shop])
-    kw = (keyword or "").strip()
+    kw = resolve_search_query(q, query, search, keyword)
     or_filters = None
+    lim = min(cint(limit) or 20, 50)
+    fetch_len = lim
     if kw:
-        or_filters = [["seller_sku", "like", "%%%s%%" % kw],
-                      ["product_name", "like", "%%%s%%" % kw]]
+        like = "%" + kw + "%"
+        or_filters = [["seller_sku", "like", like],
+                      ["product_name", "like", like]]
+        fetch_len = min(lim * 3, 150)  # headroom so ranking can promote
     rows = frappe.get_all(
         "EC Marketplace SKU Catalog", filters=flt, or_filters=or_filters,
         fields=["seller_sku", "product_name", "rsp_price", "platform", "shop",
                 "omisell_shop_id", "source_level"],
-        order_by="last_seen_at desc", page_length=min(cint(limit) or 20, 50))
+        order_by="last_seen_at desc", page_length=fetch_len)
+    if kw:
+        ranked = [(rank_sku_match(kw, r.get("seller_sku"), r.get("product_name")), i, r)
+                  for i, r in enumerate(rows)]
+        rows = [r for rank, _i, r in sorted(
+            (t for t in ranked if t[0] < 3), key=lambda t: (t[0], t[1]))][:lim]
     return {"rows": rows}
 
 
