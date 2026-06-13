@@ -15,6 +15,7 @@ from frappe.utils import get_datetime, now_datetime, nowdate
 
 from ecentric_workspace.alerts.services import action_queue, ingestion
 from ecentric_workspace.alerts.services import brand_resolver, dedupe_keys
+from ecentric_workspace.alerts.services import order_retry
 from ecentric_workspace.alerts.services import omisell_normalizer as norm
 from ecentric_workspace.alerts.services.omisell_client import (
     OmisellAuthError, OmisellClient, OmisellError, sanitize)
@@ -329,7 +330,11 @@ def pull_orders(brand, updated_from, updated_to, time_budget=None):
                "utc_window": [utc_str(f_ts), utc_str(t_ts)], "listed": 0,
                "ingested": 0, "skipped_status": 0, "skipped_status_detail": {},
                "failed": 0, "failed_order_numbers": [], "failed_error_summary": {},
+               "queued_for_retry": 0, "unqueued_failures": 0,
                "listed_order_numbers": [], "skipped_manual": [], "results": []}
+    # Hotfix B: a failure that is durably QUEUED for retry does not block the
+    # checkpoint or the breaker; only UNQUEUED (auth/persist/system) ones do.
+    unqueued = []
     headers, page = [], 1
     try:
         while page <= MAX_LIST_PAGES:
@@ -381,16 +386,25 @@ def pull_orders(brand, updated_from, updated_to, time_budget=None):
         try:
             detail = (client.get_order_detail(number) or {}).get("data") or {}
         except OmisellAuthError as e:
+            # credential failure (survives Hotfix A auth retries) = SYSTEM-level
+            # -> unqueued, hold checkpoint + open breaker, stop the chunk.
             summary["failed"] += 1
             summary["failed_order_numbers"].append(number)
             summary["failed_error_summary"][str(number)] = ("auth: %s" % e)[:140]
             _auth_failure(bis, brand)
+            unqueued.append(number)
             break
         except OmisellError as e:
+            # transient detail failure (timeout/5xx after client retries) ->
+            # durably QUEUE for targeted retry; chunk may still complete.
             summary["failed"] += 1
             summary["failed_order_numbers"].append(number)
             summary["failed_error_summary"][str(number)] = str(e)[:140]
             frappe.log_error(str(e), "alerts.omisell.pull_orders %s" % number)
+            if order_retry.upsert(brand, number, e):
+                summary["queued_for_retry"] += 1
+            else:
+                unqueued.append(number)   # persistence failed -> system-level
             continue
         o = norm.normalize_order_detail(detail)
         real, reason = norm.is_real_sale(o.get("_status_id"), o.get("_status_name"))
@@ -410,24 +424,34 @@ def pull_orders(brand, updated_from, updated_to, time_budget=None):
                 num = r.get("external_order_id") or r.get("order")
                 summary["failed_order_numbers"].append(num)
                 summary["failed_error_summary"][str(num)] = "ingest_%s (see Error Log)" % r.get("status")
+                if order_retry.upsert(brand, num, "ingest_%s" % r.get("status")):
+                    summary["queued_for_retry"] += 1
+                else:
+                    unqueued.append(num)
         summary["action_queue"] = action_queue.process_pending_actions()
     summary["elapsed_seconds"] = round(time.monotonic() - t0, 1)
-    if summary["failed"] == 0 and not summary.get("capped_at") and not summary.get("timeboxed"):
+    summary["unqueued_failures"] = len(unqueued)
+    # CHECKPOINT (Hotfix B): advance when every failed order is durably QUEUED
+    # for retry (unqueued == 0) and the window was not capped/timeboxed.
+    # cap/timebox still hold (unchanged - later scalability hardening).
+    if len(unqueued) == 0 and not summary.get("capped_at") and not summary.get("timeboxed"):
         bis.reload()
-        # MONOTONIC checkpoint (overlap hotfix 2026-06-10): never move
-        # last_sync_at backward. The scheduled pull re-scans
-        # [last_sync_at - overlap, now]; an overlap/re-scan chunk that ends in
-        # already-checkpointed time must NOT regress the checkpoint.
+        # MONOTONIC checkpoint: never move last_sync_at backward.
         prev = get_datetime(bis.last_sync_at) if bis.last_sync_at else None
         bis.last_sync_at = prev if (prev and prev > t) else t
         bis.save(ignore_permissions=True)
         summary["last_sync_at_advanced"] = True
         summary["checkpoint_held"] = bool(prev and prev > t)
+        # a chunk whose only failures were durably queued is a SUCCESSFUL chunk
         _breaker_record(bis, success=True)
     else:
-        if summary["failed"]:
+        # BREAKER (Hotfix B): only UNQUEUED (auth/persist/system) failures count;
+        # a purely capped/timeboxed chunk (no unqueued) holds but does NOT open
+        # the breaker (unchanged).
+        if unqueued:
             _ingestion_failure_alert(
-                brand, "%d failures in window %s..%s" % (summary["failed"], f, t),
+                brand, "%d UNQUEUED failures in window %s..%s (queued=%d)" % (
+                    len(unqueued), f, t, summary["queued_for_retry"]),
                 context=summary)
             _breaker_record(bis, success=False)
         summary["last_sync_at_advanced"] = False

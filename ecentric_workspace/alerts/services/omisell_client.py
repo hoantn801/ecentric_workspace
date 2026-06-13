@@ -40,11 +40,30 @@ MIN_INTERVAL = 1.0        # seconds between calls (<=1 req/sec)
 BACKOFFS = (30, 60, 120)  # seconds, on HTTP 429
 BACKOFFS_5XX = (5, 15)    # bounded retry on Omisell server errors (hardening 2026-06-10)
 BACKOFFS_TIMEOUT = (2, 5)  # read/connect timeout retry, GET ONLY (hotfix 2026-06-12)
+# Hotfix A 2026-06-13 (LOF auth-POST zero-retry incident): the idempotent auth
+# token exchange gets its OWN bounded transient retry (timeout / connection /
+# 429 / 5xx) - NEVER for 400/401/403 credential rejection. 3 total attempts,
+# backoff 1s then 3s. Distinct from the long order 429 backoff (30/60/120).
+AUTH_MAX_ATTEMPTS = 3          # total tries incl. the first
+AUTH_BACKOFFS = (1, 3)        # seconds between the (<=2) retries
+DEFAULT_TOKEN_TTL_MIN = 30    # fallback token lifetime when Omisell omits expired_time
 # Hotfix 2026-06-12 (LOF repeated read timeouts at 30s): default read timeout
 # raised to 60s, tunable via site_config ec_alerts_omisell_read_timeout
 # (clamped 10..180). NOTE: TIMEOUT constant kept as fallback floor.
 DEFAULT_READ_TIMEOUT = 60
 TIMEOUT = 30  # legacy fallback floor - do not lower DEFAULT below this
+
+
+def token_ttl_minutes():
+    """Fallback token lifetime (minutes) when Omisell omits expired_time.
+    site_config ec_alerts_omisell_token_ttl_minutes; fail-safe 30."""
+    try:
+        v = frappe.conf.get("ec_alerts_omisell_token_ttl_minutes")
+        if v in (None, ""):
+            return DEFAULT_TOKEN_TTL_MIN
+        return max(1, int(float(v)))
+    except Exception:
+        return DEFAULT_TOKEN_TTL_MIN
 
 
 def read_timeout():
@@ -134,24 +153,43 @@ class OmisellClient:
         return {"Authorization": "Omi %s" % self._ensure_token(),
                 "Content-Type": "application/json"}
 
+    def _log_token(self, source):
+        """Token-source diagnostic (NO token / credential value ever logged)."""
+        try:
+            frappe.logger("alerts").info(
+                {"omisell_token_source": source, "bis": self.bis.name})
+        except Exception:
+            pass
+
     def _ensure_token(self):
+        """Reuse the DB-cached token while valid (exp > now + 2 min margin);
+        otherwise refresh. Within one client instance the refreshed token is
+        held on self.bis and reused by subsequent list/detail calls."""
         token = self.bis.get_password("token", raise_exception=False)
         exp = self.bis.token_expired_at
         if token and exp and get_datetime(exp) > add_to_date(now_datetime(), minutes=2):
+            self._log_token("reused_cached")
             return token
-        return self._authenticate()
+        if not token:
+            reason = "refreshed_missing_token"
+        elif not exp:
+            reason = "refreshed_missing_expiry"
+        else:
+            reason = "refreshed_expired"
+        return self._authenticate(reason)
 
-    def _authenticate(self):
+    def _authenticate(self, reason="refreshed"):
         api_key = self.bis.get_password("api_key", raise_exception=False)
         api_secret = self.bis.get_password("api_secret", raise_exception=False)
         if not api_key or not api_secret:
             raise OmisellAuthError(
                 _("api_key AND api_secret are required on {0} (official auth "
                   "contract: POST /api/v2/auth/token/get/).").format(self.bis.name))
+        # Hotfix A: bounded transient retry for the idempotent auth POST.
         payload = self._request("POST", self._auth_paths()[0],
                                 json_body={"api_key": api_key,
                                            "api_secret": api_secret},
-                                auth=False)
+                                auth=False, auth_retry=True)
         data = (payload or {}).get("data") or {}
         token = data.get("token")
         if not token:
@@ -159,11 +197,19 @@ class OmisellClient:
         self.bis.token = token
         if data.get("expired_time"):
             self.bis.token_expired_at = datetime.fromtimestamp(int(data["expired_time"]))
+            self._log_token(reason)
+        else:
+            # Omisell omitted expired_time -> persist a conservative fallback
+            # TTL so we do NOT re-auth on every request.
+            self.bis.token_expired_at = add_to_date(now_datetime(),
+                                                    minutes=token_ttl_minutes())
+            self._log_token("fallback_ttl_applied")
         self.bis.save(ignore_permissions=True)
         return token
 
     # ----- THE chokepoint -----------------------------------------------------
-    def _request(self, method, path, params=None, json_body=None, auth=True):
+    def _request(self, method, path, params=None, json_body=None, auth=True,
+                 auth_retry=False):
         method = (method or "").upper()
         if method not in ALLOWED_METHODS:
             is_auth_post = (method == "POST" and not auth and
@@ -179,33 +225,51 @@ class OmisellClient:
         attempt_429 = 0
         attempt_5xx = 0
         attempt_timeout = 0
+        auth_attempts = 0   # Hotfix A: ONE transient-retry budget for the auth POST
         while True:
             self._pace()
             try:
                 resp = requests.request(method, url, params=params, json=json_body,
                                         headers=headers, timeout=read_timeout())
             except (requests.Timeout, requests.ConnectionError) as e:
-                # Hotfix 2026-06-12 (LOF read-timeout incident): bounded retry
-                # (2s, 5s) for GET ONLY - GETs are read-only so a replay is
-                # always safe. Non-GET (the auth POST) is NEVER retried: a
-                # timed-out POST may have succeeded server-side.
+                # GET: read-only, safe to replay (2s, 5s). auth_retry: the
+                # idempotent auth POST retries transiently (1s, 3s; <=3 total).
                 if method == "GET" and attempt_timeout < len(BACKOFFS_TIMEOUT):
                     time.sleep(BACKOFFS_TIMEOUT[attempt_timeout])
                     attempt_timeout += 1
                     continue
+                if auth_retry and auth_attempts < AUTH_MAX_ATTEMPTS - 1:
+                    time.sleep(AUTH_BACKOFFS[min(auth_attempts, len(AUTH_BACKOFFS) - 1)])
+                    auth_attempts += 1
+                    continue
                 raise OmisellError(_("TIMEOUT on {0} {1} (after {2} retries, "
                                      "read_timeout={3}s): {4}").format(
-                    method, path, attempt_timeout, read_timeout(), str(e)[:120]))
+                    method, path, attempt_timeout + auth_attempts,
+                    read_timeout(), str(e)[:120]))
             self.last_rate_header = resp.headers.get(RATE_HEADER)
             if resp.status_code == 429:
+                # auth_retry uses the SHORT auth budget (not the 30/60/120 order
+                # schedule) so an unreachable token endpoint surfaces fast.
+                if auth_retry:
+                    if auth_attempts >= AUTH_MAX_ATTEMPTS - 1:
+                        raise OmisellError(_("Rate limited (429) on auth after retries: {0}").format(path))
+                    time.sleep(AUTH_BACKOFFS[min(auth_attempts, len(AUTH_BACKOFFS) - 1)])
+                    auth_attempts += 1
+                    continue
                 if attempt_429 >= len(BACKOFFS):
                     raise OmisellError(_("Rate limited (429) after retries: {0}").format(path))
                 time.sleep(BACKOFFS[attempt_429])
                 attempt_429 += 1
                 continue
             if resp.status_code >= 500:
+                if auth_retry:
+                    if auth_attempts >= AUTH_MAX_ATTEMPTS - 1:
+                        raise OmisellError(_("HTTP {0} on auth {1} (after {2} retries)").format(
+                            resp.status_code, path, auth_attempts))
+                    time.sleep(AUTH_BACKOFFS[min(auth_attempts, len(AUTH_BACKOFFS) - 1)])
+                    auth_attempts += 1
+                    continue
                 # transient server errors: bounded retry (5s, 15s) then surface
-                # with the retry count so alerts/logs are unambiguous
                 if attempt_5xx >= len(BACKOFFS_5XX):
                     raise OmisellError(_("HTTP {0} on {1} (after {2} retries)").format(
                         resp.status_code, path, attempt_5xx))

@@ -175,3 +175,22 @@ def can_manage_credentials(user=None):
 def can_execute_action(user=None):
     """Execute / retry / cancel EC Alert Action: System Manager only in MVP."""
     return is_global_supervisor(user)
+
+
+def can_manage_order_retry(user=None, brand=None):
+    """Hotfix B (2026-06-13): manual EC Order Retry actions (retry_now /
+    requeue). System Manager / Admin globally, else the brand's manager or
+    leader for that specific item's brand. KAM is read-only here (a stuck
+    sync is an ops/escalation action, not daily alert handling). Fail-safe:
+    unresolved brand role -> no access."""
+    if is_global_supervisor(user):
+        return True
+    if not brand:
+        return False
+    return get_brand_role(user, brand) in ("manager", "leader", "supervisor")
+
+
+def can_mark_order_retry_dead(user=None):
+    """Force an item to Dead (stop retrying): System Manager / Admin only -
+    it suppresses automated recovery, so it is the strongest manual action."""
+    return is_global_supervisor(user)

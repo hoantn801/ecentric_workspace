@@ -41,6 +41,13 @@ scheduler_events = {
     "cron": {
         "*/10 * * * *": [
             "ecentric_workspace.alerts.tasks.process_action_queue_job",
+            # Hotfix B (2026-06-13): durable failed-order retry. LIGHTWEIGHT cron
+            # = enqueue dispatcher only. Dispatcher finds brands with due items
+            # and enqueues <=1 per-brand worker (Redis brand lock); the worker
+            # atomically claims + re-pulls each item. Nothing is claimed in the
+            # cron/dispatcher (no item stuck Processing while only queued).
+            # Same kill switch ec_alerts_scheduler_disabled / ec_alerts_pull_disabled.
+            "ecentric_workspace.alerts.tasks.dispatch_order_retries",
         ],
         # Narrow Omisell pull scheduler (approved 2026-06-10): quadruple-gated
         # in tasks.scheduled_omisell_pull - runs nothing until site_config
