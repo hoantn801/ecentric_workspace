@@ -211,9 +211,17 @@ class TestApiOmisellWiring(unittest.TestCase):
             self.assertNotIn(banned, s)
 
     def test_failed_chunk_visibility_fields(self):
-        for field in ('"failed_chunk_window"', '"failed_stage"', '"timeout"'):
+        # Adaptive scalability (2026-06-14): the message-parsed per-chunk
+        # classification (failed_chunk_window/failed_stage/timeout) is SUPERSEDED
+        # by structured orchestrator telemetry. The run summary must still expose
+        # an explicit, actionable stop story even when the worker ends cleanly.
+        for field in ('"stop_reason"', '"checkpoint_advanced_to"',
+                      '"remaining_window"', '"split_depth"',
+                      '"subwindows_processed"', '"budget_exhausted"',
+                      '"minimum_window_capped"', '"parent_window"'):
             self.assertIn(field, self.src)
-        self.assertIn('"list" if "Order list failed"', self.src)
+        # caught_up is no longer "all chunks done" but progressive-checkpoint aware
+        self.assertIn('run["caught_up"] = (tele["stop_reason"] in (None', self.src)
 
     def test_checkpoint_monotonic_guard_intact(self):
         self.assertIn("prev if (prev and prev > t) else t", self.src)
