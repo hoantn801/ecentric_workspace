@@ -209,6 +209,39 @@ def row_hash(row):
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:32]
 
 
+# Phase 3 (2026-06-13): promoted catalogue metadata fields (real columns).
+# All are catalogue-sourced and overwrite-latest EXCEPT rsp_price (untouched -
+# order-derived priority). The original `note` JSON is kept unchanged.
+PROMOTED_FIELDS = ("image_url", "catalogue_price", "sale_price",
+                   "external_stock", "product_status", "catalogue_id",
+                   "parent_sku", "is_variant", "price_confidence",
+                   "last_catalogue_sync_at")
+
+
+def _int_or_none(v):
+    try:
+        return int(v) if v not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def promoted_values(row, confidence, now):
+    """Map a normalized catalogue row -> the 10 promoted DocType fields.
+    PURE (no frappe). rsp_price is intentionally NOT here."""
+    return {
+        "image_url": (row.get("image_url") or None),
+        "catalogue_price": row.get("price"),
+        "sale_price": row.get("price_sale"),
+        "external_stock": _int_or_none(row.get("external_stock")),
+        "product_status": (row.get("status_name") or row.get("status_raw") or None),
+        "catalogue_id": (row.get("catalogue_id") or None),
+        "parent_sku": (row.get("parent_sku") or None),
+        "is_variant": 1 if row.get("is_variant") else 0,
+        "price_confidence": confidence,
+        "last_catalogue_sync_at": now,
+    }
+
+
 # --------------------------- frappe side ------------------------------------
 
 def upsert_catalogue_row(brand, row):
@@ -259,14 +292,16 @@ def upsert_catalogue_row(brand, row):
         if not (existing.source_level == "order_derived" and existing.rsp_price):
             if row.get("price") is not None:
                 doc.rsp_price = row["price"]
-        doc.note = note
+        doc.note = note                 # original JSON kept (compat/audit)
+        for k, v in promoted_values(row, confidence, now).items():
+            setattr(doc, k, v)          # promoted fields overwrite-latest
         doc.last_seen_at = now
         doc.is_active = 1
         doc.status = "Active"
         doc.raw_payload_hash = h
-        doc.save(ignore_permissions=True)
+        doc.save(ignore_permissions=True)  # rsp_price NOT touched above
         return "enriched"
-    frappe.get_doc({
+    new_doc = {
         "doctype": "EC Marketplace SKU Catalog",
         "catalog_key": key, "brand": brand or None,
         "platform": row.get("platform"), "shop": shop,
@@ -277,5 +312,7 @@ def upsert_catalogue_row(brand, row):
         "source_system": "Omisell", "source_level": "omisell_product",
         "note": note, "first_seen_at": now, "last_seen_at": now,
         "is_active": 1, "status": "Active", "raw_payload_hash": h,
-    }).insert(ignore_permissions=True)
+    }
+    new_doc.update(promoted_values(row, confidence, now))
+    frappe.get_doc(new_doc).insert(ignore_permissions=True)
     return "created"

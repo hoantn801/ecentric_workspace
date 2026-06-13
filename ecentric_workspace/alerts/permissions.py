@@ -123,6 +123,14 @@ def can_handle_alert(user, brand):
     return get_brand_role(user, brand) in ("kam", "manager", "leader", "supervisor")
 
 
+def can_run_catalogue_sync(user, brand):
+    """Trigger a background catalogue sync for a brand (Phase 4, 2026-06-13):
+    KAM/Manager/Leader/Supervisor of the brand. KAM is limited to its assigned
+    brand by get_brand_role (brand-scoped). `force=1` (cooldown bypass) is a
+    SEPARATE check = is_global_supervisor only (see api_catalogue_sync)."""
+    return get_brand_role(user, brand) in ("kam", "manager", "leader", "supervisor")
+
+
 def can_cancel_case(user=None):
     """Cancel a case (decision D6, 2026-06-13): System Manager / Admin ONLY.
     KAM and Manager never cancel - Cancelled is for wrong/duplicate/invalid
