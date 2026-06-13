@@ -8,6 +8,7 @@ from frappe import _
 from frappe.model.document import Document
 
 from ecentric_workspace.alerts.services import case_lifecycle as cl
+from ecentric_workspace.alerts.services import case_todo
 
 
 class ECAlert(Document):
@@ -15,6 +16,22 @@ class ECAlert(Document):
         self._guard_no_reopen()
         self._guard_terminal_evidence_frozen()
         self._stamp_resolution()
+
+    # ----- Step 2: Frappe ToDo lifecycle (single chokepoint) ----------------
+    def after_insert(self):
+        # A new case (engine / legacy / repair-split / Desk) -> ensure its ToDo.
+        case_todo.sync_todo(self)
+
+    def on_update(self):
+        # Only sync when status or owner_user actually changed - NOT for
+        # occurrence_count / evidence-only updates (e.g. _bump_case). This also
+        # avoids needless work when assign_to touches _assign (recursion guard
+        # in case_todo is the hard stop; this is the cheap pre-check).
+        before = self.get_doc_before_save()
+        if before is None:
+            return
+        if before.status != self.status or before.get("owner_user") != self.get("owner_user"):
+            case_todo.sync_todo(self)
 
     # ----- lifecycle guards (defense-in-depth; APIs guard too) --------------
     def _guard_no_reopen(self):
