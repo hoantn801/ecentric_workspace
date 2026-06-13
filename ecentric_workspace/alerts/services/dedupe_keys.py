@@ -70,6 +70,14 @@ def missing_credential_key(brand, yyyymmdd):
     return _fit("omisell|%s|missing_integration_credential|%s" % (_s(brand), _s(yyyymmdd)))
 
 
+def min_window_capped_key(brand, window, cap, yyyymmdd):
+    """Adaptive pull (2026-06-14): per brand + stuck sub-window + cap + day, so a
+    minimum-width window that still exceeds cap raises ONE alert, not one per
+    scheduler cycle. `window` = '<epoch_from>_<epoch_to>' of the stuck leaf."""
+    return _fit("omisell|%s|min_window_capped|%s|%s|%s" % (
+        _s(brand), _s(window), _s(cap), _s(yyyymmdd)))
+
+
 def _s(v):
     return "" if v is None else str(v).strip()
 
