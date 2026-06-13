@@ -159,8 +159,8 @@ def _create_alert(log, line, rule_code, severity, dedupe_key, price, policy,
                   return_name=False):
     """Dedupe-then-insert. Existence of the dedupe_key (ANY status) blocks
     re-creation - the unique index enforces this anyway; Open/In Review is the
-    spec rule, and a Resolved alert for the same key means the same incident
-    was already handled (re-syncs must not reopen it)."""
+    spec rule, and a terminal (Closed/Ignored/Cancelled) alert for the same key
+    means the same incident was already handled (re-syncs must not reopen it)."""
     existing = frappe.db.get_value("EC Alert", {"dedupe_key": dedupe_key}, "name")
     if existing:
         return (existing, False) if return_name else False

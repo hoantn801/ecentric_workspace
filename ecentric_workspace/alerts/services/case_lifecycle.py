@@ -27,6 +27,12 @@ ALL_TERMINAL = TERMINAL_STATUSES + LEGACY_TERMINAL
 # Terminal statuses whose set_status requires a note/reason (server-enforced).
 NOTE_REQUIRED_STATUSES = ("Closed", "Ignored", "Cancelled")
 
+# "Completed/handled" for KAM-productivity KPIs (dashboard `resolved` card +
+# daily trend). Canonical = Closed; legacy Resolved counts DURING TRANSITION
+# (a half-migrated DB still reports correctly). Ignored is a SEPARATE metric.
+# Cancelled is EXCLUDED - wrong/duplicate/invalid cases never count as handled.
+COMPLETED_STATUSES = ("Closed",) + LEGACY_TERMINAL
+
 # KAM/Manager normal transitions (api_alerts.set_status). Cancelled is NOT
 # here - it is supervisor-only via a separate endpoint and never reopens.
 NORMAL_TRANSITIONS = {

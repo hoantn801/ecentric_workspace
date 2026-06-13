@@ -135,6 +135,71 @@ class TestGuardedPathsWired(unittest.TestCase):
         self.assertNotIn('"Resolved"', eng)
 
 
+class TestCompletedKpiClassification(unittest.TestCase):
+    """Blocker 1 (release gate 2026-06-13): dashboard completed-KPI must count
+    Closed AND legacy Resolved, keep Ignored separate, exclude Cancelled.
+    Proven on the canonical status set (deterministic, no DB needed)."""
+
+    def test_closed_counts_as_completed(self):
+        self.assertIn("Closed", cl.COMPLETED_STATUSES)
+
+    def test_legacy_resolved_counts_during_transition(self):
+        self.assertIn("Resolved", cl.COMPLETED_STATUSES)
+
+    def test_ignored_separate_from_completed(self):
+        self.assertNotIn("Ignored", cl.COMPLETED_STATUSES)
+
+    def test_cancelled_excluded_from_completed_kpi(self):
+        self.assertNotIn("Cancelled", cl.COMPLETED_STATUSES)
+
+    def test_active_not_completed(self):
+        for s in cl.ACTIVE_STATUSES:
+            self.assertNotIn(s, cl.COMPLETED_STATUSES)
+
+    def test_completed_set_exact(self):
+        self.assertEqual(set(cl.COMPLETED_STATUSES), {"Closed", "Resolved"})
+
+
+class TestDashboardWired(unittest.TestCase):
+    @property
+    def src(self):
+        return _src("api_dashboard.py")
+
+    def test_kpis_use_completed_set_not_resolved_literal(self):
+        s = self.src
+        self.assertIn("COMPLETED_STATUSES = list(cl.COMPLETED_STATUSES)", s)
+        kpis = s.split("def kpis")[1].split("def by_dimension")[0]
+        self.assertIn('["status", "in", COMPLETED_STATUSES]', kpis)
+        self.assertNotIn('"status", "=", "Resolved"', kpis)
+        # Cancelled never counted in the handled KPI (ignore comment lines)
+        code = "\n".join(ln.split("#", 1)[0] for ln in kpis.splitlines())
+        self.assertNotIn("Cancelled", code)
+
+    def test_trend_uses_completed_set(self):
+        body = self.src.split("def trend")[1].split("def hourly_trend")[0]
+        self.assertIn('["status", "in", COMPLETED_STATUSES]', body)
+        self.assertNotIn('"status", "=", "Resolved"', body)
+
+    def test_active_status_shared(self):
+        s = self.src
+        self.assertIn("ACTIVE_STATUSES = list(cl.ACTIVE_STATUSES)", s)
+        self.assertNotIn('["status", "in", ["Open", "In Review"]]', s)
+
+
+class TestStatusOptions(unittest.TestCase):
+    """Blocker 2: Resolved removed from the selectable Select options."""
+
+    def test_options_exact(self):
+        import json
+        path = os.path.join(os.path.dirname(__file__), "..",
+                            "doctype", "ec_alert", "ec_alert.json")
+        d = json.load(open(os.path.abspath(path), encoding="utf-8"))
+        opts = [f for f in d["fields"] if f["fieldname"] == "status"][0]["options"]
+        self.assertEqual(opts.split("\n"),
+                         ["Open", "In Review", "Closed", "Ignored", "Cancelled"])
+        self.assertNotIn("Resolved", opts)
+
+
 class TestPatchStatic(unittest.TestCase):
     def test_patch_idempotent_sql_and_count(self):
         s = _src("patches/p002_migrate_resolved_to_closed.py")
