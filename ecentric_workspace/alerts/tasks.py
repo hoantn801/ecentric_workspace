@@ -127,3 +127,121 @@ def process_action_queue_job():
         return action_queue.process_pending_actions()
     except Exception:
         frappe.log_error(frappe.get_traceback(), "alerts.tasks.process_action_queue_job")
+
+
+RETRY_DISPATCH_BUDGET = 360       # s; dispatcher total time budget (5-8 min)
+DISPATCH_MARKER_TTL = 120         # s; short-lived per-brand dispatch de-dupe
+
+
+def _dispatch_marker_key(brand):
+    return "ec_order_retry_dispatch_%s" % brand
+
+
+def _dispatch_budget():
+    try:
+        v = frappe.conf.get("ec_alerts_order_retry_dispatch_budget_seconds")
+        return max(30, int(float(v))) if v not in (None, "") else RETRY_DISPATCH_BUDGET
+    except Exception:
+        return RETRY_DISPATCH_BUDGET
+
+
+def dispatch_order_retries():
+    """SCHEDULER hook (every 10 min) - LIGHTWEIGHT: only enqueue the dispatcher
+    job and return. No claim, no processing here."""
+    if _disabled():
+        return {"skipped": "scheduler_disabled"}
+    job = frappe.enqueue(
+        "ecentric_workspace.alerts.tasks.retry_dispatcher_job",
+        queue="long", job_name="ec_order_retry_dispatch")
+    return {"queued": True, "job_id": getattr(job, "id", None)}
+
+
+def retry_dispatcher_job():
+    """DISPATCHER (background): find brands with due items and enqueue AT MOST
+    ONE brand worker per brand. Does NOT claim items (a claimed item must never
+    sit Processing while its job is only queued) - the brand worker claims.
+    Bounded by a total time budget; leftover brands wait for the next cycle."""
+    import time as _t
+    if _disabled():
+        return {"skipped": "scheduler_disabled"}
+    from ecentric_workspace.alerts import api_omisell as ao
+    from ecentric_workspace.alerts.services import order_retry
+    if ao._pull_disabled():
+        return {"skipped": "pull_disabled"}
+    res = {"brands": 0, "enqueued": 0, "skipped_locked": 0,
+           "skipped_dispatch_marker": 0, "deadline": 0}
+    deadline = _t.monotonic() + _dispatch_budget()
+    cache = frappe.cache()
+    try:
+        brands = order_retry.brands_with_due_items()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "alerts.tasks.retry_dispatcher_job")
+        return res
+    res["brands"] = len(brands)
+    for brand in brands:
+        if _t.monotonic() > deadline:
+            res["deadline"] = 1
+            break                                   # leftover -> next cycle
+        # A worker is actively running this brand -> nothing to enqueue.
+        if cache.get_value(cache.make_key(order_retry._brand_lock_key(brand))):
+            res["skipped_locked"] += 1
+            continue
+        # De-dupe overlapping dispatchers: only the dispatcher that wins this
+        # short-lived NX marker enqueues a worker this window. This is pure
+        # queue-noise reduction - the worker's own Redis brand lock is the real
+        # safety, so any duplicate queued worker that slips through (marker
+        # expiry, Redis hiccup) safely no-ops on acquire_brand_lock().
+        if not cache.set(cache.make_key(_dispatch_marker_key(brand)),
+                         "1", nx=True, ex=DISPATCH_MARKER_TTL):
+            res["skipped_dispatch_marker"] += 1
+            continue
+        frappe.enqueue(
+            "ecentric_workspace.alerts.tasks.retry_brand_worker_job",
+            queue="long", job_name="ec_order_retry_%s" % brand, brand=brand)
+        res["enqueued"] += 1
+    frappe.logger("alerts").info({"retry_dispatcher": res})
+    return res
+
+
+def retry_brand_worker_job(brand, limit=None):
+    """BRAND WORKER (background): max one active per brand (Redis brand lock).
+    Atomically claims a small batch of due items for THIS brand, re-pulls each
+    via the existing pull_one_order (Order Log order_key dedupe -> replay safe),
+    and transitions the item. Releases the brand lock in finally."""
+    if _disabled():
+        return {"skipped": "scheduler_disabled"}
+    from ecentric_workspace.alerts import api_omisell as ao
+    from ecentric_workspace.alerts.services import order_retry
+    if ao._pull_disabled():
+        return {"skipped": "pull_disabled"}
+    token = frappe.generate_hash(length=20)
+    if not order_retry.acquire_brand_lock(brand, token):
+        return {"skipped": "brand_worker_active", "brand": brand}
+    res = {"brand": brand, "claimed": 0, "completed": 0, "retried": 0,
+           "dead": 0, "deferred_pull_running": 0, "errors": 0}
+    try:
+        # order pull PRIORITY: if the brand's order pull is actively running,
+        # leave the queue for the next cycle (don't compete for token/API).
+        if frappe.cache().get_value(ao._running_key(brand)):
+            res["deferred_pull_running"] = 1
+            return res
+        claimed = order_retry.claim_due(limit, brand)
+        res["claimed"] = len(claimed)
+        for item in claimed:
+            num = item["order_number"]
+            try:
+                ao.pull_one_order(brand, num)        # dedupe-safe
+                order_retry.mark_completed(item["name"])
+                res["completed"] += 1
+            except Exception as e:
+                try:
+                    st = order_retry.mark_retry(item["name"], e)
+                    res["dead" if st == "Dead" else "retried"] += 1
+                except Exception:
+                    res["errors"] += 1
+                    frappe.log_error(frappe.get_traceback(),
+                                     "alerts.tasks.retry_brand_worker_job %s/%s" % (brand, num))
+    finally:
+        order_retry.release_brand_lock(brand, token)
+    frappe.logger("alerts").info({"retry_brand_worker": res})
+    return res
