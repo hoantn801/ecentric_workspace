@@ -119,8 +119,15 @@ def filter_brands(user, brands):
 # --- capability checks (used by Phase C/E services) -------------------------
 
 def can_handle_alert(user, brand):
-    """Mark In Review / Resolve / Ignore alerts of this brand."""
+    """Mark In Review / Closed / Ignored alerts of this brand (KAM flow)."""
     return get_brand_role(user, brand) in ("kam", "manager", "leader", "supervisor")
+
+
+def can_cancel_case(user=None):
+    """Cancel a case (decision D6, 2026-06-13): System Manager / Admin ONLY.
+    KAM and Manager never cancel - Cancelled is for wrong/duplicate/invalid
+    cases and is excluded from handling KPIs. Brand-agnostic (global)."""
+    return is_global_supervisor(user)
 
 
 def can_create_pause(user, brand):
