@@ -6,8 +6,13 @@ import frappe
 from frappe.utils import add_days, nowdate
 
 from ecentric_workspace.alerts import permissions as perms
+from ecentric_workspace.alerts.services import case_lifecycle as cl
 
 DEFAULT_DAYS = 14
+# Step 1 (2026-06-13): canonical completed = Closed; legacy Resolved counted
+# during the transitional release. Single source of truth.
+COMPLETED_STATUSES = list(cl.COMPLETED_STATUSES)
+ACTIVE_STATUSES = list(cl.ACTIVE_STATUSES)
 DIMENSIONS = {"brand": "brand", "platform": "platform", "shop": "shop",
               "rule_code": "rule_code"}
 
@@ -77,14 +82,19 @@ def kpis(filters=None):
         return {}
     def c(extra):
         return frappe.db.count("EC Alert", filters=flt + extra)
-    open_f = [["status", "in", ["Open", "In Review"]]]
+    open_f = [["status", "in", ACTIVE_STATUSES]]
     return {
         "open": c(open_f),
         "critical": c(open_f + [["severity", "=", "Critical"]]),
         "warning": c(open_f + [["severity", "=", "Warning"]]),
         "missing_policy": c(open_f + [["rule_code", "in",
                                        ["missing_policy", "missing_brand_mapping"]]]),
-        "resolved": c([["status", "=", "Resolved"]]),
+        # API key `resolved` kept for frontend compatibility (the dashboard
+        # card reads c.resolved). Value = COMPLETED = Closed + legacy Resolved.
+        # `closed` is the forward-compat alias; both carry the same count.
+        # Cancelled is NOT counted here (excluded from the handled KPI).
+        "resolved": c([["status", "in", COMPLETED_STATUSES]]),
+        "closed": c([["status", "in", COMPLETED_STATUSES]]),
         "ignored": c([["status", "=", "Ignored"]]),
         "lock_pending_review": frappe.db.count("EC Alert Action", {
             "action_type": "Stock Safety Lock", "review_status": "Pending Review"}),
@@ -121,7 +131,7 @@ def aging(filters=None):
     if flt is None:
         return {}
     flt = [x for x in flt if x[0] != "detected_at"]  # aging = all unresolved
-    flt += [["status", "in", ["Open", "In Review"]]]
+    flt += [["status", "in", ACTIVE_STATUSES]]
     buckets = {"lt_4h": 0, "h4_24": 0, "d1_3": 0, "gt_3d": 0}
     rows = frappe.get_all("EC Alert", filters=flt, fields=["detected_at"],
                           limit_page_length=0)
@@ -137,7 +147,9 @@ def aging(filters=None):
 
 @frappe.whitelist()
 def trend(filters=None, days=DEFAULT_DAYS):
-    """Daily Resolved vs Ignored vs New counts for the last N days."""
+    """Daily Closed vs Ignored vs New counts for the last N days. Output key
+    `resolved` kept for frontend compatibility = COMPLETED (Closed + legacy
+    Resolved during transition); Cancelled excluded."""
     days = min(int(days or DEFAULT_DAYS), 31)
     flt = _flt(filters, days=days)
     if flt is None:
@@ -151,7 +163,7 @@ def trend(filters=None, days=DEFAULT_DAYS):
                     "new": frappe.db.count("EC Alert", filters=base +
                                            [["detected_at", ">=", d0], ["detected_at", "<=", d1]]),
                     "resolved": frappe.db.count("EC Alert", filters=base +
-                                                [["status", "=", "Resolved"],
+                                                [["status", "in", COMPLETED_STATUSES],
                                                  ["resolved_at", ">=", d0], ["resolved_at", "<=", d1]]),
                     "ignored": frappe.db.count("EC Alert", filters=base +
                                                [["status", "=", "Ignored"],

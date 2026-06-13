@@ -9,8 +9,8 @@ import frappe
 from frappe.utils import now_datetime, nowdate
 
 from . import (action_queue, baseline as baseline_mod, brand_resolver,
-               dedupe_keys, policy_lookup, pricing, rule_overlay, rules,
-               sku_catalog)
+               case_lifecycle, dedupe_keys, policy_lookup, pricing,
+               rule_overlay, rules, sku_catalog)
 
 CHECK_RESULT_LABEL = {
     "possible_missing_zero": "Possible Missing Zero",
@@ -159,8 +159,8 @@ def _create_alert(log, line, rule_code, severity, dedupe_key, price, policy,
                   return_name=False):
     """Dedupe-then-insert. Existence of the dedupe_key (ANY status) blocks
     re-creation - the unique index enforces this anyway; Open/In Review is the
-    spec rule, and a Resolved alert for the same key means the same incident
-    was already handled (re-syncs must not reopen it)."""
+    spec rule, and a terminal (Closed/Ignored/Cancelled) alert for the same key
+    means the same incident was already handled (re-syncs must not reopen it)."""
     existing = frappe.db.get_value("EC Alert", {"dedupe_key": dedupe_key}, "name")
     if existing:
         return (existing, False) if return_name else False
@@ -275,7 +275,7 @@ def _find_or_create_case(log, line, rule_code, hit, price, ev, policy, base,
     open_case = frappe.db.get_value("EC Alert", {
         "brand": log.brand, "platform": log.platform, "shop": log.shop,
         "seller_sku": line.seller_sku, "rule_code": rule_code,
-        "status": ["in", ["Open", "In Review"]]}, "name")
+        "status": ["in", list(case_lifecycle.ACTIVE_STATUSES)]}, "name")
     if open_case:
         return open_case, False
     case_key = dedupe_keys.case_key(
@@ -321,6 +321,15 @@ def _find_or_create_case(log, line, rule_code, hit, price, ev, policy, base,
 
 def _bump_case(case_name, hit, price, ev, now, case_created):
     case = frappe.get_doc("EC Alert", case_name)
+    # TERMINAL GUARD (Step 1): a Closed/Ignored/Cancelled/legacy-Resolved case
+    # is frozen - never bump its evidence. This should be unreachable (the
+    # case lookup only returns ACTIVE cases and a fresh case is Open), but it
+    # is the explicit last-line defense the spec requires. Fail-OPEN: log and
+    # skip, never raise, so ingestion is never broken by a guard.
+    if not case_created and case_lifecycle.is_terminal(case.status):
+        frappe.logger("alerts").warning(
+            {"bump_case_skipped_terminal": case_name, "status": case.status})
+        return
     case.occurrence_count = int(case.occurrence_count or 0) + 1
     if case_created or not case.first_seen_at:
         case.first_seen_at = now

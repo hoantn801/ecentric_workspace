@@ -120,18 +120,27 @@ class TestPhaseE(unittest.TestCase):
                                                   "status": ("in", ["Open", "In Review"])})
         self.assertEqual(c["open"], len(raw))
 
-    # --- status handling ---
+    # --- status handling (canonical lifecycle: Closed is the completed
+    # status; Resolved is NOT a writable target - Step 1, 2026-06-13) ---
     def test_04_set_status_rules(self):
         name = frappe.get_all("EC Alert", filters={"brand": BRAND_A},
                               pluck="name", limit_page_length=1)[0]
         frappe.set_user(KAM_A)
         try:
-            with self.assertRaises(Exception):       # note required
-                api_alerts.set_status(name, "Resolved")
+            # legacy Resolved must be REJECTED as a writable status (even with
+            # a note) - it is no longer in HANDLE_STATUSES.
+            with self.assertRaises(Exception):
+                api_alerts.set_status(name, "Resolved", note="checked with shop")
+            # Closed requires a note.
+            with self.assertRaises(Exception):
+                api_alerts.set_status(name, "Closed")
             api_alerts.set_status(name, "In Review")  # no note needed
-            r = api_alerts.set_status(name, "Resolved", note="checked with shop")
-            self.assertEqual(r["status"], "Resolved")
+            r = api_alerts.set_status(name, "Closed", note="checked with shop")
+            self.assertEqual(r["status"], "Closed")
             self.assertEqual(r["resolved_by"], KAM_A)
+            # terminal case must not reopen.
+            with self.assertRaises(Exception):
+                api_alerts.set_status(name, "In Review")
             b_alert = frappe.get_all("EC Alert", filters={"brand": BRAND_B},
                                      pluck="name", limit_page_length=1)[0]
             with self.assertRaises(frappe.PermissionError):

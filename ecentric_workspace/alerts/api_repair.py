@@ -30,10 +30,12 @@ from frappe import _
 from frappe.utils import now_datetime
 
 from ecentric_workspace.alerts.services import brand_resolver, dedupe_keys
+from ecentric_workspace.alerts.services import case_lifecycle as cl
 
 PRICE_RULES = ("below_min", "above_high", "severe_price_drop",
                "possible_missing_zero")
-ACTIVE = ("Open", "In Review")
+# Step 1: single source of truth - repair only ever touches ACTIVE cases.
+ACTIVE = cl.ACTIVE_STATUSES
 
 OCC_FIELDS = ["name", "platform", "shop", "seller_sku", "item", "rule_code",
               "external_order_id", "external_line_id", "detected_at",
@@ -52,9 +54,19 @@ def _group_key(o):
 
 
 def _recalc(case_name):
-    """Rebuild Case rollups from its occurrences (source of truth)."""
-    occ = _occ_of(case_name)
+    """Rebuild Case rollups from its occurrences (source of truth).
+
+    TERMINAL GUARD (Step 1): a frozen case (Closed/Ignored/Cancelled/legacy
+    Resolved) must never have its evidence recalculated/mutated. Return its
+    current count untouched. repair_case_grouping already scans ACTIVE-only
+    source cases, but a split target could in theory resolve to a terminal
+    case - this is the explicit defense."""
     case = frappe.get_doc("EC Alert", case_name)
+    if cl.is_terminal(case.status):
+        frappe.logger("alerts").warning(
+            {"recalc_skipped_terminal": case_name, "status": case.status})
+        return int(case.occurrence_count or 0)
+    occ = _occ_of(case_name)
     case.occurrence_count = len(occ)
     if occ:
         case.first_seen_at = occ[0].detected_at

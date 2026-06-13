@@ -1,15 +1,53 @@
 # Copyright (c) 2026, eCentric
-# Alert Center Phase B (ALERT_CENTER/01_PHASE_B_PLAN.md). Schema layer only -
-# business logic (price check / dedupe / actions) lands in Phase C services.
+# Alert Center. Schema/controller layer. Lifecycle rules (active vs terminal,
+# allowed transitions, evidence freeze) come from services.case_lifecycle -
+# the single source of truth (Step 1, 2026-06-13).
 
 import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from ecentric_workspace.alerts.services import case_lifecycle as cl
+
 
 class ECAlert(Document):
     def validate(self):
-        if self.status in ("Resolved", "Ignored"):
+        self._guard_no_reopen()
+        self._guard_terminal_evidence_frozen()
+        self._stamp_resolution()
+
+    # ----- lifecycle guards (defense-in-depth; APIs guard too) --------------
+    def _guard_no_reopen(self):
+        """A terminal case (Closed/Ignored/Cancelled/legacy Resolved) must not
+        return to an active state in this phase - there is NO approved admin
+        recovery/reopen flow. Engine never reopens (it creates a NEW case);
+        this blocks a stray Desk/API edit."""
+        before = self.get_doc_before_save()
+        if not before:
+            return
+        if cl.is_terminal(before.status) and cl.is_active(self.status):
+            frappe.throw(
+                _("Case {0} is {1} (terminal) and cannot be reopened. A new "
+                  "violation creates a new case.").format(self.name, before.status),
+                frappe.ValidationError)
+
+    def _guard_terminal_evidence_frozen(self):
+        """Once terminal, evidence rollups freeze: occurrence_count and the
+        first/last occurrence timestamps must not change. Blocks any path
+        (normal or repair) from mutating a frozen case's evidence."""
+        before = self.get_doc_before_save()
+        if not before or not cl.is_terminal(before.status):
+            return
+        for field in ("occurrence_count", "first_seen_at", "last_seen_at"):
+            if self.get(field) != before.get(field):
+                frappe.throw(
+                    _("Case {0} is terminal; evidence field '{1}' is frozen "
+                      "and cannot be modified.").format(self.name, field),
+                    frappe.ValidationError)
+
+    def _stamp_resolution(self):
+        """Stamp resolver identity/time when terminal; clear when active."""
+        if cl.is_terminal(self.status):
             if not self.resolved_at:
                 self.resolved_at = frappe.utils.now_datetime()
             if not self.resolved_by:

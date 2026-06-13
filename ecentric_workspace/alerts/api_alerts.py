@@ -12,9 +12,13 @@ from frappe import _
 from frappe.utils import cint, nowdate
 
 from ecentric_workspace.alerts import permissions as perms
+from ecentric_workspace.alerts.services import case_lifecycle as cl
 
-HANDLE_STATUSES = ("In Review", "Resolved", "Ignored")
-NOTE_REQUIRED = ("Resolved", "Ignored")
+# Step 1 (2026-06-13): canonical completed status is Closed. KAM/Manager may
+# move a case to In Review / Closed / Ignored only (Cancelled is supervisor-
+# only via cancel_case). Resolved is NEVER written.
+HANDLE_STATUSES = ("In Review", "Closed", "Ignored")
+NOTE_REQUIRED = ("Closed", "Ignored")
 MAX_PAGE = 100
 
 LIST_FIELDS = [
@@ -124,10 +128,12 @@ def get_cards():
             f["brand"] = ("in", scope)
         return frappe.db.count("EC Alert", f)
 
-    open_states = {"status": ("in", ["Open", "In Review"])}
+    open_states = {"status": ("in", list(cl.ACTIVE_STATUSES))}
     af = {"action_type": "Stock Safety Lock", "status": ("in", ["Pending", "Dry Run"])}
     if scope is not None:
         af["brand"] = ("in", scope)
+    # "Closed today": canonical Closed + legacy Resolved during transition.
+    closed_states = list(("Closed",) + cl.LEGACY_TERMINAL)
     return {
         "open": count(open_states),
         "critical": count(dict(open_states, severity="Critical")),
@@ -135,8 +141,8 @@ def get_cards():
         "missing_policy": count(dict(open_states,
                                      rule_code=("in", ["missing_policy", "missing_brand_mapping"]))),
         "lock_pending": frappe.db.count("EC Alert Action", af),
-        "resolved_today": count({"status": "Resolved",
-                                 "resolved_at": (">=", nowdate() + " 00:00:00")}),
+        "closed_today": count({"status": ("in", closed_states),
+                               "resolved_at": (">=", nowdate() + " 00:00:00")}),
     }
 
 
@@ -155,6 +161,11 @@ def set_status(alert, new_status, note=None):
         # brand-less alert (unmapped shop) -> supervisors only
         frappe.throw(_("Only supervisors can handle unmapped-brand alerts."),
                      frappe.PermissionError)
+    # TRANSITION GUARD (Step 1): no reopening a terminal case; only
+    # Open->In Review/Closed/Ignored and In Review->Closed/Ignored allowed.
+    if not cl.can_transition(doc.status, new_status):
+        frappe.throw(_("Cannot change case {0} from {1} to {2}.").format(
+            doc.name, doc.status, new_status), frappe.ValidationError)
     if new_status in NOTE_REQUIRED and not (note and str(note).strip()):
         frappe.throw(_("A note is required to mark an alert {0}.").format(new_status))
     doc.status = new_status
@@ -190,6 +201,10 @@ def bulk_set_status(names, new_status, note=None):
             elif not perms.is_global_supervisor(user):
                 res["denied"].append(nm)
                 continue
+            # no-reopen / valid-transition guard, per row (Step 1)
+            if not cl.can_transition(doc.status, new_status):
+                res["failed"].append(nm)
+                continue
             doc.status = new_status
             if note:
                 doc.resolution_note = note
@@ -199,6 +214,29 @@ def bulk_set_status(names, new_status, note=None):
             frappe.log_error(frappe.get_traceback(), "alerts.bulk_set_status %s" % nm)
             res["failed"].append(nm)
     return res
+
+
+@frappe.whitelist(methods=["POST"])
+def cancel_case(alert, reason=None):
+    """Cancel a case (terminal, KPI-excluded) - SUPERVISOR/ADMIN ONLY
+    (decision D6). Reason required. Not exposed to KAM/Manager UI. Only an
+    active case may be cancelled; a cancelled case is frozen like any other
+    terminal state and never reopens."""
+    perms.require_alert_center_access()
+    if not perms.can_cancel_case(frappe.session.user):
+        frappe.throw(_("Only System Manager can cancel a case."),
+                     frappe.PermissionError)
+    if not (reason and str(reason).strip()):
+        frappe.throw(_("A reason is required to cancel a case."))
+    doc = frappe.get_doc("EC Alert", alert)
+    if not cl.can_cancel(doc.status):
+        frappe.throw(_("Case {0} is {1} and cannot be cancelled.").format(
+            doc.name, doc.status), frappe.ValidationError)
+    doc.status = "Cancelled"
+    doc.resolution_note = str(reason).strip()
+    doc.save(ignore_permissions=True)
+    return {"name": doc.name, "status": doc.status,
+            "resolved_by": doc.resolved_by, "resolved_at": doc.resolved_at}
 
 
 @frappe.whitelist()

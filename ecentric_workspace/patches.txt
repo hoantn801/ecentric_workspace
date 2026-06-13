@@ -12,3 +12,4 @@ ecentric_workspace.pm.patches.p005_pm_checklist
 ecentric_workspace.alerts.patches.p001_capacity_indexes
 ecentric_workspace.pm.patches.p006_pm_checklist_complete_transition
 ecentric_workspace.pm.patches.p007_pm_checklist_complete_condition_no_len
+ecentric_workspace.alerts.patches.p002_migrate_resolved_to_closed
