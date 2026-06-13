@@ -14,10 +14,19 @@ Properties:
     Select option set is updated in ec_alert.json, synced by bench migrate
     before post_model_sync patches run).
 
-Rollback: not required (Resolved is being retired). If ever needed, the
-inverse is `UPDATE ... SET status='Resolved' WHERE status='Closed' AND ...`
-- but Closed is now also produced by new handling, so a blanket inverse is
-unsafe; prefer restoring from backup.
+Rollback is NOT automatically safe once this patch has run. After migration
+the DB contains `Closed` rows that are now indistinguishable from `Closed`
+rows produced by ordinary new handling, and the dropped Select option means
+old code paths that wrote/validated `Resolved` no longer round-trip. A safe
+rollback therefore requires ONE of:
+  (a) compatibility code that keeps reading/writing `Closed` (the enum change
+      is additive, but the data is already converted - code revert alone does
+      NOT restore the prior state), OR
+  (b) a reverse data migration with an explicit discriminator to tell
+      newly-Closed from migrated-Resolved (e.g. a recorded migration marker),
+      which this patch does not capture, OR
+  (c) restoring EC Alert from the pre-migrate backup.
+Do not assume a plain code/redeploy rollback reverts the data.
 """
 import frappe
 
