@@ -28,19 +28,38 @@ except Exception as _e:           # truncated mount / missing dep in sandbox
 
 H0 = datetime(2026, 6, 14, 0, 0, 0)
 
+CP = {}     # name -> last_sync_at, an in-memory stand-in for the atomic SQL write
+
 
 def E(dt):
     return int(dt.timestamp())
 
 
+def _fake_advance(bis_name, candidate):
+    """Deterministic stand-in for the real atomic conditional UPDATE: monotonic
+    max, returns authoritative value. (The real SQL is source-asserted in
+    test_pull_resilience; this keeps the orchestrator-flow tests bench-safe
+    without provisioning real BIS rows.)"""
+    cur = CP.get(bis_name)
+    if cur is None or cur < candidate:
+        CP[bis_name] = candidate
+    return CP[bis_name]
+
+
 class FakeBis:
+    _n = 0
     def __init__(self, last_sync_at=None):
-        self.name = "BIS"; self.last_sync_at = last_sync_at
-        self.consecutive_failures = 0; self.credential_status = "Active"
+        FakeBis._n += 1
+        self.name = "BIS%d" % FakeBis._n
+        CP[self.name] = last_sync_at
+        self.save_calls = 0
+    @property
+    def last_sync_at(self):
+        return CP[self.name]
     def reload(self):
         pass
     def save(self, ignore_permissions=False):
-        pass
+        self.save_calls += 1      # orchestrator must NEVER full-save the BIS
 
 
 class FakeClient:
@@ -84,12 +103,14 @@ def spread(n, cf, ct, prefix="O"):
 class TestPullAdaptive(unittest.TestCase):
     def setUp(self):
         # deterministic fakes on the api_omisell module (no global pollution)
+        CP.clear()
         self._saved = {k: getattr(ao, k) for k in (
             "_to_epoch", "ingestion", "order_retry", "action_queue", "norm",
-            "brand_resolver", "_breaker_record", "_auth_failure",
+            "brand_resolver", "_breaker_record", "_auth_failure", "_advance_checkpoint",
             "_minimum_window_alert", "_ingestion_failure_alert",
             "_details_cap", "_min_subwindow_seconds", "_max_split_depth", "_skip_orders")}
         ao._to_epoch = lambda dt: int(dt.timestamp())
+        ao._advance_checkpoint = _fake_advance   # atomic-write stand-in (see note)
         ao.ingestion = type("I", (), {"ingest_orders": staticmethod(
             lambda batch: [{"status": "created"} for _ in batch])})
         ao.order_retry = type("R", (), {"upsert": staticmethod(lambda b, n, e: True)})
@@ -272,6 +293,34 @@ class TestPullAdaptive(unittest.TestCase):
         self.assertEqual(tele["subwindows_processed"], 1)
         self.assertEqual(tele["checkpoint_advanced_to"], str(mid))
         self.assertEqual(bis.last_sync_at, mid)
+
+    # --- production hotfix 2026-06-14: field-level atomic checkpoint -----------
+    def test_no_full_bis_save_in_checkpoint_path(self):
+        ct = H0 + timedelta(hours=1)
+        c = FakeClient(spread(5, H0, ct)); bis = FakeBis(last_sync_at=H0)
+        self._run("FES", bis, c, H0, ct)
+        self.assertEqual(bis.save_calls, 0)          # orchestrator NEVER full-saved BIS
+        self.assertEqual(bis.last_sync_at, ct)       # advanced via atomic write
+
+    def test_checkpoint_advances_despite_token_refresh(self):
+        bis = FakeBis(last_sync_at=H0)
+        ct = H0 + timedelta(hours=1)
+        auth = ao._advance_checkpoint(bis.name, ct)  # token side is independent
+        self.assertEqual(auth, ct)
+
+    def test_two_candidates_resolve_to_max(self):
+        bis = FakeBis(last_sync_at=H0)
+        c1 = H0 + timedelta(minutes=30); c2 = H0 + timedelta(hours=1)
+        ao._advance_checkpoint(bis.name, c1)
+        ao._advance_checkpoint(bis.name, c2)
+        self.assertEqual(bis.last_sync_at, c2)       # max wins
+
+    def test_old_candidate_does_not_regress(self):
+        bis = FakeBis(last_sync_at=H0)
+        c1 = H0 + timedelta(minutes=30); c2 = H0 + timedelta(hours=1)
+        ao._advance_checkpoint(bis.name, c2)
+        ao._advance_checkpoint(bis.name, c1)         # older -> ignored
+        self.assertEqual(bis.last_sync_at, c2)       # no regress
 
 
 if __name__ == "__main__":

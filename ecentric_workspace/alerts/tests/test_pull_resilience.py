@@ -224,7 +224,16 @@ class TestApiOmisellWiring(unittest.TestCase):
         self.assertIn('run["caught_up"] = (tele["stop_reason"] in (None', self.src)
 
     def test_checkpoint_monotonic_guard_intact(self):
-        self.assertIn("prev if (prev and prev > t) else t", self.src)
+        # The monotonic guard moved from a Python ternary (full-document save) to
+        # an ATOMIC, field-level conditional UPDATE (no TimestampMismatch race
+        # with token refresh - production hotfix 2026-06-14).
+        s = self.src
+        self.assertIn("UPDATE `tabEC Brand Integration Settings`", s)
+        self.assertIn("WHERE name=%s AND (last_sync_at IS NULL OR last_sync_at < %s)", s)
+        # checkpoint path no longer does a full-document save of the BIS
+        cp = s.split("def _advance_checkpoint")[1].split("\ndef ")[0]
+        self.assertNotIn(".save(", cp)
+        self.assertIn("frappe.db.set_value", s.split("def _breaker_record")[1].split("\ndef ")[0])
 
 
 class TestClientSourceGuards(unittest.TestCase):
