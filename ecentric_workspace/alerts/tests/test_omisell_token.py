@@ -42,19 +42,32 @@ API_KEY = "KEY-123"
 API_SECRET = "SECRET-456"
 
 
+class TimestampMismatchError(Exception):
+    """Stand-in matching the class-name check in _persist_token."""
+
+
 class FakeBis:
-    def __init__(self, token=None, exp=None):
+    def __init__(self, token=None, exp=None, last_sync_at="CHECKPOINT", fail_saves=0):
         self.name = "BIS-LOF"
         self.base_url = "https://api.test"
         self.token = token
         self.token_expired_at = exp
+        self.last_sync_at = last_sync_at        # must NOT be touched by token persist
         self._pw = {"api_key": API_KEY, "api_secret": API_SECRET, "token": token}
         self.saved = 0
+        self.reloads = 0
+        self._fail_saves = fail_saves           # raise TimestampMismatch on first N saves
 
     def get_password(self, field, raise_exception=False):
         return self._pw.get(field)
 
+    def reload(self):
+        self.reloads += 1
+
     def save(self, ignore_permissions=False):
+        if self._fail_saves > 0:
+            self._fail_saves -= 1
+            raise TimestampMismatchError("modified mismatch")
         self._pw["token"] = self.token
         self.saved += 1
 
@@ -193,6 +206,41 @@ class TestToken(_Base):
         self.assertNotIn(SECRET_TOKEN, blob)
         self.assertNotIn(API_KEY, blob)
         self.assertNotIn(API_SECRET, blob)
+
+
+class TestTokenPersistence(_Base):
+    """Production hotfix 2026-06-14: token refresh must reload-before-save (no
+    stale-doc TimestampMismatch race with the checkpoint), never touch
+    last_sync_at, and retry at most once."""
+
+    def test_reload_before_save(self):
+        bis = FakeBis()
+        oc.requests = FakeTransport([_Resp()])
+        _client(bis)._authenticate()
+        self.assertEqual(bis.reloads, 1)            # reloaded before the save
+        self.assertEqual(bis.saved, 1)
+        self.assertEqual(bis._pw["token"], SECRET_TOKEN)
+
+    def test_token_persist_does_not_touch_checkpoint(self):
+        bis = FakeBis(last_sync_at="CHECKPOINT")
+        oc.requests = FakeTransport([_Resp()])
+        _client(bis)._authenticate()
+        self.assertEqual(bis.last_sync_at, "CHECKPOINT")   # checkpoint untouched
+
+    def test_one_retry_on_timestamp_mismatch(self):
+        bis = FakeBis(fail_saves=1)                  # first save raises, retry succeeds
+        oc.requests = FakeTransport([_Resp()])
+        _client(bis)._authenticate()
+        self.assertEqual(bis.reloads, 2)            # reloaded again on the retry
+        self.assertEqual(bis.saved, 1)              # succeeded on the 2nd attempt
+        self.assertEqual(bis._pw["token"], SECRET_TOKEN)
+
+    def test_no_blind_retry_second_mismatch_raises(self):
+        bis = FakeBis(fail_saves=2)                  # both attempts mismatch
+        oc.requests = FakeTransport([_Resp()])
+        with self.assertRaises(TimestampMismatchError):
+            _client(bis)._authenticate()
+        self.assertEqual(bis.reloads, 2)            # exactly 2 attempts, no more
 
 
 if __name__ == "__main__":

@@ -158,9 +158,17 @@ def _breaker_check(bis):
 
 
 def _breaker_record(bis, success):
-    bis.reload()
-    bis.consecutive_failures = 0 if success else int(bis.consecutive_failures or 0) + 1
-    bis.save(ignore_permissions=True)
+    """FIELD-LEVEL breaker write (no full-document save -> never races the
+    token/checkpoint writes into a TimestampMismatchError). Reads the freshest
+    count straight from the DB; touches only consecutive_failures."""
+    if success:
+        frappe.db.set_value("EC Brand Integration Settings", bis.name,
+                            "consecutive_failures", 0)
+    else:
+        cur = int(frappe.db.get_value("EC Brand Integration Settings", bis.name,
+                                      "consecutive_failures") or 0)
+        frappe.db.set_value("EC Brand Integration Settings", bis.name,
+                            "consecutive_failures", cur + 1)
 
 
 def _get_bis(brand, require_enabled=True):
@@ -175,8 +183,9 @@ def _get_bis(brand, require_enabled=True):
 
 
 def _auth_failure(bis, brand):
-    bis.credential_status = "Expired"
-    bis.save(ignore_permissions=True)
+    # FIELD-LEVEL credential flip (no full-document save -> no stale-doc race).
+    frappe.db.set_value("EC Brand Integration Settings", bis.name,
+                        "credential_status", "Expired")
     key = dedupe_keys.missing_credential_key(brand, nowdate().replace("-", ""))
     if not frappe.db.exists("EC Alert", {"dedupe_key": key}):
         frappe.get_doc({
@@ -254,9 +263,9 @@ def omisell_probe(brand):
         frappe.throw(_("Auth probe failed: {0}").format(str(e)))
     data = (payload or {}).get("data") or {}
     count = data.get("count")
-    bis.reload()
-    bis.credential_status = "Active"
-    bis.save(ignore_permissions=True)
+    # field-level (no full-document save) - consistent with the run path
+    frappe.db.set_value("EC Brand Integration Settings", bis.name,
+                        "credential_status", "Active")
     return {"ok": True, "brand": brand, "shop_count": count,
             "rate_limit_header": client.last_rate_header,
             "auth_scheme": frappe.conf.get("ec_alerts_omisell_auth_scheme") or "Omi"}
@@ -489,14 +498,23 @@ def process_complete_window(brand, bis, client, cf, ct, budget, t0):
     return swp.COMPLETED, summary, unqueued
 
 
-def _advance_checkpoint(bis, dt):
-    """MONOTONIC checkpoint write, OWNED by the orchestrator, called ONLY at a
-    COMPLETED leaf's end. Never moves last_sync_at backward."""
-    bis.reload()
-    prev = get_datetime(bis.last_sync_at) if bis.last_sync_at else None
-    target = get_datetime(dt)
-    bis.last_sync_at = prev if (prev and prev > target) else target
-    bis.save(ignore_permissions=True)
+def _advance_checkpoint(bis_name, candidate):
+    """ATOMIC, FIELD-LEVEL, MONOTONIC checkpoint write. Takes the BIS NAME (NOT a
+    long-held Document) + a candidate datetime. A single conditional UPDATE reads
+    the freshest last_sync_at in the same statement and advances it ONLY if the
+    candidate is newer - touching NO token/config field and triggering NO
+    full-document validation/save, so it can never raise TimestampMismatchError
+    racing the token refresh. Concurrent candidates resolve to the max (each
+    UPDATE fires only if its candidate beats the current value). Returns the
+    AUTHORITATIVE last_sync_at after the write (for telemetry). No manual commit
+    - the write rides the caller's request/job transaction."""
+    candidate = get_datetime(candidate)
+    frappe.db.sql(
+        """UPDATE `tabEC Brand Integration Settings`
+           SET last_sync_at=%s, modified=%s, modified_by=%s
+           WHERE name=%s AND (last_sync_at IS NULL OR last_sync_at < %s)""",
+        (candidate, now_datetime(), frappe.session.user, bis_name, candidate))
+    return frappe.db.get_value("EC Brand Integration Settings", bis_name, "last_sync_at")
 
 
 def _minimum_window_alert(brand, cf, ct, listed, cap):
@@ -576,8 +594,9 @@ def pull_window_adaptive(brand, bis, client, cf, ct, deadline, depth, tele):
                                width, summary.get("listed"), cap)
     if state == swp.COMPLETED:
         tele["subwindows_processed"] += 1
-        _advance_checkpoint(bis, ct)                   # monotonic, LEAF end only
-        tele["checkpoint_advanced_to"] = str(ct)
+        # atomic field-level write by NAME (no stale Document) + authoritative
+        # re-read for telemetry
+        tele["checkpoint_advanced_to"] = str(_advance_checkpoint(bis.name, ct))
         _breaker_record(bis, success=True)
         return swp.COMPLETED
     if state == swp.BUDGET_EXHAUSTED:
@@ -678,12 +697,12 @@ def pull_orders(brand, updated_from, updated_to, time_budget=None):
     # CHECKPOINT (Hotfix B): advance when every failed order is durably QUEUED
     # for retry (unqueued == 0) and the window was not capped/timeboxed.
     if len(unqueued) == 0 and not summary.get("capped_at") and not summary.get("timeboxed"):
-        bis.reload()
-        prev = get_datetime(bis.last_sync_at) if bis.last_sync_at else None
-        bis.last_sync_at = prev if (prev and prev > t) else t
-        bis.save(ignore_permissions=True)
+        # atomic field-level monotonic write (no full-document save -> no
+        # TimestampMismatch race with token refresh)
+        authoritative = _advance_checkpoint(bis.name, t)
         summary["last_sync_at_advanced"] = True
-        summary["checkpoint_held"] = bool(prev and prev > t)
+        summary["checkpoint_held"] = bool(authoritative and get_datetime(authoritative) > t)
+        summary["last_sync_at"] = str(authoritative)
         _breaker_record(bis, success=True)
     else:
         # only UNQUEUED (auth/persist/system) failures open the breaker; a

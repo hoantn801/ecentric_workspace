@@ -194,18 +194,39 @@ class OmisellClient:
         token = data.get("token")
         if not token:
             raise OmisellAuthError(_("Token exchange failed for {0}").format(self.bis.name))
-        self.bis.token = token
         if data.get("expired_time"):
-            self.bis.token_expired_at = datetime.fromtimestamp(int(data["expired_time"]))
-            self._log_token(reason)
+            expired_at = datetime.fromtimestamp(int(data["expired_time"]))
+            source = reason
         else:
             # Omisell omitted expired_time -> persist a conservative fallback
             # TTL so we do NOT re-auth on every request.
-            self.bis.token_expired_at = add_to_date(now_datetime(),
-                                                    minutes=token_ttl_minutes())
-            self._log_token("fallback_ttl_applied")
-        self.bis.save(ignore_permissions=True)
+            expired_at = add_to_date(now_datetime(), minutes=token_ttl_minutes())
+            source = "fallback_ttl_applied"
+        self._persist_token(token, expired_at, source)
         return token
+
+    def _persist_token(self, token, expired_at, source):
+        """Persist the refreshed token WITHOUT racing a concurrent checkpoint /
+        config write (the production TimestampMismatch incident). `token` is a
+        Password field, so it MUST go through the document save path
+        (frappe.db.set_value would not write the encrypted value) - but we
+        RELOAD the BIS doc immediately before save so `modified` is fresh, and we
+        only ever set token + token_expired_at (never last_sync_at), so a token
+        refresh can never roll the checkpoint back. Exactly ONE narrow retry if
+        another writer touched the row between our reload and save
+        (TimestampMismatchError): reload, re-apply, save once more, then give up.
+        No blind retry."""
+        for attempt in range(2):
+            try:
+                self.bis.reload()
+                self.bis.token = token
+                self.bis.token_expired_at = expired_at
+                self.bis.save(ignore_permissions=True)
+                self._log_token(source)
+                return
+            except Exception as e:
+                if "TimestampMismatch" not in type(e).__name__ or attempt == 1:
+                    raise
 
     # ----- THE chokepoint -----------------------------------------------------
     def _request(self, method, path, params=None, json_body=None, auth=True,
