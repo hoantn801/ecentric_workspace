@@ -14,6 +14,7 @@ from ecentric_workspace.alerts.services import policy_scope
 from ecentric_workspace.alerts.services import policy_setup
 from ecentric_workspace.alerts.services import case_todo
 from ecentric_workspace.alerts.services import case_lifecycle as cl
+from ecentric_workspace.alerts.services import policy_coverage
 
 FIELDS = ["name", "brand", "platform", "shop", "seller_sku", "item",
           "product_name", "min_price", "reference_price", "target_price",
@@ -174,26 +175,19 @@ def set_policy_status(name, status):
 
 @frappe.whitelist()
 def missing_policy_summary():
-    """Per-brand DISTINCT ACTIVE missing_policy SKU count for the Price Setup
-    summary (the SAME definition as the aggregated Setup ToDo). Brand-scoped.
-    Returns {summary: {brand: count}} - a brand absent from the map is a
-    CONFIRMED 0 (the UI shows 0); the UI shows '-' only before this loads.
-    (The dashboard missing_policy card is COUNT(*), not distinct-SKU, so a
-    dedicated scoped query is needed here.)"""
+    """Per-brand DISTINCT missing-coverage SKU count for the Price Setup summary,
+    from the CANONICAL order-derived coverage service (services.policy_coverage)
+    - the SAME definition as the coverage modal (policy_missing_skus) and the
+    aggregated Setup ToDo, so the chip count and the modal list never disagree.
+    Brand-scoped. Returns {summary: {brand: count}}; a brand absent from the map
+    is a CONFIRMED 0 (the UI shows 0; '-' only before this loads)."""
     allowed = _scope()
-    base = ("SELECT brand, COUNT(DISTINCT seller_sku) n FROM `tabEC Alert` "
-            "WHERE rule_code='missing_policy' AND status IN %(st)s "
-            "AND seller_sku IS NOT NULL AND seller_sku != '' ")
-    params = {"st": tuple(cl.ACTIVE_STATUSES)}
-    if allowed != perms.ALL_BRANDS:
-        brands = list(allowed.keys()) if isinstance(allowed, dict) else []
-        if not brands:
-            return {"summary": {}}
-        base += "AND brand IN %(br)s "
-        params["br"] = tuple(brands)
-    base += "GROUP BY brand"
-    rows = frappe.db.sql(base, params, as_dict=True)
-    return {"summary": {r["brand"]: int(r["n"]) for r in rows}}
+    if allowed == perms.ALL_BRANDS:
+        return {"summary": policy_coverage.missing_counts(None)}   # supervisor: all brands
+    brands = list(allowed.keys()) if isinstance(allowed, dict) else []
+    if not brands:
+        return {"summary": {}}
+    return {"summary": policy_coverage.missing_counts(brands)}
 
 
 @frappe.whitelist()

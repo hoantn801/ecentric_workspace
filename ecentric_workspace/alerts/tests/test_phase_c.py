@@ -129,18 +129,15 @@ class TestPhaseC(unittest.TestCase):
         self.assertEqual(a[0].severity, "Warning")
         self.assertFalse(actions(dedupe_key=("like", "%ALERTC-NOMAP-1%")))
 
-    # 2+3. missing policy: 10 lines/day -> 1 alert; next day -> new alert
-    def test_02_03_missing_policy_daily_dedupe(self):
+    # 2+3. missing_policy is RETIRED (2026-06-14): the engine no longer creates a
+    # missing_policy EC Alert. A line with no active policy is marked "Missing
+    # Rule" and skipped (coverage gap tracked by Price Setup), so NO operational
+    # alert is raised - even for many lines/day.
+    def test_02_03_missing_policy_not_created(self):
         lines = [line("L%d" % i, sku="ALERTC-NOPOLICY", paid=10000) for i in range(10)]
         ingest(order("ALERTC-NOPOL-1", OMI_A, lines))
-        today = nowdate().replace("-", "")
-        key = "omisell|%s|Shopee|%s|ALERTC-NOPOLICY|missing_policy|%s" % (BRAND_A, SHOP_A, today)
         got = alerts(rule_code="missing_policy", brand=BRAND_A)
-        self.assertEqual(len(got), 1)
-        self.assertEqual(got[0].dedupe_key, key)
-        # "next day": simulate by inserting an alert with yesterday's key, then
-        # verifying today's key differs (engine cannot time-travel in a test)
-        self.assertNotIn(add_days(nowdate(), -1).replace("-", ""), key)
+        self.assertEqual(len(got), 0)
 
     # 4. below min, not severe
     def test_04_below_min(self):

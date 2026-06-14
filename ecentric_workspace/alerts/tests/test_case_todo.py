@@ -305,7 +305,12 @@ class TestRuleClassification(_Harness):
 
 
 class TestSetupCompletionDependency(_Harness):
-    """Gate 2: count tied to ACTIVE missing_policy cases, not policy rows."""
+    """Setup ToDo lifecycle as a function of the remaining missing-COVERAGE count
+    (2026-06-14: sourced from services.policy_coverage - order-derived - NOT from
+    active missing_policy EC Alert rows): the ToDo stays open while the count > 0
+    and closes at 0, and a later recurrence opens a NEW ToDo (never reopens the
+    closed one). The count source is stubbed here; its correctness is proven in
+    test_missing_policy_retired.TestPolicyCoverage."""
 
     def _mp(self, name, brand="FES-VN", owner="kam@x", status="Open"):
         return FakeCase(name, status, owner, brand=brand, rule_code="missing_policy")
@@ -314,14 +319,14 @@ class TestSetupCompletionDependency(_Harness):
         self.remaining["FES-VN"] = 1
         case_todo.sync_todo(self._mp("MP1"))
         self.assertEqual(len(self._opens("Brand Approver", "FES-VN")), 1)
-        self.remaining["FES-VN"] = 0           # last case closed -> 0 remaining
+        self.remaining["FES-VN"] = 0           # coverage complete -> 0 remaining
         case_todo.sync_todo(self._mp("MP1", status="Closed"))
         self.assertEqual(self._opens("Brand Approver", "FES-VN"), [])
 
     def test_remaining_cases_keep_it_open(self):
         self.remaining["FES-VN"] = 5
         case_todo.sync_todo(self._mp("MP1"))
-        self.remaining["FES-VN"] = 4           # one closed, 4 still active
+        self.remaining["FES-VN"] = 4           # coverage improved: 4 SKUs still uncovered
         case_todo.sync_todo(self._mp("MP2", status="Closed"))
         self.assertEqual(len(self._opens("Brand Approver", "FES-VN")), 1)
 

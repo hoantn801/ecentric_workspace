@@ -8,10 +8,12 @@ FLOW A - Incident ToDo (per Alert Case): one open ToDo per ACTIVE incident
 FLOW B - Setup ToDo (aggregated per Brand): missing_policy is NOT one ToDo per
   case. ONE open setup ToDo per (brand, owner), reference_type="Brand Approver",
   reference_name=brand, description prefixed with the marker
-  "[price_setup_missing]". Description shows the distinct active missing-policy
-  SKU count; repeated missing_policy cases REUSE/UPDATE the same ToDo; when the
-  count reaches 0 the ToDo is closed; a later recurrence creates a NEW ToDo
-  (the closed one is never reopened). Reference model approved Q-S2-B.
+  "[price_setup_missing]". Description shows the distinct missing-COVERAGE SKU
+  count (order-derived, from services.policy_coverage - NOT a count of active
+  missing_policy EC Alert rows, which are retired as of 2026-06-14); a
+  missing_policy case event just triggers a recompute of the same per-brand ToDo;
+  when the count reaches 0 the ToDo is closed; a later recurrence creates a NEW
+  ToDo (the closed one is never reopened). Reference model approved Q-S2-B.
 
 Assignment API contract = the PROVEN pattern from pm/api/tasks.py:
     from frappe.desk.form.assign_to import add as _assign_add
@@ -151,26 +153,16 @@ def _close_incident_todo(case):
 
 # ----- FLOW B: setup aggregated per brand ----------------------------------
 def _remaining_missing_skus(brand):
-    """Distinct seller_sku among ACTIVE missing_policy cases for the brand.
-
-    DEPENDENCY (Gate 2, 2026-06-13): the count is driven by ACTIVE
-    missing_policy CASES, not by the existence of an EC Price Policy row.
-    Creating/saving a policy alone does NOT reduce this count until the
-    matching missing_policy case is terminalized. Step 6 (Price Setup) MUST,
-    after a successful policy save, auto-close the matching active
-    missing_policy case(s) and re-trigger this brand's setup-ToDo recompute.
-    Until Step 6 ships that integration, the setup ToDo stays open until the
-    case is closed by the normal KAM flow - do NOT claim it auto-closes on
-    policy creation."""
+    """Distinct missing-coverage seller_sku for `brand`, from the CANONICAL
+    order-derived coverage source (services.policy_coverage) - NOT from
+    missing_policy EC Alert records (2026-06-14: missing_policy is retired as an
+    operational alert). Retiring/closing missing_policy alerts therefore does
+    NOT change this count; it reflects live order coverage vs active policies, so
+    the Setup ToDo only closes when coverage is actually complete."""
     if not brand:
         return 0
-    row = frappe.db.sql(
-        """SELECT COUNT(DISTINCT seller_sku) AS n FROM `tabEC Alert`
-           WHERE brand = %s AND rule_code = 'missing_policy'
-             AND status IN %s
-             AND seller_sku IS NOT NULL AND seller_sku != ''""",
-        (brand, tuple(cl.ACTIVE_STATUSES)), as_dict=True)
-    return int(row[0].n) if row else 0
+    from ecentric_workspace.alerts.services import policy_coverage
+    return policy_coverage.missing_count(brand)
 
 
 def remaining_missing_skus(brand):

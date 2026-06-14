@@ -10,6 +10,7 @@ from frappe.utils import add_days, cint, nowdate
 
 from ecentric_workspace.alerts import permissions as perms
 from ecentric_workspace.alerts.services import sku_catalog
+from ecentric_workspace.alerts.services import policy_coverage
 
 CAT_FIELDS = ["name", "brand", "platform", "shop", "omisell_shop_id",
               "seller_sku", "product_name", "rsp_price", "external_product_id",
@@ -144,36 +145,11 @@ def sync_sku_catalog_confirm(brand, days=90, limit=5000):
 
 @frappe.whitelist()
 def policy_missing_skus(brand, platform=None, days=30, limit=200):
-    """SKUs seen in recent orders with NO Active EC Price Policy. Feeds the
-    coverage panel. Read-only, brand-scoped."""
+    """SKUs in recent orders with NO active in-effect EC Price Policy. Feeds the
+    coverage modal. Read-only, brand-scoped. Uses the CANONICAL order-derived
+    coverage service (services.policy_coverage) - scope + effective aware
+    (mirrors policy_lookup), SAME definition as the Price Setup chip count and
+    the Setup ToDo (one source, no number drift)."""
     perms.require_brand_access(frappe.session.user, brand)
-    since = str(add_days(nowdate(), -int(days))) + " 00:00:00"
-    conds = ["ol.brand = %s", "ol.order_datetime >= %s",
-             "oi.seller_sku IS NOT NULL", "oi.seller_sku != ''"]
-    params = [brand, since]
-    if platform and platform != "All":
-        conds.append("ol.platform = %s")
-        params.append(platform)
-    params.append(int(limit))
-    rows = frappe.db.sql(
-        """SELECT oi.seller_sku, MAX(oi.product_name) AS product_name,
-                  MAX(oi.list_price) AS rsp_price, COUNT(*) AS order_lines,
-                  MAX(ol.order_datetime) AS last_order
-           FROM `tabEC Marketplace Order Item` oi
-           JOIN `tabEC Marketplace Order Log` ol ON oi.parent = ol.name
-           WHERE %s GROUP BY oi.seller_sku
-           ORDER BY order_lines DESC LIMIT %%s""" % " AND ".join(conds),
-        params, as_dict=True)
-    skus = [r.seller_sku for r in rows]
-    covered = set()
-    if skus:
-        cov = frappe.get_all("EC Price Policy",
-                             filters={"brand": brand, "status": "Active",
-                                      "seller_sku": ("in", skus)},
-                             fields=["seller_sku"], limit_page_length=0)
-        covered = set(c.seller_sku for c in cov)
-    missing = [r for r in rows if r.seller_sku not in covered]
-    return {"brand": brand, "days": int(days), "missing": missing,
-            "missing_count": len(missing), "checked": len(rows),
-            "coverage_pct": (round(100.0 * (len(rows) - len(missing)) / len(rows), 1)
-                             if rows else None)}
+    return policy_coverage.coverage_report(
+        brand, days=int(days), platform=platform, limit=int(limit))

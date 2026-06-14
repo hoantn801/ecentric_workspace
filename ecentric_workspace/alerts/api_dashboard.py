@@ -24,6 +24,11 @@ def _flt(f=None, days=None):
     for k in ("platform", "shop", "severity", "status", "owner_user", "rule_code"):
         if f.get(k):
             flt.append([k, "=", f[k]])
+    if not f.get("rule_code"):
+        # 2026-06-14: missing_policy retired from operational dashboards (KPI,
+        # by_dimension, top_skus, aging, trend). Setup/coverage gaps live in
+        # Price Setup. Explicit rule_code='missing_policy' still queries history.
+        flt.append(["rule_code", "not in", ["missing_policy"]])
     if f.get("seller_sku"):
         flt.append(["seller_sku", "like", "%%%s%%" % f["seller_sku"]])
     frm = f.get("from_date") or add_days(nowdate(), -(days or DEFAULT_DAYS))
@@ -57,6 +62,9 @@ def _where(flt):
         if op == "in":
             conds.append("`%s` IN (%s)" % (field, ", ".join(["%s"] * len(value))))
             params += list(value)
+        elif op == "not in":
+            conds.append("`%s` NOT IN (%s)" % (field, ", ".join(["%s"] * len(value))))
+            params += list(value)
         elif op == "is" and value == "set":
             conds.append("`%s` IS NOT NULL AND `%s` != ''" % (field, field))
         else:
@@ -87,8 +95,10 @@ def kpis(filters=None):
         "open": c(open_f),
         "critical": c(open_f + [["severity", "=", "Critical"]]),
         "warning": c(open_f + [["severity", "=", "Warning"]]),
+        # 2026-06-14: missing_policy retired; card now counts only the
+        # operational missing_brand_mapping setup-gap (FE key preserved).
         "missing_policy": c(open_f + [["rule_code", "in",
-                                       ["missing_policy", "missing_brand_mapping"]]]),
+                                       ["missing_brand_mapping"]]]),
         # API key `resolved` kept for frontend compatibility (the dashboard
         # card reads c.resolved). Value = COMPLETED = Closed + legacy Resolved.
         # `closed` is the forward-compat alias; both carry the same count.
