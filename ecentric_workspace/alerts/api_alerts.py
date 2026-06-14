@@ -56,6 +56,11 @@ def _scoped_filters(f, allowed):
     for k in ("status", "severity", "alert_type", "rule_code", "platform", "owner_user"):
         if f.get(k):
             flt.append([k, "=", f[k]])
+    if not f.get("rule_code"):
+        # 2026-06-14: missing_policy is RETIRED from the operational Alerts list -
+        # it is a setup/coverage gap surfaced via Price Setup, not an alert.
+        # History stays queryable by passing rule_code='missing_policy' explicitly.
+        flt.append(["rule_code", "not in", ["missing_policy"]])
     if f.get("seller_sku"):
         # UX polish 2026-06-10: EXACT match by default so P02056 never mixes
         # with P02056X2; a '*' in the query opts into wildcard (like) matching.
@@ -126,6 +131,9 @@ def get_cards():
         f = dict(extra)
         if scope is not None:
             f["brand"] = ("in", scope)
+        # 2026-06-14: exclude retired missing_policy from operational KPI
+        # aggregates unless the caller scopes rule_code explicitly.
+        f.setdefault("rule_code", ("not in", ["missing_policy"]))
         return frappe.db.count("EC Alert", f)
 
     open_states = {"status": ("in", list(cl.ACTIVE_STATUSES))}
@@ -138,8 +146,10 @@ def get_cards():
         "open": count(open_states),
         "critical": count(dict(open_states, severity="Critical")),
         "warning": count(dict(open_states, severity="Warning")),
+        # 2026-06-14: missing_policy retired; this card now counts only the
+        # operational missing_brand_mapping setup-gap (key kept for FE stability).
         "missing_policy": count(dict(open_states,
-                                     rule_code=("in", ["missing_policy", "missing_brand_mapping"]))),
+                                     rule_code=("in", ["missing_brand_mapping"]))),
         "lock_pending": frappe.db.count("EC Alert Action", af),
         "closed_today": count({"status": ("in", closed_states),
                                "resolved_at": (">=", nowdate() + " 00:00:00")}),

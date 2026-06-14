@@ -92,19 +92,14 @@ def check_order_log(order_log_name, raw_shop_id=None):
         policy, level = policy_lookup.find_policy(
             log.brand, log.platform, log.shop, line.item, line.seller_sku)
         if not policy:
-            key = dedupe_keys.missing_policy_key(
-                log.brand, log.platform, log.shop, line.seller_sku, yyyymmdd,
-                external_product_id=line.external_product_id)
-            created = _create_alert(
-                log, line, rule_code="missing_policy", severity="Warning",
-                dedupe_key=key, price=price, policy=None, baseline=None, gap=None,
-                recommended_action="Notify Only",
-                title="Missing price policy: %s / %s" % (log.brand, line.seller_sku or line.item),
-                message=("No active EC Price Policy matched brand %s, platform %s, "
-                         "shop %s, SKU %s. Create one to enable price checking.") % (
-                             log.brand, log.platform, log.shop, line.seller_sku or line.item))
-            s["alerts_created" if created else "alerts_deduped"] += 1
+            # 2026-06-14: missing_policy is RETIRED as an operational alert - it
+            # is a setup/coverage gap tracked by Price Setup (order-derived
+            # coverage in services.policy_coverage), NOT an EC Alert. We still
+            # mark the line for worker/debug visibility and skip it (no price
+            # check is possible without a policy). below_min / above_high /
+            # severe_drop on OTHER lines are unaffected.
             line.check_result = "Missing Rule"
+            s["missing_policy_skipped"] = s.get("missing_policy_skipped", 0) + 1
             continue
 
         line.min_price_at_check = policy.min_price
