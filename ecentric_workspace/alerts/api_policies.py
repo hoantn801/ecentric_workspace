@@ -199,6 +199,11 @@ def policy_caps(brand=None):
     allowed = _scope()
     user = frappe.session.user
     if brand:
+        # Pre-E2E hardening 2026-06-14: an explicit out-of-scope brand request
+        # is rejected (not answered with false/false) so caps can never be
+        # probed for brands the user may not access. Matches the scope-test
+        # requirement "explicit brand=LOF-VN by a FES-only user is rejected".
+        perms.require_brand_access(user, brand)
         return {"brand": brand,
                 "can_manage": bool(perms.can_manage_policy(user, brand)),
                 "can_activate": bool(perms.can_activate_rule(user, brand))}

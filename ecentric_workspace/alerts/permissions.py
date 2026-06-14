@@ -8,9 +8,14 @@ Modeled on ecentric_workspace.pm.permissions (PM1-T03 pattern):
     goes through whitelisted services that call into this module.
   * Brand scope source of truth = `Brand Approver` (status = Active):
         kam_owner      -> role "kam"      (daily marketplace alert owner, D1)
-        manager_email  -> role "manager"
+        manager_email  -> role "manager"  (brand-scoped: this brand only)
         leader_email   -> role "leader"
-    System Manager / Administrator -> global override ("*").
+    A user appearing in several rows gets the UNION of those brands.
+    GLOBAL SCOPE ("*") -> System Manager / Administrator, OR an active Employee
+    in the Management Department ("Management - EC"; owner decision 2026-06-15).
+    Management-Department scope is data-visibility only - it does NOT grant
+    System-Manager-only capabilities. Brand Approver.manager_email stays
+    brand-scoped and is never conflated with the Management Department.
   * No hardcoded users or emails. Fail-safe: unresolved -> no access (never
     silently widen scope).
 
@@ -39,9 +44,48 @@ _BRAND_ROLE_FIELDS = (
 
 _ROLE_RANK = {"kam": 3, "manager": 2, "leader": 1}
 
+# Owner decision 2026-06-15: a user linked to an ACTIVE Employee in this
+# Department also sees ALL brands (global SCOPE), exactly like a supervisor.
+# This is a DATA-SCOPE grant only - it does NOT confer System-Manager-only
+# capabilities (credential management / action execution / case cancellation),
+# which stay gated on is_global_supervisor (Administrator / System Manager).
+# The Department docname is company-suffixed in ERPNext ("Management - EC");
+# overridable via site_config for non-prod company abbreviations.
+_MANAGEMENT_DEPARTMENT_DEFAULT = "Management - EC"
+
+
+def _management_department():
+    return frappe.conf.get("ec_alerts_management_department") or \
+        _MANAGEMENT_DEPARTMENT_DEFAULT
+
+
+def _is_management_employee(user=None):
+    """True iff `user` is linked to at least one ACTIVE Employee in the global
+    Management Department. Considers ALL matching rows (a user may map to more
+    than one Employee), filters on status='Active' (an Inactive/Left/Suspended
+    employee does NOT grant scope), and is fail-safe: any lookup error returns
+    False so a broken Employee table can never widen access."""
+    user = user or frappe.session.user
+    if not user or user in ("Guest", "Administrator"):
+        return False
+    try:
+        return bool(frappe.get_all(
+            "Employee",
+            filters={"user_id": user, "status": "Active",
+                     "department": _management_department()},
+            limit=1, pluck="name"))
+    except Exception:
+        # Fail-safe: never widen scope on a broken Employee lookup.
+        frappe.log_error(frappe.get_traceback(), "alerts._is_management_employee")
+        return False
+
 
 def is_global_supervisor(user=None):
-    """System Manager / Administrator -> sees and manages all brands."""
+    """System Manager / Administrator. This is the SYSTEM-MANAGER capability
+    predicate (credential management, action execution, case cancellation,
+    forced cooldown bypass). It is intentionally NARROWER than global DATA SCOPE
+    - Management-Department employees get all-brand visibility via
+    get_allowed_brands but are NOT System Managers here."""
     user = user or frappe.session.user
     if user == "Administrator":
         return True
@@ -49,13 +93,19 @@ def is_global_supervisor(user=None):
 
 
 def get_allowed_brands(user=None):
-    """Return ALL_BRANDS ("*") for global supervisors, else a dict
-    {brand_code: strongest_scope_role} from active Brand Approver records.
+    """Return ALL_BRANDS ("*") for users with GLOBAL SCOPE, else a dict
+    {brand_code: strongest_scope_role} = the UNION of brands from active Brand
+    Approver records (kam_owner / manager_email / leader_email).
 
-    Empty dict means NO Alert Center access.
+    Global scope (owner model 2026-06-15):
+        * Administrator / System Manager  (is_global_supervisor), OR
+        * an active Employee in the Management Department.
+
+    Empty dict means NO Alert Center access (deny-by-default - this never falls
+    back to all brands).
     """
     user = user or frappe.session.user
-    if is_global_supervisor(user):
+    if is_global_supervisor(user) or _is_management_employee(user):
         return ALL_BRANDS
 
     allowed = {}

@@ -159,23 +159,37 @@ class TestEngineNoLongerCreatesMissingPolicy(unittest.TestCase):
 
 
 class TestListAndKpiExcludeMissingPolicy(unittest.TestCase):
-    def test_alerts_list_default_excludes(self):
+    # Pre-E2E 2026-06-14: the per-API hardcoded ["missing_policy"] exclusion was
+    # replaced by ONE canonical classifier (services.rule_classification). These
+    # guards now assert the shared helper is used (missing_policy is still
+    # default-excluded as a SETUP rule, plus missing_brand_mapping is too).
+    def test_alerts_list_uses_canonical_classifier(self):
         s = _src("api_alerts.py")
-        self.assertIn('["rule_code", "not in", ["missing_policy"]]', s)
-        self.assertIn('f.setdefault("rule_code", ("not in", ["missing_policy"]))', s)
+        self.assertIn("rule_classification as rclass", s)
+        self.assertIn("rclass.rule_code_condition(f)", s)
+        self.assertIn("rclass.non_operational_rule_codes()", s)
 
-    def test_dashboard_default_excludes_and_supports_not_in(self):
+    def test_dashboard_uses_canonical_classifier_and_supports_not_in(self):
         s = _src("api_dashboard.py")
-        self.assertIn('["rule_code", "not in", ["missing_policy"]]', s)
+        self.assertIn("rule_classification as rclass", s)
+        self.assertIn("rclass.rule_code_condition(f)", s)
         self.assertIn('elif op == "not in":', s)         # _where can render it
 
-    def test_kpi_cards_drop_missing_policy(self):
+    def test_kpi_cards_separate_setup_from_operational(self):
         for mod in ("api_alerts.py", "api_dashboard.py"):
             s = _src(mod)
-            # the "missing_policy" KPI key is kept for FE, but counts only the
-            # operational missing_brand_mapping setup-gap now.
-            self.assertNotIn('["missing_policy", "missing_brand_mapping"]', s)
-            self.assertIn('["missing_brand_mapping"]', s)
+            # Setup Issues counted via the canonical setup set...
+            self.assertIn("rclass.setup_rule_codes()", s)
+            # ...and the old single-rule hardcoded card hack is gone.
+            self.assertNotIn('rule_code=("in", ["missing_brand_mapping"])', s)
+            self.assertNotIn('["rule_code", "in",\n                                       ["missing_brand_mapping"]]', s)
+
+    def test_canonical_classifier_keeps_missing_policy_and_mapping_as_setup(self):
+        from ecentric_workspace.alerts.services import rule_classification as rc
+        self.assertIn("missing_policy", rc.SETUP_RULES)
+        self.assertIn("missing_brand_mapping", rc.SETUP_RULES)
+        self.assertNotIn("missing_policy", rc.OPERATIONAL_RULES)
+        self.assertNotIn("missing_brand_mapping", rc.OPERATIONAL_RULES)
 
 
 class TestSetupTodoUsesCanonicalCoverage(unittest.TestCase):
@@ -285,7 +299,12 @@ class TestCoverageMatchesFindPolicy(unittest.TestCase):
         base.update(kw)
         return base
 
-    def _covered_sql(self, policies, line):
+    def _covered_sql(self, policies, line, shops=None):
+        """Execute the REAL pc._COVERED predicate in SQLite. Mirrors production's
+        FROM/JOIN shape EXACTLY by reusing pc._SHOP_JOIN, so brand is resolved as
+        COALESCE(NULLIF(ol.brand,''), s.brand) (own brand wins; Active shop
+        mapping is the fallback). `shops` (default none) seeds the shop-mapping
+        table for NULL/blank-brand resolution cases."""
         import sqlite3
         sql = pc._COVERED.replace("%(today)s", ":today")
         db = sqlite3.connect(":memory:")
@@ -293,19 +312,32 @@ class TestCoverageMatchesFindPolicy(unittest.TestCase):
         c.execute("CREATE TABLE `tabEC Price Policy` (name TEXT, brand TEXT, status TEXT, "
                   "platform TEXT, shop TEXT, item TEXT, seller_sku TEXT, "
                   "is_brand_fallback INT, effective_from TEXT, effective_to TEXT)")
-        c.execute("CREATE TABLE `tabEC Marketplace Order Log` (name TEXT, brand TEXT, platform TEXT, shop TEXT)")
+        # omisell_shop_id added so the production shop-mapping LEFT JOIN resolves.
+        c.execute("CREATE TABLE `tabEC Marketplace Order Log` (name TEXT, brand TEXT, "
+                  "platform TEXT, shop TEXT, omisell_shop_id TEXT)")
         c.execute("CREATE TABLE `tabEC Marketplace Order Item` (parent TEXT, seller_sku TEXT, item TEXT)")
+        # shop->brand mapping table referenced by pc._SHOP_JOIN (alias s).
+        c.execute("CREATE TABLE `tabEC Marketplace Shop` (name TEXT, omisell_shop_id TEXT, "
+                  "brand TEXT, status TEXT)")
         for p in policies:
             c.execute("INSERT INTO `tabEC Price Policy` VALUES (?,?,?,?,?,?,?,?,?,?)",
                       tuple(p.get(k) for k in self.COLS))
-        c.execute("INSERT INTO `tabEC Marketplace Order Log` VALUES (?,?,?,?)",
-                  ("OL1", line["brand"], line["platform"], line.get("shop")))
+        c.execute("INSERT INTO `tabEC Marketplace Order Log` VALUES (?,?,?,?,?)",
+                  ("OL1", line.get("brand"), line["platform"], line.get("shop"),
+                   line.get("omisell_shop_id")))
         c.execute("INSERT INTO `tabEC Marketplace Order Item` VALUES (?,?,?)",
                   ("OL1", line.get("seller_sku"), line.get("item")))
-        c.execute("SELECT CASE WHEN %s THEN 1 ELSE 0 END "
-                  "FROM `tabEC Marketplace Order Item` oi "
-                  "JOIN `tabEC Marketplace Order Log` ol ON oi.parent = ol.name" % sql,
-                  {"today": self.TODAY})
+        for i, sh in enumerate(shops or []):
+            c.execute("INSERT INTO `tabEC Marketplace Shop` VALUES (?,?,?,?)",
+                      ("SH%d" % i, sh.get("omisell_shop_id"), sh.get("brand"),
+                       sh.get("status", "Active")))
+        # Same join shape as production (no %-format: pc._SHOP_JOIN/_COVERED have
+        # no '%' left after the :today swap, so concatenate to stay literal-safe).
+        query = ("SELECT CASE WHEN " + sql + " THEN 1 ELSE 0 END "
+                 "FROM `tabEC Marketplace Order Item` oi "
+                 "JOIN `tabEC Marketplace Order Log` ol ON oi.parent = ol.name "
+                 + pc._SHOP_JOIN)
+        c.execute(query, {"today": self.TODAY})
         return bool(c.fetchone()[0])
 
     def _cases(self):
@@ -367,6 +399,45 @@ class TestCoverageMatchesFindPolicy(unittest.TestCase):
                     % (label, covered, found, level))
                 self.assertEqual(found, expect, "%s: find_policy=%s expected=%s"
                                  % (label, found, expect))
+
+    def test_brand_resolution_via_shop_mapping(self):
+        """Explicit coverage for the COALESCE(NULLIF(ol.brand,''), s.brand)
+        resolution that the 23-case equivalence never exercises (its line.brand
+        is always populated). brand B is the covered brand throughout."""
+        L = dict(self.LINE, shop="S1")     # Shopee / shop S1 / item ITM / sku SKU
+        covering = [self._P(platform="Shopee", shop="S1", item="ITM")]   # brand B
+        OMI = "OMI-1"
+
+        # (a) populated ol.brand WINS over the shop mapping.
+        line_a = dict(L, brand="B", omisell_shop_id=OMI)
+        map_wrong = [{"omisell_shop_id": OMI, "brand": "OTHER", "status": "Active"}]
+        self.assertTrue(self._covered_sql(covering, line_a, map_wrong),
+                        "ol.brand=B must win over an OTHER shop mapping")
+        self.assertFalse(
+            self._covered_sql([self._P(brand="OTHER", platform="Shopee",
+                                       shop="S1", item="ITM")], line_a, map_wrong),
+            "resolved brand is B -> an OTHER-brand policy must NOT cover it")
+
+        # (b) NULL / blank ol.brand + ACTIVE mapping resolves via the shop.
+        map_ok = [{"omisell_shop_id": OMI, "brand": "B", "status": "Active"}]
+        for blank in ("", None):
+            line_b = dict(L, brand=blank, omisell_shop_id=OMI)
+            self.assertTrue(self._covered_sql(covering, line_b, map_ok),
+                            "blank ol.brand %r + Active mapping must resolve to B" % (blank,))
+
+        # (c) blank ol.brand + NO matching mapping stays UNRESOLVED (not covered).
+        line_c = dict(L, brand="", omisell_shop_id=OMI)
+        self.assertFalse(self._covered_sql(covering, line_c, []),
+                         "no shop mapping -> resolved brand NULL -> not covered")
+        self.assertFalse(
+            self._covered_sql(covering, line_c,
+                              [{"omisell_shop_id": "OTHER-OMI", "brand": "B", "status": "Active"}]),
+            "mapping for a different omisell_shop_id must not resolve")
+
+        # (d) blank ol.brand + INACTIVE mapping stays UNRESOLVED (not covered).
+        map_inactive = [{"omisell_shop_id": OMI, "brand": "B", "status": "Inactive"}]
+        self.assertFalse(self._covered_sql(covering, line_c, map_inactive),
+                         "Inactive shop mapping must not resolve the brand")
 
 
 if __name__ == "__main__":
