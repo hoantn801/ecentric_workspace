@@ -58,6 +58,12 @@ NON_OPERATIONAL_RULES = SETUP_RULES | SYSTEM_RULES
 # inventory test asserts enum == ALL_RULES.
 ALL_RULES = OPERATIONAL_RULES | NON_OPERATIONAL_RULES
 
+# NOTE: services.case_todo also buckets rule_codes (INCIDENT / SETUP / SYSTEM),
+# but for a DIFFERENT purpose - routing per-case KAM ToDos - so it intentionally
+# classifies missing_brand_mapping as an INCIDENT (a KAM must map the shop). That
+# is NOT a duplicate of THIS module, which decides dashboard/list VISIBILITY.
+# Keep the two separate; do not merge (merging would change ToDo assignment).
+
 
 def is_operational(code):
     return code in OPERATIONAL_RULES

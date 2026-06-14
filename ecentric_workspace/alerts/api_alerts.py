@@ -175,8 +175,10 @@ def get_cards():
         "critical": count(dict(open_states, severity="Critical")),
         "warning": count(dict(open_states, severity="Warning")),
         # 2026-06-14 (Pre-E2E): setup/configuration gaps, separated from the
-        # operational KPIs. Legacy key `missing_policy` kept as an alias.
+        # operational KPIs.
         "setup_issues": setup_open,
+        # DEPRECATED alias for setup_issues (legacy FE key). Not labelled
+        # "missing policy" in the UI; remove after one frontend release.
         "missing_policy": setup_open,
         "lock_pending": frappe.db.count("EC Alert Action", af),
         "closed_today": count({"status": ("in", closed_states),
