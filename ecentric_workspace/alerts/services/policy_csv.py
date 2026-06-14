@@ -15,7 +15,10 @@ TEMPLATE_COLUMNS = [
     "severe_drop_percent", "enable_stock_safety_lock",
     "effective_from", "effective_to", "status",
 ]
-REQUIRED = ("brand", "platform", "min_price")
+# Identity/shape fields required at EVERY status (a Draft may omit the numeric
+# fields - those are range/completeness-checked by services.policy_validation
+# according to the row's status, NOT here).
+REQUIRED = ("brand", "platform")
 PLATFORMS = ("All", "Shopee", "Lazada", "TikTok")
 STATUSES = ("Draft", "Active", "Paused", "Expired", "Inactive")
 MAX_ROWS = 500
@@ -76,20 +79,20 @@ def validate_row_shape(row, idx):
         errs.append("row %d: invalid status %r" % (idx, row["status"]))
     if not (row.get("seller_sku") or row.get("item")):
         errs.append("row %d: seller_sku or item is required" % idx)
+    # TYPE/shape only: parse the numbers (locale-aware) so downstream gets
+    # floats; the >0 / 0<pct<=100 RANGE + required-when-Active rules live in the
+    # single shared validator (services.policy_validation), NOT duplicated here.
     for k in ("min_price", "reference_price", "target_price",
               "high_alert_percent", "severe_drop_percent"):
         if row.get(k):
             try:
                 out[k] = parse_number(row[k])
-                if out[k] < 0:
-                    errs.append("row %d: %s cannot be negative" % (idx, k))
             except ValueError:
                 errs.append("row %d: %s is not a number: %r" % (idx, k, row[k]))
     if row.get("enable_stock_safety_lock"):
         out["enable_stock_safety_lock"] = 1 if row["enable_stock_safety_lock"].strip().lower() in ("1", "true", "yes") else 0
-    ef, et = row.get("effective_from"), row.get("effective_to")
-    if ef and et and et < ef:
-        errs.append("row %d: effective_to before effective_from" % idx)
+    # NOTE: effective date ORDER is enforced by the shared validator (both
+    # dates present) - not duplicated here.
     for k in ("brand", "platform", "shop", "seller_sku", "item", "product_name",
               "effective_from", "effective_to", "status"):
         if row.get(k):

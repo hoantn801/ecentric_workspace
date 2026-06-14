@@ -28,11 +28,27 @@ idempotent (<=1 open ToDo per case / per brand-setup). Touches ONLY Frappe
 ToDo + the target doc's _assign (via the API). No PM, order pull, scheduler,
 catalogue, Omisell/stock. Zero migration.
 """
+import contextlib
+
 import frappe
 
 from ecentric_workspace.alerts.services import case_lifecycle as cl
 
 _GUARD = "_ec_alert_todo_syncing"
+
+
+@contextlib.contextmanager
+def autosync_suspended():
+    """Suppress the EC Alert controller's per-row ToDo recompute (the recursion
+    guard) so a batch caller (e.g. policy_setup closing many missing_policy
+    alerts) can recompute the brand setup ToDo exactly ONCE afterwards via
+    sync_brand_setup(), instead of N times via per-alert on_update."""
+    prev = getattr(frappe.flags, _GUARD, False)
+    setattr(frappe.flags, _GUARD, True)
+    try:
+        yield
+    finally:
+        setattr(frappe.flags, _GUARD, prev)
 
 # Classification uses the EXACT rule_code strings emitted by the engine /
 # defined in the EC Alert.rule_code Select (verified by grep 2026-06-13; the
@@ -157,6 +173,13 @@ def _remaining_missing_skus(brand):
     return int(row[0].n) if row else 0
 
 
+def remaining_missing_skus(brand):
+    """PUBLIC: distinct ACTIVE missing_policy seller_sku count for `brand` (the
+    aggregated Setup ToDo metric). Used by policy_setup (lifecycle summary) and
+    the Price Setup per-brand missing summary - one definition, no duplicate."""
+    return _remaining_missing_skus(brand)
+
+
 def _setup_description(brand, count):
     return "%s Thieu thiet lap gia: %d SKU - mo Price Setup (/alerts/policies) cho brand %s" % (
         SETUP_MARKER, count, brand)
@@ -170,10 +193,25 @@ def _open_setup_todos(brand, owner=None):
 
 
 def _sync_brand_setup(case):
-    brand = case.get("brand")
+    # delegate to the public brand-level recompute (used by policy_setup too)
+    sync_brand_setup(case.get("brand"), case.get("owner_user"))
+
+
+def sync_brand_setup(brand, owner=None):
+    """PUBLIC entry: recompute the aggregated Setup ToDo for `brand` from the
+    current ACTIVE missing_policy case count. Called by the EC Alert controller
+    (via _sync_brand_setup) AND by services.policy_setup after auto-closing
+    missing_policy alerts. `owner` defaults to the brand's resolved KAM owner so
+    a policy-save-driven recompute (no case in hand) still assigns correctly.
+    Idempotent; <=1 open setup ToDo per (brand, owner)."""
     if not brand:
         return
-    owner = case.get("owner_user")
+    if owner is None:
+        try:
+            from ecentric_workspace.alerts.services import brand_resolver
+            owner = brand_resolver.resolve_owner(None, brand)
+        except Exception:
+            owner = None
     count = _remaining_missing_skus(brand)
     existing = _open_setup_todos(brand)  # any owner (handles owner change too)
     if count <= 0:

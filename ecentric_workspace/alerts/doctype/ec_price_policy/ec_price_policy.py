@@ -6,16 +6,29 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+# Scope-key + overlap are the SINGLE SOURCE OF TRUTH in services.policy_scope so
+# the controller guard and the bulk-import Conflict preview never diverge.
+from ecentric_workspace.alerts.services.policy_scope import (
+    scope_key as _scope_key, windows_overlap as _windows_overlap)
+from ecentric_workspace.alerts.services import policy_validation
+
 
 class ECPricePolicy(Document):
     def validate(self):
-        if self.effective_from and self.effective_to and self.effective_to < self.effective_from:
-            frappe.throw(_("Effective To cannot be before Effective From."))
-        # Lookup priority 6 (brand-level fallback) must be an explicit opt-in.
+        # Shape: lookup priority 6 (brand-level fallback) must be explicit opt-in.
         if not (self.item or self.seller_sku or self.shop) and not self.is_brand_fallback:
             frappe.throw(
                 _("Policy must target an Item, Seller SKU or Shop - or be explicitly marked 'Is Brand-level Fallback'.")
             )
+        # Field rules via the SINGLE shared validator (no duplicate rules here).
+        # Active => full completeness; Draft/Paused/Inactive => range-if-present.
+        errs = policy_validation.validate_policy_values(
+            {"min_price": self.min_price, "high_alert_percent": self.high_alert_percent,
+             "severe_drop_percent": self.severe_drop_percent,
+             "effective_from": self.effective_from, "effective_to": self.effective_to},
+            require_complete=((self.status or "") == "Active"))
+        if errs:
+            frappe.throw("; ".join(errs))
         self._guard_exact_scope_conflict()
 
     def _guard_exact_scope_conflict(self):
@@ -58,21 +71,3 @@ class ECPricePolicy(Document):
                                self.shop or "-",
                                self.seller_sku or self.item or "(fallback)"),
                     title=_("Duplicate Active Policy"))
-
-
-def _scope_key(platform, shop, seller_sku, item, is_brand_fallback):
-    pf = (platform or "All")
-    sh = (shop or "")
-    tgt = ((seller_sku or "").strip() or (item or "").strip()
-           or ("__fallback__" if int(is_brand_fallback or 0) else ""))
-    return (pf, sh, tgt)
-
-
-def _windows_overlap(af, at, bf, bt):
-    """Inclusive overlap of [af,at] and [bf,bt]; empty end = open. Strings/dates
-    compare lexically (ISO dates)."""
-    if af and bt and str(af) > str(bt):
-        return False
-    if bf and at and str(bf) > str(at):
-        return False
-    return True
