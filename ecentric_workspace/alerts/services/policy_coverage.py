@@ -17,6 +17,14 @@ Definition (order-derived, scope + effective aware):
   policy_lookup.find_policy (existence, not order), so "covered" == "find_policy
   returns a policy". It is a SINGLE batched query (no N+1 across brands/SKUs).
 
+Brand resolution (2026-06-14): rows are attributed by RESOLVED brand =
+COALESCE(NULLIF(ol.brand,''), active_shop.brand) - the log's own brand, else the
+Active EC Marketplace Shop mapping for its omisell_shop_id. Rows that resolve to
+nothing (no own brand AND no Active mapping) are EXCLUDED from Price Setup and
+remain handled by missing_brand_mapping; a populated ol.brand is never
+overridden. (The p005 backfill fixes ol.brand at source; this is the query-time
+safety net.)
+
 Brand scope / permission are enforced by the API callers (this service takes a
 brand list and trusts it).
 """
@@ -25,7 +33,26 @@ from frappe.utils import add_days, nowdate
 
 DEFAULT_WINDOW_DAYS = 30
 
-# Mirrors policy_lookup.find_policy EXISTENCE for a line (brand=ol.brand):
+# Resolved brand (2026-06-14): the order log's OWN brand wins; when it is NULL or
+# blank (logs ingested before their shop->brand mapping existed - ingestion
+# resolves brand once and never re-resolves) we fall back to the Active
+# EC Marketplace Shop mapping for the same omisell_shop_id. Mirrors
+# brand_resolver.resolve_brand's shop path. The p005 backfill fixes ol.brand at
+# source; this keeps coverage correct in the gap and for any future
+# ingest-before-mapping. A populated ol.brand is NEVER overridden by the mapping.
+_RESOLVED_BRAND = "COALESCE(NULLIF(ol.brand, ''), s.brand)"
+
+# Active, brand-bearing shop mapping joined by omisell_shop_id. LEFT JOIN, so a
+# row whose shop is unmapped / Inactive / blank-brand resolves to NULL and is
+# EXCLUDED from Price Setup (it stays handled by missing_brand_mapping) - never
+# silently attributed to a wrong brand.
+_SHOP_JOIN = (
+    "LEFT JOIN `tabEC Marketplace Shop` s "
+    "ON s.omisell_shop_id = ol.omisell_shop_id "
+    "AND s.status = 'Active' AND s.brand IS NOT NULL AND s.brand != ''"
+)
+
+# Mirrors policy_lookup.find_policy EXISTENCE for a line (brand = resolved brand):
 #   L1-L4  specific platform, shop-specific OR no-shop, item OR seller_sku
 #   L5     platform 'All', no shop, item OR seller_sku
 #   L6     is_brand_fallback, platform in (line.platform, 'All')
@@ -33,7 +60,7 @@ DEFAULT_WINDOW_DAYS = 30
 # for L1-L4" guard is implicitly satisfied.
 _COVERED = (
     "EXISTS (SELECT 1 FROM `tabEC Price Policy` pp "
-    "WHERE pp.brand = ol.brand AND pp.status = 'Active' "
+    "WHERE pp.brand = " + _RESOLVED_BRAND + " AND pp.status = 'Active' "
     "AND (pp.effective_from IS NULL OR pp.effective_from <= %(today)s) "
     "AND (pp.effective_to IS NULL OR pp.effective_to >= %(today)s) "
     "AND ( "
@@ -67,28 +94,35 @@ def missing_rows(brands=None, days=None, platform=None, limit=None):
     since = str(add_days(nowdate(), -window_days(days))) + " 00:00:00"
     params = {"since": since, "today": nowdate()}
     conds = ["ol.order_datetime >= %(since)s",
-             "oi.seller_sku IS NOT NULL", "oi.seller_sku != ''"]
+             "oi.seller_sku IS NOT NULL", "oi.seller_sku != ''",
+             # exclude still-UNRESOLVED rows (no own brand AND no Active mapping):
+             # they stay OUT of Price Setup, handled by missing_brand_mapping.
+             _RESOLVED_BRAND + " IS NOT NULL", _RESOLVED_BRAND + " != ''"]
     if brands is not None:
-        conds.append("ol.brand IN %(brands)s")
+        conds.append(_RESOLVED_BRAND + " IN %(brands)s")
         params["brands"] = tuple(brands)
     if platform and platform != "All":
         conds.append("ol.platform = %(platform)s")
         params["platform"] = platform
     conds.append("NOT " + _COVERED)
-    lim = ""
+    lim = "LIMIT %(limit)s" if limit else ""
     if limit:
         params["limit"] = int(limit)
-        lim = "LIMIT %(limit)s"
-    return frappe.db.sql(
-        """SELECT ol.brand AS brand, oi.seller_sku AS seller_sku,
-                  MAX(oi.product_name) AS product_name, MAX(oi.list_price) AS rsp_price,
-                  COUNT(*) AS order_lines, MAX(ol.order_datetime) AS last_order
-           FROM `tabEC Marketplace Order Item` oi
-           JOIN `tabEC Marketplace Order Log` ol ON oi.parent = ol.name
-           WHERE %s
-           GROUP BY ol.brand, oi.seller_sku
-           ORDER BY order_lines DESC %s""" % (" AND ".join(conds), lim),
-        params, as_dict=True)
+    # Built by concatenation (NOT %-formatting): the placeholders %(since)s /
+    # %(brands)s / %(platform)s / %(today)s / %(limit)s stay literal and are
+    # bound by frappe.db.sql; the resolved-brand / shop-join fragments are
+    # trusted constants (no user input).
+    query = (
+        "SELECT " + _RESOLVED_BRAND + " AS brand, oi.seller_sku AS seller_sku, "
+        "MAX(oi.product_name) AS product_name, MAX(oi.list_price) AS rsp_price, "
+        "COUNT(*) AS order_lines, MAX(ol.order_datetime) AS last_order "
+        "FROM `tabEC Marketplace Order Item` oi "
+        "JOIN `tabEC Marketplace Order Log` ol ON oi.parent = ol.name "
+        + _SHOP_JOIN + " "
+        "WHERE " + " AND ".join(conds) + " "
+        "GROUP BY " + _RESOLVED_BRAND + ", oi.seller_sku "
+        "ORDER BY order_lines DESC " + lim)
+    return frappe.db.sql(query, params, as_dict=True)
 
 
 def missing_counts(brands=None, days=None):
@@ -108,19 +142,23 @@ def missing_count(brand, days=None):
 
 
 def _total_order_skus(brand, days=None, platform=None):
+    # Denominator for coverage_pct: must attribute by the SAME resolved brand as
+    # the numerator (missing_rows), else the percentage is inconsistent for
+    # shop-mapping-resolved brands.
     since = str(add_days(nowdate(), -window_days(days))) + " 00:00:00"
     params = {"brand": brand, "since": since}
     cond = ""
     if platform and platform != "All":
-        cond = "AND ol.platform = %(platform)s "
+        cond = " AND ol.platform = %(platform)s"
         params["platform"] = platform
-    row = frappe.db.sql(
-        """SELECT COUNT(DISTINCT oi.seller_sku) AS n
-           FROM `tabEC Marketplace Order Item` oi
-           JOIN `tabEC Marketplace Order Log` ol ON oi.parent = ol.name
-           WHERE ol.brand = %%(brand)s AND ol.order_datetime >= %%(since)s
-             AND oi.seller_sku IS NOT NULL AND oi.seller_sku != '' %s""" % cond,
-        params, as_dict=True)
+    query = (
+        "SELECT COUNT(DISTINCT oi.seller_sku) AS n "
+        "FROM `tabEC Marketplace Order Item` oi "
+        "JOIN `tabEC Marketplace Order Log` ol ON oi.parent = ol.name "
+        + _SHOP_JOIN + " "
+        "WHERE " + _RESOLVED_BRAND + " = %(brand)s AND ol.order_datetime >= %(since)s "
+        "AND oi.seller_sku IS NOT NULL AND oi.seller_sku != ''" + cond)
+    row = frappe.db.sql(query, params, as_dict=True)
     return int(row[0].n) if row else 0
 
 
