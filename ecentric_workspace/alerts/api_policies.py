@@ -9,6 +9,11 @@ from frappe.utils import cint, now_datetime
 
 from ecentric_workspace.alerts import permissions as perms
 from ecentric_workspace.alerts.services import policy_csv
+from ecentric_workspace.alerts.services import policy_validation
+from ecentric_workspace.alerts.services import policy_scope
+from ecentric_workspace.alerts.services import policy_setup
+from ecentric_workspace.alerts.services import case_todo
+from ecentric_workspace.alerts.services import case_lifecycle as cl
 
 FIELDS = ["name", "brand", "platform", "shop", "seller_sku", "item",
           "product_name", "min_price", "reference_price", "target_price",
@@ -18,6 +23,13 @@ FIELDS = ["name", "brand", "platform", "shop", "seller_sku", "item",
           "import_batch", "modified"]
 EDITABLE = [f for f in FIELDS if f not in ("name", "import_batch", "modified")]
 STATUS_FLOW = ("Draft", "Active", "Paused", "Expired", "Inactive")
+# Statuses whose change is an activation/deactivation -> needs can_activate_rule
+# (manager / leader / supervisor / SM). KAM may create/edit (Draft/Paused) but
+# NOT activate or deactivate (binding 2026-06-14, decision F-2).
+ACTIVATION_STATUSES = ("Active", "Inactive")
+# fields the shared validator inspects (real DocType fieldnames)
+_VALUE_FIELDS = ("min_price", "high_alert_percent", "severe_drop_percent",
+                 "effective_from", "effective_to")
 
 
 def _scope(user=None):
@@ -28,6 +40,54 @@ def _require_manage(brand):
     if not perms.can_manage_policy(frappe.session.user, brand):
         frappe.throw(_("You cannot manage policies of brand {0}.").format(brand),
                      frappe.PermissionError)
+
+
+def _require_activate(brand):
+    if not perms.can_activate_rule(frappe.session.user, brand):
+        frappe.throw(
+            _("Only a manager, leader or System Manager can activate/deactivate "
+              "a price policy of brand {0}.").format(brand), frappe.PermissionError)
+
+
+def _doc_values(doc):
+    return {k: doc.get(k) for k in _VALUE_FIELDS}
+
+
+def _validate_values(values, require_complete=False):
+    """Explicit pre-save validation via the SINGLE shared validator. The
+    DocType controller also calls the same validator on save() (defense in
+    depth / Desk path); this just surfaces a clean early error. require_complete
+    is True only for Active (full completeness), else range-if-present."""
+    errs = policy_validation.validate_policy_values(values, require_complete=require_complete)
+    if errs:
+        frappe.throw(_("Policy validation failed: {0}").format("; ".join(errs)))
+
+
+def _import_key(norm):
+    return {"brand": norm["brand"], "platform": norm.get("platform"),
+            "shop": norm.get("shop") or "", "seller_sku": norm.get("seller_sku") or "",
+            "item": norm.get("item") or ""}
+
+
+def _row_action(norm, existing_name):
+    """Determine the import action for one validated row using BOTH keys: the
+    5-field import key (Create vs Update identity) and the scope key
+    (Active-safety -> Conflict). Returns (action, detail)."""
+    if (norm.get("status") or "Draft") == "Active":
+        conflict = policy_scope.find_active_conflict(
+            norm["brand"], norm.get("platform"), norm.get("shop"),
+            norm.get("seller_sku"), norm.get("item"), norm.get("is_brand_fallback"),
+            norm.get("effective_from"), norm.get("effective_to"),
+            exclude_name=existing_name)
+        if conflict:
+            return "Conflict", conflict
+    if not existing_name:
+        return "Create", None
+    cur = frappe.get_doc("EC Price Policy", existing_name)
+    for k, v in norm.items():
+        if str(cur.get(k) or "") != str(v or ""):
+            return "Update", existing_name
+    return "Skip", existing_name        # existing row identical -> no-op
 
 
 @frappe.whitelist()
@@ -56,8 +116,11 @@ def list_policies(filters=None, start=0, page_len=50):
 
 @frappe.whitelist(methods=["POST"])
 def save_policy(policy=None, name=None):
-    """Create (no name) or edit. Brand scope enforced on BOTH the target row
-    and any attempted brand change."""
+    """Create (no name) or edit. Brand scope on BOTH the target row and any
+    brand change. Activation (-> Active/Inactive) needs can_activate_rule. The
+    shared validator runs on every save; the controller fires the exact-scope
+    Active conflict guard. SINGLE-SAVE TRANSACTION: if the post-save lifecycle
+    sync (Step 6) raises, the whole request rolls back (errors propagate)."""
     _scope()
     data = json.loads(policy) if isinstance(policy, str) else (policy or {})
     if not data.get("brand"):
@@ -66,27 +129,92 @@ def save_policy(policy=None, name=None):
     if name:
         doc = frappe.get_doc("EC Price Policy", name)
         _require_manage(doc.brand)
+        prev_status = doc.status
     else:
         doc = frappe.new_doc("EC Price Policy")
         doc.status = "Draft"
         doc.owner_user = data.get("owner_user") or frappe.session.user
+        prev_status = None
     for k in EDITABLE:
         if k in data:
             doc.set(k, data[k])
-    doc.save(ignore_permissions=True)
-    return {"name": doc.name, "status": doc.status}
+    new_status = doc.status or "Draft"
+    if new_status in ACTIVATION_STATUSES and new_status != prev_status:
+        _require_activate(doc.brand)         # KAM cannot activate/deactivate
+    # JSON path: full completeness ONLY when Active; else range-if-present.
+    _validate_values(_doc_values(doc), require_complete=(new_status == "Active"))
+    doc.save(ignore_permissions=True)        # controller re-validates + conflict guard
+    lifecycle = None
+    if doc.status == "Active":               # Step 6 (propagates -> request rollback)
+        lifecycle = policy_setup.terminalize_for_policy(doc, actor=frappe.session.user)
+    return {"name": doc.name, "status": doc.status, "lifecycle": lifecycle}
 
 
 @frappe.whitelist(methods=["POST"])
 def set_policy_status(name, status):
+    """Status change. Active/Inactive require can_activate_rule; activating also
+    re-validates the policy fields. SINGLE-SAVE TRANSACTION (Step 6 propagates)."""
     _scope()
     if status not in STATUS_FLOW:
         frappe.throw(_("Invalid status {0}").format(status))
     doc = frappe.get_doc("EC Price Policy", name)
     _require_manage(doc.brand)
+    if status in ACTIVATION_STATUSES:
+        _require_activate(doc.brand)
     doc.status = status
+    # activation (-> Active) re-runs FULL validation before persisting status;
+    # other statuses range-check present values only.
+    _validate_values(_doc_values(doc), require_complete=(status == "Active"))
     doc.save(ignore_permissions=True)
-    return {"name": doc.name, "status": doc.status}
+    lifecycle = None
+    if doc.status == "Active":
+        lifecycle = policy_setup.terminalize_for_policy(doc, actor=frappe.session.user)
+    return {"name": doc.name, "status": doc.status, "lifecycle": lifecycle}
+
+
+@frappe.whitelist()
+def missing_policy_summary():
+    """Per-brand DISTINCT ACTIVE missing_policy SKU count for the Price Setup
+    summary (the SAME definition as the aggregated Setup ToDo). Brand-scoped.
+    Returns {summary: {brand: count}} - a brand absent from the map is a
+    CONFIRMED 0 (the UI shows 0); the UI shows '-' only before this loads.
+    (The dashboard missing_policy card is COUNT(*), not distinct-SKU, so a
+    dedicated scoped query is needed here.)"""
+    allowed = _scope()
+    base = ("SELECT brand, COUNT(DISTINCT seller_sku) n FROM `tabEC Alert` "
+            "WHERE rule_code='missing_policy' AND status IN %(st)s "
+            "AND seller_sku IS NOT NULL AND seller_sku != '' ")
+    params = {"st": tuple(cl.ACTIVE_STATUSES)}
+    if allowed != perms.ALL_BRANDS:
+        brands = list(allowed.keys()) if isinstance(allowed, dict) else []
+        if not brands:
+            return {"summary": {}}
+        base += "AND brand IN %(br)s "
+        params["br"] = tuple(brands)
+    base += "GROUP BY brand"
+    rows = frappe.db.sql(base, params, as_dict=True)
+    return {"summary": {r["brand"]: int(r["n"]) for r in rows}}
+
+
+@frappe.whitelist()
+def policy_caps(brand=None):
+    """Permission caps for the Price Setup UI (BACKEND is the source of truth -
+    the frontend shows/enables controls from THESE flags, never from role text).
+    With `brand`: {can_manage, can_activate} for that brand. Without: an
+    all_brands flag (global supervisor) + a per-allowed-brand caps map."""
+    allowed = _scope()
+    user = frappe.session.user
+    if brand:
+        return {"brand": brand,
+                "can_manage": bool(perms.can_manage_policy(user, brand)),
+                "can_activate": bool(perms.can_activate_rule(user, brand))}
+    if allowed == perms.ALL_BRANDS:
+        return {"all_brands": True, "caps": {}}
+    brands = list(allowed.keys()) if isinstance(allowed, dict) else []
+    return {"all_brands": False,
+            "caps": {b: {"can_manage": bool(perms.can_manage_policy(user, b)),
+                         "can_activate": bool(perms.can_activate_rule(user, b))}
+                     for b in brands}}
 
 
 @frappe.whitelist()
@@ -166,20 +294,42 @@ def csv_template():
 
 
 @frappe.whitelist(methods=["POST"])
-def preview_policy_csv(content=None):
-    """Parse + validate ONLY - writes nothing. Returns per-row verdicts the
-    UI shows before the user confirms import."""
+def preview_policy_csv(content=None, source="csv"):
+    """Parse + validate ONLY - writes nothing. Per-row ACTION the UI shows
+    before commit: Invalid (shape/range/DB error), Conflict (would be Active and
+    collides with another Active scope), Update (5-field import key matches an
+    existing row + a field changes), Skip (matches but identical = no-op), or
+    Create. `source` is 'csv' or 'paste' (both share this backend)."""
     _scope()
     rows, file_errors = policy_csv.parse_csv(content or "")
     if file_errors:
-        return {"ok": False, "file_errors": file_errors}
+        return {"ok": False, "file_errors": file_errors, "source": source}
     report = []
     for i, raw in enumerate(rows, start=2):  # header = line 1
         norm, errs = policy_csv.validate_row_shape(raw, i)
+        action, detail, existing = "Invalid", None, None
         if not errs:
             errs += _db_validate(norm, i)
-        report.append({"line": i, "row": raw, "errors": errs, "ok": not errs})
-    return {"ok": all(r["ok"] for r in report), "rows": report,
+            # mode by the ROW's own status (Active row missing a numeric field ->
+            # field-level Invalid; Draft/Paused/Inactive -> range-if-present).
+            errs += policy_validation.validate_policy_values(
+                norm, require_complete=((norm.get("status") or "Draft") == "Active"),
+                prefix="row %d: " % i)
+        if not errs:
+            existing = frappe.db.get_value("EC Price Policy", _import_key(norm), "name")
+            action, detail = _row_action(norm, existing)
+        report.append({"line": i, "row": raw, "norm": norm,
+                       "errors": errs,
+                       "action": "Invalid" if errs else action,
+                       "detail": detail, "existing": existing,
+                       "ok": not errs and action in ("Create", "Update", "Skip")})
+
+    def n(act):
+        return sum(1 for r in report if r["action"] == act)
+    return {"ok": all(r["ok"] for r in report), "rows": report, "source": source,
+            "counts": {"create": n("Create"), "update": n("Update"),
+                       "skip": n("Skip"), "conflict": n("Conflict"),
+                       "invalid": n("Invalid")},
             "valid": sum(1 for r in report if r["ok"]),
             "invalid": sum(1 for r in report if not r["ok"])}
 
@@ -199,33 +349,78 @@ def _db_validate(norm, idx):
 
 
 @frappe.whitelist(methods=["POST"])
-def import_policy_csv(content=None):
-    """Commit a previously previewed batch. Re-validates everything (the
-    preview is advisory); only fully-valid rows are written. Upsert key:
-    brand+platform+shop+seller_sku+item. Audit: import_batch on every row."""
+def import_policy_csv(content=None, source="csv", lines=None):
+    """Commit a previewed CSV/paste batch. Re-derives the per-row action (the
+    preview is advisory; re-derivation == confirmation). PARTIAL mode with
+    CONTROL: each Create/Update row runs inside its OWN savepoint - a row that
+    fails (validation, conflict guard, or its Step-6 lifecycle close) is rolled
+    back to the savepoint, marked failed, and the batch CONTINUES. Conflict /
+    Invalid rows are NOT written (no silent overwrite). Skip rows are no-ops.
+    Active rows trigger Step 6 inside the same savepoint (atomic per row); the
+    aggregated Setup ToDo is recomputed ONCE per affected brand at the end.
+    Returns created/updated/skipped/failed + per-row errors + lifecycle."""
     _scope()
-    preview = preview_policy_csv(content=content)
+    preview = preview_policy_csv(content=content, source=source)
     if preview.get("file_errors"):
         frappe.throw(_("File rejected: {0}").format("; ".join(preview["file_errors"])))
     batch = "%s|%s" % (now_datetime().strftime("%Y%m%d%H%M%S"), frappe.session.user)
-    created, updated, failed = 0, 0, []
+    res = {"batch": batch, "source": source, "created": 0, "updated": 0,
+           "skipped": 0, "failed": [], "closed_alerts": 0}
+    affected_brands = set()
+    actor = frappe.session.user
+    # optional selective commit: only commit the line numbers the user ticked in
+    # the preview (Invalid/Conflict can never be ticked). None = all eligible.
+    if lines is not None and isinstance(lines, str):
+        lines = json.loads(lines or "[]")
+    selected = set(int(x) for x in lines) if lines is not None else None
+
     for r in preview["rows"]:
-        if not r["ok"]:
-            failed.append({"line": r["line"], "errors": r["errors"]})
+        action, line = r["action"], r["line"]
+        if action == "Invalid":
+            res["failed"].append({"line": line, "action": "Invalid", "errors": r["errors"]})
             continue
-        norm, _errs = policy_csv.validate_row_shape(r["row"], r["line"])
-        key = {"brand": norm["brand"], "platform": norm.get("platform"),
-               "shop": norm.get("shop") or "", "seller_sku": norm.get("seller_sku") or "",
-               "item": norm.get("item") or ""}
-        existing = frappe.db.get_value("EC Price Policy", key, "name")
-        doc = frappe.get_doc("EC Price Policy", existing) if existing \
-            else frappe.new_doc("EC Price Policy")
-        for k, v in norm.items():
-            doc.set(k, v)
-        doc.import_batch = batch
-        if not doc.owner_user:
-            doc.owner_user = frappe.session.user
-        doc.save(ignore_permissions=True)
-        created, updated = (created, updated + 1) if existing else (created + 1, updated)
-    summary = {"batch": batch, "created": created, "updated": updated, "failed": failed}
-    return summary
+        if action == "Conflict":
+            res["failed"].append({"line": line, "action": "Conflict",
+                                  "errors": ["row %d: would conflict with active policy %s"
+                                             % (line, r.get("detail"))]})
+            continue
+        if action == "Skip":
+            res["skipped"] += 1
+            continue
+        if selected is not None and line not in selected:
+            res["skipped"] += 1          # eligible but not ticked for commit
+            continue
+        # Create / Update -> own savepoint (partial-failure isolation)
+        sp = "polrow_%d" % line
+        frappe.db.savepoint(sp)
+        try:
+            norm, existing = r["norm"], r["existing"]
+            doc = frappe.get_doc("EC Price Policy", existing) if existing \
+                else frappe.new_doc("EC Price Policy")
+            for k, v in norm.items():
+                doc.set(k, v)
+            doc.import_batch = batch
+            if not doc.owner_user:
+                doc.owner_user = actor
+            doc.save(ignore_permissions=True)   # controller re-checks Active conflict
+            if doc.status == "Active":           # Step 6 atomic with this row
+                lc = policy_setup.terminalize_for_policy(doc, actor=actor, recompute=False)
+                res["closed_alerts"] += len(lc.get("closed", []))
+                if lc.get("closed"):
+                    affected_brands.add(doc.brand)
+            res["updated" if existing else "created"] += 1
+        except Exception as e:
+            frappe.db.rollback(save_point=sp)
+            res["failed"].append({"line": line, "action": action,
+                                  "errors": [str(e)[:200]]})
+            continue
+
+    # recompute the aggregated Setup ToDo ONCE per affected brand (fail-open)
+    for b in sorted(affected_brands):
+        try:
+            case_todo.sync_brand_setup(b)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(),
+                             "alerts.api_policies.import recompute %s" % b)
+    res["affected_brands"] = sorted(affected_brands)
+    return res
