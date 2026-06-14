@@ -119,9 +119,10 @@ def kpis(filters=None):
         # OPEN setup/configuration gaps (missing_brand_mapping + retired
         # missing_policy) within scope - never mixed into the operational KPIs.
         "setup_issues": setup_open,
-        # Legacy FE key kept as an alias during the frontend transition (old
-        # builds read c.missing_policy). Same value as setup_issues; no longer
-        # labelled "missing policy" in the UI.
+        # DEPRECATED alias (do not use in new code; remove once no deployed
+        # frontend reads it). Older builds read c.missing_policy for this card;
+        # current builds read c.setup_issues. Same value; never shown as
+        # "missing policy" in the UI. Safe to delete after one frontend release.
         "missing_policy": setup_open,
         # API key `resolved` kept for frontend compatibility (the dashboard
         # card reads c.resolved). Value = COMPLETED = Closed + legacy Resolved.
