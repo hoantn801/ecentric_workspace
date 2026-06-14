@@ -13,6 +13,7 @@ from frappe.utils import cint, nowdate
 
 from ecentric_workspace.alerts import permissions as perms
 from ecentric_workspace.alerts.services import case_lifecycle as cl
+from ecentric_workspace.alerts.services import rule_classification as rclass
 
 # Step 1 (2026-06-13): canonical completed status is Closed. KAM/Manager may
 # move a case to In Review / Closed / Ignored only (Cancelled is supervisor-
@@ -53,14 +54,32 @@ def _parse(filters):
 def _scoped_filters(f, allowed):
     """Build frappe filter list; returns None when scope intersection is empty."""
     flt = []
-    for k in ("status", "severity", "alert_type", "rule_code", "platform", "owner_user"):
+    for k in ("severity", "alert_type", "platform", "owner_user"):
         if f.get(k):
             flt.append([k, "=", f[k]])
-    if not f.get("rule_code"):
-        # 2026-06-14: missing_policy is RETIRED from the operational Alerts list -
-        # it is a setup/coverage gap surfaced via Price Setup, not an alert.
-        # History stays queryable by passing rule_code='missing_policy' explicitly.
-        flt.append(["rule_code", "not in", ["missing_policy"]])
+    # status accepts a single value (the filter dropdown) OR a list (a KPI card
+    # group such as Open+In Review / Closed+Resolved). Additive - the single
+    # form is unchanged; the list form adds an IN without removing capability.
+    st = f.get("status")
+    if st:
+        if isinstance(st, str):
+            try:
+                parsed = json.loads(st)
+                st = parsed if isinstance(parsed, list) else st
+            except (ValueError, TypeError):
+                pass
+        if isinstance(st, (list, tuple)):
+            vals = [s for s in st if s]
+            if vals:
+                flt.append(["status", "in", list(vals)])
+        else:
+            flt.append(["status", "=", st])
+    # 2026-06-14 (Pre-E2E): the default operational Alerts list excludes
+    # NON-operational rules (setup gaps such as missing_brand_mapping /
+    # missing_policy + system failures). One canonical condition shared with
+    # api_dashboard: explicit rule_code='...' or setup_only=1 opts back in, so
+    # history and the Setup Issues view stay fully queryable.
+    flt.append(rclass.rule_code_condition(f))
     if f.get("seller_sku"):
         # UX polish 2026-06-10: EXACT match by default so P02056 never mixes
         # with P02056X2; a '*' in the query opts into wildcard (like) matching.
@@ -131,9 +150,17 @@ def get_cards():
         f = dict(extra)
         if scope is not None:
             f["brand"] = ("in", scope)
-        # 2026-06-14: exclude retired missing_policy from operational KPI
-        # aggregates unless the caller scopes rule_code explicitly.
-        f.setdefault("rule_code", ("not in", ["missing_policy"]))
+        # 2026-06-14 (Pre-E2E): operational KPIs exclude NON-operational rules
+        # (setup gaps + system failures) unless the caller scopes rule_code
+        # explicitly. Canonical exclusion list (shared with api_dashboard).
+        f.setdefault("rule_code", ("not in", rclass.non_operational_rule_codes()))
+        return frappe.db.count("EC Alert", f)
+
+    def setup_count(extra):
+        f = dict(extra)
+        if scope is not None:
+            f["brand"] = ("in", scope)
+        f["rule_code"] = ("in", rclass.setup_rule_codes())
         return frappe.db.count("EC Alert", f)
 
     open_states = {"status": ("in", list(cl.ACTIVE_STATUSES))}
@@ -142,14 +169,15 @@ def get_cards():
         af["brand"] = ("in", scope)
     # "Closed today": canonical Closed + legacy Resolved during transition.
     closed_states = list(("Closed",) + cl.LEGACY_TERMINAL)
+    setup_open = setup_count(open_states)
     return {
         "open": count(open_states),
         "critical": count(dict(open_states, severity="Critical")),
         "warning": count(dict(open_states, severity="Warning")),
-        # 2026-06-14: missing_policy retired; this card now counts only the
-        # operational missing_brand_mapping setup-gap (key kept for FE stability).
-        "missing_policy": count(dict(open_states,
-                                     rule_code=("in", ["missing_brand_mapping"]))),
+        # 2026-06-14 (Pre-E2E): setup/configuration gaps, separated from the
+        # operational KPIs. Legacy key `missing_policy` kept as an alias.
+        "setup_issues": setup_open,
+        "missing_policy": setup_open,
         "lock_pending": frappe.db.count("EC Alert Action", af),
         "closed_today": count({"status": ("in", closed_states),
                                "resolved_at": (">=", nowdate() + " 00:00:00")}),

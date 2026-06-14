@@ -7,6 +7,7 @@ from frappe.utils import add_days, nowdate
 
 from ecentric_workspace.alerts import permissions as perms
 from ecentric_workspace.alerts.services import case_lifecycle as cl
+from ecentric_workspace.alerts.services import rule_classification as rclass
 
 DEFAULT_DAYS = 14
 # Step 1 (2026-06-13): canonical completed = Closed; legacy Resolved counted
@@ -17,18 +18,26 @@ DIMENSIONS = {"brand": "brand", "platform": "platform", "shop": "shop",
               "rule_code": "rule_code"}
 
 
-def _flt(f=None, days=None):
+def _flt(f=None, days=None, rule_override=None):
+    """Build the scoped EC Alert filter list for every dashboard aggregate.
+
+    rule_override: pass an explicit ['rule_code', op, value] triple to replace
+    the canonical operational/setup rule scoping (used by the Setup Issues KPI).
+    When None, the rule_code condition comes from the SINGLE canonical helper
+    rule_classification.rule_code_condition (operational default excludes setup
+    + system rules; explicit rule_code or setup_only=1 opt back in)."""
     allowed = perms.require_alert_center_access()
     f = json.loads(f) if isinstance(f, str) else (f or {})
     flt = []
-    for k in ("platform", "shop", "severity", "status", "owner_user", "rule_code"):
+    for k in ("platform", "shop", "severity", "status", "owner_user"):
         if f.get(k):
             flt.append([k, "=", f[k]])
-    if not f.get("rule_code"):
-        # 2026-06-14: missing_policy retired from operational dashboards (KPI,
-        # by_dimension, top_skus, aging, trend). Setup/coverage gaps live in
-        # Price Setup. Explicit rule_code='missing_policy' still queries history.
-        flt.append(["rule_code", "not in", ["missing_policy"]])
+    # 2026-06-14 (Pre-E2E): operational dashboards (KPI, by_dimension, top_skus,
+    # aging, trend, hourly) exclude NON-operational rules (setup gaps such as
+    # missing_brand_mapping / missing_policy + system failures) by default.
+    # One canonical exclusion list, shared with api_alerts.
+    flt.append(rule_override if rule_override is not None
+               else rclass.rule_code_condition(f))
     if f.get("seller_sku"):
         flt.append(["seller_sku", "like", "%%%s%%" % f["seller_sku"]])
     frm = f.get("from_date") or add_days(nowdate(), -(days or DEFAULT_DAYS))
@@ -90,15 +99,30 @@ def kpis(filters=None):
         return {}
     def c(extra):
         return frappe.db.count("EC Alert", filters=flt + extra)
+    # Setup Issues use a dedicated filter that opts INTO setup/config rules
+    # (the operational `flt` excludes them). Same brand scope + date window, so
+    # KAM (brand-scoped) sees 0 brand-less missing_brand_mapping; supervisors
+    # see them. Falls back to 0 if scope intersection is empty.
+    setup_flt = _flt(filters, rule_override=["rule_code", "in",
+                                             rclass.setup_rule_codes()])
+    def cs(extra):
+        return 0 if setup_flt is None else frappe.db.count(
+            "EC Alert", filters=setup_flt + extra)
     open_f = [["status", "in", ACTIVE_STATUSES]]
+    setup_open = cs(open_f)
     return {
+        # Operational KPIs - exclude setup + system rules by construction.
         "open": c(open_f),
         "critical": c(open_f + [["severity", "=", "Critical"]]),
         "warning": c(open_f + [["severity", "=", "Warning"]]),
-        # 2026-06-14: missing_policy retired; card now counts only the
-        # operational missing_brand_mapping setup-gap (FE key preserved).
-        "missing_policy": c(open_f + [["rule_code", "in",
-                                       ["missing_brand_mapping"]]]),
+        # 2026-06-14 (Pre-E2E): replaces the stale "Thieu policy" card. Counts
+        # OPEN setup/configuration gaps (missing_brand_mapping + retired
+        # missing_policy) within scope - never mixed into the operational KPIs.
+        "setup_issues": setup_open,
+        # Legacy FE key kept as an alias during the frontend transition (old
+        # builds read c.missing_policy). Same value as setup_issues; no longer
+        # labelled "missing policy" in the UI.
+        "missing_policy": setup_open,
         # API key `resolved` kept for frontend compatibility (the dashboard
         # card reads c.resolved). Value = COMPLETED = Closed + legacy Resolved.
         # `closed` is the forward-compat alias; both carry the same count.

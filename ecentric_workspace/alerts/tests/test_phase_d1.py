@@ -357,9 +357,16 @@ class TestSchemaD1(unittest.TestCase):
     def test_get_cards_counts_match_old_method(self):
         self._need_site()
         from ecentric_workspace.alerts import api_alerts
+        from ecentric_workspace.alerts.services import rule_classification as rc
         frappe.set_user("Administrator")
         cards = api_alerts.get_cards()
-        raw_open = len(frappe.get_all("EC Alert",
-                                      filters={"status": ("in", ["Open", "In Review"])},
-                                      pluck="name", limit_page_length=0))
+        # Pre-E2E 2026-06-14: the "open" KPI counts OPERATIONAL alerts only -
+        # setup/system rules (missing_brand_mapping, missing_policy, *_api_failed,
+        # missing_integration_credential) are excluded by the canonical
+        # classifier - so the raw baseline must exclude them too.
+        raw_open = len(frappe.get_all(
+            "EC Alert",
+            filters={"status": ("in", ["Open", "In Review"]),
+                     "rule_code": ("not in", rc.non_operational_rule_codes())},
+            pluck="name", limit_page_length=0))
         self.assertEqual(cards["open"], raw_open)
