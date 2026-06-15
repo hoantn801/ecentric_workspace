@@ -121,3 +121,25 @@ class TestCloseObligation(FrappeTestCase):
             service.close_weekly_obligation(wtu.name)
         except Exception as e:
             self.fail("close should be no-op without raising: " + str(e))
+
+    def test_close_error_raises_not_swallowed(self):
+        """If assign_to.remove fails mid-close, exception MUST bubble up.
+
+        We do not enter half-state (WTU=Submitted + ToDo Open) silently. The
+        service raises so the surrounding save transaction rolls back.
+        """
+        service.ensure_weekly_obligation(self.schedule, self.week)
+        wtu = frappe.db.get_value("Weekly Team Update",
+            {"submitter": self.user, "week_label": self.week["week_label"]}, "name")
+        frappe.db.set_value("Weekly Team Update", wtu, "status", "Submitted")
+        # Monkey-patch native remove to raise.
+        import frappe.desk.form.assign_to as _at
+        orig = _at.remove
+        def _boom(*a, **kw):
+            raise RuntimeError("simulated assign_to.remove failure")
+        _at.remove = _boom
+        try:
+            with self.assertRaises(RuntimeError):
+                service.close_weekly_obligation(wtu)
+        finally:
+            _at.remove = orig

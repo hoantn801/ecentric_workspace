@@ -102,3 +102,25 @@ class TestWeeklyReportSchedule(FrappeTestCase):
             s.save(ignore_permissions=True)
         s.reload()
         s.delete(ignore_permissions=True)
+
+    def test_duplicate_schedule_per_employee_blocked(self):
+        """schedule_key=employee with DB unique=1 blocks second Schedule for same Employee."""
+        s1 = frappe.get_doc({
+            "doctype": "Weekly Report Schedule",
+            "employee": self.emp_with_user,
+            "reporting_department": self.dept,
+            "effective_from": "2026-06-01",
+        })
+        s1.insert(ignore_permissions=True)
+        try:
+            s2 = frappe.get_doc({
+                "doctype": "Weekly Report Schedule",
+                "employee": self.emp_with_user,
+                "reporting_department": self.dept,
+                "effective_from": "2026-06-01",
+            })
+            # DB unique constraint on schedule_key (= employee) raises.
+            with self.assertRaises((frappe.UniqueValidationError, frappe.DuplicateEntryError)):
+                s2.insert(ignore_permissions=True)
+        finally:
+            s1.delete(ignore_permissions=True)
