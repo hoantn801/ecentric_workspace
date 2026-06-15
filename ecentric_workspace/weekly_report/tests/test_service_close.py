@@ -143,3 +143,31 @@ class TestCloseObligation(FrappeTestCase):
                 service.close_weekly_obligation(wtu)
         finally:
             _at.remove = orig
+
+    # ===== WR1A-V FIX 3: missing allocated_to MUST raise ==================
+
+    def test_missing_allocated_to_raises(self):
+        """Open ToDo without allocated_to cannot be closed via assign_to API;
+        service.close_weekly_obligation must RAISE (not silent skip)."""
+        wtu = frappe.get_doc({
+            "doctype": "Weekly Team Update",
+            "submitter": self.user, "employee": self.emp,
+            "department": TEST_DEPT,
+            "week_label": self.week["week_label"],
+            "week_start_date": self.week["week_start_date"],
+            "week_end_date": self.week["week_end_date"],
+            "status": "Submitted",
+            "generated_obligation": 1,
+            "obligation_key": self.emp + "::" + self.week["week_label"],
+        }).insert(ignore_permissions=True)
+        # Create a ToDo with NO allocated_to.
+        td = frappe.get_doc({
+            "doctype": "ToDo",
+            "reference_type": "Weekly Team Update",
+            "reference_name": wtu.name,
+            "status": "Open",
+            "description": "broken: no allocated_to",
+        })
+        td.insert(ignore_permissions=True)
+        with self.assertRaises(frappe.ValidationError):
+            service.close_weekly_obligation(wtu.name)

@@ -2,29 +2,31 @@
 """WR1A service layer: ensure + close obligation.
 
 Public API:
-  ensure_weekly_obligation(schedule, week) -> str
+  ensure_weekly_obligation(schedule, week, now=None) -> str
       Idempotent. Returns one of: "created" | "adopted" | "reused" | "skipped".
       Raises MissingReportingWindowError (caller MUST handle).
 
   close_weekly_obligation(wtu_name)
       Called from events.on_weekly_update when WTU.status transitions to
-      Submitted. For each open ToDo bound to this WTU:
-        1. assign_to.remove   -> clears _assign + sets ToDo.status = Cancelled
-        2. reload ToDo
-        3. set status = "Closed"
-        4. todo.save(ignore_permissions=True)
-      Any step error -> log + raise (do NOT swallow; transaction must roll back
-      so the WTU does NOT end up Submitted with the ToDo still Open).
+      Submitted. Closes every Open obligation ToDo; raises on any error.
 
-Lookup priority for ensure (matches Delta v3 sec. 3):
-  1. WTU by obligation_key (canonical)
-  2. WTU by (submitter, week_label) legacy lookup
-     - Submitted    -> skip
-     - Draft, generated_obligation=0  -> adopt (set wr fields, ensure ToDo)
-     - Draft, generated_obligation=1, obligation_key mismatch -> anomaly-skip
-  3. otherwise   -> create new WTU Draft + ToDo
+Lookup priority for ensure (matches Delta v3 sec. 3 + WR1A-V fixes):
+  1. WTU by obligation_key (canonical)  - FIX 1: read full state, skip terminal
+  2. WTU by (submitter, week_label) legacy  - FIX 5: limit 2, dup -> skip
+  3. otherwise -> create new WTU Draft + ToDo
 
 obligation_key = employee + "::" + week_label.
+
+WR1A-V fixes in this revision:
+  FIX 1: Canonical + legacy lookup return full state; terminal states
+         (Submitted/Reviewed) never recreate a ToDo.
+  FIX 3: close_weekly_obligation raises on ToDo without allocated_to (silent
+         skip would violate "WTU Submitted => every Open Todo closed"
+         invariant).
+  FIX 4: Re-read Employee.status / Employee.user_id / User.enabled at
+         generation time. Eligibility failure -> skipped (do NOT assign to
+         stale user stored on Schedule).
+  FIX 5: Legacy lookup limit 2; duplicate (submitter, week_label) -> skip.
 """
 
 import frappe
@@ -33,6 +35,13 @@ from ecentric_workspace.weekly_report import week_calendar
 
 
 WTU = "Weekly Team Update"
+
+# Terminal WTU statuses: never recreate ToDo, never re-adopt.
+TERMINAL_STATES = ("Submitted", "Reviewed")
+
+
+class EligibilityError(Exception):
+    """Raised when Employee/User mapping became invalid since Schedule create."""
 
 
 def _obligation_key(employee, week_label):
@@ -52,8 +61,6 @@ def _priority_from_due(due_at, now):
 
 
 def _todo_description(week, due_at):
-    # Plain ASCII fallback if vi text causes issues; description is Text Editor
-    # so HTML is allowed.
     label = week["week_label"]
     href = "/weekly-update?week=" + label
     due_disp = ""
@@ -68,8 +75,54 @@ def _todo_description(week, due_at):
     )
 
 
+def _check_eligibility(schedule):
+    """FIX 4: re-read Employee/User at generation time.
+
+    Required conditions:
+      Employee.status == "Active"
+      Employee.user_id exists
+      User.enabled == 1
+      Employee.user_id == schedule.user (no mapping drift)
+
+    Raises EligibilityError on any violation. Caller maps to "skipped".
+    Stored Schedule.user is NOT trusted for the assignment; we use the
+    re-read user_id.
+    """
+    emp_id = schedule.get("employee")
+    schedule_user = schedule.get("user")
+    if not emp_id:
+        raise EligibilityError("Schedule missing employee")
+
+    emp = frappe.db.get_value(
+        "Employee", emp_id,
+        ["status", "user_id"], as_dict=True,
+    )
+    if not emp:
+        raise EligibilityError("Employee " + str(emp_id) + " not found")
+    if emp.get("status") != "Active":
+        raise EligibilityError(
+            "Employee " + str(emp_id) + " status=" + str(emp.get("status")) + " (not Active)"
+        )
+
+    user_id = emp.get("user_id")
+    if not user_id:
+        raise EligibilityError("Employee " + str(emp_id) + " has no user_id")
+
+    if schedule_user and user_id != schedule_user:
+        raise EligibilityError(
+            "Employee.user_id drift: schedule.user=" + str(schedule_user)
+            + " current=" + str(user_id)
+        )
+
+    enabled = frappe.db.get_value("User", user_id, "enabled")
+    if not enabled:
+        raise EligibilityError("User " + str(user_id) + " disabled")
+
+    return {"employee": emp_id, "user": user_id, "status": emp.get("status")}
+
+
 def _ensure_todo(wtu_name, user, week, due_at, now):
-    """Idempotent: create one Open ToDo if missing."""
+    """Idempotent: create one Open ToDo for `user` if missing."""
     existing = frappe.get_all(
         "ToDo",
         filters={
@@ -97,17 +150,32 @@ def _ensure_todo(wtu_name, user, week, due_at, now):
 
 
 def _lookup_by_obligation_key(employee, week_label):
+    """FIX 1: return full state, not just name. Caller needs status to decide
+    if terminal-state obligation should be left alone (no ToDo recreation).
+    """
     key = _obligation_key(employee, week_label)
-    return frappe.db.get_value(WTU, {"obligation_key": key}, "name")
+    return frappe.db.get_value(
+        WTU,
+        {"obligation_key": key},
+        ["name", "status", "generated_obligation", "obligation_key"],
+        as_dict=True,
+    )
 
 
 def _lookup_legacy(user, week_label):
-    """Match the existing submit_weekly_update lookup: by (submitter, week_label)."""
-    return frappe.db.get_value(
+    """FIX 5: detect duplicate legacy rows.
+
+    Frappe WTU autoname is format:WTU-{week_label}-{employee}-{department}, so
+    two WTUs with same (submitter, week_label) but DIFFERENT departments are
+    schema-permitted. Adopting an arbitrary one would corrupt downstream
+    lookups; we limit to 2 and skip on 2+ rows.
+    """
+    return frappe.get_all(
         WTU,
-        {"submitter": user, "week_label": week_label},
-        ["name", "status", "generated_obligation", "obligation_key"],
-        as_dict=True,
+        filters={"submitter": user, "week_label": week_label},
+        fields=["name", "status", "generated_obligation", "obligation_key"],
+        limit_page_length=2,
+        order_by="creation asc",
     )
 
 
@@ -121,54 +189,82 @@ def _set_obligation_fields(wtu_doc, schedule, week, due_at):
 def ensure_weekly_obligation(schedule, week, now=None):
     """Idempotent per-schedule generator.
 
-    schedule: dict with keys name, employee, user, reporting_department,
-              effective_from, effective_to, last_generated_week.
-    week:     dict from week_calendar.compute_week_for().
-    now:      datetime for tests/manual rerun. Defaults to site-tz now.
-
-    Returns:
-      "created"   - new WTU Draft + ToDo inserted
-      "adopted"   - legacy Draft tagged + ToDo ensured
-      "reused"    - already-generated, ensured ToDo if absent
-      "skipped"   - legacy Submitted, anomaly, or no-op
+    Outcomes:
+      "created"  - new WTU Draft + ToDo inserted
+      "adopted"  - legacy Draft tagged + ToDo ensured
+      "reused"   - already-generated Draft, ensured ToDo if absent
+      "skipped"  - terminal WTU, ineligible Schedule, duplicate legacy, or
+                   anomaly that needs human intervention
     """
     if now is None:
         now = frappe.utils.now_datetime()
 
     employee = schedule["employee"]
-    user = schedule["user"]
     department = schedule["reporting_department"]
     week_label = week["week_label"]
     week_start = week["week_start_date"]
     week_end = week["week_end_date"]
 
-    # Resolve DRW first; missing DRW -> raise (caller logs + rolls back).
+    # ---- FIX 4: revalidate Employee/User at generation time ---------------
+    try:
+        elig = _check_eligibility(schedule)
+    except EligibilityError as e:
+        frappe.log_error(
+            "wr.ineligible schedule=" + str(schedule.get("name") or "?")
+            + " employee=" + str(employee)
+            + " err=" + str(e),
+            "wr.ineligible",
+        )
+        return "skipped"
+    user = elig["user"]  # use re-validated user, NOT stale schedule["user"]
+
+    # DRW (after eligibility -- no wasted lookup on dead schedules).
     due_at = week_calendar.compute_due_at(week, department)
 
-    # Resolve display fields from Employee (snapshot at generation time).
     emp_row = frappe.db.get_value(
         "Employee", employee,
-        ["employee_name", "designation"], as_dict=True
+        ["employee_name", "designation"], as_dict=True,
     ) or {}
     full_name = emp_row.get("employee_name") or ""
     designation = emp_row.get("designation") or ""
 
-    # ---- 1. canonical lookup by obligation_key -----------------------------
+    # ---- 1. canonical lookup by obligation_key ---------------------------
     existing_by_key = _lookup_by_obligation_key(employee, week_label)
     if existing_by_key:
-        # Ensure ToDo is present (covers case where ToDo was somehow lost).
-        _ensure_todo(existing_by_key, user, week, due_at, now)
-        return "reused"
-
-    # ---- 2. legacy lookup by (submitter, week_label) -----------------------
-    legacy = _lookup_legacy(user, week_label)
-    if legacy:
-        status = legacy.get("status") or "Draft"
-        if status == "Submitted":
+        status = existing_by_key.get("status") or "Draft"
+        # FIX 1: terminal states -> never recreate ToDo
+        if status in TERMINAL_STATES:
             return "skipped"
-        # Draft path
+        if status == "Draft":
+            _ensure_todo(existing_by_key["name"], user, week, due_at, now)
+            return "reused"
+        # Unknown status -> defensive skip
+        frappe.log_error(
+            "wr.unknown_status wtu=" + existing_by_key["name"]
+            + " status=" + str(status),
+            "wr.unknown_status",
+        )
+        return "skipped"
+
+    # ---- 2. legacy lookup by (submitter, week_label) ---------------------
+    legacy_rows = _lookup_legacy(user, week_label)
+    # FIX 5: duplicate legacy -> skip + log
+    if len(legacy_rows) >= 2:
+        names = ",".join([r.get("name", "?") for r in legacy_rows])
+        frappe.log_error(
+            "wr.duplicate_legacy count=" + str(len(legacy_rows))
+            + " submitter=" + str(user) + " week=" + week_label
+            + " rows=" + names,
+            "wr.duplicate_legacy",
+        )
+        return "skipped"
+    if legacy_rows:
+        legacy = legacy_rows[0]
+        status = legacy.get("status") or "Draft"
+        # FIX 1: terminal states for legacy -> skip
+        if status in TERMINAL_STATES:
+            return "skipped"
         if legacy.get("generated_obligation"):
-            # Already tagged but key mismatch -> anomaly; do NOT auto-resolve.
             expected_key = _obligation_key(employee, week_label)
             if (legacy.get("obligation_key") or "") != expected_key:
                 frappe.log_error(
@@ -178,17 +274,16 @@ def ensure_weekly_obligation(schedule, week, now=None):
                     "wr.anomaly",
                 )
                 return "skipped"
-            # Same key tagged -> equivalent to reused.
             _ensure_todo(legacy["name"], user, week, due_at, now)
             return "reused"
-        # Adopt: tag fields, ensure ToDo.
+        # Adopt.
         doc = frappe.get_doc(WTU, legacy["name"])
         _set_obligation_fields(doc, schedule, week, due_at)
         doc.save(ignore_permissions=True)
         _ensure_todo(doc.name, user, week, due_at, now)
         return "adopted"
 
-    # ---- 3. create new WTU Draft + ToDo ------------------------------------
+    # ---- 3. create new WTU Draft + ToDo ----------------------------------
     new = frappe.get_doc({
         "doctype": WTU,
         "submitter": user,
@@ -210,18 +305,11 @@ def ensure_weekly_obligation(schedule, week, now=None):
 def close_weekly_obligation(wtu_name):
     """Close all open ToDos bound to this WTU.
 
-    Order matters:
-      1. assign_to.remove (native)  -> clears _assign, sets ToDo.status=Cancelled atomically
-      2. reload ToDo                -> pick up the Cancelled state
-      3. set status = "Closed"      -> semantic flip
-      4. todo.save                   -> persists; ToDo.validate guard sees
-                                       WTU.status=Submitted (caller ran on_weekly_update
-                                       only because the just-saved WTU is Submitted)
-                                       and lets the close through.
-
-    Errors are NOT swallowed; we log + raise so the surrounding WTU save
-    transaction can be rolled back by the framework and we never end up with a
-    Submitted WTU but an Open obligation ToDo.
+    Invariant: WTU Submitted => every Open generated ToDo MUST be closed
+    successfully. FIX 3: a ToDo with missing allocated_to cannot be closed via
+    assign_to.remove (which requires a user); we raise rather than skip so the
+    surrounding save() transaction rolls back (no WTU Submitted + dangling Open
+    ToDo half-state).
     """
     todos = frappe.get_all(
         "ToDo",
@@ -233,18 +321,17 @@ def close_weekly_obligation(wtu_name):
         fields=["name", "allocated_to"],
     )
     if not todos:
-        return  # idempotent: nothing open to close
+        return  # idempotent: nothing open
 
     from frappe.desk.form.assign_to import remove as _assign_remove
     for t in todos:
         user = t.get("allocated_to")
         if not user:
-            # Defensive: ToDo without allocated_to cannot be removed via assign_to API.
-            frappe.log_error(
-                "wr.close ToDo " + t["name"] + " has no allocated_to; skipping",
-                "wr.close",
-            )
-            continue
+            # FIX 3: invariant violation, NOT silent skip.
+            msg = ("wr.close ToDo " + t["name"]
+                   + " has no allocated_to; cannot close via assign_to API")
+            frappe.log_error(msg, "wr.close")
+            raise frappe.ValidationError(msg)
         try:
             _assign_remove(WTU, wtu_name, user)
             td = frappe.get_doc("ToDo", t["name"])

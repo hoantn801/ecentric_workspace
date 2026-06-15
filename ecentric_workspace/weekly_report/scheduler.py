@@ -2,17 +2,15 @@
 """WR1A scheduler entry point.
 
 Registered in hooks.py:
-  scheduler_events = {
-      "daily": [
-          ...
-          "ecentric_workspace.weekly_report.scheduler.generate_weekly_obligations",
-      ],
-      ...
-  }
+  scheduler_events.daily += "ecentric_workspace.weekly_report.scheduler.generate_weekly_obligations"
 
 Daily cadence: a missed Saturday/Sunday run self-recovers on Monday because
 ensure_weekly_obligation is idempotent (canonical lookup by obligation_key
 prevents duplicates).
+
+WR1A-V FIX 2: savepoint create failure and rollback failure both raise to
+abort the batch. We never run further rows under a transaction state we
+cannot guarantee. Silent continue is a correctness hazard, not robustness.
 """
 
 import re
@@ -25,13 +23,13 @@ from ecentric_workspace.weekly_report.week_calendar import MissingReportingWindo
 
 
 def _sanitize_savepoint(name, index):
-    """Savepoint names must be plain identifiers."""
+    """Savepoint names: alphanumeric + underscore, capped length."""
     safe = re.sub(r"[^A-Za-z0-9_]", "_", str(name))[:40]
     return "wr_obl_" + str(index) + "_" + safe
 
 
 def _in_effective_range(schedule, week):
-    """Schedule active iff effective_from <= week_end and (effective_to is None or effective_to >= week_start)."""
+    """Schedule active iff effective_from overlaps the current week."""
     ws = week["week_start_date"]
     we = week["week_end_date"]
     ef = schedule.get("effective_from")
@@ -52,16 +50,15 @@ def generate_weekly_obligations(run_date=None, schedule_names=None):
     """Daily idempotent generator.
 
     Args:
-        run_date: ISO date/datetime string, datetime, date, or None (defaults
-                  to now in site tz). Used by tests + `bench execute --kwargs`
-                  for manual rerun.
-        schedule_names: list[str] | None. If provided, restricts processing to
-                  those schedules (useful for ops backfill / test isolation).
+        run_date: ISO date/datetime string, datetime, date, or None (site tz).
+        schedule_names: list[str] | None.
 
     Returns:
-        dict counters keyed by outcome:
-          processed, created, adopted, reused, skipped, errored,
-          drw_missing (subcategory of errored).
+        dict counters: processed, created, adopted, reused, skipped, errored,
+        drw_missing.
+
+    FIX 2: A savepoint API failure or rollback failure RAISES, aborting the
+    batch. We never proceed when transaction isolation cannot be guaranteed.
     """
     now = week_calendar._now(run_date)
     week = week_calendar.compute_week_for(now=now)
@@ -84,18 +81,18 @@ def generate_weekly_obligations(run_date=None, schedule_names=None):
     }
 
     for i, s in enumerate(schedules):
-        stats["processed"] += 1  # count every Schedule we look at, regardless of outcome
+        stats["processed"] += 1
         sp = _sanitize_savepoint(s["name"], i)
+
+        # FIX 2: savepoint create failure -> abort batch (no silent continue).
         try:
             frappe.db.savepoint(sp)
         except Exception:
-            # Savepoint API absent / unsupported -> proceed without it; per-row
-            # error still gets logged below. We never crash the scheduler over
-            # a savepoint API mismatch.
             frappe.log_error(
                 frappe.get_traceback(),
                 "wr.scheduler savepoint create failed: " + sp,
             )
+            raise
 
         try:
             if not _in_effective_range(s, week):
@@ -103,7 +100,6 @@ def generate_weekly_obligations(run_date=None, schedule_names=None):
                 continue
             outcome = service.ensure_weekly_obligation(s, week, now=now)
             stats[outcome] = stats.get(outcome, 0) + 1
-            # last_generated_week only after ensure returns success outcome.
             if outcome in ("created", "adopted", "reused"):
                 frappe.db.set_value(
                     "Weekly Report Schedule", s["name"],
@@ -111,10 +107,15 @@ def generate_weekly_obligations(run_date=None, schedule_names=None):
                     update_modified=False,
                 )
         except MissingReportingWindowError as e:
+            # FIX 2: rollback failure -> abort batch.
             try:
                 frappe.db.rollback(save_point=sp)
             except Exception:
-                pass
+                frappe.log_error(
+                    frappe.get_traceback(),
+                    "wr.scheduler rollback failed (DRW path): " + sp,
+                )
+                raise
             stats["drw_missing"] += 1
             stats["errored"] += 1
             frappe.log_error(
@@ -128,7 +129,11 @@ def generate_weekly_obligations(run_date=None, schedule_names=None):
             try:
                 frappe.db.rollback(save_point=sp)
             except Exception:
-                pass
+                frappe.log_error(
+                    frappe.get_traceback(),
+                    "wr.scheduler rollback failed (generic path): " + sp,
+                )
+                raise
             stats["errored"] += 1
             frappe.log_error(
                 frappe.get_traceback(),

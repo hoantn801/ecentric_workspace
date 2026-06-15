@@ -234,3 +234,30 @@ class TestScheduler(FrappeTestCase):
             filters={"submitter": self.users[1], "week_label": self.week["week_label"]})
         self.assertEqual(len(wtus_0), 1)
         self.assertEqual(len(wtus_1), 0)
+
+    def test_rollback_failure_aborts_batch(self):
+        """If savepoint rollback raises, the whole scheduler batch must abort.
+
+        We never silently continue when transaction isolation is unavailable.
+        """
+        # Force MissingReportingWindowError on first schedule (triggers rollback path).
+        bad_sched = self.schedules[0]
+        bad_dept = "Nonexistent Dept WR1A-XYZ"
+        frappe.db.set_value("Weekly Report Schedule", bad_sched,
+            "reporting_department", bad_dept, update_modified=False)
+        # Monkey-patch frappe.db.rollback to raise.
+        orig_rollback = frappe.db.rollback
+        def _bad_rollback(*a, **kw):
+            if kw.get("save_point") or (a and isinstance(a[0], str)):
+                raise RuntimeError("simulated rollback failure")
+            return orig_rollback(*a, **kw)
+        frappe.db.rollback = _bad_rollback
+        try:
+            with self.assertRaises(RuntimeError):
+                scheduler.generate_weekly_obligations(
+                    run_date=self.run_dt,
+                    schedule_names=[bad_sched, self.schedules[1]])
+        finally:
+            frappe.db.rollback = orig_rollback
+            frappe.db.set_value("Weekly Report Schedule", bad_sched,
+                "reporting_department", TEST_DEPT, update_modified=False)
