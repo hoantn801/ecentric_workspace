@@ -17,6 +17,16 @@ app_license = "MIT"
 #     }
 # }
 
+# WR1A weekly obligation lifecycle (local-only until deployed).
+doc_events = {
+    "Weekly Team Update": {
+        "on_update": "ecentric_workspace.weekly_report.events.on_weekly_update",
+    },
+    "ToDo": {
+        "validate": "ecentric_workspace.weekly_report.events.validate_weekly_report_todo",
+    },
+}
+
 # Scheduled Tasks
 # ---------------
 # scheduler_events = {
@@ -28,10 +38,13 @@ app_license = "MIT"
 # }
 
 # PM v2 recurring tasks: daily generation of due PM Recurrence rules.
+# WR1A weekly obligations: daily idempotent generator (see
+# ecentric_workspace.weekly_report.scheduler).
 scheduler_events = {
     "daily": [
         "ecentric_workspace.pm.api.recurrence.run_due",
         "ecentric_workspace.pm.api.notifications.pm_overdue_scan",
+        "ecentric_workspace.weekly_report.scheduler.generate_weekly_obligations",
     ],
     # Alert Center Phase E (decision D2-E): both jobs are dry-run-safe and
     # kill-switchable via site_config `ec_alerts_scheduler_disabled: 1`.
