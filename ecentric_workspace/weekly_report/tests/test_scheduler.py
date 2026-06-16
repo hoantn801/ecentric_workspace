@@ -154,3 +154,73 @@ class TestScheduler(FrappeTestCase):
         finally:
             frappe.db.rollback = orig_rollback
             _ensure_drw(TEST_DEPT, enabled=1)
+
+    # ===== Rollout kill-switch tests ======================================
+
+    def _set_auto_flag(self, value):
+        """Set frappe.conf in-process for the duration of one test."""
+        # frappe.conf is a dict-like object; mutate then restore.
+        self._orig_flag = frappe.conf.get("enable_weekly_report_auto_generation")
+        frappe.conf["enable_weekly_report_auto_generation"] = value
+
+    def _restore_auto_flag(self):
+        if getattr(self, "_orig_flag", None) is None:
+            try:
+                del frappe.conf["enable_weekly_report_auto_generation"]
+            except KeyError:
+                pass
+        else:
+            frappe.conf["enable_weekly_report_auto_generation"] = self._orig_flag
+
+    def test_kill_switch_off_auto_run_returns_disabled(self):
+        """No employee_names + auto flag OFF -> no Employees processed."""
+        # Ensure flag is absent/0
+        if "enable_weekly_report_auto_generation" in frappe.conf:
+            self._set_auto_flag(0)
+        try:
+            stats = scheduler.generate_weekly_obligations(run_date=self.run_dt)
+            self.assertTrue(stats.get("disabled"))
+            self.assertEqual(stats["processed"], 0)
+            self.assertEqual(stats["created"], 0)
+        finally:
+            self._restore_auto_flag()
+        # And: no WTUs created.
+        for u in self.users:
+            wtus = frappe.get_all("Weekly Team Update",
+                filters={"submitter": u, "week_label": self.week["week_label"]})
+            self.assertEqual(len(wtus), 0)
+
+    def test_kill_switch_off_pilot_with_employee_names_still_runs(self):
+        """employee_names ALWAYS bypasses the kill-switch (pilot path)."""
+        self._set_auto_flag(0)
+        try:
+            stats = scheduler.generate_weekly_obligations(
+                run_date=self.run_dt,
+                employee_names=[self.emps[0]])
+            self.assertFalse(stats.get("disabled", False))
+            self.assertEqual(stats["processed"], 1)
+            self.assertEqual(stats["created"], 1)
+        finally:
+            self._restore_auto_flag()
+
+    def test_kill_switch_on_auto_run_processes_active_employees(self):
+        """Flag = 1 + no employee_names -> full batch over Active Employees."""
+        self._set_auto_flag(1)
+        try:
+            stats = scheduler.generate_weekly_obligations(run_date=self.run_dt)
+            self.assertFalse(stats.get("disabled", False))
+            self.assertGreaterEqual(stats["processed"], 3)
+            self.assertGreaterEqual(stats["created"], 3)
+        finally:
+            self._restore_auto_flag()
+
+    def test_kill_switch_null_or_invalid_treated_as_off(self):
+        """cint('') / cint(None) / cint('abc') -> 0 -> auto path disabled."""
+        for bad_value in (None, "", "abc", "0", 0, False):
+            self._set_auto_flag(bad_value)
+            try:
+                stats = scheduler.generate_weekly_obligations(run_date=self.run_dt)
+                self.assertTrue(stats.get("disabled"),
+                    "Flag value %r should be treated as OFF" % (bad_value,))
+            finally:
+                self._restore_auto_flag()

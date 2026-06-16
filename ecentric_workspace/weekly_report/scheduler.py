@@ -45,6 +45,21 @@ def generate_weekly_obligations(run_date=None, employee_names=None):
       Per-row savepoint isolates failures; savepoint/rollback API failure
       ABORTS the whole batch (no silent continue under broken isolation).
     """
+    # Rollout kill-switch (site_config): the automatic batch path is OFF by
+    # default. Manual pilot runs that pass `employee_names` always bypass the
+    # switch -- that is the supported pre-rollout test path. The flag is read
+    # via frappe.conf (site_config.json) so flipping it does NOT require code
+    # push; cint() coerces unset / null / non-numeric values to 0.
+    auto_enabled = frappe.utils.cint(
+        frappe.conf.get("enable_weekly_report_auto_generation", 0)
+    )
+    if not employee_names and not auto_enabled:
+        return {
+            "processed": 0, "created": 0, "adopted": 0, "reused": 0,
+            "skipped": 0, "errored": 0, "drw_missing": 0,
+            "disabled": True,
+        }
+
     now = week_calendar._now(run_date)
     week = week_calendar.compute_week_for(now=now)
 
