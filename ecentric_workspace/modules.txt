@@ -1,3 +1,4 @@
 Ecentric Workspace
 Alerts
 Weekly Report
+Action Center
