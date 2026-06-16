@@ -86,8 +86,12 @@ def generate_weekly_obligations(run_date=None, employee_names=None):
                     "wr.scheduler rollback failed (DRW): " + sp,
                 )
                 raise
+            # Hotfix classification: DRW missing / DRW disabled = controlled
+            # SKIPPED (not errored). `errored` is reserved for unexpected DB /
+            # assignment / rollback failure. drw_missing remains a stats
+            # subcategory for observability.
             stats["drw_missing"] += 1
-            stats["errored"] += 1
+            stats["skipped"] += 1
             frappe.log_error(
                 "wr.scheduler DRW missing employee=" + e["name"]
                 + " dept=" + (e.get("department") or "")

@@ -123,13 +123,18 @@ class TestScheduler(FrappeTestCase):
             run_date=self.run_dt, employee_names=[self.emps[0]])
         self.assertEqual(stats["processed"], 1)
 
-    def test_drw_disabled_marks_errored(self):
+    def test_drw_disabled_marks_skipped(self):
+        """Disabled DRW = controlled skipped, NOT errored.
+
+        errored is reserved for unexpected failures (DB, assignment, rollback).
+        """
         _ensure_drw(TEST_DEPT, enabled=0)
         try:
             stats = scheduler.generate_weekly_obligations(
                 run_date=self.run_dt, employee_names=[self.emps[0]])
             self.assertEqual(stats["drw_missing"], 1)
-            self.assertEqual(stats["errored"], 1)
+            self.assertEqual(stats["skipped"], 1)
+            self.assertEqual(stats["errored"], 0)
         finally:
             _ensure_drw(TEST_DEPT, enabled=1)
 
