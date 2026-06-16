@@ -7,16 +7,24 @@ PURE (frappe-free): takes already-parsed values, returns a list of field-level
 error strings. The exact-scope Active conflict guard is NOT here (it stays in
 the controller / policy_scope, fired on save).
 
-Mode (binding 2026-06-14):
+Mode (binding 2026-06-14; alert-threshold rule revised 2026-06-16 / RC5):
   require_complete=False  (Draft / Paused / Inactive):
       * the numeric fields MAY be missing;
-      * but a PRESENT value is still range-checked:
-            min_price > 0
-            0 < high_alert_percent <= 100
-            0 < severe_drop_percent <= 100
+      * a PRESENT min_price is range-checked (> 0).
   require_complete=True   (Active / activation):
-      * min_price / high_alert_percent / severe_drop_percent must be PRESENT
-        and pass the same ranges.
+      * min_price must be PRESENT and > 0.
+
+  Alert thresholds (high_alert_percent / severe_drop_percent) are owned by EC Alert
+  Rule (the Rules overlay) now; on EC Price Policy they are LEGACY fallbacks only and
+  are NEVER required - not for Draft, not for Active. A POSITIVE legacy value is still
+  range-checked (0 < v <= 100) so genuinely-bad data (e.g. 150) is rejected, but a
+  0 / blank legacy value is treated as UNSET and ignored. This is why the RC4 Price
+  Setup form (which no longer submits these fields) can SAVE and ACTIVATE without
+  them, and why a legacy policy storing high_alert_percent=0 stays editable. The
+  alert engine (services.rules / rule_overlay) already has safe fallbacks
+  (severe -> DEFAULT_SEVERE_DROP_PERCENT, high optional), so no completeness check
+  or silent default is introduced here.
+
   ALWAYS (both modes): if BOTH effective_from and effective_to are present,
         enforce effective_from <= effective_to.
 
@@ -50,17 +58,24 @@ def validate_policy_values(values, require_complete=False, prefix=""):
     elif require_complete:
         errs.append("%smin_price is required" % p)
 
-    # percents: independent of each other; required only when complete.
+    # Alert thresholds: Rules-owned now -> LEGACY fallbacks on the policy. Never
+    # required (not even on Active). A 0 / blank legacy value is treated as UNSET and
+    # ignored (so a stored 0 never blocks save/activate); a POSITIVE value is still
+    # range-checked so bad data (e.g. 150) is rejected. (require_complete no longer
+    # gates these - the engine has its own safe fallbacks.)
     for field, label in _PERCENT_FIELDS:
         raw = values.get(field)
-        if _present(raw):
-            try:
-                if not (0 < float(raw) <= 100):
-                    errs.append("%s%s (%s) must be > 0 and <= 100" % (p, label, field))
-            except (TypeError, ValueError):
-                errs.append("%s%s (%s) is not a number" % (p, label, field))
-        elif require_complete:
-            errs.append("%s%s (%s) is required" % (p, label, field))
+        if not _present(raw):
+            continue
+        try:
+            f = float(raw)
+        except (TypeError, ValueError):
+            errs.append("%s%s (%s) is not a number" % (p, label, field))
+            continue
+        if f == 0:
+            continue  # legacy / unset sentinel - ignored, not an error
+        if not (0 < f <= 100):
+            errs.append("%s%s (%s) must be > 0 and <= 100" % (p, label, field))
 
     # date order: enforced whenever BOTH are present (either mode).
     ef, et = values.get("effective_from"), values.get("effective_to")
