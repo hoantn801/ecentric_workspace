@@ -14,6 +14,19 @@ from ecentric_workspace.alerts.services import policy_validation
 
 
 class ECPricePolicy(Document):
+    def on_trash(self):
+        """RC7-A defense-in-depth: the Desk delete path uses the SAME guard as
+        api_policies.delete_policy (hardened contract: Active never; Draft only if
+        provably never used; retired = System-Manager-only with no historical
+        dependency; unknown dependency -> fail closed)."""
+        # lazy imports avoid a module-load cycle (api_policies imports services).
+        from ecentric_workspace.alerts import api_policies, permissions as _perms
+        is_admin = _perms.is_global_supervisor(frappe.session.user)
+        hist = api_policies._policy_historical_dependency(self)
+        reason = policy_validation.delete_decision(self.status or "Draft", is_admin, hist)
+        if reason:
+            api_policies._raise_delete_reason(reason, self)
+
     def validate(self):
         # Shape: lookup priority 6 (brand-level fallback) must be explicit opt-in.
         if not (self.item or self.seller_sku or self.shop) and not self.is_brand_fallback:

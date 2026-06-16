@@ -31,6 +31,8 @@ brand list and trusts it).
 import frappe
 from frappe.utils import add_days, nowdate
 
+from . import exemption_guard
+
 DEFAULT_WINDOW_DAYS = 30
 
 # Resolved brand (2026-06-14): the order log's OWN brand wins; when it is NULL or
@@ -105,6 +107,11 @@ def missing_rows(brands=None, days=None, platform=None, limit=None):
         conds.append("ol.platform = %(platform)s")
         params["platform"] = platform
     conds.append("NOT " + _COVERED)
+    # RC7-C: a dedicated gift/freebie Seller SKU that is currently exempt is NOT a
+    # coverage gap -> exclude it from the missing-policy count (shared matcher; date =
+    # today, so it only drops out during the effective window and returns afterwards).
+    conds.append("NOT " + exemption_guard.exempt_exists_sql(
+        _RESOLVED_BRAND, "ol.platform", "oi.seller_sku", "%(today)s"))
     lim = "LIMIT %(limit)s" if limit else ""
     if limit:
         params["limit"] = int(limit)

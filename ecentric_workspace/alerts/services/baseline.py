@@ -15,6 +15,8 @@ import statistics
 import frappe
 from frappe.utils import add_days, now_datetime
 
+from . import exemption_guard
+
 HISTORY_DAYS = 30
 HIGH_MIN_COUNT = 5
 
@@ -58,6 +60,11 @@ def _history_prices(brand, platform, shop, item, seller_sku, exclude_order_log):
         conds.append("i.item = %(item)s")
     else:
         conds.append("i.seller_sku = %(sku)s")
+    # RC7-C: exclude order lines that were under an Active gift/freebie exemption at
+    # the time of the order, so gift prices never contaminate the 30-day median (the
+    # SKU returns to a clean baseline once the exemption window ends). Shared matcher.
+    conds.append("NOT " + exemption_guard.exempt_exists_sql(
+        "l.brand", "l.platform", "i.seller_sku", "DATE(l.order_datetime)"))
     rows = frappe.db.sql(
         """SELECT i.unit_check_price
            FROM `tabEC Marketplace Order Item` i

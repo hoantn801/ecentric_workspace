@@ -9,8 +9,8 @@ import frappe
 from frappe.utils import now_datetime, nowdate
 
 from . import (action_queue, baseline as baseline_mod, brand_resolver,
-               case_lifecycle, dedupe_keys, policy_lookup, pricing,
-               rule_overlay, rules, sku_catalog)
+               case_lifecycle, dedupe_keys, exemption_guard, policy_lookup,
+               pricing, rule_overlay, rules, sku_catalog)
 
 CHECK_RESULT_LABEL = {
     "possible_missing_zero": "Possible Missing Zero",
@@ -88,6 +88,19 @@ def check_order_log(order_log_name, raw_shop_id=None):
         line.price_components_used = ev["price_components_used"]
         if ev.get("customer_paid_price") is not None:
             line.customer_paid_price = ev["customer_paid_price"]
+
+        # RC7-C: a dedicated gift/freebie Seller SKU is exempt from ALL price-rule
+        # evaluation. Checked BEFORE policy lookup so below_min / above_high /
+        # severe_drop / possible_missing_zero AND missing_policy are all skipped for
+        # this line. Brand/SKU mapping + integration-health checks already ran upstream
+        # and are unaffected.
+        _ex = exemption_guard.match_exemption(
+            log.brand, log.platform, line.seller_sku, on_date=log.order_datetime)
+        if _ex:
+            line.check_result = exemption_guard.SKIP_RESULT
+            line.price_components_used = "exempt:%s:%s" % (_ex.name, _ex.reason or "")
+            s["exempted_gift"] = s.get("exempted_gift", 0) + 1
+            continue
 
         policy, level = policy_lookup.find_policy(
             log.brand, log.platform, log.shop, line.item, line.seller_sku)
