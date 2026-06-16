@@ -147,5 +147,44 @@ class TestCsvRowByStatus(unittest.TestCase):
         self.assertTrue(any("platform" in e for e in errs))
 
 
+class TestDeleteDecision(unittest.TestCase):
+    """RC7-A hardened safe-delete contract (pure decision). historical_dependency is
+    3-valued: True=has historical deps, False=reliably none, None=unknown (fail closed)."""
+
+    def test_draft_no_historical_dependency_allowed(self):
+        self.assertIsNone(pv.delete_decision("Draft", is_admin=False, historical_dependency=False))
+        self.assertIsNone(pv.delete_decision(None, is_admin=False, historical_dependency=False))
+
+    def test_draft_with_historical_dependency_rejected(self):
+        self.assertEqual(pv.delete_decision("Draft", True, historical_dependency=True),
+                         "has_dependents")
+
+    def test_active_with_no_dependency_rejected(self):
+        self.assertEqual(pv.delete_decision("Active", True, historical_dependency=False),
+                         "active_no_delete")
+        self.assertEqual(pv.delete_decision("Active", False, historical_dependency=None),
+                         "active_no_delete")
+
+    def test_retired_with_historical_dependency_rejected(self):
+        for st in ("Paused", "Inactive", "Expired"):
+            self.assertEqual(pv.delete_decision(st, True, historical_dependency=True),
+                             "has_dependents", st)
+
+    def test_eligible_retired_by_non_admin_rejected(self):
+        for st in ("Paused", "Inactive", "Expired"):
+            self.assertEqual(pv.delete_decision(st, False, historical_dependency=False),
+                             "admin_only", st)
+
+    def test_eligible_retired_by_system_manager_allowed(self):
+        for st in ("Paused", "Inactive", "Expired"):
+            self.assertIsNone(pv.delete_decision(st, True, historical_dependency=False), st)
+
+    def test_unknown_dependency_fails_closed(self):
+        # unknown/unreliable historical dependency -> rejected for every non-Active status.
+        for st in ("Draft", "Paused", "Inactive", "Expired"):
+            self.assertEqual(pv.delete_decision(st, True, historical_dependency=None),
+                             "dependency_unknown", st)
+
+
 if __name__ == "__main__":
     unittest.main()

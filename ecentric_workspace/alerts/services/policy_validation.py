@@ -83,3 +83,31 @@ def validate_policy_values(values, require_complete=False, prefix=""):
         errs.append("%seffective_to is before effective_from" % p)
 
     return errs
+
+
+# RC7-A (hardened): safe Price Policy deletion contract (PURE decision; the I/O +
+# the historical-dependency probe live in api_policies / the controller on_trash).
+#   * Active                      -> permanent delete NEVER allowed (pause first).
+#   * Draft                       -> delete only when provably never operationally
+#                                    used AND no historical dependent Alert records.
+#   * Paused / Inactive / Expired -> ordinary workflow = pause/archive; permanent
+#                                    delete is System-Manager-only AND only when there
+#                                    are no historical dependent Alert records.
+#   * historical dependency UNKNOWN (cannot be determined reliably) -> FAIL CLOSED.
+def delete_decision(status, is_admin, historical_dependency):
+    """`historical_dependency` is THREE-valued: True = has historical dependent Alert
+    records; False = RELIABLY none (policy provably never operationally used); None =
+    cannot be determined reliably. Returns None if permanent delete is allowed, else a
+    reason code: 'active_no_delete' | 'dependency_unknown' | 'has_dependents' |
+    'admin_only'. Fail-closed: an unknown dependency is never deletable, and 'no open
+    alerts' is NOT treated as proof of no historical dependency."""
+    st = (status or "Draft")
+    if st == "Active":
+        return "active_no_delete"
+    if historical_dependency is None:
+        return "dependency_unknown"        # fail closed
+    if historical_dependency:
+        return "has_dependents"
+    if st != "Draft" and not is_admin:
+        return "admin_only"
+    return None

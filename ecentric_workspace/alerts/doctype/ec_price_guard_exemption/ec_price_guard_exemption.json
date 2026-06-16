@@ -1,0 +1,141 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:EC-EXEMPT-{######}",
+ "creation": "2026-06-16 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "brand",
+  "platform",
+  "seller_sku",
+  "cb_scope",
+  "reason",
+  "status",
+  "sec_window",
+  "effective_from",
+  "effective_to",
+  "cb_window",
+  "notes",
+  "sec_audit",
+  "exempted_by"
+ ],
+ "fields": [
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Brand",
+   "options": "Brand Approver",
+   "reqd": 1
+  },
+  {
+   "default": "All",
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Platform",
+   "options": "All\nShopee\nLazada\nTikTok",
+   "reqd": 1
+  },
+  {
+   "description": "Dedicated gift/freebie Seller SKU. V1 does NOT support mixed-use SKUs (sold normally AND given as gifts) - exempting those needs a line-level signal.",
+   "fieldname": "seller_sku",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Seller SKU",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cb_scope",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Gift / Freebie",
+   "fieldname": "reason",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Reason",
+   "options": "Gift / Freebie\nSample\nTest Stock\nOther",
+   "reqd": 1
+  },
+  {
+   "default": "Active",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Active\nInactive",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sec_window",
+   "fieldtype": "Section Break",
+   "label": "Effective window"
+  },
+  {
+   "description": "Empty = open start. Exemption applies only within [from, to].",
+   "fieldname": "effective_from",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Effective From"
+  },
+  {
+   "description": "Empty = open end.",
+   "fieldname": "effective_to",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Effective To"
+  },
+  {
+   "fieldname": "cb_window",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "sec_audit",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "exempted_by",
+   "fieldtype": "Link",
+   "label": "Exempted By",
+   "options": "User",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-16 00:00:00.000000",
+ "module": "Alerts",
+ "name": "EC Price Guard Exemption",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

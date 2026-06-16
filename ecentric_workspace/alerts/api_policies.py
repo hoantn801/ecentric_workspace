@@ -284,6 +284,98 @@ def policy_conflicts(brand):
             "duplicate_count": sum(1 for t in flags.values() if "duplicate" in t)}
 
 
+def _policy_ever_active(doc):
+    """RC7-A: True if the change history shows the policy was EVER Active; False if the
+    (tracked) history shows it never was; None if it cannot be determined reliably.
+    EC Price Policy has track_changes enabled, so the Version log is authoritative; if
+    the log is missing/untracked/unparseable we return None and the caller fails
+    closed. We do NOT use scope-based alert matching (it could miss/over-match and risk
+    deleting audit history)."""
+    if (doc.status or "") == "Active":
+        return True
+    try:
+        meta = frappe.get_meta("EC Price Policy")
+        if not getattr(meta, "track_changes", 0):
+            return None
+        versions = frappe.get_all(
+            "Version", filters={"ref_doctype": "EC Price Policy", "docname": doc.name},
+            fields=["data"], limit_page_length=0)
+    except Exception:
+        return None
+    for v in versions:
+        try:
+            changed = (json.loads(v.data or "{}")).get("changed", [])
+        except Exception:
+            return None          # unparseable history -> fail closed
+        for ch in changed:
+            if ch and ch[0] == "status" and "Active" in (str(ch[1]), str(ch[2])):
+                return True
+    return False                 # tracked history, never Active
+
+
+def _policy_historical_dependency(doc):
+    """RC7-A 3-valued historical dependency. The schema has NO direct EC Alert -> EC
+    Price Policy relation, so we can only assert 'reliably none' (False) when the
+    policy was provably NEVER operationally used: the engine matches ACTIVE policies
+    ONLY, so a never-Active policy cannot have produced any alert. A policy that is or
+    was Active may have historical alerts we CANNOT enumerate -> None (fail closed)."""
+    ever = _policy_ever_active(doc)
+    if ever is True:
+        return None              # was operational; cannot enumerate historical alerts
+    if ever is False:
+        return False             # provably never used -> reliably no dependency
+    return None                  # unknown -> fail closed
+
+
+_DELETE_MSGS = {
+    "active_no_delete": "An Active price policy cannot be permanently deleted. Pause or deactivate it first.",
+    "dependency_unknown": "Cannot verify this policy has no historical alert dependency (the schema has no reliable Alert->Policy link), so permanent deletion is refused for safety. Deactivate/archive it instead.",
+    "has_dependents": "Cannot delete: this policy has historical dependent alert records. Deactivate/archive it instead.",
+    "admin_only": "Permanent deletion of a {0} policy is admin-only (System Manager). Ordinary users deactivate/archive it.",
+}
+
+
+def _raise_delete_reason(reason, doc):
+    if reason is None:
+        return
+    msg = _(_DELETE_MSGS.get(reason, "Delete not allowed.")).format(doc.status or "Draft")
+    if reason == "admin_only":
+        frappe.throw(msg, frappe.PermissionError)
+    frappe.throw(msg, title=_("Delete blocked"))
+
+
+@frappe.whitelist()
+def policy_delete_capability(name):
+    """RC7-A: BACKEND TRUTH for whether a policy may be permanently deleted, so the UI
+    never infers eligibility from status alone. Returns {can_delete, delete_reason}.
+    Read-only."""
+    _scope()
+    doc = frappe.get_doc("EC Price Policy", name)
+    _require_manage(doc.brand)
+    is_admin = perms.is_global_supervisor(frappe.session.user)
+    hist = _policy_historical_dependency(doc)
+    reason = policy_validation.delete_decision(doc.status or "Draft", is_admin, hist)
+    return {"name": name, "can_delete": reason is None, "delete_reason": reason or "ok"}
+
+
+@frappe.whitelist(methods=["POST"])
+def delete_policy(name):
+    """RC7-A hardened safe deletion (SAME guard as the controller on_trash). Audit
+    history + alert rows are PRESERVED (never touched). The contract +
+    historical-dependency proof are in policy_validation.delete_decision /
+    _policy_historical_dependency; unknown dependency fails closed."""
+    _scope()
+    doc = frappe.get_doc("EC Price Policy", name)
+    _require_manage(doc.brand)
+    is_admin = perms.is_global_supervisor(frappe.session.user)
+    hist = _policy_historical_dependency(doc)
+    reason = policy_validation.delete_decision(doc.status or "Draft", is_admin, hist)
+    _raise_delete_reason(reason, doc)
+    st = doc.status
+    frappe.delete_doc("EC Price Policy", name, ignore_permissions=True)
+    return {"deleted": name, "status": st}
+
+
 @frappe.whitelist()
 def canonical_duplicates(brand=None):
     """RC6 READ-ONLY diagnostic: groups of LIVE (Draft/Active/Paused) EC Price
