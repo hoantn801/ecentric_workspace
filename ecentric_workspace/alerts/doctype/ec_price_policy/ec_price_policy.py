@@ -29,7 +29,35 @@ class ECPricePolicy(Document):
             require_complete=((self.status or "") == "Active"))
         if errs:
             frappe.throw("; ".join(errs))
+        self._guard_canonical_identity()
         self._guard_exact_scope_conflict()
+
+    def _guard_canonical_identity(self):
+        """RC6 (2026-06-16): enforce ONE non-cancelled (Draft/Active/Paused) policy per
+        canonical identity brand + platform + normalized seller_sku - Shop is IGNORED
+        (it was removed from the standard model, so it must not create a second
+        identity). Empty SKU is a separate brand/platform fallback identity. Fires on
+        EVERY save (create/update) AND on activation, because both paths call save().
+        Retired rows (Expired/Inactive) and the policy itself are excluded; saving
+        THIS row to a retired status is allowed (so operators can clean up existing
+        duplicates). Legacy shop-specific rows participate (Shop ignored); the legacy
+        ERP Item is NOT part of the identity. The status gate + lookup live in
+        policy_scope.canonical_guard_conflict (single source of truth)."""
+        hit = policy_scope.canonical_guard_conflict(
+            self.status, self.brand, self.platform, self.seller_sku,
+            exclude_name=(self.name or ""))
+        if hit:
+            shop_note = (_(" (the existing row is shop-specific: {0})").format(hit["shop"])
+                         if hit.get("shop") else "")
+            frappe.throw(
+                _("A Price Policy already exists for Brand {0} / Platform {1} / "
+                  "Seller SKU {2}: {3} (status {4}).{5} Shop is ignored for this "
+                  "check - only ONE live configuration per product is allowed. "
+                  "Edit that policy instead of creating another."
+                  ).format(self.brand, self.platform or "All",
+                           self.seller_sku or "(fallback)",
+                           hit["name"], hit["status"], shop_note),
+                title=_("Duplicate Price Policy"))
 
     def _guard_exact_scope_conflict(self):
         """G2.x Policy Conflict Guard: refuse a 2nd Active policy with the EXACT
