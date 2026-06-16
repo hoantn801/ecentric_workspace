@@ -113,10 +113,15 @@ class TestCsvRowByStatus(unittest.TestCase):
             prefix="row 2: ")
         return errs, norm
 
-    def test_draft_row_missing_numerics_ok(self):
-        errs, norm = self._eval({"brand": "B", "platform": "Shopee",
-                                 "seller_sku": "SKU1", "status": "Draft"})
-        self.assertEqual(errs, [])              # Draft: numerics optional
+    def test_draft_row_requires_min_price(self):
+        # Final simplification: EVERY non-gift CSV row needs min_price at the shape
+        # stage (even Draft); target/reference stay optional.
+        errs, _norm = self._eval({"brand": "B", "platform": "Shopee",
+                                  "seller_sku": "SKU1", "status": "Draft"})
+        self.assertTrue(any("min_price is required" in e for e in errs))
+        ok, norm = self._eval({"brand": "B", "platform": "Shopee", "seller_sku": "SKU1",
+                               "status": "Draft", "min_price": "100"})
+        self.assertEqual(ok, [])                # min_price present -> Draft validates
         self.assertIsNotNone(norm)
 
     def test_active_row_missing_min_price_invalid_fieldlevel(self):
@@ -136,10 +141,15 @@ class TestCsvRowByStatus(unittest.TestCase):
                               "status": "Active", "min_price": "100"})
         self.assertEqual(errs, [])
 
-    def test_draft_row_bad_percent_invalid(self):
-        errs, _ = self._eval({"brand": "B", "platform": "Shopee", "seller_sku": "SKU1",
-                              "status": "Draft", "high_alert_percent": "120"})
-        self.assertTrue(any("high_alert_percent" in e for e in errs))
+    def test_csv_ignores_legacy_percent_columns(self):
+        # high_alert_percent / severe_drop_percent are no longer CSV columns; a stray
+        # value is IGNORED at parse/shape (not parsed, not errored). The row validates
+        # on its canonical fields only.
+        errs, norm = self._eval({"brand": "B", "platform": "Shopee", "seller_sku": "SKU1",
+                                 "status": "Draft", "min_price": "100",
+                                 "high_alert_percent": "120"})
+        self.assertEqual(errs, [])
+        self.assertNotIn("high_alert_percent", norm)
 
     def test_identity_fields_required_every_status(self):
         # missing platform -> shape error regardless of status

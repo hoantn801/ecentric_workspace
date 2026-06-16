@@ -254,58 +254,58 @@ class TestListLifecycle(unittest.TestCase):
         self.ax = ax
         ax.frappe.get_all = _ex_liststub(_DATASET)
 
-    def test_counts_scoped_and_complete(self):
-        res = self.ax.list_exemptions(filters={"lifecycle_state": "effective"})
-        self.assertEqual(res["counts"],
-                         {"effective": 4, "upcoming": 1, "expired": 1, "inactive": 1, "all": 7})
+    def test_counts_are_status_based(self):
+        # 6 Active (A,B,C,E,F,G) + 1 Inactive (D); dates no longer split the tabs.
+        res = self.ax.list_exemptions(filters={"lifecycle_state": "active"})
+        self.assertEqual(res["counts"], {"active": 6, "inactive": 1, "all": 7})
 
-    def test_default_tab_effective(self):
+    def test_default_tab_active(self):
         res = self.ax.list_exemptions(filters={})
-        self.assertEqual(res["lifecycle_state"], "effective")
-        self.assertEqual(res["total"], 4)
-        self.assertEqual({r["name"] for r in res["rows"]}, {"A", "E", "F", "G"})
+        self.assertEqual(res["lifecycle_state"], "active")
+        self.assertEqual(res["total"], 6)
+        self.assertEqual({r["name"] for r in res["rows"]}, {"A", "B", "C", "E", "F", "G"})
 
     def test_each_tab_total(self):
-        for state, n in (("upcoming", 1), ("expired", 1), ("inactive", 1), ("all", 7)):
+        for state, n in (("active", 6), ("inactive", 1), ("all", 7)):
             res = self.ax.list_exemptions(filters={"lifecycle_state": state})
             self.assertEqual(res["total"], n, state)
 
+    def test_inactive_tab_only_inactive(self):
+        res = self.ax.list_exemptions(filters={"lifecycle_state": "inactive"})
+        self.assertEqual([r["name"] for r in res["rows"]], ["D"])
+
+    def test_unknown_state_falls_back_to_active(self):
+        res = self.ax.list_exemptions(filters={"lifecycle_state": "bogus"})
+        self.assertEqual(res["lifecycle_state"], "active")
+        self.assertEqual(res["total"], 6)
+
     def test_pagination_and_total(self):
-        p1 = self.ax.list_exemptions(filters={"lifecycle_state": "effective"}, start=0, page_length=2)
-        p2 = self.ax.list_exemptions(filters={"lifecycle_state": "effective"}, start=2, page_length=2)
-        self.assertEqual(len(p1["rows"]), 2)
+        p1 = self.ax.list_exemptions(filters={"lifecycle_state": "active"}, start=0, page_length=4)
+        p2 = self.ax.list_exemptions(filters={"lifecycle_state": "active"}, start=4, page_length=4)
+        self.assertEqual(len(p1["rows"]), 4)
         self.assertEqual(len(p2["rows"]), 2)
-        self.assertEqual(p1["total"], 4)
+        self.assertEqual(p1["total"], 6)
         names = {r["name"] for r in p1["rows"]} | {r["name"] for r in p2["rows"]}
-        self.assertEqual(names, {"A", "E", "F", "G"})   # no overlap, full page coverage
+        self.assertEqual(names, {"A", "B", "C", "E", "F", "G"})   # no overlap, full coverage
 
     def test_combined_filters(self):
-        rows = list(_DATASET) + [_exrow("Z", platform="Lazada", reason="Sample",
+        rows = list(_DATASET) + [_exrow("Z", platform="Lazada",
                                         seller_sku="GIFT9", ef=None, et=None)]
         self.ax.frappe.get_all = _ex_liststub(rows)
-        res = self.ax.list_exemptions(filters={"lifecycle_state": "effective",
-                                               "platform": "Lazada", "reason": "Sample",
+        res = self.ax.list_exemptions(filters={"lifecycle_state": "active",
+                                               "platform": "Lazada",
                                                "seller_sku": "gift"})
         self.assertEqual([r["name"] for r in res["rows"]], ["Z"])
-
-    def test_effective_sort_nearest_end_first_open_last(self):
-        res = self.ax.list_exemptions(filters={"lifecycle_state": "effective"}, page_length=10)
-        order = [r["name"] for r in res["rows"]]
-        # A (ends 2026-06-30) and F (ends 2026-12-31) have ends; E and G are open-ended.
-        self.assertLess(order.index("A"), order.index("E"))
-        self.assertLess(order.index("F"), order.index("E"))
-        self.assertLess(order.index("A"), order.index("F"))   # nearest end first
 
     def test_empty_scope_zero_rows_and_counts(self):
         self.perms._allowed = []                    # non-admin, no brands
         res = self.ax.list_exemptions(filters={})
         self.assertEqual(res["rows"], [])
         self.assertEqual(res["total"], 0)
-        self.assertEqual(res["counts"], {"effective": 0, "upcoming": 0, "expired": 0,
-                                         "inactive": 0, "all": 0})
+        self.assertEqual(res["counts"], {"active": 0, "inactive": 0, "all": 0})
 
     def test_brand_scope_limits_counts(self):
-        rows = [_exrow("A", brand="B1"), _exrow("B", brand="B2", ef="2026-07-01", et="2026-07-31")]
+        rows = [_exrow("A", brand="B1"), _exrow("B", brand="B2")]
         self.perms._allowed = ["B1"]                # only B1 accessible
         self.ax.frappe.get_all = _ex_liststub(rows)
         res = self.ax.list_exemptions(filters={"lifecycle_state": "all"})
