@@ -20,7 +20,7 @@ import frappe
 from ecentric_workspace.action_center.resolvers import resolve_item
 
 
-@frappe.whitelist(methods=["POST"])
+@frappe.whitelist(methods=["GET"])
 def get_action_items():
     """Return canonical Action Center feed for the current user."""
     if not frappe.session.user or frappe.session.user == "Guest":
