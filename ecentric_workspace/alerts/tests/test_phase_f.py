@@ -84,32 +84,51 @@ class TestOverlayBehavior(unittest.TestCase):
 
 
 class TestPolicyCsv(unittest.TestCase):
-    def test_template_no_shop_has_is_gift(self):
+    CANON = ["brand", "platform", "seller_sku", "product_name",
+             "min_price", "target_price", "reference_price", "status", "is_gift"]
+
+    def test_template_is_canonical_schema(self):
         hdr = policy_csv.template_csv().split("\n")[0].split(",")
-        self.assertNotIn("shop", hdr)
-        self.assertIn("is_gift", hdr)
+        self.assertEqual(hdr, self.CANON)                    # exact order is the contract
+        for gone in ("shop", "item", "high_alert_percent",
+                     "severe_drop_percent", "enable_stock_safety_lock",
+                     "effective_from", "effective_to"):
+            self.assertNotIn(gone, hdr)
+
+    def test_both_downloads_share_one_schema(self):
+        # template_csv (button 1) and template_csv_with_rows (missing-policy export,
+        # button 2) emit the SAME header -> the two downloads cannot drift.
+        h1 = policy_csv.template_csv().split("\n")[0]
+        pre = [{"brand": "B", "platform": "Shopee", "seller_sku": "S1", "product_name": "P"}]
+        body = policy_csv.template_csv_with_rows(pre).split("\n")
+        self.assertEqual(body[0], h1)
+        self.assertEqual(body[1], "B,Shopee,S1,P,,,,,")      # positions kept; blanks for the rest
 
     def test_template_and_roundtrip(self):
         t = policy_csv.template_csv()
         rows, errs, warns = policy_csv.parse_csv(
-            t + "FES-VN,Shopee,SKU-A,,Prod A,5.000.000,,,,70,1,2026-06-01,,Active,\n")
+            t + "FES-VN,Shopee,SKU-A,Prod A,5.000.000,,,Active,\n")
         self.assertEqual(errs, [])
         self.assertEqual(warns, [])
         norm, rerr = policy_csv.validate_row_shape(rows[0], 2)
         self.assertEqual(rerr, [])
         self.assertEqual(norm["min_price"], 5000000.0)       # vi-VN dots survive
-        self.assertEqual(norm["enable_stock_safety_lock"], 1)
+        self.assertEqual(norm["status"], "Active")
         self.assertFalse(norm["is_gift"])
 
-    def test_old_file_with_shop_still_parses_and_warns(self):
-        body = "brand,platform,shop,seller_sku,status\nFES-VN,Shopee,SHOP-X,SKU-A,Draft\n"
+    def test_old_file_with_legacy_columns_parses_and_warns(self):
+        body = ("brand,platform,shop,item,seller_sku,min_price,high_alert_percent,"
+                "effective_from,status\n"
+                "FES-VN,Shopee,SHOP-X,ITEM-9,SKU-A,1000,30,2026-06-01,Draft\n")
         rows, errs, warns = policy_csv.parse_csv(body)
-        self.assertEqual(errs, [])
-        self.assertTrue(any("SHOP is deprecated" in w for w in warns))
-        self.assertNotIn("shop", rows[0])                    # value dropped at parse
+        self.assertEqual(errs, [])                           # NOT rejected for legacy cols
+        self.assertTrue(any("legacy columns ignored" in w for w in warns))
+        for gone in ("shop", "item", "high_alert_percent", "effective_from"):
+            self.assertNotIn(gone, rows[0])                  # values dropped at parse
         norm, rerr = policy_csv.validate_row_shape(rows[0], 2)
         self.assertEqual(rerr, [])
-        self.assertNotIn("shop", norm)                       # never persisted
+        for gone in ("shop", "item", "high_alert_percent", "effective_from"):
+            self.assertNotIn(gone, norm)                     # never persisted
 
     def test_gift_value_variants(self):
         for v in ("YES", "yes", "TRUE", "true", "1", "Y", "y"):
@@ -128,23 +147,41 @@ class TestPolicyCsv(unittest.TestCase):
         self.assertIsNone(norm2)
         self.assertTrue(any("seller_sku" in e for e in errs2))
 
+    def test_normal_row_requires_min_price(self):
+        norm, errs = policy_csv.validate_row_shape(
+            {"brand": "B", "platform": "Shopee", "seller_sku": "S1"}, 2)
+        self.assertIsNone(norm)
+        self.assertTrue(any("min_price is required" in e for e in errs))
+        # target/reference stay OPTIONAL when min_price is present.
+        ok, oerr = policy_csv.validate_row_shape(
+            {"brand": "B", "platform": "Shopee", "seller_sku": "S1", "min_price": "1000"}, 2)
+        self.assertEqual(oerr, [])
+        self.assertEqual(ok["min_price"], 1000.0)
+        self.assertNotIn("target_price", ok)
+
     def test_two_rows_differ_only_by_shop_same_shape(self):
-        a, _ = policy_csv.validate_row_shape({"brand": "B", "platform": "Shopee", "seller_sku": "S1", "shop": "X"}, 2)
-        b, _ = policy_csv.validate_row_shape({"brand": "B", "platform": "Shopee", "seller_sku": "S1", "shop": "Y"}, 3)
+        a, ae = policy_csv.validate_row_shape({"brand": "B", "platform": "Shopee", "seller_sku": "S1", "min_price": "1000", "shop": "X"}, 2)
+        b, be = policy_csv.validate_row_shape({"brand": "B", "platform": "Shopee", "seller_sku": "S1", "min_price": "1000", "shop": "Y"}, 3)
+        self.assertEqual(ae, [])
+        self.assertEqual(be, [])
         self.assertEqual(a, b)                               # shop ignored -> identical row
 
     def test_rejections(self):
         rows, errs, warns = policy_csv.parse_csv("foo,bar\n1,2\n")
         self.assertTrue(errs and "unknown columns" in errs[0])
         bad = {"brand": "", "platform": "Shoppee", "min_price": "abc",
-               "seller_sku": "", "item": "", "status": "Weird"}
+               "seller_sku": "", "status": "Weird"}
         norm, rerr = policy_csv.validate_row_shape(bad, 2)
         self.assertIsNone(norm)
-        self.assertEqual(len(rerr), 5)  # brand req, platform, min_price NaN, sku/item, status
+        blob = " ".join(rerr)
+        for expect in ("brand is required", "platform must be one of",
+                       "seller_sku is required", "min_price is not a number",
+                       "invalid status"):
+            self.assertIn(expect, blob)
 
     def test_row_cap(self):
         body = policy_csv.template_csv() + "\n".join(
-            "FES-VN,Shopee,S%d,,,1000,,,,,0,,,Draft," % i for i in range(501)) + "\n"
+            "FES-VN,Shopee,S%d,,1000,,,Draft," % i for i in range(501)) + "\n"
         rows, errs, warns = policy_csv.parse_csv(body)
         self.assertTrue(errs and "too many rows" in errs[0])
 

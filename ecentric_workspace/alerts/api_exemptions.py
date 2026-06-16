@@ -15,15 +15,20 @@ FIELDS = ["name", "brand", "platform", "seller_sku", "reason", "status",
 EDITABLE = ["brand", "platform", "seller_sku", "reason", "status",
             "effective_from", "effective_to", "notes"]
 
-LIFECYCLE_STATES = ("effective", "upcoming", "expired", "inactive", "all")
+# Final simplification: gift exemptions are permanent until toggled off, so the normal
+# UI exposes only status-based tabs.
+LIFECYCLE_STATES = ("active", "inactive", "all")
 _BIG_DATE = "9999-99-99"
 
 
 def derive_lifecycle(row, today):
-    """Derive the OPERATIONAL lifecycle state from existing fields (no new schema):
+    """RUNTIME date semantics, retained for back-compat with any LEGACY dated records:
     Inactive -> 'inactive'; otherwise Active with effective_from in the future ->
-    'upcoming'; Active with effective_to in the past -> 'expired'; else (Active, started
-    or open, not yet ended or open) -> 'effective'. Open-ended dates stay valid."""
+    'upcoming'; Active with effective_to in the past -> 'expired'; else -> 'effective'.
+    NOTE: the normal UI no longer surfaces upcoming/expired tabs - an Active exemption
+    stays Active in the DB (the system never auto-flips it to Inactive); the matcher in
+    services.exemption_guard separately honours any dates at check time. This helper is
+    kept so legacy dated records can still be reasoned about, not for the list tabs."""
     if (row.get("status") or "") == "Inactive":
         return "inactive"
     ef = str(row.get("effective_from"))[:10] if row.get("effective_from") else None
@@ -35,28 +40,22 @@ def derive_lifecycle(row, today):
     return "effective"
 
 
-def _sort_for_state(rows, state):
-    """Default sort per tab (in memory, after lifecycle derivation)."""
-    if state == "effective":          # nearest effective_to first, open-ended last
-        rows.sort(key=lambda r: (str(r.get("effective_to"))[:10] if r.get("effective_to") else _BIG_DATE))
-    elif state == "upcoming":         # nearest effective_from first
-        rows.sort(key=lambda r: (str(r.get("effective_from"))[:10] if r.get("effective_from") else _BIG_DATE))
-    elif state == "expired":          # most recently expired first
-        rows.sort(key=lambda r: (str(r.get("effective_to"))[:10] if r.get("effective_to") else ""), reverse=True)
-    else:                             # inactive / all -> most recently modified first
-        rows.sort(key=lambda r: str(r.get("modified") or ""), reverse=True)
-    return rows
+def _status_state(row):
+    """UI tab bucket = pure DB status (permanent gift model)."""
+    return "active" if (row.get("status") or "") == "Active" else "inactive"
 
 
 @frappe.whitelist()
 def list_exemptions(filters=None, start=0, page_length=20):
-    """Scoped, paginated Gift Exemption list with lifecycle tabs (ONE list endpoint).
-    `filters` (JSON) may carry: lifecycle_state, brand, platform, seller_sku (search),
-    reason. Returns {rows (current page), total (for the selected state), counts
-    (per lifecycle state), lifecycle_state}. All rows + counts respect the existing
-    Alert Center brand scope; an EMPTY scope returns zero rows and zero counts (never
-    unrestricted). Lifecycle is derived in Python (status + dates) and pagination is
-    applied server-side, so the browser only ever receives one page."""
+    """Scoped, paginated Gift Exemption list with status tabs (ONE list endpoint).
+    `filters` (JSON) may carry: lifecycle_state (active|inactive|all), brand, platform,
+    seller_sku (search), reason. Returns {rows (current page), total (for the selected
+    state), counts (active|inactive|all), lifecycle_state}. All rows + counts respect the
+    existing Alert Center brand scope; an EMPTY scope returns zero rows and zero counts
+    (never unrestricted). Pagination is applied server-side, so the browser only ever
+    receives one page. Tabs are status-based: gift exemptions are permanent until an
+    operator toggles them Inactive (legacy effective dates are still stored + honoured by
+    the runtime matcher, but are not used to bucket the list)."""
     allowed = perms.require_alert_center_access()
     f = json.loads(filters) if isinstance(filters, str) else (filters or {})
     zero = {s: 0 for s in LIFECYCLE_STATES}
@@ -68,31 +67,30 @@ def list_exemptions(filters=None, start=0, page_length=20):
     else:
         scope = [b for b in allowed if not f.get("brand") or b == f["brand"]]
         if not scope:
-            return {"rows": [], "total": 0, "counts": zero, "lifecycle_state": "effective"}
+            return {"rows": [], "total": 0, "counts": zero, "lifecycle_state": "active"}
         q["brand"] = ["in", scope]
-    # --- non-lifecycle filters (combine with the tab) ---
+    # --- non-status filters (combine with the tab) ---
     if f.get("platform"):
         q["platform"] = f["platform"]
     if f.get("reason"):
         q["reason"] = f["reason"]
     if f.get("seller_sku"):
         q["seller_sku"] = ["like", "%%%s%%" % f["seller_sku"]]
-    # fetch the scoped+filtered set (bounded by brand scope; gift SKUs are few), derive
-    # lifecycle + counts in memory, then paginate the SELECTED state server-side.
+    # fetch the scoped+filtered set (bounded by brand scope; gift SKUs are few), bucket
+    # by status + count in memory, then paginate the SELECTED state server-side.
     rows = frappe.get_all("EC Price Guard Exemption", filters=q, fields=FIELDS,
                           order_by="modified desc", limit_page_length=0)
-    today = nowdate()
     counts = {s: 0 for s in LIFECYCLE_STATES}
     for r in rows:
-        st = derive_lifecycle(r, today)
+        st = _status_state(r)
         r["lifecycle"] = st
         counts[st] += 1
         counts["all"] += 1
-    state = f.get("lifecycle_state") or "effective"
+    state = f.get("lifecycle_state") or "active"
     if state not in LIFECYCLE_STATES:
-        state = "effective"
+        state = "active"
     sel = rows if state == "all" else [r for r in rows if r["lifecycle"] == state]
-    _sort_for_state(sel, state)
+    # rows already arrive most-recent-first (order_by modified desc); keep that order.
     total = len(sel)
     start = max(0, int(start or 0))
     page_length = max(1, int(page_length or 20))

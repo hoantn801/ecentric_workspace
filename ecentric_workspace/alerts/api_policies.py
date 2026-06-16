@@ -96,9 +96,19 @@ def list_policies(filters=None, start=0, page_len=50):
     allowed = _scope()
     f = json.loads(filters) if isinstance(filters, str) else (filters or {})
     flt = []
-    for k in ("platform", "status", "owner_user", "shop"):
+    for k in ("platform", "owner_user"):
         if f.get(k):
             flt.append([k, "=", f[k]])
+    # Status is a MULTI-select: a list/tuple -> OR semantics ("in"); a bare string
+    # stays a single equality (back-compat with older callers).
+    st = f.get("status")
+    if st:
+        if isinstance(st, (list, tuple)):
+            st = [s for s in st if s]
+            if st:
+                flt.append(["status", "in", list(st)])
+        else:
+            flt.append(["status", "=", st])
     if f.get("seller_sku"):
         flt.append(["seller_sku", "like", "%%%s%%" % f["seller_sku"]])
     if allowed == perms.ALL_BRANDS:
@@ -398,10 +408,30 @@ def canonical_duplicates(brand=None):
 
 @frappe.whitelist()
 def csv_template():
-    """Contract for the Download CSV Template button."""
+    """Contract for the Download CSV Template button (header-only canonical schema)."""
     _scope()
     return {"filename": "ec_price_policy_template.csv",
             "content": policy_csv.template_csv()}
+
+
+@frappe.whitelist()
+def missing_policy_csv(brand, platform=None):
+    """Pre-filled CSV for the missing-policy SKU list. Uses the SAME canonical schema
+    helper as csv_template() (policy_csv.template_csv_with_rows) so the two downloads can
+    never drift. Pre-fills brand / platform / seller_sku / product_name; min_price,
+    target_price, reference_price, status and is_gift are left blank for the operator to
+    complete. Brand scope is enforced (an out-of-scope brand is rejected)."""
+    _scope()
+    perms.require_brand_access(frappe.session.user, brand)
+    from ecentric_workspace.alerts import api_sku_catalog
+    data = api_sku_catalog.policy_missing_skus(brand, platform=platform, days=30, limit=500)
+    rows = [{"brand": brand,
+             "platform": m.get("platform") or platform or "",
+             "seller_sku": m.get("seller_sku"),
+             "product_name": m.get("product_name")}
+            for m in (data.get("missing") or [])]
+    return {"filename": "missing_policy_%s.csv" % brand,
+            "content": policy_csv.template_csv_with_rows(rows)}
 
 
 @frappe.whitelist(methods=["POST"])

@@ -9,17 +9,23 @@ Template (header row) is the contract for the Download-CSV-Template button.
 import csv
 import io
 
-# RC7: Shop is NO LONGER part of the canonical identity, so it is removed from the
-# template. IS_GIFT routes a row to a Gift Exemption instead of a Price Policy.
+# Canonical schema (final simplification): a SINGLE column set shared by BOTH the
+# "Download CSV Template" button AND the missing-policy export, so the two downloads can
+# never drift. Identity = brand + platform + seller_sku. IS_GIFT routes a row to a Gift
+# Exemption instead of a Price Policy. min_price is the only required price; target/
+# reference are optional.
 TEMPLATE_COLUMNS = [
-    "brand", "platform", "seller_sku", "item", "product_name",
-    "min_price", "reference_price", "target_price", "high_alert_percent",
-    "severe_drop_percent", "enable_stock_safety_lock",
-    "effective_from", "effective_to", "status", "is_gift",
+    "brand", "platform", "seller_sku", "product_name",
+    "min_price", "target_price", "reference_price", "status", "is_gift",
 ]
-# Old files may still carry these columns; we ACCEPT the file, IGNORE the value, and
-# warn (never persist a new Shop value from CSV; never use it for identity).
-DEPRECATED_COLUMNS = ("shop",)
+# Old files may still carry these columns; we ACCEPT the file, IGNORE the values, and
+# warn. Shop is never persisted; identity no longer uses shop/item; the alert-rule
+# tuning fields and effective dates are no longer part of the simplified Price Setup CSV
+# (rule tuning lives on the Rules page; gift exemptions are permanent / un-dated).
+DEPRECATED_COLUMNS = (
+    "shop", "item", "high_alert_percent", "severe_drop_percent",
+    "enable_stock_safety_lock", "effective_from", "effective_to",
+)
 GIFT_TRUE = ("yes", "true", "1", "y")
 # Identity/shape fields required at EVERY status (a Draft may omit the numeric
 # fields - those are range/completeness-checked by services.policy_validation
@@ -30,8 +36,28 @@ STATUSES = ("Draft", "Active", "Paused", "Expired", "Inactive")
 MAX_ROWS = 500
 
 
+def _csv_cell(v):
+    s = "" if v is None else str(v)
+    if any(ch in s for ch in (",", '"', "\n", "\r")):
+        s = '"' + s.replace('"', '""') + '"'
+    return s
+
+
+def template_csv_with_rows(rows):
+    """Build a CSV using the canonical TEMPLATE_COLUMNS for BOTH downloads: the template
+    is header-only (rows=[]), the missing-policy export is header + pre-filled rows.
+    `rows` is a list of dicts keyed by canonical column name; unknown keys are ignored
+    and missing keys are blank. This is the SINGLE source of column order, so the two
+    download buttons cannot drift apart again."""
+    out = [",".join(TEMPLATE_COLUMNS)]
+    for r in (rows or []):
+        out.append(",".join(_csv_cell((r or {}).get(c, "")) for c in TEMPLATE_COLUMNS))
+    return "\n".join(out) + "\n"
+
+
 def template_csv():
-    return ",".join(TEMPLATE_COLUMNS) + "\n"
+    """Header-only template (contract for the Download-CSV-Template button)."""
+    return template_csv_with_rows([])
 
 
 def is_gift_value(v):
@@ -64,9 +90,10 @@ def parse_number(value):
 
 def parse_csv(text):
     """text -> (rows[dict], errors[str], warnings[str]). Header is matched
-    case-insensitively against the template (order-insensitive). A deprecated column
-    (shop) is ACCEPTED but its value is dropped + a warning is returned (back-compat);
-    any OTHER unknown column is rejected."""
+    case-insensitively against the template (order-insensitive). Deprecated columns
+    (shop/item/percent-tuning/effective dates) are ACCEPTED but their values are dropped
+    + a warning is returned (back-compat); any OTHER unknown column is rejected. Old
+    files are NEVER rejected just for containing legacy columns."""
     reader = csv.DictReader(io.StringIO(text or ""))
     if not reader.fieldnames:
         return [], ["empty file"], []
@@ -76,8 +103,9 @@ def parse_csv(text):
     if unknown:
         return [], ["unknown columns: %s (download the template)" % ", ".join(unknown)], []
     warnings = []
-    if any(c in DEPRECATED_COLUMNS for c in fields):
-        warnings.append("SHOP is deprecated and ignored")
+    legacy = sorted({c for c in fields if c in DEPRECATED_COLUMNS})
+    if legacy:
+        warnings.append("legacy columns ignored: %s" % ", ".join(legacy))
     rows = []
     for r in reader:
         row = {}
@@ -93,9 +121,12 @@ def parse_csv(text):
 
 
 def validate_row_shape(row, idx):
-    """Site-free checks. Returns (normalized_dict_or_None, errors[list]). Shop is never
-    read/persisted. A GIFT row (is_gift true) routes to a Gift Exemption: it requires
-    Brand + Platform + Seller SKU and IGNORES the price fields entirely."""
+    """Site-free checks. Returns (normalized_dict_or_None, errors[list]). Legacy columns
+    (shop/item/percent-tuning/effective dates) are never read or persisted. Every row
+    needs Brand + Platform + Seller SKU. A GIFT row (is_gift true) routes to a Gift
+    Exemption and IGNORES the price fields. A normal Price Policy row REQUIRES min_price
+    (target/reference are optional; range + required-when-Active rules stay in the shared
+    validator services.policy_validation, not duplicated here)."""
     errs = []
     out = {}
     gift = is_gift_value(row.get("is_gift"))
@@ -105,35 +136,27 @@ def validate_row_shape(row, idx):
             errs.append("row %d: %s is required" % (idx, k))
     if row.get("platform") and row["platform"] not in PLATFORMS:
         errs.append("row %d: platform must be one of %s" % (idx, "/".join(PLATFORMS)))
+    if not row.get("seller_sku"):
+        errs.append("row %d: seller_sku is required" % idx)
     if gift:
-        # Gift Exemption row: Seller SKU required; prices/status/dates ignored.
-        if not row.get("seller_sku"):
-            errs.append("row %d: seller_sku is required for a gift row" % idx)
+        # Gift Exemption row: prices/status/dates ignored.
         for k in ("brand", "platform", "seller_sku", "product_name"):
             if row.get(k):
                 out[k] = row[k]
         return (None, errs) if errs else (out, [])
-    # --- normal Price Policy row (unchanged shape rules) ---
+    # --- normal Price Policy row ---
     if row.get("status") and row["status"] not in STATUSES:
         errs.append("row %d: invalid status %r" % (idx, row["status"]))
-    if not (row.get("seller_sku") or row.get("item")):
-        errs.append("row %d: seller_sku or item is required" % idx)
-    # TYPE/shape only: parse the numbers (locale-aware) so downstream gets
-    # floats; the >0 / 0<pct<=100 RANGE + required-when-Active rules live in the
-    # single shared validator (services.policy_validation), NOT duplicated here.
-    for k in ("min_price", "reference_price", "target_price",
-              "high_alert_percent", "severe_drop_percent"):
+    if not row.get("min_price"):
+        errs.append("row %d: min_price is required" % idx)
+    # TYPE/shape only: parse the numbers (locale-aware) so downstream gets floats.
+    for k in ("min_price", "target_price", "reference_price"):
         if row.get(k):
             try:
                 out[k] = parse_number(row[k])
             except ValueError:
                 errs.append("row %d: %s is not a number: %r" % (idx, k, row[k]))
-    if row.get("enable_stock_safety_lock"):
-        out["enable_stock_safety_lock"] = 1 if row["enable_stock_safety_lock"].strip().lower() in ("1", "true", "yes") else 0
-    # NOTE: effective date ORDER is enforced by the shared validator (both
-    # dates present) - not duplicated here. Shop is intentionally NOT copied.
-    for k in ("brand", "platform", "seller_sku", "item", "product_name",
-              "effective_from", "effective_to", "status"):
+    for k in ("brand", "platform", "seller_sku", "product_name", "status"):
         if row.get(k):
             out[k] = row[k]
     out.setdefault("status", "Draft")
