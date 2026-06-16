@@ -6,6 +6,7 @@ import json
 
 import frappe
 from frappe import _
+from frappe.utils import nowdate
 
 from ecentric_workspace.alerts import permissions as perms
 
@@ -14,26 +15,89 @@ FIELDS = ["name", "brand", "platform", "seller_sku", "reason", "status",
 EDITABLE = ["brand", "platform", "seller_sku", "reason", "status",
             "effective_from", "effective_to", "notes"]
 
+LIFECYCLE_STATES = ("effective", "upcoming", "expired", "inactive", "all")
+_BIG_DATE = "9999-99-99"
+
+
+def derive_lifecycle(row, today):
+    """Derive the OPERATIONAL lifecycle state from existing fields (no new schema):
+    Inactive -> 'inactive'; otherwise Active with effective_from in the future ->
+    'upcoming'; Active with effective_to in the past -> 'expired'; else (Active, started
+    or open, not yet ended or open) -> 'effective'. Open-ended dates stay valid."""
+    if (row.get("status") or "") == "Inactive":
+        return "inactive"
+    ef = str(row.get("effective_from"))[:10] if row.get("effective_from") else None
+    et = str(row.get("effective_to"))[:10] if row.get("effective_to") else None
+    if ef and ef > today:
+        return "upcoming"
+    if et and et < today:
+        return "expired"
+    return "effective"
+
+
+def _sort_for_state(rows, state):
+    """Default sort per tab (in memory, after lifecycle derivation)."""
+    if state == "effective":          # nearest effective_to first, open-ended last
+        rows.sort(key=lambda r: (str(r.get("effective_to"))[:10] if r.get("effective_to") else _BIG_DATE))
+    elif state == "upcoming":         # nearest effective_from first
+        rows.sort(key=lambda r: (str(r.get("effective_from"))[:10] if r.get("effective_from") else _BIG_DATE))
+    elif state == "expired":          # most recently expired first
+        rows.sort(key=lambda r: (str(r.get("effective_to"))[:10] if r.get("effective_to") else ""), reverse=True)
+    else:                             # inactive / all -> most recently modified first
+        rows.sort(key=lambda r: str(r.get("modified") or ""), reverse=True)
+    return rows
+
 
 @frappe.whitelist()
-def list_exemptions(filters=None):
+def list_exemptions(filters=None, start=0, page_length=20):
+    """Scoped, paginated Gift Exemption list with lifecycle tabs (ONE list endpoint).
+    `filters` (JSON) may carry: lifecycle_state, brand, platform, seller_sku (search),
+    reason. Returns {rows (current page), total (for the selected state), counts
+    (per lifecycle state), lifecycle_state}. All rows + counts respect the existing
+    Alert Center brand scope; an EMPTY scope returns zero rows and zero counts (never
+    unrestricted). Lifecycle is derived in Python (status + dates) and pagination is
+    applied server-side, so the browser only ever receives one page."""
     allowed = perms.require_alert_center_access()
     f = json.loads(filters) if isinstance(filters, str) else (filters or {})
-    flt = []
-    for k in ("platform", "status", "seller_sku"):
-        if f.get(k):
-            flt.append([k, "=", f[k]])
+    zero = {s: 0 for s in LIFECYCLE_STATES}
+    # --- brand scope (same model as the rest of Alert Center) ---
+    q = {}
     if allowed == perms.ALL_BRANDS:
         if f.get("brand"):
-            flt.append(["brand", "=", f["brand"]])
+            q["brand"] = f["brand"]
     else:
         scope = [b for b in allowed if not f.get("brand") or b == f["brand"]]
         if not scope:
-            return {"rows": []}
-        flt.append(["brand", "in", scope])
-    return {"rows": frappe.get_all("EC Price Guard Exemption", filters=flt,
-                                   fields=FIELDS, order_by="modified desc",
-                                   limit_page_length=200)}
+            return {"rows": [], "total": 0, "counts": zero, "lifecycle_state": "effective"}
+        q["brand"] = ["in", scope]
+    # --- non-lifecycle filters (combine with the tab) ---
+    if f.get("platform"):
+        q["platform"] = f["platform"]
+    if f.get("reason"):
+        q["reason"] = f["reason"]
+    if f.get("seller_sku"):
+        q["seller_sku"] = ["like", "%%%s%%" % f["seller_sku"]]
+    # fetch the scoped+filtered set (bounded by brand scope; gift SKUs are few), derive
+    # lifecycle + counts in memory, then paginate the SELECTED state server-side.
+    rows = frappe.get_all("EC Price Guard Exemption", filters=q, fields=FIELDS,
+                          order_by="modified desc", limit_page_length=0)
+    today = nowdate()
+    counts = {s: 0 for s in LIFECYCLE_STATES}
+    for r in rows:
+        st = derive_lifecycle(r, today)
+        r["lifecycle"] = st
+        counts[st] += 1
+        counts["all"] += 1
+    state = f.get("lifecycle_state") or "effective"
+    if state not in LIFECYCLE_STATES:
+        state = "effective"
+    sel = rows if state == "all" else [r for r in rows if r["lifecycle"] == state]
+    _sort_for_state(sel, state)
+    total = len(sel)
+    start = max(0, int(start or 0))
+    page_length = max(1, int(page_length or 20))
+    page = sel[start:start + page_length]
+    return {"rows": page, "total": total, "counts": counts, "lifecycle_state": state}
 
 
 @frappe.whitelist(methods=["POST"])
@@ -65,3 +129,45 @@ def set_exemption_status(name, status):
     doc.status = status
     doc.save(ignore_permissions=True)        # re-validates overlap when -> Active
     return {"name": doc.name, "status": doc.status}
+
+
+@frappe.whitelist(methods=["POST"])
+def bulk_save_exemptions(exemptions=None, defaults=None):
+    """Create MANY gift exemptions in ONE request (e.g. several SKUs selected in the
+    missing-policy list). `defaults` are shared fields (brand, platform, reason, dates,
+    status); `exemptions` is a list whose items override the defaults (typically just
+    seller_sku). Each row is validated INDEPENDENTLY in its own savepoint, so one bad
+    row (e.g. an overlapping exemption) does NOT abort the others. Returns per-item
+    results so the UI can clear the successful rows and keep the failed ones selected.
+    Brand scope is enforced per row."""
+    perms.require_alert_center_access()
+    items = json.loads(exemptions) if isinstance(exemptions, str) else (exemptions or [])
+    dflt = json.loads(defaults) if isinstance(defaults, str) else (defaults or {})
+    results = []
+    created = 0
+    for idx, it in enumerate(items):
+        row = dict(dflt)
+        row.update(it or {})
+        sku = (row.get("seller_sku") or "").strip()
+        res = {"seller_sku": sku, "brand": row.get("brand"), "ok": False}
+        sp = "ge_%d" % idx
+        try:
+            frappe.db.savepoint(sp)
+            if not row.get("brand"):
+                raise Exception(_("brand is required"))
+            if not sku:
+                raise Exception(_("seller_sku is required"))
+            perms.require_brand_access(frappe.session.user, row["brand"])
+            doc = frappe.new_doc("EC Price Guard Exemption")
+            for k in EDITABLE:
+                if k in row:
+                    doc.set(k, row[k])
+            doc.save(ignore_permissions=True)   # controller validates overlap/window
+            res["ok"] = True
+            res["name"] = doc.name
+            created += 1
+        except Exception as e:
+            frappe.db.rollback(save_point=sp)   # undo only THIS row's partial work
+            res["error"] = str(e)
+        results.append(res)
+    return {"results": results, "created": created, "failed": len(results) - created}

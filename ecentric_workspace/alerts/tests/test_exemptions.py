@@ -173,16 +173,144 @@ class TestApiBrandScope(unittest.TestCase):
         perms = sys.modules["ecentric_workspace.alerts.permissions"]
         perms._allowed = {}                                   # non-admin, no brands
         from ecentric_workspace.alerts import api_exemptions as ax
-        ax.frappe.get_all = lambda *a, **k: [types.SimpleNamespace(name="LEAK")]
-        self.assertEqual(ax.list_exemptions(), {"rows": []})  # never the LEAK row
+        ax.frappe.get_all = lambda *a, **k: [{"name": "LEAK", "status": "Active"}]
+        res = ax.list_exemptions()
+        self.assertEqual(res["rows"], [])                     # never the LEAK row
+        self.assertEqual(res["counts"]["all"], 0)
 
     def test_list_supervisor_is_unscoped_by_brand(self):
         perms = sys.modules["ecentric_workspace.alerts.permissions"]
         perms._allowed = perms.ALL_BRANDS
         from ecentric_workspace.alerts import api_exemptions as ax
-        ax.frappe.get_all = lambda *a, **k: [types.SimpleNamespace(name="EC-EXEMPT-1")]
-        rows = ax.list_exemptions().get("rows")
-        self.assertEqual([r.name for r in rows], ["EC-EXEMPT-1"])
+        ax.frappe.get_all = lambda *a, **k: [
+            {"name": "EC-EXEMPT-1", "status": "Active", "effective_from": None,
+             "effective_to": None, "modified": "2026-06-01"}]
+        rows = ax.list_exemptions(filters={"lifecycle_state": "all"})["rows"]
+        self.assertEqual([r["name"] for r in rows], ["EC-EXEMPT-1"])
+
+
+def _exrow(name, status="Active", platform="Shopee", seller_sku="SKU1",
+           reason="Gift / Freebie", ef=None, et=None, brand="B", modified="2026-06-01"):
+    return dict(name=name, status=status, platform=platform, seller_sku=seller_sku,
+                reason=reason, effective_from=ef, effective_to=et, brand=brand,
+                notes="", exempted_by="u", modified=modified)
+
+
+def _ex_liststub(all_rows):
+    """get_all stub honouring api_exemptions' filter dict (brand =/in, platform/reason
+    =, seller_sku like). Returns dict copies so lifecycle assignment doesn't leak."""
+    def ga(*a, **k):
+        q = k.get("filters") or {}
+        out = []
+        for r in all_rows:
+            ok = True
+            for key, cond in q.items():
+                rv = r.get(key)
+                if isinstance(cond, list) and cond and cond[0] == "in":
+                    if rv not in cond[1]:
+                        ok = False
+                elif isinstance(cond, list) and cond and cond[0] == "like":
+                    if cond[1].strip("%").lower() not in str(rv or "").lower():
+                        ok = False
+                elif rv != cond:
+                    ok = False
+            if ok:
+                out.append(dict(r))
+        return out
+    return ga
+
+
+# today() is stubbed to 2026-06-16 (frappe.utils.nowdate).
+_TODAY = "2026-06-16"
+_DATASET = [
+    _exrow("A", ef="2026-06-01", et="2026-06-30"),                 # effective
+    _exrow("B", ef="2026-07-01", et="2026-07-31"),                 # upcoming
+    _exrow("C", ef="2026-05-01", et="2026-05-31"),                 # expired
+    _exrow("D", status="Inactive"),                                # inactive
+    _exrow("E", ef=None, et=None),                                 # effective (open both)
+    _exrow("F", ef=None, et="2026-12-31"),                         # effective (open start)
+    _exrow("G", ef="2026-01-01", et=None),                         # effective (open end)
+]
+
+
+class TestDeriveLifecycle(unittest.TestCase):
+    def test_each_state_and_open_ended(self):
+        from ecentric_workspace.alerts import api_exemptions as ax
+        d = lambda r: ax.derive_lifecycle(r, _TODAY)
+        self.assertEqual(d(_DATASET[0]), "effective")
+        self.assertEqual(d(_DATASET[1]), "upcoming")
+        self.assertEqual(d(_DATASET[2]), "expired")
+        self.assertEqual(d(_DATASET[3]), "inactive")
+        self.assertEqual(d(_DATASET[4]), "effective")   # open both
+        self.assertEqual(d(_DATASET[5]), "effective")   # open start
+        self.assertEqual(d(_DATASET[6]), "effective")   # open end
+
+
+class TestListLifecycle(unittest.TestCase):
+    def setUp(self):
+        self.perms = sys.modules["ecentric_workspace.alerts.permissions"]
+        self.perms._allowed = self.perms.ALL_BRANDS
+        from ecentric_workspace.alerts import api_exemptions as ax
+        self.ax = ax
+        ax.frappe.get_all = _ex_liststub(_DATASET)
+
+    def test_counts_scoped_and_complete(self):
+        res = self.ax.list_exemptions(filters={"lifecycle_state": "effective"})
+        self.assertEqual(res["counts"],
+                         {"effective": 4, "upcoming": 1, "expired": 1, "inactive": 1, "all": 7})
+
+    def test_default_tab_effective(self):
+        res = self.ax.list_exemptions(filters={})
+        self.assertEqual(res["lifecycle_state"], "effective")
+        self.assertEqual(res["total"], 4)
+        self.assertEqual({r["name"] for r in res["rows"]}, {"A", "E", "F", "G"})
+
+    def test_each_tab_total(self):
+        for state, n in (("upcoming", 1), ("expired", 1), ("inactive", 1), ("all", 7)):
+            res = self.ax.list_exemptions(filters={"lifecycle_state": state})
+            self.assertEqual(res["total"], n, state)
+
+    def test_pagination_and_total(self):
+        p1 = self.ax.list_exemptions(filters={"lifecycle_state": "effective"}, start=0, page_length=2)
+        p2 = self.ax.list_exemptions(filters={"lifecycle_state": "effective"}, start=2, page_length=2)
+        self.assertEqual(len(p1["rows"]), 2)
+        self.assertEqual(len(p2["rows"]), 2)
+        self.assertEqual(p1["total"], 4)
+        names = {r["name"] for r in p1["rows"]} | {r["name"] for r in p2["rows"]}
+        self.assertEqual(names, {"A", "E", "F", "G"})   # no overlap, full page coverage
+
+    def test_combined_filters(self):
+        rows = list(_DATASET) + [_exrow("Z", platform="Lazada", reason="Sample",
+                                        seller_sku="GIFT9", ef=None, et=None)]
+        self.ax.frappe.get_all = _ex_liststub(rows)
+        res = self.ax.list_exemptions(filters={"lifecycle_state": "effective",
+                                               "platform": "Lazada", "reason": "Sample",
+                                               "seller_sku": "gift"})
+        self.assertEqual([r["name"] for r in res["rows"]], ["Z"])
+
+    def test_effective_sort_nearest_end_first_open_last(self):
+        res = self.ax.list_exemptions(filters={"lifecycle_state": "effective"}, page_length=10)
+        order = [r["name"] for r in res["rows"]]
+        # A (ends 2026-06-30) and F (ends 2026-12-31) have ends; E and G are open-ended.
+        self.assertLess(order.index("A"), order.index("E"))
+        self.assertLess(order.index("F"), order.index("E"))
+        self.assertLess(order.index("A"), order.index("F"))   # nearest end first
+
+    def test_empty_scope_zero_rows_and_counts(self):
+        self.perms._allowed = []                    # non-admin, no brands
+        res = self.ax.list_exemptions(filters={})
+        self.assertEqual(res["rows"], [])
+        self.assertEqual(res["total"], 0)
+        self.assertEqual(res["counts"], {"effective": 0, "upcoming": 0, "expired": 0,
+                                         "inactive": 0, "all": 0})
+
+    def test_brand_scope_limits_counts(self):
+        rows = [_exrow("A", brand="B1"), _exrow("B", brand="B2", ef="2026-07-01", et="2026-07-31")]
+        self.perms._allowed = ["B1"]                # only B1 accessible
+        self.ax.frappe.get_all = _ex_liststub(rows)
+        res = self.ax.list_exemptions(filters={"lifecycle_state": "all"})
+        self.assertEqual(res["counts"]["all"], 1)   # B2 not counted
+        self.assertEqual([r["name"] for r in res["rows"]], ["A"])
 
 
 class TestBaselineQueryCount(unittest.TestCase):
@@ -213,6 +341,66 @@ class TestBaselineQueryCount(unittest.TestCase):
         baseline.get_baseline("B", "Shopee", None, None, "SKU1")
         self.assertIn("tabEC Price Guard Exemption", captured.get("q", ""),
                       "the exemption exclusion must be part of the single history query")
+
+
+class _FakeDoc:
+    def __init__(self):
+        self.name = None
+        self._f = {}
+
+    def set(self, k, v):
+        self._f[k] = v
+
+    def save(self, **k):
+        if self._f.get("seller_sku") == "BAD":        # simulate overlap rejection
+            raise Exception("Overlapping exemption")
+        self.name = "EC-EXEMPT-" + str(self._f.get("seller_sku"))
+
+
+class TestBulkSave(unittest.TestCase):
+    """RC7-C bulk: one request, per-item results, independent savepoints (one failure
+    does not abort the others)."""
+
+    def _ax(self):
+        from ecentric_workspace.alerts import api_exemptions as ax
+        ax.frappe.new_doc = lambda dt: _FakeDoc()
+        ax.frappe.db.savepoint = lambda sp: None
+        ax.frappe.db.rollback = lambda **k: None
+        sys.modules["ecentric_workspace.alerts.permissions"].require_brand_access = lambda *a, **k: None
+        return ax
+
+    def test_partial_success_keeps_per_item_results(self):
+        ax = self._ax()
+        res = ax.bulk_save_exemptions(
+            exemptions=[{"seller_sku": "S1"}, {"seller_sku": "BAD"}, {"seller_sku": "S3"}],
+            defaults={"brand": "B", "platform": "All", "reason": "Gift / Freebie", "status": "Active"})
+        self.assertEqual(res["created"], 2)
+        self.assertEqual(res["failed"], 1)
+        rmap = {r["seller_sku"]: r for r in res["results"]}
+        self.assertTrue(rmap["S1"]["ok"])
+        self.assertTrue(rmap["S3"]["ok"])
+        self.assertFalse(rmap["BAD"]["ok"])
+        self.assertIn("Overlapping", rmap["BAD"]["error"])
+
+    def test_missing_brand_row_fails_only_itself(self):
+        ax = self._ax()
+        res = ax.bulk_save_exemptions(
+            exemptions=[{"seller_sku": "S1", "brand": "B"}, {"seller_sku": "S2", "brand": ""}],
+            defaults={"platform": "All", "reason": "Gift / Freebie", "status": "Active"})
+        self.assertEqual(res["created"], 1)
+        self.assertEqual(res["failed"], 1)
+
+    def test_out_of_scope_brand_row_fails(self):
+        ax = self._ax()
+        def _gate(user, brand):
+            if brand == "OTHER":
+                raise Exception("Out of scope")
+        sys.modules["ecentric_workspace.alerts.permissions"].require_brand_access = _gate
+        res = ax.bulk_save_exemptions(
+            exemptions=[{"seller_sku": "S1", "brand": "B"}, {"seller_sku": "S2", "brand": "OTHER"}],
+            defaults={"platform": "All", "reason": "Gift / Freebie", "status": "Active"})
+        self.assertEqual(res["created"], 1)
+        self.assertIn("scope", " ".join(r.get("error", "") for r in res["results"]).lower())
 
 
 if __name__ == "__main__":
