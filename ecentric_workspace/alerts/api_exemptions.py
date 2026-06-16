@@ -171,3 +171,36 @@ def bulk_save_exemptions(exemptions=None, defaults=None):
             res["error"] = str(e)
         results.append(res)
     return {"results": results, "created": created, "failed": len(results) - created}
+
+
+def upsert_gift_exemption(brand, platform, seller_sku):
+    """RC7 CSV IS_GIFT routing (reused by the CSV import). Canonical key =
+    brand + platform + seller_sku (Shop is NOT part of the identity). Idempotent:
+      * an Active exemption already exists -> ('already_exists', name)
+      * an Inactive exemption exists       -> reactivate it -> ('exemption_reactivated')
+      * none                               -> create Active -> ('exemption_created')
+    Never creates a duplicate. reason=Gift / Freebie, status=Active, no dates. The
+    caller is responsible for brand-scope enforcement."""
+    sku = (seller_sku or "").strip()
+    rows = frappe.get_all(
+        "EC Price Guard Exemption",
+        filters={"brand": brand, "platform": platform or "All", "seller_sku": sku},
+        fields=["name", "status"])
+    active = next((r for r in rows if r.status == "Active"), None)
+    if active:
+        return ("already_exists", active["name"])
+    other = rows[0] if rows else None
+    if other:                                   # reactivate an Inactive one (no dup)
+        doc = frappe.get_doc("EC Price Guard Exemption", other["name"])
+        doc.status = "Active"
+        doc.reason = "Gift / Freebie"
+        doc.save(ignore_permissions=True)
+        return ("exemption_reactivated", doc.name)
+    doc = frappe.new_doc("EC Price Guard Exemption")
+    doc.brand = brand
+    doc.platform = platform or "All"
+    doc.seller_sku = sku
+    doc.reason = "Gift / Freebie"
+    doc.status = "Active"
+    doc.save(ignore_permissions=True)
+    return ("exemption_created", doc.name)
