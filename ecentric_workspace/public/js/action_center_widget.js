@@ -1,18 +1,23 @@
 // Copyright (c) 2026, eCentric and contributors
 // Action Center homepage widget (app-owned asset).
 //
-// Loaded by a <script id="ec-action-center-widget"
-//   src="/assets/ecentric_workspace/js/action_center_widget.js"></script>
-// tag injected into the homepage Web Page main_section by patch
-// ecentric_workspace.action_center.patches.p001_homepage_action_center.
+// UI polish revision:
+//   - The whole card is the click target. No nested CTA button is rendered.
+//     action_label is exposed via aria-label / title for accessibility.
+//   - No underline anywhere on the card (normal / hover / focus).
+//   - 3 compact lines per card: priority + source + time, title, subtitle.
+//     title and subtitle are single-line with ellipsis.
+//   - DISPLAY_LIMIT = 4. Footer "Xem thêm N việc →" only when total > 4.
 //
-// The widget renders the user's open ToDos in the "Việc cần làm" panel and
-// uses item.action_url verbatim. NO URL building here -- the route resolver
-// lives in ecentric_workspace.action_center.resolvers and is the single
-// source of truth for /weekly-update vs /approval vs /app/task vs Desk
-// fallback.
+// Loaded by:
+//   <script id="ec-action-center-widget"
+//           src="/assets/ecentric_workspace/js/action_center_widget.js"
+//           defer></script>
+// injected into the homepage Web Page by patch p001_homepage_action_center.
 //
-// API call uses frappe.call so the framework handles auth + CSRF + JSON.
+// API call uses frappe.call (handles auth + CSRF + JSON). NO URL building
+// here -- item.action_url is the single source of truth (route resolver
+// lives in ecentric_workspace.action_center.resolvers).
 (function(){
   'use strict';
   if (window._ecActionCenterInstalled) { return; }
@@ -23,20 +28,33 @@
     var st = document.createElement('style');
     st.id = 'ec-action-center-css';
     st.textContent =
-      '.ec-ac-card{display:block;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;text-decoration:none;color:inherit;margin-bottom:8px;}' +
+      // Card is the whole click area. Kill underline on EVERY state and
+      // descendant -- the website-wide <a> styles must not bleed through.
+      '.ec-ac-card,' +
+        '.ec-ac-card:hover,' +
+        '.ec-ac-card:focus,' +
+        '.ec-ac-card:active,' +
+        '.ec-ac-card:visited,' +
+        '.ec-ac-card *,' +
+        '.ec-ac-card:hover *,' +
+        '.ec-ac-card:focus *,' +
+        '.ec-ac-card:active *,' +
+        '.ec-ac-card:visited *' +
+        '{text-decoration:none !important;}' +
+      '.ec-ac-card{display:block;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;color:inherit;margin-bottom:8px;outline:none;}' +
       '.ec-ac-card:hover{border-color:#2C3DA6;background:#f7f8fb;}' +
       '.ec-ac-row1{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:11px;}' +
       '.ec-ac-pill{padding:1px 7px;border-radius:8px;color:#fff;font-weight:600;font-size:10px;letter-spacing:.3px;}' +
       '.ec-ac-src{padding:1px 7px;border-radius:8px;background:#eef0fb;color:#2C3DA6;font-weight:600;font-size:10px;letter-spacing:.4px;}' +
       '.ec-ac-time{margin-left:auto;color:#6b7280;font-size:11px;}' +
-      '.ec-ac-title{font-size:13.5px;font-weight:600;color:#111827;line-height:1.35;margin-bottom:2px;}' +
-      '.ec-ac-subtitle{font-size:11.5px;color:#6b7280;}' +
-      '.ec-ac-action{display:inline-block;margin-top:6px;padding:3px 10px;border-radius:6px;background:#2C3DA6;color:#fff;font-size:11.5px;font-weight:600;}' +
-      '.ec-ac-more{display:block;text-align:center;padding:10px;font-size:12.5px;color:#2C3DA6;font-weight:600;text-decoration:none;background:#f9fafb;border-top:1px solid #e5e7eb;}';
+      // Title + subtitle are single line, ellipsis.
+      '.ec-ac-title{font-size:13.5px;font-weight:600;color:#111827;line-height:1.35;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
+      '.ec-ac-subtitle{font-size:11.5px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
+      '.ec-ac-more,.ec-ac-more:hover,.ec-ac-more:focus,.ec-ac-more:visited{display:block;text-align:center;padding:10px;font-size:12.5px;color:#2C3DA6;font-weight:600;text-decoration:none !important;background:#f9fafb;border-top:1px solid #e5e7eb;}';
     document.head.appendChild(st);
   }
 
-  var DISPLAY_LIMIT = 6;
+  var DISPLAY_LIMIT = 4;
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
@@ -77,11 +95,15 @@
       return;
     }
     var total = items.length;
-    var shown = items.slice(0, DISPLAY_LIMIT);
-    var html = shown.map(function(it) {
+    var visibleItems = items.slice(0, DISPLAY_LIMIT);
+    var html = visibleItems.map(function(it) {
       // action_url is supplied by the server resolver. NO URL building here.
       var href = it.action_url || '#';
-      return '<a href="' + esc(href) + '" class="ec-ac-card">' +
+      // action_label is exposed via aria-label / title only (no nested button).
+      var aria = esc(it.action_label || 'Mở');
+      return '<a href="' + esc(href) + '" class="ec-ac-card"' +
+        ' aria-label="' + aria + '"' +
+        ' title="' + aria + '">' +
         '<div class="ec-ac-row1">' +
           '<span class="ec-ac-pill" style="background:' + priColor(it.priority) + ';">' + priLabel(it.priority) + '</span>' +
           '<span class="ec-ac-src">' + esc(it.source_label || '') + '</span>' +
@@ -89,7 +111,6 @@
         '</div>' +
         '<div class="ec-ac-title">' + esc(it.title || '') + '</div>' +
         '<div class="ec-ac-subtitle">' + esc(it.subtitle || '') + '</div>' +
-        '<span class="ec-ac-action">' + esc(it.action_label || 'Mở') + '</span>' +
       '</a>';
     }).join('');
     if (total > DISPLAY_LIMIT) {
@@ -105,7 +126,6 @@
     var panel = findPanel();
     if (!panel) return;
     if (window.frappe && typeof window.frappe.call === 'function') {
-      // Frappe-native: handles auth + CSRF + JSON.
       window.frappe.call({
         method: 'ecentric_workspace.action_center.api.get_action_items',
         type: 'GET',
@@ -115,8 +135,6 @@
         }
       });
     }
-    // No fallback: if frappe isn't available, the homepage isn't loaded
-    // through the Frappe website framework -- nothing useful to do.
   }
 
   function init() {
@@ -129,5 +147,5 @@
   } else {
     init();
   }
-  console.log('[ec-action-center-widget] installed (asset)');
+  console.log('[ec-action-center-widget] installed (asset, ui polish)');
 })();
