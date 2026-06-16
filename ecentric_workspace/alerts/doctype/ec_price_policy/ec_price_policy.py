@@ -10,6 +10,7 @@ from frappe.model.document import Document
 # the controller guard and the bulk-import Conflict preview never diverge.
 from ecentric_workspace.alerts.services.policy_scope import (
     scope_key as _scope_key, windows_overlap as _windows_overlap)
+from ecentric_workspace.alerts.services import policy_scope
 from ecentric_workspace.alerts.services import policy_validation
 
 

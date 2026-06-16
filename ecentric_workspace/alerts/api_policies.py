@@ -412,37 +412,72 @@ def preview_policy_csv(content=None, source="csv"):
     existing row + a field changes), Skip (matches but identical = no-op), or
     Create. `source` is 'csv' or 'paste' (both share this backend)."""
     _scope()
-    rows, file_errors = policy_csv.parse_csv(content or "")
+    rows, file_errors, warnings = policy_csv.parse_csv(content or "")
     if file_errors:
-        return {"ok": False, "file_errors": file_errors, "source": source}
+        return {"ok": False, "file_errors": file_errors, "warnings": warnings, "source": source}
     report = []
     for i, raw in enumerate(rows, start=2):  # header = line 1
         norm, errs = policy_csv.validate_row_shape(raw, i)
         action, detail, existing = "Invalid", None, None
-        if not errs:
+        gift = bool(norm and norm.get("is_gift"))
+        if not errs and gift:
+            # RC7 IS_GIFT -> Gift Exemption route (Brand+Platform+Seller SKU). Price
+            # fields are ignored; predict the idempotent outcome for the preview.
+            errs += _db_validate_gift(norm, i)
+            if not errs:
+                action = _preview_gift_action(norm)
+        elif not errs:
             errs += _db_validate(norm, i)
             # mode by the ROW's own status (Active row missing a numeric field ->
             # field-level Invalid; Draft/Paused/Inactive -> range-if-present).
             errs += policy_validation.validate_policy_values(
                 norm, require_complete=((norm.get("status") or "Draft") == "Active"),
                 prefix="row %d: " % i)
-        if not errs:
-            existing = frappe.db.get_value("EC Price Policy", _import_key(norm), "name")
-            action, detail = _row_action(norm, existing)
-        report.append({"line": i, "row": raw, "norm": norm,
+            if not errs:
+                existing = frappe.db.get_value("EC Price Policy", _import_key(norm), "name")
+                action, detail = _row_action(norm, existing)
+        report.append({"line": i, "row": raw, "norm": norm, "is_gift": gift,
                        "errors": errs,
                        "action": "Invalid" if errs else action,
                        "detail": detail, "existing": existing,
-                       "ok": not errs and action in ("Create", "Update", "Skip")})
+                       "ok": not errs and action != "Conflict"})
 
     def n(act):
         return sum(1 for r in report if r["action"] == act)
     return {"ok": all(r["ok"] for r in report), "rows": report, "source": source,
+            "warnings": warnings,
             "counts": {"create": n("Create"), "update": n("Update"),
                        "skip": n("Skip"), "conflict": n("Conflict"),
-                       "invalid": n("Invalid")},
+                       "invalid": n("Invalid"),
+                       "exemption_created": n("exemption_created"),
+                       "exemption_reactivated": n("exemption_reactivated"),
+                       "already_exists": n("already_exists")},
             "valid": sum(1 for r in report if r["ok"]),
             "invalid": sum(1 for r in report if not r["ok"])}
+
+
+def _db_validate_gift(norm, idx):
+    """Gift row DB checks: brand scope + existence only (Seller SKU presence is a shape
+    check; Shop/Item are irrelevant to a Gift Exemption)."""
+    errs = []
+    user = frappe.session.user
+    if not perms.can_manage_policy(user, norm["brand"]):
+        errs.append("row %d: brand %s is outside your scope" % (idx, norm["brand"]))
+    elif not frappe.db.exists("Brand Approver", norm["brand"]):
+        errs.append("row %d: brand %s does not exist" % (idx, norm["brand"]))
+    return errs
+
+
+def _preview_gift_action(norm):
+    """Predict the idempotent Gift Exemption outcome for the preview (no write)."""
+    rows = frappe.get_all(
+        "EC Price Guard Exemption",
+        filters={"brand": norm["brand"], "platform": norm.get("platform") or "All",
+                 "seller_sku": (norm.get("seller_sku") or "").strip()},
+        fields=["name", "status"])
+    if any(r.status == "Active" for r in rows):
+        return "already_exists"
+    return "exemption_reactivated" if rows else "exemption_created"
 
 
 def _db_validate(norm, idx):
@@ -474,9 +509,13 @@ def import_policy_csv(content=None, source="csv", lines=None):
     preview = preview_policy_csv(content=content, source=source)
     if preview.get("file_errors"):
         frappe.throw(_("File rejected: {0}").format("; ".join(preview["file_errors"])))
+    from ecentric_workspace.alerts import api_exemptions
     batch = "%s|%s" % (now_datetime().strftime("%Y%m%d%H%M%S"), frappe.session.user)
-    res = {"batch": batch, "source": source, "created": 0, "updated": 0,
-           "skipped": 0, "failed": [], "closed_alerts": 0}
+    res = {"batch": batch, "source": source,
+           "counts": {"policy_created": 0, "policy_updated": 0, "exemption_created": 0,
+                      "exemption_reactivated": 0, "already_exists": 0, "skipped": 0,
+                      "invalid": 0, "failed": 0},
+           "errors": [], "closed_alerts": 0}
     affected_brands = set()
     actor = frappe.session.user
     # optional selective commit: only commit the line numbers the user ticked in
@@ -488,41 +527,54 @@ def import_policy_csv(content=None, source="csv", lines=None):
     for r in preview["rows"]:
         action, line = r["action"], r["line"]
         if action == "Invalid":
-            res["failed"].append({"line": line, "action": "Invalid", "errors": r["errors"]})
+            res["counts"]["invalid"] += 1
+            res["errors"].append({"line": line, "action": "Invalid", "errors": r["errors"]})
             continue
         if action == "Conflict":
-            res["failed"].append({"line": line, "action": "Conflict",
+            res["counts"]["invalid"] += 1
+            res["errors"].append({"line": line, "action": "Conflict",
                                   "errors": ["row %d: would conflict with active policy %s"
                                              % (line, r.get("detail"))]})
             continue
         if action == "Skip":
-            res["skipped"] += 1
+            res["counts"]["skipped"] += 1
             continue
         if selected is not None and line not in selected:
-            res["skipped"] += 1          # eligible but not ticked for commit
+            res["counts"]["skipped"] += 1    # eligible but not ticked for commit
             continue
-        # Create / Update -> own savepoint (partial-failure isolation)
-        sp = "polrow_%d" % line
+        norm = r["norm"]
+        sp = "polrow_%d" % line              # own savepoint (partial-failure isolation)
         frappe.db.savepoint(sp)
         try:
-            norm, existing = r["norm"], r["existing"]
-            doc = frappe.get_doc("EC Price Policy", existing) if existing \
-                else frappe.new_doc("EC Price Policy")
-            for k, v in norm.items():
-                doc.set(k, v)
-            doc.import_batch = batch
-            if not doc.owner_user:
-                doc.owner_user = actor
-            doc.save(ignore_permissions=True)   # controller re-checks Active conflict
-            if doc.status == "Active":           # Step 6 atomic with this row
-                lc = policy_setup.terminalize_for_policy(doc, actor=actor, recompute=False)
-                res["closed_alerts"] += len(lc.get("closed", []))
-                if lc.get("closed"):
-                    affected_brands.add(doc.brand)
-            res["updated" if existing else "created"] += 1
+            if norm.get("is_gift"):
+                # RC7 IS_GIFT -> idempotent Gift Exemption upsert (NO Price Policy).
+                if not perms.can_manage_policy(actor, norm["brand"]):
+                    raise Exception("brand %s is outside your scope" % norm["brand"])
+                outcome, _nm = api_exemptions.upsert_gift_exemption(
+                    norm["brand"], norm.get("platform"), norm.get("seller_sku"))
+                res["counts"][outcome] += 1
+            else:
+                existing = r["existing"]
+                doc = frappe.get_doc("EC Price Policy", existing) if existing \
+                    else frappe.new_doc("EC Price Policy")
+                for k, v in norm.items():
+                    if k == "is_gift":       # not a policy field
+                        continue
+                    doc.set(k, v)
+                doc.import_batch = batch
+                if not doc.owner_user:
+                    doc.owner_user = actor
+                doc.save(ignore_permissions=True)   # controller re-checks Active conflict
+                if doc.status == "Active":           # Step 6 atomic with this row
+                    lc = policy_setup.terminalize_for_policy(doc, actor=actor, recompute=False)
+                    res["closed_alerts"] += len(lc.get("closed", []))
+                    if lc.get("closed"):
+                        affected_brands.add(doc.brand)
+                res["counts"]["policy_updated" if existing else "policy_created"] += 1
         except Exception as e:
             frappe.db.rollback(save_point=sp)
-            res["failed"].append({"line": line, "action": action,
+            res["counts"]["failed"] += 1
+            res["errors"].append({"line": line, "action": action,
                                   "errors": [str(e)[:200]]})
             continue
 

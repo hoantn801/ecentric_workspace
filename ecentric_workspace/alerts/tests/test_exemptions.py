@@ -403,5 +403,69 @@ class TestBulkSave(unittest.TestCase):
         self.assertIn("scope", " ".join(r.get("error", "") for r in res["results"]).lower())
 
 
+class _D(dict):
+    """dict with attribute access (mimics frappe._dict: r.status AND r['name'])."""
+    __getattr__ = dict.get
+
+
+class _UpsertDoc:
+    def __init__(self, name=None):
+        self.name = name
+        self.brand = self.platform = self.seller_sku = self.reason = self.status = None
+
+    def save(self, **k):
+        if not self.name:
+            self.name = "EC-EXEMPT-" + str(self.seller_sku)
+
+
+class TestGiftUpsert(unittest.TestCase):
+    """RC7 CSV IS_GIFT routing helper: idempotent create / reactivate / already-exists,
+    never a duplicate. Canonical key = brand + platform + seller_sku (Shop ignored)."""
+
+    def _ax(self):
+        from ecentric_workspace.alerts import api_exemptions as ax
+        return ax
+
+    def test_already_active_is_idempotent(self):
+        ax = self._ax()
+        ax.frappe.get_all = lambda *a, **k: [_D(name="E1", status="Active")]
+        ax.frappe.get_doc = lambda *a, **k: self.fail("must not write")
+        ax.frappe.new_doc = lambda *a, **k: self.fail("must not create")
+        self.assertEqual(ax.upsert_gift_exemption("B", "Shopee", "S1"), ("already_exists", "E1"))
+
+    def test_inactive_is_reactivated(self):
+        ax = self._ax()
+        ax.frappe.get_all = lambda *a, **k: [_D(name="E2", status="Inactive")]
+        doc = _UpsertDoc("E2")
+        ax.frappe.get_doc = lambda *a, **k: doc
+        outcome, name = ax.upsert_gift_exemption("B", "Shopee", "S1")
+        self.assertEqual(outcome, "exemption_reactivated")
+        self.assertEqual(name, "E2")
+        self.assertEqual(doc.status, "Active")
+        self.assertEqual(doc.reason, "Gift / Freebie")
+
+    def test_none_creates_active(self):
+        ax = self._ax()
+        ax.frappe.get_all = lambda *a, **k: []
+        ax.frappe.new_doc = lambda dt: _UpsertDoc()
+        outcome, name = ax.upsert_gift_exemption("B", "Shopee", "S9")
+        self.assertEqual(outcome, "exemption_created")
+        self.assertTrue(name.endswith("S9"))
+
+
+class TestControllerNameErrorGuard(unittest.TestCase):
+    """RC7 production fix: the EC Price Policy controller must IMPORT the policy_scope
+    MODULE where it calls policy_scope.canonical_guard_conflict (else set_policy_status
+    -> validate() raised NameError: name 'policy_scope' is not defined)."""
+
+    def test_controller_imports_policy_scope_module(self):
+        from ecentric_workspace.alerts.services import exemption_guard as _eg
+        alerts = os.path.dirname(os.path.dirname(_eg.__file__))
+        src = open(os.path.join(alerts, "doctype", "ec_price_policy",
+                                "ec_price_policy.py"), encoding="utf-8").read()
+        self.assertIn("from ecentric_workspace.alerts.services import policy_scope", src)
+        self.assertIn("policy_scope.canonical_guard_conflict", src)
+
+
 if __name__ == "__main__":
     unittest.main()
