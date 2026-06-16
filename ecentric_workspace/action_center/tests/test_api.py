@@ -112,3 +112,37 @@ class TestActionCenterApi(FrappeTestCase):
             self.assertIn("/approval?id=VALID-1", valid[0]["action_url"])
         finally:
             frappe.set_user("Administrator")
+
+
+# ===== Regression: HTTP method whitelist ====================================
+# Production hit 403 (frappe.handler.is_valid_http_method) because the asset
+# calls frappe.call(... type:"GET") but the endpoint was whitelisted POST-only.
+# Now whitelist GET so the asset's read-only call goes through.
+
+class TestActionCenterApiHttpMethod(FrappeTestCase):
+    def test_endpoint_whitelists_get_method(self):
+        """The decorator on get_action_items must accept GET."""
+        from ecentric_workspace.action_center import api as ac_api
+        fn = ac_api.get_action_items
+        # @frappe.whitelist exposes the allowed methods on the underlying
+        # function via attributes set by the decorator (`methods` list).
+        methods = getattr(fn, "methods", None)
+        # Fallback: some Frappe versions tag via `__wrapped__` or other.
+        if methods is None:
+            methods = getattr(getattr(fn, "__wrapped__", fn), "methods", None)
+        self.assertIsNotNone(methods,
+            "get_action_items must declare HTTP methods via "
+            "@frappe.whitelist(methods=[...])")
+        # Read-only endpoint: GET must be allowed.
+        self.assertIn("GET", methods)
+
+    def test_endpoint_source_declares_GET(self):
+        """Source-level static check (works regardless of Frappe version's
+        decorator introspection support)."""
+        import inspect
+        from ecentric_workspace.action_center import api as ac_api
+        src = inspect.getsource(ac_api)
+        # The whitelist decorator on get_action_items must list GET.
+        self.assertIn('@frappe.whitelist(methods=["GET"])', src)
+        # And must NOT be POST-only (the production bug).
+        self.assertNotIn('@frappe.whitelist(methods=["POST"])', src)
