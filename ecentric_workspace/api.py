@@ -596,9 +596,10 @@ def _notify_approver(approver_email, doc):
         return
     try:
         site_url = frappe.utils.get_url()
-        approval_url = "{0}/approval?id={1}&type={2}".format(
-            site_url, doc.name, doc.doctype.lower().replace(" ", "_")
-        )
+        # Use the shared Action Center resolver so the email and the homepage
+        # card always point at the same approval URL.
+        from ecentric_workspace.action_center.resolvers import build_approval_url
+        approval_url = site_url + build_approval_url(doc.doctype, doc.name)
         frappe.sendmail(
             recipients=[approver_email],
             subject="[Approval needed] {0}: {1}".format(doc.doctype, doc.name),
