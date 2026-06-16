@@ -114,7 +114,7 @@ def compute_due_at(week, department):
     w = frappe.db.get_value(
         "Department Reporting Window",
         department,
-        ["deadline_day", "deadline_time", "deadline_in_next_week"],
+        ["deadline_day", "deadline_time", "deadline_in_next_week", "enabled"],
         as_dict=True,
     )
     if not w:
