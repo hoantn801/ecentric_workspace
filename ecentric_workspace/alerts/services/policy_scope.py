@@ -30,6 +30,98 @@ def windows_overlap(af, at, bf, bt):
     return True
 
 
+# === RC6 (2026-06-16): CANONICAL Price Setup identity =======================
+# The standard Price Setup model no longer has a Shop input, so Shop must NOT make
+# two policies distinct. The canonical identity is brand + platform + normalized
+# target, where target = normalized(seller_sku) (falling back to the legacy ERP
+# `item` for old rows). Empty target = the brand/platform FALLBACK identity, which is
+# DISTINCT from any SKU-specific identity. Normalization is strip()+upper() to mirror
+# the DB's case-insensitive matching of seller_sku.
+#
+# "Non-cancelled" = a policy still live in the workflow. There is no literal
+# "Cancelled" status on EC Price Policy; the status set is Draft/Active/Paused/
+# Expired/Inactive. Per the lifecycle contract, Expired + Inactive are the
+# retired/"cancelled" equivalents and do NOT participate in the canonical conflict;
+# the live set below does. So: at most ONE Draft/Active/Paused policy per canonical
+# identity; Expired/Inactive rows are ignored (they free up the identity).
+LIVE_STATUSES = ("Draft", "Active", "Paused")
+
+
+def _norm_sku(v):
+    return (v or "").strip().upper()
+
+
+def canonical_key(brand, platform, seller_sku):
+    """RC6 canonical identity (brand, platform, normalized seller_sku). Shop AND the
+    legacy ERP `item` are intentionally NOT part of the identity: the normal KAM
+    workflow no longer exposes ERP Item, so using it would silently allow multiple
+    Brand/Platform fallback policies that look identical to the user. target='' => the
+    SINGLE brand/platform fallback identity (two empty-SKU rows are the SAME identity
+    even if their stored Item differs). seller_sku is normalized strip()+upper()."""
+    return ((brand or ""), (platform or "All"), _norm_sku(seller_sku))
+
+
+def find_canonical_conflict(brand, platform, seller_sku, exclude_name=None):
+    """Return {'name','status','shop'} of an existing LIVE (Draft/Active/Paused) EC
+    Price Policy that shares this canonical identity (Shop + ERP Item ignored),
+    excluding `exclude_name` (self). None if no conflict. Read-only. Platform is
+    normalized in Python so legacy NULL/empty platforms still compare correctly."""
+    me = canonical_key(brand, platform, seller_sku)
+    rows = frappe.get_all(
+        "EC Price Policy",
+        filters={"brand": brand, "status": ["in", LIVE_STATUSES]},
+        fields=["name", "status", "platform", "seller_sku", "shop"])
+    for r in rows:
+        if r.name == (exclude_name or ""):
+            continue
+        if canonical_key(brand, r.platform, r.seller_sku) == me:
+            return {"name": r.name, "status": r.status, "shop": r.shop or ""}
+    return None
+
+
+def canonical_guard_conflict(status, brand, platform, seller_sku, exclude_name=None):
+    """The EXACT decision the controller guard makes: enforce canonical uniqueness
+    ONLY when the document's target `status` is LIVE (Draft/Active/Paused). For a
+    retired/terminal status (Inactive/Expired/anything not live) it returns None so
+    operators can retire one of two existing duplicates. Self is excluded by
+    `exclude_name`. Read-only."""
+    if (status or "") not in LIVE_STATUSES:
+        return None
+    return find_canonical_conflict(brand, platform, seller_sku, exclude_name)
+
+
+def canonical_duplicate_groups(brands=None):
+    """READ-ONLY diagnostic: groups of LIVE EC Price Policies that share a canonical
+    identity (i.e. existing duplicates that the RC6 guard would now forbid), for
+    MANUAL cleanup. Never mutates data. `brands` optionally limits the scan; an EMPTY
+    list means "no accessible brands" and returns [] (never a full-table scan), so a
+    caller can safely pass a brand-scoped list. Returns a list of
+    {'brand','platform','seller_sku','members':[{name,status,shop,...}]} for every
+    canonical key with 2+ live members."""
+    if brands is not None and not brands:
+        return []
+    flt = {"status": ["in", LIVE_STATUSES]}
+    if brands:
+        flt["brand"] = ["in", list(brands)]
+    rows = frappe.get_all(
+        "EC Price Policy", filters=flt,
+        fields=["name", "status", "brand", "platform", "shop", "seller_sku",
+                "modified"],
+        order_by="brand asc, platform asc, seller_sku asc, modified desc")
+    groups = {}
+    for r in rows:
+        k = canonical_key(r.brand, r.platform, r.seller_sku)
+        groups.setdefault(k, []).append(r)
+    out = []
+    for k, members in groups.items():
+        if len(members) > 1:
+            out.append({"brand": k[0], "platform": k[1],
+                        "seller_sku": k[2] or "(fallback)",
+                        "count": len(members), "members": members})
+    out.sort(key=lambda g: (-g["count"], g["brand"], g["platform"]))
+    return out
+
+
 def find_active_conflict(brand, platform, shop, seller_sku, item,
                          is_brand_fallback, effective_from, effective_to,
                          exclude_name=None):

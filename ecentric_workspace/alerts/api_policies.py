@@ -285,6 +285,26 @@ def policy_conflicts(brand):
 
 
 @frappe.whitelist()
+def canonical_duplicates(brand=None):
+    """RC6 READ-ONLY diagnostic: groups of LIVE (Draft/Active/Paused) EC Price
+    Policies that share a CANONICAL identity (brand + platform + normalized
+    seller_sku, Shop IGNORED) - i.e. the pre-existing production duplicates the RC6
+    guard now forbids, surfaced for MANUAL cleanup. Never mutates data. Scoped to the
+    caller's accessible brands (or `brand` if supplied)."""
+    allowed = _scope()
+    if brand:
+        perms.require_brand_access(frappe.session.user, brand)
+        brands = [brand]
+    elif allowed == perms.ALL_BRANDS:
+        brands = None
+    else:
+        brands = list(allowed)
+    groups = policy_scope.canonical_duplicate_groups(brands)
+    return {"groups": groups, "group_count": len(groups),
+            "total_rows": sum(g["count"] for g in groups)}
+
+
+@frappe.whitelist()
 def csv_template():
     """Contract for the Download CSV Template button."""
     _scope()
