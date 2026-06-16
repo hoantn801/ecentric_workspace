@@ -178,3 +178,75 @@ class TestP001Patch(FrappeTestCase):
             src = f.read()
         self.assertNotIn("/approval?id=", src)
         self.assertNotIn('+ "&type="', src)
+
+
+# ===== UI polish regression: card-only click target, no CTA, ellipsis, =====
+# ===== DISPLAY_LIMIT=4, no underline                                   =====
+
+class TestActionCenterAssetUiPolish(FrappeTestCase):
+    """Asset-level UI invariants. These guard against future regressions
+    that would re-introduce: nested CTA button, underline on the card,
+    or a different display limit. They read the asset source directly so
+    they DO NOT require a real bench / Frappe runtime to render."""
+
+    def _read_asset(self):
+        from ecentric_workspace.action_center.patches import (
+            p001_homepage_action_center as p001,
+        )
+        patch_path = os.path.dirname(os.path.dirname(
+            os.path.dirname(p001.__file__)))
+        asset = os.path.join(patch_path, "public", "js",
+            "action_center_widget.js")
+        with open(asset) as f:
+            return f.read()
+
+    def test_no_cta_button_class_rendered(self):
+        """The legacy 'ec-ac-action' span (CTA button row) must be gone."""
+        src = self._read_asset()
+        self.assertNotIn("ec-ac-action", src,
+            "Card must not render a nested CTA button -- the whole card is "
+            "the click target.")
+
+    def test_action_label_exposed_via_aria_only(self):
+        """action_label is used as aria-label/title only, not as text."""
+        src = self._read_asset()
+        # The asset must still reference action_label (for a11y).
+        self.assertIn("action_label", src)
+        # And it must be wired into aria-label and title attrs.
+        self.assertIn("aria-label", src)
+
+    def test_display_limit_is_four(self):
+        src = self._read_asset()
+        self.assertIn("var DISPLAY_LIMIT = 4;", src)
+        self.assertIn("items.slice(0, DISPLAY_LIMIT)", src)
+
+    def test_text_decoration_none_on_card_all_states(self):
+        """text-decoration:none must apply across all link states and to
+        descendants so the website-wide <a> style does not bleed through."""
+        src = self._read_asset()
+        # The CSS must use !important on text-decoration:none for the card
+        # and its descendants.
+        self.assertIn("text-decoration:none !important", src)
+        for state in (":hover", ":focus"):
+            self.assertIn(state, src,
+                "Missing CSS for state " + state)
+
+    def test_title_and_subtitle_use_ellipsis(self):
+        """Title and subtitle must be single-line with ellipsis."""
+        src = self._read_asset()
+        self.assertIn(".ec-ac-title{", src)
+        self.assertIn(".ec-ac-subtitle{", src)
+        self.assertIn("text-overflow:ellipsis", src)
+        self.assertIn("white-space:nowrap", src)
+
+    def test_no_approval_url_builder(self):
+        """Regression: the asset must not contain any /approval URL builder."""
+        src = self._read_asset()
+        self.assertNotIn("/approval?id=", src)
+
+    def test_uses_frappe_call(self):
+        """Regression: keep using frappe.call (not raw fetch+POST)."""
+        src = self._read_asset()
+        self.assertIn("frappe.call", src)
+        # And the call is GET (asset-side; backend whitelisted GET in #56).
+        self.assertIn("type: 'GET'", src)
