@@ -54,7 +54,16 @@ def save_rule(rule=None, name=None):
         if not perms.can_manage_policy(user, doc.brand):
             frappe.throw(_("Out of scope."), frappe.PermissionError)
     else:
-        doc = frappe.new_doc("EC Alert Rule")
+        # RC5-4: find-or-update by SCOPE IDENTITY (brand + rule_code + platform +
+        # shop + seller_sku + item) so the same logical override maps to ONE doc.
+        # Without this, re-saving an override (or re-adding after "Bo tuy chinh"
+        # paused it) created a DUPLICATE row, leaving the renderer / resolver with
+        # two rows of the same identity (one Paused, one Draft) -> the row showed
+        # "inherited" even though the save succeeded, and re-adding kept failing.
+        existing = _find_rule_by_identity(data)
+        doc = frappe.get_doc("EC Alert Rule", existing) if existing \
+            else frappe.new_doc("EC Alert Rule")
+    was_paused = (doc.status == "Paused")
     for k in EDITABLE:
         if k in data:
             doc.set(k, data[k])
@@ -62,10 +71,43 @@ def save_rule(rule=None, name=None):
         doc.status = "Draft"          # edits to live rules require re-approval
         doc.approved_by = None
         doc.approved_at = None
+    if was_paused:
+        # RC5-4: re-adding a customization onto a previously-removed (Paused)
+        # override RESUMES it for re-approval rather than leaving it paused (a
+        # paused override is ignored by the resolver). KAMs draft; Lead/SM activate.
+        doc.status = "Draft"
+        doc.approved_by = None
+        doc.approved_at = None
     if not doc.status:
         doc.status = "Draft"
     doc.save(ignore_permissions=True)
     return {"name": doc.name, "status": doc.status}
+
+
+def _norm(v):
+    return (v or "")
+
+
+def _find_rule_by_identity(data):
+    """Return the name of the existing EC Alert Rule with the SAME scope identity
+    as `data` (brand + rule_code + platform + shop + seller_sku + item), or None.
+    Empty/None scope parts are normalized so '' and NULL compare equal. Used so a
+    create-without-name never produces a duplicate of an existing (incl. Paused)
+    rule of the same scope."""
+    if not data.get("brand") or not data.get("rule_code"):
+        return None
+    cands = frappe.get_all(
+        "EC Alert Rule",
+        filters={"brand": data.get("brand"), "rule_code": data.get("rule_code"),
+                 "platform": data.get("platform") or "All"},
+        fields=["name", "shop", "seller_sku", "item"],
+        order_by="creation asc", limit_page_length=0)
+    for c in cands:
+        if (_norm(c.shop) == _norm(data.get("shop"))
+                and _norm(c.seller_sku) == _norm(data.get("seller_sku"))
+                and _norm(c.item) == _norm(data.get("item"))):
+            return c.name
+    return None
 
 
 @frappe.whitelist(methods=["POST"])

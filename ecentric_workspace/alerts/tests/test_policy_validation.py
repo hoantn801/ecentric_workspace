@@ -20,15 +20,18 @@ class TestValidatorDraftMode(unittest.TestCase):
         self.assertEqual(pv.validate_policy_values(
             {"effective_from": "2026-06-01"}, require_complete=False), [])
 
-    def test_present_value_is_range_checked(self):
+    def test_present_min_price_is_range_checked(self):
         self.assertTrue(any("min_price must be > 0" in e for e in
             pv.validate_policy_values({"min_price": 0}, require_complete=False)))
         self.assertTrue(any("min_price must be > 0" in e for e in
             pv.validate_policy_values({"min_price": -5}, require_complete=False)))
+
+    def test_positive_out_of_range_percent_still_rejected(self):
+        # a genuinely-bad POSITIVE legacy value is still caught (>100).
         self.assertTrue(any("high_alert_percent" in e for e in
             pv.validate_policy_values({"high_alert_percent": 120}, require_complete=False)))
         self.assertTrue(any("severe_drop_percent" in e for e in
-            pv.validate_policy_values({"severe_drop_percent": 0}, require_complete=False)))
+            pv.validate_policy_values({"severe_drop_percent": 150}, require_complete=False)))
 
     def test_reversed_dates_blocked_in_either_mode(self):
         bad = {"effective_from": "2026-06-10", "effective_to": "2026-06-01"}
@@ -37,16 +40,15 @@ class TestValidatorDraftMode(unittest.TestCase):
 
 
 class TestValidatorActiveMode(unittest.TestCase):
-    """require_complete=True (Active / activation)."""
+    """require_complete=True (Active / activation). RC5: only min_price is required;
+    the alert thresholds are Rules-owned and never required here."""
 
-    def test_missing_fields_required_with_fieldnames(self):
-        errs = pv.validate_policy_values({"min_price": 100, "high_alert_percent": 10},
-                                         require_complete=True)
-        self.assertTrue(any("severe_drop_percent" in e and "required" in e for e in errs))
-        errs2 = pv.validate_policy_values({}, require_complete=True)
-        self.assertTrue(any("min_price is required" in e for e in errs2))
-        self.assertTrue(any("high_alert_percent" in e for e in errs2))
-        self.assertTrue(any("severe_drop_percent" in e for e in errs2))
+    def test_only_min_price_required(self):
+        errs = pv.validate_policy_values({}, require_complete=True)
+        self.assertTrue(any("min_price is required" in e for e in errs))
+        # the thresholds are NOT required anymore (Rules owns them).
+        self.assertFalse(any("high_alert_percent" in e for e in errs))
+        self.assertFalse(any("severe_drop_percent" in e for e in errs))
 
     def test_complete_valid_passes(self):
         self.assertEqual(pv.validate_policy_values(FULL, require_complete=True), [])
@@ -54,6 +56,48 @@ class TestValidatorActiveMode(unittest.TestCase):
     def test_percents_independent(self):
         self.assertEqual(pv.validate_policy_values(
             dict(FULL, high_alert_percent=80, severe_drop_percent=5), require_complete=True), [])
+
+
+class TestRC5LegacyThresholdCompat(unittest.TestCase):
+    """RC5 (2026-06-16): the RC4 Price Setup form no longer submits the alert
+    thresholds; legacy policies storing 0/blank must stay save-able and activatable,
+    and the engine keeps the only authoritative thresholds (Rules overlay)."""
+
+    def test_create_policy_without_alert_thresholds_ok(self):
+        # KAM saves price facts only (no thresholds) -> Draft save must pass.
+        self.assertEqual(pv.validate_policy_values(
+            {"min_price": 100}, require_complete=False), [])
+        # ...and even an immediate activate (only min_price needed) passes.
+        self.assertEqual(pv.validate_policy_values(
+            {"min_price": 100}, require_complete=True), [])
+
+    def test_edit_legacy_high_alert_zero_ok(self):
+        # a legacy doc that stores high_alert_percent=0 stays editable (0 = unset).
+        self.assertEqual(pv.validate_policy_values(
+            {"min_price": 100, "high_alert_percent": 0}, require_complete=False), [])
+        self.assertEqual(pv.validate_policy_values(
+            {"min_price": 100, "high_alert_percent": 0}, require_complete=True), [])
+
+    def test_edit_legacy_severe_drop_zero_ok(self):
+        self.assertEqual(pv.validate_policy_values(
+            {"min_price": 100, "severe_drop_percent": 0}, require_complete=False), [])
+        self.assertEqual(pv.validate_policy_values(
+            {"min_price": 100, "severe_drop_percent": 0}, require_complete=True), [])
+
+    def test_activate_valid_policy_without_thresholds(self):
+        self.assertEqual(pv.validate_policy_values(
+            {"min_price": 250}, require_complete=True), [])
+
+    def test_existing_valid_legacy_threshold_values_still_accepted(self):
+        # a policy that legitimately stored 80 / 65 keeps validating (not cleared,
+        # not rejected) - so re-saving it never trips the range error.
+        self.assertEqual(pv.validate_policy_values(
+            {"min_price": 100, "high_alert_percent": 80, "severe_drop_percent": 65},
+            require_complete=True), [])
+        # both blank is also fine (the form omits them entirely).
+        self.assertEqual(pv.validate_policy_values(
+            {"min_price": 100, "high_alert_percent": "", "severe_drop_percent": None},
+            require_complete=True), [])
 
 
 class TestCsvRowByStatus(unittest.TestCase):
@@ -75,13 +119,22 @@ class TestCsvRowByStatus(unittest.TestCase):
         self.assertEqual(errs, [])              # Draft: numerics optional
         self.assertIsNotNone(norm)
 
-    def test_active_row_missing_numerics_invalid_fieldlevel(self):
+    def test_active_row_missing_min_price_invalid_fieldlevel(self):
+        # RC5: an Active row still requires min_price, but NOT the Rules-owned
+        # alert thresholds (those are never required on the policy).
         errs, _ = self._eval({"brand": "B", "platform": "Shopee",
                               "seller_sku": "SKU1", "status": "Active"})
         joined = " ".join(errs)
         self.assertIn("min_price", joined)
-        self.assertIn("high_alert_percent", joined)
-        self.assertIn("severe_drop_percent", joined)
+        self.assertNotIn("high_alert_percent", joined)
+        self.assertNotIn("severe_drop_percent", joined)
+
+    def test_active_row_with_min_price_no_thresholds_ok(self):
+        # the RC4 form submits only price facts; an Active row with min_price and
+        # no thresholds must validate clean.
+        errs, _ = self._eval({"brand": "B", "platform": "Shopee", "seller_sku": "SKU1",
+                              "status": "Active", "min_price": "100"})
+        self.assertEqual(errs, [])
 
     def test_draft_row_bad_percent_invalid(self):
         errs, _ = self._eval({"brand": "B", "platform": "Shopee", "seller_sku": "SKU1",
