@@ -224,3 +224,156 @@ class TestScheduler(FrappeTestCase):
                     "Flag value %r should be treated as OFF" % (bad_value,))
             finally:
                 self._restore_auto_flag()
+
+
+# ===== Regression test: production Management - EC case =====================
+# Bug: compute_due_at did not fetch DRW.enabled, so w.get("enabled") was always
+# None, raising MissingReportingWindowError even for valid enabled DRWs.
+# Production data that triggered: Employee HR-EMP-00002 (Active), department
+# Management - EC, User hoan.tran@ecentric.vn enabled=1, DRW Management - EC
+# enabled=1, deadline_day=Monday, deadline_time=11:00:00, deadline_in_next_week=1.
+
+REGRESSION_DEPT = "Management - EC"
+REGRESSION_USER = "wr_reg_mgmt_user@example.test"
+REGRESSION_EMP_ID = "WR-REG-MGMT-001"
+
+
+def _ensure_dept(dept):
+    if frappe.db.exists("Department", dept):
+        return
+    frappe.get_doc({
+        "doctype": "Department", "department_name": dept,
+    }).insert(ignore_permissions=True)
+
+
+def _ensure_drw_exact(dept, deadline_day, deadline_time,
+                     deadline_in_next_week, enabled=1):
+    """Match production DRW config exactly."""
+    if frappe.db.exists("Department Reporting Window", dept):
+        frappe.db.set_value("Department Reporting Window", dept, {
+            "enabled": enabled, "deadline_day": deadline_day,
+            "deadline_time": deadline_time,
+            "deadline_in_next_week": deadline_in_next_week,
+        })
+        return
+    frappe.get_doc({
+        "doctype": "Department Reporting Window",
+        "department": dept,
+        "week_start_day": "Monday", "week_end_day": "Friday",
+        "deadline_day": deadline_day, "deadline_time": deadline_time,
+        "deadline_in_next_week": deadline_in_next_week,
+        "enabled": enabled,
+    }).insert(ignore_permissions=True)
+
+
+class TestRegressionDrwEnabledFieldFetch(FrappeTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        _ensure_dept(REGRESSION_DEPT)
+        cls.user = _make_user(REGRESSION_USER)
+        existing_emp = frappe.db.get_value("Employee",
+            {"employee_number": REGRESSION_EMP_ID}, "name")
+        if existing_emp:
+            frappe.db.set_value("Employee", existing_emp, {
+                "status": "Active", "user_id": cls.user,
+                "department": REGRESSION_DEPT,
+            })
+            cls.emp = existing_emp
+        else:
+            e = frappe.get_doc({
+                "doctype": "Employee",
+                "employee_number": REGRESSION_EMP_ID,
+                "first_name": "Reg", "last_name": "Mgmt",
+                "gender": "Male", "date_of_birth": "1990-01-01",
+                "date_of_joining": "2026-01-01", "status": "Active",
+                "user_id": cls.user, "department": REGRESSION_DEPT,
+            })
+            e.insert(ignore_permissions=True)
+            cls.emp = e.name
+        _ensure_drw_exact(REGRESSION_DEPT,
+            deadline_day="Monday", deadline_time="11:00:00",
+            deadline_in_next_week=1, enabled=1)
+        cls.run_dt = datetime(2026, 6, 15, 10, 0, 0)
+        cls.week = week_calendar.compute_week_for(cls.run_dt)
+
+    def _cleanup(self):
+        for n in frappe.get_all("Weekly Team Update",
+                filters={"submitter": self.user,
+                         "week_label": self.week["week_label"]},
+                pluck="name"):
+            for t in frappe.get_all("ToDo",
+                    filters={"reference_type": "Weekly Team Update",
+                             "reference_name": n}, pluck="name"):
+                frappe.delete_doc("ToDo", t, ignore_permissions=True, force=True)
+            frappe.delete_doc("Weekly Team Update", n,
+                ignore_permissions=True, force=True)
+
+    def setUp(self):
+        frappe.db.set_value("Employee", self.emp, {
+            "status": "Active", "user_id": self.user,
+            "department": REGRESSION_DEPT,
+        })
+        frappe.db.set_value("User", self.user, "enabled", 1)
+        _ensure_drw_exact(REGRESSION_DEPT,
+            deadline_day="Monday", deadline_time="11:00:00",
+            deadline_in_next_week=1, enabled=1)
+        self._cleanup()
+
+    def tearDown(self):
+        self._cleanup()
+
+    def test_production_management_dept_monday_next_week(self):
+        """Exact production case: enabled=1 DRW must NOT raise drw_missing.
+
+        Pre-fix: w.get('enabled') returned None (field not fetched), so the
+        check `if not w.get('enabled')` raised MissingReportingWindowError
+        for every DRW, including enabled=1 ones.
+        Post-fix: 'enabled' is in the get_value field list, so the check
+        sees the real value (1) and passes.
+        """
+        stats = scheduler.generate_weekly_obligations(
+            run_date=self.run_dt, employee_names=[self.emp])
+        self.assertEqual(stats["processed"], 1,
+            "Employee must be processed (was eligible).")
+        self.assertEqual(stats["created"], 1,
+            "WTU Draft must be created (DRW is valid).")
+        self.assertEqual(stats["skipped"], 0,
+            "Must NOT be skipped (DRW is enabled).")
+        self.assertEqual(stats["errored"], 0,
+            "No unexpected error.")
+        self.assertEqual(stats["drw_missing"], 0,
+            "DRW exists and is enabled -- must NOT mark drw_missing.")
+
+        # Verify the WTU was actually created with the right due_at:
+        # week_start = 2026-06-15 (Mon) ; deadline_day=Monday + next_week=1
+        # -> deadline_date = 2026-06-22 (Mon of W26) at 11:00.
+        wtu = frappe.get_all("Weekly Team Update",
+            filters={"submitter": self.user,
+                     "week_label": self.week["week_label"]},
+            fields=["name", "due_at", "department"], limit_page_length=1)
+        self.assertEqual(len(wtu), 1)
+        self.assertEqual(wtu[0].department, REGRESSION_DEPT)
+        self.assertEqual(str(wtu[0].due_at)[:16], "2026-06-22 11:00")
+
+    def test_drw_disabled_still_skipped_post_fix(self):
+        """After the fix, enabled=0 DRW must STILL skip + mark drw_missing.
+
+        This is the inverse check: the fix should not break the legitimate
+        disabled-DRW path.
+        """
+        _ensure_drw_exact(REGRESSION_DEPT,
+            deadline_day="Monday", deadline_time="11:00:00",
+            deadline_in_next_week=1, enabled=0)
+        try:
+            stats = scheduler.generate_weekly_obligations(
+                run_date=self.run_dt, employee_names=[self.emp])
+            self.assertEqual(stats["processed"], 1)
+            self.assertEqual(stats["created"], 0)
+            self.assertEqual(stats["skipped"], 1)
+            self.assertEqual(stats["drw_missing"], 1)
+            self.assertEqual(stats["errored"], 0)
+        finally:
+            _ensure_drw_exact(REGRESSION_DEPT,
+                deadline_day="Monday", deadline_time="11:00:00",
+                deadline_in_next_week=1, enabled=1)
