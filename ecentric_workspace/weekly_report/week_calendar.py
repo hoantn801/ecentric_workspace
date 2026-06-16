@@ -12,10 +12,12 @@ department and returns the deadline as a Datetime. The lookup mirrors
 `weekly_late_detector` (production Server Script, snapshot
 04_src_weekly_late_detector.json): DRW.name == Department.name (autoname
 field:department, verified in snapshot 01_doctype_drw_full.json), fields
-[deadline_day, deadline_time, deadline_in_next_week]. We do NOT filter on the
-DRW `enabled` field because the production late-detector does not either;
-keeping parity avoids the case where the scheduler refuses to compute a due_at
-while the late detector still flags the dept's submissions as late.
+[deadline_day, deadline_time, deadline_in_next_week, enabled]. Hotfix:
+we DO filter on `enabled`. Production late-detector parity was relevant when
+the scheduler was Schedule-driven; the Employee-driven hotfix requires admin
+to be able to disable a Department's window without rewriting it, so the
+scheduler skips disabled DRW. Late-detector remains unchanged in prod
+(separate code path, separate concern).
 """
 
 from datetime import datetime, timedelta, date, time as _time
@@ -98,7 +100,7 @@ def compute_due_at(week, department):
     Mirrors weekly_late_detector lookup pattern verified in snapshot:
       frappe.db.exists("Department Reporting Window", department)
       frappe.db.get_value("Department Reporting Window", department,
-        ["deadline_day", "deadline_time", "deadline_in_next_week"], as_dict=True)
+        ["deadline_day", "deadline_time", "deadline_in_next_week", "enabled"], as_dict=True)
 
     department here MUST be the Department record name (DRW autoname is
     field:department, so DRW.name == Department.name).
@@ -119,6 +121,12 @@ def compute_due_at(week, department):
         raise MissingReportingWindowError(
             "Department Reporting Window row exists but get_value returned no data for: "
             + str(department)
+        )
+    # Hotfix: enforce DRW.enabled=1 (production parity dropped; an explicit
+    # disable on DRW must skip the schedule, not silently still generate).
+    if not w.get("enabled"):
+        raise MissingReportingWindowError(
+            "Department Reporting Window disabled for: " + str(department)
         )
     deadline_day = w.get("deadline_day")
     if not deadline_day:

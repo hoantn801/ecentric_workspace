@@ -1,11 +1,5 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Tests for close_weekly_obligation lifecycle.
-
-Verifies:
-  1. open ToDo gets removed from _assign, status -> Closed
-  2. no open ToDo -> no-op
-  3. close error -> raised, not swallowed
-"""
+"""Tests for close_weekly_obligation (Employee-driven setUp)."""
 
 from datetime import datetime
 
@@ -16,12 +10,13 @@ from ecentric_workspace.weekly_report import service
 from ecentric_workspace.weekly_report import week_calendar
 
 TEST_DEPT = "All Departments"
-TEST_USER = "wr1a_close_user@example.test"
-TEST_EMP_ID = "WR1A-CLOSE-001"
+TEST_USER = "wr_hotfix_close_user@example.test"
+TEST_EMP_ID = "WR-HOTFIX-CLOSE-001"
 
 
 def _make_user(email):
     if frappe.db.exists("User", email):
+        frappe.db.set_value("User", email, "enabled", 1)
         return email
     frappe.get_doc({
         "doctype": "User", "email": email,
@@ -33,6 +28,9 @@ def _make_user(email):
 def _make_employee(emp_id, user_email):
     existing = frappe.db.get_value("Employee", {"employee_number": emp_id}, "name")
     if existing:
+        frappe.db.set_value("Employee", existing, {
+            "status": "Active", "user_id": user_email, "department": TEST_DEPT,
+        })
         return existing
     e = frappe.get_doc({
         "doctype": "Employee",
@@ -48,6 +46,7 @@ def _make_employee(emp_id, user_email):
 
 def _ensure_drw(dept):
     if frappe.db.exists("Department Reporting Window", dept):
+        frappe.db.set_value("Department Reporting Window", dept, "enabled", 1)
         return
     frappe.get_doc({
         "doctype": "Department Reporting Window",
@@ -66,21 +65,11 @@ class TestCloseObligation(FrappeTestCase):
         cls.emp = _make_employee(TEST_EMP_ID, cls.user)
         _ensure_drw(TEST_DEPT)
         cls.week = week_calendar.compute_week_for(datetime(2026, 6, 15, 10, 0, 0))
-        cls.schedule = {
-            "name": "WRS-CLOSE-EMP-001",
-            "employee": cls.emp,
-            "user": cls.user,
-            "reporting_department": TEST_DEPT,
-            "effective_from": "2026-01-01",
-            "effective_to": None,
-            "last_generated_week": None,
-        }
 
     def _cleanup(self):
-        rows = frappe.get_all("Weekly Team Update",
-            filters={"submitter": self.user, "week_label": self.week["week_label"]},
-            pluck="name")
-        for n in rows:
+        for n in frappe.get_all("Weekly Team Update",
+                filters={"submitter": self.user, "week_label": self.week["week_label"]},
+                pluck="name"):
             for t in frappe.get_all("ToDo",
                     filters={"reference_type": "Weekly Team Update", "reference_name": n},
                     pluck="name"):
@@ -94,20 +83,17 @@ class TestCloseObligation(FrappeTestCase):
         self._cleanup()
 
     def test_close_marks_open_todo_closed(self):
-        service.ensure_weekly_obligation(self.schedule, self.week)
+        service.ensure_weekly_obligation(self.emp, self.week)
         wtu = frappe.db.get_value("Weekly Team Update",
             {"submitter": self.user, "week_label": self.week["week_label"]}, "name")
-        # WTU has to be Submitted for the guard to allow the close path.
         frappe.db.set_value("Weekly Team Update", wtu, "status", "Submitted")
         service.close_weekly_obligation(wtu)
-        todos = frappe.get_all("ToDo",
-            filters={"reference_type": "Weekly Team Update", "reference_name": wtu},
-            fields=["name", "status"])
-        for t in todos:
+        for t in frappe.get_all("ToDo",
+                filters={"reference_type": "Weekly Team Update", "reference_name": wtu},
+                fields=["status"]):
             self.assertEqual(t.status, "Closed")
 
     def test_close_idempotent_when_no_open_todo(self):
-        # Make a WTU with no ToDo; close should be a clean no-op.
         wtu = frappe.get_doc({
             "doctype": "Weekly Team Update",
             "submitter": self.user, "employee": self.emp,
@@ -123,16 +109,10 @@ class TestCloseObligation(FrappeTestCase):
             self.fail("close should be no-op without raising: " + str(e))
 
     def test_close_error_raises_not_swallowed(self):
-        """If assign_to.remove fails mid-close, exception MUST bubble up.
-
-        We do not enter half-state (WTU=Submitted + ToDo Open) silently. The
-        service raises so the surrounding save transaction rolls back.
-        """
-        service.ensure_weekly_obligation(self.schedule, self.week)
+        service.ensure_weekly_obligation(self.emp, self.week)
         wtu = frappe.db.get_value("Weekly Team Update",
             {"submitter": self.user, "week_label": self.week["week_label"]}, "name")
         frappe.db.set_value("Weekly Team Update", wtu, "status", "Submitted")
-        # Monkey-patch native remove to raise.
         import frappe.desk.form.assign_to as _at
         orig = _at.remove
         def _boom(*a, **kw):
@@ -144,11 +124,7 @@ class TestCloseObligation(FrappeTestCase):
         finally:
             _at.remove = orig
 
-    # ===== WR1A-V FIX 3: missing allocated_to MUST raise ==================
-
     def test_missing_allocated_to_raises(self):
-        """Open ToDo without allocated_to cannot be closed via assign_to API;
-        service.close_weekly_obligation must RAISE (not silent skip)."""
         wtu = frappe.get_doc({
             "doctype": "Weekly Team Update",
             "submitter": self.user, "employee": self.emp,
@@ -160,14 +136,12 @@ class TestCloseObligation(FrappeTestCase):
             "generated_obligation": 1,
             "obligation_key": self.emp + "::" + self.week["week_label"],
         }).insert(ignore_permissions=True)
-        # Create a ToDo with NO allocated_to.
-        td = frappe.get_doc({
+        frappe.get_doc({
             "doctype": "ToDo",
             "reference_type": "Weekly Team Update",
             "reference_name": wtu.name,
             "status": "Open",
             "description": "broken: no allocated_to",
-        })
-        td.insert(ignore_permissions=True)
+        }).insert(ignore_permissions=True)
         with self.assertRaises(frappe.ValidationError):
             service.close_weekly_obligation(wtu.name)
