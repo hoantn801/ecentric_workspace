@@ -1,14 +1,5 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Scheduler tests for generate_weekly_obligations.
-
-Covers:
-  1. processed counter counts every Schedule examined (incl. skipped/errored).
-  2. outcome counters (created/reused/adopted/skipped) increment correctly.
-  3. DRW missing increments drw_missing AND errored, no partial WTU created.
-  4. last_generated_week ONLY updates after WTU+ToDo both confirmed.
-  5. Per-schedule savepoint isolates a bad row from the rest.
-  6. schedule_names filter restricts processing.
-"""
+"""Hotfix scheduler tests (Employee-driven)."""
 
 from datetime import datetime
 
@@ -16,7 +7,6 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.weekly_report import scheduler
-from ecentric_workspace.weekly_report import service
 from ecentric_workspace.weekly_report import week_calendar
 
 TEST_DEPT = "All Departments"
@@ -24,6 +14,7 @@ TEST_DEPT = "All Departments"
 
 def _make_user(email):
     if frappe.db.exists("User", email):
+        frappe.db.set_value("User", email, "enabled", 1)
         return email
     frappe.get_doc({
         "doctype": "User", "email": email,
@@ -35,6 +26,9 @@ def _make_user(email):
 def _make_employee(emp_id, user_email):
     existing = frappe.db.get_value("Employee", {"employee_number": emp_id}, "name")
     if existing:
+        frappe.db.set_value("Employee", existing, {
+            "status": "Active", "user_id": user_email, "department": TEST_DEPT,
+        })
         return existing
     e = frappe.get_doc({
         "doctype": "Employee",
@@ -48,38 +42,17 @@ def _make_employee(emp_id, user_email):
     return e.name
 
 
-def _ensure_drw(dept):
+def _ensure_drw(dept, enabled=1):
     if frappe.db.exists("Department Reporting Window", dept):
+        frappe.db.set_value("Department Reporting Window", dept, "enabled", enabled)
         return
     frappe.get_doc({
         "doctype": "Department Reporting Window",
         "department": dept,
         "week_start_day": "Monday", "week_end_day": "Friday",
         "deadline_day": "Friday", "deadline_time": "18:00:00",
-        "deadline_in_next_week": 0, "enabled": 1,
+        "deadline_in_next_week": 0, "enabled": enabled,
     }).insert(ignore_permissions=True)
-
-
-def _make_schedule(emp, dept, enabled=1, effective_from="2026-01-01", effective_to=None):
-    if frappe.db.exists("Weekly Report Schedule", {"employee": emp}):
-        existing = frappe.get_doc("Weekly Report Schedule", {"employee": emp})
-        existing.enabled = enabled
-        existing.reporting_department = dept
-        existing.effective_from = effective_from
-        existing.effective_to = effective_to
-        existing.last_generated_week = None
-        existing.save(ignore_permissions=True)
-        return existing.name
-    s = frappe.get_doc({
-        "doctype": "Weekly Report Schedule",
-        "employee": emp,
-        "reporting_department": dept,
-        "effective_from": effective_from,
-        "effective_to": effective_to,
-        "enabled": enabled,
-    })
-    s.insert(ignore_permissions=True)
-    return s.name
 
 
 class TestScheduler(FrappeTestCase):
@@ -89,163 +62,85 @@ class TestScheduler(FrappeTestCase):
         _ensure_drw(TEST_DEPT)
         cls.run_dt = datetime(2026, 6, 15, 10, 0, 0)
         cls.week = week_calendar.compute_week_for(cls.run_dt)
-        # 3 test users / employees / schedules
         cls.users = []
         cls.emps = []
-        cls.schedules = []
         for i in (1, 2, 3):
-            u = _make_user("wr1a_sched_u%d@example.test" % i)
-            e = _make_employee("WR1A-SCHED-%03d" % i, u)
+            u = _make_user("wr_hotfix_sched_u%d@example.test" % i)
+            e = _make_employee("WR-HOTFIX-SCHED-%03d" % i, u)
             cls.users.append(u)
             cls.emps.append(e)
-            cls.schedules.append(_make_schedule(e, TEST_DEPT))
 
-    def _cleanup_wtus(self):
+    def _cleanup(self):
         for u in self.users:
-            rows = frappe.get_all("Weekly Team Update",
-                filters={"submitter": u, "week_label": self.week["week_label"]},
-                pluck="name")
-            for n in rows:
+            for n in frappe.get_all("Weekly Team Update",
+                    filters={"submitter": u, "week_label": self.week["week_label"]},
+                    pluck="name"):
                 for t in frappe.get_all("ToDo",
-                        filters={"reference_type": "Weekly Team Update", "reference_name": n},
-                        pluck="name"):
+                        filters={"reference_type": "Weekly Team Update",
+                                 "reference_name": n}, pluck="name"):
                     frappe.delete_doc("ToDo", t, ignore_permissions=True, force=True)
-                frappe.delete_doc("Weekly Team Update", n, ignore_permissions=True, force=True)
+                frappe.delete_doc("Weekly Team Update", n,
+                    ignore_permissions=True, force=True)
 
     def setUp(self):
-        self._cleanup_wtus()
-        # reset last_generated_week marker
-        for s in self.schedules:
-            frappe.db.set_value("Weekly Report Schedule", s, "last_generated_week", None,
-                update_modified=False)
+        for e, u in zip(self.emps, self.users):
+            frappe.db.set_value("Employee", e, {
+                "status": "Active", "user_id": u, "department": TEST_DEPT,
+            })
+            frappe.db.set_value("User", u, "enabled", 1)
+        _ensure_drw(TEST_DEPT, enabled=1)
+        self._cleanup()
 
     def tearDown(self):
-        self._cleanup_wtus()
+        self._cleanup()
 
-    def test_processed_counts_examined_schedules(self):
-        """processed must count EVERY schedule looked at, including skipped/errored."""
-        # Disable one schedule, leave 2 enabled
-        frappe.db.set_value("Weekly Report Schedule", self.schedules[0], "enabled", 0,
-            update_modified=False)
-        stats = scheduler.generate_weekly_obligations(
-            run_date=self.run_dt,
-            schedule_names=self.schedules,  # examine all 3
-        )
-        # enabled=0 schedule is filtered OUT by the get_all() query, not counted.
-        # So processed should equal #schedules examined = enabled ones.
-        self.assertEqual(stats["processed"], 2)
-        # Restore
-        frappe.db.set_value("Weekly Report Schedule", self.schedules[0], "enabled", 1,
-            update_modified=False)
-
-    def test_outcome_counters_correct(self):
-        """First run = 3 created. Second run = 3 reused."""
+    def test_first_run_creates_then_second_reuses(self):
         s1 = scheduler.generate_weekly_obligations(
-            run_date=self.run_dt, schedule_names=self.schedules)
+            run_date=self.run_dt, employee_names=self.emps)
         self.assertEqual(s1["processed"], 3)
         self.assertEqual(s1["created"], 3)
-        self.assertEqual(s1["reused"], 0)
         self.assertEqual(s1["errored"], 0)
         s2 = scheduler.generate_weekly_obligations(
-            run_date=self.run_dt, schedule_names=self.schedules)
-        self.assertEqual(s2["processed"], 3)
+            run_date=self.run_dt, employee_names=self.emps)
         self.assertEqual(s2["created"], 0)
         self.assertEqual(s2["reused"], 3)
-
-    def test_drw_missing_marks_errored_and_drw_missing(self):
-        """Schedule with non-existent reporting_department -> drw_missing + errored."""
-        bad_dept = "Nonexistent Dept WR1A-XYZ"
-        # Point one schedule at a non-existent department
-        sched = self.schedules[0]
-        frappe.db.set_value("Weekly Report Schedule", sched,
-            "reporting_department", bad_dept, update_modified=False)
-        try:
-            stats = scheduler.generate_weekly_obligations(
-                run_date=self.run_dt, schedule_names=[sched])
-            self.assertEqual(stats["processed"], 1)
-            self.assertEqual(stats["drw_missing"], 1)
-            self.assertEqual(stats["errored"], 1)
-            # No partial WTU
+        for u in self.users:
             wtus = frappe.get_all("Weekly Team Update",
-                filters={"submitter": self.users[0], "week_label": self.week["week_label"]})
-            self.assertEqual(len(wtus), 0)
-        finally:
-            frappe.db.set_value("Weekly Report Schedule", sched,
-                "reporting_department", TEST_DEPT, update_modified=False)
+                filters={"submitter": u, "week_label": self.week["week_label"]})
+            self.assertEqual(len(wtus), 1)
 
-    def test_last_generated_week_only_after_success(self):
-        """last_generated_week updates after successful create; NOT after errored."""
+    def test_inactive_employee_filtered_out(self):
+        # Inactive Employees are filtered by get_all(status="Active"),
+        # so processed never sees them.
+        frappe.db.set_value("Employee", self.emps[0], "status", "Inactive")
         stats = scheduler.generate_weekly_obligations(
-            run_date=self.run_dt, schedule_names=[self.schedules[0]])
-        self.assertEqual(stats["created"], 1)
-        marker = frappe.db.get_value("Weekly Report Schedule",
-            self.schedules[0], "last_generated_week")
-        self.assertEqual(marker, self.week["week_label"])
+            run_date=self.run_dt, employee_names=self.emps)
+        self.assertEqual(stats["processed"], 2)
+        self.assertEqual(stats["created"], 2)
 
-        # Now test the errored path: redirect 2nd schedule's department to a bad value,
-        # confirm last_generated_week stays None.
-        sched = self.schedules[1]
-        bad_dept = "Nonexistent Dept WR1A-XYZ"
-        frappe.db.set_value("Weekly Report Schedule", sched,
-            "reporting_department", bad_dept, update_modified=False)
-        try:
-            scheduler.generate_weekly_obligations(
-                run_date=self.run_dt, schedule_names=[sched])
-            marker2 = frappe.db.get_value("Weekly Report Schedule",
-                sched, "last_generated_week")
-            self.assertIsNone(marker2)
-        finally:
-            frappe.db.set_value("Weekly Report Schedule", sched,
-                "reporting_department", TEST_DEPT, update_modified=False)
+    def test_employee_names_filter(self):
+        stats = scheduler.generate_weekly_obligations(
+            run_date=self.run_dt, employee_names=[self.emps[0]])
+        self.assertEqual(stats["processed"], 1)
 
-    def test_savepoint_rollback_isolates_bad_schedule(self):
-        """A single bad schedule must not prevent siblings from generating."""
-        bad_sched = self.schedules[0]
-        good_sched = self.schedules[1]
-        bad_dept = "Nonexistent Dept WR1A-XYZ"
-        frappe.db.set_value("Weekly Report Schedule", bad_sched,
-            "reporting_department", bad_dept, update_modified=False)
+    def test_drw_disabled_marks_skipped(self):
+        """Disabled DRW = controlled skipped, NOT errored.
+
+        errored is reserved for unexpected failures (DB, assignment, rollback).
+        """
+        _ensure_drw(TEST_DEPT, enabled=0)
         try:
             stats = scheduler.generate_weekly_obligations(
-                run_date=self.run_dt,
-                schedule_names=[bad_sched, good_sched])
-            self.assertEqual(stats["processed"], 2)
+                run_date=self.run_dt, employee_names=[self.emps[0]])
             self.assertEqual(stats["drw_missing"], 1)
-            self.assertEqual(stats["created"], 1)  # good sibling survives
-            # Verify only good schedule's WTU exists
-            good_user = frappe.db.get_value("Weekly Report Schedule", good_sched, "user")
-            wtus_good = frappe.get_all("Weekly Team Update",
-                filters={"submitter": good_user, "week_label": self.week["week_label"]})
-            self.assertEqual(len(wtus_good), 1)
+            self.assertEqual(stats["skipped"], 1)
+            self.assertEqual(stats["errored"], 0)
         finally:
-            frappe.db.set_value("Weekly Report Schedule", bad_sched,
-                "reporting_department", TEST_DEPT, update_modified=False)
-
-    def test_schedule_names_filter(self):
-        """schedule_names filter restricts processing to the listed names."""
-        stats = scheduler.generate_weekly_obligations(
-            run_date=self.run_dt,
-            schedule_names=[self.schedules[0]])
-        self.assertEqual(stats["processed"], 1)
-        # Only first user should have a WTU
-        wtus_0 = frappe.get_all("Weekly Team Update",
-            filters={"submitter": self.users[0], "week_label": self.week["week_label"]})
-        wtus_1 = frappe.get_all("Weekly Team Update",
-            filters={"submitter": self.users[1], "week_label": self.week["week_label"]})
-        self.assertEqual(len(wtus_0), 1)
-        self.assertEqual(len(wtus_1), 0)
+            _ensure_drw(TEST_DEPT, enabled=1)
 
     def test_rollback_failure_aborts_batch(self):
-        """If savepoint rollback raises, the whole scheduler batch must abort.
-
-        We never silently continue when transaction isolation is unavailable.
-        """
-        # Force MissingReportingWindowError on first schedule (triggers rollback path).
-        bad_sched = self.schedules[0]
-        bad_dept = "Nonexistent Dept WR1A-XYZ"
-        frappe.db.set_value("Weekly Report Schedule", bad_sched,
-            "reporting_department", bad_dept, update_modified=False)
-        # Monkey-patch frappe.db.rollback to raise.
+        """If savepoint rollback raises, the scheduler batch aborts."""
+        _ensure_drw(TEST_DEPT, enabled=0)  # forces MissingReportingWindowError
         orig_rollback = frappe.db.rollback
         def _bad_rollback(*a, **kw):
             if kw.get("save_point") or (a and isinstance(a[0], str)):
@@ -255,9 +150,77 @@ class TestScheduler(FrappeTestCase):
         try:
             with self.assertRaises(RuntimeError):
                 scheduler.generate_weekly_obligations(
-                    run_date=self.run_dt,
-                    schedule_names=[bad_sched, self.schedules[1]])
+                    run_date=self.run_dt, employee_names=self.emps)
         finally:
             frappe.db.rollback = orig_rollback
-            frappe.db.set_value("Weekly Report Schedule", bad_sched,
-                "reporting_department", TEST_DEPT, update_modified=False)
+            _ensure_drw(TEST_DEPT, enabled=1)
+
+    # ===== Rollout kill-switch tests ======================================
+
+    def _set_auto_flag(self, value):
+        """Set frappe.conf in-process for the duration of one test."""
+        # frappe.conf is a dict-like object; mutate then restore.
+        self._orig_flag = frappe.conf.get("enable_weekly_report_auto_generation")
+        frappe.conf["enable_weekly_report_auto_generation"] = value
+
+    def _restore_auto_flag(self):
+        if getattr(self, "_orig_flag", None) is None:
+            try:
+                del frappe.conf["enable_weekly_report_auto_generation"]
+            except KeyError:
+                pass
+        else:
+            frappe.conf["enable_weekly_report_auto_generation"] = self._orig_flag
+
+    def test_kill_switch_off_auto_run_returns_disabled(self):
+        """No employee_names + auto flag OFF -> no Employees processed."""
+        # Ensure flag is absent/0
+        if "enable_weekly_report_auto_generation" in frappe.conf:
+            self._set_auto_flag(0)
+        try:
+            stats = scheduler.generate_weekly_obligations(run_date=self.run_dt)
+            self.assertTrue(stats.get("disabled"))
+            self.assertEqual(stats["processed"], 0)
+            self.assertEqual(stats["created"], 0)
+        finally:
+            self._restore_auto_flag()
+        # And: no WTUs created.
+        for u in self.users:
+            wtus = frappe.get_all("Weekly Team Update",
+                filters={"submitter": u, "week_label": self.week["week_label"]})
+            self.assertEqual(len(wtus), 0)
+
+    def test_kill_switch_off_pilot_with_employee_names_still_runs(self):
+        """employee_names ALWAYS bypasses the kill-switch (pilot path)."""
+        self._set_auto_flag(0)
+        try:
+            stats = scheduler.generate_weekly_obligations(
+                run_date=self.run_dt,
+                employee_names=[self.emps[0]])
+            self.assertFalse(stats.get("disabled", False))
+            self.assertEqual(stats["processed"], 1)
+            self.assertEqual(stats["created"], 1)
+        finally:
+            self._restore_auto_flag()
+
+    def test_kill_switch_on_auto_run_processes_active_employees(self):
+        """Flag = 1 + no employee_names -> full batch over Active Employees."""
+        self._set_auto_flag(1)
+        try:
+            stats = scheduler.generate_weekly_obligations(run_date=self.run_dt)
+            self.assertFalse(stats.get("disabled", False))
+            self.assertGreaterEqual(stats["processed"], 3)
+            self.assertGreaterEqual(stats["created"], 3)
+        finally:
+            self._restore_auto_flag()
+
+    def test_kill_switch_null_or_invalid_treated_as_off(self):
+        """cint('') / cint(None) / cint('abc') -> 0 -> auto path disabled."""
+        for bad_value in (None, "", "abc", "0", 0, False):
+            self._set_auto_flag(bad_value)
+            try:
+                stats = scheduler.generate_weekly_obligations(run_date=self.run_dt)
+                self.assertTrue(stats.get("disabled"),
+                    "Flag value %r should be treated as OFF" % (bad_value,))
+            finally:
+                self._restore_auto_flag()
