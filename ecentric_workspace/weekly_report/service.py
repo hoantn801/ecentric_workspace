@@ -251,7 +251,34 @@ def ensure_weekly_obligation(employee, week, now=None):
     _set_obligation_fields(new, employee, week, due_at)
     new.insert(ignore_permissions=True)
     _ensure_todo(new.name, user, week, due_at, now)
+    _notify_wtu_created(new.name, user, week_label, due_at)
     return "created"
+
+
+def _notify_wtu_created(wtu_name, user, week_label, due_at):
+    """Notify the submitter when a new Weekly Team Update is ready.
+
+    Fail-open: notification errors must never roll back WTU creation.
+    """
+    try:
+        due_disp = (
+            frappe.utils.format_datetime(due_at, "EEE dd/MM/yyyy HH:mm")
+            if due_at
+            else ""
+        )
+        from ecentric_workspace.notification_center import service as nc
+
+        nc.notify_weekly_update_created(
+            wtu_name,
+            user,
+            week_label,
+            due_disp,
+        )
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            "weekly_report notify WTU created",
+        )
 
 
 def close_weekly_obligation(wtu_name):
