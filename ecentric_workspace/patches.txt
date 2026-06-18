@@ -19,3 +19,4 @@ ecentric_workspace.alerts.patches.p005_backfill_order_log_brand_from_shop
 
 ecentric_workspace.weekly_report.patches.p001_wtu_obligation_fields
 ecentric_workspace.action_center.patches.p001_homepage_action_center
+ecentric_workspace.notification_center.patches.p001_homepage_notification_bell
