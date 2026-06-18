@@ -91,6 +91,43 @@ def _row_action(norm, existing_name):
     return "Skip", existing_name        # existing row identical -> no-op
 
 
+def _normalize_statuses(value):
+    """Normalize the Price Setup `status` filter from ANY shape the client may send into
+    a unique, order-preserving list of clean status strings. Accepts:
+      * list / tuple / set            -> cleaned
+      * JSON array string '["A","B"]' -> parsed then cleaned
+      * comma-separated string 'A,B'  -> split then cleaned
+      * single status string 'A'      -> ['A']
+    Empty / falsy / blank -> [] (the caller then adds NO status filter). Always apply the
+    result with OR semantics (`["status", "in", statuses]`); a multi-select must never be
+    compared with a single `=` (that silently drops the filter and leaks other statuses)."""
+    if value is None or value == "":
+        return []
+    if isinstance(value, (list, tuple, set)):
+        items = list(value)
+    elif isinstance(value, str):
+        s = value.strip()
+        if not s:
+            return []
+        if s[0] == "[":                       # JSON array string e.g. '["Active","Paused"]'
+            try:
+                parsed = json.loads(s)
+                items = parsed if isinstance(parsed, (list, tuple)) else [parsed]
+            except (ValueError, TypeError):
+                items = s.split(",")          # malformed JSON -> fall back to CSV
+        else:                                  # comma-separated 'A,B' or single 'A'
+            items = s.split(",")
+    else:
+        items = [value]
+    out, seen = [], set()
+    for it in items:
+        st = str(it).strip()
+        if st and st not in seen:
+            seen.add(st)
+            out.append(st)
+    return out
+
+
 @frappe.whitelist()
 def list_policies(filters=None, start=0, page_len=50):
     allowed = _scope()
@@ -99,16 +136,12 @@ def list_policies(filters=None, start=0, page_len=50):
     for k in ("platform", "owner_user"):
         if f.get(k):
             flt.append([k, "=", f[k]])
-    # Status is a MULTI-select: a list/tuple -> OR semantics ("in"); a bare string
-    # stays a single equality (back-compat with older callers).
-    st = f.get("status")
-    if st:
-        if isinstance(st, (list, tuple)):
-            st = [s for s in st if s]
-            if st:
-                flt.append(["status", "in", list(st)])
-        else:
-            flt.append(["status", "=", st])
+    # Status is a MULTI-select. Normalize whatever shape arrives (JSON array string from
+    # JSON.stringify, comma string, list, or single value) into a clean list and apply OR
+    # semantics. Empty -> no status filter (do not constrain).
+    statuses = _normalize_statuses(f.get("status"))
+    if statuses:
+        flt.append(["status", "in", statuses])
     if f.get("seller_sku"):
         flt.append(["seller_sku", "like", "%%%s%%" % f["seller_sku"]])
     if allowed == perms.ALL_BRANDS:
