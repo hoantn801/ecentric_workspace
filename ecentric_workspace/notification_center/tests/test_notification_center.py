@@ -432,5 +432,46 @@ class TestAdditionalGuards(unittest.TestCase):
         self.assertIn("if (window._ecNotifCenterInstalled) { return; }", self.js)
 
 
+class TestSingleBell(unittest.TestCase):
+    """Single-bell hotfix: the asset must REUSE the native header bell and never render
+    a second/custom bell."""
+
+    def setUp(self):
+        self.js = _read("public", "js", "notification_center.js")
+
+    def test_reuses_native_bell_selector(self):
+        self.assertIn("function findBell", self.js)
+        self.assertIn(".topbar-actions a.icon-btn", self.js)
+        self.assertIn("notification-log", self.js)
+
+    def test_no_custom_or_emoji_bell(self):
+        # no second clickable bell, no floating yellow circle, no emoji glyph bell.
+        self.assertNotIn('id="ec-nc-bell"', self.js)
+        self.assertNotIn("#ec-nc-bell", self.js)
+        self.assertNotIn("1F514", self.js)            # the old \u{1F514} bell emoji
+        self.assertNotIn("position:fixed;top:14px", self.js)
+
+    def test_badge_attached_to_native_bell(self):
+        # the live count badge is appended to the native bell; the static .dot is hidden.
+        self.assertIn("bell.appendChild(badgeEl)", self.js)
+        self.assertIn("bell.querySelector('.dot')", self.js)
+        self.assertIn("'9+'", self.js)                # capped count -> no header shift
+
+    def test_footer_actions_only(self):
+        self.assertIn("Đánh dấu tất cả đã đọc", self.js)
+        self.assertIn("Xem tất cả thông báo", self.js)
+        self.assertIn('href="/app/notification-log"', self.js)
+
+    def test_dismissal_and_keyboard(self):
+        self.assertIn("'Escape'", self.js)
+        self.assertIn("!pop.contains(ev.target) && !bell.contains(ev.target)", self.js)
+        self.assertIn("tabindex=", self.js)
+
+    def test_only_plain_left_click_is_intercepted(self):
+        # Ctrl/Cmd/Shift/Alt/middle-click keep the native /app/notification-log behaviour.
+        self.assertIn("ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey",
+                      self.js)
+
+
 if __name__ == "__main__":
     unittest.main()
