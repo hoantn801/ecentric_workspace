@@ -2,20 +2,24 @@
 // Notification Center (app-owned asset, ERP-wide GLOBAL loader).
 //
 // Loaded on EVERY website-rendered eCentric page via the `web_include_js` hook
-// (hooks.py) -- NOT per-page, NOT via a DB patch per page, and NEVER on Frappe Desk
-// (/app/*). The homepage additionally still carries the legacy per-page <script>
-// loader; the single-install guard below makes that a harmless no-op (no duplicate
-// listener / badge / dropdown).
+// (hooks.py) -- NOT per-page, NOT via a DB patch per page, and NEVER on Frappe Desk.
 //
-// There is exactly ONE bell on every shell page: the native eCentric header bell
-//   .topbar-actions a.icon-btn[href="/app/notification-log"]  (svg #i-bell + .dot)
-// This asset does NOT render its own bell. It ADOPTS the native bell (stripping any
-// legacy "feature-in-development" handler), shows a live unread badge on it, and
-// opens a system-styled dropdown whose items use the server-built action_url
-// (resolver lives in notification_center.resolvers).
+// Click interception is a SINGLE document-level CAPTURE-phase delegated handler, so it
+// works no matter WHEN the header/bell is rendered or re-rendered (dynamic pages such
+// as /approval render the bell after this asset loads). Because it runs in the capture
+// phase at document, stopImmediatePropagation() on a plain left-click prevents ANY
+// legacy bell handler -- inline onclick, property handler, target listener OR a
+// document-level delegated listener (the old "feature in development" toast) -- from
+// ever firing, regardless of when it was attached. Modifier/middle clicks are left
+// untouched so the native /app/notification-log navigation is preserved. A
+// MutationObserver is used ONLY to (re)mount the badge/dropdown when the header
+// (re)renders -- never for click interception.
 //
-// All API calls go through frappe.call with the CORRECT http type (GET vs POST) to
-// match the backend @frappe.whitelist(methods=[...]). subject/message/source escaped.
+// Notification subject/message are rendered as SAFE PLAIN TEXT (DOMParser -> textContent,
+// whitespace-normalized) via textContent only -- never innerHTML with notification data.
+//
+// API calls use frappe.call with the CORRECT http type (GET vs POST) to match the
+// backend @frappe.whitelist(methods=[...]).
 (function () {
   'use strict';
   if (window._ecNotifCenterInstalled) { return; }
@@ -29,11 +33,27 @@
   var LIST_LIMIT = 20;
   var POLL_MS = 60000;
   var MUTE_KEY = 'ec_notif_muted';
+  // Match an eCentric custom-shell notification bell (NOT the Frappe Desk navbar bell).
+  var BELL_SEL = '.topbar-actions a.icon-btn[href*="notification-log"], .topbar-actions a[href*="/app/notification-log"]';
 
-  function esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
-    });
+  // ---- safe plain text: strip any HTML, decode entities, normalize whitespace -----
+  function toPlainText(s) {
+    if (s == null) return '';
+    var str = String(s);
+    try {
+      if (window.DOMParser) {
+        var doc = new window.DOMParser().parseFromString(str, 'text/html');
+        if (doc && doc.body) str = doc.body.textContent;
+      } else {
+        str = str.replace(/<[^>]*>/g, '');
+      }
+    } catch (e) { str = str.replace(/<[^>]*>/g, ''); }
+    return str.replace(/\s+/g, ' ').trim();
+  }
+  // Only allow a same-origin absolute path as a link target (server-built action_url).
+  function safeActionUrl(u) {
+    u = String(u == null ? '' : u);
+    return /^\/(?!\/)/.test(u) ? u : '';
   }
   function isMuted() {
     try { return window.localStorage.getItem(MUTE_KEY) === '1'; } catch (e) { return false; }
@@ -52,11 +72,10 @@
     return Math.floor(d / 86400) + ' ngày trước';
   }
 
-  // ---- locate the existing native bell (no new bell is ever created) -----
+  // ---- locate the current native bell (re-queried each time; may change on rerender)
   function findBell() {
     var b = document.querySelector('.topbar-actions a.icon-btn[href*="notification-log"]');
     if (b) return b;
-    // fallback: a topbar icon-btn whose svg references the #i-bell symbol
     var btns = document.querySelectorAll('.topbar-actions a.icon-btn, .topbar-actions button.icon-btn');
     for (var i = 0; i < btns.length; i++) {
       var u = btns[i].querySelector('use');
@@ -66,34 +85,18 @@
     return null;
   }
 
-  // Adopt the native bell: replace it with a clean clone so ANY legacy handler bound
-  // to it (inline onclick="...feature-in-development..." or addEventListener) is
-  // dropped. The clone keeps href/markup so Ctrl/Cmd/middle-click still open
-  // /app/notification-log natively. We then own the (single) click handler.
-  function adoptBell(orig) {
-    var clone = orig.cloneNode(true);
-    clone.removeAttribute('onclick');
-    clone.setAttribute('data-ec-nc', '1');
-    if (orig.parentNode) { orig.parentNode.replaceChild(clone, orig); return clone; }
-    return orig;
-  }
-
   var S = { items: [], unread: 0, open: false, interacted: false };
-  var bell, badgeEl, pop, listEl;
+  var bell, badgeEl, pop, listEl, mo;
 
-  // ---- styles: gathered in classes, reusing the /home design tokens --------
+  // ---- styles: classes, reusing /home design tokens ------------------------
   function injectCss() {
     if (document.getElementById('ec-nc-css')) return;
     var st = document.createElement('style');
     st.id = 'ec-nc-css';
     st.textContent =
-      // unread count badge anchored to the bell's top-right corner (absolute -> no
-      // header shift). 1-9 = ~16px circle; 9+ = ~21px pill (.ec-nc-badge--pill);
-      // 9-10px semibold; ~2px white ring; existing --pink token; hidden when 0.
       '.ec-nc-badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0;border-radius:8px;background:var(--pink,#EF7CAF);color:#fff;font-size:9.5px;font-weight:600;line-height:16px;text-align:center;border:2px solid #fff;display:none;pointer-events:none;box-sizing:border-box;font-family:inherit;}' +
       '.ec-nc-badge.on{display:block;}' +
       '.ec-nc-badge--pill{min-width:21px;padding:0 4px;}' +
-      // dropdown/popover: white card, light gray border, soft shadow, system radius
       '.ec-nc-pop{position:fixed;z-index:1000;width:360px;max-width:92vw;max-height:72vh;background:#fff;border:1px solid var(--gray-200,#e5e7eb);border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.10);display:none;flex-direction:column;overflow:hidden;font-family:inherit;}' +
       '.ec-nc-pop.on{display:flex;}' +
       '.ec-nc-hd{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--gray-100,#f1f2f4);}' +
@@ -110,7 +113,7 @@
       '.ec-nc-udot{width:7px;height:7px;border-radius:50%;background:var(--navy,#2C3DA6);flex-shrink:0;}' +
       '.ec-nc-src{font-size:10px;font-weight:700;letter-spacing:.4px;color:var(--navy,#2C3DA6);}' +
       '.ec-nc-time{margin-left:auto;font-size:11px;color:var(--gray-400,#9ca3af);}' +
-      '.ec-nc-subj{font-size:13px;font-weight:600;color:var(--gray-900,#111827);line-height:1.35;}' +
+      '.ec-nc-subj{font-size:13px;font-weight:600;color:var(--gray-900,#111827);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}' +
       '.ec-nc-msg{font-size:11.5px;color:var(--gray-600,#6b7280);line-height:1.4;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}' +
       '.ec-nc-empty{padding:30px 16px;text-align:center;color:var(--gray-500,#6b7280);font-size:13px;}' +
       '.ec-nc-ft{display:flex;align-items:stretch;border-top:1px solid var(--gray-100,#f1f2f4);}' +
@@ -120,21 +123,28 @@
     document.head.appendChild(st);
   }
 
-  // ---- badge mounted onto the native bell (static .dot hidden) -------------
-  // Idempotent: remove any prior badge first so a re-render never stacks badges.
+  // ---- badge mounted onto the current native bell (idempotent) -------------
   function mountBadge() {
+    if (!bell) return;
     var dot = bell.querySelector('.dot');
-    if (dot) { dot.style.display = 'none'; }      // replace the placeholder dot
+    if (dot) { dot.style.display = 'none'; }
     var prev = bell.querySelector('.ec-nc-badge');
     if (prev && prev.parentNode) { prev.parentNode.removeChild(prev); }
     badgeEl = document.createElement('span');
     badgeEl.className = 'ec-nc-badge';
     badgeEl.setAttribute('aria-hidden', 'true');
-    bell.appendChild(badgeEl);                    // .icon-btn is position:relative
+    bell.appendChild(badgeEl);            // .icon-btn is position:relative
+    renderBadge();
+  }
+
+  // Ensure the badge is mounted on the CURRENT bell (used by observer + on open).
+  function ensureBadge() {
+    var b = findBell();
+    if (!b) return;
+    if (b !== bell || !b.querySelector('.ec-nc-badge')) { bell = b; mountBadge(); }
   }
 
   function buildPop() {
-    // Idempotent: drop any prior dropdown so navigation/re-render never duplicates it.
     var prev = document.getElementById('ec-nc-pop-root');
     if (prev && prev.parentNode) { prev.parentNode.removeChild(prev); }
     pop = document.createElement('div');
@@ -142,6 +152,7 @@
     pop.id = 'ec-nc-pop-root';
     pop.setAttribute('role', 'dialog');
     pop.setAttribute('aria-label', 'Thông báo');
+    // Static chrome only -- contains NO notification data, so innerHTML here is safe.
     pop.innerHTML =
       '<div class="ec-nc-hd">' +
         '<h4>Thông báo</h4>' +
@@ -165,7 +176,7 @@
     if (b) b.textContent = isMuted() ? 'Bật âm' : 'Tắt âm';
   }
 
-  // 0 -> fully hidden; 1-9 -> circle; >9 -> '9+' pill (capped, no header shift).
+  // 0 -> hidden; 1-9 -> circle; >9 -> '9+' pill (capped, no header shift).
   function renderBadge() {
     if (!badgeEl) return;
     if (S.unread > 0) {
@@ -180,30 +191,38 @@
     }
   }
 
+  // ---- list rendering: SAFE PLAIN TEXT only, via textContent (no innerHTML data) ----
   function renderList() {
     if (!listEl) return;
+    while (listEl.firstChild) { listEl.removeChild(listEl.firstChild); }
     if (!S.items.length) {
-      listEl.innerHTML = '<div class="ec-nc-empty">Chưa có thông báo nào</div>';
+      var em = document.createElement('div');
+      em.className = 'ec-nc-empty';
+      em.textContent = 'Chưa có thông báo nào';
+      listEl.appendChild(em);
       return;
     }
-    listEl.innerHTML = S.items.map(function (it, i) {
-      // action_url is server-built; the href is NEVER raw subject/message content.
-      return '<a class="ec-nc-item' + (it.is_read ? '' : ' unread') + '" data-i="' + i + '"' +
-        ' tabindex="0" href="' + esc(it.action_url || '#') + '">' +
-        '<div class="ec-nc-r1">' +
-          (it.is_read ? '' : '<span class="ec-nc-udot"></span>') +
-          '<span class="ec-nc-src">' + esc(it.source_label || '') + '</span>' +
-          '<span class="ec-nc-time">' + esc(ago(it.created_at)) + '</span>' +
-        '</div>' +
-        '<div class="ec-nc-subj">' + esc(it.subject || '') + '</div>' +
-        (it.message ? '<div class="ec-nc-msg">' + esc(it.message) + '</div>' : '') +
-      '</a>';
-    }).join('');
-    Array.prototype.forEach.call(listEl.querySelectorAll('.ec-nc-item'), function (a) {
-      a.addEventListener('click', function (ev) { ev.preventDefault(); onItemClick(S.items[+a.getAttribute('data-i')]); });
+    S.items.forEach(function (it, i) {
+      var a = document.createElement('a');
+      a.className = 'ec-nc-item' + (it.is_read ? '' : ' unread');
+      a.setAttribute('tabindex', '0');
+      a.setAttribute('href', safeActionUrl(it.action_url) || '#');   // server-built path only
+
+      var r1 = document.createElement('div'); r1.className = 'ec-nc-r1';
+      if (!it.is_read) { var ud = document.createElement('span'); ud.className = 'ec-nc-udot'; r1.appendChild(ud); }
+      var src = document.createElement('span'); src.className = 'ec-nc-src'; src.textContent = toPlainText(it.source_label); r1.appendChild(src);
+      var tm = document.createElement('span'); tm.className = 'ec-nc-time'; tm.textContent = ago(it.created_at); r1.appendChild(tm);
+      a.appendChild(r1);
+
+      var subj = document.createElement('div'); subj.className = 'ec-nc-subj'; subj.textContent = toPlainText(it.subject); a.appendChild(subj);
+      var msgText = toPlainText(it.message);
+      if (msgText) { var m = document.createElement('div'); m.className = 'ec-nc-msg'; m.textContent = msgText; a.appendChild(m); }
+
+      a.addEventListener('click', function (ev) { ev.preventDefault(); onItemClick(S.items[i]); });
       a.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onItemClick(S.items[+a.getAttribute('data-i')]); }
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onItemClick(S.items[i]); }
       });
+      listEl.appendChild(a);
     });
   }
 
@@ -228,27 +247,22 @@
       if (S.open) renderList();
     });
   }
-
   function refreshCount() {
     call('get_unread_count', 'GET', {}, function (msg) {
       if (!msg || !msg.success) return;
       S.unread = msg.unread || 0; renderBadge();
     });
   }
-
   function onItemClick(it) {
     if (!it) return;
-    var go = function () {
-      if (it.action_url) { window.location.href = it.action_url; }   // server-built URL only
-      else { close(); }
-    };
+    var url = safeActionUrl(it.action_url);
+    var go = function () { if (url) { window.location.href = url; } else { close(); } };
     if (!it.is_read && it.name) {
       call('mark_read', 'POST', { notification_name: it.name }, function () {
         it.is_read = 1; if (S.unread > 0) S.unread -= 1; renderBadge(); renderList(); go();
       });
     } else { go(); }
   }
-
   function markAll() {
     call('mark_all_read', 'POST', {}, function () {
       S.items.forEach(function (it) { it.is_read = 1; });
@@ -256,14 +270,16 @@
     });
   }
 
-  // ---- open / close / position (anchored to the real bell, no pixel hardcode)
+  // ---- open / close / position (anchored to the CURRENT bell) --------------
   function position() {
+    if (!bell) return;
     var r = bell.getBoundingClientRect();
     pop.style.top = (r.bottom + 8) + 'px';
     pop.style.right = Math.max(8, (window.innerWidth - r.right)) + 'px';
   }
   function toggle() { S.open ? close() : open(); }
   function open() {
+    ensureBadge();
     S.open = true; position(); pop.classList.add('on'); refresh();
     var first = pop.querySelector('.ec-nc-item, #ec-nc-allread');
     if (first && first.focus) { try { first.focus(); } catch (e) {} }
@@ -286,7 +302,6 @@
       o.start(); o.stop(ctx.currentTime + 0.36);
     } catch (e) {}
   }
-
   function wireRealtime() {
     if (window.frappe && window.frappe.realtime && typeof window.frappe.realtime.on === 'function') {
       window.frappe.realtime.on('ec_notification', function (data) {
@@ -299,43 +314,62 @@
     return false;
   }
 
+  // ---- THE click interceptor: ONE document-level CAPTURE-phase delegated handler ----
+  // Resilient to header (re)render; defeats any legacy handler attached before OR after
+  // this asset, on the bell or delegated, because capture runs first at document.
+  function onNotificationBellClick(ev) {
+    var t = ev.target;
+    if (!t || !t.closest) return;
+    var a = t.closest('a.icon-btn[href*="notification-log"], a[href*="/app/notification-log"]');
+    if (!a) return;                                  // not a bell click -> ignore
+    if (!a.closest('.topbar-actions')) return;       // only the eCentric custom shell bell
+    // Only hijack a PLAIN left click. Ctrl/Cmd/Shift/Alt + any non-primary button
+    // fall through to the native href (/app/notification-log); we do NOT touch href.
+    if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) { return; }
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (ev.stopImmediatePropagation) { ev.stopImmediatePropagation(); }
+    bell = a;
+    S.interacted = true;
+    toggle();
+  }
+
+  // ---- MutationObserver: ONLY (re)mounts badge when the header (re)renders ---
+  function startObserver() {
+    if (mo || !window.MutationObserver) return;
+    mo = new window.MutationObserver(function () {
+      var b = findBell();
+      if (b && (b !== bell || !b.querySelector('.ec-nc-badge'))) { bell = b; mountBadge(); }
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+    // cleanup: never leak the observer past page life
+    window.addEventListener('pagehide', function () { if (mo) { mo.disconnect(); mo = null; } }, { once: true });
+  }
+
   // first real interaction unlocks sound (browser autoplay policy)
   ['click', 'keydown'].forEach(function (e) {
     window.addEventListener(e, function () { S.interacted = true; }, { once: true });
   });
 
   function init() {
-    var native = findBell();
-    if (!native) { console.warn('[ec-notification-center] native header bell not found; no bell rendered'); return; }
-    bell = adoptBell(native);   // strips the legacy "feature-in-development" handler
     injectCss();
-    mountBadge();
     buildPop();
-    bell.addEventListener('click', function (ev) {
-      // Defeat any legacy DOCUMENT-level delegated handler (the old
-      // "feature-in-development" toast) for EVERY click type by stopping the event
-      // before it can reach document. This does NOT cancel native navigation -- that
-      // is controlled by preventDefault (below), which we only call on a plain click.
-      ev.stopPropagation();
-      if (ev.stopImmediatePropagation) { ev.stopImmediatePropagation(); }
-      // Only hijack a PLAIN left click. Ctrl/Cmd/Shift/Alt + any non-primary button
-      // fall through to the native href (/app/notification-log) -> open-in-new-tab,
-      // middle-click and "open in new tab" all keep their native behaviour.
-      if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) { return; }
-      ev.preventDefault();
-      S.interacted = true;
-      toggle();
-    });
-    // dismissal: click outside + Esc; reposition-safe by closing on scroll/resize
+    // single document-level CAPTURE handler -- the authoritative click interceptor
+    document.addEventListener('click', onNotificationBellClick, true);
+    // dismissal: click outside + Esc; close on scroll/resize
     document.addEventListener('click', function (ev) {
       if (S.open && !pop.contains(ev.target) && !bell.contains(ev.target)) close();
     });
-    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && S.open) { close(); bell.focus && bell.focus(); } });
+    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && S.open) { close(); if (bell && bell.focus) bell.focus(); } });
     window.addEventListener('resize', function () { if (S.open) close(); });
     window.addEventListener('scroll', function () { if (S.open) close(); }, true);
+    // mount badge now if the bell already exists; the observer handles later renders
+    bell = findBell();
+    if (bell) { mountBadge(); } else { console.warn('[ec-notification-center] bell not present yet; observer will mount it'); }
+    startObserver();
     refreshCount();
     if (!wireRealtime()) { setInterval(refreshCount, POLL_MS); }
-    console.log('[ec-notification-center] installed (global loader, reuses native bell)');
+    console.log('[ec-notification-center] installed (global delegated capture loader)');
   }
 
   if (document.readyState === 'loading') {
