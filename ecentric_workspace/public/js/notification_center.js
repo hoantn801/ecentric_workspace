@@ -1,18 +1,29 @@
 // Copyright (c) 2026, eCentric and contributors
-// Notification Center (app-owned asset, ERP-wide foundation) — SINGLE-BELL hotfix.
+// Notification Center (app-owned asset, ERP-wide GLOBAL loader).
 //
-// There is exactly ONE bell on /home: the native eCentric header bell
+// Loaded on EVERY website-rendered eCentric page via the `web_include_js` hook
+// (hooks.py) -- NOT per-page, NOT via a DB patch per page, and NEVER on Frappe Desk
+// (/app/*). The homepage additionally still carries the legacy per-page <script>
+// loader; the single-install guard below makes that a harmless no-op (no duplicate
+// listener / badge / dropdown).
+//
+// There is exactly ONE bell on every shell page: the native eCentric header bell
 //   .topbar-actions a.icon-btn[href="/app/notification-log"]  (svg #i-bell + .dot)
-// This asset does NOT render its own bell. It reuses the native bell as the trigger,
-// shows a live unread badge on it, and opens a system-styled dropdown whose items use
-// the server-built action_url (resolver lives in notification_center.resolvers).
+// This asset does NOT render its own bell. It ADOPTS the native bell (stripping any
+// legacy "feature-in-development" handler), shows a live unread badge on it, and
+// opens a system-styled dropdown whose items use the server-built action_url
+// (resolver lives in notification_center.resolvers).
 //
-// Loaded by ecentric_workspace.notification_center.patches.p001_homepage_notification_bell.
-// All API calls go through frappe.call with the CORRECT http type (GET vs POST) to match
-// the backend @frappe.whitelist(methods=[...]). subject/message/source are escaped (XSS).
+// All API calls go through frappe.call with the CORRECT http type (GET vs POST) to
+// match the backend @frappe.whitelist(methods=[...]). subject/message/source escaped.
 (function () {
   'use strict';
   if (window._ecNotifCenterInstalled) { return; }
+  // Never bind on Frappe Desk -- Desk owns its own native bell. The custom eCentric
+  // shell pages live at website routes (/home, /overview, /approval, ...), never Desk.
+  // Match ONLY the Desk root (/app or /app/...), never lookalikes like /approval.
+  var _p = window.location.pathname || '';
+  if (_p === '/app' || _p.indexOf('/app/') === 0) { return; }
   window._ecNotifCenterInstalled = true;
 
   var LIST_LIMIT = 20;
@@ -55,6 +66,18 @@
     return null;
   }
 
+  // Adopt the native bell: replace it with a clean clone so ANY legacy handler bound
+  // to it (inline onclick="...feature-in-development..." or addEventListener) is
+  // dropped. The clone keeps href/markup so Ctrl/Cmd/middle-click still open
+  // /app/notification-log natively. We then own the (single) click handler.
+  function adoptBell(orig) {
+    var clone = orig.cloneNode(true);
+    clone.removeAttribute('onclick');
+    clone.setAttribute('data-ec-nc', '1');
+    if (orig.parentNode) { orig.parentNode.replaceChild(clone, orig); return clone; }
+    return orig;
+  }
+
   var S = { items: [], unread: 0, open: false, interacted: false };
   var bell, badgeEl, pop, listEl;
 
@@ -64,9 +87,12 @@
     var st = document.createElement('style');
     st.id = 'ec-nc-css';
     st.textContent =
-      // unread count badge attached to the native bell (absolute -> no header shift)
-      '.ec-nc-badge{position:absolute;top:3px;right:4px;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--pink,#EF7CAF);color:#fff;font-size:10px;font-weight:700;line-height:15px;text-align:center;border:2px solid #fff;display:none;pointer-events:none;box-sizing:border-box;}' +
+      // unread count badge anchored to the bell's top-right corner (absolute -> no
+      // header shift). 1-9 = ~16px circle; 9+ = ~21px pill (.ec-nc-badge--pill);
+      // 9-10px semibold; ~2px white ring; existing --pink token; hidden when 0.
+      '.ec-nc-badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0;border-radius:8px;background:var(--pink,#EF7CAF);color:#fff;font-size:9.5px;font-weight:600;line-height:16px;text-align:center;border:2px solid #fff;display:none;pointer-events:none;box-sizing:border-box;font-family:inherit;}' +
       '.ec-nc-badge.on{display:block;}' +
+      '.ec-nc-badge--pill{min-width:21px;padding:0 4px;}' +
       // dropdown/popover: white card, light gray border, soft shadow, system radius
       '.ec-nc-pop{position:fixed;z-index:1000;width:360px;max-width:92vw;max-height:72vh;background:#fff;border:1px solid var(--gray-200,#e5e7eb);border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.10);display:none;flex-direction:column;overflow:hidden;font-family:inherit;}' +
       '.ec-nc-pop.on{display:flex;}' +
@@ -95,9 +121,12 @@
   }
 
   // ---- badge mounted onto the native bell (static .dot hidden) -------------
+  // Idempotent: remove any prior badge first so a re-render never stacks badges.
   function mountBadge() {
     var dot = bell.querySelector('.dot');
     if (dot) { dot.style.display = 'none'; }      // replace the placeholder dot
+    var prev = bell.querySelector('.ec-nc-badge');
+    if (prev && prev.parentNode) { prev.parentNode.removeChild(prev); }
     badgeEl = document.createElement('span');
     badgeEl.className = 'ec-nc-badge';
     badgeEl.setAttribute('aria-hidden', 'true');
@@ -105,8 +134,12 @@
   }
 
   function buildPop() {
+    // Idempotent: drop any prior dropdown so navigation/re-render never duplicates it.
+    var prev = document.getElementById('ec-nc-pop-root');
+    if (prev && prev.parentNode) { prev.parentNode.removeChild(prev); }
     pop = document.createElement('div');
     pop.className = 'ec-nc-pop';
+    pop.id = 'ec-nc-pop-root';
     pop.setAttribute('role', 'dialog');
     pop.setAttribute('aria-label', 'Thông báo');
     pop.innerHTML =
@@ -132,10 +165,19 @@
     if (b) b.textContent = isMuted() ? 'Bật âm' : 'Tắt âm';
   }
 
+  // 0 -> fully hidden; 1-9 -> circle; >9 -> '9+' pill (capped, no header shift).
   function renderBadge() {
     if (!badgeEl) return;
-    if (S.unread > 0) { badgeEl.textContent = S.unread > 9 ? '9+' : S.unread; badgeEl.classList.add('on'); }
-    else { badgeEl.classList.remove('on'); }
+    if (S.unread > 0) {
+      var pill = S.unread > 9;
+      badgeEl.textContent = pill ? '9+' : String(S.unread);
+      badgeEl.classList.toggle('ec-nc-badge--pill', pill);
+      badgeEl.classList.add('on');
+    } else {
+      badgeEl.classList.remove('on');
+      badgeEl.classList.remove('ec-nc-badge--pill');
+      badgeEl.textContent = '';
+    }
   }
 
   function renderList() {
@@ -263,12 +305,19 @@
   });
 
   function init() {
-    bell = findBell();
-    if (!bell) { console.warn('[ec-notification-center] native header bell not found; no bell rendered'); return; }
+    var native = findBell();
+    if (!native) { console.warn('[ec-notification-center] native header bell not found; no bell rendered'); return; }
+    bell = adoptBell(native);   // strips the legacy "feature-in-development" handler
     injectCss();
     mountBadge();
     buildPop();
     bell.addEventListener('click', function (ev) {
+      // Defeat any legacy DOCUMENT-level delegated handler (the old
+      // "feature-in-development" toast) for EVERY click type by stopping the event
+      // before it can reach document. This does NOT cancel native navigation -- that
+      // is controlled by preventDefault (below), which we only call on a plain click.
+      ev.stopPropagation();
+      if (ev.stopImmediatePropagation) { ev.stopImmediatePropagation(); }
       // Only hijack a PLAIN left click. Ctrl/Cmd/Shift/Alt + any non-primary button
       // fall through to the native href (/app/notification-log) -> open-in-new-tab,
       // middle-click and "open in new tab" all keep their native behaviour.
@@ -286,7 +335,7 @@
     window.addEventListener('scroll', function () { if (S.open) close(); }, true);
     refreshCount();
     if (!wireRealtime()) { setInterval(refreshCount, POLL_MS); }
-    console.log('[ec-notification-center] installed (reuses native bell)');
+    console.log('[ec-notification-center] installed (global loader, reuses native bell)');
   }
 
   if (document.readyState === 'loading') {

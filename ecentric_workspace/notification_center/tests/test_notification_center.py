@@ -473,5 +473,179 @@ class TestSingleBell(unittest.TestCase):
                       self.js)
 
 
+
+class TestGlobalShellLoader(unittest.TestCase):
+    """Global shell loader: the NC asset must load on EVERY website-rendered eCentric
+    page via a single shared hook (web_include_js), never per-page, and never on Frappe
+    Desk. Old per-page \'Tính năng đang phát triển\' handler must be neutralised."""
+
+    def setUp(self):
+        self.hooks = _read("hooks.py")
+        self.js = _read("public", "js", "notification_center.js")
+
+    # ---- single shared global loader point ----
+    def test_web_include_js_registers_asset_globally(self):
+        self.assertIn(
+            'web_include_js = ["/assets/ecentric_workspace/js/notification_center.js"]',
+            self.hooks,
+            "asset must be registered as a global website include (one shared point)")
+
+    def test_not_bound_to_frappe_desk_app_include(self):
+        # app_include_js would load into Frappe Desk (/app) and bind its native bell;
+        # there must be no such assignment (a comment mentioning it is fine).
+        self.assertNotIn("app_include_js =", self.hooks)
+
+    def test_asset_has_precise_desk_guard(self):
+        # bails ONLY on the real Desk root (/app or /app/...), never on lookalike
+        # website routes such as /approval (Phê duyệt) or /app-... .
+        self.assertIn("_p === '/app'", self.js)
+        self.assertIn("_p.indexOf('/app/') === 0", self.js)
+        # the naive guard (which would also kill /approval) must be gone.
+        self.assertNotIn(".indexOf('/app') === 0", self.js)
+
+    def test_no_per_page_patch_created(self):
+        # The global loader must NOT be implemented as a DB patch per page. The only
+        # notification_center patches are the original homepage p001 and the SINGLE
+        # architecture-migration cleanup p002 (homepage-only -> global). No more.
+        pdir = os.path.join(_pkg_root(), "notification_center", "patches")
+        pyfiles = sorted(f for f in os.listdir(pdir)
+                         if f.endswith(".py") and f != "__init__.py")
+        self.assertEqual(pyfiles, [
+            "p001_homepage_notification_bell.py",
+            "p002_retire_homepage_bell_loader.py",
+        ])
+
+    # ---- badge redesign ----
+    def test_badge_hidden_when_zero(self):
+        self.assertIn("S.unread > 0", self.js)
+        self.assertIn("badgeEl.classList.remove('on')", self.js)
+
+    def test_badge_circle_and_capped_pill(self):
+        self.assertIn("ec-nc-badge--pill", self.js)      # 9+ pill variant
+        self.assertIn("'9+'", self.js)                   # capped, no header shift
+        self.assertIn("S.unread > 9", self.js)
+
+    def test_badge_uses_existing_token_white_ring_not_yellow_not_square(self):
+        self.assertIn("background:var(--pink", self.js)  # existing color token
+        self.assertIn("border:2px solid #fff", self.js)  # ~2px white ring
+        self.assertIn("border-radius:8px", self.js)      # rounded -> not a square box
+        self.assertIn("font-weight:600", self.js)        # semibold
+        self.assertNotIn("yellow", self.js.lower())      # no custom yellow
+
+    def test_badge_anchored_top_right_absolute(self):
+        # absolute placement at the bell corner -> never shifts the header
+        self.assertIn(".ec-nc-badge{position:absolute", self.js)
+        self.assertIn("top:-4px;right:-4px", self.js)
+
+    # ---- single badge / single dropdown (no duplicates on re-render) ----
+    def test_single_badge_idempotent_mount(self):
+        self.assertIn("bell.querySelector('.ec-nc-badge')", self.js)
+        self.assertIn("prev.parentNode.removeChild(prev)", self.js)
+
+    def test_single_dropdown_idempotent_build(self):
+        self.assertIn("getElementById('ec-nc-pop-root')", self.js)
+
+    def test_reinstall_guard_sets_flag(self):
+        self.assertIn("if (window._ecNotifCenterInstalled) { return; }", self.js)
+        self.assertIn("window._ecNotifCenterInstalled = true;", self.js)
+
+    # ---- legacy handler neutralised (no DB edit) ----
+    def test_legacy_handler_stripped_on_adopt(self):
+        self.assertIn("function adoptBell", self.js)
+        self.assertIn("cloneNode(true)", self.js)
+        self.assertIn("replaceChild(clone, orig)", self.js)
+        self.assertIn("removeAttribute('onclick')", self.js)
+        self.assertIn("ev.stopPropagation();", self.js)
+
+    def test_asset_does_not_contain_legacy_message(self):
+        self.assertNotIn("đang phát triển", self.js)
+
+    def test_modified_clicks_still_open_native(self):
+        # Ctrl/Cmd/Shift/Alt/middle-click fall through to /app/notification-log.
+        self.assertIn("ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey",
+                      self.js)
+
+
+class TestDomRuntime(unittest.TestCase):
+    """Execute the real asset against a DOM/frappe stub (node) to prove the runtime
+    badge matrix, single badge/dropdown, reinstall-no-duplicate, Desk guard and
+    legacy-handler stripping. Skipped automatically where node is unavailable."""
+
+    def test_dom_runtime_behaviour(self):
+        import shutil
+        import subprocess
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not available")
+        for harness_name in ("dom_runtime_check.js", "bell_click_check.js"):
+            harness = os.path.join(_pkg_root(), "notification_center", "tests",
+                                   harness_name)
+            proc = subprocess.run([node, harness], capture_output=True, text=True, timeout=60)
+            self.assertEqual(proc.returncode, 0,
+                             harness_name + " assertions failed:\n" + proc.stdout + proc.stderr)
+
+
+
+class TestRetireHomepageLoaderPatch(unittest.TestCase):
+    """p002 retires the homepage-only NC <script> (now redundant under the global
+    web_include_js loader) so /home loads the asset exactly once -- WITHOUT touching
+    Action Center, and idempotently (the p001 script already ran in production)."""
+
+    BELL_LOADER = (
+        '<script id="ec-notification-center" '
+        'src="/assets/ecentric_workspace/js/notification_center.js" '
+        'defer></script><!-- /ec-notification-center -->')
+    AC = "<!-- /ec-action-center-widget -->"
+
+    def setUp(self):
+        _reset()
+        from ecentric_workspace.notification_center.patches import (
+            p002_retire_homepage_bell_loader as p)
+        self.p = p
+
+    def _wp(self, body):
+        FR._webpages["ecentric-workspace"] = {
+            "route": "home", "main_section": body, "main_section_html": body}
+
+    def test_removes_bell_loader_idempotent(self):
+        body = "<div>AC widget</div>" + self.AC + self.BELL_LOADER + "<div>tail</div>"
+        self._wp(body)
+        self.p.execute()
+        out = FR._webpages["ecentric-workspace"]["main_section"]
+        self.assertNotIn('<script id="ec-notification-center"', out)
+        self.assertIn(self.AC, out)                       # Action Center untouched
+        self.assertIn("<div>AC widget</div>", out)
+        self.assertIn("<div>tail</div>", out)
+        # second run is a clean no-op (still no bell loader, AC intact).
+        self.p.execute()
+        out2 = FR._webpages["ecentric-workspace"]["main_section"]
+        self.assertNotIn('<script id="ec-notification-center"', out2)
+        self.assertIn(self.AC, out2)
+
+    def test_noop_when_loader_absent(self):
+        body = "<div>AC widget</div>" + self.AC + "<div>tail</div>"
+        self._wp(body)
+        self.p.execute()
+        out = FR._webpages["ecentric-workspace"]["main_section"]
+        self.assertEqual(out, body)                       # nothing changed
+
+    def test_action_center_anchor_count_preserved(self):
+        body = self.AC + self.BELL_LOADER + self.AC       # two AC anchors
+        self._wp(body)
+        self.p.execute()
+        out = FR._webpages["ecentric-workspace"]["main_section"]
+        self.assertEqual(out.count(self.AC), 2)
+        self.assertNotIn('<script id="ec-notification-center"', out)
+
+    def test_registered_after_p001(self):
+        lines = _read("patches.txt").splitlines()
+        p1 = [i for i, l in enumerate(lines)
+              if "notification_center.patches.p001_homepage_notification_bell" in l]
+        p2 = [i for i, l in enumerate(lines)
+              if "notification_center.patches.p002_retire_homepage_bell_loader" in l]
+        self.assertTrue(p1 and p2, "both NC patch entries must be present")
+        self.assertGreater(p2[0], p1[0], "p002 must run AFTER p001")
+
+
 if __name__ == "__main__":
     unittest.main()
