@@ -504,12 +504,16 @@ class TestGlobalShellLoader(unittest.TestCase):
         self.assertNotIn(".indexOf('/app') === 0", self.js)
 
     def test_no_per_page_patch_created(self):
-        # global loader must NOT be implemented as a DB patch per page: the only
-        # notification_center patch is still the original homepage p001.
+        # The global loader must NOT be implemented as a DB patch per page. The only
+        # notification_center patches are the original homepage p001 and the SINGLE
+        # architecture-migration cleanup p002 (homepage-only -> global). No more.
         pdir = os.path.join(_pkg_root(), "notification_center", "patches")
         pyfiles = sorted(f for f in os.listdir(pdir)
                          if f.endswith(".py") and f != "__init__.py")
-        self.assertEqual(pyfiles, ["p001_homepage_notification_bell.py"])
+        self.assertEqual(pyfiles, [
+            "p001_homepage_notification_bell.py",
+            "p002_retire_homepage_bell_loader.py",
+        ])
 
     # ---- badge redesign ----
     def test_badge_hidden_when_zero(self):
@@ -573,11 +577,74 @@ class TestDomRuntime(unittest.TestCase):
         node = shutil.which("node")
         if not node:
             self.skipTest("node not available")
-        harness = os.path.join(_pkg_root(), "notification_center", "tests",
-                               "dom_runtime_check.js")
-        proc = subprocess.run([node, harness], capture_output=True, text=True, timeout=60)
-        self.assertEqual(proc.returncode, 0,
-                         "DOM runtime assertions failed:\n" + proc.stdout + proc.stderr)
+        for harness_name in ("dom_runtime_check.js", "bell_click_check.js"):
+            harness = os.path.join(_pkg_root(), "notification_center", "tests",
+                                   harness_name)
+            proc = subprocess.run([node, harness], capture_output=True, text=True, timeout=60)
+            self.assertEqual(proc.returncode, 0,
+                             harness_name + " assertions failed:\n" + proc.stdout + proc.stderr)
+
+
+
+class TestRetireHomepageLoaderPatch(unittest.TestCase):
+    """p002 retires the homepage-only NC <script> (now redundant under the global
+    web_include_js loader) so /home loads the asset exactly once -- WITHOUT touching
+    Action Center, and idempotently (the p001 script already ran in production)."""
+
+    BELL_LOADER = (
+        '<script id="ec-notification-center" '
+        'src="/assets/ecentric_workspace/js/notification_center.js" '
+        'defer></script><!-- /ec-notification-center -->')
+    AC = "<!-- /ec-action-center-widget -->"
+
+    def setUp(self):
+        _reset()
+        from ecentric_workspace.notification_center.patches import (
+            p002_retire_homepage_bell_loader as p)
+        self.p = p
+
+    def _wp(self, body):
+        FR._webpages["ecentric-workspace"] = {
+            "route": "home", "main_section": body, "main_section_html": body}
+
+    def test_removes_bell_loader_idempotent(self):
+        body = "<div>AC widget</div>" + self.AC + self.BELL_LOADER + "<div>tail</div>"
+        self._wp(body)
+        self.p.execute()
+        out = FR._webpages["ecentric-workspace"]["main_section"]
+        self.assertNotIn('<script id="ec-notification-center"', out)
+        self.assertIn(self.AC, out)                       # Action Center untouched
+        self.assertIn("<div>AC widget</div>", out)
+        self.assertIn("<div>tail</div>", out)
+        # second run is a clean no-op (still no bell loader, AC intact).
+        self.p.execute()
+        out2 = FR._webpages["ecentric-workspace"]["main_section"]
+        self.assertNotIn('<script id="ec-notification-center"', out2)
+        self.assertIn(self.AC, out2)
+
+    def test_noop_when_loader_absent(self):
+        body = "<div>AC widget</div>" + self.AC + "<div>tail</div>"
+        self._wp(body)
+        self.p.execute()
+        out = FR._webpages["ecentric-workspace"]["main_section"]
+        self.assertEqual(out, body)                       # nothing changed
+
+    def test_action_center_anchor_count_preserved(self):
+        body = self.AC + self.BELL_LOADER + self.AC       # two AC anchors
+        self._wp(body)
+        self.p.execute()
+        out = FR._webpages["ecentric-workspace"]["main_section"]
+        self.assertEqual(out.count(self.AC), 2)
+        self.assertNotIn('<script id="ec-notification-center"', out)
+
+    def test_registered_after_p001(self):
+        lines = _read("patches.txt").splitlines()
+        p1 = [i for i, l in enumerate(lines)
+              if "notification_center.patches.p001_homepage_notification_bell" in l]
+        p2 = [i for i, l in enumerate(lines)
+              if "notification_center.patches.p002_retire_homepage_bell_loader" in l]
+        self.assertTrue(p1 and p2, "both NC patch entries must be present")
+        self.assertGreater(p2[0], p1[0], "p002 must run AFTER p001")
 
 
 if __name__ == "__main__":

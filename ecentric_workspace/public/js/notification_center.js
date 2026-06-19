@@ -312,15 +312,17 @@
     mountBadge();
     buildPop();
     bell.addEventListener('click', function (ev) {
+      // Defeat any legacy DOCUMENT-level delegated handler (the old
+      // "feature-in-development" toast) for EVERY click type by stopping the event
+      // before it can reach document. This does NOT cancel native navigation -- that
+      // is controlled by preventDefault (below), which we only call on a plain click.
+      ev.stopPropagation();
+      if (ev.stopImmediatePropagation) { ev.stopImmediatePropagation(); }
       // Only hijack a PLAIN left click. Ctrl/Cmd/Shift/Alt + any non-primary button
       // fall through to the native href (/app/notification-log) -> open-in-new-tab,
       // middle-click and "open in new tab" all keep their native behaviour.
       if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) { return; }
       ev.preventDefault();
-      // stop bubbling so any legacy DOCUMENT-level delegated handler (the old
-      // "feature-in-development" toast) can never also fire on a plain left-click.
-      ev.stopPropagation();
-      if (ev.stopImmediatePropagation) { ev.stopImmediatePropagation(); }
       S.interacted = true;
       toggle();
     });
