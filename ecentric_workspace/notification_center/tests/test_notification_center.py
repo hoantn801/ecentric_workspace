@@ -627,7 +627,7 @@ class TestDomRuntime(unittest.TestCase):
         node = shutil.which("node")
         if not node:
             self.skipTest("node not available")
-        for harness_name in ("bell_click_check.js",):
+        for harness_name in ("bell_click_check.js", "bell_contract_transform_check.js"):
             harness = os.path.join(_pkg_root(), "notification_center", "tests",
                                    harness_name)
             proc = subprocess.run([node, harness], capture_output=True, text=True, timeout=60)
