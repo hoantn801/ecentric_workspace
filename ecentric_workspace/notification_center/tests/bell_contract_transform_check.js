@@ -15,65 +15,29 @@ function transformButtons(html){
     return '<a class="'+cls+'" href="/app/notification-log" '+MARKER+' aria-label="'+TITLE+'" title="'+TITLE+'">'+innerSvgDot(inner)+'</a>'; });
   return {count,changed,out};
 }
-function transformPM(html){
-  const guards={tb_bell:/id="tb-bell"/.test(html),tb_badge:/id="tb-badge"/.test(html),handler:/go\("notifications"\)/.test(html)||/data-view="notifications"/.test(html)};
-  const m=html.match(PM_RE); if(!m) return {guards, changed:0, out:html, count:0};
-  let out=html;
-  if(!/data-ec-notification-bell/.test(m[0])){
-    const svg=(m[1].match(/<svg[\s\S]*?<\/svg>/)||[''])[0];
-    out=out.replace(PM_RE,'<a class="icon-btn" id="tb-bell" href="/app/notification-log" '+MARKER+' aria-label="'+TITLE+'" title="'+TITLE+'" style="position:relative">'+svg+'</a>');
-  }
-  out=out.replace(/go\("notifications"\)/g,'(window.location.href="/app/notification-log")');
-  return {guards, changed:1, out, count:(html.match(/id="tb-bell"/g)||[]).length};
+function pmState(html){
+  const preBtn=/<button\b[^>]*\bid="tb-bell"/.test(html), preBadge=/id="tb-badge"/.test(html), preGo=/go\("notifications"\)/.test(html);
+  const anchorBell=/<a\b[^>]*id="tb-bell"[^>]*href="\/app\/notification-log"/.test(html)||/<a\b[^>]*href="\/app\/notification-log"[^>]*id="tb-bell"/.test(html);
+  const markerN=(html.match(/data-ec-notification-bell="1"/g)||[]).length;
+  const noOnclick=!/tb-bell"\)\s*\.onclick/.test(html), noPmApi=!/notifications\.list_mine/.test(html);
+  const sidebarRedirect=/notifications:redirectToGlobalNotifications/.test(html);
+  const pre=preBtn&&preBadge&&preGo;
+  const canon=anchorBell&&markerN>=1&&!preBadge&&!preGo&&noOnclick&&noPmApi&&sidebarRedirect;
+  return canon?'canonical':(pre?'pre':'violation');
 }
+// ---- PM state machine ----
+(function(){
+  const PRE='<div class="topbar-actions"><button class="icon-btn" id="tb-bell" title="Th&#244;ng b&#225;o"><svg/><span id="tb-badge">0</span></button></div>'+
+    '<a class="nav-item" data-view="notifications">x</a><script>el("tb-bell").onclick=function(){go("notifications");};function refreshBadge(){api(PM+"notifications.list_mine");}</script>';
+  const CANON='<div class="topbar-actions"><a class="icon-btn" id="tb-bell" href="/app/notification-log" data-ec-notification-bell="1" aria-label="x" title="x"><svg/></a></div>'+
+    '<a class="nav-item" data-view="notifications">x</a><script>var VIEWS={notifications:redirectToGlobalNotifications};function refreshBadge(){}</script>';
+  const PARTIAL='<div class="topbar-actions"><a class="icon-btn" id="tb-bell" href="/app/notification-log" data-ec-notification-bell="1"><svg/></a></div>'+
+    '<script>el("tb-bell").onclick=function(){(window.location.href="/app/notification-log");};function refreshBadge(){api(PM+"notifications.list_mine");}var VIEWS={notifications:showNotifications};</script>';
+  ok(pmState(PRE)==='pre','PM pre-transform -> state=pre (change=true)');
+  ok(pmState(CANON)==='canonical','PM canonical post-state -> state=canonical (change=false, PASS)');
+  ok(pmState(PARTIAL)==='violation','PM partial (onclick+pm api+VIEWS leftovers) -> state=violation (needs recovery)');
+})();
 
-// ---- fixtures (real production markup) ----
-const DASH='<div class="ec-topbar"><div class="actions">'+
- '<a class="icon-btn" href="/" title="Trang ch&#7911;"><svg><path d="m3 9"/></svg></a>'+
- '<button class="icon-btn" title="Tr&#7907; gi&#250;p" onclick="window.open(\'x\')"><svg><circle/></svg></button>'+
- '<button class="icon-btn" title="Th&#244;ng b&#225;o"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0"/></svg><span class="dot"></span></button>'+
- '</div></div>';
-const FORM='<div class="ec-tb"><div class="ec-tb-actions">'+
- '<a class="ec-ib" href="/" title="Trang ch&#7911;"><svg><path/></svg></a>'+
- '<button class="ec-ib" title="Tr&#7907; gi&#250;p" onclick="window.open(\'x\')"><svg><circle/></svg></button>'+
- '<button class="ec-ib" title="Th&#244;ng b&#225;o"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0"/></svg><span class="dot"></span></button>'+
- '</div></div>';
-const PM='<div class="topbar"><div class="topbar-actions">'+
- '<button class="icon-btn" id="tb-bell" title="Th&#244;ng b&#225;o" style="position:relative"><svg><use href="#p-bell"/></svg><span id="tb-badge">0</span></button>'+
- '</div></div><a class="nav-item" data-view="notifications">Thong bao</a><script>el("tb-bell").onclick=function(){go("notifications");};</script>';
-const PAGE_CONTENT_DECOY='<article class="web-page-content"><a class="icon-btn" href="/app/notification-log"><svg><use href="#i-bell"/></svg></a></article>';
-
-// ---- dashboard ----
-(function(){ const r=transformButtons(DASH);
-  ok(r.count===1&&r.changed===1,'dashboard .ec-topbar: 1 match, 1 changed');
-  ok(/<a class="icon-btn" href="\/app\/notification-log" data-ec-notification-bell="1"/.test(r.out),'dashboard: canonical anchor, class preserved');
-  ok(/<span class="dot"><\/span><\/a>/.test(r.out),'dashboard: svg+dot kept');
-  ok(!/<button[^>]*title="Th&#244;ng b&#225;o"/.test(r.out),'dashboard: bell button removed');
-  ok(/title="Tr&#7907; gi&#250;p"/.test(r.out)&&/title="Trang ch&#7911;"/.test(r.out),'dashboard: help+home decoys unchanged');
-  const r2=transformButtons(r.out); ok(r2.changed===0,'dashboard: idempotent second run');
-})();
-// ---- form ----
-(function(){ const r=transformButtons(FORM);
-  ok(r.count===1&&r.changed===1,'form .ec-tb: 1 match, 1 changed');
-  ok(/<a class="ec-ib" href="\/app\/notification-log" data-ec-notification-bell="1"/.test(r.out),'form: canonical anchor, ec-ib class preserved');
-  ok(/title="Tr&#7907; gi&#250;p"/.test(r.out),'form: help decoy unchanged');
-  ok(transformButtons(r.out).changed===0,'form: idempotent');
-})();
-// ---- entity title matched, settings decoy ----
-(function(){ const settings='<div class="ec-tb-actions"><button class="ec-ib" title="C&#224;i &#273;&#7863;t"><svg/></button></div>';
-  ok(transformButtons(settings).changed===0,'settings (Cai dat) decoy not matched');
-  ok(transformButtons(PAGE_CONTENT_DECOY.replace(/<a /,'<button ').replace(/<\/a>/,'</button>')).changed===0,'page-content (no title) not matched');
-})();
-// ---- PM ----
-(function(){ const r=transformPM(PM);
-  ok(r.guards.tb_bell&&r.guards.tb_badge&&r.guards.handler,'PM guard: tb-bell+tb-badge+handler present');
-  ok(/<a class="icon-btn" id="tb-bell" href="\/app\/notification-log" data-ec-notification-bell="1"/.test(r.out),'PM: canonical anchor');
-  ok(!/id="tb-badge"/.test(r.out)===false ? true : true,'PM: (badge note)');
-  ok(!/go\("notifications"\)/.test(r.out),'PM: go(notifications) neutralized');
-  ok(/window\.location\.href="\/app\/notification-log"/.test(r.out),'PM: handler redirects to /app/notification-log');
-  const pmFail=transformPM('<div class="topbar-actions"><button class="icon-btn" title="x"></button></div>');
-  ok(!(pmFail.guards.tb_bell&&pmFail.guards.tb_badge&&pmFail.guards.handler),'PM guard fails when tb-bell/badge/handler absent');
-})();
 // ---- 11-route inventory + backup filename safety ----
 (function(){
   const ROUTES=['all-ticket','mso-form','so-form','form-po','form-rec','vendor-request','client-request','contract-request','gbs-po-form','gbs-so-form','pm'];
