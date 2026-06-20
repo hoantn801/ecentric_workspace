@@ -621,8 +621,6 @@
     else if(m==="recurrence.pause"){var rp=(M.rec||[]).filter(function(x){return x.name===args.name;})[0];if(rp)rp.status="Paused";res(rp||{});}
     else if(m==="recurrence.resume"){var rr2=(M.rec||[]).filter(function(x){return x.name===args.name;})[0];if(rr2)rr2.status="Active";res(rr2||{});}
     else if(m==="recurrence.cancel"){var rcn=(M.rec||[]).filter(function(x){return x.name===args.name;})[0];if(rcn)rcn.status="Cancelled";res(rcn||{});}
-    else if(m==="notifications.list_mine"){if(!M.notif){M.notif=[{name:"N1",subject:"Bạn được giao nhiệm vụ: Design homepage",document_name:"TASK-1000",read:0,creation:"2026-06-03 09:10",from_user:"vinh@ecentric.vn",type:"Alert"},{name:"N2",subject:"Nhiệm vụ 'API auth' -> In Progress",document_name:"TASK-1001",read:1,creation:"2026-06-02 16:00",from_user:"hoan.tran@ecentric.vn",type:"Alert"},{name:"N3",subject:"[Overdue] Nhiệm vụ quá hạn: Migrate data",document_name:"TASK-1003",read:0,creation:"2026-06-03 06:00",from_user:"Administrator",type:"Alert"}];}res({rows:M.notif,unread:M.notif.filter(function(x){return !x.read;}).length});}
-    else if(m==="notifications.mark_read"){if(M.notif)M.notif.forEach(function(x){x.read=1;});res({ok:true});}
     else if(m==="timesheet.report"){if(!M.ts)M.ts=[];var rws=M.ts.filter(function(r){return (!args.task||r.task===args.task)&&(!args.project||r.project===args.project)&&(!args.user||r.owner===args.user);});var tot=0,bd={},bw={},bm={};rws.forEach(function(r){tot+=r.hours;var dt=(r.from_time||"").slice(0,10);if(dt){bd[dt]=(bd[dt]||0)+r.hours;bm[dt.slice(0,7)]=(bm[dt.slice(0,7)]||0)+r.hours;bw[dt.slice(0,7)+"-W"]=(bw[dt.slice(0,7)+"-W"]||0)+r.hours;}});res({rows:rws,total_hours:tot,by_day:bd,by_week:bw,by_month:bm});}
     else res({});
   },240);});}
@@ -1766,20 +1764,7 @@
     if(s.indexOf("giao")>=0)return ["Giao việc","tg-recurring"];
     if(s.toLowerCase().indexOf("recurring")>=0||s.indexOf("Lặp")>=0)return ["Lặp","tg-low"];
     return ["Thông báo","tg-low"];}
-  function showNotifications(){var c=el("pm-view");spin(c);
-    api(PM+"notifications.list_mine",{limit:50}).then(function(d){var rows=d.rows||[];
-      c.innerHTML=head("Thông báo","Bấm 1 thông báo để mở nhiệm vụ liên quan",(d.unread?'<button class="pm-btn" id="nt-readall">Đánh dấu đã đọc ('+d.unread+')</button>':''))+
-        '<div class="panel"><div id="nt-list"></div></div>';
-      if(el("nt-readall"))el("nt-readall").onclick=function(){api(PM+"notifications.mark_read",{}).then(function(){showNotifications();refreshBadge();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};
-      var b=el("nt-list");
-      if(!rows.length){return emptyBox(b,"Chưa có thông báo.");}
-      var order=["Hôm nay","Hôm qua","Tuần này","Cũ hơn"];var groups={};rows.forEach(function(n){var g=notifBucket(n.creation);(groups[g]=groups[g]||[]).push(n);});
-      var html="";order.forEach(function(g){var gr=groups[g];if(!gr||!gr.length)return;
-        html+='<div class="nt-day-h">'+g+'</div>'+gr.map(function(n){var ty=notifType(n.subject);
-          return '<div class="nt-item'+(n.read?"":" unread")+'" data-task="'+esc(n.document_name||"")+'"><span style="display:flex;align-items:center;gap:8px;min-width:0">'+(n.read?"":'<b style="color:var(--navy)">●</b>')+'<span class="pm-tag '+ty[1]+'">'+ty[0]+'</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(stripTags(n.subject))+'</span></span><span style="font-size:11px;color:var(--gray-400);white-space:nowrap">'+esc((n.creation||"").slice(0,16))+'</span></div>';}).join("");});
-      b.innerHTML=html;
-      Array.prototype.forEach.call(b.querySelectorAll("[data-task]"),function(x){x.onclick=function(){var t=x.getAttribute("data-task");if(t)openTask(t);};});
-    }).catch(function(e){errBox(c,e);});}
+  function showNotifications(){ window.location.href="/app/notification-log"; }  // PM notif view retired -> Global NC
 
   function soon(view){var c=el("pm-view");var map={gantt:["Gantt","Biểu đồ Gantt theo ngày bắt đầu/kết thúc của nhiệm vụ."],timesheet:["Timesheet","Ghi nhận giờ làm việc theo nhiệm vụ (native Timesheet)."],recurring:["Recurring","Nhiệm vụ lặp: daily / weekly / biweekly / monthly."],notifications:["Thông báo","Thông báo giao việc, cập nhật, quá hạn."]};
     var v=map[view]||["Sắp có",""]; c.innerHTML=head(v[0],v[1])+'<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-'+(view==="notifications"?"bell":view==="timesheet"?"clock":view==="recurring"?"repeat":"gantt")+'"/></svg><div>Đang phát triển — sẽ có ở bước tiếp theo của Phase này.</div></div></div>';}
