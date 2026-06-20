@@ -33,8 +33,6 @@
   var LIST_LIMIT = 20;
   var POLL_MS = 60000;
   var MUTE_KEY = 'ec_notif_muted';
-  // Match an eCentric custom-shell notification bell (NOT the Frappe Desk navbar bell).
-  var BELL_SEL = '.topbar-actions a.icon-btn[href*="notification-log"], .topbar-actions a[href*="/app/notification-log"]';
 
   // ---- safe plain text: strip any HTML, decode entities, normalize whitespace -----
   function toPlainText(s) {
@@ -72,15 +70,37 @@
     return Math.floor(d / 86400) + ' ngày trước';
   }
 
-  // ---- locate the current native bell (re-queried each time; may change on rerender)
+  // ---- shared bell identification (handles BOTH real eCentric shells) -------
+  // Homepage  : <a class="icon-btn" href="/app/notification-log"> (svg <use #i-bell>)
+  // Approval+ : <button class="icon-btn" title="Thông báo" onclick="...legacy..."> (inline svg)
+  // Always scoped to the eCentric header actions; NEVER a bell icon in page content,
+  // and NEVER the sibling settings icon-btn (title "Cài đặt").
+  function inHeader(el) { return !!(el && el.closest && el.closest('.topbar-actions, .header-actions')); }
+  function isNotificationBell(el) {
+    if (!el || !el.getAttribute) return false;
+    if (/notification-log/.test(el.getAttribute('href') || '')) return true;          // anchor shell
+    var label = ((el.getAttribute('title') || '') + ' ' + (el.getAttribute('aria-label') || '')).toLowerCase();
+    if (/cài đặt|cai dat|settings/.test(label)) return false;                          // never settings
+    if (/thông báo|thong bao|notification|notif/.test(label)) return true;            // button shell
+    var u = el.querySelector && el.querySelector('use');
+    var uh = u ? (u.getAttribute('href') || u.getAttribute('xlink:href') || '') : '';
+    return /i-bell/i.test(uh);                                                         // svg symbol shell
+  }
+  // From a click target, return the bell element to act on (or null).
+  function getNotificationBellTarget(node) {
+    if (!node || !node.closest) return null;
+    var el = node.closest('a, button, [role="button"], .icon-btn');
+    if (!el || !inHeader(el)) return null;            // header only -> ignore page-content bells
+    return isNotificationBell(el) ? el : null;
+  }
+  // Locate the current bell node for badge mount / observer (re-queried each time).
   function findBell() {
-    var b = document.querySelector('.topbar-actions a.icon-btn[href*="notification-log"]');
-    if (b) return b;
-    var btns = document.querySelectorAll('.topbar-actions a.icon-btn, .topbar-actions button.icon-btn');
-    for (var i = 0; i < btns.length; i++) {
-      var u = btns[i].querySelector('use');
-      var href = u ? (u.getAttribute('href') || u.getAttribute('xlink:href') || '') : '';
-      if (/i-bell/.test(href)) return btns[i];
+    var anchor = document.querySelector('.topbar-actions a.icon-btn[href*="notification-log"], .header-actions a[href*="notification-log"]');
+    if (anchor) return anchor;
+    var scopes = document.querySelectorAll('.topbar-actions, .header-actions');
+    for (var i = 0; i < scopes.length; i++) {
+      var cands = scopes[i].querySelectorAll('a, button, [role="button"], .icon-btn');
+      for (var j = 0; j < cands.length; j++) { if (isNotificationBell(cands[j])) return cands[j]; }
     }
     return null;
   }
@@ -128,6 +148,7 @@
     if (!bell) return;
     var dot = bell.querySelector('.dot');
     if (dot) { dot.style.display = 'none'; }
+    if (window.getComputedStyle && window.getComputedStyle(bell).position === 'static') { bell.style.position = 'relative'; }
     var prev = bell.querySelector('.ec-nc-badge');
     if (prev && prev.parentNode) { prev.parentNode.removeChild(prev); }
     badgeEl = document.createElement('span');
@@ -318,20 +339,19 @@
   // Resilient to header (re)render; defeats any legacy handler attached before OR after
   // this asset, on the bell or delegated, because capture runs first at document.
   function onNotificationBellClick(ev) {
-    var t = ev.target;
-    if (!t || !t.closest) return;
-    var a = t.closest('a.icon-btn[href*="notification-log"], a[href*="/app/notification-log"]');
-    if (!a) return;                                  // not a bell click -> ignore
-    if (!a.closest('.topbar-actions')) return;       // only the eCentric custom shell bell
-    // Only hijack a PLAIN left click. Ctrl/Cmd/Shift/Alt + any non-primary button
-    // fall through to the native href (/app/notification-log); we do NOT touch href.
-    if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) { return; }
+    var target = getNotificationBellTarget(ev.target);
+    if (!target) return;                              // not a header bell -> ignore
+    var isAnchor = target.tagName === 'A' && /notification-log/.test(target.getAttribute('href') || '');
+    // PLAIN left click only is "hijacked". Ctrl/Cmd/Shift/Alt + any non-primary button:
+    var plain = !(ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey);
+    // Anchor + modifier/middle -> keep native /app/notification-log navigation; do not touch.
+    if (isAnchor && !plain) { return; }
+    // Otherwise WE own this click: plain-left on anchor/button, OR any click on a
+    // href-less button (no native target). Suppress ANY legacy bell handler.
     ev.preventDefault();
     ev.stopPropagation();
     if (ev.stopImmediatePropagation) { ev.stopImmediatePropagation(); }
-    bell = a;
-    S.interacted = true;
-    toggle();
+    if (plain) { bell = target; S.interacted = true; toggle(); }
   }
 
   // ---- MutationObserver: ONLY (re)mounts badge when the header (re)renders ---
