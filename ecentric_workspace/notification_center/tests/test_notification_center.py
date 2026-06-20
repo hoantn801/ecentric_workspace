@@ -569,6 +569,27 @@ class TestGlobalShellLoader(unittest.TestCase):
         self.assertIn(".topbar-actions", self.js)
         self.assertIn('notification-log', self.js)
 
+    def test_shared_bell_matcher_handles_both_shells(self):
+        # one shared identifier for BOTH real production shells:
+        #   /home  anchor a[href*=notification-log] (svg <use #i-bell>)
+        #   /approval button.icon-btn[title="Thông báo"] (inline svg, inline onclick)
+        self.assertIn("function getNotificationBellTarget(", self.js)
+        self.assertIn("function isNotificationBell(", self.js)
+        self.assertIn("notification-log", self.js)        # anchor shell signal (href)
+        self.assertIn("notification|notif", self.js)      # title/aria-label signal
+        self.assertIn("i-bell", self.js)                  # svg <use> symbol signal
+
+    def test_bell_matcher_excludes_settings_and_page_content(self):
+        # never the sibling settings icon-btn, never a bell icon in page content
+        self.assertIn("settings", self.js)                # exclusion keyword present
+        self.assertIn("inHeader(", self.js)               # header-scoped only
+        self.assertIn(".topbar-actions, .header-actions", self.js)
+
+    def test_button_bell_has_no_href_requirement(self):
+        # a header button bell (no href) is matched; only ANCHORS keep native on modifier
+        self.assertIn("target.tagName === 'A'", self.js)
+        self.assertIn("if (isAnchor && !plain) { return; }", self.js)
+
     def test_observer_is_mount_only_with_cleanup(self):
         # MutationObserver only (re)mounts the badge on header rerender; it has a
         # single-instance guard and is disconnected on pagehide (no leak).
