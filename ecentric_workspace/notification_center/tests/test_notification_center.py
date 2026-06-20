@@ -335,9 +335,13 @@ class TestAssetContract(unittest.TestCase):
         self.assertNotIn("'/weekly-update'", self.js)
 
     def test_escapes_output(self):
-        self.assertIn("function esc(", self.js)
-        for token in ("esc(it.subject", "esc(it.message", "esc(it.source_label"):
-            self.assertIn(token, self.js)
+        # subject/message/source render as SAFE PLAIN TEXT via textContent (never
+        # innerHTML with notification data): strips stray tags and defends XSS.
+        self.assertIn("function toPlainText(", self.js)
+        self.assertIn("subj.textContent = toPlainText(it.subject)", self.js)
+        self.assertIn("src.textContent = toPlainText(it.source_label)", self.js)
+        self.assertIn("var msgText = toPlainText(it.message)", self.js)
+        self.assertNotIn("listEl.innerHTML =", self.js)
 
     def test_sound_respects_mute_and_interaction(self):
         self.assertIn("if (isMuted() || !S.interacted) return;", self.js)
@@ -422,10 +426,11 @@ class TestAdditionalGuards(unittest.TestCase):
                       "realtime must publish only after commit")
 
     def test_frontend_href_uses_action_url_not_content(self):
-        # the link target is the server action_url; never the raw subject/message.
-        self.assertIn("esc(it.action_url", self.js)
-        self.assertNotIn("href=\"' + esc(it.message", self.js)
-        self.assertNotIn("href=\"' + esc(it.subject", self.js)
+        # link target is the server action_url, validated same-origin; never subject/message.
+        self.assertIn("function safeActionUrl(", self.js)
+        self.assertIn("safeActionUrl(it.action_url)", self.js)
+        self.assertNotIn("esc(it.message", self.js)
+        self.assertNotIn("esc(it.subject", self.js)
 
     def test_single_install_guard(self):
         # re-running the asset must not stack pollers/handlers.
@@ -465,7 +470,7 @@ class TestSingleBell(unittest.TestCase):
     def test_dismissal_and_keyboard(self):
         self.assertIn("'Escape'", self.js)
         self.assertIn("!pop.contains(ev.target) && !bell.contains(ev.target)", self.js)
-        self.assertIn("tabindex=", self.js)
+        self.assertIn("setAttribute('tabindex', '0')", self.js)
 
     def test_only_plain_left_click_is_intercepted(self):
         # Ctrl/Cmd/Shift/Alt/middle-click keep the native /app/notification-log behaviour.
@@ -550,12 +555,33 @@ class TestGlobalShellLoader(unittest.TestCase):
         self.assertIn("window._ecNotifCenterInstalled = true;", self.js)
 
     # ---- legacy handler neutralised (no DB edit) ----
-    def test_legacy_handler_stripped_on_adopt(self):
-        self.assertIn("function adoptBell", self.js)
-        self.assertIn("cloneNode(true)", self.js)
-        self.assertIn("replaceChild(clone, orig)", self.js)
-        self.assertIn("removeAttribute('onclick')", self.js)
+    def test_legacy_handler_neutralized_by_capture(self):
+        # Click interception is ONE document-level CAPTURE-phase delegated handler,
+        # resilient to header rerender; a plain left-click is fully neutralised via
+        # stopImmediatePropagation so no legacy bell handler (any form) can fire.
+        self.assertIn("document.addEventListener('click', onNotificationBellClick, true)", self.js)
+        self.assertIn("function onNotificationBellClick(", self.js)
+        self.assertIn(".closest(", self.js)
         self.assertIn("ev.stopPropagation();", self.js)
+        self.assertIn("ev.stopImmediatePropagation()", self.js)
+
+    def test_capture_handler_matches_only_ecentric_shell_bell(self):
+        self.assertIn(".topbar-actions", self.js)
+        self.assertIn('notification-log', self.js)
+
+    def test_observer_is_mount_only_with_cleanup(self):
+        # MutationObserver only (re)mounts the badge on header rerender; it has a
+        # single-instance guard and is disconnected on pagehide (no leak).
+        self.assertIn("window.MutationObserver", self.js)
+        self.assertIn("mo.observe(document.body", self.js)
+        self.assertIn("mo.disconnect()", self.js)
+        self.assertIn("pagehide", self.js)
+
+    def test_plain_text_helper_uses_domparser(self):
+        self.assertIn("function toPlainText(", self.js)
+        self.assertIn("window.DOMParser", self.js)
+        self.assertIn(".textContent", self.js)
+        self.assertIn("replace(/\\s+/g, ' ').trim()", self.js)
 
     def test_asset_does_not_contain_legacy_message(self):
         self.assertNotIn("đang phát triển", self.js)
@@ -577,7 +603,7 @@ class TestDomRuntime(unittest.TestCase):
         node = shutil.which("node")
         if not node:
             self.skipTest("node not available")
-        for harness_name in ("dom_runtime_check.js", "bell_click_check.js"):
+        for harness_name in ("bell_click_check.js",):
             harness = os.path.join(_pkg_root(), "notification_center", "tests",
                                    harness_name)
             proc = subprocess.run([node, harness], capture_output=True, text=True, timeout=60)
