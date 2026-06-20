@@ -14,13 +14,15 @@ app_license = "MIT"
 # context: /home, /overview, /approval, /tasks, /weekly-update, Team Pulse, Alert
 # Center, HR/Resource pages, and any future custom page), not just the homepage.
 #
-# `web_include_js` is the single shared loader point: Frappe injects this asset into
+# `web_include_js` loads a CONTENT-HASHED bundle (notification_center.bundle.js ->
+# /assets/.../dist/js/notification_center.bundle.<hash>.js) so deploys bust the
+# immutable /assets cache uniformly. It injects this asset into
 # every website-rendered page exactly once. This is deliberately NOT `app_include_js`
 # (that would load into Frappe Desk /app/* and bind to Desk's native bell, which we
 # must never do). The asset itself bails out on /app/* and on pages with no eCentric
 # bell, and is single-install guarded so the homepage (which also still carries the
 # legacy per-page loader) never double-installs.
-web_include_js = ["/assets/ecentric_workspace/js/notification_center.js"]
+web_include_js = ["notification_center.bundle.js"]
 
 # Document Events
 # ---------------
