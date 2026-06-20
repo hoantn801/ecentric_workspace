@@ -70,39 +70,19 @@
     return Math.floor(d / 86400) + ' ngày trước';
   }
 
-  // ---- shared bell identification (handles BOTH real eCentric shells) -------
-  // Homepage  : <a class="icon-btn" href="/app/notification-log"> (svg <use #i-bell>)
-  // Approval+ : <button class="icon-btn" title="Thông báo" onclick="...legacy..."> (inline svg)
-  // Always scoped to the eCentric header actions; NEVER a bell icon in page content,
-  // and NEVER the sibling settings icon-btn (title "Cài đặt").
-  function inHeader(el) { return !!(el && el.closest && el.closest('.topbar-actions, .header-actions')); }
-  function isNotificationBell(el) {
-    if (!el || !el.getAttribute) return false;
-    if (/notification-log/.test(el.getAttribute('href') || '')) return true;          // anchor shell
-    var label = ((el.getAttribute('title') || '') + ' ' + (el.getAttribute('aria-label') || '')).toLowerCase();
-    if (/cài đặt|cai dat|settings/.test(label)) return false;                          // never settings
-    if (/thông báo|thong bao|notification|notif/.test(label)) return true;            // button shell
-    var u = el.querySelector && el.querySelector('use');
-    var uh = u ? (u.getAttribute('href') || u.getAttribute('xlink:href') || '') : '';
-    return /i-bell/i.test(uh);                                                         // svg symbol shell
-  }
+  // ---- canonical Notification Bell contract -------------------------------
+  // The ONE source of truth across EVERY ERP shell is the marker attribute
+  //   data-ec-notification-bell="1"
+  // No href / title / language / SVG / #i-bell / route heuristics are used.
+  var BELL_SELECTOR = '[data-ec-notification-bell="1"]';
   // From a click target, return the bell element to act on (or null).
   function getNotificationBellTarget(node) {
     if (!node || !node.closest) return null;
-    var el = node.closest('a, button, [role="button"], .icon-btn');
-    if (!el || !inHeader(el)) return null;            // header only -> ignore page-content bells
-    return isNotificationBell(el) ? el : null;
+    return node.closest(BELL_SELECTOR);
   }
   // Locate the current bell node for badge mount / observer (re-queried each time).
   function findBell() {
-    var anchor = document.querySelector('.topbar-actions a.icon-btn[href*="notification-log"], .header-actions a[href*="notification-log"]');
-    if (anchor) return anchor;
-    var scopes = document.querySelectorAll('.topbar-actions, .header-actions');
-    for (var i = 0; i < scopes.length; i++) {
-      var cands = scopes[i].querySelectorAll('a, button, [role="button"], .icon-btn');
-      for (var j = 0; j < cands.length; j++) { if (isNotificationBell(cands[j])) return cands[j]; }
-    }
-    return null;
+    return document.querySelector(BELL_SELECTOR);
   }
 
   var S = { items: [], unread: 0, open: false, interacted: false };

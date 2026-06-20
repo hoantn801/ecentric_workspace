@@ -445,9 +445,11 @@ class TestSingleBell(unittest.TestCase):
         self.js = _read("public", "js", "notification_center.js")
 
     def test_reuses_native_bell_selector(self):
+        # binds to the CANONICAL marker contract (no per-shell selector heuristics)
+        self.assertIn('[data-ec-notification-bell="1"]', self.js)
         self.assertIn("function findBell", self.js)
-        self.assertIn(".topbar-actions a.icon-btn", self.js)
-        self.assertIn("notification-log", self.js)
+        self.assertIn("document.querySelector(BELL_SELECTOR)", self.js)
+        self.assertNotIn(".topbar-actions a.icon-btn", self.js)
 
     def test_no_custom_or_emoji_bell(self):
         # no second clickable bell, no floating yellow circle, no emoji glyph bell.
@@ -566,24 +568,25 @@ class TestGlobalShellLoader(unittest.TestCase):
         self.assertIn("ev.stopImmediatePropagation()", self.js)
 
     def test_capture_handler_matches_only_ecentric_shell_bell(self):
-        self.assertIn(".topbar-actions", self.js)
-        self.assertIn('notification-log', self.js)
+        # ONLY elements carrying the canonical marker are bell targets
+        self.assertIn("node.closest(BELL_SELECTOR)", self.js)
+        self.assertIn('[data-ec-notification-bell="1"]', self.js)
 
-    def test_shared_bell_matcher_handles_both_shells(self):
-        # one shared identifier for BOTH real production shells:
-        #   /home  anchor a[href*=notification-log] (svg <use #i-bell>)
-        #   /approval button.icon-btn[title="Thông báo"] (inline svg, inline onclick)
+    def test_marker_only_contract_no_heuristics(self):
+        # ONE source of truth across all shells: the canonical marker attribute.
         self.assertIn("function getNotificationBellTarget(", self.js)
-        self.assertIn("function isNotificationBell(", self.js)
-        self.assertIn("notification-log", self.js)        # anchor shell signal (href)
-        self.assertIn("notification|notif", self.js)      # title/aria-label signal
-        self.assertIn("i-bell", self.js)                  # svg <use> symbol signal
+        self.assertIn('var BELL_SELECTOR = \'[data-ec-notification-bell="1"]\'', self.js)
+        # no per-shell heuristics remain
+        self.assertNotIn("isNotificationBell", self.js)
+        self.assertNotIn("notification|notif", self.js)
+        self.assertNotIn("getAttribute('title')", self.js)
 
-    def test_bell_matcher_excludes_settings_and_page_content(self):
-        # never the sibling settings icon-btn, never a bell icon in page content
-        self.assertIn("settings", self.js)                # exclusion keyword present
-        self.assertIn("inHeader(", self.js)               # header-scoped only
-        self.assertIn(".topbar-actions, .header-actions", self.js)
+    def test_non_marked_elements_are_never_bells(self):
+        # settings/help/page-content carry NO marker, so the marker contract excludes
+        # them inherently -- there is nothing route/title/icon-based to special-case.
+        self.assertIn("node.closest(BELL_SELECTOR)", self.js)
+        self.assertNotIn("inHeader(", self.js)
+        self.assertNotIn(".topbar-actions, .header-actions", self.js)
 
     def test_button_bell_has_no_href_requirement(self):
         # a header button bell (no href) is matched; only ANCHORS keep native on modifier
