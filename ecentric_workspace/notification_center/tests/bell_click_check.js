@@ -61,13 +61,13 @@ function stripHtml(str){ let s=String(str).replace(/<[^>]*>/g,'');
 
 function makeEnv(pathname){
   const head=new El('head'); const body=new El('body'); head.nodeType=body.nodeType='el';
-  const byId={}; const docCaps=[]; const docBubs=[];
+  const byId={}; const docCaps=[]; const docBubs=[]; const docPd=[];
   const reg=c=>{ if(c.id)byId[c.id]=c; };
   const _h=head.appendChild.bind(head); head.appendChild=c=>{reg(c);return _h(c);};
   const _b=body.appendChild.bind(body); body.appendChild=c=>{reg(c);return _b(c);};
   const document={ nodeType:'doc', readyState:'complete', head, body,
     createElement:t=>new El(t), getElementById:id=>byId[id]||null,
-    addEventListener:(t,fn,cap)=>{ if(t==='click'){ (cap?docCaps:docBubs).push(fn); } },
+    addEventListener:(t,fn,cap)=>{ if(t==='click'){ (cap?docCaps:docBubs).push(fn); } else if(t==='pointerdown'&&cap){ docPd.push(fn); } },
     querySelector:s=>body._find(s,false), querySelectorAll:s=>body._find(s,true),
     _docCaps:docCaps,_docBubs:docBubs };
   body.parentNode=document; head.parentNode=document;
@@ -86,6 +86,7 @@ function makeEnv(pathname){
   win.window=win;
   return { document, win, body, calls, observers,
     setUnread:n=>{unread=n;}, setItems:a=>{items=a;}, fireObservers:()=>observers.forEach(o=>o.active&&o.cb([])),
+    closeOutside:()=>{ const ev={type:'pointerdown',target:body,composedPath:()=>[body,document]}; docPd.slice().forEach(fn=>fn(ev)); },
     click:(target,init)=>{ init=init||{};
       const ev={type:'click',target,button:init.button||0,metaKey:!!init.metaKey,ctrlKey:!!init.ctrlKey,
         shiftKey:!!init.shiftKey,altKey:!!init.altKey,defaultPrevented:false,_stop:false,_imm:false,
@@ -146,8 +147,8 @@ function sum(l){ return l.inline+l.prop+l.addEL+l.deleg; }
   const badge=bell.querySelector('.ec-nc-badge');
   env.setUnread(1); const e1=env.click(bell,{button:0});
   ok(popOpen(env)&&badge.textContent==='1','workspace: plain click opens, unread1 circle');
-  ok(sum(legacy)===0&&e1.defaultPrevented,'workspace: no legacy + preventDefault'); env.click(env.body,{});
-  env.setUnread(10); env.click(bell,{button:0}); ok(badge.textContent==='9+'&&badge.classList.contains('ec-nc-badge--pill'),'workspace: unread10 -> 9+ pill'); env.click(env.body,{});
+  ok(sum(legacy)===0&&e1.defaultPrevented,'workspace: no legacy + preventDefault'); env.closeOutside();
+  env.setUnread(10); env.click(bell,{button:0}); ok(badge.textContent==='9+'&&badge.classList.contains('ec-nc-badge--pill'),'workspace: unread10 -> 9+ pill'); env.closeOutside();
   const ec=env.click(bell,{button:0,ctrlKey:true}); ok(!popOpen(env)&&ec.defaultPrevented===false,'workspace: Ctrl-click keeps native nav');
   env.click(h.settings,{button:0}); ok(!popOpen(env),'workspace: settings (no marker) not matched');
   env.click(h.help,{button:0}); ok(!popOpen(env),'workspace: help (no marker) not matched');

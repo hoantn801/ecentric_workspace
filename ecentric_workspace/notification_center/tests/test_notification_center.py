@@ -470,9 +470,19 @@ class TestSingleBell(unittest.TestCase):
         self.assertIn('href="/app/notification-log"', self.js)
 
     def test_dismissal_and_keyboard(self):
+        # robust dismissal: composedPath()/contains inside-check, pointerdown to close,
+        # Escape to close; scroll/resize RE-ANCHOR (never close).
         self.assertIn("'Escape'", self.js)
-        self.assertIn("!pop.contains(ev.target) && !bell.contains(ev.target)", self.js)
+        self.assertIn("function eventIsInside(", self.js)
+        self.assertIn("ev.composedPath", self.js)
+        self.assertIn("addEventListener('pointerdown'", self.js)
         self.assertIn("setAttribute('tabindex', '0')", self.js)
+        # the scroll-close bug must be gone (scroll now only re-anchors):
+        self.assertNotIn("window.addEventListener('scroll', function () { if (S.open) close(); }", self.js)
+        self.assertIn("window.addEventListener('scroll', function () { if (S.open) position(); }", self.js)
+        # no blur/focusout dismissal:
+        self.assertNotIn("addEventListener('focusout'", self.js)
+        self.assertNotIn("addEventListener('blur'", self.js)
 
     def test_only_plain_left_click_is_intercepted(self):
         # Ctrl/Cmd/Shift/Alt/middle-click keep the native /app/notification-log behaviour.
@@ -633,7 +643,7 @@ class TestDomRuntime(unittest.TestCase):
         node = shutil.which("node")
         if not node:
             self.skipTest("node not available")
-        for harness_name in ("bell_click_check.js", "bell_contract_transform_check.js"):
+        for harness_name in ("bell_click_check.js", "bell_contract_transform_check.js", "dropdown_dismissal_check.js"):
             harness = os.path.join(_pkg_root(), "notification_center", "tests",
                                    harness_name)
             proc = subprocess.run([node, harness], capture_output=True, text=True, timeout=60)
