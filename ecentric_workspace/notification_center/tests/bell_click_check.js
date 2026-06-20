@@ -100,109 +100,115 @@ function makeEnv(pathname){
 }
 function run(env){ new Function('window','document','console',SRC)(env.win,env.document,console); }
 
-// ---- build the two REAL shells + decoys ----
-function makeBell(kind){
-  const legacy={inline:0,prop:0,addEL:0,deleg:0}; let bell;
-  if(kind==='button'){
-    bell=new El('button'); bell.className='icon-btn'; bell.setAttribute('title','Thông báo');
-    bell.setAttribute('onclick',"alert('x')"); bell._inlineHandler=()=>legacy.inline++;
-    const svg=new El('svg'); svg.appendChild(new El('path')); bell.appendChild(svg);
-  } else {
-    bell=new El('a'); bell.className='icon-btn'; bell.setAttribute('href','/app/notification-log');
-    const svg=new El('svg'); const use=new El('use'); use.setAttribute('href','#i-bell'); svg.appendChild(use); bell.appendChild(svg);
-  }
-  bell.onclick=()=>legacy.prop++; bell.addEventListener('click',()=>legacy.addEL++);
+// ---- build shells around the CANONICAL marker contract ----
+function canonicalBell(){            // Workspace / Approval-after-transform / PM
+  const legacy={inline:0,prop:0,addEL:0,deleg:0};
+  const bell=new El('a'); bell.className='icon-btn'; bell.setAttribute('href','/app/notification-log');
+  bell.setAttribute('data-ec-notification-bell','1'); bell.setAttribute('aria-label','Thong bao');
+  const svg=new El('svg'); const use=new El('use'); use.setAttribute('href','#i-bell'); svg.appendChild(use); bell.appendChild(svg);
   const dot=new El('span'); dot.className='dot'; bell.appendChild(dot);
+  bell.onclick=()=>legacy.prop++; bell.addEventListener('click',()=>legacy.addEL++);
   return {bell,legacy};
 }
-function addShell(env,kind,opts){ opts=opts||{};
-  let tb=env.body.querySelector('.topbar-actions');
-  if(!tb){ tb=new El('div'); tb.className='topbar-actions'; const topbar=new El('div'); topbar.className='topbar'; topbar.appendChild(tb); env.body.appendChild(topbar); }
-  const {bell,legacy}=makeBell(kind); tb.appendChild(bell);
-  env.document.addEventListener('click',e=>{ let t=e.target; while(t){ if(t===bell){legacy.deleg++;break;} t=t.parentNode; } },false);
-  const settings=new El('button'); settings.className='icon-btn'; settings.setAttribute('title','Cài đặt');
-  let setFired=0; settings.setAttribute('onclick',"alert('s')"); settings._inlineHandler=()=>setFired++; tb.appendChild(settings);
-  let pc=null;
-  if(opts.pageDecoy){ const art=new El('article'); art.className='web-page-content'; env.body.appendChild(art);
-    pc=new El('a'); pc.className='icon-btn'; pc.setAttribute('href','/app/notification-log');
-    const svg=new El('svg'); const use=new El('use'); use.setAttribute('href','#i-bell'); svg.appendChild(use); pc.appendChild(svg); art.appendChild(pc); }
-  return {bell,legacy,settings,getSetFired:()=>setFired,pageDecoy:pc};
+function legacyButton(){              // Approval BEFORE transform (NO marker)
+  const legacy={inline:0,prop:0,addEL:0,deleg:0};
+  const bell=new El('button'); bell.className='icon-btn'; bell.setAttribute('title','Thong bao');
+  bell.setAttribute('onclick',"alert('x')"); bell._inlineHandler=()=>legacy.inline++;
+  const svg=new El('svg'); svg.appendChild(new El('path')); bell.appendChild(svg);
+  const dot=new El('span'); dot.className='dot'; bell.appendChild(dot);
+  bell.onclick=()=>legacy.prop++; bell.addEventListener('click',()=>legacy.addEL++);
+  return {bell,legacy};
 }
-function badgeCount(bell){ return bell.querySelectorAll('.ec-nc-badge').length; }
+function addTopbar(env){
+  const topbar=new El('div'); topbar.className='topbar'; const tb=new El('div'); tb.className='topbar-actions';
+  topbar.appendChild(tb); env.body.appendChild(topbar);
+  const help=new El('a'); help.className='icon-btn'; help.setAttribute('href','/help'); help.setAttribute('title','Tro giup'); tb.appendChild(help);
+  const settings=new El('button'); settings.className='icon-btn'; settings.setAttribute('title','Cai dat');
+  let sf=0; settings.setAttribute('onclick','y'); settings._inlineHandler=()=>sf++; tb.appendChild(settings);
+  return {topbar,tb,help,settings,getSf:()=>sf};
+}
+function pageDecoy(env){ // a notification-log anchor in page CONTENT with NO marker
+  const art=new El('article'); art.className='web-page-content'; env.body.appendChild(art);
+  const a=new El('a'); a.className='icon-btn'; a.setAttribute('href','/app/notification-log'); art.appendChild(a); return a;
+}
+function badgeCount(b){ return b.querySelectorAll('.ec-nc-badge').length; }
 function popOpen(env){ const p=env.document.getElementById('ec-nc-pop-root'); return !!(p&&p.classList.contains('on')); }
 function popCount(env){ return env.body.querySelectorAll('.ec-nc-pop').length; }
 function capCount(env){ return env.document._docCaps.length; }
-function legacySum(l){ return l.inline+l.prop+l.addEL+l.deleg; }
+function sum(l){ return l.inline+l.prop+l.addEL+l.deleg; }
 
-// ===== 1) /home anchor shell: matrix, plain open + no legacy, modifier native, decoys ignored =====
+// ===== 1) WORKSPACE shell (canonical anchor marker) =====
 (function(){
-  const env=makeEnv('/home'); const sh=addShell(env,'anchor',{pageDecoy:true}); run(env);
-  ok(badgeCount(sh.bell)===1,'/home: one badge on the anchor bell');
-  ok(popCount(env)===1 && capCount(env)===1,'/home: one dropdown + one capture listener');
-  const badge=sh.bell.querySelector('.ec-nc-badge');
-  env.setUnread(1); const e1=env.click(sh.bell,{button:0});
-  ok(popOpen(env)&&badge.textContent==='1'&&!badge.classList.contains('ec-nc-badge--pill'),'/home: unread1 circle + opens');
-  ok(legacySum(sh.legacy)===0 && e1.defaultPrevented,'/home: plain click no legacy + preventDefault'); env.click(env.body,{});
-  env.setUnread(10); env.click(sh.bell,{button:0}); ok(badge.textContent==='9+'&&badge.classList.contains('ec-nc-badge--pill'),'/home: unread10 -> 9+ pill'); env.click(env.body,{});
-  env.setUnread(0); env.click(sh.bell,{button:0}); ok(badge.classList.contains('on')===false,'/home: unread0 hidden'); env.click(env.body,{});
-  const ec=env.click(sh.bell,{button:0,ctrlKey:true}); ok(!popOpen(env)&&ec.defaultPrevented===false,'/home: anchor Ctrl-click keeps native nav');
-  const em=env.click(sh.bell,{button:1}); ok(!popOpen(env)&&em.defaultPrevented===false,'/home: anchor middle-click keeps native');
-  // decoys
-  const es=env.click(sh.settings,{button:0}); ok(!popOpen(env),'/home: settings button NOT matched (no dropdown)');
-  const ep=env.click(sh.pageDecoy,{button:0}); ok(!popOpen(env)&&ep.defaultPrevented===false,'/home: page-content bell OUTSIDE header NOT matched');
+  const env=makeEnv('/home'); const h=addTopbar(env); const {bell,legacy}=canonicalBell(); h.tb.appendChild(bell);
+  const pd=pageDecoy(env); run(env);
+  ok(badgeCount(bell)===1,'workspace: one badge on canonical marker bell');
+  ok(popCount(env)===1&&capCount(env)===1,'workspace: one dropdown + one capture listener');
+  const badge=bell.querySelector('.ec-nc-badge');
+  env.setUnread(1); const e1=env.click(bell,{button:0});
+  ok(popOpen(env)&&badge.textContent==='1','workspace: plain click opens, unread1 circle');
+  ok(sum(legacy)===0&&e1.defaultPrevented,'workspace: no legacy + preventDefault'); env.click(env.body,{});
+  env.setUnread(10); env.click(bell,{button:0}); ok(badge.textContent==='9+'&&badge.classList.contains('ec-nc-badge--pill'),'workspace: unread10 -> 9+ pill'); env.click(env.body,{});
+  const ec=env.click(bell,{button:0,ctrlKey:true}); ok(!popOpen(env)&&ec.defaultPrevented===false,'workspace: Ctrl-click keeps native nav');
+  env.click(h.settings,{button:0}); ok(!popOpen(env),'workspace: settings (no marker) not matched');
+  env.click(h.help,{button:0}); ok(!popOpen(env),'workspace: help (no marker) not matched');
+  const ep=env.click(pd,{button:0}); ok(!popOpen(env)&&ep.defaultPrevented===false,'workspace: page-content notif anchor (no marker) not matched');
 })();
 
-// ===== 2) /approval BUTTON shell, bell rendered AFTER init (the production bug) =====
+// ===== 2) APPROVAL shell BEFORE transform: legacy button has NO marker -> asset ignores it =====
 (function(){
-  const env=makeEnv('/approval'); run(env);                       // no bell yet
-  ok(capCount(env)===1,'/approval: capture listener installed before bell exists');
-  const sh=addShell(env,'button',{}); env.fireObservers();        // header renders later
-  ok(badgeCount(sh.bell)===1,'/approval: badge mounted on dynamic BUTTON bell (observer + getNotificationBellTarget)');
-  const e=env.click(sh.bell,{button:0});
-  ok(popOpen(env)===true,'/approval: plain click OPENS dropdown on button bell');
-  ok(legacySum(sh.legacy)===0,'/approval: NO legacy "tinh nang dang phat trien" handler fires');
-  ok(e.defaultPrevented===true,'/approval: plain click preventDefault');
-  // button modifier click: suppress legacy too (no native target), do not open
-  env.click(env.body,{}); const ec=env.click(sh.bell,{button:0,ctrlKey:true});
-  ok(!popOpen(env) && legacySum(sh.legacy)===0,'/approval: Ctrl-click on button suppresses legacy, no dropdown');
-  // settings decoy never matches
-  const es=env.click(sh.settings,{button:0}); ok(!popOpen(env)&&sh.getSetFired()>0,'/approval: settings button NOT matched (its own handler runs, no dropdown)');
+  const env=makeEnv('/approval'); const h=addTopbar(env); const {bell,legacy}=legacyButton(); h.tb.appendChild(bell); run(env);
+  ok(bell.querySelector('.ec-nc-badge')===null,'approval(pre-transform): asset does NOT mount badge on un-marked legacy button');
+  const e=env.click(bell,{button:0});
+  ok(popOpen(env)===false,'approval(pre-transform): asset does NOT open (marker required) -> transform is mandatory');
+  ok(e.defaultPrevented===false,'approval(pre-transform): asset does not touch un-marked element');
 })();
 
-// ===== 3) header RERENDER after install (button shell), legacy attached AFTER =====
+// ===== 2b) APPROVAL shell AFTER transform: canonical anchor marker -> works, no legacy =====
 (function(){
-  const env=makeEnv('/approval'); addShell(env,'button',{}); run(env);
-  const oldTopbar=env.body.querySelector('.topbar'); if(oldTopbar) env.body.removeChild(oldTopbar);
-  const sh=addShell(env,'button',{}); env.fireObservers();
-  ok(badgeCount(sh.bell)===1,'rerender: one badge on new bell');
-  ok(popCount(env)===1 && capCount(env)===1,'rerender: one dropdown + one capture listener');
-  const e=env.click(sh.bell,{button:0});
-  ok(popOpen(env)===true && legacySum(sh.legacy)===0,'rerender: plain click opens + legacy attached AFTER never fires');
+  const env=makeEnv('/approval'); const h=addTopbar(env); const {bell,legacy}=canonicalBell(); h.tb.appendChild(bell); run(env);
+  const e=env.click(bell,{button:0});
+  ok(popOpen(env)===true&&sum(legacy)===0&&e.defaultPrevented,'approval(post-transform): canonical bell opens, no legacy alert');
 })();
 
-// ===== 4) reinstall -> no duplicates =====
+// ===== 3) APPROVAL dynamic: canonical bell rendered AFTER init =====
 (function(){
-  const env=makeEnv('/overview'); const sh=addShell(env,'anchor',{}); run(env); run(env);
-  ok(badgeCount(sh.bell)===1 && popCount(env)===1 && capCount(env)===1,'reinstall: one badge/dropdown/capture-listener');
+  const env=makeEnv('/approval'); run(env);
+  ok(capCount(env)===1,'approval-dynamic: capture listener before bell exists');
+  const h=addTopbar(env); const {bell,legacy}=canonicalBell(); h.tb.appendChild(bell); env.fireObservers();
+  ok(badgeCount(bell)===1,'approval-dynamic: badge mounts on dynamically-rendered canonical bell');
+  ok(env.click(bell,{button:0})&&popOpen(env)&&sum(legacy)===0,'approval-dynamic: plain click opens, no legacy');
 })();
 
-// ===== 5) Desk + public inert =====
-(function(){ const env=makeEnv('/app/build'); const sh=addShell(env,'button',{}); run(env);
-  ok(sh.bell.querySelector('.ec-nc-badge')===null && capCount(env)===0 && env.calls.length===0,'/app/*: fully inert'); })();
-(function(){ const env=makeEnv('/login'); let threw=false; try{run(env);}catch(e){threw=true;} ok(!threw,'/login (no bell): no error'); })();
-
-// ===== 6) notification HTML -> safe plain text =====
+// ===== 4) PM shell (canonical marker after pm_app.html edit) =====
 (function(){
-  const env=makeEnv('/home'); const sh=addShell(env,'anchor',{});
+  const env=makeEnv('/pm'); const h=addTopbar(env); const {bell,legacy}=canonicalBell(); h.tb.appendChild(bell); run(env);
+  ok(badgeCount(bell)===1,'pm: badge on canonical bell');
+  ok(env.click(bell,{button:0})&&popOpen(env)&&sum(legacy)===0,'pm: plain click opens GLOBAL dropdown (not PM page), no legacy');
+})();
+
+// ===== 5) header RERENDER + reinstall (no dup) =====
+(function(){
+  const env=makeEnv('/approval'); const h0=addTopbar(env); const c0=canonicalBell(); h0.tb.appendChild(c0.bell); run(env);
+  env.body.removeChild(h0.topbar); const h=addTopbar(env); const {bell}=canonicalBell(); h.tb.appendChild(bell); env.fireObservers();
+  ok(badgeCount(bell)===1&&popCount(env)===1&&capCount(env)===1,'rerender: one badge/dropdown/capture-listener on new bell');
+  run(env);
+  ok(badgeCount(bell)===1&&popCount(env)===1&&capCount(env)===1,'reinstall: still one badge/dropdown/capture-listener');
+})();
+
+// ===== 6) Desk + public inert =====
+(function(){ const env=makeEnv('/app/build'); const h=addTopbar(env); const {bell}=canonicalBell(); h.tb.appendChild(bell); run(env);
+  ok(bell.querySelector('.ec-nc-badge')===null&&capCount(env)===0&&env.calls.length===0,'/app/*: fully inert (Desk bell never bound)'); })();
+(function(){ const env=makeEnv('/login'); let t=false; try{run(env);}catch(e){t=true;} ok(!t,'/login (no bell): no error'); })();
+
+// ===== 7) notification HTML -> safe plain text =====
+(function(){
+  const env=makeEnv('/home'); const h=addTopbar(env); const {bell}=canonicalBell(); h.tb.appendChild(bell);
   env.setItems([{name:'N1',subject:'<strong>Hi</strong> &amp; <div>there</div>',message:'<br><b>Body</b> <script>x()<\/script>',source_label:'<i>WR</i>',action_url:'/weekly-update?week=2026-W26',is_read:0,created_at:'2026-06-20 08:00:00'}]);
-  env.setUnread(1); run(env); env.click(sh.bell,{button:0});
-  const list=env.document.getElementById('ec-nc-pop-root').querySelector('#ec-nc-list');
-  const item=list.children[0];
-  const subj=item.querySelector('.ec-nc-subj').textContent;
-  const msg=item.querySelector('.ec-nc-msg').textContent;
-  ok(subj.indexOf('<')<0&&subj.indexOf('>')<0,'plaintext: subject no angle brackets');
-  ok(subj==='Hi & there','plaintext: subject decoded+stripped (got: '+subj+')');
-  ok(msg.indexOf('<')<0&&msg==='Body x()','plaintext: message stripped (got: '+msg+')');
+  env.setUnread(1); run(env); env.click(bell,{button:0});
+  const list=env.document.getElementById('ec-nc-pop-root').querySelector('#ec-nc-list'); const item=list.children[0];
+  const subj=item.querySelector('.ec-nc-subj').textContent; const msg=item.querySelector('.ec-nc-msg').textContent;
+  ok(subj==='Hi & there'&&subj.indexOf('<')<0,'plaintext: subject decoded+stripped');
+  ok(msg==='Body x()'&&msg.indexOf('<')<0,'plaintext: message stripped');
   ok(item.getAttribute('href')==='/weekly-update?week=2026-W26','plaintext: href = server action_url');
 })();
 
