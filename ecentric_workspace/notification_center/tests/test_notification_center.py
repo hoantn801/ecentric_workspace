@@ -492,10 +492,16 @@ class TestGlobalShellLoader(unittest.TestCase):
 
     # ---- single shared global loader point ----
     def test_web_include_js_registers_asset_globally(self):
-        self.assertIn(
-            'web_include_js = ["/assets/ecentric_workspace/js/notification_center.js"]',
-            self.hooks,
-            "asset must be registered as a global website include (one shared point)")
+        # Loaded as a CONTENT-HASHED bundle so deploys bust the immutable /assets cache
+        # uniformly (raw un-versioned /assets path caused stale-asset on some routes).
+        self.assertIn('web_include_js = ["notification_center.bundle.js"]', self.hooks,
+                      "asset must load via the content-hashed bundle (cache-bust)")
+        self.assertNotIn('web_include_js = ["/assets/ecentric_workspace/js/notification_center.js"]',
+                         self.hooks, "must NOT use the raw un-versioned /assets path (immutable cache -> stale)")
+        bundle = os.path.join(_pkg_root(), "public", "js", "notification_center.bundle.js")
+        self.assertTrue(os.path.exists(bundle), "bundle entry file must exist")
+        with open(bundle, encoding="utf-8") as fh:
+            self.assertIn('import "./notification_center.js"', fh.read())
 
     def test_not_bound_to_frappe_desk_app_include(self):
         # app_include_js would load into Frappe Desk (/app) and bind its native bell;
