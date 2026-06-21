@@ -1,0 +1,29 @@
+{
+ "doctype": "DocType",
+ "name": "EC Notification Preference",
+ "module": "Notification Center",
+ "custom": 0, "istable": 0, "issingle": 0, "is_virtual": 0,
+ "editable_grid": 1, "engine": "InnoDB", "track_changes": 1,
+ "autoname": "field:user",
+ "sort_field": "modified", "sort_order": "DESC",
+ "field_order": ["user","sec_channels","sound_enabled","desktop_enabled","teams_enabled","cb_ch","minimum_severity","enabled_event_types","sec_quiet","quiet_hours_enabled","quiet_hours_start","quiet_hours_end","timezone"],
+ "fields": [
+  {"fieldname":"user","fieldtype":"Link","label":"User","options":"User","reqd":1,"unique":1,"in_list_view":1},
+  {"fieldname":"sec_channels","fieldtype":"Section Break","label":"Channels"},
+  {"fieldname":"sound_enabled","fieldtype":"Check","label":"Sound Enabled","default":"1"},
+  {"fieldname":"desktop_enabled","fieldtype":"Check","label":"Desktop Notifications Enabled","default":"0"},
+  {"fieldname":"teams_enabled","fieldtype":"Check","label":"Microsoft Teams Enabled","default":"0"},
+  {"fieldname":"cb_ch","fieldtype":"Column Break"},
+  {"fieldname":"minimum_severity","fieldtype":"Select","label":"Minimum Severity","options":"info\naction_required\nurgent","default":"info"},
+  {"fieldname":"enabled_event_types","fieldtype":"Small Text","label":"Enabled Event Types (comma-separated; blank = all)"},
+  {"fieldname":"sec_quiet","fieldtype":"Section Break","label":"Quiet Hours"},
+  {"fieldname":"quiet_hours_enabled","fieldtype":"Check","label":"Quiet Hours Enabled","default":"0"},
+  {"fieldname":"quiet_hours_start","fieldtype":"Time","label":"Quiet Hours Start"},
+  {"fieldname":"quiet_hours_end","fieldtype":"Time","label":"Quiet Hours End"},
+  {"fieldname":"timezone","fieldtype":"Data","label":"Timezone"}
+ ],
+ "permissions": [
+  {"role":"System Manager","read":1,"write":1,"create":1,"delete":1,"report":1,"export":1},
+  {"role":"All","read":1,"write":1,"create":1,"if_owner":1}
+ ]
+}

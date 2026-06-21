@@ -85,6 +85,12 @@ scheduler_events = {
         "*/15 * * * *": [
             "ecentric_workspace.alerts.tasks.scheduled_omisell_pull",
         ],
+        # Notification Delivery v1: bounded Teams retry sweep. Idempotent -- only picks
+        # up EC Notification Delivery Log rows (channel=teams, status=Failed) whose
+        # next_retry_at is due and attempt_count < MAX_ATTEMPTS.
+        "*/5 * * * *": [
+            "ecentric_workspace.notification_center.providers.teams.process_teams_retries",
+        ],
     },
 }
 

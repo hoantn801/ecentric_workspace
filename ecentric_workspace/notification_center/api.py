@@ -90,3 +90,53 @@ def mark_all_read():
         "UPDATE `tabNotification Log` SET `read`=1 WHERE for_user=%s AND `read`=0", user)
     frappe.db.commit()
     return {"success": True}
+
+
+# --------------------------------------------------------------------------- preferences
+from ecentric_workspace.notification_center import events as _events
+
+_PREF_DT = "EC Notification Preference"
+_PREF_BOOL = ("sound_enabled", "desktop_enabled", "teams_enabled", "quiet_hours_enabled")
+_PREF_OTHER = ("quiet_hours_start", "quiet_hours_end", "timezone",
+               "minimum_severity", "enabled_event_types")
+
+
+@frappe.whitelist(methods=["GET"])
+def get_preferences():
+    """Return the CURRENT user's notification preferences (defaults if none saved)."""
+    user = _current_user()
+    if not user:
+        return {"success": False, "error": "Unauthorized"}
+    return {"success": True, "preferences": _events.get_preference(user)}
+
+
+@frappe.whitelist(methods=["POST"])
+def set_preferences(sound_enabled=None, desktop_enabled=None, teams_enabled=None,
+                    quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
+                    timezone=None, minimum_severity=None, enabled_event_types=None):
+    """Upsert the CURRENT user's preferences. Scoped strictly to frappe.session.user --
+    the client can never pass a `user`; one record per user (name = user)."""
+    user = _current_user()
+    if not user:
+        return {"success": False, "error": "Unauthorized"}
+    incoming = {
+        "sound_enabled": sound_enabled, "desktop_enabled": desktop_enabled,
+        "teams_enabled": teams_enabled, "quiet_hours_enabled": quiet_hours_enabled,
+        "quiet_hours_start": quiet_hours_start, "quiet_hours_end": quiet_hours_end,
+        "timezone": timezone, "minimum_severity": minimum_severity,
+        "enabled_event_types": enabled_event_types,
+    }
+    if frappe.db.exists(_PREF_DT, user):
+        doc = frappe.get_doc(_PREF_DT, user)
+    else:
+        doc = frappe.get_doc({"doctype": _PREF_DT, "user": user})
+    for k, v in incoming.items():
+        if v is None:
+            continue
+        if k in _PREF_BOOL:
+            doc.set(k, 1 if str(v) in ("1", "true", "True", "yes", "on") else 0)
+        else:
+            doc.set(k, v)
+    doc.save(ignore_permissions=True)  # safe: user value is forced to session user
+    frappe.db.commit()
+    return {"success": True, "preferences": _events.get_preference(user)}

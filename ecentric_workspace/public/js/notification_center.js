@@ -87,6 +87,13 @@
 
   var S = { items: [], unread: 0, open: false, interacted: false };
   var bell, badgeEl, pop, listEl, mo;
+  // delivery v1 client state ------------------------------------------------
+  var P = { sound_enabled: 1, desktop_enabled: 0, teams_enabled: 0, quiet_hours_enabled: 0,
+            quiet_hours_start: null, quiet_hours_end: null, minimum_severity: 'info', enabled_event_types: '' };
+  var SEV_RANK = { info: 0, action_required: 1, urgent: 2 };
+  var TOAST_MAX = 3, toasts = [];
+  var seen = {}, seenOrder = [], SEEN_KEY = 'ec_notif_seen';
+  var prefCtl = {};
 
   // ---- styles: classes, reusing /home design tokens ------------------------
   function injectCss() {
@@ -119,7 +126,23 @@
       '.ec-nc-ft{display:flex;align-items:stretch;border-top:1px solid var(--gray-100,#f1f2f4);}' +
       '.ec-nc-ft > *{flex:1;text-align:center;padding:10px;font-size:12.5px;font-weight:600;color:var(--navy,#2C3DA6);background:none;border:none;cursor:pointer;text-decoration:none !important;font-family:inherit;}' +
       '.ec-nc-ft > *:hover{background:var(--gray-50,#f7f8fb);}' +
-      '.ec-nc-ft .ec-nc-sep{flex:0 0 1px;padding:0;background:var(--gray-100,#f1f2f4);}';
+      '.ec-nc-ft .ec-nc-sep{flex:0 0 1px;padding:0;background:var(--gray-100,#f1f2f4);}' +
+      '#ec-nc-toasts{position:fixed;right:16px;bottom:16px;z-index:1100;display:flex;flex-direction:column;gap:10px;max-width:360px;width:92vw;pointer-events:none;}' +
+      '.ec-nc-toast{position:relative;pointer-events:auto;background:#fff;border:1px solid var(--gray-200,#e5e7eb);border-left:4px solid var(--navy,#2C3DA6);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.12);padding:11px 30px 11px 13px;opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;font-family:inherit;}' +
+      '.ec-nc-toast.on{opacity:1;transform:none;}' +
+      '.ec-nc-toast--action_required{border-left-color:#FFB900;}' +
+      '.ec-nc-toast--urgent{border-left-color:#D13438;}' +
+      '.ec-nc-toast-ttl{font-size:13px;font-weight:600;color:var(--gray-900,#111827);line-height:1.35;}' +
+      '.ec-nc-toast-msg{font-size:11.5px;color:var(--gray-600,#6b7280);margin-top:2px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}' +
+      '.ec-nc-toast-meta{font-size:10.5px;color:var(--gray-400,#9ca3af);margin-top:4px;}' +
+      '.ec-nc-toast-x{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;color:var(--gray-400,#9ca3af);cursor:pointer;}' +
+      '.ec-nc-prefs{display:none;padding:10px 14px;overflow-y:auto;}' +
+      '.ec-nc-pop.prefs .ec-nc-list{display:none;}' +
+      '.ec-nc-pop.prefs .ec-nc-prefs{display:block;}' +
+      '.ec-nc-prow{display:flex;align-items:center;gap:8px;padding:7px 0;font-size:12.5px;color:var(--gray-800,#1f2937);}' +
+      '.ec-nc-prow > span:first-child{flex:1;}' +
+      '.ec-nc-prefbtn{display:block;width:100%;margin:6px 0;padding:8px;border:1px solid var(--navy,#2C3DA6);background:none;color:var(--navy,#2C3DA6);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}' +
+      '.ec-nc-prefbtn:hover{background:var(--gray-50,#f7f8fb);}';
     document.head.appendChild(st);
   }
 
@@ -157,9 +180,11 @@
     pop.innerHTML =
       '<div class="ec-nc-hd">' +
         '<h4>Thông báo</h4>' +
+        '<button class="ec-nc-mute" id="ec-nc-prefs-btn" type="button" title="Cài đặt thông báo" aria-label="Cài đặt thông báo">\u2699</button>' +
         '<button class="ec-nc-mute" id="ec-nc-mute" type="button"></button>' +
       '</div>' +
       '<div class="ec-nc-list" id="ec-nc-list"></div>' +
+      '<div class="ec-nc-prefs" id="ec-nc-prefs"></div>' +
       '<div class="ec-nc-ft">' +
         '<button id="ec-nc-allread" type="button">Đánh dấu tất cả đã đọc</button>' +
         '<span class="ec-nc-sep"></span>' +
@@ -169,6 +194,10 @@
     listEl = pop.querySelector('#ec-nc-list');
     pop.querySelector('#ec-nc-allread').addEventListener('click', markAll);
     pop.querySelector('#ec-nc-mute').addEventListener('click', function () { setMuted(!isMuted()); renderMute(); });
+    pop.querySelector('#ec-nc-prefs-btn').addEventListener('click', function () {
+      pop.classList.toggle('prefs'); if (pop.classList.contains('prefs')) renderPrefsPanel();
+    });
+    buildPrefsPanel();
     renderMute();
   }
 
@@ -303,12 +332,171 @@
       o.start(); o.stop(ctx.currentTime + 0.36);
     } catch (e) {}
   }
+
+  // ---- preferences (client mirror of EC Notification Preference) ----------
+  function applyPrefs(pr) { if (!pr) return; for (var k in P) { if (pr[k] != null) P[k] = pr[k]; } }
+  function loadPrefs() {
+    call('get_preferences', 'GET', {}, function (msg) {
+      if (msg && msg.success && msg.preferences) { applyPrefs(msg.preferences); renderPrefsPanel(); }
+    });
+  }
+  function savePrefs(patch, cb) {
+    call('set_preferences', 'POST', patch, function (msg) {
+      if (msg && msg.success && msg.preferences) { applyPrefs(msg.preferences); }
+      renderPrefsPanel(); if (cb) cb(msg);
+    });
+  }
+  function fmtTime(t) { if (!t) return ''; var x = String(t).split(':'); if (x.length < 2) return ''; var h = parseInt(x[0], 10), m = parseInt(x[1], 10); if (isNaN(h) || isNaN(m)) return ''; return ('0' + h).slice(-2) + ':' + ('0' + m).slice(-2); }
+  function toMin(t) { if (t == null) return null; var x = String(t).split(':'); if (x.length < 2) return null; var h = parseInt(x[0], 10), m = parseInt(x[1], 10); return (isNaN(h) || isNaN(m)) ? null : h * 60 + m; }
+  // quiet hours, mirrors server logic incl. midnight crossing (start > end).
+  function inQuiet() {
+    if (!P.quiet_hours_enabled) return false;
+    var sm = toMin(P.quiet_hours_start), em = toMin(P.quiet_hours_end);
+    if (sm == null || em == null || sm === em) return false;
+    var d = new Date(), n = d.getHours() * 60 + d.getMinutes();
+    return sm < em ? (n >= sm && n < em) : (n >= sm || n < em);
+  }
+
+  // ---- per-event dedupe (persisted so reload/reconnect never re-alerts) ----
+  function loadSeen() {
+    try { var a = JSON.parse(window.localStorage.getItem(SEEN_KEY) || '[]'); if (a && a.length) { a.forEach(function (id) { if (id && !seen[id]) { seen[id] = true; seenOrder.push(id); } }); } } catch (e) {}
+  }
+  function persistSeen() { try { window.localStorage.setItem(SEEN_KEY, JSON.stringify(seenOrder.slice(-200))); } catch (e) {} }
+  function markSeen(id) {
+    if (!id) return false;            // no id -> cannot dedupe -> treat as not-fresh (no alert)
+    if (seen[id]) return false;
+    seen[id] = true; seenOrder.push(id);
+    if (seenOrder.length > 500) { delete seen[seenOrder.shift()]; }
+    persistSeen(); return true;
+  }
+
+  // ---- toast (corner, max 3, plain text, click -> action_url) --------------
+  function ensureToastRoot() { var r = document.getElementById('ec-nc-toasts'); if (!r) { r = document.createElement('div'); r.id = 'ec-nc-toasts'; document.body.appendChild(r); } return r; }
+  function pickTitle(d) { return toPlainText(d.title || (d.item && d.item.subject) || 'Thông báo'); }
+  function pickMsg(d) { return toPlainText(d.message || (d.item && d.item.message) || ''); }
+  function pickUrl(d) { return safeActionUrl(d.action_url || (d.item && d.item.action_url) || ''); }
+  function dismissToast(el) {
+    if (!el) return; var i = toasts.indexOf(el); if (i >= 0) toasts.splice(i, 1);
+    if (el._timer) clearTimeout(el._timer); el.classList.remove('on');
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 250);
+  }
+  function showToast(d) {
+    var root = ensureToastRoot();
+    var sev = d.severity || 'info';
+    var el = document.createElement('div');
+    el.className = 'ec-nc-toast ec-nc-toast--' + sev;
+    el.setAttribute('role', 'status');
+    var ttl = document.createElement('div'); ttl.className = 'ec-nc-toast-ttl'; ttl.textContent = pickTitle(d); el.appendChild(ttl);
+    var bt = pickMsg(d); if (bt) { var bd = document.createElement('div'); bd.className = 'ec-nc-toast-msg'; bd.textContent = bt; el.appendChild(bd); }
+    var mt = document.createElement('div'); mt.className = 'ec-nc-toast-meta'; mt.textContent = ago(d.created_at) || 'vừa xong'; el.appendChild(mt);
+    var x = document.createElement('button'); x.className = 'ec-nc-toast-x'; x.type = 'button'; x.setAttribute('aria-label', 'Đóng'); x.textContent = '\u00d7';
+    x.addEventListener('click', function (ev) { ev.stopPropagation(); dismissToast(el); });
+    el.appendChild(x);
+    var url = pickUrl(d);
+    if (url) { el.style.cursor = 'pointer'; el.addEventListener('click', function () { window.location.href = url; }); }
+    root.appendChild(el); toasts.push(el);
+    while (toasts.length > TOAST_MAX) { dismissToast(toasts[0]); }
+    window.requestAnimationFrame ? window.requestAnimationFrame(function () { el.classList.add('on'); }) : el.classList.add('on');
+    var life = (sev === 'urgent' || sev === 'action_required') ? 15000 : 8000;
+    el._timer = setTimeout(function () { dismissToast(el); }, life);
+  }
+
+  // ---- desktop (Web Notification API; opt-in; background-only except urgent) -
+  function desktopSupported() { return 'Notification' in window; }
+  function desktopAllowed() { return desktopSupported() && window.Notification.permission === 'granted' && !!P.desktop_enabled; }
+  function requestDesktopPermission(cb) {
+    if (!desktopSupported()) { if (cb) cb(false); return; }
+    try {
+      var p2 = window.Notification.requestPermission(function (perm) { onPerm(perm); });
+      if (p2 && p2.then) { p2.then(onPerm).catch(function () { if (cb) cb(false); }); }
+    } catch (e) { if (cb) cb(false); }
+    function onPerm(perm) { var ok = perm === 'granted'; if (ok) { savePrefs({ desktop_enabled: 1 }); } if (cb) cb(ok); }
+  }
+  function showDesktop(d) {
+    var sev = d.severity || 'info';
+    if (!document.hidden && sev !== 'urgent') return;   // foreground -> toast handles it (except urgent)
+    if (!desktopAllowed()) return;                       // denied/unsupported -> fallback already shown (toast/inbox)
+    try {
+      var url = pickUrl(d);
+      var n = new window.Notification(pickTitle(d), { body: pickMsg(d), tag: d.event_id || (d.item && d.item.name) || undefined });
+      n.onclick = function () { try { window.focus(); } catch (e) {} if (url) { window.location.href = url; } n.close(); };
+    } catch (e) {}
+  }
+
+  // ---- sound gating (prefs + quiet hours + minimum severity) ---------------
+  function shouldSound(d) {
+    if (isMuted() || !P.sound_enabled || !S.interacted) return false;
+    var sev = d.severity || 'info';
+    if (sev === 'urgent') return true;                  // urgent bypasses quiet/min
+    if (inQuiet()) return false;
+    if (SEV_RANK[sev] < SEV_RANK[P.minimum_severity || 'info']) return false;
+    return true;
+  }
+
+  // ---- preferences panel UI -----------------------------------------------
+  function buildPrefsPanel() {
+    var panel = pop.querySelector('#ec-nc-prefs'); if (!panel) return; panel.innerHTML = '';
+    function row(label) { var r = document.createElement('label'); r.className = 'ec-nc-prow'; var sp = document.createElement('span'); sp.textContent = label; r.appendChild(sp); return r; }
+    function cbx() { var c = document.createElement('input'); c.type = 'checkbox'; return c; }
+    var rs = row('Âm thanh'); prefCtl.sound = cbx(); rs.appendChild(prefCtl.sound); panel.appendChild(rs);
+    prefCtl.sound.addEventListener('change', function () { savePrefs({ sound_enabled: prefCtl.sound.checked ? 1 : 0 }); });
+    var rd = row('Thông báo trên máy tính'); prefCtl.desktop = cbx(); rd.appendChild(prefCtl.desktop); panel.appendChild(rd);
+    prefCtl.desktop.addEventListener('change', function () {
+      if (prefCtl.desktop.checked) { requestDesktopPermission(function (ok) { if (!ok) prefCtl.desktop.checked = false; renderPrefsPanel(); }); }
+      else { savePrefs({ desktop_enabled: 0 }); }
+    });
+    var db = document.createElement('button'); db.type = 'button'; db.className = 'ec-nc-prefbtn'; db.id = 'ec-pref-desktop-btn'; db.textContent = 'Bật thông báo trên máy tính';
+    db.addEventListener('click', function () { requestDesktopPermission(function () { renderPrefsPanel(); }); });
+    panel.appendChild(db);
+    var rt = row('Microsoft Teams'); prefCtl.teams = cbx(); rt.appendChild(prefCtl.teams); panel.appendChild(rt);
+    prefCtl.teams.addEventListener('change', function () { savePrefs({ teams_enabled: prefCtl.teams.checked ? 1 : 0 }); });
+    var rq = row('Giờ im lặng'); prefCtl.quiet = cbx(); rq.appendChild(prefCtl.quiet); panel.appendChild(rq);
+    prefCtl.quiet.addEventListener('change', function () { savePrefs({ quiet_hours_enabled: prefCtl.quiet.checked ? 1 : 0 }); });
+    var rqt = document.createElement('div'); rqt.className = 'ec-nc-prow';
+    prefCtl.qs = document.createElement('input'); prefCtl.qs.type = 'time';
+    prefCtl.qe = document.createElement('input'); prefCtl.qe.type = 'time';
+    var ar = document.createElement('span'); ar.textContent = '\u2192';
+    rqt.appendChild(prefCtl.qs); rqt.appendChild(ar); rqt.appendChild(prefCtl.qe); panel.appendChild(rqt);
+    function saveQuiet() { savePrefs({ quiet_hours_start: prefCtl.qs.value || '', quiet_hours_end: prefCtl.qe.value || '' }); }
+    prefCtl.qs.addEventListener('change', saveQuiet); prefCtl.qe.addEventListener('change', saveQuiet);
+    var rm = row('Mức tối thiểu'); prefCtl.sev = document.createElement('select');
+    [['info', 'Tất cả'], ['action_required', 'Cần xử lý'], ['urgent', 'Khẩn cấp']].forEach(function (o) { var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; prefCtl.sev.appendChild(op); });
+    rm.appendChild(prefCtl.sev); panel.appendChild(rm);
+    prefCtl.sev.addEventListener('change', function () { savePrefs({ minimum_severity: prefCtl.sev.value }); });
+  }
+  function renderPrefsPanel() {
+    if (!prefCtl.sound) return;
+    prefCtl.sound.checked = !!P.sound_enabled;
+    prefCtl.teams.checked = !!P.teams_enabled;
+    prefCtl.quiet.checked = !!P.quiet_hours_enabled;
+    prefCtl.sev.value = P.minimum_severity || 'info';
+    prefCtl.qs.value = fmtTime(P.quiet_hours_start);
+    prefCtl.qe.value = fmtTime(P.quiet_hours_end);
+    var sup = desktopSupported(), granted = sup && window.Notification.permission === 'granted';
+    prefCtl.desktop.checked = !!P.desktop_enabled && granted;
+    prefCtl.desktop.disabled = !sup;
+    var db = pop.querySelector('#ec-pref-desktop-btn');
+    if (db) db.style.display = (sup && !granted) ? 'block' : 'none';
+  }
   function wireRealtime() {
     if (window.frappe && window.frappe.realtime && typeof window.frappe.realtime.on === 'function') {
       window.frappe.realtime.on('ec_notification', function (data) {
-        if (data && typeof data.unread === 'number') S.unread = data.unread;
-        if (data && data.item) S.items.unshift(data.item);
-        renderBadge(); if (S.open) renderList(); ting();
+        data = data || {};
+        // badge + list reflect the latest state (insert deduped by Notification Log name)
+        if (typeof data.unread === 'number') S.unread = data.unread;
+        else if (typeof data.unread_count === 'number') S.unread = data.unread_count;
+        var item = data.item;
+        if (item && item.name) {
+          var dup = false; for (var i = 0; i < S.items.length; i++) { if (S.items[i].name === item.name) { dup = true; break; } }
+          if (!dup) S.items.unshift(item);
+        }
+        renderBadge(); if (S.open) renderList();
+        // toast / sound / desktop fire ONCE per event id; never on reload/reconnect/poll
+        var id = data.event_id || data.notification_name || (item && item.name);
+        if (!markSeen(id)) return;
+        showToast(data);
+        if (shouldSound(data)) ting();
+        showDesktop(data);
       });
       return true;
     }
@@ -379,6 +567,8 @@
     bell = findBell();
     if (bell) { mountBadge(); } else { console.warn('[ec-notification-center] bell not present yet; observer will mount it'); }
     startObserver();
+    loadSeen();
+    loadPrefs();
     refreshCount();
     if (!wireRealtime()) { setInterval(refreshCount, POLL_MS); }
     console.log('[ec-notification-center] installed (global delegated capture loader)');

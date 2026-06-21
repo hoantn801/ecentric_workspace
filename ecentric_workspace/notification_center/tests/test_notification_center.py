@@ -41,6 +41,10 @@ def _install_frappe():
     fr._docs = {}         # (doctype, name) -> field dict (for get_value)
     fr._realtime = []     # captured publish_realtime calls
     fr._webpages = {}     # name -> {route, main_section, main_section_html}
+    fr._delivery = []     # EC Notification Delivery Log store (live doc objects)
+    fr._prefs = {}        # user -> EC Notification Preference doc object
+    fr._enqueued = []     # captured frappe.enqueue calls
+    fr._conf = {}         # site_config stub (frappe.get_conf)
 
     def _nl_by_name(name):
         for r in fr._nl:
@@ -68,6 +72,30 @@ def _install_frappe():
                 if all(wp.get(kk) == vv for kk, vv in filters.items()):
                     out.append({"name": nm})
             return out[:int(limit_page_length or 99)]
+        if doctype == "EC Notification Delivery Log":
+            def _match(r):
+                for kk, vv in filters.items():
+                    rv = r.get(kk)
+                    if isinstance(vv, (list, tuple)) and len(vv) == 2:
+                        op, val = vv
+                        if op == "<=" and not (rv is not None and rv <= val):
+                            return False
+                        if op == "<" and not (rv is not None and rv < val):
+                            return False
+                        if op == ">=" and not (rv is not None and rv >= val):
+                            return False
+                    elif rv != vv:
+                        return False
+                return True
+            rows = [r for r in fr._delivery if _match(r)]
+            lim = k.get("limit")
+            if lim:
+                rows = rows[:int(lim)]
+            if k.get("pluck"):
+                return [r.get(k["pluck"]) for r in rows]
+            if fields:
+                return [{f: r.get(f) for f in fields} for r in rows]
+            return [dict(r) for r in rows]
         return []
 
     def count(doctype, filters=None):
@@ -109,7 +137,20 @@ def _install_frappe():
     db.get_value = get_value
     db.set_value = set_value
     db.sql = sql
-    db.exists = lambda doctype, name: (doctype == "Web Page" and name in fr._webpages)
+    def _exists(doctype, name):
+        if doctype == "Web Page":
+            return name in fr._webpages
+        if doctype == "EC Notification Preference":
+            return name in fr._prefs
+        if doctype == "EC Notification Delivery Log":
+            if isinstance(name, dict):
+                for r in fr._delivery:
+                    if all(r.get(k) == v for k, v in name.items()):
+                        return r.get("name") or True
+                return False
+            return any(r.get("name") == name for r in fr._delivery)
+        return False
+    db.exists = _exists
     db.commit = lambda: None
     fr.db = db
     fr.get_all = get_all
@@ -136,17 +177,74 @@ def _install_frappe():
             fr._webpages[self._name]["main_section"] = self.main_section
             fr._webpages[self._name]["main_section_html"] = self.main_section_html
 
+    class _GenericDoc(dict):
+        def __getattr__(self, kk):
+            try:
+                return self[kk]
+            except KeyError:
+                raise AttributeError(kk)
+        def __setattr__(self, kk, vv):
+            self[kk] = vv
+        def set(self, kk, vv):
+            self[kk] = vv
+
+    class _DeliveryDoc(_GenericDoc):
+        def insert(self, ignore_permissions=False):
+            idem = self.get("idempotency_key")
+            for r in fr._delivery:
+                if r.get("idempotency_key") == idem:
+                    raise Exception("duplicate idempotency_key")   # mimics UNIQUE constraint
+            fr._seq[0] += 1
+            self["name"] = "DLV-%05d" % fr._seq[0]
+            fr._delivery.append(self)            # store the live object so save() mutates it
+            return self
+        def save(self, ignore_permissions=False):
+            return self
+
+    class _PrefDoc(_GenericDoc):
+        def insert(self, ignore_permissions=False):
+            self["name"] = self.get("user")
+            fr._prefs[self["user"]] = self
+            return self
+        def save(self, ignore_permissions=False):
+            self["name"] = self.get("user")
+            fr._prefs[self["user"]] = self
+            return self
+
     def get_doc(arg, name=None):
         if isinstance(arg, dict):
+            dt = arg.get("doctype")
+            if dt == "EC Notification Delivery Log":
+                return _DeliveryDoc(arg)
+            if dt == "EC Notification Preference":
+                return _PrefDoc(arg)
             return _NLDoc(arg)
         if arg == "Web Page":
             return _WPDoc(name, fr._webpages[name])
+        if arg == "EC Notification Delivery Log":
+            for r in fr._delivery:
+                if r.get("name") == name:
+                    return r
+            raise Exception("delivery not found: %r" % name)
+        if arg == "EC Notification Preference":
+            return fr._prefs[name]
         raise Exception("unexpected get_doc(%r,%r)" % (arg, name))
 
     fr.get_doc = get_doc
     fr.publish_realtime = lambda **kw: fr._realtime.append(kw)
+    fr.enqueue = lambda method, **kw: fr._enqueued.append(dict({"method": method}, **kw))
+    fr.get_conf = lambda: fr._conf
+
+    import datetime as _dt
+    def _now():
+        return _dt.datetime(2026, 6, 22, 9, 0, 0)
+    def _add(d, minutes=0, **kw):
+        return (d or _now()) + _dt.timedelta(minutes=minutes)
     fr.utils = types.SimpleNamespace(
-        format_datetime=lambda *a, **k: "Thu 25/06/2026 17:00")
+        format_datetime=lambda *a, **k: "Thu 25/06/2026 17:00",
+        now_datetime=_now,
+        add_to_date=_add,
+        get_datetime=lambda x=None: x or _now())
     sys.modules["frappe"] = fr
     sys.modules["frappe.utils"] = fr.utils
     return fr
@@ -168,6 +266,10 @@ def _add(name, for_user, read=0, subject="s", dtype="", dname="", from_user="sys
 
 def _reset(user="a@x.com"):
     FR._nl[:] = []
+    FR._delivery[:] = []
+    FR._prefs.clear()
+    FR._enqueued[:] = []
+    FR._conf.clear()
     FR._docs.clear()
     FR._realtime[:] = []
     FR._webpages.clear()
@@ -643,7 +745,7 @@ class TestDomRuntime(unittest.TestCase):
         node = shutil.which("node")
         if not node:
             self.skipTest("node not available")
-        for harness_name in ("bell_click_check.js", "bell_contract_transform_check.js", "dropdown_dismissal_check.js"):
+        for harness_name in ("bell_click_check.js", "bell_contract_transform_check.js", "dropdown_dismissal_check.js", "delivery_runtime_check.js"):
             harness = os.path.join(_pkg_root(), "notification_center", "tests",
                                    harness_name)
             proc = subprocess.run([node, harness], capture_output=True, text=True, timeout=60)
@@ -715,3 +817,320 @@ class TestRetireHomepageLoaderPatch(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# =========================================================================== #
+# Notification Delivery v1 — central service, routing, idempotency, prefs, Teams
+# =========================================================================== #
+from ecentric_workspace.notification_center import events as ev          # noqa: E402
+from ecentric_workspace.notification_center.providers import teams as tm  # noqa: E402
+
+
+class TestRoutingMatrix(unittest.TestCase):
+    def setUp(self):
+        _reset("u@x.com"); FR.session.user = "u@x.com"
+
+    def _r(self, et, sev=None, user="u@x.com"):
+        pref = ev.get_preference(user)
+        return ev.resolve_channels(et, sev or ev._DEFAULT_SEVERITY[et], pref)
+
+    def test_inbox_and_toast_always_on(self):
+        for et in ev.EVENT_TYPES:
+            r = self._r(et)
+            self.assertEqual(r["erp"], "deliver", et)
+            self.assertEqual(r["toast"], "deliver", et)
+
+    def test_defaults_no_saved_pref(self):
+        r = self._r("task_assigned")
+        self.assertEqual(r["sound"], "deliver")     # matrix True default
+        self.assertEqual(r["desktop"], "skip")      # 'pref' -> off until opt-in
+        self.assertEqual(r["teams"], "deliver")     # matrix True default (policy on)
+
+    def test_pref_cells_off_by_default(self):
+        r = self._r("task_due_soon")
+        self.assertEqual(r["sound"], "skip")        # 'pref'
+        self.assertEqual(r["teams"], "skip")        # 'pref'
+
+    def test_saved_pref_reduces_true_channel(self):
+        api.set_preferences(sound_enabled=0)        # user turns sound OFF
+        r = self._r("task_assigned")
+        self.assertEqual(r["sound"], "skip")        # reduced even though matrix True
+
+    def test_saved_pref_raises_pref_channel(self):
+        api.set_preferences(teams_enabled=1)        # user opts INTO teams
+        r = self._r("task_due_soon")
+        self.assertEqual(r["teams"], "deliver")
+
+    def test_system_critical_desktop_always(self):
+        r = self._r("system_critical")
+        self.assertEqual(r["desktop"], "deliver")   # matrix True for system_critical
+
+
+class TestQuietHours(unittest.TestCase):
+    def _pref(self, start, end):
+        return {"quiet_hours_enabled": 1, "quiet_hours_start": start,
+                "quiet_hours_end": end, "minimum_severity": "info", "_exists": True,
+                "sound_enabled": 1, "desktop_enabled": 1, "teams_enabled": 1}
+
+    def test_same_day_window(self):
+        p = self._pref("08:00", "10:00")
+        self.assertTrue(ev.in_quiet_hours(p, now_min=9 * 60))
+        self.assertFalse(ev.in_quiet_hours(p, now_min=11 * 60))
+
+    def test_crosses_midnight(self):
+        p = self._pref("22:00", "06:00")
+        self.assertTrue(ev.in_quiet_hours(p, now_min=23 * 60))
+        self.assertTrue(ev.in_quiet_hours(p, now_min=5 * 60))
+        self.assertFalse(ev.in_quiet_hours(p, now_min=12 * 60))
+
+    def test_disabled_or_equal_is_never_quiet(self):
+        self.assertFalse(ev.in_quiet_hours({"quiet_hours_enabled": 0}))
+        p = self._pref("08:00", "08:00")
+        self.assertFalse(ev.in_quiet_hours(p, now_min=8 * 60))
+
+    def test_quiet_suppresses_noisy_channels_not_toast(self):
+        p = self._pref("08:00", "10:00")  # now=09:00 in stub
+        r = ev.resolve_channels("task_assigned", "action_required", p)
+        self.assertEqual(r["sound"], "suppress")
+        self.assertEqual(r["teams"], "suppress")
+        self.assertEqual(r["toast"], "deliver")     # baseline survives quiet hours
+        self.assertEqual(r["erp"], "deliver")
+
+    def test_urgent_bypasses_quiet(self):
+        p = self._pref("08:00", "10:00")
+        r = ev.resolve_channels("task_overdue", "urgent", p)
+        self.assertEqual(r["sound"], "deliver")     # urgent ignores quiet hours
+
+
+class TestSeverityAndEventGates(unittest.TestCase):
+    def test_minimum_severity_suppresses_below(self):
+        p = {"_exists": True, "sound_enabled": 1, "teams_enabled": 1, "desktop_enabled": 1,
+             "minimum_severity": "urgent"}
+        r = ev.resolve_channels("task_assigned", "action_required", p)
+        self.assertEqual(r["sound"], "suppress")
+        self.assertEqual(r["toast"], "deliver")     # baseline unaffected by min severity
+
+    def test_urgent_bypasses_minimum_severity(self):
+        p = {"_exists": True, "sound_enabled": 1, "minimum_severity": "urgent"}
+        r = ev.resolve_channels("system_critical", "urgent", p)
+        self.assertEqual(r["sound"], "deliver")
+
+    def test_enabled_event_types_filter(self):
+        p = {"_exists": True, "sound_enabled": 1, "teams_enabled": 1,
+             "enabled_event_types": "approval_required"}
+        r = ev.resolve_channels("task_assigned", "action_required", p)
+        self.assertEqual(r["sound"], "suppress")    # event type not in user's list
+        r2 = ev.resolve_channels("approval_required", "action_required", p)
+        self.assertEqual(r2["sound"], "deliver")
+
+
+class TestPublishEvent(unittest.TestCase):
+    def setUp(self):
+        _reset("admin@x.com"); FR.session.user = "admin@x.com"
+
+    def test_publish_creates_inbox_realtime_delivery(self):
+        res = ev.publish_notification_event(
+            "task_assigned", "u@x.com", "Việc mới", "Bạn có việc mới",
+            action_url="/app/task/T1", reference_doctype="Task", reference_name="T1")
+        self.assertTrue(res["ok"]); self.assertNotIn("duplicate", res)
+        self.assertEqual(len(FR._nl), 1)                      # inbox source of truth
+        self.assertEqual(FR._nl[0]["for_user"], "u@x.com")
+        # realtime: full contract, recipient-scoped, after commit
+        self.assertEqual(len(FR._realtime), 1)
+        ping = FR._realtime[0]
+        self.assertEqual(ping["user"], "u@x.com")
+        self.assertTrue(ping["after_commit"])
+        for k in ("event_id", "event_type", "severity", "title", "message",
+                  "action_url", "created_at", "unread_count", "item", "unread"):
+            self.assertIn(k, ping["message"], k)
+        # delivery audit rows
+        byc = {d["channel"]: d["status"] for d in FR._delivery}
+        self.assertEqual(byc["erp"], "Sent")
+        self.assertEqual(byc["toast"], "Sent")
+        self.assertEqual(byc["sound"], "Sent")
+        self.assertEqual(byc["desktop"], "Skipped")          # pref off by default
+        self.assertEqual(byc["teams"], "Pending")            # enqueued
+        # teams enqueued on background queue (never inline)
+        self.assertTrue(any(e["method"].endswith("teams.deliver") for e in FR._enqueued))
+        self.assertTrue(all(e.get("enqueue_after_commit") for e in FR._enqueued))
+
+    def test_dedupe_key_makes_second_publish_noop(self):
+        for _ in range(2):
+            r = ev.publish_notification_event(
+                "approval_required", "u@x.com", "Cần duyệt", "",
+                reference_doctype="MSO", reference_name="MSO-1")
+        self.assertTrue(r.get("duplicate"))
+        self.assertEqual(len(FR._nl), 1)                     # no duplicate inbox
+        self.assertEqual(len(FR._realtime), 1)               # no duplicate realtime
+        erp_rows = [d for d in FR._delivery if d["channel"] == "erp"]
+        self.assertEqual(len(erp_rows), 1)                   # no duplicate delivery
+
+    def test_delivery_idempotency_key_is_unique(self):
+        eid = ev._event_id("k1")
+        a = ev._delivery(eid, "u@x.com", "teams", "Pending")
+        b = ev._delivery(eid, "u@x.com", "teams", "Pending")
+        self.assertIsNotNone(a)
+        self.assertIsNone(b)                                 # UNIQUE guard -> no dup row
+
+    def test_guest_recipient_is_dropped(self):
+        r = ev.publish_notification_event("mention", "Guest", "x")
+        self.assertFalse(r["ok"]); self.assertEqual(len(FR._nl), 0)
+
+
+class TestPreferencesAPI(unittest.TestCase):
+    def setUp(self):
+        _reset("a@x.com"); FR.session.user = "a@x.com"
+
+    def test_get_defaults_when_none(self):
+        out = api.get_preferences()
+        self.assertTrue(out["success"])
+        self.assertEqual(out["preferences"]["sound_enabled"], 1)
+        self.assertEqual(out["preferences"]["desktop_enabled"], 0)
+
+    def test_set_is_scoped_to_session_user(self):
+        api.set_preferences(sound_enabled=0, teams_enabled=1, minimum_severity="urgent")
+        self.assertEqual(set(FR._prefs.keys()), {"a@x.com"})   # only the session user
+        out = api.get_preferences()
+        self.assertEqual(out["preferences"]["sound_enabled"], 0)
+        self.assertEqual(out["preferences"]["teams_enabled"], 1)
+        self.assertEqual(out["preferences"]["minimum_severity"], "urgent")
+
+    def test_set_cannot_target_another_user(self):
+        # the signature has NO user param: a crafted kwarg is simply ignored.
+        try:
+            api.set_preferences(sound_enabled=0, user="victim@x.com")
+        except TypeError:
+            pass  # rejected outright is also acceptable
+        self.assertNotIn("victim@x.com", FR._prefs)
+
+    def test_guest_unauthorized(self):
+        FR.session.user = "Guest"
+        self.assertFalse(api.get_preferences()["success"])
+        self.assertFalse(api.set_preferences(sound_enabled=1)["success"])
+
+
+class TestTeamsAdapter(unittest.TestCase):
+    def setUp(self):
+        _reset("admin@x.com"); FR.session.user = "admin@x.com"
+
+    def test_build_card_open_in_erp_and_plain_text(self):
+        card = tm.build_card({"title": "<b>Việc</b>", "message": "<i>nội dung</i>",
+                              "event_type": "task_assigned", "severity": "urgent",
+                              "action_url": "/app/task/T1", "actor": "boss"})
+        self.assertEqual(card["sections"][0]["activityTitle"], "Việc")     # HTML stripped
+        self.assertEqual(card["sections"][0]["text"], "nội dung")
+        act = card["potentialAction"][0]
+        self.assertEqual(act["name"], "Open in ERP")
+        self.assertEqual(act["targets"][0]["uri"], "/app/task/T1")
+
+    def test_dryrun_when_no_credential(self):
+        FR._conf.clear()                                   # provider defaults to 'disabled'
+        nm = ev._delivery(ev._event_id("e1"), "u@x.com", "teams", "Pending",
+                          title="T", message="M", event_type="task_assigned", severity="info")
+        tm.deliver(nm)
+        doc = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(doc["status"], "Skipped")
+        self.assertEqual(doc["error_code"], "NO_CREDENTIAL")
+        self.assertEqual(doc["provider"], "dryrun")
+
+    def test_webhook_secret_never_logged_on_failure(self):
+        FR._conf.update({"ec_teams_provider": "webhook",
+                         "ec_teams_webhook_url": "https://secret.example/hook/AAA-SECRET"})
+        orig = tm._post_webhook
+        tm._post_webhook = lambda url, card: (False, "500", "teams webhook non-2xx")
+        try:
+            nm = ev._delivery(ev._event_id("e2"), "u@x.com", "teams", "Pending",
+                              title="T", message="M", event_type="task_overdue", severity="urgent")
+            tm.deliver(nm)
+        finally:
+            tm._post_webhook = orig
+        doc = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(doc["status"], "Failed")
+        self.assertEqual(doc["attempt_count"], 1)
+        self.assertIsNotNone(doc["next_retry_at"])         # retry scheduled
+        # the secret URL must NOT appear anywhere in the recorded error
+        blob = (str(doc.get("error_code")) + str(doc.get("error_message")))
+        self.assertNotIn("SECRET", blob)
+        self.assertNotIn("secret.example", blob)
+
+    def test_webhook_success_marks_sent(self):
+        FR._conf.update({"ec_teams_provider": "webhook",
+                         "ec_teams_webhook_url": "https://x/hook"})
+        orig = tm._post_webhook
+        tm._post_webhook = lambda url, card: (True, "200", "")
+        try:
+            nm = ev._delivery(ev._event_id("e3"), "u@x.com", "teams", "Pending",
+                              title="T", message="M", event_type="task_assigned", severity="info")
+            tm.deliver(nm)
+        finally:
+            tm._post_webhook = orig
+        doc = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(doc["status"], "Sent")
+        self.assertIsNotNone(doc["sent_at"])
+
+    def test_retry_sweep_requeues_due_failed(self):
+        nm = ev._delivery(ev._event_id("e4"), "u@x.com", "teams", "Failed",
+                          title="T", message="M", event_type="task_assigned", severity="info")
+        d = FR.get_doc("EC Notification Delivery Log", nm)
+        d["attempt_count"] = 1
+        d["next_retry_at"] = FR.utils.now_datetime()       # due now
+        FR._enqueued[:] = []
+        out = tm.process_teams_retries()
+        self.assertEqual(out["requeued"], 1)
+        self.assertTrue(any(e["method"].endswith("teams.deliver") for e in FR._enqueued))
+
+
+class TestEmitStillRoutesDelivery(unittest.TestCase):
+    def setUp(self):
+        _reset("a@x.com"); FR.session.user = "a@x.com"
+
+    def test_emit_creates_inbox_and_delivery_rows(self):
+        name = svc.emit("u@x.com", "Hi", "msg", document_type="Task", document_name="T9")
+        self.assertIsNotNone(name)
+        self.assertEqual(len(FR._nl), 1)                   # legacy contract intact
+        # legacy realtime payload stays exactly {item, unread}
+        self.assertEqual(set(FR._realtime[0]["message"].keys()), {"item", "unread"})
+        # but multi-channel delivery rows are now also recorded (best-effort)
+        chans = {d["channel"] for d in FR._delivery}
+        self.assertIn("erp", chans)
+        self.assertIn("toast", chans)
+
+
+class TestDeliveryAssetStatics(unittest.TestCase):
+    """Static guarantees about the delivery-v1 additions to the global asset:
+    plain-text rendering, opt-in desktop, per-event dedupe, correct API methods, and
+    NO direct Teams/secret access from the browser."""
+
+    def setUp(self):
+        self.js = _read("public", "js", "notification_center.js")
+
+    def test_toast_uses_plaintext(self):
+        self.assertIn("function pickTitle(", self.js)
+        self.assertIn("toPlainText(d.title", self.js)
+        self.assertNotIn("toast.innerHTML = pickTitle", self.js)
+
+    def test_per_event_dedupe_and_persisted(self):
+        self.assertIn("function markSeen(", self.js)
+        self.assertIn("if (!markSeen(id)) return;", self.js)
+        self.assertIn("SEEN_KEY = 'ec_notif_seen'", self.js)
+
+    def test_desktop_is_opt_in_and_background_only(self):
+        self.assertIn("function requestDesktopPermission(", self.js)
+        self.assertIn("if (!document.hidden && sev !== 'urgent') return;", self.js)
+        # no auto prompt on load: requestPermission only inside the opt-in handlers
+        self.assertNotIn("Notification.requestPermission()", self.js.replace(" ", ""))
+
+    def test_preferences_api_methods(self):
+        self.assertIn("call('get_preferences', 'GET'", self.js)
+        self.assertIn("call('set_preferences', 'POST'", self.js)
+
+    def test_no_direct_teams_or_secret_in_browser(self):
+        low = self.js.lower()
+        self.assertNotIn("webhook", low)
+        self.assertNotIn("ec_teams", low)
+        self.assertNotIn("office.com/webhook", low)
+
+    def test_sound_quiet_hours_and_unlock(self):
+        self.assertIn("function inQuiet(", self.js)
+        self.assertIn("function shouldSound(", self.js)
+        self.assertIn("!S.interacted", self.js)

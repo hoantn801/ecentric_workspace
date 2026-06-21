@@ -2,3 +2,4 @@ Ecentric Workspace
 Alerts
 Weekly Report
 Action Center
+Notification Center
