@@ -54,6 +54,23 @@ def emit(for_user, subject, message="", document_type=None, document_name=None,
         )
     except Exception:
         frappe.log_error(frappe.get_traceback(), "notification_center.emit realtime")
+
+    # Multi-channel delivery (best-effort, fail-open): route the inbox notification to
+    # toast/sound/desktop/Teams per the recipient's EC Notification Preference. This must
+    # NEVER break emit() -- any failure is swallowed and the inbox+realtime still stand.
+    try:
+        from ecentric_workspace.notification_center import events as _ev
+        _et = "mention"  # legacy emit() is informational; typed callers use publish_notification_event
+        _sev = _ev._DEFAULT_SEVERITY.get(_et, "info")
+        _dedupe = "|".join([_et, for_user, document_type or "", document_name or ""])
+        _eid = _ev._event_id(_dedupe)
+        if not frappe.db.exists("EC Notification Delivery Log", {"event_id": _eid, "channel": "erp"}):
+            _routing = _ev.resolve_channels(_et, _sev, _ev.get_preference(for_user))
+            _ev.route_delivery(_eid, for_user, _routing, _et, _sev, _dedupe,
+                               doc.name, None, document_type, document_name,
+                               subject, message, from_user)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "notification_center.emit delivery")
     return doc.name
 
 

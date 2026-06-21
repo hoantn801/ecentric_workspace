@@ -591,15 +591,35 @@ def _get_global_role(role_key):
 
 
 def _notify_approver(approver_email, doc):
-    """Send approval request email."""
+    """Send the approval-request email AND publish an in-app `approval_required` event.
+
+    This is the single point a request enters "needs this approver to act" -- it fires on
+    initial submit (chain[0]) and on each level advance (next_approver). The in-app event
+    flows through the ONE central publish service (toast/sound/desktop/Teams + the native
+    Notification Log) with a STABLE dedupe key (doctype|name|approver|level) so reloading
+    a list or re-opening the page never re-notifies. Fail-open: notification errors never
+    block the approval transaction."""
     if not approver_email:
         return
+    # Shared Action Center resolver so email, homepage card and in-app event agree on URL.
+    from ecentric_workspace.action_center.resolvers import build_approval_url
+    rel_url = build_approval_url(doc.doctype, doc.name)
+    try:
+        from ecentric_workspace.notification_center import events as _ncev
+        _level = doc.get("current_level") or 1
+        _ncev.publish_notification_event(
+            "approval_required", approver_email,
+            "C\u1ea7n duy\u1ec7t: " + doc.doctype + " " + doc.name,
+            "Y\u00eau c\u1ea7u " + doc.name + " \u0111ang ch\u1edd b\u1ea1n duy\u1ec7t.",
+            action_url=rel_url, reference_doctype=doc.doctype, reference_name=doc.name,
+            actor=(doc.get("submitted_by") or doc.owner),
+            dedupe_key="approval_required|" + doc.doctype + "|" + doc.name + "|"
+                       + str(approver_email) + "|" + str(_level))
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "_notify_approver in-app event")
     try:
         site_url = frappe.utils.get_url()
-        # Use the shared Action Center resolver so the email and the homepage
-        # card always point at the same approval URL.
-        from ecentric_workspace.action_center.resolvers import build_approval_url
-        approval_url = site_url + build_approval_url(doc.doctype, doc.name)
+        approval_url = site_url + rel_url
         frappe.sendmail(
             recipients=[approver_email],
             subject="[Approval needed] {0}: {1}".format(doc.doctype, doc.name),

@@ -61,6 +61,9 @@ scheduler_events = {
     "daily": [
         "ecentric_workspace.pm.api.recurrence.run_due",
         "ecentric_workspace.pm.api.notifications.pm_overdue_scan",
+        # Notification Delivery v1: new producers (distinct jobs, not duplicates).
+        "ecentric_workspace.pm.api.notifications.pm_due_soon_scan",
+        "ecentric_workspace.weekly_report.scheduler.wr_due_overdue_scan",
         "ecentric_workspace.weekly_report.scheduler.generate_weekly_obligations",
     ],
     # Alert Center Phase E (decision D2-E): both jobs are dry-run-safe and
@@ -84,6 +87,12 @@ scheduler_events = {
         # ec_alerts_scheduled_pull_brands lists at least one brand.
         "*/15 * * * *": [
             "ecentric_workspace.alerts.tasks.scheduled_omisell_pull",
+        ],
+        # Notification Delivery v1: bounded Teams retry sweep. Idempotent -- only picks
+        # up EC Notification Delivery Log rows (channel=teams, status=Failed) whose
+        # next_retry_at is due and attempt_count < MAX_ATTEMPTS.
+        "*/5 * * * *": [
+            "ecentric_workspace.notification_center.providers.teams.process_teams_retries",
         ],
     },
 }
