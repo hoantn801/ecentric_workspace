@@ -42,6 +42,11 @@ doc_events = {
     "ToDo": {
         "validate": "ecentric_workspace.weekly_report.events.validate_weekly_report_todo",
     },
+    # Notification Delivery v1 (adopt-native): route task_assigned delivery off the native
+    # Frappe Assignment Notification Log, which v15 creates asynchronously.
+    "Notification Log": {
+        "after_insert": "ecentric_workspace.notification_center.events.on_notification_log_after_insert",
+    },
 }
 
 # Scheduled Tasks

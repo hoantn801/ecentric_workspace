@@ -1590,90 +1590,74 @@ class TestTeamsConversationIngestAPI(unittest.TestCase):
 
 
 # =========================================================================== #
-# Notification Delivery v1 — ADOPT-NATIVE Frappe Assignment log (task_assigned)
+# Notification Delivery v1 — ADOPT-NATIVE via Notification Log after_insert hook
 # =========================================================================== #
-class TestAdoptNativeAssignment(unittest.TestCase):
+class TestAssignmentLogHook(unittest.TestCase):
+    """on_notification_log_after_insert routes task_assigned delivery off the native Frappe
+    Assignment Notification Log (created asynchronously by v15) -- the single inbox record."""
+
     def setUp(self):
         _reset("boss@x.com"); FR.session.user = "boss@x.com"
-        from ecentric_workspace.pm.api import notifications as pmn
-        self.pmn = pmn
 
     def _task(self, name, state="Open"):
-        FR._tasks[name] = {"name": name, "subject": "T " + name, "workflow_state": state,
-                           "owner": "boss@x.com", "_assign": "[]", "exp_end_date": None}
+        FR._tasks[name] = {"name": name, "subject": "T " + name, "workflow_state": state}
 
-    def _native(self, user, task, subject="<strong>Boss</strong> assigned a new task to you"):
-        # mimics Frappe assign_to.add creating the native Assignment Notification Log
-        d = FR.get_doc({"doctype": "Notification Log", "for_user": user,
-                        "from_user": "boss@x.com", "type": "Assignment",
-                        "document_type": "Task", "document_name": task,
-                        "subject": subject, "email_content": ""})
-        d.insert()
-        return d
+    def _native(self, name, **kw):
+        d = dict({"name": name, "type": "Assignment", "document_type": "Task",
+                  "for_user": "u@x.com", "from_user": "boss@x.com",
+                  "document_name": "TKH", "subject": "Boss assigned a new task to you",
+                  "creation": "2026-06-22 09:00:00"}, **kw)
+        return _Doc(**d)
 
-    def _alerts(self, user, task):
-        return [n for n in FR._nl if n.get("for_user") == user
-                and n.get("document_name") == task and n.get("type") == "Alert"]
-
-    def _dlv(self, user):
+    def _dlv(self, user="u@x.com"):
         return [d for d in FR._delivery if d["recipient"] == user]
 
-    def test_assign_adopts_native_no_alert_log(self):
-        self._task("TK1")
-        nat = self._native("u@x.com", "TK1")
-        n_before = len(FR._nl)
-        self.pmn.notify_task_assigned(["u@x.com"], "TK1", "Ban duoc giao")
-        self.assertEqual(len(FR._nl), n_before)              # NO new Notification Log
-        self.assertEqual(len(self._alerts("u@x.com", "TK1")), 0)   # 0 central Alert log
-        dl = self._dlv("u@x.com")
-        self.assertTrue(dl)                                  # delivery routed
-        self.assertTrue(all(d["notification_log"] == nat.name for d in dl))  # references native
+    def test_native_assignment_routes_delivery(self):
+        self._task("TKH")
+        nl_before = len(FR._nl)
+        ev.on_notification_log_after_insert(self._native("NATIVE1"))
+        self.assertEqual(len(FR._nl), nl_before)               # hook creates NO Notification Log
+        dl = self._dlv()
+        self.assertTrue(dl)
+        self.assertTrue(all(d["notification_log"] == "NATIVE1" for d in dl))   # references native
         byc = {d["channel"]: d["status"] for d in dl}
-        self.assertEqual(byc["erp"], "Sent")
-        self.assertEqual(byc["toast"], "Sent")
-        self.assertEqual(byc["sound"], "Sent")
-        self.assertEqual(byc["teams"], "Pending")
+        self.assertEqual(byc["erp"], "Sent"); self.assertEqual(byc["toast"], "Sent")
+        self.assertEqual(byc["sound"], "Sent"); self.assertEqual(byc["teams"], "Pending")
         from collections import Counter
         c = Counter((d["recipient"], d["channel"]) for d in dl)
-        self.assertTrue(all(v == 1 for v in c.values()), dict(c))   # one per channel
-
-    def test_realtime_and_delivery_reference_native_log(self):
-        self._task("TK2"); nat = self._native("u@x.com", "TK2")
-        self.pmn.notify_task_assigned(["u@x.com"], "TK2", "x")
+        self.assertTrue(all(v == 1 for v in c.values()), dict(c))               # one per channel
         ping = FR._realtime[-1]
-        self.assertEqual(ping["user"], "u@x.com")
+        self.assertEqual(ping["message"]["notification_name"], "NATIVE1")
+        self.assertEqual(ping["message"]["action_url"], "/app/task/TKH")
         self.assertTrue(ping["after_commit"])
-        self.assertEqual(ping["message"]["notification_name"], nat.name)   # payload -> native
-        self.assertEqual(ping["message"]["event_type"], "task_assigned")
-        self.assertEqual(ping["message"]["action_url"], "/app/task/TK2")
-        self.assertTrue(all(d["notification_log"] == nat.name for d in self._dlv("u@x.com")))
 
-    def test_reassign_and_rerun_no_increase(self):
-        self._task("TK3"); self._native("u@x.com", "TK3")
-        self.pmn.notify_task_assigned(["u@x.com"], "TK3", "x")
-        d1 = len(self._dlv("u@x.com")); nl1 = len(FR._nl); rt1 = len(FR._realtime)
-        self.pmn.notify_task_assigned(["u@x.com"], "TK3", "x")   # rerun (stable dedupe)
-        self.assertEqual(len(self._dlv("u@x.com")), d1)
-        self.assertEqual(len(FR._nl), nl1)
-        self.assertEqual(len(FR._realtime), rt1)
+    def test_alert_type_is_skipped(self):
+        self._task("TKH")
+        ev.on_notification_log_after_insert(self._native("N", type="Alert"))
+        self.assertEqual(self._dlv(), [])                      # our own Alert logs not re-routed
 
-    def test_native_missing_is_failopen_no_alert_fallback(self):
-        self._task("TK4")                                   # NO native log created
-        n_before = len(FR._nl)
-        self.pmn.notify_task_assigned(["u@x.com"], "TK4", "x")   # must not raise
-        self.assertEqual(len(FR._nl), n_before)             # no Alert fallback
-        self.assertEqual(self._dlv("u@x.com"), [])          # nothing routed
+    def test_non_task_is_skipped(self):
+        ev.on_notification_log_after_insert(self._native("N", document_type="Leave Application"))
+        self.assertEqual(self._dlv(), [])
 
-    def test_actor_admin_self_and_terminal_skipped(self):
-        # self/actor
-        self._task("TK5"); self._native("boss@x.com", "TK5")
-        self.pmn.notify_task_assigned(["boss@x.com"], "TK5", "x", from_user="boss@x.com")
+    def test_self_assignment_skipped(self):
+        self._task("TKH")
+        ev.on_notification_log_after_insert(self._native("N", for_user="boss@x.com", from_user="boss@x.com"))
         self.assertEqual(self._dlv("boss@x.com"), [])
-        # Administrator
-        self._task("TK6"); self._native("Administrator", "TK6")
-        self.pmn.notify_task_assigned(["Administrator"], "TK6", "x")
+
+    def test_administrator_skipped(self):
+        self._task("TKH")
+        ev.on_notification_log_after_insert(self._native("N", for_user="Administrator"))
         self.assertEqual(self._dlv("Administrator"), [])
-        # terminal task
-        self._task("TK7", "Done"); self._native("u@x.com", "TK7")
-        self.pmn.notify_task_assigned(["u@x.com"], "TK7", "x")
-        self.assertEqual(self._dlv("u@x.com"), [])
+
+    def test_terminal_task_skipped(self):
+        self._task("TKH", "Cancelled")
+        ev.on_notification_log_after_insert(self._native("N"))
+        self.assertEqual(self._dlv(), [])
+
+    def test_idempotent_no_duplicate(self):
+        self._task("TKH")
+        ev.on_notification_log_after_insert(self._native("NATIVE1"))
+        n1 = len(self._dlv())
+        ev.on_notification_log_after_insert(self._native("NATIVE1"))   # same event again
+        self.assertEqual(len(self._dlv()), n1)

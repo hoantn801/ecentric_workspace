@@ -357,3 +357,35 @@ def notify_approval_required(recipient, doctype, name, title, message="", action
     return publish_notification_event("approval_required", recipient, title, message,
                                       action_url=action_url, reference_doctype=doctype,
                                       reference_name=name, actor=actor)
+
+
+def on_notification_log_after_insert(doc, method=None):
+    """doc_event (Notification Log, after_insert): adopt-native task_assigned delivery.
+
+    Frappe v15 creates the native Assignment Notification Log ASYNCHRONOUSLY (enqueued), so a
+    synchronous caller right after assign_to.add cannot see it. Binding here -- in the log's
+    OWN after_insert -- guarantees the native log exists, then routes the central pipeline
+    (delivery audit + Teams + realtime toast/sound/desktop/badge) off THAT log. Scoped
+    strictly to type=Assignment + document_type=Task; every other Notification Log (including
+    our own type=Alert ones from the other producers) is left to its own producer, so nothing
+    is double-routed. Idempotent (stable dedupe). Fail-open: never blocks the insert."""
+    try:
+        if doc.get("type") != "Assignment" or doc.get("document_type") != "Task":
+            return
+        recipient = doc.get("for_user")
+        actor = doc.get("from_user")
+        task = doc.get("document_name")
+        if not recipient or recipient in ("Guest", "Administrator") or not task:
+            return
+        if recipient == actor:
+            return  # self-assignment: no delivery (policy)
+        if frappe.db.get_value("Task", task, "workflow_state") in ("Done", "Cancelled"):
+            return
+        from ecentric_workspace.action_center.resolvers import build_task_url
+        route_existing_notification_log(
+            "task_assigned", recipient, doc.name, doc.get("subject") or "",
+            action_url=build_task_url(task), reference_doctype="Task", reference_name=task,
+            actor=actor, created_at=doc.get("creation"),
+            dedupe_key="|".join(["task_assigned", task, recipient]))
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "on_notification_log_after_insert")
