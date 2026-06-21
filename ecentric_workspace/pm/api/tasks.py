@@ -338,7 +338,7 @@ def create(project, subject, parent_task=None, priority=None,
     if assignee:
         try:
             _assign_add({"doctype": "Task", "name": doc.name, "assign_to": [assignee]})
-            pmnotif.notify_users([assignee], "Ban duoc giao nhiem vu: " + (doc.subject or doc.name), doc.name)
+            pmnotif.notify_task_assigned([assignee], doc.name, "Ban duoc giao nhiem vu: " + (doc.subject or doc.name))
         except Exception:
             frappe.log_error(frappe.get_traceback(), "PM create assign")
     return {"name": doc.name, "subject": doc.subject,
@@ -384,7 +384,7 @@ def update(name, subject=None, description=None, priority=None,
         if assignee not in current:
             try:
                 _assign_add({"doctype": "Task", "name": doc.name, "assign_to": [assignee]})
-                pmnotif.notify_users([assignee], "Ban duoc giao nhiem vu: " + (doc.subject or doc.name), doc.name)
+                pmnotif.notify_task_assigned([assignee], doc.name, "Ban duoc giao nhiem vu: " + (doc.subject or doc.name))
                 changed.append("assignee")
             except Exception:
                 frappe.log_error(frappe.get_traceback(), "PM update assign")
@@ -417,7 +417,7 @@ def assign(name, users):
         frappe.throw(_("No users to assign."))
 
     _assign_add({"doctype": "Task", "name": name, "assign_to": users})
-    pmnotif.notify_users(users, "Ban duoc giao nhiem vu: " + (doc.get("subject") or name), name)
+    pmnotif.notify_task_assigned(users, name, "Ban duoc giao nhiem vu: " + (doc.get("subject") or name))
     return {"name": name, "assigned": users,
             "_assign": frappe.db.get_value("Task", name, "_assign")}
 
