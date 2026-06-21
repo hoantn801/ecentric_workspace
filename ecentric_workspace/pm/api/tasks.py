@@ -337,9 +337,12 @@ def create(project, subject, parent_task=None, priority=None,
     doc.insert()  # honors DocPerm 'create'; sets owner/creation (audit)
     if assignee:
         try:
-            # native assignment + central delivery (routed by the Notification Log
-            # after_insert hook -> adopt-native task_assigned).
+            # adopt-native task_assigned: snapshot the prior native log, do the native
+            # assignment, then enqueue ONE post-commit delivery job (Frappe creates the
+            # native Assignment log asynchronously).
+            _prev = pmnotif.capture_previous_native_logs([assignee], doc.name)
             _assign_add({"doctype": "Task", "name": doc.name, "assign_to": [assignee]})
+            pmnotif.enqueue_task_assignment_delivery(doc.name, [assignee], _prev, actor=user)
         except Exception:
             frappe.log_error(frappe.get_traceback(), "PM create assign")
     return {"name": doc.name, "subject": doc.subject,
@@ -384,7 +387,9 @@ def update(name, subject=None, description=None, priority=None,
             current = []
         if assignee not in current:
             try:
+                _prev = pmnotif.capture_previous_native_logs([assignee], doc.name)
                 _assign_add({"doctype": "Task", "name": doc.name, "assign_to": [assignee]})
+                pmnotif.enqueue_task_assignment_delivery(doc.name, [assignee], _prev, actor=user)
                 changed.append("assignee")
             except Exception:
                 frappe.log_error(frappe.get_traceback(), "PM update assign")
@@ -416,7 +421,9 @@ def assign(name, users):
     if not users:
         frappe.throw(_("No users to assign."))
 
+    _prev = pmnotif.capture_previous_native_logs(users, name)
     _assign_add({"doctype": "Task", "name": name, "assign_to": users})
+    pmnotif.enqueue_task_assignment_delivery(name, users, _prev, actor=user)
     return {"name": name, "assigned": users,
             "_assign": frappe.db.get_value("Task", name, "_assign")}
 

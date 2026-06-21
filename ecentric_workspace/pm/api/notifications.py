@@ -60,6 +60,99 @@ def notify_users(users, subject, task_name, from_user=None, dedup_key=None,
             frappe.log_error(frappe.get_traceback(), "PM notify_users")
 
 
+def _latest_native_log(recipient, task_name):
+    """Newest Frappe native Assignment Notification Log for (recipient, Task, task_name)
+    using deterministic filters (never timestamp-only). Returns the row or None."""
+    rows = frappe.get_all(
+        "Notification Log",
+        filters={"for_user": recipient, "type": "Assignment",
+                 "document_type": "Task", "document_name": task_name},
+        fields=["name", "creation", "subject"],
+        order_by="creation desc", limit_page_length=1)
+    return rows[0] if rows else None
+
+
+def capture_previous_native_logs(users, task_name):
+    """BEFORE assign_to.add: snapshot the current newest native Assignment log name per user,
+    so the post-commit job can tell the NEW log apart from any pre-existing one."""
+    out = {}
+    for u in users or []:
+        if not u:
+            continue
+        cand = _latest_native_log(u, task_name)
+        out[u] = cand.get("name") if cand else None
+    return out
+
+
+def enqueue_task_assignment_delivery(task_name, users, prev_map, actor=None):
+    """AFTER assign_to.add: enqueue exactly one delivery job per real recipient (after the
+    request commits). Skips actor/self, Administrator and terminal tasks. Frappe creates the
+    native Assignment log asynchronously via a doc_event-bypassing insert, so a queued job
+    (below) waits for it instead of binding to Notification Log.after_insert."""
+    actor = actor or frappe.session.user
+    try:
+        if frappe.db.get_value("Task", task_name, "workflow_state") in ("Done", "Cancelled"):
+            return
+    except Exception:
+        pass
+    seen = set()
+    for u in users or []:
+        if not u or u == actor or u in seen or u == "Administrator":
+            continue
+        seen.add(u)
+        try:
+            frappe.enqueue(
+                "ecentric_workspace.pm.api.notifications.route_native_assignment_delivery",
+                queue="short", enqueue_after_commit=True,
+                task_name=task_name, recipient=u, actor=actor,
+                previous_native_log_name=(prev_map or {}).get(u),
+                dedupe_key=_stable_dedupe("task_assigned", task_name, u))
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "PM enqueue_task_assignment_delivery")
+
+
+# bounded poll: short backoff, ~12s total, finite (never infinite)
+_NATIVE_LOG_BACKOFF = (0.5, 1, 1.5, 2, 2.5, 3)
+
+
+def route_native_assignment_delivery(task_name, recipient, actor,
+                                     previous_native_log_name, dedupe_key):
+    """Enqueued job: wait (bounded) for the NEW native Assignment log to appear, then route
+    the central delivery pipeline off it via route_existing_notification_log. The new log is
+    the newest matching row whose name differs from previous_native_log_name (deterministic
+    filters + ordering, not a timestamp guess). On timeout: warn + fail-open, NO Alert
+    fallback. Idempotent: route_existing_notification_log dedupes by dedupe_key."""
+    import time
+
+    try:
+        if frappe.db.get_value("Task", task_name, "workflow_state") in ("Done", "Cancelled"):
+            return
+    except Exception:
+        pass
+    native = None
+    for delay in _NATIVE_LOG_BACKOFF:
+        time.sleep(delay)
+        cand = _latest_native_log(recipient, task_name)
+        if cand and cand.get("name") != previous_native_log_name:
+            native = cand
+            break
+    if not native:
+        frappe.log_error(
+            "native Assignment log not found after bounded retry for "
+            + str(recipient) + " / " + str(task_name) + " (assignment ok; no delivery)",
+            "PM route_native_assignment_delivery")
+        return
+    try:
+        from ecentric_workspace.action_center.resolvers import build_task_url
+        ncev.route_existing_notification_log(
+            "task_assigned", recipient, native["name"], native.get("subject") or "",
+            action_url=build_task_url(task_name), reference_doctype="Task",
+            reference_name=task_name, actor=actor, created_at=native.get("creation"),
+            dedupe_key=dedupe_key)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "PM route_native_assignment_delivery route")
+
+
 def _task_recipients(doc, exclude=None):
     """Owner + assignees of a task, excluding `exclude` (e.g. the actor)."""
     users = []
