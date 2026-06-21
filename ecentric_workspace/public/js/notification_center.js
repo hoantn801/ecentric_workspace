@@ -356,13 +356,25 @@
     buildPop();
     // single document-level CAPTURE handler -- the authoritative click interceptor
     document.addEventListener('click', onNotificationBellClick, true);
-    // dismissal: click outside + Esc; close on scroll/resize
-    document.addEventListener('click', function (ev) {
-      if (S.open && !pop.contains(ev.target) && !bell.contains(ev.target)) close();
-    });
+    // ---- robust dismissal: only a REAL outside pointer or Escape closes ----------
+    // "inside" = bell OR dropdown, detected via composedPath() (preferred) then
+    // contains() fallback. Scrollbar drag, wheel/scroll, pointer-move, text selection
+    // and non-navigating inner clicks must NOT close. We never use blur or focus-out events, and
+    // we never close on scroll -- scroll only RE-ANCHORS the fixed dropdown.
+    function eventIsInside(ev) {
+      var path = (ev.composedPath && ev.composedPath()) || null;
+      if (path) { for (var i = 0; i < path.length; i++) { if (path[i] === pop || path[i] === bell) return true; } }
+      var t = ev.target;
+      return !!((pop && pop.contains(t)) || (bell && bell.contains(t)));
+    }
+    document.addEventListener('pointerdown', function (ev) {
+      if (S.open && !eventIsInside(ev)) close();
+    }, true);
     document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && S.open) { close(); if (bell && bell.focus) bell.focus(); } });
-    window.addEventListener('resize', function () { if (S.open) close(); });
-    window.addEventListener('scroll', function () { if (S.open) close(); }, true);
+    // keep the position:fixed dropdown anchored on scroll/resize WITHOUT closing it
+    // (closing on scroll was the bug: inner-list scroll dismissed the dropdown).
+    window.addEventListener('resize', function () { if (S.open) position(); });
+    window.addEventListener('scroll', function () { if (S.open) position(); }, true);
     // mount badge now if the bell already exists; the observer handles later renders
     bell = findBell();
     if (bell) { mountBadge(); } else { console.warn('[ec-notification-center] bell not present yet; observer will mount it'); }
