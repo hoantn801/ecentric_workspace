@@ -243,44 +243,95 @@ def publish_notification_event(event_type, recipient, title, message="",
     except Exception:
         pass
 
-    # 1) inbox = Notification Log
+    # 1) inbox = Notification Log (this path OWNS the log)
     log = frappe.get_doc({
         "doctype": "Notification Log", "for_user": recipient, "from_user": from_user,
         "subject": title or "", "email_content": message or "", "type": "Alert",
         "document_type": reference_doctype or "", "document_name": reference_name or "",
     }).insert(ignore_permissions=True)
 
+    # 2+3) delivery audit + realtime, referencing the log just created
+    routing = _route_and_publish(
+        event_id, recipient, event_type, severity, title, message, action_url,
+        reference_doctype, reference_name, from_user, dedupe_key, log.name, log.creation,
+        log_type="Alert")
+    return {"ok": True, "event_id": event_id, "dedupe_key": dedupe_key,
+            "notification_log": log.name, "routing": routing, "severity": severity}
+
+
+def _route_and_publish(event_id, recipient, event_type, severity, title, message,
+                       action_url, reference_doctype, reference_name, from_user,
+                       dedupe_key, notification_log_name, created_at, log_type="Alert"):
+    """Shared tail: write delivery audit rows (idempotent) + enqueue Teams + publish the
+    full-contract realtime to the recipient (after commit), all referencing
+    `notification_log_name`. Used by both publish_notification_event (which creates the log)
+    and route_existing_notification_log (which adopts an existing native log)."""
     pref = get_preference(recipient)
     routing = resolve_channels(event_type, severity, pref)
-
-    # 2) delivery audit rows (idempotent) + Teams enqueue (background, after commit)
     route_delivery(event_id, recipient, routing, event_type, severity, dedupe_key,
-                   log.name, action_url, reference_doctype, reference_name,
+                   notification_log_name, action_url, reference_doctype, reference_name,
                    title, message, from_user)
-
-    # 3) realtime full contract -> recipient only, after commit
     try:
         item = resolve_notification({
-            "name": log.name, "subject": title, "email_content": message,
+            "name": notification_log_name, "subject": title, "email_content": message,
             "document_type": reference_doctype, "document_name": reference_name,
-            "from_user": from_user, "read": 0, "type": "Alert", "creation": log.creation,
+            "from_user": from_user, "read": 0, "type": log_type, "creation": created_at,
         })
         unread = frappe.db.count("Notification Log", {"for_user": recipient, "read": 0})
         payload = {
-            "event_id": event_id, "notification_name": log.name, "event_type": event_type,
-            "severity": severity, "title": title or "", "message": message or "",
+            "event_id": event_id, "notification_name": notification_log_name,
+            "event_type": event_type, "severity": severity, "title": title or "",
+            "message": message or "",
             "action_url": item.get("action_url") if isinstance(item, dict) else (action_url or ""),
-            "created_at": str(log.creation), "unread_count": unread,
+            "created_at": str(created_at), "unread_count": unread,
             # legacy-compatible keys so the existing frontend keeps working unchanged:
             "item": item, "unread": unread,
         }
         frappe.publish_realtime(event=REALTIME_EVENT, message=payload,
                                 user=recipient, after_commit=True)
     except Exception:
-        frappe.log_error(frappe.get_traceback(), "publish_notification_event realtime")
+        frappe.log_error(frappe.get_traceback(), "ec notification realtime")
+    return routing
 
+
+def route_existing_notification_log(event_type, recipient, notification_log_name, title,
+                                    message="", severity=None, action_url=None,
+                                    reference_doctype=None, reference_name=None,
+                                    actor=None, dedupe_key=None, from_user=None,
+                                    created_at=None):
+    """ADOPT-NATIVE path: route delivery + realtime for an ALREADY-EXISTING Notification
+    Log (e.g. the Frappe native Assignment log) WITHOUT creating a second one. This is how
+    task_assigned yields exactly one inbox record. Idempotent by dedupe_key; fail-open."""
+    if not recipient or recipient == "Guest":
+        return {"ok": False, "reason": "no recipient"}
+    if not notification_log_name:
+        return {"ok": False, "reason": "no notification_log"}
+    if event_type not in EVENT_TYPES:
+        event_type = "task_assigned"
+    severity = severity if severity in SEVERITIES else _DEFAULT_SEVERITY.get(event_type, "info")
+    from_user = from_user or actor or frappe.session.user
+    if not dedupe_key:
+        dedupe_key = "|".join([event_type, recipient, str(reference_doctype or ""), str(reference_name or "")])
+    event_id = _event_id(dedupe_key)
+    try:
+        if frappe.db.exists(DELIVERY_DT, {"event_id": event_id, "channel": "erp"}):
+            return {"ok": True, "duplicate": True, "event_id": event_id,
+                    "dedupe_key": dedupe_key, "notification_log": notification_log_name}
+    except Exception:
+        pass
+    if created_at is None:
+        try:
+            created_at = frappe.db.get_value("Notification Log", notification_log_name, "creation")
+        except Exception:
+            created_at = None
+        created_at = created_at or frappe.utils.now_datetime()
+    routing = _route_and_publish(
+        event_id, recipient, event_type, severity, title, message, action_url,
+        reference_doctype, reference_name, from_user, dedupe_key, notification_log_name,
+        created_at, log_type="Assignment")
     return {"ok": True, "event_id": event_id, "dedupe_key": dedupe_key,
-            "notification_log": log.name, "routing": routing, "severity": severity}
+            "notification_log": notification_log_name, "routing": routing,
+            "severity": severity, "adopted": True}
 
 
 # ------------------------------------------------------------------- typed helpers
