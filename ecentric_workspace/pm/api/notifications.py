@@ -60,54 +60,6 @@ def notify_users(users, subject, task_name, from_user=None, dedup_key=None,
             frappe.log_error(frappe.get_traceback(), "PM notify_users")
 
 
-def _resolve_native_assignment_log(recipient, task_name):
-    """Find the Frappe native Assignment Notification Log for (recipient, Task, task) using
-    deterministic filters (never a timestamp-only lookup); newest matching row wins."""
-    rows = frappe.get_all(
-        "Notification Log",
-        filters={"for_user": recipient, "type": "Assignment",
-                 "document_type": "Task", "document_name": task_name},
-        fields=["name", "creation", "subject"],
-        order_by="creation desc", limit_page_length=1)
-    return rows[0] if rows else None
-
-
-def notify_task_assigned(users, task_name, subject="", from_user=None):
-    """ADOPT-NATIVE task_assigned delivery: route toast/sound/desktop/Teams + realtime off
-    the Frappe native Assignment Notification Log (created by assign_to.add) WITHOUT creating
-    a second (Alert) log. Skips the actor, Administrator, duplicates and terminal tasks.
-    If the native log is missing: log a warning and fail open (no Alert fallback -> no risk
-    of a duplicate); the business assignment itself already succeeded."""
-    from_user = from_user or frappe.session.user
-    try:
-        if frappe.db.get_value("Task", task_name, "workflow_state") in ("Done", "Cancelled"):
-            return
-    except Exception:
-        pass
-    url = build_task_url(task_name)
-    seen = set()
-    for u in users or []:
-        if not u or u == from_user or u in seen or u == "Administrator":
-            continue
-        seen.add(u)
-        native = _resolve_native_assignment_log(u, task_name)
-        if not native:
-            frappe.log_error(
-                "native Assignment Notification Log not found for " + str(u)
-                + " / " + str(task_name) + " (task_assigned not routed; assignment ok)",
-                "PM notify_task_assigned")
-            continue
-        try:
-            ncev.route_existing_notification_log(
-                "task_assigned", u, native["name"],
-                native.get("subject") or subject, "",
-                action_url=url, reference_doctype="Task", reference_name=task_name,
-                actor=from_user, created_at=native.get("creation"),
-                dedupe_key=_stable_dedupe("task_assigned", task_name, u))
-        except Exception:
-            frappe.log_error(frappe.get_traceback(), "PM notify_task_assigned route")
-
-
 def _task_recipients(doc, exclude=None):
     """Owner + assignees of a task, excluding `exclude` (e.g. the actor)."""
     users = []
