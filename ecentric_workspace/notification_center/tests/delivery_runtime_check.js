@@ -84,7 +84,9 @@ function makeEnv(opts){
   Notif.permission=opts.permission||'default';
   Notif.requestPermission=function(cb){ if(cb) cb(Notif.permission); return undefined; };
 
-  const realtime={ _h:{}, on:function(ev,fn){ this._h[ev]=fn; } };
+  const _sockH={};
+  const _socket={ connected:false, on:(ev,fn)=>{ (_sockH[ev]=_sockH[ev]||[]).push(fn); }, off:()=>{} };
+  const realtime={ socket:_socket, connect:()=>{ _socket.connected=true; }, on:(ev,fn)=>_socket.on(ev,fn) };
   const calls=[]; const env={};
   env._prefs={ sound_enabled:1, desktop_enabled:0, teams_enabled:0, quiet_hours_enabled:0,
                quiet_hours_start:null, quiet_hours_end:null, minimum_severity:'info', enabled_event_types:'', _exists:false };
@@ -111,7 +113,7 @@ function makeEnv(opts){
     setPrefs:o=>{ Object.assign(env._prefs,o); if(o&&Object.keys(o).length) env._prefs._exists=true; },
     setUnread:n=>{ env._unread=n; },
     unlock:()=>{ winListeners.filter(l=>l.t==='click').forEach(l=>l.fn({})); },
-    fireRealtime:p=>{ const h=realtime._h['ec_notification']; if(h) h(p); },
+    fireRealtime:p=>{ (_sockH['ec_notification']||[]).forEach(fn=>fn(p)); },
     fireClick:el=>{ const ev={type:'click',target:el,stopPropagation(){},preventDefault(){}}; (el._l||[]).filter(l=>l.t==='click').forEach(l=>l.fn(ev)); },
     toastRoot:()=>document.getElementById('ec-nc-toasts'),
     toastCount:()=>{ const r=document.getElementById('ec-nc-toasts'); return r?r.children.filter(c=>c.classList.contains('on')).length:0; },
@@ -216,3 +218,4 @@ function evt(o){ return Object.assign({ event_id:'E', event_type:'task_assigned'
 
 if(failures){ console.error('\n'+failures+' FAILURE(S)'); process.exit(1); }
 console.log('\nALL DELIVERY RUNTIME CHECKS PASSED');
+process.exit(0);

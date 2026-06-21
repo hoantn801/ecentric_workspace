@@ -478,29 +478,53 @@
     var db = pop.querySelector('#ec-pref-desktop-btn');
     if (db) db.style.display = (sup && !granted) ? 'block' : 'none';
   }
-  function wireRealtime() {
-    if (window.frappe && window.frappe.realtime && typeof window.frappe.realtime.on === 'function') {
-      window.frappe.realtime.on('ec_notification', function (data) {
-        data = data || {};
-        // badge + list reflect the latest state (insert deduped by Notification Log name)
-        if (typeof data.unread === 'number') S.unread = data.unread;
-        else if (typeof data.unread_count === 'number') S.unread = data.unread_count;
-        var item = data.item;
-        if (item && item.name) {
-          var dup = false; for (var i = 0; i < S.items.length; i++) { if (S.items[i].name === item.name) { dup = true; break; } }
-          if (!dup) S.items.unshift(item);
-        }
-        renderBadge(); if (S.open) renderList();
-        // toast / sound / desktop fire ONCE per event id; never on reload/reconnect/poll
-        var id = data.event_id || data.notification_name || (item && item.name);
-        if (!markSeen(id)) return;
-        showToast(data);
-        if (shouldSound(data)) ting();
-        showDesktop(data);
-      });
-      return true;
+  // The realtime payload handler (one ec_notification event -> badge/list + toast/sound/desktop).
+  function onRealtime(data) {
+    data = data || {};
+    // badge + list reflect the latest state (insert deduped by Notification Log name)
+    if (typeof data.unread === 'number') S.unread = data.unread;
+    else if (typeof data.unread_count === 'number') S.unread = data.unread_count;
+    var item = data.item;
+    if (item && item.name) {
+      var dup = false; for (var i = 0; i < S.items.length; i++) { if (S.items[i].name === item.name) { dup = true; break; } }
+      if (!dup) S.items.unshift(item);
     }
-    return false;
+    renderBadge(); if (S.open) renderList();
+    // toast / sound / desktop fire ONCE per event id; never on reload/reconnect/poll
+    var id = data.event_id || data.notification_name || (item && item.name);
+    if (!markSeen(id)) return;
+    showToast(data);
+    if (shouldSound(data)) ting();
+    showDesktop(data);
+  }
+
+  // Bind the realtime listener ROBUSTLY under Frappe v15 lazy_connect: frappe.realtime.on
+  // only binds if frappe.realtime.socket already exists ("on(t,n){this.socket&&...}"), but at
+  // page-load the socket is created lazily and is usually absent -> on() silently no-ops and
+  // toast/sound/desktop never fire. So we force a connect, then bind directly to the socket,
+  // retrying until the socket appears and re-binding on every (re)connect.
+  function wireRealtime() {
+    if (!(window.frappe && window.frappe.realtime)) return false;
+    var rt = window.frappe.realtime;
+    var bound = false;
+    function bind() {
+      if (bound || !rt.socket) return bound;
+      try {
+        rt.socket.on('ec_notification', onRealtime);   // bind to the live socket so it sticks
+        // rebind after a reconnect (a new socket loses listeners)
+        rt.socket.on('connect', function () { try { rt.socket.on('ec_notification', onRealtime); } catch (e) {} });
+        bound = true;
+      } catch (e) {
+        try { rt.on('ec_notification', onRealtime); bound = true; } catch (e2) {}
+      }
+      return bound;
+    }
+    try { if (typeof rt.connect === 'function') rt.connect(); } catch (e) {}   // wake lazy socket
+    if (!bind()) {
+      var n = 0;
+      var iv = setInterval(function () { n += 1; if (bind() || n > 40) clearInterval(iv); }, 500);
+    }
+    return true;
   }
 
   // ---- THE click interceptor: ONE document-level CAPTURE-phase delegated handler ----
@@ -570,7 +594,10 @@
     loadSeen();
     loadPrefs();
     refreshCount();
-    if (!wireRealtime()) { setInterval(refreshCount, POLL_MS); }
+    wireRealtime();
+    // Always keep a slow badge poll as a safety net: realtime drives instant toast/sound/
+    // desktop, but if the socket is unavailable the unread badge still stays correct.
+    setInterval(refreshCount, POLL_MS);
     console.log('[ec-notification-center] installed (global delegated capture loader)');
   }
 

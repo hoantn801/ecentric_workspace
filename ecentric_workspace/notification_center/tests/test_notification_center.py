@@ -1257,6 +1257,14 @@ class TestDeliveryAssetStatics(unittest.TestCase):
         self.assertIn("function shouldSound(", self.js)
         self.assertIn("!S.interacted", self.js)
 
+    def test_realtime_binds_under_lazy_connect(self):
+        # Frappe v15 lazy_connect: frappe.realtime.on no-ops if the socket is absent at
+        # page load. The asset must force a connect and bind to the live socket (with
+        # reconnect rebind), and keep a slow badge poll as a safety net.
+        self.assertIn("rt.connect()", self.js)
+        self.assertIn("rt.socket.on('ec_notification', onRealtime)", self.js)
+        self.assertIn("setInterval(refreshCount, POLL_MS)", self.js)
+
 
 # =========================================================================== #
 # Notification Delivery v1 — REAL business-event producer integration tests
