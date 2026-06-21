@@ -452,5 +452,7 @@ def set_status(name, action):
         frappe.throw(_("Not permitted to change this task."), frappe.PermissionError)
     doc = apply_workflow(doc, action)
     pmnotif.notify_users(pmnotif._task_recipients(doc.as_dict(), exclude=user),
-                         "Nhiem vu '" + (doc.get("subject") or name) + "' -> " + (doc.get("workflow_state") or ""), name)
+                         "Nhiem vu '" + (doc.get("subject") or name) + "' -> " + (doc.get("workflow_state") or ""),
+                         name, event_type="mention", severity="info",
+                         due_suffix=doc.get("workflow_state"))
     return {"name": doc.name, "workflow_state": doc.get("workflow_state")}

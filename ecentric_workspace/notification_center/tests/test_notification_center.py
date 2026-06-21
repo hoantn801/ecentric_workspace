@@ -45,6 +45,10 @@ def _install_frappe():
     fr._prefs = {}        # user -> EC Notification Preference doc object
     fr._enqueued = []     # captured frappe.enqueue calls
     fr._conf = {}         # site_config stub (frappe.get_conf)
+    fr._tasks = {}        # Task store (name -> dict)
+    fr._wtus = {}         # Weekly Team Update store (name -> dict)
+    fr._roles = []        # frappe.get_roles()
+    fr._mail = []         # frappe.sendmail captures
 
     def _nl_by_name(name):
         for r in fr._nl:
@@ -72,6 +76,39 @@ def _install_frappe():
                 if all(wp.get(kk) == vv for kk, vv in filters.items()):
                     out.append({"name": nm})
             return out[:int(limit_page_length or 99)]
+        if doctype in ("Task", "Weekly Team Update"):
+            store = fr._tasks if doctype == "Task" else fr._wtus
+            def _norm(v):
+                return "" if v is None else str(v)
+            def _mt(r):
+                for kk, vv in (filters or {}).items():
+                    rv = r.get(kk)
+                    if isinstance(vv, (list, tuple)) and len(vv) == 2 and vv[0] in (
+                            "<", "<=", ">", ">=", "in", "not in", "between", "like"):
+                        op, val = vv
+                        if op == "<" and not (_norm(rv) < _norm(val)):
+                            return False
+                        if op == "<=" and not (_norm(rv) <= _norm(val)):
+                            return False
+                        if op == ">" and not (_norm(rv) > _norm(val)):
+                            return False
+                        if op == ">=" and not (_norm(rv) >= _norm(val)):
+                            return False
+                        if op == "in" and rv not in val:
+                            return False
+                        if op == "not in" and rv in val:
+                            return False
+                        if op == "between" and not (_norm(val[0]) <= _norm(rv) <= _norm(val[1])):
+                            return False
+                        if op == "like" and str(val).strip("%") not in _norm(rv):
+                            return False
+                    elif rv != vv:
+                        return False
+                return True
+            rows = [dict(r, name=nm) for nm, r in store.items() if _mt(dict(r, name=nm))]
+            if fields:
+                rows = [{f: r.get(f) for f in fields} for r in rows]
+            return rows
         if doctype == "EC Notification Delivery Log":
             def _match(r):
                 for kk, vv in filters.items():
@@ -109,6 +146,16 @@ def _install_frappe():
             row = _nl_by_name(name) or {}
             if field == "for_user":
                 return row.get("for_user")
+        if doctype == "Task":
+            rec = fr._tasks.get(name) or fr._docs.get((doctype, name), {})
+            if isinstance(field, (list, tuple)):
+                return [rec.get(f) for f in field]
+            return rec.get(field)
+        if doctype == "Weekly Team Update":
+            rec = fr._wtus.get(name) or fr._docs.get((doctype, name), {})
+            if isinstance(field, (list, tuple)):
+                return [rec.get(f) for f in field]
+            return rec.get(field)
         rec = fr._docs.get((doctype, name), {})
         if as_dict:
             keys = field if isinstance(field, (list, tuple)) else [field]
@@ -234,17 +281,45 @@ def _install_frappe():
     fr.publish_realtime = lambda **kw: fr._realtime.append(kw)
     fr.enqueue = lambda method, **kw: fr._enqueued.append(dict({"method": method}, **kw))
     fr.get_conf = lambda: fr._conf
+    import json as _json
+    fr.parse_json = lambda x: (_json.loads(x) if isinstance(x, str) else x)
+    fr.get_roles = lambda *a, **k: list(fr._roles)
+    fr.sendmail = lambda **k: fr._mail.append(k)
 
     import datetime as _dt
     def _now():
         return _dt.datetime(2026, 6, 22, 9, 0, 0)
     def _add(d, minutes=0, **kw):
         return (d or _now()) + _dt.timedelta(minutes=minutes)
+    def _getdate(x=None):
+        if x is None:
+            return _now().date()
+        if isinstance(x, _dt.datetime):
+            return x.date()
+        if isinstance(x, _dt.date):
+            return x
+        return _dt.date.fromisoformat(str(x)[:10])
+    def _get_dt(x=None):
+        if x is None:
+            return _now()
+        if isinstance(x, _dt.datetime):
+            return x
+        if isinstance(x, _dt.date):
+            return _dt.datetime(x.year, x.month, x.day)
+        return _dt.datetime.fromisoformat(str(x).replace("T", " ")[:19])
+    def _add2(d, hours=0, minutes=0, days=0, **kw):
+        return _get_dt(d) + _dt.timedelta(hours=hours, minutes=minutes, days=days)
     fr.utils = types.SimpleNamespace(
         format_datetime=lambda *a, **k: "Thu 25/06/2026 17:00",
         now_datetime=_now,
-        add_to_date=_add,
-        get_datetime=lambda x=None: x or _now())
+        add_to_date=_add2,
+        get_datetime=_get_dt,
+        getdate=_getdate,
+        nowdate=lambda: str(_now().date()),
+        today=lambda: str(_now().date()),
+        add_days=lambda d, n: _getdate(d) + _dt.timedelta(days=int(n)),
+        get_url=lambda *a, **k: "https://test.ecentric.vn",
+        cint=lambda x=0: int(x) if str(x).lstrip("-").isdigit() else 0)
     sys.modules["frappe"] = fr
     sys.modules["frappe.utils"] = fr.utils
     return fr
@@ -270,6 +345,10 @@ def _reset(user="a@x.com"):
     FR._prefs.clear()
     FR._enqueued[:] = []
     FR._conf.clear()
+    FR._tasks.clear()
+    FR._wtus.clear()
+    FR._roles[:] = []
+    FR._mail[:] = []
     FR._docs.clear()
     FR._realtime[:] = []
     FR._webpages.clear()
@@ -1023,6 +1102,12 @@ class TestTeamsAdapter(unittest.TestCase):
         self.assertEqual(act["name"], "Open in ERP")
         self.assertEqual(act["targets"][0]["uri"], "/app/task/T1")
 
+    def test_build_card_names_intended_recipient(self):
+        card = tm.build_card({"title": "X", "event_type": "task_assigned",
+                              "severity": "info", "recipient": "u@x.com"})
+        facts = card["sections"][0]["facts"]
+        self.assertTrue(any(f["name"] == "For" and f["value"] == "u@x.com" for f in facts))
+
     def test_dryrun_when_no_credential(self):
         FR._conf.clear()                                   # provider defaults to 'disabled'
         nm = ev._delivery(ev._event_id("e1"), "u@x.com", "teams", "Pending",
@@ -1134,3 +1219,183 @@ class TestDeliveryAssetStatics(unittest.TestCase):
         self.assertIn("function inQuiet(", self.js)
         self.assertIn("function shouldSound(", self.js)
         self.assertIn("!S.interacted", self.js)
+
+
+# =========================================================================== #
+# Notification Delivery v1 — REAL business-event producer integration tests
+# =========================================================================== #
+import json as _json2
+
+
+class _Doc:
+    """Minimal Frappe-doc-like object for approval producer tests."""
+    def __init__(self, **k):
+        self.__dict__.update(k)
+    def get(self, k, d=None):
+        return getattr(self, k, d)
+
+
+class TestPMProducers(unittest.TestCase):
+    def setUp(self):
+        _reset("boss@x.com"); FR.session.user = "boss@x.com"
+        from ecentric_workspace.pm.api import notifications as pmn
+        self.pmn = pmn
+
+    def _task(self, name, state="Open", assignees=None, owner="boss@x.com", due=None):
+        FR._tasks[name] = {"name": name, "subject": "T " + name, "workflow_state": state,
+                           "owner": owner, "_assign": _json2.dumps(assignees or []),
+                           "exp_end_date": due}
+
+    def _by_channel(self, recipient):
+        return {d["channel"]: d["status"] for d in FR._delivery if d["recipient"] == recipient}
+
+    def test_assign_creates_exactly_one_notification_log(self):
+        self._task("TASK-1", assignees=["u@x.com"])
+        self.pmn.notify_users(["u@x.com"], "Ban duoc giao", "TASK-1")
+        self.assertEqual(len(FR._nl), 1)
+        self.assertEqual(FR._nl[0]["for_user"], "u@x.com")
+        self.assertEqual(FR._nl[0]["document_type"], "Task")
+        # exactly one delivery row per (recipient, channel)
+        from collections import Counter
+        c = Counter((d["recipient"], d["channel"]) for d in FR._delivery)
+        self.assertTrue(all(v == 1 for v in c.values()), dict(c))
+        byc = self._by_channel("u@x.com")
+        self.assertEqual(byc["erp"], "Sent")
+        self.assertEqual(byc["teams"], "Pending")        # task_assigned routes teams
+        self.assertTrue(FR._nl[0]["document_name"] == "TASK-1")
+
+    def test_self_assign_not_notified(self):
+        self._task("TASK-2")
+        self.pmn.notify_users(["boss@x.com"], "x", "TASK-2", from_user="boss@x.com")
+        self.assertEqual(len(FR._nl), 0)
+
+    def test_reassign_notifies_only_new_assignee(self):
+        # call site computes the NEW assignee; the producer notifies that one only
+        self._task("TASK-3", assignees=["old@x.com", "new@x.com"])
+        self.pmn.notify_users(["new@x.com"], "x", "TASK-3")
+        self.assertEqual([n["for_user"] for n in FR._nl], ["new@x.com"])
+
+    def test_done_and_cancelled_not_notified(self):
+        self._task("TASK-D", state="Done", assignees=["u@x.com"])
+        self.pmn.notify_users(["u@x.com"], "x", "TASK-D")
+        self._task("TASK-C", state="Cancelled", assignees=["u@x.com"])
+        self.pmn.notify_users(["u@x.com"], "x", "TASK-C")
+        self.assertEqual(len(FR._nl), 0)
+
+    def test_overdue_scan_twice_no_duplicate(self):
+        self._task("TASK-OV", state="Open", assignees=["u@x.com"], due="2026-06-20")
+        self.pmn.pm_overdue_scan()
+        self.pmn.pm_overdue_scan()                         # scheduler re-run
+        self.assertEqual(len(FR._nl), 1)                   # one NL despite two runs
+        self.assertEqual(len([d for d in FR._delivery if d["channel"] == "erp"]), 1)
+        self.assertEqual(self._by_channel("u@x.com")["erp"], "Sent")
+
+    def test_due_soon_scan_twice_no_duplicate(self):
+        self._task("TASK-DS", state="Open", assignees=["u@x.com"], due="2026-06-23")
+        self.pmn.pm_due_soon_scan()
+        self.pmn.pm_due_soon_scan()                        # scheduler re-run
+        self.assertEqual(len(FR._nl), 1)
+
+    def test_teams_no_credential_skips_without_failing(self):
+        self._task("TASK-T", assignees=["u@x.com"])
+        self.pmn.notify_users(["u@x.com"], "x", "TASK-T")
+        teams = [d for d in FR._delivery if d["channel"] == "teams"][0]
+        nl_before = len(FR._nl)
+        FR._conf.clear()
+        tm.deliver(teams["name"])                          # background job, no credential
+        self.assertEqual(teams["status"], "Skipped")
+        self.assertEqual(teams["error_code"], "NO_CREDENTIAL")
+        self.assertEqual(len(FR._nl), nl_before)           # business txn untouched
+
+
+class TestApprovalProducer(unittest.TestCase):
+    def setUp(self):
+        _reset("submitter@x.com"); FR.session.user = "submitter@x.com"
+        from ecentric_workspace import api as ecapi
+        self.ecapi = ecapi
+
+    def _doc(self, level=1):
+        return _Doc(doctype="MSO Request", name="MSO-1", current_level=level,
+                    submitted_by="submitter@x.com", owner="submitter@x.com")
+
+    def test_approval_required_emitted_to_approver(self):
+        self.ecapi._notify_approver("approver@x.com", self._doc())
+        self.assertEqual(len(FR._nl), 1)
+        self.assertEqual(FR._nl[0]["for_user"], "approver@x.com")
+        self.assertEqual(FR._nl[0]["document_type"], "MSO Request")
+        self.assertEqual(len(FR._mail), 1)                 # email still sent
+        byc = {d["channel"]: d["status"] for d in FR._delivery}
+        self.assertEqual(byc["erp"], "Sent")
+        self.assertEqual(byc["teams"], "Pending")          # approval_required routes teams
+
+    def test_reload_does_not_renotify(self):
+        self.ecapi._notify_approver("approver@x.com", self._doc())
+        self.ecapi._notify_approver("approver@x.com", self._doc())   # same stage again
+        self.assertEqual(len(FR._nl), 1)                   # stable dedupe -> no re-notify
+
+    def test_level_advance_notifies_new_approver(self):
+        self.ecapi._notify_approver("approver1@x.com", self._doc(level=1))
+        self.ecapi._notify_approver("approver2@x.com", self._doc(level=2))
+        self.assertEqual({n["for_user"] for n in FR._nl}, {"approver1@x.com", "approver2@x.com"})
+
+    def test_no_recipient_is_noop(self):
+        self.ecapi._notify_approver(None, self._doc())
+        self.assertEqual(len(FR._nl), 0)
+
+
+class TestWeeklyProducer(unittest.TestCase):
+    def setUp(self):
+        _reset("Administrator"); FR.session.user = "Administrator"
+        import sys as _sys
+        import types as _t
+        if "ecentric_workspace.weekly_report.service" not in _sys.modules:
+            _sys.modules["ecentric_workspace.weekly_report.service"] = _t.ModuleType(
+                "ecentric_workspace.weekly_report.service")
+        if "ecentric_workspace.weekly_report.week_calendar" not in _sys.modules:
+            wc = _t.ModuleType("ecentric_workspace.weekly_report.week_calendar")
+            wc.MissingReportingWindowError = type("MissingReportingWindowError", (Exception,), {})
+            _sys.modules["ecentric_workspace.weekly_report.week_calendar"] = wc
+        from ecentric_workspace.weekly_report import scheduler as wsch
+        self.wsch = wsch
+
+    def _wtu(self, name, status, due, user="u@x.com", label="2026-W26"):
+        FR._wtus[name] = {"name": name, "status": status, "submitter": user,
+                          "week_label": label, "due_at": due}
+
+    def test_overdue_obligation_twice_no_duplicate(self):
+        self._wtu("WTU-1", "Draft", "2026-06-20 09:00:00")   # before now (2026-06-22 09:00)
+        self.wsch.wr_due_overdue_scan()
+        self.wsch.wr_due_overdue_scan()                       # re-run
+        self.assertEqual(len(FR._nl), 1)
+        self.assertEqual(FR._nl[0]["document_type"], "Weekly Team Update")
+
+    def test_due_soon_obligation(self):
+        self._wtu("WTU-2", "Draft", "2026-06-22 20:00:00")   # within 24h of now
+        self.wsch.wr_due_overdue_scan()
+        self.assertEqual(len(FR._nl), 1)
+
+    def test_terminal_obligation_not_notified(self):
+        self._wtu("WTU-3", "Submitted", "2026-06-20 09:00:00")
+        self.wsch.wr_due_overdue_scan()
+        self.assertEqual(len(FR._nl), 0)
+
+
+class TestSingleNotificationLogOwner(unittest.TestCase):
+    """One business event -> exactly one native Notification Log + <=1 delivery log per
+    (recipient, channel); scheduler re-run never increases the counts."""
+
+    def setUp(self):
+        _reset("boss@x.com"); FR.session.user = "boss@x.com"
+        from ecentric_workspace.pm.api import notifications as pmn
+        self.pmn = pmn
+
+    def test_one_event_one_log_one_delivery_each_channel(self):
+        FR._tasks["TK"] = {"name": "TK", "subject": "T", "workflow_state": "Open",
+                           "owner": "boss@x.com", "_assign": _json2.dumps(["u@x.com"]),
+                           "exp_end_date": "2026-06-20"}
+        self.pmn.pm_overdue_scan()
+        self.pmn.pm_overdue_scan()
+        self.assertEqual(len(FR._nl), 1)
+        from collections import Counter
+        c = Counter((d["recipient"], d["channel"]) for d in FR._delivery)
+        self.assertTrue(all(v == 1 for v in c.values()), dict(c))

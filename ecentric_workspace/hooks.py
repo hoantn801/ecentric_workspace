@@ -61,6 +61,9 @@ scheduler_events = {
     "daily": [
         "ecentric_workspace.pm.api.recurrence.run_due",
         "ecentric_workspace.pm.api.notifications.pm_overdue_scan",
+        # Notification Delivery v1: new producers (distinct jobs, not duplicates).
+        "ecentric_workspace.pm.api.notifications.pm_due_soon_scan",
+        "ecentric_workspace.weekly_report.scheduler.wr_due_overdue_scan",
         "ecentric_workspace.weekly_report.scheduler.generate_weekly_obligations",
     ],
     # Alert Center Phase E (decision D2-E): both jobs are dry-run-safe and

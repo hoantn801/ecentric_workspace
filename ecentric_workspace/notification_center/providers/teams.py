@@ -48,6 +48,10 @@ def build_card(d):
     title = _plain(d.get("title") or d.get("event_type") or "Notification")
     desc = _plain(d.get("message") or "")
     facts = []
+    if d.get("recipient"):
+        # Webhook/Workflow posts to a CHANNEL (not a per-user DM); naming the intended
+        # recipient keeps the channel message honest about who must act.
+        facts.append({"name": "For", "value": str(d["recipient"])})
     if d.get("actor"):
         facts.append({"name": "From", "value": str(d["actor"])})
     if d.get("deadline"):
@@ -103,6 +107,7 @@ def deliver(delivery_log):
         "title": doc.get("title") or "", "message": doc.get("message") or "",
         "event_type": doc.get("event_type"), "severity": doc.get("severity"),
         "action_url": doc.get("action_url") or "", "actor": doc.get("actor") or "",
+        "recipient": doc.get("recipient") or "",
     })
 
     if cfg["provider"] in ("disabled", "dryrun") or (cfg["provider"] == "webhook" and not cfg["webhook_url"]):

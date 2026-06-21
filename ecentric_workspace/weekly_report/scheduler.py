@@ -131,3 +131,52 @@ def generate_weekly_obligations(run_date=None, employee_names=None):
             continue
 
     return stats
+
+
+def wr_due_overdue_scan(run_date=None):
+    """Daily: for every non-terminal Weekly Team Update obligation, notify the submitter
+    when it is due soon (<=24h) or overdue. Routes through the ONE central publish service
+    with a STABLE dedupe key (event|wtu|user|due_at) so re-running the scheduler creates no
+    duplicates, and terminal (Submitted/Reviewed) updates are never (re)notified.
+
+    Distinct from generate_weekly_obligations (which CREATES obligations) -- this only
+    notifies; no scheduler is duplicated."""
+    from ecentric_workspace.notification_center import events as ncev
+    from ecentric_workspace.action_center.resolvers import build_wtu_url
+
+    now = frappe.utils.now_datetime()
+    soon = frappe.utils.add_to_date(now, hours=24)
+    wtus = frappe.get_all(
+        "Weekly Team Update",
+        filters={"status": ["not in", ["Submitted", "Reviewed"]]},
+        fields=["name", "submitter", "week_label", "due_at"],
+        limit_page_length=0)
+    sent = 0
+    for w in wtus:
+        user = w.get("submitter")
+        due = w.get("due_at")
+        if not user or not due:
+            continue
+        due_dt = frappe.utils.get_datetime(due)
+        label = str(w.get("week_label") or "")
+        if due_dt < now:
+            event = "task_overdue"
+            subject = "[Quá hạn] Báo cáo tuần " + label
+            message = "Báo cáo tuần " + label + " đã quá hạn nộp."
+        elif due_dt <= soon:
+            event = "task_due_soon"
+            subject = "[Sắp đến hạn] Báo cáo tuần " + label
+            message = "Báo cáo tuần " + label + " sắp đến hạn nộp."
+        else:
+            continue
+        try:
+            ncev.publish_notification_event(
+                event, user, subject, message,
+                action_url=build_wtu_url(label),
+                reference_doctype="Weekly Team Update", reference_name=w["name"],
+                actor="Administrator",
+                dedupe_key=event + "|" + w["name"] + "|" + user + "|" + str(due))
+            sent += 1
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "wr_due_overdue_scan")
+    return {"notified": sent}
