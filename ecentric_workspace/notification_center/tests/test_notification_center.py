@@ -49,6 +49,7 @@ def _install_frappe():
     fr._wtus = {}         # Weekly Team Update store (name -> dict)
     fr._roles = []        # frappe.get_roles()
     fr._mail = []         # frappe.sendmail captures
+    fr._convs = {}        # EC Teams Conversation store (user -> doc)
 
     def _nl_by_name(name):
         for r in fr._nl:
@@ -189,6 +190,8 @@ def _install_frappe():
             return name in fr._webpages
         if doctype == "EC Notification Preference":
             return name in fr._prefs
+        if doctype == "EC Teams Conversation":
+            return name in fr._convs
         if doctype == "EC Notification Delivery Log":
             if isinstance(name, dict):
                 for r in fr._delivery:
@@ -258,6 +261,16 @@ def _install_frappe():
             fr._prefs[self["user"]] = self
             return self
 
+    class _ConvDoc(_GenericDoc):
+        def insert(self, ignore_permissions=False):
+            self["name"] = self.get("user")
+            fr._convs[self["user"]] = self
+            return self
+        def save(self, ignore_permissions=False):
+            self["name"] = self.get("user")
+            fr._convs[self["user"]] = self
+            return self
+
     def get_doc(arg, name=None):
         if isinstance(arg, dict):
             dt = arg.get("doctype")
@@ -265,6 +278,8 @@ def _install_frappe():
                 return _DeliveryDoc(arg)
             if dt == "EC Notification Preference":
                 return _PrefDoc(arg)
+            if dt == "EC Teams Conversation":
+                return _ConvDoc(arg)
             return _NLDoc(arg)
         if arg == "Web Page":
             return _WPDoc(name, fr._webpages[name])
@@ -275,6 +290,8 @@ def _install_frappe():
             raise Exception("delivery not found: %r" % name)
         if arg == "EC Notification Preference":
             return fr._prefs[name]
+        if arg == "EC Teams Conversation":
+            return fr._convs[name]
         raise Exception("unexpected get_doc(%r,%r)" % (arg, name))
 
     fr.get_doc = get_doc
@@ -349,6 +366,7 @@ def _reset(user="a@x.com"):
     FR._wtus.clear()
     FR._roles[:] = []
     FR._mail[:] = []
+    FR._convs.clear()
     FR._docs.clear()
     FR._realtime[:] = []
     FR._webpages.clear()
@@ -1100,7 +1118,7 @@ class TestTeamsAdapter(unittest.TestCase):
         self.assertEqual(card["sections"][0]["text"], "nội dung")
         act = card["potentialAction"][0]
         self.assertEqual(act["name"], "Open in ERP")
-        self.assertEqual(act["targets"][0]["uri"], "/app/task/T1")
+        self.assertEqual(act["targets"][0]["uri"], "https://test.ecentric.vn/app/task/T1")
 
     def test_build_card_names_intended_recipient(self):
         card = tm.build_card({"title": "X", "event_type": "task_assigned",
@@ -1119,13 +1137,14 @@ class TestTeamsAdapter(unittest.TestCase):
         self.assertEqual(doc["provider"], "dryrun")
 
     def test_webhook_secret_never_logged_on_failure(self):
+        # webhook is now a system_critical CHANNEL fallback only
         FR._conf.update({"ec_teams_provider": "webhook",
                          "ec_teams_webhook_url": "https://secret.example/hook/AAA-SECRET"})
         orig = tm._post_webhook
         tm._post_webhook = lambda url, card: (False, "500", "teams webhook non-2xx")
         try:
             nm = ev._delivery(ev._event_id("e2"), "u@x.com", "teams", "Pending",
-                              title="T", message="M", event_type="task_overdue", severity="urgent")
+                              title="T", message="M", event_type="system_critical", severity="urgent")
             tm.deliver(nm)
         finally:
             tm._post_webhook = orig
@@ -1133,25 +1152,43 @@ class TestTeamsAdapter(unittest.TestCase):
         self.assertEqual(doc["status"], "Failed")
         self.assertEqual(doc["attempt_count"], 1)
         self.assertIsNotNone(doc["next_retry_at"])         # retry scheduled
-        # the secret URL must NOT appear anywhere in the recorded error
         blob = (str(doc.get("error_code")) + str(doc.get("error_message")))
         self.assertNotIn("SECRET", blob)
         self.assertNotIn("secret.example", blob)
 
-    def test_webhook_success_marks_sent(self):
+    def test_webhook_system_critical_marks_sent(self):
         FR._conf.update({"ec_teams_provider": "webhook",
                          "ec_teams_webhook_url": "https://x/hook"})
         orig = tm._post_webhook
         tm._post_webhook = lambda url, card: (True, "200", "")
         try:
             nm = ev._delivery(ev._event_id("e3"), "u@x.com", "teams", "Pending",
-                              title="T", message="M", event_type="task_assigned", severity="info")
+                              title="T", message="M", event_type="system_critical", severity="urgent")
             tm.deliver(nm)
         finally:
             tm._post_webhook = orig
         doc = FR.get_doc("EC Notification Delivery Log", nm)
         self.assertEqual(doc["status"], "Sent")
+        self.assertEqual(doc["provider"], "webhook")
         self.assertIsNotNone(doc["sent_at"])
+
+    def test_webhook_not_used_for_personal_event(self):
+        # provider=webhook + a PERSONAL event -> webhook must NOT fire; dry-run skip instead
+        FR._conf.update({"ec_teams_provider": "webhook",
+                         "ec_teams_webhook_url": "https://x/hook"})
+        called = {"n": 0}
+        orig = tm._post_webhook
+        tm._post_webhook = lambda url, card: (called.__setitem__("n", called["n"] + 1), (True, "200", ""))[1]
+        try:
+            nm = ev._delivery(ev._event_id("e3b"), "u@x.com", "teams", "Pending",
+                              title="T", message="M", event_type="task_assigned", severity="info")
+            tm.deliver(nm)
+        finally:
+            tm._post_webhook = orig
+        doc = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(called["n"], 0)                    # webhook never called for personal
+        self.assertEqual(doc["status"], "Skipped")
+        self.assertEqual(doc["error_code"], "NO_CREDENTIAL")
 
     def test_retry_sweep_requeues_due_failed(self):
         nm = ev._delivery(ev._event_id("e4"), "u@x.com", "teams", "Failed",
@@ -1399,3 +1436,145 @@ class TestSingleNotificationLogOwner(unittest.TestCase):
         from collections import Counter
         c = Counter((d["recipient"], d["channel"]) for d in FR._delivery)
         self.assertTrue(all(v == 1 for v in c.values()), dict(c))
+
+
+# =========================================================================== #
+# Notification Delivery v1 — Teams PERSONAL BOT (proactive 1:1) tests
+# =========================================================================== #
+from ecentric_workspace.notification_center.providers import teams_bot as tbot   # noqa: E402
+from ecentric_workspace.notification_center.providers import graph as tgraph      # noqa: E402
+
+
+class TestTeamsBot(unittest.TestCase):
+    def setUp(self):
+        _reset("admin@x.com"); FR.session.user = "admin@x.com"
+        FR._conf.update({
+            "ec_teams_provider": "teams_bot",
+            "ec_teams_bot_app_id": "BOTAPPID", "ec_teams_bot_app_password": "BOTSECRET",
+            "ec_teams_bot_id": "28:BOTAPPID", "ec_teams_bot_default_service_url": "https://smba/region/",
+        })
+        self._orig = {"post": tbot._post_activity, "prov": tbot.provision_conversation,
+                      "cc": tbot.create_conversation, "e2a": tgraph.email_to_aad_object_id,
+                      "ins": tgraph.ensure_bot_installed}
+
+    def tearDown(self):
+        tbot._post_activity = self._orig["post"]
+        tbot.provision_conversation = self._orig["prov"]
+        tbot.create_conversation = self._orig["cc"]
+        tgraph.email_to_aad_object_id = self._orig["e2a"]
+        tgraph.ensure_bot_installed = self._orig["ins"]
+
+    def _conv(self, user="u@x.com"):
+        FR._convs[user] = {"name": user, "user": user, "service_url": "https://smba/region/",
+                           "conversation_id": "conv-1", "bot_id": "28:BOTAPPID",
+                           "aad_object_id": "AAD-1", "tenant_id": "TEN-1"}
+
+    def _dlv(self, eid, event_type="task_assigned", severity="action_required"):
+        return ev._delivery(ev._event_id(eid), "u@x.com", "teams", "Pending",
+                            title="Việc mới", message="<b>Nội dung</b>", actor="boss@x.com",
+                            action_url="/app/task/T1", event_type=event_type, severity=severity)
+
+    def test_personal_bot_sends_to_existing_conversation(self):
+        self._conv()
+        tbot._post_activity = lambda conv, activity, cfg=None, token=None: (True, "200", "")
+        nm = self._dlv("b1")
+        tm.deliver(nm)
+        doc = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(doc["status"], "Sent")
+        self.assertEqual(doc["provider"], "teams_bot")
+
+    def test_not_installed_is_clear_skip_no_retry(self):
+        # no stored conversation + Graph not configured -> cannot provision -> Skipped
+        nm = self._dlv("b2")
+        tm.deliver(nm)
+        doc = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(doc["status"], "Skipped")
+        self.assertEqual(doc["error_code"], "NO_GRAPH_FOR_PROVISION")
+        self.assertIsNone(doc["next_retry_at"])            # no infinite retry for not-installed
+
+    def test_user_blocked_bot_is_skip(self):
+        self._conv()
+        tbot._post_activity = lambda conv, activity, cfg=None, token=None: (False, "403", "forbidden")
+        nm = self._dlv("b3")
+        tm.deliver(nm)
+        doc = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(doc["status"], "Skipped")
+        self.assertEqual(doc["error_code"], "BOT_BLOCKED")
+
+    def test_transient_error_retries(self):
+        self._conv()
+        tbot._post_activity = lambda conv, activity, cfg=None, token=None: (False, "500", "server")
+        nm = self._dlv("b4")
+        tm.deliver(nm)
+        doc = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(doc["status"], "Failed")
+        self.assertIsNotNone(doc["next_retry_at"])
+
+    def test_business_transaction_not_failed_when_bot_unconfigured(self):
+        FR._conf.clear()                                   # provider disabled
+        nl_before = len(FR._nl)
+        nm = self._dlv("b5")
+        tm.deliver(nm)                                     # must not raise
+        doc = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(doc["status"], "Skipped")
+        self.assertEqual(doc["error_code"], "NO_CREDENTIAL")
+        self.assertEqual(len(FR._nl), nl_before)
+
+    def test_on_demand_provision_then_send(self):
+        # no stored conversation, but Graph + create_conversation succeed -> provisioned + sent
+        FR._conf.update({"ec_graph_tenant_id": "TEN", "ec_graph_client_id": "CID",
+                         "ec_graph_client_secret": "SEC", "ec_teams_app_external_id": "APPX"})
+        tgraph.email_to_aad_object_id = lambda email, token=None, cfg=None: (True, "AAD-9")
+        tgraph.ensure_bot_installed = lambda oid, token=None, cfg=None: (True, "installed")
+        tbot.create_conversation = lambda oid, tid, su, cfg=None, token=None: (True, "conv-9")
+        tbot._post_activity = lambda conv, activity, cfg=None, token=None: (True, "201", "")
+        try:
+            nm = self._dlv("b6")
+            tm.deliver(nm)
+        finally:
+            pass
+        doc = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(doc["status"], "Sent")
+        self.assertIn("u@x.com", FR._convs)                # conversation reference persisted
+
+    def test_build_personal_activity_is_adaptive_card_with_button(self):
+        act = tm.build_personal_activity({"title": "<b>T</b>", "message": "<i>m</i>",
+                                          "event_type": "task_assigned", "actor": "boss",
+                                          "deadline": "Thu", "action_url": "/app/task/T1"})
+        card = act["attachments"][0]["content"]
+        self.assertEqual(card["type"], "AdaptiveCard")
+        self.assertEqual(card["body"][0]["text"], "T")     # HTML stripped
+        self.assertEqual(card["actions"][0]["type"], "Action.OpenUrl")
+        self.assertEqual(card["actions"][0]["title"], "Mở trong ERP")
+        self.assertEqual(card["actions"][0]["url"], "https://test.ecentric.vn/app/task/T1")
+
+    def test_save_and_resolve_conversation_reference(self):
+        tbot.save_conversation_reference("u@x.com", {
+            "serviceUrl": "https://smba/region/",
+            "conversation": {"id": "conv-77", "tenantId": "TEN-1"},
+            "bot": {"id": "28:BOTAPPID"}}, aad_object_id="AAD-77")
+        conv = tbot.resolve_conversation("u@x.com")
+        self.assertEqual(conv["conversation_id"], "conv-77")
+        self.assertEqual(conv["aad_object_id"], "AAD-77")
+
+
+class TestTeamsConversationIngestAPI(unittest.TestCase):
+    def setUp(self):
+        _reset("svc@x.com"); FR.session.user = "svc@x.com"
+
+    def test_requires_system_manager(self):
+        FR._roles[:] = []
+        out = api.save_teams_conversation(user="u@x.com", reference={"serviceUrl": "x"})
+        self.assertFalse(out["success"])
+
+    def test_system_manager_can_store(self):
+        FR._roles[:] = ["System Manager"]
+        out = api.save_teams_conversation(user="u@x.com", aad_object_id="AAD-1", reference={
+            "serviceUrl": "https://smba/region/",
+            "conversation": {"id": "conv-1", "tenantId": "TEN"}, "bot": {"id": "28:B"}})
+        self.assertTrue(out["success"])
+        self.assertIn("u@x.com", FR._convs)
+
+    def test_guest_unauthorized(self):
+        FR.session.user = "Guest"
+        self.assertFalse(api.save_teams_conversation(user="u@x.com", reference={})["success"])

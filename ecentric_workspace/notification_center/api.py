@@ -140,3 +140,22 @@ def set_preferences(sound_enabled=None, desktop_enabled=None, teams_enabled=None
     doc.save(ignore_permissions=True)  # safe: user value is forced to session user
     frappe.db.commit()
     return {"success": True, "preferences": _events.get_preference(user)}
+
+
+@frappe.whitelist(methods=["POST"])
+def save_teams_conversation(user=None, reference=None, aad_object_id=None):
+    """Ingest a Bot Framework conversationReference captured by the eCentric ERP Bot web
+    service (when a user installs/opens the bot). Restricted to System Manager -- the bot
+    service authenticates with an API key bound to a service user holding that role. Stores
+    only non-secret conversation identifiers (no bot password / Graph secret)."""
+    caller = _current_user()
+    if not caller:
+        return {"success": False, "error": "Unauthorized"}
+    if "System Manager" not in frappe.get_roles(caller):
+        frappe.response["http_status_code"] = 403
+        return {"success": False, "error": "Forbidden"}
+    if not user or not reference:
+        return {"success": False, "error": "user and reference are required"}
+    from ecentric_workspace.notification_center.providers import teams_bot
+    name = teams_bot.save_conversation_reference(user, reference, aad_object_id=aad_object_id)
+    return {"success": True, "name": name}

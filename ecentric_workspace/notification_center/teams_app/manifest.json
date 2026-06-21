@@ -1,0 +1,30 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "REPLACE_WITH_TEAMS_APP_ID_GUID",
+  "packageName": "vn.ecentric.erp.notificationbot",
+  "developer": {
+    "name": "eCentric",
+    "websiteUrl": "https://team.ecentric.vn",
+    "privacyUrl": "https://team.ecentric.vn/privacy",
+    "termsOfUseUrl": "https://team.ecentric.vn/terms"
+  },
+  "name": { "short": "eCentric ERP Bot", "full": "eCentric ERP Notification Bot" },
+  "description": {
+    "short": "Personal ERP notifications in Teams.",
+    "full": "Sends you private 1:1 notifications from the eCentric ERP: task assignments, due/overdue tasks, approval requests, mentions and critical alerts, each with an Open in ERP button."
+  },
+  "icons": { "color": "color.png", "outline": "outline.png" },
+  "accentColor": "#2C3DA6",
+  "bots": [
+    {
+      "botId": "REPLACE_WITH_BOT_APP_ID_GUID",
+      "scopes": ["personal"],
+      "supportsFiles": false,
+      "isNotificationOnly": true
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": ["team.ecentric.vn"]
+}

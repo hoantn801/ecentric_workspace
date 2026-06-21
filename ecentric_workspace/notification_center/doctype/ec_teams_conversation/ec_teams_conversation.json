@@ -1,0 +1,27 @@
+{
+ "doctype": "DocType",
+ "name": "EC Teams Conversation",
+ "module": "Notification Center",
+ "custom": 0, "istable": 0, "issingle": 0, "is_virtual": 0,
+ "engine": "InnoDB", "track_changes": 0,
+ "autoname": "field:user",
+ "sort_field": "modified", "sort_order": "DESC",
+ "field_order": ["user","aad_object_id","tenant_id","sec_conv","service_url","conversation_id","bot_id","conversation_reference","sec_state","installed","last_error","last_synced_at"],
+ "fields": [
+  {"fieldname":"user","fieldtype":"Link","label":"User","options":"User","reqd":1,"unique":1,"in_list_view":1},
+  {"fieldname":"aad_object_id","fieldtype":"Data","label":"Microsoft Entra Object ID","search_index":1,"in_list_view":1},
+  {"fieldname":"tenant_id","fieldtype":"Data","label":"Tenant ID"},
+  {"fieldname":"sec_conv","fieldtype":"Section Break","label":"Conversation Reference"},
+  {"fieldname":"service_url","fieldtype":"Data","label":"Service URL"},
+  {"fieldname":"conversation_id","fieldtype":"Data","label":"Conversation ID"},
+  {"fieldname":"bot_id","fieldtype":"Data","label":"Bot ID"},
+  {"fieldname":"conversation_reference","fieldtype":"Long Text","label":"Conversation Reference (JSON)"},
+  {"fieldname":"sec_state","fieldtype":"Section Break","label":"State"},
+  {"fieldname":"installed","fieldtype":"Check","label":"Bot Installed","default":"0","in_list_view":1},
+  {"fieldname":"last_error","fieldtype":"Small Text","label":"Last Error"},
+  {"fieldname":"last_synced_at","fieldtype":"Datetime","label":"Last Synced At"}
+ ],
+ "permissions": [
+  {"role":"System Manager","read":1,"write":1,"create":1,"delete":1,"report":1,"export":1}
+ ]
+}
