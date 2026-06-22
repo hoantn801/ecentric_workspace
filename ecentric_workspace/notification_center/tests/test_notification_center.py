@@ -1610,266 +1610,119 @@ import os as _os2
 import time as _time2
 
 
-class TestEnqueueAssignmentDelivery(unittest.TestCase):
+class TestQueueAlignedDelivery(unittest.TestCase):
+    """Re-enqueue queue-alignment design: delivery job on the `default` queue; one lookup per
+    job; re-enqueue on miss; no in-job poll loop; no frappe.db.rollback()."""
+
     def setUp(self):
         _reset("boss@x.com"); FR.session.user = "boss@x.com"
+        import time as _t
         from ecentric_workspace.pm.api import notifications as pmn
         self.pmn = pmn
         FR._tasks["TKA"] = {"name": "TKA", "subject": "T", "workflow_state": "Open"}
-        self._real_sleep = _time2.sleep
-        _time2.sleep = lambda *a, **k: None          # no real waiting in tests
-        self._real_resolve = pmn._latest_native_log
-
-    def tearDown(self):
-        _time2.sleep = self._real_sleep
-        self.pmn._latest_native_log = self._real_resolve
-
-    def _native(self, user="u@x.com", task="TKA", subj="Boss assigned a new task to you"):
-        d = FR.get_doc({"doctype": "Notification Log", "for_user": user,
-                        "from_user": "boss@x.com", "type": "Assignment",
-                        "document_type": "Task", "document_name": task, "subject": subj})
-        d.insert()
-        return d.name
-
-    def _dlv(self, user="u@x.com"):
-        return [d for d in FR._delivery if d["recipient"] == user]
-
-    # 1) native log absent at first lookup, appears on a later retry -> routes
-    def test_native_appears_on_retry(self):
-        calls = [0]
-        def fake(rec, task):
-            calls[0] += 1
-            if calls[0] < 3:
-                return None
-            return {"name": "NEW1", "creation": "2026-06-22 09:00:05", "subject": "S"}
-        self.pmn._latest_native_log = fake
-        self.pmn.route_native_assignment_delivery("TKA", "u@x.com", "boss@x.com", None,
-                                                  "task_assigned|TKA|u@x.com")
-        self.assertGreaterEqual(calls[0], 3)             # it polled
-        dl = self._dlv()
-        self.assertTrue(dl and all(d["notification_log"] == "NEW1" for d in dl))
-
-    # 2) a stale/old native log exists -> must skip it and pick the new one
-    def test_picks_new_log_not_previous(self):
-        old = self._native()                              # pre-existing
-        new = self._native()                              # the new assignment's log (newer)
-        self.assertNotEqual(old, new)
-        self.pmn.route_native_assignment_delivery("TKA", "u@x.com", "boss@x.com", old,
-                                                  "task_assigned|TKA|u@x.com")
-        dl = self._dlv()
-        self.assertTrue(dl)
-        self.assertTrue(all(d["notification_log"] == new for d in dl))
-        self.assertFalse(any(d["notification_log"] == old for d in dl))
-
-    # 3) retries exhausted (only the previous log exists) -> no Alert fallback, no failure
-    def test_timeout_failopen_no_alert(self):
-        old = self._native()
-        nl_before = len(FR._nl)
-        self.pmn.route_native_assignment_delivery("TKA", "u@x.com", "boss@x.com", old,
-                                                  "task_assigned|TKA|u@x.com")
-        self.assertEqual(len(FR._nl), nl_before)          # no Alert fallback created
-        self.assertEqual(self._dlv(), [])                 # nothing routed
-
-    # 4) job re-run -> idempotent (no extra Delivery Log)
-    def test_job_rerun_no_duplicate(self):
-        self._native()
-        self.pmn.route_native_assignment_delivery("TKA", "u@x.com", "boss@x.com", None,
-                                                  "task_assigned|TKA|u@x.com")
-        n1 = len(self._dlv())
-        self.pmn.route_native_assignment_delivery("TKA", "u@x.com", "boss@x.com", None,
-                                                  "task_assigned|TKA|u@x.com")
-        self.assertEqual(len(self._dlv()), n1)
-
-    # 5) one assignment -> 1 native NL, 0 Alert, <=1 delivery/channel, refs native
-    def test_single_assignment_invariants(self):
-        native = self._native()
-        nl_before = len(FR._nl)
-        self.pmn.route_native_assignment_delivery("TKA", "u@x.com", "boss@x.com", None,
-                                                  "task_assigned|TKA|u@x.com")
-        self.assertEqual(len(FR._nl), nl_before)          # no new NL (uses native)
-        self.assertEqual([n for n in FR._nl if n.get("for_user") == "u@x.com"
-                          and n.get("document_name") == "TKA" and n.get("type") == "Alert"], [])
-        dl = self._dlv()
-        from collections import Counter
-        c = Counter((d["recipient"], d["channel"]) for d in dl)
-        self.assertTrue(all(v == 1 for v in c.values()), dict(c))
-        self.assertTrue(all(d["notification_log"] == native for d in dl))
-        ping = FR._realtime[-1]
-        self.assertEqual(ping["message"]["notification_name"], native)
-        self.assertEqual(ping["message"]["action_url"], "/app/task/TKA")
-        self.assertTrue(ping["after_commit"])
-
-    # 6) enqueue: exactly one job per recipient, after_commit, correct dedupe; policy skips
-    def test_enqueue_one_job_after_commit(self):
-        self.pmn.enqueue_task_assignment_delivery("TKA", ["u@x.com"], {"u@x.com": None},
-                                                  actor="boss@x.com")
-        jobs = [e for e in FR._enqueued if str(e["method"]).endswith("route_native_assignment_delivery")]
-        self.assertEqual(len(jobs), 1)
-        self.assertTrue(jobs[0]["enqueue_after_commit"])
-        self.assertEqual(jobs[0]["recipient"], "u@x.com")
-        self.assertEqual(jobs[0]["dedupe_key"], "task_assigned|TKA|u@x.com")
-
-    def test_enqueue_skips_self_admin_terminal(self):
-        self.pmn.enqueue_task_assignment_delivery("TKA", ["boss@x.com"], {}, actor="boss@x.com")
-        self.pmn.enqueue_task_assignment_delivery("TKA", ["Administrator"], {}, actor="boss@x.com")
-        FR._tasks["TKD"] = {"name": "TKD", "workflow_state": "Cancelled"}
-        self.pmn.enqueue_task_assignment_delivery("TKD", ["u@x.com"], {}, actor="boss@x.com")
-        self.assertEqual([e for e in FR._enqueued
-                          if str(e["method"]).endswith("route_native_assignment_delivery")], [])
-
-
-class TestAfterInsertHookRemoved(unittest.TestCase):
-    def test_hook_and_handler_gone(self):
-        root = _pkg_root()
-        hooks = open(_os2.path.join(root, "hooks.py")).read()
-        events = open(_os2.path.join(root, "notification_center", "events.py")).read()
-        self.assertNotIn("on_notification_log_after_insert", hooks)
-        self.assertNotIn("on_notification_log_after_insert", events)
-        self.assertNotIn('"Notification Log"', hooks)             # no NL doc_events binding
-        self.assertIn("def route_existing_notification_log(", events)   # kept (used by job)
-
-
-# =========================================================================== #
-# Notification Delivery v1 — snapshot-refresh (REPEATABLE READ) fix for the job
-# =========================================================================== #
-class TestAssignmentDeliveryTxnVisibility(unittest.TestCase):
-    """Proves the root cause + fix: a read transaction can't see a row another transaction
-    commits after the read started; only ending/refreshing the transaction reveals it."""
-
-    def test_repeatable_read_requires_snapshot_refresh_real_sqlite(self):
-        # REAL two-connection proof (WAL = writer concurrent with a reader holding a snapshot)
-        import os as _os, sqlite3, tempfile
-        path = tempfile.mktemp(suffix=".db")
-        try:
-            su = sqlite3.connect(path)
-            su.execute("PRAGMA journal_mode=WAL")
-            su.execute("CREATE TABLE nl(name TEXT, for_user TEXT, type TEXT, document_name TEXT)")
-            su.commit(); su.close()
-            A = sqlite3.connect(path); B = sqlite3.connect(path)
-            def latest(c):
-                r = c.execute("SELECT name FROM nl WHERE for_user='u' AND type='Assignment' "
-                              "AND document_name='TK' ORDER BY rowid DESC LIMIT 1").fetchone()
-                return r[0] if r else None
-            A.execute("BEGIN")                 # A opens a read transaction (snapshot)
-            self.assertIsNone(latest(A))       # miss
-            B.execute("BEGIN")
-            B.execute("INSERT INTO nl VALUES('NATIVE','u','Assignment','TK')")
-            B.commit()                          # a SEPARATE transaction commits the native log
-            self.assertIsNone(latest(A))       # A still cannot see it (its snapshot is pinned)
-            A.rollback()                        # refresh A's snapshot
-            self.assertEqual(latest(A), "NATIVE")   # now visible
-            A.close(); B.close()
-        finally:
-            for ext in ("", "-wal", "-shm"):
-                try:
-                    _os.remove(path + ext)
-                except Exception:
-                    pass
-
-    def test_job_routes_after_snapshot_refresh(self):
-        # stub equivalent: the native log is "committed by a separate txn" (in _pending_nl,
-        # invisible); frappe.db.rollback() refreshes the snapshot (pending -> visible). The
-        # job must miss first, rollback, then find + route off the native log.
-        _reset("boss@x.com"); FR.session.user = "boss@x.com"
-        import time as _t
-        from ecentric_workspace.pm.api import notifications as pmn
-        FR._tasks["TKV"] = {"name": "TKV", "workflow_state": "Open"}
-        FR._pending_nl.append({"name": "NATIVEV", "for_user": "u@x.com", "from_user": "boss@x.com",
-                               "type": "Assignment", "document_type": "Task",
-                               "document_name": "TKV", "subject": "assigned to you",
-                               "creation": "2026-06-22 09:00:05", "read": 0})
-        # before any refresh, the native log is NOT visible
-        self.assertIsNone(pmn._latest_native_log("u@x.com", "TKV"))
-        real = _t.sleep; _t.sleep = lambda *a, **k: None
-        try:
-            pmn.route_native_assignment_delivery("TKV", "u@x.com", "boss@x.com", None,
-                                                 "task_assigned|TKV|u@x.com")
-        finally:
-            _t.sleep = real
-        self.assertIn("rollback", FR._txn_events)                  # snapshot was refreshed
-        dl = [d for d in FR._delivery if d["recipient"] == "u@x.com"]
-        self.assertTrue(dl and all(d["notification_log"] == "NATIVEV" for d in dl))
-        ping = FR._realtime[-1]
-        self.assertEqual(ping["message"]["notification_name"], "NATIVEV")
-
-
-class TestAssignmentDeliveryRollbackGuards(unittest.TestCase):
-    def setUp(self):
-        _reset("boss@x.com"); FR.session.user = "boss@x.com"
-        import time as _t
-        from ecentric_workspace.pm.api import notifications as pmn
-        self.pmn = pmn
-        FR._tasks["TKG"] = {"name": "TKG", "workflow_state": "Open"}
-        self._real_sleep = _t.sleep; _t.sleep = lambda *a, **k: None
-        self._t = _t
+        self._real_sleep = _t.sleep; _t.sleep = lambda *a, **k: None; self._t = _t
 
     def tearDown(self):
         self._t.sleep = self._real_sleep
 
-    def _native_visible(self, name="NATG"):
+    def _native(self):
         d = FR.get_doc({"doctype": "Notification Log", "for_user": "u@x.com",
                         "from_user": "boss@x.com", "type": "Assignment",
-                        "document_type": "Task", "document_name": "TKG", "subject": "s"})
-        d.insert()
-        return d.name
+                        "document_type": "Task", "document_name": "TKA", "subject": "s"})
+        d.insert(); return d.name
 
-    def _native_pending(self, name="NATP"):
-        FR._pending_nl.append({"name": name, "for_user": "u@x.com", "from_user": "boss@x.com",
-                               "type": "Assignment", "document_type": "Task",
-                               "document_name": "TKG", "subject": "s",
-                               "creation": "2026-06-22 09:00:05", "read": 0})
-        return name
+    def _dlv(self): return [d for d in FR._delivery if d["recipient"] == "u@x.com"]
+    def _route_jobs(self):
+        return [e for e in FR._enqueued if str(e["method"]).endswith("route_native_assignment_delivery")]
 
-    def test_first_attempt_success_does_not_rollback(self):
-        self._native_visible()                                   # already visible
-        self.pmn.route_native_assignment_delivery("TKG", "u@x.com", "boss@x.com", None,
-                                                  "task_assigned|TKG|u@x.com")
-        self.assertNotIn("rollback", FR._txn_events)             # no unnecessary rollback
-        self.assertTrue([d for d in FR._delivery if d["recipient"] == "u@x.com"])
+    def test_enqueue_uses_default_queue_attempt1(self):
+        self.pmn.enqueue_task_assignment_delivery("TKA", ["u@x.com"], {"u@x.com": None}, actor="boss@x.com")
+        jobs = self._route_jobs()
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(jobs[0]["queue"], "default")
+        self.assertEqual(jobs[0]["attempt"], 1)
+        self.assertTrue(jobs[0]["enqueue_after_commit"])
+        self.assertEqual(jobs[0]["recipient"], "u@x.com")
+        self.assertEqual(jobs[0]["dedupe_key"], "task_assigned|TKA|u@x.com")
 
-    def test_rollback_after_miss_before_lookup_and_never_after_writes(self):
-        self._native_pending()                                   # found only after a refresh
-        self.pmn.route_native_assignment_delivery("TKG", "u@x.com", "boss@x.com", None,
-                                                  "task_assigned|TKG|u@x.com")
-        ev = FR._txn_events
-        self.assertIn("rollback", ev)
-        self.assertIn("write", ev)
-        last_rollback = max(i for i, e in enumerate(ev) if e == "rollback")
-        first_write = min(i for i, e in enumerate(ev) if e == "write")
-        self.assertLess(last_rollback, first_write)              # no rollback after writes begin
+    def test_found_routes_no_requeue_no_alert(self):
+        native = self._native()
+        FR._enqueued[:] = []
+        self.pmn.route_native_assignment_delivery("TKA", "u@x.com", "boss@x.com", None,
+                                                  "task_assigned|TKA|u@x.com", attempt=1)
+        dl = self._dlv()
+        self.assertTrue(dl and all(d["notification_log"] == native for d in dl))
+        from collections import Counter
+        c = Counter((d["recipient"], d["channel"]) for d in dl)
+        self.assertTrue(all(v == 1 for v in c.values()), dict(c))
+        self.assertEqual([n for n in FR._nl if n.get("for_user") == "u@x.com"
+                          and n.get("type") == "Alert" and n.get("document_name") == "TKA"], [])
+        self.assertEqual(self._route_jobs(), [])                 # no re-enqueue when found
+        self.assertNotIn("rollback", FR._txn_events)             # no snapshot manipulation
 
-    def test_timeout_no_alert_and_structured_log(self):
-        # nothing visible and nothing pending -> never found
+    def test_not_found_requeues_on_default_incremented(self):
+        FR._enqueued[:] = []
+        self.pmn.route_native_assignment_delivery("TKA", "u@x.com", "boss@x.com", "PREV",
+                                                  "task_assigned|TKA|u@x.com", attempt=1)
+        self.assertEqual(self._dlv(), [])                        # nothing routed yet
+        self.assertEqual([n for n in FR._nl if n.get("type") == "Alert"], [])   # no Alert
+        jobs = self._route_jobs()
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(jobs[0]["queue"], "default")
+        self.assertEqual(jobs[0]["attempt"], 2)                  # incremented
+        self.assertEqual(jobs[0]["task_name"], "TKA")
+        self.assertEqual(jobs[0]["recipient"], "u@x.com")
+        self.assertEqual(jobs[0]["previous_native_log_name"], "PREV")
+        self.assertEqual(jobs[0]["dedupe_key"], "task_assigned|TKA|u@x.com")
+        self.assertNotIn("rollback", FR._txn_events)
+
+    def test_final_attempt_timeout_no_alert_no_requeue(self):
+        from ecentric_workspace.pm.api import notifications as pmn
+        FR._enqueued[:] = []
         nl_before = len(FR._nl)
-        self.pmn.route_native_assignment_delivery("TKG", "u@x.com", "boss@x.com", None,
-                                                  "task_assigned|TKG|u@x.com")
+        pmn.route_native_assignment_delivery("TKA", "u@x.com", "boss@x.com", None,
+                                             "task_assigned|TKA|u@x.com",
+                                             attempt=pmn._NATIVE_MAX_ATTEMPTS)
+        self.assertEqual(self._dlv(), [])
         self.assertEqual(len(FR._nl), nl_before)                 # no Alert fallback
-        self.assertEqual([d for d in FR._delivery if d["recipient"] == "u@x.com"], [])
+        self.assertEqual(self._route_jobs(), [])                 # no further re-enqueue
         hit = [e for e in FR._errors if "timeout" in str(e["title"])]
         self.assertTrue(hit)
         blob = str(hit[-1]["message"])
-        for token in ("TKG", "u@x.com", "attempts", "elapsed"):
-            self.assertIn(token, blob)                           # structured context
+        for tok in ("TKA", "u@x.com", "attempts"):
+            self.assertIn(tok, blob)
 
-    def test_rerun_no_duplicate_delivery(self):
-        self._native_visible()
-        self.pmn.route_native_assignment_delivery("TKG", "u@x.com", "boss@x.com", None,
-                                                  "task_assigned|TKG|u@x.com")
-        n1 = len([d for d in FR._delivery if d["recipient"] == "u@x.com"])
-        self.pmn.route_native_assignment_delivery("TKG", "u@x.com", "boss@x.com", None,
-                                                  "task_assigned|TKG|u@x.com")
-        self.assertEqual(len([d for d in FR._delivery if d["recipient"] == "u@x.com"]), n1)
+    def test_rerun_found_no_duplicate(self):
+        self._native()
+        self.pmn.route_native_assignment_delivery("TKA", "u@x.com", "boss@x.com", None,
+                                                  "task_assigned|TKA|u@x.com", attempt=1)
+        n1 = len(self._dlv())
+        self.pmn.route_native_assignment_delivery("TKA", "u@x.com", "boss@x.com", None,
+                                                  "task_assigned|TKA|u@x.com", attempt=1)
+        self.assertEqual(len(self._dlv()), n1)
 
-    def test_single_assignment_invariants(self):
-        native = self._native_visible()
-        nl_before = len(FR._nl)
-        self.pmn.route_native_assignment_delivery("TKG", "u@x.com", "boss@x.com", None,
-                                                  "task_assigned|TKG|u@x.com")
-        self.assertEqual(len(FR._nl), nl_before)                 # no new NL
-        self.assertEqual([n for n in FR._nl if n.get("for_user") == "u@x.com"
-                          and n.get("type") == "Alert" and n.get("document_name") == "TKG"], [])
-        from collections import Counter
-        dl = [d for d in FR._delivery if d["recipient"] == "u@x.com"]
-        c = Counter((d["recipient"], d["channel"]) for d in dl)
-        self.assertTrue(all(v == 1 for v in c.values()), dict(c))
-        self.assertTrue(all(d["notification_log"] == native for d in dl))
+    def test_enqueue_skips_self_admin_terminal(self):
+        self.pmn.enqueue_task_assignment_delivery("TKA", ["boss@x.com"], {}, actor="boss@x.com")
+        self.pmn.enqueue_task_assignment_delivery("TKA", ["Administrator"], {}, actor="boss@x.com")
+        FR._tasks["TKD"] = {"name": "TKD", "workflow_state": "Done"}
+        self.pmn.enqueue_task_assignment_delivery("TKD", ["u@x.com"], {}, actor="boss@x.com")
+        self.assertEqual(self._route_jobs(), [])
+
+    def test_static_default_queue_and_no_rollback(self):
+        import os as _os
+        src = open(_os.path.join(_pkg_root(), "pm", "api", "notifications.py")).read()
+        self.assertIn('queue="default"', src)
+        self.assertNotIn("frappe.db.rollback(", src)             # no snapshot manipulation
+        self.assertIn("attempt=(attempt or 1) + 1", src)         # re-enqueue increments
+
+
+class TestAfterInsertHookRemoved(unittest.TestCase):
+    def test_hook_and_handler_gone(self):
+        import os as _os
+        root = _pkg_root()
+        hooks = open(_os.path.join(root, "hooks.py")).read()
+        events = open(_os.path.join(root, "notification_center", "events.py")).read()
+        self.assertNotIn("on_notification_log_after_insert", hooks)
+        self.assertNotIn("on_notification_log_after_insert", events)
+        self.assertNotIn('"Notification Log"', hooks)
+        self.assertIn("def route_existing_notification_log(", events)
