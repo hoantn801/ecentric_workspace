@@ -409,6 +409,9 @@ def assign(name, users):
     doc = frappe.get_doc("Task", name)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to assign this task."), frappe.PermissionError)
+    # G4.3: cannot assign a terminal task. Reopen first.
+    pmperm.assert_task_not_terminal(
+        doc, _("Không thể giao nhiệm vụ đã hoàn thành/huỷ. Vui lòng Reopen trước."))
 
     # NOTE: builtin `list` is shadowed by the read service `def list` in this
     # module, so do NOT reference the `list` type here. Parse via str checks only.

@@ -101,9 +101,10 @@ def set_item(task, row_name, is_done):
     doc = frappe.get_doc("Task", task)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to edit this task's checklist."), frappe.PermissionError)
-    # G4.2: terminal tasks have IMMUTABLE checklists (audit-safe). Reopen is the governed path.
-    if doc.get("workflow_state") in ("Done", "Cancelled") or doc.get("status") in ("Completed", "Cancelled", "Closed"):
-        frappe.throw(_("Không thể chỉnh checklist sau khi nhiệm vụ đã hoàn thành/huỷ. Vui lòng Reopen trước."))
+    # G4.2/G4.3: terminal tasks have IMMUTABLE checklists (audit-safe). Reopen is the
+    # governed path. Uses the shared helper; exact message preserved from G4.2.
+    pmperm.assert_task_not_terminal(
+        doc, _("Không thể chỉnh checklist sau khi nhiệm vụ đã hoàn thành/huỷ. Vui lòng Reopen trước."))
     done = is_done in (1, "1", True, "true", "True", "yes")
     row = None
     for it in (doc.get("pm_checklist") or []):

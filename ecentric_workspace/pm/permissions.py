@@ -149,3 +149,34 @@ def task_scope_or_filters(user=None):
     if visible:
         ors.append(["project", "in", visible])
     return ors
+
+
+# --------------------------------------------------------------------------
+# Terminal-state helper (G4.3)
+#
+# Shared rule so timer/log/assign/checklist don't each re-implement the
+# "is this task closed?" check. This is a PURE read predicate: it does NOT
+# change any of the ROLE / DEPARTMENT permission logic above. Callers still
+# run require_pm_access() + can_view_task() first; the terminal check is an
+# ADDITIONAL operational guard layered on top.
+#
+# Terminal when:
+#   workflow_state in (Done, Cancelled)              [canonical gate]
+#   OR status in (Completed, Cancelled, Closed)      [belt-and-suspenders]
+# --------------------------------------------------------------------------
+TERMINAL_WORKFLOW_STATES = ("Done", "Cancelled")
+TERMINAL_STATUSES = ("Completed", "Cancelled", "Closed")
+
+
+def is_task_terminal(task):
+    """True if a Task is in a terminal (closed) state.
+
+    `task` may be a Frappe doc OR a plain dict (both expose .get)."""
+    get = task.get if hasattr(task, "get") else (lambda k: getattr(task, k, None))
+    return get("workflow_state") in TERMINAL_WORKFLOW_STATES or get("status") in TERMINAL_STATUSES
+
+
+def assert_task_not_terminal(task, message=None):
+    """Throw if the task is terminal. Reopen is the governed path to act again."""
+    if is_task_terminal(task):
+        frappe.throw(message or _("Nhiệm vụ đã hoàn thành/huỷ — vui lòng Reopen trước."))

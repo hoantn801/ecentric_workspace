@@ -535,7 +535,7 @@
         <span class="preview-tag" id="pm-preview" style="display:none;">Preview (mock)</span>
         <button class="tb-timer" id="tb-timer" title="Timer đang chạy — bấm để mở task"></button>
         <button class="pm-btn primary" id="tb-new" style="padding:7px 12px"><svg class="icon icon-sm"><use href="#p-plus"/></svg> New Task</button>
-        <a class="icon-btn" id="tb-bell" href="/app/notification-log" data-ec-notification-bell="1" aria-label="Thông báo" title="Thông báo" style="position:relative"><svg class="icon icon-sm"><use href="#p-bell"/></svg></a>
+        <a class="icon-btn" id="tb-bell" href="/app/notification-log" target="_blank" rel="noopener" data-ec-notification-bell="1" aria-label="Thông báo" title="Thông báo" style="position:relative"><svg class="icon icon-sm"><use href="#p-bell"/></svg></a>
         <button class="icon-btn" title="Cài đặt"><svg class="icon icon-sm"><use href="#p-settings"/></svg></button>
       </div>
     </div>
@@ -669,6 +669,8 @@
   // ---- Batch C: Manager Overview Dashboard (client-side aggregation from tasks.list + projects.list) ----
   function dcD(t){return t.exp_end_date?String(t.exp_end_date).slice(0,10):null;}
   function dcActive(t){return ["Done","Cancelled"].indexOf(t.workflow_state)<0;}
+  /* G4.3: terminal mirrors backend pmperm.is_task_terminal (workflow_state OR status). Backend is the trust boundary; this only hides UI. */
+  function pmTerminal(t){return !!t&&(["Done","Cancelled"].indexOf(t.workflow_state)>=0||["Completed","Cancelled","Closed"].indexOf(t.status)>=0);}
   function dcToday10(){return new Date().toISOString().slice(0,10);}
   function dcWeek10(){var e=new Date();e.setDate(e.getDate()+7);return e.toISOString().slice(0,10);}
   function dcIsOverdue(t){var d=dcD(t);return !!(d&&d<dcToday10()&&dcActive(t));}
@@ -1205,7 +1207,9 @@
         '<div id="pm-chk"></div>'+ /* G3: checklist section (rendered only if task has pm_checklist items) */
         '<div class="pm-dsec">Workflow</div>'+
         '<div class="pm-field"><label>Chuyển trạng thái</label><div class="pm-actions">'+(tr.length?tr.map(function(x){return '<button class="pm-btn pm-act" data-act="'+esc(x.action)+'">'+esc(x.action)+'</button>';}).join(""):'<span style="color:var(--gray-400);font-size:13px">Không có</span>')+'</div></div>'+
-        '<div class="pm-field"><label>Giao việc (email)</label><div class="pm-assign-row"><input class="pm-input" id="pm-asg" placeholder="user@ecentric.vn" style="padding-left:11px;background-image:none"><button class="pm-btn primary" id="pm-asgb">Giao</button></div></div>'+
+        (pmTerminal(t)
+          ? '<div class="pm-field"><label>Giao việc (email)</label><div style="font-size:12.5px;color:var(--gray-400);padding:4px 0">Nhiệm vụ đã đóng — Reopen để giao việc.</div></div>'
+          : '<div class="pm-field"><label>Giao việc (email)</label><div class="pm-assign-row"><input class="pm-input" id="pm-asg" placeholder="user@ecentric.vn" style="padding-left:11px;background-image:none"><button class="pm-btn primary" id="pm-asgb">Giao</button></div></div>')+
         '<div class="pm-dsec">Worktime</div><div id="pm-wt"><span class="spin"></span></div>'+
         '<div class="pm-dsec">Lặp lại (Recurring)</div><div id="pm-rec"><span class="spin"></span></div>'+
         '<div class="pm-dsec">Nhiệm vụ con</div><div class="pm-subs" id="pm-subs"></div>';
@@ -1220,12 +1224,12 @@
       c.innerHTML=h;c.classList.add("pm-cols");
       Array.prototype.forEach.call(c.querySelectorAll(".pm-act"),function(b){b.onclick=function(){b.disabled=true;
         api(PM+"tasks.set_status",{name:name,action:b.getAttribute("data-act")}).then(function(r){toast("Trạng thái: "+r.workflow_state);openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};});
-      el("pm-asgb").onclick=function(){var v=el("pm-asg").value.trim();if(!v){toast("Nhập email",true);return;}
+      if(el("pm-asgb"))el("pm-asgb").onclick=function(){var v=el("pm-asg").value.trim();if(!v){toast("Nhập email",true);return;}
         api(PM+"tasks.assign",{name:name,users:[v]}).then(function(){toast("Đã giao cho "+v);openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};
       /* A2: "Sửa (form)" button removed — inline edit is the primary path. editTask() kept as internal fallback only. */
       inlineWire(c,t,name); /* C1-B: click-to-edit priority/start/end/desc in main + title in header */
       renderSubs(el("pm-subs"),subs,t.project,name,t.exp_start_date,t.exp_end_date); /* compact direct-child rows + inline add (reuses tasks.create); parent dates for child-range validation */
-      loadWorktime(name); loadRecurrence(name); loadComments(name); loadChecklist(name,t.workflow_state);
+      loadWorktime(name,pmTerminal(t)); loadRecurrence(name); loadComments(name); loadChecklist(name,t.workflow_state);
       if(el("pm-cmt-send"))el("pm-cmt-send").onclick=function(){var v=el("pm-cmt-input").value.trim();if(!v){toast("Nhập bình luận",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang gửi...";
         api("frappe.client.insert",{doc:{doctype:"Comment",comment_type:"Comment",reference_doctype:"Task",reference_name:name,content:v}}).then(function(){el("pm-cmt-input").value="";loadComments(name);btn.disabled=false;btn.textContent="Gửi";}).catch(function(e){toast("Lỗi gửi bình luận: "+errOf(e),true);btn.disabled=false;btn.textContent="Gửi";});};
       if(el("pm-cmt-input"))el("pm-cmt-input").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(el("pm-cmt-send"))el("pm-cmt-send").click();}});
@@ -1237,41 +1241,47 @@
     b.innerHTML=rows.map(function(cm){var who=(cm.owner||"").split("@")[0];return '<div class="pm-cmt-card"><div class="pm-cmt-head"><span class="pm-mini-av">'+ini(cm.owner||"?")+'</span><b>'+esc(who)+'</b><span class="pm-cmt-time">'+esc((cm.creation||"").slice(0,16))+'</span></div><div class="pm-cmt-body">'+esc(stripTags(cm.content||""))+'</div></div>';}).join("");}
   function fmtDur(s){s=Math.max(0,Math.floor(s));var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),x=s%60;return (h<10?"0":"")+h+":"+(m<10?"0":"")+m+":"+(x<10?"0":"")+x;}
   function clearTick(){if(window._pmTick){clearInterval(window._pmTick);window._pmTick=null;}}
-  function loadWorktime(task){var b=el("pm-wt");if(!b)return;clearTick();b.innerHTML='<span class="spin"></span>';
-    Promise.all([api(PM+"timesheet.list",{task:task}),api(PM+"timer.get_active")]).then(function(res){renderWorktime(b,task,res[0],res[1]);}).catch(function(e){b.innerHTML='<div class="pm-err">'+esc(errOf(e))+'</div>';});}
-  function renderWorktime(b,task,d,ac){clearTick();var rows=d.rows||[];var total=Math.round((d.total_hours||0)*100)/100;var h='';
+  function loadWorktime(task,terminal){var b=el("pm-wt");if(!b)return;clearTick();b.innerHTML='<span class="spin"></span>';
+    Promise.all([api(PM+"timesheet.list",{task:task}),api(PM+"timer.get_active")]).then(function(res){renderWorktime(b,task,res[0],res[1],terminal);}).catch(function(e){b.innerHTML='<div class="pm-err">'+esc(errOf(e))+'</div>';});}
+  function renderWorktime(b,task,d,ac,terminal){clearTick();var rows=d.rows||[];var total=Math.round((d.total_hours||0)*100)/100;var h='';
     if(ac&&ac.active&&ac.task===task){
+      /* G4.3: a timer already running on this task stays controllable: Stop (flush) always shown; Pause kept; Resume hidden when terminal. */
       h+='<div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:10px;padding:14px;margin-bottom:12px;text-align:center">'+
         '<div id="tk-el" style="font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--navy);letter-spacing:.5px">'+fmtDur(ac.elapsed_seconds||0)+'</div>'+
         '<div style="font-size:11px;color:var(--gray-500);margin:2px 0 12px">'+(ac.status==="Running"?"Đang chạy":"Tạm dừng")+'</div>'+
         '<div style="display:flex;gap:8px;justify-content:center">'+
-        (ac.status==="Running"?'<button class="pm-btn" id="tk-pause">Tạm dừng</button>':'<button class="pm-btn" id="tk-resume">Tiếp tục</button>')+
+        (ac.status==="Running"?'<button class="pm-btn" id="tk-pause">Tạm dừng</button>':(terminal?'':'<button class="pm-btn" id="tk-resume">Tiếp tục</button>'))+
         '<button class="pm-btn primary" id="tk-stop">Stop &amp; Save</button></div></div>';
     } else if(ac&&ac.active){
       h+='<div style="background:var(--yellow-50);border:1px solid #ffe08a;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;color:#92400e">Bạn đang có timer chạy ở task <b>'+esc(ac.task)+'</b>. Dừng nó trước khi bắt đầu task này.</div>';
-    } else {
+    } else if(!terminal){
       h+='<button class="pm-btn primary" id="tk-start" style="width:100%;justify-content:center;margin-bottom:12px"><svg class="icon icon-sm"><use href="#p-clock"/></svg> Start Work</button>';
     }
-    h+='<details style="margin-bottom:10px"><summary style="cursor:pointer;font-size:12.5px;color:var(--gray-600);user-select:none">Log manually</summary><div style="padding-top:10px">'+
-      '<div style="display:flex;gap:8px;margin-bottom:8px"><input class="pm-input" id="wt-date" type="date" style="flex:1;padding-left:11px;background-image:none"><input class="pm-input" id="wt-hours" type="number" step="0.25" min="0" placeholder="Số giờ" style="width:100px;padding-left:11px;background-image:none"></div>'+
-      '<input class="pm-input" id="wt-desc" placeholder="Mô tả (tuỳ chọn)" style="padding-left:11px;background-image:none;margin-bottom:8px;width:100%">'+
-      '<button class="pm-btn" id="wt-log" style="width:100%;justify-content:center">Lưu giờ</button></div></details>';
+    if(terminal){
+      /* G4.3: terminal task -> no Start/Log; read-only note. History below stays visible. */
+      h+='<div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12.5px;color:var(--gray-500)">Nhiệm vụ đã đóng — Reopen để ghi giờ hoặc giao việc.</div>';
+    } else {
+      h+='<details style="margin-bottom:10px"><summary style="cursor:pointer;font-size:12.5px;color:var(--gray-600);user-select:none">Log manually</summary><div style="padding-top:10px">'+
+        '<div style="display:flex;gap:8px;margin-bottom:8px"><input class="pm-input" id="wt-date" type="date" style="flex:1;padding-left:11px;background-image:none"><input class="pm-input" id="wt-hours" type="number" step="0.25" min="0" placeholder="Số giờ" style="width:100px;padding-left:11px;background-image:none"></div>'+
+        '<input class="pm-input" id="wt-desc" placeholder="Mô tả (tuỳ chọn)" style="padding-left:11px;background-image:none;margin-bottom:8px;width:100%">'+
+        '<button class="pm-btn" id="wt-log" style="width:100%;justify-content:center">Lưu giờ</button></div></details>';
+    }
     h+='<div style="font-size:12px;color:var(--gray-500);margin-bottom:6px">Tổng đã log: <b style="color:var(--gray-900)">'+total+'h</b></div>';
     if(rows.length){h+=rows.map(function(r){return '<div class="pm-sub"><span>'+esc((r.from_time||"").slice(0,10))+' · '+esc(r.hours)+'h'+(r.description?' · '+esc(r.description):'')+'</span><span class="pm-mini-av" title="'+esc(r.owner||"")+'">'+ini(r.owner||"")+'</span></div>';}).join("");}
     else{h+='<div style="font-size:12.5px;color:var(--gray-400);padding:6px 0">Chưa có log giờ.</div>';}
     b.innerHTML=h;
-    function tk(m2){api(PM+"timer."+m2).then(function(){loadWorktime(task);}).catch(function(e){toast("Lỗi: "+errOf(e),true);loadWorktime(task);});}
-    if(el("tk-start"))el("tk-start").onclick=function(){this.disabled=true;api(PM+"timer.start",{task:task}).then(function(){loadWorktime(task);}).catch(function(e){toast("Lỗi: "+errOf(e),true);loadWorktime(task);});};
+    function tk(m2){api(PM+"timer."+m2).then(function(){loadWorktime(task,terminal);}).catch(function(e){toast("Lỗi: "+errOf(e),true);loadWorktime(task,terminal);});}
+    if(el("tk-start"))el("tk-start").onclick=function(){this.disabled=true;api(PM+"timer.start",{task:task}).then(function(){loadWorktime(task,terminal);}).catch(function(e){toast("Lỗi: "+errOf(e),true);loadWorktime(task,terminal);});};
     if(el("tk-pause"))el("tk-pause").onclick=function(){tk("pause");};
     if(el("tk-resume"))el("tk-resume").onclick=function(){tk("resume");};
-    if(el("tk-stop"))el("tk-stop").onclick=function(){this.disabled=true;this.textContent="Đang lưu...";api(PM+"timer.stop",{description:""}).then(function(r){toast("Đã lưu "+r.hours+"h worktime");loadWorktime(task);}).catch(function(e){toast("Lỗi: "+errOf(e),true);loadWorktime(task);});};
+    if(el("tk-stop"))el("tk-stop").onclick=function(){this.disabled=true;this.textContent="Đang lưu...";api(PM+"timer.stop",{description:""}).then(function(r){toast("Đã lưu "+r.hours+"h worktime");loadWorktime(task,terminal);}).catch(function(e){toast("Lỗi: "+errOf(e),true);loadWorktime(task,terminal);});};
     if(ac&&ac.active&&ac.task===task&&ac.status==="Running"){var base=ac.elapsed_seconds||0,t0=Date.now();window._pmTick=setInterval(function(){var e2=el("tk-el");if(!e2){clearTick();return;}e2.textContent=fmtDur(base+Math.floor((Date.now()-t0)/1000));},1000);}
     var dt=el("wt-date");if(dt)dt.value=new Date().toISOString().slice(0,10);
     refreshTimerChip();
     if(el("wt-log"))el("wt-log").onclick=function(){var hrs=el("wt-hours").value,day=el("wt-date").value,ds=el("wt-desc").value;var btn=this;
       if(!hrs||parseFloat(hrs)<=0){toast("Nhập số giờ > 0",true);return;}
       btn.disabled=true;btn.textContent="Đang lưu...";
-      api(PM+"timesheet.log",{task:task,hours:hrs,log_date:day,description:ds}).then(function(){toast("Đã lưu "+hrs+"h");loadWorktime(task);}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu giờ";});};}
+      api(PM+"timesheet.log",{task:task,hours:hrs,log_date:day,description:ds}).then(function(){toast("Đã lưu "+hrs+"h");loadWorktime(task,terminal);}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu giờ";});};}
 
   function _niFix(c){Array.prototype.forEach.call(c.querySelectorAll(".ni"),function(i){i.style.backgroundImage="none";i.style.paddingLeft="11px";i.style.width="100%";});}
   function newTask(project,parentTask,onCreated){openD();el("pm-dt").textContent=parentTask?"Tạo nhiệm vụ con":"Tạo nhiệm vụ";var c=el("pm-dbody");c.classList.remove("pm-cols");clearDtInline();spin(c);
@@ -1779,15 +1789,17 @@
 
   // PM notification UI retired: the topbar bell + sidebar "Thông báo" now use the
   // Global Notification Center. The sidebar item is kept for compatibility but
-  // redirects to /app/notification-log instead of the old PM notifications view.
-  function redirectToGlobalNotifications(){ window.location.href="/app/notification-log"; }
+  // opens /app/notification-log in a NEW TAB (G4.3) so the /pm SPA is never
+  // replaced by raw Desk. The nav onclick below short-circuits before go() so
+  // _curView / active nav / breadcrumb stay on the current PM view.
+  function redirectToGlobalNotifications(){ window.open("/app/notification-log","_blank","noopener"); }
   var VIEWS={dashboard:showDashboard,mytasks:showMyTasks,projects:showProjects,work:showWork,tasks:showTasks,board:showBoard,gantt:showGantt,calendar:showCalendar,timesheet:showTimesheet,recurring:showRecurring,notifications:redirectToGlobalNotifications};
   function go(v){var WM={tasks:"list",board:"board",gantt:"gantt",calendar:"calendar",table:"table",work:null};var isW=Object.prototype.hasOwnProperty.call(WM,v);var navKey=isW?"work":v;
     window._curView=navKey;Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.classList.toggle("active",b.getAttribute("data-view")===navKey);});
     el("pm-crumb").textContent=isW?"Công việc":(CRUMB[v]||"Tổng quan");
     if(isW){if(WM[v])window._workView=WM[v];try{localStorage.setItem("pm_work_view",window._workView||"list");}catch(_){}showWork();}
     else (VIEWS[v]||showDashboard)();}
-  Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.onclick=function(){go(b.getAttribute("data-view"));};});
+  Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.onclick=function(){var v=b.getAttribute("data-view");if(v==="notifications"){window.open("/app/notification-log","_blank","noopener");return;}go(v);};});
   el("pm-search").addEventListener("keydown",function(e){if(e.key==="Enter"){F.q=this.value.trim().toLowerCase();go("tasks");}});
 
   function fillUser(){

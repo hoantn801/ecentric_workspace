@@ -55,6 +55,9 @@ def start(task):
     doc = frappe.get_doc("Task", task)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to start a timer on this task."), frappe.PermissionError)
+    # G4.3: cannot start new worktime on a terminal task. Reopen first.
+    pmperm.assert_task_not_terminal(
+        doc, _("Không thể bắt đầu giờ trên nhiệm vụ đã hoàn thành/huỷ. Vui lòng Reopen trước."))
     existing = _active(user)
     if existing:
         frappe.throw(_("You already have a running timer on task {0}. Stop it first.").format(existing.task))
@@ -87,6 +90,11 @@ def resume():
     t = _active(frappe.session.user)
     if not t:
         frappe.throw(_("No active timer."))
+    # G4.3: cannot resume a paused timer once its task is terminal. Stop is still
+    # allowed (to flush already-accumulated time); resume is not.
+    pmperm.assert_task_not_terminal(
+        frappe.get_doc("Task", t.task),
+        _("Nhiệm vụ đã hoàn thành/huỷ — không thể tiếp tục timer. Vui lòng Reopen trước."))
     if t.status == "Paused":
         t.start_time = _now()
         t.status = "Running"

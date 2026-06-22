@@ -72,6 +72,9 @@ def log(task, hours, log_date=None, description=None):
     doc = frappe.get_doc("Task", task)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to log time on this task."), frappe.PermissionError)
+    # G4.3: cannot log new worktime on a terminal task. Reopen first.
+    pmperm.assert_task_not_terminal(
+        doc, _("Không thể ghi giờ trên nhiệm vụ đã hoàn thành/huỷ. Vui lòng Reopen trước."))
 
     try:
         hrs = float(hours)
