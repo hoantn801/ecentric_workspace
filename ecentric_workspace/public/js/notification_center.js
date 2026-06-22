@@ -481,21 +481,28 @@
   // The realtime payload handler (one ec_notification event -> badge/list + toast/sound/desktop).
   function onRealtime(data) {
     data = data || {};
-    // badge + list reflect the latest state (insert deduped by Notification Log name)
-    if (typeof data.unread === 'number') S.unread = data.unread;
-    else if (typeof data.unread_count === 'number') S.unread = data.unread_count;
-    var item = data.item;
-    if (item && item.name) {
-      var dup = false; for (var i = 0; i < S.items.length; i++) { if (S.items[i].name === item.name) { dup = true; break; } }
-      if (!dup) S.items.unshift(item);
+    // When the inbox/badge is owned by the native Frappe Assignment log (task_assigned
+    // synchronous delivery), do NOT mutate the badge/list here -- that would double-count.
+    // Toast/sound/desktop still fire; the badge is re-synced from the authoritative server
+    // count (never an increment).
+    var nativeInbox = (data.update_badge === false) || (data.inbox_managed_by_native === true);
+    if (!nativeInbox) {
+      if (typeof data.unread === 'number') S.unread = data.unread;
+      else if (typeof data.unread_count === 'number') S.unread = data.unread_count;
+      var item = data.item;
+      if (item && item.name) {
+        var dup = false; for (var i = 0; i < S.items.length; i++) { if (S.items[i].name === item.name) { dup = true; break; } }
+        if (!dup) S.items.unshift(item);
+      }
+      renderBadge(); if (S.open) renderList();
     }
-    renderBadge(); if (S.open) renderList();
     // toast / sound / desktop fire ONCE per event id; never on reload/reconnect/poll
-    var id = data.event_id || data.notification_name || (item && item.name);
+    var id = data.event_id || data.notification_name || (data.item && data.item.name);
     if (!markSeen(id)) return;
     showToast(data);
     if (shouldSound(data)) ting();
     showDesktop(data);
+    if (nativeInbox) { try { refreshCount(); } catch (e) {} }   // authoritative badge re-sync
   }
 
   // Bind the realtime listener ROBUSTLY under Frappe v15 lazy_connect: frappe.realtime.on

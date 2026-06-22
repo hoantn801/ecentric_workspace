@@ -264,8 +264,7 @@ def _route_and_publish(event_id, recipient, event_type, severity, title, message
                        dedupe_key, notification_log_name, created_at, log_type="Alert"):
     """Shared tail: write delivery audit rows (idempotent) + enqueue Teams + publish the
     full-contract realtime to the recipient (after commit), all referencing
-    `notification_log_name`. Used by both publish_notification_event (which creates the log)
-    and route_existing_notification_log (which adopts an existing native log)."""
+    `notification_log_name`. Used by publish_notification_event (which creates the log)."""
     pref = get_preference(recipient)
     routing = resolve_channels(event_type, severity, pref)
     route_delivery(event_id, recipient, routing, event_type, severity, dedupe_key,
@@ -294,46 +293,6 @@ def _route_and_publish(event_id, recipient, event_type, severity, title, message
     return routing
 
 
-def route_existing_notification_log(event_type, recipient, notification_log_name, title,
-                                    message="", severity=None, action_url=None,
-                                    reference_doctype=None, reference_name=None,
-                                    actor=None, dedupe_key=None, from_user=None,
-                                    created_at=None):
-    """ADOPT-NATIVE path: route delivery + realtime for an ALREADY-EXISTING Notification
-    Log (e.g. the Frappe native Assignment log) WITHOUT creating a second one. This is how
-    task_assigned yields exactly one inbox record. Idempotent by dedupe_key; fail-open."""
-    if not recipient or recipient == "Guest":
-        return {"ok": False, "reason": "no recipient"}
-    if not notification_log_name:
-        return {"ok": False, "reason": "no notification_log"}
-    if event_type not in EVENT_TYPES:
-        event_type = "task_assigned"
-    severity = severity if severity in SEVERITIES else _DEFAULT_SEVERITY.get(event_type, "info")
-    from_user = from_user or actor or frappe.session.user
-    if not dedupe_key:
-        dedupe_key = "|".join([event_type, recipient, str(reference_doctype or ""), str(reference_name or "")])
-    event_id = _event_id(dedupe_key)
-    try:
-        if frappe.db.exists(DELIVERY_DT, {"event_id": event_id, "channel": "erp"}):
-            return {"ok": True, "duplicate": True, "event_id": event_id,
-                    "dedupe_key": dedupe_key, "notification_log": notification_log_name}
-    except Exception:
-        pass
-    if created_at is None:
-        try:
-            created_at = frappe.db.get_value("Notification Log", notification_log_name, "creation")
-        except Exception:
-            created_at = None
-        created_at = created_at or frappe.utils.now_datetime()
-    routing = _route_and_publish(
-        event_id, recipient, event_type, severity, title, message, action_url,
-        reference_doctype, reference_name, from_user, dedupe_key, notification_log_name,
-        created_at, log_type="Assignment")
-    return {"ok": True, "event_id": event_id, "dedupe_key": dedupe_key,
-            "notification_log": notification_log_name, "routing": routing,
-            "severity": severity, "adopted": True}
-
-
 # ------------------------------------------------------------------- typed helpers
 def notify_task_assigned(recipient, task_name, title, message="", action_url=None, actor=None):
     return publish_notification_event("task_assigned", recipient, title, message,
@@ -357,3 +316,98 @@ def notify_approval_required(recipient, doctype, name, title, message="", action
     return publish_notification_event("approval_required", recipient, title, message,
                                       action_url=action_url, reference_doctype=doctype,
                                       reference_name=name, actor=actor)
+
+
+def publish_task_assignment_delivery(recipient, task_name, title, message="",
+                                     action_url=None, actor=None, dedupe_key=None):
+    """SYNCHRONOUS task_assigned delivery from the controlled PM assignment transaction.
+
+    Decoupled from the async native Assignment log + RQ worker: this runs INSIDE the
+    assignment request, writes idempotent Delivery Log rows synchronously, and publishes the
+    `ec_notification` realtime ONLY via frappe.db.after_commit -- so toast/sound/desktop fire
+    immediately from the WEB process after the transaction commits (no worker, no queue, no
+    polling). It does NOT create a Notification Log: the native Frappe Assignment log remains
+    the inbox source (created asynchronously) and owns the badge. `notification_log` is left
+    blank/pending on the delivery rows (an optional later reconciliation may link them).
+
+    Idempotent by dedupe_key (task_assigned|<task>|<recipient>): repeated API calls / frontend
+    retries never duplicate. If the assignment transaction rolls back, the Delivery Log rows
+    roll back with it and after_commit is reset, so no realtime fires."""
+    if not recipient or recipient == "Guest":
+        return {"ok": False, "reason": "no recipient"}
+    event_type = "task_assigned"
+    severity = _DEFAULT_SEVERITY[event_type]
+    actor = actor or frappe.session.user
+    if not dedupe_key:
+        dedupe_key = "|".join([event_type, task_name, recipient])
+    event_id = _event_id(dedupe_key)
+
+    # idempotency: same event already delivered -> no-op
+    try:
+        if frappe.db.exists(DELIVERY_DT, {"event_id": event_id, "channel": "erp"}):
+            return {"ok": True, "duplicate": True, "event_id": event_id, "dedupe_key": dedupe_key}
+    except Exception:
+        pass
+
+    pref = get_preference(recipient)
+    routing = resolve_channels(event_type, severity, pref)
+
+    # Teams only enqueues when an actual provider is configured; when disabled it is recorded
+    # synchronously as Skipped so ERP delivery never depends on a background worker.
+    try:
+        from ecentric_workspace.notification_center.providers import teams as _teams
+        _teams_send = _teams.get_config().get("provider") in ("teams_bot", "webhook")
+    except Exception:
+        _teams_send = False
+
+    common = {"event_type": event_type, "severity": severity, "dedupe_key": dedupe_key,
+              "notification_log": "",            # pending: native Assignment log is the inbox
+              "action_url": action_url or "", "reference_doctype": "Task",
+              "reference_name": task_name, "title": title or "", "message": message or "",
+              "actor": actor or ""}
+    teams_jobs = []
+    for ch, decision in routing.items():
+        if decision == "deliver":
+            if ch == "erp":
+                # inbox delivered by the native Frappe Assignment log -> audit marker only
+                _delivery(event_id, recipient, "erp", "Sent", provider="native",
+                          sent_at=frappe.utils.now_datetime(), **common)
+            elif ch == "teams":
+                if _teams_send:
+                    nm = _delivery(event_id, recipient, "teams", "Pending", provider="", **common)
+                    if nm:
+                        teams_jobs.append(nm)
+                else:
+                    _delivery(event_id, recipient, "teams", "Skipped", provider="dryrun",
+                              error_code="NO_CREDENTIAL", **common)
+            else:
+                _delivery(event_id, recipient, ch, "Sent",
+                          sent_at=frappe.utils.now_datetime(), **common)
+        elif decision == "suppress":
+            _delivery(event_id, recipient, ch, "Suppressed", **common)
+        else:
+            _delivery(event_id, recipient, ch, "Skipped", **common)
+
+    # Teams (only if a provider is configured) -> background; NEVER blocks ERP delivery
+    for nm in teams_jobs:
+        try:
+            frappe.enqueue("ecentric_workspace.notification_center.providers.teams.deliver",
+                           queue="default", enqueue_after_commit=True, delivery_log=nm)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "publish_task_assignment_delivery teams")
+
+    # realtime AFTER commit only (web process) -> toast/sound/desktop fire immediately.
+    # Badge is owned by the native Assignment log -> update_badge False (no double-increment).
+    payload = {
+        "event_id": event_id, "notification_name": "", "event_type": event_type,
+        "severity": severity, "title": title or "", "message": message or "",
+        "action_url": action_url or "", "created_at": str(frappe.utils.now_datetime()),
+        "update_badge": False, "inbox_managed_by_native": True,
+    }
+    try:
+        frappe.publish_realtime(event=REALTIME_EVENT, message=payload,
+                                user=recipient, after_commit=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "publish_task_assignment_delivery realtime")
+
+    return {"ok": True, "event_id": event_id, "dedupe_key": dedupe_key, "routing": routing}
