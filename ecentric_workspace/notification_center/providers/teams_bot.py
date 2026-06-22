@@ -32,7 +32,7 @@ from ecentric_workspace.notification_center.providers import graph as graphmod
 
 CONV_DT = "EC Teams Conversation"
 TIMEOUT = 15
-_BOT_LOGIN = "https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token"
+_BOT_LOGIN_BASE = "https://login.microsoftonline.com/"
 
 
 def bot_config():
@@ -42,6 +42,9 @@ def bot_config():
         "app_password": conf.get("ec_teams_bot_app_password") or "",
         "bot_id": conf.get("ec_teams_bot_id") or "",
         "default_service_url": conf.get("ec_teams_bot_default_service_url") or "",
+        # single-tenant Azure Bot: token authority is the tenant (falls back to graph tenant,
+        # then to the multi-tenant botframework.com authority if neither is set).
+        "tenant_id": conf.get("ec_teams_bot_tenant_id") or conf.get("ec_graph_tenant_id") or "",
     }
 
 
@@ -100,8 +103,10 @@ def get_bot_token(cfg=None):
     if not is_configured(cfg):
         return False, "NO_BOT_CREDENTIAL"
     import requests
+    # single-tenant bot -> tenant authority; else multi-tenant botframework.com authority
+    authority = _BOT_LOGIN_BASE + (cfg.get("tenant_id") or "botframework.com") + "/oauth2/v2.0/token"
     try:
-        r = requests.post(_BOT_LOGIN, data={
+        r = requests.post(authority, data={
             "grant_type": "client_credentials", "client_id": cfg["app_id"],
             "client_secret": cfg["app_password"],
             "scope": "https://api.botframework.com/.default"}, timeout=TIMEOUT)

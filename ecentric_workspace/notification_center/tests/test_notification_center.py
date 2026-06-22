@@ -1819,6 +1819,14 @@ class TestTeamsGoLive(unittest.TestCase):
         self.assertEqual(out, {})
         self.assertEqual(FR.local.response.get("http_status_code"), 200)
 
+    def test_single_tenant_bot_token_authority(self):
+        FR._conf.update({"ec_teams_bot_tenant_id": "TENANT-XYZ"})
+        cfg = self.tbot.bot_config()
+        self.assertEqual(cfg["tenant_id"], "TENANT-XYZ")          # single-tenant authority
+        # falls back to graph tenant when bot tenant not set
+        FR._conf.pop("ec_teams_bot_tenant_id", None)
+        self.assertEqual(self.tbot.bot_config()["tenant_id"], "TEN")
+
     def test_manifest_personal_only(self):
         import os as _os, json as _json
         m = _json.load(open(_os.path.join(_pkg_root(), "notification_center", "teams_app", "manifest.json")))
