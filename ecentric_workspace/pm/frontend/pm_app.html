@@ -305,6 +305,10 @@
   .pm-chk-item.done .pm-chk-label{ color:var(--gray-400); text-decoration:line-through; }
   .pm-chk-req{ color:var(--pink); font-weight:700; }
   .pm-chk-meta{ font-size:11px; color:var(--gray-400); white-space:nowrap; }
+  /* G4.2: terminal (Done/Cancelled) checklist is read-only */
+  .pm-chk-list--locked{ opacity:.75; }
+  .pm-chk-list--locked .pm-chk-item{ cursor:default; }
+  .pm-chk-list--locked .pm-chk-item:hover{ background:transparent; }
   .pm-sub-open{ display:inline-flex; align-items:center; color:var(--gray-300); cursor:pointer; flex:0 0 auto; }
   .pm-sub-open:hover{ color:var(--navy); }
   .pm-sub-open svg{ width:14px; height:14px; }
@@ -1575,15 +1579,19 @@
     var rows=(d&&d.rows)||[];
     if(!rows.length){b.innerHTML="";return;} /* no checklist -> no section */
     var pct=d.total?Math.round(d.done/d.total*100):0;
-    // G4 footer: Done badge / complete button / remaining-required text
+    // G4.2: terminal tasks (Done/Cancelled) -> IMMUTABLE checklist (read-only, mirrors backend set_item guard)
+    var locked=(wfState==="Done"||wfState==="Cancelled");
+    // G4 footer: Done/Cancelled badge / complete button / remaining-required text
     var foot;
     if(wfState==="Done"){foot='<span class="pm-badge st-Done">Đã hoàn thành</span>';}
+    else if(wfState==="Cancelled"){foot='<span class="pm-badge st-Cancelled">Đã huỷ</span>';}
     else if(chkComplete(d)){foot='<button class="pm-btn primary" id="pm-chk-complete">Hoàn thành task</button>';}
     else{var rem=(d.required_total||0)>0?((d.required_total||0)-(d.required_done||0)):((d.total||0)-(d.done||0));foot='<span style="font-size:12px;color:var(--gray-500)">Còn '+rem+' mục'+((d.required_total||0)>0?' bắt buộc':'')+' chưa xong</span>';}
     b.innerHTML='<div class="pm-dsec" style="display:flex;justify-content:space-between;align-items:center">Checklist <span style="color:var(--gray-400);font-weight:500">'+d.done+'/'+d.total+'</span></div>'+
       '<div class="pm-prog" style="margin-bottom:10px"><i style="width:'+pct+'%"></i></div>'+
-      '<div class="pm-chk-list">'+rows.map(chkRow).join("")+'</div>'+
+      '<div class="pm-chk-list'+(locked?' pm-chk-list--locked':'')+'">'+rows.map(chkRow).join("")+'</div>'+
       '<div style="margin-top:10px">'+foot+'</div>';
+    if(locked)return; // G4.2: terminal task -> no tick/untick wiring (read-only)
     Array.prototype.forEach.call(b.querySelectorAll(".pm-chk-item"),function(x){x.onclick=function(e){if(e)e.stopPropagation();
       if(b._chkBusy)return;b._chkBusy=true;b.style.pointerEvents="none"; /* guard double-click only on the checklist, not the modal */
       var rn=x.getAttribute("data-row");var nv=x.getAttribute("data-done")==="1"?0:1;
