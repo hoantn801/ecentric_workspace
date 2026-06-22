@@ -111,17 +111,25 @@ def enqueue_task_assignment_delivery(task_name, users, prev_map, actor=None):
             frappe.log_error(frappe.get_traceback(), "PM enqueue_task_assignment_delivery")
 
 
-# bounded poll: short backoff, ~12s total, finite (never infinite)
+# bounded poll: short backoff, ~10.5s total, finite (never infinite)
 _NATIVE_LOG_BACKOFF = (0.5, 1, 1.5, 2, 2.5, 3)
 
 
 def route_native_assignment_delivery(task_name, recipient, actor,
                                      previous_native_log_name, dedupe_key):
-    """Enqueued job: wait (bounded) for the NEW native Assignment log to appear, then route
-    the central delivery pipeline off it via route_existing_notification_log. The new log is
-    the newest matching row whose name differs from previous_native_log_name (deterministic
-    filters + ordering, not a timestamp guess). On timeout: warn + fail-open, NO Alert
-    fallback. Idempotent: route_existing_notification_log dedupes by dedupe_key."""
+    """Enqueued job: wait (bounded) for the NEW native Assignment log, then route the central
+    delivery pipeline off it via route_existing_notification_log.
+
+    Snapshot refresh: Frappe creates the native log in a SEPARATE job that commits after this
+    job may have started. Under the worker's REPEATABLE READ transaction, repeated reads keep
+    the original snapshot and never see that later commit. So after a MISS, we explicitly end
+    the read transaction with frappe.db.rollback() before the next lookup, giving each retry a
+    fresh snapshot. This is safe ONLY because no writes happen before the log is found; once
+    found we do NOT rollback again and let the normal worker transaction commit the deliveries.
+
+    The new log = newest matching row whose name != previous_native_log_name (deterministic
+    filters + ordering, never timestamp-only). On timeout: structured warning + fail-open, NO
+    Alert fallback. Idempotent via stable dedupe_key."""
     import time
 
     try:
@@ -129,19 +137,43 @@ def route_native_assignment_delivery(task_name, recipient, actor,
             return
     except Exception:
         pass
-    native = None
-    for delay in _NATIVE_LOG_BACKOFF:
-        time.sleep(delay)
+
+    def _found():
         cand = _latest_native_log(recipient, task_name)
         if cand and cand.get("name") != previous_native_log_name:
-            native = cand
-            break
+            return cand
+        return None
+
+    native = _found()                       # first attempt: current snapshot, NO rollback
+    attempts = 0
+    elapsed = 0.0
     if not native:
-        frappe.log_error(
-            "native Assignment log not found after bounded retry for "
-            + str(recipient) + " / " + str(task_name) + " (assignment ok; no delivery)",
-            "PM route_native_assignment_delivery")
-        return
+        for delay in _NATIVE_LOG_BACKOFF:
+            time.sleep(delay)
+            attempts += 1
+            elapsed += delay
+            # refresh the read snapshot AFTER a miss, BEFORE the next lookup (no writes yet)
+            try:
+                frappe.db.rollback()
+            except Exception:
+                pass
+            native = _found()
+            if native:
+                break
+
+    if not native:
+        try:
+            ctx = frappe.as_json({
+                "event": "task_assigned_delivery_timeout", "task": task_name,
+                "recipient": recipient, "previous_native_log": previous_native_log_name,
+                "attempts": attempts, "elapsed_seconds": elapsed})
+        except Exception:
+            ctx = "task=%s recipient=%s prev=%s attempts=%s elapsed=%s" % (
+                task_name, recipient, previous_native_log_name, attempts, elapsed)
+        frappe.log_error(ctx, "PM route_native_assignment_delivery timeout")
+        return                              # fail-open, NO Alert fallback
+
+    # native found -> route delivery (writes begin here); MUST NOT rollback after this point.
     try:
         from ecentric_workspace.action_center.resolvers import build_task_url
         ncev.route_existing_notification_log(
