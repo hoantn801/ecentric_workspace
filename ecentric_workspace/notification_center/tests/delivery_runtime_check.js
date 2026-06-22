@@ -216,6 +216,23 @@ function evt(o){ return Object.assign({ event_id:'E', event_type:'task_assigned'
   ok(env.win.location.href==='/app/task/G1','toast: click navigates to action_url');
 })();
 
+// ===== H) native-inbox event (update_badge:false): toast fires; badge re-synced via
+//        get_unread_count (NOT incremented from payload) -> no double badge =====
+(function(){
+  const env=makeEnv(); run(env); env.unlock();
+  const uc=()=>env.calls.filter(c=>(c.method||'').indexOf('get_unread_count')>=0).length;
+  const b1=uc();
+  env.fireRealtime({event_id:'NB1', event_type:'task_assigned', severity:'action_required',
+    title:'Giao viec', message:'m', action_url:'/app/task/T1',
+    update_badge:false, inbox_managed_by_native:true, unread:99, unread_count:99});
+  ok(env.toastCount()===1,'native-inbox: toast fires');
+  ok(uc()===b1+1,'native-inbox: badge re-synced via get_unread_count (no payload increment)');
+  const b2=uc();
+  env.fireRealtime({event_id:'NB2', event_type:'mention', severity:'info', title:'x', message:'y',
+    unread_count:5, item:{name:'NLn',subject:'x',message:'y',action_url:'/app/task/T2'}});
+  ok(uc()===b2,'normal event: no get_unread_count (badge from payload)');
+})();
+
 if(failures){ console.error('\n'+failures+' FAILURE(S)'); process.exit(1); }
 console.log('\nALL DELIVERY RUNTIME CHECKS PASSED');
 process.exit(0);
