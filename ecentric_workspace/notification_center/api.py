@@ -159,3 +159,22 @@ def save_teams_conversation(user=None, reference=None, aad_object_id=None):
     from ecentric_workspace.notification_center.providers import teams_bot
     name = teams_bot.save_conversation_reference(user, reference, aad_object_id=aad_object_id)
     return {"success": True, "name": name}
+
+
+@frappe.whitelist(allow_guest=True, methods=["POST", "GET"])
+def teams_bot_messages():
+    """Azure Bot Framework messaging endpoint (v1: proactive / notification-only).
+
+    The Azure Bot resource requires a messaging endpoint URL. v1 sends only PROACTIVE 1:1
+    messages -- conversation references are provisioned server-to-server via Microsoft Graph
+    + Bot Framework create-conversation (providers.teams_bot.provision_conversation) -- so this
+    endpoint does not need to process inbound activities. It simply ACKs (HTTP 200) so the
+    Bot Framework channel health check and any inbound activity succeed. It performs NO writes
+    (an unauthenticated inbound write would be spoofable); conversation references come only
+    from the trusted Graph path or the System-Manager-guarded save_teams_conversation.
+
+    Hardening (future): to capture references from inbound install/message activities, add Bot
+    Framework JWT validation (openid config at login.botframework.com, aud == bot app id)
+    BEFORE enabling any write here."""
+    frappe.local.response["http_status_code"] = 200
+    return {}

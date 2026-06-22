@@ -2,7 +2,7 @@
 """Microsoft Graph helper for the Teams notification bot.
 
 Graph is used ONLY to (a) map an ERP user email -> Microsoft Entra user -> aadObjectId,
-and (b) proactively install the Teams app/bot for a user when it is missing. Graph is NOT
+and (b) proactively install the Teams app/bot for a user when it is missing (the app\ninstalls ITSELF, so the least-privilege APP permission is\nTeamsAppInstallation.ReadWriteSelfForUser.All, plus User.Read.All for the mapping).\nGraph is NOT
 used to send chat messages (no app-only chatMessage send) -- delivery goes through the Bot
 Framework proactive path (providers.teams_bot).
 

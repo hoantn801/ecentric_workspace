@@ -230,7 +230,7 @@ def process_teams_retries():
     for nm in rows:
         try:
             frappe.enqueue("ecentric_workspace.notification_center.providers.teams.deliver",
-                           queue="short", delivery_log=nm)
+                           queue="default", delivery_log=nm)
         except Exception:
             frappe.log_error(frappe.get_traceback(), "process_teams_retries")
     return {"requeued": len(rows)}

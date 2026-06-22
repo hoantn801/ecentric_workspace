@@ -214,7 +214,7 @@ def route_delivery(event_id, recipient, routing, event_type, severity, dedupe_ke
         try:
             frappe.enqueue(
                 "ecentric_workspace.notification_center.providers.teams.deliver",
-                queue="short", enqueue_after_commit=True, delivery_log=nm)
+                queue="default", enqueue_after_commit=True, delivery_log=nm)
         except Exception:
             frappe.log_error(frappe.get_traceback(), "route_delivery enqueue teams")
     return teams_jobs

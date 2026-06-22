@@ -28,6 +28,7 @@ def _install_frappe():
     fr = types.ModuleType("frappe")
     fr.session = types.SimpleNamespace(user="a@x.com")
     fr.response = {}
+    fr.local = types.SimpleNamespace(response={})
     fr.flags = types.SimpleNamespace()
     fr.ValidationError = type("ValidationError", (Exception,), {})
     fr.whitelist = lambda *a, **k: (lambda f: f)
@@ -1708,3 +1709,122 @@ class TestAfterInsertHookRemoved(unittest.TestCase):
         self.assertNotIn("on_notification_log_after_insert", hooks)
         self.assertNotIn("on_notification_log_after_insert", events)
         self.assertNotIn('"Notification Log"', hooks)
+
+
+# =========================================================================== #
+# Teams Personal Bot — go-live readiness coverage
+# =========================================================================== #
+class TestTeamsGoLive(unittest.TestCase):
+    def setUp(self):
+        _reset("admin@x.com"); FR.session.user = "admin@x.com"
+        from ecentric_workspace.notification_center.providers import teams_bot as tbot
+        from ecentric_workspace.notification_center.providers import graph as tgraph
+        from ecentric_workspace.notification_center.providers import teams as tm
+        from ecentric_workspace.notification_center import events as ev
+        self.tbot, self.tgraph, self.tm, self.ev = tbot, tgraph, tm, ev
+        FR._conf.update({"ec_teams_provider": "teams_bot",
+                         "ec_teams_bot_app_id": "BOTID", "ec_teams_bot_app_password": "SECRET",
+                         "ec_teams_bot_id": "28:BOTID", "ec_teams_bot_default_service_url": "https://smba/teams/",
+                         "ec_graph_tenant_id": "TEN", "ec_graph_client_id": "GID",
+                         "ec_graph_client_secret": "GSEC", "ec_teams_app_external_id": "APPX"})
+        self._orig = {k: getattr(m, k) for m, k in [
+            (tbot, "_post_activity"), (tbot, "create_conversation"),
+            (tgraph, "email_to_aad_object_id"), (tgraph, "ensure_bot_installed"),
+            (tbot, "get_bot_token")]}
+
+    def tearDown(self):
+        self.tbot._post_activity = self._orig[("_post_activity")] if False else self._orig["_post_activity"]
+        self.tbot.create_conversation = self._orig["create_conversation"]
+        self.tgraph.email_to_aad_object_id = self._orig["email_to_aad_object_id"]
+        self.tgraph.ensure_bot_installed = self._orig["ensure_bot_installed"]
+        self.tbot.get_bot_token = self._orig["get_bot_token"]
+
+    def _mock_provision(self, install_status="installed", aad="AAD-1", conv="conv-1"):
+        self.tgraph.email_to_aad_object_id = lambda email, token=None, cfg=None: (True, aad)
+        self.tgraph.ensure_bot_installed = lambda oid, token=None, cfg=None: (True, install_status)
+        self.tbot.create_conversation = lambda oid, tid, su, cfg=None, token=None: (True, conv)
+
+    def test_graph_mapping_and_newly_installed_then_sent(self):
+        self._mock_provision(install_status="installed")
+        self.tbot._post_activity = lambda conv, act, cfg=None, token=None: (True, "201", "")
+        out = self.tbot.send_personal("u@x.com", {"type": "message"})
+        self.assertEqual(out[0], "sent")
+        self.assertIn("u@x.com", FR._convs)                       # conversation reference stored
+        self.assertEqual(FR._convs["u@x.com"]["conversation_id"], "conv-1")
+        self.assertEqual(FR._convs["u@x.com"]["aad_object_id"], "AAD-1")
+
+    def test_app_already_installed_idempotent(self):
+        self._mock_provision(install_status="already_installed")
+        self.tbot._post_activity = lambda conv, act, cfg=None, token=None: (True, "200", "")
+        out = self.tbot.send_personal("u@x.com", {"type": "message"})
+        self.assertEqual(out[0], "sent")
+
+    def test_invalid_or_missing_mapping_skips(self):
+        self.tgraph.email_to_aad_object_id = lambda email, token=None, cfg=None: (False, "USER_404")
+        out = self.tbot.send_personal("ghost@x.com", {"type": "message"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "USER_404")
+
+    def test_bot_blocked_skips(self):
+        self._mock_provision()
+        self.tbot._post_activity = lambda conv, act, cfg=None, token=None: (False, "403", "forbidden")
+        out = self.tbot.send_personal("u@x.com", {"type": "message"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "BOT_BLOCKED")
+
+    def test_expired_credential_retries(self):
+        self._mock_provision()
+        # token failure surfaces from _post_activity -> retry (transient)
+        self.tbot._post_activity = lambda conv, act, cfg=None, token=None: (False, "BOTTOKEN_401", "bot token failed")
+        out = self.tbot.send_personal("u@x.com", {"type": "message"})
+        self.assertEqual(out[0], "retry")
+
+    def test_teams_unavailable_erp_still_succeeds(self):
+        # teams send fails, but the synchronous ERP delivery rows + realtime are unaffected
+        FR._tasks["TKZ"] = {"name": "TKZ", "workflow_state": "Open"}
+        self.ev.publish_task_assignment_delivery("u@x.com", "TKZ", "Giao viec",
+                                                 action_url="/app/task/TKZ", actor="boss@x.com")
+        byc = {d["channel"]: d["status"] for d in FR._delivery if d["recipient"] == "u@x.com"}
+        self.assertEqual(byc["erp"], "Sent"); self.assertEqual(byc["toast"], "Sent")
+        self.assertEqual(byc["sound"], "Sent")
+        self.assertEqual(byc["teams"], "Pending")                 # enqueued (provider configured)
+        self.assertEqual(len(FR._realtime), 1)                    # ERP realtime fired regardless
+        # now the teams job fails -> ERP rows remain Sent (Teams never blocks ERP)
+        teams_nm = [d["name"] for d in FR._delivery if d["channel"] == "teams"][0]
+        self.tbot.get_bot_token = lambda cfg=None: (False, "BOTTOKEN_500")
+        self._mock_provision()
+        self.tbot._post_activity = lambda conv, act, cfg=None, token=None: (False, "500", "server")
+        self.tm.deliver(teams_nm)
+        byc2 = {d["channel"]: d["status"] for d in FR._delivery if d["recipient"] == "u@x.com"}
+        self.assertEqual(byc2["erp"], "Sent")                    # unchanged
+        self.assertIn(byc2["teams"], ("Failed",))                # teams failed, ERP intact
+
+    def test_task_assignment_payload(self):
+        act = self.tm.build_personal_activity({"title": "Giao viec", "message": "noi dung",
+            "event_type": "task_assigned", "actor": "boss", "action_url": "/app/task/T1"})
+        card = act["attachments"][0]["content"]
+        self.assertEqual(card["type"], "AdaptiveCard")
+        self.assertEqual(card["actions"][0]["title"], "Mở trong ERP")
+        self.assertEqual(card["actions"][0]["url"], "https://test.ecentric.vn/app/task/T1")
+
+    def test_approval_required_payload(self):
+        act = self.tm.build_personal_activity({"title": "Can duyet MSO-1", "message": "cho duyet",
+            "event_type": "approval_required", "actor": "submitter",
+            "action_url": "/approval?id=MSO-1&type=mso_request"})
+        card = act["attachments"][0]["content"]
+        self.assertEqual(card["actions"][0]["url"], "https://test.ecentric.vn/approval?id=MSO-1&type=mso_request")
+        facts = next((b for b in card["body"] if b.get("type") == "FactSet"), {}).get("facts", [])
+        self.assertTrue(any(f.get("value") == "approval_required" for f in facts))
+
+    def test_messaging_endpoint_acks_200(self):
+        out = api.teams_bot_messages()
+        self.assertEqual(out, {})
+        self.assertEqual(FR.local.response.get("http_status_code"), 200)
+
+    def test_manifest_personal_only(self):
+        import os as _os, json as _json
+        m = _json.load(open(_os.path.join(_pkg_root(), "notification_center", "teams_app", "manifest.json")))
+        self.assertEqual(m["bots"][0]["scopes"], ["personal"])
+        self.assertTrue(m["bots"][0]["isNotificationOnly"])
+        self.assertEqual(m["icons"], {"color": "color.png", "outline": "outline.png"})
+        self.assertIn("team.ecentric.vn", m["validDomains"])
+        for b in m["bots"]:
+            self.assertNotIn("team", b["scopes"]); self.assertNotIn("groupchat", b["scopes"])
