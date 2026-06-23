@@ -2020,13 +2020,29 @@ class TestPowerAutomateCopilot(unittest.TestCase):
         out = self.pa.send_event({"recipient": "u@x.com"})
         self.assertEqual(out[0], "skip"); self.assertTrue(out[2].startswith("PA_4"))
 
-    def test_invalid_oauth_retry(self):
+    def test_token_401_403_permanent_skip(self):
+        # 401/403 from the token endpoint = permanent config/auth error -> skip (no retry)
         self.pa.get_pa_token = lambda cfg=None: (False, "PATOKEN_401")
-        self.assertEqual(self.pa.send_event({"recipient": "u@x.com"})[0], "retry")
-        self.pa.get_pa_token = lambda cfg=None: (True, "tok")
+        out = self.pa.send_event({"recipient": "u@x.com"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "PATOKEN_401")
+        self.pa.get_pa_token = lambda cfg=None: (False, "PATOKEN_403")
+        out = self.pa.send_event({"recipient": "u@x.com"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "PATOKEN_403")
+
+    def test_token_transient_failures_retry(self):
+        # 5xx / 429 / network / exception at the token endpoint stay retryable (bounded)
+        for code in ("PATOKEN_503", "PATOKEN_429", "PATOKEN_EXC_ConnectionError"):
+            self.pa.get_pa_token = lambda cfg=None, c=code: (False, c)
+            self.assertEqual(self.pa.send_event({"recipient": "u@x.com"})[0], "retry", code)
+
+    def test_flow_401_403_permanent_skip(self):
+        # 401/403 returned by the Flow itself = permanent auth/config error -> skip (no retry)
         self._flow(401, {})
         out = self.pa.send_event({"recipient": "u@x.com"})
-        self.assertEqual(out[0], "retry"); self.assertEqual(out[2], "PA_401")
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "PA_401")
+        self._flow(403, {})
+        out = self.pa.send_event({"recipient": "u@x.com"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "PA_403")
 
     def test_throttling_and_5xx_retry(self):
         self._flow(429, {}); self.assertEqual(self.pa.send_event({})[0], "retry")
@@ -2159,6 +2175,17 @@ class TestPowerAutomateCopilot(unittest.TestCase):
         nm = self._dlv_row(); self.tm.deliver(nm); n1 = calls["n"]
         self.tm.deliver(nm)                                   # row already Sent -> early return
         self.assertEqual(calls["n"], n1)
+
+    def test_deliver_permanent_auth_terminal_skipped(self):
+        # 401/403 -> dispatcher writes terminal Skipped, clears next_retry_at, stores code;
+        # the retry scheduler never picks a Skipped row (only Failed+due+attempt<MAX).
+        self._provider_pa()
+        self.pa.send_event = lambda payload, cfg=None: ("skip", "power_automate_copilot", "PA_401", "perm")
+        nm = self._dlv_row(); self.tm.deliver(nm)
+        d = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(d["status"], "Skipped")
+        self.assertEqual(d["error_code"], "PA_401")
+        self.assertIsNone(d["next_retry_at"])
 
     def test_provider_disabled_dryrun(self):
         FR._conf.update({"ec_teams_provider": "disabled"})

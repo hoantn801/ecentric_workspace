@@ -99,8 +99,12 @@ def send_event(payload, cfg=None):
         return ("skip", prov, "NO_PA_CREDENTIAL", "Power Automate not configured")
     ok, token = get_pa_token(cfg)
     if not ok:
-        # token endpoint failure is transient (refresh next attempt)
-        return ("retry", prov, token, "oauth token failed")
+        # 401/403 from the token endpoint = bad/forbidden credential = PERMANENT config/auth
+        # error -> skip (terminal), do NOT consume retry cycles. Other token failures
+        # (5xx / 429 / network / exception) are transient -> retry (bounded by dispatcher).
+        if token in ("PATOKEN_401", "PATOKEN_403"):
+            return ("skip", prov, token, "oauth permanent auth/config error (no retry)")
+        return ("retry", prov, token, "oauth token failed (transient)")
     try:
         status, body = _post_flow(cfg["flow_url"], payload, token)
     except Exception as e:
@@ -108,7 +112,8 @@ def send_event(payload, cfg=None):
 
     # transport-level classification
     if status == 401:
-        return ("retry", prov, "PA_401", "unauthorized (token)")
+        # permanent auth/config error (bad/expired token, wrong audience) -> no retry
+        return ("skip", prov, "PA_401", "unauthorized (permanent auth/config error, no retry)")
     if status == 403:
         return ("skip", prov, "PA_403", "forbidden (service principal not allowed on trigger)")
     if status == 429:
