@@ -29,6 +29,11 @@ def _install_frappe():
     fr.session = types.SimpleNamespace(user="a@x.com")
     fr.response = {}
     fr.local = types.SimpleNamespace(response={})
+    fr._req_headers = {}
+    fr._req_json = {}
+    fr._users = set()
+    fr.get_request_header = lambda k, default=None: fr._req_headers.get(k, default)
+    fr.request = types.SimpleNamespace(get_json=lambda silent=True: fr._req_json)
     fr.flags = types.SimpleNamespace()
     fr.ValidationError = type("ValidationError", (Exception,), {})
     fr.whitelist = lambda *a, **k: (lambda f: f)
@@ -197,6 +202,8 @@ def _install_frappe():
             return name in fr._prefs
         if doctype == "EC Teams Conversation":
             return name in fr._convs
+        if doctype == "User":
+            return name in fr._users
         if doctype == "EC Notification Delivery Log":
             if isinstance(name, dict):
                 for r in fr._delivery:
@@ -380,6 +387,9 @@ def _reset(user="a@x.com"):
     FR._roles[:] = []
     FR._mail[:] = []
     FR._convs.clear()
+    FR._req_headers.clear()
+    FR._req_json.clear()
+    FR._users.clear()
     FR._pending_nl[:] = []
     FR._txn_events[:] = []
     FR._errors[:] = []
@@ -1814,10 +1824,11 @@ class TestTeamsGoLive(unittest.TestCase):
         facts = next((b for b in card["body"] if b.get("type") == "FactSet"), {}).get("facts", [])
         self.assertTrue(any(f.get("value") == "approval_required" for f in facts))
 
-    def test_messaging_endpoint_acks_200(self):
+    def test_messaging_endpoint_requires_auth(self):
+        FR._req_headers.clear(); FR._req_json.clear()        # no Authorization header
         out = api.teams_bot_messages()
-        self.assertEqual(out, {})
-        self.assertEqual(FR.local.response.get("http_status_code"), 200)
+        self.assertEqual(out, {"error": "unauthorized"})
+        self.assertEqual(FR.local.response.get("http_status_code"), 401)
 
     def test_single_tenant_bot_token_authority(self):
         FR._conf.update({"ec_teams_bot_tenant_id": "TENANT-XYZ"})
@@ -1836,3 +1847,131 @@ class TestTeamsGoLive(unittest.TestCase):
         self.assertIn("team.ecentric.vn", m["validDomains"])
         for b in m["bots"]:
             self.assertNotIn("team", b["scopes"]); self.assertNotIn("groupchat", b["scopes"])
+
+
+# =========================================================================== #
+# Teams messaging endpoint — Bot Connector inbound authentication
+# =========================================================================== #
+import time as _t3
+
+
+class TestBotConnectorAuth(unittest.TestCase):
+    def setUp(self):
+        _reset("admin@x.com")
+        from ecentric_workspace.notification_center.providers import bot_auth
+        self.ba = bot_auth
+        import json as _j
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        from jwt.algorithms import RSAAlgorithm
+        self._priv = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        self._priv2 = rsa.generate_private_key(public_exponent=65537, key_size=2048)  # wrong key
+        jwk = _j.loads(RSAAlgorithm.to_jwk(self._priv.public_key()))
+        jwk["kid"] = "kid-1"; jwk["endorsements"] = ["msteams"]
+        self._md = {"issuer": "https://api.botframework.com", "jwks_uri": "https://x/jwks"}
+        self._jwks = {"keys": [jwk]}
+        self._om, self._oj = bot_auth._get_metadata, bot_auth._get_jwks
+        bot_auth._get_metadata = lambda: self._md
+        bot_auth._get_jwks = lambda u: self._jwks
+
+    def tearDown(self):
+        self.ba._get_metadata = self._om; self.ba._get_jwks = self._oj
+
+    def _tok(self, key=None, **over):
+        import jwt
+        now = int(_t3.time())
+        p = {"iss": "https://api.botframework.com", "aud": "BOTID", "iat": now,
+             "exp": now + 300, "serviceurl": "https://smba/teams/"}
+        p.update(over)
+        return jwt.encode(p, key or self._priv, algorithm="RS256", headers={"kid": "kid-1"})
+
+    ACT = {"channelId": "msteams", "serviceUrl": "https://smba/teams/"}
+
+    def test_valid_accepted(self):
+        ok, reason = self.ba.validate_bot_request("Bearer " + self._tok(), self.ACT, "BOTID")
+        self.assertTrue(ok, reason)
+
+    def test_missing_token_rejected(self):
+        self.assertEqual(self.ba.validate_bot_request(None, self.ACT, "BOTID")[1], "missing_bearer")
+        self.assertEqual(self.ba.validate_bot_request("Basic abc", self.ACT, "BOTID")[1], "missing_bearer")
+
+    def test_invalid_signature_rejected(self):
+        bad = self._tok(key=self._priv2)                      # signed by a key not in the JWKS
+        ok, reason = self.ba.validate_bot_request("Bearer " + bad, self.ACT, "BOTID")
+        self.assertFalse(ok); self.assertTrue(reason.startswith("jwt_"))
+
+    def test_wrong_audience_rejected(self):
+        ok, reason = self.ba.validate_bot_request("Bearer " + self._tok(aud="OTHER"), self.ACT, "BOTID")
+        self.assertFalse(ok); self.assertTrue(reason.startswith("jwt_"))
+
+    def test_expired_rejected(self):
+        now = int(_t3.time())
+        tok = self._tok(iat=now - 800, exp=now - 400)         # beyond the 300s leeway
+        ok, reason = self.ba.validate_bot_request("Bearer " + tok, self.ACT, "BOTID")
+        self.assertFalse(ok); self.assertTrue(reason.startswith("jwt_"))
+
+    def test_serviceurl_mismatch_rejected(self):
+        tok = self._tok(serviceurl="https://evil/teams/")
+        ok, reason = self.ba.validate_bot_request("Bearer " + tok, self.ACT, "BOTID")
+        self.assertFalse(ok); self.assertEqual(reason, "serviceurl_mismatch")
+
+    def test_channel_not_endorsed_rejected(self):
+        ok, reason = self.ba.validate_bot_request(
+            "Bearer " + self._tok(), {"channelId": "slack", "serviceUrl": "https://smba/teams/"}, "BOTID")
+        self.assertFalse(ok); self.assertEqual(reason, "channel_not_endorsed")
+
+
+class TestBotMessagesEndpoint(unittest.TestCase):
+    def setUp(self):
+        _reset("admin@x.com")
+        FR._conf.update({"ec_teams_bot_app_id": "BOTID"})
+        from ecentric_workspace.notification_center.providers import bot_auth, graph as gr
+        self.ba, self.gr = bot_auth, gr
+        self._ov = bot_auth.validate_bot_request
+        self._oe = gr.aad_object_id_to_email
+
+    def tearDown(self):
+        self.ba.validate_bot_request = self._ov
+        self.gr.aad_object_id_to_email = self._oe
+
+    def test_rejects_invalid(self):
+        self.ba.validate_bot_request = lambda a, act, app: (False, "missing_bearer")
+        out = api.teams_bot_messages()
+        self.assertEqual(out, {"error": "unauthorized"})
+        self.assertEqual(FR.local.response.get("http_status_code"), 401)
+
+    def test_accepts_and_captures_reference(self):
+        self.ba.validate_bot_request = lambda a, act, app: (True, "ok")
+        self.gr.aad_object_id_to_email = lambda aad, token=None, cfg=None: (True, "u@x.com")
+        FR._users.add("u@x.com")
+        FR._req_json.update({"type": "conversationUpdate", "channelId": "msteams",
+                             "serviceUrl": "https://smba/teams/",
+                             "from": {"aadObjectId": "AAD-9"},
+                             "conversation": {"id": "conv-9", "tenantId": "TEN"},
+                             "recipient": {"id": "28:BOTID"}})
+        out = api.teams_bot_messages()
+        self.assertEqual(out, {})
+        self.assertEqual(FR.local.response.get("http_status_code"), 200)
+        self.assertIn("u@x.com", FR._convs)                  # validated capture stored
+        self.assertEqual(FR._convs["u@x.com"]["conversation_id"], "conv-9")
+        self.assertEqual(FR._convs["u@x.com"]["aad_object_id"], "AAD-9")
+
+
+class TestGraphIdentityAlignment(unittest.TestCase):
+    def setUp(self):
+        _reset("admin@x.com")
+        from ecentric_workspace.notification_center.providers import graph as gr
+        self.gr = gr
+
+    def test_graph_defaults_to_bot_identity(self):
+        FR._conf.update({"ec_teams_bot_app_id": "APP1", "ec_teams_bot_app_password": "S",
+                         "ec_teams_bot_tenant_id": "TEN1"})
+        cfg = self.gr.graph_config()
+        self.assertEqual(cfg["client_id"], "APP1")           # Graph reuses the bot app
+        self.assertEqual(cfg["client_secret"], "S")
+        self.assertEqual(cfg["tenant_id"], "TEN1")
+        self.assertTrue(self.gr.identity_aligned())          # one-identity model OK
+
+    def test_split_identity_flagged_misaligned(self):
+        FR._conf.update({"ec_teams_bot_app_id": "APP1", "ec_graph_client_id": "OTHER"})
+        self.assertEqual(self.gr.graph_config()["client_id"], "OTHER")
+        self.assertFalse(self.gr.identity_aligned())         # self-install would break -> flagged

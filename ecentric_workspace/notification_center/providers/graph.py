@@ -21,13 +21,29 @@ _LOGIN = "https://login.microsoftonline.com"
 
 
 def graph_config():
+    """Graph application identity. IDENTITY MODEL: ONE single-tenant App Registration is used
+    for BOTH the Azure Bot and Graph -- required because TeamsAppInstallation.ReadWriteSelfForUser.All
+    lets the app install ITSELF, so the Graph caller must be the same app as the bot. The Graph
+    keys therefore DEFAULT to the bot's identity; set ec_graph_* only if you deliberately split
+    them (not recommended -- self-install would break)."""
     conf = frappe.get_conf() if hasattr(frappe, "get_conf") else {}
+    bot_app = conf.get("ec_teams_bot_app_id") or ""
+    bot_secret = conf.get("ec_teams_bot_app_password") or ""
+    bot_tenant = conf.get("ec_teams_bot_tenant_id") or ""
     return {
-        "tenant_id": conf.get("ec_graph_tenant_id") or "",
-        "client_id": conf.get("ec_graph_client_id") or "",
-        "client_secret": conf.get("ec_graph_client_secret") or "",
+        "tenant_id": conf.get("ec_graph_tenant_id") or bot_tenant or "",
+        "client_id": conf.get("ec_graph_client_id") or bot_app or "",
+        "client_secret": conf.get("ec_graph_client_secret") or bot_secret or "",
         "teams_app_external_id": conf.get("ec_teams_app_external_id") or "",
     }
+
+
+def identity_aligned():
+    """True when the resolved Graph client_id == the bot app id (the single-identity model
+    required for self-install). Used as a readiness check before enabling Teams."""
+    from ecentric_workspace.notification_center.providers import teams_bot
+    gid = graph_config().get("client_id")
+    return bool(gid) and gid == teams_bot.bot_config().get("app_id")
 
 
 def is_configured(cfg=None):
@@ -68,6 +84,27 @@ def email_to_aad_object_id(email, token=None, cfg=None):
                          headers={"Authorization": "Bearer " + token}, timeout=TIMEOUT)
         if r.status_code == 200:
             return True, r.json().get("id")
+        return False, "USER_" + str(r.status_code)
+    except Exception as e:
+        return False, "USER_EXC_" + type(e).__name__
+
+
+def aad_object_id_to_email(aad_object_id, token=None, cfg=None):
+    """Reverse map Entra aadObjectId -> ERP email (mail or userPrincipalName). Used by the
+    validated messaging endpoint to map an inbound activity's user to a Frappe User.
+    Returns (ok, email_or_errcode)."""
+    cfg = cfg or graph_config()
+    if not token:
+        ok, token = get_app_token(cfg)
+        if not ok:
+            return False, token
+    import requests
+    try:
+        r = requests.get(_GRAPH + "/users/" + aad_object_id + "?$select=userPrincipalName,mail",
+                         headers={"Authorization": "Bearer " + token}, timeout=TIMEOUT)
+        if r.status_code == 200:
+            j = r.json()
+            return True, (j.get("mail") or j.get("userPrincipalName"))
         return False, "USER_" + str(r.status_code)
     except Exception as e:
         return False, "USER_EXC_" + type(e).__name__

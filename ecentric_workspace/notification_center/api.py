@@ -161,20 +161,59 @@ def save_teams_conversation(user=None, reference=None, aad_object_id=None):
     return {"success": True, "name": name}
 
 
-@frappe.whitelist(allow_guest=True, methods=["POST", "GET"])
+@frappe.whitelist(allow_guest=True, methods=["POST"])
 def teams_bot_messages():
-    """Azure Bot Framework messaging endpoint (v1: proactive / notification-only).
+    """Azure Bot Framework messaging endpoint -- SECURED with inbound Bot Connector auth.
 
-    The Azure Bot resource requires a messaging endpoint URL. v1 sends only PROACTIVE 1:1
-    messages -- conversation references are provisioned server-to-server via Microsoft Graph
-    + Bot Framework create-conversation (providers.teams_bot.provision_conversation) -- so this
-    endpoint does not need to process inbound activities. It simply ACKs (HTTP 200) so the
-    Bot Framework channel health check and any inbound activity succeed. It performs NO writes
-    (an unauthenticated inbound write would be spoofable); conversation references come only
-    from the trusted Graph path or the System-Manager-guarded save_teams_conversation.
+    Every inbound activity must carry a valid `Authorization: Bearer <JWT>` issued by the Bot
+    Connector. The token is validated (signature against the Bot Connector JWKS, issuer,
+    audience == ec_teams_bot_app_id, expiry, serviceUrl claim == activity.serviceUrl, Teams
+    channel endorsement) before anything is parsed. Missing/invalid -> 401. There is NO config
+    switch to bypass validation. On success the endpoint ACKs 200 and, for personal-scope
+    lifecycle activities, captures/updates the conversation reference (now trusted because the
+    request is authenticated). Tokens/secrets are never logged."""
+    from ecentric_workspace.notification_center.providers import bot_auth, teams_bot
 
-    Hardening (future): to capture references from inbound install/message activities, add Bot
-    Framework JWT validation (openid config at login.botframework.com, aud == bot app id)
-    BEFORE enabling any write here."""
+    app_id = teams_bot.bot_config().get("app_id")
+    auth = frappe.get_request_header("Authorization") if hasattr(frappe, "get_request_header") else None
+    try:
+        activity = (frappe.request.get_json(silent=True) if getattr(frappe, "request", None) else None) or {}
+    except Exception:
+        activity = {}
+
+    ok, reason = bot_auth.validate_bot_request(auth, activity, app_id)
+    if not ok:
+        frappe.local.response["http_status_code"] = 401
+        frappe.log_error("teams_bot_messages rejected (" + str(reason)[:60] + ")", "teams bot auth")
+        return {"error": "unauthorized"}
+
+    try:
+        _capture_conversation_from_activity(activity)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "teams_bot_messages capture")
+
     frappe.local.response["http_status_code"] = 200
     return {}
+
+
+def _capture_conversation_from_activity(activity):
+    """Best-effort, TRUSTED (post-validation) capture of the conversation reference for a
+    personal-scope lifecycle activity. Maps the activity user (aadObjectId) -> ERP email via
+    Graph; stores only when a matching Frappe User exists. Never required for delivery
+    (proactive provisioning via Graph remains the primary path)."""
+    if not activity or activity.get("type") not in ("conversationUpdate", "installationUpdate", "message"):
+        return
+    frm = activity.get("from") or {}
+    aad = frm.get("aadObjectId")
+    if not aad:
+        return
+    from ecentric_workspace.notification_center.providers import teams_bot, graph as graphmod
+    ok, email = graphmod.aad_object_id_to_email(aad)
+    if not ok or not email or not frappe.db.exists("User", email):
+        return
+    conv = activity.get("conversation") or {}
+    tenant = conv.get("tenantId") or ((activity.get("channelData") or {}).get("tenant") or {}).get("id")
+    ref = {"serviceUrl": activity.get("serviceUrl"),
+           "conversation": {"id": conv.get("id"), "tenantId": tenant},
+           "bot": {"id": (activity.get("recipient") or {}).get("id")}}
+    teams_bot.save_conversation_reference(email, ref, aad_object_id=aad, installed=1)
