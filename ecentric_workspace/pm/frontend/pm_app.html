@@ -736,7 +736,7 @@
     Array.prototype.forEach.call(host.querySelectorAll(".wl-brow[data-assignee]"),function(x){x.onclick=function(){navAssignee(x.getAttribute("data-assignee"));};});}
   function showDashboard(){var c=el("pm-view");spin(c);
     Promise.all([api(PM+"dashboard.control_center"),api(PM+"tasks.list",{page_length:2000}),api(PM+"projects.list",{page_length:200})]).then(function(res){
-      var cc=res[0]||{};var tasks=(res[1]&&res[1].rows)||[];var projs=(res[2]&&res[2].rows)||[];
+      var cc=res[0]||{};var tasks=(res[1]&&res[1].rows)||[];var projs=((res[2]&&res[2].rows)||[]).filter(function(p){return p.status!=="Cancelled";}); /* G4.4 Overview: hide Cancelled projects from KPI/donut/health (audit kept on Projects page) */
       window._isLeader=!!cc.is_leader;var leader=window._isLeader;var user=window._pmUser||"";
       var ph=leader?dcProjectHealth(tasks,projs):[];
       var h=head("Tổng quan công việc",leader?"Bảng điều khiển quản lý":"Việc cần xử lý của tôi");
