@@ -2048,6 +2048,74 @@ class TestPowerAutomateCopilot(unittest.TestCase):
         self.assertEqual(p["recipient"], "u@x.com")
         self.assertEqual(p["action_url"], "/app/task/T1")
 
+    # --- OAuth token endpoint: Power Automate public-cloud v1 resource (regression lock) ---
+    def _capture_token_request(self, status=200, payload=None):
+        """Install a fake `requests` so get_pa_token's real HTTP call is captured, not sent."""
+        import sys, types
+        captured = {}
+        class _Resp:
+            def __init__(self): self.status_code = status
+            def json(self): return payload if payload is not None else {"access_token": "AT.SECRET.value"}
+        def _post(url, data=None, headers=None, timeout=None):
+            captured.update(url=url, data=data, headers=headers, timeout=timeout)
+            return _Resp()
+        fake = types.ModuleType("requests"); fake.post = _post
+        self._real_requests = sys.modules.get("requests")
+        sys.modules["requests"] = fake
+        self.addCleanup(self._restore_requests)
+        return captured
+
+    def _restore_requests(self):
+        import sys
+        if getattr(self, "_real_requests", None) is not None:
+            sys.modules["requests"] = self._real_requests
+        else:
+            sys.modules.pop("requests", None)
+
+    def test_token_uses_v1_endpoint_not_v2(self):
+        cap = self._capture_token_request()
+        ok, tok = self._otok(self.pa.pa_config())          # real get_pa_token
+        self.assertTrue(ok)
+        self.assertTrue(cap["url"].endswith("/oauth2/token"), cap["url"])
+        self.assertNotIn("/oauth2/v2.0/", cap["url"])
+        self.assertIn("TEN", cap["url"])                   # tenant in path
+
+    def test_token_uses_resource_with_trailing_slash(self):
+        cap = self._capture_token_request()
+        self._otok(self.pa.pa_config())
+        self.assertEqual(cap["data"].get("resource"), "https://service.flow.microsoft.com/")
+        self.assertEqual(cap["data"].get("grant_type"), "client_credentials")
+        self.assertEqual(cap["data"].get("client_id"), "SPID")
+
+    def test_token_does_not_use_scope_or_default(self):
+        cap = self._capture_token_request()
+        self._otok(self.pa.pa_config())
+        self.assertNotIn("scope", cap["data"])             # v2-style scope must be absent
+        joined = " ".join(str(v) for v in cap["data"].values())
+        self.assertNotIn(".default", joined)
+
+    def test_token_content_type_form_urlencoded(self):
+        cap = self._capture_token_request()
+        self._otok(self.pa.pa_config())
+        self.assertEqual((cap["headers"] or {}).get("Content-Type"),
+                         "application/x-www-form-urlencoded")
+
+    def test_token_error_sanitized_status_only(self):
+        cap = self._capture_token_request(status=401,
+                                          payload={"error": "invalid_client",
+                                                   "error_description": "AADSTS7000215 secret"})
+        ok, code = self._otok(self.pa.pa_config())
+        self.assertFalse(ok)
+        self.assertEqual(code, "PATOKEN_401")              # status code only; no body echoed
+
+    def test_token_and_secret_never_in_returned_code(self):
+        for st in (400, 401, 403, 500):
+            cap = self._capture_token_request(status=st, payload={"error": "x"})
+            ok, code = self._otok(self.pa.pa_config())
+            self.assertFalse(ok)
+            for leak in ("SPSEC", "AT.SECRET", "access_token"):
+                self.assertNotIn(leak, code)
+
     # --- dispatcher integration via teams.deliver ---
     def _dlv_row(self, event_type="task_assigned"):
         return self.ev._delivery(self.ev._event_id("PA|" + event_type), "u@x.com", "teams", "Pending",

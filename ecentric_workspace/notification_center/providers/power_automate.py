@@ -38,19 +38,39 @@ def is_configured(cfg=None):
 
 
 def get_pa_token(cfg=None):
-    """client_credentials token for the Power Automate / Flow service audience.
-    Returns (ok, token_or_errcode). Secret/token never logged."""
+    """client_credentials token for the Power Automate / Flow service.
+
+    Power Automate **public cloud** requires the Azure AD **v1** token endpoint with a
+    ``resource`` parameter so the issued token carries ``aud = https://service.flow.microsoft.com/``
+    *with the trailing slash*. The v2 endpoint + ``scope=<resource>/.default`` drops the trailing
+    slash (aud = ...microsoft.com, no slash) and the flow trigger rejects it with 403. So we MUST
+    use:
+        POST https://login.microsoftonline.com/{tenant}/oauth2/token
+             grant_type=client_credentials, resource=https://service.flow.microsoft.com/
+    Do NOT switch this to /oauth2/v2.0/token or scope=<resource>/.default for Power Automate.
+
+    Returns (ok, token_or_errcode). Secret/token are never logged."""
     cfg = cfg or pa_config()
     if not (cfg["tenant_id"] and cfg["client_id"] and cfg["client_secret"]):
         return False, "NO_PA_CREDENTIAL"
     import requests
-    scope = cfg["audience"].rstrip("/") + "/.default"
+    # v1 audience: keep the resource EXACTLY as configured (trailing slash preserved).
+    resource = cfg["audience"]
     try:
-        r = requests.post(_LOGIN + cfg["tenant_id"] + "/oauth2/v2.0/token", data={
-            "grant_type": "client_credentials", "client_id": cfg["client_id"],
-            "client_secret": cfg["client_secret"], "scope": scope}, timeout=TIMEOUT)
+        r = requests.post(
+            _LOGIN + cfg["tenant_id"] + "/oauth2/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": cfg["client_id"],
+                "client_secret": cfg["client_secret"],
+                "resource": resource,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=TIMEOUT,
+        )
         if r.status_code == 200:
             return True, r.json().get("access_token")
+        # status code only -- never echo the response body (may contain token/secret material)
         return False, "PATOKEN_" + str(r.status_code)
     except Exception as e:
         return False, "PATOKEN_EXC_" + type(e).__name__
