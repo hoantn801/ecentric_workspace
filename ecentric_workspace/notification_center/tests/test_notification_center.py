@@ -1284,12 +1284,28 @@ class TestDeliveryAssetStatics(unittest.TestCase):
         self.assertIn("!S.interacted", self.js)
 
     def test_realtime_binds_under_lazy_connect(self):
-        # Frappe v15 lazy_connect: frappe.realtime.on no-ops if the socket is absent at
-        # page load. The asset must force a connect and bind to the live socket (with
-        # reconnect rebind), and keep a slow badge poll as a safety net.
+        # Frappe v15/16: frappe.realtime.on no-ops if the socket is absent at page load, and
+        # frappe.realtime.connect only calls socket.connect under lazy_connect. The asset must
+        # wake the lazy socket, bind ONE named handler to the live socket, and keep a slow badge
+        # poll as a safety net.
         self.assertIn("rt.connect()", self.js)
-        self.assertIn("rt.socket.on('ec_notification', onRealtime)", self.js)
+        self.assertIn("s.on('ec_notification', onRealtime)", self.js)   # single named handler
         self.assertIn("setInterval(refreshCount, POLL_MS)", self.js)
+
+    def test_realtime_recovery_contract(self):
+        # Connection-recovery hotfix: exactly one named handler (bound once per socket
+        # instance), a bounded reconnect watchdog armed on reconnect_failed (no infinite loop),
+        # and NO rebinding of ec_notification inside a 'connect' callback (which would duplicate
+        # listeners). Manual connect is gated by connected/reconnecting state.
+        self.assertIn("function bindOnce(", self.js)
+        self.assertIn("boundSocket", self.js)                 # bind once per socket instance
+        self.assertIn("reconnect_failed", self.js)            # arm watchdog after native give-up
+        self.assertIn("function startWatchdog(", self.js)
+        self.assertIn("function maybeConnect(", self.js)
+        self.assertIn("if (reconnecting) return;", self.js)   # don't pile on while reconnecting
+        self.assertIn("WD_MAX", self.js)                      # bounded attempts (no tight loop)
+        # the OLD duplicate-listener pattern (rebind ec_notification inside connect) is gone:
+        self.assertNotIn("rt.socket.on('connect', function () { try { rt.socket.on('ec_notification'", self.js)
 
 
 # =========================================================================== #

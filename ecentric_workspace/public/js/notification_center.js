@@ -323,6 +323,7 @@
       var Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
       var ctx = new Ctx();
+      try { if (ctx.state === 'suspended' && ctx.resume) ctx.resume(); } catch (e) {}
       var o = ctx.createOscillator(), g = ctx.createGain();
       o.type = 'sine'; o.frequency.value = 880;
       g.gain.setValueAtTime(0.0001, ctx.currentTime);
@@ -500,36 +501,71 @@
     var id = data.event_id || data.notification_name || (data.item && data.item.name);
     if (!markSeen(id)) return;
     showToast(data);
-    if (shouldSound(data)) ting();
-    showDesktop(data);
+    try { if (shouldSound(data)) ting(); } catch (e) {}         // audio error must never abort desktop
+    try { showDesktop(data); } catch (e) {}                     // desktop error must never abort toast/sound
     if (nativeInbox) { try { refreshCount(); } catch (e) {} }   // authoritative badge re-sync
   }
 
-  // Bind the realtime listener ROBUSTLY under Frappe v15 lazy_connect: frappe.realtime.on
-  // only binds if frappe.realtime.socket already exists ("on(t,n){this.socket&&...}"), but at
-  // page-load the socket is created lazily and is usually absent -> on() silently no-ops and
-  // toast/sound/desktop never fire. So we force a connect, then bind directly to the socket,
-  // retrying until the socket appears and re-binding on every (re)connect.
+  // Bind the realtime listener and KEEP the socket recovered. Frappe v15/16 realtime:
+  //   * frappe.realtime.on() binds only if frappe.realtime.socket already exists;
+  //   * frappe.realtime.connect() calls socket.connect() only under lazy_connect;
+  //   * the Socket.IO client gives up after a few reconnection attempts (reconnect_failed),
+  //     leaving an already-bound listener on a socket that stays disconnected.
+  // So: bind ONE named 'ec_notification' handler exactly once per socket instance, then keep
+  // the EXISTING socket connected -- never duplicate listeners, never a tight loop. The badge
+  // poll (init) is the always-on fallback if realtime never recovers.
   function wireRealtime() {
     if (!(window.frappe && window.frappe.realtime)) return false;
     var rt = window.frappe.realtime;
-    var bound = false;
-    function bind() {
-      if (bound || !rt.socket) return bound;
-      try {
-        rt.socket.on('ec_notification', onRealtime);   // bind to the live socket so it sticks
-        // rebind after a reconnect (a new socket loses listeners)
-        rt.socket.on('connect', function () { try { rt.socket.on('ec_notification', onRealtime); } catch (e) {} });
-        bound = true;
-      } catch (e) {
-        try { rt.on('ec_notification', onRealtime); bound = true; } catch (e2) {}
+    var boundSocket = null;       // socket object onRealtime is bound to (rebind only if replaced)
+    var reconnecting = false;     // true while Socket.IO is actively retrying
+    var wd = null, wdN = 0;       // bounded reconnect watchdog: timer handle + attempt counter
+    var WD_MAX = 6, WD_BASE = 3000, WD_CAP = 60000;
+
+    function maybeConnect(s) {
+      if (!s || s.connected) return;     // connected (or no socket) -> do nothing
+      if (reconnecting) return;          // already actively reconnecting -> do not start another
+      try { s.connect(); } catch (e) {}  // disconnected & idle -> wake the existing socket
+    }
+    function stopWatchdog() { if (wd) { try { clearTimeout(wd); } catch (e) {} wd = null; } wdN = 0; }
+    function tickWatchdog() {
+      wd = null;
+      var s = rt.socket;
+      if (s && s.connected) { stopWatchdog(); return; }   // recovered -> stop
+      bindOnce(s);                                         // socket may have been replaced
+      maybeConnect(s);
+      if (s && s.connected) { stopWatchdog(); return; }   // reconnected on this attempt -> stop
+      wdN += 1;
+      if (wdN < WD_MAX) {                                  // bounded + exponential backoff (no tight loop)
+        wd = setTimeout(tickWatchdog, Math.min(WD_CAP, WD_BASE * Math.pow(2, wdN)));
       }
-      return bound;
+    }
+    function startWatchdog() { if (wd) return; wdN = 0; wd = setTimeout(tickWatchdog, WD_BASE); }
+
+    function bindOnce(s) {
+      if (!s || s === boundSocket) return;                // bind exactly once per socket instance
+      boundSocket = s;
+      s.on('ec_notification', onRealtime);                // the single named payload handler
+      s.on('connect', function () { reconnecting = false; stopWatchdog(); });
+      // plain 'disconnect' -> let Socket.IO auto-retry first; the watchdog only arms after give-up.
+      var mgr = s.io;                                      // Socket.IO Manager owns reconnection
+      if (mgr && typeof mgr.on === 'function') {
+        mgr.on('reconnect_attempt', function () { reconnecting = true; });
+        mgr.on('reconnect', function () { reconnecting = false; stopWatchdog(); });
+        mgr.on('reconnect_failed', function () { reconnecting = false; startWatchdog(); });
+      }
+    }
+    function attach() {
+      var s = rt.socket;
+      if (!s) return false;
+      bindOnce(s);
+      maybeConnect(s);
+      return true;
     }
     try { if (typeof rt.connect === 'function') rt.connect(); } catch (e) {}   // wake lazy socket
-    if (!bind()) {
+    if (!attach()) {
       var n = 0;
-      var iv = setInterval(function () { n += 1; if (bind() || n > 40) clearInterval(iv); }, 500);
+      var iv = setInterval(function () { n += 1; if (attach() || n > 40) clearInterval(iv); }, 500);
     }
     return true;
   }
