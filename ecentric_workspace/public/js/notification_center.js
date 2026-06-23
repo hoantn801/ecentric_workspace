@@ -317,20 +317,51 @@
   function close() { S.open = false; pop.classList.remove('on'); }
 
   // ---- sound (only after a real interaction; respects mute) ----------------
-  function ting() {
-    if (isMuted() || !S.interacted) return;
-    try {
-      var Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) return;
-      var ctx = new Ctx();
-      try { if (ctx.state === 'suspended' && ctx.resume) ctx.resume(); } catch (e) {}
+  // ONE reused AudioContext (module-scoped) -- creating a fresh context per event let the
+  // unreferenced context be GC'd before the ~0.36s beep finished AND leaked toward the
+  // browser's per-page AudioContext cap, after which new AudioContext() throws and the beep
+  // is silently swallowed. Reuse while valid; resume() when suspended (schedule the beep AFTER
+  // resume resolves, against a fresh currentTime); recreate only if closed/invalid.
+  var audioCtx = null;
+  function getAudioCtx() {
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    if (!audioCtx || audioCtx.state === 'closed') {
+      try { audioCtx = new Ctx(); } catch (e) { audioCtx = null; }
+    }
+    return audioCtx;
+  }
+  // Soft, office-friendly two-note chime (~660 Hz then ~880 Hz). Two sine oscillators, each with
+  // a smooth attack/decay (exponential ramps from a near-silent floor) so there are no clicks.
+  // Peak gain 0.06 (<= 0.07); total span ~0.40s (GAP 0.20 + NOTE 0.18 + 0.02 tail). One call
+  // schedules exactly one complete chime against the live clock (read after any resume).
+  var CHIME_PEAK = 0.06, CHIME_ATT = 0.02, CHIME_NOTE = 0.18, CHIME_GAP = 0.20;
+  function chime(ctx) {
+    var t0 = ctx.currentTime;                                  // live clock (read AFTER resume)
+    function note(freq, offset) {
       var o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = 'sine'; o.frequency.value = 880;
-      g.gain.setValueAtTime(0.0001, ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+      o.type = 'sine'; o.frequency.value = freq;
+      var s = t0 + offset;
+      g.gain.setValueAtTime(0.0001, s);                        // start silent -> no attack click
+      g.gain.exponentialRampToValueAtTime(CHIME_PEAK, s + CHIME_ATT);    // smooth attack
+      g.gain.exponentialRampToValueAtTime(0.0001, s + CHIME_NOTE);       // smooth decay -> no click
       o.connect(g); g.connect(ctx.destination);
-      o.start(); o.stop(ctx.currentTime + 0.36);
+      o.start(s); o.stop(s + CHIME_NOTE + 0.02);
+    }
+    note(660, 0);            // first note  ~660 Hz
+    note(880, CHIME_GAP);    // second note ~880 Hz
+  }
+  function ting() {
+    if (isMuted() || !S.interacted) return;            // mute + autoplay-gesture gate (unchanged)
+    try {
+      var ctx = getAudioCtx();
+      if (!ctx) return;
+      if (ctx.state === 'suspended' && ctx.resume) {
+        // resume is async: play once it is actually running (avoids a missed/frozen schedule)
+        ctx.resume().then(function () { try { chime(ctx); } catch (e) {} }, function () {});
+      } else {
+        chime(ctx);                                     // running -> play immediately, exactly once
+      }
     } catch (e) {}
   }
 
