@@ -356,7 +356,7 @@ def publish_task_assignment_delivery(recipient, task_name, title, message="",
     # synchronously as Skipped so ERP delivery never depends on a background worker.
     try:
         from ecentric_workspace.notification_center.providers import teams as _teams
-        _teams_send = _teams.get_config().get("provider") in ("teams_bot", "webhook")
+        _teams_send = _teams.get_config().get("provider") in ("teams_bot", "webhook", "power_automate_copilot")
     except Exception:
         _teams_send = False
 

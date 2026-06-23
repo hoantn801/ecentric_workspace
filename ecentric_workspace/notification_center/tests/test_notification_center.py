@@ -1975,3 +1975,141 @@ class TestGraphIdentityAlignment(unittest.TestCase):
         FR._conf.update({"ec_teams_bot_app_id": "APP1", "ec_graph_client_id": "OTHER"})
         self.assertEqual(self.gr.graph_config()["client_id"], "OTHER")
         self.assertFalse(self.gr.identity_aligned())         # self-install would break -> flagged
+
+
+# =========================================================================== #
+# Power Automate + Copilot Studio Teams delivery provider
+# =========================================================================== #
+class TestPowerAutomateCopilot(unittest.TestCase):
+    def setUp(self):
+        _reset("boss@x.com"); FR.session.user = "boss@x.com"
+        from ecentric_workspace.notification_center.providers import power_automate as pa
+        from ecentric_workspace.notification_center.providers import teams as tm
+        from ecentric_workspace.notification_center import events as ev
+        self.pa, self.tm, self.ev = pa, tm, ev
+        FR._conf.update({"ec_pa_flow_url": "https://flow/x", "ec_pa_oauth_tenant_id": "TEN",
+                         "ec_pa_oauth_client_id": "SPID", "ec_pa_oauth_client_secret": "SPSEC"})
+        self._otok, self._opost, self._osend = pa.get_pa_token, pa._post_flow, pa.send_event
+        pa.get_pa_token = lambda cfg=None: (True, "tok")
+
+    def tearDown(self):
+        self.pa.get_pa_token = self._otok
+        self.pa._post_flow = self._opost
+        self.pa.send_event = self._osend
+
+    def _flow(self, status, body):
+        self.pa._post_flow = lambda url, payload, token: (status, body)
+
+    # --- send_event mapping ---
+    def test_delivered_200(self):
+        self._flow(200, {"copilot_code": 200})
+        self.assertEqual(self.pa.send_event({"recipient": "u@x.com"})[0], "sent")
+
+    def test_not_installed_100(self):
+        self._flow(200, {"copilot_code": 100})
+        out = self.pa.send_event({"recipient": "u@x.com"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "NOT_INSTALLED")
+
+    def test_active_conversation_300(self):
+        self._flow(200, {"copilot_code": 300})
+        out = self.pa.send_event({"recipient": "u@x.com"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "SKIPPED_ACTIVE_CONVERSATION")
+
+    def test_malformed_payload_400_skip(self):
+        self._flow(400, {"error": "bad request"})
+        out = self.pa.send_event({"recipient": "u@x.com"})
+        self.assertEqual(out[0], "skip"); self.assertTrue(out[2].startswith("PA_4"))
+
+    def test_invalid_oauth_retry(self):
+        self.pa.get_pa_token = lambda cfg=None: (False, "PATOKEN_401")
+        self.assertEqual(self.pa.send_event({"recipient": "u@x.com"})[0], "retry")
+        self.pa.get_pa_token = lambda cfg=None: (True, "tok")
+        self._flow(401, {})
+        out = self.pa.send_event({"recipient": "u@x.com"})
+        self.assertEqual(out[0], "retry"); self.assertEqual(out[2], "PA_401")
+
+    def test_throttling_and_5xx_retry(self):
+        self._flow(429, {}); self.assertEqual(self.pa.send_event({})[0], "retry")
+        self._flow(503, {}); self.assertEqual(self.pa.send_event({})[0], "retry")
+
+    def test_not_configured_skip(self):
+        FR._conf.pop("ec_pa_flow_url", None)
+        out = self.pa.send_event({"recipient": "u@x.com"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "NO_PA_CREDENTIAL")
+
+    def test_build_payload_fields(self):
+        doc = {"event_id": "E1", "dedupe_key": "task_assigned|T1|u@x.com", "event_type": "task_assigned",
+               "severity": "action_required", "recipient": "u@x.com", "title": "T", "message": "m",
+               "action_url": "/app/task/T1", "reference_doctype": "Task", "reference_name": "T1"}
+        p = self.pa.build_payload(_Doc(**doc))
+        for k in ("event_id", "dedupe_key", "event_type", "severity", "recipient", "title",
+                  "message", "action_url", "reference_doctype", "reference_name"):
+            self.assertIn(k, p)
+        self.assertEqual(p["recipient"], "u@x.com")
+        self.assertEqual(p["action_url"], "/app/task/T1")
+
+    # --- dispatcher integration via teams.deliver ---
+    def _dlv_row(self, event_type="task_assigned"):
+        return self.ev._delivery(self.ev._event_id("PA|" + event_type), "u@x.com", "teams", "Pending",
+                                 event_type=event_type, severity="action_required",
+                                 dedupe_key="task_assigned|T1|u@x.com",
+                                 title="T", message="m", action_url="/app/task/T1",
+                                 reference_doctype="Task", reference_name="T1")
+
+    def _provider_pa(self):
+        FR._conf.update({"ec_teams_provider": "power_automate_copilot"})
+
+    def test_deliver_sent_records_provider(self):
+        self._provider_pa()
+        self.pa.send_event = lambda payload, cfg=None: ("sent", "power_automate_copilot", "200", "")
+        try:
+            nm = self._dlv_row(); self.tm.deliver(nm)
+        finally:
+            pass
+        d = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(d["status"], "Sent"); self.assertEqual(d["provider"], "power_automate_copilot")
+
+    def test_deliver_skip_not_installed(self):
+        self._provider_pa()
+        self.pa.send_event = lambda payload, cfg=None: ("skip", "power_automate_copilot", "NOT_INSTALLED", "x")
+        nm = self._dlv_row("approval_required"); self.tm.deliver(nm)
+        d = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(d["status"], "Skipped"); self.assertEqual(d["error_code"], "NOT_INSTALLED")
+        self.assertIsNone(d["next_retry_at"])
+
+    def test_deliver_retry_classified(self):
+        self._provider_pa()
+        self.pa.send_event = lambda payload, cfg=None: ("retry", "power_automate_copilot", "PA_429", "throttled")
+        nm = self._dlv_row(); self.tm.deliver(nm)
+        d = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(d["status"], "Failed"); self.assertIsNotNone(d["next_retry_at"])
+
+    def test_deliver_idempotent_sent_not_resent(self):
+        self._provider_pa()
+        calls = {"n": 0}
+        self.pa.send_event = lambda payload, cfg=None: (calls.__setitem__("n", calls["n"] + 1), ("sent", "power_automate_copilot", "200", ""))[1]
+        nm = self._dlv_row(); self.tm.deliver(nm); n1 = calls["n"]
+        self.tm.deliver(nm)                                   # row already Sent -> early return
+        self.assertEqual(calls["n"], n1)
+
+    def test_provider_disabled_dryrun(self):
+        FR._conf.update({"ec_teams_provider": "disabled"})
+        nm = self._dlv_row(); self.tm.deliver(nm)
+        d = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(d["status"], "Skipped"); self.assertEqual(d["error_code"], "NO_CREDENTIAL")
+
+    def test_flow_unavailable_erp_still_succeeds(self):
+        self._provider_pa()
+        FR._tasks["TKP"] = {"name": "TKP", "workflow_state": "Open"}
+        self.ev.publish_task_assignment_delivery("u@x.com", "TKP", "Giao viec",
+                                                 action_url="/app/task/TKP", actor="boss@x.com")
+        byc = {d["channel"]: d["status"] for d in FR._delivery if d["recipient"] == "u@x.com"}
+        self.assertEqual(byc["erp"], "Sent"); self.assertEqual(byc["toast"], "Sent")
+        self.assertEqual(byc["sound"], "Sent"); self.assertEqual(byc["teams"], "Pending")
+        self.assertEqual(len(FR._realtime), 1)               # ERP realtime fired
+        teams_nm = [d["name"] for d in FR._delivery if d["channel"] == "teams"][0]
+        self.pa.send_event = lambda payload, cfg=None: ("retry", "power_automate_copilot", "PA_503", "down")
+        self.tm.deliver(teams_nm)
+        byc2 = {d["channel"]: d["status"] for d in FR._delivery if d["recipient"] == "u@x.com"}
+        self.assertEqual(byc2["erp"], "Sent")                # ERP unaffected by Teams failure
+        self.assertEqual(byc2["teams"], "Failed")

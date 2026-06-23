@@ -21,6 +21,7 @@ import re as _re
 import frappe
 
 from ecentric_workspace.notification_center.providers import teams_bot
+from ecentric_workspace.notification_center.providers import power_automate
 
 DELIVERY_DT = "EC Notification Delivery Log"
 MAX_ATTEMPTS = 4
@@ -173,9 +174,10 @@ def deliver(delivery_log):
     enabled = cfg["provider"] not in ("disabled", "dryrun")
     is_sc = doc.get("event_type") == "system_critical"
     use_bot = enabled and cfg["provider"] == "teams_bot" and teams_bot.is_configured(botcfg)
+    use_pa = enabled and cfg["provider"] == "power_automate_copilot" and power_automate.is_configured()
     use_webhook_sc = enabled and is_sc and bool(cfg["webhook_url"])
 
-    if not use_bot and not use_webhook_sc:
+    if not use_bot and not use_pa and not use_webhook_sc:
         # No production credential for the applicable path -> never invent an endpoint.
         doc.provider = "dryrun"
         doc.status = "Skipped"
@@ -187,7 +189,15 @@ def deliver(delivery_log):
     payload = _doc_payload(doc)
     outcome = provider = code = err = None
 
-    # 1) PRIMARY: personal 1:1 bot
+    # 1) PRIMARY (when selected): Power Automate + Copilot Studio agent
+    if use_pa:
+        outcome, provider, code, err = power_automate.send_event(power_automate.build_payload(doc))
+        if outcome == "sent":
+            _mark_sent(doc, provider)
+            doc.save(ignore_permissions=True)
+            return
+
+    # 1b) PRIMARY (when selected): personal 1:1 bot
     if use_bot:
         outcome, provider, code, err = teams_bot.send_personal(
             doc.get("recipient"), build_personal_activity(payload), botcfg)
