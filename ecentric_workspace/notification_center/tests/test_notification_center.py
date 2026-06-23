@@ -28,6 +28,12 @@ def _install_frappe():
     fr = types.ModuleType("frappe")
     fr.session = types.SimpleNamespace(user="a@x.com")
     fr.response = {}
+    fr.local = types.SimpleNamespace(response={})
+    fr._req_headers = {}
+    fr._req_json = {}
+    fr._users = set()
+    fr.get_request_header = lambda k, default=None: fr._req_headers.get(k, default)
+    fr.request = types.SimpleNamespace(get_json=lambda silent=True: fr._req_json)
     fr.flags = types.SimpleNamespace()
     fr.ValidationError = type("ValidationError", (Exception,), {})
     fr.whitelist = lambda *a, **k: (lambda f: f)
@@ -196,6 +202,8 @@ def _install_frappe():
             return name in fr._prefs
         if doctype == "EC Teams Conversation":
             return name in fr._convs
+        if doctype == "User":
+            return name in fr._users
         if doctype == "EC Notification Delivery Log":
             if isinstance(name, dict):
                 for r in fr._delivery:
@@ -379,6 +387,9 @@ def _reset(user="a@x.com"):
     FR._roles[:] = []
     FR._mail[:] = []
     FR._convs.clear()
+    FR._req_headers.clear()
+    FR._req_json.clear()
+    FR._users.clear()
     FR._pending_nl[:] = []
     FR._txn_events[:] = []
     FR._errors[:] = []
@@ -1708,3 +1719,492 @@ class TestAfterInsertHookRemoved(unittest.TestCase):
         self.assertNotIn("on_notification_log_after_insert", hooks)
         self.assertNotIn("on_notification_log_after_insert", events)
         self.assertNotIn('"Notification Log"', hooks)
+
+
+# =========================================================================== #
+# Teams Personal Bot — go-live readiness coverage
+# =========================================================================== #
+class TestTeamsGoLive(unittest.TestCase):
+    def setUp(self):
+        _reset("admin@x.com"); FR.session.user = "admin@x.com"
+        from ecentric_workspace.notification_center.providers import teams_bot as tbot
+        from ecentric_workspace.notification_center.providers import graph as tgraph
+        from ecentric_workspace.notification_center.providers import teams as tm
+        from ecentric_workspace.notification_center import events as ev
+        self.tbot, self.tgraph, self.tm, self.ev = tbot, tgraph, tm, ev
+        FR._conf.update({"ec_teams_provider": "teams_bot",
+                         "ec_teams_bot_app_id": "BOTID", "ec_teams_bot_app_password": "SECRET",
+                         "ec_teams_bot_id": "28:BOTID", "ec_teams_bot_default_service_url": "https://smba/teams/",
+                         "ec_graph_tenant_id": "TEN", "ec_graph_client_id": "GID",
+                         "ec_graph_client_secret": "GSEC", "ec_teams_app_external_id": "APPX"})
+        self._orig = {k: getattr(m, k) for m, k in [
+            (tbot, "_post_activity"), (tbot, "create_conversation"),
+            (tgraph, "email_to_aad_object_id"), (tgraph, "ensure_bot_installed"),
+            (tbot, "get_bot_token")]}
+
+    def tearDown(self):
+        self.tbot._post_activity = self._orig[("_post_activity")] if False else self._orig["_post_activity"]
+        self.tbot.create_conversation = self._orig["create_conversation"]
+        self.tgraph.email_to_aad_object_id = self._orig["email_to_aad_object_id"]
+        self.tgraph.ensure_bot_installed = self._orig["ensure_bot_installed"]
+        self.tbot.get_bot_token = self._orig["get_bot_token"]
+
+    def _mock_provision(self, install_status="installed", aad="AAD-1", conv="conv-1"):
+        self.tgraph.email_to_aad_object_id = lambda email, token=None, cfg=None: (True, aad)
+        self.tgraph.ensure_bot_installed = lambda oid, token=None, cfg=None: (True, install_status)
+        self.tbot.create_conversation = lambda oid, tid, su, cfg=None, token=None: (True, conv)
+
+    def test_graph_mapping_and_newly_installed_then_sent(self):
+        self._mock_provision(install_status="installed")
+        self.tbot._post_activity = lambda conv, act, cfg=None, token=None: (True, "201", "")
+        out = self.tbot.send_personal("u@x.com", {"type": "message"})
+        self.assertEqual(out[0], "sent")
+        self.assertIn("u@x.com", FR._convs)                       # conversation reference stored
+        self.assertEqual(FR._convs["u@x.com"]["conversation_id"], "conv-1")
+        self.assertEqual(FR._convs["u@x.com"]["aad_object_id"], "AAD-1")
+
+    def test_app_already_installed_idempotent(self):
+        self._mock_provision(install_status="already_installed")
+        self.tbot._post_activity = lambda conv, act, cfg=None, token=None: (True, "200", "")
+        out = self.tbot.send_personal("u@x.com", {"type": "message"})
+        self.assertEqual(out[0], "sent")
+
+    def test_invalid_or_missing_mapping_skips(self):
+        self.tgraph.email_to_aad_object_id = lambda email, token=None, cfg=None: (False, "USER_404")
+        out = self.tbot.send_personal("ghost@x.com", {"type": "message"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "USER_404")
+
+    def test_bot_blocked_skips(self):
+        self._mock_provision()
+        self.tbot._post_activity = lambda conv, act, cfg=None, token=None: (False, "403", "forbidden")
+        out = self.tbot.send_personal("u@x.com", {"type": "message"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "BOT_BLOCKED")
+
+    def test_expired_credential_retries(self):
+        self._mock_provision()
+        # token failure surfaces from _post_activity -> retry (transient)
+        self.tbot._post_activity = lambda conv, act, cfg=None, token=None: (False, "BOTTOKEN_401", "bot token failed")
+        out = self.tbot.send_personal("u@x.com", {"type": "message"})
+        self.assertEqual(out[0], "retry")
+
+    def test_teams_unavailable_erp_still_succeeds(self):
+        # teams send fails, but the synchronous ERP delivery rows + realtime are unaffected
+        FR._tasks["TKZ"] = {"name": "TKZ", "workflow_state": "Open"}
+        self.ev.publish_task_assignment_delivery("u@x.com", "TKZ", "Giao viec",
+                                                 action_url="/app/task/TKZ", actor="boss@x.com")
+        byc = {d["channel"]: d["status"] for d in FR._delivery if d["recipient"] == "u@x.com"}
+        self.assertEqual(byc["erp"], "Sent"); self.assertEqual(byc["toast"], "Sent")
+        self.assertEqual(byc["sound"], "Sent")
+        self.assertEqual(byc["teams"], "Pending")                 # enqueued (provider configured)
+        self.assertEqual(len(FR._realtime), 1)                    # ERP realtime fired regardless
+        # now the teams job fails -> ERP rows remain Sent (Teams never blocks ERP)
+        teams_nm = [d["name"] for d in FR._delivery if d["channel"] == "teams"][0]
+        self.tbot.get_bot_token = lambda cfg=None: (False, "BOTTOKEN_500")
+        self._mock_provision()
+        self.tbot._post_activity = lambda conv, act, cfg=None, token=None: (False, "500", "server")
+        self.tm.deliver(teams_nm)
+        byc2 = {d["channel"]: d["status"] for d in FR._delivery if d["recipient"] == "u@x.com"}
+        self.assertEqual(byc2["erp"], "Sent")                    # unchanged
+        self.assertIn(byc2["teams"], ("Failed",))                # teams failed, ERP intact
+
+    def test_task_assignment_payload(self):
+        act = self.tm.build_personal_activity({"title": "Giao viec", "message": "noi dung",
+            "event_type": "task_assigned", "actor": "boss", "action_url": "/app/task/T1"})
+        card = act["attachments"][0]["content"]
+        self.assertEqual(card["type"], "AdaptiveCard")
+        self.assertEqual(card["actions"][0]["title"], "Mở trong ERP")
+        self.assertEqual(card["actions"][0]["url"], "https://test.ecentric.vn/app/task/T1")
+
+    def test_approval_required_payload(self):
+        act = self.tm.build_personal_activity({"title": "Can duyet MSO-1", "message": "cho duyet",
+            "event_type": "approval_required", "actor": "submitter",
+            "action_url": "/approval?id=MSO-1&type=mso_request"})
+        card = act["attachments"][0]["content"]
+        self.assertEqual(card["actions"][0]["url"], "https://test.ecentric.vn/approval?id=MSO-1&type=mso_request")
+        facts = next((b for b in card["body"] if b.get("type") == "FactSet"), {}).get("facts", [])
+        self.assertTrue(any(f.get("value") == "approval_required" for f in facts))
+
+    def test_messaging_endpoint_requires_auth(self):
+        FR._req_headers.clear(); FR._req_json.clear()        # no Authorization header
+        out = api.teams_bot_messages()
+        self.assertEqual(out, {"error": "unauthorized"})
+        self.assertEqual(FR.local.response.get("http_status_code"), 401)
+
+    def test_single_tenant_bot_token_authority(self):
+        FR._conf.update({"ec_teams_bot_tenant_id": "TENANT-XYZ"})
+        cfg = self.tbot.bot_config()
+        self.assertEqual(cfg["tenant_id"], "TENANT-XYZ")          # single-tenant authority
+        # falls back to graph tenant when bot tenant not set
+        FR._conf.pop("ec_teams_bot_tenant_id", None)
+        self.assertEqual(self.tbot.bot_config()["tenant_id"], "TEN")
+
+    def test_manifest_personal_only(self):
+        import os as _os, json as _json
+        m = _json.load(open(_os.path.join(_pkg_root(), "notification_center", "teams_app", "manifest.json")))
+        self.assertEqual(m["bots"][0]["scopes"], ["personal"])
+        self.assertTrue(m["bots"][0]["isNotificationOnly"])
+        self.assertEqual(m["icons"], {"color": "color.png", "outline": "outline.png"})
+        self.assertIn("team.ecentric.vn", m["validDomains"])
+        for b in m["bots"]:
+            self.assertNotIn("team", b["scopes"]); self.assertNotIn("groupchat", b["scopes"])
+
+
+# =========================================================================== #
+# Teams messaging endpoint — Bot Connector inbound authentication
+# =========================================================================== #
+import time as _t3
+
+
+class TestBotConnectorAuth(unittest.TestCase):
+    def setUp(self):
+        _reset("admin@x.com")
+        from ecentric_workspace.notification_center.providers import bot_auth
+        self.ba = bot_auth
+        import json as _j
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        from jwt.algorithms import RSAAlgorithm
+        self._priv = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        self._priv2 = rsa.generate_private_key(public_exponent=65537, key_size=2048)  # wrong key
+        jwk = _j.loads(RSAAlgorithm.to_jwk(self._priv.public_key()))
+        jwk["kid"] = "kid-1"; jwk["endorsements"] = ["msteams"]
+        self._md = {"issuer": "https://api.botframework.com", "jwks_uri": "https://x/jwks"}
+        self._jwks = {"keys": [jwk]}
+        self._om, self._oj = bot_auth._get_metadata, bot_auth._get_jwks
+        bot_auth._get_metadata = lambda: self._md
+        bot_auth._get_jwks = lambda u: self._jwks
+
+    def tearDown(self):
+        self.ba._get_metadata = self._om; self.ba._get_jwks = self._oj
+
+    def _tok(self, key=None, **over):
+        import jwt
+        now = int(_t3.time())
+        p = {"iss": "https://api.botframework.com", "aud": "BOTID", "iat": now,
+             "exp": now + 300, "serviceurl": "https://smba/teams/"}
+        p.update(over)
+        return jwt.encode(p, key or self._priv, algorithm="RS256", headers={"kid": "kid-1"})
+
+    ACT = {"channelId": "msteams", "serviceUrl": "https://smba/teams/"}
+
+    def test_valid_accepted(self):
+        ok, reason = self.ba.validate_bot_request("Bearer " + self._tok(), self.ACT, "BOTID")
+        self.assertTrue(ok, reason)
+
+    def test_missing_token_rejected(self):
+        self.assertEqual(self.ba.validate_bot_request(None, self.ACT, "BOTID")[1], "missing_bearer")
+        self.assertEqual(self.ba.validate_bot_request("Basic abc", self.ACT, "BOTID")[1], "missing_bearer")
+
+    def test_invalid_signature_rejected(self):
+        bad = self._tok(key=self._priv2)                      # signed by a key not in the JWKS
+        ok, reason = self.ba.validate_bot_request("Bearer " + bad, self.ACT, "BOTID")
+        self.assertFalse(ok); self.assertTrue(reason.startswith("jwt_"))
+
+    def test_wrong_audience_rejected(self):
+        ok, reason = self.ba.validate_bot_request("Bearer " + self._tok(aud="OTHER"), self.ACT, "BOTID")
+        self.assertFalse(ok); self.assertTrue(reason.startswith("jwt_"))
+
+    def test_expired_rejected(self):
+        now = int(_t3.time())
+        tok = self._tok(iat=now - 800, exp=now - 400)         # beyond the 300s leeway
+        ok, reason = self.ba.validate_bot_request("Bearer " + tok, self.ACT, "BOTID")
+        self.assertFalse(ok); self.assertTrue(reason.startswith("jwt_"))
+
+    def test_serviceurl_mismatch_rejected(self):
+        tok = self._tok(serviceurl="https://evil/teams/")
+        ok, reason = self.ba.validate_bot_request("Bearer " + tok, self.ACT, "BOTID")
+        self.assertFalse(ok); self.assertEqual(reason, "serviceurl_mismatch")
+
+    def test_channel_not_endorsed_rejected(self):
+        ok, reason = self.ba.validate_bot_request(
+            "Bearer " + self._tok(), {"channelId": "slack", "serviceUrl": "https://smba/teams/"}, "BOTID")
+        self.assertFalse(ok); self.assertEqual(reason, "channel_not_endorsed")
+
+
+class TestBotMessagesEndpoint(unittest.TestCase):
+    def setUp(self):
+        _reset("admin@x.com")
+        FR._conf.update({"ec_teams_bot_app_id": "BOTID"})
+        from ecentric_workspace.notification_center.providers import bot_auth, graph as gr
+        self.ba, self.gr = bot_auth, gr
+        self._ov = bot_auth.validate_bot_request
+        self._oe = gr.aad_object_id_to_email
+
+    def tearDown(self):
+        self.ba.validate_bot_request = self._ov
+        self.gr.aad_object_id_to_email = self._oe
+
+    def test_rejects_invalid(self):
+        self.ba.validate_bot_request = lambda a, act, app: (False, "missing_bearer")
+        out = api.teams_bot_messages()
+        self.assertEqual(out, {"error": "unauthorized"})
+        self.assertEqual(FR.local.response.get("http_status_code"), 401)
+
+    def test_accepts_and_captures_reference(self):
+        self.ba.validate_bot_request = lambda a, act, app: (True, "ok")
+        self.gr.aad_object_id_to_email = lambda aad, token=None, cfg=None: (True, "u@x.com")
+        FR._users.add("u@x.com")
+        FR._req_json.update({"type": "conversationUpdate", "channelId": "msteams",
+                             "serviceUrl": "https://smba/teams/",
+                             "from": {"aadObjectId": "AAD-9"},
+                             "conversation": {"id": "conv-9", "tenantId": "TEN"},
+                             "recipient": {"id": "28:BOTID"}})
+        out = api.teams_bot_messages()
+        self.assertEqual(out, {})
+        self.assertEqual(FR.local.response.get("http_status_code"), 200)
+        self.assertIn("u@x.com", FR._convs)                  # validated capture stored
+        self.assertEqual(FR._convs["u@x.com"]["conversation_id"], "conv-9")
+        self.assertEqual(FR._convs["u@x.com"]["aad_object_id"], "AAD-9")
+
+
+class TestGraphIdentityAlignment(unittest.TestCase):
+    def setUp(self):
+        _reset("admin@x.com")
+        from ecentric_workspace.notification_center.providers import graph as gr
+        self.gr = gr
+
+    def test_graph_defaults_to_bot_identity(self):
+        FR._conf.update({"ec_teams_bot_app_id": "APP1", "ec_teams_bot_app_password": "S",
+                         "ec_teams_bot_tenant_id": "TEN1"})
+        cfg = self.gr.graph_config()
+        self.assertEqual(cfg["client_id"], "APP1")           # Graph reuses the bot app
+        self.assertEqual(cfg["client_secret"], "S")
+        self.assertEqual(cfg["tenant_id"], "TEN1")
+        self.assertTrue(self.gr.identity_aligned())          # one-identity model OK
+
+    def test_split_identity_flagged_misaligned(self):
+        FR._conf.update({"ec_teams_bot_app_id": "APP1", "ec_graph_client_id": "OTHER"})
+        self.assertEqual(self.gr.graph_config()["client_id"], "OTHER")
+        self.assertFalse(self.gr.identity_aligned())         # self-install would break -> flagged
+
+
+# =========================================================================== #
+# Power Automate + Copilot Studio Teams delivery provider
+# =========================================================================== #
+class TestPowerAutomateCopilot(unittest.TestCase):
+    def setUp(self):
+        _reset("boss@x.com"); FR.session.user = "boss@x.com"
+        from ecentric_workspace.notification_center.providers import power_automate as pa
+        from ecentric_workspace.notification_center.providers import teams as tm
+        from ecentric_workspace.notification_center import events as ev
+        self.pa, self.tm, self.ev = pa, tm, ev
+        FR._conf.update({"ec_pa_flow_url": "https://flow/x", "ec_pa_oauth_tenant_id": "TEN",
+                         "ec_pa_oauth_client_id": "SPID", "ec_pa_oauth_client_secret": "SPSEC"})
+        self._otok, self._opost, self._osend = pa.get_pa_token, pa._post_flow, pa.send_event
+        pa.get_pa_token = lambda cfg=None: (True, "tok")
+
+    def tearDown(self):
+        self.pa.get_pa_token = self._otok
+        self.pa._post_flow = self._opost
+        self.pa.send_event = self._osend
+
+    def _flow(self, status, body):
+        self.pa._post_flow = lambda url, payload, token: (status, body)
+
+    # --- send_event mapping ---
+    def test_delivered_200(self):
+        self._flow(200, {"copilot_code": 200})
+        self.assertEqual(self.pa.send_event({"recipient": "u@x.com"})[0], "sent")
+
+    def test_not_installed_100(self):
+        self._flow(200, {"copilot_code": 100})
+        out = self.pa.send_event({"recipient": "u@x.com"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "NOT_INSTALLED")
+
+    def test_active_conversation_300(self):
+        self._flow(200, {"copilot_code": 300})
+        out = self.pa.send_event({"recipient": "u@x.com"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "SKIPPED_ACTIVE_CONVERSATION")
+
+    def test_malformed_payload_400_skip(self):
+        self._flow(400, {"error": "bad request"})
+        out = self.pa.send_event({"recipient": "u@x.com"})
+        self.assertEqual(out[0], "skip"); self.assertTrue(out[2].startswith("PA_4"))
+
+    def test_token_401_403_permanent_skip(self):
+        # 401/403 from the token endpoint = permanent config/auth error -> skip (no retry)
+        self.pa.get_pa_token = lambda cfg=None: (False, "PATOKEN_401")
+        out = self.pa.send_event({"recipient": "u@x.com"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "PATOKEN_401")
+        self.pa.get_pa_token = lambda cfg=None: (False, "PATOKEN_403")
+        out = self.pa.send_event({"recipient": "u@x.com"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "PATOKEN_403")
+
+    def test_token_transient_failures_retry(self):
+        # 5xx / 429 / network / exception at the token endpoint stay retryable (bounded)
+        for code in ("PATOKEN_503", "PATOKEN_429", "PATOKEN_EXC_ConnectionError"):
+            self.pa.get_pa_token = lambda cfg=None, c=code: (False, c)
+            self.assertEqual(self.pa.send_event({"recipient": "u@x.com"})[0], "retry", code)
+
+    def test_flow_401_403_permanent_skip(self):
+        # 401/403 returned by the Flow itself = permanent auth/config error -> skip (no retry)
+        self._flow(401, {})
+        out = self.pa.send_event({"recipient": "u@x.com"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "PA_401")
+        self._flow(403, {})
+        out = self.pa.send_event({"recipient": "u@x.com"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "PA_403")
+
+    def test_throttling_and_5xx_retry(self):
+        self._flow(429, {}); self.assertEqual(self.pa.send_event({})[0], "retry")
+        self._flow(503, {}); self.assertEqual(self.pa.send_event({})[0], "retry")
+
+    def test_not_configured_skip(self):
+        FR._conf.pop("ec_pa_flow_url", None)
+        out = self.pa.send_event({"recipient": "u@x.com"})
+        self.assertEqual(out[0], "skip"); self.assertEqual(out[2], "NO_PA_CREDENTIAL")
+
+    def test_build_payload_fields(self):
+        doc = {"event_id": "E1", "dedupe_key": "task_assigned|T1|u@x.com", "event_type": "task_assigned",
+               "severity": "action_required", "recipient": "u@x.com", "title": "T", "message": "m",
+               "action_url": "/app/task/T1", "reference_doctype": "Task", "reference_name": "T1"}
+        p = self.pa.build_payload(_Doc(**doc))
+        for k in ("event_id", "dedupe_key", "event_type", "severity", "recipient", "title",
+                  "message", "action_url", "reference_doctype", "reference_name"):
+            self.assertIn(k, p)
+        self.assertEqual(p["recipient"], "u@x.com")
+        self.assertEqual(p["action_url"], "/app/task/T1")
+
+    # --- OAuth token endpoint: Power Automate public-cloud v1 resource (regression lock) ---
+    def _capture_token_request(self, status=200, payload=None):
+        """Install a fake `requests` so get_pa_token's real HTTP call is captured, not sent."""
+        import sys, types
+        captured = {}
+        class _Resp:
+            def __init__(self): self.status_code = status
+            def json(self): return payload if payload is not None else {"access_token": "AT.SECRET.value"}
+        def _post(url, data=None, headers=None, timeout=None):
+            captured.update(url=url, data=data, headers=headers, timeout=timeout)
+            return _Resp()
+        fake = types.ModuleType("requests"); fake.post = _post
+        self._real_requests = sys.modules.get("requests")
+        sys.modules["requests"] = fake
+        self.addCleanup(self._restore_requests)
+        return captured
+
+    def _restore_requests(self):
+        import sys
+        if getattr(self, "_real_requests", None) is not None:
+            sys.modules["requests"] = self._real_requests
+        else:
+            sys.modules.pop("requests", None)
+
+    def test_token_uses_v1_endpoint_not_v2(self):
+        cap = self._capture_token_request()
+        ok, tok = self._otok(self.pa.pa_config())          # real get_pa_token
+        self.assertTrue(ok)
+        self.assertTrue(cap["url"].endswith("/oauth2/token"), cap["url"])
+        self.assertNotIn("/oauth2/v2.0/", cap["url"])
+        self.assertIn("TEN", cap["url"])                   # tenant in path
+
+    def test_token_uses_resource_with_trailing_slash(self):
+        cap = self._capture_token_request()
+        self._otok(self.pa.pa_config())
+        self.assertEqual(cap["data"].get("resource"), "https://service.flow.microsoft.com/")
+        self.assertEqual(cap["data"].get("grant_type"), "client_credentials")
+        self.assertEqual(cap["data"].get("client_id"), "SPID")
+
+    def test_token_does_not_use_scope_or_default(self):
+        cap = self._capture_token_request()
+        self._otok(self.pa.pa_config())
+        self.assertNotIn("scope", cap["data"])             # v2-style scope must be absent
+        joined = " ".join(str(v) for v in cap["data"].values())
+        self.assertNotIn(".default", joined)
+
+    def test_token_content_type_form_urlencoded(self):
+        cap = self._capture_token_request()
+        self._otok(self.pa.pa_config())
+        self.assertEqual((cap["headers"] or {}).get("Content-Type"),
+                         "application/x-www-form-urlencoded")
+
+    def test_token_error_sanitized_status_only(self):
+        cap = self._capture_token_request(status=401,
+                                          payload={"error": "invalid_client",
+                                                   "error_description": "AADSTS7000215 secret"})
+        ok, code = self._otok(self.pa.pa_config())
+        self.assertFalse(ok)
+        self.assertEqual(code, "PATOKEN_401")              # status code only; no body echoed
+
+    def test_token_and_secret_never_in_returned_code(self):
+        for st in (400, 401, 403, 500):
+            cap = self._capture_token_request(status=st, payload={"error": "x"})
+            ok, code = self._otok(self.pa.pa_config())
+            self.assertFalse(ok)
+            for leak in ("SPSEC", "AT.SECRET", "access_token"):
+                self.assertNotIn(leak, code)
+
+    # --- dispatcher integration via teams.deliver ---
+    def _dlv_row(self, event_type="task_assigned"):
+        return self.ev._delivery(self.ev._event_id("PA|" + event_type), "u@x.com", "teams", "Pending",
+                                 event_type=event_type, severity="action_required",
+                                 dedupe_key="task_assigned|T1|u@x.com",
+                                 title="T", message="m", action_url="/app/task/T1",
+                                 reference_doctype="Task", reference_name="T1")
+
+    def _provider_pa(self):
+        FR._conf.update({"ec_teams_provider": "power_automate_copilot"})
+
+    def test_deliver_sent_records_provider(self):
+        self._provider_pa()
+        self.pa.send_event = lambda payload, cfg=None: ("sent", "power_automate_copilot", "200", "")
+        try:
+            nm = self._dlv_row(); self.tm.deliver(nm)
+        finally:
+            pass
+        d = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(d["status"], "Sent"); self.assertEqual(d["provider"], "power_automate_copilot")
+
+    def test_deliver_skip_not_installed(self):
+        self._provider_pa()
+        self.pa.send_event = lambda payload, cfg=None: ("skip", "power_automate_copilot", "NOT_INSTALLED", "x")
+        nm = self._dlv_row("approval_required"); self.tm.deliver(nm)
+        d = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(d["status"], "Skipped"); self.assertEqual(d["error_code"], "NOT_INSTALLED")
+        self.assertIsNone(d["next_retry_at"])
+
+    def test_deliver_retry_classified(self):
+        self._provider_pa()
+        self.pa.send_event = lambda payload, cfg=None: ("retry", "power_automate_copilot", "PA_429", "throttled")
+        nm = self._dlv_row(); self.tm.deliver(nm)
+        d = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(d["status"], "Failed"); self.assertIsNotNone(d["next_retry_at"])
+
+    def test_deliver_idempotent_sent_not_resent(self):
+        self._provider_pa()
+        calls = {"n": 0}
+        self.pa.send_event = lambda payload, cfg=None: (calls.__setitem__("n", calls["n"] + 1), ("sent", "power_automate_copilot", "200", ""))[1]
+        nm = self._dlv_row(); self.tm.deliver(nm); n1 = calls["n"]
+        self.tm.deliver(nm)                                   # row already Sent -> early return
+        self.assertEqual(calls["n"], n1)
+
+    def test_deliver_permanent_auth_terminal_skipped(self):
+        # 401/403 -> dispatcher writes terminal Skipped, clears next_retry_at, stores code;
+        # the retry scheduler never picks a Skipped row (only Failed+due+attempt<MAX).
+        self._provider_pa()
+        self.pa.send_event = lambda payload, cfg=None: ("skip", "power_automate_copilot", "PA_401", "perm")
+        nm = self._dlv_row(); self.tm.deliver(nm)
+        d = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(d["status"], "Skipped")
+        self.assertEqual(d["error_code"], "PA_401")
+        self.assertIsNone(d["next_retry_at"])
+
+    def test_provider_disabled_dryrun(self):
+        FR._conf.update({"ec_teams_provider": "disabled"})
+        nm = self._dlv_row(); self.tm.deliver(nm)
+        d = FR.get_doc("EC Notification Delivery Log", nm)
+        self.assertEqual(d["status"], "Skipped"); self.assertEqual(d["error_code"], "NO_CREDENTIAL")
+
+    def test_flow_unavailable_erp_still_succeeds(self):
+        self._provider_pa()
+        FR._tasks["TKP"] = {"name": "TKP", "workflow_state": "Open"}
+        self.ev.publish_task_assignment_delivery("u@x.com", "TKP", "Giao viec",
+                                                 action_url="/app/task/TKP", actor="boss@x.com")
+        byc = {d["channel"]: d["status"] for d in FR._delivery if d["recipient"] == "u@x.com"}
+        self.assertEqual(byc["erp"], "Sent"); self.assertEqual(byc["toast"], "Sent")
+        self.assertEqual(byc["sound"], "Sent"); self.assertEqual(byc["teams"], "Pending")
+        self.assertEqual(len(FR._realtime), 1)               # ERP realtime fired
+        teams_nm = [d["name"] for d in FR._delivery if d["channel"] == "teams"][0]
+        self.pa.send_event = lambda payload, cfg=None: ("retry", "power_automate_copilot", "PA_503", "down")
+        self.tm.deliver(teams_nm)
+        byc2 = {d["channel"]: d["status"] for d in FR._delivery if d["recipient"] == "u@x.com"}
+        self.assertEqual(byc2["erp"], "Sent")                # ERP unaffected by Teams failure
+        self.assertEqual(byc2["teams"], "Failed")

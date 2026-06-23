@@ -214,7 +214,7 @@ def route_delivery(event_id, recipient, routing, event_type, severity, dedupe_ke
         try:
             frappe.enqueue(
                 "ecentric_workspace.notification_center.providers.teams.deliver",
-                queue="short", enqueue_after_commit=True, delivery_log=nm)
+                queue="default", enqueue_after_commit=True, delivery_log=nm)
         except Exception:
             frappe.log_error(frappe.get_traceback(), "route_delivery enqueue teams")
     return teams_jobs
@@ -356,7 +356,7 @@ def publish_task_assignment_delivery(recipient, task_name, title, message="",
     # synchronously as Skipped so ERP delivery never depends on a background worker.
     try:
         from ecentric_workspace.notification_center.providers import teams as _teams
-        _teams_send = _teams.get_config().get("provider") in ("teams_bot", "webhook")
+        _teams_send = _teams.get_config().get("provider") in ("teams_bot", "webhook", "power_automate_copilot")
     except Exception:
         _teams_send = False
 
