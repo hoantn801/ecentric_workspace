@@ -1292,6 +1292,30 @@ class TestDeliveryAssetStatics(unittest.TestCase):
         self.assertIn("s.on('ec_notification', onRealtime)", self.js)   # single named handler
         self.assertIn("setInterval(refreshCount, POLL_MS)", self.js)
 
+    def test_sound_reused_audiocontext_contract(self):
+        # Sound hotfix: ONE reused AudioContext (the prior code made a fresh context per event and
+        # scheduled the tone before the async resume() completed). Reuse while valid, resume() when
+        # suspended (schedule AFTER it resolves), recreate when closed; mute gate preserved.
+        self.assertIn("var audioCtx = null;", self.js)
+        self.assertIn("function getAudioCtx(", self.js)
+        self.assertIn("audioCtx.state === 'closed'", self.js)     # recreate only if closed/invalid
+        self.assertIn("ctx.state === 'suspended' && ctx.resume", self.js)
+        self.assertIn("ctx.resume().then(", self.js)              # play after resume resolves
+        self.assertIn("if (isMuted() || !S.interacted) return;", self.js)   # mute + autoplay gate kept
+        self.assertNotIn("var ctx = new Ctx();", self.js)         # no per-event context
+
+    def test_sound_two_note_chime_contract(self):
+        # Soft office-friendly two-note chime: ~660 Hz then ~880 Hz, sine, peak gain <= 0.07,
+        # smooth attack/decay (no clicks). Two scheduled notes per chime.
+        self.assertIn("function chime(", self.js)
+        self.assertIn("note(660, 0)", self.js)                    # first note ~660 Hz
+        self.assertIn("note(880,", self.js)                      # second note ~880 Hz
+        self.assertIn("o.type = 'sine'", self.js)
+        self.assertIn("CHIME_PEAK = 0.06", self.js)               # <= 0.07
+        # smooth attack + decay via exponential ramps (avoid clicks); old 0.2-gain tone removed:
+        self.assertIn("exponentialRampToValueAtTime(CHIME_PEAK", self.js)
+        self.assertNotIn("exponentialRampToValueAtTime(0.2,", self.js)
+
     def test_realtime_recovery_contract(self):
         # Connection-recovery hotfix: exactly one named handler (bound once per socket
         # instance), a bounded reconnect watchdog armed on reconnect_failed (no infinite loop),

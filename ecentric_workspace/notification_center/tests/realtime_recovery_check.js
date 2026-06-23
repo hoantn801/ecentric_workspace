@@ -94,9 +94,9 @@ function makeEnv(opts){ opts=opts||{}; timers.length=0;   // isolate fake timers
   function MutationObserver(cb){ this.cb=cb; } MutationObserver.prototype.observe=function(){}; MutationObserver.prototype.disconnect=function(){};
   function DOMParser(){} DOMParser.prototype.parseFromString=function(str){ const b=new El('body'); b._tc=stripHtml(str); return {body:b}; };
   let soundCount=0;
-  function Osc(){ return {type:'',frequency:{value:0},connect(){},start(){},stop(){}}; }
+  function Osc(){ var o={type:'',frequency:{value:0},connect(){},start(){ if(o.frequency.value>600&&o.frequency.value<720) soundCount++; },stop(){}}; return o; }
   function Gain(){ return {gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}}; }
-  function AudioContext(){ soundCount++; this.currentTime=0; this.state='running'; this.destination={};
+  function AudioContext(){ this.currentTime=0; this.state='running'; this.destination={};
     this.createOscillator=Osc; this.createGain=Gain; this.resume=()=>{}; }
   const desktops=[];
   function Notif(title,o){ this.title=title; this.opts=o||{}; this.onclick=null; this.close=()=>{}; desktops.push(this); }
