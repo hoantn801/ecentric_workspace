@@ -333,9 +333,9 @@
   }
   // Soft, office-friendly two-note chime (~660 Hz then ~880 Hz). Two sine oscillators, each with
   // a smooth attack/decay (exponential ramps from a near-silent floor) so there are no clicks.
-  // Peak gain 0.06 (<= 0.07); total span ~0.40s (GAP 0.20 + NOTE 0.18 + 0.02 tail). One call
+  // Peak gain 0.12 (soft, office-friendly); total span ~0.40s (GAP 0.20 + NOTE 0.18 + 0.02 tail). One call
   // schedules exactly one complete chime against the live clock (read after any resume).
-  var CHIME_PEAK = 0.06, CHIME_ATT = 0.02, CHIME_NOTE = 0.18, CHIME_GAP = 0.20;
+  var CHIME_PEAK = 0.12, CHIME_ATT = 0.02, CHIME_NOTE = 0.18, CHIME_GAP = 0.20;
   function chime(ctx) {
     var t0 = ctx.currentTime;                                  // live clock (read AFTER resume)
     function note(freq, offset) {

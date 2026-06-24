@@ -138,7 +138,7 @@ ok(ns[1]&&ns[1].freq>=800&&ns[1].freq<=960,'2: second note ~880 Hz ('+(ns[1]&&ns
 ok(ns[0].start<ns[1].start,'2: first note is scheduled before the second');
 
 // 3) peak gain <= 0.07
-ok(ev.gainMax()>0 && ev.gainMax()<=0.07,'3: peak gain <= 0.07 (is '+ev.gainMax()+')');
+ok(ev.gainMax()===0.12 && ev.gainMax()<=0.12,'3: peak gain is exactly 0.12 and does not exceed 0.12 (is '+ev.gainMax()+')');
 
 // 4) total chime duration between 300 and 450 ms
 ok(ev.spanMs()>=300 && ev.spanMs()<=450,'4: total chime duration 300-450 ms (is '+ev.spanMs()+'ms)');
