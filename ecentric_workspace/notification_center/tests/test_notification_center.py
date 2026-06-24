@@ -1311,7 +1311,7 @@ class TestDeliveryAssetStatics(unittest.TestCase):
         self.assertIn("note(660, 0)", self.js)                    # first note ~660 Hz
         self.assertIn("note(880,", self.js)                      # second note ~880 Hz
         self.assertIn("o.type = 'sine'", self.js)
-        self.assertIn("CHIME_PEAK = 0.06", self.js)               # <= 0.07
+        self.assertIn("CHIME_PEAK = 0.12", self.js)               # tuned volume (<= 0.12)
         # smooth attack + decay via exponential ramps (avoid clicks); old 0.2-gain tone removed:
         self.assertIn("exponentialRampToValueAtTime(CHIME_PEAK", self.js)
         self.assertNotIn("exponentialRampToValueAtTime(0.2,", self.js)
