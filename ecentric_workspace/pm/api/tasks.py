@@ -37,7 +37,7 @@ def _names_map(emails):
     if not emails:
         return {}
     out = {}
-    for u in frappe.get_all("User", filters={"name": ["in", list(set(emails))]},
+    for u in frappe.get_all("User", filters={"name": ["in", tuple(set(emails))]},
                             fields=["name", "full_name"]):
         out[u["name"]] = u.get("full_name") or u["name"]
     return out
@@ -58,7 +58,7 @@ def _project_names(rows):
     if not pnames:
         return {}
     out = {}
-    for p in frappe.get_all("Project", filters={"name": ["in", list(set(pnames))]},
+    for p in frappe.get_all("Project", filters={"name": ["in", tuple(set(pnames))]},
                             fields=["name", "project_name"]):
         out[p["name"]] = p.get("project_name") or p["name"]
     return out
