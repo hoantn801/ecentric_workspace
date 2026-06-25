@@ -181,5 +181,10 @@ def complete_task(task):
         undone_all = [d for d in items if not d.is_done]
         if undone_all:
             frappe.throw(_("Còn {0} mục chưa hoàn thành.").format(len(undone_all)))
+    # G4.8: cannot complete while open sub-tasks remain (parity with tasks.set_status guard).
+    if frappe.get_all("Task", filters={"parent_task": task,
+                                       "workflow_state": ["not in", ["Done", "Cancelled"]]},
+                      fields=["name"], limit_page_length=1):
+        frappe.throw(_("Không thể hoàn thành nhiệm vụ khi vẫn còn nhiệm vụ con chưa đóng."))
     doc = apply_workflow(doc, "Hoàn thành")  # governed + audited; condition re-checked too
     return {"name": doc.name, "workflow_state": doc.get("workflow_state")}

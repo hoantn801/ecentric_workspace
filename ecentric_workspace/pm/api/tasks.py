@@ -26,6 +26,52 @@ _FIELDS = [
 # Fields a client may edit via tasks.update (whitelist -> no arbitrary injection).
 _EDITABLE = ("subject", "description", "priority", "exp_start_date", "exp_end_date", "project")
 
+# G4.8: actions on the PM Task Workflow that land a task in "Done".
+_DONE_ACTIONS = ("Mark Done", "Hoàn thành")
+
+
+def _has_open_children(name):
+    """G4.8 (authoritative): True if the task has any DIRECT child task not yet
+    Done/Cancelled. Used to block completing a parent while sub-tasks are open."""
+    return bool(frappe.get_all(
+        "Task",
+        filters={"parent_task": name, "workflow_state": ["not in", ["Done", "Cancelled"]]},
+        fields=["name"], limit_page_length=1,
+    ))
+
+
+def _names_map(emails):
+    """email -> full_name (batch, avoids N+1). Falls back to the email when no full_name."""
+    emails = [e for e in (emails or []) if e]
+    if not emails:
+        return {}
+    out = {}
+    for u in frappe.get_all("User", filters={"name": ["in", list(set(emails))]},
+                            fields=["name", "full_name"]):
+        out[u["name"]] = u.get("full_name") or u["name"]
+    return out
+
+
+def _collect_assignees(rows):
+    out = []
+    for r in rows:
+        try:
+            out += frappe.parse_json(r.get("_assign") or "[]") or []
+        except Exception:
+            pass
+    return out
+
+
+def _project_names(rows):
+    pnames = [r.get("project") for r in rows if r.get("project")]
+    if not pnames:
+        return {}
+    out = {}
+    for p in frappe.get_all("Project", filters={"name": ["in", list(set(pnames))]},
+                            fields=["name", "project_name"]):
+        out[p["name"]] = p.get("project_name") or p["name"]
+    return out
+
 
 # --------------------------------------------------------------------------
 # READ (PM1-T05)
@@ -52,7 +98,11 @@ def list(project=None, view="list", start=0, page_length=50, status=None):
         "Task", filters=and_filters or None, or_filters=or_filters, fields=_FIELDS,
         start=int(start), page_length=int(page_length), order_by="modified desc",
     )
-    return {"rows": rows, "view": view}
+    # G4.8 additive: resolve project_name per row + a {email: full_name} map (batch, no N+1).
+    pmap = _project_names(rows)
+    for r in rows:
+        r["project_name"] = pmap.get(r.get("project")) or (r.get("project") or None)
+    return {"rows": rows, "view": view, "user_names": _names_map(_collect_assignees(rows))}
 
 
 @frappe.whitelist()
@@ -71,7 +121,15 @@ def get(name):
     )
     d = doc.as_dict()
     d["_assign"] = doc.get("_assign")  # as_dict() doesn't reliably surface the _assign column; needed so the modal shows assignees
-    return {"task": d, "subtasks": subtasks}
+    # G4.8 additive: project display name + assignee name map. Sub-tasks inherit the project.
+    d["project_name"] = (frappe.db.get_value("Project", d.get("project"), "project_name")
+                         or d.get("project")) if d.get("project") else None
+    for s in subtasks:
+        s["project_name"] = d["project_name"]
+    emails = _collect_assignees([d] + subtasks)
+    if d.get("owner"):
+        emails.append(d.get("owner"))
+    return {"task": d, "subtasks": subtasks, "user_names": _names_map(emails)}
 
 
 @frappe.whitelist()
@@ -298,12 +356,8 @@ def create(project, subject, parent_task=None, priority=None,
     """Create a Task (or sub-task via parent_task) under a project the user may see."""
     pmperm.require_pm_access()
     user = frappe.session.user
-    if not project:
-        frappe.throw(_("Project is required."))
     if not subject:
         frappe.throw(_("Subject is required."))
-    if not pmperm.can_view_project(project, user):
-        frappe.throw(_("Not permitted to create a task in this project."), frappe.PermissionError)
     if parent_task:
         # ERPNext Task is a NestedSet tree: a parent can only hold children if it is a
         # Group Task (is_group=1). Ensure that before inserting the child, with the same
@@ -311,11 +365,17 @@ def create(project, subject, parent_task=None, priority=None,
         parent = frappe.get_doc("Task", parent_task)
         if not pmperm.can_view_task(parent.as_dict(), user):
             frappe.throw(_("Not permitted to add a sub-task to this task."), frappe.PermissionError)
-        if parent.get("project") != project:
+        # G4.8: a sub-task ALWAYS inherits its parent's project (incl. empty = task ngoài dự án).
+        if not project:
+            project = parent.get("project")
+        elif (parent.get("project") or None) != (project or None):
             frappe.throw(_("Parent task must belong to the same project."))
         if not parent.get("is_group"):
             parent.is_group = 1
             parent.save()  # honors DocPerm 'write' + audit; NestedSet handles the flag
+    # G4.8: project is OPTIONAL (task ngoài dự án = empty project). When set, must be viewable.
+    if project and not pmperm.can_view_project(project, user):
+        frappe.throw(_("Not permitted to create a task in this project."), frappe.PermissionError)
 
     # Widen Project range FIRST (ERPNext validates task end <= project end), then the
     # whole ancestor task chain, before inserting the child.
@@ -359,6 +419,11 @@ def update(name, subject=None, description=None, priority=None,
     doc = frappe.get_doc("Task", name)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to edit this task."), frappe.PermissionError)
+    # G4.8: a sub-task must stay in its parent's project — block moving it to a different one.
+    if project is not None and doc.get("parent_task"):
+        parent_project = frappe.db.get_value("Task", doc.get("parent_task"), "project")
+        if (parent_project or None) != (project or None):
+            frappe.throw(_("Không thể đổi dự án của nhiệm vụ con khác với nhiệm vụ cha."))
 
     incoming = {
         "subject": subject, "description": description, "priority": priority,
@@ -462,6 +527,9 @@ def set_status(name, action):
     doc = frappe.get_doc("Task", name)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to change this task."), frappe.PermissionError)
+    # G4.8: cannot complete a parent while it still has open (non Done/Cancelled) sub-tasks.
+    if action in _DONE_ACTIONS and _has_open_children(name):
+        frappe.throw(_("Không thể hoàn thành nhiệm vụ khi vẫn còn nhiệm vụ con chưa đóng."))
     doc = apply_workflow(doc, action)
     pmnotif.notify_users(pmnotif._task_recipients(doc.as_dict(), exclude=user),
                          "Nhiem vu '" + (doc.get("subject") or name) + "' -> " + (doc.get("workflow_state") or ""),
