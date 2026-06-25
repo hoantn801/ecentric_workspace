@@ -423,6 +423,7 @@
   .cal-pcard .x{ cursor:pointer; color:var(--gray-500); font-weight:700; }
   @media (max-width:1000px){
     .pm-drawer.expanded{ width:calc(100vw - 20px); height:96vh; }
+    .pm-drawer.expanded.pm-d-md, .pm-drawer.expanded.pm-d-sm{ width:calc(100vw - 24px); max-width:none; height:auto; } /* UIUX-2: compact variants never overflow viewport on small screens */
     .pm-drawer.expanded .body.pm-cols{ overflow:auto; }
     .pm-drawer.expanded .body.pm-cols .pm-dcols{ display:block; min-height:0; }
     .pm-drawer.expanded .pm-d-main{ overflow:visible; padding:16px 16px 20px; }
@@ -469,6 +470,9 @@
   /* A1: centered modal, OPACITY-ONLY transition. Static transform => no slide is ever possible, regardless of class timing or drawer baseline. */
   .pm-drawer.expanded{ right:auto; left:50%; top:50%; height:94vh; width:min(1380px, calc(100vw - 40px)); border-radius:14px; box-shadow:0 24px 70px rgba(0,0,0,.28); transform:translate(-50%,-50%); opacity:0; transition:opacity .12s ease; }
   .pm-drawer.expanded.open{ transform:translate(-50%,-50%); opacity:1; }
+  /* UIUX-2: compact size variants for project Edit (md) / Delete (sm) modals. Does NOT change the default .pm-drawer.expanded (task detail stays full-size). */
+  .pm-drawer.expanded.pm-d-md{ width:760px; max-width:90vw; height:auto; max-height:90vh; }
+  .pm-drawer.expanded.pm-d-sm{ width:520px; max-width:90vw; height:auto; max-height:90vh; }
   /* ClickUp-style 2-col: body becomes a flex container; main scrolls, right side is gray with sticky composer. Only when body has .pm-cols (task detail); edit/create forms keep normal scroll. */
   .pm-drawer.expanded .body.pm-cols{ padding:0; overflow:hidden; display:flex; flex-direction:column; }
   .pm-drawer.expanded .body.pm-cols .pm-dcols{ flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:0; align-items:stretch; }
@@ -1111,11 +1115,12 @@
   }).catch(function(e){toast("Lỗi: "+errOf(e),true);});}
 
   function openD(){var dg=el("pm-dbg"),dr=el("pm-drawer");if(window._dCloseTimer){clearTimeout(window._dCloseTimer);window._dCloseTimer=null;}
+    dr.classList.remove("pm-d-md","pm-d-sm"); /* UIUX-2: reset size variant; caller re-adds the right one after openD() */
     dr.classList.add("expanded");void dr.offsetWidth; /* commit centered+opacity:0 'from' state so transition is fade-in, not right slide */
     dg.classList.add("open");dr.classList.add("open");}
   function closeD(){clearTick();var dg=el("pm-dbg"),dr=el("pm-drawer");dg.classList.remove("open");dr.classList.remove("open");
     if(window._dCloseTimer)clearTimeout(window._dCloseTimer);
-    window._dCloseTimer=setTimeout(function(){dr.classList.remove("expanded");window._dCloseTimer=null;},170); /* keep .expanded until fade-out done, then reset */
+    window._dCloseTimer=setTimeout(function(){dr.classList.remove("expanded","pm-d-md","pm-d-sm");window._dCloseTimer=null;},170); /* keep .expanded until fade-out done, then reset (incl. UIUX-2 size variants) */
     if(el("pm-dexpand"))el("pm-dexpand").textContent="Mở rộng";}
   el("pm-dclose").onclick=closeD; el("pm-dbg").onclick=closeD;
   if(el("pm-dexpand"))el("pm-dexpand").onclick=function(){var ex=el("pm-drawer").classList.toggle("expanded");this.textContent=ex?"Thu nhỏ":"Mở rộng";};
@@ -1360,13 +1365,13 @@
     var p={project_name:nm,manager:el("np-mgr").value.trim()||null,department:el("np-dept").value||null,expected_start_date:sd||null,expected_end_date:ed||null,priority:el("np-priority").value,description:el("np-desc").value||null};
     if(name)p.name=name;return p;}
   function pmProjValidate(){var nm=el("np-name").value.trim();if(!nm){toast("Nhập tên dự án",true);return false;}var sd=el("np-start").value,ed=el("np-end").value;if(sd&&ed&&ed<sd){toast("Hạn không được trước ngày bắt đầu",true);return false;}return true;}
-  function newProject(){openD();el("pm-dt").textContent="Tạo dự án";var c=el("pm-dbody");
+  function newProject(){openD();el("pm-drawer").classList.add("pm-d-md");el("pm-dt").textContent="Tạo dự án";var c=el("pm-dbody");
     c.innerHTML=pmProjFormFields({})+
       '<div style="display:flex;gap:8px"><button class="pm-btn primary" id="np-create"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo dự án</button><button class="pm-btn" id="np-cancel">Huỷ</button></div>';
     _niFix(c);el("np-cancel").onclick=closeD;
     el("np-create").onclick=function(){if(!pmProjValidate())return;var btn=this;btn.disabled=true;btn.textContent="Đang tạo...";
       api(PM+"projects.create",pmProjPayload()).then(function(r){toast("Đã tạo "+(r.project_name||r.name));closeD();openProject(r.name);}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML='Tạo dự án';});};}
-  function editProject(name){openD();el("pm-dt").textContent="Chỉnh sửa dự án";var c=el("pm-dbody");spin(c);
+  function editProject(name){openD();el("pm-drawer").classList.add("pm-d-md");el("pm-dt").textContent="Chỉnh sửa dự án";var c=el("pm-dbody");spin(c);
     api(PM+"projects.get",{name:name}).then(function(res){var p=(res&&res.project)||{};
       c.innerHTML=pmProjFormFields(p)+
         '<div style="display:flex;gap:8px"><button class="pm-btn primary" id="np-save">Lưu</button><button class="pm-btn" id="np-cancel">Huỷ</button></div>';
@@ -1376,7 +1381,7 @@
     }).catch(function(e){c.innerHTML='<div class="pm-err">'+esc(errOf(e))+'</div>';});}
   function confirmDeleteProject(name){var p=(window._pm_projects||[]).filter(function(x){return x.name===name;})[0]||{name:name};
     if((p.task_total||0)>0){toast("Dự án đã có nhiệm vụ và không thể xoá. Hãy đóng hoặc huỷ dự án.",true);return;}
-    openD();el("pm-dt").textContent="Xoá dự án";var c=el("pm-dbody");
+    openD();el("pm-drawer").classList.add("pm-d-sm");el("pm-dt").textContent="Xoá dự án";var c=el("pm-dbody");
     c.innerHTML='<div style="padding:2px 0 14px;font-size:13.5px;color:var(--gray-700);line-height:1.5">Bạn sắp xoá vĩnh viễn dự án <b>'+esc(p.project_name||name)+'</b> (<code>'+esc(name)+'</code>).<br><span style="color:#c0392b;font-weight:600">Hành động này không thể hoàn tác.</span></div>'+
       '<div style="display:flex;gap:8px"><button class="pm-btn danger" id="pd-del">Xoá vĩnh viễn</button><button class="pm-btn" id="pd-cancel">Huỷ</button></div>';
     el("pd-cancel").onclick=closeD;
