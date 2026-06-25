@@ -95,6 +95,37 @@
   /* UIUX-3: task list action column (⋯ menu) */
   .pm-tbl th.pm-act-col, .pm-tbl td.pm-act-col{ width:40px; text-align:right; padding-right:8px; white-space:nowrap; }
   .pm-tbl td.pm-act-col .pm-pcard-menu{ display:inline-block; }
+  /* UIUX-G4.8: task-detail decomposition (PHÂN RÃ CÔNG VIỆC) tabs + subtask tree + 2-card layout */
+  .pm-dtopbar-r{ display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+  .pm-addsub-top{ font-size:12px; padding:5px 10px; }
+  .pm-decomp{ border:1px solid var(--gray-200); border-radius:10px; overflow:hidden; margin-bottom:6px; }
+  .pm-decomp-tabs{ display:flex; align-items:center; background:var(--gray-50); border-bottom:1px solid var(--gray-200); }
+  .pm-decomp-tab{ border:none; background:transparent; padding:9px 14px; font-size:13px; font-weight:600; color:var(--gray-500); cursor:pointer; border-bottom:2px solid transparent; }
+  .pm-decomp-tab.active{ color:var(--navy); border-bottom-color:var(--navy); background:#fff; }
+  .pm-decomp-c{ color:var(--gray-400); font-weight:500; }
+  .pm-decomp-panel{ padding:12px 14px; }
+  .pm-decomp-help{ font-size:12px; color:var(--gray-500); margin-bottom:10px; }
+  .pm-st-row{ display:flex; align-items:center; gap:8px; padding:6px 4px; border-radius:7px; cursor:pointer; }
+  .pm-st-row:hover{ background:var(--gray-50); }
+  .pm-st-caret{ cursor:pointer; color:var(--gray-400); font-size:11px; width:14px; display:inline-block; text-align:center; }
+  .pm-st-caret.collapsed{ display:inline-block; transform:rotate(-90deg); }
+  .pm-st-caret-sp{ width:14px; display:inline-block; }
+  .pm-st-title{ flex:1; font-size:13px; color:var(--gray-800); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pm-st-meta{ display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+  .pm-chk-add{ display:inline-flex; align-items:center; gap:6px; margin-top:10px; font-size:12.5px; color:var(--navy); cursor:pointer; }
+  .pm-chk-add:hover{ text-decoration:underline; }
+  .pm-chk-addform{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+  .pm-chk-addform .pm-chk-title{ flex:1; min-width:160px; }
+  .pm-chk-reqlbl{ font-size:12.5px; color:var(--gray-600); display:flex; align-items:center; gap:5px; white-space:nowrap; }
+  /* 2-card layout: gray body, white content + comments cards, 16px gap, comments ~360px */
+  .pm-drawer.expanded .body.pm-cols{ background:var(--gray-50); }
+  .pm-drawer.expanded .body.pm-cols .pm-dcols{ gap:16px; padding:16px; grid-template-columns:minmax(0,1fr) 360px; }
+  .pm-drawer.expanded .pm-d-main{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; }
+  .pm-drawer.expanded .pm-d-side{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; }
+  @media (max-width:1000px){
+    .pm-drawer.expanded .body.pm-cols .pm-dcols{ gap:12px; padding:12px; }
+    .pm-drawer.expanded .pm-d-side{ margin-top:0; }
+  }
   .pm-pcard-meta{ font-size:12px; color:var(--gray-500); margin-bottom:12px; display:flex; flex-wrap:wrap; gap:4px 10px; }
   .pm-pcard-prog{ display:flex; align-items:center; gap:10px; }
   .pm-pcard-prog .pm-prog{ flex:1; }
@@ -1219,6 +1250,31 @@
     Array.prototype.forEach.call(host.querySelectorAll(".pm-subrow[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});
     var add=host.querySelector("#pm-subadd");
     if(add)add.onclick=function(){openSubForm(host,subs,project,parentName,add,pStart,pEnd);};}
+  /* G4.8: nested subtask TREE for the task-detail "Nhiệm vụ con" tab (>=3 levels). Self-contained
+     (no global filter coupling). Fed by additive tasks.subtree. Click a row -> open its detail
+     (which has its own "+ Nhiệm vụ con" shortcut -> multi-level add by drilling in). */
+  function pmSubtreeRow(t,depth,hasKids,collapsed){var a=names(t._assign);var fn=(window._pmUserNames&&window._pmUserNames[a[0]])||a[0]||"";
+    var due=t.exp_end_date?esc(ymd(t.exp_end_date)):"";
+    var caret=hasKids?'<span class="pm-st-caret'+(collapsed?' collapsed':'')+'" data-stcol="'+esc(t.name)+'">▾</span>':'<span class="pm-st-caret-sp"></span>';
+    return '<div class="pm-st-row" data-task="'+esc(t.name)+'" style="padding-left:'+(8+Math.min(depth,6)*16)+'px">'+caret+
+      '<span class="pm-sub-dot" style="background:'+gColor(t.workflow_state)+'" title="'+esc(t.workflow_state||"")+'"></span>'+
+      '<span class="pm-st-title">'+esc(t.subject||t.name)+'</span>'+
+      '<span class="pm-st-meta">'+badge(t.workflow_state)+(due?'<span class="pm-sub-due">'+due+'</span>':'')+(a.length?'<span class="pm-mini-av" title="'+esc(fn)+' · '+esc(a[0])+'">'+ini(a[0])+'</span>':'<span style="color:var(--gray-300)">—</span>')+'</span></div>';}
+  function loadSubtree(rootName,terminal){var host=el("pm-subs");if(!host)return;host.innerHTML='<span class="spin"></span>';
+    api(PM+"tasks.subtree",{name:rootName}).then(function(res){var rows=(res&&res.rows)||[];window._pmUserNames=Object.assign(window._pmUserNames||{},(res&&res.user_names)||{});
+      var tc=el("pm-bt-subs-c");if(tc){var done=rows.filter(function(r){return ["Done","Cancelled"].indexOf(r.workflow_state)>=0;}).length;tc.textContent="("+done+"/"+rows.length+")";}
+      if(!rows.length){host.innerHTML='<div class="pm-sub-empty">Chưa có nhiệm vụ con. Dùng "+ Nhiệm vụ con" để thêm.</div>';return;}
+      var byParent={};rows.forEach(function(t){var p=t.parent_task;(byParent[p]=byParent[p]||[]).push(t);});
+      window._pmStCollapsed=window._pmStCollapsed||{};var html="";
+      function walk(t,depth){var kids=byParent[t.name]||[];var hk=kids.length>0;var col=!!window._pmStCollapsed[t.name];html+=pmSubtreeRow(t,depth,hk,col);if(hk&&!col)kids.forEach(function(c){walk(c,depth+1);});}
+      (byParent[rootName]||[]).forEach(function(t){walk(t,0);});
+      host.innerHTML=html;
+      Array.prototype.forEach.call(host.querySelectorAll(".pm-st-row[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});
+      Array.prototype.forEach.call(host.querySelectorAll(".pm-st-caret[data-stcol]"),function(x){x.onclick=function(e){e.stopPropagation();var id=x.getAttribute("data-stcol");window._pmStCollapsed[id]=!window._pmStCollapsed[id];loadSubtree(rootName,terminal);};});
+    }).catch(function(e){host.innerHTML='<div class="pm-err">'+esc(errOf(e))+'</div>';});}
+  function pmDecompWire(rootName,project){
+    Array.prototype.forEach.call(document.querySelectorAll("#pm-decomp-tabs .pm-decomp-tab"),function(b){b.onclick=function(){var k=b.getAttribute("data-dtab");Array.prototype.forEach.call(document.querySelectorAll("#pm-decomp-tabs .pm-decomp-tab"),function(x){x.classList.toggle("active",x===b);});if(el("pm-dp-steps"))el("pm-dp-steps").style.display=(k==="steps"?"":"none");if(el("pm-dp-subs"))el("pm-dp-subs").style.display=(k==="subs"?"":"none");};});
+    var addTop=el("pm-addsub-top");if(addTop)addTop.onclick=function(){newTask(project||"",rootName);};}
   // S1 hotfix: inline-create form with Title* / Assignee / Start / Due / Priority. Client-side validation vs parent date range BEFORE the API call; on backend reject keep the form open. Esc/Huỷ cancels.
   function openSubForm(host,subs,project,parentName,add,pStart,pEnd){
     add.onclick=null; /* stop the collapsed-row handler from re-firing while the form is open */
@@ -1256,7 +1312,7 @@
       var _seen={};tr=tr.filter(function(x){if(_seen[x.action])return false;_seen[x.action]=1;return true;});
       el("pm-dt").textContent=t.subject||name;
       var h='<div class="pm-dcols"><div class="pm-d-main">'+
-        '<div class="pm-dtopbar"><div class="pm-tags">'+badge(t.workflow_state)+taskTags(t)+'</div>'+pmTaskMenuHtml(name)+'</div>'+
+        '<div class="pm-dtopbar"><div class="pm-tags">'+badge(t.workflow_state)+taskTags(t)+'</div><div class="pm-dtopbar-r">'+(pmTerminal(t)?'':'<button class="pm-btn pm-addsub-top" id="pm-addsub-top">+ Nhiệm vụ con</button>')+pmTaskMenuHtml(name)+'</div></div>'+
         '<div class="pm-dsec">Thông tin chính</div>'+
         '<div class="pm-props">'+
           '<div class="pm-prop"><label>Dự án</label><div class="v">'+esc(t.project||"-")+'</div></div>'+
@@ -1266,15 +1322,23 @@
           '<div class="pm-prop"><label>Hạn</label><div class="v"><span class="pm-inline" data-inline="end">'+renderInlineDisplay("end",t)+'</span></div></div>'+
         '</div>'+
         '<div class="pm-dsec">Mô tả</div><div class="pm-inline pm-desc-inline" data-inline="desc">'+renderInlineDisplay("desc",t)+'</div>'+
-        '<div id="pm-chk"></div>'+ /* G3: checklist section (rendered only if task has pm_checklist items) */
+        /* G4.8: PHÂN RÃ CÔNG VIỆC — tabs Các bước (checklist) | Nhiệm vụ con (subtask tree) */
+        '<div class="pm-dsec">Phân rã công việc</div>'+
+        '<div class="pm-decomp">'+
+          '<div class="pm-decomp-tabs" id="pm-decomp-tabs">'+
+            '<button class="pm-decomp-tab active" data-dtab="steps">Các bước <span class="pm-decomp-c" id="pm-bt-steps-c"></span></button>'+
+            '<button class="pm-decomp-tab" data-dtab="subs">Nhiệm vụ con <span class="pm-decomp-c" id="pm-bt-subs-c"></span></button>'+
+          '</div>'+
+          '<div class="pm-decomp-panel" id="pm-dp-steps"><div class="pm-decomp-help">Các bước nhỏ để hoàn thành nhiệm vụ này, không theo dõi độc lập.</div><div id="pm-chk"></div></div>'+
+          '<div class="pm-decomp-panel" id="pm-dp-subs" style="display:none"><div class="pm-decomp-help">Công việc độc lập, có thể giao người và theo dõi riêng.</div><div class="pm-subs" id="pm-subs"></div></div>'+
+        '</div>'+
         '<div class="pm-dsec">Workflow</div>'+
         '<div class="pm-field"><label>Chuyển trạng thái</label><div class="pm-actions">'+(tr.length?tr.map(function(x){return '<button class="pm-btn pm-act" data-act="'+esc(x.action)+'">'+esc(x.action)+'</button>';}).join(""):'<span style="color:var(--gray-400);font-size:13px">Không có</span>')+'</div></div>'+
         (pmTerminal(t)
           ? '<div class="pm-field"><label>Giao việc (email)</label><div style="font-size:12.5px;color:var(--gray-400);padding:4px 0">Nhiệm vụ đã đóng — Reopen để giao việc.</div></div>'
           : '<div class="pm-field"><label>Giao việc (email)</label><div class="pm-assign-row"><input class="pm-input" id="pm-asg" placeholder="user@ecentric.vn" style="padding-left:11px;background-image:none"><button class="pm-btn primary" id="pm-asgb">Giao</button></div></div>')+
         '<div class="pm-dsec">Worktime</div><div id="pm-wt"><span class="spin"></span></div>'+
-        '<div class="pm-dsec">Lặp lại (Recurring)</div><div id="pm-rec"><span class="spin"></span></div>'+
-        '<div class="pm-dsec">Nhiệm vụ con</div><div class="pm-subs" id="pm-subs"></div>';
+        '<div class="pm-dsec">Lặp lại (Recurring)</div><div id="pm-rec"><span class="spin"></span></div>';
       h+='</div><div class="pm-d-side"><div class="pm-side-h">Bình luận</div>'+
         '<div id="pm-comments" class="pm-cmt-list"><span class="spin"></span></div>'+
         '<div class="pm-composer"><textarea class="pm-cmt-input2" id="pm-cmt-input" rows="2" placeholder="Viết bình luận... (Enter gửi, Shift+Enter xuống dòng)"></textarea>'+
@@ -1291,7 +1355,7 @@
         api(PM+"tasks.assign",{name:name,users:[v]}).then(function(){toast("Đã giao cho "+v);openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};
       /* A2: "Sửa (form)" button removed — inline edit is the primary path. editTask() kept as internal fallback only. */
       inlineWire(c,t,name); /* C1-B: click-to-edit priority/start/end/desc in main + title in header */
-      renderSubs(el("pm-subs"),subs,t.project,name,t.exp_start_date,t.exp_end_date); /* compact direct-child rows + inline add (reuses tasks.create); parent dates for child-range validation */
+      pmDecompWire(name,t.project); loadSubtree(name,pmTerminal(t)); /* G4.8: PHÂN RÃ tabs + nested subtask tree */
       loadWorktime(name,pmTerminal(t)); loadRecurrence(name); loadComments(name); loadChecklist(name,t.workflow_state);
       if(el("pm-cmt-send"))el("pm-cmt-send").onclick=function(){var v=el("pm-cmt-input").value.trim();if(!v){toast("Nhập bình luận",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang gửi...";
         api("frappe.client.insert",{doc:{doctype:"Comment",comment_type:"Comment",reference_doctype:"Task",reference_name:name,content:v}}).then(function(){el("pm-cmt-input").value="";loadComments(name);btn.disabled=false;btn.textContent="Gửi";}).catch(function(e){toast("Lỗi gửi bình luận: "+errOf(e),true);btn.disabled=false;btn.textContent="Gửi";});};
@@ -1671,22 +1735,36 @@
     var meta=(done&&it.completed_by)?'<span class="pm-chk-meta">'+esc((it.completed_by||"").split("@")[0])+(it.completed_at?(" · "+esc(String(it.completed_at).slice(0,16))):"")+'</span>':'';
     return '<div class="pm-chk-item'+(done?' done':'')+'" data-row="'+esc(it.name)+'" data-done="'+done+'"><span class="pm-chk-box">'+(done?'✓':'')+'</span><span class="pm-chk-label">'+esc(it.item_label)+(it.is_required?' <span class="pm-chk-req">*</span>':'')+'</span>'+meta+'</div>';}
   function chkComplete(d){var rt=d.required_total||0,rd=d.required_done||0,tt=d.total||0,dn=d.done||0;return rt>0?(rd===rt):(tt>0&&dn===tt);}
+  /* G4.8b: "+ Thêm bước" — add a checklist step from the modal (checklist.add_item). Hidden when terminal. */
+  function chkAddHtml(locked){return locked?'':'<div class="pm-chk-add" id="pm-chk-add"><span class="pm-sub-plus">+</span><span>Thêm bước</span></div>';}
+  function wireChkAdd(b,task,wfState){var add=b.querySelector("#pm-chk-add");if(!add)return;
+    add.onclick=function(){add.onclick=null;
+      add.innerHTML='<div class="pm-chk-addform"><input class="pm-input pm-chk-title" placeholder="Tên bước *"><label class="pm-chk-reqlbl"><input type="checkbox" class="pm-chk-req"> Bắt buộc</label><button class="pm-btn primary pm-chk-addbtn" type="button">Thêm</button><button class="pm-btn pm-chk-cancel" type="button">Huỷ</button></div>';
+      var ti=add.querySelector(".pm-chk-title");if(ti)ti.focus();
+      function cancel(){loadChecklist(task,wfState);}
+      function submit(){var title=(ti.value||"").trim();if(!title){toast("Nhập tên bước",true);return;}var req=add.querySelector(".pm-chk-req").checked?1:0;var btn=add.querySelector(".pm-chk-addbtn");btn.disabled=true;btn.textContent="...";
+        api(PM+"checklist.add_item",{task:task,title:title,is_required:req}).then(function(){loadChecklist(task,wfState);}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Thêm";});}
+      var ab=add.querySelector(".pm-chk-addbtn");if(ab)ab.onclick=submit;
+      var cb=add.querySelector(".pm-chk-cancel");if(cb)cb.onclick=cancel;
+      if(ti)ti.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();submit();}else if(e.key==="Escape"){e.preventDefault();cancel();}});
+    };}
   function renderChecklist(b,task,d,wfState){if(!b)return;b.style.pointerEvents="";b._chkBusy=false; /* G3.1: every re-render re-enables interaction */
     var rows=(d&&d.rows)||[];
-    if(!rows.length){b.innerHTML="";return;} /* no checklist -> no section */
-    var pct=d.total?Math.round(d.done/d.total*100):0;
-    // G4.2: terminal tasks (Done/Cancelled) -> IMMUTABLE checklist (read-only, mirrors backend set_item guard)
+    // G4.2: terminal tasks (Done/Cancelled) -> IMMUTABLE checklist (read-only, mirrors backend guard)
     var locked=(wfState==="Done"||wfState==="Cancelled");
+    if(!rows.length){var _t0=el("pm-bt-steps-c");if(_t0)_t0.textContent="(0/0)";b.innerHTML=chkAddHtml(locked);wireChkAdd(b,task,wfState);return;} /* no steps -> only the +Thêm bước control (hidden if terminal) */
+    var pct=d.total?Math.round(d.done/d.total*100):0;
     // G4 footer: Done/Cancelled badge / complete button / remaining-required text
     var foot;
     if(wfState==="Done"){foot='<span class="pm-badge st-Done">Đã hoàn thành</span>';}
     else if(wfState==="Cancelled"){foot='<span class="pm-badge st-Cancelled">Đã huỷ</span>';}
     else if(chkComplete(d)){foot='<button class="pm-btn primary" id="pm-chk-complete">Hoàn thành task</button>';}
     else{var rem=(d.required_total||0)>0?((d.required_total||0)-(d.required_done||0)):((d.total||0)-(d.done||0));foot='<span style="font-size:12px;color:var(--gray-500)">Còn '+rem+' mục'+((d.required_total||0)>0?' bắt buộc':'')+' chưa xong</span>';}
-    b.innerHTML='<div class="pm-dsec" style="display:flex;justify-content:space-between;align-items:center">Checklist <span style="color:var(--gray-400);font-weight:500">'+d.done+'/'+d.total+'</span></div>'+
-      '<div class="pm-prog" style="margin-bottom:10px"><i style="width:'+pct+'%"></i></div>'+
+    var _tc=el("pm-bt-steps-c");if(_tc)_tc.textContent="("+d.done+"/"+d.total+")"; /* G4.8: tab count */
+    b.innerHTML='<div class="pm-prog" style="margin-bottom:10px"><i style="width:'+pct+'%"></i></div>'+
       '<div class="pm-chk-list'+(locked?' pm-chk-list--locked':'')+'">'+rows.map(chkRow).join("")+'</div>'+
-      '<div style="margin-top:10px">'+foot+'</div>';
+      '<div style="margin-top:10px">'+foot+'</div>'+chkAddHtml(locked);
+    wireChkAdd(b,task,wfState); /* G4.8b: + Thêm bước (no-op if terminal) */
     if(locked)return; // G4.2: terminal task -> no tick/untick wiring (read-only)
     Array.prototype.forEach.call(b.querySelectorAll(".pm-chk-item"),function(x){x.onclick=function(e){if(e)e.stopPropagation();
       if(b._chkBusy)return;b._chkBusy=true;b.style.pointerEvents="none"; /* guard double-click only on the checklist, not the modal */

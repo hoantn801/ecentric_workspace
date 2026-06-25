@@ -125,6 +125,27 @@ def set_item(task, row_name, is_done):
 
 
 @frappe.whitelist()
+def add_item(task, title, is_required=0):
+    """G4.8b: append ONE step to a task's checklist. Service-layer permission + canonical
+    terminal guard (no edits after Done/Cancelled). Title required + trimmed. Appends via
+    the standard Frappe document API (audit). No schema, no SQL. Returns the fresh summary."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    doc = frappe.get_doc("Task", task)
+    if not pmperm.can_view_task(doc.as_dict(), user):
+        frappe.throw(_("Not permitted to edit this task's checklist."), frappe.PermissionError)
+    pmperm.assert_task_not_terminal(
+        doc, _("Không thể chỉnh checklist sau khi nhiệm vụ đã hoàn thành/huỷ. Vui lòng Reopen trước."))
+    title = (title or "").strip()
+    if not title:
+        frappe.throw(_("Tên bước là bắt buộc."))
+    req = 1 if is_required in (1, "1", True, "true", "True", "yes") else 0
+    doc.append("pm_checklist", {"item_label": title, "is_required": req, "is_done": 0})
+    doc.save(ignore_permissions=True)  # service-layer gate above is the trust boundary; native audit
+    return _summary(frappe.get_doc("Task", task))
+
+
+@frappe.whitelist()
 def counts(task_names):
     """G4: batch checklist progress for a list of task names (read-only, no N calls).
     Names come from already permission-scoped frontend lists; counts are non-sensitive."""
@@ -181,10 +202,8 @@ def complete_task(task):
         undone_all = [d for d in items if not d.is_done]
         if undone_all:
             frappe.throw(_("Còn {0} mục chưa hoàn thành.").format(len(undone_all)))
-    # G4.8: cannot complete while open sub-tasks remain (parity with tasks.set_status guard).
-    if frappe.get_all("Task", filters={"parent_task": task,
-                                       "workflow_state": ["not in", ["Done", "Cancelled"]]},
-                      fields=["name"], limit_page_length=1):
+    # G4.8: cannot complete while open sub-tasks remain (canonical shared guard).
+    if pmperm.has_open_children(task):
         frappe.throw(_("Không thể hoàn thành nhiệm vụ khi vẫn còn nhiệm vụ con chưa đóng."))
     doc = apply_workflow(doc, "Hoàn thành")  # governed + audited; condition re-checked too
     return {"name": doc.name, "workflow_state": doc.get("workflow_state")}

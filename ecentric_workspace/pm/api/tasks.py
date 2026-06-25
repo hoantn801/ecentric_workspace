@@ -27,17 +27,8 @@ _FIELDS = [
 _EDITABLE = ("subject", "description", "priority", "exp_start_date", "exp_end_date", "project")
 
 # G4.8: actions on the PM Task Workflow that land a task in "Done".
+# Child-completion guard uses pmperm.has_open_children (canonical terminal semantics, shared).
 _DONE_ACTIONS = ("Mark Done", "Hoàn thành")
-
-
-def _has_open_children(name):
-    """G4.8 (authoritative): True if the task has any DIRECT child task not yet
-    Done/Cancelled. Used to block completing a parent while sub-tasks are open."""
-    return bool(frappe.get_all(
-        "Task",
-        filters={"parent_task": name, "workflow_state": ["not in", ["Done", "Cancelled"]]},
-        fields=["name"], limit_page_length=1,
-    ))
 
 
 def _names_map(emails):
@@ -527,8 +518,8 @@ def set_status(name, action):
     doc = frappe.get_doc("Task", name)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to change this task."), frappe.PermissionError)
-    # G4.8: cannot complete a parent while it still has open (non Done/Cancelled) sub-tasks.
-    if action in _DONE_ACTIONS and _has_open_children(name):
+    # G4.8: cannot complete a parent while it still has open sub-tasks (canonical terminal check).
+    if action in _DONE_ACTIONS and pmperm.has_open_children(name):
         frappe.throw(_("Không thể hoàn thành nhiệm vụ khi vẫn còn nhiệm vụ con chưa đóng."))
     doc = apply_workflow(doc, action)
     pmnotif.notify_users(pmnotif._task_recipients(doc.as_dict(), exclude=user),
@@ -564,3 +555,33 @@ def delete(name):
         frappe.throw(_("Không thể xoá: nhiệm vụ còn liên kết với dữ liệu khác. "
                        "Hãy gỡ liên kết hoặc huỷ nhiệm vụ."))
     return {"deleted": name}
+
+
+@frappe.whitelist()
+def subtree(name):
+    """G4.8 additive: ALL descendant tasks (multi-level) under `name`, returned as a flat
+    list carrying parent_task so the client builds the tree. No schema. Permission-checked
+    on the root; descendants are within the same project scope as the root. BFS per level
+    (one query per depth) to avoid N+1; a guard caps pathological depth."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    root = frappe.get_doc("Task", name)
+    if not pmperm.can_view_task(root.as_dict(), user):
+        frappe.throw(_("Not permitted to view this task."), frappe.PermissionError)
+    out, frontier, seen, guard = [], [name], set(), 0
+    while frontier and guard < 5000:
+        guard += 1
+        kids = frappe.get_all(
+            "Task", filters={"parent_task": ["in", frontier]},
+            fields=["name", "subject", "status", "workflow_state", "parent_task",
+                    "_assign", "exp_end_date", "priority", "is_group"],
+            order_by="creation asc", limit_page_length=0,
+        )
+        frontier = []
+        for k in kids:
+            if k["name"] in seen:
+                continue
+            seen.add(k["name"])
+            out.append(k)
+            frontier.append(k["name"])
+    return {"rows": out, "user_names": _names_map(_collect_assignees(out))}

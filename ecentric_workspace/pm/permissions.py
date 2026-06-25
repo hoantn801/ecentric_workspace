@@ -180,3 +180,14 @@ def assert_task_not_terminal(task, message=None):
     """Throw if the task is terminal. Reopen is the governed path to act again."""
     if is_task_terminal(task):
         frappe.throw(message or _("Nhiệm vụ đã hoàn thành/huỷ — vui lòng Reopen trước."))
+
+
+def has_open_children(parent_name):
+    """G4.8 (canonical, shared): True if a task has any DIRECT child task that is NOT
+    terminal — reusing is_task_terminal (workflow_state Done/Cancelled OR status
+    Completed/Cancelled/Closed). Single source of truth for the child-completion guard."""
+    kids = frappe.get_all(
+        "Task", filters={"parent_task": parent_name},
+        fields=["name", "workflow_state", "status"], limit_page_length=0,
+    )
+    return any(not is_task_terminal(k) for k in kids)
