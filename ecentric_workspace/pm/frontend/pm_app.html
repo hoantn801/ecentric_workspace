@@ -92,6 +92,9 @@
   .pm-pcard-mi:disabled{ color:var(--gray-300); cursor:not-allowed; background:transparent; }
   .pm-btn.danger{ background:#c0392b; color:#fff; border-color:#c0392b; }
   .pm-btn.danger:hover{ background:#a52f22; }
+  /* UIUX-3: task list action column (⋯ menu) */
+  .pm-tbl th.pm-act-col, .pm-tbl td.pm-act-col{ width:40px; text-align:right; padding-right:8px; white-space:nowrap; }
+  .pm-tbl td.pm-act-col .pm-pcard-menu{ display:inline-block; }
   .pm-pcard-meta{ font-size:12px; color:var(--gray-500); margin-bottom:12px; display:flex; flex-wrap:wrap; gap:4px 10px; }
   .pm-pcard-prog{ display:flex; align-items:center; gap:10px; }
   .pm-pcard-prog .pm-prog{ flex:1; }
@@ -892,6 +895,21 @@
     return '<div class="pm-pcard-menu"><button class="pm-pcard-menu-btn" data-menu="'+esc(p.name)+'" aria-label="Tác vụ">⋯</button><div class="pm-pcard-menu-pop" data-menupop="'+esc(p.name)+'">'+items+'</div></div>';}
   function pmCloseProjMenus(except){Array.prototype.forEach.call(document.querySelectorAll(".pm-pcard-menu-pop.open"),function(m){if(m!==except)m.classList.remove("open");});}
   if(!window._pmProjMenuDocInit){window._pmProjMenuDocInit=1;document.addEventListener("click",function(){pmCloseProjMenus(null);});} /* click outside closes any open project menu */
+  /* UIUX-3: task action menu (Xoá nhiệm vụ) — leader only. Reuses project menu CSS + pmCloseProjMenus + pm-d-sm confirm. */
+  function pmCanDeleteTask(){return !!window._isLeader;}
+  function pmTaskMenuHtml(name){if(!pmCanDeleteTask())return "";
+    return '<div class="pm-pcard-menu"><button class="pm-pcard-menu-btn" data-tmenu="'+esc(name)+'" aria-label="Tác vụ">⋯</button><div class="pm-pcard-menu-pop" data-tmenupop="'+esc(name)+'"><button class="pm-pcard-mi danger" data-tact="del" data-task="'+esc(name)+'">Xoá nhiệm vụ</button></div></div>';}
+  function pmWireTaskMenus(scope){if(!scope)return;
+    Array.prototype.forEach.call(scope.querySelectorAll(".pm-pcard-menu-btn[data-tmenu]"),function(b){b.onclick=function(e){e.stopPropagation();var pop=b.parentNode.querySelector(".pm-pcard-menu-pop");var willOpen=!pop.classList.contains("open");pmCloseProjMenus(pop);pop.classList.toggle("open",willOpen);};});
+    Array.prototype.forEach.call(scope.querySelectorAll(".pm-pcard-mi[data-tact=del]"),function(b){b.onclick=function(e){e.stopPropagation();if(b.disabled)return;pmCloseProjMenus(null);confirmDeleteTask(b.getAttribute("data-task"));};});}
+  function confirmDeleteTask(name){openD();el("pm-drawer").classList.add("pm-d-sm");el("pm-dt").textContent="Xoá nhiệm vụ";var c=el("pm-dbody");c.classList.remove("pm-cols");spin(c);
+    api(PM+"tasks.get",{name:name}).then(function(res){var t=(res&&res.task)||{};var subj=t.subject||name;
+      c.innerHTML='<div style="padding:2px 0 14px;font-size:13.5px;color:var(--gray-700);line-height:1.5">Bạn sắp xoá vĩnh viễn nhiệm vụ <b>'+esc(subj)+'</b> (<code>'+esc(name)+'</code>).<br><span style="color:#c0392b;font-weight:600">Hành động này không thể hoàn tác.</span></div>'+
+        '<div style="display:flex;gap:8px"><button class="pm-btn danger" id="td-del">Xoá vĩnh viễn</button><button class="pm-btn" id="td-cancel">Huỷ</button></div>';
+      el("td-cancel").onclick=closeD;
+      el("td-del").onclick=function(){var btn=this;btn.disabled=true;btn.textContent="Đang xoá...";
+        api(PM+"tasks.delete",{name:name}).then(function(){toast("Đã xoá nhiệm vụ");closeD();refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Xoá vĩnh viễn";});};
+    }).catch(function(e){c.innerHTML='<div class="pm-err">'+esc(errOf(e))+'</div>';});}
   function renderProjectCards(c){var rows=pmFilterProjects(); if(!rows.length){return emptyBox(c,"Không có dự án phù hợp.");}
     c.innerHTML='<div class="pm-pcards">'+rows.map(function(p){var prog=(p.progress!=null?p.progress:(p.percent_complete||0));
       return '<div class="pm-pcard" data-proj="'+esc(p.name)+'"><div class="pm-pcard-top"><div class="pm-pcard-name">'+esc(p.project_name||p.name)+'</div><div class="pm-pcard-top-r"><span class="pm-badge '+pst(p.status)+'">'+esc(p.status||"-")+'</span>'+pmProjMenuHtml(p)+'</div></div>'+
@@ -962,10 +980,10 @@
     var pri=t.priority?'<span class="pm-tag '+({Urgent:"tg-urgent",High:"tg-high",Medium:"tg-medium",Low:"tg-low"}[t.priority]||"tg-low")+'">'+esc(t.priority)+'</span>':'<span style="color:var(--gray-300)">-</span>';
     var lead=hasChildren?'<span class="pd-tcaret'+(collapsed?' collapsed':'')+'" data-tcol="'+esc(t.name)+'" title="Thu/mở">▾</span>':(depth>0?'<span class="pd-tlead">↳</span>':'<span class="pd-tcaret-sp"></span>');
     var cnt=hasChildren?' <span class="pd-tcount">'+childCount+' nv con</span>':'';
-    return '<tr data-task="'+esc(t.name)+'" class="pd-trow'+(depth>0?' pd-child':'')+'"><td class="t-main"><span class="pd-tname" style="padding-left:'+(depth*20)+'px">'+lead+'<span class="pd-ttitle">'+esc(t.subject||t.name)+'</span>'+cnt+'</span></td><td>'+badge(t.workflow_state)+'</td><td>'+pri+'</td><td>'+esc(t.exp_end_date||'-')+'</td><td>'+(a.length?'<span class="pm-mini-av" title="'+esc(a[0])+'">'+ini(a[0])+'</span>':'<span style="color:var(--gray-400)">-</span>')+'</td></tr>';}
+    return '<tr data-task="'+esc(t.name)+'" class="pd-trow'+(depth>0?' pd-child':'')+'"><td class="t-main"><span class="pd-tname" style="padding-left:'+(depth*20)+'px">'+lead+'<span class="pd-ttitle">'+esc(t.subject||t.name)+'</span>'+cnt+'</span></td><td>'+badge(t.workflow_state)+'</td><td>'+pri+'</td><td>'+esc(t.exp_end_date||'-')+'</td><td>'+(a.length?'<span class="pm-mini-av" title="'+esc(a[0])+'">'+ini(a[0])+'</span>':'<span style="color:var(--gray-400)">-</span>')+'</td>'+(window._isLeader?'<td class="pm-act-col">'+pmTaskMenuHtml(t.name)+'</td>':'')+'</tr>';}
   function pdTaskTable(host,rows){if(!host)return;rows=rows||[];
     if(!rows.length){return emptyBox(host,"Chưa có nhiệm vụ.");}
-    var head='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Nhiệm vụ</th><th>Trạng thái</th><th>Ưu tiên</th><th>Hạn</th><th>Người nhận</th></tr></thead><tbody>';
+    var head='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Nhiệm vụ</th><th>Trạng thái</th><th>Ưu tiên</th><th>Hạn</th><th>Người nhận</th>'+(window._isLeader?'<th class="pm-act-col"></th>':'')+'</tr></thead><tbody>';
     var body="";
     if(window._pdFilter){ /* filtered -> flat (avoid orphaned children) */
       var fr=pdFilterRows(rows);
@@ -983,6 +1001,7 @@
     }
     host.innerHTML=head+body+'</tbody></table></div>';
     Array.prototype.forEach.call(host.querySelectorAll("tr[data-task]"),function(tr){tr.onclick=function(){openTask(tr.getAttribute("data-task"));};});
+    pmWireTaskMenus(host);
     Array.prototype.forEach.call(host.querySelectorAll(".pd-tcaret[data-tcol]"),function(x){x.onclick=function(e){e.stopPropagation();var id=x.getAttribute("data-tcol");window._pdTreeCollapsed=window._pdTreeCollapsed||{};window._pdTreeCollapsed[id]=!window._pdTreeCollapsed[id];pdTaskTable(host,rows);};});}
   function renderSumInto(host,m){if(!host)return;var ks=Object.keys(m||{}).sort().reverse();if(!ks.length){return emptyBox(host,"Không có dữ liệu.");}
     host.innerHTML='<table class="pm-tbl"><tbody>'+ks.map(function(k){return '<tr><td class="t-main">'+esc(k)+'</td><td style="text-align:right">'+(Math.round(m[k]*100)/100)+'h</td></tr>';}).join("")+'</tbody></table>';}
@@ -1077,13 +1096,14 @@
   function renderTasks(){taskTable(el("pm-ttbl"),filteredTasks());}
 
   function taskTable(c,rows,compact){ if(!rows||!rows.length){return emptyBox(c,"Chưa có nhiệm vụ.");}
-    var h='<table class="pm-tbl"><thead><tr><th>Nhiệm vụ</th><th>Trạng thái</th><th>Dự án</th>'+(compact?'':'<th>Hạn</th>')+'<th>Người nhận</th></tr></thead><tbody>';
+    var h='<table class="pm-tbl"><thead><tr><th>Nhiệm vụ</th><th>Trạng thái</th><th>Dự án</th>'+(compact?'':'<th>Hạn</th>')+'<th>Người nhận</th>'+(window._isLeader?'<th class="pm-act-col"></th>':'')+'</tr></thead><tbody>';
     rows.forEach(function(t){var a=names(t._assign);
       var tg=tagsCompact(t,3);
       h+='<tr data-task="'+esc(t.name)+'"><td class="t-main">'+esc(t.subject||t.name)+(tg?'<div class="pm-tags" style="margin-top:4px">'+tg+'</div>':'')+'</td><td>'+badge(t.workflow_state)+'</td><td>'+esc(t.project||"-")+'</td>'+
-        (compact?'':'<td>'+esc(t.exp_end_date||"-")+'</td>')+'<td>'+(a.length?'<span class="pm-mini-av">'+ini(a[0])+'</span>':'<span style="color:var(--gray-400)">-</span>')+'</td></tr>';});
+        (compact?'':'<td>'+esc(t.exp_end_date||"-")+'</td>')+'<td>'+(a.length?'<span class="pm-mini-av">'+ini(a[0])+'</span>':'<span style="color:var(--gray-400)">-</span>')+'</td>'+(window._isLeader?'<td class="pm-act-col">'+pmTaskMenuHtml(t.name)+'</td>':'')+'</tr>';});
     c.innerHTML=h+'</tbody></table>';
-    Array.prototype.forEach.call(c.querySelectorAll("tr[data-task]"),function(tr){tr.onclick=function(){openTask(tr.getAttribute("data-task"));};});}
+    Array.prototype.forEach.call(c.querySelectorAll("tr[data-task]"),function(tr){tr.onclick=function(){openTask(tr.getAttribute("data-task"));};});
+    pmWireTaskMenus(c);}
 
   function showBoard(){var c=el("pm-view");spin(c);
     loadTasks(function(){
@@ -1236,7 +1256,7 @@
       var _seen={};tr=tr.filter(function(x){if(_seen[x.action])return false;_seen[x.action]=1;return true;});
       el("pm-dt").textContent=t.subject||name;
       var h='<div class="pm-dcols"><div class="pm-d-main">'+
-        '<div class="pm-dtopbar"><div class="pm-tags">'+badge(t.workflow_state)+taskTags(t)+'</div></div>'+
+        '<div class="pm-dtopbar"><div class="pm-tags">'+badge(t.workflow_state)+taskTags(t)+'</div>'+pmTaskMenuHtml(name)+'</div>'+
         '<div class="pm-dsec">Thông tin chính</div>'+
         '<div class="pm-props">'+
           '<div class="pm-prop"><label>Dự án</label><div class="v">'+esc(t.project||"-")+'</div></div>'+
@@ -1264,6 +1284,7 @@
         '<button class="pm-ic-btn" type="button" disabled title="Nhắc tới người (sắp có)">@</button></div>'+
         '<button class="pm-btn primary" id="pm-cmt-send">'+SVG_SEND+'Gửi</button></div></div></div></div>';
       c.innerHTML=h;c.classList.add("pm-cols");
+      pmWireTaskMenus(c); /* UIUX-3: task detail header ⋯ -> Xoá nhiệm vụ */
       Array.prototype.forEach.call(c.querySelectorAll(".pm-act"),function(b){b.onclick=function(){b.disabled=true;
         api(PM+"tasks.set_status",{name:name,action:b.getAttribute("data-act")}).then(function(r){toast("Trạng thái: "+r.workflow_state);openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};});
       if(el("pm-asgb"))el("pm-asgb").onclick=function(){var v=el("pm-asg").value.trim();if(!v){toast("Nhập email",true);return;}

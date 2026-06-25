@@ -468,3 +468,31 @@ def set_status(name, action):
                          name, event_type="mention", severity="info",
                          due_suffix=doc.get("workflow_state"))
     return {"name": doc.name, "workflow_state": doc.get("workflow_state")}
+
+
+@frappe.whitelist()
+def delete(name):
+    """Controlled hard-delete of a Task. LEADER-ONLY (can_see_all_pm_data). Allowed only
+    when the task has NO dependents (authoritative server-side checks; never trusts the
+    frontend): no child task, no Running/Paused PM Timer, no Timesheet Detail log. Uses
+    the standard frappe.delete_doc (no SQL, no force, no manual cascade) so Frappe's own
+    link checks still run; if any other document links the task, a clear error is returned.
+    """
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    if not pmperm.can_see_all_pm_data(user):
+        frappe.throw(_("Only PM leaders can delete tasks."), frappe.PermissionError)
+    if not frappe.db.exists("Task", name):
+        frappe.throw(_("Task not found."))
+    if frappe.db.count("Task", {"parent_task": name}):
+        frappe.throw(_("Nhiệm vụ có công việc con và không thể xoá."))
+    if frappe.db.count("PM Timer", {"task": name, "status": ["in", ["Running", "Paused"]]}):
+        frappe.throw(_("Nhiệm vụ đang có timer và không thể xoá."))
+    if frappe.db.count("Timesheet Detail", {"task": name}):
+        frappe.throw(_("Nhiệm vụ đã có log giờ và không thể xoá. Hãy huỷ nhiệm vụ thay vì xoá."))
+    try:
+        frappe.delete_doc("Task", name, ignore_permissions=True)  # service layer is the gate; no force -> link checks apply
+    except frappe.LinkExistsError:
+        frappe.throw(_("Không thể xoá: nhiệm vụ còn liên kết với dữ liệu khác. "
+                       "Hãy gỡ liên kết hoặc huỷ nhiệm vụ."))
+    return {"deleted": name}
