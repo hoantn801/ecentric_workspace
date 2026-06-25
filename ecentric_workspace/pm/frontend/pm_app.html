@@ -117,6 +117,18 @@
   .pm-chk-addform{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
   .pm-chk-addform .pm-chk-title{ flex:1; min-width:160px; }
   .pm-chk-reqlbl{ font-size:12.5px; color:var(--gray-600); display:flex; align-items:center; gap:5px; white-space:nowrap; }
+  /* G4.8c: global-list hierarchy + assignee name + kanban card sub/lock */
+  .pm-tt-name{ display:inline-flex; align-items:center; gap:6px; }
+  .pm-tt-caret{ cursor:pointer; color:var(--gray-400); font-size:11px; width:14px; display:inline-block; text-align:center; }
+  .pm-tt-caret.collapsed{ display:inline-block; transform:rotate(-90deg); }
+  .pm-tt-lead{ color:var(--gray-300); width:14px; display:inline-block; text-align:center; }
+  .pm-tt-sp{ width:14px; display:inline-block; }
+  .pm-asg-name{ display:inline-flex; align-items:center; gap:6px; }
+  .pm-asg-fn{ font-size:12.5px; color:var(--gray-700); overflow:hidden; text-overflow:ellipsis; }
+  .c-sub{ font-size:11.5px; color:var(--gray-500); margin-top:4px; }
+  .pm-card-locked{ opacity:.92; cursor:default; }
+  .pm-lock{ margin-left:6px; font-size:11px; }
+  .pm-board-readonly .pm-card{ cursor:default; }
   /* 2-card layout: gray body, white content + comments cards, 16px gap, comments ~360px */
   .pm-drawer.expanded .body.pm-cols{ background:var(--gray-50); }
   .pm-drawer.expanded .body.pm-cols .pm-dcols{ gap:16px; padding:16px; grid-template-columns:minmax(0,1fr) 360px; }
@@ -1058,13 +1070,17 @@
     if(isOverdue(t))P.push('<span class="pm-tag tg-overdue">Quá hạn</span>');
     if(pr==="Urgent")P.push('<span class="pm-tag tg-urgent">Urgent</span>');
     if(window._activeTimer&&window._activeTimer.task===t.name)P.push('<span class="pm-tag tg-timer"><span class="tg-dot"></span>Đang chạy</span>');
-    if(pr&&pr!=="Urgent")S.push('<span class="pm-tag '+({High:"tg-high",Medium:"tg-medium",Low:"tg-low"}[pr]||"tg-low")+'">'+esc(pr)+'</span>');
+    if(pr&&pr!=="Urgent"&&pr!=="Low")S.push('<span class="pm-tag '+({High:"tg-high",Medium:"tg-medium"}[pr]||"tg-medium")+'">'+esc(pr)+'</span>'); /* G4.8c: Low has no badge */
     if(window._recSet&&window._recSet[t.name])S.push('<span class="pm-tag tg-recurring">Lặp</span>');
-    if(a.length===0)S.push('<span class="pm-tag tg-noassignee">Chưa giao</span>');
+    /* G4.8c: no "Chưa giao" tag here — the assignee column already conveys it (gray). */
     if(!t.exp_end_date)S.push('<span class="pm-tag tg-nodue">Chưa có hạn</span>');
     return P.concat(S);}
   function taskTags(t){return taskTagList(t).join("");}
   function tagsCompact(t,max){var arr=taskTagList(t);max=max||3;if(arr.length<=max)return arr.join("");return arr.slice(0,max).join("")+'<span class="pm-tag tg-more">+'+(arr.length-max)+'</span>';}
+  /* G4.8c display helpers: project name + tooltip ID; assignee avatar/name + tooltip name·email; priority (Low hidden). */
+  function pmProjLabel(t){var nm=t.project_name||t.project||"";if(!nm)return '<span style="color:var(--gray-400)" title="Không thuộc dự án nào">Ngoài dự án</span>';var tip=t.project?(esc(t.project_name||t.project)+" · "+esc(t.project)):esc(nm);return '<span title="'+tip+'">'+esc(nm)+'</span>';}
+  function pmAssignee(t,wide){var a=names(t._assign);if(!a.length)return '<span style="color:var(--gray-400)">'+(wide?"Chưa giao":"—")+'</span>';var e=a[0];var fn=(window._pmUserNames&&window._pmUserNames[e])||e;var tip=esc(fn)+" · "+esc(e);var av='<span class="pm-mini-av" title="'+tip+'">'+ini(e)+'</span>';var more=a.length>1?'<span class="pm-tag tg-more" title="'+esc(a.slice(1).join(", "))+'">+'+(a.length-1)+'</span>':'';return wide?('<span class="pm-asg-name" title="'+tip+'">'+av+'<span class="pm-asg-fn">'+esc(fn)+'</span>'+more+'</span>'):(av+more);}
+  function pmPriBadge(p){if(!p||p==="Low")return '';var cls={Urgent:"tg-urgent",High:"tg-high",Medium:"tg-medium"}[p]||"tg-medium";return '<span class="pm-tag '+cls+'">'+esc(p)+'</span>';}
   function presetMatch(t){var p=F.preset;if(!p)return true;var u=window._pmUser||"";var td=new Date().toISOString().slice(0,10);var asg=names(t._assign);var due=t.exp_end_date||"";
     if(p==="mine")return asg.indexOf(u)>=0;
     if(p==="today")return due===td;
@@ -1077,15 +1093,24 @@
     return true;}
   function presetBar(){var P=[["mine","My Tasks"],["today","Due Today"],["week","This Week"],["overdue","Overdue"],["blocked","Blocked"],["review","Waiting Review"],["noassignee","No Assignee"],["nodue","No Due Date"]];
     return '<div class="pm-filters" style="margin-bottom:8px">'+P.map(function(p){return '<button class="pm-btn pm-preset'+(F.preset===p[0]?" primary":"")+'" data-preset="'+p[0]+'">'+p[1]+'</button>';}).join("")+'</div>';}
-  function filteredTasks(){return (window._pm_tasks||[]).filter(function(t){
-    if(!presetMatch(t))return false;
-    if(F.status&&t.workflow_state!==F.status)return false;
-    if(F.project&&t.project!==F.project)return false;
-    if(F.priority&&t.priority!==F.priority)return false;
-    if(F.assignee&&names(t._assign).indexOf(F.assignee)<0)return false;
-    if(F.overdue&&!isOverdue(t))return false;
-    if(F.q&&(t.subject||t.name).toLowerCase().indexOf(F.q)<0)return false;
-    return true;});}
+  function filteredTasks(){var all=window._pm_tasks||[];
+    function match(t){
+      if(!presetMatch(t))return false;
+      if(F.status&&t.workflow_state!==F.status)return false;
+      if(F.project&&t.project!==F.project)return false;
+      if(F.priority&&t.priority!==F.priority)return false;
+      if(F.assignee&&names(t._assign).indexOf(F.assignee)<0)return false;
+      if(F.overdue&&!isOverdue(t))return false;
+      if(F.q&&(t.subject||t.name).toLowerCase().indexOf(F.q)<0)return false;
+      return true;}
+    var base=all.filter(match);
+    if(!F.q)return base;
+    /* G4.8c: search keeps parent context — pull in ancestors of matched tasks so the child
+       is shown under its parent chain (not lost / orphaned). */
+    var idx={};all.forEach(function(t){idx[t.name]=t;});
+    var inSet={};base.forEach(function(t){inSet[t.name]=t;});
+    base.slice().forEach(function(t){var p=t.parent_task,g=0;while(p&&idx[p]&&!inSet[p]&&g<50){inSet[p]=idx[p];p=idx[p].parent_task;g++;}});
+    return Object.keys(inSet).map(function(k){return inSet[k];});}
   function uniq(a){var o={},r=[];a.forEach(function(x){if(x&&!o[x]){o[x]=1;r.push(x);}});return r;}
   function opt(v,l,sel){return '<option value="'+esc(v)+'"'+(sel===v?' selected':'')+'>'+esc(l)+'</option>';}
   function filterBar(){var ts=window._pm_tasks||[];
@@ -1112,7 +1137,7 @@
   function segActions(active){return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div class="seg"><button data-seg="list" class="'+(active==="list"?"active":"")+'">Danh sách</button><button data-seg="board" class="'+(active==="board"?"active":"")+'">Kanban</button></div><button class="pm-btn primary" data-new="1"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button></div>';}
   function wireSeg(){Array.prototype.forEach.call(el("pm-view").querySelectorAll("[data-seg]"),function(b){b.onclick=function(){b.getAttribute("data-seg")==="board"?showBoard():showTasks();};});var n=el("pm-view").querySelector("[data-new]");if(n)n.onclick=function(){newTask(null);};}
   // ---- Unified "Công việc" page: tabbed views (Danh sách/Kanban/Lịch/Gantt/Bảng) ----
-  function workTabs(active){var T=[["tasks","list","Danh sách"],["board","board","Kanban"],["calendar","calendar","Lịch"],["gantt","gantt","Gantt"],["table","table","Bảng"]];
+  function workTabs(active){var T=[["tasks","list","Danh sách"],["board","board","Kanban"],["calendar","calendar","Lịch"],["gantt","gantt","Gantt"]]; /* G4.8c: removed "Bảng" tab (showTasks(true) code kept for safety) */
     return '<div class="seg work-tabs">'+T.map(function(t){return '<button data-wt="'+t[0]+'"'+(active===t[1]?' class="active"':'')+'>'+t[2]+'</button>';}).join("")+'</div>';}
   function workHeader(active){return '<div class="pm-head"><div><h1>Công việc</h1></div><div>'+workTabs(active)+'</div></div>';}
   function wireWorkTabs(){Array.prototype.forEach.call(el("pm-view").querySelectorAll("[data-wt]"),function(b){b.onclick=function(){go(b.getAttribute("data-wt"));};});var n=el("pm-view").querySelector("[data-new]");if(n)n.onclick=function(){newTask(null);};}
@@ -1127,13 +1152,24 @@
   function renderTasks(){taskTable(el("pm-ttbl"),filteredTasks());}
 
   function taskTable(c,rows,compact){ if(!rows||!rows.length){return emptyBox(c,"Chưa có nhiệm vụ.");}
-    var h='<table class="pm-tbl"><thead><tr><th>Nhiệm vụ</th><th>Trạng thái</th><th>Dự án</th>'+(compact?'':'<th>Hạn</th>')+'<th>Người nhận</th>'+(window._isLeader?'<th class="pm-act-col"></th>':'')+'</tr></thead><tbody>';
-    rows.forEach(function(t){var a=names(t._assign);
-      var tg=tagsCompact(t,3);
-      h+='<tr data-task="'+esc(t.name)+'"><td class="t-main">'+esc(t.subject||t.name)+(tg?'<div class="pm-tags" style="margin-top:4px">'+tg+'</div>':'')+'</td><td>'+badge(t.workflow_state)+'</td><td>'+esc(t.project||"-")+'</td>'+
-        (compact?'':'<td>'+esc(t.exp_end_date||"-")+'</td>')+'<td>'+(a.length?'<span class="pm-mini-av">'+ini(a[0])+'</span>':'<span style="color:var(--gray-400)">-</span>')+'</td>'+(window._isLeader?'<td class="pm-act-col">'+pmTaskMenuHtml(t.name)+'</td>':'')+'</tr>';});
-    c.innerHTML=h+'</tbody></table>';
+    var lead=!!window._isLeader;
+    var head='<table class="pm-tbl"><thead><tr><th>Nhiệm vụ</th><th>Trạng thái</th><th>Dự án</th>'+(compact?'':'<th>Hạn</th>')+'<th>Người nhận</th>'+(lead?'<th class="pm-act-col"></th>':'')+'</tr></thead><tbody>';
+    function rowHtml(t,depth,hasKids,collapsed){var tg=tagsCompact(t,3);
+      var caret=hasKids?'<span class="pm-tt-caret'+(collapsed?' collapsed':'')+'" data-ttcol="'+esc(t.name)+'">▾</span>':(depth>0?'<span class="pm-tt-lead">↳</span>':'<span class="pm-tt-sp"></span>');
+      return '<tr data-task="'+esc(t.name)+'"><td class="t-main"><span class="pm-tt-name" style="padding-left:'+(Math.min(depth,6)*18)+'px">'+caret+'<span>'+esc(t.subject||t.name)+'</span></span>'+(tg?'<div class="pm-tags" style="margin-top:4px">'+tg+'</div>':'')+'</td><td>'+badge(t.workflow_state)+'</td><td>'+pmProjLabel(t)+'</td>'+
+        (compact?'':'<td>'+esc(t.exp_end_date||"-")+'</td>')+'<td>'+pmAssignee(t,!compact)+'</td>'+(lead?'<td class="pm-act-col">'+pmTaskMenuHtml(t.name)+'</td>':'')+'</tr>';}
+    var body="";
+    if(compact){ rows.forEach(function(t){body+=rowHtml(t,0,false,false);}); }
+    else { /* G4.8c: hierarchy — roots then nested children (parent_task), caret expand/collapse */
+      var ids={};rows.forEach(function(t){ids[t.name]=t;});
+      var byParent={},roots=[];rows.forEach(function(t){var p=t.parent_task;if(p&&ids[p]){(byParent[p]=byParent[p]||[]).push(t);}else{roots.push(t);}});
+      window._gtCollapsed=window._gtCollapsed||{};
+      function walk(t,depth){var kids=byParent[t.name]||[];var hk=kids.length>0;var col=!!window._gtCollapsed[t.name];body+=rowHtml(t,depth,hk,col);if(hk&&!col)kids.forEach(function(k){walk(k,depth+1);});}
+      roots.forEach(function(t){walk(t,0);});
+    }
+    c.innerHTML=head+body+'</tbody></table>';
     Array.prototype.forEach.call(c.querySelectorAll("tr[data-task]"),function(tr){tr.onclick=function(){openTask(tr.getAttribute("data-task"));};});
+    Array.prototype.forEach.call(c.querySelectorAll(".pm-tt-caret[data-ttcol]"),function(x){x.onclick=function(e){e.stopPropagation();var id=x.getAttribute("data-ttcol");window._gtCollapsed[id]=!window._gtCollapsed[id];taskTable(c,rows,compact);};});
     pmWireTaskMenus(c);}
 
   function showBoard(){var c=el("pm-view");spin(c);
@@ -1143,14 +1179,22 @@
       wireWorkTabs(); wireFilters(renderBoard); renderBoard();
     },c);}
   function renderBoard(){renderBoardInto(el("pm-boardwrap"),filteredTasks(),showBoard);}
-  function renderBoardInto(host,rows,after){var by={};COLS.forEach(function(s){by[s]=[];});rows.forEach(function(t){var s=t.workflow_state||"Backlog";(by[s]=by[s]||[]).push(t);});
-    host.innerHTML='<div class="pm-board">'+COLS.map(function(s){return '<div class="pm-col" data-col="'+esc(s)+'"><h3>'+badge(s)+'<span class="col-count">'+by[s].length+'</span></h3><div class="col-body" data-body="'+esc(s)+'">'+by[s].map(card).join("")+'</div></div>';}).join("")+'</div>';
+  function renderBoardInto(host,rows,after){var allRows=rows||[];
+    /* G4.8c: child counts from the full set, then render ONLY root tasks as cards. */
+    var kids={};allRows.forEach(function(t){if(t.parent_task){var k=kids[t.parent_task]||(kids[t.parent_task]={t:0,d:0});k.t++;if(["Done","Cancelled"].indexOf(t.workflow_state)>=0)k.d++;}});
+    window._pmBoardKids=kids;
+    var roots=allRows.filter(function(t){return !t.parent_task;});
+    var by={};COLS.forEach(function(s){by[s]=[];});roots.forEach(function(t){var s=t.workflow_state||"Backlog";(by[s]=by[s]||[]).push(t);});
+    /* G4.8c: drag only when the user can transition (leader). Precise per-card transition gating -> G4.10. */
+    window._pmBoardCanDrag=!!window._isLeader;
+    host.innerHTML='<div class="pm-board'+(window._pmBoardCanDrag?'':' pm-board-readonly')+'">'+COLS.map(function(s){return '<div class="pm-col" data-col="'+esc(s)+'"><h3>'+badge(s)+'<span class="col-count">'+by[s].length+'</span></h3><div class="col-body" data-body="'+esc(s)+'">'+by[s].map(card).join("")+'</div></div>';}).join("")+'</div>';
     wireBoard(host,after);}
-  function card(t){var a=names(t._assign);var tags=tagsCompact(t,2);
-    return '<div class="pm-card'+(isOverdue(t)?' card-overdue':'')+'" draggable="true" data-task="'+esc(t.name)+'" data-state="'+esc(t.workflow_state)+'">'+
-      '<div class="c-title">'+esc(t.subject||t.name)+'</div>'+
+  function card(t){var kids=(window._pmBoardKids&&window._pmBoardKids[t.name]);var tags=tagsCompact(t,2);var canDrag=window._pmBoardCanDrag!==false;
+    return '<div class="pm-card'+(isOverdue(t)?' card-overdue':'')+(canDrag?'':' pm-card-locked')+'"'+(canDrag?' draggable="true"':'')+' data-task="'+esc(t.name)+'" data-state="'+esc(t.workflow_state)+'">'+
+      '<div class="c-title">'+esc(t.subject||t.name)+(canDrag?'':'<span class="pm-lock" title="Chỉ xem — bạn không có quyền chuyển trạng thái">🔒</span>')+'</div>'+
       (tags?'<div class="c-tags pm-tags">'+tags+'</div>':'')+
-      '<div class="c-meta"><span>'+esc(t.exp_end_date||t.project||"")+'</span>'+(a.length?'<span class="pm-mini-av" title="'+esc(a[0])+'">'+ini(a[0])+'</span>':'')+'</div></div>';}
+      (kids?'<div class="c-sub">'+kids.d+'/'+kids.t+' nhiệm vụ con</div>':'')+
+      '<div class="c-meta">'+pmProjLabel(t)+pmAssignee(t,false)+'</div></div>';}
   function wireBoard(c,after){
     Array.prototype.forEach.call(c.querySelectorAll(".pm-card"),function(k){
       k.onclick=function(){openTask(k.getAttribute("data-task"));};
@@ -1315,9 +1359,9 @@
         '<div class="pm-dtopbar"><div class="pm-tags">'+badge(t.workflow_state)+taskTags(t)+'</div><div class="pm-dtopbar-r">'+(pmTerminal(t)?'':'<button class="pm-btn pm-addsub-top" id="pm-addsub-top">+ Nhiệm vụ con</button>')+pmTaskMenuHtml(name)+'</div></div>'+
         '<div class="pm-dsec">Thông tin chính</div>'+
         '<div class="pm-props">'+
-          '<div class="pm-prop"><label>Dự án</label><div class="v">'+esc(t.project||"-")+'</div></div>'+
+          '<div class="pm-prop"><label>Dự án</label><div class="v">'+pmProjLabel(t)+'</div></div>'+
           '<div class="pm-prop"><label>Ưu tiên</label><div class="v"><span class="pm-inline" data-inline="priority">'+renderInlineDisplay("priority",t)+'</span></div></div>'+
-          '<div class="pm-prop" style="grid-column:1/-1"><label>Người nhận</label><div class="v">'+(a.length?a.slice(0,5).map(function(u){return '<span class="pm-assignee-chip"><span class="pm-mini-av" title="'+esc(u)+'">'+ini(u)+'</span>'+esc(u)+'</span>';}).join("")+(a.length>5?'<span class="pm-tag tg-more">+'+(a.length-5)+'</span>':''):'<span style="color:var(--gray-400)">Chưa giao</span>')+'</div></div>'+
+          '<div class="pm-prop" style="grid-column:1/-1"><label>Người nhận</label><div class="v">'+(a.length?a.slice(0,5).map(function(u){var fn=(window._pmUserNames&&window._pmUserNames[u])||u;return '<span class="pm-assignee-chip" title="'+esc(fn)+' · '+esc(u)+'"><span class="pm-mini-av">'+ini(u)+'</span>'+esc(fn)+'</span>';}).join("")+(a.length>5?'<span class="pm-tag tg-more">+'+(a.length-5)+'</span>':''):'<span style="color:var(--gray-400)">Chưa giao</span>')+'</div></div>'+
           '<div class="pm-prop"><label>Bắt đầu</label><div class="v"><span class="pm-inline" data-inline="start">'+renderInlineDisplay("start",t)+'</span></div></div>'+
           '<div class="pm-prop"><label>Hạn</label><div class="v"><span class="pm-inline" data-inline="end">'+renderInlineDisplay("end",t)+'</span></div></div>'+
         '</div>'+
@@ -1413,14 +1457,14 @@
   function _niFix(c){Array.prototype.forEach.call(c.querySelectorAll(".ni"),function(i){i.style.backgroundImage="none";i.style.paddingLeft="11px";i.style.width="100%";});}
   function newTask(project,parentTask,onCreated){openD();el("pm-dt").textContent=parentTask?"Tạo nhiệm vụ con":"Tạo nhiệm vụ";var c=el("pm-dbody");c.classList.remove("pm-cols");clearDtInline();spin(c);
     api(PM+"projects.list",{page_length:200}).then(function(r){var rows=r.rows||[];
-      if(!rows.length){c.innerHTML='<div class="pm-err">Chưa có dự án trong phạm vi để tạo nhiệm vụ.</div>';return;}
-      var opts=rows.map(function(p){return '<option value="'+esc(p.name)+'"'+(p.name===project?' selected':'')+'>'+esc(p.project_name||p.name)+'</option>';}).join("");
+      /* G4.8c: task ngoài dự án — project is optional; never force a selection. */
+      var opts='<option value=""'+(!project?' selected':'')+'>— Ngoài dự án —</option>'+rows.map(function(p){return '<option value="'+esc(p.name)+'"'+(p.name===project?' selected':'')+'>'+esc(p.project_name||p.name)+'</option>';}).join("");
       var pri=["Low","Medium","High","Urgent"].map(function(x){return '<option'+(x==="Medium"?' selected':'')+'>'+x+'</option>';}).join("");
       var subBanner=parentTask?'<div style="background:var(--navy-50);border:1px solid var(--navy-100);border-radius:8px;padding:9px 12px;margin-bottom:14px;font-size:12.5px;color:var(--navy)">Tạo <b>nhiệm vụ con</b> — dự án &amp; nhiệm vụ cha đã chọn sẵn bên dưới.</div>':'';
       c.innerHTML=subBanner+
         '<div class="pm-dsec">Cơ bản</div>'+
         pmFieldInput("Tiêu đề *",'<input class="pm-input ni" id="nt-subject" placeholder="Bạn cần làm gì?">')+
-        pmFieldInput("Dự án *",'<select class="pm-sel" id="nt-project" style="width:100%">'+opts+'</select>')+
+        pmFieldInput("Dự án",'<select class="pm-sel" id="nt-project" style="width:100%">'+opts+'</select>')+
         pmFieldInput("Nhiệm vụ cha",'<select class="pm-sel" id="nt-parent" style="width:100%"><option value="">— Không —</option></select>')+
         '<div class="pm-dsec">Phân công</div>'+
         pmFieldInput("Người nhận (email)",'<input class="pm-input ni" id="nt-assignee" placeholder="vd: ten.ho@ecentric.vn">')+
