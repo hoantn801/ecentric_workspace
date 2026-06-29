@@ -356,6 +356,13 @@ def create(project, subject, parent_task=None, priority=None,
         parent = frappe.get_doc("Task", parent_task)
         if not pmperm.can_view_task(parent.as_dict(), user):
             frappe.throw(_("Not permitted to add a sub-task to this task."), frappe.PermissionError)
+        # G4.8f: terminal parents (Done/Completed/Closed/Cancelled) are immutable — no new
+        # sub-tasks. Backend trust boundary (frontend already hides the CTA). Canonical shared
+        # helper; never reads workflow_state by hand.
+        pmperm.assert_task_not_terminal(
+            parent,
+            _("Không thể thêm nhiệm vụ con vào nhiệm vụ đã hoàn thành/huỷ. Vui lòng Reopen trước."),
+        )
         # G4.8: a sub-task ALWAYS inherits its parent's project (incl. empty = task ngoài dự án).
         if not project:
             project = parent.get("project")
