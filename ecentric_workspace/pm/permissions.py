@@ -137,6 +137,35 @@ def can_view_task(task, user=None):
     return False
 
 
+def is_task_assignee(task, user=None):
+    """G4.10: True if `user` is in the task's native _assign list. `task` is a dict/doc
+    exposing _assign (same shape can_view_task consumes). Canonical assignee check."""
+    user = user or frappe.session.user
+    return user in (task.get("_assign") or "")
+
+
+def can_transition_any_task(user=None):
+    """G4.10: who may run ANY workflow transition (incl administrative Cancel) on any visible
+    task. = PM leaders (can_see_all_pm_data: Administrator / System Manager / Management dept)
+    OR the PM Manager role. PM Member is restricted to operational transitions on their own
+    assigned tasks (enforced in the service layer + a Task before_save guard)."""
+    user = user or frappe.session.user
+    if can_see_all_pm_data(user):
+        return True
+    return "PM Manager" in _roles(user)
+
+
+def can_manage_pm_labels(user=None):
+    """G4.9: who may manage the shared label catalogue (create / rename / recolor / archive).
+    = PM leaders (can_see_all_pm_data: Administrator / System Manager / Management dept) OR the
+    PM Manager role. PM Member may only attach/detach EXISTING ACTIVE labels (not manage the
+    catalogue)."""
+    user = user or frappe.session.user
+    if can_see_all_pm_data(user):
+        return True
+    return "PM Manager" in _roles(user)
+
+
 def task_scope_or_filters(user=None):
     """OR-filters for Task list scoping, or None = ALL.
 

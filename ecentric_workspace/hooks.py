@@ -42,6 +42,14 @@ doc_events = {
     "ToDo": {
         "validate": "ecentric_workspace.weekly_report.events.validate_weekly_report_todo",
     },
+    "Task": {
+        # G4.10: enforce PM transition rules on EVERY save path (API + generic apply_workflow).
+        "before_save": "ecentric_workspace.pm.api.tasks.pm_task_transition_guard",
+    },
+    "PM Task Label": {
+        # G4.9: block hard-delete of an in-use label on EVERY delete path (incl. Administrator).
+        "before_delete": "ecentric_workspace.pm.api.labels.pm_label_before_delete",
+    },
 }
 
 # Scheduled Tasks

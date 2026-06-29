@@ -13,10 +13,13 @@ import json
 import frappe
 from frappe import _
 from frappe.desk.form.assign_to import add as _assign_add
-from frappe.model.workflow import apply_workflow, get_transitions as _wf_get_transitions
+from frappe.model.workflow import (
+    apply_workflow, get_transitions as _wf_get_transitions, WorkflowTransitionError,
+)
 
 from ecentric_workspace.pm import permissions as pmperm
 from ecentric_workspace.pm.api import notifications as pmnotif
+from ecentric_workspace.pm.api import labels as pmlabels
 
 _FIELDS = [
     "name", "subject", "status", "workflow_state", "project", "parent_task", "is_group",
@@ -29,6 +32,36 @@ _EDITABLE = ("subject", "description", "priority", "exp_start_date", "exp_end_da
 # G4.8: actions on the PM Task Workflow that land a task in "Done".
 # Child-completion guard uses pmperm.has_open_children (canonical terminal semantics, shared).
 _DONE_ACTIONS = ("Mark Done", "Hoàn thành")
+
+# G4.10: Cancel is administrative -> assigned PM Members may NOT use it.
+_CANCEL_ACTION = "Cancel"
+
+_STALE_MSG = ("Trạng thái nhiệm vụ đã thay đổi hoặc bạn không còn quyền thực hiện thao tác "
+              "này. Vui lòng tải lại.")
+
+
+def _dedupe_transitions(raw):
+    """Dedupe frappe.model.workflow.get_transitions output by (action, next_state). The frappe
+    workflow is the SOURCE OF TRUTH (honors role filtering + transition conditions + any later
+    workflow change); we never keep a parallel state-machine cache."""
+    seen, out = set(), []
+    for t in (raw or []):
+        k = (t.get("action"), t.get("next_state"))
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append({"action": t.get("action"), "next_state": t.get("next_state")})
+    return out
+
+
+def _filter_transitions(deduped, leader, is_assignee):
+    """Business layer ON TOP of the exact workflow transitions: leader -> all; assigned member
+    -> operational only (no administrative Cancel); otherwise none (read-only)."""
+    if leader:
+        return deduped
+    if is_assignee:
+        return [t for t in deduped if t["action"] != _CANCEL_ACTION]
+    return []
 
 
 def _names_map(emails):
@@ -93,6 +126,9 @@ def list(project=None, view="list", start=0, page_length=50, status=None):
     pmap = _project_names(rows)
     for r in rows:
         r["project_name"] = pmap.get(r.get("project")) or (r.get("project") or None)
+    lmap = pmlabels.labels_for_tasks([r["name"] for r in rows])  # G4.9: batch labels (no N+1)
+    for r in rows:
+        r["labels"] = lmap.get(r["name"], [])
     return {"rows": rows, "view": view, "user_names": _names_map(_collect_assignees(rows))}
 
 
@@ -120,6 +156,10 @@ def get(name):
     emails = _collect_assignees([d] + subtasks)
     if d.get("owner"):
         emails.append(d.get("owner"))
+    lmap = pmlabels.labels_for_tasks([d["name"]] + [x["name"] for x in subtasks])  # G4.9
+    d["labels"] = lmap.get(d["name"], [])
+    for x in subtasks:
+        x["labels"] = lmap.get(x["name"], [])
     return {"task": d, "subtasks": subtasks, "user_names": _names_map(emails)}
 
 
@@ -513,6 +553,38 @@ def get_transitions(name):
 
 
 @frappe.whitelist()
+def transitions_bulk(task_names):
+    """G4.10: allowed transitions for many tasks in ONE request (the Kanban board). Per task we
+    load the doc, take the EXACT frappe.model.workflow transitions for the calling user, dedupe,
+    then apply the business filter (leader=all, assigned member=operational/no-Cancel, else none).
+    Only tasks the user may see are returned. Capped at 500."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    leader = pmperm.can_transition_any_task(user)
+    if isinstance(task_names, str):
+        try:
+            task_names = json.loads(task_names)
+        except Exception:
+            task_names = [task_names]
+    names = list(dict.fromkeys([t for t in (task_names or []) if t]))[:500]
+    out = {}
+    for nm in names:
+        if not frappe.db.exists("Task", nm):
+            continue
+        doc = frappe.get_doc("Task", nm)
+        d = doc.as_dict()
+        if not pmperm.can_view_task(d, user):
+            continue
+        deduped = _dedupe_transitions(_wf_get_transitions(doc))
+        out[nm] = {
+            "current": doc.get("workflow_state"),
+            "terminal": pmperm.is_task_terminal(doc),
+            "transitions": _filter_transitions(deduped, leader, pmperm.is_task_assignee(d, user)),
+        }
+    return {"map": out}
+
+
+@frappe.whitelist()
 def set_status(name, action):
     """Apply a PM Task Workflow transition by ACTION name (governed + audited).
 
@@ -523,12 +595,32 @@ def set_status(name, action):
     pmperm.require_pm_access()
     user = frappe.session.user
     doc = frappe.get_doc("Task", name)
-    if not pmperm.can_view_task(doc.as_dict(), user):
+    d = doc.as_dict()
+    if not pmperm.can_view_task(d, user):
         frappe.throw(_("Not permitted to change this task."), frappe.PermissionError)
+    leader = pmperm.can_transition_any_task(user)
+    is_asg = pmperm.is_task_assignee(d, user)
+    # G4.10: leader may run any transition; assigned member -> operational only (no Cancel);
+    # non-assigned non-leader -> none. (Workflow roles + the before_save guard also enforce
+    # this for the GENERIC apply_workflow path; this is the friendly-message front door.)
+    if not leader:
+        if not is_asg:
+            frappe.throw(_("Bạn chỉ có thể đổi trạng thái nhiệm vụ được giao cho mình."),
+                         frappe.PermissionError)
+        if action == _CANCEL_ACTION:
+            frappe.throw(_("Chỉ quản lý mới được huỷ nhiệm vụ."), frappe.PermissionError)
+    # exact current transitions from the workflow backend (re-read live -> catches stale UI).
+    _allowed = {t["action"] for t in _filter_transitions(
+        _dedupe_transitions(_wf_get_transitions(doc)), leader, is_asg)}
+    if action not in _allowed:
+        frappe.throw(_(_STALE_MSG))
     # G4.8: cannot complete a parent while it still has open sub-tasks (canonical terminal check).
     if action in _DONE_ACTIONS and pmperm.has_open_children(name):
         frappe.throw(_("Không thể hoàn thành nhiệm vụ khi vẫn còn nhiệm vụ con chưa đóng."))
-    doc = apply_workflow(doc, action)
+    try:
+        doc = apply_workflow(doc, action)  # governed + audited executor
+    except WorkflowTransitionError:
+        frappe.throw(_(_STALE_MSG))
     pmnotif.notify_users(pmnotif._task_recipients(doc.as_dict(), exclude=user),
                          "Nhiem vu '" + (doc.get("subject") or name) + "' -> " + (doc.get("workflow_state") or ""),
                          name, event_type="mention", severity="info",
@@ -591,4 +683,35 @@ def subtree(name):
             seen.add(k["name"])
             out.append(k)
             frontier.append(k["name"])
+    lmap = pmlabels.labels_for_tasks([r["name"] for r in out])  # G4.9
+    for r in out:
+        r["labels"] = lmap.get(r["name"], [])
     return {"rows": out, "user_names": _names_map(_collect_assignees(out))}
+
+
+def pm_task_transition_guard(doc, method=None):
+    """G4.10 backend trust boundary (defense in depth). Runs on EVERY Task save — the API
+    set_status AND the generic frappe.model.workflow.apply_workflow — via the Task before_save
+    doc_event. Enforces, for a NON-leader changing workflow_state on an existing task:
+      * cannot move the task to Cancelled (administrative), and
+      * may only transition a task ASSIGNED to them.
+    Leaders (Administrator / System Manager / Management dept / PM Manager) are unaffected. No-op
+    on insert, on non-transition saves, and during install/migrate/patch."""
+    if frappe.flags.in_install or frappe.flags.in_migrate or frappe.flags.in_patch:
+        return
+    new_state = doc.get("workflow_state")
+    if not new_state:
+        return
+    before = doc.get_doc_before_save()
+    if not before:
+        return  # insert -> task creation, not a transition
+    if before.get("workflow_state") == new_state:
+        return  # no workflow transition on this save
+    user = frappe.session.user
+    if user == "Administrator" or pmperm.can_transition_any_task(user):
+        return
+    if new_state == "Cancelled":
+        frappe.throw(_("Chỉ quản lý mới được huỷ nhiệm vụ."), frappe.PermissionError)
+    if not pmperm.is_task_assignee(doc, user):
+        frappe.throw(_("Bạn chỉ có thể đổi trạng thái nhiệm vụ được giao cho mình."),
+                     frappe.PermissionError)

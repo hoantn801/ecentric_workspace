@@ -195,6 +195,21 @@ def _clone(r, occ_date):
                     t.save(ignore_permissions=True)
     except Exception:
         frappe.log_error(frappe.get_traceback(), "Recurring checklist copy failed: " + t.name)
+    # G4.9: snapshot the source task's labels onto the generated task (copy, not a live link;
+    # later catalogue edits never mutate past generated tasks). Inactive labels already on the
+    # source are preserved. Never fail generation on a label-copy error.
+    try:
+        seen = set()
+        for a in frappe.get_all("PM Task Label Assignment", filters={"task": r.source_task},
+                                fields=["label"], limit_page_length=0):
+            lid = a.get("label")
+            if not lid or lid in seen:
+                continue
+            seen.add(lid)
+            frappe.get_doc({"doctype": "PM Task Label Assignment",
+                            "task": t.name, "label": lid}).insert(ignore_permissions=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Recurring label copy failed: " + t.name)
     return t.name
 
 
