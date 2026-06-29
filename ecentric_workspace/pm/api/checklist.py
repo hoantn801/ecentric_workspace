@@ -11,7 +11,7 @@ import json
 
 import frappe
 from frappe import _
-from frappe.model.workflow import apply_workflow
+from frappe.model.workflow import apply_workflow, get_transitions
 
 from ecentric_workspace.pm import permissions as pmperm
 
@@ -205,5 +205,16 @@ def complete_task(task):
     # G4.8: cannot complete while open sub-tasks remain (canonical shared guard).
     if pmperm.has_open_children(task):
         frappe.throw(_("Không thể hoàn thành nhiệm vụ khi vẫn còn nhiệm vụ con chưa đóng."))
-    doc = apply_workflow(doc, "Hoàn thành")  # governed + audited; condition re-checked too
+    # G4.8d: use the EXACT transition the workflow offers THIS task + user to reach Done —
+    # never hard-code an action name. If none is valid (e.g. role has no Done transition),
+    # return a friendly message instead of Frappe's raw "Not a valid Workflow Action".
+    done_tr = None
+    for tr in get_transitions(doc):
+        if tr.get("next_state") == "Done":
+            done_tr = tr
+            break
+    if not done_tr:
+        frappe.throw(_("Không có thao tác hợp lệ để hoàn thành nhiệm vụ này. "
+                       "Hãy chuyển trạng thái bằng thao tác Workflow phù hợp."))
+    doc = apply_workflow(doc, done_tr.get("action"))  # governed + audited
     return {"name": doc.name, "workflow_state": doc.get("workflow_state")}

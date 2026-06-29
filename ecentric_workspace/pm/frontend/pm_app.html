@@ -129,6 +129,11 @@
   .pm-card-locked{ opacity:.92; cursor:default; }
   .pm-lock{ margin-left:6px; font-size:11px; }
   .pm-board-readonly .pm-card{ cursor:default; }
+  /* G4.8d: row background by hierarchy depth (global + project task lists). Hover stays clear. */
+  .pm-tbl tr.pm-depth-0 > td{ background:#edf1f7; }
+  .pm-tbl tr.pm-depth-1 > td{ background:#f6f8fb; }
+  .pm-tbl tr.pm-depth-2plus > td{ background:#ffffff; }
+  .pm-tbl tr.pm-depth-0:hover > td, .pm-tbl tr.pm-depth-1:hover > td, .pm-tbl tr.pm-depth-2plus:hover > td{ background:var(--navy-50); }
   /* 2-card layout: gray body, white content + comments cards, 16px gap, comments ~360px */
   .pm-drawer.expanded .body.pm-cols{ background:var(--gray-50); }
   .pm-drawer.expanded .body.pm-cols .pm-dcols{ gap:16px; padding:16px; grid-template-columns:minmax(0,1fr) 360px; }
@@ -1023,7 +1028,7 @@
     var pri=t.priority?'<span class="pm-tag '+({Urgent:"tg-urgent",High:"tg-high",Medium:"tg-medium",Low:"tg-low"}[t.priority]||"tg-low")+'">'+esc(t.priority)+'</span>':'<span style="color:var(--gray-300)">-</span>';
     var lead=hasChildren?'<span class="pd-tcaret'+(collapsed?' collapsed':'')+'" data-tcol="'+esc(t.name)+'" title="Thu/mở">▾</span>':(depth>0?'<span class="pd-tlead">↳</span>':'<span class="pd-tcaret-sp"></span>');
     var cnt=hasChildren?' <span class="pd-tcount">'+childCount+' nv con</span>':'';
-    return '<tr data-task="'+esc(t.name)+'" class="pd-trow'+(depth>0?' pd-child':'')+'"><td class="t-main"><span class="pd-tname" style="padding-left:'+(depth*20)+'px">'+lead+'<span class="pd-ttitle">'+esc(t.subject||t.name)+'</span>'+cnt+'</span></td><td>'+badge(t.workflow_state)+'</td><td>'+pri+'</td><td>'+esc(t.exp_end_date||'-')+'</td><td>'+(a.length?'<span class="pm-mini-av" title="'+esc(a[0])+'">'+ini(a[0])+'</span>':'<span style="color:var(--gray-400)">-</span>')+'</td>'+(window._isLeader?'<td class="pm-act-col">'+pmTaskMenuHtml(t.name)+'</td>':'')+'</tr>';}
+    return '<tr data-task="'+esc(t.name)+'" class="pd-trow'+(depth>0?' pd-child':'')+' '+pmDepthClass(depth)+'"><td class="t-main"><span class="pd-tname" style="padding-left:'+(depth*20)+'px">'+lead+'<span class="pd-ttitle">'+esc(t.subject||t.name)+'</span>'+cnt+'</span></td><td>'+badge(t.workflow_state)+'</td><td>'+pri+'</td><td>'+esc(t.exp_end_date||'-')+'</td><td>'+pmAssignee(t,false)+'</td>'+(window._isLeader?'<td class="pm-act-col">'+pmTaskMenuHtml(t.name)+'</td>':'')+'</tr>';}
   function pdTaskTable(host,rows){if(!host)return;rows=rows||[];
     if(!rows.length){return emptyBox(host,"Chưa có nhiệm vụ.");}
     var head='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Nhiệm vụ</th><th>Trạng thái</th><th>Ưu tiên</th><th>Hạn</th><th>Người nhận</th>'+(window._isLeader?'<th class="pm-act-col"></th>':'')+'</tr></thead><tbody>';
@@ -1079,8 +1084,9 @@
   function tagsCompact(t,max){var arr=taskTagList(t);max=max||3;if(arr.length<=max)return arr.join("");return arr.slice(0,max).join("")+'<span class="pm-tag tg-more">+'+(arr.length-max)+'</span>';}
   /* G4.8c display helpers: project name + tooltip ID; assignee avatar/name + tooltip name·email; priority (Low hidden). */
   function pmProjLabel(t){var nm=t.project_name||t.project||"";if(!nm)return '<span style="color:var(--gray-400)" title="Không thuộc dự án nào">Ngoài dự án</span>';var tip=t.project?(esc(t.project_name||t.project)+" · "+esc(t.project)):esc(nm);return '<span title="'+tip+'">'+esc(nm)+'</span>';}
-  function pmAssignee(t,wide){var a=names(t._assign);if(!a.length)return '<span style="color:var(--gray-400)">'+(wide?"Chưa giao":"—")+'</span>';var e=a[0];var fn=(window._pmUserNames&&window._pmUserNames[e])||e;var tip=esc(fn)+" · "+esc(e);var av='<span class="pm-mini-av" title="'+tip+'">'+ini(e)+'</span>';var more=a.length>1?'<span class="pm-tag tg-more" title="'+esc(a.slice(1).join(", "))+'">+'+(a.length-1)+'</span>':'';return wide?('<span class="pm-asg-name" title="'+tip+'">'+av+'<span class="pm-asg-fn">'+esc(fn)+'</span>'+more+'</span>'):(av+more);}
+  function pmAssignee(t,wide){var a=names(t._assign);if(!a.length)return '<span style="color:var(--gray-400)">'+(wide?"Chưa giao":"—")+'</span>';var e=a[0];var fn=(window._pmUserNames&&window._pmUserNames[e])||e;var tip=(fn&&fn!==e)?(esc(fn)+" · "+esc(e)):esc(e);var av='<span class="pm-mini-av" title="'+tip+'">'+ini(e)+'</span>';var more=a.length>1?'<span class="pm-tag tg-more" title="'+esc(a.slice(1).join(", "))+'">+'+(a.length-1)+'</span>':'';return wide?('<span class="pm-asg-name" title="'+tip+'">'+av+'<span class="pm-asg-fn">'+esc(fn)+'</span>'+more+'</span>'):(av+more);}
   function pmPriBadge(p){if(!p||p==="Low")return '';var cls={Urgent:"tg-urgent",High:"tg-high",Medium:"tg-medium"}[p]||"tg-medium";return '<span class="pm-tag '+cls+'">'+esc(p)+'</span>';}
+  function pmDepthClass(d){return d===0?"pm-depth-0":(d===1?"pm-depth-1":"pm-depth-2plus");} /* G4.8d: row background by hierarchy depth */
   function presetMatch(t){var p=F.preset;if(!p)return true;var u=window._pmUser||"";var td=new Date().toISOString().slice(0,10);var asg=names(t._assign);var due=t.exp_end_date||"";
     if(p==="mine")return asg.indexOf(u)>=0;
     if(p==="today")return due===td;
@@ -1156,8 +1162,8 @@
     var head='<table class="pm-tbl"><thead><tr><th>Nhiệm vụ</th><th>Trạng thái</th><th>Dự án</th>'+(compact?'':'<th>Hạn</th>')+'<th>Người nhận</th>'+(lead?'<th class="pm-act-col"></th>':'')+'</tr></thead><tbody>';
     function rowHtml(t,depth,hasKids,collapsed){var tg=tagsCompact(t,3);
       var caret=hasKids?'<span class="pm-tt-caret'+(collapsed?' collapsed':'')+'" data-ttcol="'+esc(t.name)+'">▾</span>':(depth>0?'<span class="pm-tt-lead">↳</span>':'<span class="pm-tt-sp"></span>');
-      return '<tr data-task="'+esc(t.name)+'"><td class="t-main"><span class="pm-tt-name" style="padding-left:'+(Math.min(depth,6)*18)+'px">'+caret+'<span>'+esc(t.subject||t.name)+'</span></span>'+(tg?'<div class="pm-tags" style="margin-top:4px">'+tg+'</div>':'')+'</td><td>'+badge(t.workflow_state)+'</td><td>'+pmProjLabel(t)+'</td>'+
-        (compact?'':'<td>'+esc(t.exp_end_date||"-")+'</td>')+'<td>'+pmAssignee(t,!compact)+'</td>'+(lead?'<td class="pm-act-col">'+pmTaskMenuHtml(t.name)+'</td>':'')+'</tr>';}
+      return '<tr data-task="'+esc(t.name)+'" class="'+pmDepthClass(depth)+'"><td class="t-main"><span class="pm-tt-name" style="padding-left:'+(Math.min(depth,6)*18)+'px">'+caret+'<span>'+esc(t.subject||t.name)+'</span></span>'+(tg?'<div class="pm-tags" style="margin-top:4px">'+tg+'</div>':'')+'</td><td>'+badge(t.workflow_state)+'</td><td>'+pmProjLabel(t)+'</td>'+
+        (compact?'':'<td>'+esc(t.exp_end_date||"-")+'</td>')+'<td>'+pmAssignee(t,false)+'</td>'+(lead?'<td class="pm-act-col">'+pmTaskMenuHtml(t.name)+'</td>':'')+'</tr>';}
     var body="";
     if(compact){ rows.forEach(function(t){body+=rowHtml(t,0,false,false);}); }
     else { /* G4.8c: hierarchy — roots then nested children (parent_task), caret expand/collapse */
@@ -1304,21 +1310,25 @@
       '<span class="pm-sub-dot" style="background:'+gColor(t.workflow_state)+'" title="'+esc(t.workflow_state||"")+'"></span>'+
       '<span class="pm-st-title">'+esc(t.subject||t.name)+'</span>'+
       '<span class="pm-st-meta">'+badge(t.workflow_state)+(due?'<span class="pm-sub-due">'+due+'</span>':'')+(a.length?'<span class="pm-mini-av" title="'+esc(fn)+' · '+esc(a[0])+'">'+ini(a[0])+'</span>':'<span style="color:var(--gray-300)">—</span>')+'</span></div>';}
-  function loadSubtree(rootName,terminal){var host=el("pm-subs");if(!host)return;host.innerHTML='<span class="spin"></span>';
+  function loadSubtree(rootName,project,terminal){var host=el("pm-subs");if(!host)return;host.innerHTML='<span class="spin"></span>';
+    /* G4.8d: "+ Thêm nhiệm vụ con" CTA lives inside this tab (empty-state + footer); hidden when terminal. */
+    function addCta(){return terminal?'':'<div class="pm-subadd" id="pm-st-add"><span class="pm-sub-plus">+</span><span>Thêm nhiệm vụ con</span></div>';}
+    function wireAdd(){var a=el("pm-st-add");if(a)a.onclick=function(){newTask(project||"",rootName);};}
     api(PM+"tasks.subtree",{name:rootName}).then(function(res){var rows=(res&&res.rows)||[];window._pmUserNames=Object.assign(window._pmUserNames||{},(res&&res.user_names)||{});
       var tc=el("pm-bt-subs-c");if(tc){var done=rows.filter(function(r){return ["Done","Cancelled"].indexOf(r.workflow_state)>=0;}).length;tc.textContent="("+done+"/"+rows.length+")";}
-      if(!rows.length){host.innerHTML='<div class="pm-sub-empty">Chưa có nhiệm vụ con. Dùng "+ Nhiệm vụ con" để thêm.</div>';return;}
+      if(!rows.length){host.innerHTML='<div class="pm-sub-empty">Chưa có nhiệm vụ con.</div>'+addCta();wireAdd();return;}
       var byParent={};rows.forEach(function(t){var p=t.parent_task;(byParent[p]=byParent[p]||[]).push(t);});
       window._pmStCollapsed=window._pmStCollapsed||{};var html="";
       function walk(t,depth){var kids=byParent[t.name]||[];var hk=kids.length>0;var col=!!window._pmStCollapsed[t.name];html+=pmSubtreeRow(t,depth,hk,col);if(hk&&!col)kids.forEach(function(c){walk(c,depth+1);});}
       (byParent[rootName]||[]).forEach(function(t){walk(t,0);});
-      host.innerHTML=html;
+      host.innerHTML=html+addCta();
       Array.prototype.forEach.call(host.querySelectorAll(".pm-st-row[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});
-      Array.prototype.forEach.call(host.querySelectorAll(".pm-st-caret[data-stcol]"),function(x){x.onclick=function(e){e.stopPropagation();var id=x.getAttribute("data-stcol");window._pmStCollapsed[id]=!window._pmStCollapsed[id];loadSubtree(rootName,terminal);};});
+      Array.prototype.forEach.call(host.querySelectorAll(".pm-st-caret[data-stcol]"),function(x){x.onclick=function(e){e.stopPropagation();var id=x.getAttribute("data-stcol");window._pmStCollapsed[id]=!window._pmStCollapsed[id];loadSubtree(rootName,project,terminal);};});
+      wireAdd();
     }).catch(function(e){host.innerHTML='<div class="pm-err">'+esc(errOf(e))+'</div>';});}
   function pmDecompWire(rootName,project){
     Array.prototype.forEach.call(document.querySelectorAll("#pm-decomp-tabs .pm-decomp-tab"),function(b){b.onclick=function(){var k=b.getAttribute("data-dtab");Array.prototype.forEach.call(document.querySelectorAll("#pm-decomp-tabs .pm-decomp-tab"),function(x){x.classList.toggle("active",x===b);});if(el("pm-dp-steps"))el("pm-dp-steps").style.display=(k==="steps"?"":"none");if(el("pm-dp-subs"))el("pm-dp-subs").style.display=(k==="subs"?"":"none");};});
-    var addTop=el("pm-addsub-top");if(addTop)addTop.onclick=function(){newTask(project||"",rootName);};}
+  }
   // S1 hotfix: inline-create form with Title* / Assignee / Start / Due / Priority. Client-side validation vs parent date range BEFORE the API call; on backend reject keep the form open. Esc/Huỷ cancels.
   function openSubForm(host,subs,project,parentName,add,pStart,pEnd){
     add.onclick=null; /* stop the collapsed-row handler from re-firing while the form is open */
@@ -1354,9 +1364,10 @@
     Promise.all([api(PM+"tasks.get",{name:name}),api(PM+"tasks.get_transitions",{name:name})]).then(function(res){
       var t=res[0].task||{},subs=res[0].subtasks||[],tr=res[1].transitions||[];var a=names(t._assign);
       var _seen={};tr=tr.filter(function(x){if(_seen[x.action])return false;_seen[x.action]=1;return true;});
+      window._pmChkCanComplete=tr.some(function(x){return x.next_state==="Done";}); /* G4.8d: checklist complete only when a real Done transition exists for this task+user */
       el("pm-dt").textContent=t.subject||name;
       var h='<div class="pm-dcols"><div class="pm-d-main">'+
-        '<div class="pm-dtopbar"><div class="pm-tags">'+badge(t.workflow_state)+taskTags(t)+'</div><div class="pm-dtopbar-r">'+(pmTerminal(t)?'':'<button class="pm-btn pm-addsub-top" id="pm-addsub-top">+ Nhiệm vụ con</button>')+pmTaskMenuHtml(name)+'</div></div>'+
+        '<div class="pm-dtopbar"><div class="pm-tags">'+badge(t.workflow_state)+taskTags(t)+'</div><div class="pm-dtopbar-r">'+pmTaskMenuHtml(name)+'</div></div>'+
         '<div class="pm-dsec">Thông tin chính</div>'+
         '<div class="pm-props">'+
           '<div class="pm-prop"><label>Dự án</label><div class="v">'+pmProjLabel(t)+'</div></div>'+
@@ -1399,7 +1410,7 @@
         api(PM+"tasks.assign",{name:name,users:[v]}).then(function(){toast("Đã giao cho "+v);openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};
       /* A2: "Sửa (form)" button removed — inline edit is the primary path. editTask() kept as internal fallback only. */
       inlineWire(c,t,name); /* C1-B: click-to-edit priority/start/end/desc in main + title in header */
-      pmDecompWire(name,t.project); loadSubtree(name,pmTerminal(t)); /* G4.8: PHÂN RÃ tabs + nested subtask tree */
+      pmDecompWire(name,t.project); loadSubtree(name,t.project,pmTerminal(t)); /* G4.8: PHÂN RÃ tabs + nested subtask tree */
       loadWorktime(name,pmTerminal(t)); loadRecurrence(name); loadComments(name); loadChecklist(name,t.workflow_state);
       if(el("pm-cmt-send"))el("pm-cmt-send").onclick=function(){var v=el("pm-cmt-input").value.trim();if(!v){toast("Nhập bình luận",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang gửi...";
         api("frappe.client.insert",{doc:{doctype:"Comment",comment_type:"Comment",reference_doctype:"Task",reference_name:name,content:v}}).then(function(){el("pm-cmt-input").value="";loadComments(name);btn.disabled=false;btn.textContent="Gửi";}).catch(function(e){toast("Lỗi gửi bình luận: "+errOf(e),true);btn.disabled=false;btn.textContent="Gửi";});};
@@ -1802,7 +1813,8 @@
     var foot;
     if(wfState==="Done"){foot='<span class="pm-badge st-Done">Đã hoàn thành</span>';}
     else if(wfState==="Cancelled"){foot='<span class="pm-badge st-Cancelled">Đã huỷ</span>';}
-    else if(chkComplete(d)){foot='<button class="pm-btn primary" id="pm-chk-complete">Hoàn thành task</button>';}
+    else if(chkComplete(d)&&window._pmChkCanComplete){foot='<button class="pm-btn primary" id="pm-chk-complete">Hoàn thành nhiệm vụ</button>';}
+    else if(chkComplete(d)){foot='<span style="font-size:12px;color:var(--gray-500)">Các bước đã hoàn tất. Hãy chuyển trạng thái bằng thao tác Workflow phù hợp.</span>';}
     else{var rem=(d.required_total||0)>0?((d.required_total||0)-(d.required_done||0)):((d.total||0)-(d.done||0));foot='<span style="font-size:12px;color:var(--gray-500)">Còn '+rem+' mục'+((d.required_total||0)>0?' bắt buộc':'')+' chưa xong</span>';}
     var _tc=el("pm-bt-steps-c");if(_tc)_tc.textContent="("+d.done+"/"+d.total+")"; /* G4.8: tab count */
     b.innerHTML='<div class="pm-prog" style="margin-bottom:10px"><i style="width:'+pct+'%"></i></div>'+
