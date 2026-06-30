@@ -236,16 +236,21 @@
   .wl-num{ font-size:12px; color:var(--gray-600); text-align:right; }
   .wl-risknum{ color:var(--pink); font-weight:600; }
   /* Batch C.3 donut (CSS conic-gradient) */
-  .donut-wrap{ display:flex; align-items:center; gap:18px; padding:14px 18px; flex-wrap:wrap; }
-  .donut{ width:120px; height:120px; border-radius:50%; flex:0 0 auto; position:relative; }
-  .donut-hole{ position:absolute; inset:22px; background:#fff; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  .donut-num{ font-size:26px; font-weight:700; color:var(--gray-900); line-height:1; }
-  .donut-lbl{ font-size:10.5px; color:var(--gray-500); margin-top:2px; text-transform:uppercase; letter-spacing:.03em; }
-  .donut-legend{ display:flex; flex-direction:column; gap:7px; flex:1; min-width:120px; }
-  .donut-li{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--gray-600); }
-  .donut-li i{ width:11px; height:11px; border-radius:3px; flex:0 0 auto; }
-  .donut-li span{ flex:1; }
-  .donut-li b{ color:var(--gray-900); }
+  /* G4.12: ECharts container + fallback */
+  .pm-chart{ position:relative; width:100%; min-height:160px; padding:6px 10px 10px; }
+  .pm-chart-box{ width:100%; }
+  .pm-chart-fb{ padding:8px 4px; }
+  .pm-chart-empty{ color:var(--gray-400); font-size:12.5px; padding:18px 4px; text-align:center; }
+  .pm-chart-fbt{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  .pm-chart-fbt td{ padding:4px 6px; border-top:1px solid var(--gray-100); } .pm-chart-fbt td.r{ text-align:right; }
+  /* G4.12: old CSS conic-gradient donut removed — replaced by shared ECharts (PMCharts). */
+  /* G4.12 table polish (ApexGrid-inspired; no library): sticky header, min-widths, connectors. */
+  .pm-tbl-wrap, .pd-tbl-wrap{ overflow-x:auto; }
+  .pm-tbl thead th, .pd-tbl thead th{ position:sticky; top:0; z-index:2; background:#fff; box-shadow:inset 0 -1px 0 var(--gray-200); }
+  .pm-tbl td.t-main, .pd-tbl td.t-main{ min-width:280px; }
+  .pm-tt-name, .pd-tname{ display:inline-flex; align-items:center; gap:2px; }
+  .pm-tt-caret, .pm-tt-lead{ flex:0 0 auto; }
+  .pm-tbl tr:hover > td{ transition:background .08s; }
   /* Batch D.2 recurring alerts */
   .rec-alert{ display:flex; align-items:center; gap:10px; padding:9px 14px; border-bottom:1px solid var(--gray-100); cursor:pointer; }
   .rec-alert:last-child{ border-bottom:none; }
@@ -644,6 +649,11 @@
   <button class="pm-btn" id="pm-dclose" style="flex:0 0 auto">Đóng</button></header><div class="body" id="pm-dbody"></div></div>
 <div class="pm-toast" id="pm-toast"></div>
 
+<!-- G4.12: shared ECharts dashboard library (same vendor/theme/lifecycle as Alert Center). Loaded before the PM app script so window.PMCharts is ready. -->
+<script src="/assets/ecentric_workspace/charts/vendor/echarts.min.js"></script>
+<script src="/assets/ecentric_workspace/charts/chart_theme.js"></script>
+<script src="/assets/ecentric_workspace/charts/chart_common.js"></script>
+<script src="/assets/ecentric_workspace/charts/pm_charts.js"></script>
 <script>
 (function(){
   var PM="ecentric_workspace.pm.api.";
@@ -816,12 +826,10 @@
   // NOTE: no line/trend chart — that needs historical time-series snapshots. tasks.list/
   // projects.list/control_center only give the CURRENT snapshot, so a line chart would be
   // misleading. Add later via a backend aggregate/history endpoint that stores periodic snapshots.
-  function donut(segs,centerNum,centerLabel){var total=segs.reduce(function(a,s){return a+(s[1]||0);},0);
-    var grad;
-    if(total<=0){grad="var(--gray-200) 0deg 360deg";} /* zero-state: gray ring, no error */
-    else{var acc=0;grad=segs.map(function(s){var from=acc/total*360;acc+=(s[1]||0);var to=acc/total*360;return s[2]+" "+from+"deg "+to+"deg";}).join(",");}
-    return '<div class="donut-wrap"><div class="donut" style="background:conic-gradient('+grad+')"><div class="donut-hole"><div class="donut-num">'+(centerNum||0)+'</div><div class="donut-lbl">'+esc(centerLabel||"")+'</div></div></div>'+
-      '<div class="donut-legend">'+segs.map(function(s){return '<div class="donut-li"><i style="background:'+s[2]+'"></i><span>'+esc(s[0])+'</span><b>'+(s[1]||0)+'</b></div>';}).join("")+'</div></div>';}
+  /* G4.12: PM Overview charts via shared ECharts (window.PMCharts). Replaces the old CSS donut. */
+  function pmChartBox(id,h){return '<div class="pm-chart" style="height:'+(h||200)+'px"><div class="pm-chart-box" id="'+esc(id)+'" style="height:100%"></div><div class="pm-chart-fb" id="'+esc(id)+'-fb" hidden></div></div>';}
+  function pmStatusColor(label){var m={Backlog:"#94a3b8","To Do":"#2C3DA6","In Progress":"#0e9aa7",Blocked:"#c0392b",Review:"#b8860b",Done:"#0a7a4f",Cancelled:"#cbd5e1"};return m[label]||"#2C3DA6";}
+  function pmSafeChart(fn){try{fn();}catch(e){if(window.console&&console.warn)console.warn("PMChart render skipped",e);}}
   function segBar(segs){var total=segs.reduce(function(a,s){return a+(s[1]||0);},0)||1;
     return '<div class="seg-bar">'+segs.map(function(s){var pct=Math.round((s[1]||0)/total*100);return (s[1]?'<div class="seg-seg" style="width:'+pct+'%;background:'+s[2]+'" title="'+esc(s[0])+': '+s[1]+'"></div>':'');}).join("")+'</div>'+
       '<div class="seg-legend">'+segs.map(function(s){return '<span class="seg-li"><i style="background:'+s[2]+'"></i>'+esc(s[0])+' <b>'+(s[1]||0)+'</b></span>';}).join("")+'</div>';}
@@ -848,19 +856,25 @@
         h+='<div class="dc-sec-title">Tổng quan</div>';
         h+='<div class="stats-strip dc-block" style="grid-template-columns:repeat(7,1fr)">'+
           ccard("s-navy","Dự án",projs.length,"")+ccard("s-yellow","Cần chú ý",atRisk,"")+ccard("s-pink","Quá hạn",kOverdue,"overdue")+ccard("s-pink","Blocked",kBlocked,"blocked")+ccard("s-yellow","Chờ duyệt",kReview,"review")+ccard("s-yellow","Chưa giao",kNoass,"noassignee")+ccard("s-navy","Chưa có hạn",kNodue,"nodue")+'</div>';
-        var riskPanel='<div class="panel"><div class="panel-header"><div class="panel-title">Rủi ro dự án</div></div>'+donut([["Ổn định",nStable,"#0a7a4f"],["Cần chú ý",nAtt,"#b8860b"],["Rủi ro cao",nHigh,"#c0392b"]],projs.length,"dự án")+'</div>';
+        var riskPanel='<div class="panel"><div class="panel-header"><div class="panel-title">Rủi ro dự án</div></div>'+pmChartBox("pmc-risk")+'</div>';
         var duePanel=distPanel("Áp lực hạn",{"Quá hạn":kOverdue,"Hôm nay":kToday,"Tuần này":kWeek,"Chưa có hạn":kNodue},["Quá hạn","Hôm nay","Tuần này","Chưa có hạn"],{"Quá hạn":"db-pink","Hôm nay":"db-navy","Tuần này":"db-yellow","Chưa có hạn":"db-gray"});
-        var statusPanel=distPanel("Phân bố trạng thái",sd,["Backlog","To Do","In Progress","Blocked","Review","Done","Cancelled"],{"In Progress":"db-navy",Blocked:"db-pink",Review:"db-yellow",Done:"db-green"});
+        var statusPanel='<div class="panel"><div class="panel-header"><div class="panel-title">Phân bố trạng thái</div></div>'+pmChartBox("pmc-status")+'</div>';
         h+='<div class="dc-charts">'+riskPanel+duePanel+statusPanel+'</div>';
         h+='<div class="dc-sec-title">Sức khỏe dự án</div><div class="dc-block" id="dc-health"></div>';
-        h+='<div class="dc-sec-title">Workload theo người</div><div class="panel dc-block" id="dc-wlbar"></div>';
+        h+='<div class="dc-sec-title">Workload theo người</div><div class="panel dc-block">'+pmChartBox("dc-wlbar",230)+'</div>';
       }
       // Non-leader: Focus chỉ trên task được giao cho chính họ (an toàn), không chỉ dựa vào permission-scope.
       var focusTasks=leader?tasks:tasks.filter(function(t){return names(t._assign).indexOf(user)>=0;});
       h+='<div class="dc-sec-title">Cần xử lý (Focus)</div><div class="dc-block" id="dc-focus"></div>';
       if(leader){h+='<details class="dc-analytics"><summary>Phân tích chi tiết</summary><div id="dc-prio"></div><div class="dc-sec-title" style="margin-top:12px">Workload chi tiết</div><div id="dc-wltbl"></div></details>';}
       c.innerHTML=h;
-      if(leader){dcHealthTable(el("dc-health"),ph);var wl=dcWorkload(tasks);wlBar(el("dc-wlbar"),wl);dcWlTable(el("dc-wltbl"),wl);
+      if(leader){dcHealthTable(el("dc-health"),ph);var wl=dcWorkload(tasks);
+        if(window.PMCharts){PMCharts.attachResize();
+          pmSafeChart(function(){PMCharts.renderRiskDonut(el("pmc-risk"),el("pmc-risk-fb"),[["Ổn định",nStable,"#0a7a4f"],["Cần chú ý",nAtt,"#b8860b"],["Rủi ro cao",nHigh,"#c0392b"]],{centerNum:projs.length,centerLabel:"dự án"});});
+          pmSafeChart(function(){PMCharts.renderStatusBar(el("pmc-status"),el("pmc-status-fb"),sd,["Backlog","To Do","In Progress","Blocked","Review","Done","Cancelled"],{colorFor:pmStatusColor});});
+          pmSafeChart(function(){PMCharts.renderWorkload(el("dc-wlbar"),el("dc-wlbar-fb"),wl,{onClick:function(u){navAssignee(u);}});});
+        }else{wlBar(el("dc-wlbar"),wl);}
+        dcWlTable(el("dc-wltbl"),wl);
         var pd2={};tasks.forEach(function(t){var pr=t.priority||"—";pd2[pr]=(pd2[pr]||0)+1;});el("dc-prio").innerHTML=distPanel("Phân bố ưu tiên",pd2,["Urgent","High","Medium","Low","—"],{Urgent:"db-pink",High:"db-orange",Medium:"db-navy",Low:"db-gray"});}
       dcFocusList(el("dc-focus"),dcFocus(focusTasks));
       Array.prototype.forEach.call(c.querySelectorAll("[data-nav-preset]"),function(b){b.onclick=function(){navPreset(b.getAttribute("data-nav-preset"));};});
@@ -2233,7 +2247,7 @@
   // _curView / active nav / breadcrumb stay on the current PM view.
   function redirectToGlobalNotifications(){ window.open("/app/notification-log","_blank","noopener"); }
   var VIEWS={dashboard:showDashboard,mytasks:showMyTasks,projects:showProjects,work:showWork,tasks:showTasks,board:showBoard,gantt:showGantt,calendar:showCalendar,timesheet:showTimesheet,recurring:showRecurring,assignments:showAssignments,notifications:redirectToGlobalNotifications};
-  function go(v){var WM={tasks:"list",board:"board",gantt:"gantt",calendar:"calendar",table:"table",work:null};var isW=Object.prototype.hasOwnProperty.call(WM,v);var navKey=isW?"work":v;
+  function go(v){if(window.PMCharts)PMCharts.disposeAll();var WM={tasks:"list",board:"board",gantt:"gantt",calendar:"calendar",table:"table",work:null};var isW=Object.prototype.hasOwnProperty.call(WM,v);var navKey=isW?"work":v;
     window._curView=navKey;Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.classList.toggle("active",b.getAttribute("data-view")===navKey);});
     el("pm-crumb").textContent=isW?"Công việc":(CRUMB[v]||"Tổng quan");
     if(isW){if(WM[v])window._workView=WM[v];try{localStorage.setItem("pm_work_view",window._workView||"list");}catch(_){}showWork();}
