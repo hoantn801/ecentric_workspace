@@ -24,3 +24,6 @@ ecentric_workspace.notification_center.patches.p002_retire_homepage_bell_loader
 ecentric_workspace.pm.patches.p008_pm_mark_done_checklist_gate
 ecentric_workspace.pm.patches.p009_pm_task_labels
 ecentric_workspace.pm.patches.p010_pm_workflow_sysmanager_transitions
+ecentric_workspace.pm.patches.p011_pm_workflow_reopen_cancelled
+ecentric_workspace.pm.patches.p012_pm_task_time
+ecentric_workspace.pm.patches.p013_pm_assignment_request

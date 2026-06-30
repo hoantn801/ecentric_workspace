@@ -23,11 +23,13 @@ from ecentric_workspace.pm.api import labels as pmlabels
 
 _FIELDS = [
     "name", "subject", "status", "workflow_state", "project", "parent_task", "is_group",
-    "exp_start_date", "exp_end_date", "priority", "_assign", "owner", "modified",
+    "exp_start_date", "exp_end_date", "pm_start_time", "pm_end_time",
+    "priority", "_assign", "owner", "modified",
 ]
 
 # Fields a client may edit via tasks.update (whitelist -> no arbitrary injection).
-_EDITABLE = ("subject", "description", "priority", "exp_start_date", "exp_end_date", "project")
+_EDITABLE = ("subject", "description", "priority", "exp_start_date", "exp_end_date",
+             "pm_start_time", "pm_end_time", "project")
 
 # G4.8: actions on the PM Task Workflow that land a task in "Done".
 # Child-completion guard uses pmperm.has_open_children (canonical terminal semantics, shared).
@@ -62,6 +64,26 @@ def _filter_transitions(deduped, leader, is_assignee):
     if is_assignee:
         return [t for t in deduped if t["action"] != _CANCEL_ACTION]
     return []
+
+
+def _compose_dt(d, t):
+    """G4.11: date + optional time -> 'YYYY-MM-DD HH:MM:SS' for ordering, or None when no date."""
+    if not d:
+        return None
+    return str(d)[:10] + " " + (str(t)[:8] if t else "00:00:00")
+
+
+def _validate_time_window(start_date, start_time, end_date, end_time):
+    """G4.11: a time is only valid with its own date, and the end datetime may not precede the
+    start datetime (G4.11 scheduling rule). Core date fields are never retyped."""
+    if start_time and not start_date:
+        frappe.throw(_("Giờ bắt đầu cần có ngày bắt đầu."))
+    if end_time and not end_date:
+        frappe.throw(_("Giờ kết thúc cần có ngày kết thúc."))
+    sdt = _compose_dt(start_date, start_time)
+    edt = _compose_dt(end_date, end_time)
+    if sdt and edt and edt < sdt:
+        frappe.throw(_("Thời điểm kết thúc không được trước thời điểm bắt đầu."))
 
 
 def _names_map(emails):
@@ -143,7 +165,7 @@ def get(name):
     subtasks = frappe.get_all(
         "Task", filters={"parent_task": name},
         fields=["name", "subject", "status", "workflow_state", "_assign",
-                "exp_end_date", "priority"],
+                "exp_end_date", "pm_start_time", "pm_end_time", "priority"],
         order_by="creation asc",
     )
     d = doc.as_dict()
@@ -383,12 +405,14 @@ def _expand_project_dates(project, child_start, child_end, user):
 
 @frappe.whitelist()
 def create(project, subject, parent_task=None, priority=None,
-           exp_start_date=None, exp_end_date=None, description=None, assignee=None):
+           exp_start_date=None, exp_end_date=None, description=None, assignee=None,
+           pm_start_time=None, pm_end_time=None):
     """Create a Task (or sub-task via parent_task) under a project the user may see."""
     pmperm.require_pm_access()
     user = frappe.session.user
     if not subject:
         frappe.throw(_("Subject is required."))
+    _validate_time_window(exp_start_date, pm_start_time, exp_end_date, pm_end_time)  # G4.11
     if parent_task:
         # ERPNext Task is a NestedSet tree: a parent can only hold children if it is a
         # Group Task (is_group=1). Ensure that before inserting the child, with the same
@@ -430,6 +454,8 @@ def create(project, subject, parent_task=None, priority=None,
         "priority": priority,
         "exp_start_date": exp_start_date,
         "exp_end_date": exp_end_date,
+        "pm_start_time": pm_start_time,
+        "pm_end_time": pm_end_time,
         "description": description,
     })
     doc.insert()  # honors DocPerm 'create'; sets owner/creation (audit)
@@ -450,7 +476,8 @@ def create(project, subject, parent_task=None, priority=None,
 
 @frappe.whitelist()
 def update(name, subject=None, description=None, priority=None,
-           exp_start_date=None, exp_end_date=None, project=None, assignee=None):
+           exp_start_date=None, exp_end_date=None, project=None, assignee=None,
+           pm_start_time=None, pm_end_time=None):
     """Update whitelisted Task fields + optional assignee. Status -> set_status."""
     pmperm.require_pm_access()
     user = frappe.session.user
@@ -466,6 +493,7 @@ def update(name, subject=None, description=None, priority=None,
     incoming = {
         "subject": subject, "description": description, "priority": priority,
         "exp_start_date": exp_start_date, "exp_end_date": exp_end_date,
+        "pm_start_time": pm_start_time, "pm_end_time": pm_end_time,
         "project": project,
     }
     changed = []
@@ -476,6 +504,9 @@ def update(name, subject=None, description=None, priority=None,
             changed.append(field)
     # If the task's dates moved, widen Project range FIRST then the ancestor chain (fixes
     # Gantt move/resize, drag-unscheduled, inline date edit, and any other date path).
+    if any(f in changed for f in ("exp_start_date", "exp_end_date", "pm_start_time", "pm_end_time")):
+        _validate_time_window(doc.get("exp_start_date"), doc.get("pm_start_time"),
+                              doc.get("exp_end_date"), doc.get("pm_end_time"))  # G4.11
     _date_changed = ("exp_start_date" in changed) or ("exp_end_date" in changed)
     if _date_changed and doc.get("project"):
         _expand_project_dates(doc.get("project"), doc.get("exp_start_date"), doc.get("exp_end_date"), user)
@@ -673,7 +704,7 @@ def subtree(name):
         kids = frappe.get_all(
             "Task", filters={"parent_task": ["in", frontier]},
             fields=["name", "subject", "status", "workflow_state", "parent_task",
-                    "_assign", "exp_end_date", "priority", "is_group"],
+                    "_assign", "exp_end_date", "pm_start_time", "pm_end_time", "priority", "is_group"],
             order_by="creation asc", limit_page_length=0,
         )
         frontier = []
@@ -709,6 +740,13 @@ def pm_task_transition_guard(doc, method=None):
         return  # no workflow transition on this save
     user = frappe.session.user
     if user == "Administrator" or pmperm.can_transition_any_task(user):
+        return
+    # G5.0: a governed assignment-acceptance may move the task Backlog -> To Do even though the
+    # actor (requester) is not the assignee. Narrowly scoped: only when assignment.py set the
+    # flag for THIS task, target is exactly To Do, and the request recipient is ALREADY assigned.
+    acc = frappe.flags.get("pm_assignment_acceptance")
+    if (acc and acc.get("task") == doc.name and new_state == "To Do"
+            and acc.get("recipient") and acc.get("recipient") in (doc.get("_assign") or "")):
         return
     if new_state == "Cancelled":
         frappe.throw(_("Chỉ quản lý mới được huỷ nhiệm vụ."), frappe.PermissionError)

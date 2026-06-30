@@ -155,6 +155,25 @@ def can_transition_any_task(user=None):
     return "PM Manager" in _roles(user)
 
 
+def can_request_task_assignment(task, user=None):
+    """G5.0: who may delegate a task via an assignment request. = a PM leader
+    (can_see_all_pm_data / Administrator / System Manager / Management dept), the PM Manager
+    role, the task owner/creator, OR the linked Project's ec_manager. A read-only viewer or an
+    ordinary assignee may NOT delegate merely because they can view the task. `task` is a
+    dict/doc exposing owner + project."""
+    user = user or frappe.session.user
+    if can_see_all_pm_data(user):
+        return True
+    if "PM Manager" in _roles(user):
+        return True
+    if task.get("owner") == user:
+        return True
+    project = task.get("project")
+    if project and frappe.db.get_value("Project", project, "ec_manager") == user:
+        return True
+    return False
+
+
 def can_manage_pm_labels(user=None):
     """G4.9: who may manage the shared label catalogue (create / rename / recolor / archive).
     = PM leaders (can_see_all_pm_data: Administrator / System Manager / Management dept) OR the

@@ -90,6 +90,38 @@ def create(source_task, frequency, start_date=None, end_date=None, max_occurrenc
 
 
 @frappe.whitelist()
+def create_with_task(subject, frequency, project=None, assignee=None, description=None,
+                     priority=None, exp_start_date=None, exp_end_date=None,
+                     pm_start_time=None, pm_end_time=None, start_date=None, end_date=None,
+                     max_occurrences=None, checklist_template=None, labels=None):
+    """G4.11: create a NEW base task AND its recurrence rule in ONE transaction. If the rule
+    fails to create, the base task insert is rolled back -> no partial state. Permission goes
+    through tasks.create / labels.set_task_labels / create (each runs its own service guards).
+    No subtree clone."""
+    pmperm.require_pm_access()
+    if not subject or not frequency:
+        frappe.throw(_("Subject and frequency are required."))
+    from ecentric_workspace.pm.api import tasks as pmtasks
+    from ecentric_workspace.pm.api import labels as pmlabels
+    try:
+        t = pmtasks.create(
+            project or "", subject, priority=priority,
+            exp_start_date=exp_start_date, exp_end_date=exp_end_date,
+            description=description, assignee=assignee,
+            pm_start_time=pm_start_time, pm_end_time=pm_end_time)
+        task_name = t["name"]
+        if labels:
+            pmlabels.set_task_labels(task_name, labels)
+        rule = create(source_task=task_name, frequency=frequency, start_date=start_date,
+                      end_date=end_date, max_occurrences=max_occurrences,
+                      checklist_template=checklist_template)
+    except Exception:
+        frappe.db.rollback()
+        raise
+    return {"task": task_name, "rule": rule}
+
+
+@frappe.whitelist()
 def get_for_task(task):
     pmperm.require_pm_access()
     name = _active_rule_for(task)
@@ -158,6 +190,8 @@ def _clone(r, occ_date):
         "doctype": "Task", "subject": src.subject, "description": src.get("description"),
         "priority": src.get("priority"), "project": src.get("project"),
         "parent_task": src.get("parent_task"), "exp_start_date": occ_date,
+        # G4.11: snapshot the source task's optional time-of-day window onto each generated task.
+        "pm_start_time": src.get("pm_start_time"), "pm_end_time": src.get("pm_end_time"),
     }
     if src.get("exp_start_date") and src.get("exp_end_date"):
         dur = (getdate(src.exp_end_date) - getdate(src.exp_start_date)).days

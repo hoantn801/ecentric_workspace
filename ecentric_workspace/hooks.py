@@ -50,6 +50,12 @@ doc_events = {
         # G4.9: block hard-delete of an in-use label on EVERY delete path (incl. Administrator).
         "before_delete": "ecentric_workspace.pm.api.labels.pm_label_before_delete",
     },
+    "PM Assignment Request": {
+        # G5.0 B2: service-only mutation guard (rejects generic insert/update, incl. Administrator;
+        # enforces append-only events) + hard-delete guard for decided audit history.
+        "before_save": "ecentric_workspace.pm.api.assignment.pm_assignment_request_guard",
+        "before_delete": "ecentric_workspace.pm.api.assignment.pm_assignment_request_before_delete",
+    },
 }
 
 # Scheduled Tasks

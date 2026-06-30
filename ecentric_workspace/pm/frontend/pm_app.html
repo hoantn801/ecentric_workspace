@@ -119,9 +119,9 @@
   .pm-chk-reqlbl{ font-size:12.5px; color:var(--gray-600); display:flex; align-items:center; gap:5px; white-space:nowrap; }
   /* G4.8c: global-list hierarchy + assignee name + kanban card sub/lock */
   .pm-tt-name{ display:inline-flex; align-items:center; gap:6px; }
-  .pm-tt-caret{ cursor:pointer; color:var(--gray-400); font-size:11px; width:14px; display:inline-block; text-align:center; }
+  .pm-tt-caret{ cursor:pointer; color:#CBD5E1; font-size:11px; width:14px; display:inline-block; text-align:center; }
   .pm-tt-caret.collapsed{ display:inline-block; transform:rotate(-90deg); }
-  .pm-tt-lead{ color:var(--gray-300); width:14px; display:inline-block; text-align:center; }
+  .pm-tt-lead{ color:#CBD5E1; width:14px; display:inline-block; text-align:center; }
   .pm-tt-sp{ width:14px; display:inline-block; }
   .pm-asg-name{ display:inline-flex; align-items:center; gap:6px; }
   .pm-asg-fn{ font-size:12.5px; color:var(--gray-700); overflow:hidden; text-overflow:ellipsis; }
@@ -130,10 +130,11 @@
   .pm-lock{ margin-left:6px; font-size:11px; }
   .pm-board-readonly .pm-card{ cursor:default; }
   /* G4.8d: row background by hierarchy depth (global + project task lists). Hover stays clear. */
-  .pm-tbl tr.pm-depth-0 > td{ background:#edf1f7; }
-  .pm-tbl tr.pm-depth-1 > td{ background:#f6f8fb; }
-  .pm-tbl tr.pm-depth-2plus > td{ background:#ffffff; }
-  .pm-tbl tr.pm-depth-0:hover > td, .pm-tbl tr.pm-depth-1:hover > td, .pm-tbl tr.pm-depth-2plus:hover > td{ background:var(--navy-50); }
+  .pm-tbl tr.pm-depth-0 > td{ background:#F1F5F9; }            /* G4.11 hierarchy palette */
+  .pm-tbl tr.pm-depth-0 > td.t-main{ font-weight:600; }       /* depth-0 subject semibold */
+  .pm-tbl tr.pm-depth-1 > td{ background:#F8FAFC; }
+  .pm-tbl tr.pm-depth-2plus > td{ background:#FFFFFF; }
+  .pm-tbl tr.pm-depth-0:hover > td, .pm-tbl tr.pm-depth-1:hover > td, .pm-tbl tr.pm-depth-2plus:hover > td{ background:#EEF2FF; }
   /* 2-card layout: gray body, white content + comments cards, 16px gap, comments ~360px */
   .pm-drawer.expanded .body.pm-cols{ background:var(--gray-50); }
   .pm-drawer.expanded .body.pm-cols .pm-dcols{ gap:16px; padding:16px; grid-template-columns:minmax(0,1fr) 360px; }
@@ -610,7 +611,8 @@
       <a class="nav-item" data-view="work"><svg class="icon"><use href="#p-list"/></svg><span>Công việc</span></a>
       <a class="nav-item" data-view="timesheet"><svg class="icon"><use href="#p-clock"/></svg><span>Timesheet</span></a>
       <a class="nav-item" data-view="recurring"><svg class="icon"><use href="#p-repeat"/></svg><span>Recurring</span></a>
-      <a class="nav-item" data-view="notifications"><svg class="icon"><use href="#p-bell"/></svg><span>Thông báo</span></a>
+      <!-- G4.11: PM sidebar "Thông báo" hidden (backend + topbar bell retained). -->
+      <a class="nav-item" data-view="assignments"><svg class="icon"><use href="#p-inbox"/></svg><span>Yêu cầu giao việc</span></a>
       <div class="nav-label" style="margin-top:10px;">Khác</div>
       <a class="nav-item" href="/home"><svg class="icon"><use href="#p-back"/></svg><span>Về Workspace</span></a>
     </nav>
@@ -646,7 +648,7 @@
 (function(){
   var PM="ecentric_workspace.pm.api.";
   var COLS=["Backlog","To Do","In Progress","Blocked","Review","Done","Cancelled"];
-  var CRUMB={dashboard:"Tổng quan",mytasks:"Việc của tôi",projects:"Dự án",work:"Công việc",tasks:"Công việc",board:"Công việc",gantt:"Công việc",calendar:"Công việc",timesheet:"Timesheet",recurring:"Recurring",notifications:"Thông báo"};
+  var CRUMB={dashboard:"Tổng quan",mytasks:"Việc của tôi",projects:"Dự án",work:"Công việc",tasks:"Công việc",board:"Công việc",gantt:"Công việc",calendar:"Công việc",timesheet:"Timesheet",recurring:"Recurring",assignments:"Yêu cầu giao việc",notifications:"Thông báo"};
   var LIVE=(location.protocol!=="file:");  // live over http(s); mock only for offline file:// preview
   var el=function(id){return document.getElementById(id);};
   function st(s){return "st-"+(s||"Backlog").replace(/\s/g,"");}
@@ -807,7 +809,7 @@
     Array.prototype.forEach.call(host.querySelectorAll("tr[data-assignee]"),function(tr){tr.onclick=function(){navAssignee(tr.getAttribute("data-assignee"));};});}
   function dcFocusList(host,rows){if(!host)return;if(!rows.length){return emptyBox(host,"Không có việc cần xử lý.");}
     host.innerHTML='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Nhiệm vụ</th><th>Dự án</th><th>Trạng thái</th><th>Người nhận</th><th>Hạn</th><th>Ưu tiên</th><th>Lý do</th></tr></thead><tbody>'+
-      rows.slice(0,40).map(function(x){var t=x.t;var a=names(t._assign);return '<tr data-task="'+esc(t.name)+'"><td class="t-main">'+esc(t.subject||t.name)+'</td><td>'+esc(t.project||"-")+'</td><td>'+badge(t.workflow_state)+'</td><td>'+(a.length?'<span class="pm-mini-av" title="'+esc(a[0])+'">'+ini(a[0])+'</span>':'<span style="color:var(--gray-400)">-</span>')+'</td><td>'+esc(t.exp_end_date||"-")+'</td><td>'+(t.priority?esc(t.priority):"-")+'</td><td>'+dcReasonBadge(x.r)+'</td></tr>';}).join("")+'</tbody></table></div>';
+      rows.slice(0,40).map(function(x){var t=x.t;var a=names(t._assign);return '<tr data-task="'+esc(t.name)+'"><td class="t-main">'+esc(t.subject||t.name)+'</td><td>'+esc(t.project||"-")+'</td><td>'+badge(t.workflow_state)+'</td><td>'+(a.length?'<span class="pm-mini-av" title="'+esc(a[0])+'">'+ini(a[0])+'</span>':'<span style="color:var(--gray-400)">-</span>')+'</td><td>'+esc(fmtEndCell(t))+'</td><td>'+(t.priority?esc(t.priority):"-")+'</td><td>'+dcReasonBadge(x.r)+'</td></tr>';}).join("")+'</tbody></table></div>';
     Array.prototype.forEach.call(host.querySelectorAll("tr[data-task]"),function(tr){tr.onclick=function(){openTask(tr.getAttribute("data-task"));};});}
   function dcMiniCard(label,n,preset,k){return '<div class="stat-card '+k+'" data-nav-preset="'+preset+'" style="cursor:pointer;padding:12px 14px"><div class="stat-label">'+label+'</div><div class="stat-value" style="font-size:22px">'+(n||0)+'</div></div>';}
   // Batch C.2 charts (CSS-only)
@@ -880,7 +882,7 @@
     var rb=x.isRec?recReasonBadge(x.reason):dcReasonBadge(x.reason);
     var rec=x.isRec?' <span class="dc-reason" style="color:#6d28d9;background:#f3e8ff">Định kỳ</span>':'';
     var noass=(a.length===0&&dcActive(t)&&x.reason!=="noassignee")?' <span class="dc-reason" style="color:#925f00;background:#fff7e6">Chưa giao</span>':'';
-    return '<tr data-task="'+esc(t.name)+'"><td class="t-main">'+esc(t.subject||t.name)+'</td><td>'+esc(t.project||"-")+'</td><td>'+esc(t.exp_end_date||"-")+'</td><td>'+(t.priority?esc(t.priority):"-")+'</td><td>'+badge(t.workflow_state)+'</td><td>'+rb+rec+noass+'</td><td style="text-align:right;white-space:nowrap">'+mwTimerBtn(t,ac)+'<button class="pm-btn mw-open" data-task="'+esc(t.name)+'">Mở</button></td></tr>';}
+    return '<tr data-task="'+esc(t.name)+'"><td class="t-main">'+esc(t.subject||t.name)+'</td><td>'+esc(t.project||"-")+'</td><td>'+esc(fmtEndCell(t))+'</td><td>'+(t.priority?esc(t.priority):"-")+'</td><td>'+badge(t.workflow_state)+'</td><td>'+rb+rec+noass+'</td><td style="text-align:right;white-space:nowrap">'+mwTimerBtn(t,ac)+'<button class="pm-btn mw-open" data-task="'+esc(t.name)+'">Mở</button></td></tr>';}
   function mwWireActions(scope){if(!scope)return;
     Array.prototype.forEach.call(scope.querySelectorAll(".mw-open"),function(b){b.onclick=function(e){e.stopPropagation();openTask(b.getAttribute("data-task"));};});
     Array.prototype.forEach.call(scope.querySelectorAll(".mw-start"),function(b){b.onclick=function(e){e.stopPropagation();b.disabled=true;api(PM+"timer.start",{task:b.getAttribute("data-task")}).then(function(){refreshTimerChip();showMyTasks();}).catch(function(err){toast("Lỗi: "+errOf(err),true);showMyTasks();});};});
@@ -1053,7 +1055,7 @@
     var pri=t.priority?'<span class="pm-tag '+({Urgent:"tg-urgent",High:"tg-high",Medium:"tg-medium",Low:"tg-low"}[t.priority]||"tg-low")+'">'+esc(t.priority)+'</span>':'<span style="color:var(--gray-300)">-</span>';
     var lead=hasChildren?'<span class="pd-tcaret'+(collapsed?' collapsed':'')+'" data-tcol="'+esc(t.name)+'" title="Thu/mở">▾</span>':(depth>0?'<span class="pd-tlead">↳</span>':'<span class="pd-tcaret-sp"></span>');
     var cnt=hasChildren?' <span class="pd-tcount">'+childCount+' nv con</span>':'';
-    return '<tr data-task="'+esc(t.name)+'" class="pd-trow'+(depth>0?' pd-child':'')+' '+pmDepthClass(depth)+'"><td class="t-main"><span class="pd-tname" style="padding-left:'+(depth*20)+'px">'+lead+'<span class="pd-ttitle">'+esc(t.subject||t.name)+'</span>'+cnt+'</span>'+(labelChips(t,2)?'<div class="pm-labels-row" style="margin-top:4px">'+labelChips(t,2)+'</div>':'')+'</td><td>'+badge(t.workflow_state)+'</td><td>'+pri+'</td><td>'+esc(t.exp_end_date||'-')+'</td><td>'+pmAssignee(t,false)+'</td>'+(window._isLeader?'<td class="pm-act-col">'+pmTaskMenuHtml(t.name)+'</td>':'')+'</tr>';}
+    return '<tr data-task="'+esc(t.name)+'" class="pd-trow'+(depth>0?' pd-child':'')+' '+pmDepthClass(depth)+'"><td class="t-main"><span class="pd-tname" style="padding-left:'+(depth*20)+'px">'+lead+'<span class="pd-ttitle">'+esc(t.subject||t.name)+'</span>'+cnt+'</span>'+(labelChips(t,2)?'<div class="pm-labels-row" style="margin-top:4px">'+labelChips(t,2)+'</div>':'')+'</td><td>'+badge(t.workflow_state)+'</td><td>'+pri+'</td><td>'+esc(fmtEndCell(t))+'</td><td>'+pmAssignee(t,false)+'</td>'+(window._isLeader?'<td class="pm-act-col">'+pmTaskMenuHtml(t.name)+'</td>':'')+'</tr>';}
   function pdTaskTable(host,rows){if(!host)return;rows=rows||[];
     if(!rows.length){return emptyBox(host,"Chưa có nhiệm vụ.");}
     var head='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Nhiệm vụ</th><th>Trạng thái</th><th>Ưu tiên</th><th>Hạn</th><th>Người nhận</th>'+(window._isLeader?'<th class="pm-act-col"></th>':'')+'</tr></thead><tbody>';
@@ -1145,6 +1147,11 @@
   function pmAssignee(t,wide){var a=names(t._assign);if(!a.length)return '<span style="color:var(--gray-400)">'+(wide?"Chưa giao":"—")+'</span>';var e=a[0];var fn=(window._pmUserNames&&window._pmUserNames[e])||e;var tip=(fn&&fn!==e)?(esc(fn)+" · "+esc(e)):esc(e);var av='<span class="pm-mini-av" title="'+tip+'">'+ini(e)+'</span>';var more=a.length>1?'<span class="pm-tag tg-more" title="'+esc(a.slice(1).join(", "))+'">+'+(a.length-1)+'</span>':'';return wide?('<span class="pm-asg-name" title="'+tip+'">'+av+'<span class="pm-asg-fn">'+esc(fn)+'</span>'+more+'</span>'):(av+more);}
   function pmPriBadge(p){if(!p||p==="Low")return '';var cls={Urgent:"tg-urgent",High:"tg-high",Medium:"tg-medium"}[p]||"tg-medium";return '<span class="pm-tag '+cls+'">'+esc(p)+'</span>';}
   function pmDepthClass(d){return d===0?"pm-depth-0":(d===1?"pm-depth-1":"pm-depth-2plus");} /* G4.8d: row background by hierarchy depth */
+  /* G4.11: date-only (strip 00:00:00) + optional time-of-day when set. */
+  function fmtDateOnly(d){if(!d)return "";return String(d).slice(0,10);}
+  function fmtDT(d,t){var ds=fmtDateOnly(d);if(!ds)return "";return t?(ds+" "+String(t).slice(0,5)):ds;}
+  function fmtEndCell(t){return t.exp_end_date?fmtDT(t.exp_end_date,t.pm_end_time):"-";}
+  function fmtStartCell(t){return t.exp_start_date?fmtDT(t.exp_start_date,t.pm_start_time):"-";}
   function presetMatch(t){var p=F.preset;if(!p)return true;var u=window._pmUser||"";var td=new Date().toISOString().slice(0,10);var asg=names(t._assign);var due=t.exp_end_date||"";
     if(p==="mine")return asg.indexOf(u)>=0;
     if(p==="today")return due===td;
@@ -1224,7 +1231,7 @@
     function rowHtml(t,depth,hasKids,collapsed){var tg=tagsCompact(t,3);
       var caret=hasKids?'<span class="pm-tt-caret'+(collapsed?' collapsed':'')+'" data-ttcol="'+esc(t.name)+'">▾</span>':(depth>0?'<span class="pm-tt-lead">↳</span>':'<span class="pm-tt-sp"></span>');
       return '<tr data-task="'+esc(t.name)+'" class="'+pmDepthClass(depth)+'"><td class="t-main"><span class="pm-tt-name" style="padding-left:'+(Math.min(depth,6)*18)+'px">'+caret+'<span>'+esc(t.subject||t.name)+'</span></span>'+(tg?'<div class="pm-tags" style="margin-top:4px">'+tg+'</div>':'')+(labelChips(t,2)?'<div class="pm-labels-row" style="margin-top:4px">'+labelChips(t,2)+'</div>':'')+'</td><td>'+badge(t.workflow_state)+'</td><td>'+pmProjLabel(t)+'</td>'+
-        (compact?'':'<td>'+esc(t.exp_end_date||"-")+'</td>')+'<td>'+pmAssignee(t,false)+'</td>'+(lead?'<td class="pm-act-col">'+pmTaskMenuHtml(t.name)+'</td>':'')+'</tr>';}
+        (compact?'':'<td>'+esc(fmtEndCell(t))+'</td>')+'<td>'+pmAssignee(t,false)+'</td>'+(lead?'<td class="pm-act-col">'+pmTaskMenuHtml(t.name)+'</td>':'')+'</tr>';}
     var body="";
     if(compact){ rows.forEach(function(t){body+=rowHtml(t,0,false,false);}); }
     else { /* G4.8c: hierarchy — roots then nested children (parent_task), caret expand/collapse */
@@ -1456,6 +1463,7 @@
           '<div class="pm-prop" style="grid-column:1/-1"><label>Người nhận</label><div class="v">'+(a.length?a.slice(0,5).map(function(u){var fn=(window._pmUserNames&&window._pmUserNames[u])||u;return '<span class="pm-assignee-chip" title="'+esc(fn)+' · '+esc(u)+'"><span class="pm-mini-av">'+ini(u)+'</span>'+esc(fn)+'</span>';}).join("")+(a.length>5?'<span class="pm-tag tg-more">+'+(a.length-5)+'</span>':''):'<span style="color:var(--gray-400)">Chưa giao</span>')+'</div></div>'+
           '<div class="pm-prop"><label>Bắt đầu</label><div class="v"><span class="pm-inline" data-inline="start">'+renderInlineDisplay("start",t)+'</span></div></div>'+
           '<div class="pm-prop"><label>Hạn</label><div class="v"><span class="pm-inline" data-inline="end">'+renderInlineDisplay("end",t)+'</span></div></div>'+
+          '<div class="pm-prop" style="grid-column:1/-1"><label>Giờ (tuỳ chọn)</label><div class="v" style="display:flex;gap:8px;align-items:center"><input type="time" class="pm-input" id="pm-st-time" value="'+esc(t.pm_start_time?String(t.pm_start_time).slice(0,5):"")+'"'+(pmTerminal(t)?" disabled":"")+' style="width:auto;padding:4px 8px"><span style="color:var(--gray-400)">–</span><input type="time" class="pm-input" id="pm-en-time" value="'+esc(t.pm_end_time?String(t.pm_end_time).slice(0,5):"")+'"'+(pmTerminal(t)?" disabled":"")+' style="width:auto;padding:4px 8px"></div></div>'+
           '<div class="pm-prop" style="grid-column:1/-1"><label>Nhãn</label><div class="v" id="pm-labels-box"></div></div>'+
         '</div>'+
         '<div class="pm-dsec">Mô tả</div><div class="pm-inline pm-desc-inline" data-inline="desc">'+renderInlineDisplay("desc",t)+'</div>'+
@@ -1493,6 +1501,10 @@
         api(PM+"tasks.assign",{name:name,users:[v]}).then(function(){toast("Đã giao cho "+v);openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};
       /* A2: "Sửa (form)" button removed — inline edit is the primary path. editTask() kept as internal fallback only. */
       inlineWire(c,t,name); /* C1-B: click-to-edit priority/start/end/desc in main + title in header */
+      /* G4.11: optional time-of-day, saved via tasks.update (validation server-side). */
+      (function(){function saveTime(){var st=el("pm-st-time"),en=el("pm-en-time");if(!st&&!en)return;
+        api(PM+"tasks.update",{name:name,pm_start_time:(st&&st.value)||null,pm_end_time:(en&&en.value)||null}).then(function(){openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);openTask(name);});}
+        if(el("pm-st-time"))el("pm-st-time").onchange=saveTime; if(el("pm-en-time"))el("pm-en-time").onchange=saveTime;})();
       pmDecompWire(name,t.project); loadSubtree(name,t.project,pmTerminal(t)); /* G4.8: PHÂN RÃ tabs + nested subtask tree */
       loadWorktime(name,pmTerminal(t)); loadRecurrence(name); loadComments(name); loadChecklist(name,t.workflow_state);
       if(el("pm-cmt-send"))el("pm-cmt-send").onclick=function(){var v=el("pm-cmt-input").value.trim();if(!v){toast("Nhập bình luận",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang gửi...";
@@ -1721,7 +1733,7 @@
     var od=base.filter(function(t){var e=t.end?String(t.end).slice(0,10):null;return e&&e<td&&["Done","Cancelled"].indexOf(t.workflow_state)<0;});
     function sec(title,arr,cls){return '<div class="cal-aside-sec"><div class="cal-aside-h">'+title+' <span style="color:var(--gray-400)">('+arr.length+')</span></div>'+(arr.length?arr.slice(0,40).map(function(t){return '<div class="cal-chip '+(cls||"")+'" data-task="'+esc(t.id||t.name)+'" title="'+esc((t.subject||"")+(t.project_name?(" · "+t.project_name):""))+'"><span class="cal-dot" style="background:'+gColor(t.workflow_state)+'"></span><span style="overflow:hidden;text-overflow:ellipsis">'+esc(t.subject||t.name)+'</span></div>';}).join(""):'<div style="font-size:11.5px;color:var(--gray-300);padding:4px 0">Không có.</div>')+'</div>';}
     return sec("Quá hạn",od,"cal-od")+sec("Chưa có hạn",nodue,"");}
-  function calChip(t){var od=calOd(t);return '<div class="cal-chip'+(od?' cal-od':'')+'" data-task="'+esc(t.id||t.name)+'" title="'+esc((t.subject||"")+(t.project_name?(" · "+t.project_name):""))+'"><span class="cal-dot" style="background:'+gColor(t.workflow_state)+'"></span><span style="overflow:hidden;text-overflow:ellipsis">'+esc(t.subject||t.name)+'</span>'+(t.priority==="Urgent"?'<span class="pm-tag tg-urgent" style="padding:0 5px;font-size:10px;flex:0 0 auto">U</span>':'')+'</div>';}
+  function calChip(t){var od=calOd(t);var tm=t.pm_end_time?(" "+String(t.pm_end_time).slice(0,5)):"";return '<div class="cal-chip'+(od?' cal-od':'')+'" data-task="'+esc(t.id||t.name)+'" title="'+esc((t.subject||"")+tm+(t.project_name?(" · "+t.project_name):""))+'"><span class="cal-dot" style="background:'+gColor(t.workflow_state)+'"></span><span style="overflow:hidden;text-overflow:ellipsis">'+esc(t.subject||t.name)+'</span>'+(t.priority==="Urgent"?'<span class="pm-tag tg-urgent" style="padding:0 5px;font-size:10px;flex:0 0 auto">U</span>':'')+'</div>';}
   function renderCalMonth(){var ref=window._calRef;var y=ref.getFullYear(),m=ref.getMonth();var first=new Date(y,m,1);var dow=(first.getDay()+6)%7;var start=new Date(y,m,1-dow);
     var byDate=calIndex(),todayStr=calYmd(new Date()),dows=["T2","T3","T4","T5","T6","T7","CN"];
     var h='<div class="cal-grid">'+dows.map(function(d){return '<div class="cal-dow">'+d+'</div>';}).join("");
@@ -2016,12 +2028,88 @@
           (showActions?'<td style="text-align:right;white-space:nowrap">'+(r.status==="Active"?'<button class="pm-btn rc-a" data-a="pause" data-n="'+esc(r.name)+'">Tạm dừng</button>':r.status==="Paused"?'<button class="pm-btn rc-a" data-a="resume" data-n="'+esc(r.name)+'">Tiếp tục</button>':'')+((r.status==="Active"||r.status==="Paused")?' <button class="pm-btn rc-a" data-a="cancel" data-n="'+esc(r.name)+'">Huỷ</button>':'')+'</td>':'')+'</tr>';}).join("")+'</tbody></table></div>';
     Array.prototype.forEach.call(host.querySelectorAll("[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});
     Array.prototype.forEach.call(host.querySelectorAll(".rc-a"),function(btn){btn.onclick=function(){api(PM+"recurrence."+btn.getAttribute("data-a"),{name:btn.getAttribute("data-n")}).then(function(){showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};});}
+  /* G5.0: Assignment Acceptance — request a task be given to a user; recipient accepts /
+     rejects / proposes a new time. Replaces the hidden "Thông báo" slot. */
+  function asgFmt(d){return d?String(d).slice(0,16).replace("T"," "):"—";}
+  function asgStatusBadge(st){var m={Pending:"tg-medium","Reschedule Proposed":"tg-high",Accepted:"tg-low",Rejected:"tg-urgent",Cancelled:"tg-nodue"};return '<span class="pm-tag '+(m[st]||"tg-medium")+'">'+esc(st)+'</span>';}
+  function showAssignments(){var c=el("pm-view");spin(c);window._asgTab=window._asgTab||"in";
+    Promise.all([api(PM+"assignment.list_incoming").catch(function(){return {rows:[]};}),
+                 api(PM+"assignment.list_outgoing").catch(function(){return {rows:[]};})]).then(function(res){
+      var inc=(res[0].rows||[]),out=(res[1].rows||[]);
+      var cta='<button class="pm-btn primary" id="asg-new"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Giao việc</button>';
+      var h=head("Yêu cầu giao việc","Đề xuất giao việc và chấp nhận lịch",cta);
+      h+='<div class="seg" style="margin:0 0 14px"><button data-asgtab="in" class="'+(window._asgTab==="in"?"active":"")+'">Được giao cho tôi ('+inc.length+')</button><button data-asgtab="out" class="'+(window._asgTab==="out"?"active":"")+'">Tôi đã giao ('+out.length+')</button></div>';
+      h+='<div id="asg-body"></div>';
+      c.innerHTML=h;
+      el("asg-new").onclick=openAssignCreate;
+      Array.prototype.forEach.call(c.querySelectorAll("[data-asgtab]"),function(b){b.onclick=function(){window._asgTab=b.getAttribute("data-asgtab");showAssignments();};});
+      renderAsgList(el("asg-body"),window._asgTab==="in"?inc:out,window._asgTab);
+    }).catch(function(e){errBox(c,e);});}
+  function renderAsgList(host,rows,tab){
+    if(!rows.length){host.innerHTML='<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>Chưa có yêu cầu.</div></div></div>';return;}
+    host.innerHTML=rows.map(function(r){return asgCard(r,tab);}).join("");
+    Array.prototype.forEach.call(host.querySelectorAll("[data-asg-act]"),function(b){b.onclick=function(){asgAction(b.getAttribute("data-asg-name"),b.getAttribute("data-asg-act"),b.closest(".asg-card"));};});
+  }
+  function asgCard(r,tab){var who=(tab==="in")?("Từ: "+esc(r.requested_by)):("Đến: "+esc(r.recipient));
+    var win=asgFmt(r.proposed_start)+" → "+asgFmt(r.proposed_end);
+    var counter=(r.counter_start||r.counter_end)?('<div style="font-size:12px;color:var(--gray-600)">Lịch đề xuất mới: '+asgFmt(r.counter_start)+" → "+asgFmt(r.counter_end)+(r.response_reason?(' — '+esc(r.response_reason)):"")+'</div>'):"";
+    var acts="";
+    if(tab==="in"&&(r.status==="Pending"||r.status==="Reschedule Proposed")){
+      acts='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+
+        '<button class="pm-btn primary" data-asg-act="accept" data-asg-name="'+esc(r.name)+'">Đồng ý</button>'+
+        '<button class="pm-btn" data-asg-act="reject" data-asg-name="'+esc(r.name)+'">Từ chối</button>'+
+        '<button class="pm-btn" data-asg-act="reschedule" data-asg-name="'+esc(r.name)+'">Đề xuất lịch khác</button></div>';}
+    if(tab==="out"){
+      var o=[];
+      if(r.status==="Reschedule Proposed")o.push('<button class="pm-btn primary" data-asg-act="accept_counter" data-asg-name="'+esc(r.name)+'">Đồng ý lịch mới</button>');
+      if(r.status==="Rejected"||r.status==="Cancelled"||r.status==="Reschedule Proposed")o.push('<button class="pm-btn" data-asg-act="resend" data-asg-name="'+esc(r.name)+'">Gửi lại</button>');
+      if(r.status==="Pending"||r.status==="Reschedule Proposed")o.push('<button class="pm-btn" data-asg-act="cancel" data-asg-name="'+esc(r.name)+'">Huỷ</button>');
+      if(o.length)acts='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+o.join("")+'</div>';}
+    return '<div class="asg-card panel" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center"><b>'+esc(r.task_subject||r.task)+'</b>'+asgStatusBadge(r.status)+'</div>'+
+      '<div style="font-size:12.5px;color:var(--gray-600);margin-top:4px">'+who+' · Lịch: '+win+'</div>'+
+      (r.message?'<div style="font-size:12.5px;margin-top:4px">'+esc(r.message)+'</div>':"")+counter+
+      (r.response_reason&&r.status==="Rejected"?'<div style="font-size:12px;color:var(--pink);margin-top:4px">Lý do từ chối: '+esc(r.response_reason)+'</div>':"")+
+      acts+'<div class="asg-inline" style="margin-top:8px"></div></div>';}
+  function asgAction(name,act,card){
+    var inline=card.querySelector(".asg-inline");
+    if(act==="accept"){api(PM+"assignment.respond",{name:name,decision:"accept"}).then(function(){toast("Đã đồng ý nhận việc");showAssignments();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});return;}
+    if(act==="accept_counter"){api(PM+"assignment.requester_action",{name:name,action:"accept_counter"}).then(function(){toast("Đã chốt lịch mới");showAssignments();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});return;}
+    if(act==="cancel"){api(PM+"assignment.requester_action",{name:name,action:"cancel"}).then(function(){toast("Đã huỷ yêu cầu");showAssignments();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});return;}
+    if(act==="resend"){api(PM+"assignment.requester_action",{name:name,action:"resend"}).then(function(){toast("Đã gửi lại");showAssignments();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});return;}
+    if(act==="reject"){inline.innerHTML='<textarea class="pm-input" id="asg-reason" rows="2" placeholder="Lý do từ chối (bắt buộc)"></textarea><button class="pm-btn primary" id="asg-reject-go" style="margin-top:6px">Gửi từ chối</button>';
+      el("asg-reject-go").onclick=function(){api(PM+"assignment.respond",{name:name,decision:"reject",reason:el("asg-reason").value}).then(function(){toast("Đã từ chối");showAssignments();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};return;}
+    if(act==="reschedule"){inline.innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap"><input type="datetime-local" class="pm-input" id="asg-cs" style="width:auto"><input type="datetime-local" class="pm-input" id="asg-ce" style="width:auto"></div><textarea class="pm-input" id="asg-rreason" rows="2" placeholder="Lý do (bắt buộc)" style="margin-top:6px"></textarea><button class="pm-btn primary" id="asg-resch-go" style="margin-top:6px">Gửi đề xuất</button>';
+      el("asg-resch-go").onclick=function(){api(PM+"assignment.respond",{name:name,decision:"reschedule",counter_start:el("asg-cs").value||null,counter_end:el("asg-ce").value||null,reason:el("asg-rreason").value}).then(function(){toast("Đã gửi đề xuất lịch khác");showAssignments();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};return;}
+  }
+  function openAssignCreate(){openD();el("pm-dt").textContent="Giao việc";var c=el("pm-dbody");c.classList.remove("pm-cols");spin(c);
+    Promise.all([api(PM+"projects.list",{page_length:500}).catch(function(){return {rows:[]};}),
+                 api(PM+"labels.list_labels",{}).catch(function(){return {rows:[]};}),
+                 api(PM+"checklist.list_templates",{}).catch(function(){return {rows:[]};})]).then(function(res){
+      var projs=(res[0].rows||[]),labels=(res[1].rows||[]),tmpls=(res[2].rows||[]);
+      c.innerHTML='<div style="max-width:640px">'+
+        '<div class="pm-field"><label>Tên nhiệm vụ *</label><input class="pm-input" id="ag-subject"></div>'+
+        '<div class="pm-field"><label>Người nhận (email) *</label><input class="pm-input" id="ag-recipient" placeholder="user@ecentric.vn"></div>'+
+        '<div class="pm-field"><label>Dự án</label><select class="pm-sel" id="ag-project"><option value="">— Ngoài dự án —</option>'+projs.map(function(p){return '<option value="'+esc(p.name)+'">'+esc(p.project_name||p.name)+'</option>';}).join("")+'</select></div>'+
+        '<div class="pm-field"><label>Mô tả</label><textarea class="pm-input" id="ag-desc" rows="2"></textarea></div>'+
+        '<div class="pm-field"><label>Ưu tiên</label><select class="pm-sel" id="ag-priority"><option value="">—</option><option>Low</option><option>Medium</option><option>High</option><option>Urgent</option></select></div>'+
+        '<div style="display:flex;gap:10px"><div class="pm-field" style="flex:1"><label>Đề xuất bắt đầu</label><input type="datetime-local" class="pm-input" id="ag-ps"></div><div class="pm-field" style="flex:1"><label>Đề xuất kết thúc</label><input type="datetime-local" class="pm-input" id="ag-pe"></div></div>'+
+        '<div class="pm-field"><label>Checklist mẫu</label><select class="pm-sel" id="ag-tmpl"><option value="">— Không —</option>'+tmpls.map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.template_name||t.name)+'</option>';}).join("")+'</select></div>'+
+        '<div class="pm-field"><label>Nhãn</label><div id="ag-labels" style="display:flex;gap:6px;flex-wrap:wrap">'+(labels.length?labels.map(function(l){return '<label class="pm-lblopt" style="padding:3px 6px"><input type="checkbox" data-lbl="'+esc(l.name)+'"> <span class="pm-lbl pm-lbl-'+esc(l.color_key||"gray")+'">'+esc(l.label_name)+'</span></label>';}).join(""):'<span style="color:var(--gray-400);font-size:12px">Chưa có nhãn</span>')+'</div></div>'+
+        '<div class="pm-field"><label>Lời nhắn</label><textarea class="pm-input" id="ag-msg" rows="2"></textarea></div>'+
+        '<div style="display:flex;gap:8px"><button class="pm-btn primary" id="ag-submit">Gửi yêu cầu</button><button class="pm-btn" id="ag-cancel">Huỷ</button></div></div>';
+      c.classList.add("pm-cols");
+      el("ag-cancel").onclick=function(){closeD();};
+      el("ag-submit").onclick=function(){var btn=this;var subj=el("ag-subject").value.trim(),rcp=el("ag-recipient").value.trim();
+        if(!subj){toast("Nhập tên nhiệm vụ",true);return;}if(!rcp){toast("Nhập người nhận",true);return;}btn.disabled=true;
+        var lbls=Array.prototype.map.call(c.querySelectorAll("#ag-labels input[data-lbl]:checked"),function(x){return x.getAttribute("data-lbl");});
+        api(PM+"assignment.create_with_task",{subject:subj,recipient:rcp,project:el("ag-project").value||"",description:el("ag-desc").value||null,priority:el("ag-priority").value||null,proposed_start:el("ag-ps").value||null,proposed_end:el("ag-pe").value||null,message:el("ag-msg").value||null,checklist_template:el("ag-tmpl").value||null,labels:lbls.length?JSON.stringify(lbls):null}).then(function(){toast("Đã gửi yêu cầu giao việc");closeD();showAssignments();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});};
+    }).catch(function(e){errBox(c,e);});}
   function showRecurring(){var c=el("pm-view");spin(c);
     Promise.all([api(PM+"recurrence.list"),api(PM+"tasks.list",{page_length:2000})]).then(function(res){
       var rules=(res[0]&&res[0].rows)||[];var tasks=(res[1]&&res[1].rows)||[];var tmap={};tasks.forEach(function(t){tmap[t.name]=t;});
       var today=new Date().toISOString().slice(0,10);function d10(v){return v?String(v).slice(0,10):null;}
-      var h=head("Recurring","Quy tắc lặp và nhiệm vụ định kỳ hằng ngày");
-      if(!rules.length){c.innerHTML=h+'<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-repeat"/></svg><div>Chưa có quy tắc lặp.<br>Mở một nhiệm vụ → bấm <b>Lặp lại</b> để tạo quy tắc.</div></div></div>';return;}
+      var CTA='<button class="pm-btn primary" id="rec-new-cta"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo việc định kỳ</button>';var h=head("Recurring","Quy tắc lặp và nhiệm vụ định kỳ hằng ngày",CTA);
+      if(!rules.length){c.innerHTML=h+'<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-repeat"/></svg><div>Chưa có quy tắc lặp.<br>Bấm <b>+ Tạo việc định kỳ</b> để bắt đầu.</div><div style="margin-top:12px"><button class="pm-btn primary" id="rec-new-cta2"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo việc định kỳ</button></div></div></div>';var b0=el("rec-new-cta2");if(b0)b0.onclick=openRecurringCreate;return;}
       var active=rules.filter(function(r){return r.status==="Active";});
       var paused=rules.filter(function(r){return r.status==="Paused";});
       var ended=rules.filter(function(r){return r.status==="Cancelled"||r.status==="Completed";});
@@ -2044,6 +2132,54 @@
       chkBadgesInto(el("rec-today"),genToday.map(function(x){return x.t&&x.t.name;})); /* G4 checklist progress badge */
       recRuleTable(el("rec-active"),active,tmap,true);
       recRuleTable(el("rec-other"),paused.concat(ended),tmap,true);
+      var bn=el("rec-new-cta");if(bn)bn.onclick=openRecurringCreate;
+    }).catch(function(e){errBox(c,e);});}
+
+  /* G4.11: create a recurring task directly (base task + rule in one transaction), or pick an
+     existing task. Uses recurrence.create_with_task / recurrence.create. */
+  function openRecurringCreate(){
+    openD();el("pm-dt").textContent="Tạo việc định kỳ";var c=el("pm-dbody");c.classList.remove("pm-cols");spin(c);
+    Promise.all([
+      api(PM+"projects.list",{page_length:500}).catch(function(){return {rows:[]};}),
+      api(PM+"labels.list_labels",{}).catch(function(){return {rows:[]};}),
+      api(PM+"checklist.list_templates",{}).catch(function(){return {rows:[]};}),
+      api(PM+"tasks.list",{page_length:2000}).catch(function(){return {rows:[]};})
+    ]).then(function(res){
+      var projs=(res[0].rows||[]),labels=(res[1].rows||[]),tmpls=(res[2].rows||[]);
+      var tasks=(res[3].rows||[]).filter(function(t){return ["Done","Cancelled"].indexOf(t.workflow_state)<0;});
+      function optsP(){return '<option value="">— Ngoài dự án —</option>'+projs.map(function(p){return '<option value="'+esc(p.name)+'">'+esc(p.project_name||p.name)+'</option>';}).join("");}
+      var FRQ=[["Daily","Hằng ngày"],["Weekly","Hằng tuần"],["Biweekly","2 tuần/lần"],["Monthly","Hằng tháng"]];
+      c.innerHTML='<div class="pm-recform" style="max-width:640px">'+
+        '<div class="seg" style="margin-bottom:14px"><button data-rcm="new" class="active">Tạo nhiệm vụ mới</button><button data-rcm="exist">Dùng nhiệm vụ có sẵn</button></div>'+
+        '<div id="rc-new-pane">'+
+          '<div class="pm-field"><label>Tên nhiệm vụ *</label><input class="pm-input" id="rcf-subject" placeholder="Tên việc định kỳ"></div>'+
+          '<div class="pm-field"><label>Dự án</label><select class="pm-sel" id="rcf-project">'+optsP()+'</select></div>'+
+          '<div class="pm-field"><label>Người nhận (email)</label><input class="pm-input" id="rcf-assignee" placeholder="user@ecentric.vn"></div>'+
+          '<div class="pm-field"><label>Mô tả</label><textarea class="pm-input" id="rcf-desc" rows="2"></textarea></div>'+
+          '<div class="pm-field"><label>Ưu tiên</label><select class="pm-sel" id="rcf-priority"><option value="">—</option><option>Low</option><option>Medium</option><option>High</option><option>Urgent</option></select></div>'+
+          '<div style="display:flex;gap:10px"><div class="pm-field" style="flex:1"><label>Ngày bắt đầu</label><input type="date" class="pm-input" id="rcf-sd"></div><div class="pm-field" style="flex:1"><label>Giờ bắt đầu</label><input type="time" class="pm-input" id="rcf-st"></div></div>'+
+          '<div style="display:flex;gap:10px"><div class="pm-field" style="flex:1"><label>Ngày kết thúc</label><input type="date" class="pm-input" id="rcf-ed"></div><div class="pm-field" style="flex:1"><label>Giờ kết thúc</label><input type="time" class="pm-input" id="rcf-et"></div></div>'+
+          '<div class="pm-field"><label>Checklist mẫu</label><select class="pm-sel" id="rcf-tmpl"><option value="">— Không —</option>'+tmpls.map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.template_name||t.name)+'</option>';}).join("")+'</select></div>'+
+          '<div class="pm-field"><label>Nhãn</label><div id="rcf-labels" style="display:flex;gap:6px;flex-wrap:wrap">'+(labels.length?labels.map(function(l){return '<label class="pm-lblopt" style="padding:3px 6px"><input type="checkbox" data-lbl="'+esc(l.name)+'"> <span class="pm-lbl pm-lbl-'+esc(l.color_key||"gray")+'">'+esc(l.label_name)+'</span></label>';}).join(""):'<span style="color:var(--gray-400);font-size:12px">Chưa có nhãn</span>')+'</div></div>'+
+        '</div>'+
+        '<div id="rc-exist-pane" style="display:none">'+
+          '<div class="pm-field"><label>Nhiệm vụ có sẵn *</label><select class="pm-sel" id="rcf-task"><option value="">— Chọn —</option>'+tasks.map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.subject||t.name)+'</option>';}).join("")+'</select></div>'+
+        '</div>'+
+        '<div class="pm-field"><label>Lịch lặp *</label><select class="pm-sel" id="rcf-freq">'+FRQ.map(function(f){return '<option value="'+f[0]+'">'+f[1]+'</option>';}).join("")+'</select></div>'+
+        '<div style="display:flex;gap:10px"><div class="pm-field" style="flex:1"><label>Bắt đầu lặp</label><input type="date" class="pm-input" id="rcf-rstart"></div><div class="pm-field" style="flex:1"><label>Kết thúc lặp (tuỳ chọn)</label><input type="date" class="pm-input" id="rcf-rend"></div></div>'+
+        '<div style="display:flex;gap:8px;margin-top:8px"><button class="pm-btn primary" id="rcf-submit">Tạo việc định kỳ</button><button class="pm-btn" id="rcf-cancel">Huỷ</button></div>'+
+        '</div>';
+      c.classList.add("pm-cols");
+      var mode={v:"new"};
+      Array.prototype.forEach.call(c.querySelectorAll("[data-rcm]"),function(b){b.onclick=function(){mode.v=b.getAttribute("data-rcm");Array.prototype.forEach.call(c.querySelectorAll("[data-rcm]"),function(x){x.classList.toggle("active",x===b);});el("rc-new-pane").style.display=(mode.v==="new")?"":"none";el("rc-exist-pane").style.display=(mode.v==="exist")?"":"none";};});
+      el("rcf-cancel").onclick=function(){closeD();};
+      el("rcf-submit").onclick=function(){var btn=this;btn.disabled=true;
+        var freq=el("rcf-freq").value,rstart=el("rcf-rstart").value||null,rend=el("rcf-rend").value||null;
+        if(mode.v==="exist"){var tk=el("rcf-task").value;if(!tk){toast("Chọn nhiệm vụ",true);btn.disabled=false;return;}
+          api(PM+"recurrence.create",{source_task:tk,frequency:freq,start_date:rstart,end_date:rend}).then(function(){toast("Đã tạo lịch lặp");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});return;}
+        var subj=el("rcf-subject").value.trim();if(!subj){toast("Nhập tên nhiệm vụ",true);btn.disabled=false;return;}
+        var lbls=Array.prototype.map.call(c.querySelectorAll("#rcf-labels input[data-lbl]:checked"),function(x){return x.getAttribute("data-lbl");});
+        api(PM+"recurrence.create_with_task",{subject:subj,frequency:freq,project:el("rcf-project").value||"",assignee:el("rcf-assignee").value.trim()||null,description:el("rcf-desc").value||null,priority:el("rcf-priority").value||null,exp_start_date:el("rcf-sd").value||null,exp_end_date:el("rcf-ed").value||null,pm_start_time:el("rcf-st").value||null,pm_end_time:el("rcf-et").value||null,start_date:rstart,end_date:rend,checklist_template:el("rcf-tmpl").value||null,labels:lbls.length?JSON.stringify(lbls):null}).then(function(){toast("Đã tạo việc định kỳ");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});};
     }).catch(function(e){errBox(c,e);});}
 
   function tsSum(rows,pred){var s=0;rows.forEach(function(r){if(pred(r))s+=(r.hours||0);});return Math.round(s*100)/100;}
@@ -2096,7 +2232,7 @@
   // replaced by raw Desk. The nav onclick below short-circuits before go() so
   // _curView / active nav / breadcrumb stay on the current PM view.
   function redirectToGlobalNotifications(){ window.open("/app/notification-log","_blank","noopener"); }
-  var VIEWS={dashboard:showDashboard,mytasks:showMyTasks,projects:showProjects,work:showWork,tasks:showTasks,board:showBoard,gantt:showGantt,calendar:showCalendar,timesheet:showTimesheet,recurring:showRecurring,notifications:redirectToGlobalNotifications};
+  var VIEWS={dashboard:showDashboard,mytasks:showMyTasks,projects:showProjects,work:showWork,tasks:showTasks,board:showBoard,gantt:showGantt,calendar:showCalendar,timesheet:showTimesheet,recurring:showRecurring,assignments:showAssignments,notifications:redirectToGlobalNotifications};
   function go(v){var WM={tasks:"list",board:"board",gantt:"gantt",calendar:"calendar",table:"table",work:null};var isW=Object.prototype.hasOwnProperty.call(WM,v);var navKey=isW?"work":v;
     window._curView=navKey;Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.classList.toggle("active",b.getAttribute("data-view")===navKey);});
     el("pm-crumb").textContent=isW?"Công việc":(CRUMB[v]||"Tổng quan");
