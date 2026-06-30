@@ -131,8 +131,16 @@ def _apply_acceptance(doc, agreed_start, agreed_end, actor):
     if sd or ed or st or et:
         pmtasks._validate_time_window(sd, st, ed, et)  # G4.11 rule
         tdoc = frappe.get_doc("Task", task)
-        tdoc.exp_start_date = sd or tdoc.exp_start_date
-        tdoc.exp_end_date = ed or tdoc.exp_end_date
+        eff_sd = sd or tdoc.exp_start_date
+        eff_ed = ed or tdoc.exp_end_date
+        # B2: widen the linked Project + ancestor chain FIRST (exactly like tasks.create/update),
+        # else ERPNext rejects an agreed schedule that runs past the Project's expected end date.
+        if tdoc.get("project") and (eff_sd or eff_ed):
+            pmtasks._expand_project_dates(tdoc.get("project"), eff_sd, eff_ed, actor)
+        if tdoc.get("parent_task") and (eff_sd or eff_ed):
+            pmtasks._expand_ancestor_dates(tdoc.get("parent_task"), eff_sd, eff_ed, actor)
+        tdoc.exp_start_date = eff_sd
+        tdoc.exp_end_date = eff_ed
         tdoc.pm_start_time = st
         tdoc.pm_end_time = et
         tdoc.save(ignore_permissions=True)

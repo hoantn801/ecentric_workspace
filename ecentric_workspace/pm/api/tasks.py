@@ -16,6 +16,7 @@ from frappe.desk.form.assign_to import add as _assign_add
 from frappe.model.workflow import (
     apply_workflow, get_transitions as _wf_get_transitions, WorkflowTransitionError,
 )
+from frappe.utils import get_datetime
 
 from ecentric_workspace.pm import permissions as pmperm
 from ecentric_workspace.pm.api import notifications as pmnotif
@@ -66,16 +67,31 @@ def _filter_transitions(deduped, leader, is_assignee):
     return []
 
 
+def _normalize_time(t):
+    """G4.11: '9:00' / '09:00' / '9:00:00' -> zero-padded 'HH:MM:SS', or None. Frappe stores Time
+    with an unpadded hour ('9:00:00'); normalizing makes the datetime parse robust."""
+    if not t:
+        return None
+    parts = str(t).split(".")[0].split(":")
+    while len(parts) < 3:
+        parts.append("0")
+    try:
+        return "{:02d}:{:02d}:{:02d}".format(int(parts[0]), int(parts[1]), int(parts[2]))
+    except (ValueError, IndexError):
+        return None
+
+
 def _compose_dt(d, t):
-    """G4.11: date + optional time -> 'YYYY-MM-DD HH:MM:SS' for ordering, or None when no date."""
+    """G4.11: date + optional time -> a real datetime object (never a string), or None when no
+    date. Comparisons are done on datetime objects, so padded/unpadded times compare correctly."""
     if not d:
         return None
-    return str(d)[:10] + " " + (str(t)[:8] if t else "00:00:00")
+    return get_datetime(str(d)[:10] + " " + (_normalize_time(t) or "00:00:00"))
 
 
 def _validate_time_window(start_date, start_time, end_date, end_time):
     """G4.11: a time is only valid with its own date, and the end datetime may not precede the
-    start datetime (G4.11 scheduling rule). Core date fields are never retyped."""
+    start datetime. Real datetime comparison (no lexical string compare). Core fields never retyped."""
     if start_time and not start_date:
         frappe.throw(_("Giờ bắt đầu cần có ngày bắt đầu."))
     if end_time and not end_date:
