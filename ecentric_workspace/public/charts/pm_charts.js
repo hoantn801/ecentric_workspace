@@ -22,16 +22,24 @@
   };
 
   function _t(part, fallback) {
-    // theme fragment that may be a function (call with cfg) or an object
+    // theme fragment that may be a function or an object. Theme functions read
+    // this.tokens()/this.typography, so they MUST be invoked with T as `this`
+    // (a bare detached call throws "Cannot read properties of undefined").
     var v = T[part];
-    if (typeof v === "function") return v;
+    if (typeof v === "function") return function (cfg) { return v.call(T, cfg); };
     return function (cfg) { return Object.assign({}, v || fallback || {}, cfg || {}); };
+  }
+  function _frag(part, fallback) {
+    // resolve a static style fragment once at load, bound to T when it's a function.
+    var v = T[part];
+    if (typeof v === "function") { try { return v.call(T); } catch (e) { return fallback; } }
+    return v || fallback;
   }
   var themeTooltip = _t("tooltip", { trigger: "item" });
   var themeLegend = _t("legend", {});
-  var themeGrid = (T.grid && typeof T.grid === "object") ? T.grid : { left: 8, right: 12, top: 16, bottom: 8, containLabel: true };
-  var themeAxisLabel = (T.axisLabel && typeof T.axisLabel === "object") ? T.axisLabel : { color: PM.grayDark, fontSize: 11 };
-  var themeSplit = (T.splitLine && typeof T.splitLine === "object") ? T.splitLine : { lineStyle: { color: "#eef1f7" } };
+  var themeGrid = _frag("grid", { left: 8, right: 12, top: 16, bottom: 8, containLabel: true });
+  var themeAxisLabel = _frag("axisLabel", { color: PM.grayDark, fontSize: 11 });
+  var themeSplit = _frag("splitLine", { lineStyle: { color: "#eef1f7" } });
   var anim = T.animation || { duration: 500, easing: "cubicOut" };
   var emptyText = (T.empty && T.empty.text) || "Chưa có dữ liệu";
 
@@ -57,7 +65,7 @@
       tooltip: themeTooltip({ trigger: "item",
         formatter: function (p) { return C.esc(p.name) + ": <b>" + p.value + "</b> (" + p.percent + "%)"; } }),
       legend: themeLegend({ type: "scroll", bottom: 0, icon: "circle" }),
-      graphic: (total && T.centerText) ? T.centerText(opts.centerNum != null ? opts.centerNum : total, opts.centerLabel || "") : [],
+      graphic: (total && typeof T.centerText === "function") ? T.centerText.call(T, opts.centerNum != null ? opts.centerNum : total, opts.centerLabel || "") : [],
       series: [{
         name: opts.name || "", type: "pie", radius: ["56%", "78%"], center: ["50%", "44%"],
         avoidLabelOverlap: true, minAngle: 3, label: { show: false }, labelLine: { show: false },
