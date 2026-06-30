@@ -566,7 +566,7 @@ def transitions_bulk(task_names):
             task_names = json.loads(task_names)
         except Exception:
             task_names = [task_names]
-    names = list(dict.fromkeys([t for t in (task_names or []) if t]))[:500]
+    names = tuple(dict.fromkeys(t for t in (task_names or []) if t))[:500]
     out = {}
     for nm in names:
         if not frappe.db.exists("Task", nm):
