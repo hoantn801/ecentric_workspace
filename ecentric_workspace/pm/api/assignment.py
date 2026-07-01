@@ -99,6 +99,20 @@ def _split(dt):
     return d.date().isoformat(), d.strftime("%H:%M:%S")
 
 
+def _clean_sched(start, end):
+    """G5.1: validate a proposed / counter / agreed window with the SAME canonical scheduling
+    parser as Task create/update (one parser, no duplicated logic). Returns (start, end) normalized
+    'YYYY-MM-DD HH:MM:SS'|None. Malformed values (09:60, 24:00, 'abc', 2027-02-29) -> friendly 417
+    (never a 500); end before start -> friendly 417. Validate at the input boundary so no partial
+    task assignment / schedule / audit event is ever written."""
+    from ecentric_workspace.pm.api import tasks as pmtasks
+    s = pmtasks.parse_datetime_or_throw(start, _("Thời điểm bắt đầu"))
+    e = pmtasks.parse_datetime_or_throw(end, _("Thời điểm kết thúc"))
+    if s and e and get_datetime(e) < get_datetime(s):
+        frappe.throw(_("Thời điểm kết thúc không được trước thời điểm bắt đầu."))
+    return s, e
+
+
 def _as_dict(doc):
     return {
         "name": doc.name, "task": doc.task, "recipient": doc.recipient,
@@ -124,6 +138,9 @@ def _apply_acceptance(doc, agreed_start, agreed_end, actor):
     """Mutual agreement: assign the task (canonical), write the agreed schedule (G4.11 validation),
     and move a Backlog task to To Do via the governed workflow. No raw _assign / db_set."""
     from ecentric_workspace.pm.api import tasks as pmtasks
+    # G5.1: validate the agreed window with the canonical parser BEFORE any assignment/workflow
+    # write, so a malformed stored schedule can never leave a partial assignment (never a 500).
+    agreed_start, agreed_end = _clean_sched(agreed_start, agreed_end)
     task = doc.task
     _assign_add({"doctype": "Task", "name": task, "assign_to": [doc.recipient]})  # canonical
     sd, st = _split(agreed_start)
@@ -171,6 +188,7 @@ def create_request(task, recipient, proposed_start=None, proposed_end=None, mess
         frappe.throw(_("Bạn không có quyền giao nhiệm vụ này."), frappe.PermissionError)
     _recipient_eligible(recipient)
     _existing_task_eligible(tdoc)
+    proposed_start, proposed_end = _clean_sched(proposed_start, proposed_end)  # G5.1
     doc = frappe.get_doc({
         "doctype": DT, "task": task, "recipient": recipient, "requested_by": user,
         "status": "Pending", "proposed_start": proposed_start, "proposed_end": proposed_end,
@@ -199,6 +217,7 @@ def create_with_task(subject, recipient, project=None, description=None, priorit
     _recipient_eligible(recipient)
     from ecentric_workspace.pm.api import tasks as pmtasks
     from ecentric_workspace.pm.api import labels as pmlabels
+    proposed_start, proposed_end = _clean_sched(proposed_start, proposed_end)  # G5.1: fail fast
     sd, st = _split(proposed_start)
     ed, et = _split(proposed_end)
     try:
@@ -257,6 +276,7 @@ def respond(name, decision, reason=None, counter_start=None, counter_end=None):
             frappe.throw(_("Vui lòng nhập lý do đề xuất lịch khác."))
         if not (counter_start or counter_end):
             frappe.throw(_("Vui lòng nhập thời gian đề xuất mới."))
+        counter_start, counter_end = _clean_sched(counter_start, counter_end)  # G5.1
         doc.status = "Reschedule Proposed"
         doc.response_reason = reason
         doc.counter_start = counter_start
@@ -297,10 +317,14 @@ def requester_action(name, action, proposed_start=None, proposed_end=None, messa
             frappe.throw(_("Chỉ có thể gửi lại yêu cầu đã bị từ chối/huỷ hoặc đang đề xuất lịch."))
         # reuse the SAME document to keep one audit timeline.
         was = doc.status
-        if proposed_start is not None:
-            doc.proposed_start = proposed_start
-        if proposed_end is not None:
-            doc.proposed_end = proposed_end
+        if proposed_start is not None or proposed_end is not None:
+            _ns, _ne = _clean_sched(  # G5.1: validate any resend schedule change
+                proposed_start if proposed_start is not None else doc.proposed_start,
+                proposed_end if proposed_end is not None else doc.proposed_end)
+            if proposed_start is not None:
+                doc.proposed_start = _ns
+            if proposed_end is not None:
+                doc.proposed_end = _ne
         if message is not None:
             doc.message = message
         doc.status = "Pending"

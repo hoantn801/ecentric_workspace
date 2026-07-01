@@ -9,14 +9,15 @@ Module path: ecentric_workspace.pm.api.tasks
 """
 
 import json
+from datetime import datetime as _dtparse
 
 import frappe
 from frappe import _
-from frappe.desk.form.assign_to import add as _assign_add
+from frappe.desk.form.assign_to import add as _assign_add, remove as _assign_remove
 from frappe.model.workflow import (
     apply_workflow, get_transitions as _wf_get_transitions, WorkflowTransitionError,
 )
-from frappe.utils import get_datetime
+from frappe.utils import get_datetime, getdate
 
 from ecentric_workspace.pm import permissions as pmperm
 from ecentric_workspace.pm.api import notifications as pmnotif
@@ -100,6 +101,119 @@ def _validate_time_window(start_date, start_time, end_date, end_time):
     edt = _compose_dt(end_date, end_time)
     if sdt and edt and edt < sdt:
         frappe.throw(_("Thời điểm kết thúc không được trước thời điểm bắt đầu."))
+
+
+def _parse_time_or_throw(t, label):
+    """G5.1: None/'' -> None (time absent/cleared). A valid 'H:M[:S]' -> zero-padded 'HH:MM:SS'.
+    Anything malformed (bad minute/hour, 'abc', ...) -> friendly frappe.throw so it can NEVER
+    reach the DB Time column and raise a 500."""
+    if t is None:
+        return None
+    s = str(t).strip()
+    if s == "":
+        return None
+    bad = _("{0} không hợp lệ. Định dạng giờ là HH:MM (giờ 00–23, phút/giây 00–59).").format(label)
+    parts = s.split(".")[0].split(":")
+    if len(parts) < 2 or len(parts) > 3:
+        frappe.throw(bad)
+    while len(parts) < 3:
+        parts.append("0")
+    try:
+        h, m, sec = int(parts[0]), int(parts[1]), int(parts[2])
+    except (ValueError, TypeError):
+        frappe.throw(bad)
+    if not (0 <= h <= 23 and 0 <= m <= 59 and 0 <= sec <= 59):
+        frappe.throw(bad)
+    return "{:02d}:{:02d}:{:02d}".format(h, m, sec)
+
+
+def _parse_date_or_throw(d, label):
+    """G5.1: None/'' -> None. STRICT: the whole value must be exactly an ISO 'YYYY-MM-DD' date.
+    Trailing junk ('2026-07-01abc'), a datetime ('2026-07-01 12:00') or an impossible date
+    (2027-02-29) is rejected via friendly frappe.throw, never a 500. (Assignment datetimes are
+    handled separately by parse_datetime_or_throw, which splits off the time part first.)"""
+    if d is None:
+        return None
+    s = str(d).strip()
+    if s == "":
+        return None
+    if len(s) != 10:
+        frappe.throw(_("{0} không hợp lệ.").format(label))
+    try:
+        return _dtparse.strptime(s, "%Y-%m-%d").strftime("%Y-%m-%d")
+    except (ValueError, TypeError):
+        frappe.throw(_("{0} không hợp lệ.").format(label))
+
+
+def _clean_schedule(start_date, start_time, end_date, end_time):
+    """G5.1: validate + normalize a task schedule. Returns cleaned (sd, st, ed, et):
+    dates 'YYYY-MM-DD'|None, times 'HH:MM:SS'|None. Rules:
+      * a time still requires its own date;
+      * both times present -> compare full datetimes; otherwise compare DATES ONLY
+        (an absent time is never silently treated as midnight for ordering);
+      * malformed input -> friendly throw, never a 500;
+      * '' / null clears the field (returned as None)."""
+    sd = _parse_date_or_throw(start_date, _("Ngày bắt đầu"))
+    ed = _parse_date_or_throw(end_date, _("Ngày kết thúc"))
+    st = _parse_time_or_throw(start_time, _("Giờ bắt đầu"))
+    et = _parse_time_or_throw(end_time, _("Giờ kết thúc"))
+    if st and not sd:
+        frappe.throw(_("Giờ bắt đầu cần có ngày bắt đầu."))
+    if et and not ed:
+        frappe.throw(_("Giờ kết thúc cần có ngày kết thúc."))
+    if sd and ed:
+        if st and et:
+            if get_datetime(ed + " " + et) < get_datetime(sd + " " + st):
+                frappe.throw(_("Thời điểm kết thúc không được trước thời điểm bắt đầu."))
+        elif getdate(ed) < getdate(sd):
+            frappe.throw(_("Thời điểm kết thúc không được trước thời điểm bắt đầu."))
+    return sd, st, ed, et
+
+
+def _validate_assignee(assignee):
+    """G5.1: reject an assignee that is not an enabled System User BEFORE any assign/insert,
+    so a bad value never silently drops the assignment or 500s the native assign path."""
+    u = frappe.db.get_value("User", assignee, ["enabled", "user_type"], as_dict=True)
+    if not u:
+        frappe.throw(_("Người được giao không tồn tại."))
+    if not u.get("enabled"):
+        frappe.throw(_("Người được giao đang bị vô hiệu hoá."))
+    if u.get("user_type") == "Website User":
+        frappe.throw(_("Người được giao không có quyền truy cập hệ thống."))
+
+
+def parse_datetime_or_throw(dt, label):
+    """G5.1 CANONICAL datetime validator shared by Task + Assignment scheduling (one parser, no
+    duplicated logic). None/'' -> None. A full 'YYYY-MM-DD[ HH:MM[:SS]]' (or ISO 'T' separator)
+    with a real calendar date + valid time -> normalized 'YYYY-MM-DD HH:MM:SS'. Anything malformed
+    (bad minute/hour, impossible date, 'abc') -> friendly frappe.throw, never a 500."""
+    if dt is None:
+        return None
+    s = str(dt).strip().replace("T", " ")
+    if s == "":
+        return None
+    parts = s.split(" ", 1)
+    d = _parse_date_or_throw(parts[0], label)
+    if d is None:
+        frappe.throw(_("{0} không hợp lệ.").format(label))
+    tpart = parts[1].strip() if len(parts) > 1 else ""
+    t = _parse_time_or_throw(tpart, label) if tpart else None
+    return d + " " + (t or "00:00:00")
+
+
+def _sent_fields():
+    """G5.1: the request keys actually present, so tasks.update can distinguish an OMITTED field
+    (preserve current value) from an EXPLICIT clear (sent with an empty / null value)."""
+    try:
+        return set((frappe.local.form_dict or {}).keys())
+    except Exception:
+        return set()
+
+
+def _is_clear(v):
+    """G5.1: a sent value that means 'clear this field' — None, empty, or a literal 'null'/'None'
+    (covers both the '' contract and a client that serialises JSON null as a string)."""
+    return v is None or (isinstance(v, str) and v.strip() in ("", "null", "None"))
 
 
 def _names_map(emails):
@@ -428,7 +542,12 @@ def create(project, subject, parent_task=None, priority=None,
     user = frappe.session.user
     if not subject:
         frappe.throw(_("Subject is required."))
-    _validate_time_window(exp_start_date, pm_start_time, exp_end_date, pm_end_time)  # G4.11
+    # G5.1: validate + normalize the schedule (friendly errors, never a 500) and reject a bad
+    # assignee BEFORE creating anything (no silently-unassigned orphan task).
+    exp_start_date, pm_start_time, exp_end_date, pm_end_time = _clean_schedule(
+        exp_start_date, pm_start_time, exp_end_date, pm_end_time)
+    if assignee:
+        _validate_assignee(assignee)
     if parent_task:
         # ERPNext Task is a NestedSet tree: a parent can only hold children if it is a
         # Group Task (is_group=1). Ensure that before inserting the child, with the same
@@ -476,16 +595,14 @@ def create(project, subject, parent_task=None, priority=None,
     })
     doc.insert()  # honors DocPerm 'create'; sets owner/creation (audit)
     if assignee:
+        # assignee already validated above -> native assignment (creates ToDo + _assign).
+        _assign_add({"doctype": "Task", "name": doc.name, "assign_to": [assignee]})
         try:
-            # adopt-native task_assigned: snapshot the prior native log, do the native
-            # assignment, then enqueue ONE post-commit delivery job (Frappe creates the
-            # native Assignment log asynchronously).
-            _assign_add({"doctype": "Task", "name": doc.name, "assign_to": [assignee]})
             pmnotif.notify_task_assignment([assignee], doc.name,
                                            "Ban duoc giao nhiem vu: " + (doc.subject or doc.name),
                                            actor=user)
         except Exception:
-            frappe.log_error(frappe.get_traceback(), "PM create assign")
+            frappe.log_error(frappe.get_traceback(), "PM create assign notify")
     return {"name": doc.name, "subject": doc.subject,
             "project": doc.project, "parent_task": doc.parent_task}
 
@@ -510,19 +627,40 @@ def update(name, subject=None, description=None, priority=None,
         "subject": subject, "description": description, "priority": priority,
         "exp_start_date": exp_start_date, "exp_end_date": exp_end_date,
         "pm_start_time": pm_start_time, "pm_end_time": pm_end_time,
-        "project": project,
+        "project": project, "assignee": assignee,
     }
+    _SCHED = ("exp_start_date", "exp_end_date", "pm_start_time", "pm_end_time")
+    sent = _sent_fields()
+    # A field is being touched iff its key was in the request (form_dict) OR a non-None value was
+    # bound (covers a direct Python call). An OMITTED field is never touched -> value preserved.
+    def _touched(field):
+        return (field in sent) or (incoming.get(field) is not None)
     changed = []
+    # Non-schedule editable fields keep their semantics (omitted -> preserve; sent value -> set).
     for field in _EDITABLE:
+        if field in _SCHED:
+            continue
         val = incoming.get(field)
         if val is not None:
             doc.set(field, val)
             changed.append(field)
-    # If the task's dates moved, widen Project range FIRST then the ancestor chain (fixes
-    # Gantt move/resize, drag-unscheduled, inline date edit, and any other date path).
-    if any(f in changed for f in ("exp_start_date", "exp_end_date", "pm_start_time", "pm_end_time")):
-        _validate_time_window(doc.get("exp_start_date"), doc.get("pm_start_time"),
-                              doc.get("exp_end_date"), doc.get("pm_end_time"))  # G4.11
+    # G5.1: schedule fields use request-field PRESENCE to tell an omitted field (preserve) from an
+    # explicit clear (sent as '' / null -> stored NULL). Merged as ONE window; an absent time never
+    # becomes midnight for ordering; malformed input -> friendly throw (417, never a 500).
+    _sched_sent = [f for f in _SCHED if _touched(f)]
+    if _sched_sent:
+        def _eff(field):
+            if _touched(field):
+                arg = incoming.get(field)
+                return None if _is_clear(arg) else arg
+            return doc.get(field)
+        csd, cst, ced, cet = _clean_schedule(
+            _eff("exp_start_date"), _eff("pm_start_time"), _eff("exp_end_date"), _eff("pm_end_time"))
+        cleaned = {"exp_start_date": csd, "pm_start_time": cst,
+                   "exp_end_date": ced, "pm_end_time": cet}
+        for field in _sched_sent:
+            doc.set(field, cleaned[field])
+            changed.append(field)
     _date_changed = ("exp_start_date" in changed) or ("exp_end_date" in changed)
     if _date_changed and doc.get("project"):
         _expand_project_dates(doc.get("project"), doc.get("exp_start_date"), doc.get("exp_end_date"), user)
@@ -531,20 +669,29 @@ def update(name, subject=None, description=None, priority=None,
     if changed:
         doc.save()  # honors DocPerm 'write'; audit trail
 
-    if assignee:
+    # G5.1 assignee: OMITTED -> preserve; sent '' / null -> canonical unassign (native remove, no
+    # raw _assign); a value -> validate then native assign.
+    if _touched("assignee"):
         try:
             current = frappe.parse_json(doc.get("_assign") or "[]") or []
         except Exception:
             current = []
-        if assignee not in current:
-            try:
-                _assign_add({"doctype": "Task", "name": doc.name, "assign_to": [assignee]})
-                pmnotif.notify_task_assignment([assignee], doc.name,
-                                               "Ban duoc giao nhiem vu: " + (doc.subject or doc.name),
-                                               actor=user)
+        if _is_clear(assignee):
+            for who in current:
+                _assign_remove("Task", doc.name, who)
+            if current:
                 changed.append("assignee")
-            except Exception:
-                frappe.log_error(frappe.get_traceback(), "PM update assign")
+        else:
+            _validate_assignee(assignee)
+            if assignee not in current:
+                _assign_add({"doctype": "Task", "name": doc.name, "assign_to": [assignee]})
+                try:
+                    pmnotif.notify_task_assignment([assignee], doc.name,
+                                                   "Ban duoc giao nhiem vu: " + (doc.subject or doc.name),
+                                                   actor=user)
+                except Exception:
+                    frappe.log_error(frappe.get_traceback(), "PM update assign notify")
+                changed.append("assignee")
 
     if not changed:
         frappe.throw(_("No changes provided."))
@@ -592,10 +739,12 @@ def get_transitions(name):
     doc = frappe.get_doc("Task", name)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted."), frappe.PermissionError)
-    trans = _wf_get_transitions(doc)
+    # G5.1: dedupe by (action, next_state) so the detail action menu no longer shows the same
+    # action once per role (e.g. "Move to To Do" ×3). Genuinely different actions to the same
+    # state are kept; Kanban transitions_bulk already dedupes identically.
     return {
         "current": doc.get("workflow_state"),
-        "transitions": [{"action": t.get("action"), "next_state": t.get("next_state")} for t in trans],
+        "transitions": _dedupe_transitions(_wf_get_transitions(doc)),
     }
 
 

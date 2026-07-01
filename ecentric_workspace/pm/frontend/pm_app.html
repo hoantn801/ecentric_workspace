@@ -1361,9 +1361,9 @@
       if(done)return;var val=ctrl.value,payload={name:name};
       if(field==="subject"){if(!val.trim()){toast("Tiêu đề không được trống",true);try{ctrl.focus();}catch(_){}return;}payload.subject=val.trim();}
       else if(field==="priority"){payload.priority=val;}
-      else if(field==="start"){var ed=ymd(t.exp_end_date);if(val&&ed&&ed<val){toast("Bắt đầu không được sau hạn",true);try{ctrl.focus();}catch(_){}return;}payload.exp_start_date=val||null;}
-      else if(field==="end"){var sd=ymd(t.exp_start_date);if(val&&sd&&val<sd){toast("Hạn không được trước ngày bắt đầu",true);try{ctrl.focus();}catch(_){}return;}payload.exp_end_date=val||null;}
-      else if(field==="desc"){payload.description=val||null;}
+      else if(field==="start"){var ed=ymd(t.exp_end_date);if(val&&ed&&ed<val){toast("Bắt đầu không được sau hạn",true);try{ctrl.focus();}catch(_){}return;}payload.exp_start_date=val||"";}
+      else if(field==="end"){var sd=ymd(t.exp_start_date);if(val&&sd&&val<sd){toast("Hạn không được trước ngày bắt đầu",true);try{ctrl.focus();}catch(_){}return;}payload.exp_end_date=val||"";}
+      else if(field==="desc"){payload.description=val||"";}
       done=true;
       api(PM+"tasks.update",payload).then(function(){
         if(field==="subject"){t.subject=payload.subject;}
@@ -1524,7 +1524,7 @@
       inlineWire(c,t,name); /* C1-B: click-to-edit priority/start/end/desc in main + title in header */
       /* G4.11: optional time-of-day, saved via tasks.update (validation server-side). */
       (function(){function saveTime(){var st=el("pm-st-time"),en=el("pm-en-time");if(!st&&!en)return;
-        api(PM+"tasks.update",{name:name,pm_start_time:(st&&st.value)||null,pm_end_time:(en&&en.value)||null}).then(function(){openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);openTask(name);});}
+        api(PM+"tasks.update",{name:name,pm_start_time:(st&&st.value)||"",pm_end_time:(en&&en.value)||""}).then(function(){openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);openTask(name);});}
         if(el("pm-st-time"))el("pm-st-time").onchange=saveTime; if(el("pm-en-time"))el("pm-en-time").onchange=saveTime;})();
       pmDecompWire(name,t.project); loadSubtree(name,t.project,pmTerminal(t)); /* G4.8: PHÂN RÃ tabs + nested subtask tree */
       loadWorktime(name,pmTerminal(t)); loadRecurrence(name); loadComments(name); loadChecklist(name,t.workflow_state);
@@ -1660,7 +1660,7 @@
       _niFix(c);
       el("et-cancel").onclick=function(){openTask(name);};
       el("et-save").onclick=function(){var s=el("et-subject").value.trim();if(!s){toast("Nhập tiêu đề",true);return;}var sd=el("et-start").value,ed=el("et-end").value;if(sd&&ed&&ed<sd){toast("Hạn không được trước ngày bắt đầu",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang lưu...";var na=el("et-assignee").value.trim();
-        api(PM+"tasks.update",{name:name,subject:s,project:el("et-project").value,priority:el("et-priority").value,exp_start_date:el("et-start").value||null,exp_end_date:el("et-end").value||null,description:el("et-desc").value||null,assignee:el("et-assignee").value.trim()||null}).then(function(){toast("Đã lưu");openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu";});};
+        api(PM+"tasks.update",{name:name,subject:s,project:el("et-project").value,priority:el("et-priority").value,exp_start_date:el("et-start").value||"",exp_end_date:el("et-end").value||"",description:el("et-desc").value||"",assignee:el("et-assignee").value.trim()||""}).then(function(){toast("Đã lưu");openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu";});};
     }).catch(function(e){errBox(c,e);});}
 
   function openTaskEdit(name){openD();el("pm-dt").textContent=name;editTask(name);}
@@ -2121,9 +2121,9 @@
       c.classList.add("pm-cols");
       el("ag-cancel").onclick=function(){closeD();};
       el("ag-submit").onclick=function(){var btn=this;var subj=el("ag-subject").value.trim(),rcp=el("ag-recipient").value.trim();
-        if(!subj){toast("Nhập tên nhiệm vụ",true);return;}if(!rcp){toast("Nhập người nhận",true);return;}btn.disabled=true;
+        if(!subj){toast("Nhập tên nhiệm vụ",true);return;}if(!rcp){toast("Nhập người nhận",true);return;}var _ot=btn.innerHTML;btn.disabled=true;btn.textContent="Đang gửi...";
         var lbls=Array.prototype.map.call(c.querySelectorAll("#ag-labels input[data-lbl]:checked"),function(x){return x.getAttribute("data-lbl");});
-        api(PM+"assignment.create_with_task",{subject:subj,recipient:rcp,project:el("ag-project").value||"",description:el("ag-desc").value||null,priority:el("ag-priority").value||null,proposed_start:el("ag-ps").value||null,proposed_end:el("ag-pe").value||null,message:el("ag-msg").value||null,checklist_template:el("ag-tmpl").value||null,labels:lbls.length?JSON.stringify(lbls):null}).then(function(){toast("Đã gửi yêu cầu giao việc");closeD();showAssignments();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});};
+        api(PM+"assignment.create_with_task",{subject:subj,recipient:rcp,project:el("ag-project").value||"",description:el("ag-desc").value||null,priority:el("ag-priority").value||null,proposed_start:el("ag-ps").value||null,proposed_end:el("ag-pe").value||null,message:el("ag-msg").value||null,checklist_template:el("ag-tmpl").value||null,labels:lbls.length?JSON.stringify(lbls):null}).then(function(){toast("Đã gửi yêu cầu giao việc");closeD();showAssignments();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML=_ot;});};
     }).catch(function(e){errBox(c,e);});}
   function showRecurring(){var c=el("pm-view");spin(c);
     Promise.all([api(PM+"recurrence.list"),api(PM+"tasks.list",{page_length:2000})]).then(function(res){
@@ -2194,13 +2194,13 @@
       var mode={v:"new"};
       Array.prototype.forEach.call(c.querySelectorAll("[data-rcm]"),function(b){b.onclick=function(){mode.v=b.getAttribute("data-rcm");Array.prototype.forEach.call(c.querySelectorAll("[data-rcm]"),function(x){x.classList.toggle("active",x===b);});el("rc-new-pane").style.display=(mode.v==="new")?"":"none";el("rc-exist-pane").style.display=(mode.v==="exist")?"":"none";};});
       el("rcf-cancel").onclick=function(){closeD();};
-      el("rcf-submit").onclick=function(){var btn=this;btn.disabled=true;
+      el("rcf-submit").onclick=function(){var btn=this;var _ot=btn.innerHTML;function _busy(on){btn.disabled=on;if(on){btn.textContent="Đang tạo...";}else{btn.innerHTML=_ot;}}
         var freq=el("rcf-freq").value,rstart=el("rcf-rstart").value||null,rend=el("rcf-rend").value||null;
-        if(mode.v==="exist"){var tk=el("rcf-task").value;if(!tk){toast("Chọn nhiệm vụ",true);btn.disabled=false;return;}
-          api(PM+"recurrence.create",{source_task:tk,frequency:freq,start_date:rstart,end_date:rend}).then(function(){toast("Đã tạo lịch lặp");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});return;}
-        var subj=el("rcf-subject").value.trim();if(!subj){toast("Nhập tên nhiệm vụ",true);btn.disabled=false;return;}
+        if(mode.v==="exist"){var tk=el("rcf-task").value;if(!tk){toast("Chọn nhiệm vụ",true);return;}_busy(true);
+          api(PM+"recurrence.create",{source_task:tk,frequency:freq,start_date:rstart,end_date:rend}).then(function(){toast("Đã tạo lịch lặp");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);_busy(false);});return;}
+        var subj=el("rcf-subject").value.trim();if(!subj){toast("Nhập tên nhiệm vụ",true);return;}_busy(true);
         var lbls=Array.prototype.map.call(c.querySelectorAll("#rcf-labels input[data-lbl]:checked"),function(x){return x.getAttribute("data-lbl");});
-        api(PM+"recurrence.create_with_task",{subject:subj,frequency:freq,project:el("rcf-project").value||"",assignee:el("rcf-assignee").value.trim()||null,description:el("rcf-desc").value||null,priority:el("rcf-priority").value||null,exp_start_date:el("rcf-sd").value||null,exp_end_date:el("rcf-ed").value||null,pm_start_time:el("rcf-st").value||null,pm_end_time:el("rcf-et").value||null,start_date:rstart,end_date:rend,checklist_template:el("rcf-tmpl").value||null,labels:lbls.length?JSON.stringify(lbls):null}).then(function(){toast("Đã tạo việc định kỳ");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});};
+        api(PM+"recurrence.create_with_task",{subject:subj,frequency:freq,project:el("rcf-project").value||"",assignee:el("rcf-assignee").value.trim()||null,description:el("rcf-desc").value||null,priority:el("rcf-priority").value||null,exp_start_date:el("rcf-sd").value||null,exp_end_date:el("rcf-ed").value||null,pm_start_time:el("rcf-st").value||null,pm_end_time:el("rcf-et").value||null,start_date:rstart,end_date:rend,checklist_template:el("rcf-tmpl").value||null,labels:lbls.length?JSON.stringify(lbls):null}).then(function(){toast("Đã tạo việc định kỳ");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);_busy(false);});};
     }).catch(function(e){errBox(c,e);});}
 
   function tsSum(rows,pred){var s=0;rows.forEach(function(r){if(pred(r))s+=(r.hours||0);});return Math.round(s*100)/100;}

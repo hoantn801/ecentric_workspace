@@ -9,6 +9,8 @@ next_run_date + record last_run_date (idempotent guard). One active recurrence
 per source_task. Permission enforced in this service layer.
 """
 
+import re
+
 import frappe
 from frappe import _
 from frappe.desk.form.assign_to import add as _assign_add
@@ -59,6 +61,26 @@ def _manage(name):
     return r
 
 
+def _safe_getdate(v, label):
+    """G5.1: parse a date or friendly-throw (a malformed/impossible date must never 500)."""
+    try:
+        return getdate(v)
+    except Exception:
+        frappe.throw(_("{0} không hợp lệ.").format(label))
+
+
+def _safe_max_occ(v):
+    """G5.1: max_occurrences is optional. Omitted/blank -> 0 (the 'unlimited' sentinel). When
+    SUPPLIED it must be a POSITIVE integer (>=1); 0, negatives, floats ('1.5') and non-numerics
+    ('abc') are friendly-rejected — never a 500."""
+    if v in (None, ""):
+        return 0
+    s = str(v).strip()
+    if not re.match(r"^\d+$", s) or int(s) < 1:
+        frappe.throw(_("Số lần lặp tối đa phải là số nguyên dương."))
+    return int(s)
+
+
 # --------------------------------------------------------------------------
 # CRUD / control (service-layer permission)
 # --------------------------------------------------------------------------
@@ -76,12 +98,17 @@ def create(source_task, frequency, start_date=None, end_date=None, max_occurrenc
         frappe.throw(_("Not permitted to make this task recurring."), frappe.PermissionError)
     if _active_rule_for(source_task):
         frappe.throw(_("This task already has an active recurrence. Pause or cancel it first."))
-    sd = getdate(start_date) if start_date else getdate(nowdate())
+    # G5.1: validate dates + max_occurrences BEFORE insert (friendly errors, never a 500).
+    sd = _safe_getdate(start_date, _("Ngày bắt đầu")) if start_date else getdate(nowdate())
+    ed = _safe_getdate(end_date, _("Ngày kết thúc")) if end_date else None
+    if ed and ed < sd:
+        frappe.throw(_("Ngày kết thúc không được trước ngày bắt đầu."))
+    mo = _safe_max_occ(max_occurrences)
     r = frappe.get_doc({
         "doctype": DT, "source_task": source_task, "project": doc.get("project"),
         "frequency": frequency, "start_date": sd, "next_run_date": sd,
-        "end_date": getdate(end_date) if end_date else None,
-        "max_occurrences": int(max_occurrences) if max_occurrences else 0,
+        "end_date": ed,
+        "max_occurrences": mo,
         "occurrences_done": 0, "status": "Active",
         "checklist_template": checklist_template or None,  # G2: optional; unchanged if None
     })
@@ -101,6 +128,15 @@ def create_with_task(subject, frequency, project=None, assignee=None, descriptio
     pmperm.require_pm_access()
     if not subject or not frequency:
         frappe.throw(_("Subject and frequency are required."))
+    # G5.1: fail fast on rule validity BEFORE creating the base task, so an invalid rule never
+    # creates-then-rolls-back a task (create() re-validates as defence in depth).
+    if frequency not in _FREQ:
+        frappe.throw(_("Invalid frequency."))
+    _rsd = _safe_getdate(start_date, _("Ngày bắt đầu")) if start_date else getdate(nowdate())
+    _red = _safe_getdate(end_date, _("Ngày kết thúc")) if end_date else None
+    if _red and _red < _rsd:
+        frappe.throw(_("Ngày kết thúc không được trước ngày bắt đầu."))
+    _safe_max_occ(max_occurrences)
     from ecentric_workspace.pm.api import tasks as pmtasks
     from ecentric_workspace.pm.api import labels as pmlabels
     try:
