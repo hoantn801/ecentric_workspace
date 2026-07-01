@@ -653,7 +653,14 @@ def update(name, subject=None, description=None, priority=None,
             if _touched(field):
                 arg = incoming.get(field)
                 return None if _is_clear(arg) else arg
-            return doc.get(field)
+            # G5.1.1: an OMITTED date falls back to the stored value, which Frappe returns as a
+            # 19-char datetime ('2026-07-05 00:00:00'). Normalize it to exact ISO 'YYYY-MM-DD' so
+            # the STRICT public-input parser (which still rejects '2026-07-01 12:00', junk, etc.)
+            # accepts the internal fallback. Time fields are preserved as-is.
+            current = doc.get(field)
+            if field in ("exp_start_date", "exp_end_date") and current:
+                return getdate(current).isoformat()
+            return current
         csd, cst, ced, cet = _clean_schedule(
             _eff("exp_start_date"), _eff("pm_start_time"), _eff("exp_end_date"), _eff("pm_end_time"))
         cleaned = {"exp_start_date": csd, "pm_start_time": cst,
