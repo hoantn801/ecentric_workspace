@@ -26,7 +26,10 @@
   #ec-apc-root .ec-sidebar .logo{ width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,var(--navy),var(--pink)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; }
   #ec-apc-root .ec-sidebar .brand-name{ font-size:15px; font-weight:700; color:var(--gray-900); }
   #ec-apc-root .ec-sidebar .nav{ padding:6px 8px; display:flex; flex-direction:column; gap:2px; }
-  #ec-apc-root .ec-sidebar a.nav-item{ display:flex; align-items:center; justify-content:flex-start; text-align:left; width:100%; gap:11px; padding:9px 14px; border-radius:8px; text-decoration:none; color:var(--gray-700); font-size:13.5px; font-weight:500; }
+  #ec-apc-root .ec-sidebar a.nav-item{ display:flex; align-items:center; justify-content:flex-start !important; text-align:left !important; gap:14px; width:100%; padding:9px 14px; border-radius:8px; text-decoration:none; color:var(--gray-700); font-size:13.5px; font-weight:500; }
+  #ec-apc-root .ec-sidebar a.nav-item .nav-ic{ flex:0 0 24px; width:24px; display:flex; align-items:center; justify-content:center; }
+  #ec-apc-root .ec-sidebar a.nav-item .nav-lb{ flex:0 1 auto; margin-left:0 !important; margin-right:0; text-align:left !important; justify-self:start; }
+  #ec-apc-root .ec-sidebar a.nav-item > *{ margin-left:0 !important; }
   #ec-apc-root .ec-sidebar a.nav-item:hover{ background:var(--gray-100); color:var(--gray-900); }
   #ec-apc-root .ec-sidebar a.nav-item.active{ background:var(--navy-50); color:var(--navy); font-weight:600; }
   /* main */
@@ -106,9 +109,9 @@
   <aside class="ec-sidebar">
     <div class="sb-head"><span class="logo">eC</span><span class="brand-name">eCentric</span></div>
     <nav class="nav">
-      <a class="nav-item" href="/home"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a>
-      <a class="nav-item active" href="/approvals"><svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Yêu cầu nội bộ</span></a>
-      <a class="nav-item" href="/approval"><svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Duyệt chứng từ</span></a>
+      <a class="nav-item" href="/home"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg></span><span class="nav-lb">Trang chủ</span></a>
+      <a class="nav-item active" href="/approvals"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><span class="nav-lb">Yêu cầu nội bộ</span></a>
+      <a class="nav-item" href="/approval"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg></span><span class="nav-lb">Duyệt chứng từ</span></a>
     </nav>
   </aside>
 
