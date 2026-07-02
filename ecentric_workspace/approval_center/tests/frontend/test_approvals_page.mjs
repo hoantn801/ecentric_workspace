@@ -54,7 +54,10 @@ async function run(){
   ok(!HTML.includes("AI_TOPUP") && !HTML.includes("RESIGNATION"), "no seeded approval codes hardcoded in page source");
 
   // shortcut to /approval present and not a card
-  ok(!!w.document.querySelector('a[href="/approval"]'), "'/approval' shortcut link present");
+  ok(!!w.document.querySelector('.ec-sidebar a[href="/approval"]'), "'/approval' (Duyệt chứng từ) is a sidebar sibling");
+  ok(!w.document.querySelector(".btn-inbox"), "header inbox button removed (no duplicate)");
+  { const sb = w.document.querySelector(".ec-sidebar").textContent;
+    ok(/Yêu cầu nội bộ/.test(sb) && /Duyệt chứng từ/.test(sb), "sidebar labels: Yêu cầu nội bộ + Duyệt chứng từ"); }
 
   // --- status clickability ---
   const byCode = (c)=> w.document.querySelector('.card[data-code="'+c+'"]');
