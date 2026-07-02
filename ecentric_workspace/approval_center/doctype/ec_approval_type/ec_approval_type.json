@@ -1,0 +1,191 @@
+{
+ "doctype": "DocType",
+ "name": "EC Approval Type",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "naming_rule": "By fieldname",
+ "autoname": "field:approval_code",
+ "sort_field": "sort_order",
+ "sort_order": "ASC",
+ "title_field": "approval_title",
+ "field_order": [
+  "approval_code",
+  "approval_title",
+  "category",
+  "description",
+  "icon",
+  "sb_status",
+  "card_status",
+  "process_status",
+  "route",
+  "available_from",
+  "sb_visibility",
+  "visibility_mode",
+  "allowed_roles",
+  "allowed_departments",
+  "sb_meta",
+  "owner_department",
+  "legacy_source",
+  "legacy_template_name",
+  "sort_order"
+ ],
+ "fields": [
+  {
+   "fieldname": "approval_code",
+   "fieldtype": "Data",
+   "label": "Approval Code",
+   "reqd": 1,
+   "unique": 1,
+   "set_only_once": 1,
+   "in_list_view": 1,
+   "description": "UPPER_SNAKE immutable integration key. Docname. Regex ^[A-Z][A-Z0-9_]{1,49}$."
+  },
+  {
+   "fieldname": "approval_title",
+   "fieldtype": "Data",
+   "label": "Approval Title",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Link",
+   "label": "Category",
+   "options": "EC Approval Category",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "icon",
+   "fieldtype": "Data",
+   "label": "Icon",
+   "description": "Icon key (lucide/feather) rendered by the frontend in a later phase."
+  },
+  {
+   "fieldname": "sb_status",
+   "fieldtype": "Section Break",
+   "label": "Status"
+  },
+  {
+   "fieldname": "card_status",
+   "fieldtype": "Select",
+   "label": "Card Status",
+   "options": "Active\nMigrating\nComing Soon\nDisabled",
+   "default": "Coming Soon",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Card-level state. Disabled is the only card off switch (no is_active field on this DocType)."
+  },
+  {
+   "fieldname": "process_status",
+   "fieldtype": "Select",
+   "label": "Process Status",
+   "options": "Discovery\nDesigning\nBuilding\nUAT\nLive\nRetired",
+   "default": "Discovery",
+   "reqd": 1,
+   "in_standard_filter": 1,
+   "description": "Internal migration progress, independent of card_status. Retired = retired business process."
+  },
+  {
+   "fieldname": "route",
+   "fieldtype": "Data",
+   "label": "Route",
+   "description": "Target route, only meaningful when card_status is Active. Must start with '/'. '/approval' is reserved and rejected."
+  },
+  {
+   "fieldname": "available_from",
+   "fieldtype": "Date",
+   "label": "Available From",
+   "description": "Hidden from normal users until this date (enforced by the service layer in a later phase)."
+  },
+  {
+   "fieldname": "sb_visibility",
+   "fieldtype": "Section Break",
+   "label": "Visibility"
+  },
+  {
+   "fieldname": "visibility_mode",
+   "fieldtype": "Select",
+   "label": "Visibility Mode",
+   "options": "All Internal Users\nRestricted Roles\nRestricted Departments\nAdmin Only",
+   "default": "All Internal Users",
+   "reqd": 1,
+   "description": "Backend service enforces visibility. Empty Restricted Roles/Departments returns no card (fail-safe)."
+  },
+  {
+   "fieldname": "allowed_roles",
+   "fieldtype": "Table",
+   "label": "Allowed Roles",
+   "options": "EC Approval Type Role",
+   "description": "Used only when visibility_mode = Restricted Roles."
+  },
+  {
+   "fieldname": "allowed_departments",
+   "fieldtype": "Table",
+   "label": "Allowed Departments",
+   "options": "EC Approval Type Department",
+   "description": "Used only when visibility_mode = Restricted Departments."
+  },
+  {
+   "fieldname": "sb_meta",
+   "fieldtype": "Section Break",
+   "label": "Ownership & Legacy"
+  },
+  {
+   "fieldname": "owner_department",
+   "fieldtype": "Link",
+   "label": "Owner Department",
+   "options": "Department"
+  },
+  {
+   "fieldname": "legacy_source",
+   "fieldtype": "Select",
+   "label": "Legacy Source",
+   "options": "MS Teams\nERP\nOther",
+   "default": "MS Teams"
+  },
+  {
+   "fieldname": "legacy_template_name",
+   "fieldtype": "Data",
+   "label": "Legacy Template Name",
+   "description": "Original MS Teams approval template name (migration traceability)."
+  },
+  {
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Sort Order",
+   "default": "0",
+   "in_list_view": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

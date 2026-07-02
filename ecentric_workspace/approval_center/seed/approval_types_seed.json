@@ -1,0 +1,135 @@
+[
+ {
+  "approval_code": "RESIGNATION",
+  "approval_title": "Resignation Requests",
+  "category": "HR",
+  "legacy_template_name": "Resignation Requests",
+  "sort_order": 10
+ },
+ {
+  "approval_code": "SPECIAL_BONUS",
+  "approval_title": "Special Bonus",
+  "category": "HR",
+  "legacy_template_name": "Special Bonus",
+  "sort_order": 20
+ },
+ {
+  "approval_code": "HIRING_REQUEST",
+  "approval_title": "Hiring Request",
+  "category": "HR",
+  "legacy_template_name": "Hiring Request",
+  "sort_order": 30
+ },
+ {
+  "approval_code": "HR_ACTIVITY",
+  "approval_title": "HR Activity",
+  "category": "HR",
+  "legacy_template_name": "HR Activity",
+  "sort_order": 40
+ },
+ {
+  "approval_code": "PROMOTION_REQUEST",
+  "approval_title": "Promotion Request",
+  "category": "HR",
+  "legacy_template_name": "Promotion Request",
+  "sort_order": 50
+ },
+ {
+  "approval_code": "EMPLOYEE_REFERRAL",
+  "approval_title": "Employee Referral",
+  "category": "HR",
+  "legacy_template_name": "Employee Referral",
+  "sort_order": 60
+ },
+ {
+  "approval_code": "LATERAL_MOVE",
+  "approval_title": "Employee Lateral Move",
+  "category": "HR",
+  "legacy_template_name": "Employee Lateral Move",
+  "sort_order": 70
+ },
+ {
+  "approval_code": "PAYMENT_REQUEST",
+  "approval_title": "Payment Request",
+  "category": "FINANCE_BUDGET",
+  "legacy_template_name": "Payment Request",
+  "sort_order": 10
+ },
+ {
+  "approval_code": "ANNUAL_BUDGET",
+  "approval_title": "Annual Budget Setting",
+  "category": "FINANCE_BUDGET",
+  "legacy_template_name": "Annual Budget Setting",
+  "sort_order": 20
+ },
+ {
+  "approval_code": "MONTHLY_BUDGET",
+  "approval_title": "Monthly Budget Setting",
+  "category": "FINANCE_BUDGET",
+  "legacy_template_name": "Monthly Budget Setting",
+  "sort_order": 30
+ },
+ {
+  "approval_code": "PURCHASE_REQUEST",
+  "approval_title": "Purchase Request",
+  "category": "PROCUREMENT_ASSET",
+  "legacy_template_name": "Purchase Request",
+  "sort_order": 10
+ },
+ {
+  "approval_code": "ASSET_REQUEST",
+  "approval_title": "Asset Request",
+  "category": "PROCUREMENT_ASSET",
+  "legacy_template_name": "Asset Request",
+  "sort_order": 20
+ },
+ {
+  "approval_code": "ASSET_DAMAGE_LOSS",
+  "approval_title": "Asset Damage or Loss",
+  "category": "PROCUREMENT_ASSET",
+  "legacy_template_name": "Asset Damage or Loss",
+  "sort_order": 30
+ },
+ {
+  "approval_code": "AI_TOPUP",
+  "approval_title": "AI Topup",
+  "category": "IT_DATA",
+  "legacy_template_name": "AI Topup",
+  "sort_order": 10
+ },
+ {
+  "approval_code": "DATA_REQUEST",
+  "approval_title": "Data Request",
+  "category": "IT_DATA",
+  "legacy_template_name": "Data Request",
+  "sort_order": 20
+ },
+ {
+  "approval_code": "DAILY_TARGET",
+  "approval_title": "Daily Target Setting",
+  "category": "OPERATIONS_PERFORMANCE",
+  "legacy_template_name": "Daily Target Setting",
+  "sort_order": 10
+ },
+ {
+  "approval_code": "DAILY_TARGET_PROJECT",
+  "approval_title": "Daily Target Setting — Project Level",
+  "category": "OPERATIONS_PERFORMANCE",
+  "legacy_template_name": "Daily Target Setting — Project Level",
+  "sort_order": 20
+ },
+ {
+  "approval_code": "OUTSIDE_WORK",
+  "approval_title": "Outside Work",
+  "category": "ATTENDANCE_WORKPLACE",
+  "legacy_template_name": "Outside Work",
+  "sort_order": 10
+ },
+ {
+  "approval_code": "DOCUMENT_REQUEST",
+  "approval_title": "Document Request",
+  "category": "ADMINISTRATION",
+  "legacy_template_name": "Document Request",
+  "sort_order": 10
+ }
+]

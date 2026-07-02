@@ -1,0 +1,51 @@
+[
+ {
+  "category_code": "HR",
+  "category_name": "Human Resources",
+  "icon": "users",
+  "sort_order": 10,
+  "is_active": 1
+ },
+ {
+  "category_code": "FINANCE_BUDGET",
+  "category_name": "Finance & Budget",
+  "icon": "wallet",
+  "sort_order": 20,
+  "is_active": 1
+ },
+ {
+  "category_code": "PROCUREMENT_ASSET",
+  "category_name": "Procurement & Asset",
+  "icon": "package",
+  "sort_order": 30,
+  "is_active": 1
+ },
+ {
+  "category_code": "IT_DATA",
+  "category_name": "IT & Data",
+  "icon": "database",
+  "sort_order": 40,
+  "is_active": 1
+ },
+ {
+  "category_code": "OPERATIONS_PERFORMANCE",
+  "category_name": "Operations & Performance",
+  "icon": "target",
+  "sort_order": 50,
+  "is_active": 1
+ },
+ {
+  "category_code": "ATTENDANCE_WORKPLACE",
+  "category_name": "Attendance & Workplace",
+  "icon": "calendar-clock",
+  "sort_order": 60,
+  "is_active": 1
+ },
+ {
+  "category_code": "ADMINISTRATION",
+  "category_name": "Administration",
+  "icon": "building-2",
+  "sort_order": 70,
+  "is_active": 1
+ }
+]
