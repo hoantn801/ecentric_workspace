@@ -6,30 +6,31 @@ Wipe every PM *operational* record so the module starts clean for real adoption,
 PRESERVING all application structure and configuration:
   KEEP  - app code, DocType definitions, schema, Workflow defs (PM Task Workflow), roles &
           permissions, User & Department masters, PM Web Page/frontend, scheduler config,
-          and ALL non-PM data (Alert Center, approval system, notification/action center defs).
+          and ALL non-PM data (Alert Center, approval system, notification/action center defs),
+          and any Timesheet that is NOT linked to a PM Task.
   DELETE- native Task/Project records that /pm manages (the whole dataset; /pm is permission-
-          scoped, not PM-owned-field-scoped, and the owner confirmed every Task/Project shown in
-          /pm is test), plus every PM-owned transactional DocType:
-            PM Assignment Request (+ event child rows), PM Recurrence, PM Timer,
-            PM Task Label Assignment, PM Task Label, PM Checklist Template (+ item child rows),
-          and Task-linked native ToDo assignments. Task child rows (PM Task Checklist Item),
-          Comments and File attachments are removed by Frappe's normal delete cascade.
+          scoped, and the owner confirmed every Task/Project shown in /pm is test), every
+          PM-owned transactional DocType (PM Assignment Request + event child, PM Recurrence,
+          PM Timer, PM Task Label Assignment, PM Task Label, PM Checklist Template + item child),
+          Task-linked native ToDo assignments, and the *validated* Draft Timesheets that log a
+          reset Task. Task child rows (PM Task Checklist Item), Comments and File attachments are
+          removed by Frappe's normal delete cascade.
 
-Method / safety
----------------
-* normal ``frappe.delete_doc`` only -> runs hooks + child-table cascade. NO raw SQL, NO
-  ``ignore_permissions``, NO force delete, NO hook edits, NO schema change.
-* Runs inside the standard Frappe patch runner where ``frappe.flags.in_patch`` is True. The PM
-  audit guard (``pm_assignment_request_before_delete``) and the Task transition guard
-  (``pm_task_transition_guard``) both intentionally early-return in install/migrate/patch context
-  -- this is the app authors' sanctioned maintenance path, not a bypass.
-* Idempotent + safe if partially run: every step re-queries live data; a second run finds nothing
-  and exits cleanly.
-* Leaf-first Task deletion is computed from the LIVE ``parent_task`` graph (never numeric IDs).
-* Logs every deleted id; asserts all PM operational counts are zero at the end (raises otherwise).
-
-Non-PM Task/Project consumers (notification_center, action_center) are read-only aggregators;
-they simply reflect the resulting empty state. No non-PM module owns Task/Project on this site.
+Transaction / safety
+--------------------
+* ALL-OR-NOTHING: NO explicit frappe.db.commit() anywhere. The patch runs inside the standard
+  Frappe patch/migrate transaction; on success migrate commits once, and on ANY exception (a
+  blocker or a safety assertion) migrate rolls back the entire reset. No manual rollback or
+  transaction manipulation is performed.
+* normal frappe.delete_doc only -> hooks + child cascade. NO raw SQL, NO ignore_permissions,
+  NO force delete, NO hook edits, NO schema change, NO faked framework flags.
+* The PM audit guard (pm_assignment_request_before_delete) and Task transition guard
+  (pm_task_transition_guard) both early-return in install/migrate/patch context -- the app
+  authors' sanctioned maintenance path, entered via the real runner (not a faked flag).
+* Timesheet deletion is strictly validated (Draft-only, PM-Task-only, no billing/Sales
+  Invoice/Salary Slip/financial link); any violation STOPS the whole reset with the exact
+  Timesheet + link. Submitted Timesheets are never auto-cancelled.
+* Idempotent: every step re-queries live data; a rolled-back or partial state re-runs cleanly.
 """
 
 import frappe
@@ -43,7 +44,7 @@ _PM_OP_DOCTYPES = [
 
 def _delete_all(doctype, log, failed):
     """Delete every record of ``doctype`` one by one via governed delete_doc. Records that cannot
-    be removed (link still held) are recorded in ``failed`` and surfaced by the final assertion."""
+    be removed (a link still held) are recorded in ``failed`` and surfaced by the final assertion."""
     for name in frappe.get_all(doctype, pluck="name"):
         try:
             frappe.delete_doc(doctype, name)  # hooks + cascade; no force, no ignore_permissions
@@ -51,11 +52,19 @@ def _delete_all(doctype, log, failed):
         except Exception:
             failed.append("%s %s" % (doctype, name))
             frappe.log_error(frappe.get_traceback(), "p014 PM reset: delete %s %s" % (doctype, name))
-    frappe.db.commit()
+
+
+def _referenced(child_doctype, field, value):
+    """True if any ``child_doctype`` row references ``value`` via ``field``; False if that
+    DocType is not installed (defensive -- never raises)."""
+    try:
+        return bool(frappe.db.exists(child_doctype, {field: value}))
+    except Exception:
+        return False
 
 
 def execute():
-    # Only run inside the real migrate/patch runner (the guards rely on this context).
+    # Only run inside the real migrate/patch runner (the guards + all-or-nothing rely on it).
     if not (frappe.flags.in_patch or frappe.flags.in_migrate or frappe.flags.in_install):
         frappe.throw("p014 PM reset must run in the standard patch/migrate runner "
                      "(frappe.flags.in_patch not set). Aborting to avoid an out-of-context run.")
@@ -65,8 +74,8 @@ def execute():
     # 1) PM Timers (frees the Task 'running/paused timer' link).
     _delete_all("PM Timer", log, failed)
 
-    # 2) PM Assignment Requests incl. Accepted/Rejected/Cancelled + their event child rows
-    #    (guard permits deletion in patch context).
+    # 2) PM Assignment Requests incl. Accepted/Rejected/Cancelled + event child rows
+    #    (on_trash guard permits deletion in patch context).
     _delete_all("PM Assignment Request", log, failed)
 
     # 3) PM Recurrence rules (frees source_task / last_task links).
@@ -75,23 +84,64 @@ def execute():
     # 4) PM Task Label Assignments (frees task<->label links so labels become unused).
     _delete_all("PM Task Label Assignment", log, failed)
 
-    # 5) Native ToDo assignments that reference a Task (removed so no orphan assignment survives).
+    # 5) Native ToDo assignments that reference a Task.
     for name in frappe.get_all("ToDo", filters={"reference_type": "Task"}, pluck="name"):
         try:
             frappe.delete_doc("ToDo", name)
             log.append("ToDo %s" % name)
         except Exception:
             frappe.log_error(frappe.get_traceback(), "p014 PM reset: delete ToDo %s" % name)
-    frappe.db.commit()
 
-    # 6) Clear ERPNext task dependencies (depends_on child rows) which otherwise block delete_doc
-    #    with LinkExistsError. Transition guard no-ops in patch context, so this save is safe.
+    # 6) Clear ERPNext task dependencies (depends_on child rows) that otherwise block delete_doc.
+    #    Transition guard no-ops in patch context, so this save is safe.
     for name in frappe.get_all("Task", pluck="name"):
         doc = frappe.get_doc("Task", name)
         if doc.get("depends_on"):
             doc.set("depends_on", [])
             doc.save()
-    frappe.db.commit()
+
+    # The reset Task set = the whole /pm Task dataset (owner-confirmed test). Captured BEFORE any
+    # Task is deleted so Timesheet validation can be scoped to exactly these Tasks.
+    reset_tasks = set(frappe.get_all("Task", pluck="name"))
+
+    # 6b) STRICT-SAFE Timesheet cleanup (before Task deletion). A Timesheet Detail.task link raises
+    #     LinkExistsError on Task deletion. Select ONLY Timesheets that have a detail row whose task
+    #     is in the reset set; validate each is a plain Draft PM timesheet with no financial linkage;
+    #     abort the whole reset on any violation. Timesheets with no PM-Task link are never selected.
+    ts_names = set()
+    if reset_tasks:
+        for row in frappe.get_all("Timesheet Detail",
+                                  filters={"task": ["in", list(reset_tasks)]},
+                                  fields=["parent", "task"]):
+            if row.get("task") and row.get("parent"):
+                ts_names.add(row["parent"])
+    for name in sorted(ts_names):
+        if not frappe.db.exists("Timesheet", name):
+            continue
+        doc = frappe.get_doc("Timesheet", name)
+        # -- submission / financial safety assertions (stop-the-reset on any violation) --
+        if doc.docstatus != 0:
+            frappe.throw("p014: refuse to delete non-Draft Timesheet %s (docstatus=%s)."
+                         % (name, doc.docstatus))
+        for tl in (doc.get("time_logs") or []):
+            if tl.get("task") and tl.get("task") not in reset_tasks:
+                frappe.throw("p014: Timesheet %s logs non-reset Task %s (not PM-exclusive); abort."
+                             % (name, tl.get("task")))
+            if tl.get("sales_invoice"):
+                frappe.throw("p014: Timesheet %s row is linked to Sales Invoice %s; abort."
+                             % (name, tl.get("sales_invoice")))
+        if doc.get("salary_slip"):
+            frappe.throw("p014: Timesheet %s is linked to Salary Slip %s; abort."
+                         % (name, doc.get("salary_slip")))
+        if doc.get("per_billed") or doc.get("total_billed_hours") or doc.get("total_billed_amount"):
+            frappe.throw("p014: Timesheet %s is billed; abort." % name)
+        if _referenced("Sales Invoice Timesheet", "time_sheet", name):
+            frappe.throw("p014: Timesheet %s is referenced by a Sales Invoice; abort." % name)
+        if _referenced("Salary Slip Timesheet", "time_sheet", name):
+            frappe.throw("p014: Timesheet %s is referenced by a Salary Slip; abort." % name)
+        # validated: plain Draft, PM-Task-only, unbilled, no financial link -> normal delete
+        frappe.delete_doc("Timesheet", name)
+        log.append("Timesheet %s" % name)
 
     # 7) Delete Tasks LEAF-FIRST from the live parent_task graph (children before parents).
     remaining = set(frappe.get_all("Task", pluck="name"))
@@ -112,7 +162,6 @@ def execute():
                 failed.append("Task %s" % n)
                 frappe.log_error(frappe.get_traceback(), "p014 PM reset: delete Task %s" % n)
             remaining.discard(n)
-        frappe.db.commit()
 
     # 8) Projects.
     _delete_all("Project", log, failed)
@@ -123,10 +172,18 @@ def execute():
     # 10) PM Checklist Templates (+ PM Checklist Template Item child rows cascade).
     _delete_all("PM Checklist Template", log, failed)
 
-    # ---- report + fail-loud verification -------------------------------------------------
+    # ---- post-reset verification (fail loud; migrate rolls back all on throw) -------------
     counts = {dt: frappe.db.count(dt) for dt in _PM_OP_DOCTYPES}
-    print("[p014 PM reset] deleted %d records; remaining PM operational counts: %s"
-          % (len(log), counts))
+    tsd_with_task = frappe.db.count("Timesheet Detail", {"task": ["is", "set"]})
+    ts_still_selected = set()
+    for row in frappe.get_all("Timesheet Detail", filters={"task": ["is", "set"]},
+                              fields=["parent"]):
+        if row.get("parent"):
+            ts_still_selected.add(row["parent"])
+    counts["Timesheet Detail (task set)"] = tsd_with_task
+    counts["Timesheets linked to a Task"] = len(ts_still_selected)
+
+    print("[p014 PM reset] deleted %d records; remaining: %s" % (len(log), counts))
     if failed:
         print("[p014 PM reset] could-not-delete (see Error Log): %s" % failed)
     frappe.logger("pm_reset").info(
