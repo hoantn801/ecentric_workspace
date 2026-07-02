@@ -26,7 +26,7 @@
   #ec-apc-root .ec-sidebar .logo{ width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,var(--navy),var(--pink)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; }
   #ec-apc-root .ec-sidebar .brand-name{ font-size:15px; font-weight:700; color:var(--gray-900); }
   #ec-apc-root .ec-sidebar .nav{ padding:6px 8px; display:flex; flex-direction:column; gap:2px; }
-  #ec-apc-root .ec-sidebar a.nav-item{ display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:8px; text-decoration:none; color:var(--gray-700); font-size:13.5px; font-weight:500; }
+  #ec-apc-root .ec-sidebar a.nav-item{ display:flex; align-items:center; justify-content:flex-start; text-align:left; width:100%; gap:11px; padding:9px 14px; border-radius:8px; text-decoration:none; color:var(--gray-700); font-size:13.5px; font-weight:500; }
   #ec-apc-root .ec-sidebar a.nav-item:hover{ background:var(--gray-100); color:var(--gray-900); }
   #ec-apc-root .ec-sidebar a.nav-item.active{ background:var(--navy-50); color:var(--navy); font-weight:600; }
   /* main */
@@ -47,9 +47,6 @@
   #ec-apc-root .apc-search input{ width:280px; max-width:60vw; padding:9px 12px 9px 34px; border:1px solid var(--gray-200); border-radius:9px; font-size:13.5px; background:#fff; font-family:inherit; }
   #ec-apc-root .apc-search input:focus{ outline:none; border-color:var(--navy); box-shadow:0 0 0 3px var(--navy-50); }
   #ec-apc-root .apc-search .s-ic{ position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--gray-400); }
-  #ec-apc-root .btn{ display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border-radius:9px; font-size:13.5px; font-weight:600; text-decoration:none; cursor:pointer; border:1px solid transparent; }
-  #ec-apc-root .btn-inbox{ background:var(--navy); color:#fff; }
-  #ec-apc-root .btn-inbox:hover{ background:var(--navy-700); }
   /* category chips */
   #ec-apc-root .apc-cats{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
   #ec-apc-root .chip{ padding:7px 14px; border-radius:999px; border:1px solid var(--gray-200); background:#fff; color:var(--gray-600); font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
@@ -110,8 +107,8 @@
     <div class="sb-head"><span class="logo">eC</span><span class="brand-name">eCentric</span></div>
     <nav class="nav">
       <a class="nav-item" href="/home"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a>
-      <a class="nav-item active" href="/approvals"><svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Approval Center</span></a>
-      <a class="nav-item" href="/approval"><svg class="icon" viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h18"/></svg><span>Danh sách cần duyệt</span></a>
+      <a class="nav-item active" href="/approvals"><svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Yêu cầu nội bộ</span></a>
+      <a class="nav-item" href="/approval"><svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Duyệt chứng từ</span></a>
     </nav>
   </aside>
 
@@ -125,14 +122,13 @@
       <div class="apc-head">
         <div class="h-txt">
           <h1 class="apc-title">Approval Center</h1>
-          <p class="apc-desc">Nơi tập trung để gửi và quản lý các yêu cầu phê duyệt của công ty. Chọn loại phê duyệt bên dưới để bắt đầu.</p>
+          <p class="apc-desc">Gửi và theo dõi các yêu cầu nội bộ của công ty — nghỉ việc, tuyển dụng, mua sắm, tài sản, ngân sách, dữ liệu và nhiều loại khác. Chọn loại yêu cầu bên dưới để bắt đầu.</p>
         </div>
         <div class="h-actions">
           <div class="apc-search">
             <svg class="icon s-ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
             <input id="apc-q" type="text" placeholder="Tìm phê duyệt..." autocomplete="off" aria-label="Tìm phê duyệt">
           </div>
-          <a class="btn btn-inbox" href="/approval"><svg class="icon" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>Mở danh sách cần duyệt</a>
         </div>
       </div>
 
