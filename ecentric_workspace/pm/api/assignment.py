@@ -77,18 +77,30 @@ def _recipient_eligible(recipient):
         frappe.throw(_("Người nhận không có quyền truy cập PM."))
 
 
-def _existing_task_eligible(task_doc):
-    """G5.0 v1: an existing task may be delegated only when fresh — not a transfer/reassignment."""
+def _eligibility(task_doc):
+    """G5.2: SINGLE source of truth for existing-task request eligibility. Returns
+    (reason_code, message); reason_code == "ok" means eligible. Consumed by BOTH the read
+    endpoint (request_eligibility) and the write guard (_existing_task_eligible) so the CTA-hide
+    logic and the create_request rejection can never drift apart."""
     if pmperm.is_task_terminal(task_doc):
-        frappe.throw(_("Không thể giao nhiệm vụ đã hoàn thành/huỷ."))
+        return "terminal", _("Không thể giao nhiệm vụ đã hoàn thành/huỷ.")
     if task_doc.get("workflow_state") not in TERMINAL_TASK_STATES:
-        frappe.throw(_("Chỉ có thể gửi yêu cầu khi nhiệm vụ đang ở Backlog hoặc To Do."))
+        return "unsupported_state", _("Chỉ có thể gửi yêu cầu khi nhiệm vụ đang ở Backlog hoặc To Do.")
     if (task_doc.get("_assign") or "").strip("[] "):
-        frappe.throw(_("Nhiệm vụ đã được giao cho người khác."))
+        return "assigned", _("Nhiệm vụ đã được giao cho người khác.")
     if frappe.db.exists("PM Timer", {"task": task_doc.name}):
-        frappe.throw(_("Nhiệm vụ đang có bộ đếm giờ — không thể gửi yêu cầu giao việc."))
+        return "active_timer", _("Nhiệm vụ đang có bộ đếm giờ — không thể gửi yêu cầu giao việc.")
     if frappe.db.exists(DT, {"task": task_doc.name, "status": ["in", OPEN_STATUSES]}):
-        frappe.throw(_("Nhiệm vụ đã có một yêu cầu giao việc đang mở."))
+        return "open_request", _("Nhiệm vụ đã có một yêu cầu giao việc đang mở.")
+    return "ok", ""
+
+
+def _existing_task_eligible(task_doc):
+    """G5.0 v1: an existing task may be delegated only when fresh — not a transfer/reassignment.
+    Write path: raises on the first failing rule. Rules live in _eligibility (shared, no drift)."""
+    code, msg = _eligibility(task_doc)
+    if code != "ok":
+        frappe.throw(msg)
 
 
 def _split(dt):
@@ -177,6 +189,28 @@ def _apply_acceptance(doc, agreed_start, agreed_end, actor):
 # --------------------------------------------------------------------------
 # create
 # --------------------------------------------------------------------------
+@frappe.whitelist()
+def request_eligibility(task):
+    """G5.2: READ-ONLY. Can the current user create an assignment request for this EXISTING task?
+    Mirrors create_request's gate (require_pm_access + can_view_task + can_request_task_assignment)
+    and the shared _eligibility() rules, but MUTATES NOTHING and returns structured data so the UI
+    can hide an ineligible CTA instead of showing it and failing on click. Recipient eligibility is
+    NOT checked here (no recipient yet) — it is validated at create_request. The write endpoint
+    remains the final authority (this read may be stale under races)."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    try:
+        tdoc = frappe.get_doc("Task", task)
+    except Exception:
+        return {"eligible": False, "reason_code": "not_found", "message": _("Không tìm thấy nhiệm vụ.")}
+    if not pmperm.can_view_task(tdoc.as_dict(), user):
+        return {"eligible": False, "reason_code": "no_view", "message": _("Bạn không có quyền xem nhiệm vụ này.")}
+    if not pmperm.can_request_task_assignment(tdoc.as_dict(), user):
+        return {"eligible": False, "reason_code": "no_permission", "message": _("Bạn không có quyền giao nhiệm vụ này.")}
+    code, msg = _eligibility(tdoc)
+    return {"eligible": code == "ok", "reason_code": code, "message": msg}
+
+
 @frappe.whitelist()
 def create_request(task, recipient, proposed_start=None, proposed_end=None, message=None):
     """Create a Pending request for an EXISTING eligible task. Only a delegator (owner / project

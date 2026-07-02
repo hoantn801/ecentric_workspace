@@ -169,6 +169,41 @@ def get_for_task(task):
 
 
 @frappe.whitelist()
+def get(name):
+    """G5.2 §D: read-only rule detail for the PM recurring detail drawer. Uses the SAME permission
+    gate as _manage (require_pm_access + owner/can_view check) but performs NO mutation. Returns
+    every _as_dict field (including start_date, which list() omits) PLUS the source task's subject,
+    assignees and labels, and rule creation/update metadata — so the drawer never shows a blank
+    placeholder. No schema change, no write."""
+    import json
+    from ecentric_workspace.pm.api.labels import labels_for_tasks
+    r = _manage(name)  # read-only use of the same gate; _manage does not write
+    out = _as_dict(r)
+    src = None
+    try:
+        src = frappe.get_doc("Task", r.source_task)
+    except Exception:
+        src = None
+    out["source_subject"] = (src.get("subject") if src else None) or r.source_task
+    assignees = []
+    if src and src.get("_assign"):
+        try:
+            assignees = json.loads(src.get("_assign")) or []
+        except Exception:
+            assignees = []
+    out["assignees"] = assignees
+    try:
+        out["labels"] = labels_for_tasks([r.source_task]).get(r.source_task, [])
+    except Exception:
+        out["labels"] = []
+    out["owner"] = r.owner
+    out["creation"] = str(r.creation) if r.get("creation") else None
+    out["modified"] = str(r.modified) if r.get("modified") else None
+    out["modified_by"] = r.modified_by
+    return out
+
+
+@frappe.whitelist()
 def list(task=None, project=None):
     pmperm.require_pm_access()
     me = frappe.session.user

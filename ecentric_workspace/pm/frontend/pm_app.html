@@ -568,6 +568,26 @@
   .rcf-grid + .rcf-grid{ margin-top:14px; }
   .pm-recform .rcf-grid .pm-field{ margin-bottom:0; min-width:0; }
   .rcf-full{ grid-column:1 / -1; }
+  /* G5.2 §5: recurring form semantic sections */
+  .rcf-sec{ font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--navy); font-weight:700; margin:20px 0 12px; padding-top:16px; border-top:1px solid var(--gray-100); }
+  .rcf-sec.rcf-sec-first{ margin-top:0; padding-top:0; border-top:none; }
+  .rcf-help-block{ font-size:12px; color:var(--gray-600); background:var(--gray-50); border-radius:8px; padding:9px 12px; margin:0 0 14px; line-height:1.5; }
+  /* G5.2 §B: shared smart label picker */
+  .pm-lblwrap{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .pm-lblchip{ display:inline-flex; align-items:center; gap:3px; padding:3px 5px 3px 9px; border-radius:12px; font-size:12px; line-height:1.4; }
+  .pm-lblchip-x{ border:none; background:transparent; cursor:pointer; font-size:15px; line-height:1; padding:0 2px; color:inherit; opacity:.6; }
+  .pm-lblchip-x:hover{ opacity:1; }
+  .pm-lbladd{ display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border:1px dashed var(--gray-300); border-radius:12px; background:#fff; cursor:pointer; font-size:12.5px; color:var(--gray-600); }
+  .pm-lbladd:hover{ border-color:var(--navy); color:var(--navy); }
+  .pm-lblpop{ position:relative; }
+  .pm-lblpop-in{ position:absolute; z-index:30; margin-top:6px; width:min(320px, calc(100vw - 40px)); background:#fff; border:1px solid var(--gray-200); border-radius:10px; box-shadow:0 12px 32px rgba(15,23,42,.16); padding:8px; }
+  .pm-lblsearch{ margin-bottom:8px; width:100%; box-sizing:border-box; }
+  .pm-lbllist{ display:flex; flex-direction:column; gap:2px; max-height:190px; overflow:auto; }
+  .pm-lblopt2{ text-align:left; border:none; background:transparent; cursor:pointer; padding:5px 6px; border-radius:6px; }
+  .pm-lblopt2:hover{ background:var(--gray-50); }
+  .pm-lblnone{ font-size:12px; color:var(--gray-400); padding:8px 6px; }
+  .pm-lblnew{ display:flex; align-items:center; gap:4px; width:100%; margin-top:6px; padding:7px 6px; border:none; border-top:1px solid var(--gray-100); background:transparent; cursor:pointer; color:var(--navy); font-size:12.5px; }
+  .pm-lblnew:hover{ background:var(--gray-50); }
   .pm-recform .pm-input, .pm-recform .pm-sel{ width:100%; box-sizing:border-box; }
   .pm-recform textarea.pm-input{ width:100%; min-height:64px; resize:vertical; box-sizing:border-box; }
   @media (max-width:820px){
@@ -586,6 +606,10 @@
   .pm-field .v{ font-size:13.5px; color:var(--gray-800); }
   .pm-actions{ display:flex; flex-wrap:wrap; gap:8px; }
   .pm-assign-row{ display:flex; gap:8px; } .pm-assign-row input{ flex:1; }
+  /* G5.2 §C: assignment filter cards + compact request rows */
+  .stat-card.asg-fcard-on{ box-shadow:0 0 0 2px var(--navy) inset; border-color:var(--navy); }
+  .asg-card.panel{ padding:12px 14px; }
+  .rc-row:hover td{ background:var(--gray-50); }
   .pm-sub{ padding:9px 0; border-bottom:1px solid var(--gray-100); font-size:13px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
 
   .pm-toast{ position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(10px); background:var(--gray-900); color:#fff; padding:11px 20px; border-radius:10px; font-size:13.5px; z-index:90; opacity:0; transition:.2s; pointer-events:none; }
@@ -1048,6 +1072,7 @@
     var P=[["open","Đang mở",rk.active,"s-navy"],["overdue","Quá hạn",rk.overdue,"s-pink"],["blocked","Blocked",rk.blocked,"s-pink"],["review","Chờ duyệt",rk.review,"s-yellow"],["noassignee","Chưa giao",rk.no_assignee,"s-yellow"],["nodue","Chưa có hạn",rk.no_due,"s-navy"],["completed","Hoàn thành",rk.completed,"s-green"]];
     return P.map(function(p){return '<button class="pd-pill '+p[3]+'" data-card="'+p[0]+'" title="Lọc: '+esc(p[1])+'"><span class="pd-pill-n">'+(p[2]||0)+'</span><span class="pd-pill-l">'+p[1]+'</span></button>';}).join("");}
   function openProject(name){var c=el("pm-view");spin(c);window._pdFilter="";window._pdCurTab="tasks";
+    window._pmOpenProject=name;if(typeof pmSetHash==="function")pmSetHash("#project/"+encodeURIComponent(name)); /* G5.2 §7: deep-linkable project detail */
     api(PM+"projects.detail",{name:name}).then(function(d){var p=d.project||{};window._pd={name:name,d:d};
       var VIEWSW=[["tasks","Danh sách"],["board","Kanban"],["gantt","Gantt"],["timesheet","Timesheet"]];
       c.innerHTML='<button class="pm-btn" id="pm-back" style="margin-bottom:12px"><svg class="icon icon-sm"><use href="#p-back"/></svg> Dự án</button>'+
@@ -1347,7 +1372,8 @@
     dr.classList.remove("pm-d-md","pm-d-sm"); /* UIUX-2: reset size variant; caller re-adds the right one after openD() */
     dr.classList.add("expanded");void dr.offsetWidth; /* commit centered+opacity:0 'from' state so transition is fade-in, not right slide */
     dg.classList.add("open");dr.classList.add("open");}
-  function closeD(){clearTick();var dg=el("pm-dbg"),dr=el("pm-drawer");dg.classList.remove("open");dr.classList.remove("open");
+  function closeD(){clearTick();window._pmTaskOpen=false;if(typeof pmSyncHash==="function")pmSyncHash(); /* G5.2 §7: restore the underlying view route on drawer close */
+    var dg=el("pm-dbg"),dr=el("pm-drawer");dg.classList.remove("open");dr.classList.remove("open");
     if(window._dCloseTimer)clearTimeout(window._dCloseTimer);
     window._dCloseTimer=setTimeout(function(){dr.classList.remove("expanded","pm-d-md","pm-d-sm");window._dCloseTimer=null;},170); /* keep .expanded until fade-out done, then reset (incl. UIUX-2 size variants) */
     if(el("pm-dexpand"))el("pm-dexpand").textContent="Mở rộng";}
@@ -1488,6 +1514,7 @@
     titleI.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();create();}else if(e.key==="Escape"){e.preventDefault();back();}});
     Array.prototype.forEach.call(add.querySelectorAll(".pm-subf-asg,.pm-subf-start,.pm-subf-due,.pm-subf-pri"),function(x){x.addEventListener("keydown",function(e){if(e.key==="Escape"){e.preventDefault();back();}else if(e.key==="Enter"){e.preventDefault();create();}});});}
   function openTask(name){if(!name){toast("Thiếu mã nhiệm vụ",true);return;} /* guard: never open a blank modal on an empty/missing task id */
+    window._pmTaskOpen=true;if(typeof pmSetHash==="function")pmSetHash("#task/"+encodeURIComponent(name)); /* G5.2 §7: route-state for the task-detail drawer */
     openD();el("pm-dt").textContent=name;var c=el("pm-dbody");c.classList.remove("pm-cols");spin(c);
     Promise.all([api(PM+"tasks.get",{name:name}),api(PM+"tasks.get_transitions",{name:name})]).then(function(res){
       var t=res[0].task||{},subs=res[0].subtasks||[],tr=res[1].transitions||[];var a=names(t._assign);
@@ -1519,9 +1546,7 @@
         '</div>'+
         '<div class="pm-dsec">Workflow</div>'+
         '<div class="pm-field"><label>Chuyển trạng thái</label><div class="pm-actions">'+(tr.length?tr.map(function(x){return '<button class="pm-btn pm-act" data-act="'+esc(x.action)+'">'+esc(x.action)+'</button>';}).join(""):'<span style="color:var(--gray-400);font-size:13px">Không có</span>')+'</div></div>'+
-        (pmTerminal(t)
-          ? '<div class="pm-field"><label>Giao việc (email)</label><div style="font-size:12.5px;color:var(--gray-400);padding:4px 0">Nhiệm vụ đã đóng — Reopen để giao việc.</div></div>'
-          : '<div class="pm-field"><label>Giao việc (email)</label><div class="pm-assign-row"><input class="pm-input" id="pm-asg" placeholder="user@ecentric.vn" style="padding-left:11px;background-image:none"><button class="pm-btn primary" id="pm-asgb">Giao</button></div></div>')+
+        '<div class="pm-field" id="pm-assign-sec"></div>'+ /* G5.2: assignment section rendered by renderAssignSec() — terminal / assigned(read-only) / unassigned(Phân công ngay + eligibility-gated Yêu cầu xác nhận) / open-request(waiting) */
         '<div class="pm-dsec">Worktime</div><div id="pm-wt"><span class="spin"></span></div>'+
         '<div class="pm-dsec">Lặp lại (Recurring)</div><div id="pm-rec"><span class="spin"></span></div>';
       h+='</div><div class="pm-d-side"><div class="pm-side-h">Bình luận</div>'+
@@ -1537,8 +1562,25 @@
       pmWireLabels(t); /* G4.9: render label chips + editor */
       Array.prototype.forEach.call(c.querySelectorAll(".pm-act"),function(b){b.onclick=function(){b.disabled=true;
         api(PM+"tasks.set_status",{name:name,action:b.getAttribute("data-act")}).then(function(r){toast("Trạng thái: "+r.workflow_state);openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};});
-      if(el("pm-asgb"))el("pm-asgb").onclick=function(){var v=el("pm-asg").value.trim();if(!v){toast("Nhập email",true);return;}
-        api(PM+"tasks.assign",{name:name,users:[v]}).then(function(){toast("Đã giao cho "+v);openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};
+      (function renderAssignSec(){var sec=el("pm-assign-sec");if(!sec)return; /* G5.2 item1: state-aware assignment section */
+        function chips(){return a.slice(0,5).map(function(u){var fn=(window._pmUserNames&&window._pmUserNames[u])||u;return '<span class="pm-assignee-chip" title="'+esc(fn)+' · '+esc(u)+'"><span class="pm-mini-av">'+ini(u)+'</span>'+esc(fn)+'</span>';}).join("")+(a.length>5?'<span class="pm-tag tg-more">+'+(a.length-5)+'</span>':'');}
+        function directHtml(){return '<label>Phân công ngay</label><div class="pm-assign-row"><input class="pm-input" id="pm-asg" placeholder="user@ecentric.vn" style="padding-left:11px;background-image:none"><button class="pm-btn primary" id="pm-asgb">Phân công</button></div>';}
+        function wireDirect(){el("pm-asgb").onclick=function(){var v=el("pm-asg").value.trim();if(!v){toast("Nhập email",true);return;}var b=this;b.disabled=true;api(PM+"tasks.assign",{name:name,users:[v]}).then(function(){toast("Đã phân công cho "+v);openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};}
+        function wireReq(){el("pm-reqb").onclick=function(){var box=el("pm-req-inline");
+          if(box.getAttribute("data-open")==="1"){box.innerHTML="";box.removeAttribute("data-open");return;}box.setAttribute("data-open","1");
+          box.innerHTML='<div class="pm-field"><label>Người nhận (email) *</label><input class="pm-input" id="pm-req-rcp" placeholder="user@ecentric.vn"></div><div style="display:flex;gap:8px"><div class="pm-field" style="flex:1"><label>Đề xuất bắt đầu</label><input type="datetime-local" class="pm-input" id="pm-req-ps"></div><div class="pm-field" style="flex:1"><label>Đề xuất kết thúc</label><input type="datetime-local" class="pm-input" id="pm-req-pe"></div></div><div class="pm-field"><label>Lời nhắn</label><textarea class="pm-input" id="pm-req-msg" rows="2"></textarea></div><button class="pm-btn primary" id="pm-req-go">Gửi yêu cầu</button>';
+          el("pm-req-go").onclick=function(){var rcp=el("pm-req-rcp").value.trim();if(!rcp){toast("Nhập người nhận",true);return;}var b=this;var _ot=b.innerHTML;b.disabled=true;b.textContent="Đang gửi...";
+            api(PM+"assignment.create_request",{task:name,recipient:rcp,proposed_start:el("pm-req-ps").value||null,proposed_end:el("pm-req-pe").value||null,message:el("pm-req-msg").value||null}).then(function(){toast("Đã gửi yêu cầu xác nhận");openTask(name);}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;b.innerHTML=_ot;});};};}
+        if(pmTerminal(t)){sec.innerHTML='<label>Phân công</label><div style="font-size:12.5px;color:var(--gray-400);padding:4px 0">Nhiệm vụ đã đóng — Mở lại trước khi phân công.</div>';return;}
+        if(a.length){sec.innerHTML='<label>Người thực hiện</label><div style="padding:2px 0;display:flex;gap:6px;flex-wrap:wrap">'+chips()+'</div>';return;}
+        sec.innerHTML='<label>Phân công</label><div style="font-size:12.5px;color:var(--gray-400);padding:4px 0"><span class="spin"></span></div>';
+        api(PM+"assignment.request_eligibility",{task:name}).then(function(e){e=e||{};
+          if(e.reason_code==="open_request"){sec.innerHTML='<label>Phân công</label><div style="font-size:12.5px;color:var(--gray-600);padding:4px 0">Đang chờ người nhận phản hồi yêu cầu xác nhận.</div>';return;}
+          var html=directHtml();
+          if(e.eligible===true){html+='<div style="margin-top:12px;border-top:1px solid var(--gray-100);padding-top:10px"><div style="font-size:12px;color:var(--gray-500);margin-bottom:6px">Hoặc gửi yêu cầu để người nhận xác nhận</div><button class="pm-btn" id="pm-reqb"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Yêu cầu xác nhận</button><div id="pm-req-inline" style="margin-top:8px"></div></div>';}
+          sec.innerHTML=html;wireDirect();if(e.eligible===true)wireReq();
+        }).catch(function(){sec.innerHTML=directHtml();wireDirect();}); /* fail closed on CTA; keep governed direct assign */
+      })();
       /* A2: "Sửa (form)" button removed — inline edit is the primary path. editTask() kept as internal fallback only. */
       inlineWire(c,t,name); /* C1-B: click-to-edit priority/start/end/desc in main + title in header */
       /* G4.11: optional time-of-day, saved via tasks.update (validation server-side). */
@@ -1601,31 +1643,61 @@
       api(PM+"timesheet.log",{task:task,hours:hrs,log_date:day,description:ds}).then(function(){toast("Đã lưu "+hrs+"h");loadWorktime(task,terminal);}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu giờ";});};}
 
   function _niFix(c){Array.prototype.forEach.call(c.querySelectorAll(".ni"),function(i){i.style.backgroundImage="none";i.style.paddingLeft="11px";i.style.width="100%";});}
-  function newTask(project,parentTask,onCreated){openD();el("pm-dt").textContent=parentTask?"Tạo nhiệm vụ con":"Tạo nhiệm vụ";var c=el("pm-dbody");c.classList.remove("pm-cols");clearDtInline();spin(c);
-    api(PM+"projects.list",{page_length:200}).then(function(r){var rows=r.rows||[];
+  function newTask(project,parentTask,onCreated,opts){opts=opts||{};var _titleFor=function(rm){return rm?"Yêu cầu xác nhận":(parentTask?"Tạo nhiệm vụ con":"Tạo nhiệm vụ");};
+    openD();el("pm-dt").textContent=_titleFor(opts.mode==="request"&&!parentTask);var c=el("pm-dbody");c.classList.remove("pm-cols");clearDtInline();spin(c);
+    Promise.all([api(PM+"projects.list",{page_length:500}).catch(function(){return {rows:[]};}),
+                 api(PM+"labels.list_labels",{}).catch(function(){return {rows:[]};}),
+                 api(PM+"checklist.list_templates",{}).catch(function(){return {rows:[]};})]).then(function(res){
+      var rows=res[0].rows||[],labels=res[1].rows||[],tmpls=res[2].rows||[];
       /* G4.8c: task ngoài dự án — project is optional; never force a selection. */
-      var opts='<option value=""'+(!project?' selected':'')+'>— Ngoài dự án —</option>'+rows.map(function(p){return '<option value="'+esc(p.name)+'"'+(p.name===project?' selected':'')+'>'+esc(p.project_name||p.name)+'</option>';}).join("");
+      var popts='<option value=""'+(!project?' selected':'')+'>— Ngoài dự án —</option>'+rows.map(function(p){return '<option value="'+esc(p.name)+'"'+(p.name===project?' selected':'')+'>'+esc(p.project_name||p.name)+'</option>';}).join("");
       var pri=["Low","Medium","High","Urgent"].map(function(x){return '<option'+(x==="Medium"?' selected':'')+'>'+x+'</option>';}).join("");
+      var tmplOpts='<option value="">— Không —</option>'+tmpls.map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.template_name||t.name)+'</option>';}).join("");
       var subBanner=parentTask?'<div style="background:var(--navy-50);border:1px solid var(--navy-100);border-radius:8px;padding:9px 12px;margin-bottom:14px;font-size:12.5px;color:var(--navy)">Tạo <b>nhiệm vụ con</b> — dự án &amp; nhiệm vụ cha đã chọn sẵn bên dưới.</div>':'';
-      c.innerHTML=subBanner+
+      /* G5.2 §A: canonical Task modal, two modes — Phân công ngay (direct: tasks.create+assign) / Yêu cầu xác nhận (request: assignment.create_with_task). Toggle hidden for subtasks. */
+      var toggle=parentTask?'':'<div class="seg" style="margin:2px 0 10px"><button type="button" data-ntmode="direct">Phân công ngay</button><button type="button" data-ntmode="request">Yêu cầu xác nhận</button></div><div id="nt-modehelp" style="font-size:12px;color:var(--gray-500);margin:0 0 12px"></div>';
+      c.innerHTML=subBanner+toggle+
         '<div class="pm-dsec">Cơ bản</div>'+
         pmFieldInput("Tiêu đề *",'<input class="pm-input ni" id="nt-subject" placeholder="Bạn cần làm gì?">')+
-        pmFieldInput("Dự án",'<select class="pm-sel" id="nt-project" style="width:100%">'+opts+'</select>')+
-        pmFieldInput("Nhiệm vụ cha",'<select class="pm-sel" id="nt-parent" style="width:100%"><option value="">— Không —</option></select>')+
+        pmFieldInput("Dự án",'<select class="pm-sel" id="nt-project" style="width:100%">'+popts+'</select>')+
+        '<div id="nt-parent-wrap">'+pmFieldInput("Nhiệm vụ cha",'<select class="pm-sel" id="nt-parent" style="width:100%"><option value="">— Không —</option></select>')+'</div>'+
         '<div class="pm-dsec">Phân công</div>'+
-        pmFieldInput("Người nhận (email)",'<input class="pm-input ni" id="nt-assignee" placeholder="vd: ten.ho@ecentric.vn">')+
+        pmFieldInput('<span id="nt-asg-lbl">Người nhận (email)</span>','<input class="pm-input ni" id="nt-assignee" placeholder="vd: ten.ho@ecentric.vn">')+
         pmFieldInput("Ưu tiên",'<select class="pm-sel" id="nt-priority" style="width:100%">'+pri+'</select>')+
         '<div class="pm-dsec">Lịch</div>'+
-        '<div style="display:flex;gap:10px">'+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="nt-start" type="date">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="nt-end" type="date">')+'</div>'+
+        '<div id="nt-sched-d" style="display:flex;gap:10px">'+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="nt-start" type="date">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="nt-end" type="date">')+'</div>'+
+        '<div id="nt-sched-r" style="display:none;gap:10px">'+pmFieldInput("Đề xuất bắt đầu",'<input class="pm-input ni" id="nt-ps" type="datetime-local">')+pmFieldInput("Đề xuất kết thúc",'<input class="pm-input ni" id="nt-pe" type="datetime-local">')+'</div>'+
         '<div class="pm-dsec">Chi tiết</div>'+
         pmFieldInput("Mô tả",'<textarea class="pm-input ni" id="nt-desc" rows="3" style="resize:vertical" placeholder="Mô tả / ghi chú (tuỳ chọn)"></textarea>')+
-        '<div style="display:flex;gap:8px;margin-top:10px"><button class="pm-btn primary" id="nt-create" style="flex:1;justify-content:center"><svg class="icon icon-sm"><use href="#p-plus"/></svg> '+(parentTask?"Tạo nhiệm vụ con":"Tạo nhiệm vụ")+'</button><button class="pm-btn" id="nt-cancel">Huỷ</button></div>';
+        '<div id="nt-req-extra" style="display:none">'+pmFieldInput("Checklist mẫu",'<select class="pm-sel" id="nt-tmpl" style="width:100%">'+tmplOpts+'</select>')+pmFieldInput("Lời nhắn",'<textarea class="pm-input ni" id="nt-msg" rows="2" style="resize:vertical" placeholder="Lời nhắn cho người nhận (tuỳ chọn)"></textarea>')+'</div>'+
+        pmFieldInput("Nhãn",'<div id="nt-labels"></div>')+ /* G5.2 §B shared picker */
+        '<div style="display:flex;gap:8px;margin-top:10px"><button class="pm-btn primary" id="nt-create" style="flex:1;justify-content:center"><svg class="icon icon-sm"><use href="#p-plus"/></svg> <span id="nt-create-lbl">Tạo nhiệm vụ</span></button><button class="pm-btn" id="nt-cancel">Huỷ</button></div>';
       _niFix(c);
       function loadParents(pre){api(PM+"tasks.list",{project:el("nt-project").value,page_length:200}).then(function(d){el("nt-parent").innerHTML='<option value="">— Không —</option>'+(d.rows||[]).map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.subject||t.name)+'</option>';}).join("");if(pre)el("nt-parent").value=pre;}).catch(function(){});}
       el("nt-project").onchange=function(){loadParents();}; loadParents(parentTask);
+      pmLabelPicker(el("nt-labels"),{labels:labels,selected:[]}); /* G5.2 §B shared picker */
+      var _m={v:(opts.mode==="request"&&!parentTask)?"request":"direct"};
+      function applyMode(){var rm=_m.v==="request";
+        Array.prototype.forEach.call(c.querySelectorAll("[data-ntmode]"),function(b){b.classList.toggle("active",b.getAttribute("data-ntmode")===_m.v);});
+        var pw=el("nt-parent-wrap");if(pw)pw.style.display=rm?"none":"";
+        el("nt-sched-d").style.display=rm?"none":"flex";el("nt-sched-r").style.display=rm?"flex":"none";
+        el("nt-req-extra").style.display=rm?"":"none";
+        el("nt-asg-lbl").textContent=rm?"Người nhận (email) *":"Người nhận (email)";
+        el("nt-create-lbl").textContent=rm?"Gửi yêu cầu":(parentTask?"Tạo nhiệm vụ con":"Tạo nhiệm vụ");
+        el("pm-dt").textContent=_titleFor(rm);
+        var mh=el("nt-modehelp");if(mh)mh.textContent=rm?"Tạo 1 nhiệm vụ chờ + 1 yêu cầu xác nhận. Nhiệm vụ chỉ được giao khi người nhận đồng ý.":"Tạo và giao nhiệm vụ ngay. Bỏ trống người nhận nếu chưa muốn giao.";
+      }
+      Array.prototype.forEach.call(c.querySelectorAll("[data-ntmode]"),function(b){b.onclick=function(){_m.v=b.getAttribute("data-ntmode");applyMode();};});
+      applyMode();
       el("nt-cancel").onclick=closeD;
-      el("nt-create").onclick=function(){var s=el("nt-subject").value.trim();if(!s){toast("Nhập tiêu đề",true);return;}var sd=el("nt-start").value,ed=el("nt-end").value;if(sd&&ed&&ed<sd){toast("Hạn không được trước ngày bắt đầu",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang tạo...";
-        api(PM+"tasks.create",{project:el("nt-project").value,subject:s,parent_task:el("nt-parent").value||null,assignee:el("nt-assignee").value.trim()||null,priority:el("nt-priority").value,exp_start_date:el("nt-start").value||null,exp_end_date:el("nt-end").value||null,description:el("nt-desc").value||null}).then(function(r){toast("Đã tạo "+r.name);if(onCreated){closeD();try{onCreated();}catch(_){}}else if(parentTask){openTask(parentTask);}else{closeD();go("board");}}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML='Tạo nhiệm vụ';});};
+      el("nt-create").onclick=function(){var rm=_m.v==="request";var s=el("nt-subject").value.trim();if(!s){toast("Nhập tiêu đề",true);return;}var lbls=pmGetLabels(el("nt-labels"));var btn=this;var _ot=btn.innerHTML;
+        if(rm){var rcp=el("nt-assignee").value.trim();if(!rcp){toast("Nhập người nhận",true);return;}btn.disabled=true;btn.textContent="Đang gửi...";
+          api(PM+"assignment.create_with_task",{subject:s,recipient:rcp,project:el("nt-project").value||"",description:el("nt-desc").value||null,priority:el("nt-priority").value||null,proposed_start:el("nt-ps").value||null,proposed_end:el("nt-pe").value||null,message:el("nt-msg").value||null,checklist_template:el("nt-tmpl").value||null,labels:lbls.length?JSON.stringify(lbls):null}).then(function(){toast("Đã gửi yêu cầu giao việc");closeD();if(onCreated){try{onCreated();}catch(_){}}}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML=_ot;});return;}
+        var sd=el("nt-start").value,ed=el("nt-end").value;if(sd&&ed&&ed<sd){toast("Hạn không được trước ngày bắt đầu",true);return;}btn.disabled=true;btn.textContent="Đang tạo...";
+        api(PM+"tasks.create",{project:el("nt-project").value,subject:s,parent_task:el("nt-parent").value||null,assignee:el("nt-assignee").value.trim()||null,priority:el("nt-priority").value,exp_start_date:sd||null,exp_end_date:ed||null,description:el("nt-desc").value||null}).then(function(r){
+          function done(){toast("Đã tạo "+r.name);if(onCreated){closeD();try{onCreated();}catch(_){}}else if(parentTask){openTask(parentTask);}else{closeD();go("board");}}
+          if(lbls.length){api(PM+"labels.set_task_labels",{task:r.name,labels:JSON.stringify(lbls)}).then(done).catch(function(){done();});}else{done();}
+        }).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML=_ot;});};
     }).catch(function(e){errBox(c,e);});}
   /* UIUX-1: shared Create/Edit project form fields (reused by newProject + editProject). */
   function pmProjFormFields(v){v=v||{};
@@ -2062,12 +2134,50 @@
         return '<tr'+(t?' data-task="'+esc(t.name)+'"':'')+'><td class="t-main">'+esc(t?(t.subject||t.name):r.last_task)+'</td><td>'+esc((t&&t.project)||r.project||"-")+'</td><td>'+(a.length?'<span class="pm-mini-av" title="'+esc(a[0])+'">'+ini(a[0])+'</span>':'<span style="color:var(--gray-400)">Chưa giao</span>')+'</td><td>'+(t?badge(t.workflow_state):"-")+'</td><td>'+esc((t&&t.exp_end_date)||"-")+'</td><td>'+esc(r.source_task)+'</td><td>'+recReasonBadge(recTaskReason(t))+(noass&&recTaskReason(t)!=="noassignee"?' <span class="dc-reason" style="color:#925f00;background:#fff7e6">Chưa giao</span>':'')+'</td><td style="text-align:right">'+(t?'<button class="pm-btn rec-open" data-task="'+esc(t.name)+'">Mở</button>':'')+'</td></tr>';}).join("")+'</tbody></table></div>';
     Array.prototype.forEach.call(host.querySelectorAll("[data-task]"),function(x){x.onclick=function(e){if(e)e.stopPropagation();openTask(x.getAttribute("data-task"));};});}
   function recRuleTable(host,rules,tmap,showActions){if(!host)return;if(!rules.length){return emptyBox(host,"Không có quy tắc.");}
+    var byName={};rules.forEach(function(r){byName[r.name]=r;}); /* G5.2 §D: row -> rule lookup for detail drawer */
     host.innerHTML='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Task gốc</th><th>Tần suất</th><th>Lần kế</th><th>Đã tạo</th><th>Tối đa</th><th>Task mới nhất</th><th>Trạng thái</th><th>Health</th>'+(showActions?'<th></th>':'')+'</tr></thead><tbody>'+
       rules.map(function(r){var lt=r.last_task&&tmap[r.last_task];
-        return '<tr><td class="t-main">'+esc(r.source_task)+'</td><td>'+esc(FREQ_VN[r.frequency]||r.frequency)+'</td><td>'+esc(r.next_run_date||"-")+'</td><td>'+(r.occurrences_done||0)+'</td><td>'+(r.max_occurrences?r.max_occurrences:"—")+'</td><td'+(lt?' class="dc-link" data-task="'+esc(r.last_task)+'" style="cursor:pointer"':'')+'>'+esc(r.last_task||"-")+'</td><td><span class="pm-badge '+recBadge(r.status)+'">'+esc(r.status)+'</span></td><td>'+ruleHealthBadge(ruleHealth(r,lt))+'</td>'+
+        return '<tr class="rc-row" data-rrule="'+esc(r.name)+'" style="cursor:pointer"><td class="t-main">'+esc(r.source_task)+'</td><td>'+esc(FREQ_VN[r.frequency]||r.frequency)+'</td><td>'+esc(r.next_run_date||"-")+'</td><td>'+(r.occurrences_done||0)+'</td><td>'+(r.max_occurrences?r.max_occurrences:"—")+'</td><td'+(lt?' class="dc-link" data-task="'+esc(r.last_task)+'" style="cursor:pointer"':'')+'>'+esc(r.last_task||"-")+'</td><td><span class="pm-badge '+recBadge(r.status)+'">'+esc(r.status)+'</span></td><td>'+ruleHealthBadge(ruleHealth(r,lt))+'</td>'+
           (showActions?'<td style="text-align:right;white-space:nowrap">'+(r.status==="Active"?'<button class="pm-btn rc-a" data-a="pause" data-n="'+esc(r.name)+'">Tạm dừng</button>':r.status==="Paused"?'<button class="pm-btn rc-a" data-a="resume" data-n="'+esc(r.name)+'">Tiếp tục</button>':'')+((r.status==="Active"||r.status==="Paused")?' <button class="pm-btn rc-a" data-a="cancel" data-n="'+esc(r.name)+'">Huỷ</button>':'')+'</td>':'')+'</tr>';}).join("")+'</tbody></table></div>';
-    Array.prototype.forEach.call(host.querySelectorAll("[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});
-    Array.prototype.forEach.call(host.querySelectorAll(".rc-a"),function(btn){btn.onclick=function(){api(PM+"recurrence."+btn.getAttribute("data-a"),{name:btn.getAttribute("data-n")}).then(function(){showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};});}
+    Array.prototype.forEach.call(host.querySelectorAll("[data-task]"),function(x){x.onclick=function(e){e.stopPropagation();openTask(x.getAttribute("data-task"));};});
+    Array.prototype.forEach.call(host.querySelectorAll(".rc-a"),function(btn){btn.onclick=function(e){e.stopPropagation();api(PM+"recurrence."+btn.getAttribute("data-a"),{name:btn.getAttribute("data-n")}).then(function(){showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};});
+    Array.prototype.forEach.call(host.querySelectorAll(".rc-row"),function(tr){tr.onclick=function(){openRecurringDetail(byName[tr.getAttribute("data-rrule")],tmap);};});}
+  /* G5.2 §D: read-only recurring rule detail drawer. All fields come from recurrence.list (_as_dict);
+     no extra API/schema needed. Pause/Resume/Cancel reuse the governed recurrence.* endpoints. */
+  function openRecurringDetail(r,tmap){if(!r)return;openD();el("pm-dt").textContent="Quy tắc định kỳ";var c=el("pm-dbody");c.classList.remove("pm-cols");spin(c);
+    var lt=r.last_task&&tmap&&tmap[r.last_task];
+    /* fetch the read-only rich detail (start_date, assignee, labels, metadata not in list()); fall back to list row on failure */
+    api(PM+"recurrence.get",{name:r.name}).then(function(d){renderRecDetail(c,d||r,r,lt);}).catch(function(){renderRecDetail(c,r,r,lt);});}
+  function renderRecDetail(c,d,r,lt){
+    function row(l,v){return '<div class="pm-prop"><label>'+esc(l)+'</label><div class="v">'+v+'</div></div>';}
+    var asg=(d.assignees&&d.assignees.length)?d.assignees.map(function(u){return esc(u);}).join(", "):"—";
+    var lbls=(d.labels&&d.labels.length)?d.labels.map(function(l){return '<span class="pm-lbl pm-lbl-'+esc(l.color_key||"gray")+'">'+esc(l.label_name||l.name)+'</span>';}).join(" "):"—";
+    var acts='';
+    if(d.status==="Active")acts+='<button class="pm-btn" data-rd-a="pause">Tạm dừng</button> ';
+    if(d.status==="Paused")acts+='<button class="pm-btn" data-rd-a="resume">Tiếp tục</button> ';
+    if(d.status==="Active"||d.status==="Paused")acts+='<button class="pm-btn" data-rd-a="cancel">Huỷ quy tắc</button>';
+    c.innerHTML='<div class="pm-dsec">Thông tin quy tắc</div><div class="pm-props">'+
+      row("Nhiệm vụ mẫu",'<span class="dc-link" id="rd-src" style="cursor:pointer">'+esc(d.source_subject||r.source_task)+'</span> <span style="color:var(--gray-400)">('+esc(r.source_task)+')</span>')+
+      row("Dự án",esc(d.project||"—"))+
+      row("Người thực hiện",asg)+
+      row("Tần suất",esc(FREQ_VN[d.frequency]||d.frequency))+
+      row("Trạng thái",'<span class="pm-badge '+recBadge(d.status)+'">'+esc(d.status)+'</span>')+
+      row("Sức khoẻ",ruleHealthBadge(ruleHealth(d,lt)))+
+      row("Bắt đầu áp dụng",esc(d.start_date||"—"))+
+      row("Kết thúc áp dụng",esc(d.end_date||"—"))+
+      row("Lần kế tiếp",esc(d.next_run_date||"—"))+
+      row("Lần chạy gần nhất",esc(d.last_run_date||"—"))+
+      row("Đã tạo",(d.occurrences_done||0)+(d.max_occurrences?(" / "+d.max_occurrences):" (không giới hạn)"))+
+      row("Checklist mẫu",esc(d.checklist_template||"—"))+
+      row("Nhãn",lbls)+
+      row("Task mới nhất",r.last_task?('<span class="dc-link" id="rd-last" style="cursor:pointer">'+esc(r.last_task)+'</span>'):"—")+
+      row("Tạo lúc",esc((d.creation||"—")+(d.owner?(" · "+d.owner):"")))+
+      row("Cập nhật",esc((d.modified||"—")+(d.modified_by?(" · "+d.modified_by):"")))+
+      '</div>'+
+      (acts?'<div class="pm-dsec">Thao tác</div><div style="display:flex;gap:8px;flex-wrap:wrap">'+acts+'</div>':'');
+    if(el("rd-src"))el("rd-src").onclick=function(){openTask(r.source_task);};
+    if(el("rd-last"))el("rd-last").onclick=function(){openTask(r.last_task);};
+    Array.prototype.forEach.call(c.querySelectorAll("[data-rd-a]"),function(b){b.onclick=function(){var a=b.getAttribute("data-rd-a");b.disabled=true;api(PM+"recurrence."+a,{name:r.name}).then(function(){toast("Đã cập nhật quy tắc");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};});}
   /* G5.0: Assignment Acceptance — request a task be given to a user; recipient accepts /
      rejects / proposes a new time. Replaces the hidden "Thông báo" slot. */
   function asgFmt(d){return d?String(d).slice(0,16).replace("T"," "):"—";}
@@ -2076,18 +2186,39 @@
     Promise.all([api(PM+"assignment.list_incoming").catch(function(){return {rows:[]};}),
                  api(PM+"assignment.list_outgoing").catch(function(){return {rows:[]};})]).then(function(res){
       var inc=(res[0].rows||[]),out=(res[1].rows||[]);
-      var cta='<button class="pm-btn primary" id="asg-new"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Giao việc</button>';
-      var h=head("Yêu cầu giao việc","Đề xuất giao việc và chấp nhận lịch",cta);
-      h+='<div class="seg" style="margin:0 0 14px"><button data-asgtab="in" class="'+(window._asgTab==="in"?"active":"")+'">Được giao cho tôi ('+inc.length+')</button><button data-asgtab="out" class="'+(window._asgTab==="out"?"active":"")+'">Tôi đã giao ('+out.length+')</button></div>';
+      /* G5.2 item2: each card's COUNT is the length of the exact {row,tab} set it renders when active.
+         respond=incoming Pending, awaiting=outgoing Pending, reschedule=outgoing Reschedule Proposed,
+         done=Accepted/Rejected/Cancelled merged (in+out) deduped by request name, each row keeps its
+         own perspective so the right actions render. No total-across-perspectives while showing one tab. */
+      var DONE=["Accepted","Rejected","Cancelled"];
+      function pairs(arr,pred,tab){return arr.filter(pred).map(function(r){return {r:r,tab:tab};});}
+      var respondSet=pairs(inc,function(r){return r.status==="Pending";},"in");
+      var awaitingSet=pairs(out,function(r){return r.status==="Pending";},"out");
+      var reschedSet=pairs(out,function(r){return r.status==="Reschedule Proposed";},"out");
+      var seen={},doneSet=[];
+      pairs(inc,function(r){return DONE.indexOf(r.status)>=0;},"in")
+        .concat(pairs(out,function(r){return DONE.indexOf(r.status)>=0;},"out"))
+        .forEach(function(x){if(!seen[x.r.name]){seen[x.r.name]=1;doneSet.push(x);}});
+      var SETS={respond:respondSet,awaiting:awaitingSet,reschedule:reschedSet,done:doneSet};
+      var F=window._asgFilter||"";
+      var cta='<button class="pm-btn primary" id="asg-new"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Yêu cầu xác nhận</button>';
+      var h=head("Yêu cầu xác nhận công việc","Đề xuất giao việc; người nhận có thể Đồng ý, Từ chối hoặc đề xuất lịch khác.",cta);
+      function fcard(key,cls,label,n){return '<div class="stat-card '+cls+(F===key?' asg-fcard-on':'')+'" data-asgf="'+key+'" style="cursor:pointer"><div class="stat-label">'+label+'</div><div class="stat-value">'+n+'</div></div>';}
+      h+='<div class="stats-strip">'+fcard("respond","s-yellow","Cần tôi phản hồi",respondSet.length)+fcard("awaiting","s-navy","Đang chờ phản hồi",awaitingSet.length)+fcard("reschedule","s-pink","Đề xuất lịch mới",reschedSet.length)+fcard("done","s-green","Đã xử lý",doneSet.length)+'</div>';
+      if(F){h+='<div style="font-size:12.5px;color:var(--gray-600);margin:0 0 12px">Đang lọc theo thẻ đã chọn · <a href="javascript:void(0)" id="asg-clearf" style="color:var(--navy)">Bỏ lọc</a></div>';}
+      else{h+='<div class="seg" style="margin:0 0 14px"><button data-asgtab="in" class="'+(window._asgTab==="in"?"active":"")+'">Được giao cho tôi ('+inc.length+')</button><button data-asgtab="out" class="'+(window._asgTab==="out"?"active":"")+'">Tôi đã giao ('+out.length+')</button></div>';}
       h+='<div id="asg-body"></div>';
       c.innerHTML=h;
-      el("asg-new").onclick=openAssignCreate;
-      Array.prototype.forEach.call(c.querySelectorAll("[data-asgtab]"),function(b){b.onclick=function(){window._asgTab=b.getAttribute("data-asgtab");showAssignments();};});
-      renderAsgList(el("asg-body"),window._asgTab==="in"?inc:out,window._asgTab);
+      el("asg-new").onclick=function(){newTask("",null,function(){showAssignments();},{mode:"request"});}; /* G5.2: unified modal, request mode */
+      Array.prototype.forEach.call(c.querySelectorAll("[data-asgtab]"),function(b){b.onclick=function(){window._asgTab=b.getAttribute("data-asgtab");window._asgFilter="";if(typeof pmSetHash==="function")pmSetHash("#assignments/"+window._asgTab);showAssignments();};});
+      Array.prototype.forEach.call(c.querySelectorAll("[data-asgf]"),function(b){b.onclick=function(){var k=b.getAttribute("data-asgf");window._asgFilter=(window._asgFilter===k)?"":k;showAssignments();};});
+      var cf=el("asg-clearf");if(cf)cf.onclick=function(){window._asgFilter="";showAssignments();};
+      var disp=F?(SETS[F]||[]):((window._asgTab==="in"?inc:out).map(function(r){return {r:r,tab:window._asgTab};}));
+      renderAsgPairs(el("asg-body"),disp);
     }).catch(function(e){errBox(c,e);});}
-  function renderAsgList(host,rows,tab){
-    if(!rows.length){host.innerHTML='<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>Chưa có yêu cầu.</div></div></div>';return;}
-    host.innerHTML=rows.map(function(r){return asgCard(r,tab);}).join("");
+  function renderAsgPairs(host,pairs){
+    if(!pairs.length){host.innerHTML='<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>Chưa có yêu cầu.</div></div></div>';return;}
+    host.innerHTML=pairs.map(function(p){return asgCard(p.r,p.tab);}).join("");
     Array.prototype.forEach.call(host.querySelectorAll("[data-asg-act]"),function(b){b.onclick=function(){asgAction(b.getAttribute("data-asg-name"),b.getAttribute("data-asg-act"),b.closest(".asg-card"));};});
   }
   function asgCard(r,tab){var who=(tab==="in")?("Từ: "+esc(r.requested_by)):("Đến: "+esc(r.recipient));
@@ -2121,29 +2252,9 @@
     if(act==="reschedule"){inline.innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap"><input type="datetime-local" class="pm-input" id="asg-cs" style="width:auto"><input type="datetime-local" class="pm-input" id="asg-ce" style="width:auto"></div><textarea class="pm-input" id="asg-rreason" rows="2" placeholder="Lý do (bắt buộc)" style="margin-top:6px"></textarea><button class="pm-btn primary" id="asg-resch-go" style="margin-top:6px">Gửi đề xuất</button>';
       el("asg-resch-go").onclick=function(){api(PM+"assignment.respond",{name:name,decision:"reschedule",counter_start:el("asg-cs").value||null,counter_end:el("asg-ce").value||null,reason:el("asg-rreason").value}).then(function(){toast("Đã gửi đề xuất lịch khác");showAssignments();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};return;}
   }
-  function openAssignCreate(){openD();el("pm-dt").textContent="Giao việc";var c=el("pm-dbody");c.classList.remove("pm-cols");spin(c);
-    Promise.all([api(PM+"projects.list",{page_length:500}).catch(function(){return {rows:[]};}),
-                 api(PM+"labels.list_labels",{}).catch(function(){return {rows:[]};}),
-                 api(PM+"checklist.list_templates",{}).catch(function(){return {rows:[]};})]).then(function(res){
-      var projs=(res[0].rows||[]),labels=(res[1].rows||[]),tmpls=(res[2].rows||[]);
-      c.innerHTML='<div style="max-width:640px">'+
-        '<div class="pm-field"><label>Tên nhiệm vụ *</label><input class="pm-input" id="ag-subject"></div>'+
-        '<div class="pm-field"><label>Người nhận (email) *</label><input class="pm-input" id="ag-recipient" placeholder="user@ecentric.vn"></div>'+
-        '<div class="pm-field"><label>Dự án</label><select class="pm-sel" id="ag-project"><option value="">— Ngoài dự án —</option>'+projs.map(function(p){return '<option value="'+esc(p.name)+'">'+esc(p.project_name||p.name)+'</option>';}).join("")+'</select></div>'+
-        '<div class="pm-field"><label>Mô tả</label><textarea class="pm-input" id="ag-desc" rows="2"></textarea></div>'+
-        '<div class="pm-field"><label>Ưu tiên</label><select class="pm-sel" id="ag-priority"><option value="">—</option><option>Low</option><option>Medium</option><option>High</option><option>Urgent</option></select></div>'+
-        '<div style="display:flex;gap:10px"><div class="pm-field" style="flex:1"><label>Đề xuất bắt đầu</label><input type="datetime-local" class="pm-input" id="ag-ps"></div><div class="pm-field" style="flex:1"><label>Đề xuất kết thúc</label><input type="datetime-local" class="pm-input" id="ag-pe"></div></div>'+
-        '<div class="pm-field"><label>Checklist mẫu</label><select class="pm-sel" id="ag-tmpl"><option value="">— Không —</option>'+tmpls.map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.template_name||t.name)+'</option>';}).join("")+'</select></div>'+
-        '<div class="pm-field"><label>Nhãn</label><div id="ag-labels" style="display:flex;gap:6px;flex-wrap:wrap">'+(labels.length?labels.map(function(l){return '<label class="pm-lblopt" style="padding:3px 6px"><input type="checkbox" data-lbl="'+esc(l.name)+'"> <span class="pm-lbl pm-lbl-'+esc(l.color_key||"gray")+'">'+esc(l.label_name)+'</span></label>';}).join(""):'<span style="color:var(--gray-400);font-size:12px">Chưa có nhãn</span>')+'</div></div>'+
-        '<div class="pm-field"><label>Lời nhắn</label><textarea class="pm-input" id="ag-msg" rows="2"></textarea></div>'+
-        '<div style="display:flex;gap:8px"><button class="pm-btn primary" id="ag-submit">Gửi yêu cầu</button><button class="pm-btn" id="ag-cancel">Huỷ</button></div></div>';
-      c.classList.add("pm-cols");
-      el("ag-cancel").onclick=function(){closeD();};
-      el("ag-submit").onclick=function(){var btn=this;var subj=el("ag-subject").value.trim(),rcp=el("ag-recipient").value.trim();
-        if(!subj){toast("Nhập tên nhiệm vụ",true);return;}if(!rcp){toast("Nhập người nhận",true);return;}var _ot=btn.innerHTML;btn.disabled=true;btn.textContent="Đang gửi...";
-        var lbls=Array.prototype.map.call(c.querySelectorAll("#ag-labels input[data-lbl]:checked"),function(x){return x.getAttribute("data-lbl");});
-        api(PM+"assignment.create_with_task",{subject:subj,recipient:rcp,project:el("ag-project").value||"",description:el("ag-desc").value||null,priority:el("ag-priority").value||null,proposed_start:el("ag-ps").value||null,proposed_end:el("ag-pe").value||null,message:el("ag-msg").value||null,checklist_template:el("ag-tmpl").value||null,labels:lbls.length?JSON.stringify(lbls):null}).then(function(){toast("Đã gửi yêu cầu giao việc");closeD();showAssignments();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML=_ot;});};
-    }).catch(function(e){errBox(c,e);});}
+  /* G5.2 §A: retired standalone drawer — now delegates to the canonical Task modal (request mode).
+     Kept as a thin alias so any legacy call site stays valid; no duplicate form implementation. */
+  function openAssignCreate(){newTask("",null,function(){showAssignments();},{mode:"request"});}
   function showRecurring(){var c=el("pm-view");spin(c);
     Promise.all([api(PM+"recurrence.list"),api(PM+"tasks.list",{page_length:2000})]).then(function(res){
       var rules=(res[0]&&res[0].rows)||[];var tasks=(res[1]&&res[1].rows)||[];var tmap={};tasks.forEach(function(t){tmap[t.name]=t;});
@@ -2192,26 +2303,35 @@
       c.innerHTML='<div class="pm-recform">'+
         '<div class="pm-recform-body">'+
           '<div class="seg rcf-tabs"><button data-rcm="new" class="active">Tạo nhiệm vụ mới</button><button data-rcm="exist">Dùng nhiệm vụ có sẵn</button></div>'+
-          '<div id="rc-new-pane" class="rcf-grid">'+
-            '<div class="pm-field rcf-full"><label>Tên nhiệm vụ *</label><input class="pm-input" id="rcf-subject" placeholder="Tên việc định kỳ"></div>'+
-            '<div class="pm-field"><label>Dự án</label><select class="pm-sel" id="rcf-project">'+optsP()+'</select></div>'+
-            '<div class="pm-field"><label>Người nhận (email)</label><input class="pm-input" id="rcf-assignee" placeholder="user@ecentric.vn"></div>'+
-            '<div class="pm-field rcf-full"><label>Mô tả</label><textarea class="pm-input" id="rcf-desc" rows="2"></textarea></div>'+
-            '<div class="pm-field"><label>Ưu tiên</label><select class="pm-sel" id="rcf-priority"><option value="">—</option><option>Low</option><option>Medium</option><option>High</option><option>Urgent</option></select></div>'+
-            '<div class="pm-field"><label>Checklist mẫu</label><select class="pm-sel" id="rcf-tmpl"><option value="">— Không —</option>'+tmpls.map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.template_name||t.name)+'</option>';}).join("")+'</select></div>'+
-            '<div class="pm-field"><label>Ngày bắt đầu</label><input type="date" class="pm-input" id="rcf-sd"></div>'+
-            '<div class="pm-field"><label>Giờ bắt đầu</label><input type="time" class="pm-input" id="rcf-st"></div>'+
-            '<div class="pm-field"><label>Ngày kết thúc</label><input type="date" class="pm-input" id="rcf-ed"></div>'+
-            '<div class="pm-field"><label>Giờ kết thúc</label><input type="time" class="pm-input" id="rcf-et"></div>'+
-            '<div class="pm-field rcf-full"><label>Nhãn</label><div id="rcf-labels" style="display:flex;gap:6px;flex-wrap:wrap">'+(labels.length?labels.map(function(l){return '<label class="pm-lblopt" style="padding:3px 6px"><input type="checkbox" data-lbl="'+esc(l.name)+'"> <span class="pm-lbl pm-lbl-'+esc(l.color_key||"gray")+'">'+esc(l.label_name)+'</span></label>';}).join(""):'<span style="color:var(--gray-400);font-size:12px">Chưa có nhãn</span>')+'</div></div>'+
+          '<div id="rc-new-pane">'+
+            '<div class="rcf-sec rcf-sec-first">Nhiệm vụ mẫu</div>'+
+            '<div class="rcf-grid">'+
+              '<div class="pm-field rcf-full"><label>Tên nhiệm vụ *</label><input class="pm-input" id="rcf-subject" placeholder="Tên việc định kỳ"></div>'+
+              '<div class="pm-field"><label>Dự án</label><select class="pm-sel" id="rcf-project">'+optsP()+'</select></div>'+
+              '<div class="pm-field"><label>Ưu tiên</label><select class="pm-sel" id="rcf-priority"><option value="">—</option><option>Low</option><option>Medium</option><option>High</option><option>Urgent</option></select></div>'+
+              '<div class="pm-field rcf-full"><label>Người thực hiện (đã thống nhất)</label><input class="pm-input" id="rcf-assignee" placeholder="user@ecentric.vn"><div style="font-size:11.5px;color:var(--gray-500);margin-top:5px;line-height:1.4">Nếu công việc chưa được thống nhất, hãy gửi Yêu cầu xác nhận trước rồi mới thiết lập định kỳ.</div></div>'+
+              '<div class="pm-field rcf-full"><label>Mô tả</label><textarea class="pm-input" id="rcf-desc" rows="2"></textarea></div>'+
+              '<div class="pm-field rcf-full"><label>Checklist mẫu</label><select class="pm-sel" id="rcf-tmpl"><option value="">— Không —</option>'+tmpls.map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.template_name||t.name)+'</option>';}).join("")+'</select></div>'+
+              '<div class="pm-field rcf-full"><label>Nhãn</label><div id="rcf-labels"></div></div>'+
+            '</div>'+
+            '<div class="rcf-sec">Thời gian của mỗi nhiệm vụ</div>'+
+            '<div class="rcf-help-block">Thời gian của mỗi nhiệm vụ xác định lịch thực hiện của từng Task được sinh. Chu kỳ lặp xác định những ngày hệ thống tạo Task.</div>'+
+            '<div class="rcf-grid">'+
+              '<div class="pm-field"><label>Ngày bắt đầu</label><input type="date" class="pm-input" id="rcf-sd"></div>'+
+              '<div class="pm-field"><label>Giờ bắt đầu</label><input type="time" class="pm-input" id="rcf-st"></div>'+
+              '<div class="pm-field"><label>Ngày kết thúc</label><input type="date" class="pm-input" id="rcf-ed"></div>'+
+              '<div class="pm-field"><label>Giờ kết thúc</label><input type="time" class="pm-input" id="rcf-et"></div>'+
+            '</div>'+
           '</div>'+
-          '<div id="rc-exist-pane" class="rcf-grid" style="display:none">'+
-            '<div class="pm-field rcf-full"><label>Nhiệm vụ có sẵn *</label><select class="pm-sel" id="rcf-task"><option value="">— Chọn —</option>'+tasks.map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.subject||t.name)+'</option>';}).join("")+'</select></div>'+
+          '<div id="rc-exist-pane" style="display:none">'+
+            '<div class="rcf-sec rcf-sec-first">Nhiệm vụ mẫu</div>'+
+            '<div class="rcf-grid"><div class="pm-field rcf-full"><label>Nhiệm vụ có sẵn *</label><select class="pm-sel" id="rcf-task"><option value="">— Chọn —</option>'+tasks.map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.subject||t.name)+'</option>';}).join("")+'</select></div></div>'+
           '</div>'+
+          '<div class="rcf-sec">Chu kỳ lặp</div>'+
           '<div class="rcf-grid rcf-sched">'+
             '<div class="pm-field rcf-full"><label>Lịch lặp *</label><select class="pm-sel" id="rcf-freq">'+FRQ.map(function(f){return '<option value="'+f[0]+'">'+f[1]+'</option>';}).join("")+'</select></div>'+
-            '<div class="pm-field"><label>Bắt đầu lặp</label><input type="date" class="pm-input" id="rcf-rstart"></div>'+
-            '<div class="pm-field"><label>Kết thúc lặp (tuỳ chọn)</label><input type="date" class="pm-input" id="rcf-rend"></div>'+
+            '<div class="pm-field"><label>Bắt đầu áp dụng</label><input type="date" class="pm-input" id="rcf-rstart"></div>'+
+            '<div class="pm-field"><label>Kết thúc áp dụng (tuỳ chọn)</label><input type="date" class="pm-input" id="rcf-rend"></div>'+
           '</div>'+
         '</div>'+
         '<div class="pm-recform-foot">'+
@@ -2221,6 +2341,7 @@
       '</div>';
       c.classList.add("pm-cols");
       var mode={v:"new"};
+      pmLabelPicker(el("rcf-labels"),{labels:labels,selected:[]}); /* G5.2 §B shared picker */
       Array.prototype.forEach.call(c.querySelectorAll("[data-rcm]"),function(b){b.onclick=function(){mode.v=b.getAttribute("data-rcm");Array.prototype.forEach.call(c.querySelectorAll("[data-rcm]"),function(x){x.classList.toggle("active",x===b);});el("rc-new-pane").style.display=(mode.v==="new")?"":"none";el("rc-exist-pane").style.display=(mode.v==="exist")?"":"none";};});
       el("rcf-cancel").onclick=function(){closeD();};
       el("rcf-submit").onclick=function(){var btn=this;var _ot=btn.innerHTML;function _busy(on){btn.disabled=on;if(on){btn.textContent="Đang tạo...";}else{btn.innerHTML=_ot;}}
@@ -2228,7 +2349,7 @@
         if(mode.v==="exist"){var tk=el("rcf-task").value;if(!tk){toast("Chọn nhiệm vụ",true);return;}_busy(true);
           api(PM+"recurrence.create",{source_task:tk,frequency:freq,start_date:rstart,end_date:rend}).then(function(){toast("Đã tạo lịch lặp");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);_busy(false);});return;}
         var subj=el("rcf-subject").value.trim();if(!subj){toast("Nhập tên nhiệm vụ",true);return;}_busy(true);
-        var lbls=Array.prototype.map.call(c.querySelectorAll("#rcf-labels input[data-lbl]:checked"),function(x){return x.getAttribute("data-lbl");});
+        var lbls=pmGetLabels(el("rcf-labels")); /* G5.2 §B: read from shared picker (was dead checkbox query) */
         api(PM+"recurrence.create_with_task",{subject:subj,frequency:freq,project:el("rcf-project").value||"",assignee:el("rcf-assignee").value.trim()||null,description:el("rcf-desc").value||null,priority:el("rcf-priority").value||null,exp_start_date:el("rcf-sd").value||null,exp_end_date:el("rcf-ed").value||null,pm_start_time:el("rcf-st").value||null,pm_end_time:el("rcf-et").value||null,start_date:rstart,end_date:rend,checklist_template:el("rcf-tmpl").value||null,labels:lbls.length?JSON.stringify(lbls):null}).then(function(){toast("Đã tạo việc định kỳ");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);_busy(false);});};
     }).catch(function(e){errBox(c,e);});}
 
@@ -2283,11 +2404,72 @@
   // _curView / active nav / breadcrumb stay on the current PM view.
   function redirectToGlobalNotifications(){ window.open("/app/notification-log","_blank","noopener"); }
   var VIEWS={dashboard:showDashboard,mytasks:showMyTasks,projects:showProjects,work:showWork,tasks:showTasks,board:showBoard,gantt:showGantt,calendar:showCalendar,timesheet:showTimesheet,recurring:showRecurring,assignments:showAssignments,notifications:redirectToGlobalNotifications};
-  function go(v){if(window.PMCharts)PMCharts.disposeAll();var WM={tasks:"list",board:"board",gantt:"gantt",calendar:"calendar",table:"table",work:null};var isW=Object.prototype.hasOwnProperty.call(WM,v);var navKey=isW?"work":v;
+  function go(v){if(window.PMCharts)PMCharts.disposeAll();window._pmOpenProject=null;var WM={tasks:"list",board:"board",gantt:"gantt",calendar:"calendar",table:"table",work:null};var isW=Object.prototype.hasOwnProperty.call(WM,v);var navKey=isW?"work":v;
     window._curView=navKey;Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.classList.toggle("active",b.getAttribute("data-view")===navKey);});
     el("pm-crumb").textContent=isW?"Công việc":(CRUMB[v]||"Tổng quan");
     if(isW){if(WM[v])window._workView=WM[v];try{localStorage.setItem("pm_work_view",window._workView||"list");}catch(_){}showWork();}
-    else (VIEWS[v]||showDashboard)();}
+    else (VIEWS[v]||showDashboard)();
+    if(typeof pmSyncHash==="function")pmSyncHash();}
+  /* G5.2 §7: canonical hash route-state (frontend-only; backend permission still enforced on every
+     API call). Preserves the current view + task/project detail on F5, Back/Forward and deep links.
+     No reload; a single expected-hash guard prevents feedback loops. */
+  var _pmExpectedHash="";
+  function pmSetHash(h){ h=h||"#overview"; _pmExpectedHash=h; if(location.hash!==h){ try{location.hash=h;}catch(_){} } }
+  function pmBaseHash(){
+    var v=window._curView;
+    if(window._pmOpenProject) return "#project/"+encodeURIComponent(window._pmOpenProject);
+    if(v==="work") return "#work/"+(window._workView||"list");
+    if(v==="assignments") return "#assignments/"+(window._asgTab||"in");
+    var m={dashboard:"#overview",mytasks:"#mywork",projects:"#projects",timesheet:"#timesheet",recurring:"#recurring"};
+    return m[v]||"#overview";
+  }
+  function pmSyncHash(){ if(!window._pmTaskOpen) pmSetHash(pmBaseHash()); }
+  function pmApplyRoute(){
+    var h=(location.hash||"").replace(/^#\/?/,""); _pmExpectedHash=location.hash;
+    var p=h.split("/"), head=p[0]||"overview";
+    var VMAP={overview:"dashboard",mywork:"mytasks",projects:"projects",timesheet:"timesheet",recurring:"recurring"};
+    if(head==="task"&&p[1]){ go("work"); openTask(decodeURIComponent(p[1])); return; }
+    if(head==="project"&&p[1]){ go("projects"); openProject(decodeURIComponent(p[1])); return; }
+    if(head==="assignments"){ window._asgTab=(p[1]==="out")?"out":"in"; go("assignments"); return; }
+    if(head==="work"){ var w2v={list:"tasks",board:"board",calendar:"calendar",gantt:"gantt",table:"table"}; go(w2v[p[1]]||"tasks"); return; }
+    if(VMAP[head]){ go(VMAP[head]); return; }
+    go("dashboard"); /* invalid route -> Overview */
+  }
+  window.addEventListener("hashchange",function(){ if(location.hash===_pmExpectedHash) return; pmApplyRoute(); });
+  /* G5.2 §B: ONE reusable smart label picker. Used by Task create/edit, Recurring create and the
+     canonical Task Request mode. host = container el; opts.labels = catalogue [{name,label_name,
+     color_key,is_active}]; opts.selected = [ids]. Selection lives on host._pmSel; read back with
+     pmGetLabels(host). Chips + "+ Chọn nhãn" popover (search, hide-selected, "+ Tạo nhãn mới" via
+     the governed labels.create_label). Submits the same [label_id] JSON as before. */
+  function pmGetLabels(host){ return (host&&host._pmSel)?host._pmSel.slice():[]; }
+  function pmLabelPicker(host, opts){
+    if(!host) return; opts=opts||{};
+    host._pmCat=(opts.labels||[]).slice(); host._pmSel=(opts.selected||[]).slice();
+    function cat(id){ for(var i=0;i<host._pmCat.length;i++){ if(host._pmCat[i].name===id) return host._pmCat[i]; } return {name:id,label_name:id,color_key:"gray"}; }
+    function closePop(){ var p=host.querySelector(".pm-lblpop"); if(p){p.hidden=true;p.innerHTML="";} document.removeEventListener("mousedown",outside,true); document.removeEventListener("keydown",onEsc,true); }
+    function outside(e){ if(!host.contains(e.target)) closePop(); }
+    function onEsc(e){ if(e.key==="Escape"){ e.stopPropagation(); closePop(); } }
+    function createNew(){ var nm=window.prompt("Tên nhãn mới:"); if(!nm||!nm.trim()) return; nm=nm.trim();
+      api(PM+"labels.create_label",{label_name:nm,color_key:"blue"}).then(function(r){ var id=(r&&(r.name||r.label_name))||nm; host._pmCat.push({name:id,label_name:nm,color_key:(r&&r.color_key)||"blue",is_active:1}); if(host._pmSel.indexOf(id)<0)host._pmSel.push(id); closePop(); render(); }).catch(function(e){ toast("Lỗi tạo nhãn: "+errOf(e),true); }); }
+    function openPop(){ var pop=host.querySelector(".pm-lblpop");
+      var avail=host._pmCat.filter(function(l){ return host._pmSel.indexOf(l.name)<0 && (l.is_active===undefined||l.is_active); });
+      pop.innerHTML='<div class="pm-lblpop-in"><input class="pm-input pm-lblsearch" placeholder="Tìm nhãn..."><div class="pm-lbllist">'+
+        (avail.length?avail.map(function(l){ return '<button type="button" class="pm-lblopt2" data-pickid="'+esc(l.name)+'"><span class="pm-lbl pm-lbl-'+esc(l.color_key||"gray")+'">'+esc(l.label_name||l.name)+'</span></button>'; }).join(""):'<div class="pm-lblnone">Không còn nhãn để chọn</div>')+
+        '</div><button type="button" class="pm-lblnew" data-lblnew="1"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhãn mới</button></div>';
+      pop.hidden=false;
+      var srch=pop.querySelector(".pm-lblsearch"); if(srch){ try{srch.focus();}catch(_){} srch.oninput=function(){ var q=this.value.trim().toLowerCase(); Array.prototype.forEach.call(pop.querySelectorAll(".pm-lblopt2"),function(o){ o.style.display=o.textContent.toLowerCase().indexOf(q)>=0?"":"none"; }); }; }
+      Array.prototype.forEach.call(pop.querySelectorAll("[data-pickid]"),function(b){ b.onclick=function(e){ e.stopPropagation(); host._pmSel.push(b.getAttribute("data-pickid")); closePop(); render(); }; });
+      var nb=pop.querySelector("[data-lblnew]"); if(nb) nb.onclick=function(e){ e.stopPropagation(); createNew(); };
+      setTimeout(function(){ document.addEventListener("mousedown",outside,true); document.addEventListener("keydown",onEsc,true); },0);
+    }
+    function render(){
+      var chips=host._pmSel.map(function(id){ var l=cat(id); return '<span class="pm-lblchip pm-lbl-'+esc(l.color_key||"gray")+'">'+esc(l.label_name||id)+'<button type="button" class="pm-lblchip-x" data-rmlid="'+esc(id)+'" aria-label="Bỏ nhãn">×</button></span>'; }).join("");
+      host.innerHTML='<div class="pm-lblwrap">'+chips+'<button type="button" class="pm-lbladd" data-lbladd="1"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Chọn nhãn</button></div><div class="pm-lblpop" hidden></div>';
+      Array.prototype.forEach.call(host.querySelectorAll("[data-rmlid]"),function(b){ b.onclick=function(e){ e.stopPropagation(); var id=b.getAttribute("data-rmlid"); host._pmSel=host._pmSel.filter(function(x){return x!==id;}); render(); }; });
+      host.querySelector("[data-lbladd]").onclick=function(e){ e.stopPropagation(); openPop(); };
+    }
+    render();
+  }
   Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.onclick=function(){var v=b.getAttribute("data-view");if(v==="notifications"){window.open("/app/notification-log","_blank","noopener");return;}go(v);};});
   el("pm-search").addEventListener("keydown",function(e){if(e.key==="Enter"){F.q=this.value.trim().toLowerCase();go("tasks");}});
 
@@ -2314,6 +2496,6 @@
   // data-ec-notification-bell="1"); the global asset handles plain-click (dropdown)
   // and Ctrl/Cmd/middle-click keeps the native /app/notification-log link. No PM handler.
   if(el("tb-timer"))el("tb-timer").onclick=function(){if(window._activeTimer&&window._activeTimer.task)openTask(window._activeTimer.task);};
-  fillUser(); loadRecSet(); refreshTimerChip(); setInterval(refreshTimerChip,20000); go("dashboard");
+  fillUser(); loadRecSet(); refreshTimerChip(); setInterval(refreshTimerChip,20000); pmApplyRoute();
 })();
 </script>
