@@ -58,6 +58,9 @@ async function run(){
   ok(!w.document.querySelector(".btn-inbox"), "header inbox button removed (no duplicate)");
   { const sb = w.document.querySelector(".ec-sidebar").textContent;
     ok(/Yêu cầu nội bộ/.test(sb) && /Duyệt chứng từ/.test(sb), "sidebar labels: Yêu cầu nội bộ + Duyệt chứng từ"); }
+  { const lb = w.document.querySelectorAll(".ec-sidebar .nav-item .nav-lb");
+    const ic = w.document.querySelectorAll(".ec-sidebar .nav-item .nav-ic");
+    ok(lb.length===3 && ic.length===3, "sidebar: fixed icon slot + left label (3 each)"); }
 
   // --- status clickability ---
   const byCode = (c)=> w.document.querySelector('.card[data-code="'+c+'"]');
