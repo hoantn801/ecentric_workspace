@@ -239,18 +239,31 @@ def create_request(task, recipient, proposed_start=None, proposed_end=None, mess
 
 
 @frappe.whitelist()
-def create_with_task(subject, recipient, project=None, description=None, priority=None,
+def create_with_task(subject, recipient=None, project=None, description=None, priority=None,
                      proposed_start=None, proposed_end=None, message=None,
-                     checklist_template=None, labels=None):
+                     checklist_template=None, labels=None, recipients=None):
     """G5.0 primary flow: create a NEW UNASSIGNED Backlog task + its assignment request in ONE
-    transaction. The task stays unassigned in Backlog until Accepted. Rolls back on any failure."""
+    transaction. The task stays unassigned in Backlog until Accepted. Rolls back on any failure.
+
+    G5.2: `recipients` (list / separated string) is accepted for symmetry with direct mode, but the
+    PM Assignment Request model enforces ONE open request per Task (open_task_key), so request mode
+    supports exactly one recipient per Task; multiple recipients are rejected with a clear message
+    (use direct 'Phân công ngay' to assign several people)."""
     pmperm.require_pm_access()
     user = frappe.session.user
     if not subject:
         frappe.throw(_("Tên nhiệm vụ là bắt buộc."))
-    _recipient_eligible(recipient)
     from ecentric_workspace.pm.api import tasks as pmtasks
     from ecentric_workspace.pm.api import labels as pmlabels
+    _rcpts = pmtasks._normalize_assignees(recipient, recipients)
+    if len(_rcpts) > 1:
+        frappe.throw(_("Chế độ Yêu cầu xác nhận chỉ hỗ trợ một người nhận cho mỗi nhiệm vụ "
+                       "(mỗi nhiệm vụ chỉ có một yêu cầu đang mở). Dùng Phân công ngay để giao "
+                       "cho nhiều người."))
+    if not _rcpts:
+        frappe.throw(_("Người nhận là bắt buộc."))
+    recipient = _rcpts[0]
+    _recipient_eligible(recipient)
     proposed_start, proposed_end = _clean_sched(proposed_start, proposed_end)  # G5.1: fail fast
     sd, st = _split(proposed_start)
     ed, et = _split(proposed_end)

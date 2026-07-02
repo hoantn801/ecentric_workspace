@@ -182,6 +182,65 @@ def _validate_assignee(assignee):
         frappe.throw(_("Người được giao không có quyền truy cập hệ thống."))
 
 
+def _split_assignee_string(s):
+    """G5.2: split a comma / semicolon / newline-separated assignee string into raw parts."""
+    for sep in (";", "\n", "\r"):
+        s = s.replace(sep, ",")
+    return s.split(",")
+
+
+def _normalize_assignees(assignee=None, assignees=None):
+    """G5.2: build a clean, deduped list of assignee emails from the new `assignees` (a list, a
+    JSON-array string, or a comma/semicolon/newline-separated string) and/or the legacy singular
+    `assignee` (which may itself be separated). Trims, drops empties, dedupes case-insensitively.
+    NEVER treats a separated string as one email."""
+    raw = []
+    if assignees is not None:
+        if isinstance(assignees, (list, tuple)):
+            raw = list(assignees)
+        elif isinstance(assignees, str):
+            s = assignees.strip()
+            if s.startswith("[") and s.endswith("]"):
+                try:
+                    parsed = json.loads(s)
+                    raw = parsed if isinstance(parsed, list) else _split_assignee_string(s)
+                except Exception:
+                    raw = _split_assignee_string(s)
+            else:
+                raw = _split_assignee_string(s)
+    if assignee:
+        raw = raw + (_split_assignee_string(assignee) if isinstance(assignee, str) else [assignee])
+    out, seen = [], set()
+    for a in raw:
+        if not isinstance(a, str):
+            continue
+        a = a.strip()
+        if not a:
+            continue
+        key = a.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(a)
+    return out
+
+
+def _validate_assignees(emails):
+    """G5.2: validate a LIST of assignees before any write. Collects ALL invalid emails and throws
+    ONE clear error (so nothing is created partially). Returns the DB-canonical User names (correct
+    casing) for the valid, enabled System Users."""
+    valid, invalid = [], []
+    for e in emails:
+        u = frappe.db.get_value("User", e, ["name", "enabled", "user_type"], as_dict=True)
+        if (not u) or (not u.get("enabled")) or (u.get("user_type") == "Website User"):
+            invalid.append(e)
+        else:
+            valid.append(u["name"])
+    if invalid:
+        frappe.throw(_("Không tìm thấy người dùng hợp lệ: {0}").format(", ".join(invalid)))
+    return valid
+
+
 def parse_datetime_or_throw(dt, label):
     """G5.1 CANONICAL datetime validator shared by Task + Assignment scheduling (one parser, no
     duplicated logic). None/'' -> None. A full 'YYYY-MM-DD[ HH:MM[:SS]]' (or ISO 'T' separator)
@@ -536,8 +595,11 @@ def _expand_project_dates(project, child_start, child_end, user):
 @frappe.whitelist()
 def create(project, subject, parent_task=None, priority=None,
            exp_start_date=None, exp_end_date=None, description=None, assignee=None,
-           pm_start_time=None, pm_end_time=None):
-    """Create a Task (or sub-task via parent_task) under a project the user may see."""
+           pm_start_time=None, pm_end_time=None, assignees=None):
+    """Create a Task (or sub-task via parent_task) under a project the user may see.
+
+    G5.2: supports multiple assignees via `assignees` (list / JSON-array string / separated
+    string); the legacy singular `assignee` remains accepted and back-compatible."""
     pmperm.require_pm_access()
     user = frappe.session.user
     if not subject:
@@ -546,8 +608,9 @@ def create(project, subject, parent_task=None, priority=None,
     # assignee BEFORE creating anything (no silently-unassigned orphan task).
     exp_start_date, pm_start_time, exp_end_date, pm_end_time = _clean_schedule(
         exp_start_date, pm_start_time, exp_end_date, pm_end_time)
-    if assignee:
-        _validate_assignee(assignee)
+    _asg_emails = _normalize_assignees(assignee, assignees)
+    if _asg_emails:
+        _asg_emails = _validate_assignees(_asg_emails)  # validates ALL; throws listing invalid
     if parent_task:
         # ERPNext Task is a NestedSet tree: a parent can only hold children if it is a
         # Group Task (is_group=1). Ensure that before inserting the child, with the same
@@ -594,11 +657,12 @@ def create(project, subject, parent_task=None, priority=None,
         "description": description,
     })
     doc.insert()  # honors DocPerm 'create'; sets owner/creation (audit)
-    if assignee:
-        # assignee already validated above -> native assignment (creates ToDo + _assign).
-        _assign_add({"doctype": "Task", "name": doc.name, "assign_to": [assignee]})
+    if _asg_emails:
+        # all assignees validated above -> ONE native assignment call for the whole list (creates
+        # one ToDo per user + _assign reflects all). No manual _assign edit, no raw ToDo insert.
+        _assign_add({"doctype": "Task", "name": doc.name, "assign_to": _asg_emails})
         try:
-            pmnotif.notify_task_assignment([assignee], doc.name,
+            pmnotif.notify_task_assignment(_asg_emails, doc.name,
                                            "Ban duoc giao nhiem vu: " + (doc.subject or doc.name),
                                            actor=user)
         except Exception:

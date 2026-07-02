@@ -610,6 +610,12 @@
   .stat-card.asg-fcard-on{ box-shadow:0 0 0 2px var(--navy) inset; border-color:var(--navy); }
   .asg-card.panel{ padding:12px 14px; }
   .rc-row:hover td{ background:var(--gray-50); }
+  /* G5.2 fix: multi-assignee chip input */
+  .pm-chipwrap{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; border:1px solid var(--gray-200); border-radius:8px; padding:6px 8px; min-height:38px; background:#fff; }
+  .pm-chip{ display:inline-flex; align-items:center; gap:4px; background:var(--navy-50); color:var(--navy); border:1px solid var(--navy-100); border-radius:6px; padding:2px 6px; font-size:12.5px; }
+  .pm-chip-x{ border:0; background:transparent; cursor:pointer; color:var(--navy); font-size:14px; line-height:1; padding:0 2px; }
+  .pm-chip-in{ border:0; outline:0; flex:1; min-width:150px; font-size:13px; padding:4px 2px; background:transparent; }
+  .pm-asg-help{ font-size:11.5px; color:var(--orange,#b3541e); margin-top:5px; line-height:1.4; }
   .pm-sub{ padding:9px 0; border-bottom:1px solid var(--gray-100); font-size:13px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
 
   .pm-toast{ position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(10px); background:var(--gray-900); color:#fff; padding:11px 20px; border-radius:10px; font-size:13.5px; z-index:90; opacity:0; transition:.2s; pointer-events:none; }
@@ -1662,7 +1668,7 @@
         pmFieldInput("Dự án",'<select class="pm-sel" id="nt-project" style="width:100%">'+popts+'</select>')+
         '<div id="nt-parent-wrap">'+pmFieldInput("Nhiệm vụ cha",'<select class="pm-sel" id="nt-parent" style="width:100%"><option value="">— Không —</option></select>')+'</div>'+
         '<div class="pm-dsec">Phân công</div>'+
-        pmFieldInput('<span id="nt-asg-lbl">Người nhận (email)</span>','<input class="pm-input ni" id="nt-assignee" placeholder="vd: ten.ho@ecentric.vn">')+
+        pmFieldInput('<span id="nt-asg-lbl">Người phụ trách</span>','<div id="nt-assignee" class="pm-chipbox"></div><div id="nt-asg-help" class="pm-asg-help" style="display:none">Yêu cầu xác nhận hiện chỉ hỗ trợ 1 người nhận. Chọn Phân công ngay để giao cho nhiều người.</div>')+ /* G5.2 fix: multi-assignee chip input + request-mode single-recipient guard */
         pmFieldInput("Ưu tiên",'<select class="pm-sel" id="nt-priority" style="width:100%">'+pri+'</select>')+
         '<div class="pm-dsec">Lịch</div>'+
         '<div id="nt-sched-d" style="display:flex;gap:10px">'+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="nt-start" type="date">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="nt-end" type="date">')+'</div>'+
@@ -1676,28 +1682,51 @@
       function loadParents(pre){api(PM+"tasks.list",{project:el("nt-project").value,page_length:200}).then(function(d){el("nt-parent").innerHTML='<option value="">— Không —</option>'+(d.rows||[]).map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.subject||t.name)+'</option>';}).join("");if(pre)el("nt-parent").value=pre;}).catch(function(){});}
       el("nt-project").onchange=function(){loadParents();}; loadParents(parentTask);
       pmLabelPicker(el("nt-labels"),{labels:labels,selected:[]}); /* G5.2 §B shared picker */
+      pmEmailChips(el("nt-assignee"),{placeholder:"Nhập email và nhấn Enter",max:(opts.mode==="request"&&!parentTask)?1:1e9,onChange:function(){updateAsgState();}}); /* G5.2 fix: multi-assignee */
+      var _submitting=false; /* G5.2 fix: double-submit guard */
+      function updateAsgState(){ var rm=_m.v==="request"; var n=pmEmailChipsGet(el("nt-assignee")).length; /* G5.2 UX guard: Request mode <= 1 recipient */
+        var help=el("nt-asg-help"); if(help)help.style.display=rm?"":"none";
+        var cb=el("nt-create"); if(cb&&!_submitting)cb.disabled=(rm&&n>1); }
       var _m={v:(opts.mode==="request"&&!parentTask)?"request":"direct"};
       function applyMode(){var rm=_m.v==="request";
         Array.prototype.forEach.call(c.querySelectorAll("[data-ntmode]"),function(b){b.classList.toggle("active",b.getAttribute("data-ntmode")===_m.v);});
         var pw=el("nt-parent-wrap");if(pw)pw.style.display=rm?"none":"";
         el("nt-sched-d").style.display=rm?"none":"flex";el("nt-sched-r").style.display=rm?"flex":"none";
         el("nt-req-extra").style.display=rm?"":"none";
-        el("nt-asg-lbl").textContent=rm?"Người nhận (email) *":"Người nhận (email)";
+        el("nt-asg-lbl").textContent=rm?"Người nhận *":"Người phụ trách";
         el("nt-create-lbl").textContent=rm?"Gửi yêu cầu":(parentTask?"Tạo nhiệm vụ con":"Tạo nhiệm vụ");
         el("pm-dt").textContent=_titleFor(rm);
         var mh=el("nt-modehelp");if(mh)mh.textContent=rm?"Tạo 1 nhiệm vụ chờ + 1 yêu cầu xác nhận. Nhiệm vụ chỉ được giao khi người nhận đồng ý.":"Tạo và giao nhiệm vụ ngay. Bỏ trống người nhận nếu chưa muốn giao.";
+        pmEmailChipsSetMax(el("nt-assignee"), rm?1:1e9); updateAsgState(); /* G5.2 UX guard: cap recipients in Request mode (never auto-removes chips) */
       }
       Array.prototype.forEach.call(c.querySelectorAll("[data-ntmode]"),function(b){b.onclick=function(){_m.v=b.getAttribute("data-ntmode");applyMode();};});
       applyMode();
       el("nt-cancel").onclick=closeD;
-      el("nt-create").onclick=function(){var rm=_m.v==="request";var s=el("nt-subject").value.trim();if(!s){toast("Nhập tiêu đề",true);return;}var lbls=pmGetLabels(el("nt-labels"));var btn=this;var _ot=btn.innerHTML;
-        if(rm){var rcp=el("nt-assignee").value.trim();if(!rcp){toast("Nhập người nhận",true);return;}btn.disabled=true;btn.textContent="Đang gửi...";
-          api(PM+"assignment.create_with_task",{subject:s,recipient:rcp,project:el("nt-project").value||"",description:el("nt-desc").value||null,priority:el("nt-priority").value||null,proposed_start:el("nt-ps").value||null,proposed_end:el("nt-pe").value||null,message:el("nt-msg").value||null,checklist_template:el("nt-tmpl").value||null,labels:lbls.length?JSON.stringify(lbls):null}).then(function(){toast("Đã gửi yêu cầu giao việc");closeD();if(onCreated){try{onCreated();}catch(_){}}}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML=_ot;});return;}
-        var sd=el("nt-start").value,ed=el("nt-end").value;if(sd&&ed&&ed<sd){toast("Hạn không được trước ngày bắt đầu",true);return;}btn.disabled=true;btn.textContent="Đang tạo...";
-        api(PM+"tasks.create",{project:el("nt-project").value,subject:s,parent_task:el("nt-parent").value||null,assignee:el("nt-assignee").value.trim()||null,priority:el("nt-priority").value,exp_start_date:sd||null,exp_end_date:ed||null,description:el("nt-desc").value||null}).then(function(r){
-          function done(){toast("Đã tạo "+r.name);if(onCreated){closeD();try{onCreated();}catch(_){}}else if(parentTask){openTask(parentTask);}else{closeD();go("board");}}
-          if(lbls.length){api(PM+"labels.set_task_labels",{task:r.name,labels:JSON.stringify(lbls)}).then(done).catch(function(){done();});}else{done();}
-        }).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML=_ot;});};
+      el("nt-create").onclick=function(){if(_submitting)return; /* G5.2 fix: guard double-submit */
+        var rm=_m.v==="request";var s=el("nt-subject").value.trim();if(!s){toast("Nhập tiêu đề",true);return;}
+        var asg=pmEmailChipsGet(el("nt-assignee"));var lbls=pmGetLabels(el("nt-labels"));var btn=this;var _ot=btn.innerHTML;
+        function restore(){_submitting=false;btn.disabled=false;btn.innerHTML=_ot;if(typeof updateAsgState==="function")updateAsgState();} /* G5.2 fix: ALWAYS restore (finally) + re-apply request-mode guard */
+        if(rm){
+          if(!asg.length){toast("Nhập người nhận",true);return;}
+          if(asg.length>1){toast("Chế độ Yêu cầu xác nhận chỉ hỗ trợ 1 người nhận. Dùng Phân công ngay để giao cho nhiều người.",true);return;}
+          _submitting=true;btn.disabled=true;btn.textContent="Đang gửi...";
+          Promise.resolve(api(PM+"assignment.create_with_task",{subject:s,recipient:asg[0],project:el("nt-project").value||"",description:el("nt-desc").value||null,priority:el("nt-priority").value||null,proposed_start:el("nt-ps").value||null,proposed_end:el("nt-pe").value||null,message:el("nt-msg").value||null,checklist_template:el("nt-tmpl").value||null,labels:lbls.length?JSON.stringify(lbls):null}))
+            .then(function(){toast("Đã gửi yêu cầu giao việc");closeD();if(onCreated){try{onCreated();}catch(_){}}})
+            .catch(function(e){toast("Lỗi: "+errOf(e),true);}) /* keep modal open + fields intact on error */
+            .finally(restore);
+          return;
+        }
+        var sd=el("nt-start").value,ed=el("nt-end").value;if(sd&&ed&&ed<sd){toast("Hạn không được trước ngày bắt đầu",true);return;}
+        _submitting=true;btn.disabled=true;btn.textContent="Đang tạo...";
+        Promise.resolve(api(PM+"tasks.create",{project:el("nt-project").value,subject:s,parent_task:el("nt-parent").value||null,assignees:asg.length?JSON.stringify(asg):null,priority:el("nt-priority").value,exp_start_date:sd||null,exp_end_date:ed||null,description:el("nt-desc").value||null}))
+          .then(function(r){
+            function done(){toast("Đã tạo "+r.name);if(onCreated){closeD();try{onCreated();}catch(_){}}else if(parentTask){openTask(parentTask);}else{closeD();go("board");}}
+            if(lbls.length){return Promise.resolve(api(PM+"labels.set_task_labels",{task:r.name,labels:JSON.stringify(lbls)})).then(done).catch(done);}
+            done();
+          })
+          .catch(function(e){toast("Lỗi: "+errOf(e),true);}) /* keep modal open + fields intact on error */
+          .finally(restore);
+      };
     }).catch(function(e){errBox(c,e);});}
   /* UIUX-1: shared Create/Edit project form fields (reused by newProject + editProject). */
   function pmProjFormFields(v){v=v||{};
@@ -2442,6 +2471,36 @@
      pmGetLabels(host). Chips + "+ Chọn nhãn" popover (search, hide-selected, "+ Tạo nhãn mới" via
      the governed labels.create_label). Submits the same [label_id] JSON as before. */
   function pmGetLabels(host){ return (host&&host._pmSel)?host._pmSel.slice():[]; }
+  /* G5.2 fix: multi-assignee chip input. host = container; chips live on host._chips; read with
+     pmEmailChipsGet(host). Enter/comma/semicolon/blur -> chip; Backspace on empty removes last;
+     duplicates rejected case-insensitively. Submits a string[] (never one comma-joined email). */
+  function pmEmailChipsGet(host){ return (host&&host._chips)?host._chips.slice():[]; }
+  /* G5.2 UX guard: update the max chips allowed (Request mode = 1) and re-render; existing chips
+     are NEVER auto-removed when the max shrinks — the input just disables until the user reduces. */
+  function pmEmailChipsSetMax(host, n){ if(host){ host._max=n; if(host._render) host._render(); } }
+  function pmEmailChips(host, opts){
+    if(!host) return; opts=opts||{};
+    host._chips=(opts.values||[]).slice();
+    host._max=opts.max||1e9;
+    function changed(){ if(typeof opts.onChange==="function"){ try{ opts.onChange(pmEmailChipsGet(host)); }catch(_){} } }
+    function addRaw(text){ String(text||"").split(/[,;\n]/).forEach(function(p){ var v=(p||"").trim(); if(!v) return;
+      if(host._chips.length>=host._max) return; /* respect max (Request mode = 1) */
+      if(!host._chips.some(function(x){return x.toLowerCase()===v.toLowerCase();})) host._chips.push(v); }); }
+    function render(){
+      var full=host._chips.length>=host._max;
+      var chips=host._chips.map(function(v,i){ return '<span class="pm-chip">'+esc(v)+'<button type="button" class="pm-chip-x" data-ci="'+i+'" aria-label="Bỏ">×</button></span>'; }).join("");
+      host.innerHTML='<div class="pm-chipwrap">'+chips+'<input type="text" class="pm-chip-in"'+(full?' disabled':'')+' placeholder="'+esc(full?"":(opts.placeholder||"Nhập email và nhấn Enter"))+'"></div>';
+      Array.prototype.forEach.call(host.querySelectorAll("[data-ci]"),function(b){ b.onclick=function(){ host._chips.splice(+b.getAttribute("data-ci"),1); render(); changed(); var i2=host.querySelector(".pm-chip-in"); if(i2&&!i2.disabled)i2.focus(); }; });
+      var inp=host.querySelector(".pm-chip-in");
+      inp.onkeydown=function(e){
+        if(e.key==="Enter"||e.key===","||e.key===";"){ e.preventDefault(); if(inp.value.trim()){ addRaw(inp.value); inp.value=""; render(); changed(); var i3=host.querySelector(".pm-chip-in"); if(i3&&!i3.disabled)i3.focus(); } }
+        else if(e.key==="Backspace"&&!inp.value&&host._chips.length){ host._chips.pop(); render(); changed(); var i4=host.querySelector(".pm-chip-in"); if(i4&&!i4.disabled)i4.focus(); }
+      };
+      inp.onblur=function(){ if(inp.value.trim()){ addRaw(inp.value); inp.value=""; render(); changed(); } };
+    }
+    host._render=render;
+    render();
+  }
   function pmLabelPicker(host, opts){
     if(!host) return; opts=opts||{};
     host._pmCat=(opts.labels||[]).slice(); host._pmSel=(opts.selected||[]).slice();
