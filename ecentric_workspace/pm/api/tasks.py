@@ -8,6 +8,8 @@ Hierarchy (Phase 1): Project -> Task -> Sub-task (native parent_task).
 Module path: ecentric_workspace.pm.api.tasks
 """
 
+import builtins  # G5.2: this module defines a whitelisted `def list(...)` which shadows the
+                 # builtin `list` type/constructor. Use builtins.list where the real type is meant.
 import json
 from datetime import datetime as _dtparse
 
@@ -196,14 +198,14 @@ def _normalize_assignees(assignee=None, assignees=None):
     NEVER treats a separated string as one email."""
     raw = []
     if assignees is not None:
-        if isinstance(assignees, (list, tuple)):
-            raw = list(assignees)
+        if isinstance(assignees, (builtins.list, tuple)):  # builtins.list: `list` is shadowed here
+            raw = builtins.list(assignees)
         elif isinstance(assignees, str):
             s = assignees.strip()
             if s.startswith("[") and s.endswith("]"):
                 try:
                     parsed = json.loads(s)
-                    raw = parsed if isinstance(parsed, list) else _split_assignee_string(s)
+                    raw = parsed if isinstance(parsed, builtins.list) else _split_assignee_string(s)
                 except Exception:
                     raw = _split_assignee_string(s)
             else:
