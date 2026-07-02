@@ -1,0 +1,297 @@
+<!--
+  Approval Center main page. Route /approvals (Web Page "approval-center").
+  Reuses the eCentric website shell (.ec-sidebar / .ec-main / tokens) like /pm.
+  Card list is DATA-DRIVEN from ecentric_workspace.approval_center.api.catalog.list_catalog
+  (NO hardcoded approval list). Marker: ec-approval-center. Does NOT touch /approval.
+-->
+<style>
+  body > header, body > footer, body > nav.navbar, header.navbar, .navbar.navbar-light,
+  .web-page-header, #navbarSupportedContent, .navbar-collapse, .web-footer, footer.web-footer { display:none !important; }
+  body { background:#f7f8fb !important; padding:0 !important; margin:0 !important; }
+  .page-content, .common-page-style, .container, main, .web-page-content, .page_content, .main-section, main.container, main.fluid { padding:0 !important; margin:0 !important; max-width:none !important; }
+</style>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  #ec-apc-root{ --navy:#2C3DA6; --navy-50:#eef0fb; --navy-700:#1f2d80; --yellow:#FFC000; --yellow-50:#fff8e1;
+    --pink:#EF7CAF; --pink-50:#fdeef5; --green:#10b981; --green-50:#ecfdf5; --red:#dc2626; --red-50:#fef2f2;
+    --gray-50:#fafbfc; --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-300:#d1d5db; --gray-400:#9ca3af;
+    --gray-500:#6b7280; --gray-600:#4b5563; --gray-700:#374151; --gray-800:#1f2937; --gray-900:#111827; --bg:#f7f8fb; }
+  #ec-apc-root, #ec-apc-root *{ box-sizing:border-box; }
+  #ec-apc-root{ font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--gray-800);
+    font-size:14px; line-height:1.5; display:grid; grid-template-columns:248px 1fr; min-height:100vh; }
+  #ec-apc-root .icon{ width:18px; height:18px; flex-shrink:0; stroke:currentColor; fill:none; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
+  /* sidebar (self-generated, same pattern as other eCentric pages) */
+  #ec-apc-root .ec-sidebar{ background:#fff; border-right:1px solid var(--gray-200); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; }
+  #ec-apc-root .ec-sidebar .sb-head{ padding:16px; display:flex; align-items:center; gap:10px; }
+  #ec-apc-root .ec-sidebar .logo{ width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,var(--navy),var(--pink)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; }
+  #ec-apc-root .ec-sidebar .brand-name{ font-size:15px; font-weight:700; color:var(--gray-900); }
+  #ec-apc-root .ec-sidebar .nav{ padding:6px 8px; display:flex; flex-direction:column; gap:2px; }
+  #ec-apc-root .ec-sidebar a.nav-item{ display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:8px; text-decoration:none; color:var(--gray-700); font-size:13.5px; font-weight:500; }
+  #ec-apc-root .ec-sidebar a.nav-item:hover{ background:var(--gray-100); color:var(--gray-900); }
+  #ec-apc-root .ec-sidebar a.nav-item.active{ background:var(--navy-50); color:var(--navy); font-weight:600; }
+  /* main */
+  #ec-apc-root .ec-main{ min-width:0; display:flex; flex-direction:column; }
+  #ec-apc-root .topbar{ background:#fff; border-bottom:1px solid var(--gray-200); min-height:60px; padding:0 24px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:20; }
+  #ec-apc-root .topbar .hamburger{ display:none; background:none; border:none; cursor:pointer; color:var(--gray-600); }
+  #ec-apc-root .topbar .crumb{ font-size:13px; color:var(--gray-500); }
+  #ec-apc-root .topbar .crumb strong{ color:var(--gray-900); }
+  #ec-apc-root .topbar .spacer{ flex:1; }
+  #ec-apc-root .content{ padding:24px; max-width:1320px; width:100%; }
+  /* header block */
+  #ec-apc-root .apc-head{ display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  #ec-apc-root .apc-head .h-txt{ flex:1; min-width:240px; }
+  #ec-apc-root .apc-title{ font-size:24px; font-weight:800; color:var(--gray-900); letter-spacing:-0.4px; margin:0 0 4px; }
+  #ec-apc-root .apc-desc{ font-size:13.5px; color:var(--gray-500); margin:0; max-width:640px; }
+  #ec-apc-root .apc-head .h-actions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  #ec-apc-root .apc-search{ position:relative; }
+  #ec-apc-root .apc-search input{ width:280px; max-width:60vw; padding:9px 12px 9px 34px; border:1px solid var(--gray-200); border-radius:9px; font-size:13.5px; background:#fff; font-family:inherit; }
+  #ec-apc-root .apc-search input:focus{ outline:none; border-color:var(--navy); box-shadow:0 0 0 3px var(--navy-50); }
+  #ec-apc-root .apc-search .s-ic{ position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--gray-400); }
+  #ec-apc-root .btn{ display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border-radius:9px; font-size:13.5px; font-weight:600; text-decoration:none; cursor:pointer; border:1px solid transparent; }
+  #ec-apc-root .btn-inbox{ background:var(--navy); color:#fff; }
+  #ec-apc-root .btn-inbox:hover{ background:var(--navy-700); }
+  /* category chips */
+  #ec-apc-root .apc-cats{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+  #ec-apc-root .chip{ padding:7px 14px; border-radius:999px; border:1px solid var(--gray-200); background:#fff; color:var(--gray-600); font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
+  #ec-apc-root .chip:hover{ border-color:var(--gray-300); color:var(--gray-800); }
+  #ec-apc-root .chip.active{ background:var(--navy); border-color:var(--navy); color:#fff; }
+  #ec-apc-root .chip .cnt{ font-size:11px; opacity:.8; }
+  /* grid + cards */
+  #ec-apc-root .apc-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(288px,1fr)); gap:16px; }
+  #ec-apc-root .card{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:12px; min-height:172px; }
+  #ec-apc-root .card.clickable{ cursor:pointer; transition:box-shadow .14s, transform .14s, border-color .14s; }
+  #ec-apc-root .card.clickable:hover{ box-shadow:0 8px 22px rgba(0,0,0,.08); transform:translateY(-2px); border-color:var(--gray-300); }
+  #ec-apc-root .card.dim{ opacity:.72; }
+  #ec-apc-root .card-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  #ec-apc-root .card-ic{ width:42px; height:42px; border-radius:11px; background:var(--navy-50); color:var(--navy); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  #ec-apc-root .badge{ font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap; }
+  #ec-apc-root .badge.active{ background:var(--green-50); color:var(--green); }
+  #ec-apc-root .badge.migrating{ background:var(--yellow-50); color:#b45309; }
+  #ec-apc-root .badge.coming{ background:var(--navy-50); color:var(--navy); }
+  #ec-apc-root .badge.disabled{ background:var(--gray-100); color:var(--gray-500); }
+  #ec-apc-root .card-title{ font-size:15.5px; font-weight:700; color:var(--gray-900); line-height:1.3; }
+  #ec-apc-root .card-cat{ font-size:11.5px; font-weight:600; color:var(--gray-400); text-transform:uppercase; letter-spacing:.4px; }
+  #ec-apc-root .card-desc{ font-size:13px; color:var(--gray-600); flex:1; }
+  #ec-apc-root .card-cta{ display:inline-flex; align-items:center; gap:6px; align-self:flex-start; padding:8px 13px; border-radius:8px; font-size:13px; font-weight:600; text-decoration:none; border:1px solid var(--gray-200); color:var(--gray-500); background:var(--gray-50); }
+  #ec-apc-root .card-cta.go{ background:var(--navy); border-color:var(--navy); color:#fff; }
+  #ec-apc-root .card-cta.disabled{ cursor:not-allowed; }
+  /* states */
+  #ec-apc-root .state{ padding:56px 20px; text-align:center; color:var(--gray-500); }
+  #ec-apc-root .state .s-ic{ color:var(--gray-300); margin-bottom:12px; }
+  #ec-apc-root .state h3{ font-size:16px; color:var(--gray-700); margin:0 0 6px; font-weight:700; }
+  #ec-apc-root .state p{ font-size:13.5px; margin:0 0 14px; }
+  #ec-apc-root .skel{ display:grid; grid-template-columns:repeat(auto-fill,minmax(288px,1fr)); gap:16px; }
+  #ec-apc-root .skel .sk{ height:172px; border-radius:14px; background:linear-gradient(90deg,#f3f4f6 25%,#e9ebef 37%,#f3f4f6 63%); background-size:400% 100%; animation:apcsh 1.3s ease infinite; }
+  @keyframes apcsh{ 0%{background-position:100% 0} 100%{background-position:-100% 0} }
+  #ec-apc-root .retry-btn{ background:var(--navy); color:#fff; border:none; padding:9px 16px; border-radius:8px; font-weight:600; cursor:pointer; font-family:inherit; }
+  /* toast */
+  #ec-apc-root .apc-toast{ position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(20px); background:var(--gray-900); color:#fff; padding:11px 18px; border-radius:10px; font-size:13.5px; font-weight:500; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:60; }
+  #ec-apc-root .apc-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  /* responsive */
+  #ec-apc-root .sb-backdrop{ display:none; }
+  @media (max-width:1024px){ #ec-apc-root .apc-grid, #ec-apc-root .skel{ grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); } }
+  @media (max-width:900px){
+    #ec-apc-root{ grid-template-columns:1fr; }
+    #ec-apc-root .ec-sidebar{ position:fixed; left:0; top:0; width:248px; z-index:50; transform:translateX(-100%); transition:transform .22s; }
+    #ec-apc-root.sb-open .ec-sidebar{ transform:translateX(0); }
+    #ec-apc-root.sb-open .sb-backdrop{ display:block; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:40; }
+    #ec-apc-root .topbar .hamburger{ display:inline-flex; }
+  }
+  @media (max-width:560px){
+    #ec-apc-root .apc-grid, #ec-apc-root .skel{ grid-template-columns:1fr; }
+    #ec-apc-root .apc-search input{ width:100%; max-width:none; }
+    #ec-apc-root .apc-head .h-actions{ width:100%; }
+  }
+</style>
+
+<div id="ec-apc-root">
+  <div class="sb-backdrop" data-apc="sbclose"></div>
+  <aside class="ec-sidebar">
+    <div class="sb-head"><span class="logo">eC</span><span class="brand-name">eCentric</span></div>
+    <nav class="nav">
+      <a class="nav-item" href="/home"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a>
+      <a class="nav-item active" href="/approvals"><svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Approval Center</span></a>
+      <a class="nav-item" href="/approval"><svg class="icon" viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h18"/></svg><span>Danh sách cần duyệt</span></a>
+    </nav>
+  </aside>
+
+  <main class="ec-main">
+    <div class="topbar">
+      <button class="hamburger" data-apc="sbopen" aria-label="Menu"><svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+      <div class="crumb"><strong>Approval Center</strong></div>
+      <div class="spacer"></div>
+    </div>
+    <div class="content">
+      <div class="apc-head">
+        <div class="h-txt">
+          <h1 class="apc-title">Approval Center</h1>
+          <p class="apc-desc">Nơi tập trung để gửi và quản lý các yêu cầu phê duyệt của công ty. Chọn loại phê duyệt bên dưới để bắt đầu.</p>
+        </div>
+        <div class="h-actions">
+          <div class="apc-search">
+            <svg class="icon s-ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input id="apc-q" type="text" placeholder="Tìm phê duyệt..." autocomplete="off" aria-label="Tìm phê duyệt">
+          </div>
+          <a class="btn btn-inbox" href="/approval"><svg class="icon" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>Mở danh sách cần duyệt</a>
+        </div>
+      </div>
+
+      <nav class="apc-cats" id="apc-cats" aria-label="Danh mục"></nav>
+      <div id="apc-body"></div>
+    </div>
+    <div class="apc-toast" id="apc-toast"></div>
+  </main>
+</div>
+
+<script id="ec-approval-center">
+(function(){
+  "use strict";
+  var API = "ecentric_workspace.approval_center.api.catalog.list_catalog";
+  var ALL = "__all__";
+  var state = { data:null, loading:true, error:false, cat:ALL, q:"" };
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; }); }
+
+  var ICONS = {
+    "users":'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+    "wallet":'<path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/>',
+    "package":'<path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/>',
+    "database":'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/>',
+    "target":'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+    "calendar-clock":'<path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h6"/><path d="M16 2v4M8 2v4M3 10h18"/><circle cx="18" cy="16" r="4"/><path d="M18 14.5V16l1 1"/>',
+    "building-2":'<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"/><path d="M6 12H4a2 2 0 0 0-2 2v8h4M18 9h2a2 2 0 0 1 2 2v11h-4M10 6h4M10 10h4M10 14h4"/>',
+    "file-check":'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/>'
+  };
+  function iconSvg(name){ var p = ICONS[name] || ICONS["file-check"]; return '<svg class="icon" viewBox="0 0 24 24" style="width:22px;height:22px">'+p+'</svg>'; }
+
+  var BADGE = { "Active":["active","Đang hoạt động"], "Migrating":["migrating","Đang chuyển đổi"],
+                "Coming Soon":["coming","Sắp ra mắt"], "Disabled":["disabled","Đã tắt"] };
+
+  function toast(msg){ var t=$("apc-toast"); if(!t) return; t.textContent=msg; t.classList.add("show");
+    clearTimeout(t._t); t._t=setTimeout(function(){ t.classList.remove("show"); },2600); }
+
+  function types(){ return (state.data && state.data.types) || []; }
+  function cats(){ return (state.data && state.data.categories) || []; }
+
+  function matches(card){
+    if(state.cat!==ALL && card.category_code!==state.cat) return false;
+    var q=state.q.trim().toLowerCase();
+    if(!q) return true;
+    var hay=[card.approval_title, card.description, card.category_name, card.approval_code]
+      .map(function(x){return (x||"").toLowerCase();}).join(" ");
+    return hay.indexOf(q)>=0;
+  }
+  function filtered(){ return types().filter(matches); }
+
+  function renderCats(){
+    var box=$("apc-cats"); if(!box) return;
+    var all = types().length;
+    var html = chip(ALL,"Tất cả",all);
+    cats().forEach(function(c){
+      var n = types().filter(function(t){return t.category_code===c.category_code;}).length;
+      html += chip(c.category_code, c.category_name, n);
+    });
+    box.innerHTML = html;
+  }
+  function chip(code,label,count){
+    var on = state.cat===code ? " active":"";
+    return '<button class="chip'+on+'" data-cat="'+esc(code)+'">'+esc(label)+' <span class="cnt">'+count+'</span></button>';
+  }
+
+  function cardHtml(c){
+    var b = BADGE[c.card_status] || ["coming", c.card_status||""];
+    var isActive = c.card_status==="Active" && !!c.route;
+    var clickable = isActive ? " clickable" : "";
+    var dim = (c.card_status==="Disabled") ? " dim" : "";
+    var cta;
+    if(isActive){ cta = '<a class="card-cta go" href="'+esc(c.route)+'" data-go="1">Tạo yêu cầu <svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>'; }
+    else if(c.card_status==="Migrating"){ cta = '<span class="card-cta disabled">Đang chuyển đổi</span>'; }
+    else if(c.card_status==="Coming Soon"){ cta = '<span class="card-cta disabled">Sắp ra mắt</span>'; }
+    else if(c.card_status==="Disabled"){ cta = '<span class="card-cta disabled">Đã tắt</span>'; }
+    else { cta = '<span class="card-cta disabled">Chưa khả dụng</span>'; }
+    var icon = c.icon || c.category_icon || "file-check";
+    return '<div class="card'+clickable+dim+'" data-code="'+esc(c.approval_code)+'" data-status="'+esc(c.card_status)+'"'
+      + (isActive?(' data-route="'+esc(c.route)+'"'):'')+'>'
+      + '<div class="card-top"><span class="card-ic">'+iconSvg(icon)+'</span>'
+      + '<span class="badge '+b[0]+'">'+esc(b[1])+'</span></div>'
+      + '<div><div class="card-cat">'+esc(c.category_name||"")+'</div>'
+      + '<div class="card-title">'+esc(c.approval_title||"")+'</div></div>'
+      + '<div class="card-desc">'+esc(c.description||"")+'</div>'
+      + cta + '</div>';
+  }
+
+  function render(){
+    renderCats();
+    var body=$("apc-body"); if(!body) return;
+    if(state.loading){
+      var s=""; for(var i=0;i<6;i++) s+='<div class="sk"></div>';
+      body.innerHTML='<div class="skel">'+s+'</div>'; return;
+    }
+    if(state.error){
+      body.innerHTML='<div class="state"><div class="s-ic"><svg class="icon" viewBox="0 0 24 24" style="width:40px;height:40px"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg></div>'
+        +'<h3>Không tải được danh sách phê duyệt</h3><p>Đã có lỗi khi kết nối máy chủ.</p>'
+        +'<button class="retry-btn" data-apc="retry">Thử lại</button></div>'; return;
+    }
+    if(types().length===0){
+      body.innerHTML='<div class="state"><div class="s-ic">'+iconSvg("file-check")+'</div><h3>Chưa có phê duyệt nào</h3><p>Danh mục phê duyệt sẽ xuất hiện tại đây.</p></div>'; return;
+    }
+    var list=filtered();
+    if(list.length===0){
+      var reason = state.q ? "Không tìm thấy phê duyệt phù hợp." : "Danh mục này chưa có phê duyệt.";
+      body.innerHTML='<div class="state"><div class="s-ic">'+iconSvg("file-check")+'</div><h3>Không có kết quả</h3><p>'+esc(reason)+'</p></div>'; return;
+    }
+    body.innerHTML='<div class="apc-grid">'+list.map(cardHtml).join("")+'</div>';
+  }
+
+  function fetchCatalog(){
+    state.loading=true; state.error=false; render();
+    var fr = (typeof window!=="undefined" && window.frappe) ? window.frappe : null;
+    if(!fr || !fr.call){ state.loading=false; state.error=true; render(); return; }
+    fr.call({ method: API }).then(function(r){
+      var m = (r && r.message) ? r.message : {categories:[],types:[]};
+      state.data = { categories: m.categories||[], types: m.types||[], is_admin: !!m.is_admin };
+      state.loading=false; state.error=false; render();
+    }).catch(function(){ state.loading=false; state.error=true; render(); });
+  }
+
+  function onClick(e){
+    var t=e.target;
+    var op = t.closest ? t.closest("[data-apc]") : null;
+    if(op){ var a=op.getAttribute("data-apc");
+      if(a==="retry") fetchCatalog();
+      if(a==="sbopen") document.getElementById("ec-apc-root").classList.add("sb-open");
+      if(a==="sbclose") document.getElementById("ec-apc-root").classList.remove("sb-open");
+      return; }
+    var chipEl = t.closest ? t.closest(".chip") : null;
+    if(chipEl){ state.cat = chipEl.getAttribute("data-cat"); render(); return; }
+    if(t.closest && t.closest("[data-go]")) return; // active route link: let it navigate
+    var card = t.closest ? t.closest(".card") : null;
+    if(card){
+      var st = card.getAttribute("data-status");
+      var route = card.getAttribute("data-route");
+      if(st==="Active" && route){ window.location.href = route; return; }
+      var msg = st==="Coming Soon" ? "Phê duyệt này sắp ra mắt."
+              : st==="Migrating" ? "Phê duyệt này đang được chuyển đổi."
+              : "Phê duyệt này hiện chưa khả dụng.";
+      toast(msg);
+    }
+  }
+
+  function init(){
+    var q=$("apc-q");
+    if(q) q.addEventListener("input", function(){ state.q=q.value; render(); });
+    var root=$("ec-apc-root");
+    if(root) root.addEventListener("click", onClick);
+    fetchCatalog();
+  }
+
+  // expose for headless tests (no security logic here; visibility is server-side)
+  window.ApprovalCenter = { state:state, fetchCatalog:fetchCatalog, render:render,
+    filtered:filtered, _esc:esc, _init:init };
+
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();
+</script>
