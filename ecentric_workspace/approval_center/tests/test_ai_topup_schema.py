@@ -24,7 +24,7 @@ def _proc(code, status="Draft", approval_type="AI_TOPUP"):
 
 
 def _lvl(proc, level_no, mode="Any One", minc=0, approvers=None):
-    d = frappe.get_doc({"doctype": "EC Approval Level", "process": proc, "level_no": level_no,
+    d = frappe.get_doc({"doctype": "EC Approval Level", "approval_process": proc, "level_no": level_no,
                         "level_name": "L%s" % level_no, "approval_mode": mode, "minimum_approvals": minc})
     for u in (approvers or []):
         d.append("participants", {"participant_purpose": "Approver", "source_type": "User", "user": u})
@@ -84,7 +84,7 @@ class TestPhaseASchema(FrappeTestCase):
 
     def test_invalid_participant_source_fields(self):
         p = _proc("SRC")
-        d = frappe.get_doc({"doctype": "EC Approval Level", "process": p.name, "level_no": 21,
+        d = frappe.get_doc({"doctype": "EC Approval Level", "approval_process": p.name, "level_no": 21,
                             "level_name": "S", "approval_mode": "Any One"})
         # User source with a role populated -> invalid
         d.append("participants", {"participant_purpose": "Approver", "source_type": "User",
@@ -96,7 +96,7 @@ class TestPhaseASchema(FrappeTestCase):
         p = _proc("RT")
         req = frappe.get_doc({"doctype": "EC Approval Request", "approval_type": "AI_TOPUP",
                               "reference_doctype": "EC Approval Process", "reference_name": p.name,
-                              "process": p.name, "approval_status": "Pending"}).insert(ignore_permissions=True)
+                              "approval_process": p.name, "approval_status": "Pending"}).insert(ignore_permissions=True)
         rl = frappe.get_doc({"doctype": "EC Approval Request Level", "approval_request": req.name,
                              "level_no": 1, "level_name": "L1"}).insert(ignore_permissions=True)
         frappe.get_doc({"doctype": "EC Approval Request Approver", "approval_request": req.name,
@@ -109,7 +109,7 @@ class TestPhaseASchema(FrappeTestCase):
         p = _proc("SNAP")
         req = frappe.get_doc({"doctype": "EC Approval Request", "approval_type": "AI_TOPUP",
                               "reference_doctype": "EC Approval Process", "reference_name": p.name,
-                              "process": p.name, "approval_status": "Pending"}).insert(ignore_permissions=True)
+                              "approval_process": p.name, "approval_status": "Pending"}).insert(ignore_permissions=True)
         rl = frappe.get_doc({"doctype": "EC Approval Request Level", "approval_request": req.name,
                              "level_no": 1, "level_name": "L1", "approval_mode": "Any One"}).insert(ignore_permissions=True)
         rl.approval_mode = "All Required"  # frozen config field
@@ -124,7 +124,7 @@ class TestPhaseASchema(FrappeTestCase):
         p = _proc("ACT")
         req = frappe.get_doc({"doctype": "EC Approval Request", "approval_type": "AI_TOPUP",
                               "reference_doctype": "EC Approval Process", "reference_name": p.name,
-                              "process": p.name, "approval_status": "Pending"}).insert(ignore_permissions=True)
+                              "approval_process": p.name, "approval_status": "Pending"}).insert(ignore_permissions=True)
         act = frappe.get_doc({"doctype": "EC Approval Action", "approval_request": req.name,
                               "action": "Submitted", "actor": "Administrator"}).insert(ignore_permissions=True)
         act.comment = "tamper"
@@ -137,11 +137,11 @@ class TestPhaseASchema(FrappeTestCase):
         p = _proc("UNIQ")
         frappe.get_doc({"doctype": "EC Approval Request", "approval_type": "AI_TOPUP",
                         "reference_doctype": "EC Approval Process", "reference_name": p.name,
-                        "process": p.name, "approval_status": "Pending"}).insert(ignore_permissions=True)
+                        "approval_process": p.name, "approval_status": "Pending"}).insert(ignore_permissions=True)
         with self.assertRaises(frappe.exceptions.ValidationError):
             frappe.get_doc({"doctype": "EC Approval Request", "approval_type": "AI_TOPUP",
                             "reference_doctype": "EC Approval Process", "reference_name": p.name,
-                            "process": p.name, "approval_status": "Pending"}).insert(ignore_permissions=True)
+                            "approval_process": p.name, "approval_status": "Pending"}).insert(ignore_permissions=True)
 
     def test_finance_comment_required(self):
         with self.assertRaises(frappe.exceptions.ValidationError):
@@ -192,7 +192,7 @@ class TestPhaseASchema(FrappeTestCase):
         p = _proc("TERM")
         r1 = frappe.get_doc({"doctype": "EC Approval Request", "approval_type": "AI_TOPUP",
                              "reference_doctype": "EC Approval Process", "reference_name": p.name,
-                             "process": p.name, "approval_status": "Pending"}).insert(ignore_permissions=True)
+                             "approval_process": p.name, "approval_status": "Pending"}).insert(ignore_permissions=True)
         self.assertEqual(r1.reference_key, "EC Approval Process::" + p.name)
         r1.approval_status = "Approved"
         r1.save(ignore_permissions=True)
@@ -200,5 +200,5 @@ class TestPhaseASchema(FrappeTestCase):
         # a new open request for the same document is now allowed
         r2 = frappe.get_doc({"doctype": "EC Approval Request", "approval_type": "AI_TOPUP",
                              "reference_doctype": "EC Approval Process", "reference_name": p.name,
-                             "process": p.name, "approval_status": "Pending"}).insert(ignore_permissions=True)
+                             "approval_process": p.name, "approval_status": "Pending"}).insert(ignore_permissions=True)
         self.assertEqual(r2.reference_key, "EC Approval Process::" + p.name)

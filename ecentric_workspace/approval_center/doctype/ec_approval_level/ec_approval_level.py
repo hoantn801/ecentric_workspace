@@ -12,7 +12,7 @@ class ECApprovalLevel(Document):
         if self.level_no is None:
             frappe.throw(_("level_no is required."))
         dup = frappe.get_all("EC Approval Level", filters={
-            "process": self.process, "level_no": self.level_no, "name": ["!=", self.name or ""]})
+            "approval_process": self.approval_process, "level_no": self.level_no, "name": ["!=", self.name or ""]})
         if dup:
             frappe.throw(_("Duplicate level_no {0} for this process.").format(self.level_no))
         if self.approval_mode == "Minimum Count":

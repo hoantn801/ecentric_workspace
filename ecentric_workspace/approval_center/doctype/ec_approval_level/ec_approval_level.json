@@ -13,7 +13,7 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "field_order": [
-  "process",
+  "approval_process",
   "level_no",
   "level_name",
   "mandatory",
@@ -25,9 +25,9 @@
  ],
  "fields": [
   {
-   "fieldname": "process",
+   "fieldname": "approval_process",
    "fieldtype": "Link",
-   "label": "Process",
+   "label": "Approval Process",
    "options": "EC Approval Process",
    "reqd": 1,
    "in_list_view": 1,

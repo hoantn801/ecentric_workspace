@@ -21,7 +21,7 @@
   "reference_name",
   "reference_key",
   "cb1",
-  "process",
+  "approval_process",
   "requested_by",
   "submitted_at",
   "completed_at",
@@ -73,9 +73,9 @@
    "label": "Cb1"
   },
   {
-   "fieldname": "process",
+   "fieldname": "approval_process",
    "fieldtype": "Link",
-   "label": "Process",
+   "label": "Approval Process",
    "options": "EC Approval Process",
    "reqd": 1,
    "description": "Exact process version used at submission."
