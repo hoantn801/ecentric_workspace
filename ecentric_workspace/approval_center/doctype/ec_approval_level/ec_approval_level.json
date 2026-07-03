@@ -21,7 +21,8 @@
   "approval_mode",
   "minimum_approvals",
   "sb_part",
-  "participants"
+  "participants",
+  "sla_policy"
  ],
  "fields": [
   {
@@ -88,6 +89,13 @@
    "label": "Participants",
    "options": "EC Approval Participant",
    "description": "Approver participants for this level."
+  },
+  {
+   "fieldname": "sla_policy",
+   "fieldtype": "Link",
+   "label": "SLA Policy",
+   "options": "EC Approval SLA Policy",
+   "description": "Optional per-level SLA. Source of truth for the level deadline."
   }
  ],
  "permissions": [

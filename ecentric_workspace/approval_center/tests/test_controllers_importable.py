@@ -14,6 +14,7 @@ DOCTYPES = [
     "EC Approval Request", "EC Approval Request Level", "EC Approval Request Approver",
     "EC Approval Action", "EC AI Tool", "EC AI Topup Request",
     # catalog (B1) also guarded:
+    "EC AI Account", "EC Approval SLA Policy",
     "EC Approval Category", "EC Approval Type", "EC Approval Type Role",
     "EC Approval Type Department",
 ]
