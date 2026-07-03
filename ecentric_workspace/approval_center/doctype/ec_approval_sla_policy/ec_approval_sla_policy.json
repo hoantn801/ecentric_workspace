@@ -22,7 +22,9 @@
   "duration_hours",
   "reminder_before_hours",
   "use_business_hours",
-  "description"
+  "description",
+  "business_calendar",
+  "holiday_list"
  ],
  "fields": [
   {
@@ -71,6 +73,22 @@
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"
+  },
+  {
+   "fieldname": "business_calendar",
+   "fieldtype": "Link",
+   "label": "Business Calendar",
+   "options": "EC Approval Business Calendar",
+   "depends_on": "eval:doc.use_business_hours",
+   "description": "Required when use_business_hours=1."
+  },
+  {
+   "fieldname": "holiday_list",
+   "fieldtype": "Link",
+   "label": "Holiday List Override",
+   "options": "Holiday List",
+   "depends_on": "eval:doc.use_business_hours",
+   "description": "Optional explicit Holiday List; else resolved from Employee/Company."
   }
  ],
  "permissions": [

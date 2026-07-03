@@ -154,14 +154,36 @@ def close_todos(doctype, name, keep_user=None):
 # --------------------------------------------------------------------------- #
 # SLA
 # --------------------------------------------------------------------------- #
-def compute_due_at(sla_policy_code, from_dt=None):
+def resolve_sla(sla_policy_code, from_dt=None, employee=None, company=None):
+    """Returns {due_at, calendar, holiday_list, use_business_hours} or None.
+    Calendar-hours when use_business_hours=0; otherwise the business-hours
+    calculator with a resolved (and snapshot-able) Holiday List."""
     if not sla_policy_code:
         return None
-    hours = frappe.db.get_value("EC Approval SLA Policy",
-                                {"policy_code": sla_policy_code, "active": 1}, "duration_hours")
-    if not hours:
+    pol = frappe.db.get_value("EC Approval SLA Policy", {"policy_code": sla_policy_code, "active": 1},
+        ["duration_hours", "use_business_hours", "business_calendar", "holiday_list"], as_dict=True)
+    if not pol or not pol.duration_hours:
         return None
-    return add_to_date(from_dt or now_datetime(), hours=hours)
+    start = from_dt or now_datetime()
+    if not pol.use_business_hours:
+        return {"due_at": add_to_date(start, hours=pol.duration_hours),
+                "calendar": None, "holiday_list": None, "use_business_hours": 0}
+    from ecentric_workspace.approval_center.engine import business_hours as bh
+    from ecentric_workspace.approval_center.engine import holidays as hol
+    if not pol.business_calendar:
+        frappe.throw(_("SLA policy {0}: business_calendar required for business hours.").format(sla_policy_code))
+    cal = frappe.get_doc("EC Approval Business Calendar", pol.business_calendar)
+    hl = hol.resolve_holiday_list(employee=employee, company=company, override=pol.holiday_list)
+    if not hl:
+        frappe.throw(_("SLA policy {0}: no resolvable Holiday List for business-hours SLA.").format(sla_policy_code))
+    due = bh.calculate_business_due_at(start, pol.duration_hours,
+                                       bh.build_periods(cal.working_periods), hol.holiday_dates(hl))
+    return {"due_at": due, "calendar": pol.business_calendar, "holiday_list": hl, "use_business_hours": 1}
+
+
+def compute_due_at(sla_policy_code, from_dt=None, employee=None, company=None):
+    r = resolve_sla(sla_policy_code, from_dt, employee, company)
+    return r["due_at"] if r else None
 
 
 # --------------------------------------------------------------------------- #
@@ -227,7 +249,11 @@ def _activate_level(req, level_no):
     rl = _rl_for(req.name, level_no)
     rl.level_status = "In Progress"
     rl.activated_at = now_datetime()
-    rl.due_at = compute_due_at(rl.sla_policy, rl.activated_at)
+    _emp = frappe.db.get_value("Employee", {"user_id": req.requested_by}, ["name", "company"], as_dict=True)
+    sla = resolve_sla(rl.sla_policy, rl.activated_at,
+                      employee=_emp.name if _emp else None, company=_emp.company if _emp else None)
+    if sla:
+        rl.due_at = sla["due_at"]; rl.sla_calendar = sla["calendar"]; rl.sla_holiday_list = sla["holiday_list"]
     rl.save(ignore_permissions=True)
     frappe.db.set_value("EC Approval Request", req.name, "current_level", level_no)
     approvers = frappe.get_all("EC Approval Request Approver",

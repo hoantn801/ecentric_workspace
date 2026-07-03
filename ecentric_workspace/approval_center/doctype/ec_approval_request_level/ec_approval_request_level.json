@@ -28,7 +28,9 @@
   "completed_at",
   "sla_policy",
   "due_at",
-  "is_overdue"
+  "is_overdue",
+  "sla_calendar",
+  "sla_holiday_list"
  ],
  "fields": [
   {
@@ -115,6 +117,18 @@
    "fieldtype": "Check",
    "label": "Is Overdue",
    "read_only": 1
+  },
+  {
+   "fieldname": "sla_calendar",
+   "fieldtype": "Data",
+   "label": "Sla Calendar",
+   "description": "Snapshot of business calendar code used for due_at."
+  },
+  {
+   "fieldname": "sla_holiday_list",
+   "fieldtype": "Data",
+   "label": "Sla Holiday List",
+   "description": "Snapshot of Holiday List used for due_at."
   }
  ],
  "permissions": [

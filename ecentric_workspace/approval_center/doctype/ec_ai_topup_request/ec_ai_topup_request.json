@@ -76,7 +76,9 @@
   "actual_plan",
   "invoice_status",
   "no_invoice_reason",
-  "material_signature"
+  "material_signature",
+  "fulfillment_sla_calendar",
+  "fulfillment_sla_holiday_list"
  ],
  "fields": [
   {
@@ -449,6 +451,20 @@
    "read_only": 1,
    "no_copy": 1,
    "description": "Hash of material fields at submit; changed value on resubmit -> restart at Level 1."
+  },
+  {
+   "fieldname": "fulfillment_sla_calendar",
+   "fieldtype": "Data",
+   "label": "Fulfillment Sla Calendar",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "fulfillment_sla_holiday_list",
+   "fieldtype": "Data",
+   "label": "Fulfillment Sla Holiday List",
+   "read_only": 1,
+   "hidden": 1
   }
  ],
  "permissions": [
