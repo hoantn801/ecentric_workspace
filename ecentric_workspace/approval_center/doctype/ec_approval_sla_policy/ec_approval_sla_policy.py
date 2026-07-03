@@ -12,5 +12,9 @@ class ECApprovalSLAPolicy(Document):
             if before and before.policy_code and before.policy_code != self.policy_code:
                 frappe.throw(_("policy_code is immutable."))
         if self.use_business_hours:
-            frappe.throw(_("Business-hours SLA calculation is not supported yet (B1). "
-                           "Uncheck 'use_business_hours'; only calendar/elapsed hours are computed."))
+            if not self.business_calendar:
+                frappe.throw(_("use_business_hours=1 requires a business_calendar."))
+            if not frappe.db.get_value("EC Approval Business Calendar", self.business_calendar, "active"):
+                frappe.throw(_("business_calendar '{0}' must exist and be active.").format(self.business_calendar))
+            if self.holiday_list and not frappe.db.exists("Holiday List", self.holiday_list):
+                frappe.throw(_("holiday_list override '{0}' does not exist.").format(self.holiday_list))

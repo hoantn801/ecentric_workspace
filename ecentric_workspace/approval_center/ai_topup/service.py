@@ -90,9 +90,15 @@ def on_final_approval(name):
     proc = frappe.get_doc("EC Approval Process", proc_name)
     fulfillers = [u for u, _lbl in engine.resolve_participants(
         [p for p in proc.participants if p.participant_purpose == "Fulfiller"], doc.requested_by)]
+    emp = frappe.db.get_value("Employee", {"user_id": doc.requested_by}, ["name", "company"], as_dict=True)
+    sla = engine.resolve_sla(proc.fulfillment_sla_policy,
+                             employee=emp.name if emp else None,
+                             company=(emp.company if emp else None) or doc.company)
     frappe.db.set_value(BUSINESS_DT, name, {
         "fulfillment_status": "Assigned",
-        "fulfillment_due_at": engine.compute_due_at(proc.fulfillment_sla_policy),
+        "fulfillment_due_at": sla["due_at"] if sla else None,
+        "fulfillment_sla_calendar": sla["calendar"] if sla else None,
+        "fulfillment_sla_holiday_list": sla["holiday_list"] if sla else None,
     })
     if fulfillers:
         engine.assign(BUSINESS_DT, name, fulfillers, _("AI Topup fulfillment queue"))
