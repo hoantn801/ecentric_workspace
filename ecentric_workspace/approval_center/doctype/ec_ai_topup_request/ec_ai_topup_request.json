@@ -54,7 +54,29 @@
   "payment_proof",
   "invoice_receipt",
   "completed_by",
-  "completed_at"
+  "completed_at",
+  "account_mode",
+  "ai_account",
+  "account_manager",
+  "current_plan",
+  "proposed_account_email",
+  "proposed_account_manager",
+  "proposed_plan",
+  "requested_plan",
+  "requester_note",
+  "subscription_start_date",
+  "subscription_end_date",
+  "billing_cycle",
+  "auto_renewal_expected",
+  "fulfillment_owner",
+  "fulfillment_due_at",
+  "actual_ai_account",
+  "actual_account_email",
+  "confirmed_account_manager",
+  "actual_plan",
+  "invoice_status",
+  "no_invoice_reason",
+  "material_signature"
  ],
  "fields": [
   {
@@ -147,13 +169,15 @@
    "fieldtype": "Select",
    "label": "Account Availability",
    "options": "New Account\nExisting Account",
-   "description": "Whether the account to top up already exists."
+   "description": "[deprecated - superseded in B1] Whether the account to top up already exists.",
+   "hidden": 1
   },
   {
    "fieldname": "request_type",
-   "fieldtype": "Data",
+   "fieldtype": "Select",
    "label": "Request Type",
-   "description": "e.g. Top-up / Renewal / Upgrade."
+   "description": "e.g. Top-up / Renewal / Upgrade.",
+   "options": "New Subscription\nRenewal\nTop-up\nUpgrade"
   },
   {
    "fieldname": "package",
@@ -229,12 +253,16 @@
   {
    "fieldname": "actual_account",
    "fieldtype": "Data",
-   "label": "Actual Account"
+   "label": "Actual Account",
+   "hidden": 1,
+   "description": "[deprecated - superseded in B1] "
   },
   {
    "fieldname": "actual_tool_package",
    "fieldtype": "Data",
-   "label": "Actual Tool Package"
+   "label": "Actual Tool Package",
+   "hidden": 1,
+   "description": "[deprecated - superseded in B1] "
   },
   {
    "fieldname": "cb2",
@@ -289,6 +317,138 @@
    "fieldtype": "Datetime",
    "label": "Completed At",
    "read_only": 1
+  },
+  {
+   "fieldname": "account_mode",
+   "fieldtype": "Select",
+   "label": "Account Mode",
+   "options": "Existing Account\nNew Account",
+   "default": "Existing Account",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "ai_account",
+   "fieldtype": "Link",
+   "label": "AI Account",
+   "options": "EC AI Account",
+   "description": "Existing account (required when account_mode=Existing Account)."
+  },
+  {
+   "fieldname": "account_manager",
+   "fieldtype": "Link",
+   "label": "Account Manager (snapshot)",
+   "options": "User",
+   "read_only": 1,
+   "description": "Snapshot from EC AI Account at submit; live ownership stays on EC AI Account."
+  },
+  {
+   "fieldname": "current_plan",
+   "fieldtype": "Data",
+   "label": "Current Plan (snapshot)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "proposed_account_email",
+   "fieldtype": "Data",
+   "label": "Proposed Account Email"
+  },
+  {
+   "fieldname": "proposed_account_manager",
+   "fieldtype": "Link",
+   "label": "Proposed Account Manager",
+   "options": "User"
+  },
+  {
+   "fieldname": "proposed_plan",
+   "fieldtype": "Data",
+   "label": "Proposed Plan"
+  },
+  {
+   "fieldname": "requested_plan",
+   "fieldtype": "Data",
+   "label": "Requested Plan"
+  },
+  {
+   "fieldname": "requester_note",
+   "fieldtype": "Small Text",
+   "label": "Requester Note"
+  },
+  {
+   "fieldname": "subscription_start_date",
+   "fieldtype": "Date",
+   "label": "Subscription Start Date"
+  },
+  {
+   "fieldname": "subscription_end_date",
+   "fieldtype": "Date",
+   "label": "Subscription End Date"
+  },
+  {
+   "fieldname": "billing_cycle",
+   "fieldtype": "Select",
+   "label": "Billing Cycle",
+   "options": "Monthly\nQuarterly\nSemi-annual\nAnnual\nOne-time\nCustom"
+  },
+  {
+   "fieldname": "auto_renewal_expected",
+   "fieldtype": "Check",
+   "label": "Auto Renewal Expected"
+  },
+  {
+   "fieldname": "fulfillment_owner",
+   "fieldtype": "Link",
+   "label": "Fulfillment Owner",
+   "options": "User",
+   "read_only": 1,
+   "description": "Operation user who claimed the request (Nhận xử lý)."
+  },
+  {
+   "fieldname": "fulfillment_due_at",
+   "fieldtype": "Datetime",
+   "label": "Fulfillment Due At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_ai_account",
+   "fieldtype": "Link",
+   "label": "Actual AI Account",
+   "options": "EC AI Account"
+  },
+  {
+   "fieldname": "actual_account_email",
+   "fieldtype": "Data",
+   "label": "Actual Account Email"
+  },
+  {
+   "fieldname": "confirmed_account_manager",
+   "fieldtype": "Link",
+   "label": "Confirmed Account Manager",
+   "options": "User"
+  },
+  {
+   "fieldname": "actual_plan",
+   "fieldtype": "Data",
+   "label": "Actual Plan"
+  },
+  {
+   "fieldname": "invoice_status",
+   "fieldtype": "Select",
+   "label": "Invoice Status",
+   "options": "Invoice Available\nNo Invoice Issued"
+  },
+  {
+   "fieldname": "no_invoice_reason",
+   "fieldtype": "Small Text",
+   "label": "No Invoice Reason"
+  },
+  {
+   "fieldname": "material_signature",
+   "fieldtype": "Data",
+   "label": "Material Signature",
+   "hidden": 1,
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "Hash of material fields at submit; changed value on resubmit -> restart at Level 1."
   }
  ],
  "permissions": [

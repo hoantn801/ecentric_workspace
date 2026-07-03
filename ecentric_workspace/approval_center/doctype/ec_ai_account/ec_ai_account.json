@@ -1,0 +1,215 @@
+{
+ "doctype": "DocType",
+ "name": "EC AI Account",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "autoname": "EC-AIACC-.#####.",
+ "naming_rule": "Expression",
+ "title_field": "account_email",
+ "field_order": [
+  "sb_id",
+  "ai_tool",
+  "account_email",
+  "account_name",
+  "account_key",
+  "status",
+  "cb1",
+  "account_manager",
+  "owner_department",
+  "company",
+  "manager_change_reason",
+  "sb_sub",
+  "current_plan",
+  "billing_cycle",
+  "subscription_start_date",
+  "subscription_end_date",
+  "cb2",
+  "auto_renewal_expected",
+  "supplier",
+  "default_currency",
+  "sb_track",
+  "latest_topup_request",
+  "last_topup_at",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_id",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "fieldname": "ai_tool",
+   "fieldtype": "Link",
+   "label": "AI Tool",
+   "options": "EC AI Tool",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "account_email",
+   "fieldtype": "Data",
+   "label": "Account Email",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Login/identity email of the account."
+  },
+  {
+   "fieldname": "account_name",
+   "fieldtype": "Data",
+   "label": "Account Name",
+   "description": "Optional display name."
+  },
+  {
+   "fieldname": "account_key",
+   "fieldtype": "Data",
+   "label": "Account Key",
+   "unique": 1,
+   "hidden": 1,
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "DB-unique = <ai_tool>::<normalized account_email>. Blocks duplicate tool/account."
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nExpired\nSuspended\nClosed",
+   "default": "Active",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break",
+   "label": "Cb1"
+  },
+  {
+   "fieldname": "account_manager",
+   "fieldtype": "Link",
+   "label": "Account Manager",
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Accountable person. Must be an enabled System User (validated server-side)."
+  },
+  {
+   "fieldname": "owner_department",
+   "fieldtype": "Link",
+   "label": "Owner Department",
+   "options": "Department"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "manager_change_reason",
+   "fieldtype": "Small Text",
+   "label": "Manager Change Reason",
+   "no_copy": 1,
+   "description": "Required when account_manager changes (ownership change is audited, never silent)."
+  },
+  {
+   "fieldname": "sb_sub",
+   "fieldtype": "Section Break",
+   "label": "Subscription"
+  },
+  {
+   "fieldname": "current_plan",
+   "fieldtype": "Data",
+   "label": "Current Plan"
+  },
+  {
+   "fieldname": "billing_cycle",
+   "fieldtype": "Select",
+   "label": "Billing Cycle",
+   "options": "Monthly\nQuarterly\nSemi-annual\nAnnual\nOne-time\nCustom"
+  },
+  {
+   "fieldname": "subscription_start_date",
+   "fieldtype": "Date",
+   "label": "Subscription Start Date"
+  },
+  {
+   "fieldname": "subscription_end_date",
+   "fieldtype": "Date",
+   "label": "Subscription End Date"
+  },
+  {
+   "fieldname": "cb2",
+   "fieldtype": "Column Break",
+   "label": "Cb2"
+  },
+  {
+   "fieldname": "auto_renewal_expected",
+   "fieldtype": "Check",
+   "label": "Auto Renewal Expected"
+  },
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "label": "Supplier",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "default_currency",
+   "fieldtype": "Link",
+   "label": "Default Currency",
+   "options": "Currency",
+   "default": "VND"
+  },
+  {
+   "fieldname": "sb_track",
+   "fieldtype": "Section Break",
+   "label": "Tracking"
+  },
+  {
+   "fieldname": "latest_topup_request",
+   "fieldtype": "Link",
+   "label": "Latest Topup Request",
+   "options": "EC AI Topup Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_topup_at",
+   "fieldtype": "Datetime",
+   "label": "Last Topup At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

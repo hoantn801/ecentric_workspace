@@ -25,7 +25,10 @@
   "cb1",
   "level_status",
   "activated_at",
-  "completed_at"
+  "completed_at",
+  "sla_policy",
+  "due_at",
+  "is_overdue"
  ],
  "fields": [
   {
@@ -94,6 +97,24 @@
    "fieldname": "completed_at",
    "fieldtype": "Datetime",
    "label": "Completed At"
+  },
+  {
+   "fieldname": "sla_policy",
+   "fieldtype": "Data",
+   "label": "Sla Policy",
+   "description": "Snapshot of the level's SLA policy code at submit."
+  },
+  {
+   "fieldname": "due_at",
+   "fieldtype": "Datetime",
+   "label": "Due At",
+   "description": "Computed when the level becomes active (activated_at + policy duration)."
+  },
+  {
+   "fieldname": "is_overdue",
+   "fieldtype": "Check",
+   "label": "Is Overdue",
+   "read_only": 1
   }
  ],
  "permissions": [

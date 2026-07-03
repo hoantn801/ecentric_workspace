@@ -26,7 +26,8 @@
   "description",
   "sb_part",
   "participants",
-  "active_process_key"
+  "active_process_key",
+  "fulfillment_sla_policy"
  ],
  "fields": [
   {
@@ -110,6 +111,13 @@
    "hidden": 1,
    "no_copy": 1,
    "description": "DB-unique guard: = approval_type when status=Active, else NULL. Prevents two Active processes per approval_type."
+  },
+  {
+   "fieldname": "fulfillment_sla_policy",
+   "fieldtype": "Link",
+   "label": "Fulfillment SLA Policy",
+   "options": "EC Approval SLA Policy",
+   "description": "Optional SLA applied to fulfillment after final approval."
   }
  ],
  "permissions": [
