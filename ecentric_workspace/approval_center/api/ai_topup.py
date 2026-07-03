@@ -1,0 +1,295 @@
+# Copyright (c) 2026, eCentric and contributors
+"""B3.1 permission-safe READ API layer for the AI Topup frontend.
+
+Thin read wrappers over the deployed B1/B2 engine (no orchestration duplicated).
+Every list/detail enforces server-side scope; capability flags tell the UI which
+actions to show, but the backend re-validates every write elsewhere.
+"""
+import frappe
+from frappe import _
+
+BIZ = "EC AI Topup Request"
+APPROVAL_TYPE = "AI_TOPUP"
+OPEN = ("Pending", "Information Required")
+_STATUS_LABEL = {  # engine + fulfillment -> user-facing Vietnamese
+    "Draft": "Nháp", "Pending": "Đang phê duyệt", "Information Required": "Cần bổ sung thông tin",
+    "Approved": "Đã duyệt", "Rejected": "Bị từ chối", "Cancelled": "Đã hủy",
+}
+
+
+# --------------------------------------------------------------------------- #
+def _sm():
+    return "System Manager" in frappe.get_roles(frappe.session.user)
+
+
+def _employee_ctx(user=None):
+    user = user or frappe.session.user
+    emp = frappe.db.get_value("Employee", {"user_id": user},
+                              ["name", "employee_name", "department", "company", "reports_to"], as_dict=True)
+    manager_user = None
+    if emp and emp.reports_to:
+        manager_user = frappe.db.get_value("Employee", emp.reports_to, "user_id")
+    return {
+        "user": user,
+        "employee": emp.name if emp else None,
+        "employee_name": emp.employee_name if emp else None,
+        "department": emp.department if emp else None,
+        "company": emp.company if emp else None,
+        "manager_user": manager_user,
+        "manager_resolvable": bool(manager_user),
+    }
+
+
+def _is_fulfiller(user=None):
+    user = user or frappe.session.user
+    if _sm():
+        return True
+    # configured Fulfiller on the active AI_TOPUP process, or has an open fulfillment ToDo
+    procs = frappe.get_all("EC Approval Process",
+                           filters={"approval_type": APPROVAL_TYPE, "status": "Active"}, pluck="name")
+    for p in procs:
+        if frappe.db.exists("EC Approval Participant",
+                            {"parent": p, "parenttype": "EC Approval Process",
+                             "participant_purpose": "Fulfiller", "user": user}):
+            return True
+    return bool(frappe.db.exists("ToDo", {"reference_type": BIZ, "allocated_to": user, "status": "Open"}))
+
+
+def _has_any_approver_row(user=None):
+    user = user or frappe.session.user
+    return bool(frappe.db.exists("EC Approval Request Approver", {"approver": user}))
+
+
+def _req_of(biz_name):
+    ar = frappe.db.get_value(BIZ, biz_name, "approval_request")
+    return frappe.get_doc("EC Approval Request", ar) if ar else None
+
+
+def _can_view(user, biz, req):
+    if _sm() or biz.requested_by == user:
+        return True
+    if req and frappe.db.exists("EC Approval Request Approver",
+                                {"approval_request": req.name, "approver": user}):
+        return True
+    if biz.fulfillment_owner == user or _is_fulfiller(user):
+        return True
+    return False
+
+
+def _pending_row(req, user):
+    if not req or req.approval_status not in OPEN:
+        return None
+    return frappe.db.exists("EC Approval Request Approver",
+                            {"approval_request": req.name, "level_no": req.current_level,
+                             "approver": user, "status": "Pending"})
+
+
+def _has_decision(req):
+    if not req:
+        return False
+    return bool(frappe.db.exists("EC Approval Action",
+                {"approval_request": req.name,
+                 "action": ["in", ["Approved", "Rejected", "Information Requested"]]}))
+
+
+def _capabilities(user, biz, req):
+    is_requester = biz.requested_by == user
+    open_ = req and req.approval_status in OPEN
+    can_act = bool(_pending_row(req, user))
+    cancel_requester = is_requester and (req is None or (req.approval_status == "Pending" and not _has_decision(req)))
+    cancel_admin = (_sm()) and open_
+    return {
+        "can_edit": is_requester and (req is None or req.approval_status == "Information Required"),
+        "can_submit": is_requester and req is None,
+        "can_resubmit": is_requester and bool(req) and req.approval_status == "Information Required",
+        "can_cancel": bool(cancel_requester or cancel_admin),
+        "can_approve": can_act,
+        "can_reject": can_act,
+        "can_request_information": can_act,
+        "can_claim": _is_fulfiller(user) and biz.fulfillment_status == "Assigned",
+        "can_complete": (biz.fulfillment_owner == user or _sm())
+                        and biz.fulfillment_status in ("Assigned", "In Progress"),
+        "can_view_fulfillment": _is_fulfiller(user) or is_requester or _sm(),
+    }
+
+
+# --------------------------------------------------------------------------- #
+@frappe.whitelist()
+def get_bootstrap():
+    user = frappe.session.user
+    ctx = _employee_ctx(user)
+    return {
+        "context": ctx,
+        "is_system_manager": _sm(),
+        "tabs": {
+            "create": True, "my_requests": True,
+            "my_approvals": _has_any_approver_row(user) or _sm(),
+            "fulfillment": _is_fulfiller(user),
+        },
+        "form_options": get_form_options(),
+    }
+
+
+@frappe.whitelist()
+def get_form_options():
+    return {
+        "ai_tools": frappe.get_all("EC AI Tool", filters={"is_active": 1},
+                                   fields=["name as value", "tool_name as label", "default_currency"]),
+        "currencies": frappe.get_all("Currency", filters={"enabled": 1}, pluck="name"),
+        "account_modes": ["Existing Account", "New Account"],
+        "request_types": ["New Subscription", "Renewal", "Top-up", "Upgrade"],
+        "billing_cycles": ["Monthly", "Quarterly", "Semi-annual", "Annual", "One-time", "Custom"],
+    }
+
+
+@frappe.whitelist()
+def search_ai_accounts(query=None, ai_tool=None):
+    filters = {"status": "Active"}
+    if ai_tool:
+        filters["ai_tool"] = ai_tool
+    or_filters = None
+    if query:
+        or_filters = [["account_email", "like", "%" + query + "%"],
+                      ["account_name", "like", "%" + query + "%"]]
+    return frappe.get_all("EC AI Account", filters=filters, or_filters=or_filters,
+                          fields=["name", "ai_tool", "account_email", "account_name",
+                                  "account_manager", "current_plan",
+                                  "subscription_start_date", "subscription_end_date"],
+                          limit_page_length=20, order_by="account_email asc")
+
+
+@frappe.whitelist()
+def search_active_users(query=None):
+    # Only enabled System Users; Administrator hidden unless caller is System Manager.
+    filters = {"enabled": 1, "user_type": "System User"}
+    or_filters = None
+    if query:
+        or_filters = [["full_name", "like", "%" + query + "%"], ["name", "like", "%" + query + "%"]]
+    rows = frappe.get_all("User", filters=filters, or_filters=or_filters,
+                          fields=["name as value", "full_name as label"],
+                          limit_page_length=20, order_by="full_name asc")
+    if not _sm():
+        rows = [r for r in rows if r.value != "Administrator"]
+    return rows
+
+
+def _scope_status(biz, req):
+    if not req:
+        return "Draft"
+    if req.approval_status == "Approved":
+        return biz.fulfillment_status or "Approved"
+    return req.approval_status
+
+
+@frappe.whitelist()
+def list_my_requests(filters=None, start=0, page_length=20):
+    user = frappe.session.user
+    flt = {"requested_by": user}          # server-side scope
+    f = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
+    for k in ("ai_tool", "request_type"):
+        if f.get(k):
+            flt[k] = f[k]
+    total = frappe.db.count(BIZ, flt)
+    rows = frappe.get_all(BIZ, filters=flt,
+                          fields=["name", "ai_tool", "account_email", "request_type", "requested_amount",
+                                  "currency", "fulfillment_status", "approval_request", "creation", "modified"],
+                          limit_start=int(start), limit_page_length=int(page_length),
+                          order_by="modified desc")
+    for r in rows:
+        ar = r.approval_request and frappe.db.get_value(
+            "EC Approval Request", r.approval_request, ["approval_status", "current_level"], as_dict=True)
+        r["approval_status"] = ar.approval_status if ar else "Draft"
+        r["current_level"] = ar.current_level if ar else 0
+    return {"rows": rows, "total": total}
+
+
+@frappe.whitelist()
+def list_my_approvals(section="pending"):
+    user = frappe.session.user
+    status = ["Pending"] if section == "pending" else ["Approved", "Rejected", "Information Requested", "Skipped"]
+    rows = frappe.get_all("EC Approval Request Approver",
+                          filters={"approver": user, "status": ["in", status]},
+                          fields=["approval_request", "level_no", "status", "decided_at"],
+                          order_by="modified desc", limit_page_length=200)
+    out = []
+    for r in rows:
+        req = frappe.db.get_value("EC Approval Request", r.approval_request,
+                                  ["reference_name", "approval_status", "current_level",
+                                   "requested_by", "submitted_at"], as_dict=True)
+        if not req:
+            continue
+        if section == "pending" and (req.approval_status not in OPEN or req.current_level != r.level_no):
+            continue  # only actionable current-level rows
+        biz = frappe.db.get_value(BIZ, req.reference_name,
+                                  ["name", "ai_tool", "account_email", "requested_amount", "department"], as_dict=True)
+        if biz:
+            biz.update({"approval_request": r.approval_request, "level_no": r.level_no,
+                        "approval_status": req.approval_status, "requested_by": req.requested_by,
+                        "my_status": r.status})
+            out.append(biz)
+    return {"rows": out}
+
+
+@frappe.whitelist()
+def list_fulfillment_queue(section="unclaimed"):
+    user = frappe.session.user
+    if not _is_fulfiller(user):
+        frappe.throw(_("You are not an eligible fulfiller."), frappe.PermissionError)
+    flt = {}
+    if section == "unclaimed":
+        flt = {"fulfillment_status": "Assigned"}
+    elif section == "mine":
+        flt = {"fulfillment_owner": user, "fulfillment_status": ["in", ["Assigned", "In Progress"]]}
+    elif section == "others" and _sm():
+        flt = {"fulfillment_status": "In Progress", "fulfillment_owner": ["!=", user]}
+    else:
+        return {"rows": []}
+    rows = frappe.get_all(BIZ, filters=flt,
+                          fields=["name", "requested_by", "ai_tool", "account_email", "approved_amount",
+                                  "subscription_start_date", "subscription_end_date", "fulfillment_status",
+                                  "fulfillment_owner", "fulfillment_due_at"],
+                          order_by="modified desc", limit_page_length=100)
+    return {"rows": rows}
+
+
+@frappe.whitelist()
+def get_request_detail(name):
+    user = frappe.session.user
+    biz = frappe.get_doc(BIZ, name)
+    req = _req_of(name)
+    if not _can_view(user, biz, req):
+        frappe.throw(_("You do not have access to this request."), frappe.PermissionError)
+    levels, approvers, timeline, sla = [], [], [], {}
+    if req:
+        levels = frappe.get_all("EC Approval Request Level", filters={"approval_request": req.name},
+                                fields=["level_no", "level_name", "approval_mode", "minimum_approvals",
+                                        "mandatory", "level_status", "activated_at", "completed_at",
+                                        "due_at", "sla_calendar", "sla_holiday_list"], order_by="level_no asc")
+        approvers = frappe.get_all("EC Approval Request Approver", filters={"approval_request": req.name},
+                                   fields=["level_no", "approver", "source", "status", "decided_at", "comment"],
+                                   order_by="level_no asc")
+        timeline = frappe.get_all("EC Approval Action", filters={"approval_request": req.name},
+                                  fields=["seq", "level_no", "level_name", "actor", "action", "comment",
+                                          "action_time", "previous_status", "new_status", "related_user"],
+                                  order_by="seq asc")
+    attachments = frappe.get_all("File", filters={"attached_to_doctype": BIZ, "attached_to_name": name},
+                                 fields=["file_name", "file_url", "is_private", "owner", "creation"])
+    return {
+        "business": biz.as_dict(),
+        "approval": {
+            "name": req.name if req else None,
+            "approval_status": req.approval_status if req else "Draft",
+            "current_level": req.current_level if req else 0,
+            "information_requested_from_level": req.information_requested_from_level if req else None,
+            "status_label": _STATUS_LABEL.get(req.approval_status if req else "Draft"),
+        },
+        "levels": levels,
+        "approvers": approvers,
+        "fulfillment": {
+            "status": biz.fulfillment_status, "owner": biz.fulfillment_owner,
+            "due_at": biz.fulfillment_due_at, "completed_by": biz.completed_by, "completed_at": biz.completed_at,
+        },
+        "attachments": attachments,
+        "timeline": timeline,
+        "capabilities": _capabilities(user, biz, req),
+    }
