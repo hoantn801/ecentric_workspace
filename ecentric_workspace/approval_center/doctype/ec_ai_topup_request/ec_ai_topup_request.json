@@ -1,0 +1,310 @@
+{
+ "doctype": "DocType",
+ "name": "EC AI Topup Request",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "autoname": "EC-AITOP-.YYYY.-.#####.",
+ "naming_rule": "Expression",
+ "title_field": "ai_tool",
+ "field_order": [
+  "approval_type",
+  "approval_request",
+  "requested_by",
+  "employee",
+  "department",
+  "company",
+  "cb0",
+  "request_datetime",
+  "fulfillment_status",
+  "sb_form",
+  "ai_tool",
+  "account_email",
+  "account_availability",
+  "request_type",
+  "package",
+  "cb1",
+  "requested_amount",
+  "currency",
+  "needed_by",
+  "purpose",
+  "request_attachment",
+  "sb_finance",
+  "approved_amount",
+  "finance_adjustment_comment",
+  "sb_fulfill",
+  "assigned_fulfiller",
+  "assigned_at",
+  "actual_account",
+  "actual_tool_package",
+  "cb2",
+  "actual_amount",
+  "actual_currency",
+  "topup_datetime",
+  "transaction_reference",
+  "operation_note",
+  "payment_proof",
+  "invoice_receipt",
+  "completed_by",
+  "completed_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "approval_type",
+   "fieldtype": "Link",
+   "label": "Approval Type",
+   "options": "EC Approval Type",
+   "default": "AI_TOPUP",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "approval_request",
+   "fieldtype": "Link",
+   "label": "Approval Request",
+   "options": "EC Approval Request",
+   "read_only": 1,
+   "description": "Pointer to the engine record (approval STATE lives there, not here)."
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Requested By",
+   "options": "User",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee",
+   "read_only": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department",
+   "options": "Department",
+   "in_standard_filter": 1,
+   "description": "Snapshot of requester department at submission; locked after the request is submitted."
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break",
+   "label": "Cb0"
+  },
+  {
+   "fieldname": "request_datetime",
+   "fieldtype": "Datetime",
+   "label": "Request Datetime",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fulfillment_status",
+   "fieldtype": "Select",
+   "label": "Fulfillment Status",
+   "options": "Not Started\nAssigned\nIn Progress\nCompleted\nCancelled",
+   "default": "Not Started",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Business fulfillment lifecycle AFTER approval. Distinct from approval state (EC Approval Request)."
+  },
+  {
+   "fieldname": "sb_form",
+   "fieldtype": "Section Break",
+   "label": "Request"
+  },
+  {
+   "fieldname": "ai_tool",
+   "fieldtype": "Link",
+   "label": "Ai Tool",
+   "options": "EC AI Tool",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "account_email",
+   "fieldtype": "Data",
+   "label": "Account Email"
+  },
+  {
+   "fieldname": "account_availability",
+   "fieldtype": "Select",
+   "label": "Account Availability",
+   "options": "New Account\nExisting Account",
+   "description": "Whether the account to top up already exists."
+  },
+  {
+   "fieldname": "request_type",
+   "fieldtype": "Data",
+   "label": "Request Type",
+   "description": "e.g. Top-up / Renewal / Upgrade."
+  },
+  {
+   "fieldname": "package",
+   "fieldtype": "Data",
+   "label": "Package"
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break",
+   "label": "Cb1"
+  },
+  {
+   "fieldname": "requested_amount",
+   "fieldtype": "Currency",
+   "label": "Requested Amount"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency",
+   "default": "VND"
+  },
+  {
+   "fieldname": "needed_by",
+   "fieldtype": "Date",
+   "label": "Needed By"
+  },
+  {
+   "fieldname": "purpose",
+   "fieldtype": "Small Text",
+   "label": "Purpose"
+  },
+  {
+   "fieldname": "request_attachment",
+   "fieldtype": "Attach",
+   "label": "Request Attachment"
+  },
+  {
+   "fieldname": "sb_finance",
+   "fieldtype": "Section Break",
+   "label": "Finance"
+  },
+  {
+   "fieldname": "approved_amount",
+   "fieldtype": "Currency",
+   "label": "Approved Amount",
+   "description": "Set by Finance. If != requested_amount, finance_adjustment_comment is mandatory."
+  },
+  {
+   "fieldname": "finance_adjustment_comment",
+   "fieldtype": "Small Text",
+   "label": "Finance Adjustment Comment"
+  },
+  {
+   "fieldname": "sb_fulfill",
+   "fieldtype": "Section Break",
+   "label": "Fulfillment (Operation, after final approval)"
+  },
+  {
+   "fieldname": "assigned_fulfiller",
+   "fieldtype": "Link",
+   "label": "Assigned Fulfiller",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "assigned_at",
+   "fieldtype": "Datetime",
+   "label": "Assigned At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_account",
+   "fieldtype": "Data",
+   "label": "Actual Account"
+  },
+  {
+   "fieldname": "actual_tool_package",
+   "fieldtype": "Data",
+   "label": "Actual Tool Package"
+  },
+  {
+   "fieldname": "cb2",
+   "fieldtype": "Column Break",
+   "label": "Cb2"
+  },
+  {
+   "fieldname": "actual_amount",
+   "fieldtype": "Currency",
+   "label": "Actual Amount"
+  },
+  {
+   "fieldname": "actual_currency",
+   "fieldtype": "Link",
+   "label": "Actual Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "topup_datetime",
+   "fieldtype": "Datetime",
+   "label": "Topup Datetime"
+  },
+  {
+   "fieldname": "transaction_reference",
+   "fieldtype": "Data",
+   "label": "Transaction Reference"
+  },
+  {
+   "fieldname": "operation_note",
+   "fieldtype": "Small Text",
+   "label": "Operation Note"
+  },
+  {
+   "fieldname": "payment_proof",
+   "fieldtype": "Attach",
+   "label": "Payment Proof"
+  },
+  {
+   "fieldname": "invoice_receipt",
+   "fieldtype": "Attach",
+   "label": "Invoice Receipt"
+  },
+  {
+   "fieldname": "completed_by",
+   "fieldtype": "Link",
+   "label": "Completed By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Completed At",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}
