@@ -1,0 +1,145 @@
+{
+ "doctype": "DocType",
+ "name": "EC Approval Request",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "autoname": "EC-APR-.YYYY.-.#####.",
+ "naming_rule": "Expression",
+ "title_field": "reference_name",
+ "field_order": [
+  "approval_type",
+  "reference_doctype",
+  "reference_name",
+  "reference_key",
+  "cb1",
+  "process",
+  "requested_by",
+  "submitted_at",
+  "completed_at",
+  "sb_state",
+  "approval_status",
+  "current_level",
+  "information_requested_from_level"
+ ],
+ "fields": [
+  {
+   "fieldname": "approval_type",
+   "fieldtype": "Link",
+   "label": "Approval Type",
+   "options": "EC Approval Type",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference Doctype",
+   "options": "DocType",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference Name",
+   "options": "reference_doctype",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "reference_key",
+   "fieldtype": "Data",
+   "label": "Reference Key",
+   "read_only": 1,
+   "search_index": 1,
+   "description": "DB-unique guard: '<reference_doctype>::<reference_name>' while Pending/Information Required, else NULL. Blocks two OPEN requests per business document.",
+   "unique": 1,
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break",
+   "label": "Cb1"
+  },
+  {
+   "fieldname": "process",
+   "fieldtype": "Link",
+   "label": "Process",
+   "options": "EC Approval Process",
+   "reqd": 1,
+   "description": "Exact process version used at submission."
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Requested By",
+   "options": "User",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "Submitted At"
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Completed At"
+  },
+  {
+   "fieldname": "sb_state",
+   "fieldtype": "Section Break",
+   "label": "State"
+  },
+  {
+   "fieldname": "approval_status",
+   "fieldtype": "Select",
+   "label": "Approval Status",
+   "options": "Pending\nInformation Required\nApproved\nRejected\nCancelled",
+   "default": "Pending",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "GENERIC engine status. Business-level stage name comes from EC Approval Request Level, not here."
+  },
+  {
+   "fieldname": "current_level",
+   "fieldtype": "Int",
+   "label": "Current Level",
+   "description": "Active level_no. 0 = none/terminal."
+  },
+  {
+   "fieldname": "information_requested_from_level",
+   "fieldtype": "Int",
+   "label": "Information Requested From Level",
+   "description": "Level that requested info; normal resubmit resumes here."
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

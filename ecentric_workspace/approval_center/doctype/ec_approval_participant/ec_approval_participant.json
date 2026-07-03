@@ -1,0 +1,76 @@
+{
+ "doctype": "DocType",
+ "name": "EC Approval Participant",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "participant_purpose",
+  "source_type",
+  "user",
+  "role",
+  "department",
+  "sort_order"
+ ],
+ "fields": [
+  {
+   "fieldname": "participant_purpose",
+   "fieldtype": "Select",
+   "label": "Participant Purpose",
+   "options": "Approver\nFulfiller\nNotify",
+   "default": "Approver",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source_type",
+   "fieldtype": "Select",
+   "label": "Source Type",
+   "options": "User\nRole\nRequester Manager\nDepartment Manager",
+   "default": "User",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "How this participant resolves. Requester Manager = Employee.reports_to; Department Manager = Department.department_head."
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "User",
+   "options": "User",
+   "in_list_view": 1,
+   "depends_on": "eval:doc.source_type=='User'"
+  },
+  {
+   "fieldname": "role",
+   "fieldtype": "Link",
+   "label": "Role",
+   "options": "Role",
+   "in_list_view": 1,
+   "depends_on": "eval:doc.source_type=='Role'"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department",
+   "options": "Department",
+   "depends_on": "eval:doc.source_type=='Department Manager'"
+  },
+  {
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Sort Order",
+   "default": "0"
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

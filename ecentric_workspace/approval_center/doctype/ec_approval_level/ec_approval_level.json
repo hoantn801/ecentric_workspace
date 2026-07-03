@@ -1,0 +1,109 @@
+{
+ "doctype": "DocType",
+ "name": "EC Approval Level",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "process",
+  "level_no",
+  "level_name",
+  "mandatory",
+  "sb_mode",
+  "approval_mode",
+  "minimum_approvals",
+  "sb_part",
+  "participants"
+ ],
+ "fields": [
+  {
+   "fieldname": "process",
+   "fieldtype": "Link",
+   "label": "Process",
+   "options": "EC Approval Process",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "level_no",
+   "fieldtype": "Int",
+   "label": "Level No",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Unique per process. Ordering key. Add Level 4/5+ by configuration only."
+  },
+  {
+   "fieldname": "level_name",
+   "fieldtype": "Data",
+   "label": "Level Name",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "mandatory",
+   "fieldtype": "Check",
+   "label": "Mandatory",
+   "default": "1",
+   "description": "If unchecked, level may be optional (skip handled by Phase B)."
+  },
+  {
+   "fieldname": "sb_mode",
+   "fieldtype": "Section Break",
+   "label": "Mode"
+  },
+  {
+   "fieldname": "approval_mode",
+   "fieldtype": "Select",
+   "label": "Approval Mode",
+   "options": "Any One\nAll Required\nMinimum Count",
+   "default": "Any One",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "minimum_approvals",
+   "fieldtype": "Int",
+   "label": "Minimum Approvals",
+   "default": "0",
+   "depends_on": "eval:doc.approval_mode=='Minimum Count'",
+   "description": "Required only when approval_mode = Minimum Count."
+  },
+  {
+   "fieldname": "sb_part",
+   "fieldtype": "Section Break",
+   "label": "Approvers"
+  },
+  {
+   "fieldname": "participants",
+   "fieldtype": "Table",
+   "label": "Participants",
+   "options": "EC Approval Participant",
+   "description": "Approver participants for this level."
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

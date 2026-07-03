@@ -1,0 +1,131 @@
+{
+ "doctype": "DocType",
+ "name": "EC Approval Process",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "autoname": "field:process_code",
+ "naming_rule": "By fieldname",
+ "title_field": "title",
+ "field_order": [
+  "process_code",
+  "title",
+  "approval_type",
+  "version_no",
+  "status",
+  "effective_from",
+  "effective_to",
+  "description",
+  "sb_part",
+  "participants",
+  "active_process_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "process_code",
+   "fieldtype": "Data",
+   "label": "Process Code",
+   "reqd": 1,
+   "unique": 1,
+   "set_only_once": 1,
+   "in_list_view": 1,
+   "description": "Immutable identity, e.g. AI_TOPUP-V1 / AI_TOPUP-V2."
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "approval_type",
+   "fieldtype": "Link",
+   "label": "Approval Type",
+   "options": "EC Approval Type",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "version_no",
+   "fieldtype": "Int",
+   "label": "Version No",
+   "default": "1",
+   "in_list_view": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nActive\nRetired",
+   "default": "Draft",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Only one Active process per approval_type is used for new requests."
+  },
+  {
+   "fieldname": "effective_from",
+   "fieldtype": "Date",
+   "label": "Effective From"
+  },
+  {
+   "fieldname": "effective_to",
+   "fieldtype": "Date",
+   "label": "Effective To"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "sb_part",
+   "fieldtype": "Section Break",
+   "label": "Process participants (e.g. Operation Fulfillers)"
+  },
+  {
+   "fieldname": "participants",
+   "fieldtype": "Table",
+   "label": "Participants",
+   "options": "EC Approval Participant",
+   "description": "Process-level participants such as Fulfillers. Separate from per-level approvers."
+  },
+  {
+   "fieldname": "active_process_key",
+   "fieldtype": "Data",
+   "label": "Active Process Key",
+   "unique": 1,
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "description": "DB-unique guard: = approval_type when status=Active, else NULL. Prevents two Active processes per approval_type."
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

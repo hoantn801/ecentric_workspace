@@ -1,0 +1,115 @@
+{
+ "doctype": "DocType",
+ "name": "EC Approval Request Level",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "autoname": "EC-APRL-.YYYY.-.#####.",
+ "naming_rule": "Expression",
+ "field_order": [
+  "approval_request",
+  "level_no",
+  "level_name",
+  "approval_mode",
+  "minimum_approvals",
+  "mandatory",
+  "source_process_level",
+  "cb1",
+  "level_status",
+  "activated_at",
+  "completed_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "approval_request",
+   "fieldtype": "Link",
+   "label": "Approval Request",
+   "options": "EC Approval Request",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "level_no",
+   "fieldtype": "Int",
+   "label": "Level No",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "level_name",
+   "fieldtype": "Data",
+   "label": "Level Name",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "approval_mode",
+   "fieldtype": "Data",
+   "label": "Approval Mode"
+  },
+  {
+   "fieldname": "minimum_approvals",
+   "fieldtype": "Int",
+   "label": "Minimum Approvals"
+  },
+  {
+   "fieldname": "mandatory",
+   "fieldtype": "Check",
+   "label": "Mandatory"
+  },
+  {
+   "fieldname": "source_process_level",
+   "fieldtype": "Link",
+   "label": "Source Process Level",
+   "options": "EC Approval Level",
+   "description": "Lineage only; runtime uses this frozen snapshot."
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break",
+   "label": "Cb1"
+  },
+  {
+   "fieldname": "level_status",
+   "fieldtype": "Select",
+   "label": "Level Status",
+   "options": "Pending\nIn Progress\nApproved\nRejected\nSkipped\nInformation Requested",
+   "default": "Pending",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "activated_at",
+   "fieldtype": "Datetime",
+   "label": "Activated At"
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Completed At"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}
