@@ -116,6 +116,12 @@
   #ec-ait-root .tl-dot{ width:10px;height:10px;border-radius:50%;background:var(--navy);margin-top:5px;flex-shrink:0; }
   #ec-ait-root .tl-act{ font-weight:600;color:var(--gray-900);font-size:13px; } #ec-ait-root .tl-meta{ font-size:12px;color:var(--gray-500); } #ec-ait-root .tl-cmt{ font-size:12.5px;color:var(--gray-700);margin-top:2px; }
   #ec-ait-root .sect-h{ font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--gray-500);margin:8px 0 8px; }
+  #ec-ait-root button:focus-visible, #ec-ait-root a:focus-visible, #ec-ait-root input:focus-visible, #ec-ait-root select:focus-visible, #ec-ait-root textarea:focus-visible{ outline:2px solid var(--navy); outline-offset:2px; }
+  #ec-ait-root .summary-row b, #ec-ait-root .tbl td, #ec-ait-root .step-meta, #ec-ait-root .tl-cmt{ overflow-wrap:anywhere; word-break:break-word; }
+  #ec-ait-root .tbl td, #ec-ait-root .tbl th{ vertical-align:top; }
+  @media (max-width:1024px){ #ec-ait-root .content{ padding:18px 16px 40px; } }
+  @media (max-width:640px){ #ec-ait-root table.tbl{ display:block; overflow-x:auto; white-space:nowrap; }
+    #ec-ait-root .modal{ max-height:88vh; } #ec-ait-root .actions{ position:sticky; bottom:0; } }
   @media (max-width:900px){ #ec-ait-root{ grid-template-columns:1fr; } #ec-ait-root .ec-sidebar{ display:none; } #ec-ait-root .grid2{ grid-template-columns:1fr; } }
 </style>
 
@@ -318,7 +324,7 @@
       + '</tbody></table>';
     host.querySelectorAll("tr[data-id]").forEach(function(tr){ tr.onclick=function(){ go({id:tr.getAttribute("data-id")}); }; });
     var total=res.total||rows.length, pages=Math.ceil(total/state.PAGE);
-    $("ait-pager").innerHTML='Trang '+(state.page+1)+'/'+Math.max(1,pages)+' &nbsp; <button class="btn" '+(state.page<=0?"disabled":"")+' id="pg-prev">‹</button> <button class="btn" '+(state.page+1>=pages?"disabled":"")+' id="pg-next">›</button>';
+    $("ait-pager").innerHTML='Trang '+(state.page+1)+'/'+Math.max(1,pages)+' &nbsp; <button class="btn" aria-label="Trang trước" '+(state.page<=0?"disabled":"")+' id="pg-prev">‹</button> <button class="btn" aria-label="Trang sau" '+(state.page+1>=pages?"disabled":"")+' id="pg-next">›</button>';
     var pv=$("pg-prev"),nx=$("pg-next"); if(pv)pv.onclick=function(){ if(state.page>0){state.page--;loadList();} }; if(nx)nx.onclick=function(){ state.page++; loadList(); };
   }
   function statusBadge(r){ var st=r.approval_status||"Draft"; if(st==="Approved"&&r.fulfillment_status&&r.fulfillment_status!=="Not Started") st=r.fulfillment_status;
@@ -411,10 +417,12 @@
   function refreshDetail(){ state.comp={}; if(state.tab==="detail"&&state.id) renderDetail($("ait-body")); }
   function refreshApprovals(){ if(state.tab==="my-approvals") renderMyApprovals($("ait-body")); }
 
-  function modal(title, bodyHTML, opts){ opts=opts||{};
+  function modal(title, bodyHTML, opts){ opts=opts||{}; var prevFocus=document.activeElement;
     var ov=document.createElement("div"); ov.className="overlay";
-    ov.innerHTML='<div class="modal"><div class="modal-h">'+esc(title)+'</div><div class="modal-b">'+bodyHTML+'</div><div class="modal-f"><button class="btn" data-x>Đóng</button><button class="btn primary" data-ok>'+esc(opts.okLabel||"Xác nhận")+'</button></div></div>';
-    document.body.appendChild(ov); function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); }
+    ov.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><div class="modal-h">'+esc(title)+'</div><div class="modal-b">'+bodyHTML+'</div><div class="modal-f"><button class="btn" data-x aria-label="Đóng">Đóng</button><button class="btn primary" data-ok>'+esc(opts.okLabel||"Xác nhận")+'</button></div></div>';
+    document.body.appendChild(ov); function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); if(prevFocus&&prevFocus.focus) try{prevFocus.focus();}catch(e){} }
+    var first=ov.querySelector(".modal-b input,.modal-b select,.modal-b textarea")||ov.querySelector("[data-ok]"); if(first&&first.focus) try{first.focus();}catch(e){}
+    ov.addEventListener("keydown",function(e){ if(e.key==="Escape") close(); });
     ov.querySelector("[data-x]").onclick=close; ov.addEventListener("click",function(e){ if(e.target===ov) close(); });
     var ok=ov.querySelector("[data-ok]");
     ok.onclick=function(){ if(!opts.onConfirm){ close(); return; } ok.disabled=true; var p=opts.onConfirm(ov);

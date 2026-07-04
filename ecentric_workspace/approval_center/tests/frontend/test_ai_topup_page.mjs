@@ -93,6 +93,10 @@ async function run(){
   w.AITopup.state.comp={payment_proof:"/f/p",actual_amount:10,invoice_status:"No Invoice Issued",no_invoice_reason:"r",transaction_reference:"t"}; ok(w.AITopup.completionErrors().length===0, "valid no-invoice completion passes");
   // fulfillment tab visibility gate
   w.AITopup.state.boot={tabs:{fulfillment:false}}; var tmp=w.document.createElement("div"); w.AITopup.renderFulfillment(tmp); ok(/Không khả dụng/.test(tmp.innerHTML), "fulfillment tab denied when not eligible");
+
+  // ---- B3.5 a11y/responsive ----
+  { var m=w.AITopup.modal("T","<input id=zz>",{}); ok(!!w.document.querySelector('.modal[role="dialog"][aria-modal="true"]'),"modal has role=dialog aria-modal"); m.close(); }
+  ok(/overflow-x:auto/.test(HTML) && /focus-visible/.test(HTML), "responsive table scroll + focus-visible present");
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);
 }
