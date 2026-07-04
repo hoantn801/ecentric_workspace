@@ -437,3 +437,53 @@ class TestProcessPreview(FrappeTestCase):
         self.assertEqual(det["process_preview"], [])
         self.assertGreaterEqual(len(det["levels"]), 2)
         self.assertTrue(det["approval"]["name"])
+
+
+class TestSubmitDraftAPI(FrappeTestCase):
+    """submit_request as the draft-detail primary action: owner-only, blocks non-Draft, clean payload."""
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def test_owner_can_submit_own_draft(self):
+        a = _user("zzb3_sd_a@example.com"); req = _user("zzb3_sd_r@example.com")
+        _proc_with_fulfiller(a, a)
+        frappe.set_user(req)
+        res = api.save_draft(payload=frappe.as_json({
+            "account_mode": "New Account", "ai_tool": _tool(),
+            "proposed_account_email": "sd@example.com",
+            "proposed_account_manager": _user("zzb3_sd_pm@example.com"),
+            "request_title": "SD", "requested_amount": 100}))
+        out = api.submit_request(res["name"])
+        self.assertTrue(out.get("submitted"))
+        self.assertTrue(out["detail"]["approval"]["name"])          # runtime request created
+        frappe.set_user("Administrator")
+        self.assertTrue(frappe.db.get_value(api.BIZ, res["name"], "approval_request"))
+
+    def test_non_owner_cannot_submit_others_draft(self):
+        a = _user("zzb3_sd_a2@example.com"); req = _user("zzb3_sd_r2@example.com"); other = _user("zzb3_sd_o2@example.com")
+        _proc_with_fulfiller(a, a)
+        doc = frappe.get_doc({"doctype": "EC AI Topup Request", "account_mode": "New Account",
+                              "ai_tool": _tool(), "proposed_account_email": "sd2@example.com",
+                              "proposed_account_manager": _user("zzb3_sd_pm2@example.com"),
+                              "request_title": "SD2", "requested_by": req}).insert(ignore_permissions=True)
+        frappe.set_user(other)
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.submit_request(doc.name)
+
+    def test_submitting_non_draft_is_blocked(self):
+        a = _user("zzb3_sd_a3@example.com"); req = _user("zzb3_sd_r3@example.com")
+        _proc_with_fulfiller(a, a)
+        name = _submit_fin(req, a, 100)                              # already submitted
+        frappe.set_user(req)
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.submit_request(name)
+        frappe.set_user("Administrator")
+
+    def test_can_submit_capability_true_for_draft_owner(self):
+        req = _user("zzb3_sd_r4@example.com")
+        doc = _draft(req)
+        frappe.set_user(req)
+        cap = api.get_request_detail(doc.name)["capabilities"]
+        self.assertTrue(cap["can_submit"])
+        self.assertTrue(cap["can_cancel"])

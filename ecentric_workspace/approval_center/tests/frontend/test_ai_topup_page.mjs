@@ -261,6 +261,52 @@ async function run(){
     levels:[{level_no:1,level_name:"Direct Manager",level_status:"Approved"}], approvers:[] };
   ok(/Đã hủy/.test(w.AITopup.buildStepper(caDet)), "cancelled fulfillment renders readable");
 
+  // ---- UAT: submit-vs-draft UX ----
+  const OC = w.frappe.call.bind(w.frappe);
+  // Draft detail action panel (owner: can_submit true)
+  const dp = w.AITopup.actionPanelHTML({ capabilities:{ can_submit:true, can_edit:true, can_cancel:true }, approval:{} });
+  ok(/data-act="submitdraft"/.test(dp) && /Gửi phê duyệt/.test(dp), "draft detail shows 'Gửi phê duyệt'");
+  ok(/data-act="editdraft"/.test(dp) && /Tiếp tục chỉnh sửa/.test(dp), "draft detail shows 'Tiếp tục chỉnh sửa'");
+  ok(/data-act="cancel"/.test(dp) && /Hủy yêu cầu/.test(dp), "draft detail shows 'Hủy yêu cầu'");
+  ok(!/data-act="edit">/.test(dp), "draft panel uses editdraft, not the resubmit-style edit");
+  // non-draft panel unchanged
+  const ndp = w.AITopup.actionPanelHTML({ capabilities:{ can_approve:true }, approval:{ name:"AR-1", approval_status:"Pending" } });
+  ok(/Duyệt/.test(ndp) && !/submitdraft/.test(ndp), "non-draft action panel unchanged");
+  // draft status copy
+  ok(/Nháp — chưa gửi phê duyệt/.test(w.AITopup.headerStatusHTML({}, {})), "draft status copy 'Nháp — chưa gửi phê duyệt'");
+  ok(!/Nháp — chưa gửi/.test(w.AITopup.headerStatusHTML({ name:"AR-1", approval_status:"Pending" }, {})), "submitted request uses the normal status badge");
+
+  // primary create action calls the submit path (save_draft + submit_request), not draft-only
+  freshCtx(); w.AITopup.state.boot.form_options.ai_tools = [{ value:"Claude", label:"Claude" }];
+  w.AITopup.state.draft = { account_mode:"New Account", request_title:"T", ai_tool:"Claude", proposed_account_email:"e@x", proposed_account_manager:"m@x", request_type:"Renewal" };
+  let calls = []; w.frappe.call = (o) => { calls.push(o.method); return OC(o); };
+  w.AITopup.render(); await flush();
+  ok(/Lưu nháp/.test(w.document.getElementById("ait-save").textContent), "Lưu nháp remains a secondary action");
+  ok(/Gửi phê duyệt/.test(w.document.getElementById("ait-submit").textContent), "primary create button submits (Gửi phê duyệt)");
+  w.document.getElementById("ait-submit").click(); await flush(); await flush();
+  ok(calls.some(m => /save_draft/.test(m)) && calls.some(m => /submit_request/.test(m)), "primary create action calls save+submit (not draft-only)");
+  // save-draft is draft-only (no submit)
+  calls = []; w.AITopup.render(); await flush();
+  w.document.getElementById("ait-save").click(); await flush(); await flush();
+  ok(calls.some(m => /save_draft/.test(m)) && !calls.some(m => /submit_request/.test(m)), "Save Draft is draft-only (keeps request Draft, no submit)");
+  w.frappe.call = OC;
+
+  // editing a draft hydrates its values back into the create form
+  freshCtx(); w.AITopup.state.boot.form_options.ai_tools = [{ value:"Claude", label:"Claude" }];
+  w.AITopup.startEditDraft({ business:{ name:"R-9", request_title:"Hydrated Title", account_mode:"New Account", ai_tool:"Claude", proposed_account_email:"h@x" } });
+  await flush();
+  ok(/Hydrated Title/.test(w.document.getElementById("ait-body").innerHTML) && w.AITopup.state.id === "R-9" && w.AITopup.state.mode === "create", "editing draft hydrates values into the create form");
+
+  // draft-detail 'Gửi phê duyệt' calls the submit wrapper + refreshes detail; success shows friendly VN copy
+  let c2 = []; w.frappe.call = (o) => { c2.push(o.method); return OC(o); };
+  w.AITopup.state.tab = "detail"; w.AITopup.state.id = "R-3"; w.AITopup.state.busy = false;
+  w.AITopup.doSubmitDraft("R-3"); await flush(); await flush();
+  ok(c2.some(m => /submit_request/.test(m)), "draft-detail 'Gửi phê duyệt' calls submit_request");
+  ok(c2.some(m => /get_request_detail/.test(m)), "after submit, detail refreshes (re-fetch to Manager current)");
+  ok(w.document.getElementById("ait-toast").textContent === "Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến Quản lý trực tiếp phê duyệt.", "submit success shows friendly VN message");
+  ok(!/shared|read access|share/i.test(w.document.getElementById("ait-toast").textContent), "no raw Frappe share/read-access text in the success message");
+  w.frappe.call = OC;
+
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);
 }
