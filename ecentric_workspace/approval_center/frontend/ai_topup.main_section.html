@@ -109,11 +109,11 @@
   #ec-ait-root .toast{ position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--gray-900);color:#fff;padding:11px 18px;border-radius:10px;font-size:13.5px;opacity:0;pointer-events:none;transition:.2s;z-index:60; }
   #ec-ait-root .toast.show{ opacity:1;transform:translateX(-50%) translateY(0); }
   #ec-ait-root .toast.err{ background:var(--red); }
-  #ec-ait-root .overlay{ position:fixed;inset:0;background:rgba(17,24,39,.45);display:flex;align-items:center;justify-content:center;z-index:80;padding:16px; }
-  #ec-ait-root .modal{ background:#fff;border-radius:14px;max-width:520px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.25);overflow:hidden; }
-  #ec-ait-root .modal-h{ padding:15px 20px;border-bottom:1px solid var(--gray-200);font-weight:700;font-size:15px;color:var(--gray-900); }
-  #ec-ait-root .modal-b{ padding:16px 20px;max-height:62vh;overflow:auto; } #ec-ait-root .modal-b .fld{ margin-bottom:12px; }
-  #ec-ait-root .modal-f{ padding:13px 20px;border-top:1px solid var(--gray-200);display:flex;justify-content:flex-end;gap:10px; }
+  #ec-ait-root .ec-ait-overlay{ position:fixed;inset:0;background:rgba(17,24,39,.45);display:flex !important;align-items:center;justify-content:center;z-index:9999;padding:16px; }
+  #ec-ait-root .ec-ait-modal{ display:flex !important;flex-direction:column;background:#fff;border-radius:14px;width:min(640px, calc(100vw - 32px));max-width:640px;max-height:calc(100vh - 48px);box-shadow:0 20px 50px rgba(0,0,0,.25);overflow:hidden; }
+  #ec-ait-root .ec-ait-modal-h{ padding:15px 20px;border-bottom:1px solid var(--gray-200);font-weight:700;font-size:15px;color:var(--gray-900);flex:0 0 auto; }
+  #ec-ait-root .ec-ait-modal-b{ padding:16px 20px;overflow:auto;flex:1 1 auto; } #ec-ait-root .ec-ait-modal-b .fld{ margin-bottom:12px; }
+  #ec-ait-root .ec-ait-modal-f{ padding:13px 20px;border-top:1px solid var(--gray-200);display:flex;justify-content:flex-end;gap:10px;flex:0 0 auto; }
   #ec-ait-root .apanel{ display:flex;gap:10px;flex-wrap:wrap; }
   #ec-ait-root .tl-item{ display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray-100); }
   #ec-ait-root .tl-dot{ width:10px;height:10px;border-radius:50%;background:var(--navy);margin-top:5px;flex-shrink:0; }
@@ -142,7 +142,7 @@
   @media (max-width:760px){ #ec-ait-root .rmx{ flex-direction:column;gap:10px; } #ec-ait-root .rmx-step{ min-width:0;text-align:left;display:flex;gap:10px;align-items:flex-start;padding:0; } #ec-ait-root .rmx-step::after{ display:none !important; } #ec-ait-root .rmx-dot{ margin:0; } }
   @media (max-width:1024px){ #ec-ait-root .content{ padding:18px 16px 40px; } }
   @media (max-width:640px){ #ec-ait-root table.tbl{ display:block; overflow-x:auto; white-space:nowrap; }
-    #ec-ait-root .modal{ max-height:88vh; } #ec-ait-root .actions{ position:sticky; bottom:0; } }
+    #ec-ait-root .ec-ait-modal{ max-height:calc(100vh - 24px); } #ec-ait-root .actions{ position:sticky; bottom:0; } }
   @media (max-width:900px){ #ec-ait-root{ grid-template-columns:1fr; } #ec-ait-root .ec-sidebar{ display:none; } #ec-ait-root .grid2{ grid-template-columns:1fr; } }
 </style>
 
@@ -559,10 +559,10 @@
   function refreshApprovals(){ if(state.tab==="my-approvals") renderMyApprovals($("ait-body")); }
 
   function modal(title, bodyHTML, opts){ opts=opts||{}; var prevFocus=document.activeElement;
-    var ov=document.createElement("div"); ov.className="overlay ec-ait-overlay";
-    ov.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><div class="modal-h">'+esc(title)+'</div><div class="modal-b">'+bodyHTML+'</div><div class="modal-f"><button type="button" class="btn" data-x aria-label="Đóng">Đóng</button><button type="button" class="btn primary" data-ok>'+esc(opts.okLabel||"Xác nhận")+'</button></div></div>';
+    var ov=document.createElement("div"); ov.className="ec-ait-overlay";
+    ov.innerHTML='<div class="ec-ait-modal" role="dialog" aria-modal="true" aria-labelledby="ec-ait-modal-title"><div class="ec-ait-modal-h" id="ec-ait-modal-title">'+esc(title)+'</div><div class="ec-ait-modal-b">'+bodyHTML+'</div><div class="ec-ait-modal-f"><button type="button" class="btn" data-x aria-label="Đóng">Đóng</button><button type="button" class="btn primary" data-ok>'+esc(opts.okLabel||"Xác nhận")+'</button></div></div>';
     (document.getElementById("ec-ait-root")||document.body).appendChild(ov); function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); if(prevFocus&&prevFocus.focus) try{prevFocus.focus();}catch(e){} }
-    var first=ov.querySelector(".modal-b input,.modal-b select,.modal-b textarea")||ov.querySelector("[data-ok]"); if(first&&first.focus) try{first.focus();}catch(e){}
+    var first=ov.querySelector(".ec-ait-modal-b input,.ec-ait-modal-b select,.ec-ait-modal-b textarea")||ov.querySelector("[data-ok]"); if(first&&first.focus) try{first.focus();}catch(e){}
     ov.addEventListener("keydown",function(e){ if(e.key==="Escape") close(); });
     ov.querySelector("[data-x]").onclick=close; ov.addEventListener("click",function(e){ if(e.target===ov) close(); });
     var ok=ov.querySelector("[data-ok]");
@@ -668,6 +668,15 @@
       buttons:btns.map(function(b){ return { text:(b.textContent||"").trim(),
         act:(b.getAttribute("data-act")||b.getAttribute("data-action")||""), disabled:!!b.disabled,
         type:(b.getAttribute("type")||"") }; }) };
+  };
+  window.ecAiTopupDebugModal=function(){
+    var ov=document.querySelector(".ec-ait-overlay"); var md=document.querySelector(".ec-ait-modal");
+    function info(el){ if(!el) return null; var r=(el.getBoundingClientRect?el.getBoundingClientRect():{});
+      var cs=(window.getComputedStyle?window.getComputedStyle(el):{});
+      return { rect:{ x:r.x, y:r.y, width:r.width, height:r.height },
+        display:cs.display, visibility:cs.visibility, opacity:cs.opacity, zIndex:cs.zIndex }; }
+    return { overlayExists:!!ov, modalExists:!!md, modalInsideOverlay:!!(ov&&md&&ov.contains(md)),
+      overlay:info(ov), modal:info(md), modalText:(md?(md.textContent||"").trim().slice(0,100):"") };
   };
 
   function timelineHTML(items){ if(!items||!items.length) return '<div class="hint">Chưa có hoạt động.</div>';
