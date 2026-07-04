@@ -350,3 +350,67 @@ def submit_request(name):
     from ecentric_workspace.approval_center.ai_topup import service as svc
     approval_request = svc.submit(name)
     return {"approval_request": approval_request, "detail": get_request_detail(name)}
+
+
+# --------------------------------------------------------------------------- #
+# B3.3 write wrappers - thin; call B1/B2 services (no orchestration duplicated).
+# --------------------------------------------------------------------------- #
+def _resolve_req(name):
+    doc = frappe.get_doc(BIZ, name)
+    if not doc.approval_request:
+        frappe.throw(_("This request has not been submitted."))
+    return doc, doc.approval_request
+
+
+@frappe.whitelist(methods=["POST"])
+def approve(name, comment=None, approved_amount=None):
+    from ecentric_workspace.approval_center.engine import service as engine
+    from ecentric_workspace.approval_center.ai_topup import service as svc
+    doc, req = _resolve_req(name)
+    if approved_amount not in (None, ""):
+        # Finance amount adjustment -> dedicated service (logs Amount Adjusted,
+        # enforces mandatory comment when != requested); it then calls engine.approve.
+        svc.finance_approve(name, approved_amount=approved_amount, comment=comment)
+    else:
+        engine.approve(req, comment=comment)   # engine re-checks pending approver + level + duplicate
+    return {"detail": get_request_detail(name)}
+
+
+@frappe.whitelist(methods=["POST"])
+def reject(name, comment=None):
+    from ecentric_workspace.approval_center.engine import service as engine
+    doc, req = _resolve_req(name)
+    engine.reject(req, comment=comment)        # engine enforces mandatory reason + terminal
+    return {"detail": get_request_detail(name)}
+
+
+@frappe.whitelist(methods=["POST"])
+def request_information(name, comment=None):
+    from ecentric_workspace.approval_center.engine import service as engine
+    doc, req = _resolve_req(name)
+    engine.request_information(req, comment=comment)   # engine enforces mandatory comment
+    return {"detail": get_request_detail(name)}
+
+
+@frappe.whitelist(methods=["POST"])
+def resubmit(name, payload=None):
+    from ecentric_workspace.approval_center.ai_topup import service as svc
+    if payload:
+        save_draft(name=name, payload=payload)   # owner guard + controller validation
+    res = svc.resubmit(name)                     # material_signature comparison is authoritative
+    return {"restarted": bool(res.get("restarted")), "detail": get_request_detail(name)}
+
+
+@frappe.whitelist(methods=["POST"])
+def cancel(name, reason=None):
+    from ecentric_workspace.approval_center.engine import service as engine
+    user = frappe.session.user
+    doc = frappe.get_doc(BIZ, name)
+    req = _req_of(name)
+    if not _capabilities(user, doc, req)["can_cancel"]:
+        frappe.throw(_("You are not allowed to cancel this request."), frappe.PermissionError)
+    if req:
+        engine.cancel(req, reason=reason)        # engine enforces mandatory reason + audit
+        return {"detail": get_request_detail(name)}
+    frappe.delete_doc(BIZ, name, ignore_permissions=True)   # discard a never-submitted draft
+    return {"deleted": True}

@@ -14,6 +14,11 @@ function boot(){
     { runScripts: "outside-only", url: "https://x.test/approvals/ai-topup?tab=create" });
   const w = dom.window;
   w.frappe = { call: (o) => {
+    if (o.method.endsWith("list_my_approvals")) return Promise.resolve({ message: { rows: (o.args.section==="pending"?[{name:"R-1",requested_by:"u@x",department:"D",ai_tool:"T",requested_amount:100,level_no:2,my_status:"Pending"}]:[]) } });
+    if (o.method.endsWith("get_request_detail")) return Promise.resolve({ message: { business:{name:"R-1",ai_tool:"T",requested_amount:100,currency:"VND"}, approval:{approval_status:"Pending",current_level:2}, fulfillment:{status:"Not Started"},
+      levels:[{level_no:1,level_name:"Manager",approval_mode:"Any One",level_status:"Approved"},{level_no:2,level_name:"Finance Review",approval_mode:"Any One",level_status:"In Progress"}],
+      approvers:[{level_no:2,approver:"me@x",status:"Pending"}], attachments:[], timeline:[{action:"Submitted",actor:"u@x",action_time:"2026-07-06 09:00"}],
+      capabilities:{can_approve:true,can_reject:true,can_request_information:true,can_edit:false,can_cancel:false} } });
     if (o.method.endsWith("get_bootstrap")) return Promise.resolve({ message: {
       tabs:{create:true,my_requests:true,my_approvals:false,fulfillment:false},
       context:{user:"u@x",employee_name:"U",department:"D",company:"C",manager_user:"m@x",manager_resolvable:true},
@@ -58,6 +63,21 @@ async function run(){
   w.history.pushState({}, "", "/approvals/ai-topup?tab=my-requests"); w.AITopup.route(); await flush();
   ok(w.location.search.includes("my-requests"), "route to my-requests reflected in URL");
 
+
+  // ---- B3.3 unit tests ----
+  ok(/Duyệt/.test(w.AITopup.actionPanelHTML({capabilities:{can_approve:true}})), "action panel shows Duyệt when can_approve");
+  ok(/Chỉnh sửa & gửi lại/.test(w.AITopup.actionPanelHTML({capabilities:{can_edit:true},approval:{approval_status:"Information Required"}})), "action panel shows edit+resubmit on Information Required");
+  ok(/Không có hành động/.test(w.AITopup.actionPanelHTML({capabilities:{}})), "action panel empty state");
+  ok(/Đã gửi/.test(w.AITopup.timelineHTML([{action:"Submitted",actor:"u",action_time:"2026-07-06 09:00"}])), "timeline maps action to Vietnamese");
+  ok(/Chưa có hoạt động/.test(w.AITopup.timelineHTML([])), "timeline empty state");
+  ok(/không còn quyền/.test(w.AITopup.mapErr({message:"You are not a pending approver for the current level."})), "concurrency: pending-approver message");
+  ok(/vừa được cập nhật/.test(w.AITopup.mapErr({message:"Request is Approved; no further action is allowed."})), "concurrency: terminal message");
+  // modal opens + closes
+  var mm=w.AITopup.modal("T","<div>x</div>",{}); ok(!!w.document.querySelector(".overlay"), "modal opens overlay"); mm.close(); ok(!w.document.querySelector(".overlay"), "modal closes");
+  // My Approvals tab renders actionable section with quick actions
+  w.history.pushState({},"","/approvals/ai-topup?tab=my-approvals"); w.AITopup.route(); await flush(); await flush();
+  ok(/Cần tôi xử lý/.test(w.document.body.innerHTML), "My Approvals renders 'Cần tôi xử lý' section");
+  ok(!!w.document.querySelector('[data-quick="approve"]'), "actionable row has Duyệt quick action");
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);
 }

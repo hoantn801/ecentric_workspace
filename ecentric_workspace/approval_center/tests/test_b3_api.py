@@ -127,3 +127,84 @@ class TestB3WriteAndSafeguards(FrappeTestCase):
         rows = api.search_active_users(query="a")
         if rows:
             self.assertEqual(set(rows[0].keys()), {"value", "email", "label"})
+
+
+def _active_proc(l1_user, l2_users):
+    for p in frappe.get_all("EC Approval Process",
+                            filters={"approval_type": "AI_TOPUP", "status": "Active"}, pluck="name"):
+        frappe.db.set_value("EC Approval Process", p, "status", "Retired")
+    code = "ZZB3A_" + frappe.generate_hash(length=5)
+    p = frappe.get_doc({"doctype": "EC Approval Process", "process_code": code, "title": code,
+                        "approval_type": "AI_TOPUP", "status": "Draft"}).insert(ignore_permissions=True)
+    l1 = frappe.get_doc({"doctype": "EC Approval Level", "approval_process": p.name, "level_no": 1,
+                         "level_name": "Manager", "approval_mode": "Any One"})
+    l1.append("participants", {"participant_purpose": "Approver", "source_type": "User", "user": l1_user})
+    l1.insert(ignore_permissions=True)
+    l2 = frappe.get_doc({"doctype": "EC Approval Level", "approval_process": p.name, "level_no": 2,
+                         "level_name": "Finance Review", "approval_mode": "Any One"})
+    for u in l2_users:
+        l2.append("participants", {"participant_purpose": "Approver", "source_type": "User", "user": u})
+    l2.insert(ignore_permissions=True)
+    p.status = "Active"; p.save(ignore_permissions=True)
+    return p.name
+
+
+def _submit_as(requester, l1_user, l2_users):
+    doc = frappe.get_doc({"doctype": "EC AI Topup Request", "account_mode": "New Account",
+                          "ai_tool": _tool(), "proposed_account_email": "s@example.com",
+                          "proposed_account_manager": _user("zzb3_spm@example.com"),
+                          "requested_by": requester}).insert(ignore_permissions=True)
+    frappe.set_user(requester)
+    api.submit_request(doc.name)
+    frappe.set_user("Administrator")
+    return doc.name
+
+
+class TestB3Actions(FrappeTestCase):
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def test_my_approvals_scope_and_actions(self):
+        a = _user("zzb3_apr@example.com"); other = _user("zzb3_oth@example.com")
+        req = _user("zzb3_req@example.com")
+        _active_proc(a, ["zzb3_fin@example.com"])
+        name = _submit_as(req, a, ["zzb3_fin@example.com"])
+        frappe.set_user(a)
+        pend = api.list_my_approvals(section="pending")["rows"]
+        self.assertTrue(any(r["name"] == name for r in pend))
+        frappe.set_user(other)
+        self.assertFalse(any(r["name"] == name for r in api.list_my_approvals(section="pending")["rows"]))
+
+    def test_reject_reason_required_and_unrelated_denied(self):
+        a = _user("zzb3_apr@example.com"); other = _user("zzb3_oth@example.com"); req = _user("zzb3_req@example.com")
+        _active_proc(a, ["zzb3_fin@example.com"])
+        name = _submit_as(req, a, ["zzb3_fin@example.com"])
+        frappe.set_user(a)
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.reject(name, comment="")             # reason required (engine)
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.request_information(name, comment="")  # comment required (engine)
+        frappe.set_user(other)
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.approve(name)                          # not a pending approver
+
+    def test_approve_then_duplicate_blocked(self):
+        a = _user("zzb3_apr@example.com"); req = _user("zzb3_req@example.com")
+        _active_proc(a, [a])   # a is approver at both levels (Any One)
+        name = _submit_as(req, a, [a])
+        frappe.set_user(a)
+        api.approve(name)                              # L1 -> advances to L2
+        api.approve(name)                              # L2 -> Approved
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.approve(name)                          # terminal -> blocked
+
+    def test_cancel_draft_and_capability(self):
+        req = _user("zzb3_req@example.com"); other = _user("zzb3_oth@example.com")
+        doc = _draft(req)
+        frappe.set_user(other)
+        with self.assertRaises(frappe.exceptions.PermissionError):
+            api.cancel(doc.name, reason="x")
+        frappe.set_user(req)
+        res = api.cancel(doc.name, reason="không cần nữa")
+        self.assertTrue(res.get("deleted"))
+        self.assertFalse(frappe.db.exists(api.BIZ, doc.name))
