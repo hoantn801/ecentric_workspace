@@ -143,6 +143,8 @@ def complete_fulfillment(name, user=None):
     doc = frappe.get_doc(BUSINESS_DT, name)
     if doc.fulfillment_owner != user and "System Manager" not in frappe.get_roles(user):
         frappe.throw(_("Only the claimed owner or a System Manager may complete this request."))
+    if not doc.actual_tax_fee_basis:
+        doc.actual_tax_fee_basis = doc.tax_fee_basis or "Included"   # safe default; no VAT calculation
     doc.fulfillment_status = "Completed"
     doc.save(ignore_permissions=True)
     _upsert_account(doc)
