@@ -48,6 +48,8 @@ def submit(name):
         doc.company = doc.company or emp.company
     if not (doc.request_title or "").strip():
         frappe.throw(_("Request title is required before submitting."))
+    if not doc.approved_amount and doc.requested_amount:
+        doc.approved_amount = doc.requested_amount   # controlled default (== requested); NOT a Finance adjustment
     doc.request_datetime = now_datetime()
     doc.material_signature = _signature(doc)
     doc.save(ignore_permissions=True)
@@ -76,6 +78,9 @@ def finance_approve(name, approved_amount=None, comment=None, actor=None):
     if not engine._actor_pending_row(doc.approval_request, cl, eff):
         frappe.throw(_("You are not a pending approver for the current level."))
     if approved_amount is not None:
+        if (doc.requested_amount is not None and float(approved_amount) != float(doc.requested_amount)
+                and not (comment or "").strip()):
+            frappe.throw(_("A finance comment is mandatory when approved_amount differs from requested_amount."))
         doc.approved_amount = approved_amount
         doc.finance_adjustment_comment = comment
         doc.save(ignore_permissions=True)

@@ -143,10 +143,12 @@ class TestPhaseASchema(FrappeTestCase):
                             "reference_doctype": "EC Approval Process", "reference_name": p.name,
                             "approval_process": p.name, "approval_status": "Pending"}).insert(ignore_permissions=True)
 
-    def test_finance_comment_required(self):
-        with self.assertRaises(frappe.exceptions.ValidationError):
-            frappe.get_doc({"doctype": "EC AI Topup Request", "requested_amount": 100,
+    def test_finance_comment_not_unconditional_at_doctype(self):
+        # DocType must NOT block a differing approved/requested amount on plain save/submit;
+        # the mandatory-comment rule lives in ai_topup.service.finance_approve (Finance action only).
+        d = frappe.get_doc({"doctype": "EC AI Topup Request", "requested_amount": 100,
                             "approved_amount": 80}).insert(ignore_permissions=True)
+        self.assertTrue(d.name)
 
     def test_completion_requires_evidence(self):
         with self.assertRaises(frappe.exceptions.ValidationError):

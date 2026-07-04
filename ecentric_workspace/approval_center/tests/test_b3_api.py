@@ -317,3 +317,97 @@ class TestRequestTitle(FrappeTestCase):
         with self.assertRaises(frappe.exceptions.ValidationError):
             api.save_draft(payload=frappe.as_json({
                 "account_mode": "New Account", "request_title": "X"}))     # missing ai_tool/proposed_*
+
+
+def _ai_account():
+    email = "zzb3acc@example.com"
+    existing = frappe.get_all("EC AI Account", filters={"account_email": email}, pluck="name")
+    if existing:
+        return existing[0]
+    return frappe.get_doc({"doctype": "EC AI Account", "ai_tool": _tool(), "account_email": email,
+                           "account_manager": _user("zzb3_accm@example.com"), "status": "Active"}
+                          ).insert(ignore_permissions=True).name
+
+
+def _submit_fin(requester, approver, amount=100):
+    """New Account request with a requested_amount, submitted; L1/L2(Finance) approver = approver."""
+    doc = frappe.get_doc({"doctype": "EC AI Topup Request", "account_mode": "New Account",
+                          "ai_tool": _tool(), "proposed_account_email": "fc@example.com",
+                          "proposed_account_manager": _user("zzb3_fcpm@example.com"),
+                          "request_title": "FC - ZZB3 Tool - fc@example.com",
+                          "requested_amount": amount, "requested_by": requester}).insert(ignore_permissions=True)
+    frappe.set_user(requester)
+    api.submit_request(doc.name)
+    frappe.set_user("Administrator")
+    return doc.name
+
+
+class TestFinanceCommentValidation(FrappeTestCase):
+    """Finance-comment mandatory rule must apply ONLY on a Finance amount adjustment,
+    never on plain draft/save/submit (UAT: submit was wrongly blocked)."""
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def test_new_account_save_draft_no_finance_comment(self):
+        req = _user("zzb3_fcr@example.com")
+        frappe.set_user(req)
+        res = api.save_draft(payload=frappe.as_json({
+            "account_mode": "New Account", "ai_tool": _tool(),
+            "proposed_account_email": "fc1@example.com",
+            "proposed_account_manager": _user("zzb3_fcpm@example.com"),
+            "request_title": "T", "requested_amount": 100}))
+        self.assertTrue(res["name"])   # no finance-comment error
+
+    def test_new_account_submit_no_finance_comment(self):
+        req = _user("zzb3_fcr2@example.com"); a = _user("zzb3_fca2@example.com")
+        _proc_with_fulfiller(a, a)
+        name = _submit_fin(req, a, 100)                       # must not raise
+        self.assertEqual(float(frappe.db.get_value(api.BIZ, name, "approved_amount")), 100.0)  # controlled default
+
+    def test_existing_account_submit_no_finance_comment(self):
+        req = _user("zzb3_fcr3@example.com"); a = _user("zzb3_fca3@example.com")
+        _proc_with_fulfiller(a, a); acc = _ai_account()
+        frappe.set_user(req)
+        res = api.save_draft(payload=frappe.as_json({
+            "account_mode": "Existing Account", "ai_account": acc,
+            "request_title": "T3", "requested_amount": 50}))
+        api.submit_request(res["name"])                      # must not raise
+        frappe.set_user("Administrator")
+
+    def test_finance_equal_amount_no_comment_ok(self):
+        req = _user("zzb3_fcr4@example.com"); a = _user("zzb3_fca4@example.com")
+        _proc_with_fulfiller(a, a); name = _submit_fin(req, a, 100)
+        frappe.set_user(a)
+        api.approve(name)                                    # L1
+        api.approve(name, approved_amount=100)               # L2 Finance, equal -> no comment required
+        frappe.set_user("Administrator")
+        ar = frappe.db.get_value(api.BIZ, name, "approval_request")
+        self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "approval_status"), "Approved")
+
+    def test_finance_diff_amount_requires_comment(self):
+        req = _user("zzb3_fcr5@example.com"); a = _user("zzb3_fca5@example.com")
+        _proc_with_fulfiller(a, a); name = _submit_fin(req, a, 100)
+        frappe.set_user(a)
+        api.approve(name)                                    # L1
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.approve(name, approved_amount=80)            # diff, no comment -> blocked in service
+
+    def test_finance_diff_amount_with_comment_ok(self):
+        req = _user("zzb3_fcr6@example.com"); a = _user("zzb3_fca6@example.com")
+        _proc_with_fulfiller(a, a); name = _submit_fin(req, a, 100)
+        frappe.set_user(a)
+        api.approve(name)                                    # L1
+        api.approve(name, approved_amount=80, comment="giảm theo ngân sách")
+        frappe.set_user("Administrator")
+        self.assertEqual(float(frappe.db.get_value(api.BIZ, name, "approved_amount")), 80.0)
+
+    def test_non_finance_save_no_finance_validation(self):
+        req = _user("zzb3_fcr7@example.com")
+        d = frappe.get_doc({"doctype": "EC AI Topup Request", "account_mode": "New Account",
+                            "ai_tool": _tool(), "proposed_account_email": "fc7@example.com",
+                            "proposed_account_manager": _user("zzb3_fcpm7@example.com"),
+                            "request_title": "T7", "requested_amount": 100, "approved_amount": 80,
+                            "requested_by": req}).insert(ignore_permissions=True)   # differing amounts, no comment
+        d.reload(); d.operation_note = "x"; d.save(ignore_permissions=True)          # plain re-save must not raise
+        self.assertTrue(d.name)

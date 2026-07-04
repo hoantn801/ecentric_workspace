@@ -22,7 +22,6 @@ class ECAITopupRequest(Document):
     def validate(self):
         self._validate_account_mode()
         self._validate_subscription_dates()
-        self._finance_comment()
         self._department_snapshot_lock()
         self._fulfillment_needs_approval()
         self._completion()
@@ -47,12 +46,6 @@ class ECAITopupRequest(Document):
         if self.subscription_start_date and self.subscription_end_date:
             if self.subscription_end_date < self.subscription_start_date:
                 frappe.throw(_("Subscription end date cannot be before start date."))
-
-    def _finance_comment(self):
-        if (self.approved_amount is not None and self.requested_amount is not None
-                and self.approved_amount != self.requested_amount
-                and not (self.finance_adjustment_comment or "").strip()):
-            frappe.throw(_("A finance comment is mandatory when approved_amount differs from requested_amount."))
 
     def _department_snapshot_lock(self):
         if self.is_new() or not self.approval_request:
