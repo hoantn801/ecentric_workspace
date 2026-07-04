@@ -200,6 +200,11 @@ def _scope_status(biz, req):
     return req.approval_status
 
 
+def _active_level_count():
+    """Number of configured approval levels for the active AI_TOPUP process (for draft step labels)."""
+    return len(_process_preview(APPROVAL_TYPE))
+
+
 @frappe.whitelist()
 def list_my_requests(filters=None, start=0, page_length=20):
     user = frappe.session.user
@@ -221,11 +226,24 @@ def list_my_requests(filters=None, start=0, page_length=20):
                                   "currency", "fulfillment_status", "approval_request", "creation", "modified"],
                           limit_start=int(start), limit_page_length=page_length,
                           order_by="modified desc")  # fixed server-side sort (no client sort injection)
+    _alc = None
     for r in rows:
         ar = r.approval_request and frappe.db.get_value(
             "EC Approval Request", r.approval_request, ["approval_status", "current_level"], as_dict=True)
         r["approval_status"] = ar.approval_status if ar else "Draft"
         r["current_level"] = ar.current_level if ar else 0
+        if r.approval_request:
+            r["total_levels"] = frappe.db.count("EC Approval Request Level",
+                                                {"approval_request": r.approval_request})
+            r["current_level_name"] = (frappe.db.get_value(
+                "EC Approval Request Level",
+                {"approval_request": r.approval_request, "level_no": r["current_level"]}, "level_name")
+                if r["current_level"] else None)
+        else:
+            if _alc is None:
+                _alc = _active_level_count()
+            r["total_levels"] = _alc
+            r["current_level_name"] = None
     return {"rows": rows, "total": total}
 
 
@@ -252,7 +270,12 @@ def list_my_approvals(section="pending"):
         if biz:
             biz.update({"approval_request": r.approval_request, "level_no": r.level_no,
                         "approval_status": req.approval_status, "requested_by": req.requested_by,
-                        "my_status": r.status})
+                        "my_status": r.status,
+                        "total_levels": frappe.db.count("EC Approval Request Level",
+                                                        {"approval_request": r.approval_request}),
+                        "level_name": frappe.db.get_value("EC Approval Request Level",
+                                        {"approval_request": r.approval_request, "level_no": r.level_no},
+                                        "level_name")})
             out.append(biz)
     return {"rows": out}
 
