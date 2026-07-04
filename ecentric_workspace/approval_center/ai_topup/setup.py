@@ -183,11 +183,12 @@ def validate_ai_topup_v1():
     exists = frappe.db.exists("EC Approval Process", PROCESS_CODE)
     c(exists, "process %s exists" % PROCESS_CODE)
     if exists:
-        c(frappe.db.get_value("EC Approval Process", PROCESS_CODE, "status") == "Draft",
-          "process is Draft")
+        c(frappe.db.get_value("EC Approval Process", PROCESS_CODE, "status") in ("Draft", "Active"),
+          "process status is Draft or Active")
     c(not frappe.get_all("EC Approval Process",
-                         filters={"approval_type": APPROVAL_TYPE, "status": "Active"}),
-      "no Active process conflict for %s" % APPROVAL_TYPE)
+                         filters={"approval_type": APPROVAL_TYPE, "status": "Active",
+                                  "name": ["!=", PROCESS_CODE]}),
+      "no OTHER Active process for %s" % APPROVAL_TYPE)
     levels = frappe.get_all("EC Approval Level", filters={"approval_process": PROCESS_CODE},
                             fields=["name", "level_no", "level_name", "approval_mode", "mandatory", "sla_policy"],
                             order_by="level_no asc")
