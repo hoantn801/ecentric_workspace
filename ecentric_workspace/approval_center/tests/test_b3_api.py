@@ -669,3 +669,76 @@ class TestListStepData(FrappeTestCase):
         row = [r for r in api.list_my_approvals(section="pending")["rows"] if r["name"] == name][0]
         self.assertEqual(row["total_levels"], 3)
         self.assertTrue(row["level_name"])
+
+
+def _proc_todo(m, o1, o2, fin, f):
+    for p in frappe.get_all("EC Approval Process",
+                            filters={"approval_type": "AI_TOPUP", "status": "Active"}, pluck="name"):
+        frappe.db.set_value("EC Approval Process", p, "status", "Retired")
+    code = "ZZB3TD_" + frappe.generate_hash(length=5)
+    p = frappe.get_doc({"doctype": "EC Approval Process", "process_code": code, "title": code,
+                        "approval_type": "AI_TOPUP", "status": "Draft"})
+    p.append("participants", {"participant_purpose": "Fulfiller", "source_type": "User", "user": f})
+    p.insert(ignore_permissions=True)
+    for no, nm, apprs in [(1, "Manager", [m]), (2, "Operation Review", [o1, o2]), (3, "Finance Review", [fin])]:
+        lv = frappe.get_doc({"doctype": "EC Approval Level", "approval_process": p.name, "level_no": no,
+                             "level_name": nm, "approval_mode": "Any One"})
+        for u in apprs:
+            lv.append("participants", {"participant_purpose": "Approver", "source_type": "User", "user": u})
+        lv.insert(ignore_permissions=True)
+    p.status = "Active"; p.save(ignore_permissions=True)
+    return p.name
+
+
+class TestAssignmentToDos(FrappeTestCase):
+    """ToDos follow the pending approver(s) and close as the request advances (idempotent)."""
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def _open(self, name, user=None):
+        flt = {"reference_type": api.BIZ, "reference_name": name, "status": "Open"}
+        if user:
+            flt["allocated_to"] = user
+        return frappe.get_all("ToDo", filters=flt, pluck="allocated_to")
+
+    def test_todo_follows_levels_then_fulfillment(self):
+        m = _user("zzb3_td_m@example.com"); o1 = _user("zzb3_td_o1@example.com"); o2 = _user("zzb3_td_o2@example.com")
+        fin = _user("zzb3_td_fin@example.com"); f = _user("zzb3_td_f@example.com"); req = _user("zzb3_td_r@example.com")
+        _proc_todo(m, o1, o2, fin, f)
+        name = _submit_fin(req, m, 100)
+        # submit -> Manager has exactly one open ToDo (no duplicate), Operation not yet
+        self.assertEqual([u for u in self._open(name) if u == m], [m])
+        self.assertNotIn(o1, self._open(name))
+        # Manager approves -> Manager ToDo closed, Operation ToDos opened
+        frappe.set_user(m); api.approve(name); frappe.set_user("Administrator")
+        self.assertNotIn(m, self._open(name))
+        self.assertIn(o1, self._open(name)); self.assertIn(o2, self._open(name))
+        # Operation Any One (o1) approves -> o1+o2(skipped) closed, Finance opened
+        frappe.set_user(o1); api.approve(name); frappe.set_user("Administrator")
+        self.assertNotIn(o1, self._open(name)); self.assertNotIn(o2, self._open(name))
+        self.assertIn(fin, self._open(name))
+        # Finance approves -> Finance closed, fulfiller assigned
+        frappe.set_user(fin); api.approve(name); frappe.set_user("Administrator")
+        self.assertNotIn(fin, self._open(name))
+        self.assertIn(f, self._open(name))
+        # claim -> owner kept
+        frappe.set_user(f); api.claim_fulfillment(name); frappe.set_user("Administrator")
+        self.assertIn(f, self._open(name))
+        # complete -> all open ToDos closed
+        frappe.set_user(f)
+        api.complete_fulfillment(name, payload=frappe.as_json({
+            "actual_amount": 100, "actual_currency": "VND", "topup_datetime": frappe.utils.now_datetime(),
+            "transaction_reference": "T", "payment_proof": "/f/p", "invoice_status": "No Invoice Issued",
+            "no_invoice_reason": "no invoice", "confirmed_account_manager": f, "actual_account_email": "x@example.com"}))
+        frappe.set_user("Administrator")
+        self.assertEqual(self._open(name), [])
+
+    def test_no_duplicate_todos(self):
+        m = _user("zzb3_td_m2@example.com"); o1 = _user("zzb3_td_o12@example.com"); o2 = _user("zzb3_td_o22@example.com")
+        fin = _user("zzb3_td_fin2@example.com"); f = _user("zzb3_td_f2@example.com"); req = _user("zzb3_td_r2@example.com")
+        _proc_todo(m, o1, o2, fin, f)
+        name = _submit_fin(req, m, 100)
+        # re-reading detail / re-activating must not duplicate the Manager ToDo
+        api.get_request_detail(name); api.get_request_detail(name)
+        self.assertEqual(len(self._open(name, user=m)), 1)

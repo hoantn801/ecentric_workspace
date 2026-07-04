@@ -146,6 +146,7 @@ def complete_fulfillment(name, user=None):
     doc.fulfillment_status = "Completed"
     doc.save(ignore_permissions=True)
     _upsert_account(doc)
+    engine.close_todos(BUSINESS_DT, name)   # close the owner's fulfillment ToDo on completion
     engine.notify([doc.requested_by, doc.confirmed_account_manager, doc.fulfillment_owner],
                   _("AI Topup completed: {0}").format(name), BUSINESS_DT, name)
 

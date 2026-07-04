@@ -458,6 +458,41 @@ async function run(){
   ok(await opensInModal("reject", /Từ chối yêu cầu/), "reject modal renders inside .ec-ait-modal");
   ok(await opensInModal("cancel", /Hủy yêu cầu/), "cancel modal renders inside .ec-ait-modal");
 
+  // ---- UAT: fulfillment invoice conditional + business file naming ----
+  // completionErrors: payment proof + amount + txn ref always; invoice conditional
+  w.AITopup.state.comp = {};
+  ok(w.AITopup.completionErrors().some(e => /chứng từ thanh toán/.test(e)), "payment proof always required");
+  w.AITopup.state.comp = { payment_proof:"/f/p", actual_amount:10, invoice_status:"Invoice Available" };
+  ok(w.AITopup.completionErrors().some(e => /mã giao dịch/.test(e)), "transaction reference always required");
+  w.AITopup.state.comp = { payment_proof:"/f/p", actual_amount:10, transaction_reference:"T", invoice_status:"Invoice Available" };
+  ok(w.AITopup.completionErrors().some(e => /hóa đơn/.test(e)) && !w.AITopup.completionErrors().some(e => /lý do/.test(e)), "Invoice Available requires receipt, not a no-invoice reason");
+  w.AITopup.state.comp = { payment_proof:"/f/p", actual_amount:10, transaction_reference:"T", invoice_status:"Invoice Available", invoice_receipt:"/f/i" };
+  ok(w.AITopup.completionErrors().length === 0, "Invoice Available with receipt + txn passes");
+  w.AITopup.state.comp = { payment_proof:"/f/p", actual_amount:10, transaction_reference:"T", invoice_status:"No Invoice Issued" };
+  ok(w.AITopup.completionErrors().some(e => /lý do/.test(e)), "No Invoice Issued requires a reason");
+  w.AITopup.state.comp = { payment_proof:"/f/p", actual_amount:10, invoice_status:"No Invoice Issued", no_invoice_reason:"r" };
+  ok(w.AITopup.completionErrors().some(e => /mã giao dịch/.test(e)), "No Invoice Issued still requires transaction reference");
+
+  // applyInvoiceConditional toggles visibility
+  w.document.getElementById("ait-body").innerHTML = w.AITopup.fulfillmentSectionHTML({ approval:{ approval_status:"Approved" }, fulfillment:{ status:"In Progress", owner:"a@x" }, capabilities:{ can_complete:true }, business:{} });
+  w.AITopup.state.comp = { invoice_status:"Invoice Available" }; w.AITopup.applyInvoiceConditional();
+  ok(w.document.querySelector('[data-fld="no_invoice_reason"]').style.display === "none", "Có hóa đơn hides 'Lý do không hóa đơn'");
+  ok(w.document.querySelector('[data-fld="invoice_receipt"]').style.display !== "none", "Có hóa đơn shows invoice/receipt upload");
+  w.AITopup.state.comp = { invoice_status:"No Invoice Issued" }; w.AITopup.applyInvoiceConditional();
+  ok(w.document.querySelector('[data-fld="no_invoice_reason"]').style.display !== "none", "Không phát hành shows 'Lý do không hóa đơn'");
+  ok(w.document.querySelector('[data-fld="invoice_receipt"]').style.display === "none", "Không phát hành hides invoice/receipt upload");
+
+  // business file naming
+  const det6 = { business:{ name:"EC-AITOP-2026-00002", account_mode:"New Account", request_type:"Renewal" } };
+  const n1 = w.AITopup.normalizeEvidenceName(det6, "PaymentProof", "Screenshot 1.png", 1);
+  ok(n1 === "050726_AITOP_00002_NewAccount_Renewal_PaymentProof_01.png".replace(/^\d{6}/, n1.slice(0,6)), "payment-proof name follows business pattern");
+  ok(/_AITOP_00002_NewAccount_Renewal_PaymentProof_01\.png$/.test(n1), "name has shortcode/mode/type/evidence/seq + kept extension");
+  ok(!/@/.test(n1) && !/\s/.test(n1), "normalized name has no email and no spaces (sanitized)");
+  const n2 = w.AITopup.normalizeEvidenceName(det6, "Invoice", "download.pdf", 2);
+  ok(/_Invoice_02\.pdf$/.test(n2), "multiple files get sequence numbers + keep extension");
+  const det7 = { business:{ name:"EC-AITOP-2026-00007", account_mode:"Existing Account", request_type:"Top-up" } };
+  ok(/_AITOP_00007_ExistingAccount_Topup_PaymentProof_01\./.test(w.AITopup.normalizeEvidenceName(det7, "PaymentProof", "image.PNG", 1)), "existing-account/top-up naming + case-normalized ext");
+
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);
 }
