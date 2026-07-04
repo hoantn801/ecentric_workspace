@@ -12,7 +12,7 @@ BIZ = "EC AI Topup Request"
 APPROVAL_TYPE = "AI_TOPUP"
 OPEN = ("Pending", "Information Required")
 MAX_PAGE = 50
-_EDITABLE_DRAFT = ("account_mode", "ai_account", "ai_tool", "account_email", "account_manager",
+_EDITABLE_DRAFT = ("request_title", "account_mode", "ai_account", "ai_tool", "account_email", "account_manager",
                    "current_plan", "proposed_account_email", "proposed_account_manager", "proposed_plan",
                    "request_type", "requested_plan", "requested_amount", "currency", "needed_by",
                    "purpose", "requester_note", "subscription_start_date", "subscription_end_date",
@@ -210,7 +210,8 @@ def list_my_requests(filters=None, start=0, page_length=20):
     page_length = min(int(page_length or 20), MAX_PAGE)  # enforce max page size
     total = frappe.db.count(BIZ, flt)
     rows = frappe.get_all(BIZ, filters=flt,
-                          fields=["name", "ai_tool", "account_email", "request_type", "requested_amount",
+                          fields=["name", "request_title", "ai_tool", "account_mode", "account_email",
+                                  "proposed_account_email", "request_type", "requested_amount",
                                   "currency", "fulfillment_status", "approval_request", "creation", "modified"],
                           limit_start=int(start), limit_page_length=page_length,
                           order_by="modified desc")  # fixed server-side sort (no client sort injection)
@@ -240,7 +241,8 @@ def list_my_approvals(section="pending"):
         if section == "pending" and (req.approval_status not in OPEN or req.current_level != r.level_no):
             continue  # only actionable current-level rows
         biz = frappe.db.get_value(BIZ, req.reference_name,
-                                  ["name", "ai_tool", "account_email", "requested_amount", "department"], as_dict=True)
+                                  ["name", "request_title", "ai_tool", "account_mode", "account_email",
+                                   "proposed_account_email", "requested_amount", "department"], as_dict=True)
         if biz:
             biz.update({"approval_request": r.approval_request, "level_no": r.level_no,
                         "approval_status": req.approval_status, "requested_by": req.requested_by,

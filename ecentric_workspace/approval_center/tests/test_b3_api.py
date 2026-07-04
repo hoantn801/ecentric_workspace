@@ -272,3 +272,48 @@ class TestB3Fulfillment(FrappeTestCase):
         frappe.set_user(other)
         with self.assertRaises(frappe.exceptions.PermissionError):
             api.complete_fulfillment(name, payload="{}")
+
+
+class TestRequestTitle(FrappeTestCase):
+    """UAT polish 2: request_title save/require/list/detail + New Account backend guard."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.addClassCleanup(lambda: frappe.set_user("Administrator"))
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def test_save_draft_persists_title_and_shows_in_list_and_detail(self):
+        u = _user("zzb3_title@example.com")
+        frappe.set_user(u)
+        res = api.save_draft(payload=frappe.as_json({
+            "account_mode": "New Account", "ai_tool": _tool(),
+            "proposed_account_email": "t@example.com",
+            "proposed_account_manager": _user("zzb3_tpm@example.com"),
+            "request_title": "Renewal - ZZB3 Tool - t@example.com"}))
+        name = res["name"]
+        self.assertEqual(frappe.db.get_value(api.BIZ, name, "request_title"),
+                         "Renewal - ZZB3 Tool - t@example.com")
+        rows = api.list_my_requests()["rows"]
+        self.assertTrue(any(r.get("request_title") == "Renewal - ZZB3 Tool - t@example.com" for r in rows))
+        self.assertEqual(api.get_request_detail(name)["business"]["request_title"],
+                         "Renewal - ZZB3 Tool - t@example.com")
+
+    def test_submit_requires_title(self):
+        u = _user("zzb3_title2@example.com")
+        frappe.set_user(u)
+        res = api.save_draft(payload=frappe.as_json({
+            "account_mode": "New Account", "ai_tool": _tool(),
+            "proposed_account_email": "t2@example.com",
+            "proposed_account_manager": _user("zzb3_tpm2@example.com")}))   # no request_title
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.submit_request(res["name"])
+
+    def test_new_account_missing_fields_rejected_backend(self):
+        u = _user("zzb3_title3@example.com")
+        frappe.set_user(u)
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.save_draft(payload=frappe.as_json({
+                "account_mode": "New Account", "request_title": "X"}))     # missing ai_tool/proposed_*

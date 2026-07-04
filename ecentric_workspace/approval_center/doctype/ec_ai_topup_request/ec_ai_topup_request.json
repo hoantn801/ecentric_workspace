@@ -14,10 +14,11 @@
  "sort_order": "DESC",
  "autoname": "EC-AITOP-.YYYY.-.#####.",
  "naming_rule": "Expression",
- "title_field": "ai_tool",
+ "title_field": "request_title",
  "field_order": [
   "approval_type",
   "approval_request",
+  "request_title",
   "requested_by",
   "employee",
   "department",
@@ -81,6 +82,14 @@
   "fulfillment_sla_holiday_list"
  ],
  "fields": [
+  {
+   "fieldname": "request_title",
+   "fieldtype": "Data",
+   "label": "Request Title",
+   "length": 140,
+   "in_standard_filter": 1,
+   "description": "User-facing title. Auto-suggested from request type + tool + account; editable. Required at submit."
+  },
   {
    "fieldname": "approval_type",
    "fieldtype": "Link",

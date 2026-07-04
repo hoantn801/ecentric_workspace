@@ -108,7 +108,7 @@ async function run(){
   const cbody = () => w.document.getElementById("ait-body").innerHTML;
   // roadmap always visible on Create, exactly 6 compact steps, SLA note
   ok(/Quy trình xử lý yêu cầu/.test(cbody()), "roadmap card visible on Create tab");
-  ok((cbody().match(/class="rm-step"/g) || []).length === 6, "roadmap has exactly 6 steps");
+  ok((cbody().match(/class="rmx-step/g) || []).length === 6, "roadmap has exactly 6 steps");
   ok(/SLA 3 giờ làm việc/.test(cbody()) && /09:00.{0,3}12:00/.test(cbody()), "roadmap SLA note present with business-hours window");
   ok(!/id="d-stepper"/.test(cbody()) && !/class="stepper"/.test(cbody()), "roadmap does not duplicate the dynamic approval stepper");
   // account period label + empty state (scoped to the account field, not the summary card)
@@ -143,6 +143,80 @@ async function run(){
   w.AITopup.state.draft = { account_mode: "New Account" };
   w.AITopup.render(); await flush();
   ok(/Chưa có AI Tool nào\. Vui lòng tạo EC AI Tool trong Desk/.test(cbody()), "AI Tool empty-state message shown when no active tools");
+
+  // ---- UAT polish 2 (fix/approval-center-aitopup-uat-polish-2) ----
+  const setInput = (sel, val) => { const el = w.document.querySelector(sel); el.value = val; el.dispatchEvent(new w.Event("input", { bubbles: true })); };
+  const body = () => w.document.getElementById("ait-body").innerHTML;
+  const freshCtx = () => { w.AITopup.state.boot.context = { user:"u@x", employee:"EMP-1", employee_name:"U", department:"D", company:"C", manager_user:"m@x", manager_resolvable:true }; };
+  w.AITopup.state.boot.form_options.ai_tools = [{ value:"Claude", label:"Claude" }, { value:"ChatGPT", label:"ChatGPT" }];
+
+  // roadmap connected stepper
+  const rm = w.AITopup.roadmapHTML();
+  ok((rm.match(/class="rmx-step/g) || []).length === 6, "roadmap has exactly 6 steps (rmx)");
+  ok(/class="rmx"/.test(rm), "roadmap renders as connected stepper (.rmx container)");
+  ok(/class="rmx-step current"/.test(rm), "roadmap step 1 is highlighted (current)");
+  ok(/Tạo yêu cầu/.test(rm) && /Operation duyệt/.test(rm) && /Operation xử lý/.test(rm), "roadmap uses the new step labels");
+  ok(/SLA 3 giờ làm việc/.test(rm), "SLA note still appears below roadmap");
+
+  // request_title: visible + auto-suggest + required
+  freshCtx();
+  w.AITopup.state.draft = { account_mode:"New Account", request_type:"Renewal" };
+  w.AITopup.render(); await flush();
+  ok(!!w.document.querySelector('[data-model="request_title"]'), "request title field is visible");
+  setInput('[data-model="ai_tool"]', "Claude");
+  setInput('[data-model="proposed_account_email"]', "hoantn801@gmail.com");
+  ok(w.document.querySelector('[data-model="request_title"]').value === "Renewal - Claude - hoantn801@gmail.com", "request title auto-suggests from type + tool + account");
+  ok(w.AITopup.suggestTitle({ account_mode:"New Account", request_type:"New Subscription", ai_tool:"ChatGPT", proposed_account_email:"user@ecentric.vn" }) === "New Subscription - ChatGPT - user@ecentric.vn", "suggestTitle New Account format");
+  ok(w.AITopup.suggestTitle({ account_mode:"Existing Account", request_type:"Renewal", ai_tool:"Claude", account_email:"e@x" }) === "Renewal - Claude - e@x", "suggestTitle Existing Account format");
+
+  // New Account payload wiring — the actual UAT blocker (fields reach state.draft)
+  ok(w.AITopup.state.draft.ai_tool === "Claude", "New Account payload includes ai_tool");
+  ok(w.AITopup.state.draft.proposed_account_email === "hoantn801@gmail.com", "New Account payload includes proposed_account_email");
+  setInput('[data-model="proposed_account_manager"]', "mgr@x");
+  ok(w.AITopup.state.draft.proposed_account_manager === "mgr@x", "New Account payload includes proposed_account_manager");
+
+  // the switch scenario (Existing -> New) must wire the re-rendered sub-fields
+  freshCtx(); w.AITopup.state.draft = {}; w.AITopup.render(); await flush();
+  setInput('[data-model="account_mode"]', "New Account"); await flush();
+  setInput('[data-model="proposed_account_email"]', "switch@x");
+  ok(w.AITopup.state.draft.proposed_account_email === "switch@x", "New Account sub-fields wire after switching account_mode (bug fix)");
+
+  // validateSubmit blocks missing fields
+  w.AITopup.state.draft = { account_mode:"New Account" };
+  ok(!!(w.AITopup.validateSubmit() || {}).request_title, "submit blocked inline: request title required");
+  w.AITopup.state.draft = { account_mode:"New Account", request_title:"T" };
+  const vs = w.AITopup.validateSubmit() || {};
+  ok(vs.ai_tool && vs.proposed_account_email && vs.proposed_account_manager, "submit blocked inline: New Account required fields");
+  w.AITopup.state.draft = { account_mode:"New Account", request_title:"T", ai_tool:"Claude", proposed_account_email:"e@x", proposed_account_manager:"m@x" };
+  ok(w.AITopup.validateSubmit() === null, "valid New Account passes validateSubmit");
+  w.AITopup.state.draft = { account_mode:"Existing Account", request_title:"T" };
+  ok(!!(w.AITopup.validateSubmit() || {}).ai_account, "Existing Account requires selected account");
+
+  // backend New Account error maps to inline field errors
+  freshCtx(); w.AITopup.state.draft = { account_mode:"New Account", request_title:"T" }; w.AITopup.render(); await flush();
+  ok(w.AITopup.applyBackendError({ message:"New Account requests require: ai_tool, proposed_account_email, proposed_account_manager" }) === true, "backend New Account error is handled (mapped)");
+  ok(!!w.document.querySelector('[data-fld="ai_tool"].invalid') && !!w.document.querySelector('[data-fld="proposed_account_email"].invalid'), "backend New Account error maps to inline field errors");
+
+  // summary binding by account mode
+  freshCtx();
+  w.AITopup.state.draft = { account_mode:"New Account", request_type:"Renewal", ai_tool:"Claude", proposed_account_email:"hoantn801@gmail.com", proposed_account_manager:"mgr@x", requested_plan:"Pro", requested_amount:100, currency:"USD" };
+  w.AITopup.render(); await flush();
+  { const sum = w.document.getElementById("ait-summary").innerHTML;
+    ok(/Claude/.test(sum) && /hoantn801@gmail.com/.test(sum) && /mgr@x/.test(sum), "summary shows Tool/Account/Account Manager for New Account (no dashes)"); }
+  w.AITopup.state.draft = { account_mode:"Existing Account", ai_account:"ACC-1", ai_tool:"ChatGPT", account_email:"e@x", account_manager:"am@x", current_plan:"Team" };
+  w.AITopup.render(); await flush();
+  { const sum = w.document.getElementById("ait-summary").innerHTML;
+    ok(/ChatGPT/.test(sum) && /e@x/.test(sum) && /am@x/.test(sum), "summary shows Tool/Account/Account Manager for Existing Account"); }
+
+  // Existing vs New account period field
+  w.AITopup.state.draft = { account_mode:"Existing Account" }; w.AITopup.render(); await flush();
+  ok(/Thời hạn hiện tại của account/.test(body()), "Existing Account period label present");
+  ok(/value="Chưa chọn account"/.test(body()), "Existing Account shows 'Chưa chọn account' before selection");
+  w.AITopup.state.draft = { account_mode:"New Account" }; w.AITopup.render(); await flush();
+  ok(!/Thời hạn hiện tại của account/.test(body()), "New Account mode does not show current-account period field");
+
+  // auto-renewal helper text still present
+  ok(/Chỉ dùng để ghi nhận nhu cầu gia hạn/.test(body()), "auto-renewal helper text remains record-only");
 
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);
