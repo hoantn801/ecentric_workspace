@@ -797,3 +797,51 @@ class TestTaxFeeBasis(FrappeTestCase):
         self.assertEqual(str(frappe.db.get_value(api.BIZ, name, "actual_currency")), "USD")
         self.assertEqual(float(frappe.db.get_value(api.BIZ, name, "actual_amount")), 220.0)
         self.assertEqual(frappe.db.get_value(api.BIZ, name, "actual_tax_fee_basis"), "Included")   # defaulted from tax_fee_basis
+
+
+class TestAccountPicker(FrappeTestCase):
+    """search_ai_accounts (rich, multi-field, active-only) + get_ai_account_detail exact resolve."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.addClassCleanup(lambda: frappe.set_user("Administrator"))
+
+    def _acct(self, email, tool, plan, status="Active", mgr="zzb3_apk_m@example.com"):
+        _user(mgr)
+        existing = frappe.get_all("EC AI Account", filters={"account_email": email, "ai_tool": tool}, pluck="name")
+        if existing:
+            frappe.db.set_value("EC AI Account", existing[0], "status", status)
+            return existing[0]
+        return frappe.get_doc({"doctype": "EC AI Account", "ai_tool": tool, "account_email": email,
+                               "account_manager": mgr, "current_plan": plan, "status": status}
+                              ).insert(ignore_permissions=True).name
+
+    def test_search_returns_rich_fields(self):
+        t = _tool()
+        a = self._acct("zzb3apk1@example.com", t, "Plan A")
+        rows = api.search_ai_accounts(query="zzb3apk1")
+        row = [r for r in rows if r["name"] == a][0]
+        for f in ("ai_tool", "account_email", "account_manager", "current_plan", "billing_cycle",
+                  "status", "subscription_start_date", "subscription_end_date"):
+            self.assertIn(f, row)
+
+    def test_search_by_email_tool_name_plan_manager(self):
+        t = _tool()
+        a = self._acct("zzb3apk2@example.com", t, "Gold Plan")
+        self.assertTrue(any(r["name"] == a for r in api.search_ai_accounts(query="zzb3apk2@example.com")))  # email
+        self.assertTrue(any(r["name"] == a for r in api.search_ai_accounts(query=t)))                        # ai_tool
+        self.assertTrue(any(r["name"] == a for r in api.search_ai_accounts(query=a)))                        # name
+        self.assertTrue(any(r["name"] == a for r in api.search_ai_accounts(query="Gold Plan")))              # plan
+
+    def test_search_excludes_inactive(self):
+        t = _tool()
+        a = self._acct("zzb3apk3@example.com", t, "P", status="Suspended")
+        self.assertFalse(any(r["name"] == a for r in api.search_ai_accounts(query="zzb3apk3")))
+
+    def test_get_ai_account_detail_resolves_active_only(self):
+        t = _tool()
+        a = self._acct("zzb3apk4@example.com", t, "P4")
+        det = api.get_ai_account_detail(a)
+        self.assertTrue(det and det["name"] == a and det["ai_tool"] == t and det["current_plan"] == "P4")
+        self.assertIsNone(api.get_ai_account_detail("EC-AIACC-DOES-NOT-EXIST"))

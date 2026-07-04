@@ -55,6 +55,13 @@
   #ec-ait-root .fld input[readonly],#ec-ait-root .fld .ro{ background:var(--gray-50);color:var(--gray-600); }
   #ec-ait-root .fld .err{ font-size:12px;color:var(--red); }
   #ec-ait-root .fld.invalid input,#ec-ait-root .fld.invalid select{ border-color:var(--red); }
+  #ec-ait-root .ec-acct-wrap{ position:relative; }
+  #ec-ait-root .ec-acct-menu{ position:absolute;left:0;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid var(--gray-200);border-radius:9px;box-shadow:0 12px 30px rgba(0,0,0,.14);max-height:260px;overflow:auto;z-index:50; }
+  #ec-ait-root .ec-acct-opt{ padding:9px 12px;font-size:12.5px;line-height:1.4;cursor:pointer;border-bottom:1px solid var(--gray-100);color:var(--gray-600); }
+  #ec-ait-root .ec-acct-opt:last-child{ border-bottom:none; }
+  #ec-ait-root .ec-acct-opt:hover,#ec-ait-root .ec-acct-opt.active{ background:var(--navy-50); }
+  #ec-ait-root .ec-acct-opt b{ color:var(--gray-900); }
+  #ec-ait-root .ec-acct-empty{ padding:10px 12px;font-size:12.5px;color:var(--gray-500); }
   #ec-ait-root .full{ grid-column:1/-1; }
   #ec-ait-root .hint{ font-size:12px;color:var(--gray-500); }
   #ec-ait-root .banner{ padding:11px 14px;border-radius:9px;font-size:13px;display:flex;gap:9px;align-items:flex-start;margin-bottom:14px; }
@@ -295,16 +302,17 @@
       +'</div>';
     } else {
       host.innerHTML='<div class="grid2">'
-        + fld("ai_account","AI Account",'<input data-model="ai_account" list="ait-accts" placeholder="tìm account đang hoạt động" value="'+esc(d.ai_account||"")+'"><datalist id="ait-accts"></datalist>',true)
+        + fld("ai_account","AI Account",'<div class="ec-acct-wrap"><input id="ec-acct-input" autocomplete="off" placeholder="Tìm theo tool, email, gói, người quản lý..." value="'+esc(d.ai_account?acctLabelFromDraft(d):"")+'"><div class="ec-acct-menu" id="ec-acct-menu" style="display:none"></div></div>',true)
         + fld("ai_tool","AI Tool",'<input class="ro" readonly value="'+esc(d.ai_tool||"")+'">')
         + fld("account_email","Account email",'<input class="ro" readonly value="'+esc(d.account_email||"")+'">')
         + fld("account_manager","Người quản lý account",'<input class="ro" readonly value="'+esc(d.account_manager||"")+'">')
         + fld("current_plan","Gói hiện tại",'<input class="ro" readonly value="'+esc(d.current_plan||"")+'">')
-        + fld("_p","Thời hạn hiện tại của account",'<input class="ro" readonly value="'+esc(d.ai_account?((d.subscription_start_date||"—")+" → "+(d.subscription_end_date||"—")):"Chưa chọn account")+'">')
+        + fld("_p","Thời hạn hiện tại của account",'<input class="ro" readonly value="'+esc(d.ai_account?((d.subscription_start_date&&d.subscription_end_date)?(d.subscription_start_date+" → "+d.subscription_end_date):"Chưa có thời hạn"):"Chưa chọn account")+'">')
       +'</div>';
     }
     wireModels(host);
     wireDynamicLists();
+    wireAccountPicker();
   }
   function renderSummary(){ var h=$("ait-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
     var isNew=d.account_mode==="New Account";
@@ -376,12 +384,50 @@
     $("ait-submit").onclick=function(){ saveDraft(true); };
     $("ait-cancel-changes").onclick=function(){ if(!state.dirty||confirm("Hủy các thay đổi chưa lưu?")){ state.draft=state.id?state.draft:{}; state.dirty=false; render(); } };
   }
+  // ---- Existing Account combobox (rich, resolved selection) ----
+  function acctLabel(r){ r=r||{}; var parts=[];
+    if(r.ai_tool) parts.push(r.ai_tool);
+    if(r.account_email) parts.push(r.account_email);
+    parts.push(r.current_plan||"Chưa có gói");
+    parts.push((r.subscription_start_date&&r.subscription_end_date)?(r.subscription_start_date+" → "+r.subscription_end_date):"Chưa có thời hạn");
+    if(r.account_manager) parts.push("Manager: "+r.account_manager);
+    return parts.join(" · "); }
+  function acctLabelFromDraft(d){ d=d||{}; return acctLabel({ai_tool:d.ai_tool,account_email:d.account_email,current_plan:d.current_plan,subscription_start_date:d.subscription_start_date,subscription_end_date:d.subscription_end_date,account_manager:d.account_manager}); }
+  function _acctInput(){ return document.getElementById("ec-acct-input"); }
+  function refreshExistingRO(){ var d=state.draft||{};
+    function sv(sel,val){ var el=document.querySelector(sel); if(el) el.value=(val==null?"":val); }
+    sv('[data-fld="ai_tool"] input', d.ai_tool);
+    sv('[data-fld="account_email"] input', d.account_email);
+    sv('[data-fld="account_manager"] input', d.account_manager);
+    sv('[data-fld="current_plan"] input', d.current_plan);
+    sv('[data-fld="_p"] input', d.ai_account?((d.subscription_start_date&&d.subscription_end_date)?(d.subscription_start_date+" → "+d.subscription_end_date):"Chưa có thời hạn"):"Chưa chọn account");
+    sv('[data-model="subscription_start_date"]', d.subscription_start_date);
+    sv('[data-model="subscription_end_date"]', d.subscription_end_date);
+    var bc=document.querySelector('[data-model="billing_cycle"]'); if(bc&&d.billing_cycle!=null&&d.billing_cycle!=="") bc.value=d.billing_cycle; }
+  function selectAccount(r){ if(!r||!r.name) return;
+    ["ai_tool","account_email","account_manager","current_plan","subscription_start_date","subscription_end_date","billing_cycle"].forEach(function(k){ setModel(k, r[k]!=null?r[k]:""); });
+    setModel("ai_account", r.name); state._acctSel={ name:r.name, label:acctLabel(r) };
+    var inp=_acctInput(); if(inp) inp.value=state._acctSel.label;
+    var menu=document.getElementById("ec-acct-menu"); if(menu) menu.style.display="none";
+    setFieldError("ai_account",null); refreshExistingRO(); maybeAutoTitle(); renderSummary(); }
+  function _acctRenderMenu(rows){ var menu=document.getElementById("ec-acct-menu"); if(!menu) return; state._acctResults=rows||[];
+    if(!state._acctResults.length){ menu.innerHTML='<div class="ec-acct-empty">Không tìm thấy account phù hợp.</div>'; menu.style.display=""; return; }
+    menu.innerHTML=state._acctResults.map(function(r,i){ return '<div class="ec-acct-opt" data-i="'+i+'"><b>'+esc(r.ai_tool||"—")+'</b> · '+esc(r.account_email||"—")+' · '+esc(r.current_plan||"Chưa có gói")+' · '+esc((r.subscription_start_date&&r.subscription_end_date)?(r.subscription_start_date+" → "+r.subscription_end_date):"Chưa có thời hạn")+(r.account_manager?(' · Manager: '+esc(r.account_manager)):'')+'</div>'; }).join("");
+    menu.style.display="";
+    menu.querySelectorAll("[data-i]").forEach(function(el){ el.onmousedown=function(e){ e.preventDefault(); selectAccount(state._acctResults[Number(el.getAttribute("data-i"))]); }; }); }
+  function resolveAccountText(){ var inp=_acctInput(); if(!inp) return; var txt=(inp.value||"").trim();
+    if(!txt){ setModel("ai_account",""); state._acctSel=null; setFieldError("ai_account",null); refreshExistingRO(); renderSummary(); return; }
+    if(state._acctSel && inp.value===state._acctSel.label) return;   // still the resolved selection
+    return call("get_ai_account_detail",{name:txt}).then(function(r){ if(r&&r.name){ selectAccount(r); }
+      else { setModel("ai_account",""); state._acctSel=null; setFieldError("ai_account","Vui lòng chọn AI Account hợp lệ từ danh sách."); refreshExistingRO(); renderSummary(); } }); }
+  function wireAccountPicker(){ var inp=_acctInput(); var menu=document.getElementById("ec-acct-menu"); if(!inp||!menu) return;
+    if(state.draft&&state.draft.ai_account&&inp.value){ state._acctSel={ name:state.draft.ai_account, label:inp.value }; }
+    inp.addEventListener("input",function(){ setFieldError("ai_account",null); var q=(inp.value||"").trim();
+      if(!q){ setModel("ai_account",""); state._acctSel=null; refreshExistingRO(); renderSummary(); menu.style.display="none"; return; }
+      call("search_ai_accounts",{query:q}).then(_acctRenderMenu).catch(function(){ menu.style.display="none"; }); });
+    inp.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); if((state._acctResults||[]).length){ selectAccount(state._acctResults[0]); } else { resolveAccountText(); } } });
+    inp.addEventListener("blur",function(){ setTimeout(function(){ if(menu) menu.style.display="none"; resolveAccountText(); }, 180); }); }
   function wireDynamicLists(){
-    var acc=document.querySelector('[data-model="ai_account"]');
-    if(acc){ acc.addEventListener("input",function(){ call("search_ai_accounts",{query:acc.value}).then(function(rows){
-      var dl=$("ait-accts"); if(dl) dl.innerHTML=(rows||[]).map(function(r){return '<option value="'+esc(r.name)+'">'+esc(r.account_email)+'</option>';}).join("");
-      var m=(rows||[]).find(function(r){return r.name===acc.value;});
-      if(m){ ["ai_tool","account_email","current_plan","subscription_start_date","subscription_end_date"].forEach(function(k){ setModel(k, k==="account_email"?m.account_email:m[k]); }); setModel("account_manager",m.account_manager); setModel("ai_account",m.name); renderAcctSub(); maybeAutoTitle(); renderSummary(); } }); }); }
     var mgr=document.querySelector('[data-model="proposed_account_manager"]');
     if(mgr){ mgr.addEventListener("input",function(){ call("search_active_users",{query:mgr.value}).then(function(rows){
       var dl=$("ait-users"); if(dl) dl.innerHTML=(rows||[]).map(function(r){return '<option value="'+esc(r.value)+'">'+esc(r.label)+' ('+esc(r.email)+')</option>';}).join(""); }); }); }
@@ -827,7 +873,7 @@
     call("get_bootstrap").then(function(bootData){ state.boot=bootData||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(){ var bd=$("ait-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.AITopup={ state:state, buildStepper:buildStepper, render:render, route:route, _boot:boot, _call:call, badge:badge, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, materialSnap:materialSnap, modal:modal, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, renderFulfillment:renderFulfillment, suggestTitle:suggestTitle, validateSubmit:validateSubmit, applyBackendError:applyBackendError, roadmapHTML:roadmapHTML, startEditDraft:startEditDraft, doSubmitDraft:doSubmitDraft, headerStatusHTML:headerStatusHTML, doAdminApprove:doAdminApprove, doApprove:doApprove, stepLabel:stepLabel, normalizeEvidenceName:normalizeEvidenceName, applyInvoiceConditional:applyInvoiceConditional, taxBasisLabel:taxBasisLabel, taxBasisOptions:taxBasisOptions, currencyOptions:currencyOptions };
+  window.AITopup={ state:state, buildStepper:buildStepper, render:render, route:route, _boot:boot, _call:call, badge:badge, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, materialSnap:materialSnap, modal:modal, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, renderFulfillment:renderFulfillment, suggestTitle:suggestTitle, validateSubmit:validateSubmit, applyBackendError:applyBackendError, roadmapHTML:roadmapHTML, startEditDraft:startEditDraft, doSubmitDraft:doSubmitDraft, headerStatusHTML:headerStatusHTML, doAdminApprove:doAdminApprove, doApprove:doApprove, stepLabel:stepLabel, normalizeEvidenceName:normalizeEvidenceName, applyInvoiceConditional:applyInvoiceConditional, taxBasisLabel:taxBasisLabel, taxBasisOptions:taxBasisOptions, currencyOptions:currencyOptions, acctLabel:acctLabel, selectAccount:selectAccount, resolveAccountText:resolveAccountText, wireAccountPicker:wireAccountPicker };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>
