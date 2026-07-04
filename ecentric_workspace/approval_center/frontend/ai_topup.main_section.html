@@ -119,6 +119,21 @@
   #ec-ait-root button:focus-visible, #ec-ait-root a:focus-visible, #ec-ait-root input:focus-visible, #ec-ait-root select:focus-visible, #ec-ait-root textarea:focus-visible{ outline:2px solid var(--navy); outline-offset:2px; }
   #ec-ait-root .summary-row b, #ec-ait-root .tbl td, #ec-ait-root .step-meta, #ec-ait-root .tl-cmt{ overflow-wrap:anywhere; word-break:break-word; }
   #ec-ait-root .tbl td, #ec-ait-root .tbl th{ vertical-align:top; }
+  /* structured blocking alert (icon left, title + description, left-aligned, full content width) */
+  #ec-ait-root .ec-alert{ align-items:flex-start;text-align:left;width:100%; }
+  #ec-ait-root .ec-alert > .icon{ margin-top:1px; }
+  #ec-ait-root .ec-alert-body{ flex:1;min-width:0; }
+  #ec-ait-root .ec-alert-title{ font-weight:700;margin-bottom:2px;line-height:1.4; }
+  #ec-ait-root .ec-alert-desc{ font-weight:400;line-height:1.5; }
+  /* compact static roadmap (guidance) - distinct from the dynamic approval stepper */
+  #ec-ait-root .rm-steps{ display:flex;gap:8px;overflow-x:auto;padding-bottom:2px; }
+  #ec-ait-root .rm-step{ flex:1;min-width:148px;display:flex;gap:9px;align-items:flex-start;padding:10px 12px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:9px; }
+  #ec-ait-root .rm-num{ width:22px;height:22px;flex-shrink:0;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center; }
+  #ec-ait-root .rm-name{ font-size:12.5px;font-weight:700;color:var(--gray-800);margin-bottom:2px; }
+  #ec-ait-root .rm-sub{ font-size:11.5px;color:var(--gray-500);line-height:1.4; }
+  #ec-ait-root .rm-sla{ display:flex;gap:8px;align-items:flex-start;margin-top:12px;padding-top:11px;border-top:1px dashed var(--gray-200);font-size:12px;color:var(--gray-600); }
+  #ec-ait-root .rm-sla .icon{ width:16px;height:16px;color:var(--navy); }
+  @media (max-width:760px){ #ec-ait-root .rm-steps{ flex-direction:column; } #ec-ait-root .rm-step{ min-width:0; } }
   @media (max-width:1024px){ #ec-ait-root .content{ padding:18px 16px 40px; } }
   @media (max-width:640px){ #ec-ait-root table.tbl{ display:block; overflow-x:auto; white-space:nowrap; }
     #ec-ait-root .modal{ max-height:88vh; } #ec-ait-root .actions{ position:sticky; bottom:0; } }
@@ -206,30 +221,58 @@
       + fld("subscription_start_date","Ngày bắt đầu",'<input type="date" data-model="subscription_start_date" value="'+esc(d.subscription_start_date||"")+'">')
       + fld("subscription_end_date","Ngày kết thúc",'<input type="date" data-model="subscription_end_date" value="'+esc(d.subscription_end_date||"")+'">')
       + fld("billing_cycle","Chu kỳ thanh toán",'<select data-model="billing_cycle"><option value="">—</option>'+opt((fo.billing_cycles||[]).map(function(x){return{value:x,label:({Monthly:"Hàng tháng",Quarterly:"Hàng quý","Semi-annual":"6 tháng",Annual:"Hàng năm","One-time":"Một lần",Custom:"Tùy chỉnh"})[x]||x};}),d.billing_cycle)+'</select>')
-      + fld("auto_renewal_expected","Dự kiến tự động gia hạn",'<select data-model="auto_renewal_expected"><option value="0"'+(!d.auto_renewal_expected?" selected":"")+'>Không</option><option value="1"'+(d.auto_renewal_expected?" selected":"")+'>Có</option></select>')
+      + fld("auto_renewal_expected","Dự kiến tự động gia hạn",'<select data-model="auto_renewal_expected"><option value="0"'+(!d.auto_renewal_expected?" selected":"")+'>Không</option><option value="1"'+(d.auto_renewal_expected?" selected":"")+'>Có</option></select><div class="hint">Chỉ dùng để ghi nhận nhu cầu gia hạn. Tự động nhắc hạn hoặc tạo yêu cầu gia hạn sẽ được triển khai ở phase sau.</div>')
       + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="ait-summary"></div></div>';
   }
   var MATERIAL=["ai_tool","account_mode","ai_account","account_email","account_manager","requested_amount","department","requested_plan","billing_cycle","subscription_start_date","subscription_end_date"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
   function infoRequiredBannerHTML(){ var i=state._infoCtx||{}; return '<div class="banner warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div><b>Cần bổ sung thông tin.</b> Cấp: '+esc(i.level||"—")+(i.approver?(' · '+esc(i.approver)):'')+(i.comment?('<br>“'+esc(i.comment)+'”'):'')+'</div></div>'; }
+  // Structured blocking alert: icon left, short title + clear description, left-aligned.
+  function blockAlertHTML(c){ c=c||{};
+    var noEmployee = (!c.employee) || (c.user==="Administrator");
+    var title = noEmployee ? "Không thể gửi yêu cầu bằng tài khoản hiện tại" : "Không thể gửi yêu cầu";
+    var desc = noEmployee
+      ? "Hệ thống không xác định được Employee và quản lý trực tiếp cho tài khoản này. Vui lòng test bằng user nhân sự thật hoặc cập nhật Employee tương ứng."
+      : "Chưa xác định được quản lý trực tiếp của người yêu cầu. Vui lòng cập nhật thông tin Employee trước khi gửi phê duyệt.";
+    return '<div class="banner err ec-alert" role="alert">'
+      + '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg>'
+      + '<div class="ec-alert-body"><div class="ec-alert-title">'+esc(title)+'</div><div class="ec-alert-desc">'+esc(desc)+'</div></div></div>'; }
+  // Compact, always-visible guidance roadmap (static - NOT the dynamic per-request stepper).
+  function roadmapHTML(){
+    var steps=[
+      ["Điền form","Nhập tool, account, số tiền và thời hạn sử dụng."],
+      ["Manager duyệt","Xác nhận nhu cầu sử dụng."],
+      ["Operation review","Kiểm tra account, gói và khả năng thực hiện."],
+      ["Finance duyệt","Duyệt chi phí được phép thanh toán."],
+      ["Operation top-up","Thực hiện top-up và upload chứng từ."],
+      ["Hoàn tất","Cập nhật AI Account và đóng yêu cầu."]];
+    return '<div class="card"><h3>Quy trình xử lý yêu cầu</h3><div class="rm-steps">'
+      + steps.map(function(s,i){ return '<div class="rm-step"><div class="rm-num">'+(i+1)+'</div><div class="rm-txt"><div class="rm-name">'+esc(s[0])+'</div><div class="rm-sub">'+esc(s[1])+'</div></div></div>'; }).join("")
+      + '</div><div class="rm-sla"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
+      + '<span>Mỗi bước duyệt có SLA 3 giờ làm việc, tính trong khung 09:00–12:00 và 13:00–18:00, Thứ Hai–Thứ Sáu, trừ ngày lễ.</span></div></div>'; }
   function renderCreate(b){
     var fo=state.boot&&state.boot.form_options||{}; var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
     var editing=state.mode==="edit"; var mgrBlock=!editing && c && !c.manager_resolvable;
     var head = editing
       ? (infoRequiredBannerHTML()+'<div class="banner info" id="ait-material-warn" style="display:none"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/></svg><div>Các thay đổi quan trọng sẽ làm yêu cầu được duyệt lại từ bước đầu.</div></div>')
-      : (mgrBlock?'<div class="banner err"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div>Không thể gửi yêu cầu vì chưa xác định được quản lý trực tiếp. Vui lòng cập nhật <b>Employee.reports_to</b>.</div></div>':'');
+      : (mgrBlock?blockAlertHTML(c):'');
     var actions = editing
       ? '<div class="actions"><button class="btn" id="ait-edit-cancel">Hủy</button><button class="btn primary" id="ait-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button class="btn" id="ait-cancel-changes">Hủy thay đổi</button><button class="btn" id="ait-save">Lưu nháp</button><button class="btn primary" id="ait-submit"'+(mgrBlock?" disabled":"")+'>Gửi phê duyệt</button></div>';
-    b.innerHTML = head + formCardsHTML(d,c,fo) + actions;
+    // roadmap always visible on Create (not on edit/resubmit); sits below tabs, above the blocking alert + form.
+    b.innerHTML = (editing?"":roadmapHTML()) + head + formCardsHTML(d,c,fo) + actions;
     if(editing) state._origMaterial=materialSnap(d);
     renderAcctSub(); renderSummary(); wireCreate();
   }
 
   function renderAcctSub(){ var host=$("acct-sub"); if(!host)return; var fo=state.boot.form_options||{}; var d=state.draft||{};
+    var noTools = !(fo.ai_tools && fo.ai_tools.length);
+    var toolCtrl = noTools
+      ? '<select data-model="ai_tool" disabled><option value="">—</option></select><div class="err">Chưa có AI Tool nào. Vui lòng tạo EC AI Tool trong Desk trước khi gửi yêu cầu.</div>'
+      : '<select data-model="ai_tool"><option value="">—</option>'+opt(fo.ai_tools,d.ai_tool)+'</select>';
     if(d.account_mode==="New Account"){
       host.innerHTML='<div class="grid2">'
-        + fld("ai_tool","AI Tool",'<select data-model="ai_tool"><option value="">—</option>'+opt(fo.ai_tools,d.ai_tool)+'</select>',true)
+        + fld("ai_tool","AI Tool",toolCtrl,true)
         + fld("proposed_account_email","Email account dự kiến",'<input data-model="proposed_account_email" value="'+esc(d.proposed_account_email||"")+'">',true)
         + fld("proposed_account_manager","Người quản lý account dự kiến",'<input data-model="proposed_account_manager" list="ait-users" placeholder="tìm theo tên/email" value="'+esc(d.proposed_account_manager||"")+'"><datalist id="ait-users"></datalist>',true)
         + fld("proposed_plan","Gói đề xuất",'<input data-model="proposed_plan" value="'+esc(d.proposed_plan||"")+'">')
@@ -241,7 +284,7 @@
         + fld("account_email","Account email",'<input class="ro" readonly value="'+esc(d.account_email||"")+'">')
         + fld("account_manager","Người quản lý account",'<input class="ro" readonly value="'+esc(d.account_manager||"")+'">')
         + fld("current_plan","Gói hiện tại",'<input class="ro" readonly value="'+esc(d.current_plan||"")+'">')
-        + fld("_p","Thời hạn hiện tại",'<input class="ro" readonly value="'+esc((d.subscription_start_date||"—")+" → "+(d.subscription_end_date||"—"))+'">')
+        + fld("_p","Thời hạn hiện tại của account",'<input class="ro" readonly value="'+esc(d.ai_account?((d.subscription_start_date||"—")+" → "+(d.subscription_end_date||"—")):"Chưa chọn account")+'">')
       +'</div>';
     }
     wireDynamicLists();
