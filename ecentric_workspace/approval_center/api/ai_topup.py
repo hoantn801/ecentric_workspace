@@ -109,6 +109,11 @@ def _capabilities(user, biz, req):
                           "allows_amount_adjustment"))
     cancel_requester = is_requester and (req is None or (req.approval_status == "Pending" and not _has_decision(req)))
     cancel_admin = (_sm()) and open_
+    can_admin_approve = False
+    if _sm() and req and req.approval_status == "Pending" and req.current_level:
+        _cl = frappe.db.get_value("EC Approval Request Level",
+                                  {"approval_request": req.name, "level_no": req.current_level}, "level_status")
+        can_admin_approve = (_cl == "In Progress")
     return {
         "can_edit": is_requester and (req is None or req.approval_status == "Information Required"),
         "can_submit": is_requester and req is None,
@@ -118,6 +123,7 @@ def _capabilities(user, biz, req):
         "can_reject": can_act,
         "can_request_information": can_act,
         "can_adjust_approved_amount": can_adjust,
+        "can_admin_approve_current_level": can_admin_approve,
         "can_claim": _is_fulfiller(user) and biz.fulfillment_status == "Assigned",
         "can_complete": (biz.fulfillment_owner == user or _sm())
                         and biz.fulfillment_status in ("Assigned", "In Progress"),
@@ -403,6 +409,28 @@ def submit_request(name):
         frappe.flags.mute_messages = prev
     frappe.local.message_log = []              # drop any Frappe share/read-access info messages (real errors still raise)
     return {"approval_request": approval_request, "submitted": True, "detail": get_request_detail(name)}
+
+
+@frappe.whitelist(methods=["POST"])
+def admin_approve_current_level(name, reason=None):
+    """System-Manager override that approves the current pending level via the engine service
+    (no raw CRUD, no approver impersonation). Backend re-validates SM + capability + reason."""
+    from ecentric_workspace.approval_center.engine import service as engine
+    if not _sm():
+        frappe.throw(_("Only a System Manager can perform an admin override."), frappe.PermissionError)
+    if not (reason or "").strip():
+        frappe.throw(_("A reason is mandatory for an admin override."))
+    doc, req_name = _resolve_req(name)   # ensures the request has been submitted (Draft -> throws)
+    if not _capabilities(frappe.session.user, doc, _req_of(name))["can_admin_approve_current_level"]:
+        frappe.throw(_("Admin override is not available for this request in its current state."))
+    prev = frappe.flags.mute_messages
+    frappe.flags.mute_messages = True
+    try:
+        engine.admin_override_current_level(req_name, actor=frappe.session.user, reason=reason)
+    finally:
+        frappe.flags.mute_messages = prev
+    frappe.local.message_log = []
+    return {"admin_approved": True, "detail": get_request_detail(name)}
 
 
 # --------------------------------------------------------------------------- #

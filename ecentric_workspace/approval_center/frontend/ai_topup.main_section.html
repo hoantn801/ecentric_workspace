@@ -64,6 +64,7 @@
   #ec-ait-root .btn{ display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;border:1px solid var(--gray-200);background:#fff;color:var(--gray-700); }
   #ec-ait-root .btn:hover{ background:var(--gray-50); }
   #ec-ait-root .btn.primary{ background:var(--navy);border-color:var(--navy);color:#fff; } #ec-ait-root .btn.primary:hover{ background:var(--navy-700); }
+  #ec-ait-root .btn.warn{ background:var(--yellow-50);border-color:#fde68a;color:var(--amber); } #ec-ait-root .btn.warn:hover{ background:#fef3c7; }
   #ec-ait-root .btn[disabled]{ opacity:.55;cursor:not-allowed; }
   #ec-ait-root .actions{ display:flex;gap:10px;flex-wrap:wrap;margin-top:6px; }
   /* table */
@@ -86,10 +87,11 @@
   @keyframes aitsh{0%{background-position:100% 0}100%{background-position:-100% 0}}
   #ec-ait-root .state{ padding:44px 20px;text-align:center;color:var(--gray-500); } #ec-ait-root .state h4{ color:var(--gray-700);margin:0 0 6px; }
   /* stepper */
-  #ec-ait-root .stepper{ display:flex;gap:0;overflow-x:auto;padding:6px 2px 12px; }
-  #ec-ait-root .step{ min-width:170px;flex:1;position:relative;padding:0 10px; }
-  #ec-ait-root .step:not(:last-child)::after{ content:"";position:absolute;top:16px;right:-2px;left:50%;height:2px;background:var(--gray-200); }
-  #ec-ait-root .step.done::after{ background:var(--green); }
+  #ec-ait-root .stepper{ position:relative;overflow-x:auto;padding:6px 2px 12px; }
+  #ec-ait-root .stepline{ position:relative;display:flex;gap:0;min-width:100%; }
+  #ec-ait-root .stepline::before{ content:"";position:absolute;top:16px;left:calc(50% / var(--n));width:calc(100% - 100% / var(--n));height:2px;background:var(--gray-200);z-index:0; }
+  #ec-ait-root .stepline::after{ content:"";position:absolute;top:16px;left:calc(50% / var(--n));width:calc(100% / var(--n) * var(--k));height:2px;background:var(--navy);z-index:0;transition:width .3s ease; }
+  #ec-ait-root .step{ min-width:150px;flex:1;position:relative;padding:0 10px;z-index:1; }
   #ec-ait-root .step-top{ display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;z-index:1; }
   #ec-ait-root .step-dot{ width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;border:2px solid var(--gray-300);color:var(--gray-500);font-weight:700;font-size:13px; }
   #ec-ait-root .step.current .step-dot{ border-color:var(--navy);color:var(--navy);box-shadow:0 0 0 4px var(--navy-50); }
@@ -499,9 +501,12 @@
   }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
   function renderStepsHTML(steps){
-    return steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div>'
+    var n=steps.length, k=0;
+    steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });   // progress head = last non-upcoming step
+    var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div>'
       +'<div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div>'
       +'<div class="step-meta">'+ (s.meta||"") +'</div></div>'; }).join("");
+    return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>';
   }
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
 
@@ -565,6 +570,10 @@
         .then(function(){ toast("Đã duyệt."); refreshDetail(); refreshApprovals(); })
         .catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
 
+  function doAdminApprove(name){ modal("Duyệt thay bước hiện tại",
+    '<div class="banner warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div>Bạn đang duyệt thay cho bước phê duyệt hiện tại bằng quyền System Manager. Hành động này sẽ được ghi nhận trong lịch sử và không giả lập người duyệt gốc.</div></div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>',
+    {okLabel:"Xác nhận duyệt thay", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
+      return call("admin_approve_current_level",{name:name,reason:c}).then(function(){ toast("Đã duyệt thay bước hiện tại. Yêu cầu đã được chuyển sang bước tiếp theo."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
   function doReject(name){ modal("Từ chối yêu cầu",
     '<div class="banner err">Sau khi từ chối, yêu cầu sẽ kết thúc và người gửi cần tạo yêu cầu mới nếu muốn thực hiện lại.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>',
     {okLabel:"Từ chối", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
@@ -605,6 +614,7 @@
     if(cap.can_approve) btns.push('<button class="btn primary" data-act="approve">Duyệt</button>');
     if(cap.can_request_information) btns.push('<button class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
     if(cap.can_reject) btns.push('<button class="btn" data-act="reject">Từ chối</button>');
+    if(cap.can_admin_approve_current_level) btns.push('<button class="btn warn" data-act="adminapprove">Duyệt thay bước hiện tại</button>');
     if(cap.can_cancel) btns.push('<button class="btn" data-act="cancel">Hủy yêu cầu</button>');
     return btns.length? '<div class="apanel">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
   function wireActionPanel(det){ var name=(det.business||{}).name; document.querySelectorAll("[data-act]").forEach(function(el){ el.onclick=function(){
@@ -615,6 +625,7 @@
     if(a==="approve") return doApprove(name,det);
     if(a==="reject") return doReject(name);
     if(a==="reqinfo") return doRequestInfo(name);
+    if(a==="adminapprove") return doAdminApprove(name);
     if(a==="cancel") return doCancel(name); }; }); }
 
   function timelineHTML(items){ if(!items||!items.length) return '<div class="hint">Chưa có hoạt động.</div>';
@@ -726,7 +737,7 @@
     call("get_bootstrap").then(function(bootData){ state.boot=bootData||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(){ var bd=$("ait-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.AITopup={ state:state, buildStepper:buildStepper, render:render, route:route, _boot:boot, _call:call, badge:badge, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, materialSnap:materialSnap, modal:modal, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, renderFulfillment:renderFulfillment, suggestTitle:suggestTitle, validateSubmit:validateSubmit, applyBackendError:applyBackendError, roadmapHTML:roadmapHTML, startEditDraft:startEditDraft, doSubmitDraft:doSubmitDraft, headerStatusHTML:headerStatusHTML };
+  window.AITopup={ state:state, buildStepper:buildStepper, render:render, route:route, _boot:boot, _call:call, badge:badge, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, materialSnap:materialSnap, modal:modal, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, renderFulfillment:renderFulfillment, suggestTitle:suggestTitle, validateSubmit:validateSubmit, applyBackendError:applyBackendError, roadmapHTML:roadmapHTML, startEditDraft:startEditDraft, doSubmitDraft:doSubmitDraft, headerStatusHTML:headerStatusHTML, doAdminApprove:doAdminApprove };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>

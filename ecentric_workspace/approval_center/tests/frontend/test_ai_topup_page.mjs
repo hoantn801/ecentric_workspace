@@ -307,6 +307,39 @@ async function run(){
   ok(!/shared|read access|share/i.test(w.document.getElementById("ait-toast").textContent), "no raw Frappe share/read-access text in the success message");
   w.frappe.call = OC;
 
+  // ---- UAT: continuous stepper line + SM admin override ----
+  const OC2 = w.frappe.call.bind(w.frappe);
+  // continuous line markup + progress var
+  const dl = w.AITopup.buildStepper({ approval:{}, fulfillment:{ status:"Not Started" },
+    process_preview:[{level_no:1,level_name:"Direct Manager"},{level_no:2,level_name:"Operation Review"},{level_no:3,level_name:"Finance Review"}] });
+  ok(/class="stepline"/.test(dl), "stepper wraps steps in one continuous .stepline");
+  ok(/--n:6/.test(dl), "stepline carries step count (--n)");
+  ok(/--k:0/.test(dl), "draft progress head at step 1 (--k:0)");
+  const rl = w.AITopup.buildStepper({ approval:{ name:"AR-9", approval_status:"Pending", current_level:1 }, fulfillment:{ status:"Not Started" },
+    levels:[{level_no:1,level_name:"Direct Manager",approval_mode:"Any One",level_status:"In Progress"},
+            {level_no:2,level_name:"Operation Review",level_status:"Pending"},
+            {level_no:3,level_name:"Finance Review",level_status:"Pending"}], approvers:[{level_no:1,approver:"m@x",status:"Pending"}] });
+  ok(/--k:1/.test(rl), "pending-Manager progress head advanced to step 2 (--k:1)");
+  ok(!/right:-2px/.test(HTML) && /\.stepline::before/.test(HTML) && /\.stepline::after/.test(HTML), "no per-step disconnected connectors; single base + progress line in CSS");
+
+  // admin override button visibility (SM only)
+  const sap = w.AITopup.actionPanelHTML({ capabilities:{ can_admin_approve_current_level:true }, approval:{ name:"AR-1", approval_status:"Pending" } });
+  ok(/data-act="adminapprove"/.test(sap) && /Duyệt thay bước hiện tại/.test(sap), "System Manager sees 'Duyệt thay bước hiện tại'");
+  const oap = w.AITopup.actionPanelHTML({ capabilities:{ can_approve:true }, approval:{ name:"AR-1", approval_status:"Pending" } });
+  ok(!/adminapprove/.test(oap), "ordinary approver does not see the admin override button");
+
+  // admin override modal requires reason, non-impersonation copy, success toast
+  let CA = []; w.frappe.call = (o) => { CA.push(o.method); return OC2(o); };
+  w.AITopup.doAdminApprove("R-1"); await flush();
+  ok(!!w.document.querySelector(".overlay") && /không giả lập người duyệt gốc/.test(w.document.body.innerHTML), "admin override modal shows non-impersonation copy");
+  ok(/Xác nhận duyệt thay/.test(w.document.body.innerHTML), "admin override modal confirm label");
+  w.document.querySelector(".overlay [data-ok]").click(); await flush();
+  ok(!CA.some(m => /admin_approve_current_level/.test(m)), "empty reason does not call admin override");
+  w.document.querySelector(".overlay #m-cmt").value = "uat override"; w.document.querySelector(".overlay [data-ok]").click(); await flush(); await flush();
+  ok(CA.some(m => /admin_approve_current_level/.test(m)), "with reason -> admin override API called");
+  ok(w.document.getElementById("ait-toast").textContent === "Đã duyệt thay bước hiện tại. Yêu cầu đã được chuyển sang bước tiếp theo.", "admin override success toast");
+  w.frappe.call = OC2;
+
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);
 }

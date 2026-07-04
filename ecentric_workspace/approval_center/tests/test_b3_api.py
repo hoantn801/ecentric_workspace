@@ -535,3 +535,106 @@ class TestTimelineFields(FrappeTestCase):
         det = api.get_request_detail(name)
         frappe.set_user("Administrator")
         self.assertTrue(any(t["action"] in ("Approved", "Submitted") for t in det["timeline"]))
+
+
+def _proc_3levels(approver, fulfiller):
+    for p in frappe.get_all("EC Approval Process",
+                            filters={"approval_type": "AI_TOPUP", "status": "Active"}, pluck="name"):
+        frappe.db.set_value("EC Approval Process", p, "status", "Retired")
+    code = "ZZB3T_" + frappe.generate_hash(length=5)
+    p = frappe.get_doc({"doctype": "EC Approval Process", "process_code": code, "title": code,
+                        "approval_type": "AI_TOPUP", "status": "Draft"})
+    p.append("participants", {"participant_purpose": "Fulfiller", "source_type": "User", "user": fulfiller})
+    p.insert(ignore_permissions=True)
+    for no, name, adj in [(1, "Manager", 0), (2, "Operation Review", 0), (3, "Finance Review", 1)]:
+        lv = frappe.get_doc({"doctype": "EC Approval Level", "approval_process": p.name, "level_no": no,
+                             "level_name": name, "approval_mode": "Any One", "allows_amount_adjustment": adj})
+        lv.append("participants", {"participant_purpose": "Approver", "source_type": "User", "user": approver})
+        lv.insert(ignore_permissions=True)
+    p.status = "Active"; p.save(ignore_permissions=True)
+    return p.name
+
+
+class TestAdminOverride(FrappeTestCase):
+    """System Manager 'approve current level' override - service-layer, no impersonation."""
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def _ar(self, name):
+        return frappe.db.get_value(api.BIZ, name, "approval_request")
+
+    def test_capability_sm_true_ordinary_false(self):
+        sm = _user("zzb3_ao_sm@example.com", roles=("Employee", "System Manager"))
+        a = _user("zzb3_ao_a@example.com"); req = _user("zzb3_ao_r@example.com")
+        _proc_3levels(a, a); name = _submit_fin(req, a, 100)
+        frappe.set_user(sm)
+        self.assertTrue(api.get_request_detail(name)["capabilities"]["can_admin_approve_current_level"])
+        frappe.set_user(a)
+        self.assertFalse(api.get_request_detail(name)["capabilities"]["can_admin_approve_current_level"])
+
+    def test_non_sm_cannot_override(self):
+        a = _user("zzb3_ao_a2@example.com"); req = _user("zzb3_ao_r2@example.com"); other = _user("zzb3_ao_o2@example.com")
+        _proc_3levels(a, a); name = _submit_fin(req, a, 100)
+        frappe.set_user(other)
+        with self.assertRaises(frappe.exceptions.PermissionError):
+            api.admin_approve_current_level(name, reason="x")
+
+    def test_override_requires_reason(self):
+        sm = _user("zzb3_ao_sm3@example.com", roles=("Employee", "System Manager"))
+        a = _user("zzb3_ao_a3@example.com"); req = _user("zzb3_ao_r3@example.com")
+        _proc_3levels(a, a); name = _submit_fin(req, a, 100)
+        frappe.set_user(sm)
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.admin_approve_current_level(name, reason="   ")
+
+    def test_override_blocked_for_draft(self):
+        sm = _user("zzb3_ao_sm4@example.com", roles=("Employee", "System Manager"))
+        req = _user("zzb3_ao_r4@example.com")
+        doc = _draft(req)
+        frappe.set_user(sm)
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.admin_approve_current_level(doc.name, reason="x")
+
+    def test_override_blocked_for_information_required(self):
+        sm = _user("zzb3_ao_sm5@example.com", roles=("Employee", "System Manager"))
+        a = _user("zzb3_ao_a5@example.com"); req = _user("zzb3_ao_r5@example.com")
+        _proc_3levels(a, a); name = _submit_fin(req, a, 100)
+        frappe.set_user(a); api.request_information(name, comment="need info")
+        frappe.set_user(sm)
+        self.assertFalse(api.get_request_detail(name)["capabilities"]["can_admin_approve_current_level"])
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.admin_approve_current_level(name, reason="x")
+
+    def test_override_full_chain_to_fulfillment_and_audit(self):
+        sm = _user("zzb3_ao_sm6@example.com", roles=("Employee", "System Manager"))
+        a = _user("zzb3_ao_a6@example.com"); f = _user("zzb3_ao_f6@example.com"); req = _user("zzb3_ao_r6@example.com")
+        _proc_3levels(a, f); name = _submit_fin(req, a, 100); ar = self._ar(name)
+        frappe.set_user(sm)
+        api.admin_approve_current_level(name, reason="r1")          # L1 Manager -> L2 Operation
+        self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "current_level"), 2)
+        api.admin_approve_current_level(name, reason="r2")          # L2 Operation -> L3 Finance
+        self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "current_level"), 3)
+        api.admin_approve_current_level(name, reason="r3")          # L3 Finance -> final approval
+        frappe.set_user("Administrator")
+        self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "approval_status"), "Approved")
+        self.assertEqual(frappe.db.get_value(api.BIZ, name, "fulfillment_status"), "Assigned")
+        # pending approver on L1 was Skipped (not impersonated / not left actionable)
+        self.assertEqual(frappe.db.get_value("EC Approval Request Approver",
+                         {"approval_request": ar, "level_no": 1, "approver": a}, "status"), "Skipped")
+        # audit: an Approved action by the SM with an Admin override reason
+        acts = frappe.get_all("EC Approval Action",
+                              filters={"approval_request": ar, "action": "Approved", "actor": sm},
+                              fields=["comment"])
+        self.assertTrue(any("Admin override" in (x.comment or "") for x in acts))
+
+    def test_override_blocked_after_completed(self):
+        sm = _user("zzb3_ao_sm7@example.com", roles=("Employee", "System Manager"))
+        a = _user("zzb3_ao_a7@example.com"); f = _user("zzb3_ao_f7@example.com"); req = _user("zzb3_ao_r7@example.com")
+        _proc_3levels(a, f); name = _submit_fin(req, a, 100)
+        frappe.set_user(sm)
+        api.admin_approve_current_level(name, reason="1")
+        api.admin_approve_current_level(name, reason="2")
+        api.admin_approve_current_level(name, reason="3")          # -> Approved (terminal)
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.admin_approve_current_level(name, reason="again")  # stale/duplicate -> blocked
