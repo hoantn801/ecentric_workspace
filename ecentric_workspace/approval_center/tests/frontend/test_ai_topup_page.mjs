@@ -382,6 +382,39 @@ async function run(){
   ok(/^Bước 5\/7/.test(w.AITopup.stepLabel({ approval_status:"Pending", current_level:4, current_level_name:"L4", total_levels:4 })), "4 approval levels -> N=7 (dynamic)");
   ok(!/Level /.test(w.AITopup.stepLabel({ approval_status:"Pending", current_level:3 })) && w.AITopup.stepLabel({ approval_status:"Pending", current_level:3 }) === "Đang phê duyệt", "no runtime level data -> safe fallback, never raw 'Level 3'");
 
+  // ---- UAT: real-browser action wiring contract ----
+  // markup contract: every action button has type=button + data-act
+  const apAll = w.AITopup.actionPanelHTML({ capabilities:{ can_approve:true, can_request_information:true, can_reject:true, can_cancel:true, can_admin_approve_current_level:true }, approval:{ name:"AR-1", approval_status:"Pending" } });
+  ok(/<button type="button"[^>]*data-act="approve"/.test(apAll), "approve button has type=button + data-act");
+  ok(/<button type="button"[^>]*data-act="adminapprove"/.test(apAll), "admin override button has type=button + data-act");
+  ok((apAll.match(/type="button"/g) || []).length >= 5, "all action buttons render type=button (no implicit form submit)");
+  const apDraft = w.AITopup.actionPanelHTML({ capabilities:{ can_submit:true }, approval:{} });
+  ok(/<button type="button"[^>]*data-act="submitdraft"/.test(apDraft), "draft submit button has type=button + data-act");
+
+  // delegated listener present + debug helper works
+  ok(typeof w.ecAiTopupDebugActions === "function", "UAT debug helper ecAiTopupDebugActions exists");
+  const dbg = w.ecAiTopupDebugActions();
+  ok(dbg.rootExists === true && dbg.delegatedListener === true, "debug helper reports root + delegated listener registered");
+  ok(typeof dbg.actionButtons === "number" && Array.isArray(dbg.buttons), "debug helper returns action-button inventory");
+
+  // click-through via delegation for admin override + cancel (rendered into #ait-body, dispatched on document)
+  w.frappe.call = OC2;
+  w.AITopup.state.detail = { business:{ name:"R-1" } };
+  w.document.getElementById("ait-body").innerHTML = w.AITopup.actionPanelHTML({ capabilities:{ can_admin_approve_current_level:true }, approval:{ name:"AR-1", approval_status:"Pending" } });
+  [...w.document.querySelectorAll('[data-act="adminapprove"]')][0].click(); await flush();
+  ok(!!w.document.querySelector(".ec-ait-overlay") && /Duyệt thay bước hiện tại/.test(w.document.body.innerHTML), "clicking admin override opens modal (delegated)");
+  w.document.querySelector(".overlay [data-x]").click();
+  w.document.getElementById("ait-body").innerHTML = w.AITopup.actionPanelHTML({ capabilities:{ can_cancel:true }, approval:{ name:"AR-1", approval_status:"Pending" } });
+  [...w.document.querySelectorAll('[data-act="cancel"]')][0].click(); await flush();
+  ok(!!w.document.querySelector(".ec-ait-overlay") && /Hủy yêu cầu/.test(w.document.body.innerHTML), "clicking Hủy yêu cầu opens cancel modal (delegated)");
+  w.document.querySelector(".overlay [data-x]").click();
+
+  // our modal overlay is namespaced (theme .overlay never blocks our dup-guard) and lives under the app root
+  { const m = w.AITopup.modal("T", "<div>x</div>", {}); const ov = w.document.querySelector(".ec-ait-overlay");
+    ok(!!ov, "modal overlay carries the namespaced ec-ait-overlay class");
+    ok(!!w.document.getElementById("ec-ait-root") && w.document.getElementById("ec-ait-root").contains(ov), "modal overlay is appended inside #ec-ait-root");
+    m.close(); }
+
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);
 }
