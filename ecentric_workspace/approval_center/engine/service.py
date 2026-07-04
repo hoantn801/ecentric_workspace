@@ -406,3 +406,43 @@ def complete_approval(req):
     if req.reference_doctype == "EC AI Topup Request":
         from ecentric_workspace.approval_center.ai_topup import service as ai
         ai.on_final_approval(req.reference_name)
+
+
+def admin_override_current_level(request_name, actor=None, reason=None):
+    """System Manager override: force-approve ONLY the current pending level, advancing via the
+    same completion path as a normal approval. Composes existing primitives (no change to the normal
+    approve/reject flow). Does NOT impersonate the original approvers - they are marked Skipped and
+    the audit records the real actor. Only the current level is approved (never a skip-all)."""
+    actor = actor or frappe.session.user
+    if not (reason or "").strip():
+        frappe.throw(_("A reason is mandatory for an admin override."))
+    req = frappe.get_doc("EC Approval Request", request_name)
+    _guard_open(req)
+    if req.approval_status != "Pending":
+        frappe.throw(_("Admin override is only allowed while the request is pending approval."))
+    level_no = req.current_level
+    if not level_no:
+        frappe.throw(_("There is no current approval level to override."))
+    frappe.db.get_value("EC Approval Request", request_name, "name", for_update=True)   # row lock
+    rl = _rl_for(request_name, level_no)
+    if not rl or rl.level_status != "In Progress":
+        frappe.throw(_("The current level is not pending; please refresh."))
+    frappe.db.get_value("EC Approval Request Level", rl.name, "name", for_update=True)
+    skip_note = _("Admin override approved by {0}").format(actor)
+    for ap in frappe.get_all("EC Approval Request Approver",
+                             filters={"approval_request": request_name, "level_no": level_no, "status": "Pending"},
+                             fields=["name", "approver"]):
+        frappe.db.set_value("EC Approval Request Approver", ap.name,
+                            {"status": "Skipped", "decided_at": now_datetime(), "comment": skip_note})
+        log_action(request_name, "Skipped", actor, level_no, comment=skip_note,
+                   related_user=ap.approver, new_status="Skipped")
+    log_action(request_name, "Approved", actor, level_no,
+               comment=_("Admin override approve. Reason: {0}").format(reason),
+               previous_status="Pending", new_status="Approved")
+    frappe.db.set_value("EC Approval Request Level", rl.name,
+                        {"level_status": "Approved", "completed_at": now_datetime()})
+    nxt = [l for l in _request_levels(request_name) if l.level_no > level_no]
+    if nxt:
+        _activate_level(frappe.get_doc("EC Approval Request", request_name), nxt[0].level_no)
+    else:
+        complete_approval(frappe.get_doc("EC Approval Request", request_name))
