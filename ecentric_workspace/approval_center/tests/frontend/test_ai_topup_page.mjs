@@ -23,6 +23,10 @@ function boot(){
       tabs:{create:true,my_requests:true,my_approvals:false,fulfillment:false},
       context:{user:"u@x",employee_name:"U",department:"D",company:"C",manager_user:"m@x",manager_resolvable:true},
       is_system_manager:false, form_options:{ai_tools:[{value:"T",label:"Tool"}],currencies:["VND","USD"],account_modes:["Existing Account","New Account"],request_types:["Top-up"],billing_cycles:["Monthly"]} } });
+    if (o.method.endsWith("search_ai_accounts")) return Promise.resolve({ message: [
+      { name:"EC-AIACC-00001", ai_tool:"Claude", account_email:"hoantn801@gmail.com", account_manager:"hoan.tran@ecentric.vn", current_plan:"Claude Max 20x", billing_cycle:"Monthly", status:"Active", subscription_start_date:"2026-07-04", subscription_end_date:"2026-07-22" },
+      { name:"EC-AIACC-00002", ai_tool:"ChatGPT", account_email:"hoantn801@gmail.com", account_manager:"hoan.tran@ecentric.vn", current_plan:"ChatGPT Plus", billing_cycle:"Monthly", status:"Active", subscription_start_date:"", subscription_end_date:"" } ] });
+    if (o.method.endsWith("get_ai_account_detail")) return Promise.resolve({ message: (o.args.name === "EC-AIACC-00001" ? { name:"EC-AIACC-00001", ai_tool:"Claude", account_email:"hoantn801@gmail.com", account_manager:"hoan.tran@ecentric.vn", current_plan:"Claude Max 20x", billing_cycle:"Monthly", status:"Active", subscription_start_date:"2026-07-04", subscription_end_date:"2026-07-22" } : null) });
     return Promise.resolve({ message: { rows:[], total:0 } });
   }};
   w.eval(JS);
@@ -556,6 +560,61 @@ async function run(){
   w.document.querySelectorAll("[data-comp]").forEach(el=>{ const k=el.getAttribute("data-comp"); if(w.AITopup.state.comp[k]==null||w.AITopup.state.comp[k]==="") w.AITopup.state.comp[k]=el.value; });
   ok(w.AITopup.state.comp.actual_currency === "USD" && w.AITopup.state.comp.actual_tax_fee_basis === "Included", "untouched actual currency + tax basis are seeded (sent even if not edited)");
   ok(typeof w.AITopup.state.comp.actual_amount === "string" && !/USD|VND/.test(w.AITopup.state.comp.actual_amount), "actual amount is numeric (no currency concatenation)");
+
+  // ---- UAT: Existing Account picker ----
+  const ACC1 = { name:"EC-AIACC-00001", ai_tool:"Claude", account_email:"hoantn801@gmail.com", account_manager:"hoan.tran@ecentric.vn", current_plan:"Claude Max 20x", billing_cycle:"Monthly", subscription_start_date:"2026-07-04", subscription_end_date:"2026-07-22" };
+  ok(w.AITopup.acctLabel(ACC1) === "Claude · hoantn801@gmail.com · Claude Max 20x · 2026-07-04 → 2026-07-22 · Manager: hoan.tran@ecentric.vn", "rich option label format");
+  ok(w.AITopup.acctLabel({ ai_tool:"Claude", account_email:"hoantn801@gmail.com" }) === "Claude · hoantn801@gmail.com · Chưa có gói · Chưa có thời hạn", "label degrades gracefully when plan/period missing");
+
+  // render Existing create form -> combobox, not a plain data-model input
+  freshCtx(); w.AITopup.state.draft = { account_mode:"Existing Account" }; w.AITopup.state._acctSel = null;
+  w.history.pushState({}, "", "/approvals/ai-topup?tab=create"); w.AITopup.route(); await flush();
+  ok(!!w.document.getElementById("ec-acct-input"), "Existing Account renders a searchable combobox input");
+  ok(!w.document.querySelector('[data-model="ai_account"]'), "account field no longer a plain data-model free-text input");
+  ok(w.document.querySelector('[data-fld="_p"] input').value === "Chưa chọn account", "period shows 'Chưa chọn account' before selection");
+
+  // typing shows rich, distinguishable options (same email, different tools)
+  { const inp = w.document.getElementById("ec-acct-input"); inp.value = "hoantn801"; inp.dispatchEvent(new w.Event("input", { bubbles:true })); await flush();
+    const menu = w.document.getElementById("ec-acct-menu").innerHTML;
+    ok(/Claude/.test(menu) && /ChatGPT/.test(menu) && /hoantn801@gmail.com/.test(menu) && /Claude Max 20x/.test(menu), "picker shows rich labels (tool+email+plan) — same email across tools is distinguishable"); }
+
+  // selecting an account populates all dependent fields
+  w.AITopup.selectAccount(ACC1); await flush();
+  ok(w.AITopup.state.draft.ai_account === "EC-AIACC-00001", "selection stores the EC AI Account name (not free text)");
+  ok(w.AITopup.state.draft.ai_tool === "Claude", "selection populates AI Tool");
+  ok(w.AITopup.state.draft.account_email === "hoantn801@gmail.com", "selection populates account email");
+  ok(w.AITopup.state.draft.account_manager === "hoan.tran@ecentric.vn", "selection populates account manager");
+  ok(w.AITopup.state.draft.current_plan === "Claude Max 20x", "selection populates current plan");
+  ok(w.document.querySelector('[data-fld="ai_tool"] input').value === "Claude", "AI Tool read-only field updated in the DOM");
+  ok(w.document.querySelector('[data-fld="_p"] input').value === "2026-07-04 → 2026-07-22", "current period field shows start → end (not 'Chưa chọn account')");
+  ok(w.document.getElementById("ec-acct-input").value === w.AITopup.acctLabel(ACC1), "picker input shows the readable selected label");
+  { const sum = w.document.getElementById("ait-summary").innerHTML;
+    ok(/Claude/.test(sum) && /hoantn801@gmail.com/.test(sum) && /hoan\.tran@ecentric\.vn/.test(sum), "summary shows Tool/Account/Manager for Existing Account"); }
+
+  // exact name typed/pasted resolves + populates
+  freshCtx(); w.AITopup.state.draft = { account_mode:"Existing Account" }; w.AITopup.state._acctSel = null;
+  w.AITopup.route(); await flush();
+  w.document.getElementById("ec-acct-input").value = "EC-AIACC-00001";
+  await w.AITopup.resolveAccountText(); await flush();
+  ok(w.AITopup.state.draft.ai_account === "EC-AIACC-00001" && w.AITopup.state.draft.ai_tool === "Claude", "exact account name typed/pasted resolves and populates");
+
+  // unresolved free text -> inline error + cleared ai_account
+  w.document.getElementById("ec-acct-input").value = "NOT-A-REAL-ACCOUNT";
+  w.AITopup.state._acctSel = null;
+  await w.AITopup.resolveAccountText(); await flush();
+  ok(!w.AITopup.state.draft.ai_account, "unresolved free text does not store ai_account");
+  ok(w.document.querySelector('[data-fld="ai_account"]').classList.contains("invalid"), "unresolved free text shows inline error on the AI Account field");
+
+  // submit blocked when Existing Account unresolved
+  w.AITopup.state.draft = { account_mode:"Existing Account", request_title:"T", requested_amount:100 };
+  ok(!!(w.AITopup.validateSubmit() || {}).ai_account, "submit blocked if Existing Account is unresolved");
+
+  // detail/edit hydration: draft with account already selected shows label + populated fields
+  freshCtx();
+  w.AITopup.state.draft = { account_mode:"Existing Account", ai_account:"EC-AIACC-00001", ai_tool:"Claude", account_email:"hoantn801@gmail.com", account_manager:"hoan.tran@ecentric.vn", current_plan:"Claude Max 20x", subscription_start_date:"2026-07-04", subscription_end_date:"2026-07-22" };
+  w.AITopup.state._acctSel = null; w.AITopup.route(); await flush();
+  ok(/Claude · hoantn801@gmail.com · Claude Max 20x/.test(w.document.getElementById("ec-acct-input").value), "edit hydration shows the readable selected label");
+  ok(w.document.querySelector('[data-fld="_p"] input').value === "2026-07-04 → 2026-07-22", "edit hydration populates the current period field");
 
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);

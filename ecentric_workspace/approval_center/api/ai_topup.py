@@ -160,20 +160,35 @@ def get_form_options():
     }
 
 
+_ACCOUNT_FIELDS = ["name", "ai_tool", "account_email", "account_name", "account_manager",
+                   "current_plan", "billing_cycle", "status",
+                   "subscription_start_date", "subscription_end_date"]
+
+
 @frappe.whitelist()
 def search_ai_accounts(query=None, ai_tool=None):
+    """Active-account picker search: name / email / account_name / ai_tool / plan / manager.
+    Minimal, permission-safe payload for a rich, self-describing dropdown."""
     filters = {"status": "Active"}
     if ai_tool:
         filters["ai_tool"] = ai_tool
     or_filters = None
     if query:
-        or_filters = [["account_email", "like", "%" + query + "%"],
-                      ["account_name", "like", "%" + query + "%"]]
+        like = "%" + query + "%"
+        or_filters = [["name", "like", like], ["account_email", "like", like],
+                      ["account_name", "like", like], ["ai_tool", "like", like],
+                      ["current_plan", "like", like], ["account_manager", "like", like]]
     return frappe.get_all("EC AI Account", filters=filters, or_filters=or_filters,
-                          fields=["name", "ai_tool", "account_email", "account_name",
-                                  "account_manager", "current_plan",
-                                  "subscription_start_date", "subscription_end_date"],
-                          limit_page_length=20, order_by="account_email asc")
+                          fields=_ACCOUNT_FIELDS, limit_page_length=20, order_by="account_email asc")
+
+
+@frappe.whitelist()
+def get_ai_account_detail(name):
+    """Resolve an exact EC AI Account name (Active only) for typed/pasted input. None if not found."""
+    if not name:
+        return None
+    return frappe.db.get_value("EC AI Account", {"name": name, "status": "Active"},
+                               _ACCOUNT_FIELDS, as_dict=True)
 
 
 @frappe.whitelist()
