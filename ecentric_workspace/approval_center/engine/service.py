@@ -261,6 +261,7 @@ def _activate_level(req, level_no):
                                filters={"approval_request": req.name, "level_no": level_no, "status": "Pending"},
                                pluck="approver")
     notify(approvers, _("Approval needed: {0}").format(req.name), req.reference_doctype, req.reference_name)
+    close_todos(req.reference_doctype, req.reference_name)   # close prior-level ToDos before assigning the new level
     assign(req.reference_doctype, req.reference_name, approvers,
            _("Approval level {0}").format(level_no))
 

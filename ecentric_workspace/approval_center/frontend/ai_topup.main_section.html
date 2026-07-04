@@ -744,26 +744,54 @@
     if(ff.status==="Completed"){ return completedInfoHTML(det)+aiAccountHTML(ff.ai_account); }
     if(ff.status==="Cancelled"){ return '<div class="hint">Đã hủy.</div>'; }
     return '<div class="hint">—</div>'; }
-  function uploadFile(fileInput, field, labelId){ var file=fileInput.files&&fileInput.files[0]; if(!file) return;
-    var fd=new FormData(); fd.append("file",file); fd.append("is_private","1"); fd.append("doctype","EC AI Topup Request"); fd.append("docname",state.id);
+  function uploadFile(fileInput, field, labelId, evidenceType, det){ var file=fileInput.files&&fileInput.files[0]; if(!file) return;
+    state.fileSeq=state.fileSeq||{}; state.fileSeq[evidenceType]=(state.fileSeq[evidenceType]||0)+1;
+    var newName=normalizeEvidenceName(det||state.detail||{}, evidenceType, file.name, state.fileSeq[evidenceType]);
+    var fd=new FormData(); fd.append("file",file,newName); fd.append("file_name",newName); fd.append("is_private","1"); fd.append("doctype","EC AI Topup Request"); fd.append("docname",state.id);
     var lbl=$(labelId); if(lbl) lbl.textContent="Đang tải...";
     fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd})
-      .then(function(r){return r.json();}).then(function(j){ var url=j&&j.message&&j.message.file_url; state.comp=state.comp||{}; state.comp[field]=url; if(lbl) lbl.textContent=url?("Đã tải: "+file.name):"Lỗi tải"; })
+      .then(function(r){return r.json();}).then(function(j){ var m=j&&j.message; var url=m&&m.file_url; state.comp=state.comp||{}; state.comp[field]=url; state.comp[field+"_name"]=(m&&m.file_name)||newName; if(lbl) lbl.textContent=url?("Đã tải: "+((m&&m.file_name)||newName)):"Lỗi tải"; })
       .catch(function(){ if(lbl) lbl.textContent="Lỗi tải"; }); }
   function wireFulfillment(det){ var name=(det.business||{}).name;
     var cl=$("ait-claim"); if(cl){ cl.onclick=function(){ cl.disabled=true; call("claim_fulfillment",{name:name}).then(function(){ toast("Đã nhận xử lý."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); }); }; }
     document.querySelectorAll("[data-comp]").forEach(function(el){ el.addEventListener("input",function(){ state.comp=state.comp||{}; state.comp[el.getAttribute("data-comp")]=el.value; }); });
-    var pp=document.querySelector('[data-upload="payment_proof"]'); if(pp) pp.addEventListener("change",function(){ uploadFile(pp,"payment_proof","pp-name"); });
-    var ir=document.querySelector('[data-upload="invoice_receipt"]'); if(ir) ir.addEventListener("change",function(){ uploadFile(ir,"invoice_receipt","ir-name"); });
+    var pp=document.querySelector('[data-upload="payment_proof"]'); if(pp) pp.addEventListener("change",function(){ uploadFile(pp,"payment_proof","pp-name","PaymentProof",det); });
+    var ir=document.querySelector('[data-upload="invoice_receipt"]'); if(ir) ir.addEventListener("change",function(){ uploadFile(ir,"invoice_receipt","ir-name","Invoice",det); });
+    var inv=document.querySelector('[data-comp="invoice_status"]'); if(inv) inv.addEventListener("change",function(){ state.comp=state.comp||{}; state.comp.invoice_status=inv.value; applyInvoiceConditional(); });
+    applyInvoiceConditional();
     var mgr=document.querySelector('[data-comp="confirmed_account_manager"]'); if(mgr) mgr.addEventListener("input",function(){ call("search_active_users",{query:mgr.value}).then(function(rows){ var dl=$("ait-users"); if(dl) dl.innerHTML=(rows||[]).map(function(r){return '<option value="'+esc(r.value)+'">'+esc(r.label)+'</option>';}).join(""); }); });
     var cb=$("ait-complete"); if(cb){ cb.onclick=function(){ doComplete(name); }; } }
   function completionErrors(){ var c=state.comp||{}; var e=[];
-    if(!c.payment_proof) e.push("Vui lòng bổ sung chứng từ thanh toán.");
+    if(!c.payment_proof) e.push("Vui lòng bổ sung chứng từ thanh toán.");        // always required
     if(!c.actual_amount) e.push("Vui lòng nhập số tiền thực.");
+    if(!c.transaction_reference) e.push("Vui lòng nhập mã giao dịch.");           // backend requires it always
     if(!c.invoice_status) e.push("Vui lòng chọn tình trạng hóa đơn.");
-    if(c.invoice_status==="Invoice Available" && !c.invoice_receipt) e.push("Vui lòng tải hóa đơn hoặc chọn Không phát hành hóa đơn và nhập lý do.");
-    if(c.invoice_status==="No Invoice Issued"){ if(!c.no_invoice_reason) e.push("Vui lòng nhập lý do không phát hành hóa đơn."); if(!c.transaction_reference) e.push("Vui lòng nhập mã giao dịch."); }
+    if(c.invoice_status==="Invoice Available" && !c.invoice_receipt) e.push("Vui lòng tải hóa đơn/biên nhận.");
+    if(c.invoice_status==="No Invoice Issued" && !c.no_invoice_reason) e.push("Vui lòng nhập lý do không phát hành hóa đơn.");
     return e; }
+  // Conditional fulfillment invoice UI: show reason only for "No Invoice Issued"; hide invoice upload then.
+  function applyInvoiceConditional(){ var st=(state.comp&&state.comp.invoice_status)||"";
+    var noInv = st==="No Invoice Issued";
+    var ir=document.querySelector('[data-fld="invoice_receipt"]'); var nr=document.querySelector('[data-fld="no_invoice_reason"]');
+    if(ir) ir.style.display = noInv ? "none" : "";
+    if(nr) nr.style.display = noInv ? "" : "none";
+    if(!noInv){ if(state.comp) state.comp.no_invoice_reason=""; var nri=document.querySelector('[data-comp="no_invoice_reason"]'); if(nri) nri.value=""; }
+  }
+  // Business-readable evidence file name (renames at upload; keeps file_url safe; no account email).
+  function _fileExt(n){ var m=String(n||"").match(/\.[A-Za-z0-9]{1,8}$/); return m?m[0].toLowerCase():""; }
+  function _shortCode(nm){ var num=(String(nm||"").match(/(\d+)\s*$/)||[])[1]||"00000"; return "AITOP_"+num; }
+  function _sanTok(x){ return String(x==null?"":x).replace(/[^A-Za-z0-9]+/g,""); }
+  function normalizeEvidenceName(det, evidenceType, origName, seq){
+    var b=(det&&det.business)||{};
+    var d=new Date(); var p=function(n){return String(n).padStart(2,"0");};
+    var ddmmyy=p(d.getDate())+p(d.getMonth()+1)+String(d.getFullYear()).slice(-2);
+    var mode=b.account_mode==="New Account"?"NewAccount":(b.account_mode==="Existing Account"?"ExistingAccount":"Account");
+    var rtype=_sanTok(b.request_type)||"Request";
+    var ev=_sanTok(evidenceType)||"Other";
+    var sq=("0"+(seq||1)).slice(-2);
+    var base=[ddmmyy,_shortCode(b.name),mode,rtype,ev,sq].join("_").replace(/[^A-Za-z0-9_]/g,"").replace(/_+/g,"_").slice(0,120);
+    return base+_fileExt(origName);
+  }
   function doComplete(name){ var errs=completionErrors(); if(errs.length){ toast(errs[0],true); return; }
     var c=state.comp||{}; var body='<div class="summary-row"><span>Số tiền thực</span><b>'+esc((c.actual_amount||"")+" "+(c.actual_currency||""))+'</b></div><div class="summary-row"><span>Mã giao dịch</span><b>'+esc(c.transaction_reference||"—")+'</b></div><div class="summary-row"><span>Hóa đơn</span><b>'+esc(c.invoice_status||"—")+'</b></div>';
     modal("Xác nhận hoàn tất", body, {okLabel:"Hoàn tất", onConfirm:function(){ return call("complete_fulfillment",{name:name,payload:JSON.stringify(c)}).then(function(){ toast("Đã hoàn tất xử lý."); state.comp={}; refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
@@ -788,7 +816,7 @@
     call("get_bootstrap").then(function(bootData){ state.boot=bootData||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(){ var bd=$("ait-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.AITopup={ state:state, buildStepper:buildStepper, render:render, route:route, _boot:boot, _call:call, badge:badge, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, materialSnap:materialSnap, modal:modal, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, renderFulfillment:renderFulfillment, suggestTitle:suggestTitle, validateSubmit:validateSubmit, applyBackendError:applyBackendError, roadmapHTML:roadmapHTML, startEditDraft:startEditDraft, doSubmitDraft:doSubmitDraft, headerStatusHTML:headerStatusHTML, doAdminApprove:doAdminApprove, stepLabel:stepLabel };
+  window.AITopup={ state:state, buildStepper:buildStepper, render:render, route:route, _boot:boot, _call:call, badge:badge, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, materialSnap:materialSnap, modal:modal, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, renderFulfillment:renderFulfillment, suggestTitle:suggestTitle, validateSubmit:validateSubmit, applyBackendError:applyBackendError, roadmapHTML:roadmapHTML, startEditDraft:startEditDraft, doSubmitDraft:doSubmitDraft, headerStatusHTML:headerStatusHTML, doAdminApprove:doAdminApprove, stepLabel:stepLabel, normalizeEvidenceName:normalizeEvidenceName, applyInvoiceConditional:applyInvoiceConditional };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>
