@@ -451,9 +451,22 @@
     return '<table class="tbl"><tbody>'+list.map(function(f){ return '<tr><td>'+esc(f.file_name)+'</td><td>'+esc(f.owner)+'</td><td>'+esc(fmt(f.creation))+'</td><td><a href="'+esc(f.file_url)+'" target="_blank">Mở</a></td></tr>'; }).join("")+'</tbody></table>'; }
 
   // ---- DYNAMIC STEPPER ----
+  // Draft / pre-submit preview: no runtime EC Approval Request yet -> show the configured flow.
+  function buildDraftStepper(det){
+    var prev=det.process_preview||[];
+    var steps=[{name:"Tạo yêu cầu",state:"current",statusLabel:"Đang thực hiện",meta:""}];
+    if(prev.length){ prev.forEach(function(l){ steps.push({name:l.level_name||("Level "+l.level_no),state:"upcoming",statusLabel:"Chờ",meta:""}); }); }
+    else { ["Manager duyệt","Operation duyệt","Finance duyệt"].forEach(function(n){ steps.push({name:n,state:"upcoming",statusLabel:"Chờ",meta:""}); }); }
+    steps.push({name:"Operation xử lý",state:"upcoming",statusLabel:"Chờ",meta:""});
+    steps.push({name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:""});
+    return renderStepsHTML(steps);
+  }
   function buildStepper(det){
-    var levels=det.levels||[], approvers=det.approvers||[], ap=det.approval||{}, ff=det.fulfillment||{};
-    var steps=[{name:"Đã gửi",state:(ap.approval_status?"done":"upcoming"),meta:""}];
+    var ap=det.approval||{};
+    // No runtime approval request (Draft / not yet submitted) -> configured preview.
+    if(!ap.name) return buildDraftStepper(det);
+    var levels=det.levels||[], approvers=det.approvers||[], ff=det.fulfillment||{};
+    var steps=[{name:"Đã gửi",state:"done",meta:""}];
     levels.forEach(function(l){
       var rows=approvers.filter(function(a){ return a.level_no===l.level_no; });
       var st="upcoming", meta="";
@@ -482,9 +495,12 @@
     if(ovF) fmeta+=' · <span class="ov">Quá hạn</span>'; else if(ff.due_at && fst==="current") fmeta+=" · Hạn: "+fmt(ff.due_at);
     steps.push({name:"Operation Fulfillment",state:fst,meta:fmeta});
     steps.push({name:"Hoàn tất",state:(ff.status==="Completed"?"done":"upcoming"),meta:""});
-    var LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
+    return renderStepsHTML(steps);
+  }
+  var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
+  function renderStepsHTML(steps){
     return steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div>'
-      +'<div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(LBL[s.state]||s.state)+'</div></div>'
+      +'<div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div>'
       +'<div class="step-meta">'+ (s.meta||"") +'</div></div>'; }).join("");
   }
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }

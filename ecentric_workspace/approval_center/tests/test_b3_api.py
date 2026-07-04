@@ -411,3 +411,29 @@ class TestFinanceCommentValidation(FrappeTestCase):
                             "requested_by": req}).insert(ignore_permissions=True)   # differing amounts, no comment
         d.reload(); d.operation_note = "x"; d.save(ignore_permissions=True)          # plain re-save must not raise
         self.assertTrue(d.name)
+
+
+class TestProcessPreview(FrappeTestCase):
+    """Draft stepper preview: get_request_detail exposes configured levels only pre-submit."""
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def test_draft_returns_process_preview_and_no_runtime_levels(self):
+        a = _user("zzb3_pp_a@example.com"); req = _user("zzb3_pp_r@example.com")
+        _proc_with_fulfiller(a, a)                 # active process with 2 configured levels
+        doc = _draft(req)                          # draft, not submitted
+        frappe.set_user(req)
+        det = api.get_request_detail(doc.name)
+        self.assertGreaterEqual(len(det["process_preview"]), 2)
+        self.assertEqual(det["levels"], [])        # no runtime snapshot yet
+        self.assertIsNone(det["approval"]["name"])
+
+    def test_submitted_has_runtime_levels_and_empty_preview(self):
+        a = _user("zzb3_pp_a2@example.com"); req = _user("zzb3_pp_r2@example.com")
+        _proc_with_fulfiller(a, a)
+        name = _submit_fin(req, a, 100)
+        det = api.get_request_detail(name)
+        self.assertEqual(det["process_preview"], [])
+        self.assertGreaterEqual(len(det["levels"]), 2)
+        self.assertTrue(det["approval"]["name"])
