@@ -97,6 +97,53 @@ async function run(){
   // ---- B3.5 a11y/responsive ----
   { var m=w.AITopup.modal("T","<input id=zz>",{}); ok(!!w.document.querySelector('.modal[role="dialog"][aria-modal="true"]'),"modal has role=dialog aria-modal"); m.close(); }
   ok(/overflow-x:auto/.test(HTML) && /focus-visible/.test(HTML), "responsive table scroll + focus-visible present");
+
+  // ---- UAT polish (fix/approval-center-aitopup-uat-polish-1) ----
+  // ensure a realistic bootstrap context for the create-form renders below
+  w.AITopup.state.boot = w.AITopup.state.boot || { tabs:{}, form_options:{} };
+  w.AITopup.state.boot.form_options = w.AITopup.state.boot.form_options || { ai_tools:[{value:"T",label:"Tool"}], currencies:["VND"] };
+  w.AITopup.state.boot.context = { user:"u@x", employee:"EMP-1", employee_name:"U", department:"D", company:"C", manager_user:"m@x", manager_resolvable:true };
+  w.AITopup.state.draft = null;
+  w.history.pushState({}, "", "/approvals/ai-topup?tab=create"); w.AITopup.route(); await flush();
+  const cbody = () => w.document.getElementById("ait-body").innerHTML;
+  // roadmap always visible on Create, exactly 6 compact steps, SLA note
+  ok(/Quy trình xử lý yêu cầu/.test(cbody()), "roadmap card visible on Create tab");
+  ok((cbody().match(/class="rm-step"/g) || []).length === 6, "roadmap has exactly 6 steps");
+  ok(/SLA 3 giờ làm việc/.test(cbody()) && /09:00.{0,3}12:00/.test(cbody()), "roadmap SLA note present with business-hours window");
+  ok(!/id="d-stepper"/.test(cbody()) && !/class="stepper"/.test(cbody()), "roadmap does not duplicate the dynamic approval stepper");
+  // account period label + empty state (scoped to the account field, not the summary card)
+  ok(/Thời hạn hiện tại của account/.test(cbody()), "account period label clarified");
+  ok(/value="Chưa chọn account"/.test(cbody()), "account period field shows 'Chưa chọn account' before selection (not dashes)");
+  // auto-renewal helper text
+  ok(/Chỉ dùng để ghi nhận nhu cầu gia hạn/.test(cbody()), "auto-renewal helper text present");
+
+  // blocking alert: missing direct manager (Employee exists) -> icon + title + description, left aligned
+  w.AITopup.state.boot.context = { user:"u@x", employee:"EMP-1", employee_name:"U", department:"D", company:"C", manager_user:null, manager_resolvable:false };
+  w.AITopup.state.draft = null;
+  w.AITopup.render(); await flush();
+  const mb = () => w.document.getElementById("ait-body").innerHTML;
+  ok(/class="ec-alert-title"/.test(mb()) && /class="ec-alert-desc"/.test(mb()), "blocking alert has structured title + description");
+  ok(/>Không thể gửi yêu cầu</.test(mb()), "missing-manager alert uses short title");
+  ok(/Chưa xác định được quản lý trực tiếp của người yêu cầu/.test(mb()), "missing-manager alert description");
+  ok(!/reports_to/.test(mb()), "alert does not expose raw technical field name");
+  const alertEl = w.document.querySelector(".ec-alert");
+  const firstChild = alertEl && alertEl.firstElementChild;
+  ok(!!firstChild && firstChild.tagName.toLowerCase() === "svg", "alert icon is the first (left) child, text follows");
+
+  // Administrator / no Employee -> friendlier message
+  w.AITopup.state.boot.context = { user:"Administrator", employee:null, manager_resolvable:false };
+  w.AITopup.state.draft = null;
+  w.AITopup.render(); await flush();
+  ok(/Không thể gửi yêu cầu bằng tài khoản hiện tại/.test(mb()), "Administrator/no-Employee friendly title");
+  ok(/test bằng user nhân sự thật/.test(mb()), "Administrator/no-Employee friendly description");
+
+  // AI Tool empty state (New Account, no active EC AI Tool records)
+  w.AITopup.state.boot.context = { user:"u@x", employee:"EMP-1", employee_name:"U", department:"D", company:"C", manager_user:"m@x", manager_resolvable:true };
+  w.AITopup.state.boot.form_options.ai_tools = [];
+  w.AITopup.state.draft = { account_mode: "New Account" };
+  w.AITopup.render(); await flush();
+  ok(/Chưa có AI Tool nào\. Vui lòng tạo EC AI Tool trong Desk/.test(cbody()), "AI Tool empty-state message shown when no active tools");
+
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);
 }
