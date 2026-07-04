@@ -78,6 +78,21 @@ async function run(){
   w.history.pushState({},"","/approvals/ai-topup?tab=my-approvals"); w.AITopup.route(); await flush(); await flush();
   ok(/Cần tôi xử lý/.test(w.document.body.innerHTML), "My Approvals renders 'Cần tôi xử lý' section");
   ok(!!w.document.querySelector('[data-quick="approve"]'), "actionable row has Duyệt quick action");
+
+  // ---- B3.4 fulfillment unit tests ----
+  ok(/Chưa đến bước xử lý/.test(w.AITopup.fulfillmentSectionHTML({approval:{approval_status:"Pending"},fulfillment:{status:"Not Started"},capabilities:{}})), "fulfillment: before approval message");
+  ok(/Nhận xử lý/.test(w.AITopup.fulfillmentSectionHTML({approval:{approval_status:"Approved"},fulfillment:{status:"Assigned",eligible_fulfillers:["a@x","b@x"]},capabilities:{can_claim:true}})), "fulfillment: assigned shows claim when can_claim");
+  ok(!/Nhận xử lý/.test(w.AITopup.fulfillmentSectionHTML({approval:{approval_status:"Approved"},fulfillment:{status:"Assigned",eligible_fulfillers:[]},capabilities:{can_claim:false}})), "fulfillment: no claim button when not eligible");
+  ok(/Nhập thông tin hoàn tất/.test(w.AITopup.fulfillmentSectionHTML({approval:{approval_status:"Approved"},fulfillment:{status:"In Progress",owner:"a@x"},capabilities:{can_complete:true},business:{}})), "fulfillment: owner sees completion form");
+  ok(!/Nhập thông tin hoàn tất/.test(w.AITopup.fulfillmentSectionHTML({approval:{approval_status:"Approved"},fulfillment:{status:"In Progress",owner:"a@x"},capabilities:{can_complete:false},business:{}})), "fulfillment: non-owner read-only");
+  ok(/Tài khoản AI đã cập nhật/.test(w.AITopup.fulfillmentSectionHTML({approval:{approval_status:"Approved"},fulfillment:{status:"Completed",ai_account:{name:"ACC",account_email:"e@x"}},capabilities:{},business:{}})), "fulfillment: completed shows AI account update");
+  // completion validation
+  w.AITopup.state.comp={}; ok(w.AITopup.completionErrors().some(function(e){return /chứng từ thanh toán/.test(e);}), "payment proof required");
+  w.AITopup.state.comp={payment_proof:"/f/p",actual_amount:10,invoice_status:"Invoice Available"}; ok(w.AITopup.completionErrors().some(function(e){return /hóa đơn/.test(e);}), "invoice available requires receipt");
+  w.AITopup.state.comp={payment_proof:"/f/p",actual_amount:10,invoice_status:"No Invoice Issued"}; var ne=w.AITopup.completionErrors(); ok(ne.some(function(e){return /lý do/.test(e);})&&ne.some(function(e){return /mã giao dịch/.test(e);}), "no invoice requires reason + txn ref");
+  w.AITopup.state.comp={payment_proof:"/f/p",actual_amount:10,invoice_status:"No Invoice Issued",no_invoice_reason:"r",transaction_reference:"t"}; ok(w.AITopup.completionErrors().length===0, "valid no-invoice completion passes");
+  // fulfillment tab visibility gate
+  w.AITopup.state.boot={tabs:{fulfillment:false}}; var tmp=w.document.createElement("div"); w.AITopup.renderFulfillment(tmp); ok(/Không khả dụng/.test(tmp.innerHTML), "fulfillment tab denied when not eligible");
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);
 }

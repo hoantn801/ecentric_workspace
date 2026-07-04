@@ -171,7 +171,7 @@
     if(state.tab==="detail"&&state.id) return renderDetail(b);
     if(state.tab==="my-requests") return renderMyRequests(b);
     if(state.tab==="my-approvals") return renderMyApprovals(b);
-    if(state.tab==="fulfillment") { b.innerHTML='<div class="card"><div class="state"><h4>Sắp ra mắt</h4><p>Hàng đợi Operation sẽ có ở bước tiếp theo (B3.4).</p></div></div>'; return; }
+    if(state.tab==="fulfillment") return renderFulfillment(b);
     return renderCreate(b); }
 
   // ======================= CREATE =======================
@@ -336,11 +336,12 @@
       +'<div class="card"><h3>Tài khoản</h3><div class="grid2">'+kv("Hình thức",biz.account_mode)+kv("AI Account",biz.ai_account||biz.proposed_account_email)+kv("Email",biz.account_email||biz.proposed_account_email)+kv("Account manager",biz.account_manager||biz.proposed_account_manager)+'</div></div>'
       +'<div class="card"><h3>Thời hạn</h3><div class="grid2">'+kv("Bắt đầu",biz.subscription_start_date)+kv("Kết thúc",biz.subscription_end_date)+kv("Chu kỳ",biz.billing_cycle)+kv("Tự gia hạn",biz.auto_renewal_expected?"Có":"Không")+'</div></div>'
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
+      +'<div class="card"><h3>Xử lý Operation</h3>'+fulfillmentSectionHTML(det)+'</div>'
       +'<div class="card"><h3>Hành động</h3>'+actionPanelHTML(det)+'</div>'
       +'<div class="card"><h3>Lịch sử</h3>'+timelineHTML(det.timeline)+'</div>';
     $("d-back").onclick=function(){ go({tab:"my-requests"}); };
     $("d-stepper").innerHTML=buildStepper(det);
-    wireActionPanel(det);
+    wireActionPanel(det); wireFulfillment(det);
   }
   function kv(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><input class="ro" readonly value="'+esc(v==null||v===""?"—":v)+'"></div>'; }
   function renderAttachments(list){ if(!list||!list.length) return '<div class="hint">Chưa có tệp đính kèm.</div>';
@@ -370,9 +371,12 @@
     });
     // fulfillment step
     var fst="upcoming", fmeta="";
-    if(ff.status==="Completed"){ fst="done"; fmeta="Hoàn tất"+(ff.completed_by?(" bởi "+ff.completed_by):""); }
+    var ovF = ff.due_at && new Date(ff.due_at)<new Date() && (ff.status==="Assigned"||ff.status==="In Progress");
+    if(ff.status==="Completed"){ fst="done"; fmeta="Hoàn tất"+(ff.completed_by?(" bởi "+ff.completed_by):"")+(ff.completed_at?(" · "+fmt(ff.completed_at)):""); }
     else if(ff.status==="In Progress"){ fst="current"; fmeta="Đang xử lý"+(ff.owner?(" · "+ff.owner):""); }
-    else if(ff.status==="Assigned"){ fst="current"; fmeta="Đã giao Operation"; }
+    else if(ff.status==="Assigned"){ fst="current"; fmeta="Đã giao Operation"+((ff.eligible_fulfillers&&ff.eligible_fulfillers.length)?(" · "+ff.eligible_fulfillers.join(" hoặc ")):""); }
+    else if(ff.status==="Cancelled"){ fst="rejected"; fmeta="Đã hủy"; }
+    if(ovF) fmeta+=' · <span class="ov">Quá hạn</span>'; else if(ff.due_at && fst==="current") fmeta+=" · Hạn: "+fmt(ff.due_at);
     steps.push({name:"Operation Fulfillment",state:fst,meta:fmeta});
     steps.push({name:"Hoàn tất",state:(ff.status==="Completed"?"done":"upcoming"),meta:""});
     var LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
@@ -400,9 +404,11 @@
     if(/no further action|is Approved|is Rejected|is Cancelled/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Dữ liệu đã được làm mới.";
     if(/moved|next level/i.test(m)) return "Yêu cầu đã chuyển sang bước khác.";
     if(/mandatory|required/i.test(m)) return m;
-    if(/access|permission|allowed/i.test(m)) return "Bạn không còn quyền thực hiện hành động này.";
+    if(/already been claimed|another fulfiller/i.test(m)) return "Yêu cầu này đã được một thành viên Operation khác nhận xử lý.";
+    if(/claimed owner|not.*owner/i.test(m)) return "Bạn không phải người đang xử lý yêu cầu này.";
+    if(/access|permission|allowed|eligible fulfiller/i.test(m)) return "Bạn không còn quyền thực hiện hành động này.";
     return m || "Không thể thực hiện do dữ liệu đã thay đổi. Vui lòng tải lại."; }
-  function refreshDetail(){ if(state.tab==="detail"&&state.id) renderDetail($("ait-body")); }
+  function refreshDetail(){ state.comp={}; if(state.tab==="detail"&&state.id) renderDetail($("ait-body")); }
   function refreshApprovals(){ if(state.tab==="my-approvals") renderMyApprovals($("ait-body")); }
 
   function modal(title, bodyHTML, opts){ opts=opts||{};
@@ -423,7 +429,7 @@
       +'<div class="summary-row"><span>Cấp hiện tại</span><b>Level '+esc(ap.current_level||"—")+'</b></div>'; }
 
   function doApprove(name, det){ var ap=det.approval||{}; var lvl=(det.levels||[]).find(function(l){return l.level_no===ap.current_level;});
-    var isFin = lvl && /finance|tài chính/i.test(lvl.level_name||""); var reqAmt=(det.business||{}).requested_amount;
+    var isFin = !!(det.capabilities&&det.capabilities.can_adjust_approved_amount); var reqAmt=(det.business||{}).requested_amount;
     var body=summaryHTML(det)
       +'<div class="fld"><label>Ghi chú (không bắt buộc)</label><textarea id="m-cmt" rows="2"></textarea></div>'
       +(isFin?('<div class="fld"><label>Số tiền duyệt</label><input id="m-amt" type="number" value="'+esc(det.business.approved_amount!=null?det.business.approved_amount:(reqAmt||""))+'"><div class="hint">Yêu cầu: '+esc(reqAmt||"—")+'. Nếu khác, bắt buộc nhập lý do.</div></div>'):'');
@@ -490,11 +496,96 @@
         call("get_request_detail",{name:n}).then(function(det){ if(q==="approve")doApprove(n,det); else if(q==="reqinfo")doRequestInfo(n); else doReject(n); }).catch(function(e){ toast(mapErr(e),true); }); }; });
     }).catch(function(){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không tải được</h4><button class="btn" data-r>Thử lại</button></div></div>'; var r=h.querySelector("[data-r]"); if(r)r.onclick=function(){ loadApprovals(section,host,title); }; }); }
 
+
+  // ======================= B3.4: fulfillment =======================
+  function slaLine(ff){ if(!ff.due_at) return ""; var ov=new Date(ff.due_at)<new Date();
+    return '<div class="hint">SLA xử lý: '+(ov?'<span style="color:var(--red);font-weight:600">Quá hạn ('+esc(fmt(ff.due_at))+')</span>':('còn hạn đến '+esc(fmt(ff.due_at))))+'</div>'; }
+  function aiAccountHTML(acc){ if(!acc) return "";
+    return '<div class="sect-h">Tài khoản AI đã cập nhật</div><div class="grid2">'
+      + '<div class="fld"><label>AI Account</label><input class="ro" readonly value="'+esc(acc.name||"—")+'"></div>'
+      + '<div class="fld"><label>Email</label><input class="ro" readonly value="'+esc(acc.account_email||"—")+'"></div>'
+      + '<div class="fld"><label>Người quản lý</label><input class="ro" readonly value="'+esc(acc.account_manager||"—")+'"></div>'
+      + '<div class="fld"><label>Gói</label><input class="ro" readonly value="'+esc(acc.current_plan||"—")+'"></div>'
+      + '<div class="fld"><label>Thời hạn</label><input class="ro" readonly value="'+esc((acc.subscription_start_date||"—")+" → "+(acc.subscription_end_date||"—"))+'"></div>'
+      + '<div class="fld"><label>Top-up gần nhất</label><input class="ro" readonly value="'+esc(fmt(acc.last_topup_at))+'"></div>'
+      + '</div>'; }
+  function completedInfoHTML(det){ var b=det.business||{}, ff=det.fulfillment||{};
+    return '<div class="grid2">'
+      + '<div class="fld"><label>Hoàn tất bởi</label><input class="ro" readonly value="'+esc(ff.completed_by||"—")+'"></div>'
+      + '<div class="fld"><label>Thời điểm</label><input class="ro" readonly value="'+esc(fmt(ff.completed_at))+'"></div>'
+      + '<div class="fld"><label>Số tiền thực</label><input class="ro" readonly value="'+esc((b.actual_amount||"")+" "+(b.actual_currency||""))+'"></div>'
+      + '<div class="fld"><label>Mã giao dịch</label><input class="ro" readonly value="'+esc(b.transaction_reference||"—")+'"></div>'
+      + '<div class="fld"><label>Chứng từ thanh toán</label>'+(b.payment_proof?('<a href="'+esc(b.payment_proof)+'" target="_blank">Mở</a>'):'—')+'</div>'
+      + '<div class="fld"><label>Hóa đơn</label>'+(b.invoice_status==="No Invoice Issued"?('Không phát hành ('+esc(b.no_invoice_reason||"")+')'):(b.invoice_receipt?('<a href="'+esc(b.invoice_receipt)+'" target="_blank">Mở</a>'):'—'))+'</div>'
+      + '</div>'; }
+  function completionFormHTML(det){ var b=det.business||{}; var comp=state.comp||{};
+    return '<div class="sect-h">Nhập thông tin hoàn tất</div><div class="grid2">'
+      + fld("actual_account_email","Email account thực",'<input data-comp="actual_account_email" value="'+esc(comp.actual_account_email!=null?comp.actual_account_email:(b.account_email||b.proposed_account_email||""))+'">')
+      + fld("confirmed_account_manager","Xác nhận người quản lý",'<input data-comp="confirmed_account_manager" list="ait-users" value="'+esc(comp.confirmed_account_manager!=null?comp.confirmed_account_manager:(b.account_manager||b.proposed_account_manager||""))+'"><datalist id="ait-users"></datalist>')
+      + fld("actual_plan","Gói thực",'<input data-comp="actual_plan" value="'+esc(comp.actual_plan!=null?comp.actual_plan:(b.requested_plan||""))+'">')
+      + fld("actual_amount","Số tiền thực",'<input type="number" data-comp="actual_amount" value="'+esc(comp.actual_amount!=null?comp.actual_amount:(b.approved_amount!=null?b.approved_amount:b.requested_amount||""))+'">')
+      + fld("actual_currency","Tiền tệ thực",'<input data-comp="actual_currency" value="'+esc(comp.actual_currency!=null?comp.actual_currency:(b.currency||"VND"))+'">')
+      + fld("topup_datetime","Thời điểm top-up",'<input type="datetime-local" data-comp="topup_datetime" value="'+esc(comp.topup_datetime||nowLocal())+'">')
+      + fld("transaction_reference","Mã giao dịch",'<input data-comp="transaction_reference" value="'+esc(comp.transaction_reference||"")+'">')
+      + fld("invoice_status","Tình trạng hóa đơn",'<select data-comp="invoice_status"><option value="">—</option><option value="Invoice Available"'+(comp.invoice_status==="Invoice Available"?" selected":"")+'>Có hóa đơn</option><option value="No Invoice Issued"'+(comp.invoice_status==="No Invoice Issued"?" selected":"")+'>Không phát hành hóa đơn</option></select>',true)
+      + fld("payment_proof","Chứng từ thanh toán",'<input type="file" data-upload="payment_proof"><div class="hint" id="pp-name">'+esc(comp.payment_proof?"Đã tải":"Bắt buộc")+'</div>',true)
+      + fld("invoice_receipt","Hóa đơn/biên nhận",'<input type="file" data-upload="invoice_receipt"><div class="hint" id="ir-name">'+esc(comp.invoice_receipt?"Đã tải":"")+'</div>')
+      + fld("no_invoice_reason","Lý do không hóa đơn",'<input data-comp="no_invoice_reason" value="'+esc(comp.no_invoice_reason||"")+'">')
+      + fld("operation_note","Ghi chú Operation",'<input data-comp="operation_note" value="'+esc(comp.operation_note||"")+'">')
+      + '</div><div class="actions"><button class="btn primary" id="ait-complete">Hoàn tất xử lý</button></div>'; }
+  function nowLocal(){ var d=new Date(); var p=function(n){return String(n).padStart(2,"0");}; return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes()); }
+  function fulfillmentSectionHTML(det){ var ff=det.fulfillment||{}, ap=det.approval||{}, cap=det.capabilities||{};
+    if(ap.approval_status!=="Approved" && (ff.status==="Not Started"||!ff.status)) return '<div class="hint">Chưa đến bước xử lý Operation.</div>';
+    if(ff.status==="Assigned"){ return '<div>Đủ điều kiện xử lý: <b>'+esc((ff.eligible_fulfillers||[]).join(" hoặc ")||"nhóm Operation")+'</b></div>'+slaLine(ff)+(cap.can_claim?'<div class="actions"><button class="btn primary" id="ait-claim">Nhận xử lý</button></div>':'<div class="hint">Bạn không đủ điều kiện nhận xử lý.</div>'); }
+    if(ff.status==="In Progress"){ return '<div>Người đang xử lý: <b>'+esc(ff.owner||"—")+'</b></div>'+slaLine(ff)+(cap.can_complete?completionFormHTML(det):'<div class="hint">Đang được xử lý bởi '+esc(ff.owner||"")+'. Chỉ người nhận xử lý mới hoàn tất được.</div>'); }
+    if(ff.status==="Completed"){ return completedInfoHTML(det)+aiAccountHTML(ff.ai_account); }
+    if(ff.status==="Cancelled"){ return '<div class="hint">Đã hủy.</div>'; }
+    return '<div class="hint">—</div>'; }
+  function uploadFile(fileInput, field, labelId){ var file=fileInput.files&&fileInput.files[0]; if(!file) return;
+    var fd=new FormData(); fd.append("file",file); fd.append("is_private","1"); fd.append("doctype","EC AI Topup Request"); fd.append("docname",state.id);
+    var lbl=$(labelId); if(lbl) lbl.textContent="Đang tải...";
+    fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd})
+      .then(function(r){return r.json();}).then(function(j){ var url=j&&j.message&&j.message.file_url; state.comp=state.comp||{}; state.comp[field]=url; if(lbl) lbl.textContent=url?("Đã tải: "+file.name):"Lỗi tải"; })
+      .catch(function(){ if(lbl) lbl.textContent="Lỗi tải"; }); }
+  function wireFulfillment(det){ var name=(det.business||{}).name;
+    var cl=$("ait-claim"); if(cl){ cl.onclick=function(){ cl.disabled=true; call("claim_fulfillment",{name:name}).then(function(){ toast("Đã nhận xử lý."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); }); }; }
+    document.querySelectorAll("[data-comp]").forEach(function(el){ el.addEventListener("input",function(){ state.comp=state.comp||{}; state.comp[el.getAttribute("data-comp")]=el.value; }); });
+    var pp=document.querySelector('[data-upload="payment_proof"]'); if(pp) pp.addEventListener("change",function(){ uploadFile(pp,"payment_proof","pp-name"); });
+    var ir=document.querySelector('[data-upload="invoice_receipt"]'); if(ir) ir.addEventListener("change",function(){ uploadFile(ir,"invoice_receipt","ir-name"); });
+    var mgr=document.querySelector('[data-comp="confirmed_account_manager"]'); if(mgr) mgr.addEventListener("input",function(){ call("search_active_users",{query:mgr.value}).then(function(rows){ var dl=$("ait-users"); if(dl) dl.innerHTML=(rows||[]).map(function(r){return '<option value="'+esc(r.value)+'">'+esc(r.label)+'</option>';}).join(""); }); });
+    var cb=$("ait-complete"); if(cb){ cb.onclick=function(){ doComplete(name); }; } }
+  function completionErrors(){ var c=state.comp||{}; var e=[];
+    if(!c.payment_proof) e.push("Vui lòng bổ sung chứng từ thanh toán.");
+    if(!c.actual_amount) e.push("Vui lòng nhập số tiền thực.");
+    if(!c.invoice_status) e.push("Vui lòng chọn tình trạng hóa đơn.");
+    if(c.invoice_status==="Invoice Available" && !c.invoice_receipt) e.push("Vui lòng tải hóa đơn hoặc chọn Không phát hành hóa đơn và nhập lý do.");
+    if(c.invoice_status==="No Invoice Issued"){ if(!c.no_invoice_reason) e.push("Vui lòng nhập lý do không phát hành hóa đơn."); if(!c.transaction_reference) e.push("Vui lòng nhập mã giao dịch."); }
+    return e; }
+  function doComplete(name){ var errs=completionErrors(); if(errs.length){ toast(errs[0],true); return; }
+    var c=state.comp||{}; var body='<div class="summary-row"><span>Số tiền thực</span><b>'+esc((c.actual_amount||"")+" "+(c.actual_currency||""))+'</b></div><div class="summary-row"><span>Mã giao dịch</span><b>'+esc(c.transaction_reference||"—")+'</b></div><div class="summary-row"><span>Hóa đơn</span><b>'+esc(c.invoice_status||"—")+'</b></div>';
+    modal("Xác nhận hoàn tất", body, {okLabel:"Hoàn tất", onConfirm:function(){ return call("complete_fulfillment",{name:name,payload:JSON.stringify(c)}).then(function(){ toast("Đã hoàn tất xử lý."); state.comp={}; refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
+  function renderFulfillment(b){ if(!(state.boot&&state.boot.tabs&&state.boot.tabs.fulfillment)){ b.innerHTML='<div class="card"><div class="state"><h4>Không khả dụng</h4><p>Bạn không thuộc nhóm Operation xử lý.</p></div></div>'; return; }
+    b.innerHTML='<div id="ff-unclaimed"></div><div id="ff-mine"></div>'+(state.boot.is_system_manager?'<div id="ff-others"></div>':'');
+    loadFulfill("unclaimed","ff-unclaimed","Chưa có người nhận"); loadFulfill("mine","ff-mine","Tôi đang xử lý"); if(state.boot.is_system_manager) loadFulfill("others","ff-others","Đang được người khác xử lý"); }
+  function loadFulfill(section,host,title){ var h=$(host); if(!h)return; h.innerHTML='<div class="sect-h">'+esc(title)+'</div>'+skeleton(2);
+    call("list_fulfillment_queue",{section:section}).then(function(res){ var rows=res&&res.rows||[];
+      if(!rows.length){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không có mục nào</h4></div></div>'; return; }
+      h.innerHTML='<div class="sect-h">'+esc(title)+'</div><table class="tbl"><thead><tr><th>Mã</th><th>Người yêu cầu</th><th>AI Tool</th><th>Account</th><th>Số tiền duyệt</th><th>SLA</th><th>Owner</th><th></th></tr></thead><tbody>'
+        + rows.map(function(r){ var ov=r.fulfillment_due_at&&new Date(r.fulfillment_due_at)<new Date();
+          var act='<button class="btn" data-open="'+esc(r.name)+'">Chi tiết</button>';
+          if(section==="unclaimed") act+=' <button class="btn primary" data-claim="'+esc(r.name)+'">Nhận xử lý</button>';
+          else if(section==="mine") act+=' <button class="btn primary" data-open2="'+esc(r.name)+'">Hoàn tất xử lý</button>';
+          return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.requested_by||"—")+'</td><td>'+esc(r.ai_tool||"—")+'</td><td>'+esc(r.account_email||"—")+'</td><td>'+esc(r.approved_amount||"—")+'</td><td>'+(ov?'<span style="color:var(--red)">Quá hạn</span>':esc(fmt(r.fulfillment_due_at)))+'</td><td>'+esc(r.fulfillment_owner||"—")+'</td><td>'+act+'</td></tr>'; }).join("")
+        +'</tbody></table>';
+      h.querySelectorAll("[data-open],[data-open2]").forEach(function(el){ el.onclick=function(){ go({id:el.getAttribute("data-open")||el.getAttribute("data-open2")}); }; });
+      h.querySelectorAll("[data-claim]").forEach(function(el){ el.onclick=function(){ el.disabled=true; call("claim_fulfillment",{name:el.getAttribute("data-claim")}).then(function(){ toast("Đã nhận xử lý."); renderFulfillment($("ait-body")); }).catch(function(e){ toast(mapErr(e),true); renderFulfillment($("ait-body")); }); }; });
+    }).catch(function(){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không tải được</h4><button class="btn" data-r>Thử lại</button></div></div>'; var r=h.querySelector("[data-r]"); if(r)r.onclick=function(){ loadFulfill(section,host,title); }; }); }
+
   function boot(){ var t=$("ait-tabs"); if(t){ t.addEventListener("click",function(e){ var b=e.target.closest("[data-tab]"); if(b&&!b.disabled){ state.page=0; go({tab:b.getAttribute("data-tab")}); } }); }
     call("get_bootstrap").then(function(bootData){ state.boot=bootData||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(){ var bd=$("ait-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.AITopup={ state:state, buildStepper:buildStepper, render:render, route:route, _boot:boot, _call:call, badge:badge, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, materialSnap:materialSnap, modal:modal };
+  window.AITopup={ state:state, buildStepper:buildStepper, render:render, route:route, _boot:boot, _call:call, badge:badge, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, materialSnap:materialSnap, modal:modal, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, renderFulfillment:renderFulfillment };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>

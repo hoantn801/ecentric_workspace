@@ -208,3 +208,67 @@ class TestB3Actions(FrappeTestCase):
         res = api.cancel(doc.name, reason="không cần nữa")
         self.assertTrue(res.get("deleted"))
         self.assertFalse(frappe.db.exists(api.BIZ, doc.name))
+
+
+def _proc_with_fulfiller(approver, fulfiller):
+    for p in frappe.get_all("EC Approval Process",
+                            filters={"approval_type": "AI_TOPUP", "status": "Active"}, pluck="name"):
+        frappe.db.set_value("EC Approval Process", p, "status", "Retired")
+    code = "ZZB3F_" + frappe.generate_hash(length=5)
+    p = frappe.get_doc({"doctype": "EC Approval Process", "process_code": code, "title": code,
+                        "approval_type": "AI_TOPUP", "status": "Draft"})
+    p.append("participants", {"participant_purpose": "Fulfiller", "source_type": "User", "user": fulfiller})
+    p.insert(ignore_permissions=True)
+    for no, name, adj in [(1, "Manager", 0), (2, "Finance Review", 1)]:
+        lv = frappe.get_doc({"doctype": "EC Approval Level", "approval_process": p.name, "level_no": no,
+                             "level_name": name, "approval_mode": "Any One", "allows_amount_adjustment": adj})
+        lv.append("participants", {"participant_purpose": "Approver", "source_type": "User", "user": approver})
+        lv.insert(ignore_permissions=True)
+    p.status = "Active"; p.save(ignore_permissions=True)
+    return p.name
+
+
+class TestB3Fulfillment(FrappeTestCase):
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def test_can_adjust_amount_is_flag_based(self):
+        a = _user("zzb3_fa@example.com"); f = _user("zzb3_ff@example.com"); req = _user("zzb3_fr@example.com")
+        proc = _proc_with_fulfiller(a, f)
+        name = _submit_as(req, a, [a])
+        frappe.set_user(a)
+        api.approve(name)   # L1 -> L2 (Finance, flag=1)
+        det = api.get_request_detail(name)
+        self.assertTrue(det["capabilities"]["can_adjust_approved_amount"])
+        # rename the Finance level -> capability still true (flag, not name)
+        arname = frappe.db.get_value(api.BIZ, name, "approval_request")
+        rl = frappe.get_all("EC Approval Request Level",
+                            filters={"approval_request": arname, "level_no": 2}, pluck="name")[0]
+        frappe.db.set_value("EC Approval Request Level", rl, "level_name", "Kiểm tra ngân sách")
+        self.assertTrue(api.get_request_detail(name)["capabilities"]["can_adjust_approved_amount"])
+
+    def test_claim_and_complete_flow(self):
+        a = _user("zzb3_fa@example.com"); f = _user("zzb3_ff@example.com"); other = _user("zzb3_fo@example.com")
+        req = _user("zzb3_fr@example.com")
+        proc = _proc_with_fulfiller(a, f)
+        name = _submit_as(req, a, [a])
+        frappe.set_user(a); api.approve(name); api.approve(name)   # -> Approved -> fulfillment Assigned
+        self.assertEqual(frappe.db.get_value(api.BIZ, name, "fulfillment_status"), "Assigned")
+        # non-fulfiller cannot claim
+        frappe.set_user(other)
+        with self.assertRaises(Exception):
+            api.claim_fulfillment(name)
+        # fulfiller claims
+        frappe.set_user(f)
+        api.claim_fulfillment(name)
+        self.assertEqual(frappe.db.get_value(api.BIZ, name, "fulfillment_owner"), f)
+        # complete without payment proof -> blocked
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.complete_fulfillment(name, payload=frappe.as_json({"actual_amount": 10, "actual_currency": "VND",
+                "topup_datetime": frappe.utils.now_datetime(), "transaction_reference": "T",
+                "invoice_status": "No Invoice Issued", "no_invoice_reason": "r",
+                "confirmed_account_manager": f, "actual_account_email": "x@example.com"}))
+        # non-owner cannot complete
+        frappe.set_user(other)
+        with self.assertRaises(frappe.exceptions.PermissionError):
+            api.complete_fulfillment(name, payload="{}")

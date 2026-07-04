@@ -102,6 +102,11 @@ def _capabilities(user, biz, req):
     is_requester = biz.requested_by == user
     open_ = req and req.approval_status in OPEN
     can_act = bool(_pending_row(req, user))
+    can_adjust = False
+    if can_act:
+        can_adjust = bool(frappe.db.get_value("EC Approval Request Level",
+                          {"approval_request": req.name, "level_no": req.current_level},
+                          "allows_amount_adjustment"))
     cancel_requester = is_requester and (req is None or (req.approval_status == "Pending" and not _has_decision(req)))
     cancel_admin = (_sm()) and open_
     return {
@@ -112,6 +117,7 @@ def _capabilities(user, biz, req):
         "can_approve": can_act,
         "can_reject": can_act,
         "can_request_information": can_act,
+        "can_adjust_approved_amount": can_adjust,
         "can_claim": _is_fulfiller(user) and biz.fulfillment_status == "Assigned",
         "can_complete": (biz.fulfillment_owner == user or _sm())
                         and biz.fulfillment_status in ("Assigned", "In Progress"),
@@ -287,6 +293,21 @@ def get_request_detail(name):
                                   order_by="seq asc")
     attachments = frappe.get_all("File", filters={"attached_to_doctype": BIZ, "attached_to_name": name},
                                  fields=["file_name", "file_url", "is_private", "owner", "creation"])
+    ff = {"status": biz.fulfillment_status, "owner": biz.fulfillment_owner,
+          "due_at": biz.fulfillment_due_at, "completed_by": biz.completed_by, "completed_at": biz.completed_at,
+          "eligible_fulfillers": [], "ai_account": None}
+    if req and biz.fulfillment_status == "Assigned":
+        try:
+            from ecentric_workspace.approval_center.engine import service as _eng
+            proc = frappe.get_doc("EC Approval Process", req.approval_process)
+            ff["eligible_fulfillers"] = [u for u, _l in _eng.resolve_participants(
+                [p for p in proc.participants if p.participant_purpose == "Fulfiller"], biz.requested_by)]
+        except Exception:
+            pass
+    if biz.actual_ai_account:
+        ff["ai_account"] = frappe.db.get_value("EC AI Account", biz.actual_ai_account,
+            ["name", "account_email", "account_manager", "current_plan", "subscription_start_date",
+             "subscription_end_date", "last_topup_at"], as_dict=True)
     return {
         "business": biz.as_dict(),
         "approval": {
@@ -298,10 +319,7 @@ def get_request_detail(name):
         },
         "levels": levels,
         "approvers": approvers,
-        "fulfillment": {
-            "status": biz.fulfillment_status, "owner": biz.fulfillment_owner,
-            "due_at": biz.fulfillment_due_at, "completed_by": biz.completed_by, "completed_at": biz.completed_at,
-        },
+        "fulfillment": ff,
         "attachments": attachments,
         "timeline": timeline,
         "capabilities": _capabilities(user, biz, req),
@@ -414,3 +432,39 @@ def cancel(name, reason=None):
         return {"detail": get_request_detail(name)}
     frappe.delete_doc(BIZ, name, ignore_permissions=True)   # discard a never-submitted draft
     return {"deleted": True}
+
+
+_COMPLETION_FIELDS = ("actual_ai_account", "actual_account_email", "confirmed_account_manager",
+                      "actual_plan", "actual_amount", "actual_currency", "topup_datetime",
+                      "transaction_reference", "payment_proof", "invoice_status", "invoice_receipt",
+                      "no_invoice_reason", "operation_note")
+
+
+@frappe.whitelist(methods=["POST"])
+def claim_fulfillment(name):
+    """Thin wrapper over the deployed atomic claim service (B1). Backend
+    revalidates eligibility + concurrency; no claim logic duplicated here."""
+    from ecentric_workspace.approval_center.ai_topup import service as svc
+    svc.claim_fulfillment(name)
+    return {"detail": get_request_detail(name)}
+
+
+@frappe.whitelist(methods=["POST"])
+def complete_fulfillment(name, payload=None):
+    """Apply completion fields (owner/SM only) then call the deployed completion
+    service, which validates evidence (payment proof + invoice conditional) and
+    upserts EC AI Account. No fulfillment rules duplicated; no direct account
+    mutation from the API."""
+    from ecentric_workspace.approval_center.ai_topup import service as svc
+    user = frappe.session.user
+    doc = frappe.get_doc(BIZ, name)
+    if doc.fulfillment_owner != user and "System Manager" not in frappe.get_roles(user):
+        frappe.throw(_("Only the claimed owner or a System Manager may complete this request."),
+                     frappe.PermissionError)
+    data = frappe.parse_json(payload) if isinstance(payload, str) else (payload or {})
+    for fld in _COMPLETION_FIELDS:
+        if fld in data:
+            doc.set(fld, data.get(fld))
+    doc.save(ignore_permissions=True)          # still In Progress; controller validates non-completion rules
+    svc.complete_fulfillment(name, user=user)  # sets Completed -> evidence validation + AI Account upsert
+    return {"detail": get_request_detail(name)}
