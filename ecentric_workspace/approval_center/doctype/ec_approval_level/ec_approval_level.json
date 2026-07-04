@@ -22,7 +22,8 @@
   "minimum_approvals",
   "sb_part",
   "participants",
-  "sla_policy"
+  "sla_policy",
+  "allows_amount_adjustment"
  ],
  "fields": [
   {
@@ -96,6 +97,13 @@
    "label": "SLA Policy",
    "options": "EC Approval SLA Policy",
    "description": "Optional per-level SLA. Source of truth for the level deadline."
+  },
+  {
+   "fieldname": "allows_amount_adjustment",
+   "fieldtype": "Check",
+   "label": "Allows Amount Adjustment",
+   "default": "0",
+   "description": "If set, an approver at this level may adjust the business amount (routes to finance_approve). Config-driven; no hardcoded level names."
   }
  ],
  "permissions": [

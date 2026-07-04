@@ -30,7 +30,8 @@
   "due_at",
   "is_overdue",
   "sla_calendar",
-  "sla_holiday_list"
+  "sla_holiday_list",
+  "allows_amount_adjustment"
  ],
  "fields": [
   {
@@ -129,6 +130,13 @@
    "fieldtype": "Data",
    "label": "Sla Holiday List",
    "description": "Snapshot of Holiday List used for due_at."
+  },
+  {
+   "fieldname": "allows_amount_adjustment",
+   "fieldtype": "Check",
+   "label": "Allows Amount Adjustment",
+   "default": "0",
+   "description": "Frozen snapshot of the level's amount-adjustment flag."
   }
  ],
  "permissions": [

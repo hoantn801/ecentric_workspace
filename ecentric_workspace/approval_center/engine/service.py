@@ -211,7 +211,8 @@ def build_snapshot(req, process, levels, requester):
             "doctype": "EC Approval Request Level", "approval_request": req.name,
             "level_no": lvl.level_no, "level_name": lvl.level_name, "approval_mode": lvl.approval_mode,
             "minimum_approvals": lvl.minimum_approvals, "mandatory": lvl.mandatory,
-            "source_process_level": lvl.name, "sla_policy": lvl.sla_policy, "level_status": "Pending",
+            "source_process_level": lvl.name, "sla_policy": lvl.sla_policy,
+            "allows_amount_adjustment": lvl.allows_amount_adjustment, "level_status": "Pending",
         }).insert(ignore_permissions=True)
         approvers = resolve_participants(
             [p for p in lvl.participants if p.participant_purpose == "Approver"], requester)

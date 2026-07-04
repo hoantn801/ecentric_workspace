@@ -150,10 +150,10 @@ def _upsert_process(op, ff, fin):
     _set_participants(proc, "Fulfiller", "User", ff)
     proc.save(ignore_permissions=True)
 
-    levels = [(1, "Direct Manager", "AI_TOPUP_MANAGER_3H", "Requester Manager", None),
-              (2, "Operation Review", "AI_TOPUP_OPERATION_REVIEW_3H", "User", op),
-              (3, "Finance Review", "AI_TOPUP_FINANCE_REVIEW_3H", "User", fin)]
-    for no, name, sla, src, users in levels:
+    levels = [(1, "Direct Manager", "AI_TOPUP_MANAGER_3H", "Requester Manager", None, 0),
+              (2, "Operation Review", "AI_TOPUP_OPERATION_REVIEW_3H", "User", op, 0),
+              (3, "Finance Review", "AI_TOPUP_FINANCE_REVIEW_3H", "User", fin, 1)]  # Finance may adjust amount
+    for no, name, sla, src, users, adj in levels:
         existing = frappe.get_all("EC Approval Level",
                                   filters={"approval_process": PROCESS_CODE, "level_no": no}, pluck="name")
         lvl = frappe.get_doc("EC Approval Level", existing[0]) if existing else frappe.new_doc("EC Approval Level")
@@ -163,6 +163,7 @@ def _upsert_process(op, ff, fin):
         lvl.mandatory = 1
         lvl.approval_mode = "Any One"
         lvl.sla_policy = sla
+        lvl.allows_amount_adjustment = adj
         _set_participants(lvl, "Approver", src, users)
         lvl.save(ignore_permissions=True)
 
@@ -182,11 +183,12 @@ def validate_ai_topup_v1():
     exists = frappe.db.exists("EC Approval Process", PROCESS_CODE)
     c(exists, "process %s exists" % PROCESS_CODE)
     if exists:
-        c(frappe.db.get_value("EC Approval Process", PROCESS_CODE, "status") == "Draft",
-          "process is Draft")
+        c(frappe.db.get_value("EC Approval Process", PROCESS_CODE, "status") in ("Draft", "Active"),
+          "process status is Draft or Active")
     c(not frappe.get_all("EC Approval Process",
-                         filters={"approval_type": APPROVAL_TYPE, "status": "Active"}),
-      "no Active process conflict for %s" % APPROVAL_TYPE)
+                         filters={"approval_type": APPROVAL_TYPE, "status": "Active",
+                                  "name": ["!=", PROCESS_CODE]}),
+      "no OTHER Active process for %s" % APPROVAL_TYPE)
     levels = frappe.get_all("EC Approval Level", filters={"approval_process": PROCESS_CODE},
                             fields=["name", "level_no", "level_name", "approval_mode", "mandatory", "sla_policy"],
                             order_by="level_no asc")
