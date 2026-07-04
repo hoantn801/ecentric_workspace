@@ -73,7 +73,7 @@ async function run(){
   ok(/không còn quyền/.test(w.AITopup.mapErr({message:"You are not a pending approver for the current level."})), "concurrency: pending-approver message");
   ok(/vừa được cập nhật/.test(w.AITopup.mapErr({message:"Request is Approved; no further action is allowed."})), "concurrency: terminal message");
   // modal opens + closes
-  var mm=w.AITopup.modal("T","<div>x</div>",{}); ok(!!w.document.querySelector(".overlay"), "modal opens overlay"); mm.close(); ok(!w.document.querySelector(".overlay"), "modal closes");
+  var mm=w.AITopup.modal("T","<div>x</div>",{}); ok(!!w.document.querySelector(".ec-ait-overlay"), "modal opens overlay"); mm.close(); ok(!w.document.querySelector(".ec-ait-overlay"), "modal closes");
   // My Approvals tab renders actionable section with quick actions
   w.history.pushState({},"","/approvals/ai-topup?tab=my-approvals"); w.AITopup.route(); await flush(); await flush();
   ok(/Cần tôi xử lý/.test(w.document.body.innerHTML), "My Approvals renders 'Cần tôi xử lý' section");
@@ -95,7 +95,7 @@ async function run(){
   w.AITopup.state.boot={tabs:{fulfillment:false}}; var tmp=w.document.createElement("div"); w.AITopup.renderFulfillment(tmp); ok(/Không khả dụng/.test(tmp.innerHTML), "fulfillment tab denied when not eligible");
 
   // ---- B3.5 a11y/responsive ----
-  { var m=w.AITopup.modal("T","<input id=zz>",{}); ok(!!w.document.querySelector('.modal[role="dialog"][aria-modal="true"]'),"modal has role=dialog aria-modal"); m.close(); }
+  { var m=w.AITopup.modal("T","<input id=zz>",{}); ok(!!w.document.querySelector('.ec-ait-modal[role="dialog"][aria-modal="true"]'),"modal has role=dialog aria-modal"); m.close(); }
   ok(/overflow-x:auto/.test(HTML) && /focus-visible/.test(HTML), "responsive table scroll + focus-visible present");
 
   // ---- UAT polish (fix/approval-center-aitopup-uat-polish-1) ----
@@ -331,11 +331,11 @@ async function run(){
   // admin override modal requires reason, non-impersonation copy, success toast
   let CA = []; w.frappe.call = (o) => { CA.push(o.method); return OC2(o); };
   w.AITopup.doAdminApprove("R-1"); await flush();
-  ok(!!w.document.querySelector(".overlay") && /không giả lập người duyệt gốc/.test(w.document.body.innerHTML), "admin override modal shows non-impersonation copy");
+  ok(!!w.document.querySelector(".ec-ait-overlay") && /không giả lập người duyệt gốc/.test(w.document.body.innerHTML), "admin override modal shows non-impersonation copy");
   ok(/Xác nhận duyệt thay/.test(w.document.body.innerHTML), "admin override modal confirm label");
-  w.document.querySelector(".overlay [data-ok]").click(); await flush();
+  w.document.querySelector(".ec-ait-overlay [data-ok]").click(); await flush();
   ok(!CA.some(m => /admin_approve_current_level/.test(m)), "empty reason does not call admin override");
-  w.document.querySelector(".overlay #m-cmt").value = "uat override"; w.document.querySelector(".overlay [data-ok]").click(); await flush(); await flush();
+  w.document.querySelector(".ec-ait-overlay #m-cmt").value = "uat override"; w.document.querySelector(".ec-ait-overlay [data-ok]").click(); await flush(); await flush();
   ok(CA.some(m => /admin_approve_current_level/.test(m)), "with reason -> admin override API called");
   ok(w.document.getElementById("ait-toast").textContent === "Đã duyệt thay bước hiện tại. Yêu cầu đã được chuyển sang bước tiếp theo.", "admin override success toast");
   w.frappe.call = OC2;
@@ -347,22 +347,22 @@ async function run(){
   const findAct = (a) => [...w.document.querySelectorAll('[data-act="'+a+'"]')][0];
   ok(!!findAct("approve"), "detail renders Duyệt (approve) button");
   findAct("approve").click(); await flush();
-  ok(!!w.document.querySelector(".overlay") && /Duyệt yêu cầu/.test(w.document.body.innerHTML), "clicking Duyệt opens approve modal (delegated)");
-  w.document.querySelector(".overlay [data-x]").click();
+  ok(!!w.document.querySelector(".ec-ait-overlay") && /Duyệt yêu cầu/.test(w.document.body.innerHTML), "clicking Duyệt opens approve modal (delegated)");
+  w.document.querySelector(".ec-ait-overlay [data-x]").click();
   findAct("reqinfo").click(); await flush();
   ok(/Yêu cầu bổ sung thông tin/.test(w.document.body.innerHTML), "clicking Yêu cầu bổ sung opens request-info modal");
-  w.document.querySelector(".overlay [data-x]").click();
+  w.document.querySelector(".ec-ait-overlay [data-x]").click();
   findAct("reject").click(); await flush();
   ok(/Từ chối yêu cầu/.test(w.document.body.innerHTML), "clicking Từ chối opens reject modal");
-  w.document.querySelector(".overlay [data-ok]").click(); await flush();
-  ok(!!w.document.querySelector(".overlay"), "empty reject reason blocks confirm (modal stays open)");
-  w.document.querySelector(".overlay [data-x]").click();
+  w.document.querySelector(".ec-ait-overlay [data-ok]").click(); await flush();
+  ok(!!w.document.querySelector(".ec-ait-overlay"), "empty reject reason blocks confirm (modal stays open)");
+  w.document.querySelector(".ec-ait-overlay [data-x]").click();
   // re-render the detail and confirm the buttons STILL work (delegation survives re-render)
   w.AITopup.route(); await flush(); await flush();
   ok(!!findAct("approve"), "action buttons present after detail re-render");
   findAct("approve").click(); await flush();
-  ok(!!w.document.querySelector(".overlay"), "action buttons still work after detail re-render (delegation survives stale nodes)");
-  w.document.querySelector(".overlay [data-x]").click();
+  ok(!!w.document.querySelector(".ec-ait-overlay"), "action buttons still work after detail re-render (delegation survives stale nodes)");
+  w.document.querySelector(".ec-ait-overlay [data-x]").click();
 
   // layout: content uses full width; create form is wrapped for readability
   ok(/\.content\{[^}]*max-width:none/.test(HTML), "content uses full available width (no fixed 1180px right gutter)");
@@ -403,17 +403,60 @@ async function run(){
   w.document.getElementById("ait-body").innerHTML = w.AITopup.actionPanelHTML({ capabilities:{ can_admin_approve_current_level:true }, approval:{ name:"AR-1", approval_status:"Pending" } });
   [...w.document.querySelectorAll('[data-act="adminapprove"]')][0].click(); await flush();
   ok(!!w.document.querySelector(".ec-ait-overlay") && /Duyệt thay bước hiện tại/.test(w.document.body.innerHTML), "clicking admin override opens modal (delegated)");
-  w.document.querySelector(".overlay [data-x]").click();
+  w.document.querySelector(".ec-ait-overlay [data-x]").click();
   w.document.getElementById("ait-body").innerHTML = w.AITopup.actionPanelHTML({ capabilities:{ can_cancel:true }, approval:{ name:"AR-1", approval_status:"Pending" } });
   [...w.document.querySelectorAll('[data-act="cancel"]')][0].click(); await flush();
   ok(!!w.document.querySelector(".ec-ait-overlay") && /Hủy yêu cầu/.test(w.document.body.innerHTML), "clicking Hủy yêu cầu opens cancel modal (delegated)");
-  w.document.querySelector(".overlay [data-x]").click();
+  w.document.querySelector(".ec-ait-overlay [data-x]").click();
 
   // our modal overlay is namespaced (theme .overlay never blocks our dup-guard) and lives under the app root
   { const m = w.AITopup.modal("T", "<div>x</div>", {}); const ov = w.document.querySelector(".ec-ait-overlay");
     ok(!!ov, "modal overlay carries the namespaced ec-ait-overlay class");
     ok(!!w.document.getElementById("ec-ait-root") && w.document.getElementById("ec-ait-root").contains(ov), "modal overlay is appended inside #ec-ait-root");
     m.close(); }
+
+  // ---- UAT: modal rendering (namespaced dialog, not generic .modal) ----
+  w.frappe.call = OC2;
+  w.AITopup.state.detail = { business:{ name:"R-1" } };
+  // Admin Override modal
+  w.document.getElementById("ait-body").innerHTML = w.AITopup.actionPanelHTML({ capabilities:{ can_admin_approve_current_level:true }, approval:{ name:"AR-1", approval_status:"Pending" } });
+  [...w.document.querySelectorAll('[data-act="adminapprove"]')][0].click(); await flush();
+  { const ov = w.document.querySelector(".ec-ait-overlay"); const md = w.document.querySelector(".ec-ait-modal");
+    ok(!!ov, "admin override click creates .ec-ait-overlay");
+    ok(!!md, "admin override click creates .ec-ait-modal (dialog content, not just backdrop)");
+    ok(!!ov && !!md && ov.contains(md), "modal is a child of the overlay");
+    ok(!ov.classList.contains("overlay"), "overlay does not use the generic .overlay class");
+    ok(!md.classList.contains("modal"), "dialog does not use the generic .modal class (no theme collision)");
+    ok(/Duyệt thay bước hiện tại/.test(md.textContent), "modal title present");
+    ok(!!md.querySelector("#m-cmt") && md.querySelector("#m-cmt").tagName.toLowerCase()==="textarea", "modal has required reason textarea");
+    ok(!!md.querySelector("[data-ok]") && !!md.querySelector("[data-x]"), "modal has visible confirm + close buttons");
+    ok(md.querySelector("[data-ok]").getAttribute("type")==="button" && md.querySelector("[data-x]").getAttribute("type")==="button", "modal buttons are type=button");
+    ok(md.getAttribute("role")==="dialog" && md.getAttribute("aria-modal")==="true" && !!md.getAttribute("aria-labelledby"), "dialog has role/aria-modal/aria-labelledby");
+  }
+  // Escape closes
+  { const ov = w.document.querySelector(".ec-ait-overlay"); ov.dispatchEvent(new w.KeyboardEvent("keydown", { key:"Escape", bubbles:true })); }
+  ok(!w.document.querySelector(".ec-ait-overlay"), "Escape closes the modal");
+  // debug helper
+  ok(typeof w.ecAiTopupDebugModal === "function", "ecAiTopupDebugModal helper exists");
+  w.document.getElementById("ait-body").innerHTML = w.AITopup.actionPanelHTML({ capabilities:{ can_approve:true }, approval:{ name:"AR-1", approval_status:"Pending" } });
+  [...w.document.querySelectorAll('[data-act="approve"]')][0].click(); await flush();
+  { const dm = w.ecAiTopupDebugModal();
+    ok(dm.overlayExists === true && dm.modalExists === true && dm.modalInsideOverlay === true, "debug helper reports overlay + modal present and nested");
+    ok(/Duyệt yêu cầu/.test(dm.modalText), "approve modal renders inside .ec-ait-modal (debug modalText)"); }
+  // close button closes
+  w.document.querySelector(".ec-ait-overlay [data-x]").click();
+  ok(!w.document.querySelector(".ec-ait-overlay"), "close button closes the modal");
+  // request-info, reject, cancel all render inside .ec-ait-modal
+  const opensInModal = async (act, titleRe) => {
+    w.document.getElementById("ait-body").innerHTML = w.AITopup.actionPanelHTML({ capabilities:{ can_request_information:true, can_reject:true, can_cancel:true }, approval:{ name:"AR-1", approval_status:"Pending" } });
+    [...w.document.querySelectorAll('[data-act="'+act+'"]')][0].click(); await flush();
+    const md = w.document.querySelector(".ec-ait-modal"); const good = !!md && titleRe.test(md.textContent);
+    if(w.document.querySelector(".ec-ait-overlay [data-x]")) w.document.querySelector(".ec-ait-overlay [data-x]").click();
+    return good;
+  };
+  ok(await opensInModal("reqinfo", /Yêu cầu bổ sung thông tin/), "request-info modal renders inside .ec-ait-modal");
+  ok(await opensInModal("reject", /Từ chối yêu cầu/), "reject modal renders inside .ec-ait-modal");
+  ok(await opensInModal("cancel", /Hủy yêu cầu/), "cancel modal renders inside .ec-ait-modal");
 
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);
