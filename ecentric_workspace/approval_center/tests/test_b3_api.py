@@ -487,3 +487,51 @@ class TestSubmitDraftAPI(FrappeTestCase):
         cap = api.get_request_detail(doc.name)["capabilities"]
         self.assertTrue(cap["can_submit"])
         self.assertTrue(cap["can_cancel"])
+
+
+class TestTimelineFields(FrappeTestCase):
+    """get_request_detail timeline must query only real EC Approval Action columns (regression:
+    it selected non-existent level_no/level_name/related_user -> SQL 1054 after submit)."""
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def test_detail_after_submit_returns_timeline_no_sql_error(self):
+        a = _user("zzb3_tl_a@example.com"); req = _user("zzb3_tl_r@example.com")
+        _proc_with_fulfiller(a, a)
+        name = _submit_fin(req, a, 100)                 # submit logs a Submitted action
+        det = api.get_request_detail(name)              # would raise 1054 before the fix
+        self.assertIsInstance(det["timeline"], list)
+        self.assertTrue(any(t["action"] == "Submitted" for t in det["timeline"]))
+        for t in det["timeline"]:
+            self.assertIn("action", t); self.assertIn("actor", t); self.assertIn("action_time", t)
+
+    def test_submit_request_returns_submitted_and_detail(self):
+        a = _user("zzb3_tl_a2@example.com"); req = _user("zzb3_tl_r2@example.com")
+        _proc_with_fulfiller(a, a)
+        frappe.set_user(req)
+        res = api.save_draft(payload=frappe.as_json({
+            "account_mode": "New Account", "ai_tool": _tool(),
+            "proposed_account_email": "tl@example.com",
+            "proposed_account_manager": _user("zzb3_tl_pm@example.com"),
+            "request_title": "TL", "requested_amount": 100}))
+        out = api.submit_request(res["name"])
+        self.assertTrue(out.get("submitted"))
+        self.assertIsInstance(out["detail"]["timeline"], list)
+        frappe.set_user("Administrator")
+
+    def test_timeline_empty_for_draft(self):
+        req = _user("zzb3_tl_r3@example.com")
+        doc = _draft(req)                               # draft, no runtime request
+        frappe.set_user(req)
+        det = api.get_request_detail(doc.name)
+        self.assertEqual(det["timeline"], [])           # empty, no SQL error
+        frappe.set_user("Administrator")
+
+    def test_timeline_after_approve_has_actions(self):
+        a = _user("zzb3_tl_a4@example.com"); req = _user("zzb3_tl_r4@example.com")
+        _proc_with_fulfiller(a, a); name = _submit_fin(req, a, 100)
+        frappe.set_user(a); api.approve(name)           # logs an Approved action
+        det = api.get_request_detail(name)
+        frappe.set_user("Administrator")
+        self.assertTrue(any(t["action"] in ("Approved", "Submitted") for t in det["timeline"]))
