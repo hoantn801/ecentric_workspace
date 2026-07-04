@@ -340,6 +340,48 @@ async function run(){
   ok(w.document.getElementById("ait-toast").textContent === "Đã duyệt thay bước hiện tại. Yêu cầu đã được chuyển sang bước tiếp theo.", "admin override success toast");
   w.frappe.call = OC2;
 
+  // ---- UAT: delegated action buttons + layout + step labels ----
+  // delegated dispatch: navigate to a runtime detail and click actions
+  w.frappe.call = OC2;  // ensure original mock (get_request_detail) restored
+  w.history.pushState({}, "", "/approvals/ai-topup?id=R-1"); w.AITopup.route(); await flush(); await flush();
+  const findAct = (a) => [...w.document.querySelectorAll('[data-act="'+a+'"]')][0];
+  ok(!!findAct("approve"), "detail renders Duyệt (approve) button");
+  findAct("approve").click(); await flush();
+  ok(!!w.document.querySelector(".overlay") && /Duyệt yêu cầu/.test(w.document.body.innerHTML), "clicking Duyệt opens approve modal (delegated)");
+  w.document.querySelector(".overlay [data-x]").click();
+  findAct("reqinfo").click(); await flush();
+  ok(/Yêu cầu bổ sung thông tin/.test(w.document.body.innerHTML), "clicking Yêu cầu bổ sung opens request-info modal");
+  w.document.querySelector(".overlay [data-x]").click();
+  findAct("reject").click(); await flush();
+  ok(/Từ chối yêu cầu/.test(w.document.body.innerHTML), "clicking Từ chối opens reject modal");
+  w.document.querySelector(".overlay [data-ok]").click(); await flush();
+  ok(!!w.document.querySelector(".overlay"), "empty reject reason blocks confirm (modal stays open)");
+  w.document.querySelector(".overlay [data-x]").click();
+  // re-render the detail and confirm the buttons STILL work (delegation survives re-render)
+  w.AITopup.route(); await flush(); await flush();
+  ok(!!findAct("approve"), "action buttons present after detail re-render");
+  findAct("approve").click(); await flush();
+  ok(!!w.document.querySelector(".overlay"), "action buttons still work after detail re-render (delegation survives stale nodes)");
+  w.document.querySelector(".overlay [data-x]").click();
+
+  // layout: content uses full width; create form is wrapped for readability
+  ok(/\.content\{[^}]*max-width:none/.test(HTML), "content uses full available width (no fixed 1180px right gutter)");
+  ok(/\.ait-formwrap\{/.test(HTML), "create form has a readable max-width wrapper");
+  freshCtx(); w.AITopup.state.boot.form_options.ai_tools=[{value:"Claude",label:"Claude"}]; w.AITopup.state.draft={};
+  w.history.pushState({}, "", "/approvals/ai-topup?tab=create"); w.AITopup.route(); await flush();
+  ok(/class="ait-formwrap"/.test(w.document.getElementById("ait-body").innerHTML), "create form rendered inside .ait-formwrap");
+
+  // step labels: Bước X/N · name (dynamic N = levels + 3), no raw "Level N"
+  ok(w.AITopup.stepLabel({ approval_status:"Draft", total_levels:3 }) === "Bước 1/6 · Tạo yêu cầu", "Draft -> Bước 1/6 · Tạo yêu cầu");
+  ok(/^Bước 2\/6 · Direct Manager/.test(w.AITopup.stepLabel({ approval_status:"Pending", current_level:1, current_level_name:"Direct Manager", total_levels:3 })), "Pending Manager -> Bước 2/6");
+  ok(/^Bước 3\/6 · Operation Review/.test(w.AITopup.stepLabel({ approval_status:"Pending", current_level:2, current_level_name:"Operation Review", total_levels:3 })), "Pending Operation -> Bước 3/6");
+  ok(/^Bước 4\/6 · Finance Review/.test(w.AITopup.stepLabel({ approval_status:"Pending", current_level:3, current_level_name:"Finance Review", total_levels:3 })), "Pending Finance -> Bước 4/6");
+  ok(w.AITopup.stepLabel({ approval_status:"Approved", fulfillment_status:"Assigned", total_levels:3 }) === "Bước 5/6 · Operation Fulfillment", "Fulfillment -> Bước 5/6");
+  ok(w.AITopup.stepLabel({ approval_status:"Approved", fulfillment_status:"Completed", total_levels:3 }) === "Bước 6/6 · Hoàn tất", "Completed -> Bước 6/6");
+  ok(/^Bước 2\/5/.test(w.AITopup.stepLabel({ approval_status:"Pending", current_level:1, current_level_name:"M", total_levels:2 })), "2 approval levels -> N=5 (dynamic)");
+  ok(/^Bước 5\/7/.test(w.AITopup.stepLabel({ approval_status:"Pending", current_level:4, current_level_name:"L4", total_levels:4 })), "4 approval levels -> N=7 (dynamic)");
+  ok(!/Level /.test(w.AITopup.stepLabel({ approval_status:"Pending", current_level:3 })) && w.AITopup.stepLabel({ approval_status:"Pending", current_level:3 }) === "Đang phê duyệt", "no runtime level data -> safe fallback, never raw 'Level 3'");
+
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);
 }

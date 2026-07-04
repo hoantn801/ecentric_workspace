@@ -638,3 +638,34 @@ class TestAdminOverride(FrappeTestCase):
         api.admin_approve_current_level(name, reason="3")          # -> Approved (terminal)
         with self.assertRaises(frappe.exceptions.ValidationError):
             api.admin_approve_current_level(name, reason="again")  # stale/duplicate -> blocked
+
+
+class TestListStepData(FrappeTestCase):
+    """Lists expose dynamic step data (total_levels + level names) for 'Bước X/N' labels."""
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def test_my_requests_includes_total_levels_and_current_name(self):
+        a = _user("zzb3_ls_a@example.com"); req = _user("zzb3_ls_r@example.com")
+        _proc_3levels(a, a); name = _submit_fin(req, a, 100)     # submitted, pending L1
+        frappe.set_user(req)
+        row = [r for r in api.list_my_requests()["rows"] if r["name"] == name][0]
+        self.assertEqual(row["total_levels"], 3)
+        self.assertTrue(row["current_level_name"])
+
+    def test_my_requests_draft_uses_active_process_level_count(self):
+        a = _user("zzb3_ls_a2@example.com"); req = _user("zzb3_ls_r2@example.com")
+        _proc_3levels(a, a)
+        doc = _draft(req)                                        # draft (no runtime)
+        frappe.set_user(req)
+        row = [r for r in api.list_my_requests()["rows"] if r["name"] == doc.name][0]
+        self.assertEqual(row["total_levels"], 3)
+
+    def test_my_approvals_includes_level_name(self):
+        a = _user("zzb3_ls_a3@example.com"); req = _user("zzb3_ls_r3@example.com")
+        _proc_3levels(a, a); name = _submit_fin(req, a, 100)
+        frappe.set_user(a)
+        row = [r for r in api.list_my_approvals(section="pending")["rows"] if r["name"] == name][0]
+        self.assertEqual(row["total_levels"], 3)
+        self.assertTrue(row["level_name"])

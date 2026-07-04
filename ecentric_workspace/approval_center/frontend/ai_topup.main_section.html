@@ -33,7 +33,8 @@
   #ec-ait-root .ec-main{ min-width:0;display:flex;flex-direction:column; }
   #ec-ait-root .topbar{ background:#fff;border-bottom:1px solid var(--gray-200);min-height:60px;padding:0 24px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20; }
   #ec-ait-root .crumb{ font-size:13px;color:var(--gray-500); } #ec-ait-root .crumb strong{ color:var(--gray-900); }
-  #ec-ait-root .content{ padding:22px 24px 48px;max-width:1180px;width:100%; }
+  #ec-ait-root .content{ padding:22px 24px 48px;max-width:none;width:100%; }
+  #ec-ait-root .ait-formwrap{ max-width:1040px; }
   #ec-ait-root h1.pg{ font-size:22px;font-weight:800;color:var(--gray-900);margin:0 0 2px;letter-spacing:-.3px; }
   #ec-ait-root .pg-sub{ font-size:13px;color:var(--gray-500);margin:0 0 16px; }
   /* tabs */
@@ -268,7 +269,7 @@
       ? '<div class="actions"><button class="btn" id="ait-edit-cancel">Hủy</button><button class="btn primary" id="ait-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button class="btn" id="ait-cancel-changes">Hủy thay đổi</button><button class="btn" id="ait-save">Lưu nháp</button><button class="btn primary" id="ait-submit"'+(mgrBlock?" disabled":"")+'>Gửi phê duyệt</button></div>';
     // roadmap always visible on Create (not on edit/resubmit); sits below tabs, above the blocking alert + form.
-    b.innerHTML = (editing?"":roadmapHTML()) + head + formCardsHTML(d,c,fo) + actions;
+    b.innerHTML = '<div class="ait-formwrap">' + (editing?"":roadmapHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     renderAcctSub(); maybeAutoTitle(); renderSummary(); wireCreate();
@@ -419,7 +420,7 @@
   function renderList(res){ var host=$("ait-list"); var rows=res&&res.rows||[];
     if(!rows.length){ host.innerHTML='<div class="card"><div class="state"><h4>Chưa có yêu cầu</h4><p>Bấm “Tạo yêu cầu” để bắt đầu.</p></div></div>'; $("ait-pager").innerHTML=""; return; }
     host.innerHTML='<table class="tbl"><thead><tr><th>Mã</th><th>Tiêu đề</th><th>AI Tool</th><th>Account</th><th>Loại</th><th>Số tiền</th><th>Trạng thái</th><th>Bước</th><th>Cập nhật</th></tr></thead><tbody>'
-      + rows.map(function(r){ return '<tr class="clickable" data-id="'+esc(r.name)+'"><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.ai_tool||"—")+'</td><td>'+esc(r.account_email||r.proposed_account_email||"—")+'</td><td>'+esc(r.request_type||"—")+'</td><td>'+esc((r.requested_amount||"")+" "+(r.currency||""))+'</td><td>'+statusBadge(r)+'</td><td>'+esc(r.current_level?("Level "+r.current_level):"—")+'</td><td>'+esc(fmt(r.modified))+'</td></tr>'; }).join("")
+      + rows.map(function(r){ return '<tr class="clickable" data-id="'+esc(r.name)+'"><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.ai_tool||"—")+'</td><td>'+esc(r.account_email||r.proposed_account_email||"—")+'</td><td>'+esc(r.request_type||"—")+'</td><td>'+esc((r.requested_amount||"")+" "+(r.currency||""))+'</td><td>'+statusBadge(r)+'</td><td>'+esc(stepLabel(r))+'</td><td>'+esc(fmt(r.modified))+'</td></tr>'; }).join("")
       + '</tbody></table>';
     host.querySelectorAll("tr[data-id]").forEach(function(tr){ tr.onclick=function(){ go({id:tr.getAttribute("data-id")}); }; });
     var total=res.total||rows.length, pages=Math.ceil(total/state.PAGE);
@@ -428,6 +429,24 @@
   }
   function statusBadge(r){ var st=r.approval_status||"Draft"; if(st==="Approved"&&r.fulfillment_status&&r.fulfillment_status!=="Not Started") st=r.fulfillment_status;
     return badge(st); }
+  // Business-facing step label: "Bước X/N · <level name>" (N = submitted + approval levels + fulfillment + done).
+  function stepLabel(r){
+    var L=Number(r.total_levels||0); var N=L?(L+3):0;
+    var st=r.approval_status||"Draft"; var ff=r.fulfillment_status;
+    if(!N){ // no dynamic level data -> safe fallback, never raw "Level N"
+      if(st==="Pending") return "Đang phê duyệt";
+      if(st==="Draft") return "Nháp"; if(st==="Rejected") return "Đã từ chối";
+      if(st==="Cancelled") return "Đã hủy"; if(st==="Information Required") return "Cần bổ sung";
+      return "—"; }
+    if(st==="Draft") return "Bước 1/"+N+" · Tạo yêu cầu";
+    if(st==="Rejected") return "Đã từ chối"; if(st==="Cancelled") return "Đã hủy";
+    if(st==="Information Required") return "Cần bổ sung";
+    if(st==="Approved"){ if(ff==="Completed") return "Bước "+N+"/"+N+" · Hoàn tất";
+      return "Bước "+(2+L)+"/"+N+" · Operation Fulfillment"; }
+    if(st==="Pending"&&r.current_level){ var nm=r.current_level_name||("Bước "+r.current_level);
+      return "Bước "+(1+Number(r.current_level))+"/"+N+" · "+nm; }
+    return "Đang phê duyệt";
+  }
 
   // ======================= DETAIL =======================
   function renderDetail(b){ b.innerHTML=skeleton(4);
@@ -556,7 +575,7 @@
       +'<div class="summary-row"><span>AI Tool</span><b>'+esc(b.ai_tool||"—")+'</b></div>'
       +'<div class="summary-row"><span>Account</span><b>'+esc(b.account_email||b.ai_account||b.proposed_account_email||"—")+'</b></div>'
       +'<div class="summary-row"><span>Số tiền yêu cầu</span><b>'+esc((b.requested_amount||"")+" "+(b.currency||""))+'</b></div>'
-      +'<div class="summary-row"><span>Cấp hiện tại</span><b>Level '+esc(ap.current_level||"—")+'</b></div>'; }
+      +'<div class="summary-row"><span>Bước hiện tại</span><b>'+esc((function(){ var Ls=(det.levels||[]).length; var cl=Number(ap.current_level||0); var cn=(det.levels||[]).filter(function(l){return Number(l.level_no)===cl;})[0]; return (Ls&&cl)?("Bước "+(1+cl)+"/"+(Ls+3)+(cn&&cn.level_name?(" · "+cn.level_name):"")):"Đang phê duyệt"; })())+'</b></div>'; }
 
   function doApprove(name, det){ var ap=det.approval||{}; var lvl=(det.levels||[]).find(function(l){return l.level_no===ap.current_level;});
     var isFin = !!(det.capabilities&&det.capabilities.can_adjust_approved_amount); var reqAmt=(det.business||{}).requested_amount;
@@ -617,8 +636,17 @@
     if(cap.can_admin_approve_current_level) btns.push('<button class="btn warn" data-act="adminapprove">Duyệt thay bước hiện tại</button>');
     if(cap.can_cancel) btns.push('<button class="btn" data-act="cancel">Hủy yêu cầu</button>');
     return btns.length? '<div class="apanel">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
-  function wireActionPanel(det){ var name=(det.business||{}).name; document.querySelectorAll("[data-act]").forEach(function(el){ el.onclick=function(){
+  // Robust delegated dispatch: bound ONCE on document, so detail action buttons keep working after
+  // every detail/action-panel re-render (per-element onclick was being lost on re-render in-browser).
+  function handleActionClick(e){
+    var el = e.target && e.target.closest ? e.target.closest("[data-act]") : null;
+    if(!el || !document.getElementById("ec-ait-root") || !document.getElementById("ec-ait-root").contains(el)) return;
+    e.preventDefault();
+    if(el.disabled) return;
+    if(document.querySelector(".overlay")) return;   // a modal is already open -> ignore (dup-click guard)
     var a=el.getAttribute("data-act");
+    var det=state.detail||window.__lastDetail||{};
+    var name=(det.business||{}).name||state.id;
     if(a==="editdraft") return startEditDraft(det);
     if(a==="submitdraft") return doSubmitDraft(name);
     if(a==="edit") return startEditResubmit(det);
@@ -626,7 +654,10 @@
     if(a==="reject") return doReject(name);
     if(a==="reqinfo") return doRequestInfo(name);
     if(a==="adminapprove") return doAdminApprove(name);
-    if(a==="cancel") return doCancel(name); }; }); }
+    if(a==="cancel") return doCancel(name);
+  }
+  function bindActionDelegation(){ if(document.__ecActBound) return; document.__ecActBound=true; document.addEventListener("click", handleActionClick); }
+  function wireActionPanel(det){ state.detail=det; bindActionDelegation(); }
 
   function timelineHTML(items){ if(!items||!items.length) return '<div class="hint">Chưa có hoạt động.</div>';
     var LBL={Submitted:"Đã gửi",Approved:"Đã duyệt","Information Requested":"Yêu cầu bổ sung",Rejected:"Từ chối",Resubmitted:"Gửi lại",Restarted:"Duyệt lại từ đầu","Amount Adjusted":"Điều chỉnh số tiền",Skipped:"Bỏ qua",Assigned:"Giao Operation",Started:"Nhận xử lý",Completed:"Hoàn tất",Cancelled:"Đã hủy",Commented:"Ghi chú","System Transition":"Chuyển trạng thái"};
@@ -641,7 +672,7 @@
         + rows.map(function(r){ var act= section==="pending"
             ? '<button class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> <button class="btn primary" data-quick="approve" data-n="'+esc(r.name)+'">Duyệt</button> <button class="btn" data-quick="reqinfo" data-n="'+esc(r.name)+'">Bổ sung</button> <button class="btn" data-quick="reject" data-n="'+esc(r.name)+'">Từ chối</button>'
             : '<button class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> '+badge(r.my_status);
-          return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requested_by||"—")+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.ai_tool||"—")+'</td><td>'+esc((r.requested_amount||"")+"")+'</td><td>Level '+esc(r.level_no||"—")+'</td><td>'+act+'</td></tr>'; }).join("")
+          return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requested_by||"—")+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.ai_tool||"—")+'</td><td>'+esc((r.requested_amount||"")+"")+'</td><td>'+esc(r.total_levels?("Bước "+(1+Number(r.level_no))+"/"+(Number(r.total_levels)+3)+(r.level_name?(" · "+r.level_name):"")):("Bước "+(r.level_no||"—")))+'</td><td>'+act+'</td></tr>'; }).join("")
         +'</tbody></table>';
       h.querySelectorAll("[data-open]").forEach(function(el){ el.onclick=function(){ go({id:el.getAttribute("data-open")}); }; });
       h.querySelectorAll("[data-quick]").forEach(function(el){ el.onclick=function(){ var n=el.getAttribute("data-n"), q=el.getAttribute("data-quick");
@@ -733,11 +764,11 @@
       h.querySelectorAll("[data-claim]").forEach(function(el){ el.onclick=function(){ el.disabled=true; call("claim_fulfillment",{name:el.getAttribute("data-claim")}).then(function(){ toast("Đã nhận xử lý."); renderFulfillment($("ait-body")); }).catch(function(e){ toast(mapErr(e),true); renderFulfillment($("ait-body")); }); }; });
     }).catch(function(){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không tải được</h4><button class="btn" data-r>Thử lại</button></div></div>'; var r=h.querySelector("[data-r]"); if(r)r.onclick=function(){ loadFulfill(section,host,title); }; }); }
 
-  function boot(){ var t=$("ait-tabs"); if(t){ t.addEventListener("click",function(e){ var b=e.target.closest("[data-tab]"); if(b&&!b.disabled){ state.page=0; go({tab:b.getAttribute("data-tab")}); } }); }
+  function boot(){ bindActionDelegation(); var t=$("ait-tabs"); if(t){ t.addEventListener("click",function(e){ var b=e.target.closest("[data-tab]"); if(b&&!b.disabled){ state.page=0; go({tab:b.getAttribute("data-tab")}); } }); }
     call("get_bootstrap").then(function(bootData){ state.boot=bootData||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(){ var bd=$("ait-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.AITopup={ state:state, buildStepper:buildStepper, render:render, route:route, _boot:boot, _call:call, badge:badge, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, materialSnap:materialSnap, modal:modal, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, renderFulfillment:renderFulfillment, suggestTitle:suggestTitle, validateSubmit:validateSubmit, applyBackendError:applyBackendError, roadmapHTML:roadmapHTML, startEditDraft:startEditDraft, doSubmitDraft:doSubmitDraft, headerStatusHTML:headerStatusHTML, doAdminApprove:doAdminApprove };
+  window.AITopup={ state:state, buildStepper:buildStepper, render:render, route:route, _boot:boot, _call:call, badge:badge, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, materialSnap:materialSnap, modal:modal, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, renderFulfillment:renderFulfillment, suggestTitle:suggestTitle, validateSubmit:validateSubmit, applyBackendError:applyBackendError, roadmapHTML:roadmapHTML, startEditDraft:startEditDraft, doSubmitDraft:doSubmitDraft, headerStatusHTML:headerStatusHTML, doAdminApprove:doAdminApprove, stepLabel:stepLabel };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>
