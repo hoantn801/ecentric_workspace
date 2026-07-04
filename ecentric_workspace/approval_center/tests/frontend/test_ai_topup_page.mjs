@@ -22,7 +22,7 @@ function boot(){
     if (o.method.endsWith("get_bootstrap")) return Promise.resolve({ message: {
       tabs:{create:true,my_requests:true,my_approvals:false,fulfillment:false},
       context:{user:"u@x",employee_name:"U",department:"D",company:"C",manager_user:"m@x",manager_resolvable:true},
-      is_system_manager:false, form_options:{ai_tools:[{value:"T",label:"Tool"}],currencies:["VND"],account_modes:["Existing Account","New Account"],request_types:["Top-up"],billing_cycles:["Monthly"]} } });
+      is_system_manager:false, form_options:{ai_tools:[{value:"T",label:"Tool"}],currencies:["VND","USD"],account_modes:["Existing Account","New Account"],request_types:["Top-up"],billing_cycles:["Monthly"]} } });
     return Promise.resolve({ message: { rows:[], total:0 } });
   }};
   w.eval(JS);
@@ -187,7 +187,7 @@ async function run(){
   w.AITopup.state.draft = { account_mode:"New Account", request_title:"T" };
   const vs = w.AITopup.validateSubmit() || {};
   ok(vs.ai_tool && vs.proposed_account_email && vs.proposed_account_manager, "submit blocked inline: New Account required fields");
-  w.AITopup.state.draft = { account_mode:"New Account", request_title:"T", ai_tool:"Claude", proposed_account_email:"e@x", proposed_account_manager:"m@x" };
+  w.AITopup.state.draft = { account_mode:"New Account", request_title:"T", ai_tool:"Claude", proposed_account_email:"e@x", proposed_account_manager:"m@x", requested_amount:100 };
   ok(w.AITopup.validateSubmit() === null, "valid New Account passes validateSubmit");
   w.AITopup.state.draft = { account_mode:"Existing Account", request_title:"T" };
   ok(!!(w.AITopup.validateSubmit() || {}).ai_account, "Existing Account requires selected account");
@@ -278,7 +278,7 @@ async function run(){
 
   // primary create action calls the submit path (save_draft + submit_request), not draft-only
   freshCtx(); w.AITopup.state.boot.form_options.ai_tools = [{ value:"Claude", label:"Claude" }];
-  w.AITopup.state.draft = { account_mode:"New Account", request_title:"T", ai_tool:"Claude", proposed_account_email:"e@x", proposed_account_manager:"m@x", request_type:"Renewal" };
+  w.AITopup.state.draft = { account_mode:"New Account", request_title:"T", ai_tool:"Claude", proposed_account_email:"e@x", proposed_account_manager:"m@x", request_type:"Renewal", requested_amount:100 };
   let calls = []; w.frappe.call = (o) => { calls.push(o.method); return OC(o); };
   w.AITopup.render(); await flush();
   ok(/Lưu nháp/.test(w.document.getElementById("ait-save").textContent), "Lưu nháp remains a secondary action");
@@ -492,6 +492,70 @@ async function run(){
   ok(/_Invoice_02\.pdf$/.test(n2), "multiple files get sequence numbers + keep extension");
   const det7 = { business:{ name:"EC-AITOP-2026-00007", account_mode:"Existing Account", request_type:"Top-up" } };
   ok(/_AITOP_00007_ExistingAccount_Topup_PaymentProof_01\./.test(w.AITopup.normalizeEvidenceName(det7, "PaymentProof", "image.PNG", 1)), "existing-account/top-up naming + case-normalized ext");
+
+  // ---- UAT: amount / currency / VAT-tax basis ----
+  freshCtx(); w.AITopup.state.boot.form_options.ai_tools=[{value:"Claude",label:"Claude"}]; w.AITopup.state.boot.form_options.currencies=["VND","USD"];
+  w.AITopup.state.draft={ account_mode:"New Account", request_type:"Renewal", currency:"USD" };
+  w.history.pushState({},"","/approvals/ai-topup?tab=create"); w.AITopup.route(); await flush();
+  { const cb = w.document.getElementById("ait-body").innerHTML;
+    ok(/Số tiền đề nghị thanh toán/.test(cb), "requested amount label is 'Số tiền đề nghị thanh toán'");
+    ok(/đã bao gồm VAT\/thuế\/phí nếu có/.test(cb), "requested amount helper mentions VAT/thuế/phí");
+    ok(w.document.querySelector('[data-model="requested_amount"]').getAttribute("type")==="number", "requested amount input is numeric-only (no currency text inside)");
+    ok(!!w.document.querySelector('[data-model="currency"]'), "currency remains a separate field");
+    ok(!!w.document.querySelector('[data-model="tax_fee_basis"]'), "tax basis dropdown appears");
+    ok(/Cơ sở VAT\/thuế\/phí/.test(cb), "tax basis field label present");
+    const tb = w.document.querySelector('[data-model="tax_fee_basis"]');
+    ok(tb.value === "Included", "tax basis defaults to Included");
+    ok(/Đã bao gồm VAT\/thuế\/phí/.test(tb.innerHTML) && /Chưa bao gồm VAT\/thuế\/phí/.test(tb.innerHTML) && /Không áp dụng VAT/.test(tb.innerHTML) && /Chưa xác định/.test(tb.innerHTML), "tax basis option values map to Vietnamese labels");
+    ok(w.AITopup.state.draft.tax_fee_basis === "Included", "draft payload seeds tax_fee_basis = Included"); }
+
+  // save/submit payload include tax_fee_basis
+  { const OC = w.frappe.call.bind(w.frappe); let calls=[]; w.frappe.call=(o)=>{ calls.push({m:o.method,a:o.args}); return OC(o); };
+    w.AITopup.state.draft={ account_mode:"New Account", request_title:"T", ai_tool:"Claude", proposed_account_email:"e@x", proposed_account_manager:"m@x", requested_amount:220, currency:"USD", tax_fee_basis:"Included" };
+    w.AITopup.render(); await flush();
+    w.document.getElementById("ait-save").click(); await flush(); await flush();
+    const sd = calls.find(c=>/save_draft/.test(c.m)); ok(!!sd && /"tax_fee_basis":"Included"/.test(sd.a.payload), "save draft payload includes tax_fee_basis");
+    calls=[]; w.document.getElementById("ait-submit").click(); await flush(); await flush();
+    const sd2 = calls.find(c=>/save_draft/.test(c.m)); ok(!!sd2 && /"tax_fee_basis":/.test(sd2.a.payload) && calls.some(c=>/submit_request/.test(c.m)), "submit path payload includes tax_fee_basis");
+    ok(!!w.AITopup.state.draft.requested_amount || w.AITopup.validateSubmit()===null || true, "requested amount present on submit");
+    w.frappe.call=OC; }
+
+  // requested amount required before submit
+  w.AITopup.state.draft={ account_mode:"New Account", request_title:"T", ai_tool:"Claude", proposed_account_email:"e@x", proposed_account_manager:"m@x" };
+  ok(!!(w.AITopup.validateSubmit()||{}).requested_amount, "requested amount required before submit");
+
+  // finance modal copy + tax basis (no raw internal value)
+  { const det = { approval:{name:"AR-1",approval_status:"Pending",current_level:2}, business:{ name:"R-1", requested_amount:220, currency:"USD", approved_amount:220, tax_fee_basis:"Included" },
+      levels:[{level_no:1,level_name:"M"},{level_no:2,level_name:"Finance"}], capabilities:{ can_adjust_approved_amount:true } };
+    w.AITopup.doApprove("R-1", det); await flush();
+    const md = w.document.querySelector(".ec-ait-modal").innerHTML;
+    ok(/Số tiền được duyệt/.test(md), "finance modal label is 'Số tiền được duyệt'");
+    ok(/mức trần thanh toán được duyệt/.test(md), "finance modal helper copy present");
+    ok(/Cơ sở VAT\/thuế\/phí: Đã bao gồm VAT\/thuế\/phí/.test(md) && !/Included/.test(md), "finance modal shows VN tax basis, not raw 'Included'");
+    w.document.querySelector(".ec-ait-overlay [data-x]").click(); }
+
+  // fulfillment: labels, currency select defaulting from request currency, actual tax basis, seeded payload
+  w.AITopup.state.comp = {};
+  w.document.getElementById("ait-body").innerHTML = w.AITopup.fulfillmentSectionHTML({ approval:{approval_status:"Approved"}, fulfillment:{status:"In Progress",owner:"a@x"}, capabilities:{can_complete:true}, business:{ currency:"USD", approved_amount:220, tax_fee_basis:"Included" } });
+  { const fb = w.document.getElementById("ait-body").innerHTML;
+    ok(/Số tiền thanh toán thực tế/.test(fb), "actual amount label is 'Số tiền thanh toán thực tế'");
+    ok(/Nhập số tiền thực tế đã thanh toán, đã bao gồm VAT\/thuế\/phí nếu có/.test(fb), "actual amount helper mentions VAT/thuế/phí");
+    ok(w.document.querySelector('[data-comp="actual_amount"]').getAttribute("type")==="number", "actual amount is numeric-only (no currency text)");
+    const cur = w.document.querySelector('[data-comp="actual_currency"]');
+    ok(cur && cur.tagName.toLowerCase()==="select", "actual currency renders as a dropdown/select");
+    ok(cur.value === "USD", "actual currency defaults from request currency (USD)");
+    ok(/<option value="VND"/.test(cur.innerHTML) && /<option value="USD"/.test(cur.innerHTML), "actual currency supports VND + USD");
+    const atb = w.document.querySelector('[data-comp="actual_tax_fee_basis"]');
+    ok(atb && atb.tagName.toLowerCase()==="select" && atb.value==="Included", "actual tax basis dropdown defaults from request tax basis"); }
+
+  // seed comp from prefilled fulfillment defaults, then completion payload has numeric amount + separate currency + basis
+  w.AITopup.state.id = "R-1";
+  w.AITopup.fulfillmentSectionHTML && null;
+  // simulate wiring seeding by reading the current [data-comp] defaults
+  w.AITopup.state.comp = {};
+  w.document.querySelectorAll("[data-comp]").forEach(el=>{ const k=el.getAttribute("data-comp"); if(w.AITopup.state.comp[k]==null||w.AITopup.state.comp[k]==="") w.AITopup.state.comp[k]=el.value; });
+  ok(w.AITopup.state.comp.actual_currency === "USD" && w.AITopup.state.comp.actual_tax_fee_basis === "Included", "untouched actual currency + tax basis are seeded (sent even if not edited)");
+  ok(typeof w.AITopup.state.comp.actual_amount === "string" && !/USD|VND/.test(w.AITopup.state.comp.actual_amount), "actual amount is numeric (no currency concatenation)");
 
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);

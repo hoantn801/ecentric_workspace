@@ -206,6 +206,10 @@
     return '<option value="'+esc(v)+'"'+(String(val)===String(v)?" selected":"")+'>'+esc(l)+'</option>'; }).join(""); }
   function fld(id,label,ctrl,req,err){ return '<div class="fld'+(err?" invalid":"")+'" data-fld="'+id+'"><label>'+esc(label)+(req?' <span class="req">*</span>':'')+'</label>'+ctrl+(err?'<div class="err">'+esc(err)+'</div>':'')+'</div>'; }
 
+  var TAX_BASIS=[["Included","Đã bao gồm VAT/thuế/phí"],["Excluded","Chưa bao gồm VAT/thuế/phí"],["Not Applicable","Không áp dụng VAT"],["Unknown","Chưa xác định"]];
+  function taxBasisLabel(v){ for(var i=0;i<TAX_BASIS.length;i++){ if(TAX_BASIS[i][0]===v) return TAX_BASIS[i][1]; } return v?String(v):"—"; }
+  function taxBasisOptions(sel){ sel=sel||"Included"; return TAX_BASIS.map(function(o){ return '<option value="'+o[0]+'"'+(sel===o[0]?" selected":"")+'>'+esc(o[1])+'</option>'; }).join(""); }
+  function currencyOptions(fo,sel){ var list=(fo&&fo.currencies&&fo.currencies.length)?fo.currencies.slice():["VND","USD"]; if(list.indexOf("VND")<0) list.push("VND"); if(list.indexOf("USD")<0) list.push("USD"); return list.map(function(cur){ return '<option value="'+esc(cur)+'"'+(String(sel)===String(cur)?" selected":"")+'>'+esc(cur)+'</option>'; }).join(""); }
   function formCardsHTML(d,c,fo){
     return '<div class="card"><h3>Tiêu đề yêu cầu</h3><div class="grid2">'
       + fld("request_title","Tiêu đề yêu cầu",'<input data-model="request_title" maxlength="140" placeholder="Ví dụ: Renewal - Claude - user@ecentric.vn" value="'+esc(d.request_title||"")+'">',true).replace('class="fld','class="fld full')
@@ -220,8 +224,9 @@
       + '<div class="card"><h3>Thông tin yêu cầu</h3><div class="grid2">'
       + fld("request_type","Loại yêu cầu",'<select data-model="request_type"><option value="">—</option>'+opt(fo.request_types,d.request_type)+'</select>')
       + fld("requested_plan","Gói/plan yêu cầu",'<input data-model="requested_plan" value="'+esc(d.requested_plan||"")+'">')
-      + fld("requested_amount","Số tiền yêu cầu",'<input type="number" min="0" data-model="requested_amount" value="'+esc(d.requested_amount||"")+'">')
+      + fld("requested_amount","Số tiền đề nghị thanh toán",'<input type="number" min="0" data-model="requested_amount" value="'+esc(d.requested_amount||"")+'"><div class="hint">Nhập tổng số tiền dự kiến cần thanh toán, đã bao gồm VAT/thuế/phí nếu có.</div>')
       + fld("currency","Tiền tệ",'<select data-model="currency">'+opt((fo.currencies||[]).map(function(x){return {value:x,label:x};}),d.currency||"VND")+'</select>')
+      + fld("tax_fee_basis","Cơ sở VAT/thuế/phí",'<select data-model="tax_fee_basis">'+taxBasisOptions(d.tax_fee_basis)+'</select>')
       + fld("needed_by","Ngày cần hoàn thành",'<input type="date" data-model="needed_by" value="'+esc(d.needed_by||"")+'">')
       + fld("purpose","Mục đích sử dụng",'<input data-model="purpose" value="'+esc(d.purpose||"")+'">')
       + fld("requester_note","Ghi chú",'<textarea data-model="requester_note" rows="2">'+esc(d.requester_note||"")+'</textarea>',false,null).replace('class="fld','class="fld full')
@@ -272,6 +277,7 @@
     b.innerHTML = '<div class="ait-formwrap">' + (editing?"":roadmapHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
+    state.draft=state.draft||{}; if(state.draft.tax_fee_basis==null) state.draft.tax_fee_basis="Included";
     renderAcctSub(); maybeAutoTitle(); renderSummary(); wireCreate();
   }
 
@@ -306,7 +312,7 @@
     var mgr=isNew?d.proposed_account_manager:d.account_manager;
     var plan=isNew?(d.requested_plan||d.proposed_plan):(d.current_plan||d.requested_plan);
     var rows=[["Tiêu đề",d.request_title],["Tool",d.ai_tool],["Account",acct],["Account manager",mgr],
-      ["Gói",plan],["Số tiền",(d.requested_amount?d.requested_amount+" "+(d.currency||""):"")],
+      ["Gói",plan],["Số tiền",(d.requested_amount?d.requested_amount+" "+(d.currency||""):"")],["Cơ sở VAT/thuế/phí",taxBasisLabel(d.tax_fee_basis)],
       ["Thời hạn",(d.subscription_start_date||"—")+" → "+(d.subscription_end_date||"—")],["Quản lý trực tiếp",c.manager_user||"—"],
       ["Luồng duyệt","Direct Manager → Operation Review → Finance Review → Operation Fulfillment (theo cấu hình)"]];
     h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
@@ -333,10 +339,11 @@
     f.classList.toggle("invalid",!!msg); var e=f.querySelector(".err");
     if(msg){ if(!e){ e=document.createElement("div"); e.className="err"; f.appendChild(e);} e.textContent=msg; } else if(e){ e.textContent=""; } }
   function clearFieldError(id){ setFieldError(id,null); }
-  function showFieldErrors(errs){ ["request_title","ai_tool","proposed_account_email","proposed_account_manager","ai_account"].forEach(function(id){ setFieldError(id,(errs&&errs[id])||null); });
+  function showFieldErrors(errs){ ["request_title","requested_amount","ai_tool","proposed_account_email","proposed_account_manager","ai_account"].forEach(function(id){ setFieldError(id,(errs&&errs[id])||null); });
     var first=errs&&Object.keys(errs)[0]; if(first){ var el=document.querySelector('[data-fld="'+first+'"] input,[data-fld="'+first+'"] select'); if(el&&el.focus){ try{el.focus();}catch(e){} } } }
   function validateSubmit(){ var d=state.draft||{}; var errs={};
     if(!((d.request_title||"").toString().trim())) errs.request_title="Vui lòng nhập tiêu đề yêu cầu.";
+    if(d.requested_amount==null||d.requested_amount==="") errs.requested_amount="Vui lòng nhập số tiền đề nghị thanh toán.";
     if(d.account_mode==="New Account"){
       if(!((d.ai_tool||"").toString().trim())) errs.ai_tool="Vui lòng chọn AI Tool.";
       if(!((d.proposed_account_email||"").toString().trim())) errs.proposed_account_email="Vui lòng nhập email account dự kiến.";
@@ -456,7 +463,7 @@
     b.innerHTML='<div style="margin-bottom:12px"><button class="btn" id="d-back">‹ Danh sách</button></div>'
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.ai_tool||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+headerStatusHTML(ap,ff)+'</div></div></div>'
       +'<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper" id="d-stepper"></div></div>'
-      +'<div class="card"><h3>Thông tin yêu cầu</h3><div class="grid2">'+kv("Loại",biz.request_type)+kv("Gói yêu cầu",biz.requested_plan||biz.proposed_plan)+kv("Số tiền yêu cầu",(biz.requested_amount||"")+" "+(biz.currency||""))+kv("Số tiền duyệt",biz.approved_amount)+kv("Cần trước",biz.needed_by)+kv("Mục đích",biz.purpose)+'</div></div>'
+      +'<div class="card"><h3>Thông tin yêu cầu</h3><div class="grid2">'+kv("Loại",biz.request_type)+kv("Gói yêu cầu",biz.requested_plan||biz.proposed_plan)+kv("Số tiền yêu cầu",(biz.requested_amount||"")+" "+(biz.currency||""))+kv("Cơ sở VAT/thuế/phí",taxBasisLabel(biz.tax_fee_basis))+kv("Số tiền duyệt",(biz.approved_amount!=null?(biz.approved_amount+" "+(biz.currency||"")):"—"))+kv("Cần trước",biz.needed_by)+kv("Mục đích",biz.purpose)+'</div></div>'
       +'<div class="card"><h3>Tài khoản</h3><div class="grid2">'+kv("Hình thức",biz.account_mode)+kv("AI Account",biz.ai_account||biz.proposed_account_email)+kv("Email",biz.account_email||biz.proposed_account_email)+kv("Account manager",biz.account_manager||biz.proposed_account_manager)+'</div></div>'
       +'<div class="card"><h3>Thời hạn</h3><div class="grid2">'+kv("Bắt đầu",biz.subscription_start_date)+kv("Kết thúc",biz.subscription_end_date)+kv("Chu kỳ",biz.billing_cycle)+kv("Tự gia hạn",biz.auto_renewal_expected?"Có":"Không")+'</div></div>'
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
@@ -575,13 +582,14 @@
       +'<div class="summary-row"><span>AI Tool</span><b>'+esc(b.ai_tool||"—")+'</b></div>'
       +'<div class="summary-row"><span>Account</span><b>'+esc(b.account_email||b.ai_account||b.proposed_account_email||"—")+'</b></div>'
       +'<div class="summary-row"><span>Số tiền yêu cầu</span><b>'+esc((b.requested_amount||"")+" "+(b.currency||""))+'</b></div>'
+      +'<div class="summary-row"><span>Cơ sở VAT/thuế/phí</span><b>'+esc(taxBasisLabel(b.tax_fee_basis))+'</b></div>'
       +'<div class="summary-row"><span>Bước hiện tại</span><b>'+esc((function(){ var Ls=(det.levels||[]).length; var cl=Number(ap.current_level||0); var cn=(det.levels||[]).filter(function(l){return Number(l.level_no)===cl;})[0]; return (Ls&&cl)?("Bước "+(1+cl)+"/"+(Ls+3)+(cn&&cn.level_name?(" · "+cn.level_name):"")):"Đang phê duyệt"; })())+'</b></div>'; }
 
   function doApprove(name, det){ var ap=det.approval||{}; var lvl=(det.levels||[]).find(function(l){return l.level_no===ap.current_level;});
     var isFin = !!(det.capabilities&&det.capabilities.can_adjust_approved_amount); var reqAmt=(det.business||{}).requested_amount;
     var body=summaryHTML(det)
       +'<div class="fld"><label>Ghi chú (không bắt buộc)</label><textarea id="m-cmt" rows="2"></textarea></div>'
-      +(isFin?('<div class="fld"><label>Số tiền duyệt</label><input id="m-amt" type="number" value="'+esc(det.business.approved_amount!=null?det.business.approved_amount:(reqAmt||""))+'"><div class="hint">Yêu cầu: '+esc(reqAmt||"—")+'. Nếu khác, bắt buộc nhập lý do.</div></div>'):'');
+      +(isFin?('<div class="fld"><label>Số tiền được duyệt</label><input id="m-amt" type="number" value="'+esc(det.business.approved_amount!=null?det.business.approved_amount:(reqAmt||""))+'"><div class="hint">Là mức trần thanh toán được duyệt, đã bao gồm VAT/thuế/phí nếu có. Yêu cầu: '+esc(reqAmt||"—")+' '+esc((det.business||{}).currency||"")+' · Cơ sở VAT/thuế/phí: '+esc(taxBasisLabel((det.business||{}).tax_fee_basis))+'. Nếu khác số tiền yêu cầu, bắt buộc nhập lý do.</div></div>'):'');
     modal("Duyệt yêu cầu", body, {okLabel:"Duyệt", onConfirm:function(ov){
       var cmt=(ov.querySelector("#m-cmt").value||""); var amtEl=ov.querySelector("#m-amt"); var amt=amtEl?amtEl.value:null;
       if(amt!==null&&amt!==""&&Number(amt)!==Number(reqAmt)&&!cmt.trim()){ toast("Cần nhập lý do khi số tiền duyệt khác số tiền yêu cầu.",true); return Promise.reject(); }
@@ -716,18 +724,20 @@
     return '<div class="grid2">'
       + '<div class="fld"><label>Hoàn tất bởi</label><input class="ro" readonly value="'+esc(ff.completed_by||"—")+'"></div>'
       + '<div class="fld"><label>Thời điểm</label><input class="ro" readonly value="'+esc(fmt(ff.completed_at))+'"></div>'
-      + '<div class="fld"><label>Số tiền thực</label><input class="ro" readonly value="'+esc((b.actual_amount||"")+" "+(b.actual_currency||""))+'"></div>'
+      + '<div class="fld"><label>Số tiền thanh toán thực tế</label><input class="ro" readonly value="'+esc((b.actual_amount||"")+" "+(b.actual_currency||""))+'"></div>'
+      + '<div class="fld"><label>Cơ sở VAT/thuế/phí thực tế</label><input class="ro" readonly value="'+esc(taxBasisLabel(b.actual_tax_fee_basis))+'"></div>'
       + '<div class="fld"><label>Mã giao dịch</label><input class="ro" readonly value="'+esc(b.transaction_reference||"—")+'"></div>'
       + '<div class="fld"><label>Chứng từ thanh toán</label>'+(b.payment_proof?('<a href="'+esc(b.payment_proof)+'" target="_blank">Mở</a>'):'—')+'</div>'
       + '<div class="fld"><label>Hóa đơn</label>'+(b.invoice_status==="No Invoice Issued"?('Không phát hành ('+esc(b.no_invoice_reason||"")+')'):(b.invoice_receipt?('<a href="'+esc(b.invoice_receipt)+'" target="_blank">Mở</a>'):'—'))+'</div>'
       + '</div>'; }
-  function completionFormHTML(det){ var b=det.business||{}; var comp=state.comp||{};
+  function completionFormHTML(det){ var b=det.business||{}; var comp=state.comp||{}; var fo=(state.boot&&state.boot.form_options)||{};
     return '<div class="sect-h">Nhập thông tin hoàn tất</div><div class="grid2">'
       + fld("actual_account_email","Email account thực",'<input data-comp="actual_account_email" value="'+esc(comp.actual_account_email!=null?comp.actual_account_email:(b.account_email||b.proposed_account_email||""))+'">')
       + fld("confirmed_account_manager","Xác nhận người quản lý",'<input data-comp="confirmed_account_manager" list="ait-users" value="'+esc(comp.confirmed_account_manager!=null?comp.confirmed_account_manager:(b.account_manager||b.proposed_account_manager||""))+'"><datalist id="ait-users"></datalist>')
       + fld("actual_plan","Gói thực",'<input data-comp="actual_plan" value="'+esc(comp.actual_plan!=null?comp.actual_plan:(b.requested_plan||""))+'">')
-      + fld("actual_amount","Số tiền thực",'<input type="number" data-comp="actual_amount" value="'+esc(comp.actual_amount!=null?comp.actual_amount:(b.approved_amount!=null?b.approved_amount:b.requested_amount||""))+'">')
-      + fld("actual_currency","Tiền tệ thực",'<input data-comp="actual_currency" value="'+esc(comp.actual_currency!=null?comp.actual_currency:(b.currency||"VND"))+'">')
+      + fld("actual_amount","Số tiền thanh toán thực tế",'<input type="number" data-comp="actual_amount" value="'+esc(comp.actual_amount!=null?comp.actual_amount:(b.approved_amount!=null?b.approved_amount:b.requested_amount||""))+'"><div class="hint">Nhập số tiền thực tế đã thanh toán, đã bao gồm VAT/thuế/phí nếu có.</div>')
+      + fld("actual_currency","Tiền tệ thanh toán thực tế",'<select data-comp="actual_currency">'+currencyOptions(fo,comp.actual_currency!=null?comp.actual_currency:(b.currency||"VND"))+'</select>')
+      + fld("actual_tax_fee_basis","Cơ sở VAT/thuế/phí thực tế",'<select data-comp="actual_tax_fee_basis">'+taxBasisOptions(comp.actual_tax_fee_basis!=null?comp.actual_tax_fee_basis:(b.tax_fee_basis||"Included"))+'</select>')
       + fld("topup_datetime","Thời điểm top-up",'<input type="datetime-local" data-comp="topup_datetime" value="'+esc(comp.topup_datetime||nowLocal())+'">')
       + fld("transaction_reference","Mã giao dịch",'<input data-comp="transaction_reference" value="'+esc(comp.transaction_reference||"")+'">')
       + fld("invoice_status","Tình trạng hóa đơn",'<select data-comp="invoice_status"><option value="">—</option><option value="Invoice Available"'+(comp.invoice_status==="Invoice Available"?" selected":"")+'>Có hóa đơn</option><option value="No Invoice Issued"'+(comp.invoice_status==="No Invoice Issued"?" selected":"")+'>Không phát hành hóa đơn</option></select>',true)
@@ -754,7 +764,8 @@
       .catch(function(){ if(lbl) lbl.textContent="Lỗi tải"; }); }
   function wireFulfillment(det){ var name=(det.business||{}).name;
     var cl=$("ait-claim"); if(cl){ cl.onclick=function(){ cl.disabled=true; call("claim_fulfillment",{name:name}).then(function(){ toast("Đã nhận xử lý."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); }); }; }
-    document.querySelectorAll("[data-comp]").forEach(function(el){ el.addEventListener("input",function(){ state.comp=state.comp||{}; state.comp[el.getAttribute("data-comp")]=el.value; }); });
+    state.comp=state.comp||{};
+    document.querySelectorAll("[data-comp]").forEach(function(el){ var k=el.getAttribute("data-comp"); if(state.comp[k]==null||state.comp[k]==="") state.comp[k]=el.value; el.addEventListener("input",function(){ state.comp=state.comp||{}; state.comp[el.getAttribute("data-comp")]=el.value; }); });
     var pp=document.querySelector('[data-upload="payment_proof"]'); if(pp) pp.addEventListener("change",function(){ uploadFile(pp,"payment_proof","pp-name","PaymentProof",det); });
     var ir=document.querySelector('[data-upload="invoice_receipt"]'); if(ir) ir.addEventListener("change",function(){ uploadFile(ir,"invoice_receipt","ir-name","Invoice",det); });
     var inv=document.querySelector('[data-comp="invoice_status"]'); if(inv) inv.addEventListener("change",function(){ state.comp=state.comp||{}; state.comp.invoice_status=inv.value; applyInvoiceConditional(); });
@@ -816,7 +827,7 @@
     call("get_bootstrap").then(function(bootData){ state.boot=bootData||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(){ var bd=$("ait-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.AITopup={ state:state, buildStepper:buildStepper, render:render, route:route, _boot:boot, _call:call, badge:badge, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, materialSnap:materialSnap, modal:modal, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, renderFulfillment:renderFulfillment, suggestTitle:suggestTitle, validateSubmit:validateSubmit, applyBackendError:applyBackendError, roadmapHTML:roadmapHTML, startEditDraft:startEditDraft, doSubmitDraft:doSubmitDraft, headerStatusHTML:headerStatusHTML, doAdminApprove:doAdminApprove, stepLabel:stepLabel, normalizeEvidenceName:normalizeEvidenceName, applyInvoiceConditional:applyInvoiceConditional };
+  window.AITopup={ state:state, buildStepper:buildStepper, render:render, route:route, _boot:boot, _call:call, badge:badge, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, materialSnap:materialSnap, modal:modal, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, renderFulfillment:renderFulfillment, suggestTitle:suggestTitle, validateSubmit:validateSubmit, applyBackendError:applyBackendError, roadmapHTML:roadmapHTML, startEditDraft:startEditDraft, doSubmitDraft:doSubmitDraft, headerStatusHTML:headerStatusHTML, doAdminApprove:doAdminApprove, doApprove:doApprove, stepLabel:stepLabel, normalizeEvidenceName:normalizeEvidenceName, applyInvoiceConditional:applyInvoiceConditional, taxBasisLabel:taxBasisLabel, taxBasisOptions:taxBasisOptions, currencyOptions:currencyOptions };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>

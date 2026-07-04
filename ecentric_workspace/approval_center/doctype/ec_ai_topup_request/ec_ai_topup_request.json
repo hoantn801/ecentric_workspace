@@ -35,6 +35,7 @@
   "cb1",
   "requested_amount",
   "currency",
+  "tax_fee_basis",
   "needed_by",
   "purpose",
   "request_attachment",
@@ -49,6 +50,7 @@
   "cb2",
   "actual_amount",
   "actual_currency",
+  "actual_tax_fee_basis",
   "topup_datetime",
   "transaction_reference",
   "operation_note",
@@ -213,6 +215,14 @@
    "default": "VND"
   },
   {
+   "fieldname": "tax_fee_basis",
+   "fieldtype": "Select",
+   "label": "Tax/Fee Basis",
+   "options": "Included\nExcluded\nNot Applicable\nUnknown",
+   "default": "Included",
+   "description": "Basis of requested/approved amount regarding VAT/tax/fees (no VAT calculation performed)."
+  },
+  {
    "fieldname": "needed_by",
    "fieldtype": "Date",
    "label": "Needed By"
@@ -290,6 +300,12 @@
    "fieldtype": "Link",
    "label": "Actual Currency",
    "options": "Currency"
+  },
+  {
+   "fieldname": "actual_tax_fee_basis",
+   "fieldtype": "Select",
+   "label": "Actual Tax/Fee Basis",
+   "options": "Included\nExcluded\nNot Applicable\nUnknown"
   },
   {
    "fieldname": "topup_datetime",

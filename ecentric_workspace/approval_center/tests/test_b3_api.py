@@ -742,3 +742,58 @@ class TestAssignmentToDos(FrappeTestCase):
         # re-reading detail / re-activating must not duplicate the Manager ToDo
         api.get_request_detail(name); api.get_request_detail(name)
         self.assertEqual(len(self._open(name, user=m)), 1)
+
+
+class TestTaxFeeBasis(FrappeTestCase):
+    """Additive tax_fee_basis / actual_tax_fee_basis: save/detail/list + safe defaults, no VAT calc."""
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def test_save_draft_persists_tax_basis_in_list_and_detail(self):
+        u = _user("zzb3_tax_r@example.com")
+        frappe.set_user(u)
+        res = api.save_draft(payload=frappe.as_json({
+            "account_mode": "New Account", "ai_tool": _tool(),
+            "proposed_account_email": "tax@example.com",
+            "proposed_account_manager": _user("zzb3_tax_pm@example.com"),
+            "request_title": "TAX", "requested_amount": 220, "currency": "USD",
+            "tax_fee_basis": "Excluded"}))
+        name = res["name"]
+        self.assertEqual(frappe.db.get_value(api.BIZ, name, "tax_fee_basis"), "Excluded")
+        self.assertEqual(api.get_request_detail(name)["business"]["tax_fee_basis"], "Excluded")
+        row = [r for r in api.list_my_requests()["rows"] if r["name"] == name][0]
+        self.assertEqual(row["tax_fee_basis"], "Excluded")
+
+    def test_new_draft_defaults_tax_basis_included(self):
+        u = _user("zzb3_tax_r2@example.com")
+        frappe.set_user(u)
+        res = api.save_draft(payload=frappe.as_json({
+            "account_mode": "New Account", "ai_tool": _tool(),
+            "proposed_account_email": "tax2@example.com",
+            "proposed_account_manager": _user("zzb3_tax_pm2@example.com"),
+            "request_title": "TAX2", "requested_amount": 100}))     # no tax_fee_basis sent
+        self.assertEqual(frappe.db.get_value(api.BIZ, res["name"], "tax_fee_basis"), "Included")
+
+    def test_completion_persists_actual_currency_and_basis_separately(self):
+        a = _user("zzb3_tax_a@example.com"); f = _user("zzb3_tax_f@example.com"); req = _user("zzb3_tax_req@example.com")
+        _proc_with_fulfiller(a, f)
+        # New Account request in USD, submit -> approve twice -> assigned -> claim -> complete
+        frappe.set_user(req)
+        res = api.save_draft(payload=frappe.as_json({
+            "account_mode": "New Account", "ai_tool": _tool(),
+            "proposed_account_email": "cx@example.com",
+            "proposed_account_manager": _user("zzb3_tax_cpm@example.com"),
+            "request_title": "CX", "requested_amount": 220, "currency": "USD", "tax_fee_basis": "Included"}))
+        name = res["name"]; api.submit_request(name)
+        frappe.set_user(a); api.approve(name); api.approve(name)   # 2-level proc -> Approved -> Assigned
+        frappe.set_user(f); api.claim_fulfillment(name)
+        api.complete_fulfillment(name, payload=frappe.as_json({
+            "actual_amount": 220, "actual_currency": "USD",       # numeric + separate currency (no concat)
+            "topup_datetime": frappe.utils.now_datetime(), "transaction_reference": "T",
+            "payment_proof": "/f/p", "invoice_status": "No Invoice Issued", "no_invoice_reason": "r",
+            "confirmed_account_manager": f, "actual_account_email": "cx@example.com"}))   # no actual_tax_fee_basis -> defaults
+        frappe.set_user("Administrator")
+        self.assertEqual(str(frappe.db.get_value(api.BIZ, name, "actual_currency")), "USD")
+        self.assertEqual(float(frappe.db.get_value(api.BIZ, name, "actual_amount")), 220.0)
+        self.assertEqual(frappe.db.get_value(api.BIZ, name, "actual_tax_fee_basis"), "Included")   # defaulted from tax_fee_basis

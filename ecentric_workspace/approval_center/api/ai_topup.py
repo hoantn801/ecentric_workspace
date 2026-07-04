@@ -14,7 +14,7 @@ OPEN = ("Pending", "Information Required")
 MAX_PAGE = 50
 _EDITABLE_DRAFT = ("request_title", "account_mode", "ai_account", "ai_tool", "account_email", "account_manager",
                    "current_plan", "proposed_account_email", "proposed_account_manager", "proposed_plan",
-                   "request_type", "requested_plan", "requested_amount", "currency", "needed_by",
+                   "request_type", "requested_plan", "requested_amount", "currency", "tax_fee_basis", "needed_by",
                    "purpose", "requester_note", "subscription_start_date", "subscription_end_date",
                    "billing_cycle", "auto_renewal_expected", "subscription_start_date")
 _STATUS_LABEL = {  # engine + fulfillment -> user-facing Vietnamese
@@ -223,7 +223,7 @@ def list_my_requests(filters=None, start=0, page_length=20):
     rows = frappe.get_all(BIZ, filters=flt,
                           fields=["name", "request_title", "ai_tool", "account_mode", "account_email",
                                   "proposed_account_email", "request_type", "requested_amount",
-                                  "currency", "fulfillment_status", "approval_request", "creation", "modified"],
+                                  "currency", "tax_fee_basis", "fulfillment_status", "approval_request", "creation", "modified"],
                           limit_start=int(start), limit_page_length=page_length,
                           order_by="modified desc")  # fixed server-side sort (no client sort injection)
     _alc = None
@@ -521,7 +521,7 @@ def cancel(name, reason=None):
 
 
 _COMPLETION_FIELDS = ("actual_ai_account", "actual_account_email", "confirmed_account_manager",
-                      "actual_plan", "actual_amount", "actual_currency", "topup_datetime",
+                      "actual_plan", "actual_amount", "actual_currency", "actual_tax_fee_basis", "topup_datetime",
                       "transaction_reference", "payment_proof", "invoice_status", "invoice_receipt",
                       "no_invoice_reason", "operation_note")
 
