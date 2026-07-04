@@ -559,9 +559,9 @@
   function refreshApprovals(){ if(state.tab==="my-approvals") renderMyApprovals($("ait-body")); }
 
   function modal(title, bodyHTML, opts){ opts=opts||{}; var prevFocus=document.activeElement;
-    var ov=document.createElement("div"); ov.className="overlay";
-    ov.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><div class="modal-h">'+esc(title)+'</div><div class="modal-b">'+bodyHTML+'</div><div class="modal-f"><button class="btn" data-x aria-label="Đóng">Đóng</button><button class="btn primary" data-ok>'+esc(opts.okLabel||"Xác nhận")+'</button></div></div>';
-    document.body.appendChild(ov); function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); if(prevFocus&&prevFocus.focus) try{prevFocus.focus();}catch(e){} }
+    var ov=document.createElement("div"); ov.className="overlay ec-ait-overlay";
+    ov.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><div class="modal-h">'+esc(title)+'</div><div class="modal-b">'+bodyHTML+'</div><div class="modal-f"><button type="button" class="btn" data-x aria-label="Đóng">Đóng</button><button type="button" class="btn primary" data-ok>'+esc(opts.okLabel||"Xác nhận")+'</button></div></div>';
+    (document.getElementById("ec-ait-root")||document.body).appendChild(ov); function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); if(prevFocus&&prevFocus.focus) try{prevFocus.focus();}catch(e){} }
     var first=ov.querySelector(".modal-b input,.modal-b select,.modal-b textarea")||ov.querySelector("[data-ok]"); if(first&&first.focus) try{first.focus();}catch(e){}
     ov.addEventListener("keydown",function(e){ if(e.key==="Escape") close(); });
     ov.querySelector("[data-x]").onclick=close; ov.addEventListener("click",function(e){ if(e.target===ov) close(); });
@@ -624,40 +624,51 @@
 
   function actionPanelHTML(det){ var cap=det.capabilities||{}; var ap=det.approval||{}; var btns=[];
     if(cap.can_submit){   // Draft (owner): primary path is submit; edit + cancel are secondary
-      return '<div class="apanel"><button class="btn primary" data-act="submitdraft">Gửi phê duyệt</button>'
-        + '<button class="btn" data-act="editdraft">Tiếp tục chỉnh sửa</button>'
-        + '<button class="btn" data-act="cancel">Hủy yêu cầu</button></div>'
+      return '<div class="apanel"><button type="button" class="btn primary" data-act="submitdraft">Gửi phê duyệt</button>'
+        + '<button type="button" class="btn" data-act="editdraft">Tiếp tục chỉnh sửa</button>'
+        + '<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button></div>'
         + '<div class="hint" style="margin-top:8px">Yêu cầu đang ở trạng thái nháp — chưa gửi phê duyệt.</div>'; }
-    if(cap.can_edit&&ap.approval_status==="Information Required") btns.push('<button class="btn primary" data-act="edit">Chỉnh sửa & gửi lại</button>');
-    else if(cap.can_edit) btns.push('<button class="btn" data-act="edit">Chỉnh sửa</button>');
-    if(cap.can_approve) btns.push('<button class="btn primary" data-act="approve">Duyệt</button>');
-    if(cap.can_request_information) btns.push('<button class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
-    if(cap.can_reject) btns.push('<button class="btn" data-act="reject">Từ chối</button>');
-    if(cap.can_admin_approve_current_level) btns.push('<button class="btn warn" data-act="adminapprove">Duyệt thay bước hiện tại</button>');
-    if(cap.can_cancel) btns.push('<button class="btn" data-act="cancel">Hủy yêu cầu</button>');
+    if(cap.can_edit&&ap.approval_status==="Information Required") btns.push('<button type="button" class="btn primary" data-act="edit">Chỉnh sửa & gửi lại</button>');
+    else if(cap.can_edit) btns.push('<button type="button" class="btn" data-act="edit">Chỉnh sửa</button>');
+    if(cap.can_approve) btns.push('<button type="button" class="btn primary" data-act="approve">Duyệt</button>');
+    if(cap.can_request_information) btns.push('<button type="button" class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
+    if(cap.can_reject) btns.push('<button type="button" class="btn" data-act="reject">Từ chối</button>');
+    if(cap.can_admin_approve_current_level) btns.push('<button type="button" class="btn warn" data-act="adminapprove">Duyệt thay bước hiện tại</button>');
+    if(cap.can_cancel) btns.push('<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button>');
     return btns.length? '<div class="apanel">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
   // Robust delegated dispatch: bound ONCE on document, so detail action buttons keep working after
   // every detail/action-panel re-render (per-element onclick was being lost on re-render in-browser).
   function handleActionClick(e){
-    var el = e.target && e.target.closest ? e.target.closest("[data-act]") : null;
-    if(!el || !document.getElementById("ec-ait-root") || !document.getElementById("ec-ait-root").contains(el)) return;
+    var el = e.target && e.target.closest ? e.target.closest("[data-act],[data-action]") : null;
+    if(!el) return;
+    var a = el.getAttribute("data-act") || el.getAttribute("data-action");
+    if(!a || el.disabled) return;
+    if(document.querySelector(".ec-ait-overlay")) return;   // OUR modal already open -> ignore (dup-click guard; scoped so theme .overlay never blocks)
     e.preventDefault();
-    if(el.disabled) return;
-    if(document.querySelector(".overlay")) return;   // a modal is already open -> ignore (dup-click guard)
-    var a=el.getAttribute("data-act");
     var det=state.detail||window.__lastDetail||{};
     var name=(det.business||{}).name||state.id;
-    if(a==="editdraft") return startEditDraft(det);
-    if(a==="submitdraft") return doSubmitDraft(name);
+    if(a==="editdraft"||a==="edit_draft") return startEditDraft(det);
+    if(a==="submitdraft"||a==="submit_draft"||a==="submit") return doSubmitDraft(name);
     if(a==="edit") return startEditResubmit(det);
     if(a==="approve") return doApprove(name,det);
     if(a==="reject") return doReject(name);
-    if(a==="reqinfo") return doRequestInfo(name);
-    if(a==="adminapprove") return doAdminApprove(name);
+    if(a==="reqinfo"||a==="request_info") return doRequestInfo(name);
+    if(a==="adminapprove"||a==="admin_override") return doAdminApprove(name);
     if(a==="cancel") return doCancel(name);
   }
-  function bindActionDelegation(){ if(document.__ecActBound) return; document.__ecActBound=true; document.addEventListener("click", handleActionClick); }
-  function wireActionPanel(det){ state.detail=det; bindActionDelegation(); }
+  // Delegate on document in CAPTURE phase so no ancestor stopPropagation can swallow the click; idempotent.
+  function bindActionDelegation(){ if(document.__ecActBound) return; document.__ecActBound=true; document.addEventListener("click", handleActionClick, true); }
+  function ensureActionHandlers(){ bindActionDelegation(); }   // safe to call after every detail render
+  function wireActionPanel(det){ state.detail=det; ensureActionHandlers(); }
+  // Read-only UAT debug helper (safe; no sensitive data).
+  window.ecAiTopupDebugActions=function(){
+    var root=document.getElementById("ec-ait-root");
+    var btns=[].slice.call(document.querySelectorAll("[data-act],[data-action]"));
+    return { rootExists:!!root, delegatedListener:!!document.__ecActBound, actionButtons:btns.length,
+      buttons:btns.map(function(b){ return { text:(b.textContent||"").trim(),
+        act:(b.getAttribute("data-act")||b.getAttribute("data-action")||""), disabled:!!b.disabled,
+        type:(b.getAttribute("type")||"") }; }) };
+  };
 
   function timelineHTML(items){ if(!items||!items.length) return '<div class="hint">Chưa có hoạt động.</div>';
     var LBL={Submitted:"Đã gửi",Approved:"Đã duyệt","Information Requested":"Yêu cầu bổ sung",Rejected:"Từ chối",Resubmitted:"Gửi lại",Restarted:"Duyệt lại từ đầu","Amount Adjusted":"Điều chỉnh số tiền",Skipped:"Bỏ qua",Assigned:"Giao Operation",Started:"Nhận xử lý",Completed:"Hoàn tất",Cancelled:"Đã hủy",Commented:"Ghi chú","System Transition":"Chuyển trạng thái"};
