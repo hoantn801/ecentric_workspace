@@ -305,10 +305,20 @@ def get_request_detail(name):
         approvers = frappe.get_all("EC Approval Request Approver", filters={"approval_request": req.name},
                                    fields=["level_no", "approver", "source", "status", "decided_at", "comment"],
                                    order_by="level_no asc")
+        # Schema-safe: EC Approval Action stores request_level (Link), not level_no/level_name/related_user.
         timeline = frappe.get_all("EC Approval Action", filters={"approval_request": req.name},
-                                  fields=["seq", "level_no", "level_name", "actor", "action", "comment",
-                                          "action_time", "previous_status", "new_status", "related_user"],
+                                  fields=["seq", "request_level", "actor", "action", "comment",
+                                          "action_time", "previous_status", "new_status"],
                                   order_by="seq asc")
+        # Derive the level label from the linked request level when available; omit safely otherwise.
+        _lvl_by_name = {r.name: r for r in frappe.get_all(
+            "EC Approval Request Level", filters={"approval_request": req.name},
+            fields=["name", "level_no", "level_name"])}
+        for _a in timeline:
+            _lv = _lvl_by_name.get(_a.get("request_level"))
+            if _lv:
+                _a["level_no"] = _lv.level_no
+                _a["level_name"] = _lv.level_name
     attachments = frappe.get_all("File", filters={"attached_to_doctype": BIZ, "attached_to_name": name},
                                  fields=["file_name", "file_url", "is_private", "owner", "creation"])
     ff = {"status": biz.fulfillment_status, "owner": biz.fulfillment_owner,
