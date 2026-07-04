@@ -46,6 +46,8 @@ def submit(name):
         doc.employee = emp.name
         doc.department = doc.department or emp.department
         doc.company = doc.company or emp.company
+    if not (doc.request_title or "").strip():
+        frappe.throw(_("Request title is required before submitting."))
     doc.request_datetime = now_datetime()
     doc.material_signature = _signature(doc)
     doc.save(ignore_permissions=True)
