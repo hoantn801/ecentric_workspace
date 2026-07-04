@@ -92,3 +92,38 @@ class TestB3ReadAPI(FrappeTestCase):
         boot = api.get_bootstrap()
         self.assertTrue(boot["tabs"]["create"] and boot["tabs"]["my_requests"])
         self.assertIn("manager_resolvable", boot["context"])
+
+
+class TestB3WriteAndSafeguards(FrappeTestCase):
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def test_save_draft_owner_and_capabilities(self):
+        a = _user("zzb3_wa@example.com")
+        frappe.set_user(a)
+        res = api.save_draft(payload=frappe.as_json({
+            "account_mode": "New Account", "ai_tool": _tool(),
+            "proposed_account_email": "n@example.com",
+            "proposed_account_manager": _user("zzb3_wpm@example.com")}))
+        self.assertTrue(res["name"])
+        self.assertTrue(res["capabilities"]["can_submit"] and res["capabilities"]["can_edit"])
+        self.assertEqual(frappe.db.get_value(api.BIZ, res["name"], "requested_by"), a)
+
+    def test_save_draft_denies_other_owner(self):
+        a = _user("zzb3_wa@example.com"); b = _user("zzb3_wb@example.com")
+        doc = _draft(a)
+        frappe.set_user(b)
+        with self.assertRaises(frappe.exceptions.PermissionError):
+            api.save_draft(name=doc.name, payload="{}")
+
+    def test_page_size_capped(self):
+        self.assertEqual(api.MAX_PAGE, 50)
+        a = _user("zzb3_wa@example.com"); frappe.set_user(a)
+        res = api.list_my_requests(page_length=1000)   # must not error; capped internally
+        self.assertLessEqual(len(res["rows"]), 50)
+
+    def test_active_user_minimal_shape(self):
+        frappe.set_user("Administrator")
+        rows = api.search_active_users(query="a")
+        if rows:
+            self.assertEqual(set(rows[0].keys()), {"value", "email", "label"})

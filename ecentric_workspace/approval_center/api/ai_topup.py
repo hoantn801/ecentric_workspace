@@ -11,6 +11,12 @@ from frappe import _
 BIZ = "EC AI Topup Request"
 APPROVAL_TYPE = "AI_TOPUP"
 OPEN = ("Pending", "Information Required")
+MAX_PAGE = 50
+_EDITABLE_DRAFT = ("account_mode", "ai_account", "ai_tool", "account_email", "account_manager",
+                   "current_plan", "proposed_account_email", "proposed_account_manager", "proposed_plan",
+                   "request_type", "requested_plan", "requested_amount", "currency", "needed_by",
+                   "purpose", "requester_note", "subscription_start_date", "subscription_end_date",
+                   "billing_cycle", "auto_renewal_expected", "subscription_start_date")
 _STATUS_LABEL = {  # engine + fulfillment -> user-facing Vietnamese
     "Draft": "Nháp", "Pending": "Đang phê duyệt", "Information Required": "Cần bổ sung thông tin",
     "Approved": "Đã duyệt", "Rejected": "Bị từ chối", "Cancelled": "Đã hủy",
@@ -166,11 +172,12 @@ def search_active_users(query=None):
     if query:
         or_filters = [["full_name", "like", "%" + query + "%"], ["name", "like", "%" + query + "%"]]
     rows = frappe.get_all("User", filters=filters, or_filters=or_filters,
-                          fields=["name as value", "full_name as label"],
-                          limit_page_length=20, order_by="full_name asc")
+                          fields=["name", "full_name"], limit_page_length=MAX_PAGE,
+                          order_by="full_name asc")
     if not _sm():
-        rows = [r for r in rows if r.value != "Administrator"]
-    return rows
+        rows = [r for r in rows if r.name != "Administrator"]
+    # minimal, fixed shape: email(name)/full_name only
+    return [{"value": r.name, "email": r.name, "label": r.full_name or r.name} for r in rows[:20]]
 
 
 def _scope_status(biz, req):
@@ -189,12 +196,18 @@ def list_my_requests(filters=None, start=0, page_length=20):
     for k in ("ai_tool", "request_type"):
         if f.get(k):
             flt[k] = f[k]
+    if f.get("from_date") and f.get("to_date"):
+        flt["creation"] = ["between", [f["from_date"], f["to_date"]]]
+    overdue_names = _overdue_request_names() if f.get("overdue_only") else None
+    if overdue_names is not None:
+        flt["approval_request"] = ["in", overdue_names or ["__none__"]]
+    page_length = min(int(page_length or 20), MAX_PAGE)  # enforce max page size
     total = frappe.db.count(BIZ, flt)
     rows = frappe.get_all(BIZ, filters=flt,
                           fields=["name", "ai_tool", "account_email", "request_type", "requested_amount",
                                   "currency", "fulfillment_status", "approval_request", "creation", "modified"],
-                          limit_start=int(start), limit_page_length=int(page_length),
-                          order_by="modified desc")
+                          limit_start=int(start), limit_page_length=page_length,
+                          order_by="modified desc")  # fixed server-side sort (no client sort injection)
     for r in rows:
         ar = r.approval_request and frappe.db.get_value(
             "EC Approval Request", r.approval_request, ["approval_status", "current_level"], as_dict=True)
@@ -293,3 +306,47 @@ def get_request_detail(name):
         "timeline": timeline,
         "capabilities": _capabilities(user, biz, req),
     }
+
+
+def _overdue_request_names():
+    from frappe.utils import now_datetime
+    rows = frappe.get_all("EC Approval Request Level",
+                          filters={"level_status": "In Progress", "due_at": ["<", now_datetime()]},
+                          fields=["approval_request"], distinct=True)
+    return list({r.approval_request for r in rows})
+
+
+@frappe.whitelist(methods=["POST"])
+def save_draft(name=None, payload=None):
+    """Create/update an AI Topup draft (owner or SM). Only editable business
+    fields are accepted; controller validates. No orchestration here."""
+    user = frappe.session.user
+    data = frappe.parse_json(payload) if isinstance(payload, str) else (payload or {})
+    if name:
+        doc = frappe.get_doc(BIZ, name)
+        req = _req_of(name)
+        if doc.requested_by != user and not _sm():
+            frappe.throw(_("You can only edit your own request."), frappe.PermissionError)
+        if req and req.approval_status not in ("Information Required",):
+            frappe.throw(_("Only a Draft or an Information-Required request can be edited."))
+    else:
+        doc = frappe.new_doc(BIZ)
+        doc.requested_by = user
+    for fld in _EDITABLE_DRAFT:
+        if fld in data:
+            doc.set(fld, data.get(fld))
+    ctx = _employee_ctx(doc.requested_by)
+    doc.employee = ctx["employee"]
+    doc.department = doc.department or ctx["department"]
+    doc.company = doc.company or ctx["company"]
+    doc.save(ignore_permissions=True)   # EC AI Topup Request controller enforces the rules
+    return {"name": doc.name, "capabilities": _capabilities(user, doc, _req_of(doc.name))}
+
+
+@frappe.whitelist(methods=["POST"])
+def submit_request(name):
+    """Thin wrapper over the deployed B1 submit service (guards own-only,
+    resolves manager, builds the frozen snapshot, activates level 1)."""
+    from ecentric_workspace.approval_center.ai_topup import service as svc
+    approval_request = svc.submit(name)
+    return {"approval_request": approval_request, "detail": get_request_detail(name)}
