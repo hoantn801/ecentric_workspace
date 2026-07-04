@@ -15,7 +15,7 @@ function boot(){
   const w = dom.window;
   w.frappe = { call: (o) => {
     if (o.method.endsWith("list_my_approvals")) return Promise.resolve({ message: { rows: (o.args.section==="pending"?[{name:"R-1",requested_by:"u@x",department:"D",ai_tool:"T",requested_amount:100,level_no:2,my_status:"Pending"}]:[]) } });
-    if (o.method.endsWith("get_request_detail")) return Promise.resolve({ message: { business:{name:"R-1",ai_tool:"T",requested_amount:100,currency:"VND"}, approval:{approval_status:"Pending",current_level:2}, fulfillment:{status:"Not Started"},
+    if (o.method.endsWith("get_request_detail")) return Promise.resolve({ message: { business:{name:"R-1",ai_tool:"T",requested_amount:100,currency:"VND"}, approval:{name:"AR-2",approval_status:"Pending",current_level:2}, fulfillment:{status:"Not Started"},
       levels:[{level_no:1,level_name:"Manager",approval_mode:"Any One",level_status:"Approved"},{level_no:2,level_name:"Finance Review",approval_mode:"Any One",level_status:"In Progress"}],
       approvers:[{level_no:2,approver:"me@x",status:"Pending"}], attachments:[], timeline:[{action:"Submitted",actor:"u@x",action_time:"2026-07-06 09:00"}],
       capabilities:{can_approve:true,can_reject:true,can_request_information:true,can_edit:false,can_cancel:false} } });
@@ -36,7 +36,7 @@ async function run(){
   ok(w.document.querySelectorAll(".tab").length === 4, "four tabs rendered");
 
   // dynamic stepper: 2 levels -> 5 steps (submitted + 2 + fulfillment + completed)
-  const det2 = { approval:{approval_status:"Pending",current_level:1}, fulfillment:{status:"Not Started"},
+  const det2 = { approval:{name:"AR-1",approval_status:"Pending",current_level:1}, fulfillment:{status:"Not Started"},
     levels:[{level_no:1,level_name:"Direct Manager",approval_mode:"Any One",level_status:"In Progress"},
             {level_no:2,level_name:"Finance",approval_mode:"Any One",level_status:"Pending"}],
     approvers:[{level_no:1,approver:"a@x",status:"Pending"},{level_no:1,approver:"b@x",status:"Pending"}] };
@@ -45,12 +45,12 @@ async function run(){
   ok(/a@x hoặc b@x/.test(html2), "Any One shows eligible approvers with 'hoặc'");
 
   // 4 levels -> 7 steps (no hardcoded three)
-  const det4 = { approval:{approval_status:"Pending",current_level:1}, fulfillment:{status:"Not Started"},
+  const det4 = { approval:{name:"AR-1",approval_status:"Pending",current_level:1}, fulfillment:{status:"Not Started"},
     levels:[1,2,3,4].map(n=>({level_no:n,level_name:"L"+n,approval_mode:"Any One",level_status:"Pending"})), approvers:[] };
   ok((w.AITopup.buildStepper(det4).match(/class="step /g)||[]).length === 7, "4 levels -> 7 steps");
 
   // approved level shows actual approver + skipped others
-  const detS = { approval:{approval_status:"Pending",current_level:2}, fulfillment:{status:"Not Started"},
+  const detS = { approval:{name:"AR-2",approval_status:"Pending",current_level:2}, fulfillment:{status:"Not Started"},
     levels:[{level_no:1,level_name:"Ops",approval_mode:"Any One",level_status:"Approved",completed_at:"2026-07-06 10:00"},
             {level_no:2,level_name:"Fin",approval_mode:"Any One",level_status:"In Progress"}],
     approvers:[{level_no:1,approver:"a@x",status:"Approved"},{level_no:1,approver:"b@x",status:"Skipped"}] };
@@ -217,6 +217,49 @@ async function run(){
 
   // auto-renewal helper text still present
   ok(/Chỉ dùng để ghi nhận nhu cầu gia hạn/.test(body()), "auto-renewal helper text remains record-only");
+
+  // ---- UAT: request-detail stepper draft vs runtime mode ----
+  // Draft (no runtime EC Approval Request): configured preview, step 1 current, no 'Đã gửi' completed
+  const draftDet = { approval:{}, fulfillment:{ status:"Not Started" },
+    process_preview:[{level_no:1,level_name:"Direct Manager"},{level_no:2,level_name:"Operation Review"},{level_no:3,level_name:"Finance Review"}] };
+  const dh = w.AITopup.buildStepper(draftDet);
+  ok((dh.match(/class="step /g) || []).length === 6, "draft stepper has 6 steps (create + 3 levels + fulfillment + done)");
+  ok(/Tạo yêu cầu/.test(dh) && /class="step current"/.test(dh) && /Đang thực hiện/.test(dh), "draft: step 1 'Tạo yêu cầu' is current");
+  ok(!/Đã gửi/.test(dh), "draft: does NOT show 'Đã gửi' as completed");
+  ok(/Direct Manager/.test(dh) && /Operation Review/.test(dh) && /Finance Review/.test(dh), "draft: includes configured Manager/Operation/Finance preview steps");
+  ok(/Operation xử lý/.test(dh) && /Hoàn tất/.test(dh), "draft: includes fulfillment + completed preview steps");
+  ok(dh.indexOf("Direct Manager") > -1 && dh.indexOf("Direct Manager") < dh.indexOf("Operation xử lý"), "draft: approval levels precede fulfillment (fulfillment is not step 2)");
+
+  // Draft fallback (no process_preview provided): still 6 steps with generic labels
+  const dh2 = w.AITopup.buildStepper({ approval:{}, fulfillment:{} });
+  ok((dh2.match(/class="step /g) || []).length === 6 && /Manager duyệt/.test(dh2) && /Operation duyệt/.test(dh2) && /Finance duyệt/.test(dh2), "draft fallback: 6 steps with generic approval labels when no preview data");
+
+  // Runtime after submit: 'Đã gửi' completed + first level current, dynamic level count
+  const rtDet = { approval:{ name:"AR-9", approval_status:"Pending", current_level:1 }, fulfillment:{ status:"Not Started" },
+    levels:[{level_no:1,level_name:"Direct Manager",approval_mode:"Any One",level_status:"In Progress"},
+            {level_no:2,level_name:"Operation Review",approval_mode:"Any One",level_status:"Pending"},
+            {level_no:3,level_name:"Finance Review",approval_mode:"Any One",level_status:"Pending"}],
+    approvers:[{level_no:1,approver:"mgr@x",status:"Pending"}] };
+  const rh = w.AITopup.buildStepper(rtDet);
+  ok(/class="step done"/.test(rh) && /Đã gửi/.test(rh), "runtime: 'Đã gửi' shown as completed");
+  ok((rh.match(/class="step /g) || []).length === 6, "runtime: submitted + 3 dynamic levels + fulfillment + completed = 6");
+  ok(/Direct Manager/.test(rh) && /class="step current"/.test(rh), "runtime: Direct Manager is current");
+  ok(/mgr@x/.test(rh), "runtime: shows current handler");
+
+  // Information Required must NOT collapse the approval levels
+  const irDet = { approval:{ name:"AR-10", approval_status:"Information Required", current_level:1 }, fulfillment:{ status:"Not Started" },
+    levels:[{level_no:1,level_name:"Direct Manager",approval_mode:"Any One",level_status:"Information Requested"},
+            {level_no:2,level_name:"Operation Review",level_status:"Pending"},
+            {level_no:3,level_name:"Finance Review",level_status:"Pending"}], approvers:[] };
+  ok((w.AITopup.buildStepper(irDet).match(/class="step /g) || []).length === 6, "Information Required keeps all approval levels (no collapse)");
+
+  // Rejected + Cancelled remain readable
+  const rjDet = { approval:{ name:"AR-11", approval_status:"Rejected", current_level:1 }, fulfillment:{ status:"Not Started" },
+    levels:[{level_no:1,level_name:"Direct Manager",level_status:"Rejected"}], approvers:[{level_no:1,approver:"m@x",status:"Rejected",comment:"no"}] };
+  ok(/Từ chối/.test(w.AITopup.buildStepper(rjDet)), "rejected state renders readable");
+  const caDet = { approval:{ name:"AR-12", approval_status:"Approved", current_level:1 }, fulfillment:{ status:"Cancelled" },
+    levels:[{level_no:1,level_name:"Direct Manager",level_status:"Approved"}], approvers:[] };
+  ok(/Đã hủy/.test(w.AITopup.buildStepper(caDet)), "cancelled fulfillment renders readable");
 
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);

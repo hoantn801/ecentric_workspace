@@ -273,6 +273,22 @@ def list_fulfillment_queue(section="unclaimed"):
     return {"rows": rows}
 
 
+def _process_preview(approval_type):
+    """Configured approval levels (level_no, level_name) for the active AI_TOPUP process,
+    for the Draft/pre-submit stepper preview. Falls back to a Draft process if none Active.
+    No approvers are returned here (config only, not runtime)."""
+    proc = frappe.get_all("EC Approval Process",
+                          filters={"approval_type": approval_type, "status": "Active"}, pluck="name")
+    if not proc:
+        proc = frappe.get_all("EC Approval Process",
+                              filters={"approval_type": approval_type, "status": "Draft"},
+                              order_by="creation desc", pluck="name")
+    if not proc:
+        return []
+    return frappe.get_all("EC Approval Level", filters={"approval_process": proc[0]},
+                          fields=["level_no", "level_name"], order_by="level_no asc")
+
+
 @frappe.whitelist()
 def get_request_detail(name):
     user = frappe.session.user
@@ -324,6 +340,7 @@ def get_request_detail(name):
         "fulfillment": ff,
         "attachments": attachments,
         "timeline": timeline,
+        "process_preview": ([] if req else _process_preview(biz.approval_type or APPROVAL_TYPE)),
         "capabilities": _capabilities(user, biz, req),
     }
 
