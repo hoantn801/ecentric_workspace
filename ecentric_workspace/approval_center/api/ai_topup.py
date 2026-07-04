@@ -385,8 +385,14 @@ def submit_request(name):
     """Thin wrapper over the deployed B1 submit service (guards own-only,
     resolves manager, builds the frozen snapshot, activates level 1)."""
     from ecentric_workspace.approval_center.ai_topup import service as svc
-    approval_request = svc.submit(name)
-    return {"approval_request": approval_request, "detail": get_request_detail(name)}
+    prev = frappe.flags.mute_messages
+    frappe.flags.mute_messages = True          # suppress share/assignment info msgprints during submit
+    try:
+        approval_request = svc.submit(name)
+    finally:
+        frappe.flags.mute_messages = prev
+    frappe.local.message_log = []              # drop any Frappe share/read-access info messages (real errors still raise)
+    return {"approval_request": approval_request, "submitted": True, "detail": get_request_detail(name)}
 
 
 # --------------------------------------------------------------------------- #

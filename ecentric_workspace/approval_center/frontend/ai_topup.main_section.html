@@ -386,8 +386,8 @@
     state.busy=true; setBusy(true);
     call("save_draft",{name:state.id||null,payload:JSON.stringify(state.draft||{})}).then(function(res){
       state.id=res.name; state.dirty=false;
-      if(thenSubmit){ return call("submit_request",{name:state.id}).then(function(){ toast("Đã gửi phê duyệt."); go({id:state.id}); }); }
-      toast("Đã lưu nháp."); go({id:state.id});
+      if(thenSubmit){ return call("submit_request",{name:state.id}).then(function(){ toast(SUBMIT_OK); go({id:state.id}); }); }
+      toast("Đã lưu nháp. Bạn có thể gửi phê duyệt sau."); go({id:state.id});
     }).catch(function(e){ if(!applyBackendError(e)){ if(window.console&&console.error) console.error("AI Topup save/submit error:", e); toast(friendlyErr(e),true); } }).then(function(){ state.busy=false; setBusy(false); }); }
   function setBusy(on){ ["ait-save","ait-submit","ait-cancel-changes"].forEach(function(id){ var el=$(id); if(el) el.disabled=on; }); }
   function errMsg(e){ var m=(e&&e.message)||""; if(/quản lý trực tiếp|manager/i.test(m)) return "Không thể gửi: chưa xác định quản lý trực tiếp."; return m||"Đã có lỗi. Vui lòng thử lại."; }
@@ -433,7 +433,7 @@
     .catch(function(e){ var perm=/access|permission/i.test((e&&e.message)||""); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4><button class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ go({tab:"my-requests"}); }; }); }
   function drawDetail(b,det){ window.__lastDetail=det; var biz=det.business||{}, ap=det.approval||{}, ff=det.fulfillment||{};
     b.innerHTML='<div style="margin-bottom:12px"><button class="btn" id="d-back">‹ Danh sách</button></div>'
-      +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.ai_tool||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+badge(ap.approval_status==="Approved"&&ff.status&&ff.status!=="Not Started"?ff.status:(ap.approval_status||"Draft"))+'</div></div></div>'
+      +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.ai_tool||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+headerStatusHTML(ap,ff)+'</div></div></div>'
       +'<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper" id="d-stepper"></div></div>'
       +'<div class="card"><h3>Thông tin yêu cầu</h3><div class="grid2">'+kv("Loại",biz.request_type)+kv("Gói yêu cầu",biz.requested_plan||biz.proposed_plan)+kv("Số tiền yêu cầu",(biz.requested_amount||"")+" "+(biz.currency||""))+kv("Số tiền duyệt",biz.approved_amount)+kv("Cần trước",biz.needed_by)+kv("Mục đích",biz.purpose)+'</div></div>'
       +'<div class="card"><h3>Tài khoản</h3><div class="grid2">'+kv("Hình thức",biz.account_mode)+kv("AI Account",biz.ai_account||biz.proposed_account_email)+kv("Email",biz.account_email||biz.proposed_account_email)+kv("Account manager",biz.account_manager||biz.proposed_account_manager)+'</div></div>'
@@ -513,6 +513,10 @@
     "Assigned":["b-navy","Đã giao"],"In Progress":["b-navy","Đang xử lý"],"Completed":["b-green","Hoàn tất"],"Not Started":["b-gray","Chưa xử lý"] };
     var m=map[st]||["b-gray",st]; return '<span class="badge '+m[0]+'"><span class="dot"></span>'+esc(m[1])+'</span>'; }
 
+  function headerStatusHTML(ap,ff){ ap=ap||{}; ff=ff||{};
+    if(!ap.name) return '<span class="badge b-gray"><span class="dot"></span>Nháp — chưa gửi phê duyệt</span>';
+    return badge(ap.approval_status==="Approved"&&ff.status&&ff.status!=="Not Started"?ff.status:(ap.approval_status||"Draft")); }
+
   // unsaved-change warning
   window.addEventListener("beforeunload", function(e){ if(state.dirty){ e.preventDefault(); e.returnValue=""; } });
 
@@ -576,13 +580,27 @@
     {okLabel:"Xác nhận hủy", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
       return call("cancel",{name:name,reason:c}).then(function(res){ toast("Đã hủy yêu cầu."); if(res&&res.deleted) go({tab:"my-requests"}); else { refreshDetail(); refreshApprovals(); } }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
 
+  var SUBMIT_OK="Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến Quản lý trực tiếp phê duyệt.";
+  // Draft edit: hydrate the create form (mode create, existing id) so Lưu nháp / Gửi phê duyệt work as usual.
+  function startEditDraft(det){ state.draft=Object.assign({}, det.business||{}); state.id=(det.business||{}).name; state.mode="create"; renderCreate($("ait-body")); }
+  // Draft submit from detail: one guarded call, then refresh to the runtime (Manager current) view.
+  function doSubmitDraft(name){ if(state.busy)return; state.busy=true;
+    var btns=Array.prototype.slice.call(document.querySelectorAll('[data-act="submitdraft"],[data-act="editdraft"]')); btns.forEach(function(b){ b.disabled=true; });
+    call("submit_request",{name:name}).then(function(){ toast(SUBMIT_OK); refreshDetail(); })
+      .catch(function(e){ if(!applyBackendError(e)){ if(window.console&&console.error) console.error("AI Topup submit error:", e); toast(friendlyErr(e),true); } btns.forEach(function(b){ b.disabled=false; }); })
+      .then(function(){ state.busy=false; }); }
   function startEditResubmit(det){ var ap=det.approval||{}; var lvl=(det.levels||[]).find(function(l){return l.level_no===ap.information_requested_from_level;});
     var ia=(det.approvers||[]).filter(function(a){return a.status==="Information Requested";})[0]||{};
     state._infoCtx={ level:(lvl?lvl.level_name:ap.information_requested_from_level), approver:ia.approver, comment:ia.comment };
     state.draft=Object.assign({}, det.business||{}); state.id=det.business.name; state.mode="edit"; renderCreate($("ait-body")); }
 
-  function actionPanelHTML(det){ var cap=det.capabilities||{}; var btns=[];
-    if(cap.can_edit&&det.approval&&det.approval.approval_status==="Information Required") btns.push('<button class="btn primary" data-act="edit">Chỉnh sửa & gửi lại</button>');
+  function actionPanelHTML(det){ var cap=det.capabilities||{}; var ap=det.approval||{}; var btns=[];
+    if(cap.can_submit){   // Draft (owner): primary path is submit; edit + cancel are secondary
+      return '<div class="apanel"><button class="btn primary" data-act="submitdraft">Gửi phê duyệt</button>'
+        + '<button class="btn" data-act="editdraft">Tiếp tục chỉnh sửa</button>'
+        + '<button class="btn" data-act="cancel">Hủy yêu cầu</button></div>'
+        + '<div class="hint" style="margin-top:8px">Yêu cầu đang ở trạng thái nháp — chưa gửi phê duyệt.</div>'; }
+    if(cap.can_edit&&ap.approval_status==="Information Required") btns.push('<button class="btn primary" data-act="edit">Chỉnh sửa & gửi lại</button>');
     else if(cap.can_edit) btns.push('<button class="btn" data-act="edit">Chỉnh sửa</button>');
     if(cap.can_approve) btns.push('<button class="btn primary" data-act="approve">Duyệt</button>');
     if(cap.can_request_information) btns.push('<button class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
@@ -591,6 +609,8 @@
     return btns.length? '<div class="apanel">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
   function wireActionPanel(det){ var name=(det.business||{}).name; document.querySelectorAll("[data-act]").forEach(function(el){ el.onclick=function(){
     var a=el.getAttribute("data-act");
+    if(a==="editdraft") return startEditDraft(det);
+    if(a==="submitdraft") return doSubmitDraft(name);
     if(a==="edit") return startEditResubmit(det);
     if(a==="approve") return doApprove(name,det);
     if(a==="reject") return doReject(name);
@@ -706,7 +726,7 @@
     call("get_bootstrap").then(function(bootData){ state.boot=bootData||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(){ var bd=$("ait-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.AITopup={ state:state, buildStepper:buildStepper, render:render, route:route, _boot:boot, _call:call, badge:badge, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, materialSnap:materialSnap, modal:modal, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, renderFulfillment:renderFulfillment, suggestTitle:suggestTitle, validateSubmit:validateSubmit, applyBackendError:applyBackendError, roadmapHTML:roadmapHTML };
+  window.AITopup={ state:state, buildStepper:buildStepper, render:render, route:route, _boot:boot, _call:call, badge:badge, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, materialSnap:materialSnap, modal:modal, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, renderFulfillment:renderFulfillment, suggestTitle:suggestTitle, validateSubmit:validateSubmit, applyBackendError:applyBackendError, roadmapHTML:roadmapHTML, startEditDraft:startEditDraft, doSubmitDraft:doSubmitDraft, headerStatusHTML:headerStatusHTML };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>
