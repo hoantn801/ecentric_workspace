@@ -606,6 +606,8 @@
     if(/Only an Information Required|is mandatory|is required|not allowed to|do not have|permission/i.test(m)) return m;
     return "Không thể gửi lại yêu cầu. Vui lòng thử lại hoặc liên hệ quản trị viên."; }
   function mapErr(e){ var m=(e&&e.message)||"";
+    if(/đã tồn tại|already exists|Account Key must be unique|account_key/i.test(m)) return "AI Account này đã tồn tại. Vui lòng chuyển yêu cầu sang Tài khoản hiện có hoặc chọn đúng account trước khi hoàn tất.";
+    if(/IntegrityError|pymysql|Duplicate entry|must be unique|OperationalError|ProgrammingError|Traceback|1062|1048/i.test(m)) return "Không thể hoàn tất do dữ liệu không hợp lệ. Vui lòng kiểm tra lại hoặc liên hệ quản trị viên.";
     if(/pending approver|not a pending/i.test(m)) return "Bạn không còn quyền thực hiện hành động này.";
     if(/no further action|is Approved|is Rejected|is Cancelled/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Dữ liệu đã được làm mới.";
     if(/moved|next level/i.test(m)) return "Yêu cầu đã chuyển sang bước khác.";
