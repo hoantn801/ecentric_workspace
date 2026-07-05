@@ -13,6 +13,7 @@ from ecentric_workspace.approval_center.api import document_request as api
 from ecentric_workspace.approval_center.document_request import setup as drsetup
 from ecentric_workspace.approval_center.document_request import activation as dract
 from ecentric_workspace.approval_center.document_request import page_sync
+from ecentric_workspace.approval_center.engine import service as engine
 
 PFX = "ZZDOC_"
 OP1 = PFX + "op1@example.com"
@@ -56,6 +57,25 @@ def _department(name, head_user=None):
     if head_user:
         frappe.db.set_value("Department", dn, "department_head", _employee(head_user))
     return dn
+
+
+def _has_mgr_email_field():
+    return frappe.get_meta("Department").has_field("manager_email")
+
+
+def _set_manager_email(dept, email):
+    frappe.db.set_value("Department", dept, "manager_email", email)
+
+
+def _disabled_user(email):
+    if not frappe.db.exists("User", email):
+        u = frappe.get_doc({"doctype": "User", "email": email, "first_name": "dis",
+                            "user_type": "System User", "enabled": 0, "send_welcome_email": 0})
+        u.flags.no_welcome_mail = True
+        u.insert(ignore_permissions=True)
+    else:
+        frappe.db.set_value("User", email, "enabled", 0)
+    return email
 
 
 def _ensure_process():
@@ -132,14 +152,63 @@ class TestDocumentRequest(FrappeTestCase):
         self.assertIn(owner, self._open_todos(name))
 
     def test_submit_blocked_when_owner_unresolved(self):
-        dept = _department("ZZDOC Headless Dept")            # no department_head
+        dept = _department("ZZDOC Headless Dept")            # no department_head, no manager_email
+        if _has_mgr_email_field():
+            _set_manager_email(dept, "")
+        req = _requester()
+        name = _draft(req, dept)
+        frappe.set_user(req)
+        with self.assertRaises(frappe.exceptions.ValidationError) as cm:
+            api.submit_request(name)
+        frappe.set_user("Administrator")
+        self.assertFalse(self._ar(name))                     # not submitted
+        self.assertIn("Không tìm thấy người phụ trách", str(cm.exception))  # VN diacritics
+
+    def test_owner_resolves_via_manager_email(self):
+        if not _has_mgr_email_field():
+            self.skipTest("Department.manager_email field not installed")
+        mgr = _user(PFX + "deptmgr@example.com")             # active System User, NOT an Employee head
+        dept = _department("ZZDOC MgrEmail Dept")            # no department_head
+        _set_manager_email(dept, mgr)
+        req = _requester()
+        name = _draft(req, dept)
+        frappe.set_user(req)
+        api.submit_request(name)
+        frappe.set_user("Administrator")
+        ar = self._ar(name)
+        self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "approval_status"), "Pending")
+        l1 = frappe.get_all("EC Approval Request Approver",
+                            filters={"approval_request": ar, "level_no": 1}, pluck="approver")
+        self.assertIn(mgr, l1)                                # resolved via manager_email
+        self.assertIn(mgr, self._open_todos(name))           # ToDo created for manager_email user
+
+    def test_department_head_precedence_over_manager_email(self):
+        if not _has_mgr_email_field():
+            self.skipTest("Department.manager_email field not installed")
+        head = _user(PFX + "headwins@example.com")
+        other = _user(PFX + "mgremail2@example.com")
+        dept = _department("ZZDOC BothSources Dept", head_user=head)   # has department_head
+        _set_manager_email(dept, other)                       # also has manager_email
+        self.assertEqual(engine.resolve_department_manager_user(dept), head)  # department_head wins
+
+    def test_manager_email_inactive_user_blocks(self):
+        if not _has_mgr_email_field():
+            self.skipTest("Department.manager_email field not installed")
+        dis = _disabled_user(PFX + "disabled@example.com")
+        dept = _department("ZZDOC InactiveMgr Dept")          # no head
+        _set_manager_email(dept, dis)
+        self.assertIsNone(engine.resolve_department_manager_user(dept))  # inactive -> unresolved
         req = _requester()
         name = _draft(req, dept)
         frappe.set_user(req)
         with self.assertRaises(frappe.exceptions.ValidationError):
             api.submit_request(name)
         frappe.set_user("Administrator")
-        self.assertFalse(self._ar(name))                     # not submitted
+
+    def test_resolver_department_head_path_unchanged(self):
+        owner = _user(PFX + "headonly@example.com")
+        dept = _department("ZZDOC HeadOnly Dept", head_user=owner)
+        self.assertEqual(engine.resolve_department_manager_user(dept), owner)  # backward compatible
 
     def test_full_chain_owner_operation_ceo_then_fulfillment(self):
         name, req, owner = self._submit()

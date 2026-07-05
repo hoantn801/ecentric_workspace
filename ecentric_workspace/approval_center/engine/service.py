@@ -67,6 +67,32 @@ def _is_active_system_user(user):
     return bool(row and row.enabled and row.user_type == "System User")
 
 
+def resolve_department_manager_user(dept):
+    """Generic, ordered resolution of a Department's responsible user (no hardcoding).
+    Reusable by any 'Reference Department Head' participant and by business services.
+    Order (fail-closed; each source is field-absence tolerant):
+      1) Department.department_head -> Employee.user_id (if an active System User)
+      2) Department.manager_email as a direct active System User
+    Returns the user id, or None if nothing resolves. Backward compatible: the
+    department_head path is unchanged and still wins when it resolves."""
+    if not dept:
+        return None
+    try:
+        head = frappe.db.get_value("Department", dept, "department_head")
+    except Exception:
+        head = None  # field absent -> fail closed
+    head_user = head and frappe.db.get_value("Employee", head, "user_id")
+    if head_user and _is_active_system_user(head_user):
+        return head_user
+    try:
+        mgr_email = frappe.db.get_value("Department", dept, "manager_email")
+    except Exception:
+        mgr_email = None  # field absent -> fail closed
+    if mgr_email and _is_active_system_user(mgr_email):
+        return mgr_email
+    return None
+
+
 def resolve_participants(participants, requester, context=None):
     """Expand EC Approval Participant rows to a de-duplicated ordered list of
     (user, source_label). No hardcoded identities; fail-closed on unresolved."""
@@ -101,22 +127,15 @@ def resolve_participants(participants, requester, context=None):
             _add(head_user, "Department Manager")  # _add re-checks active System User
         elif st == "Reference Department Head":
             # Generic, config-driven: resolve the Department named in a field of the business
-            # record (context) via the same Department.department_head -> Employee.user_id
-            # convention as "Department Manager". No hardcoded department or approver.
+            # record (context) via resolve_department_manager_user (department_head first, then
+            # Department.manager_email). No hardcoded department or approver.
             dept, fieldname = None, p.get("department_field")
             if context and fieldname and context.get("reference_doctype") and context.get("reference_name"):
                 try:
                     dept = frappe.db.get_value(context["reference_doctype"], context["reference_name"], fieldname)
                 except Exception:
                     dept = None
-            head_user = None
-            if dept:
-                try:
-                    head = frappe.db.get_value("Department", dept, "department_head")
-                except Exception:
-                    head = None  # field absent -> fail closed
-                head_user = head and frappe.db.get_value("Employee", head, "user_id")
-            _add(head_user, "Reference Department Head")
+            _add(resolve_department_manager_user(dept), "Reference Department Head")
     return out
 
 
