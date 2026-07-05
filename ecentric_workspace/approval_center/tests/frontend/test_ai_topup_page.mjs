@@ -616,6 +616,34 @@ async function run(){
   ok(/Claude · hoantn801@gmail.com · Claude Max 20x/.test(w.document.getElementById("ec-acct-input").value), "edit hydration shows the readable selected label");
   ok(w.document.querySelector('[data-fld="_p"] input').value === "2026-07-04 → 2026-07-22", "edit hydration populates the current period field");
 
+  // ---- UAT: Information Required -> edit/resubmit keeps the approval flow/stepper ----
+  freshCtx(); w.AITopup.state.boot.form_options.ai_tools=[{value:"Claude",label:"Claude"}];
+  const irEditDet = {
+    business:{ name:"EC-AITOP-2026-00003", account_mode:"New Account", ai_tool:"Claude", proposed_account_email:"e@x", proposed_account_manager:"m@x", request_title:"T", requested_amount:100 },
+    approval:{ name:"AR-3", approval_status:"Information Required", current_level:2, information_requested_from_level:2 },
+    levels:[ {level_no:1,level_name:"Direct Manager",approval_mode:"Any One",level_status:"Approved",completed_at:"2026-07-06 10:00"},
+             {level_no:2,level_name:"Operation Review",approval_mode:"Any One",level_status:"In Progress"},
+             {level_no:3,level_name:"Finance Review",approval_mode:"Any One",level_status:"Pending"} ],
+    approvers:[{level_no:1,approver:"a@x",status:"Approved"},{level_no:2,approver:"hoan.tran@ecentric.vn",status:"Information Requested",comment:"Bổ sung ABC"}],
+    fulfillment:{ status:"Not Started" }, process_preview:[], capabilities:{ can_edit:true } };
+  w.AITopup.startEditResubmit(irEditDet); await flush();
+  const eb = () => w.document.getElementById("ait-body").innerHTML;
+  ok(w.AITopup.state.mode === "edit" && w.AITopup.state._editDet === irEditDet, "resubmit opens edit mode with the runtime detail stashed");
+  ok(/class="stepper"/.test(eb()) && (eb().match(/class="step /g)||[]).length >= 6, "resubmit/edit form still shows the approval flow/stepper");
+  ok(/Đã gửi/.test(eb()) && !/Tạo yêu cầu/.test(eb().split('data-model="request_title"')[0] || eb()), "edit stepper is runtime mode ('Đã gửi'), not a blank create-preview ('Tạo yêu cầu')");
+  ok(/Direct Manager/.test(eb()) && /Operation Review/.test(eb()) && /Finance Review/.test(eb()), "stepper uses runtime request-level names, not generic preview labels");
+  ok(/class="step info"/.test(eb()) && /Cần bổ sung/.test(eb()), "info-requesting level (Operation Review) highlighted as 'Cần bổ sung'");
+  ok(/class="step done"/.test(eb()), "previously completed levels remain completed");
+  // info-required banner still visible in edit mode, alongside the stepper
+  ok(/Cần bổ sung thông tin/.test(eb()) && /Operation Review/.test(eb()) && /Bổ sung ABC/.test(eb()), "Information Required banner (level + reason) remains visible in edit/resubmit mode");
+  // edit form is still editable
+  ok(!!w.document.querySelector('[data-model="request_title"]'), "the editable form is still rendered under the stepper");
+
+  // resubmit error handling: stale vs validation vs unknown/500 (incl. the IntegrityError case)
+  ok(/vừa được cập nhật/.test(w.AITopup.resubmitErr({ message:"Request is Approved; no further action is allowed." })), "resubmit stale/conflict -> reload message");
+  ok(w.AITopup.resubmitErr({ message:"Only an Information Required request can be resubmitted." }) === "Only an Information Required request can be resubmitted.", "resubmit surfaces a safe backend validation message");
+  ok(w.AITopup.resubmitErr({ message:"(1048, \"Column 'information_requested_from_level' cannot be null\")" }) === "Không thể gửi lại yêu cầu. Vui lòng thử lại hoặc liên hệ quản trị viên.", "resubmit 500/IntegrityError -> generic message (not stale, no raw SQL)");
+
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);
 }

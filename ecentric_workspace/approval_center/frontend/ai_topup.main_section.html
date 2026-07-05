@@ -275,7 +275,8 @@
     var fo=state.boot&&state.boot.form_options||{}; var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
     var editing=state.mode==="edit"; var mgrBlock=!editing && c && !c.manager_resolvable;
     var head = editing
-      ? (infoRequiredBannerHTML()+'<div class="banner info" id="ait-material-warn" style="display:none"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/></svg><div>Các thay đổi quan trọng sẽ làm yêu cầu được duyệt lại từ bước đầu.</div></div>')
+      ? ('<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper">'+buildStepper(state._editDet||{approval:{}})+'</div></div>'
+         +infoRequiredBannerHTML()+'<div class="banner info" id="ait-material-warn" style="display:none"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/></svg><div>Các thay đổi quan trọng sẽ làm yêu cầu được duyệt lại từ bước đầu.</div></div>')
       : (mgrBlock?blockAlertHTML(c):'');
     var actions = editing
       ? '<div class="actions"><button class="btn" id="ait-edit-cancel">Hủy</button><button class="btn primary" id="ait-resubmit">Gửi lại</button></div>'
@@ -377,7 +378,7 @@
     if(editing){
       $("ait-edit-cancel").onclick=function(){ state.mode="create"; renderDetail($("ait-body")); };
       $("ait-resubmit").onclick=function(){ if(!validateDates()){ toast("Vui lòng sửa lỗi ngày.",true); return; } setBusyIds(["ait-resubmit","ait-edit-cancel"],true);
-        call("resubmit",{name:state.id,payload:JSON.stringify(state.draft)}).then(function(res){ toast(res&&res.restarted?"Đã gửi lại — duyệt lại từ đầu.":"Đã gửi lại — tiếp tục ở cấp yêu cầu."); state.mode="create"; renderDetail($("ait-body")); }).catch(function(e){ toast(mapErr(e),true); setBusyIds(["ait-resubmit","ait-edit-cancel"],false); }); };
+        call("resubmit",{name:state.id,payload:JSON.stringify(state.draft)}).then(function(res){ toast(res&&res.restarted?"Đã gửi lại — duyệt lại từ đầu.":"Đã gửi lại — tiếp tục ở cấp yêu cầu."); state._editDet=null; state.mode="create"; renderDetail($("ait-body")); }).catch(function(e){ if(window.console&&console.error) console.error("AI Topup resubmit error:", e); toast(resubmitErr(e),true); setBusyIds(["ait-resubmit","ait-edit-cancel"],false); }); };
       return;
     }
     $("ait-save").onclick=function(){ saveDraft(false); };
@@ -599,6 +600,11 @@
 
 
   // ======================= B3.3: actions, approvals, timeline =======================
+  // Resubmit-specific error mapping: stale conflict -> reload; known safe validation -> show; else generic (never raw SQL/500).
+  function resubmitErr(e){ var m=(e&&e.message)||"";
+    if(/pending approver|not a pending|no further action|is Approved|is Rejected|is Cancelled|moved|next level|updated by|đã thay đổi/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Vui lòng tải lại.";
+    if(/Only an Information Required|is mandatory|is required|not allowed to|do not have|permission/i.test(m)) return m;
+    return "Không thể gửi lại yêu cầu. Vui lòng thử lại hoặc liên hệ quản trị viên."; }
   function mapErr(e){ var m=(e&&e.message)||"";
     if(/pending approver|not a pending/i.test(m)) return "Bạn không còn quyền thực hiện hành động này.";
     if(/no further action|is Approved|is Rejected|is Cancelled/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Dữ liệu đã được làm mới.";
@@ -674,7 +680,7 @@
   function startEditResubmit(det){ var ap=det.approval||{}; var lvl=(det.levels||[]).find(function(l){return l.level_no===ap.information_requested_from_level;});
     var ia=(det.approvers||[]).filter(function(a){return a.status==="Information Requested";})[0]||{};
     state._infoCtx={ level:(lvl?lvl.level_name:ap.information_requested_from_level), approver:ia.approver, comment:ia.comment };
-    state.draft=Object.assign({}, det.business||{}); state.id=det.business.name; state.mode="edit"; renderCreate($("ait-body")); }
+    state._editDet=det; state.draft=Object.assign({}, det.business||{}); state.id=det.business.name; state.mode="edit"; renderCreate($("ait-body")); }
 
   function actionPanelHTML(det){ var cap=det.capabilities||{}; var ap=det.approval||{}; var btns=[];
     if(cap.can_submit){   // Draft (owner): primary path is submit; edit + cancel are secondary
@@ -873,7 +879,7 @@
     call("get_bootstrap").then(function(bootData){ state.boot=bootData||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(){ var bd=$("ait-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.AITopup={ state:state, buildStepper:buildStepper, render:render, route:route, _boot:boot, _call:call, badge:badge, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, materialSnap:materialSnap, modal:modal, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, renderFulfillment:renderFulfillment, suggestTitle:suggestTitle, validateSubmit:validateSubmit, applyBackendError:applyBackendError, roadmapHTML:roadmapHTML, startEditDraft:startEditDraft, doSubmitDraft:doSubmitDraft, headerStatusHTML:headerStatusHTML, doAdminApprove:doAdminApprove, doApprove:doApprove, stepLabel:stepLabel, normalizeEvidenceName:normalizeEvidenceName, applyInvoiceConditional:applyInvoiceConditional, taxBasisLabel:taxBasisLabel, taxBasisOptions:taxBasisOptions, currencyOptions:currencyOptions, acctLabel:acctLabel, selectAccount:selectAccount, resolveAccountText:resolveAccountText, wireAccountPicker:wireAccountPicker };
+  window.AITopup={ state:state, buildStepper:buildStepper, render:render, route:route, _boot:boot, _call:call, badge:badge, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, materialSnap:materialSnap, modal:modal, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, renderFulfillment:renderFulfillment, suggestTitle:suggestTitle, validateSubmit:validateSubmit, applyBackendError:applyBackendError, roadmapHTML:roadmapHTML, startEditDraft:startEditDraft, doSubmitDraft:doSubmitDraft, headerStatusHTML:headerStatusHTML, doAdminApprove:doAdminApprove, doApprove:doApprove, stepLabel:stepLabel, normalizeEvidenceName:normalizeEvidenceName, applyInvoiceConditional:applyInvoiceConditional, taxBasisLabel:taxBasisLabel, taxBasisOptions:taxBasisOptions, currencyOptions:currencyOptions, acctLabel:acctLabel, selectAccount:selectAccount, resolveAccountText:resolveAccountText, wireAccountPicker:wireAccountPicker, startEditResubmit:startEditResubmit, resubmitErr:resubmitErr };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>
