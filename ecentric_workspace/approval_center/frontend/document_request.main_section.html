@@ -1,0 +1,514 @@
+<!--
+  Outside Work page. Route /approvals/outside-work (Web Page "approval-center-outside-work").
+  Reuses the eCentric shell (.ec-sidebar/.ec-main + tokens). Follows Approval Rollout Template v1
+  (AI Topup pattern): create/draft/submit, My Requests, Need My Approval, runtime/preview stepper,
+  timeline, namespaced modal, delegated actions, resubmit banner+stepper, friendly VN errors.
+  All data via ecentric_workspace.approval_center.api.document_request.*. Marker: ec-docr-root.
+-->
+<style>
+  body > header, body > footer, body > nav.navbar, header.navbar, .navbar.navbar-light,
+  .web-page-header, #navbarSupportedContent, .navbar-collapse, .web-footer, footer.web-footer { display:none !important; }
+  body { background:#f7f8fb !important; padding:0 !important; margin:0 !important; }
+  .page-content,.common-page-style,.container,main,.web-page-content,.page_content,.main-section,main.container,main.fluid{ padding:0 !important; margin:0 !important; max-width:none !important; }
+</style>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  #ec-docr-root{ --navy:#2C3DA6;--navy-50:#eef0fb;--navy-700:#1f2d80;--yellow:#FFC000;--yellow-50:#fff8e1;
+    --pink:#EF7CAF;--green:#10b981;--green-50:#ecfdf5;--red:#dc2626;--red-50:#fef2f2;--amber:#b45309;
+    --gray-50:#fafbfc;--gray-100:#f3f4f6;--gray-200:#e5e7eb;--gray-300:#d1d5db;--gray-400:#9ca3af;
+    --gray-500:#6b7280;--gray-600:#4b5563;--gray-700:#374151;--gray-800:#1f2937;--gray-900:#111827;--bg:#f7f8fb; }
+  #ec-docr-root,#ec-docr-root *{ box-sizing:border-box; }
+  #ec-docr-root{ font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--gray-800);
+    font-size:14px; line-height:1.5; display:grid; grid-template-columns:248px 1fr; min-height:100vh; }
+  #ec-docr-root .icon{ width:18px;height:18px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round; }
+  #ec-docr-root .ec-sidebar{ background:#fff;border-right:1px solid var(--gray-200);display:flex;flex-direction:column;position:sticky;top:0;height:100vh; }
+  #ec-docr-root .sb-head{ padding:16px;display:flex;align-items:center;gap:10px; }
+  #ec-docr-root .logo{ width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--navy),var(--pink));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800; }
+  #ec-docr-root .brand-name{ font-size:15px;font-weight:700;color:var(--gray-900); }
+  #ec-docr-root .nav{ padding:6px 8px;display:flex;flex-direction:column;gap:2px; }
+  #ec-docr-root a.nav-item{ display:flex;align-items:center;gap:14px;width:100%;padding:9px 14px;border-radius:8px;text-decoration:none;color:var(--gray-700);font-size:13.5px;font-weight:500; }
+  #ec-docr-root a.nav-item:hover{ background:var(--gray-100);color:var(--gray-900); }
+  #ec-docr-root a.nav-item.active{ background:var(--navy-50);color:var(--navy);font-weight:600; }
+  #ec-docr-root .nav-ic{ flex:0 0 24px;display:flex;align-items:center;justify-content:center; }
+  #ec-docr-root .ec-main{ min-width:0;display:flex;flex-direction:column; }
+  #ec-docr-root .topbar{ background:#fff;border-bottom:1px solid var(--gray-200);min-height:60px;padding:0 24px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20; }
+  #ec-docr-root .crumb{ font-size:13px;color:var(--gray-500); } #ec-docr-root .crumb strong{ color:var(--gray-900); }
+  #ec-docr-root .content{ padding:22px 24px 48px;max-width:1200px;margin:0 auto;width:100%; }
+  #ec-docr-root .docr-formwrap{ max-width:none; }
+  #ec-docr-root h1.pg{ font-size:22px;font-weight:800;color:var(--gray-900);margin:0 0 2px;letter-spacing:-.3px; }
+  #ec-docr-root .pg-sub{ font-size:13px;color:var(--gray-500);margin:0 0 16px; }
+  #ec-docr-root .tabs{ display:flex;gap:4px;border-bottom:1px solid var(--gray-200);margin-bottom:18px;flex-wrap:wrap; }
+  #ec-docr-root .tab{ padding:10px 16px;font-size:13.5px;font-weight:600;color:var(--gray-500);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent; }
+  #ec-docr-root .tab:hover{ color:var(--gray-800); }
+  #ec-docr-root .tab.active{ color:var(--navy);border-bottom-color:var(--navy); }
+  #ec-docr-root .tab[disabled]{ color:var(--gray-300);cursor:not-allowed; }
+  #ec-docr-root .card{ background:#fff;border:1px solid var(--gray-200);border-radius:12px;padding:18px 20px;margin-bottom:16px; }
+  #ec-docr-root .card h3{ font-size:14px;font-weight:700;color:var(--gray-900);margin:0 0 14px;display:flex;align-items:center;gap:8px; }
+  #ec-docr-root .grid2{ display:grid;grid-template-columns:1fr 1fr;gap:14px 20px; }
+  #ec-docr-root .fld{ display:flex;flex-direction:column;gap:5px; }
+  #ec-docr-root .fld label{ font-size:12.5px;font-weight:600;color:var(--gray-600); }
+  #ec-docr-root .fld label .req{ color:var(--red); }
+  #ec-docr-root .fld input,#ec-docr-root .fld select,#ec-docr-root .fld textarea{ width:100%;padding:8px 11px;border:1px solid var(--gray-200);border-radius:8px;font-size:13.5px;font-family:inherit;background:#fff; }
+  #ec-docr-root .fld input:focus,#ec-docr-root .fld select:focus,#ec-docr-root .fld textarea:focus{ outline:none;border-color:var(--navy);box-shadow:0 0 0 3px var(--navy-50); }
+  #ec-docr-root .fld input[readonly],#ec-docr-root .fld .ro{ background:var(--gray-50);color:var(--gray-600); }
+  #ec-docr-root .fld .err{ font-size:12px;color:var(--red); }
+  #ec-docr-root .fld.invalid input,#ec-docr-root .fld.invalid select,#ec-docr-root .fld.invalid textarea{ border-color:var(--red); }
+  #ec-docr-root .full{ grid-column:1/-1; }
+  #ec-docr-root .hint{ font-size:12px;color:var(--gray-500); }
+  #ec-docr-root .banner{ padding:11px 14px;border-radius:9px;font-size:13px;display:flex;gap:9px;align-items:flex-start;margin-bottom:14px; }
+  #ec-docr-root .banner.warn{ background:var(--yellow-50);color:var(--amber);border:1px solid #fde68a; }
+  #ec-docr-root .banner.err{ background:var(--red-50);color:var(--red);border:1px solid #fecaca; }
+  #ec-docr-root .banner.info{ background:var(--navy-50);color:var(--navy-700);border:1px solid #dbe0f5; }
+  #ec-docr-root .docr-warn{ display:flex !important;align-items:flex-start;justify-content:flex-start;gap:9px;text-align:left;padding:11px 14px;border-radius:9px;font-size:13px;line-height:1.45;background:var(--yellow-50);color:var(--amber);border:1px solid #fde68a; }
+  #ec-docr-root .docr-warn > .icon{ flex:0 0 18px;width:18px;height:18px;margin-top:1px; }
+  #ec-docr-root .docr-warn > span{ flex:1 1 auto;text-align:left;min-width:0;overflow-wrap:anywhere; }
+  #ec-docr-root .ec-alert{ align-items:flex-start;text-align:left;width:100%; }
+  #ec-docr-root .ec-alert > .icon{ margin-top:1px; }
+  #ec-docr-root .ec-alert-title{ font-weight:700;margin-bottom:2px;line-height:1.4; }
+  #ec-docr-root .btn{ display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;border:1px solid var(--gray-200);background:#fff;color:var(--gray-700); }
+  #ec-docr-root .btn:hover{ background:var(--gray-50); }
+  #ec-docr-root .btn.primary{ background:var(--navy);border-color:var(--navy);color:#fff; } #ec-docr-root .btn.primary:hover{ background:var(--navy-700); }
+  #ec-docr-root .btn.warn{ background:var(--yellow-50);border-color:#fde68a;color:var(--amber); } #ec-docr-root .btn.warn:hover{ background:#fef3c7; }
+  #ec-docr-root .btn[disabled]{ opacity:.55;cursor:not-allowed; }
+  #ec-docr-root .actions{ display:flex;gap:10px;flex-wrap:wrap;margin-top:6px; }
+  #ec-docr-root .filters{ display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center; }
+  #ec-docr-root .filters input,#ec-docr-root .filters select{ padding:8px 11px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;font-family:inherit; }
+  #ec-docr-root table.tbl{ width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--gray-200);border-radius:12px;overflow:hidden; }
+  #ec-docr-root .tbl th{ text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--gray-500);padding:11px 14px;background:var(--gray-50);border-bottom:1px solid var(--gray-200); }
+  #ec-docr-root .tbl td{ padding:12px 14px;font-size:13px;border-bottom:1px solid var(--gray-100);vertical-align:top; }
+  #ec-docr-root .tbl tr.clickable{ cursor:pointer; } #ec-docr-root .tbl tr.clickable:hover{ background:var(--navy-50); }
+  #ec-docr-root .badge{ display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px; }
+  #ec-docr-root .badge .dot{ width:7px;height:7px;border-radius:50%; }
+  #ec-docr-root .b-gray{ background:var(--gray-100);color:var(--gray-600); } #ec-docr-root .b-gray .dot{ background:var(--gray-400); }
+  #ec-docr-root .b-navy{ background:var(--navy-50);color:var(--navy); } #ec-docr-root .b-navy .dot{ background:var(--navy); }
+  #ec-docr-root .b-amber{ background:var(--yellow-50);color:var(--amber); } #ec-docr-root .b-amber .dot{ background:var(--yellow); }
+  #ec-docr-root .b-green{ background:var(--green-50);color:var(--green); } #ec-docr-root .b-green .dot{ background:var(--green); }
+  #ec-docr-root .b-red{ background:var(--red-50);color:var(--red); } #ec-docr-root .b-red .dot{ background:var(--red); }
+  #ec-docr-root .pager{ display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px;font-size:13px;color:var(--gray-600); }
+  #ec-docr-root .state{ padding:44px 20px;text-align:center;color:var(--gray-500); } #ec-docr-root .state h4{ color:var(--gray-700);margin:0 0 6px; }
+  #ec-docr-root .stepper{ position:relative;overflow-x:auto;padding:6px 2px 12px; }
+  #ec-docr-root .stepline{ position:relative;display:flex;gap:0;min-width:100%; }
+  #ec-docr-root .stepline::before{ content:"";position:absolute;top:16px;left:calc(50% / var(--n));width:calc(100% - 100% / var(--n));height:2px;background:var(--gray-200);z-index:0; }
+  #ec-docr-root .stepline::after{ content:"";position:absolute;top:16px;left:calc(50% / var(--n));width:calc(100% / var(--n) * var(--k));height:2px;background:var(--navy);z-index:0;transition:width .3s ease; }
+  #ec-docr-root .step{ min-width:150px;flex:1;position:relative;padding:0 10px;z-index:1; }
+  #ec-docr-root .step-top{ display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;z-index:1; }
+  #ec-docr-root .step-dot{ width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;border:2px solid var(--gray-300);color:var(--gray-500);font-weight:700;font-size:13px; }
+  #ec-docr-root .step.current .step-dot{ border-color:var(--navy);color:var(--navy);box-shadow:0 0 0 4px var(--navy-50); }
+  #ec-docr-root .step.done .step-dot{ background:var(--green);border-color:var(--green);color:#fff; }
+  #ec-docr-root .step.rejected .step-dot{ background:var(--red);border-color:var(--red);color:#fff; }
+  #ec-docr-root .step.info .step-dot{ background:var(--yellow);border-color:var(--yellow);color:#fff; }
+  #ec-docr-root .step.skipped .step-dot{ border-style:dashed; }
+  #ec-docr-root .step-name{ font-size:12.5px;font-weight:700;color:var(--gray-800);text-align:center; }
+  #ec-docr-root .step-state{ font-size:11px;font-weight:600; }
+  #ec-docr-root .step-meta{ font-size:11px;color:var(--gray-500);text-align:center;margin-top:2px;line-height:1.4;overflow-wrap:anywhere; }
+  #ec-docr-root .step-meta .ov{ color:var(--red);font-weight:600; }
+  #ec-docr-root .summary-row{ display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--gray-200);font-size:13px; }
+  #ec-docr-root .summary-row b{ color:var(--gray-900);overflow-wrap:anywhere; }
+  #ec-docr-root .toast{ position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--gray-900);color:#fff;padding:11px 18px;border-radius:10px;font-size:13.5px;opacity:0;pointer-events:none;transition:.2s;z-index:60; }
+  #ec-docr-root .toast.show{ opacity:1;transform:translateX(-50%) translateY(0); }
+  #ec-docr-root .toast.err{ background:var(--red); }
+  #ec-docr-root .ec-docr-overlay{ position:fixed;inset:0;background:rgba(17,24,39,.45);display:flex !important;align-items:center;justify-content:center;z-index:9999;padding:16px; }
+  #ec-docr-root .ec-docr-modal{ display:flex !important;flex-direction:column;background:#fff;border-radius:14px;width:min(560px, calc(100vw - 32px));max-width:560px;max-height:calc(100vh - 48px);box-shadow:0 20px 50px rgba(0,0,0,.25);overflow:hidden; }
+  #ec-docr-root .ec-docr-modal-h{ padding:15px 20px;border-bottom:1px solid var(--gray-200);font-weight:700;font-size:15px;color:var(--gray-900);flex:0 0 auto; }
+  #ec-docr-root .ec-docr-modal-b{ padding:16px 20px;overflow:auto;flex:1 1 auto; } #ec-docr-root .ec-docr-modal-b .fld{ margin-bottom:12px; }
+  #ec-docr-root .ec-docr-modal-f{ padding:13px 20px;border-top:1px solid var(--gray-200);display:flex;justify-content:flex-end;gap:10px;flex:0 0 auto; }
+  #ec-docr-root .tl-item{ display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray-100); }
+  #ec-docr-root .tl-dot{ width:10px;height:10px;border-radius:50%;background:var(--navy);margin-top:5px;flex-shrink:0; }
+  #ec-docr-root .tl-act{ font-weight:600;color:var(--gray-900);font-size:13px; } #ec-docr-root .tl-meta{ font-size:12px;color:var(--gray-500); } #ec-docr-root .tl-cmt{ font-size:12.5px;color:var(--gray-700);margin-top:2px; }
+  #ec-docr-root .sect-h{ font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--gray-500);margin:8px 0 8px; }
+  #ec-docr-root button:focus-visible, #ec-docr-root a:focus-visible, #ec-docr-root input:focus-visible, #ec-docr-root select:focus-visible, #ec-docr-root textarea:focus-visible{ outline:2px solid var(--navy); outline-offset:2px; }
+  @media (max-width:1024px){ #ec-docr-root .content{ padding:18px 16px 40px; } }
+  @media (max-width:900px){ #ec-docr-root{ grid-template-columns:1fr; } #ec-docr-root .ec-sidebar{ display:none; } #ec-docr-root .grid2{ grid-template-columns:1fr; } }
+  @media (max-width:640px){ #ec-docr-root table.tbl{ display:block; overflow-x:auto; white-space:nowrap; } #ec-docr-root .ec-docr-modal{ max-height:calc(100vh - 24px); } }
+</style>
+
+<div id="ec-docr-root">
+  <aside class="ec-sidebar">
+    <div class="sb-head"><span class="logo">eC</span><span class="brand-name">eCentric</span></div>
+    <nav class="nav">
+      <a class="nav-item" href="/home"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg></span><span>Trang chủ</span></a>
+      <a class="nav-item" href="/approvals"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><span>Approval Center</span></a>
+      <a class="nav-item active" href="/approvals/outside-work"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3M3 11h18M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z"/></svg></span><span>Document Request</span></a>
+    </nav>
+  </aside>
+  <main class="ec-main">
+    <div class="topbar"><div class="crumb">Approval Center / <strong>Document Request</strong></div></div>
+    <div class="content">
+      <h1 class="pg">Document Request</h1>
+      <p class="pg-sub">Yêu cầu tài liệu: tạo mới, chỉnh sửa và thu hồi tài liệu.</p>
+      <div class="tabs" id="docr-tabs"></div>
+      <div id="docr-body"></div>
+    </div>
+    <div class="toast" id="docr-toast"></div>
+  </main>
+</div>
+
+<script id="ec-document-request">
+(function(){
+  "use strict";
+  var NS="ecentric_workspace.approval_center.api.document_request.";
+  var state={ boot:null, tab:"create", id:null, mode:"create", draft:null, dirty:false, busy:false, page:0, PAGE:20, listFilters:{}, titleTouched:false, detail:null, _editDet:null, comp:{} };
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];}); }
+  function toast(m,err){ var t=$("docr-toast"); if(!t)return; t.textContent=m; t.className="toast show"+(err?" err":""); clearTimeout(t._t); t._t=setTimeout(function(){t.className="toast";},3000); }
+  function call(method,args){ var fr=window.frappe; if(!fr||!fr.call) return Promise.reject(new Error("no frappe"));
+    return fr.call({method:NS+method,args:args||{},type:(/get_|list_|search_/.test(method)?"GET":"POST")}).then(function(r){return r&&r.message;}); }
+  function fmt(d){ if(!d)return "—"; try{ return String(d).replace("T"," ").slice(0,16); }catch(e){ return String(d); } }
+  function fld(id,label,ctrl,req,err){ return '<div class="fld'+(err?" invalid":"")+'" data-fld="'+id+'"><label>'+esc(label)+(req?' <span class="req">*</span>':'')+'</label>'+ctrl+(err?'<div class="err">'+esc(err)+'</div>':'')+'</div>'; }
+  function opt(list,val){ return (list||[]).map(function(o){ var v=(o.value!=null?o.value:o), l=(o.label!=null?o.label:o);
+    return '<option value="'+esc(v)+'"'+(String(val)===String(v)?" selected":"")+'>'+esc(l)+'</option>'; }).join(""); }
+
+  // ---- routing ----
+  function readRoute(){ state.mode="create"; var q=new URLSearchParams(window.location.search); state.id=q.get("id")||null;
+    var t=q.get("tab"); state.tab = state.id?"detail":(t||"create"); }
+  function go(params,replace){ var q=new URLSearchParams(); Object.keys(params).forEach(function(k){ if(params[k])q.set(k,params[k]); });
+    var url=window.location.pathname+(q.toString()?("?"+q.toString()):""); window.history[replace?"replaceState":"pushState"]({},"",url); route(); }
+  function route(){ readRoute(); render(); }
+  window.addEventListener("popstate", route);
+
+  function tabAllowed(t){ var tb=state.boot&&state.boot.tabs||{}; return t==="create"||t==="my-requests"||(t==="my-approvals"&&tb.my_approvals)||(t==="fulfillment"&&tb.fulfillment); }
+  function renderTabs(){ var box=$("docr-tabs"); if(!box)return;
+    var defs=[["create","Tạo yêu cầu",true],["my-requests","Yêu cầu của tôi",true],["my-approvals","Cần tôi duyệt",tabAllowed("my-approvals")],["fulfillment","Chờ Operation xử lý",tabAllowed("fulfillment")]];
+    box.innerHTML=defs.map(function(d){ var act=(state.tab===d[0]||(state.tab==="detail"&&d[0]==="my-requests"))?" active":"";
+      return '<button class="tab'+act+'"'+(d[2]?'':' disabled')+' data-tab="'+d[0]+'">'+esc(d[1])+'</button>'; }).join(""); }
+
+  function render(){ renderTabs(); var b=$("docr-body"); if(!b)return;
+    if(state.tab==="detail"&&state.id) return renderDetail(b);
+    if(state.tab==="my-requests") return renderMyRequests(b);
+    if(state.tab==="my-approvals") return renderMyApprovals(b);
+    if(state.tab==="fulfillment") return renderFulfillment(b);
+    return renderCreate(b); }
+
+  // ======================= CREATE =======================
+  function infoRequiredBannerHTML(){ var i=state._infoCtx||{}; return '<div class="banner warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div><b>Cần bổ sung thông tin.</b> Cấp: '+esc(i.level||"—")+(i.approver?(' · '+esc(i.approver)):'')+(i.comment?('<br>“'+esc(i.comment)+'”'):'')+'</div></div>'; }
+
+  function formCardsHTML(d,c,fo){
+    return '<div class="card"><h3>Tiêu đề yêu cầu</h3><div class="grid2">'
+      + fld("request_title","Tiêu đề yêu cầu",'<input data-model="request_title" maxlength="180" placeholder="Ví dụ: Create - Quy trình onboarding" value="'+esc(d.request_title||"")+'">',true).replace('class="fld','class="fld full')
+      + '</div></div><div class="card"><h3>Người yêu cầu</h3><div class="grid2">'
+      + fld("_r1","Người yêu cầu",'<input class="ro" readonly value="'+esc(c.employee_name||c.user||"")+'">')
+      + fld("_r2","Phòng ban",'<input class="ro" readonly value="'+esc(c.department||"—")+'">')
+      + '</div></div><div class="card"><h3>Thông tin tài liệu</h3><div class="grid2">'
+      + fld("request_type","Loại yêu cầu",'<select data-model="request_type"><option value="">—</option>'+opt(fo.request_types||[],d.request_type)+'</select>',true)
+      + fld("document_name","Tên tài liệu",'<input data-model="document_name" maxlength="240" value="'+esc(d.document_name||"")+'">',true)
+      + fld("owner_department","Owner",'<select data-model="owner_department"><option value="">— Chọn phòng ban —</option>'+opt(fo.departments||[],d.owner_department)+'</select><div class="hint">Phòng ban phụ trách tài liệu (nguồn từ Department).</div>',true)
+      + fld("expected_response_date","Ngày mong muốn phản hồi",'<input type="date" data-model="expected_response_date" value="'+esc(d.expected_response_date||"")+'">')
+      + fld("detail","Nội dung chi tiết",'<textarea data-model="detail" rows="3" placeholder="Lý do và chi tiết tạo/chỉnh sửa/thu hồi.">'+esc(d.detail||"")+'</textarea>',true).replace('class="fld','class="fld full')
+      + fld("request_attachment","Tệp đính kèm",'<input type="file" data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div>').replace('class="fld','class="fld full')
+      + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="docr-summary"></div></div>';
+  }
+  var MATERIAL=["request_type","document_name","owner_department","detail","expected_response_date"];
+  function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
+
+  function processPreviewHTML(){
+    var steps=[
+      {name:"Tạo yêu cầu",state:"current",statusLabel:"Đang thực hiện",meta:"Điền thông tin tài liệu."},
+      {name:"Owner duyệt",state:"upcoming",statusLabel:"Chờ",meta:"Phòng ban phụ trách xác nhận."},
+      {name:"Operation duyệt",state:"upcoming",statusLabel:"Chờ",meta:"Operation xem xét."},
+      {name:"CEO duyệt",state:"upcoming",statusLabel:"Chờ",meta:"CEO phê duyệt."},
+      {name:"Operation xử lý",state:"upcoming",statusLabel:"Chờ",meta:"Operation thực hiện."},
+      {name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:"Kết quả được ghi nhận."}];
+    return '<div class="card" id="docr-process-preview"><h3>Quy trình xử lý yêu cầu</h3><div class="stepper">'+renderStepsHTML(steps)+'</div></div>';
+  }
+  function renderCreate(b){
+    var fo=state.boot&&state.boot.form_options||{}; var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
+    var editing=state.mode==="edit";
+    var head = editing
+      ? ('<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper">'+buildStepper(state._editDet||{approval:{}})+'</div></div>'+infoRequiredBannerHTML())
+      : '';
+    var actions = editing
+      ? '<div class="actions"><button type="button" class="btn" id="docr-edit-cancel">Hủy</button><button type="button" class="btn primary" id="docr-resubmit">Gửi lại</button></div>'
+      : '<div class="actions"><button type="button" class="btn" id="docr-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="docr-save">Lưu nháp</button><button type="button" class="btn primary" id="docr-submit">Gửi yêu cầu</button></div>';
+    b.innerHTML = '<div class="docr-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    if(editing) state._origMaterial=materialSnap(d);
+    state.titleTouched = !!((d.request_title||"").toString().trim());
+    maybeAutoTitle(); renderSummary(); wireCreate();
+  }
+  function renderSummary(){ var h=$("docr-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
+    var rows=[["Tiêu đề",d.request_title],["Loại yêu cầu",d.request_type],["Tên tài liệu",d.document_name],
+      ["Owner",d.owner_department],["Ngày mong muốn phản hồi",d.expected_response_date],["Người yêu cầu",c.employee_name||c.user],
+      ["Luồng duyệt","Owner → Operation → CEO → Operation xử lý (theo cấu hình)"]];
+    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+  function suggestTitle(d){ d=d||{}; var parts=[d.request_type, d.document_name].filter(function(x){return x&&String(x).trim();});
+    return parts.length?parts.join(" - ").slice(0,180):""; }
+  function maybeAutoTitle(){ if(state.titleTouched)return; var s=suggestTitle(state.draft||{}); if(!s)return;
+    state.draft=state.draft||{}; state.draft.request_title=s; state.dirty=true; var t=document.querySelector('[data-model="request_title"]'); if(t&&t.value!==s) t.value=s; }
+
+  function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; state.dirty=true; }
+  function setFieldError(id,msg){ var f=document.querySelector('[data-fld="'+id+'"]'); if(!f)return; f.classList.toggle("invalid",!!msg);
+    var e=f.querySelector(".err"); if(msg){ if(!e){ e=document.createElement("div"); e.className="err"; f.appendChild(e);} e.textContent=msg; } else if(e){ e.textContent=""; } }
+  function clearFieldError(id){ setFieldError(id,null); }
+  var FIELD_IDS=["request_title","request_type","document_name","owner_department","detail"];
+  function showFieldErrors(errs){ FIELD_IDS.forEach(function(id){ setFieldError(id,(errs&&errs[id])||null); });
+    var first=errs&&Object.keys(errs)[0]; if(first){ var el=document.querySelector('[data-fld="'+first+'"] input,[data-fld="'+first+'"] select,[data-fld="'+first+'"] textarea'); if(el&&el.focus){ try{el.focus();}catch(e){} } } }
+  function validateSubmit(){ var d=state.draft||{}; var errs={};
+    if(!((d.request_title||"").toString().trim())) errs.request_title="Vui lòng nhập tiêu đề yêu cầu.";
+    if(!((d.request_type||"").toString().trim())) errs.request_type="Vui lòng chọn loại yêu cầu.";
+    if(!((d.document_name||"").toString().trim())) errs.document_name="Vui lòng nhập tên tài liệu.";
+    if(!((d.owner_department||"").toString().trim())) errs.owner_department="Vui lòng chọn Owner (phòng ban phụ trách).";
+    if(!((d.detail||"").toString().trim())) errs.detail="Vui lòng nhập nội dung chi tiết.";
+    return Object.keys(errs).length?errs:null; }
+  function mapErr(e){ var m=(e&&e.message)||"";
+    if(/IntegrityError|pymysql|Duplicate entry|must be unique|OperationalError|ProgrammingError|Traceback|1062|1048|1054/i.test(m)) return "Không thể thực hiện do dữ liệu không hợp lệ. Vui lòng kiểm tra lại hoặc liên hệ quản trị viên.";
+    if(/pending approver|not a pending|không còn quyền/i.test(m)) return "Bạn không còn quyền thực hiện hành động này.";
+    if(/no further action|is Approved|is Rejected|is Cancelled|vừa được cập nhật|already been claimed|đã được người khác/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Dữ liệu đã được làm mới.";
+    if(/mandatory|required|bắt buộc|Vui lòng|đầy đủ|Tóm tắt/i.test(m)) return m;
+    if(/access|permission|allowed|quyền|nhóm Operation/i.test(m)) return m || "Bạn không còn quyền thực hiện hành động này.";
+    return m || "Đã có lỗi. Vui lòng thử lại."; }
+  function resubmitErr(e){ var m=(e&&e.message)||"";
+    if(/no further action|is Approved|is Rejected|is Cancelled|moved|next level|vừa được cập nhật/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Vui lòng tải lại.";
+    if(/Information Required|is mandatory|is required|bắt buộc|Vui lòng|permission|quyền/i.test(m)) return m;
+    return "Không thể gửi lại yêu cầu. Vui lòng thử lại hoặc liên hệ quản trị viên."; }
+  function friendlyErr(e){ return mapErr(e); }
+  function applyBackendError(e){ var m=(e&&e.message)||"";
+    if(/đầy đủ các trường bắt buộc/i.test(m)){ showFieldErrors(validateSubmit()||{}); toast(m,true); return true; }
+    return false; }
+
+  function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
+    el.addEventListener("input",function(){ var k=el.getAttribute("data-model"); var v=el.value; setModel(k,v);
+      if(k==="request_title") state.titleTouched=((el.value||"").trim()!=="");
+      if(k!=="request_title") maybeAutoTitle();
+      renderSummary(); clearFieldError(k); }); }
+  function wireModels(scope){ (scope||document).querySelectorAll("[data-model]").forEach(attachModel); }
+  function uploadFile(fileInput,field,labelId){ var file=fileInput.files&&fileInput.files[0]; if(!file) return;
+    var lbl=$(labelId); if(lbl) lbl.textContent="Đang tải...";
+    var fd=new FormData(); fd.append("file",file); fd.append("is_private","1"); fd.append("doctype","EC Data Request"); fd.append("docname",state.id||"");
+    fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd})
+      .then(function(r){return r.json();}).then(function(j){ var url=j&&j.message&&j.message.file_url; setModel("request_attachment",url); if(lbl) lbl.textContent=url?("Đã tải: "+file.name):"Lỗi tải"; })
+      .catch(function(){ if(lbl) lbl.textContent="Lỗi tải"; }); }
+  function wireCreate(){ var b=$("docr-body"); var editing=state.mode==="edit"; wireModels(b);
+    var att=document.querySelector('[data-upload="request_attachment"]'); if(att) att.addEventListener("change",function(){ uploadFile(att,"request_attachment","att-name"); });
+    if(editing){
+      $("docr-edit-cancel").onclick=function(){ state._editDet=null; state.mode="create"; renderDetail($("docr-body")); };
+      $("docr-resubmit").onclick=function(){ var v=validateSubmit(); if(v){ showFieldErrors(v); toast("Vui lòng kiểm tra các trường bắt buộc.",true); return; } setBusyIds(["docr-resubmit","docr-edit-cancel"],true);
+        call("resubmit",{name:state.id,payload:JSON.stringify(state.draft)}).then(function(res){ toast(res&&res.restarted?"Đã gửi lại — duyệt lại từ đầu.":"Đã gửi lại — tiếp tục ở cấp hiện tại."); state._editDet=null; state.mode="create"; renderDetail($("docr-body")); }).catch(function(e){ if(window.console&&console.error) console.error("Data Request resubmit error:",e); toast(resubmitErr(e),true); setBusyIds(["docr-resubmit","docr-edit-cancel"],false); }); };
+      return;
+    }
+    $("docr-save").onclick=function(){ saveDraft(false); };
+    $("docr-submit").onclick=function(){ saveDraft(true); };
+    $("docr-cancel-changes").onclick=function(){ if(!state.dirty||confirm("Hủy các thay đổi chưa lưu?")){ state.draft=state.id?state.draft:{}; state.dirty=false; render(); } };
+  }
+  function setBusyIds(ids,on){ ids.forEach(function(id){ var el=$(id); if(el) el.disabled=on; }); }
+  function setBusy(on){ ["docr-save","docr-submit","docr-cancel-changes"].forEach(function(id){ var el=$(id); if(el) el.disabled=on; }); }
+  function saveDraft(thenSubmit){ if(state.busy)return;
+    if(thenSubmit){ var v=validateSubmit(); if(v){ showFieldErrors(v); toast("Vui lòng kiểm tra các trường bắt buộc.",true); return; } } else { showFieldErrors(null); }
+    state.busy=true; setBusy(true);
+    call("save_draft",{name:state.id||null,payload:JSON.stringify(state.draft||{})}).then(function(res){ state.id=res.name; state.dirty=false;
+      if(thenSubmit){ return call("submit_request",{name:state.id}).then(function(){ toast("Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến Owner phê duyệt."); go({id:state.id}); }); }
+      toast("Đã lưu nháp. Bạn có thể gửi yêu cầu sau."); go({id:state.id});
+    }).catch(function(e){ if(!applyBackendError(e)){ if(window.console&&console.error) console.error("Data Request save/submit error:",e); toast(friendlyErr(e),true); } }).then(function(){ state.busy=false; setBusy(false); }); }
+
+  // ======================= MY REQUESTS =======================
+  function renderMyRequests(b){
+    b.innerHTML='<div class="filters"><input id="f-q" placeholder="Tìm..." value="'+esc(state.listFilters.q||"")+'"><select id="f-type"><option value="">Tất cả loại</option></select><button class="btn" id="f-apply">Lọc</button><button class="btn" id="f-refresh">Làm mới</button></div><div id="docr-list"></div><div class="pager" id="docr-pager"></div>';
+    var fo=state.boot&&state.boot.form_options||{}; var ty=$("f-type"); (fo.request_types||[]).forEach(function(t){ var op=document.createElement("option"); op.value=t; op.textContent=t; ty.appendChild(op); });
+    $("f-apply").onclick=function(){ state.page=0; loadList(); }; $("f-refresh").onclick=loadList; loadList();
+  }
+  function skeleton(n){ var s=""; for(var i=0;i<n;i++) s+='<div style="height:44px;border-bottom:1px solid var(--gray-100);background:var(--gray-50)"></div>'; return '<div class="card" style="padding:0;overflow:hidden">'+s+'</div>'; }
+  function loadList(){ var host=$("docr-list"); if(!host)return; host.innerHTML=skeleton(5);
+    var f={ q:$("f-q")?$("f-q").value:"", request_type:$("f-type")?$("f-type").value:"" }; state.listFilters=f;
+    call("list_my_requests",{filters:JSON.stringify(f),start:state.page*state.PAGE,page_length:state.PAGE}).then(renderList).catch(function(){ host.innerHTML='<div class="card"><div class="state"><h4>Không tải được danh sách</h4><button class="btn" id="docr-retry">Thử lại</button></div></div>'; var r=$("docr-retry"); if(r)r.onclick=loadList; }); }
+  function renderList(res){ var host=$("docr-list"); var rows=res&&res.rows||[];
+    if(!rows.length){ host.innerHTML='<div class="card"><div class="state"><h4>Chưa có yêu cầu</h4><p>Bấm “Tạo yêu cầu” để bắt đầu.</p></div></div>'; $("docr-pager").innerHTML=""; return; }
+    var q=(state.listFilters.q||"").toLowerCase();
+    host.innerHTML='<table class="tbl"><thead><tr><th>Mã</th><th>Tiêu đề</th><th>Loại</th><th>Tài liệu</th><th>Owner</th><th>Trạng thái</th><th>Bước</th><th>Cập nhật</th></tr></thead><tbody>'
+      + rows.filter(function(r){ return !q||(r.request_title||"").toLowerCase().indexOf(q)>=0||(r.name||"").toLowerCase().indexOf(q)>=0; }).map(function(r){ return '<tr class="clickable" data-id="'+esc(r.name)+'"><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.request_type||"—")+'</td><td>'+esc(r.document_name||"—")+'</td><td>'+esc(r.owner_department||"—")+'</td><td>'+badge(r)+'</td><td>'+esc(stepLabel(r))+'</td><td>'+esc(fmt(r.modified))+'</td></tr>'; }).join("")
+      + '</tbody></table>';
+    host.querySelectorAll("tr[data-id]").forEach(function(tr){ tr.onclick=function(){ go({id:tr.getAttribute("data-id")}); }; });
+    var total=res.total||rows.length, pages=Math.ceil(total/state.PAGE);
+    $("docr-pager").innerHTML='Trang '+(state.page+1)+'/'+Math.max(1,pages)+' &nbsp; <button class="btn" aria-label="Trang trước" '+(state.page<=0?"disabled":"")+' id="pg-prev">‹</button> <button class="btn" aria-label="Trang sau" '+(state.page+1>=pages?"disabled":"")+' id="pg-next">›</button>';
+    var pv=$("pg-prev"),nx=$("pg-next"); if(pv)pv.onclick=function(){ if(state.page>0){state.page--;loadList();} }; if(nx)nx.onclick=function(){ state.page++; loadList(); };
+  }
+  function stepLabel(r){ var L=Number(r.total_levels||0); var N=L?(L+3):0; var st=r.approval_status||"Draft"; var ff=r.fulfillment_status;
+    if(!N){ if(st==="Pending") return "Đang phê duyệt"; if(st==="Draft") return "Nháp"; if(st==="Rejected") return "Đã từ chối"; if(st==="Cancelled") return "Đã hủy"; if(st==="Information Required") return "Cần bổ sung"; return "—"; }
+    if(st==="Draft") return "Bước 1/"+N+" · Tạo yêu cầu";
+    if(st==="Rejected") return "Đã từ chối"; if(st==="Cancelled") return "Đã hủy"; if(st==="Information Required") return "Cần bổ sung";
+    if(st==="Approved"){ if(ff==="Completed") return "Bước "+N+"/"+N+" · Hoàn tất"; return "Bước "+(2+L)+"/"+N+" · Operation xử lý"; }
+    if(st==="Pending"&&r.current_level){ return "Bước "+(1+Number(r.current_level))+"/"+N+" · "+(r.current_level_name||("Cấp "+r.current_level)); }
+    return "Đang phê duyệt"; }
+  function badge(r){ var st=(r&&r.approval_status)||r||"Draft"; if(r&&r.approval_status==="Approved"&&r.fulfillment_status&&r.fulfillment_status!=="Not Started") st=r.fulfillment_status;
+    var map={ "Draft":["b-gray","Nháp"],"Pending":["b-navy","Đang phê duyệt"],"Information Required":["b-amber","Cần bổ sung"],"Approved":["b-green","Đã duyệt"],"Rejected":["b-red","Bị từ chối"],"Cancelled":["b-gray","Đã hủy"],"Assigned":["b-amber","Chờ Operation xử lý"],"In Progress":["b-navy","Operation đang xử lý"],"Completed":["b-green","Hoàn tất"] };
+    var m=map[st]||["b-gray",st]; return '<span class="badge '+m[0]+'"><span class="dot"></span>'+esc(m[1])+'</span>'; }
+
+  // ======================= NEED MY APPROVAL =======================
+  function renderMyApprovals(b){ b.innerHTML='<div id="ap-pending"></div><div id="ap-done"></div>'; loadApprovals("pending","ap-pending","Cần tôi xử lý"); loadApprovals("history","ap-done","Tôi đã xử lý"); }
+  function loadApprovals(section,host,title){ var h=$(host); if(!h)return; h.innerHTML='<div class="sect-h">'+esc(title)+'</div>'+skeleton(2);
+    call("list_need_my_approval",{section:section}).then(function(res){ var rows=res&&res.rows||[];
+      if(!rows.length){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không có mục nào</h4></div></div>'; return; }
+      h.innerHTML='<div class="sect-h">'+esc(title)+'</div><table class="tbl"><thead><tr><th>Mã</th><th>Tiêu đề</th><th>Người yêu cầu</th><th>Loại</th><th>Tài liệu</th><th>Bước</th><th></th></tr></thead><tbody>'
+        + rows.map(function(r){ var act= section==="pending"
+            ? '<button class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> <button class="btn primary" data-quick="approve" data-n="'+esc(r.name)+'">Duyệt</button> <button class="btn" data-quick="reqinfo" data-n="'+esc(r.name)+'">Bổ sung</button> <button class="btn" data-quick="reject" data-n="'+esc(r.name)+'">Từ chối</button>'
+            : '<button class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> '+badge(r.my_status);
+          var N=Number(r.total_levels||0)?(Number(r.total_levels)+3):0;
+          return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requested_by||"—")+'</td><td>'+esc(r.request_type||"—")+'</td><td>'+esc(r.document_name||"—")+'</td><td>'+esc(N?("Bước "+(1+Number(r.level_no))+"/"+N+(r.level_name?(" · "+r.level_name):"")):("Cấp "+(r.level_no||"—")))+'</td><td>'+act+'</td></tr>'; }).join("")
+        +'</tbody></table>';
+            h.querySelectorAll("[data-open]").forEach(function(el){ el.onclick=function(){ go({id:el.getAttribute("data-open")}); }; });
+      h.querySelectorAll("[data-quick]").forEach(function(el){ el.onclick=function(){ var n=el.getAttribute("data-n"), qk=el.getAttribute("data-quick");
+        call("get_detail",{name:n}).then(function(det){ if(qk==="approve")doApprove(n,det); else if(qk==="reqinfo")doRequestInfo(n); else doReject(n); }).catch(function(e){ toast(mapErr(e),true); }); }; });
+    }).catch(function(){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không tải được</h4></div></div>'; }); }
+
+  // ======================= FULFILLMENT QUEUE =======================
+  function renderFulfillment(b){ if(!(state.boot&&state.boot.tabs&&state.boot.tabs.fulfillment)){ b.innerHTML='<div class="card"><div class="state"><h4>Không khả dụng</h4><p>Bạn không thuộc nhóm Operation xử lý.</p></div></div>'; return; }
+    b.innerHTML='<div class="filters"><button class="btn" data-sec="unclaimed">Chưa nhận</button> <button class="btn" data-sec="mine">Của tôi</button> <button class="btn" data-sec="others">Đang xử lý</button></div><div id="docr-queue"></div>';
+    b.querySelectorAll("[data-sec]").forEach(function(el){ el.onclick=function(){ loadQueue(el.getAttribute("data-sec")); }; });
+    loadQueue("unclaimed"); }
+  function loadQueue(section){ var h=$("docr-queue"); if(!h)return; h.innerHTML=skeleton(3);
+    call("list_fulfillment_queue",{section:section}).then(function(res){ var rows=res&&res.rows||[];
+      if(!rows.length){ h.innerHTML='<div class="card"><div class="state"><h4>Không có yêu cầu</h4></div></div>'; return; }
+      h.innerHTML='<table class="tbl"><thead><tr><th>Mã</th><th>Tiêu đề</th><th>Người yêu cầu</th><th>Loại</th><th>Tài liệu</th><th>Owner</th><th>Trạng thái</th><th>Người xử lý</th><th></th></tr></thead><tbody>'
+        + rows.map(function(r){ var act='<button class="btn" data-open="'+esc(r.name)+'">Chi tiết</button>'+(r.fulfillment_status==="Assigned"?' <button class="btn primary" data-claim="'+esc(r.name)+'">Nhận xử lý</button>':'');
+            return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requested_by||"—")+'</td><td>'+esc(r.request_type||"—")+'</td><td>'+esc(r.document_name||"—")+'</td><td>'+esc(r.owner_department||"—")+'</td><td>'+badge({approval_status:"Approved",fulfillment_status:r.fulfillment_status})+'</td><td>'+esc(r.fulfillment_owner||"—")+'</td><td>'+act+'</td></tr>'; }).join("")
+        +'</tbody></table>';
+            h.querySelectorAll("[data-open]").forEach(function(el){ el.onclick=function(){ go({id:el.getAttribute("data-open")}); }; });
+      h.querySelectorAll("[data-claim]").forEach(function(el){ el.onclick=function(){ el.disabled=true; call("claim_fulfillment",{name:el.getAttribute("data-claim")}).then(function(){ toast("Đã nhận xử lý."); loadQueue(section); }).catch(function(e){ toast(mapErr(e),true); loadQueue(section); }); }; });
+    }).catch(function(){ h.innerHTML='<div class="card"><div class="state"><h4>Không tải được</h4></div></div>'; }); }
+
+  // ======================= DETAIL =======================
+  function renderDetail(b){ b.innerHTML=skeleton(4);
+    call("get_detail",{name:state.id}).then(function(det){ drawDetail(b,det); })
+    .catch(function(e){ var perm=/quyền|access|permission/i.test((e&&e.message)||""); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4><button class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ go({tab:"my-requests"}); }; }); }
+  function kv(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><input class="ro" readonly value="'+esc(v==null||v===""?"—":v)+'"></div>'; }
+  function drawDetail(b,det){ state.detail=det; var biz=det.business||{}, ap=det.approval||{}, ff=det.fulfillment||{};
+    b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
+      +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.request_type||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+badge({approval_status:ap.approval_status||"Draft",fulfillment_status:biz.fulfillment_status})+'</div></div></div>'
+      +'<div class="card"><h3>Tiến trình xử lý</h3><div class="stepper" id="d-stepper"></div></div>'
+      +'<div class="card"><h3>Thông tin tài liệu</h3><div class="grid2">'+kv("Loại yêu cầu",biz.request_type)+kv("Tên tài liệu",biz.document_name)+kv("Owner",biz.owner_department)+kv("Ngày mong muốn phản hồi",biz.expected_response_date)+'</div><div class="fld" style="margin-top:10px"><label>Nội dung chi tiết</label><textarea class="ro" readonly rows="3">'+esc(biz.detail||"")+'</textarea></div></div>'
+      +'<div class="card"><h3>Xử lý Operation</h3>'+fulfillmentSectionHTML(det)+'</div>'
+      +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
+      +'<div class="card"><h3>Hành động</h3>'+actionPanelHTML(det)+'</div>'
+      +'<div class="card"><h3>Lịch sử</h3>'+timelineHTML(det.timeline)+'</div>';
+    $("d-back").onclick=function(){ go({tab:"my-requests"}); };
+    $("d-stepper").innerHTML=buildStepper(det);
+    ensureActionHandlers();
+  }
+  function renderAttachments(list){ if(!list||!list.length) return '<div class="hint">Chưa có tệp đính kèm.</div>';
+    return '<table class="tbl"><tbody>'+list.map(function(f){ return '<tr><td>'+esc(f.file_name)+'</td><td>'+esc(f.owner)+'</td><td>'+esc(fmt(f.creation))+'</td><td><a href="'+esc(f.file_url)+'" target="_blank">Mở</a></td></tr>'; }).join("")+'</tbody></table>'; }
+
+  // ---- fulfillment section in detail ----
+  function completedInfoHTML(det){ var ff=det.fulfillment||{};
+    return '<div class="summary-row"><span>Tóm tắt kết quả xử lý</span><b>'+esc(ff.summary||"—")+'</b></div>'
+      +'<div class="summary-row"><span>Link tài liệu</span><b>'+(ff.document_link?('<a href="'+esc(ff.document_link)+'" target="_blank">'+esc(ff.document_link)+'</a>'):"—")+'</b></div>'
+      +'<div class="summary-row"><span>Tệp hoàn tất</span><b>'+(ff.completed_attachment?('<a href="'+esc(ff.completed_attachment)+'" target="_blank">Mở</a>'):"—")+'</b></div>'
+      +'<div class="summary-row"><span>Hoàn tất bởi</span><b>'+esc(ff.completed_by||"—")+' · '+esc(fmt(ff.completed_at))+'</b></div>'; }
+  function fulfillmentSectionHTML(det){ var ff=det.fulfillment||{}, ap=det.approval||{}, cap=det.capabilities||{};
+    if(ff.status==="Completed") return completedInfoHTML(det);
+    if(ap.approval_status!=="Approved") return '<div class="hint">Yêu cầu chưa được duyệt xong nên chưa vào bước xử lý.</div>';
+    var info='<div class="hint">Trạng thái xử lý: '+esc({Assigned:"Chờ Operation nhận xử lý","In Progress":"Đang xử lý"}[ff.status]||ff.status||"—")+(ff.owner?(" · Người xử lý: "+esc(ff.owner)):"")+'</div>';
+    var btns=[]; if(cap.can_claim) btns.push('<button type="button" class="btn primary" data-act="claim">Nhận xử lý</button>');
+    if(cap.can_complete) btns.push('<button type="button" class="btn primary" data-act="complete">Hoàn tất xử lý</button>');
+    return info+(btns.length?'<div class="actions" style="margin-top:8px">'+btns.join("")+'</div>':''); }
+
+  // ---- stepper ----
+  function buildDraftStepper(det){ var prev=det.process_preview||[];
+    var steps=[{name:"Tạo yêu cầu",state:"current",statusLabel:"Đang thực hiện",meta:""}];
+    if(prev.length){ prev.forEach(function(l){ steps.push({name:l.level_name||("Cấp "+l.level_no),state:"upcoming",statusLabel:"Chờ",meta:""}); }); }
+    else { steps.push({name:"Department Owner Review",state:"upcoming",statusLabel:"Chờ",meta:""}); steps.push({name:"Operation Review",state:"upcoming",statusLabel:"Chờ",meta:""}); steps.push({name:"CEO Review",state:"upcoming",statusLabel:"Chờ",meta:""}); }
+    steps.push({name:"Operation xử lý",state:"upcoming",statusLabel:"Chờ",meta:""});
+    steps.push({name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:""});
+    return renderStepsHTML(steps); }
+  function buildStepper(det){ var ap=det.approval||{}; if(!ap.name) return buildDraftStepper(det);
+    var levels=det.levels||[], approvers=det.approvers||[], ff=det.fulfillment||{};
+    var steps=[{name:"Đã gửi",state:"done",meta:""}];
+    levels.forEach(function(l){ var rows=approvers.filter(function(a){return a.level_no===l.level_no;}); var st="upcoming", meta="";
+      if(l.level_status==="Approved"){ st="done"; var who=rows.filter(function(r){return r.status==="Approved";}).map(function(r){return r.approver;}); meta=(who.length?("Duyệt bởi "+who.join(", ")):"")+(l.completed_at?(" · "+fmt(l.completed_at)):""); }
+      else if(l.level_status==="Rejected"){ st="rejected"; var rj=rows.filter(function(r){return r.status==="Rejected";}); meta="Từ chối"+(rj[0]&&rj[0].comment?(": "+rj[0].comment):""); }
+      else if(l.level_status==="Information Requested"||(ap.approval_status==="Information Required"&&ap.current_level===l.level_no)){ st="info"; meta="Cần bổ sung thông tin"; }
+      else if(l.level_status==="Skipped"){ st="skipped"; meta="Bỏ qua"; }
+      else if(l.level_status==="In Progress"||ap.current_level===l.level_no){ st="current"; var elig=rows.filter(function(r){return r.status==="Pending";}).map(function(r){return r.approver;}); meta=(elig.length?(l.approval_mode==="Any One"?elig.join(" hoặc "):elig.join(", ")):"Đang chờ"); }
+      if(l.due_at&&st==="current"&&new Date(l.due_at)<new Date()){ meta+=' · <span class="ov">Quá hạn</span>'; } else if(l.due_at&&st==="current"){ meta+=" · Hạn: "+fmt(l.due_at); }
+      steps.push({name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
+    // fulfillment step (Operation xử lý)
+    var fst="upcoming", fmeta=""; var allApproved=ap.approval_status==="Approved";
+    if(ff.status==="Completed"){ fst="done"; fmeta="Hoàn tất"+(ff.completed_by?(" bởi "+ff.completed_by):"")+(ff.completed_at?(" · "+fmt(ff.completed_at)):""); }
+    else if(ff.status==="In Progress"){ fst="current"; fmeta="Đang xử lý"+(ff.owner?(" · "+ff.owner):""); }
+    else if(allApproved){ fst="current"; fmeta="Chờ Operation nhận xử lý"; }
+    steps.push({name:"Operation xử lý",state:fst,meta:fmeta});
+    steps.push({name:"Hoàn tất",state:(ff.status==="Completed"?"done":"upcoming"),meta:""});
+    return renderStepsHTML(steps); }
+  var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
+  function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
+  function renderStepsHTML(steps){ var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+    var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
+    return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
+
+  function timelineHTML(items){ if(!items||!items.length) return '<div class="hint">Chưa có hoạt động.</div>';
+    var LBL={Submitted:"Đã gửi",Approved:"Đã duyệt","Information Requested":"Yêu cầu bổ sung",Rejected:"Từ chối",Resubmitted:"Gửi lại",Restarted:"Duyệt lại từ đầu",Skipped:"Bỏ qua",Cancelled:"Đã hủy",Commented:"Ghi chú",Started:"Nhận xử lý"};
+    return items.map(function(a){ return '<div class="tl-item"><div class="tl-dot"></div><div><div class="tl-act">'+esc(LBL[a.action]||a.action)+(a.level_no?(' · Cấp '+a.level_no):'')+'</div><div class="tl-meta">'+esc(a.actor||"")+' · '+esc(fmt(a.action_time))+(a.previous_status&&a.new_status&&a.previous_status!==a.new_status?(' · '+esc(a.previous_status)+" → "+esc(a.new_status)):'')+'</div>'+(a.comment?('<div class="tl-cmt">'+esc(a.comment)+'</div>'):'')+'</div></div>'; }).join(""); }
+
+  // ---- action panel + modal (namespaced, delegated) ----
+  function actionPanelHTML(det){ var cap=det.capabilities||{}; var ap=det.approval||{}; var btns=[];
+    if(cap.can_submit){ return '<div class="actions"><button type="button" class="btn primary" data-act="submitdraft">Gửi yêu cầu</button><button type="button" class="btn" data-act="editdraft">Tiếp tục chỉnh sửa</button><button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button></div><div class="hint" style="margin-top:8px">Yêu cầu đang ở trạng thái nháp — chưa gửi phê duyệt.</div>'; }
+    if(cap.can_edit&&ap.approval_status==="Information Required") btns.push('<button type="button" class="btn primary" data-act="edit">Chỉnh sửa & gửi lại</button>');
+    else if(cap.can_edit) btns.push('<button type="button" class="btn" data-act="edit">Chỉnh sửa</button>');
+    if(cap.can_approve) btns.push('<button type="button" class="btn primary" data-act="approve">Duyệt</button>');
+    if(cap.can_request_information) btns.push('<button type="button" class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
+    if(cap.can_reject) btns.push('<button type="button" class="btn" data-act="reject">Từ chối</button>');
+    if(cap.can_admin_approve_current_level) btns.push('<button type="button" class="btn warn" data-act="adminapprove">Duyệt thay bước hiện tại</button>');
+    if(cap.can_cancel) btns.push('<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button>');
+    return btns.length? '<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
+  function handleActionClick(e){ var el=e.target&&e.target.closest?e.target.closest("[data-act]"):null; if(!el) return;
+    var a=el.getAttribute("data-act"); if(!a||el.disabled) return; if(document.querySelector(".ec-docr-overlay")) return; e.preventDefault();
+    var det=state.detail||{}; var name=(det.business||{}).name||state.id;
+    if(a==="editdraft") return startEditDraft(det); if(a==="submitdraft") return doSubmitDraft(name);
+    if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det);
+    if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
+    if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name);
+    if(a==="claim") return doClaim(name); if(a==="complete") return doComplete(name,det); }
+  function ensureActionHandlers(){ if(document.__docrActBound) return; document.__docrActBound=true; document.addEventListener("click", handleActionClick, true); }
+
+  function modal(title, bodyHTML, opts){ opts=opts||{}; var prevFocus=document.activeElement;
+    var ov=document.createElement("div"); ov.className="ec-docr-overlay";
+    ov.innerHTML='<div class="ec-docr-modal" role="dialog" aria-modal="true" aria-labelledby="docr-modal-title"><div class="ec-docr-modal-h" id="docr-modal-title">'+esc(title)+'</div><div class="ec-docr-modal-b">'+bodyHTML+'</div><div class="ec-docr-modal-f"><button type="button" class="btn" data-x>Đóng</button><button type="button" class="btn primary" data-ok>'+esc(opts.okLabel||"Xác nhận")+'</button></div></div>';
+    (document.getElementById("ec-docr-root")||document.body).appendChild(ov);
+    function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); if(prevFocus&&prevFocus.focus) try{prevFocus.focus();}catch(e){} }
+    var first=ov.querySelector(".ec-docr-modal-b input,.ec-docr-modal-b select,.ec-docr-modal-b textarea")||ov.querySelector("[data-ok]"); if(first&&first.focus) try{first.focus();}catch(e){}
+    ov.addEventListener("keydown",function(e){ if(e.key==="Escape") close(); });
+    ov.querySelector("[data-x]").onclick=close; ov.addEventListener("click",function(e){ if(e.target===ov) close(); });
+    var ok=ov.querySelector("[data-ok]"); ok.onclick=function(){ if(!opts.onConfirm){ close(); return; } ok.disabled=true; var p=opts.onConfirm(ov); if(p&&p.then){ p.then(function(){ close(); }).catch(function(){ ok.disabled=false; }); } else { close(); } };
+    return {ov:ov, close:close}; }
+
+  function refreshDetail(){ if(state.tab==="detail"&&state.id) renderDetail($("docr-body")); }
+  function refreshApprovals(){ if(state.tab==="my-approvals") renderMyApprovals($("docr-body")); }
+  function nextLevelName(det){ if(!det) return ""; var ap=det.approval||{}; if(ap.approval_status!=="Pending"||!ap.current_level) return ""; var l=(det.levels||[]).filter(function(x){return Number(x.level_no)===Number(ap.current_level);})[0]; return l?(l.level_name||("Cấp "+ap.current_level)):""; }
+  function summaryRows(det){ var b=det.business||{}; return '<div class="summary-row"><span>Người yêu cầu</span><b>'+esc(b.requested_by||"—")+'</b></div><div class="summary-row"><span>Loại yêu cầu</span><b>'+esc(b.request_type||"—")+'</b></div><div class="summary-row"><span>Mong muốn phản hồi</span><b>'+esc(b.expected_response_date||"—")+'</b></div>'; }
+  function doApprove(name,det){ modal("Duyệt yêu cầu", summaryRows(det)+'<div class="fld"><label>Ghi chú (không bắt buộc)</label><textarea id="m-cmt" rows="2"></textarea></div>', {okLabel:"Duyệt", onConfirm:function(ov){ var cmt=(ov.querySelector("#m-cmt").value||"");
+    return call("approve",{name:name,comment:cmt}).then(function(res){ var nx=nextLevelName(res&&res.detail); toast(nx?("Đã duyệt. Yêu cầu đã chuyển sang "+nx+"."):"Đã duyệt. Yêu cầu chuyển sang Operation xử lý."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
+  function doReject(name){ modal("Từ chối yêu cầu", '<div class="banner err">Sau khi từ chối, yêu cầu sẽ kết thúc.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Từ chối", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
+    return call("reject",{name:name,comment:c}).then(function(){ toast("Đã từ chối."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
+  function doRequestInfo(name){ modal("Yêu cầu bổ sung thông tin", '<div class="banner info">Yêu cầu sẽ được trả lại người gửi để bổ sung.</div><div class="fld"><label>Nội dung cần bổ sung <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Gửi yêu cầu", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập nội dung.",true); return Promise.reject(); }
+    return call("request_information",{name:name,comment:c}).then(function(){ toast("Đã gửi yêu cầu bổ sung."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
+  function doCancel(name){ modal("Hủy yêu cầu", '<div class="banner warn">Hủy yêu cầu sẽ kết thúc luồng phê duyệt.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="2"></textarea></div>', {okLabel:"Xác nhận hủy", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
+    return call("cancel",{name:name,reason:c}).then(function(res){ toast("Đã hủy yêu cầu."); if(res&&res.deleted) go({tab:"my-requests"}); else { refreshDetail(); refreshApprovals(); } }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
+  function doAdminApprove(name){ modal("Duyệt thay bước hiện tại", '<div class="banner warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div>Bạn đang duyệt thay cho bước phê duyệt hiện tại bằng quyền System Manager. Hành động này sẽ được ghi nhận trong lịch sử và không giả lập người duyệt gốc.</div></div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Xác nhận duyệt thay", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
+    return call("admin_approve_current_level",{name:name,reason:c}).then(function(){ toast("Đã duyệt thay bước hiện tại."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
+
+  function doClaim(name){ call("claim_fulfillment",{name:name}).then(function(){ toast("Đã nhận xử lý."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); }); }
+  function completionErrors(c){ c=c||state.comp||{}; var errs={}; if(!((c.fulfillment_summary||"").toString().trim())) errs.fulfillment_summary="Vui lòng nhập tóm tắt kết quả xử lý."; return Object.keys(errs).length?errs:null; }
+  function doComplete(name,det){ state.comp={ fulfillment_summary:"", document_link:"", completed_attachment:"" };
+    var body='<div class="fld"><label>Tóm tắt kết quả xử lý <span class="req">*</span></label><textarea id="c-summary" rows="3"></textarea></div>'
+      +'<div class="fld"><label>Link tài liệu</label><input id="c-link" placeholder="https://..."></div>'
+      +'<div class="fld"><label>Tệp hoàn tất</label><input type="file" id="c-file"><div class="hint" id="c-file-name">Không bắt buộc</div></div>';
+    var m=modal("Hoàn tất xử lý", body, {okLabel:"Hoàn tất", onConfirm:function(ov){
+      state.comp.fulfillment_summary=(ov.querySelector("#c-summary").value||""); state.comp.document_link=(ov.querySelector("#c-link").value||"");
+      var errs=completionErrors(state.comp); if(errs){ toast(errs.fulfillment_summary,true); return Promise.reject(); }
+      return call("complete_fulfillment",{name:name,payload:JSON.stringify(state.comp)}).then(function(){ toast("Đã hoàn tất xử lý."); state.comp={}; refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }});
+    var fi=m.ov.querySelector("#c-file"); if(fi) fi.addEventListener("change",function(){ var file=fi.files&&fi.files[0]; if(!file)return; var lbl=m.ov.querySelector("#c-file-name"); if(lbl)lbl.textContent="Đang tải...";
+      var fd=new FormData(); fd.append("file",file); fd.append("is_private","1"); fd.append("doctype","EC Data Request"); fd.append("docname",name);
+      fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd}).then(function(r){return r.json();}).then(function(j){ state.comp.completed_attachment=(j&&j.message&&j.message.file_url)||""; if(lbl)lbl.textContent=state.comp.completed_attachment?("Đã tải: "+file.name):"Lỗi tải"; }).catch(function(){ if(lbl)lbl.textContent="Lỗi tải"; }); }); }
+
+  function startEditDraft(det){ state.draft=Object.assign({}, det.business||{}); state.id=(det.business||{}).name; state.mode="create"; renderCreate($("docr-body")); }
+  function doSubmitDraft(name){ if(state.busy)return; state.busy=true; var btns=Array.prototype.slice.call(document.querySelectorAll('[data-act="submitdraft"],[data-act="editdraft"]')); btns.forEach(function(b){ b.disabled=true; });
+    call("submit_request",{name:name}).then(function(){ toast("Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến Owner phê duyệt."); refreshDetail(); }).catch(function(e){ if(!applyBackendError(e)){ if(window.console&&console.error) console.error("Data Request submit error:",e); toast(friendlyErr(e),true); } btns.forEach(function(b){ b.disabled=false; }); }).then(function(){ state.busy=false; }); }
+  function startEditResubmit(det){ var ap=det.approval||{}; var lvl=(det.levels||[]).find(function(l){return l.level_no===ap.information_requested_from_level;});
+    var ia=(det.approvers||[]).filter(function(a){return a.status==="Information Requested";})[0]||{};
+    state._infoCtx={ level:(lvl?lvl.level_name:ap.information_requested_from_level), approver:ia.approver, comment:ia.comment };
+    state._editDet=det; state.draft=Object.assign({}, det.business||{}); state.id=det.business.name; state.mode="edit"; renderCreate($("docr-body")); }
+
+  function boot(){ ensureActionHandlers(); var t=$("docr-tabs"); if(t){ t.addEventListener("click",function(e){ var b=e.target.closest("[data-tab]"); if(b&&!b.disabled){ state.page=0; go({tab:b.getAttribute("data-tab")}); } }); }
+    call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); })
+    .catch(function(){ var bd=$("docr-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
+
+  window.DocumentRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, renderFulfillment:renderFulfillment, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, doComplete:doComplete, doClaim:doClaim };
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
+})();
+</script>
