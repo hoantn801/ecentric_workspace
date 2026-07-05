@@ -59,6 +59,9 @@
   #ec-owrk-root .banner.warn{ background:var(--yellow-50);color:var(--amber);border:1px solid #fde68a; }
   #ec-owrk-root .banner.err{ background:var(--red-50);color:var(--red);border:1px solid #fecaca; }
   #ec-owrk-root .banner.info{ background:var(--navy-50);color:var(--navy-700);border:1px solid #dbe0f5; }
+  #ec-owrk-root .owrk-warn{ display:flex !important;align-items:flex-start;justify-content:flex-start;gap:9px;text-align:left;padding:11px 14px;border-radius:9px;font-size:13px;line-height:1.45;background:var(--yellow-50);color:var(--amber);border:1px solid #fde68a; }
+  #ec-owrk-root .owrk-warn > .icon{ flex:0 0 18px;width:18px;height:18px;margin-top:1px; }
+  #ec-owrk-root .owrk-warn > span{ flex:1 1 auto;text-align:left;min-width:0;overflow-wrap:anywhere; }
   #ec-owrk-root .ec-alert{ align-items:flex-start;text-align:left;width:100%; }
   #ec-owrk-root .ec-alert > .icon{ margin-top:1px; }
   #ec-owrk-root .ec-alert-title{ font-weight:700;margin-bottom:2px;line-height:1.4; }
@@ -235,10 +238,10 @@
 
   function apply3Day(){ var host=$("owrk-3day"); if(!host)return; var d=state.draft||{}; var w="";
     if(d.start_date){ var sd=new Date(d.start_date+"T00:00:00"); var today=new Date(); today.setHours(0,0,0,0);
-      var days=Math.round((sd-today)/86400000); if(days<3){ w='<div class="banner warn" style="margin:0"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><div>Lưu ý: Yêu cầu Outside Work nên được gửi trước ít nhất 3 ngày.</div></div>'; } }
+      var days=Math.round((sd-today)/86400000); if(days<3){ w='<div class="owrk-warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><span>Lưu ý: Yêu cầu Outside Work nên được gửi trước ít nhất 3 ngày.</span></div>'; } }
     host.innerHTML=w;
     // non-blocking overlap warning (server side)
-    if(d.start_date&&d.end_date){ call("check_overlap",{start_date:d.start_date,end_date:d.end_date,exclude:state.id||""}).then(function(r){ if(r&&r.count>0){ var h2=$("owrk-3day"); if(h2) h2.innerHTML=h2.innerHTML+'<div class="banner warn" style="margin:8px 0 0"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><div>Bạn đã có '+r.count+' yêu cầu Outside Work khác trùng khoảng thời gian này.</div></div>'; } }).catch(function(){}); }
+    if(d.start_date&&d.end_date){ call("check_overlap",{start_date:d.start_date,end_date:d.end_date,exclude:state.id||""}).then(function(r){ if(r&&r.count>0){ var h2=$("owrk-3day"); if(h2) h2.innerHTML=h2.innerHTML+'<div class="owrk-warn" style="margin-top:8px"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><span>Bạn đã có '+r.count+' yêu cầu Outside Work khác trùng khoảng thời gian này.</span></div>'; } }).catch(function(){}); }
   }
 
   function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; state.dirty=true; }
