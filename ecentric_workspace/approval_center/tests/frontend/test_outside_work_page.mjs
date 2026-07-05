@@ -56,7 +56,12 @@ async function run() {
   const iso = near.toISOString().slice(0, 10);
   w.OutsideWork.state.draft = { start_date: iso, end_date: iso };
   w.OutsideWork.apply3Day(); await flush();
-  ok(/nên được gửi trước ít nhất 3 ngày/.test(w.document.getElementById("owrk-3day").innerHTML), "3-day warning appears when start_date < 3 days");
+  { const wh = w.document.getElementById("owrk-3day").innerHTML;
+    ok(/nên được gửi trước ít nhất 3 ngày/.test(wh), "3-day warning appears when start_date < 3 days");
+    ok(/class="owrk-warn"/.test(wh), "3-day warning uses the namespaced left-aligned .owrk-warn class");
+    const wnode = w.document.querySelector("#owrk-3day .owrk-warn");
+    ok(!!wnode && wnode.firstElementChild && wnode.firstElementChild.tagName.toLowerCase() === "svg", "warning icon is the first (left) child");
+    ok(!!wnode && wnode.querySelector("span") && /Lưu ý/.test(wnode.querySelector("span").textContent), "warning text is in a span immediately after the icon"); }
   ok(!w.OutsideWork.validateSubmit || (w.OutsideWork.validateSubmit({}) && !("start_date_within_3" in (w.OutsideWork.validateSubmit() || {}))), "3-day warning does not block submit (not a validation error)");
 
   // validateSubmit

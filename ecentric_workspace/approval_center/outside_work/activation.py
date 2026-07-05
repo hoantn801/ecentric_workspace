@@ -18,7 +18,8 @@ def _require_sm():
 
 
 def _dry(dry_run, apply):
-    return not (int(apply) == 1 and int(dry_run) == 0)
+    # apply=1 is the authoritative "go" switch (any dry_run); otherwise dry-run.
+    return int(apply or 0) != 1
 
 
 @frappe.whitelist()
@@ -27,10 +28,13 @@ def enable_outside_work_uat(dry_run=1, apply=0):
     _require_sm()
     dry = _dry(dry_run, apply)
     v = validate_outside_work_v1()
+    blockers = [c["check"] for c in v.get("checks", []) if not c.get("ok")]
     report = {"operation": "enable_uat", "mode": "dry_run" if dry else "apply",
-              "validation": v, "ready": v["ok"]}
+              "validation": v, "blockers": blockers, "ready": v["ok"]}
     if not v["ok"]:
-        report["result"] = "BLOCKED (validation failed - nothing changed)"
+        report["result"] = ("BLOCKED (validation failed - nothing changed). Blockers: "
+                            + (", ".join(blockers) or "unknown")
+                            + ". Tip: run setup_outside_work_v1(apply=1) first if the process is missing.")
         return report
     if not dry:
         frappe.db.set_value("EC Approval Process", PROCESS, "status", "Active")
@@ -55,10 +59,13 @@ def publish_outside_work_after_uat(dry_run=1, apply=0):
     v = validate_outside_work_v1()
     active = frappe.db.get_value("EC Approval Process", PROCESS, "status") == "Active"
     ok = v["ok"] and active
+    blockers = [c["check"] for c in v.get("checks", []) if not c.get("ok")]
+    if not active:
+        blockers = blockers + ["AI-Topup-style: process not Active (run enable_outside_work_uat(apply=1) first)"]
     report = {"operation": "publish", "mode": "dry_run" if dry else "apply",
-              "validation": v, "process_active": active, "ready": ok}
+              "validation": v, "process_active": active, "blockers": blockers, "ready": ok}
     if not ok:
-        report["result"] = "BLOCKED (UAT not enabled or validation failed - nothing changed)"
+        report["result"] = ("BLOCKED (nothing changed). Blockers: " + (", ".join(blockers) or "unknown"))
         return report
     if not dry:
         frappe.db.set_value("EC Approval Type", TYPE,

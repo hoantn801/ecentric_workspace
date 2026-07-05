@@ -220,3 +220,104 @@ class TestOutsideWork(FrappeTestCase):
         frappe.set_user("Administrator")
         after = frappe.db.count("Attendance") if frappe.db.exists("DocType", "Attendance") else 0
         self.assertEqual(before, after)
+
+
+class TestOutsideWorkSetupActivation(FrappeTestCase):
+    """setup/activation apply-argument behavior: apply=1 alone must apply; clear blockers when not ready."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.addClassCleanup(lambda: frappe.set_user("Administrator"))
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def _ensure_type(self):
+        if not frappe.db.exists("EC Approval Type", "OUTSIDE_WORK"):
+            frappe.get_doc({"doctype": "EC Approval Type", "approval_code": "OUTSIDE_WORK",
+                            "approval_title": "Outside Work", "card_status": "Coming Soon",
+                            "process_status": "Discovery"}).insert(ignore_permissions=True)
+
+    def _retire(self):
+        for p in frappe.get_all("EC Approval Process", filters={"process_code": "OUTSIDE_WORK-V1"}, pluck="name"):
+            frappe.delete_doc("EC Approval Process", p, ignore_permissions=True, force=1)
+
+    def test_setup_apply_only_applies(self):
+        from ecentric_workspace.approval_center.outside_work import setup as owsetup
+        self._ensure_type(); self._retire()
+        r = owsetup.setup_outside_work_v1(apply=1)               # apply=1 alone, dry_run defaults to 1
+        self.assertEqual(r["mode"], "apply")
+        self.assertTrue(frappe.db.exists("EC Approval Process", {"process_code": "OUTSIDE_WORK-V1"}))
+
+    def test_setup_dry_run_zero_apply_one_applies(self):
+        from ecentric_workspace.approval_center.outside_work import setup as owsetup
+        self._ensure_type(); self._retire()
+        r = owsetup.setup_outside_work_v1(dry_run=0, apply=1)
+        self.assertEqual(r["mode"], "apply")
+        self.assertTrue(frappe.db.exists("EC Approval Process", {"process_code": "OUTSIDE_WORK-V1"}))
+
+    def test_setup_default_is_dry_run(self):
+        from ecentric_workspace.approval_center.outside_work import setup as owsetup
+        self._ensure_type(); self._retire()
+        r = owsetup.setup_outside_work_v1()                       # no args -> dry
+        self.assertEqual(r["mode"], "dry_run")
+        self.assertFalse(frappe.db.exists("EC Approval Process", {"process_code": "OUTSIDE_WORK-V1"}))
+
+    def test_enable_uat_lists_blockers_when_not_ready(self):
+        from ecentric_workspace.approval_center.outside_work import activation as owact
+        sm = _user(PFX + "sm_act@example.com", roles=("Employee", "System Manager"))
+        self._ensure_type(); self._retire()                      # process missing -> not ready
+        frappe.set_user(sm)
+        r = owact.enable_outside_work_uat(apply=1)
+        frappe.set_user("Administrator")
+        self.assertFalse(r["ready"])
+        self.assertIn("process exists", r["blockers"])           # exact blocker surfaced
+
+    def test_enable_uat_works_after_setup(self):
+        from ecentric_workspace.approval_center.outside_work import setup as owsetup, activation as owact
+        sm = _user(PFX + "sm_act2@example.com", roles=("Employee", "System Manager"))
+        self._ensure_type(); self._retire()
+        owsetup.setup_outside_work_v1(apply=1)                    # create process (Draft)
+        frappe.set_user(sm)
+        r = owact.enable_outside_work_uat(apply=1)
+        frappe.set_user("Administrator")
+        self.assertTrue(r["ready"])
+        self.assertEqual(r["result"], "UAT_ENABLED")
+        self.assertEqual(frappe.db.get_value("EC Approval Process",
+                         {"process_code": "OUTSIDE_WORK-V1"}, "status"), "Active")
+
+
+class TestOutsideWorkPageSync(FrappeTestCase):
+    """Whitelisted, idempotent Web Page sync: created -> unchanged -> updated; SM-only."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.addClassCleanup(lambda: frappe.set_user("Administrator"))
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def test_sync_created_unchanged_updated(self):
+        if not frappe.db.exists("DocType", "Web Page"):
+            self.skipTest("Web Page DocType not installed")
+        from ecentric_workspace.approval_center.outside_work import page_sync
+        # start clean
+        for n in frappe.get_all("Web Page", filters={"route": page_sync.ROUTE}, pluck="name"):
+            frappe.delete_doc("Web Page", n, ignore_permissions=True, force=1)
+        r1 = page_sync.sync()
+        self.assertEqual(r1["action"], "created")
+        self.assertEqual(r1["route"], "approvals/outside-work")
+        r2 = page_sync.sync()
+        self.assertEqual(r2["action"], "unchanged")                 # idempotent, same source
+        r3 = page_sync.sync(html="<div>changed</div>")
+        self.assertEqual(r3["action"], "updated")
+
+    def test_sync_endpoint_sm_only(self):
+        u = _user(PFX + "psync_plain@example.com")                  # no System Manager
+        from ecentric_workspace.approval_center.outside_work import page_sync
+        frappe.set_user(u)
+        with self.assertRaises(frappe.exceptions.PermissionError):
+            page_sync.sync_outside_work_page()
+        frappe.set_user("Administrator")

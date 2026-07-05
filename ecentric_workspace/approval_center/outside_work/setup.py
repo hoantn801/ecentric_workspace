@@ -11,7 +11,9 @@ PROCESS_CODE = "OUTSIDE_WORK-V1"
 
 @frappe.whitelist()
 def setup_outside_work_v1(dry_run=1, apply=0):
-    dry = not (int(apply) == 1 and int(dry_run) == 0)
+    # apply=1 is the authoritative "go" switch; dry_run kept for backward-compat.
+    # Applies when apply=1 (with any dry_run) OR the legacy dry_run=0+apply=1; otherwise dry-run.
+    dry = int(apply or 0) != 1
     steps = []
 
     def add(msg):
