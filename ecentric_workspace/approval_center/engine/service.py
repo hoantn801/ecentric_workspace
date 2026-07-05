@@ -428,14 +428,24 @@ def _evaluate(req, level_no):
         complete_approval(frappe.get_doc("EC Approval Request", req.name))
 
 
+# Generic post-final-approval fulfillment dispatch. Keyed by business DocType ->
+# dotted "module.service.on_final_approval" (a handler path in config, NOT approver
+# identities). Additive: forms opt in by adding an entry; engine flow is unchanged
+# for types without a handler. Approvers/fulfillers still come from process config.
+_FULFILLMENT_HANDLERS = {
+    "EC AI Topup Request": "ecentric_workspace.approval_center.ai_topup.service.on_final_approval",
+    "EC Data Request": "ecentric_workspace.approval_center.data_request.service.on_final_approval",
+}
+
+
 def complete_approval(req):
     frappe.db.set_value("EC Approval Request", req.name,
                         {"approval_status": "Approved", "current_level": 0, "completed_at": now_datetime()})
     log_action(req.name, "Approved", "Administrator", comment=_("All levels approved"), new_status="Approved")
     close_todos(req.reference_doctype, req.reference_name)
-    if req.reference_doctype == "EC AI Topup Request":
-        from ecentric_workspace.approval_center.ai_topup import service as ai
-        ai.on_final_approval(req.reference_name)
+    handler = _FULFILLMENT_HANDLERS.get(req.reference_doctype)
+    if handler:
+        frappe.get_attr(handler)(req.reference_name)
 
 
 def admin_override_current_level(request_name, actor=None, reason=None):
