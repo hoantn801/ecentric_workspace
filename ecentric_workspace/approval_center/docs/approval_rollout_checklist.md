@@ -19,12 +19,12 @@ UAT: `not started` / `in UAT` / `passed` / `blocked`. Wave from the backlog plan
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 1 | AI Topup | AI_TOPUP | /approvals/ai-topup | 0 | yes | OK | OK | OK | OK | OK | passed | **OK** | Reference implementation (Live) |
 | 2 | Outside Work | OUTSIDE_WORK | /approvals/outside-work | 1 | no | - | - | - | - | - | not started | - | Recommended Form #2; needs intake |
-| 3 | Payment Request | PAYMENT_REQUEST | /approvals/payment-request | 1 | no | - | - | - | - | - | not started | - | Pattern B; proves amount pattern |
+| 3 | Payment Request | PAYMENT_REQUEST | /approvals/payment-request | 3 | maybe | - | - | - | - | - | not started | - | **Pattern E — SCTS digital-signing integration; separate design gate (no double SCTS submit)** |
 | 4 | Document Request | DOCUMENT_REQUEST | /approvals/document-request | 1 | maybe | - | - | - | - | - | not started | - | Keep simple in v1 |
 | 5 | Data Request | DATA_REQUEST | /approvals/data-request | 1 | maybe | - | - | - | - | - | not started | - | Keep simple in v1 |
 | 6 | Special Bonus | SPECIAL_BONUS | /approvals/special-bonus | 2 | no | - | - | - | - | - | not started | - | Pattern B |
-| 7 | HR Activity | HR_ACTIVITY | /approvals/hr-activity | 2 | no | - | - | - | - | - | not started | - | A/B pending intake |
-| 8 | Employee Referral | EMPLOYEE_REFERRAL | /approvals/employee-referral | 2 | no | - | - | - | - | - | not started | - | Possible referral bonus |
+| 7 | HR Activity | HR_ACTIVITY | /approvals/hr-activity | 1 | no | - | - | - | - | - | not started | - | Wave 1 (4th); Pattern A pending intake |
+| 8 | Employee Referral | EMPLOYEE_REFERRAL | /approvals/employee-referral | 2 | no | - | - | - | - | - | not started | - | Alternate Wave 1 (4th) if simpler than HR Activity |
 | 9 | Resignation Requests | RESIGNATION | /approvals/resignation | 2 | no | - | - | - | - | - | not started | - | Possible Employee update (D) |
 | 10 | Promotion Request | PROMOTION_REQUEST | /approvals/promotion-request | 2 | no | - | - | - | - | - | not started | - | Possible Employee update (D) |
 | 11 | Employee Lateral Move | LATERAL_MOVE | /approvals/lateral-move | 2 | no | - | - | - | - | - | not started | - | Possible Employee update (D) |

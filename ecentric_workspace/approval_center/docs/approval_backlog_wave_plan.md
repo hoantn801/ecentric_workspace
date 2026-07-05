@@ -58,7 +58,7 @@ Effort: **S** 0.5–1d · **M** 1–2d · **L** 2–4d · **XL** separate design
 | 5 | Resignation Requests | A (maybe D) | M | no | no | maybe | no | HR-sensitive | 1 biz (+ Employee update?) |
 | 8 | HR Activity | A/B | S–M | no | maybe | maybe | no | no | 1 biz |
 | 10 | Employee Referral | A/B | S–M | no | maybe (bonus) | maybe | possible (dup referral) | no | 1 biz |
-| 2 | Payment Request | B | M | no (or simple proof) | yes | yes | maybe | finance | 1 biz |
+| 2 | Payment Request | **E (SCTS integration)** | **XL** | yes (signed file) | yes | yes | maybe | finance + signer | 1 biz + signing/callback |
 | 6 | Special Bonus | B | M | no | yes | maybe | no | HR/finance | 1 biz |
 | 9 | Promotion Request | A/D | M | no | maybe | maybe | no | HR-sensitive | 1 biz (+ Employee update?) |
 | 11 | Employee Lateral Move | A/D | M | no | no | maybe | no | HR-sensitive | 1 biz (+ Employee update?) |
@@ -73,19 +73,21 @@ Effort: **S** 0.5–1d · **M** 1–2d · **L** 2–4d · **XL** separate design
 
 ## TASK 3 — Fastest-safe wave plan
 
-### Wave 1 — prove the pattern, minimize new engine work (4 forms)
-**Included:** Outside Work (A/S) · Document Request (A/S–M) · Data Request (A/S–M) · Payment Request (B/M).
-**Why first:** all fit Pattern A or B, which the current engine + AI Topup patterns already fully support —
-**no new engine changes**, no child tables, no external integration, no master-data mutation, clear approvers,
-low operational risk. Outside Work de-risks the scaffolding end-to-end with the least surface; Payment Request
-proves the reusable **amount/currency/tax-basis/proof/finance-adjust** pattern (near 1:1 reuse from AI Topup
-minus the account picker + fulfillment). Document Request and Data Request keep v1 as **simple approval**
-(defer any "issuance/data-delivery as fulfillment" to a later version unless intake says it's mandatory).
+### Wave 1 — simple approvals only, minimize new engine work (4 forms)
+**Included:** Outside Work (A/S) · Document Request (A/S–M) · Data Request (A/S–M) · **HR Activity (A/S–M)**.
+*(Employee Referral is the alternate 4th if HR Activity's intake turns out to involve budgeted amounts; pick
+whichever intake is simplest.)*
+> **Payment Request moved OUT of Wave 1** — the business clarification makes it a Pattern E / SCTS
+> digital-signing integration (see the note under Task 4 and Wave 3). It is **no longer** a simple amount form.
+**Why these first:** all fit **Pattern A** (simple approval), which the current engine + AI Topup patterns
+already fully support — **no new engine changes**, no child tables, no external integration, no master-data
+mutation, no amount/finance sensitivity, clear approvers, lowest operational risk. Outside Work de-risks the
+scaffolding end-to-end with the least surface; Document Request and Data Request keep v1 as **simple approval**
+(defer any "issuance / data-delivery as fulfillment" unless intake says it is mandatory).
 **Shared implementation pattern:** copy the AI Topup template structure — one business DocType, `api/<slug>.py`
 (read + write endpoints), `<slug>.main_section.html` following Template v1, a `p00x_create_<slug>_page` patch,
 tests; card stays inactive until UAT.
-**Estimated risk:** **Low.** Main risk is finance sensitivity on Payment Request (mitigate with the existing
-mandatory-comment-on-amount-change rule and clear approver config).
+**Estimated risk:** **Low** — no amount/finance, no integration, no master mutation in Wave 1.
 **Dependencies:** business intake for each of the 4 (fields, level design, approvers). No engine dependency.
 
 ### Wave 2 — medium forms, introduce the master-update (Pattern D) pattern
@@ -95,10 +97,22 @@ Promotion Request (A-D/M) · Employee Lateral Move (A-D/M) · Asset Request (D/M
 "master upsert with duplicate guard" utility (AI Topup already has the reference in `_upsert_account`).
 Effort mostly **M**, a few **L**.
 
-### Wave 3 — complex / child-table / integration (separate design gates)
-Daily Target Setting (M) · Daily Target — Project Level (L) · Hiring Request (L–XL) · Purchase Request (L–XL) ·
-Monthly Budget Setting (L–XL) · Annual Budget Setting (XL). Child tables / item lines / budget lines / possible
-document generation (PO, job opening) → each needs its own **report-first design gate** before coding.
+### Wave 3 — complex / integration (separate design gates)
+**Payment Request + SCTS digital signing (E / XL)** · Purchase Request (L–XL) · Annual Budget Setting (XL) ·
+Monthly Budget Setting (L–XL) · Daily Target Setting (M) · Daily Target — Project Level (L) · Hiring Request
+(L–XL). Child tables / item lines / budget lines / possible document generation (PO, job opening) and — for
+Payment Request — an **external SCTS digital-signing integration**. Each needs its own **report-first design
+gate** before coding.
+
+**Payment Request — do NOT build as a simple duplicate form.** Today users submit the payment document in
+**SCTS** for digital signing **and** again in the approval workflow (double work). The target is a single ERP
+submission: create in ERP → Approval Center internal approval → ERP prepares/sends the signing package to
+SCTS → SCTS signs → ERP receives the signed status/file → the Payment Request completes with audit +
+attachments. A separate **Payment Request + SCTS design gate** must cover: the current SCTS flow; signing
+package requirements; document templates; signer roles; file handoff; the signed-file callback (or a manual
+upload fallback); the audit trail; error/retry handling; and whether ERP can integrate directly with the SCTS
+API. Building it as a plain amount-approval that still forces a separate SCTS submission is explicitly out of
+scope.
 
 ## TASK 4 — Recommended Approval Form #2
 
@@ -106,7 +120,8 @@ document generation (PO, job opening) → each needs its own **report-first desi
 - **Why next:** the lowest-risk, fastest full end-to-end cycle (Pattern A, effort **S**) — no amount, no
   fulfillment, no master mutation, a single obvious approver (Direct Manager). It validates that Template v1
   drops onto the shared engine cleanly and produces a repeatable scaffold, before we take on the amount
-  pattern. (Strong runner-up / recommended **Form #3**: `Payment Request` — highest reuse, proves Pattern B.)
+  pattern. (Payment Request is **no longer** a near-term candidate — it is now a Wave 3 / Pattern E form
+  gated on the SCTS digital-signing integration design; see Wave 3.)
 - **Expected route:** `/approvals/outside-work`
 - **Expected business DocType:** `EC Outside Work Request`
 - **Expected process code:** `OUTSIDE_WORK-V1`
@@ -151,4 +166,4 @@ framework — **unless one becomes a hard blocker**, in which case raise it as a
 
 - **Business specifications for all 18 unbuilt forms are missing from the repo.** Names are known; fields,
   levels, approvers, and rules are not. Each form is blocked on its completed intake.
-- No engine/code blocker for Wave 1 (Pattern A/B are fully supported today).
+- No engine/code blocker for Wave 1 (all Pattern A — fully supported by the current engine today).
