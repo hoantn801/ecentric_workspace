@@ -369,8 +369,8 @@ async function run(){
   w.document.querySelector(".ec-ait-overlay [data-x]").click();
 
   // layout: content uses full width; create form is wrapped for readability
-  ok(/\.content\{[^}]*max-width:none/.test(HTML), "content uses full available width (no fixed 1180px right gutter)");
-  ok(/\.ait-formwrap\{/.test(HTML), "create form has a readable max-width wrapper");
+  ok(/\.content\{[^}]*max-width:1200px[^}]*margin:0 auto/.test(HTML), "content uses a balanced centered width (no excessive right gutter)");
+  ok(/\.ait-formwrap\{[^}]*max-width:none/.test(HTML), "create form wrapper aligns under header/tabs (no double-cap right gutter)");
   freshCtx(); w.AITopup.state.boot.form_options.ai_tools=[{value:"Claude",label:"Claude"}]; w.AITopup.state.draft={};
   w.history.pushState({}, "", "/approvals/ai-topup?tab=create"); w.AITopup.route(); await flush();
   ok(/class="ait-formwrap"/.test(w.document.getElementById("ait-body").innerHTML), "create form rendered inside .ait-formwrap");

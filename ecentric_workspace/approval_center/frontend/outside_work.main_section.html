@@ -33,8 +33,8 @@
   #ec-owrk-root .ec-main{ min-width:0;display:flex;flex-direction:column; }
   #ec-owrk-root .topbar{ background:#fff;border-bottom:1px solid var(--gray-200);min-height:60px;padding:0 24px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20; }
   #ec-owrk-root .crumb{ font-size:13px;color:var(--gray-500); } #ec-owrk-root .crumb strong{ color:var(--gray-900); }
-  #ec-owrk-root .content{ padding:22px 24px 48px;max-width:none;width:100%; }
-  #ec-owrk-root .ec-formwrap{ max-width:1040px; }
+  #ec-owrk-root .content{ padding:22px 24px 48px;max-width:1200px;margin:0 auto;width:100%; }
+  #ec-owrk-root .ec-formwrap{ max-width:none; }
   #ec-owrk-root h1.pg{ font-size:22px;font-weight:800;color:var(--gray-900);margin:0 0 2px;letter-spacing:-.3px; }
   #ec-owrk-root .pg-sub{ font-size:13px;color:var(--gray-500);margin:0 0 16px; }
   #ec-owrk-root .tabs{ display:flex;gap:4px;border-bottom:1px solid var(--gray-200);margin-bottom:18px;flex-wrap:wrap; }
@@ -211,6 +211,13 @@
   var MATERIAL=["work_type","start_date","end_date","duration_days","department"];
   function materialSnap(d){ return MATERIAL.map(function(k){return String((d||{})[k]||"");}).join("|"); }
 
+  function processPreviewHTML(){
+    var steps=[
+      {name:"Tạo yêu cầu",state:"current",statusLabel:"Đang thực hiện",meta:"Điền thông tin Outside Work."},
+      {name:"Quản lý trực tiếp duyệt",state:"upcoming",statusLabel:"Chờ",meta:"Quản lý trực tiếp xác nhận yêu cầu."},
+      {name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:"Yêu cầu được ghi nhận sau khi duyệt."}];
+    return '<div class="card" id="owrk-process-preview"><h3>Quy trình xử lý yêu cầu</h3><div class="stepper">'+renderStepsHTML(steps)+'</div><div class="hint" style="margin-top:8px">Yêu cầu Outside Work nên được gửi trước ít nhất 3 ngày.</div></div>';
+  }
   function renderCreate(b){
     var fo=state.boot&&state.boot.form_options||{}; var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
     var editing=state.mode==="edit"; var mgrBlock=!editing && c && !c.manager_resolvable;
@@ -220,7 +227,7 @@
     var actions = editing
       ? '<div class="actions"><button type="button" class="btn" id="owrk-edit-cancel">Hủy</button><button type="button" class="btn primary" id="owrk-resubmit">Gửi lại</button></div>'
       : '<div class="actions"><button type="button" class="btn" id="owrk-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="owrk-save">Lưu nháp</button><button type="button" class="btn primary" id="owrk-submit"'+(mgrBlock?" disabled":"")+'>Gửi yêu cầu</button></div>';
-    b.innerHTML = '<div class="ec-formwrap">' + head + formCardsHTML(d,c,fo) + actions + '</div>';
+    b.innerHTML = '<div class="ec-formwrap">' + (editing?"":processPreviewHTML()) + head + formCardsHTML(d,c,fo) + actions + '</div>';
     if(editing) state._origMaterial=materialSnap(d);
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); apply3Day(); wireCreate();

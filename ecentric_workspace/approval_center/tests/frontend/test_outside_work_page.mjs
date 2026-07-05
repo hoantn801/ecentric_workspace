@@ -51,6 +51,23 @@ async function run() {
   ok(/Key live/.test(cb()) && /Campaign/.test(cb()) && /Business trip/.test(cb()) && /Other/.test(cb()), "work_type options render");
   ok(/Nhập 0.5 nếu là nửa ngày\./.test(cb()), "duration helper appears");
 
+  // Polish 1: create-mode process preview card, before "Tiêu đề yêu cầu", exactly 3 steps
+  ok(!!w.document.getElementById("owrk-process-preview"), "create form shows a process preview card");
+  { const html = cb();
+    const iPrev = html.indexOf('id="owrk-process-preview"');
+    const iTitle = html.indexOf('data-model="request_title"');
+    ok(iPrev > -1 && iTitle > -1 && iPrev < iTitle, "process preview renders before the Tiêu đề (request_title) section"); }
+  { const pv = w.document.getElementById("owrk-process-preview");
+    ok((pv.querySelectorAll(".step").length) === 3, "preview has exactly 3 steps");
+    ok(/Tạo yêu cầu/.test(pv.innerHTML) && /Quản lý trực tiếp duyệt/.test(pv.innerHTML) && /Hoàn tất/.test(pv.innerHTML), "preview steps: Tạo yêu cầu / Quản lý trực tiếp duyệt / Hoàn tất");
+    ok(!/SLA/i.test(pv.innerHTML), "preview shows no misleading SLA text (SLA not configured for Outside Work)");
+    ok(/nên được gửi trước ít nhất 3 ngày/.test(pv.innerHTML), "preview carries the 3-day helper hint"); }
+
+  // Polish 2: balanced centered page container (same rule as AI Topup)
+  ok(/#ec-owrk-root .content\{[^}]*max-width:1200px[^}]*margin:0 auto/.test(HTML), "content uses a balanced centered width (no excessive right gutter)");
+  ok(/#ec-owrk-root .ec-formwrap\{[^}]*max-width:none/.test(HTML), "form wrapper aligns under header/tabs (no double-cap right gutter)");
+  ok(/@media \(max-width:1024px\)/.test(HTML), "responsive rule preserved for narrow screens");
+
   // 3-day warning appears but submit stays possible (non-blocking)
   const near = new Date(); near.setDate(near.getDate() + 1);
   const iso = near.toISOString().slice(0, 10);
