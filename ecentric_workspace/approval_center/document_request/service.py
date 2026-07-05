@@ -20,8 +20,8 @@ APPROVAL_TYPE = "DOCUMENT_REQUEST"
 MATERIAL_FIELDS = ["request_type", "document_name", "owner_department", "detail", "expected_response_date"]
 REQUIRED_AT_SUBMIT = ["request_title", "request_type", "document_name", "owner_department", "detail"]
 
-MSG_NO_OWNER = ("Khong tim thay nguoi phu trach cua Department da chon. "
-                "Vui long lien he Admin de cap nhat truoc khi gui yeu cau.")
+MSG_NO_OWNER = ("Không tìm thấy người phụ trách của Department đã chọn. "
+                "Vui lòng liên hệ Admin để cập nhật trước khi gửi yêu cầu.")
 
 
 def _signature(doc):
@@ -35,19 +35,10 @@ def _requester_context(user):
 
 
 def resolve_owner_user(owner_department):
-    """Department.department_head -> Employee.user_id, active System User only.
-    Same convention the engine uses; returns None if unresolvable (fail-closed)."""
-    if not owner_department:
-        return None
-    try:
-        head = frappe.db.get_value("Department", owner_department, "department_head")
-    except Exception:
-        head = None
-    user = head and frappe.db.get_value("Employee", head, "user_id")
-    if not user:
-        return None
-    row = frappe.db.get_value("User", user, ["enabled", "user_type"], as_dict=True)
-    return user if (row and row.enabled and row.user_type == "System User") else None
+    """Delegates to the shared, generic engine resolver so the frontend pre-check and
+    the engine snapshot stay in sync: Department.department_head -> Employee.user_id,
+    else Department.manager_email (active System User). Returns None if unresolvable."""
+    return engine.resolve_department_manager_user(owner_department)
 
 
 @frappe.whitelist(methods=["POST"])
