@@ -18,6 +18,7 @@
   "user",
   "role",
   "department",
+  "department_field",
   "sort_order"
  ],
  "fields": [
@@ -34,11 +35,11 @@
    "fieldname": "source_type",
    "fieldtype": "Select",
    "label": "Source Type",
-   "options": "User\nRole\nRequester Manager\nDepartment Manager",
+   "options": "User\nRole\nRequester Manager\nDepartment Manager\nReference Department Head",
    "default": "User",
    "reqd": 1,
    "in_list_view": 1,
-   "description": "How this participant resolves. Requester Manager = Employee.reports_to; Department Manager = Department.department_head."
+   "description": "How this participant resolves. Requester Manager = Employee.reports_to; Department Manager = Department.department_head; Reference Department Head = department_head of the Department named by 'department_field' on the business record."
   },
   {
    "fieldname": "user",
@@ -62,6 +63,13 @@
    "label": "Department",
    "options": "Department",
    "depends_on": "eval:doc.source_type=='Department Manager'"
+  },
+  {
+   "fieldname": "department_field",
+   "fieldtype": "Data",
+   "label": "Department Field",
+   "depends_on": "eval:doc.source_type=='Reference Department Head'",
+   "description": "Fieldname on the business DocType holding the owner Department (e.g. owner_department)."
   },
   {
    "fieldname": "sort_order",

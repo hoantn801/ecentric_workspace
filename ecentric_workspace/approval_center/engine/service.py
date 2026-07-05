@@ -67,7 +67,7 @@ def _is_active_system_user(user):
     return bool(row and row.enabled and row.user_type == "System User")
 
 
-def resolve_participants(participants, requester):
+def resolve_participants(participants, requester, context=None):
     """Expand EC Approval Participant rows to a de-duplicated ordered list of
     (user, source_label). No hardcoded identities; fail-closed on unresolved."""
     out, seen = [], set()
@@ -99,6 +99,24 @@ def resolve_participants(participants, requester):
                     head = None  # field absent -> fail closed
                 head_user = head and frappe.db.get_value("Employee", head, "user_id")
             _add(head_user, "Department Manager")  # _add re-checks active System User
+        elif st == "Reference Department Head":
+            # Generic, config-driven: resolve the Department named in a field of the business
+            # record (context) via the same Department.department_head -> Employee.user_id
+            # convention as "Department Manager". No hardcoded department or approver.
+            dept, fieldname = None, p.get("department_field")
+            if context and fieldname and context.get("reference_doctype") and context.get("reference_name"):
+                try:
+                    dept = frappe.db.get_value(context["reference_doctype"], context["reference_name"], fieldname)
+                except Exception:
+                    dept = None
+            head_user = None
+            if dept:
+                try:
+                    head = frappe.db.get_value("Department", dept, "department_head")
+                except Exception:
+                    head = None  # field absent -> fail closed
+                head_user = head and frappe.db.get_value("Employee", head, "user_id")
+            _add(head_user, "Reference Department Head")
     return out
 
 
@@ -244,7 +262,8 @@ def build_snapshot(req, process, levels, requester):
             "allows_amount_adjustment": lvl.allows_amount_adjustment, "level_status": "Pending",
         }).insert(ignore_permissions=True)
         approvers = resolve_participants(
-            [p for p in lvl.participants if p.participant_purpose == "Approver"], requester)
+            [p for p in lvl.participants if p.participant_purpose == "Approver"], requester,
+            context={"reference_doctype": req.reference_doctype, "reference_name": req.reference_name})
         if not approvers:
             frappe.throw(_("No approver resolved for level {0} ({1}). Submission blocked.").format(
                 lvl.level_no, lvl.level_name))
@@ -435,6 +454,7 @@ def _evaluate(req, level_no):
 _FULFILLMENT_HANDLERS = {
     "EC AI Topup Request": "ecentric_workspace.approval_center.ai_topup.service.on_final_approval",
     "EC Data Request": "ecentric_workspace.approval_center.data_request.service.on_final_approval",
+    "EC Document Request": "ecentric_workspace.approval_center.document_request.service.on_final_approval",
 }
 
 

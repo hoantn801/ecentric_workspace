@@ -18,6 +18,8 @@ def validate_participants(doc, fieldname):
         for f in ("user", "role", "department"):
             if f != relevant and p.get(f):
                 frappe.throw(_("Participant source_type '{0}' must not populate '{1}'.").format(st, f))
+        if st == "Reference Department Head" and not p.get("department_field"):
+            frappe.throw(_("Participant source_type 'Reference Department Head' requires 'department_field'."))
         key = (p.participant_purpose, st, p.get("user"), p.get("role"), p.get("department"))
         if key in seen:
             frappe.throw(_("Duplicate participant within the same parent and purpose."))
