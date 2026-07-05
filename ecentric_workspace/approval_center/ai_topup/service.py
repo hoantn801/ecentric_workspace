@@ -48,6 +48,10 @@ def submit(name):
         doc.company = doc.company or emp.company
     if not (doc.request_title or "").strip():
         frappe.throw(_("Request title is required before submitting."))
+    if doc.account_mode == "New Account" and doc.ai_tool and doc.proposed_account_email \
+            and frappe.db.exists("EC AI Account", {"ai_tool": doc.ai_tool,
+                                                   "account_email": normalize_email(doc.proposed_account_email)}):
+        frappe.throw(_("AI Account đã tồn tại cho tool và email này. Vui lòng chọn Tài khoản hiện có."))
     if not doc.approved_amount and doc.requested_amount:
         doc.approved_amount = doc.requested_amount   # controlled default (== requested); NOT a Finance adjustment
     doc.request_datetime = now_datetime()
@@ -155,9 +159,14 @@ def complete_fulfillment(name, user=None):
 
 def _upsert_account(doc):
     if doc.account_mode == "New Account":
+        _email = normalize_email(doc.actual_account_email or doc.proposed_account_email)
+        if frappe.db.exists("EC AI Account", {"ai_tool": doc.ai_tool, "account_email": _email}):
+            # account_key (ai_tool::email) is DB-unique; block instead of crashing on a duplicate insert
+            frappe.throw(_("AI Account này đã tồn tại. Vui lòng chuyển yêu cầu sang Tài khoản hiện có "
+                           "hoặc chọn đúng account trước khi hoàn tất."))
         acc = frappe.get_doc({
             "doctype": "EC AI Account", "ai_tool": doc.ai_tool,
-            "account_email": normalize_email(doc.actual_account_email or doc.proposed_account_email),
+            "account_email": _email,
             "account_manager": doc.confirmed_account_manager or doc.proposed_account_manager,
             "status": "Active", "current_plan": doc.actual_plan or doc.requested_plan,
             "billing_cycle": doc.billing_cycle, "company": doc.company,

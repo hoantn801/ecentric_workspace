@@ -945,3 +945,83 @@ class TestShareMessageSuppression(FrappeTestCase):
         name = _submit_fin(req, a, 100)                           # submit shares to Manager
         self.assertEqual(self._share_msgs(), [])
         frappe.set_user("Administrator")
+
+
+class TestAccountUpsertDuplicate(FrappeTestCase):
+    """Fulfillment completion must not crash on a duplicate EC AI Account (account_key unique)."""
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def _acct(self, email, mgr):
+        return frappe.get_doc({"doctype": "EC AI Account", "ai_tool": _tool(), "account_email": email,
+                               "account_manager": _user(mgr), "status": "Active"}).insert(ignore_permissions=True).name
+
+    def _complete_payload(self, mgr, email=None, ai_account=None, plan=None):
+        p = {"actual_amount": 100, "actual_currency": "USD", "topup_datetime": frappe.utils.now_datetime(),
+             "transaction_reference": "T", "payment_proof": "/f/p", "invoice_status": "No Invoice Issued",
+             "no_invoice_reason": "r", "confirmed_account_manager": mgr}
+        if email: p["actual_account_email"] = email
+        if ai_account: p["actual_ai_account"] = ai_account
+        if plan: p["actual_plan"] = plan
+        return frappe.as_json(p)
+
+    def _new_to_claimed(self, req, a, f, email):
+        frappe.set_user(req)
+        res = api.save_draft(payload=frappe.as_json({
+            "account_mode": "New Account", "ai_tool": _tool(), "proposed_account_email": email,
+            "proposed_account_manager": _user("zzb3_dup_pm@example.com"),
+            "request_title": "DUP", "requested_amount": 100, "currency": "USD"}))
+        name = res["name"]; api.submit_request(name)
+        frappe.set_user(a); api.approve(name); api.approve(name)   # 2-level -> Approved -> Assigned
+        frappe.set_user(f); api.claim_fulfillment(name)
+        return name
+
+    def test_new_account_completion_creates_when_no_duplicate(self):
+        a = _user("zzb3_dup_a@example.com"); f = _user("zzb3_dup_f@example.com"); req = _user("zzb3_dup_r@example.com")
+        _proc_with_fulfiller(a, f)
+        name = self._new_to_claimed(req, a, f, "newuniq@example.com")
+        frappe.set_user(f)
+        api.complete_fulfillment(name, payload=self._complete_payload(f, email="newuniq@example.com"))
+        frappe.set_user("Administrator")
+        self.assertEqual(frappe.db.get_value(api.BIZ, name, "fulfillment_status"), "Completed")
+        self.assertEqual(frappe.db.count("EC AI Account", {"ai_tool": _tool(), "account_email": "newuniq@example.com"}), 1)
+
+    def test_new_account_completion_duplicate_friendly_no_crash(self):
+        a = _user("zzb3_dup_a2@example.com"); f = _user("zzb3_dup_f2@example.com"); req = _user("zzb3_dup_r2@example.com")
+        _proc_with_fulfiller(a, f)
+        name = self._new_to_claimed(req, a, f, "dupe@example.com")
+        self._acct("dupe@example.com", "zzb3_dup_am@example.com")   # colliding account created after submit (race)
+        frappe.set_user(f)
+        with self.assertRaises(frappe.exceptions.ValidationError):    # friendly ValidationError, NOT IntegrityError
+            api.complete_fulfillment(name, payload=self._complete_payload(f, email="dupe@example.com"))
+        frappe.set_user("Administrator")
+        self.assertEqual(frappe.db.count("EC AI Account", {"ai_tool": _tool(), "account_email": "dupe@example.com"}), 1)  # no dup
+        self.assertNotEqual(frappe.db.get_value(api.BIZ, name, "fulfillment_status"), "Completed")   # not marked complete
+
+    def test_submit_blocked_when_new_account_already_exists(self):
+        a = _user("zzb3_dup_a3@example.com"); req = _user("zzb3_dup_r3@example.com")
+        _proc_with_fulfiller(a, a)
+        self._acct("exists@example.com", "zzb3_dup_am3@example.com")
+        frappe.set_user(req)
+        res = api.save_draft(payload=frappe.as_json({
+            "account_mode": "New Account", "ai_tool": _tool(), "proposed_account_email": "exists@example.com",
+            "proposed_account_manager": _user("zzb3_dup_pm3@example.com"), "request_title": "X", "requested_amount": 100}))
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.submit_request(res["name"])
+
+    def test_existing_account_completion_updates_no_duplicate(self):
+        a = _user("zzb3_dup_a4@example.com"); f = _user("zzb3_dup_f4@example.com"); req = _user("zzb3_dup_r4@example.com")
+        _proc_with_fulfiller(a, f)
+        acc = self._acct("exist4@example.com", "zzb3_dup_am4@example.com")
+        before = frappe.db.count("EC AI Account")
+        frappe.set_user(req)
+        res = api.save_draft(payload=frappe.as_json({
+            "account_mode": "Existing Account", "ai_account": acc, "request_title": "E", "requested_amount": 50}))
+        name = res["name"]; api.submit_request(name)
+        frappe.set_user(a); api.approve(name); api.approve(name)
+        frappe.set_user(f); api.claim_fulfillment(name)
+        api.complete_fulfillment(name, payload=self._complete_payload(f, ai_account=acc, plan="New Plan"))
+        frappe.set_user("Administrator")
+        self.assertEqual(frappe.db.count("EC AI Account"), before)                          # no new account inserted
+        self.assertEqual(frappe.db.get_value("EC AI Account", acc, "current_plan"), "New Plan")   # linked account updated

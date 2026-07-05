@@ -656,6 +656,13 @@ async function run(){
     ok(w.document.getElementById("ait-toast").textContent === "Đã duyệt yêu cầu. Yêu cầu đã chuyển sang Finance Review.", "approve success toast shows the next level (Finance Review)");
     w.frappe.call = OC; }
 
+  // ---- UAT: duplicate AI Account -> friendly message, never raw DB ----
+  ok(w.AITopup.mapErr({ message:"AI Account này đã tồn tại. Vui lòng chuyển yêu cầu sang Tài khoản hiện có hoặc chọn đúng account trước khi hoàn tất." }) === "AI Account này đã tồn tại. Vui lòng chuyển yêu cầu sang Tài khoản hiện có hoặc chọn đúng account trước khi hoàn tất.", "backend friendly duplicate message passes through");
+  ok(w.AITopup.mapErr({ message:"Account Key must be unique" }) === "AI Account này đã tồn tại. Vui lòng chuyển yêu cầu sang Tài khoản hiện có hoặc chọn đúng account trước khi hoàn tất.", "raw 'Account Key must be unique' mapped to friendly duplicate message");
+  ok(/AI Account này đã tồn tại/.test(w.AITopup.mapErr({ message:"(1062, \"Duplicate entry 'ChatGPT / OpenAI::hoantn801@gmail.com' for key 'account_key'\")" })), "raw duplicate-entry (account_key) mapped to friendly message");
+  ok(w.AITopup.mapErr({ message:"pymysql.err.IntegrityError: (1048, \"Column x cannot be null\")" }) === "Không thể hoàn tất do dữ liệu không hợp lệ. Vui lòng kiểm tra lại hoặc liên hệ quản trị viên.", "unrelated raw DB/IntegrityError -> generic message (no raw DB text)");
+  ok(!/account_key|IntegrityError|Duplicate entry|1062|1048/.test(w.AITopup.mapErr({ message:"(1062, \"Duplicate entry ... for key 'account_key'\")" })), "no DB key names / codes leaked to the user");
+
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);
 }
