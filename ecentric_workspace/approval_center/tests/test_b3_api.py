@@ -845,3 +845,49 @@ class TestAccountPicker(FrappeTestCase):
         det = api.get_ai_account_detail(a)
         self.assertTrue(det and det["name"] == a and det["ai_tool"] == t and det["current_plan"] == "P4")
         self.assertIsNone(api.get_ai_account_detail("EC-AIACC-DOES-NOT-EXIST"))
+
+
+class TestResubmitInformationRequired(FrappeTestCase):
+    """Information Required -> resubmit must not crash on NOT NULL info field and returns to the same level."""
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def _ar(self, name):
+        return frappe.db.get_value(api.BIZ, name, "approval_request")
+
+    def test_resubmit_after_information_required(self):
+        a = _user("zzb3_ir_a@example.com"); req = _user("zzb3_ir_r@example.com")
+        _proc_with_fulfiller(a, a)                       # L1 Manager(a), L2 Finance(a)
+        name = _submit_fin(req, a, 100); ar = self._ar(name)
+        frappe.set_user(a)
+        api.approve(name)                                # L1 approved -> L2 current
+        api.request_information(name, comment="Bổ sung ABC")   # info requested from L2
+        self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "approval_status"), "Information Required")
+        self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "information_requested_from_level"), 2)
+        # requester resubmits (non-material change) -> must NOT raise IntegrityError
+        frappe.set_user(req)
+        res = api.resubmit(name, payload=frappe.as_json({"requester_note": "updated info per request"}))
+        self.assertFalse(res["restarted"])               # returns to same level, not restarted
+        frappe.set_user("Administrator")
+        self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "approval_status"), "Pending")
+        self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "current_level"), 2)     # same requesting level
+        self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "information_requested_from_level"), 0)  # cleared safely (not NULL)
+        # approvable again by the current-level approver
+        self.assertIn(a, frappe.get_all("ToDo", filters={"reference_type": api.BIZ, "reference_name": name,
+                                                          "status": "Open"}, pluck="allocated_to"))
+        frappe.set_user(a); api.approve(name)            # L2 approve -> request Approved
+        frappe.set_user("Administrator")
+        self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "approval_status"), "Approved")
+        # timeline retains the information-request + resubmit audit
+        acts = frappe.get_all("EC Approval Action", filters={"approval_request": ar}, pluck="action")
+        self.assertIn("Information Requested", acts)
+        self.assertIn("Resubmitted", acts)
+
+    def test_resubmit_blocked_when_not_information_required(self):
+        a = _user("zzb3_ir_a2@example.com"); req = _user("zzb3_ir_r2@example.com")
+        _proc_with_fulfiller(a, a)
+        name = _submit_fin(req, a, 100)                  # Pending at L1, not Information Required
+        frappe.set_user(req)
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.resubmit(name, payload=frappe.as_json({"requester_note": "x"}))

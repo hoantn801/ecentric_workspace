@@ -352,7 +352,7 @@ def resubmit(request_name, actor=None, restart=False):
                 frappe.db.set_value("EC Approval Request Approver", ap,
                                     {"status": "Pending", "decided_at": None, "comment": None})
     frappe.db.set_value("EC Approval Request", request_name,
-                        {"approval_status": "Pending", "information_requested_from_level": None})
+                        {"approval_status": "Pending", "information_requested_from_level": 0})   # Int NOT NULL: clear with 0, never None
     log_action(request_name, "Restarted" if restart else "Resubmitted", actor or req.requested_by,
                resume, comment=_("Restarted from level 1 (material change)") if restart else None,
                new_status="Pending")
