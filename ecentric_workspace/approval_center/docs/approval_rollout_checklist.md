@@ -18,7 +18,7 @@ UAT: `not started` / `in UAT` / `passed` / `blocked`. Wave from the backlog plan
 | # | Approval | Code | Route | Wave | Fulfillment | Schema | Backend | Frontend | Tests | Deployed | UAT | Published | Notes / blockers |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 1 | AI Topup | AI_TOPUP | /approvals/ai-topup | 0 | yes | OK | OK | OK | OK | OK | passed | **OK** | Reference implementation (Live) |
-| 2 | Outside Work | OUTSIDE_WORK | /approvals/outside-work | 1 | no | - | - | - | - | - | not started | - | Recommended Form #2; needs intake |
+| 2 | Outside Work | OUTSIDE_WORK | /approvals/outside-work | 1 | no | OK | OK | OK | OK | - | not started | - | Implemented (form #2). Backend suite ready (needs bench); not deployed/UAT |
 | 3 | Payment Request | PAYMENT_REQUEST | /approvals/payment-request | 3 | maybe | - | - | - | - | - | not started | - | **Pattern E — SCTS digital-signing integration; separate design gate (no double SCTS submit)** |
 | 4 | Document Request | DOCUMENT_REQUEST | /approvals/document-request | 1 | maybe | - | - | - | - | - | not started | - | Keep simple in v1 |
 | 5 | Data Request | DATA_REQUEST | /approvals/data-request | 1 | maybe | - | - | - | - | - | not started | - | Keep simple in v1 |
