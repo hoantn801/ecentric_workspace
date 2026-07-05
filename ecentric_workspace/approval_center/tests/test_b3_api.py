@@ -891,3 +891,57 @@ class TestResubmitInformationRequired(FrappeTestCase):
         frappe.set_user(req)
         with self.assertRaises(frappe.exceptions.ValidationError):
             api.resubmit(name, payload=frappe.as_json({"requester_note": "x"}))
+
+
+class TestShareMessageSuppression(FrappeTestCase):
+    """Approval actions must not surface Frappe 'Shared with ... Read access' popups, while still
+    creating the DocShare + next-level ToDos and advancing the level."""
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def _share_msgs(self):
+        out = []
+        for m in (frappe.local.message_log or []):
+            t = m if isinstance(m, str) else (str(m.get("message", "")) if isinstance(m, dict) else str(m))
+            if "Shared with" in t or "Read access" in t:
+                out.append(t)
+        return out
+
+    def test_operation_approve_silent_advances_and_shares(self):
+        m = _user("zzb3_shr_m@example.com"); o1 = _user("zzb3_shr_o1@example.com"); o2 = _user("zzb3_shr_o2@example.com")
+        fin = _user("zzb3_shr_fin@example.com"); f = _user("zzb3_shr_f@example.com"); req = _user("zzb3_shr_r@example.com")
+        _proc_todo(m, o1, o2, fin, f)
+        name = _submit_fin(req, m, 100); ar = frappe.db.get_value(api.BIZ, name, "approval_request")
+        frappe.set_user(m); api.approve(name)                     # L1 -> L2 Operation
+        frappe.set_user(o1)
+        frappe.local.message_log = []                             # isolate the Operation-approve response
+        api.approve(name)                                         # L2 Operation -> L3 Finance (shares to Finance users)
+        self.assertEqual(self._share_msgs(), [])                  # no raw share popups surfaced
+        frappe.set_user("Administrator")
+        self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "current_level"), 3)   # advanced to Finance
+        opens = frappe.get_all("ToDo", filters={"reference_type": api.BIZ, "reference_name": name,
+                                                "status": "Open"}, pluck="allocated_to")
+        self.assertIn(fin, opens)                                 # Finance ToDo created
+        # actual read-access share still exists for the assigned Finance user
+        self.assertTrue(frappe.db.exists("DocShare", {"share_doctype": api.BIZ, "share_name": name, "user": fin}))
+
+    def test_admin_override_silent(self):
+        sm = _user("zzb3_shr_sm@example.com", roles=("Employee", "System Manager"))
+        a = _user("zzb3_shr_a2@example.com"); f = _user("zzb3_shr_f2@example.com"); req = _user("zzb3_shr_r2@example.com")
+        _proc_with_fulfiller(a, f)
+        name = _submit_fin(req, a, 100)
+        frappe.set_user(sm)
+        frappe.local.message_log = []
+        api.admin_approve_current_level(name, reason="uat")       # advances + shares next level
+        self.assertEqual(self._share_msgs(), [])
+        frappe.set_user("Administrator")
+
+    def test_submit_and_resubmit_silent(self):
+        a = _user("zzb3_shr_a3@example.com"); req = _user("zzb3_shr_r3@example.com")
+        _proc_with_fulfiller(a, a)
+        frappe.set_user(req)
+        frappe.local.message_log = []
+        name = _submit_fin(req, a, 100)                           # submit shares to Manager
+        self.assertEqual(self._share_msgs(), [])
+        frappe.set_user("Administrator")
