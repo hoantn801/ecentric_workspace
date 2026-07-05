@@ -126,29 +126,58 @@ def notify(users, subject, doctype, name):
             frappe.log_error(title="approval_center notify failed")
 
 
+def _drop_share_messages():
+    """Remove Frappe's 'Shared with ... Read access' / assignment info messages from the request
+    message_log so they never surface as popups to the end user (the actual DocShare stays)."""
+    log = getattr(frappe.local, "message_log", None)
+    if not log:
+        return
+    def _txt(m):
+        if isinstance(m, str):
+            return m
+        if isinstance(m, dict):
+            return str(m.get("message", ""))
+        return str(m)
+    frappe.local.message_log = [m for m in log
+                                if not any(k in _txt(m) for k in ("Read access", "Shared with", "shared with"))]
+
+
 def assign(doctype, name, users, description=None):
     """Canonical Frappe assignment (frappe.desk.form.assign_to.add). Idempotent:
     skips a user who already has an OPEN ToDo, so no duplicate open assignment.
-    Real errors PROPAGATE so a failed assignment rolls back the transaction."""
+    Silent: mutes Frappe's share/assignment msgprints (no popups) while KEEPING the actual
+    DocShare read access + ToDo. Real errors PROPAGATE so a failed assignment rolls back."""
     from frappe.desk.form.assign_to import add as _add
-    for u in [x for x in dict.fromkeys(users) if x and x != "Guest"]:
-        if frappe.db.exists("ToDo", {"reference_type": doctype, "reference_name": name,
-                                     "allocated_to": u, "status": "Open"}):
-            continue
-        _add({"assign_to": [u], "doctype": doctype, "name": name,
-              "description": description or _("Approval Center task")})
+    prev = frappe.flags.mute_messages
+    frappe.flags.mute_messages = True
+    try:
+        for u in [x for x in dict.fromkeys(users) if x and x != "Guest"]:
+            if frappe.db.exists("ToDo", {"reference_type": doctype, "reference_name": name,
+                                         "allocated_to": u, "status": "Open"}):
+                continue
+            _add({"assign_to": [u], "doctype": doctype, "name": name,
+                  "description": description or _("Approval Center task")})
+    finally:
+        frappe.flags.mute_messages = prev
+    _drop_share_messages()
 
 
 def close_todos(doctype, name, keep_user=None):
     """Close obsolete assignments via the canonical helper
     (frappe.desk.form.assign_to.remove) so _assign + the audit comment stay
-    consistent - not raw ToDo mutation."""
+    consistent - not raw ToDo mutation. Silent (no share/unassign popups)."""
     from frappe.desk.form.assign_to import remove as _remove
-    for td in frappe.get_all("ToDo", filters={"reference_type": doctype, "reference_name": name,
-                                              "status": "Open"}, fields=["allocated_to"]):
-        if keep_user and td.allocated_to == keep_user:
-            continue
-        _remove(doctype, name, td.allocated_to)
+    prev = frappe.flags.mute_messages
+    frappe.flags.mute_messages = True
+    try:
+        for td in frappe.get_all("ToDo", filters={"reference_type": doctype, "reference_name": name,
+                                                  "status": "Open"}, fields=["allocated_to"]):
+            if keep_user and td.allocated_to == keep_user:
+                continue
+            _remove(doctype, name, td.allocated_to)
+    finally:
+        frappe.flags.mute_messages = prev
+    _drop_share_messages()
 
 
 # --------------------------------------------------------------------------- #

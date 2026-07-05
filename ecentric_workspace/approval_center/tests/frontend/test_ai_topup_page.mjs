@@ -644,6 +644,18 @@ async function run(){
   ok(w.AITopup.resubmitErr({ message:"Only an Information Required request can be resubmitted." }) === "Only an Information Required request can be resubmitted.", "resubmit surfaces a safe backend validation message");
   ok(w.AITopup.resubmitErr({ message:"(1048, \"Column 'information_requested_from_level' cannot be null\")" }) === "Không thể gửi lại yêu cầu. Vui lòng thử lại hoặc liên hệ quản trị viên.", "resubmit 500/IntegrityError -> generic message (not stale, no raw SQL)");
 
+  // ---- UAT: clean approve success (next level) ; no raw share modal ----
+  ok(w.AITopup.nextLevelName({ approval:{ approval_status:"Pending", current_level:3 }, levels:[{level_no:3,level_name:"Finance Review"}] }) === "Finance Review", "nextLevelName resolves the advanced level");
+  ok(w.AITopup.nextLevelName({ approval:{ approval_status:"Approved" } }) === "", "nextLevelName empty when request is fully Approved");
+  // approve success toast reflects the next level from the response
+  { const OC = w.frappe.call.bind(w.frappe);
+    w.frappe.call = (o) => { if (o.method.endsWith("approve")) return Promise.resolve({ message: { detail: { approval:{ approval_status:"Pending", current_level:3 }, levels:[{level_no:3,level_name:"Finance Review"}] } } }); return OC(o); };
+    w.AITopup.doApprove("R-1", { approval:{ name:"AR-1", approval_status:"Pending", current_level:2 }, business:{ name:"R-1", requested_amount:100 }, levels:[{level_no:2,level_name:"Operation Review"},{level_no:3,level_name:"Finance Review"}], capabilities:{} });
+    await flush();
+    w.document.querySelector(".ec-ait-overlay [data-ok]").click(); await flush(); await flush();
+    ok(w.document.getElementById("ait-toast").textContent === "Đã duyệt yêu cầu. Yêu cầu đã chuyển sang Finance Review.", "approve success toast shows the next level (Finance Review)");
+    w.frappe.call = OC; }
+
   console.log(fails===0 ? "\nALL AI TOPUP PAGE TESTS PASSED" : ("\nFAILURES: "+fails));
   process.exit(fails===0?0:1);
 }
