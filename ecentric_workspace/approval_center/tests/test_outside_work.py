@@ -286,3 +286,38 @@ class TestOutsideWorkSetupActivation(FrappeTestCase):
         self.assertEqual(r["result"], "UAT_ENABLED")
         self.assertEqual(frappe.db.get_value("EC Approval Process",
                          {"process_code": "OUTSIDE_WORK-V1"}, "status"), "Active")
+
+
+class TestOutsideWorkPageSync(FrappeTestCase):
+    """Whitelisted, idempotent Web Page sync: created -> unchanged -> updated; SM-only."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.addClassCleanup(lambda: frappe.set_user("Administrator"))
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def test_sync_created_unchanged_updated(self):
+        if not frappe.db.exists("DocType", "Web Page"):
+            self.skipTest("Web Page DocType not installed")
+        from ecentric_workspace.approval_center.outside_work import page_sync
+        # start clean
+        for n in frappe.get_all("Web Page", filters={"route": page_sync.ROUTE}, pluck="name"):
+            frappe.delete_doc("Web Page", n, ignore_permissions=True, force=1)
+        r1 = page_sync.sync()
+        self.assertEqual(r1["action"], "created")
+        self.assertEqual(r1["route"], "approvals/outside-work")
+        r2 = page_sync.sync()
+        self.assertEqual(r2["action"], "unchanged")                 # idempotent, same source
+        r3 = page_sync.sync(html="<div>changed</div>")
+        self.assertEqual(r3["action"], "updated")
+
+    def test_sync_endpoint_sm_only(self):
+        u = _user(PFX + "psync_plain@example.com")                  # no System Manager
+        from ecentric_workspace.approval_center.outside_work import page_sync
+        frappe.set_user(u)
+        with self.assertRaises(frappe.exceptions.PermissionError):
+            page_sync.sync_outside_work_page()
+        frappe.set_user("Administrator")
