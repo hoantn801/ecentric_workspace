@@ -10,6 +10,7 @@ from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import daily_target as api
 from ecentric_workspace.approval_center.daily_target import setup as dtsetup
+from ecentric_workspace.approval_center.daily_target import page_sync
 
 PFX = "ZZDT_"
 CM = PFX + "cm@example.com"     # Commercial Manager (project)
@@ -154,3 +155,24 @@ class TestDailyTarget(FrappeTestCase):
         src = frappe.get_all("EC Approval Request Approver",
                              filters={"approval_request": ar, "level_no": 1}, fields=["approver", "source"])
         self.assertTrue(all(r.source == "Configured User" for r in src))
+
+    def test_page_sync_idempotent_no_duplicate(self):
+        if not frappe.db.exists("DocType", "Web Page"):
+            self.skipTest("Web Page DocType not installed")
+        slug = page_sync.NAME
+        for n in list(frappe.get_all("Web Page", filters={"route": page_sync.ROUTE}, pluck="name")):
+            frappe.delete_doc("Web Page", n, ignore_permissions=True, force=1)
+        if frappe.db.exists("Web Page", slug):
+            frappe.delete_doc("Web Page", slug, ignore_permissions=True, force=1)
+        r1 = page_sync.sync()
+        self.assertEqual(r1["action"], "created")
+        self.assertEqual(page_sync.sync()["action"], "unchanged")           # re-run: no insert
+        self.assertEqual(page_sync.sync(html="<div>x</div>")["action"], "updated")
+        # simulate a partial-migrate page whose route drifted: a plain route lookup would miss,
+        # but the slug-named page still exists -> re-sync must ADOPT+UPDATE it (no DuplicateEntryError)
+        frappe.db.set_value("Web Page", r1["name"], "route", "zz-drift/" + slug)
+        r2 = page_sync.sync()
+        self.assertEqual(r2["action"], "updated")
+        self.assertEqual(r2["name"], r1["name"])
+        self.assertEqual(frappe.db.get_value("Web Page", r1["name"], "route"), page_sync.ROUTE)
+        self.assertEqual(frappe.db.count("Web Page", {"name": r1["name"]}), 1)
