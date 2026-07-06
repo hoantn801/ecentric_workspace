@@ -207,11 +207,23 @@ class TestSystemRequest(FrappeTestCase):
         self.assertEqual(str(frappe.db.get_value(api.BIZ, name, "operation_expected_completion_date")), "2026-09-01")
         self.assertEqual(frappe.db.get_value(api.BIZ, name, "operation_note"), "batch")
 
-    def test_page_sync_created_unchanged_updated(self):
+    def test_page_sync_idempotent_no_duplicate(self):
         if not frappe.db.exists("DocType", "Web Page"):
             self.skipTest("Web Page DocType not installed")
-        for n in frappe.get_all("Web Page", filters={"route": page_sync.ROUTE}, pluck="name"):
+        slug = page_sync.NAME
+        for n in list(frappe.get_all("Web Page", filters={"route": page_sync.ROUTE}, pluck="name")):
             frappe.delete_doc("Web Page", n, ignore_permissions=True, force=1)
-        self.assertEqual(page_sync.sync()["action"], "created")
-        self.assertEqual(page_sync.sync()["action"], "unchanged")
+        if frappe.db.exists("Web Page", slug):
+            frappe.delete_doc("Web Page", slug, ignore_permissions=True, force=1)
+        r1 = page_sync.sync()
+        self.assertEqual(r1["action"], "created")
+        self.assertEqual(page_sync.sync()["action"], "unchanged")           # re-run: no insert
         self.assertEqual(page_sync.sync(html="<div>x</div>")["action"], "updated")
+        # simulate a partial-migrate page whose route drifted: a plain route lookup would miss,
+        # but the slug-named page still exists -> re-sync must ADOPT+UPDATE it (no DuplicateEntryError)
+        frappe.db.set_value("Web Page", r1["name"], "route", "zz-drift/" + slug)
+        r2 = page_sync.sync()
+        self.assertEqual(r2["action"], "updated")
+        self.assertEqual(r2["name"], r1["name"])
+        self.assertEqual(frappe.db.get_value("Web Page", r1["name"], "route"), page_sync.ROUTE)
+        self.assertEqual(frappe.db.count("Web Page", {"name": r1["name"]}), 1)

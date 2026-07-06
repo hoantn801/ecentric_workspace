@@ -1,15 +1,17 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Versioned, idempotent Daily Target Web Page sync. The page patch creates the
-page once at migrate (run-once); Frappe will not re-run it, so frontend changes
-need this whitelisted, admin-safe re-sync. Publishes the page for controlled/direct
-UAT; NEVER activates the catalog card. No Approval Engine change."""
+"""Idempotent Daily Target Web Page sync. Delegates to the shared, ORM-only upsert
+(approval_center.page_sync_util) so migrate re-runs / prior syncs never raise
+DuplicateEntryError. Publishes the page for controlled/direct UAT; NEVER activates
+the catalog card. No Approval Engine change."""
 import os
 
 import frappe
 from frappe import _
 
+from ecentric_workspace.approval_center import page_sync_util
+
 ROUTE = "approvals/daily-target"
-NAME = "approval-center-daily-target"
+NAME = "daily-target"               # Web Page is named after the route slug by Frappe
 TITLE = "Daily Target"
 
 
@@ -20,32 +22,10 @@ def _html():
 
 
 def sync(html=None):
-    """Create-or-update the Web Page from source. Idempotent.
+    """Create-or-update the Web Page from source. Idempotent (safe to re-run / re-migrate).
     Returns {action: created|updated|unchanged, route, name}."""
-    if not frappe.db.exists("DocType", "Web Page"):
-        return {"action": "skipped", "reason": "Web Page DocType missing", "route": ROUTE, "name": NAME}
     html = html if html is not None else _html()
-    name = NAME if frappe.db.exists("Web Page", NAME) else None
-    if not name:
-        found = frappe.get_all("Web Page", filters={"route": ROUTE}, pluck="name")
-        name = found[0] if found else None
-    existed = bool(name)
-    doc = frappe.get_doc("Web Page", name) if name else frappe.new_doc("Web Page")
-    if existed and (doc.main_section or "") == html and (doc.main_section_html or "") == html \
-            and doc.published and doc.title == TITLE:
-        return {"action": "unchanged", "route": ROUTE, "name": doc.name}
-    if not existed:
-        doc.route = ROUTE
-    doc.title = TITLE
-    doc.published = 1
-    doc.content_type = "HTML"
-    doc.main_section = html
-    doc.main_section_html = html
-    doc.save(ignore_permissions=True)
-    frappe.db.commit()
-    action = "updated" if existed else "created"
-    frappe.logger("approval_center").info("daily_target page_sync: %s Web Page /%s" % (action, ROUTE))
-    return {"action": action, "route": ROUTE, "name": doc.name}
+    return page_sync_util.upsert_web_page(ROUTE, NAME, TITLE, html)
 
 
 @frappe.whitelist(methods=["POST"])
