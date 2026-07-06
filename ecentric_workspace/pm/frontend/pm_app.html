@@ -1013,7 +1013,7 @@
       var depts=res[1];if(!Array.isArray(depts)){depts=(depts&&depts.message)||[];}
       if(!depts.length){var seen={};depts=[];(window._pm_projects).forEach(function(p){if(p.ec_department&&!seen[p.ec_department]){seen[p.ec_department]=1;depts.push({name:p.ec_department,department_name:p.ec_department});}});} /* fallback: derive from projects if Department read unavailable */
       window._pm_departments=depts;var view=pmProjView();
-      c.innerHTML=head("Dự án",(r.total||0)+" dự án trong phạm vi của bạn",(window._isLeader?'<button class="pm-btn primary" id="pm-newproj"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Dự án mới</button>':''))+
+      c.innerHTML=head("Dự án",(r.total||0)+" dự án trong phạm vi của bạn",'<button class="pm-btn primary" id="pm-newproj"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Dự án mới</button>')+ /* G5.2 adoption policy: any PM user can create a Project (backend still validates; delete stays leader-only) */
         '<div class="project-toolbar"><span class="pm-vtoggle" id="pm-vtoggle"><button data-pv="card"'+(view==="card"?' class="active"':'')+'>Thẻ</button><button data-pv="list"'+(view==="list"?' class="active"':'')+'>Danh sách</button></span>'+
         '<div class="project-toolbar-r"><input class="pm-input" id="pm-pq" placeholder="Tìm dự án..."><select class="pm-sel" id="pm-pf"><option value="">Tất cả trạng thái</option><option>Open</option><option>Completed</option><option>Cancelled</option></select><select class="pm-sel" id="pm-pdept">'+pmDeptFilterOptions("")+'</select></div></div>'+
         '<div id="pm-ptbl"></div>';

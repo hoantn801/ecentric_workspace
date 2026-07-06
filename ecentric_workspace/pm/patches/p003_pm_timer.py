@@ -36,7 +36,10 @@ def execute():
         "permissions": [
             {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
             {"role": "PM Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
-            {"role": "PM Member", "read": 1, "write": 1, "create": 1, "delete": 1},
+            # PM Member: NO delete. Stop-timer deletes the transient row via the service
+            # layer (timer.stop -> delete_doc ignore_permissions=True), so members do not
+            # need generic delete DocPerm. Delete stays PM Manager / System Manager only.
+            {"role": "PM Member", "read": 1, "write": 1, "create": 1, "delete": 0},
         ],
     }).insert(ignore_permissions=True)
     frappe.clear_cache()
