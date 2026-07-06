@@ -21,11 +21,33 @@ def _html():
         return fh.read()
 
 
+# Desk-style client APIs a legacy head_html shim may contain. Our main_section is fully
+# self-contained (own shell markup + styles) and needs no head_html, so if the live Web Page
+# still carries such a shim we strip it (it POSTs to "/" on a website page and pops a false
+# "not found"). Surgical: only clears head_html when it actually contains one of these.
+_HEAD_SHIM_MARKERS = ("frappe.db.get_doc", "frappe.db.get_value", "frappe.client")
+
+
+def _strip_head_shim(name):
+    """Remove a legacy Desk-style shim from the Web Page head_html (ORM-only, non-destructive
+    to legitimate head_html). Returns True if it stripped one."""
+    head = frappe.db.get_value("Web Page", name, "head_html") or ""
+    if any(m in head for m in _HEAD_SHIM_MARKERS):
+        frappe.db.set_value("Web Page", name, "head_html", "")
+        frappe.db.commit()
+        frappe.logger("approval_center").info("system_request page_sync: stripped legacy head_html shim")
+        return True
+    return False
+
+
 def sync(html=None):
     """Create-or-update the Web Page from source. Idempotent (safe to re-run / re-migrate).
-    Returns {action: created|updated|unchanged, route, name}."""
+    Also strips any legacy Desk-style head_html shim. Returns {action, route, name, head_stripped}."""
     html = html if html is not None else _html()
-    return page_sync_util.upsert_web_page(ROUTE, NAME, TITLE, html)
+    res = page_sync_util.upsert_web_page(ROUTE, NAME, TITLE, html)
+    if res.get("name") and frappe.db.exists("Web Page", res["name"]):
+        res["head_stripped"] = _strip_head_shim(res["name"])
+    return res
 
 
 @frappe.whitelist(methods=["POST"])
