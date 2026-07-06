@@ -14,6 +14,7 @@ from frappe.tests.utils import FrappeTestCase
 from ecentric_workspace.approval_center.patches import (
     p001_seed_approval_categories as p001,
     p002_seed_approval_types as p002,
+    p014_seed_system_request_approval_type as p014,
 )
 
 CAT = "EC Approval Category"
@@ -34,7 +35,7 @@ class TestApprovalCenterSeed(FrappeTestCase):
         # I1 / I2: run seed once
         p001.execute()
         p002.execute()
-        self.assertEqual(len(typ_codes), 19)
+        self.assertEqual(len(typ_codes), 20)
         for c in cat_codes:
             self.assertTrue(frappe.db.exists(CAT, c), c)
         for t in typ_codes:
@@ -75,3 +76,27 @@ class TestApprovalCenterSeed(FrappeTestCase):
         # I7: exact code set present
         got = set(frappe.get_all(TYP, filters={"name": ["in", typ_codes]}, pluck="name"))
         self.assertEqual(got, set(typ_codes))
+
+
+class TestSystemRequestTypeSeed(FrappeTestCase):
+    """p014 back-fills the SYSTEM_REQUEST approval type on sites where p002 already ran."""
+
+    def test_p014_seeds_when_missing_and_is_idempotent(self):
+        p001.execute()
+        if frappe.db.exists(TYP, "SYSTEM_REQUEST"):
+            frappe.delete_doc(TYP, "SYSTEM_REQUEST", ignore_permissions=True, force=1)
+        p014.execute()                                          # missing -> insert
+        self.assertTrue(frappe.db.exists(TYP, "SYSTEM_REQUEST"))
+        row = frappe.db.get_value(TYP, "SYSTEM_REQUEST",
+                                  ["card_status", "process_status", "category", "approval_title"], as_dict=True)
+        self.assertEqual(row.card_status, "Coming Soon")        # inactive / unpublished
+        self.assertEqual(row.process_status, "Discovery")
+        self.assertEqual(row.approval_title, "System Request")
+        self.assertTrue(frappe.db.exists(CAT, row.category))    # category resolves
+
+        # idempotent: re-run does not duplicate or overwrite an admin edit
+        frappe.db.set_value(TYP, "SYSTEM_REQUEST", "card_status", "Migrating")
+        before = frappe.db.count(TYP)
+        p014.execute()
+        self.assertEqual(frappe.db.count(TYP), before)
+        self.assertEqual(frappe.db.get_value(TYP, "SYSTEM_REQUEST", "card_status"), "Migrating")
