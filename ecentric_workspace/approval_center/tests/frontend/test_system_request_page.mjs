@@ -45,7 +45,11 @@ function boot(over) {
         approval_status: "Approved", current_level: 0, total_levels: 1, modified: "2026-07-06 09:00" } ], total: 1 } });
     if (m.endsWith("list_need_my_approval")) return Promise.resolve({ message: { rows: (o.args.section === "pending" ? [
       { name: "EC-SYSR-2026-00001", request_title: "Access CRM", requested_by: "u@x", request_type: "Access, permission",
-        priority: "High", level_no: 1, level_name: "Operation Review", total_levels: 1, my_status: "Pending" } ] : []) } });
+        priority: "High", level_no: 1, level_name: "Operation Review", current_level: 1, current_level_name: "Operation Review",
+        approval_status: "Pending", fulfillment_status: "Not Started", total_levels: 1, my_status: "Pending" } ] : [
+      { name: "EC-SYSR-2026-00002", request_title: "Old CRM", requested_by: "u@x", request_type: "Access, permission",
+        priority: "High", level_no: 1, acted_level_name: "Operation Review", current_level: 0, current_level_name: null,
+        approval_status: "Approved", fulfillment_status: "Completed", total_levels: 1, my_status: "Approved" } ]) } });
     if (m.endsWith("list_fulfillment_queue")) return Promise.resolve({ message: { rows: [
       { name: "EC-SYSR-2026-00001", request_title: "Access CRM", requested_by: "u@x", request_type: "Access, permission",
         priority: "High", requester_expected_resolution_date: "2026-07-20", fulfillment_status: "Assigned", fulfillment_owner: null } ] } });
@@ -138,6 +142,45 @@ async function run() {
   ok(!!w.document.querySelector(".ec-sysr-overlay #c-summary"), "fulfillment complete modal renders with summary field");
 
   // balanced container
+  // ===== UAT polish =====
+  // Issue 2: Complete modal must NOT contain the Operation expected completion date field
+  w = boot(); await flush(); await flush();
+  w.SystemRequest.doComplete("EC-SYSR-2026-00001", detail()); await flush();
+  ok(!!w.document.querySelector(".ec-sysr-overlay #c-summary"), "complete modal has summary field");
+  ok(!!w.document.querySelector(".ec-sysr-overlay #c-opnote"), "complete modal keeps Operation note");
+  ok(!w.document.querySelector(".ec-sysr-overlay #c-opdate"), "complete modal no longer has expected completion date");
+  { const ov = w.document.querySelector(".ec-sysr-overlay [data-x]"); if (ov) ov.click(); }
+
+  // Issue 2: detail still shows operation_expected_completion_date if already set
+  w = boot({ detail: detail({ business: Object.assign({}, detail().business, { operation_expected_completion_date: "2026-09-01" }) }) });
+  await flush(); await flush();
+  w.history.pushState({}, "", "/approvals/system-request?id=EC-SYSR-2026-00001"); w.SystemRequest.route(); await flush(); await flush();
+  ok(/2026-09-01/.test(w.document.getElementById("sysr-body").innerHTML), "detail shows existing Operation expected completion date");
+
+  // Issue 3: processed (history) row shows CURRENT status/step (Hoàn tất), not stale Operation Review
+  ok(w.SystemRequest.stepLabel({ approval_status: "Approved", fulfillment_status: "Completed", total_levels: 1 }) === "Bước 4/4 · Hoàn tất", "completed row step label = Bước 4/4 · Hoàn tất");
+  ok(/Hoàn tất/.test(w.SystemRequest.badge({ approval_status: "Approved", fulfillment_status: "Completed" })), "completed row badge shows Hoàn tất");
+  w = boot(); await flush(); await flush();
+  w.history.pushState({}, "", "/approvals/system-request?tab=my-approvals"); w.SystemRequest.route(); await flush(); await flush();
+  { const done = w.document.getElementById("ap-done").innerHTML;
+    ok(/Bước 4\/4 · Hoàn tất/.test(done) && /Hoàn tất/.test(done), "Tôi đã xử lý shows current Completed status/step");
+    ok(!/Bước 2\/4 · Operation Review/.test(done), "no stale Bước 2/4 · Operation Review in processed list"); }
+
+  // Issue 1: successful action redraws detail from returned payload (no extra fetch, no not-found)
+  w = boot(); await flush(); await flush();
+  w.history.pushState({}, "", "/approvals/system-request?id=EC-SYSR-2026-00001"); w.SystemRequest.route(); await flush(); await flush();
+  let fetched = 0; const origCall = w.frappe.call;
+  w.frappe.call = (o) => { if (o.method.endsWith("get_detail")) fetched++; return origCall(o); };
+  w.SystemRequest.applyDetail({ detail: detail({ approval: { name: "AR-1", approval_status: "Approved", current_level: 0 }, fulfillment: { status: "Assigned" } }) });
+  await flush();
+  ok(fetched === 0, "applyDetail redraws from returned detail without an extra get_detail fetch");
+  ok(/class="stepper"/.test(w.document.getElementById("sysr-body").innerHTML), "detail stays rendered after action (no not-found empty state)");
+  ok(!/Không tải được yêu cầu/.test(w.document.getElementById("sysr-body").innerHTML), "no 'not found' empty state after successful action");
+
+  // Issue 4: compact table action buttons
+  ok(/#ec-sysr-root .tbl td .btn\{[^}]*padding:5px 10px/.test(HTML), "table action buttons use a compact padding");
+  ok(/#ec-sysr-root .tbl td\{[^}]*vertical-align:middle/.test(HTML), "table cells vertically center the action buttons");
+
   ok(/#ec-sysr-root .content\{[^}]*max-width:1200px[^}]*margin:0 auto/.test(HTML), "balanced centered content width");
   ok(/#ec-sysr-root .sysr-formwrap\{[^}]*max-width:none/.test(HTML), "form wrapper aligns under header/tabs");
   ok(/@media \(max-width:1024px\)/.test(HTML), "responsive rule preserved");

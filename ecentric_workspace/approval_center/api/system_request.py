@@ -207,14 +207,19 @@ def list_need_my_approval(section="pending"):
             continue
         biz = frappe.db.get_value(BIZ, req.reference_name,
                                   ["name", "request_title", "request_type", "priority",
-                                   "requester_expected_resolution_date", "department"], as_dict=True)
+                                   "requester_expected_resolution_date", "fulfillment_status", "department"],
+                                  as_dict=True)
         if biz:
+            cur_name = (frappe.db.get_value("EC Approval Request Level",
+                        {"approval_request": r.approval_request, "level_no": req.current_level}, "level_name")
+                        if req.current_level else None)
             biz.update({"approval_request": r.approval_request, "level_no": r.level_no,
-                        "approval_status": req.approval_status, "requested_by": req.requested_by,
+                        "approval_status": req.approval_status, "current_level": req.current_level,
+                        "current_level_name": cur_name, "requested_by": req.requested_by,
                         "my_status": r.status,
                         "total_levels": frappe.db.count("EC Approval Request Level",
                                                         {"approval_request": r.approval_request}),
-                        "level_name": frappe.db.get_value("EC Approval Request Level",
+                        "acted_level_name": frappe.db.get_value("EC Approval Request Level",
                                         {"approval_request": r.approval_request, "level_no": r.level_no},
                                         "level_name")})
             out.append(biz)
@@ -343,11 +348,24 @@ def _resolve_req(name):
     return doc, doc.approval_request
 
 
+def _muted(fn):
+    """Run an engine transition with server messages suppressed so no stray assignment/
+    share/transient message leaks to the client as a spurious dialog. The frontend shows
+    its own toast + the returned detail."""
+    prev = frappe.flags.mute_messages
+    frappe.flags.mute_messages = True
+    try:
+        fn()
+    finally:
+        frappe.flags.mute_messages = prev
+    frappe.local.message_log = []
+
+
 @frappe.whitelist(methods=["POST"])
 def approve(name, comment=None):
     from ecentric_workspace.approval_center.engine import service as engine
     doc, req = _resolve_req(name)
-    engine.approve(req, comment=comment)
+    _muted(lambda: engine.approve(req, comment=comment))
     return {"detail": get_detail(name)}
 
 
@@ -355,7 +373,7 @@ def approve(name, comment=None):
 def reject(name, comment=None):
     from ecentric_workspace.approval_center.engine import service as engine
     doc, req = _resolve_req(name)
-    engine.reject(req, comment=comment)
+    _muted(lambda: engine.reject(req, comment=comment))
     return {"detail": get_detail(name)}
 
 
@@ -363,7 +381,7 @@ def reject(name, comment=None):
 def request_information(name, comment=None):
     from ecentric_workspace.approval_center.engine import service as engine
     doc, req = _resolve_req(name)
-    engine.request_information(req, comment=comment)
+    _muted(lambda: engine.request_information(req, comment=comment))
     return {"detail": get_detail(name)}
 
 
@@ -385,7 +403,7 @@ def cancel(name, reason=None):
     if not _capabilities(user, doc, req)["can_cancel"]:
         frappe.throw(_("Ban khong duoc phep huy yeu cau nay."), frappe.PermissionError)
     if req:
-        engine.cancel(req.name, reason=reason)
+        _muted(lambda: engine.cancel(req.name, reason=reason))
         return {"detail": get_detail(name)}
     frappe.delete_doc(BIZ, name, ignore_permissions=True)
     return {"deleted": True}
