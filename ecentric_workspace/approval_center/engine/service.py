@@ -40,7 +40,21 @@ def decide_level(mode, minimum_approvals, statuses):
 # --------------------------------------------------------------------------- #
 # Resolution
 # --------------------------------------------------------------------------- #
-def resolve_process(approval_type):
+def resolve_process(approval_type, process_code=None):
+    """Resolve the Active process for an approval_type. When process_code is given
+    (e.g. a form selects a specific process by scope), that exact process is used -
+    it must exist, be Active, and belong to approval_type. Approvers still come from
+    the process participants; this only picks WHICH configured process runs."""
+    if process_code:
+        row = frappe.db.get_value("EC Approval Process", process_code,
+                                  ["name", "status", "approval_type"], as_dict=True)
+        if not row:
+            frappe.throw(_("Approval process {0} not found.").format(process_code))
+        if row.status != "Active":
+            frappe.throw(_("Approval process {0} is not Active.").format(process_code))
+        if row.approval_type != approval_type:
+            frappe.throw(_("Approval process {0} does not belong to {1}.").format(process_code, approval_type))
+        return frappe.get_doc("EC Approval Process", process_code)
     rows = frappe.get_all("EC Approval Process",
                           filters={"approval_type": approval_type, "status": "Active"},
                           fields=["name"], limit_page_length=1)
@@ -294,8 +308,8 @@ def build_snapshot(req, process, levels, requester):
             }).insert(ignore_permissions=True)
 
 
-def submit(reference_doctype, reference_name, approval_type, requester):
-    process = resolve_process(approval_type)
+def submit(reference_doctype, reference_name, approval_type, requester, process_code=None):
+    process = resolve_process(approval_type, process_code)
     levels = resolve_levels(process.name)
     if not levels:
         frappe.throw(_("Process {0} has no levels.").format(process.name))
@@ -474,6 +488,8 @@ _FULFILLMENT_HANDLERS = {
     "EC AI Topup Request": "ecentric_workspace.approval_center.ai_topup.service.on_final_approval",
     "EC Data Request": "ecentric_workspace.approval_center.data_request.service.on_final_approval",
     "EC Document Request": "ecentric_workspace.approval_center.document_request.service.on_final_approval",
+    "EC System Request": "ecentric_workspace.approval_center.system_request.service.on_final_approval",
+    "EC Asset Request": "ecentric_workspace.approval_center.asset_request.service.on_final_approval",
 }
 
 

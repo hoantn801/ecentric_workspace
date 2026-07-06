@@ -1,0 +1,148 @@
+// Headless tests for the System Request page (Node + jsdom). Form #3 (with fulfillment).
+import { JSDOM } from "jsdom";
+import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
+const __dir = path.dirname(fileURLToPath(import.meta.url));
+const HTML = fs.readFileSync(path.join(__dir, "..", "..", "frontend", "system_request.main_section.html"), "utf8");
+const [markup, rest] = HTML.split('<script id="ec-system-request">');
+const JS = rest.replace(/<\/script>\s*$/, "");
+let fails = 0;
+const ok = (c, n) => { console.log((c ? "  ok: " : "  FAIL: ") + n); if (!c) fails++; };
+const flush = () => new Promise(r => setTimeout(r, 5));
+
+const FO = {
+  request_types: ["License, account", "Access, permission", "Initiative, solution", "Lark Approvals", "Other"],
+  priorities: ["Low", "Normal", "High", "Urgent"],
+};
+const calls = {};
+function detail(over) {
+  return Object.assign({
+    business: { name: "EC-SYSR-2026-00001", request_title: "Access, permission - CRM", request_type: "Access, permission",
+      priority: "High", requester_expected_resolution_date: "2026-07-20", operation_expected_completion_date: "",
+      operation_note: "", description: "need access", requested_by: "u@x", department: "D", fulfillment_status: "Not Started" },
+    approval: { name: "AR-1", approval_status: "Pending", current_level: 1 },
+    levels: [{ level_no: 1, level_name: "Operation Review", approval_mode: "Any One", level_status: "In Progress" }],
+    approvers: [{ level_no: 1, approver: "hoan@x", status: "Pending" }],
+    attachments: [], timeline: [{ action: "Submitted", actor: "u@x", action_time: "2026-07-06 09:00" }],
+    fulfillment: { status: "Not Started" },
+    process_preview: [], capabilities: { can_approve: true, can_reject: true, can_request_information: true } }, over || {});
+}
+
+function boot(over) {
+  const dom = new JSDOM('<!DOCTYPE html><html><body>' + markup + '</body></html>',
+    { runScripts: "outside-only", url: "https://x.test/approvals/data-request?tab=create" });
+  const w = dom.window;
+  w.frappe = { csrf_token: "x", call: (o) => {
+    const m = o.method; calls[m.split(".").pop()] = o.args;
+    if (m.endsWith("get_bootstrap")) return Promise.resolve({ message: {
+      tabs: { create: true, my_requests: true, my_approvals: true, fulfillment: (over && over.fulfillment) || false },
+      context: { user: "u@x", employee_name: "U", employee: "EMP-1", department: "D", company: "C" },
+      is_system_manager: false, form_options: FO } });
+    if (m.endsWith("save_draft")) return Promise.resolve({ message: { name: "EC-SYSR-2026-00001", capabilities: {} } });
+    if (m.endsWith("submit_request")) return Promise.resolve({ message: { approval_request: "AR-1", submitted: true, detail: detail() } });
+    if (m.endsWith("list_my_requests")) return Promise.resolve({ message: { rows: [
+      { name: "EC-SYSR-2026-00001", request_title: "Access CRM", request_type: "Access, permission", priority: "High",
+        requester_expected_resolution_date: "2026-07-20", operation_expected_completion_date: "", fulfillment_status: "Assigned",
+        approval_status: "Approved", current_level: 0, total_levels: 1, modified: "2026-07-06 09:00" } ], total: 1 } });
+    if (m.endsWith("list_need_my_approval")) return Promise.resolve({ message: { rows: (o.args.section === "pending" ? [
+      { name: "EC-SYSR-2026-00001", request_title: "Access CRM", requested_by: "u@x", request_type: "Access, permission",
+        priority: "High", level_no: 1, level_name: "Operation Review", total_levels: 1, my_status: "Pending" } ] : []) } });
+    if (m.endsWith("list_fulfillment_queue")) return Promise.resolve({ message: { rows: [
+      { name: "EC-SYSR-2026-00001", request_title: "Access CRM", requested_by: "u@x", request_type: "Access, permission",
+        priority: "High", requester_expected_resolution_date: "2026-07-20", fulfillment_status: "Assigned", fulfillment_owner: null } ] } });
+    if (m.endsWith("get_detail")) return Promise.resolve({ message: (over && over.detail) || detail() });
+    return Promise.resolve({ message: { rows: [], total: 0 } });
+  }};
+  w.eval(JS);
+  return w;
+}
+
+async function run() {
+  let w = boot(); await flush(); await flush();
+  ok(!!w.SystemRequest, "SystemRequest exposed");
+  ok(w.document.querySelectorAll(".tab").length === 4, "four tabs rendered (incl. fulfillment)");
+
+  const cb = () => w.document.getElementById("sysr-body").innerHTML;
+  // all fields render
+  ["request_title", "request_type", "priority", "requester_expected_resolution_date", "description"].forEach(function (f) {
+    ok(!!w.document.querySelector('[data-model="' + f + '"]'), f + " field renders");
+  });
+  ok(!!w.document.querySelector('[data-upload="request_attachment"]'), "attachment upload renders (optional)");
+
+  // process preview before Tieu de, exactly 4 steps
+  ok(!!w.document.getElementById("sysr-process-preview"), "process preview card renders");
+  { const html = cb(); ok(html.indexOf('id="sysr-process-preview"') < html.indexOf('data-model="request_title"'), "preview renders before request_title"); }
+  { const pv = w.document.getElementById("sysr-process-preview");
+    ok(pv.querySelectorAll(".step").length === 4, "preview has exactly 4 steps");
+    ok(/Tạo yêu cầu/.test(pv.innerHTML) && /Operation review/.test(pv.innerHTML) && /Operation xử lý/.test(pv.innerHTML) && /Hoàn tất/.test(pv.innerHTML), "preview steps: Tạo/Operation review/Operation xử lý/Hoàn tất");
+    ok(!/SLA/i.test(pv.innerHTML), "preview shows no misleading SLA text"); }
+
+  // options render
+  ok(/License, account/.test(cb()) && /Lark Approvals/.test(cb()) && />Other</.test(cb()), "request_type options render");
+  ok(/>Low</.test(cb()) && />Urgent</.test(cb()), "priority options render");
+
+
+  // validateSubmit
+  w.SystemRequest.state.draft = {};
+  ok(!!(w.SystemRequest.validateSubmit() || {}).request_title, "validateSubmit: title required");
+  w.SystemRequest.state.draft = { request_title: "T", request_type: "Access, permission", description: "d",
+    priority: "High", requester_expected_resolution_date: "2026-07-20" };
+  ok(w.SystemRequest.validateSubmit() === null, "valid form passes validateSubmit");
+  ok(w.SystemRequest.suggestTitle({ request_type: "Access, permission", requester_expected_resolution_date: "2026-07-20" }) === "Access, permission - 2026-07-20", "title auto-suggest format");
+
+  // draft save payload
+  w.document.getElementById("sysr-save").click(); await flush(); await flush();
+  ok(calls.save_draft && /request_type/.test(calls.save_draft.payload) && /priority/.test(calls.save_draft.payload), "save_draft payload carries request_type + priority");
+
+  // submit payload
+  w = boot(); await flush(); await flush();
+  w.SystemRequest.state.draft = { request_title: "T", request_type: "Access, permission", description: "d",
+    priority: "High", requester_expected_resolution_date: "2026-07-20" };
+  w.SystemRequest.state.titleTouched = true;
+  w.document.getElementById("sysr-submit").click(); await flush(); await flush();
+  ok(calls.submit_request && calls.submit_request.name === "EC-SYSR-2026-00001", "submit_request called with draft name");
+
+  // My Requests
+  w = boot(); await flush(); await flush();
+  w.history.pushState({}, "", "/approvals/data-request?tab=my-requests"); w.SystemRequest.route(); await flush(); await flush();
+  ok(/EC-SYSR-2026-00001/.test(cb()) && /Bước 3\/4 · Operation xử lý/.test(cb()), "My Requests list renders with fulfillment step label");
+
+  // Need My Approval
+  w.history.pushState({}, "", "/approvals/data-request?tab=my-approvals"); w.SystemRequest.route(); await flush(); await flush();
+  ok(/Cần tôi xử lý/.test(cb()) && !!w.document.querySelector('[data-quick="approve"]'), "Need My Approval renders with quick actions");
+
+  // Fulfillment queue (fulfiller)
+  w = boot({ fulfillment: true }); await flush(); await flush();
+  w.history.pushState({}, "", "/approvals/data-request?tab=fulfillment"); w.SystemRequest.route(); await flush(); await flush();
+  ok(/EC-SYSR-2026-00001/.test(cb()) && !!w.document.querySelector('[data-claim]'), "Data Fulfillment queue renders with claim button");
+
+  // detail runtime stepper (fulfillment step present)
+  w = boot(); await flush(); await flush();
+  w.history.pushState({}, "", "/approvals/data-request?id=EC-SYSR-2026-00001"); w.SystemRequest.route(); await flush(); await flush();
+  ok(/class="stepper"/.test(cb()), "detail renders the runtime stepper");
+  { const rh = w.SystemRequest.buildStepper(detail());
+    ok(/Đã gửi/.test(rh) && /Operation xử lý/.test(rh) && /Operation Review/.test(rh), "runtime stepper: Đã gửi + Operation Review + Operation xử lý"); }
+
+  // request info / resubmit banner + runtime stepper
+  w = boot({ detail: detail({ approval: { name: "AR-1", approval_status: "Information Required", current_level: 1, information_requested_from_level: 1 },
+    approvers: [{ level_no: 1, approver: "linh@x", status: "Information Requested", comment: "cần thêm chi tiết" }],
+    capabilities: { can_edit: true } }) }); await flush(); await flush();
+  w.history.pushState({}, "", "/approvals/data-request?id=EC-SYSR-2026-00001"); w.SystemRequest.route(); await flush(); await flush();
+  w.SystemRequest.startEditResubmit(w.SystemRequest.state.detail); await flush();
+  { const eb = cb(); ok(/Cần bổ sung thông tin/.test(eb) && /class="stepper"/.test(eb) && /class="step info"/.test(eb), "resubmit/edit form shows banner + runtime stepper with info level"); }
+
+  // fulfillment complete modal
+  w = boot(); await flush(); await flush();
+  ok((w.SystemRequest.completionErrors({}) || {}).fulfillment_summary, "complete requires fulfillment_summary");
+  ok(w.SystemRequest.completionErrors({ fulfillment_summary: "done" }) === null, "complete passes with summary");
+  w.SystemRequest.doComplete("EC-SYSR-2026-00001", detail()); await flush();
+  ok(!!w.document.querySelector(".ec-sysr-overlay #c-summary"), "fulfillment complete modal renders with summary field");
+
+  // balanced container
+  ok(/#ec-sysr-root .content\{[^}]*max-width:1200px[^}]*margin:0 auto/.test(HTML), "balanced centered content width");
+  ok(/#ec-sysr-root .sysr-formwrap\{[^}]*max-width:none/.test(HTML), "form wrapper aligns under header/tabs");
+  ok(/@media \(max-width:1024px\)/.test(HTML), "responsive rule preserved");
+
+  console.log(fails === 0 ? "\nALL SYSTEM REQUEST PAGE TESTS PASSED" : "\n" + fails + " FAILED");
+  process.exit(fails === 0 ? 0 : 1);
+}
+run();

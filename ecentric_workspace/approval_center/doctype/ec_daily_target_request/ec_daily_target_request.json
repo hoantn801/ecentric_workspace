@@ -1,0 +1,52 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "EC-DTGT-.YYYY.-.#####.",
+ "creation": "2026-07-06 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "approval_type", "approval_request", "request_title", "requested_by", "employee",
+  "department", "company", "cb0", "submitted_at", "completed_at", "material_signature",
+  "sb_form", "request_scope", "brand", "channels", "channel_other", "target_month",
+  "target_setting_type", "justification", "request_attachment", "linked_project_level_requests"
+ ],
+ "fields": [
+  {"fieldname": "approval_type", "fieldtype": "Link", "label": "Approval Type", "options": "EC Approval Type", "read_only": 1},
+  {"fieldname": "approval_request", "fieldtype": "Link", "label": "Approval Request", "options": "EC Approval Request", "read_only": 1},
+  {"fieldname": "request_title", "fieldtype": "Data", "label": "Request Title", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "requested_by", "fieldtype": "Link", "label": "Requested By", "options": "User"},
+  {"fieldname": "employee", "fieldtype": "Link", "label": "Employee", "options": "Employee"},
+  {"fieldname": "department", "fieldtype": "Link", "label": "Department", "options": "Department"},
+  {"fieldname": "company", "fieldtype": "Link", "label": "Company", "options": "Company"},
+  {"fieldname": "cb0", "fieldtype": "Column Break"},
+  {"fieldname": "submitted_at", "fieldtype": "Datetime", "label": "Submitted At", "read_only": 1},
+  {"fieldname": "completed_at", "fieldtype": "Datetime", "label": "Completed At", "read_only": 1},
+  {"fieldname": "material_signature", "fieldtype": "Data", "label": "Material Signature", "hidden": 1, "read_only": 1},
+  {"fieldname": "sb_form", "fieldtype": "Section Break", "label": "Daily Target"},
+  {"fieldname": "request_scope", "fieldtype": "Select", "label": "Scope", "reqd": 1, "options": "Project level\nConsolidated / Total"},
+  {"fieldname": "brand", "fieldtype": "Data", "label": "Brand", "reqd": 1},
+  {"fieldname": "channels", "fieldtype": "Small Text", "label": "Channels", "description": "Comma-separated selected channels."},
+  {"fieldname": "channel_other", "fieldtype": "Data", "label": "Channel (Other)"},
+  {"fieldname": "target_month", "fieldtype": "Date", "label": "Target Month", "description": "Please input the first date of the target month."},
+  {"fieldname": "target_setting_type", "fieldtype": "Select", "label": "Target Setting Type", "options": "Setting new target\nRevising current target"},
+  {"fieldname": "justification", "fieldtype": "Text", "label": "Justification"},
+  {"fieldname": "request_attachment", "fieldtype": "Attach", "label": "Attachment"},
+  {"fieldname": "linked_project_level_requests", "fieldtype": "Small Text", "label": "Linked Project-level Requests", "description": "Optional (Consolidated/Total only): references to related project-level requests."}
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-06 00:00:00",
+ "module": "Approval Center",
+ "name": "EC Daily Target Request",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "report": 1, "share": 1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "title_field": "request_title",
+ "track_changes": 1
+}
