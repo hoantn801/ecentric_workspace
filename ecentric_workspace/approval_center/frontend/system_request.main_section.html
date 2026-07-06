@@ -130,7 +130,7 @@
     <nav class="nav">
       <a class="nav-item" href="/home"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg></span><span>Trang chủ</span></a>
       <a class="nav-item" href="/approvals"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><span>Approval Center</span></a>
-      <a class="nav-item active" href="/approvals/outside-work"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3M3 11h18M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z"/></svg></span><span>System Request</span></a>
+      <a class="nav-item active" href="/approvals/system-request"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span><span>System Request</span></a>
     </nav>
   </aside>
   <main class="ec-main">
@@ -172,7 +172,7 @@
   function renderTabs(){ var box=$("sysr-tabs"); if(!box)return;
     var defs=[["create","Tạo yêu cầu",true],["my-requests","Yêu cầu của tôi",true],["my-approvals","Cần tôi duyệt",tabAllowed("my-approvals")],["fulfillment","Chờ Operation xử lý",tabAllowed("fulfillment")]];
     box.innerHTML=defs.map(function(d){ var act=(state.tab===d[0]||(state.tab==="detail"&&d[0]==="my-requests"))?" active":"";
-      return '<button class="tab'+act+'"'+(d[2]?'':' disabled')+' data-tab="'+d[0]+'">'+esc(d[1])+'</button>'; }).join(""); }
+      return '<button type="button" class="tab'+act+'"'+(d[2]?'':' disabled')+' data-tab="'+d[0]+'">'+esc(d[1])+'</button>'; }).join(""); }
 
   function render(){ renderTabs(); var b=$("sysr-body"); if(!b)return;
     if(state.tab==="detail"&&state.id) return renderDetail(b);
@@ -304,14 +304,14 @@
 
   // ======================= MY REQUESTS =======================
   function renderMyRequests(b){
-    b.innerHTML='<div class="filters"><input id="f-q" placeholder="Tìm..." value="'+esc(state.listFilters.q||"")+'"><select id="f-type"><option value="">Tất cả loại</option></select><button class="btn" id="f-apply">Lọc</button><button class="btn" id="f-refresh">Làm mới</button></div><div id="sysr-list"></div><div class="pager" id="sysr-pager"></div>';
+    b.innerHTML='<div class="filters"><input id="f-q" placeholder="Tìm..." value="'+esc(state.listFilters.q||"")+'"><select id="f-type"><option value="">Tất cả loại</option></select><button type="button" class="btn" id="f-apply">Lọc</button><button type="button" class="btn" id="f-refresh">Làm mới</button></div><div id="sysr-list"></div><div class="pager" id="sysr-pager"></div>';
     var fo=state.boot&&state.boot.form_options||{}; var ty=$("f-type"); (fo.request_types||[]).forEach(function(t){ var op=document.createElement("option"); op.value=t; op.textContent=t; ty.appendChild(op); });
     $("f-apply").onclick=function(){ state.page=0; loadList(); }; $("f-refresh").onclick=loadList; loadList();
   }
   function skeleton(n){ var s=""; for(var i=0;i<n;i++) s+='<div style="height:44px;border-bottom:1px solid var(--gray-100);background:var(--gray-50)"></div>'; return '<div class="card" style="padding:0;overflow:hidden">'+s+'</div>'; }
   function loadList(){ var host=$("sysr-list"); if(!host)return; host.innerHTML=skeleton(5);
     var f={ q:$("f-q")?$("f-q").value:"", request_type:$("f-type")?$("f-type").value:"" }; state.listFilters=f;
-    call("list_my_requests",{filters:JSON.stringify(f),start:state.page*state.PAGE,page_length:state.PAGE}).then(renderList).catch(function(){ host.innerHTML='<div class="card"><div class="state"><h4>Không tải được danh sách</h4><button class="btn" id="sysr-retry">Thử lại</button></div></div>'; var r=$("sysr-retry"); if(r)r.onclick=loadList; }); }
+    call("list_my_requests",{filters:JSON.stringify(f),start:state.page*state.PAGE,page_length:state.PAGE}).then(renderList).catch(function(){ host.innerHTML='<div class="card"><div class="state"><h4>Không tải được danh sách</h4><button type="button" class="btn" id="sysr-retry">Thử lại</button></div></div>'; var r=$("sysr-retry"); if(r)r.onclick=loadList; }); }
   function renderList(res){ var host=$("sysr-list"); var rows=res&&res.rows||[];
     if(!rows.length){ host.innerHTML='<div class="card"><div class="state"><h4>Chưa có yêu cầu</h4><p>Bấm “Tạo yêu cầu” để bắt đầu.</p></div></div>'; $("sysr-pager").innerHTML=""; return; }
     var q=(state.listFilters.q||"").toLowerCase();
@@ -320,7 +320,7 @@
       + '</tbody></table>';
     host.querySelectorAll("tr[data-id]").forEach(function(tr){ tr.onclick=function(){ go({id:tr.getAttribute("data-id")}); }; });
     var total=res.total||rows.length, pages=Math.ceil(total/state.PAGE);
-    $("sysr-pager").innerHTML='Trang '+(state.page+1)+'/'+Math.max(1,pages)+' &nbsp; <button class="btn" aria-label="Trang trước" '+(state.page<=0?"disabled":"")+' id="pg-prev">‹</button> <button class="btn" aria-label="Trang sau" '+(state.page+1>=pages?"disabled":"")+' id="pg-next">›</button>';
+    $("sysr-pager").innerHTML='Trang '+(state.page+1)+'/'+Math.max(1,pages)+' &nbsp; <button type="button" class="btn" aria-label="Trang trước" '+(state.page<=0?"disabled":"")+' id="pg-prev">‹</button> <button type="button" class="btn" aria-label="Trang sau" '+(state.page+1>=pages?"disabled":"")+' id="pg-next">›</button>';
     var pv=$("pg-prev"),nx=$("pg-next"); if(pv)pv.onclick=function(){ if(state.page>0){state.page--;loadList();} }; if(nx)nx.onclick=function(){ state.page++; loadList(); };
   }
   function stepLabel(r){ var L=Number(r.total_levels||0); var N=L?(L+3):0; var st=r.approval_status||"Draft"; var ff=r.fulfillment_status;
@@ -341,8 +341,8 @@
       if(!rows.length){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không có mục nào</h4></div></div>'; return; }
       h.innerHTML='<div class="sect-h">'+esc(title)+'</div><table class="tbl"><thead><tr><th>Mã</th><th>Tiêu đề</th><th>Người yêu cầu</th><th>Loại</th><th>Ưu tiên</th><th>Bước</th><th></th></tr></thead><tbody>'
         + rows.map(function(r){ var act= section==="pending"
-            ? '<button class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> <button class="btn primary" data-quick="approve" data-n="'+esc(r.name)+'">Duyệt</button> <button class="btn" data-quick="reqinfo" data-n="'+esc(r.name)+'">Bổ sung</button> <button class="btn" data-quick="reject" data-n="'+esc(r.name)+'">Từ chối</button>'
-            : '<button class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> '+badge(r);
+            ? '<button type="button" class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> <button type="button" class="btn primary" data-quick="approve" data-n="'+esc(r.name)+'">Duyệt</button> <button type="button" class="btn" data-quick="reqinfo" data-n="'+esc(r.name)+'">Bổ sung</button> <button type="button" class="btn" data-quick="reject" data-n="'+esc(r.name)+'">Từ chối</button>'
+            : '<button type="button" class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> '+badge(r);
           return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requested_by||"—")+'</td><td>'+esc(r.request_type||"—")+'</td><td>'+esc(r.priority||"—")+'</td><td>'+esc(stepLabel(r))+'</td><td>'+act+'</td></tr>'; }).join("")
         +'</tbody></table>';
             h.querySelectorAll("[data-open]").forEach(function(el){ el.onclick=function(){ go({id:el.getAttribute("data-open")}); }; });
@@ -352,14 +352,14 @@
 
   // ======================= FULFILLMENT QUEUE =======================
   function renderFulfillment(b){ if(!(state.boot&&state.boot.tabs&&state.boot.tabs.fulfillment)){ b.innerHTML='<div class="card"><div class="state"><h4>Không khả dụng</h4><p>Bạn không thuộc nhóm Operation xử lý.</p></div></div>'; return; }
-    b.innerHTML='<div class="filters"><button class="btn" data-sec="unclaimed">Chưa nhận</button> <button class="btn" data-sec="mine">Của tôi</button> <button class="btn" data-sec="others">Đang xử lý</button></div><div id="sysr-queue"></div>';
+    b.innerHTML='<div class="filters"><button type="button" class="btn" data-sec="unclaimed">Chưa nhận</button> <button type="button" class="btn" data-sec="mine">Của tôi</button> <button type="button" class="btn" data-sec="others">Đang xử lý</button></div><div id="sysr-queue"></div>';
     b.querySelectorAll("[data-sec]").forEach(function(el){ el.onclick=function(){ loadQueue(el.getAttribute("data-sec")); }; });
     loadQueue("unclaimed"); }
   function loadQueue(section){ var h=$("sysr-queue"); if(!h)return; h.innerHTML=skeleton(3);
     call("list_fulfillment_queue",{section:section}).then(function(res){ var rows=res&&res.rows||[];
       if(!rows.length){ h.innerHTML='<div class="card"><div class="state"><h4>Không có yêu cầu</h4></div></div>'; return; }
       h.innerHTML='<table class="tbl"><thead><tr><th>Mã</th><th>Tiêu đề</th><th>Người yêu cầu</th><th>Loại</th><th>Ưu tiên</th><th>Mong muốn</th><th>Trạng thái</th><th>Người xử lý</th><th></th></tr></thead><tbody>'
-        + rows.map(function(r){ var act='<button class="btn" data-open="'+esc(r.name)+'">Chi tiết</button>'+(r.fulfillment_status==="Assigned"?' <button class="btn primary" data-claim="'+esc(r.name)+'">Nhận xử lý</button>':'');
+        + rows.map(function(r){ var act='<button type="button" class="btn" data-open="'+esc(r.name)+'">Chi tiết</button>'+(r.fulfillment_status==="Assigned"?' <button type="button" class="btn primary" data-claim="'+esc(r.name)+'">Nhận xử lý</button>':'');
             return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requested_by||"—")+'</td><td>'+esc(r.request_type||"—")+'</td><td>'+esc(r.priority||"—")+'</td><td>'+esc(r.requester_expected_resolution_date||"—")+'</td><td>'+badge({approval_status:"Approved",fulfillment_status:r.fulfillment_status})+'</td><td>'+esc(r.fulfillment_owner||"—")+'</td><td>'+act+'</td></tr>'; }).join("")
         +'</tbody></table>';
             h.querySelectorAll("[data-open]").forEach(function(el){ el.onclick=function(){ go({id:el.getAttribute("data-open")}); }; });
@@ -367,9 +367,9 @@
     }).catch(function(){ h.innerHTML='<div class="card"><div class="state"><h4>Không tải được</h4></div></div>'; }); }
 
   // ======================= DETAIL =======================
-  function renderDetail(b){ b.innerHTML=skeleton(4);
-    call("get_detail",{name:state.id}).then(function(det){ drawDetail(b,det); })
-    .catch(function(e){ var perm=/quyền|access|permission/i.test((e&&e.message)||""); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4><button class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ go({tab:"my-requests"}); }; }); }
+  function renderDetail(b){ var reqId=state.id; if(state._loadingDetail===reqId) return; state._loadingDetail=reqId; b.innerHTML=skeleton(4);
+    call("get_detail",{name:reqId}).then(function(det){ state._loadingDetail=null; if(state.tab==="detail"&&state.id===reqId) drawDetail(b,det); })
+    .catch(function(e){ state._loadingDetail=null; if(!(state.tab==="detail"&&state.id===reqId)) return; var perm=/quyền|access|permission/i.test((e&&e.message)||""); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4><button type="button" class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ go({tab:"my-requests"}); }; }); }
   function kv(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><input class="ro" readonly value="'+esc(v==null||v===""?"—":v)+'"></div>'; }
   function drawDetail(b,det){ state.detail=det; var biz=det.business||{}, ap=det.approval||{}, ff=det.fulfillment||{};
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
@@ -519,9 +519,12 @@
     state._infoCtx={ level:(lvl?lvl.level_name:ap.information_requested_from_level), approver:ia.approver, comment:ia.comment };
     state._editDet=det; state.draft=Object.assign({}, det.business||{}); state.id=det.business.name; state.mode="edit"; renderCreate($("sysr-body")); }
 
-  function boot(){ ensureActionHandlers(); var t=$("sysr-tabs"); if(t){ t.addEventListener("click",function(e){ var b=e.target.closest("[data-tab]"); if(b&&!b.disabled){ state.page=0; go({tab:b.getAttribute("data-tab")}); } }); }
+  function boot(){ try {
+    ensureActionHandlers();
+    var t=$("sysr-tabs"); if(t&&!t.__ecBound){ t.__ecBound=true; t.addEventListener("click",function(e){ var b=e.target.closest("[data-tab]"); if(b&&!b.disabled){ state.page=0; go({tab:b.getAttribute("data-tab")}); } }); }
     call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); })
-    .catch(function(){ var bd=$("sysr-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
+    .catch(function(){ var bd=$("sysr-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; });
+  } catch(e){ if(window.console&&console.error) console.error("System Request boot error:",e); } }
 
   window.SystemRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, renderFulfillment:renderFulfillment, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, doComplete:doComplete, doClaim:doClaim, doSetOpDate:doSetOpDate, applyDetail:applyDetail, loadApprovals:loadApprovals, renderMyApprovals:renderMyApprovals };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
