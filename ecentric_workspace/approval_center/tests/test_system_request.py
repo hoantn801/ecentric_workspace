@@ -207,6 +207,20 @@ class TestSystemRequest(FrappeTestCase):
         self.assertEqual(str(frappe.db.get_value(api.BIZ, name, "operation_expected_completion_date")), "2026-09-01")
         self.assertEqual(frappe.db.get_value(api.BIZ, name, "operation_note"), "batch")
 
+    def test_complete_preserves_existing_operation_date_and_summary_only(self):
+        """UAT issue 2: completing requires only fulfillment_summary; an operation expected
+        completion date set earlier is preserved (not required and not overwritten to blank)."""
+        name, req = self._submit()
+        frappe.set_user(REV1)
+        api.approve(name)                                        # Operation Review -> fulfillment
+        api.set_operation_fields(name, operation_expected_completion_date="2026-09-10")
+        api.claim_fulfillment(name)
+        # complete with summary only (no operation_expected_completion_date in payload)
+        api.complete_fulfillment(name, payload=frappe.as_json({"fulfillment_summary": "done", "output_link": "https://x"}))
+        frappe.set_user("Administrator")
+        self.assertEqual(frappe.db.get_value(api.BIZ, name, "fulfillment_status"), "Completed")
+        self.assertEqual(str(frappe.db.get_value(api.BIZ, name, "operation_expected_completion_date")), "2026-09-10")
+
     def test_page_sync_idempotent_no_duplicate(self):
         if not frappe.db.exists("DocType", "Web Page"):
             self.skipTest("Web Page DocType not installed")

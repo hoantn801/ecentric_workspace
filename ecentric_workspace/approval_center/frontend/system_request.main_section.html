@@ -75,7 +75,9 @@
   #ec-sysr-root .filters input,#ec-sysr-root .filters select{ padding:8px 11px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;font-family:inherit; }
   #ec-sysr-root table.tbl{ width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--gray-200);border-radius:12px;overflow:hidden; }
   #ec-sysr-root .tbl th{ text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--gray-500);padding:11px 14px;background:var(--gray-50);border-bottom:1px solid var(--gray-200); }
-  #ec-sysr-root .tbl td{ padding:12px 14px;font-size:13px;border-bottom:1px solid var(--gray-100);vertical-align:top; }
+  #ec-sysr-root .tbl td{ padding:10px 14px;font-size:13px;border-bottom:1px solid var(--gray-100);vertical-align:middle; }
+  #ec-sysr-root .tbl td .btn{ padding:5px 10px;font-size:12.5px;font-weight:600;border-radius:7px;line-height:1.3; }
+  #ec-sysr-root .tbl td .badge{ vertical-align:middle; }
   #ec-sysr-root .tbl tr.clickable{ cursor:pointer; } #ec-sysr-root .tbl tr.clickable:hover{ background:var(--navy-50); }
   #ec-sysr-root .badge{ display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px; }
   #ec-sysr-root .badge .dot{ width:7px;height:7px;border-radius:50%; }
@@ -340,9 +342,8 @@
       h.innerHTML='<div class="sect-h">'+esc(title)+'</div><table class="tbl"><thead><tr><th>Mã</th><th>Tiêu đề</th><th>Người yêu cầu</th><th>Loại</th><th>Ưu tiên</th><th>Bước</th><th></th></tr></thead><tbody>'
         + rows.map(function(r){ var act= section==="pending"
             ? '<button class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> <button class="btn primary" data-quick="approve" data-n="'+esc(r.name)+'">Duyệt</button> <button class="btn" data-quick="reqinfo" data-n="'+esc(r.name)+'">Bổ sung</button> <button class="btn" data-quick="reject" data-n="'+esc(r.name)+'">Từ chối</button>'
-            : '<button class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> '+badge(r.my_status);
-          var N=Number(r.total_levels||0)?(Number(r.total_levels)+3):0;
-          return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requested_by||"—")+'</td><td>'+esc(r.request_type||"—")+'</td><td>'+esc(r.priority||"—")+'</td><td>'+esc(N?("Bước "+(1+Number(r.level_no))+"/"+N+(r.level_name?(" · "+r.level_name):"")):("Cấp "+(r.level_no||"—")))+'</td><td>'+act+'</td></tr>'; }).join("")
+            : '<button class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> '+badge(r);
+          return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requested_by||"—")+'</td><td>'+esc(r.request_type||"—")+'</td><td>'+esc(r.priority||"—")+'</td><td>'+esc(stepLabel(r))+'</td><td>'+act+'</td></tr>'; }).join("")
         +'</tbody></table>';
             h.querySelectorAll("[data-open]").forEach(function(el){ el.onclick=function(){ go({id:el.getAttribute("data-open")}); }; });
       h.querySelectorAll("[data-quick]").forEach(function(el){ el.onclick=function(){ var n=el.getAttribute("data-n"), qk=el.getAttribute("data-quick");
@@ -473,34 +474,39 @@
 
   function refreshDetail(){ if(state.tab==="detail"&&state.id) renderDetail($("sysr-body")); }
   function refreshApprovals(){ if(state.tab==="my-approvals") renderMyApprovals($("sysr-body")); }
+  // After a successful action the API returns the fresh detail; redraw from it (no extra fetch) so a
+  // benign refresh can never surface a spurious "not found" dialog. Fall back to a safe re-fetch.
+  function applyDetail(res){ var det=res&&res.detail;
+    if(det&&state.tab==="detail"&&state.id&&(det.business||{}).name===state.id){ state.detail=det; drawDetail($("sysr-body"),det); }
+    else { refreshDetail(); }
+    refreshApprovals(); }
   function nextLevelName(det){ if(!det) return ""; var ap=det.approval||{}; if(ap.approval_status!=="Pending"||!ap.current_level) return ""; var l=(det.levels||[]).filter(function(x){return Number(x.level_no)===Number(ap.current_level);})[0]; return l?(l.level_name||("Cấp "+ap.current_level)):""; }
   function summaryRows(det){ var b=det.business||{}; return '<div class="summary-row"><span>Người yêu cầu</span><b>'+esc(b.requested_by||"—")+'</b></div><div class="summary-row"><span>Loại yêu cầu</span><b>'+esc(b.request_type||"—")+'</b></div><div class="summary-row"><span>Mong muốn hoàn thành</span><b>'+esc(b.requester_expected_resolution_date||"—")+'</b></div>'; }
   function doApprove(name,det){ modal("Duyệt yêu cầu", summaryRows(det)+'<div class="fld"><label>Ghi chú (không bắt buộc)</label><textarea id="m-cmt" rows="2"></textarea></div>', {okLabel:"Duyệt", onConfirm:function(ov){ var cmt=(ov.querySelector("#m-cmt").value||"");
-    return call("approve",{name:name,comment:cmt}).then(function(res){ var nx=nextLevelName(res&&res.detail); toast(nx?("Đã duyệt. Yêu cầu đã chuyển sang "+nx+"."):"Đã duyệt. Yêu cầu chuyển sang Operation xử lý."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
+    return call("approve",{name:name,comment:cmt}).then(function(res){ var nx=nextLevelName(res&&res.detail); toast(nx?("Đã duyệt. Yêu cầu đã chuyển sang "+nx+"."):"Đã duyệt. Yêu cầu chuyển sang Operation xử lý."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
   function doReject(name){ modal("Từ chối yêu cầu", '<div class="banner err">Sau khi từ chối, yêu cầu sẽ kết thúc.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Từ chối", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
-    return call("reject",{name:name,comment:c}).then(function(){ toast("Đã từ chối."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
+    return call("reject",{name:name,comment:c}).then(function(res){ toast("Đã từ chối."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
   function doRequestInfo(name){ modal("Yêu cầu bổ sung thông tin", '<div class="banner info">Yêu cầu sẽ được trả lại người gửi để bổ sung.</div><div class="fld"><label>Nội dung cần bổ sung <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Gửi yêu cầu", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập nội dung.",true); return Promise.reject(); }
-    return call("request_information",{name:name,comment:c}).then(function(){ toast("Đã gửi yêu cầu bổ sung."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
+    return call("request_information",{name:name,comment:c}).then(function(res){ toast("Đã gửi yêu cầu bổ sung."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
   function doCancel(name){ modal("Hủy yêu cầu", '<div class="banner warn">Hủy yêu cầu sẽ kết thúc luồng phê duyệt.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="2"></textarea></div>', {okLabel:"Xác nhận hủy", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
-    return call("cancel",{name:name,reason:c}).then(function(res){ toast("Đã hủy yêu cầu."); if(res&&res.deleted) go({tab:"my-requests"}); else { refreshDetail(); refreshApprovals(); } }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
+    return call("cancel",{name:name,reason:c}).then(function(res){ toast("Đã hủy yêu cầu."); if(res&&res.deleted) go({tab:"my-requests"}); else { applyDetail(res); } }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
   function doAdminApprove(name){ modal("Duyệt thay bước hiện tại", '<div class="banner warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div>Bạn đang duyệt thay cho bước phê duyệt hiện tại bằng quyền System Manager. Hành động này sẽ được ghi nhận trong lịch sử và không giả lập người duyệt gốc.</div></div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Xác nhận duyệt thay", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
-    return call("admin_approve_current_level",{name:name,reason:c}).then(function(){ toast("Đã duyệt thay bước hiện tại."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
+    return call("admin_approve_current_level",{name:name,reason:c}).then(function(res){ toast("Đã duyệt thay bước hiện tại."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
 
   function doSetOpDate(name,det){ var b=det.business||{};
     modal("Thời gian dự kiến hoàn thành (Operation)", '<div class="hint" style="margin-bottom:8px">Thông tin này hiển thị cho người yêu cầu.</div><div class="fld"><label>Ngày dự kiến hoàn thành</label><input type="date" id="op-date" value="'+esc(b.operation_expected_completion_date||"")+'"></div><div class="fld"><label>Ghi chú Operation</label><textarea id="op-note" rows="2">'+esc(b.operation_note||"")+'</textarea></div>', {okLabel:"Lưu", onConfirm:function(ov){ var dt=(ov.querySelector("#op-date").value||""); var nt=(ov.querySelector("#op-note").value||"");
-      return call("set_operation_fields",{name:name,operation_expected_completion_date:dt,operation_note:nt}).then(function(){ toast("Đã cập nhật thời gian dự kiến."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
-  function doClaim(name){ call("claim_fulfillment",{name:name}).then(function(){ toast("Đã nhận xử lý."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); }); }
+      return call("set_operation_fields",{name:name,operation_expected_completion_date:dt,operation_note:nt}).then(function(res){ toast("Đã cập nhật thời gian dự kiến."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
+  function doClaim(name){ call("claim_fulfillment",{name:name}).then(function(res){ toast("Đã nhận xử lý."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); }); }
   function completionErrors(c){ c=c||state.comp||{}; var errs={}; if(!((c.fulfillment_summary||"").toString().trim())) errs.fulfillment_summary="Vui lòng nhập tóm tắt kết quả xử lý."; return Object.keys(errs).length?errs:null; }
-  function doComplete(name,det){ var b0=det.business||{}; state.comp={ fulfillment_summary:"", output_link:"", completed_attachment:"", operation_expected_completion_date:(b0.operation_expected_completion_date||""), operation_note:(b0.operation_note||"") };
+  function doComplete(name,det){ var b0=det.business||{}; state.comp={ fulfillment_summary:"", output_link:"", completed_attachment:"", operation_note:(b0.operation_note||"") };
     var body='<div class="fld"><label>Tóm tắt kết quả xử lý <span class="req">*</span></label><textarea id="c-summary" rows="3"></textarea></div>'
       +'<div class="fld"><label>Link kết quả</label><input id="c-link" placeholder="https://..."></div>'
-      +'<div class="fld"><label>Ngày dự kiến hoàn thành (Operation)</label><input type="date" id="c-opdate" value="'+esc(state.comp.operation_expected_completion_date)+'"></div>'
       +'<div class="fld"><label>Ghi chú Operation</label><textarea id="c-opnote" rows="2">'+esc(state.comp.operation_note)+'</textarea></div>'
       +'<div class="fld"><label>Tệp kết quả</label><input type="file" id="c-file"><div class="hint" id="c-file-name">Không bắt buộc</div></div>';
     var m=modal("Hoàn tất xử lý", body, {okLabel:"Hoàn tất", onConfirm:function(ov){
-      state.comp.fulfillment_summary=(ov.querySelector("#c-summary").value||""); state.comp.output_link=(ov.querySelector("#c-link").value||""); state.comp.operation_expected_completion_date=(ov.querySelector("#c-opdate").value||""); state.comp.operation_note=(ov.querySelector("#c-opnote").value||"");
+      state.comp.fulfillment_summary=(ov.querySelector("#c-summary").value||""); state.comp.output_link=(ov.querySelector("#c-link").value||""); state.comp.operation_note=(ov.querySelector("#c-opnote").value||"");
       var errs=completionErrors(state.comp); if(errs){ toast(errs.fulfillment_summary,true); return Promise.reject(); }
-      return call("complete_fulfillment",{name:name,payload:JSON.stringify(state.comp)}).then(function(){ toast("Đã hoàn tất xử lý."); state.comp={}; refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }});
+      return call("complete_fulfillment",{name:name,payload:JSON.stringify(state.comp)}).then(function(res){ toast("Đã hoàn tất xử lý."); state.comp={}; applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }});
     var fi=m.ov.querySelector("#c-file"); if(fi) fi.addEventListener("change",function(){ var file=fi.files&&fi.files[0]; if(!file)return; var lbl=m.ov.querySelector("#c-file-name"); if(lbl)lbl.textContent="Đang tải...";
       var fd=new FormData(); fd.append("file",file); fd.append("is_private","1"); fd.append("doctype","EC System Request"); fd.append("docname",name);
       fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd}).then(function(r){return r.json();}).then(function(j){ state.comp.completed_attachment=(j&&j.message&&j.message.file_url)||""; if(lbl)lbl.textContent=state.comp.completed_attachment?("Đã tải: "+file.name):"Lỗi tải"; }).catch(function(){ if(lbl)lbl.textContent="Lỗi tải"; }); }); }
@@ -517,7 +523,7 @@
     call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(){ var bd=$("sysr-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.SystemRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, renderFulfillment:renderFulfillment, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, doComplete:doComplete, doClaim:doClaim, doSetOpDate:doSetOpDate };
+  window.SystemRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, renderFulfillment:renderFulfillment, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, doComplete:doComplete, doClaim:doClaim, doSetOpDate:doSetOpDate, applyDetail:applyDetail, loadApprovals:loadApprovals, renderMyApprovals:renderMyApprovals };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>
