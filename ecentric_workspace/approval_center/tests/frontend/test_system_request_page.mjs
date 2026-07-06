@@ -142,6 +142,23 @@ async function run() {
   ok(!!w.document.querySelector(".ec-sysr-overlay #c-summary"), "fulfillment complete modal renders with summary field");
 
   // balanced container
+  // ===== UAT round 2: not-found popup / null addEventListener / POST-/ =====
+  // Issue C: every button has type="button" so none can trigger a native form submit (POST / -> 404 popup)
+  ok(!/<button (?![^>]*type=)[^>]*>/.test(HTML), "every <button> has an explicit type attribute (no native submit)");
+  ok(!/<button [^>]*type="submit"/.test(HTML), "no submit-type buttons in System Request markup");
+
+  // Issue A: loading a valid detail renders it and never shows the not-found empty state, no duplicate fetch
+  { let n = 0; const w2 = boot(); await flush(); await flush();
+    w2.frappe.call = ((orig) => (o) => { if (o.method.endsWith("get_detail")) n++; return orig(o); })(w2.frappe.call);
+    w2.history.pushState({}, "", "/approvals/system-request?id=EC-SYSR-2026-00001"); w2.SystemRequest.route(); await flush(); await flush();
+    const body = w2.document.getElementById("sysr-body").innerHTML;
+    ok(/class="stepper"/.test(body), "valid detail renders on load");
+    ok(!/Không tải được yêu cầu/.test(body), "no inline/blocking not-found on a successful detail load");
+    ok(n === 1, "detail load fires exactly one get_detail (no racing duplicate loads)"); }
+
+  // Issue B: initializing in detail-mode DOM (create-form-only elements absent) must not throw
+  ok((() => { try { const w3 = boot(); return !!w3.SystemRequest; } catch (e) { return false; } })(), "script boots without throwing (null-safe bindings)");
+
   // ===== UAT polish =====
   // Issue 2: Complete modal must NOT contain the Operation expected completion date field
   w = boot(); await flush(); await flush();
