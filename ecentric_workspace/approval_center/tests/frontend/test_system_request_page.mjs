@@ -142,6 +142,17 @@ async function run() {
   ok(!!w.document.querySelector(".ec-sysr-overlay #c-summary"), "fulfillment complete modal renders with summary field");
 
   // balanced container
+  // ===== UAT round 3: no Desk-style shim; detail loads via the whitelisted API only =====
+  ok(!/frappe\.db\.get_doc|frappe\.db\.get_value|frappe\.client/.test(JS), "no Desk-style frappe.db.get_doc / frappe.client shim in the System Request page script");
+  ok(/"ecentric_workspace.approval_center.api.system_request."/.test(JS), "actions/detail call the System Request whitelisted API namespace");
+  { // detail load uses get_detail (the API), never a generic client get
+    let usedApi = false, usedClient = false; const w4 = boot(); w4.frappe.call = ((orig) => (o) => {
+      if (o.method === "ecentric_workspace.approval_center.api.system_request.get_detail") usedApi = true;
+      if (/frappe\.client|frappe\.db/.test(o.method)) usedClient = true; return orig(o); })(w4.frappe.call);
+    await flush(); await flush();
+    w4.history.pushState({}, "", "/approvals/system-request?id=EC-SYSR-2026-00001"); w4.SystemRequest.route(); await flush(); await flush();
+    ok(usedApi && !usedClient, "detail loads via api.system_request.get_detail, not a generic client get"); }
+
   // ===== UAT round 2: not-found popup / null addEventListener / POST-/ =====
   // Issue C: every button has type="button" so none can trigger a native form submit (POST / -> 404 popup)
   ok(!/<button (?![^>]*type=)[^>]*>/.test(HTML), "every <button> has an explicit type attribute (no native submit)");

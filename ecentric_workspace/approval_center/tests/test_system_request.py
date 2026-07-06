@@ -221,6 +221,17 @@ class TestSystemRequest(FrappeTestCase):
         self.assertEqual(frappe.db.get_value(api.BIZ, name, "fulfillment_status"), "Completed")
         self.assertEqual(str(frappe.db.get_value(api.BIZ, name, "operation_expected_completion_date")), "2026-09-10")
 
+    def test_page_sync_strips_legacy_head_html_shim(self):
+        if not frappe.db.exists("DocType", "Web Page"):
+            self.skipTest("Web Page DocType not installed")
+        page_sync.sync()                                         # ensure the page exists
+        name = page_sync.NAME
+        frappe.db.set_value("Web Page", name, "head_html",
+                            "<script>frappe.db.get_doc('EC System Request', 'x');</script>")
+        res = page_sync.sync()                                   # re-sync must strip the shim
+        self.assertTrue(res.get("head_stripped"))
+        self.assertFalse((frappe.db.get_value("Web Page", name, "head_html") or "").strip())
+
     def test_page_sync_idempotent_no_duplicate(self):
         if not frappe.db.exists("DocType", "Web Page"):
             self.skipTest("Web Page DocType not installed")
