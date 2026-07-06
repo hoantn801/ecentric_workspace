@@ -221,16 +221,37 @@ class TestSystemRequest(FrappeTestCase):
         self.assertEqual(frappe.db.get_value(api.BIZ, name, "fulfillment_status"), "Completed")
         self.assertEqual(str(frappe.db.get_value(api.BIZ, name, "operation_expected_completion_date")), "2026-09-10")
 
-    def test_page_sync_strips_legacy_head_html_shim(self):
+    def test_page_sync_meta_driven_shim_cleanup(self):
         if not frappe.db.exists("DocType", "Web Page"):
             self.skipTest("Web Page DocType not installed")
-        page_sync.sync()                                         # ensure the page exists
-        name = page_sync.NAME
-        frappe.db.set_value("Web Page", name, "head_html",
-                            "<script>frappe.db.get_doc('EC System Request', 'x');</script>")
-        res = page_sync.sync()                                   # re-sync must strip the shim
-        self.assertTrue(res.get("head_stripped"))
-        self.assertFalse((frappe.db.get_value("Web Page", name, "head_html") or "").strip())
+        # 1) sync never crashes and returns diagnostics (no hardcoded/possibly-missing column)
+        res = page_sync.sync()
+        for k in ("action", "route", "name", "inspected_fields", "shim_fields_stripped", "has_legacy_shim"):
+            self.assertIn(k, res)
+        name = res["name"]
+        self.assertFalse(res["has_legacy_shim"])                 # clean source, nothing to strip
+
+        # 2) shim in a real (meta-present) non-managed text field -> stripped, that field only
+        target = res["inspected_fields"][0] if res["inspected_fields"] else None
+        if target:
+            frappe.db.set_value("Web Page", name, target,
+                                "// ===== SHIM cho Web Page: frappe.db.get_doc('EC System Request','x')")
+            res2 = page_sync.sync()
+            self.assertIn(target, res2["shim_fields_stripped"])
+            self.assertTrue(res2["has_legacy_shim"])
+            self.assertFalse((frappe.db.get_value("Web Page", name, target) or "").strip())
+
+        # 3) shim in main_section -> replaced with clean source (not left as shim, not merely blanked)
+        frappe.db.set_value("Web Page", name, "main_section",
+                            "<script>// SHIM cho Web Page frappe.db.get_doc()</script>")
+        page_sync.sync()
+        ms = frappe.db.get_value("Web Page", name, "main_section") or ""
+        self.assertNotIn("SHIM cho Web Page", ms)
+        self.assertIn("ec-system-request", ms)                   # clean source restored
+
+        # 4) idempotent: re-run finds no shim and does not error
+        res4 = page_sync.sync()
+        self.assertFalse(res4["has_legacy_shim"])
 
     def test_page_sync_idempotent_no_duplicate(self):
         if not frappe.db.exists("DocType", "Web Page"):
