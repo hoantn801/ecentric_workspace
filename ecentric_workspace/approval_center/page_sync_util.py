@@ -50,3 +50,36 @@ def upsert_web_page(route, name, title, html):
     action = "updated" if existing else "created"
     frappe.logger("approval_center").info("page_sync upsert: %s Web Page /%s (name=%s)" % (action, route, doc.name))
     return {"action": action, "route": route, "name": doc.name}
+
+
+# --- Legacy Web Page shim cleanup (meta-driven; never accesses a column that does not exist) ---
+_SHIM_MARKERS = ("SHIM cho Web Page", "frappe.db.get_doc", "frappe.db.get_value", "frappe.client")
+_TEXT_FIELDTYPES = {"Data", "Small Text", "Text", "Long Text", "Text Editor",
+                    "Code", "HTML", "HTML Editor", "Markdown Editor"}
+_MANAGED_FIELDS = {"main_section", "main_section_html"}
+
+
+def strip_legacy_shims(name):
+    """Remove a legacy Desk-style shim from whatever real text field holds it on this site.
+    Inspects Web Page meta (never a hardcoded/possibly-missing column). main_section/
+    main_section_html are owned by upsert_web_page (replaced with clean source), so they are
+    not blanked here. Clears only fields whose value contains an unambiguous shim marker.
+    ORM-only, non-destructive. Returns diagnostics."""
+    inspected, stripped = [], []
+    try:
+        meta = frappe.get_meta("Web Page")
+        doc = frappe.get_doc("Web Page", name)
+    except Exception:
+        return {"inspected_fields": inspected, "shim_fields_stripped": stripped, "has_legacy_shim": False}
+    for df in meta.fields:
+        if df.fieldtype not in _TEXT_FIELDTYPES or df.fieldname in _MANAGED_FIELDS:
+            continue
+        inspected.append(df.fieldname)
+        val = doc.get(df.fieldname)
+        if val and any(m in val for m in _SHIM_MARKERS):
+            frappe.db.set_value("Web Page", name, df.fieldname, "")
+            stripped.append(df.fieldname)
+    if stripped:
+        frappe.db.commit()
+        frappe.logger("approval_center").info("page_sync: stripped legacy shim from %s" % stripped)
+    return {"inspected_fields": inspected, "shim_fields_stripped": stripped, "has_legacy_shim": bool(stripped)}
