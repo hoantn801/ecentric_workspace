@@ -197,10 +197,18 @@ def assign(doctype, name, users, description=None):
     """Canonical Frappe assignment (frappe.desk.form.assign_to.add). Idempotent:
     skips a user who already has an OPEN ToDo, so no duplicate open assignment.
     Silent: mutes Frappe's share/assignment msgprints (no popups) while KEEPING the actual
-    DocShare read access + ToDo. Real errors PROPAGATE so a failed assignment rolls back."""
+    DocShare read access + ToDo. Real errors PROPAGATE so a failed assignment rolls back.
+
+    ENGINE-OWNED INTERNAL OP: this ToDo + DocShare grant is a system transition that runs AFTER the
+    acting approver has already been authorized (see approve/reject/etc.). It must not require the
+    acting user to hold generic Frappe Share permission on the business DocType, so it runs under a
+    narrowly scoped ignore_permissions - only for this one business document, only granting access to
+    users resolved from the process snapshot. The audit actor is recorded separately by log_action and
+    is unaffected; the ToDo's assigned_by remains the real acting user."""
     from frappe.desk.form.assign_to import add as _add
-    prev = frappe.flags.mute_messages
+    prev_mute, prev_ip = frappe.flags.mute_messages, frappe.flags.ignore_permissions
     frappe.flags.mute_messages = True
+    frappe.flags.ignore_permissions = True
     try:
         for u in [x for x in dict.fromkeys(users) if x and x != "Guest"]:
             if frappe.db.exists("ToDo", {"reference_type": doctype, "reference_name": name,
@@ -209,7 +217,8 @@ def assign(doctype, name, users, description=None):
             _add({"assign_to": [u], "doctype": doctype, "name": name,
                   "description": description or _("Approval Center task")})
     finally:
-        frappe.flags.mute_messages = prev
+        frappe.flags.mute_messages = prev_mute
+        frappe.flags.ignore_permissions = prev_ip
     _drop_share_messages()
 
 
@@ -218,8 +227,9 @@ def close_todos(doctype, name, keep_user=None):
     (frappe.desk.form.assign_to.remove) so _assign + the audit comment stay
     consistent - not raw ToDo mutation. Silent (no share/unassign popups)."""
     from frappe.desk.form.assign_to import remove as _remove
-    prev = frappe.flags.mute_messages
+    prev_mute, prev_ip = frappe.flags.mute_messages, frappe.flags.ignore_permissions
     frappe.flags.mute_messages = True
+    frappe.flags.ignore_permissions = True   # engine-owned internal op (after authorization)
     try:
         for td in frappe.get_all("ToDo", filters={"reference_type": doctype, "reference_name": name,
                                                   "status": "Open"}, fields=["allocated_to"]):
@@ -227,7 +237,8 @@ def close_todos(doctype, name, keep_user=None):
                 continue
             _remove(doctype, name, td.allocated_to)
     finally:
-        frappe.flags.mute_messages = prev
+        frappe.flags.mute_messages = prev_mute
+        frappe.flags.ignore_permissions = prev_ip
     _drop_share_messages()
 
 
