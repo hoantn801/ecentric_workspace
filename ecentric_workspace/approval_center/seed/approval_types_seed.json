@@ -9,14 +9,14 @@
   {
     "approval_code": "SPECIAL_BONUS",
     "approval_title": "Special Bonus",
-    "category": "HR",
+    "category": "OTHERS",
     "legacy_template_name": "Special Bonus",
     "sort_order": 20
   },
   {
     "approval_code": "HIRING_REQUEST",
     "approval_title": "Hiring Request",
-    "category": "HR",
+    "category": "ADMINISTRATION",
     "legacy_template_name": "Hiring Request",
     "sort_order": 30
   },
@@ -86,7 +86,7 @@
   {
     "approval_code": "ASSET_DAMAGE_LOSS",
     "approval_title": "Asset Damage or Loss",
-    "category": "PROCUREMENT_ASSET",
+    "category": "ADMINISTRATION",
     "legacy_template_name": "Asset Damage or Loss",
     "sort_order": 30
   },
