@@ -65,6 +65,8 @@ def submit(name):
         missing.append("proposed_salary")
     if missing:
         frappe.throw(_("Vui long nhap day du cac truong bat buoc truoc khi gui."))
+    if not frappe.db.exists("Department", doc.department):
+        frappe.throw(_("Phong ban khong hop le. Vui long chon phong ban tu danh sach."))
     for f in _SALARY_FIELDS:
         try:
             if float(doc.get(f)) < 0:

@@ -123,9 +123,23 @@ def get_bootstrap():
             "form_options": get_form_options()}
 
 
+def _department_options():
+    """Selectable Department master records (value = Department.name, label = readable name).
+    Excludes disabled/group departments when those fields exist (field-absence tolerant)."""
+    filters = {}
+    meta = frappe.get_meta("Department")
+    if meta.has_field("disabled"):
+        filters["disabled"] = 0
+    if meta.has_field("is_group"):
+        filters["is_group"] = 0
+    rows = frappe.get_all("Department", filters=filters, fields=["name", "department_name"],
+                          order_by="department_name asc", limit_page_length=0)
+    return [{"value": r.name, "label": r.department_name or r.name} for r in rows]
+
+
 @frappe.whitelist()
 def get_form_options():
-    return {}
+    return {"departments": _department_options()}
 
 
 @frappe.whitelist()

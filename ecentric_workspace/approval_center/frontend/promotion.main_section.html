@@ -196,7 +196,7 @@
       + fld("_r2","Phòng ban (người yêu cầu)",'<input class="ro" readonly value="'+esc(c.department||"—")+'">')
       + '</div></div><div class="card"><h3>Thông tin nhân sự</h3><div class="grid2">'
       + fld("full_name","Full name",'<input data-model="full_name" value="'+esc(d.full_name||"")+'">',true)
-      + fld("department","Department",'<input data-model="department" placeholder="Phòng ban của nhân sự" value="'+esc(d.department||"")+'">',true)
+      + fld("department","Department",((fo.departments||[]).length?'<select data-model="department"><option value="">— Chọn phòng ban —</option>'+opt(fo.departments||[],d.department)+'</select>':'<select data-model="department" disabled><option value="">Không tải được danh sách phòng ban</option></select><div class="hint">Vui lòng tải lại trang; nếu vẫn lỗi, liên hệ quản trị viên.</div>'),true)
       + fld("current_position","Vị trí hiện tại",'<input data-model="current_position" value="'+esc(d.current_position||"")+'">',true)
       + fld("proposed_position","Vị trí đề xuất",'<input data-model="proposed_position" value="'+esc(d.proposed_position||"")+'">',true)
       + fld("current_salary","Lương hiện tại (VND)",'<input type="number" min="0" step="1" data-model="current_salary" value="'+esc(d.current_salary!=null?d.current_salary:"")+'">',true)
@@ -256,7 +256,10 @@
   function validateSubmit(){ var d=state.draft||{}; var errs={};
     if(!((d.request_title||"").toString().trim())) errs.request_title="Vui lòng nhập tiêu đề yêu cầu.";
     if(!((d.full_name||"").toString().trim())) errs.full_name="Vui lòng nhập họ tên nhân sự.";
-    if(!((d.department||"").toString().trim())) errs.department="Vui lòng nhập phòng ban.";
+    if(!((d.department||"").toString().trim())){ errs.department="Vui lòng chọn phòng ban."; }
+    else { var _fo=(state.boot&&state.boot.form_options)||{}; var _dl=_fo.departments||[];
+      if(_dl.length){ var _ok=_dl.some(function(o){ return (o.value!=null?o.value:o)===d.department; });
+        if(!_ok) errs.department="Phòng ban không hợp lệ. Vui lòng chọn từ danh sách."; } }
     if(!((d.current_position||"").toString().trim())) errs.current_position="Vui lòng nhập vị trí hiện tại.";
     if(!((d.proposed_position||"").toString().trim())) errs.proposed_position="Vui lòng nhập vị trí đề xuất.";
     if(!((d.justification||"").toString().trim())) errs.justification="Vui lòng nhập lý do đề xuất.";
