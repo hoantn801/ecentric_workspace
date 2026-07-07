@@ -10,8 +10,12 @@ Admin is used only for fixtures.
 
   bench --site <site> run-tests --module ecentric_workspace.approval_center.tests.test_permission_regression
 """
+import inspect
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
+
+from ecentric_workspace.approval_center.engine import service as engine
 
 from ecentric_workspace.approval_center.api import hr_activity as hr_api
 from ecentric_workspace.approval_center.api import system_request as sr_api
@@ -82,6 +86,23 @@ class TestApprovalPermissionRegression(FrappeTestCase):
 
     def _ar(self, api, name):
         return frappe.db.get_value(api.BIZ, name, "approval_request")
+
+    # ------------------------------------------------------------------ #
+    # Source-level guard: proves the fix at the code path itself and FAILS on the old code.
+    # (Runs with no live data - it inspects engine.assign / engine.close_todos source.)
+    # ------------------------------------------------------------------ #
+    def test_engine_does_not_use_public_assign_to_add(self):
+        src = inspect.getsource(engine.assign) + inspect.getsource(engine.close_todos)
+        # The old (broken) path: public assign_to.add/remove -> frappe.share.add -> check_share_permission
+        # against the ACTING user (which ignores frappe.flags.ignore_permissions). It must be gone.
+        self.assertNotIn("assign_to import add", src)
+        self.assertNotIn("assign_to import remove", src)
+        self.assertNotIn("_add({", src)
+        # The fix: share ONLY this doc via the version-stable ignore_share_permission bypass that
+        # check_share_permission itself honors, and insert the ToDo with ignore_permissions.
+        grant = inspect.getsource(engine._engine_grant_read)
+        self.assertIn("ignore_share_permission", grant)
+        self.assertIn("ignore_permissions=True", inspect.getsource(engine._engine_ensure_todo))
 
     # ------------------------------------------------------------------ #
     # HR Activity - the reported form: 3 real approvers advance the request

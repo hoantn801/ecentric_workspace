@@ -193,53 +193,104 @@ def _drop_share_messages():
                                 if not any(k in _txt(m) for k in ("Read access", "Shared with", "shared with"))]
 
 
-def assign(doctype, name, users, description=None):
-    """Canonical Frappe assignment (frappe.desk.form.assign_to.add). Idempotent:
-    skips a user who already has an OPEN ToDo, so no duplicate open assignment.
-    Silent: mutes Frappe's share/assignment msgprints (no popups) while KEEPING the actual
-    DocShare read access + ToDo. Real errors PROPAGATE so a failed assignment rolls back.
+def _engine_ensure_todo(doctype, name, user, description):
+    """Create the next approver's/fulfiller's Open ToDo for THIS business document.
+    Idempotent (skips if an Open ToDo already exists). Inserted with ignore_permissions - a
+    ToDo insert never needs the acting user to hold write/share perm on the business DocType.
+    assigned_by stays the real acting user (frappe.session.user) so the audit trail is honest."""
+    if frappe.db.exists("ToDo", {"reference_type": doctype, "reference_name": name,
+                                 "allocated_to": user, "status": "Open"}):
+        return
+    frappe.get_doc({
+        "doctype": "ToDo",
+        "allocated_to": user,
+        "reference_type": doctype,
+        "reference_name": name,
+        "assigned_by": frappe.session.user,
+        "description": description or _("Approval Center task"),
+    }).insert(ignore_permissions=True)
 
-    ENGINE-OWNED INTERNAL OP: this ToDo + DocShare grant is a system transition that runs AFTER the
-    acting approver has already been authorized (see approve/reject/etc.). It must not require the
-    acting user to hold generic Frappe Share permission on the business DocType, so it runs under a
-    narrowly scoped ignore_permissions - only for this one business document, only granting access to
-    users resolved from the process snapshot. The audit actor is recorded separately by log_action and
-    is unaffected; the ToDo's assigned_by remains the real acting user."""
-    from frappe.desk.form.assign_to import add as _add
-    prev_mute, prev_ip = frappe.flags.mute_messages, frappe.flags.ignore_permissions
+
+def _engine_grant_read(doctype, name, user):
+    """Share ONLY this one business document (read) with the next approver/fulfiller.
+
+    Root cause of the real-user 403: the public frappe.desk.form.assign_to.add ultimately calls
+    frappe.share.add(...) which runs check_share_permission against the ACTING user - and that check
+    calls frappe.has_permission(ptype='share', ...) directly, which does NOT consult
+    frappe.flags.ignore_permissions. So a normal approver (read access only) could not share the doc
+    onward and hit 'No permission to share ...'.
+
+    Fix: call frappe.share.add with flags={'ignore_share_permission': True} - the version-stable public
+    bypass that check_share_permission itself honors. This is an ENGINE-OWNED internal share that runs
+    only AFTER the actor has been authorized as a current pending approver; it grants read on exactly
+    this document to exactly the snapshot-resolved next users, and touches no other document and no
+    broad permission."""
+    if frappe.db.exists("DocShare", {"share_doctype": doctype, "share_name": name, "user": user}):
+        return
+    from frappe.share import add as _share_add
+    _share_add(doctype, name, user, read=1, flags={"ignore_share_permission": True})
+
+
+def _engine_maintain_assign(doctype, name, user, add=True):
+    """Keep the business doc's _assign list consistent with the live ToDos (same bookkeeping
+    frappe.desk.form.assign_to does), via the ORM set_value with update_modified=False so it neither
+    bumps `modified` nor requires the acting user's write perm. Not approval state - only the
+    Desk 'Assigned To' metadata field."""
+    cur = frappe.parse_json(frappe.db.get_value(doctype, name, "_assign") or "[]")
+    if add and user not in cur:
+        cur = cur + [user]
+    elif (not add) and user in cur:
+        cur = [x for x in cur if x != user]
+    else:
+        return
+    frappe.db.set_value(doctype, name, "_assign", frappe.as_json(cur), update_modified=False)
+
+
+def assign(doctype, name, users, description=None):
+    """Assign the next approver(s)/fulfiller(s) to a business document. Idempotent (skips a user who
+    already has an OPEN ToDo). Silent: mutes Frappe's share/assignment msgprints (no popups) while
+    KEEPING the actual DocShare read access + ToDo. Real errors PROPAGATE so a failed assignment
+    rolls back.
+
+    ENGINE-OWNED INTERNAL OP - runs AFTER the acting approver has already been authorized (see
+    approve/reject/etc.). It deliberately does NOT go through the public frappe.desk.form.assign_to.add,
+    because that path shares the business doc using the ACTING user's Share permission and a normal
+    approver does not hold generic Share perm on the business DocType (that would require DocPerm/System
+    Manager, which we must not grant). Instead it (1) inserts the ToDo with ignore_permissions,
+    (2) grants read on ONLY this document via the ignore_share_permission bypass, and (3) maintains
+    _assign. It never bypasses actor authorization, never grants broad permission, and never touches
+    unrelated documents. The audit actor is recorded separately by log_action; assigned_by stays the
+    real acting user."""
+    prev_mute = frappe.flags.mute_messages
     frappe.flags.mute_messages = True
-    frappe.flags.ignore_permissions = True
     try:
         for u in [x for x in dict.fromkeys(users) if x and x != "Guest"]:
-            if frappe.db.exists("ToDo", {"reference_type": doctype, "reference_name": name,
-                                         "allocated_to": u, "status": "Open"}):
-                continue
-            _add({"assign_to": [u], "doctype": doctype, "name": name,
-                  "description": description or _("Approval Center task")})
+            _engine_ensure_todo(doctype, name, u, description)
+            _engine_grant_read(doctype, name, u)
+            _engine_maintain_assign(doctype, name, u, add=True)
     finally:
         frappe.flags.mute_messages = prev_mute
-        frappe.flags.ignore_permissions = prev_ip
     _drop_share_messages()
 
 
 def close_todos(doctype, name, keep_user=None):
-    """Close obsolete assignments via the canonical helper
-    (frappe.desk.form.assign_to.remove) so _assign + the audit comment stay
-    consistent - not raw ToDo mutation. Silent (no share/unassign popups)."""
-    from frappe.desk.form.assign_to import remove as _remove
-    prev_mute, prev_ip = frappe.flags.mute_messages, frappe.flags.ignore_permissions
+    """Close obsolete Open ToDos for a business document (engine-owned, after authorization).
+
+    Cancels each obsolete Open ToDo directly with ignore_permissions and keeps _assign consistent -
+    it does NOT go through frappe.desk.form.assign_to.remove, whose docshare removal also runs the
+    acting user's Share-permission check (same 403 family as assign). Past approvers keep their read
+    DocShare so they can still view what they acted on; only their pending task is cleared."""
+    prev_mute = frappe.flags.mute_messages
     frappe.flags.mute_messages = True
-    frappe.flags.ignore_permissions = True   # engine-owned internal op (after authorization)
     try:
         for td in frappe.get_all("ToDo", filters={"reference_type": doctype, "reference_name": name,
-                                                  "status": "Open"}, fields=["allocated_to"]):
+                                                  "status": "Open"}, fields=["name", "allocated_to"]):
             if keep_user and td.allocated_to == keep_user:
                 continue
-            _remove(doctype, name, td.allocated_to)
+            frappe.db.set_value("ToDo", td.name, "status", "Cancelled", update_modified=False)
+            _engine_maintain_assign(doctype, name, td.allocated_to, add=False)
     finally:
         frappe.flags.mute_messages = prev_mute
-        frappe.flags.ignore_permissions = prev_ip
-    _drop_share_messages()
 
 
 # --------------------------------------------------------------------------- #
