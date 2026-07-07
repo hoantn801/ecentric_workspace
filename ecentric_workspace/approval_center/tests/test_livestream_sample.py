@@ -10,6 +10,7 @@ from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import livestream_sample as api
 from ecentric_workspace.approval_center.livestream_sample import setup as ls
+from ecentric_workspace.approval_center.patches import p021_backfill_livestream_sample_type as p021
 
 PFX = "ZZLS_"
 SANG = PFX + "sang@example.com"
@@ -118,3 +119,32 @@ class TestLivestreamSample(FrappeTestCase):
         with self.assertRaises(frappe.exceptions.ValidationError):
             api.submit_request(name)
         frappe.set_user("Administrator")
+
+
+class TestLivestreamSampleTypeBackfill(FrappeTestCase):
+    """p021 back-fills EC Approval Type LIVESTREAM_SAMPLE (skipped by p018 because OTHERS did not
+    exist yet), so setup can proceed."""
+
+    def test_p021_creates_type_then_setup_passes(self):
+        # simulate the live state: OTHERS category present, type missing
+        if frappe.db.exists("EC Approval Type", "LIVESTREAM_SAMPLE"):
+            frappe.delete_doc("EC Approval Type", "LIVESTREAM_SAMPLE", ignore_permissions=True, force=1)
+        p021.execute()
+        self.assertTrue(frappe.db.exists("EC Approval Type", "LIVESTREAM_SAMPLE"))
+        row = frappe.db.get_value("EC Approval Type", "LIVESTREAM_SAMPLE",
+                                  ["category", "card_status", "approval_title"], as_dict=True)
+        self.assertEqual(row.category, "OTHERS")                 # under Others
+        self.assertEqual(row.card_status, "Coming Soon")         # unpublished
+        self.assertEqual(row.approval_title, "Livestream Sample Request")
+        self.assertTrue(frappe.db.exists("EC Approval Category", "OTHERS"))
+        # idempotent + admin edit preserved
+        frappe.db.set_value("EC Approval Type", "LIVESTREAM_SAMPLE", "card_status", "Migrating")
+        before = frappe.db.count("EC Approval Type")
+        p021.execute()
+        self.assertEqual(frappe.db.count("EC Approval Type"), before)
+        self.assertEqual(frappe.db.get_value("EC Approval Type", "LIVESTREAM_SAMPLE", "card_status"), "Migrating")
+        # setup can now proceed
+        _user(SANG)
+        rep = ls.setup_livestream_sample_v1(reviewer=[SANG], apply=1)
+        self.assertIn(rep.get("result"), ("APPLIED (process Draft; card inactive)", "ALREADY_ACTIVE"))
+        self.assertTrue(frappe.db.exists("EC Approval Process", "LIVESTREAM_SAMPLE-V1"))
