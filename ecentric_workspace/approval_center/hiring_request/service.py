@@ -1,11 +1,12 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Promotion orchestration over the shared engine. Direct Manager -> CnB -> HOF -> CEO
-(User participants from process config; no fulfillment). Governance: because a promotion
-carries salary data, the Direct Manager approver is NEVER requester-chosen - it resolves
-from Employee.reports_to. If it cannot be resolved, submit is blocked with a friendly
-Vietnamese message (no silent bypass). No hardcoded runtime approvers."""
+"""Hiring orchestration over the shared engine. Direct Manager -> HR -> CEO (User participants
+from process config; no fulfillment). Governance: the Direct Manager approver resolves from
+Employee.reports_to (blocked at submit if unresolved; never requester-chosen). Department must be
+a real Department master record. line_manager is BUSINESS INFO about the future hire's manager and
+must be an active System User - it is NOT used as an approval resolver. No hardcoded approvers."""
 import hashlib
 import json
+import re
 
 import frappe
 from frappe import _
@@ -13,15 +14,14 @@ from frappe.utils import now_datetime
 
 from ecentric_workspace.approval_center.engine import service as engine
 
-BUSINESS_DT = "EC Promotion Request"
-APPROVAL_TYPE = "PROMOTION_REQUEST"
+BUSINESS_DT = "EC Hiring Request"
+APPROVAL_TYPE = "HIRING_REQUEST"
 
-MATERIAL_FIELDS = ["full_name", "department", "current_position", "proposed_position",
-                   "justification", "current_salary", "proposed_salary", "incentives",
-                   "effective_date_of_promotion"]
-REQUIRED_AT_SUBMIT = ["request_title", "full_name", "department", "current_position",
-                      "proposed_position", "justification", "effective_date_of_promotion"]
-_SALARY_FIELDS = ["current_salary", "proposed_salary"]
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+MATERIAL_FIELDS = ["position", "number_of_vacancy", "reason", "employment_type", "education",
+                   "department", "line_manager", "suggested_salary"]
+REQUIRED_AT_SUBMIT = ["request_title", "position", "reason", "employment_type", "education",
+                      "department", "line_manager"]
 
 
 def _signature(doc):
@@ -33,15 +33,15 @@ def _ctx(user):
     return frappe.db.get_value("Employee", {"user_id": user}, ["name", "department", "company"], as_dict=True)
 
 
+def _is_active_system_user(user):
+    row = user and frappe.db.get_value("User", user, ["enabled", "user_type"], as_dict=True)
+    return bool(row and row.enabled and row.user_type == "System User")
+
+
 def _direct_manager_user(user):
-    """Requester's direct manager (reports_to -> user_id) if an active System User, else None."""
     emp = frappe.db.get_value("Employee", {"user_id": user}, ["name", "reports_to"], as_dict=True)
     mgr = emp and emp.reports_to and frappe.db.get_value("Employee", emp.reports_to, "user_id")
-    if mgr:
-        row = frappe.db.get_value("User", mgr, ["enabled", "user_type"], as_dict=True)
-        if row and row.enabled and row.user_type == "System User":
-            return mgr
-    return None
+    return mgr if (mgr and _is_active_system_user(mgr)) else None
 
 
 @frappe.whitelist(methods=["POST"])
@@ -59,24 +59,34 @@ def submit(name):
         doc.employee = emp.name
         doc.company = doc.company or emp.company
     missing = [f for f in REQUIRED_AT_SUBMIT if not doc.get(f)]
-    if doc.current_salary is None:
-        missing.append("current_salary")
-    if doc.proposed_salary is None:
-        missing.append("proposed_salary")
+    if doc.number_of_vacancy is None:
+        missing.append("number_of_vacancy")
+    if doc.suggested_salary is None:
+        missing.append("suggested_salary")
     if missing:
         frappe.throw(_("Vui long nhap day du cac truong bat buoc truoc khi gui."))
     if not frappe.db.exists("Department", doc.department):
         frappe.throw(_("Phong ban khong hop le. Vui long chon phong ban tu danh sach."))
-    for f in _SALARY_FIELDS:
-        try:
-            if float(doc.get(f)) < 0:
-                frappe.throw(_("Muc luong khong the la so am."))
-        except (TypeError, ValueError):
-            frappe.throw(_("Muc luong phai la so."))
-    # Governance block: Direct Manager must be resolvable (salary-bearing form; no requester choice).
+    try:
+        if int(doc.number_of_vacancy) <= 0:
+            frappe.throw(_("So luong tuyen dung phai lon hon 0."))
+    except (TypeError, ValueError):
+        frappe.throw(_("So luong tuyen dung phai la so nguyen."))
+    try:
+        if float(doc.suggested_salary) <= 0:
+            frappe.throw(_("Muc luong de xuat phai lon hon 0."))
+    except (TypeError, ValueError):
+        frappe.throw(_("Muc luong de xuat phai la so."))
+    # line_manager is business info about the future hire; validate it is an active System User.
+    lm = (doc.line_manager or "").strip()
+    if not _EMAIL_RE.match(lm):
+        frappe.throw(_("Email quan ly truc tiep (Line manager) khong hop le."))
+    if not _is_active_system_user(lm):
+        frappe.throw(_("Quan ly truc tiep (Line manager) phai la nguoi dung dang hoat dong trong he thong."))
+    # Approval L1 Direct Manager must resolve (never requester-chosen).
     if not _direct_manager_user(user):
         frappe.throw(_("Khong xac dinh duoc Quan ly truc tiep cua ban. Vui long lien he HR/Admin de cap "
-                       "nhat 'Bao cao cho' (reports_to) trong ho so nhan su truoc khi gui yeu cau thang chuc."))
+                       "nhat 'Bao cao cho' (reports_to) trong ho so nhan su truoc khi gui yeu cau."))
     doc.submitted_at = now_datetime()
     doc.material_signature = _signature(doc)
     doc.save(ignore_permissions=True)

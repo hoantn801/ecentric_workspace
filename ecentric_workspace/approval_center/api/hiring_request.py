@@ -1,19 +1,19 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Permission-safe read + write API for Promotion Request. Mirrors AI Topup
+"""Permission-safe read + write API for Hiring Request. Mirrors AI Topup
 conventions; NO fulfillment. Backend is authoritative; capability flags are advisory
 (writes re-validate in the engine/service). Friendly Vietnamese errors only."""
 import frappe
 from frappe import _
 
-BIZ = "EC Promotion Request"
-APPROVAL_TYPE = "PROMOTION_REQUEST"
+BIZ = "EC Hiring Request"
+APPROVAL_TYPE = "HIRING_REQUEST"
 MAX_PAGE = 50
 OPEN = ("Pending", "Information Required")
 TERMINAL = ("Approved", "Rejected", "Cancelled")
 
-_EDITABLE_DRAFT = ("request_title", "full_name", "department", "current_position", "proposed_position",
-                   "justification", "current_salary", "proposed_salary", "incentives",
-                   "effective_date_of_promotion", "company")
+_EDITABLE_DRAFT = ("request_title", "position", "number_of_vacancy", "reason", "employment_type",
+                   "education", "department", "line_manager", "suggested_salary",
+                   "request_attachment", "company")
 
 _STATUS_LABEL = {"Draft": "Nháp", "Pending": "Đang phê duyệt", "Information Required": "Cần bổ sung",
                  "Approved": "Đã duyệt", "Rejected": "Bị từ chối", "Cancelled": "Đã hủy"}
@@ -139,7 +139,9 @@ def _department_options():
 
 @frappe.whitelist()
 def get_form_options():
-    return {"departments": _department_options()}
+    return {"departments": _department_options(),
+            "reasons": ["New", "Replace"],
+            "employment_types": ["Full-time", "Freelancer", "Intern"]}
 
 
 @frappe.whitelist()
@@ -147,15 +149,15 @@ def list_my_requests(filters=None, start=0, page_length=20):
     user = frappe.session.user
     flt = {"requested_by": user}
     f = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
-    if f.get("proposed_position"):
-        flt["proposed_position"] = f["proposed_position"]
+    if f.get("employment_type"):
+        flt["employment_type"] = f["employment_type"]
     if f.get("from_date") and f.get("to_date"):
         flt["creation"] = ["between", [f["from_date"], f["to_date"]]]
     page_length = min(int(page_length or 20), MAX_PAGE)
     total = frappe.db.count(BIZ, flt)
     rows = frappe.get_all(BIZ, filters=flt,
-                          fields=["name", "request_title", "full_name", "proposed_position",
-                                  "effective_date_of_promotion", "approval_request", "creation", "modified"],
+                          fields=["name", "request_title", "position", "department", "number_of_vacancy",
+                                  "employment_type", "approval_request", "creation", "modified"],
                           limit_start=int(start), limit_page_length=page_length, order_by="modified desc")
     alc = None
     for r in rows:
@@ -195,8 +197,8 @@ def list_need_my_approval(section="pending"):
         if section == "pending" and (req.approval_status not in OPEN or req.current_level != r.level_no):
             continue
         biz = frappe.db.get_value(BIZ, req.reference_name,
-                                  ["name", "request_title", "full_name", "proposed_position",
-                                   "effective_date_of_promotion", "department"], as_dict=True)
+                                  ["name", "request_title", "position", "department",
+                                   "number_of_vacancy", "employment_type"], as_dict=True)
         if biz:
             cur_name = (frappe.db.get_value("EC Approval Request Level",
                         {"approval_request": r.approval_request, "level_no": req.current_level}, "level_name")
@@ -290,7 +292,7 @@ def save_draft(name=None, payload=None):
 
 @frappe.whitelist(methods=["POST"])
 def submit_request(name):
-    from ecentric_workspace.approval_center.promotion import service as svc
+    from ecentric_workspace.approval_center.hiring_request import service as svc
     prev = frappe.flags.mute_messages
     frappe.flags.mute_messages = True
     try:
@@ -334,7 +336,7 @@ def request_information(name, comment=None):
 
 @frappe.whitelist(methods=["POST"])
 def resubmit(name, payload=None):
-    from ecentric_workspace.approval_center.promotion import service as svc
+    from ecentric_workspace.approval_center.hiring_request import service as svc
     if payload:
         save_draft(name=name, payload=payload)
     res = svc.resubmit(name)

@@ -1,19 +1,21 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Permission-safe read + write API for Promotion Request. Mirrors AI Topup
+"""Permission-safe read + write API for Asset Damage or Loss. Mirrors AI Topup
 conventions; NO fulfillment. Backend is authoritative; capability flags are advisory
 (writes re-validate in the engine/service). Friendly Vietnamese errors only."""
 import frappe
 from frappe import _
 
-BIZ = "EC Promotion Request"
-APPROVAL_TYPE = "PROMOTION_REQUEST"
+BIZ = "EC Asset Damage Loss Request"
+APPROVAL_TYPE = "ASSET_DAMAGE_LOSS"
 MAX_PAGE = 50
 OPEN = ("Pending", "Information Required")
 TERMINAL = ("Approved", "Rejected", "Cancelled")
 
-_EDITABLE_DRAFT = ("request_title", "full_name", "department", "current_position", "proposed_position",
-                   "justification", "current_salary", "proposed_salary", "incentives",
-                   "effective_date_of_promotion", "company")
+_EDITABLE_DRAFT = ("request_title", "asset_type", "asset_type_other", "asset_code", "incident_type",
+                   "incident_type_other", "incident_description", "incident_date", "incident_location",
+                   "witnesses", "physical_damage", "data_compromised", "impact_on_operations",
+                   "estimated_repair_cost", "estimated_value_lost_stolen_asset", "recommended_actions",
+                   "recommended_actions_other", "request_attachment", "department", "company")
 
 _STATUS_LABEL = {"Draft": "Nháp", "Pending": "Đang phê duyệt", "Information Required": "Cần bổ sung",
                  "Approved": "Đã duyệt", "Rejected": "Bị từ chối", "Cancelled": "Đã hủy"}
@@ -123,23 +125,11 @@ def get_bootstrap():
             "form_options": get_form_options()}
 
 
-def _department_options():
-    """Selectable Department master records (value = Department.name, label = readable name).
-    Excludes disabled/group departments when those fields exist (field-absence tolerant)."""
-    filters = {}
-    meta = frappe.get_meta("Department")
-    if meta.has_field("disabled"):
-        filters["disabled"] = 0
-    if meta.has_field("is_group"):
-        filters["is_group"] = 0
-    rows = frappe.get_all("Department", filters=filters, fields=["name", "department_name"],
-                          order_by="department_name asc", limit_page_length=0)
-    return [{"value": r.name, "label": r.department_name or r.name} for r in rows]
-
-
 @frappe.whitelist()
 def get_form_options():
-    return {"departments": _department_options()}
+    return {"asset_types": ["Laptop", "Desktop computer", "Monitor", "Mobile device", "Printer", "RAM", "Other"],
+            "incident_types": ["Damage", "Loss", "Theft", "Other"],
+            "recommended_actions": ["Repair", "Replace", "Write-off", "Further investigation", "Other"]}
 
 
 @frappe.whitelist()
@@ -147,15 +137,15 @@ def list_my_requests(filters=None, start=0, page_length=20):
     user = frappe.session.user
     flt = {"requested_by": user}
     f = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
-    if f.get("proposed_position"):
-        flt["proposed_position"] = f["proposed_position"]
+    if f.get("incident_type"):
+        flt["incident_type"] = f["incident_type"]
     if f.get("from_date") and f.get("to_date"):
         flt["creation"] = ["between", [f["from_date"], f["to_date"]]]
     page_length = min(int(page_length or 20), MAX_PAGE)
     total = frappe.db.count(BIZ, flt)
     rows = frappe.get_all(BIZ, filters=flt,
-                          fields=["name", "request_title", "full_name", "proposed_position",
-                                  "effective_date_of_promotion", "approval_request", "creation", "modified"],
+                          fields=["name", "request_title", "asset_type", "incident_type",
+                                  "incident_date", "approval_request", "creation", "modified"],
                           limit_start=int(start), limit_page_length=page_length, order_by="modified desc")
     alc = None
     for r in rows:
@@ -195,8 +185,8 @@ def list_need_my_approval(section="pending"):
         if section == "pending" and (req.approval_status not in OPEN or req.current_level != r.level_no):
             continue
         biz = frappe.db.get_value(BIZ, req.reference_name,
-                                  ["name", "request_title", "full_name", "proposed_position",
-                                   "effective_date_of_promotion", "department"], as_dict=True)
+                                  ["name", "request_title", "asset_type", "incident_type",
+                                   "incident_date", "department"], as_dict=True)
         if biz:
             cur_name = (frappe.db.get_value("EC Approval Request Level",
                         {"approval_request": r.approval_request, "level_no": req.current_level}, "level_name")
@@ -290,7 +280,7 @@ def save_draft(name=None, payload=None):
 
 @frappe.whitelist(methods=["POST"])
 def submit_request(name):
-    from ecentric_workspace.approval_center.promotion import service as svc
+    from ecentric_workspace.approval_center.asset_damage_loss import service as svc
     prev = frappe.flags.mute_messages
     frappe.flags.mute_messages = True
     try:
@@ -334,7 +324,7 @@ def request_information(name, comment=None):
 
 @frappe.whitelist(methods=["POST"])
 def resubmit(name, payload=None):
-    from ecentric_workspace.approval_center.promotion import service as svc
+    from ecentric_workspace.approval_center.asset_damage_loss import service as svc
     if payload:
         save_draft(name=name, payload=payload)
     res = svc.resubmit(name)

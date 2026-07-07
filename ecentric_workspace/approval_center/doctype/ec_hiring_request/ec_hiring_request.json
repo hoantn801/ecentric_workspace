@@ -1,0 +1,52 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "EC-HIRE-.YYYY.-.#####.",
+ "creation": "2026-07-07 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "approval_type", "approval_request", "request_title", "requested_by", "employee",
+  "department", "company", "cb0", "submitted_at", "completed_at", "material_signature",
+  "sb_form", "position", "number_of_vacancy", "reason", "employment_type", "cb1",
+  "education", "line_manager", "suggested_salary", "request_attachment"
+ ],
+ "fields": [
+  {"fieldname": "approval_type", "fieldtype": "Link", "label": "Approval Type", "options": "EC Approval Type", "read_only": 1},
+  {"fieldname": "approval_request", "fieldtype": "Link", "label": "Approval Request", "options": "EC Approval Request", "read_only": 1},
+  {"fieldname": "request_title", "fieldtype": "Data", "label": "Request Title", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "requested_by", "fieldtype": "Link", "label": "Requested By", "options": "User"},
+  {"fieldname": "employee", "fieldtype": "Link", "label": "Employee", "options": "Employee"},
+  {"fieldname": "department", "fieldtype": "Link", "label": "Department", "options": "Department", "reqd": 1},
+  {"fieldname": "company", "fieldtype": "Link", "label": "Company", "options": "Company"},
+  {"fieldname": "cb0", "fieldtype": "Column Break"},
+  {"fieldname": "submitted_at", "fieldtype": "Datetime", "label": "Submitted At", "read_only": 1},
+  {"fieldname": "completed_at", "fieldtype": "Datetime", "label": "Completed At", "read_only": 1},
+  {"fieldname": "material_signature", "fieldtype": "Data", "label": "Material Signature", "hidden": 1, "read_only": 1},
+  {"fieldname": "sb_form", "fieldtype": "Section Break", "label": "Hiring"},
+  {"fieldname": "position", "fieldtype": "Data", "label": "Position", "reqd": 1},
+  {"fieldname": "number_of_vacancy", "fieldtype": "Int", "label": "Number of vacancy", "reqd": 1},
+  {"fieldname": "reason", "fieldtype": "Select", "label": "Reason", "reqd": 1, "options": "New\nReplace"},
+  {"fieldname": "employment_type", "fieldtype": "Select", "label": "Type", "reqd": 1, "options": "Full-time\nFreelancer\nIntern"},
+  {"fieldname": "cb1", "fieldtype": "Column Break"},
+  {"fieldname": "education", "fieldtype": "Data", "label": "Education", "reqd": 1, "description": "E.g: From Bachelor Degree"},
+  {"fieldname": "line_manager", "fieldtype": "Data", "label": "Line manager", "reqd": 1, "options": "Email", "description": "Email of the future line manager (business info; must be an active system user)."},
+  {"fieldname": "suggested_salary", "fieldtype": "Currency", "label": "Suggested salary", "options": "VND", "reqd": 1},
+  {"fieldname": "request_attachment", "fieldtype": "Attach", "label": "Attachment"}
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-07 00:00:00",
+ "module": "Approval Center",
+ "name": "EC Hiring Request",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "report": 1, "share": 1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "title_field": "request_title",
+ "track_changes": 1
+}

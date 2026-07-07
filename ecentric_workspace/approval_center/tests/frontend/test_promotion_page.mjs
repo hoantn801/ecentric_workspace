@@ -8,7 +8,7 @@ const JS = rest.replace(/<\/script>\s*$/, "");
 let fails = 0;
 const ok = (c, n) => { console.log((c ? "  ok: " : "  FAIL: ") + n); if (!c) fails++; };
 const flush = () => new Promise(r => setTimeout(r, 5));
-const FO = {};
+const FO = { departments: [ { value: "Engineering", label: "Engineering" }, { value: "Service", label: "Service" } ] };
 const calls = {};
 function detail(over) {
   return Object.assign({
@@ -59,6 +59,9 @@ async function run() {
   const cb = () => w.document.getElementById("prom-body").innerHTML;
   ["request_title", "full_name", "department", "current_position", "proposed_position", "current_salary", "proposed_salary", "incentives", "justification", "effective_date_of_promotion"].forEach(function (f) {
     ok(!!w.document.querySelector('[data-model="' + f + '"]'), f + " field renders"); });
+  ok(!!w.document.querySelector('select[data-model="department"]') && !w.document.querySelector('input[data-model="department"]'), "Department is a select (not free-text input)");
+  { const dsel = w.document.querySelector('select[data-model="department"]'); const html = dsel ? dsel.innerHTML : "";
+    ok(/Engineering/.test(html) && /Service/.test(html), "Department options loaded/rendered from master"); }
   ok(!!w.document.getElementById("prom-process-preview"), "process preview renders");
   { const pv = w.document.getElementById("prom-process-preview");
     ok(pv.querySelectorAll(".step").length === 5, "preview has 5 steps");
@@ -70,19 +73,24 @@ async function run() {
   { const e = w.Promotion.validateSubmit() || {};
     ok(e.request_title && e.full_name && e.department && e.current_position && e.proposed_position && e.justification && e.current_salary && e.proposed_salary && e.effective_date_of_promotion, "validateSubmit requires key fields"); }
   // negative salary blocked
-  w.Promotion.state.draft = { request_title: "T", full_name: "A", department: "D", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: -5, effective_date_of_promotion: "2026-09-01" };
+  w.Promotion.state.draft = { request_title: "T", full_name: "A", department: "Engineering", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: -5, effective_date_of_promotion: "2026-09-01" };
   ok((w.Promotion.validateSubmit() || {}).proposed_salary, "negative salary blocked");
-  // non-numeric salary blocked
-  w.Promotion.state.draft.proposed_salary = "abc";
+  w.Promotion.state.draft = { request_title: "T", full_name: "A", department: "TESTING", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: 200, effective_date_of_promotion: "2026-09-01" };
+  ok((w.Promotion.validateSubmit() || {}).department, "invalid department (not in master) blocked");
+  w.Promotion.state.draft = { request_title: "T", full_name: "A", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: 200, effective_date_of_promotion: "2026-09-01" };
+  ok((w.Promotion.validateSubmit() || {}).department, "missing department blocked");
+  // non-numeric salary blocked (start from a full valid draft incl. department)
+  w.Promotion.state.draft = { request_title: "T", full_name: "A", department: "Engineering", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: "abc", effective_date_of_promotion: "2026-09-01" };
   ok((w.Promotion.validateSubmit() || {}).proposed_salary, "non-numeric salary blocked");
   // valid full draft passes
   w.Promotion.state.draft.proposed_salary = 28000000;
   ok(w.Promotion.validateSubmit() === null, "valid form passes");
   w.document.getElementById("prom-save").click(); await flush(); await flush();
   ok(calls.save_draft && /full_name/.test(calls.save_draft.payload) && /proposed_salary/.test(calls.save_draft.payload), "save_draft payload carries full_name + proposed_salary");
+  ok(calls.save_draft && /"department":"Engineering"/.test(calls.save_draft.payload), "save_draft payload carries exact Department name");
   // submit path calls submit_request with draft name
   w = boot(); await flush(); await flush();
-  w.Promotion.state.draft = { request_title: "T", full_name: "A", department: "D", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: 200, effective_date_of_promotion: "2026-09-01" };
+  w.Promotion.state.draft = { request_title: "T", full_name: "A", department: "Engineering", current_position: "E", proposed_position: "SE", justification: "j", current_salary: 100, proposed_salary: 200, effective_date_of_promotion: "2026-09-01" };
   w.document.getElementById("prom-submit").click(); await flush(); await flush(); await flush();
   ok(calls.submit_request && calls.submit_request.name === "EC-PROM-2026-00001", "submit_request called with draft name");
   // My Requests + approvals (current status)

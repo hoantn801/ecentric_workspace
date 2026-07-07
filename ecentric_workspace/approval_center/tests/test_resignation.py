@@ -61,6 +61,13 @@ def _actions(ar, action):
     return frappe.get_all("EC Approval Action", filters={"approval_request": ar, "action": action}, pluck="actor")
 
 
+def _count_actions(ar, action, comment=None):
+    flt = {"approval_request": ar, "action": action}
+    if comment is not None:
+        flt["comment"] = comment
+    return frappe.db.count("EC Approval Action", flt)
+
+
 def _ensure_process():
     if not frappe.db.exists("EC Approval Type", "RESIGNATION"):
         frappe.get_doc({"doctype": "EC Approval Type", "approval_code": "RESIGNATION",
@@ -181,3 +188,44 @@ class TestResignation(FrappeTestCase):
         with self.assertRaises(Exception):
             api.submit_request(n3)
         frappe.set_user("Administrator")
+
+    # ------------------------------------------------------------------ #
+    # claim_fulfillment idempotency
+    # ------------------------------------------------------------------ #
+    def test_claim_fulfillment_idempotent(self):
+        mgr = _user(PFX + "cmgr@example.com")
+        req = _user(PFX + "creq@example.com")
+        _employee(req, reports_to=_employee(mgr))
+        other_hr = _user(PFX + "otherhr@example.com", roles=("Employee", "System Manager"))
+
+        name = _draft(req)
+        frappe.set_user(req); api.submit_request(name); frappe.set_user("Administrator")
+        ar = self._ar(name)
+        frappe.set_user(mgr); api.approve(name); frappe.set_user("Administrator")   # -> HR fulfillment Assigned
+
+        # first claim by HR -> exactly one "Started"/claimed timeline entry
+        frappe.set_user(HR); api.claim_fulfillment(name); frappe.set_user("Administrator")
+        self.assertEqual(frappe.db.get_value(api.BIZ, name, "fulfillment_owner"), HR)
+        self.assertEqual(_count_actions(ar, "Started"), 1)
+
+        # second claim by the SAME user -> success, but NO duplicate timeline entry, owner/status unchanged
+        frappe.set_user(HR)
+        res = api.claim_fulfillment(name)
+        frappe.set_user("Administrator")
+        self.assertTrue(res.get("claimed"))
+        self.assertEqual(_count_actions(ar, "Started"), 1)          # still exactly one
+        self.assertEqual(frappe.db.get_value(api.BIZ, name, "fulfillment_status"), "In Progress")
+        self.assertEqual(frappe.db.get_value(api.BIZ, name, "fulfillment_owner"), HR)
+
+        # a different user (even System Manager, past the HR-membership guard) cannot steal an owned request
+        frappe.set_user(other_hr)
+        with self.assertRaises(Exception):
+            api.claim_fulfillment(name)
+        frappe.set_user("Administrator")
+        self.assertEqual(_count_actions(ar, "Started"), 1)
+
+        # complete still works after the idempotent claim
+        frappe.set_user(HR)
+        api.complete_fulfillment(name, payload=frappe.as_json({"fulfillment_summary": "done"}))
+        frappe.set_user("Administrator")
+        self.assertEqual(frappe.db.get_value(api.BIZ, name, "fulfillment_status"), "Completed")

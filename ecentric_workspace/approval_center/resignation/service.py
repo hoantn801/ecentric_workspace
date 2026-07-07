@@ -117,11 +117,27 @@ def on_final_approval(name):
 
 @frappe.whitelist(methods=["POST"])
 def claim_fulfillment(name, user=None):
+    """Idempotent claim. First claim of an Assigned request logs exactly one "Started" timeline
+    entry; a repeat claim by the SAME owner returns success without a duplicate entry and without
+    resetting owner/status; a claim while another user owns it is blocked. complete_fulfillment
+    behavior is unchanged."""
     user = user or frappe.session.user
     if not frappe.db.exists("ToDo", {"reference_type": BUSINESS_DT, "reference_name": name,
                                      "allocated_to": user, "status": "Open"}) \
             and "System Manager" not in frappe.get_roles(user):
         frappe.throw(_("Ban khong thuoc nhom HR xu ly yeu cau nay."))
+    cur = frappe.db.get_value(BUSINESS_DT, name,
+                              ["fulfillment_status", "fulfillment_owner"], as_dict=True) or {}
+    status, owner = cur.get("fulfillment_status"), cur.get("fulfillment_owner")
+    # Idempotent: already claimed by this user -> no duplicate timeline, no state reset.
+    if status == "In Progress" and owner == user:
+        return {"owner": user, "claimed": True, "idempotent": True}
+    # Already owned by someone else -> block (do not steal).
+    if owner and owner != user:
+        frappe.throw(_("Yeu cau nay da duoc nguoi khac nhan xu ly."))
+    if status == "Completed":
+        frappe.throw(_("Yeu cau nay da hoan tat."))
+    # Waiting (Assigned): atomic claim; the WHERE guard also settles concurrent double-claims.
     frappe.db.sql(
         """update `tabEC Resignation Request` set fulfillment_owner=%s, fulfillment_status='In Progress'
            where name=%s and fulfillment_status='Assigned'""", (user, name))
@@ -134,7 +150,7 @@ def claim_fulfillment(name, user=None):
                       new_status="In Progress")
     engine.notify([doc.requested_by], _("HR da nhan xu ly boi {0}: {1}").format(user, name),
                   BUSINESS_DT, name)
-    return {"owner": user}
+    return {"owner": user, "claimed": True}
 
 
 @frappe.whitelist(methods=["POST"])
