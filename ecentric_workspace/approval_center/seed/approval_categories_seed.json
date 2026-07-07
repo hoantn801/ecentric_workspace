@@ -47,5 +47,12 @@
   "icon": "building-2",
   "sort_order": 70,
   "is_active": 1
+ },
+ {
+  "category_code": "OTHERS",
+  "category_name": "Others",
+  "icon": "more-horizontal",
+  "sort_order": 80,
+  "is_active": 1
  }
 ]
