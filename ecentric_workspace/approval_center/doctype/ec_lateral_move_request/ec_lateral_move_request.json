@@ -1,0 +1,53 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "EC-LATM-.YYYY.-.#####.",
+ "creation": "2026-07-07 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "approval_type", "approval_request", "request_title", "requested_by", "employee",
+  "department", "company", "cb0", "submitted_at", "completed_at", "material_signature",
+  "current_department", "current_line_manager",
+  "sb_form", "new_position", "new_department", "new_line_manager", "cb1", "start_date",
+  "sb_reason", "transfer_reason"
+ ],
+ "fields": [
+  {"fieldname": "approval_type", "fieldtype": "Link", "label": "Approval Type", "options": "EC Approval Type", "read_only": 1},
+  {"fieldname": "approval_request", "fieldtype": "Link", "label": "Approval Request", "options": "EC Approval Request", "read_only": 1},
+  {"fieldname": "request_title", "fieldtype": "Data", "label": "Request Title", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "requested_by", "fieldtype": "Link", "label": "Requested By", "options": "User"},
+  {"fieldname": "employee", "fieldtype": "Link", "label": "Employee", "options": "Employee"},
+  {"fieldname": "department", "fieldtype": "Link", "label": "Department", "options": "Department"},
+  {"fieldname": "company", "fieldtype": "Link", "label": "Company", "options": "Company"},
+  {"fieldname": "cb0", "fieldtype": "Column Break"},
+  {"fieldname": "submitted_at", "fieldtype": "Datetime", "label": "Submitted At", "read_only": 1},
+  {"fieldname": "completed_at", "fieldtype": "Datetime", "label": "Completed At", "read_only": 1},
+  {"fieldname": "material_signature", "fieldtype": "Data", "label": "Material Signature", "hidden": 1, "read_only": 1},
+  {"fieldname": "current_department", "fieldtype": "Data", "label": "Current Department", "read_only": 1},
+  {"fieldname": "current_line_manager", "fieldtype": "Data", "label": "Current Line Manager", "read_only": 1},
+  {"fieldname": "sb_form", "fieldtype": "Section Break", "label": "Lateral Move"},
+  {"fieldname": "new_position", "fieldtype": "Data", "label": "New position", "reqd": 1},
+  {"fieldname": "new_department", "fieldtype": "Select", "label": "New department", "reqd": 1, "options": "E-commerce Operation\nService\nBusiness Development\nProduct\nFinance and Accounting\nOperations\nData & System\nHuman Resources"},
+  {"fieldname": "new_line_manager", "fieldtype": "Data", "label": "New line manager", "reqd": 1, "options": "Email", "description": "Email of the new line manager. Must resolve to an active system user; used as the Level 2 approver."},
+  {"fieldname": "cb1", "fieldtype": "Column Break"},
+  {"fieldname": "start_date", "fieldtype": "Date", "label": "Start date", "reqd": 1},
+  {"fieldname": "sb_reason", "fieldtype": "Section Break", "label": "Transfer Reason"},
+  {"fieldname": "transfer_reason", "fieldtype": "Long Text", "label": "Transfer reason", "reqd": 1, "description": "Why is this transfer needed? What is the expected business outcome for this transfer? Anything to note?"}
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-07 00:00:00",
+ "module": "Approval Center",
+ "name": "EC Lateral Move Request",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "report": 1, "share": 1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "title_field": "request_title",
+ "track_changes": 1
+}

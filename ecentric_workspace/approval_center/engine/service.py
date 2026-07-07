@@ -73,6 +73,42 @@ def _emp_user(user):
     return frappe.db.get_value("Employee", {"user_id": user}, ["name", "reports_to", "department"], as_dict=True)
 
 
+def _ref_field_value(context, fieldname):
+    """Read a single field off the business record named in context. Returns None on any absence
+    (missing context, missing field) - fail-closed, never raises."""
+    if not (context and fieldname and context.get("reference_doctype") and context.get("reference_name")):
+        return None
+    try:
+        return frappe.db.get_value(context["reference_doctype"], context["reference_name"], fieldname)
+    except Exception:
+        return None
+
+
+def _employee_by_ident(ident):
+    """Resolve an Employee name from an email/user identifier, trying user_id then the standard
+    Employee email fields. Field-absence tolerant (fail-closed)."""
+    if not ident:
+        return None
+    for f in ("user_id", "company_email", "personal_email", "prefered_email"):
+        try:
+            n = frappe.db.get_value("Employee", {f: ident}, "name")
+        except Exception:
+            n = None
+        if n:
+            return n
+    return None
+
+
+def _manager_user_of_employee(ident):
+    """Direct manager (reports_to -> user_id) of the Employee identified by an email/user. None if
+    unresolvable. Generic and reusable; no hardcoded identity."""
+    emp = _employee_by_ident(ident)
+    if not emp:
+        return None
+    reports_to = frappe.db.get_value("Employee", emp, "reports_to")
+    return reports_to and frappe.db.get_value("Employee", reports_to, "user_id")
+
+
 def _is_active_system_user(user):
     """Fail-closed check used by all approver resolution."""
     if not user or user == "Guest":
@@ -119,6 +155,7 @@ def resolve_participants(participants, requester, context=None):
 
     for p in sorted(participants, key=lambda r: (r.sort_order or 0)):
         st = p.source_type
+        before = len(out)
         if st == "User":
             _add(p.user, "Configured User")
         elif st == "Role":
@@ -143,13 +180,21 @@ def resolve_participants(participants, requester, context=None):
             # Generic, config-driven: resolve the Department named in a field of the business
             # record (context) via resolve_department_manager_user (department_head first, then
             # Department.manager_email). No hardcoded department or approver.
-            dept, fieldname = None, p.get("department_field")
-            if context and fieldname and context.get("reference_doctype") and context.get("reference_name"):
-                try:
-                    dept = frappe.db.get_value(context["reference_doctype"], context["reference_name"], fieldname)
-                except Exception:
-                    dept = None
-            _add(resolve_department_manager_user(dept), "Reference Department Head")
+            _add(resolve_department_manager_user(_ref_field_value(context, p.get("department_field"))),
+                 "Reference Department Head")
+        elif st == "Reference User Field":
+            # Generic, config-driven: the approver is the User named in a field of the business
+            # record (e.g. new_line_manager). No hardcoded identity; _add re-checks active System User.
+            _add(_ref_field_value(context, p.get("reference_field")), "Reference User Field")
+        elif st == "Reference Employee Manager":
+            # Generic, config-driven: the approver is the direct manager (reports_to -> user_id) of the
+            # Employee identified by the email/user in a field of the business record (e.g. employee_email).
+            _add(_manager_user_of_employee(_ref_field_value(context, p.get("reference_field"))),
+                 "Reference Employee Manager")
+        # Per-row fallback: used ONLY when this row's primary source resolved nobody. Config-seeded
+        # (never in code); _add re-checks active System User. Not a second always-on approver.
+        if len(out) == before and p.get("fallback_user"):
+            _add(p.get("fallback_user"), "Fallback")
     return out
 
 
@@ -552,6 +597,7 @@ _FULFILLMENT_HANDLERS = {
     "EC Document Request": "ecentric_workspace.approval_center.document_request.service.on_final_approval",
     "EC System Request": "ecentric_workspace.approval_center.system_request.service.on_final_approval",
     "EC Asset Request": "ecentric_workspace.approval_center.asset_request.service.on_final_approval",
+    "EC Resignation Request": "ecentric_workspace.approval_center.resignation.service.on_final_approval",
 }
 
 
