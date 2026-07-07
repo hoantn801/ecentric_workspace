@@ -138,5 +138,12 @@
   "category": "IT_DATA",
   "legacy_template_name": "System Request",
   "sort_order": 25
+ },
+ {
+  "approval_code": "LIVESTREAM_SAMPLE",
+  "approval_title": "Livestream Sample Request",
+  "category": "ADMINISTRATION",
+  "legacy_template_name": "Livestream Sample Request",
+  "sort_order": 70
  }
 ]
