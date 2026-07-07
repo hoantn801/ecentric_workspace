@@ -213,6 +213,13 @@ async function run() {
   ok(/#ec-sysr-root .sysr-formwrap\{[^}]*max-width:none/.test(HTML), "form wrapper aligns under header/tabs");
   ok(/@media \(max-width:1024px\)/.test(HTML), "responsive rule preserved");
 
+  // Cleanup B: operation date now lives in the Operation Review approval modal (System Request L1 = Operation Review)
+  w = boot(); await flush(); await flush();
+  w.SystemRequest.doApprove("EC-SYSR-2026-00001", detail()); await flush();
+  ok(!!w.document.querySelector(".ec-sysr-overlay #m-opdate"), "Operation Review approve modal includes expected completion date");
+  { const ov = w.document.querySelector(".ec-sysr-overlay [data-x]"); if (ov) ov.click(); }
+  ok(!/data-act="setopdate"/.test(HTML), "separate set-operation-date action removed from System Request");
+
   console.log(fails === 0 ? "\nALL SYSTEM REQUEST PAGE TESTS PASSED" : "\n" + fails + " FAILED");
   process.exit(fails === 0 ? 0 : 1);
 }

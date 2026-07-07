@@ -446,7 +446,6 @@
     if(cap.can_approve) btns.push('<button type="button" class="btn primary" data-act="approve">Duyệt</button>');
     if(cap.can_request_information) btns.push('<button type="button" class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
     if(cap.can_reject) btns.push('<button type="button" class="btn" data-act="reject">Từ chối</button>');
-    if(cap.can_approve||cap.can_complete||cap.can_claim) btns.push('<button type="button" class="btn" data-act="setopdate">Đặt/cập nhật thời gian dự kiến (Operation)</button>');
     if(cap.can_admin_approve_current_level) btns.push('<button type="button" class="btn warn" data-act="adminapprove">Duyệt thay bước hiện tại</button>');
     if(cap.can_cancel) btns.push('<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button>');
     return btns.length? '<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
@@ -457,8 +456,7 @@
     if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det);
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
     if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name);
-    if(a==="claim") return doClaim(name); if(a==="complete") return doComplete(name,det);
-    if(a==="setopdate") return doSetOpDate(name,det); }
+    if(a==="claim") return doClaim(name); if(a==="complete") return doComplete(name,det); }
   function ensureActionHandlers(){ if(document.__sysrActBound) return; document.__sysrActBound=true; document.addEventListener("click", handleActionClick, true); }
 
   function modal(title, bodyHTML, opts){ opts=opts||{}; var prevFocus=document.activeElement;
@@ -482,8 +480,11 @@
     refreshApprovals(); }
   function nextLevelName(det){ if(!det) return ""; var ap=det.approval||{}; if(ap.approval_status!=="Pending"||!ap.current_level) return ""; var l=(det.levels||[]).filter(function(x){return Number(x.level_no)===Number(ap.current_level);})[0]; return l?(l.level_name||("Cấp "+ap.current_level)):""; }
   function summaryRows(det){ var b=det.business||{}; return '<div class="summary-row"><span>Người yêu cầu</span><b>'+esc(b.requested_by||"—")+'</b></div><div class="summary-row"><span>Loại yêu cầu</span><b>'+esc(b.request_type||"—")+'</b></div><div class="summary-row"><span>Mong muốn hoàn thành</span><b>'+esc(b.requester_expected_resolution_date||"—")+'</b></div>'; }
-  function doApprove(name,det){ modal("Duyệt yêu cầu", summaryRows(det)+'<div class="fld"><label>Ghi chú (không bắt buộc)</label><textarea id="m-cmt" rows="2"></textarea></div>', {okLabel:"Duyệt", onConfirm:function(ov){ var cmt=(ov.querySelector("#m-cmt").value||"");
-    return call("approve",{name:name,comment:cmt}).then(function(res){ var nx=nextLevelName(res&&res.detail); toast(nx?("Đã duyệt. Yêu cầu đã chuyển sang "+nx+"."):"Đã duyệt. Yêu cầu chuyển sang Operation xử lý."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
+  function doApprove(name,det){ var ap=det.approval||{}; var curL=(det.levels||[]).filter(function(l){return l.level_no===ap.current_level;})[0]||{}; var isOp=curL.level_name==="Operation Review"; var existing=(det.business||{}).operation_expected_completion_date||"";
+    var opFld = isOp ? '<div class="fld"><label>Ngày dự kiến hoàn thành (Operation)'+(existing?'':' <span class="req">*</span>')+'</label><input type="date" id="m-opdate" value="'+esc(existing)+'"><div class="hint">Hiển thị cho người yêu cầu.</div></div>' : '';
+    modal("Duyệt yêu cầu", summaryRows(det)+opFld+'<div class="fld"><label>Ghi chú (không bắt buộc)</label><textarea id="m-cmt" rows="2"></textarea></div>', {okLabel:"Duyệt", onConfirm:function(ov){ var cmt=(ov.querySelector("#m-cmt").value||""); var opd=isOp?(ov.querySelector("#m-opdate").value||""):null;
+    if(isOp && !existing && !opd){ toast("Vui lòng nhập ngày dự kiến hoàn thành (Operation).",true); return Promise.reject(); }
+    return call("approve",{name:name,comment:cmt,operation_expected_completion_date:opd}).then(function(res){ var nx=nextLevelName(res&&res.detail); toast(nx?("Đã duyệt. Yêu cầu đã chuyển sang "+nx+"."):"Đã duyệt. Yêu cầu chuyển sang Operation xử lý."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
   function doReject(name){ modal("Từ chối yêu cầu", '<div class="banner err">Sau khi từ chối, yêu cầu sẽ kết thúc.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Từ chối", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
     return call("reject",{name:name,comment:c}).then(function(res){ toast("Đã từ chối."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
   function doRequestInfo(name){ modal("Yêu cầu bổ sung thông tin", '<div class="banner info">Yêu cầu sẽ được trả lại người gửi để bổ sung.</div><div class="fld"><label>Nội dung cần bổ sung <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Gửi yêu cầu", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập nội dung.",true); return Promise.reject(); }
@@ -493,9 +494,6 @@
   function doAdminApprove(name){ modal("Duyệt thay bước hiện tại", '<div class="banner warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div>Bạn đang duyệt thay cho bước phê duyệt hiện tại bằng quyền System Manager. Hành động này sẽ được ghi nhận trong lịch sử và không giả lập người duyệt gốc.</div></div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Xác nhận duyệt thay", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
     return call("admin_approve_current_level",{name:name,reason:c}).then(function(res){ toast("Đã duyệt thay bước hiện tại."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
 
-  function doSetOpDate(name,det){ var b=det.business||{};
-    modal("Thời gian dự kiến hoàn thành (Operation)", '<div class="hint" style="margin-bottom:8px">Thông tin này hiển thị cho người yêu cầu.</div><div class="fld"><label>Ngày dự kiến hoàn thành</label><input type="date" id="op-date" value="'+esc(b.operation_expected_completion_date||"")+'"></div><div class="fld"><label>Ghi chú Operation</label><textarea id="op-note" rows="2">'+esc(b.operation_note||"")+'</textarea></div>', {okLabel:"Lưu", onConfirm:function(ov){ var dt=(ov.querySelector("#op-date").value||""); var nt=(ov.querySelector("#op-note").value||"");
-      return call("set_operation_fields",{name:name,operation_expected_completion_date:dt,operation_note:nt}).then(function(res){ toast("Đã cập nhật thời gian dự kiến."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
   function doClaim(name){ call("claim_fulfillment",{name:name}).then(function(res){ toast("Đã nhận xử lý."); applyDetail(res); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); }); }
   function completionErrors(c){ c=c||state.comp||{}; var errs={}; if(!((c.fulfillment_summary||"").toString().trim())) errs.fulfillment_summary="Vui lòng nhập tóm tắt kết quả xử lý."; return Object.keys(errs).length?errs:null; }
   function doComplete(name,det){ var b0=det.business||{}; state.comp={ fulfillment_summary:"", output_link:"", completed_attachment:"", operation_note:(b0.operation_note||"") };
@@ -526,7 +524,7 @@
     .catch(function(){ var bd=$("sysr-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; });
   } catch(e){ if(window.console&&console.error) console.error("System Request boot error:",e); } }
 
-  window.SystemRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, renderFulfillment:renderFulfillment, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, doComplete:doComplete, doClaim:doClaim, doSetOpDate:doSetOpDate, applyDetail:applyDetail, loadApprovals:loadApprovals, renderMyApprovals:renderMyApprovals };
+  window.SystemRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, renderFulfillment:renderFulfillment, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, doComplete:doComplete, doClaim:doClaim, applyDetail:applyDetail, loadApprovals:loadApprovals, renderMyApprovals:renderMyApprovals };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>

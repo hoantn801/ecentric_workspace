@@ -37,7 +37,7 @@
  {
   "approval_code": "EMPLOYEE_REFERRAL",
   "approval_title": "Employee Referral",
-  "category": "HR",
+  "category": "OTHERS",
   "legacy_template_name": "Employee Referral",
   "sort_order": 60
  },
@@ -138,5 +138,12 @@
   "category": "IT_DATA",
   "legacy_template_name": "System Request",
   "sort_order": 25
+ },
+ {
+  "approval_code": "LIVESTREAM_SAMPLE",
+  "approval_title": "Livestream Sample Request",
+  "category": "OTHERS",
+  "legacy_template_name": "Livestream Sample Request",
+  "sort_order": 70
  }
 ]

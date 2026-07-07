@@ -141,19 +141,20 @@ class TestAssetRequest(FrappeTestCase):
         ar = self._ar(name)
         self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "current_level"), 2)
         frappe.set_user(OP1)
-        api.approve(name)                                    # L2 Operation -> final -> fulfillment
+        api.approve(name, operation_expected_completion_date="2026-09-15")   # L2 Operation needs date
         frappe.set_user("Administrator")
         self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "approval_status"), "Approved")
         self.assertEqual(frappe.db.get_value(api.BIZ, name, "fulfillment_status"), "Assigned")
 
     def test_fulfillment_complete_summary_required_and_no_default_date(self):
         name, req, mgr = self._submit()
-        frappe.set_user(mgr); api.approve(name)
-        frappe.set_user(OP1); api.approve(name)
-        # no default operation date injected
+        frappe.set_user(mgr); api.approve(name)              # L1 Direct Manager (no date)
+        # no default operation date injected at submit/manager approval
         self.assertFalse(frappe.db.get_value(api.BIZ, name, "operation_expected_completion_date"))
         frappe.set_user(OP1)
-        api.set_operation_fields(name, operation_expected_completion_date="2026-09-15", operation_note="batch buy")
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.approve(name)                                # Operation Review without date -> blocked
+        api.approve(name, operation_expected_completion_date="2026-09-15")   # captured at approval
         api.claim_fulfillment(name)
         with self.assertRaises(frappe.exceptions.ValidationError):
             api.complete_fulfillment(name, payload=frappe.as_json({"fulfillment_summary": ""}))

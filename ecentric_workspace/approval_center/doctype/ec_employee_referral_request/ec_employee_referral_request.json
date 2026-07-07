@@ -1,0 +1,36 @@
+{
+ "actions": [], "allow_rename": 0, "autoname": "EC-REFR-.YYYY.-.#####.",
+ "creation": "2026-07-06 00:00:00", "doctype": "DocType", "editable_grid": 1, "engine": "InnoDB",
+ "field_order": [
+  "approval_type","approval_request","request_title","requested_by","employee","department","company",
+  "cb0","submitted_at","completed_at","material_signature",
+  "sb_form","candidate_full_name","candidate_email","position_applied_for","hiring_department",
+  "relationship_with_referrer","relationship_other","referral_justification","request_attachment"
+ ],
+ "fields": [
+  {"fieldname":"approval_type","fieldtype":"Link","label":"Approval Type","options":"EC Approval Type","read_only":1},
+  {"fieldname":"approval_request","fieldtype":"Link","label":"Approval Request","options":"EC Approval Request","read_only":1},
+  {"fieldname":"request_title","fieldtype":"Data","label":"Request Title","reqd":1,"in_list_view":1},
+  {"fieldname":"requested_by","fieldtype":"Link","label":"Requested By","options":"User"},
+  {"fieldname":"employee","fieldtype":"Link","label":"Employee","options":"Employee"},
+  {"fieldname":"department","fieldtype":"Link","label":"Department","options":"Department"},
+  {"fieldname":"company","fieldtype":"Link","label":"Company","options":"Company"},
+  {"fieldname":"cb0","fieldtype":"Column Break"},
+  {"fieldname":"submitted_at","fieldtype":"Datetime","label":"Submitted At","read_only":1},
+  {"fieldname":"completed_at","fieldtype":"Datetime","label":"Completed At","read_only":1},
+  {"fieldname":"material_signature","fieldtype":"Data","label":"Material Signature","hidden":1,"read_only":1},
+  {"fieldname":"sb_form","fieldtype":"Section Break","label":"Employee Referral"},
+  {"fieldname":"candidate_full_name","fieldtype":"Data","label":"Candidate Full Name","reqd":1},
+  {"fieldname":"candidate_email","fieldtype":"Data","label":"Candidate Email","reqd":1,"options":"Email"},
+  {"fieldname":"position_applied_for","fieldtype":"Data","label":"Position Applied For","reqd":1},
+  {"fieldname":"hiring_department","fieldtype":"Data","label":"Hiring Department","reqd":1},
+  {"fieldname":"relationship_with_referrer","fieldtype":"Select","label":"Relationship with Referrer","reqd":1,"options":"Friend\nRelative\nFormer colleague\nOther"},
+  {"fieldname":"relationship_other","fieldtype":"Data","label":"Relationship (Other)"},
+  {"fieldname":"referral_justification","fieldtype":"Long Text","label":"Referral Justification","reqd":1,"description":"Why a good fit? Key strengths? Expected start date?"},
+  {"fieldname":"request_attachment","fieldtype":"Attach","label":"Attachment (CV/Profile)"}
+ ],
+ "index_web_pages_for_search":1,"links":[],"modified":"2026-07-06 00:00:00","module":"Approval Center",
+ "name":"EC Employee Referral Request","naming_rule":"Expression","owner":"Administrator",
+ "permissions":[{"role":"System Manager","read":1,"write":1,"create":1,"delete":1,"email":1,"export":1,"print":1,"report":1,"share":1}],
+ "sort_field":"modified","sort_order":"DESC","title_field":"request_title","track_changes":1
+}

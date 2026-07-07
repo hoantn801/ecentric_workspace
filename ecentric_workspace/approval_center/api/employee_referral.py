@@ -1,24 +1,22 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Permission-safe read + write API for Asset Request (form #7). Mirrors AI Topup
-conventions WITH a post-approval fulfillment queue. Backend is authoritative;
-capability flags are advisory (writes re-validate in the engine/service).
-Friendly Vietnamese errors only; raw Frappe share messages suppressed on write."""
+"""Permission-safe read + write API for Employee Referral (form #9). Mirrors AI Topup
+conventions; NO fulfillment. Backend is authoritative; capability flags are advisory
+(writes re-validate in the engine/service). Friendly Vietnamese errors only."""
 import frappe
 from frappe import _
 
-BIZ = "EC Asset Request"
-APPROVAL_TYPE = "ASSET_REQUEST"
+BIZ = "EC Employee Referral Request"
+APPROVAL_TYPE = "EMPLOYEE_REFERRAL"
 MAX_PAGE = 50
 OPEN = ("Pending", "Information Required")
 TERMINAL = ("Approved", "Rejected", "Cancelled")
 
-_EDITABLE_DRAFT = ("request_title", "request_type", "asset_type", "asset_type_other", "purpose_of_request",
-                   "purpose_other", "quantity", "specifications", "justification", "requested_needed_date",
-                   "request_attachment", "department", "company")
+_EDITABLE_DRAFT = ("request_title", "candidate_full_name", "candidate_email", "position_applied_for",
+                   "hiring_department", "relationship_with_referrer", "relationship_other",
+                   "referral_justification", "request_attachment", "department", "company")
 
-_STATUS_LABEL = {"Draft": "Nhap", "Pending": "Dang phe duyet", "Information Required": "Can bo sung",
-                 "Approved": "Da duyet", "Rejected": "Bi tu choi", "Cancelled": "Da huy",
-                 "Assigned": "Cho Operation xu ly", "In Progress": "Operation dang xu ly", "Completed": "Hoan tat"}
+_STATUS_LABEL = {"Draft": "Nháp", "Pending": "Đang phê duyệt", "Information Required": "Cần bổ sung",
+                 "Approved": "Đã duyệt", "Rejected": "Bị từ chối", "Cancelled": "Đã hủy"}
 
 
 def _sm():
@@ -38,21 +36,6 @@ def _employee_ctx(user=None):
             "manager_user": manager_user, "manager_resolvable": bool(manager_user)}
 
 
-def _is_fulfiller(user=None):
-    user = user or frappe.session.user
-    if _sm():
-        return True
-    proc = frappe.get_all("EC Approval Process",
-                          filters={"approval_type": APPROVAL_TYPE, "status": ["in", ["Active", "Draft"]]},
-                          order_by="status asc", pluck="name")
-    for p in proc:
-        if frappe.db.exists("EC Approval Participant",
-                            {"parent": p, "parenttype": "EC Approval Process",
-                             "participant_purpose": "Fulfiller", "user": user}):
-            return True
-    return bool(frappe.db.exists("ToDo", {"reference_type": BIZ, "allocated_to": user, "status": "Open"}))
-
-
 def _has_any_approver_row(user=None):
     user = user or frappe.session.user
     return bool(frappe.db.exists("EC Approval Request Approver", {"approver": user}))
@@ -69,8 +52,6 @@ def _req_of(biz_name):
 
 def _can_view(user, biz, req):
     if biz.requested_by == user or _sm():
-        return True
-    if biz.fulfillment_owner == user or _is_fulfiller(user):
         return True
     return bool(req and frappe.db.exists("EC Approval Request Approver",
                                          {"approval_request": req.name, "approver": user}))
@@ -110,10 +91,6 @@ def _capabilities(user, biz, req):
         "can_cancel": bool(cancel_requester or cancel_admin),
         "can_approve": can_act, "can_reject": can_act, "can_request_information": can_act,
         "can_admin_approve_current_level": can_admin_approve,
-        "can_claim": _is_fulfiller(user) and biz.fulfillment_status == "Assigned",
-        "can_complete": (biz.fulfillment_owner == user or _sm())
-                        and biz.fulfillment_status in ("Assigned", "In Progress"),
-        "can_view_fulfillment": _is_fulfiller(user) or is_requester or _sm(),
     }
 
 
@@ -142,19 +119,13 @@ def get_bootstrap():
     user = frappe.session.user
     return {"context": _employee_ctx(user), "is_system_manager": _sm(),
             "tabs": {"create": True, "my_requests": True,
-                     "my_approvals": _has_any_approver_row(user) or _sm(),
-                     "fulfillment": _is_fulfiller(user)},
+                     "my_approvals": _has_any_approver_row(user) or _sm()},
             "form_options": get_form_options()}
 
 
 @frappe.whitelist()
 def get_form_options():
-    return {
-        "request_types": ["Request new asset", "Return old asset"],
-        "asset_types": ["Laptop", "Desktop computer", "Monitor", "Mobile device", "Printer", "RAM", "Other"],
-        "purposes": ["New employee", "Replacement of damaged or obsolete asset",
-                     "Additional asset for current use", "Offboarding", "Laptop Allowance", "Other"],
-    }
+    return {"relationships": ["Friend", "Relative", "Former colleague", "Other"]}
 
 
 @frappe.whitelist()
@@ -162,16 +133,15 @@ def list_my_requests(filters=None, start=0, page_length=20):
     user = frappe.session.user
     flt = {"requested_by": user}
     f = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
-    if f.get("request_type"):
-        flt["request_type"] = f["request_type"]
+    if f.get("relationship_with_referrer"):
+        flt["relationship_with_referrer"] = f["relationship_with_referrer"]
     if f.get("from_date") and f.get("to_date"):
         flt["creation"] = ["between", [f["from_date"], f["to_date"]]]
     page_length = min(int(page_length or 20), MAX_PAGE)
     total = frappe.db.count(BIZ, flt)
     rows = frappe.get_all(BIZ, filters=flt,
-                          fields=["name", "request_title", "request_type", "asset_type", "quantity",
-                                  "requested_needed_date", "operation_expected_completion_date",
-                                  "fulfillment_status", "approval_request", "creation", "modified"],
+                          fields=["name", "request_title", "candidate_full_name", "position_applied_for",
+                                  "hiring_department", "approval_request", "creation", "modified"],
                           limit_start=int(start), limit_page_length=page_length, order_by="modified desc")
     alc = None
     for r in rows:
@@ -205,48 +175,29 @@ def list_need_my_approval(section="pending"):
     out = []
     for r in rows:
         req = frappe.db.get_value("EC Approval Request", r.approval_request,
-                                  ["reference_name", "reference_doctype", "approval_status",
-                                   "current_level", "requested_by"], as_dict=True)
-        if not req or req.reference_doctype != BIZ:
+                                  ["reference_name", "approval_status", "current_level", "requested_by"], as_dict=True)
+        if not req:
             continue
         if section == "pending" and (req.approval_status not in OPEN or req.current_level != r.level_no):
             continue
         biz = frappe.db.get_value(BIZ, req.reference_name,
-                                  ["name", "request_title", "request_type", "asset_type", "quantity",
-                                   "requested_needed_date", "department"], as_dict=True)
+                                  ["name", "request_title", "candidate_full_name", "position_applied_for",
+                                   "hiring_department", "department"], as_dict=True)
         if biz:
+            cur_name = (frappe.db.get_value("EC Approval Request Level",
+                        {"approval_request": r.approval_request, "level_no": req.current_level}, "level_name")
+                        if req.current_level else None)
             biz.update({"approval_request": r.approval_request, "level_no": r.level_no,
-                        "approval_status": req.approval_status, "requested_by": req.requested_by,
-                        "my_status": r.status,
+                        "approval_status": req.approval_status, "current_level": req.current_level,
+                        "current_level_name": cur_name, "requested_by": req.requested_by, "my_status": r.status,
                         "total_levels": frappe.db.count("EC Approval Request Level",
-                                                        {"approval_request": r.approval_request}),
-                        "level_name": frappe.db.get_value("EC Approval Request Level",
-                                        {"approval_request": r.approval_request, "level_no": r.level_no},
-                                        "level_name")})
+                                                        {"approval_request": r.approval_request})})
             out.append(biz)
     return {"rows": out}
 
 
+# keep AI-Topup-style alias too
 list_my_approvals = list_need_my_approval
-
-
-@frappe.whitelist()
-def list_fulfillment_queue(section="unclaimed"):
-    user = frappe.session.user
-    if not _is_fulfiller(user):
-        return {"rows": []}
-    if section == "unclaimed":
-        flt = {"fulfillment_status": "Assigned"}
-    elif section == "mine":
-        flt = {"fulfillment_owner": user, "fulfillment_status": ["in", ["Assigned", "In Progress"]]}
-    else:
-        flt = {"fulfillment_status": "In Progress", "fulfillment_owner": ["!=", user]}
-    rows = frappe.get_all(BIZ, filters=flt,
-                          fields=["name", "request_title", "requested_by", "request_type", "asset_type",
-                                  "quantity", "requested_needed_date", "operation_expected_completion_date",
-                                  "fulfillment_status", "fulfillment_owner", "fulfillment_due_at"],
-                          order_by="modified asc", limit_page_length=200)
-    return {"rows": rows}
 
 
 @frappe.whitelist()
@@ -255,7 +206,7 @@ def get_detail(name):
     biz = frappe.get_doc(BIZ, name)
     req = _req_of(name)
     if not _can_view(user, biz, req):
-        frappe.throw(_("Ban khong co quyen xem yeu cau nay."), frappe.PermissionError)
+        frappe.throw(_("Bạn không có quyền xem yêu cầu này."), frappe.PermissionError)
     levels, approvers, timeline = [], [], []
     if req:
         levels = frappe.get_all("EC Approval Request Level", filters={"approval_request": req.name},
@@ -278,12 +229,6 @@ def get_detail(name):
                 a["level_name"] = lv.level_name
     attachments = frappe.get_all("File", filters={"attached_to_doctype": BIZ, "attached_to_name": name},
                                  fields=["file_name", "file_url", "is_private", "owner", "creation"])
-    ff = {"status": biz.fulfillment_status, "owner": biz.fulfillment_owner,
-          "due_at": biz.fulfillment_due_at, "completed_by": biz.completed_by, "completed_at": biz.completed_at,
-          "summary": biz.fulfillment_summary, "output_link": biz.output_link,
-          "completed_attachment": biz.completed_attachment,
-          "operation_expected_completion_date": biz.operation_expected_completion_date,
-          "operation_note": biz.operation_note, "asset_handover_note": biz.asset_handover_note}
     return {
         "business": biz.as_dict(),
         "approval": {"name": req.name if req else None,
@@ -292,12 +237,12 @@ def get_detail(name):
                      "information_requested_from_level": req.information_requested_from_level if req else None,
                      "status_label": _STATUS_LABEL.get(req.approval_status if req else "Draft")},
         "levels": levels, "approvers": approvers, "attachments": attachments, "timeline": timeline,
-        "fulfillment": ff,
         "process_preview": ([] if req else _process_preview(biz.approval_type or APPROVAL_TYPE)),
         "capabilities": _capabilities(user, biz, req),
     }
 
 
+# alias
 get_request_detail = get_detail
 
 
@@ -312,9 +257,9 @@ def save_draft(name=None, payload=None):
         doc = frappe.get_doc(BIZ, name)
         req = _req_of(name)
         if doc.requested_by != user and not _sm():
-            frappe.throw(_("Ban chi co the sua yeu cau cua minh."), frappe.PermissionError)
+            frappe.throw(_("Bạn chỉ có thể sửa yêu cầu của mình."), frappe.PermissionError)
         if req and req.approval_status not in ("Information Required",):
-            frappe.throw(_("Chi co the sua yeu cau o trang thai Nhap hoac Can bo sung."))
+            frappe.throw(_("Chỉ có thể sửa yêu cầu ở trạng thái Nháp hoặc Cần bổ sung."))
     else:
         doc = frappe.new_doc(BIZ)
         doc.requested_by = user
@@ -331,7 +276,7 @@ def save_draft(name=None, payload=None):
 
 @frappe.whitelist(methods=["POST"])
 def submit_request(name):
-    from ecentric_workspace.approval_center.asset_request import service as svc
+    from ecentric_workspace.approval_center.employee_referral import service as svc
     prev = frappe.flags.mute_messages
     frappe.flags.mute_messages = True
     try:
@@ -345,32 +290,14 @@ def submit_request(name):
 def _resolve_req(name):
     doc = frappe.get_doc(BIZ, name)
     if not doc.approval_request:
-        frappe.throw(_("Yeu cau nay chua duoc gui."))
+        frappe.throw(_("Yêu cầu này chưa được gửi."))
     return doc, doc.approval_request
 
 
-def _capture_operation_date(name, req, operation_expected_completion_date):
-    """When approving the Operation Review level, the Operation expected completion date is captured
-    in the approval modal: required if the request has none yet, otherwise prefilled and updatable."""
-    cl = frappe.db.get_value("EC Approval Request", req, "current_level")
-    lvl = frappe.db.get_value("EC Approval Request Level",
-                              {"approval_request": req, "level_no": cl}, "level_name") if cl else None
-    if lvl != "Operation Review":
-        return
-    newval = (operation_expected_completion_date or "")
-    newval = newval.strip() if isinstance(newval, str) else newval
-    existing = frappe.db.get_value(BIZ, name, "operation_expected_completion_date")
-    if not existing and not newval:
-        frappe.throw(_("Vui long nhap ngay du kien hoan thanh (Operation) truoc khi duyet."))
-    if newval:
-        frappe.db.set_value(BIZ, name, "operation_expected_completion_date", newval)
-
-
 @frappe.whitelist(methods=["POST"])
-def approve(name, comment=None, operation_expected_completion_date=None):
+def approve(name, comment=None):
     from ecentric_workspace.approval_center.engine import service as engine
     doc, req = _resolve_req(name)
-    _capture_operation_date(name, req, operation_expected_completion_date)
     engine.approve(req, comment=comment)
     return {"detail": get_detail(name)}
 
@@ -393,7 +320,7 @@ def request_information(name, comment=None):
 
 @frappe.whitelist(methods=["POST"])
 def resubmit(name, payload=None):
-    from ecentric_workspace.approval_center.asset_request import service as svc
+    from ecentric_workspace.approval_center.employee_referral import service as svc
     if payload:
         save_draft(name=name, payload=payload)
     res = svc.resubmit(name)
@@ -407,7 +334,7 @@ def cancel(name, reason=None):
     doc = frappe.get_doc(BIZ, name)
     req = _req_of(name)
     if not _capabilities(user, doc, req)["can_cancel"]:
-        frappe.throw(_("Ban khong duoc phep huy yeu cau nay."), frappe.PermissionError)
+        frappe.throw(_("Bạn không được phép hủy yêu cầu này."), frappe.PermissionError)
     if req:
         engine.cancel(req.name, reason=reason)
         return {"detail": get_detail(name)}
@@ -419,12 +346,12 @@ def cancel(name, reason=None):
 def admin_approve_current_level(name, reason=None):
     from ecentric_workspace.approval_center.engine import service as engine
     if not _sm():
-        frappe.throw(_("Chi System Manager moi duoc duyet thay."), frappe.PermissionError)
+        frappe.throw(_("Chỉ System Manager mới được duyệt thay."), frappe.PermissionError)
     if not (reason or "").strip():
-        frappe.throw(_("Vui long nhap ly do duyet thay."))
+        frappe.throw(_("Vui lòng nhập lý do duyệt thay."))
     doc, req_name = _resolve_req(name)
     if not _capabilities(frappe.session.user, doc, _req_of(name))["can_admin_approve_current_level"]:
-        frappe.throw(_("Khong the duyet thay o trang thai hien tai."))
+        frappe.throw(_("Không thể duyệt thay ở trạng thái hiện tại."))
     prev = frappe.flags.mute_messages
     frappe.flags.mute_messages = True
     try:
@@ -433,37 +360,3 @@ def admin_approve_current_level(name, reason=None):
         frappe.flags.mute_messages = prev
     frappe.local.message_log = []
     return {"admin_approved": True, "detail": get_detail(name)}
-
-
-@frappe.whitelist(methods=["POST"])
-def claim_fulfillment(name):
-    from ecentric_workspace.approval_center.asset_request import service as svc
-    prev = frappe.flags.mute_messages
-    frappe.flags.mute_messages = True
-    try:
-        res = svc.claim_fulfillment(name)
-    finally:
-        frappe.flags.mute_messages = prev
-    frappe.local.message_log = []
-    return {"claimed": True, "owner": res.get("owner"), "detail": get_detail(name)}
-
-
-@frappe.whitelist(methods=["POST"])
-def complete_fulfillment(name, payload=None):
-    from ecentric_workspace.approval_center.asset_request import service as svc
-    prev = frappe.flags.mute_messages
-    frappe.flags.mute_messages = True
-    try:
-        svc.complete_fulfillment(name, payload=payload)
-    finally:
-        frappe.flags.mute_messages = prev
-    frappe.local.message_log = []
-    return {"completed": True, "detail": get_detail(name)}
-
-
-@frappe.whitelist(methods=["POST"])
-def set_operation_fields(name, operation_expected_completion_date=None, operation_note=None):
-    from ecentric_workspace.approval_center.asset_request import service as svc
-    svc.set_operation_fields(name, operation_expected_completion_date=operation_expected_completion_date,
-                             operation_note=operation_note)
-    return {"ok": True, "detail": get_detail(name)}

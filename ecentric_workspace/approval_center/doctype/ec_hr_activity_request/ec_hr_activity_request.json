@@ -1,0 +1,38 @@
+{
+ "actions": [], "allow_rename": 0, "autoname": "EC-HRAC-.YYYY.-.#####.",
+ "creation": "2026-07-06 00:00:00", "doctype": "DocType", "editable_grid": 1, "engine": "InnoDB",
+ "field_order": [
+  "approval_type","approval_request","request_title","requested_by","employee","department","company",
+  "cb0","submitted_at","completed_at","material_signature",
+  "sb_form","activity_type","activity_type_other","detail","start_date","end_date","participants",
+  "justification","estimated_budget","vendor_trainer_partner_info","request_attachment"
+ ],
+ "fields": [
+  {"fieldname":"approval_type","fieldtype":"Link","label":"Approval Type","options":"EC Approval Type","read_only":1},
+  {"fieldname":"approval_request","fieldtype":"Link","label":"Approval Request","options":"EC Approval Request","read_only":1},
+  {"fieldname":"request_title","fieldtype":"Data","label":"Request Title","reqd":1,"in_list_view":1},
+  {"fieldname":"requested_by","fieldtype":"Link","label":"Requested By","options":"User"},
+  {"fieldname":"employee","fieldtype":"Link","label":"Employee","options":"Employee"},
+  {"fieldname":"department","fieldtype":"Link","label":"Department","options":"Department"},
+  {"fieldname":"company","fieldtype":"Link","label":"Company","options":"Company"},
+  {"fieldname":"cb0","fieldtype":"Column Break"},
+  {"fieldname":"submitted_at","fieldtype":"Datetime","label":"Submitted At","read_only":1},
+  {"fieldname":"completed_at","fieldtype":"Datetime","label":"Completed At","read_only":1},
+  {"fieldname":"material_signature","fieldtype":"Data","label":"Material Signature","hidden":1,"read_only":1},
+  {"fieldname":"sb_form","fieldtype":"Section Break","label":"HR Activity"},
+  {"fieldname":"activity_type","fieldtype":"Select","label":"Activity Type","reqd":1,"options":"Double day\nQuarterly team bonding\nHoliday and anniversary\nCompany trip\nYear-end party\nMedical checkup\nMonthly L&D\nOther"},
+  {"fieldname":"activity_type_other","fieldtype":"Data","label":"Activity Type (Other)"},
+  {"fieldname":"detail","fieldtype":"Long Text","label":"Detail","reqd":1,"description":"What are the main activities / program outline?"},
+  {"fieldname":"start_date","fieldtype":"Date","label":"Start Date","reqd":1},
+  {"fieldname":"end_date","fieldtype":"Date","label":"End Date","reqd":1},
+  {"fieldname":"participants","fieldtype":"Long Text","label":"Participants","reqd":1,"description":"Who is the target audience? How many are they?"},
+  {"fieldname":"justification","fieldtype":"Long Text","label":"Justification","reqd":1,"description":"Why is this activity needed? Business value? How measured?"},
+  {"fieldname":"estimated_budget","fieldtype":"Currency","label":"Estimated Budget (VND)","reqd":1,"options":"VND"},
+  {"fieldname":"vendor_trainer_partner_info","fieldtype":"Long Text","label":"Vendor / Trainer / Partner Info","reqd":1,"description":"Who is the vendor/trainer/partner? Contact? Notes?"},
+  {"fieldname":"request_attachment","fieldtype":"Attach","label":"Attachment"}
+ ],
+ "index_web_pages_for_search":1,"links":[],"modified":"2026-07-06 00:00:00","module":"Approval Center",
+ "name":"EC HR Activity Request","naming_rule":"Expression","owner":"Administrator",
+ "permissions":[{"role":"System Manager","read":1,"write":1,"create":1,"delete":1,"email":1,"export":1,"print":1,"report":1,"share":1}],
+ "sort_field":"modified","sort_order":"DESC","title_field":"request_title","track_changes":1
+}

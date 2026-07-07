@@ -147,6 +147,16 @@ async function run() {
   ok(/#ec-assr-root .assr-formwrap\{[^}]*max-width:none/.test(HTML), "form wrapper aligns under header/tabs");
   ok(/@media \(max-width:1024px\)/.test(HTML), "responsive rule preserved");
 
+  // Cleanup B: operation date in Operation Review (L2) approve modal; complete modal without it
+  w = boot(); await flush(); await flush();
+  w.AssetRequest.doApprove("EC-ASSR-2026-00001", detail({ approval: { name: "AR-1", approval_status: "Pending", current_level: 2 } })); await flush();
+  ok(!!w.document.querySelector(".ec-assr-overlay #m-opdate"), "Operation Review approve modal includes expected completion date");
+  { const ov = w.document.querySelector(".ec-assr-overlay [data-x]"); if (ov) ov.click(); }
+  ok(!/data-act="setopdate"/.test(HTML), "separate set-operation-date action removed from Asset Request");
+  w.AssetRequest.doComplete("EC-ASSR-2026-00001", detail()); await flush();
+  ok(!w.document.querySelector(".ec-assr-overlay #c-opdate"), "Asset complete modal has no operation expected date");
+  { const ov = w.document.querySelector(".ec-assr-overlay [data-x]"); if (ov) ov.click(); }
+
   console.log(fails === 0 ? "\nALL ASSET REQUEST PAGE TESTS PASSED" : "\n" + fails + " FAILED");
   process.exit(fails === 0 ? 0 : 1);
 }
