@@ -118,7 +118,7 @@ class TestSystemRequest(FrappeTestCase):
     def test_any_one_approval_advances_to_fulfillment(self):
         name, req = self._submit()
         frappe.set_user(REV1)
-        api.approve(name, comment="ok")                     # Any One -> level approved -> final
+        api.approve(name, comment="ok", operation_expected_completion_date="2026-09-01")   # Operation Review needs date
         frappe.set_user("Administrator")
         ar = self._ar(name)
         self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "approval_status"), "Approved")
@@ -133,7 +133,7 @@ class TestSystemRequest(FrappeTestCase):
     def test_fulfillment_claim_complete_summary_required(self):
         name, req = self._submit()
         frappe.set_user(REV1)
-        api.approve(name)
+        api.approve(name, operation_expected_completion_date="2026-09-01")
         # claim
         frappe.set_user(REV1)
         api.claim_fulfillment(name)
@@ -168,7 +168,7 @@ class TestSystemRequest(FrappeTestCase):
     def test_timeline_records_actions(self):
         name, req = self._submit()
         frappe.set_user(REV1)
-        api.approve(name)
+        api.approve(name, operation_expected_completion_date="2026-09-01")
         frappe.set_user("Administrator")
         ar = self._ar(name)
         acts = frappe.get_all("EC Approval Action", filters={"approval_request": ar}, pluck="action")
@@ -212,14 +212,23 @@ class TestSystemRequest(FrappeTestCase):
         completion date set earlier is preserved (not required and not overwritten to blank)."""
         name, req = self._submit()
         frappe.set_user(REV1)
-        api.approve(name)                                        # Operation Review -> fulfillment
-        api.set_operation_fields(name, operation_expected_completion_date="2026-09-10")
+        api.approve(name, operation_expected_completion_date="2026-09-10")   # date captured at approval
         api.claim_fulfillment(name)
         # complete with summary only (no operation_expected_completion_date in payload)
         api.complete_fulfillment(name, payload=frappe.as_json({"fulfillment_summary": "done", "output_link": "https://x"}))
         frappe.set_user("Administrator")
         self.assertEqual(frappe.db.get_value(api.BIZ, name, "fulfillment_status"), "Completed")
         self.assertEqual(str(frappe.db.get_value(api.BIZ, name, "operation_expected_completion_date")), "2026-09-10")
+
+    def test_operation_date_required_on_operation_review_approve(self):
+        name, req = self._submit()
+        frappe.set_user(REV1)
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            api.approve(name)                                    # no date, none existing -> blocked
+        api.approve(name, operation_expected_completion_date="2026-09-20")   # with date -> ok
+        frappe.set_user("Administrator")
+        self.assertEqual(str(frappe.db.get_value(api.BIZ, name, "operation_expected_completion_date")), "2026-09-20")
+        self.assertEqual(frappe.db.get_value(api.BIZ, name, "fulfillment_status"), "Assigned")
 
     def test_page_sync_meta_driven_shim_cleanup(self):
         if not frappe.db.exists("DocType", "Web Page"):

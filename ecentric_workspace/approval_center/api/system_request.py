@@ -361,10 +361,28 @@ def _muted(fn):
     frappe.local.message_log = []
 
 
+def _capture_operation_date(name, req, operation_expected_completion_date):
+    """When approving the Operation Review level, the Operation expected completion date is captured
+    in the approval modal: required if the request has none yet, otherwise prefilled and updatable."""
+    cl = frappe.db.get_value("EC Approval Request", req, "current_level")
+    lvl = frappe.db.get_value("EC Approval Request Level",
+                              {"approval_request": req, "level_no": cl}, "level_name") if cl else None
+    if lvl != "Operation Review":
+        return
+    newval = (operation_expected_completion_date or "")
+    newval = newval.strip() if isinstance(newval, str) else newval
+    existing = frappe.db.get_value(BIZ, name, "operation_expected_completion_date")
+    if not existing and not newval:
+        frappe.throw(_("Vui long nhap ngay du kien hoan thanh (Operation) truoc khi duyet."))
+    if newval:
+        frappe.db.set_value(BIZ, name, "operation_expected_completion_date", newval)
+
+
 @frappe.whitelist(methods=["POST"])
-def approve(name, comment=None):
+def approve(name, comment=None, operation_expected_completion_date=None):
     from ecentric_workspace.approval_center.engine import service as engine
     doc, req = _resolve_req(name)
+    _capture_operation_date(name, req, operation_expected_completion_date)
     _muted(lambda: engine.approve(req, comment=comment))
     return {"detail": get_detail(name)}
 

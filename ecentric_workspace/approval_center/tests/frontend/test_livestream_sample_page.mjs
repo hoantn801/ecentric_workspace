@@ -59,7 +59,7 @@ async function run() {
   { const pv = w.document.getElementById("lvsm-process-preview");
     ok(pv.querySelectorAll(".step").length === 3, "preview has 3 steps");
     ok(/Sang Bui duyệt/.test(pv.innerHTML), "preview step Sang Bui"); }
-  
+
   w.LivestreamSample.state.draft = {};
   { const e = w.LivestreamSample.validateSubmit() || {};
     ok(e.brand && e.sample_detail && e.estimated_arrival_time, "validateSubmit requires key fields"); }

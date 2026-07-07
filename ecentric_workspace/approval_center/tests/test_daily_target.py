@@ -11,6 +11,8 @@ from frappe.tests.utils import FrappeTestCase
 from ecentric_workspace.approval_center.api import daily_target as api
 from ecentric_workspace.approval_center.daily_target import setup as dtsetup
 from ecentric_workspace.approval_center.daily_target import page_sync
+from ecentric_workspace.approval_center.daily_target import service as dtsvc
+from ecentric_workspace.approval_center.patches import p019_hide_daily_target_project_card as p019
 
 PFX = "ZZDT_"
 CM = PFX + "cm@example.com"     # Commercial Manager (project)
@@ -176,3 +178,28 @@ class TestDailyTarget(FrappeTestCase):
         self.assertEqual(r2["name"], r1["name"])
         self.assertEqual(frappe.db.get_value("Web Page", r1["name"], "route"), page_sync.ROUTE)
         self.assertEqual(frappe.db.count("Web Page", {"name": r1["name"]}), 1)
+
+
+class TestDailyTargetProjectCardCleanup(FrappeTestCase):
+    """Cleanup A: hide the duplicate 'Daily Target Setting - Project Level' catalog card without
+    touching the process, the main card, or request data."""
+
+    def test_p019_disables_duplicate_card_only(self):
+        # ensure both catalog rows exist
+        for code, title, status in (("DAILY_TARGET", "Daily Target Setting", "Active"),
+                                    ("DAILY_TARGET_PROJECT", "Daily Target Setting - Project Level", "Coming Soon")):
+            if not frappe.db.exists("EC Approval Type", code):
+                frappe.get_doc({"doctype": "EC Approval Type", "approval_code": code, "approval_title": title,
+                                "card_status": status, "process_status": "Discovery"}).insert(ignore_permissions=True)
+        frappe.db.set_value("EC Approval Type", "DAILY_TARGET", "card_status", "Active")
+        _ensure()   # creates DAILY_TARGET_PROJECT-V1 process
+        p019.execute()
+        # duplicate card hidden
+        self.assertEqual(frappe.db.get_value("EC Approval Type", "DAILY_TARGET_PROJECT", "card_status"), "Disabled")
+        # main card untouched; process intact; scope mapping unchanged
+        self.assertEqual(frappe.db.get_value("EC Approval Type", "DAILY_TARGET", "card_status"), "Active")
+        self.assertTrue(frappe.db.exists("EC Approval Process", dtsvc.PROCESS_PROJECT))
+        self.assertEqual(dtsvc.process_for_scope("Project level"), dtsvc.PROCESS_PROJECT)
+        # idempotent re-run
+        p019.execute()
+        self.assertEqual(frappe.db.get_value("EC Approval Type", "DAILY_TARGET_PROJECT", "card_status"), "Disabled")
