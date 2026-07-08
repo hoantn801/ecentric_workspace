@@ -14,7 +14,7 @@ const calls = {};
 function detail(over) {
   return Object.assign({
     business: { name: "EC-LTEO-2026-00001", request_title: "Late/Early - 2026-08-01 - 10 AM",
-      applied_date: "2026-08-01", check_time: "10 AM", check_time_other: "", reason: "Kẹt xe",
+      applied_date: "2026-08-01", request_type: "Đi trễ", check_time: "10 AM", check_time_other: "", reason: "Kẹt xe",
       requested_by: "u@x", requester_name: "U", department: "D" },
     approval: { name: "AR-1", approval_status: "Pending", current_level: 1 },
     levels: [{ level_no: 1, level_name: "Direct Manager Review", approval_mode: "Any One", level_status: "In Progress" }],
@@ -35,7 +35,7 @@ function boot(over) {
     if (m.endsWith("save_draft")) return Promise.resolve({ message: { name: "EC-LTEO-2026-00001", capabilities: {} } });
     if (m.endsWith("submit_request")) return Promise.resolve({ message: { approval_request: "AR-1", submitted: true, detail: detail() } });
     if (m.endsWith("list_my_requests")) return Promise.resolve({ message: { rows: [
-      { name: "EC-LTEO-2026-00001", request_title: "Late/Early - 2026-08-01 - 10 AM", applied_date: "2026-08-01",
+      { name: "EC-LTEO-2026-00001", request_title: "Late/Early - 2026-08-01 - 10 AM", applied_date: "2026-08-01", request_type: "Đi trễ",
         check_time: "10 AM", check_time_other: "", approval_status: "Pending", current_level: 1,
         current_level_name: "Direct Manager Review", total_levels: 1,
         creation: "2026-07-06 09:00", requested_at: "2026-07-06 09:00", requester_name: "U",
@@ -74,7 +74,7 @@ async function run() {
 
   // conditional check_time_other: hidden by default, shown + required when Other
   ok(!w.document.querySelector('[data-model="check_time_other"]'), "check_time_other hidden when not Other");
-  LEO().state.draft = { applied_date: "2026-08-01", check_time: "Other", reason: "x" };
+  LEO().state.draft = { applied_date: "2026-08-01", request_type: "Đi trễ", check_time: "Other", reason: "x" };
   LEO().render(); await flush();
   ok(!!w.document.querySelector('[data-model="check_time_other"]'), "check_time_other appears when check_time=Other");
   { const e = LEO().validateSubmit() || {};
@@ -85,15 +85,15 @@ async function run() {
   // required fields + attachment optional
   LEO().state.draft = {};
   { const e = LEO().validateSubmit() || {};
-    ok(e.applied_date && e.check_time && e.reason, "validateSubmit requires applied_date/check_time/reason"); }
-  LEO().state.draft = { applied_date: "2026-08-01", check_time: "10 AM", reason: "Kẹt xe" };
+    ok(e.request_type && e.applied_date && e.check_time && e.reason, "validateSubmit requires request_type/applied_date/check_time/reason"); }
+  LEO().state.draft = { applied_date: "2026-08-01", request_type: "Về sớm", check_time: "10 AM", reason: "Kẹt xe" };
   ok(LEO().validateSubmit() === null, "valid draft without attachment passes (attachment optional)");
   ok(!(LEO().validateSubmit() || {}).request_attachment, "attachment not required");
 
   // title preview in summary
   LEO().render(); await flush();
   { const sm = w.document.getElementById("lteo-summary").innerHTML;
-    ok(/Late\/Early - 2026-08-01 - 10 AM/.test(sm), "client title preview shown in summary"); }
+    ok(/Về sớm - 2026-08-01 - 10 AM/.test(sm), "client title preview shown in summary (uses request_type)"); }
 
   // save_draft carries fields
   w.document.getElementById("lteo-save").click(); await flush(); await flush();
@@ -135,6 +135,38 @@ async function run() {
   ok(/"ecentric_workspace.approval_center.api.late_early_out."/.test(JS), "uses Late in - Early out whitelisted API");
   ok(/#ec-lteo-root .content\{[^}]*max-width:1200px[^}]*margin:0 auto/.test(HTML), "balanced width");
   ok(/\.lteo-formwrap\{max-width:none\}|\.lteo-formwrap\{ max-width:none; \}/.test(HTML), "formwrap max-width:none");
+
+  // A1 (Batch-7): friendly backend message extracted from Frappe error shapes, not only e.message
+  { var _mgr="Không xác định được Quản lý trực tiếp của bạn. Vui lòng liên hệ HR/Admin để cập nhật báo cáo cho user trước khi gửi yêu cầu.";
+    var _sm={ responseJSON:{ _server_messages: JSON.stringify([ JSON.stringify({ message:_mgr, title:"Message" }) ]) } };
+    ok(/Quản lý trực tiếp/.test(w.LateEarlyOut.mapErr(_sm)), "A1: friendly _server_messages surfaced (not generic)");
+    ok(w.LateEarlyOut.mapErr(_sm) !== "Đã có lỗi. Vui lòng thử lại.", "A1: does not fall back to generic toast");
+    ok(/Quản lý trực tiếp/.test(w.LateEarlyOut.mapErr({ responseJSON:{ exception:"frappe.exceptions.ValidationError: "+_mgr } })), "A1: exception shape also extracted"); }
+
+  // A2 (Batch-7): request_type (Đi trễ / Về sớm) wired end-to-end
+  ok(LEO().titlePreview({request_type:"Đi trễ",applied_date:"2026-08-01",check_time:"10 AM"}).indexOf("Đi trễ - 2026-08-01 - 10 AM")===0, "A2: title uses request_type (Đi trễ)");
+  ok(LEO().titlePreview({request_type:"Về sớm",applied_date:"2026-08-01",check_time:"Other",check_time_other:"9:30 AM"}).indexOf("Về sớm - 2026-08-01 - 9:30 AM")===0, "A2: title uses request_type (Về sớm + Other time)");
+  ok(LEO().titlePreview({applied_date:"2026-08-01",check_time:"10 AM"}).indexOf("Late/Early")===0, "A2: legacy record w/o request_type falls back to Late/Early title");
+  { LEO().state.draft = { applied_date:"2026-08-01", check_time:"10 AM", reason:"x" };
+    ok((LEO().validateSubmit()||{}).request_type, "A2: missing request_type blocked at submit"); }
+  // field renders before Giờ in the create form
+  { w = boot(); await flush(); await flush();
+    w.history.pushState({}, "", "/approvals/late-early-out?tab=create"); LEO().route(); await flush();
+    LEO().state.draft = { request_type:"Đi trễ", check_time:"10 AM" }; LEO().render(); await flush();
+    var _cb=w.document.getElementById("lteo-body"); var _h=_cb?_cb.innerHTML:"";
+    var _ri=_h.indexOf('data-model="request_type"'), _ci=_h.indexOf('data-model="check_time"');
+    ok(_ri>=0 && _ci>=0 && _ri<_ci, "A2: request_type field renders before Giờ (check_time)"); }
+  // list column + detail display
+  { w = boot(); await flush(); await flush();
+    w.history.pushState({}, "", "/approvals/late-early-out?tab=my-requests"); LEO().route(); await flush(); await flush();
+    var _lb=w.document.body.innerHTML;
+    ok(/<th>Lo\u1ea1i<\/th>/.test(_lb) || _lb.indexOf(">Loại<")>=0, "A2: my-requests list has Loại column");
+    ok(_lb.indexOf("Đi trễ")>=0, "A2: my-requests list shows request_type value"); }
+  { w = boot(); await flush(); await flush();
+    w.history.pushState({}, "", "/approvals/late-early-out?id=EC-LTEO-2026-00001"); LEO().route(); await flush(); await flush();
+    var _db=w.document.body.innerHTML;
+    ok(_db.indexOf("Loại yêu cầu")>=0, "A2: detail shows Loại yêu cầu label");
+    ok(_db.indexOf("Đi trễ")>=0, "A2: detail shows request_type value"); }
 
   console.log(fails === 0 ? "\nALL LATE EARLY OUT PAGE TESTS PASSED" : "\n" + fails + " FAILED");
   process.exit(fails === 0 ? 0 : 1);

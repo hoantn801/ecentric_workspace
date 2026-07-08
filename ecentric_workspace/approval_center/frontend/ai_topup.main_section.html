@@ -359,7 +359,7 @@
       if(!((d.proposed_account_manager||"").toString().trim())) errs.proposed_account_manager="Vui lòng nhập người quản lý account dự kiến.";
     } else { if(!((d.ai_account||"").toString().trim())) errs.ai_account="Vui lòng chọn account."; }
     return Object.keys(errs).length?errs:null; }
-  function applyBackendError(e){ var m=(e&&e.message)||"";
+  function applyBackendError(e){ var m=extractServerMsg(e);
     if(/New Account requests require/i.test(m)){ var errs={};
       if(/ai_tool/.test(m)) errs.ai_tool="Vui lòng chọn AI Tool.";
       if(/proposed_account_email/.test(m)) errs.proposed_account_email="Vui lòng nhập email account dự kiến.";
@@ -368,7 +368,7 @@
     if(/Existing Account requests require/i.test(m)){ showFieldErrors({ai_account:"Vui lòng chọn account hiện có."}); toast("Vui lòng chọn account hiện có.",true); return true; }
     if(/request title|tiêu đề/i.test(m)){ showFieldErrors({request_title:"Vui lòng nhập tiêu đề yêu cầu."}); toast("Vui lòng nhập tiêu đề yêu cầu.",true); return true; }
     return false; }
-  function friendlyErr(e){ var m=(e&&e.message)||"";
+  function friendlyErr(e){ var m=extractServerMsg(e);
     if(/not Active/i.test(m)) return "Account đã chọn không còn hoạt động.";
     if(/end date cannot be before/i.test(m)) return "Ngày kết thúc không thể trước ngày bắt đầu.";
     if(/quản lý trực tiếp|manager/i.test(m)) return "Không thể gửi: chưa xác định quản lý trực tiếp.";
@@ -447,7 +447,7 @@
       toast("Đã lưu nháp. Bạn có thể gửi phê duyệt sau."); go({id:state.id});
     }).catch(function(e){ if(!applyBackendError(e)){ if(window.console&&console.error) console.error("AI Topup save/submit error:", e); toast(friendlyErr(e),true); } }).then(function(){ state.busy=false; setBusy(false); }); }
   function setBusy(on){ ["ait-save","ait-submit","ait-cancel-changes"].forEach(function(id){ var el=$(id); if(el) el.disabled=on; }); }
-  function errMsg(e){ var m=(e&&e.message)||""; if(/quản lý trực tiếp|manager/i.test(m)) return "Không thể gửi: chưa xác định quản lý trực tiếp."; return m||"Đã có lỗi. Vui lòng thử lại."; }
+  function errMsg(e){ var m=extractServerMsg(e); if(/quản lý trực tiếp|manager/i.test(m)) return "Không thể gửi: chưa xác định quản lý trực tiếp."; return m||"Đã có lỗi. Vui lòng thử lại."; }
 
   // ======================= MY REQUESTS =======================
   function renderMyRequests(b){
@@ -602,11 +602,21 @@
 
   // ======================= B3.3: actions, approvals, timeline =======================
   // Resubmit-specific error mapping: stale conflict -> reload; known safe validation -> show; else generic (never raw SQL/500).
-  function resubmitErr(e){ var m=(e&&e.message)||"";
+  function resubmitErr(e){ var m=extractServerMsg(e);
     if(/pending approver|not a pending|no further action|is Approved|is Rejected|is Cancelled|moved|next level|updated by|đã thay đổi/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Vui lòng tải lại.";
     if(/Only an Information Required|is mandatory|is required|not allowed to|do not have|permission/i.test(m)) return m;
     return "Không thể gửi lại yêu cầu. Vui lòng thử lại hoặc liên hệ quản trị viên."; }
-  function mapErr(e){ var m=(e&&e.message)||"";
+  function extractServerMsg(e){ if(!e) return "";
+    function _strip(s){ return String(s==null?"":s).replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim(); }
+    var sm=e._server_messages||(e.responseJSON&&e.responseJSON._server_messages);
+    if(sm){ try{ var arr=(typeof sm==="string")?JSON.parse(sm):sm; for(var i=0;i<arr.length;i++){ var f=arr[i], o=f; if(typeof f==="string"){ try{ o=JSON.parse(f); }catch(_a){ o={message:f}; } } var mm=o&&(o.message||o.title); if(mm) return _strip(mm); } }catch(_b){} }
+    var rj=e.responseJSON||{};
+    if(typeof e.message==="string"&&e.message) return _strip(e.message);
+    if(typeof rj.message==="string"&&rj.message) return _strip(rj.message);
+    if(rj.message&&rj.message.message) return _strip(rj.message.message);
+    var exc=rj.exception||e.exception||""; if(exc){ var p=String(exc).split(": "); return _strip(p.length>1?p.slice(1).join(": "):exc); }
+    return ""; }
+  function mapErr(e){ var m=extractServerMsg(e);
     if(/đã tồn tại|already exists|Account Key must be unique|account_key/i.test(m)) return "AI Account này đã tồn tại. Vui lòng chuyển yêu cầu sang Tài khoản hiện có hoặc chọn đúng account trước khi hoàn tất.";
     if(/IntegrityError|pymysql|Duplicate entry|must be unique|OperationalError|ProgrammingError|Traceback|1062|1048/i.test(m)) return "Không thể hoàn tất do dữ liệu không hợp lệ. Vui lòng kiểm tra lại hoặc liên hệ quản trị viên.";
     if(/pending approver|not a pending/i.test(m)) return "Bạn không còn quyền thực hiện hành động này.";
