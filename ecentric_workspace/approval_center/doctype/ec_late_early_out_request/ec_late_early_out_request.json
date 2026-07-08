@@ -1,0 +1,29 @@
+{
+ "actions": [], "allow_rename": 0, "autoname": "EC-LTEO-.YYYY.-.#####.", "creation": "2026-07-07 00:00:00",
+ "doctype": "DocType", "editable_grid": 1, "engine": "InnoDB",
+ "field_order": ["approval_type","approval_request","request_title","requested_by","employee","department","company","cb0","submitted_at","completed_at","material_signature","sb_form","applied_date","check_time","check_time_other","cb1","reason","request_attachment"],
+ "fields": [
+  {"fieldname":"approval_type","fieldtype":"Link","label":"Approval Type","options":"EC Approval Type","read_only":1},
+  {"fieldname":"approval_request","fieldtype":"Link","label":"Approval Request","options":"EC Approval Request","read_only":1},
+  {"fieldname":"request_title","fieldtype":"Data","label":"Request Title","read_only":1,"in_list_view":1},
+  {"fieldname":"requested_by","fieldtype":"Link","label":"Requested By","options":"User"},
+  {"fieldname":"employee","fieldtype":"Link","label":"Employee","options":"Employee"},
+  {"fieldname":"department","fieldtype":"Link","label":"Department","options":"Department"},
+  {"fieldname":"company","fieldtype":"Link","label":"Company","options":"Company"},
+  {"fieldname":"cb0","fieldtype":"Column Break"},
+  {"fieldname":"submitted_at","fieldtype":"Datetime","label":"Submitted At","read_only":1},
+  {"fieldname":"completed_at","fieldtype":"Datetime","label":"Completed At","read_only":1},
+  {"fieldname":"material_signature","fieldtype":"Data","label":"Material Signature","hidden":1,"read_only":1},
+  {"fieldname":"sb_form","fieldtype":"Section Break","label":"Late in - Early out"},
+  {"fieldname":"applied_date","fieldtype":"Date","label":"Applied date","reqd":1},
+  {"fieldname":"check_time","fieldtype":"Select","label":"Check-in/check-out time","reqd":1,"options":"10 AM\n11 AM\n12 PM\n1 PM\n2 PM\n3 PM\n4 PM\n5 PM\nOther"},
+  {"fieldname":"check_time_other","fieldtype":"Data","label":"Other check-in/check-out time","description":"E.g. 9:30 AM / 6:30 PM"},
+  {"fieldname":"cb1","fieldtype":"Column Break"},
+  {"fieldname":"reason","fieldtype":"Small Text","label":"Reason","reqd":1},
+  {"fieldname":"request_attachment","fieldtype":"Attach","label":"Attachment"}
+ ],
+ "index_web_pages_for_search":1,"links":[],"modified":"2026-07-07 00:00:00","module":"Approval Center",
+ "name":"EC Late Early Out Request","naming_rule":"Expression","owner":"Administrator",
+ "permissions":[{"role":"System Manager","read":1,"write":1,"create":1,"delete":1,"email":1,"export":1,"print":1,"report":1,"share":1}],
+ "sort_field":"modified","sort_order":"DESC","title_field":"request_title","track_changes":1
+}

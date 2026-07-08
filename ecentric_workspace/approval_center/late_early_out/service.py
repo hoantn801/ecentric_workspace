@@ -1,9 +1,7 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Special Bonus orchestration over the shared engine. Direct Manager -> CnB -> HOF -> CEO
-(User participants from process config; no fulfillment). Governance: money-bearing form, so the
-Direct Manager approver is NEVER requester-chosen - it resolves from Employee.reports_to; if it
-cannot resolve, submit is blocked with a friendly Vietnamese message. Department must be a real
-Department master record. Evidence attachment required. No hardcoded runtime approvers."""
+"""Late in - Early out orchestration over the shared engine. Single level: Direct Manager Review ->
+Completed. Direct Manager resolves from Employee.reports_to (blocked if unresolved). check_time_other
+required only when check_time == Other. Title auto-generated. Attachment optional."""
 import hashlib
 import json
 
@@ -13,16 +11,16 @@ from frappe.utils import now_datetime
 
 from ecentric_workspace.approval_center.engine import service as engine
 
-BUSINESS_DT = "EC Special Bonus Request"
-APPROVAL_TYPE = "SPECIAL_BONUS"
-
-MATERIAL_FIELDS = ["department", "project_name", "reasons", "total_bonus"]
-REQUIRED_AT_SUBMIT = ["request_title", "department", "project_name", "reasons"]
+BUSINESS_DT = "EC Late Early Out Request"
+APPROVAL_TYPE = "LATE_EARLY_OUT"
+CHECK_TIMES = ["10 AM", "11 AM", "12 PM", "1 PM", "2 PM", "3 PM", "4 PM", "5 PM", "Other"]
+MATERIAL_FIELDS = ["applied_date", "check_time", "check_time_other", "reason"]
+REQUIRED_AT_SUBMIT = ["applied_date", "check_time", "reason"]
 
 
 def _signature(doc):
-    vals = {f: str(doc.get(f) or "") for f in MATERIAL_FIELDS}
-    return hashlib.sha1(json.dumps(vals, sort_keys=True).encode("utf-8")).hexdigest()
+    return hashlib.sha1(json.dumps({f: str(doc.get(f) or "") for f in MATERIAL_FIELDS},
+                                   sort_keys=True).encode("utf-8")).hexdigest()
 
 
 def _ctx(user):
@@ -39,6 +37,11 @@ def _direct_manager_user(user):
     return None
 
 
+def gen_title(doc):
+    t = (doc.get("check_time_other") if doc.get("check_time") == "Other" else doc.get("check_time")) or "?"
+    return ("Late/Early - %s - %s" % (doc.get("applied_date") or "?", t))[:180]
+
+
 @frappe.whitelist(methods=["POST"])
 def submit(name):
     doc = frappe.get_doc(BUSINESS_DT, name)
@@ -52,25 +55,22 @@ def submit(name):
     emp = _ctx(user)
     if emp:
         doc.employee = emp.name
+        doc.department = doc.department or emp.department
         doc.company = doc.company or emp.company
     missing = [f for f in REQUIRED_AT_SUBMIT if not doc.get(f)]
-    if doc.total_bonus is None:
-        missing.append("total_bonus")
     if missing:
         frappe.throw(_("Vui long nhap day du cac truong bat buoc truoc khi gui."))
-    if not frappe.db.exists("Department", doc.department):
-        frappe.throw(_("Phong ban khong hop le. Vui long chon phong ban tu danh sach."))
-    try:
-        if float(doc.total_bonus) < 0:
-            frappe.throw(_("Tong thuong khong the la so am."))
-    except (TypeError, ValueError):
-        frappe.throw(_("Tong thuong phai la so."))
-    if not _direct_manager_user(user):
-        frappe.throw(_("Khong xac dinh duoc Quan ly truc tiep cua ban. Vui long lien he HR/Admin de cap "
-                       "nhat 'Bao cao cho' (reports_to) trong ho so nhan su truoc khi gui yeu cau."))
+    if doc.check_time not in CHECK_TIMES:
+        frappe.throw(_("Gio check-in/check-out khong hop le."))
+    if doc.check_time == "Other" and not (doc.check_time_other or "").strip():
+        frappe.throw(_("Vui long nhap gio khac khi chon 'Other'."))
+    doc.request_title = gen_title(doc)
     doc.submitted_at = now_datetime()
     doc.material_signature = _signature(doc)
     doc.save(ignore_permissions=True)
+    if not _direct_manager_user(user):
+        frappe.throw(_("Khong xac dinh duoc Quan ly truc tiep cua ban. Vui long lien he HR/Admin de cap "
+                       "nhat 'Bao cao cho' (reports_to) trong ho so nhan su truoc khi gui yeu cau."))
     req_name = engine.submit(BUSINESS_DT, doc.name, APPROVAL_TYPE, user)
     frappe.db.set_value(BUSINESS_DT, doc.name, "approval_request", req_name)
     return req_name
@@ -82,7 +82,8 @@ def resubmit(name, actor=None):
     if not doc.approval_request:
         frappe.throw(_("Yeu cau chua duoc gui."))
     new_sig = _signature(doc)
-    material_changed = new_sig != (doc.material_signature or "")
-    engine.resubmit(doc.approval_request, actor=actor or frappe.session.user, restart=material_changed)
+    changed = new_sig != (doc.material_signature or "")
+    frappe.db.set_value(BUSINESS_DT, doc.name, "request_title", gen_title(doc))
+    engine.resubmit(doc.approval_request, actor=actor or frappe.session.user, restart=changed)
     frappe.db.set_value(BUSINESS_DT, doc.name, "material_signature", new_sig)
-    return {"restarted": material_changed}
+    return {"restarted": changed}
