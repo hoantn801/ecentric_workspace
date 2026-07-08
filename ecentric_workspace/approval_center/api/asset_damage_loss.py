@@ -4,6 +4,7 @@ conventions; NO fulfillment. Backend is authoritative; capability flags are advi
 (writes re-validate in the engine/service). Friendly Vietnamese errors only."""
 import frappe
 from frappe import _
+from ecentric_workspace.approval_center.api._common import requester_display
 
 BIZ = "EC Asset Damage Loss Request"
 APPROVAL_TYPE = "ASSET_DAMAGE_LOSS"
@@ -153,6 +154,8 @@ def list_my_requests(filters=None, start=0, page_length=20):
             "EC Approval Request", r.approval_request, ["approval_status", "current_level"], as_dict=True)
         r["approval_status"] = ar.approval_status if ar else "Draft"
         r["current_level"] = ar.current_level if ar else 0
+        r["requested_at"] = r.get("creation")
+        r["requester_name"] = requester_display(user)
         if r.approval_request:
             r["total_levels"] = frappe.db.count("EC Approval Request Level",
                                                 {"approval_request": r.approval_request})
@@ -186,11 +189,13 @@ def list_need_my_approval(section="pending"):
             continue
         biz = frappe.db.get_value(BIZ, req.reference_name,
                                   ["name", "request_title", "asset_type", "incident_type",
-                                   "incident_date", "department"], as_dict=True)
+                                   "incident_date", "department", "creation"], as_dict=True)
         if biz:
             cur_name = (frappe.db.get_value("EC Approval Request Level",
                         {"approval_request": r.approval_request, "level_no": req.current_level}, "level_name")
                         if req.current_level else None)
+            biz["requested_at"] = biz.get("creation")
+            biz["requester_name"] = requester_display(req.requested_by)
             biz.update({"approval_request": r.approval_request, "level_no": r.level_no,
                         "approval_status": req.approval_status, "current_level": req.current_level,
                         "current_level_name": cur_name, "requested_by": req.requested_by, "my_status": r.status,

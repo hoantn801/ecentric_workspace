@@ -16,8 +16,8 @@ from ecentric_workspace.approval_center.engine import service as engine
 BUSINESS_DT = "EC Special Bonus Request"
 APPROVAL_TYPE = "SPECIAL_BONUS"
 
-MATERIAL_FIELDS = ["department", "project_name", "reasons", "total_bonus", "request_attachment"]
-REQUIRED_AT_SUBMIT = ["request_title", "department", "project_name", "reasons", "request_attachment"]
+MATERIAL_FIELDS = ["department", "project_name", "reasons", "total_bonus"]
+REQUIRED_AT_SUBMIT = ["request_title", "department", "project_name", "reasons"]
 
 
 def _signature(doc):
@@ -57,7 +57,7 @@ def submit(name):
     if doc.total_bonus is None:
         missing.append("total_bonus")
     if missing:
-        frappe.throw(_("Vui long nhap day du cac truong bat buoc (bao gom tep dinh kem) truoc khi gui."))
+        frappe.throw(_("Vui long nhap day du cac truong bat buoc truoc khi gui."))
     if not frappe.db.exists("Department", doc.department):
         frappe.throw(_("Phong ban khong hop le. Vui long chon phong ban tu danh sach."))
     try:

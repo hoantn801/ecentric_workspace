@@ -26,7 +26,7 @@ MATERIAL_FIELDS = ["asset_type", "asset_type_other", "asset_code", "incident_typ
                    "estimated_value_lost_stolen_asset", "recommended_actions", "recommended_actions_other"]
 REQUIRED_AT_SUBMIT = ["request_title", "asset_type", "asset_code", "incident_type", "incident_description",
                       "incident_date", "incident_location", "physical_damage", "data_compromised",
-                      "impact_on_operations", "recommended_actions", "request_attachment"]
+                      "impact_on_operations", "recommended_actions"]
 _COST_FIELDS = ["estimated_repair_cost", "estimated_value_lost_stolen_asset"]
 
 
@@ -63,7 +63,7 @@ def submit(name):
         if doc.get(f) is None:
             missing.append(f)
     if missing:
-        frappe.throw(_("Vui long nhap day du cac truong bat buoc (bao gom tep dinh kem) truoc khi gui."))
+        frappe.throw(_("Vui long nhap day du cac truong bat buoc truoc khi gui."))
     # Conditional-required 'Other' fields (System Request pattern).
     if doc.asset_type == "Other" and not (doc.asset_type_other or "").strip():
         frappe.throw(_("Vui long nhap loai tai san khac khi chon 'Other'."))

@@ -39,12 +39,12 @@ function boot(over) {
     if (m.endsWith("list_my_requests")) return Promise.resolve({ message: { rows: [
       { name: "EC-SPBN-2026-00001", request_title: "Special Bonus - Project X", department: "Engineering", project_name: "Project X",
         total_bonus: 5000000, approval_status: "Pending", current_level: 1,
-        current_level_name: "Direct Manager Review", total_levels: 4, modified: "2026-07-06 09:00" } ], total: 1 } });
+        current_level_name: "Direct Manager Review", total_levels: 4, modified: "2026-07-06 09:00", creation: "2026-07-06 09:00", requested_at: "2026-07-06 09:00", requester_name: "U Requester" } ], total: 1 } });
     if (m.endsWith("list_need_my_approval")) return Promise.resolve({ message: { rows: (o.args.section === "pending" ? [
       { name: "EC-SPBN-2026-00001", request_title: "Special Bonus - Project X", requested_by: "u@x", project_name: "Project X",
-        approval_status: "Pending", current_level: 1, level_no: 1, total_levels: 4, my_status: "Pending" } ] : [
+        approval_status: "Pending", current_level: 1, level_no: 1, total_levels: 4, my_status: "Pending", creation: "2026-07-06 09:00", requested_at: "2026-07-06 09:00", requester_name: "U Requester" } ] : [
       { name: "EC-SPBN-2026-00002", request_title: "Old", requested_by: "u@x", project_name: "Y",
-        approval_status: "Approved", current_level: 0, level_no: 1, total_levels: 4, my_status: "Approved" } ]) } });
+        approval_status: "Approved", current_level: 0, level_no: 1, total_levels: 4, my_status: "Approved", creation: "2026-07-05 08:00", requested_at: "2026-07-05 08:00", requester_name: "U Requester" } ]) } });
     if (m.endsWith("get_detail")) return Promise.resolve({ message: (over && over.detail) || detail() });
     return Promise.resolve({ message: { rows: [], total: 0 } });
   }};
@@ -71,7 +71,7 @@ async function run() {
   // validateSubmit — empty draft requires key fields
   w.SpecialBonus.state.draft = {};
   { const e = w.SpecialBonus.validateSubmit() || {};
-    ok(e.request_title && e.department && e.project_name && e.reasons && e.total_bonus && e.request_attachment, "validateSubmit requires title/department/project/reasons/total_bonus/attachment"); }
+    ok(e.request_title && e.department && e.project_name && e.reasons && e.total_bonus && !e.request_attachment, "validateSubmit requires title/department/project/reasons/total_bonus (attachment optional)"); }
   // invalid department blocked
   w.SpecialBonus.state.draft = { request_title: "T", department: "TESTING", project_name: "P", reasons: "r", total_bonus: 100, request_attachment: "/files/x.pdf" };
   ok((w.SpecialBonus.validateSubmit() || {}).department, "invalid department (not in master) blocked");
@@ -81,9 +81,9 @@ async function run() {
   // negative bonus blocked
   w.SpecialBonus.state.draft = { request_title: "T", department: "Engineering", project_name: "P", reasons: "r", total_bonus: -5, request_attachment: "/files/x.pdf" };
   ok((w.SpecialBonus.validateSubmit() || {}).total_bonus, "negative total_bonus blocked");
-  // missing attachment blocked
+  // A1: attachment OPTIONAL — valid draft with NO request_attachment passes
   w.SpecialBonus.state.draft = { request_title: "T", department: "Engineering", project_name: "P", reasons: "r", total_bonus: 100 };
-  ok((w.SpecialBonus.validateSubmit() || {}).request_attachment, "missing attachment blocked");
+  ok(w.SpecialBonus.validateSubmit() === null, "A1: valid draft with no attachment passes (attachment optional)");
   // valid full draft passes
   w.SpecialBonus.state.draft = { request_title: "T", department: "Engineering", project_name: "P", reasons: "r", total_bonus: 5000000, request_attachment: "/files/x.pdf" };
   ok(w.SpecialBonus.validateSubmit() === null, "valid form passes");
@@ -99,6 +99,12 @@ async function run() {
   w = boot(); await flush(); await flush();
   w.history.pushState({}, "", "/approvals/special-bonus?tab=my-requests"); w.SpecialBonus.route(); await flush(); await flush();
   ok(/EC-SPBN-2026-00001/.test(cb()) && /Bước 2\/6 · Direct Manager Review/.test(cb()), "My Requests shows step label");
+  { const ths = w.document.querySelectorAll("#spbn-list table.tbl thead th");
+    ok(ths.length > 0 && ths[0].textContent.trim() === "Ngày request", "My Requests first header is Ngày request");
+    ok(Array.prototype.some.call(ths, function(x){ return /Người request/.test(x.textContent); }), "My Requests has Người request header"); }
+  { const tr = w.document.querySelector("#spbn-list table.tbl tbody tr"); const rowHtml = tr ? tr.innerHTML : "";
+    ok(/\d\d\/\d\d\/\d{4} \d\d:\d\d/.test(rowHtml), "My Requests row shows dd/MM/yyyy HH:mm date");
+    ok(/U Requester/.test(rowHtml), "My Requests row shows requester name"); }
   w.history.pushState({}, "", "/approvals/special-bonus?tab=my-approvals"); w.SpecialBonus.route(); await flush(); await flush();
   { const done = w.document.getElementById("ap-done").innerHTML;
     ok(/Bước 6\/6 · Hoàn tất/.test(done) && /Đã duyệt/.test(done), "processed list shows current status/step (Hoàn tất)"); }

@@ -5,6 +5,7 @@ capability flags are advisory (writes re-validate in the engine/service).
 Friendly Vietnamese errors only; raw Frappe share messages suppressed on write."""
 import frappe
 from frappe import _
+from ecentric_workspace.approval_center.api._common import requester_display
 
 BIZ = "EC System Request"
 APPROVAL_TYPE = "SYSTEM_REQUEST"
@@ -169,6 +170,8 @@ def list_my_requests(filters=None, start=0, page_length=20):
                           limit_start=int(start), limit_page_length=page_length, order_by="modified desc")
     alc = None
     for r in rows:
+        r["requested_at"] = r.get("creation")
+        r["requester_name"] = requester_display(user)
         ar = r.approval_request and frappe.db.get_value(
             "EC Approval Request", r.approval_request, ["approval_status", "current_level"], as_dict=True)
         r["approval_status"] = ar.approval_status if ar else "Draft"
@@ -207,7 +210,7 @@ def list_need_my_approval(section="pending"):
             continue
         biz = frappe.db.get_value(BIZ, req.reference_name,
                                   ["name", "request_title", "request_type", "priority",
-                                   "requester_expected_resolution_date", "fulfillment_status", "department"],
+                                   "requester_expected_resolution_date", "fulfillment_status", "department", "creation"],
                                   as_dict=True)
         if biz:
             cur_name = (frappe.db.get_value("EC Approval Request Level",
@@ -216,6 +219,8 @@ def list_need_my_approval(section="pending"):
             biz.update({"approval_request": r.approval_request, "level_no": r.level_no,
                         "approval_status": req.approval_status, "current_level": req.current_level,
                         "current_level_name": cur_name, "requested_by": req.requested_by,
+                        "requested_at": biz.get("creation"),
+                        "requester_name": requester_display(req.requested_by),
                         "my_status": r.status,
                         "total_levels": frappe.db.count("EC Approval Request Level",
                                                         {"approval_request": r.approval_request}),

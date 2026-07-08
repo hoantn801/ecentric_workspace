@@ -7,28 +7,127 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "approval_type", "approval_request", "request_title", "requested_by", "employee",
-  "department", "company", "cb0", "submitted_at", "completed_at", "material_signature",
-  "sb_form", "project_name", "total_bonus", "cb1", "reasons", "request_attachment"
+  "approval_type",
+  "approval_request",
+  "request_title",
+  "requested_by",
+  "employee",
+  "department",
+  "company",
+  "cb0",
+  "submitted_at",
+  "completed_at",
+  "material_signature",
+  "sb_form",
+  "project_name",
+  "total_bonus",
+  "cb1",
+  "reasons",
+  "request_attachment"
  ],
  "fields": [
-  {"fieldname": "approval_type", "fieldtype": "Link", "label": "Approval Type", "options": "EC Approval Type", "read_only": 1},
-  {"fieldname": "approval_request", "fieldtype": "Link", "label": "Approval Request", "options": "EC Approval Request", "read_only": 1},
-  {"fieldname": "request_title", "fieldtype": "Data", "label": "Request Title", "reqd": 1, "in_list_view": 1},
-  {"fieldname": "requested_by", "fieldtype": "Link", "label": "Requested By", "options": "User"},
-  {"fieldname": "employee", "fieldtype": "Link", "label": "Employee", "options": "Employee"},
-  {"fieldname": "department", "fieldtype": "Link", "label": "Department", "options": "Department", "reqd": 1},
-  {"fieldname": "company", "fieldtype": "Link", "label": "Company", "options": "Company"},
-  {"fieldname": "cb0", "fieldtype": "Column Break"},
-  {"fieldname": "submitted_at", "fieldtype": "Datetime", "label": "Submitted At", "read_only": 1},
-  {"fieldname": "completed_at", "fieldtype": "Datetime", "label": "Completed At", "read_only": 1},
-  {"fieldname": "material_signature", "fieldtype": "Data", "label": "Material Signature", "hidden": 1, "read_only": 1},
-  {"fieldname": "sb_form", "fieldtype": "Section Break", "label": "Special Bonus"},
-  {"fieldname": "project_name", "fieldtype": "Data", "label": "Project Name", "reqd": 1},
-  {"fieldname": "total_bonus", "fieldtype": "Currency", "label": "Total Bonus", "options": "VND", "reqd": 1},
-  {"fieldname": "cb1", "fieldtype": "Column Break"},
-  {"fieldname": "reasons", "fieldtype": "Small Text", "label": "Reasons", "reqd": 1},
-  {"fieldname": "request_attachment", "fieldtype": "Attach", "label": "Attachment", "reqd": 1}
+  {
+   "fieldname": "approval_type",
+   "fieldtype": "Link",
+   "label": "Approval Type",
+   "options": "EC Approval Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approval_request",
+   "fieldtype": "Link",
+   "label": "Approval Request",
+   "options": "EC Approval Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_title",
+   "fieldtype": "Data",
+   "label": "Request Title",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Requested By",
+   "options": "User"
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department",
+   "options": "Department",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "Submitted At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Completed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "material_signature",
+   "fieldtype": "Data",
+   "label": "Material Signature",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_form",
+   "fieldtype": "Section Break",
+   "label": "Special Bonus"
+  },
+  {
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "total_bonus",
+   "fieldtype": "Currency",
+   "label": "Total Bonus",
+   "options": "VND",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reasons",
+   "fieldtype": "Small Text",
+   "label": "Reasons",
+   "reqd": 1
+  },
+  {
+   "fieldname": "request_attachment",
+   "fieldtype": "Attach",
+   "label": "Attachment"
+  }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
@@ -38,7 +137,18 @@
  "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
-  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "report": 1, "share": 1}
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
  ],
  "sort_field": "modified",
  "sort_order": "DESC",

@@ -145,5 +145,23 @@
     "category": "OTHERS",
     "legacy_template_name": "Livestream Sample Request",
     "sort_order": 70
+  },
+  {
+    "approval_code": "LEAVE_REQUEST",
+    "approval_title": "Leave",
+    "category": "ATTENDANCE_WORKPLACE",
+    "sort_order": 71
+  },
+  {
+    "approval_code": "LATE_EARLY_OUT",
+    "approval_title": "Late in - Early out",
+    "category": "ATTENDANCE_WORKPLACE",
+    "sort_order": 72
+  },
+  {
+    "approval_code": "COMPENSATION_LEAVE",
+    "approval_title": "Compensation leave",
+    "category": "ATTENDANCE_WORKPLACE",
+    "sort_order": 73
   }
 ]

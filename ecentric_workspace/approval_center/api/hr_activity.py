@@ -4,6 +4,7 @@ conventions; NO fulfillment. Backend is authoritative; capability flags are advi
 (writes re-validate in the engine/service). Friendly Vietnamese errors only."""
 import frappe
 from frappe import _
+from ecentric_workspace.approval_center.api._common import requester_display
 
 BIZ = "EC HR Activity Request"
 APPROVAL_TYPE = "HR_ACTIVITY"
@@ -146,6 +147,8 @@ def list_my_requests(filters=None, start=0, page_length=20):
                           limit_start=int(start), limit_page_length=page_length, order_by="modified desc")
     alc = None
     for r in rows:
+        r["requested_at"] = r.get("creation")
+        r["requester_name"] = requester_display(user)
         ar = r.approval_request and frappe.db.get_value(
             "EC Approval Request", r.approval_request, ["approval_status", "current_level"], as_dict=True)
         r["approval_status"] = ar.approval_status if ar else "Draft"
@@ -183,7 +186,7 @@ def list_need_my_approval(section="pending"):
             continue
         biz = frappe.db.get_value(BIZ, req.reference_name,
                                   ["name", "request_title", "activity_type", "start_date", "end_date",
-                                   "estimated_budget", "department"], as_dict=True)
+                                   "estimated_budget", "department", "creation"], as_dict=True)
         if biz:
             cur_name = (frappe.db.get_value("EC Approval Request Level",
                         {"approval_request": r.approval_request, "level_no": req.current_level}, "level_name")
@@ -193,6 +196,8 @@ def list_need_my_approval(section="pending"):
                         "current_level_name": cur_name, "requested_by": req.requested_by, "my_status": r.status,
                         "total_levels": frappe.db.count("EC Approval Request Level",
                                                         {"approval_request": r.approval_request})})
+            biz["requested_at"] = biz.get("creation")
+            biz["requester_name"] = requester_display(req.requested_by)
             out.append(biz)
     return {"rows": out}
 

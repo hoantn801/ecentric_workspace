@@ -151,6 +151,7 @@
   var state={ boot:null, tab:"create", id:null, mode:"create", draft:null, dirty:false, busy:false, page:0, PAGE:20, listFilters:{}, titleTouched:false, detail:null, _editDet:null };
   function $(id){ return document.getElementById(id); }
   function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];}); }
+  function fmtDT(v){ if(!v) return "—"; var s=(""+v).replace(" ","T"); var d=new Date(s); if(isNaN(d.getTime())) return esc(""+v); function p(n){return (n<10?"0":"")+n;} return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes()); }
   function toast(m,err){ var t=$("spbn-toast"); if(!t)return; t.textContent=m; t.className="toast show"+(err?" err":""); clearTimeout(t._t); t._t=setTimeout(function(){t.className="toast";},3000); }
   function call(method,args){ var fr=window.frappe; if(!fr||!fr.call) return Promise.reject(new Error("no frappe"));
     return fr.call({method:NS+method,args:args||{},type:(/get_|list_|search_|check_/.test(method)?"GET":"POST")}).then(function(r){return r&&r.message;}); }
@@ -189,7 +190,7 @@
   function infoRequiredBannerHTML(){ var i=state._infoCtx||{}; return '<div class="banner warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div><b>Cần bổ sung thông tin.</b> Cấp: '+esc(i.level||"—")+(i.approver?(' · '+esc(i.approver)):'')+(i.comment?('<br>“'+esc(i.comment)+'”'):'')+'</div></div>'; }
 
   function formCardsHTML(d,c,fo){
-    var attTxt = d.request_attachment ? ("Đã tải: "+esc(d.request_attachment)) : "Bắt buộc";
+    var attTxt = d.request_attachment ? ("Đã tải: "+esc(d.request_attachment)) : "Không bắt buộc";
     return '<div class="card"><h3>Tiêu đề yêu cầu</h3><div class="grid2">'
       + fld("request_title","Tiêu đề yêu cầu",'<input data-model="request_title" maxlength="180" placeholder="Ví dụ: Special Bonus - Project X" value="'+esc(d.request_title||"")+'">',true).replace('class="fld','class="fld full')
       + '</div></div><div class="card"><h3>Người yêu cầu</h3><div class="grid2">'
@@ -201,7 +202,7 @@
       + fld("total_bonus","Total Bonus (VND)",'<input type="number" min="0" step="1" data-model="total_bonus" value="'+esc(d.total_bonus!=null?d.total_bonus:"")+'">',true)
       + '<div></div>'
       + fld("reasons","Reasons",'<textarea data-model="reasons" rows="3" placeholder="Lý do đề xuất thưởng đặc biệt.">'+esc(d.reasons||"")+'</textarea>',true).replace('class="fld','class="fld full')
-      + fld("request_attachment","Tệp đính kèm",'<input type="file" data-upload="request_attachment"><div class="hint" id="spbn-att-name">'+attTxt+'</div>',true).replace('class="fld','class="fld full')
+      + fld("request_attachment","Tệp đính kèm",'<input type="file" data-upload="request_attachment"><div class="hint" id="spbn-att-name">'+attTxt+'</div>',false).replace('class="fld','class="fld full')
       + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="spbn-summary"></div></div>';
   }
   var MATERIAL=["department","project_name","reasons","total_bonus","request_attachment"];
@@ -259,7 +260,6 @@
     if(d.total_bonus==null||d.total_bonus==="") errs.total_bonus="Vui lòng nhập tổng thưởng.";
     else if(isNaN(Number(d.total_bonus))) errs.total_bonus="Tổng thưởng phải là số.";
     else if(Number(d.total_bonus)<0) errs.total_bonus="Tổng thưởng không thể âm.";
-    if(!((d.request_attachment||"").toString().trim())) errs.request_attachment="Vui lòng đính kèm tệp (bắt buộc).";
     return Object.keys(errs).length?errs:null; }
   function mapErr(e){ var m=(e&&e.message)||"";
     if(/IntegrityError|pymysql|Duplicate entry|must be unique|OperationalError|ProgrammingError|Traceback|1062|1048/i.test(m)) return "Không thể thực hiện do dữ liệu không hợp lệ. Vui lòng kiểm tra lại hoặc liên hệ quản trị viên.";
@@ -326,9 +326,9 @@
   function renderList(res){ var host=$("spbn-list"); var rows=res&&res.rows||[];
     if(!rows.length){ host.innerHTML='<div class="card"><div class="state"><h4>Chưa có yêu cầu</h4><p>Bấm “Tạo yêu cầu” để bắt đầu.</p></div></div>'; $("spbn-pager").innerHTML=""; return; }
     var q=(state.listFilters.q||"").toLowerCase();
-    host.innerHTML='<table class="tbl"><thead><tr><th>Mã</th><th>Tiêu đề</th><th>Phòng ban</th><th>Dự án</th><th>Tổng thưởng</th><th>Trạng thái</th><th>Bước</th></tr></thead><tbody>'
-      + rows.filter(function(r){ return !q||(r.request_title||"").toLowerCase().indexOf(q)>=0||(r.name||"").toLowerCase().indexOf(q)>=0||(r.project_name||"").toLowerCase().indexOf(q)>=0; }).map(function(r){ return '<tr class="clickable" data-id="'+esc(r.name)+'"><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.project_name||"—")+'</td><td>'+esc(r.total_bonus!=null&&r.total_bonus!==""?(r.total_bonus+" VND"):"—")+'</td><td>'+badge(r.approval_status||"Draft")+'</td><td>'+esc(stepLabel(r))+'</td></tr>'; }).join("")
-      + '</tbody></table>';
+    host.innerHTML='<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Ngày request</th><th>Mã</th><th>Tiêu đề</th><th>Người request</th><th>Phòng ban</th><th>Dự án</th><th>Tổng thưởng</th><th>Trạng thái</th><th>Bước</th></tr></thead><tbody>'
+      + rows.filter(function(r){ return !q||(r.request_title||"").toLowerCase().indexOf(q)>=0||(r.name||"").toLowerCase().indexOf(q)>=0||(r.project_name||"").toLowerCase().indexOf(q)>=0; }).map(function(r){ return '<tr class="clickable" data-id="'+esc(r.name)+'"><td>'+fmtDT(r.requested_at||r.creation)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requester_name || (state.boot&&state.boot.context&&(state.boot.context.employee_name||state.boot.context.user)) || r.requested_by || "—")+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.project_name||"—")+'</td><td>'+esc(r.total_bonus!=null&&r.total_bonus!==""?(r.total_bonus+" VND"):"—")+'</td><td>'+badge(r.approval_status||"Draft")+'</td><td>'+esc(stepLabel(r))+'</td></tr>'; }).join("")
+      + '</tbody></table></div>';
     host.querySelectorAll("tr[data-id]").forEach(function(tr){ tr.onclick=function(){ go({id:tr.getAttribute("data-id")}); }; });
     var total=res.total||rows.length, pages=Math.ceil(total/state.PAGE);
     $("spbn-pager").innerHTML='Trang '+(state.page+1)+'/'+Math.max(1,pages)+' &nbsp; <button type="button" class="btn" aria-label="Trang trước" '+(state.page<=0?"disabled":"")+' id="pg-prev">‹</button> <button type="button" class="btn" aria-label="Trang sau" '+(state.page+1>=pages?"disabled":"")+' id="pg-next">›</button>';
@@ -349,12 +349,12 @@
   function loadApprovals(section,host,title){ var h=$(host); if(!h)return; h.innerHTML='<div class="sect-h">'+esc(title)+'</div>'+skeleton(2);
     call("list_need_my_approval",{section:section}).then(function(res){ var rows=res&&res.rows||[];
       if(!rows.length){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không có mục nào</h4></div></div>'; return; }
-      h.innerHTML='<div class="sect-h">'+esc(title)+'</div><table class="tbl"><thead><tr><th>Mã</th><th>Tiêu đề</th><th>Người yêu cầu</th><th>Dự án</th><th>Trạng thái</th><th>Bước</th><th></th></tr></thead><tbody>'
+      h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Ngày request</th><th>Mã</th><th>Tiêu đề</th><th>Người request</th><th>Dự án</th><th>Trạng thái</th><th>Bước</th><th></th></tr></thead><tbody>'
         + rows.map(function(r){ var act= section==="pending"
             ? '<button type="button" class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> <button type="button" class="btn primary" data-quick="approve" data-n="'+esc(r.name)+'">Duyệt</button> <button type="button" class="btn" data-quick="reqinfo" data-n="'+esc(r.name)+'">Bổ sung</button> <button type="button" class="btn" data-quick="reject" data-n="'+esc(r.name)+'">Từ chối</button>'
             : '<button type="button" class="btn" data-open="'+esc(r.name)+'">Chi tiết</button>';
-          return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requested_by||"—")+'</td><td>'+esc(r.project_name||"—")+'</td><td>'+badge(r.approval_status||"Draft")+'</td><td>'+esc(stepLabel(r))+'</td><td>'+act+'</td></tr>'; }).join("")
-        +'</tbody></table>';
+          return '<tr><td>'+fmtDT(r.requested_at||r.creation)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requester_name || r.requested_by || "—")+'</td><td>'+esc(r.project_name||"—")+'</td><td>'+badge(r.approval_status||"Draft")+'</td><td>'+esc(stepLabel(r))+'</td><td>'+act+'</td></tr>'; }).join("")
+        +'</tbody></table></div>';
             h.querySelectorAll("[data-open]").forEach(function(el){ el.onclick=function(){ go({id:el.getAttribute("data-open")}); }; });
       h.querySelectorAll("[data-quick]").forEach(function(el){ el.onclick=function(){ var n=el.getAttribute("data-n"), q=el.getAttribute("data-quick");
         call("get_detail",{name:n}).then(function(det){ if(q==="approve")doApprove(n,det); else if(q==="reqinfo")doRequestInfo(n); else doReject(n); }).catch(function(e){ toast(mapErr(e),true); }); }; });
