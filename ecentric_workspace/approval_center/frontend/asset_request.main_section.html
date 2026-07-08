@@ -154,6 +154,7 @@
   function call(method,args){ var fr=window.frappe; if(!fr||!fr.call) return Promise.reject(new Error("no frappe"));
     return fr.call({method:NS+method,args:args||{},type:(/get_|list_|search_/.test(method)?"GET":"POST")}).then(function(r){return r&&r.message;}); }
   function fmt(d){ if(!d)return "—"; try{ return String(d).replace("T"," ").slice(0,16); }catch(e){ return String(d); } }
+  function fmtDT(v){ if(!v) return "—"; var s=(""+v).replace(" ","T"); var d=new Date(s); if(isNaN(d.getTime())) return esc(""+v); function p(n){return (n<10?"0":"")+n;} return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes()); }
   function fld(id,label,ctrl,req,err){ return '<div class="fld'+(err?" invalid":"")+'" data-fld="'+id+'"><label>'+esc(label)+(req?' <span class="req">*</span>':'')+'</label>'+ctrl+(err?'<div class="err">'+esc(err)+'</div>':'')+'</div>'; }
   function opt(list,val){ return (list||[]).map(function(o){ var v=(o.value!=null?o.value:o), l=(o.label!=null?o.label:o);
     return '<option value="'+esc(v)+'"'+(String(val)===String(v)?" selected":"")+'>'+esc(l)+'</option>'; }).join(""); }
@@ -330,9 +331,9 @@
   function renderList(res){ var host=$("assr-list"); var rows=res&&res.rows||[];
     if(!rows.length){ host.innerHTML='<div class="card"><div class="state"><h4>Chưa có yêu cầu</h4><p>Bấm “Tạo yêu cầu” để bắt đầu.</p></div></div>'; $("assr-pager").innerHTML=""; return; }
     var q=(state.listFilters.q||"").toLowerCase();
-    host.innerHTML='<table class="tbl"><thead><tr><th>Mã</th><th>Tiêu đề</th><th>Loại</th><th>Tài sản</th><th>SL</th><th>Ngày cần</th><th>Trạng thái</th><th>Bước</th></tr></thead><tbody>'
-      + rows.filter(function(r){ return !q||(r.request_title||"").toLowerCase().indexOf(q)>=0||(r.name||"").toLowerCase().indexOf(q)>=0; }).map(function(r){ return '<tr class="clickable" data-id="'+esc(r.name)+'"><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.request_type||"—")+'</td><td>'+esc(r.asset_type||"—")+'</td><td>'+esc(r.quantity!=null?r.quantity:"—")+'</td><td>'+esc(r.requested_needed_date||"—")+'</td><td>'+badge(r)+'</td><td>'+esc(stepLabel(r))+'</td></tr>'; }).join("")
-      + '</tbody></table>';
+    host.innerHTML='<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Ngày request</th><th>Mã</th><th>Tiêu đề</th><th>Người request</th><th>Loại</th><th>Tài sản</th><th>SL</th><th>Ngày cần</th><th>Trạng thái</th><th>Bước</th></tr></thead><tbody>'
+      + rows.filter(function(r){ return !q||(r.request_title||"").toLowerCase().indexOf(q)>=0||(r.name||"").toLowerCase().indexOf(q)>=0; }).map(function(r){ return '<tr class="clickable" data-id="'+esc(r.name)+'"><td>'+fmtDT(r.requested_at||r.creation)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requester_name || (state.boot&&state.boot.context&&(state.boot.context.employee_name||state.boot.context.user)) || r.requested_by || "—")+'</td><td>'+esc(r.request_type||"—")+'</td><td>'+esc(r.asset_type||"—")+'</td><td>'+esc(r.quantity!=null?r.quantity:"—")+'</td><td>'+esc(r.requested_needed_date||"—")+'</td><td>'+badge(r)+'</td><td>'+esc(stepLabel(r))+'</td></tr>'; }).join("")
+      + '</tbody></table></div>';
     host.querySelectorAll("tr[data-id]").forEach(function(tr){ tr.onclick=function(){ go({id:tr.getAttribute("data-id")}); }; });
     var total=res.total||rows.length, pages=Math.ceil(total/state.PAGE);
     $("assr-pager").innerHTML='Trang '+(state.page+1)+'/'+Math.max(1,pages)+' &nbsp; <button type="button" class="btn" aria-label="Trang trước" '+(state.page<=0?"disabled":"")+' id="pg-prev">‹</button> <button type="button" class="btn" aria-label="Trang sau" '+(state.page+1>=pages?"disabled":"")+' id="pg-next">›</button>';
@@ -354,13 +355,13 @@
   function loadApprovals(section,host,title){ var h=$(host); if(!h)return; h.innerHTML='<div class="sect-h">'+esc(title)+'</div>'+skeleton(2);
     call("list_need_my_approval",{section:section}).then(function(res){ var rows=res&&res.rows||[];
       if(!rows.length){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không có mục nào</h4></div></div>'; return; }
-      h.innerHTML='<div class="sect-h">'+esc(title)+'</div><table class="tbl"><thead><tr><th>Mã</th><th>Tiêu đề</th><th>Người yêu cầu</th><th>Loại</th><th>Tài sản</th><th>SL</th><th>Bước</th><th></th></tr></thead><tbody>'
+      h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Ngày request</th><th>Mã</th><th>Tiêu đề</th><th>Người request</th><th>Loại</th><th>Tài sản</th><th>SL</th><th>Bước</th><th></th></tr></thead><tbody>'
         + rows.map(function(r){ var act= section==="pending"
             ? '<button type="button" class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> <button type="button" class="btn primary" data-quick="approve" data-n="'+esc(r.name)+'">Duyệt</button> <button type="button" class="btn" data-quick="reqinfo" data-n="'+esc(r.name)+'">Bổ sung</button> <button type="button" class="btn" data-quick="reject" data-n="'+esc(r.name)+'">Từ chối</button>'
             : '<button type="button" class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> '+badge(r.my_status);
           var N=Number(r.total_levels||0)?(Number(r.total_levels)+3):0;
-          return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requested_by||"—")+'</td><td>'+esc(r.request_type||"—")+'</td><td>'+esc(r.asset_type||"—")+'</td><td>'+esc(r.quantity!=null?r.quantity:"—")+'</td><td>'+esc(N?("Bước "+(1+Number(r.level_no))+"/"+N+(r.level_name?(" · "+r.level_name):"")):("Cấp "+(r.level_no||"—")))+'</td><td>'+act+'</td></tr>'; }).join("")
-        +'</tbody></table>';
+          return '<tr><td>'+fmtDT(r.requested_at||r.creation)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requester_name || r.requested_by || "—")+'</td><td>'+esc(r.request_type||"—")+'</td><td>'+esc(r.asset_type||"—")+'</td><td>'+esc(r.quantity!=null?r.quantity:"—")+'</td><td>'+esc(N?("Bước "+(1+Number(r.level_no))+"/"+N+(r.level_name?(" · "+r.level_name):"")):("Cấp "+(r.level_no||"—")))+'</td><td>'+act+'</td></tr>'; }).join("")
+        +'</tbody></table></div>';
             h.querySelectorAll("[data-open]").forEach(function(el){ el.onclick=function(){ go({id:el.getAttribute("data-open")}); }; });
       h.querySelectorAll("[data-quick]").forEach(function(el){ el.onclick=function(){ var n=el.getAttribute("data-n"), qk=el.getAttribute("data-quick");
         call("get_detail",{name:n}).then(function(det){ if(qk==="approve")doApprove(n,det); else if(qk==="reqinfo")doRequestInfo(n); else doReject(n); }).catch(function(e){ toast(mapErr(e),true); }); }; });

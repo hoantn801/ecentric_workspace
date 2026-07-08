@@ -40,10 +40,12 @@ function boot(over) {
     if (m.endsWith("list_my_requests")) return Promise.resolve({ message: { rows: [
       { name: "EC-HIRE-2026-00001", request_title: "Hiring - Senior Engineer", position: "Senior Engineer", department: "Engineering",
         number_of_vacancy: 2, employment_type: "Full-time", approval_status: "Pending", current_level: 1,
-        current_level_name: "Direct Manager Review", total_levels: 3, modified: "2026-07-06 09:00" } ], total: 1 } });
+        current_level_name: "Direct Manager Review", total_levels: 3, modified: "2026-07-06 09:00",
+        creation: "2026-07-06 09:00", requested_at: "2026-07-06 09:00", requester_name: "Emp Requester A" } ], total: 1 } });
     if (m.endsWith("list_need_my_approval")) return Promise.resolve({ message: { rows: (o.args.section === "pending" ? [
       { name: "EC-HIRE-2026-00001", request_title: "Hiring - Senior Engineer", requested_by: "u@x", position: "Senior Engineer",
-        approval_status: "Pending", current_level: 1, level_no: 1, total_levels: 3, my_status: "Pending" } ] : [
+        approval_status: "Pending", current_level: 1, level_no: 1, total_levels: 3, my_status: "Pending",
+        creation: "2026-07-05 08:30", requested_at: "2026-07-05 08:30", requester_name: "Emp Requester A" } ] : [
       { name: "EC-HIRE-2026-00002", request_title: "Old", requested_by: "u@x", position: "Engineer",
         approval_status: "Approved", current_level: 0, level_no: 1, total_levels: 3, my_status: "Approved" } ]) } });
     if (m.endsWith("get_detail")) return Promise.resolve({ message: (over && over.detail) || detail() });
@@ -112,6 +114,12 @@ async function run() {
   w = boot(); await flush(); await flush();
   w.history.pushState({}, "", "/approvals/hiring-request?tab=my-requests"); w.HiringRequest.route(); await flush(); await flush();
   ok(/EC-HIRE-2026-00001/.test(cb()) && /Bước 2\/5 · Direct Manager Review/.test(cb()), "My Requests shows step label");
+  // Part B: standard list columns (requested date + requester)
+  { const ths = w.document.querySelectorAll("#hire-body table.tbl thead th");
+    ok(ths.length > 0 && ths[0].textContent.trim() === "Ngày request", "My Requests first column is Ngày request");
+    ok(Array.prototype.some.call(ths, function (t) { return t.textContent.trim() === "Người request"; }), "My Requests has Người request column");
+    ok(/06\/07\/2026 09:00/.test(cb()), "My Requests row shows dd/MM/yyyy HH:mm date");
+    ok(/Emp Requester A/.test(cb()), "My Requests row shows requester name"); }
   w.history.pushState({}, "", "/approvals/hiring-request?tab=my-approvals"); w.HiringRequest.route(); await flush(); await flush();
   { const done = w.document.getElementById("ap-done").innerHTML;
     ok(/Bước 5\/5 · Hoàn tất/.test(done) && /Đã duyệt/.test(done), "processed list shows current status/step (Hoàn tất)"); }

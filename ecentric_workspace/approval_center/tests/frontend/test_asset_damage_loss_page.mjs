@@ -46,10 +46,12 @@ function boot(over) {
     if (m.endsWith("list_my_requests")) return Promise.resolve({ message: { rows: [
       { name: "EC-ADLR-2026-00001", request_title: "Laptop hong", asset_type: "Laptop", incident_type: "Damage",
         incident_date: "2026-07-01", approval_status: "Pending", current_level: 1,
-        current_level_name: "Operation Review", total_levels: 2, modified: "2026-07-06 09:00" } ], total: 1 } });
+        current_level_name: "Operation Review", total_levels: 2, modified: "2026-07-06 09:00",
+        creation: "2026-07-06 09:00", requested_at: "2026-07-06 09:00", requester_name: "U Nguyen" } ], total: 1 } });
     if (m.endsWith("list_need_my_approval")) return Promise.resolve({ message: { rows: (o.args.section === "pending" ? [
       { name: "EC-ADLR-2026-00001", request_title: "Laptop hong", requested_by: "u@x", incident_type: "Damage",
-        approval_status: "Pending", current_level: 1, level_no: 1, total_levels: 2, my_status: "Pending" } ] : [
+        approval_status: "Pending", current_level: 1, level_no: 1, total_levels: 2, my_status: "Pending",
+        creation: "2026-07-06 09:00", requested_at: "2026-07-06 09:00", requester_name: "U Nguyen" } ] : [
       { name: "EC-ADLR-2026-00002", request_title: "Old", requested_by: "u@x", incident_type: "Loss",
         approval_status: "Approved", current_level: 0, level_no: 1, total_levels: 2, my_status: "Approved" } ]) } });
     if (m.endsWith("get_detail")) return Promise.resolve({ message: (over && over.detail) || detail() });
@@ -94,7 +96,7 @@ async function run() {
     ok(e.request_title && e.asset_type && e.asset_code && e.incident_type && e.incident_description && e.incident_date
        && e.incident_location && e.physical_damage && e.data_compromised && e.impact_on_operations, "validateSubmit requires the required set");
     ok(!!e.recommended_actions, "validateSubmit requires >=1 recommended action");
-    ok(!!e.request_attachment, "validateSubmit requires attachment"); }
+    ok(!e.request_attachment, "A3: validateSubmit does NOT require attachment (optional)"); }
   const fullDraft = () => ({ request_title: "T", asset_type: "Laptop", asset_code: "0", incident_type: "Damage",
     incident_description: "desc", incident_date: "2026-07-01", incident_location: "HQ", physical_damage: "pd",
     data_compromised: "none", impact_on_operations: "impact", estimated_repair_cost: 0,
@@ -103,6 +105,9 @@ async function run() {
   ok((w.AssetDamageLoss.validateSubmit() || {}).estimated_repair_cost, "negative repair cost blocked");
   w.AssetDamageLoss.state.draft = fullDraft();
   ok(w.AssetDamageLoss.validateSubmit() === null, "full valid draft passes");
+  // A3: evidence attachment OPTIONAL — valid draft with NO request_attachment still passes
+  { const noAtt = fullDraft(); delete noAtt.request_attachment; w.AssetDamageLoss.state.draft = noAtt;
+    ok(w.AssetDamageLoss.validateSubmit() === null, "A3: draft without request_attachment passes validateSubmit"); }
   // multi-select: checking two boxes stores comma-joined string
   w = boot(); await flush(); await flush();
   { const boxes = w.document.querySelectorAll('[data-checks="recommended_actions"] input[type="checkbox"]');
@@ -111,6 +116,19 @@ async function run() {
     boxes2[1].checked = true; boxes2[1].dispatchEvent(new w.Event("change", { bubbles: true }));
     const ra = (w.AssetDamageLoss.state.draft || {}).recommended_actions;
     ok(ra === "Repair, Replace", "recommended_actions stored as comma-joined string: " + ra); }
+  // A2: checkbox visual checked state persists across the conditional (Other) re-render
+  w = boot(); await flush(); await flush();
+  { let boxes = w.document.querySelectorAll('[data-checks="recommended_actions"] input[type="checkbox"]');
+    boxes[0].checked = true; boxes[0].dispatchEvent(new w.Event("change", { bubbles: true }));
+    boxes = w.document.querySelectorAll('[data-checks="recommended_actions"] input[type="checkbox"]');
+    boxes[1].checked = true; boxes[1].dispatchEvent(new w.Event("change", { bubbles: true }));
+    // toggle the last box ("Other") to force the conditional re-render (reveals recommended_actions_other)
+    boxes = w.document.querySelectorAll('[data-checks="recommended_actions"] input[type="checkbox"]');
+    const other = boxes[boxes.length - 1];
+    other.checked = true; other.dispatchEvent(new w.Event("change", { bubbles: true }));
+    ok(!!w.document.querySelector('[data-model="recommended_actions_other"]'), "A2: Other toggle re-renders and reveals recommended_actions_other");
+    const after = w.document.querySelectorAll('[data-checks="recommended_actions"] input[type="checkbox"]');
+    ok(after[0].checked && after[1].checked, "A2: first two recommended-action boxes remain visually checked across the conditional re-render"); }
   // save_draft payload carries asset_type + incident_type
   w = boot(); await flush(); await flush();
   w.AssetDamageLoss.state.draft = fullDraft();
@@ -126,12 +144,19 @@ async function run() {
   w.history.pushState({}, "", "/approvals/asset-damage-loss?tab=my-requests"); w.AssetDamageLoss.route(); await flush(); await flush();
   ok(/EC-ADLR-2026-00001/.test(cb()) && /Bước 2\/4 · Operation Review/.test(cb()), "My Requests shows step label");
   ok(/Loại tài sản/.test(cb()) && /Loại sự cố/.test(cb()) && /Ngày sự cố/.test(cb()), "My Requests columns adapted");
+  { const ths = Array.prototype.map.call(w.document.querySelectorAll("#adlr-list th"), function (t) { return t.textContent.trim(); });
+    ok(ths[0] === "Ngày request", "My Requests first header is 'Ngày request'");
+    ok(ths.indexOf("Người request") >= 0, "My Requests has 'Người request' header"); }
+  { const rowTxt = (w.document.querySelector("#adlr-list tbody tr") || {}).textContent || "";
+    ok(/\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/.test(rowTxt), "My Requests row shows dd/MM/yyyy HH:mm date");
+    ok(/U Nguyen/.test(rowTxt), "My Requests row shows requester name"); }
   // detail loads via get_detail + runtime stepper
   w = boot(); await flush(); await flush();
   w.history.pushState({}, "", "/approvals/asset-damage-loss?id=EC-ADLR-2026-00001"); w.AssetDamageLoss.route(); await flush(); await flush();
   ok(calls.get_detail && calls.get_detail.name === "EC-ADLR-2026-00001", "detail loads via api.asset_damage_loss.get_detail");
   ok(/class="stepper"/.test(cb()) && !/Không tải được yêu cầu/.test(cb()), "detail renders runtime stepper, no not-found");
   { const rh = w.AssetDamageLoss.buildStepper(detail()); ok(/Đã gửi/.test(rh) && /Operation Review/.test(rh) && /CEO Review/.test(rh), "runtime stepper Operation Review -> CEO Review"); }
+  ok(/Laptop hong - 2026-07/.test(cb()), "A4: detail body shows request_title heading");
   // approve modal REQUIRES a comment
   w = boot(); await flush(); await flush();
   { w.AssetDamageLoss.doApprove("EC-ADLR-2026-00001", detail());
