@@ -1,0 +1,195 @@
+<style>
+#ec-srf-root{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1f2937;}
+#ec-srf-root .content{max-width:1200px;margin:0 auto;padding:18px;}
+#ec-srf-root .srf-formwrap{max-width:none;}
+#ec-srf-root .tabs{display:flex;gap:6px;border-bottom:1px solid #e5e7eb;margin-bottom:16px;}
+#ec-srf-root .tab{padding:8px 14px;cursor:pointer;border:none;background:none;font-size:14px;color:#6b7280;}
+#ec-srf-root .tab.active{color:#2563eb;border-bottom:2px solid #2563eb;font-weight:600;}
+#ec-srf-root .grid2{display:grid;grid-template-columns:1fr 360px;gap:16px;}
+#ec-srf-root .card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;margin-bottom:14px;}
+#ec-srf-root .fld{margin-bottom:12px;}
+#ec-srf-root .fld label{display:block;font-size:12.5px;color:#374151;margin-bottom:4px;font-weight:500;}
+#ec-srf-root .fld input,#ec-srf-root .fld select,#ec-srf-root .fld textarea{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:13.5px;}
+#ec-srf-root .fld .req{color:#dc2626;}
+#ec-srf-root .fld .err{color:#dc2626;font-size:11.5px;margin-top:3px;display:none;}
+#ec-srf-root .fld.has-err .err{display:block;}
+#ec-srf-root .vnhelp{color:#9ca3af;font-style:italic;font-size:11.5px;margin-top:3px;}
+#ec-srf-root .btn{padding:8px 16px;border:1px solid #d1d5db;border-radius:7px;background:#fff;cursor:pointer;font-size:13.5px;}
+#ec-srf-root .btn.primary{background:#2563eb;color:#fff;border-color:#2563eb;}
+#ec-srf-root .tbl{width:100%;border-collapse:collapse;font-size:13px;}
+#ec-srf-root .tbl th,#ec-srf-root .tbl td{text-align:left;padding:8px 10px;border-bottom:1px solid #eef2f7;vertical-align:middle;}
+#ec-srf-root .summary-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px solid #f3f4f6;}
+#ec-srf-root .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;background:#eef2ff;color:#3730a3;}
+#ec-srf-root .step{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#6b7280;margin-right:8px;}
+#ec-srf-root .ec-srf-overlay{position:fixed;inset:0;background:rgba(17,24,39,.42);display:flex;align-items:center;justify-content:center;z-index:80;}
+#ec-srf-root .modalbox{background:#fff;border-radius:12px;padding:18px;width:min(480px,92vw);}
+@media(max-width:860px){#ec-srf-root .grid2{grid-template-columns:1fr;}}
+</style>
+<div id="ec-srf-root"><div class="content"><div class="srf-formwrap">
+  <h2 style="font-size:19px;margin:0 0 4px">Service Referral</h2>
+  <div class="tabs" id="srf-tabs"></div>
+  <div id="srf-body"></div>
+</div></div></div>
+<script id="ec-srf">
+(function(){
+  "use strict";
+  var NS="ecentric_workspace.approval_center.api.service_referral.";
+  var FIELDS=[{"k": "client", "label": "Client", "type": "data", "req": true}, {"k": "brand", "label": "Brand", "type": "data", "req": true}, {"k": "contact_name", "label": "Contact name", "type": "data", "req": true}, {"k": "contact_phone_number", "label": "Contact phone number", "type": "data", "req": false}, {"k": "contact_email", "label": "Contact email", "type": "data", "req": false}, {"k": "estimated_contract_value", "label": "Estimated contract value (VND)", "type": "currency", "req": true}, {"k": "justification", "label": "Justification", "type": "textarea", "req": false}];
+  var LISTCOLS=[{"k": "client", "h": "Client"}, {"k": "brand", "h": "Brand"}, {"k": "estimated_contract_value", "h": "Giá trị (VND)"}];
+  var COMMENT_REQUIRED=false;
+  var $=function(id){return document.getElementById(id);};
+  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+  function extractServerMsg(e){ if(!e) return "";
+    function _strip(s){ return String(s==null?"":s).replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim(); }
+    var sm=e._server_messages||(e.responseJSON&&e.responseJSON._server_messages);
+    if(sm){ try{ var arr=(typeof sm==="string")?JSON.parse(sm):sm; for(var i=0;i<arr.length;i++){ var f=arr[i], o=f; if(typeof f==="string"){ try{ o=JSON.parse(f); }catch(_a){ o={message:f}; } } var mm=o&&(o.message||o.title); if(mm) return _strip(mm); } }catch(_b){} }
+    var rj=e.responseJSON||{};
+    if(typeof e.message==="string"&&e.message) return _strip(e.message);
+    if(typeof rj.message==="string"&&rj.message) return _strip(rj.message);
+    if(rj.message&&rj.message.message) return _strip(rj.message.message);
+    var exc=rj.exception||e.exception||""; if(exc){ var p=String(exc).split(": "); return _strip(p.length>1?p.slice(1).join(": "):exc); }
+    return ""; }
+  function mapErr(e){ var m=extractServerMsg(e);
+    if(/permission|quyền|allowed/i.test(m)&&!/Vui lòng|bắt buộc/i.test(m)) return m||"Bạn không có quyền thực hiện.";
+    return m || "Đã có lỗi. Vui lòng thử lại."; }
+  function api(method,args){ var fr=window.frappe; if(!fr||!fr.call) return Promise.reject(new Error("no frappe"));
+    return fr.call({method:NS+method,args:args||{},type:(/get_|list_|search_/.test(method)?"GET":"POST")}).then(function(r){return r&&r.message;}); }
+  var state={boot:null,draft:{},id:null,mode:"create",busy:false,errs:{}};
+  function toast(msg,bad){ var t=document.createElement("div"); t.className="srf-toast"; t.setAttribute("data-toast",bad?"err":"ok");
+    t.style.cssText="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:"+(bad?"#dc2626":"#111827")+";color:#fff;padding:10px 18px;border-radius:9px;font-size:13.5px;z-index:90"; t.textContent=msg;
+    document.body.appendChild(t); setTimeout(function(){ if(t.parentNode)t.parentNode.removeChild(t); },3200); }
+  function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; }
+  function vnFor(f,val){ return (f.vn&&f.vn[val])||""; }
+  function renderField(f,d){
+    var v=d[f.k]; var req=f.req?' <span class="req">*</span>':'';
+    var inner="";
+    if(f.type==="select"){ var opts='<option value="">— Chọn —</option>';
+      (f.options||[]).forEach(function(o){ opts+='<option value="'+esc(o)+'"'+(v===o?' selected':'')+'>'+esc(o)+'</option>'; });
+      inner='<select data-model="'+f.k+'">'+opts+'</select>';
+      if(f.vn){ inner+='<div class="vnhelp" data-vn="'+f.k+'">'+(v?esc(vnFor(f,v)):'')+'</div>'; }
+    } else if(f.type==="textarea"){ inner='<textarea data-model="'+f.k+'" rows="2">'+esc(v||"")+'</textarea>';
+    } else if(f.type==="int"||f.type==="currency"){ inner='<input type="number" data-model="'+f.k+'" value="'+esc(v==null?"":v)+'">';
+    } else if(f.type==="date"){ inner='<input type="date" data-model="'+f.k+'" value="'+esc(v||"")+'">';
+    } else { inner='<input type="'+(f.type==="email"?"email":"text")+'" data-model="'+f.k+'" value="'+esc(v||"")+'">'; }
+    var help=f.help?'<div class="vnhelp">'+esc(f.help)+'</div>':'';
+    return '<div class="fld" data-fld="'+f.k+'"><label>'+esc(f.label)+req+'</label>'+inner+help+'<div class="err" data-err="'+f.k+'"></div></div>';
+  }
+  function visibleFields(d){ return FIELDS.filter(function(f){ if(!f.showif) return true; var pr=f.showif.split("=="); return (d[pr[0]]||"")===pr[1]; }); }
+  function titlePreview(d){ d=d||{}; return "Service Referral - "+(d.client||"?")+" - "+(d.brand||"?"); }
+  function validateSubmit(){ var d=state.draft||{}; var e={};
+    visibleFields(d).forEach(function(f){ if(f.req){ var val=d[f.k]; if(val===undefined||val===null||String(val).trim()==="") e[f.k]="Trường bắt buộc."; } });
+    if(d.estimated_contract_value!==undefined&&d.estimated_contract_value!==null&&d.estimated_contract_value!==""&&Number(d.estimated_contract_value)<0) e.estimated_contract_value="Giá trị hợp đồng dự kiến phải >= 0."; if((d.contact_email||"").trim()&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test((d.contact_email||"").trim())) e.contact_email="Email liên hệ không hợp lệ.";
+    return Object.keys(e).length?e:null; }
+  function showFieldErrors(errs){ FIELDS.forEach(function(f){ var el=document.querySelector('[data-fld="'+f.k+'"]'); var em=document.querySelector('[data-err="'+f.k+'"]');
+    if(el&&em){ if(errs&&errs[f.k]){ el.classList.add("has-err"); em.textContent=errs[f.k]; } else { el.classList.remove("has-err"); em.textContent=""; } } }); }
+  function tabsHTML(){ var t=state.boot&&state.boot.tabs||{}; var cur=state._tab||"create"; var out="";
+    var defs=[["create","Tạo mới"],["my-requests","Yêu cầu của tôi"]]; if(t.my_approvals)defs.push(["my-approvals","Chờ tôi duyệt"]);
+    defs.forEach(function(x){ out+='<button type="button" class="tab'+(cur===x[0]?' active':'')+'" data-tab="'+x[0]+'">'+esc(x[1])+'</button>'; });
+    return out; }
+  function wireTabs(){ $("srf-tabs").innerHTML=tabsHTML();
+    Array.prototype.forEach.call(document.querySelectorAll('#srf-tabs .tab'),function(b){ b.onclick=function(){ go({tab:b.getAttribute("data-tab")}); }; }); }
+  function go(opts){ opts=opts||{}; if(opts.tab)state._tab=opts.tab; if("id" in opts)state.id=opts.id;
+    if(opts.tab==="create"){ state.mode="create"; }
+    try{ var u=new URL(window.location.href); u.searchParams.set("tab",state._tab||"create"); if(state.id)u.searchParams.set("id",state.id); else u.searchParams.delete("id"); window.history.replaceState({},"",u); }catch(_e){}
+    render(); }
+  function route(){ var tab="create",id=null; try{ var u=new URL(window.location.href); tab=u.searchParams.get("tab")||"create"; id=u.searchParams.get("id"); }catch(_e){}
+    state._tab=id?"detail":tab; state.id=id; render(); }
+  function render(){ wireTabs(); var b=$("srf-body"); if(!b)return;
+    var tab=state._tab||"create";
+    if(state.id&&tab!=="my-requests"&&tab!=="my-approvals"&&tab!=="create"){ renderDetail(b); return; }
+    if(tab==="detail"){ renderDetail(b); return; }
+    if(tab==="my-requests"){ renderList(b); return; }
+    if(tab==="my-approvals"){ renderApprovals(b); return; }
+    renderCreate(b); }
+  function renderCreate(b){ var d=state.draft||{};
+    var formHTML=visibleFields(d).map(function(f){ return renderField(f,d); }).join("");
+    b.innerHTML='<div class="grid2"><div class="card"><h3 style="margin:0 0 12px;font-size:15px">Thông tin yêu cầu</h3>'
+      +formHTML
+      +'<div class="fld"><label>Tệp đính kèm (không bắt buộc)</label><input type="file" data-upload="request_attachment"><span id="srf-att-name"></span></div>'
+      +'<div style="margin-top:10px"><button type="button" class="btn primary" id="srf-submit">Gửi yêu cầu</button></div></div>'
+      +'<div class="card"><h3 style="margin:0 0 10px;font-size:14px">Tóm tắt</h3><div id="srf-summary"></div>'
+      +'<div id="srf-process-preview" style="margin-top:12px"></div></div></div>';
+    wireModels(b); renderSummary(); loadPreview();
+    var sb=$("srf-submit"); if(sb)sb.onclick=doSubmit; }
+  function wireModels(scope){ Array.prototype.forEach.call((scope||document).querySelectorAll("[data-model]"),function(el){
+    var handler=function(){ var k=el.getAttribute("data-model"); var v=el.value; setModel(k,v);
+      var vh=document.querySelector('[data-vn="'+k+'"]'); if(vh){ var f=FIELDS.filter(function(x){return x.k===k;})[0]; vh.textContent=f?vnFor(f,v):""; }
+      if(k&&FIELDS.filter(function(x){return x.showif&&x.showif.indexOf(k+"==")===0;}).length){ renderCreate($("srf-body")); return; }
+      renderSummary(); var el2=document.querySelector('[data-fld="'+k+'"]'); if(el2)el2.classList.remove("has-err"); };
+    el.addEventListener("input",handler); el.addEventListener("change",handler); }); }
+  function renderSummary(){ var h=$("srf-summary"); if(!h)return; var d=state.draft||{};
+    var rows='<div class="summary-row"><span>Tiêu đề (dự kiến)</span><b>'+esc(titlePreview(d))+'</b></div>';
+    visibleFields(d).forEach(function(f){ rows+='<div class="summary-row"><span>'+esc(f.label)+'</span><b>'+esc(d[f.k]||"—")+'</b></div>'; });
+    h.innerHTML=rows; }
+  function loadPreview(){ var h=$("srf-process-preview"); if(!h)return;
+    api("get_bootstrap",{}).then(function(){ return api("list_my_requests",{}); }).catch(function(){});
+    // process steps come from get_detail(new) preview; render a simple 3-step
+    h.innerHTML='<div style="font-size:11px;color:#9ca3af;text-transform:uppercase;margin-bottom:6px">Quy trình</div>'
+      +'<span class="step">1 · Tạo yêu cầu</span><span class="step">2 · '+esc((state._levelName||"Duyệt"))+'</span><span class="step">3 · Hoàn tất</span>'; }
+  function doSubmit(){ var v=validateSubmit(); if(v){ showFieldErrors(v); toast("Vui lòng kiểm tra các trường bắt buộc.",true); return; }
+    if(state.busy)return; state.busy=true; var btn=$("srf-submit"); if(btn){btn.disabled=true;btn.textContent="Đang gửi...";}
+    api("save_draft",{name:state.id||null,payload:JSON.stringify(state.draft||{})}).then(function(res){ state.id=res.name;
+      return api("submit_request",{name:state.id}).then(function(){ toast("Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến người phê duyệt."); go({tab:"my-requests"}); });
+    }).catch(function(e){ if(window.console&&console.error)console.error("ServiceReferral submit error:",e); toast(mapErr(e),true); })
+    .then(function(){ state.busy=false; var b2=$("srf-submit"); if(b2){b2.disabled=false;b2.textContent="Gửi yêu cầu";} }); }
+  function stepLabel(r){ return (r.current_level_name?(r.current_level_name):((r.approval_status==="Draft")?"Nháp":"—"))+(r.total_levels?(" ("+(r.current_level||0)+"/"+r.total_levels+")"):""); }
+  function listHeader(){ var cols=LISTCOLS.map(function(c){return '<th>'+esc(c.h)+'</th>';}).join("");
+    return '<tr><th>Ngày request</th><th>Mã</th><th>Tiêu đề</th><th>Người request</th>'+cols+'<th>Trạng thái</th><th>Bước</th><th></th></tr>'; }
+  function listRow(r,actionBtn){ var cols=LISTCOLS.map(function(c){return '<td>'+esc(r[c.k]==null?"—":r[c.k])+'</td>';}).join("");
+    return '<tr class="clickable" data-id="'+esc(r.name)+'"><td>'+esc(fmtDT(r.requested_at||r.creation))+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requester_name||r.requested_by||"—")+'</td>'+cols+'<td><span class="badge">'+esc(r.approval_status||"Draft")+'</span></td><td>'+esc(stepLabel(r))+'</td><td>'+(actionBtn||'<button type="button" class="btn" data-id="'+esc(r.name)+'">Chi tiết</button>')+'</td></tr>'; }
+  function fmtDT(s){ if(!s)return "—"; return String(s).slice(0,16).replace("T"," "); }
+  function renderList(b){ b.innerHTML='<div class="card"><div style="overflow-x:auto"><table class="tbl"><thead>'+listHeader()+'</thead><tbody id="srf-list-rows"><tr><td colspan="20">Đang tải...</td></tr></tbody></table></div></div>';
+    api("list_my_requests",{start:0,page_length:20}).then(function(res){ var rows=(res&&res.rows)||[]; var tb=$("srf-list-rows");
+      tb.innerHTML=rows.length?rows.map(function(r){return listRow(r);}).join(""):'<tr><td colspan="20" style="color:#9ca3af">Chưa có yêu cầu nào.</td></tr>';
+      wireRowClicks(); }).catch(function(){ var tb=$("srf-list-rows"); if(tb)tb.innerHTML='<tr><td colspan="20">Không tải được danh sách.</td></tr>'; }); }
+  function renderApprovals(b){ b.innerHTML='<div class="card"><div style="overflow-x:auto"><table class="tbl"><thead>'+listHeader()+'</thead><tbody id="srf-appr-rows"><tr><td colspan="20">Đang tải...</td></tr></tbody></table></div></div>';
+    api("list_need_my_approval",{section:"pending"}).then(function(res){ var rows=(res&&res.rows)||[]; var tb=$("srf-appr-rows");
+      tb.innerHTML=rows.length?rows.map(function(r){return listRow(r,'<button type="button" class="btn" data-id="'+esc(r.name)+'">Xem</button>');}).join(""):'<tr><td colspan="20" style="color:#9ca3af">Không có yêu cầu chờ duyệt.</td></tr>';
+      wireRowClicks(); }).catch(function(){ var tb=$("srf-appr-rows"); if(tb)tb.innerHTML='<tr><td colspan="20">Không tải được.</td></tr>'; }); }
+  function wireRowClicks(){ Array.prototype.forEach.call(document.querySelectorAll('#srf-body [data-id]'),function(el){ el.onclick=function(ev){ ev.stopPropagation(); go({tab:"detail",id:el.getAttribute("data-id")}); }; }); }
+  function kv(k,v){ return '<div class="summary-row"><span>'+esc(k)+'</span><b>'+esc(v==null?"—":v)+'</b></div>'; }
+  function renderDetail(b){ b.innerHTML='<div class="card">Đang tải chi tiết...</div>';
+    api("get_detail",{name:state.id}).then(function(det){ drawDetail(b,det); })
+    .catch(function(e){ var perm=/quyền|permission/i.test(mapErr(e)); b.innerHTML='<div class="card"><h3>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h3><button type="button" class="btn" id="srf-back">Quay lại</button></div>'; var bk=$("srf-back"); if(bk)bk.onclick=function(){ go({tab:"my-requests"}); }; }); }
+  function drawDetail(b,det){ var biz=det.business||{}; var cap=det.capabilities||{};
+    var info=FIELDS.map(function(f){ return kv(f.label,biz[f.k]); }).join("");
+    var acts="";
+    if(cap.can_approve) acts+='<button type="button" class="btn primary" id="srf-approve">Duyệt</button> ';
+    if(cap.can_reject) acts+='<button type="button" class="btn" id="srf-reject">Từ chối</button> ';
+    if(cap.can_request_information) acts+='<button type="button" class="btn" id="srf-reqinfo">Yêu cầu bổ sung</button> ';
+    b.innerHTML='<div class="card"><button type="button" class="btn" id="srf-back" style="margin-bottom:10px">← Quay lại</button>'
+      +'<h3 style="margin:0 0 4px">'+esc(biz.request_title||state.id)+'</h3>'
+      +'<div style="margin:6px 0"><span class="badge">'+esc((det.approval&&det.approval.status_label)||"Nháp")+'</span></div>'
+      +'<div class="grid2"><div>'+info+'</div><div>'+kv("Người yêu cầu",biz.requester_name||biz.requested_by)+kv("Ngày tạo",fmtDT(biz.creation))+'</div></div>'
+      +'<div style="margin-top:12px">'+acts+'</div></div>';
+    var bk=$("srf-back"); if(bk)bk.onclick=function(){ go({tab:"my-requests"}); };
+    var ap=$("srf-approve"); if(ap)ap.onclick=function(){ doApprove(state.id,det); };
+    var rj=$("srf-reject"); if(rj)rj.onclick=function(){ doReject(state.id); };
+    var ri=$("srf-reqinfo"); if(ri)ri.onclick=function(){ doRequestInfo(state.id); }; }
+  function summaryRows(det){ var b=det.business||{}; return FIELDS.slice(0,3).map(function(f){ return '<div class="summary-row"><span>'+esc(f.label)+'</span><b>'+esc(b[f.k]||"—")+'</b></div>'; }).join(""); }
+  function modal(title,bodyHTML,opts){ opts=opts||{}; var ov=document.createElement("div"); ov.className="ec-srf-overlay";
+    ov.innerHTML='<div class="modalbox"><h3 style="margin:0 0 10px;font-size:15px">'+esc(title)+'</h3><div>'+bodyHTML+'</div>'
+      +'<div style="margin-top:12px;text-align:right"><button type="button" class="btn" data-cancel>Hủy</button> <button type="button" class="btn primary" data-ok>'+esc(opts.okLabel||"Xác nhận")+'</button></div></div>';
+    document.body.appendChild(ov);
+    function close(){ if(ov.parentNode)ov.parentNode.removeChild(ov); }
+    ov.querySelector("[data-cancel]").onclick=close;
+    ov.querySelector("[data-ok]").onclick=function(){ if(!opts.onConfirm){ close(); return; } var p=opts.onConfirm(ov); if(p&&p.then){ p.then(close).catch(function(){}); } else { close(); } };
+    return ov; }
+  function doApprove(name,det){ modal("Duyệt yêu cầu", summaryRows(det)+'<div class="fld"><label>Ghi chú'+(COMMENT_REQUIRED?' <span class="req">*</span>':' (không bắt buộc)')+'</label><textarea id="srf-m-cmt" rows="2"></textarea></div>',
+    {okLabel:"Duyệt", onConfirm:function(ov){ var cmt=(ov.querySelector("#srf-m-cmt").value||"");
+      if(COMMENT_REQUIRED&&!cmt.trim()){ toast("Vui lòng nhập nhận xét khi duyệt.",true); return Promise.reject(new Error("comment required")); }
+      return api("approve",{name:name,comment:cmt}).then(function(){ toast("Đã duyệt yêu cầu."); go({tab:"detail",id:name}); }).catch(function(e){ toast(mapErr(e),true); return Promise.reject(e); }); }}); }
+  function doReject(name){ modal("Từ chối yêu cầu", '<div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="srf-m-cmt" rows="2"></textarea></div>',
+    {okLabel:"Từ chối", onConfirm:function(ov){ var c=(ov.querySelector("#srf-m-cmt").value||""); if(!c.trim()){ toast("Vui lòng nhập lý do.",true); return Promise.reject(new Error("reason required")); }
+      return api("reject",{name:name,comment:c}).then(function(){ toast("Đã từ chối."); go({tab:"detail",id:name}); }).catch(function(e){ toast(mapErr(e),true); return Promise.reject(e); }); }}); }
+  function doRequestInfo(name){ modal("Yêu cầu bổ sung", '<div class="fld"><label>Nội dung <span class="req">*</span></label><textarea id="srf-m-cmt" rows="2"></textarea></div>',
+    {okLabel:"Gửi", onConfirm:function(ov){ var c=(ov.querySelector("#srf-m-cmt").value||""); if(!c.trim()){ toast("Vui lòng nhập nội dung.",true); return Promise.reject(new Error("info required")); }
+      return api("request_information",{name:name,comment:c}).then(function(){ toast("Đã gửi yêu cầu bổ sung."); go({tab:"detail",id:name}); }).catch(function(e){ toast(mapErr(e),true); return Promise.reject(e); }); }}); }
+  function boot(){ api("get_bootstrap",{}).then(function(bd){ state.boot=bd||{tabs:{},context:{}}; var pv=(bd&&bd.form_options)||{}; route(); })
+    .catch(function(){ state.boot={tabs:{create:true,my_requests:true}}; route(); }); }
+  window.ServiceReferral={ state:state, render:render, route:route, go:go, _boot:boot, _call:api, mapErr:mapErr, extractServerMsg:extractServerMsg,
+    titlePreview:titlePreview, validateSubmit:validateSubmit, showFieldErrors:showFieldErrors, doApprove:doApprove, doReject:doReject,
+    renderCreate:renderCreate, FIELDS:FIELDS, LISTCOLS:LISTCOLS, COMMENT_REQUIRED:COMMENT_REQUIRED };
+  boot();
+})();
+</script>

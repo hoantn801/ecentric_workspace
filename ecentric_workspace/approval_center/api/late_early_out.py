@@ -13,7 +13,7 @@ MAX_PAGE = 50
 OPEN = ("Pending", "Information Required")
 TERMINAL = ("Approved", "Rejected", "Cancelled")
 
-_EDITABLE_DRAFT = ("applied_date", "check_time", "check_time_other", "reason",
+_EDITABLE_DRAFT = ("request_type", "applied_date", "check_time", "check_time_other", "reason",
                    "request_attachment", "department", "company")
 
 _STATUS_LABEL = {"Draft": "Nháp", "Pending": "Đang phê duyệt", "Information Required": "Cần bổ sung",
@@ -142,7 +142,7 @@ def list_my_requests(filters=None, start=0, page_length=20):
     page_length = min(int(page_length or 20), MAX_PAGE)
     total = frappe.db.count(BIZ, flt)
     rows = frappe.get_all(BIZ, filters=flt,
-                          fields=["name", "request_title", "applied_date", "check_time",
+                          fields=["name", "request_title", "request_type", "applied_date", "check_time",
                                   "check_time_other", "approval_request", "creation", "modified"],
                           limit_start=int(start), limit_page_length=page_length, order_by="modified desc")
     alc = None
@@ -185,7 +185,7 @@ def list_need_my_approval(section="pending"):
         if section == "pending" and (req.approval_status not in OPEN or req.current_level != r.level_no):
             continue
         biz = frappe.db.get_value(BIZ, req.reference_name,
-                                  ["name", "request_title", "applied_date", "check_time",
+                                  ["name", "request_title", "request_type", "applied_date", "check_time",
                                    "check_time_other", "department", "creation"], as_dict=True)
         if biz:
             cur_name = (frappe.db.get_value("EC Approval Request Level",
