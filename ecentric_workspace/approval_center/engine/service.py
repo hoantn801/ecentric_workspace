@@ -434,7 +434,63 @@ def submit(reference_doctype, reference_name, approval_type, requester, process_
     return req.name
 
 
+def _level_pending_approvers(req_name, level_no):
+    return frappe.get_all("EC Approval Request Approver",
+                          filters={"approval_request": req_name, "level_no": level_no, "status": "Pending"},
+                          fields=["name", "approver"])
+
+
+def _approved_earlier_level(req_name, approver, level_no):
+    """True if this approver already has an Approved decision at an EARLIER level of the SAME request."""
+    return bool(frappe.db.exists("EC Approval Request Approver",
+                                 {"approval_request": req_name, "approver": approver,
+                                  "status": "Approved", "level_no": ["<", level_no]}))
+
+
+def _all_level_approvers_already_approved(req_name, level_no):
+    """Duplicate-approver rule (Any-One safe): True ONLY if the level has pending approvers AND every one
+    of them has already approved an earlier level in this request. If even one pending approver has not
+    approved earlier, returns False so the level stays active for that person. L1 can never match."""
+    pending = _level_pending_approvers(req_name, level_no)
+    if not pending:
+        return False
+    return all(_approved_earlier_level(req_name, ap.approver, level_no) for ap in pending)
+
+
+def _auto_skip_duplicate_level(req, level_no):
+    """Skip a level whose approvers ALL already approved an earlier level, during activation/advance.
+    Marks each pending approver row + the level as skipped, records an auditable EC Approval Action per
+    approver (action=Skipped, with the duplicate-approver reason), then advances to the next level or
+    completes the request. The level never receives a redundant ToDo/DocShare. No DocPerm change, no Admin
+    bypass, no raw status mutation outside the engine; the approver rows are preserved (status Skipped)."""
+    rl = _rl_for(req.name, level_no)
+    now = now_datetime()
+    for ap in _level_pending_approvers(req.name, level_no):
+        frappe.db.set_value("EC Approval Request Approver", ap.name,
+                            {"status": "Skipped", "decided_at": now})
+        log_action(req.name, "Skipped", "Administrator", level_no, level_name=rl.level_name,
+                   comment=_("Skipped because all approvers already approved an earlier level"),
+                   related_user=ap.approver, previous_status="Pending", new_status="Skipped")
+    # Level marked Approved (passed) - same shape the Any-One skip-remaining path uses, so the frontend
+    # renders it gracefully; the per-approver Skipped rows + audit action record the duplicate skip.
+    frappe.db.set_value("EC Approval Request Level", rl.name,
+                        {"level_status": "Approved", "activated_at": now, "completed_at": now})
+    frappe.db.set_value("EC Approval Request", req.name, "current_level", level_no)
+    nxt = [l for l in _request_levels(req.name) if l.level_no > level_no]
+    if nxt:
+        _activate_level(frappe.get_doc("EC Approval Request", req.name), nxt[0].level_no)
+    else:
+        complete_approval(frappe.get_doc("EC Approval Request", req.name))
+
+
 def _activate_level(req, level_no):
+    # Governance: duplicate-approver auto-skip. When a level becomes active, if EVERY pending approver has
+    # already approved an earlier level in this same request, skip it (audited) and advance instead of
+    # asking the same person to approve twice. Runs only at activation/advance (never before), never skips
+    # L1 (no earlier level), and never fires while any non-duplicate approver is still pending (Any-One safe).
+    if _all_level_approvers_already_approved(req.name, level_no):
+        _auto_skip_duplicate_level(req, level_no)
+        return
     rl = _rl_for(req.name, level_no)
     rl.level_status = "In Progress"
     rl.activated_at = now_datetime()

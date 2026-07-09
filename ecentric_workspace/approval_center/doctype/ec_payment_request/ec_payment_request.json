@@ -1,38 +1,227 @@
 {
- "actions": [], "allow_rename": 0, "autoname": "EC-PAYR-.YYYY.-.#####.", "creation": "2026-07-09 00:00:00",
- "doctype": "DocType", "editable_grid": 1, "engine": "InnoDB",
- "field_order": ["approval_type","approval_request","request_title","requested_by","employee","department","company","cb0","submitted_at","completed_at","material_signature","sb_form","reason","payment_amount","payment_date","cb1","payee_full_name","account_bank","bank_account_number","sb_pr","has_purchase_request","purchase_request","no_purchase_request_reason","sb_chk","is_cost_valid","details_and_attachments_correct","request_attachment"],
- "fields": [
-  {"fieldname":"approval_type","fieldtype":"Link","label":"Approval Type","options":"EC Approval Type","read_only":1},
-  {"fieldname":"approval_request","fieldtype":"Link","label":"Approval Request","options":"EC Approval Request","read_only":1},
-  {"fieldname":"request_title","fieldtype":"Data","label":"Request Title","read_only":1,"in_list_view":1},
-  {"fieldname":"requested_by","fieldtype":"Link","label":"Requested By","options":"User"},
-  {"fieldname":"employee","fieldtype":"Link","label":"Employee","options":"Employee"},
-  {"fieldname":"department","fieldtype":"Link","label":"Department","options":"Department"},
-  {"fieldname":"company","fieldtype":"Link","label":"Company","options":"Company"},
-  {"fieldname":"cb0","fieldtype":"Column Break"},
-  {"fieldname":"submitted_at","fieldtype":"Datetime","label":"Submitted At","read_only":1},
-  {"fieldname":"completed_at","fieldtype":"Datetime","label":"Completed At","read_only":1},
-  {"fieldname":"material_signature","fieldtype":"Data","label":"Material Signature","hidden":1,"read_only":1},
-  {"fieldname":"sb_form","fieldtype":"Section Break","label":"Payment"},
-  {"fieldname":"reason","fieldtype":"Long Text","label":"Reason","reqd":1},
-  {"fieldname":"payment_amount","fieldtype":"Currency","label":"Payment amount","options":"VND","reqd":1},
-  {"fieldname":"payment_date","fieldtype":"Date","label":"Payment date","reqd":1},
-  {"fieldname":"cb1","fieldtype":"Column Break"},
-  {"fieldname":"payee_full_name","fieldtype":"Data","label":"Payee full name","reqd":1},
-  {"fieldname":"account_bank","fieldtype":"Data","label":"Account bank","reqd":1},
-  {"fieldname":"bank_account_number","fieldtype":"Data","label":"Bank account number","reqd":1},
-  {"fieldname":"sb_pr","fieldtype":"Section Break","label":"Purchase Request"},
-  {"fieldname":"has_purchase_request","fieldtype":"Select","label":"Has purchase request?","reqd":1,"options":"Yes\nNo"},
-  {"fieldname":"purchase_request","fieldtype":"Link","label":"Purchase request","options":"EC Purchase Request"},
-  {"fieldname":"no_purchase_request_reason","fieldtype":"Long Text","label":"Reason for no purchase request"},
-  {"fieldname":"sb_chk","fieldtype":"Section Break","label":"Checks"},
-  {"fieldname":"is_cost_valid","fieldtype":"Select","label":"Is the cost valid?","reqd":1,"options":"Yes\nNo"},
-  {"fieldname":"details_and_attachments_correct","fieldtype":"Select","label":"Details and attachments correct?","reqd":1,"options":"Yes\nNo","description":"Must be Yes to submit."},
-  {"fieldname":"request_attachment","fieldtype":"Attach","label":"Attachment"}
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "EC-PAYR-.YYYY.-.#####.",
+ "creation": "2026-07-09 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "approval_type",
+  "approval_request",
+  "request_title",
+  "requested_by",
+  "employee",
+  "department",
+  "company",
+  "cb0",
+  "submitted_at",
+  "completed_at",
+  "material_signature",
+  "sb_form",
+  "reason",
+  "payment_amount",
+  "payment_date",
+  "cb1",
+  "payee_full_name",
+  "account_bank",
+  "bank_account_number",
+  "sb_pr",
+  "has_purchase_request",
+  "purchase_request",
+  "no_purchase_request_reason",
+  "sb_chk",
+  "is_cost_valid",
+  "details_and_attachments_correct",
+  "request_attachment"
  ],
- "index_web_pages_for_search":1,"links":[],"modified":"2026-07-09 00:00:00","module":"Approval Center",
- "name":"EC Payment Request","naming_rule":"Expression","owner":"Administrator",
- "permissions":[{"role":"System Manager","read":1,"write":1,"create":1,"delete":1,"email":1,"export":1,"print":1,"report":1,"share":1}],
- "sort_field":"modified","sort_order":"DESC","title_field":"request_title","track_changes":1
+ "fields": [
+  {
+   "fieldname": "approval_type",
+   "fieldtype": "Link",
+   "label": "Approval Type",
+   "options": "EC Approval Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approval_request",
+   "fieldtype": "Link",
+   "label": "Approval Request",
+   "options": "EC Approval Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_title",
+   "fieldtype": "Data",
+   "label": "Request Title",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Requested By",
+   "options": "User"
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department",
+   "options": "Department"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "Submitted At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Completed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "material_signature",
+   "fieldtype": "Data",
+   "label": "Material Signature",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_form",
+   "fieldtype": "Section Break",
+   "label": "Payment"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Long Text",
+   "label": "Reason",
+   "reqd": 1
+  },
+  {
+   "fieldname": "payment_amount",
+   "fieldtype": "Currency",
+   "label": "Payment amount",
+   "options": "VND",
+   "reqd": 1
+  },
+  {
+   "fieldname": "payment_date",
+   "fieldtype": "Date",
+   "label": "Payment date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "payee_full_name",
+   "fieldtype": "Data",
+   "label": "Payee full name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "account_bank",
+   "fieldtype": "Data",
+   "label": "Account bank",
+   "reqd": 1
+  },
+  {
+   "fieldname": "bank_account_number",
+   "fieldtype": "Data",
+   "label": "Bank account number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sb_pr",
+   "fieldtype": "Section Break",
+   "label": "Purchase Request"
+  },
+  {
+   "fieldname": "has_purchase_request",
+   "fieldtype": "Select",
+   "label": "Has purchase request?",
+   "reqd": 1,
+   "options": "Yes\nNo"
+  },
+  {
+   "fieldname": "purchase_request",
+   "fieldtype": "Link",
+   "label": "Purchase request",
+   "options": "EC Purchase Request"
+  },
+  {
+   "fieldname": "no_purchase_request_reason",
+   "fieldtype": "Long Text",
+   "label": "Reason for no purchase request"
+  },
+  {
+   "fieldname": "sb_chk",
+   "fieldtype": "Section Break",
+   "label": "Checks"
+  },
+  {
+   "fieldname": "is_cost_valid",
+   "fieldtype": "Select",
+   "label": "Is the cost valid?",
+   "reqd": 1,
+   "options": "Yes\nNo"
+  },
+  {
+   "fieldname": "details_and_attachments_correct",
+   "fieldtype": "Check",
+   "label": "Tôi xác nhận thông tin và tệp đính kèm là chính xác.",
+   "reqd": 1,
+   "description": "Bắt buộc tích xác nhận trước khi gửi.",
+   "default": "0"
+  },
+  {
+   "fieldname": "request_attachment",
+   "fieldtype": "Attach",
+   "label": "Attachment"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-09 00:00:00",
+ "module": "Approval Center",
+ "name": "EC Payment Request",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "title_field": "request_title",
+ "track_changes": 1
 }
