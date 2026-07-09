@@ -1,0 +1,30 @@
+{
+ "actions": [], "allow_rename": 0, "autoname": "EC-AFBN-.YYYY.-.#####.", "creation": "2026-07-09 00:00:00",
+ "doctype": "DocType", "editable_grid": 1, "engine": "InnoDB",
+ "field_order": ["approval_type","approval_request","request_title","requested_by","employee","department","company","cb0","submitted_at","completed_at","material_signature","sb_form","service_month","cb1","total_amount","budget","sb_d","detail","request_attachment"],
+ "fields": [
+  {"fieldname":"approval_type","fieldtype":"Link","label":"Approval Type","options":"EC Approval Type","read_only":1},
+  {"fieldname":"approval_request","fieldtype":"Link","label":"Approval Request","options":"EC Approval Request","read_only":1},
+  {"fieldname":"request_title","fieldtype":"Data","label":"Request Title","read_only":1,"in_list_view":1},
+  {"fieldname":"requested_by","fieldtype":"Link","label":"Requested By","options":"User"},
+  {"fieldname":"employee","fieldtype":"Link","label":"Employee","options":"Employee"},
+  {"fieldname":"department","fieldtype":"Link","label":"Department","options":"Department"},
+  {"fieldname":"company","fieldtype":"Link","label":"Company","options":"Company"},
+  {"fieldname":"cb0","fieldtype":"Column Break"},
+  {"fieldname":"submitted_at","fieldtype":"Datetime","label":"Submitted At","read_only":1},
+  {"fieldname":"completed_at","fieldtype":"Datetime","label":"Completed At","read_only":1},
+  {"fieldname":"material_signature","fieldtype":"Data","label":"Material Signature","hidden":1,"read_only":1},
+  {"fieldname":"sb_form","fieldtype":"Section Break","label":"Affiliate Bonus"},
+  {"fieldname":"service_month","fieldtype":"Date","label":"Service month","reqd":1,"description":"Please input the 1st date of the specified month."},
+  {"fieldname":"cb1","fieldtype":"Column Break"},
+  {"fieldname":"total_amount","fieldtype":"Currency","label":"Total amount","options":"VND","reqd":1},
+  {"fieldname":"budget","fieldtype":"Currency","label":"Budget","options":"VND","reqd":1},
+  {"fieldname":"sb_d","fieldtype":"Section Break","label":"Detail"},
+  {"fieldname":"detail","fieldtype":"Long Text","label":"Detail","reqd":1,"description":"What are the activities (minigames, revenue, ...)? How many KOL/KOCs receive bonus per activity? Please attach a file for more detail."},
+  {"fieldname":"request_attachment","fieldtype":"Attach","label":"Attachment"}
+ ],
+ "index_web_pages_for_search":1,"links":[],"modified":"2026-07-09 00:00:00","module":"Approval Center",
+ "name":"EC Affiliate Bonus Request","naming_rule":"Expression","owner":"Administrator",
+ "permissions":[{"role":"System Manager","read":1,"write":1,"create":1,"delete":1,"email":1,"export":1,"print":1,"report":1,"share":1}],
+ "sort_field":"modified","sort_order":"DESC","title_field":"request_title","track_changes":1
+}
