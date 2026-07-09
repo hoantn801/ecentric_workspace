@@ -72,7 +72,7 @@
   {
     "approval_code": "PURCHASE_REQUEST",
     "approval_title": "Purchase Request",
-    "category": "PROCUREMENT_ASSET",
+    "category": "FINANCE_BUDGET",
     "legacy_template_name": "Purchase Request",
     "sort_order": 10
   },
@@ -163,5 +163,17 @@
     "approval_title": "Compensation leave",
     "category": "ATTENDANCE_WORKPLACE",
     "sort_order": 73
+  },
+  {
+    "approval_code": "BUDGET_SETTING",
+    "approval_title": "Budget Setting Request",
+    "category": "FINANCE_BUDGET",
+    "sort_order": 74
+  },
+  {
+    "approval_code": "AFFILIATE_BONUS_REQUEST",
+    "approval_title": "Affiliate Bonus Request",
+    "category": "FINANCE_BUDGET",
+    "sort_order": 75
   }
 ]
