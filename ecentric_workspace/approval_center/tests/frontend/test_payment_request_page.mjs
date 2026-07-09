@@ -18,7 +18,7 @@ function detail(over) {
       payee_full_name: "Nguyen Van A", payment_amount: 5000000, payment_date: "2026-08-01",
       account_bank: "Vietcombank", bank_account_number: "0123456789", reason: "Thanh toan dich vu",
       has_purchase_request: "No", no_purchase_request_reason: "Mua nho le", is_cost_valid: "Yes",
-      details_and_attachments_correct: "Yes", department: "Service", requested_by: "u@x" },
+      details_and_attachments_correct: 1, department: "Service", requested_by: "u@x" },
     approval: { name: "AR-1", approval_status: "Pending", current_level: 1 },
     levels: [{ level_no: 1, level_name: "Direct Manager Review", approval_mode: "Any One", level_status: "In Progress" },
              { level_no: 2, level_name: "Finance Review", approval_mode: "Any One", level_status: "Pending" },
@@ -63,7 +63,7 @@ function boot(over) {
 const validDraft = () => ({ reason: "Thanh toan", payment_amount: 5000000, payment_date: "2026-08-01",
   payee_full_name: "Nguyen Van A", account_bank: "VCB", bank_account_number: "0123456789",
   has_purchase_request: "No", no_purchase_request_reason: "Mua nho le", is_cost_valid: "Yes",
-  details_and_attachments_correct: "Yes", request_attachment: "/files/proof.pdf" });
+  details_and_attachments_correct: 1, request_attachment: "/files/proof.pdf" });
 
 async function run() {
   let w = boot(); await flush(); await flush();
@@ -80,6 +80,7 @@ async function run() {
   // create fields
   ok(!!w.document.querySelector('[data-model="payee_full_name"]'), "payee_full_name field renders");
   ok(!!w.document.querySelector('[data-model="has_purchase_request"]'), "has_purchase_request field renders");
+  ok(!!w.document.querySelector('input[type="checkbox"][data-model="details_and_attachments_correct"]'), "details confirmation renders as a required checkbox");
   ["reason", "payment_amount", "payment_date", "account_bank", "bank_account_number", "is_cost_valid", "details_and_attachments_correct"].forEach(function (f) {
     ok(!!w.document.querySelector('[data-model="' + f + '"]'), f + " field renders"); });
   ok(!!w.document.querySelector('[data-upload="request_attachment"]'), "request_attachment file upload renders");
@@ -114,9 +115,12 @@ async function run() {
   ok((w.PaymentRequest.validateSubmit() || {}).purchase_request, "Yes requires purchase_request");
   w.PaymentRequest.state.draft = Object.assign(validDraft(), { has_purchase_request: "No", no_purchase_request_reason: "" });
   ok((w.PaymentRequest.validateSubmit() || {}).no_purchase_request_reason, "No requires no_purchase_request_reason");
-  // details_and_attachments_correct must be Yes
-  w.PaymentRequest.state.draft = Object.assign(validDraft(), { details_and_attachments_correct: "No" });
-  ok((w.PaymentRequest.validateSubmit() || {}).details_and_attachments_correct, "details_and_attachments_correct=No blocks submit");
+  // confirmation checkbox: unchecked (0) blocks submit
+  w.PaymentRequest.state.draft = Object.assign(validDraft(), { details_and_attachments_correct: 0 });
+  ok((w.PaymentRequest.validateSubmit() || {}).details_and_attachments_correct, "unchecked confirmation blocks submit");
+  // checked (1) passes the confirmation gate
+  w.PaymentRequest.state.draft = Object.assign(validDraft(), { details_and_attachments_correct: 1 });
+  ok(!(w.PaymentRequest.validateSubmit() || {}).details_and_attachments_correct, "checked confirmation passes");
   // required set + attachment + amount>0
   w.PaymentRequest.state.draft = {};
   { const e = w.PaymentRequest.validateSubmit() || {};

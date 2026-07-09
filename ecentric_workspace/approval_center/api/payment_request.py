@@ -21,7 +21,7 @@ _EDITABLE_DRAFT = ("reason", "payment_amount", "payment_date", "payee_full_name"
                    "no_purchase_request_reason", "is_cost_valid", "details_and_attachments_correct",
                    "request_attachment", "department", "company")
 _REQUIRED = ("reason", "payment_date", "payee_full_name", "account_bank", "bank_account_number",
-             "has_purchase_request", "is_cost_valid", "details_and_attachments_correct", "request_attachment")
+             "has_purchase_request", "is_cost_valid", "request_attachment")
 YES_NO = ["Yes", "No"]
 
 _STATUS_LABEL = {"Draft": "Nháp", "Pending": "Đang phê duyệt", "Information Required": "Cần bổ sung",
@@ -326,8 +326,13 @@ def _validate_for_submit(doc):
             frappe.throw(_("Số tiền thanh toán phải lớn hơn 0."))
     except (TypeError, ValueError):
         frappe.throw(_("Số tiền thanh toán phải là số."))
-    if doc.details_and_attachments_correct != "Yes":
-        frappe.throw(_("Vui lòng xác nhận Thông tin và tệp đính kèm chính xác (chọn 'Yes') trước khi gửi."))
+    # Required confirmation checkbox (stored as 0/1 on the business record for audit).
+    try:
+        confirmed = int(doc.details_and_attachments_correct or 0)
+    except (TypeError, ValueError):
+        confirmed = 1 if str(doc.details_and_attachments_correct).strip().lower() in ("1", "yes", "true") else 0
+    if not confirmed:
+        frappe.throw(_("Vui lòng tích xác nhận thông tin và tệp đính kèm là chính xác trước khi gửi."))
     if doc.has_purchase_request == "Yes":
         if not (doc.purchase_request or "").strip():
             frappe.throw(_("Vui lòng chọn Purchase Request liên quan khi chọn 'Yes'."))

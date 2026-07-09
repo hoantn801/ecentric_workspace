@@ -71,7 +71,7 @@ def _draft(user, **over):
     payload = {"reason": "Vendor invoice", "payment_amount": 3000000, "payment_date": "2026-09-15",
                "payee_full_name": "ACME Ltd", "account_bank": "VCB", "bank_account_number": "0011",
                "has_purchase_request": "No", "no_purchase_request_reason": "Direct expense",
-               "is_cost_valid": "Yes", "details_and_attachments_correct": "Yes",
+               "is_cost_valid": "Yes", "details_and_attachments_correct": 1,
                "request_attachment": "/private/files/inv.pdf"}
     payload.update(over)
     name = api.save_draft(payload=frappe.as_json(payload))["name"]
@@ -111,7 +111,7 @@ class TestPaymentRequest(FrappeTestCase):
         mgr = _user(PFX + "vmgr@example.com")
         req = _user(PFX + "vreq@example.com"); _employee(req, reports_to=_employee(mgr))
         # details_and_attachments_correct = No -> blocked
-        n1 = _draft(req, details_and_attachments_correct="No")
+        n1 = _draft(req, details_and_attachments_correct=0)   # confirmation unchecked -> blocked
         frappe.set_user(req)
         with self.assertRaises(Exception):
             api.submit_request(n1)

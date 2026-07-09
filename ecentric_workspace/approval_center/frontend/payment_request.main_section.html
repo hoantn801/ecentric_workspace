@@ -208,7 +208,7 @@
       + prField + noPrField
       + '</div></div><div class="card"><h3>Xác nhận</h3><div class="grid2">'
       + fld("is_cost_valid","Chi phí hợp lệ?",'<select data-model="is_cost_valid"><option value="">— Chọn —</option>'+opt(yn,d.is_cost_valid||"")+'</select>',true)
-      + fld("details_and_attachments_correct","Thông tin & tệp đính kèm chính xác?",'<select data-model="details_and_attachments_correct"><option value="">— Chọn —</option>'+opt(yn,d.details_and_attachments_correct||"")+'</select>',true)
+      + fld("details_and_attachments_correct","Xác nhận",'<label class="chkline" style="display:flex;gap:8px;align-items:flex-start;font-weight:400"><input type="checkbox" data-model="details_and_attachments_correct" style="width:auto;margin-top:3px"'+(Number(d.details_and_attachments_correct)?" checked":"")+'><span>Tôi xác nhận thông tin và tệp đính kèm là chính xác.</span></label>',true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" data-upload="request_attachment"><div class="hint" id="payr-att-name">'+esc(d.request_attachment?"Đã tải":"Bắt buộc")+'</div>',true).replace('class="fld','class="fld full')
       + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="payr-summary"></div></div>';
   }
@@ -263,8 +263,7 @@
     if(!((d.bank_account_number||"").toString().trim())) errs.bank_account_number="Vui lòng nhập số tài khoản.";
     if(!((d.has_purchase_request||"").toString().trim())) errs.has_purchase_request="Vui lòng chọn có/không Purchase Request.";
     if(!((d.is_cost_valid||"").toString().trim())) errs.is_cost_valid="Vui lòng chọn chi phí hợp lệ.";
-    if(!((d.details_and_attachments_correct||"").toString().trim())) errs.details_and_attachments_correct="Vui lòng xác nhận thông tin & tệp đính kèm.";
-    else if(d.details_and_attachments_correct!=="Yes") errs.details_and_attachments_correct="Vui lòng xác nhận Thông tin và tệp đính kèm chính xác (chọn 'Yes') trước khi gửi.";
+    if(!Number(d.details_and_attachments_correct)) errs.details_and_attachments_correct="Vui lòng tích xác nhận thông tin và tệp đính kèm là chính xác.";
     if(!((d.request_attachment||"").toString().trim())) errs.request_attachment="Vui lòng đính kèm tệp (bắt buộc).";
     if(d.has_purchase_request==="Yes"){ if(!((d.purchase_request||"").toString().trim())) errs.purchase_request="Vui lòng chọn Purchase Request liên quan."; }
     else if(d.has_purchase_request==="No"){ if(!((d.no_purchase_request_reason||"").toString().trim())) errs.no_purchase_request_reason="Vui lòng nhập lý do không có Purchase Request."; }
@@ -287,7 +286,7 @@
     return false; }
 
   function onModelInput(el){ var k=el.getAttribute("data-model");
-    var v=el.type==="number"?(el.value===""?null:Number(el.value)):el.value; setModel(k,v);
+    var v=el.type==="checkbox"?(el.checked?1:0):(el.type==="number"?(el.value===""?null:Number(el.value)):el.value); setModel(k,v);
     if(k==="has_purchase_request"){ handleHPRChange(v); return; }
     renderSummary(); clearFieldError(k); }
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
@@ -385,7 +384,7 @@
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.payee_full_name||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+badge(ap.approval_status||"Draft")+'</div></div></div>'
       +'<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper" id="d-stepper"></div></div>'
-      +'<div class="card"><h3>Thông tin thanh toán</h3><div class="grid2">'+kv("Người nhận",biz.payee_full_name)+kv("Số tiền (VND)",biz.payment_amount!=null?fmtMoney(biz.payment_amount):"")+kv("Ngày thanh toán",biz.payment_date)+kv("Ngân hàng",biz.account_bank)+kv("Số tài khoản",biz.bank_account_number)+kv("Có Purchase Request?",biz.has_purchase_request)+kv("Purchase Request",biz.purchase_request)+kv("Chi phí hợp lệ?",biz.is_cost_valid)+kv("Thông tin & tệp chính xác?",biz.details_and_attachments_correct)+'</div><div class="fld" style="margin-top:10px"><label>Lý do / nội dung thanh toán</label><textarea class="ro" readonly rows="3">'+esc(biz.reason||"")+'</textarea></div>'+(biz.has_purchase_request==="No"?'<div class="fld" style="margin-top:10px"><label>Lý do không có Purchase Request</label><textarea class="ro" readonly rows="2">'+esc(biz.no_purchase_request_reason||"")+'</textarea></div>':'')+'</div>'
+      +'<div class="card"><h3>Thông tin thanh toán</h3><div class="grid2">'+kv("Người nhận",biz.payee_full_name)+kv("Số tiền (VND)",biz.payment_amount!=null?fmtMoney(biz.payment_amount):"")+kv("Ngày thanh toán",biz.payment_date)+kv("Ngân hàng",biz.account_bank)+kv("Số tài khoản",biz.bank_account_number)+kv("Có Purchase Request?",biz.has_purchase_request)+kv("Purchase Request",biz.purchase_request)+kv("Chi phí hợp lệ?",biz.is_cost_valid)+kv("Xác nhận thông tin & tệp",Number(biz.details_and_attachments_correct)?"Đã xác nhận":"Chưa xác nhận")+'</div><div class="fld" style="margin-top:10px"><label>Lý do / nội dung thanh toán</label><textarea class="ro" readonly rows="3">'+esc(biz.reason||"")+'</textarea></div>'+(biz.has_purchase_request==="No"?'<div class="fld" style="margin-top:10px"><label>Lý do không có Purchase Request</label><textarea class="ro" readonly rows="2">'+esc(biz.no_purchase_request_reason||"")+'</textarea></div>':'')+'</div>'
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
       +'<div class="card"><h3>Hành động</h3>'+actionPanelHTML(det)+'</div>'
       +'<div class="card"><h3>Lịch sử</h3>'+timelineHTML(det.timeline)+'</div>';
