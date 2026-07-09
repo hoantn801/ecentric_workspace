@@ -108,6 +108,28 @@ class TestServiceReferral(FrappeTestCase):
             api.approve(name)
         frappe.set_user("Administrator")
 
+    def test_either_pool_member_can_complete(self):
+        # Fresh request #1: A1 (Linh) approves -> Completed
+        n1 = self._submit(); ar1 = self._ar(n1)
+        frappe.set_user(A1); api.approve(n1); frappe.set_user("Administrator")
+        self.assertEqual(frappe.db.get_value("EC Approval Request", ar1, "approval_status"), "Approved")
+        # Fresh request #2: A2 (Vinh) approves -> Completed (proves EITHER pool member works)
+        n2 = self._submit(); ar2 = self._ar(n2)
+        # both snapshotted + both are pending approvers of L1 before anyone acts
+        pend = frappe.get_all("EC Approval Request Approver",
+                              filters={"approval_request": ar2, "level_no": 1, "status": "Pending"}, pluck="approver")
+        self.assertEqual(set(pend), {A1, A2})
+        frappe.set_user(A2); api.approve(n2); frappe.set_user("Administrator")
+        self.assertEqual(frappe.db.get_value("EC Approval Request", ar2, "approval_status"), "Approved")
+        # A2 is recorded as the real audit actor on the approval action
+        self.assertEqual(frappe.db.get_value("EC Approval Action",
+                         {"approval_request": ar2, "level_no": 1, "action": "Approved"}, "actor"), A2)
+        # A1 can no longer approve the completed request #2
+        frappe.set_user(A1)
+        with self.assertRaises(Exception):
+            api.approve(n2)
+        frappe.set_user("Administrator")
+
     def test_value_and_optional_email_validation(self):
         req = self._requester()
         frappe.set_user(req)
