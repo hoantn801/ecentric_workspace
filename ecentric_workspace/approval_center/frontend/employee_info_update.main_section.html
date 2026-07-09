@@ -1,195 +1,423 @@
+<!--
+  Employee Information Update page. Route /approvals/employee-information-update
+  (Web Page "approval-center-employee-information-update").
+  Reuses the eCentric shell (.ec-sidebar/.ec-main + tokens), rebuilt from the polished
+  livestream_sample template. Single approval level "HR Review" -> Completed, comments off,
+  auto-title (no request_title input). All data via
+  ecentric_workspace.approval_center.api.employee_info_update.*. Marker: ec-eiu-root.
+-->
 <style>
-#ec-eiu-root{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1f2937;}
-#ec-eiu-root .content{max-width:1200px;margin:0 auto;padding:18px;}
-#ec-eiu-root .eiu-formwrap{max-width:none;}
-#ec-eiu-root .tabs{display:flex;gap:6px;border-bottom:1px solid #e5e7eb;margin-bottom:16px;}
-#ec-eiu-root .tab{padding:8px 14px;cursor:pointer;border:none;background:none;font-size:14px;color:#6b7280;}
-#ec-eiu-root .tab.active{color:#2563eb;border-bottom:2px solid #2563eb;font-weight:600;}
-#ec-eiu-root .grid2{display:grid;grid-template-columns:1fr 360px;gap:16px;}
-#ec-eiu-root .card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;margin-bottom:14px;}
-#ec-eiu-root .fld{margin-bottom:12px;}
-#ec-eiu-root .fld label{display:block;font-size:12.5px;color:#374151;margin-bottom:4px;font-weight:500;}
-#ec-eiu-root .fld input,#ec-eiu-root .fld select,#ec-eiu-root .fld textarea{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:13.5px;}
-#ec-eiu-root .fld .req{color:#dc2626;}
-#ec-eiu-root .fld .err{color:#dc2626;font-size:11.5px;margin-top:3px;display:none;}
-#ec-eiu-root .fld.has-err .err{display:block;}
-#ec-eiu-root .vnhelp{color:#9ca3af;font-style:italic;font-size:11.5px;margin-top:3px;}
-#ec-eiu-root .btn{padding:8px 16px;border:1px solid #d1d5db;border-radius:7px;background:#fff;cursor:pointer;font-size:13.5px;}
-#ec-eiu-root .btn.primary{background:#2563eb;color:#fff;border-color:#2563eb;}
-#ec-eiu-root .tbl{width:100%;border-collapse:collapse;font-size:13px;}
-#ec-eiu-root .tbl th,#ec-eiu-root .tbl td{text-align:left;padding:8px 10px;border-bottom:1px solid #eef2f7;vertical-align:middle;}
-#ec-eiu-root .summary-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px solid #f3f4f6;}
-#ec-eiu-root .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;background:#eef2ff;color:#3730a3;}
-#ec-eiu-root .step{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#6b7280;margin-right:8px;}
-#ec-eiu-root .ec-eiu-overlay{position:fixed;inset:0;background:rgba(17,24,39,.42);display:flex;align-items:center;justify-content:center;z-index:80;}
-#ec-eiu-root .modalbox{background:#fff;border-radius:12px;padding:18px;width:min(480px,92vw);}
-@media(max-width:860px){#ec-eiu-root .grid2{grid-template-columns:1fr;}}
+  body > header, body > footer, body > nav.navbar, header.navbar, .navbar.navbar-light,
+  .web-page-header, #navbarSupportedContent, .navbar-collapse, .web-footer, footer.web-footer { display:none !important; }
+  body { background:#f7f8fb !important; padding:0 !important; margin:0 !important; }
+  .page-content,.common-page-style,.container,main,.web-page-content,.page_content,.main-section,main.container,main.fluid{ padding:0 !important; margin:0 !important; max-width:none !important; }
 </style>
-<div id="ec-eiu-root"><div class="content"><div class="eiu-formwrap">
-  <h2 style="font-size:19px;margin:0 0 4px">Employee Information Update</h2>
-  <div class="tabs" id="eiu-tabs"></div>
-  <div id="eiu-body"></div>
-</div></div></div>
-<script id="ec-eiu">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  #ec-eiu-root{ --navy:#2C3DA6;--navy-50:#eef0fb;--navy-700:#1f2d80;--yellow:#FFC000;--yellow-50:#fff8e1;
+    --pink:#EF7CAF;--green:#10b981;--green-50:#ecfdf5;--red:#dc2626;--red-50:#fef2f2;--amber:#b45309;
+    --gray-50:#fafbfc;--gray-100:#f3f4f6;--gray-200:#e5e7eb;--gray-300:#d1d5db;--gray-400:#9ca3af;
+    --gray-500:#6b7280;--gray-600:#4b5563;--gray-700:#374151;--gray-800:#1f2937;--gray-900:#111827;--bg:#f7f8fb; }
+  #ec-eiu-root,#ec-eiu-root *{ box-sizing:border-box; }
+  #ec-eiu-root{ font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--gray-800);
+    font-size:14px; line-height:1.5; display:grid; grid-template-columns:248px 1fr; min-height:100vh; }
+  #ec-eiu-root .icon{ width:18px;height:18px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round; }
+  #ec-eiu-root .ec-sidebar{ background:#fff;border-right:1px solid var(--gray-200);display:flex;flex-direction:column;position:sticky;top:0;height:100vh; }
+  #ec-eiu-root .sb-head{ padding:16px;display:flex;align-items:center;gap:10px; }
+  #ec-eiu-root .logo{ width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--navy),var(--pink));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800; }
+  #ec-eiu-root .brand-name{ font-size:15px;font-weight:700;color:var(--gray-900); }
+  #ec-eiu-root .nav{ padding:6px 8px;display:flex;flex-direction:column;gap:2px; }
+  #ec-eiu-root a.nav-item{ display:flex;align-items:center;gap:14px;width:100%;padding:9px 14px;border-radius:8px;text-decoration:none;color:var(--gray-700);font-size:13.5px;font-weight:500; }
+  #ec-eiu-root a.nav-item:hover{ background:var(--gray-100);color:var(--gray-900); }
+  #ec-eiu-root a.nav-item.active{ background:var(--navy-50);color:var(--navy);font-weight:600; }
+  #ec-eiu-root .nav-ic{ flex:0 0 24px;display:flex;align-items:center;justify-content:center; }
+  #ec-eiu-root .ec-main{ min-width:0;display:flex;flex-direction:column; }
+  #ec-eiu-root .topbar{ background:#fff;border-bottom:1px solid var(--gray-200);min-height:60px;padding:0 24px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20; }
+  #ec-eiu-root .crumb{ font-size:13px;color:var(--gray-500); } #ec-eiu-root .crumb strong{ color:var(--gray-900); }
+  #ec-eiu-root .content{ padding:22px 24px 48px;max-width:1200px;margin:0 auto;width:100%; }
+  #ec-eiu-root .ec-formwrap{ max-width:none; }
+  #ec-eiu-root h1.pg{ font-size:22px;font-weight:800;color:var(--gray-900);margin:0 0 2px;letter-spacing:-.3px; }
+  #ec-eiu-root .pg-sub{ font-size:13px;color:var(--gray-500);margin:0 0 16px; }
+  #ec-eiu-root .tabs{ display:flex;gap:4px;border-bottom:1px solid var(--gray-200);margin-bottom:18px;flex-wrap:wrap; }
+  #ec-eiu-root .tab{ padding:10px 16px;font-size:13.5px;font-weight:600;color:var(--gray-500);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent; }
+  #ec-eiu-root .tab:hover{ color:var(--gray-800); }
+  #ec-eiu-root .tab.active{ color:var(--navy);border-bottom-color:var(--navy); }
+  #ec-eiu-root .tab[disabled]{ color:var(--gray-300);cursor:not-allowed; }
+  #ec-eiu-root .card{ background:#fff;border:1px solid var(--gray-200);border-radius:12px;padding:18px 20px;margin-bottom:16px; }
+  #ec-eiu-root .card h3{ font-size:14px;font-weight:700;color:var(--gray-900);margin:0 0 14px;display:flex;align-items:center;gap:8px; }
+  #ec-eiu-root .grid2{ display:grid;grid-template-columns:1fr 1fr;gap:14px 20px; }
+  #ec-eiu-root .fld{ display:flex;flex-direction:column;gap:5px; }
+  #ec-eiu-root .fld label{ font-size:12.5px;font-weight:600;color:var(--gray-600); }
+  #ec-eiu-root .fld label .req{ color:var(--red); }
+  #ec-eiu-root .fld input,#ec-eiu-root .fld select,#ec-eiu-root .fld textarea{ width:100%;padding:8px 11px;border:1px solid var(--gray-200);border-radius:8px;font-size:13.5px;font-family:inherit;background:#fff; }
+  #ec-eiu-root .fld input:focus,#ec-eiu-root .fld select:focus,#ec-eiu-root .fld textarea:focus{ outline:none;border-color:var(--navy);box-shadow:0 0 0 3px var(--navy-50); }
+  #ec-eiu-root .fld input[readonly],#ec-eiu-root .fld .ro{ background:var(--gray-50);color:var(--gray-600); }
+  #ec-eiu-root .fld .err{ font-size:12px;color:var(--red); }
+  #ec-eiu-root .fld.invalid input,#ec-eiu-root .fld.invalid select,#ec-eiu-root .fld.invalid textarea{ border-color:var(--red); }
+  #ec-eiu-root .full{ grid-column:1/-1; }
+  #ec-eiu-root .hint{ font-size:12px;color:var(--gray-500); }
+  #ec-eiu-root .banner{ padding:11px 14px;border-radius:9px;font-size:13px;display:flex;gap:9px;align-items:flex-start;margin-bottom:14px; }
+  #ec-eiu-root .banner.warn{ background:var(--yellow-50);color:var(--amber);border:1px solid #fde68a; }
+  #ec-eiu-root .banner.err{ background:var(--red-50);color:var(--red);border:1px solid #fecaca; }
+  #ec-eiu-root .banner.info{ background:var(--navy-50);color:var(--navy-700);border:1px solid #dbe0f5; }
+  #ec-eiu-root .eiu-warn{ display:flex !important;align-items:flex-start;justify-content:flex-start;gap:9px;text-align:left;padding:11px 14px;border-radius:9px;font-size:13px;line-height:1.45;background:var(--yellow-50);color:var(--amber);border:1px solid #fde68a; }
+  #ec-eiu-root .eiu-warn > .icon{ flex:0 0 18px;width:18px;height:18px;margin-top:1px; }
+  #ec-eiu-root .eiu-warn > span{ flex:1 1 auto;text-align:left;min-width:0;overflow-wrap:anywhere; }
+  #ec-eiu-root .ec-alert{ align-items:flex-start;text-align:left;width:100%; }
+  #ec-eiu-root .ec-alert > .icon{ margin-top:1px; }
+  #ec-eiu-root .ec-alert-title{ font-weight:700;margin-bottom:2px;line-height:1.4; }
+  #ec-eiu-root .btn{ display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;border:1px solid var(--gray-200);background:#fff;color:var(--gray-700); }
+  #ec-eiu-root .btn:hover{ background:var(--gray-50); }
+  #ec-eiu-root .btn.primary{ background:var(--navy);border-color:var(--navy);color:#fff; } #ec-eiu-root .btn.primary:hover{ background:var(--navy-700); }
+  #ec-eiu-root .btn.warn{ background:var(--yellow-50);border-color:#fde68a;color:var(--amber); } #ec-eiu-root .btn.warn:hover{ background:#fef3c7; }
+  #ec-eiu-root .btn[disabled]{ opacity:.55;cursor:not-allowed; }
+  #ec-eiu-root .actions{ display:flex;gap:10px;flex-wrap:wrap;margin-top:6px; }
+  #ec-eiu-root .filters{ display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center; }
+  #ec-eiu-root .filters input,#ec-eiu-root .filters select{ padding:8px 11px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;font-family:inherit; }
+  #ec-eiu-root table.tbl{ width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--gray-200);border-radius:12px;overflow:hidden; }
+  #ec-eiu-root .tbl th{ text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--gray-500);padding:11px 14px;background:var(--gray-50);border-bottom:1px solid var(--gray-200); }
+  #ec-eiu-root .tbl td{ padding:12px 14px;font-size:13px;border-bottom:1px solid var(--gray-100);vertical-align:top; }
+  #ec-eiu-root .tbl tr.clickable{ cursor:pointer; } #ec-eiu-root .tbl tr.clickable:hover{ background:var(--navy-50); }
+  #ec-eiu-root .badge{ display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px; }
+  #ec-eiu-root .badge .dot{ width:7px;height:7px;border-radius:50%; }
+  #ec-eiu-root .b-gray{ background:var(--gray-100);color:var(--gray-600); } #ec-eiu-root .b-gray .dot{ background:var(--gray-400); }
+  #ec-eiu-root .b-navy{ background:var(--navy-50);color:var(--navy); } #ec-eiu-root .b-navy .dot{ background:var(--navy); }
+  #ec-eiu-root .b-amber{ background:var(--yellow-50);color:var(--amber); } #ec-eiu-root .b-amber .dot{ background:var(--yellow); }
+  #ec-eiu-root .b-green{ background:var(--green-50);color:var(--green); } #ec-eiu-root .b-green .dot{ background:var(--green); }
+  #ec-eiu-root .b-red{ background:var(--red-50);color:var(--red); } #ec-eiu-root .b-red .dot{ background:var(--red); }
+  #ec-eiu-root .pager{ display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px;font-size:13px;color:var(--gray-600); }
+  #ec-eiu-root .state{ padding:44px 20px;text-align:center;color:var(--gray-500); } #ec-eiu-root .state h4{ color:var(--gray-700);margin:0 0 6px; }
+  #ec-eiu-root .stepper{ position:relative;overflow-x:auto;padding:6px 2px 12px; }
+  #ec-eiu-root .stepline{ position:relative;display:flex;gap:0;min-width:100%; }
+  #ec-eiu-root .stepline::before{ content:"";position:absolute;top:16px;left:calc(50% / var(--n));width:calc(100% - 100% / var(--n));height:2px;background:var(--gray-200);z-index:0; }
+  #ec-eiu-root .stepline::after{ content:"";position:absolute;top:16px;left:calc(50% / var(--n));width:calc(100% / var(--n) * var(--k));height:2px;background:var(--navy);z-index:0;transition:width .3s ease; }
+  #ec-eiu-root .step{ min-width:150px;flex:1;position:relative;padding:0 10px;z-index:1; }
+  #ec-eiu-root .step-top{ display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;z-index:1; }
+  #ec-eiu-root .step-dot{ width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;border:2px solid var(--gray-300);color:var(--gray-500);font-weight:700;font-size:13px; }
+  #ec-eiu-root .step.current .step-dot{ border-color:var(--navy);color:var(--navy);box-shadow:0 0 0 4px var(--navy-50); }
+  #ec-eiu-root .step.done .step-dot{ background:var(--green);border-color:var(--green);color:#fff; }
+  #ec-eiu-root .step.rejected .step-dot{ background:var(--red);border-color:var(--red);color:#fff; }
+  #ec-eiu-root .step.info .step-dot{ background:var(--yellow);border-color:var(--yellow);color:#fff; }
+  #ec-eiu-root .step.skipped .step-dot{ border-style:dashed; }
+  #ec-eiu-root .step-name{ font-size:12.5px;font-weight:700;color:var(--gray-800);text-align:center; }
+  #ec-eiu-root .step-state{ font-size:11px;font-weight:600; }
+  #ec-eiu-root .step-meta{ font-size:11px;color:var(--gray-500);text-align:center;margin-top:2px;line-height:1.4;overflow-wrap:anywhere; }
+  #ec-eiu-root .step-meta .ov{ color:var(--red);font-weight:600; }
+  #ec-eiu-root .summary-row{ display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--gray-200);font-size:13px; }
+  #ec-eiu-root .summary-row b{ color:var(--gray-900);overflow-wrap:anywhere; }
+  #ec-eiu-root .toast{ position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--gray-900);color:#fff;padding:11px 18px;border-radius:10px;font-size:13.5px;opacity:0;pointer-events:none;transition:.2s;z-index:60; }
+  #ec-eiu-root .toast.show{ opacity:1;transform:translateX(-50%) translateY(0); }
+  #ec-eiu-root .toast.err{ background:var(--red); }
+  #ec-eiu-root .ec-eiu-overlay{ position:fixed;inset:0;background:rgba(17,24,39,.45);display:flex !important;align-items:center;justify-content:center;z-index:9999;padding:16px; }
+  #ec-eiu-root .ec-eiu-modal{ display:flex !important;flex-direction:column;background:#fff;border-radius:14px;width:min(560px, calc(100vw - 32px));max-width:560px;max-height:calc(100vh - 48px);box-shadow:0 20px 50px rgba(0,0,0,.25);overflow:hidden; }
+  #ec-eiu-root .ec-eiu-modal-h{ padding:15px 20px;border-bottom:1px solid var(--gray-200);font-weight:700;font-size:15px;color:var(--gray-900);flex:0 0 auto; }
+  #ec-eiu-root .ec-eiu-modal-b{ padding:16px 20px;overflow:auto;flex:1 1 auto; } #ec-eiu-root .ec-eiu-modal-b .fld{ margin-bottom:12px; }
+  #ec-eiu-root .ec-eiu-modal-f{ padding:13px 20px;border-top:1px solid var(--gray-200);display:flex;justify-content:flex-end;gap:10px;flex:0 0 auto; }
+  #ec-eiu-root .tl-item{ display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray-100); }
+  #ec-eiu-root .tl-dot{ width:10px;height:10px;border-radius:50%;background:var(--navy);margin-top:5px;flex-shrink:0; }
+  #ec-eiu-root .tl-act{ font-weight:600;color:var(--gray-900);font-size:13px; } #ec-eiu-root .tl-meta{ font-size:12px;color:var(--gray-500); } #ec-eiu-root .tl-cmt{ font-size:12.5px;color:var(--gray-700);margin-top:2px; }
+  #ec-eiu-root .sect-h{ font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--gray-500);margin:8px 0 8px; }
+  #ec-eiu-root button:focus-visible, #ec-eiu-root a:focus-visible, #ec-eiu-root input:focus-visible, #ec-eiu-root select:focus-visible, #ec-eiu-root textarea:focus-visible{ outline:2px solid var(--navy); outline-offset:2px; }
+  @media (max-width:1024px){ #ec-eiu-root .content{ padding:18px 16px 40px; } }
+  @media (max-width:900px){ #ec-eiu-root{ grid-template-columns:1fr; } #ec-eiu-root .ec-sidebar{ display:none; } #ec-eiu-root .grid2{ grid-template-columns:1fr; } }
+  @media (max-width:640px){ #ec-eiu-root table.tbl{ display:block; overflow-x:auto; white-space:nowrap; } #ec-eiu-root .ec-eiu-modal{ max-height:calc(100vh - 24px); } }
+</style>
+<style>
+  #ec-eiu-root .vnhelp{ color:var(--gray-400);font-style:italic;font-size:11.5px;margin-top:3px; }
+</style>
+
+<div id="ec-eiu-root">
+  <aside class="ec-sidebar">
+    <div class="sb-head"><span class="logo">eC</span><span class="brand-name">eCentric</span></div>
+    <nav class="nav">
+      <a class="nav-item" href="/home"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg></span><span>Trang chủ</span></a>
+      <a class="nav-item" href="/approvals"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><span>Approval Center</span></a>
+      <a class="nav-item active" href="/approvals/employee-information-update"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></span><span>Employee Information Update</span></a>
+    </nav>
+  </aside>
+  <main class="ec-main">
+    <div class="topbar"><div class="crumb">Approval Center / <strong>Employee Information Update</strong></div></div>
+    <div class="content">
+      <h1 class="pg">Employee Information Update</h1>
+      <p class="pg-sub">Yeu cau cap nhat thong tin nhan vien (email, tai khoan ngan hang, CCCD...). HR xem xet va duyet.</p>
+      <div class="tabs" id="eiu-tabs"></div>
+      <div id="eiu-body"></div>
+    </div>
+    <div class="toast" id="eiu-toast"></div>
+  </main>
+</div>
+
+<script id="ec-employee-info-update">
 (function(){
   "use strict";
   var NS="ecentric_workspace.approval_center.api.employee_info_update.";
-  var FIELDS=[{"k": "employee_email", "label": "Employee", "type": "email", "req": true, "help": "Input email of employee to be updated"}, {"k": "field_to_update", "label": "Field to update", "type": "select", "req": true, "options": ["Personal email", "Bank account", "Hospital code", "Mobile phone", "Birthplace", "Citizen ID number", "Citizen ID issue date", "Citizen ID issue place", "Permanent address", "Temporary address", "Position (C&B use only)", "Other"], "vn": {"Personal email": "Email cá nhân", "Bank account": "Tài khoản ngân hàng", "Hospital code": "Mã bệnh viện", "Mobile phone": "Số điện thoại", "Birthplace": "Nơi sinh", "Citizen ID number": "Số CCCD/CMND", "Citizen ID issue date": "Ngày cấp CCCD/CMND", "Citizen ID issue place": "Nơi cấp CCCD/CMND", "Permanent address": "Địa chỉ thường trú", "Temporary address": "Địa chỉ tạm trú", "Position (C&B use only)": "Chức danh, chỉ C&B sử dụng", "Other": "Khác"}}, {"k": "field_to_update_other", "label": "Other field to update", "type": "data", "req": false, "showif": "field_to_update==Other"}, {"k": "current_value", "label": "Current value", "type": "textarea", "req": true}, {"k": "new_value", "label": "New value", "type": "textarea", "req": true}];
-  var LISTCOLS=[{"k": "employee_email", "h": "Nhân viên"}, {"k": "field_to_update", "h": "Trường"}];
-  var COMMENT_REQUIRED=false;
-  var $=function(id){return document.getElementById(id);};
-  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
-  function extractServerMsg(e){ if(!e) return "";
-    function _strip(s){ return String(s==null?"":s).replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim(); }
-    var sm=e._server_messages||(e.responseJSON&&e.responseJSON._server_messages);
-    if(sm){ try{ var arr=(typeof sm==="string")?JSON.parse(sm):sm; for(var i=0;i<arr.length;i++){ var f=arr[i], o=f; if(typeof f==="string"){ try{ o=JSON.parse(f); }catch(_a){ o={message:f}; } } var mm=o&&(o.message||o.title); if(mm) return _strip(mm); } }catch(_b){} }
-    var rj=e.responseJSON||{};
-    if(typeof e.message==="string"&&e.message) return _strip(e.message);
-    if(typeof rj.message==="string"&&rj.message) return _strip(rj.message);
-    if(rj.message&&rj.message.message) return _strip(rj.message.message);
-    var exc=rj.exception||e.exception||""; if(exc){ var p=String(exc).split(": "); return _strip(p.length>1?p.slice(1).join(": "):exc); }
-    return ""; }
-  function mapErr(e){ var m=extractServerMsg(e);
-    if(/permission|quyền|allowed/i.test(m)&&!/Vui lòng|bắt buộc/i.test(m)) return m||"Bạn không có quyền thực hiện.";
-    return m || "Đã có lỗi. Vui lòng thử lại."; }
-  function api(method,args){ var fr=window.frappe; if(!fr||!fr.call) return Promise.reject(new Error("no frappe"));
-    return fr.call({method:NS+method,args:args||{},type:(/get_|list_|search_/.test(method)?"GET":"POST")}).then(function(r){return r&&r.message;}); }
-  var state={boot:null,draft:{},id:null,mode:"create",busy:false,errs:{}};
-  function toast(msg,bad){ var t=document.createElement("div"); t.className="eiu-toast"; t.setAttribute("data-toast",bad?"err":"ok");
-    t.style.cssText="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:"+(bad?"#dc2626":"#111827")+";color:#fff;padding:10px 18px;border-radius:9px;font-size:13.5px;z-index:90"; t.textContent=msg;
-    document.body.appendChild(t); setTimeout(function(){ if(t.parentNode)t.parentNode.removeChild(t); },3200); }
-  function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; }
-  function vnFor(f,val){ return (f.vn&&f.vn[val])||""; }
-  function renderField(f,d){
-    var v=d[f.k]; var req=f.req?' <span class="req">*</span>':'';
-    var inner="";
-    if(f.type==="select"){ var opts='<option value="">— Chọn —</option>';
-      (f.options||[]).forEach(function(o){ opts+='<option value="'+esc(o)+'"'+(v===o?' selected':'')+'>'+esc(o)+'</option>'; });
-      inner='<select data-model="'+f.k+'">'+opts+'</select>';
-      if(f.vn){ inner+='<div class="vnhelp" data-vn="'+f.k+'">'+(v?esc(vnFor(f,v)):'')+'</div>'; }
-    } else if(f.type==="textarea"){ inner='<textarea data-model="'+f.k+'" rows="2">'+esc(v||"")+'</textarea>';
-    } else if(f.type==="int"||f.type==="currency"){ inner='<input type="number" data-model="'+f.k+'" value="'+esc(v==null?"":v)+'">';
-    } else if(f.type==="date"){ inner='<input type="date" data-model="'+f.k+'" value="'+esc(v||"")+'">';
-    } else { inner='<input type="'+(f.type==="email"?"email":"text")+'" data-model="'+f.k+'" value="'+esc(v||"")+'">'; }
-    var help=f.help?'<div class="vnhelp">'+esc(f.help)+'</div>':'';
-    return '<div class="fld" data-fld="'+f.k+'"><label>'+esc(f.label)+req+'</label>'+inner+help+'<div class="err" data-err="'+f.k+'"></div></div>';
-  }
-  function visibleFields(d){ return FIELDS.filter(function(f){ if(!f.showif) return true; var pr=f.showif.split("=="); return (d[pr[0]]||"")===pr[1]; }); }
+  var VN={ "Personal email":"Email cá nhân", "Bank account":"Số tài khoản ngân hàng", "Hospital code":"Mã bệnh viện (BHYT)", "Mobile phone":"Số điện thoại di động", "Birthplace":"Nơi sinh", "Citizen ID number":"Số CCCD/CMND", "Citizen ID issue date":"Ngày cấp CCCD/CMND", "Citizen ID issue place":"Nơi cấp CCCD/CMND", "Permanent address":"Địa chỉ thường trú", "Temporary address":"Địa chỉ tạm trú", "Position (C&B use only)":"Chức danh (chỉ C&B dùng)", "Other":"Khác" };
+  var FIELD_OPTS=["Personal email","Bank account","Hospital code","Mobile phone","Birthplace","Citizen ID number","Citizen ID issue date","Citizen ID issue place","Permanent address","Temporary address","Position (C&B use only)","Other"];
+  var EMAIL_RE=/^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+  var state={ boot:null, tab:"create", id:null, mode:"create", draft:null, dirty:false, busy:false, page:0, PAGE:20, listFilters:{}, detail:null };
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];}); }
+  function toast(m,err){ var t=$("eiu-toast"); if(!t)return; t.textContent=m; t.className="toast show"+(err?" err":""); clearTimeout(t._t); t._t=setTimeout(function(){t.className="toast";},3000); }
+  function call(method,args){ var fr=window.frappe; if(!fr||!fr.call) return Promise.reject(new Error("no frappe"));
+    return fr.call({method:NS+method,args:args||{},type:(/get_|list_|search_|check_/.test(method)?"GET":"POST")}).then(function(r){return r&&r.message;}); }
+  function fmt(d){ if(!d)return "—"; try{ return String(d).replace("T"," ").slice(0,16); }catch(e){ return String(d); } }
+  function fmtDT(v){ if(!v) return "—"; var s=(""+v).replace(" ","T"); var d=new Date(s); if(isNaN(d.getTime())) return esc(""+v); function p(n){return (n<10?"0":"")+n;} return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes()); }
+  function fld(id,label,ctrl,req,err){ return '<div class="fld'+(err?" invalid":"")+'" data-fld="'+id+'"><label>'+esc(label)+(req?' <span class="req">*</span>':'')+'</label>'+ctrl+(err?'<div class="err">'+esc(err)+'</div>':'')+'</div>'; }
+
+  // ---- routing ----
+  function readRoute(){ state.mode="create"; var q=new URLSearchParams(window.location.search); state.id=q.get("id")||null;
+    var t=q.get("tab"); state.tab = state.id?"detail":(t||"create"); }
+  function go(params,replace){ var q=new URLSearchParams(); Object.keys(params).forEach(function(k){ if(params[k])q.set(k,params[k]); });
+    var url=window.location.pathname+(q.toString()?("?"+q.toString()):""); window.history[replace?"replaceState":"pushState"]({},"",url); route(); }
+  function route(){ readRoute(); render(); }
+  window.addEventListener("popstate", route);
+
+  function tabAllowed(t){ var tb=state.boot&&state.boot.tabs||{}; return t==="create"||t==="my-requests"||(t==="my-approvals"&&tb.my_approvals); }
+  function renderTabs(){ var box=$("eiu-tabs"); if(!box)return;
+    var defs=[["create","Tạo mới",true],["my-requests","Yêu cầu của tôi",true],["my-approvals","Cần tôi duyệt",tabAllowed("my-approvals")]];
+    box.innerHTML=defs.map(function(d){ var act=(state.tab===d[0]||(state.tab==="detail"&&d[0]==="my-requests"))?" active":"";
+      return '<button type="button" class="tab'+act+'"'+(d[2]?'':' disabled')+' data-tab="'+d[0]+'">'+esc(d[1])+'</button>'; }).join(""); }
+
+  function render(){ renderTabs(); var b=$("eiu-body"); if(!b)return;
+    if(state.tab==="detail"&&state.id) return renderDetail(b);
+    if(state.tab==="my-requests") return renderMyRequests(b);
+    if(state.tab==="my-approvals") return renderMyApprovals(b);
+    return renderCreate(b); }
+
+  // ======================= CREATE =======================
   function titlePreview(d){ d=d||{}; return "Employee Info Update - "+(d.employee_email||"?")+" - "+(d.field_to_update||"?"); }
-  function validateSubmit(){ var d=state.draft||{}; var e={};
-    visibleFields(d).forEach(function(f){ if(f.req){ var val=d[f.k]; if(val===undefined||val===null||String(val).trim()==="") e[f.k]="Trường bắt buộc."; } });
-    if(d.field_to_update==="Other"&&!((d.field_to_update_other||"").trim())) e.field_to_update_other="Vui lòng nhập tên trường khi chọn Other.";
-    return Object.keys(e).length?e:null; }
-  function showFieldErrors(errs){ FIELDS.forEach(function(f){ var el=document.querySelector('[data-fld="'+f.k+'"]'); var em=document.querySelector('[data-err="'+f.k+'"]');
-    if(el&&em){ if(errs&&errs[f.k]){ el.classList.add("has-err"); em.textContent=errs[f.k]; } else { el.classList.remove("has-err"); em.textContent=""; } } }); }
-  function tabsHTML(){ var t=state.boot&&state.boot.tabs||{}; var cur=state._tab||"create"; var out="";
-    var defs=[["create","Tạo mới"],["my-requests","Yêu cầu của tôi"]]; if(t.my_approvals)defs.push(["my-approvals","Chờ tôi duyệt"]);
-    defs.forEach(function(x){ out+='<button type="button" class="tab'+(cur===x[0]?' active':'')+'" data-tab="'+x[0]+'">'+esc(x[1])+'</button>'; });
-    return out; }
-  function wireTabs(){ $("eiu-tabs").innerHTML=tabsHTML();
-    Array.prototype.forEach.call(document.querySelectorAll('#eiu-tabs .tab'),function(b){ b.onclick=function(){ go({tab:b.getAttribute("data-tab")}); }; }); }
-  function go(opts){ opts=opts||{}; if(opts.tab)state._tab=opts.tab; if("id" in opts)state.id=opts.id;
-    if(opts.tab==="create"){ state.mode="create"; }
-    try{ var u=new URL(window.location.href); u.searchParams.set("tab",state._tab||"create"); if(state.id)u.searchParams.set("id",state.id); else u.searchParams.delete("id"); window.history.replaceState({},"",u); }catch(_e){}
-    render(); }
-  function route(){ var tab="create",id=null; try{ var u=new URL(window.location.href); tab=u.searchParams.get("tab")||"create"; id=u.searchParams.get("id"); }catch(_e){}
-    state._tab=id?"detail":tab; state.id=id; render(); }
-  function render(){ wireTabs(); var b=$("eiu-body"); if(!b)return;
-    var tab=state._tab||"create";
-    if(state.id&&tab!=="my-requests"&&tab!=="my-approvals"&&tab!=="create"){ renderDetail(b); return; }
-    if(tab==="detail"){ renderDetail(b); return; }
-    if(tab==="my-requests"){ renderList(b); return; }
-    if(tab==="my-approvals"){ renderApprovals(b); return; }
-    renderCreate(b); }
-  function renderCreate(b){ var d=state.draft||{};
-    var formHTML=visibleFields(d).map(function(f){ return renderField(f,d); }).join("");
-    b.innerHTML='<div class="grid2"><div class="card"><h3 style="margin:0 0 12px;font-size:15px">Thông tin yêu cầu</h3>'
-      +formHTML
-      +'<div class="fld"><label>Tệp đính kèm (không bắt buộc)</label><input type="file" data-upload="request_attachment"><span id="eiu-att-name"></span></div>'
-      +'<div style="margin-top:10px"><button type="button" class="btn primary" id="eiu-submit">Gửi yêu cầu</button></div></div>'
-      +'<div class="card"><h3 style="margin:0 0 10px;font-size:14px">Tóm tắt</h3><div id="eiu-summary"></div>'
-      +'<div id="eiu-process-preview" style="margin-top:12px"></div></div></div>';
-    wireModels(b); renderSummary(); loadPreview();
-    var sb=$("eiu-submit"); if(sb)sb.onclick=doSubmit; }
-  function wireModels(scope){ Array.prototype.forEach.call((scope||document).querySelectorAll("[data-model]"),function(el){
-    var handler=function(){ var k=el.getAttribute("data-model"); var v=el.value; setModel(k,v);
-      var vh=document.querySelector('[data-vn="'+k+'"]'); if(vh){ var f=FIELDS.filter(function(x){return x.k===k;})[0]; vh.textContent=f?vnFor(f,v):""; }
-      if(k&&FIELDS.filter(function(x){return x.showif&&x.showif.indexOf(k+"==")===0;}).length){ renderCreate($("eiu-body")); return; }
-      renderSummary(); var el2=document.querySelector('[data-fld="'+k+'"]'); if(el2)el2.classList.remove("has-err"); };
-    el.addEventListener("input",handler); el.addEventListener("change",handler); }); }
-  function renderSummary(){ var h=$("eiu-summary"); if(!h)return; var d=state.draft||{};
-    var rows='<div class="summary-row"><span>Tiêu đề (dự kiến)</span><b>'+esc(titlePreview(d))+'</b></div>';
-    visibleFields(d).forEach(function(f){ rows+='<div class="summary-row"><span>'+esc(f.label)+'</span><b>'+esc(d[f.k]||"—")+'</b></div>'; });
-    h.innerHTML=rows; }
-  function loadPreview(){ var h=$("eiu-process-preview"); if(!h)return;
-    api("get_bootstrap",{}).then(function(){ return api("list_my_requests",{}); }).catch(function(){});
-    // process steps come from get_detail(new) preview; render a simple 3-step
-    h.innerHTML='<div style="font-size:11px;color:#9ca3af;text-transform:uppercase;margin-bottom:6px">Quy trình</div>'
-      +'<span class="step">1 · Tạo yêu cầu</span><span class="step">2 · '+esc((state._levelName||"Duyệt"))+'</span><span class="step">3 · Hoàn tất</span>'; }
-  function doSubmit(){ var v=validateSubmit(); if(v){ showFieldErrors(v); toast("Vui lòng kiểm tra các trường bắt buộc.",true); return; }
-    if(state.busy)return; state.busy=true; var btn=$("eiu-submit"); if(btn){btn.disabled=true;btn.textContent="Đang gửi...";}
-    api("save_draft",{name:state.id||null,payload:JSON.stringify(state.draft||{})}).then(function(res){ state.id=res.name;
-      return api("submit_request",{name:state.id}).then(function(){ toast("Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến người phê duyệt."); go({tab:"my-requests"}); });
-    }).catch(function(e){ if(window.console&&console.error)console.error("EmployeeInfoUpdate submit error:",e); toast(mapErr(e),true); })
-    .then(function(){ state.busy=false; var b2=$("eiu-submit"); if(b2){b2.disabled=false;b2.textContent="Gửi yêu cầu";} }); }
-  function stepLabel(r){ return (r.current_level_name?(r.current_level_name):((r.approval_status==="Draft")?"Nháp":"—"))+(r.total_levels?(" ("+(r.current_level||0)+"/"+r.total_levels+")"):""); }
-  function listHeader(){ var cols=LISTCOLS.map(function(c){return '<th>'+esc(c.h)+'</th>';}).join("");
-    return '<tr><th>Ngày request</th><th>Mã</th><th>Tiêu đề</th><th>Người request</th>'+cols+'<th>Trạng thái</th><th>Bước</th><th></th></tr>'; }
-  function listRow(r,actionBtn){ var cols=LISTCOLS.map(function(c){return '<td>'+esc(r[c.k]==null?"—":r[c.k])+'</td>';}).join("");
-    return '<tr class="clickable" data-id="'+esc(r.name)+'"><td>'+esc(fmtDT(r.requested_at||r.creation))+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requester_name||r.requested_by||"—")+'</td>'+cols+'<td><span class="badge">'+esc(r.approval_status||"Draft")+'</span></td><td>'+esc(stepLabel(r))+'</td><td>'+(actionBtn||'<button type="button" class="btn" data-id="'+esc(r.name)+'">Chi tiết</button>')+'</td></tr>'; }
-  function fmtDT(s){ if(!s)return "—"; return String(s).slice(0,16).replace("T"," "); }
-  function renderList(b){ b.innerHTML='<div class="card"><div style="overflow-x:auto"><table class="tbl"><thead>'+listHeader()+'</thead><tbody id="eiu-list-rows"><tr><td colspan="20">Đang tải...</td></tr></tbody></table></div></div>';
-    api("list_my_requests",{start:0,page_length:20}).then(function(res){ var rows=(res&&res.rows)||[]; var tb=$("eiu-list-rows");
-      tb.innerHTML=rows.length?rows.map(function(r){return listRow(r);}).join(""):'<tr><td colspan="20" style="color:#9ca3af">Chưa có yêu cầu nào.</td></tr>';
-      wireRowClicks(); }).catch(function(){ var tb=$("eiu-list-rows"); if(tb)tb.innerHTML='<tr><td colspan="20">Không tải được danh sách.</td></tr>'; }); }
-  function renderApprovals(b){ b.innerHTML='<div class="card"><div style="overflow-x:auto"><table class="tbl"><thead>'+listHeader()+'</thead><tbody id="eiu-appr-rows"><tr><td colspan="20">Đang tải...</td></tr></tbody></table></div></div>';
-    api("list_need_my_approval",{section:"pending"}).then(function(res){ var rows=(res&&res.rows)||[]; var tb=$("eiu-appr-rows");
-      tb.innerHTML=rows.length?rows.map(function(r){return listRow(r,'<button type="button" class="btn" data-id="'+esc(r.name)+'">Xem</button>');}).join(""):'<tr><td colspan="20" style="color:#9ca3af">Không có yêu cầu chờ duyệt.</td></tr>';
-      wireRowClicks(); }).catch(function(){ var tb=$("eiu-appr-rows"); if(tb)tb.innerHTML='<tr><td colspan="20">Không tải được.</td></tr>'; }); }
-  function wireRowClicks(){ Array.prototype.forEach.call(document.querySelectorAll('#eiu-body [data-id]'),function(el){ el.onclick=function(ev){ ev.stopPropagation(); go({tab:"detail",id:el.getAttribute("data-id")}); }; }); }
-  function kv(k,v){ return '<div class="summary-row"><span>'+esc(k)+'</span><b>'+esc(v==null?"—":v)+'</b></div>'; }
-  function renderDetail(b){ b.innerHTML='<div class="card">Đang tải chi tiết...</div>';
-    api("get_detail",{name:state.id}).then(function(det){ drawDetail(b,det); })
-    .catch(function(e){ var perm=/quyền|permission/i.test(mapErr(e)); b.innerHTML='<div class="card"><h3>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h3><button type="button" class="btn" id="eiu-back">Quay lại</button></div>'; var bk=$("eiu-back"); if(bk)bk.onclick=function(){ go({tab:"my-requests"}); }; }); }
-  function drawDetail(b,det){ var biz=det.business||{}; var cap=det.capabilities||{};
-    var info=FIELDS.map(function(f){ return kv(f.label,biz[f.k]); }).join("");
-    var acts="";
-    if(cap.can_approve) acts+='<button type="button" class="btn primary" id="eiu-approve">Duyệt</button> ';
-    if(cap.can_reject) acts+='<button type="button" class="btn" id="eiu-reject">Từ chối</button> ';
-    if(cap.can_request_information) acts+='<button type="button" class="btn" id="eiu-reqinfo">Yêu cầu bổ sung</button> ';
-    b.innerHTML='<div class="card"><button type="button" class="btn" id="eiu-back" style="margin-bottom:10px">← Quay lại</button>'
-      +'<h3 style="margin:0 0 4px">'+esc(biz.request_title||state.id)+'</h3>'
-      +'<div style="margin:6px 0"><span class="badge">'+esc((det.approval&&det.approval.status_label)||"Nháp")+'</span></div>'
-      +'<div class="grid2"><div>'+info+'</div><div>'+kv("Người yêu cầu",biz.requester_name||biz.requested_by)+kv("Ngày tạo",fmtDT(biz.creation))+'</div></div>'
-      +'<div style="margin-top:12px">'+acts+'</div></div>';
-    var bk=$("eiu-back"); if(bk)bk.onclick=function(){ go({tab:"my-requests"}); };
-    var ap=$("eiu-approve"); if(ap)ap.onclick=function(){ doApprove(state.id,det); };
-    var rj=$("eiu-reject"); if(rj)rj.onclick=function(){ doReject(state.id); };
-    var ri=$("eiu-reqinfo"); if(ri)ri.onclick=function(){ doRequestInfo(state.id); }; }
-  function summaryRows(det){ var b=det.business||{}; return FIELDS.slice(0,3).map(function(f){ return '<div class="summary-row"><span>'+esc(f.label)+'</span><b>'+esc(b[f.k]||"—")+'</b></div>'; }).join(""); }
-  function modal(title,bodyHTML,opts){ opts=opts||{}; var ov=document.createElement("div"); ov.className="ec-eiu-overlay";
-    ov.innerHTML='<div class="modalbox"><h3 style="margin:0 0 10px;font-size:15px">'+esc(title)+'</h3><div>'+bodyHTML+'</div>'
-      +'<div style="margin-top:12px;text-align:right"><button type="button" class="btn" data-cancel>Hủy</button> <button type="button" class="btn primary" data-ok>'+esc(opts.okLabel||"Xác nhận")+'</button></div></div>';
-    document.body.appendChild(ov);
-    function close(){ if(ov.parentNode)ov.parentNode.removeChild(ov); }
-    ov.querySelector("[data-cancel]").onclick=close;
-    ov.querySelector("[data-ok]").onclick=function(){ if(!opts.onConfirm){ close(); return; } var p=opts.onConfirm(ov); if(p&&p.then){ p.then(close).catch(function(){}); } else { close(); } };
-    return ov; }
-  function doApprove(name,det){ modal("Duyệt yêu cầu", summaryRows(det)+'<div class="fld"><label>Ghi chú'+(COMMENT_REQUIRED?' <span class="req">*</span>':' (không bắt buộc)')+'</label><textarea id="eiu-m-cmt" rows="2"></textarea></div>',
-    {okLabel:"Duyệt", onConfirm:function(ov){ var cmt=(ov.querySelector("#eiu-m-cmt").value||"");
-      if(COMMENT_REQUIRED&&!cmt.trim()){ toast("Vui lòng nhập nhận xét khi duyệt.",true); return Promise.reject(new Error("comment required")); }
-      return api("approve",{name:name,comment:cmt}).then(function(){ toast("Đã duyệt yêu cầu."); go({tab:"detail",id:name}); }).catch(function(e){ toast(mapErr(e),true); return Promise.reject(e); }); }}); }
-  function doReject(name){ modal("Từ chối yêu cầu", '<div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="eiu-m-cmt" rows="2"></textarea></div>',
-    {okLabel:"Từ chối", onConfirm:function(ov){ var c=(ov.querySelector("#eiu-m-cmt").value||""); if(!c.trim()){ toast("Vui lòng nhập lý do.",true); return Promise.reject(new Error("reason required")); }
-      return api("reject",{name:name,comment:c}).then(function(){ toast("Đã từ chối."); go({tab:"detail",id:name}); }).catch(function(e){ toast(mapErr(e),true); return Promise.reject(e); }); }}); }
-  function doRequestInfo(name){ modal("Yêu cầu bổ sung", '<div class="fld"><label>Nội dung <span class="req">*</span></label><textarea id="eiu-m-cmt" rows="2"></textarea></div>',
-    {okLabel:"Gửi", onConfirm:function(ov){ var c=(ov.querySelector("#eiu-m-cmt").value||""); if(!c.trim()){ toast("Vui lòng nhập nội dung.",true); return Promise.reject(new Error("info required")); }
-      return api("request_information",{name:name,comment:c}).then(function(){ toast("Đã gửi yêu cầu bổ sung."); go({tab:"detail",id:name}); }).catch(function(e){ toast(mapErr(e),true); return Promise.reject(e); }); }}); }
-  function boot(){ api("get_bootstrap",{}).then(function(bd){ state.boot=bd||{tabs:{},context:{}}; var pv=(bd&&bd.form_options)||{}; route(); })
-    .catch(function(){ state.boot={tabs:{create:true,my_requests:true}}; route(); }); }
-  window.EmployeeInfoUpdate={ state:state, render:render, route:route, go:go, _boot:boot, _call:api, mapErr:mapErr, extractServerMsg:extractServerMsg,
-    titlePreview:titlePreview, validateSubmit:validateSubmit, showFieldErrors:showFieldErrors, doApprove:doApprove, doReject:doReject,
-    renderCreate:renderCreate, FIELDS:FIELDS, LISTCOLS:LISTCOLS, COMMENT_REQUIRED:COMMENT_REQUIRED };
-  boot();
+  function processPreviewHTML(){
+    var steps=[
+      {name:"Tạo yêu cầu",state:"current",statusLabel:"Đang thực hiện",meta:"Điền thông tin cần cập nhật."},
+      {name:"HR review",state:"upcoming",statusLabel:"Chờ",meta:"HR xem xét & duyệt."},
+      {name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:"Yêu cầu được ghi nhận."}];
+    return '<div class="card" id="eiu-process-preview"><h3>Quy trình xử lý yêu cầu</h3><div class="stepper">'+renderStepsHTML(steps)+'</div></div>';
+  }
+  function formCardsHTML(d,c){
+    var isOther=(d.field_to_update==="Other");
+    var vnText=d.field_to_update?(VN[d.field_to_update]||""):"Chọn trường thông tin cần cập nhật.";
+    var selCtrl='<select data-model="field_to_update"><option value="">— Chọn —</option>'
+      + FIELD_OPTS.map(function(o){ return '<option value="'+esc(o)+'"'+(d.field_to_update===o?" selected":"")+'>'+esc(o)+'</option>'; }).join("")
+      + '</select><div class="vnhelp" data-vn="field_to_update">'+esc(vnText)+'</div>';
+    var otherFld=isOther
+      ? fld("field_to_update_other","Tên trường khác (Other)",'<input data-model="field_to_update_other" maxlength="140" value="'+esc(d.field_to_update_other||"")+'">',true).replace('class="fld','class="fld full')
+      : "";
+    return '<div class="card"><h3>Thông tin cập nhật</h3><div class="grid2">'
+      + fld("employee_email","Employee",'<input data-model="employee_email" type="email" placeholder="ten@ecentric.vn" value="'+esc(d.employee_email||"")+'"><div class="hint">Input email of employee to be updated</div>',true).replace('class="fld','class="fld full')
+      + fld("field_to_update","Field to update",selCtrl,true).replace('class="fld','class="fld full')
+      + otherFld
+      + fld("current_value","Current value",'<textarea data-model="current_value" rows="2">'+esc(d.current_value||"")+'</textarea>',true).replace('class="fld','class="fld full')
+      + fld("new_value","New value",'<textarea data-model="new_value" rows="2">'+esc(d.new_value||"")+'</textarea>',true).replace('class="fld','class="fld full')
+      + fld("request_attachment","Tệp đính kèm",'<input type="file" data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div>').replace('class="fld','class="fld full')
+      + '</div></div>'
+      + '<div class="card"><h3>Người yêu cầu</h3><div class="grid2">'
+      + fld("_r1","Người yêu cầu",'<input class="ro" readonly value="'+esc(c.employee_name||c.user||"")+'">')
+      + fld("_r2","Phòng ban",'<input class="ro" readonly value="'+esc(c.department||"—")+'">')
+      + '</div></div>'
+      + '<div class="card"><h3>Tóm tắt</h3><div id="eiu-summary"></div></div>';
+  }
+  function renderCreate(b){
+    var c=(state.boot&&state.boot.context)||{}; var d=state.draft||{};
+    var actions='<div class="actions"><button type="button" class="btn" id="eiu-cancel-changes">Hủy thay đổi</button><button type="button" class="btn" id="eiu-save">Lưu nháp</button><button type="button" class="btn primary" id="eiu-submit">Gửi yêu cầu</button></div>';
+    b.innerHTML='<div class="ec-formwrap">'+processPreviewHTML()+formCardsHTML(d,c)+actions+'</div>';
+    renderSummary(); wireCreate();
+  }
+  function renderSummary(){ var h=$("eiu-summary"); if(!h)return; var d=state.draft||{}; var c=(state.boot&&state.boot.context)||{};
+    var rows=[["Tiêu đề (dự kiến)",titlePreview(d)],["Employee",d.employee_email],["Field to update",d.field_to_update],
+      ["Current value",d.current_value],["New value",d.new_value],["Người yêu cầu",c.employee_name||c.user],["Luồng duyệt","HR Review"]];
+    h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
+
+  function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; state.dirty=true; }
+  function setFieldError(id,msg){ var f=document.querySelector('[data-fld="'+id+'"]'); if(!f)return; f.classList.toggle("invalid",!!msg);
+    var e=f.querySelector(".err"); if(msg){ if(!e){ e=document.createElement("div"); e.className="err"; f.appendChild(e);} e.textContent=msg; } else if(e){ e.textContent=""; } }
+  function clearFieldError(id){ setFieldError(id,null); }
+  function showFieldErrors(errs){ ["employee_email","field_to_update","field_to_update_other","current_value","new_value"].forEach(function(id){ setFieldError(id,(errs&&errs[id])||null); });
+    var first=errs&&Object.keys(errs)[0]; if(first){ var el=document.querySelector('[data-fld="'+first+'"] input,[data-fld="'+first+'"] select,[data-fld="'+first+'"] textarea'); if(el&&el.focus){ try{el.focus();}catch(e){} } } }
+  function validateSubmit(){ var d=state.draft||{}; var errs={};
+    var em=(d.employee_email||"").toString().trim();
+    if(!em) errs.employee_email="Vui lòng nhập email nhân viên.";
+    else if(!EMAIL_RE.test(em)) errs.employee_email="Email không hợp lệ.";
+    if(!((d.field_to_update||"").toString().trim())) errs.field_to_update="Vui lòng chọn trường cần cập nhật.";
+    if(d.field_to_update==="Other"&&!((d.field_to_update_other||"").toString().trim())) errs.field_to_update_other="Vui lòng nhập tên trường khi chọn Other.";
+    if(!((d.current_value||"").toString().trim())) errs.current_value="Vui lòng nhập giá trị hiện tại.";
+    if(!((d.new_value||"").toString().trim())) errs.new_value="Vui lòng nhập giá trị mới.";
+    return Object.keys(errs).length?errs:null; }
+  function mapErr(e){ var m=(e&&e.message)||"";
+    if(/IntegrityError|pymysql|Duplicate entry|must be unique|OperationalError|ProgrammingError|Traceback|1062|1048/i.test(m)) return "Không thể thực hiện do dữ liệu không hợp lệ. Vui lòng kiểm tra lại hoặc liên hệ quản trị viên.";
+    if(/pending approver|not a pending|không còn quyền/i.test(m)) return "Bạn không còn quyền thực hiện hành động này.";
+    if(/no further action|is Approved|is Rejected|is Cancelled|vừa được cập nhật/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Dữ liệu đã được làm mới.";
+    if(/mandatory|required|bắt buộc|Vui lòng|đầy đủ/i.test(m)) return m;
+    if(/access|permission|allowed|quyền/i.test(m)) return "Bạn không còn quyền thực hiện hành động này.";
+    return m || "Đã có lỗi. Vui lòng thử lại."; }
+
+  function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
+    var h=function(){ var k=el.getAttribute("data-model"); var v=el.value; setModel(k,v);
+      if(k==="field_to_update"){ var vh=document.querySelector('[data-vn="field_to_update"]'); if(vh) vh.textContent=v?(VN[v]||""):"Chọn trường thông tin cần cập nhật.";
+        var hasOther=!!document.querySelector('[data-fld="field_to_update_other"]'); if((v==="Other")!==hasOther){ renderCreate($("eiu-body")); return; } }
+      renderSummary(); clearFieldError(k); };
+    el.addEventListener("input",h); el.addEventListener("change",h); }
+  function wireModels(scope){ (scope||document).querySelectorAll("[data-model]").forEach(attachModel); }
+  function uploadFile(fileInput,field,labelId){ var file=fileInput.files&&fileInput.files[0]; if(!file) return;
+    var lbl=$(labelId); if(lbl) lbl.textContent="Đang tải...";
+    var fd=new FormData(); fd.append("file",file); fd.append("is_private","1"); fd.append("doctype","EC Employee Information Update Request"); fd.append("docname",state.id||"");
+    fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd})
+      .then(function(r){return r.json();}).then(function(j){ var url=j&&j.message&&j.message.file_url; setModel("request_attachment",url); if(lbl) lbl.textContent=url?("Đã tải: "+file.name):"Lỗi tải"; })
+      .catch(function(){ if(lbl) lbl.textContent="Lỗi tải"; }); }
+  function wireCreate(){ var b=$("eiu-body"); wireModels(b);
+    var att=document.querySelector('[data-upload="request_attachment"]'); if(att) att.addEventListener("change",function(){ uploadFile(att,"request_attachment","att-name"); });
+    $("eiu-save").onclick=function(){ saveDraft(false); };
+    $("eiu-submit").onclick=function(){ saveDraft(true); };
+    $("eiu-cancel-changes").onclick=function(){ if(!state.dirty||confirm("Hủy các thay đổi chưa lưu?")){ state.draft=state.id?state.draft:{}; state.dirty=false; render(); } };
+  }
+  function setBusy(on){ ["eiu-save","eiu-submit","eiu-cancel-changes"].forEach(function(id){ var el=$(id); if(el) el.disabled=on; }); }
+  function saveDraft(thenSubmit){ if(state.busy)return;
+    if(thenSubmit){ var v=validateSubmit(); if(v){ showFieldErrors(v); toast("Vui lòng kiểm tra các trường bắt buộc.",true); return; } } else { showFieldErrors(null); }
+    state.busy=true; setBusy(true);
+    call("save_draft",{name:state.id||null,payload:JSON.stringify(state.draft||{})}).then(function(res){ state.id=res.name; state.dirty=false;
+      if(thenSubmit){ return call("submit_request",{name:state.id}).then(function(){ toast("Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến HR duyệt."); go({id:state.id}); }); }
+      toast("Đã lưu nháp. Bạn có thể gửi yêu cầu sau."); go({id:state.id});
+    }).catch(function(e){ if(window.console&&console.error) console.error("EmployeeInfoUpdate save/submit error:",e); toast(mapErr(e),true); }).then(function(){ state.busy=false; setBusy(false); }); }
+
+  // ======================= MY REQUESTS =======================
+  function renderMyRequests(b){
+    b.innerHTML='<div class="filters"><input id="f-q" placeholder="Tìm theo email / field / mã..." value="'+esc(state.listFilters.q||"")+'"><button type="button" class="btn" id="f-apply">Lọc</button><button type="button" class="btn" id="f-refresh">Làm mới</button></div><div id="eiu-list"></div><div class="pager" id="eiu-pager"></div>';
+    $("f-apply").onclick=function(){ state.page=0; loadList(); }; $("f-refresh").onclick=loadList; loadList();
+  }
+  function skeleton(n){ var s=""; for(var i=0;i<n;i++) s+='<div style="height:44px;border-bottom:1px solid var(--gray-100);background:var(--gray-50)"></div>'; return '<div class="card" style="padding:0;overflow:hidden">'+s+'</div>'; }
+  function loadList(){ var host=$("eiu-list"); if(!host)return; host.innerHTML=skeleton(5);
+    var f={ q:$("f-q")?$("f-q").value:"" }; state.listFilters=f;
+    call("list_my_requests",{filters:JSON.stringify(f),start:state.page*state.PAGE,page_length:state.PAGE}).then(renderList).catch(function(){ host.innerHTML='<div class="card"><div class="state"><h4>Không tải được danh sách</h4><button type="button" class="btn" id="eiu-retry">Thử lại</button></div></div>'; var r=$("eiu-retry"); if(r)r.onclick=loadList; }); }
+  function renderList(res){ var host=$("eiu-list"); var rows=res&&res.rows||[];
+    if(!rows.length){ host.innerHTML='<div class="card"><div class="state"><h4>Chưa có yêu cầu</h4><p>Bấm “Tạo mới” để bắt đầu.</p></div></div>'; $("eiu-pager").innerHTML=""; return; }
+    var q=(state.listFilters.q||"").toLowerCase();
+    host.innerHTML='<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Ngày request</th><th>Mã</th><th>Tiêu đề</th><th>Người request</th><th>Field</th><th>Trạng thái</th><th>Bước</th></tr></thead><tbody>'
+      + rows.filter(function(r){ return !q||(r.request_title||"").toLowerCase().indexOf(q)>=0||(r.name||"").toLowerCase().indexOf(q)>=0||(r.field_to_update||"").toLowerCase().indexOf(q)>=0||(r.employee_email||"").toLowerCase().indexOf(q)>=0; }).map(function(r){ return '<tr class="clickable" data-id="'+esc(r.name)+'"><td>'+fmtDT(r.requested_at||r.creation)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requester_name || (state.boot&&state.boot.context&&(state.boot.context.employee_name||state.boot.context.user)) || r.requested_by || "—")+'</td><td>'+esc(r.field_to_update||"—")+'</td><td>'+badge(r.approval_status||"Draft")+'</td><td>'+esc(stepLabel(r))+'</td></tr>'; }).join("")
+      + '</tbody></table></div>';
+    host.querySelectorAll("tr[data-id]").forEach(function(tr){ tr.onclick=function(){ go({id:tr.getAttribute("data-id")}); }; });
+    var total=res.total||rows.length, pages=Math.ceil(total/state.PAGE);
+    $("eiu-pager").innerHTML='Trang '+(state.page+1)+'/'+Math.max(1,pages)+' &nbsp; <button type="button" class="btn" aria-label="Trang trước" '+(state.page<=0?"disabled":"")+' id="pg-prev">‹</button> <button type="button" class="btn" aria-label="Trang sau" '+(state.page+1>=pages?"disabled":"")+' id="pg-next">›</button>';
+    var pv=$("pg-prev"),nx=$("pg-next"); if(pv)pv.onclick=function(){ if(state.page>0){state.page--;loadList();} }; if(nx)nx.onclick=function(){ state.page++; loadList(); };
+  }
+  function stepLabel(r){ var L=Number(r.total_levels||0); var N=L?(L+2):0; var st=r.approval_status||"Draft";
+    if(!N){ if(st==="Pending") return "Đang phê duyệt"; if(st==="Draft") return "Nháp"; if(st==="Rejected") return "Đã từ chối"; if(st==="Cancelled") return "Đã hủy"; if(st==="Information Required") return "Cần bổ sung"; return "—"; }
+    if(st==="Draft") return "Bước 1/"+N+" · Tạo yêu cầu";
+    if(st==="Rejected") return "Đã từ chối"; if(st==="Cancelled") return "Đã hủy"; if(st==="Information Required") return "Cần bổ sung";
+    if(st==="Approved") return "Bước "+N+"/"+N+" · Hoàn tất";
+    if(st==="Pending"&&r.current_level){ return "Bước "+(1+Number(r.current_level))+"/"+N+" · "+(r.current_level_name||("Cấp "+r.current_level)); }
+    return "Đang phê duyệt"; }
+  function badge(st){ var map={ "Draft":["b-gray","Nháp"],"Pending":["b-navy","Đang phê duyệt"],"Information Required":["b-amber","Cần bổ sung"],"Approved":["b-green","Đã duyệt"],"Rejected":["b-red","Bị từ chối"],"Cancelled":["b-gray","Đã hủy"] };
+    var m=map[st]||["b-gray",st]; return '<span class="badge '+m[0]+'"><span class="dot"></span>'+esc(m[1])+'</span>'; }
+
+  // ======================= NEED MY APPROVAL =======================
+  function renderMyApprovals(b){ b.innerHTML='<div id="ap-pending"></div><div id="ap-done"></div>'; loadApprovals("pending","ap-pending","Cần tôi xử lý"); loadApprovals("history","ap-done","Tôi đã xử lý"); }
+  function loadApprovals(section,host,title){ var h=$(host); if(!h)return; h.innerHTML='<div class="sect-h">'+esc(title)+'</div>'+skeleton(2);
+    call("list_need_my_approval",{section:section}).then(function(res){ var rows=res&&res.rows||[];
+      if(!rows.length){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không có mục nào</h4></div></div>'; return; }
+      h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Ngày request</th><th>Mã</th><th>Tiêu đề</th><th>Người request</th><th>Field</th><th>Trạng thái</th><th>Bước</th><th></th></tr></thead><tbody>'
+        + rows.map(function(r){ var act= section==="pending"
+            ? '<button type="button" class="btn" data-open="'+esc(r.name)+'">Chi tiết</button> <button type="button" class="btn primary" data-quick="approve" data-n="'+esc(r.name)+'">Duyệt</button> <button type="button" class="btn" data-quick="reqinfo" data-n="'+esc(r.name)+'">Bổ sung</button> <button type="button" class="btn" data-quick="reject" data-n="'+esc(r.name)+'">Từ chối</button>'
+            : '<button type="button" class="btn" data-open="'+esc(r.name)+'">Chi tiết</button>';
+          return '<tr><td>'+fmtDT(r.requested_at||r.creation)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.requester_name || r.requested_by || "—")+'</td><td>'+esc(r.field_to_update||"—")+'</td><td>'+badge(r.approval_status||"Draft")+'</td><td>'+esc(stepLabel(r))+'</td><td>'+act+'</td></tr>'; }).join("")
+        +'</tbody></table></div>';
+      h.querySelectorAll("[data-open]").forEach(function(el){ el.onclick=function(){ go({id:el.getAttribute("data-open")}); }; });
+      h.querySelectorAll("[data-quick]").forEach(function(el){ el.onclick=function(){ var n=el.getAttribute("data-n"), q=el.getAttribute("data-quick");
+        call("get_detail",{name:n}).then(function(det){ if(q==="approve")doApprove(n,det); else if(q==="reqinfo")doRequestInfo(n); else doReject(n); }).catch(function(e){ toast(mapErr(e),true); }); }; });
+    }).catch(function(){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không tải được</h4></div></div>'; }); }
+
+  // ======================= DETAIL =======================
+  function renderDetail(b){ b.innerHTML=skeleton(4);
+    call("get_detail",{name:state.id}).then(function(det){ drawDetail(b,det); })
+    .catch(function(e){ var perm=/quyền|access|permission/i.test((e&&e.message)||""); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4><button type="button" class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ go({tab:"my-requests"}); }; }); }
+  function kv(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><input class="ro" readonly value="'+esc(v==null||v===""?"—":v)+'"></div>'; }
+  function drawDetail(b,det){ state.detail=det; var biz=det.business||{}, ap=det.approval||{};
+    b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
+      +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.employee_email||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+badge(ap.approval_status||"Draft")+'</div></div></div>'
+      +'<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper" id="d-stepper"></div></div>'
+      +'<div class="card"><h3>Thông tin cập nhật</h3><div class="grid2">'+kv("Employee",biz.employee_email)+kv("Field to update",biz.field_to_update)+'</div><div class="fld" style="margin-top:10px"><label>Current value</label><textarea class="ro" readonly rows="2">'+esc(biz.current_value||"")+'</textarea></div><div class="fld" style="margin-top:10px"><label>New value</label><textarea class="ro" readonly rows="2">'+esc(biz.new_value||"")+'</textarea></div></div>'
+      +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
+      +'<div class="card"><h3>Hành động</h3>'+actionPanelHTML(det)+'</div>'
+      +'<div class="card"><h3>Lịch sử</h3>'+timelineHTML(det.timeline)+'</div>';
+    $("d-back").onclick=function(){ go({tab:"my-requests"}); };
+    $("d-stepper").innerHTML=buildStepper(det);
+    ensureActionHandlers();
+  }
+  function renderAttachments(list){ if(!list||!list.length) return '<div class="hint">Chưa có tệp đính kèm.</div>';
+    return '<table class="tbl"><tbody>'+list.map(function(f){ return '<tr><td>'+esc(f.file_name)+'</td><td>'+esc(f.owner)+'</td><td>'+esc(fmt(f.creation))+'</td><td><a href="'+esc(f.file_url)+'" target="_blank">Mở</a></td></tr>'; }).join("")+'</tbody></table>'; }
+
+  // ---- stepper ----
+  function buildDraftStepper(det){ var prev=det.process_preview||[];
+    var steps=[{name:"Tạo yêu cầu",state:"current",statusLabel:"Đang thực hiện",meta:""}];
+    if(prev.length){ prev.forEach(function(l){ steps.push({name:l.level_name||("Cấp "+l.level_no),state:"upcoming",statusLabel:"Chờ",meta:""}); }); }
+    else { steps.push({name:"HR Review",state:"upcoming",statusLabel:"Chờ",meta:""}); }
+    steps.push({name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:""});
+    return renderStepsHTML(steps); }
+  function buildStepper(det){ var ap=det.approval||{}; if(!ap.name) return buildDraftStepper(det);
+    var levels=det.levels||[], approvers=det.approvers||[];
+    var steps=[{name:"Đã gửi",state:"done",meta:""}];
+    levels.forEach(function(l){ var rows=approvers.filter(function(a){return a.level_no===l.level_no;}); var st="upcoming", meta="";
+      if(l.level_status==="Approved"){ st="done"; var who=rows.filter(function(r){return r.status==="Approved";}).map(function(r){return r.approver;}); meta=(who.length?("Duyệt bởi "+who.join(", ")):"")+(l.completed_at?(" · "+fmt(l.completed_at)):""); }
+      else if(l.level_status==="Rejected"){ st="rejected"; var rj=rows.filter(function(r){return r.status==="Rejected";}); meta="Từ chối"+(rj[0]&&rj[0].comment?(": "+rj[0].comment):""); }
+      else if(l.level_status==="Information Requested"||(ap.approval_status==="Information Required"&&ap.current_level===l.level_no)){ st="info"; meta="Cần bổ sung thông tin"; }
+      else if(l.level_status==="Skipped"){ st="skipped"; meta="Bỏ qua"; }
+      else if(l.level_status==="In Progress"||ap.current_level===l.level_no){ st="current"; var elig=rows.filter(function(r){return r.status==="Pending";}).map(function(r){return r.approver;}); meta=(elig.length?(l.approval_mode==="Any One"?elig.join(" hoặc "):elig.join(", ")):"Đang chờ"); }
+      steps.push({name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
+    steps.push({name:"Hoàn tất",state:(ap.approval_status==="Approved"?"done":"upcoming"),meta:""});
+    return renderStepsHTML(steps); }
+  var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
+  function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
+  function renderStepsHTML(steps){ var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+    var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
+    return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
+
+  function timelineHTML(items){ if(!items||!items.length) return '<div class="hint">Chưa có hoạt động.</div>';
+    var LBL={Submitted:"Đã gửi",Approved:"Đã duyệt","Information Requested":"Yêu cầu bổ sung",Rejected:"Từ chối",Resubmitted:"Gửi lại",Restarted:"Duyệt lại từ đầu",Skipped:"Bỏ qua",Cancelled:"Đã hủy",Commented:"Ghi chú"};
+    return items.map(function(a){ return '<div class="tl-item"><div class="tl-dot"></div><div><div class="tl-act">'+esc(LBL[a.action]||a.action)+(a.level_no?(' · Cấp '+a.level_no):'')+'</div><div class="tl-meta">'+esc(a.actor||"")+' · '+esc(fmt(a.action_time))+(a.previous_status&&a.new_status&&a.previous_status!==a.new_status?(' · '+esc(a.previous_status)+" → "+esc(a.new_status)):'')+'</div>'+(a.comment?('<div class="tl-cmt">'+esc(a.comment)+'</div>'):'')+'</div></div>'; }).join(""); }
+
+  // ---- action panel + modal (namespaced, delegated) ----
+  function actionPanelHTML(det){ var cap=det.capabilities||{}; var btns=[];
+    if(cap.can_submit){ return '<div class="actions"><button type="button" class="btn primary" data-act="submitdraft">Gửi yêu cầu</button><button type="button" class="btn" data-act="editdraft">Tiếp tục chỉnh sửa</button></div><div class="hint" style="margin-top:8px">Yêu cầu đang ở trạng thái nháp — chưa gửi phê duyệt.</div>'; }
+    if(cap.can_approve) btns.push('<button type="button" class="btn primary" data-act="approve">Duyệt</button>');
+    if(cap.can_request_information) btns.push('<button type="button" class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
+    if(cap.can_reject) btns.push('<button type="button" class="btn" data-act="reject">Từ chối</button>');
+    return btns.length? '<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
+  function handleActionClick(e){ var el=e.target&&e.target.closest?e.target.closest("[data-act]"):null; if(!el) return;
+    var a=el.getAttribute("data-act"); if(!a||el.disabled) return; if(document.querySelector(".ec-eiu-overlay")) return; e.preventDefault();
+    var det=state.detail||{}; var name=(det.business||{}).name||state.id;
+    if(a==="editdraft") return startEditDraft(det); if(a==="submitdraft") return doSubmitDraft(name);
+    if(a==="approve") return doApprove(name,det); if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name); }
+  function ensureActionHandlers(){ if(document.__eiuActBound) return; document.__eiuActBound=true; document.addEventListener("click", handleActionClick, true); }
+
+  function modal(title, bodyHTML, opts){ opts=opts||{}; var prevFocus=document.activeElement;
+    var ov=document.createElement("div"); ov.className="ec-eiu-overlay";
+    ov.innerHTML='<div class="ec-eiu-modal" role="dialog" aria-modal="true" aria-labelledby="eiu-modal-title"><div class="ec-eiu-modal-h" id="eiu-modal-title">'+esc(title)+'</div><div class="ec-eiu-modal-b">'+bodyHTML+'</div><div class="ec-eiu-modal-f"><button type="button" class="btn" data-x>Đóng</button><button type="button" class="btn primary" data-ok>'+esc(opts.okLabel||"Xác nhận")+'</button></div></div>';
+    (document.getElementById("ec-eiu-root")||document.body).appendChild(ov);
+    function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); if(prevFocus&&prevFocus.focus) try{prevFocus.focus();}catch(e){} }
+    var first=ov.querySelector(".ec-eiu-modal-b input,.ec-eiu-modal-b select,.ec-eiu-modal-b textarea")||ov.querySelector("[data-ok]"); if(first&&first.focus) try{first.focus();}catch(e){}
+    ov.addEventListener("keydown",function(e){ if(e.key==="Escape") close(); });
+    ov.querySelector("[data-x]").onclick=close; ov.addEventListener("click",function(e){ if(e.target===ov) close(); });
+    var ok=ov.querySelector("[data-ok]"); ok.onclick=function(){ if(!opts.onConfirm){ close(); return; } ok.disabled=true; var p=opts.onConfirm(ov); if(p&&p.then){ p.then(function(){ close(); }).catch(function(){ ok.disabled=false; }); } else { close(); } };
+    return {ov:ov, close:close}; }
+
+  function meshDetail(){ if(state.tab==="detail"&&state.id) renderDetail($("eiu-body")); }
+  function meshApprovals(){ if(state.tab==="my-approvals") renderMyApprovals($("eiu-body")); }
+  function summaryRows(det){ var b=det.business||{}; return '<div class="summary-row"><span>Employee</span><b>'+esc(b.employee_email||"—")+'</b></div><div class="summary-row"><span>Field to update</span><b>'+esc(b.field_to_update||"—")+'</b></div><div class="summary-row"><span>New value</span><b>'+esc(b.new_value||"—")+'</b></div>'; }
+  function doApprove(name,det){ modal("Duyệt yêu cầu", summaryRows(det)+'<div class="fld"><label>Ghi chú (không bắt buộc)</label><textarea id="m-cmt" rows="2"></textarea></div>', {okLabel:"Duyệt", onConfirm:function(ov){ var cmt=(ov.querySelector("#m-cmt").value||"");
+    return call("approve",{name:name,comment:cmt}).then(function(){ toast("Đã duyệt yêu cầu."); meshDetail(); meshApprovals(); }).catch(function(e){ toast(mapErr(e),true); meshDetail(); meshApprovals(); return Promise.reject(e); }); }}); }
+  function doReject(name){ modal("Từ chối yêu cầu", '<div class="banner err">Sau khi từ chối, yêu cầu sẽ kết thúc.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Từ chối", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
+    return call("reject",{name:name,comment:c}).then(function(){ toast("Đã từ chối."); meshDetail(); meshApprovals(); }).catch(function(e){ toast(mapErr(e),true); meshDetail(); meshApprovals(); return Promise.reject(e); }); }}); }
+  function doRequestInfo(name){ modal("Yêu cầu bổ sung thông tin", '<div class="banner info">Yêu cầu sẽ được trả lại người gửi để bổ sung.</div><div class="fld"><label>Nội dung cần bổ sung <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Gửi yêu cầu", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập nội dung.",true); return Promise.reject(); }
+    return call("request_information",{name:name,comment:c}).then(function(){ toast("Đã gửi yêu cầu bổ sung."); meshDetail(); meshApprovals(); }).catch(function(e){ toast(mapErr(e),true); meshDetail(); meshApprovals(); return Promise.reject(e); }); }}); }
+
+  function startEditDraft(det){ state.draft=Object.assign({}, det.business||{}); state.id=(det.business||{}).name; state.mode="create"; state.tab="create"; renderCreate($("eiu-body")); }
+  function doSubmitDraft(name){ if(state.busy)return; state.busy=true; var btns=Array.prototype.slice.call(document.querySelectorAll('[data-act="submitdraft"],[data-act="editdraft"]')); btns.forEach(function(b){ b.disabled=true; });
+    call("submit_request",{name:name}).then(function(){ toast("Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến HR duyệt."); meshDetail(); }).catch(function(e){ if(window.console&&console.error) console.error("EmployeeInfoUpdate submit error:",e); toast(mapErr(e),true); btns.forEach(function(b){ b.disabled=false; }); }).then(function(){ state.busy=false; }); }
+
+  function loadFormOptions(){ call("get_form_options").then(function(fo){ if(fo&&fo.fields_to_update&&fo.fields_to_update.length){ FIELD_OPTS=fo.fields_to_update; if(state.tab==="create") renderCreate($("eiu-body")); } }).catch(function(){}); }
+  function boot(){ ensureActionHandlers(); var t=$("eiu-tabs"); if(t){ t.addEventListener("click",function(e){ var b=e.target.closest("[data-tab]"); if(b&&!b.disabled){ state.page=0; go({tab:b.getAttribute("data-tab")}); } }); }
+    call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); loadFormOptions(); })
+    .catch(function(){ var bd=$("eiu-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
+
+  window.EmployeeInfoUpdate={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, modal:modal, validateSubmit:validateSubmit, titlePreview:titlePreview, stepLabel:stepLabel, doApprove:doApprove, doReject:doReject, doRequestInfo:doRequestInfo, startEditDraft:startEditDraft, FIELD_OPTS:FIELD_OPTS };
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>
