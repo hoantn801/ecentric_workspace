@@ -34,6 +34,15 @@ def gen_title(doc):
     return ("Payment Request - %s - %s" % (doc.get("payee_full_name") or "?", amt))[:180]
 
 
+def _norm_confirm(v):
+    """Normalize the details/attachments confirmation to the Select values 'Yes'/'No'. Accepts legacy
+    'Yes'/'No' and checkbox-style truthy values (1, '1', True, 'true', 'yes') so the field stays a
+    Select (no DocType type change, migrate-safe on existing 'Yes'/'No' records)."""
+    if v is True:
+        return "Yes"
+    return "Yes" if str(v or "").strip().lower() in ("yes", "1", "true") else "No"
+
+
 # ------------------------- permission-safe context (frappe.db only) ------------------------- #
 def _sm():
     return "System Manager" in frappe.get_roles(frappe.session.user)
@@ -310,6 +319,7 @@ def save_draft(name=None, payload=None):
     doc.employee = ctx["employee"]
     doc.department = doc.department or ctx["department"]
     doc.company = doc.company or ctx["company"]
+    doc.details_and_attachments_correct = _norm_confirm(doc.details_and_attachments_correct)
     doc.request_title = gen_title(doc)
     doc.save(ignore_permissions=True)
     return {"name": doc.name, "capabilities": _capabilities(user, doc.requested_by, _req_of(doc.name))}
@@ -326,12 +336,8 @@ def _validate_for_submit(doc):
             frappe.throw(_("Số tiền thanh toán phải lớn hơn 0."))
     except (TypeError, ValueError):
         frappe.throw(_("Số tiền thanh toán phải là số."))
-    # Required confirmation checkbox (stored as 0/1 on the business record for audit).
-    try:
-        confirmed = int(doc.details_and_attachments_correct or 0)
-    except (TypeError, ValueError):
-        confirmed = 1 if str(doc.details_and_attachments_correct).strip().lower() in ("1", "yes", "true") else 0
-    if not confirmed:
+    # Required confirmation (stored as the Select value 'Yes'/'No' on the business record for audit).
+    if _norm_confirm(doc.details_and_attachments_correct) != "Yes":
         frappe.throw(_("Vui lòng tích xác nhận thông tin và tệp đính kèm là chính xác trước khi gửi."))
     if doc.has_purchase_request == "Yes":
         if not (doc.purchase_request or "").strip():
