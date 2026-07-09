@@ -1,0 +1,157 @@
+# Copyright (c) 2026, eCentric and contributors
+"""Payment Request (Batch 8) backend tests - REAL-USER via frappe.set_user. Sequential chain
+Direct Manager -> Finance -> HOF -> CEO. Covers: submit + full chain, non-approver + missing-manager
+blocks, details_and_attachments_correct must be Yes, has_purchase_request Yes (linked PR must be
+Approved) / No (reason required), amount>0, required attachment.
+
+  bench --site <site> run-tests --module ecentric_workspace.approval_center.tests.test_payment_request
+"""
+import frappe
+from frappe.tests.utils import FrappeTestCase
+
+from ecentric_workspace.approval_center.api import payment_request as api
+from ecentric_workspace.approval_center.api import purchase_request as papi
+from ecentric_workspace.approval_center.payment_request import setup as psetup
+from ecentric_workspace.approval_center.purchase_request import setup as prsetup
+
+PFX = "ZZPAY_"
+FIN = PFX + "fin@example.com"
+HOF = PFX + "hof@example.com"
+CEO = PFX + "ceo@example.com"
+
+
+def _user(email, roles=("Employee",)):
+    if not frappe.db.exists("User", email):
+        u = frappe.get_doc({"doctype": "User", "email": email, "first_name": email.split("@")[0],
+                            "user_type": "System User", "enabled": 1, "send_welcome_email": 0})
+        u.flags.no_welcome_mail = True
+        u.insert(ignore_permissions=True)
+        u.add_roles(*roles)
+    return email
+
+
+def _company():
+    if not frappe.db.exists("Company", "ZZPAY Co"):
+        frappe.get_doc({"doctype": "Company", "company_name": "ZZPAY Co", "abbr": "ZZPAYC",
+                        "default_currency": "VND"}).insert(ignore_permissions=True)
+    return "ZZPAY Co"
+
+
+def _dept():
+    if not frappe.db.exists("Department", {"department_name": "ZZPAY Dept"}):
+        return frappe.get_doc({"doctype": "Department", "department_name": "ZZPAY Dept",
+                               "company": _company()}).insert(ignore_permissions=True).name
+    return frappe.db.get_value("Department", {"department_name": "ZZPAY Dept"}, "name")
+
+
+def _employee(user, reports_to=None):
+    n = frappe.db.get_value("Employee", {"user_id": user}, "name")
+    if not n:
+        n = frappe.get_doc({"doctype": "Employee", "employee_name": user.split("@")[0], "user_id": user,
+                            "company": _company(), "status": "Active", "gender": "Other",
+                            "date_of_joining": "2020-01-01", "date_of_birth": "1990-01-01"}).insert(
+            ignore_permissions=True).name
+    if reports_to:
+        frappe.db.set_value("Employee", n, "reports_to", reports_to)
+    return n
+
+
+def _ensure():
+    if not frappe.db.exists("EC Approval Type", "PAYMENT_REQUEST"):
+        frappe.get_doc({"doctype": "EC Approval Type", "approval_code": "PAYMENT_REQUEST",
+                        "approval_title": "Payment Request", "card_status": "Coming Soon",
+                        "process_status": "Discovery"}).insert(ignore_permissions=True)
+    _user(FIN); _user(HOF); _user(CEO)
+    psetup.setup_payment_request_v1(finance=[FIN], hof=[HOF], ceo=[CEO], apply=1)
+    frappe.db.set_value("EC Approval Process", "PAYMENT_REQUEST-V1", "status", "Active")
+
+
+def _draft(user, **over):
+    frappe.set_user(user)
+    payload = {"reason": "Vendor invoice", "payment_amount": 3000000, "payment_date": "2026-09-15",
+               "payee_full_name": "ACME Ltd", "account_bank": "VCB", "bank_account_number": "0011",
+               "has_purchase_request": "No", "no_purchase_request_reason": "Direct expense",
+               "is_cost_valid": "Yes", "details_and_attachments_correct": "Yes",
+               "request_attachment": "/private/files/inv.pdf"}
+    payload.update(over)
+    name = api.save_draft(payload=frappe.as_json(payload))["name"]
+    frappe.set_user("Administrator")
+    return name
+
+
+class TestPaymentRequest(FrappeTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.addClassCleanup(lambda: frappe.set_user("Administrator"))
+        _ensure()
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def _ar(self, name):
+        return frappe.db.get_value(api.BIZ, name, "approval_request")
+
+    def test_full_chain_no_pr(self):
+        mgr = _user(PFX + "mgr@example.com")
+        req = _user(PFX + "req@example.com"); _employee(req, reports_to=_employee(mgr))
+        outsider = _user(PFX + "outsider@example.com")
+        name = _draft(req)
+        frappe.set_user(req); api.submit_request(name); frappe.set_user("Administrator")
+        ar = self._ar(name)
+        frappe.set_user(outsider)
+        with self.assertRaises(Exception):
+            api.approve(name)
+        frappe.set_user("Administrator")
+        for u in (mgr, FIN, HOF, CEO):
+            frappe.set_user(u); api.approve(name); frappe.set_user("Administrator")
+        self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "approval_status"), "Approved")
+
+    def test_details_gate_and_conditionals(self):
+        mgr = _user(PFX + "vmgr@example.com")
+        req = _user(PFX + "vreq@example.com"); _employee(req, reports_to=_employee(mgr))
+        # details_and_attachments_correct = No -> blocked
+        n1 = _draft(req, details_and_attachments_correct="No")
+        frappe.set_user(req)
+        with self.assertRaises(Exception):
+            api.submit_request(n1)
+        frappe.set_user("Administrator")
+        # has_purchase_request = No but no reason -> blocked
+        n2 = _draft(req, has_purchase_request="No", no_purchase_request_reason="")
+        frappe.set_user(req)
+        with self.assertRaises(Exception):
+            api.submit_request(n2)
+        frappe.set_user("Administrator")
+        # has_purchase_request = Yes but linked PR not Approved -> blocked
+        if not frappe.db.exists("EC Approval Type", "PURCHASE_REQUEST"):
+            frappe.get_doc({"doctype": "EC Approval Type", "approval_code": "PURCHASE_REQUEST",
+                            "approval_title": "Purchase Request", "card_status": "Coming Soon"}).insert(ignore_permissions=True)
+        prsetup.setup_purchase_request_v1(finance=[FIN], hof=[HOF], ceo=[CEO], apply=1)
+        frappe.db.set_value("EC Approval Process", "PURCHASE_REQUEST-V1", "status", "Active")
+        frappe.set_user(req)
+        pr = papi.save_draft(payload=frappe.as_json({
+            "department": _dept(), "justification": "x", "purchase_details": "x", "payment_amount": 1000,
+            "payment_term": "Pay within 7 days", "supplier_type": "Existing supplier", "supplier_name": "S",
+            "additional_notes_comments": "n", "estimated_purchase_date": "2026-09-01",
+            "estimated_delivery_date": "2026-09-02", "request_attachment": "/f.pdf"}))["name"]
+        papi.submit_request(pr)                                  # PR now Pending (not Approved)
+        n3 = _draft(req, has_purchase_request="Yes", purchase_request=pr, no_purchase_request_reason="")
+        with self.assertRaises(Exception):
+            api.submit_request(n3)                               # linked PR not Approved -> blocked
+        frappe.set_user("Administrator")
+
+    def test_missing_manager_and_amount_and_attachment(self):
+        req = _user(PFX + "areq@example.com"); _employee(req)   # no manager
+        n = _draft(req)
+        frappe.set_user(req)
+        with self.assertRaises(Exception):
+            api.submit_request(n)                                # missing manager
+        frappe.set_user("Administrator")
+        mgr = _user(PFX + "amgr@example.com")
+        req2 = _user(PFX + "areq2@example.com"); _employee(req2, reports_to=_employee(mgr))
+        for over in ({"payment_amount": 0}, {"request_attachment": ""}):
+            nn = _draft(req2, **over)
+            frappe.set_user(req2)
+            with self.assertRaises(Exception):
+                api.submit_request(nn)
+            frappe.set_user("Administrator")
