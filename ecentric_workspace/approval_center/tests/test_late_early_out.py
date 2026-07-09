@@ -64,7 +64,7 @@ def _ensure_process():
 
 def _draft(user, **over):
     frappe.set_user(user)
-    payload = {"applied_date": "2026-08-10", "check_time": "10 AM", "reason": "Traffic"}
+    payload = {"applied_date": "2026-08-10", "request_type": "Đi trễ", "check_time": "10 AM", "reason": "Traffic"}
     payload.update(over)
     name = api.save_draft(payload=frappe.as_json(payload))["name"]
     frappe.set_user("Administrator")
@@ -94,7 +94,7 @@ class TestLateEarlyOut(FrappeTestCase):
         ar = self._ar(name)
         self.assertEqual(frappe.db.get_value("EC Approval Request", ar, "current_level"), 1)
         self.assertTrue(_shared_with(name, mgr) and _open_todo(name, mgr))
-        self.assertTrue((frappe.db.get_value(api.BIZ, name, "request_title") or "").startswith("Late/Early - 2026-08-10 - 10 AM"))
+        self.assertTrue((frappe.db.get_value(api.BIZ, name, "request_title") or "").startswith("Đi trễ - 2026-08-10 - 10 AM"))
         frappe.set_user(outsider)
         with self.assertRaises(Exception):
             api.approve(name)
@@ -121,4 +121,4 @@ class TestLateEarlyOut(FrappeTestCase):
         frappe.set_user(orphan)
         with self.assertRaises(Exception):
             api.submit_request(n3)
-        frappe.set_user("Administrator")
+        frappe

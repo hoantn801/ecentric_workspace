@@ -127,6 +127,13 @@ async function run() {
   ok(/#ec-leave-root .content\{[^}]*max-width:1200px[^}]*margin:0 auto/.test(HTML), "balanced width");
   ok(/#ec-leave-root .leave-formwrap\{[^}]*max-width:none/.test(HTML), "leave-formwrap max-width none");
 
+  // A1 (Batch-7): friendly backend message extracted from Frappe error shapes, not only e.message
+  { var _mgr="Không xác định được Quản lý trực tiếp của bạn. Vui lòng liên hệ HR/Admin để cập nhật báo cáo cho user trước khi gửi yêu cầu.";
+    var _sm={ responseJSON:{ _server_messages: JSON.stringify([ JSON.stringify({ message:_mgr, title:"Message" }) ]) } };
+    ok(/Quản lý trực tiếp/.test(w.LeaveRequest.mapErr(_sm)), "A1: friendly _server_messages surfaced (not generic)");
+    ok(w.LeaveRequest.mapErr(_sm) !== "Đã có lỗi. Vui lòng thử lại.", "A1: does not fall back to generic toast");
+    ok(/Quản lý trực tiếp/.test(w.LeaveRequest.mapErr({ responseJSON:{ exception:"frappe.exceptions.ValidationError: "+_mgr } })), "A1: exception shape also extracted"); }
+
   console.log(fails === 0 ? "\nALL LEAVE PAGE TESTS PASSED" : "\n" + fails + " FAILED");
   process.exit(fails === 0 ? 0 : 1);
 }

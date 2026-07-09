@@ -14,8 +14,9 @@ from ecentric_workspace.approval_center.engine import service as engine
 BUSINESS_DT = "EC Late Early Out Request"
 APPROVAL_TYPE = "LATE_EARLY_OUT"
 CHECK_TIMES = ["10 AM", "11 AM", "12 PM", "1 PM", "2 PM", "3 PM", "4 PM", "5 PM", "Other"]
-MATERIAL_FIELDS = ["applied_date", "check_time", "check_time_other", "reason"]
-REQUIRED_AT_SUBMIT = ["applied_date", "check_time", "reason"]
+REQUEST_TYPES = ["Đi trễ", "Về sớm"]
+MATERIAL_FIELDS = ["request_type", "applied_date", "check_time", "check_time_other", "reason"]
+REQUIRED_AT_SUBMIT = ["request_type", "applied_date", "check_time", "reason"]
 
 
 def _signature(doc):
@@ -39,7 +40,9 @@ def _direct_manager_user(user):
 
 def gen_title(doc):
     t = (doc.get("check_time_other") if doc.get("check_time") == "Other" else doc.get("check_time")) or "?"
-    return ("Late/Early - %s - %s" % (doc.get("applied_date") or "?", t))[:180]
+    rt = doc.get("request_type")
+    prefix = rt if rt in REQUEST_TYPES else "Late/Early"  # fallback keeps legacy records readable
+    return ("%s - %s - %s" % (prefix, doc.get("applied_date") or "?", t))[:180]
 
 
 @frappe.whitelist(methods=["POST"])
@@ -60,6 +63,8 @@ def submit(name):
     missing = [f for f in REQUIRED_AT_SUBMIT if not doc.get(f)]
     if missing:
         frappe.throw(_("Vui long nhap day du cac truong bat buoc truoc khi gui."))
+    if doc.get("request_type") not in REQUEST_TYPES:
+        frappe.throw(_("Vui long chon Loai yeu cau (Di tre / Ve som)."))
     if doc.check_time not in CHECK_TIMES:
         frappe.throw(_("Gio check-in/check-out khong hop le."))
     if doc.check_time == "Other" and not (doc.check_time_other or "").strip():

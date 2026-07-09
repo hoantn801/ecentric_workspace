@@ -247,19 +247,29 @@
     if(!(d.estimated_arrival_time)) errs.estimated_arrival_time="Vui lòng chọn thời gian dự kiến nhận.";
     if(!((d.sample_detail||"").toString().trim())) errs.sample_detail="Vui lòng nhập chi tiết sample.";
     return Object.keys(errs).length?errs:null; }
-  function mapErr(e){ var m=(e&&e.message)||"";
+  function extractServerMsg(e){ if(!e) return "";
+    function _strip(s){ return String(s==null?"":s).replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim(); }
+    var sm=e._server_messages||(e.responseJSON&&e.responseJSON._server_messages);
+    if(sm){ try{ var arr=(typeof sm==="string")?JSON.parse(sm):sm; for(var i=0;i<arr.length;i++){ var f=arr[i], o=f; if(typeof f==="string"){ try{ o=JSON.parse(f); }catch(_a){ o={message:f}; } } var mm=o&&(o.message||o.title); if(mm) return _strip(mm); } }catch(_b){} }
+    var rj=e.responseJSON||{};
+    if(typeof e.message==="string"&&e.message) return _strip(e.message);
+    if(typeof rj.message==="string"&&rj.message) return _strip(rj.message);
+    if(rj.message&&rj.message.message) return _strip(rj.message.message);
+    var exc=rj.exception||e.exception||""; if(exc){ var p=String(exc).split(": "); return _strip(p.length>1?p.slice(1).join(": "):exc); }
+    return ""; }
+  function mapErr(e){ var m=extractServerMsg(e);
     if(/IntegrityError|pymysql|Duplicate entry|must be unique|OperationalError|ProgrammingError|Traceback|1062|1048/i.test(m)) return "Không thể thực hiện do dữ liệu không hợp lệ. Vui lòng kiểm tra lại hoặc liên hệ quản trị viên.";
     if(/pending approver|not a pending|không còn quyền/i.test(m)) return "Bạn không còn quyền thực hiện hành động này.";
     if(/no further action|is Approved|is Rejected|is Cancelled|vừa được cập nhật/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Dữ liệu đã được làm mới.";
     if(/mandatory|required|bắt buộc|Vui lòng|Quản lý trực tiếp|đầy đủ/i.test(m)) return m;
     if(/access|permission|allowed|quyền/i.test(m)) return "Bạn không còn quyền thực hiện hành động này.";
     return m || "Đã có lỗi. Vui lòng thử lại."; }
-  function resubmitErr(e){ var m=(e&&e.message)||"";
+  function resubmitErr(e){ var m=extractServerMsg(e);
     if(/no further action|is Approved|is Rejected|is Cancelled|moved|next level|vừa được cập nhật/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Vui lòng tải lại.";
     if(/Information Required|is mandatory|is required|bắt buộc|Vui lòng|permission|quyền/i.test(m)) return m;
     return "Không thể gửi lại yêu cầu. Vui lòng thử lại hoặc liên hệ quản trị viên."; }
-  function friendlyErr(e){ var m=(e&&e.message)||""; if(/Quản lý trực tiếp|manager/i.test(m)) return "Bạn chưa có Quản lý trực tiếp trong hệ thống. Vui lòng liên hệ HR/Admin để cập nhật trước khi gửi yêu cầu."; return mapErr(e); }
-  function applyBackendError(e){ var m=(e&&e.message)||"";
+  function friendlyErr(e){ var m=extractServerMsg(e); if(/Quản lý trực tiếp|manager/i.test(m)) return "Bạn chưa có Quản lý trực tiếp trong hệ thống. Vui lòng liên hệ HR/Admin để cập nhật trước khi gửi yêu cầu."; return mapErr(e); }
+  function applyBackendError(e){ var m=extractServerMsg(e);
     if(/Quản lý trực tiếp/i.test(m)){ toast(m,true); return true; }
     if(/đầy đủ các trường bắt buộc|tep dinh kem|loai hoat dong khac/i.test(m)){ showFieldErrors(validateSubmit()||{}); toast(m,true); return true; }
     return false; }

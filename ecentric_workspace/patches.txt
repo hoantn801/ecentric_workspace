@@ -28,6 +28,8 @@ ecentric_workspace.pm.patches.p011_pm_workflow_reopen_cancelled
 ecentric_workspace.pm.patches.p012_pm_task_time
 ecentric_workspace.pm.patches.p013_pm_assignment_request
 ecentric_workspace.pm.patches.p014_full_reset_pm_test_data
+ecentric_workspace.pm.patches.p015_pm_member_delete_lockdown
+ecentric_workspace.pm.patches.p016_pm_member_for_all_enabled_users
 
 ecentric_workspace.approval_center.patches.p001_seed_approval_categories
 ecentric_workspace.approval_center.patches.p002_seed_approval_types

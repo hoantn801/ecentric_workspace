@@ -60,12 +60,16 @@ def _dedupe_transitions(raw):
     return out
 
 
-def _filter_transitions(deduped, leader, is_assignee):
-    """Business layer ON TOP of the exact workflow transitions: leader -> all; assigned member
-    -> operational only (no administrative Cancel); otherwise none (read-only)."""
+def _filter_transitions(deduped, leader, can_act):
+    """Business layer ON TOP of the exact workflow transitions: leader -> all; a member who can
+    ACCESS the task -> operational only (no administrative Cancel); otherwise none (read-only).
+
+    ADOPTION (G5.2): `can_act` widened from assignee-only to "any accessor". A PM Member may run
+    normal work transitions on any PM task they can view; Cancel remains leader-only. The PM Task
+    Workflow roles already exclude PM Member from Cancel, so this is consistent + defense-in-depth."""
     if leader:
         return deduped
-    if is_assignee:
+    if can_act:
         return [t for t in deduped if t["action"] != _CANCEL_ACTION]
     return []
 
@@ -848,7 +852,9 @@ def transitions_bulk(task_names):
         out[nm] = {
             "current": doc.get("workflow_state"),
             "terminal": pmperm.is_task_terminal(doc),
-            "transitions": _filter_transitions(deduped, leader, pmperm.is_task_assignee(d, user)),
+            # ADOPTION (G5.2): can_view_task already passed above (continue-guard) => the caller is
+            # an accessor and may run operational transitions on this task. Cancel stays leader-only.
+            "transitions": _filter_transitions(deduped, leader, True),
         }
     return {"map": out}
 
@@ -868,19 +874,16 @@ def set_status(name, action):
     if not pmperm.can_view_task(d, user):
         frappe.throw(_("Not permitted to change this task."), frappe.PermissionError)
     leader = pmperm.can_transition_any_task(user)
-    is_asg = pmperm.is_task_assignee(d, user)
-    # G4.10: leader may run any transition; assigned member -> operational only (no Cancel);
-    # non-assigned non-leader -> none. (Workflow roles + the before_save guard also enforce
-    # this for the GENERIC apply_workflow path; this is the friendly-message front door.)
-    if not leader:
-        if not is_asg:
-            frappe.throw(_("Bạn chỉ có thể đổi trạng thái nhiệm vụ được giao cho mình."),
-                         frappe.PermissionError)
-        if action == _CANCEL_ACTION:
-            frappe.throw(_("Chỉ quản lý mới được huỷ nhiệm vụ."), frappe.PermissionError)
+    # ADOPTION (G5.2): a PM Member may run OPERATIONAL transitions on any task they can ACCESS
+    # (can_view_task enforced above) -- not only tasks assigned to them. Administrative Cancel
+    # stays leader-only. The PM Task Workflow roles (PM Member excluded from Cancel) and the
+    # before_save guard enforce the same, so apply_workflow is defense-in-depth.
+    if not leader and action == _CANCEL_ACTION:
+        frappe.throw(_("Chỉ quản lý mới được huỷ nhiệm vụ."), frappe.PermissionError)
     # exact current transitions from the workflow backend (re-read live -> catches stale UI).
+    # can_act=True for a non-leader here because can_view_task passed above (accessor may act).
     _allowed = {t["action"] for t in _filter_transitions(
-        _dedupe_transitions(_wf_get_transitions(doc)), leader, is_asg)}
+        _dedupe_transitions(_wf_get_transitions(doc)), leader, True)}
     if action not in _allowed:
         frappe.throw(_(_STALE_MSG))
     # G4.8: cannot complete a parent while it still has open sub-tasks (canonical terminal check).
@@ -988,6 +991,8 @@ def pm_task_transition_guard(doc, method=None):
         return
     if new_state == "Cancelled":
         frappe.throw(_("Chỉ quản lý mới được huỷ nhiệm vụ."), frappe.PermissionError)
-    if not pmperm.is_task_assignee(doc, user):
-        frappe.throw(_("Bạn chỉ có thể đổi trạng thái nhiệm vụ được giao cho mình."),
+    # ADOPTION (G5.2): a non-leader may transition (non-Cancel) any task they can ACCESS, not only
+    # tasks assigned to them. Cancel already blocked above; workflow roles are the outer gate.
+    if not pmperm.can_view_task(doc.as_dict(), user):
+        frappe.throw(_("Bạn không có quyền đổi trạng thái nhiệm vụ này."),
                      frappe.PermissionError)

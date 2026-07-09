@@ -1,23 +1,23 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Permission-safe read + write API for HR Activity (form #8). Mirrors AI Topup
-conventions; NO fulfillment. Backend is authoritative; capability flags are advisory
-(writes re-validate in the engine/service). Friendly Vietnamese errors only."""
+"""Permission-safe read + write API for Employee information update (Batch 7). Fixed-participant
+single level; NO fulfillment. Backend authoritative; capability flags advisory.
+Friendly Vietnamese errors only. Approval-only v1 (no master-data mutation)."""
 import frappe
 from frappe import _
-
 from ecentric_workspace.approval_center.api._common import requester_display
 
-BIZ = "EC Late Early Out Request"
-APPROVAL_TYPE = "LATE_EARLY_OUT"
+BIZ = "EC Employee Information Update Request"
+APPROVAL_TYPE = "EMPLOYEE_INFO_UPDATE"
 MAX_PAGE = 50
 OPEN = ("Pending", "Information Required")
 TERMINAL = ("Approved", "Rejected", "Cancelled")
 
-_EDITABLE_DRAFT = ("request_type", "applied_date", "check_time", "check_time_other", "reason",
-                   "request_attachment", "department", "company")
+_EDITABLE_DRAFT = ("employee_email", "field_to_update", "field_to_update_other", "current_value", "new_value", "request_attachment", "department", "company")
 
 _STATUS_LABEL = {"Draft": "Nháp", "Pending": "Đang phê duyệt", "Information Required": "Cần bổ sung",
                  "Approved": "Đã duyệt", "Rejected": "Bị từ chối", "Cancelled": "Đã hủy"}
+
+_LIST_COLS = ['employee_email', 'field_to_update']
 
 
 def _sm():
@@ -27,14 +27,10 @@ def _sm():
 def _employee_ctx(user=None):
     user = user or frappe.session.user
     emp = frappe.db.get_value("Employee", {"user_id": user},
-                              ["name", "employee_name", "department", "company", "reports_to"], as_dict=True)
-    manager_user = None
-    if emp and emp.reports_to:
-        manager_user = frappe.db.get_value("Employee", emp.reports_to, "user_id")
+                              ["name", "employee_name", "department", "company"], as_dict=True)
     return {"user": user, "employee": emp.name if emp else None,
             "employee_name": emp.employee_name if emp else None,
-            "department": emp.department if emp else None, "company": emp.company if emp else None,
-            "manager_user": manager_user, "manager_resolvable": bool(manager_user)}
+            "department": emp.department if emp else None, "company": emp.company if emp else None}
 
 
 def _has_any_approver_row(user=None):
@@ -112,9 +108,6 @@ def _active_level_count():
     return len(_process_preview(APPROVAL_TYPE))
 
 
-# --------------------------------------------------------------------------- #
-# Read
-# --------------------------------------------------------------------------- #
 @frappe.whitelist()
 def get_bootstrap():
     user = frappe.session.user
@@ -126,8 +119,7 @@ def get_bootstrap():
 
 @frappe.whitelist()
 def get_form_options():
-    return {"check_times": ["10 AM", "11 AM", "12 PM", "1 PM", "2 PM", "3 PM",
-                           "4 PM", "5 PM", "Other"]}
+    return {'field_to_update_options': ['Personal email', 'Bank account', 'Hospital code', 'Mobile phone', 'Birthplace', 'Citizen ID number', 'Citizen ID issue date', 'Citizen ID issue place', 'Permanent address', 'Temporary address', 'Position (C&B use only)', 'Other']}
 
 
 @frappe.whitelist()
@@ -135,24 +127,21 @@ def list_my_requests(filters=None, start=0, page_length=20):
     user = frappe.session.user
     flt = {"requested_by": user}
     f = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
-    if f.get("check_time"):
-        flt["check_time"] = f["check_time"]
     if f.get("from_date") and f.get("to_date"):
         flt["creation"] = ["between", [f["from_date"], f["to_date"]]]
     page_length = min(int(page_length or 20), MAX_PAGE)
     total = frappe.db.count(BIZ, flt)
     rows = frappe.get_all(BIZ, filters=flt,
-                          fields=["name", "request_title", "request_type", "applied_date", "check_time",
-                                  "check_time_other", "approval_request", "creation", "modified"],
+                          fields=["name", "request_title"] + _LIST_COLS + ["approval_request", "creation", "modified"],
                           limit_start=int(start), limit_page_length=page_length, order_by="modified desc")
     alc = None
     for r in rows:
+        r["requested_at"] = r.get("creation")
+        r["requester_name"] = requester_display(user)
         ar = r.approval_request and frappe.db.get_value(
             "EC Approval Request", r.approval_request, ["approval_status", "current_level"], as_dict=True)
         r["approval_status"] = ar.approval_status if ar else "Draft"
         r["current_level"] = ar.current_level if ar else 0
-        r["requested_at"] = r.get("creation")
-        r["requester_name"] = requester_display(user)
         if r.approval_request:
             r["total_levels"] = frappe.db.count("EC Approval Request Level",
                                                 {"approval_request": r.approval_request})
@@ -185,24 +174,22 @@ def list_need_my_approval(section="pending"):
         if section == "pending" and (req.approval_status not in OPEN or req.current_level != r.level_no):
             continue
         biz = frappe.db.get_value(BIZ, req.reference_name,
-                                  ["name", "request_title", "request_type", "applied_date", "check_time",
-                                   "check_time_other", "department", "creation"], as_dict=True)
+                                  ["name", "request_title"] + _LIST_COLS + ["department", "creation"], as_dict=True)
         if biz:
-            cur_name = (frappe.db.get_value("EC Approval Request Level",
-                        {"approval_request": r.approval_request, "level_no": req.current_level}, "level_name")
-                        if req.current_level else None)
+            biz.update({"approval_request": r.approval_request, "level_no": r.level_no,
+                        "approval_status": req.approval_status, "requested_by": req.requested_by,
+                        "my_status": r.status,
+                        "total_levels": frappe.db.count("EC Approval Request Level",
+                                                        {"approval_request": r.approval_request}),
+                        "level_name": frappe.db.get_value("EC Approval Request Level",
+                                        {"approval_request": r.approval_request, "level_no": r.level_no},
+                                        "level_name")})
             biz["requested_at"] = biz.get("creation")
             biz["requester_name"] = requester_display(req.requested_by)
-            biz.update({"approval_request": r.approval_request, "level_no": r.level_no,
-                        "approval_status": req.approval_status, "current_level": req.current_level,
-                        "current_level_name": cur_name, "requested_by": req.requested_by, "my_status": r.status,
-                        "total_levels": frappe.db.count("EC Approval Request Level",
-                                                        {"approval_request": r.approval_request})})
             out.append(biz)
     return {"rows": out}
 
 
-# keep AI-Topup-style alias too
 list_my_approvals = list_need_my_approval
 
 
@@ -248,13 +235,9 @@ def get_detail(name):
     }
 
 
-# alias
 get_request_detail = get_detail
 
 
-# --------------------------------------------------------------------------- #
-# Write
-# --------------------------------------------------------------------------- #
 @frappe.whitelist(methods=["POST"])
 def save_draft(name=None, payload=None):
     user = frappe.session.user
@@ -276,7 +259,7 @@ def save_draft(name=None, payload=None):
     doc.employee = ctx["employee"]
     doc.department = doc.department or ctx["department"]
     doc.company = doc.company or ctx["company"]
-    from ecentric_workspace.approval_center.late_early_out import service as _svc
+    from ecentric_workspace.approval_center.employee_info_update import service as _svc
     doc.request_title = _svc.gen_title(doc)
     doc.save(ignore_permissions=True)
     return {"name": doc.name, "capabilities": _capabilities(user, doc, _req_of(doc.name))}
@@ -284,7 +267,7 @@ def save_draft(name=None, payload=None):
 
 @frappe.whitelist(methods=["POST"])
 def submit_request(name):
-    from ecentric_workspace.approval_center.late_early_out import service as svc
+    from ecentric_workspace.approval_center.employee_info_update import service as svc
     prev = frappe.flags.mute_messages
     frappe.flags.mute_messages = True
     try:
@@ -328,7 +311,7 @@ def request_information(name, comment=None):
 
 @frappe.whitelist(methods=["POST"])
 def resubmit(name, payload=None):
-    from ecentric_workspace.approval_center.late_early_out import service as svc
+    from ecentric_workspace.approval_center.employee_info_update import service as svc
     if payload:
         save_draft(name=name, payload=payload)
     res = svc.resubmit(name)

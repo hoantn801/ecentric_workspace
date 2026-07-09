@@ -38,7 +38,10 @@ def execute():
         "permissions": [
             {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
             {"role": "PM Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
-            {"role": "PM Member", "read": 1, "write": 1, "create": 1, "delete": 1},
+            # PM Member: NO delete. Rules are soft-cancelled via the service layer
+            # (recurrence.cancel -> status=Cancelled), never hard-deleted by members.
+            # Delete stays PM Manager / System Manager only.
+            {"role": "PM Member", "read": 1, "write": 1, "create": 1, "delete": 0},
         ],
     }).insert(ignore_permissions=True)
     frappe.clear_cache()

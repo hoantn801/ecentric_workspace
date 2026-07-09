@@ -18,7 +18,9 @@ import frappe
 _PERMS = [
     {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
     {"role": "PM Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
-    {"role": "PM Member", "read": 1, "write": 1, "create": 1, "delete": 1},
+    # PM Member: NO delete on shared checklist templates (admin-ish config).
+    # Delete stays PM Manager / System Manager only.
+    {"role": "PM Member", "read": 1, "write": 1, "create": 1, "delete": 0},
 ]
 
 

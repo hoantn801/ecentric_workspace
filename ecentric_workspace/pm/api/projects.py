@@ -136,14 +136,13 @@ def detail(name):
 @frappe.whitelist()
 def create(project_name, manager=None, department=None, expected_start_date=None,
            expected_end_date=None, priority=None, description=None):
-    """Create a Project. LEADER-ONLY (Management dept or System Manager) — Project is a
-    master object. Additive, native Project fields + existing custom ec_manager /
-    ec_department (Link Department). No schema change.
+    """Create a Project. ADOPTION-PHASE POLICY (G5.2): any enabled user with PM access may create a
+    Project (Project DocPerm 'create' is granted to PM Member; delete/admin stay PM Manager/System
+    Manager only). The creator becomes the project's ec_manager by default so they can see + manage
+    it. Additive, native Project fields + existing custom ec_manager / ec_department. No schema.
     """
-    pmperm.require_pm_access()
+    pmperm.require_pm_access()  # any enabled user holding a PM role (PM Member/PM Manager/System Manager)
     user = frappe.session.user
-    if not pmperm.can_see_all_pm_data(user):
-        frappe.throw(frappe._("Only PM leaders can create projects."), frappe.PermissionError)
     if not project_name:
         frappe.throw(frappe._("Project name is required."))
     if (expected_start_date and expected_end_date
@@ -161,7 +160,7 @@ def create(project_name, manager=None, department=None, expected_start_date=None
         "expected_end_date": expected_end_date or None,
         "priority": priority or None,
         "notes": description or None,
-        "ec_manager": manager or None,        # existing custom field (Link User)
+        "ec_manager": manager or user,        # G5.2: default creator as manager so they can see/manage
         "ec_department": department or None,   # existing custom field (Link Department)
     })
     doc.insert()  # honors DocPerm 'create' + audit; ec_manager/ec_department validated by Frappe

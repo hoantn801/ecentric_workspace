@@ -1013,7 +1013,7 @@
       var depts=res[1];if(!Array.isArray(depts)){depts=(depts&&depts.message)||[];}
       if(!depts.length){var seen={};depts=[];(window._pm_projects).forEach(function(p){if(p.ec_department&&!seen[p.ec_department]){seen[p.ec_department]=1;depts.push({name:p.ec_department,department_name:p.ec_department});}});} /* fallback: derive from projects if Department read unavailable */
       window._pm_departments=depts;var view=pmProjView();
-      c.innerHTML=head("Dự án",(r.total||0)+" dự án trong phạm vi của bạn",(window._isLeader?'<button class="pm-btn primary" id="pm-newproj"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Dự án mới</button>':''))+
+      c.innerHTML=head("Dự án",(r.total||0)+" dự án trong phạm vi của bạn",'<button class="pm-btn primary" id="pm-newproj"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Dự án mới</button>')+ /* G5.2 adoption policy: any PM user can create a Project (backend still validates; delete stays leader-only) */
         '<div class="project-toolbar"><span class="pm-vtoggle" id="pm-vtoggle"><button data-pv="card"'+(view==="card"?' class="active"':'')+'>Thẻ</button><button data-pv="list"'+(view==="list"?' class="active"':'')+'>Danh sách</button></span>'+
         '<div class="project-toolbar-r"><input class="pm-input" id="pm-pq" placeholder="Tìm dự án..."><select class="pm-sel" id="pm-pf"><option value="">Tất cả trạng thái</option><option>Open</option><option>Completed</option><option>Cancelled</option></select><select class="pm-sel" id="pm-pdept">'+pmDeptFilterOptions("")+'</select></div></div>'+
         '<div id="pm-ptbl"></div>';
@@ -1596,12 +1596,12 @@
       pmDecompWire(name,t.project); loadSubtree(name,t.project,pmTerminal(t)); /* G4.8: PHÂN RÃ tabs + nested subtask tree */
       loadWorktime(name,pmTerminal(t)); loadRecurrence(name); loadComments(name); loadChecklist(name,t.workflow_state);
       if(el("pm-cmt-send"))el("pm-cmt-send").onclick=function(){var v=el("pm-cmt-input").value.trim();if(!v){toast("Nhập bình luận",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang gửi...";
-        api("frappe.client.insert",{doc:{doctype:"Comment",comment_type:"Comment",reference_doctype:"Task",reference_name:name,content:v}}).then(function(){el("pm-cmt-input").value="";loadComments(name);btn.disabled=false;btn.textContent="Gửi";}).catch(function(e){toast("Lỗi gửi bình luận: "+errOf(e),true);btn.disabled=false;btn.textContent="Gửi";});};
+        api(PM+"comments.add",{reference_doctype:"Task",reference_name:name,content:v}).then(function(){el("pm-cmt-input").value="";loadComments(name);btn.disabled=false;btn.textContent="Gửi";}).catch(function(e){toast("Lỗi gửi bình luận: "+errOf(e),true);btn.disabled=false;btn.textContent="Gửi";});};
       if(el("pm-cmt-input"))el("pm-cmt-input").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(el("pm-cmt-send"))el("pm-cmt-send").click();}});
     }).catch(function(e){errBox(c,e);});}
 
   function loadComments(task){var b=el("pm-comments");if(!b)return;
-    api("frappe.client.get_list",{doctype:"Comment",filters:{reference_doctype:"Task",reference_name:task,comment_type:"Comment"},fields:["name","content","owner","creation"],order_by:"creation asc",limit_page_length:50}).then(function(rows){if(el("pm-comments"))renderComments(el("pm-comments"),rows||[]);}).catch(function(e){if(el("pm-comments"))el("pm-comments").innerHTML='<div style="font-size:12.5px;color:var(--gray-400);padding:4px 0">Không tải được bình luận.</div>';});}
+    api(PM+"comments.list",{reference_doctype:"Task",reference_name:task}).then(function(r){if(el("pm-comments"))renderComments(el("pm-comments"),(r&&r.rows)||[]);}).catch(function(e){if(el("pm-comments"))el("pm-comments").innerHTML='<div style="font-size:12.5px;color:var(--gray-400);padding:4px 0">Không tải được bình luận.</div>';});}
   function renderComments(b,rows){if(!rows.length){b.innerHTML='<div style="font-size:12.5px;color:var(--gray-400);padding:4px 0">Chưa có bình luận.</div>';return;}
     b.innerHTML=rows.map(function(cm){var who=(cm.owner||"").split("@")[0];return '<div class="pm-cmt-card"><div class="pm-cmt-head"><span class="pm-mini-av">'+ini(cm.owner||"?")+'</span><b>'+esc(who)+'</b><span class="pm-cmt-time">'+esc((cm.creation||"").slice(0,16))+'</span></div><div class="pm-cmt-body">'+esc(stripTags(cm.content||""))+'</div></div>';}).join("");}
   function fmtDur(s){s=Math.max(0,Math.floor(s));var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),x=s%60;return (h<10?"0":"")+h+":"+(m<10?"0":"")+m+":"+(x<10?"0":"")+x;}
