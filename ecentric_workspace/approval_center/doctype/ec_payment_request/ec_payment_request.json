@@ -187,11 +187,12 @@
   },
   {
    "fieldname": "details_and_attachments_correct",
-   "fieldtype": "Check",
-   "label": "Tôi xác nhận thông tin và tệp đính kèm là chính xác.",
+   "fieldtype": "Select",
+   "label": "Details and attachments correct?",
    "reqd": 1,
-   "description": "Bắt buộc tích xác nhận trước khi gửi.",
-   "default": "0"
+   "description": "Confirmed via a required checkbox in the Payment Request page (stored as Yes/No).",
+   "default": "No",
+   "options": "Yes\nNo"
   },
   {
    "fieldname": "request_attachment",
