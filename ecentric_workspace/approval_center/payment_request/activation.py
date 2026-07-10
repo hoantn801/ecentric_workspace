@@ -5,6 +5,8 @@ only, dry-run by default, audited, never run at migrate."""
 import frappe
 from frappe import _
 
+from ecentric_workspace.approval_center.services.activation_flags import is_dry_run
+
 from ecentric_workspace.approval_center.payment_request.setup import validate_payment_request_v1
 
 TYPE = "PAYMENT_REQUEST"
@@ -17,29 +19,14 @@ def _require_sm():
         frappe.throw(_("Only System Manager may run Payment Request activation."), frappe.PermissionError)
 
 
-def _truthy(v):
-    return str(v).strip().lower() in ("1", "true", "yes", "on")
-
-
-def _dry(dry_run=1, apply=0, commit=0):
-    """Safe by default. Real publish only on an explicit publish signal: apply or commit
-    truthy, OR dry_run set to an explicit false token (0/false/no/off). Ambiguous/empty
-    dry_run stays dry (safe)."""
-    if _truthy(apply) or _truthy(commit):
-        return False
-    if str(dry_run).strip().lower() in ("0", "false", "no", "off"):
-        return False
-    return True
-
-
 @frappe.whitelist()
 def enable_payment_request_uat(dry_run=1, apply=0, commit=0):
     """Process Active; catalog card kept INACTIVE (direct-route UAT)."""
     _require_sm()
-    dry = _dry(dry_run, apply, commit)
+    dry = is_dry_run(dry_run, apply, commit)
     v = validate_payment_request_v1()
     blockers = [c["check"] for c in v.get("checks", []) if not c.get("ok")]
-    report = {"operation": "enable_uat", "mode": "dry_run" if dry else "apply",
+    report = {"operation": "enable_uat", "mode": "dry_run" if dry else "commit",
               "validation": v, "blockers": blockers, "ready": v["ok"]}
     if not v["ok"]:
         report["result"] = ("BLOCKED (validation failed - nothing changed). Blockers: "
@@ -65,7 +52,7 @@ def publish_payment_request_after_uat(dry_run=1, apply=0, commit=0):
     """Public go-live AFTER UAT sign-off: activate the catalog card + route.
     Blocked unless the process is already Active."""
     _require_sm()
-    dry = _dry(dry_run, apply, commit)
+    dry = is_dry_run(dry_run, apply, commit)
     v = validate_payment_request_v1()
     active = frappe.db.get_value("EC Approval Process", PROCESS, "status") == "Active"
     ok = v["ok"] and active

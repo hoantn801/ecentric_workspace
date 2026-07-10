@@ -5,6 +5,8 @@ System-Manager only, dry-run by default, audited, never run at migrate."""
 import frappe
 from frappe import _
 
+from ecentric_workspace.approval_center.services.activation_flags import is_dry_run
+
 from ecentric_workspace.approval_center.daily_target.setup import (
     validate_daily_target_v1, PROCESS_PROJECT, PROCESS_CONSOLIDATED)
 
@@ -17,18 +19,14 @@ def _require_sm():
         frappe.throw(_("Only System Manager may run Daily Target activation."), frappe.PermissionError)
 
 
-def _dry(dry_run, apply):
-    return int(apply or 0) != 1
-
-
 @frappe.whitelist()
-def enable_daily_target_uat(dry_run=1, apply=0):
+def enable_daily_target_uat(dry_run=1, apply=0, commit=0):
     """Both Daily Target processes Active; catalog card kept INACTIVE (direct-route UAT)."""
     _require_sm()
-    dry = _dry(dry_run, apply)
+    dry = is_dry_run(dry_run, apply, commit)
     v = validate_daily_target_v1()
     blockers = [c["check"] for c in v.get("checks", []) if not c.get("ok")]
-    report = {"operation": "enable_uat", "mode": "dry_run" if dry else "apply",
+    report = {"operation": "enable_uat", "mode": "dry_run" if dry else "commit",
               "validation": v, "blockers": blockers, "ready": v["ok"]}
     if not v["ok"]:
         report["result"] = ("BLOCKED (validation failed - nothing changed). Blockers: "
@@ -46,10 +44,10 @@ def enable_daily_target_uat(dry_run=1, apply=0):
 
 
 @frappe.whitelist()
-def publish_daily_target_after_uat(dry_run=1, apply=0):
+def publish_daily_target_after_uat(dry_run=1, apply=0, commit=0):
     """Public go-live AFTER UAT: activate the catalog card. Blocked unless BOTH processes Active."""
     _require_sm()
-    dry = _dry(dry_run, apply)
+    dry = is_dry_run(dry_run, apply, commit)
     v = validate_daily_target_v1()
     both_active = all(frappe.db.get_value("EC Approval Process", c, "status") == "Active"
                       for c in (PROCESS_PROJECT, PROCESS_CONSOLIDATED))
@@ -57,7 +55,7 @@ def publish_daily_target_after_uat(dry_run=1, apply=0):
     blockers = [c["check"] for c in v.get("checks", []) if not c.get("ok")]
     if not both_active:
         blockers = blockers + ["both processes must be Active (run enable_daily_target_uat(apply=1) first)"]
-    report = {"operation": "publish", "mode": "dry_run" if dry else "apply",
+    report = {"operation": "publish", "mode": "dry_run" if dry else "commit",
               "validation": v, "processes_active": both_active, "blockers": blockers, "ready": ok}
     if not ok:
         report["result"] = "BLOCKED (nothing changed). Blockers: " + (", ".join(blockers) or "unknown")
