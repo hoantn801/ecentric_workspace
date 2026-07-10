@@ -80,13 +80,25 @@ async function run() {
   // create fields
   ok(!!w.document.querySelector('[data-model="payee_full_name"]'), "payee_full_name field renders");
   ok(!!w.document.querySelector('[data-model="has_purchase_request"]'), "has_purchase_request field renders");
-  ok(!!w.document.querySelector('input[type="checkbox"][data-model="details_and_attachments_correct"]'), "details confirmation renders as a required checkbox");
-  // checkbox wiring: checking the box stores the Select value "Yes"; unchecking stores "No"
   { const chk = w.document.querySelector('input[type="checkbox"][data-model="details_and_attachments_correct"]');
-    chk.checked = true; chk.dispatchEvent(new w.Event("input", { bubbles: true }));
-    ok(w.PaymentRequest.state.draft.details_and_attachments_correct === "Yes", "checking box sets model to \"Yes\"");
-    chk.checked = false; chk.dispatchEvent(new w.Event("input", { bubbles: true }));
-    ok(w.PaymentRequest.state.draft.details_and_attachments_correct === "No", "unchecking box sets model to \"No\""); }
+    ok(!!chk, "details confirmation renders as a required checkbox");
+    // native reliable markup: stable id + matching <label for>
+    ok(chk.id === "payr-confirm-chk", "checkbox has a stable id");
+    const lbl = w.document.querySelector('label[for="payr-confirm-chk"]');
+    ok(!!lbl && lbl.htmlFor === "payr-confirm-chk", "label for= matches the checkbox id");
+    ok(!chk.disabled, "checkbox is not disabled");
+    // clicking the input toggles checked true and sets model to "Yes"
+    chk.click();
+    ok(chk.checked === true, "clicking the input toggles checked true");
+    ok(w.PaymentRequest.state.draft.details_and_attachments_correct === "Yes", "checked -> model \"Yes\"");
+    // clicking the label toggles the checkbox back off and sets model to "No"
+    lbl.click();
+    ok(chk.checked === false, "clicking the label toggles checked false");
+    ok(w.PaymentRequest.state.draft.details_and_attachments_correct === "No", "unchecked -> model \"No\"");
+    // clicking the label again toggles back on -> "Yes"
+    lbl.click();
+    ok(chk.checked === true, "clicking the label toggles checked true");
+    ok(w.PaymentRequest.state.draft.details_and_attachments_correct === "Yes", "label click -> model \"Yes\""); }
   ["reason", "payment_amount", "payment_date", "account_bank", "bank_account_number", "is_cost_valid", "details_and_attachments_correct"].forEach(function (f) {
     ok(!!w.document.querySelector('[data-model="' + f + '"]'), f + " field renders"); });
   ok(!!w.document.querySelector('[data-upload="request_attachment"]'), "request_attachment file upload renders");

@@ -54,6 +54,10 @@
   #ec-payr-root .fld input,#ec-payr-root .fld select,#ec-payr-root .fld textarea{ width:100%;padding:8px 11px;border:1px solid var(--gray-200);border-radius:8px;font-size:13.5px;font-family:inherit;background:#fff; }
   #ec-payr-root .fld input:focus,#ec-payr-root .fld select:focus,#ec-payr-root .fld textarea:focus{ outline:none;border-color:var(--navy);box-shadow:0 0 0 3px var(--navy-50); }
   #ec-payr-root .fld input[readonly],#ec-payr-root .fld .ro{ background:var(--gray-50);color:var(--gray-600); }
+  /* Native checkbox reset: exempt from full-width/padded text-input styling so the click target is the box itself. */
+  #ec-payr-root .fld input[type=checkbox]{ width:16px;min-width:16px;height:16px;padding:0;margin:0;border-radius:4px;flex:0 0 auto;cursor:pointer;-webkit-appearance:checkbox;appearance:auto;box-shadow:none; }
+  #ec-payr-root .chkline{ display:flex;gap:8px;align-items:flex-start;font-weight:400;cursor:pointer; }
+  #ec-payr-root .chkline label{ font-weight:400;font-size:13.5px;color:var(--gray-700);margin:0;cursor:pointer;line-height:1.35; }
   #ec-payr-root .fld .err{ font-size:12px;color:var(--red); }
   #ec-payr-root .fld.invalid input,#ec-payr-root .fld.invalid select,#ec-payr-root .fld.invalid textarea{ border-color:var(--red); }
   #ec-payr-root .full{ grid-column:1/-1; }
@@ -208,7 +212,7 @@
       + prField + noPrField
       + '</div></div><div class="card"><h3>Xác nhận</h3><div class="grid2">'
       + fld("is_cost_valid","Chi phí hợp lệ?",'<select data-model="is_cost_valid"><option value="">— Chọn —</option>'+opt(yn,d.is_cost_valid||"")+'</select>',true)
-      + fld("details_and_attachments_correct","Xác nhận",'<label class="chkline" style="display:flex;gap:8px;align-items:flex-start;font-weight:400"><input type="checkbox" data-model="details_and_attachments_correct" style="width:auto;margin-top:3px"'+(d.details_and_attachments_correct==="Yes"?" checked":"")+'><span>Tôi xác nhận thông tin và tệp đính kèm là chính xác.</span></label>',true).replace('class="fld','class="fld full')
+      + fld("details_and_attachments_correct","Xác nhận",'<div class="chkline"><input type="checkbox" id="payr-confirm-chk" data-model="details_and_attachments_correct"'+(d.details_and_attachments_correct==="Yes"?" checked":"")+'><label for="payr-confirm-chk">Tôi xác nhận thông tin và tệp đính kèm là chính xác.</label></div>',true).replace('class="fld','class="fld full')
       + fld("request_attachment","Tệp đính kèm",'<input type="file" data-upload="request_attachment"><div class="hint" id="payr-att-name">'+esc(d.request_attachment?"Đã tải":"Bắt buộc")+'</div>',true).replace('class="fld','class="fld full')
       + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="payr-summary"></div></div>';
   }
@@ -290,6 +294,7 @@
     if(k==="has_purchase_request"){ handleHPRChange(v); return; }
     renderSummary(); clearFieldError(k); }
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
+    if(el.type==="checkbox"||el.type==="radio"){ el.addEventListener("change",function(){ onModelInput(el); }); el.addEventListener("input",function(){ onModelInput(el); }); return; }
     var evt=(el.tagName==="SELECT")?"change":"input";
     el.addEventListener(evt,function(){ onModelInput(el); }); }
   function wireModels(scope){ (scope||document).querySelectorAll("[data-model]").forEach(attachModel); }
