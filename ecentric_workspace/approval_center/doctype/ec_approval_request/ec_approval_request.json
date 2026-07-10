@@ -88,6 +88,14 @@
    "in_standard_filter": 1
   },
   {
+   "fieldname": "requester_department",
+   "fieldtype": "Link",
+   "label": "Requester Department",
+   "options": "Department",
+   "read_only": 1,
+   "description": "Governed department snapshot captured at submit for reporting/historical accuracy. Blank = could not be resolved from a governed source."
+  },
+  {
    "fieldname": "submitted_at",
    "fieldtype": "Datetime",
    "label": "Submitted At"
