@@ -17,6 +17,8 @@ from ecentric_workspace.approval_center.reporting import series as _series
 from ecentric_workspace.approval_center.reporting import insights as _insights
 
 RECENT_REJECTED_DAYS = 7
+NEAR_SLA_MINUTES = 240      # 'near SLA' window for card accenting
+KANBAN_CARD_CAP = 20
 LONGEST_PENDING_LIMIT = 10
 BOTTLENECK_LIMIT = 10
 
@@ -55,6 +57,7 @@ def build_dashboard(scope, filters):
         else:
             open_rows = [r for r in open_rows if sla_by_name[r["name"]]["source"] == sla_filter]
 
+    appr_map = _pending_approver_map(open_rows)
     kpis = _kpis(period, open_rows, sla_by_name, now)
 
     # ---- period comparison (equivalent previous window) ----
@@ -82,7 +85,8 @@ def build_dashboard(scope, filters):
         "sla_compliance": sla_compliance,
         "pending_by_type": _group_count(open_rows, lambda r: r.get("type_title") or r.get("approval_type")),
         "pending_by_department": _group_count(open_rows, lambda r: r.get("requester_department") or "— Unknown —"),
-        "pending_by_approver": _pending_by_approver(open_rows, now),
+        "pending_by_approver": _pending_by_approver(open_rows, now, appr_map),
+        "kanban": _kanban(open_rows, sla_by_name, appr_map, now),
         "department_performance": _department_performance(period, open_rows, sla_by_name),
         "aging_buckets": _aging(open_rows, now),
         "bottleneck_levels": bottleneck,
@@ -134,22 +138,34 @@ def _group_count(rows, keyfn, limit=None):
     return items[:limit] if limit else items
 
 
-def _pending_by_approver(open_rows, now):
+def _pending_approver_map(open_rows):
+    """{request_name: [current-level pending approver users]} - fetched ONCE and reused by
+    both the approver workload chart and the Kanban board (no per-card queries)."""
     if not open_rows:
-        return []
+        return {}
     import frappe
     names = [r["name"] for r in open_rows]
     rows = frappe.get_all("EC Approval Request Approver",
                           filters={"approval_request": ["in", names], "status": "Pending"},
                           fields=["approver", "approval_request", "level_no"])
     cur = {r["name"]: r["current_level"] for r in open_rows}
+    m = defaultdict(list)
+    for a in rows:
+        if a["level_no"] == cur.get(a["approval_request"]):
+            m[a["approval_request"]].append(a["approver"])
+    return m
+
+
+def _pending_by_approver(open_rows, now, appr_map):
+    if not open_rows:
+        return []
     age_by_req = {r["name"]: (_tm.pending_age_seconds(r, ref_now=now) or 0) for r in open_rows}
     cnt = defaultdict(int)
     oldest = defaultdict(float)
-    for a in rows:
-        if a["level_no"] == cur.get(a["approval_request"]):
-            cnt[a["approver"]] += 1
-            oldest[a["approver"]] = max(oldest[a["approver"]], age_by_req.get(a["approval_request"], 0))
+    for req, approvers in appr_map.items():
+        for ap in approvers:
+            cnt[ap] += 1
+            oldest[ap] = max(oldest[ap], age_by_req.get(req, 0))
     out = [{"label": k, "count": cnt[k], "oldest_pending_seconds": oldest[k]} for k in cnt]
     out.sort(key=lambda x: (-x["count"], -(x["oldest_pending_seconds"] or 0)))
     return out
@@ -340,6 +356,89 @@ def _funnel(period):
         {"stage": "Hoàn tất", "count": completed},
         {"stage": "Từ chối/Hủy", "count": rejcan},
     ]
+
+
+def _kanban_card(r, sla_by_name, appr_map, now):
+    st = sla_by_name.get(r["name"], {})
+    age = _tm.pending_age_seconds(r, ref_now=now) or 0
+    due = st.get("due_at")
+    remaining = None
+    if due:
+        remaining = int((get_datetime(due) - now).total_seconds() // 60)
+    if st.get("breached"):
+        sla = "breached"
+    elif remaining is not None and 0 <= remaining <= NEAR_SLA_MINUTES:
+        sla = "near"
+    elif st.get("source") == "unavailable":
+        sla = "unavailable"
+    else:
+        sla = "normal"
+    return {
+        "request_name": r["name"],
+        "title": r.get("type_title") or r.get("approval_type"),
+        "approval_type": r.get("approval_type"),
+        "requester": r.get("requested_by"),
+        "department": r.get("requester_department"),
+        "current_level": r.get("current_level"),
+        "current_level_name": r.get("current_level_name"),
+        "pending_approvers": appr_map.get(r["name"], []),
+        "pending_age_minutes": int(age // 60),
+        "sla_state": sla,
+        "sla_source": st.get("source"),
+        "sla_remaining_minutes": remaining,
+        "detail_route": _detail_route(r),
+        "status": r["approval_status"],
+    }
+
+
+def _card_rank(card):
+    # priority inside a column: breached -> near -> (oldest first) -> newest
+    order = {"breached": 0, "near": 1}.get(card["sla_state"], 2)
+    return (order, -(card["pending_age_minutes"] or 0))
+
+
+def _kanban_columns(cards_by_key, labels):
+    cols = []
+    for key, cards in cards_by_key.items():
+        cards.sort(key=_card_rank)
+        overdue = sum(1 for c in cards if c["sla_state"] == "breached")
+        oldest = max((c["pending_age_minutes"] or 0) for c in cards) if cards else 0
+        cols.append({
+            "key": key, "label": labels.get(key, key), "count": len(cards),
+            "overdue_count": overdue, "oldest_age_minutes": oldest,
+            "cards": cards[:KANBAN_CARD_CAP],
+        })
+    # most critical columns first: overdue, then size, then oldest
+    cols.sort(key=lambda c: (-c["overdue_count"], -c["count"], -c["oldest_age_minutes"]))
+    return cols
+
+
+def _kanban(open_rows, sla_by_name, appr_map, now):
+    """Governed Kanban dataset built ENTIRELY from the already-scoped open rows + the shared
+    pending-approver map (no extra queries). Only columns with pending cards are returned.
+    Cards are capped per column; `count` carries the true column size for the 'X more' hint."""
+    by_level = defaultdict(list)
+    level_labels = {}
+    by_approver = defaultdict(list)
+    approver_labels = {}
+    UNASSIGNED = "__unassigned__"
+    for r in open_rows:
+        card = _kanban_card(r, sla_by_name, appr_map, now)
+        lvl_key = str(r.get("current_level"))
+        by_level[lvl_key].append(card)
+        level_labels[lvl_key] = r.get("current_level_name") or ("Cấp %s" % r.get("current_level"))
+        approvers = appr_map.get(r["name"], [])
+        if approvers:
+            for ap in approvers:
+                by_approver[ap].append(dict(card))
+                approver_labels[ap] = ap
+        else:
+            by_approver[UNASSIGNED].append(dict(card))
+            approver_labels[UNASSIGNED] = "— Chưa phân công —"
+    return {
+        "by_level": {"columns": _kanban_columns(by_level, level_labels)},
+        "by_approver": {"columns": _kanban_columns(by_approver, approver_labels)},
+    }
 
 
 def _detail_route(r):
