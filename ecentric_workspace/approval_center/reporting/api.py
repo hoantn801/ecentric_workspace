@@ -87,3 +87,23 @@ def drilldown(filters=None, limit=200):
         limit = 200
     return {"rows": _service.drilldown(scope, _parse_filters(filters), limit=limit),
             "scope_mode": scope.get("mode")}
+
+
+@frappe.whitelist()
+def get_request_timeline(name):
+    """Read-only lifecycle timeline for the quick-view drawer. Scope-checked via the
+    reporting scope (NO DocPerm). Returns the request header + EC Approval Action rows.
+    Does not expose business-document editing."""
+    from ecentric_workspace.approval_center.reporting import queries as _q
+    scope = _scope.resolve_scope(frappe.session.user)
+    if not _q.is_visible(scope, name):
+        frappe.throw(_("Bạn không có quyền xem yêu cầu này."), frappe.PermissionError)
+    header = frappe.db.get_value("EC Approval Request", name,
+                                 ["name", "approval_type", "requested_by", "requester_department",
+                                  "approval_status", "current_level", "submitted_at", "completed_at",
+                                  "reference_doctype", "reference_name"], as_dict=True) or {}
+    actions = frappe.get_all("EC Approval Action", filters={"approval_request": name},
+                             fields=["seq", "actor", "action", "comment", "action_time",
+                                     "request_level", "new_status"],
+                             order_by="seq asc")
+    return {"header": header, "actions": actions}

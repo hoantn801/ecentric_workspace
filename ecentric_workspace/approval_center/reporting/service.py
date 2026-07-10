@@ -13,6 +13,8 @@ from ecentric_workspace.approval_center.reporting import queries as _q
 from ecentric_workspace.approval_center.reporting import sla as _sla
 from ecentric_workspace.approval_center.reporting import status as _status
 from ecentric_workspace.approval_center.reporting import time_metrics as _tm
+from ecentric_workspace.approval_center.reporting import series as _series
+from ecentric_workspace.approval_center.reporting import insights as _insights
 
 RECENT_REJECTED_DAYS = 7
 LONGEST_PENDING_LIMIT = 10
@@ -54,19 +56,44 @@ def build_dashboard(scope, filters):
             open_rows = [r for r in open_rows if sla_by_name[r["name"]]["source"] == sla_filter]
 
     kpis = _kpis(period, open_rows, sla_by_name, now)
-    return {
+
+    # ---- period comparison (equivalent previous window) ----
+    comparison = {}
+    if df and dt:
+        p_from, p_to = _series.previous_window(df, dt)
+        prev_rows = _q.fetch_rows_in_window(scope, filters, p_from, p_to)
+        comparison = _comparison(period, open_rows, prev_rows, now)
+        gran = _series.granularity_for(df, dt)
+        volume_trend = {"granularity": gran,
+                        "buckets": _series.build_time_buckets(period, df, dt, gran)}
+        sla_compliance = _sla_compliance(open_rows, sla_by_name, period, df, dt, gran, now)
+        bottleneck = _bottleneck(scope, filters, now, window=(df, dt), prev_window=(p_from, p_to))
+    else:
+        volume_trend = {"granularity": "day", "buckets": []}
+        sla_compliance = _sla_compliance(open_rows, sla_by_name, period, None, None, "day", now)
+        bottleneck = _bottleneck(scope, filters, now)
+
+    dash = {
         "kpis": kpis,
+        "comparison": comparison,
         "status_distribution": _status_distribution(period),
+        "status_mix": _status_mix(period),
+        "volume_trend": volume_trend,
+        "sla_compliance": sla_compliance,
         "pending_by_type": _group_count(open_rows, lambda r: r.get("type_title") or r.get("approval_type")),
         "pending_by_department": _group_count(open_rows, lambda r: r.get("requester_department") or "— Unknown —"),
-        "pending_by_approver": _pending_by_approver(open_rows),
+        "pending_by_approver": _pending_by_approver(open_rows, now),
+        "department_performance": _department_performance(period, open_rows, sla_by_name),
         "aging_buckets": _aging(open_rows, now),
-        "bottleneck_levels": _bottleneck(scope, filters, now),
+        "bottleneck_levels": bottleneck,
+        "funnel": _funnel(period),
         "longest_pending": _longest_pending(open_rows, sla_by_name, now),
         "attention": _attention(period, open_rows, sla_by_name, now),
         "generated_at": str(now),
         "scope_mode": scope.get("mode"),
     }
+    dash["insights"] = _insights.generate(dash, now=now)
+    return dash
 
 
 def _kpis(period, open_rows, sla_by_name, now):
@@ -107,21 +134,25 @@ def _group_count(rows, keyfn, limit=None):
     return items[:limit] if limit else items
 
 
-def _pending_by_approver(open_rows):
+def _pending_by_approver(open_rows, now):
     if not open_rows:
         return []
     import frappe
     names = [r["name"] for r in open_rows]
-    # current-level pending approver rows for these requests
     rows = frappe.get_all("EC Approval Request Approver",
                           filters={"approval_request": ["in", names], "status": "Pending"},
                           fields=["approver", "approval_request", "level_no"])
     cur = {r["name"]: r["current_level"] for r in open_rows}
-    out = defaultdict(int)
+    age_by_req = {r["name"]: (_tm.pending_age_seconds(r, ref_now=now) or 0) for r in open_rows}
+    cnt = defaultdict(int)
+    oldest = defaultdict(float)
     for a in rows:
         if a["level_no"] == cur.get(a["approval_request"]):
-            out[a["approver"]] += 1
-    return sorted(({"label": k, "count": v} for k, v in out.items()), key=lambda x: -x["count"])
+            cnt[a["approver"]] += 1
+            oldest[a["approver"]] = max(oldest[a["approver"]], age_by_req.get(a["approval_request"], 0))
+    out = [{"label": k, "count": cnt[k], "oldest_pending_seconds": oldest[k]} for k in cnt]
+    out.sort(key=lambda x: (-x["count"], -(x["oldest_pending_seconds"] or 0)))
+    return out
 
 
 def _aging(open_rows, now):
@@ -133,31 +164,182 @@ def _aging(open_rows, now):
     return [{"bucket": b, "count": buckets[b]} for b in _tm.AGING_BUCKETS]
 
 
-def _bottleneck(scope, filters, now):
-    levels = _q.fetch_levels_for_bottleneck(scope, filters)
-    comp = defaultdict(list)   # completed durations (exclude Skipped)
-    pend = defaultdict(list)   # current pending ages
+def _bottleneck(scope, filters, now, window=None, prev_window=None):
+    """Rank levels by completed duration + current pending. Enriched with volume, median,
+    P90, overdue count, active pending and trend vs previous period. `window`/`prev_window`
+    (completed_at ranges) drive the volume + trend numbers when a date range is selected."""
+    completed_from = completed_to = None
+    if window:
+        completed_from, completed_to = window
+    levels = _q.fetch_levels_for_bottleneck(scope, filters, completed_from, completed_to)
+    comp = defaultdict(list)     # completed durations (exclude Skipped)
+    pend = defaultdict(list)     # current pending ages
+    overdue = defaultdict(int)
     for l in levels:
         name = l.get("level_name") or ("Level %s" % l.get("level_no"))
         if l["level_status"] == "Approved" and l.get("activated_at") and l.get("completed_at"):
             d = _tm.seconds_between(l["activated_at"], l["completed_at"])
             if d is not None and d >= 0:
                 comp[name].append(d)
-        # currently pending at this level
         if l["approval_status"] in _status.OPEN_ENGINE_STATUSES and l["level_no"] == l["current_level"] \
                 and l["level_status"] in ("In Progress", "Pending", "Information Requested"):
             age = _tm.pending_age_seconds({"current_activated_at": l.get("activated_at")}, ref_now=now)
             if age is not None:
                 pend[name].append(age)
+                if l.get("due_at") and now > l["due_at"]:
+                    overdue[name] += 1
+    prev_comp = defaultdict(list)
+    if prev_window:
+        for l in _q.fetch_levels_for_bottleneck(scope, filters, prev_window[0], prev_window[1]):
+            if l["level_status"] == "Approved" and l.get("activated_at") and l.get("completed_at"):
+                d = _tm.seconds_between(l["activated_at"], l["completed_at"])
+                if d is not None and d >= 0:
+                    prev_comp[l.get("level_name") or ("Level %s" % l.get("level_no"))].append(d)
     out = []
     for name in set(list(comp.keys()) + list(pend.keys())):
-        avg_comp = (sum(comp[name]) / len(comp[name])) if comp.get(name) else None
+        cs = comp.get(name, [])
+        avg_comp = (sum(cs) / len(cs)) if cs else None
         cur_pend = (sum(pend[name]) / len(pend[name])) if pend.get(name) else None
-        out.append({"level": name, "avg_completed_seconds": avg_comp,
-                    "avg_pending_seconds": cur_pend, "completed_sample": len(comp.get(name, [])),
-                    "pending_count": len(pend.get(name, []))})
+        prev_avg = (sum(prev_comp[name]) / len(prev_comp[name])) if prev_comp.get(name) else None
+        trend_pct = None
+        if prev_avg and avg_comp is not None:
+            trend_pct = round((avg_comp - prev_avg) * 100.0 / prev_avg, 1)
+        out.append({"level": name, "volume": len(cs),
+                    "avg_completed_seconds": avg_comp,
+                    "median_seconds": _series.median(cs),
+                    "p90_seconds": _series.percentile(cs, 90),
+                    "avg_pending_seconds": cur_pend,
+                    "active_pending": len(pend.get(name, [])),
+                    "overdue_count": overdue.get(name, 0),
+                    "completed_sample": len(cs),
+                    "pending_count": len(pend.get(name, [])),
+                    "trend_pct": trend_pct})
     out.sort(key=lambda x: (-(x["avg_completed_seconds"] or 0), -(x["avg_pending_seconds"] or 0)))
     return out[:BOTTLENECK_LIMIT]
+
+
+def _completion_rate(period):
+    total = len(period)
+    if not total:
+        return 0.0
+    done = sum(1 for r in period if r["approval_status"] == "Approved")
+    return round(done * 100.0 / total, 1)
+
+
+def _comparison(period, open_rows, prev_rows, now):
+    def cnt(rows, st):
+        return sum(1 for r in rows if r["approval_status"] == st)
+    cur_completed = cnt(period, "Approved")
+    prev_completed = cnt(prev_rows, "Approved")
+    cur_avg = _avg_duration(period)
+    prev_avg = _avg_duration(prev_rows)
+    return {
+        "total": _series.delta(len(period), len(prev_rows)),
+        "completed": _series.delta(cur_completed, prev_completed),
+        "rejected": _series.delta(cnt(period, "Rejected"), cnt(prev_rows, "Rejected")),
+        "pending": _series.delta(sum(1 for r in open_rows if r["approval_status"] == "Pending"),
+                                 cnt(prev_rows, "Pending")),
+        "avg_approval_seconds": _series.delta(round(cur_avg) if cur_avg else 0,
+                                              round(prev_avg) if prev_avg else 0),
+        "completion_rate": _series.delta(_completion_rate(period), _completion_rate(prev_rows)),
+    }
+
+
+def _avg_duration(rows):
+    durs = []
+    for r in rows:
+        if r["approval_status"] == "Approved":
+            d = _tm.approval_duration_seconds(r)
+            if d is not None and d >= 0:
+                durs.append(d)
+    return (sum(durs) / len(durs)) if durs else None
+
+
+def _status_mix(period):
+    total = len(period)
+    dist = _status_distribution(period)
+    for d in dist:
+        d["percent"] = round(d["count"] * 100.0 / total, 1) if total else 0.0
+    return {"total": total, "segments": dist}
+
+
+def _sla_compliance(open_rows, sla_by_name, period, df, dt, gran, now):
+    breached = configured = operational = unavailable = 0
+    for r in open_rows:
+        st = sla_by_name.get(r["name"], {})
+        src = st.get("source")
+        if st.get("breached"):
+            breached += 1
+        if src == "configured_policy":
+            configured += 1
+        elif src == "operational_default":
+            operational += 1
+        elif src == "unavailable":
+            unavailable += 1
+    compliant = max(0, len(open_rows) - breached)
+    trend = []
+    if df and dt:
+        # submission-cohort breach rate per bucket (documented approximation)
+        buckets = _series.build_time_buckets(period, df, dt, gran)
+        by_bucket = {b["label"]: {"total": 0, "breach": 0} for b in buckets}
+        from frappe.utils import get_datetime
+        for r in period:
+            ref = r.get("submitted_at") or r.get("creation")
+            if not ref:
+                continue
+            key = _series._bucket_key(ref, gran)
+            if key in by_bucket:
+                by_bucket[key]["total"] += 1
+                if sla_by_name.get(r["name"], {}).get("breached"):
+                    by_bucket[key]["breach"] += 1
+        for b in buckets:
+            v = by_bucket.get(b["label"], {"total": 0, "breach": 0})
+            rate = round((v["total"] - v["breach"]) * 100.0 / v["total"], 1) if v["total"] else 100.0
+            trend.append({"label": b["label"], "compliant_pct": rate})
+    return {"compliant": compliant, "breached": breached,
+            "configured_policy": configured, "operational_default": operational,
+            "unavailable": unavailable, "trend": trend}
+
+
+def _department_performance(period, open_rows, sla_by_name):
+    vol = defaultdict(int)
+    durs = defaultdict(list)
+    for r in period:
+        dept = r.get("requester_department") or "— Unknown —"
+        vol[dept] += 1
+        if r["approval_status"] == "Approved":
+            d = _tm.approval_duration_seconds(r)
+            if d is not None and d >= 0:
+                durs[dept].append(d)
+    breach = defaultdict(int)
+    for r in open_rows:
+        if sla_by_name.get(r["name"], {}).get("breached"):
+            breach[r.get("requester_department") or "— Unknown —"] += 1
+    out = []
+    for dept in set(list(vol.keys()) + list(breach.keys())):
+        ds = durs.get(dept, [])
+        out.append({"department": dept, "volume": vol.get(dept, 0),
+                    "avg_duration_seconds": (sum(ds) / len(ds)) if ds else None,
+                    "breaches": breach.get(dept, 0)})
+    out.sort(key=lambda x: -x["volume"])
+    return out
+
+
+def _funnel(period):
+    """Status-snapshot funnel (not a time-ordered funnel - documented). Stages use only
+    states derivable from the shared model. 'In Approval' = currently Pending."""
+    submitted = len(period)
+    pending = sum(1 for r in period if r["approval_status"] == "Pending")
+    info = sum(1 for r in period if r["approval_status"] == "Information Required")
+    completed = sum(1 for r in period if r["approval_status"] == "Approved")
+    rejcan = sum(1 for r in period if r["approval_status"] in ("Rejected", "Cancelled"))
+    return [
+        {"stage": "Đã gửi", "count": submitted},
+        {"stage": "Đang duyệt", "count": pending},
+        {"stage": "Cần bổ sung", "count": info},
+        {"stage": "Hoàn tất", "count": completed},
+        {"stage": "Từ chối/Hủy", "count": rejcan},
+    ]
 
 
 def _detail_route(r):
