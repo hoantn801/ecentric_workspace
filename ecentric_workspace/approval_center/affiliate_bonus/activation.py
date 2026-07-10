@@ -17,15 +17,26 @@ def _require_sm():
         frappe.throw(_("Only System Manager may run Affiliate Bonus activation."), frappe.PermissionError)
 
 
-def _dry(dry_run, apply):
-    return int(apply or 0) != 1
+def _truthy(v):
+    return str(v).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _dry(dry_run=1, apply=0, commit=0):
+    """Safe by default. Real publish only on an explicit publish signal: apply or commit
+    truthy, OR dry_run set to an explicit false token (0/false/no/off). Ambiguous/empty
+    dry_run stays dry (safe)."""
+    if _truthy(apply) or _truthy(commit):
+        return False
+    if str(dry_run).strip().lower() in ("0", "false", "no", "off"):
+        return False
+    return True
 
 
 @frappe.whitelist()
-def enable_affiliate_bonus_uat(dry_run=1, apply=0):
+def enable_affiliate_bonus_uat(dry_run=1, apply=0, commit=0):
     """Process Active; catalog card kept INACTIVE (direct-route UAT)."""
     _require_sm()
-    dry = _dry(dry_run, apply)
+    dry = _dry(dry_run, apply, commit)
     v = validate_affiliate_bonus_v1()
     blockers = [c["check"] for c in v.get("checks", []) if not c.get("ok")]
     report = {"operation": "enable_uat", "mode": "dry_run" if dry else "apply",
@@ -50,18 +61,18 @@ def enable_affiliate_bonus_uat(dry_run=1, apply=0):
 
 
 @frappe.whitelist()
-def publish_affiliate_bonus_after_uat(dry_run=1, apply=0):
+def publish_affiliate_bonus_after_uat(dry_run=1, apply=0, commit=0):
     """Public go-live AFTER UAT sign-off: activate the catalog card + route.
     Blocked unless the process is already Active."""
     _require_sm()
-    dry = _dry(dry_run, apply)
+    dry = _dry(dry_run, apply, commit)
     v = validate_affiliate_bonus_v1()
     active = frappe.db.get_value("EC Approval Process", PROCESS, "status") == "Active"
     ok = v["ok"] and active
     blockers = [c["check"] for c in v.get("checks", []) if not c.get("ok")]
     if not active:
         blockers = blockers + ["process not Active (run enable_affiliate_bonus_uat(apply=1) first)"]
-    report = {"operation": "publish", "mode": "dry_run" if dry else "apply",
+    report = {"operation": "publish", "mode": "dry_run" if dry else "commit",
               "validation": v, "process_active": active, "blockers": blockers, "ready": ok}
     if not ok:
         report["result"] = ("BLOCKED (nothing changed). Blockers: " + (", ".join(blockers) or "unknown"))
