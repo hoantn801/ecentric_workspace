@@ -8,6 +8,8 @@ any validation failure, audited. Never run during migrate or automatically."""
 import frappe
 from frappe import _
 
+from ecentric_workspace.approval_center.services.activation_flags import is_dry_run
+
 CALENDAR = "EC_STANDARD_9_18"
 PROCESS = "AI_TOPUP-V1"
 TYPE = "AI_TOPUP"
@@ -44,18 +46,14 @@ def _validation():
     return checks, ok
 
 
-def _dry(dry_run, apply):
-    return bool(int(dry_run)) and not bool(int(apply))
-
-
 @frappe.whitelist()
-def enable_ai_topup_uat(dry_run=1, apply=0):
+def enable_ai_topup_uat(dry_run=1, apply=0, commit=0):
     """Activate AI_TOPUP-V1 so UAT can submit/approve/fulfil via the direct route,
     while the catalog card stays INACTIVE (hidden from ordinary users)."""
     _require_sm()
-    dry = _dry(dry_run, apply)
+    dry = is_dry_run(dry_run, apply, commit)
     checks, ok = _validation()
-    report = {"operation": "enable_uat", "mode": "dry_run" if dry else "apply", "checks": checks, "ready": ok}
+    report = {"operation": "enable_uat", "mode": "dry_run" if dry else "commit", "checks": checks, "ready": ok}
     if not ok:
         report["result"] = "BLOCKED (validation failed - nothing changed)"
         return report
@@ -75,16 +73,16 @@ def enable_ai_topup_uat(dry_run=1, apply=0):
 
 
 @frappe.whitelist()
-def publish_ai_topup_after_uat(dry_run=1, apply=0):
+def publish_ai_topup_after_uat(dry_run=1, apply=0, commit=0):
     """Public go-live AFTER UAT sign-off: activate the catalog card + route.
     Blocked unless the process is already Active (UAT-enabled) and validation passes."""
     _require_sm()
-    dry = _dry(dry_run, apply)
+    dry = is_dry_run(dry_run, apply, commit)
     checks, ok = _validation()
     active = frappe.db.get_value("EC Approval Process", PROCESS, "status") == "Active"
     checks.append({"status": "PASS" if active else "FAIL", "check": "AI_TOPUP-V1 is Active (UAT-enabled)"})
     ok = ok and active
-    report = {"operation": "publish", "mode": "dry_run" if dry else "apply", "checks": checks, "ready": ok}
+    report = {"operation": "publish", "mode": "dry_run" if dry else "commit", "checks": checks, "ready": ok}
     if not ok:
         report["result"] = "BLOCKED (UAT not enabled or validation failed - nothing changed)"
         return report
@@ -107,7 +105,7 @@ def activate_ai_topup(dry_run=1, apply=0):
     """Combined convenience (internal). Production must use the split operations:
     enable_ai_topup_uat then publish_ai_topup_after_uat."""
     _require_sm()
-    if _dry(dry_run, apply):
+    if is_dry_run(dry_run, apply, commit):
         r = enable_ai_topup_uat(dry_run=1, apply=0)
         r["note"] = "Combined helper is internal; production flow = enable_ai_topup_uat then publish_ai_topup_after_uat."
         return r

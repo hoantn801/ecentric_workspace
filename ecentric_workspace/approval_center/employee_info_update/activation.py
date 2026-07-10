@@ -5,6 +5,8 @@ only, dry-run by default, audited, never run at migrate."""
 import frappe
 from frappe import _
 
+from ecentric_workspace.approval_center.services.activation_flags import is_dry_run
+
 from ecentric_workspace.approval_center.employee_info_update.setup import validate_employee_info_update_v1
 
 TYPE = "EMPLOYEE_INFO_UPDATE"
@@ -17,18 +19,14 @@ def _require_sm():
         frappe.throw(_("Only System Manager may run Employee information update activation."), frappe.PermissionError)
 
 
-def _dry(dry_run, apply):
-    return int(apply or 0) != 1
-
-
 @frappe.whitelist()
-def enable_employee_info_update_uat(dry_run=1, apply=0):
+def enable_employee_info_update_uat(dry_run=1, apply=0, commit=0):
     """Process Active; catalog card kept Coming Soon (direct-route UAT)."""
     _require_sm()
-    dry = _dry(dry_run, apply)
+    dry = is_dry_run(dry_run, apply, commit)
     v = validate_employee_info_update_v1()
     blockers = [c["check"] for c in v.get("checks", []) if not c.get("ok")]
-    report = {"operation": "enable_uat", "mode": "dry_run" if dry else "apply",
+    report = {"operation": "enable_uat", "mode": "dry_run" if dry else "commit",
               "validation": v, "blockers": blockers, "ready": v["ok"]}
     if not v["ok"]:
         report["result"] = ("BLOCKED (validation failed - nothing changed). Blockers: "
@@ -50,18 +48,18 @@ def enable_employee_info_update_uat(dry_run=1, apply=0):
 
 
 @frappe.whitelist()
-def publish_employee_info_update_after_uat(dry_run=1, apply=0):
+def publish_employee_info_update_after_uat(dry_run=1, apply=0, commit=0):
     """Public go-live AFTER UAT sign-off: activate the catalog card + route.
     Blocked unless the process is already Active. EXISTS but is not run during Batch 7."""
     _require_sm()
-    dry = _dry(dry_run, apply)
+    dry = is_dry_run(dry_run, apply, commit)
     v = validate_employee_info_update_v1()
     active = frappe.db.get_value("EC Approval Process", PROCESS, "status") == "Active"
     ok = v["ok"] and active
     blockers = [c["check"] for c in v.get("checks", []) if not c.get("ok")]
     if not active:
         blockers = blockers + ["process not Active (run enable_employee_info_update_uat(apply=1) first)"]
-    report = {"operation": "publish", "mode": "dry_run" if dry else "apply",
+    report = {"operation": "publish", "mode": "dry_run" if dry else "commit",
               "validation": v, "process_active": active, "blockers": blockers, "ready": ok}
     if not ok:
         report["result"] = ("BLOCKED (nothing changed). Blockers: " + (", ".join(blockers) or "unknown"))
