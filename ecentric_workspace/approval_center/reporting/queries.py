@@ -82,15 +82,36 @@ def fetch_scoped_rows(scope, filters):
     return frappe.db.sql(sql, params, as_dict=True)
 
 
-def fetch_levels_for_bottleneck(scope, filters):
+def fetch_rows_in_window(scope, filters, date_from, date_to):
+    """Rows whose submission/creation falls strictly in [date_from, date_to] within scope +
+    non-date filters (NO open-status union). Used for previous-period comparison and the
+    volume/SLA time-series."""
+    params = {"win_from": date_from, "win_to": date_to}
+    where = ["1=1"]
+    sp, sparams = _scope.scope_predicate(scope)
+    where.append(sp)
+    params.update(sparams)
+    where.extend(_non_date_filters(filters, params))
+    where.append("COALESCE(r.submitted_at, r.creation) BETWEEN %(win_from)s AND %(win_to)s")
+    sql = "SELECT " + _FIELDS + _BASE + " WHERE " + " AND ".join(where) + " ORDER BY r.submitted_at ASC"
+    return frappe.db.sql(sql, params, as_dict=True)
+
+
+def fetch_levels_for_bottleneck(scope, filters, completed_from=None, completed_to=None):
     """Per-level rows for in-scope requests: completed durations + current pending, used
-    to rank bottleneck levels. Skipped levels are excluded from duration by the caller."""
+    to rank bottleneck levels. Skipped levels are excluded from duration by the caller.
+    When completed_from/to are given, only levels COMPLETED in that window are returned
+    (used for period-vs-previous bottleneck trend)."""
     params = {}
     where = ["1=1"]
     sp, sparams = _scope.scope_predicate(scope)
     where.append(sp)
     params.update(sparams)
     where.extend(_non_date_filters(filters, params))
+    if completed_from and completed_to:
+        params["lvl_from"] = completed_from
+        params["lvl_to"] = completed_to
+        where.append("rl.completed_at BETWEEN %(lvl_from)s AND %(lvl_to)s")
     sql = """
         SELECT rl.level_name AS level_name, rl.level_status AS level_status,
                rl.activated_at AS activated_at, rl.completed_at AS completed_at,
@@ -102,6 +123,16 @@ def fetch_levels_for_bottleneck(scope, filters):
         WHERE %s
     """ % " AND ".join(where)
     return frappe.db.sql(sql, params, as_dict=True)
+
+
+def is_visible(scope, request_name):
+    """True iff `request_name` falls within the caller's scope. Used to gate the timeline
+    drawer without any DocPerm dependency."""
+    sp, params = _scope.scope_predicate(scope)
+    params["vis_name"] = request_name
+    row = frappe.db.sql("SELECT 1 FROM `tabEC Approval Request` r WHERE " + sp +
+                        " AND r.name = %(vis_name)s LIMIT 1", params)
+    return bool(row)
 
 
 def distinct_filter_values(scope):

@@ -78,3 +78,34 @@ class TestReportingKpis(FrappeTestCase):
         norm = {s["status"] for s in d["status_distribution"]}
         self.assertIn("Completed", norm)   # Approved -> Completed mapping
         self.assertNotIn("Approved", norm)
+
+    def test_comparison_present_with_direction(self):
+        comp = self._dash().get("comparison", {})
+        self.assertIn("total", comp)
+        self.assertIn("direction", comp["total"])
+        self.assertIn(comp["total"]["direction"], ("up", "down", "flat"))
+        self.assertIn("completion_rate", comp)
+
+    def test_funnel_stages(self):
+        funnel = self._dash().get("funnel", [])
+        stages = [f["stage"] for f in funnel]
+        self.assertEqual(stages, ["Đã gửi", "Đang duyệt", "Cần bổ sung", "Hoàn tất", "Từ chối/Hủy"])
+        # submitted >= completed
+        by = {f["stage"]: f["count"] for f in funnel}
+        self.assertGreaterEqual(by["Đã gửi"], by["Hoàn tất"])
+
+    def test_bottleneck_percentiles_and_dept_performance(self):
+        d = self._dash()
+        self.assertIn("department_performance", d)
+        self.assertIn("volume_trend", d)
+        self.assertIn("sla_compliance", d)
+        for b in d.get("bottleneck_levels", []):
+            # median/p90 keys exist on each level
+            self.assertIn("median_seconds", b)
+            self.assertIn("p90_seconds", b)
+
+    def test_status_mix_percentages(self):
+        mix = self._dash().get("status_mix", {})
+        self.assertIn("segments", mix)
+        for seg in mix["segments"]:
+            self.assertIn("percent", seg)

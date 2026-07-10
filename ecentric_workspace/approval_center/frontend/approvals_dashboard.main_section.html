@@ -1,9 +1,8 @@
 <!--
-  Approval Center Operations Dashboard. Route /approvals/dashboard (Web Page "approvals-dashboard").
-  Reuses the eCentric website shell (.ec-sidebar / .ec-main / tokens). Data-driven and GOVERNED:
-  all data comes from ecentric_workspace.approval_center.reporting.api.* which resolves the caller's
-  scope server-side. The frontend is NOT the security boundary. Marker: ec-approval-dashboard.
-  Does NOT touch the /approvals catalog page.
+  Approval Center Operations Dashboard (Insight & Visualization upgrade). Route /approvals/dashboard.
+  Charts use the ERP-wide ECharts dependency via window.ECCharts (public/charts). NO Chart.js, no CDN.
+  All data comes from ecentric_workspace.approval_center.reporting.api.* (governed, scope-resolved
+  server-side). Frontend is NOT the security boundary. Marker: ec-approval-dashboard.
 -->
 <style>
   body > header, body > footer, body > nav.navbar, header.navbar, .navbar.navbar-light,
@@ -13,10 +12,10 @@
 </style>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-  #ec-apd-root{ --navy:#2C3DA6; --navy-50:#eef0fb; --navy-700:#1f2d80; --yellow:#FFC000; --pink:#EF7CAF;
-    --green:#10b981; --green-50:#ecfdf5; --red:#dc2626; --red-50:#fef2f2; --amber:#d97706; --amber-50:#fffbeb;
-    --gray-50:#fafbfc; --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-300:#d1d5db; --gray-400:#9ca3af;
-    --gray-500:#6b7280; --gray-600:#4b5563; --gray-700:#374151; --gray-800:#1f2937; --gray-900:#111827; --bg:#f7f8fb; }
+  #ec-apd-root{ --navy:#2C3DA6; --navy-50:#eef0fb; --yellow:#FFC000; --pink:#EF7CAF; --green:#10b981; --green-50:#ecfdf5;
+    --red:#dc2626; --red-50:#fef2f2; --amber:#d97706; --amber-50:#fffbeb; --gray-50:#fafbfc; --gray-100:#f3f4f6;
+    --gray-200:#e5e7eb; --gray-300:#d1d5db; --gray-400:#9ca3af; --gray-500:#6b7280; --gray-600:#4b5563;
+    --gray-700:#374151; --gray-800:#1f2937; --gray-900:#111827; --bg:#f7f8fb; }
   #ec-apd-root, #ec-apd-root *{ box-sizing:border-box; }
   #ec-apd-root{ font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--gray-800);
     font-size:14px; line-height:1.5; display:grid; grid-template-columns:248px 1fr; min-height:100vh; }
@@ -32,61 +31,71 @@
   #ec-apd-root .ec-main{ min-width:0; display:flex; flex-direction:column; }
   #ec-apd-root .topbar{ background:#fff; border-bottom:1px solid var(--gray-200); min-height:60px; padding:0 24px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:20; }
   #ec-apd-root .topbar .hamburger{ display:none; background:none; border:none; cursor:pointer; color:var(--gray-600); }
-  #ec-apd-root .topbar .crumb{ font-size:13px; color:var(--gray-500); }
-  #ec-apd-root .topbar .crumb strong{ color:var(--gray-900); }
+  #ec-apd-root .topbar .crumb{ font-size:13px; color:var(--gray-500); } #ec-apd-root .topbar .crumb strong{ color:var(--gray-900); }
   #ec-apd-root .topbar .spacer{ flex:1; }
   #ec-apd-root .scope-badge{ font-size:12px; font-weight:600; padding:5px 10px; border-radius:999px; background:var(--navy-50); color:var(--navy); }
-  #ec-apd-root .content{ padding:24px; max-width:1360px; width:100%; }
+  #ec-apd-root .content{ padding:24px; max-width:1380px; width:100%; }
   #ec-apd-root .apd-title{ font-size:23px; font-weight:800; color:var(--gray-900); letter-spacing:-0.4px; margin:0 0 2px; }
   #ec-apd-root .apd-desc{ font-size:13px; color:var(--gray-500); margin:0 0 16px; }
-  /* filters */
   #ec-apd-root .filters{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:14px 16px; margin-bottom:18px; }
   #ec-apd-root .quick{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
   #ec-apd-root .qbtn{ padding:6px 12px; border-radius:999px; border:1px solid var(--gray-200); background:#fff; color:var(--gray-600); font-size:12.5px; font-weight:600; cursor:pointer; }
   #ec-apd-root .qbtn.active{ background:var(--navy); border-color:var(--navy); color:#fff; }
-  #ec-apd-root .fgrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; }
+  #ec-apd-root .fgrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; }
   #ec-apd-root .fgrid label{ display:block; font-size:11.5px; font-weight:600; color:var(--gray-500); margin-bottom:3px; }
   #ec-apd-root .fgrid select, #ec-apd-root .fgrid input{ width:100%; padding:7px 9px; border:1px solid var(--gray-200); border-radius:8px; font-size:13px; font-family:inherit; background:#fff; }
   #ec-apd-root .factions{ display:flex; gap:8px; margin-top:12px; }
   #ec-apd-root .btn{ padding:8px 16px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; font-size:13px; font-weight:600; cursor:pointer; color:var(--gray-700); }
   #ec-apd-root .btn.primary{ background:var(--navy); border-color:var(--navy); color:#fff; }
-  /* kpi cards */
+  #ec-apd-root .btn.sm{ padding:5px 10px; font-size:12px; }
+  /* kpi */
   #ec-apd-root .kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-bottom:18px; }
-  #ec-apd-root .kpi{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:16px; cursor:pointer; transition:box-shadow .15s; }
+  #ec-apd-root .kpi{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:16px; cursor:pointer; }
   #ec-apd-root .kpi:hover{ box-shadow:0 4px 14px rgba(17,24,39,.07); }
   #ec-apd-root .kpi .k-lb{ font-size:12.5px; color:var(--gray-500); font-weight:600; margin-bottom:6px; }
-  #ec-apd-root .kpi .k-val{ font-size:26px; font-weight:800; color:var(--gray-900); letter-spacing:-0.5px; }
+  #ec-apd-root .kpi .k-val{ font-size:25px; font-weight:800; color:var(--gray-900); letter-spacing:-0.5px; }
   #ec-apd-root .kpi.breach .k-val{ color:var(--red); }
-  #ec-apd-root .kpi .k-sub{ font-size:11.5px; color:var(--gray-400); margin-top:2px; }
-  /* chart cards */
-  #ec-apd-root .grid2{ display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin-bottom:18px; }
-  #ec-apd-root .card{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:16px; }
-  #ec-apd-root .card h3{ font-size:14px; font-weight:700; color:var(--gray-800); margin:0 0 14px; }
-  #ec-apd-root .bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:9px; cursor:pointer; }
-  #ec-apd-root .bar-row .b-lb{ flex:0 0 130px; font-size:12.5px; color:var(--gray-600); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  #ec-apd-root .bar-row .b-track{ flex:1; background:var(--gray-100); border-radius:6px; height:20px; overflow:hidden; }
-  #ec-apd-root .bar-row .b-fill{ height:100%; background:var(--navy); border-radius:6px; min-width:2px; }
-  #ec-apd-root .bar-row .b-fill.g{ background:var(--green); } #ec-apd-root .bar-row .b-fill.a{ background:var(--amber); }
-  #ec-apd-root .bar-row .b-fill.r{ background:var(--red); } #ec-apd-root .bar-row .b-fill.p{ background:var(--pink); }
-  #ec-apd-root .bar-row .b-val{ flex:0 0 40px; text-align:right; font-size:12.5px; font-weight:700; color:var(--gray-700); }
-  #ec-apd-root .bar-row:hover .b-lb{ color:var(--navy); }
+  #ec-apd-root .delta{ font-size:11.5px; font-weight:700; margin-top:3px; display:inline-flex; gap:4px; align-items:center; }
+  #ec-apd-root .delta.up{ color:var(--red); } #ec-apd-root .delta.down{ color:var(--green); } #ec-apd-root .delta.flat{ color:var(--gray-400); }
+  #ec-apd-root .delta.good-up{ color:var(--green); } #ec-apd-root .delta.good-down{ color:var(--red); }
+  /* insights */
+  #ec-apd-root .insights{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; margin-bottom:18px; }
+  #ec-apd-root .ins{ background:#fff; border:1px solid var(--gray-200); border-left-width:4px; border-radius:10px; padding:12px 14px; cursor:default; }
+  #ec-apd-root .ins.clickable{ cursor:pointer; } #ec-apd-root .ins.clickable:hover{ background:var(--gray-50); }
+  #ec-apd-root .ins.info{ border-left-color:var(--navy); } #ec-apd-root .ins.warning{ border-left-color:var(--amber); } #ec-apd-root .ins.critical{ border-left-color:var(--red); }
+  #ec-apd-root .ins .i-st{ font-size:13px; font-weight:600; color:var(--gray-800); }
+  #ec-apd-root .ins .i-mt{ font-size:12px; color:var(--gray-500); margin-top:3px; }
+  #ec-apd-root .ins .i-badge{ font-size:10.5px; font-weight:700; text-transform:uppercase; padding:1px 7px; border-radius:999px; float:right; }
+  #ec-apd-root .ins.info .i-badge{ background:var(--navy-50); color:var(--navy); } #ec-apd-root .ins.warning .i-badge{ background:var(--amber-50); color:var(--amber); } #ec-apd-root .ins.critical .i-badge{ background:var(--red-50); color:var(--red); }
+  /* charts */
+  #ec-apd-root .grid2{ display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:16px; margin-bottom:18px; }
+  #ec-apd-root .card{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:16px; overflow:hidden; }
+  #ec-apd-root .card h3{ font-size:14px; font-weight:700; color:var(--gray-800); margin:0 0 12px; }
+  #ec-apd-root .chart-box{ width:100%; height:260px; max-width:100%; }
+  #ec-apd-root .chart-fb{ padding:20px; text-align:center; color:var(--gray-400); font-size:13px; }
+  #ec-apd-root .legend-note{ font-size:11.5px; color:var(--gray-400); margin-top:8px; }
   /* table */
   #ec-apd-root table{ width:100%; border-collapse:collapse; }
   #ec-apd-root thead th{ text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--gray-500); font-weight:700; padding:9px 10px; border-bottom:1px solid var(--gray-200); }
   #ec-apd-root tbody td{ padding:10px; border-bottom:1px solid var(--gray-100); font-size:13px; color:var(--gray-700); }
   #ec-apd-root tbody tr:hover{ background:var(--gray-50); }
   #ec-apd-root .pill{ display:inline-block; padding:2px 9px; border-radius:999px; font-size:11.5px; font-weight:600; }
-  #ec-apd-root .pill.Pending{ background:var(--navy-50); color:var(--navy); }
-  #ec-apd-root .pill.Information{ background:var(--amber-50); color:var(--amber); }
-  #ec-apd-root .pill.breach{ background:var(--red-50); color:var(--red); }
-  #ec-apd-root a.open-link{ color:var(--navy); font-weight:600; text-decoration:none; }
-  #ec-apd-root a.open-link:hover{ text-decoration:underline; }
-  /* states */
-  #ec-apd-root .state{ padding:44px; text-align:center; color:var(--gray-500); }
-  #ec-apd-root .state h4{ margin:0 0 6px; color:var(--gray-700); font-size:15px; }
+  #ec-apd-root .pill.Pending{ background:var(--navy-50); color:var(--navy); } #ec-apd-root .pill.Information{ background:var(--amber-50); color:var(--amber); } #ec-apd-root .pill.breach{ background:var(--red-50); color:var(--red); }
+  #ec-apd-root .signal{ font-size:12px; color:var(--gray-600); }
+  #ec-apd-root a.open-link{ color:var(--navy); font-weight:600; text-decoration:none; cursor:pointer; } #ec-apd-root a.open-link:hover{ text-decoration:underline; }
+  #ec-apd-root .tabs{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  #ec-apd-root .tabs .qbtn.count{ }
+  /* drawer */
+  #ec-apd-root .drawer-ov{ position:fixed; inset:0; background:rgba(17,24,39,.4); display:flex; justify-content:flex-end; z-index:80; }
+  #ec-apd-root .drawer{ width:440px; max-width:92vw; background:#fff; height:100%; overflow:auto; padding:20px; }
+  #ec-apd-root .drawer h3{ margin:0 0 4px; font-size:16px; }
+  #ec-apd-root .tl{ list-style:none; padding:0; margin:14px 0 0; }
+  #ec-apd-root .tl li{ padding:10px 0 10px 18px; border-left:2px solid var(--gray-200); position:relative; }
+  #ec-apd-root .tl li:before{ content:""; position:absolute; left:-5px; top:14px; width:8px; height:8px; border-radius:50%; background:var(--navy); }
+  #ec-apd-root .state{ padding:40px; text-align:center; color:var(--gray-500); } #ec-apd-root .state h4{ margin:0 0 6px; color:var(--gray-700); }
   #ec-apd-root .skel{ height:80px; border-radius:12px; background:linear-gradient(90deg,#eef0f4,#f6f7f9,#eef0f4); background-size:200% 100%; animation:sh 1.2s infinite; }
   @keyframes sh{ 0%{background-position:200% 0;}100%{background-position:-200% 0;} }
-  @media (max-width:900px){ #ec-apd-root{ grid-template-columns:1fr; } #ec-apd-root .ec-sidebar{ position:fixed; left:0; top:0; width:248px; z-index:50; transform:translateX(-100%); transition:transform .22s; } #ec-apd-root.sb-open .ec-sidebar{ transform:translateX(0); } #ec-apd-root .topbar .hamburger{ display:block; } }
+  @media (max-width:900px){ #ec-apd-root{ grid-template-columns:1fr; } #ec-apd-root .ec-sidebar{ position:fixed; left:0; top:0; width:248px; z-index:50; transform:translateX(-100%); transition:transform .22s; } #ec-apd-root.sb-open .ec-sidebar{ transform:translateX(0); } #ec-apd-root .topbar .hamburger{ display:block; } #ec-apd-root .chart-box{ height:230px; } }
 </style>
 
 <div id="ec-apd-root">
@@ -101,13 +110,11 @@
     <div class="topbar">
       <button class="hamburger" id="apd-ham"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg></button>
       <div class="crumb">Approval Center · <strong>Bảng điều hành vận hành</strong></div>
-      <div class="spacer"></div>
-      <div class="scope-badge" id="apd-scope">—</div>
+      <div class="spacer"></div><div class="scope-badge" id="apd-scope">—</div>
     </div>
     <div class="content">
       <h1 class="apd-title">Bảng điều hành phê duyệt</h1>
-      <p class="apd-desc">Tổng quan yêu cầu, tồn đọng, SLA và điểm nghẽn — theo phạm vi quyền của bạn.</p>
-
+      <p class="apd-desc">Xu hướng, SLA, điểm nghẽn và cảnh báo — theo phạm vi quyền của bạn. So sánh với kỳ trước.</p>
       <div class="filters" id="apd-filters">
         <div class="quick" id="apd-quick">
           <button type="button" class="qbtn" data-range="today">Hôm nay</button>
@@ -125,174 +132,224 @@
           <div><label>Trạng thái</label><select id="f-status"><option value="">Tất cả</option></select></div>
           <div><label>SLA</label><select id="f-sla"><option value="">Tất cả</option></select></div>
         </div>
-        <div class="factions">
-          <button type="button" class="btn primary" id="apd-apply">Áp dụng</button>
-          <button type="button" class="btn" id="apd-reset">Đặt lại</button>
-        </div>
+        <div class="factions"><button type="button" class="btn primary" id="apd-apply">Áp dụng</button><button type="button" class="btn" id="apd-reset">Đặt lại</button></div>
       </div>
-
       <div id="apd-body"><div class="kpis"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></div>
     </div>
   </div>
 </div>
 
+<script src="/assets/ecentric_workspace/charts/vendor/echarts.min.js"></script>
+<script src="/assets/ecentric_workspace/charts/chart_theme.js"></script>
+<script src="/assets/ecentric_workspace/charts/chart_common.js"></script>
 <script id="ec-approval-dashboard">
 (function(){
   "use strict";
-  var API = "ecentric_workspace.approval_center.reporting.api";
-  var $ = function(id){ return document.getElementById(id); };
-  var state = { filters: {}, options: null, data: null, quick: "month" };
+  var API="ecentric_workspace.approval_center.reporting.api";
+  var $=function(id){return document.getElementById(id);};
+  var state={ filters:{}, options:null, data:null, quick:"month", tableFilter:null };
+  var charts={};   // elId -> {inst}
 
-  function call(method, args){
-    if(!(window.frappe && frappe.call)) return Promise.reject(new Error("frappe unavailable"));
-    return frappe.call({ method: API + "." + method, args: args||{} }).then(function(r){ return r && r.message; });
-  }
-  function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function call(m,a){ if(!(window.frappe&&frappe.call)) return Promise.reject(new Error("frappe unavailable"));
+    return frappe.call({ method:API+"."+m, args:a||{} }).then(function(r){ return r&&r.message; }); }
+  function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
   function fmtInt(n){ return (n==null?0:n).toLocaleString("vi-VN"); }
-  function fmtDur(secs){ if(secs==null) return "—"; var h=secs/3600; if(h<1) return Math.round(secs/60)+" phút"; if(h<24) return (Math.round(h*10)/10)+" giờ"; return (Math.round(h/24*10)/10)+" ngày"; }
-  function fmtDT(s){ if(!s) return "—"; var d=new Date(s.replace(" ","T")); if(isNaN(d)) return esc(s); function p(n){return(n<10?"0":"")+n;} return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes()); }
+  function fmtDur(s){ if(s==null) return "—"; var h=s/3600; if(h<1) return Math.round(s/60)+"p"; if(h<24) return (Math.round(h*10)/10)+"g"; return (Math.round(h/24*10)/10)+"n"; }
+  function fmtHours(s){ return s==null?0:Math.round(s/3600*10)/10; }
+  function fmtDT(s){ if(!s) return "—"; var d=new Date(String(s).replace(" ","T")); if(isNaN(d)) return esc(s); function p(n){return(n<10?"0":"")+n;} return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes()); }
   function statusLabel(s){ return {Pending:"Chờ duyệt","Information Required":"Cần bổ sung",Completed:"Hoàn tất",Rejected:"Từ chối",Cancelled:"Đã hủy",Draft:"Nháp"}[s]||s; }
+  function pal(){ return (window.ECChartTheme&&ECChartTheme.palette)?ECChartTheme.palette("brand"):["#2C3DA6","#10b981","#FFC000","#EF7CAF","#dc2626","#6b7280"]; }
 
-  // ---- date ranges ----
   function ymd(d){ function p(n){return(n<10?"0":"")+n;} return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate()); }
-  function rangeFor(q){
-    var now=new Date(), from, to;
-    if(q==="today"){ from=to=now; }
-    else if(q==="7d"){ to=now; from=new Date(now.getTime()-6*864e5); }
-    else if(q==="prev"){ from=new Date(now.getFullYear(),now.getMonth()-1,1); to=new Date(now.getFullYear(),now.getMonth(),0); }
-    else { from=new Date(now.getFullYear(),now.getMonth(),1); to=new Date(now.getFullYear(),now.getMonth()+1,0); } // month
-    return { date_from: ymd(from), date_to: ymd(to) };
-  }
-
-  // ---- filters read/write ----
-  function readFilters(){
-    var f = { category:$("f-category").value, approval_type:$("f-type").value, department:$("f-department").value,
-              status:$("f-status").value, sla_state:$("f-sla").value };
-    f.date_from = $("f-from").value; f.date_to = $("f-to").value;
-    Object.keys(f).forEach(function(k){ if(!f[k]) delete f[k]; });
-    return f;
-  }
+  function rangeFor(q){ var now=new Date(),from,to;
+    if(q==="today"){from=to=now;} else if(q==="7d"){to=now;from=new Date(now.getTime()-6*864e5);}
+    else if(q==="prev"){from=new Date(now.getFullYear(),now.getMonth()-1,1);to=new Date(now.getFullYear(),now.getMonth(),0);}
+    else {from=new Date(now.getFullYear(),now.getMonth(),1);to=new Date(now.getFullYear(),now.getMonth()+1,0);}
+    return { date_from:ymd(from), date_to:ymd(to) }; }
   function setDateInputs(r){ $("f-from").value=r.date_from; $("f-to").value=r.date_to; }
-
-  function fillSelect(sel, items, valKey, lbKey){
-    var cur=sel.value; sel.length=1;
-    (items||[]).forEach(function(it){ var o=document.createElement("option");
-      o.value = valKey?it[valKey]:it; o.textContent = lbKey?(it[lbKey]||it[valKey]):it; sel.appendChild(o); });
-    sel.value=cur;
-  }
-  function loadOptions(){
-    return call("get_filter_options").then(function(o){ state.options=o||{};
-      $("apd-scope").textContent = scopeLabel((o||{}).scope_mode);
-      fillSelect($("f-category"), o.categories||[]);
-      fillSelect($("f-type"), o.types||[], "v", "label");
-      fillSelect($("f-department"), o.departments||[]);
-      fillSelect($("f-status"), o.statuses||[]);
-      fillSelect($("f-sla"), (o.sla_states||[]));
-    }).catch(function(){});
-  }
+  function readFilters(){ var f={category:$("f-category").value,approval_type:$("f-type").value,department:$("f-department").value,status:$("f-status").value,sla_state:$("f-sla").value,date_from:$("f-from").value,date_to:$("f-to").value};
+    Object.keys(f).forEach(function(k){ if(!f[k]) delete f[k]; }); return f; }
+  function fillSelect(sel,items,vk,lk){ var cur=sel.value; sel.length=1; (items||[]).forEach(function(it){ var o=document.createElement("option"); o.value=vk?it[vk]:it; o.textContent=lk?(it[lk]||it[vk]):it; sel.appendChild(o); }); sel.value=cur; }
   function scopeLabel(m){ return {admin:"Toàn tổ chức",department:"Phòng ban",approver:"Người duyệt",requester:"Cá nhân"}[m]||"—"; }
 
-  // ---- load + render ----
-  function load(){
-    $("apd-body").innerHTML='<div class="kpis"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
-    var f = Object.assign({}, state.filters, readFilters());
-    state.filters = f;
-    return call("get_dashboard", { filters: JSON.stringify(f) }).then(function(d){
-      state.data=d; render(d);
-    }).catch(function(e){ renderError(e); });
-  }
-  function renderError(e){ $("apd-body").innerHTML='<div class="card"><div class="state"><h4>Không tải được dữ liệu</h4><p>Vui lòng thử lại. Nếu vẫn lỗi, liên hệ quản trị viên.</p><button type="button" class="btn primary" id="apd-retry">Thử lại</button></div></div>'; var r=$("apd-retry"); if(r) r.onclick=load; }
+  function loadOptions(){ return call("get_filter_options").then(function(o){ state.options=o||{};
+    $("apd-scope").textContent=scopeLabel((o||{}).scope_mode);
+    fillSelect($("f-category"),o.categories||[]); fillSelect($("f-type"),o.types||[],"v","label");
+    fillSelect($("f-department"),o.departments||[]); fillSelect($("f-status"),o.statuses||[]); fillSelect($("f-sla"),o.sla_states||[]);
+  }).catch(function(){}); }
 
-  function kpiCard(lb, val, sub, cls, filterPatch){
-    return '<div class="kpi '+(cls||"")+'" data-kpi=\''+esc(JSON.stringify(filterPatch||{}))+'\'><div class="k-lb">'+esc(lb)+'</div><div class="k-val">'+val+'</div>'+(sub?'<div class="k-sub">'+esc(sub)+'</div>':'')+'</div>';
-  }
-  function barList(items, keyLb, keyVal, cls, filterKey){
-    if(!items||!items.length) return '<div class="state" style="padding:20px">Không có dữ liệu.</div>';
-    var max=Math.max.apply(null, items.map(function(i){return i[keyVal]||0;}))||1;
-    return items.map(function(i){ var pct=Math.round((i[keyVal]||0)/max*100);
-      return '<div class="bar-row" data-filter=\''+esc(JSON.stringify(filterKey?makePatch(filterKey,i):{}))+'\'><div class="b-lb" title="'+esc(i[keyLb])+'">'+esc(i[keyLb])+'</div><div class="b-track"><div class="b-fill '+(cls||"")+'" style="width:'+pct+'%"></div></div><div class="b-val">'+fmtInt(i[keyVal])+'</div></div>';
-    }).join("");
-  }
-  function makePatch(key, item){ var p={}; if(key==="status") p.status=item.status; else if(key==="approval_type") p.approval_type=item.approval_type||item.label; else if(key==="department") p.department=item.label; p.view="open"; return p; }
+  function load(){ $("apd-body").innerHTML='<div class="kpis"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
+    var f=Object.assign({},state.filters,readFilters()); state.filters=f;
+    return call("get_dashboard",{filters:JSON.stringify(f)}).then(function(d){ state.data=d; render(d); }).catch(function(e){ renderError(); }); }
+  function renderError(){ $("apd-body").innerHTML='<div class="card"><div class="state"><h4>Không tải được dữ liệu</h4><p>Vui lòng thử lại. Nếu vẫn lỗi, liên hệ quản trị viên.</p><button type="button" class="btn primary" id="apd-retry">Thử lại</button></div></div>'; var r=$("apd-retry"); if(r) r.onclick=load; }
 
-  function render(d){
-    if(!d){ renderError(); return; }
-    var k=d.kpis||{};
+  // ---- delta rendering ----
+  function deltaHTML(c, goodUp){ if(!c||c.pct==null) return ''; var dir=c.direction; var cls=dir;
+    if(goodUp===true) cls=(dir==="up"?"good-up":dir==="down"?"good-down":"flat"); if(goodUp===false) cls=dir;
+    var arrow=dir==="up"?"▲":dir==="down"?"▼":"■"; return '<div class="delta '+cls+'">'+arrow+' '+(c.pct>0?"+":"")+c.pct+'% <span style="color:var(--gray-400);font-weight:500">vs kỳ trước</span></div>'; }
+
+  function kpiCard(lb,val,cmp,goodUp,cls,patch){ return '<div class="kpi '+(cls||"")+'" data-kpi=\''+esc(JSON.stringify(patch||{}))+'\'><div class="k-lb">'+esc(lb)+'</div><div class="k-val">'+val+'</div>'+deltaHTML(cmp,goodUp)+'</div>'; }
+
+  function render(d){ if(!d){ renderError(); return; } state.tableFilter=null;
+    var k=d.kpis||{}, c=d.comparison||{};
     var html='';
     html+='<div class="kpis">';
-    html+=kpiCard("Tổng yêu cầu", fmtInt(k.total), "trong kỳ", "", {view:"period"});
-    html+=kpiCard("Chờ xử lý", fmtInt(k.pending), "đang mở", "", {status:"Pending",view:"open"});
-    html+=kpiCard("Hoàn tất", fmtInt(k.completed), "trong kỳ", "", {status:"Completed",view:"period"});
-    html+=kpiCard("Từ chối", fmtInt(k.rejected), "trong kỳ", "", {status:"Rejected",view:"period"});
-    html+=kpiCard("Quá hạn SLA", fmtInt(k.sla_breached), "đang mở", "breach", {sla_state:"breached",view:"open"});
-    html+=kpiCard("TG duyệt TB", fmtDur(k.avg_approval_seconds), (k.avg_approval_sample||0)+" hồ sơ", "", {status:"Completed",view:"period"});
+    html+=kpiCard("Tổng yêu cầu",fmtInt(k.total),c.total,null,"",{view:"period"});
+    html+=kpiCard("Chờ xử lý",fmtInt(k.pending),c.pending,false,"",{status:"Pending",view:"open"});
+    html+=kpiCard("Hoàn tất",fmtInt(k.completed),c.completed,true,"",{status:"Completed",view:"period"});
+    html+=kpiCard("Từ chối",fmtInt(k.rejected),c.rejected,false,"",{status:"Rejected",view:"period"});
+    html+=kpiCard("Quá hạn SLA",fmtInt(k.sla_breached),null,false,"breach",{sla_state:"breached",view:"open"});
+    html+=kpiCard("TG duyệt TB",fmtDur(k.avg_approval_seconds),c.avg_approval_seconds,false,"",{status:"Completed",view:"period"});
     html+='</div>';
-
+    // insights
+    html+='<div class="insights" id="apd-insights">'+(d.insights||[]).map(function(i,ix){ return '<div class="ins '+i.severity+(i.filter?' clickable':'')+'" data-ins="'+ix+'"><span class="i-badge">'+esc(i.severity)+'</span><div class="i-st">'+esc(i.statement)+'</div>'+(i.metric?'<div class="i-mt">'+esc(i.metric)+'</div>':'')+'</div>'; }).join("")+'</div>';
+    // chart grid
     html+='<div class="grid2">';
-    html+='<div class="card"><h3>Yêu cầu theo trạng thái</h3>'+barList((d.status_distribution||[]).map(function(s){return {label:statusLabel(s.status),count:s.count,status:s.status};}),"label","count","","status")+'</div>';
-    html+='<div class="card"><h3>Tồn đọng theo loại</h3>'+barList(d.pending_by_type||[],"label","count","p","approval_type")+'</div>';
-    html+='<div class="card"><h3>Tồn đọng theo phòng ban</h3>'+barList(d.pending_by_department||[],"label","count","","department")+'</div>';
-    html+='<div class="card"><h3>Tồn đọng theo người duyệt</h3>'+barList(d.pending_by_approver||[],"label","count","a",null)+'</div>';
-    html+='<div class="card"><h3>Phân bố tuổi hồ sơ (đang mở)</h3>'+barList((d.aging_buckets||[]).map(function(b){return {label:b.bucket,count:b.count};}),"label","count","a",null)+'</div>';
-    html+='<div class="card"><h3>Điểm nghẽn theo cấp duyệt</h3>'+bottleneckList(d.bottleneck_levels||[])+'</div>';
+    html+=chartCard("Xu hướng yêu cầu","apd-trend","biểu đồ đường theo "+((d.volume_trend||{}).granularity==="week"?"tuần":"ngày"));
+    html+=chartCard("Cơ cấu trạng thái","apd-statusmix");
+    html+=chartCard("Tuân thủ SLA","apd-sla");
+    html+=chartCard("Phân bố tuổi hồ sơ","apd-aging");
+    html+=chartCard("Khối lượng theo người duyệt","apd-approver");
+    html+=chartCard("Hiệu suất phòng ban","apd-dept","X=Số lượng · Y=TG duyệt TB (giờ) · Kích thước=Quá hạn");
+    html+=chartCard("Phễu vòng đời","apd-funnel","ảnh chụp trạng thái, không phải phễu theo thời gian");
+    html+='<div class="card"><h3>Điểm nghẽn theo cấp duyệt</h3><div id="apd-bottleneck"></div></div>';
     html+='</div>';
-
-    html+='<div class="card" id="apd-attention"><h3>Cần chú ý</h3>'+attentionTable(d.attention||[])+'</div>';
+    // action table
+    html+='<div class="card"><h3>Cần chú ý</h3><div class="tabs" id="apd-tabs"></div><div id="apd-table"></div></div>';
     $("apd-body").innerHTML=html;
-    wireDrill();
+    renderBottleneck(d.bottleneck_levels||[]);
+    renderTabs(); renderTable(d);
+    wireStatic(d);
+    drawCharts(d);
   }
-  function bottleneckList(items){
-    if(!items||!items.length) return '<div class="state" style="padding:20px">Không có dữ liệu.</div>';
-    var max=Math.max.apply(null, items.map(function(i){return i.avg_completed_seconds||0;}))||1;
-    return items.map(function(i){ var pct=Math.round((i.avg_completed_seconds||0)/max*100);
-      return '<div class="bar-row"><div class="b-lb" title="'+esc(i.level)+'">'+esc(i.level)+'</div><div class="b-track"><div class="b-fill a" style="width:'+pct+'%"></div></div><div class="b-val">'+fmtDur(i.avg_completed_seconds)+'</div></div>';
-    }).join("");
-  }
-  function attentionTable(rows){
-    if(!rows||!rows.length) return '<div class="state" style="padding:24px"><h4>Không có hồ sơ cần chú ý</h4><p>Không có yêu cầu quá hạn hoặc cần bổ sung trong phạm vi hiện tại.</p></div>';
-    var head='<table><thead><tr><th>Tuổi / SLA</th><th>Mã</th><th>Tiêu đề / Loại</th><th>Người yêu cầu</th><th>Phòng ban</th><th>Cấp hiện tại</th><th>Trạng thái</th><th>Ngày gửi</th><th></th></tr></thead><tbody>';
-    var body=rows.map(function(r){
-      var breach = r.sla_breached ? '<span class="pill breach">Quá hạn</span> ' : '';
-      var age = r.pending_age_seconds!=null ? fmtDur(r.pending_age_seconds) : "—";
-      var pill = '<span class="pill '+(r.status==="Information Required"?"Information":"Pending")+'">'+esc(statusLabel(r.status_label||r.status))+'</span>';
-      var open = r.detail_route ? '<a class="open-link" href="'+esc(r.detail_route)+'" data-open="1">Mở ▸</a>' : '<span style="color:var(--gray-300)">—</span>';
-      return '<tr data-row="'+esc(r.name)+'"><td>'+breach+age+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||"")+'</td><td>'+esc(r.requester||"")+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"")+'</td><td>'+pill+'</td><td>'+fmtDT(r.submitted_at)+'</td><td>'+open+'</td></tr>';
-    }).join("");
-    return head+body+'</tbody></table>';
+  function chartCard(title,id,note){ return '<div class="card"><h3>'+esc(title)+'</h3><div class="chart-box" id="'+id+'"></div>'+(note?'<div class="legend-note">'+esc(note)+'</div>':'')+'</div>'; }
+
+  // ---- charts (ECharts via ECCharts wrapper) ----
+  function chartsOk(){ return window.ECCharts && ECCharts.ok && ECCharts.ok(); }
+  function draw(elId, option, onClick){ var el=$(elId); if(!el) return;
+    if(!chartsOk()){ el.innerHTML='<div class="chart-fb">Biểu đồ cần tài nguyên ECharts.</div>'; return; }
+    ECCharts.setOption(el, option, true); var inst=ECCharts.ensure(el);
+    if(inst&&onClick){ try{ inst.off&&inst.off("click"); }catch(e){} inst.on("click", onClick); } }
+  function tip(extra){ return (window.ECChartTheme&&ECChartTheme.tooltip)?ECChartTheme.tooltip(extra):Object.assign({trigger:"item"},extra||{}); }
+
+  function buildOptions(d){
+    var P=pal(); var opts={};
+    // A. volume trend (multi-line)
+    var vt=d.volume_trend||{buckets:[]}; var lbls=vt.buckets.map(function(b){return b.label;});
+    opts.trend={ tooltip:{trigger:"axis"}, legend:{data:["Tổng","Hoàn tất","Chờ","Từ chối"],bottom:0,textStyle:{fontSize:11}},
+      grid:{left:36,right:12,top:14,bottom:34}, xAxis:{type:"category",data:lbls,axisLabel:{fontSize:10}}, yAxis:{type:"value",minInterval:1},
+      series:[ {name:"Tổng",type:"line",smooth:true,data:vt.buckets.map(function(b){return b.total;}),itemStyle:{color:P[0]}},
+               {name:"Hoàn tất",type:"line",smooth:true,data:vt.buckets.map(function(b){return b.completed;}),itemStyle:{color:P[1]}},
+               {name:"Chờ",type:"line",smooth:true,data:vt.buckets.map(function(b){return b.pending;}),itemStyle:{color:P[2]}},
+               {name:"Từ chối",type:"line",smooth:true,data:vt.buckets.map(function(b){return b.rejected;}),itemStyle:{color:P[4]}} ] };
+    // B. status mix (doughnut)
+    var sm=(d.status_mix&&d.status_mix.segments)||[];
+    opts.statusmix={ tooltip:tip({formatter:"{b}: {c} ({d}%)"}), legend:{bottom:0,textStyle:{fontSize:11}},
+      series:[{type:"pie",radius:["45%","72%"],center:["50%","46%"],avoidLabelOverlap:true,label:{show:false},
+        data:sm.map(function(s){return {name:statusLabel(s.status),value:s.count,_status:s.status};})}] };
+    // C. SLA compliance (doughnut + trend note)
+    var sc=d.sla_compliance||{}; opts.sla={ tooltip:tip({formatter:"{b}: {c}"}), legend:{bottom:0,textStyle:{fontSize:11}},
+      title:{text:(sc.compliant+sc.breached)?Math.round(sc.compliant*100/(sc.compliant+sc.breached))+"%":"—",subtext:"Tuân thủ",left:"center",top:"38%",textStyle:{fontSize:22},subtextStyle:{fontSize:11}},
+      series:[{type:"pie",radius:["55%","74%"],center:["50%","46%"],label:{show:false},
+        data:[{name:"Tuân thủ",value:sc.compliant||0,itemStyle:{color:P[1]}},{name:"Quá hạn",value:sc.breached||0,itemStyle:{color:P[4]}}]}] };
+    // D. aging (doughnut)
+    var ag=d.aging_buckets||[]; opts.aging={ tooltip:tip({formatter:"{b}: {c}"}), legend:{bottom:0,textStyle:{fontSize:11}},
+      series:[{type:"pie",radius:["45%","72%"],center:["50%","46%"],label:{show:false},
+        data:ag.map(function(b,i){return {name:b.bucket,value:b.count,_bucket:b.bucket,itemStyle:{color:[P[1],P[2],P[3],P[4]][i]}};})}] };
+    // E. approver (horizontal bar)
+    var ap=(d.pending_by_approver||[]).slice(0,10).reverse();
+    opts.approver={ tooltip:{trigger:"axis",axisPointer:{type:"shadow"},formatter:function(pp){var o=ap[pp[0].dataIndex]; return esc(o.label)+"<br/>Chờ: "+o.count+"<br/>Lâu nhất: "+fmtDur(o.oldest_pending_seconds);}},
+      grid:{left:110,right:20,top:10,bottom:20}, xAxis:{type:"value",minInterval:1}, yAxis:{type:"category",data:ap.map(function(a){return a.label;}),axisLabel:{fontSize:10}},
+      series:[{type:"bar",data:ap.map(function(a){return a.count;}),itemStyle:{color:P[0],borderRadius:[0,4,4,0]}}] };
+    // F. department scatter/bubble
+    var dp=d.department_performance||[];
+    opts.dept={ tooltip:tip({formatter:function(pp){var o=pp.data._d; return esc(o.department)+"<br/>SL: "+o.volume+"<br/>TG duyệt TB: "+fmtHours(o.avg_duration_seconds)+"g<br/>Quá hạn: "+o.breaches;}}),
+      grid:{left:40,right:20,top:16,bottom:30}, xAxis:{type:"value",name:"Số lượng",nameGap:18,minInterval:1}, yAxis:{type:"value",name:"Giờ"},
+      series:[{type:"scatter",symbolSize:function(v){return Math.max(10,Math.min(46,10+(v[2]||0)*8));},
+        data:dp.map(function(o){return {value:[o.volume,fmtHours(o.avg_duration_seconds),o.breaches],_d:o,itemStyle:{color:o.breaches>0?P[4]:P[0]}};})}] };
+    // H. funnel
+    var fn=d.funnel||[]; opts.funnel={ tooltip:tip({formatter:"{b}: {c}"}), legend:{bottom:0,textStyle:{fontSize:11}},
+      series:[{type:"funnel",left:"8%",right:"8%",top:10,bottom:30,minSize:"14%",sort:"none",label:{fontSize:11},
+        data:fn.map(function(s,i){return {name:s.stage,value:s.count,itemStyle:{color:P[i%P.length]}};})}] };
+    return opts;
   }
 
-  // ---- drill-down ----
-  function applyPatch(patch){
-    if(patch.status){ $("f-status").value = patch.status==="Completed"?"Completed":patch.status; }
-    if(patch.approval_type){ $("f-type").value = patch.approval_type; }
-    if(patch.department){ $("f-department").value = patch.department; }
-    if(patch.sla_state){ $("f-sla").value = patch.sla_state; }
-    state.filters.view = patch.view || state.filters.view;
-    load().then(function(){ var a=$("apd-attention"); if(a&&a.scrollIntoView) a.scrollIntoView({behavior:"smooth"}); });
+  function drawCharts(d){ var o=buildOptions(d); state._opts=o;
+    if(window.ECCharts&&ECCharts.attachResize) ECCharts.attachResize();
+    draw("apd-trend",o.trend,null);
+    draw("apd-statusmix",o.statusmix,function(p){ if(p&&p.data&&p.data._status) applyPatch({status:statusLabelToEngine(p.data._status),view:"period"}); });
+    draw("apd-sla",o.sla,function(p){ if(p&&p.name==="Quá hạn") applyPatch({sla_state:"breached",view:"open"}); });
+    draw("apd-aging",o.aging,function(p){ if(p&&p.data&&p.data._bucket){ state.tableFilter={type:"aging",bucket:p.data._bucket}; renderTable(state.data); scrollTable(); } });
+    draw("apd-approver",o.approver,function(p){ var a=(state.data.pending_by_approver||[]).slice(0,10).reverse()[p.dataIndex]; if(a) applyPatch({approver:a.label,view:"open"}); });
+    draw("apd-dept",o.dept,function(p){ if(p&&p.data&&p.data._d) applyPatch({department:p.data._d.department,view:"open"}); });
+    draw("apd-funnel",o.funnel,null);
   }
-  function wireDrill(){
-    Array.prototype.forEach.call(document.querySelectorAll("[data-kpi]"), function(el){
-      el.onclick=function(){ try{ applyPatch(JSON.parse(el.getAttribute("data-kpi"))); }catch(e){} }; });
-    Array.prototype.forEach.call(document.querySelectorAll(".bar-row[data-filter]"), function(el){
-      el.onclick=function(){ try{ var p=JSON.parse(el.getAttribute("data-filter")); if(Object.keys(p).length) applyPatch(p); }catch(e){} }; });
-    Array.prototype.forEach.call(document.querySelectorAll('a.open-link[data-open]'), function(a){
-      a.onclick=function(e){ e.preventDefault(); window.location.href=a.getAttribute("href"); }; });
+  function statusLabelToEngine(s){ return s; }
+
+  function renderBottleneck(items){ var el=$("apd-bottleneck"); if(!items.length){ el.innerHTML='<div class="state" style="padding:18px">Không có dữ liệu.</div>'; return; }
+    var h='<table><thead><tr><th>Cấp</th><th>SL</th><th>TB</th><th>Trung vị</th><th>P90</th><th>Đang chờ</th><th>Quá hạn</th><th>Xu hướng</th></tr></thead><tbody>';
+    h+=items.map(function(b){ var tr=b.trend_pct==null?"—":'<span class="delta '+(b.trend_pct>0?"up":b.trend_pct<0?"down":"flat")+'">'+(b.trend_pct>0?"▲":b.trend_pct<0?"▼":"■")+" "+Math.abs(b.trend_pct)+"%</span>";
+      return '<tr><td>'+esc(b.level)+'</td><td>'+fmtInt(b.volume)+'</td><td>'+fmtDur(b.avg_completed_seconds)+'</td><td>'+fmtDur(b.median_seconds)+'</td><td>'+fmtDur(b.p90_seconds)+'</td><td>'+fmtInt(b.active_pending)+'</td><td>'+fmtInt(b.overdue_count)+'</td><td>'+tr+'</td></tr>'; }).join("");
+    el.innerHTML=h+'</tbody></table>'; }
+
+  // ---- action table w/ quick filters + signal + drawer ----
+  var QF=[["over_sla","Quá hạn SLA"],["gt3","> 3 ngày"],["info","Cần bổ sung"],["highload","Người duyệt tải cao"]];
+  function renderTabs(){ var el=$("apd-tabs"); el.innerHTML=QF.map(function(q){ var on=state.tableFilter&&state.tableFilter.qf===q[0]; return '<button type="button" class="qbtn'+(on?" active":"")+'" data-qf="'+q[0]+'">'+esc(q[1])+'</button>'; }).join(""); }
+  function highLoadApprovers(d){ return new Set((d.pending_by_approver||[]).filter(function(a){return a.count>=10;}).map(function(a){return a.label;})); }
+  function rowSignal(r){ if(r.sla_breached&&r.sla_due_at){ return "Quá hạn SLA"; } if(r.status==="Information Required"){ return "Chờ bổ sung thông tin"; } return "Chờ "+(r.current_level_name||("cấp "+r.current_level)); }
+  function applyTableFilter(rows,d){ var tf=state.tableFilter; if(!tf) return rows;
+    if(tf.type==="aging"){ var b=tf.bucket; return rows.filter(function(r){ return agingOf(r.pending_age_seconds)===b; }); }
+    if(tf.qf==="over_sla") return rows.filter(function(r){return r.sla_breached;});
+    if(tf.qf==="gt3") return rows.filter(function(r){return (r.pending_age_seconds||0)>3*86400;});
+    if(tf.qf==="info") return rows.filter(function(r){return r.status==="Information Required";});
+    if(tf.qf==="highload"){ var hs=highLoadApprovers(d); return rows.filter(function(r){return hs.size>0;}); }
+    return rows; }
+  function agingOf(s){ if(s==null) return null; var days=s/86400; if(days<1)return "<1d"; if(days<3)return "1-2d"; if(days<=5)return "3-5d"; return ">5d"; }
+  function sortRows(rows){ return rows.slice().sort(function(a,b){ if(!!b.sla_breached-!!a.sla_breached) return (!!b.sla_breached)-(!!a.sla_breached); return (b.pending_age_seconds||0)-(a.pending_age_seconds||0); }); }
+  function renderTable(d){ var rows=sortRows(applyTableFilter(d.attention||[],d)); var el=$("apd-table");
+    if(!rows.length){ el.innerHTML='<div class="state" style="padding:24px"><h4>Không có hồ sơ cần chú ý</h4><p>Không có yêu cầu quá hạn hoặc cần bổ sung trong phạm vi hiện tại.</p></div>'; return; }
+    var head='<table><thead><tr><th>Tuổi / SLA</th><th>Mã</th><th>Loại</th><th>Người yêu cầu</th><th>Phòng ban</th><th>Cấp</th><th>Tín hiệu</th><th>Trạng thái</th><th>Ngày gửi</th><th></th></tr></thead><tbody>';
+    var body=rows.map(function(r){ var breach=r.sla_breached?'<span class="pill breach">Quá hạn</span> ':''; var age=r.pending_age_seconds!=null?fmtDur(r.pending_age_seconds):"—";
+      var pill='<span class="pill '+(r.status==="Information Required"?"Information":"Pending")+'">'+esc(statusLabel(r.status_label||r.status))+'</span>';
+      var open=r.detail_route?'<a class="open-link" href="'+esc(r.detail_route)+'" data-open="1">Mở ▸</a>':'<span style="color:var(--gray-300)">—</span>';
+      return '<tr data-name="'+esc(r.name)+'"><td>'+breach+age+'</td><td><a class="open-link" data-drawer="'+esc(r.name)+'">'+esc(r.name)+'</a></td><td>'+esc(r.type||"")+'</td><td>'+esc(r.requester||"")+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"")+'</td><td class="signal">'+esc(rowSignal(r))+'</td><td>'+pill+'</td><td>'+fmtDT(r.submitted_at)+'</td><td>'+open+'</td></tr>'; }).join("");
+    el.innerHTML=head+body+'</tbody></table>'; wireTable(); }
+  function scrollTable(){ var t=$("apd-table"); if(t&&t.scrollIntoView) t.scrollIntoView({behavior:"smooth"}); }
+
+  // ---- drawer (read-only timeline) ----
+  function openDrawer(name){ call("get_request_timeline",{name:name}).then(function(t){ showDrawer(name,t); }).catch(function(){ showDrawer(name,null); }); }
+  function showDrawer(name,t){ var ov=document.createElement("div"); ov.className="drawer-ov";
+    var h=(t&&t.header)||{}; var acts=(t&&t.actions)||[];
+    var body='<div class="drawer"><button type="button" class="btn sm" id="dw-x" style="float:right">Đóng</button><h3>'+esc(name)+'</h3><div style="color:var(--gray-500);font-size:12.5px">'+esc(h.approval_type||"")+' · '+esc(statusLabel(h.approval_status)||"")+'</div>';
+    if(!t){ body+='<div class="state">Không tải được lịch sử.</div>'; }
+    else if(!acts.length){ body+='<div class="state" style="padding:20px">Chưa có hoạt động.</div>'; }
+    else { body+='<ul class="tl">'+acts.map(function(a){ return '<li><div style="font-weight:600">'+esc(a.action)+'</div><div style="font-size:12px;color:var(--gray-500)">'+esc(a.actor||"")+' · '+fmtDT(a.action_time)+'</div>'+(a.comment?'<div style="font-size:12.5px;margin-top:3px">"'+esc(a.comment)+'"</div>':'')+'</li>'; }).join("")+'</ul>'; }
+    if(h.reference_doctype&&h.reference_name){ /* link back to form via type route handled by table 'Mở' */ }
+    body+='</div>'; ov.innerHTML=body; (document.getElementById("ec-apd-root")||document.body).appendChild(ov);
+    ov.querySelector("#dw-x").onclick=function(){ ov.remove(); }; ov.addEventListener("click",function(e){ if(e.target===ov) ov.remove(); }); }
+
+  // ---- drill-down + wiring ----
+  function applyPatch(patch){ if(patch.status){ $("f-status").value=patch.status; } if(patch.approval_type){ $("f-type").value=patch.approval_type; }
+    if(patch.department){ $("f-department").value=patch.department; } if(patch.sla_state){ $("f-sla").value=patch.sla_state; } if(patch.approver){ /* approver not a select; stored in state */ state.filters.approver=patch.approver; }
+    state.filters.view=patch.view||state.filters.view; load().then(scrollTable); }
+  function wireStatic(d){
+    Array.prototype.forEach.call(document.querySelectorAll("[data-kpi]"),function(el){ el.onclick=function(){ try{ applyPatch(JSON.parse(el.getAttribute("data-kpi"))); }catch(e){} }; });
+    Array.prototype.forEach.call(document.querySelectorAll("#apd-insights .ins.clickable"),function(el){ el.onclick=function(){ var ix=+el.getAttribute("data-ins"); var ins=(state.data.insights||[])[ix]; if(ins&&ins.filter) applyPatch(ins.filter); }; });
+  }
+  function wireTable(){
+    Array.prototype.forEach.call(document.querySelectorAll("#apd-tabs .qbtn"),function(b){ b.onclick=function(){ var qf=b.getAttribute("data-qf"); state.tableFilter=(state.tableFilter&&state.tableFilter.qf===qf)?null:{qf:qf}; renderTabs(); renderTable(state.data); }; });
+    Array.prototype.forEach.call(document.querySelectorAll('#apd-table a.open-link[data-open]'),function(a){ a.onclick=function(e){ e.preventDefault(); window.location.href=a.getAttribute("href"); }; });
+    Array.prototype.forEach.call(document.querySelectorAll('#apd-table a[data-drawer]'),function(a){ a.onclick=function(e){ e.preventDefault(); openDrawer(a.getAttribute("data-drawer")); }; });
   }
 
-  // ---- wiring ----
-  function boot(){
-    setDateInputs(rangeFor("month"));
-    Array.prototype.forEach.call(document.querySelectorAll("#apd-quick .qbtn"), function(b){
-      b.onclick=function(){ document.querySelectorAll("#apd-quick .qbtn").forEach(function(x){x.classList.remove("active");}); b.classList.add("active");
-        state.quick=b.getAttribute("data-range"); if(state.quick!=="custom") setDateInputs(rangeFor(state.quick)); }; });
-    $("apd-apply").onclick=function(){ state.filters={}; load(); };
-    $("apd-reset").onclick=function(){ ["f-category","f-type","f-department","f-status","f-sla"].forEach(function(id){$(id).value="";});
-      state.quick="month"; document.querySelectorAll("#apd-quick .qbtn").forEach(function(x){x.classList.toggle("active", x.getAttribute("data-range")==="month");}); setDateInputs(rangeFor("month")); state.filters={}; load(); };
-    var ham=$("apd-ham"); if(ham) ham.onclick=function(){ $("ec-apd-root")&&document.getElementById("ec-apd-root").classList.toggle("sb-open"); };
+  function boot(){ setDateInputs(rangeFor("month"));
+    Array.prototype.forEach.call(document.querySelectorAll("#apd-quick .qbtn"),function(b){ b.onclick=function(){ document.querySelectorAll("#apd-quick .qbtn").forEach(function(x){x.classList.remove("active");}); b.classList.add("active"); state.quick=b.getAttribute("data-range"); if(state.quick!=="custom") setDateInputs(rangeFor(state.quick)); }; });
+    $("apd-apply").onclick=function(){ delete state.filters.approver; state.filters={}; load(); };
+    $("apd-reset").onclick=function(){ ["f-category","f-type","f-department","f-status","f-sla"].forEach(function(id){$(id).value="";}); state.quick="month"; document.querySelectorAll("#apd-quick .qbtn").forEach(function(x){x.classList.toggle("active",x.getAttribute("data-range")==="month");}); setDateInputs(rangeFor("month")); state.filters={}; load(); };
+    var ham=$("apd-ham"); if(ham) ham.onclick=function(){ document.getElementById("ec-apd-root").classList.toggle("sb-open"); };
     loadOptions().then(load);
   }
-  window.ApprovalDashboard = { state:state, boot:boot, load:load, render:render, applyPatch:applyPatch,
-    readFilters:readFilters, rangeFor:rangeFor, fmtDur:fmtDur, statusLabel:statusLabel, _call:call };
-  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
+  window.ApprovalDashboard={ state:state, boot:boot, load:load, render:render, applyPatch:applyPatch, buildOptions:buildOptions, openDrawer:openDrawer, renderTable:renderTable, fmtDur:fmtDur, statusLabel:statusLabel, _call:call };
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
 })();
 </script>
