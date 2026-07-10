@@ -1,0 +1,298 @@
+<!--
+  Approval Center Operations Dashboard. Route /approvals/dashboard (Web Page "approvals-dashboard").
+  Reuses the eCentric website shell (.ec-sidebar / .ec-main / tokens). Data-driven and GOVERNED:
+  all data comes from ecentric_workspace.approval_center.reporting.api.* which resolves the caller's
+  scope server-side. The frontend is NOT the security boundary. Marker: ec-approval-dashboard.
+  Does NOT touch the /approvals catalog page.
+-->
+<style>
+  body > header, body > footer, body > nav.navbar, header.navbar, .navbar.navbar-light,
+  .web-page-header, #navbarSupportedContent, .navbar-collapse, .web-footer, footer.web-footer { display:none !important; }
+  body { background:#f7f8fb !important; padding:0 !important; margin:0 !important; }
+  .page-content, .common-page-style, .container, main, .web-page-content, .page_content, .main-section, main.container, main.fluid { padding:0 !important; margin:0 !important; max-width:none !important; }
+</style>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  #ec-apd-root{ --navy:#2C3DA6; --navy-50:#eef0fb; --navy-700:#1f2d80; --yellow:#FFC000; --pink:#EF7CAF;
+    --green:#10b981; --green-50:#ecfdf5; --red:#dc2626; --red-50:#fef2f2; --amber:#d97706; --amber-50:#fffbeb;
+    --gray-50:#fafbfc; --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-300:#d1d5db; --gray-400:#9ca3af;
+    --gray-500:#6b7280; --gray-600:#4b5563; --gray-700:#374151; --gray-800:#1f2937; --gray-900:#111827; --bg:#f7f8fb; }
+  #ec-apd-root, #ec-apd-root *{ box-sizing:border-box; }
+  #ec-apd-root{ font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--gray-800);
+    font-size:14px; line-height:1.5; display:grid; grid-template-columns:248px 1fr; min-height:100vh; }
+  #ec-apd-root .icon{ width:18px; height:18px; flex-shrink:0; stroke:currentColor; fill:none; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
+  #ec-apd-root .ec-sidebar{ background:#fff; border-right:1px solid var(--gray-200); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; }
+  #ec-apd-root .ec-sidebar .sb-head{ padding:16px; display:flex; align-items:center; gap:10px; }
+  #ec-apd-root .ec-sidebar .logo{ width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,var(--navy),var(--pink)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; }
+  #ec-apd-root .ec-sidebar .brand-name{ font-size:15px; font-weight:700; color:var(--gray-900); }
+  #ec-apd-root .ec-sidebar .nav{ padding:6px 8px; display:flex; flex-direction:column; gap:2px; }
+  #ec-apd-root .ec-sidebar a.nav-item{ display:flex; align-items:center; gap:14px; padding:9px 14px; border-radius:8px; text-decoration:none; color:var(--gray-700); font-size:13.5px; font-weight:500; }
+  #ec-apd-root .ec-sidebar a.nav-item:hover{ background:var(--gray-100); color:var(--gray-900); }
+  #ec-apd-root .ec-sidebar a.nav-item.active{ background:var(--navy-50); color:var(--navy); font-weight:600; }
+  #ec-apd-root .ec-main{ min-width:0; display:flex; flex-direction:column; }
+  #ec-apd-root .topbar{ background:#fff; border-bottom:1px solid var(--gray-200); min-height:60px; padding:0 24px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:20; }
+  #ec-apd-root .topbar .hamburger{ display:none; background:none; border:none; cursor:pointer; color:var(--gray-600); }
+  #ec-apd-root .topbar .crumb{ font-size:13px; color:var(--gray-500); }
+  #ec-apd-root .topbar .crumb strong{ color:var(--gray-900); }
+  #ec-apd-root .topbar .spacer{ flex:1; }
+  #ec-apd-root .scope-badge{ font-size:12px; font-weight:600; padding:5px 10px; border-radius:999px; background:var(--navy-50); color:var(--navy); }
+  #ec-apd-root .content{ padding:24px; max-width:1360px; width:100%; }
+  #ec-apd-root .apd-title{ font-size:23px; font-weight:800; color:var(--gray-900); letter-spacing:-0.4px; margin:0 0 2px; }
+  #ec-apd-root .apd-desc{ font-size:13px; color:var(--gray-500); margin:0 0 16px; }
+  /* filters */
+  #ec-apd-root .filters{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:14px 16px; margin-bottom:18px; }
+  #ec-apd-root .quick{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  #ec-apd-root .qbtn{ padding:6px 12px; border-radius:999px; border:1px solid var(--gray-200); background:#fff; color:var(--gray-600); font-size:12.5px; font-weight:600; cursor:pointer; }
+  #ec-apd-root .qbtn.active{ background:var(--navy); border-color:var(--navy); color:#fff; }
+  #ec-apd-root .fgrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; }
+  #ec-apd-root .fgrid label{ display:block; font-size:11.5px; font-weight:600; color:var(--gray-500); margin-bottom:3px; }
+  #ec-apd-root .fgrid select, #ec-apd-root .fgrid input{ width:100%; padding:7px 9px; border:1px solid var(--gray-200); border-radius:8px; font-size:13px; font-family:inherit; background:#fff; }
+  #ec-apd-root .factions{ display:flex; gap:8px; margin-top:12px; }
+  #ec-apd-root .btn{ padding:8px 16px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; font-size:13px; font-weight:600; cursor:pointer; color:var(--gray-700); }
+  #ec-apd-root .btn.primary{ background:var(--navy); border-color:var(--navy); color:#fff; }
+  /* kpi cards */
+  #ec-apd-root .kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-bottom:18px; }
+  #ec-apd-root .kpi{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:16px; cursor:pointer; transition:box-shadow .15s; }
+  #ec-apd-root .kpi:hover{ box-shadow:0 4px 14px rgba(17,24,39,.07); }
+  #ec-apd-root .kpi .k-lb{ font-size:12.5px; color:var(--gray-500); font-weight:600; margin-bottom:6px; }
+  #ec-apd-root .kpi .k-val{ font-size:26px; font-weight:800; color:var(--gray-900); letter-spacing:-0.5px; }
+  #ec-apd-root .kpi.breach .k-val{ color:var(--red); }
+  #ec-apd-root .kpi .k-sub{ font-size:11.5px; color:var(--gray-400); margin-top:2px; }
+  /* chart cards */
+  #ec-apd-root .grid2{ display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin-bottom:18px; }
+  #ec-apd-root .card{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:16px; }
+  #ec-apd-root .card h3{ font-size:14px; font-weight:700; color:var(--gray-800); margin:0 0 14px; }
+  #ec-apd-root .bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:9px; cursor:pointer; }
+  #ec-apd-root .bar-row .b-lb{ flex:0 0 130px; font-size:12.5px; color:var(--gray-600); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #ec-apd-root .bar-row .b-track{ flex:1; background:var(--gray-100); border-radius:6px; height:20px; overflow:hidden; }
+  #ec-apd-root .bar-row .b-fill{ height:100%; background:var(--navy); border-radius:6px; min-width:2px; }
+  #ec-apd-root .bar-row .b-fill.g{ background:var(--green); } #ec-apd-root .bar-row .b-fill.a{ background:var(--amber); }
+  #ec-apd-root .bar-row .b-fill.r{ background:var(--red); } #ec-apd-root .bar-row .b-fill.p{ background:var(--pink); }
+  #ec-apd-root .bar-row .b-val{ flex:0 0 40px; text-align:right; font-size:12.5px; font-weight:700; color:var(--gray-700); }
+  #ec-apd-root .bar-row:hover .b-lb{ color:var(--navy); }
+  /* table */
+  #ec-apd-root table{ width:100%; border-collapse:collapse; }
+  #ec-apd-root thead th{ text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--gray-500); font-weight:700; padding:9px 10px; border-bottom:1px solid var(--gray-200); }
+  #ec-apd-root tbody td{ padding:10px; border-bottom:1px solid var(--gray-100); font-size:13px; color:var(--gray-700); }
+  #ec-apd-root tbody tr:hover{ background:var(--gray-50); }
+  #ec-apd-root .pill{ display:inline-block; padding:2px 9px; border-radius:999px; font-size:11.5px; font-weight:600; }
+  #ec-apd-root .pill.Pending{ background:var(--navy-50); color:var(--navy); }
+  #ec-apd-root .pill.Information{ background:var(--amber-50); color:var(--amber); }
+  #ec-apd-root .pill.breach{ background:var(--red-50); color:var(--red); }
+  #ec-apd-root a.open-link{ color:var(--navy); font-weight:600; text-decoration:none; }
+  #ec-apd-root a.open-link:hover{ text-decoration:underline; }
+  /* states */
+  #ec-apd-root .state{ padding:44px; text-align:center; color:var(--gray-500); }
+  #ec-apd-root .state h4{ margin:0 0 6px; color:var(--gray-700); font-size:15px; }
+  #ec-apd-root .skel{ height:80px; border-radius:12px; background:linear-gradient(90deg,#eef0f4,#f6f7f9,#eef0f4); background-size:200% 100%; animation:sh 1.2s infinite; }
+  @keyframes sh{ 0%{background-position:200% 0;}100%{background-position:-200% 0;} }
+  @media (max-width:900px){ #ec-apd-root{ grid-template-columns:1fr; } #ec-apd-root .ec-sidebar{ position:fixed; left:0; top:0; width:248px; z-index:50; transform:translateX(-100%); transition:transform .22s; } #ec-apd-root.sb-open .ec-sidebar{ transform:translateX(0); } #ec-apd-root .topbar .hamburger{ display:block; } }
+</style>
+
+<div id="ec-apd-root">
+  <aside class="ec-sidebar">
+    <div class="sb-head"><div class="logo">eC</div><div class="brand-name">eCentric</div></div>
+    <nav class="nav">
+      <a class="nav-item" href="/approvals"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span><span class="nav-lb">Danh mục phê duyệt</span></a>
+      <a class="nav-item active" href="/approvals/dashboard"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><span class="nav-lb">Bảng điều hành</span></a>
+    </nav>
+  </aside>
+  <div class="ec-main">
+    <div class="topbar">
+      <button class="hamburger" id="apd-ham"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg></button>
+      <div class="crumb">Approval Center · <strong>Bảng điều hành vận hành</strong></div>
+      <div class="spacer"></div>
+      <div class="scope-badge" id="apd-scope">—</div>
+    </div>
+    <div class="content">
+      <h1 class="apd-title">Bảng điều hành phê duyệt</h1>
+      <p class="apd-desc">Tổng quan yêu cầu, tồn đọng, SLA và điểm nghẽn — theo phạm vi quyền của bạn.</p>
+
+      <div class="filters" id="apd-filters">
+        <div class="quick" id="apd-quick">
+          <button type="button" class="qbtn" data-range="today">Hôm nay</button>
+          <button type="button" class="qbtn" data-range="7d">7 ngày</button>
+          <button type="button" class="qbtn active" data-range="month">Tháng này</button>
+          <button type="button" class="qbtn" data-range="prev">Tháng trước</button>
+          <button type="button" class="qbtn" data-range="custom">Tùy chọn</button>
+        </div>
+        <div class="fgrid">
+          <div><label>Từ ngày</label><input type="date" id="f-from"></div>
+          <div><label>Đến ngày</label><input type="date" id="f-to"></div>
+          <div><label>Nhóm</label><select id="f-category"><option value="">Tất cả</option></select></div>
+          <div><label>Loại yêu cầu</label><select id="f-type"><option value="">Tất cả</option></select></div>
+          <div><label>Phòng ban</label><select id="f-department"><option value="">Tất cả</option></select></div>
+          <div><label>Trạng thái</label><select id="f-status"><option value="">Tất cả</option></select></div>
+          <div><label>SLA</label><select id="f-sla"><option value="">Tất cả</option></select></div>
+        </div>
+        <div class="factions">
+          <button type="button" class="btn primary" id="apd-apply">Áp dụng</button>
+          <button type="button" class="btn" id="apd-reset">Đặt lại</button>
+        </div>
+      </div>
+
+      <div id="apd-body"><div class="kpis"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></div>
+    </div>
+  </div>
+</div>
+
+<script id="ec-approval-dashboard">
+(function(){
+  "use strict";
+  var API = "ecentric_workspace.approval_center.reporting.api";
+  var $ = function(id){ return document.getElementById(id); };
+  var state = { filters: {}, options: null, data: null, quick: "month" };
+
+  function call(method, args){
+    if(!(window.frappe && frappe.call)) return Promise.reject(new Error("frappe unavailable"));
+    return frappe.call({ method: API + "." + method, args: args||{} }).then(function(r){ return r && r.message; });
+  }
+  function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function fmtInt(n){ return (n==null?0:n).toLocaleString("vi-VN"); }
+  function fmtDur(secs){ if(secs==null) return "—"; var h=secs/3600; if(h<1) return Math.round(secs/60)+" phút"; if(h<24) return (Math.round(h*10)/10)+" giờ"; return (Math.round(h/24*10)/10)+" ngày"; }
+  function fmtDT(s){ if(!s) return "—"; var d=new Date(s.replace(" ","T")); if(isNaN(d)) return esc(s); function p(n){return(n<10?"0":"")+n;} return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes()); }
+  function statusLabel(s){ return {Pending:"Chờ duyệt","Information Required":"Cần bổ sung",Completed:"Hoàn tất",Rejected:"Từ chối",Cancelled:"Đã hủy",Draft:"Nháp"}[s]||s; }
+
+  // ---- date ranges ----
+  function ymd(d){ function p(n){return(n<10?"0":"")+n;} return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate()); }
+  function rangeFor(q){
+    var now=new Date(), from, to;
+    if(q==="today"){ from=to=now; }
+    else if(q==="7d"){ to=now; from=new Date(now.getTime()-6*864e5); }
+    else if(q==="prev"){ from=new Date(now.getFullYear(),now.getMonth()-1,1); to=new Date(now.getFullYear(),now.getMonth(),0); }
+    else { from=new Date(now.getFullYear(),now.getMonth(),1); to=new Date(now.getFullYear(),now.getMonth()+1,0); } // month
+    return { date_from: ymd(from), date_to: ymd(to) };
+  }
+
+  // ---- filters read/write ----
+  function readFilters(){
+    var f = { category:$("f-category").value, approval_type:$("f-type").value, department:$("f-department").value,
+              status:$("f-status").value, sla_state:$("f-sla").value };
+    f.date_from = $("f-from").value; f.date_to = $("f-to").value;
+    Object.keys(f).forEach(function(k){ if(!f[k]) delete f[k]; });
+    return f;
+  }
+  function setDateInputs(r){ $("f-from").value=r.date_from; $("f-to").value=r.date_to; }
+
+  function fillSelect(sel, items, valKey, lbKey){
+    var cur=sel.value; sel.length=1;
+    (items||[]).forEach(function(it){ var o=document.createElement("option");
+      o.value = valKey?it[valKey]:it; o.textContent = lbKey?(it[lbKey]||it[valKey]):it; sel.appendChild(o); });
+    sel.value=cur;
+  }
+  function loadOptions(){
+    return call("get_filter_options").then(function(o){ state.options=o||{};
+      $("apd-scope").textContent = scopeLabel((o||{}).scope_mode);
+      fillSelect($("f-category"), o.categories||[]);
+      fillSelect($("f-type"), o.types||[], "v", "label");
+      fillSelect($("f-department"), o.departments||[]);
+      fillSelect($("f-status"), o.statuses||[]);
+      fillSelect($("f-sla"), (o.sla_states||[]));
+    }).catch(function(){});
+  }
+  function scopeLabel(m){ return {admin:"Toàn tổ chức",department:"Phòng ban",approver:"Người duyệt",requester:"Cá nhân"}[m]||"—"; }
+
+  // ---- load + render ----
+  function load(){
+    $("apd-body").innerHTML='<div class="kpis"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
+    var f = Object.assign({}, state.filters, readFilters());
+    state.filters = f;
+    return call("get_dashboard", { filters: JSON.stringify(f) }).then(function(d){
+      state.data=d; render(d);
+    }).catch(function(e){ renderError(e); });
+  }
+  function renderError(e){ $("apd-body").innerHTML='<div class="card"><div class="state"><h4>Không tải được dữ liệu</h4><p>Vui lòng thử lại. Nếu vẫn lỗi, liên hệ quản trị viên.</p><button type="button" class="btn primary" id="apd-retry">Thử lại</button></div></div>'; var r=$("apd-retry"); if(r) r.onclick=load; }
+
+  function kpiCard(lb, val, sub, cls, filterPatch){
+    return '<div class="kpi '+(cls||"")+'" data-kpi=\''+esc(JSON.stringify(filterPatch||{}))+'\'><div class="k-lb">'+esc(lb)+'</div><div class="k-val">'+val+'</div>'+(sub?'<div class="k-sub">'+esc(sub)+'</div>':'')+'</div>';
+  }
+  function barList(items, keyLb, keyVal, cls, filterKey){
+    if(!items||!items.length) return '<div class="state" style="padding:20px">Không có dữ liệu.</div>';
+    var max=Math.max.apply(null, items.map(function(i){return i[keyVal]||0;}))||1;
+    return items.map(function(i){ var pct=Math.round((i[keyVal]||0)/max*100);
+      return '<div class="bar-row" data-filter=\''+esc(JSON.stringify(filterKey?makePatch(filterKey,i):{}))+'\'><div class="b-lb" title="'+esc(i[keyLb])+'">'+esc(i[keyLb])+'</div><div class="b-track"><div class="b-fill '+(cls||"")+'" style="width:'+pct+'%"></div></div><div class="b-val">'+fmtInt(i[keyVal])+'</div></div>';
+    }).join("");
+  }
+  function makePatch(key, item){ var p={}; if(key==="status") p.status=item.status; else if(key==="approval_type") p.approval_type=item.approval_type||item.label; else if(key==="department") p.department=item.label; p.view="open"; return p; }
+
+  function render(d){
+    if(!d){ renderError(); return; }
+    var k=d.kpis||{};
+    var html='';
+    html+='<div class="kpis">';
+    html+=kpiCard("Tổng yêu cầu", fmtInt(k.total), "trong kỳ", "", {view:"period"});
+    html+=kpiCard("Chờ xử lý", fmtInt(k.pending), "đang mở", "", {status:"Pending",view:"open"});
+    html+=kpiCard("Hoàn tất", fmtInt(k.completed), "trong kỳ", "", {status:"Completed",view:"period"});
+    html+=kpiCard("Từ chối", fmtInt(k.rejected), "trong kỳ", "", {status:"Rejected",view:"period"});
+    html+=kpiCard("Quá hạn SLA", fmtInt(k.sla_breached), "đang mở", "breach", {sla_state:"breached",view:"open"});
+    html+=kpiCard("TG duyệt TB", fmtDur(k.avg_approval_seconds), (k.avg_approval_sample||0)+" hồ sơ", "", {status:"Completed",view:"period"});
+    html+='</div>';
+
+    html+='<div class="grid2">';
+    html+='<div class="card"><h3>Yêu cầu theo trạng thái</h3>'+barList((d.status_distribution||[]).map(function(s){return {label:statusLabel(s.status),count:s.count,status:s.status};}),"label","count","","status")+'</div>';
+    html+='<div class="card"><h3>Tồn đọng theo loại</h3>'+barList(d.pending_by_type||[],"label","count","p","approval_type")+'</div>';
+    html+='<div class="card"><h3>Tồn đọng theo phòng ban</h3>'+barList(d.pending_by_department||[],"label","count","","department")+'</div>';
+    html+='<div class="card"><h3>Tồn đọng theo người duyệt</h3>'+barList(d.pending_by_approver||[],"label","count","a",null)+'</div>';
+    html+='<div class="card"><h3>Phân bố tuổi hồ sơ (đang mở)</h3>'+barList((d.aging_buckets||[]).map(function(b){return {label:b.bucket,count:b.count};}),"label","count","a",null)+'</div>';
+    html+='<div class="card"><h3>Điểm nghẽn theo cấp duyệt</h3>'+bottleneckList(d.bottleneck_levels||[])+'</div>';
+    html+='</div>';
+
+    html+='<div class="card" id="apd-attention"><h3>Cần chú ý</h3>'+attentionTable(d.attention||[])+'</div>';
+    $("apd-body").innerHTML=html;
+    wireDrill();
+  }
+  function bottleneckList(items){
+    if(!items||!items.length) return '<div class="state" style="padding:20px">Không có dữ liệu.</div>';
+    var max=Math.max.apply(null, items.map(function(i){return i.avg_completed_seconds||0;}))||1;
+    return items.map(function(i){ var pct=Math.round((i.avg_completed_seconds||0)/max*100);
+      return '<div class="bar-row"><div class="b-lb" title="'+esc(i.level)+'">'+esc(i.level)+'</div><div class="b-track"><div class="b-fill a" style="width:'+pct+'%"></div></div><div class="b-val">'+fmtDur(i.avg_completed_seconds)+'</div></div>';
+    }).join("");
+  }
+  function attentionTable(rows){
+    if(!rows||!rows.length) return '<div class="state" style="padding:24px"><h4>Không có hồ sơ cần chú ý</h4><p>Không có yêu cầu quá hạn hoặc cần bổ sung trong phạm vi hiện tại.</p></div>';
+    var head='<table><thead><tr><th>Tuổi / SLA</th><th>Mã</th><th>Tiêu đề / Loại</th><th>Người yêu cầu</th><th>Phòng ban</th><th>Cấp hiện tại</th><th>Trạng thái</th><th>Ngày gửi</th><th></th></tr></thead><tbody>';
+    var body=rows.map(function(r){
+      var breach = r.sla_breached ? '<span class="pill breach">Quá hạn</span> ' : '';
+      var age = r.pending_age_seconds!=null ? fmtDur(r.pending_age_seconds) : "—";
+      var pill = '<span class="pill '+(r.status==="Information Required"?"Information":"Pending")+'">'+esc(statusLabel(r.status_label||r.status))+'</span>';
+      var open = r.detail_route ? '<a class="open-link" href="'+esc(r.detail_route)+'" data-open="1">Mở ▸</a>' : '<span style="color:var(--gray-300)">—</span>';
+      return '<tr data-row="'+esc(r.name)+'"><td>'+breach+age+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||"")+'</td><td>'+esc(r.requester||"")+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"")+'</td><td>'+pill+'</td><td>'+fmtDT(r.submitted_at)+'</td><td>'+open+'</td></tr>';
+    }).join("");
+    return head+body+'</tbody></table>';
+  }
+
+  // ---- drill-down ----
+  function applyPatch(patch){
+    if(patch.status){ $("f-status").value = patch.status==="Completed"?"Completed":patch.status; }
+    if(patch.approval_type){ $("f-type").value = patch.approval_type; }
+    if(patch.department){ $("f-department").value = patch.department; }
+    if(patch.sla_state){ $("f-sla").value = patch.sla_state; }
+    state.filters.view = patch.view || state.filters.view;
+    load().then(function(){ var a=$("apd-attention"); if(a&&a.scrollIntoView) a.scrollIntoView({behavior:"smooth"}); });
+  }
+  function wireDrill(){
+    Array.prototype.forEach.call(document.querySelectorAll("[data-kpi]"), function(el){
+      el.onclick=function(){ try{ applyPatch(JSON.parse(el.getAttribute("data-kpi"))); }catch(e){} }; });
+    Array.prototype.forEach.call(document.querySelectorAll(".bar-row[data-filter]"), function(el){
+      el.onclick=function(){ try{ var p=JSON.parse(el.getAttribute("data-filter")); if(Object.keys(p).length) applyPatch(p); }catch(e){} }; });
+    Array.prototype.forEach.call(document.querySelectorAll('a.open-link[data-open]'), function(a){
+      a.onclick=function(e){ e.preventDefault(); window.location.href=a.getAttribute("href"); }; });
+  }
+
+  // ---- wiring ----
+  function boot(){
+    setDateInputs(rangeFor("month"));
+    Array.prototype.forEach.call(document.querySelectorAll("#apd-quick .qbtn"), function(b){
+      b.onclick=function(){ document.querySelectorAll("#apd-quick .qbtn").forEach(function(x){x.classList.remove("active");}); b.classList.add("active");
+        state.quick=b.getAttribute("data-range"); if(state.quick!=="custom") setDateInputs(rangeFor(state.quick)); }; });
+    $("apd-apply").onclick=function(){ state.filters={}; load(); };
+    $("apd-reset").onclick=function(){ ["f-category","f-type","f-department","f-status","f-sla"].forEach(function(id){$(id).value="";});
+      state.quick="month"; document.querySelectorAll("#apd-quick .qbtn").forEach(function(x){x.classList.toggle("active", x.getAttribute("data-range")==="month");}); setDateInputs(rangeFor("month")); state.filters={}; load(); };
+    var ham=$("apd-ham"); if(ham) ham.onclick=function(){ $("ec-apd-root")&&document.getElementById("ec-apd-root").classList.toggle("sb-open"); };
+    loadOptions().then(load);
+  }
+  window.ApprovalDashboard = { state:state, boot:boot, load:load, render:render, applyPatch:applyPatch,
+    readFilters:readFilters, rangeFor:rangeFor, fmtDur:fmtDur, statusLabel:statusLabel, _call:call };
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
+})();
+</script>

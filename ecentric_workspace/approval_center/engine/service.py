@@ -73,6 +73,25 @@ def _emp_user(user):
     return frappe.db.get_value("Employee", {"user_id": user}, ["name", "reports_to", "department"], as_dict=True)
 
 
+def resolve_requester_department(requester, reference_doctype=None, reference_name=None):
+    """Governed department snapshot for a request (reporting/historical accuracy only).
+
+    Order (never trusts a free-text requester value):
+      1) requester Employee.department (HR-governed, authoritative).
+      2) the business document's `department` field IFF it resolves to a real Department.
+      3) otherwise None (leave blank / Unknown - never guess).
+    Fail-closed: any lookup miss returns None. Does not write anything."""
+    emp = _emp_user(requester) or {}
+    dept = emp.get("department")
+    if dept and frappe.db.exists("Department", dept):
+        return dept
+    if reference_doctype and reference_name and frappe.db.has_column(reference_doctype, "department"):
+        bdept = frappe.db.get_value(reference_doctype, reference_name, "department")
+        if bdept and frappe.db.exists("Department", bdept):
+            return bdept
+    return None
+
+
 def _ref_field_value(context, fieldname):
     """Read a single field off the business record named in context. Returns None on any absence
     (missing context, missing field) - fail-closed, never raises."""
@@ -425,6 +444,7 @@ def submit(reference_doctype, reference_name, approval_type, requester, process_
         "reference_doctype": reference_doctype, "reference_name": reference_name,
         "approval_process": process.name, "process_version": process.version_no,
         "requested_by": requester, "submitted_at": now_datetime(),
+        "requester_department": resolve_requester_department(requester, reference_doctype, reference_name),
         "approval_status": "Pending", "current_level": 0,
     }).insert(ignore_permissions=True)
     build_snapshot(req, process, levels, requester)
