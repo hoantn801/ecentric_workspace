@@ -95,7 +95,33 @@
   #ec-apd-root .state{ padding:40px; text-align:center; color:var(--gray-500); } #ec-apd-root .state h4{ margin:0 0 6px; color:var(--gray-700); }
   #ec-apd-root .skel{ height:80px; border-radius:12px; background:linear-gradient(90deg,#eef0f4,#f6f7f9,#eef0f4); background-size:200% 100%; animation:sh 1.2s infinite; }
   @keyframes sh{ 0%{background-position:200% 0;}100%{background-position:-200% 0;} }
-  @media (max-width:900px){ #ec-apd-root{ grid-template-columns:1fr; } #ec-apd-root .ec-sidebar{ position:fixed; left:0; top:0; width:248px; z-index:50; transform:translateX(-100%); transition:transform .22s; } #ec-apd-root.sb-open .ec-sidebar{ transform:translateX(0); } #ec-apd-root .topbar .hamburger{ display:block; } #ec-apd-root .chart-box{ height:230px; } }
+  /* kanban bottleneck board */
+  #ec-apd-root .k-head{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+  #ec-apd-root .k-controls{ display:flex; gap:14px; flex-wrap:wrap; }
+  #ec-apd-root .seg{ display:inline-flex; gap:6px; }
+  #ec-apd-root .seg button{ padding:5px 11px; border-radius:999px; border:1px solid var(--gray-200); background:#fff; color:var(--gray-600); font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; }
+  #ec-apd-root .seg button.active{ background:var(--navy); border-color:var(--navy); color:#fff; }
+  #ec-apd-root .kanban-wrap{ overflow-x:auto; overflow-y:hidden; padding-bottom:8px; }
+  #ec-apd-root .kanban{ display:flex; gap:14px; min-width:min-content; align-items:flex-start; }
+  #ec-apd-root .kcol{ flex:0 0 280px; width:280px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:12px; display:flex; flex-direction:column; max-height:620px; }
+  #ec-apd-root .kcol-h{ position:sticky; top:0; background:var(--gray-50); padding:11px 12px; border-bottom:1px solid var(--gray-200); border-radius:12px 12px 0 0; cursor:pointer; z-index:1; }
+  #ec-apd-root .kcol-h:hover{ background:var(--gray-100); }
+  #ec-apd-root .kcol-h .k-title{ font-weight:700; font-size:13.5px; color:var(--gray-800); }
+  #ec-apd-root .kcol-h .k-meta{ font-size:11.5px; color:var(--gray-500); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap; }
+  #ec-apd-root .kcol-h .k-od{ color:var(--red); font-weight:700; }
+  #ec-apd-root .kcards{ padding:10px; display:flex; flex-direction:column; gap:9px; overflow-y:auto; }
+  #ec-apd-root .kcard{ background:#fff; border:1px solid var(--gray-200); border-left:3px solid var(--gray-300); border-radius:9px; padding:10px; cursor:pointer; }
+  #ec-apd-root .kcard.breached{ border-left-color:var(--red); } #ec-apd-root .kcard.near{ border-left-color:var(--amber); } #ec-apd-root .kcard.normal{ border-left-color:var(--navy); } #ec-apd-root .kcard.information{ border-left-color:#7c3aed; } #ec-apd-root .kcard.unavailable{ border-left-color:var(--gray-300); }
+  #ec-apd-root .kcard:hover{ box-shadow:0 3px 10px rgba(17,24,39,.09); }
+  #ec-apd-root .kcard .kc-code{ font-size:11px; font-weight:700; color:var(--gray-400); }
+  #ec-apd-root .kcard .kc-title{ font-size:13px; font-weight:600; color:var(--gray-800); margin:2px 0; }
+  #ec-apd-root .kcard .kc-meta{ font-size:11.5px; color:var(--gray-500); }
+  #ec-apd-root .kcard .kc-foot{ display:flex; justify-content:space-between; align-items:center; margin-top:7px; }
+  #ec-apd-root .kc-sla{ font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:999px; }
+  #ec-apd-root .kc-sla.breached{ background:var(--red-50); color:var(--red); } #ec-apd-root .kc-sla.near{ background:var(--amber-50); color:var(--amber); } #ec-apd-root .kc-sla.normal{ background:var(--navy-50); color:var(--navy); } #ec-apd-root .kc-sla.information{ background:#f3e8ff; color:#7c3aed; } #ec-apd-root .kc-sla.unavailable{ background:var(--gray-100); color:var(--gray-500); }
+  #ec-apd-root .kc-tl{ font-size:11.5px; color:var(--navy); cursor:pointer; font-weight:600; }
+  #ec-apd-root .kmore{ text-align:center; font-size:12px; color:var(--gray-500); padding:6px; }
+  @media (max-width:900px){ #ec-apd-root{ grid-template-columns:1fr; } #ec-apd-root .ec-sidebar{ position:fixed; left:0; top:0; width:248px; z-index:50; transform:translateX(-100%); transition:transform .22s; } #ec-apd-root.sb-open .ec-sidebar{ transform:translateX(0); } #ec-apd-root .topbar .hamburger{ display:block; } #ec-apd-root .chart-box{ height:230px; } #ec-apd-root .kcol{ flex-basis:82vw; width:82vw; } }
 </style>
 
 <div id="ec-apd-root">
@@ -147,7 +173,7 @@
   "use strict";
   var API="ecentric_workspace.approval_center.reporting.api";
   var $=function(id){return document.getElementById(id);};
-  var state={ filters:{}, options:null, data:null, quick:"month", tableFilter:null };
+  var state={ filters:{}, options:null, data:null, quick:"month", tableFilter:null, kanbanGroup:"by_level", kanbanFilter:"all" };
   var charts={};   // elId -> {inst}
 
   function call(m,a){ if(!(window.frappe&&frappe.call)) return Promise.reject(new Error("frappe unavailable"));
@@ -156,6 +182,7 @@
   function fmtInt(n){ return (n==null?0:n).toLocaleString("vi-VN"); }
   function fmtDur(s){ if(s==null) return "—"; var h=s/3600; if(h<1) return Math.round(s/60)+"p"; if(h<24) return (Math.round(h*10)/10)+"g"; return (Math.round(h/24*10)/10)+"n"; }
   function fmtHours(s){ return s==null?0:Math.round(s/3600*10)/10; }
+  function fmtMin(m){ if(m==null) return "—"; if(m<60) return Math.round(m)+"p"; if(m<1440) return (Math.round(m/60*10)/10)+"g"; return (Math.round(m/1440*10)/10)+"n"; }
   function fmtDT(s){ if(!s) return "—"; var d=new Date(String(s).replace(" ","T")); if(isNaN(d)) return esc(s); function p(n){return(n<10?"0":"")+n;} return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes()); }
   function statusLabel(s){ return {Pending:"Chờ duyệt","Information Required":"Cần bổ sung",Completed:"Hoàn tất",Rejected:"Từ chối",Cancelled:"Đã hủy",Draft:"Nháp"}[s]||s; }
   function pal(){ return (window.ECChartTheme&&ECChartTheme.palette)?ECChartTheme.palette("brand"):["#2C3DA6","#10b981","#FFC000","#EF7CAF","#dc2626","#6b7280"]; }
@@ -211,13 +238,12 @@
     html+=chartCard("Phân bố tuổi hồ sơ","apd-aging");
     html+=chartCard("Khối lượng theo người duyệt","apd-approver");
     html+=chartCard("Hiệu suất phòng ban","apd-dept","X=Số lượng · Y=TG duyệt TB (giờ) · Kích thước=Quá hạn");
-    html+=chartCard("Phễu vòng đời","apd-funnel","ảnh chụp trạng thái, không phải phễu theo thời gian");
-    html+='<div class="card"><h3>Điểm nghẽn theo cấp duyệt</h3><div id="apd-bottleneck"></div></div>';
     html+='</div>';
+    // full-width Kanban bottleneck board (replaces the funnel/bottleneck-table emphasis)
+    html+=kanbanCardHTML();
     // action table
     html+='<div class="card"><h3>Cần chú ý</h3><div class="tabs" id="apd-tabs"></div><div id="apd-table"></div></div>';
     $("apd-body").innerHTML=html;
-    renderBottleneck(d.bottleneck_levels||[]);
     renderTabs(); renderTable(d);
     wireStatic(d);
     drawCharts(d);
@@ -267,10 +293,6 @@
       grid:{left:40,right:20,top:16,bottom:30}, xAxis:{type:"value",name:"Số lượng",nameGap:18,minInterval:1}, yAxis:{type:"value",name:"Giờ"},
       series:[{type:"scatter",symbolSize:function(v){return Math.max(10,Math.min(46,10+(v[2]||0)*8));},
         data:dp.map(function(o){return {value:[o.volume,fmtHours(o.avg_duration_seconds),o.breaches],_d:o,itemStyle:{color:o.breaches>0?P[4]:P[0]}};})}] };
-    // H. funnel
-    var fn=d.funnel||[]; opts.funnel={ tooltip:tip({formatter:"{b}: {c}"}), legend:{bottom:0,textStyle:{fontSize:11}},
-      series:[{type:"funnel",left:"8%",right:"8%",top:10,bottom:30,minSize:"14%",sort:"none",label:{fontSize:11},
-        data:fn.map(function(s,i){return {name:s.stage,value:s.count,itemStyle:{color:P[i%P.length]}};})}] };
     return opts;
   }
 
@@ -282,15 +304,10 @@
     draw("apd-aging",o.aging,function(p){ if(p&&p.data&&p.data._bucket){ state.tableFilter={type:"aging",bucket:p.data._bucket}; renderTable(state.data); scrollTable(); } });
     draw("apd-approver",o.approver,function(p){ var a=(state.data.pending_by_approver||[]).slice(0,10).reverse()[p.dataIndex]; if(a) applyPatch({approver:a.label,view:"open"}); });
     draw("apd-dept",o.dept,function(p){ if(p&&p.data&&p.data._d) applyPatch({department:p.data._d.department,view:"open"}); });
-    draw("apd-funnel",o.funnel,null);
+    renderKanban(state.data);
   }
   function statusLabelToEngine(s){ return s; }
 
-  function renderBottleneck(items){ var el=$("apd-bottleneck"); if(!items.length){ el.innerHTML='<div class="state" style="padding:18px">Không có dữ liệu.</div>'; return; }
-    var h='<table><thead><tr><th>Cấp</th><th>SL</th><th>TB</th><th>Trung vị</th><th>P90</th><th>Đang chờ</th><th>Quá hạn</th><th>Xu hướng</th></tr></thead><tbody>';
-    h+=items.map(function(b){ var tr=b.trend_pct==null?"—":'<span class="delta '+(b.trend_pct>0?"up":b.trend_pct<0?"down":"flat")+'">'+(b.trend_pct>0?"▲":b.trend_pct<0?"▼":"■")+" "+Math.abs(b.trend_pct)+"%</span>";
-      return '<tr><td>'+esc(b.level)+'</td><td>'+fmtInt(b.volume)+'</td><td>'+fmtDur(b.avg_completed_seconds)+'</td><td>'+fmtDur(b.median_seconds)+'</td><td>'+fmtDur(b.p90_seconds)+'</td><td>'+fmtInt(b.active_pending)+'</td><td>'+fmtInt(b.overdue_count)+'</td><td>'+tr+'</td></tr>'; }).join("");
-    el.innerHTML=h+'</tbody></table>'; }
 
   // ---- action table w/ quick filters + signal + drawer ----
   var QF=[["over_sla","Quá hạn SLA"],["gt3","> 3 ngày"],["info","Cần bổ sung"],["highload","Người duyệt tải cao"]];
@@ -328,13 +345,54 @@
     body+='</div>'; ov.innerHTML=body; (document.getElementById("ec-apd-root")||document.body).appendChild(ov);
     ov.querySelector("#dw-x").onclick=function(){ ov.remove(); }; ov.addEventListener("click",function(e){ if(e.target===ov) ov.remove(); }); }
 
+  // ---- Kanban bottleneck board ----
+  var KG=[["by_level","Cấp duyệt"],["by_approver","Người duyệt"]];
+  var KF=[["all","Tất cả"],["breached","Quá hạn SLA"],["gt1d","> 1 ngày"],["info","Cần bổ sung"]];
+  function kanbanCardHTML(){
+    var g=KG.map(function(x){return '<button type="button" data-kg="'+x[0]+'" class="'+(state.kanbanGroup===x[0]?"active":"")+'">'+esc(x[1])+'</button>';}).join("");
+    var f=KF.map(function(x){return '<button type="button" data-kf="'+x[0]+'" class="'+(state.kanbanFilter===x[0]?"active":"")+'">'+esc(x[1])+'</button>';}).join("");
+    return '<div class="card" id="apd-kanban-card"><div class="k-head"><h3>Bảng điểm nghẽn (Kanban) — hồ sơ đang chờ</h3><div class="k-controls"><div class="seg" id="apd-kg">'+g+'</div><div class="seg" id="apd-kf">'+f+'</div></div></div><div class="kanban-wrap" id="apd-kanban"></div></div>';
+  }
+  function kFilterPass(c){ if(state.kanbanFilter==="breached") return c.sla_state==="breached"; if(state.kanbanFilter==="gt1d") return (c.pending_age_minutes||0)>1440; if(state.kanbanFilter==="info") return c.status==="Information Required"; return true; }
+  function colPatch(col){ if(state.kanbanGroup==="by_level"){ return {current_level:parseInt(col.key,10),view:"open"}; } if(col.key==="__unassigned__") return {view:"open"}; return {approver:col.key,view:"open"}; }
+  function slaClass(c){ return c.status==="Information Required"?"information":c.sla_state; }
+  function slaText(c){ if(c.sla_state==="breached") return "Quá hạn "+fmtMin(Math.abs(c.sla_remaining_minutes||0)); if(c.sla_remaining_minutes!=null) return "Còn "+fmtMin(c.sla_remaining_minutes); return c.sla_source==="unavailable"?"Chưa có SLA":"—"; }
+  function kcardHTML(c){ var cls=slaClass(c); var appr=(c.pending_approvers||[]).join(", ")||"—";
+    return '<div class="kcard '+cls+'" data-route="'+esc(c.detail_route||"")+'"><div class="kc-code">'+esc(c.request_name)+'</div><div class="kc-title">'+esc(c.title||"")+'</div><div class="kc-meta">'+esc(c.approval_type||"")+' · '+esc(c.requester||"")+'</div><div class="kc-meta">'+esc(c.department||"—")+' · '+esc(c.current_level_name||("Cấp "+c.current_level))+'</div><div class="kc-meta">Duyệt: '+esc(appr)+'</div><div class="kc-foot"><span class="kc-sla '+cls+'">'+esc(slaText(c))+'</span><span class="kc-tl" data-tl="'+esc(c.request_name)+'">Lịch sử ▸</span></div><div class="kc-meta" style="margin-top:4px">Chờ '+fmtMin(c.pending_age_minutes)+'</div></div>';
+  }
+  function renderKanban(d){ var el=$("apd-kanban"); if(!el) return; var grp=(d.kanban||{})[state.kanbanGroup]||{columns:[]}; var cols=grp.columns||[];
+    if(!cols.length){ el.innerHTML='<div class="state" style="padding:30px"><h4>Không có hồ sơ đang chờ</h4><p>Không có yêu cầu nào đang chờ duyệt trong phạm vi hiện tại.</p></div>'; return; }
+    var html='<div class="kanban">';
+    cols.forEach(function(col){ var cards=(col.cards||[]).filter(kFilterPass);
+      if(!cards.length && state.kanbanFilter!=="all") return;
+      var more = state.kanbanFilter==="all" ? Math.max(0,(col.count||0)-(col.cards||[]).length) : 0;
+      html+='<div class="kcol"><div class="kcol-h" data-kcol=\''+esc(JSON.stringify(colPatch(col)))+'\''+'><div class="k-title">'+esc(col.label)+'</div><div class="k-meta"><span>'+fmtInt(col.count)+' chờ</span>'+(col.overdue_count?'<span class="k-od">'+fmtInt(col.overdue_count)+' quá hạn</span>':'')+'<span>Lâu nhất '+fmtMin(col.oldest_age_minutes)+'</span></div></div><div class="kcards">'+
+        (cards.length?cards.map(kcardHTML).join(""):'<div class="kmore">—</div>')+
+        (more?'<div class="kmore">+ '+more+' hồ sơ nữa</div>':'')+'</div></div>';
+    });
+    html+='</div>'; el.innerHTML=html; wireKanban();
+  }
+  function wireKanban(){
+    Array.prototype.forEach.call(document.querySelectorAll("#apd-kanban .kcard"),function(card){
+      card.onclick=function(e){ if(e.target&&e.target.getAttribute&&e.target.getAttribute("data-tl")) return; var r=card.getAttribute("data-route"); if(r) window.location.href=r; }; });
+    Array.prototype.forEach.call(document.querySelectorAll("#apd-kanban [data-tl]"),function(t){
+      t.onclick=function(e){ e.stopPropagation(); openDrawer(t.getAttribute("data-tl")); }; });
+    Array.prototype.forEach.call(document.querySelectorAll("#apd-kanban .kcol-h"),function(h){
+      h.onclick=function(){ try{ applyPatch(JSON.parse(h.getAttribute("data-kcol"))); }catch(e){} }; });
+  }
+  function wireKanbanControls(){
+    Array.prototype.forEach.call(document.querySelectorAll("#apd-kg button"),function(b){ b.onclick=function(){ state.kanbanGroup=b.getAttribute("data-kg"); document.querySelectorAll("#apd-kg button").forEach(function(x){x.classList.toggle("active",x===b);}); renderKanban(state.data); }; });
+    Array.prototype.forEach.call(document.querySelectorAll("#apd-kf button"),function(b){ b.onclick=function(){ state.kanbanFilter=b.getAttribute("data-kf"); document.querySelectorAll("#apd-kf button").forEach(function(x){x.classList.toggle("active",x===b);}); renderKanban(state.data); }; });
+  }
+
   // ---- drill-down + wiring ----
   function applyPatch(patch){ if(patch.status){ $("f-status").value=patch.status; } if(patch.approval_type){ $("f-type").value=patch.approval_type; }
-    if(patch.department){ $("f-department").value=patch.department; } if(patch.sla_state){ $("f-sla").value=patch.sla_state; } if(patch.approver){ /* approver not a select; stored in state */ state.filters.approver=patch.approver; }
+    if(patch.department){ $("f-department").value=patch.department; } if(patch.sla_state){ $("f-sla").value=patch.sla_state; } if(patch.approver){ state.filters.approver=patch.approver; } if(patch.current_level!=null){ state.filters.current_level=patch.current_level; }
     state.filters.view=patch.view||state.filters.view; load().then(scrollTable); }
   function wireStatic(d){
     Array.prototype.forEach.call(document.querySelectorAll("[data-kpi]"),function(el){ el.onclick=function(){ try{ applyPatch(JSON.parse(el.getAttribute("data-kpi"))); }catch(e){} }; });
     Array.prototype.forEach.call(document.querySelectorAll("#apd-insights .ins.clickable"),function(el){ el.onclick=function(){ var ix=+el.getAttribute("data-ins"); var ins=(state.data.insights||[])[ix]; if(ins&&ins.filter) applyPatch(ins.filter); }; });
+    wireKanbanControls();
   }
   function wireTable(){
     Array.prototype.forEach.call(document.querySelectorAll("#apd-tabs .qbtn"),function(b){ b.onclick=function(){ var qf=b.getAttribute("data-qf"); state.tableFilter=(state.tableFilter&&state.tableFilter.qf===qf)?null:{qf:qf}; renderTabs(); renderTable(state.data); }; });
@@ -349,7 +407,7 @@
     var ham=$("apd-ham"); if(ham) ham.onclick=function(){ document.getElementById("ec-apd-root").classList.toggle("sb-open"); };
     loadOptions().then(load);
   }
-  window.ApprovalDashboard={ state:state, boot:boot, load:load, render:render, applyPatch:applyPatch, buildOptions:buildOptions, openDrawer:openDrawer, renderTable:renderTable, fmtDur:fmtDur, statusLabel:statusLabel, _call:call };
+  window.ApprovalDashboard={ state:state, boot:boot, load:load, render:render, applyPatch:applyPatch, buildOptions:buildOptions, renderKanban:renderKanban, openDrawer:openDrawer, renderTable:renderTable, fmtDur:fmtDur, statusLabel:statusLabel, _call:call };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
 })();
 </script>

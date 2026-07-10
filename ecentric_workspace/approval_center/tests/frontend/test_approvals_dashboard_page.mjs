@@ -40,6 +40,22 @@ const DASH = {
   aging_buckets:[{bucket:"<1d",count:2},{bucket:"1-2d",count:2},{bucket:"3-5d",count:1},{bucket:">5d",count:2}],
   bottleneck_levels:[{level:"Finance review",volume:9,avg_completed_seconds:180000,median_seconds:150000,p90_seconds:400000,avg_pending_seconds:90000,active_pending:2,overdue_count:1,trend_pct:15.0}],
   funnel:[{stage:"Đã gửi",count:42},{stage:"Đang duyệt",count:7},{stage:"Cần bổ sung",count:1},{stage:"Hoàn tất",count:30},{stage:"Từ chối/Hủy",count:5}],
+  kanban:{
+    by_level:{columns:[
+      {key:"2",label:"Finance review",count:22,overdue_count:1,oldest_age_minutes:520,cards:(function(){var a=[
+        {request_name:"EC-APR-2026-00007",title:"Payment Request",approval_type:"PAYMENT_REQUEST",requester:"a@x",department:"Finance - EC",current_level:2,current_level_name:"Finance review",pending_approvers:["lien.vu@x"],pending_age_minutes:520,sla_state:"breached",sla_source:"operational_default",sla_remaining_minutes:-120,detail_route:"/approvals/payment-request?id=PAYR-0007",status:"Pending"},
+        {request_name:"EC-APR-2026-00009",title:"Payment Request",approval_type:"PAYMENT_REQUEST",requester:"c@x",department:"Finance - EC",current_level:2,current_level_name:"Finance review",pending_approvers:["lien.vu@x"],pending_age_minutes:60,sla_state:"near",sla_source:"configured_policy",sla_remaining_minutes:90,detail_route:"/approvals/payment-request?id=PAYR-0009",status:"Pending"}];
+        for(var i=0;i<18;i++) a.push({request_name:"EC-APR-2026-1"+i,title:"Payment Request",approval_type:"PAYMENT_REQUEST",requester:"z@x",department:"Finance - EC",current_level:2,current_level_name:"Finance review",pending_approvers:["lien.vu@x"],pending_age_minutes:30,sla_state:"normal",sla_source:"configured_policy",sla_remaining_minutes:600,detail_route:"/approvals/payment-request?id=Z"+i,status:"Pending"}); return a; })()},
+      {key:"1",label:"Direct Manager",count:1,overdue_count:0,oldest_age_minutes:100,cards:[
+        {request_name:"EC-APR-2026-00008",title:"Payment Request",approval_type:"PAYMENT_REQUEST",requester:"b@x",department:"Finance - EC",current_level:1,current_level_name:"Direct Manager",pending_approvers:["mgr@x"],pending_age_minutes:2000,sla_state:"normal",sla_source:"configured_policy",sla_remaining_minutes:600,detail_route:"/approvals/payment-request?id=PAYR-0008",status:"Information Required"}]}
+    ]},
+    by_approver:{columns:[
+      {key:"lien.vu@x",label:"lien.vu@x",count:2,overdue_count:1,oldest_age_minutes:520,cards:[
+        {request_name:"EC-APR-2026-00007",title:"Payment Request",approval_type:"PAYMENT_REQUEST",requester:"a@x",department:"Finance - EC",current_level:2,current_level_name:"Finance review",pending_approvers:["lien.vu@x"],pending_age_minutes:520,sla_state:"breached",sla_source:"operational_default",sla_remaining_minutes:-120,detail_route:"/approvals/payment-request?id=PAYR-0007",status:"Pending"}]},
+      {key:"mgr@x",label:"mgr@x",count:1,overdue_count:0,oldest_age_minutes:100,cards:[
+        {request_name:"EC-APR-2026-00008",title:"Payment Request",approval_type:"PAYMENT_REQUEST",requester:"b@x",department:"Finance - EC",current_level:1,current_level_name:"Direct Manager",pending_approvers:["mgr@x"],pending_age_minutes:2000,sla_state:"normal",sla_source:"configured_policy",sla_remaining_minutes:600,detail_route:"/approvals/payment-request?id=PAYR-0008",status:"Information Required"}]}
+    ]}
+  },
   longest_pending:[],
   attention:[
     { name:"EC-APR-2026-00007", type:"Payment Request", approval_type:"PAYMENT_REQUEST", requester:"a@x", department:"Finance - EC", status:"Pending", status_label:"Pending", current_level:2, current_level_name:"Finance review", submitted_at:"2026-07-01 09:00:00", pending_age_seconds:520000, sla_source:"operational_default", sla_due_at:"2026-07-02 09:00:00", sla_breached:true, detail_route:"/approvals/payment-request?id=PAYR-0007" },
@@ -96,7 +112,7 @@ async function run(){
   ok(!!w.document.querySelector('#apd-insights .ins.critical'), "insight severity classes applied");
 
   // charts drawn via ECCharts.setOption (one per chart element)
-  ["apd-trend","apd-statusmix","apd-sla","apd-aging","apd-approver","apd-dept","apd-funnel"].forEach(function(id){
+  ["apd-trend","apd-statusmix","apd-sla","apd-aging","apd-approver","apd-dept"].forEach(function(id){
     ok(cap[id] && cap[id].options.length>=1, "chart drawn: "+id);
   });
   ok(cap["apd-trend"].lastNotMerge===true, "setOption uses notMerge=true (dispose-safe update)");
@@ -105,7 +121,6 @@ async function run(){
   const O = w.ApprovalDashboard.buildOptions(DASH);
   ok(O.trend.series.length===4, "trend is a 4-series multi-line chart");
   ok(O.statusmix.series[0].type==="pie", "status mix is a doughnut/pie");
-  ok(O.funnel.series[0].type==="funnel", "funnel uses ECharts funnel type");
   ok(O.dept.series[0].type==="scatter", "department performance is scatter/bubble");
   ok(O.approver.series[0].type==="bar", "approver workload is a bar chart");
 
@@ -143,6 +158,58 @@ async function run(){
   // reload re-renders charts safely (update path -> setOption called again)
   { const before=cap["apd-statusmix"].options.length; w.document.getElementById("apd-apply").click(); await flush(); await flush(); await flush();
     ok(cap["apd-statusmix"].options.length>before, "filter change re-renders chart via setOption (safe update)"); }
+
+  // ===== Kanban bottleneck board =====
+  ok(!!w.document.getElementById("apd-kanban"), "kanban board container rendered (replaces funnel/bottleneck table)");
+  ok(!w.document.getElementById("apd-funnel"), "funnel visualization removed");
+  { const cols=w.document.querySelectorAll("#apd-kanban .kcol");
+    ok(cols.length===2, "by_level: only columns with pending requests shown");
+    const h0=cols[0].querySelector(".kcol-h");
+    ok(/Finance review/.test(h0.textContent) && /22 chờ/.test(h0.textContent) && /1 quá hạn/.test(h0.textContent), "column header shows label + pending + overdue counts"); }
+  { const cards=w.document.querySelectorAll("#apd-kanban .kcol:first-child .kcard");
+    ok(cards.length===20, "card cap = 20 per column");
+    ok(cards[0].classList.contains("breached") && /EC-APR-2026-00007/.test(cards[0].textContent), "breached card sorts first (red accent)");
+    ok(cards[1].classList.contains("near"), "near-SLA card second (amber accent)"); }
+  ok(/\+ 2 hồ sơ nữa/.test(w.document.querySelector("#apd-kanban").textContent), "'X more' remaining indicator shown (count 22, cap 20)");
+  ok(/Quá hạn/.test(w.document.querySelector("#apd-kanban .kcard.breached .kc-sla").textContent), "card shows SLA overdue duration");
+  // horizontal scroll contained inside the board, not the page
+  ok(/\.kanban-wrap\{[^}]*overflow-x:auto/.test(HTML), "horizontal scroll contained within the kanban-wrap");
+  ok(/\.kcol-h\{[^}]*position:sticky/.test(HTML), "sticky column headers");
+  ok(/\.kcol\{[^}]*(flex:0 0 280px|width:280px)/.test(HTML), "responsive ~280px column width");
+
+  // toggle to by_approver keeps other filters (no reload needed)
+  { let before=calls.length; const byAppr=w.document.querySelector('#apd-kg button[data-kg="by_approver"]'); byAppr.click(); await flush();
+    ok(calls.length===before, "grouping toggle re-renders client-side (no extra governed query)");
+    const cols=w.document.querySelectorAll("#apd-kanban .kcol");
+    ok(/lien\.vu@x/.test(cols[0].querySelector(".kcol-h").textContent), "by_approver grouping shows approver columns"); }
+  // back to by_level for the rest
+  w.document.querySelector('#apd-kg button[data-kg="by_level"]').click(); await flush();
+
+  // quick filter: SLA breached
+  { w.document.querySelector('#apd-kf button[data-kf="breached"]').click(); await flush();
+    const cards=w.document.querySelectorAll("#apd-kanban .kcard");
+    ok(cards.length===1 && cards[0].classList.contains("breached"), "kanban quick filter 'Quá hạn SLA' shows only breached cards"); }
+  // quick filter: Information Required
+  { w.document.querySelector('#apd-kf button[data-kf="info"]').click(); await flush();
+    const cards=w.document.querySelectorAll("#apd-kanban .kcard");
+    ok(cards.length===1 && /EC-APR-2026-00008/.test(cards[0].textContent), "kanban quick filter 'Cần bổ sung' shows Information Required (purple state)"); }
+  w.document.querySelector('#apd-kf button[data-kf="all"]').click(); await flush();
+
+  // card body carries the existing detail route (jsdom can't follow navigation; assert wiring)
+  { const card=w.document.querySelector("#apd-kanban .kcard");
+    ok(/payment-request\?id=PAYR-0007/.test(card.getAttribute("data-route")), "card body wired to the existing detail route"); }
+  // timeline action -> governed drawer (separate from body navigation)
+  { // close any drawer left open by earlier sub-tests
+    Array.prototype.forEach.call(w.document.querySelectorAll(".drawer-ov"),function(o){o.remove();});
+    let before=calls.length; const tl=w.document.querySelector("#apd-kanban [data-tl]"); tl.click(); await flush(); await flush();
+    ok(calls.some(c=>c.method.endsWith("get_request_timeline")), "kanban timeline action opens the governed timeline drawer");
+    ok(!!w.document.querySelector(".drawer-ov"), "timeline drawer rendered from kanban card");
+    const dw=w.document.querySelector(".drawer-ov #dw-x"); if(dw) dw.click(); }
+  // column header click -> governed reload with current_level filter
+  { let before=calls.length; const h=w.document.querySelector("#apd-kanban .kcol-h"); h.click(); await flush(); await flush();
+    ok(calls.length>before, "column header click triggers a governed reload (applies filter)");
+    const last=calls[calls.length-1]; const f=JSON.parse(last.args.filters||"{}");
+    ok(f.current_level===2, "column header applies current_level filter to the governed query"); }
 
   // empty + error states
   { let { w:w2 }=boot(); stubECharts(w2); mockFrappe(w2,{ get_dashboard:()=>Promise.resolve({message:Object.assign({},DASH,{attention:[]})}) });
