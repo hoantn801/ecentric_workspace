@@ -6,6 +6,7 @@ profile, verified mappings, and a Draft->Locked->Active package with placements.
 import frappe
 
 from ecentric_workspace.approval_center.api import payment_request as papi
+from ecentric_workspace.approval_center.tests import erp_fixtures as erp
 from ecentric_workspace.approval_center.esign import package as pkgsvc
 from ecentric_workspace.approval_center.esign.providers.mock import MockAdapter
 from ecentric_workspace.approval_center.payment_request import setup as psetup
@@ -42,37 +43,15 @@ PDF = _make_pdf()
 
 
 def user(email, roles=("Employee",)):
-    email = email.lower()  # match frappe User naming
-    for r in roles:  # role may not exist on a bare-frappe disposable site (no-op elsewhere)
-        if not frappe.db.exists("Role", r):
-            frappe.get_doc({"doctype": "Role", "role_name": r}).insert(ignore_permissions=True)
-    if not frappe.db.exists("User", email):
-        u = frappe.get_doc({"doctype": "User", "email": email,
-                            "first_name": email.split("@")[0], "user_type": "System User",
-                            "enabled": 1, "send_welcome_email": 0})
-        u.flags.no_welcome_mail = True
-        u.insert(ignore_permissions=True)
-        u.add_roles(*roles)
-    return email
+    return erp.make_user(email, roles)
 
 
 def company():
-    if not frappe.db.exists("Company", "ZZESN Co"):
-        frappe.get_doc({"doctype": "Company", "company_name": "ZZESN Co", "abbr": "ZZESNC",
-                        "default_currency": "VND"}).insert(ignore_permissions=True)
-    return "ZZESN Co"
+    return erp.make_company("ZZESN Co", "ZZESNC")
 
 
 def employee(u, reports_to=None):
-    n = frappe.db.get_value("Employee", {"user_id": u}, "name")
-    if not n:
-        n = frappe.get_doc({"doctype": "Employee", "employee_name": u.split("@")[0],
-                            "user_id": u, "company": company(), "status": "Active",
-                            "gender": "Other", "date_of_joining": "2020-01-01",
-                            "date_of_birth": "1990-01-01"}).insert(ignore_permissions=True).name
-    if reports_to:
-        frappe.db.set_value("Employee", n, "reports_to", reports_to)
-    return n
+    return erp.make_employee(u, company(), reports_to=reports_to)
 
 
 def ensure_process():
