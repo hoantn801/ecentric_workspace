@@ -78,15 +78,16 @@ class TestEsignTxnBoundary(FrappeTestCase):
         dsr = _signed_dsr(h)
         frappe.db.savepoint("esign_crash_sim")
         # crash AFTER engine.approve but BEFORE DSR 'Approval Completed' persists:
-        # make the final status write explode (uncaught -> whole txn dies in prod)
-        real = events.set_dsr_status
+        # make the final guarded write explode (uncaught -> whole txn dies in prod).
+        # (R2 moved the final write to _guarded_dsr_transition.)
+        real = esvc._guarded_dsr_transition
 
-        def exploding(name, to_status, **kw):
+        def exploding(name, from_status, to_status, **kw):
             if to_status == "Approval Completed":
                 raise RuntimeError("boom-after-approve")
-            return real(name, to_status, **kw)
+            return real(name, from_status, to_status, **kw)
 
-        with patch.object(events, "set_dsr_status", side_effect=exploding):
+        with patch.object(esvc, "_guarded_dsr_transition", side_effect=exploding):
             with self.assertRaises(RuntimeError):
                 esvc.verify_and_complete(dsr)
         # simulate the crash recovery MariaDB performs: rollback the open transaction

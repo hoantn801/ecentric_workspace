@@ -206,12 +206,37 @@ def mark_verified(dsr_name, doc_state):
                           event_type="Verified", verification_result="verified")
 
 
+
+def _guarded_dsr_transition(dsr_name, from_status, to_status, extra=None,
+                            event_type=None, **event_kw):
+    """R2 (2026-07-12): race-safe conditional state mutation - the CURRENT persisted
+    status is part of the UPDATE condition, so a worker that lost a completion race
+    can never overwrite another worker's terminal result (Approval Completed is
+    never downgraded). Returns True only if THIS caller performed the transition;
+    the audit event is emitted only in that case (no misleading failure events for
+    idempotent losers)."""
+    from ecentric_workspace.approval_center.esign import state as sm
+    sm.assert_transition(sm.DSR, from_status, to_status)
+    vals = {"status": to_status}
+    vals.update(extra or {})
+    set_clause = ", ".join("`%s`=%%s" % k for k in vals)
+    frappe.db.sql("UPDATE `tabEC Digital Signature Request` SET " + set_clause
+                  + " WHERE name=%s AND status=%s",
+                  list(vals.values()) + [dsr_name, from_status])
+    changed = frappe.db.sql("SELECT ROW_COUNT()")[0][0] == 1
+    if changed:
+        events.emit(event_type or to_status.replace(" ", ""),
+                    signature_request=dsr_name, **event_kw)
+    return changed
+
+
 def verify_and_complete(dsr_name):
     """The governed completion path. Requires DSR already 'Signed' (verified). Sets the
     in-process call marker, then lets the ENGINE complete the level; the engine-side
     guard re-validates the persisted DSR under lock (frappe.flags is never trusted
-    alone). On engine refusal (state drift) -> Manual Review; approval state is
-    whatever the engine says."""
+    alone). On engine refusal (state drift) -> Manual Review ONLY if this attempt
+    still owns the Signed state (R2: losers of a completion race exit as idempotent
+    no-ops; terminal states are never downgraded)."""
     frappe.db.get_value(DSR, dsr_name, "name", for_update=True)
     dsr = frappe.db.get_value(DSR, dsr_name,
                               ["name", "status", "approval_request", "approver", "package"],
@@ -234,26 +259,36 @@ def verify_and_complete(dsr_name):
         engine.approve(dsr.approval_request, actor=dsr.approver,
                        comment=_("Duyệt & Ký (ký số đã xác minh: {0})").format(dsr.name))
     except Exception as e:
+        # R2 (2026-07-12): rollback the savepoint FIRST, then let the CURRENT
+        # persisted DB state decide. Manual Review is stamped only when this
+        # failing attempt still owns the eligible 'Signed' processing state
+        # (conditional UPDATE); a worker that merely lost a valid concurrency
+        # race exits as an idempotent no-op with NO failure/manual-review event,
+        # and a terminal result (Approval Completed) is never downgraded.
         frappe.db.rollback(save_point="esign_verify_complete")
-        # Defense in depth (runtime-gate finding 2026-07-12): if a PARALLEL worker
-        # already finalized this DSR (Approval Completed), the Signed->Manual Review
-        # edge is illegal - treat as a safe no-op instead of clobbering the winner.
-        from ecentric_workspace.approval_center.esign.state import InvalidTransition
-        try:
-            events.set_dsr_status(dsr_name, "Manual Review", event_type="ManualReview",
-                                  extra_fields={"manual_review_reason": safe_error(e)[:200]},
-                                  error_summary=safe_error(e))
-        except InvalidTransition:
-            return {"completed": False, "reason": "already_finalized_by_parallel_worker"}
-        return {"completed": False, "reason": "engine_refused", "detail": safe_error(e)}
+        if _guarded_dsr_transition(dsr_name, "Signed", "Manual Review",
+                                   extra={"manual_review_reason": safe_error(e)[:200]},
+                                   event_type="ManualReview", error_summary=safe_error(e)):
+            return {"completed": False, "reason": "engine_refused", "detail": safe_error(e)}
+        return {"completed": False, "reason": "already_finalized_by_parallel_worker"}
     finally:
         setattr(frappe.flags, guard.FLAG_KEY, prev)
         frappe.flags.mute_messages = prev_mute
         frappe.local.message_log = []
-    events.set_dsr_status(dsr_name, "Approval Completed",
-                          extra_fields={"completed_at": now_datetime()},
-                          event_type="ApprovalCompleted", erp_actor=dsr.approver)
-    return {"completed": True}
+    # Winner finalization - also state-guarded. If a racing loser stamped
+    # Manual Review in the window after our engine.approve, repair it to the true
+    # terminal outcome (the engine DID approve exactly once in this transaction).
+    if _guarded_dsr_transition(dsr_name, "Signed", "Approval Completed",
+                               extra={"completed_at": now_datetime()},
+                               event_type="ApprovalCompleted", erp_actor=dsr.approver):
+        return {"completed": True}
+    if _guarded_dsr_transition(dsr_name, "Manual Review", "Approval Completed",
+                               extra={"completed_at": now_datetime(),
+                                      "manual_review_reason": None},
+                               event_type="ApprovalCompleted", erp_actor=dsr.approver):
+        return {"completed": True, "note": "repaired_racer_manual_review_label"}
+    # Already Approval Completed (idempotent) - nothing to do.
+    return {"completed": True, "note": "already_terminal"}
 
 
 # --------------------------------------------------------------------------- #

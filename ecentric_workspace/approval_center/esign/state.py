@@ -59,7 +59,12 @@ DSR_TRANSITIONS = {
     "Retryable Failure": ("Queued", "Manual Review", "Permanent Failure", "Cancelled", "Superseded"),
     "Permanent Failure": (),
     "Verification Mismatch": ("Manual Review",),
-    "Manual Review": ("Queued", "Cancelled"),
+    "Manual Review": ("Queued", "Cancelled", "Approval Completed"),
+    # Manual Review -> Approval Completed is the WINNER-REPAIR edge only (R2,
+    # 2026-07-12): if a losing racer stamped Manual Review between the winner's
+    # engine.approve and its final write, the winner upgrades the label to the
+    # true terminal outcome. Terminal states themselves still have no exits -
+    # Approval Completed can never be downgraded.
     "Cancelled": (),
     "Rejected": (),
     "Superseded": (),
