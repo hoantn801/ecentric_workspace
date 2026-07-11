@@ -291,7 +291,14 @@ def _engine_grant_read(doctype, name, user):
     broad permission."""
     if frappe.db.exists("DocShare", {"share_doctype": doctype, "share_name": name, "user": user}):
         return
-    from frappe.share import add as _share_add
+    # [COMPAT SHIM, runtime-gate finding 2026-07-12] frappe renamed the public
+    # share API: newer v15 exposes add_docshare(..., flags=...) and add() no longer
+    # accepts flags. Behavior identical on both; without this, any frappe upgrade
+    # past the rename breaks every approval assignment.
+    try:
+        from frappe.share import add_docshare as _share_add  # frappe >= 15.x rename
+    except ImportError:
+        from frappe.share import add as _share_add  # older v15
     _share_add(doctype, name, user, read=1, flags={"ignore_share_permission": True})
 
 
