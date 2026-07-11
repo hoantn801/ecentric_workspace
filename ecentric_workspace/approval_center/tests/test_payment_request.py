@@ -14,13 +14,17 @@ from ecentric_workspace.approval_center.api import purchase_request as papi
 from ecentric_workspace.approval_center.payment_request import setup as psetup
 from ecentric_workspace.approval_center.purchase_request import setup as prsetup
 
-PFX = "ZZPAY_"
+PFX = "zzpay_"  # lowercase: frappe lowercases User.name; mixed-case desyncs set_user vs owner fields (fresh-site portability fix, 2026-07-12)
 FIN = PFX + "fin@example.com"
 HOF = PFX + "hof@example.com"
 CEO = PFX + "ceo@example.com"
 
 
 def _user(email, roles=("Employee",)):
+    email = email.lower()
+    for r in roles:  # role may not exist on a fresh site
+        if not frappe.db.exists("Role", r):
+            frappe.get_doc({"doctype": "Role", "role_name": r}).insert(ignore_permissions=True)
     if not frappe.db.exists("User", email):
         u = frappe.get_doc({"doctype": "User", "email": email, "first_name": email.split("@")[0],
                             "user_type": "System User", "enabled": 1, "send_welcome_email": 0})
@@ -56,13 +60,21 @@ def _employee(user, reports_to=None):
     return n
 
 
+def _cat():
+    if not frappe.db.exists("EC Approval Category", "ZZPAY_CAT"):
+        frappe.get_doc({"doctype": "EC Approval Category", "category_code": "ZZPAY_CAT",
+                        "category_name": "ZZPAY Test"}).insert(ignore_permissions=True)
+    return "ZZPAY_CAT"
+
+
 def _ensure():
     if not frappe.db.exists("EC Approval Type", "PAYMENT_REQUEST"):
         frappe.get_doc({"doctype": "EC Approval Type", "approval_code": "PAYMENT_REQUEST",
                         "approval_title": "Payment Request", "card_status": "Coming Soon",
-                        "process_status": "Discovery"}).insert(ignore_permissions=True)
+                        "process_status": "Discovery", "category": _cat()}).insert(ignore_permissions=True)
     _user(FIN); _user(HOF); _user(CEO)
     psetup.setup_payment_request_v1(finance=[FIN], hof=[HOF], ceo=[CEO], apply=1)
+    psetup._upsert({2: [FIN], 3: [HOF], 4: [CEO]})  # self-contained across modules
     frappe.db.set_value("EC Approval Process", "PAYMENT_REQUEST-V1", "status", "Active")
 
 
@@ -125,7 +137,8 @@ class TestPaymentRequest(FrappeTestCase):
         # has_purchase_request = Yes but linked PR not Approved -> blocked
         if not frappe.db.exists("EC Approval Type", "PURCHASE_REQUEST"):
             frappe.get_doc({"doctype": "EC Approval Type", "approval_code": "PURCHASE_REQUEST",
-                            "approval_title": "Purchase Request", "card_status": "Coming Soon"}).insert(ignore_permissions=True)
+                            "approval_title": "Purchase Request", "card_status": "Coming Soon",
+                            "category": _cat()}).insert(ignore_permissions=True)
         prsetup.setup_purchase_request_v1(finance=[FIN], hof=[HOF], ceo=[CEO], apply=1)
         frappe.db.set_value("EC Approval Process", "PURCHASE_REQUEST-V1", "status", "Active")
         frappe.set_user(req)
