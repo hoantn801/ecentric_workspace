@@ -1,0 +1,47 @@
+{
+ "doctype": "DocType",
+ "name": "EC Digital Signature Profile Field",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "permissions": [],
+ "field_order": [
+  "scts_field_name",
+  "source_type",
+  "source_value"
+ ],
+ "fields": [
+  {
+   "fieldname": "scts_field_name",
+   "fieldtype": "Data",
+   "label": "Scts Field Name",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source_type",
+   "fieldtype": "Select",
+   "label": "Source Type",
+   "options": "Business Field\nStatic",
+   "default": "Business Field",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source_value",
+   "fieldtype": "Data",
+   "label": "Source Value",
+   "in_list_view": 1
+  }
+ ]
+}

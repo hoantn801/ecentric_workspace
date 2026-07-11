@@ -1,0 +1,59 @@
+{
+ "doctype": "DocType",
+ "name": "EC Digital Signature Profile Level",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 1,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "permissions": [],
+ "field_order": [
+  "level_no",
+  "requires_signature",
+  "scts_role_title",
+  "signature_type",
+  "mandatory_placements_per_file"
+ ],
+ "fields": [
+  {
+   "fieldname": "level_no",
+   "fieldtype": "Int",
+   "label": "Level No",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "requires_signature",
+   "fieldtype": "Check",
+   "label": "Requires Signature",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "scts_role_title",
+   "fieldtype": "Data",
+   "label": "Scts Role Title",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "signature_type",
+   "fieldtype": "Data",
+   "label": "Signature Type",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "mandatory_placements_per_file",
+   "fieldtype": "Int",
+   "label": "Mandatory Placements Per File",
+   "default": "1"
+  }
+ ]
+}

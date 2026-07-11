@@ -1,0 +1,162 @@
+{
+ "doctype": "DocType",
+ "name": "EC Digital Signature File",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "EC-DSF-.YYYY.-.#####.",
+ "naming_rule": "Expression",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "field_order": [
+  "package",
+  "file",
+  "file_name",
+  "idx_order",
+  "file_kind",
+  "requires_signature",
+  "is_supporting_document",
+  "share_with_partner",
+  "sha256",
+  "size_bytes",
+  "mime_type",
+  "is_pdf",
+  "scts_document_file_id",
+  "provider_status",
+  "signed_file",
+  "signed_file_sha256",
+  "signed_retrieved_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "package",
+   "fieldtype": "Link",
+   "label": "Package",
+   "options": "EC Digital Signature Package",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "file",
+   "fieldtype": "Link",
+   "label": "File",
+   "options": "File",
+   "reqd": 1
+  },
+  {
+   "fieldname": "file_name",
+   "fieldtype": "Data",
+   "label": "File Name",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "idx_order",
+   "fieldtype": "Int",
+   "label": "Order",
+   "default": "0",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "file_kind",
+   "fieldtype": "Select",
+   "label": "File Kind",
+   "options": "Contract\nInvoice\nReport\nSupporting\nOther",
+   "default": "Other"
+  },
+  {
+   "fieldname": "requires_signature",
+   "fieldtype": "Check",
+   "label": "Requires Signature",
+   "default": "0",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "is_supporting_document",
+   "fieldtype": "Check",
+   "label": "Is Supporting Document",
+   "default": "0"
+  },
+  {
+   "fieldname": "share_with_partner",
+   "fieldtype": "Check",
+   "label": "Share With Partner",
+   "default": "0"
+  },
+  {
+   "fieldname": "sha256",
+   "fieldtype": "Data",
+   "label": "Sha256",
+   "reqd": 1,
+   "read_only": 1,
+   "length": 64
+  },
+  {
+   "fieldname": "size_bytes",
+   "fieldtype": "Int",
+   "label": "Size Bytes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "mime_type",
+   "fieldtype": "Data",
+   "label": "Mime Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "is_pdf",
+   "fieldtype": "Check",
+   "label": "Is Pdf",
+   "read_only": 1
+  },
+  {
+   "fieldname": "scts_document_file_id",
+   "fieldtype": "Data",
+   "label": "SCTS Document File ID"
+  },
+  {
+   "fieldname": "provider_status",
+   "fieldtype": "Data",
+   "label": "Provider Status"
+  },
+  {
+   "fieldname": "signed_file",
+   "fieldtype": "Link",
+   "label": "Signed File",
+   "options": "File"
+  },
+  {
+   "fieldname": "signed_file_sha256",
+   "fieldtype": "Data",
+   "label": "Signed File Sha256",
+   "length": 64
+  },
+  {
+   "fieldname": "signed_retrieved_at",
+   "fieldtype": "Datetime",
+   "label": "Signed Retrieved At"
+  }
+ ]
+}

@@ -1,0 +1,143 @@
+{
+ "doctype": "DocType",
+ "name": "EC Digital Signature Event",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "EC-DSE-.YYYY.-.#####.",
+ "naming_rule": "Expression",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "field_order": [
+  "signature_request",
+  "package",
+  "seq",
+  "event_type",
+  "event_time",
+  "erp_actor",
+  "scts_effective_user",
+  "provider_txn_id",
+  "request_meta",
+  "response_meta",
+  "verification_result",
+  "retry_no",
+  "callback_received",
+  "callback_verification_result",
+  "error_summary"
+ ],
+ "fields": [
+  {
+   "fieldname": "signature_request",
+   "fieldtype": "Link",
+   "label": "Signature Request",
+   "options": "EC Digital Signature Request",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "package",
+   "fieldtype": "Link",
+   "label": "Package",
+   "options": "EC Digital Signature Package",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "seq",
+   "fieldtype": "Int",
+   "label": "Seq",
+   "read_only": 1
+  },
+  {
+   "fieldname": "event_type",
+   "fieldtype": "Select",
+   "label": "Event Type",
+   "options": "Created\nPrepared\nQueued\nLocked\nActive\nProviderSubmitted\nProviderCreating\nProviderCreated\nProviderCreateFailed\nProviderAccepted\nVerifying\nPollTick\nVerified\nSigned\nApprovalCompleted\nMappingRequired\nPlacementRequired\nRetryableFailure\nPermanentFailure\nVerificationMismatch\nManualReview\nRetryScheduled\nCallbackObserved\nFileRetrieved\nFailed\nRejected\nCancelled\nSuperseded\nCompleted\nDraft",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "event_time",
+   "fieldtype": "Datetime",
+   "label": "Event Time",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "erp_actor",
+   "fieldtype": "Link",
+   "label": "Erp Actor",
+   "options": "User",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "scts_effective_user",
+   "fieldtype": "Data",
+   "label": "Scts Effective User"
+  },
+  {
+   "fieldname": "provider_txn_id",
+   "fieldtype": "Data",
+   "label": "Provider Txn Id"
+  },
+  {
+   "fieldname": "request_meta",
+   "fieldtype": "Small Text",
+   "label": "Request Meta",
+   "description": "SANITIZED. Never tokens/passwords/Base64/PDF bytes/secrets."
+  },
+  {
+   "fieldname": "response_meta",
+   "fieldtype": "Small Text",
+   "label": "Response Meta",
+   "description": "SANITIZED. Never tokens/passwords/Base64/PDF bytes/secrets."
+  },
+  {
+   "fieldname": "verification_result",
+   "fieldtype": "Data",
+   "label": "Verification Result"
+  },
+  {
+   "fieldname": "retry_no",
+   "fieldtype": "Int",
+   "label": "Retry No"
+  },
+  {
+   "fieldname": "callback_received",
+   "fieldtype": "Check",
+   "label": "Callback Received",
+   "default": "0"
+  },
+  {
+   "fieldname": "callback_verification_result",
+   "fieldtype": "Data",
+   "label": "Callback Verification Result"
+  },
+  {
+   "fieldname": "error_summary",
+   "fieldtype": "Data",
+   "label": "Error Summary"
+  }
+ ]
+}
