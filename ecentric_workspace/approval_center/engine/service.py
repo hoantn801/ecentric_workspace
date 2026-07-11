@@ -544,6 +544,19 @@ def _actor_pending_row(req_name, level_no, actor):
     return n[0] if n else None
 
 
+def _signature_guard(req, level_no, actor):
+    """[esign S2A, 2026-07-11] Signature-required levels complete ONLY through the
+    governed verified-signature path: esign.guard validates a PERSISTED, provider-
+    verified EC Digital Signature Request against the DB under row lock (frappe.flags
+    is a call marker only, never authorization). Applies to EVERY caller including
+    admin override - NO role bypass, NO break-glass in S2A (user directive).
+    Fail-closed: an import/runtime error blocks approval rather than silently
+    allowing an unsigned completion. Types without an enabled+gated signing profile:
+    one indexed query, behavior unchanged."""
+    from ecentric_workspace.approval_center.esign import guard as esign_guard
+    esign_guard.assert_level_completable(req, level_no, actor)
+
+
 def approve(request_name, actor=None, comment=None):
     actor = actor or frappe.session.user
     req = frappe.get_doc("EC Approval Request", request_name)
@@ -555,6 +568,7 @@ def approve(request_name, actor=None, comment=None):
     row = _actor_pending_row(request_name, req.current_level, actor)
     if not row:
         frappe.throw(_("You are not a pending approver for the current level."))
+    _signature_guard(req, req.current_level, actor)
     frappe.db.set_value("EC Approval Request Approver", row,
                         {"status": "Approved", "decided_at": now_datetime(), "comment": comment})
     log_action(request_name, "Approved", actor, req.current_level, comment=comment)
@@ -714,6 +728,9 @@ def admin_override_current_level(request_name, actor=None, reason=None):
     if not rl or rl.level_status != "In Progress":
         frappe.throw(_("The current level is not pending; please refresh."))
     frappe.db.get_value("EC Approval Request Level", rl.name, "name", for_update=True)
+    # [esign S2A] Admin override is NOT exempt: a signature-required level cannot be
+    # force-approved by any role (no break-glass in S2A - user directive 2026-07-11).
+    _signature_guard(req, level_no, actor)
     skip_note = _("Admin override approved by {0}").format(actor)
     for ap in frappe.get_all("EC Approval Request Approver",
                              filters={"approval_request": request_name, "level_no": level_no, "status": "Pending"},
