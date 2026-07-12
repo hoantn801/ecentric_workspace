@@ -22,6 +22,11 @@ from ecentric_workspace.approval_center.esign.sanitize import safe_error
 
 DSR = "EC Digital Signature Request"
 
+# Server-derived provider action for bulk-process. The DSR.action -> provider
+# transitionType mapping is authoritative here (never from frontend, never the numeric
+# transition_id which is reserved for Workflow/transition reject/cancel operations).
+_PROVIDER_TRANSITION = {"Sign": "approve"}
+
 
 def _disabled():
     try:
@@ -52,6 +57,14 @@ def _ensure_provider_document(dsr, settings, adapter):
             else:
                 events.set_package_status(pkg.name, "Active")
         return pkg.scts_document_id
+    if pkg.error_code == "create_outcome_unknown":
+        # a prior AddDocument outcome is UNKNOWN (ambiguous write): the document may
+        # already exist provider-side. NEVER auto-recreate. Retryable so the request
+        # stays in-flight until an SM reconciles (sets scts_document_id or clears the
+        # marker); the poll cap then escalates to Manual Review.
+        raise ProviderError("scts_awaiting_create_reconciliation",
+                            "AddDocument outcome unknown - awaiting manual reconciliation",
+                            retryable=True)
     if not int(settings.get("allow_document_creation") or 0):
         raise ProviderError("document_creation_gated",
                             "allow_document_creation is OFF", retryable=True)
@@ -66,17 +79,39 @@ def _ensure_provider_document(dsr, settings, adapter):
     else:  # Active (lazy mode)
         events.emit("ProviderSubmitted", package=pkg.name)
     files = pkgsvc.package_files(pkg.name)
+    prof = frappe.db.get_value(
+        "EC Digital Signature Profile", pkg.profile,
+        ["workflow_definition_id", "document_type_id", "company_id", "department_id",
+         "document_template_id"], as_dict=True) or {}
     ctx = {
         "doc_code": pkg.doc_code_sent or pkg.business_name,
         "title": pkg.doc_title_sent or pkg.business_name,
+        "amount": pkg.doc_amount_sent,
+        "workflow_definition_id": prof.get("workflow_definition_id"),
+        "document_type_id": prof.get("document_type_id"),
+        "company_id": prof.get("company_id"),
+        "department_id": prof.get("department_id"),
+        "document_template_id": prof.get("document_template_id"),
         "files": [{"order": i, "name": f.file_name, "file_dsf": f.name,
-                   "can_be_signed": f.requires_signature, "bct": f.is_supporting_document,
-                   "shared_with_partner": f.share_with_partner} for i, f in enumerate(files)],
+                   "can_be_signed": f.requires_signature,
+                   "is_supporting_document": f.is_supporting_document,
+                   "share_with_partner": f.share_with_partner,
+                   "content": pkgsvc.file_bytes(f.name)}  # private bytes; never logged
+                  for i, f in enumerate(files)],
         "placements": [dict(p) for p in pkgsvc.package_placements(pkg.name)],
     }
     try:
         res = adapter.create_document(ctx)
     except ProviderError as e:
+        if getattr(e, "ambiguous", False):
+            # AddDocument outcome UNKNOWN: mark the package so no run ever recreates,
+            # emit a sanitized audit event, and propagate the ambiguity (the worker moves
+            # the DSR to Verifying; reconciliation is required before any recreate).
+            frappe.db.set_value("EC Digital Signature Package", pkg.name,
+                                {"error_code": "create_outcome_unknown",
+                                 "error_message": safe_error(e)})
+            events.emit("CreateOutcomeUnknown", package=pkg.name, error_summary=safe_error(e))
+            raise
         if frappe.db.get_value("EC Digital Signature Package", pkg.name,
                                "status") == "Provider Creating":
             events.set_package_status(pkg.name, "Provider Create Failed", event_type="Failed",
@@ -86,7 +121,8 @@ def _ensure_provider_document(dsr, settings, adapter):
         raise
     frappe.db.set_value("EC Digital Signature Package", pkg.name,
                         {"scts_document_id": res["document_id"],
-                         "created_at_provider": now_datetime()})
+                         "created_at_provider": now_datetime(),
+                         "error_code": None, "error_message": None})
     by_order = {f["order"]: f.get("file_id") for f in res.get("files") or []}
     for i, f in enumerate(files):
         if by_order.get(i):
@@ -145,9 +181,14 @@ def process_signing_request(dsr_name):
             # Binding was asserted at the top of this run (before any write); the DSR is
             # locked for_update so state cannot drift within this transaction.
             # Submit exactly once from Queued; acceptance != success (async).
+            tt = _PROVIDER_TRANSITION.get(dsr.action)
+            if not tt:
+                raise ProviderError("scts_no_provider_transition",
+                                    "no provider transitionType mapped for action %r"
+                                    % dsr.action, retryable=False)
             res = adapter.approve_and_sign([doc_id], dsr.effective_scts_user_id,
                                            dsr.effective_signature_id,
-                                           transition_type=dsr.transition_id)
+                                           transition_type=tt)  # 'approve' (never numeric)
             events.set_dsr_status(
                 dsr_name, "Provider Accepted",
                 extra_fields={"accepted_at": now_datetime(),

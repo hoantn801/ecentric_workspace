@@ -198,8 +198,42 @@ class SctsClient(object):
         raise ProviderError("scts_bulk_rejected_%s" % status,
                             "SCTS rejected bulk-process (HTTP %s)" % status, retryable=False)
 
+    def add_document(self, payload, token):
+        """POST /api/AddDocument -> raw payload (documentId + per-file ids). SCTS V1
+        contract (workflowDefinitionId / documentTypeId / companyId / departmentId /
+        Documents[] / Signatures[] / ExternalHandlers[]). NON-IDEMPOTENT write: exactly ONE HTTP
+        attempt, NO retry. A network error, timeout or 5xx is AMBIGUOUS - the document may
+        already have been created provider-side - normalized to `scts_create_outcome_unknown`
+        (ambiguous, non-retryable) so the caller reconciles before ever recreating. Only a
+        definite 4xx is a hard rejection. The payload carries base64 PDF bytes and is NEVER
+        logged."""
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = "Bearer %s" % token
+        try:
+            resp = self._transport("POST", self._url("/api/AddDocument"),
+                                   headers=headers, json_body=payload, timeout=self.timeout,
+                                   verify_tls=self.verify_tls)
+        except Exception:
+            raise ProviderError("scts_create_outcome_unknown",
+                                "AddDocument outcome unknown (network/timeout)",
+                                retryable=False, ambiguous=True)
+        status = int(getattr(resp, "status_code", 0))
+        if 200 <= status < 300:
+            return self._parse(resp, "add_document")
+        if status in _AUTH_STATUSES:
+            raise ProviderError("scts_auth_error_%s" % status,
+                                "SCTS rejected credentials on AddDocument (HTTP %s)" % status,
+                                retryable=False)
+        if status >= 500:
+            raise ProviderError("scts_create_outcome_unknown",
+                                "AddDocument outcome unknown (HTTP %s)" % status,
+                                retryable=False, ambiguous=True)
+        raise ProviderError("scts_create_rejected_%s" % status,
+                            "SCTS rejected AddDocument (HTTP %s)" % status, retryable=False)
+
     def get_document(self, document_id, token):
-        """GET /api/Document/{documentId} -> raw document payload (status/files/signers)."""
+        """GET /api/Document/{documentId} -> raw document payload (status/signers/files)."""
         try:
             return self._request("GET", "/api/Document/%s" % document_id, token=token,
                                  _label="get_document")

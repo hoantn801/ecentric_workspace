@@ -15,6 +15,7 @@ from ecentric_workspace.approval_center.esign import guard
 from ecentric_workspace.approval_center.esign import package as pkgsvc
 from ecentric_workspace.approval_center.esign import permissions as perms
 from ecentric_workspace.approval_center.esign import service as svc
+from ecentric_workspace.approval_center.esign import events
 
 
 def _business_args(business_doctype, business_name):
@@ -181,3 +182,43 @@ def verify_mapping(mapping_name):
               "signature_meta_summary": ("%s / %s" % (meta.get("type") or "?",
                                                       meta.get("company") or "?"))[:130]})
     return {"verified": True}
+
+
+# ------------------------------ Payment Request e2e (S2B-B) ------------------------------ #
+@frappe.whitelist(methods=["POST"])
+def pr_approve_and_sign(payment_request_name, comment=None):
+    """Payment-Request-scoped governed Duyệt & Ký. The client supplies ONLY the PR name
+    and an optional comment - never userId / signatureId / transitionId / hash. Identity,
+    level, package, placements and transition are all resolved and validated server-side
+    by the governed service (which runs the pre-write signer binding)."""
+    _business_args("EC Payment Request", payment_request_name)
+    return svc.approve_and_sign("EC Payment Request", payment_request_name, comment=comment)
+
+
+@frappe.whitelist()
+def pdf_page_geometry(dsf_name):
+    """Page count + per-page point dimensions for governed placement entry. Permission is
+    enforced against the owning package's business document; no raw file URL is exposed."""
+    pkg_name = frappe.db.get_value("EC Digital Signature File", dsf_name, "package")
+    if not pkg_name:
+        frappe.throw(_("Không tìm thấy tệp."))
+    pkg = frappe.db.get_value("EC Digital Signature Package", pkg_name,
+                              ["business_doctype", "business_name"], as_dict=True)
+    perms.assert_can_view_business(pkg.business_doctype, pkg.business_name)
+    return pkgsvc.pdf_page_geometry(dsf_name)
+
+
+@frappe.whitelist(methods=["POST"])
+def reconcile_document_creation(package, scts_document_id=None):
+    """SM-gated reconciliation of an AMBIGUOUS AddDocument outcome. Either records the
+    provider document id that ops found in SCTS, or clears the unknown marker to permit
+    exactly one clean recreate. NEVER runs automatically; never creates a document itself."""
+    perms.assert_system_manager()
+    return svc.reconcile_document_creation(package, scts_document_id)
+
+
+@frappe.whitelist()
+def signing_readiness(payment_request_name):
+    """Backend-computed Duyệt & Ký readiness for the Payment Request panel (read-only)."""
+    _business_args("EC Payment Request", payment_request_name)
+    return svc.signing_readiness("EC Payment Request", payment_request_name)

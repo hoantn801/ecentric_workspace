@@ -27,12 +27,15 @@ class NormalizedDocState(object):
     files:   list of dicts {file_id, name}
     """
 
-    def __init__(self, document_id, status, signers=None, files=None, raw=None):
+    def __init__(self, document_id, status, signers=None, files=None, raw=None, identity=None):
         self.document_id = document_id
         self.status = status
         self.signers = signers or []
         self.files = files or []
         self.raw = raw or {}
+        # normalized SAFE identity fields (no secrets) for reconciliation identity proof:
+        # {doc_code, workflow_definition_id, document_type_id, company_id, department_id}
+        self.identity = identity or {}
 
     def signer(self, user_id):
         for s in self.signers:

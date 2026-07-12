@@ -1,0 +1,160 @@
+<!-- eCentric SCTS e-sign — Payment Request signing panel (S2B-B).
+     Appended to the Payment Request detail page by payment_request/page_sync.py
+     (idempotent; PR page only). NO CDN, NO PDF.js (numeric placement entry; the
+     drag/drop editor is S2B-C). The current record is resolved from the real page
+     state (window.PaymentRequest.state.id), not only form_dict / ?name=. All calls go
+     to whitelisted, permission-first endpoints; the frontend NEVER sends userId /
+     signatureId (the backend derives them from the verified mapping). The Duyệt & Ký
+     button reflects a BACKEND-computed readiness result and is never authoritative. -->
+<div id="ec-esign-panel" class="ec-esign-panel" style="margin-top:16px"></div>
+<script id="ec-esign-panel-js">
+(function () {
+  var API = "ecentric_workspace.approval_center.esign.api.";
+  var BIZ = "EC Payment Request";
+  function el(id){ return document.getElementById(id); }
+  function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+  function call(method, args){
+    var fr = window.frappe;
+    if(!fr||!fr.call) return Promise.reject(new Error("no frappe"));
+    return fr.call({ method: API+method, args: args }).then(function(r){ return r && r.message; });
+  }
+  function resolvePr(){
+    try { if(window.PaymentRequest && window.PaymentRequest.state && window.PaymentRequest.state.id)
+      return window.PaymentRequest.state.id; } catch(e){}
+    var q = new URLSearchParams(window.location.search);
+    return q.get("id") || q.get("name") ||
+           (window.frappe && frappe.form_dict && frappe.form_dict.name) || null;
+  }
+
+  var P = {
+    state: { pr:null, pkg:null, files:[], placements:[], readiness:null },
+
+    boot: function(){
+      var pr = resolvePr();
+      this.state.pr = pr;
+      var panel = el("ec-esign-panel");
+      if(!panel) return Promise.resolve();
+      if(!pr){ panel.innerHTML = ""; return Promise.resolve(); }
+      var self = this;
+      return Promise.all([ self.loadStatus(), self.loadReadiness() ])
+        .then(function(){ self.render(); })
+        .catch(function(){ panel.innerHTML =
+          '<div class="text-muted">Không tải được trạng thái ký.</div>'; });
+    },
+
+    loadStatus: function(){
+      var self = this;
+      return call("get_signing_status", { business_doctype: BIZ, business_name: self.state.pr })
+        .then(function(st){
+          st = st || {}; self.state.enabled = !!st.enabled;
+          self.state.pkg = st.package || null;
+          self.state.files = (st.package && st.package.files) || [];
+          self.state.placements = ((st.package && st.package.placements) || []).map(function(p){
+            return { signature_file:p.signature_file, page_index:p.page_index, x:p.x, y:p.y,
+                     width:p.width, height:p.height, level_no:p.level_no,
+                     signature_type:p.signature_type }; });
+        });
+    },
+
+    loadReadiness: function(){
+      var self = this;
+      return call("signing_readiness", { payment_request_name: self.state.pr })
+        .then(function(r){ self.state.readiness = r || {ready:false, reasons:[]}; })
+        .catch(function(){ self.state.readiness = {ready:false, reasons:["error"]}; });
+    },
+
+    loadGeometry: function(dsf){
+      return call("pdf_page_geometry", { dsf_name: dsf });
+    },
+
+    addPlacement: function(p){
+      // numeric placement; validated server-side on save (page>0, positive size, in-bounds).
+      this.state.placements.push({
+        signature_file: p.signature_file, page_index: Number(p.page_index),
+        x: Number(p.x), y: Number(p.y), width: Number(p.width), height: Number(p.height),
+        level_no: Number(p.level_no), signature_type: p.signature_type || "scts" });
+      this.render();
+    },
+
+    removePlacement: function(i){ this.state.placements.splice(i,1); this.render(); },
+
+    save: function(){
+      var self = this;
+      if(!self.state.pkg) return Promise.reject(new Error("no package"));
+      return call("save_placements",
+                  { package: self.state.pkg.name, placements: JSON.stringify(self.state.placements) })
+        .then(function(res){ self._msg("Đã lưu vị trí ký."); return self.boot().then(function(){return res;}); })
+        .catch(function(e){ self._err(e); throw e; });
+    },
+
+    sign: function(){
+      var self = this;
+      // frontend sends ONLY the PR name; backend derives signer identity + re-validates.
+      return call("pr_approve_and_sign", { payment_request_name: self.state.pr })
+        .then(function(res){ self._msg("Đã gửi yêu cầu ký. Hệ thống đang xác minh."); return res; })
+        .catch(function(e){ self._err(e); throw e; });
+    },
+
+    _msg: function(m){ if(window.frappe && frappe.show_alert) frappe.show_alert(m);
+      else if(window.frappe && frappe.msgprint) frappe.msgprint(m); },
+    _err: function(e){ var m=(e&&e.message)||"Lỗi.";
+      if(window.frappe && frappe.msgprint) frappe.msgprint(m); },
+
+    render: function(){
+      var panel = el("ec-esign-panel"); if(!panel) return;
+      var s = this.state, pkg = s.pkg || {}, locked = pkg.status && pkg.status !== "Draft";
+      var h = ['<h4>Tệp ký số (SCTS)</h4>'];
+      h.push('<div>Gói: <b>'+esc(pkg.status||"Chưa có")+'</b>'+
+             (pkg.package_version?(' · phiên bản '+esc(pkg.package_version)):'')+'</div>');
+      h.push('<table class="table table-bordered"><thead><tr><th>#</th><th>Tệp</th>'+
+             '<th>Cần ký</th><th>Hỗ trợ</th><th>Đối tác</th></tr></thead><tbody>');
+      s.files.forEach(function(f,i){ h.push('<tr><td>'+(i+1)+'</td><td>'+esc(f.file_name)+
+        '</td><td>'+(f.requires_signature?'✔':'')+'</td><td>'+(f.is_supporting_document?'✔':'')+
+        '</td><td>'+(f.share_with_partner?'✔':'')+'</td></tr>'); });
+      h.push('</tbody></table>');
+      if(!locked){
+        var sign = s.files.filter(function(f){ return f.requires_signature; });
+        h.push('<div class="ec-place"><b>Thêm vị trí ký</b><br/>'+
+          '<select id="ecp-file">'+sign.map(function(f){
+            return '<option value="'+esc(f.name)+'">'+esc(f.file_name)+'</option>'; }).join('')+'</select> '+
+          'Trang <input id="ecp-page" type="number" min="1" value="1" style="width:60px"/> '+
+          'x <input id="ecp-x" type="number" value="50" style="width:70px"/> '+
+          'y <input id="ecp-y" type="number" value="50" style="width:70px"/> '+
+          'W <input id="ecp-w" type="number" value="120" style="width:70px"/> '+
+          'H <input id="ecp-h" type="number" value="40" style="width:70px"/> '+
+          'Cấp <input id="ecp-level" type="number" min="1" value="1" style="width:60px"/> '+
+          '<button class="btn btn-sm btn-default" id="ecp-add">Thêm</button> '+
+          '<button class="btn btn-sm btn-primary" id="ecp-save">Lưu vị trí</button></div>');
+      }
+      h.push('<div><b>Vị trí đã đặt ('+s.placements.length+')</b><ul id="ecp-list">');
+      s.placements.forEach(function(p,i){ h.push('<li>Tệp '+esc(p.signature_file)+' · trang '+
+        esc(p.page_index)+' · ('+esc(p.x)+','+esc(p.y)+') '+esc(p.width)+'x'+esc(p.height)+
+        ' · cấp '+esc(p.level_no)+' <a href="#" data-rm="'+i+'">xoá</a></li>'); });
+      h.push('</ul></div>');
+      var rd = s.readiness || {};
+      if(rd.ready){ h.push('<button class="btn btn-primary" id="ecp-sign">Duyệt &amp; Ký</button>'); }
+      else if(s.enabled){ h.push('<div class="text-muted">Chưa đủ điều kiện ký: '+
+        esc((rd.reasons||[]).join(", "))+'</div>'); }
+      panel.innerHTML = h.join("");
+
+      var self = this, add = el("ecp-add");
+      if(add) add.onclick = function(){ self.addPlacement({
+        signature_file: el("ecp-file").value, page_index: el("ecp-page").value,
+        x: el("ecp-x").value, y: el("ecp-y").value, width: el("ecp-w").value,
+        height: el("ecp-h").value, level_no: el("ecp-level").value }); };
+      var sv = el("ecp-save"); if(sv) sv.onclick = function(){ self.save(); };
+      var sg = el("ecp-sign"); if(sg) sg.onclick = function(){ self.sign(); };
+      var list = el("ecp-list");
+      if(list) list.querySelectorAll("a[data-rm]").forEach(function(a){
+        a.onclick = function(ev){ ev.preventDefault(); self.removePlacement(Number(a.getAttribute("data-rm"))); }; });
+    }
+  };
+
+  window.ECEsignPanel = P;
+  function start(){ if(el("ec-esign-panel")) P.boot(); }
+  if(document.readyState !== "loading") start();
+  else document.addEventListener("DOMContentLoaded", start);
+  window.addEventListener("popstate", function(){ setTimeout(start, 60); });
+})();
+</script>
