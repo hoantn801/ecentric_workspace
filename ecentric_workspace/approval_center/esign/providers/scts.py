@@ -16,6 +16,7 @@ get_pdf) and Workflow transition are deferred to a later sub-phase and fail clos
 clear normalized error rather than a half-built call.
 """
 import base64
+import hashlib
 
 import frappe
 from frappe.utils import add_to_date, get_datetime, now_datetime
@@ -34,6 +35,8 @@ SETTINGS_DT = "EC Digital Signature Provider Settings"
 _HTTP_RETRY_LIMIT = 2
 # Refresh the cached token this many minutes BEFORE its stated expiry (clock skew guard).
 _TOKEN_SKEW_MIN = 5
+# Max signed-PDF size (bytes); defensive cap so a runaway response can't exhaust memory.
+_MAX_SIGNED_PDF_BYTES = 50 * 1024 * 1024
 
 
 def _sval(settings, key, default=None):
@@ -359,10 +362,30 @@ class SctsAdapter(SignatureProviderAdapter):
                for f in files]
         return {"document_id": str(doc_id), "files": out}
 
+    def get_signed_document(self, provider_document_id, provider_file_id=None):
+        """Retrieve one signed PDF (backend-only). Validates the response is a non-empty,
+        size-bounded PDF (%PDF- magic) and returns {content(bytes), sha256, size}. Binary/
+        base64 content is NEVER logged. The CALLER must first confirm a terminal signed
+        state via GET /api/Document/{id}; this method does not re-check completion."""
+        raw = self._with_auth(
+            lambda t: self._client.get_pdf(provider_document_id, provider_file_id, t))
+        if not isinstance(raw, (bytes, bytearray)) or len(raw) == 0:
+            raise ProviderError("scts_signed_pdf_empty",
+                                "SCTS returned an empty signed PDF", retryable=False)
+        raw = bytes(raw)
+        if len(raw) > _MAX_SIGNED_PDF_BYTES:
+            raise ProviderError("scts_signed_pdf_too_large",
+                                "signed PDF exceeds the configured maximum size",
+                                retryable=False)
+        if raw[:5] != b"%PDF-":
+            raise ProviderError("scts_signed_pdf_not_pdf",
+                                "signed content is not a PDF (bad magic header)",
+                                retryable=False)
+        return {"content": raw, "sha256": hashlib.sha256(raw).hexdigest(), "size": len(raw)}
+
     def get_pdf(self, document_id, document_file_id):
-        raise ProviderError("scts_get_pdf_deferred",
-                            "SCTS signed-file retrieval ships in a later sub-phase.",
-                            retryable=False)
+        """Base-interface alias -> raw signed PDF bytes."""
+        return self.get_signed_document(document_id, document_file_id)["content"]
 
     def execute_transition(self, instance_id, transition_id, meta=None):
         raise ProviderError("scts_transition_deferred",
