@@ -10,6 +10,7 @@ expected signer is provably unsigned.
 import frappe
 from frappe.utils import add_to_date, now_datetime
 
+from ecentric_workspace.approval_center.esign import binding
 from ecentric_workspace.approval_center.esign import events
 from ecentric_workspace.approval_center.esign import package as pkgsvc
 from ecentric_workspace.approval_center.esign import service as svc
@@ -109,6 +110,14 @@ def process_signing_request(dsr_name):
         return
     try:
         settings, adapter = _settings_and_adapter(dsr)
+        if dsr.status == "Queued":
+            # PRE-WRITE GATE (S2B-A): the FULL ERP-side signer binding must hold BEFORE
+            # any SCTS write on this run - document assembly (AddDocument) AND bulk-process.
+            # Active approver == verified mapping == outbound userId == live owner of the
+            # signatureId. Fails closed; NO role bypass (runs as the background user but is
+            # bound to the persisted approver, never the session). Re-entry poll ticks are
+            # reads only and are not gated here.
+            binding.assert_outbound_binding(dsr_name, adapter)
         doc_id = _ensure_provider_document(dsr, settings, adapter)
 
         # POLL-FIRST: did a previous (uncertain) attempt already succeed?
@@ -133,6 +142,8 @@ def process_signing_request(dsr_name):
             return
 
         if dsr.status == "Queued":
+            # Binding was asserted at the top of this run (before any write); the DSR is
+            # locked for_update so state cannot drift within this transaction.
             # Submit exactly once from Queued; acceptance != success (async).
             res = adapter.approve_and_sign([doc_id], dsr.effective_scts_user_id,
                                            dsr.effective_signature_id,
@@ -158,6 +169,18 @@ def process_signing_request(dsr_name):
         if dsr.status == "Provider Accepted":
             events.set_dsr_status(dsr_name, "Verifying", event_type="PollTick",
                                   verification_result=vr.reason)
+    except binding.BindingError as e:
+        # Signer-binding refusal: NO bulk-process write occurred. Park as a bounded
+        # Retryable Failure (config/mapping/state can be corrected, then re-driven);
+        # the reconciler escalates to Manual Review after max_poll_attempts.
+        try:
+            events.set_dsr_status(dsr_name, "Retryable Failure", event_type="Failed",
+                                  extra_fields={"error_code": "binding_refused",
+                                                "error_message": safe_error(e), "retryable": 1},
+                                  error_summary=safe_error(e))
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "esign.tasks.binding_refused")
+        return
     except ProviderError as e:
         target = "Retryable Failure" if e.retryable else "Permanent Failure"
         try:
