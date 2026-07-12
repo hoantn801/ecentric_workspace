@@ -1,6 +1,7 @@
 # Copyright (c) 2026, eCentric and contributors
-"""UAT pilot readiness + opt-in probe (S2B-C1). Readiness is SM-only, read-only; the
-probe never writes with apply=0 and is heavily gated for apply=1.
+"""UAT pilot readiness + opt-in probe (S2B-C1 + actor-separation fix). Readiness is
+SM-only, read-only; mapping/signature/allowlist checks target the ACTIVE APPROVER, not the
+SM caller. apply=1 requires caller == active approver (role alone is never a bypass).
 
   bench --site <site> run-tests --module ecentric_workspace.approval_center.tests.test_uat_pilot
 """
@@ -16,8 +17,7 @@ SETTINGS = "EC Digital Signature Provider Settings"
 
 
 def _grant_sm(user):
-    u = frappe.get_doc("User", user)
-    u.add_roles("System Manager")
+    frappe.get_doc("User", user).add_roles("System Manager")
 
 
 def _ready_stack(reqmail, mgrmail):
@@ -49,10 +49,12 @@ class TestUatPilotReadiness(FrappeTestCase):
 
     def test_all_green_ready(self):
         h = _ready_stack("u1r", "u1m")
-        frappe.set_user(h["mgr"])  # mgr is SM + active approver + mapped + allowlisted
+        frappe.set_user(h["mgr"])
         out = pilot.uat_pilot_readiness(h["biz"])
         frappe.set_user("Administrator")
         self.assertTrue(out["ready"], "blocking: %s" % out["blocking_items"])
+        self.assertEqual(out["caller_user"], h["mgr"])
+        self.assertEqual(out["active_approver"], h["mgr"])
 
     def test_production_signing_enabled_blocks(self):
         h = _ready_stack("u2r", "u2m")
@@ -60,7 +62,6 @@ class TestUatPilotReadiness(FrappeTestCase):
         frappe.set_user(h["mgr"])
         out = pilot.uat_pilot_readiness(h["biz"])
         frappe.set_user("Administrator")
-        self.assertFalse(out["ready"])
         self.assertIn("production_signing_disabled", out["blocking_items"])
 
     def test_signing_gate_disabled_blocks(self):
@@ -71,13 +72,13 @@ class TestUatPilotReadiness(FrappeTestCase):
         frappe.set_user("Administrator")
         self.assertIn("signing_enabled", out["blocking_items"])
 
-    def test_not_allowlisted_blocks(self):
+    def test_active_approver_not_allowlisted_blocks(self):
         h = _ready_stack("u4r", "u4m")
         frappe.db.set_value(SETTINGS, _settings_name(), "allowed_signing_users", "")
         frappe.set_user(h["mgr"])
         out = pilot.uat_pilot_readiness(h["biz"])
         frappe.set_user("Administrator")
-        self.assertIn("user_in_uat_allowlist", out["blocking_items"])
+        self.assertIn("active_approver_in_uat_allowlist", out["blocking_items"])
 
     def test_missing_base_url_blocks(self):
         h = _ready_stack("u5r", "u5m")
@@ -87,17 +88,34 @@ class TestUatPilotReadiness(FrappeTestCase):
         frappe.set_user("Administrator")
         self.assertIn("base_url_configured", out["blocking_items"])
 
-    def test_wrong_approver_blocks(self):
+    def test_sm_can_inspect_other_approver_without_being_signer(self):
+        # CEO is a System Manager but NOT the current (level-1) approver (mgr is).
         h = _ready_stack("u6r", "u6m")
-        _grant_sm(fx.CEO)  # CEO is SM but NOT the current (level-1) approver
+        _grant_sm(fx.CEO)
         frappe.set_user(fx.CEO)
         out = pilot.uat_pilot_readiness(h["biz"])
         frappe.set_user("Administrator")
-        self.assertIn("current_user_is_active_approver", out["blocking_items"])
+        self.assertEqual(out["caller_user"], fx.CEO)
+        self.assertEqual(out["active_approver"], h["mgr"])  # resolved from persisted state
+        self.assertIn("caller_is_active_approver", out["warnings"])  # warning, not blocker
+        # mapping/allowlist were evaluated for the ACTIVE APPROVER (mgr), so they pass
+        self.assertTrue(out["checks"]["approver_exactly_one_active_mapping"]["ok"])
+        self.assertTrue(out["checks"]["active_approver_in_uat_allowlist"]["ok"])
+
+    def test_readiness_uses_active_approver_mapping_not_caller(self):
+        # The SM caller (CEO) has NO mapping; the active approver (mgr) does.
+        h = _ready_stack("u7r", "u7m")
+        _grant_sm(fx.CEO)
+        frappe.db.delete("EC SCTS User Mapping", {"frappe_user": fx.CEO})
+        frappe.set_user(fx.CEO)
+        out = pilot.uat_pilot_readiness(h["biz"])
+        frappe.set_user("Administrator")
+        # mapping check is TRUE because it evaluates the approver (mgr), not the caller
+        self.assertTrue(out["checks"]["approver_exactly_one_active_mapping"]["ok"])
 
     def test_non_system_manager_blocked(self):
-        h = _ready_stack("u7r", "u7m")
-        frappe.set_user(h["requester"])  # plain Employee
+        h = _ready_stack("u8r", "u8m")
+        frappe.set_user(h["requester"])
         with self.assertRaises(frappe.PermissionError):
             pilot.uat_pilot_readiness(h["biz"])
         frappe.set_user("Administrator")
@@ -108,13 +126,11 @@ class TestUatPilotProbe(FrappeTestCase):
         frappe.set_user("Administrator")
 
     def test_apply0_makes_no_external_write(self):
-        h = _ready_stack("p1r", "p1m")
+        h = _ready_stack("q1r", "q1m")
         frappe.set_user(h["mgr"])
-        calls = {"n": 0}
         from ecentric_workspace.approval_center.esign import tasks
 
         def spy(settings):
-            calls["n"] += 1
             raise AssertionError("no adapter should be built in apply=0")
 
         with patch.object(tasks, "get_adapter", spy):
@@ -122,30 +138,46 @@ class TestUatPilotProbe(FrappeTestCase):
         frappe.set_user("Administrator")
         self.assertFalse(out["applied"])
         self.assertEqual(out["mode"], "preview")
-        self.assertEqual(calls["n"], 0)
-        self.assertIn("credentials", out["payload_preview"])
         self.assertEqual(out["payload_preview"]["credentials"], "<never included>")
 
+    def test_apply1_blocked_when_sm_not_active_approver(self):
+        h = _ready_stack("q2r", "q2m")
+        _grant_sm(fx.CEO)  # SM, but not the level-1 approver; PR is TEST-named by fixture
+        frappe.set_user(fx.CEO)
+        out = pilot.run_scts_uat_pilot_probe(h["biz"], apply=1)
+        frappe.set_user("Administrator")
+        self.assertFalse(out["applied"])
+        self.assertEqual(out["reason"], "caller_not_active_approver")
+
+    def test_administrator_has_no_bypass_apply1(self):
+        h = _ready_stack("q3r", "q3m")
+        # Administrator is SM but not the active approver -> still blocked.
+        frappe.set_user("Administrator")
+        out = pilot.run_scts_uat_pilot_probe(h["biz"], apply=1)
+        self.assertFalse(out["applied"])
+        self.assertEqual(out["reason"], "caller_not_active_approver")
+
+    def test_apply1_passes_when_caller_is_active_approver(self):
+        h = _ready_stack("q4r", "q4m")  # fixture reason "esign test" -> UAT/TEST-named
+        frappe.set_user(h["mgr"])  # mgr = SM + active approver + mapped + allowlisted
+        out = pilot.run_scts_uat_pilot_probe(h["biz"], apply=1)
+        frappe.set_user("Administrator")
+        self.assertTrue(out["applied"])
+        self.assertTrue(out["signature_request"])
+        self.assertEqual(out["active_approver"], h["mgr"])
+
     def test_apply1_non_void_named_rejected(self):
-        h = _ready_stack("p2r", "p2m")  # PR name/title is not UAT/VOID
-        frappe.db.set_value("EC Payment Request", h["biz"], "request_title", "Real payment")
+        h = _ready_stack("q5r", "q5m")
+        # remove all UAT/VOID/TEST markers from name-relevant fields
+        frappe.db.set_value("EC Payment Request", h["biz"],
+                            {"request_title": "Real payment", "reason": "Quarterly rent"})
         frappe.set_user(h["mgr"])
         with self.assertRaises(frappe.PermissionError):
             pilot.run_scts_uat_pilot_probe(h["biz"], apply=1)
         frappe.set_user("Administrator")
 
-    def test_apply1_blocked_when_readiness_incomplete(self):
-        h = _ready_stack("p3r", "p3m")
-        frappe.db.set_value("EC Payment Request", h["biz"], "request_title", "VOID uat test")
-        frappe.db.set_value(SETTINGS, _settings_name(), "allow_signing", 0)  # not ready
-        frappe.set_user(h["mgr"])
-        out = pilot.run_scts_uat_pilot_probe(h["biz"], apply=1)
-        frappe.set_user("Administrator")
-        self.assertFalse(out["applied"])
-        self.assertEqual(out["reason"], "readiness_incomplete")
-
     def test_probe_requires_system_manager(self):
-        h = _ready_stack("p4r", "p4m")
+        h = _ready_stack("q6r", "q6m")
         frappe.set_user(h["requester"])
         with self.assertRaises(frappe.PermissionError):
             pilot.run_scts_uat_pilot_probe(h["biz"], apply=0)

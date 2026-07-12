@@ -35,6 +35,15 @@ def _disabled():
         return True  # fail-safe: broken config reads as DISABLED
 
 
+def _integration_open(provider, environment):
+    """True only when the provider integration gate is enabled for this pair. A scheduler
+    task must NOT build an adapter or make any SCTS network call while integration is OFF
+    (defence in depth on top of the binding/guard gate at write time)."""
+    return bool(frappe.db.get_value(
+        "EC Digital Signature Provider Settings",
+        {"provider": provider, "environment": environment}, "integration_enabled"))
+
+
 def _settings_and_adapter(dsr):
     s = frappe.db.get_value("EC Digital Signature Provider Settings",
                             {"provider": dsr.provider, "environment": dsr.environment},
@@ -266,6 +275,8 @@ def poll_pending():
                           fields=["name", "status", "provider", "environment",
                                   "request_attempt"], limit_page_length=200)
     for r in rows:
+        if not _integration_open(r.provider, r.environment):
+            continue  # gate OFF -> no adapter, no SCTS network call
         try:
             if r.status == "Signed":
                 out = svc.verify_and_complete(r.name)
@@ -362,9 +373,11 @@ def retrieve_signed_bundles():
     rows = frappe.get_all(
         "EC Digital Signature Package",
         filters={"scts_document_id": ["is", "set"], "signed_bundle_complete": 0},
-        fields=["name"], limit_page_length=200)
+        fields=["name", "provider", "environment"], limit_page_length=200)
     from ecentric_workspace.approval_center.esign import signed_files
     for r in rows:
+        if not _integration_open(r.provider, r.environment):
+            continue  # gate OFF -> no adapter, no SCTS network call
         # only retry for packages with a terminal-completed approval DSR
         done = frappe.db.exists(DSR, {"package": r.name, "status": "Approval Completed"})
         if not done:
