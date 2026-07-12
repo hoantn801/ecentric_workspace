@@ -199,8 +199,9 @@ class SctsClient(object):
                             "SCTS rejected bulk-process (HTTP %s)" % status, retryable=False)
 
     def add_document(self, payload, token):
-        """POST /api/Document/AddDocument -> raw payload (documentId + per-file ids).
-        [UAT: confirm exact route/field names.] NON-IDEMPOTENT write: exactly ONE HTTP
+        """POST /api/AddDocument -> raw payload (documentId + per-file ids). SCTS V1
+        contract (workflowDefinitionId / documentTypeId / companyId / departmentId /
+        Documents[] / Signatures[] / ExternalHandlers[]). NON-IDEMPOTENT write: exactly ONE HTTP
         attempt, NO retry. A network error, timeout or 5xx is AMBIGUOUS - the document may
         already have been created provider-side - normalized to `scts_create_outcome_unknown`
         (ambiguous, non-retryable) so the caller reconciles before ever recreating. Only a
@@ -210,7 +211,7 @@ class SctsClient(object):
         if token:
             headers["Authorization"] = "Bearer %s" % token
         try:
-            resp = self._transport("POST", self._url("/api/Document/AddDocument"),
+            resp = self._transport("POST", self._url("/api/AddDocument"),
                                    headers=headers, json_body=payload, timeout=self.timeout,
                                    verify_tls=self.verify_tls)
         except Exception:

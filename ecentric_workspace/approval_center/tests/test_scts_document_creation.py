@@ -63,25 +63,44 @@ class TestSctsDocumentCreation(FrappeTestCase):
         self.assertEqual(t.count("add_document"), 1)
 
     # -- adapter: base64 payload + normalization --
-    def test_create_document_payload_and_mapping(self):
+    def test_create_document_v1_contract(self):
         ad, t = _adapter({"add_document": sx.add_document_ok("DOC9", 2)})
-        ctx = {"doc_code": "PR-1", "title": "T", "amount": 100, "files": [
-            {"order": 0, "name": "a.pdf", "content": b"%PDF-hello", "can_be_signed": 1,
-             "is_supporting_document": 0, "share_with_partner": 0},
-            {"order": 1, "name": "b.pdf", "content": b"%PDF-world", "can_be_signed": 0,
-             "is_supporting_document": 1, "share_with_partner": 1}]}
+        ctx = {"doc_code": "PR-1", "title": "T", "amount": 100,
+               "workflow_definition_id": "WF9", "document_type_id": "DT3",
+               "company_id": "C1", "department_id": "D2", "document_template_id": "TPL7",
+               "files": [
+                   {"order": 0, "name": "a.pdf", "file_dsf": "DSF-1", "content": b"%PDF-hello",
+                    "can_be_signed": 1, "is_supporting_document": 0, "share_with_partner": 1},
+                   {"order": 1, "name": "b.pdf", "file_dsf": "DSF-2", "content": b"%PDF-world",
+                    "can_be_signed": 0, "is_supporting_document": 1, "share_with_partner": 0}],
+               "placements": [{"signature_file": "DSF-1", "page_index": 2, "x": 50, "y": 60,
+                               "width": 120, "height": 40, "level_no": 1,
+                               "signature_type": "scts", "scts_role_title": "Manager"}]}
         res = ad.create_document(ctx)
         self.assertEqual(res["document_id"], "DOC9")
         self.assertEqual(res["files"], [{"order": 0, "file_id": "F0"},
                                         {"order": 1, "file_id": "F1"}])
         body = t.last_body("add_document")
-        self.assertEqual(body["files"][0]["originalBase64"],
+        # V1 top-level identifiers from the profile
+        self.assertEqual((body["workflowDefinitionId"], body["documentTypeId"],
+                          body["companyId"], body["departmentId"], body["documentTemplateId"]),
+                         ("WF9", "DT3", "C1", "D2", "TPL7"))
+        # Documents[] with base64 + flags; raw bytes never in the payload
+        self.assertEqual(body["Documents"][0]["originalBase64"],
                          base64.b64encode(b"%PDF-hello").decode())
-        self.assertNotIn("content", body["files"][0])  # raw bytes never in the payload dict
-        self.assertIs(body["files"][0]["canBeSigned"], True)
-        self.assertIs(body["files"][1]["isSupportingDocument"], True)
-        self.assertIs(body["files"][1]["sharedWithPartner"], True)
-        self.assertEqual((body["docCode"], body["title"], body["docAmount"]), ("PR-1", "T", 100))
+        self.assertNotIn("content", body["Documents"][0])
+        self.assertIs(body["Documents"][0]["canBeSigned"], True)
+        self.assertIs(body["Documents"][0]["sharedWithPartner"], True)
+        self.assertIs(body["Documents"][1]["isSupportingDocument"], True)
+        # Signatures[] carry placement coordinates mapped to the document index
+        sig = body["Signatures"][0]
+        self.assertEqual((sig["documentIndex"], sig["page"], sig["x"], sig["y"],
+                          sig["width"], sig["height"], sig["levelNo"], sig["roleTitle"]),
+                         (0, 2, 50, 60, 120, 40, 1, "Manager"))
+        # external handlers disabled; no legacy field names
+        self.assertEqual(body["ExternalHandlers"], [])
+        for legacy in ("docCode", "files", "placements", "signatureId"):
+            self.assertNotIn(legacy, body)
 
     def test_create_document_ambiguous_propagates(self):
         ad, t = _adapter({"add_document": ConnectionError("lost")})

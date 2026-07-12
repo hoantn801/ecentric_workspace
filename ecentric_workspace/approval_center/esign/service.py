@@ -404,3 +404,156 @@ def get_signing_status(business_doctype, business_name):
                     "manual_review_reason"],
             order_by="creation asc")
     return out
+
+
+# --------------------------------------------------------------------------- #
+# ambiguous-create reconciliation (S2B-B PR#146)
+# --------------------------------------------------------------------------- #
+def reconcile_document_creation(package_name, scts_document_id):
+    """Governed reconciliation of an AMBIGUOUS AddDocument outcome. It NEVER trusts an
+    arbitrary entered id: it first VERIFIES the provider document (GET /api/Document/{id})
+    against the package (document identity + expected file count) and appends an immutable
+    sanitized event, then continues the flow poll-first WITHOUT ever recreating:
+      * document already signed by the effective signer -> the requeued worker verifies
+        and completes (poll-first);
+      * document exists but bulk-process was never submitted -> requeue and submit
+        bulk-process exactly once (worker poll-first guarantees once);
+      * bulk-process may already have occurred (a transaction id is recorded) -> remain in
+        Verifying and poll only."""
+    if not (scts_document_id or "").strip():
+        frappe.throw(_("Cần cung cấp mã tài liệu SCTS để đối soát."))
+    pkg = frappe.db.get_value(
+        "EC Digital Signature Package", package_name,
+        ["name", "error_code", "scts_document_id", "provider", "environment"], as_dict=True)
+    if not pkg:
+        frappe.throw(_("Không tìm thấy gói tài liệu."))
+    if pkg.error_code != "create_outcome_unknown":
+        frappe.throw(_("Gói này không ở trạng thái cần đối soát tạo tài liệu."))
+
+    settings = frappe.db.get_value("EC Digital Signature Provider Settings",
+                                   {"provider": pkg.provider, "environment": pkg.environment},
+                                   "*", as_dict=True)
+    if not settings:
+        frappe.throw(_("Chưa cấu hình Provider Settings."))
+    adapter = get_adapter(settings)
+    doc_state = adapter.poll_status(scts_document_id)  # GET /api/Document/{id}
+    expected_files = frappe.db.count("EC Digital Signature File", {"package": package_name})
+    if not doc_state or str(doc_state.document_id) != str(scts_document_id):
+        events.emit("CreateReconcileRejected", package=package_name,
+                    verification_result="document_not_found")
+        frappe.throw(_("Không xác minh được tài liệu SCTS theo mã đã nhập."))
+    if len(doc_state.files) != int(expected_files):
+        events.emit("CreateReconcileRejected", package=package_name,
+                    verification_result="file_count_mismatch:%s!=%s"
+                    % (len(doc_state.files), expected_files))
+        frappe.throw(_("Số tệp của tài liệu SCTS không khớp với gói."))
+
+    # verified -> bind id, clear the unknown marker, immutable sanitized event
+    frappe.db.set_value("EC Digital Signature Package", package_name,
+                        {"scts_document_id": scts_document_id, "error_code": None,
+                         "error_message": None})
+    files = frappe.get_all("EC Digital Signature File", filters={"package": package_name},
+                           fields=["name"], order_by="idx_order asc, creation asc")
+    for i, f in enumerate(files):
+        if i < len(doc_state.files) and doc_state.files[i].get("file_id"):
+            frappe.db.set_value("EC Digital Signature File", f.name,
+                                "scts_document_file_id", doc_state.files[i]["file_id"])
+    events.emit("CreateReconciled", package=package_name,
+                request_meta={"scts_document_id": scts_document_id,
+                              "file_count": len(doc_state.files),
+                              "provider_status": doc_state.status})
+    cont = _continue_after_reconcile(package_name)
+    return {"reconciled": True, "scts_document_id": scts_document_id,
+            "file_count": len(doc_state.files), "continuation": cont}
+
+
+def _continue_after_reconcile(package_name):
+    """Poll-first continuation for the affected DSR(s). Never recreates AddDocument."""
+    rows = frappe.get_all(
+        DSR, filters={"package": package_name,
+                      "status": ["in", ["Queued", "Provider Accepted", "Verifying",
+                                        "Retryable Failure", "Manual Review"]]},
+        fields=["name", "status", "bulk_job_transaction_id"])
+    out = []
+    for r in rows:
+        frappe.db.get_value(DSR, r.name, "name", for_update=True)
+        if r.bulk_job_transaction_id:
+            # bulk-process may already have occurred -> poll only, never resubmit.
+            if r.status != "Verifying" and r.status in ("Retryable Failure",):
+                events.set_dsr_status(r.name, "Queued", event_type="RetryScheduled",
+                                      extra_fields={"queued_at": now_datetime()})
+            out.append({"dsr": r.name, "action": "poll_only"})
+            continue
+        # no bulk submitted -> requeue to Queued via a legal path; the worker poll-first
+        # completes if already signed, otherwise submits bulk-process exactly once.
+        cur = frappe.db.get_value(DSR, r.name, "status")
+        if cur == "Verifying":
+            events.set_dsr_status(r.name, "Retryable Failure", event_type="RetryScheduled",
+                                  extra_fields={"retryable": 1})
+            cur = "Retryable Failure"
+        if cur in ("Retryable Failure", "Manual Review", "Provider Accepted"):
+            if cur == "Provider Accepted":
+                out.append({"dsr": r.name, "action": "poll_only"})
+                continue
+            events.set_dsr_status(r.name, "Queued", event_type="RetryScheduled",
+                                  extra_fields={"queued_at": now_datetime()})
+        frappe.enqueue(
+            "ecentric_workspace.approval_center.esign.tasks.process_signing_request",
+            dsr_name=r.name, queue="default", timeout=600,
+            job_name="esign_dsr_%s" % r.name, enqueue_after_commit=True)
+        out.append({"dsr": r.name, "action": "requeued"})
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# backend-computed signing readiness (S2B-B PR#146 - UI gate; backend authoritative)
+# --------------------------------------------------------------------------- #
+def signing_readiness(business_doctype, business_name):
+    """Backend-computed readiness for the Duyệt & Ký button. The UI only reflects this;
+    the actual approve_and_sign path re-validates everything under lock, so a stale or
+    forged UI can never sign. Read-only."""
+    perms.assert_can_view_business(business_doctype, business_name)
+    user = frappe.session.user
+    checks = {}
+    ar = perms.business_approval_request(business_doctype, business_name)
+    if not ar:
+        return {"ready": False, "reasons": ["not_submitted"], "checks": {}}
+    req = frappe.get_doc("EC Approval Request", ar)
+    profile_name = guard.get_active_profile(business_doctype, req.approval_type)
+    checks["signing_enabled"] = bool(profile_name)
+    if not profile_name:
+        return {"ready": False, "reasons": ["signing_not_enabled"], "checks": checks}
+    profile = frappe.db.get_value("EC Digital Signature Profile", profile_name,
+                                  ["provider", "environment"], as_dict=True)
+    settings = frappe.db.get_value("EC Digital Signature Provider Settings",
+                                   {"provider": profile.provider,
+                                    "environment": profile.environment}, "*", as_dict=True) or {}
+    is_approver = bool(req.approval_status == "Pending" and req.current_level
+                       and perms.pending_approver_row(ar, req.current_level, user))
+    checks["active_approver"] = is_approver
+    checks["level_requires_signature"] = bool(
+        req.current_level and guard.level_requires_signature(
+            business_doctype, req.approval_type, req.current_level))
+    pkg_name = pkgsvc.active_package_for_request(ar)
+    pkg = frappe.db.get_value("EC Digital Signature Package", pkg_name,
+                              ["status", "package_hash"], as_dict=True) if pkg_name else None
+    checks["package_active_hash_valid"] = bool(
+        pkg and pkg.status == "Active" and pkg.package_hash
+        and pkgsvc.compute_hash(pkg_name) == pkg.package_hash)
+    checks["mandatory_placements_complete"] = bool(
+        pkg_name and not pkgsvc.preflight_for_lock(pkg_name))
+    checks["verified_mapping"] = bool(perms.verified_mapping(user, profile.environment))
+    checks["provider_uat"] = (profile.environment == "UAT")
+    raw = (settings.get("allowed_signing_users") or "").replace(",", "\n")
+    allowed = {u.strip().lower() for u in raw.splitlines() if u.strip()}
+    checks["allowlisted"] = user.lower() in allowed
+    checks["gates_enabled"] = bool(settings.get("integration_enabled")
+                                   and settings.get("allow_document_creation")
+                                   and settings.get("allow_signing"))
+    checks["production_signing_off"] = not bool(settings.get("allow_production_signing"))
+    required = ["active_approver", "level_requires_signature", "package_active_hash_valid",
+                "mandatory_placements_complete", "verified_mapping", "provider_uat",
+                "allowlisted", "gates_enabled"]
+    ready = all(checks.get(k) for k in required)
+    reasons = [k for k in required if not checks.get(k)]
+    return {"ready": ready, "reasons": reasons, "checks": checks}

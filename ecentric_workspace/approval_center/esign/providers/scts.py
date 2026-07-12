@@ -278,7 +278,7 @@ class SctsAdapter(SignatureProviderAdapter):
 
     # -- deferred ops (fail closed, clearly) ----------------------------------
     def create_document(self, package_ctx):
-        """POST /api/Document/AddDocument. package_ctx: provider-neutral dict with
+        """POST /api/AddDocument (SCTS V1). package_ctx: provider-neutral dict with
         {doc_code, title, amount?, files:[{order, name, content(bytes), can_be_signed,
         is_supporting_document, share_with_partner}], placements:[...]}. Base64 conversion
         of the private PDF bytes happens HERE (the adapter owns the provider payload); the
@@ -286,19 +286,33 @@ class SctsAdapter(SignatureProviderAdapter):
         ambiguous outcome the client raises ProviderError(ambiguous=True) - the caller must
         reconcile, never blind-recreate."""
         files = package_ctx.get("files") or []
+        order_by_dsf = {f.get("file_dsf"): f.get("order") for f in files}
+        documents = [{
+            "order": f.get("order"),
+            "fileName": f.get("name"),
+            "originalBase64": self._b64(f.get("content")),
+            "canBeSigned": bool(f.get("can_be_signed")),
+            "isSupportingDocument": bool(f.get("is_supporting_document")),
+            "sharedWithPartner": bool(f.get("share_with_partner")),
+        } for f in files]
+        signatures = [{
+            "documentIndex": order_by_dsf.get(p.get("signature_file")),
+            "page": p.get("page_index"),
+            "x": p.get("x"), "y": p.get("y"),
+            "width": p.get("width"), "height": p.get("height"),
+            "levelNo": p.get("level_no"),
+            "signatureType": p.get("signature_type"),
+            "roleTitle": p.get("scts_role_title"),
+        } for p in (package_ctx.get("placements") or [])]
         payload = {
-            "docCode": package_ctx.get("doc_code"),
-            "title": package_ctx.get("title"),
-            "docAmount": package_ctx.get("amount"),
-            "files": [{
-                "order": f.get("order"),
-                "fileName": f.get("name"),
-                "originalBase64": self._b64(f.get("content")),
-                "canBeSigned": bool(f.get("can_be_signed")),
-                "isSupportingDocument": bool(f.get("is_supporting_document")),
-                "sharedWithPartner": bool(f.get("share_with_partner")),
-            } for f in files],
-            "placements": package_ctx.get("placements") or [],
+            "workflowDefinitionId": package_ctx.get("workflow_definition_id"),
+            "documentTypeId": package_ctx.get("document_type_id"),
+            "companyId": package_ctx.get("company_id"),
+            "departmentId": package_ctx.get("department_id"),
+            "documentTemplateId": package_ctx.get("document_template_id"),
+            "Documents": documents,
+            "Signatures": signatures,
+            "ExternalHandlers": [],  # external signer handlers disabled this phase
         }
         raw = self._with_auth(lambda t: self._client.add_document(payload, t))
         return self._normalize_create(raw, files)
@@ -320,8 +334,8 @@ class SctsAdapter(SignatureProviderAdapter):
             data = raw.get("data") if isinstance(raw.get("data"), dict) else None
             if not doc_id and data:
                 doc_id = data.get("documentId") or data.get("id")
-            rawfiles = raw.get("files") or raw.get("documentFiles") or (
-                data.get("files") if data else None) or []
+            rawfiles = (raw.get("files") or raw.get("documentFiles") or raw.get("Documents")
+                        or (data.get("files") if data else None) or [])
         if not doc_id:
             raise ProviderError("scts_create_no_document_id",
                                 "AddDocument returned no documentId", retryable=False)

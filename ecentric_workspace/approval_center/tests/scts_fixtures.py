@@ -38,7 +38,7 @@ class FakeTransport(object):
             return "get_signatures"
         if "/api/Workflow/bulk-process" in url:
             return "bulk_process"
-        if "/api/Document/AddDocument" in url:
+        if "/api/AddDocument" in url:
             return "add_document"
         if "/api/Document/" in url:
             return "get_document"

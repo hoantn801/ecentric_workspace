@@ -214,16 +214,11 @@ def reconcile_document_creation(package, scts_document_id=None):
     provider document id that ops found in SCTS, or clears the unknown marker to permit
     exactly one clean recreate. NEVER runs automatically; never creates a document itself."""
     perms.assert_system_manager()
-    cur = frappe.db.get_value("EC Digital Signature Package", package,
-                              ["error_code", "scts_document_id"], as_dict=True)
-    if not cur:
-        frappe.throw(_("Không tìm thấy gói tài liệu."))
-    if cur.error_code != "create_outcome_unknown":
-        frappe.throw(_("Gói này không ở trạng thái cần đối soát tạo tài liệu."))
-    vals = {"error_code": None, "error_message": None}
-    if scts_document_id:
-        vals["scts_document_id"] = scts_document_id
-    frappe.db.set_value("EC Digital Signature Package", package, vals)
-    events.emit("CreateReconciled", package=package,
-                request_meta={"scts_document_id": scts_document_id or None})
-    return {"reconciled": True, "scts_document_id": scts_document_id or None}
+    return svc.reconcile_document_creation(package, scts_document_id)
+
+
+@frappe.whitelist()
+def signing_readiness(payment_request_name):
+    """Backend-computed Duyệt & Ký readiness for the Payment Request panel (read-only)."""
+    _business_args("EC Payment Request", payment_request_name)
+    return svc.signing_readiness("EC Payment Request", payment_request_name)
