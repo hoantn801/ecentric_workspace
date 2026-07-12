@@ -38,6 +38,8 @@ class FakeTransport(object):
             return "get_signatures"
         if "/api/Workflow/bulk-process" in url:
             return "bulk_process"
+        if "/api/Document/AddDocument" in url:
+            return "add_document"
         if "/api/Document/" in url:
             return "get_document"
         return "%s %s" % (method, url)
@@ -97,6 +99,12 @@ def document(doc_id, signer_user=None, signature_id=None, status="signed", files
 
 def bulk_ok(txn="BULK-TXN-1"):
     return FakeResponse(200, {"bulkJobTransactionId": txn})
+
+
+def add_document_ok(doc_id="SCTS-DOC-1", file_count=2):
+    return FakeResponse(200, {"documentId": doc_id,
+                              "documentFiles": [{"order": i, "documentFileId": "F%d" % i}
+                                                for i in range(file_count)]})
 
 
 def make_scts_settings(name="EC-DSPS-SCTS-UAT", base_url="https://scts.uat.local",
