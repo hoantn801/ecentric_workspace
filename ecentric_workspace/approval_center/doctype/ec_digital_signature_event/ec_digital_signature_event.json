@@ -67,7 +67,7 @@
    "fieldname": "event_type",
    "fieldtype": "Select",
    "label": "Event Type",
-   "options": "Created\nPrepared\nQueued\nLocked\nActive\nProviderSubmitted\nProviderCreating\nProviderCreated\nProviderCreateFailed\nProviderAccepted\nVerifying\nPollTick\nVerified\nSigned\nApprovalCompleted\nMappingRequired\nPlacementRequired\nRetryableFailure\nPermanentFailure\nVerificationMismatch\nManualReview\nRetryScheduled\nCallbackObserved\nFileRetrieved\nFailed\nRejected\nCancelled\nSuperseded\nCompleted\nDraft\nBindingValidated\nBindingRejected\nSignatureOwnershipValidated\nSignatureOwnershipRejected\nBulkOutcomeUnknown\nCreateOutcomeUnknown\nCreateReconciled\nCreateReconcileRejected\nSignedFileRetrievalStarted\nSignedFileRetrieved\nSignedFileStored\nSignedFileDuplicateSkipped\nSignedFileHashMismatch\nSignedFileRetrievalFailed",
+   "options": "Created\nPrepared\nQueued\nLocked\nActive\nProviderSubmitted\nProviderCreating\nProviderCreated\nProviderCreateFailed\nProviderAccepted\nVerifying\nPollTick\nVerified\nSigned\nApprovalCompleted\nMappingRequired\nPlacementRequired\nRetryableFailure\nPermanentFailure\nVerificationMismatch\nManualReview\nRetryScheduled\nCallbackObserved\nFileRetrieved\nFailed\nRejected\nCancelled\nSuperseded\nCompleted\nDraft\nBindingValidated\nBindingRejected\nSignatureOwnershipValidated\nSignatureOwnershipRejected\nBulkOutcomeUnknown\nCreateOutcomeUnknown\nCreateReconciled\nCreateReconcileRejected\nSignedFileRetrievalStarted\nSignedFileRetrieved\nSignedFileStored\nSignedFileDuplicateSkipped\nSignedFileHashMismatch\nSignedFileRetrievalFailed\nBulkBatchSubmitted\nSignedFileReviewAccepted\nSignedFileReviewRejected\nSignedFileReviewKept",
    "reqd": 1,
    "in_list_view": 1,
    "in_standard_filter": 1

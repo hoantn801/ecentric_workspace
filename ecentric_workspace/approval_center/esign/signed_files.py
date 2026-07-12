@@ -191,7 +191,9 @@ def _store_hash_mismatch(pkg, f, sha, content, size):
             "content": content,
         }).insert(ignore_permissions=True).name
     frappe.db.set_value(PKG, pkg.name, "signed_bundle_complete", 0)
-    frappe.db.set_value(DSF, f.name, "provider_status", "SignedHashMismatch")
+    frappe.db.set_value(DSF, f.name, {"provider_status": "SignedHashMismatch",
+                                      "signed_review_candidate": candidate,
+                                      "signed_review_sha256": sha})
     events.emit("SignedFileHashMismatch", package=pkg.name,
                 verification_result="signed_hash_changed",
                 request_meta={"file": f.file_name, "sha256": sha,
