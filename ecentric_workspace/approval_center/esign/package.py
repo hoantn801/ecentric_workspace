@@ -8,6 +8,7 @@ the native File doc and the EC Digital Signature File row are created in the SAM
 transaction (any failure rolls both back). The esign UI never calls the native
 /api/method/upload_file.
 """
+import io
 import mimetypes
 import os
 
@@ -198,6 +199,7 @@ def save_placements(pkg_name, placements):
             frappe.throw(_("Vị trí ký tham chiếu tệp không thuộc gói."))
         if not valid_files[sf].requires_signature:
             frappe.throw(_("Chỉ đặt vị trí ký trên tệp được đánh dấu 'Cần ký'."))
+    validate_placement_geometry(pkg_name, placements, valid_files)
     for old in frappe.get_all("EC Digital Signature Placement",
                               filters={"package": pkg_name}, pluck="name"):
         frappe.delete_doc("EC Digital Signature Placement", old, ignore_permissions=True)
@@ -332,3 +334,87 @@ def create_revision(old_pkg_name):
                               request_meta={"new_package": new.name})
     frappe.db.set_value("EC Digital Signature Package", old_pkg_name, "superseded_by", new.name)
     return new
+
+
+# --------------------------------------------------------------------------- #
+# private bytes + placement geometry (S2B-B)
+# --------------------------------------------------------------------------- #
+def file_bytes(dsf_name):
+    """Server-side read of a package file's PRIVATE bytes (post-authorization system
+    read). Callers are already permission-gated (requester/SM for draft mutations, the
+    governed worker for provider assembly). Bytes are never logged."""
+    file_id = frappe.db.get_value("EC Digital Signature File", dsf_name, "file")
+    if not file_id:
+        frappe.throw(_("Không tìm thấy tệp đính kèm."))
+    return frappe.get_doc("File", file_id).get_content()
+
+
+def _page_sizes(content):
+    """[(width_pt, height_pt), ...] per page via pypdf (bundled with frappe). Returns
+    None if the bytes are not a parseable PDF."""
+    try:
+        from pypdf import PdfReader
+    except Exception:
+        from PyPDF2 import PdfReader  # older bench fallback
+    try:
+        reader = PdfReader(io.BytesIO(content))
+        sizes = []
+        for pg in reader.pages:
+            box = pg.mediabox
+            sizes.append((float(box.width), float(box.height)))
+        return sizes
+    except Exception:
+        return None
+
+
+def pdf_page_geometry(dsf_name):
+    """Page count + per-page point dimensions for a signable file (drives governed
+    placement entry in the UI). Permission is enforced by the API wrapper."""
+    row = frappe.db.get_value("EC Digital Signature File", dsf_name,
+                              ["is_pdf", "requires_signature"], as_dict=True)
+    if not row or not row.is_pdf:
+        frappe.throw(_("Chỉ tệp PDF mới có thông tin trang để đặt vị trí ký."))
+    sizes = _page_sizes(file_bytes(dsf_name)) or []
+    return {"page_count": len(sizes),
+            "pages": [{"page": i + 1, "width": w, "height": h}
+                      for i, (w, h) in enumerate(sizes)]}
+
+
+def validate_placement_geometry(pkg_name, placements, valid_files=None, tol=1.0):
+    """Governed geometry validation for placements (fail-closed). Raises on the first
+    violation. Rules: page_index integer > 0 and <= page count; width/height > 0; the
+    box (top-left origin, points) stays inside the page media box. Coordinates are
+    validated against the CURRENT package version's file bytes."""
+    if valid_files is None:
+        valid_files = {r.name: r for r in package_files(pkg_name)}
+    size_cache = {}
+    for p in placements:
+        sf = p.get("signature_file")
+        if sf not in valid_files:
+            frappe.throw(_("Vị trí ký tham chiếu tệp không thuộc gói."))
+        try:
+            page = int(p.get("page_index"))
+        except (TypeError, ValueError):
+            frappe.throw(_("Số trang không hợp lệ."))
+        if page < 1:
+            frappe.throw(_("Số trang phải lớn hơn 0."))
+        try:
+            x = float(p.get("x") or 0); y = float(p.get("y") or 0)
+            w = float(p.get("width") or 0); h = float(p.get("height") or 0)
+        except (TypeError, ValueError):
+            frappe.throw(_("Toạ độ vị trí ký không hợp lệ."))
+        if w <= 0 or h <= 0:
+            frappe.throw(_("Kích thước vị trí ký phải dương."))
+        if x < 0 or y < 0:
+            frappe.throw(_("Toạ độ vị trí ký không được âm."))
+        if sf not in size_cache:
+            size_cache[sf] = _page_sizes(file_bytes(sf))
+        sizes = size_cache[sf]
+        if sizes is None:
+            frappe.throw(_("Không đọc được kích thước trang PDF để kiểm tra vị trí ký."))
+        if page > len(sizes):
+            frappe.throw(_("Trang {0} vượt quá số trang của tệp.").format(page))
+        pw, ph = sizes[page - 1]
+        if x + w > pw + tol or y + h > ph + tol:
+            frappe.throw(_("Vị trí ký nằm ngoài khổ trang PDF."))
+    return True
