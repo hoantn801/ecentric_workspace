@@ -14,12 +14,19 @@ every entry path (worker + orchestrator). It reads only PERSISTED rows under a D
 lock (never a caller-supplied snapshot, never frontend userId/signatureId) plus one LIVE
 provider ownership probe. It fails closed on the first miss. There is NO role bypass:
 Administrator / System Manager are subject to the identical chain.
+
+Governed, sanitized audit events are appended for binding validated/rejected and
+signature ownership validated/rejected. A transient provider error (network/5xx) raised
+by the live ownership probe is NOT a binding rejection - it propagates with its original
+retryable classification so an outage is never misclassified as a security failure.
 """
 import frappe
 from frappe import _
 
+from ecentric_workspace.approval_center.esign import events
 from ecentric_workspace.approval_center.esign import package as pkgsvc
 from ecentric_workspace.approval_center.esign import permissions as perms
+from ecentric_workspace.approval_center.esign.sanitize import safe_error
 
 DSR = "EC Digital Signature Request"
 SETTINGS_DT = "EC Digital Signature Provider Settings"
@@ -35,6 +42,16 @@ def _block(code):
                  BindingError)
 
 
+def _emit(dsr_name, actor, event_type, verification_result=None):
+    """Best-effort sanitized audit event. Never blocks the security decision, never
+    carries tokens/passwords/headers/raw bodies (events.emit sanitizes metadata)."""
+    try:
+        events.emit(event_type, signature_request=dsr_name, erp_actor=actor,
+                    verification_result=verification_result)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign.binding._emit")
+
+
 def assert_provider_uat(settings):
     """This phase (S2B-A) signs against UAT only. Production is blocked outright - the
     write gate must never reach a Production provider regardless of other gates."""
@@ -46,9 +63,11 @@ def assert_provider_uat(settings):
 
 def assert_outbound_binding(dsr_name, adapter, live=True):
     """The authoritative pre-write gate. Returns True only if the full chain holds;
-    otherwise raises BindingError (PermissionError) BEFORE any provider write. When
-    `live` is True, also proves signature ownership + usability via the adapter's
-    GetSignatures probe (SCTS authorization is never trusted)."""
+    otherwise raises BindingError (PermissionError) BEFORE any provider write, after
+    emitting a sanitized BindingRejected event. When `live` is True, also proves
+    signature ownership + usability via the adapter's GetSignatures probe (SCTS
+    authorization is never trusted). A transient GetSignatures ProviderError propagates
+    unchanged (availability failure, NOT a security rejection)."""
     if not dsr_name:
         _block("no_dsr")
 
@@ -61,6 +80,20 @@ def assert_outbound_binding(dsr_name, adapter, live=True):
          "package_hash", "effective_scts_user_id", "effective_signature_id"], as_dict=True)
     if not dsr:
         _block("dsr_missing")
+
+    try:
+        _run_binding_checks(dsr, adapter, live)
+    except BindingError as e:
+        _emit(dsr_name, dsr.approver, "BindingRejected", safe_error(e)[:140])
+        raise
+    _emit(dsr_name, dsr.approver, "BindingValidated")
+    return True
+
+
+def _run_binding_checks(dsr, adapter, live):
+    """The full invariant chain. Raises BindingError on the first miss. Live ownership
+    failures emit SignatureOwnershipRejected; a transient provider error propagates."""
+    dsr_name = dsr.name
     if dsr.action != "Sign":
         _block("dsr_wrong_action:%s" % dsr.action)
     if dsr.status not in SUBMIT_ELIGIBLE:
@@ -146,11 +179,13 @@ def assert_outbound_binding(dsr_name, adapter, live=True):
     if other:
         _block("level_already_completed_by:%s" % other)
 
-    # LIVE ownership + usability probe (never trust SCTS-side authorization).
+    # LIVE ownership + usability probe (never trust SCTS-side authorization). A transient
+    # provider error PROPAGATES (retryable availability failure, not a security refusal).
     if live and adapter is not None:
         vr = adapter.validate_signature_owner(dsr.effective_scts_user_id,
                                               dsr.effective_signature_id)
         if not vr:
-            _block("signature_owner:%s" % getattr(vr, "reason", "unverified"))
-
-    return True
+            reason = getattr(vr, "reason", "unverified")
+            _emit(dsr_name, dsr.approver, "SignatureOwnershipRejected", reason)
+            _block("signature_owner:%s" % reason)
+        _emit(dsr_name, dsr.approver, "SignatureOwnershipValidated", "verified_owner")

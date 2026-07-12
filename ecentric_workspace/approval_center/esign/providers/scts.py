@@ -150,31 +150,45 @@ class SctsAdapter(SignatureProviderAdapter):
         return [self._norm_signature(x) for x in self._as_list(raw)]
 
     @staticmethod
+    def _resolve_active(x):
+        """FAIL-CLOSED usability. An explicit isActive/active flag wins; otherwise a
+        recognized status may activate. Anything else - explicit false/inactive/revoked/
+        expired, an unrecognized value, OR missing all activity/status evidence - is
+        treated as INACTIVE/unverified."""
+        for key in ("isActive", "active"):
+            if key in x and x[key] is not None:
+                v = x[key]
+                if isinstance(v, bool):
+                    return v
+                s = str(v).strip().lower()
+                if s in ("true", "1", "yes"):
+                    return True
+                # explicit-but-not-true (false/0/no/anything unrecognized) -> fail closed
+                return False
+        st = str(x.get("status") or "").strip().lower()
+        return st in ("active", "valid", "usable")  # inactive/revoked/expired/"" -> False
+
+    @staticmethod
     def _norm_signature(x):
         if not isinstance(x, dict):
             return {"id": None, "signerId": None, "type": None, "company": None, "active": False}
         sig_id = x.get("id") or x.get("signatureId") or x.get("signerSignatureId")
         signer = x.get("signerId") or x.get("userId") or x.get("signerUserId")
-        active = x.get("isActive")
-        if active is None:
-            active = x.get("active")
-        if active is None:
-            st = str(x.get("status") or "").lower()
-            active = st in ("", "active", "valid", "usable") and st != "inactive"
         return {"id": sig_id, "signerId": signer,
                 "type": x.get("type") or x.get("signatureType"),
                 "company": x.get("company") or x.get("companyName"),
-                "active": bool(active)}
+                "active": SctsAdapter._resolve_active(x)}
 
     def validate_signature_owner(self, mapped_user, signature_id):
         """LIVE ownership + usability check against GetSignatures. Returns a
         VerificationResult; the binding layer converts a False into a hard block BEFORE
         any bulk-process write. SCTS's own authorization is never trusted - ERP proves
         ownership from the provider's signature list for THIS mapped user."""
-        try:
-            sigs = self.list_user_signatures(mapped_user)
-        except ProviderError as e:
-            return VerificationResult(False, "signatures_unavailable:%s" % (e.code or "err"))
+        # A transient provider error (network/5xx) is NOT swallowed into a False: it
+        # PROPAGATES with its original retryable classification, so a provider outage is
+        # never misclassified as a security failure. A False result means a real
+        # ownership/usability mismatch and is a non-retryable security refusal.
+        sigs = self.list_user_signatures(mapped_user)  # transient ProviderError propagates
         match = None
         for s in sigs:
             if str(s.get("id")) == str(signature_id):

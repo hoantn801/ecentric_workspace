@@ -85,7 +85,8 @@ class TestSctsClient(FrappeTestCase):
         body = t.last_body("bulk_process")
         self.assertEqual(body["instanceIds"], ["D1", "D2"])
         self.assertEqual(body["userId"], "U1")
-        self.assertEqual(body["signatureId"], "SIG-U1")
+        self.assertEqual(body["SignerSignatureId"], "SIG-U1")  # confirmed SCTS field
+        self.assertNotIn("signatureId", body)  # legacy name must be gone
         self.assertEqual(body["transitionType"], 5)
 
     def test_document_404_maps_not_found(self):

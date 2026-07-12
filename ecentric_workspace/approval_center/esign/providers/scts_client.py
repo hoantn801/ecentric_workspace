@@ -157,23 +157,46 @@ class SctsClient(object):
     def bulk_process(self, instance_ids, user_id, signature_id, transition_type, token):
         """POST /api/Workflow/bulk-process -> raw payload. ASYNC ACCEPTED semantics:
         a 2xx means only that SCTS queued the job (bulkJobTransactionId). It is NEVER
-        proof of signing - the caller must poll + verify Document/{id}."""
+        proof of signing - the caller must poll + verify Document/{id}.
+
+        NON-IDEMPOTENT WRITE: exactly ONE HTTP attempt, NO automatic retry. A network
+        error, timeout or 5xx is AMBIGUOUS - the provider may already have accepted the
+        signing action - so it is normalized to `scts_bulk_outcome_unknown` (ambiguous,
+        non-retryable); the caller transitions to Verifying and polls Document/{id}
+        rather than resending. Only a definite 4xx is a hard rejection.
+
+        Field contract (confirmed SCTS UAT): the signature is sent as `SignerSignatureId`."""
         body = {"instanceIds": list(instance_ids), "userId": user_id,
-                "signatureId": signature_id}
+                "SignerSignatureId": signature_id}
         if transition_type is not None:
             body["transitionType"] = transition_type
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = "Bearer %s" % token
         try:
-            return self._request("POST", "/api/Workflow/bulk-process", token=token,
-                                 json_body=body, _label="bulk_process")
-        except SctsHttpError as e:
-            if e.status in _AUTH_STATUSES:
-                raise ProviderError("scts_auth_error_%s" % e.status,
-                                    "SCTS rejected credentials on bulk-process (HTTP %s)"
-                                    % e.status, retryable=False)
-            # 4xx validation/security -> permanent (do not blind-retry a write).
-            raise ProviderError("scts_bulk_rejected_%s" % e.status,
-                                "SCTS rejected bulk-process (HTTP %s)" % e.status,
+            resp = self._transport("POST", self._url("/api/Workflow/bulk-process"),
+                                   headers=headers, json_body=body, timeout=self.timeout,
+                                   verify_tls=self.verify_tls)
+        except Exception:
+            # transport-level (connection/timeout/DNS): outcome UNKNOWN, never resend.
+            raise ProviderError("scts_bulk_outcome_unknown",
+                                "bulk-process outcome unknown (network/timeout)",
+                                retryable=False, ambiguous=True)
+        status = int(getattr(resp, "status_code", 0))
+        if 200 <= status < 300:
+            return self._parse(resp, "bulk_process")
+        if status in _AUTH_STATUSES:
+            raise ProviderError("scts_auth_error_%s" % status,
+                                "SCTS rejected credentials on bulk-process (HTTP %s)" % status,
                                 retryable=False)
+        if status >= 500:
+            # server error on a non-idempotent write: AMBIGUOUS, never resend.
+            raise ProviderError("scts_bulk_outcome_unknown",
+                                "bulk-process outcome unknown (HTTP %s)" % status,
+                                retryable=False, ambiguous=True)
+        # definite 4xx: a real rejection (not accepted) -> permanent, no retry.
+        raise ProviderError("scts_bulk_rejected_%s" % status,
+                            "SCTS rejected bulk-process (HTTP %s)" % status, retryable=False)
 
     def get_document(self, document_id, token):
         """GET /api/Document/{documentId} -> raw document payload (status/files/signers)."""

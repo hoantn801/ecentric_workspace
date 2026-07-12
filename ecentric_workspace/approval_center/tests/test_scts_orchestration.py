@@ -62,7 +62,7 @@ def _transport(sign_after_submit=True, signer_status="signed"):
 
     def bulk(req):
         b = req["body"]
-        state.update(submitted=True, user=b["userId"], sig=b["signatureId"])
+        state.update(submitted=True, user=b["userId"], sig=b["SignerSignatureId"])
         return sx.bulk_ok("TXN-1")
 
     def doc(req):
@@ -171,3 +171,45 @@ class TestSctsOrchestration(FrappeTestCase):
         frappe.set_user("Administrator")
         self.assertEqual(frappe.db.get_value("EC Approval Request", h["ar"],
                                              "current_level"), 1)
+
+    def test_ambiguous_bulk_never_resent_then_polls_and_completes(self):
+        """First bulk-process is accepted provider-side but the response is lost. The
+        outcome is ambiguous: the DSR moves to Verifying, bulk-process is called exactly
+        once and NEVER re-sent; the next run polls Document/{id} and completes the
+        Approval Engine exactly once."""
+        h = _scts_stack("o6r", "o6m")
+        dsr = self._queued(h)
+
+        state = {"submitted": False, "user": None, "sig": None}
+
+        def sigs(req):
+            uid = req["url"].rsplit("/", 1)[-1]
+            return sx.FakeResponse(200, [{"id": "SIG-" + uid, "signerId": uid, "isActive": True}])
+
+        def bulk(req):
+            b = req["body"]
+            state.update(submitted=True, user=b["userId"], sig=b["SignerSignatureId"])
+            raise ConnectionError("accepted provider-side, response lost")
+
+        def doc(req):
+            signers = []
+            if state["submitted"]:
+                signers = [{"userId": state["user"], "signatureId": state["sig"],
+                            "status": "signed", "signedAt": "2026-07-12T09:00:00"}]
+            return sx.FakeResponse(200, {"id": DOC_ID, "status": "in_progress",
+                                         "signers": signers,
+                                         "files": [{"documentFileId": "F0"},
+                                                   {"documentFileId": "F1"}]})
+
+        t = sx.FakeTransport({"get_signatures": sigs, "bulk_process": bulk, "get_document": doc})
+        with patch.object(tasks, "get_adapter", _AdapterFactory(t)):
+            orchestrator.submit_provider_request(dsr)
+            self.assertEqual(t.count("bulk_process"), 1)
+            self.assertEqual(frappe.db.get_value(DSR, dsr, "status"), "Verifying")
+            orchestrator.poll_provider_request(dsr)  # polls only, never re-sends
+        self.assertEqual(t.count("bulk_process"), 1)  # NEVER re-sent
+        self.assertEqual(frappe.db.get_value(DSR, dsr, "status"), "Approval Completed")
+        self.assertEqual(frappe.db.count("EC Approval Action",
+                                         {"approval_request": h["ar"], "action": "Approved"}), 1)
+        self.assertEqual(frappe.db.get_value("EC Approval Request", h["ar"],
+                                             "current_level"), 2)

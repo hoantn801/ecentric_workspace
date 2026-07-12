@@ -6,13 +6,17 @@ normalization, file retrieval and error mapping."""
 
 
 class ProviderError(Exception):
-    """Normalized provider error. `retryable` drives Retryable vs Permanent Failure."""
+    """Normalized provider error. `retryable` drives Retryable vs Permanent Failure.
+    `ambiguous` marks an outcome that MUST NOT be auto-resent (e.g. a lost/timeout/5xx
+    response to a non-idempotent write like bulk-process): the request may already have
+    been accepted provider-side, so the caller must poll to verify, never blind-retry."""
 
-    def __init__(self, code, message, retryable=False):
+    def __init__(self, code, message, retryable=False, ambiguous=False):
         super().__init__(message)
         self.code = code
         self.message = message
         self.retryable = bool(retryable)
+        self.ambiguous = bool(ambiguous)
 
 
 class NormalizedDocState(object):

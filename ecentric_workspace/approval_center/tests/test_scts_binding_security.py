@@ -16,7 +16,8 @@ from frappe.tests.utils import FrappeTestCase
 from ecentric_workspace.approval_center.esign import binding
 from ecentric_workspace.approval_center.esign import service as esvc
 from ecentric_workspace.approval_center.esign import tasks
-from ecentric_workspace.approval_center.esign.providers.base import VerificationResult
+from ecentric_workspace.approval_center.esign.providers.base import (
+    NormalizedDocState, ProviderError, VerificationResult)
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 DSR = "EC Digital Signature Request"
@@ -151,5 +152,49 @@ class TestSctsBindingSecurity(FrappeTestCase):
             tasks.process_signing_request(dsr)
         self.assertEqual(writes, {"create": 0, "bulk": 0})  # gate ran before any write
         st = frappe.db.get_value(DSR, dsr, ["status", "error_code"], as_dict=True)
-        self.assertEqual(st.status, "Retryable Failure")
+        self.assertEqual(st.status, "Permanent Failure")  # security refusal, not retryable
         self.assertEqual(st.error_code, "binding_refused")
+
+    # ---- worker-level failure classification (B4) ----
+    def _run_worker_with_owner(self, dsr, owner_result=None, transient=False):
+        from ecentric_workspace.approval_center.esign import tasks as _t
+        calls = {"bulk": 0}
+
+        class _OwnStub(object):
+            def validate_signature_owner(self, u, s):
+                if transient:
+                    raise ProviderError("scts_server_error_503", "provider outage",
+                                        retryable=True)
+                return owner_result
+
+            def approve_and_sign(self, *a, **k):
+                calls["bulk"] += 1
+                return {"bulk_job_transaction_id": "x"}
+
+            def create_document(self, ctx):
+                calls["bulk"] += 1  # any provider write counts
+                return {"document_id": "d", "files": []}
+
+            def poll_status(self, d):
+                return NormalizedDocState(d, "in_progress")
+
+        with patch.object(_t, "get_adapter", lambda s: _OwnStub()):
+            _t.process_signing_request(dsr)
+        return calls["bulk"]
+
+    def test_worker_ownership_mismatch_permanent_no_bulk(self):
+        h, dsr = self._queued("h12r", "h12m")
+        bulk = self._run_worker_with_owner(
+            dsr, owner_result=VerificationResult(False, "signature_owner_mismatch"))
+        self.assertEqual(bulk, 0)  # no provider write after a failed security validation
+        st = frappe.db.get_value(DSR, dsr, ["status", "error_code"], as_dict=True)
+        self.assertEqual(st.status, "Permanent Failure")  # non-retryable security failure
+        self.assertEqual(st.error_code, "binding_refused")
+
+    def test_worker_transient_getsignatures_retryable_no_bulk(self):
+        h, dsr = self._queued("h13r", "h13m")
+        bulk = self._run_worker_with_owner(dsr, transient=True)
+        self.assertEqual(bulk, 0)  # availability failure still performs no write
+        st = frappe.db.get_value(DSR, dsr, ["status", "retryable"], as_dict=True)
+        self.assertEqual(st.status, "Retryable Failure")  # transient stays retryable
+        self.assertEqual(st.retryable, 1)

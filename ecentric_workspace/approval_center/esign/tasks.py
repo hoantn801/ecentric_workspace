@@ -170,18 +170,33 @@ def process_signing_request(dsr_name):
             events.set_dsr_status(dsr_name, "Verifying", event_type="PollTick",
                                   verification_result=vr.reason)
     except binding.BindingError as e:
-        # Signer-binding refusal: NO bulk-process write occurred. Park as a bounded
-        # Retryable Failure (config/mapping/state can be corrected, then re-driven);
-        # the reconciler escalates to Manual Review after max_poll_attempts.
+        # SECURITY/VALIDATION refusal (wrong approver, mapping/signature mismatch,
+        # inactive signature, allowlist, package/hash, non-UAT provider). This is NOT a
+        # transient provider failure: NO provider write occurred, and it MUST NOT be
+        # auto-retried. Terminal Permanent Failure + a governed dead-letter ToDo for
+        # manual review (the binding layer already emitted BindingRejected).
         try:
-            events.set_dsr_status(dsr_name, "Retryable Failure", event_type="Failed",
+            events.set_dsr_status(dsr_name, "Permanent Failure", event_type="Failed",
                                   extra_fields={"error_code": "binding_refused",
-                                                "error_message": safe_error(e), "retryable": 1},
+                                                "error_message": safe_error(e), "retryable": 0},
                                   error_summary=safe_error(e))
+            _dead_letter_todo(dsr_name)
         except Exception:
             frappe.log_error(frappe.get_traceback(), "esign.tasks.binding_refused")
         return
     except ProviderError as e:
+        if getattr(e, "ambiguous", False):
+            # NON-IDEMPOTENT write outcome unknown (bulk-process lost/timeout/5xx): the
+            # provider may already have accepted, so NEVER resend. Move to Verifying and
+            # let the reconciler poll Document/{id}; append a sanitized immutable event.
+            try:
+                events.set_dsr_status(dsr_name, "Verifying", event_type="BulkOutcomeUnknown",
+                                      extra_fields={"error_code": e.code},
+                                      verification_result="scts_bulk_outcome_unknown",
+                                      error_summary=safe_error(e))
+            except Exception:
+                frappe.log_error(frappe.get_traceback(), "esign.tasks.bulk_outcome_unknown")
+            return
         target = "Retryable Failure" if e.retryable else "Permanent Failure"
         try:
             events.set_dsr_status(dsr_name, target, event_type="Failed",
