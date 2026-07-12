@@ -1,0 +1,236 @@
+{
+ "doctype": "DocType",
+ "name": "EC Digital Signature Profile",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "field:profile_code",
+ "naming_rule": "By fieldname",
+ "title_field": "title",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "field_order": [
+  "profile_code",
+  "title",
+  "business_doctype",
+  "approval_type",
+  "provider",
+  "environment",
+  "enabled",
+  "bulk_enabled",
+  "allow_external_signers",
+  "provider_creation_trigger",
+  "company_id",
+  "department_id",
+  "document_type_id",
+  "workflow_definition_id",
+  "document_template_id",
+  "doc_code_source",
+  "title_source",
+  "amount_source",
+  "description_source",
+  "deadline_rule",
+  "deadline_days",
+  "deadline_source",
+  "max_files",
+  "max_file_mb",
+  "require_signable_pdf",
+  "levels",
+  "field_map",
+  "transitions"
+ ],
+ "fields": [
+  {
+   "fieldname": "profile_code",
+   "fieldtype": "Data",
+   "label": "Profile Code",
+   "unique": 1,
+   "reqd": 1,
+   "set_only_once": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title"
+  },
+  {
+   "fieldname": "business_doctype",
+   "fieldtype": "Link",
+   "label": "Business Doctype",
+   "options": "DocType",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "approval_type",
+   "fieldtype": "Link",
+   "label": "Approval Type",
+   "options": "EC Approval Type",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "provider",
+   "fieldtype": "Select",
+   "label": "Provider",
+   "options": "SCTS\nMock",
+   "reqd": 1
+  },
+  {
+   "fieldname": "environment",
+   "fieldtype": "Select",
+   "label": "Environment",
+   "options": "UAT\nProduction",
+   "reqd": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "0",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "bulk_enabled",
+   "fieldtype": "Check",
+   "label": "Bulk Enabled",
+   "default": "0"
+  },
+  {
+   "fieldname": "allow_external_signers",
+   "fieldtype": "Check",
+   "label": "Allow External Signers",
+   "default": "0"
+  },
+  {
+   "fieldname": "provider_creation_trigger",
+   "fieldtype": "Select",
+   "label": "Provider Creation Trigger",
+   "options": "On Business Submit\nBefore First Signing Level",
+   "default": "Before First Signing Level",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company_id",
+   "fieldtype": "Data",
+   "label": "SCTS Company ID"
+  },
+  {
+   "fieldname": "department_id",
+   "fieldtype": "Data",
+   "label": "SCTS Department ID"
+  },
+  {
+   "fieldname": "document_type_id",
+   "fieldtype": "Data",
+   "label": "SCTS Document Type ID"
+  },
+  {
+   "fieldname": "workflow_definition_id",
+   "fieldtype": "Data",
+   "label": "SCTS Workflow Definition ID"
+  },
+  {
+   "fieldname": "document_template_id",
+   "fieldtype": "Data",
+   "label": "SCTS Document Template ID"
+  },
+  {
+   "fieldname": "doc_code_source",
+   "fieldtype": "Data",
+   "label": "Doc Code Source",
+   "default": "name"
+  },
+  {
+   "fieldname": "title_source",
+   "fieldtype": "Data",
+   "label": "Title Source"
+  },
+  {
+   "fieldname": "amount_source",
+   "fieldtype": "Data",
+   "label": "Amount Source"
+  },
+  {
+   "fieldname": "description_source",
+   "fieldtype": "Data",
+   "label": "Description Source"
+  },
+  {
+   "fieldname": "deadline_rule",
+   "fieldtype": "Select",
+   "label": "Deadline Rule",
+   "options": "None\nFixed Days\nFrom Field",
+   "default": "None"
+  },
+  {
+   "fieldname": "deadline_days",
+   "fieldtype": "Int",
+   "label": "Deadline Days"
+  },
+  {
+   "fieldname": "deadline_source",
+   "fieldtype": "Data",
+   "label": "Deadline Source"
+  },
+  {
+   "fieldname": "max_files",
+   "fieldtype": "Int",
+   "label": "Max Files",
+   "default": "20"
+  },
+  {
+   "fieldname": "max_file_mb",
+   "fieldtype": "Int",
+   "label": "Max File Mb",
+   "default": "25"
+  },
+  {
+   "fieldname": "require_signable_pdf",
+   "fieldtype": "Check",
+   "label": "Require Signable Pdf",
+   "default": "1"
+  },
+  {
+   "fieldname": "levels",
+   "fieldtype": "Table",
+   "label": "Signing Levels",
+   "options": "EC Digital Signature Profile Level"
+  },
+  {
+   "fieldname": "field_map",
+   "fieldtype": "Table",
+   "label": "Provider Field Map",
+   "options": "EC Digital Signature Profile Field"
+  },
+  {
+   "fieldname": "transitions",
+   "fieldtype": "Table",
+   "label": "Provider Transitions",
+   "options": "EC Digital Signature Profile Transition"
+  }
+ ]
+}

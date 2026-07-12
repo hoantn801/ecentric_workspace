@@ -1,0 +1,156 @@
+{
+ "doctype": "DocType",
+ "name": "EC Digital Signature Placement",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "EC-DSPL-.YYYY.-.#####.",
+ "naming_rule": "Expression",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "field_order": [
+  "package",
+  "signature_file",
+  "page_index",
+  "x",
+  "y",
+  "llx",
+  "lly",
+  "width",
+  "height",
+  "level_no",
+  "scts_role_title",
+  "signature_type",
+  "keyword",
+  "provider_signature_id",
+  "status",
+  "placed_by",
+  "placed_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "package",
+   "fieldtype": "Link",
+   "label": "Package",
+   "options": "EC Digital Signature Package",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "signature_file",
+   "fieldtype": "Link",
+   "label": "Signature File",
+   "options": "EC Digital Signature File",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "page_index",
+   "fieldtype": "Int",
+   "label": "Page Index",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "1-based (SCTS convention)."
+  },
+  {
+   "fieldname": "x",
+   "fieldtype": "Float",
+   "label": "X"
+  },
+  {
+   "fieldname": "y",
+   "fieldtype": "Float",
+   "label": "Y"
+  },
+  {
+   "fieldname": "llx",
+   "fieldtype": "Float",
+   "label": "LLx"
+  },
+  {
+   "fieldname": "lly",
+   "fieldtype": "Float",
+   "label": "LLy"
+  },
+  {
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "label": "Width"
+  },
+  {
+   "fieldname": "height",
+   "fieldtype": "Float",
+   "label": "Height"
+  },
+  {
+   "fieldname": "level_no",
+   "fieldtype": "Int",
+   "label": "Level No",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "scts_role_title",
+   "fieldtype": "Data",
+   "label": "Scts Role Title"
+  },
+  {
+   "fieldname": "signature_type",
+   "fieldtype": "Data",
+   "label": "Signature Type"
+  },
+  {
+   "fieldname": "keyword",
+   "fieldtype": "Data",
+   "label": "Keyword"
+  },
+  {
+   "fieldname": "provider_signature_id",
+   "fieldtype": "Data",
+   "label": "Provider Signature Id"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nSent\nPlaced\nSigned\nInvalid",
+   "default": "Draft",
+   "reqd": 1
+  },
+  {
+   "fieldname": "placed_by",
+   "fieldtype": "Link",
+   "label": "Placed By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "placed_at",
+   "fieldtype": "Datetime",
+   "label": "Placed At",
+   "read_only": 1
+  }
+ ]
+}

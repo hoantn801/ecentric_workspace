@@ -13,56 +13,45 @@ from ecentric_workspace.approval_center.api import payment_request as api
 from ecentric_workspace.approval_center.api import purchase_request as papi
 from ecentric_workspace.approval_center.payment_request import setup as psetup
 from ecentric_workspace.approval_center.purchase_request import setup as prsetup
+from ecentric_workspace.approval_center.tests import erp_fixtures as erp
 
-PFX = "ZZPAY_"
+PFX = "zzpay_"  # lowercase: frappe lowercases User.name; mixed-case desyncs set_user vs owner fields (fresh-site portability fix, 2026-07-12)
 FIN = PFX + "fin@example.com"
 HOF = PFX + "hof@example.com"
 CEO = PFX + "ceo@example.com"
 
 
 def _user(email, roles=("Employee",)):
-    if not frappe.db.exists("User", email):
-        u = frappe.get_doc({"doctype": "User", "email": email, "first_name": email.split("@")[0],
-                            "user_type": "System User", "enabled": 1, "send_welcome_email": 0})
-        u.flags.no_welcome_mail = True
-        u.insert(ignore_permissions=True)
-        u.add_roles(*roles)
-    return email
+    return erp.make_user(email, roles)
 
 
 def _company():
-    if not frappe.db.exists("Company", "ZZPAY Co"):
-        frappe.get_doc({"doctype": "Company", "company_name": "ZZPAY Co", "abbr": "ZZPAYC",
-                        "default_currency": "VND"}).insert(ignore_permissions=True)
-    return "ZZPAY Co"
+    return erp.make_company("ZZPAY Co", "ZZPAYC")
 
 
 def _dept():
-    if not frappe.db.exists("Department", {"department_name": "ZZPAY Dept"}):
-        return frappe.get_doc({"doctype": "Department", "department_name": "ZZPAY Dept",
-                               "company": _company()}).insert(ignore_permissions=True).name
-    return frappe.db.get_value("Department", {"department_name": "ZZPAY Dept"}, "name")
+    return erp.make_department("ZZPAY Dept", _company())
 
 
 def _employee(user, reports_to=None):
-    n = frappe.db.get_value("Employee", {"user_id": user}, "name")
-    if not n:
-        n = frappe.get_doc({"doctype": "Employee", "employee_name": user.split("@")[0], "user_id": user,
-                            "company": _company(), "status": "Active", "gender": "Other",
-                            "date_of_joining": "2020-01-01", "date_of_birth": "1990-01-01"}).insert(
-            ignore_permissions=True).name
-    if reports_to:
-        frappe.db.set_value("Employee", n, "reports_to", reports_to)
-    return n
+    return erp.make_employee(user, _company(), reports_to=reports_to)
+
+
+def _cat():
+    if not frappe.db.exists("EC Approval Category", "ZZPAY_CAT"):
+        frappe.get_doc({"doctype": "EC Approval Category", "category_code": "ZZPAY_CAT",
+                        "category_name": "ZZPAY Test"}).insert(ignore_permissions=True)
+    return "ZZPAY_CAT"
 
 
 def _ensure():
     if not frappe.db.exists("EC Approval Type", "PAYMENT_REQUEST"):
         frappe.get_doc({"doctype": "EC Approval Type", "approval_code": "PAYMENT_REQUEST",
                         "approval_title": "Payment Request", "card_status": "Coming Soon",
-                        "process_status": "Discovery"}).insert(ignore_permissions=True)
+                        "process_status": "Discovery", "category": _cat()}).insert(ignore_permissions=True)
     _user(FIN); _user(HOF); _user(CEO)
     psetup.setup_payment_request_v1(finance=[FIN], hof=[HOF], ceo=[CEO], apply=1)
+    psetup._upsert({2: [FIN], 3: [HOF], 4: [CEO]})  # self-contained across modules
     frappe.db.set_value("EC Approval Process", "PAYMENT_REQUEST-V1", "status", "Active")
 
 
@@ -125,7 +114,8 @@ class TestPaymentRequest(FrappeTestCase):
         # has_purchase_request = Yes but linked PR not Approved -> blocked
         if not frappe.db.exists("EC Approval Type", "PURCHASE_REQUEST"):
             frappe.get_doc({"doctype": "EC Approval Type", "approval_code": "PURCHASE_REQUEST",
-                            "approval_title": "Purchase Request", "card_status": "Coming Soon"}).insert(ignore_permissions=True)
+                            "approval_title": "Purchase Request", "card_status": "Coming Soon",
+                            "category": _cat()}).insert(ignore_permissions=True)
         prsetup.setup_purchase_request_v1(finance=[FIN], hof=[HOF], ceo=[CEO], apply=1)
         frappe.db.set_value("EC Approval Process", "PURCHASE_REQUEST-V1", "status", "Active")
         frappe.set_user(req)

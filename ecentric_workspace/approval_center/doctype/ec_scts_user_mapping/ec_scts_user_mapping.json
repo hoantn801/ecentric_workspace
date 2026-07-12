@@ -1,0 +1,130 @@
+{
+ "doctype": "DocType",
+ "name": "EC SCTS User Mapping",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "EC-DSM-.#####.",
+ "naming_rule": "Expression",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "field_order": [
+  "frappe_user",
+  "environment",
+  "scts_user_id",
+  "signature_id",
+  "signature_type",
+  "company_id",
+  "active",
+  "mapping_status",
+  "verified_at",
+  "verified_by",
+  "signature_meta_summary",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "frappe_user",
+   "fieldtype": "Link",
+   "label": "ERP User",
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "environment",
+   "fieldtype": "Select",
+   "label": "Environment",
+   "options": "UAT\nProduction",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "scts_user_id",
+   "fieldtype": "Data",
+   "label": "SCTS User ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "signature_id",
+   "fieldtype": "Data",
+   "label": "SCTS Signature ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "signature_type",
+   "fieldtype": "Data",
+   "label": "Signature Type"
+  },
+  {
+   "fieldname": "company_id",
+   "fieldtype": "Data",
+   "label": "SCTS Company ID"
+  },
+  {
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "mapping_status",
+   "fieldtype": "Select",
+   "label": "Mapping Status",
+   "options": "Draft\nVerified\nSuspended",
+   "default": "Draft",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "verified_at",
+   "fieldtype": "Datetime",
+   "label": "Verified At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "verified_by",
+   "fieldtype": "Link",
+   "label": "Verified By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "signature_meta_summary",
+   "fieldtype": "Data",
+   "label": "Signature Meta Summary",
+   "read_only": 1,
+   "description": "Safe metadata only (type/company). Never signature images, never HSM IDs."
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ]
+}
