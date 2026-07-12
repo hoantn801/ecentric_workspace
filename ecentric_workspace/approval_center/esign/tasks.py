@@ -10,6 +10,7 @@ expected signer is provably unsigned.
 import frappe
 from frappe.utils import add_to_date, now_datetime
 
+from ecentric_workspace.approval_center.esign import binding
 from ecentric_workspace.approval_center.esign import events
 from ecentric_workspace.approval_center.esign import package as pkgsvc
 from ecentric_workspace.approval_center.esign import service as svc
@@ -109,6 +110,14 @@ def process_signing_request(dsr_name):
         return
     try:
         settings, adapter = _settings_and_adapter(dsr)
+        if dsr.status == "Queued":
+            # PRE-WRITE GATE (S2B-A): the FULL ERP-side signer binding must hold BEFORE
+            # any SCTS write on this run - document assembly (AddDocument) AND bulk-process.
+            # Active approver == verified mapping == outbound userId == live owner of the
+            # signatureId. Fails closed; NO role bypass (runs as the background user but is
+            # bound to the persisted approver, never the session). Re-entry poll ticks are
+            # reads only and are not gated here.
+            binding.assert_outbound_binding(dsr_name, adapter)
         doc_id = _ensure_provider_document(dsr, settings, adapter)
 
         # POLL-FIRST: did a previous (uncertain) attempt already succeed?
@@ -133,6 +142,8 @@ def process_signing_request(dsr_name):
             return
 
         if dsr.status == "Queued":
+            # Binding was asserted at the top of this run (before any write); the DSR is
+            # locked for_update so state cannot drift within this transaction.
             # Submit exactly once from Queued; acceptance != success (async).
             res = adapter.approve_and_sign([doc_id], dsr.effective_scts_user_id,
                                            dsr.effective_signature_id,
@@ -158,7 +169,34 @@ def process_signing_request(dsr_name):
         if dsr.status == "Provider Accepted":
             events.set_dsr_status(dsr_name, "Verifying", event_type="PollTick",
                                   verification_result=vr.reason)
+    except binding.BindingError as e:
+        # SECURITY/VALIDATION refusal (wrong approver, mapping/signature mismatch,
+        # inactive signature, allowlist, package/hash, non-UAT provider). This is NOT a
+        # transient provider failure: NO provider write occurred, and it MUST NOT be
+        # auto-retried. Terminal Permanent Failure + a governed dead-letter ToDo for
+        # manual review (the binding layer already emitted BindingRejected).
+        try:
+            events.set_dsr_status(dsr_name, "Permanent Failure", event_type="Failed",
+                                  extra_fields={"error_code": "binding_refused",
+                                                "error_message": safe_error(e), "retryable": 0},
+                                  error_summary=safe_error(e))
+            _dead_letter_todo(dsr_name)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "esign.tasks.binding_refused")
+        return
     except ProviderError as e:
+        if getattr(e, "ambiguous", False):
+            # NON-IDEMPOTENT write outcome unknown (bulk-process lost/timeout/5xx): the
+            # provider may already have accepted, so NEVER resend. Move to Verifying and
+            # let the reconciler poll Document/{id}; append a sanitized immutable event.
+            try:
+                events.set_dsr_status(dsr_name, "Verifying", event_type="BulkOutcomeUnknown",
+                                      extra_fields={"error_code": e.code},
+                                      verification_result="scts_bulk_outcome_unknown",
+                                      error_summary=safe_error(e))
+            except Exception:
+                frappe.log_error(frappe.get_traceback(), "esign.tasks.bulk_outcome_unknown")
+            return
         target = "Retryable Failure" if e.retryable else "Permanent Failure"
         try:
             events.set_dsr_status(dsr_name, target, event_type="Failed",

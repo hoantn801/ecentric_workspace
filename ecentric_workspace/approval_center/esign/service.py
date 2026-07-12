@@ -13,7 +13,7 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime
 
-from ecentric_workspace.approval_center.esign import events, guard, hashing
+from ecentric_workspace.approval_center.esign import binding, events, guard, hashing
 from ecentric_workspace.approval_center.esign import package as pkgsvc
 from ecentric_workspace.approval_center.esign import permissions as perms
 from ecentric_workspace.approval_center.esign.providers import get_adapter
@@ -106,6 +106,7 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
     profile = _profile_doc(business_doctype, req.approval_type)
     settings = _settings_for(profile)
 
+    binding.assert_provider_uat(settings)  # S2B-A: fail fast; Production blocked at submit
     perms.assert_allowed_signer(settings, actor)
     perms.assert_pending_approver(req, actor)
     approver_row = perms.pending_approver_row(req.name, req.current_level, actor)

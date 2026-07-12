@@ -10,7 +10,7 @@ tests and gate-closed dry runs. Behavior knobs via settings['site'] tokens:
 import itertools
 
 from ecentric_workspace.approval_center.esign.providers.base import (
-    NormalizedDocState, ProviderError, SignatureProviderAdapter,
+    NormalizedDocState, ProviderError, SignatureProviderAdapter, VerificationResult,
 )
 
 _counter = itertools.count(1)
@@ -57,7 +57,21 @@ class MockAdapter(SignatureProviderAdapter):
 
     def list_user_signatures(self, provider_user_id):
         return [{"id": "SIG-%s" % provider_user_id, "signerId": provider_user_id,
-                 "type": "mock", "company": "MockCo"}]
+                 "type": "mock", "company": "MockCo", "active": True}]
+
+    def validate_signature_owner(self, mapped_user, signature_id):
+        """Deterministic ownership/usability check, consistent with list_user_signatures.
+        'foreign:sig' mode makes ownership fail (finding-C style intruder signature)."""
+        if "foreign:sig" in self._mode():
+            return VerificationResult(False, "signature_owner_mismatch")
+        for s in self.list_user_signatures(mapped_user):
+            if str(s.get("id")) == str(signature_id):
+                if str(s.get("signerId")) != str(mapped_user):
+                    return VerificationResult(False, "signature_owner_mismatch")
+                if not s.get("active"):
+                    return VerificationResult(False, "signature_inactive")
+                return VerificationResult(True, "verified_owner")
+        return VerificationResult(False, "signature_not_in_user_set")
 
     # -- actions -----------------------------------------------------------------
     def approve_and_sign(self, instance_ids, provider_user_id, signature_id, transition_type=None):
