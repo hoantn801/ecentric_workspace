@@ -17,17 +17,22 @@ def emit(event_type, signature_request=None, package=None, erp_actor=None,
     if signature_request:
         seq = (frappe.db.count("EC Digital Signature Event",
                                {"signature_request": signature_request}) or 0) + 1
-    frappe.get_doc({
-        "doctype": "EC Digital Signature Event",
-        "signature_request": signature_request, "package": package, "seq": seq,
-        "event_type": event_type, "event_time": now_datetime(),
-        "erp_actor": erp_actor or frappe.session.user,
-        "scts_effective_user": scts_effective_user, "provider_txn_id": provider_txn_id,
-        "request_meta": frappe.as_json(sanitize(request_meta)) if request_meta else None,
-        "response_meta": frappe.as_json(sanitize(response_meta)) if response_meta else None,
-        "verification_result": verification_result, "retry_no": retry_no,
-        "error_summary": (error_summary or "")[:140] or None,
-    }).insert(ignore_permissions=True)
+    prev = getattr(frappe.flags, "ec_esign_event_append", False)
+    frappe.flags.ec_esign_event_append = True  # governed-append marker (controller gate)
+    try:
+        frappe.get_doc({
+            "doctype": "EC Digital Signature Event",
+            "signature_request": signature_request, "package": package, "seq": seq,
+            "event_type": event_type, "event_time": now_datetime(),
+            "erp_actor": erp_actor or frappe.session.user,
+            "scts_effective_user": scts_effective_user, "provider_txn_id": provider_txn_id,
+            "request_meta": frappe.as_json(sanitize(request_meta)) if request_meta else None,
+            "response_meta": frappe.as_json(sanitize(response_meta)) if response_meta else None,
+            "verification_result": verification_result, "retry_no": retry_no,
+            "error_summary": (error_summary or "")[:140] or None,
+        }).insert(ignore_permissions=True)
+    finally:
+        frappe.flags.ec_esign_event_append = prev
 
 
 def set_package_status(pkg_name, to_status, **event_kw):
