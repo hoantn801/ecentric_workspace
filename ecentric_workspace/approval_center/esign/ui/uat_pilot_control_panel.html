@@ -1,0 +1,78 @@
+<!-- Copyright (c) 2026, eCentric and contributors
+     UAT Pilot Control Panel (Phase 6) - System Manager only. A read-only view over the
+     governed readiness/probe services. It NEVER reveals credentials/tokens/Base64, never
+     calls Production, never accepts arbitrary userId/signatureId/document IDs from the
+     frontend, and never enables gates. apply=1 requires explicit confirmation and is only
+     offered when every readiness item passes (the backend still re-authorizes). -->
+<div id="ec-uat" class="ec-uat">
+  <style>
+    .ec-uat{font-size:13px}
+    .ec-uat .ec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+    .ec-uat .ec-card{border:1px solid #d9dee3;border-radius:8px;padding:10px}
+    .ec-uat .ec-chk{display:flex;justify-content:space-between;padding:2px 0}
+    .ec-uat .ok{color:#1a7f37}.ec-uat .no{color:#b35900}
+    .ec-uat .ec-bar{display:flex;gap:8px;align-items:center;margin:10px 0;flex-wrap:wrap}
+    .ec-uat .ec-pill{padding:1px 8px;border-radius:10px;background:#eaeef2;font-size:11px}
+  </style>
+  <div class="ec-bar">
+    <input id="ecUatPr" placeholder="Mã Payment Request (UAT/VOID/TEST)" style="width:280px">
+    <button id="ecUatRefresh">Kiểm tra sẵn sàng</button>
+    <button id="ecUatPreview">Xem trước (không gọi provider)</button>
+    <button id="ecUatApply" disabled>Chạy probe apply=1</button>
+    <span id="ecUatVerdict" class="ec-pill">-</span>
+  </div>
+  <div id="ecUatMsg"></div>
+  <div class="ec-grid" id="ecUatGrid"></div>
+</div>
+<script id="ec-uat-script">
+(function () {
+  "use strict";
+  if (!window.frappe) return;
+  function esc(s){return frappe.utils.escape_html(s==null?"":String(s));}
+  function card(title, obj){
+    var h="<div class='ec-card'><b>"+esc(title)+"</b>";
+    Object.keys(obj||{}).forEach(function(k){
+      var v=obj[k], ok = v && v.ok!==undefined ? v.ok : v;
+      h+="<div class='ec-chk'><span>"+esc(k)+"</span><span class='"+(ok?"ok":"no")+
+        "'>"+(ok?"✓":"✕")+"</span></div>";
+    });
+    return h+"</div>";
+  }
+  function render(m){
+    var g=document.getElementById("ecUatGrid");
+    g.innerHTML = card("Checklist sẵn sàng", m.checks||{}) +
+      "<div class='ec-card'><b>Chủ thể</b>"+
+      "<div class='ec-chk'><span>caller</span><span>"+esc(m.caller_user)+"</span></div>"+
+      "<div class='ec-chk'><span>active_approver</span><span>"+esc(m.active_approver)+"</span></div>"+
+      "<div class='ec-chk'><span>signer_evaluated</span><span>"+esc(m.signer_evaluated)+"</span></div>"+
+      "</div>";
+    var ready=!!m.ready;
+    document.getElementById("ecUatVerdict").textContent=ready?"READY":"NOT READY ("+
+      ((m.blocking_items||[]).join(", "))+")";
+    document.getElementById("ecUatApply").disabled=!ready;
+  }
+  function readiness(){
+    var pr=document.getElementById("ecUatPr").value;
+    frappe.call({method:"ecentric_workspace.approval_center.esign.api.uat_pilot_readiness",
+      args:{payment_request_name:pr||undefined}}).then(function(r){render(r.message||{});})
+      .catch(function(){document.getElementById("ecUatMsg").textContent="Chỉ System Manager.";});
+  }
+  document.getElementById("ecUatRefresh").onclick=readiness;
+  document.getElementById("ecUatPreview").onclick=function(){
+    var pr=document.getElementById("ecUatPr").value;
+    frappe.call({method:"ecentric_workspace.approval_center.esign.api.run_scts_uat_pilot_probe",
+      type:"POST",args:{payment_request_name:pr,apply:0}}).then(function(r){
+        document.getElementById("ecUatMsg").innerHTML="<pre>"+
+          esc(JSON.stringify(r.message,null,2))+"</pre>";});
+  };
+  document.getElementById("ecUatApply").onclick=function(){
+    var pr=document.getElementById("ecUatPr").value;
+    if(!window.confirm("Xác nhận chạy probe apply=1 (một lần gửi UAT provider, không tự gửi lại)?"))return;
+    frappe.call({method:"ecentric_workspace.approval_center.esign.api.run_scts_uat_pilot_probe",
+      type:"POST",args:{payment_request_name:pr,apply:1}}).then(function(r){
+        document.getElementById("ecUatMsg").innerHTML="<pre>"+
+          esc(JSON.stringify(r.message,null,2))+"</pre>";});
+  };
+  readiness();
+})();
+</script>

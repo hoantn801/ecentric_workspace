@@ -1,0 +1,85 @@
+<!-- Copyright (c) 2026, eCentric and contributors
+     Governed Signing Inbox (Phase 3) - a permission-scoped VIEW over the Approval Engine.
+     All rows/counts come from the server-scoped, server-paginated signing_inbox endpoint;
+     no raw PDF bytes are loaded here. This page never computes authorization. -->
+<div id="ec-inbox" class="ec-inbox">
+  <style>
+    .ec-inbox{font-size:13px}
+    .ec-inbox .ec-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+    .ec-inbox table{width:100%;border-collapse:collapse}
+    .ec-inbox th,.ec-inbox td{border-bottom:1px solid #eaecef;padding:6px 8px;text-align:left}
+    .ec-inbox .ec-tab{padding:3px 10px;border-radius:12px;background:#eaeef2;cursor:pointer}
+    .ec-inbox .ec-tab.active{background:#1f6feb;color:#fff}
+    .ec-inbox .ec-pill{padding:1px 8px;border-radius:10px;background:#eaeef2;font-size:11px}
+  </style>
+  <div class="ec-bar" id="ecInboxTabs"></div>
+  <div class="ec-bar">
+    <input id="ecInboxType" placeholder="Loại duyệt" style="width:140px">
+    <input id="ecInboxFrom" type="date"><input id="ecInboxTo" type="date">
+    <label><input type="checkbox" id="ecInboxMine"> Chỉ của tôi</label>
+    <button id="ecInboxRefresh">Làm mới</button>
+    <span id="ecInboxTotal" class="ec-pill"></span>
+  </div>
+  <table><thead><tr>
+    <th>Yêu cầu</th><th>Người tạo</th><th>Số tiền</th><th>Cấp</th><th>Giai đoạn</th>
+    <th>Tệp</th><th>Trạng thái nhà cung cấp</th><th>Lỗi</th><th></th>
+  </tr></thead><tbody id="ecInboxRows"></tbody></table>
+  <div class="ec-bar" style="margin-top:8px">
+    <button id="ecInboxPrev">‹</button><span id="ecInboxPage" class="ec-pill">-</span>
+    <button id="ecInboxNext">›</button>
+  </div>
+</div>
+<script id="ec-inbox-script">
+(function () {
+  "use strict";
+  if (!window.frappe) return;
+  var BUCKETS = [["my_pending","Chờ tôi ký"],["ready_to_sign","Sẵn sàng ký"],
+    ["package_incomplete","Gói chưa đủ"],["awaiting_provider","Chờ nhà cung cấp"],
+    ["verification_pending","Đang xác minh"],["signed_file_pending","Chờ tệp ký"],
+    ["manual_review","Cần rà soát"],["completed","Hoàn tất"]];
+  var st = { bucket: "my_pending", start: 0, page_length: 20, total: 0 };
+  function esc(s){return frappe.utils.escape_html(s==null?"":String(s));}
+  function tabs(counts){
+    var el=document.getElementById("ecInboxTabs"); el.innerHTML="";
+    BUCKETS.forEach(function(b){
+      var d=document.createElement("span");
+      d.className="ec-tab"+(st.bucket===b[0]?" active":"");
+      d.textContent=b[1]+" ("+((counts&&counts[b[0]])||0)+")";
+      d.onclick=function(){st.bucket=b[0];st.start=0;load();};
+      el.appendChild(d);
+    });
+  }
+  function load(){
+    var filters={bucket:st.bucket,
+      approval_type:document.getElementById("ecInboxType").value||undefined,
+      from_date:document.getElementById("ecInboxFrom").value||undefined,
+      to_date:document.getElementById("ecInboxTo").value||undefined,
+      mine_only:document.getElementById("ecInboxMine").checked?1:undefined};
+    frappe.call({method:"ecentric_workspace.approval_center.esign.api.signing_inbox",
+      args:{filters:JSON.stringify(filters),start:st.start,page_length:st.page_length}})
+      .then(function(r){
+        var m=r.message||{}; st.total=m.total||0; tabs(m.counts);
+        document.getElementById("ecInboxTotal").textContent=st.total+" mục"+(m.truncated?" (giới hạn)":"");
+        document.getElementById("ecInboxPage").textContent=
+          (st.total?(st.start+1):0)+"-"+Math.min(st.start+st.page_length,st.total)+" / "+st.total;
+        var tb=document.getElementById("ecInboxRows"); tb.innerHTML="";
+        (m.rows||[]).forEach(function(row){
+          var tr=document.createElement("tr");
+          tr.innerHTML="<td>"+esc(row.business_name)+"</td><td>"+esc(row.requester)+
+            "</td><td>"+esc(row.amount)+" "+esc(row.currency||"")+"</td><td>"+esc(row.active_level)+
+            "</td><td>"+esc(row.stage)+"</td><td>"+esc(row.file_count)+"</td><td>"+
+            esc(row.dsr_status)+"</td><td>"+esc(row.safe_error||"")+"</td>"+
+            "<td><a href='/app/"+esc((row.business_doctype||'').toLowerCase().replace(/ /g,'-'))+
+            "/"+esc(row.business_name)+"'>Mở</a></td>";
+          tb.appendChild(tr);
+        });
+      });
+  }
+  document.getElementById("ecInboxRefresh").onclick=function(){st.start=0;load();};
+  document.getElementById("ecInboxPrev").onclick=function(){
+    if(st.start>=st.page_length){st.start-=st.page_length;load();}};
+  document.getElementById("ecInboxNext").onclick=function(){
+    if(st.start+st.page_length<st.total){st.start+=st.page_length;load();}};
+  load();
+})();
+</script>
