@@ -107,22 +107,9 @@ scheduler_events = {
         # next_retry_at is due and attempt_count < MAX_ATTEMPTS.
         "*/5 * * * *": [
             "ecentric_workspace.notification_center.providers.teams.process_teams_retries",
-            # esign S2A (2026-07-11): polling reconciler - AUTHORITATIVE status path
-            # (Phase 1 works with polling only; callback is a later acceleration
-            # signal). Kill-switched via site_config ec_esign_scheduler_disabled
-            # (fail-safe: config read error => disabled). Inert until an esign
-            # profile is enabled + gates opened.
-            "ecentric_workspace.approval_center.esign.tasks.poll_pending",
         ],
     },
 }
-
-# esign S2A: stale monitor + orphan-file scan share the same kill switch and are
-# inert without enabled profiles.
-scheduler_events["hourly"].append(
-    "ecentric_workspace.approval_center.esign.tasks.sweep_stale")
-scheduler_events["daily"].append(
-    "ecentric_workspace.approval_center.esign.tasks.orphan_file_scan")
 
 # Permissions
 # -----------
