@@ -12,8 +12,7 @@ def get_adapter(settings):
         from ecentric_workspace.approval_center.esign.providers.mock import MockAdapter
         return MockAdapter(settings)
     if provider == "SCTS":
-        raise ProviderError("scts_adapter_not_implemented",
-                            "SCTS adapter ships in phase S2B; use the Mock provider for UAT-dry runs.",
-                            retryable=False)
+        from ecentric_workspace.approval_center.esign.providers.scts import SctsAdapter
+        return SctsAdapter(settings)
     raise ProviderError("unknown_provider", "Unknown signature provider: %r" % provider,
                         retryable=False)
