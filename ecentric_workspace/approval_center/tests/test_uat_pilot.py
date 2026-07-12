@@ -35,6 +35,9 @@ def _ready_stack(reqmail, mgrmail):
     frappe.db.set_value("EC Digital Signature Profile", "ZZESN_PAYR", {
         "provider": "SCTS", "workflow_definition_id": "WF9", "document_type_id": "DT3",
         "company_id": "C1", "department_id": "D2", "document_template_id": "TPL7"})
+    # the PR's approval_type is read-only and unset by the draft flow; populate it so the
+    # exact active-profile resolver (guard.get_active_profile) has a key to match.
+    frappe.db.set_value("EC Payment Request", h["biz"], "approval_type", "PAYMENT_REQUEST")
     _grant_sm(h["mgr"])
     return h
 
@@ -182,3 +185,94 @@ class TestUatPilotProbe(FrappeTestCase):
         with self.assertRaises(frappe.PermissionError):
             pilot.run_scts_uat_pilot_probe(h["biz"], apply=0)
         frappe.set_user("Administrator")
+
+
+DSR = "EC Digital Signature Request"
+DSF = "EC Digital Signature File"
+
+
+def _active_dsr(pkg_name, key, user_id="U", status="Queued"):
+    return frappe.get_doc({
+        "doctype": DSR, "provider": "SCTS", "environment": "UAT", "package": pkg_name,
+        "approval_request": "AR-DUMMY", "request_level": "LVL-DUMMY",
+        "approver_row": "ROW-DUMMY", "action": "Sign", "requested_by": "Administrator",
+        "approver": "Administrator", "idempotency_key": key,
+        "effective_scts_user_id": user_id, "status": status,
+    }).insert(ignore_permissions=True, ignore_links=True).name
+
+
+class TestUatPilotReadinessBlocker3(FrappeTestCase):
+    """PR#147 blocker 3: exact-profile-only resolution, blocking duplicate DSR, and
+    fail-closed structured file readiness."""
+
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def test_exact_profile_and_one_dsr_passes(self):
+        h = _ready_stack("b31r", "b31m")
+        _active_dsr(h["pkg"], "idem-b31-1")  # exactly one active DSR
+        frappe.set_user(h["mgr"])
+        out = pilot.uat_pilot_readiness(h["biz"])
+        frappe.set_user("Administrator")
+        self.assertTrue(out["checks"]["exact_active_profile_for_approval_type"]["ok"])
+        self.assertTrue(out["checks"]["no_active_duplicate_dsr"]["ok"])
+        self.assertTrue(out["ready"], "blocking: %s" % out["blocking_items"])
+
+    def test_duplicate_active_dsr_blocks(self):
+        h = _ready_stack("b32r", "b32m")
+        _active_dsr(h["pkg"], "idem-b32-1", status="Queued")
+        _active_dsr(h["pkg"], "idem-b32-2", status="Provider Accepted")
+        frappe.set_user(h["mgr"])
+        out = pilot.uat_pilot_readiness(h["biz"])
+        frappe.set_user("Administrator")
+        self.assertIn("no_active_duplicate_dsr", out["blocking_items"])  # now BLOCKING
+        self.assertFalse(out["ready"])
+
+    def test_missing_exact_profile_blocks(self):
+        h = _ready_stack("b33r", "b33m")
+        # no profile exists for this approval_type -> must block, must NOT fall back
+        frappe.db.set_value("EC Payment Request", h["biz"], "approval_type", "")
+        frappe.set_user(h["mgr"])
+        out = pilot.uat_pilot_readiness(h["biz"])
+        frappe.set_user("Administrator")
+        self.assertIn("exact_active_profile_for_approval_type", out["blocking_items"])
+        self.assertFalse(out["ready"])
+
+    def test_unrelated_enabled_profile_not_used(self):
+        h = _ready_stack("b34r", "b34m")
+        # an unrelated enabled SCTS profile exists for a DIFFERENT approval_type ...
+        if not frappe.db.exists("EC Approval Type", "OTHER_TYPE"):
+            frappe.get_doc({"doctype": "EC Approval Type", "approval_code": "OTHER_TYPE",
+                            "title": "Other"}).insert(ignore_permissions=True)
+        if not frappe.db.exists("EC Digital Signature Profile", "ZZESN_OTHER"):
+            frappe.get_doc({
+                "doctype": "EC Digital Signature Profile", "profile_code": "ZZESN_OTHER",
+                "title": "ZZESN Other", "business_doctype": "EC Payment Request",
+                "approval_type": "OTHER_TYPE", "provider": "SCTS", "environment": "UAT",
+                "enabled": 1, "provider_creation_trigger": "Before First Signing Level",
+                "doc_code_source": "name", "title_source": "request_title",
+                "amount_source": "payment_amount", "description_source": "reason",
+                "levels": [{"level_no": 1, "requires_signature": 1,
+                            "mandatory_placements_per_file": 1}],
+                "transitions": [{"action": "Reject", "transition_id": -16}],
+            }).insert(ignore_permissions=True)
+        # ... but the PR's own approval_type has no matching profile
+        frappe.db.set_value("EC Payment Request", h["biz"], "approval_type", "")
+        frappe.set_user(h["mgr"])
+        out = pilot.uat_pilot_readiness(h["biz"])
+        frappe.set_user("Administrator")
+        # must still block: the unrelated enabled profile must NOT be used as a fallback
+        self.assertIn("exact_active_profile_for_approval_type", out["blocking_items"])
+        self.assertFalse(out["ready"])
+
+    def test_missing_file_link_blocks_without_traceback(self):
+        h = _ready_stack("b35r", "b35m")
+        # clear the File link on a signable row -> structured blocking item, no exception
+        row = frappe.get_all(DSF, filters={"package": h["pkg"], "requires_signature": 1},
+                             pluck="name")[0]
+        frappe.db.set_value(DSF, row, "file", "")
+        frappe.set_user(h["mgr"])
+        out = pilot.uat_pilot_readiness(h["biz"])  # must not raise
+        frappe.set_user("Administrator")
+        self.assertIn("all_signable_files_have_file_link", out["blocking_items"])
+        self.assertFalse(out["ready"])

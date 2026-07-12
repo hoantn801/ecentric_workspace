@@ -100,19 +100,23 @@ def uat_pilot_readiness(payment_request_name=None):
         chk("active_approver_in_uat_allowlist",
             bool(signer) and signer.lower() in allowed)
 
-    # ---- profile ----
+    # ---- profile: for a TARGETED PR use ONLY the exact active profile resolved for its
+    # approval_type (no fallback to an arbitrary enabled SCTS profile); a general enabled
+    # profile is used only for the no-PR provider diagnostic. ----
     prof_row = None
-    if approval_type:
-        prof_name = guard.get_active_profile("EC Payment Request", approval_type)
-        prof_row = frappe.db.get_value("EC Digital Signature Profile", prof_name, "*",
-                                       as_dict=True) if prof_name else None
-    if not prof_row:
+    if payment_request_name:
+        if approval_type:
+            prof_name = guard.get_active_profile("EC Payment Request", approval_type)
+            prof_row = frappe.db.get_value("EC Digital Signature Profile", prof_name, "*",
+                                           as_dict=True) if prof_name else None
+        chk("exact_active_profile_for_approval_type", bool(prof_row))
+    else:
         cand = frappe.get_all("EC Digital Signature Profile",
                               filters={"business_doctype": "EC Payment Request",
                                        "provider": "SCTS", "enabled": 1},
                               fields=["*"], limit_page_length=1)
         prof_row = cand[0] if cand else None
-    chk("active_profile_exists", bool(prof_row))
+        chk("active_profile_exists", bool(prof_row))
     if prof_row:
         chk("workflow_definition_id_present", bool(prof_row.get("workflow_definition_id")))
         chk("document_type_id_present", bool(prof_row.get("document_type_id")))
@@ -160,18 +164,32 @@ def uat_pilot_readiness(payment_request_name=None):
             if pkg_name:
                 sfiles = frappe.get_all(DSF, filters={"package": pkg_name, "requires_signature": 1},
                                         fields=["name", "file", "file_name", "is_pdf", "sha256"])
-                chk("all_signable_files_private_pdf",
-                    bool(sfiles) and all(f.is_pdf for f in sfiles) and all(
-                        frappe.db.get_value("File", f.file, "is_private") for f in sfiles if f.file))
-                chk("file_hashes_match",
-                    all(f.sha256 == pkgsvc.hashing.sha256_bytes(pkgsvc.file_bytes(f.name))
-                        for f in sfiles) if sfiles else False)
-                chk("placements_complete", not pkgsvc.preflight_for_lock(pkg_name))
+                # fail-closed structured file readiness (no traceback escapes).
+                chk("has_signable_files", bool(sfiles))
+                chk("all_signable_files_have_file_link", bool(sfiles) and all(f.file for f in sfiles))
+                priv_ok = bool(sfiles)
+                for ff in sfiles:
+                    if not ff.file or not frappe.db.exists("File", ff.file) \
+                            or not frappe.db.get_value("File", ff.file, "is_private"):
+                        priv_ok = False
+                chk("all_signable_files_exist_and_private", priv_ok)
+                chk("all_signable_files_are_pdf", bool(sfiles) and all(f.is_pdf for f in sfiles))
+                try:
+                    hashes_ok = bool(sfiles) and all(
+                        f.sha256 == pkgsvc.hashing.sha256_bytes(pkgsvc.file_bytes(f.name))
+                        for f in sfiles)
+                except Exception as _e:
+                    hashes_ok = False  # missing/unreadable File -> blocking item, not a crash
+                chk("file_hashes_match", hashes_ok, detail=None)
+                try:
+                    placements_ok = not pkgsvc.preflight_for_lock(pkg_name)
+                except Exception:
+                    placements_ok = False
+                chk("placements_complete", placements_ok)
                 chk("no_active_duplicate_dsr",
                     frappe.db.count(DSR, {"package": pkg_name,
                                           "status": ["in", ["Queued", "Provider Accepted",
-                                                            "Verifying", "Signed"]]}) <= 1,
-                    blocking_flag=False)
+                                                            "Verifying", "Signed"]]}) <= 1)
                 chk("no_unresolved_ambiguous_create",
                     (pkg.error_code != "create_outcome_unknown") if pkg else True)
 
