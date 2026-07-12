@@ -98,7 +98,7 @@ def _sigs(req):
     return sx.FakeResponse(200, [{"id": "SIG-" + uid, "signerId": uid, "isActive": True}])
 
 
-def _e2e_transport(add_lost=True, doc_id="SCTS-DOC-REAL"):
+def _e2e_transport(add_lost=True, doc_id="SCTS-DOC-REAL", doc_code=None, file_names=None):
     """SCTS transport for the ambiguous-create continuation. AddDocument is accepted
     provider-side but (optionally) the response is lost; GET Document returns a 2-file
     document (matching the package) and shows the signer signed only AFTER bulk-process."""
@@ -119,8 +119,16 @@ def _e2e_transport(add_lost=True, doc_id="SCTS-DOC-REAL"):
         if state["bulk"]:
             signers = [{"userId": state["user"], "signatureId": state["sig"],
                         "status": "signed", "signedAt": "2026-07-12T09:00:00"}]
-        return sx.FakeResponse(200, {"id": doc_id, "status": "in_progress", "signers": signers,
-                                     "files": [{"documentFileId": "F0"}, {"documentFileId": "F1"}]})
+        files = []
+        for i in range(2):
+            f = {"documentFileId": "F%d" % i}
+            if file_names and i < len(file_names):
+                f["fileName"] = file_names[i]
+            files.append(f)
+        payload = {"id": doc_id, "status": "in_progress", "signers": signers, "files": files}
+        if doc_code is not None:
+            payload["docCode"] = doc_code
+        return sx.FakeResponse(200, payload)
 
     return sx.FakeTransport({"get_signatures": _sigs, "add_document": add_doc,
                              "bulk_process": bulk, "get_document": doc})
@@ -197,7 +205,7 @@ class TestPrE2ESigning(FrappeTestCase):
     def test_ambiguous_create_e2e_reconcile_then_single_bulk_completes_once(self):
         h = self._scts_stack("p3r", "p3m", preset_doc=False)
         dsr = self._queued(h)
-        t = _e2e_transport(add_lost=True)
+        t = _e2e_transport(add_lost=True, doc_code=h["biz"])  # provider code matches package
         fac = _Fac(t)
         with patch.object(tasks, "get_adapter", fac), patch.object(esvc, "get_adapter", fac):
             # 1) AddDocument accepted provider-side but response lost -> exactly one call
@@ -237,3 +245,51 @@ class TestPrE2ESigning(FrappeTestCase):
                 esvc.reconcile_document_creation(h["pkg"], "SCTS-DOC-WRONG")
         self.assertEqual(frappe.db.get_value(PKG, h["pkg"], "error_code"),
                          "create_outcome_unknown")  # still blocked
+
+    # ---- fail-closed reconciliation identity (PR#146 restore commit) ----
+    def _ambiguous_pkg(self, reqmail, mgrmail):
+        h = self._scts_stack(reqmail, mgrmail, preset_doc=False)
+        dsr = self._queued(h)
+        t = sx.FakeTransport({"get_signatures": _sigs,
+                              "add_document": ConnectionError("lost")})
+        with patch.object(tasks, "get_adapter", _Fac(t)):
+            tasks.process_signing_request(dsr)
+        return h, dsr
+
+    def test_reconcile_accepts_matching_identity(self):
+        h, dsr = self._ambiguous_pkg("id1r", "id1m")
+        t = _e2e_transport(add_lost=False, doc_code=h["biz"])
+        with patch.object(tasks, "get_adapter", _Fac(t)), \
+                patch.object(esvc, "get_adapter", _Fac(t)):
+            out = esvc.reconcile_document_creation(h["pkg"], "SCTS-DOC-REAL")
+        self.assertTrue(out["reconciled"])
+        self.assertIsNone(frappe.db.get_value(PKG, h["pkg"], "error_code"))
+
+    def test_reconcile_rejects_wrong_document_code(self):
+        h, dsr = self._ambiguous_pkg("id2r", "id2m")
+        t = _e2e_transport(add_lost=False, doc_code="SOME-OTHER-CODE")
+        with patch.object(esvc, "get_adapter", _Fac(t)):
+            with self.assertRaises(frappe.ValidationError):
+                esvc.reconcile_document_creation(h["pkg"], "SCTS-DOC-REAL")
+        self.assertEqual(frappe.db.get_value(PKG, h["pkg"], "error_code"),
+                         "create_outcome_unknown")  # NOT bound
+
+    def test_reconcile_rejects_wrong_file_names_same_count(self):
+        h, dsr = self._ambiguous_pkg("id3r", "id3m")
+        t = _e2e_transport(add_lost=False, doc_code=h["biz"],
+                           file_names=["WRONG1.pdf", "WRONG2.pdf"])
+        with patch.object(esvc, "get_adapter", _Fac(t)):
+            with self.assertRaises(frappe.ValidationError):
+                esvc.reconcile_document_creation(h["pkg"], "SCTS-DOC-REAL")
+        self.assertEqual(frappe.db.get_value(PKG, h["pkg"], "error_code"),
+                         "create_outcome_unknown")
+
+    def test_reconcile_fails_closed_on_missing_identity_metadata(self):
+        h, dsr = self._ambiguous_pkg("id4r", "id4m")
+        t = _e2e_transport(add_lost=False, doc_code=None)  # SCTS returns no code/reference
+        with patch.object(esvc, "get_adapter", _Fac(t)):
+            out = esvc.reconcile_document_creation(h["pkg"], "SCTS-DOC-REAL")
+        self.assertFalse(out["reconciled"])
+        self.assertEqual(out["reason"], "insufficient_provider_identity_evidence")
+        self.assertEqual(frappe.db.get_value(PKG, h["pkg"], "error_code"),
+                         "create_outcome_unknown")  # still reconciliation-required

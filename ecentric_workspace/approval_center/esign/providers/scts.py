@@ -247,8 +247,17 @@ class SctsAdapter(SignatureProviderAdapter):
         signers = [self._norm_signer(s) for s in self._as_list(
             raw.get("signers") or raw.get("signatures") or raw.get("signerSignatures"))]
         files = [self._norm_file(f) for f in self._as_list(
-            raw.get("files") or raw.get("documentFiles"))]
-        return NormalizedDocState(str(doc_id), status, signers=signers, files=files, raw={})
+            raw.get("files") or raw.get("documentFiles") or raw.get("Documents"))]
+        identity = {
+            "doc_code": (raw.get("docCode") or raw.get("documentCode") or raw.get("code")
+                         or raw.get("reference") or raw.get("referenceCode")),
+            "workflow_definition_id": raw.get("workflowDefinitionId"),
+            "document_type_id": raw.get("documentTypeId"),
+            "company_id": raw.get("companyId"),
+            "department_id": raw.get("departmentId"),
+        }
+        return NormalizedDocState(str(doc_id), status, signers=signers, files=files, raw={},
+                                  identity=identity)
 
     @staticmethod
     def _norm_signer(s):

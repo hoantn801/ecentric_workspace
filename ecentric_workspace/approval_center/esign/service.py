@@ -424,7 +424,8 @@ def reconcile_document_creation(package_name, scts_document_id):
         frappe.throw(_("Cần cung cấp mã tài liệu SCTS để đối soát."))
     pkg = frappe.db.get_value(
         "EC Digital Signature Package", package_name,
-        ["name", "error_code", "scts_document_id", "provider", "environment"], as_dict=True)
+        ["name", "error_code", "scts_document_id", "provider", "environment",
+         "doc_code_sent", "business_name", "business_doctype", "profile"], as_dict=True)
     if not pkg:
         frappe.throw(_("Không tìm thấy gói tài liệu."))
     if pkg.error_code != "create_outcome_unknown":
@@ -437,29 +438,66 @@ def reconcile_document_creation(package_name, scts_document_id):
         frappe.throw(_("Chưa cấu hình Provider Settings."))
     adapter = get_adapter(settings)
     doc_state = adapter.poll_status(scts_document_id)  # GET /api/Document/{id}
-    expected_files = frappe.db.count("EC Digital Signature File", {"package": package_name})
     if not doc_state or str(doc_state.document_id) != str(scts_document_id):
         events.emit("CreateReconcileRejected", package=package_name,
                     verification_result="document_not_found")
         frappe.throw(_("Không xác minh được tài liệu SCTS theo mã đã nhập."))
-    if len(doc_state.files) != int(expected_files):
+
+    pkg_files = frappe.get_all("EC Digital Signature File", filters={"package": package_name},
+                               fields=["name", "file_name"],
+                               order_by="idx_order asc, creation asc")
+    expected_files = len(pkg_files)
+    if len(doc_state.files) != expected_files:
         events.emit("CreateReconcileRejected", package=package_name,
                     verification_result="file_count_mismatch:%s!=%s"
                     % (len(doc_state.files), expected_files))
         frappe.throw(_("Số tệp của tài liệu SCTS không khớp với gói."))
 
-    # verified -> bind id, clear the unknown marker, immutable sanitized event
+    # --- FAIL-CLOSED IDENTITY: prove the SCTS document belongs to THIS package ---
+    ident = doc_state.identity or {}
+    expected_code = (pkg.doc_code_sent or pkg.business_name or "").strip()
+    provider_code = ident.get("doc_code")
+    provider_code = str(provider_code).strip() if provider_code is not None else ""
+    if not provider_code:
+        # no code/reference from SCTS -> identity UNPROVABLE -> do NOT bind an arbitrary
+        # id; keep the package in the reconciliation-required (create_outcome_unknown) state.
+        events.emit("CreateReconcileRejected", package=package_name,
+                    verification_result="insufficient_provider_identity_evidence")
+        return {"reconciled": False, "reason": "insufficient_provider_identity_evidence",
+                "package": package_name}
+    if provider_code != expected_code:
+        events.emit("CreateReconcileRejected", package=package_name,
+                    verification_result="document_code_mismatch")
+        frappe.throw(_("Mã tài liệu SCTS không khớp với gói - từ chối đối soát."))
+    # file names / order when the provider returns them
+    prov_names = [f.get("name") for f in doc_state.files]
+    if any(prov_names):
+        if prov_names != [f.file_name for f in pkg_files]:
+            events.emit("CreateReconcileRejected", package=package_name,
+                        verification_result="file_names_mismatch")
+            frappe.throw(_("Tên/thứ tự tệp của tài liệu SCTS không khớp với gói."))
+    # workflow / document type / company / department identifiers when returned
+    prof = frappe.db.get_value(
+        "EC Digital Signature Profile", pkg.profile,
+        ["workflow_definition_id", "document_type_id", "company_id", "department_id"],
+        as_dict=True) or {}
+    for key in ("workflow_definition_id", "document_type_id", "company_id", "department_id"):
+        pv, ev = ident.get(key), prof.get(key)
+        if pv not in (None, "") and ev and str(pv) != str(ev):
+            events.emit("CreateReconcileRejected", package=package_name,
+                        verification_result="identity_mismatch:%s" % key)
+            frappe.throw(_("Định danh tài liệu SCTS không khớp hồ sơ - từ chối đối soát."))
+
+    # identity VERIFIED -> bind id, clear the unknown marker, immutable sanitized event
     frappe.db.set_value("EC Digital Signature Package", package_name,
                         {"scts_document_id": scts_document_id, "error_code": None,
                          "error_message": None})
-    files = frappe.get_all("EC Digital Signature File", filters={"package": package_name},
-                           fields=["name"], order_by="idx_order asc, creation asc")
-    for i, f in enumerate(files):
+    for i, f in enumerate(pkg_files):
         if i < len(doc_state.files) and doc_state.files[i].get("file_id"):
             frappe.db.set_value("EC Digital Signature File", f.name,
                                 "scts_document_file_id", doc_state.files[i]["file_id"])
     events.emit("CreateReconciled", package=package_name,
-                request_meta={"scts_document_id": scts_document_id,
+                request_meta={"scts_document_id": scts_document_id, "doc_code": provider_code,
                               "file_count": len(doc_state.files),
                               "provider_status": doc_state.status})
     cont = _continue_after_reconcile(package_name)
