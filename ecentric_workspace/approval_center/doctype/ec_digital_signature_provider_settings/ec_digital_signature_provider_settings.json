@@ -1,0 +1,212 @@
+{
+ "doctype": "DocType",
+ "name": "EC Digital Signature Provider Settings",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "links": [],
+ "index_web_pages_for_search": 0,
+ "autoname": "EC-DSPS-.#####.",
+ "naming_rule": "Expression",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "field_order": [
+  "provider",
+  "environment",
+  "settings_key",
+  "base_url",
+  "site",
+  "username",
+  "password",
+  "token_cache",
+  "token_expires_at",
+  "integration_enabled",
+  "allow_document_creation",
+  "allow_signing",
+  "allow_bulk_signing",
+  "allow_external_signer",
+  "allow_callback",
+  "allow_production_signing",
+  "allowed_signing_users",
+  "request_timeout",
+  "polling_interval_s",
+  "max_poll_attempts",
+  "stale_after_hours",
+  "callback_secret",
+  "last_connection_test",
+  "last_connection_result"
+ ],
+ "fields": [
+  {
+   "fieldname": "provider",
+   "fieldtype": "Select",
+   "label": "Provider",
+   "options": "SCTS\nMock",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "environment",
+   "fieldtype": "Select",
+   "label": "Environment",
+   "options": "UAT\nProduction",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "settings_key",
+   "fieldtype": "Data",
+   "label": "Settings Key",
+   "unique": 1,
+   "hidden": 1,
+   "read_only": 1,
+   "description": "provider::environment - one settings row per pair (controller-maintained)"
+  },
+  {
+   "fieldname": "base_url",
+   "fieldtype": "Data",
+   "label": "Base Url"
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Data",
+   "label": "Site"
+  },
+  {
+   "fieldname": "username",
+   "fieldtype": "Data",
+   "label": "Username"
+  },
+  {
+   "fieldname": "password",
+   "fieldtype": "Password",
+   "label": "Password"
+  },
+  {
+   "fieldname": "token_cache",
+   "fieldtype": "Password",
+   "label": "Token Cache",
+   "hidden": 1,
+   "description": "Provider bearer token cache. Encrypted. Never logged."
+  },
+  {
+   "fieldname": "token_expires_at",
+   "fieldtype": "Datetime",
+   "label": "Token Expires At",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "integration_enabled",
+   "fieldtype": "Check",
+   "label": "Integration Enabled",
+   "default": "0"
+  },
+  {
+   "fieldname": "allow_document_creation",
+   "fieldtype": "Check",
+   "label": "Allow Document Creation",
+   "default": "0"
+  },
+  {
+   "fieldname": "allow_signing",
+   "fieldtype": "Check",
+   "label": "Allow Signing",
+   "default": "0"
+  },
+  {
+   "fieldname": "allow_bulk_signing",
+   "fieldtype": "Check",
+   "label": "Allow Bulk Signing",
+   "default": "0"
+  },
+  {
+   "fieldname": "allow_external_signer",
+   "fieldtype": "Check",
+   "label": "Allow External Signer",
+   "default": "0"
+  },
+  {
+   "fieldname": "allow_callback",
+   "fieldtype": "Check",
+   "label": "Allow Callback",
+   "default": "0"
+  },
+  {
+   "fieldname": "allow_production_signing",
+   "fieldtype": "Check",
+   "label": "Allow Production Signing",
+   "default": "0"
+  },
+  {
+   "fieldname": "allowed_signing_users",
+   "fieldtype": "Small Text",
+   "label": "Allowed Signing Users",
+   "description": "Allowlist of ERP users who may sign (one per line or comma). EMPTY = NOBODY (fail-closed)."
+  },
+  {
+   "fieldname": "request_timeout",
+   "fieldtype": "Int",
+   "label": "Request Timeout",
+   "default": "30"
+  },
+  {
+   "fieldname": "polling_interval_s",
+   "fieldtype": "Int",
+   "label": "Polling Interval S",
+   "default": "20"
+  },
+  {
+   "fieldname": "max_poll_attempts",
+   "fieldtype": "Int",
+   "label": "Max Poll Attempts",
+   "default": "30"
+  },
+  {
+   "fieldname": "stale_after_hours",
+   "fieldtype": "Int",
+   "label": "Stale After Hours",
+   "default": "24"
+  },
+  {
+   "fieldname": "callback_secret",
+   "fieldtype": "Password",
+   "label": "Callback Secret",
+   "description": "Dormant until provider documents callback auth."
+  },
+  {
+   "fieldname": "last_connection_test",
+   "fieldtype": "Datetime",
+   "label": "Last Connection Test",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_connection_result",
+   "fieldtype": "Data",
+   "label": "Last Connection Result",
+   "read_only": 1
+  }
+ ]
+}
