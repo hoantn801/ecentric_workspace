@@ -49,8 +49,20 @@ class SctsAdapter(SignatureProviderAdapter):
     def __init__(self, settings, transport=None, sleeper=None):
         super().__init__(settings)
         self._name = _sval(settings, "name")
+        base_url = _sval(settings, "base_url")
+        # SSRF / URL safety (fail-closed): require https + non-private host, optional exact
+        # host allowlist from settings. Convert to ProviderError so no provider internals
+        # leak above the adapter boundary.
+        from ecentric_workspace.approval_center.esign import netguard
+        raw_allow = _sval(settings, "base_url_allowlist") or ""
+        allow_hosts = [h.strip() for h in raw_allow.replace(",", "\n").splitlines()
+                       if h.strip()] or None
+        try:
+            netguard.assert_base_url_safe(base_url, allow_hosts=allow_hosts)
+        except ValueError as e:
+            raise ProviderError("scts_unsafe_base_url", str(e), retryable=False)
         self._client = SctsClient(
-            base_url=_sval(settings, "base_url"),
+            base_url=base_url,
             timeout=_sval(settings, "request_timeout") or 30,
             retry_limit=_HTTP_RETRY_LIMIT,
             transport=transport, sleeper=sleeper)
@@ -392,22 +404,4 @@ class SctsAdapter(SignatureProviderAdapter):
                             "SCTS workflow transition sync ships in a later sub-phase.",
                             retryable=False)
 
-    # -- error normalization --------------------------------------------------
-    def normalize_error(self, exc_or_response):
-        if isinstance(exc_or_response, ProviderError):
-            return exc_or_response
-        return ProviderError("scts_error", "SCTS error", retryable=False)
-
-    # -- helpers --------------------------------------------------------------
-    @staticmethod
-    def _as_list(v):
-        if v is None:
-            return []
-        if isinstance(v, list):
-            return v
-        if isinstance(v, dict):
-            for k in ("items", "data", "results", "signatures", "value"):
-                if isinstance(v.get(k), list):
-                    return v[k]
-            return [v]
-        return []
+    # -- error n
