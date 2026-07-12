@@ -1,0 +1,88 @@
+<!-- eCentric SCTS e-sign — minimal Payment Request signing panel (S2B-B).
+     Injectable governed script block (marker pattern: <script id="ec-esign-panel">),
+     NO CDN, NO PDF.js (S2B-C adds the drag/drop editor). Placements are entered
+     numerically and validated against the PDF page bounds server-side. The frontend
+     NEVER sends userId / signatureId — the backend derives them from the persisted,
+     verified SCTS mapping. All calls go to whitelisted, permission-first endpoints. -->
+<div id="ec-esign-panel" class="ec-esign-panel"></div>
+<script id="ec-esign-panel-js">
+(function () {
+  var API = "ecentric_workspace.approval_center.esign.api.";
+  var panel = document.getElementById("ec-esign-panel");
+  if (!panel) return;
+  var BIZ = "EC Payment Request";
+  var name = (frappe && frappe.form_dict && frappe.form_dict.name) ||
+             new URLSearchParams(location.search).get("name");
+  if (!name) { panel.textContent = "Lưu nháp yêu cầu trước khi thêm tệp ký."; return; }
+
+  function call(method, args, opts) {
+    return frappe.call(Object.assign({ method: API + method, args: args }, opts || {}));
+  }
+  function esc(s) { return (s == null ? "" : String(s)).replace(/[&<>"]/g,
+    function (c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+
+  function render(st) {
+    var pkg = st.package || {};
+    var files = pkg.files || [];
+    var locked = pkg.status && pkg.status !== "Draft";
+    var h = ['<h4>Tệp ký số (SCTS)</h4>'];
+    h.push('<div>Trạng thái gói: <b>' + esc(pkg.status || "Chưa có") + '</b>' +
+           (pkg.package_version ? ' · phiên bản ' + esc(pkg.package_version) : '') + '</div>');
+    h.push('<table class="table table-bordered"><thead><tr><th>#</th><th>Tệp</th>' +
+           '<th>Cần ký</th><th>Hỗ trợ</th><th>Chia sẻ đối tác</th></tr></thead><tbody>');
+    files.forEach(function (f, i) {
+      h.push('<tr><td>' + (i + 1) + '</td><td>' + esc(f.file_name) + '</td>' +
+        '<td>' + (f.requires_signature ? '✔' : '') + '</td>' +
+        '<td>' + (f.is_supporting_document ? '✔' : '') + '</td>' +
+        '<td>' + (f.share_with_partner ? '✔' : '') + '</td></tr>');
+    });
+    h.push('</tbody></table>');
+    if (!locked) {
+      h.push('<div class="ec-upload"><input type="file" id="ec-file" accept="application/pdf"/> ' +
+        '<label><input type="checkbox" id="ec-req" checked/> Cần ký</label> ' +
+        '<label><input type="checkbox" id="ec-sup"/> Hỗ trợ</label> ' +
+        '<label><input type="checkbox" id="ec-share"/> Chia sẻ đối tác</label> ' +
+        '<button class="btn btn-sm btn-default" id="ec-up">Tải lên</button></div>');
+    } else {
+      h.push('<div class="text-muted">Gói đã khóa - không thể thay đổi tệp.</div>');
+    }
+    if (st.enabled && pkg.status === "Active") {
+      h.push('<button class="btn btn-primary" id="ec-sign">Duyệt &amp; Ký</button>');
+    }
+    panel.innerHTML = h.join("");
+
+    var up = document.getElementById("ec-up");
+    if (up) up.onclick = function () {
+      var inp = document.getElementById("ec-file");
+      if (!inp.files || !inp.files[0]) { frappe.msgprint("Chọn tệp PDF."); return; }
+      var fd = new FormData();
+      fd.append("file", inp.files[0]);
+      fd.append("business_doctype", BIZ);
+      fd.append("business_name", name);
+      fd.append("requires_signature", document.getElementById("ec-req").checked ? 1 : 0);
+      fd.append("is_supporting_document", document.getElementById("ec-sup").checked ? 1 : 0);
+      fd.append("share_with_partner", document.getElementById("ec-share").checked ? 1 : 0);
+      fetch("/api/method/" + API + "upload_package_file", {
+        method: "POST", headers: { "X-Frappe-CSRF-Token": frappe.csrf_token }, body: fd
+      }).then(function (r) { return r.json(); }).then(function () { load(); })
+        .catch(function () { frappe.msgprint("Tải lên thất bại."); });
+    };
+
+    var sign = document.getElementById("ec-sign");
+    if (sign) sign.onclick = function () {
+      // Frontend sends ONLY the PR name; backend derives signer identity + validates.
+      sign.disabled = true;
+      call("pr_approve_and_sign", { payment_request_name: name })
+        .then(function () { frappe.msgprint("Đã gửi yêu cầu ký. Hệ thống đang xác minh."); load(); })
+        .catch(function () { sign.disabled = false; });
+    };
+  }
+
+  function load() {
+    call("get_signing_status", { business_doctype: BIZ, business_name: name })
+      .then(function (r) { render(r.message || {}); })
+      .catch(function () { panel.textContent = "Không tải được trạng thái ký."; });
+  }
+  load();
+})();
+</script>
