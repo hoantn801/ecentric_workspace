@@ -119,9 +119,13 @@ def ensure_mapping(u, verified=True):
                                {"frappe_user": u, "environment": "UAT"}, "name")
     if name:
         return name
+    # signature_id mirrors what the provider's GetSignatures returns for this user
+    # (MockAdapter -> "SIG-" + scts_user_id): a mapping is only ever created from
+    # real provider signature output, so the two must agree for the live
+    # signature-ownership binding (esign.binding.assert_outbound_binding).
     doc = frappe.get_doc({"doctype": "EC SCTS User Mapping", "frappe_user": u,
                           "environment": "UAT", "scts_user_id": "SCTS-" + u,
-                          "signature_id": "SIG-" + u, "active": 1,
+                          "signature_id": "SIG-SCTS-" + u, "active": 1,
                           "mapping_status": "Draft"}).insert(ignore_permissions=True)
     if verified:
         doc.db_set({"mapping_status": "Verified", "verified_at": frappe.utils.now_datetime(),
