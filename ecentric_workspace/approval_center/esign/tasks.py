@@ -52,6 +52,14 @@ def _ensure_provider_document(dsr, settings, adapter):
             else:
                 events.set_package_status(pkg.name, "Active")
         return pkg.scts_document_id
+    if pkg.error_code == "create_outcome_unknown":
+        # a prior AddDocument outcome is UNKNOWN (ambiguous write): the document may
+        # already exist provider-side. NEVER auto-recreate. Retryable so the request
+        # stays in-flight until an SM reconciles (sets scts_document_id or clears the
+        # marker); the poll cap then escalates to Manual Review.
+        raise ProviderError("scts_awaiting_create_reconciliation",
+                            "AddDocument outcome unknown - awaiting manual reconciliation",
+                            retryable=True)
     if not int(settings.get("allow_document_creation") or 0):
         raise ProviderError("document_creation_gated",
                             "allow_document_creation is OFF", retryable=True)
@@ -69,14 +77,27 @@ def _ensure_provider_document(dsr, settings, adapter):
     ctx = {
         "doc_code": pkg.doc_code_sent or pkg.business_name,
         "title": pkg.doc_title_sent or pkg.business_name,
+        "amount": pkg.doc_amount_sent,
         "files": [{"order": i, "name": f.file_name, "file_dsf": f.name,
-                   "can_be_signed": f.requires_signature, "bct": f.is_supporting_document,
-                   "shared_with_partner": f.share_with_partner} for i, f in enumerate(files)],
+                   "can_be_signed": f.requires_signature,
+                   "is_supporting_document": f.is_supporting_document,
+                   "share_with_partner": f.share_with_partner,
+                   "content": pkgsvc.file_bytes(f.name)}  # private bytes; never logged
+                  for i, f in enumerate(files)],
         "placements": [dict(p) for p in pkgsvc.package_placements(pkg.name)],
     }
     try:
         res = adapter.create_document(ctx)
     except ProviderError as e:
+        if getattr(e, "ambiguous", False):
+            # AddDocument outcome UNKNOWN: mark the package so no run ever recreates,
+            # emit a sanitized audit event, and propagate the ambiguity (the worker moves
+            # the DSR to Verifying; reconciliation is required before any recreate).
+            frappe.db.set_value("EC Digital Signature Package", pkg.name,
+                                {"error_code": "create_outcome_unknown",
+                                 "error_message": safe_error(e)})
+            events.emit("CreateOutcomeUnknown", package=pkg.name, error_summary=safe_error(e))
+            raise
         if frappe.db.get_value("EC Digital Signature Package", pkg.name,
                                "status") == "Provider Creating":
             events.set_package_status(pkg.name, "Provider Create Failed", event_type="Failed",
@@ -86,7 +107,8 @@ def _ensure_provider_document(dsr, settings, adapter):
         raise
     frappe.db.set_value("EC Digital Signature Package", pkg.name,
                         {"scts_document_id": res["document_id"],
-                         "created_at_provider": now_datetime()})
+                         "created_at_provider": now_datetime(),
+                         "error_code": None, "error_message": None})
     by_order = {f["order"]: f.get("file_id") for f in res.get("files") or []}
     for i, f in enumerate(files):
         if by_order.get(i):

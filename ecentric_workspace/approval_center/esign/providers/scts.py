@@ -15,6 +15,8 @@ approve_and_sign (bulk-process submit primitive), get_document + poll_status
 get_pdf) and Workflow transition are deferred to a later sub-phase and fail closed with a
 clear normalized error rather than a half-built call.
 """
+import base64
+
 import frappe
 from frappe.utils import add_to_date, get_datetime, now_datetime
 from frappe.utils.password import get_decrypted_password
@@ -276,10 +278,63 @@ class SctsAdapter(SignatureProviderAdapter):
 
     # -- deferred ops (fail closed, clearly) ----------------------------------
     def create_document(self, package_ctx):
-        raise ProviderError("scts_create_document_deferred",
-                            "SCTS document assembly (AddDocument) ships in a later "
-                            "sub-phase; provide scts_document_id out-of-band for S2B-A.",
-                            retryable=False)
+        """POST /api/Document/AddDocument. package_ctx: provider-neutral dict with
+        {doc_code, title, amount?, files:[{order, name, content(bytes), can_be_signed,
+        is_supporting_document, share_with_partner}], placements:[...]}. Base64 conversion
+        of the private PDF bytes happens HERE (the adapter owns the provider payload); the
+        base64 is never logged. Returns {document_id, files:[{order, file_id}]}. On an
+        ambiguous outcome the client raises ProviderError(ambiguous=True) - the caller must
+        reconcile, never blind-recreate."""
+        files = package_ctx.get("files") or []
+        payload = {
+            "docCode": package_ctx.get("doc_code"),
+            "title": package_ctx.get("title"),
+            "docAmount": package_ctx.get("amount"),
+            "files": [{
+                "order": f.get("order"),
+                "fileName": f.get("name"),
+                "originalBase64": self._b64(f.get("content")),
+                "canBeSigned": bool(f.get("can_be_signed")),
+                "isSupportingDocument": bool(f.get("is_supporting_document")),
+                "sharedWithPartner": bool(f.get("share_with_partner")),
+            } for f in files],
+            "placements": package_ctx.get("placements") or [],
+        }
+        raw = self._with_auth(lambda t: self._client.add_document(payload, t))
+        return self._normalize_create(raw, files)
+
+    @staticmethod
+    def _b64(content):
+        if content is None:
+            return None
+        if isinstance(content, str):
+            content = content.encode("utf-8")
+        return base64.b64encode(content).decode("ascii")
+
+    @staticmethod
+    def _normalize_create(raw, files):
+        doc_id = None
+        rawfiles = []
+        if isinstance(raw, dict):
+            doc_id = raw.get("documentId") or raw.get("id") or raw.get("instanceId")
+            data = raw.get("data") if isinstance(raw.get("data"), dict) else None
+            if not doc_id and data:
+                doc_id = data.get("documentId") or data.get("id")
+            rawfiles = raw.get("files") or raw.get("documentFiles") or (
+                data.get("files") if data else None) or []
+        if not doc_id:
+            raise ProviderError("scts_create_no_document_id",
+                                "AddDocument returned no documentId", retryable=False)
+        by_order = {}
+        for rf in rawfiles:
+            if isinstance(rf, dict):
+                o = rf.get("order")
+                if o is None:
+                    o = rf.get("index")
+                by_order[o] = rf.get("documentFileId") or rf.get("fileId") or rf.get("id")
+        out = [{"order": f.get("order"), "file_id": by_order.get(f.get("order"))}
+               for f in files]
+        return {"document_id": str(doc_id), "files": out}
 
     def get_pdf(self, document_id, document_file_id):
         raise ProviderError("scts_get_pdf_deferred",
