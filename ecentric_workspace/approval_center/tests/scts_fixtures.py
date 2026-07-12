@@ -8,14 +8,17 @@ import json
 
 
 class FakeResponse(object):
-    def __init__(self, status_code, payload=None, text=None, malformed=False):
+    def __init__(self, status_code, payload=None, text=None, malformed=False,
+                 content=None, headers=None):
         self.status_code = status_code
         self._payload = payload
         self._malformed = malformed
+        self.content = content  # raw bytes (binary responses, e.g. signed PDF)
+        self.headers = headers or ({"Content-Type": "application/json"} if payload is not None else {})
         self.text = text if text is not None else (json.dumps(payload) if payload is not None else "")
 
     def json(self):
-        if self._malformed:
+        if self._malformed or self._payload is None:
             raise ValueError("malformed body")
         return self._payload
 
@@ -122,3 +125,14 @@ def make_adapter(transport, settings=None):
     from ecentric_workspace.approval_center.esign.providers.scts import SctsAdapter
     return SctsAdapter(settings or make_scts_settings(), transport=transport,
                        sleeper=lambda *_: None)
+
+
+def pdf_binary_response(content=b"%PDF-1.4 signed\n%%EOF"):
+    """Signed PDF returned as a binary application/pdf body."""
+    return FakeResponse(200, content=content, headers={"Content-Type": "application/pdf"})
+
+
+def pdf_base64_response(content=b"%PDF-1.4 signed\n%%EOF", field="fileBase64"):
+    """Signed PDF returned as base64 inside a JSON envelope."""
+    import base64 as _b64
+    return FakeResponse(200, {field: _b64.b64encode(content).decode("ascii")})
