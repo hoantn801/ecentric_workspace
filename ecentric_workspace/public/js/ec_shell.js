@@ -17,7 +17,9 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.0.0 (phase 1B pilot)';
+  var VERSION = 'ec-shell v1.1.0 (phase 1B.1 header polish)';
+  // Official brand asset -- same site file the homepage uses (/files File doc).
+  var LOGO_SRC = '/files/eCentric%20logo%20-%20mini.png';
   var BOOT_URL = '/api/method/ecentric_workspace.shell.api.get_shell_boot';
   var MARKER = '[data-ec-shell="1"]';
 
@@ -104,20 +106,29 @@
     return '<nav class="ec-shell-nav" aria-label="Điều hướng chính">' + h + '</nav>';
   }
 
-  function shellHtml(boot, activeKey) {
+  // Bell: EMITS the frozen NC contract marker; NC binds/badges it itself
+  // (capture-phase click + MutationObserver adoption). No shell-side bell JS.
+  // SINGLE EMISSION POINT -- rendered either in the page header-right slot
+  // (preferred) or in the sidebar head, never both, never in the drawer.
+  function bellHtml() {
+    return '<a class="ec-shell-iconbtn" href="/app/notification-log" ' +
+      'data-ec-notification-bell="1" aria-label="Thông báo" title="Thông báo">' +
+      svg('bell') + '</a>';
+  }
+
+  function shellHtml(boot, activeKey, opts) {
     var u = boot.user || {};
     var av = u.image
       ? '<span class="ec-shell-avatar"><img src="' + esc(u.image) + '" alt=""></span>'
       : '<span class="ec-shell-avatar">' + esc(initials(u.full_name || u.name)) + '</span>';
+    var headBell = (opts && opts.bell) ? bellHtml() : '';
     return (
       '<div class="ec-shell-head">' +
-        '<a class="ec-shell-brand" href="/home"><span class="ec-shell-logo">eC</span>' +
+        '<a class="ec-shell-brand" href="/">' +
+          '<img class="ec-shell-logoimg" src="' + LOGO_SRC + '" alt="eCentric">' +
+          '<span class="ec-shell-logo" hidden>eC</span>' +
         '<span class="ec-shell-brandname">eCentric</span></a>' +
-        // Bell: EMITS the frozen NC contract marker; NC binds/badges it itself
-        // (capture-phase click + MutationObserver adoption). No JS here.
-        '<a class="ec-shell-iconbtn" href="/app/notification-log" ' +
-          'data-ec-notification-bell="1" aria-label="Thông báo" title="Thông báo">' +
-          svg('bell') + '</a>' +
+        headBell +
       '</div>' +
       navHtml(boot.nav, activeKey) +
       '<div class="ec-shell-foot">' +
@@ -148,7 +159,7 @@
       document.body.appendChild(S.backdrop);
       document.body.appendChild(S.drawer);
     }
-    S.drawer.innerHTML = shellHtml(S.boot, S.activeKey);   // fresh render each open
+    S.drawer.innerHTML = shellHtml(S.boot, S.activeKey, { bell: false }); // fresh render; bell lives in the header
     S.lastFocus = document.activeElement;
     S.backdrop.classList.add('ec-shell-on');
     S.drawer.classList.add('ec-shell-on');
@@ -202,10 +213,35 @@
     document.body.appendChild(S.burger);
   }
 
+  function renderHeaderRight() {
+    // Optional page slot: <div class="ec-shell-tbright" data-ec-shell-header-right="1">
+    // Right side of the page header hosts [reserved Action Center slot][bell].
+    var slot = document.querySelector('[data-ec-shell-header-right="1"]');
+    if (!slot) return false;
+    slot.innerHTML =
+      // Reserved for the future Action Center entry (Phase 1C+). Kept empty
+      // and non-interactive on purpose -- do NOT put content here yet.
+      '<span class="ec-shell-actionslot" data-ec-shell-action-slot="1" aria-hidden="true"></span>' +
+      bellHtml();
+    return true;
+  }
+
+  function bindLogoFallback() {
+    var img = S.mount && S.mount.querySelector('.ec-shell-logoimg');
+    if (!img) return;
+    img.addEventListener('error', function () {
+      img.hidden = true;
+      var fb = S.mount.querySelector('.ec-shell-logo');
+      if (fb) fb.hidden = false;
+    }, { once: true });
+  }
+
   function render() {
     if (!S.mount || !S.boot) return;
     S.activeKey = matchActive(S.boot.nav, window.location.pathname);
-    S.mount.innerHTML = shellHtml(S.boot, S.activeKey);  // replaces static fallback
+    var bellInHeader = renderHeaderRight();          // exactly ONE bell per page
+    S.mount.innerHTML = shellHtml(S.boot, S.activeKey, { bell: !bellInHeader });
+    bindLogoFallback();
   }
 
   function reinit() {  // idempotent: safe to call repeatedly

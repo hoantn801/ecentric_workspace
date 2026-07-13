@@ -79,7 +79,8 @@ class TestShellAssets(unittest.TestCase):
                 if not part:
                     continue
                 self.assertTrue(
-                    part.startswith(".ec-shell") or part.startswith("[data-ec-shell")
+                    part.startswith(".ec-shell") or part.startswith("a.ec-shell")
+                    or part.startswith("[data-ec-shell")
                     or part.startswith("body.ec-shell-noscroll")
                     or part.startswith("@"),
                     "unscoped CSS selector: %r" % part)
@@ -88,6 +89,76 @@ class TestShellAssets(unittest.TestCase):
         hooks = _read(APP, "hooks.py")
         self.assertIn('web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js"]', hooks)
         self.assertIn('web_include_css = ["ec_shell.bundle.css"]', hooks)
+
+
+class TestHeaderPolish(unittest.TestCase):
+    """Phase 1B.1: header layout, breadcrumb links, branding, no-underline."""
+
+    CRUMB_PAGES = {
+        "leave.main_section.html": "Leave",
+        "hr_activity.main_section.html": "HR Activity",
+        "approvals_dashboard.main_section.html": "Bảng điều hành vận hành",
+    }
+
+    def test_header_right_slot_on_all_pilots_once(self):
+        for fname in PILOT:
+            n = _read(FRONTEND, fname).count('data-ec-shell-header-right="1"')
+            self.assertEqual(n, 1, "%s must carry exactly one header-right slot" % fname)
+
+    def test_header_right_absent_on_non_pilots(self):
+        for fname in sorted(os.listdir(FRONTEND)):
+            if fname.endswith(".html") and fname not in PILOT:
+                self.assertEqual(
+                    _read(FRONTEND, fname).count("data-ec-shell-header-right"), 0, fname)
+
+    def test_breadcrumb_parent_links_to_approvals(self):
+        for fname, current in self.CRUMB_PAGES.items():
+            src = _read(FRONTEND, fname)
+            self.assertIn('<a class="ec-shell-crumblink" href="/approvals">Approval Center</a>',
+                          src, fname)
+            # current item is plain <strong>, never a self-link
+            self.assertIn("<strong>%s</strong>" % current, src, fname)
+            self.assertNotIn('href="/approvals/%s"><strong>' % fname.split(".")[0], src)
+
+    def test_hub_breadcrumb_is_current_not_self_linked(self):
+        src = _read(FRONTEND, "approvals.main_section.html")
+        self.assertIn('<div class="crumb"><strong>Approval Center</strong></div>', src)
+        self.assertEqual(src.count("ec-shell-crumblink"), 0,
+                         "hub is the breadcrumb root; no parent link")
+
+    def test_bell_single_emission_point_in_js(self):
+        js = _read(APP, "public", "js", "ec_shell.js")
+        code = "\n".join(l for l in js.splitlines() if not l.strip().startswith("//"))
+        self.assertEqual(code.count(BELL), 1,
+                         "exactly ONE bell emission point (bellHtml)")
+        self.assertIn("renderHeaderRight", js)
+        self.assertIn("{ bell: false }", js, "drawer must never render a bell")
+
+    def test_logo_uses_homepage_asset_and_links_root(self):
+        js = _read(APP, "public", "js", "ec_shell.js")
+        self.assertIn("/files/eCentric%20logo%20-%20mini.png", js)
+        self.assertIn('href="/"', js, "brand must link to /")
+        self.assertNotIn('href="/home"><span class="ec-shell-logo"', js)
+        self.assertIn("bindLogoFallback", js, "logo needs a failure fallback")
+
+    def test_no_underline_in_shell_css(self):
+        css = _read(APP, "public", "css", "ec_shell.bundle.css")
+        self.assertNotIn("text-decoration:underline", css)
+        for scope in (".ec-shell-mount a", ".ec-shell-drawer a", ".ec-shell-tbright a"):
+            self.assertIn(scope, css, "explicit no-underline scope missing: " + scope)
+        self.assertIn("a.ec-shell-crumblink:hover{ color:#2C3DA6; text-decoration:none; }", css)
+
+    def test_focus_visible_preserved(self):
+        css = _read(APP, "public", "css", "ec_shell.bundle.css")
+        self.assertIn(":focus-visible", css)
+        self.assertIn("a.ec-shell-crumblink:focus-visible", css)
+
+    def test_action_slot_reserved_not_implemented(self):
+        js = _read(APP, "public", "js", "ec_shell.js")
+        self.assertIn('data-ec-shell-action-slot="1"', js)
+        self.assertIn('aria-hidden="true"', js)
+        css = _read(APP, "public", "css", "ec_shell.bundle.css")
+        self.assertIn(".ec-shell-actionslot{ display:none; }", css)
 
 
 if __name__ == "__main__":

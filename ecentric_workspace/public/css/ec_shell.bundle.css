@@ -18,7 +18,7 @@
  */
 
 /* ---- tokens (scoped to shell roots; values mirror the existing palette A) */
-.ec-shell-mount, .ec-shell-drawer {
+.ec-shell-mount, .ec-shell-drawer, .ec-shell-tbright {
   --ec-navy:#2C3DA6; --ec-navy-50:#eef0fb; --ec-navy-700:#1f2d80;
   --ec-yellow:#FFC000; --ec-pink:#EF7CAF;
   --ec-gray-50:#f9fafb; --ec-gray-100:#f3f4f6; --ec-gray-200:#e5e7eb;
@@ -51,6 +51,7 @@
   display:flex; align-items:center; justify-content:center;
   font-weight:800; font-size:13px; flex:0 0 auto;
 }
+.ec-shell-logoimg{ width:30px; height:30px; object-fit:contain; display:block; flex:0 0 auto; }
 .ec-shell-brandname{ font-weight:700; font-size:14px; color:var(--ec-gray-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .ec-shell-iconbtn{
   position:relative; width:32px; height:32px; border-radius:8px; border:none;
@@ -84,6 +85,27 @@
 }
 .ec-shell-avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
 .ec-shell-username{ font-size:12.5px; font-weight:600; color:var(--ec-gray-800); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* ---- page-header right region (bell + reserved Action Center slot) ------- */
+/* Lives inside the page-owned .topbar; margin-left:auto right-aligns it even
+ * on topbars without a .spacer. Tokens resolve via the scope list above. */
+.ec-shell-tbright{ margin-left:auto; display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+/* Reserved for Action Center (Phase 1C+): intentionally empty and inert. */
+.ec-shell-actionslot{ display:none; }
+
+/* ---- breadcrumb links (rendered inside the page-owned .crumb) ------------- */
+a.ec-shell-crumblink{ color:inherit; text-decoration:none; border-radius:4px; }
+a.ec-shell-crumblink:hover{ color:#2C3DA6; text-decoration:none; }
+a.ec-shell-crumblink:visited{ text-decoration:none; }
+a.ec-shell-crumblink:focus-visible{ outline:2px solid #2C3DA6; outline-offset:2px; text-decoration:none; }
+
+/* ---- no underlines anywhere in the shell (pages/Frappe set a:hover rules); -
+ * hover feedback stays via background/color, focus stays via outline. ------- */
+.ec-shell-mount a, .ec-shell-mount a:hover, .ec-shell-mount a:focus, .ec-shell-mount a:visited,
+.ec-shell-drawer a, .ec-shell-drawer a:hover, .ec-shell-drawer a:focus, .ec-shell-drawer a:visited,
+.ec-shell-tbright a, .ec-shell-tbright a:hover, .ec-shell-tbright a:focus, .ec-shell-tbright a:visited{
+  text-decoration:none;
+}
 
 /* ---- keyboard focus (focus-visible only; no outline suppression) --------- */
 .ec-shell-mount a:focus-visible, .ec-shell-mount button:focus-visible,
