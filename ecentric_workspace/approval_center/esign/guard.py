@@ -80,6 +80,38 @@ def requester_signature_required(reference_doctype, approval_type):
                                     "requester_signature_required"))
 
 
+# Default requester role title when the profile leaves it blank (item 4/5 derivation).
+_DEFAULT_REQUESTER_ROLE = "Nguoi de nghi"
+
+
+def derive_signature_type(mapping):
+    """signatureType from the resolved Verified SCTS mapping metadata (never hand-entered per
+    level).  is a row/dict from permissions.verified_mapping. Returns None when the
+    mapping carries no signature_type (the adapter may then omit it)."""
+    if mapping is None:
+        return None
+    if isinstance(mapping, dict):
+        return mapping.get("signature_type")
+    return getattr(mapping, "signature_type", None)
+
+
+def derive_role_title(profile, level_no=None, is_requester=False, process_role_title=None,
+                      override=None):
+    """Governed roleTitle so admins need not type one per level. Precedence:
+    explicit override (profile Level override / provider-required exact value) -> requester
+    role title (profile field or the safe default) -> Approval Process level/runtime role
+    title -> a derived 'Cap duyet <n>'. Never stores a fixed signer user."""
+    if override:
+        return override
+    if is_requester:
+        rt = frappe.db.get_value("EC Digital Signature Profile", profile,
+                                 "requester_role_title") if profile else None
+        return rt or _DEFAULT_REQUESTER_ROLE
+    if process_role_title:
+        return process_role_title
+    return ("Cap duyet %s" % level_no) if level_no is not None else None
+
+
 def level_requires_signature(reference_doctype, approval_type, level_no, final_level=None):
     """True when the active profile's Approver Signature Policy makes THIS Approval Engine
     level require a digital signature. Policy-driven so admins need not recreate every level:

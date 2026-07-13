@@ -87,3 +87,36 @@ class TestApproverSignaturePolicy(FrappeTestCase):
         h = fx.full_stack(fx.PFX + "pp1r@example.com", fx.PFX + "pp1m@example.com")
         self.assertEqual(guard.request_final_level(h["ar"]), 4)
         self.assertIsNone(guard.request_final_level(None))
+
+
+    def test_new_profile_default_policy_is_all_levels(self):
+        # a freshly created profile (no explicit policy) gets the DocType default
+        code = "ZZESN_NEWDEF"
+        if frappe.db.exists("EC Digital Signature Profile", code):
+            frappe.delete_doc("EC Digital Signature Profile", code, ignore_permissions=True, force=True)
+        doc = frappe.get_doc({
+            "doctype": "EC Digital Signature Profile", "profile_code": code,
+            "title": "new default", "business_doctype": BD, "approval_type": AT,
+            "provider": "Mock", "environment": "UAT", "enabled": 1,
+            "provider_creation_trigger": "Before First Signing Level",
+            "doc_code_source": "name", "title_source": "request_title",
+            "amount_source": "payment_amount", "description_source": "reason",
+        }).insert(ignore_permissions=True)
+        self.assertEqual(doc.approver_signature_policy, "All Approval Levels")
+        frappe.delete_doc("EC Digital Signature Profile", code, ignore_permissions=True, force=True)
+
+    def test_derive_signature_type_from_mapping(self):
+        self.assertEqual(guard.derive_signature_type({"signature_type": "USB Token"}), "USB Token")
+        self.assertIsNone(guard.derive_signature_type(None))
+        self.assertIsNone(guard.derive_signature_type({}))
+
+    def test_derive_role_title_precedence(self):
+        # override wins
+        self.assertEqual(guard.derive_role_title(None, override="EXACT"), "EXACT")
+        # requester default when profile has no requester_role_title
+        self.assertEqual(guard.derive_role_title(None, is_requester=True), "Nguoi de nghi")
+        # approval-process/runtime role title
+        self.assertEqual(guard.derive_role_title(None, level_no=2,
+                                                 process_role_title="Truong phong"), "Truong phong")
+        # derived fallback from level number
+        self.assertEqual(guard.derive_role_title(None, level_no=3), "Cap duyet 3")
