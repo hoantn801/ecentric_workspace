@@ -324,3 +324,21 @@ def placement_editor_config(payment_request_name):
     return {"package": pkg.get("name"), "files": files,
             "version": pkg.get("package_version"),
             "locked": bool(pkg.get("status") and pkg.get("status") != "Draft")}
+
+
+@frappe.whitelist()
+def requester_signing_readiness(payment_request_name):
+    """Read-only requester Submit & Sign readiness (fail-closed)."""
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.approval_center.esign import requester
+    return requester.requester_signing_readiness("EC Payment Request", payment_request_name)
+
+
+@frappe.whitelist(methods=["POST"])
+def requester_submit_and_sign(payment_request_name, comment=None):
+    """Governed requester Submit & Sign. Session user must be the authoritative requester
+    (no Administrator/System Manager bypass); creates/reuses one requester-scoped DSR."""
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.approval_center.esign import requester
+    return requester.requester_submit_and_sign("EC Payment Request", payment_request_name,
+                                               comment=comment)
