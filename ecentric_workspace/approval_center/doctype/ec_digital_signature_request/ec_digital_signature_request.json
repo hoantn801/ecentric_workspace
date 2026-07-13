@@ -94,14 +94,28 @@
    "fieldtype": "Link",
    "label": "Request Level",
    "options": "EC Approval Request Level",
-   "reqd": 1
+   "reqd": 0
   },
   {
    "fieldname": "approver_row",
    "fieldtype": "Link",
    "label": "Approver Row",
    "options": "EC Approval Request Approver",
-   "reqd": 1
+   "reqd": 0
+  },
+  {
+   "fieldname": "actor_type",
+   "fieldtype": "Select",
+   "options": "Approval Level\nRequester",
+   "default": "Approval Level",
+   "label": "Actor Type",
+   "description": "Approval Level = a frozen runtime approver signing a level (request_level+approver_row required). Requester = pre-approval requester signing (request_level/approver_row not used)."
+  },
+  {
+   "fieldname": "actor_user",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Actor User"
   },
   {
    "fieldname": "action",
