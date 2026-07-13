@@ -24,14 +24,14 @@ def _client(script, retry_limit=2):
 class TestSctsClient(FrappeTestCase):
     def test_login_success_returns_payload(self):
         c, t = _client({"login": sx.login_ok("tok", 60)})
-        out = c.login("u", "p")
+        out = c.login("eCentric", "u", "p")
         self.assertEqual(out["token"], "tok")
         self.assertEqual(t.count("login"), 1)
 
     def test_login_failure_is_non_retryable_auth_error(self):
         c, t = _client({"login": sx.login_bad()})
         with self.assertRaises(ProviderError) as e:
-            c.login("u", "p")
+            c.login("eCentric", "u", "p")
         self.assertFalse(e.exception.retryable)
         self.assertEqual(e.exception.code, "scts_auth_failed")
         self.assertEqual(t.count("login"), 1)  # 4xx: never retried

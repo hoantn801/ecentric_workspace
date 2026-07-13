@@ -127,13 +127,20 @@ class SctsAdapter(SignatureProviderAdapter):
 
     # -- session --------------------------------------------------------------
     def authenticate(self):
-        """Force a fresh login and cache the token. Returns a SAFE summary (no token)."""
+        """Force a fresh login and cache the token. Returns a SAFE summary (no token). The
+        SCTS login contract requires Site, read from Provider Settings.site; a blank Site
+        fails closed BEFORE any network call. Credentials are never logged."""
+        site = _sval(self.settings, "site")
         username = _sval(self.settings, "username")
         password = self._password("password")
+        if not site:
+            raise ProviderError("scts_site_missing",
+                                "SCTS Site (Provider Settings.site) is not configured",
+                                retryable=False)
         if not username or not password:
             raise ProviderError("scts_credentials_missing",
                                 "SCTS username/password not configured", retryable=False)
-        raw = self._client.login(username, password)
+        raw = self._client.login(site, username, password)
         token = self._extract_token(raw)
         if not token:
             raise ProviderError("scts_login_no_token",
