@@ -65,7 +65,7 @@ class TestShellAssets(unittest.TestCase):
         self.assertNotIn("new window.MutationObserver", js)
 
     def test_css_is_fully_scoped(self):
-        css = _read(APP, "public", "css", "ec_shell.css")
+        css = _read(APP, "public", "css", "ec_shell.bundle.css")
         css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
         for line in css.splitlines():
             s = line.strip()
