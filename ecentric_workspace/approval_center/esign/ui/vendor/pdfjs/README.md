@@ -1,29 +1,25 @@
-# Vendored PDF.js (local, no CDN)
+# Vendored PDF.js (local, no CDN) — pdfjs-dist@4.10.38 (CVE-2024-4367 patched)
 
-The bundled placement editor (`pdf_placement_editor.html`) loads PDF.js **only** from
-`/assets/ecentric_workspace/vendor/pdfjs/` — never from a CDN or any remote host. The
-binary dist is intentionally **not** committed here (it is a large third-party build); the
-operator vendors it once during deployment.
+The bundled placement editor loads PDF.js **only** from
+`/assets/ecentric_workspace/vendor/pdfjs/` (served from `ecentric_workspace/public/vendor/pdfjs/`).
+No CDN or remote host is ever contacted.
 
-## Vendoring step (operator, offline-capable)
+**Pinned build:** `pdfjs-dist@4.10.38` **legacy ESM** build (`legacy/build/pdf.mjs` +
+`pdf.worker.mjs`). This version is **not** affected by CVE-2024-4367 / GHSA-wgrm-67xf-hhpq
+(which affects `<= 4.1.392`; first patched `4.2.67`). `npm audit` for `4.10.38` reports 0
+advisories. The previous 3.11.174 build has been removed entirely.
 
-1. Download the **legacy** UMD build of a pinned PDF.js release (Mozilla, Apache-2.0), e.g.
-   `pdfjs-dist@4.x` `legacy/build/pdf.min.js` + `legacy/build/pdf.worker.min.js`.
-2. Copy both files into this directory:
-   - `vendor/pdfjs/pdf.min.js`
-   - `vendor/pdfjs/pdf.worker.min.js`
-3. Record the SHA-256 of each file in `vendor/pdfjs/PINNED.sha256` and verify it on deploy.
-4. `bench build --app ecentric_workspace` so the assets are served under
-   `/assets/ecentric_workspace/vendor/pdfjs/`.
+The editor loads the module via **ESM dynamic `import()`** (no CDN, no `window` global, no
+eval-based shim), sets `GlobalWorkerOptions.workerSrc` to the local `pdf.worker.mjs`, and
+calls `getDocument({ ..., isEvalSupported: false })` as defence in depth.
 
-## Fail-closed behaviour
+Committed under `ecentric_workspace/public/vendor/pdfjs/`:
+`pdf.mjs`, `pdf.worker.mjs`, `LICENSE` (Apache-2.0, upstream, unmodified), and
+`PINNED.sha256` (package/version/npm-integrity/tarball-shasum/per-asset SHA-256/license/
+retrieval-date/upstream). `verify_pdfjs.py` (build/CI + `tests/test_pdfjs_assets.py`) fails
+closed if the version is below 4.2.67, the LICENSE is missing, any asset is missing or its
+SHA-256 does not match, or a legacy `pdf.min.js`/`pdf.worker.min.js` remains — so the dist
+cannot be silently swapped and deployment is not a manual copy step.
 
-If the assets are absent, the editor **does not** reach out to any remote host — it shows a
-clear message and falls back to the numeric coordinate-entry mode, which is fully
-functional and governed by the same backend validation. No CDN, remote script, remote font,
-or third-party runtime asset is ever loaded.
-
-## Why legacy build
-
-The legacy UMD build avoids ES-module/worker-type constraints and integrates as a single
-`<script>` with a classic `workerSrc`, keeping the editor self-contained.
+If the assets are ever absent the editor does not reach out remotely — it falls back to the
+governed numeric coordinate-entry mode.

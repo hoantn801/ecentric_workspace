@@ -1,0 +1,16 @@
+# PDF.js vendored build - provenance + integrity manifest.
+# Verified by verify_pdfjs.py at build/CI time and by tests/test_pdfjs_assets.py.
+package: pdfjs-dist
+version: 4.10.38
+min_required_version: 4.2.67
+cve_note: CVE-2024-4367 / GHSA-wgrm-67xf-hhpq affects <=4.1.392 (first patched 4.2.67); 4.10.38 is NOT affected.
+npm_integrity: sha512-/Y3fcFrXEAsMjJXeL9J8+ZG9U01LbuWaYypvDW2ycW1jL269L3js3DVBjDJ0Up9Np1uqDXsDrRihHANhZOlwdQ==
+npm_tarball_shasum: 3ee698003790dc266cc8b55c0e662ccb9ae18f53
+upstream: https://www.npmjs.com/package/pdfjs-dist  (Mozilla PDF.js, Apache-2.0)
+source_path: package/legacy/build/ (ESM legacy build)
+license_file: LICENSE
+retrieved: 2026-07-13
+
+# SHA-256 of every vendored runtime asset:
+081d3b6f426d38a8029766f8839f505e9cbf2c81a71d62c26eada142e6c21ae4  pdf.mjs
+5e9f76bd5e65fbd1602b29fc50e50490aeeacd34a715b2282b73f7e8029242e0  pdf.worker.mjs

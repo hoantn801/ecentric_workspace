@@ -27,7 +27,7 @@ DOC_ID = "SCTS-DOC-1"
 def _scts_settings():
     name = frappe.db.get_value("EC Digital Signature Provider Settings",
                                {"provider": "SCTS", "environment": "UAT"}, "name")
-    vals = {"base_url": "https://scts.uat.local", "username": "erp-bot",
+    vals = {"base_url": "https://scts.uat.local", "base_url_allowlist": "scts.uat.local", "username": "erp-bot",
             "integration_enabled": 1, "allow_document_creation": 1, "allow_signing": 1,
             "allow_production_signing": 0}
     if name:

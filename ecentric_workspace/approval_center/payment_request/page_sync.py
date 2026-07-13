@@ -30,12 +30,31 @@ def _esign_panel():
         return ""
 
 
+def _esign_editor_panel():
+    """The bundled PDF placement editor, appended once. coords.js is loaded LOCALLY (served
+    from /assets/ecentric_workspace/) BEFORE the editor so window.ECoords exists; PDF.js is
+    loaded locally by the editor itself. Returns '' if the source is missing so a sync never
+    fails on its absence. EC_PPH_CONFIG is resolved by the editor from the backend."""
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # approval_center
+    try:
+        with open(os.path.join(base, "esign", "ui", "pdf_placement_editor.html"),
+                  encoding="utf-8") as fh:
+            editor = fh.read()
+    except OSError:
+        return ""
+    coords = ('<script id="ec-pph-coords" '
+              'src="/assets/ecentric_workspace/esign/coords.js"></script>')
+    return coords + "\n" + editor
+
+
 def _html():
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     with open(os.path.join(base, "frontend", "payment_request.main_section.html"),
               encoding="utf-8") as fh:
         main = fh.read()
-    return main + "\n" + _esign_panel()
+    # Whole section is rebuilt from source on every sync, so appending each panel exactly
+    # once is idempotent by construction.
+    return main + "\n" + _esign_panel() + "\n" + _esign_editor_panel()
 
 
 def sync(html=None):

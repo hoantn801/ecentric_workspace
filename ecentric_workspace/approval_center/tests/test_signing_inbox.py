@@ -69,3 +69,14 @@ class TestSigningInbox(FrappeTestCase):
         frappe.set_user("Administrator")
         blob = frappe.as_json(out)
         self.assertNotIn("%PDF-", blob)
+
+
+    def test_scope_total_and_approximate_flag_present(self):
+        h = fx.full_stack(fx.PFX + "ib8r@example.com", fx.PFX + "ib8m@example.com")
+        frappe.set_user(h["mgr"])
+        out = inbox.signing_inbox()
+        frappe.set_user("Administrator")
+        self.assertIn("scope_total", out)          # exact DB count of the governed scope
+        self.assertIn("approximate_count", out)
+        self.assertFalse(out["approximate_count"])  # small fixture is under the cap
+        self.assertGreaterEqual(out["scope_total"], out["total"])

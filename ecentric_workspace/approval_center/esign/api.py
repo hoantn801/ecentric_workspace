@@ -254,7 +254,7 @@ def retrieve_signed_files(payment_request_name):
     return signed_files.retrieve_and_store_for_package(pkg)
 
 
-# ------------------------------ signing UX / inbox / bulk / review (overnight) ------------ #
+# --------------------- signing UX / inbox / multi-select / review (overnight) --------------- #
 @frappe.whitelist()
 def signing_ui_state(business_doctype, business_name):
     """Backend-authoritative, sanitized signing state for the detail panel (read-only)."""
@@ -271,18 +271,20 @@ def signing_inbox(filters=None, start=0, page_length=20):
 
 
 @frappe.whitelist(methods=["POST"])
-def preview_bulk_sign(items):
-    """Read-only bulk eligibility preview - NO writes, NO provider calls."""
-    from ecentric_workspace.approval_center.esign import bulk
-    return bulk.preview_bulk(items)
+def preview_multi_select_sign(items):
+    """Read-only eligibility preview for multi-select SEQUENTIAL signing - NO writes, NO
+    provider calls. (Not provider bulk; SCTS multi-instance batching is deferred.)"""
+    from ecentric_workspace.approval_center.esign import multi_sign
+    return multi_sign.preview_multi_select(items)
 
 
 @frappe.whitelist(methods=["POST"])
-def bulk_sign(items, comment=None):
-    """Governed bulk signing across business requests. Fail-closed whole-batch validation;
-    bulk gate OFF by default. Identity/instance IDs are resolved server-side per item."""
-    from ecentric_workspace.approval_center.esign import bulk
-    return bulk.bulk_sign(items, comment=comment)
+def multi_select_sequential_sign(items, comment=None):
+    """Governed multi-select SEQUENTIAL signing across business requests. Fail-closed
+    whole-selection validation; gated OFF by default; each item is signed independently
+    through the verified single-item path - no provider batch call is made or implied."""
+    from ecentric_workspace.approval_center.esign import multi_sign
+    return multi_sign.multi_select_sequential_sign(items, comment=comment)
 
 
 @frappe.whitelist()
@@ -304,3 +306,21 @@ def resolve_signed_file_review(dsf_name, action, reason=None):
     if action == "keep":
         return review.keep_existing(dsf_name, reason)
     frappe.throw(_("Hành động không hợp lệ."))
+
+
+@frappe.whitelist()
+def placement_editor_config(payment_request_name):
+    """Backend-computed EC_PPH_CONFIG for the bundled placement editor. Permission-checked;
+    the client supplies ONLY the PR name and receives package/files/version/locked resolved
+    server-side (never a raw private-file URL)."""
+    _business_args("EC Payment Request", payment_request_name)
+    perms.assert_can_view_business("EC Payment Request", payment_request_name)
+    from ecentric_workspace.approval_center.esign import ui_state
+    st = ui_state.signing_ui_state("EC Payment Request", payment_request_name)
+    pkg = st.get("package") or {}
+    files = [{"name": f.get("name"), "file_name": f.get("file_name"),
+              "is_pdf": f.get("is_pdf"), "requires_signature": f.get("requires_signature")}
+             for f in (pkg.get("files") or [])]
+    return {"package": pkg.get("name"), "files": files,
+            "version": pkg.get("package_version"),
+            "locked": bool(pkg.get("status") and pkg.get("status") != "Draft")}

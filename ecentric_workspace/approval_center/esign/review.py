@@ -54,9 +54,12 @@ def _recompute_bundle_complete(package_name):
 
 
 def _close_review_todo(package_name):
-    for t in frappe.get_all("ToDo", filters={"reference_type": PKG,
-                                             "reference_name": package_name,
-                                             "status": "Open"}, pluck="name"):
+    """Close ONLY the signed-file-review ToDo for this package (matched by the stable
+    marker). Unrelated reconciliation / manual-review / approval ToDos are never touched."""
+    from ecentric_workspace.approval_center.esign.signed_files import REVIEW_TODO_MARKER
+    for t in frappe.get_all("ToDo", filters={
+            "reference_type": PKG, "reference_name": package_name, "status": "Open",
+            "description": ["like", "%" + REVIEW_TODO_MARKER + "%"]}, pluck="name"):
         frappe.db.set_value("ToDo", t, "status", "Closed")
 
 

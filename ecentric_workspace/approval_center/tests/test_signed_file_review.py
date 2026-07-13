@@ -96,3 +96,26 @@ class TestSignedFileReview(FrappeTestCase):
         review.accept_candidate(dsf)
         self.assertEqual(frappe.db.get_value(DSF, dsf, "file"), original)
         self.assertEqual(frappe.db.get_value(DSF, dsf, "sha256"), original_sha)
+
+
+    def test_only_signed_file_review_todo_closed(self):
+        # a mismatch creates the marked review ToDo; add UNRELATED open ToDos on the same
+        # package; resolving must close ONLY the signed-file-review ToDo.
+        biz, pkg, dsf = _mismatched("rv8@example.com")
+        other1 = frappe.get_doc({"doctype": "ToDo", "allocated_to": "Administrator",
+                                 "reference_type": PKG, "reference_name": pkg,
+                                 "description": "reconciliation follow-up",
+                                 "assigned_by": "Administrator"}).insert(ignore_permissions=True)
+        other2 = frappe.get_doc({"doctype": "ToDo", "allocated_to": "Administrator",
+                                 "reference_type": PKG, "reference_name": pkg,
+                                 "description": "manual review of approval",
+                                 "assigned_by": "Administrator"}).insert(ignore_permissions=True)
+        review.accept_candidate(dsf)
+        self.assertEqual(frappe.db.get_value("ToDo", other1.name, "status"), "Open")
+        self.assertEqual(frappe.db.get_value("ToDo", other2.name, "status"), "Open")
+        from ecentric_workspace.approval_center.esign.signed_files import REVIEW_TODO_MARKER
+        marked = frappe.get_all("ToDo", filters={
+            "reference_type": PKG, "reference_name": pkg,
+            "description": ["like", "%" + REVIEW_TODO_MARKER + "%"]},
+            fields=["status"])
+        self.assertTrue(marked and all(m.status == "Closed" for m in marked))

@@ -23,7 +23,7 @@ def _grant_sm(user):
 def _ready_stack(reqmail, mgrmail):
     h = fx.full_stack(fx.PFX + reqmail, fx.PFX + mgrmail)
     name = frappe.db.get_value(SETTINGS, {"provider": "SCTS", "environment": "UAT"}, "name")
-    vals = {"base_url": "https://scts.uat.local", "username": "erp-bot",
+    vals = {"base_url": "https://scts.uat.local", "base_url_allowlist": "scts.uat.local", "username": "erp-bot",
             "integration_enabled": 1, "allow_document_creation": 1, "allow_signing": 1,
             "allow_production_signing": 0, "allow_callback": 0, "allow_bulk_signing": 0,
             "allowed_signing_users": "\n".join(h["approvers"])}

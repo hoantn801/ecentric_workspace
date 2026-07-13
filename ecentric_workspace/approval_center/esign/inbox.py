@@ -29,40 +29,42 @@ BUCKETS = ("my_pending", "ready_to_sign", "package_incomplete", "awaiting_provid
 
 
 def _scoped_candidate_ars(filters, user, is_sm):
-    """Coarse SQL-filtered, permission-scoped candidate AR set (capped). A non-SM is scoped
-    to their own Pending approver rows; an SM may filter by dept/company."""
+    """Permission-scoped candidate AR set with coarse filters pushed into the DATABASE
+    (scope, status, approval_type, department, date range). Returns (rows, exact_scope_count)
+    where exact_scope_count is a DB COUNT over the full governed scope (not the capped page).
+    A non-SM is scoped to their own Pending approver rows; an SM may filter by department."""
     f = filters or {}
     want_completed = f.get("bucket") == "completed"
-    conds = {}
-    conds["approval_status"] = "Approved" if want_completed else "Pending"
+    conds = [["approval_status", "=", "Approved" if want_completed else "Pending"]]
     if f.get("approval_type"):
-        conds["approval_type"] = f["approval_type"]
+        conds.append(["approval_type", "=", f["approval_type"]])
     if is_sm and f.get("requester_department"):
-        conds["requester_department"] = f["requester_department"]
-    ar_names = None
+        conds.append(["requester_department", "=", f["requester_department"]])
+    if f.get("from_date"):
+        conds.append(["submitted_at", ">=", getdate(f["from_date"])])
+    if f.get("to_date"):
+        conds.append(["submitted_at", "<=", getdate(f["to_date"])])
     if not is_sm or f.get("mine_only"):
-        # scope to requests where THIS user holds a Pending approver row
         rows = frappe.get_all(APPROVER, filters={"approver": user, "status": "Pending"},
-                              fields=["approval_request", "level_no"],
-                              limit_page_length=_CANDIDATE_CAP)
-        ar_names = {r.approval_request for r in rows}
+                              fields=["approval_request"], limit_page_length=0)
+        ar_names = sorted({r.approval_request for r in rows})
         if not ar_names:
-            return []
-        conds["name"] = ["in", list(ar_names)]
+            return [], 0
+        conds.append(["name", "in", ar_names])
+    # exact full-scope count (DB), then a capped page-ordered slice for per-row derivation
+    scope_count = _count(conds)
     ars = frappe.get_all(AR, filters=conds,
                          fields=["name", "reference_doctype", "reference_name",
                                  "requested_by", "requester_department", "approval_type",
                                  "approval_status", "current_level", "submitted_at",
                                  "completed_at"],
                          order_by="submitted_at desc", limit_page_length=_CANDIDATE_CAP)
-    # date range on submitted_at
-    if f.get("from_date"):
-        fr = getdate(f["from_date"])
-        ars = [a for a in ars if a.submitted_at and getdate(a.submitted_at) >= fr]
-    if f.get("to_date"):
-        to = getdate(f["to_date"])
-        ars = [a for a in ars if a.submitted_at and getdate(a.submitted_at) <= to]
-    return ars
+    return ars, scope_count
+
+
+def _count(conds):
+    """Exact COUNT(*) over the governed scope using the same coarse conditions."""
+    return frappe.db.count(AR, filters=conds)
 
 
 def _amount(doctype, name):
@@ -145,27 +147,27 @@ def _bucket_for(ar, pkg, dsr, stage, is_active):
 
 
 def signing_inbox(filters=None, start=0, page_length=20):
-    """Permission-scoped, server-paginated inbox. `filters` may include: bucket,
-    approval_type, requester_department (SM), from_date, to_date, mine_only."""
+    """Permission-scoped, server-paginated inbox. Coarse filters are pushed into the DB and
+    the full governed scope is counted exactly; derived provider-state buckets are computed
+    over a capped candidate slice, so when the scope exceeds the cap the derived counts are
+    flagged approximate (approximate_count=true) rather than presented as an exact total."""
     filters = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
     user = frappe.session.user
     is_sm = perms.is_system_manager(user)
-    cands = _scoped_candidate_ars(filters, user, is_sm)
-    truncated = len(cands) >= _CANDIDATE_CAP
+    cands, scope_count = _scoped_candidate_ars(filters, user, is_sm)
+    truncated = scope_count > _CANDIDATE_CAP
     rows = []
     for ar in cands:
         r = _derive_row(ar, user, is_sm)
-        if r is None:
-            continue
-        rows.append(r)
-    # derived-bucket filter (buckets other than completed/my_pending are provider-state)
+        if r is not None:
+            rows.append(r)
     b = filters.get("bucket")
     if b and b not in ("completed",):
         if b == "my_pending":
             rows = [r for r in rows if r["is_active_approver"]]
         else:
             rows = [r for r in rows if r["bucket"] == b]
-    total = len(rows)
+    derived_total = len(rows)
     start = int(start or 0)
     page_length = max(1, min(int(page_length or 20), 100))
     page = rows[start:start + page_length]
@@ -174,5 +176,9 @@ def signing_inbox(filters=None, start=0, page_length=20):
         counts[r["bucket"]] = counts.get(r["bucket"], 0) + 1
         if r["is_active_approver"]:
             counts["my_pending"] += 1
-    return {"rows": page, "total": total, "start": start, "page_length": page_length,
-            "counts": counts, "truncated": truncated, "is_system_manager": is_sm}
+    # `scope_total` is the exact DB count of the governed scope; `total` is the derived count
+    # over the examined slice. When truncated the derived figures are approximate.
+    return {"rows": page, "total": derived_total, "scope_total": scope_count,
+            "approximate_count": truncated, "start": start, "page_length": page_length,
+            "counts": counts, "counts_approximate": truncated, "truncated": truncated,
+            "candidate_cap": _CANDIDATE_CAP, "is_system_manager": is_sm}

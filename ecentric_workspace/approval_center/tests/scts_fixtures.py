@@ -114,7 +114,7 @@ def make_scts_settings(name="EC-DSPS-SCTS-UAT", base_url="https://scts.uat.local
                        environment="UAT"):
     """A settings dict shaped like frappe.db.get_value(..., '*', as_dict=True)."""
     return {"name": name, "provider": "SCTS", "environment": environment,
-            "base_url": base_url, "username": "erp-bot", "request_timeout": 30,
+            "base_url": base_url, "base_url_allowlist": "scts.uat.local", "username": "erp-bot", "request_timeout": 30,
             "integration_enabled": 1, "allow_signing": 1, "allow_production_signing": 0,
             "allowed_signing_users": "", "token_expires_at": None}
 

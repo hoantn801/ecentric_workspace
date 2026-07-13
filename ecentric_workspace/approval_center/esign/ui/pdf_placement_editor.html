@@ -1,8 +1,10 @@
 <!-- Copyright (c) 2026, eCentric and contributors
      Bundled PDF signature placement editor (Phase 1).
-     * PDF.js is loaded LOCALLY from /assets/ecentric_workspace/vendor/pdfjs/ (no CDN, no
-       remote script/font/runtime). If the vendored asset is absent the editor fails closed
-       to the numeric-entry mode and shows a clear message - it never reaches out remotely.
+     * PDF.js (pinned pdfjs-dist@4.10.38 legacy ESM, CVE-2024-4367-patched) is loaded LOCALLY
+       from /assets/ecentric_workspace/vendor/pdfjs/ via ESM dynamic import() - no CDN, no
+       remote asset, no window global, no eval shim. getDocument is called with
+       isEvalSupported:false (defence in depth). If the asset is absent the editor fails
+       closed to the numeric-entry mode and never reaches out remotely.
      * The private PDF is streamed ONLY through the permission-checked backend method
        get_package_file (never a raw /private/files URL).
      * All viewport<->canonical conversion uses ECoords (coords.js), a 1:1 mirror of the
@@ -58,6 +60,7 @@
   if (!root || !window.frappe) return;
   var cfg = window.EC_PPH_CONFIG || {};       // {package, files:[{name,file_name,is_pdf}], version, locked}
   var PDFJS_BASE = "/assets/ecentric_workspace/vendor/pdfjs/";
+  var pdfjsLib = null;   // the LOCAL vendored ESM module namespace (never a window global)
   var state = { placements: [], page: 1, scale: 1.0, rotation: 0, pagePt: [612, 792],
                 pageCount: 1, dsf: null, dirty: false, pdf: null };
 
@@ -75,17 +78,13 @@
 
   function loadPdfjs() {
     return new Promise(function (resolve) {
-      if (window.pdfjsLib) return resolve(true);
-      var s = document.createElement("script");
-      s.src = PDFJS_BASE + "pdf.min.js";
-      s.onload = function () {
-        if (window.pdfjsLib) {
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_BASE + "pdf.worker.min.js";
-          resolve(true);
-        } else resolve(false);
-      };
-      s.onerror = function () { resolve(false); };  // asset not vendored -> numeric fallback
-      document.head.appendChild(s);
+      if (pdfjsLib) return resolve(true);
+      // ESM dynamic import of the LOCAL vendored module - no CDN, no window global, no eval.
+      import(PDFJS_BASE + "pdf.mjs").then(function (mod) {
+        pdfjsLib = mod;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_BASE + "pdf.worker.mjs";
+        resolve(true);
+      }).catch(function () { resolve(false); });  // asset absent -> numeric fallback
     });
   }
 
@@ -230,9 +229,10 @@
     state.dsf = dsf;
     var f = (cfg.files || []).filter(function (x) { return x.name === dsf; })[0];
     if (!f || !f.is_pdf) { msg("warn", "Tệp không phải PDF - dùng chế độ nhập toạ độ."); return; }
-    if (!window.pdfjsLib) { msg("warn",
+    if (!pdfjsLib) { msg("warn",
       "Trình kết xuất PDF chưa được cài đặt cục bộ - dùng chế độ nhập toạ độ thủ công."); return; }
-    window.pdfjsLib.getDocument({ url: pdfUrl(dsf) }).promise.then(function (pdf) {
+    // isEvalSupported:false = defence in depth against CVE-2024-4367-class eval abuse.
+    pdfjsLib.getDocument({ url: pdfUrl(dsf), isEvalSupported: false }).promise.then(function (pdf) {
       state.pdf = pdf; state.pageCount = pdf.numPages; state.page = 1; renderPage();
     }).catch(function () { msg("err", "Không tải được PDF (kiểm tra quyền truy cập)."); });
   }
@@ -266,6 +266,18 @@
       syncNumeric();
     });
   }
-  init();
+  // EC_PPH_CONFIG is supplied ENTIRELY from backend-computed state: if not preset, resolve
+  // it from the governed placement_editor_config endpoint using only the PR name.
+  function _resolveConfigThenInit() {
+    if (window.EC_PPH_CONFIG) { cfg = window.EC_PPH_CONFIG; return init(); }
+    var pr = window.EC_PPH_PR || (window.PaymentRequest && window.PaymentRequest.state
+             && window.PaymentRequest.state.id);
+    if (!pr) { return init(); }
+    frappe.call({ method: "ecentric_workspace.approval_center.esign.api.placement_editor_config",
+      args: { payment_request_name: pr } })
+      .then(function (r) { cfg = r.message || {}; window.EC_PPH_CONFIG = cfg; init(); })
+      .catch(function () { init(); });
+  }
+  _resolveConfigThenInit();
 })();
 </script>
