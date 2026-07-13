@@ -1,5 +1,128 @@
 /* Copyright (c) 2026, eCentric and contributors
- * Bundle entry for ERP Shell v1 CSS. Referenced by hooks.py `web_include_css`;
- * `bench build` emits a content-hashed dist file (same pattern as
- * notification_center.bundle.js). */
-@import "./ec_shell.css";
+ * ERP Shell v1 -- shared shell chrome. SELF-CONTAINED bundle entry.
+ *
+ * Frappe's esbuild stages *.bundle.css entries into a temp dir where sibling
+ * files are NOT available (deploy 2026-07-13 failed with ENOENT resolving the
+ * relative import of ec_shell.css), so the full stylesheet lives directly in
+ * this file. Do NOT reintroduce relative imports here.
+ *
+ * STRICTLY SCOPED: every rule targets .ec-shell-mount / [data-ec-shell] /
+ * .ec-shell-* only. No global element/frappe overrides. Pages WITHOUT the
+ * opt-in marker are untouched by this file.
+ *
+ * z-index budget (documented; must stay BELOW Notification Center pop=1000,
+ * toasts=1100):
+ *   .ec-shell-burger    880
+ *   .ec-shell-backdrop  890
+ *   .ec-shell-drawer    900
+ */
+
+/* ---- tokens (scoped to shell roots; values mirror the existing palette A) */
+.ec-shell-mount, .ec-shell-drawer {
+  --ec-navy:#2C3DA6; --ec-navy-50:#eef0fb; --ec-navy-700:#1f2d80;
+  --ec-yellow:#FFC000; --ec-pink:#EF7CAF;
+  --ec-gray-50:#f9fafb; --ec-gray-100:#f3f4f6; --ec-gray-200:#e5e7eb;
+  --ec-gray-400:#9ca3af; --ec-gray-500:#6b7280; --ec-gray-600:#4b5563;
+  --ec-gray-800:#1f2937; --ec-gray-900:#111827;
+  --ec-shell-w:248px;
+}
+
+/* ---- desktop sidebar (fills the page's existing 248px grid column) ------- */
+.ec-shell-mount{
+  background:#fff; border-right:1px solid var(--ec-gray-200);
+  display:flex; flex-direction:column;
+  position:sticky; top:0; height:100vh; overflow-y:auto;
+  font-family:inherit;
+}
+.ec-shell-mount .ec-shell-fallback{ display:flex; flex-direction:column; gap:2px; padding:14px 10px; }
+.ec-shell-mount .ec-shell-fallback a{
+  display:block; padding:9px 12px; border-radius:8px; text-decoration:none;
+  color:var(--ec-gray-600); font-size:13.5px;
+}
+.ec-shell-mount .ec-shell-fallback a:hover{ background:var(--ec-gray-100); color:var(--ec-gray-900); }
+
+/* rendered shell (replaces the fallback once boot succeeds) */
+.ec-shell-head{
+  display:flex; align-items:center; gap:9px; padding:14px 14px 10px;
+}
+.ec-shell-brand{ display:flex; align-items:center; gap:9px; text-decoration:none; min-width:0; flex:1; }
+.ec-shell-logo{
+  width:30px; height:30px; border-radius:8px; background:var(--ec-navy); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size:13px; flex:0 0 auto;
+}
+.ec-shell-brandname{ font-weight:700; font-size:14px; color:var(--ec-gray-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ec-shell-iconbtn{
+  position:relative; width:32px; height:32px; border-radius:8px; border:none;
+  background:transparent; color:var(--ec-gray-500); cursor:pointer;
+  display:flex; align-items:center; justify-content:center; text-decoration:none; flex:0 0 auto;
+}
+.ec-shell-iconbtn:hover{ background:var(--ec-gray-100); color:var(--ec-gray-800); }
+.ec-shell-iconbtn svg{ width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+
+.ec-shell-nav{ display:flex; flex-direction:column; gap:2px; padding:6px 10px; flex:1; }
+.ec-shell-grouplabel{
+  padding:12px 12px 4px; font-size:10.5px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--ec-gray-400);
+}
+.ec-shell-item{
+  display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px;
+  text-decoration:none; color:var(--ec-gray-600); font-size:13.5px;
+}
+.ec-shell-item svg{ width:17px; height:17px; flex:0 0 auto; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+.ec-shell-item:hover{ background:var(--ec-gray-100); color:var(--ec-gray-900); }
+.ec-shell-item.ec-shell-active{ background:var(--ec-navy-50); color:var(--ec-navy); font-weight:600; }
+.ec-shell-item.ec-shell-active svg{ stroke:var(--ec-navy); }
+
+.ec-shell-foot{ border-top:1px solid var(--ec-gray-200); padding:10px; display:flex; align-items:center; gap:8px; }
+.ec-shell-usercard{ display:flex; align-items:center; gap:9px; text-decoration:none; min-width:0; flex:1; border-radius:8px; padding:5px 6px; }
+.ec-shell-usercard:hover{ background:var(--ec-gray-100); }
+.ec-shell-avatar{
+  width:30px; height:30px; border-radius:50%; background:var(--ec-navy-50); color:var(--ec-navy);
+  display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;
+  flex:0 0 auto; overflow:hidden;
+}
+.ec-shell-avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+.ec-shell-username{ font-size:12.5px; font-weight:600; color:var(--ec-gray-800); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* ---- keyboard focus (focus-visible only; no outline suppression) --------- */
+.ec-shell-mount a:focus-visible, .ec-shell-mount button:focus-visible,
+.ec-shell-drawer a:focus-visible, .ec-shell-drawer button:focus-visible,
+.ec-shell-burger:focus-visible{
+  outline:2px solid var(--ec-navy); outline-offset:2px;
+}
+
+/* ---- mobile (<=900px, same breakpoint the pilot pages already use) ------- */
+.ec-shell-burger{ display:none; }
+.ec-shell-backdrop{ display:none; }
+.ec-shell-drawer{ display:none; }
+
+@media (max-width:900px){
+  .ec-shell-mount{ display:none; }
+
+  .ec-shell-burger{
+    position:fixed; left:14px; bottom:14px; z-index:880;
+    width:44px; height:44px; border-radius:50%; border:none; cursor:pointer;
+    background:var(--ec-navy, #2C3DA6); color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 14px rgba(0,0,0,.22);
+  }
+  .ec-shell-burger svg{ width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; }
+  /* pages that expose their own opener (data-ec-shell-open) suppress the float */
+  .ec-shell-burger[hidden]{ display:none; }
+
+  .ec-shell-backdrop{ position:fixed; inset:0; background:rgba(17,24,39,.45); z-index:890; }
+  .ec-shell-backdrop.ec-shell-on{ display:block; }
+
+  .ec-shell-drawer{
+    position:fixed; left:0; top:0; bottom:0; width:min(280px, 84vw); z-index:900;
+    background:#fff; border-right:1px solid var(--ec-gray-200);
+    flex-direction:column; overflow-y:auto;
+    transform:translateX(-100%); transition:transform .2s ease;
+  }
+  .ec-shell-drawer.ec-shell-on{ display:flex; transform:translateX(0); }
+  @media (prefers-reduced-motion:reduce){ .ec-shell-drawer{ transition:none; } }
+}
+
+/* body scroll lock while the drawer is open (single, namespaced class) */
+body.ec-shell-noscroll{ overflow:hidden; }
