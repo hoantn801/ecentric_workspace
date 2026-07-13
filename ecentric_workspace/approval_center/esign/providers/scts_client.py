@@ -139,12 +139,19 @@ class SctsClient(object):
         return txt[:200]
 
     # -- endpoints ------------------------------------------------------------
-    def login(self, username, password):
-        """POST /api/Auth/login -> raw provider auth payload (parsed JSON). The adapter
-        extracts token + expiry. 4xx here is an auth failure (non-retryable)."""
+    def login(self, site, username, password):
+        """POST /api/Auth/login with the confirmed SCTS contract body
+        {"Site": ..., "Username": ..., "Password": ...} (exact key casing) -> raw provider
+        auth payload (parsed JSON). The adapter extracts token + expiry. 4xx is a
+        non-retryable auth failure. Site is REQUIRED - a blank Site fails closed BEFORE any
+        network call. The request body (which contains the password) is never logged."""
+        if not site:
+            raise ProviderError("scts_site_missing",
+                                "SCTS Site is required for login", retryable=False)
         try:
             return self._request("POST", "/api/Auth/login",
-                                 json_body={"username": username, "password": password},
+                                 json_body={"Site": site, "Username": username,
+                                            "Password": password},
                                  _label="login")
         except SctsHttpError as e:
             raise ProviderError("scts_auth_failed",
