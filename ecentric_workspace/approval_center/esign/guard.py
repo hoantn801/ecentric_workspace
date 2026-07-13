@@ -50,6 +50,26 @@ def get_active_profile(reference_doctype, approval_type):
     return None
 
 
+def get_enabled_profile(reference_doctype, approval_type):
+    """The exact ENABLED Digital Signature Profile for (business_doctype, approval_type),
+    resolved INDEPENDENTLY of provider execution gates (integration / document-creation /
+    signing / bulk / callback / production). Profile POLICY (e.g. requester_signature_required
+    and approver signature policy intent) is a configuration question and must not depend on
+    whether the external write gate is open - the gates only govern the actual provider call.
+    Fails closed if MORE THAN ONE enabled profile exists for the exact pair (ambiguous config);
+    never silently picks an arbitrary row."""
+    rows = frappe.get_all("EC Digital Signature Profile",
+                          filters={"business_doctype": reference_doctype,
+                                   "approval_type": approval_type, "enabled": 1},
+                          fields=["name"], limit_page_length=5)
+    if not rows:
+        return None
+    if len(rows) > 1:
+        frappe.throw(_("Cấu hình sai: có nhiều hơn một Hồ sơ ký số đang bật cho {0} / {1}. "
+                       "Vui lòng chỉ bật đúng một hồ sơ.").format(reference_doctype, approval_type))
+    return rows[0].name
+
+
 def request_final_level(approval_request):
     """The highest frozen runtime approver level for a request (resolved dynamically per
     request from the Approval Engine's frozen approver rows - never from the profile)."""
@@ -71,9 +91,10 @@ def _approver_signature_policy(profile):
 
 def requester_signature_required(reference_doctype, approval_type):
     """Whether the requester must Submit & Sign before Level 1 (policy flag on the profile).
-    Requester signing is NOT an approval level; identity resolves from the requester's
-    active Verified SCTS mapping at runtime."""
-    profile = get_active_profile(reference_doctype, approval_type)
+    Uses the gate-INDEPENDENT enabled-profile lookup: the requester-signature policy defers
+    Level 1 even while provider write gates are OFF (the actual signing write stays fenced by
+    the gates in the worker/binding). Requester signing is NOT an approval level."""
+    profile = get_enabled_profile(reference_doctype, approval_type)
     if not profile:
         return False
     return bool(frappe.db.get_value("EC Digital Signature Profile", profile,
