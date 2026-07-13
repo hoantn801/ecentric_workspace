@@ -77,7 +77,8 @@ def assert_outbound_binding(dsr_name, adapter, live=True):
         DSR, dsr_name,
         ["name", "provider", "environment", "action", "status", "approval_request",
          "request_level", "approver_row", "approver", "package", "package_version",
-         "package_hash", "effective_scts_user_id", "effective_signature_id"], as_dict=True)
+         "package_hash", "effective_scts_user_id", "effective_signature_id",
+         "actor_type", "actor_user"], as_dict=True)
     if not dsr:
         _block("dsr_missing")
 
@@ -90,9 +91,57 @@ def assert_outbound_binding(dsr_name, adapter, live=True):
     return True
 
 
+def _run_requester_binding_checks(dsr, adapter, live):
+    """Requester-scoped binding: identity bound to the AUTHORITATIVE requester (actor_user),
+    request in pre-approval (current_level == 0), NEVER approver row/level. Same fail-closed
+    gate/allowlist/UAT/mapping-equality invariants as the approver path."""
+    if dsr.action != "Sign":
+        _block("dsr_wrong_action:%s" % dsr.action)
+    if dsr.status not in SUBMIT_ELIGIBLE:
+        _block("dsr_not_submit_eligible:%s" % dsr.status)
+    if not dsr.actor_user:
+        _block("requester_actor_missing")
+    if not dsr.effective_scts_user_id or not dsr.effective_signature_id:
+        _block("dsr_missing_effective_identity")
+    settings = frappe.db.get_value(
+        SETTINGS_DT, {"provider": dsr.provider, "environment": dsr.environment},
+        ["name", "environment", "integration_enabled", "allow_signing",
+         "allow_production_signing", "allowed_signing_users"], as_dict=True)
+    if not settings:
+        _block("settings_missing")
+    assert_provider_uat(settings)
+    if not settings.integration_enabled or not settings.allow_signing:
+        _block("gates_closed")
+    if settings.environment == "Production" and not settings.allow_production_signing:
+        _block("production_signing_off")
+    perms.assert_allowed_signer(settings, dsr.actor_user)
+    mapping = perms.verified_mapping(dsr.actor_user, dsr.environment)
+    if not mapping:
+        _block("mapping_absent_or_unverified")
+    if str(mapping.scts_user_id) != str(dsr.effective_scts_user_id):
+        _block("outbound_userid_mismatch")
+    if str(mapping.signature_id) != str(dsr.effective_signature_id):
+        _block("outbound_signatureid_mismatch")
+    req = frappe.db.get_value("EC Approval Request", dsr.approval_request,
+                              ["approval_status", "requested_by", "requester_signature_status",
+                               "current_level"], as_dict=True)
+    if not req:
+        _block("approval_request_missing")
+    if req.approval_status != "Pending":
+        _block("request_not_pending:%s" % req.approval_status)
+    if str(dsr.actor_user) != str(req.requested_by):
+        _block("actor_not_authoritative_requester")
+    if req.requester_signature_status not in ("Pending", "Processing", "Reconciliation Required"):
+        _block("requester_status_invalid:%s" % req.requester_signature_status)
+    if req.current_level and int(req.current_level) > 0:
+        _block("level_already_active")  # requester signs BEFORE Level 1
+
+
 def _run_binding_checks(dsr, adapter, live):
     """The full invariant chain. Raises BindingError on the first miss. Live ownership
     failures emit SignatureOwnershipRejected; a transient provider error propagates."""
+    if getattr(dsr, "actor_type", None) == "Requester":
+        return _run_requester_binding_checks(dsr, adapter, live)
     dsr_name = dsr.name
     if dsr.action != "Sign":
         _block("dsr_wrong_action:%s" % dsr.action)

@@ -147,6 +147,16 @@ def _ensure_provider_document(dsr, settings, adapter):
     return res["document_id"]
 
 
+def _complete_dsr(dsr_name, dsr):
+    """Route completion by actor_type. Requester DSRs complete through the requester path
+    (activation, never engine.approve()); Approval-Level DSRs use the unchanged approver
+    completion."""
+    if (dsr or {}).get("actor_type") == "Requester":
+        from ecentric_workspace.approval_center.esign import requester
+        return requester.reconcile_and_complete_requester(dsr_name)
+    return svc.verify_and_complete(dsr_name)
+
+
 def process_signing_request(dsr_name):
     """State-aware worker. Safe to re-run at any time (reconciler re-entry)."""
     frappe.db.get_value(DSR, dsr_name, "name", for_update=True)
@@ -175,7 +185,7 @@ def process_signing_request(dsr_name):
                 events.set_dsr_status(dsr_name, "Signed",
                                       extra_fields={"verified_at": now_datetime()},
                                       event_type="Verified", verification_result=vr.reason)
-            out = svc.verify_and_complete(dsr_name)
+            out = _complete_dsr(dsr_name, dsr)
             _enqueue_signed_retrieval(dsr.package, out)
             return
 
@@ -215,7 +225,7 @@ def process_signing_request(dsr_name):
             events.set_dsr_status(dsr_name, "Signed",
                                   extra_fields={"verified_at": now_datetime()},
                                   event_type="Verified", verification_result=vr.reason)
-            out = svc.verify_and_complete(dsr_name)
+            out = _complete_dsr(dsr_name, dsr)
             _enqueue_signed_retrieval(dsr.package, out)
             return
         if dsr.status == "Provider Accepted":
