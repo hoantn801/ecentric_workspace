@@ -50,11 +50,58 @@ def get_active_profile(reference_doctype, approval_type):
     return None
 
 
-def level_requires_signature(reference_doctype, approval_type, level_no):
-    """True only when an enabled+gated profile marks this level requires_signature."""
+def request_final_level(approval_request):
+    """The highest frozen runtime approver level for a request (resolved dynamically per
+    request from the Approval Engine's frozen approver rows - never from the profile)."""
+    if not approval_request:
+        return None
+    rows = frappe.get_all("EC Approval Request Approver",
+                          filters={"approval_request": approval_request},
+                          fields=["level_no"], order_by="level_no desc", limit_page_length=1)
+    return rows[0].level_no if rows else None
+
+
+def _approver_signature_policy(profile):
+    """The profile's approver signature policy. An unset value (existing pre-migration
+    profiles) maps to 'Selected Approval Levels', which reproduces the OLD per-level-row
+    behavior EXACTLY - so existing profiles are unchanged (backward compatible)."""
+    return (frappe.db.get_value("EC Digital Signature Profile", profile,
+                                "approver_signature_policy") or "Selected Approval Levels")
+
+
+def requester_signature_required(reference_doctype, approval_type):
+    """Whether the requester must Submit & Sign before Level 1 (policy flag on the profile).
+    Requester signing is NOT an approval level; identity resolves from the requester's
+    active Verified SCTS mapping at runtime."""
     profile = get_active_profile(reference_doctype, approval_type)
     if not profile:
         return False
+    return bool(frappe.db.get_value("EC Digital Signature Profile", profile,
+                                    "requester_signature_required"))
+
+
+def level_requires_signature(reference_doctype, approval_type, level_no, final_level=None):
+    """True when the active profile's Approver Signature Policy makes THIS Approval Engine
+    level require a digital signature. Policy-driven so admins need not recreate every level:
+      * None                     -> no level requires signing;
+      * All Approval Levels      -> every level requires signing (no per-level rows needed);
+      * Final Approval Level Only-> only the highest runtime level (final_level, resolved
+                                    dynamically from the request's frozen approvers);
+      * Selected Approval Levels -> only levels with a requires_signature Signing Levels row
+                                    (the OLD behavior; also the backward-compat default).
+    The Approval Engine still owns approvers/order/completion; this only decides WHICH levels
+    are signable."""
+    profile = get_active_profile(reference_doctype, approval_type)
+    if not profile:
+        return False
+    policy = _approver_signature_policy(profile)
+    if policy == "None":
+        return False
+    if policy == "All Approval Levels":
+        return True
+    if policy == "Final Approval Level Only":
+        return bool(final_level is not None and int(level_no) == int(final_level))
+    # Selected Approval Levels (default / backward-compatible)
     return bool(frappe.db.exists("EC Digital Signature Profile Level",
                                  {"parent": profile, "level_no": level_no,
                                   "requires_signature": 1}))

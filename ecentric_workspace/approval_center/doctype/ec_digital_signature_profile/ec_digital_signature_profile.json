@@ -114,6 +114,21 @@
    "in_list_view": 1
   },
   {
+   "fieldname": "requester_signature_required",
+   "fieldtype": "Check",
+   "default": "0",
+   "label": "Requester Signature Required",
+   "description": "If ticked, the requester must Submit & Sign before Approval Level 1 becomes actionable. Signer identity is resolved dynamically from the requester's active Verified SCTS mapping."
+  },
+  {
+   "fieldname": "approver_signature_policy",
+   "fieldtype": "Select",
+   "options": "All Approval Levels\nSelected Approval Levels\nFinal Approval Level Only\nNone",
+   "default": "Selected Approval Levels",
+   "label": "Approver Signature Policy",
+   "description": "Which Approval Engine levels require a digital signature. 'All Approval Levels' needs NO per-level rows below. 'Selected Approval Levels' uses the optional Signing Levels table. 'Final Approval Level Only' targets the highest runtime level. Approvers/order/completion stay owned by the Approval Engine."
+  },
+  {
    "fieldname": "bulk_enabled",
    "fieldtype": "Check",
    "label": "Bulk Enabled",
@@ -217,8 +232,10 @@
   {
    "fieldname": "levels",
    "fieldtype": "Table",
-   "label": "Signing Levels",
-   "options": "EC Digital Signature Profile Level"
+   "label": "Signing Levels (optional - Selected Approval Levels / provider overrides)",
+   "options": "EC Digital Signature Profile Level",
+   "depends_on": "eval:doc.approver_signature_policy=='Selected Approval Levels'",
+   "description": "OPTIONAL. Only used when Approver Signature Policy = 'Selected Approval Levels', or to carry a provider-specific roleTitle/signatureType override for a level. Not required for 'All Approval Levels'."
   },
   {
    "fieldname": "field_map",
