@@ -114,6 +114,28 @@
    "in_list_view": 1
   },
   {
+   "fieldname": "requester_signature_required",
+   "fieldtype": "Check",
+   "default": "0",
+   "label": "Requester Signature Required",
+   "description": "If ticked, the requester must Submit & Sign before Approval Level 1 becomes actionable. Signer identity is resolved dynamically from the requester's active Verified SCTS mapping."
+  },
+  {
+   "fieldname": "requester_role_title",
+   "fieldtype": "Data",
+   "label": "Requester Role Title (optional)",
+   "depends_on": "eval:doc.requester_signature_required",
+   "description": "Optional SCTS roleTitle for the requester signature. Blank -> derived default 'Nguoi de nghi'. signatureType for the requester is derived from the requester's Verified SCTS mapping metadata, not entered here."
+  },
+  {
+   "fieldname": "approver_signature_policy",
+   "fieldtype": "Select",
+   "options": "All Approval Levels\nSelected Approval Levels\nFinal Approval Level Only\nNone",
+   "default": "All Approval Levels",
+   "label": "Approver Signature Policy",
+   "description": "Which Approval Engine levels require a digital signature. 'All Approval Levels' needs NO per-level rows below. 'Selected Approval Levels' uses the optional Signing Levels table. 'Final Approval Level Only' targets the highest runtime level. Approvers/order/completion stay owned by the Approval Engine. NEW profiles default to All Approval Levels (no per-level rows). A blank/unset value on a legacy profile keeps the old Selected-Approval-Levels behaviour."
+  },
+  {
    "fieldname": "bulk_enabled",
    "fieldtype": "Check",
    "label": "Bulk Enabled",
@@ -217,8 +239,10 @@
   {
    "fieldname": "levels",
    "fieldtype": "Table",
-   "label": "Signing Levels",
-   "options": "EC Digital Signature Profile Level"
+   "label": "Selected Level Overrides",
+   "options": "EC Digital Signature Profile Level",
+   "depends_on": "eval:doc.approver_signature_policy=='Selected Approval Levels'",
+   "description": "Advanced/override only. Used when Approver Signature Policy = 'Selected Approval Levels', or to carry an exact provider roleTitle/signatureType override for a level. Hidden for All Approval Levels, Final Approval Level Only and None. NOT a workflow builder - approvers/order/completion are owned by the Approval Engine."
   },
   {
    "fieldname": "field_map",

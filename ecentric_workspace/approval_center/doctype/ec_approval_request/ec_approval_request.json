@@ -128,6 +128,35 @@
    "description": "Active level_no. 0 = none/terminal."
   },
   {
+   "fieldname": "requester_signature_status",
+   "fieldtype": "Select",
+   "label": "Requester Signature Status",
+   "options": "Not Required\nPending\nProcessing\nSigned\nFailed\nReconciliation Required",
+   "default": "Not Required",
+   "read_only": 1,
+   "description": "Pending/Processing => Level 1 is NOT activated and has no approver ToDo until requester signing is confirmed (Signed). Failed/Reconciliation Required keep Level 1 inactive."
+  },
+  {
+   "fieldname": "requester_signed_at",
+   "fieldtype": "Datetime",
+   "label": "Requester Signed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "requester_signed_by",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Requester Signed By",
+   "read_only": 1
+  },
+  {
+   "fieldname": "requester_signature_request",
+   "fieldtype": "Link",
+   "options": "EC Digital Signature Request",
+   "label": "Requester Signature Request",
+   "read_only": 1
+  },
+  {
    "fieldname": "information_requested_from_level",
    "fieldtype": "Int",
    "label": "Information Requested From Level",

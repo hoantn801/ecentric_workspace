@@ -111,8 +111,10 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
     perms.assert_pending_approver(req, actor)
     approver_row = perms.pending_approver_row(req.name, req.current_level, actor)
 
-    plevel = _profile_level(profile.name, req.current_level)
-    if not plevel or not plevel.requires_signature:
+    # Policy-driven (Approver Signature Policy) so admins need not recreate every level; the
+    # final level is resolved dynamically from the request's frozen runtime approvers.
+    if not guard.level_requires_signature(business_doctype, req.approval_type, req.current_level,
+                                          final_level=guard.request_final_level(req.name)):
         frappe.throw(_("Cấp duyệt hiện tại không yêu cầu ký số - dùng nút Duyệt thường."))
 
     mapping = perms.verified_mapping(actor, profile.environment)
@@ -571,7 +573,8 @@ def signing_readiness(business_doctype, business_name):
     checks["active_approver"] = is_approver
     checks["level_requires_signature"] = bool(
         req.current_level and guard.level_requires_signature(
-            business_doctype, req.approval_type, req.current_level))
+            business_doctype, req.approval_type, req.current_level,
+            final_level=guard.request_final_level(ar)))
     pkg_name = pkgsvc.active_package_for_request(ar)
     pkg = frappe.db.get_value("EC Digital Signature Package", pkg_name,
                               ["status", "package_hash"], as_dict=True) if pkg_name else None

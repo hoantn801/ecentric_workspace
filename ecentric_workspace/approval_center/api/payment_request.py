@@ -373,13 +373,22 @@ def submit_request(name):
     doc.request_title = gen_title(doc)
     doc.submitted_at = now_datetime()
     doc.save(ignore_permissions=True)
+    from ecentric_workspace.approval_center.esign import guard as _esign_guard
+    _req_sig = _esign_guard.requester_signature_required(BIZ, APPROVAL_TYPE)
     prev = frappe.flags.mute_messages
     frappe.flags.mute_messages = True
     try:
-        approval_request = engine.submit(BIZ, doc.name, APPROVAL_TYPE, doc.requested_by)
+        # Option B: when the active signing profile requires a requester signature, freeze the
+        # request + runtime snapshot but DO NOT activate Level 1 (no ToDo / no notification)
+        # until requester signing is confirmed.
+        approval_request = engine.submit(BIZ, doc.name, APPROVAL_TYPE, doc.requested_by,
+                                         activate_first_level=not _req_sig)
     finally:
         frappe.flags.mute_messages = prev
     frappe.db.set_value(BIZ, doc.name, "approval_request", approval_request)
+    if _req_sig:
+        frappe.db.set_value("EC Approval Request", approval_request,
+                            "requester_signature_status", "Pending")
     frappe.local.message_log = []
     return {"approval_request": approval_request, "submitted": True, "detail": get_detail(name)}
 

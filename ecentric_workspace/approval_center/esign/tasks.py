@@ -109,6 +109,7 @@ def _ensure_provider_document(dsr, settings, adapter):
                   for i, f in enumerate(files)],
         "placements": [dict(p) for p in pkgsvc.package_placements(pkg.name)],
     }
+    _enrich_signer_context(ctx["placements"], dsr)  # item 5: derive roleTitle/signatureType
     try:
         res = adapter.create_document(ctx)
     except ProviderError as e:
@@ -147,6 +148,40 @@ def _ensure_provider_document(dsr, settings, adapter):
     return res["document_id"]
 
 
+def _enrich_signer_context(placements, dsr):
+    """Fill blank per-placement signatureType/roleTitle from GOVERNED derivation (item 5) so
+    admins never type them per level. signatureType <- the signer's Verified SCTS mapping
+    metadata; roleTitle <- requester role title (profile/default) for a Requester DSR, else a
+    level-derived title. Explicit placement values (overrides) are preserved; geometry is
+    untouched. `dsr` is the as_dict signing request being assembled."""
+    if not placements:
+        return placements
+    from ecentric_workspace.approval_center.esign import guard as _g
+    from ecentric_workspace.approval_center.esign import permissions as _perms
+    is_req = (dsr or {}).get("actor_type") == "Requester"
+    signer = dsr.get("actor_user") if is_req else dsr.get("approver")
+    mapping = _perms.verified_mapping(signer, dsr.get("environment")) if signer else None
+    sig_type = _g.derive_signature_type(mapping)
+    profile = frappe.db.get_value("EC Digital Signature Package", dsr.get("package"), "profile")
+    for p in placements:
+        if not p.get("signature_type") and sig_type:
+            p["signature_type"] = sig_type
+        if not p.get("scts_role_title"):
+            p["scts_role_title"] = _g.derive_role_title(
+                profile, level_no=p.get("level_no"), is_requester=is_req)
+    return placements
+
+
+def _complete_dsr(dsr_name, dsr):
+    """Route completion by actor_type. Requester DSRs complete through the requester path
+    (activation, never engine.approve()); Approval-Level DSRs use the unchanged approver
+    completion."""
+    if (dsr or {}).get("actor_type") == "Requester":
+        from ecentric_workspace.approval_center.esign import requester
+        return requester.reconcile_and_complete_requester(dsr_name)
+    return svc.verify_and_complete(dsr_name)
+
+
 def process_signing_request(dsr_name):
     """State-aware worker. Safe to re-run at any time (reconciler re-entry)."""
     frappe.db.get_value(DSR, dsr_name, "name", for_update=True)
@@ -175,7 +210,7 @@ def process_signing_request(dsr_name):
                 events.set_dsr_status(dsr_name, "Signed",
                                       extra_fields={"verified_at": now_datetime()},
                                       event_type="Verified", verification_result=vr.reason)
-            out = svc.verify_and_complete(dsr_name)
+            out = _complete_dsr(dsr_name, dsr)
             _enqueue_signed_retrieval(dsr.package, out)
             return
 
@@ -215,7 +250,7 @@ def process_signing_request(dsr_name):
             events.set_dsr_status(dsr_name, "Signed",
                                   extra_fields={"verified_at": now_datetime()},
                                   event_type="Verified", verification_result=vr.reason)
-            out = svc.verify_and_complete(dsr_name)
+            out = _complete_dsr(dsr_name, dsr)
             _enqueue_signed_retrieval(dsr.package, out)
             return
         if dsr.status == "Provider Accepted":

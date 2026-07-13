@@ -50,11 +50,90 @@ def get_active_profile(reference_doctype, approval_type):
     return None
 
 
-def level_requires_signature(reference_doctype, approval_type, level_no):
-    """True only when an enabled+gated profile marks this level requires_signature."""
+def request_final_level(approval_request):
+    """The highest frozen runtime approver level for a request (resolved dynamically per
+    request from the Approval Engine's frozen approver rows - never from the profile)."""
+    if not approval_request:
+        return None
+    rows = frappe.get_all("EC Approval Request Approver",
+                          filters={"approval_request": approval_request},
+                          fields=["level_no"], order_by="level_no desc", limit_page_length=1)
+    return rows[0].level_no if rows else None
+
+
+def _approver_signature_policy(profile):
+    """The profile's approver signature policy. An unset value (existing pre-migration
+    profiles) maps to 'Selected Approval Levels', which reproduces the OLD per-level-row
+    behavior EXACTLY - so existing profiles are unchanged (backward compatible)."""
+    return (frappe.db.get_value("EC Digital Signature Profile", profile,
+                                "approver_signature_policy") or "Selected Approval Levels")
+
+
+def requester_signature_required(reference_doctype, approval_type):
+    """Whether the requester must Submit & Sign before Level 1 (policy flag on the profile).
+    Requester signing is NOT an approval level; identity resolves from the requester's
+    active Verified SCTS mapping at runtime."""
     profile = get_active_profile(reference_doctype, approval_type)
     if not profile:
         return False
+    return bool(frappe.db.get_value("EC Digital Signature Profile", profile,
+                                    "requester_signature_required"))
+
+
+# Default requester role title when the profile leaves it blank (item 4/5 derivation).
+_DEFAULT_REQUESTER_ROLE = "Nguoi de nghi"
+
+
+def derive_signature_type(mapping):
+    """signatureType from the resolved Verified SCTS mapping metadata (never hand-entered per
+    level).  is a row/dict from permissions.verified_mapping. Returns None when the
+    mapping carries no signature_type (the adapter may then omit it)."""
+    if mapping is None:
+        return None
+    if isinstance(mapping, dict):
+        return mapping.get("signature_type")
+    return getattr(mapping, "signature_type", None)
+
+
+def derive_role_title(profile, level_no=None, is_requester=False, process_role_title=None,
+                      override=None):
+    """Governed roleTitle so admins need not type one per level. Precedence:
+    explicit override (profile Level override / provider-required exact value) -> requester
+    role title (profile field or the safe default) -> Approval Process level/runtime role
+    title -> a derived 'Cap duyet <n>'. Never stores a fixed signer user."""
+    if override:
+        return override
+    if is_requester:
+        rt = frappe.db.get_value("EC Digital Signature Profile", profile,
+                                 "requester_role_title") if profile else None
+        return rt or _DEFAULT_REQUESTER_ROLE
+    if process_role_title:
+        return process_role_title
+    return ("Cap duyet %s" % level_no) if level_no is not None else None
+
+
+def level_requires_signature(reference_doctype, approval_type, level_no, final_level=None):
+    """True when the active profile's Approver Signature Policy makes THIS Approval Engine
+    level require a digital signature. Policy-driven so admins need not recreate every level:
+      * None                     -> no level requires signing;
+      * All Approval Levels      -> every level requires signing (no per-level rows needed);
+      * Final Approval Level Only-> only the highest runtime level (final_level, resolved
+                                    dynamically from the request's frozen approvers);
+      * Selected Approval Levels -> only levels with a requires_signature Signing Levels row
+                                    (the OLD behavior; also the backward-compat default).
+    The Approval Engine still owns approvers/order/completion; this only decides WHICH levels
+    are signable."""
+    profile = get_active_profile(reference_doctype, approval_type)
+    if not profile:
+        return False
+    policy = _approver_signature_policy(profile)
+    if policy == "None":
+        return False
+    if policy == "All Approval Levels":
+        return True
+    if policy == "Final Approval Level Only":
+        return bool(final_level is not None and int(level_no) == int(final_level))
+    # Selected Approval Levels (default / backward-compatible)
     return bool(frappe.db.exists("EC Digital Signature Profile Level",
                                  {"parent": profile, "level_no": level_no,
                                   "requires_signature": 1}))

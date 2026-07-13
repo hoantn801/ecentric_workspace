@@ -441,7 +441,8 @@ def build_snapshot(req, process, levels, requester):
             }).insert(ignore_permissions=True)
 
 
-def submit(reference_doctype, reference_name, approval_type, requester, process_code=None):
+def submit(reference_doctype, reference_name, approval_type, requester, process_code=None,
+           activate_first_level=True):
     process = resolve_process(approval_type, process_code)
     levels = resolve_levels(process.name)
     if not levels:
@@ -456,8 +457,13 @@ def submit(reference_doctype, reference_name, approval_type, requester, process_
     }).insert(ignore_permissions=True)
     build_snapshot(req, process, levels, requester)
     log_action(req.name, "Submitted", requester, new_status="Pending")
-    first = _request_levels(req.name)[0]
-    _activate_level(req, first.level_no)
+    # Deferred activation (Option B): a governed pre-approval step (e.g. requester signing)
+    # may need to complete first. When activate_first_level is False the request + frozen
+    # snapshot exist but Level 1 is NOT activated (no ToDo, no approver notification) until
+    # that step confirms success. The default True preserves every existing flow.
+    if activate_first_level:
+        first = _request_levels(req.name)[0]
+        _activate_level(req, first.level_no)
     return req.name
 
 
