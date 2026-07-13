@@ -51,7 +51,7 @@ class SctsClient(object):
     client just performs login and attaches the token it is given / obtains."""
 
     def __init__(self, base_url, timeout=30, retry_limit=2, verify_tls=True,
-                 transport=None, sleeper=None, backoff_base=0.5):
+                 transport=None, sleeper=None, backoff_base=0.5, preflight=None):
         if not base_url:
             raise ProviderError("scts_base_url_missing", "SCTS base_url is not configured",
                                 retryable=False)
@@ -59,7 +59,17 @@ class SctsClient(object):
         self.timeout = int(timeout or 30)
         self.retry_limit = max(0, int(retry_limit if retry_limit is not None else 2))
         self.verify_tls = bool(verify_tls)
-        self._transport = transport or _default_transport
+        # `preflight(method, url)` runs immediately before EVERY request (fail-closed SSRF /
+        # DNS-rebinding revalidation). It raises to abort the request before any bytes leave.
+        self._preflight = preflight
+        real = transport or _default_transport
+        if preflight is not None:
+            def _guarded(method, url, **kw):
+                preflight(method, url)
+                return real(method, url, **kw)
+            self._transport = _guarded
+        else:
+            self._transport = real
         self._sleep = sleeper if sleeper is not None else time.sleep
         self._backoff_base = backoff_base
 

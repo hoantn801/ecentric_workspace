@@ -90,6 +90,12 @@
    "label": "Base Url"
   },
   {
+   "fieldname": "base_url_allowlist",
+   "fieldtype": "Small Text",
+   "label": "Base URL Host Allowlist",
+   "description": "Newline/comma-separated exact hostnames the adapter may call for this provider+environment. REQUIRED for SCTS: an empty allowlist fails closed (no request is made). Pins the UAT and Production SCTS hosts explicitly."
+  },
+  {
    "fieldname": "site",
    "fieldtype": "Data",
    "label": "Site"

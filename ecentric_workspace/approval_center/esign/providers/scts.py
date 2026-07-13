@@ -49,11 +49,43 @@ class SctsAdapter(SignatureProviderAdapter):
     def __init__(self, settings, transport=None, sleeper=None):
         super().__init__(settings)
         self._name = _sval(settings, "name")
+        base_url = _sval(settings, "base_url")
+        # SSRF / URL safety (fail-closed): require https + non-private host + a NON-EMPTY
+        # app-owned host allowlist (empty => no request). Convert to ProviderError so no
+        # provider internals leak above the adapter boundary.
+        from ecentric_workspace.approval_center.esign import netguard
+        allow_hosts = _sval(settings, "base_url_allowlist") or ""
+        try:
+            netguard.assert_base_url_safe(base_url, allow_hosts=allow_hosts,
+                                          require_allowlist=True)
+        except ValueError as e:
+            raise ProviderError("scts_unsafe_base_url", str(e), retryable=False)
+
+        # per-request revalidation (re-checks the allowlist AND, on the real transport,
+        # re-resolves DNS immediately before every request so rebinding cannot slip in a
+        # private address). With an injected test transport no real socket is opened, so DNS
+        # resolution is skipped while the allowlist check is still enforced.
+        from urllib.parse import urlsplit
+        _do_dns = transport is None
+        _host = urlsplit(str(base_url)).hostname
+
+        def _preflight(method, url):
+            ok, reason = netguard.validate_base_url(base_url, allow_hosts=allow_hosts,
+                                                    require_allowlist=True)
+            if not ok:
+                raise ProviderError("scts_unsafe_base_url",
+                                    "unsafe_base_url:%s" % reason, retryable=False)
+            if _do_dns:
+                rok, rreason, _ips = netguard.resolve_and_validate(_host)
+                if not rok:
+                    raise ProviderError("scts_unsafe_base_url",
+                                        "unsafe_base_url:%s" % rreason, retryable=False)
+
         self._client = SctsClient(
-            base_url=_sval(settings, "base_url"),
+            base_url=base_url,
             timeout=_sval(settings, "request_timeout") or 30,
             retry_limit=_HTTP_RETRY_LIMIT,
-            transport=transport, sleeper=sleeper)
+            transport=transport, sleeper=sleeper, preflight=_preflight)
 
     # -- credentials (encrypted; never logged) --------------------------------
     def _password(self, fieldname):

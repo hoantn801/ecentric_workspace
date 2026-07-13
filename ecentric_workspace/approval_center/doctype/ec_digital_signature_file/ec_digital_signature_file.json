@@ -157,6 +157,20 @@
    "fieldname": "signed_retrieved_at",
    "fieldtype": "Datetime",
    "label": "Signed Retrieved At"
+  },
+  {
+   "fieldname": "signed_review_candidate",
+   "fieldtype": "Link",
+   "options": "File",
+   "label": "Signed Review Candidate",
+   "read_only": 1,
+   "description": "Private candidate signed file awaiting manual review after a signed-hash mismatch. The accepted signed_file is never overwritten."
+  },
+  {
+   "fieldname": "signed_review_sha256",
+   "fieldtype": "Data",
+   "label": "Signed Review SHA256",
+   "read_only": 1
   }
  ]
 }

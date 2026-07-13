@@ -1,0 +1,283 @@
+<!-- Copyright (c) 2026, eCentric and contributors
+     Bundled PDF signature placement editor (Phase 1).
+     * PDF.js (pinned pdfjs-dist@4.10.38 legacy ESM, CVE-2024-4367-patched) is loaded LOCALLY
+       from /assets/ecentric_workspace/vendor/pdfjs/ via ESM dynamic import() - no CDN, no
+       remote asset, no window global, no eval shim. getDocument is called with
+       isEvalSupported:false (defence in depth). If the asset is absent the editor fails
+       closed to the numeric-entry mode and never reaches out remotely.
+     * The private PDF is streamed ONLY through the permission-checked backend method
+       get_package_file (never a raw /private/files URL).
+     * All viewport<->canonical conversion uses ECoords (coords.js), a 1:1 mirror of the
+       backend coords.py. The backend re-validates every placement authoritatively, so the
+       page count / dimensions / signer identity / level / version / ownership shown here are
+       display-only and never trusted for authorization. -->
+<div id="ec-pph-editor" class="ec-pph" data-locked="0">
+  <style>
+    .ec-pph{border:1px solid #d9dee3;border-radius:8px;padding:12px;font-size:13px}
+    .ec-pph .ec-pph-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+    .ec-pph .ec-pph-stage{position:relative;overflow:auto;max-height:70vh;background:#f4f5f6;border:1px solid #e2e2e2}
+    .ec-pph canvas{display:block}
+    .ec-pph .ec-rect{position:absolute;border:2px solid #1f6feb;background:rgba(31,111,235,.12);cursor:move}
+    .ec-pph .ec-rect .ec-h{position:absolute;right:-5px;bottom:-5px;width:10px;height:10px;background:#1f6feb;cursor:se-resize}
+    .ec-pph .ec-rect .ec-del{position:absolute;right:-8px;top:-10px;background:#d1242f;color:#fff;border-radius:50%;width:16px;height:16px;line-height:14px;text-align:center;cursor:pointer;font-size:11px}
+    .ec-pph .ec-warn{color:#9a6700;background:#fff8c5;padding:6px 8px;border-radius:6px;margin:6px 0}
+    .ec-pph .ec-err{color:#b35900;background:#ffebe9;padding:6px 8px;border-radius:6px;margin:6px 0}
+    .ec-pph .ec-num td{padding:2px 4px}
+    .ec-pph[data-locked="1"] .ec-rect,.ec-pph[data-locked="1"] .ec-mut{pointer-events:none;opacity:.6}
+    .ec-pph .ec-pill{padding:1px 8px;border-radius:10px;background:#eaeef2;font-size:11px}
+  </style>
+
+  <div class="ec-pph-bar">
+    <select id="ecpphFile" class="ec-mut"></select>
+    <button id="ecpphPrev" class="ec-mut">‹</button>
+    <span id="ecpphPageInfo" class="ec-pill">-</span>
+    <button id="ecpphNext" class="ec-mut">›</button>
+    <button id="ecpphZoomOut" class="ec-mut">-</button>
+    <span id="ecpphZoom" class="ec-pill">100%</span>
+    <button id="ecpphZoomIn" class="ec-mut">+</button>
+    <button id="ecpphAdd" class="ec-mut">+ Vị trí ký</button>
+    <span id="ecpphVersion" class="ec-pill">v?</span>
+    <span id="ecpphState" class="ec-pill">-</span>
+    <button id="ecpphSave" class="ec-mut">Lưu vị trí</button>
+  </div>
+  <div id="ecpphMsg"></div>
+  <div id="ecpphStage" class="ec-pph-stage"><canvas id="ecpphCanvas"></canvas></div>
+
+  <details style="margin-top:8px">
+    <summary>Nhập toạ độ thủ công (chế độ dự phòng / trợ năng)</summary>
+    <table class="ec-num"><thead><tr>
+      <th>Trang</th><th>x</th><th>y</th><th>rộng</th><th>cao</th><th>cấp</th>
+      <th>vai trò</th><th>thứ tự</th><th></th></tr></thead>
+      <tbody id="ecpphNumRows"></tbody></table>
+    <button id="ecpphNumAdd" class="ec-mut">+ dòng</button>
+  </details>
+</div>
+
+<script id="ec-pph-script">
+(function () {
+  "use strict";
+  var root = document.getElementById("ec-pph-editor");
+  if (!root || !window.frappe) return;
+  var cfg = window.EC_PPH_CONFIG || {};       // {package, files:[{name,file_name,is_pdf}], version, locked}
+  var PDFJS_BASE = "/assets/ecentric_workspace/vendor/pdfjs/";
+  var pdfjsLib = null;   // the LOCAL vendored ESM module namespace (never a window global)
+  var state = { placements: [], page: 1, scale: 1.0, rotation: 0, pagePt: [612, 792],
+                pageCount: 1, dsf: null, dirty: false, pdf: null };
+
+  function msg(kind, text) {
+    document.getElementById("ecpphMsg").innerHTML =
+      text ? '<div class="ec-' + kind + '">' + frappe.utils.escape_html(text) + "</div>" : "";
+  }
+  function setLocked(v) { root.setAttribute("data-locked", v ? "1" : "0"); }
+
+  // ---- governed private-PDF streaming (never a raw /private/files URL) ----
+  function pdfUrl(dsf) {
+    return "/api/method/ecentric_workspace.approval_center.esign.api.get_package_file?dsf_name="
+      + encodeURIComponent(dsf);
+  }
+
+  function loadPdfjs() {
+    return new Promise(function (resolve) {
+      if (pdfjsLib) return resolve(true);
+      // ESM dynamic import of the LOCAL vendored module - no CDN, no window global, no eval.
+      import(PDFJS_BASE + "pdf.mjs").then(function (mod) {
+        pdfjsLib = mod;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_BASE + "pdf.worker.mjs";
+        resolve(true);
+      }).catch(function () { resolve(false); });  // asset absent -> numeric fallback
+    });
+  }
+
+  function renderPage() {
+    if (!state.pdf) return;
+    state.pdf.getPage(state.page).then(function (pg) {
+      var rot = pg.rotate || 0;
+      state.rotation = rot;
+      var vp = pg.getViewport({ scale: state.scale, rotation: rot });
+      var mb = pg.getViewport({ scale: 1, rotation: 0 });
+      state.pagePt = [mb.width, mb.height];
+      var canvas = document.getElementById("ecpphCanvas");
+      canvas.width = vp.width; canvas.height = vp.height;
+      pg.render({ canvasContext: canvas.getContext("2d"), viewport: vp });
+      document.getElementById("ecpphPageInfo").textContent =
+        state.page + " / " + state.pageCount;
+      document.getElementById("ecpphZoom").textContent =
+        Math.round(state.scale * 100) + "%";
+      drawRects();
+    });
+  }
+
+  function drawRects() {
+    Array.prototype.slice.call(root.querySelectorAll(".ec-rect")).forEach(function (n) {
+      n.remove();
+    });
+    var stage = document.getElementById("ecpphStage");
+    state.placements.filter(function (p) { return p.page_index === state.page; })
+      .forEach(function (p) {
+        var vp = window.ECoords.canonicalRectToViewport(
+          { x: p.x, y: p.y, width: p.width, height: p.height },
+          state.pagePt, state.scale, state.rotation);
+        var d = document.createElement("div");
+        d.className = "ec-rect";
+        d.style.left = vp.x + "px"; d.style.top = vp.y + "px";
+        d.style.width = vp.width + "px"; d.style.height = vp.height + "px";
+        d.innerHTML = '<div class="ec-del">×</div><div class="ec-h"></div>';
+        d.dataset.pid = p._id;
+        stage.appendChild(d);
+        wireRect(d, p);
+      });
+  }
+
+  function commitFromViewport(p, vpRect) {
+    var canon = window.ECoords.viewportRectToCanonical(vpRect, state.pagePt,
+      state.scale, state.rotation);
+    if (!window.ECoords.isWithinPage(canon, state.pagePt)) {
+      msg("err", "Vị trí ký nằm ngoài trang hoặc kích thước bằng 0 - đã bỏ qua.");
+      return false;
+    }
+    p.x = canon.x; p.y = canon.y; p.width = canon.width; p.height = canon.height;
+    state.dirty = true; return true;
+  }
+
+  function wireRect(el, p) {
+    if (root.getAttribute("data-locked") === "1") return;
+    el.querySelector(".ec-del").onclick = function (e) {
+      e.stopPropagation();
+      state.placements = state.placements.filter(function (q) { return q !== p; });
+      state.dirty = true; drawRects();
+    };
+    var drag = null;
+    el.addEventListener("mousedown", function (e) {
+      if (e.target.classList.contains("ec-del")) return;
+      var resize = e.target.classList.contains("ec-h");
+      drag = { sx: e.clientX, sy: e.clientY, ox: el.offsetLeft, oy: el.offsetTop,
+               ow: el.offsetWidth, oh: el.offsetHeight, resize: resize };
+      e.preventDefault();
+    });
+    document.addEventListener("mousemove", function (e) {
+      if (!drag) return;
+      var dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+      if (drag.resize) {
+        el.style.width = Math.max(8, drag.ow + dx) + "px";
+        el.style.height = Math.max(8, drag.oh + dy) + "px";
+      } else {
+        el.style.left = (drag.ox + dx) + "px"; el.style.top = (drag.oy + dy) + "px";
+      }
+    });
+    document.addEventListener("mouseup", function () {
+      if (!drag) return;
+      commitFromViewport(p, { x: el.offsetLeft, y: el.offsetTop,
+        width: el.offsetWidth, height: el.offsetHeight });
+      drag = null; syncNumeric();
+    });
+  }
+
+  function addPlacement() {
+    if (root.getAttribute("data-locked") === "1") return;
+    var p = { _id: "p" + Date.now() + Math.random().toString(36).slice(2, 6),
+      signature_file: state.dsf, page_index: state.page, x: 72, y: 72,
+      width: 150, height: 45, level_no: 1, signer_role: "", signer_order: 1,
+      signature_type: "" };
+    state.placements.push(p); state.dirty = true; drawRects(); syncNumeric();
+  }
+
+  // ---- numeric fallback (accessibility) ----
+  function syncNumeric() {
+    var tb = document.getElementById("ecpphNumRows");
+    tb.innerHTML = "";
+    state.placements.forEach(function (p) {
+      var tr = document.createElement("tr");
+      ["page_index", "x", "y", "width", "height", "level_no", "signer_role",
+       "signer_order"].forEach(function (k) {
+        var td = document.createElement("td");
+        var inp = document.createElement("input");
+        inp.value = p[k] == null ? "" : p[k];
+        inp.style.width = (k === "signer_role" ? 90 : 52) + "px";
+        inp.className = "ec-mut";
+        inp.onchange = function () {
+          var v = inp.value;
+          p[k] = (k === "signer_role" || k === "signature_type") ? v : parseFloat(v || 0);
+          state.dirty = true; if (p.page_index === state.page) drawRects();
+        };
+        td.appendChild(inp); tr.appendChild(td);
+      });
+      var td = document.createElement("td");
+      var del = document.createElement("button"); del.textContent = "×"; del.className = "ec-mut";
+      del.onclick = function () {
+        state.placements = state.placements.filter(function (q) { return q !== p; });
+        state.dirty = true; drawRects(); syncNumeric();
+      };
+      td.appendChild(del); tr.appendChild(td); tb.appendChild(tr);
+    });
+  }
+
+  function save() {
+    // Backend re-resolves package + signer context and re-validates geometry authoritatively.
+    var rows = state.placements.map(function (p) {
+      return { signature_file: p.signature_file, page_index: p.page_index, x: p.x, y: p.y,
+        width: p.width, height: p.height, level_no: p.level_no,
+        signature_type: p.signature_type || "mock" };
+    });
+    frappe.call({ method: "ecentric_workspace.approval_center.esign.api.save_placements",
+      type: "POST", args: { package: cfg.package, placements: JSON.stringify(rows) } })
+      .then(function (r) { state.dirty = false; msg("warn", "Đã lưu " +
+        ((r.message && r.message.saved) || 0) + " vị trí ký."); })
+      .catch(function () { msg("err", "Lưu thất bại - vui lòng kiểm tra lại (backend từ chối)."); });
+  }
+
+  function selectFile(dsf) {
+    state.dsf = dsf;
+    var f = (cfg.files || []).filter(function (x) { return x.name === dsf; })[0];
+    if (!f || !f.is_pdf) { msg("warn", "Tệp không phải PDF - dùng chế độ nhập toạ độ."); return; }
+    if (!pdfjsLib) { msg("warn",
+      "Trình kết xuất PDF chưa được cài đặt cục bộ - dùng chế độ nhập toạ độ thủ công."); return; }
+    // isEvalSupported:false = defence in depth against CVE-2024-4367-class eval abuse.
+    pdfjsLib.getDocument({ url: pdfUrl(dsf), isEvalSupported: false }).promise.then(function (pdf) {
+      state.pdf = pdf; state.pageCount = pdf.numPages; state.page = 1; renderPage();
+    }).catch(function () { msg("err", "Không tải được PDF (kiểm tra quyền truy cập)."); });
+  }
+
+  function init() {
+    setLocked(cfg.locked ? 1 : 0);
+    document.getElementById("ecpphVersion").textContent = "v" + (cfg.version || "?");
+    document.getElementById("ecpphState").textContent = cfg.locked ? "Đã khoá" : "Nháp";
+    var sel = document.getElementById("ecpphFile");
+    (cfg.files || []).forEach(function (f) {
+      var o = document.createElement("option"); o.value = f.name;
+      o.textContent = f.file_name + (f.requires_signature ? " (ký)" : "");
+      sel.appendChild(o);
+    });
+    sel.onchange = function () { selectFile(sel.value); };
+    document.getElementById("ecpphPrev").onclick = function () {
+      if (state.page > 1) { state.page--; renderPage(); } };
+    document.getElementById("ecpphNext").onclick = function () {
+      if (state.page < state.pageCount) { state.page++; renderPage(); } };
+    document.getElementById("ecpphZoomIn").onclick = function () {
+      state.scale = Math.min(4, state.scale + 0.25); renderPage(); };
+    document.getElementById("ecpphZoomOut").onclick = function () {
+      state.scale = Math.max(0.5, state.scale - 0.25); renderPage(); };
+    document.getElementById("ecpphAdd").onclick = addPlacement;
+    document.getElementById("ecpphNumAdd").onclick = addPlacement;
+    document.getElementById("ecpphSave").onclick = save;
+    window.addEventListener("beforeunload", function (e) {
+      if (state.dirty) { e.preventDefault(); e.returnValue = ""; } });
+    loadPdfjs().then(function () {
+      if (cfg.files && cfg.files.length) { sel.value = cfg.files[0].name; selectFile(cfg.files[0].name); }
+      syncNumeric();
+    });
+  }
+  // EC_PPH_CONFIG is supplied ENTIRELY from backend-computed state: if not preset, resolve
+  // it from the governed placement_editor_config endpoint using only the PR name.
+  function _resolveConfigThenInit() {
+    if (window.EC_PPH_CONFIG) { cfg = window.EC_PPH_CONFIG; return init(); }
+    var pr = window.EC_PPH_PR || (window.PaymentRequest && window.PaymentRequest.state
+             && window.PaymentRequest.state.id);
+    if (!pr) { return init(); }
+    frappe.call({ method: "ecentric_workspace.approval_center.esign.api.placement_editor_config",
+      args: { payment_request_name: pr } })
+      .then(function (r) { cfg = r.message || {}; window.EC_PPH_CONFIG = cfg; init(); })
+      .catch(function () { init(); });
+  }
+  _resolveConfigThenInit();
+})();
+</script>

@@ -56,7 +56,7 @@ class _SignedAdapter(object):
 def _scts_uat_settings():
     name = frappe.db.get_value("EC Digital Signature Provider Settings",
                                {"provider": "SCTS", "environment": "UAT"}, "name")
-    vals = {"base_url": "https://scts.uat.local", "username": "erp-bot",
+    vals = {"base_url": "https://scts.uat.local", "base_url_allowlist": "scts.uat.local", "username": "erp-bot",
             "integration_enabled": 1, "allow_document_creation": 1, "allow_signing": 1}
     if name:
         d = frappe.get_doc("EC Digital Signature Provider Settings", name)

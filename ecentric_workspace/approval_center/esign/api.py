@@ -252,3 +252,75 @@ def retrieve_signed_files(payment_request_name):
         frappe.throw(_("Không có gói tài liệu đang hoạt động."))
     from ecentric_workspace.approval_center.esign import signed_files
     return signed_files.retrieve_and_store_for_package(pkg)
+
+
+# --------------------- signing UX / inbox / multi-select / review (overnight) --------------- #
+@frappe.whitelist()
+def signing_ui_state(business_doctype, business_name):
+    """Backend-authoritative, sanitized signing state for the detail panel (read-only)."""
+    _business_args(business_doctype, business_name)
+    from ecentric_workspace.approval_center.esign import ui_state
+    return ui_state.signing_ui_state(business_doctype, business_name)
+
+
+@frappe.whitelist()
+def signing_inbox(filters=None, start=0, page_length=20):
+    """Permission-scoped, server-paginated Signing Inbox (governed VIEW; not an engine)."""
+    from ecentric_workspace.approval_center.esign import inbox
+    return inbox.signing_inbox(filters=filters, start=start, page_length=page_length)
+
+
+@frappe.whitelist(methods=["POST"])
+def preview_multi_select_sign(items):
+    """Read-only eligibility preview for multi-select SEQUENTIAL signing - NO writes, NO
+    provider calls. (Not provider bulk; SCTS multi-instance batching is deferred.)"""
+    from ecentric_workspace.approval_center.esign import multi_sign
+    return multi_sign.preview_multi_select(items)
+
+
+@frappe.whitelist(methods=["POST"])
+def multi_select_sequential_sign(items, comment=None):
+    """Governed multi-select SEQUENTIAL signing across business requests. Fail-closed
+    whole-selection validation; gated OFF by default; each item is signed independently
+    through the verified single-item path - no provider batch call is made or implied."""
+    from ecentric_workspace.approval_center.esign import multi_sign
+    return multi_sign.multi_select_sequential_sign(items, comment=comment)
+
+
+@frappe.whitelist()
+def signed_file_reviews(package):
+    """List signed-file rows awaiting hash-mismatch review (System Manager)."""
+    from ecentric_workspace.approval_center.esign import review
+    return review.pending_reviews(package)
+
+
+@frappe.whitelist(methods=["POST"])
+def resolve_signed_file_review(dsf_name, action, reason=None):
+    """Resolve a signed-file hash mismatch: action in {accept, reject, keep}. SM-only,
+    idempotent, immutable-audited; never overwrites the accepted file silently."""
+    from ecentric_workspace.approval_center.esign import review
+    if action == "accept":
+        return review.accept_candidate(dsf_name, reason)
+    if action == "reject":
+        return review.reject_candidate(dsf_name, reason)
+    if action == "keep":
+        return review.keep_existing(dsf_name, reason)
+    frappe.throw(_("Hành động không hợp lệ."))
+
+
+@frappe.whitelist()
+def placement_editor_config(payment_request_name):
+    """Backend-computed EC_PPH_CONFIG for the bundled placement editor. Permission-checked;
+    the client supplies ONLY the PR name and receives package/files/version/locked resolved
+    server-side (never a raw private-file URL)."""
+    _business_args("EC Payment Request", payment_request_name)
+    perms.assert_can_view_business("EC Payment Request", payment_request_name)
+    from ecentric_workspace.approval_center.esign import ui_state
+    st = ui_state.signing_ui_state("EC Payment Request", payment_request_name)
+    pkg = st.get("package") or {}
+    files = [{"name": f.get("name"), "file_name": f.get("file_name"),
+              "is_pdf": f.get("is_pdf"), "requires_signature": f.get("requires_signature")}
+             for f in (pkg.get("files") or [])]
+    return {"package": pkg.get("name"), "files": files,
+            "version": pkg.get("package_version"),
+            "locked": bool(pkg.get("status") and pkg.get("status") != "Draft")}
