@@ -125,16 +125,18 @@
 </style>
 
 <div id="ec-apd-root">
-  <aside class="ec-sidebar">
-    <div class="sb-head"><div class="logo">eC</div><div class="brand-name">eCentric</div></div>
-    <nav class="nav">
-      <a class="nav-item" href="/approvals"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span><span class="nav-lb">Danh mục phê duyệt</span></a>
-      <a class="nav-item active" href="/approvals/dashboard"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><span class="nav-lb">Bảng điều hành</span></a>
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric">
+    <!-- ERP Shell v1 opt-in (Phase 1B pilot). ec_shell.js renders the shared
+         sidebar here from the nav registry; this static fallback keeps the page
+         navigable if the shell is kill-switched, blocked, or errors. -->
+    <nav class="ec-shell-fallback" aria-label="Điều hướng">
+      <a href="/home">Trang chủ</a>
+      <a href="/approvals">Approval Center</a>
     </nav>
   </aside>
   <div class="ec-main">
     <div class="topbar">
-      <button class="hamburger" id="apd-ham"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg></button>
+      <button class="hamburger" data-ec-shell-open="1" aria-label="Menu"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg></button>
       <div class="crumb">Approval Center · <strong>Bảng điều hành vận hành</strong></div>
       <div class="spacer"></div><div class="scope-badge" id="apd-scope">—</div>
     </div>

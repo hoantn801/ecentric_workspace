@@ -1,0 +1,5 @@
+/* Copyright (c) 2026, eCentric and contributors
+ * Bundle entry for ERP Shell v1 CSS. Referenced by hooks.py `web_include_css`;
+ * `bench build` emits a content-hashed dist file (same pattern as
+ * notification_center.bundle.js). */
+@import "./ec_shell.css";
