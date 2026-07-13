@@ -35,6 +35,15 @@ def _disabled():
         return True  # fail-safe: broken config reads as DISABLED
 
 
+def _integration_open(provider, environment):
+    """True only when the provider integration gate is enabled for this pair. A scheduler
+    task must NOT build an adapter or make any SCTS network call while integration is OFF
+    (defence in depth on top of the binding/guard gate at write time)."""
+    return bool(frappe.db.get_value(
+        "EC Digital Signature Provider Settings",
+        {"provider": provider, "environment": environment}, "integration_enabled"))
+
+
 def _settings_and_adapter(dsr):
     s = frappe.db.get_value("EC Digital Signature Provider Settings",
                             {"provider": dsr.provider, "environment": dsr.environment},
@@ -166,7 +175,8 @@ def process_signing_request(dsr_name):
                 events.set_dsr_status(dsr_name, "Signed",
                                       extra_fields={"verified_at": now_datetime()},
                                       event_type="Verified", verification_result=vr.reason)
-            svc.verify_and_complete(dsr_name)
+            out = svc.verify_and_complete(dsr_name)
+            _enqueue_signed_retrieval(dsr.package, out)
             return
 
         signer = doc_state.signer(dsr.effective_scts_user_id)
@@ -205,7 +215,8 @@ def process_signing_request(dsr_name):
             events.set_dsr_status(dsr_name, "Signed",
                                   extra_fields={"verified_at": now_datetime()},
                                   event_type="Verified", verification_result=vr.reason)
-            svc.verify_and_complete(dsr_name)
+            out = svc.verify_and_complete(dsr_name)
+            _enqueue_signed_retrieval(dsr.package, out)
             return
         if dsr.status == "Provider Accepted":
             events.set_dsr_status(dsr_name, "Verifying", event_type="PollTick",
@@ -264,9 +275,12 @@ def poll_pending():
                           fields=["name", "status", "provider", "environment",
                                   "request_attempt"], limit_page_length=200)
     for r in rows:
+        if not _integration_open(r.provider, r.environment):
+            continue  # gate OFF -> no adapter, no SCTS network call
         try:
             if r.status == "Signed":
-                svc.verify_and_complete(r.name)
+                out = svc.verify_and_complete(r.name)
+                _enqueue_signed_retrieval(frappe.db.get_value(DSR, r.name, "package"), out)
                 continue
             if r.status == "Retryable Failure":
                 cap = frappe.db.get_value("EC Digital Signature Provider Settings",
@@ -333,6 +347,46 @@ def _dead_letter_todo(dsr_name):
                     "reference_type": DSR, "reference_name": dsr_name,
                     "description": "esign: signing request needs manual review",
                     "assigned_by": "Administrator"}).insert(ignore_permissions=True)
+
+
+def _enqueue_signed_retrieval(package_name, complete_result):
+    """After a VERIFIED completion, queue signed-PDF retrieval. It is a separate job:
+    a download failure never reverses the already-verified signature or downgrades the
+    terminal DSR - it only leaves signed_bundle_complete=0 for a safe read retry."""
+    if not package_name or not (complete_result or {}).get("completed"):
+        return
+    try:
+        frappe.enqueue(
+            "ecentric_workspace.approval_center.esign.signed_files.retrieve_and_store_for_package",
+            package_name=package_name, queue="default", timeout=600,
+            job_name="esign_signed_%s" % package_name, enqueue_after_commit=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign.tasks._enqueue_signed_retrieval")
+
+
+def retrieve_signed_bundles():
+    """Cron (kill-switched): retry signed-file retrieval for packages whose approval is
+    terminal-completed but whose signed bundle is not yet complete. Safe read only; never
+    resends AddDocument or bulk-process."""
+    if _disabled():
+        return
+    rows = frappe.get_all(
+        "EC Digital Signature Package",
+        filters={"scts_document_id": ["is", "set"], "signed_bundle_complete": 0},
+        fields=["name", "provider", "environment"], limit_page_length=200)
+    from ecentric_workspace.approval_center.esign import signed_files
+    for r in rows:
+        if not _integration_open(r.provider, r.environment):
+            continue  # gate OFF -> no adapter, no SCTS network call
+        # only retry for packages with a terminal-completed approval DSR
+        done = frappe.db.exists(DSR, {"package": r.name, "status": "Approval Completed"})
+        if not done:
+            continue
+        try:
+            signed_files.retrieve_and_store_for_package(r.name)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(),
+                             "esign.tasks.retrieve_signed_bundles %s" % r.name)
 
 
 def orphan_file_scan():

@@ -222,3 +222,33 @@ def signing_readiness(payment_request_name):
     """Backend-computed Duyệt & Ký readiness for the Payment Request panel (read-only)."""
     _business_args("EC Payment Request", payment_request_name)
     return svc.signing_readiness("EC Payment Request", payment_request_name)
+
+
+# ------------------------------ UAT pilot (S2B-C1) ------------------------------ #
+@frappe.whitelist()
+def uat_pilot_readiness(payment_request_name=None):
+    """Administrator/System Manager-only READ-ONLY UAT pilot readiness checklist."""
+    from ecentric_workspace.approval_center.esign import pilot
+    return pilot.uat_pilot_readiness(payment_request_name)
+
+
+@frappe.whitelist(methods=["POST"])
+def run_scts_uat_pilot_probe(payment_request_name, apply=0):
+    """Manual opt-in UAT probe. apply=0 (default) = redacted preview with NO external
+    calls; apply=1 = heavily gated real UAT submit. Never runs automatically."""
+    from ecentric_workspace.approval_center.esign import pilot
+    return pilot.run_scts_uat_pilot_probe(payment_request_name, apply=apply)
+
+
+@frappe.whitelist(methods=["POST"])
+def retrieve_signed_files(payment_request_name):
+    """SM-gated manual retrieval of the signed PDF(s) for a Payment Request's active
+    package (safe read; idempotent; never resends AddDocument/bulk-process)."""
+    perms.assert_system_manager()
+    _business_args("EC Payment Request", payment_request_name)
+    ar = perms.business_approval_request("EC Payment Request", payment_request_name)
+    pkg = pkgsvc.active_package_for_request(ar) if ar else None
+    if not pkg:
+        frappe.throw(_("Không có gói tài liệu đang hoạt động."))
+    from ecentric_workspace.approval_center.esign import signed_files
+    return signed_files.retrieve_and_store_for_package(pkg)

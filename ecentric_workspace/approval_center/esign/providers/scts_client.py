@@ -17,6 +17,7 @@ It returns PARSED JSON (dict/list); provider->ERP field normalization lives in t
 adapter (scts.py). Secrets (token, password, Authorization header, file content) are
 NEVER logged or echoed into ProviderError messages.
 """
+import base64
 import time
 
 from ecentric_workspace.approval_center.esign.providers.base import ProviderError
@@ -231,6 +232,101 @@ class SctsClient(object):
                                 retryable=False, ambiguous=True)
         raise ProviderError("scts_create_rejected_%s" % status,
                             "SCTS rejected AddDocument (HTTP %s)" % status, retryable=False)
+
+    # Candidate JSON field names that may carry a base64-encoded PDF. The exact SCTS V1
+    # Document/pdf response shape is UNCONFIRMED [UAT] - this list is tried in order and
+    # the boundary FAILS CLOSED (raises scts_signed_pdf_contract_unresolved) if none match.
+    _PDF_B64_FIELDS = ("fileBase64", "pdfBase64", "base64", "fileContent", "content",
+                       "data", "file", "signedFileBase64", "documentBase64")
+
+    def get_pdf(self, document_id, document_file_id, token, route=None):
+        """GET the signed PDF. Route/params/response-shape are [UAT-UNCONFIRMED]; handled
+        FAIL-CLOSED. Returns RAW PDF BYTES (base64-decoded if the provider wraps it).
+        Bounded retry for SAFE read failures only (network/5xx). Bytes are NEVER logged."""
+        path = route or ("/api/Document/pdf?documentId=%s&documentFileId=%s"
+                         % (document_id, document_file_id if document_file_id is not None else ""))
+        headers = {"Accept": "application/pdf, application/json"}
+        if token:
+            headers["Authorization"] = "Bearer %s" % token
+        attempt = 0
+        last_exc = None
+        while attempt <= self.retry_limit:
+            try:
+                resp = self._transport("GET", self._url(path), headers=headers,
+                                       json_body=None, timeout=self.timeout,
+                                       verify_tls=self.verify_tls)
+            except Exception:
+                last_exc = ProviderError("scts_network_error",
+                                         "network error during get_pdf", retryable=True)
+                attempt += 1
+                if attempt > self.retry_limit:
+                    raise last_exc
+                self._sleep(self._backoff_base * attempt)
+                continue
+            status = int(getattr(resp, "status_code", 0))
+            if 200 <= status < 300:
+                return self._extract_pdf_bytes(resp)
+            if status in _AUTH_STATUSES:
+                raise ProviderError("scts_auth_error_%s" % status,
+                                    "SCTS rejected credentials on get_pdf (HTTP %s)" % status,
+                                    retryable=False)
+            if status >= 500:
+                last_exc = ProviderError("scts_server_error_%s" % status,
+                                         "SCTS server error (%s) during get_pdf" % status,
+                                         retryable=True)
+                attempt += 1
+                if attempt > self.retry_limit:
+                    raise last_exc
+                self._sleep(self._backoff_base * attempt)
+                continue
+            raise ProviderError("scts_signed_pdf_rejected_%s" % status,
+                                "SCTS refused get_pdf (HTTP %s)" % status, retryable=False)
+        raise last_exc or ProviderError("scts_signed_pdf_unknown",
+                                        "unknown error during get_pdf", retryable=True)
+
+    def _extract_pdf_bytes(self, resp):
+        """Interpret the signed-PDF response fail-closed: binary application/pdf ->
+        resp.content; JSON -> decode a recognized base64 field; otherwise raise
+        scts_signed_pdf_contract_unresolved (never guesses silently, never logs bytes)."""
+        headers = getattr(resp, "headers", None) or {}
+        ct = ""
+        try:
+            ct = (headers.get("Content-Type") or headers.get("content-type") or "").lower()
+        except Exception:
+            ct = ""
+        content = getattr(resp, "content", None)
+        if ("application/pdf" in ct) or ("octet-stream" in ct):
+            if not content:
+                raise ProviderError("scts_signed_pdf_empty",
+                                    "SCTS returned an empty signed PDF body", retryable=False)
+            return bytes(content)
+        # JSON envelope with a base64 file field
+        payload = None
+        try:
+            payload = resp.json()
+        except Exception:
+            payload = None
+        if isinstance(payload, dict):
+            data = payload.get("data") if isinstance(payload.get("data"), dict) else None
+            for src in (payload, data or {}):
+                for k in self._PDF_B64_FIELDS:
+                    v = src.get(k)
+                    if isinstance(v, str) and v:
+                        try:
+                            return base64.b64decode(v)
+                        except Exception:
+                            raise ProviderError("scts_signed_pdf_bad_base64",
+                                                "SCTS signed-PDF base64 field was undecodable",
+                                                retryable=False)
+            raise ProviderError("scts_signed_pdf_contract_unresolved",
+                                "Document/pdf JSON had no recognized file field "
+                                "(UAT contract unconfirmed)", retryable=False)
+        # last resort: a raw binary body without a JSON/PDF content-type
+        if content and bytes(content[:5]) == b"%PDF-":
+            return bytes(content)
+        raise ProviderError("scts_signed_pdf_contract_unresolved",
+                            "Document/pdf response shape not recognized "
+                            "(UAT contract unconfirmed)", retryable=False)
 
     def get_document(self, document_id, token):
         """GET /api/Document/{documentId} -> raw document payload (status/signers/files)."""
