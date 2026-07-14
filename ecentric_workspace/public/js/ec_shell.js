@@ -17,7 +17,13 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.1.0 (phase 1B.1 header polish)';
+  var VERSION = 'ec-shell v1.2.0 (phase 1C-alpha smoothness)';
+  // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
+  // the cache only skips the paint delay; the backend stays the source of
+  // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
+  // and user identity (user_id cookie + fresh-payload user check).
+  var CACHE_KEY = 'ec_shell_boot_cache_v1';
+  var CACHE_TTL_MS = 5 * 60 * 1000;
   // Official brand asset -- same site file the homepage uses (/files File doc).
   var LOGO_SRC = '/files/eCentric%20logo%20-%20mini.png';
   var BOOT_URL = '/api/method/ecentric_workspace.shell.api.get_shell_boot';
@@ -28,6 +34,70 @@
     p = String(p || '/').split('?')[0].split('#')[0];
     if (p.length > 1 && p.charAt(p.length - 1) === '/') p = p.slice(0, -1);
     return p || '/';
+  }
+
+  function cookieUser() {
+    try {
+      var m = document.cookie.match(/(?:^|;\s*)user_id=([^;]*)/);
+      return m ? decodeURIComponent(m[1]) : null;
+    } catch (e) { return null; }
+  }
+
+  // pure (exposed for tests): is a cache entry usable for instant render?
+  function cacheValid(entry, nowTs, cookieUid) {
+    if (!entry || typeof entry !== 'object') return false;
+    if (entry.v !== VERSION) return false;                    // schema/version
+    if (!entry.ts || (nowTs - entry.ts) > CACHE_TTL_MS) return false;  // TTL
+    var m = entry.data;
+    if (!m || m.enabled !== true || !m.nav || !m.nav.length) return false;
+    if (!m.user || !m.user.name) return false;
+    if (cookieUid && cookieUid !== m.user.name) return false; // identity changed
+    return true;
+  }
+
+  function readCache() {
+    try {
+      if (!window.sessionStorage) return null;
+      var raw = window.sessionStorage.getItem(CACHE_KEY);
+      if (!raw) return null;
+      var e = JSON.parse(raw);
+      return cacheValid(e, Date.now(), cookieUser()) ? e : null;
+    } catch (err) { return null; }
+  }
+
+  function writeCache(m) {
+    try {
+      if (!window.sessionStorage) return;
+      if (m && m.enabled === true) {
+        window.sessionStorage.setItem(CACHE_KEY,
+          JSON.stringify({ v: VERSION, ts: Date.now(), data: m }));
+      } else {
+        window.sessionStorage.removeItem(CACHE_KEY);  // disabled/kill switch
+      }
+    } catch (err) {}
+  }
+
+  // pure (exposed for tests): prefetch policy -- internal Approval/home GET
+  // documents ONLY. Never Desk, never APIs/actions, never logout/login, never
+  // external origins, never fragments or non-http schemes. PREFETCH only --
+  // prerender/Speculation Rules are deliberately NOT used in 1C-alpha.
+  function shouldPrefetch(href, origin) {
+    if (!href || typeof href !== 'string') return false;
+    if (href.charAt(0) === '#') return false;
+    if (/^(javascript|mailto|tel|data|blob):/i.test(href)) return false;
+    var path = href;
+    if (/^https?:\/\//i.test(path)) {
+      if (!origin || path.indexOf(origin + '/') !== 0) return false;
+      path = path.slice(origin.length);
+    }
+    if (path.charAt(0) !== '/') return false;
+    path = path.split('?')[0].split('#')[0];
+    if (path === '/app' || path.indexOf('/app/') === 0) return false;
+    if (path.indexOf('/api/') === 0) return false;
+    if (path.indexOf('/login') === 0 || path.indexOf('logout') !== -1) return false;
+    if (path === '/' || path === '/home') return true;
+    if (path === '/approval') return true;
+    return path === '/approvals' || path.indexOf('/approvals/') === 0;
   }
 
   // Most-specific wins: exact route (1000+len) > exact pattern (900+len) >
@@ -143,7 +213,41 @@
 
   // ---------------------------------------------------------------- state --
   var S = { mount: null, boot: null, activeKey: null, drawer: null, backdrop: null,
-            burger: null, lastFocus: null, bound: false };
+            burger: null, lastFocus: null, bound: false, vtDone: false };
+  var prefetched = {};
+  var hoverTimer = null;
+
+  function prefetch(href) {
+    if (prefetched[href]) return;
+    prefetched[href] = 1;
+    try {
+      var l = document.createElement('link');
+      l.rel = 'prefetch'; l.href = href; l.as = 'document';
+      document.head.appendChild(l);
+    } catch (e) {}
+  }
+
+  function intentTarget(ev) {
+    var t = ev.target && ev.target.closest ? ev.target : null;
+    if (!t) return null;
+    return t.closest('.ec-shell-nav a, .ec-shell-drawer a, .ec-shell-fallback a, a.ec-shell-crumblink');
+  }
+
+  // Cross-document View Transitions: PURE progressive enhancement. We only
+  // feature-detect (never call startViewTransition); the rule is injected on
+  // opted-in pages only, so shell->shell navigations crossfade natively in
+  // supporting browsers and everything else falls back to normal navigation.
+  function injectViewTransition() {
+    if (S.vtDone) return;
+    if (typeof document.startViewTransition !== 'function') return;
+    S.vtDone = true;
+    try {
+      var st = document.createElement('style');
+      st.setAttribute('data-ec-shell-vt', '1');
+      st.textContent = '@view-transition{navigation:auto}';
+      document.head.appendChild(st);
+    } catch (e) {}
+  }
 
   function drawerOpen() {
     if (!S.boot) return;
@@ -198,6 +302,24 @@
     document.addEventListener('keydown', function (ev) {
       if (ev.key === 'Escape') drawerClose();
     }, false);
+    // pointer-intent prefetch (hover >=65ms or pointerdown). Delegated, bound
+    // once, allow-listed via shouldPrefetch(). Navigation itself is NEVER
+    // intercepted -- prefetch only warms the HTTP cache.
+    document.addEventListener('pointerover', function (ev) {
+      var a = intentTarget(ev);
+      if (!a) return;
+      var href = a.getAttribute('href');
+      if (!shouldPrefetch(href, window.location.origin)) return;
+      clearTimeout(hoverTimer);
+      hoverTimer = setTimeout(function () { prefetch(href); }, 65);
+    }, true);
+    document.addEventListener('pointerout', function () { clearTimeout(hoverTimer); }, true);
+    document.addEventListener('pointerdown', function (ev) {
+      var a = intentTarget(ev);
+      if (!a) return;
+      var href = a.getAttribute('href');
+      if (shouldPrefetch(href, window.location.origin)) prefetch(href);
+    }, true);
   }
 
   function ensureBurger() {
@@ -252,9 +374,23 @@
     try { console.warn('[ec-shell] disabled:', e && e.message ? e.message : e); } catch (x) {}
   }
 
+  function applyBoot(m) {
+    S.boot = m;
+    bindOnce();          // flag-guarded: never double-binds
+    render();            // wholesale innerHTML: never duplicates bell/nav
+    ensureBurger();      // no-ops when an opener already exists
+    injectViewTransition();
+  }
+
   function init() {
     S.mount = document.querySelector(MARKER);
     if (!S.mount) return;                       // NOT opted in -> full no-op
+
+    // 1) instant paint from the per-tab cache (stale-while-revalidate)
+    var cached = readCache();
+    if (cached) applyBoot(cached.data);
+
+    // 2) background refresh -- backend stays the source of truth
     fetch(BOOT_URL, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then(function (r) {
         if (!r.ok) throw new Error('boot HTTP ' + r.status);
@@ -263,15 +399,18 @@
       .then(function (j) {
         var m = j && j.message;
         if (!m || m.enabled !== true || !m.nav || !m.nav.length) {
-          warn(m && m.reason ? m.reason : 'boot disabled/empty'); // fallback stays
-          return;
+          writeCache(m);                        // clears cache on disabled
+          if (!S.boot) warn(m && m.reason ? m.reason : 'boot disabled/empty');
+          return;                               // rendered shell (if any) stays
         }
-        S.boot = m;
-        bindOnce();
-        render();
-        ensureBurger();
+        var changed = !S.boot || JSON.stringify(m) !== JSON.stringify(S.boot);
+        writeCache(m);                          // refresh ts + payload
+        if (changed) applyBoot(m);              // update ONLY when different
       })
-      .catch(warn);                             // fail closed: fallback nav stays
+      .catch(function (e) {
+        // fail closed for the shell only; a cached render stays fully usable
+        if (!S.boot) warn(e);
+      });
   }
 
   // -------------------------------------------------------------- install --
@@ -282,6 +421,8 @@
       matchActive: matchActive,
       normPath: normPath,
       groupItems: groupItems,
+      cacheValid: cacheValid,
+      shouldPrefetch: shouldPrefetch,
       reinit: reinit
     };
   }

@@ -89,5 +89,128 @@ function makeSandbox(pathname, hasMarker) {
   ok(!threw, 'reinit() is idempotent and safe without boot data');
 }
 
-console.log(failures === 0 ? '\nALL CHECKS PASSED' : '\n' + failures + ' FAILURES');
-process.exit(failures ? 1 : 0);
+// ---- 6. smoothness sandbox (sessionStorage + real-promise fetch) -----------
+function makeSandbox2(opts) {
+  let fetchCalls = 0, renders = 0;
+  const headChildren = [];
+  const mount = {
+    _html: '',
+    set innerHTML(v) { renders++; this._html = v; },
+    get innerHTML() { return this._html; },
+    querySelector: () => null,
+  };
+  const storage = {
+    _d: {},
+    getItem(k) { return (k in this._d) ? this._d[k] : null; },
+    setItem(k, v) { this._d[k] = String(v); },
+    removeItem(k) { delete this._d[k]; },
+  };
+  if (opts.cacheEntry) storage._d['ec_shell_boot_cache_v1'] = JSON.stringify(opts.cacheEntry);
+  const doc = {
+    readyState: 'complete',
+    cookie: opts.cookie || '',
+    querySelector: sel => (sel === '[data-ec-shell="1"]' && opts.marker) ? mount : null,
+    addEventListener() {},
+    createElement: t => ({ tagName: t, rel: '', href: '', style: {}, textContent: '',
+      classList: { add() {}, remove() {} }, setAttribute() {}, appendChild() {}, innerHTML: '' }),
+    head: { appendChild: el => headChildren.push(el) },
+    body: { appendChild() {}, classList: { add() {}, remove() {} } },
+    activeElement: null,
+  };
+  const win = {
+    location: { pathname: opts.pathname || '/approvals', origin: 'https://team.ecentric.vn' },
+    document: doc, sessionStorage: storage, console,
+    fetch() {
+      fetchCalls++;
+      if (opts.failFetch) return Promise.reject(new Error('net down'));
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ message: opts.bootMsg }) });
+    },
+    addEventListener() {},
+  };
+  win.window = win;
+  const sb = vm.createContext({ console, window: win, document: doc, fetch: win.fetch,
+    sessionStorage: storage, setTimeout, clearTimeout, JSON, Date });
+  return { sb, win, storage, headChildren, mount,
+    get fetchCalls() { return fetchCalls; }, get renders() { return renders; } };
+}
+const flush = () => new Promise(r => setTimeout(r, 10));
+const NAV1 = [
+  { key: 'core.home', label: 'Trang chủ', route: '/home', icon: 'home', group: '', active_patterns: ['/', '/home'] },
+  { key: 'apc.catalog', label: 'Approval Center', route: '/approvals', icon: 'check', group: 'Phê duyệt', active_patterns: ['/approvals', '/approvals/*'] },
+];
+const BOOT1 = { enabled: true, nav: NAV1, user: { name: 'u@ecentric.vn', full_name: 'U One', image: '' } };
+const BOOT2 = JSON.parse(JSON.stringify(BOOT1)); BOOT2.nav[1].label = 'Approval Center v2';
+
+(async () => {
+  // version string straight from the asset
+  const v0 = makeSandbox2({ marker: false, bootMsg: BOOT1 });
+  vm.runInContext(SRC, v0.sb);
+  const VER = v0.win.ECShell.version;
+  const entry = (over) => Object.assign({ v: VER, ts: Date.now(), data: BOOT1 }, over || {});
+
+  // -- cacheValid pure matrix
+  const CV = v0.win.ECShell.cacheValid;
+  ok(CV(entry(), Date.now(), null) === true, 'cacheValid: fresh entry accepted');
+  ok(CV(entry({ ts: Date.now() - 6 * 60 * 1000 }), Date.now(), null) === false, 'cacheValid: expired TTL rejected');
+  ok(CV(entry({ v: 'other' }), Date.now(), null) === false, 'cacheValid: version mismatch rejected');
+  ok(CV(entry(), Date.now(), 'someoneelse@x') === false, 'cacheValid: user identity mismatch rejected');
+  ok(CV(entry({ data: { enabled: false } }), Date.now(), null) === false, 'cacheValid: disabled payload rejected');
+
+  // -- shouldPrefetch pure matrix
+  const SP = v0.win.ECShell.shouldPrefetch, O = 'https://team.ecentric.vn';
+  ok(SP('/approvals', O) && SP('/approvals/leave?id=X&tab=create', O) && SP('/approval', O) && SP('/home', O),
+     'prefetch allows internal approval/home links');
+  ok(!SP('/app/todo', O) && !SP('/api/method/logout', O) && !SP('/login-page', O) && !SP('/api/method/x', O),
+     'prefetch blocks Desk/APIs/login/logout');
+  ok(!SP('https://evil.example.com/approvals', O) && !SP('#x', O) && !SP('mailto:a@b', O) && !SP('/approvalsx', O),
+     'prefetch blocks external/fragment/mailto/lookalike');
+
+  // -- SWR: valid cache -> instant render, background fetch, equal payload -> no re-render
+  const e1 = makeSandbox2({ marker: true, cacheEntry: entry(), bootMsg: BOOT1 });
+  vm.runInContext(SRC, e1.sb);
+  ok(e1.renders >= 1, 'valid cache renders synchronously (before fetch resolves)');
+  const rSync = e1.renders;
+  ok(e1.fetchCalls === 1, 'background refresh still fires exactly once');
+  await flush();
+  ok(e1.renders === rSync, 'identical fresh payload -> NO re-render (deterministic compare)');
+  ok(JSON.parse(e1.storage._d['ec_shell_boot_cache_v1']).ts > 0, 'cache timestamp refreshed');
+
+  // -- SWR: changed payload -> exactly one extra render
+  const e2 = makeSandbox2({ marker: true, cacheEntry: entry(), bootMsg: BOOT2 });
+  vm.runInContext(SRC, e2.sb);
+  const r2 = e2.renders;
+  await flush();
+  ok(e2.renders === r2 + 1, 'changed fresh payload -> exactly one UI update');
+  ok(e2.mount.innerHTML.indexOf('Approval Center v2') >= 0, 'updated label rendered');
+  ok((e2.mount.innerHTML.match(/data-ec-notification-bell="1"/g) || []).length === 1, 'still exactly ONE bell after SWR update');
+
+  // -- expired cache -> no sync render, renders after fetch
+  const e3 = makeSandbox2({ marker: true, cacheEntry: entry({ ts: Date.now() - 6 * 60 * 1000 }), bootMsg: BOOT1 });
+  vm.runInContext(SRC, e3.sb);
+  ok(e3.renders === 0, 'expired cache -> no instant render');
+  await flush();
+  ok(e3.renders === 1, 'expired cache -> renders after fresh boot');
+
+  // -- fetch failure with valid cache -> shell stays, no throw
+  const e4 = makeSandbox2({ marker: true, cacheEntry: entry(), failFetch: true });
+  let threw = false;
+  try { vm.runInContext(SRC, e4.sb); await flush(); } catch (e) { threw = true; }
+  ok(!threw && e4.renders >= 1, 'refresh failure keeps cached shell usable');
+  ok('ec_shell_boot_cache_v1' in e4.storage._d, 'cache retained after failed refresh');
+
+  // -- disabled fresh payload -> cache cleared, fallback stays
+  const e5 = makeSandbox2({ marker: true, bootMsg: { enabled: false, reason: 'kill_switch' } });
+  vm.runInContext(SRC, e5.sb);
+  await flush();
+  ok(e5.renders === 0, 'kill switch -> no shell render (fallback markup stays)');
+  ok(!('ec_shell_boot_cache_v1' in e5.storage._d), 'kill switch clears the boot cache');
+
+  // -- no marker -> storage untouched, no fetch
+  const e6 = makeSandbox2({ marker: false, cacheEntry: entry(), bootMsg: BOOT1 });
+  vm.runInContext(SRC, e6.sb);
+  await flush();
+  ok(e6.fetchCalls === 0, 'no marker -> still zero fetch with cache present');
+
+  console.log(failures === 0 ? '\nALL CHECKS PASSED' : '\n' + failures + ' FAILURES');
+  process.exit(failures ? 1 : 0);
+})();
