@@ -37,9 +37,19 @@
   var btnPrep = document.getElementById("ecReqPrepare");
   var btnLock = document.getElementById("ecReqLock");
 
+  // Resolve the Payment Request name using the governed URL convention (?id=), with
+  // backward-compatible fallbacks (?name, ?payment_request_name) and any existing page
+  // state/config. Never inferred from arbitrary DOM text; must be a non-empty string.
   function pr() {
-    return (window.EC_PPH_PR
-      || (window.PaymentRequest && window.PaymentRequest.state && window.PaymentRequest.state.id));
+    var q = null;
+    try { q = new URLSearchParams(location.search); } catch (e) { q = null; }
+    var id = q && (q.get("id") || q.get("name") || q.get("payment_request_name"));
+    if (!id) {
+      id = window.EC_PPH_PR
+        || (window.PaymentRequest && window.PaymentRequest.state && window.PaymentRequest.state.id);
+    }
+    id = (id == null ? "" : ("" + id)).trim();
+    return id || null;
   }
   // readiness returns bare booleans (checks[k] === true/false), NOT {ok:true} objects.
   function b(c, k) { return !!(c && c[k]); }
@@ -52,7 +62,13 @@
 
   function refresh() {
     var name = pr();
-    if (!name) return;
+    if (!name) {
+      // No Payment Request identifier in the URL/state: keep the panel hidden, never throw.
+      if (frappe.boot && frappe.boot.developer_mode && window.console) {
+        console.debug("[ec-req-sign] no Payment Request id in URL/state; panel stays hidden");
+      }
+      return;
+    }
     frappe.call({ method: "ecentric_workspace.approval_center.esign.api.requester_signing_readiness",
       args: { payment_request_name: name } })
       .then(function (r) {
@@ -103,6 +119,11 @@
       });
   }
 
+  // Bind click handlers EXACTLY ONCE. A repeated page sync / navigation re-runs this IIFE;
+  // the data flag stops duplicate handlers from stacking (refresh() below stays safe to call
+  // on every init).
+  if (root.getAttribute("data-ec-bound") !== "1") {
+    root.setAttribute("data-ec-bound", "1");
   // Prepare / Set placement: create-or-reuse the package (idempotent) and open the existing
   // placement editor by reloading with the returned config. Repeated clicks reuse the same
   // package. No SCTS call / no DSR (works with the write gates OFF).
@@ -139,6 +160,7 @@
       })
       .catch(function () { msg("Khoá gói ký thất bại (cần ít nhất một vị trí ký hợp lệ).", true); });
   };
+  }
 
   refresh();
 })();
