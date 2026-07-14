@@ -342,3 +342,20 @@ def requester_submit_and_sign(payment_request_name, comment=None):
     from ecentric_workspace.approval_center.esign import requester
     return requester.requester_submit_and_sign("EC Payment Request", payment_request_name,
                                                comment=comment)
+
+
+@frappe.whitelist(methods=["POST"])
+def prepare_requester_signing_package(payment_request_name):
+    """Requester 'Prepare Signing Package': create/reuse the package + add eligible PDFs +
+    return the editor config. No SCTS call, no DSR. Requester-only (no admin bypass)."""
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.approval_center.esign import requester
+    return requester.prepare_requester_signing_package("EC Payment Request", payment_request_name)
+
+
+@frappe.whitelist(methods=["POST"])
+def requester_lock_signing_package(payment_request_name):
+    """Requester-local package lock (freezes hash; no SCTS). Requester-only; idempotent."""
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.approval_center.esign import requester
+    return requester.requester_lock_signing_package("EC Payment Request", payment_request_name)

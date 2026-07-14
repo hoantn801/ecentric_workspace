@@ -47,6 +47,19 @@ def _esign_editor_panel():
     return coords + "\n" + editor
 
 
+def _esign_requester_panel():
+    """The requester pre-approval Prepare/Lock entry point, appended once. Visibility + status
+    are decided by the governed backend readiness; the actions are local (no SCTS/DSR). Returns
+    '' if the source is missing so a sync never fails on its absence."""
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # approval_center
+    try:
+        with open(os.path.join(base, "esign", "ui", "requester_signing_panel.html"),
+                  encoding="utf-8") as fh:
+            return fh.read()
+    except OSError:
+        return ""
+
+
 def _html():
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     with open(os.path.join(base, "frontend", "payment_request.main_section.html"),
@@ -54,7 +67,8 @@ def _html():
         main = fh.read()
     # Whole section is rebuilt from source on every sync, so appending each panel exactly
     # once is idempotent by construction.
-    return main + "\n" + _esign_panel() + "\n" + _esign_editor_panel()
+    return (main + "\n" + _esign_panel() + "\n" + _esign_requester_panel()
+            + "\n" + _esign_editor_panel())
 
 
 def sync(html=None):

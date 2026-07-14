@@ -1,0 +1,102 @@
+<!-- Copyright (c) 2026, eCentric and contributors
+     Requester pre-approval signing entry point (Prepare Signing Package / Lock Signing
+     Package). Visibility + status are decided by the governed backend readiness
+     (requester_signing_readiness); the browser never computes authorization. The local
+     package/placement actions work while Document Creation / Signing gates are OFF and make
+     NO SCTS call / NO DSR. Only the actual requester sees the actions - never another user,
+     Administrator or System Manager (unless they are the requester), never completed/
+     cancelled requests, never approval-level stages. -->
+<div id="ec-req-sign" class="ec-req-sign" style="display:none;margin:8px 0">
+  <style>
+    .ec-req-sign{border:1px solid #d9dee3;border-radius:8px;padding:12px;font-size:13px;background:#f6f8fa}
+    .ec-req-sign h4{margin:0 0 6px}
+    .ec-req-sign .ec-pill{padding:1px 8px;border-radius:10px;background:#eaeef2;font-size:11px}
+    .ec-req-sign .ec-msg{margin:6px 0;color:#57606a}
+    .ec-req-sign .ec-warn{color:#9a6700;background:#fff8c5;padding:6px 8px;border-radius:6px}
+  </style>
+  <h4>Ký của người đề nghị <span id="ecReqStatus" class="ec-pill">-</span></h4>
+  <div id="ecReqMsg" class="ec-msg"></div>
+  <button id="ecReqPrepare" class="btn btn-sm btn-primary">Chuẩn bị gói ký</button>
+  <button id="ecReqLock" class="btn btn-sm" style="display:none">Khoá gói ký</button>
+</div>
+<script id="ec-req-sign-script">
+(function () {
+  "use strict";
+  var root = document.getElementById("ec-req-sign");
+  if (!root || !window.frappe) return;
+  function pr() {
+    return (window.EC_PPH_PR
+      || (window.PaymentRequest && window.PaymentRequest.state && window.PaymentRequest.state.id));
+  }
+  function msg(t, warn) {
+    document.getElementById("ecReqMsg").innerHTML =
+      t ? (warn ? '<div class="ec-warn">' : "<span>") + frappe.utils.escape_html(t) +
+          (warn ? "</div>" : "</span>") : "";
+  }
+  function ok(c, k) { return !!(c && c[k] && c[k].ok); }
+
+  function refresh() {
+    var name = pr();
+    if (!name) return;
+    frappe.call({ method: "ecentric_workspace.approval_center.esign.api.requester_signing_readiness",
+      args: { payment_request_name: name } })
+      .then(function (r) {
+        var m = r.message || {}, c = m.checks || {};
+        // VISIBILITY (governed): only the requester, requester stage, policy required.
+        // Gates OFF must NOT hide the local prepare/lock actions.
+        var visible = ok(c, "is_requester") && ok(c, "pending_requester_signature")
+          && ok(c, "requester_signature_required");
+        root.style.display = visible ? "block" : "none";
+        if (!visible) return;
+        var hasPkg = ok(c, "package_active_hash_valid") || ok(c, "placements_complete");
+        var placed = ok(c, "placements_complete");
+        var locked = ok(c, "package_active_hash_valid");
+        var status = locked ? "Đã khoá" : (placed ? "Sẵn sàng khoá"
+          : (hasPkg ? "Thiếu vị trí ký" : "Nháp"));
+        document.getElementById("ecReqStatus").textContent = status;
+        // Lock action appears only after at least one valid placement (preflight complete).
+        document.getElementById("ecReqLock").style.display =
+          (placed && !locked) ? "inline-block" : "none";
+        document.getElementById("ecReqPrepare").style.display = locked ? "none" : "inline-block";
+        if (locked) msg("Gói đã khoá. Vui lòng kiểm tra lại readiness / bật cổng ký để tiếp tục.");
+        else if (!ok(c, "verified_mapping")) msg("Người đề nghị chưa có ánh xạ chữ ký đã xác minh.", true);
+        else msg("");
+      });
+  }
+
+  document.getElementById("ecReqPrepare").onclick = function () {
+    var name = pr();
+    frappe.call({ method: "ecentric_workspace.approval_center.esign.api.prepare_requester_signing_package",
+      type: "POST", args: { payment_request_name: name }, freeze: true,
+      freeze_message: "Đang chuẩn bị gói ký…" })
+      .then(function (r) {
+        var out = r.message || {};
+        if (out.config && (!out.config.files || !out.config.files.length)) {
+          msg("Không có tệp PDF riêng tư hợp lệ trong phiếu để ký. Vui lòng đính kèm PDF.", true);
+          return;
+        }
+        // reuse the returned package + open the existing editor by reloading (idempotent -
+        // repeated clicks reuse the same package; placement_editor_config resolves it).
+        window.EC_PPH_CONFIG = out.config;
+        frappe.show_alert({ message: "Đã chuẩn bị gói ký. Đang mở trình đặt vị trí…",
+          indicator: "green" });
+        location.reload();
+      })
+      .catch(function () { msg("Không chuẩn bị được gói ký (kiểm tra quyền / ánh xạ).", true); });
+  };
+
+  document.getElementById("ecReqLock").onclick = function () {
+    var name = pr();
+    frappe.call({ method: "ecentric_workspace.approval_center.esign.api.requester_lock_signing_package",
+      type: "POST", args: { payment_request_name: name }, freeze: true,
+      freeze_message: "Đang khoá gói ký…" })
+      .then(function () {
+        frappe.show_alert({ message: "Đã khoá gói ký.", indicator: "green" });
+        location.reload();
+      })
+      .catch(function () { msg("Khoá gói ký thất bại (cần ít nhất một vị trí ký hợp lệ).", true); });
+  };
+
+  refresh();
+})();
+</script>
