@@ -30,7 +30,12 @@
 (function () {
   "use strict";
   var root = document.getElementById("ec-req-sign");
-  if (!root || !window.frappe) return;
+  if (!root) return;
+  // frappe.call may not be installed yet on a Website route even though window.frappe
+  // exists; every call site below is guarded by this and uses window.frappe.call.
+  function callReady() {
+    return !!(window.frappe && typeof window.frappe.call === "function");
+  }
   var elStatus = document.getElementById("ecReqStatus");
   var elMsg = document.getElementById("ecReqMsg");
   var elGate = document.getElementById("ecReqGate");
@@ -61,6 +66,7 @@
   }
 
   function refresh() {
+    if (!callReady()) return;
     var name = pr();
     if (!name) {
       // No Payment Request identifier in the URL/state: keep the panel hidden, never throw.
@@ -69,7 +75,7 @@
       }
       return;
     }
-    frappe.call({ method: "ecentric_workspace.approval_center.esign.api.requester_signing_readiness",
+    window.frappe.call({ method: "ecentric_workspace.approval_center.esign.api.requester_signing_readiness",
       args: { payment_request_name: name } })
       .then(function (r) {
         var m = r.message || {}, c = m.checks || {};
@@ -129,8 +135,8 @@
   // package. No SCTS call / no DSR (works with the write gates OFF).
   btnPrep.onclick = function () {
     var name = pr();
-    if (!name) return;
-    frappe.call({ method: "ecentric_workspace.approval_center.esign.api.prepare_requester_signing_package",
+    if (!name || !callReady()) return;
+    window.frappe.call({ method: "ecentric_workspace.approval_center.esign.api.prepare_requester_signing_package",
       type: "POST", args: { payment_request_name: name }, freeze: true,
       freeze_message: "Đang chuẩn bị gói ký…" })
       .then(function (r) {
@@ -150,8 +156,8 @@
   // Lock: freeze the package locally (no SCTS). Requester-only + idempotent server-side.
   btnLock.onclick = function () {
     var name = pr();
-    if (!name) return;
-    frappe.call({ method: "ecentric_workspace.approval_center.esign.api.requester_lock_signing_package",
+    if (!name || !callReady()) return;
+    window.frappe.call({ method: "ecentric_workspace.approval_center.esign.api.requester_lock_signing_package",
       type: "POST", args: { payment_request_name: name }, freeze: true,
       freeze_message: "Đang khoá gói ký…" })
       .then(function () {
@@ -160,8 +166,33 @@
       })
       .catch(function () { msg("Khoá gói ký thất bại (cần ít nhất một vị trí ký hợp lệ).", true); });
   };
-  }
 
-  refresh();
+    // Bounded, idempotent initial refresh: on a Website route frappe.call can be installed
+    // AFTER this inline script runs. Attempt immediately, then poll at a modest interval up to
+    // a bounded timeout; invoke refresh() exactly once when the call API is ready; clear the
+    // timer on success or timeout. The bind-once guard above means only one timer is ever
+    // created per panel element (no duplicate timers on re-sync / navigation).
+    var _pollTimer = null, _tries = 0;
+    var _MAX_TRIES = 40, _INTERVAL_MS = 150;  // ~6s bounded window
+    function _clearPoll() { if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; } }
+    function _tryInit() {
+      if (callReady()) { _clearPoll(); refresh(); return true; }
+      return false;
+    }
+    if (!_tryInit()) {
+      _pollTimer = setInterval(function () {
+        _tries++;
+        if (_tryInit()) return;
+        if (_tries >= _MAX_TRIES) {
+          _clearPoll();
+          if (window.frappe && window.frappe.boot && window.frappe.boot.developer_mode
+              && window.console) {
+            console.debug("[ec-req-sign] frappe.call unavailable within bounded window; "
+              + "panel stays hidden");
+          }
+        }
+      }, _INTERVAL_MS);
+    }
+  }
 })();
 </script>
