@@ -1,11 +1,15 @@
 <!-- Copyright (c) 2026, eCentric and contributors
-     Requester pre-approval signing entry point (Prepare Signing Package / Lock Signing
-     Package). Visibility + status are decided by the governed backend readiness
-     (requester_signing_readiness); the browser never computes authorization. The local
-     package/placement actions work while Document Creation / Signing gates are OFF and make
-     NO SCTS call / NO DSR. Only the actual requester sees the actions - never another user,
-     Administrator or System Manager (unless they are the requester), never completed/
-     cancelled requests, never approval-level stages. -->
+     Requester pre-approval signing entry point (Prepare Signing Package / Set Placement /
+     Lock Signing Package). Visibility + status are decided by the governed backend readiness
+     (requester_signing_readiness), which returns bare-boolean checks; the browser never
+     computes authorization. Visibility depends ONLY on the requester + requester stage +
+     policy - NEVER on overall `ready`, gates, package or placement state, so a requester who
+     still has to prepare/place/lock always sees the panel. The local package/placement/lock
+     actions work while Document Creation / Signing gates are OFF and make NO SCTS call / NO
+     DSR. Only the actual requester sees the actions - never another user, Administrator or
+     System Manager (unless they are the requester), never completed/cancelled requests,
+     never approval-level stages. Closed provider gates are shown as information only and do
+     NOT hide the local actions. -->
 <div id="ec-req-sign" class="ec-req-sign" style="display:none;margin:8px 0">
   <style>
     .ec-req-sign{border:1px solid #d9dee3;border-radius:8px;padding:12px;font-size:13px;background:#f6f8fa}
@@ -13,27 +17,38 @@
     .ec-req-sign .ec-pill{padding:1px 8px;border-radius:10px;background:#eaeef2;font-size:11px}
     .ec-req-sign .ec-msg{margin:6px 0;color:#57606a}
     .ec-req-sign .ec-warn{color:#9a6700;background:#fff8c5;padding:6px 8px;border-radius:6px}
+    .ec-req-sign .ec-info{color:#0550ae;background:#ddf4ff;padding:6px 8px;border-radius:6px;margin:6px 0}
+    .ec-req-sign .ec-sub{margin-left:6px}
   </style>
   <h4>Ký của người đề nghị <span id="ecReqStatus" class="ec-pill">-</span></h4>
   <div id="ecReqMsg" class="ec-msg"></div>
+  <div id="ecReqGate" class="ec-info" style="display:none"></div>
   <button id="ecReqPrepare" class="btn btn-sm btn-primary">Chuẩn bị gói ký</button>
-  <button id="ecReqLock" class="btn btn-sm" style="display:none">Khoá gói ký</button>
+  <button id="ecReqLock" class="btn btn-sm ec-sub" style="display:none">Khoá gói ký</button>
 </div>
 <script id="ec-req-sign-script">
 (function () {
   "use strict";
   var root = document.getElementById("ec-req-sign");
   if (!root || !window.frappe) return;
+  var elStatus = document.getElementById("ecReqStatus");
+  var elMsg = document.getElementById("ecReqMsg");
+  var elGate = document.getElementById("ecReqGate");
+  var btnPrep = document.getElementById("ecReqPrepare");
+  var btnLock = document.getElementById("ecReqLock");
+
   function pr() {
     return (window.EC_PPH_PR
       || (window.PaymentRequest && window.PaymentRequest.state && window.PaymentRequest.state.id));
   }
+  // readiness returns bare booleans (checks[k] === true/false), NOT {ok:true} objects.
+  function b(c, k) { return !!(c && c[k]); }
   function msg(t, warn) {
-    document.getElementById("ecReqMsg").innerHTML =
-      t ? (warn ? '<div class="ec-warn">' : "<span>") + frappe.utils.escape_html(t) +
-          (warn ? "</div>" : "</span>") : "";
+    elMsg.innerHTML = t
+      ? (warn ? '<div class="ec-warn">' : "<span>") + frappe.utils.escape_html(t)
+        + (warn ? "</div>" : "</span>")
+      : "";
   }
-  function ok(c, k) { return !!(c && c[k] && c[k].ok); }
 
   function refresh() {
     var name = pr();
@@ -42,30 +57,58 @@
       args: { payment_request_name: name } })
       .then(function (r) {
         var m = r.message || {}, c = m.checks || {};
-        // VISIBILITY (governed): only the requester, requester stage, policy required.
-        // Gates OFF must NOT hide the local prepare/lock actions.
-        var visible = ok(c, "is_requester") && ok(c, "pending_requester_signature")
-          && ok(c, "requester_signature_required");
+        // VISIBILITY (governed): requester + requester stage + policy ONLY. Never coupled to
+        // ready / gates_enabled / package / placement state.
+        var visible = b(c, "is_requester") && b(c, "pending_requester_signature")
+          && b(c, "requester_signature_required");
         root.style.display = visible ? "block" : "none";
         if (!visible) return;
-        var hasPkg = ok(c, "package_active_hash_valid") || ok(c, "placements_complete");
-        var placed = ok(c, "placements_complete");
-        var locked = ok(c, "package_active_hash_valid");
-        var status = locked ? "Đã khoá" : (placed ? "Sẵn sàng khoá"
-          : (hasPkg ? "Thiếu vị trí ký" : "Nháp"));
-        document.getElementById("ecReqStatus").textContent = status;
-        // Lock action appears only after at least one valid placement (preflight complete).
-        document.getElementById("ecReqLock").style.display =
-          (placed && !locked) ? "inline-block" : "none";
-        document.getElementById("ecReqPrepare").style.display = locked ? "none" : "inline-block";
-        if (locked) msg("Gói đã khoá. Vui lòng kiểm tra lại readiness / bật cổng ký để tiếp tục.");
-        else if (!ok(c, "verified_mapping")) msg("Người đề nghị chưa có ánh xạ chữ ký đã xác minh.", true);
-        else msg("");
+
+        var locked = b(c, "package_locked");
+        var readyToLock = b(c, "placements_ready");
+        var present = b(c, "package_present");
+
+        // status + primary action per local package state (gate-independent).
+        var status, prepText, prepShow, lockShow;
+        if (locked) {
+          status = "Gói đã khoá"; prepShow = false; lockShow = false;
+        } else if (readyToLock) {
+          status = "Sẵn sàng khoá"; prepText = "Chỉnh vị trí ký"; prepShow = true; lockShow = true;
+        } else if (present) {
+          status = "Thiếu vị trí ký"; prepText = "Đặt vị trí chữ ký"; prepShow = true; lockShow = false;
+        } else {
+          status = "Chưa chuẩn bị gói"; prepText = "Chuẩn bị gói ký"; prepShow = true; lockShow = false;
+        }
+        elStatus.textContent = status;
+        if (prepText) btnPrep.textContent = prepText;
+        btnPrep.style.display = prepShow ? "inline-block" : "none";
+        btnLock.style.display = lockShow ? "inline-block" : "none";
+
+        // Closed provider gates: INFORMATION ONLY - must not hide the local actions above.
+        if (!b(c, "gates_enabled")) {
+          elGate.textContent = "Cổng ký số đang tắt. Bạn vẫn chuẩn bị, đặt vị trí và khoá "
+            + "gói ký cục bộ; quản trị sẽ bật cổng để gửi ký thật.";
+          elGate.style.display = "block";
+        } else {
+          elGate.style.display = "none";
+        }
+
+        if (locked) {
+          msg("Đã khoá gói ký. Chờ quản trị bật cổng ký để gửi ký thật.");
+        } else if (!b(c, "verified_mapping")) {
+          msg("Người đề nghị chưa có ánh xạ chữ ký đã xác minh.", true);
+        } else {
+          msg("");
+        }
       });
   }
 
-  document.getElementById("ecReqPrepare").onclick = function () {
+  // Prepare / Set placement: create-or-reuse the package (idempotent) and open the existing
+  // placement editor by reloading with the returned config. Repeated clicks reuse the same
+  // package. No SCTS call / no DSR (works with the write gates OFF).
+  btnPrep.onclick = function () {
     var name = pr();
+    if (!name) return;
     frappe.call({ method: "ecentric_workspace.approval_center.esign.api.prepare_requester_signing_package",
       type: "POST", args: { payment_request_name: name }, freeze: true,
       freeze_message: "Đang chuẩn bị gói ký…" })
@@ -75,8 +118,6 @@
           msg("Không có tệp PDF riêng tư hợp lệ trong phiếu để ký. Vui lòng đính kèm PDF.", true);
           return;
         }
-        // reuse the returned package + open the existing editor by reloading (idempotent -
-        // repeated clicks reuse the same package; placement_editor_config resolves it).
         window.EC_PPH_CONFIG = out.config;
         frappe.show_alert({ message: "Đã chuẩn bị gói ký. Đang mở trình đặt vị trí…",
           indicator: "green" });
@@ -85,8 +126,10 @@
       .catch(function () { msg("Không chuẩn bị được gói ký (kiểm tra quyền / ánh xạ).", true); });
   };
 
-  document.getElementById("ecReqLock").onclick = function () {
+  // Lock: freeze the package locally (no SCTS). Requester-only + idempotent server-side.
+  btnLock.onclick = function () {
     var name = pr();
+    if (!name) return;
     frappe.call({ method: "ecentric_workspace.approval_center.esign.api.requester_lock_signing_package",
       type: "POST", args: { payment_request_name: name }, freeze: true,
       freeze_message: "Đang khoá gói ký…" })

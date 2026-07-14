@@ -69,6 +69,27 @@ def requester_signing_readiness(business_doctype, business_name):
         pkg and pkg.status == "Active" and pkg.package_hash
         and pkgsvc.compute_hash(pkg_name) == pkg.package_hash)
     checks["placements_complete"] = bool(pkg_name and not pkgsvc.preflight_for_lock(pkg_name))
+    # --- ADDITIVE (requester panel state mapping only) ---------------------------------
+    # The requester package follows a LOCAL lifecycle (Draft -> Locked) while the write
+    # gates are OFF; it never reaches "Active" (only the provider worker sets "Active",
+    # which needs Signing ON). The Active-scoped keys above are left byte-identical so
+    # `ready`/`reasons` are unchanged; the keys below let the requester UI represent the
+    # four local states (no package / placement incomplete / ready to lock / locked)
+    # WITHOUT coupling to the gates. Resolve the current requester package for this
+    # business doc across statuses (the draft carries business_doctype/business_name and
+    # lock_package preserves them), newest non-terminal first.
+    cur_name = pkgsvc.active_package_for_request(ar) or frappe.db.get_value(
+        PKG, {"business_doctype": business_doctype, "business_name": business_name,
+              "status": ["not in", ("Cancelled", "Superseded", "Completed")]},
+        "name", order_by="creation desc")
+    cur = frappe.db.get_value(PKG, cur_name, ["status", "package_hash"],
+                              as_dict=True) if cur_name else None
+    checks["package_present"] = bool(cur)
+    checks["package_locked"] = bool(
+        cur and cur.status in ("Locked", "Active") and cur.package_hash)
+    checks["placements_ready"] = bool(
+        cur_name and cur and cur.status == "Draft"
+        and not pkgsvc.preflight_for_lock(cur_name))
     required = ["signing_enabled", "requester_signature_required", "is_requester",
                 "pending_requester_signature", "verified_mapping", "provider_uat",
                 "gates_enabled", "package_active_hash_valid", "placements_complete"]
