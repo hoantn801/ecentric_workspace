@@ -8,11 +8,18 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP = os.path.dirname(os.path.dirname(HERE))
 FRONTEND = os.path.join(APP, "approval_center", "frontend")
+# All migrated (shell-opted-in) pages: 1B pilots + 1C-alpha Batch A.
 PILOT = {
     "approvals.main_section.html",
     "leave.main_section.html",
     "hr_activity.main_section.html",
     "approvals_dashboard.main_section.html",
+    "lateral_move.main_section.html",
+    "promotion.main_section.html",
+    "employee_referral.main_section.html",
+    "service_referral.main_section.html",
+    "livestream_supplies.main_section.html",
+    "livestream_sample.main_section.html",
 }
 MARKER = 'data-ec-shell="1"'
 BELL = 'data-ec-notification-bell="1"'
@@ -98,6 +105,12 @@ class TestHeaderPolish(unittest.TestCase):
         "leave.main_section.html": "Leave",
         "hr_activity.main_section.html": "HR Activity",
         "approvals_dashboard.main_section.html": "Bảng điều hành vận hành",
+        "lateral_move.main_section.html": "Employee Lateral Move",
+        "promotion.main_section.html": "Promotion Request",
+        "employee_referral.main_section.html": "Employee Referral",
+        "service_referral.main_section.html": "Service Referral",
+        "livestream_supplies.main_section.html": "Livestream Supplies",
+        "livestream_sample.main_section.html": "Livestream Sample",
     }
 
     def test_header_right_slot_on_all_pilots_once(self):
@@ -159,6 +172,55 @@ class TestHeaderPolish(unittest.TestCase):
         self.assertIn('aria-hidden="true"', js)
         css = _read(APP, "public", "css", "ec_shell.bundle.css")
         self.assertIn(".ec-shell-actionslot{ display:none; }", css)
+
+
+class TestSmoothnessCore(unittest.TestCase):
+    """Phase 1C-alpha: boot cache + prefetch + transitions (source contracts;
+    behavior is proven in shell/tests/ec_shell_check.js)."""
+
+    def _js(self):
+        return _read(APP, "public", "js", "ec_shell.js")
+
+    def test_cache_contract(self):
+        js = self._js()
+        self.assertIn("sessionStorage", js)
+        self.assertIn("CACHE_TTL_MS = 5 * 60 * 1000", js)       # approved TTL
+        self.assertIn("'ec_shell_boot_cache_v1'", js)           # versioned key
+        self.assertIn("entry.v !== VERSION", js)                # schema/version check
+        self.assertIn("cookieUser", js)                         # identity guard
+        self.assertIn("cookieUid !== m.user.name", js)
+        self.assertIn("JSON.stringify(m) !== JSON.stringify(S.boot)", js)  # SWR diff
+        self.assertIn("removeItem(CACHE_KEY)", js)              # disabled -> clear
+
+    def test_cache_never_authorization(self):
+        js = self._js()
+        # cache path must never skip the backend refresh
+        self.assertIn("background refresh", js.lower())
+        self.assertNotIn("ignore_permissions", js)
+
+    def test_prefetch_only_no_prerender(self):
+        js = self._js()
+        self.assertIn("l.rel = 'prefetch'", js)
+        low = js.lower()
+        # usage tokens, not comment words: no Speculation Rules script type,
+        # no prerender rel value anywhere in code.
+        self.assertNotIn("speculationrules", low)
+        self.assertNotIn("rel = 'prerender'", low)
+        self.assertNotIn('rel="prerender"', low)
+        self.assertNotIn("'prerender'", low.replace("rel = 'prerender'", ""))
+
+    def test_no_navigation_interception(self):
+        js = self._js()
+        self.assertNotIn("popstate", js)
+        self.assertNotIn("pushState", js)
+        self.assertNotIn("preventDefault(); window.location", js)
+        self.assertNotIn("document.startViewTransition(", js)   # detect-only, never called
+
+    def test_transition_css(self):
+        css = _read(APP, "public", "css", "ec_shell.bundle.css")
+        self.assertIn(".ec-shell-mount~.ec-main{ animation:ec-shell-fadein 120ms ease-out; }", css)
+        self.assertIn("@keyframes ec-shell-fadein", css)
+        self.assertIn("prefers-reduced-motion", css)
 
 
 if __name__ == "__main__":
