@@ -62,15 +62,17 @@ def package_placements(pkg_name):
 # --------------------------------------------------------------------------- #
 # create / upload
 # --------------------------------------------------------------------------- #
-def get_or_create_draft(business_doctype, business_name, profile_name):
-    """One Draft package per business doc. Requires the business draft to EXIST and be
-    owned by the caller (orphan prevention) and to not be submitted yet."""
+def get_or_create_draft(business_doctype, business_name, profile_name, allow_submitted=False):
+    """One Draft package per business doc. Requires the business draft to EXIST and be owned
+    by the caller (orphan prevention). Normally the doc must not be submitted yet; the
+    REQUESTER pre-approval prep path passes allow_submitted=True to prepare the package during
+    the governed Pending Requester Signature stage (the caller is still authorized upstream)."""
     if not frappe.db.exists(business_doctype, business_name):
         frappe.throw(_("Vui lòng lưu nháp yêu cầu trước khi tải tệp."))
     existing = draft_package_for_business(business_doctype, business_name)
     if existing:
         return get_package(existing)
-    if perms.business_approval_request(business_doctype, business_name):
+    if not allow_submitted and perms.business_approval_request(business_doctype, business_name):
         frappe.throw(_("Yêu cầu đã gửi duyệt - gói tài liệu không thể tạo mới ở trạng thái này."))
     prof = frappe.db.get_value("EC Digital Signature Profile", profile_name,
                                ["provider", "environment"], as_dict=True)

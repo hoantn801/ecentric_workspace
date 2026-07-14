@@ -218,3 +218,96 @@ def activate_level_one_after_requester_signature(request_name, dsr_name):
                 erp_actor=req.requested_by,
                 request_meta={"approval_request": request_name, "level": first.level_no})
     return {"activated": True, "level": first.level_no}
+
+
+def _add_requester_pdf_files(pkg_name, business_doctype, business_name):
+    """Add the business document's ELIGIBLE private PDF attachments to the package as signable
+    files (idempotent by SHA-256). Non-PDF / non-private / invalid content is skipped or fails
+    closed inside package.add_file's validation. Never touches SCTS."""
+    from ecentric_workspace.approval_center.esign import hashing
+    have = set()
+    for row in frappe.get_all(DSF, filters={"package": pkg_name}, fields=["sha256"]):
+        if row.sha256:
+            have.add(row.sha256)
+    added = 0
+    for f in frappe.get_all("File", filters={"attached_to_doctype": business_doctype,
+                                             "attached_to_name": business_name, "is_private": 1},
+                            fields=["name", "file_name"]):
+        if not (f.file_name or "").lower().endswith(".pdf"):
+            continue
+        content = frappe.get_doc("File", f.name).get_content()
+        if hashing.sha256_bytes(content) in have:
+            continue
+        pkgsvc.add_file(pkg_name, f.file_name, content, requires_signature=1)
+        added += 1
+    return added
+
+
+def prepare_requester_signing_package(business_doctype, business_name):
+    """Governed 'Prepare Signing Package' for a requester in pre-approval. Session user must be
+    the authoritative requester (NO admin/SM bypass); creates OR reuses exactly one internal
+    package (idempotent), adds eligible private PDFs, and returns the placement-editor config.
+    Makes NO SCTS call and creates NO DSR/provider document (gates may be OFF)."""
+    actor = frappe.session.user
+    ar = perms.business_approval_request(business_doctype, business_name) \
+        or _requester_ar(business_doctype, business_name)
+    if not ar:
+        frappe.throw(_("Không tìm thấy yêu cầu duyệt cho phiếu này."))
+    req = frappe.db.get_value(AR, ar, ["approval_type", "reference_doctype", "requested_by",
+                                       "requester_signature_status", "current_level"], as_dict=True)
+    if actor != req.requested_by:
+        frappe.throw(_("Chỉ người đề nghị mới được chuẩn bị gói ký."), frappe.PermissionError)
+    if req.requester_signature_status not in _START_STATES + ("Processing",):
+        frappe.throw(_("Yêu cầu không ở giai đoạn chờ người đề nghị ký."))
+    pname = guard.get_enabled_profile(req.reference_doctype, req.approval_type)
+    if not pname or not guard.requester_signature_required(req.reference_doctype, req.approval_type):
+        frappe.throw(_("Loại yêu cầu này không yêu cầu chữ ký của người đề nghị."))
+    mapping = perms.verified_mapping(req.requested_by,
+                                     frappe.db.get_value("EC Digital Signature Profile", pname,
+                                                         "environment"))
+    if not mapping:
+        frappe.throw(_("Người đề nghị chưa có ánh xạ chữ ký SCTS được xác minh."))
+    frappe.db.get_value(AR, ar, "name", for_update=True)  # idempotency lock
+    pkg = pkgsvc.get_or_create_draft(business_doctype, business_name, pname, allow_submitted=True)
+    if pkg.status == "Draft":
+        _add_requester_pdf_files(pkg.name, business_doctype, business_name)
+    from ecentric_workspace.approval_center.esign import ui_state
+    st = ui_state.signing_ui_state(business_doctype, business_name)
+    pkgd = st.get("package") or {}
+    files = [{"name": ff.get("name"), "file_name": ff.get("file_name"),
+              "is_pdf": ff.get("is_pdf"), "requires_signature": ff.get("requires_signature")}
+             for ff in (pkgd.get("files") or [])]
+    return {"package": pkg.name, "status": pkg.status,
+            "config": {"package": pkg.name, "files": files,
+                       "version": pkgd.get("package_version"),
+                       "locked": bool(pkg.status != "Draft")}}
+
+
+def requester_lock_signing_package(business_doctype, business_name):
+    """Lock the requester's package locally (freezes the hash) after placements are set - no
+    SCTS call. Requester-only; idempotent (a Locked/Active package is returned as-is)."""
+    actor = frappe.session.user
+    ar = perms.business_approval_request(business_doctype, business_name) \
+        or _requester_ar(business_doctype, business_name)
+    req = frappe.db.get_value(AR, ar, ["requested_by"], as_dict=True) if ar else None
+    if not req or actor != req.requested_by:
+        frappe.throw(_("Chỉ người đề nghị mới được khóa gói ký."), frappe.PermissionError)
+    pkg_name = pkgsvc.draft_package_for_business(business_doctype, business_name) \
+        or pkgsvc.active_package_for_request(ar)
+    if not pkg_name:
+        frappe.throw(_("Chưa có gói tài liệu để khóa."))
+    status = frappe.db.get_value(PKG, pkg_name, "status")
+    if status in ("Locked", "Active"):
+        return {"package": pkg_name, "status": status, "locked": True, "duplicate": True}
+    h = pkgsvc.lock_package(pkg_name, ar)
+    return {"package": pkg_name, "status": "Locked", "package_hash": h, "locked": True}
+
+
+def _requester_ar(business_doctype, business_name):
+    """Resolve the active Approval Request by its OWN reference fields (authoritative)."""
+    rows = frappe.get_all(AR, filters={"reference_doctype": business_doctype,
+                                       "reference_name": business_name},
+                          fields=["name", "approval_status"], order_by="creation desc",
+                          limit_page_length=20)
+    return next((r.name for r in rows if r.approval_status == "Pending"),
+                (rows[0].name if rows else None))
