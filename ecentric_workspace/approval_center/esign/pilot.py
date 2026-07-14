@@ -68,27 +68,47 @@ def uat_pilot_readiness(payment_request_name=None):
     active_approver = None
     requested_by = None
     requester_status = None
-    if payment_request_name and frappe.db.exists("EC Payment Request", payment_request_name):
-        approval_type = frappe.db.get_value("EC Payment Request", payment_request_name,
-                                            "approval_type")
-        ar = perms.business_approval_request("EC Payment Request", payment_request_name)
-        if ar:
-            req = frappe.db.get_value("EC Approval Request", ar,
-                                      ["approval_status", "current_level",
-                                       "requester_signature_status", "requested_by"], as_dict=True)
-            requested_by = req.requested_by if req else None
-            requester_status = req.requester_signature_status if req else None
-            if req and req.current_level:
+    ref_doctype = None
+    approval_status = None
+    pr_resolved = bool(payment_request_name
+                       and frappe.db.exists("EC Payment Request", payment_request_name))
+    if pr_resolved:
+        # AUTHORITATIVE source = the governed EC Approval Request, resolved by ITS OWN
+        # reference fields (reference_doctype + reference_name), NOT the PR.approval_request
+        # back-link (which can be empty/stale) and NOT the Payment Request's own approval_type
+        # (which may be blank). Prefer the active (Pending) request, else the most recent.
+        ar_rows = frappe.get_all(
+            "EC Approval Request",
+            filters={"reference_doctype": "EC Payment Request",
+                     "reference_name": payment_request_name},
+            fields=["name", "approval_type", "reference_doctype", "requested_by",
+                    "requester_signature_status", "current_level", "approval_status"],
+            order_by="creation desc", limit_page_length=20)
+        req = next((r for r in ar_rows if r.approval_status == "Pending"), None) \
+            or (ar_rows[0] if ar_rows else None)
+        if req:
+            ar = req.name
+            approval_type = req.approval_type
+            ref_doctype = req.reference_doctype
+            requested_by = req.requested_by
+            requester_status = req.requester_signature_status
+            approval_status = req.approval_status
+            if req.current_level:
                 active_approver = _resolve_active_approver(ar, req.current_level, caller)
     # STAGE detection: a request still in the requester pre-approval stage evaluates the
     # REQUESTER signer (not an approver/level). Uses the gate-INDEPENDENT policy check so a
     # closed signing gate never hides the requester stage.
+    enabled_profile_name = (guard.get_enabled_profile(ref_doctype, approval_type)
+                            if (ref_doctype and approval_type) else None)
     requester_stage = bool(
-        payment_request_name and ar and req
+        pr_resolved and ar and req
         and requester_status in ("Pending", "Processing", "Reconciliation Required")
         and (not req.current_level or int(req.current_level) == 0)
-        and approval_type
-        and guard.requester_signature_required("EC Payment Request", approval_type))
+        and approval_status == "Pending"
+        and ref_doctype and approval_type
+        and enabled_profile_name
+        and bool(frappe.db.get_value("EC Digital Signature Profile", enabled_profile_name,
+                                     "requester_signature_required")))
     stage = ("Requester Pre-Approval" if requester_stage
              else ("Approval Level %s" % req.current_level if (req and req.current_level)
                    else "No Active Stage"))
@@ -124,13 +144,16 @@ def uat_pilot_readiness(payment_request_name=None):
     # ---- REQUESTER pre-approval stage: requester-only checks; NO approver/level blockers ----
     if requester_stage:
         chk("requester_stage_detected", True, blocking_flag=False)
+        chk("payment_request_resolved", pr_resolved, blocking_flag=False,
+            detail=payment_request_name)
+        chk("approval_request_resolved", bool(ar), blocking_flag=False, detail=ar)
         chk("requester_status_pending",
             requester_status in ("Pending", "Processing", "Reconciliation Required"))
         chk("current_level_zero", (not req.current_level or int(req.current_level) == 0))
         chk("no_level_one_actionability",
             not bool(active_approver) and (not req.current_level or int(req.current_level) == 0))
         chk("requester_signature_required", True)
-        prof_name = guard.get_enabled_profile("EC Payment Request", approval_type)
+        prof_name = enabled_profile_name
         prof_row = frappe.db.get_value("EC Digital Signature Profile", prof_name, "*",
                                        as_dict=True) if prof_name else None
         chk("enabled_profile_exact", bool(prof_row))
@@ -174,6 +197,28 @@ def uat_pilot_readiness(payment_request_name=None):
                 "blocking_items": blocking, "warnings": warnings, "checks": checks,
                 "caller_user": caller, "active_approver": None,
                 "signer_evaluated": requested_by, "payment_request": payment_request_name}
+
+    # ---- explicit resolution diagnostics (never silently fall through) ----
+    if pr_resolved and not requester_stage and not (req and req.current_level):
+        chk("payment_request_resolved", pr_resolved, blocking_flag=False, detail=payment_request_name)
+        chk("approval_request_resolved", bool(ar), blocking_flag=False, detail=ar)
+        chk("resolved_reference_doctype", bool(ref_doctype), blocking_flag=False, detail=ref_doctype)
+        chk("resolved_approval_type", bool(approval_type), blocking_flag=False, detail=approval_type)
+        chk("resolved_requester_signature_status", bool(requester_status),
+            blocking_flag=False, detail=requester_status)
+        chk("resolved_current_level", req.current_level is not None if req else False,
+            blocking_flag=False, detail=(req.current_level if req else None))
+        chk("enabled_profile_resolved", bool(enabled_profile_name), blocking_flag=False,
+            detail=enabled_profile_name)
+        return {"ready": len(blocking) == 0, "stage": "Unresolved",
+                "actor_type": "Unresolved", "blocking_items": blocking, "warnings": warnings,
+                "checks": checks, "caller_user": caller, "active_approver": None,
+                "signer_evaluated": None, "payment_request": payment_request_name,
+                "approval_request_name": ar, "resolved_reference_doctype": ref_doctype,
+                "resolved_approval_type": approval_type,
+                "resolved_requester_signature_status": requester_status,
+                "resolved_current_level": (req.current_level if req else None),
+                "enabled_profile_name": enabled_profile_name}
 
     # ---- profile: for a TARGETED PR use ONLY the exact active profile resolved for its
     # approval_type (no fallback to an arbitrary enabled SCTS profile); a general enabled
