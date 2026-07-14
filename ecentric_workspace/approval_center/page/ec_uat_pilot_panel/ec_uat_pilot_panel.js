@@ -21,7 +21,9 @@ frappe.pages["ec-uat-pilot-panel"].on_page_load = function (wrapper) {
       .then(function (r) {
         var m = r.message || {};
         $b.find("#ecUatApply").prop("disabled", !m.ready);
-        $b.find("#ecUatOut").html("<b>" + (m.ready ? "READY" : "NOT READY") + "</b> " +
+        var stageLbl = m.stage ? (" [" + (m.actor_type || "") + ": " + m.stage + "]") : "";
+        $b.find("#ecUatOut").html("<b>" + (m.ready ? "READY" : "NOT READY") + "</b>" +
+          "<span style='color:#555'>" + frappe.utils.escape_html(stageLbl) + "</span> " +
           esc((m.blocking_items || []).join(", ")) +
           "<pre>" + esc(JSON.stringify(m.checks || {}, null, 2)) + "</pre>");
       }, function () { $b.find("#ecUatOut").text("Chỉ System Manager."); });
