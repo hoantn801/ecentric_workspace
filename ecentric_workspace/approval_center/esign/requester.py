@@ -22,6 +22,7 @@ from ecentric_workspace.approval_center.esign import permissions as perms
 DSR = "EC Digital Signature Request"
 AR = "EC Approval Request"
 PKG = "EC Digital Signature Package"
+DSF = "EC Digital Signature File"  # canonical package-file DocType (as in signed_files/pilot/review)
 # request may (re)start requester signing from these states (retry-safe).
 _START_STATES = ("Pending", "Reconciliation Required", "Failed")
 # a DSR that still holds/represents a live or completed provider job.
