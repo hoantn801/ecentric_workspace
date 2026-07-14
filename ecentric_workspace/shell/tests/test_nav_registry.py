@@ -50,7 +50,7 @@ class TestRegistryCompose(unittest.TestCase):
 
     def test_no_business_data_fields(self):
         # registry payload must stay navigation-only
-        allowed = set(nav.REQUIRED_FIELDS) | {"badge_source"}
+        allowed = set(nav.REQUIRED_FIELDS) | {"badge_source", "keywords"}
         for it in nav.compose():
             self.assertTrue(set(it) <= allowed, "unexpected fields: %s" % (set(it) - allowed))
 
@@ -115,7 +115,8 @@ class TestBootApiGating(unittest.TestCase):
         self.assertTrue(out["nav"])
         for it in out["nav"]:
             self.assertEqual(
-                set(it), {"key", "label", "route", "icon", "group", "active_patterns"},
+                set(it),
+                {"key", "label", "route", "icon", "group", "active_patterns", "keywords"},
                 "boot nav must not leak extra fields")
         self.assertEqual(set(out["user"]), {"name", "full_name", "image"})
 

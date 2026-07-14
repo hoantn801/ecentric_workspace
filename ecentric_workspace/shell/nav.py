@@ -13,6 +13,8 @@ Contract (Phase 1B): each nav item is a dict with
                     "internal" (any logged-in internal user)     (required)
     badge_source    optional name of a whitelisted count
                     endpoint; NEVER inline business data         (optional)
+    keywords        optional list of plain search synonyms for the
+                    shell nav search (labels only, never data)   (optional)
     owner           owning module, e.g. "core", "approval_center"(required)
 
 Rules:
@@ -40,6 +42,7 @@ CORE_ITEMS = [
         "order": 10,
         "active_patterns": ["/", "/home"],
         "visible_when": "internal",
+        "keywords": ["trang chu", "home", "homepage"],
         "owner": "core",
     },
 ]
@@ -70,6 +73,9 @@ def validate(items):
         if it["route"] in seen_routes:
             raise ValueError("duplicate nav route: %r" % it["route"])
         seen_keys.add(it["key"]); seen_routes.add(it["route"])
+        kws = it.get("keywords", [])
+        if not isinstance(kws, list) or any(not isinstance(k, str) or not k.strip() for k in kws):
+            raise ValueError("nav item %r: keywords must be a list of non-empty strings" % it["key"])
         pats = it["active_patterns"]
         if not isinstance(pats, list) or not pats:
             raise ValueError("nav item %r: active_patterns must be non-empty list" % it["key"])

@@ -17,13 +17,18 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.2.0 (phase 1C-alpha smoothness)';
+  var VERSION = 'ec-shell v1.3.0 (phase 1C.1 nav search)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
   // and user identity (user_id cookie + fresh-payload user check).
   var CACHE_KEY = 'ec_shell_boot_cache_v1';
   var CACHE_TTL_MS = 5 * 60 * 1000;
+  // Nav-search type source: the EXISTING permission-filtered Approval catalog
+  // endpoint. Cards without a route (Coming Soon/hidden/inactive) are dropped,
+  // so search can never offer a destination the catalog would not.
+  var CATALOG_URL = '/api/method/ecentric_workspace.approval_center.api.catalog.list_catalog';
+  var CATALOG_CACHE_KEY = 'ec_shell_catalog_cache_v1';
   // Official brand asset -- same site file the homepage uses (/files File doc).
   var LOGO_SRC = '/files/eCentric%20logo%20-%20mini.png';
   var BOOT_URL = '/api/method/ecentric_workspace.shell.api.get_shell_boot';
@@ -100,6 +105,75 @@
     return path === '/approvals' || path.indexOf('/approvals/') === 0;
   }
 
+  // pure: deterministic Vietnamese-insensitive normalization. Per-char NFD
+  // strip keeps a strict 1:1 index map (needed for highlight ranges).
+  function normalizeVN(s) {
+    var out = '';
+    s = String(s == null ? '' : s).toLowerCase();
+    for (var i = 0; i < s.length; i++) {
+      var ch = s.charAt(i);
+      if (ch === 'đ') { out += 'd'; continue; }
+      var d = ch.normalize ? ch.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : ch;
+      out += d.charAt(0) || ch;
+    }
+    return out;
+  }
+
+  // pure: build search entries. Modules from the boot nav; approval types from
+  // permission-filtered catalog cards -- ONLY cards with a live route.
+  function buildSearchEntries(bootNav, catalogTypes) {
+    var out = [];
+    (bootNav || []).forEach(function (it) {
+      out.push({ label: it.label, route: it.route, icon: it.icon || 'doc',
+                 group: 'module', sub: it.group || '',
+                 keywords: (it.keywords || []).concat([it.route]) });
+    });
+    (catalogTypes || []).forEach(function (c) {
+      if (!c || !c.route) return;                       // inaccessible: excluded
+      out.push({ label: c.approval_title || c.route, route: c.route, icon: 'doc',
+                 group: 'type', sub: c.category_name || '',
+                 keywords: [c.description || '', c.category_name || '', c.route] });
+    });
+    return out;
+  }
+
+  // pure: rank + highlight. Match label (best, with highlight range), then
+  // keywords/sub (no highlight). Case- and accent-insensitive, partial words.
+  function searchNav(entries, query, limitPerGroup) {
+    var q = normalizeVN(String(query || '').trim());
+    if (!q) return { modules: [], types: [], total: 0 };
+    var lim = limitPerGroup || 8;
+    var scored = [];
+    (entries || []).forEach(function (e) {
+      var nl = normalizeVN(e.label);
+      var idx = nl.indexOf(q);
+      var score = -1, hl = null;
+      if (idx >= 0) { score = 100 - idx + (nl === q ? 50 : 0); hl = [idx, q.length]; }
+      else {
+        var hay = normalizeVN((e.keywords || []).join(' ') + ' ' + (e.sub || ''));
+        if (hay.indexOf(q) >= 0) score = 10;
+      }
+      if (score >= 0) scored.push({ e: e, score: score, hl: hl });
+    });
+    scored.sort(function (a, b) { return b.score - a.score || a.e.label.localeCompare(b.e.label); });
+    var modules = [], types = [];
+    scored.forEach(function (r) {
+      var item = { label: r.e.label, route: r.e.route, icon: r.e.icon, sub: r.e.sub, hl: r.hl };
+      if (r.e.group === 'module') { if (modules.length < lim) modules.push(item); }
+      else if (types.length < lim) types.push(item);
+    });
+    return { modules: modules, types: types, total: modules.length + types.length };
+  }
+
+  // pure: catalog cache validity (mirrors cacheValid; user-isolated).
+  function catalogCacheValid(entry, nowTs, userName) {
+    if (!entry || typeof entry !== 'object') return false;
+    if (entry.v !== VERSION) return false;
+    if (!entry.ts || (nowTs - entry.ts) > CACHE_TTL_MS) return false;
+    if (!userName || entry.user !== userName) return false;
+    return Object.prototype.toString.call(entry.types) === '[object Array]';
+  }
+
   // Most-specific wins: exact route (1000+len) > exact pattern (900+len) >
   // prefix pattern "<base>/*" (500+len(base)). "/" is an alias of "/home".
   // NO substring/keyword fallbacks (the legacy "first slug containing 'form'"
@@ -151,6 +225,7 @@
     doc:   '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/>',
     bell:  '<path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
     burger:'<path d="M3 6h18M3 12h18M3 18h18"/>',
+    search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
     logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>'
   };
   function svg(name) {
@@ -200,6 +275,19 @@
         '<span class="ec-shell-brandname">eCentric</span></a>' +
         headBell +
       '</div>' +
+      // nav search (1C.1): input under the brand area + grouped results.
+      // Frontend-only; module entries from the boot nav, approval types from
+      // the permission-filtered catalog (lazy-loaded). Results are plain
+      // <a href> -- no interception, backend authorization unchanged.
+      '<div class="ec-shell-search">' +
+        svg('search') +
+        '<input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" ' +
+          'role="combobox" aria-expanded="false" aria-autocomplete="list" ' +
+          'aria-label="Tìm chức năng" autocomplete="off" spellcheck="false">' +
+        '<button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" ' +
+          'hidden aria-label="Xóa tìm kiếm">&times;</button>' +
+      '</div>' +
+      '<div class="ec-shell-search-results" role="listbox" hidden></div>' +
       navHtml(boot.nav, activeKey) +
       '<div class="ec-shell-foot">' +
         '<a class="ec-shell-usercard" href="/app/user" title="' + esc(u.name) + '">' + av +
@@ -286,6 +374,159 @@
       .finally(function () { window.location.href = '/login-page'; });
   }
 
+  // ------------------------------------------------------------ nav search --
+  var SEARCH = { types: null, loading: false, failed: false, sel: -1, flat: [] };
+
+  function readCatalogCache(userName) {
+    try {
+      if (!window.sessionStorage) return null;
+      var raw = window.sessionStorage.getItem(CATALOG_CACHE_KEY);
+      if (!raw) return null;
+      var e = JSON.parse(raw);
+      return catalogCacheValid(e, Date.now(), userName) ? e.types : null;
+    } catch (err) { return null; }
+  }
+
+  function ensureCatalog() {
+    if (SEARCH.types || SEARCH.loading || SEARCH.failed || !S.boot) return;
+    var userName = S.boot.user && S.boot.user.name;
+    var cached = readCatalogCache(userName);
+    if (cached) { SEARCH.types = cached; return; }
+    SEARCH.loading = true;
+    fetch(CATALOG_URL, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (r) { if (!r.ok) throw new Error('catalog HTTP ' + r.status); return r.json(); })
+      .then(function (j) {
+        var m = j && j.message;
+        var types = (m && m.types || []).filter(function (c) { return c && c.route; })
+          .map(function (c) {   // slim: labels/routes only -- never business data
+            return { approval_title: c.approval_title, route: c.route,
+                     category_name: c.category_name, description: c.description || '' };
+          });
+        SEARCH.types = types;
+        SEARCH.loading = false;
+        try {
+          window.sessionStorage.setItem(CATALOG_CACHE_KEY,
+            JSON.stringify({ v: VERSION, ts: Date.now(), user: userName, types: types }));
+        } catch (e) {}
+        var inp = activeSearchInput();
+        if (inp && inp.value) renderResults(inp);   // refresh open results
+      })
+      .catch(function () { SEARCH.loading = false; SEARCH.failed = true; });
+  }
+
+  function searchWrap(inp) { return inp ? inp.parentNode : null; }
+  function resultsBox(inp) {
+    var w = searchWrap(inp);
+    return w && w.nextElementSibling && w.nextElementSibling.className &&
+      String(w.nextElementSibling.className).indexOf('ec-shell-search-results') >= 0
+      ? w.nextElementSibling : null;
+  }
+  function searchHost(inp) {  // the aside (mount or drawer) containing this input
+    var n = inp;
+    while (n && n !== document.body) {
+      var cn = String(n.className || '');
+      if (cn.indexOf('ec-shell-mount') >= 0 || cn.indexOf('ec-shell-drawer') >= 0) return n;
+      n = n.parentNode;
+    }
+    return null;
+  }
+  function activeSearchInput() {
+    var el = document.activeElement;
+    return el && String(el.className || '').indexOf('ec-shell-search-in') >= 0 ? el : null;
+  }
+
+  function hlLabel(item) {
+    if (!item.hl) return esc(item.label);
+    var a = item.hl[0], b = item.hl[0] + item.hl[1];
+    return esc(item.label.slice(0, a)) + '<b class="ec-shell-hl">' +
+           esc(item.label.slice(a, b)) + '</b>' + esc(item.label.slice(b));
+  }
+
+  function renderResults(inp) {
+    var box = resultsBox(inp); if (!box) return;
+    var host = searchHost(inp);
+    var q = inp.value || '';
+    var clearBtn = searchWrap(inp).querySelector('.ec-shell-search-clear');
+    if (clearBtn) clearBtn.hidden = !q;
+    if (!q.trim()) {
+      box.hidden = true; box.innerHTML = '';
+      inp.setAttribute('aria-expanded', 'false');
+      if (host) host.classList.remove('ec-shell-searching');
+      SEARCH.sel = -1; SEARCH.flat = [];
+      return;
+    }
+    ensureCatalog();
+    var res = searchNav(buildSearchEntries(S.boot && S.boot.nav, SEARCH.types), q, 8);
+    SEARCH.flat = res.modules.concat(res.types);
+    if (SEARCH.sel >= SEARCH.flat.length) SEARCH.sel = SEARCH.flat.length - 1;
+    var h = '';
+    function grp(title, items, offset) {
+      if (!items.length) return;
+      h += '<div class="ec-shell-search-grp">' + esc(title) + '</div>';
+      items.forEach(function (it, i) {
+        var idx = offset + i;
+        h += '<a class="ec-shell-search-item' + (idx === SEARCH.sel ? ' ec-shell-selected' : '') +
+             '" role="option" aria-selected="' + (idx === SEARCH.sel ? 'true' : 'false') +
+             '" href="' + esc(it.route) + '">' + svg(it.icon || 'doc') +
+             '<span class="ec-shell-search-lbl">' + hlLabel(it) +
+             (it.sub ? '<small>' + esc(it.sub) + '</small>' : '') + '</span></a>';
+      });
+    }
+    grp('Chức năng', res.modules, 0);
+    grp('Yêu cầu phê duyệt', res.types, res.modules.length);
+    if (!res.total) {
+      h = '<div class="ec-shell-search-empty">Không tìm thấy chức năng phù hợp' +
+          (SEARCH.loading ? ' (đang tải danh mục…)' : '') + '</div>';
+    }
+    box.innerHTML = h;
+    box.hidden = false;
+    inp.setAttribute('aria-expanded', 'true');
+    if (host) host.classList.add('ec-shell-searching');
+  }
+
+  function clearSearch(inp) {
+    if (!inp) return;
+    inp.value = '';
+    SEARCH.sel = -1;
+    renderResults(inp);
+  }
+
+  function onSearchKeydown(ev, inp) {
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      if (!SEARCH.flat.length) return;
+      SEARCH.sel = ev.key === 'ArrowDown'
+        ? (SEARCH.sel + 1) % SEARCH.flat.length
+        : (SEARCH.sel <= 0 ? SEARCH.flat.length - 1 : SEARCH.sel - 1);
+      renderResults(inp);
+    } else if (ev.key === 'Enter') {
+      if (!SEARCH.flat.length) return;
+      var pickIdx = SEARCH.sel >= 0 ? SEARCH.sel : 0;
+      var box = resultsBox(inp);
+      var links = box ? box.querySelectorAll('.ec-shell-search-item') : null;
+      var el = links && links[pickIdx];
+      // navigate via the real result anchor (native <a> semantics; nothing
+      // intercepted); fallback assigns location from the pure result model.
+      if (el && el.click) { el.click(); return; }
+      var pick = SEARCH.flat[pickIdx];
+      if (pick && pick.route) window.location.href = pick.route;
+    } else if (ev.key === 'Escape') {
+      ev.stopPropagation();          // first Esc clears search; next closes drawer
+      clearSearch(inp);
+      inp.blur();
+    }
+  }
+
+  function focusSearch() {
+    var inp = S.mount && S.mount.querySelector('.ec-shell-search-in');
+    var visible = false;
+    if (inp) { try { visible = inp.offsetParent !== null; } catch (e) { visible = true; } }
+    if (inp && visible) { inp.focus(); return; }
+    drawerOpen();                    // mobile: sidebar hidden -> search in drawer
+    var dinp = S.drawer && S.drawer.querySelector('.ec-shell-search-in');
+    if (dinp && dinp.focus) dinp.focus();
+  }
+
   function bindOnce() {
     if (S.bound) return;
     S.bound = true;
@@ -320,6 +561,36 @@
       var href = a.getAttribute('href');
       if (shouldPrefetch(href, window.location.origin)) prefetch(href);
     }, true);
+    // nav search: delegated, bound once. Results are plain anchors -> native
+    // navigation; nothing here intercepts routing or touches business data.
+    document.addEventListener('input', function (ev) {
+      var t = ev.target;
+      if (t && String(t.className || '').indexOf('ec-shell-search-in') >= 0) {
+        SEARCH.sel = -1;
+        renderResults(t);
+      }
+    }, true);
+    document.addEventListener('keydown', function (ev) {
+      var t = ev.target;
+      if (t && String(t.className || '').indexOf('ec-shell-search-in') >= 0) {
+        onSearchKeydown(ev, t);
+        return;
+      }
+      if ((ev.ctrlKey || ev.metaKey) && String(ev.key).toLowerCase() === 'k') {
+        ev.preventDefault();
+        focusSearch();
+      }
+    }, true);
+    document.addEventListener('click', function (ev) {
+      var t = ev.target && ev.target.closest ? ev.target : null;
+      if (!t) return;
+      var btn = t.closest('[data-ec-shell-search-clear]');
+      if (btn) {
+        var inp = btn.parentNode && btn.parentNode.querySelector('.ec-shell-search-in');
+        clearSearch(inp);
+        if (inp && inp.focus) inp.focus();
+      }
+    }, false);
   }
 
   function ensureBurger() {
@@ -423,6 +694,10 @@
       groupItems: groupItems,
       cacheValid: cacheValid,
       shouldPrefetch: shouldPrefetch,
+      normalizeVN: normalizeVN,
+      buildSearchEntries: buildSearchEntries,
+      searchNav: searchNav,
+      catalogCacheValid: catalogCacheValid,
       reinit: reinit
     };
   }

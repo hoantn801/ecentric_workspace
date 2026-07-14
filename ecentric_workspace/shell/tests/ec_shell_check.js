@@ -211,6 +211,57 @@ const BOOT2 = JSON.parse(JSON.stringify(BOOT1)); BOOT2.nav[1].label = 'Approval 
   await flush();
   ok(e6.fetchCalls === 0, 'no marker -> still zero fetch with cache present');
 
+  // ---- 7. nav search (1C.1): pure core --------------------------------------
+  const E = v0.win.ECShell;
+  ok(E.normalizeVN('Nghỉ phép') === 'nghi phep' && E.normalizeVN('THĂNG Chức') === 'thang chuc'
+     && E.normalizeVN('Điều hành') === 'dieu hanh', 'normalizeVN strips Vietnamese accents incl đ/Đ');
+  const CARDS = [
+    { approval_title: 'Leave', route: '/approvals/leave', category_name: 'HR', description: 'Đăng ký nghỉ phép' },
+    { approval_title: 'Promotion Request', route: '/approvals/promotion', category_name: 'Administration', description: 'Đề xuất thăng chức' },
+    { approval_title: 'Employee Referral', route: '/approvals/employee-referral', category_name: 'Others', description: 'Giới thiệu ứng viên' },
+    { approval_title: 'Service Referral', route: '/approvals/service-referral', category_name: 'Others', description: 'Giới thiệu dịch vụ' },
+    { approval_title: 'Hidden Coming Soon', route: null, category_name: 'HR', description: 'not accessible' },
+  ];
+  const MODS = [
+    { label: 'Trang chủ', route: '/home', icon: 'home', group: '', keywords: ['trang chu', 'home'] },
+    { label: 'Bảng điều hành', route: '/approvals/dashboard', icon: 'chart', group: 'Phê duyệt', keywords: ['dashboard'] },
+  ];
+  const entries = E.buildSearchEntries(MODS, CARDS);
+  ok(entries.length === 2 + 4, 'buildSearchEntries: route-less (inaccessible) cards are EXCLUDED');
+  let r = E.searchNav(entries, 'nghi phep');
+  ok(r.types.length === 1 && r.types[0].route === '/approvals/leave', "'nghi phep' -> Leave (via VN description keyword)");
+  r = E.searchNav(entries, 'thang chuc');
+  ok(r.types.length === 1 && r.types[0].label === 'Promotion Request', "'thang chuc' -> Promotion");
+  r = E.searchNav(entries, 'referral');
+  ok(r.types.length === 2, "'referral' -> both Referral types (partial, case-insensitive)");
+  r = E.searchNav(entries, 'REFER');
+  ok(r.types.length === 2 && r.types[0].hl && r.types[0].hl[1] === 5, 'uppercase partial match + highlight range');
+  r = E.searchNav(entries, 'dashboard');
+  ok(r.modules.length === 1 && r.modules[0].route === '/approvals/dashboard' && r.types.length === 0,
+     "'dashboard' -> module group only (grouping correct)");
+  r = E.searchNav(entries, 'zzz-khong-co');
+  ok(r.total === 0, 'no match -> empty result set (empty state)');
+  ok(E.searchNav(entries, '').total === 0, 'blank query -> no results');
+
+  // catalog cache: user isolation
+  const CE = (o) => Object.assign({ v: VER, ts: Date.now(), user: 'u@ecentric.vn', types: [] }, o || {});
+  ok(E.catalogCacheValid(CE(), Date.now(), 'u@ecentric.vn') === true, 'catalog cache: same user accepted');
+  ok(E.catalogCacheValid(CE(), Date.now(), 'other@ecentric.vn') === false, 'catalog cache: OTHER user rejected (isolation)');
+  ok(E.catalogCacheValid(CE({ v: 'x' }), Date.now(), 'u@ecentric.vn') === false, 'catalog cache: version mismatch rejected');
+  ok(E.catalogCacheValid(CE({ ts: Date.now() - 6 * 60 * 1000 }), Date.now(), 'u@ecentric.vn') === false, 'catalog cache: TTL expiry rejected');
+
+  // ---- 8. search UI presence in rendered shell -------------------------------
+  {
+    const e7 = makeSandbox2({ marker: true, cacheEntry: entry(), bootMsg: BOOT1 });
+    vm.runInContext(SRC, e7.sb);
+    await flush();
+    const html = e7.mount.innerHTML;
+    ok(html.indexOf('ec-shell-search-in') >= 0 && html.indexOf('Tìm chức năng…') >= 0,
+       'search input with placeholder renders inside the shell (under brand)');
+    ok(html.indexOf('ec-shell-search-results') >= 0, 'results listbox container present');
+    ok((html.match(/data-ec-notification-bell="1"/g) || []).length === 1, 'bell still unique with search present');
+  }
+
   console.log(failures === 0 ? '\nALL CHECKS PASSED' : '\n' + failures + ' FAILURES');
   process.exit(failures ? 1 : 0);
 })();
