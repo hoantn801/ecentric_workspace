@@ -21,6 +21,7 @@ def items():
             # the per-page hardcoded 'active' mismatch class of bugs.
             "active_patterns": ["/approvals", "/approvals/*"],
             "visible_when": "internal",
+            "keywords": ["yeu cau", "phe duyet", "approval", "danh muc"],
             "owner": "approval_center",
         },
         {
@@ -34,6 +35,7 @@ def items():
             # specific wins in ec_shell.js matchActive).
             "active_patterns": ["/approvals/dashboard"],
             "visible_when": "internal",
+            "keywords": ["dashboard", "bang dieu hanh", "sla", "thong ke"],
             "owner": "approval_center",
         },
         {
@@ -47,6 +49,7 @@ def items():
             # /approval?id=&type= detail page (T4; page itself untouched).
             "active_patterns": ["/approval"],
             "visible_when": "internal",
+            "keywords": ["duyet chung tu", "chung tu", "ticket", "mso", "gbs"],
             "owner": "approval_center",
         },
     ]

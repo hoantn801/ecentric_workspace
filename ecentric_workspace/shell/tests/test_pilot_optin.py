@@ -223,5 +223,54 @@ class TestSmoothnessCore(unittest.TestCase):
         self.assertIn("prefers-reduced-motion", css)
 
 
+class TestNavSearch(unittest.TestCase):
+    """Phase 1C.1: navigation search (source contracts; behavior proven in
+    ec_shell_check.js sections 7-8)."""
+
+    def _js(self):
+        return _read(APP, "public", "js", "ec_shell.js")
+
+    def test_search_ui_contract(self):
+        js = self._js()
+        self.assertIn("Tìm chức năng…", js)                    # placeholder
+        self.assertIn("ec-shell-search-in", js)
+        self.assertIn("'k'", js.lower())                       # Ctrl/Cmd+K
+        self.assertIn("ev.ctrlKey || ev.metaKey", js)
+        self.assertIn("data-ec-shell-search-clear", js)        # clear button
+        self.assertIn("Không tìm thấy chức năng", js)          # empty state
+        self.assertIn("ec-shell-hl", js)                       # highlighting
+
+    def test_search_sources_are_permission_filtered_only(self):
+        js = self._js()
+        # exactly three API endpoints in the whole shell: boot, catalog, logout
+        import re
+        eps = set(re.findall(r"/api/method/[a-zA-Z0-9_.]+", js))
+        self.assertEqual(eps, {
+            "/api/method/ecentric_workspace.shell.api.get_shell_boot",
+            "/api/method/ecentric_workspace.approval_center.api.catalog.list_catalog",
+            "/api/method/logout",
+        }, "no business-record search endpoints allowed")
+        self.assertIn("c.route; })", js)                       # route-less cards dropped
+
+    def test_catalog_cache_user_isolated(self):
+        js = self._js()
+        self.assertIn("'ec_shell_catalog_cache_v1'", js)
+        self.assertIn("entry.user !== userName", js)
+        self.assertIn("user: userName", js)
+
+    def test_registry_keywords_supported(self):
+        from ecentric_workspace.shell import nav
+        items = nav.compose()
+        self.assertTrue(any(it.get("keywords") for it in items))
+        bad = dict(items[0], key="x.k", route="/xk", keywords=["ok", ""])
+        with self.assertRaises(ValueError):
+            nav.validate([bad])
+
+    def test_search_fails_safe(self):
+        js = self._js()
+        self.assertIn("SEARCH.failed = true", js)              # catalog failure flag
+        self.assertIn("catch", js)
+
+
 if __name__ == "__main__":
     unittest.main()

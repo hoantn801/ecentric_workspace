@@ -51,6 +51,7 @@ def get_shell_boot():
             "icon": it["icon"],
             "group": it["group"],
             "active_patterns": it["active_patterns"],
+            "keywords": it.get("keywords", []),
         }
         for it in items
     ]
