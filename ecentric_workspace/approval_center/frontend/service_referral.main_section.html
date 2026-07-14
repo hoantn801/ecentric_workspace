@@ -117,16 +117,17 @@
 </style>
 
 <div id="ec-svrf-root">
-  <aside class="ec-sidebar">
-    <div class="sb-head"><span class="logo">eC</span><span class="brand-name">eCentric</span></div>
-    <nav class="nav">
-      <a class="nav-item" href="/home"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg></span><span>Trang chủ</span></a>
-      <a class="nav-item" href="/approvals"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><span>Approval Center</span></a>
-      <a class="nav-item active" href="/approvals/service-referral"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>Service Referral</span></a>
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric">
+    <!-- ERP Shell v1 opt-in (Phase 1C-alpha Batch A). ec_shell.js renders the
+         shared sidebar here from the nav registry; this static fallback keeps the
+         page navigable if the shell is kill-switched, blocked, or errors. -->
+    <nav class="ec-shell-fallback" aria-label="Điều hướng">
+      <a href="/home">Trang chủ</a>
+      <a href="/approvals">Approval Center</a>
     </nav>
   </aside>
   <main class="ec-main">
-    <div class="topbar"><div class="crumb">Approval Center / <strong>Service Referral</strong></div></div>
+    <div class="topbar"><div class="crumb"><a class="ec-shell-crumblink" href="/approvals">Approval Center</a> / <strong>Service Referral</strong></div><div class="ec-shell-tbright" data-ec-shell-header-right="1"></div></div>
     <div class="content">
       <h1 class="pg">Service Referral</h1>
       <p class="pg-sub">Giới thiệu khách hàng / cơ hội hợp đồng: client, brand, người liên hệ, giá trị dự kiến. Duyệt bởi Referral Review (Any One: Linh / Vinh).</p>

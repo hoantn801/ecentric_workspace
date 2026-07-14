@@ -8,11 +8,18 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP = os.path.dirname(os.path.dirname(HERE))
 FRONTEND = os.path.join(APP, "approval_center", "frontend")
+# All migrated (shell-opted-in) pages: 1B pilots + 1C-alpha Batch A.
 PILOT = {
     "approvals.main_section.html",
     "leave.main_section.html",
     "hr_activity.main_section.html",
     "approvals_dashboard.main_section.html",
+    "lateral_move.main_section.html",
+    "promotion.main_section.html",
+    "employee_referral.main_section.html",
+    "service_referral.main_section.html",
+    "livestream_supplies.main_section.html",
+    "livestream_sample.main_section.html",
 }
 MARKER = 'data-ec-shell="1"'
 BELL = 'data-ec-notification-bell="1"'
@@ -98,6 +105,12 @@ class TestHeaderPolish(unittest.TestCase):
         "leave.main_section.html": "Leave",
         "hr_activity.main_section.html": "HR Activity",
         "approvals_dashboard.main_section.html": "Bảng điều hành vận hành",
+        "lateral_move.main_section.html": "Employee Lateral Move",
+        "promotion.main_section.html": "Promotion Request",
+        "employee_referral.main_section.html": "Employee Referral",
+        "service_referral.main_section.html": "Service Referral",
+        "livestream_supplies.main_section.html": "Livestream Supplies",
+        "livestream_sample.main_section.html": "Livestream Sample",
     }
 
     def test_header_right_slot_on_all_pilots_once(self):
