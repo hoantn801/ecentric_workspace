@@ -66,20 +66,39 @@ def uat_pilot_readiness(payment_request_name=None):
     req = None
     approval_type = None
     active_approver = None
+    requested_by = None
+    requester_status = None
     if payment_request_name and frappe.db.exists("EC Payment Request", payment_request_name):
         approval_type = frappe.db.get_value("EC Payment Request", payment_request_name,
                                             "approval_type")
         ar = perms.business_approval_request("EC Payment Request", payment_request_name)
         if ar:
             req = frappe.db.get_value("EC Approval Request", ar,
-                                      ["approval_status", "current_level"], as_dict=True)
+                                      ["approval_status", "current_level",
+                                       "requester_signature_status", "requested_by"], as_dict=True)
+            requested_by = req.requested_by if req else None
+            requester_status = req.requester_signature_status if req else None
             if req and req.current_level:
                 active_approver = _resolve_active_approver(ar, req.current_level, caller)
-    # the SIGNER subject of mapping/allowlist/signature checks: the active approver when a
-    # PR is targeted, otherwise the caller (a general provider-side self diagnostic).
-    signer = active_approver or (caller if not payment_request_name else None)
+    # STAGE detection: a request still in the requester pre-approval stage evaluates the
+    # REQUESTER signer (not an approver/level). Uses the gate-INDEPENDENT policy check so a
+    # closed signing gate never hides the requester stage.
+    requester_stage = bool(
+        payment_request_name and ar and req
+        and requester_status in ("Pending", "Processing", "Reconciliation Required")
+        and (not req.current_level or int(req.current_level) == 0)
+        and approval_type
+        and guard.requester_signature_required("EC Payment Request", approval_type))
+    stage = ("Requester Pre-Approval" if requester_stage
+             else ("Approval Level %s" % req.current_level if (req and req.current_level)
+                   else "No Active Stage"))
+    # the SIGNER subject: the requester in the requester stage, else the active approver (or
+    # the caller for a no-PR provider diagnostic).
+    signer = requested_by if requester_stage else \
+        (active_approver or (caller if not payment_request_name else None))
 
     # ---- provider ----
+    allowed = set()
     s = frappe.db.get_value(SETTINGS_DT, {"provider": "SCTS", "environment": "UAT"},
                             "*", as_dict=True)
     chk("provider_scts_uat_settings_exist", bool(s))
@@ -96,9 +115,65 @@ def uat_pilot_readiness(payment_request_name=None):
         chk("bulk_signing_disabled", not bool(s.allow_bulk_signing))
         raw = (s.allowed_signing_users or "").replace(",", "\n")
         allowed = {u.strip().lower() for u in raw.splitlines() if u.strip()}
-        # allowlist is evaluated for the ACTIVE APPROVER (the signer), not the SM caller.
-        chk("active_approver_in_uat_allowlist",
-            bool(signer) and signer.lower() in allowed)
+        # allowlist evaluated for the ACTIVE APPROVER; the requester stage checks the
+        # requester allowlist separately below.
+        if not requester_stage:
+            chk("active_approver_in_uat_allowlist",
+                bool(signer) and signer.lower() in allowed)
+
+    # ---- REQUESTER pre-approval stage: requester-only checks; NO approver/level blockers ----
+    if requester_stage:
+        chk("requester_stage_detected", True, blocking_flag=False)
+        chk("requester_status_pending",
+            requester_status in ("Pending", "Processing", "Reconciliation Required"))
+        chk("current_level_zero", (not req.current_level or int(req.current_level) == 0))
+        chk("no_level_one_actionability",
+            not bool(active_approver) and (not req.current_level or int(req.current_level) == 0))
+        chk("requester_signature_required", True)
+        prof_name = guard.get_enabled_profile("EC Payment Request", approval_type)
+        prof_row = frappe.db.get_value("EC Digital Signature Profile", prof_name, "*",
+                                       as_dict=True) if prof_name else None
+        chk("enabled_profile_exact", bool(prof_row))
+        if prof_row:
+            chk("workflow_definition_id_present", bool(prof_row.get("workflow_definition_id")))
+            chk("document_type_id_present", bool(prof_row.get("document_type_id")))
+            chk("company_id_present", bool(prof_row.get("company_id")))
+            chk("department_id_present", bool(prof_row.get("department_id")))
+            chk("document_template_id_present", bool(prof_row.get("document_template_id")),
+                blocking_flag=False)
+        chk("requester_resolved", bool(requested_by))
+        chk("requester_in_uat_allowlist",
+            bool(requested_by) and requested_by.lower() in allowed)
+        maps = frappe.get_all("EC SCTS User Mapping",
+                              filters={"frappe_user": requested_by, "environment": "UAT",
+                                       "active": 1},
+                              fields=["name", "scts_user_id", "signature_id", "mapping_status"]) \
+            if requested_by else []
+        chk("requester_exactly_one_active_mapping", len(maps) == 1)
+        if len(maps) == 1:
+            m = maps[0]
+            chk("requester_mapped_scts_user_id_present", bool(m.scts_user_id))
+            chk("requester_signature_id_present", bool(m.signature_id))
+            chk("requester_mapping_active_verified", m.mapping_status == "Verified")
+        else:
+            chk("requester_mapping_active_verified", False)
+        pkg_name = pkgsvc.active_package_for_request(ar)
+        pkg = frappe.db.get_value(PKG, pkg_name,
+                                  ["name", "status", "package_hash", "error_code"],
+                                  as_dict=True) if pkg_name else None
+        chk("package_exists", bool(pkg))
+        chk("package_locked", bool(pkg and pkg.status in ("Locked", "Active")))
+        chk("package_hash_valid",
+            bool(pkg and pkg.package_hash and pkgsvc.compute_hash(pkg_name) == pkg.package_hash))
+        try:
+            placements_ok = bool(pkg_name) and not pkgsvc.preflight_for_lock(pkg_name)
+        except Exception:
+            placements_ok = False
+        chk("requester_placement_complete", placements_ok)
+        return {"ready": len(blocking) == 0, "stage": stage, "actor_type": "Requester",
+                "blocking_items": blocking, "warnings": warnings, "checks": checks,
+                "caller_user": caller, "active_approver": None,
+                "signer_evaluated": requested_by, "payment_request": payment_request_name}
 
     # ---- profile: for a TARGETED PR use ONLY the exact active profile resolved for its
     # approval_type (no fallback to an arbitrary enabled SCTS profile); a general enabled
@@ -194,7 +269,8 @@ def uat_pilot_readiness(payment_request_name=None):
                     (pkg.error_code != "create_outcome_unknown") if pkg else True)
 
     ready = len(blocking) == 0
-    return {"ready": ready, "blocking_items": blocking, "warnings": warnings,
+    return {"ready": ready, "stage": stage, "actor_type": "Approval Level",
+            "blocking_items": blocking, "warnings": warnings,
             "checks": checks, "caller_user": caller, "active_approver": active_approver,
             "signer_evaluated": signer, "payment_request": payment_request_name}
 
