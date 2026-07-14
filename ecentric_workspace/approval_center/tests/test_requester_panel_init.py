@@ -65,6 +65,19 @@ class TestRequesterPanelInit(FrappeTestCase):
         self.assertIn('root.getAttribute("data-ec-bound") !== "1"', h)
         self.assertIn('root.setAttribute("data-ec-bound", "1")', h)
 
+    def test_call_api_readiness_guarded_and_deferred(self):
+        h = _panel()
+        # never call bare frappe.call; guard by window.frappe.call availability
+        self.assertIn('typeof window.frappe.call === "function"', h)
+        self.assertNotIn("\n    frappe.call(", h)          # no unguarded bare call
+        self.assertEqual(h.count("window.frappe.call("), 3)  # readiness + prepare + lock
+        # bounded, idempotent init poller that clears its timer
+        self.assertIn("setInterval(", h)
+        self.assertIn("clearInterval(", h)
+        self.assertIn("_MAX_TRIES", h)
+        # safe failure: dev-mode diagnostic, panel stays hidden, no throw
+        self.assertIn("frappe.call unavailable within bounded window", h)
+
     def test_no_cdn_or_raw_private_url_and_governed_endpoints(self):
         h = _panel()
         for bad in ("cdnjs", "unpkg", "jsdelivr", "googleapis", "/private/files/", "http://"):
