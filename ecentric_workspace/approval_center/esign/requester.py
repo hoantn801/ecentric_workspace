@@ -30,7 +30,7 @@ _LIVE_OR_DONE = ("Draft", "Prepared", "Queued", "Provider Accepted", "Verifying"
 
 
 def _profile_and_settings(business_doctype, approval_type):
-    pname = guard.get_active_profile(business_doctype, approval_type)
+    pname = guard.get_enabled_profile(business_doctype, approval_type)
     if not pname:
         return None, None, None
     prof = frappe.db.get_value("EC Digital Signature Profile", pname,
@@ -59,6 +59,10 @@ def requester_signing_readiness(business_doctype, business_name):
     mapping = perms.verified_mapping(req.requested_by, prof.environment) if prof else None
     checks["verified_mapping"] = bool(mapping)
     checks["provider_uat"] = bool(prof and prof.environment == "UAT")
+    # execution gates (fail-closed for the ACTION; deferral already happened at submit).
+    checks["gates_enabled"] = bool(st and st.get("integration_enabled")
+                                   and st.get("allow_document_creation")
+                                   and st.get("allow_signing"))
     pkg_name = pkgsvc.active_package_for_request(ar)
     pkg = frappe.db.get_value(PKG, pkg_name, ["status", "package_hash"], as_dict=True) if pkg_name else None
     checks["package_active_hash_valid"] = bool(
@@ -67,7 +71,7 @@ def requester_signing_readiness(business_doctype, business_name):
     checks["placements_complete"] = bool(pkg_name and not pkgsvc.preflight_for_lock(pkg_name))
     required = ["signing_enabled", "requester_signature_required", "is_requester",
                 "pending_requester_signature", "verified_mapping", "provider_uat",
-                "package_active_hash_valid", "placements_complete"]
+                "gates_enabled", "package_active_hash_valid", "placements_complete"]
     ready = all(checks.get(k) for k in required)
     return {"ready": ready, "reasons": [k for k in required if not checks.get(k)],
             "checks": checks, "current_status": req.requester_signature_status}
@@ -95,6 +99,14 @@ def requester_submit_and_sign(business_doctype, business_name, comment=None):
         frappe.throw(_("Yêu cầu không ở trạng thái chờ ký của người đề nghị."))
     from ecentric_workspace.approval_center.esign import binding
     binding.assert_provider_uat(st)
+    # Execution gates are fail-closed here: with Integration / Document Creation / Signing OFF
+    # NO SCTS write is made and no requester DSR is created - the request stays Pending
+    # Requester Signature and Level 1 stays inactive.
+    if not (st.get("integration_enabled") and st.get("allow_document_creation")
+            and st.get("allow_signing")):
+        frappe.throw(_("Cổng ký số chưa được bật (Integration / Tạo tài liệu / Ký). "
+                       "Không thể Gửi & Ký cho tới khi quản trị bật các cổng này."),
+                     frappe.PermissionError)
     perms.assert_allowed_signer(st, requester)
     mapping = perms.verified_mapping(requester, prof.environment)
     if not mapping:
