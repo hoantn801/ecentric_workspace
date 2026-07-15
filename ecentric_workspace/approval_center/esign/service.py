@@ -385,9 +385,14 @@ def get_signing_status(business_doctype, business_name):
     out["enabled"] = bool(profile)
     pkg_name = None
     if ar:
+        # Active or approval_request-linked package first; fall back to the requester's unlocked
+        # Draft (which has neither, since approval_request is set only at lock) so the placement
+        # editor / signing UI can resolve it pre-lock. For the approver flow a locked/active
+        # package always exists, so the Draft fallback never fires.
         pkg_name = pkgsvc.active_package_for_request(ar) \
             or frappe.db.get_value("EC Digital Signature Package",
-                                   {"approval_request": ar}, "name")
+                                   {"approval_request": ar}, "name") \
+            or pkgsvc.draft_package_for_business(business_doctype, business_name)
     else:
         pkg_name = pkgsvc.draft_package_for_business(business_doctype, business_name)
     if pkg_name:

@@ -12,5 +12,5 @@ license_file: LICENSE
 retrieved: 2026-07-13
 
 # SHA-256 of every vendored runtime asset:
-081d3b6f426d38a8029766f8839f505e9cbf2c81a71d62c26eada142e6c21ae4  pdf.mjs
-5e9f76bd5e65fbd1602b29fc50e50490aeeacd34a715b2282b73f7e8029242e0  pdf.worker.mjs
+081d3b6f426d38a8029766f8839f505e9cbf2c81a71d62c26eada142e6c21ae4  pdf.js
+5e9f76bd5e65fbd1602b29fc50e50490aeeacd34a715b2282b73f7e8029242e0  pdf.worker.js

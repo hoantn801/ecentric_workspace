@@ -48,7 +48,19 @@ def requester_signing_readiness(business_doctype, business_name):
     ar = perms.business_approval_request(business_doctype, business_name)
     checks = {}
     if not ar:
-        return {"ready": False, "reasons": ["not_submitted"], "checks": checks}
+        # Pre-submission: report whether this request type WILL require the requester's
+        # signature so the panel can show a clear 'not yet signable' note to the owner instead
+        # of nothing. approval_type is often blank on the un-submitted business doc; when it is,
+        # requester_signature_required stays False (we do not guess).
+        owner = frappe.db.get_value(business_doctype, business_name, "owner")
+        at = frappe.db.get_value(business_doctype, business_name, "approval_type") \
+            if frappe.db.has_column(business_doctype, "approval_type") else None
+        checks["not_submitted"] = True
+        checks["is_owner"] = (frappe.session.user == owner)
+        checks["requester_signature_required"] = bool(
+            at and guard.requester_signature_required(business_doctype, at))
+        return {"ready": False, "reasons": ["not_submitted"], "checks": checks,
+                "stage": "Not Submitted"}
     req = frappe.db.get_value(AR, ar, ["approval_type", "current_level", "approval_status",
                                        "requester_signature_status", "requested_by"], as_dict=True)
     pname, prof, st = _profile_and_settings(business_doctype, req.approval_type)
@@ -86,11 +98,16 @@ def requester_signing_readiness(business_doctype, business_name):
     cur = frappe.db.get_value(PKG, cur_name, ["status", "package_hash"],
                               as_dict=True) if cur_name else None
     checks["package_present"] = bool(cur)
+    _req_complete = bool(cur_name and pkgsvc.requester_placements_complete(cur_name))
+    # A VALID lock = locked/active AND has >=1 requester placement. A locked package with zero
+    # placements is INVALID (never "ready", never a normal "locked") and needs recovery.
     checks["package_locked"] = bool(
-        cur and cur.status in ("Locked", "Active") and cur.package_hash)
-    checks["placements_ready"] = bool(
-        cur_name and cur and cur.status == "Draft"
-        and not pkgsvc.preflight_for_lock(cur_name))
+        cur and cur.status in ("Locked", "Active") and cur.package_hash and _req_complete)
+    checks["package_invalid"] = bool(
+        cur and cur.status in ("Locked", "Active") and not _req_complete)
+    # Ready to lock ONLY when the Draft actually carries a requester placement.
+    checks["placements_ready"] = bool(cur_name and cur and cur.status == "Draft"
+                                      and _req_complete)
     required = ["signing_enabled", "requester_signature_required", "is_requester",
                 "pending_requester_signature", "verified_mapping", "provider_uat",
                 "gates_enabled", "package_active_hash_valid", "placements_complete"]
@@ -342,8 +359,48 @@ def requester_lock_signing_package(business_doctype, business_name):
     status = frappe.db.get_value(PKG, pkg_name, "status")
     if status in ("Locked", "Active"):
         return {"package": pkg_name, "status": status, "locked": True, "duplicate": True}
+    # INVARIANT: a package with zero requester placements is never lockable. Enforced here
+    # (server-side) independent of the approver-level preflight in lock_package.
+    if not pkgsvc.requester_placements_complete(pkg_name):
+        frappe.throw(_("Cần ít nhất một vị trí ký hợp lệ trước khi khóa gói."))
     h = pkgsvc.lock_package(pkg_name, ar)
     return {"package": pkg_name, "status": "Locked", "package_hash": h, "locked": True}
+
+
+def requester_reset_invalid_package(business_doctype, business_name):
+    """Governed recovery for an INVALID locked requester package (Locked/Active with zero
+    requester placements - only reachable from the pre-guard defect). Authorized STRICTLY for
+    the actual requester resolved through the Approval Engine (EC Approval Request.requested_by
+    for this business doc) - NO Administrator bypass, NO System Manager bypass, NO generic role
+    check, NO ignore_permissions. Audited via the package state machine; performs NO
+    provider/SCTS/DSR mutation and NO direct SQL. It cancels the invalid local package
+    (Locked/Active -> Cancelled) via the governed transition so a subsequent
+    prepare_requester_signing_package builds a fresh Draft. A VALID package is refused."""
+    actor = frappe.session.user
+    ar = perms.business_approval_request(business_doctype, business_name) \
+        or _requester_ar(business_doctype, business_name)
+    req = frappe.db.get_value(AR, ar, ["requested_by"], as_dict=True) if ar else None
+    # Requester-scoped ONLY: the session user must BE the authoritative requester. No System
+    # Manager / Administrator / role-membership / ignore_permissions bypass.
+    if not req or actor != req.requested_by:
+        frappe.throw(_("Chỉ người đề nghị mới được khôi phục gói ký."), frappe.PermissionError)
+    cur = frappe.db.get_value(
+        PKG, {"business_doctype": business_doctype, "business_name": business_name,
+              "status": ["in", ("Locked", "Active", "Provider Creating", "Provider Created",
+                                 "Provider Create Failed")]},
+        ["name", "status"], order_by="creation desc", as_dict=True)
+    if not cur:
+        frappe.throw(_("Không có gói đã khóa để khôi phục."))
+    if pkgsvc.requester_placements_complete(cur.name):
+        frappe.throw(_("Gói hợp lệ (đã có vị trí ký) - không cần khôi phục."))
+    from ecentric_workspace.approval_center.esign import state as sm, events
+    frappe.db.get_value(PKG, cur.name, "name", for_update=True)  # row lock
+    sm.assert_transition(sm.PACKAGE, cur.status, "Cancelled")     # governed transition only
+    events.set_package_status(cur.name, "Cancelled", event_type="RequesterPackageReset",
+                              request_meta={"reason": "invalid_locked_zero_placements",
+                                            "actor": actor})
+    return {"package": cur.name, "from_status": cur.status, "status": "Cancelled",
+            "recovered": True}
 
 
 def _requester_ar(business_doctype, business_name):

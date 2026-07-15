@@ -25,6 +25,7 @@
   <div id="ecReqGate" class="ec-info" style="display:none"></div>
   <button id="ecReqPrepare" class="btn btn-sm btn-primary">Chuẩn bị gói ký</button>
   <button id="ecReqLock" class="btn btn-sm ec-sub" style="display:none">Khoá gói ký</button>
+  <button id="ecReqFix" class="btn btn-sm ec-sub" style="display:none">Khôi phục gói</button>
 </div>
 <script id="ec-req-sign-script">
 (function () {
@@ -41,6 +42,13 @@
   var elGate = document.getElementById("ecReqGate");
   var btnPrep = document.getElementById("ecReqPrepare");
   var btnLock = document.getElementById("ecReqLock");
+  var btnFix = document.getElementById("ecReqFix");
+  function relocate() {
+    // mount the panel INSIDE the Payment Request content column (never body/grid-root
+    // level, which overlaps the left navigation).
+    var host = document.querySelector("#ec-payr-root .content");
+    if (host && root.parentNode !== host) host.appendChild(root);
+  }
 
   // Resolve the Payment Request name using the governed URL convention (?id=), with
   // backward-compatible fallbacks (?name, ?payment_request_name) and any existing page
@@ -83,16 +91,32 @@
         // ready / gates_enabled / package / placement state.
         var visible = b(c, "is_requester") && b(c, "pending_requester_signature")
           && b(c, "requester_signature_required");
+        // Pre-submission: tell the OWNER, clearly, that signing applies once submitted -
+        // instead of showing nothing (fresh-request UX). No leak of any other request's state.
+        var preSubmit = b(c, "not_submitted") && b(c, "is_owner")
+          && b(c, "requester_signature_required");
+        if (!visible && preSubmit) {
+          relocate(); root.style.display = "block";
+          elStatus.textContent = "Chưa gửi duyệt";
+          btnPrep.style.display = "none"; btnLock.style.display = "none";
+          btnFix.style.display = "none"; elGate.style.display = "none";
+          msg("Yêu cầu chưa gửi duyệt. Sau khi gửi, bạn sẽ chuẩn bị và ký gói tài liệu tại đây.");
+          return;
+        }
         root.style.display = visible ? "block" : "none";
         if (!visible) return;
+        relocate();
 
+        var invalid = b(c, "package_invalid");
         var locked = b(c, "package_locked");
         var readyToLock = b(c, "placements_ready");
         var present = b(c, "package_present");
 
         // status + primary action per local package state (gate-independent).
-        var status, prepText, prepShow, lockShow;
-        if (locked) {
+        var status, prepText, prepShow, lockShow, fixShow = false;
+        if (invalid) {
+          status = "Gói lỗi (0 vị trí ký)"; prepShow = false; lockShow = false; fixShow = true;
+        } else if (locked) {
           status = "Gói đã khoá"; prepShow = false; lockShow = false;
         } else if (readyToLock) {
           status = "Sẵn sàng khoá"; prepText = "Chỉnh vị trí ký"; prepShow = true; lockShow = true;
@@ -105,6 +129,7 @@
         if (prepText) btnPrep.textContent = prepText;
         btnPrep.style.display = prepShow ? "inline-block" : "none";
         btnLock.style.display = lockShow ? "inline-block" : "none";
+        btnFix.style.display = fixShow ? "inline-block" : "none";
 
         // Closed provider gates: INFORMATION ONLY - must not hide the local actions above.
         if (!b(c, "gates_enabled")) {
@@ -115,7 +140,10 @@
           elGate.style.display = "none";
         }
 
-        if (locked) {
+        if (invalid) {
+          msg("Gói ký đang lỗi (đã khoá nhưng chưa có vị trí ký). Nhấn 'Khôi phục gói' để tạo "
+            + "lại gói mới rồi đặt vị trí ký.", true);
+        } else if (locked) {
           msg("Đã khoá gói ký. Chờ quản trị bật cổng ký để gửi ký thật.");
         } else if (!b(c, "verified_mapping")) {
           msg("Người đề nghị chưa có ánh xạ chữ ký đã xác minh.", true);
@@ -146,9 +174,14 @@
           return;
         }
         window.EC_PPH_CONFIG = out.config;
+        // Open the editor IN PLACE (no page reload, which would drop the config + navigate
+        // away from the editor).
+        if (typeof window.ecMountPlacementEditor === "function") {
+          window.ecMountPlacementEditor(out.config);
+        }
         frappe.show_alert({ message: "Đã chuẩn bị gói ký. Đang mở trình đặt vị trí…",
           indicator: "green" });
-        location.reload();
+        refresh();
       })
       .catch(function () { msg("Không chuẩn bị được gói ký (kiểm tra quyền / ánh xạ).", true); });
   };
@@ -162,9 +195,24 @@
       freeze_message: "Đang khoá gói ký…" })
       .then(function () {
         frappe.show_alert({ message: "Đã khoá gói ký.", indicator: "green" });
-        location.reload();
+        refresh();
       })
       .catch(function () { msg("Khoá gói ký thất bại (cần ít nhất một vị trí ký hợp lệ).", true); });
+  };
+
+  // Recovery: cancel an INVALID locked package (governed, requester/SM) so a fresh Draft can
+  // be prepared. No provider/SCTS mutation.
+  btnFix.onclick = function () {
+    var name = pr();
+    if (!name || !callReady()) return;
+    window.frappe.call({ method: "ecentric_workspace.approval_center.esign.api.requester_reset_invalid_package",
+      type: "POST", args: { payment_request_name: name }, freeze: true,
+      freeze_message: "Đang khôi phục gói…" })
+      .then(function () {
+        frappe.show_alert({ message: "Đã khôi phục. Hãy chuẩn bị lại gói ký.", indicator: "green" });
+        refresh();
+      })
+      .catch(function () { msg("Không khôi phục được gói (kiểm tra quyền).", true); });
   };
 
     // Bounded, idempotent initial refresh: on a Website route frappe.call can be installed

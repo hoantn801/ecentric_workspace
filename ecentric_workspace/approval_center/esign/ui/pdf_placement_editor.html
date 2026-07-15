@@ -1,6 +1,6 @@
 <!-- Copyright (c) 2026, eCentric and contributors
      Bundled PDF signature placement editor (Phase 1).
-     * PDF.js (pinned pdfjs-dist@4.10.38 legacy ESM, CVE-2024-4367-patched) is loaded LOCALLY
+     * PDF.js (pinned pdfjs-dist@4.10.38 legacy ESM, CVE-2024-4367-patched, served as .js) is loaded LOCALLY
        from /assets/ecentric_workspace/vendor/pdfjs/ via ESM dynamic import() - no CDN, no
        remote asset, no window global, no eval shim. getDocument is called with
        isEvalSupported:false (defence in depth). If the asset is absent the editor fails
@@ -22,6 +22,7 @@
     .ec-pph .ec-rect .ec-del{position:absolute;right:-8px;top:-10px;background:#d1242f;color:#fff;border-radius:50%;width:16px;height:16px;line-height:14px;text-align:center;cursor:pointer;font-size:11px}
     .ec-pph .ec-warn{color:#9a6700;background:#fff8c5;padding:6px 8px;border-radius:6px;margin:6px 0}
     .ec-pph .ec-err{color:#b35900;background:#ffebe9;padding:6px 8px;border-radius:6px;margin:6px 0}
+    .ec-pph .ec-info{color:#0550ae;background:#ddf4ff;padding:6px 8px;border-radius:6px;margin:6px 0}
     .ec-pph .ec-num td{padding:2px 4px}
     .ec-pph[data-locked="1"] .ec-rect,.ec-pph[data-locked="1"] .ec-mut{pointer-events:none;opacity:.6}
     .ec-pph .ec-pill{padding:1px 8px;border-radius:10px;background:#eaeef2;font-size:11px}
@@ -80,9 +81,9 @@
     return new Promise(function (resolve) {
       if (pdfjsLib) return resolve(true);
       // ESM dynamic import of the LOCAL vendored module - no CDN, no window global, no eval.
-      import(PDFJS_BASE + "pdf.mjs").then(function (mod) {
+      import(PDFJS_BASE + "pdf.js").then(function (mod) {
         pdfjsLib = mod;
-        pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_BASE + "pdf.worker.mjs";
+        pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_BASE + "pdf.worker.js";
         resolve(true);
       }).catch(function () { resolve(false); });  // asset absent -> numeric fallback
     });
@@ -229,19 +230,30 @@
     state.dsf = dsf;
     var f = (cfg.files || []).filter(function (x) { return x.name === dsf; })[0];
     if (!f || !f.is_pdf) { msg("warn", "Tệp không phải PDF - dùng chế độ nhập toạ độ."); return; }
-    if (!pdfjsLib) { msg("warn",
-      "Trình kết xuất PDF chưa được cài đặt cục bộ - dùng chế độ nhập toạ độ thủ công."); return; }
+    if (!pdfjsLib) { msg("err",
+      "Trình xem PDF chưa tải được - hãy tải lại trang hoặc dùng chế độ nâng cao (nhập toạ độ)."); return; }
     // isEvalSupported:false = defence in depth against CVE-2024-4367-class eval abuse.
     pdfjsLib.getDocument({ url: pdfUrl(dsf), isEvalSupported: false }).promise.then(function (pdf) {
       state.pdf = pdf; state.pageCount = pdf.numPages; state.page = 1; renderPage();
     }).catch(function () { msg("err", "Không tải được PDF (kiểm tra quyền truy cập)."); });
   }
 
+  function _relocateIntoContent() {
+    // mount the editor INSIDE the Payment Request content column (not at body/grid-root level,
+    // which overlaps the left navigation).
+    var host = document.querySelector("#ec-payr-root .content");
+    if (host && root.parentNode !== host) host.appendChild(root);
+  }
   function init() {
+    _relocateIntoContent();
+    var hasFiles = !!(cfg.files && cfg.files.length);
+    root.style.display = hasFiles ? "" : "none";   // never show an empty/raw toolbar
+    if (!hasFiles) return;
     setLocked(cfg.locked ? 1 : 0);
     document.getElementById("ecpphVersion").textContent = "v" + (cfg.version || "?");
     document.getElementById("ecpphState").textContent = cfg.locked ? "Đã khoá" : "Nháp";
     var sel = document.getElementById("ecpphFile");
+    sel.innerHTML = "";                             // idempotent re-mount
     (cfg.files || []).forEach(function (f) {
       var o = document.createElement("option"); o.value = f.name;
       o.textContent = f.file_name + (f.requires_signature ? " (ký)" : "");
@@ -261,8 +273,15 @@
     document.getElementById("ecpphSave").onclick = save;
     window.addEventListener("beforeunload", function (e) {
       if (state.dirty) { e.preventDefault(); e.returnValue = ""; } });
-    loadPdfjs().then(function () {
-      if (cfg.files && cfg.files.length) { sel.value = cfg.files[0].name; selectFile(cfg.files[0].name); }
+    msg("info", "Đang tải trình xem PDF…");
+    loadPdfjs().then(function (ok) {
+      if (!ok) {
+        msg("err", "Không tải được trình xem PDF cục bộ. Hãy tải lại trang; nếu vẫn lỗi, "
+          + "dùng chế độ nâng cao để nhập toạ độ.");
+      } else {
+        msg("", "");
+        if (cfg.files && cfg.files.length) { sel.value = cfg.files[0].name; selectFile(cfg.files[0].name); }
+      }
       syncNumeric();
     });
   }
@@ -278,6 +297,14 @@
       .then(function (r) { cfg = r.message || {}; window.EC_PPH_CONFIG = cfg; init(); })
       .catch(function () { init(); });
   }
+  // Inline mount hook: the requester panel calls this AFTER prepare (NO page reload) so the
+  // editor opens in place with the freshly-prepared package. Idempotent - init() clears the
+  // file list and uses property handlers.
+  window.ecMountPlacementEditor = function (config) {
+    if (config) { cfg = config; window.EC_PPH_CONFIG = config; }
+    init();
+    try { root.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) {}
+  };
   _resolveConfigThenInit();
 })();
 </script>
