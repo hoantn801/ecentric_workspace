@@ -39,6 +39,8 @@ PILOT = {
     "system_request.main_section.html",
     # 1D:
     "ai_topup.main_section.html",
+    # 1E:
+    "payment_request.main_section.html",
 }
 MARKER = 'data-ec-shell="1"'
 BELL = 'data-ec-notification-bell="1"'
@@ -147,6 +149,7 @@ class TestHeaderPolish(unittest.TestCase):
         "special_bonus.main_section.html": "Special Bonus",
         "system_request.main_section.html": "System Request",
         "ai_topup.main_section.html": "AI Topup",
+        "payment_request.main_section.html": "Payment Request",
     }
 
     def test_header_right_slot_on_all_pilots_once(self):
@@ -306,6 +309,54 @@ class TestNavSearch(unittest.TestCase):
         js = self._js()
         self.assertIn("SEARCH.failed = true", js)              # catalog failure flag
         self.assertIn("catch", js)
+
+
+class TestPaymentRequestComposition(unittest.TestCase):
+    """Phase 1E: the SCTS composition (page_sync appends signing panel +
+    requester panel + coords + PDF editor AFTER the main section) must be
+    unchanged and correctly ordered around the shell-migrated main html."""
+
+    def _composed(self):
+        import sys, types, importlib
+        fake = types.ModuleType("frappe")
+        fake.whitelist = lambda **kw: (lambda fn: fn)
+        fake._ = lambda s: s
+        fake.db = types.SimpleNamespace(exists=lambda *a: False)
+        fake.session = types.SimpleNamespace(user="t@e.vn")
+        fake.get_roles = lambda u=None: []
+        fake.throw = lambda *a, **k: (_ for _ in ()).throw(Exception(a))
+        sys.modules.setdefault("frappe", fake)
+        for mod in ("ecentric_workspace.approval_center.page_sync_util",
+                    "ecentric_workspace.approval_center.payment_request.page_sync"):
+            sys.modules.pop(mod, None)
+        ps = importlib.import_module(
+            "ecentric_workspace.approval_center.payment_request.page_sync")
+        return ps._html()
+
+    def test_composition_markers_and_order(self):
+        html = self._composed()
+        marker = html.index('data-ec-shell="1"')
+        content = html.index('<div class="content">')
+        panel = html.index('id="ec-esign-panel"')
+        req = html.index('id="ec-req-sign"')
+        coords = html.index('id="ec-pph-coords"')
+        editor = html.index('id="ec-pph-editor"')
+        # shell chrome first, business content next, then SCTS panels appended
+        self.assertTrue(marker < content < panel < req < coords < editor,
+                        "composition order changed")
+        self.assertEqual(html.count('data-ec-shell="1"'), 1)
+        self.assertEqual(html.count('data-ec-shell-header-right="1"'), 1)
+        self.assertEqual(html.count('id="ec-esign-panel"'), 1)
+        self.assertEqual(html.count('id="ec-req-sign"'), 1)
+        self.assertEqual(html.count('id="ec-pph-editor"'), 1)
+
+    def test_no_esign_selector_depends_on_replaced_markup(self):
+        base = os.path.join(APP, "approval_center", "esign", "ui")
+        for f in ("payment_request_signing.html", "requester_signing_panel.html",
+                  "pdf_placement_editor.html"):
+            src = _read(base, f)
+            for sel in ('ec-sidebar', 'class="topbar"', '.crumb', 'ec-shell'):
+                self.assertNotIn(sel, src, "%s couples to shell markup: %s" % (f, sel))
 
 
 if __name__ == "__main__":
