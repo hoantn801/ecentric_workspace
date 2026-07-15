@@ -247,20 +247,40 @@ def _add_requester_pdf_files(pkg_name, business_doctype, business_name):
     files (idempotent by SHA-256). Non-PDF / non-private / invalid content is skipped or fails
     closed inside package.add_file's validation. Never touches SCTS."""
     from ecentric_workspace.approval_center.esign import hashing
-    have = set()
+    have_sha = set()
     for row in frappe.get_all(DSF, filters={"package": pkg_name}, fields=["sha256"]):
         if row.sha256:
-            have.add(row.sha256)
+            have_sha.add(row.sha256)
+    seen_url = set()
     added = 0
-    for f in frappe.get_all("File", filters={"attached_to_doctype": business_doctype,
-                                             "attached_to_name": business_name, "is_private": 1},
-                            fields=["name", "file_name"]):
-        if not (f.file_name or "").lower().endswith(".pdf"):
+    # is_private=1 + attached_to_doctype/name keeps this to PDFs directly linked to THIS
+    # Payment Request; attached_to_field is intentionally NOT filtered, so both the
+    # request_attachment field-attachment and its null-field twin qualify.
+    for f in frappe.get_all("File",
+                            filters={"attached_to_doctype": business_doctype,
+                                     "attached_to_name": business_name, "is_private": 1},
+                            fields=["name", "file_name", "file_url"]):
+        # PDF eligibility from canonical File metadata (file_name OR file_url) - never a
+        # browser-supplied MIME, which may be absent. add_file re-checks PDF magic bytes.
+        name_l = (f.file_name or "").lower()
+        url_l = (f.file_url or "").lower()
+        if not (name_l.endswith(".pdf") or url_l.endswith(".pdf")):
+            continue
+        # de-dupe multiple File rows for the SAME physical PDF by canonical URL first (cheap),
+        # then by content SHA - so the same file is added exactly once per package.
+        if f.file_url and f.file_url in seen_url:
             continue
         content = frappe.get_doc("File", f.name).get_content()
-        if hashing.sha256_bytes(content) in have:
+        sha = hashing.sha256_bytes(content)
+        if sha in have_sha:
+            if f.file_url:
+                seen_url.add(f.file_url)
             continue
-        pkgsvc.add_file(pkg_name, f.file_name, content, requires_signature=1)
+        display_name = f.file_name or (f.file_url or "").rsplit("/", 1)[-1] or "document.pdf"
+        pkgsvc.add_file(pkg_name, display_name, content, requires_signature=1)
+        have_sha.add(sha)          # update in-loop: identical twins are added once
+        if f.file_url:
+            seen_url.add(f.file_url)
         added += 1
     return added
 
@@ -293,15 +313,16 @@ def prepare_requester_signing_package(business_doctype, business_name):
     pkg = pkgsvc.get_or_create_draft(business_doctype, business_name, pname, allow_submitted=True)
     if pkg.status == "Draft":
         _add_requester_pdf_files(pkg.name, business_doctype, business_name)
-    from ecentric_workspace.approval_center.esign import ui_state
-    st = ui_state.signing_ui_state(business_doctype, business_name)
-    pkgd = st.get("package") or {}
-    files = [{"name": ff.get("name"), "file_name": ff.get("file_name"),
-              "is_pdf": ff.get("is_pdf"), "requires_signature": ff.get("requires_signature")}
-             for ff in (pkgd.get("files") or [])]
+    # Build the editor config directly from THIS package. ui_state/get_signing_status resolve
+    # a package by Active status or approval_request link, and an unlocked requester Draft has
+    # NEITHER (approval_request is set only at lock), so routing through it would report zero
+    # files here even though the Draft holds them.
+    files = [{"name": r.name, "file_name": r.file_name, "is_pdf": r.is_pdf,
+              "requires_signature": r.requires_signature}
+             for r in pkgsvc.package_files(pkg.name)]
     return {"package": pkg.name, "status": pkg.status,
             "config": {"package": pkg.name, "files": files,
-                       "version": pkgd.get("package_version"),
+                       "version": pkg.package_version,
                        "locked": bool(pkg.status != "Draft")}}
 
 
