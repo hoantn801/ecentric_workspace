@@ -202,6 +202,26 @@ def remove_file(dsf_name):
         frappe.delete_doc("File", fdoc, ignore_permissions=True)
 
 
+def clear_file_placements(dsf_name):
+    """Document-SCOPED placement reset: remove placements for ONE EC Digital Signature File on
+    an editable Draft package, with NO effect on sibling files (no replace-all, no sibling row
+    churn / timestamp / audit noise). Governed ORM delete only (archived to Deleted Document;
+    Placement track_changes preserved); idempotent (returns count removed). Requester/Draft
+    authorization is enforced here (assert_requester_draft_package) and again at the public
+    write boundary."""
+    row = frappe.get_doc("EC Digital Signature File", dsf_name)
+    pkg = get_package(row.package)
+    perms.assert_requester_draft_package(pkg)
+    if row.package != pkg.name:
+        frappe.throw(_("Tệp không thuộc gói này."))
+    n = 0
+    for pl in frappe.get_all("EC Digital Signature Placement",
+                             filters={"signature_file": dsf_name}, pluck="name"):
+        frappe.delete_doc("EC Digital Signature Placement", pl, ignore_permissions=True)
+        n += 1
+    return n
+
+
 def save_placements(pkg_name, placements):
     """Replace-all placement save for a Draft package (editor batch save). Each row:
     {signature_file, page_index, x, y, llx, lly, width, height, level_no,
