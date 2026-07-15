@@ -48,8 +48,8 @@ class TestPdfjsAssets(unittest.TestCase):
                                 "pinned version is below the CVE-2024-4367 patch floor")
 
     def test_manifest_lists_esm_assets_only(self):
-        self.assertIn("pdf.mjs", self.shas)
-        self.assertIn("pdf.worker.mjs", self.shas)
+        self.assertIn("pdf.js", self.shas)
+        self.assertIn("pdf.worker.js", self.shas)
         self.assertNotIn("pdf.min.js", self.shas)          # no legacy 3.11.174 asset
         self.assertNotIn("pdf.worker.min.js", self.shas)
 
@@ -71,7 +71,7 @@ class TestPdfjsAssets(unittest.TestCase):
         import importlib.util
         d = tempfile.mkdtemp()
         try:
-            for f in ["pdf.mjs", "pdf.worker.mjs", "LICENSE", "PINNED.sha256", "verify_pdfjs.py"]:
+            for f in ["pdf.js", "pdf.worker.js", "LICENSE", "PINNED.sha256", "verify_pdfjs.py"]:
                 shutil.copy(os.path.join(_VENDOR, f), d)
             spec = importlib.util.spec_from_file_location("verify_pdfjs",
                                                           os.path.join(d, "verify_pdfjs.py"))
@@ -83,7 +83,7 @@ class TestPdfjsAssets(unittest.TestCase):
 
     def test_editor_uses_local_esm_no_cdn(self):
         self.assertIn("import(PDFJS_BASE", self.editor)      # ESM dynamic import
-        self.assertIn("pdf.mjs", self.editor)
+        self.assertIn("pdf.js", self.editor)
         self.assertIn("/assets/ecentric_workspace/vendor/pdfjs/", self.editor)
         for bad in ("cdnjs", "unpkg", "jsdelivr", "googleapis", "https://cdn"):
             self.assertNotIn(bad, self.editor)

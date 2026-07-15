@@ -48,7 +48,19 @@ def requester_signing_readiness(business_doctype, business_name):
     ar = perms.business_approval_request(business_doctype, business_name)
     checks = {}
     if not ar:
-        return {"ready": False, "reasons": ["not_submitted"], "checks": checks}
+        # Pre-submission: report whether this request type WILL require the requester's
+        # signature so the panel can show a clear 'not yet signable' note to the owner instead
+        # of nothing. approval_type is often blank on the un-submitted business doc; when it is,
+        # requester_signature_required stays False (we do not guess).
+        owner = frappe.db.get_value(business_doctype, business_name, "owner")
+        at = frappe.db.get_value(business_doctype, business_name, "approval_type") \
+            if frappe.db.has_column(business_doctype, "approval_type") else None
+        checks["not_submitted"] = True
+        checks["is_owner"] = (frappe.session.user == owner)
+        checks["requester_signature_required"] = bool(
+            at and guard.requester_signature_required(business_doctype, at))
+        return {"ready": False, "reasons": ["not_submitted"], "checks": checks,
+                "stage": "Not Submitted"}
     req = frappe.db.get_value(AR, ar, ["approval_type", "current_level", "approval_status",
                                        "requester_signature_status", "requested_by"], as_dict=True)
     pname, prof, st = _profile_and_settings(business_doctype, req.approval_type)
