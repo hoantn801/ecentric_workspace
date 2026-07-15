@@ -122,16 +122,17 @@
 </style>
 
 <div id="ec-budg-root">
-  <aside class="ec-sidebar">
-    <div class="sb-head"><span class="logo">eC</span><span class="brand-name">eCentric</span></div>
-    <nav class="nav">
-      <a class="nav-item" href="/home"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg></span><span>Trang chủ</span></a>
-      <a class="nav-item" href="/approvals"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><span>Approval Center</span></a>
-      <a class="nav-item active" href="/approvals/budget-setting"><span class="nav-ic"><svg class="icon" viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span><span>Budget Setting</span></a>
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric">
+    <!-- ERP Shell v1 opt-in (Phase 1C standard rollout). ec_shell.js renders the
+         shared sidebar here from the nav registry; this static fallback keeps the
+         page navigable if the shell is kill-switched, blocked, or errors. -->
+    <nav class="ec-shell-fallback" aria-label="Điều hướng">
+      <a href="/home">Trang chủ</a>
+      <a href="/approvals">Approval Center</a>
     </nav>
   </aside>
   <main class="ec-main">
-    <div class="topbar"><div class="crumb">Approval Center / <strong>Budget Setting</strong></div></div>
+    <div class="topbar"><div class="crumb"><a class="ec-shell-crumblink" href="/approvals">Approval Center</a> / <strong>Budget Setting</strong></div><div class="ec-shell-tbright" data-ec-shell-header-right="1"></div></div>
     <div class="content">
       <h1 class="pg">Budget Setting</h1>
       <p class="pg-sub">Thiết lập ngân sách: loại kỳ, phòng ban, ngân sách duyệt / chi tiêu thực tế / dự báo kỳ sau.</p>
