@@ -38,6 +38,27 @@ _LIVE_STATES = ("Draft", "Locked", "Active", "Provider Creating", "Provider Crea
 # --------------------------------------------------------------------------- #
 # pure helpers (no side effects)
 # --------------------------------------------------------------------------- #
+_TRUE = ("true", "1")
+_FALSE = ("false", "0")
+
+
+def _to_bool(v):
+    """Canonical boolean normalizer for the public API/service boundary. Frappe serializes
+    browser boolean args as STRINGS on the Website call path, so accept bool / 0 / 1 /
+    "true" / "false" / "1" / "0" (case-insensitive, trimmed). Reject anything else with a
+    ValidationError - NEVER Python bool("false") (which is True)."""
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, int) and v in (0, 1):
+        return bool(v)
+    sv = str(v).strip().lower()
+    if sv in _TRUE:
+        return True
+    if sv in _FALSE:
+        return False
+    frappe.throw(_("Giá trị boolean không hợp lệ: {0}").format(v), frappe.ValidationError)
+
+
 def _is_pdf_name(name, url):
     n = (name or "").lower()
     u = (url or "").lower()
@@ -154,7 +175,11 @@ def _assert_can_classify(bd, bn):
 def get_document_setup_state(business_doctype, business_name):
     perms.assert_can_view_business(business_doctype, business_name)
     cur_name, cur_status, is_draft, needs_review = _current_package(business_doctype, business_name)
-    editable = is_draft and not needs_review       # only an unambiguous Draft is editable
+    # Classification is allowed during the document-SETUP stage: no signing package yet (a local
+    # Draft is materialized on the first write) OR an editable Draft exists. An immutable/frozen
+    # package (Locked/Active/Provider*/Completed) closes the window; ambiguity needs review.
+    # This is stage-based, NOT business docstatus (EC Payment Request is not submittable).
+    editable = (cur_status in (None, "Draft")) and not needs_review
     can_classify = editable and (frappe.session.user == _requester_of(business_doctype,
                                                                       business_name))
     plan = sp.resolve_signer_plan(business_doctype, business_name)
@@ -237,9 +262,8 @@ def _stale_dsf(bd, bn, pkg_for_dsf, groups):
 # --------------------------------------------------------------------------- #
 def set_document_requires_signature(business_doctype, business_name, document_ref,
                                     requires_signature, confirm=False):
-    requested = bool(int(requires_signature)) if not isinstance(requires_signature, bool) \
-        else requires_signature
-    confirm = bool(int(confirm)) if not isinstance(confirm, bool) else confirm
+    requested = _to_bool(requires_signature)      # canonical (accepts "true"/"false"/1/0/bool)
+    confirm = _to_bool(confirm)
     _assert_can_classify(business_doctype, business_name)
 
     # 1) resolve document_ref back to a CURRENT attachment of THIS record (revalidated)
