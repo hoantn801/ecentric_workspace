@@ -59,6 +59,20 @@ def package_placements(pkg_name):
                           order_by="creation asc")
 
 
+def requester_placements_complete(pkg_name):
+    """Requester completeness: at least one signable file carries at least one non-Invalid
+    placement. The requester is a SINGLE signer, so approver-level preflight (per profile level)
+    does NOT apply - a package with zero requester placements is never complete and must never
+    be lockable."""
+    signable = {f.name for f in package_files(pkg_name) if f.requires_signature}
+    if not signable:
+        return False
+    for pl in package_placements(pkg_name):
+        if pl.signature_file in signable and (pl.status or "") != "Invalid":
+            return True
+    return False
+
+
 # --------------------------------------------------------------------------- #
 # create / upload
 # --------------------------------------------------------------------------- #

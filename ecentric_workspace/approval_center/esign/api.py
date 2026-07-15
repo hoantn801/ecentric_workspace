@@ -359,3 +359,13 @@ def requester_lock_signing_package(payment_request_name):
     _business_args("EC Payment Request", payment_request_name)
     from ecentric_workspace.approval_center.esign import requester
     return requester.requester_lock_signing_package("EC Payment Request", payment_request_name)
+
+
+@frappe.whitelist(methods=["POST"])
+def requester_reset_invalid_package(payment_request_name):
+    """Governed recovery of an INVALID locked requester package (Locked/Active with zero
+    requester placements). Requester or System Manager only; audited; no provider/SCTS mutation;
+    cancels the invalid local package so a fresh Draft can be prepared."""
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.approval_center.esign import requester
+    return requester.requester_reset_invalid_package("EC Payment Request", payment_request_name)
