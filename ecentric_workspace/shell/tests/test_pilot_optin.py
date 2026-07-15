@@ -37,6 +37,8 @@ PILOT = {
     "resignation.main_section.html",
     "special_bonus.main_section.html",
     "system_request.main_section.html",
+    # 1D:
+    "ai_topup.main_section.html",
 }
 MARKER = 'data-ec-shell="1"'
 BELL = 'data-ec-notification-bell="1"'
@@ -144,6 +146,7 @@ class TestHeaderPolish(unittest.TestCase):
         "resignation.main_section.html": "Resignation Request",
         "special_bonus.main_section.html": "Special Bonus",
         "system_request.main_section.html": "System Request",
+        "ai_topup.main_section.html": "AI Topup",
     }
 
     def test_header_right_slot_on_all_pilots_once(self):
