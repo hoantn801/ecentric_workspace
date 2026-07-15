@@ -27,6 +27,10 @@ ARL = "EC Approval Request Level"
 ARA = "EC Approval Request Approver"
 PROFILE = "EC Digital Signature Profile"
 
+# Slot-key contract version. Bump when the slot_key format changes so Phase C can tell which
+# contract produced a historical persisted signer_slot_key.
+SLOT_KEY_VERSION = 1
+
 
 # --------------------------------------------------------------------------- #
 # read-model builders (pure of side effects)
@@ -58,36 +62,46 @@ def _level_signs(profile, policy, level_no, final_level):
                                   "requires_signature": 1}))
 
 
-def _level_slots(level_no, level_name, mode, minimum_approvals, users, environment):
-    """Required signer slots for ONE signing level:
-      * Any One       -> exactly ONE slot holding the whole candidate pool (runtime fills it);
-      * All Required  -> one slot per required approver (each bound to that single candidate);
-      * Minimum Count -> `minimum_approvals` slots over the shared pool (no premature user bind).
-    Unknown/blank mode is treated as All Required (one slot per approver) - the safe superset."""
+def _level_slots(level_no, level_name, level_ref, legacy, mode, minimum_approvals, users,
+                 environment):
+    """Required signer slots for ONE signing level. Slot identity is the STABLE governed level
+    identity (`level_ref` = EC Approval Level.name in preview / EC Approval Request Level.
+    source_process_level when frozen), NOT level_no (which is response metadata only):
+      * Any One       -> ONE pooled slot   -> level:<ref>:any-one
+      * All Required  -> one USER-BOUND slot per approver -> level:<ref>:user:<canonical_user>
+                         (survives process evolution: an unchanged approver keeps its key)
+      * Minimum Count -> `minimum_approvals` POOLED ordinal slots -> level:<ref>:minimum:<n>
+                         (1-based; never bound to a user - the satisfying subset is unknown
+                         until runtime).
+    Unknown/blank mode is treated as All Required (the safe superset). When the frozen level has
+    no source_process_level (legacy rows), `level_ref` is None and the identity token is the
+    clearly-marked non-misleading `legacy-L<level_no>`; the slot also carries legacy=True."""
     pool = [_candidate(u, environment) for u in sorted(set(users))]
+    tok = level_ref if level_ref else ("legacy-L%s" % level_no)
+    base = {"kind": "approval_level", "level_no": level_no, "level_name": level_name,
+            "level_ref": level_ref, "approval_mode": mode, "required": True}
+    if legacy:
+        base["legacy"] = True
     if mode == "Any One":
-        return [{"slot_key": "L%s" % level_no, "kind": "approval_level", "level_no": level_no,
-                 "level_name": level_name, "approval_mode": mode, "required": True,
-                 "candidates": pool}]
+        return [dict(base, slot_key="level:%s:any-one" % tok, candidates=pool)]
     if mode == "Minimum Count":
         k = int(minimum_approvals or 0)
-        return [{"slot_key": "L%s#%d" % (level_no, i), "kind": "approval_level",
-                 "level_no": level_no, "level_name": level_name, "approval_mode": mode,
-                 "required": True, "candidates": pool} for i in range(k)]
-    return [{"slot_key": "L%s#%d" % (level_no, i), "kind": "approval_level", "level_no": level_no,
-             "level_name": level_name, "approval_mode": mode, "required": True,
-             "candidates": [c]} for i, c in enumerate(pool)]
+        return [dict(base, slot_key="level:%s:minimum:%d" % (tok, i), candidates=pool)
+                for i in range(1, k + 1)]
+    # All Required (and any unknown mode): one user-bound slot per resolved approver.
+    return [dict(base, slot_key="level:%s:user:%s" % (tok, c["user"]), candidates=[c])
+            for c in pool]
 
 
 def _requester_slot(requester, environment):
     return {"slot_key": "requester", "kind": "requester", "level_no": None, "level_name": None,
-            "approval_mode": None, "required": True,
+            "level_ref": None, "approval_mode": None, "required": True,
             "candidates": [_candidate(requester, environment)] if requester else []}
 
 
 def _unresolved(bd, bn, reason, source=None, approval_type=None):
     return {"business_doctype": bd, "business_name": bn, "resolved": False, "reason": reason,
-            "source": source,
+            "source": source, "slot_key_version": SLOT_KEY_VERSION,
             "process": {"approval_type": approval_type, "process": None, "environment": None},
             "summary": {"required_slots": 0}, "slots": []}
 
@@ -154,17 +168,23 @@ def _frozen_plan(bd, bn, ar, at, profile, environment, policy, req_sig):
     if req_sig:
         slots.append(_requester_slot(requester, environment))
     levels = frappe.get_all(ARL, filters={"approval_request": ar},
-                            fields=["level_no", "level_name", "approval_mode", "minimum_approvals"],
+                            fields=["level_no", "level_name", "approval_mode", "minimum_approvals",
+                                    "source_process_level"],
                             order_by="level_no asc")
     for lvl in levels:
         if not _level_signs(profile, policy, lvl.level_no, final_level):
             continue
+        # STABLE level identity = the governed process level (source_process_level). Legacy
+        # frozen rows may lack it -> level_ref None + legacy flag (a clearly-marked, non-
+        # misleading legacy-L<level_no> token), never a fabricated stable key.
+        level_ref = lvl.source_process_level or None
+        legacy = not bool(lvl.source_process_level)
         users = frappe.get_all(ARA, filters={"approval_request": ar, "level_no": lvl.level_no},
                                pluck="approver")
-        slots += _level_slots(lvl.level_no, lvl.level_name, lvl.approval_mode,
+        slots += _level_slots(lvl.level_no, lvl.level_name, level_ref, legacy, lvl.approval_mode,
                               lvl.minimum_approvals, users, environment)
     return {"business_doctype": bd, "business_name": bn, "resolved": True, "reason": None,
-            "source": "frozen",
+            "source": "frozen", "slot_key_version": SLOT_KEY_VERSION,
             "process": {"approval_type": at,
                         "process": frappe.db.get_value(AR, ar, "approval_process"),
                         "environment": environment},
@@ -194,9 +214,10 @@ def _preview_plan(bd, bn, at, profile, environment, policy, req_sig):
         users = [u for (u, _label) in approvers]
         if not users:
             return _unresolved(bd, bn, "approvers_unresolved", source="preview", approval_type=at)
-        slots += _level_slots(lvl.level_no, lvl.level_name, lvl.approval_mode,
+        # preview level identity = the EC Approval Level document (== frozen source_process_level)
+        slots += _level_slots(lvl.level_no, lvl.level_name, lvl.name, False, lvl.approval_mode,
                              lvl.minimum_approvals, users, environment)
     return {"business_doctype": bd, "business_name": bn, "resolved": True, "reason": None,
-            "source": "preview",
+            "source": "preview", "slot_key_version": SLOT_KEY_VERSION,
             "process": {"approval_type": at, "process": process.name, "environment": environment},
             "summary": {"required_slots": len(slots)}, "slots": slots}
