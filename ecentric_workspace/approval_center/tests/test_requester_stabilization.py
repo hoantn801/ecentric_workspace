@@ -155,6 +155,9 @@ class TestRequesterRecovery(FrappeTestCase):
         frappe.set_user("Administrator")
         self.assertEqual(frappe.db.get_value("EC Digital Signature Package", pkg, "status"), "Cancelled")
         self.assertTrue(pkgsvc.draft_package_for_business(BD, biz))
+        # audited: a governed package event row exists for the reset transition
+        self.assertTrue(frappe.db.exists("EC Digital Signature Event",
+                                         {"package": pkg, "event_type": "RequesterPackageReset"}))
 
     def test_recovery_refuses_valid_package(self):
         req, biz = _pending("rc2")
@@ -166,13 +169,33 @@ class TestRequesterRecovery(FrappeTestCase):
             requester.requester_reset_invalid_package(BD, biz)  # refused
         frappe.set_user("Administrator")
 
-    def test_recovery_requester_only(self):
+    def test_recovery_denied_for_other_normal_user(self):
         req, biz, pkg = self._make_invalid("rc3")
-        other = fx.user(fx.PFX + "rc3other@example.com")
+        other = fx.user(fx.PFX + "rc3other@example.com")            # plain Employee
         frappe.set_user(other)
         with self.assertRaises(frappe.PermissionError):
             requester.requester_reset_invalid_package(BD, biz)
         frappe.set_user("Administrator")
+
+    def test_recovery_denied_for_system_manager_not_requester(self):
+        req, biz, pkg = self._make_invalid("rc3sm")
+        sm_user = fx.user(fx.PFX + "rc3sm_admin@example.com",
+                          roles=("Employee", "System Manager"))   # SM but NOT the requester
+        frappe.set_user(sm_user)
+        with self.assertRaises(frappe.PermissionError):
+            requester.requester_reset_invalid_package(BD, biz)
+        frappe.set_user("Administrator")
+        # still invalid/locked - the SM call did not mutate it
+        self.assertIn(frappe.db.get_value("EC Digital Signature Package", pkg, "status"),
+                      ("Locked", "Active"))
+
+    def test_recovery_denied_for_administrator_not_requester(self):
+        req, biz, pkg = self._make_invalid("rc3adm")
+        frappe.set_user("Administrator")                           # Administrator != requester
+        with self.assertRaises(frappe.PermissionError):
+            requester.requester_reset_invalid_package(BD, biz)
+        self.assertIn(frappe.db.get_value("EC Digital Signature Package", pkg, "status"),
+                      ("Locked", "Active"))
 
     def test_recovery_makes_no_provider_or_dsr(self):
         req, biz, pkg = self._make_invalid("rc4")

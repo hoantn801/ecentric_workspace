@@ -369,19 +369,21 @@ def requester_lock_signing_package(business_doctype, business_name):
 
 def requester_reset_invalid_package(business_doctype, business_name):
     """Governed recovery for an INVALID locked requester package (Locked/Active with zero
-    requester placements - only reachable from the pre-guard defect). Requester (or System
-    Manager) only; NO Administrator bypass beyond the SM role; audited via the package state
-    machine; performs NO provider/SCTS mutation and NO direct SQL. It cancels the invalid local
-    package (Locked/Active -> Cancelled) via the governed transition so a subsequent
+    requester placements - only reachable from the pre-guard defect). Authorized STRICTLY for
+    the actual requester resolved through the Approval Engine (EC Approval Request.requested_by
+    for this business doc) - NO Administrator bypass, NO System Manager bypass, NO generic role
+    check, NO ignore_permissions. Audited via the package state machine; performs NO
+    provider/SCTS/DSR mutation and NO direct SQL. It cancels the invalid local package
+    (Locked/Active -> Cancelled) via the governed transition so a subsequent
     prepare_requester_signing_package builds a fresh Draft. A VALID package is refused."""
     actor = frappe.session.user
     ar = perms.business_approval_request(business_doctype, business_name) \
         or _requester_ar(business_doctype, business_name)
     req = frappe.db.get_value(AR, ar, ["requested_by"], as_dict=True) if ar else None
-    is_sm = "System Manager" in frappe.get_roles(actor)
-    if not req or (actor != req.requested_by and not is_sm):
-        frappe.throw(_("Chỉ người đề nghị (hoặc quản trị hệ thống) mới được khôi phục gói ký."),
-                     frappe.PermissionError)
+    # Requester-scoped ONLY: the session user must BE the authoritative requester. No System
+    # Manager / Administrator / role-membership / ignore_permissions bypass.
+    if not req or actor != req.requested_by:
+        frappe.throw(_("Chỉ người đề nghị mới được khôi phục gói ký."), frappe.PermissionError)
     cur = frappe.db.get_value(
         PKG, {"business_doctype": business_doctype, "business_name": business_name,
               "status": ["in", ("Locked", "Active", "Provider Creating", "Provider Created",
