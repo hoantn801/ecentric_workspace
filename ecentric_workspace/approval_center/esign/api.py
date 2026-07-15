@@ -327,6 +327,15 @@ def placement_editor_config(payment_request_name):
 
 
 @frappe.whitelist()
+def signer_plan(payment_request_name):
+    """Read-only signer plan for the Payment Request signing UI (Phase B1). Permission-safe
+    (business view permission required); no writes / side effects; no SCTS call."""
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.approval_center.esign import signer_plan as sp
+    return sp.resolve_signer_plan("EC Payment Request", payment_request_name)
+
+
+@frappe.whitelist()
 def requester_signing_readiness(payment_request_name):
     """Read-only requester Submit & Sign readiness (fail-closed)."""
     _business_args("EC Payment Request", payment_request_name)
