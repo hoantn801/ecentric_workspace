@@ -301,3 +301,119 @@ def _placement_count(dsf_name):
     return len([p for p in frappe.get_all("EC Digital Signature Placement",
                                           filters={"signature_file": dsf_name}, fields=["status"])
                 if (p.status or "") != "Invalid"])
+
+
+PDF2 = fx.PDF[:-5] + b"XZ%%EOF"                      # distinct content -> distinct SHA
+
+
+class TestDocumentSetupCorrections(FrappeTestCase):
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    # ---- 1. implicit default true is a true no-op ----
+    def test_set_true_on_no_dsf_is_noop_zero_writes(self):
+        req, biz = _pending("c1"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC1")
+        counts = {dt: frappe.db.count(dt) for dt in (PKG, DSF, "EC Digital Signature Event")}
+        out = _write(req, biz, ref, True)                       # default already true
+        self.assertTrue(out["ok"]); self.assertTrue(out.get("no_op"))
+        for dt, before in counts.items():
+            self.assertEqual(frappe.db.count(dt), before, "no-op mutated %s" % dt)
+
+    def test_existing_classification_repeat_is_noop(self):
+        req, biz = _pending("c2"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC2")
+        _write(req, biz, ref, False)                            # -> supporting (materialize)
+        ev0 = frappe.db.count("EC Digital Signature Event",
+                              {"event_type": "DocumentClassificationChanged"})
+        out = _write(req, biz, ref, False)                      # repeat false -> no-op
+        self.assertTrue(out.get("no_op"))
+        self.assertEqual(frappe.db.count("EC Digital Signature Event",
+                                         {"event_type": "DocumentClassificationChanged"}), ev0)
+
+    # ---- 2. document-scoped placement reset preserves siblings ----
+    def test_clear_file_placements_preserves_sibling_ids(self):
+        req, biz = _pending("c3"); _attach(biz, req, "seed.pdf", fx.PDF, "HC3")
+        frappe.set_user(req)
+        draft = pkgsvc.get_or_create_draft(BD, biz, PROFILE, allow_submitted=True).name
+        a = pkgsvc.add_file(draft, "A.pdf", fx.PDF, requires_signature=1).name
+        b = pkgsvc.add_file(draft, "B.pdf", PDF2, requires_signature=1).name
+        pkgsvc.save_placements(draft, [
+            {"signature_file": a, "page_index": 1, "x": 10, "y": 10, "width": 50, "height": 20,
+             "level_no": 1, "signature_type": "mock"},
+            {"signature_file": b, "page_index": 1, "x": 20, "y": 20, "width": 50, "height": 20,
+             "level_no": 1, "signature_type": "mock"}])
+        b_before = sorted(frappe.get_all("EC Digital Signature Placement",
+                                         filters={"signature_file": b}, pluck="name"))
+        removed = pkgsvc.clear_file_placements(a)               # document-scoped
+        frappe.set_user("Administrator")
+        self.assertEqual(removed, 1)
+        self.assertEqual(_placement_count(a), 0)               # A cleared
+        b_after = sorted(frappe.get_all("EC Digital Signature Placement",
+                                        filters={"signature_file": b}, pluck="name"))
+        self.assertEqual(b_before, b_after)                    # B row IDs UNCHANGED (no churn)
+
+    def test_clear_file_placements_idempotent(self):
+        req, biz = _pending("c3b"); _attach(biz, req, "s.pdf", fx.PDF, "HC3b")
+        frappe.set_user(req)
+        draft = pkgsvc.get_or_create_draft(BD, biz, PROFILE, allow_submitted=True).name
+        a = pkgsvc.add_file(draft, "A.pdf", fx.PDF, requires_signature=1).name
+        self.assertEqual(pkgsvc.clear_file_placements(a), 0)   # none -> idempotent no-op
+        frappe.set_user("Administrator")
+
+    # ---- 3. classification audit ----
+    def test_initial_true_to_false_is_audited(self):
+        req, biz = _pending("c4"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC4")
+        _write(req, biz, ref, False)
+        draft = pkgsvc.draft_package_for_business(BD, biz)
+        evs = frappe.get_all("EC Digital Signature Event",
+                             filters={"package": draft, "event_type": "DocumentClassificationChanged"},
+                             fields=["name", "request_meta", "erp_actor"])
+        self.assertEqual(len(evs), 1)
+        meta = frappe.parse_json(evs[0].request_meta)
+        self.assertEqual(meta["requires_signature_before"], True)
+        self.assertEqual(meta["requires_signature_after"], False)
+        self.assertEqual(evs[0].erp_actor, req)
+
+    def test_noop_emits_no_event(self):
+        req, biz = _pending("c5"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC5")
+        _write(req, biz, ref, True)                            # no-op (default true)
+        self.assertEqual(frappe.db.count("EC Digital Signature Event",
+                                         {"event_type": "DocumentClassificationChanged"}), 0)
+
+    def test_subsequent_change_audited(self):
+        req, biz = _pending("c6"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC6")
+        _write(req, biz, ref, False)                           # true->false
+        _write(req, biz, ref, True)                            # false->true (subsequent)
+        draft = pkgsvc.draft_package_for_business(BD, biz)
+        evs = frappe.get_all("EC Digital Signature Event",
+                             filters={"package": draft, "event_type": "DocumentClassificationChanged"},
+                             fields=["request_meta"], order_by="creation asc")
+        self.assertEqual(len(evs), 2)
+        m2 = frappe.parse_json(evs[1].request_meta)
+        self.assertEqual((m2["requires_signature_before"], m2["requires_signature_after"]),
+                         (False, True))
+
+    # ---- 4. DSF precedence ----
+    def test_cancelled_dsf_not_authoritative(self):
+        req, biz = _pending("c7"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC7")
+        _write(req, biz, ref, False)                           # DSF in a Draft package
+        draft = pkgsvc.draft_package_for_business(BD, biz)
+        frappe.db.set_value(PKG, draft, "status", "Cancelled")  # simulate historical cancelled
+        d = next(x for x in _state(req, biz)["documents"] if x["document_ref"] == ref)
+        # Cancelled package is NOT authoritative -> falls back to the default (signable)
+        self.assertTrue(d["requires_signature"])
+        self.assertEqual(d["classification_source"], "default")
+
+    def test_needs_review_on_ambiguous_coexistence(self):
+        req, biz = _pending("c8"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC8")
+        _write(req, biz, ref, False)                           # Draft package
+        draft = pkgsvc.draft_package_for_business(BD, biz)
+        # a second immutable-live package coexisting -> ambiguous
+        frappe.get_doc({"doctype": PKG, "business_doctype": BD, "business_name": biz,
+                        "profile": PROFILE, "provider": "Mock", "environment": "UAT",
+                        "package_version": 2, "status": "Locked", "package_hash": "x"}
+                       ).insert(ignore_permissions=True)
+        st = _state(req, biz)
+        self.assertTrue(st["needs_review"])
+        self.assertFalse(st["editable"])
+        out = _write(req, biz, ref, True)
+        self.assertFalse(out["ok"]); self.assertEqual(out["reason"], "needs_review")

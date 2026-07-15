@@ -19,6 +19,7 @@ import os
 import frappe
 from frappe import _
 
+from ecentric_workspace.approval_center.esign import events
 from ecentric_workspace.approval_center.esign import guard
 from ecentric_workspace.approval_center.esign import hashing
 from ecentric_workspace.approval_center.esign import package as pkgsvc
@@ -28,8 +29,10 @@ from ecentric_workspace.approval_center.esign import signer_plan as sp
 AR = "EC Approval Request"
 PKG = "EC Digital Signature Package"
 DSF = "EC Digital Signature File"
-_IMMUTABLE_PKG = ("Locked", "Active", "Provider Creating", "Provider Created",
-                  "Provider Create Failed", "Completed")
+# Live package statuses (authoritative). Cancelled/Superseded are NEVER authoritative and can
+# never override the current package or a native attachment's default classification.
+_LIVE_STATES = ("Draft", "Locked", "Active", "Provider Creating", "Provider Created",
+                "Provider Create Failed", "Completed")
 
 
 # --------------------------------------------------------------------------- #
@@ -88,14 +91,24 @@ def _dedupe(files):
 # --------------------------------------------------------------------------- #
 # package / DSF resolution
 # --------------------------------------------------------------------------- #
-def _draft_pkg(bd, bn):
-    return pkgsvc.draft_package_for_business(bd, bn)
-
-
-def _immutable_pkg(bd, bn):
-    return frappe.db.get_value(
-        PKG, {"business_doctype": bd, "business_name": bn, "status": ["in", _IMMUTABLE_PKG]},
-        "name", order_by="creation desc")
+def _current_package(bd, bn):
+    """Deterministic CURRENT package + needs_review, by governed precedence:
+      1) the editable Draft package (authoritative for editable setup), else
+      2) the newest immutable-LIVE package (Locked/Active/Provider*/Completed) for read-only.
+    Cancelled/Superseded/orphan packages are excluded and never override. Returns
+    (name, status, is_draft, needs_review). needs_review = an ambiguous coexistence
+    (>1 Draft, or a Draft AND an immutable-live package at once) - the caller must NOT guess."""
+    rows = frappe.get_all(PKG, filters={"business_doctype": bd, "business_name": bn,
+                                        "status": ["in", _LIVE_STATES]},
+                          fields=["name", "status"], order_by="creation desc")
+    drafts = [r for r in rows if r.status == "Draft"]
+    immut = [r for r in rows if r.status != "Draft"]
+    needs_review = len(drafts) > 1 or (bool(drafts) and bool(immut))
+    if drafts:
+        return drafts[0].name, drafts[0].status, True, needs_review
+    if immut:
+        return immut[0].name, immut[0].status, False, needs_review
+    return None, None, False, needs_review
 
 
 def _rep_sha(rep):
@@ -140,16 +153,15 @@ def _assert_can_classify(bd, bn):
 # --------------------------------------------------------------------------- #
 def get_document_setup_state(business_doctype, business_name):
     perms.assert_can_view_business(business_doctype, business_name)
-    draft = _draft_pkg(business_doctype, business_name)
-    locked = _immutable_pkg(business_doctype, business_name)
-    editable = bool(draft) or not bool(locked)     # no Locked-only package blocks editing
+    cur_name, cur_status, is_draft, needs_review = _current_package(business_doctype, business_name)
+    editable = is_draft and not needs_review       # only an unambiguous Draft is editable
     can_classify = editable and (frappe.session.user == _requester_of(business_doctype,
                                                                       business_name))
     plan = sp.resolve_signer_plan(business_doctype, business_name)
     required_slots = (plan.get("summary") or {}).get("required_slots", 0) if plan.get("resolved") else 0
 
     groups = _dedupe(_current_files(business_doctype, business_name))
-    pkg_for_dsf = draft or locked
+    pkg_for_dsf = cur_name                          # Draft (editable) or immutable-live; never Cancelled/Superseded
     docs, n_sign, n_support = [], 0, 0
     for g in groups:
         rep = g["rep"]
@@ -188,7 +200,8 @@ def get_document_setup_state(business_doctype, business_name):
 
     return {
         "business_doctype": business_doctype, "business_name": business_name,
-        "editable": editable, "can_classify": can_classify,
+        "editable": editable, "can_classify": can_classify, "needs_review": needs_review,
+        "current_package_status": cur_status,
         "signer_plan": {"resolved": plan.get("resolved"),
                         "slot_key_version": plan.get("slot_key_version"),
                         "summary": {"required_slots": required_slots},
@@ -224,66 +237,88 @@ def _stale_dsf(bd, bn, pkg_for_dsf, groups):
 # --------------------------------------------------------------------------- #
 def set_document_requires_signature(business_doctype, business_name, document_ref,
                                     requires_signature, confirm=False):
-    requires_signature = bool(int(requires_signature)) if not isinstance(requires_signature, bool) \
+    requested = bool(int(requires_signature)) if not isinstance(requires_signature, bool) \
         else requires_signature
     confirm = bool(int(confirm)) if not isinstance(confirm, bool) else confirm
     _assert_can_classify(business_doctype, business_name)
 
-    # 1) resolve document_ref back to a CURRENT private-or-public attachment of THIS record
+    # 1) resolve document_ref back to a CURRENT attachment of THIS record (revalidated)
     f = frappe.db.get_value("File", document_ref,
                             ["name", "attached_to_doctype", "attached_to_name", "file_name",
                              "file_url"], as_dict=True)
     if not f or f.attached_to_doctype != business_doctype or f.attached_to_name != business_name:
         return {"ok": False, "reason": "stale_or_foreign_attachment"}
 
-    # 2) immutability: reuse a Draft; NEVER create a parallel Draft to bypass a Locked package
-    draft = _draft_pkg(business_doctype, business_name)
-    if not draft and _immutable_pkg(business_doctype, business_name):
+    # 2) governed precedence: ambiguous coexistence -> needs_review (never guess); an immutable
+    #    current package is never bypassed with a parallel Draft.
+    cur_name, cur_status, is_draft, needs_review = _current_package(business_doctype, business_name)
+    if needs_review:
+        return {"ok": False, "reason": "needs_review"}
+    if cur_name and not is_draft:
         return {"ok": False, "reason": "package_locked"}
 
     content = frappe.get_doc("File", f.name).get_content()
     sha = hashing.sha256_bytes(content)
 
-    # 3) materialize/reuse the local Draft package (governed, purely local)
-    if not draft:
-        at, profile, err = sp._resolve_type_and_profile(
-            business_doctype, business_name,
-            perms.business_approval_request(business_doctype, business_name))
-        if err or not profile:
-            return {"ok": False, "reason": err or "profile_not_configured"}
-        draft = pkgsvc.get_or_create_draft(business_doctype, business_name, profile,
-                                           allow_submitted=True).name
+    # 3) current EFFECTIVE classification WITHOUT materializing anything (default = signable).
+    dsf = _dsf_by_sha(cur_name, sha) if cur_name else None
+    current_effective = bool(dsf.requires_signature) if dsf else True
 
-    # 4) materialize/reuse exactly ONE DSF for this physical document (idempotent by SHA)
-    dsf = _dsf_by_sha(draft, sha)
+    # 3a) TRUE NO-OP: requested == current effective -> zero writes, zero events, unchanged state.
+    if requested == current_effective:
+        state = get_document_setup_state(business_doctype, business_name)
+        doc = next((d for d in state["documents"] if d["document_ref"] == document_ref), None)
+        return {"ok": True, "no_op": True, "document": doc, "editable": state["editable"]}
+
+    before = current_effective
     try:
         if not dsf:
+            # 4) materialize the local Draft package + exactly ONE DSF (only on a real change,
+            #    which - since default is True - is always a change TO supporting=false).
+            draft = cur_name
+            if not draft:
+                at, profile, err = sp._resolve_type_and_profile(
+                    business_doctype, business_name,
+                    perms.business_approval_request(business_doctype, business_name))
+                if err or not profile:
+                    return {"ok": False, "reason": err or "profile_not_configured"}
+                draft = pkgsvc.get_or_create_draft(business_doctype, business_name, profile,
+                                                   allow_submitted=True).name
             display = f.file_name or (f.file_url or "").rsplit("/", 1)[-1] or "document"
             row = pkgsvc.add_file(draft, display, content,
-                                  requires_signature=1 if requires_signature else 0,
-                                  is_supporting_document=0 if requires_signature else 1)
+                                  requires_signature=1 if requested else 0,
+                                  is_supporting_document=0 if requested else 1)
             dsf_name = row.name
         else:
+            draft = cur_name
             dsf_name = dsf.name
-            # 5) confirmation gate: turning OFF signing on a document that already has placements
-            if not requires_signature:
+            # 5) confirmation gate: turning signing OFF on a document that already has placements
+            if not requested:
                 plc = _placement_count(dsf_name)
                 if plc and not confirm:
                     return {"ok": False, "confirmation_required": True,
                             "reason": "existing_placements", "placement_count": plc}
                 if plc and confirm:
-                    remaining = [dict(p) for p in pkgsvc.package_placements(draft)
-                                 if p.signature_file != dsf_name]
-                    pkgsvc.save_placements(draft, remaining)   # governed reset (reuse)
-            # 6) canonical write + server-owned mirror (single service owns both fields)
+                    pkgsvc.clear_file_placements(dsf_name)   # DOCUMENT-scoped (no sibling churn)
+            # 6) canonical write + server-owned mirror (single owner: set_file_flags)
             pkgsvc.set_file_flags(dsf_name,
-                                  requires_signature=1 if requires_signature else 0,
-                                  is_supporting_document=0 if requires_signature else 1)
+                                  requires_signature=1 if requested else 0,
+                                  is_supporting_document=0 if requested else 1)
     except frappe.ValidationError as e:
-        # non-PDF marked as signing-required is refused by _validate_content -> structured state
         if "PDF" in str(e):
             return {"ok": False, "reason": "unsupported_signable_format"}
         raise
+
+    # 7) governed classification audit (reuse the existing event model). track_changes is
+    #    provably insufficient (DSF insert makes no Version; set_file_flags uses db.set_value
+    #    which bypasses Version), so emit an explicit, focused classification event on the REAL
+    #    change only (never for a no-op). Captures actor / time / physical doc / before / after.
+    events.emit("DocumentClassificationChanged", package=draft,
+                erp_actor=frappe.session.user,
+                request_meta={"business_doctype": business_doctype, "business_name": business_name,
+                              "signature_file": dsf_name, "sha256": sha,
+                              "requires_signature_before": before,
+                              "requires_signature_after": requested})
 
     state = get_document_setup_state(business_doctype, business_name)
     doc = next((d for d in state["documents"] if d["document_ref"] == document_ref), None)
