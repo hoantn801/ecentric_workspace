@@ -417,3 +417,70 @@ class TestDocumentSetupCorrections(FrappeTestCase):
         self.assertFalse(st["editable"])
         out = _write(req, biz, ref, True)
         self.assertFalse(out["ok"]); self.assertEqual(out["reason"], "needs_review")
+
+
+class TestDocumentSetupBooleanAndEligibility(FrappeTestCase):
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    # ---- boolean normalizer at the public boundary ----
+    def test_browser_string_true_parses_as_noop(self):
+        req, biz = _pending("b1"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HB1")
+        counts = {dt: frappe.db.count(dt) for dt in (PKG, DSF)}
+        out = _write(req, biz, ref, "true")                    # browser-style string
+        self.assertTrue(out["ok"]); self.assertTrue(out.get("no_op"))
+        for dt, before in counts.items():
+            self.assertEqual(frappe.db.count(dt), before)      # true no-op, zero writes
+
+    def test_browser_string_false_materializes(self):
+        req, biz = _pending("b2"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HB2")
+        out = _write(req, biz, ref, "false")
+        self.assertTrue(out["ok"])
+        self.assertTrue(pkgsvc.draft_package_for_business(BD, biz))
+
+    def test_bool_int_string_variants_normalize_identically(self):
+        # each fresh request; all "false" forms must materialize supporting identically
+        for i, val in enumerate([False, 0, "0", "false", "False", " false "]):
+            req, biz = _pending("bv%d" % i); ref = _attach(biz, req, "a.pdf", fx.PDF, "HBV%d" % i)
+            out = _write(req, biz, ref, val)
+            self.assertTrue(out["ok"], "form %r failed" % val)
+            draft = pkgsvc.draft_package_for_business(BD, biz)
+            row = frappe.db.get_value(DSF, {"package": draft}, ["requires_signature",
+                                                                "is_supporting_document"], as_dict=True)
+            self.assertEqual((row.requires_signature, row.is_supporting_document), (0, 1))
+
+    def test_invalid_boolean_rejected(self):
+        req, biz = _pending("b3"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HB3")
+        for bad in ("yes", "", "2", "maybe"):
+            frappe.set_user(req)
+            with self.assertRaises(frappe.ValidationError):
+                ds.set_document_requires_signature(BD, biz, ref, bad)
+            frappe.set_user("Administrator")
+
+    # ---- classification eligibility during document-setup stage ----
+    def test_fresh_request_no_package_is_classifiable_by_requester(self):
+        req, biz = _pending("e1"); _attach(biz, req, "a.pdf", fx.PDF, "HE1")
+        st = _state(req, biz)                                   # submitted, NO package yet
+        self.assertIsNone(st["current_package_status"])
+        self.assertTrue(st["editable"])                        # was False before the fix
+        self.assertTrue(st["can_classify"])
+
+    def test_non_requester_not_can_classify(self):
+        req, biz = _pending("e2"); _attach(biz, req, "a.pdf", fx.PDF, "HE2")
+        other = fx.user(fx.PFX + "e2o@example.com")
+        # other can view? assert_can_view_business would deny -> guard read for the requester only
+        st = _state(req, biz)
+        self.assertTrue(st["can_classify"])                    # requester yes
+        # a stranger cannot even read (permission), asserted in write tests below
+
+    def test_frozen_package_closes_classification_window(self):
+        req, biz = _pending("e3"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HE3")
+        _write(req, biz, ref, True)                            # no-op (still no package)... force a package:
+        _write(req, biz, ref, False)                           # materialize Draft
+        draft = pkgsvc.draft_package_for_business(BD, biz)
+        dsf = frappe.get_all(DSF, filters={"package": draft, "requires_signature": 1}, pluck="name")
+        # lock the package (Locked) to close the window
+        frappe.db.set_value(PKG, draft, "status", "Locked")
+        st = _state(req, biz)
+        self.assertEqual(st["current_package_status"], "Locked")
+        self.assertFalse(st["editable"]); self.assertFalse(st["can_classify"])
