@@ -20,6 +20,23 @@ PILOT = {
     "service_referral.main_section.html",
     "livestream_supplies.main_section.html",
     "livestream_sample.main_section.html",
+    # 1C standard rollout (16):
+    "affiliate_bonus.main_section.html",
+    "asset_damage_loss.main_section.html",
+    "asset_request.main_section.html",
+    "budget_setting.main_section.html",
+    "compensation_leave.main_section.html",
+    "daily_target.main_section.html",
+    "data_request.main_section.html",
+    "document_request.main_section.html",
+    "employee_info_update.main_section.html",
+    "hiring_request.main_section.html",
+    "late_early_out.main_section.html",
+    "outside_work.main_section.html",
+    "purchase_request.main_section.html",
+    "resignation.main_section.html",
+    "special_bonus.main_section.html",
+    "system_request.main_section.html",
 }
 MARKER = 'data-ec-shell="1"'
 BELL = 'data-ec-notification-bell="1"'
@@ -111,6 +128,22 @@ class TestHeaderPolish(unittest.TestCase):
         "service_referral.main_section.html": "Service Referral",
         "livestream_supplies.main_section.html": "Livestream Supplies",
         "livestream_sample.main_section.html": "Livestream Sample",
+        "affiliate_bonus.main_section.html": "Affiliate Bonus",
+        "asset_damage_loss.main_section.html": "Asset Damage or Loss",
+        "asset_request.main_section.html": "Asset Request",
+        "budget_setting.main_section.html": "Budget Setting",
+        "compensation_leave.main_section.html": "Compensation Leave",
+        "daily_target.main_section.html": "Daily Target Setting",
+        "data_request.main_section.html": "Data Request",
+        "document_request.main_section.html": "Document Request",
+        "employee_info_update.main_section.html": "Employee Information Update",
+        "hiring_request.main_section.html": "Hiring Request",
+        "late_early_out.main_section.html": "Late in - Early out",
+        "outside_work.main_section.html": "Outside Work",
+        "purchase_request.main_section.html": "Purchase Request",
+        "resignation.main_section.html": "Resignation Request",
+        "special_bonus.main_section.html": "Special Bonus",
+        "system_request.main_section.html": "System Request",
     }
 
     def test_header_right_slot_on_all_pilots_once(self):
