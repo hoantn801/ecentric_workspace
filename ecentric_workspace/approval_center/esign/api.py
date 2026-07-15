@@ -327,6 +327,27 @@ def placement_editor_config(payment_request_name):
 
 
 @frappe.whitelist()
+def document_setup_state(payment_request_name):
+    """Phase A1 read model for the future 'Tài liệu & ký số' UI. Permission-safe; ZERO writes /
+    side effects; no SCTS call."""
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.approval_center.esign import document_setup as ds
+    return ds.get_document_setup_state("EC Payment Request", payment_request_name)
+
+
+@frappe.whitelist(methods=["POST"])
+def set_document_requires_signature(payment_request_name, document_ref, requires_signature,
+                                    confirm=0):
+    """Phase A1 governed classification write (requester-scoped; package-Draft-only; idempotent;
+    no provider/DSR/SCTS/approval side effects). requires_signature canonical; supporting mirror
+    written server-side."""
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.approval_center.esign import document_setup as ds
+    return ds.set_document_requires_signature("EC Payment Request", payment_request_name,
+                                              document_ref, requires_signature, confirm=confirm)
+
+
+@frappe.whitelist()
 def signer_plan(payment_request_name):
     """Read-only signer plan for the Payment Request signing UI (Phase B1). Permission-safe
     (business view permission required); no writes / side effects; no SCTS call."""
