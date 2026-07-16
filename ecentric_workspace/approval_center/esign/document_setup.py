@@ -172,6 +172,37 @@ def _assert_can_classify(bd, bn):
         frappe.throw(_("Chỉ người đề nghị mới được phân loại tài liệu."), frappe.PermissionError)
 
 
+def _setup_editable(bd, bn):
+    """SINGLE governed predicate: may document setup (classification + placement) be MUTATED?
+    Editable ONLY during the pre-submit document-setup stage - the business request has NOT been
+    sent for approval yet (no EC Approval Request). After 'Gửi yêu cầu' the request enters the
+    approval lifecycle -> setup is IMMUTABLE (view-only). Belt-and-suspenders: an ambiguous or
+    immutable/frozen signing package also closes the window. Authoritative BUSINESS lifecycle
+    state, NOT Frappe docstatus (EC Payment Request is not submittable). Returns (bool, reason)."""
+    if perms.business_approval_request(bd, bn):
+        return False, "already_submitted"
+    cur_name, cur_status, is_draft, needs_review = _current_package(bd, bn)
+    if needs_review:
+        return False, "needs_review"
+    if cur_name and not is_draft:
+        return False, "package_locked"
+    return True, None
+
+
+def _assert_setup_editable(bd, bn):
+    """Shared gate for ANY document-setup mutation (classification + placement): requester-only
+    AND pre-submit editable stage. Raises otherwise. One rule for every write path."""
+    _assert_can_classify(bd, bn)                                  # requester-only (raises)
+    ok, reason = _setup_editable(bd, bn)
+    if not ok:
+        msg = {"already_submitted": _("Yêu cầu đã được gửi - không thể thay đổi thiết lập tài liệu/chữ ký."),
+               "needs_review": _("Cấu hình ký đang mơ hồ - cần rà soát."),
+               "package_locked": _("Gói ký đã được chốt - không thể thay đổi.")}.get(
+                   reason, _("Không thể chỉnh sửa thiết lập tài liệu."))
+        frappe.throw(msg, frappe.ValidationError)
+    return reason
+
+
 # --------------------------------------------------------------------------- #
 # READ MODEL  (zero writes / zero side effects)
 # --------------------------------------------------------------------------- #
@@ -182,7 +213,7 @@ def get_document_setup_state(business_doctype, business_name):
     # Draft is materialized on the first write) OR an editable Draft exists. An immutable/frozen
     # package (Locked/Active/Provider*/Completed) closes the window; ambiguity needs review.
     # This is stage-based, NOT business docstatus (EC Payment Request is not submittable).
-    editable = (cur_status in (None, "Draft")) and not needs_review
+    editable, editable_reason = _setup_editable(business_doctype, business_name)
     can_classify = editable and (frappe.session.user == _requester_of(business_doctype,
                                                                       business_name))
     plan = sp.resolve_signer_plan(business_doctype, business_name)
@@ -239,7 +270,7 @@ def get_document_setup_state(business_doctype, business_name):
 
     return {
         "business_doctype": business_doctype, "business_name": business_name,
-        "editable": editable, "can_classify": can_classify, "needs_review": needs_review,
+        "editable": editable, "can_classify": can_classify, "setup_editable_reason": editable_reason, "needs_review": needs_review,
         "current_package_status": cur_status,
         "signer_plan": {"resolved": plan.get("resolved"),
                         "slot_key_version": plan.get("slot_key_version"),
@@ -279,6 +310,9 @@ def set_document_requires_signature(business_doctype, business_name, document_re
     requested = _to_bool(requires_signature)      # canonical (accepts "true"/"false"/1/0/bool)
     confirm = _to_bool(confirm)
     _assert_can_classify(business_doctype, business_name)
+    _ok_edit, _edit_reason = _setup_editable(business_doctype, business_name)
+    if not _ok_edit:
+        return {"ok": False, "reason": _edit_reason}      # sent/locked/needs_review -> immutable
 
     # 1) resolve document_ref back to a CURRENT attachment of THIS record (revalidated)
     f = frappe.db.get_value("File", document_ref,

@@ -21,14 +21,14 @@ function mkEl(id){ const e={id,_html:"",textContent:"",_attrs:{},style:{display:
   Object.defineProperty(e,"onclick",{get(){return this._oc;},set(f){this._oc=f;}});
   return e; }
 function qsa(sel){ const attr=sel.replace(/[\[\].]/g,"");
-  const html=(els["ecdRows"]?els["ecdRows"]._html:"")+"||"+(els["ecdSignerCards"]?els["ecdSignerCards"]._html:"");
+  const html=(attr==="data-setup")?(els["ecdRows"]?els["ecdRows"]._html:""):(els["ecdSignerCards"]?els["ecdSignerCards"]._html:"");
   const key=attr+"|"+html; if(_cache[key])return _cache[key];
   const re=new RegExp(attr+'="([^"]*)"',"g");const out=[];let m;
   while((m=re.exec(html))){const fe=mkEl("_"+attr+out.length);fe._attrs[attr]=m[1];out.push(fe);} _cache[key]=out; return out; }
 
 ["ec-docsign","ecdCount","ecdSummary","ecdBanner","ecdRows","ecdUpload","ecdUploadBtn","ecdUploadHint",
  "ecdDrawerOv","ecdDrawerName","ecdDrawerSummary","ecdDrawerClose","ecdViewer","ecdViewerMsg","ecdStage",
- "ecdCanvas","ecdLayer","ecdSignerCards","ecdProg","ecdSaveState","ecdDrawerFoot","ec-approver-wrap","payr-body"]
+ "ecdCanvas","ecdLayer","ecdSignerCards","ecdProg","ecdSaveState","ecdDrawerFoot","ecdRoBanner","ecdDrawerErr","ec-approver-wrap","payr-body"]
  .forEach(id=>els[id]=mkEl(id));
 
 const STATE={editable:true,can_classify:true,needs_review:false,current_package_status:null,
@@ -66,9 +66,13 @@ sb.__import=(u)=>Promise.resolve({GlobalWorkerOptions:{},getDocument:()=>({promi
 const SRC2 = SRC.replace(/import\(/g,"__import(");   // route dynamic import to the stub
 vm.createContext(sb); sb.window=sb; sb.frappe=frappe;
 
+function selectSlot(key){ const b=els["ec-docsign"].querySelectorAll("[data-add]").find(c=>c.getAttribute("data-add")===key);
+  if(b&&b.onclick) b.onclick({stopPropagation(){}}); return b; }
+function clickLayer(x,y){ els["ecdLayer"].onclick({target:els["ecdLayer"],clientX:x,clientY:y}); }
 const tick=async()=>{for(let i=0;i<10;i++)await Promise.resolve();};
 const flush=async()=>{const t=timers.slice();timers=[];for(const f of t){f();await tick();}};
 let pass=0,fail=0; const ok=(c,m)=>{console.log((c?"  ok - ":"  FAIL - ")+m);pass+=c;fail+=!c;};
+function drawerErr_reset(){ els["ecdDrawerErr"].style.display="none"; els["ecdDrawerErr"].textContent=""; }
 
 async function main(){
   vm.runInContext(SRC2, sb); await tick();
@@ -81,11 +85,11 @@ async function main(){
   ok(els["ecdSignerCards"]._html.indexOf("Người đề nghị")>=0 && els["ecdSignerCards"]._html.indexOf("Finance")>=0,"18: signer cards from B1 required_slots");
   ok(els["ecdSignerCards"]._html.indexOf("Chưa có cấu hình chữ ký số")>=0,"missing-mapping warning shown");
   ok(els["ecdProg"].textContent==="0/2","progress starts 0/2 (required slot count, not rows)");
-  // select the requester signer card
-  const card = els["ec-docsign"].querySelectorAll("[data-slot]").find(c=>c.getAttribute("data-slot")==="requester");
-  card.onclick(); await tick();
+  // select the requester signer via the explicit "Đặt vị trí ký" button (ISSUE 3)
+  ok(els["ecdSignerCards"]._html.indexOf("data-add=")>=0,"signer card exposes explicit place-position action");
+  selectSlot("requester"); await tick();
   // click on the PDF layer to place a box
-  els["ecdLayer"].onclick({target:els["ecdLayer"],clientX:120,clientY:80}); await tick();
+  clickLayer(120,80); await tick();
   ok(timers.length>=1,"22: autosave is DEBOUNCED (timer queued, not fired on every pixel)");
   const savingSeen = (function(){ const before=els["ecdSaveState"].textContent; timers[0](); return els["ecdSaveState"].textContent; })();
   ok(savingSeen==="Đang lưu…","autosave shows 'Đang lưu…' when the debounced save fires");
@@ -99,9 +103,52 @@ async function main(){
 
   // autosave failure visibly reported
   saveOk=false;
-  card.onclick(); els["ecdLayer"].onclick({target:els["ecdLayer"],clientX:200,clientY:200}); await tick(); await flush();
+  selectSlot("requester"); clickLayer(200,200); await tick(); await flush();
   ok(els["ecdSaveState"].textContent==="Lưu lỗi — thử lại","23: autosave failure visibly reported (not silent success)");
+  ok(els["ecdDrawerErr"].style.display==="block" && els["ecdDrawerErr"].textContent.length>0,
+     "ISSUE 2: save error is shown INSIDE the drawer (not hidden behind it)");
   saveOk=true;
+
+  // ===== UAT regressions =====
+  // reset to a clean placed state (one requester box)
+  PSTATE=Object.assign({},PSTATE,{editable:true,covered_slot_count:1,
+    placements:[{name:"PL1",x:120,y:80,width:120,height:40,signer_slot_key:"requester"}]});
+  btn.onclick(); await tick();
+  const layerKidsBefore = els["ecdLayer"]._kids.length;
+  const psCallsBefore = calls.filter(c=>/placement_state$/.test(c.method)).length;
+
+  // ISSUE 3: after placing one box, placement mode exits -> a further PDF click does NOT create another
+  drawerErr_reset(); saveOk=true;
+  clickLayer(300,300); await tick();
+  const extraSaves = calls.filter(c=>/save_placement$/.test(c.method)).length;
+  clickLayer(320,320); await tick();
+  ok(calls.filter(c=>/save_placement$/.test(c.method)).length===extraSaves,
+     "ISSUE 3: extra PDF clicks after a placement do NOT create more boxes");
+  ok(els["ecdDrawerErr"].style.display==="block","ISSUE 3: accidental click prompts to pick a signer (drawer-local)");
+
+  // ISSUE 1: selecting another signer must NOT reload placement_state or reset existing boxes
+  selectSlot("level:L2:any-one"); await tick();
+  ok(calls.filter(c=>/placement_state$/.test(c.method)).length===psCallsBefore,
+     "ISSUE 1: selecting another signer does NOT reload server placement_state");
+  ok(els["ecdLayer"]._kids.length===layerKidsBefore,
+     "ISSUE 1: existing box still rendered after switching signer (not reset)");
+
+  // ISSUE 3: explicit "+ Thêm vị trí ký" re-enters placement mode for another box
+  const nSaves = calls.filter(c=>/save_placement$/.test(c.method)).length;
+  selectSlot("requester"); clickLayer(150,150); await tick(); await flush();
+  ok(calls.filter(c=>/save_placement$/.test(c.method)).length>nSaves,
+     "ISSUE 3: explicit add-position places another box for the same signer");
+
+  // ISSUE 4: read-only after submit -> banner shown, no add buttons, click cannot place
+  PSTATE=Object.assign({},PSTATE,{editable:false,setup_editable_reason:"already_submitted"});
+  btn.onclick(); await tick();
+  ok(els["ecdRoBanner"].style.display==="block","ISSUE 4: read-only banner shown when request already submitted");
+  ok(els["ecdSignerCards"]._html.indexOf("data-add=")<0,"ISSUE 4: no add-position buttons in read-only mode");
+  const roSaves = calls.filter(c=>/save_placement$/.test(c.method)).length;
+  clickLayer(100,100); await tick();
+  ok(calls.filter(c=>/save_placement$/.test(c.method)).length===roSaves,
+     "ISSUE 4: clicking the document in read-only mode does not attempt a placement");
+  PSTATE=Object.assign({},PSTATE,{editable:true});
 
   // restore: reopening renders persisted boxes from state
   PSTATE=Object.assign({},PSTATE,{covered_slot_count:1,placements:[{name:"PL1",x:50,y:60,width:120,height:40,signer_slot_key:"requester"}]});
