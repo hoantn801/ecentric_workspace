@@ -347,6 +347,15 @@ def set_document_requires_signature(payment_request_name, document_ref, requires
                                               document_ref, requires_signature, confirm=confirm)
 
 
+@frappe.whitelist(methods=["POST"])
+def set_representative_attachment(payment_request_name, file_url):
+    """Phase A2: set the backward-compatible request_attachment pointer to an uploaded File only
+    when currently empty (requester-scoped; never overwrites; no other field touched)."""
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.approval_center.esign import document_setup as ds
+    return ds.set_representative_attachment("EC Payment Request", payment_request_name, file_url)
+
+
 @frappe.whitelist()
 def signer_plan(payment_request_name):
     """Read-only signer plan for the Payment Request signing UI (Phase B1). Permission-safe

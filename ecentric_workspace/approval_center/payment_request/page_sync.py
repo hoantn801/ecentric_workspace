@@ -60,6 +60,19 @@ def _esign_requester_panel():
         return ""
 
 
+def _document_signing_section():
+    """Phase A2 unified 'Tài liệu & ký số' section. Consumes the deployed A1/B1 read endpoints;
+    replaces the requester raw signing panel + inline placement editor for the document-setup
+    stage. Returns '' if the source is missing so a sync never fails on its absence."""
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # approval_center
+    try:
+        with open(os.path.join(base, "esign", "ui", "document_signing_section.html"),
+                  encoding="utf-8") as fh:
+            return fh.read()
+    except OSError:
+        return ""
+
+
 def _html():
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     with open(os.path.join(base, "frontend", "payment_request.main_section.html"),
@@ -67,8 +80,17 @@ def _html():
         main = fh.read()
     # Whole section is rebuilt from source on every sync, so appending each panel exactly
     # once is idempotent by construction.
-    return (main + "\n" + _esign_panel() + "\n" + _esign_requester_panel()
-            + "\n" + _esign_editor_panel())
+    # Shell-v1 main is preserved verbatim. The approver signing panel is injected inside a
+    # DEFAULT-HIDDEN wrapper (ec-approver-wrap): the unified section reveals it from the
+    # server-computed A1 state (can_classify), so a requester never sees a flash of the raw
+    # SCTS block, while an actual approver still gets it. The requester raw panel + inline
+    # editor are replaced by the unified section (+ drawer shell); Phase C re-introduces a
+    # governed editor inside the drawer.
+    return (main + "\n"
+            + '<div id="ec-approver-wrap" style="display:none">\n'
+            + _esign_panel()
+            + '\n</div>\n'
+            + _document_signing_section())
 
 
 def sync(html=None):

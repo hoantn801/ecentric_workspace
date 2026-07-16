@@ -347,3 +347,27 @@ def set_document_requires_signature(business_doctype, business_name, document_re
     state = get_document_setup_state(business_doctype, business_name)
     doc = next((d for d in state["documents"] if d["document_ref"] == document_ref), None)
     return {"ok": True, "document": doc, "editable": state["editable"]}
+
+
+def set_representative_attachment(business_doctype, business_name, file_url):
+    """Backward-compatible representative pointer: set the single `request_attachment` field to
+    an uploaded File's url ONLY when it is currently empty. Native File rows remain the
+    authoritative multi-document list - this pointer only satisfies the legacy required-field
+    contract. Guarantees: requester-scoped (NO Administrator/System Manager/role/
+    ignore_permissions bypass); the File must genuinely be a current attachment of THIS record;
+    never overwrites a non-empty pointer; touches NO other field (atomic single-field write, no
+    full save / no recompute of unrelated fields); idempotent."""
+    _assert_can_classify(business_doctype, business_name)      # requester-only, no bypass
+    if not file_url:
+        return {"ok": False, "reason": "no_file_url"}
+    if not frappe.db.has_column(business_doctype, "request_attachment"):
+        return {"ok": False, "reason": "no_pointer_field"}
+    if not frappe.db.exists("File", {"file_url": file_url,
+                                     "attached_to_doctype": business_doctype,
+                                     "attached_to_name": business_name}):
+        return {"ok": False, "reason": "not_attached"}         # not a current attachment of this doc
+    current = frappe.db.get_value(business_doctype, business_name, "request_attachment")
+    if current:
+        return {"ok": True, "changed": False, "request_attachment": current}   # preserve existing
+    frappe.db.set_value(business_doctype, business_name, "request_attachment", file_url)
+    return {"ok": True, "changed": True, "request_attachment": file_url}
