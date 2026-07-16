@@ -1,0 +1,846 @@
+
+<script id="ec-csrf-fetch-patch">
+(function(){
+  if (window.ecFetchPatched) return;
+  window.ecFetchPatched = true;
+  var origFetch = window.fetch;
+  function getCsrf() {
+    return (window.frappe && window.frappe.csrf_token) ||
+           (window.CTX && window.CTX.csrfToken) ||
+           window.csrf_token ||
+           (document.cookie.match(/csrf_token=([^;]+)/) || [])[1] ||
+           'token';
+  }
+  window.fetch = function(url, opts) {
+    opts = opts || {};
+    var u = (typeof url === 'string') ? url : (url && url.url) || '';
+    var method = (opts.method || 'GET').toUpperCase();
+    var isApi = u.indexOf('/api/method/') >= 0 || u.indexOf('/api/resource/') >= 0;
+    if (isApi && method !== 'GET' && method !== 'HEAD') {
+      opts.headers = opts.headers || {};
+      if (opts.headers.set && typeof opts.headers.set === 'function') {
+        if (!opts.headers.get('X-Frappe-CSRF-Token')) {
+          opts.headers.set('X-Frappe-CSRF-Token', getCsrf());
+        }
+      } else {
+        var hasToken = false;
+        for (var k in opts.headers) {
+          if (k.toLowerCase() === 'x-frappe-csrf-token') { hasToken = true; break; }
+        }
+        if (!hasToken) {
+          opts.headers['X-Frappe-CSRF-Token'] = getCsrf();
+        }
+      }
+      if (opts.credentials === undefined) opts.credentials = 'include';
+    }
+    return origFetch.call(window, url, opts);
+  };
+  console.log('[ec-csrf] fetch wrapper installed');
+})();
+</script>
+
+<!-- ACTIVE-MENU-JS -->
+<script>
+(function() {
+  function setActive() {
+    var path = window.location.pathname.replace(/\/+$/, '') || '/';
+    var links = document.querySelectorAll('.ec-sb-link');
+    links.forEach(function(a) {
+      var href = (a.getAttribute('href') || '').replace(/\/+$/, '') || '/';
+      a.classList.remove('active');
+      // Strict exact match
+      if (href === path) {
+        a.classList.add('active');
+      }
+      // Special case: '/home' page should also activate links with href='/'
+      else if ((path === '/home' || path === '/') && (href === '/' || href === '/home')) {
+        a.classList.add('active');
+      }
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setActive);
+  } else {
+    setActive();
+  }
+})();
+</script>
+
+<!-- HIDE-NAVBAR-V1 -->
+<style>
+  /* Hide Frappe default navbar + footer to give full-screen workspace */
+  body > header,
+  body > footer,
+  body > nav.navbar,
+  header.navbar,
+  .navbar.navbar-light,
+  .web-page-header,
+  #navbarSupportedContent,
+  .navbar-collapse {
+    display: none !important;
+  }
+  body { padding: 0 !important; margin: 0 !important; }
+  body main { padding-top: 0 !important; }
+  body .main-section, body main.container, body main.fluid {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  /* If Frappe wraps page content in a container, expand it */
+  body .page_content { padding: 0 !important; }
+</style>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+body { margin: 0 !important; padding: 0 !important; background: #f7f8fb !important; font-family: 'Inter', system-ui, sans-serif !important; }
+body header.navbar, footer.web-footer, .web-footer { display: none !important; }
+.page-content, .common-page-style, .container, main.col, .web-page-content, .page_content, .for-web-view { padding: 0 !important; margin: 0 !important; max-width: none !important; width: 100% !important; }
+
+#ec-shell { display: grid; grid-template-columns: 264px 1fr; min-height: 100vh; font-family: 'Inter', system-ui, sans-serif; color: #1f2937; font-size: 14px; line-height: 1.5; }
+#ec-shell .ec-sb { background: white; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; box-sizing: border-box; }
+#ec-shell .ec-sb-header { padding: 18px 18px 10px; }
+#ec-shell .ec-sb-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+#ec-shell .ec-sb-brand:hover { text-decoration: none; }
+#ec-shell .ec-sb-logo { width: 40px; height: 40px; flex-shrink: 0; display: block; object-fit: contain; }
+#ec-shell .ec-sb-name { font-size: 15px; font-weight: 700; color: #111827; line-height: 1.2; letter-spacing: -0.3px; }
+#ec-shell .ec-sb-search { margin: 4px 16px 10px; position: relative; }
+#ec-shell .ec-sb-search input { width: 100%; padding: 8px 12px 8px 34px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; background: #fafbfc; font-family: inherit; outline: none; transition: border-color .15s, background .15s; }
+#ec-shell .ec-sb-search input:focus { border-color: #2C3DA6; background: white; }
+#ec-shell .ec-sb-search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #9ca3af; stroke: currentColor; fill: none; stroke-width: 1.75; pointer-events: none; }
+#ec-shell .ec-sb-kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: #9ca3af; background: white; border: 1px solid #e5e7eb; padding: 1px 5px; border-radius: 4px; pointer-events: none; }
+#ec-shell .ec-sb-nav { padding: 4px 8px 8px; flex: 1; overflow-y: auto; }
+#ec-shell .ec-sb-label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.6px; padding: 12px 12px 4px; }
+#ec-shell .ec-sb-link { display: grid !important; grid-template-columns: 18px 1fr !important; column-gap: 11px !important; align-items: center !important; padding: 8px 12px; border-radius: 6px; color: #4b5563; text-decoration: none; font-size: 13.5px; font-weight: 500; margin-bottom: 1px; transition: background .15s, color .15s; }
+#ec-shell .ec-sb-link:hover { background: #f3f4f6; color: #111827; text-decoration: none; }
+#ec-shell .ec-sb-link.active { background: #eef0fb; color: #2C3DA6; font-weight: 600; }
+#ec-shell .ec-sb-link.active svg { stroke-width: 2; }
+#ec-shell .ec-sb-link svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; grid-column: 1; }
+#ec-shell .ec-sb-link span { grid-column: 2; text-align: left; }
+#ec-shell .ec-sb-footer { padding: 12px; border-top: 1px solid #f3f4f6; display: flex; align-items: center; gap: 8px; }
+#ec-shell .ec-sb-user-card { flex: 1; display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; min-width: 0; }
+#ec-shell .ec-sb-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #2C3DA6, #EF7CAF); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+#ec-shell .ec-sb-user-info { flex: 1; min-width: 0; }
+#ec-shell .ec-sb-user-name { font-size: 13px; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ec-shell .ec-sb-user-role { font-size: 11px; color: #6b7280; }
+#ec-shell .ec-sb-logout { width: 36px; height: 36px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: transparent; border: none; color: #6b7280; cursor: pointer; transition: background .15s, color .15s; }
+#ec-shell .ec-sb-logout:hover { background: #fee2e2; color: #dc2626; }
+#ec-shell .ec-sb-logout svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+#ec-shell .ec-main { min-width: 0; display: flex; flex-direction: column; }
+#ec-shell .ec-tb { background: white; border-bottom: 1px solid #e5e7eb; padding: 10px 28px; display: flex; align-items: center; justify-content: space-between; gap: 16px; position: sticky; top: 0; z-index: 9; }
+#ec-shell .ec-bc { font-size: 13px; color: #6b7280; display: flex; align-items: center; gap: 6px; }
+#ec-shell .ec-bc a { color: #6b7280; text-decoration: none; }
+#ec-shell .ec-bc a:hover { color: #2C3DA6; }
+#ec-shell .ec-bc .sep { color: #d1d5db; }
+#ec-shell .ec-bc strong { color: #111827; font-weight: 600; }
+#ec-shell .ec-tb-actions { display: flex; gap: 4px; }
+#ec-shell .ec-ib { width: 36px; height: 36px; border-radius: 8px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #6b7280; position: relative; transition: all .15s; text-decoration: none; }
+#ec-shell .ec-ib:hover { background: #f3f4f6; color: #111827; }
+#ec-shell .ec-ib .dot { position: absolute; top: 8px; right: 9px; width: 6px; height: 6px; background: #EF7CAF; border-radius: 50%; border: 2px solid white; }
+#ec-shell .ec-content { padding: 0; }
+#ec-shell .ec-content > * { max-width: 100%; }
+
+@media (max-width: 1100px) {
+  #ec-shell { grid-template-columns: 64px 1fr; }
+  #ec-shell .ec-sb-name, #ec-shell .ec-sb-label, #ec-shell .ec-sb-link span, #ec-shell .ec-sb-search, #ec-shell .ec-sb-user-info { display: none; }
+  #ec-shell .ec-sb-link { grid-template-columns: 1fr !important; justify-items: center !important; }
+  #ec-shell .ec-sb-brand { justify-content: center; }
+  #ec-shell .ec-sb-footer { justify-content: center; }
+}
+</style>
+
+<!-- ec-polish-script intentionally removed — debounce handled by form code itself -->
+<style id="ec-polish-overrides">
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+#ec-shell {
+  --navy: #2C3DA6 !important;
+  --navy2: #3d52cc !important;
+  --navy-light: rgba(44,61,166,0.08) !important;
+  --gold: #FFC000 !important;
+  --gold2: #FFD440 !important;
+  --gold-light: rgba(255,192,0,0.14) !important;
+  --gold-border: rgba(255,192,0,0.4) !important;
+  --bg: #f7f8fb !important;
+  --border: #e5e7eb !important;
+  --text: #1f2937 !important;
+  --muted: #6b7280 !important;
+  --muted2: #9ca3af !important;
+  --radius: 8px !important;
+  --radius-lg: 12px !important;
+}
+#ec-shell *, #ec-shell *::before, #ec-shell *::after { font-family: 'Inter', system-ui, sans-serif !important; }
+#ec-shell .form-card { box-shadow: 0 1px 3px rgba(15,23,42,0.06); border-color: var(--border); }
+#ec-shell .form-header { background: linear-gradient(135deg, #2C3DA6 0%, #3d52cc 100%) !important; padding: 28px 36px 24px !important; }
+#ec-shell .form-header::after { background: rgba(255,192,0,0.18) !important; }
+#ec-shell .form-header h1 { letter-spacing: -0.5px; font-weight: 700 !important; font-size: 22px !important; }
+#ec-shell .form-header p { color: rgba(255,255,255,0.85) !important; font-size: 13px; }
+#ec-shell .header-badge { background: rgba(255,192,0,0.22) !important; border: 1px solid rgba(255,192,0,0.5) !important; color: #FFD440 !important; font-feature-settings: 'tnum'; font-variant-numeric: tabular-nums; letter-spacing: 0.3px; padding: 4px 11px !important; }
+#ec-shell .id-display { background: rgba(255,255,255,0.1) !important; border-color: rgba(255,255,255,0.2) !important; }
+#ec-shell .id-display span:last-child { color: #FFD440 !important; font-feature-settings: 'tnum'; font-variant-numeric: tabular-nums; }
+#ec-shell .section-title-text { font-weight: 700 !important; letter-spacing: 0.6px !important; color: #6b7280 !important; }
+#ec-shell .section-title-icon { background: #eef0fb !important; }
+#ec-shell .section-title-icon svg { color: #2C3DA6 !important; }
+#ec-shell .field-label { font-weight: 600 !important; font-size: 12px !important; color: #4b5563 !important; }
+#ec-shell .f-control { border-radius: 8px !important; padding: 10px 13px !important; font-size: 13.5px !important; background: white !important; transition: border-color .15s, box-shadow .15s; }
+#ec-shell .f-control:hover { border-color: #d1d5db !important; }
+#ec-shell .f-control:focus { border-color: #2C3DA6 !important; box-shadow: 0 0 0 3px rgba(44,61,166,0.12) !important; }
+#ec-shell .num-wrap .f-control, #ec-shell .currency-prefix { font-family: 'Inter', system-ui, sans-serif !important; font-feature-settings: 'tnum' !important; font-variant-numeric: tabular-nums !important; }
+#ec-shell .upload-zone { border-radius: 12px !important; }
+#ec-shell .upload-zone:hover, #ec-shell .upload-zone.drag-over { background: rgba(44,61,166,0.05) !important; border-color: #2C3DA6 !important; }
+#ec-shell .form-footer { background: #fafbfc !important; padding: 18px 36px !important; }
+#ec-shell .btn { padding: 10px 20px !important; border-radius: 8px !important; font-weight: 600 !important; font-size: 13.5px !important; }
+#ec-shell .btn-submit { background: #2C3DA6 !important; color: white !important; }
+#ec-shell .btn-submit:hover { background: #1f2d80 !important; box-shadow: 0 4px 12px rgba(44,61,166,0.25) !important; transform: translateY(-1px); }
+#ec-shell .btn-draft { background: rgba(255,192,0,0.15) !important; color: #b88600 !important; border-color: rgba(255,192,0,0.45) !important; }
+#ec-shell .btn-draft:hover { background: rgba(255,192,0,0.25) !important; }
+#ec-shell .btn-cancel:hover { background: #f3f4f6 !important; color: #1f2937 !important; }
+#ec-shell .expense-total { background: linear-gradient(135deg, #2C3DA6 0%, #3d52cc 100%) !important; border-radius: 12px !important; padding: 16px 20px !important; }
+#ec-shell .expense-total-value { font-feature-settings: 'tnum' !important; font-variant-numeric: tabular-nums !important; letter-spacing: -0.3px; }
+#ec-shell .back-link { background: white !important; border-color: var(--border) !important; border-radius: 8px !important; padding: 6px 12px 6px 8px !important; }
+#ec-shell .back-link:hover { color: #2C3DA6 !important; border-color: #2C3DA6 !important; background: #eef0fb !important; }
+#ec-shell #chainPreview { border-radius: 12px !important; box-shadow: 0 1px 3px rgba(15,23,42,0.06) !important; padding: 18px !important; }
+#ec-shell #chainPreview .cp-num { background: #2C3DA6 !important; }
+#ec-shell #chainPreview .cp-step-final .cp-num { background: #10b981 !important; }
+#ec-shell #chainPreview .cp-step { background: #fafbfc !important; border-color: var(--border) !important; }
+#ec-shell #chainPreview .cp-step-email { font-family: 'Inter', sans-serif !important; font-feature-settings: 'tnum' !important; opacity: 0.7; }
+#ec-shell .toast { border-radius: 10px !important; box-shadow: 0 8px 24px rgba(15,23,42,0.12) !important; }
+#ec-shell .form-section { padding: 26px 36px !important; }
+#ec-shell .line-item, #ec-shell .so-line, #ec-shell .item-card { border-radius: 12px !important; }
+#ec-shell table { border-radius: 8px; overflow: hidden; }
+
+/* Phase 8.14 — Form polish fixes */
+/* Fix 1: Auto-generated/readonly fields visual */
+#ec-shell .f-control[readonly], #ec-shell .f-control:disabled, #ec-shell input[placeholder*="Tự sinh"], #ec-shell input[placeholder*="Auto"], #ec-shell input[placeholder*="Sẽ fill"] {
+  background: #f3f4f6 !important;
+  color: #9ca3af !important;
+  cursor: not-allowed !important;
+  border-style: dashed !important;
+  border-color: #d1d5db !important;
+}
+#ec-shell .f-control[readonly]:focus, #ec-shell .f-control:disabled:focus { box-shadow: none !important; border-color: #d1d5db !important; }
+/* Status pending field readonly — match the pattern */
+#ec-shell input[value="Pending"][readonly], #ec-shell input[id*="status"][readonly] {
+  background: #fffbeb !important;
+  color: #b88600 !important;
+  border-color: #fde68a !important;
+  font-weight: 500;
+}
+
+/* Fix 3: Chain Preview sticky fix — no clip */
+#ec-shell #chainPreview {
+  position: sticky !important;
+  top: 70px !important;
+  max-height: calc(100vh - 100px) !important;
+  overflow-y: auto !important;
+  margin-bottom: 20px;
+}
+
+/* Fix 4: Currency prefix no overlap */
+#ec-shell .num-wrap .f-control { padding-left: 36px !important; }
+#ec-shell .currency-prefix { left: 14px !important; font-size: 13px !important; color: #9ca3af !important; font-weight: 600 !important; }
+/* Pending dot — no overlap text */
+#ec-shell input[value="Pending"][readonly], #ec-shell .pending-field { padding-left: 28px !important; background-image: url("data:image/svg+xml,%3Csvg width='8' height='8' viewBox='0 0 8 8' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='4' cy='4' r='4' fill='%23FFC000'/%3E%3C/svg%3E") !important; background-repeat: no-repeat !important; background-position: 12px center !important; }
+
+/* Fix 5: Alert / Notice — flex align */
+#ec-shell .alert, #ec-shell .form-notice, #ec-shell .notice, #ec-shell .alert-warning, #ec-shell .alert-info, #ec-shell .form-warning {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+  padding: 14px 18px !important;
+  border-radius: 10px !important;
+  line-height: 1.5;
+}
+#ec-shell .alert > svg, #ec-shell .alert > .icon, #ec-shell .form-notice > svg, #ec-shell .notice > svg { flex-shrink: 0 !important; margin-top: 2px !important; }
+/* Yellow-bordered warning specifically */
+#ec-shell [style*="border-color: rgb(252, 211, 77)"], #ec-shell [class*="warning"], #ec-shell [class*="warn"] { display: flex !important; align-items: flex-start !important; gap: 12px !important; }
+/* Link-banner specifically (PO/SO/REC alerts) */
+#ec-shell .link-banner { display: flex !important; align-items: flex-start !important; gap: 12px !important; padding: 14px 18px !important; }
+#ec-shell .link-banner > svg, #ec-shell .link-banner > .icon { flex-shrink: 0 !important; margin-top: 2px !important; width: 18px !important; height: 18px !important; }
+#ec-shell .link-banner p { margin: 0 !important; padding: 0 !important; line-height: 1.5 !important; }
+
+/* Phase 8.15 — Animate submit icon during loading
+   PO/REC forms set btn.style.opacity='.7' + pointer-events='none' when fetching.
+   Match that inline style and spin any SVG inside. */
+@keyframes ec-btn-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+#ec-shell .btn-submit[style*="opacity"] svg,
+#ec-shell .btn-submit[style*="pointer-events"] svg,
+#ec-shell .btn-submit.loading svg,
+#ec-shell button[type="submit"][style*="opacity"] svg {
+  animation: ec-btn-spin 0.9s linear infinite !important;
+  transform-origin: center !important;
+}
+</style>
+<!-- ec-polish-script intentionally removed — debounce handled by form code itself -->
+<script id="ec-attachment-fix">
+(function(){
+  // ---- Storage: window._ecAttachments = [{name, mime, size, content_base64}, ...]
+  if (!window._ecAttachments) window._ecAttachments = [];
+
+  function readAsBase64(file) {
+    return new Promise(function(resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function() {
+        // reader.result is data URL "data:mime/type;base64,XXXXX"
+        var dataUrl = reader.result || '';
+        var idx = dataUrl.indexOf(',');
+        var b64 = idx >= 0 ? dataUrl.substring(idx + 1) : '';
+        resolve(b64);
+      };
+      reader.onerror = function() { reject(reader.error || new Error('FileReader failed')); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function dedupKey(f) { return (f.name || '') + '|' + (f.size || 0); }
+
+  async function ingestFiles(fileList) {
+    if (!fileList || !fileList.length) return;
+    // ec-attach-ingest-fix-v2: snapshot FileList to Array immediately to avoid
+    // invalidation when form clears input.value='' in bubble phase.
+    var files = Array.from(fileList);
+    try { console.log('[ec-attach] ingest start, count=', files.length, 'names=', files.map(function(f){return f.name;})); } catch(_) {}
+
+    var seen = {};
+    window._ecAttachments.forEach(function(a) { seen[a.name + '|' + a.size] = true; });
+
+    // Filter dup + size limit
+    var toRead = files.filter(function(f) {
+      if (!f) return false;
+      if (seen[dedupKey(f)]) { try { console.log('[ec-attach] skip dup', f.name); } catch(_) {} return false; }
+      if (f.size > 20 * 1024 * 1024) { try { console.warn('[ec-attach] skip too big', f.name, f.size); } catch(_) {} return false; }
+      seen[dedupKey(f)] = true;
+      return true;
+    });
+
+    // Read all files in parallel
+    var reads = toRead.map(function(f) {
+      return readAsBase64(f).then(function(b64) {
+        return {
+          name: f.name,
+          mime: f.type || 'application/octet-stream',
+          size: f.size,
+          content_base64: b64
+        };
+      }).catch(function(e) {
+        try { console.warn('[ec-attach] read failed', f.name, e); } catch(_) {}
+        return null;
+      });
+    });
+
+    var results = await Promise.all(reads);
+    results.forEach(function(r) {
+      if (r) window._ecAttachments.push(r);
+    });
+    try { console.log('[ec-attach] tracked', window._ecAttachments.length, 'files (added', results.filter(function(r){return r;}).length, 'this batch)'); } catch(_) {}
+  }
+
+  function syncFromFileInput() {
+    var input = document.getElementById('fileInput');
+    if (!input) return;
+    if (input.dataset.ecAttachHooked === '1') return;
+    input.dataset.ecAttachHooked = '1';
+    input.addEventListener('change', function(e) {
+      ingestFiles(e.target.files);
+    }, true);  // capture phase: runs BEFORE form's own listener that clears input.value
+  }
+
+  function syncFromUploadZone() {
+    var zone = document.getElementById('uploadZone');
+    if (!zone) return;
+    if (zone.dataset.ecAttachHooked === '1') return;
+    zone.dataset.ecAttachHooked = '1';
+    zone.addEventListener('drop', function(e) {
+      // Don't preventDefault here — let form's own drop handler do its thing
+      var dt = e.dataTransfer;
+      if (dt && dt.files) ingestFiles(dt.files);
+    }, true);
+  }
+
+  // ---- Sync removed-files: when user clicks .file-remove, drop matching attachment.
+  // Form re-renders the file list; we observe DOM to detect removals.
+  function syncRemovals() {
+    // ec-attach-multifile-fix-v2: hook remove clicks instead of MutationObserver
+    // (Observer was firing when form re-rendered fileList, prematurely pruning _ecAttachments)
+    var list = document.getElementById('fileList');
+    if (!list) return;
+    if (list.dataset.ecAttachClickHooked === '1') return;
+    list.dataset.ecAttachClickHooked = '1';
+    list.addEventListener('click', function(e) {
+      var btn = e.target.closest('.file-remove');
+      if (!btn) return;
+      // Form's own handler reads data-idx and splices _files array, then renderFileList re-renders.
+      // We sync _ecAttachments by name BEFORE form acts (event happens in capture phase via this listener at root list).
+      var item = btn.closest('.file-item');
+      if (!item) return;
+      var nameEl = item.querySelector('.file-name');
+      if (!nameEl) return;
+      var name = nameEl.textContent.trim();
+      var before = window._ecAttachments.length;
+      window._ecAttachments = window._ecAttachments.filter(function(a) { return a.name !== name; });
+      try { console.log('[ec-attach] removed', name, '->', window._ecAttachments.length, '/', before); } catch(_) {}
+    }, true);
+  }
+
+  function hookAll() {
+    syncFromFileInput();
+    syncFromUploadZone();
+    syncRemovals();
+  }
+
+  // ---- Patch fetch to inject attachments into PA submission ----
+  if (!window._ecFetchPatched) {
+    window._ecFetchPatched = true;
+    var origFetch = window.fetch.bind(window);
+    window.fetch = function(input, init) {
+      try {
+        var url = typeof input === 'string' ? input : (input && input.url) || '';
+        // Match PA Power Automate endpoints
+        var isPA = /powerautomate\.com|powerplatform\.com|\/api\/method\/(submit_(mso|so|po|rec|vendor_request)(_v2)?|ecentric_workspace\.api\.submit_)/i.test(url);
+        var method = (init && init.method) || (typeof input === 'object' && input.method) || 'GET';
+        if (isPA && /post/i.test(method) && init && init.body && typeof init.body === 'string') {
+          var body = null;
+          try { body = JSON.parse(init.body); } catch(_) {}
+          if (body && typeof body === 'object' && !Array.isArray(body)) {
+            // Skip preview / lookup calls — only append on submission flows.
+            // Heuristic: skip if body has known lookup-only fields and no submitter context.
+            var isLookup = (body.type === 'globals' || body.type === 'brand' || body.type === 'client' ||
+                            body.type === 'mso' || body.type === 'service_type' || body.type === 'user_profile' ||
+                            body.type === 'brand_approvers' || body.ticket_id === 'PREVIEW');
+            if (!isLookup && window._ecAttachments && window._ecAttachments.length) {
+              body.attachments = window._ecAttachments.map(function(a) {
+                return { name: a.name, mime: a.mime, size: a.size, content_base64: a.content_base64 };
+              });
+              init.body = JSON.stringify(body);
+              try { console.log('[ec-attach] appended', body.attachments.length, 'attachments to PA POST'); } catch(_) {}
+            }
+          }
+        }
+      } catch(e) { try { console.warn('[ec-attach] fetch patch error', e); } catch(_) {} }
+      return origFetch(input, init);
+    };
+  }
+
+  // Hook on DOM ready + retry (form may render later)
+  function init() {
+    hookAll();
+    // Retry every 500ms for first 5s in case form renders late
+    var tries = 0;
+    var iv = setInterval(function() {
+      hookAll();
+      if (++tries > 10) clearInterval(iv);
+    }, 500);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+<div id="ec-shell">
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric">
+    <!-- ERP Shell v1 opt-in (document-page rollout). Legacy page: shell renders the
+         shared sidebar; form/submit/chain logic below is byte-preserved. -->
+    <nav class="ec-shell-fallback" aria-label="Điều hướng">
+      <a href="/home">Trang chủ</a>
+      <a href="/approvals">Approval Center</a>
+      <a href="/all-ticket">Dashboard</a>
+    </nav>
+  </aside>
+  <main class="ec-main">
+    <div class="ec-tb">
+      <div class="ec-bc"><a href="/">Workspace</a><span class="sep">/</span><a href="/approval">All Tickets</a><span class="sep">/</span><strong>Contract Request</strong></div>
+      <div class="ec-tb-actions">
+        <a class="ec-ib" href="/" title="Trang ch&#7911;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></a>
+        <button class="ec-ib" title="Tr&#7907; gi&#250;p" onclick="window.open('https://docs.ecentric.vn','_blank')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
+        <div class="ec-shell-tbright" data-ec-shell-header-right="1"></div>
+        <button class="ec-ib" title="C&#224;i &#273;&#7863;t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+      </div>
+    </div>
+    <div class="ec-content">
+
+<div class="contract-page-wrapper" style="display:flex;gap:24px;max-width:1400px;margin:24px auto;padding:0 24px;align-items:flex-start;">
+
+<form id="contractForm" novalidate style="flex:1;min-width:0;">
+<div class="form-card" style="background:white;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,0.06);">
+  <div style="background:linear-gradient(135deg,#2C3DA6 0%,#3d52cc 100%);color:white;padding:28px 36px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#fff;">Contract Request</h1>
+        <p style="margin:0;color:rgba(255,255,255,0.85);font-size:13px;">T&#7841;o h&#7907;p &#273;&#7891;ng m&#7899;i v&#7899;i vendor &mdash; HOF duy&#7879;t</p>
+      </div>
+      <span style="background:rgba(255,192,0,0.22);color:#FFD440;font-weight:600;font-size:11px;padding:6px 12px;border-radius:8px;">CONTRACT</span>
+    </div>
+    <div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:8px 12px;margin-top:14px;display:inline-block;font-family:monospace;font-size:12px;">
+      <span style="color:rgba(255,255,255,0.7);">Contract ID</span>
+      <span style="color:#FFD440;font-weight:700;margin-left:8px;">CTR-{YYYY}{MM}{DD}-####</span>
+    </div>
+  </div>
+
+  <div style="padding:26px 36px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+      <div style="width:28px;height:28px;background:#eef0fb;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2C3DA6" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+      <span style="font-weight:700;font-size:12px;color:#6b7280;letter-spacing:0.6px;">TH&#212;NG TIN CHUNG</span>
+    </div>
+    <div style="margin-bottom:18px;">
+      <label style="display:block;font-weight:600;font-size:12px;color:#4b5563;margin-bottom:6px;">Title <span style="color:#dc2626;">*</span></label>
+      <input class="f-control" id="title" placeholder="VD: KOL booking Q4 2026 - Vitadairy" style="width:100%;padding:10px 13px;border:1px solid #e5e7eb;border-radius:8px;font-size:13.5px;">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;">
+      <div>
+        <label style="display:block;font-weight:600;font-size:12px;color:#4b5563;margin-bottom:6px;">Vendor (Supplier) <span style="color:#dc2626;">*</span></label>
+        <select class="f-control" id="vendor" style="width:100%;padding:10px 13px;border:1px solid #e5e7eb;border-radius:8px;font-size:13.5px;background:white;"><option value="">-- &#272;ang t&#7843;i --</option></select>
+        <div style="margin-top:6px;font-size:11.5px;color:#6b7280;">Ch&#432;a c&#243; vendor? <a href="/vendor-request" target="_blank" style="color:#2C3DA6;">T&#7841;o Vendor Request</a></div>
+      </div>
+      <div>
+        <label style="display:block;font-weight:600;font-size:12px;color:#4b5563;margin-bottom:6px;">Procurement Type <span style="color:#dc2626;">*</span></label>
+        <select class="f-control" id="procurement_type" style="width:100%;padding:10px 13px;border:1px solid #e5e7eb;border-radius:8px;font-size:13.5px;background:white;"><option value="">-- &#272;ang t&#7843;i --</option></select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+      <div>
+        <label style="display:block;font-weight:600;font-size:12px;color:#4b5563;margin-bottom:6px;">Department</label>
+        <input class="f-control" id="department" placeholder="VD: Marketing" style="width:100%;padding:10px 13px;border:1px solid #e5e7eb;border-radius:8px;font-size:13.5px;">
+      </div>
+      <div>
+        <label style="display:block;font-weight:600;font-size:12px;color:#4b5563;margin-bottom:6px;">Submitted by</label>
+        <input class="f-control" id="submitted_by" readonly style="width:100%;padding:10px 13px;border:1px solid #e5e7eb;border-radius:8px;font-size:13.5px;background:#f9fafb;color:#6b7280;">
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:26px 36px;border-top:1px solid #f3f4f6;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+      <div style="width:28px;height:28px;background:#eef0fb;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2C3DA6" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+      <span style="font-weight:700;font-size:12px;color:#6b7280;letter-spacing:0.6px;">BUSINESS TERMS</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:18px;">
+      <div>
+        <label style="display:block;font-weight:600;font-size:12px;color:#4b5563;margin-bottom:6px;">Total Value (VND) <span style="color:#dc2626;">*</span></label>
+        <input class="f-control" id="total_value" type="number" min="0" step="1000" placeholder="50.000.000" style="width:100%;padding:10px 13px;border:1px solid #e5e7eb;border-radius:8px;font-size:13.5px;">
+      </div>
+      <div>
+        <label style="display:block;font-weight:600;font-size:12px;color:#4b5563;margin-bottom:6px;">Start Date <span style="color:#dc2626;">*</span></label>
+        <input class="f-control" id="start_date" type="date" style="width:100%;padding:10px 13px;border:1px solid #e5e7eb;border-radius:8px;font-size:13.5px;">
+      </div>
+      <div>
+        <label style="display:block;font-weight:600;font-size:12px;color:#4b5563;margin-bottom:6px;">End Date <span style="color:#dc2626;">*</span></label>
+        <input class="f-control" id="end_date" type="date" style="width:100%;padding:10px 13px;border:1px solid #e5e7eb;border-radius:8px;font-size:13.5px;">
+      </div>
+    </div>
+    <div>
+      <label style="display:block;font-weight:600;font-size:12px;color:#4b5563;margin-bottom:6px;">Payment Terms</label>
+      <input class="f-control" id="payment_terms" placeholder="VD: Monthly invoice, NET 30 days" style="width:100%;padding:10px 13px;border:1px solid #e5e7eb;border-radius:8px;font-size:13.5px;">
+    </div>
+  </div>
+
+  <div style="padding:26px 36px;border-top:1px solid #f3f4f6;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+      <div style="width:28px;height:28px;background:#eef0fb;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2C3DA6" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+      <span style="font-weight:700;font-size:12px;color:#6b7280;letter-spacing:0.6px;">SCOPE &amp; DELIVERABLES</span>
+    </div>
+    <div style="margin-bottom:18px;">
+      <label style="display:block;font-weight:600;font-size:12px;color:#4b5563;margin-bottom:6px;">Scope of Work <span style="color:#dc2626;">*</span></label>
+      <textarea class="f-control" id="scope" rows="3" placeholder="VD: Book KOL livestream 4 bu&#7893;i/th&#225;ng, brand VTD-VN" style="width:100%;padding:10px 13px;border:1px solid #e5e7eb;border-radius:8px;font-size:13.5px;resize:vertical;"></textarea>
+    </div>
+    <div>
+      <label style="display:block;font-weight:600;font-size:12px;color:#4b5563;margin-bottom:6px;">Deliverables</label>
+      <textarea class="f-control" id="deliverables" rows="3" placeholder="VD: 4 livestream/th&#225;ng min 5K viewers, content brief, KPI report" style="width:100%;padding:10px 13px;border:1px solid #e5e7eb;border-radius:8px;font-size:13.5px;resize:vertical;"></textarea>
+    </div>
+  </div>
+
+  <div style="padding:26px 36px;border-top:1px solid #f3f4f6;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+      <div style="width:28px;height:28px;background:#eef0fb;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2C3DA6" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></div>
+      <span style="font-weight:700;font-size:12px;color:#6b7280;letter-spacing:0.6px;">CH&#7912;NG T&#7914; &#272;&#205;NH K&#200;M <span style="color:#dc2626;">*</span> (INVOICE, H&#7906;P &#272;&#7890;NG &mdash; B&#7854;T BU&#7896;C)</span>
+    </div>
+    <div id="uploadZone" style="border:2px dashed #d1d5db;border-radius:12px;padding:36px 24px;text-align:center;background:#fafbfc;cursor:pointer;transition:all .15s;position:relative;">
+      <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
+      <div style="pointer-events:none;">
+        <div style="width:48px;height:48px;background:white;border:1px solid #e5e7eb;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;box-shadow:0 1px 3px rgba(15,23,42,0.06);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2C3DA6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+        <div style="font-weight:600;color:#1f2937;font-size:14px;">K&#233;o th&#7843; file v&#224;o &#273;&#226;y</div>
+        <div style="margin-top:4px;font-size:13px;color:#6b7280;">ho&#7863;c <span style="color:#2C3DA6;font-weight:600;">click &#273;&#7875; ch&#7885;n file</span></div>
+        <div style="font-size:11.5px;color:#9ca3af;margin-top:8px;">PDF, Word, Excel, h&#236;nh &#7843;nh &mdash; t&#7889;i &#273;a 20MB / file</div>
+      </div>
+    </div>
+    <div id="fileList" style="margin-top:12px;"></div>
+    <input type="hidden" id="attached_pdf" value="">
+  </div>
+
+  <div style="background:#fafbfc;padding:18px 36px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+    <div style="font-size:11.5px;color:#6b7280;"><span style="color:#dc2626;">*</span> B&#7855;t bu&#7897;c nh&#7853;p tr&#432;&#7899;c khi Submit</div>
+    <div style="display:flex;gap:10px;">
+      <button type="button" id="cancelBtn" style="padding:10px 20px;background:white;border:1px solid #e5e7eb;border-radius:8px;font-weight:600;font-size:13.5px;color:#6b7280;cursor:pointer;">H&#7911;y</button>
+      <button type="submit" id="submitBtn" style="padding:10px 20px;background:#2C3DA6;color:white;border:none;border-radius:8px;font-weight:600;font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg> Submit Contract Request</button>
+    </div>
+  </div>
+</div>
+</form>
+
+<aside id="chainPreview" style="width:320px;flex-shrink:0;position:sticky;top:24px;align-self:flex-start;background:#fafbfc;border:1px solid #e5e7eb;border-radius:12px;padding:18px;">
+  <div onclick="this.parentElement.classList.toggle('collapsed')" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;margin-bottom:12px;">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2C3DA6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    <span style="font-weight:700;font-size:14px;color:#111827;">Approval Chain</span>
+    <span style="background:#dcfce7;color:#166534;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">1 level</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto;color:#6b7280;"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+  <div style="font-size:11.5px;color:#6b7280;margin-bottom:12px;">Form: Contract Request &middot; CC: dept manager</div>
+  <div style="background:white;border:1px solid #e5e7eb;border-radius:10px;padding:14px;display:flex;gap:10px;align-items:flex-start;">
+    <div style="width:24px;height:24px;border-radius:50%;background:#10b981;color:#fff;font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-weight:600;font-size:13px;color:#1f2937;">L1 - HOF</div>
+      <div style="font-size:11.5px;color:#6b7280;margin-top:2px;">Head of Finance (final)</div>
+      <div id="contract_chain_hof" style="font-size:11px;color:#9ca3af;margin-top:4px;">Loading...</div>
+    </div>
+  </div>
+</aside>
+
+</div>
+
+<style>
+  @media (max-width:1100px) { .contract-page-wrapper { flex-direction: column !important; } #chainPreview { width: 100% !important; position: static !important; } }
+  #contractForm .f-control:focus { border-color:#2C3DA6 !important; box-shadow:0 0 0 3px rgba(44,61,166,0.12) !important; outline:none; }
+  #submitBtn:hover { background:#1f2d80 !important; box-shadow:0 4px 12px rgba(44,61,166,0.25); }
+  #uploadZone:hover, #uploadZone.drag-over { background:rgba(44,61,166,0.05) !important; border-color:#2C3DA6 !important; }
+  .field-error { border-color:#dc2626 !important; background:rgba(220,38,38,0.04) !important; box-shadow:0 0 0 3px rgba(220,38,38,0.10) !important; }
+  .field-error-msg { color:#dc2626; font-size:11.5px; margin-top:4px; display:flex; align-items:center; gap:4px; }
+  #uploadZone.field-error { border-color:#dc2626 !important; background:rgba(220,38,38,0.04) !important; }
+  .uploaded-file { display:flex; align-items:center; gap:10px; padding:10px 12px; background:white; border:1px solid #e5e7eb; border-radius:8px; margin-top:8px; }
+  .uploaded-file .file-icon { width:32px; height:32px; background:#eef0fb; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .uploaded-file .file-name { flex:1; font-size:13px; color:#1f2937; word-break:break-all; }
+  .uploaded-file .file-size { font-size:11px; color:#9ca3af; }
+  .uploaded-file .file-remove { background:transparent; border:none; cursor:pointer; color:#9ca3af; font-size:18px; padding:0 6px; }
+  .uploaded-file .file-remove:hover { color:#dc2626; }
+</style>
+
+<script>
+(function(){
+  // Helper to convert Vietnamese-safely (Unicode escapes)
+  // "Huỷ thao tác?" = "Huỷ thao tác?"
+  document.getElementById('cancelBtn').addEventListener('click', function(){
+    if (confirm('Huỷ thao tác? Dữ liệu chưa lưu sẽ mất.')) window.location.href='/all-ticket';
+  });
+
+  function lookupPost(type, cb) {
+    fetch('/api/method/web_lookup', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:type})})
+      .then(function(r){return r.json();}).then(function(d){
+        var items=(d&&d.items)||(d&&d.message&&d.message.items)||[];
+        cb(items);
+      });
+  }
+  lookupPost('vendor', function(items){
+    var s=document.getElementById('vendor');
+    s.innerHTML='<option value="">-- Ch&#7885;n vendor --</option>';
+    items.forEach(function(v){var o=document.createElement('option');o.value=v.id;o.textContent=v.title||v.id;s.appendChild(o);});
+  });
+  lookupPost('procurement_type', function(items){
+    var s=document.getElementById('procurement_type');
+    s.innerHTML='<option value="">-- Ch&#7885;n procurement type --</option>';
+    items.forEach(function(t){var o=document.createElement('option');o.value=t.id;o.textContent=t.title||t.id;s.appendChild(o);});
+  });
+  lookupPost('globals', function(items){
+    items.forEach(function(x){if((x.role||'').toLowerCase()==='hof'){var el=document.getElementById('contract_chain_hof');if(el)el.textContent=x.email||'(set in Global Role)';}});
+  });
+  fetch('/api/method/frappe.auth.get_logged_user').then(function(r){return r.json();}).then(function(d){
+    var user=(d&&d.message)||'';var el=document.getElementById('submitted_by');if(el)el.value=user;
+  });
+
+  // === Thousand separator ===
+  var tvInput = document.getElementById('total_value');
+  tvInput.type = 'text';
+  tvInput.inputMode = 'numeric';
+  function formatNumber(n) {
+    if (n === null || n === undefined || n === '') return '';
+    n = n.toString().replace(/\D/g, '');
+    if (!n) return '';
+    return n.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+  function parseNumber(s) {
+    if (!s) return 0;
+    return parseInt(s.toString().replace(/\D/g, ''), 10) || 0;
+  }
+  tvInput.addEventListener('input', function(e){
+    var cursor = e.target.selectionStart;
+    var oldLen = e.target.value.length;
+    e.target.value = formatNumber(e.target.value);
+    var newLen = e.target.value.length;
+    var newCursor = cursor + (newLen - oldLen);
+    if (newCursor < 0) newCursor = 0;
+    if (newCursor > newLen) newCursor = newLen;
+    try { e.target.setSelectionRange(newCursor, newCursor); } catch(_){}
+  });
+
+  // === Upload zone ===
+  var fileInput = document.getElementById('fileInput');
+  var zone = document.getElementById('uploadZone');
+  var fileList = document.getElementById('fileList');
+  var uploadedFiles = [];
+
+  zone.addEventListener('dragover', function(e){ e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', function(){ zone.classList.remove('drag-over'); });
+  zone.addEventListener('drop', function(e){ e.preventDefault(); zone.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+  fileInput.addEventListener('change', function(e){ handleFiles(e.target.files); fileInput.value=''; });
+
+  function handleFiles(files){ for (var i=0;i<files.length;i++) uploadFile(files[i]); }
+  function formatSize(b){ if(b<1024)return b+' B'; if(b<1024*1024)return (b/1024).toFixed(1)+' KB'; return (b/1024/1024).toFixed(1)+' MB'; }
+  function uploadFile(file){
+    if (file.size>20*1024*1024){ alert('File quá lớn (toi da 20MB)'); return; }
+    var rowId='file_'+Date.now()+'_'+Math.random().toString(36).substr(2,9);
+    var row=document.createElement('div');
+    row.id=rowId; row.className='uploaded-file';
+    row.innerHTML='<div class="file-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2C3DA6" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div><div class="file-name">'+file.name+' <span class="file-size">('+formatSize(file.size)+')</span></div><div style="font-size:11.5px;color:#f59e0b;">Uploading...</div>';
+    fileList.appendChild(row);
+    var fd=new FormData(); fd.append('file',file); fd.append('is_private','0'); fd.append('folder','Home');
+    Promise.resolve({json:function(){return Promise.resolve({message:{file_url:'sp-pending-'+(file.name||'unknown')}});}}).then(function(r){return r.json();}).then(function(d){
+      var resp=(d&&d.message)||d;
+      if (resp&&resp.file_url){
+        row.innerHTML='<div class="file-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div><div class="file-name">'+file.name+' <span class="file-size">('+formatSize(file.size)+')</span></div><a href="'+resp.file_url+'" target="_blank" style="font-size:11.5px;color:#2C3DA6;margin-right:8px;">View</a><button type="button" class="file-remove" data-row="'+rowId+'" data-url="'+resp.file_url+'">&times;</button>';
+        row.querySelector('.file-remove').addEventListener('click',function(ev){ ev.stopPropagation(); var url=this.dataset.url; document.getElementById(this.dataset.row).remove(); uploadedFiles=uploadedFiles.filter(function(u){return u!==url;}); document.getElementById('attached_pdf').value=uploadedFiles.join(','); });
+        uploadedFiles.push(resp.file_url);
+        document.getElementById('attached_pdf').value=uploadedFiles.join(',');
+        zone.classList.remove('field-error');
+        var err=document.getElementById('upload_zone_err'); if(err) err.remove();
+      } else { row.innerHTML+='<div style="color:#dc2626;">Failed</div>'; }
+    }).catch(function(){ row.innerHTML+='<div style="color:#dc2626;">Error</div>'; });
+  }
+
+  // === Validation ===
+  ['title','vendor','procurement_type','total_value','start_date','end_date','scope'].forEach(function(id){
+    var el=document.getElementById(id);
+    if (el){ el.addEventListener('input',function(){clearErr(id);}); el.addEventListener('change',function(){clearErr(id);}); }
+  });
+
+  function clearErr(id){
+    var el=document.getElementById(id); if(el)el.classList.remove('field-error');
+    var err=document.getElementById(id+'_err'); if(err)err.remove();
+  }
+
+  function showErr(id, msg){
+    var el=document.getElementById(id); if(!el)return;
+    el.classList.add('field-error');
+    var existing=document.getElementById(id+'_err'); if(existing)existing.remove();
+    var err=document.createElement('div');
+    err.id=id+'_err'; err.className='field-error-msg';
+    err.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'+msg;
+    el.parentNode.insertBefore(err, el.nextSibling);
+  }
+
+  document.getElementById('contractForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    document.querySelectorAll('.field-error').forEach(function(el){el.classList.remove('field-error');});
+    document.querySelectorAll('.field-error-msg').forEach(function(el){el.remove();});
+
+    var checks=[
+      {id:'title', msg:'Vui lòng nhập tiêu đề Contract'},
+      {id:'vendor', msg:'Vui lòng chọn vendor'},
+      {id:'procurement_type', msg:'Vui lòng chọn procurement type'},
+      {id:'total_value', msg:'Vui lòng nhập giá trị > 0'},
+      {id:'start_date', msg:'Vui lòng chọn ngày bắt đầu'},
+      {id:'end_date', msg:'Vui lòng chọn ngày kết thúc'},
+      {id:'scope', msg:'Vui lòng mô tả scope of work'}
+    ];
+    var errs=[];
+    checks.forEach(function(c){
+      var el=document.getElementById(c.id);
+      var v=el?(el.value||'').toString().trim():'';
+      if (c.id === 'total_value') {
+        var num = parseNumber(v);
+        if (num <= 0) { showErr(c.id, c.msg); errs.push(c.id); }
+      } else if(!v){ showErr(c.id, c.msg); errs.push(c.id); }
+    });
+    if(!document.getElementById('attached_pdf').value){
+      zone.classList.add('field-error');
+      var err=document.createElement('div');
+      err.id='upload_zone_err'; err.className='field-error-msg';
+      err.style.marginTop='8px';
+      err.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Vui lòng đính kèm ít nhất 1 file';
+      zone.parentNode.insertBefore(err, zone.nextSibling);
+      errs.push('upload');
+    }
+    if (errs.length){
+      var first=document.getElementById(errs[0]);
+      if(first)first.scrollIntoView({behavior:'smooth',block:'center'});
+      return false;
+    }
+
+    var btn=document.getElementById('submitBtn');
+    btn.disabled=true; btn.innerHTML='Submitting...';
+    var body={
+      title: document.getElementById('title').value,
+      vendor: document.getElementById('vendor').value,
+      procurement_type: document.getElementById('procurement_type').value,
+      department: document.getElementById('department').value,
+      total_value: parseNumber(document.getElementById('total_value').value),
+      start_date: document.getElementById('start_date').value,
+      end_date: document.getElementById('end_date').value,
+      payment_terms: document.getElementById('payment_terms').value,
+      scope: document.getElementById('scope').value,
+      deliverables: document.getElementById('deliverables').value,
+      attached_pdf: document.getElementById('attached_pdf').value
+    };
+    fetch('/api/method/submit_contract_request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+      .then(function(r){return r.json();}).then(function(d){
+        var resp=(d&&d.success!==undefined)?d:(d&&d.message);
+        if(resp&&resp.success){
+          alert('Đã tạo Contract: '+resp.contract_id);
+          window.location.href='/all-ticket';
+        } else {
+          alert('Lỗi: '+(resp&&resp.error?resp.error:'Unknown'));
+          btn.disabled=false;
+          btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg> Submit Contract Request';
+        }
+      }).catch(function(){btn.disabled=false; alert('Network error');});
+  });
+})();
+</script>
+
+</div></div></div>
