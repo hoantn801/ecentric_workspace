@@ -357,6 +357,31 @@ def set_representative_attachment(payment_request_name, file_url):
 
 
 @frappe.whitelist()
+def placement_state(payment_request_name, document_ref):
+    """Phase C read-only placement + progress state for one document (permission-checked)."""
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.approval_center.esign import placement_service as ps
+    return ps.placement_state("EC Payment Request", payment_request_name, document_ref)
+
+
+@frappe.whitelist(methods=["POST"])
+def save_placement(payment_request_name, document_ref, box):
+    """Phase C: create/update one signer-slot signature box (requester-scoped; slot-validated;
+    document-scoped; editable Draft only; no provider/freeze)."""
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.approval_center.esign import placement_service as ps
+    return ps.save_placement("EC Payment Request", payment_request_name, document_ref, box)
+
+
+@frappe.whitelist(methods=["POST"])
+def delete_placement(payment_request_name, document_ref, placement_name):
+    """Phase C: delete one signature box (requester-scoped; document-scoped)."""
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.approval_center.esign import placement_service as ps
+    return ps.delete_placement("EC Payment Request", payment_request_name, document_ref, placement_name)
+
+
+@frappe.whitelist()
 def signer_plan(payment_request_name):
     """Read-only signer plan for the Payment Request signing UI (Phase B1). Permission-safe
     (business view permission required); no writes / side effects; no SCTS call."""

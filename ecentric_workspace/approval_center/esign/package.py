@@ -202,6 +202,50 @@ def remove_file(dsf_name):
         frappe.delete_doc("File", fdoc, ignore_permissions=True)
 
 
+def upsert_placement(pkg_name, dsf_name, box):
+    """Phase C: create OR update ONE placement box for a single signable file on an editable
+    Draft package. Document-scoped (only this signature_file); never replace-all; sibling files
+    untouched; stable row identity preserved on update. Governed (requester/Draft). Geometry is
+    re-validated authoritatively. `box`: {name?, page_index, x, y, width, height,
+    signer_slot_key, signer_slot_version, signature_type?}."""
+    pkg = get_package(pkg_name)
+    perms.assert_requester_draft_package(pkg)
+    if frappe.db.get_value("EC Digital Signature File", dsf_name, "package") != pkg.name:
+        frappe.throw(_("Tệp không thuộc gói này."))
+    validate_placement_geometry(pkg_name, [dict(box, signature_file=dsf_name)])
+    vals = {"page_index": int(box.get("page_index") or 1),
+            "x": float(box.get("x") or 0), "y": float(box.get("y") or 0),
+            "width": float(box.get("width") or 0), "height": float(box.get("height") or 0),
+            "level_no": int(box.get("level_no") or 0),   # legacy runtime compat (from frozen plan slot)
+            "signer_slot_key": box.get("signer_slot_key"),
+            "signer_slot_version": int(box.get("signer_slot_version") or 0) or None,
+            "signature_type": box.get("signature_type") or "mock"}
+    name = box.get("name")
+    if name and frappe.db.exists("EC Digital Signature Placement", name):
+        row = frappe.get_doc("EC Digital Signature Placement", name)
+        if row.package != pkg.name or row.signature_file != dsf_name:
+            frappe.throw(_("Vị trí ký không thuộc tài liệu này."))
+        row.update(vals); row.save(ignore_permissions=True)     # save() -> Version audit
+        return row.name
+    doc = frappe.get_doc(dict({"doctype": "EC Digital Signature Placement", "package": pkg.name,
+                               "signature_file": dsf_name, "status": "Draft",
+                               "placed_by": frappe.session.user, "placed_at": now_datetime()}, **vals)
+                         ).insert(ignore_permissions=True)
+    return doc.name
+
+
+def delete_placement_row(placement_name):
+    """Phase C: delete ONE placement box (governed; editable Draft only; document-scoped -
+    sibling placements untouched). Archived to Deleted Document (audit preserved). Idempotent."""
+    if not frappe.db.exists("EC Digital Signature Placement", placement_name):
+        return 0
+    row = frappe.db.get_value("EC Digital Signature Placement", placement_name,
+                              ["package", "signature_file"], as_dict=True)
+    perms.assert_requester_draft_package(get_package(row.package))
+    frappe.delete_doc("EC Digital Signature Placement", placement_name, ignore_permissions=True)
+    return 1
+
+
 def clear_file_placements(dsf_name):
     """Document-SCOPED placement reset: remove placements for ONE EC Digital Signature File on
     an editable Draft package, with NO effect on sibling files (no replace-all, no sibling row
