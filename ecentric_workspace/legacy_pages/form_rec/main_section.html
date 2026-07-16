@@ -1,0 +1,2026 @@
+
+<script id="ec-csrf-fetch-patch">
+(function(){
+  if (window.ecFetchPatched) return;
+  window.ecFetchPatched = true;
+  var origFetch = window.fetch;
+  function getCsrf() {
+    return (window.frappe && window.frappe.csrf_token) ||
+           (window.CTX && window.CTX.csrfToken) ||
+           window.csrf_token ||
+           (document.cookie.match(/csrf_token=([^;]+)/) || [])[1] ||
+           'token';
+  }
+  window.fetch = function(url, opts) {
+    opts = opts || {};
+    var u = (typeof url === 'string') ? url : (url && url.url) || '';
+    var method = (opts.method || 'GET').toUpperCase();
+    var isApi = u.indexOf('/api/method/') >= 0 || u.indexOf('/api/resource/') >= 0;
+    if (isApi && method !== 'GET' && method !== 'HEAD') {
+      opts.headers = opts.headers || {};
+      if (opts.headers.set && typeof opts.headers.set === 'function') {
+        if (!opts.headers.get('X-Frappe-CSRF-Token')) {
+          opts.headers.set('X-Frappe-CSRF-Token', getCsrf());
+        }
+      } else {
+        var hasToken = false;
+        for (var k in opts.headers) {
+          if (k.toLowerCase() === 'x-frappe-csrf-token') { hasToken = true; break; }
+        }
+        if (!hasToken) {
+          opts.headers['X-Frappe-CSRF-Token'] = getCsrf();
+        }
+      }
+      if (opts.credentials === undefined) opts.credentials = 'include';
+    }
+    return origFetch.call(window, url, opts);
+  };
+  console.log('[ec-csrf] fetch wrapper installed');
+})();
+</script>
+
+<!-- ACTIVE-MENU-JS -->
+<script>
+(function() {
+  function setActive() {
+    var path = window.location.pathname.replace(/\/+$/, '') || '/';
+    var links = document.querySelectorAll('.ec-sb-link');
+    links.forEach(function(a) {
+      var href = (a.getAttribute('href') || '').replace(/\/+$/, '') || '/';
+      a.classList.remove('active');
+      // Strict exact match
+      if (href === path) {
+        a.classList.add('active');
+      }
+      // Special case: '/home' page should also activate links with href='/'
+      else if ((path === '/home' || path === '/') && (href === '/' || href === '/home')) {
+        a.classList.add('active');
+      }
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setActive);
+  } else {
+    setActive();
+  }
+})();
+</script>
+
+<!-- HIDE-NAVBAR-V1 -->
+<style>
+  /* Hide Frappe default navbar + footer to give full-screen workspace */
+  body > header,
+  body > footer,
+  body > nav.navbar,
+  header.navbar,
+  .navbar.navbar-light,
+  .web-page-header,
+  #navbarSupportedContent,
+  .navbar-collapse {
+    display: none !important;
+  }
+  body { padding: 0 !important; margin: 0 !important; }
+  body main { padding-top: 0 !important; }
+  body .main-section, body main.container, body main.fluid {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  /* If Frappe wraps page content in a container, expand it */
+  body .page_content { padding: 0 !important; }
+</style>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+body { margin: 0 !important; padding: 0 !important; background: #f7f8fb !important; font-family: 'Inter', system-ui, sans-serif !important; }
+body header.navbar, footer.web-footer, .web-footer { display: none !important; }
+.page-content, .common-page-style, .container, main.col, .web-page-content, .page_content, .for-web-view { padding: 0 !important; margin: 0 !important; max-width: none !important; width: 100% !important; }
+
+#ec-shell { display: grid; grid-template-columns: 264px 1fr; min-height: 100vh; font-family: 'Inter', system-ui, sans-serif; color: #1f2937; font-size: 14px; line-height: 1.5; }
+#ec-shell .ec-sb { background: white; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; box-sizing: border-box; }
+#ec-shell .ec-sb-header { padding: 18px 18px 10px; }
+#ec-shell .ec-sb-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+#ec-shell .ec-sb-brand:hover { text-decoration: none; }
+#ec-shell .ec-sb-logo { width: 40px; height: 40px; flex-shrink: 0; display: block; object-fit: contain; }
+#ec-shell .ec-sb-name { font-size: 15px; font-weight: 700; color: #111827; line-height: 1.2; letter-spacing: -0.3px; }
+#ec-shell .ec-sb-search { margin: 4px 16px 10px; position: relative; }
+#ec-shell .ec-sb-search input { width: 100%; padding: 8px 12px 8px 34px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; background: #fafbfc; font-family: inherit; outline: none; transition: border-color .15s, background .15s; }
+#ec-shell .ec-sb-search input:focus { border-color: #2C3DA6; background: white; }
+#ec-shell .ec-sb-search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #9ca3af; stroke: currentColor; fill: none; stroke-width: 1.75; pointer-events: none; }
+#ec-shell .ec-sb-kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: #9ca3af; background: white; border: 1px solid #e5e7eb; padding: 1px 5px; border-radius: 4px; pointer-events: none; }
+#ec-shell .ec-sb-nav { padding: 4px 8px 8px; flex: 1; overflow-y: auto; }
+#ec-shell .ec-sb-label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.6px; padding: 12px 12px 4px; }
+#ec-shell .ec-sb-link { display: grid !important; grid-template-columns: 18px 1fr !important; column-gap: 11px !important; align-items: center !important; padding: 8px 12px; border-radius: 6px; color: #4b5563; text-decoration: none; font-size: 13.5px; font-weight: 500; margin-bottom: 1px; transition: background .15s, color .15s; }
+#ec-shell .ec-sb-link:hover { background: #f3f4f6; color: #111827; text-decoration: none; }
+#ec-shell .ec-sb-link.active { background: #eef0fb; color: #2C3DA6; font-weight: 600; }
+#ec-shell .ec-sb-link.active svg { stroke-width: 2; }
+#ec-shell .ec-sb-link svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; grid-column: 1; }
+#ec-shell .ec-sb-link span { grid-column: 2; text-align: left; }
+#ec-shell .ec-sb-footer { padding: 12px; border-top: 1px solid #f3f4f6; display: flex; align-items: center; gap: 8px; }
+#ec-shell .ec-sb-user-card { flex: 1; display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; min-width: 0; }
+#ec-shell .ec-sb-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #2C3DA6, #EF7CAF); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+#ec-shell .ec-sb-user-info { flex: 1; min-width: 0; }
+#ec-shell .ec-sb-user-name { font-size: 13px; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ec-shell .ec-sb-user-role { font-size: 11px; color: #6b7280; }
+#ec-shell .ec-sb-logout { width: 36px; height: 36px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: transparent; border: none; color: #6b7280; cursor: pointer; transition: background .15s, color .15s; }
+#ec-shell .ec-sb-logout:hover { background: #fee2e2; color: #dc2626; }
+#ec-shell .ec-sb-logout svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+#ec-shell .ec-main { min-width: 0; display: flex; flex-direction: column; }
+#ec-shell .ec-tb { background: white; border-bottom: 1px solid #e5e7eb; padding: 10px 28px; display: flex; align-items: center; justify-content: space-between; gap: 16px; position: sticky; top: 0; z-index: 9; }
+#ec-shell .ec-bc { font-size: 13px; color: #6b7280; display: flex; align-items: center; gap: 6px; }
+#ec-shell .ec-bc a { color: #6b7280; text-decoration: none; }
+#ec-shell .ec-bc a:hover { color: #2C3DA6; }
+#ec-shell .ec-bc .sep { color: #d1d5db; }
+#ec-shell .ec-bc strong { color: #111827; font-weight: 600; }
+#ec-shell .ec-tb-actions { display: flex; gap: 4px; }
+#ec-shell .ec-ib { width: 36px; height: 36px; border-radius: 8px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #6b7280; position: relative; transition: all .15s; text-decoration: none; }
+#ec-shell .ec-ib:hover { background: #f3f4f6; color: #111827; }
+#ec-shell .ec-ib .dot { position: absolute; top: 8px; right: 9px; width: 6px; height: 6px; background: #EF7CAF; border-radius: 50%; border: 2px solid white; }
+#ec-shell .ec-content { padding: 0; }
+#ec-shell .ec-content > * { max-width: 100%; }
+
+@media (max-width: 1100px) {
+  #ec-shell { grid-template-columns: 64px 1fr; }
+  #ec-shell .ec-sb-name, #ec-shell .ec-sb-label, #ec-shell .ec-sb-link span, #ec-shell .ec-sb-search, #ec-shell .ec-sb-user-info { display: none; }
+  #ec-shell .ec-sb-link { grid-template-columns: 1fr !important; justify-items: center !important; }
+  #ec-shell .ec-sb-brand { justify-content: center; }
+  #ec-shell .ec-sb-footer { justify-content: center; }
+}
+</style>
+
+<!-- ec-polish-script intentionally removed — debounce handled by form code itself -->
+<style id="ec-chain-preview-css">
+/* Match SO chainPreview design */
+#ec-shell #chainPreview { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px 18px 14px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); font-size: 13px; position: sticky; top: 70px; max-height: calc(100vh - 100px); overflow-y: auto; }
+#ec-shell #chainPreview.collapsed { padding: 14px 18px; max-height: 50px; overflow: hidden; }
+#ec-shell #chainPreview .cp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+#ec-shell #chainPreview .cp-title { font-weight: 700; font-size: 14px; color: #111827; display: flex; align-items: center; gap: 8px; letter-spacing: -0.2px; }
+#ec-shell #chainPreview .cp-title svg { width: 18px; height: 18px; stroke: #2C3DA6; stroke-width: 2; fill: none; flex-shrink: 0; }
+#ec-shell #chainPreview .cp-toggle { background: none; border: none; width: 24px; height: 24px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #6b7280; font-family: inherit; font-size: 14px; line-height: 1; transition: transform 0.2s; }
+#ec-shell #chainPreview .cp-toggle:hover { background: #f3f4f6; }
+#ec-shell #chainPreview.collapsed .cp-toggle svg { transform: rotate(-90deg); }
+#ec-shell #chainPreview.collapsed .cp-head { margin: 0; }
+#ec-shell #chainPreview.collapsed .cp-title, #ec-shell #chainPreview.collapsed .cp-body, #ec-shell #chainPreview.collapsed .cp-meta-row { display: none; }
+#ec-shell #chainPreview .cp-meta-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; font-size: 12px; color: #6b7280; }
+#ec-shell #chainPreview .cp-budget-pill { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.2px; }
+#ec-shell #chainPreview .cp-budget-pill.in-budget { background: #ecfdf5; color: #047857; border: 1px solid #86efac; }
+#ec-shell #chainPreview .cp-budget-pill.out-budget { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+#ec-shell #chainPreview .cp-form-info { font-size: 12px; color: #6b7280; }
+#ec-shell #chainPreview .cp-form-info strong { color: #1f2937; font-weight: 600; }
+#ec-shell #chainPreview .cp-step { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 8px; background: white; transition: border-color 0.15s; }
+#ec-shell #chainPreview .cp-step:hover { border-color: #d1d5db; }
+#ec-shell #chainPreview .cp-num { width: 26px; height: 26px; border-radius: 50%; background: #2C3DA6; color: white; font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+#ec-shell #chainPreview .cp-step-final .cp-num { background: #10b981; }
+#ec-shell #chainPreview .cp-step-warn { font-size: 10px; color: #dc2626; margin-top: 4px; padding: 4px 6px; background: #fef2f2; border-radius: 4px; }
+#ec-shell #chainPreview .cp-step-info { flex: 1; min-width: 0; }
+#ec-shell #chainPreview .cp-step-role { font-weight: 700; color: #111827; font-size: 13px; }
+#ec-shell #chainPreview .cp-step-who { font-size: 11.5px; color: #6b7280; margin-top: 3px; word-break: break-word; line-height: 1.4; }
+#ec-shell #chainPreview .cp-step-email { font-size: 11px; color: #9ca3af; margin-top: 4px; word-break: break-all; font-feature-settings: 'tnum'; }
+#ec-shell #chainPreview .cp-empty { padding: 16px 12px; text-align: center; color: #9ca3af; font-size: 12px; line-height: 1.5; background: #fafbfc; border: 1px dashed #e5e7eb; border-radius: 8px; }
+#ec-shell #chainPreview .cp-loading { padding: 14px; text-align: center; color: #6b7280; font-size: 12px; }
+#ec-shell #chainPreview .cp-error { padding: 12px; background: #fef2f2; color: #dc2626; border-radius: 6px; font-size: 11.5px; }
+/* Force page-wrap grid layout \u2014 eCentric shell may override */
+#ec-shell .page-wrap {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 290px !important;
+  gap: 20px !important;
+  max-width: none !important;
+  align-items: start !important;
+  padding: 20px 24px 60px !important;
+}
+#ec-shell .page-wrap > .back-link { grid-column: 1 / -1 !important; justify-self: start !important; width: fit-content !important; max-width: 200px !important; }
+#ec-shell .page-wrap > .form-card { grid-column: 1 !important; min-width: 0 !important; }
+#ec-shell .page-wrap > #chainPreview { grid-column: 2 !important; }
+
+/* At narrow widths, chainPreview becomes fixed floating top-right */
+@media (max-width: 900px) {
+  #ec-shell .page-wrap { grid-template-columns: 1fr !important; }
+  #ec-shell .page-wrap > #chainPreview { grid-column: 1 !important; position: static !important; max-height: none !important; }
+}
+</style>
+<script id="ec-chain-preview-script">
+(function(){
+  // Mirror of SO chain preview \u2014 client-side recipe + Lookup_Approvers (no Build_Chain dep).
+  var LOOKUP_URL = '/api/method/web_lookup';
+
+  var _chainEmails = { manager: '', leader: '', finance: '', ceo: '', hof: '' };
+  var _globalsCache = null;
+  var _brandsCache = null;
+  var _refreshTimer = null;
+  var _lastCtxKey = '';
+
+  function detectFormType() {
+    if (location.pathname.indexOf('form-po') >= 0) return 'po';
+    if (location.pathname.indexOf('form-rec') >= 0) return 'rec';
+    return null;
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  // ---- Recipes (matches chain_preview_snippet.html / SO logic) ----
+  function chainRecipe(formType, isOOB) {
+    if (formType === 'po') {
+      if (isOOB) {
+        return [
+          { role: 'manager',          label: 'L1 \u2014 Manager',         hint: 'Department manager' },
+          { role: 'finance_incharge', label: 'L2 \u2014 Finance',         hint: 'Brand Finance In-charge' },
+          { role: 'hof',              label: 'L3 \u2014 HOF',             hint: 'Head of Finance (over-budget review)' },
+          { role: 'ceo',              label: 'L4 \u2014 CEO',             hint: 'Final (over-budget)', final: true }
+        ];
+      }
+      return [
+        { role: 'manager',          label: 'L1 \u2014 Manager',         hint: 'Department manager' },
+        { role: 'finance_incharge', label: 'L2 \u2014 Finance',         hint: 'Brand Finance In-charge', final: true }
+      ];
+    }
+    if (formType === 'rec') {
+      return [
+        { role: 'manager',          label: 'L1 \u2014 Manager',         hint: 'Department manager' },
+        { role: 'finance_incharge', label: 'L2 \u2014 Finance',         hint: 'Brand Finance reconciles', final: true }
+      ];
+    }
+    return [];
+  }
+
+  // ---- Lookup_Approvers caching (SO pattern) ----
+  async function fetchGlobals() {
+    if (_globalsCache) return _globalsCache;
+    try {
+      var r = await fetch(LOOKUP_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type:'globals' }) });
+      var d = await r.json();
+      if (d && d.success && Array.isArray(d.items)) {
+        var byRole = {};
+        d.items.forEach(function(row) {
+          var rc = (row.role_code || row.role || '').toString().toLowerCase();
+          if (rc) byRole[rc] = row.email || row.user_email || '';
+        });
+        _globalsCache = byRole;
+      }
+    } catch(e) { try { console.warn('[chainPreview] globals lookup failed', e); } catch(_) {} }
+    return _globalsCache;
+  }
+
+  async function fetchBrands() {
+    if (_brandsCache) return _brandsCache;
+    try {
+      var r = await fetch(LOOKUP_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type:'brand' }) });
+      var d = await r.json();
+      if (d && d.success && Array.isArray(d.items)) _brandsCache = d.items;
+    } catch(e) { try { console.warn('[chainPreview] brand lookup failed', e); } catch(_) {} }
+    return _brandsCache;
+  }
+
+  async function fetchManagerForDept(dept) {
+    if (!dept) return '';
+    try {
+      var r = await fetch(LOOKUP_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type:'user_profile' }) });
+      var d = await r.json();
+      if (d && d.success && Array.isArray(d.items)) {
+        var mgr = d.items.find(function(u) { return (u.role || '').toString().toLowerCase() === 'manager' && (u.default_department || '') === dept; });
+        if (mgr) return mgr.user_email || mgr.email || '';
+      }
+    } catch(e) { try { console.warn('[chainPreview] user_profile lookup failed', e); } catch(_) {} }
+    return '';
+  }
+
+  async function fetchChainEmails() {
+    var brand = (document.getElementById('brand') || {}).value || '';
+    var dept  = (document.getElementById('department') || {}).value || '';
+    var globals = await fetchGlobals();
+    if (globals) { _chainEmails.ceo = globals.ceo || ''; _chainEmails.hof = globals.hof || ''; }
+    var brands = await fetchBrands();
+    if (brand && brands) {
+      var b = brands.find(function(x) { return (x.id || x.brand_code) === brand; });
+      if (b) { _chainEmails.leader = b.leader_email || ''; _chainEmails.finance = b.finance_incharge_email || ''; }
+      else { _chainEmails.leader = ''; _chainEmails.finance = ''; }
+    } else { _chainEmails.leader = ''; _chainEmails.finance = ''; }
+    _chainEmails.manager = await fetchManagerForDept(dept);
+  }
+
+  // ---- OOB detection ----
+  function isOutOfBudgetPO() {
+    // Reuse same signal SO uses on PO page: _soBudget global, plus #estimatedExpVatIn vs remaining
+    try {
+      if (window._soBudget) {
+        var expEl = document.getElementById('estimatedExpVatIn') || document.querySelector('[name="estimated_exp_vat_in"]');
+        var v = expEl ? parseInt(String(expEl.value || '0').replace(/[^\d]/g, ''), 10) : 0;
+        return v > (window._soBudget.remaining || 0);
+      }
+    } catch(_) {}
+    // Fallback: check for justification field visible (PO shows it when over budget)
+    var just = document.getElementById('justificationField');
+    if (just && just.style.display !== 'none' && just.offsetParent !== null) return true;
+    return false;
+  }
+
+  // ---- Render ----
+  function injectChainPreview() {
+    if (document.getElementById('chainPreview')) return;
+    var pageWrap = document.querySelector('.page-wrap');
+    if (!pageWrap) return;
+    var html = '<aside id="chainPreview">' +
+      '<div class="cp-head">' +
+        '<div class="cp-title">' +
+          '<svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>' +
+          '<span>Approval Chain</span>' +
+        '</div>' +
+        '<button type="button" class="cp-toggle" id="cpToggle" title="Toggle"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>' +
+      '</div>' +
+      '<div class="cp-meta-row" id="cpMetaRow"><span class="cp-form-info">Ch&#7885;n department v&#224; brand &#273;&#7875; xem chain.</span></div>' +
+      '<div class="cp-body" id="cpBody"><div class="cp-empty">Chain s&#7869; hi&#7879;n &#7903; &#273;&#226;y khi b&#7841;n ch&#7885;n department.</div></div>' +
+    '</aside>';
+    pageWrap.insertAdjacentHTML('beforeend', html);
+
+    var toggleBtn = document.getElementById('cpToggle');
+    var box = document.getElementById('chainPreview');
+    if (toggleBtn && box) {
+      toggleBtn.addEventListener('click', function() {
+        box.classList.toggle('collapsed');
+        try { localStorage.setItem('cp_collapsed_' + (detectFormType() || 'x'), box.classList.contains('collapsed') ? '1' : '0'); } catch(_) {}
+      });
+      try { if (localStorage.getItem('cp_collapsed_' + (detectFormType() || 'x')) === '1') box.classList.add('collapsed'); } catch(_) {}
+    }
+  }
+
+  function renderChainPreview() {
+    var meta = document.getElementById('cpMetaRow');
+    var body = document.getElementById('cpBody');
+    if (!meta || !body) return;
+    var formType = detectFormType();
+    if (!formType) return;
+    var dept = (document.getElementById('department') || {}).value || '';
+    var brand = (document.getElementById('brand') || {}).value || '';
+
+    var isOOB = false;
+    if (formType === 'po') isOOB = isOutOfBudgetPO();
+
+    // Meta
+    var metaHtml = '';
+    if (formType === 'po') {
+      var pillCls = isOOB ? 'out-budget' : 'in-budget';
+      var pillTxt = isOOB ? 'Out-of-budget' : 'In-budget';
+      metaHtml += '<span class="cp-budget-pill ' + pillCls + '">' + pillTxt + '</span>';
+    }
+    metaHtml += '<span class="cp-form-info"><strong>Form:</strong> ' + formType.toUpperCase();
+    if (dept) metaHtml += ' &middot; <strong>Dept:</strong> ' + escapeHtml(dept);
+    if (brand) metaHtml += ' &middot; <strong>Brand:</strong> ' + escapeHtml(brand);
+    metaHtml += '</span>';
+    meta.innerHTML = metaHtml;
+
+    // Steps
+    if (!dept) {
+      body.innerHTML = '<div class="cp-empty">Ch&#7885;n department &#273;&#7875; xem approval flow.</div>';
+      return;
+    }
+    var steps = chainRecipe(formType, isOOB);
+    var emailMap = {
+      manager: _chainEmails.manager,
+      leader: _chainEmails.leader,
+      finance_incharge: _chainEmails.finance,
+      hof: _chainEmails.hof,
+      ceo: _chainEmails.ceo
+    };
+    var html = '';
+    steps.forEach(function(s, i) {
+      var email = emailMap[s.role] || '';
+      var emailHtml = email ? '<div class="cp-step-email">' + escapeHtml(email) + '</div>' : '';
+      var warn = '';
+      if (s.role === 'manager' && dept && !email) {
+        warn = '<div class="cp-step-warn">&#9888;&#65039; Ch&#432;a c&#243; manager cho dept "' + escapeHtml(dept) + '"</div>';
+      }
+      html += '<div class="cp-step' + (s.final ? ' cp-step-final' : '') + '">'
+            +   '<div class="cp-num">' + (i + 1) + '</div>'
+            +   '<div class="cp-step-info">'
+            +     '<div class="cp-step-role">' + escapeHtml(s.label) + '</div>'
+            +     '<div class="cp-step-who">' + escapeHtml(s.hint) + '</div>'
+            +     emailHtml + warn
+            +   '</div>'
+            + '</div>';
+    });
+    body.innerHTML = html;
+  }
+
+  async function refreshChainPreview() {
+    var dept = (document.getElementById('department') || {}).value || '';
+    var brand = (document.getElementById('brand') || {}).value || '';
+    var ctxKey = dept + '|' + brand + '|' + (isOutOfBudgetPO() ? '1' : '0');
+    if (ctxKey === _lastCtxKey) return;
+    _lastCtxKey = ctxKey;
+    renderChainPreview();      // first render with cached / empty emails
+    await fetchChainEmails();  // populate emails
+    renderChainPreview();      // re-render with emails
+  }
+
+  function debouncedRefresh() {
+    if (_refreshTimer) clearTimeout(_refreshTimer);
+    _refreshTimer = setTimeout(refreshChainPreview, 200);
+  }
+
+  function attachListeners() {
+    document.addEventListener('change', function(e) {
+      if (!e.target || !e.target.matches) return;
+      if (!e.target.matches('select, input, textarea')) return;
+      var n = (e.target.name || e.target.id || '').toLowerCase();
+      if (/department|brand|estimated|actual|service_request|procurement_request|justification/.test(n)) {
+        debouncedRefresh();
+      }
+    });
+    document.addEventListener('input', function(e) {
+      if (!e.target || !e.target.matches) return;
+      if (e.target.id === 'estimatedExpVatIn' || e.target.id === 'actualExpVatIn') debouncedRefresh();
+    });
+    // Catch programmatic auto-fill (parent SO/PO selection auto-fills dept/brand without 'change' event)
+    setInterval(refreshChainPreview, 1500);
+  }
+
+  function init() {
+    if (!detectFormType()) return;
+    injectChainPreview();
+    attachListeners();
+    refreshChainPreview();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+<style id="ec-polish-overrides">
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+#ec-shell {
+  --navy: #2C3DA6 !important;
+  --navy2: #3d52cc !important;
+  --navy-light: rgba(44,61,166,0.08) !important;
+  --gold: #FFC000 !important;
+  --gold2: #FFD440 !important;
+  --gold-light: rgba(255,192,0,0.14) !important;
+  --gold-border: rgba(255,192,0,0.4) !important;
+  --bg: #f7f8fb !important;
+  --border: #e5e7eb !important;
+  --text: #1f2937 !important;
+  --muted: #6b7280 !important;
+  --muted2: #9ca3af !important;
+  --radius: 8px !important;
+  --radius-lg: 12px !important;
+}
+#ec-shell *, #ec-shell *::before, #ec-shell *::after { font-family: 'Inter', system-ui, sans-serif !important; }
+#ec-shell .form-card { box-shadow: 0 1px 3px rgba(15,23,42,0.06); border-color: var(--border); }
+#ec-shell .form-header { background: linear-gradient(135deg, #2C3DA6 0%, #3d52cc 100%) !important; padding: 28px 36px 24px !important; }
+#ec-shell .form-header::after { background: rgba(255,192,0,0.18) !important; }
+#ec-shell .form-header h1 { letter-spacing: -0.5px; font-weight: 700 !important; font-size: 22px !important; }
+#ec-shell .form-header p { color: rgba(255,255,255,0.85) !important; font-size: 13px; }
+#ec-shell .header-badge { background: rgba(255,192,0,0.22) !important; border: 1px solid rgba(255,192,0,0.5) !important; color: #FFD440 !important; font-feature-settings: 'tnum'; font-variant-numeric: tabular-nums; letter-spacing: 0.3px; padding: 4px 11px !important; }
+#ec-shell .id-display { background: rgba(255,255,255,0.1) !important; border-color: rgba(255,255,255,0.2) !important; }
+#ec-shell .id-display span:last-child { color: #FFD440 !important; font-feature-settings: 'tnum'; font-variant-numeric: tabular-nums; }
+#ec-shell .section-title-text { font-weight: 700 !important; letter-spacing: 0.6px !important; color: #6b7280 !important; }
+#ec-shell .section-title-icon { background: #eef0fb !important; }
+#ec-shell .section-title-icon svg { color: #2C3DA6 !important; }
+#ec-shell .field-label { font-weight: 600 !important; font-size: 12px !important; color: #4b5563 !important; }
+#ec-shell .f-control { border-radius: 8px !important; padding: 10px 13px !important; font-size: 13.5px !important; background: white !important; transition: border-color .15s, box-shadow .15s; }
+#ec-shell .f-control:hover { border-color: #d1d5db !important; }
+#ec-shell .f-control:focus { border-color: #2C3DA6 !important; box-shadow: 0 0 0 3px rgba(44,61,166,0.12) !important; }
+#ec-shell .num-wrap .f-control, #ec-shell .currency-prefix { font-family: 'Inter', system-ui, sans-serif !important; font-feature-settings: 'tnum' !important; font-variant-numeric: tabular-nums !important; }
+#ec-shell .upload-zone { border-radius: 12px !important; }
+#ec-shell .upload-zone:hover, #ec-shell .upload-zone.drag-over { background: rgba(44,61,166,0.05) !important; border-color: #2C3DA6 !important; }
+#ec-shell .form-footer { background: #fafbfc !important; padding: 18px 36px !important; }
+#ec-shell .btn { padding: 10px 20px !important; border-radius: 8px !important; font-weight: 600 !important; font-size: 13.5px !important; }
+#ec-shell .btn-submit { background: #2C3DA6 !important; color: white !important; }
+#ec-shell .btn-submit:hover { background: #1f2d80 !important; box-shadow: 0 4px 12px rgba(44,61,166,0.25) !important; transform: translateY(-1px); }
+#ec-shell .btn-draft { background: rgba(255,192,0,0.15) !important; color: #b88600 !important; border-color: rgba(255,192,0,0.45) !important; }
+#ec-shell .btn-draft:hover { background: rgba(255,192,0,0.25) !important; }
+#ec-shell .btn-cancel:hover { background: #f3f4f6 !important; color: #1f2937 !important; }
+#ec-shell .expense-total { background: linear-gradient(135deg, #2C3DA6 0%, #3d52cc 100%) !important; border-radius: 12px !important; padding: 16px 20px !important; }
+#ec-shell .expense-total-value { font-feature-settings: 'tnum' !important; font-variant-numeric: tabular-nums !important; letter-spacing: -0.3px; }
+#ec-shell .back-link { background: white !important; border-color: var(--border) !important; border-radius: 8px !important; padding: 6px 12px 6px 8px !important; }
+#ec-shell .back-link:hover { color: #2C3DA6 !important; border-color: #2C3DA6 !important; background: #eef0fb !important; }
+#ec-shell #chainPreview { border-radius: 12px !important; box-shadow: 0 1px 3px rgba(15,23,42,0.06) !important; padding: 18px !important; }
+#ec-shell #chainPreview .cp-num { background: #2C3DA6 !important; }
+#ec-shell #chainPreview .cp-step-final .cp-num { background: #10b981 !important; }
+#ec-shell #chainPreview .cp-step { background: #fafbfc !important; border-color: var(--border) !important; }
+#ec-shell #chainPreview .cp-step-email { font-family: 'Inter', sans-serif !important; font-feature-settings: 'tnum' !important; opacity: 0.7; }
+#ec-shell .toast { border-radius: 10px !important; box-shadow: 0 8px 24px rgba(15,23,42,0.12) !important; }
+#ec-shell .form-section { padding: 26px 36px !important; }
+#ec-shell .line-item, #ec-shell .so-line, #ec-shell .item-card { border-radius: 12px !important; }
+#ec-shell table { border-radius: 8px; overflow: hidden; }
+
+/* Phase 8.14 — Form polish fixes */
+/* Fix 1: Auto-generated/readonly fields visual */
+#ec-shell .f-control[readonly], #ec-shell .f-control:disabled, #ec-shell input[placeholder*="Tự sinh"], #ec-shell input[placeholder*="Auto"], #ec-shell input[placeholder*="Sẽ fill"] {
+  background: #f3f4f6 !important;
+  color: #9ca3af !important;
+  cursor: not-allowed !important;
+  border-style: dashed !important;
+  border-color: #d1d5db !important;
+}
+#ec-shell .f-control[readonly]:focus, #ec-shell .f-control:disabled:focus { box-shadow: none !important; border-color: #d1d5db !important; }
+/* Status pending field readonly — match the pattern */
+#ec-shell input[value="Pending"][readonly], #ec-shell input[id*="status"][readonly] {
+  background: #fffbeb !important;
+  color: #b88600 !important;
+  border-color: #fde68a !important;
+  font-weight: 500;
+}
+
+/* Fix 3: Chain Preview sticky fix — no clip */
+#ec-shell #chainPreview {
+  position: sticky !important;
+  top: 70px !important;
+  max-height: calc(100vh - 100px) !important;
+  overflow-y: auto !important;
+  margin-bottom: 20px;
+}
+
+/* Fix 4: Currency prefix no overlap */
+#ec-shell .num-wrap .f-control { padding-left: 36px !important; }
+#ec-shell .currency-prefix { left: 14px !important; font-size: 13px !important; color: #9ca3af !important; font-weight: 600 !important; }
+/* Pending dot — no overlap text */
+#ec-shell input[value="Pending"][readonly], #ec-shell .pending-field { padding-left: 28px !important; background-image: url("data:image/svg+xml,%3Csvg width='8' height='8' viewBox='0 0 8 8' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='4' cy='4' r='4' fill='%23FFC000'/%3E%3C/svg%3E") !important; background-repeat: no-repeat !important; background-position: 12px center !important; }
+
+/* Fix 5: Alert / Notice — flex align */
+#ec-shell .alert, #ec-shell .form-notice, #ec-shell .notice, #ec-shell .alert-warning, #ec-shell .alert-info, #ec-shell .form-warning {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+  padding: 14px 18px !important;
+  border-radius: 10px !important;
+  line-height: 1.5;
+}
+#ec-shell .alert > svg, #ec-shell .alert > .icon, #ec-shell .form-notice > svg, #ec-shell .notice > svg { flex-shrink: 0 !important; margin-top: 2px !important; }
+/* Yellow-bordered warning specifically */
+#ec-shell [style*="border-color: rgb(252, 211, 77)"], #ec-shell [class*="warning"], #ec-shell [class*="warn"] { display: flex !important; align-items: flex-start !important; gap: 12px !important; }
+/* Link-banner specifically (PO/SO/REC alerts) */
+#ec-shell .link-banner { display: flex !important; align-items: flex-start !important; gap: 12px !important; padding: 14px 18px !important; }
+#ec-shell .link-banner > svg, #ec-shell .link-banner > .icon { flex-shrink: 0 !important; margin-top: 2px !important; width: 18px !important; height: 18px !important; }
+#ec-shell .link-banner p { margin: 0 !important; padding: 0 !important; line-height: 1.5 !important; }
+
+/* Phase 8.15 — Animate submit icon during loading
+   PO/REC forms set btn.style.opacity='.7' + pointer-events='none' when fetching.
+   Match that inline style and spin any SVG inside. */
+@keyframes ec-btn-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+#ec-shell .btn-submit[style*="opacity"] svg,
+#ec-shell .btn-submit[style*="pointer-events"] svg,
+#ec-shell .btn-submit.loading svg,
+#ec-shell button[type="submit"][style*="opacity"] svg {
+  animation: ec-btn-spin 0.9s linear infinite !important;
+  transform-origin: center !important;
+}
+</style>
+<!-- ec-polish-script intentionally removed — debounce handled by form code itself -->
+<script id="ec-attachment-fix">
+(function(){
+  // ---- Storage: window._ecAttachments = [{name, mime, size, content_base64}, ...]
+  if (!window._ecAttachments) window._ecAttachments = [];
+
+  function readAsBase64(file) {
+    return new Promise(function(resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function() {
+        // reader.result is data URL "data:mime/type;base64,XXXXX"
+        var dataUrl = reader.result || '';
+        var idx = dataUrl.indexOf(',');
+        var b64 = idx >= 0 ? dataUrl.substring(idx + 1) : '';
+        resolve(b64);
+      };
+      reader.onerror = function() { reject(reader.error || new Error('FileReader failed')); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function dedupKey(f) { return (f.name || '') + '|' + (f.size || 0); }
+
+  async function ingestFiles(fileList) {
+    if (!fileList || !fileList.length) return;
+    // ec-attach-ingest-fix-v2: snapshot FileList to Array immediately to avoid
+    // invalidation when form clears input.value='' in bubble phase.
+    var files = Array.from(fileList);
+    try { console.log('[ec-attach] ingest start, count=', files.length, 'names=', files.map(function(f){return f.name;})); } catch(_) {}
+
+    var seen = {};
+    window._ecAttachments.forEach(function(a) { seen[a.name + '|' + a.size] = true; });
+
+    // Filter dup + size limit
+    var toRead = files.filter(function(f) {
+      if (!f) return false;
+      if (seen[dedupKey(f)]) { try { console.log('[ec-attach] skip dup', f.name); } catch(_) {} return false; }
+      if (f.size > 20 * 1024 * 1024) { try { console.warn('[ec-attach] skip too big', f.name, f.size); } catch(_) {} return false; }
+      seen[dedupKey(f)] = true;
+      return true;
+    });
+
+    // Read all files in parallel
+    var reads = toRead.map(function(f) {
+      return readAsBase64(f).then(function(b64) {
+        return {
+          name: f.name,
+          mime: f.type || 'application/octet-stream',
+          size: f.size,
+          content_base64: b64
+        };
+      }).catch(function(e) {
+        try { console.warn('[ec-attach] read failed', f.name, e); } catch(_) {}
+        return null;
+      });
+    });
+
+    var results = await Promise.all(reads);
+    results.forEach(function(r) {
+      if (r) window._ecAttachments.push(r);
+    });
+    try { console.log('[ec-attach] tracked', window._ecAttachments.length, 'files (added', results.filter(function(r){return r;}).length, 'this batch)'); } catch(_) {}
+  }
+
+  function syncFromFileInput() {
+    var input = document.getElementById('fileInput');
+    if (!input) return;
+    if (input.dataset.ecAttachHooked === '1') return;
+    input.dataset.ecAttachHooked = '1';
+    input.addEventListener('change', function(e) {
+      ingestFiles(e.target.files);
+    }, true);  // capture phase: runs BEFORE form's own listener that clears input.value
+  }
+
+  function syncFromUploadZone() {
+    var zone = document.getElementById('uploadZone');
+    if (!zone) return;
+    if (zone.dataset.ecAttachHooked === '1') return;
+    zone.dataset.ecAttachHooked = '1';
+    zone.addEventListener('drop', function(e) {
+      // Don't preventDefault here — let form's own drop handler do its thing
+      var dt = e.dataTransfer;
+      if (dt && dt.files) ingestFiles(dt.files);
+    }, true);
+  }
+
+  // ---- Sync removed-files: when user clicks .file-remove, drop matching attachment.
+  // Form re-renders the file list; we observe DOM to detect removals.
+  function syncRemovals() {
+    // ec-attach-multifile-fix-v2: hook remove clicks instead of MutationObserver
+    // (Observer was firing when form re-rendered fileList, prematurely pruning _ecAttachments)
+    var list = document.getElementById('fileList');
+    if (!list) return;
+    if (list.dataset.ecAttachClickHooked === '1') return;
+    list.dataset.ecAttachClickHooked = '1';
+    list.addEventListener('click', function(e) {
+      var btn = e.target.closest('.file-remove');
+      if (!btn) return;
+      // Form's own handler reads data-idx and splices _files array, then renderFileList re-renders.
+      // We sync _ecAttachments by name BEFORE form acts (event happens in capture phase via this listener at root list).
+      var item = btn.closest('.file-item');
+      if (!item) return;
+      var nameEl = item.querySelector('.file-name');
+      if (!nameEl) return;
+      var name = nameEl.textContent.trim();
+      var before = window._ecAttachments.length;
+      window._ecAttachments = window._ecAttachments.filter(function(a) { return a.name !== name; });
+      try { console.log('[ec-attach] removed', name, '->', window._ecAttachments.length, '/', before); } catch(_) {}
+    }, true);
+  }
+
+  function hookAll() {
+    syncFromFileInput();
+    syncFromUploadZone();
+    syncRemovals();
+  }
+
+  // ---- Patch fetch to inject attachments into PA submission ----
+  if (!window._ecFetchPatched) {
+    window._ecFetchPatched = true;
+    var origFetch = window.fetch.bind(window);
+    window.fetch = function(input, init) {
+      try {
+        var url = typeof input === 'string' ? input : (input && input.url) || '';
+        // Match PA Power Automate endpoints
+        var isPA = /powerautomate\.com|powerplatform\.com/i.test(url);
+        var method = (init && init.method) || (typeof input === 'object' && input.method) || 'GET';
+        if (isPA && /post/i.test(method) && init && init.body && typeof init.body === 'string') {
+          var body = null;
+          try { body = JSON.parse(init.body); } catch(_) {}
+          if (body && typeof body === 'object' && !Array.isArray(body)) {
+            // Skip preview / lookup calls — only append on submission flows.
+            // Heuristic: skip if body has known lookup-only fields and no submitter context.
+            var isLookup = (body.type === 'globals' || body.type === 'brand' || body.type === 'client' ||
+                            body.type === 'mso' || body.type === 'service_type' || body.type === 'user_profile' ||
+                            body.type === 'brand_approvers' || body.ticket_id === 'PREVIEW');
+            if (!isLookup && window._ecAttachments && window._ecAttachments.length) {
+              body.attachments = window._ecAttachments.map(function(a) {
+                return { name: a.name, mime: a.mime, size: a.size, content_base64: a.content_base64 };
+              });
+              init.body = JSON.stringify(body);
+              try { console.log('[ec-attach] appended', body.attachments.length, 'attachments to PA POST'); } catch(_) {}
+            }
+          }
+        }
+      } catch(e) { try { console.warn('[ec-attach] fetch patch error', e); } catch(_) {} }
+      return origFetch(input, init);
+    };
+  }
+
+  // Hook on DOM ready + retry (form may render later)
+  function init() {
+    hookAll();
+    // Retry every 500ms for first 5s in case form renders late
+    var tries = 0;
+    var iv = setInterval(function() {
+      hookAll();
+      if (++tries > 10) clearInterval(iv);
+    }, 500);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+<div id="ec-shell">
+  <aside class="ec-sb">
+    <div class="ec-sb-header">
+      <a href="/" class="ec-sb-brand">
+        <img class="ec-sb-logo" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric" />
+        <span class="ec-sb-name">eCentric<br>Workspace</span>
+      </a>
+    </div>
+    <div class="ec-sb-search">
+      <svg class="ec-sb-search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke-linecap="round"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
+      <input type="text" placeholder="T&#236;m ki&#7871;m..." />
+      <span class="ec-sb-kbd">&#8984;K</span>
+    </div>
+    <nav class="ec-sb-nav">
+      <div class="ec-sb-label">Workspace</div>
+      <a class="ec-sb-link" href="/"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>Trang ch&#7911;</span></a>
+      <a class="ec-sb-link" href="/all-ticket"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span>Dashboard</span></a>
+      <a class="ec-sb-link" href="/approval"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span>All Tickets</span></a>
+
+      <div class="ec-sb-label">T&#7841;o m&#7899;i</div>
+      <a class="ec-sb-link " href="/mso-form"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg><span>MSO Request</span></a>
+      <a class="ec-sb-link " href="/so-form"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg><span>SO Request</span></a>
+      <a class="ec-sb-link " href="/form-po"><svg viewBox="0 0 24 24"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg><span>PO Request</span></a>
+      <a class="ec-sb-link active" href="/form-rec"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>REC Request</span></a>
+<!-- ECENTRIC-SIDEBAR-EXTRA-V1 -->
+<a class="ec-sb-link" href="/vendor-request" style="display:grid;grid-template-columns:18px 1fr;column-gap:11px;align-items:center;padding:8px 12px;border-radius:6px;color:#4b5563;text-decoration:none;font-size:13.5px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="grid-column:1;flex-shrink:0;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg><span style="grid-column:2;">Vendor Request</span></a>
+<a class="ec-sb-link" href="/client-request" style="display:grid;grid-template-columns:18px 1fr;column-gap:11px;align-items:center;padding:8px 12px;border-radius:6px;color:#4b5563;text-decoration:none;font-size:13.5px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="grid-column:1;flex-shrink:0;"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg><span style="grid-column:2;">Client Request</span></a>
+<a class="ec-sb-link" href="/contract-request" style="display:grid;grid-template-columns:18px 1fr;column-gap:11px;align-items:center;padding:8px 12px;border-radius:6px;color:#4b5563;text-decoration:none;font-size:13.5px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="grid-column:1;flex-shrink:0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg><span style="grid-column:2;">Contract Request</span></a>
+      <div class="ec-sb-label" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:#6b7280;padding:12px 12px 4px;">GBS</div>
+<a class="ec-sb-link" href="/gbs-po-form" style="display:grid;grid-template-columns:18px 1fr;column-gap:11px;align-items:center;padding:8px 12px;border-radius:6px;color:#4b5563;text-decoration:none;font-size:13.5px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="grid-column:1;flex-shrink:0;"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg><span style="grid-column:2;">GBS Purchase Order</span></a>
+<a class="ec-sb-link" href="/gbs-so-form" style="display:grid;grid-template-columns:18px 1fr;column-gap:11px;align-items:center;padding:8px 12px;border-radius:6px;color:#4b5563;text-decoration:none;font-size:13.5px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="grid-column:1;flex-shrink:0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg><span style="grid-column:2;">GBS Sales Order</span></a>
+<div class="ec-sb-label" style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;padding:12px 12px 4px;">Khac</div>
+<a class="ec-sb-link" href="/docs/architecture" style="display:grid;grid-template-columns:18px 1fr;column-gap:11px;align-items:center;padding:8px 12px;border-radius:6px;color:#4b5563;text-decoration:none;font-size:13.5px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="grid-column:1;flex-shrink:0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg><span style="grid-column:2;">Docs / Architecture</span></a>
+<a class="ec-sb-link" href="/docs/gbs-flow" style="display:grid;grid-template-columns:18px 1fr;column-gap:11px;align-items:center;padding:8px 12px;border-radius:6px;color:#4b5563;text-decoration:none;font-size:13.5px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="grid-column:1;flex-shrink:0;"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg><span style="grid-column:2;">GBS Flow &amp; Definitions</span></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </nav>
+    <div class="ec-sb-footer">
+      <div class="ec-sb-user-card">
+        <div class="ec-sb-avatar" id="ecAvatar">U</div>
+        <div class="ec-sb-user-info">
+          <div class="ec-sb-user-name" id="ecUserName">User</div>
+          <div class="ec-sb-user-role">Nh&#226;n vi&#234;n</div>
+        </div>
+      </div>
+      <button class="ec-sb-logout" title="&#272;&#259;ng xu&#7845;t" onclick="if(confirm('Logout?')){fetch('/api/method/logout',{method:'POST'}).then(function(){location.href='/login-page'})}"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+    </div>
+  </aside>
+  <main class="ec-main">
+    <div class="ec-tb">
+      <div class="ec-bc"><a href="/">Workspace</a><span class="sep">/</span><a href="/approval">All Tickets</a><span class="sep">/</span><strong>REC Request</strong></div>
+      <div class="ec-tb-actions">
+        <a class="ec-ib" href="/" title="Trang ch&#7911;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></a>
+        <button class="ec-ib" title="Tr&#7907; gi&#250;p" onclick="window.open('https://docs.ecentric.vn','_blank')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
+        <a class="ec-ib" href="/app/notification-log" data-ec-notification-bell="1" aria-label="Th&#244;ng b&#225;o" title="Th&#244;ng b&#225;o"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="dot"></span></a>
+        <button class="ec-ib" title="C&#224;i &#273;&#7863;t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+      </div>
+    </div>
+    <div class="ec-content">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #1a2355; --navy2: #242f6b; --navy-light: rgba(26,35,85,0.06);
+  --gold: #c8962e; --gold2: #e8b84b; --gold-light: rgba(200,150,46,0.12); --gold-border: rgba(200,150,46,0.3);
+  --bg: #f0f2f8; --surface: #fff; --border: #dde0ed;
+  --text: #1a2355; --muted: #7b82a0; --muted2: #a0a6bf;
+  --danger: #c0392b; --danger-bg: #fff0f0; --danger-border: #f5c6c6;
+  --success: #166534; --success-bg: #f0fdf4; --success-border: #bbf7d0;
+  --warn: #f59e0b; --warn-bg: #fffbeb; --warn-border: #fcd34d;
+  --radius: 10px; --radius-lg: 14px;
+}
+* { font-family: 'DM Sans', system-ui, sans-serif; }
+body { background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; min-height: 100vh; }
+.page-wrap { max-width: 1100px; margin: 0 auto; padding: 36px 40px 80px; }
+.back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); text-decoration: none; margin-bottom: 18px; padding: 5px 10px 5px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; transition: all .18s; }
+.back-link:hover { color: var(--navy); border-color: var(--navy); background: var(--navy-light); }
+.back-link svg { width: 14px; height: 14px; }
+.form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.form-header { background: var(--navy); padding: 32px 40px 28px; position: relative; overflow: hidden; }
+.form-header::before { content: ''; position: absolute; top: -40px; right: -30px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.04); pointer-events: none; }
+.form-header::after { content: ''; position: absolute; bottom: -60px; right: 80px; width: 130px; height: 130px; border-radius: 50%; background: rgba(200,150,46,0.07); pointer-events: none; }
+.header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.header-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(200,150,46,0.18); border: 1px solid var(--gold-border); color: var(--gold2); font-family: 'DM Mono', monospace; font-size: 11px; padding: 4px 12px; border-radius: 20px; flex-shrink: 0; }
+.form-header h1 { color: #fff; font-size: 26px; font-weight: 600; letter-spacing: -.4px; margin-top: 12px; }
+.form-header p { color: rgba(255,255,255,0.48); font-size: 13px; margin-top: 5px; }
+.id-display { margin-top: 14px; display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; padding: 6px 12px; }
+.id-display span:first-child { font-size: 11px; color: rgba(255,255,255,0.45); }
+.id-display span:last-child { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--gold2); font-weight: 500; }
+.link-banner { margin: 16px 40px 0; background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: var(--radius); padding: 12px 16px; display: flex; align-items: center; gap: 10px; }
+.link-banner svg { width: 18px; height: 18px; color: var(--warn); flex-shrink: 0; }
+.link-banner p { font-size: 13px; color: #7a5c10; flex: 1; line-height: 1.5; }
+.link-banner strong { color: #5a4008; }
+.required-note { font-size: 12px; color: var(--muted2); padding: 14px 40px 0; }
+.required-note span { color: var(--danger); }
+.form-section { padding: 32px 40px; border-bottom: 1px solid var(--border); }
+.form-section:last-of-type { border-bottom: none; }
+.section-title { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+.section-title-icon { width: 26px; height: 26px; border-radius: 6px; background: var(--navy-light); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.section-title-icon svg { width: 14px; height: 14px; color: var(--navy); }
+.section-title-text { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); white-space: nowrap; }
+.section-title-line { flex: 1; height: 1px; background: var(--border); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+.col-full { grid-column: 1 / -1; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field-label { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .2px; display: flex; align-items: center; gap: 4px; }
+.req { color: var(--danger); font-size: 12px; }
+.field-hint { font-size: 11px; color: var(--muted2); margin-top: 3px; }
+.error-msg { font-size: 11px; color: var(--danger); margin-top: 3px; display: none; }
+.field.has-error .error-msg { display: block; }
+.field.has-error .f-control { border-color: var(--danger) !important; box-shadow: 0 0 0 3px rgba(192,57,43,.08) !important; }
+.f-control { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; color: var(--text); background: var(--surface); outline: none; transition: border-color .15s, box-shadow .15s; appearance: none; }
+.f-control:hover { border-color: #b0b6cc; }
+.f-control:focus { border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-light); }
+.f-control[readonly], .f-control:disabled { background: var(--bg); color: var(--muted); cursor: default; }
+.f-control[readonly]:focus { border-color: var(--border); box-shadow: none; }
+textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans', system-ui, sans-serif; }
+.select-wrap { position: relative; }
+.select-wrap select { padding-right: 32px; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 7L11 1' stroke='%237b82a0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+.num-wrap { position: relative; }
+.currency-prefix { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; pointer-events: none; }
+.num-wrap .f-control { padding-left: 30px; font-family: 'DM Mono', monospace; }
+.status-readonly-wrap { position: relative; }
+.status-readonly-wrap .status-indicator { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 8px; height: 8px; border-radius: 50%; pointer-events: none; z-index: 2; }
+.status-readonly-wrap .f-control[readonly] { padding-left: 32px; background: var(--bg); color: var(--muted); cursor: not-allowed; border-color: var(--border); }
+.status-pending { background: #f59e0b; }
+.po-info { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; margin-top: 6px; font-size: 12px; color: var(--muted); display: none; }
+.po-info.shown { display: block; }
+.po-info strong { color: var(--text); }
+.variance-info { margin-top: 16px; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; display: none; }
+.variance-info.shown { display: block; }
+.variance-row { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-family: 'DM Mono', monospace; }
+.variance-row span strong { font-weight: 700; }
+.variance-positive { color: var(--danger); }
+.variance-negative { color: var(--success); }
+.variance-zero { color: var(--muted); }
+.upload-zone { border: 2px dashed var(--border); border-radius: var(--radius-lg); padding: 28px 24px; text-align: center; cursor: pointer; transition: all .2s; background: var(--bg); position: relative; }
+.upload-zone:hover, .upload-zone.drag-over { border-color: var(--navy); background: var(--navy-light); }
+.upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.upload-icon { width: 42px; height: 42px; margin: 0 auto 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.upload-icon svg { width: 18px; height: 18px; color: var(--muted); }
+.upload-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.upload-sub { font-size: 12px; color: var(--muted); }
+.upload-sub span { color: var(--navy); font-weight: 500; }
+.upload-limit { font-size: 11px; color: var(--muted2); margin-top: 5px; }
+.file-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.file-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.file-icon { width: 32px; height: 32px; border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 10px; font-weight: 700; font-family: 'DM Mono', monospace; }
+.file-icon.pdf { background: #fff0f0; color: var(--danger); }
+.file-icon.img { background: #f0f7ff; color: #1864ab; }
+.file-icon.xls { background: #f0fff4; color: #166534; }
+.file-icon.doc { background: #eef3ff; color: #3b5bdb; }
+.file-icon.other { background: var(--bg); color: var(--muted); }
+.file-meta { flex: 1; min-width: 0; }
+.file-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-size { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.file-remove { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border); background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 14px; flex-shrink: 0; }
+.file-remove:hover { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
+.file-error { font-size: 11px; color: var(--danger); padding: 8px 12px; background: var(--danger-bg); border: 1px solid var(--danger-border); border-radius: 6px; margin-top: 8px; display: none; }
+.form-footer { padding: 20px 40px; background: var(--bg); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+.form-footer-left { flex: 1; font-size: 11px; color: var(--muted); }
+.form-footer-left strong { color: var(--danger); }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 22px; border-radius: var(--radius); font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all .18s; white-space: nowrap; }
+.btn svg { width: 14px; height: 14px; }
+.btn-cancel { background: var(--surface); color: var(--muted); border-color: var(--border); }
+.btn-cancel:hover { background: var(--bg); color: var(--text); }
+.btn-draft { background: var(--gold-light); color: var(--gold); border-color: var(--gold-border); }
+.btn-draft:hover { background: rgba(200,150,46,0.2); }
+.btn-submit { background: var(--navy); color: #fff; }
+.btn-submit:hover { background: var(--navy2); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,35,85,0.25); }
+.toast { position: fixed; top: 20px; right: 20px; background: var(--success-bg); border: 1px solid var(--success-border); color: var(--success); padding: 12px 18px; border-radius: var(--radius); font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; opacity: 0; pointer-events: none; transform: translateY(-8px); transition: all .25s; z-index: 999; box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+.toast.show { opacity: 1; pointer-events: all; transform: translateY(0); }
+.toast svg { width: 16px; height: 16px; flex-shrink: 0; }
+@media (max-width: 768px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .col-full { grid-column: 1; }
+  .form-section { padding: 20px; }
+  .form-header { padding: 20px 20px 16px; }
+  .page-wrap { padding: 20px 16px 60px; }
+  .form-footer { padding: 16px 20px; }
+  .link-banner { margin: 12px 20px 0; }
+  .required-note { padding: 12px 20px 0; }
+}
+</style>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toastText">REC Request đã được gửi thành công!</span>
+</div>
+
+<div class="page-wrap">
+  <a class="back-link" href="/mso-approval">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    Quay lại trang chủ
+  </a>
+
+  <div class="form-card">
+    <div class="form-header">
+      <div class="header-top">
+        <div></div>
+        <div class="header-badge">
+          <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#e8b84b"/></svg>
+          REC
+        </div>
+      </div>
+      <h1>Reconciliation Request</h1>
+      <p>Đối soát chi phí thực tế — liên kết vào PO đã được duyệt</p>
+      <div class="id-display">
+        <span>Request ID</span>
+        <span id="recIdDisplay">REC-yyyyMMdd-???-XXX</span>
+      </div>
+    </div>
+
+    <div class="link-banner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <p>REC phải liên kết vào một <strong>PO đã được duyệt (Approved)</strong>. Chọn từ dropdown bên dưới.</p>
+    </div>
+
+    <p class="required-note">Các trường có dấu <span>*</span> là bắt buộc.</p>
+
+    <div class="form-section">
+      <div class="section-title">
+        <div class="section-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>
+        <span class="section-title-text">Thông tin chung</span>
+        <div class="section-title-line"></div>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label class="field-label">REC ID</label>
+          <input class="f-control" id="recId" readonly placeholder="Tự sinh khi Submit"/>
+          <span class="field-hint">Format REC-YYYYMMDD-XXX-DEPT</span>
+        </div>
+        <div class="field">
+          <label class="field-label">Procurement Request (PO) <span class="req">*</span></label>
+          <div class="select-wrap">
+            <select class="f-control" id="procurementRequestId">
+              <option value="">-- Đang tải PO list... --</option>
+            </select>
+          </div>
+          <div class="po-info" id="poInfoBox"></div>
+          <span class="error-msg">Vui lòng chọn PO parent</span>
+        </div>
+        <div class="field col-full">
+          <label class="field-label">Title <span class="req">*</span></label>
+          <input class="f-control" id="title" placeholder="Tiêu đề Reconciliation Request..."/>
+          <span class="error-msg">Vui lòng nhập tiêu đề</span>
+        </div>
+        <div class="field">
+          <label class="field-label">Department</label>
+          <input class="f-control" id="department" readonly placeholder="Auto từ PO khi chọn"/>
+          <span class="field-hint">REC kế thừa Department từ PO parent</span>
+        </div>
+        <div class="field">
+          <label class="field-label">Brand</label>
+          <input class="f-control" id="brand" readonly placeholder="Auto từ PO khi chọn"/>
+          <span class="field-hint">REC kế thừa Brand từ PO parent</span>
+        </div>
+        <div class="field">
+          <label class="field-label">Vendor</label>
+          <input class="f-control" id="vendorName" readonly placeholder="Auto từ PO khi chọn"/>
+          <span class="field-hint">REC kế thừa Vendor từ PO</span>
+        </div>
+        <div class="field">
+          <label class="field-label">Status</label>
+          <div class="status-readonly-wrap">
+            <div class="status-indicator status-pending"></div>
+            <input type="text" class="f-control" value="Pending" readonly>
+          </div>
+          <span class="field-hint">Mặc định Pending khi tạo mới</span>
+        </div>
+        <div class="field col-full">
+          <label class="field-label">Description</label>
+          <textarea class="f-control" id="description" rows="3" placeholder="Ghi chú chi tiết về reconciliation..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">
+        <div class="section-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+        <span class="section-title-text">Chi phí thực tế</span>
+        <div class="section-title-line"></div>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label class="field-label">Actual Expense (+VAT) <span class="req">*</span></label>
+          <div class="num-wrap">
+            <span class="currency-prefix">₫</span>
+            <input class="f-control" type="text" id="actualExpVatIn" placeholder="0" inputmode="numeric"/>
+          </div>
+          <span class="field-hint">Số tiền thực tế đã chi (có VAT)</span>
+          <span class="error-msg">Vui lòng nhập</span>
+        </div>
+        <div class="field">
+          <label class="field-label">Estimated từ PO</label>
+          <div class="num-wrap">
+            <span class="currency-prefix">₫</span>
+            <input class="f-control" type="text" id="estimatedFromPo" placeholder="0" readonly/>
+          </div>
+          <span class="field-hint">Tự fill từ PO khi chọn (để compare)</span>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top: 20px;">
+        <div class="field">
+          <label class="field-label">VAT % <span id="vatPctLabel" style="font-weight:400;color:var(--muted);font-size:10px">(single rate)</span></label>
+          <input class="f-control" type="number" id="vatPercent" value="10" min="0" max="100" step="0.5"/>
+          <span class="field-hint" id="vatPctHint">Thuế VAT (mặc định 10%, đổi nếu khác)</span>
+        </div>
+        <div class="field">
+          <label class="field-label">Actual Expense (-VAT) <span id="vatExLabel" style="font-weight:400;color:var(--muted);font-size:10px">(auto)</span></label>
+          <div class="num-wrap">
+            <span class="currency-prefix">₫</span>
+            <input class="f-control" type="text" id="actualExpVatEx" placeholder="0" readonly inputmode="numeric"/>
+          </div>
+          <span class="field-hint" id="vatExHint">Auto-calc: +VAT / (1 + %VAT/100)</span>
+        </div>
+      </div>
+      <div class="field" style="margin-top: 16px;">
+        <label class="toggle-row">
+          <input type="checkbox" id="vatMixed"/>
+          <div>
+            <div class="toggle-label">Mixed VAT rates — nhập manual</div>
+            <div class="toggle-hint">Tick nếu REC có nhiều invoice với VAT % khác nhau (vd: 1 invoice 10%, 1 invoice 8%, 1 không VAT). Khi tick: nhập trực tiếp +VAT và -VAT, %VAT auto-calc effective rate.</div>
+          </div>
+        </label>
+      </div>
+      <div class="variance-info" id="varianceInfo">
+        <div class="variance-row">
+          <span>Estimated PO: <strong id="vEst">0</strong> đ</span>
+          <span>Actual: <strong id="vAct">0</strong> đ</span>
+          <span>Chênh lệch: <strong id="vDiff" class="variance-zero">0</strong> đ <span id="vPct" style="margin-left:6px">(0%)</span></span>
+        </div>
+        <div id="vNote" style="margin-top:8px;font-size:11px;color:var(--muted)"></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">
+        <div class="section-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+        <span class="section-title-text">Chứng từ</span>
+        <div class="section-title-line"></div>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label class="field-label">Invoice No.</label>
+          <input class="f-control" id="invoiceNo" placeholder="Số hoá đơn (VAT)"/>
+          <span class="field-hint">Số invoice từ vendor</span>
+        </div>
+        <div class="field">
+          <label class="field-label">Contract No.</label>
+          <input class="f-control" id="contractNo" placeholder="Số hợp đồng"/>
+          <span class="field-hint">Reference contract nếu có</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">
+        <div class="section-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <span class="section-title-text">Người phụ trách</span>
+        <div class="section-title-line"></div>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label class="field-label">Submitted by</label>
+          <input class="f-control" id="submittedBy" readonly placeholder="Auto từ session"/>
+          <span class="field-hint">Email login Frappe</span>
+        </div>
+        <div class="field">
+          <label class="field-label">Requestor (email) <span class="req">*</span></label>
+          <input class="f-control" type="email" id="requestor" placeholder="name@boxmeglobal.com"/>
+          <span class="field-hint">Auto-fill = Submitted by, có thể đổi</span>
+          <span class="error-msg">Requestor phải là email hợp lệ</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">
+        <div class="section-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></div>
+        <span class="section-title-text">Chứng từ đính kèm <span class="req">*</span> (invoice, hợp đồng — bắt buộc)</span>
+        <div class="section-title-line"></div>
+      </div>
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip"/>
+        <div class="upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+        <div class="upload-title">Kéo thả file vào đây</div>
+        <div class="upload-sub">hoặc <span>click để chọn file</span></div>
+        <div class="upload-limit">PDF, Word, Excel, hình ảnh — tối đa 20MB / file</div>
+      </div>
+      <div class="file-error" id="fileError"></div>
+      <div class="file-list" id="fileList"></div>
+      <div id="attachmentRequiredWarn" style="display:none;margin-top:10px;padding:10px;background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);border-radius:6px;font-size:12px;font-weight:500">
+        ⚠️ REC bắt buộc đính kèm ít nhất 1 chứng từ (invoice / hoá đơn / hợp đồng) trước khi submit.
+      </div>
+    </div>
+
+    <div class="form-footer">
+      <span class="form-footer-left"><strong>*</strong> Bắt buộc nhập trước khi Submit</span>
+      <button class="btn btn-cancel" id="btnCancel">Huỷ</button>
+      <button class="btn btn-draft" id="btnDraft">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+        Lưu nháp
+      </button>
+      <button class="btn btn-submit" id="submitBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        Submit yêu cầu
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const REC_FLOW_URL = '/api/method/ecentric_workspace.api.submit_rec';
+  const LOOKUP_URL = '/api/method/web_lookup';
+
+  const DEPT_CODE_MAP = {
+    'E-commerce Operation': 'ECO',
+    'Merchandise, Content & Design': 'MCD',
+    'Service': 'SVC',
+    'Media': 'MED',
+    'Production': 'PRD',
+    'Operation, Data & System': 'ODS',
+    'HR': 'HRD',
+    'Finance & Accounting': 'FNA'
+  };
+
+  var _poEstimated = 0; // Estimated từ PO để compute variance
+
+  function getSessionEmail() {
+    if (window.frappe && window.frappe.session && window.frappe.session.user_email) return window.frappe.session.user_email;
+    if (window.frappe && window.frappe.session && window.frappe.session.user) {
+      var u = window.frappe.session.user;
+      if (typeof u === 'string' && u.includes('@')) return u;
+    }
+    return null;
+  }
+
+  function showToast(msg, type) {
+    var t = document.getElementById('toast');
+    if (!t) return;
+    if (type === 'error') {
+      t.style.background = 'var(--danger-bg)';
+      t.style.borderColor = 'var(--danger-border)';
+      t.style.color = 'var(--danger)';
+      t.querySelector('svg').innerHTML = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
+    } else {
+      t.style.background = 'var(--success-bg)';
+      t.style.borderColor = 'var(--success-border)';
+      t.style.color = 'var(--success)';
+      t.querySelector('svg').innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+    }
+    document.getElementById('toastText').textContent = msg;
+    t.classList.add('show');
+    setTimeout(function () { t.classList.remove('show'); }, 4500);
+  }
+
+  function fmtNum(el) {
+    var raw = el.value.replace(/[^\d]/g, '');
+    el.value = raw ? parseInt(raw, 10).toLocaleString('vi-VN') : '';
+  }
+
+  function parseNum(el) {
+    return parseInt((el.value || '0').replace(/[^\d]/g, ''), 10) || 0;
+  }
+
+  function generateRecIdPreview() {
+    var now = new Date();
+    var yyyy = now.getFullYear();
+    var mm = String(now.getMonth() + 1).padStart(2, '0');
+    var dd = String(now.getDate()).padStart(2, '0');
+    var dept = (document.getElementById('department') || {}).value || '';
+    var deptCode = DEPT_CODE_MAP[dept] || 'XXX';
+    return 'REC-' + yyyy + mm + dd + '-???-' + deptCode;
+  }
+
+  function updateIdPreview() {
+    document.getElementById('recIdDisplay').textContent = generateRecIdPreview();
+  }
+
+  async function loadPOParents() {
+    var select = document.getElementById('procurementRequestId');
+    select.innerHTML = '<option value="">-- Đang tải PO list... --</option>';
+    select.disabled = true;
+    try {
+      var res = await fetch(LOOKUP_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'po' })
+      });
+      var result = await res.json();
+      if (!result.success) throw new Error(result.error || 'Lookup failed');
+      var approved = (result.items || []).filter(function (i) { return (i.final_status || i.status) === 'Approved'; });
+      select.innerHTML = '<option value="">-- Chọn PO parent (đã Approved) --</option>';
+      approved.forEach(function (item) {
+        var opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = item.id + ' — ' + (item.title || '(no title)');
+        opt.dataset.dept = item.department || '';
+        opt.dataset.title = item.title || '';
+        opt.dataset.client = item.client_name || '';
+        opt.dataset.brand = item.brand_code || '';
+        opt.dataset.vendor = item.vendor_name || '';
+        opt.dataset.estimated = item.estimated_exp_vat_in || '0';
+        opt.dataset.estimatedEx = item.estimated_exp_vat_ex || '0';
+        opt.dataset.procurementCode = item.procurement_code || '';
+        opt.dataset.procurementName = item.procurement_name || '';
+        opt.dataset.clientId = item.client_id || '';
+        opt.dataset.clientName = item.client_name || item.client || '';
+        opt.dataset.serviceCode = item.service_code || item.service_type || '';
+        opt.dataset.serviceName = item.service_name || item.service_title || '';
+        opt.dataset.serviceTitle = item.service_title || item.service_name || '';
+        select.appendChild(opt);
+      });
+      select.disabled = false;
+      if (approved.length === 0) {
+        select.innerHTML = '<option value="">-- Chưa có PO Approved nào --</option>';
+      }
+    } catch (err) {
+      console.error('Load PO error:', err);
+      select.innerHTML = '<option value="">-- Lỗi: ' + err.message + ' --</option>';
+    }
+  }
+
+  function calcVatEx() {
+    // Single rate mode: compute -VAT from +VAT and %VAT
+    var vatIn = parseInt((document.getElementById('actualExpVatIn').value || '0').replace(/[^\d]/g, ''), 10) || 0;
+    var pct = parseFloat(document.getElementById('vatPercent').value) || 0;
+    var vatEx = pct > 0 ? Math.round(vatIn / (1 + pct / 100)) : vatIn;
+    document.getElementById('actualExpVatEx').value = vatEx ? vatEx.toLocaleString('vi-VN') : '';
+  }
+
+  function calcEffectiveVatPct() {
+    // Mixed rates mode: compute effective %VAT from +VAT and -VAT
+    var vatIn = parseInt((document.getElementById('actualExpVatIn').value || '0').replace(/[^\d]/g, ''), 10) || 0;
+    var vatEx = parseInt((document.getElementById('actualExpVatEx').value || '0').replace(/[^\d]/g, ''), 10) || 0;
+    if (vatEx > 0 && vatIn > vatEx) {
+      var effective = ((vatIn - vatEx) / vatEx) * 100;
+      document.getElementById('vatPercent').value = effective.toFixed(2);
+    }
+  }
+
+  function toggleVatMixed() {
+    var mixed = document.getElementById('vatMixed').checked;
+    var pctEl = document.getElementById('vatPercent');
+    var exEl = document.getElementById('actualExpVatEx');
+    var pctLabel = document.getElementById('vatPctLabel');
+    var pctHint = document.getElementById('vatPctHint');
+    var exLabel = document.getElementById('vatExLabel');
+    var exHint = document.getElementById('vatExHint');
+
+    if (mixed) {
+      // Mixed mode: -VAT editable, %VAT readonly (auto from +VAT/-VAT)
+      exEl.readOnly = false;
+      exEl.style.background = 'var(--surface)';
+      exEl.style.color = 'var(--text)';
+      exEl.style.cursor = 'text';
+      pctEl.readOnly = true;
+      pctEl.style.background = 'var(--bg)';
+      pctEl.style.color = 'var(--muted)';
+      pctEl.style.cursor = 'not-allowed';
+      pctLabel.textContent = '(effective rate, auto-calc)';
+      pctHint.textContent = 'Effective rate = (+VAT − -VAT) / -VAT × 100';
+      exLabel.textContent = '(nhập manual)';
+      exHint.textContent = 'Nhập tổng số tiền không VAT từ tất cả invoices';
+      calcEffectiveVatPct();
+    } else {
+      // Single rate mode: %VAT editable, -VAT auto-calc readonly
+      pctEl.readOnly = false;
+      pctEl.style.background = 'var(--surface)';
+      pctEl.style.color = 'var(--text)';
+      pctEl.style.cursor = 'text';
+      exEl.readOnly = true;
+      exEl.style.background = 'var(--bg)';
+      exEl.style.color = 'var(--muted)';
+      exEl.style.cursor = 'default';
+      pctLabel.textContent = '(single rate)';
+      pctHint.textContent = 'Thuế VAT (mặc định 10%, đổi nếu khác)';
+      exLabel.textContent = '(auto)';
+      exHint.textContent = 'Auto-calc: +VAT / (1 + %VAT/100)';
+      calcVatEx();
+    }
+  }
+
+  function computeVariance() {
+    var box = document.getElementById('varianceInfo');
+    if (!_poEstimated) {
+      box.classList.remove('shown');
+      return;
+    }
+    var actual = parseNum(document.getElementById('actualExpVatIn'));
+    var estimated = _poEstimated;
+    var diff = actual - estimated;
+    var pct = estimated > 0 ? Math.round((diff / estimated) * 100) : 0;
+
+    document.getElementById('vEst').textContent = estimated.toLocaleString('vi-VN');
+    document.getElementById('vAct').textContent = actual.toLocaleString('vi-VN');
+
+    var diffEl = document.getElementById('vDiff');
+    var pctEl = document.getElementById('vPct');
+    var noteEl = document.getElementById('vNote');
+
+    diffEl.textContent = (diff >= 0 ? '+' : '') + diff.toLocaleString('vi-VN');
+    pctEl.textContent = '(' + (diff >= 0 ? '+' : '') + pct + '%)';
+
+    if (diff > 0) {
+      diffEl.className = 'variance-positive';
+      pctEl.style.color = 'var(--danger)';
+      noteEl.textContent = '⚠️ Chi vượt estimated. Finance sẽ review lý do trong description.';
+      noteEl.style.color = 'var(--danger)';
+    } else if (diff < 0) {
+      diffEl.className = 'variance-negative';
+      pctEl.style.color = 'var(--success)';
+      noteEl.textContent = '✓ Chi ít hơn estimated. Tiết kiệm budget.';
+      noteEl.style.color = 'var(--success)';
+    } else {
+      diffEl.className = 'variance-zero';
+      pctEl.style.color = 'var(--muted)';
+      noteEl.textContent = 'Chi đúng bằng estimated.';
+      noteEl.style.color = 'var(--muted)';
+    }
+
+    box.classList.add('shown');
+  }
+
+  function onPOChange() {
+    var select = document.getElementById('procurementRequestId');
+    var opt = select.options[select.selectedIndex];
+    var infoBox = document.getElementById('poInfoBox');
+    if (!opt || !opt.value) {
+      infoBox.classList.remove('shown');
+      document.getElementById('department').value = '';
+      document.getElementById('brand').value = '';
+      document.getElementById('vendorName').value = '';
+      document.getElementById('estimatedFromPo').value = '';
+      _poEstimated = 0;
+      computeVariance();
+      return;
+    }
+    if (opt.dataset.dept) {
+      document.getElementById('department').value = opt.dataset.dept;
+      updateIdPreview();
+    }
+    if (opt.dataset.brand) document.getElementById('brand').value = opt.dataset.brand;
+    if (opt.dataset.vendor) document.getElementById('vendorName').value = opt.dataset.vendor;
+    var est = parseInt(opt.dataset.estimated || '0', 10) || 0;
+    _poEstimated = est;
+    window._poEstimatedEx = parseInt(opt.dataset.estimatedEx || '0', 10) || 0;
+    window._poClientId = opt.dataset.clientId || '';
+    window._poClientName = opt.dataset.clientName || '';
+    window._poProcurementCode = opt.dataset.procurementCode || '';
+    window._poProcurementName = opt.dataset.procurementName || '';
+    document.getElementById('estimatedFromPo').value = est ? est.toLocaleString('vi-VN') : '0';
+
+    var html = '<strong>' + opt.value + '</strong> · ' + (opt.dataset.title || '');
+    if (opt.dataset.dept) html += ' · Dept: ' + opt.dataset.dept;
+    if (opt.dataset.vendor) html += ' · Vendor: ' + opt.dataset.vendor;
+    infoBox.innerHTML = html;
+    infoBox.classList.add('shown');
+    computeVariance();
+  }
+
+  function validate() {
+    var rules = [
+      { id: 'procurementRequestId', msg: 'Vui lòng chọn PO parent' },
+      { id: 'title', msg: 'Vui lòng nhập tiêu đề' },
+      { id: 'department', msg: 'Department chưa có — chọn PO trước' },
+      { id: 'actualExpVatIn', msg: 'Vui lòng nhập Actual Expense' },
+      { id: 'requestor', msg: 'Vui lòng nhập Requestor email' }
+    ];
+    var valid = true;
+    rules.forEach(function (r) {
+      var el = document.getElementById(r.id);
+      var field = el.closest('.field');
+      if (!el.value.trim()) {
+        field.classList.add('has-error');
+        valid = false;
+      } else {
+        field.classList.remove('has-error');
+      }
+    });
+    var reqEl = document.getElementById('requestor');
+    var reqVal = reqEl.value.trim();
+    if (reqVal && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reqVal)) {
+      reqEl.closest('.field').classList.add('has-error');
+      reqEl.closest('.field').querySelector('.error-msg').textContent = 'Requestor phải là email hợp lệ';
+      valid = false;
+    }
+    // Attachment required for REC
+    var warnEl = document.getElementById('attachmentRequiredWarn');
+    if (files.length === 0) {
+      warnEl.style.display = 'block';
+      document.getElementById('uploadZone').style.borderColor = 'var(--danger)';
+      document.getElementById('uploadZone').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      valid = false;
+    } else {
+      warnEl.style.display = 'none';
+      document.getElementById('uploadZone').style.borderColor = '';
+    }
+    return valid;
+  }
+
+  async function submitForm() {
+    if (!validate()) {
+      var errEl = document.querySelector('.field.has-error .f-control');
+      if (errEl) errEl.focus();
+      showToast('Vui lòng kiểm tra lại các field', 'error');
+      return;
+    }
+    var email = getSessionEmail() || document.getElementById('submittedBy').value;
+    if (!email || !email.includes('@')) {
+      showToast('Không lấy được email login', 'error');
+      return;
+    }
+
+    var actual = parseNum(document.getElementById('actualExpVatIn'));
+    var estimated = _poEstimated;
+    var chenh_lech = actual - estimated;
+
+    var data = {
+      title: document.getElementById('title').value.trim(),
+      procurement_request_id: document.getElementById('procurementRequestId').value,
+      service_code: (function(s){var o=s&&s.options[s.selectedIndex];return o?(o.dataset.serviceCode||''):'';})(document.getElementById('procurementRequestId')),
+      service_name: (function(s){var o=s&&s.options[s.selectedIndex];return o?(o.dataset.serviceName||''):'';})(document.getElementById('procurementRequestId')),
+      service_title: (function(s){var o=s&&s.options[s.selectedIndex];return o?(o.dataset.serviceTitle||o.dataset.serviceName||''):'';})(document.getElementById('procurementRequestId')),
+      department: document.getElementById('department').value,
+      brand_code: document.getElementById('brand').value,
+      vendor_name: document.getElementById('vendorName').value,
+      client_id: window._poClientId || '',
+      client_name: window._poClientName || '',
+      procurement_code: window._poProcurementCode || '',
+      procurement_name: window._poProcurementName || '',
+      submitted_by: email,
+      requestor: document.getElementById('requestor').value.trim(),
+      estimated_exp_vat_in: _poEstimated || 0,
+      estimated_exp_vat_ex: window._poEstimatedEx || 0,
+      actual_exp_vat_in: actual,
+      actual_exp_vat_ex: parseNum(document.getElementById('actualExpVatEx')),
+      vat_percent: parseFloat(document.getElementById('vatPercent').value) || 0,
+      chenh_lech: chenh_lech,
+      is_over_budget: (actual > (_poEstimated || 0)) ? 'Yes' : 'No',
+      over_budget_justification: document.getElementById('description').value.trim(),
+      invoice_no: document.getElementById('invoiceNo').value.trim(),
+      contract_no: document.getElementById('contractNo').value.trim(),
+      description: document.getElementById('description').value.trim()
+    };
+
+    var btn = document.getElementById('submitBtn');
+    var origHTML = btn.innerHTML;
+    btn.style.opacity = '.7';
+    btn.style.pointerEvents = 'none';
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83"/></svg> Đang gửi...';
+    try {
+      var res = await fetch(REC_FLOW_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) {
+        var errBody = await res.text();
+        var parsedErr = errBody;
+        try { parsedErr = JSON.parse(errBody); } catch (e) {}
+        throw new Error((parsedErr && parsedErr.error && parsedErr.error.message) || (parsedErr && parsedErr.message) || (parsedErr && parsedErr.error) || 'HTTP ' + res.status);
+      }
+      var result = await res.json();
+      if (!result.success) throw new Error(result.error || result.message || 'Submit failed');
+      document.getElementById('recId').value = result.rec_id;
+      document.getElementById('recIdDisplay').textContent = result.rec_id;
+      localStorage.removeItem('rec_draft');
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Đã gửi: ' + result.rec_id;
+      btn.style.background = '#166534';
+      btn.style.opacity = '1';
+      showToast('REC đã được tạo: ' + result.rec_id, 'success');
+      setTimeout(function () { window.location.href = '/all-ticket'; }, 2500);
+    } catch (err) {
+      console.error('REC submit error:', err);
+      showToast('Lỗi: ' + err.message, 'error');
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+      btn.innerHTML = origHTML;
+    }
+  }
+
+  function saveDraft() {
+    var data = {
+      poRef: document.getElementById('procurementRequestId').value,
+      title: document.getElementById('title').value,
+      description: document.getElementById('description').value,
+      vatIn: parseNum(document.getElementById('actualExpVatIn')),
+      vatPct: parseFloat(document.getElementById('vatPercent').value) || 0,
+      invoice: document.getElementById('invoiceNo').value,
+      contract: document.getElementById('contractNo').value,
+      requestor: document.getElementById('requestor').value
+    };
+    localStorage.setItem('rec_draft', JSON.stringify(data));
+    showToast('Đã lưu nháp', 'success');
+  }
+
+  function loadDraft() {
+    var raw = localStorage.getItem('rec_draft');
+    if (!raw) return;
+    try {
+      var d = JSON.parse(raw);
+      var map = { procurementRequestId: 'poRef', title: 'title', description: 'description', invoiceNo: 'invoice', contractNo: 'contract', requestor: 'requestor' };
+      Object.keys(map).forEach(function (id) {
+        var k = map[id];
+        if (d[k]) {
+          var el = document.getElementById(id);
+          if (el) el.value = d[k];
+        }
+      });
+      if (d.vatIn) document.getElementById('actualExpVatIn').value = d.vatIn.toLocaleString('vi-VN');
+      if (d.vatPct) document.getElementById('vatPercent').value = d.vatPct;
+    } catch (e) {}
+  }
+
+  // FILE UPLOAD
+  var MAX = 20 * 1024 * 1024;
+  var files = [];
+  function handleFiles(fl) {
+    var errEl = document.getElementById('fileError');
+    errEl.style.display = 'none';
+    var errs = [];
+    Array.from(fl).forEach(function (f) {
+      if (f.size > MAX) { errs.push('"' + f.name + '" vượt 20MB'); return; }
+      if (files.find(function (x) { return x.name === f.name && x.size === f.size; })) return;
+      files.push(f); renderFile(f);
+    });
+    if (errs.length) {
+      errEl.textContent = errs.join(' · ');
+      errEl.style.display = 'block';
+    }
+    document.getElementById('fileInput').value = '';
+    // Clear attachment-required warning khi user upload file
+    if (files.length > 0) {
+      document.getElementById('attachmentRequiredWarn').style.display = 'none';
+      document.getElementById('uploadZone').style.borderColor = '';
+    }
+  }
+  function getExt(n) {
+    var e = n.split('.').pop().toLowerCase();
+    if (['pdf'].includes(e)) return { cls: 'pdf', lbl: 'PDF' };
+    if (['jpg', 'jpeg', 'png', 'gif'].includes(e)) return { cls: 'img', lbl: e.toUpperCase() };
+    if (['xls', 'xlsx', 'csv'].includes(e)) return { cls: 'xls', lbl: 'XLS' };
+    if (['doc', 'docx'].includes(e)) return { cls: 'doc', lbl: 'DOC' };
+    return { cls: 'other', lbl: e.toUpperCase().slice(0, 4) };
+  }
+  function fmtSize(b) {
+    if (b < 1024) return b + 'B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + 'KB';
+    return (b / (1024 * 1024)).toFixed(1) + 'MB';
+  }
+  function renderFile(f) {
+    var list = document.getElementById('fileList');
+    var ft = getExt(f.name);
+    var id = 'fi_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    var d = document.createElement('div');
+    d.className = 'file-item';
+    d.id = id;
+    d.innerHTML = '<div class="file-icon ' + ft.cls + '">' + ft.lbl + '</div>'
+      + '<div class="file-meta"><div class="file-name">' + f.name + '</div>'
+      + '<div class="file-size">' + fmtSize(f.size) + '</div></div>'
+      + '<button class="file-remove" data-id="' + id + '" data-name="' + f.name + '" data-size="' + f.size + '">×</button>';
+    list.appendChild(d);
+    d.querySelector('.file-remove').addEventListener('click', function () {
+      var name = this.dataset.name;
+      var size = parseInt(this.dataset.size, 10);
+      files = files.filter(function (f) { return !(f.name === name && f.size === size); });
+      var el = document.getElementById(this.dataset.id);
+      if (el) {
+        el.style.opacity = '0';
+        el.style.transition = 'all .18s';
+        setTimeout(function () { el.remove(); }, 180);
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var email = getSessionEmail();
+    if (email) {
+      document.getElementById('submittedBy').value = email;
+      document.getElementById('submittedBy').readOnly = true;
+      var reqEl = document.getElementById('requestor');
+      if (!reqEl.value) reqEl.value = email;
+    } else {
+      document.getElementById('submittedBy').readOnly = false;
+      document.getElementById('submittedBy').placeholder = 'Email của bạn (chưa SSO)';
+    }
+
+    loadPOParents();
+
+    document.getElementById('procurementRequestId').addEventListener('change', onPOChange);
+    document.getElementById('actualExpVatIn').addEventListener('input', function () {
+      fmtNum(document.getElementById('actualExpVatIn'));
+      var mixed = document.getElementById('vatMixed').checked;
+      if (mixed) calcEffectiveVatPct(); else calcVatEx();
+      computeVariance();
+    });
+    document.getElementById('actualExpVatEx').addEventListener('input', function () {
+      var mixed = document.getElementById('vatMixed').checked;
+      if (mixed) {
+        fmtNum(document.getElementById('actualExpVatEx'));
+        calcEffectiveVatPct();
+      }
+    });
+    document.getElementById('vatPercent').addEventListener('input', function () {
+      var mixed = document.getElementById('vatMixed').checked;
+      if (!mixed) calcVatEx();
+    });
+    document.getElementById('vatMixed').addEventListener('change', toggleVatMixed);
+
+    document.querySelectorAll('.f-control').forEach(function (el) {
+      el.addEventListener('input', function () {
+        var f = el.closest('.field');
+        if (f) f.classList.remove('has-error');
+      });
+      el.addEventListener('change', function () {
+        var f = el.closest('.field');
+        if (f) f.classList.remove('has-error');
+      });
+    });
+
+    document.getElementById('submitBtn').addEventListener('click', submitForm);
+    document.getElementById('btnDraft').addEventListener('click', saveDraft);
+    document.getElementById('btnCancel').addEventListener('click', function () {
+      if (confirm('Huỷ thao tác? Dữ liệu chưa lưu sẽ bị mất.')) window.location.href = '/mso-approval';
+    });
+
+    document.getElementById('fileInput').addEventListener('change', function (e) { handleFiles(e.target.files); });
+    var zone = document.getElementById('uploadZone');
+    zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', function () { zone.classList.remove('drag-over'); });
+    zone.addEventListener('drop', function (e) {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      handleFiles(e.dataTransfer.files);
+    });
+
+    updateIdPreview();
+    loadDraft();
+  });
+
+  window.submitForm = submitForm;
+})();
+</script>
+    </div>
+  </main>
+</div>
+<script>
+(function(){
+  function fillUser(){
+    var email = '';
+    if (window.frappe && window.frappe.session) {
+      email = window.frappe.session.user_email || (typeof window.frappe.session.user === 'string' ? window.frappe.session.user : '') || '';
+    }
+    if (!email || email === 'Guest') return;
+    var av = document.getElementById('ecAvatar');
+    var nm = document.getElementById('ecUserName');
+    var localPart = email.split('@')[0];
+    var firstName = localPart.split(/[._-]+/)[0] || localPart;
+    var displayName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+    if (av) av.textContent = displayName.charAt(0);
+    if (nm) nm.textContent = displayName;
+  }
+  function redirectBack(){
+    // Form has 'Quay lai trang chu' button — redirect to /all-ticket instead
+    document.querySelectorAll('a, button').forEach(function(el){
+      var t = (el.textContent || '').trim();
+      if (/quay\s*l/i.test(t) && /trang\s*ch/i.test(t)) {
+        if (el.tagName === 'A') el.setAttribute('href', '/all-ticket');
+        el.onclick = function(e){ e.preventDefault(); window.location.href = '/all-ticket'; };
+      }
+    });
+  }
+  function init(){ fillUser(); redirectBack(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+
+
+<style id="ec-userinfo-fix-css">
+/* Make user-card hoverable (matches /home behavior) */
+.ec-sb-user-card[data-ec-profile-wrapped="1"],
+.sidebar-user[data-ec-profile-wrapped="1"],
+.user-card[data-ec-profile-wrapped="1"],
+.user-info[data-ec-profile-wrapped="1"] {
+  cursor: pointer !important;
+  border-radius: 8px !important;
+  transition: background 0.15s !important;
+  padding: 8px 10px !important;
+  margin: -8px -10px !important;
+}
+.ec-sb-user-card[data-ec-profile-wrapped="1"]:hover,
+.sidebar-user[data-ec-profile-wrapped="1"]:hover,
+.user-card[data-ec-profile-wrapped="1"]:hover,
+.user-info[data-ec-profile-wrapped="1"]:hover {
+  background: #f3f4f6 !important;
+}
+</style>
+<script id="ec-userinfo-fix">
+(function(){
+  function getCookie(name){
+    var m = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]+)'));
+    return m ? decodeURIComponent(m[1]).replace(/\+/g, ' ') : '';
+  }
+  function getEmail(){
+    try {
+      if (window.frappe && window.frappe.session) {
+        var u = window.frappe.session.user_email || window.frappe.session.user || '';
+        if (u && u !== 'Guest') return u;
+      }
+    } catch(_) {}
+    var c = getCookie('user_id');
+    if (c && c !== 'Guest') return c;
+    return '';
+  }
+  function getFullName(email){
+    // Frappe sets 'full_name' cookie on login (URL-encoded, + for space)
+    var fn = getCookie('full_name');
+    if (fn) return fn;
+    // Fallback: derive from email
+    if (!email) return '';
+    var localPart = email.indexOf('@') >= 0 ? email.split('@')[0] : email;
+    var firstName = localPart.split(/[._\- ]+/)[0] || localPart;
+    return firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+  }
+  function fillUser(){
+    var email = getEmail();
+    if (!email) return;
+    var displayName = getFullName(email);
+    if (!displayName) return;
+    // Initial for avatar: first char of full name
+    var initial = displayName.trim().charAt(0).toUpperCase() || 'U';
+
+    // Update name labels (always overwrite \u2014 sync from Frappe is source of truth)
+    var nameEls = document.querySelectorAll('#ecUserName, .ec-sb-user-name, .sidebar-user-name, .user-name');
+    nameEls.forEach(function(el){ el.textContent = displayName; });
+    // Update avatars
+    var avEls = document.querySelectorAll('#ecAvatar, .ec-sb-avatar, .sidebar-user .avatar, .user-card .avatar, .avatar');
+    avEls.forEach(function(el){
+      var t = (el.textContent || '').trim();
+      if (!t || t.length === 1) {
+        el.textContent = initial;
+      }
+    });
+
+    // Make user-card clickable -> Frappe user profile
+    var profileUrl = '/app/user/' + encodeURIComponent(email);
+    // \u1EDF = \u1EDF, \u0111 = \u0111, \u01B0 = \u01B0, \u1EDD = \u1EDD, \u00ED = \u00ED, \u00F3 = \u00F3, \u00E0 = \u00E0
+    var tooltipText = 'M\u1EDF trang user trong Frappe';
+    var cards = document.querySelectorAll('.ec-sb-footer .ec-sb-user-card, .ec-sb-user-card, .sidebar-footer .user-card, .sidebar-footer .sidebar-user');
+    cards.forEach(function(el){
+      if (el.tagName === 'A' || el.dataset.ecProfileWrapped === '1') return;
+      if (el.parentElement && el.parentElement.tagName === 'A' && el.parentElement.href.indexOf('/app/user') >= 0) return;
+      el.title = tooltipText;
+      el.addEventListener('click', function(e){
+        if (e.target.closest('.ec-sb-logout, .logout-btn, button')) return;
+        location.href = profileUrl;
+      });
+      el.setAttribute('data-ec-profile-wrapped', '1');
+    });
+  }
+  function init(){
+    fillUser();
+    setTimeout(fillUser, 250);
+    setTimeout(fillUser, 800);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+
+<script id="ec-form-userfill">
+(function(){
+  if (window._ecFormUserfill) return;
+  window._ecFormUserfill = true;
+
+  function getCookie(name){
+    var m = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]+)'));
+    return m ? decodeURIComponent(m[1]).replace(/\+/g, ' ') : '';
+  }
+  function getEmail(){
+    try {
+      if (window.frappe && window.frappe.session) {
+        var u = window.frappe.session.user_email || window.frappe.session.user || '';
+        if (u && u !== 'Guest') return u;
+      }
+    } catch(_) {}
+    var c = getCookie('user_id');
+    if (c && c !== 'Guest') return c;
+    return '';
+  }
+
+  function lockField(id, email){
+    var el = document.getElementById(id);
+    if (!el) return;
+    // FORCE value = email (overwrite "Ch\u01B0a SSO" placeholder branch + any custom typing)
+    el.value = email;
+    // LOCK readonly
+    el.readOnly = true;
+    el.setAttribute('readonly', 'readonly');
+    el.setAttribute('tabindex', '-1');
+    el.placeholder = '';
+    // Clear inline styles set by form's "Ch\u01B0a SSO" branch (background/color)
+    // so the readonly CSS in ec-polish-overrides takes over (gray dashed)
+    if (el.style) {
+      el.style.background = '';
+      el.style.color = '';
+    }
+    el.title = 'T\u1EF1 \u0111\u1ED9ng = email ng\u01B0\u1EDDi submit';
+    // Trigger change for any listeners
+    try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
+    try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+  }
+
+  function fillAll(){
+    var email = getEmail();
+    if (!email) return;
+    // Target id list across 4 forms (only existing nodes patched per page)
+    //  pic         -> all 4 forms
+    //  requestor   -> PO, REC
+    //  submittedBy -> MSO, REC
+    //  createdBy   -> SO
+    ['pic', 'requestor', 'submittedBy', 'createdBy'].forEach(function(id){
+      lockField(id, email);
+    });
+  }
+
+  function init(){
+    fillAll();
+    setTimeout(fillAll, 250);
+    setTimeout(fillAll, 800);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+
+<script id="ec-rec-field-fixes">
+(function(){
+  if (window._ecRecFieldFixes) return;
+  window._ecRecFieldFixes = true;
+  if (typeof window._poEstimatedEx === 'undefined') window._poEstimatedEx = 0;
+  if (typeof window._poClientId === 'undefined') window._poClientId = '';
+  if (typeof window._poClientName === 'undefined') window._poClientName = '';
+      window._poProcurementCode = '';
+      window._poProcurementName = '';
+})();
+</script>
+<script id="ec-department-dropdown">
+// Dynamic Department dropdown loader.
+// Replaces the hardcoded <option> list inside #department <select> on form pages
+// (MSO/SO/PO/REC) with the live list from Frappe Department DocType via the
+// ec_list_departments Server Script.
+//
+// Defensive:
+//   - If endpoint fails, hardcoded options remain. Zero downside risk.
+//   - Preserves current selected value if it matches a fetched department.
+//   - Idempotent via _ecDeptDropdownInstalled guard.
+//   - Only fires if #department exists on this page (skip /home, /login etc.)
+//
+// Created 2026-05-28 to retire N16 — eliminates per-department-rename HTML patching.
+(function(){
+  'use strict';
+  if (window._ecDeptDropdownInstalled) return;
+  window._ecDeptDropdownInstalled = true;
+
+  function populate() {
+    var sel = document.getElementById('department');
+    if (!sel) return;  // not a form page
+    if (sel._ecDeptPopulated) return;
+
+    fetch('/api/method/ec_list_departments', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}'
+    }).then(function(r){ return r.json(); }).then(function(d){
+      var msg = (d && d.message) || {};
+      if (!msg.success || !Array.isArray(msg.items) || msg.items.length === 0) {
+        console.warn('[ec-department-dropdown] empty/invalid response, keeping hardcoded options', msg);
+        return;
+      }
+      var currentVal = sel.value;
+      // Wipe existing options EXCEPT the placeholder (value="")
+      var placeholder = '-- Chọn phòng ban --';
+      // Try to read existing placeholder text from first option if value is ""
+      var firstOpt = sel.querySelector('option[value=""]');
+      if (firstOpt && firstOpt.textContent) placeholder = firstOpt.textContent.trim();
+      sel.innerHTML = '';
+      var ph = document.createElement('option');
+      ph.value = '';
+      ph.textContent = placeholder;
+      sel.appendChild(ph);
+      // Append fetched departments (use department_name as both display + value)
+      // This matches the previously-hardcoded behavior where option text was the value.
+      msg.items.forEach(function(it){
+        var displayName = it.department_name || it.name;
+        var o = document.createElement('option');
+        o.value = displayName;
+        o.textContent = displayName;
+        sel.appendChild(o);
+      });
+      // Restore previous selection if it's still valid
+      if (currentVal) {
+        var match = Array.prototype.find.call(sel.options, function(o){ return o.value === currentVal; });
+        if (match) sel.value = currentVal;
+      }
+      sel._ecDeptPopulated = true;
+      console.log('[ec-department-dropdown] populated ' + msg.items.length + ' departments');
+    }).catch(function(e){
+      console.warn('[ec-department-dropdown] fetch err, keeping hardcoded options', e);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', populate);
+  } else {
+    populate();
+  }
+  // One safety retry in case #department appears late (some forms async-build)
+  setTimeout(populate, 1200);
+  console.log('[ec-department-dropdown] installed');
+})();
+</script><!-- /ec-department-dropdown -->
