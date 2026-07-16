@@ -237,16 +237,15 @@ class TestSmoothnessCore(unittest.TestCase):
         self.assertIn("background refresh", js.lower())
         self.assertNotIn("ignore_permissions", js)
 
-    def test_prefetch_only_no_prerender(self):
+    def test_prefetch_still_present(self):
+        # v1.6.0: prefetch kept (effective on the CACHEABLE /approvals pages);
+        # prerender ADDED for the no-store T4 pages (see test_prerender_*).
         js = self._js()
         self.assertIn("l.rel = 'prefetch'", js)
-        low = js.lower()
-        # usage tokens, not comment words: no Speculation Rules script type,
-        # no prerender rel value anywhere in code.
-        self.assertNotIn("speculationrules", low)
-        self.assertNotIn("rel = 'prerender'", low)
-        self.assertNotIn('rel="prerender"', low)
-        self.assertNotIn("'prerender'", low.replace("rel = 'prerender'", ""))
+        # rel="prerender" (the deprecated link-rel form) is NOT used; we use the
+        # modern Speculation Rules API instead.
+        self.assertNotIn("rel = 'prerender'", js)
+        self.assertNotIn('rel="prerender"', js)
 
     def test_no_navigation_interception(self):
         js = self._js()
@@ -391,6 +390,17 @@ class TestSidebarStickyAndInstantNav(unittest.TestCase):
         js = _read(APP, "public", "js", "ec_shell.js")
         self.assertIn("function shouldPrefetch(href, origin, knownRoutes)", js)
         self.assertIn("knownNavRoutes()", js)
+
+    def test_prerender_speculation_rules(self):
+        js = _read(APP, "public", "js", "ec_shell.js")
+        # Speculation Rules prerender (the only lever that works on no-store T4
+        # pages) -- feature-detected, list-based, moderate eagerness.
+        self.assertIn("HTMLScriptElement.supports('speculationrules')", js)
+        self.assertIn("type = 'speculationrules'", js)
+        self.assertIn("eagerness: 'moderate'", js)
+        self.assertIn("source: 'list'", js)
+        # never intercept navigation
+        self.assertNotIn("preventDefault(); window.location", js)
 
 
 if __name__ == "__main__":
