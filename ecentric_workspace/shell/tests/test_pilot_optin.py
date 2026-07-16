@@ -366,5 +366,32 @@ class TestPaymentRequestComposition(unittest.TestCase):
                 self.assertNotIn(sel, code, "%s couples to shell markup: %s" % (f, sel))
 
 
+class TestSidebarStickyAndInstantNav(unittest.TestCase):
+    """UX follow-up: sticky sidebar regions + no-fallback-flash contracts."""
+
+    def _css(self):
+        return _read(APP, "public", "css", "ec_shell.bundle.css")
+
+    def test_only_nav_scrolls(self):
+        css = self._css()
+        self.assertIn("position:sticky; top:0; height:100vh; overflow:hidden;", css)
+        self.assertIn(".ec-shell-nav{ flex:1 1 auto; min-height:0; overflow-y:auto;", css)
+        self.assertIn(".ec-shell-head, .ec-shell-search, .ec-shell-foot{ flex:0 0 auto; }", css)
+
+    def test_drawer_inner_scroll(self):
+        self.assertIn("overflow:hidden;   /* inner nav scrolls, not the drawer */", self._css())
+
+    def test_fallback_delayed_reveal(self):
+        css = self._css()
+        self.assertIn(".ec-shell-fallback{ opacity:0; animation:ec-shell-reveal .15s ease .45s forwards; }", css)
+        self.assertIn("@keyframes ec-shell-reveal", css)
+        self.assertIn("prefers-reduced-motion:reduce){ .ec-shell-fallback{ opacity:1;", css)
+
+    def test_prefetch_covers_registry_routes(self):
+        js = _read(APP, "public", "js", "ec_shell.js")
+        self.assertIn("function shouldPrefetch(href, origin, knownRoutes)", js)
+        self.assertIn("knownNavRoutes()", js)
+
+
 if __name__ == "__main__":
     unittest.main()

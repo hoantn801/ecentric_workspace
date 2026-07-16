@@ -31,9 +31,24 @@
 .ec-shell-mount{
   background:#fff; border-right:1px solid var(--ec-gray-200);
   display:flex; flex-direction:column;
-  position:sticky; top:0; height:100vh; overflow-y:auto;
+  position:sticky; top:0; height:100vh; overflow:hidden;
   font-family:inherit;
 }
+/* Sticky regions (UX follow-up): head/search/foot are fixed shell areas; the
+ * NAV LIST is the only independently scrollable region. Same model applies
+ * inside the mobile drawer (shared markup). */
+.ec-shell-head, .ec-shell-search, .ec-shell-foot{ flex:0 0 auto; }
+.ec-shell-nav{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+.ec-shell-search-results{ flex:1 1 auto; min-height:0; overflow-y:auto; }
+
+/* Fallback delayed reveal (UX follow-up): the static fallback stays invisible
+ * for ~450ms so a cached shell render replaces it before it ever paints during
+ * rapid navigation; on genuine cold start / kill switch / no-JS it appears via
+ * the CSS animation with no script needed. Reduced-motion users see it
+ * immediately (accessibility over polish). */
+.ec-shell-fallback{ opacity:0; animation:ec-shell-reveal .15s ease .45s forwards; }
+@keyframes ec-shell-reveal{ from{ opacity:0; } to{ opacity:1; } }
+@media (prefers-reduced-motion:reduce){ .ec-shell-fallback{ opacity:1; animation:none; } }
 .ec-shell-mount .ec-shell-fallback{ display:flex; flex-direction:column; gap:2px; padding:14px 10px; }
 .ec-shell-mount .ec-shell-fallback a{
   display:block; padding:9px 12px; border-radius:8px; text-decoration:none;
@@ -176,7 +191,7 @@ a.ec-shell-crumblink:focus-visible{ outline:2px solid #2C3DA6; outline-offset:2p
   .ec-shell-drawer{
     position:fixed; left:0; top:0; bottom:0; width:min(280px, 84vw); z-index:900;
     background:#fff; border-right:1px solid var(--ec-gray-200);
-    flex-direction:column; overflow-y:auto;
+    flex-direction:column; overflow:hidden;   /* inner nav scrolls, not the drawer */
     transform:translateX(-100%); transition:transform .2s ease;
   }
   .ec-shell-drawer.ec-shell-on{ display:flex; transform:translateX(0); }
