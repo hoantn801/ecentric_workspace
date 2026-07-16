@@ -48,6 +48,63 @@ def _read(*parts):
         return fh.read()
 
 
+FORM_PAGES = ("mso_form", "so_form", "form_po", "form_rec")
+# NOTE: the legacy logout endpoint was chrome INSIDE the removed ec-sb aside;
+# the shared shell owns logout now, so it is intentionally absent below.
+FORM_ENDPOINTS = {
+    "mso_form": {
+        "ec_create_upload_session": 1,
+        "ec_list_departments": 1,
+                "submit_mso_v2": 2,
+        "web_lookup": 1
+    },
+    "so_form": {
+        "ec_create_upload_session": 1,
+        "ec_list_departments": 1,
+        "ecentric_workspace.api.get_mso_budget": 1,
+                "submit_so_v2": 2,
+        "web_lookup": 1
+    },
+    "form_po": {
+        "ec_list_departments": 1,
+        "ecentric_workspace.api.get_so_budget": 1,
+        "ecentric_workspace.api.submit_po": 1,
+                "web_lookup": 4
+    },
+    "form_rec": {
+        "ec_list_departments": 1,
+        "ecentric_workspace.api.submit_rec": 1,
+                "web_lookup": 2
+    }
+}
+
+
+class TestCreationForms(unittest.TestCase):
+    """UX follow-up: 4 high-frequency creation forms on shared shell."""
+
+    def test_shell_zone(self):
+        for slug in FORM_PAGES:
+            src = _read(LP, slug, "main_section.html")
+            self.assertEqual(src.count('data-ec-shell="1"'), 1, slug)
+            self.assertEqual(src.count('data-ec-shell-header-right="1"'), 1, slug)
+            self.assertEqual(src.count('<aside class="ec-sb">'), 0, slug)
+            self.assertEqual(src.count("data-ec-notification-bell"), 0, slug)
+            self.assertIn('class="ec-shell-fallback"', src)
+
+    def test_business_contracts(self):
+        for slug in FORM_PAGES:
+            src = _read(LP, slug, "main_section.html")
+            self.assertIn('<aside id="chainPreview"', src, slug)
+            for ep, n in FORM_ENDPOINTS[slug].items():
+                self.assertEqual(src.count("api/method/" + ep), n, "%s:%s" % (slug, ep))
+
+    def test_clean_encoding(self):
+        for slug in FORM_PAGES:
+            src = _read(LP, slug, "main_section.html")
+            for m in ("Ã", "Ä", "â€", "á»"):
+                self.assertEqual(src.count(m), 0, "%s:%s" % (slug, m))
+
+
 class TestEndpointCensus(unittest.TestCase):
     """Every legacy action path stays present with an unchanged call-site count."""
 
