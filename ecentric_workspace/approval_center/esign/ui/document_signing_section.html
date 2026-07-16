@@ -1,0 +1,345 @@
+<!-- Copyright (c) 2026, eCentric and contributors
+     Phase A2 - unified "Tài liệu & ký số" business section for the Payment Request page.
+     Consumes the deployed A1 read/write (document_setup_state / set_document_requires_signature)
+     and B1 signer_plan resolvers - NO Approval Engine logic in JS, NO package/lock/placement
+     terminology. Native multi-file upload creates normal File rows attached to the request.
+     The placement drawer is a SHELL only (signer cards + viewer placeholder) - no placement
+     writes, no drag/drop, no editor mount (Phase C). Mounts INSIDE #ec-payr-root .content and
+     never at body/grid-root level. Governed writes go only to whitelisted endpoints. -->
+<div id="ec-docsign" class="ec-docsign" style="display:none">
+  <style>
+    .ec-docsign .ecd-card{background:#fff;border:1px solid var(--gray-200,#d9dee3);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+    .ec-docsign h3{font-size:14px;font-weight:700;color:var(--gray-900,#1f2328);margin:0 0 4px;display:flex;align-items:center;gap:8px}
+    .ec-docsign .ecd-sub{font-size:12.5px;color:var(--gray-500,#6e7781);margin:0 0 14px}
+    .ec-docsign .ecd-row{display:flex;align-items:center;gap:14px;padding:12px 0;border-top:1px solid var(--gray-100,#eaeef2)}
+    .ec-docsign .ecd-row:first-of-type{border-top:none}
+    .ec-docsign .ecd-main{flex:1;min-width:0}
+    .ec-docsign .ecd-name{font-size:13.5px;font-weight:600;color:var(--gray-900,#1f2328);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ec-docsign .ecd-meta{font-size:12px;color:var(--gray-500,#6e7781);margin-top:3px}
+    .ec-docsign .ecd-pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600}
+    .ec-docsign .p-none{background:#eaeef2;color:#57606a}
+    .ec-docsign .p-doing{background:#fff8c5;color:#9a6700}
+    .ec-docsign .p-done{background:#dafbe1;color:#116329}
+    .ec-docsign .p-support{background:#ddf4ff;color:#0550ae}
+    .ec-docsign .p-review{background:#ffebe9;color:#b35900}
+    .ec-docsign .ecd-chk{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--gray-700,#424a53);white-space:nowrap}
+    .ec-docsign .ecd-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--gray-200,#d9dee3);background:#fff;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--gray-800,#32383f)}
+    .ec-docsign .ecd-btn.primary{background:var(--navy,#0a2540);border-color:var(--navy,#0a2540);color:#fff}
+    .ec-docsign .ecd-btn:disabled{opacity:.5;cursor:not-allowed}
+    .ec-docsign .ecd-up{display:flex;align-items:center;gap:10px;margin-top:6px}
+    .ec-docsign .ecd-banner{padding:8px 12px;border-radius:8px;font-size:12.5px;margin-bottom:12px}
+    .ec-docsign .b-review{background:#ffebe9;color:#b35900}
+    .ec-docsign .b-info{background:#ddf4ff;color:#0550ae}
+    /* drawer shell */
+    .ecd-drawer-ov{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:9999}
+    .ecd-drawer{position:fixed;top:0;right:0;height:100vh;width:min(1100px,94vw);background:#fff;box-shadow:-8px 0 30px rgba(0,0,0,.18);display:flex;flex-direction:column}
+    .ecd-drawer header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--gray-200,#d9dee3)}
+    .ecd-drawer .ecd-body{flex:1;display:grid;grid-template-columns:72% 28%;min-height:0}
+    .ecd-viewer{border-right:1px solid var(--gray-200,#d9dee3);display:flex;align-items:center;justify-content:center;color:var(--gray-500,#6e7781);font-size:13px;text-align:center;padding:24px}
+    .ecd-signers{overflow:auto;padding:16px}
+    .ecd-signers h4{font-size:12.5px;font-weight:700;color:var(--gray-600,#57606a);text-transform:uppercase;letter-spacing:.4px;margin:0 0 10px}
+    .ecd-scard{border:1px solid var(--gray-200,#d9dee3);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+    .ecd-scard .role{font-size:13px;font-weight:700;color:var(--gray-900,#1f2328)}
+    .ecd-scard .cand{font-size:12px;color:var(--gray-600,#57606a);margin-top:3px}
+    .ecd-scard .warn{color:#9a6700;font-size:11.5px;margin-top:3px}
+    .ecd-drawer footer{padding:12px 20px;border-top:1px solid var(--gray-200,#d9dee3);display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--gray-500,#6e7781)}
+  </style>
+
+  <div class="ecd-card">
+    <h3>TÀI LIỆU &amp; KÝ SỐ <span id="ecdCount" class="ec-docsign ecd-pill p-none" style="font-weight:600"></span></h3>
+    <div class="ecd-sub" id="ecdSummary">Đang tải…</div>
+    <div id="ecdBanner"></div>
+    <div id="ecdRows"></div>
+    <div class="ecd-up">
+      <input type="file" id="ecdUpload" multiple style="display:none">
+      <button class="ecd-btn" id="ecdUploadBtn" type="button">+ Tải tài liệu</button>
+      <span class="ecd-meta" id="ecdUploadHint"></span>
+    </div>
+  </div>
+
+  <div class="ecd-drawer-ov" id="ecdDrawerOv">
+    <div class="ecd-drawer" role="dialog" aria-modal="true">
+      <header>
+        <div><strong id="ecdDrawerName">Thiết lập chữ ký</strong>
+          <div class="ecd-meta" id="ecdDrawerSummary"></div></div>
+        <button class="ecd-btn" id="ecdDrawerClose" type="button">Đóng</button>
+      </header>
+      <div class="ecd-body">
+        <div class="ecd-viewer" id="ecdViewer">Trình xem tài liệu &amp; đặt vị trí ký sẽ có ở bước tiếp theo.</div>
+        <div class="ecd-signers"><h4>Người ký</h4><div id="ecdSignerCards"></div></div>
+      </div>
+      <footer><span id="ecdDrawerFoot">Bản xem trước cấu hình ký.</span></footer>
+    </div>
+  </div>
+</div>
+<script id="ec-docsign-script">
+(function () {
+  "use strict";
+  var root = document.getElementById("ec-docsign");
+  if (!root) return;
+  var API = "ecentric_workspace.approval_center.esign.api.";
+  function callReady() { return !!(window.frappe && typeof window.frappe.call === "function"); }
+  function esc(s) { return window.frappe ? frappe.utils.escape_html(s == null ? "" : String(s))
+    : String(s == null ? "" : s); }
+  function pr() {
+    var q; try { q = new URLSearchParams(location.search); } catch (e) { q = null; }
+    var id = q && (q.get("id") || q.get("name") || q.get("payment_request_name"));
+    if (!id) id = window.EC_PPH_PR
+      || (window.PaymentRequest && window.PaymentRequest.state && window.PaymentRequest.state.id);
+    id = (id == null ? "" : ("" + id)).trim();
+    return id || null;
+  }
+  function relocate() {
+    // Mount INSIDE the Payment Request business-content region - the .content wrapper that holds
+    // #payr-body under the Shared ERP Shell. Never the shell nav (.ec-shell-mount), header-right
+    // (.ec-shell-tbright) or breadcrumb; never inside #payr-body itself (re-rendered
+    // destructively), so we use its parent as a stable sibling host.
+    var pb = document.getElementById("payr-body");
+    var host = (pb && pb.parentNode)
+      || document.querySelector("#ec-payr-root .ec-main .content")
+      || document.querySelector("#ec-payr-root .content");
+    if (host && root.parentNode !== host) host.appendChild(root);
+  }
+  function call(method, args, type) {
+    return window.frappe.call({ method: API + method, args: args, type: type || "GET" })
+      .then(function (r) { return r && r.message; });
+  }
+
+  var STATE = null, PLAN = null;
+
+  function statePill(d) {
+    var s = d.setup_state;
+    if (s === "supporting_document") return ['p-support', 'Bộ chứng từ'];
+    if (s === "unsupported") return ['p-review', 'Định dạng chưa hỗ trợ ký'];
+    if (s === "legacy_unmapped") return ['p-review', 'Có cấu hình ký cũ — cần rà soát'];
+    return ['p-none', 'Chưa thiết lập'];
+  }
+  function progressText(d) {
+    if (!d.requires_signature) return 'Không yêu cầu chữ ký';
+    if (d.setup_state === 'unsupported') return 'Không thể ký trực tiếp định dạng này';
+    return '0/' + (d.required_signer_slots || 0) + ' người ký đã thiết lập';
+  }
+
+  function rowHtml(d) {
+    var pill = statePill(d);
+    var supporting = !d.requires_signature;
+    var canEdit = STATE && STATE.can_classify;
+    var act;
+    if (d.requires_signature && d.direct_signing_supported) {
+      act = '<button class="ecd-btn primary" data-setup="' + esc(d.document_ref) + '">Thiết lập chữ ký</button>';
+    } else {
+      act = '<button class="ecd-btn" data-open="' + esc(d.file_url || '') + '">Mở file</button>';
+    }
+    var dup = (d.duplicate_count > 1) ? ' · ' + d.duplicate_count + ' bản trùng (gộp)' : '';
+    return '<div class="ecd-row">'
+      + '<div class="ecd-main"><div class="ecd-name" title="' + esc(d.display_name) + '">'
+        + esc(d.display_name) + '</div>'
+      + '<div class="ecd-meta"><span class="ec-docsign ecd-pill ' + pill[0] + '">' + pill[1] + '</span> · '
+        + esc(progressText(d)) + dup + '</div></div>'
+      + '<label class="ecd-chk"><input type="checkbox" data-support="' + esc(d.document_ref) + '"'
+        + (supporting ? ' checked' : '') + (canEdit ? '' : ' disabled') + '> Bộ chứng từ</label>'
+      + act + '</div>';
+  }
+
+  function render() {
+    if (!STATE) return;
+    var sm = STATE.summary || {}, plan = STATE.signer_plan || {};
+    var totalSlots = 0;
+    (STATE.documents || []).forEach(function (d) {
+      if (d.requires_signature) totalSlots += (d.required_signer_slots || 0);
+    });
+    document.getElementById("ecdCount").textContent = (sm.documents || 0) + ' tài liệu';
+    document.getElementById("ecdSummary").textContent =
+      (sm.requires_signature || 0) + ' cần ký · ' + (sm.supporting_documents || 0)
+      + ' bộ chứng từ · 0/' + totalSlots + ' người ký đã thiết lập';
+    var banner = document.getElementById("ecdBanner");
+    if (STATE.needs_review) {
+      banner.innerHTML = '<div class="ecd-banner b-review">Cấu hình ký đang mơ hồ — cần rà soát trước khi tiếp tục.</div>';
+    } else if (!STATE.editable) {
+      banner.innerHTML = '<div class="ecd-banner b-info">Gói ký đã được chốt — không thể chỉnh phân loại tài liệu.</div>';
+    } else if (plan.resolved === false) {
+      banner.innerHTML = '<div class="ecd-banner b-info">Chưa xác định được người ký. Hoàn tất thông tin yêu cầu để hệ thống xác định quy trình ký.</div>';
+    } else { banner.innerHTML = ""; }
+    document.getElementById("ecdRows").innerHTML =
+      (STATE.documents || []).map(rowHtml).join("") || '<div class="ecd-meta">Chưa có tài liệu.</div>';
+    var upBtn = document.getElementById("ecdUploadBtn");
+    upBtn.disabled = !(STATE.editable && STATE.can_classify);
+    wire();
+  }
+
+  function wire() {
+    root.querySelectorAll("[data-support]").forEach(function (c) {
+      c.onchange = function () { classify(c.getAttribute("data-support"), !c.checked, c); };
+    });
+    root.querySelectorAll("[data-setup]").forEach(function (b) {
+      b.onclick = function () { openDrawer(b.getAttribute("data-setup")); };
+    });
+    root.querySelectorAll("[data-open]").forEach(function (b) {
+      b.onclick = function () { var u = b.getAttribute("data-open"); if (u) window.open(u, "_blank"); };
+    });
+  }
+
+  // classify: requires_signature = !supporting. Handle confirmation + unsupported + no-op.
+  function classify(ref, requiresSig, chk, confirm) {
+    if (!callReady()) return;
+    window.frappe.call({ method: API + "set_document_requires_signature", type: "POST",
+      args: { payment_request_name: pr(), document_ref: ref,
+              requires_signature: requiresSig ? "true" : "false", confirm: confirm ? 1 : 0 } })
+      .then(function (r) {
+        var out = r && r.message || {};
+        if (out.confirmation_required) {
+          if (window.confirm("File này đang có cấu hình chữ ký. Chuyển thành Bộ chứng từ sẽ xoá "
+              + "cấu hình ký. Tiếp tục?")) { classify(ref, requiresSig, chk, true); }
+          else { if (chk) chk.checked = !chk.checked; }        // revert
+          return;
+        }
+        if (out.ok === false) {
+          if (out.reason === "unsupported_signable_format") {
+            frappe.show_alert({ message: "Định dạng này chưa hỗ trợ ký trực tiếp.", indicator: "orange" });
+          } else {
+            frappe.show_alert({ message: "Không cập nhật được phân loại (" + esc(out.reason) + ").",
+              indicator: "red" });
+          }
+          if (chk) chk.checked = !chk.checked;                 // revert on failure
+          return;
+        }
+        load();
+      })
+      .catch(function () { if (chk) chk.checked = !chk.checked; });
+  }
+
+  // native multi-file upload -> normal File rows attached to the request (no schema change)
+  function uploadFiles(files) {
+    var name = pr(); if (!name || !files || !files.length) return;   // no persisted name -> no POST
+    var hint = document.getElementById("ecdUploadHint");
+    var done = 0, total = files.length, failed = 0, firstUrl = null;
+    hint.textContent = "Đang tải 0/" + total + "…";
+    Array.prototype.forEach.call(files, function (file) {
+      var fd = new FormData();
+      fd.append("file", file, file.name);
+      fd.append("is_private", 1);
+      fd.append("doctype", "EC Payment Request");
+      fd.append("docname", name);
+      fetch("/api/method/upload_file", { method: "POST",
+        headers: { "X-Frappe-CSRF-Token": (window.frappe && frappe.csrf_token) || "" }, body: fd })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (j && j.message && j.message.file_url) { if (!firstUrl) firstUrl = j.message.file_url; }
+          else failed++; })
+        .catch(function () { failed++; })
+        .then(function () {
+          done++; hint.textContent = "Đang tải " + done + "/" + total + "…";
+          if (done !== total) return;
+          hint.textContent = failed ? (failed + " tệp lỗi") : "";
+          // set the backward-compatible representative pointer ONLY if empty (server-guarded);
+          // never overwrites an existing pointer, never touches other fields, then refresh.
+          if (firstUrl) {
+            // The native File uploads already succeeded. The representative pointer is a best-
+            // effort compatibility nicety: if it fails we NEVER delete the File or claim the
+            // upload failed - we surface a recoverable warning and reload (A1 still shows the
+            // uploaded native File); retrying the pointer is idempotent (empty-only server-side).
+            function _ptrWarn() {
+              frappe.show_alert({ message: "Đã tải tài liệu. Chưa đặt được tệp đại diện — "
+                + "bạn có thể tải lại hoặc thử lại.", indicator: "orange" }); }
+            window.frappe.call({ method: API + "set_representative_attachment", type: "POST",
+              args: { payment_request_name: name, file_url: firstUrl } })
+              .then(function (r) { if (((r && r.message) || {}).ok === false) _ptrWarn(); load(); })
+              .catch(function () { _ptrWarn(); load(); });
+          } else { load(); }
+        });
+    });
+  }
+
+  // drawer SHELL: signer cards from the B1 plan + viewer placeholder. NO writes.
+  function slotLabel(s) {
+    if (s.kind === "requester") return "Người đề nghị";
+    var m = s.approval_mode === "Any One" ? " (một trong)"
+      : (s.approval_mode === "Minimum Count" ? " (tối thiểu)" : "");
+    return (s.level_name || ("Cấp " + s.level_no)) + m;
+  }
+  function openDrawer(ref) {
+    var doc = (STATE.documents || []).filter(function (d) { return d.document_ref === ref; })[0];
+    document.getElementById("ecdDrawerName").textContent =
+      "Thiết lập chữ ký — " + (doc ? doc.display_name : "");
+    var plan = PLAN || {};
+    var req = (plan.summary && plan.summary.required_slots) || 0;
+    document.getElementById("ecdDrawerSummary").textContent =
+      plan.resolved ? (req + " người ký cần thiết lập") : "Chưa xác định được người ký";
+    var cards = (plan.slots || []).map(function (s) {
+      var cands = (s.candidates || []).map(function (c) {
+        var w = c.scts_mapping_status === "verified" ? "" :
+          '<div class="warn">Chưa có cấu hình chữ ký số</div>';
+        return '<div>' + esc(c.display_name || c.user) + w + '</div>';
+      }).join("");
+      return '<div class="ecd-scard"><div class="role">' + esc(slotLabel(s)) + '</div>'
+        + '<div class="cand">' + cands + '</div></div>';
+    }).join("") || '<div class="ecd-meta">Chưa có người ký.</div>';
+    document.getElementById("ecdSignerCards").innerHTML = cards;
+    document.getElementById("ecdDrawerOv").style.display = "block";
+  }
+  function closeDrawer() { document.getElementById("ecdDrawerOv").style.display = "none"; }
+
+  function _renderUnsaved() {
+    relocate(); root.style.display = "block";
+    document.getElementById("ecdCount").textContent = "";
+    document.getElementById("ecdSummary").textContent = "";
+    document.getElementById("ecdBanner").innerHTML =
+      '<div class="ecd-banner b-info">Vui lòng lưu nháp yêu cầu trước khi tải tài liệu.</div>';
+    document.getElementById("ecdRows").innerHTML = "";
+    document.getElementById("ecdUploadBtn").disabled = true;   // upload disabled; handler also guards
+  }
+  function load() {
+    if (!callReady()) return;
+    var name = pr();
+    if (!name) { _renderUnsaved(); return; }
+    Promise.all([call("document_setup_state", { payment_request_name: name }),
+                 call("signer_plan", { payment_request_name: name }),
+                 call("signing_readiness", { payment_request_name: name })])
+      .then(function (res) {
+        STATE = res[0] || {}; PLAN = res[1] || {};
+        var rd = res[2] || {}, ck = rd.checks || {};
+        relocate(); root.style.display = "block";
+        // Approver panel visibility uses the AUTHORITATIVE existing governed signal: the current
+        // user is the active pending approver at the current level
+        // (service.signing_readiness.checks.active_approver, i.e. perms.pending_approver_row on
+        // the Approval Engine's frozen rows). NOT can_classify, NOT roles, NOT "not requester".
+        // The wrapper ships default-hidden (no flash); we only reveal for the actual current
+        // approver. The panel then self-gates its Duyệt & Ký button.
+        var apw = document.getElementById("ec-approver-wrap");
+        if (apw) apw.style.display = ck.active_approver ? "" : "none";
+        render();
+      })
+      .catch(function () {});
+  }
+
+  // one-time wiring (idempotent across re-sync/navigation)
+  if (root.getAttribute("data-ec-bound") !== "1") {
+    root.setAttribute("data-ec-bound", "1");
+    document.getElementById("ecdUploadBtn").onclick = function () {
+      document.getElementById("ecdUpload").click(); };
+    document.getElementById("ecdUpload").onchange = function (e) {
+      uploadFiles(e.target.files); e.target.value = ""; };
+    document.getElementById("ecdDrawerClose").onclick = closeDrawer;
+    document.getElementById("ecdDrawerOv").onclick = function (e) {
+      if (e.target === document.getElementById("ecdDrawerOv")) closeDrawer(); };
+  }
+
+  // bounded, idempotent init (frappe.call may be installed after this inline script)
+  var _t = null, _n = 0;
+  function _try() { if (callReady()) { if (_t) { clearInterval(_t); _t = null; } load(); return true; } return false; }
+  if (!_try()) {
+    _t = setInterval(function () {
+      _n++;
+      if (_try()) return;
+      if (_n >= 40) { clearInterval(_t); _t = null; }
+    }, 150);
+  }
+  // SPA: if the request is not yet persisted, watch for its id to appear (after save-draft) and
+  // (re)load. Bounded; cleared once an id is seen.
+  var _wn = 0, _w = setInterval(function () {
+    _wn++;
+    if (callReady() && pr()) { clearInterval(_w); load(); return; }
+    if (_wn >= 400) clearInterval(_w);
+  }, 1500);
+})();
+</script>
