@@ -79,6 +79,49 @@ class TestEndpointCensus(unittest.TestCase):
             self.assertIn(marker, src, marker)
 
 
+class TestMojibakeGuard(unittest.TestCase):
+    """PRODUCTION-BLOCKER regression guard (2026-07-16): the PS1 snapshot
+    pipeline emits DOUBLE-ENCODED UTF-8 (utf-8 bytes decoded as latin-1 and
+    re-encoded) plus a BOM. Any repo page source must be clean single-encoded
+    Vietnamese. Never import snapshot HTML without the latin-1 reversal."""
+
+    FORBIDDEN = ["Ã", "Ä", "â€"]
+    # ONE pre-existing blemish lived on production /approval BEFORE 2B.1
+    # ('Chờ ảnh upload xong' double-encoded by an old PS1 deploy). We preserve
+    # last-known-good live bytes -- exactly one pinned instance is tolerated.
+    # NOTE: the \uXXXX escapes below ARE the mojibake characters (already
+    # decoded by Python) -- do not re-decode them.
+    APPROVAL_KNOWN_BLEMISH = "Ch\u00e1\u00bb\u009d \u00e1\u00ba\u00a3nh upload xong"
+
+    def _scan(self, path_parts, allow_ao=0, pin=None):
+        src = _read(*path_parts)
+        for m in self.FORBIDDEN:
+            self.assertEqual(src.count(m), 0, "%s in %s" % (m, path_parts[-2:]))
+        self.assertEqual(src.count("á»"), allow_ao, path_parts[-2:])
+        if pin:
+            self.assertIn(pin, src)
+        self.assertFalse(src.startswith("\ufeff"), "BOM must be stripped")
+
+    def test_legacy_pages_clean(self):
+        self._scan((LP, "approval_page", "main_section.html"), allow_ao=1,
+                   pin=self.APPROVAL_KNOWN_BLEMISH)
+        self._scan((LP, "all_ticket", "main_section.html"), allow_ao=0)
+
+    def test_representative_vietnamese_intact(self):
+        src = _read(LP, "approval_page", "main_section.html")
+        for w in ("Trang chủ", "Đang tải chi tiết", "Trợ giúp", "Cài đặt",
+                  "Điều hướng eCentric"):
+            self.assertIn(w, src, w)
+
+    def test_all_approval_frontends_clean(self):
+        fe = os.path.join(APP, "approval_center", "frontend")
+        for fname in sorted(os.listdir(fe)):
+            if fname.endswith(".html"):
+                src = _read(fe, fname)
+                for m in self.FORBIDDEN + ["á»"]:
+                    self.assertEqual(src.count(m), 0, "%s in %s" % (m, fname))
+
+
 class TestShellMigration(unittest.TestCase):
     """Shell chrome adopted; single-bell contract; business chrome retained."""
 
