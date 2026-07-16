@@ -79,6 +79,25 @@ class TestEndpointCensus(unittest.TestCase):
             self.assertIn(marker, src, marker)
 
 
+class TestShellMigration(unittest.TestCase):
+    """Shell chrome adopted; single-bell contract; business chrome retained."""
+
+    def test_approval_shell_zone(self):
+        src = _read(LP, "approval_page", "main_section.html")
+        self.assertEqual(src.count('data-ec-shell="1"'), 1)
+        self.assertEqual(src.count('data-ec-shell-header-right="1"'), 1)
+        self.assertEqual(src.count('<aside class="ec-sidebar">'), 0)
+        self.assertIn('class="ec-shell-fallback"', src)
+        # the shell emits the ONLY bell at runtime; static page has none
+        self.assertEqual(src.count("data-ec-notification-bell"), 0)
+        # functional topbar-left business elements retained
+        for marker in ('id="pageTitle"', 'id="tkId"', 'id="tkStatus"',
+                       'class="back-btn" href="/all-ticket"'):
+            self.assertIn(marker, src, marker)
+        # Help/docs + Settings buttons preserved (locked scope)
+        self.assertEqual(src.count('href="https://docs.ecentric.vn"'), 1)
+
+
 class TestPageSyncModules(unittest.TestCase):
     def _mod(self, name):
         fake = types.ModuleType("frappe")
