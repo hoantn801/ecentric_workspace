@@ -46,6 +46,7 @@ let calls=[],uploads=[];
 function mk(opts){ opts=opts||{};
   els={}; ["ec-docsign","ecdCount","ecdSummary","ecdBanner","ecdRows","ecdUpload","ecdUploadBtn","ecdUploadHint",
     "ecdDrawerOv","ecdDrawerName","ecdDrawerSummary","ecdDrawerClose","ecdViewer","ecdSignerCards","ecdDrawerFoot",
+    "ecdViewerMsg","ecdStage","ecdCanvas","ecdLayer","ecdProg","ecdSaveState",
     "ec-approver-wrap","payr-body"].forEach(id=>els[id]=mkEl(id));
   const contentHost=mkEl("content-host"); els["payr-body"].parentNode=contentHost; els["ec-docsign"].parentNode=mkEl("body");
   calls=[];uploads=[];
@@ -56,6 +57,7 @@ function mk(opts){ opts=opts||{};
       if(/set_document_requires_signature$/.test(o.method))return Promise.resolve({message:opts.setResp||{ok:true}});
       if(/signing_readiness$/.test(o.method))return Promise.resolve({message:opts.readiness||{checks:{active_approver:false}}});
       if(/set_representative_attachment$/.test(o.method)){ if(opts.ptrThrow) return Promise.reject(new Error("x")); return Promise.resolve({message:opts.ptrResp||{ok:true,changed:true}}); }
+      if(/placement_state$/.test(o.method))return Promise.resolve({message:{ok:true,is_pdf:false,file_url:"/x.pdf",required_slot_count:2,covered_slot_count:0,required_slots:[{slot_key:"requester",label:"Người đề nghị",candidates:[]},{slot_key:"L2",label:"Finance",candidates:[]}],placements:[]}});
       return Promise.resolve({message:{}}); },
     utils:{escape_html:x=>String(x==null?"":x)},show_alert(){},csrf_token:"t",boot:{} };
   const sb={ document:{ getElementById:id=>els[id]||null,
@@ -65,6 +67,7 @@ function mk(opts){ opts=opts||{};
     FormData:function(){this._d={};this.append=(k,v)=>{this._d[k]=v;};},
     fetch:(url,o)=>{uploads.push({url,o});return Promise.resolve({json:()=>Promise.resolve({message:{file_url:"/private/files/up.pdf"}})});},
     confirm:()=>true,open:()=>{},console };
+  sb.__import=()=>Promise.resolve({GlobalWorkerOptions:{},getDocument:()=>({promise:Promise.resolve({getPage:()=>Promise.resolve({getViewport:({scale})=>({width:612*(scale||1),height:792*(scale||1)}),render:()=>({promise:Promise.resolve()})})})})});
   vm.createContext(sb); sb.window=sb; sb.frappe=frappe; sb.contentHost=contentHost;
   return {sb,els,contentHost}; }
 
@@ -73,7 +76,7 @@ let pass=0,fail=0; const ok=(c,m)=>{console.log((c?"  ok - ":"  FAIL - ")+m);pas
 
 async function main(){
   // A. requester + setup editable (can_classify true, active_approver false)
-  let h=mk({readiness:{checks:{active_approver:false}}}); vm.runInContext(SRC,h.sb); await tick();
+  let h=mk({readiness:{checks:{active_approver:false}}}); vm.runInContext(SRC.replace(/import\(/g,"__import("),h.sb); await tick();
   ok(h.els["ec-docsign"].parentNode===h.contentHost,"mounts into business-content region (#payr-body parent)");
   ok(h.els["ec-approver-wrap"].style.display==="none","A: requester setup -> unified visible, approver HIDDEN");
   ok(h.els["ecdCount"].textContent==="2 tài liệu","renders A1 docs");
@@ -81,27 +84,27 @@ async function main(){
   ok(h.els["ecdRows"]._html.indexOf("Thiết lập chữ ký")>=0,"setup action for signable");
 
   // B. requester frozen but NOT current approver (can_classify false, active_approver false)
-  h=mk({state:Object.assign({},STATE_APPROVER),readiness:{checks:{active_approver:false}}}); vm.runInContext(SRC,h.sb); await tick();
+  h=mk({state:Object.assign({},STATE_APPROVER),readiness:{checks:{active_approver:false}}}); vm.runInContext(SRC.replace(/import\(/g,"__import("),h.sb); await tick();
   ok(h.els["ec-approver-wrap"].style.display==="none","B: frozen requester, not approver -> approver HIDDEN");
 
   // C. actual CURRENT approver (active_approver true)
-  h=mk({state:Object.assign({},STATE_APPROVER),readiness:{checks:{active_approver:true}}}); vm.runInContext(SRC,h.sb); await tick();
+  h=mk({state:Object.assign({},STATE_APPROVER),readiness:{checks:{active_approver:true}}}); vm.runInContext(SRC.replace(/import\(/g,"__import("),h.sb); await tick();
   ok(h.els["ec-approver-wrap"].style.display==="","C: active current approver -> approver REVEALED");
 
   // D. future/not-yet-current approver (active_approver false) -> hidden
-  h=mk({state:Object.assign({},STATE_APPROVER),readiness:{checks:{active_approver:false}}}); vm.runInContext(SRC,h.sb); await tick();
+  h=mk({state:Object.assign({},STATE_APPROVER),readiness:{checks:{active_approver:false}}}); vm.runInContext(SRC.replace(/import\(/g,"__import("),h.sb); await tick();
   ok(h.els["ec-approver-wrap"].style.display==="none","D: future approver (not current level) -> approver HIDDEN");
 
   // E. unrelated read-only user (active_approver false) -> hidden
-  h=mk({state:{editable:false,can_classify:false,needs_review:false,summary:{documents:1,requires_signature:1,supporting_documents:0},documents:[],signer_plan:{resolved:true,summary:{required_slots:0}}},readiness:{checks:{active_approver:false}}}); vm.runInContext(SRC,h.sb); await tick();
+  h=mk({state:{editable:false,can_classify:false,needs_review:false,summary:{documents:1,requires_signature:1,supporting_documents:0},documents:[],signer_plan:{resolved:true,summary:{required_slots:0}}},readiness:{checks:{active_approver:false}}}); vm.runInContext(SRC.replace(/import\(/g,"__import("),h.sb); await tick();
   ok(h.els["ec-approver-wrap"].style.display==="none","E: unrelated user -> approver HIDDEN");
 
   // F. default-hidden before/without a positive signal (no flash): wrapper stays none unless C
-  h=mk({readiness:{checks:{}}}); vm.runInContext(SRC,h.sb); await tick();
+  h=mk({readiness:{checks:{}}}); vm.runInContext(SRC.replace(/import\(/g,"__import("),h.sb); await tick();
   ok(h.els["ec-approver-wrap"].style.display==="none","F: no active_approver signal -> stays hidden (no flash)");
 
   // classify string boolean + confirm retry
-  h=mk({}); vm.runInContext(SRC,h.sb); await tick();
+  h=mk({}); vm.runInContext(SRC.replace(/import\(/g,"__import("),h.sb); await tick();
   let seq=[{ok:false,confirmation_required:true,reason:"existing_placements"},{ok:true}],i=0;
   h.sb.frappe.call=(o)=>{calls.push({method:o.method,args:o.args});
     if(/document_setup_state$/.test(o.method))return Promise.resolve({message:STATE_REQ});
@@ -114,20 +117,21 @@ async function main(){
   ok(setC.length===2 && setC[1].args.confirm===1,"existing_placements -> confirm -> retry confirm=1");
 
   // drawer shell
-  h=mk({}); vm.runInContext(SRC,h.sb); await tick();
+  h=mk({}); vm.runInContext(SRC.replace(/import\(/g,"__import("),h.sb); await tick();
   h.els["ec-docsign"].querySelectorAll("[data-setup]")[0].onclick(); await tick();
   ok(h.els["ecdDrawerOv"].style.display==="block","drawer opens");
-  ok(h.els["ecdSignerCards"]._html.indexOf("Người đề nghị")>=0 && h.els["ecdSignerCards"]._html.indexOf("Finance")>=0,"B1 signer cards in drawer");
+  ok(calls.some(c=>/placement_state$/.test(c.method)),"drawer loads placement_state (Phase C)");
+  ok(h.els["ecdSignerCards"]._html.indexOf("Người đề nghị")>=0 && h.els["ecdSignerCards"]._html.indexOf("Finance")>=0,"signer cards from placement_state.required_slots");
 
   // native multi-upload + representative-pointer call
-  h=mk({}); vm.runInContext(SRC,h.sb); await tick();
+  h=mk({}); vm.runInContext(SRC.replace(/import\(/g,"__import("),h.sb); await tick();
   h.els["ecdUpload"].files=[{name:"x.pdf"},{name:"y.pdf"}];
   h.els["ecdUpload"].onchange({target:h.els["ecdUpload"]}); await tick();
   ok(uploads.length===2 && uploads.every(u=>u.url==="/api/method/upload_file"),"multi-upload POSTs each file");
   ok(calls.some(c=>/set_representative_attachment$/.test(c.method)),"representative-pointer set after upload");
 
   // pointer-failure semantics: File uploaded ok, pointer update fails -> warn + reload; no data loss
-  h=mk({ptrResp:{ok:false,reason:"not_attached"}}); vm.runInContext(SRC,h.sb); await tick();
+  h=mk({ptrResp:{ok:false,reason:"not_attached"}}); vm.runInContext(SRC.replace(/import\(/g,"__import("),h.sb); await tick();
   const stateCallsBefore = calls.filter(c=>/document_setup_state$/.test(c.method)).length;
   h.els["ecdUpload"].files=[{name:"p.pdf"}]; h.els["ecdUpload"].onchange({target:h.els["ecdUpload"]}); await tick();
   ok(uploads.length>=1,"pointer-fail: native upload still POSTed (File created)");
@@ -152,7 +156,7 @@ async function main(){
       FormData:function(){this.append=()=>{};},fetch:()=>{posted++;return Promise.resolve({json:()=>Promise.resolve({message:{}})});},
       confirm:()=>true,open:()=>{},console};
     vm.createContext(sbx); sbx.window=sbx; sbx.frappe={call:()=>Promise.resolve({message:{}}),utils:{escape_html:x=>x},show_alert(){},csrf_token:"t",boot:{}};
-    vm.runInContext(SRC,sbx);
+    vm.runInContext(SRC.replace(/import\(/g,"__import("),sbx);
     ok(e["ec-docsign"].style.display==="block","unsaved: section shown");
     ok(e["ecdBanner"]._html.indexOf("Vui lòng lưu nháp yêu cầu")>=0,"unsaved: shows save-first message");
     ok(e["ecdUploadBtn"].disabled===true,"unsaved: upload disabled");

@@ -41,6 +41,8 @@
   "width",
   "height",
   "level_no",
+  "signer_slot_key",
+  "signer_slot_version",
   "scts_role_title",
   "signature_type",
   "keyword",
@@ -110,6 +112,18 @@
    "label": "Level No",
    "reqd": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "signer_slot_key",
+   "fieldtype": "Data",
+   "label": "Signer Slot Key",
+   "description": "Phase C: B1 signer-plan slot identity (slot_key_version 1). Null = legacy/unmapped."
+  },
+  {
+   "fieldname": "signer_slot_version",
+   "fieldtype": "Int",
+   "label": "Signer Slot Version",
+   "description": "Slot-key contract version that produced signer_slot_key (B1 SLOT_KEY_VERSION)."
   },
   {
    "fieldname": "scts_role_title",

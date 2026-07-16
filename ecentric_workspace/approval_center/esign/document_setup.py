@@ -65,15 +65,18 @@ def _is_pdf_name(name, url):
     return n.endswith(".pdf") or u.endswith(".pdf")
 
 
-def _setup_state(requires_signature, is_pdf_like, placement_count):
-    """Honest state (no fake n/n before Phase C signer_slot_key):
-      supporting_document | unsupported | legacy_unmapped | not_configured.
-    'complete' is intentionally NOT produced in A1."""
+def _setup_state(requires_signature, is_pdf_like, covered, required, legacy_unmapped):
+    """Phase C real state from covered signer slots:
+      supporting_document | unsupported | complete | in_progress | legacy_unmapped | not_configured."""
     if not requires_signature:
         return "supporting_document"
     if not is_pdf_like:
         return "unsupported"
-    if placement_count > 0:
+    if required and covered >= required:
+        return "complete"
+    if covered > 0:
+        return "in_progress"
+    if legacy_unmapped > 0:
         return "legacy_unmapped"
     return "not_configured"
 
@@ -184,6 +187,8 @@ def get_document_setup_state(business_doctype, business_name):
                                                                       business_name))
     plan = sp.resolve_signer_plan(business_doctype, business_name)
     required_slots = (plan.get("summary") or {}).get("required_slots", 0) if plan.get("resolved") else 0
+    _req_keys = {sl["slot_key"] for sl in (plan.get("slots") or []) if sl.get("required")} \
+        if plan.get("resolved") else set()
 
     groups = _dedupe(_current_files(business_doctype, business_name))
     pkg_for_dsf = cur_name                          # Draft (editable) or immutable-live; never Cancelled/Superseded
@@ -196,17 +201,24 @@ def get_document_setup_state(business_doctype, business_name):
         # compute when a package with files could exist, keeping fresh requests read-cheap.
         if pkg_for_dsf and frappe.db.count(DSF, {"package": pkg_for_dsf}):
             dsf = _dsf_by_sha(pkg_for_dsf, _rep_sha(rep))
+        covered = 0
+        legacy_unmapped = 0
         if dsf:
             req_sig = bool(dsf.requires_signature)
             classification_source = "digital_signature_file"
             signature_file = dsf.name
             is_pdf_like = bool(dsf.is_pdf)
-            placement_count = _placement_count(dsf.name)
+            _rows = frappe.get_all("EC Digital Signature Placement",
+                                   filters={"signature_file": dsf.name, "status": ["!=", "Invalid"]},
+                                   fields=["signer_slot_key"])
+            covered = len({r.signer_slot_key for r in _rows
+                           if r.signer_slot_key and r.signer_slot_key in _req_keys})
+            legacy_unmapped = len([r for r in _rows
+                                   if not r.signer_slot_key or r.signer_slot_key not in _req_keys])
         else:
             req_sig = True                          # implicit default; NO DSF created to store it
             classification_source = "default"
             signature_file = None
-            placement_count = 0
         docs.append({
             "document_ref": rep["name"],            # deterministic representative File.name
             "display_name": rep.get("file_name"),
@@ -217,8 +229,10 @@ def get_document_setup_state(business_doctype, business_name):
             "signature_file": signature_file,
             "direct_signing_supported": is_pdf_like,
             "required_signer_slots": required_slots if req_sig else 0,
-            "setup_state": _setup_state(req_sig, is_pdf_like, placement_count),
-            "legacy_placement_count": placement_count,
+            "covered_slot_count": covered if req_sig else 0,
+            "setup_state": _setup_state(req_sig, is_pdf_like, covered,
+                                        required_slots if req_sig else 0, legacy_unmapped),
+            "legacy_placement_count": legacy_unmapped,
         })
         n_sign += 1 if req_sig else 0
         n_support += 0 if req_sig else 1
