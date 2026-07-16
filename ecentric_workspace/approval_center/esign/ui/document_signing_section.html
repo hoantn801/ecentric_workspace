@@ -8,6 +8,13 @@
      never at body/grid-root level. Governed writes go only to whitelisted endpoints. -->
 <div id="ec-docsign" class="ec-docsign" style="display:none">
   <style>
+    /* Issue 2 - clear vertical gap from the action-button row (Hủy/Lưu/Gửi) above. */
+    .ec-docsign{margin-top:20px}
+    /* Issue 1 - one requester upload surface: hide the LEGACY request_attachment field
+       uploader on the Payment Request page. UI-only: the <input> stays in the DOM (still
+       bound to state.draft.request_attachment) so the data contract + submit validation +
+       representative-pointer logic are all preserved. */
+    #ec-payr-root .fld:has([data-upload="request_attachment"]){display:none !important}
     .ec-docsign .ecd-card{background:#fff;border:1px solid var(--gray-200,#d9dee3);border-radius:12px;padding:18px 20px;margin-bottom:16px}
     .ec-docsign h3{font-size:14px;font-weight:700;color:var(--gray-900,#1f2328);margin:0 0 4px;display:flex;align-items:center;gap:8px}
     .ec-docsign .ecd-sub{font-size:12.5px;color:var(--gray-500,#6e7781);margin:0 0 14px}
