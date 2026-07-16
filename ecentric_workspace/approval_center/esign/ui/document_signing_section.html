@@ -234,9 +234,17 @@
           // set the backward-compatible representative pointer ONLY if empty (server-guarded);
           // never overwrites an existing pointer, never touches other fields, then refresh.
           if (firstUrl) {
+            // The native File uploads already succeeded. The representative pointer is a best-
+            // effort compatibility nicety: if it fails we NEVER delete the File or claim the
+            // upload failed - we surface a recoverable warning and reload (A1 still shows the
+            // uploaded native File); retrying the pointer is idempotent (empty-only server-side).
+            function _ptrWarn() {
+              frappe.show_alert({ message: "Đã tải tài liệu. Chưa đặt được tệp đại diện — "
+                + "bạn có thể tải lại hoặc thử lại.", indicator: "orange" }); }
             window.frappe.call({ method: API + "set_representative_attachment", type: "POST",
               args: { payment_request_name: name, file_url: firstUrl } })
-              .then(load).catch(load);
+              .then(function (r) { if (((r && r.message) || {}).ok === false) _ptrWarn(); load(); })
+              .catch(function () { _ptrWarn(); load(); });
           } else { load(); }
         });
     });
@@ -285,17 +293,20 @@
     var name = pr();
     if (!name) { _renderUnsaved(); return; }
     Promise.all([call("document_setup_state", { payment_request_name: name }),
-                 call("signer_plan", { payment_request_name: name })])
+                 call("signer_plan", { payment_request_name: name }),
+                 call("signing_readiness", { payment_request_name: name })])
       .then(function (res) {
         STATE = res[0] || {}; PLAN = res[1] || {};
+        var rd = res[2] || {}, ck = rd.checks || {};
         relocate(); root.style.display = "block";
-        // Server-state-driven approver presentation: the raw block ships hidden
-        // (#ec-approver-wrap, display:none). Reveal it ONLY when the user is NOT in the
-        // requester document-setup stage (can_classify=false => actual approver / post-freeze /
-        // other viewer). Requester-in-setup keeps it hidden (no raw-SCTS flash). No role
-        // inference; no duplicated Approval Engine / SCTS logic.
+        // Approver panel visibility uses the AUTHORITATIVE existing governed signal: the current
+        // user is the active pending approver at the current level
+        // (service.signing_readiness.checks.active_approver, i.e. perms.pending_approver_row on
+        // the Approval Engine's frozen rows). NOT can_classify, NOT roles, NOT "not requester".
+        // The wrapper ships default-hidden (no flash); we only reveal for the actual current
+        // approver. The panel then self-gates its Duyệt & Ký button.
         var apw = document.getElementById("ec-approver-wrap");
-        if (apw) apw.style.display = STATE.can_classify ? "none" : "";
+        if (apw) apw.style.display = ck.active_approver ? "" : "none";
         render();
       })
       .catch(function () {});

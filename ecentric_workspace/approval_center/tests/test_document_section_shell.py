@@ -49,7 +49,7 @@ class TestDocumentSectionShell(FrappeTestCase):
         h = self._h()
         self.assertIn("approval_center.esign.api.", h)
         for m in ("document_setup_state", "set_document_requires_signature", "signer_plan",
-                  "set_representative_attachment"):
+                  "set_representative_attachment", "signing_readiness"):
             self.assertIn('"' + m + '"', h)
         self.assertIn("/api/method/upload_file", h)
         for bad in ("cdnjs", "unpkg", "jsdelivr", "http://", "localStorage"):

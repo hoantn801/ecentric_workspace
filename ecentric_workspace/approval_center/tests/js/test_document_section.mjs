@@ -54,7 +54,8 @@ function mk(opts){ opts=opts||{};
       if(/document_setup_state$/.test(o.method))return Promise.resolve({message:state});
       if(/signer_plan$/.test(o.method))return Promise.resolve({message:PLAN});
       if(/set_document_requires_signature$/.test(o.method))return Promise.resolve({message:opts.setResp||{ok:true}});
-      if(/set_representative_attachment$/.test(o.method))return Promise.resolve({message:{ok:true,changed:true}});
+      if(/signing_readiness$/.test(o.method))return Promise.resolve({message:opts.readiness||{checks:{active_approver:false}}});
+      if(/set_representative_attachment$/.test(o.method)){ if(opts.ptrThrow) return Promise.reject(new Error("x")); return Promise.resolve({message:opts.ptrResp||{ok:true,changed:true}}); }
       return Promise.resolve({message:{}}); },
     utils:{escape_html:x=>String(x==null?"":x)},show_alert(){},csrf_token:"t",boot:{} };
   const sb={ document:{ getElementById:id=>els[id]||null,
@@ -71,17 +72,33 @@ const tick=async()=>{for(let i=0;i<8;i++)await Promise.resolve();};
 let pass=0,fail=0; const ok=(c,m)=>{console.log((c?"  ok - ":"  FAIL - ")+m);pass+=c;fail+=!c;};
 
 async function main(){
-  // requester document-setup state
-  let h=mk(); vm.runInContext(SRC,h.sb); await tick();
+  // A. requester + setup editable (can_classify true, active_approver false)
+  let h=mk({readiness:{checks:{active_approver:false}}}); vm.runInContext(SRC,h.sb); await tick();
   ok(h.els["ec-docsign"].parentNode===h.contentHost,"mounts into business-content region (#payr-body parent)");
-  ok(h.els["ec-approver-wrap"].style.display==="none","approver block stays HIDDEN for requester (can_classify=true)");
+  ok(h.els["ec-approver-wrap"].style.display==="none","A: requester setup -> unified visible, approver HIDDEN");
   ok(h.els["ecdCount"].textContent==="2 tài liệu","renders A1 docs");
   ok(h.els["ecdSummary"].textContent.indexOf("0/5")>=0,"honest 0/5 progress");
   ok(h.els["ecdRows"]._html.indexOf("Thiết lập chữ ký")>=0,"setup action for signable");
 
-  // approver / non-requester state -> approver block revealed
-  h=mk({state:STATE_APPROVER}); vm.runInContext(SRC,h.sb); await tick();
-  ok(h.els["ec-approver-wrap"].style.display==="","approver block REVEALED when can_classify=false (actual approver not hidden)");
+  // B. requester frozen but NOT current approver (can_classify false, active_approver false)
+  h=mk({state:Object.assign({},STATE_APPROVER),readiness:{checks:{active_approver:false}}}); vm.runInContext(SRC,h.sb); await tick();
+  ok(h.els["ec-approver-wrap"].style.display==="none","B: frozen requester, not approver -> approver HIDDEN");
+
+  // C. actual CURRENT approver (active_approver true)
+  h=mk({state:Object.assign({},STATE_APPROVER),readiness:{checks:{active_approver:true}}}); vm.runInContext(SRC,h.sb); await tick();
+  ok(h.els["ec-approver-wrap"].style.display==="","C: active current approver -> approver REVEALED");
+
+  // D. future/not-yet-current approver (active_approver false) -> hidden
+  h=mk({state:Object.assign({},STATE_APPROVER),readiness:{checks:{active_approver:false}}}); vm.runInContext(SRC,h.sb); await tick();
+  ok(h.els["ec-approver-wrap"].style.display==="none","D: future approver (not current level) -> approver HIDDEN");
+
+  // E. unrelated read-only user (active_approver false) -> hidden
+  h=mk({state:{editable:false,can_classify:false,needs_review:false,summary:{documents:1,requires_signature:1,supporting_documents:0},documents:[],signer_plan:{resolved:true,summary:{required_slots:0}}},readiness:{checks:{active_approver:false}}}); vm.runInContext(SRC,h.sb); await tick();
+  ok(h.els["ec-approver-wrap"].style.display==="none","E: unrelated user -> approver HIDDEN");
+
+  // F. default-hidden before/without a positive signal (no flash): wrapper stays none unless C
+  h=mk({readiness:{checks:{}}}); vm.runInContext(SRC,h.sb); await tick();
+  ok(h.els["ec-approver-wrap"].style.display==="none","F: no active_approver signal -> stays hidden (no flash)");
 
   // classify string boolean + confirm retry
   h=mk({}); vm.runInContext(SRC,h.sb); await tick();
@@ -108,6 +125,14 @@ async function main(){
   h.els["ecdUpload"].onchange({target:h.els["ecdUpload"]}); await tick();
   ok(uploads.length===2 && uploads.every(u=>u.url==="/api/method/upload_file"),"multi-upload POSTs each file");
   ok(calls.some(c=>/set_representative_attachment$/.test(c.method)),"representative-pointer set after upload");
+
+  // pointer-failure semantics: File uploaded ok, pointer update fails -> warn + reload; no data loss
+  h=mk({ptrResp:{ok:false,reason:"not_attached"}}); vm.runInContext(SRC,h.sb); await tick();
+  const stateCallsBefore = calls.filter(c=>/document_setup_state$/.test(c.method)).length;
+  h.els["ecdUpload"].files=[{name:"p.pdf"}]; h.els["ecdUpload"].onchange({target:h.els["ecdUpload"]}); await tick();
+  ok(uploads.length>=1,"pointer-fail: native upload still POSTed (File created)");
+  ok(calls.some(c=>/set_representative_attachment$/.test(c.method)),"pointer-fail: pointer attempted");
+  ok(calls.filter(c=>/document_setup_state$/.test(c.method)).length>stateCallsBefore,"pointer-fail: state RELOADED (A1 still shows the File; no delete)");
 
   // UNSAVED request: isolated clean sandbox (no cross-test state) -> disabled + message + no POST
   (function(){
