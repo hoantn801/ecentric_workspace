@@ -52,6 +52,14 @@ def get_shell_boot():
             "group": it["group"],
             "active_patterns": it["active_patterns"],
             "keywords": it.get("keywords", []),
+            "children": [
+                {
+                    "key": ch["key"], "label": ch["label"], "route": ch["route"],
+                    "icon": ch["icon"], "active_patterns": ch["active_patterns"],
+                    "keywords": ch.get("keywords", []),
+                }
+                for ch in it.get("children", [])
+            ],
         }
         for it in items
     ]

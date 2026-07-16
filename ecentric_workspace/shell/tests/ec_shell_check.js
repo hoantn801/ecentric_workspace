@@ -68,6 +68,10 @@ function makeSandbox(pathname, hasMarker) {
     { key: 'apc.dashboard', route: '/approvals/dashboard', active_patterns: ['/approvals/dashboard'] },
     { key: 'approval.inbox', route: '/approval', active_patterns: ['/approval'] },
     { key: 'tickets.all', route: '/all-ticket', active_patterns: ['/all-ticket'] },
+    { key: 'legacy.create_po', route: '/form-po', active_patterns: ['/form-po'] },
+    { key: 'legacy.others', route: '/others', active_patterns: ['/others'], children: [
+      { key: 'legacy.create_client', label: 'Client Request', route: '/client-request', icon: 'doc', active_patterns: ['/client-request'], keywords: ['client'] },
+    ] },
   ];
   ok(M(NAV, '/approvals/hr-activity') === 'apc.catalog', 'hr-activity highlights Approval Center (bug fixed via registry matching)');
   ok(M(NAV, '/approvals/dashboard') === 'apc.dashboard', 'exact route outranks catalog prefix pattern');
@@ -75,6 +79,14 @@ function makeSandbox(pathname, hasMarker) {
   ok(M(NAV, '/approvals/') === 'apc.catalog', 'trailing slash normalized');
   ok(M(NAV, '/approval') === 'approval.inbox', 'legacy /approval matches ONLY its exact item (no prefix bleed)');
   ok(M(NAV, '/all-ticket') === 'tickets.all', '/all-ticket highlights its own entry');
+  ok(M(NAV, '/approval?id=MSO-123&type=mso_request'.split('?')[0]) === 'approval.inbox', '/approval?id= deep link keeps All Tickets active');
+  ok(M(NAV, '/form-po') === 'legacy.create_po', 'creation route /form-po highlights its item');
+  ok(M(NAV, '/client-request') === 'legacy.create_client', 'CHILD route active-match works (Others submenu)');
+  {
+    const entries2 = env.win.ECShell.buildSearchEntries(NAV.map(x => Object.assign({label: x.key, icon: 'doc', group: 'g', keywords: []}, x)), []);
+    ok(entries2.some(e => e.route === '/client-request'), 'search index includes submenu children');
+    ok(!entries2.some(e => e.route === '/others'), 'non-navigable toggle row excluded from search');
+  }
   ok(M(NAV, '/all-tickets') === null, 'duplicate route /all-tickets matches NOTHING (no lookalike bleed)');
   ok(M(NAV, '/home') === 'core.home' && M(NAV, '/') === 'core.home', '/ aliases /home');
   ok(M(NAV, '/approvals/leave?id=EC-LV-0001&tab=my-requests'.split('?')[0]) === 'apc.catalog', 'deep-link path matches catalog');

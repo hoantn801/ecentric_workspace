@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.3.0 (phase 1C.1 nav search)';
+  var VERSION = 'ec-shell v1.4.0 (2B.1 nav patch: legacy routes + submenu)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -123,7 +123,8 @@
   // permission-filtered catalog cards -- ONLY cards with a live route.
   function buildSearchEntries(bootNav, catalogTypes) {
     var out = [];
-    (bootNav || []).forEach(function (it) {
+    flattenNav(bootNav).forEach(function (it) {
+      if (it.children && it.children.length) return;   // toggle rows are not destinations
       out.push({ label: it.label, route: it.route, icon: it.icon || 'doc',
                  group: 'module', sub: it.group || '',
                  keywords: (it.keywords || []).concat([it.route]) });
@@ -178,10 +179,19 @@
   // prefix pattern "<base>/*" (500+len(base)). "/" is an alias of "/home".
   // NO substring/keyword fallbacks (the legacy "first slug containing 'form'"
   // heuristic caused the G1 mis-highlight bug; deliberately absent here).
+  function flattenNav(items) {
+    var out = [];
+    (items || []).forEach(function (it) {
+      out.push(it);
+      (it.children || []).forEach(function (ch) { out.push(ch); });
+    });
+    return out;
+  }
+
   function matchActive(items, pathname) {
     var path = normPath(pathname);
     var bestKey = null, bestScore = 0;
-    (items || []).forEach(function (it) {
+    flattenNav(items).forEach(function (it) {
       var score = 0;
       if (normPath(it.route) === path) score = 1000 + it.route.length;
       (it.active_patterns || []).forEach(function (pat) {
@@ -237,15 +247,35 @@
     });
   }
 
+  function itemHtml(it, activeKey, extraCls) {
+    var act = it.key === activeKey ? ' ec-shell-active' : '';
+    return '<a class="ec-shell-item' + (extraCls || '') + act + '" href="' + esc(it.route) + '"' +
+           (act ? ' aria-current="page"' : '') + '>' + svg(it.icon) +
+           '<span>' + esc(it.label) + '</span></a>';
+  }
+
   function navHtml(nav, activeKey) {
     var h = '';
     groupItems(nav).forEach(function (g) {
       if (g.group) h += '<div class="ec-shell-grouplabel">' + esc(g.group) + '</div>';
       g.items.forEach(function (it) {
-        var act = it.key === activeKey ? ' ec-shell-active' : '';
-        h += '<a class="ec-shell-item' + act + '" href="' + esc(it.route) + '"' +
-             (act ? ' aria-current="page"' : '') + '>' + svg(it.icon) +
-             '<span>' + esc(it.label) + '</span></a>';
+        if (it.children && it.children.length) {
+          // minimal collapsible submenu (2B.1 nav patch): toggle is a BUTTON
+          // (never navigates; the parent route is a non-navigable anchor);
+          // expanded automatically when a child is active.
+          var childActive = it.children.some(function (ch) { return ch.key === activeKey; });
+          var open = childActive || S.subOpen[it.key] === true;
+          h += '<button type="button" class="ec-shell-item ec-shell-subtoggle" ' +
+               'data-ec-shell-subtoggle="' + esc(it.key) + '" aria-expanded="' + (open ? 'true' : 'false') + '">' +
+               svg(it.icon) + '<span>' + esc(it.label) + '</span>' +
+               '<svg class="ec-shell-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>' +
+               '</button>';
+          h += '<div class="ec-shell-children"' + (open ? '' : ' hidden') + ' data-ec-shell-children="' + esc(it.key) + '">';
+          it.children.forEach(function (ch) { h += itemHtml(ch, activeKey, ' ec-shell-child'); });
+          h += '</div>';
+        } else {
+          h += itemHtml(it, activeKey, '');
+        }
       });
     });
     return '<nav class="ec-shell-nav" aria-label="Điều hướng chính">' + h + '</nav>';
@@ -301,7 +331,7 @@
 
   // ---------------------------------------------------------------- state --
   var S = { mount: null, boot: null, activeKey: null, drawer: null, backdrop: null,
-            burger: null, lastFocus: null, bound: false, vtDone: false };
+            burger: null, lastFocus: null, bound: false, vtDone: false, subOpen: {} };
   var prefetched = {};
   var hoverTimer = null;
 
@@ -537,6 +567,17 @@
       if (t.closest('[data-ec-shell-logout]')) { ev.preventDefault(); doLogout(); return; }
       if (t.closest('[data-ec-shell-open]'))   { ev.preventDefault(); drawerOpen(); return; }
       if (t.closest('[data-ec-shell-close]'))  { drawerClose(); return; }
+      var st = t.closest('[data-ec-shell-subtoggle]');
+      if (st) {
+        var k = st.getAttribute('data-ec-shell-subtoggle');
+        S.subOpen[k] = !(S.subOpen[k] === true);
+        var box = st.nextElementSibling;
+        if (box && box.getAttribute && box.getAttribute('data-ec-shell-children') === k) {
+          box.hidden = !S.subOpen[k];
+        }
+        st.setAttribute('aria-expanded', S.subOpen[k] ? 'true' : 'false');
+        return;
+      }
       if (S.drawer && S.drawer.classList.contains('ec-shell-on') &&
           t.closest('.ec-shell-drawer a')) { drawerClose(); return; } // navigating away
     }, false);

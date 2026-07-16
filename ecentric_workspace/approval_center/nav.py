@@ -26,7 +26,7 @@ def items():
         },
         {
             "key": "apc.dashboard",
-            "label": "Bảng điều hành",
+            "label": "Dashboard",
             "route": "/approvals/dashboard",
             "icon": "chart",
             "group": "Phê duyệt",
@@ -42,11 +42,11 @@ def items():
             # renamed from apc.legacy_tickets in Phase 2B.1 (PO naming); the
             # registry forbids duplicate routes, so this IS the /approval entry.
             "key": "approval.inbox",
-            "label": "Duyệt chứng từ",
+            "label": "All Tickets",     # renamed per approved sidebar IA (2B.1 nav patch)
             "route": "/approval",
             "icon": "doc",
-            "group": "Phê duyệt",
-            "order": 30,
+            "group": "Chứng từ",
+            "order": 20,
             # Preserves the existing hub-sidebar affordance to the legacy
             # /approval?id=&type= detail page (T4; page itself untouched).
             "active_patterns": ["/approval"],
@@ -56,11 +56,11 @@ def items():
         },
         {
             "key": "tickets.all",
-            "label": "Tất cả chứng từ",
+            "label": "Dashboard",       # approved IA: CHỨNG TỪ / Dashboard
             "route": "/all-ticket",
-            "icon": "doc",
-            "group": "Phê duyệt",
-            "order": 40,
+            "icon": "chart",
+            "group": "Chứng từ",
+            "order": 10,
             "active_patterns": ["/all-ticket"],
             "visible_when": "internal",
             "keywords": ["all ticket", "tat ca chung tu", "danh sach", "kpi", "gbs"],
