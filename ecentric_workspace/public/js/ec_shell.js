@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.5.0 (UX follow-up: sticky regions + instant nav)';
+  var VERSION = 'ec-shell v1.6.0 (prerender for no-store nav routes)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -340,7 +340,7 @@
 
   // ---------------------------------------------------------------- state --
   var S = { mount: null, boot: null, activeKey: null, drawer: null, backdrop: null,
-            burger: null, lastFocus: null, bound: false, vtDone: false, subOpen: {} };
+            burger: null, lastFocus: null, bound: false, vtDone: false, specDone: false, subOpen: {} };
   var prefetched = {};
   var hoverTimer = null;
 
@@ -373,6 +373,45 @@
       st.setAttribute('data-ec-shell-vt', '1');
       st.textContent = '@view-transition{navigation:auto}';
       document.head.appendChild(st);
+    } catch (e) {}
+  }
+
+  // pure (exposed for tests): the prerender allow-list. Same-origin internal
+  // shell destinations WITHOUT a query/hash, excluding the current page and the
+  // non-navigable submenu anchors (/others, /guides). These pages do all their
+  // data mutation on explicit submit, so prerendering the bare landing URL is
+  // side-effect-safe; deep-link/detail URLs (which carry ?id=) are never listed.
+  function prerenderUrls(bootNav, currentPath) {
+    var seen = {}, urls = [];
+    flattenNav(bootNav).forEach(function (it) {
+      if (it.children && it.children.length) return;      // non-navigable toggle
+      var route = it.route;
+      if (!route || route.charAt(0) !== '/') return;
+      if (route.indexOf('?') >= 0 || route.indexOf('#') >= 0) return;
+      if (normPath(route) === normPath(currentPath)) return;
+      if (seen[route]) return;
+      seen[route] = 1; urls.push(route);
+    });
+    return urls;
+  }
+
+  function injectSpeculationRules() {
+    if (S.specDone) return;
+    if (!(window.HTMLScriptElement && HTMLScriptElement.supports &&
+          HTMLScriptElement.supports('speculationrules'))) return;
+    var urls = prerenderUrls(S.boot && S.boot.nav, window.location.pathname);
+    if (!urls.length) return;
+    S.specDone = true;
+    try {
+      var s = document.createElement('script');
+      s.type = 'speculationrules';
+      s.setAttribute('data-ec-shell-spec', '1');
+      // moderate eagerness = pointer intent (~hover/pointerdown); the browser,
+      // not us, decides when to prerender, and caps concurrency.
+      s.textContent = JSON.stringify({
+        prerender: [{ source: 'list', urls: urls, eagerness: 'moderate' }]
+      });
+      document.head.appendChild(s);
     } catch (e) {}
   }
 
@@ -701,6 +740,7 @@
     render();            // wholesale innerHTML: never duplicates bell/nav
     ensureBurger();      // no-ops when an opener already exists
     injectViewTransition();
+    injectSpeculationRules();   // prerender no-store shell routes (v1.6.0)
   }
 
   function init() {
@@ -748,6 +788,7 @@
       buildSearchEntries: buildSearchEntries,
       searchNav: searchNav,
       catalogCacheValid: catalogCacheValid,
+      prerenderUrls: prerenderUrls,
       reinit: reinit
     };
   }

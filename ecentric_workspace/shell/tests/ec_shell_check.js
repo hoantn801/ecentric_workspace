@@ -277,6 +277,29 @@ const BOOT2 = JSON.parse(JSON.stringify(BOOT1)); BOOT2.nav[1].label = 'Approval 
     ok((html.match(/data-ec-notification-bell="1"/g) || []).length === 1, 'bell still unique with search present');
   }
 
+  // ---- 9. prerender allow-list (v1.6.0): no-store nav routes only ------------
+  {
+    const PN = v0.win.ECShell.prerenderUrls;
+    const nav = [
+      { key: 'core.home', route: '/home', active_patterns: ['/'] },
+      { key: 'apc.catalog', route: '/approvals', active_patterns: ['/approvals'] },
+      { key: 'approval.inbox', route: '/approval', active_patterns: ['/approval'] },
+      { key: 'tickets.all', route: '/all-ticket', active_patterns: ['/all-ticket'] },
+      { key: 'legacy.create_mso', route: '/mso-form', active_patterns: ['/mso-form'] },
+      { key: 'legacy.others', route: '/others', active_patterns: ['/others'], children: [
+        { key: 'legacy.create_client', route: '/client-request', active_patterns: ['/client-request'] },
+      ] },
+    ];
+    const urls = PN(nav, '/approvals');
+    ok(urls.indexOf('/approval') >= 0 && urls.indexOf('/all-ticket') >= 0 && urls.indexOf('/mso-form') >= 0,
+       'prerender list covers the slow no-store routes');
+    ok(urls.indexOf('/approvals') < 0, 'current page excluded from its own prerender list');
+    ok(urls.indexOf('/others') < 0, 'non-navigable submenu toggle excluded from prerender');
+    ok(urls.indexOf('/client-request') >= 0, 'submenu children ARE prerenderable destinations');
+    ok(urls.every(u => u.indexOf('?') < 0 && u.indexOf('#') < 0), 'no query/hash (detail) URL is ever prerendered -- side-effect safe');
+    ok(new Set(urls).size === urls.length, 'prerender list deduped');
+  }
+
   console.log(failures === 0 ? '\nALL CHECKS PASSED' : '\n' + failures + ' FAILURES');
   process.exit(failures ? 1 : 0);
 })();
