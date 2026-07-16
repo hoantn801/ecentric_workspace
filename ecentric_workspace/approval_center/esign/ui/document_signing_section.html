@@ -22,6 +22,11 @@
     .ecd-box .rsz{position:absolute;right:-5px;bottom:-5px;width:12px;height:12px;background:#2C3DA6;border-radius:50%;cursor:nwse-resize}
     .ecd-box .del{position:absolute;right:1px;top:1px;width:14px;height:14px;line-height:12px;text-align:center;background:#fff;border-radius:50%;cursor:pointer;color:#b35900}
     .ecd-scard.sel{border-color:#2C3DA6;box-shadow:0 0 0 2px rgba(44,61,166,.25)}
+    .ecd-box.ro{cursor:default}
+    .ecd-poscount{font-size:11px;color:#57606a;margin-top:4px}
+    .ecd-addpos{margin-top:6px;font-size:11.5px;padding:3px 8px;border:1px solid #2C3DA6;background:#fff;color:#2C3DA6;border-radius:6px;cursor:pointer}
+    .ecd-derr{display:none;padding:8px 12px;border-radius:8px;font-size:12.5px;background:#ffebe9;color:#b35900;border:1px solid #ffb3ab;margin:0 12px 8px}
+    .ecd-ro-banner{padding:8px 12px;border-radius:8px;font-size:12.5px;background:#fff8c5;color:#6b5900;margin:0 12px 8px}
     .ecd-scard{cursor:pointer}
     .ec-docsign .ecd-sub{font-size:12.5px;color:var(--gray-500,#6e7781);margin:0 0 14px}
     .ec-docsign .ecd-row{display:flex;align-items:center;gap:14px;padding:12px 0;border-top:1px solid var(--gray-100,#eaeef2)}
@@ -77,6 +82,8 @@
           <div class="ecd-meta" id="ecdDrawerSummary"></div></div>
         <button class="ecd-btn" id="ecdDrawerClose" type="button">Đóng</button>
       </header>
+      <div id="ecdRoBanner" class="ecd-ro-banner" style="display:none">Yêu cầu đã được gửi — chỉ xem, không thể chỉnh sửa vị trí ký.</div>
+      <div id="ecdDrawerErr" class="ecd-derr"></div>
       <div class="ecd-body">
         <div class="ecd-viewer" id="ecdViewer">
           <div id="ecdStage" style="position:relative;display:inline-block">
@@ -285,10 +292,42 @@
   }
   // -------- functional placement workspace (Phase C) --------
   var DRW = { ref: null, st: null, slot: null, pdf: null, page: 1, scale: 1.0, pagePt: [612, 792],
-              pending: {}, appliedRev: {}, rev: 0, docToken: 0 };
+              pending: {}, appliedRev: {}, rev: 0, docToken: 0, geom: {} };
   function _cancelPending() {   // close / switch document / open: cancel in-flight autosaves
     for (var k in DRW.pending) { if (DRW.pending[k] && DRW.pending[k].timer) clearTimeout(DRW.pending[k].timer); }
-    DRW.pending = {}; DRW.appliedRev = {}; DRW.docToken++;
+    DRW.pending = {}; DRW.appliedRev = {}; DRW.docToken++; DRW.geom = {};   // drop local overrides on open/close/switch
+  }
+  // ISSUE 1: local latest geometry is authoritative the instant the user moves/resizes; a stale
+  // server placement_state (e.g. a slower earlier save response, or reselecting a signer) must
+  // never reset it. drawBoxes overlays DRW.geom[name] over server geometry until cleared.
+  function _localGeom(name, g) { if (g) { DRW.geom[name] = g; } return DRW.geom[name]; }
+  // ISSUE 2: clamp/normalize geometry client-side so we never send zero/negative/inverted or
+  // out-of-page boxes (backend stays authoritative and re-validates).
+  function _clampBox(box) {
+    var W = DRW.pagePt[0] || 612, H = DRW.pagePt[1] || 792, minW = 20, minH = 12;
+    var w = Math.max(minW, Math.abs(+box.width || 0)), h = Math.max(minH, Math.abs(+box.height || 0));
+    var x = Math.min(Math.max(0, +box.x || 0), Math.max(0, W - minW));
+    var y = Math.min(Math.max(0, +box.y || 0), Math.max(0, H - minH));
+    w = Math.max(minW, Math.min(w, W - x)); h = Math.max(minH, Math.min(h, H - y));
+    box.x = x; box.y = y; box.width = w; box.height = h; return box;
+  }
+  function drawerErr(msg) {
+    var el = document.getElementById("ecdDrawerErr"); if (!el) return;
+    if (msg) { el.textContent = msg; el.style.display = "block"; }
+    else { el.textContent = ""; el.style.display = "none"; }
+  }
+  var _SAVE_REASON = {                                        // structured backend reasons -> drawer copy
+    invalid_slot_key: "Người ký không hợp lệ — hãy tải lại trang.",
+    not_pdf: "Định dạng này chưa hỗ trợ đặt vị trí ký.",
+    supporting_document: "Tài liệu đã đặt là bộ chứng từ — không cần chữ ký.",
+    stale_or_foreign_attachment: "Tài liệu không còn hợp lệ — hãy tải lại trang.",
+    foreign_placement: "Vị trí ký không thuộc tài liệu này.",
+    already_submitted: "Yêu cầu đã được gửi — không thể thay đổi vị trí ký.",
+    package_locked: "Gói ký đã được chốt — không thể thay đổi.",
+    needs_review: "Cấu hình ký đang cần rà soát." };
+  function saveFail(o) {                                      // o = {ok:false, reason} or null
+    var r = o && o.reason; saveState("fail");
+    drawerErr(_SAVE_REASON[r] || "Không thể lưu vị trí chữ ký — thử lại.");
   }
   var PDFJS_BASE = "/assets/ecentric_workspace/vendor/pdfjs/";
   var pdfjsLib = null;
@@ -310,21 +349,30 @@
     var st = DRW.st || {}; return (st.covered_slot_count || 0) + "/" + (st.required_slot_count || 0);
   }
   function renderCards() {
-    var st = DRW.st || {}, covered = {};
-    (st.placements || []).forEach(function (p) { if (p.signer_slot_key) covered[p.signer_slot_key] = 1; });
+    var st = DRW.st || {}, covered = {}, cnt = {};
+    (st.placements || []).forEach(function (p) {
+      if (p.signer_slot_key) { covered[p.signer_slot_key] = 1; cnt[p.signer_slot_key] = (cnt[p.signer_slot_key] || 0) + 1; } });
+    var ro = st.editable === false;                          // sent/locked => view-only (ISSUE 4)
     document.getElementById("ecdProg").textContent = progressText();
     document.getElementById("ecdSignerCards").innerHTML = (st.required_slots || []).map(function (sl) {
       var done = covered[sl.slot_key] ? ' ✓' : '';
       var cands = (sl.candidates || []).map(function (c) {
         var w = c.scts_mapping_status === "verified" ? "" : '<div class="warn">Chưa có cấu hình chữ ký số</div>';
         return '<div>' + esc(c.display_name || c.user) + w + '</div>'; }).join("");
+      var n = cnt[sl.slot_key] || 0;
+      var posline = n ? '<div class="ecd-poscount">' + n + ' vị trí đã đặt</div>' : '';
+      // one signer may need to sign several positions/pages; ADD is explicit (ISSUE 3), hidden read-only
+      var add = ro ? '' : '<button class="ecd-addpos" type="button" data-add="' + esc(sl.slot_key) + '">'
+        + (n ? '+ Thêm vị trí ký' : 'Đặt vị trí ký') + '</button>';
       return '<div class="ecd-scard' + (DRW.slot === sl.slot_key ? ' sel' : '') + '" data-slot="'
         + esc(sl.slot_key) + '"><div class="role">' + esc(sl.label) + done + '</div>'
-        + '<div class="cand">' + cands + '</div></div>';
+        + '<div class="cand">' + cands + '</div>' + posline + add + '</div>';
     }).join("") || '<div class="ecd-meta">Chưa xác định được người ký.</div>';
-    root.querySelectorAll("[data-slot]").forEach(function (c) {
-      c.onclick = function () { DRW.slot = c.getAttribute("data-slot"); renderCards(); };
-    });
+    if (!ro) {
+      root.querySelectorAll("[data-add]").forEach(function (btn) {
+        btn.onclick = function (e) { e.stopPropagation();     // explicit intent to place another box
+          DRW.slot = btn.getAttribute("data-add"); drawerErr(""); renderCards(); }; });
+    }
   }
   function slotLabelFor(key) {
     var s = (DRW.st.required_slots || []).filter(function (x) { return x.slot_key === key; })[0];
@@ -334,14 +382,17 @@
     var layer = document.getElementById("ecdLayer"); layer.innerHTML = "";
     var cw = document.getElementById("ecdCanvas").width, ch = document.getElementById("ecdCanvas").height;
     var sx = cw / DRW.pagePt[0], sy = ch / DRW.pagePt[1];   // pt -> px (top-left origin)
+    var ro = DRW.st.editable === false;                     // ISSUE 4: view-only after submit
     (DRW.st.placements || []).forEach(function (p) {
       if (!p.signer_slot_key) return;                        // legacy shown as unmapped elsewhere
-      var b = document.createElement("div"); b.className = "ecd-box";
-      b.style.left = (p.x * sx) + "px"; b.style.top = (p.y * sy) + "px";
-      b.style.width = (p.width * sx) + "px"; b.style.height = (p.height * sy) + "px";
+      var g = (p.name && DRW.geom[p.name]) || p;             // ISSUE 1: local geometry wins over stale server
+      var b = document.createElement("div"); b.className = "ecd-box" + (ro ? " ro" : "");
+      b.style.left = (g.x * sx) + "px"; b.style.top = (g.y * sy) + "px";
+      b.style.width = (g.width * sx) + "px"; b.style.height = (g.height * sy) + "px";
       b.innerHTML = '<div class="lbl">' + esc(slotLabelFor(p.signer_slot_key)) + '</div>'
-        + '<div class="del" title="Xoá">×</div><div class="rsz"></div>';
-      _wireBox(b, p, sx, sy); layer.appendChild(b);
+        + (ro ? '' : '<div class="del" title="Xoá">×</div><div class="rsz"></div>');
+      if (!ro) _wireBox(b, p, sx, sy);
+      layer.appendChild(b);
     });
   }
   function _persist(cid, box) {                               // debounced, race-safe autosave
@@ -358,11 +409,11 @@
           if (DRW.pending[cid] && DRW.pending[cid].deleted) return;   // box deleted meanwhile
           if (myRev < (DRW.appliedRev[cid] || 0)) return;      // out-of-order: a newer response won
           var o = (r && r.message) || {};
-          if (o.ok === false) { saveState("fail"); return; }
-          DRW.appliedRev[cid] = myRev;
+          if (o.ok === false) { saveFail(o); return; }
+          DRW.appliedRev[cid] = myRev; drawerErr("");
           DRW.st = o.state; saveState("saved"); renderCards(); drawBoxes(); refreshRow();
         })
-        .catch(function () { if (myToken === DRW.docToken) saveState("fail"); });
+        .catch(function () { if (myToken === DRW.docToken) saveFail(null); });
     }, 500);
   }
   function _wireBox(b, p, sx, sy) {
@@ -377,9 +428,12 @@
       window.frappe.call({ method: API + "delete_placement", type: "POST",
         args: { payment_request_name: pr(), document_ref: DRW.ref, placement_name: p.name } })
         .then(function (r) { if (myToken !== DRW.docToken) return;
-          DRW.st = ((r && r.message) || {}).state || DRW.st; saveState("saved");
+          var o = (r && r.message) || {};
+          if (o.ok === false) { saveFail(o); return; }
+          if (p.name) delete DRW.geom[p.name];               // drop local override for the removed box
+          DRW.st = o.state || DRW.st; saveState("saved"); drawerErr("");
           renderCards(); drawBoxes(); refreshRow(); })
-        .catch(function () { if (myToken === DRW.docToken) saveState("fail"); });
+        .catch(function () { if (myToken === DRW.docToken) saveFail(null); });
     };
     var drag = null;
     b.addEventListener("mousedown", function (e) {
@@ -396,17 +450,28 @@
     });
     document.addEventListener("mouseup", function () {
       if (!drag) return; drag = null;
-      p.x = b.offsetLeft / sx; p.y = b.offsetTop / sy; p.width = b.offsetWidth / sx; p.height = b.offsetHeight / sy;
-      _persist(cid, { name: p.name, page_index: DRW.page, x: p.x, y: p.y, width: p.width,
-                     height: p.height, signer_slot_key: p.signer_slot_key });
+      var box = _clampBox({ x: b.offsetLeft / sx, y: b.offsetTop / sy,
+                            width: b.offsetWidth / sx, height: b.offsetHeight / sy });
+      p.x = box.x; p.y = box.y; p.width = box.width; p.height = box.height;
+      // reflect the clamp back into the DOM so the box can never show inverted/off-page geometry
+      b.style.left = (box.x * sx) + "px"; b.style.top = (box.y * sy) + "px";
+      b.style.width = (box.width * sx) + "px"; b.style.height = (box.height * sy) + "px";
+      _localGeom(p.name, { x: box.x, y: box.y, width: box.width, height: box.height });  // ISSUE 1
+      _persist(cid, { name: p.name, page_index: DRW.page, x: box.x, y: box.y,
+                     width: box.width, height: box.height, signer_slot_key: p.signer_slot_key });
     });
   }
   function placeAt(px, py) {
-    if (!DRW.slot) { frappe.show_alert({ message: "Hãy chọn một người ký trước.", indicator: "orange" }); return; }
+    if (DRW.st && DRW.st.editable === false) {                // ISSUE 4: no placing after submit
+      drawerErr("Yêu cầu đã được gửi — không thể thêm vị trí ký."); return; }
+    if (!DRW.slot) { drawerErr("Hãy chọn một người ký, rồi bấm lên tài liệu để đặt vị trí."); return; }
     var cw = document.getElementById("ecdCanvas").width, ch = document.getElementById("ecdCanvas").height;
     var sx = cw / DRW.pagePt[0], sy = ch / DRW.pagePt[1];
-    var box = { page_index: DRW.page, x: px / sx, y: py / sy, width: 120, height: 40, signer_slot_key: DRW.slot };
+    var box = _clampBox({ page_index: DRW.page, x: px / sx, y: py / sy, width: 120, height: 40 });
+    box.signer_slot_key = DRW.slot;
+    drawerErr("");
     _persist("new:" + (++DRW.rev), box);                     // fresh box -> debounced save
+    DRW.slot = null; renderCards();                          // ISSUE 3: exit placement mode after ONE box
   }
   function renderPdf() {
     if (!DRW.pdf) return;
@@ -429,6 +494,9 @@
     Promise.all([call("placement_state", { payment_request_name: pr(), document_ref: ref }), loadPdfjs()])
       .then(function (res) {
         DRW.st = res[0] || {}; var ok = res[1];
+        drawerErr("");
+        document.getElementById("ecdRoBanner").style.display =
+          DRW.st.editable === false ? "block" : "none";     // ISSUE 4: view-only after submit
         document.getElementById("ecdDrawerSummary").textContent =
           (DRW.st.required_slot_count || 0) + " người ký cần thiết lập · " + progressText();
         renderCards();

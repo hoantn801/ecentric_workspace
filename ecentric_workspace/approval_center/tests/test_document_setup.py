@@ -31,12 +31,19 @@ def _profile(requester=1):
                          "requester_signature_required": requester})
 
 
-def _pending(tag):
+def _draft(tag):
+    """Pre-submit request (NO Approval Request) - document setup/classification is EDITABLE."""
     _profile()
     h = fx.full_stack(fx.PFX + tag + "@example.com", fx.PFX + tag + "m@example.com")
     biz = fx.draft_payment_request(h["requester"])
-    frappe.set_user(h["requester"]); papi.submit_request(biz); frappe.set_user("Administrator")
     return h["requester"], biz
+
+
+def _submitted(tag):
+    """Sent request (Approval Request exists) - classification is IMMUTABLE (Issue 4)."""
+    req, biz = _draft(tag)
+    frappe.set_user(req); papi.submit_request(biz); frappe.set_user("Administrator")
+    return req, biz
 
 
 def _attach(biz, user, name="doc.pdf", content=None, content_hash=None):
@@ -72,19 +79,19 @@ class TestDocumentSetupRead(FrappeTestCase):
         frappe.set_user("Administrator")
 
     def test_one_file_one_document(self):
-        req, biz = _pending("d1"); _attach(biz, req, "a.pdf", fx.PDF, "H1")
+        req, biz = _draft("d1"); _attach(biz, req, "a.pdf", fx.PDF, "H1")
         st = _state(req, biz)
         self.assertEqual(st["summary"]["documents"], 1)
 
     def test_duplicate_content_hash_one_document(self):
-        req, biz = _pending("d2")
+        req, biz = _draft("d2")
         _attach(biz, req, "a.pdf", fx.PDF, "HDUP"); _attach(biz, req, "a (1).pdf", fx.PDF, "HDUP")
         st = _state(req, biz)
         self.assertEqual(st["summary"]["documents"], 1)
         self.assertEqual(st["documents"][0]["duplicate_count"], 2)
 
     def test_fallback_dedupe_by_file_url(self):
-        req, biz = _pending("d3")
+        req, biz = _draft("d3")
         a = _attach(biz, req, "n.pdf", fx.PDF, None)
         url = frappe.db.get_value("File", a, "file_url")
         b = _attach(biz, req, "n.pdf", fx.PDF, None)
@@ -95,13 +102,13 @@ class TestDocumentSetupRead(FrappeTestCase):
         self.assertEqual(st["summary"]["documents"], 1)
 
     def test_same_name_different_content_separate(self):
-        req, biz = _pending("d4")
+        req, biz = _draft("d4")
         _attach(biz, req, "a.pdf", fx.PDF, "HX"); _attach(biz, req, "a.pdf", PNG, "HY")
         st = _state(req, biz)
         self.assertEqual(st["summary"]["documents"], 2)
 
     def test_no_dsf_default_classification(self):
-        req, biz = _pending("d5"); _attach(biz, req, "a.pdf", fx.PDF, "H5")
+        req, biz = _draft("d5"); _attach(biz, req, "a.pdf", fx.PDF, "H5")
         d = _state(req, biz)["documents"][0]
         self.assertTrue(d["requires_signature"])
         self.assertEqual(d["classification_source"], "default")
@@ -109,7 +116,7 @@ class TestDocumentSetupRead(FrappeTestCase):
         self.assertEqual(d["setup_state"], "not_configured")
 
     def test_existing_dsf_canonical_classification(self):
-        req, biz = _pending("d6"); ref = _attach(biz, req, "a.pdf", fx.PDF, "H6")
+        req, biz = _draft("d6"); ref = _attach(biz, req, "a.pdf", fx.PDF, "H6")
         _write(req, biz, ref, False)                            # -> supporting
         d = next(x for x in _state(req, biz)["documents"] if x["document_ref"] == ref)
         self.assertFalse(d["requires_signature"])
@@ -117,19 +124,19 @@ class TestDocumentSetupRead(FrappeTestCase):
         self.assertEqual(d["setup_state"], "supporting_document")
 
     def test_required_count_from_signer_plan(self):
-        req, biz = _pending("d8"); _attach(biz, req, "a.pdf", fx.PDF, "H8")
+        req, biz = _draft("d8"); _attach(biz, req, "a.pdf", fx.PDF, "H8")
         st = _state(req, biz)
         self.assertEqual(st["signer_plan"]["summary"]["required_slots"],
                          st["documents"][0]["required_signer_slots"])
 
     def test_missing_mapping_does_not_fail(self):
-        req, biz = _pending("d9"); _attach(biz, req, "a.pdf", fx.PDF, "H9")
+        req, biz = _draft("d9"); _attach(biz, req, "a.pdf", fx.PDF, "H9")
         frappe.db.delete("EC SCTS User Mapping", {"frappe_user": req})
         st = _state(req, biz)
         self.assertIn("documents", st)                         # still resolves
 
     def test_legacy_placements_not_fake_progress(self):
-        req, biz = _pending("d10"); ref = _attach(biz, req, "a.pdf", fx.PDF, "H10")
+        req, biz = _draft("d10"); ref = _attach(biz, req, "a.pdf", fx.PDF, "H10")
         _write(req, biz, ref, True)                            # materialize DSF (signable)
         draft = pkgsvc.draft_package_for_business(BD, biz)
         dsf = frappe.get_all(DSF, filters={"package": draft, "requires_signature": 1}, pluck="name")[0]
@@ -141,14 +148,14 @@ class TestDocumentSetupRead(FrappeTestCase):
         self.assertEqual(d["legacy_placement_count"], 1)
 
     def test_unsupported_signable_format_state(self):
-        req, biz = _pending("d11"); _attach(biz, req, "pic.png", PNG, "H11")
+        req, biz = _draft("d11"); _attach(biz, req, "pic.png", PNG, "H11")
         d = _state(req, biz)["documents"][0]
         self.assertTrue(d["requires_signature"])               # default signable
         self.assertFalse(d["direct_signing_supported"])
         self.assertEqual(d["setup_state"], "unsupported")
 
     def test_read_creates_zero_records(self):
-        req, biz = _pending("d12"); _attach(biz, req, "a.pdf", fx.PDF, "H12")
+        req, biz = _draft("d12"); _attach(biz, req, "a.pdf", fx.PDF, "H12")
         counts = {dt: frappe.db.count(dt) for dt in
                   (PKG, DSF, "EC Digital Signature Placement", "EC Digital Signature Request",
                    "ToDo")}
@@ -162,7 +169,7 @@ class TestDocumentSetupWrite(FrappeTestCase):
         frappe.set_user("Administrator")
 
     def test_first_write_creates_one_draft_and_one_dsf(self):
-        req, biz = _pending("w13"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW13")
+        req, biz = _draft("w13"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW13")
         self.assertFalse(pkgsvc.draft_package_for_business(BD, biz))
         _write(req, biz, ref, False)
         self.assertTrue(pkgsvc.draft_package_for_business(BD, biz))
@@ -170,21 +177,21 @@ class TestDocumentSetupWrite(FrappeTestCase):
         self.assertEqual(frappe.db.count(DSF, {"package": draft}), 1)
 
     def test_duplicate_files_resolve_to_one_dsf(self):
-        req, biz = _pending("w15")
+        req, biz = _draft("w15")
         r1 = _attach(biz, req, "a.pdf", fx.PDF, "HW15"); _attach(biz, req, "a (1).pdf", fx.PDF, "HW15")
         _write(req, biz, r1, False); _write(req, biz, r1, False)
         draft = pkgsvc.draft_package_for_business(BD, biz)
         self.assertEqual(frappe.db.count(DSF, {"package": draft}), 1)
 
     def test_repeated_write_idempotent(self):
-        req, biz = _pending("w16"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW16")
+        req, biz = _draft("w16"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW16")
         _write(req, biz, ref, False); _write(req, biz, ref, False)
         draft = pkgsvc.draft_package_for_business(BD, biz)
         self.assertEqual(frappe.db.count(PKG, {"business_doctype": BD, "business_name": biz}), 1)
         self.assertEqual(frappe.db.count(DSF, {"package": draft}), 1)
 
     def test_canonical_and_mirror_synced(self):
-        req, biz = _pending("w17"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW17")
+        req, biz = _draft("w17"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW17")
         _write(req, biz, ref, False)
         draft = pkgsvc.draft_package_for_business(BD, biz)
         row = frappe.db.get_value(DSF, {"package": draft}, ["requires_signature",
@@ -196,7 +203,7 @@ class TestDocumentSetupWrite(FrappeTestCase):
         self.assertEqual((row.requires_signature, row.is_supporting_document), (1, 0))
 
     def test_locked_package_denied(self):
-        req, biz = _pending("w18"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW18")
+        req, biz = _draft("w18"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW18")
         _write(req, biz, ref, True)
         draft = pkgsvc.draft_package_for_business(BD, biz)
         dsf = frappe.get_all(DSF, filters={"package": draft, "requires_signature": 1}, pluck="name")[0]
@@ -211,7 +218,7 @@ class TestDocumentSetupWrite(FrappeTestCase):
         self.assertFalse(out["ok"]); self.assertEqual(out["reason"], "package_locked")
 
     def test_unauthorized_user_denied(self):
-        req, biz = _pending("w19"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW19")
+        req, biz = _draft("w19"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW19")
         stranger = fx.user(fx.PFX + "w19x@example.com")
         frappe.set_user(stranger)
         with self.assertRaises(frappe.PermissionError):
@@ -219,7 +226,7 @@ class TestDocumentSetupWrite(FrappeTestCase):
         frappe.set_user("Administrator")
 
     def test_no_admin_or_sm_bypass(self):
-        req, biz = _pending("w20"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW20")
+        req, biz = _draft("w20"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW20")
         sm = fx.user(fx.PFX + "w20sm@example.com", roles=("Employee", "System Manager"))
         frappe.set_user(sm)
         with self.assertRaises(frappe.PermissionError):
@@ -229,7 +236,7 @@ class TestDocumentSetupWrite(FrappeTestCase):
             ds.set_document_requires_signature(BD, biz, ref, False)
 
     def test_no_provider_dsr_approval_todo_side_effects(self):
-        req, biz = _pending("w21"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW21")
+        req, biz = _draft("w21"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW21")
         before = {dt: frappe.db.count(dt) for dt in
                   ("EC Digital Signature Request", "EC Approval Request")}
         todo_before = frappe.db.count("ToDo")
@@ -240,7 +247,7 @@ class TestDocumentSetupWrite(FrappeTestCase):
         self.assertEqual(frappe.db.count("ToDo"), todo_before)
 
     def test_existing_placements_require_confirmation(self):
-        req, biz = _pending("w22"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW22")
+        req, biz = _draft("w22"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW22")
         _write(req, biz, ref, True)
         draft = pkgsvc.draft_package_for_business(BD, biz)
         dsf = frappe.get_all(DSF, filters={"package": draft, "requires_signature": 1}, pluck="name")[0]
@@ -255,7 +262,7 @@ class TestDocumentSetupWrite(FrappeTestCase):
         self.assertEqual(_placement_count(dsf), 1)             # unchanged
 
     def test_confirmed_supporting_conversion_resets_placements(self):
-        req, biz = _pending("w23"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW23")
+        req, biz = _draft("w23"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW23")
         _write(req, biz, ref, True)
         draft = pkgsvc.draft_package_for_business(BD, biz)
         dsf = frappe.get_all(DSF, filters={"package": draft, "requires_signature": 1}, pluck="name")[0]
@@ -272,7 +279,7 @@ class TestDocumentSetupWrite(FrappeTestCase):
         self.assertEqual((row.requires_signature, row.is_supporting_document), (0, 1))
 
     def test_stale_dsf_not_shown_as_current_attachment(self):
-        req, biz = _pending("w24"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW24")
+        req, biz = _draft("w24"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HW24")
         _write(req, biz, ref, True)                            # DSF for this content
         # remove the native attachment (its content is now stale relative to the DSF)
         frappe.delete_doc("File", ref, ignore_permissions=True, force=True)
@@ -282,7 +289,7 @@ class TestDocumentSetupWrite(FrappeTestCase):
         self.assertTrue(len(st["stale_signing_files"]) >= 1)   # reported, not deleted
 
     def test_supporting_non_pdf_document(self):
-        req, biz = _pending("w25"); ref = _attach(biz, req, "sheet.xlsx", PNG, "HW25")
+        req, biz = _draft("w25"); ref = _attach(biz, req, "sheet.xlsx", PNG, "HW25")
         out = _write(req, biz, ref, False)                     # mark supporting
         self.assertTrue(out["ok"])
         draft = pkgsvc.draft_package_for_business(BD, biz)
@@ -291,7 +298,7 @@ class TestDocumentSetupWrite(FrappeTestCase):
         self.assertEqual((row.requires_signature, row.is_pdf, row.is_supporting_document), (0, 0, 1))
 
     def test_unsupported_signable_write_refused(self):
-        req, biz = _pending("w25b"); ref = _attach(biz, req, "pic.png", PNG, "HW25b")
+        req, biz = _draft("w25b"); ref = _attach(biz, req, "pic.png", PNG, "HW25b")
         out = _write(req, biz, ref, True)                      # signable non-PDF
         self.assertFalse(out["ok"])
         self.assertEqual(out["reason"], "unsupported_signable_format")
@@ -312,7 +319,7 @@ class TestDocumentSetupCorrections(FrappeTestCase):
 
     # ---- 1. implicit default true is a true no-op ----
     def test_set_true_on_no_dsf_is_noop_zero_writes(self):
-        req, biz = _pending("c1"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC1")
+        req, biz = _draft("c1"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC1")
         counts = {dt: frappe.db.count(dt) for dt in (PKG, DSF, "EC Digital Signature Event")}
         out = _write(req, biz, ref, True)                       # default already true
         self.assertTrue(out["ok"]); self.assertTrue(out.get("no_op"))
@@ -320,7 +327,7 @@ class TestDocumentSetupCorrections(FrappeTestCase):
             self.assertEqual(frappe.db.count(dt), before, "no-op mutated %s" % dt)
 
     def test_existing_classification_repeat_is_noop(self):
-        req, biz = _pending("c2"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC2")
+        req, biz = _draft("c2"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC2")
         _write(req, biz, ref, False)                            # -> supporting (materialize)
         ev0 = frappe.db.count("EC Digital Signature Event",
                               {"event_type": "DocumentClassificationChanged"})
@@ -331,7 +338,7 @@ class TestDocumentSetupCorrections(FrappeTestCase):
 
     # ---- 2. document-scoped placement reset preserves siblings ----
     def test_clear_file_placements_preserves_sibling_ids(self):
-        req, biz = _pending("c3"); _attach(biz, req, "seed.pdf", fx.PDF, "HC3")
+        req, biz = _draft("c3"); _attach(biz, req, "seed.pdf", fx.PDF, "HC3")
         frappe.set_user(req)
         draft = pkgsvc.get_or_create_draft(BD, biz, PROFILE, allow_submitted=True).name
         a = pkgsvc.add_file(draft, "A.pdf", fx.PDF, requires_signature=1).name
@@ -352,7 +359,7 @@ class TestDocumentSetupCorrections(FrappeTestCase):
         self.assertEqual(b_before, b_after)                    # B row IDs UNCHANGED (no churn)
 
     def test_clear_file_placements_idempotent(self):
-        req, biz = _pending("c3b"); _attach(biz, req, "s.pdf", fx.PDF, "HC3b")
+        req, biz = _draft("c3b"); _attach(biz, req, "s.pdf", fx.PDF, "HC3b")
         frappe.set_user(req)
         draft = pkgsvc.get_or_create_draft(BD, biz, PROFILE, allow_submitted=True).name
         a = pkgsvc.add_file(draft, "A.pdf", fx.PDF, requires_signature=1).name
@@ -361,7 +368,7 @@ class TestDocumentSetupCorrections(FrappeTestCase):
 
     # ---- 3. classification audit ----
     def test_initial_true_to_false_is_audited(self):
-        req, biz = _pending("c4"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC4")
+        req, biz = _draft("c4"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC4")
         _write(req, biz, ref, False)
         draft = pkgsvc.draft_package_for_business(BD, biz)
         evs = frappe.get_all("EC Digital Signature Event",
@@ -374,13 +381,13 @@ class TestDocumentSetupCorrections(FrappeTestCase):
         self.assertEqual(evs[0].erp_actor, req)
 
     def test_noop_emits_no_event(self):
-        req, biz = _pending("c5"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC5")
+        req, biz = _draft("c5"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC5")
         _write(req, biz, ref, True)                            # no-op (default true)
         self.assertEqual(frappe.db.count("EC Digital Signature Event",
                                          {"event_type": "DocumentClassificationChanged"}), 0)
 
     def test_subsequent_change_audited(self):
-        req, biz = _pending("c6"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC6")
+        req, biz = _draft("c6"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC6")
         _write(req, biz, ref, False)                           # true->false
         _write(req, biz, ref, True)                            # false->true (subsequent)
         draft = pkgsvc.draft_package_for_business(BD, biz)
@@ -394,7 +401,7 @@ class TestDocumentSetupCorrections(FrappeTestCase):
 
     # ---- 4. DSF precedence ----
     def test_cancelled_dsf_not_authoritative(self):
-        req, biz = _pending("c7"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC7")
+        req, biz = _draft("c7"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC7")
         _write(req, biz, ref, False)                           # DSF in a Draft package
         draft = pkgsvc.draft_package_for_business(BD, biz)
         frappe.db.set_value(PKG, draft, "status", "Cancelled")  # simulate historical cancelled
@@ -404,7 +411,7 @@ class TestDocumentSetupCorrections(FrappeTestCase):
         self.assertEqual(d["classification_source"], "default")
 
     def test_needs_review_on_ambiguous_coexistence(self):
-        req, biz = _pending("c8"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC8")
+        req, biz = _draft("c8"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HC8")
         _write(req, biz, ref, False)                           # Draft package
         draft = pkgsvc.draft_package_for_business(BD, biz)
         # a second immutable-live package coexisting -> ambiguous
@@ -425,7 +432,7 @@ class TestDocumentSetupBooleanAndEligibility(FrappeTestCase):
 
     # ---- boolean normalizer at the public boundary ----
     def test_browser_string_true_parses_as_noop(self):
-        req, biz = _pending("b1"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HB1")
+        req, biz = _draft("b1"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HB1")
         counts = {dt: frappe.db.count(dt) for dt in (PKG, DSF)}
         out = _write(req, biz, ref, "true")                    # browser-style string
         self.assertTrue(out["ok"]); self.assertTrue(out.get("no_op"))
@@ -433,7 +440,7 @@ class TestDocumentSetupBooleanAndEligibility(FrappeTestCase):
             self.assertEqual(frappe.db.count(dt), before)      # true no-op, zero writes
 
     def test_browser_string_false_materializes(self):
-        req, biz = _pending("b2"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HB2")
+        req, biz = _draft("b2"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HB2")
         out = _write(req, biz, ref, "false")
         self.assertTrue(out["ok"])
         self.assertTrue(pkgsvc.draft_package_for_business(BD, biz))
@@ -441,7 +448,7 @@ class TestDocumentSetupBooleanAndEligibility(FrappeTestCase):
     def test_bool_int_string_variants_normalize_identically(self):
         # each fresh request; all "false" forms must materialize supporting identically
         for i, val in enumerate([False, 0, "0", "false", "False", " false "]):
-            req, biz = _pending("bv%d" % i); ref = _attach(biz, req, "a.pdf", fx.PDF, "HBV%d" % i)
+            req, biz = _draft("bv%d" % i); ref = _attach(biz, req, "a.pdf", fx.PDF, "HBV%d" % i)
             out = _write(req, biz, ref, val)
             self.assertTrue(out["ok"], "form %r failed" % val)
             draft = pkgsvc.draft_package_for_business(BD, biz)
@@ -450,7 +457,7 @@ class TestDocumentSetupBooleanAndEligibility(FrappeTestCase):
             self.assertEqual((row.requires_signature, row.is_supporting_document), (0, 1))
 
     def test_invalid_boolean_rejected(self):
-        req, biz = _pending("b3"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HB3")
+        req, biz = _draft("b3"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HB3")
         for bad in ("yes", "", "2", "maybe"):
             frappe.set_user(req)
             with self.assertRaises(frappe.ValidationError):
@@ -459,14 +466,14 @@ class TestDocumentSetupBooleanAndEligibility(FrappeTestCase):
 
     # ---- classification eligibility during document-setup stage ----
     def test_fresh_request_no_package_is_classifiable_by_requester(self):
-        req, biz = _pending("e1"); _attach(biz, req, "a.pdf", fx.PDF, "HE1")
-        st = _state(req, biz)                                   # submitted, NO package yet
+        req, biz = _draft("e1"); _attach(biz, req, "a.pdf", fx.PDF, "HE1")
+        st = _state(req, biz)                                   # pre-submit draft, NO package yet
         self.assertIsNone(st["current_package_status"])
-        self.assertTrue(st["editable"])                        # was False before the fix
+        self.assertTrue(st["editable"])                        # pre-submit draft -> editable
         self.assertTrue(st["can_classify"])
 
     def test_non_requester_not_can_classify(self):
-        req, biz = _pending("e2"); _attach(biz, req, "a.pdf", fx.PDF, "HE2")
+        req, biz = _draft("e2"); _attach(biz, req, "a.pdf", fx.PDF, "HE2")
         other = fx.user(fx.PFX + "e2o@example.com")
         # other can view? assert_can_view_business would deny -> guard read for the requester only
         st = _state(req, biz)
@@ -474,7 +481,7 @@ class TestDocumentSetupBooleanAndEligibility(FrappeTestCase):
         # a stranger cannot even read (permission), asserted in write tests below
 
     def test_frozen_package_closes_classification_window(self):
-        req, biz = _pending("e3"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HE3")
+        req, biz = _draft("e3"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HE3")
         _write(req, biz, ref, True)                            # no-op (still no package)... force a package:
         _write(req, biz, ref, False)                           # materialize Draft
         draft = pkgsvc.draft_package_for_business(BD, biz)
@@ -484,3 +491,25 @@ class TestDocumentSetupBooleanAndEligibility(FrappeTestCase):
         st = _state(req, biz)
         self.assertEqual(st["current_package_status"], "Locked")
         self.assertFalse(st["editable"]); self.assertFalse(st["can_classify"])
+
+
+    # ---- Issue 4: classification is IMMUTABLE once the request has been sent ----
+    def test_postsubmit_classification_denied(self):
+        req, biz = _submitted("e9"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HE9")
+        frappe.set_user(req)
+        out = ds.set_document_requires_signature(BD, biz, ref, "false")   # try to classify after send
+        st = ds.get_document_setup_state(BD, biz)
+        frappe.set_user("Administrator")
+        self.assertFalse(out["ok"]); self.assertEqual(out["reason"], "already_submitted")
+        self.assertFalse(st["editable"]); self.assertFalse(st["can_classify"])
+        self.assertEqual(st["setup_editable_reason"], "already_submitted")
+
+    def test_presubmit_classify_then_postsubmit_locked(self):
+        req, biz = _draft("e10"); ref = _attach(biz, req, "a.pdf", fx.PDF, "HE10")
+        out = _write(req, biz, ref, False)                                # pre-submit: classify OK
+        self.assertTrue(out["ok"])
+        frappe.set_user("Administrator"); papi.submit_request(biz)
+        frappe.set_user(req)
+        out2 = ds.set_document_requires_signature(BD, biz, ref, "true")   # post-submit: denied
+        frappe.set_user("Administrator")
+        self.assertFalse(out2["ok"]); self.assertEqual(out2["reason"], "already_submitted")

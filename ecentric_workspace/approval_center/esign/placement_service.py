@@ -74,7 +74,8 @@ def placement_state(business_doctype, business_name, document_ref):
     perms.assert_can_view_business(business_doctype, business_name)
     cur_name, cur_status, is_draft, needs_review = ds._current_package(business_doctype, business_name)
     is_requester = frappe.session.user == ds._requester_of(business_doctype, business_name)
-    editable = (cur_status in (None, "Draft")) and not needs_review and is_requester
+    _editable, _edit_reason = ds._setup_editable(business_doctype, business_name)
+    editable = _editable and is_requester            # sent (AR exists) => immutable, view-only
 
     required, required_keys, plan = _required_slots(business_doctype, business_name)
     f = _resolve_file(business_doctype, business_name, document_ref)
@@ -101,7 +102,7 @@ def placement_state(business_doctype, business_name, document_ref):
         "business_doctype": business_doctype, "business_name": business_name,
         "document_ref": document_ref, "display_name": f.get("file_name"),
         "file_url": f.get("file_url"), "ok": True,
-        "editable": editable, "needs_review": needs_review,
+        "editable": editable, "setup_editable_reason": _edit_reason, "needs_review": needs_review,
         "is_pdf": is_pdf, "requires_signature": requires_signature,
         "supporting_document": (dsf is not None and not requires_signature),
         "slot_key_version": plan.get("slot_key_version"),
@@ -122,13 +123,12 @@ def placement_state(business_doctype, business_name, document_ref):
 # governed writes
 # --------------------------------------------------------------------------- #
 def _assert_write_ok(business_doctype, business_name):
-    """Requester-scoped only (no Admin/SM/role/ignore_permissions bypass) + editable stage."""
-    ds._assert_can_classify(business_doctype, business_name)     # requester-only; raises otherwise
+    """SINGLE shared gate (ecentric_workspace...document_setup._assert_setup_editable): requester
+    only (no Admin/SM/role/ignore_permissions bypass) AND pre-submit editable stage. Once the
+    request has been sent ('Gửi yêu cầu' => EC Approval Request exists) placement is IMMUTABLE:
+    add/move/resize/delete are all rejected here, not just disabled in the UI."""
+    ds._assert_setup_editable(business_doctype, business_name)   # raises if not requester / sent / locked
     cur_name, cur_status, is_draft, needs_review = ds._current_package(business_doctype, business_name)
-    if needs_review:
-        frappe.throw(_("Cấu hình ký đang mơ hồ - cần rà soát."))
-    if cur_name and not is_draft:
-        frappe.throw(_("Gói ký đã được chốt - không thể thay đổi vị trí ký."))
     return cur_name
 
 
