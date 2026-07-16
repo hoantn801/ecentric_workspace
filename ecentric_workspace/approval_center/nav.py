@@ -39,7 +39,9 @@ def items():
             "owner": "approval_center",
         },
         {
-            "key": "apc.legacy_tickets",
+            # renamed from apc.legacy_tickets in Phase 2B.1 (PO naming); the
+            # registry forbids duplicate routes, so this IS the /approval entry.
+            "key": "approval.inbox",
             "label": "Duyệt chứng từ",
             "route": "/approval",
             "icon": "doc",
@@ -49,7 +51,19 @@ def items():
             # /approval?id=&type= detail page (T4; page itself untouched).
             "active_patterns": ["/approval"],
             "visible_when": "internal",
-            "keywords": ["duyet chung tu", "chung tu", "ticket", "mso", "gbs"],
+            "keywords": ["duyet chung tu", "chung tu", "inbox", "mso", "gbs"],
+            "owner": "approval_center",
+        },
+        {
+            "key": "tickets.all",
+            "label": "Tất cả chứng từ",
+            "route": "/all-ticket",
+            "icon": "doc",
+            "group": "Phê duyệt",
+            "order": 40,
+            "active_patterns": ["/all-ticket"],
+            "visible_when": "internal",
+            "keywords": ["all ticket", "tat ca chung tu", "danh sach", "kpi", "gbs"],
             "owner": "approval_center",
         },
     ]
