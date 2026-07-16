@@ -177,3 +177,62 @@ class TestPlacementService(FrappeTestCase):
         self.assertEqual(st["required_slot_count"], plan["summary"]["required_slots"])
         keys = {s["slot_key"] for s in st["required_slots"]}
         self.assertIn("requester", keys)                       # requester slot present
+
+
+    def test_17_placement_state_zero_writes(self):
+        req, biz = _pending("z1"); ref = _attach(biz, req)          # fresh default-signable PDF, no pkg
+        counts = {dt: frappe.db.count(dt) for dt in
+                  ("EC Digital Signature Package", "EC Digital Signature File", PL,
+                   "EC Digital Signature Event")}
+        frappe.set_user(req)
+        st = ps.placement_state(BD, biz, ref)
+        ps.placement_state(BD, biz, ref)                            # repeated
+        frappe.set_user("Administrator")
+        for dt, before in counts.items():
+            self.assertEqual(frappe.db.count(dt), before, "placement_state wrote %s" % dt)
+        # still resolves everything without materializing
+        self.assertTrue(st["ok"]); self.assertTrue(st["is_pdf"]); self.assertTrue(st["file_url"])
+        self.assertEqual(st["progress"]["covered"], 0)
+        self.assertGreaterEqual(st["required_slot_count"], 1)
+
+    def test_18_first_save_materializes_one_pkg_one_dsf_then_reuses(self):
+        req, biz = _pending("z2"); ref = _attach(biz, req)
+        self.assertFalse(pkgsvc.draft_package_for_business(BD, biz))
+        frappe.set_user(req)
+        ps.save_placement(BD, biz, ref, _box("requester"))
+        draft = pkgsvc.draft_package_for_business(BD, biz)
+        self.assertEqual(frappe.db.count("EC Digital Signature Package",
+                                         {"business_doctype": BD, "business_name": biz}), 1)
+        self.assertEqual(frappe.db.count(DSF := "EC Digital Signature File", {"package": draft}), 1)
+        ps.save_placement(BD, biz, ref, _box("requester", x=200))   # second save reuses
+        frappe.set_user("Administrator")
+        self.assertEqual(frappe.db.count("EC Digital Signature Package",
+                                         {"business_doctype": BD, "business_name": biz}), 1)
+        self.assertEqual(frappe.db.count(DSF, {"package": draft}), 1)
+
+    def test_19_delete_never_creates_pkg_or_dsf(self):
+        req, biz = _pending("z3"); ref = _attach(biz, req)
+        before = frappe.db.count("EC Digital Signature Package")
+        frappe.set_user(req)
+        out = ps.delete_placement(BD, biz, ref, "nonexistent-placement")  # nothing to delete
+        frappe.set_user("Administrator")
+        self.assertTrue(out["ok"])
+        self.assertEqual(frappe.db.count("EC Digital Signature Package"), before)  # no materialization
+
+    def test_20_level_no_compat_from_frozen_plan_slot(self):
+        req, biz = _pending("z4"); ref = _attach(biz, req)
+        plan = sp.resolve_signer_plan(BD, biz)
+        lvl = next((sl for sl in plan["slots"] if sl["kind"] == "approval_level"), None)
+        frappe.set_user(req)
+        # requester slot -> level_no 0
+        ps.save_placement(BD, biz, ref, _box("requester"))
+        draft = pkgsvc.draft_package_for_business(BD, biz)
+        rq = frappe.get_all(PL, filters={"package": draft, "signer_slot_key": "requester"},
+                            fields=["level_no"])[0]
+        self.assertEqual(rq.level_no, 0)
+        if lvl:                                                     # approval-level slot -> frozen level_no
+            ps.save_placement(BD, biz, ref, _box(lvl["slot_key"], x=250))
+            r2 = frappe.get_all(PL, filters={"package": draft, "signer_slot_key": lvl["slot_key"]},
+                                fields=["level_no"])[0]
+            self.assertEqual(r2.level_no, lvl["level_no"])         # authoritative frozen level_no, not key parse
+        frappe.set_user("Administrator")

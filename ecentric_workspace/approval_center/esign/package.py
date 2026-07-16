@@ -216,6 +216,7 @@ def upsert_placement(pkg_name, dsf_name, box):
     vals = {"page_index": int(box.get("page_index") or 1),
             "x": float(box.get("x") or 0), "y": float(box.get("y") or 0),
             "width": float(box.get("width") or 0), "height": float(box.get("height") or 0),
+            "level_no": int(box.get("level_no") or 0),   # legacy runtime compat (from frozen plan slot)
             "signer_slot_key": box.get("signer_slot_key"),
             "signer_slot_version": int(box.get("signer_slot_version") or 0) or None,
             "signature_type": box.get("signature_type") or "mock"}

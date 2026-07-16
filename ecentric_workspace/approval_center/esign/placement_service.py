@@ -174,10 +174,21 @@ def save_placement(business_doctype, business_name, document_ref, box):
     slot = box.get("signer_slot_key")
     if not slot or slot not in required_keys:
         return {"ok": False, "reason": "invalid_slot_key"}
+    # LEGACY RUNTIME COMPAT: the deployed provider payload / preflight still key off level_no.
+    # Resolve it from the AUTHORITATIVE B1 plan slot (which itself came from the frozen
+    # EC Approval Request Level), NOT from parsing the slot-key string. Requester slot => 0.
+    # signer_slot_key remains the unique identity; level_no may be shared across Any One / All /
+    # Minimum slots at the same level. scts_role_title is left blank so the existing governed
+    # runtime derivation (tasks._enrich_signer_context) fills it - level_no is not re-authored
+    # as the identity.
+    slot_obj = next((so for so in required if so["slot_key"] == slot), None)
+    compat_level_no = 0 if (slot_obj and slot_obj.get("kind") == "requester") \
+        else int((slot_obj or {}).get("level_no") or 0)
     draft, dsf_name = _ensure_signable_dsf(business_doctype, business_name, f, cur_name)
     name = pkgsvc.upsert_placement(draft, dsf_name, {
         "name": box.get("name"), "page_index": box.get("page_index"),
         "x": box.get("x"), "y": box.get("y"), "width": box.get("width"), "height": box.get("height"),
+        "level_no": compat_level_no,
         "signer_slot_key": slot, "signer_slot_version": plan.get("slot_key_version")})
     st = placement_state(business_doctype, business_name, document_ref)
     return {"ok": True, "placement_name": name, "state": st}
