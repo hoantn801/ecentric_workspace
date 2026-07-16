@@ -53,8 +53,13 @@ def items():
               ["gbs", "purchase order", "boxme"]),
         _item("gbs.so", "GBS Sales Order", "/gbs-so-form", "GBS", 20,
               ["gbs", "sales order", "boxme"]),
-        _item("docs.architecture", "Docs / Architecture", "/docs/architecture", "Hướng dẫn", 10,
-              ["docs", "tai lieu", "architecture"]),
-        _item("docs.gbsflow", "GBS Flow & Definitions", "/docs/gbs-flow", "Hướng dẫn", 20,
-              ["gbs flow", "dinh nghia", "docs"]),
+        # HƯỚNG DẪN: one collapsible parent (same minimal children mechanism as
+        # Others). "/guides" is a non-navigable anchor route (button toggle).
+        _item("docs.guides", "Hướng dẫn", "/guides", "Hướng dẫn", 10,
+              ["huong dan", "docs", "tai lieu"], children=[
+                  _child("docs.architecture", "Docs / Architecture", "/docs/architecture", 10,
+                         ["docs", "tai lieu", "architecture"]),
+                  _child("docs.gbsflow", "GBS Flow & Definitions", "/docs/gbs-flow", 20,
+                         ["gbs flow", "dinh nghia", "docs"]),
+              ]),
     ]

@@ -13,7 +13,7 @@ class TestRegistryCompose(unittest.TestCase):
     def test_compose_is_valid_and_deterministic(self):
         a, b = nav.compose(), nav.compose()
         self.assertEqual(a, b)
-        self.assertGreaterEqual(len(a), 14)  # full IA after the 2B.1 nav patch
+        self.assertGreaterEqual(len(a), 13)  # full IA (docs pair collapsed into 1 parent)
         keys = [it["key"] for it in a]
         self.assertEqual(len(keys), len(set(keys)))
 
@@ -141,14 +141,19 @@ class TestSidebarIA(unittest.TestCase):
             "legacy.create_rec": ("Tạo mới", "REC Request", "/form-rec"),
             "gbs.po": ("GBS", "GBS Purchase Order", "/gbs-po-form"),
             "gbs.so": ("GBS", "GBS Sales Order", "/gbs-so-form"),
-            "docs.architecture": ("Hướng dẫn", "Docs / Architecture", "/docs/architecture"),
-            "docs.gbsflow": ("Hướng dẫn", "GBS Flow & Definitions", "/docs/gbs-flow"),
         }
         by = self._by_key()
         for key, (group, label, route) in expected.items():
             it = by[key]
             self.assertEqual((it["group"], it["label"], it["route"]),
                              (group, label, route), key)
+
+    def test_guides_submenu(self):
+        guides = self._by_key()["docs.guides"]
+        self.assertEqual(guides["group"], "Hướng dẫn")
+        kids = [(c["label"], c["route"]) for c in guides["children"]]
+        self.assertEqual(kids, [("Docs / Architecture", "/docs/architecture"),
+                                ("GBS Flow & Definitions", "/docs/gbs-flow")])
 
     def test_others_submenu(self):
         others = self._by_key()["legacy.others"]

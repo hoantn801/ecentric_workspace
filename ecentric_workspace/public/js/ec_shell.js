@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.4.0 (2B.1 nav patch: legacy routes + submenu)';
+  var VERSION = 'ec-shell v1.5.0 (UX follow-up: sticky regions + instant nav)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -86,7 +86,7 @@
   // documents ONLY. Never Desk, never APIs/actions, never logout/login, never
   // external origins, never fragments or non-http schemes. PREFETCH only --
   // prerender/Speculation Rules are deliberately NOT used in 1C-alpha.
-  function shouldPrefetch(href, origin) {
+  function shouldPrefetch(href, origin, knownRoutes) {
     if (!href || typeof href !== 'string') return false;
     if (href.charAt(0) === '#') return false;
     if (/^(javascript|mailto|tel|data|blob):/i.test(href)) return false;
@@ -102,7 +102,15 @@
     if (path.indexOf('/login') === 0 || path.indexOf('logout') !== -1) return false;
     if (path === '/' || path === '/home') return true;
     if (path === '/approval') return true;
-    return path === '/approvals' || path.indexOf('/approvals/') === 0;
+    if (path === '/approvals' || path.indexOf('/approvals/') === 0) return true;
+    // registry-known internal destinations (UX follow-up): every validated nav
+    // route is an internal GET page by construction; deny-rules above still win.
+    return !!(knownRoutes && knownRoutes.indexOf(path) >= 0);
+  }
+
+  function knownNavRoutes() {
+    if (!S.boot) return [];
+    return flattenNav(S.boot.nav).map(function (it) { return it.route; });
   }
 
   // pure: deterministic Vietnamese-insensitive normalization. Per-char NFD
@@ -257,7 +265,8 @@
   function navHtml(nav, activeKey) {
     var h = '';
     groupItems(nav).forEach(function (g) {
-      if (g.group) h += '<div class="ec-shell-grouplabel">' + esc(g.group) + '</div>';
+      var loneParent = g.items.length === 1 && g.items[0].children && g.items[0].children.length;
+      if (g.group && !loneParent) h += '<div class="ec-shell-grouplabel">' + esc(g.group) + '</div>';
       g.items.forEach(function (it) {
         if (it.children && it.children.length) {
           // minimal collapsible submenu (2B.1 nav patch): toggle is a BUTTON
@@ -591,7 +600,7 @@
       var a = intentTarget(ev);
       if (!a) return;
       var href = a.getAttribute('href');
-      if (!shouldPrefetch(href, window.location.origin)) return;
+      if (!shouldPrefetch(href, window.location.origin, knownNavRoutes())) return;
       clearTimeout(hoverTimer);
       hoverTimer = setTimeout(function () { prefetch(href); }, 65);
     }, true);
@@ -600,7 +609,7 @@
       var a = intentTarget(ev);
       if (!a) return;
       var href = a.getAttribute('href');
-      if (shouldPrefetch(href, window.location.origin)) prefetch(href);
+      if (shouldPrefetch(href, window.location.origin, knownNavRoutes())) prefetch(href);
     }, true);
     // nav search: delegated, bound once. Results are plain anchors -> native
     // navigation; nothing here intercepts routing or touches business data.
