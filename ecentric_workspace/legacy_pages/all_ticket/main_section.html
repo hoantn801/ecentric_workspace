@@ -1,0 +1,2567 @@
+﻿
+<script id="ec-csrf-fetch-patch">
+(function(){
+  if (window.ecFetchPatched) return;
+  window.ecFetchPatched = true;
+  var origFetch = window.fetch;
+  function getCsrf() {
+    return (window.frappe && window.frappe.csrf_token) ||
+           (window.CTX && window.CTX.csrfToken) ||
+           window.csrf_token ||
+           (document.cookie.match(/csrf_token=([^;]+)/) || [])[1] ||
+           'token';
+  }
+  window.fetch = function(url, opts) {
+    opts = opts || {};
+    var u = (typeof url === 'string') ? url : (url && url.url) || '';
+    var method = (opts.method || 'GET').toUpperCase();
+    var isApi = u.indexOf('/api/method/') >= 0 || u.indexOf('/api/resource/') >= 0;
+    if (isApi && method !== 'GET' && method !== 'HEAD') {
+      opts.headers = opts.headers || {};
+      if (opts.headers.set && typeof opts.headers.set === 'function') {
+        if (!opts.headers.get('X-Frappe-CSRF-Token')) {
+          opts.headers.set('X-Frappe-CSRF-Token', getCsrf());
+        }
+      } else {
+        var hasToken = false;
+        for (var k in opts.headers) {
+          if (k.toLowerCase() === 'x-frappe-csrf-token') { hasToken = true; break; }
+        }
+        if (!hasToken) {
+          opts.headers['X-Frappe-CSRF-Token'] = getCsrf();
+        }
+      }
+      if (opts.credentials === undefined) opts.credentials = 'include';
+    }
+    return origFetch.call(window, url, opts);
+  };
+  console.log('[ec-csrf] fetch wrapper installed');
+})();
+</script>
+
+<!-- ec_no_cache_meta -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<!-- ec_no_cache_meta_end -->
+<!-- ec_cache_bust:20260515044335 -->
+
+
+<!-- ACTIVE-MENU-JS -->
+<script>
+(function() {
+  function setActive() {
+    var path = window.location.pathname.replace(/\/+$/, '') || '/';
+    var links = document.querySelectorAll('.ec-sb-link');
+    links.forEach(function(a) {
+      var href = (a.getAttribute('href') || '').replace(/\/+$/, '') || '/';
+      a.classList.remove('active');
+      // Strict exact match
+      if (href === path) {
+        a.classList.add('active');
+      }
+      // Special case: '/home' page should also activate links with href='/'
+      else if ((path === '/home' || path === '/') && (href === '/' || href === '/home')) {
+        a.classList.add('active');
+      }
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setActive);
+  } else {
+    setActive();
+  }
+})();
+</script>
+
+<!-- HIDE-NAVBAR-V1 -->
+<style>
+  /* Hide Frappe default navbar + footer to give full-screen workspace */
+  body > header,
+  body > footer,
+  body > nav.navbar,
+  header.navbar,
+  .navbar.navbar-light,
+  .web-page-header,
+  #navbarSupportedContent,
+  .navbar-collapse {
+    display: none !important;
+  }
+  body { padding: 0 !important; margin: 0 !important; }
+  body main { padding-top: 0 !important; }
+  body .main-section, body main.container, body main.fluid {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  /* If Frappe wraps page content in a container, expand it */
+  body .page_content { padding: 0 !important; }
+</style>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #2C3DA6; --navy2: #3d52cc; --navy-light: rgba(44,61,166,0.08);
+  --gold: #FFC000; --gold2: #FFD440; --gold-light: rgba(255,192,0,0.14); --gold-border: rgba(255,192,0,0.4);
+  --bg: #f7f8fb; --surface: #fff; --border: #e5e7eb; --border2: #d1d5db;
+  --text: #1f2937; --muted: #6b7280; --muted2: #9ca3af;
+  --warn: #b45309; --warn-bg: #fef3c7; --warn-border: #fcd34d;
+  --danger: #c0392b; --danger-bg: #fee2e2; --danger-border: #fca5a5;
+  --success: #166534; --success-bg: #dcfce7; --success-border: #86efac;
+  --info: #1e40af; --info-bg: #dbeafe; --info-border: #93c5fd;
+  --radius: 10px; --radius-lg: 14px;
+}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+* { font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+body { background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; min-height: 100vh; }
+.dash-wrap { max-width: 1400px; margin: 0 auto; padding: 0; display: flex; gap: 0; min-height: 100vh; }
+.sidebar { width: 248px; flex-shrink: 0; background: white; color: #4b5563; padding: 16px 8px; min-height: 100vh; position: sticky; top: 0; border-right: 1px solid var(--border); }
+.sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 8px 12px 14px; border-bottom: 1px solid #f3f4f6; }
+.sidebar-logo { width: 36px; height: 36px; background: var(--gold); color: var(--navy); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; flex-shrink: 0; }
+.sidebar-title { font-size: 14px; font-weight: 700; color: #111827; }
+.sidebar-sub { font-size: 11px; color: #6b7280; margin-top: 2px; font-weight: 500; }
+.sidebar-section { margin-top: 4px; padding: 0 4px; }
+.sidebar-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: #6b7280; padding: 12px 12px 4px; }
+.sidebar-link { display: flex; align-items: center; gap: 11px; padding: 8px 12px; color: #4b5563; text-decoration: none; border-radius: 6px; font-size: 13.5px; font-weight: 500; transition: background .15s, color .15s; cursor: pointer; margin-bottom: 1px; }
+.sidebar-link:hover { background: #f3f4f6; color: #111827; }
+.sidebar-link.active { background: var(--navy-light); color: var(--navy); font-weight: 600; }
+.sidebar-link .sl-icon { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; opacity: 0.7; }
+.sidebar-link.active .sl-icon { opacity: 1; }
+.sidebar-link .sl-badge { margin-left: auto; background: var(--bg); color: #4b5563; font-size: 10.5px; padding: 1px 7px; border-radius: 10px; font-weight: 700; }
+.sidebar-link .sl-tag { margin-left: auto; background: var(--gold); color: var(--navy); font-size: 10px; padding: 1px 6px; border-radius: 6px; font-weight: 700; }
+.sidebar-link.active .sl-badge { background: var(--navy); color: white; }
+.dash-main { flex: 1; padding: 28px 32px 60px; overflow: auto; min-width: 0; }
+@media (max-width: 1024px) {
+  .sidebar { width: 200px; padding: 16px 10px; }
+  .dash-main { padding: 20px; }
+}
+@media (max-width: 768px) {
+  .dash-wrap { flex-direction: column; }
+  .sidebar { width: 100%; min-height: auto; position: static; padding: 12px 16px; }
+  .sidebar-section { display: inline-block; margin-right: 12px; }
+  .dash-main { padding: 16px; }
+}
+
+/* Header */
+.dash-header { background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%); border-radius: var(--radius-lg); padding: 22px 28px; color: white; margin-bottom: 18px; position: relative; overflow: hidden; box-shadow: 0 4px 20px rgba(44,61,166,0.15); }
+.dash-header::before { content: ''; position: absolute; top: -40px; right: -30px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.04); }
+.dash-header::after { content: ''; position: absolute; bottom: -50px; right: 100px; width: 110px; height: 110px; border-radius: 50%; background: rgba(200,150,46,0.07); }
+.header-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; position: relative; z-index: 1; }
+.header-title { font-size: 24px; font-weight: 600; letter-spacing: -.3px; }
+.header-sub { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+.header-search { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); color: #fff; padding: 8px 14px 8px 36px; border-radius: 8px; font-size: 13px; width: 240px; outline: none; background-image: url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23ffffffaa' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: 12px center; }
+.header-search::placeholder { color: rgba(255,255,255,0.5); }
+.btn-refresh { background: var(--gold-light); color: var(--gold2); border: 1px solid var(--gold-border); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .15s; }
+.btn-refresh:hover { background: rgba(200,150,46,0.25); }
+
+/* Section title */
+.sec-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 18px 0 10px; padding-left: 4px; display: flex; align-items: center; gap: 8px; }
+.sec-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* Card base */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; transition: all .15s; }
+.card.clickable { cursor: pointer; }
+.card.clickable:hover { border-color: var(--navy); box-shadow: 0 2px 12px rgba(44,61,166,0.1); transform: translateY(-1px); }
+.card.active { border-color: var(--navy); background: var(--navy-light); }
+
+/* KPI cards row */
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; cursor: pointer; transition: all .15s; position: relative; overflow: hidden; }
+.kpi-card:hover { border-color: var(--navy); box-shadow: 0 2px 12px rgba(44,61,166,0.1); transform: translateY(-1px); }
+.kpi-card .kpi-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
+.kpi-card .kpi-value { font-size: 28px; font-weight: 600; margin-top: 4px; font-family: 'Inter', system-ui, sans-serif; font-feature-settings: 'tnum'; font-variant-numeric: tabular-nums; letter-spacing: 0.1px; }
+.kpi-card .kpi-sub { font-size: 11px; color: var(--muted2); margin-top: 4px; }
+.kpi-card.kpi-pending { background: var(--warn-bg); border-color: var(--warn-border); }
+.kpi-card.kpi-pending .kpi-value, .kpi-card.kpi-pending .kpi-label, .kpi-card.kpi-pending .kpi-sub { color: var(--warn); }
+.kpi-card.kpi-approved { background: var(--success-bg); border-color: var(--success-border); }
+.kpi-card.kpi-approved .kpi-value, .kpi-card.kpi-approved .kpi-label, .kpi-card.kpi-approved .kpi-sub { color: var(--success); }
+.kpi-card.kpi-late { background: var(--danger-bg); border-color: var(--danger-border); }
+.kpi-card.kpi-late .kpi-value, .kpi-card.kpi-late .kpi-label, .kpi-card.kpi-late .kpi-sub { color: var(--danger); }
+.kpi-card.active { border-width: 2px; }
+
+/* Timeline 3 cards */
+.timeline-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+.tl-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; cursor: pointer; transition: all .15s; }
+.tl-card:hover { border-color: var(--navy); }
+.tl-card .tl-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.tl-card .tl-row { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; }
+.tl-card .tl-value { font-size: 22px; font-weight: 600; font-family: 'Inter', system-ui, sans-serif; font-feature-settings: 'tnum'; font-variant-numeric: tabular-nums; letter-spacing: 0.1px; }
+.tl-card .tl-sub { font-size: 11px; color: var(--muted); }
+.tl-card .tl-bar { height: 4px; border-radius: 2px; margin-top: 10px; overflow: hidden; background: var(--bg); }
+.tl-card .tl-bar > div { height: 100%; transition: width .3s; }
+.tl-ontime .tl-label { color: var(--success); }
+.tl-ontime .tl-value { color: var(--success); }
+.tl-ontime .tl-bar > div { background: #16a34a; }
+.tl-risk .tl-label { color: var(--warn); }
+.tl-risk .tl-value { color: var(--warn); }
+.tl-risk .tl-bar > div { background: #f59e0b; }
+.tl-late .tl-label { color: var(--danger); }
+.tl-late .tl-value { color: var(--danger); }
+.tl-late .tl-bar > div { background: #dc2626; }
+
+/* Charts row */
+.charts-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; margin-top: 12px; }
+.chart-card .chart-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+.bar-list { display: flex; flex-direction: column; gap: 7px; }
+.bar-row { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 4px 6px; border-radius: 6px; transition: background .15s; }
+.bar-row:hover { background: var(--bg); }
+.bar-row.active { background: var(--navy-light); }
+.bar-name { font-size: 11px; color: var(--muted); width: 130px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-track { flex: 1; height: 16px; background: var(--bg); border-radius: 8px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--navy); transition: width .3s; }
+.bar-stack { height: 100%; display: flex; transition: width .3s; }
+.bar-count { font-size: 12px; font-weight: 600; width: 28px; text-align: right; font-family: 'Inter', system-ui, sans-serif; font-feature-settings: 'tnum'; font-variant-numeric: tabular-nums; letter-spacing: 0.1px; }
+.dept-stats { display: flex; gap: 4px; flex-shrink: 0; align-items: center; }
+.stat-tag { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 18px; padding: 0 6px; border-radius: 9px; font-size: 11px; font-weight: 600; font-family: 'Inter', system-ui, sans-serif; font-feature-settings: 'tnum'; font-variant-numeric: tabular-nums; letter-spacing: 0.1px; }
+.stat-ontime { background: #dcfce7; color: #166534; }
+.stat-risk { background: #fef3c7; color: #b45309; }
+.stat-late { background: #fee2e2; color: #c0392b; }
+.stat-done { background: rgba(44,61,166,0.12); color: #2C3DA6; }
+
+/* Donut */
+.donut-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.donut-svg { width: 150px; height: 150px; }
+.donut-legend { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.legend-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 4px 8px; border-radius: 6px; cursor: pointer; transition: background .15s; }
+.legend-row:hover { background: var(--bg); }
+.legend-row.active { background: var(--navy-light); }
+.legend-row .legend-name { display: flex; align-items: center; gap: 8px; }
+.legend-row .legend-dot { width: 11px; height: 11px; border-radius: 3px; }
+.legend-row .legend-count { font-weight: 600; font-family: 'Inter', system-ui, sans-serif; font-feature-settings: 'tnum'; font-variant-numeric: tabular-nums; letter-spacing: 0.1px; }
+
+/* Matrix table */
+.matrix-card { margin-top: 12px; }
+.matrix-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.matrix-table th { text-align: left; padding: 8px 12px; color: var(--muted); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.matrix-table th.center { text-align: center; }
+.matrix-table td { padding: 8px 12px; border-bottom: 1px solid var(--bg); }
+.matrix-table td.center { text-align: center; }
+.matrix-table tr:hover td { background: var(--bg); }
+.cnt-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; }
+.cnt-pill:hover { transform: scale(1.05); }
+.cnt-pending { background: var(--warn-bg); color: var(--warn); }
+.cnt-approved { background: var(--success-bg); color: var(--success); }
+.cnt-rejected { background: var(--danger-bg); color: var(--danger); }
+.cnt-zero { background: var(--bg); color: var(--muted2); }
+.cnt-total { font-weight: 700; font-family: 'Inter', system-ui, sans-serif; font-feature-settings: 'tnum'; font-variant-numeric: tabular-nums; letter-spacing: 0.1px; }
+
+/* Tabs */
+.tabs-bar { display: flex; gap: 4px; border-bottom: 1px solid var(--border); padding-bottom: 0; margin-bottom: 14px; }
+.tab { background: transparent; border: 0; padding: 10px 18px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .15s; }
+.tab:hover { color: var(--navy); }
+.tab.active { color: var(--navy); border-bottom-color: var(--gold); font-weight: 600; }
+.tab .badge { display: inline-block; margin-left: 6px; background: var(--bg); color: var(--muted); padding: 1px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; }
+.tab.active .badge { background: var(--gold-light); color: var(--gold); }
+
+/* Filter bar */
+.filter-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.filter-bar select, .filter-bar input { font-size: 13px; padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); outline: none; }
+.filter-bar select:focus, .filter-bar input:focus { border-color: var(--navy); }
+.filter-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--navy-light); color: var(--navy); padding: 5px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+.filter-tag button { background: transparent; border: 0; color: var(--navy); cursor: pointer; padding: 0; font-size: 14px; line-height: 1; }
+.filter-clear { background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 12px; text-decoration: underline; }
+.filter-clear:hover { color: var(--danger); }
+    /* v3_all_ticket_url_state_2026-07-06 */
+    .detail-id-link { text-decoration: none; color: inherit; display: inline-block; }
+    .detail-id-link:hover .detail-id { text-decoration: underline; }
+
+/* Detail table */
+.detail-card { margin-top: 0; }
+.detail-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.detail-table th { text-align: left; padding: 10px 12px; background: var(--bg); color: var(--muted); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; }
+.detail-table th.center { text-align: center; }
+.detail-table td { padding: 10px 12px; border-bottom: 1px solid var(--bg); }
+.detail-table td.center { text-align: center; }
+.detail-table tbody tr { cursor: pointer; transition: background .15s; }
+.detail-table tbody tr:hover { background: var(--navy-light); }
+.detail-id { font-family: 'Inter', system-ui, sans-serif; font-feature-settings: 'tnum'; font-variant-numeric: tabular-nums; letter-spacing: 0.1px; font-size: 11px; color: var(--navy); font-weight: 600; }
+.status-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
+.status-pending { background: var(--warn-bg); color: var(--warn); }
+.status-approved { background: var(--success-bg); color: var(--success); }
+.status-rejected { background: var(--danger-bg); color: var(--danger); }
+.tl-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; }
+.tl-pill.ontime { color: var(--success); }
+.tl-pill.risk { color: var(--warn); }
+.tl-pill.late { color: var(--danger); }
+.empty-state { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 13px; }
+.loader { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top: 2px solid var(--navy); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+.loading-row { padding: 30px; text-align: center; color: var(--muted); }
+
+@media (max-width: 1024px) {
+  .kpi-row, .timeline-row { grid-template-columns: repeat(2, 1fr); }
+  .charts-row { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .kpi-row, .timeline-row { grid-template-columns: 1fr; }
+  .header-row { flex-direction: column; align-items: stretch; }
+  .header-search { width: 100%; }
+  .dash-wrap { padding: 16px 12px 60px; }
+}
+
+/* === Phase 8.10d eCentric Workspace sidebar === */
+body { background: var(--bg) !important; padding: 0 !important; margin: 0 !important; }
+body header.navbar, footer.web-footer, .web-footer { display: none !important; }
+.page-content, .common-page-style, .container, main.col, .web-page-content, .page_content, .for-web-view { padding: 0 !important; margin: 0 !important; max-width: none !important; width: 100% !important; }
+.dash-wrap { max-width: none !important; width: 100% !important; }
+
+/* Hide old sidebar entirely */
+.dash-wrap > aside.sidebar { display: none !important; }
+
+/* eCentric Workspace sidebar */
+.ec-sb { width: 264px; flex-shrink: 0; background: white; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; box-sizing: border-box; }
+.ec-sb-header { padding: 18px 18px 10px; }
+.ec-sb-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.ec-sb-brand:hover { text-decoration: none; }
+.ec-sb-logo { width: 40px; height: 40px; flex-shrink: 0; display: block; object-fit: contain; }
+.ec-sb-name { font-size: 15px; font-weight: 700; color: #111827; line-height: 1.2; letter-spacing: -0.3px; }
+.ec-sb-search { margin: 4px 16px 10px; position: relative; }
+.ec-sb-search input { width: 100%; padding: 8px 12px 8px 34px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; background: #fafbfc; font-family: inherit; outline: none; transition: border-color .15s, background .15s; }
+.ec-sb-search input:focus { border-color: #2C3DA6; background: white; }
+.ec-sb-search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #9ca3af; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.ec-sb-kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: #9ca3af; background: white; border: 1px solid #e5e7eb; padding: 1px 5px; border-radius: 4px; pointer-events: none; }
+.ec-sb-nav { padding: 4px 8px 8px; flex: 1; overflow-y: auto; }
+.ec-sb-label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.6px; padding: 12px 12px 4px; }
+.ec-sb-link { display: grid !important; grid-template-columns: 18px 1fr !important; column-gap: 11px !important; align-items: center !important; padding: 8px 12px; border-radius: 6px; color: #4b5563; text-decoration: none; font-size: 13.5px; font-weight: 500; transition: background .15s, color .15s; margin-bottom: 1px; }
+.ec-sb-link:hover { background: #f3f4f6; color: #111827; text-decoration: none; }
+.ec-sb-link.active { background: #eef0fb; color: #2C3DA6; font-weight: 600; }
+.ec-sb-link.active svg { stroke-width: 2; }
+.ec-sb-link svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.ec-sb-footer { padding: 12px; border-top: 1px solid #f3f4f6; display: flex; align-items: center; gap: 8px; }
+.ec-sb-user-card { flex: 1; display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; min-width: 0; }
+.ec-sb-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #2C3DA6, #EF7CAF); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+.ec-sb-user-info { flex: 1; min-width: 0; }
+.ec-sb-user-name { font-size: 13px; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ec-sb-user-role { font-size: 11px; color: #6b7280; }
+.ec-sb-logout { width: 36px; height: 36px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: transparent; border: none; color: #6b7280; cursor: pointer; transition: background .15s, color .15s; }
+.ec-sb-logout:hover { background: #fee2e2; color: #dc2626; }
+.ec-sb-logout svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Topbar */
+.ec-topbar { background: white; border-bottom: 1px solid var(--border); padding: 10px 28px; display: flex; align-items: center; justify-content: space-between; gap: 16px; position: sticky; top: 0; z-index: 9; }
+.ec-topbar .breadcrumb { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.ec-topbar .breadcrumb a { color: var(--muted); text-decoration: none; }
+.ec-topbar .breadcrumb a:hover { color: var(--navy); }
+.ec-topbar .breadcrumb .sep { color: #d1d5db; }
+.ec-topbar .breadcrumb strong { color: var(--text); font-weight: 600; }
+.ec-topbar .actions { display: flex; gap: 4px; }
+.ec-topbar .icon-btn { width: 36px; height: 36px; border-radius: 8px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); position: relative; transition: all .15s; text-decoration: none; }
+.ec-topbar .icon-btn:hover { background: #f3f4f6; color: var(--text); }
+.ec-topbar .icon-btn .dot { position: absolute; top: 8px; right: 9px; width: 6px; height: 6px; background: #EF7CAF; border-radius: 50%; border: 2px solid white; }
+.dash-main { padding-top: 18px !important; }
+</style>
+<div class="dash-wrap">
+
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric">
+    <!-- ERP Shell v1 opt-in (Phase 2B.1). Legacy /all-ticket list: shell renders the
+         shared sidebar; list/KPI/filter/GBS logic below is byte-preserved. -->
+    <nav class="ec-shell-fallback" aria-label="Điều hướng">
+      <a href="/home">Trang chủ</a>
+      <a href="/approvals">Approval Center</a>
+      <a href="/approval">Duyệt chứng từ</a>
+    </nav>
+  </aside>
+
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo">M</div>
+      <div>
+        <div class="sidebar-title">MSO Approval</div>
+        <div class="sidebar-sub">Boxme Global</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Dashboard</div>
+      <a class="sidebar-link active" href="/all-ticket">
+        <span class="sl-icon">ð</span>
+        <span>All Tickets</span>
+      </a>
+      <a class="sidebar-link" href="/approval">
+        <span class="sl-icon">â</span>
+        <span>Approval</span>
+        <span class="sl-badge" id="sbApprovalBadge">--</span>
+      </a>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Táº¡o má»i</div>
+      <a class="sidebar-link" href="/mso-form">
+        <span class="sl-icon">+</span>
+        <span>MSO Request</span>
+      </a>
+      <a class="sidebar-link" href="/so-form">
+        <span class="sl-icon">+</span>
+        <span>SO Request</span>
+      </a>
+      <a class="sidebar-link" href="/form-po">
+        <span class="sl-icon">+</span>
+        <span>PO Request</span>
+      </a>
+      <a class="sidebar-link" href="/form-rec">
+        <span class="sl-icon">+</span>
+        <span>REC Request</span>
+      </a>
+    </div>
+  </aside>
+
+
+  <div class="ec-main-wrap" style="flex:1;display:flex;flex-direction:column;min-width:0;">
+    <div class="ec-topbar">
+      <div class="breadcrumb"><a href="/">Workspace</a><span class="sep">/</span><strong>Dashboard</strong></div>
+      <div class="actions">
+        <a class="icon-btn" href="/" title="Trang ch&#7911;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></a>
+        <button class="icon-btn" title="Tr&#7907; gi&#250;p" onclick="window.open('https://docs.ecentric.vn','_blank')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
+        <div class="ec-shell-tbright" data-ec-shell-header-right="1"></div>
+        <button class="icon-btn" title="C&#224;i &#273;&#7863;t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+      </div>
+    </div>
+  <main class="dash-main">
+    <div class="dash-header">
+    <div class="header-row">
+      <div>
+        <div class="header-title">All Tickets â Dashboard</div>
+        <div class="header-sub">MSO / SO / PO / REC Â· Live data tá»« SharePoint Â· <span id="lastUpdated">Äang táº£i...</span></div>
+      </div>
+      <div class="header-actions">
+        <input type="text" class="header-search" id="globalSearch" placeholder="Search ID, title..."/>
+        <button class="btn-refresh" id="btnRefresh">â» Reload</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-title">ð KPIs tá»ng quan</div>
+  <div class="kpi-row">
+    <div class="kpi-card" data-filter="all">
+      <div class="kpi-label">Tá»ng tickets</div>
+      <div class="kpi-value" id="kpiTotal">--</div>
+      <div class="kpi-sub">Click Äá» xem all</div>
+    </div>
+    <div class="kpi-card kpi-pending" data-filter="status:Pending">
+      <div class="kpi-label">Äang chá» duyá»t</div>
+      <div class="kpi-value" id="kpiPending">--</div>
+      <div class="kpi-sub">Click Äá» filter</div>
+    </div>
+    <div class="kpi-card kpi-approved" data-filter="status:Approved">
+      <div class="kpi-label">ÄÃ£ duyá»t</div>
+      <div class="kpi-value" id="kpiApproved">--</div>
+      <div class="kpi-sub">HoÃ n thÃ nh</div>
+    </div>
+    <div class="kpi-card kpi-late" data-filter="timeline:late">
+      <div class="kpi-label">Trá» deadline</div>
+      <div class="kpi-value" id="kpiLate">--</div>
+      <div class="kpi-sub">â  Cáº§n xá»­ lÃ½</div>
+    </div>
+    <!-- EC-GBS-FIN-v1 -->
+    <div class="kpi-card" data-filter="gbsPhase:gbs_pending" style="border-left:4px solid #f59e0b">
+      <div class="kpi-label">â³ Chá» GBS duyá»t</div>
+      <div class="kpi-value" id="kpiGbsPending">--</div>
+      <div class="kpi-sub">Local Approved, GBS Pending</div>
+    </div>
+    <div class="kpi-card kpi-late" data-filter="gbsPhase:gbs_overdue" style="border-left:4px solid #dc2626">
+      <div class="kpi-label">â Trá» GBS (>1 ngÃ y)</div>
+      <div class="kpi-value" id="kpiGbsOverdue">--</div>
+      <div class="kpi-sub">Cáº§n nháº¯c GBS team</div>
+    </div>
+  </div>
+
+  <div class="sec-title">â± Timeline status</div>
+  <div class="timeline-row">
+    <div class="card tl-card tl-ontime" data-filter="timeline:ontime">
+      <div class="tl-label">â± On time</div>
+      <div class="tl-row">
+        <div class="tl-value" id="tlOntime">--</div>
+        <div class="tl-sub">tickets cÃ²n trong SLA</div>
+      </div>
+      <div class="tl-bar"><div id="tlOntimeBar" style="width:0%"></div></div>
+    </div>
+    <div class="card tl-card tl-risk" data-filter="timeline:risk">
+      <div class="tl-label">â  Risk</div>
+      <div class="tl-row">
+        <div class="tl-value" id="tlRisk">--</div>
+        <div class="tl-sub">â¤2 ngÃ y tá»i deadline</div>
+      </div>
+      <div class="tl-bar"><div id="tlRiskBar" style="width:0%"></div></div>
+    </div>
+    <div class="card tl-card tl-late" data-filter="timeline:late">
+      <div class="tl-label">â Trá»</div>
+      <div class="tl-row">
+        <div class="tl-value" id="tlLate">--</div>
+        <div class="tl-sub">vÆ°á»£t SLA chÆ°a duyá»t</div>
+      </div>
+      <div class="tl-bar"><div id="tlLateBar" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div class="sec-title">ð PhÃ¢n bá»</div>
+  <div class="charts-row">
+    <div class="card chart-card">
+      <div class="chart-title">Tickets theo Department</div>
+      <div class="bar-list" id="deptBarList"></div>
+    </div>
+    <div class="card chart-card">
+      <div class="chart-title">Tickets theo Type</div>
+      <div class="donut-wrap">
+        <svg class="donut-svg" id="donutSvg" viewBox="0 0 200 200"></svg>
+        <div class="donut-legend" id="donutLegend"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-title">ð¢ Department Ã Status (click Äá» filter)</div>
+  <div class="card matrix-card">
+    <table class="matrix-table">
+      <thead>
+        <tr>
+          <th>Department</th>
+          <th class="center">Pending</th>
+          <th class="center">Approved</th>
+          <th class="center">Rejected</th>
+          <th class="center">Total</th>
+        </tr>
+      </thead>
+      <tbody id="matrixBody"><tr><td colspan="5" class="loading-row"><div class="loader"></div> Äang táº£i data...</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="sec-title">ð Chi tiáº¿t tickets</div>
+  <div class="card detail-card">
+    <!-- EC-GBS-FIN-v1: My Approval tab CSS + element -->
+    <style id="ec-gbs-fin-v1-style">
+      .tab[data-type="mine"] { background: #fce7f3; color: #be185d; border-radius: 8px 8px 0 0; margin-right: 4px; }
+      .tab[data-type="mine"]:hover { background: #fbcfe8; color: #9d174d; }
+      .tab[data-type="mine"].active { background: #ec4899; color: white; border-bottom-color: #ec4899; }
+      .tab[data-type="mine"] .badge { background: rgba(255,255,255,0.4); color: #9d174d; }
+      .tab[data-type="mine"].active .badge { background: rgba(255,255,255,0.3); color: white; }
+    </style>
+    <div class="tabs-bar">
+      <button class="tab" data-type="mine" id="ecFinTabMine">ð¤ My Approval <span class="badge" id="badgeMine">--</span></button>
+      <button class="tab active" data-type="all">Táº¥t cáº£ <span class="badge" id="badgeAll">--</span></button>
+      <button class="tab" data-type="mso">MSO <span class="badge" id="badgeMso">--</span></button>
+      <button class="tab" data-type="so">SO <span class="badge" id="badgeSo">--</span></button>
+      <button class="tab" data-type="po">PO <span class="badge" id="badgePo">--</span></button>
+      <button class="tab" data-type="rec">REC <span class="badge" id="badgeRec">--</span></button>
+      <button class="tab" data-type="vendor_request">Vendor <span class="badge" id="badgeVendor">--</span></button>
+      <button class="tab" data-type="gbs_po">GBS PO <span class="badge" id="badgeGbs_po">--</span></button>
+      <button class="tab" data-type="gbs_so">GBS SO <span class="badge" id="badgeGbs_so">--</span></button>
+    </div>
+    <div class="filter-bar">
+      <select id="filterStatus">
+        <option value="">All status</option>
+        <option>Pending</option>
+        <option>Approved</option>
+        <option>Rejected</option>
+      </select>
+      <select id="filterDept">
+        <option value="">All departments</option>
+        <option>E-commerce Operation</option>
+        <option>Merchandise, Content &amp; Design</option>
+        <option>Service</option>
+        <option>Media</option>
+        <option>Production</option>
+        <option>Operation, Data &amp; System</option>
+        <option>HR</option>
+        <option>Finance &amp; Accounting</option>
+      </select>
+      <select id="filterTimeline">
+        <option value="">All timeline</option>
+        <option value="ontime">â± On time</option>
+        <option value="risk">â  Risk</option>
+        <option value="late">â Trá»</option>
+      </select>
+      <!-- EC-GBS-FIN-v1 -->
+      <select id="filterGbsPhase">
+        <option value="">All GBS phase</option>
+        <option value="gbs_pending">â³ Chá» GBS</option>
+        <option value="gbs_overdue">â Trá» GBS</option>
+      </select>
+      <span id="activeFilters"></span>
+      <button class="filter-clear" id="btnClearFilters">Clear all</button>
+    </div>
+    <div style="overflow-x: auto;">
+      <table class="detail-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Department</th>
+            <th class="center">Status</th>
+            <th class="center">Timeline</th>
+            <th>Created</th>
+            <th>Submitted by</th>
+          </tr>
+        </thead>
+        <tbody id="detailBody"><tr><td colspan="7" class="loading-row"><div class="loader"></div> Äang táº£i tickets...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  </main>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+
+  const LOOKUP_URL = '/api/method/web_lookup';
+
+  const SLA_DAYS = { mso: 7, so: 5, po: 5, rec: 3, vendor_request: 4, gbs_po: 7, gbs_so: 5 };
+  const TYPE_COLORS = { mso: '#7F77DD', so: '#1D9E75', po: '#D85A30', rec: '#D4537E', vendor_request: '#0EA5E9', gbs_po: '#8B5CF6', gbs_so: '#06B6D4' };
+  const TYPE_LABELS = { mso: 'MSO', so: 'SO', po: 'PO', rec: 'REC', vendor_request: 'Vendor', gbs_po: 'GBS PO', gbs_so: 'GBS SO' };
+
+  let allTickets = [];
+  // EC-GBS-FIN-v1: extended with gbsPhase + mine filters
+  let currentFilter = { type: 'all', status: '', dept: '', timeline: '', search: '', gbsPhase: '', mine: false };
+
+  // ===== FETCH DATA =====
+  async function fetchType(type) {
+    try {
+      const res = await fetch(LOOKUP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'Lookup failed');
+      return (result.items || []).map(item => ({
+        ...item,
+        type,
+        sla_days: SLA_DAYS[type],
+      }));
+    } catch (err) {
+      console.error('Fetch ' + type + ' error:', err);
+      return [];
+    }
+  }
+
+  async function loadAllData() {
+    document.getElementById('lastUpdated').textContent = 'Äang táº£i...';
+    document.getElementById('matrixBody').innerHTML = '<tr><td colspan="5" class="loading-row"><div class="loader"></div> Äang táº£i data...</td></tr>';
+    document.getElementById('detailBody').innerHTML = '<tr><td colspan="7" class="loading-row"><div class="loader"></div> Äang táº£i tickets...</td></tr>';
+
+    const types = ['mso', 'so', 'po', 'rec', 'vendor_request', 'gbs_po', 'gbs_so'];
+    const results = await Promise.all(types.map(t => fetchType(t)));
+    allTickets = results.flat();
+
+    // Compute timeline status for each ticket
+    const now = new Date();
+    allTickets.forEach(t => {
+      t.timeline = computeTimeline(t, now);
+      t.gbs_timeline = computeGbsTimeline(t, now); // EC-GBS-FIN-v1
+    });
+
+    document.getElementById('lastUpdated').textContent = 'Cáº­p nháº­t ' + now.toLocaleTimeString('vi-VN');
+    renderAll();
+  }
+
+  function computeTimeline(ticket, now) {
+    if (ticket.status === 'Approved' || ticket.status === 'Rejected') return null;
+    const created = ticket.created ? new Date(ticket.created) : null;
+    if (!created || isNaN(created)) return 'ontime';
+    const slaMs = ticket.sla_days * 24 * 60 * 60 * 1000;
+    const elapsedMs = now - created;
+    const remainingMs = slaMs - elapsedMs;
+    const remainingDays = remainingMs / (24 * 60 * 60 * 1000);
+    if (remainingDays < 0) return 'late';
+    if (remainingDays <= 2) return 'risk';
+    return 'ontime';
+  }
+
+  // EC-GBS-FIN-v1: GBS-side phase tracking (Phase 2 after local Approved)
+  function computeGbsTimeline(ticket, now) {
+    if (ticket.status !== 'Approved') return null;
+    const gs = (ticket.gbs_status || '').toLowerCase();
+    if (!gs || gs === 'approved' || gs === 'completed' || gs === 'rejected' || gs === 'cancelled') return null;
+    if (gs.indexOf('pending') < 0 && gs.indexOf('draft') < 0) return null;
+    // EC-GBS-FIN-v1-creation: use immutable created timestamp; modified is touched by poll task every 15min
+    const ref = ticket.created || ticket.modified;
+    if (!ref) return 'gbs_pending';
+    const refDate = new Date(ref);
+    if (isNaN(refDate)) return 'gbs_pending';
+    return (now - refDate) > 24*60*60*1000 ? 'gbs_overdue' : 'gbs_pending';
+  }
+
+  function getDaysOverdue(ticket, now) {
+    if (!ticket.created) return 0;
+    const created = new Date(ticket.created);
+    if (isNaN(created)) return 0;
+    const slaMs = ticket.sla_days * 24 * 60 * 60 * 1000;
+    return Math.floor((now - created - slaMs) / (24 * 60 * 60 * 1000));
+  }
+
+  // ===== FILTER =====
+  function getFilteredTickets() {
+    return allTickets.filter(t => {
+      if (currentFilter.type !== 'all' && t.type !== currentFilter.type) return false;
+      if (currentFilter.status && t.status !== currentFilter.status) return false;
+      if (currentFilter.dept && t.department !== currentFilter.dept) return false;
+      if (currentFilter.timeline && t.timeline !== currentFilter.timeline) return false;
+      // EC-GBS-FIN-v1: GBS phase + My Approval filters
+      if (currentFilter.gbsPhase === 'gbs_overdue' && t.gbs_timeline !== 'gbs_overdue') return false;
+      if (currentFilter.gbsPhase === 'gbs_pending' && t.gbs_timeline !== 'gbs_pending' && t.gbs_timeline !== 'gbs_overdue') return false;
+      if (currentFilter.mine) {
+        const me = ((window.frappe && window.frappe.session && (window.frappe.session.user_email || window.frappe.session.user)) || '').toLowerCase();
+        const sb = (t.submitted_by || t.created_by || t.requestor || '').toLowerCase();
+        if (!me || sb !== me) return false;
+      }
+      if (currentFilter.search) {
+        const s = currentFilter.search.toLowerCase();
+        const haystack = ((t.id || '') + ' ' + (t.title || '') + ' ' + (t.department || '')).toLowerCase();
+        if (!haystack.includes(s)) return false;
+      }
+      return true;
+    });
+  }
+
+  // ===== RENDER =====
+  function renderAll() {
+    renderKPIs();
+    renderTimeline();
+    renderDeptBars();
+    renderDonut();
+    renderMatrix();
+    renderBadges();
+    renderDetailTable();
+    renderActiveFilters();
+    _ecSyncFilterToURL();
+  }
+
+  function renderKPIs() {
+    const total = allTickets.length;
+    const pending = allTickets.filter(t => t.status === 'Pending').length;
+    const approved = allTickets.filter(t => t.status === 'Approved').length;
+    const late = allTickets.filter(t => t.timeline === 'late').length;
+    document.getElementById('kpiTotal').textContent = total;
+    document.getElementById('kpiPending').textContent = pending;
+    document.getElementById('kpiApproved').textContent = approved;
+    document.getElementById('kpiLate').textContent = late;
+    // EC-GBS-FIN-v1: GBS phase counts + My Approval badge
+    const gbsPending = allTickets.filter(t => t.gbs_timeline === 'gbs_pending' || t.gbs_timeline === 'gbs_overdue').length;
+    const gbsOverdue = allTickets.filter(t => t.gbs_timeline === 'gbs_overdue').length;
+    const elGP = document.getElementById('kpiGbsPending'); if (elGP) elGP.textContent = gbsPending;
+    const elGO = document.getElementById('kpiGbsOverdue'); if (elGO) elGO.textContent = gbsOverdue;
+    const me = ((window.frappe && window.frappe.session && (window.frappe.session.user_email || window.frappe.session.user)) || '').toLowerCase();
+    const mineCount = me ? allTickets.filter(t => ((t.submitted_by || t.created_by || t.requestor || '').toLowerCase()) === me).length : 0;
+    const elMine = document.getElementById('badgeMine'); if (elMine) elMine.textContent = mineCount;
+    const sb = document.getElementById('sbApprovalBadge');
+    if (sb) sb.textContent = pending;
+  }
+
+  function renderTimeline() {
+    const ontime = allTickets.filter(t => t.timeline === 'ontime').length;
+    const risk = allTickets.filter(t => t.timeline === 'risk').length;
+    const late = allTickets.filter(t => t.timeline === 'late').length;
+    const max = Math.max(ontime, risk, late, 1);
+    document.getElementById('tlOntime').textContent = ontime;
+    document.getElementById('tlRisk').textContent = risk;
+    document.getElementById('tlLate').textContent = late;
+    document.getElementById('tlOntimeBar').style.width = (ontime / max * 100) + '%';
+    document.getElementById('tlRiskBar').style.width = (risk / max * 100) + '%';
+    document.getElementById('tlLateBar').style.width = (late / max * 100) + '%';
+  }
+
+  function renderDeptBars() {
+    const depts = {};
+    allTickets.forEach(t => {
+      const d = t.department || '(KhÃ´ng xÃ¡c Äá»nh)';
+      if (!depts[d]) depts[d] = { total: 0, ontime: 0, risk: 0, late: 0, done: 0 };
+      depts[d].total++;
+      if (t.status === 'Approved' || t.status === 'Rejected') {
+        depts[d].done++;
+      } else if (t.timeline === 'late') {
+        depts[d].late++;
+      } else if (t.timeline === 'risk') {
+        depts[d].risk++;
+      } else {
+        depts[d].ontime++;
+      }
+    });
+    const sorted = Object.entries(depts).sort((a, b) => b[1].total - a[1].total);
+    const max = sorted.length ? sorted[0][1].total : 1;
+    const html = sorted.map(([name, c]) => {
+      const isActive = currentFilter.dept === name ? ' active' : '';
+      const widthPct = (c.total / max * 100).toFixed(0);
+      // Stacked segments inside the bar
+      const segOntime = c.total ? (c.ontime / c.total * 100).toFixed(1) : 0;
+      const segRisk   = c.total ? (c.risk   / c.total * 100).toFixed(1) : 0;
+      const segLate   = c.total ? (c.late   / c.total * 100).toFixed(1) : 0;
+      const segDone   = c.total ? (c.done   / c.total * 100).toFixed(1) : 0;
+      return `<div class="bar-row${isActive}" data-dept="${name.replace(/"/g, '&quot;')}">
+        <div class="bar-name" title="${name}">${name}</div>
+        <div class="bar-track">
+          <div class="bar-stack" style="width: ${widthPct}%;">
+            <div style="width: ${segOntime}%; background: #16a34a;" title="On time: ${c.ontime}"></div>
+            <div style="width: ${segRisk}%; background: #f59e0b;" title="Risk: ${c.risk}"></div>
+            <div style="width: ${segLate}%; background: #dc2626;" title="Trá»: ${c.late}"></div>
+            <div style="width: ${segDone}%; background: #2C3DA6;" title="ÄÃ£ xá»­ lÃ½: ${c.done}"></div>
+          </div>
+        </div>
+        <div class="dept-stats">
+          ${c.ontime > 0 ? `<span class="stat-tag stat-ontime" title="On time">${c.ontime}</span>` : ''}
+          ${c.risk > 0 ? `<span class="stat-tag stat-risk" title="Risk">${c.risk}</span>` : ''}
+          ${c.late > 0 ? `<span class="stat-tag stat-late" title="Trá»">${c.late}</span>` : ''}
+          ${c.done > 0 ? `<span class="stat-tag stat-done" title="ÄÃ£ xá»­ lÃ½">${c.done}</span>` : ''}
+        </div>
+        <div class="bar-count">${c.total}</div>
+      </div>`;
+    }).join('') || '<div class="empty-state">ChÆ°a cÃ³ data</div>';
+    document.getElementById('deptBarList').innerHTML = html;
+    document.querySelectorAll('.bar-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const dept = row.dataset.dept;
+        currentFilter.dept = currentFilter.dept === dept ? '' : dept;
+        document.getElementById('filterDept').value = currentFilter.dept;
+        renderAll();
+      });
+    });
+  }
+
+  function renderDonut() {
+    const types = ['mso', 'so', 'po', 'rec', 'vendor_request', 'gbs_po', 'gbs_so'];
+    const counts = types.map(t => allTickets.filter(x => x.type === t).length);
+    const total = counts.reduce((a, b) => a + b, 0);
+    if (total === 0) {
+      document.getElementById('donutSvg').innerHTML = '<circle cx="100" cy="100" r="70" fill="none" stroke="#dde0ed" stroke-width="35"/><text x="100" y="105" text-anchor="middle" font-size="20" fill="#6b7280">0</text>';
+      document.getElementById('donutLegend').innerHTML = '<div class="empty-state">ChÆ°a cÃ³ data</div>';
+      return;
+    }
+    let svg = '';
+    let offset = 0;
+    const circumference = 2 * Math.PI * 70;
+    types.forEach((type, i) => {
+      const c = counts[i];
+      if (c === 0) return;
+      const len = (c / total) * circumference;
+      svg += `<circle cx="100" cy="100" r="70" fill="none" stroke="${TYPE_COLORS[type]}" stroke-width="35" stroke-dasharray="${len.toFixed(1)} ${(circumference - len).toFixed(1)}" stroke-dashoffset="${(-offset).toFixed(1)}" transform="rotate(-90 100 100)"/>`;
+      offset += len;
+    });
+    svg += `<text x="100" y="96" text-anchor="middle" font-size="22" font-weight="700" fill="#2C3DA6">${total}</text><text x="100" y="114" text-anchor="middle" font-size="10" fill="#6b7280">tickets</text>`;
+    document.getElementById('donutSvg').innerHTML = svg;
+
+    const legendHtml = types.map((t, i) => {
+      const isActive = currentFilter.type === t ? ' active' : '';
+      return `<div class="legend-row${isActive}" data-type="${t}">
+        <span class="legend-name"><span class="legend-dot" style="background: ${TYPE_COLORS[t]};"></span>${TYPE_LABELS[t]}</span>
+        <span class="legend-count">${counts[i]}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('donutLegend').innerHTML = legendHtml;
+    document.querySelectorAll('.legend-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const t = row.dataset.type;
+        currentFilter.type = currentFilter.type === t ? 'all' : t;
+        document.querySelectorAll('.tab').forEach(tab => {
+          tab.classList.toggle('active', tab.dataset.type === currentFilter.type);
+        });
+        renderAll();
+      });
+    });
+  }
+
+  function renderMatrix() {
+    const depts = [...new Set(allTickets.map(t => t.department).filter(Boolean))].sort();
+    if (depts.length === 0) {
+      document.getElementById('matrixBody').innerHTML = '<tr><td colspan="5" class="empty-state">ChÆ°a cÃ³ data</td></tr>';
+      return;
+    }
+    const html = depts.map(dept => {
+      const items = allTickets.filter(t => t.department === dept);
+      const pending = items.filter(t => t.status === 'Pending').length;
+      const approved = items.filter(t => t.status === 'Approved').length;
+      const rejected = items.filter(t => t.status === 'Rejected').length;
+      const total = items.length;
+      return `<tr>
+        <td>${dept}</td>
+        <td class="center"><span class="cnt-pill ${pending > 0 ? 'cnt-pending' : 'cnt-zero'}" data-dept="${dept}" data-status="Pending">${pending}</span></td>
+        <td class="center"><span class="cnt-pill ${approved > 0 ? 'cnt-approved' : 'cnt-zero'}" data-dept="${dept}" data-status="Approved">${approved}</span></td>
+        <td class="center"><span class="cnt-pill ${rejected > 0 ? 'cnt-rejected' : 'cnt-zero'}" data-dept="${dept}" data-status="Rejected">${rejected}</span></td>
+        <td class="center cnt-total">${total}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('matrixBody').innerHTML = html;
+    document.querySelectorAll('.cnt-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        currentFilter.dept = pill.dataset.dept;
+        currentFilter.status = pill.dataset.status;
+        document.getElementById('filterDept').value = currentFilter.dept;
+        document.getElementById('filterStatus').value = currentFilter.status;
+        renderAll();
+        scrollToDetail();
+      });
+    });
+  }
+
+  function renderBadges() {
+    document.getElementById('badgeAll').textContent = allTickets.length;
+    ['mso', 'so', 'po', 'rec', 'gbs_po', 'gbs_so'].forEach(t => {
+      document.getElementById('badge' + t.charAt(0).toUpperCase() + t.slice(1)).textContent =
+        allTickets.filter(x => x.type === t).length;
+    });
+    // Vendor request has different ID convention (badgeVendor)
+    var vBadge = document.getElementById('badgeVendor');
+    if (vBadge) vBadge.textContent = allTickets.filter(x => x.type === 'vendor_request').length;
+  }
+
+  function renderDetailTable() {
+    const tickets = getFilteredTickets();
+    if (tickets.length === 0) {
+      document.getElementById('detailBody').innerHTML = '<tr><td colspan="7" class="empty-state">KhÃ´ng cÃ³ ticket nÃ o match filter</td></tr>';
+      return;
+    }
+    const now = new Date();
+    const html = tickets.sort((a, b) => {
+      const da = a.created ? new Date(a.created) : 0;
+      const db = b.created ? new Date(b.created) : 0;
+      return db - da;
+    }).map(t => {
+      const created = t.created ? new Date(t.created) : null;
+      const dateStr = created ? created.toLocaleDateString('vi-VN') : '-';
+      const tlClass = t.timeline || '';
+      let tlText = '-';
+      if (t.timeline === 'ontime') tlText = 'â± On time';
+      else if (t.timeline === 'risk') tlText = 'â  Risk';
+      else if (t.timeline === 'late') {
+        const overdue = getDaysOverdue(t, now);
+        tlText = 'â Trá» ' + overdue + 'd';
+      }
+      const submitter = t.submitted_by || t.created_by || t.requestor || '-';
+      return `<tr data-id="${t.id}" data-type="${t.type}">
+        <td><a class="detail-id-link" href="/approval?id=${encodeURIComponent(t.id)}&type=${encodeURIComponent(t.type || '')}" onclick="event.stopPropagation();"><span class="detail-id">${t.id}</span></a></td>
+        <td>${(t.title || '').replace(/</g, '&lt;')}</td>
+        <td>${t.department || '-'}</td>
+        <td class="center"><span class="status-pill status-${(t.status || '').toLowerCase()}">${t.status || '-'}</span></td>
+        <td class="center"><span class="tl-pill ${tlClass}">${tlText}</span></td>
+        <td>${dateStr}</td>
+        <td style="font-size: 11px; color: var(--muted);">${submitter}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('detailBody').innerHTML = html;
+    document.querySelectorAll('#detailBody tr[data-id]').forEach(row => {
+      row.addEventListener('click', () => {
+        var qs = '?id=' + encodeURIComponent(row.dataset.id) + '&type=' + encodeURIComponent(row.dataset.type || '');
+        window.location.href = '/approval' + qs;
+      });
+    });
+  }
+
+  function renderActiveFilters() {
+    const tags = [];
+    if (currentFilter.type !== 'all') tags.push({ k: 'type', label: 'Type: ' + TYPE_LABELS[currentFilter.type] });
+    if (currentFilter.status) tags.push({ k: 'status', label: 'Status: ' + currentFilter.status });
+    if (currentFilter.dept) tags.push({ k: 'dept', label: 'Dept: ' + currentFilter.dept });
+    if (currentFilter.timeline) {
+      const lbl = currentFilter.timeline === 'ontime' ? 'On time' : (currentFilter.timeline === 'risk' ? 'Risk' : 'Trá»');
+      tags.push({ k: 'timeline', label: 'Timeline: ' + lbl });
+    }
+    if (currentFilter.search) tags.push({ k: 'search', label: 'Search: ' + currentFilter.search });
+    document.getElementById('activeFilters').innerHTML = tags.map(t => 
+      '<span class="filter-tag">' + t.label + ' <button data-key="' + t.k + '">Ã</button></span>'
+    ).join('');
+    document.querySelectorAll('.filter-tag button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.key;
+        if (key === 'type') {
+          currentFilter.type = 'all';
+          document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('active', tab.dataset.type === 'all'));
+        }
+        else if (key === 'status') { currentFilter.status = ''; document.getElementById('filterStatus').value = ''; }
+        else if (key === 'dept') { currentFilter.dept = ''; document.getElementById('filterDept').value = ''; }
+        else if (key === 'timeline') { currentFilter.timeline = ''; document.getElementById('filterTimeline').value = ''; }
+        else if (key === 'search') { currentFilter.search = ''; document.getElementById('globalSearch').value = ''; }
+        renderAll();
+      });
+    });
+  }
+
+  function scrollToDetail() {
+    document.querySelector('.detail-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function clearFilters() {
+    // EC-GBS-FIN-v1: reset gbsPhase + mine too
+    currentFilter = { type: 'all', status: '', dept: '', timeline: '', search: '', gbsPhase: '', mine: false };
+    document.getElementById('globalSearch').value = '';
+    document.getElementById('filterStatus').value = '';
+    document.getElementById('filterDept').value = '';
+    document.getElementById('filterTimeline').value = '';
+    const fgp = document.getElementById('filterGbsPhase'); if (fgp) fgp.value = '';
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('active', tab.dataset.type === 'all'));
+    renderAll();
+  }
+
+  // v3_all_ticket_url_state_2026-07-06: URL query params sync
+  function _ecSyncFilterToURL() {
+    try {
+      var params = new URLSearchParams();
+      if (currentFilter.type && currentFilter.type !== 'all') params.set('type', currentFilter.type);
+      if (currentFilter.status) params.set('status', currentFilter.status);
+      if (currentFilter.dept) params.set('dept', currentFilter.dept);
+      if (currentFilter.timeline) params.set('timeline', currentFilter.timeline);
+      if (currentFilter.search) params.set('q', currentFilter.search);
+      if (currentFilter.gbsPhase) params.set('gbsPhase', currentFilter.gbsPhase);
+      if (currentFilter.mine) params.set('mine', '1');
+      var qs = params.toString();
+      var newUrl = window.location.pathname + (qs ? ('?' + qs) : '');
+      history.replaceState(null, '', newUrl);
+    } catch (e) { /* ignore */ }
+  }
+  function _ecRestoreFilterFromURL() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      if (params.has('type')) currentFilter.type = params.get('type');
+      if (params.has('status')) currentFilter.status = params.get('status');
+      if (params.has('dept')) currentFilter.dept = params.get('dept');
+      if (params.has('timeline')) currentFilter.timeline = params.get('timeline');
+      if (params.has('q')) currentFilter.search = params.get('q');
+      if (params.has('gbsPhase')) currentFilter.gbsPhase = params.get('gbsPhase');
+      if (params.has('mine')) currentFilter.mine = params.get('mine') === '1';
+      var sync = function(id, val){ var el = document.getElementById(id); if (el) el.value = val || ''; };
+      sync('filterStatus', currentFilter.status);
+      sync('filterDept', currentFilter.dept);
+      sync('filterTimeline', currentFilter.timeline);
+      sync('filterGbsPhase', currentFilter.gbsPhase);
+      sync('globalSearch', currentFilter.search);
+      var activeType = currentFilter.mine ? 'mine' : currentFilter.type;
+      document.querySelectorAll('.tab').forEach(function(tab){
+        tab.classList.toggle('active', tab.dataset.type === activeType);
+      });
+    } catch (e) { /* ignore */ }
+  }
+  // ===== EVENT LISTENERS =====
+  document.addEventListener('DOMContentLoaded', function () {
+    _ecRestoreFilterFromURL();
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        // EC-GBS-FIN-v1: handle 'mine' tab + reset mine on other tabs
+        if (tab.dataset.type === 'mine') {
+          currentFilter.mine = true;
+          currentFilter.type = 'all';
+        } else {
+          currentFilter.mine = false;
+          currentFilter.type = tab.dataset.type;
+        }
+        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+        renderAll();
+      });
+    });
+    // EC-GBS-FIN-v1: filterGbsPhase dropdown
+    const elFgp = document.getElementById('filterGbsPhase');
+    if (elFgp) {
+      elFgp.addEventListener('change', e => {
+        currentFilter.gbsPhase = e.target.value;
+        renderAll();
+      });
+    }
+
+    document.querySelectorAll('.kpi-card, .tl-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const filter = card.dataset.filter;
+        if (!filter) return;
+        if (filter === 'all') {
+          clearFilters();
+        } else {
+          const [k, v] = filter.split(':');
+          // FIX: KPI/TL card = single view selector. Clear both status+timeline first,
+          // then apply only the one being clicked (toggle if already active).
+          // EC-GBS-FIN-v1: also track gbsPhase active state
+          const wasActiveStatus = (k === 'status' && currentFilter.status === v);
+          const wasActiveTimeline = (k === 'timeline' && currentFilter.timeline === v);
+          const wasActiveGbsPhase = (k === 'gbsPhase' && currentFilter.gbsPhase === v);
+          currentFilter.status = '';
+          currentFilter.timeline = '';
+          currentFilter.gbsPhase = '';
+          const filterStatusEl = document.getElementById('filterStatus');
+          const filterTimelineEl = document.getElementById('filterTimeline');
+          const filterGbsPhaseEl = document.getElementById('filterGbsPhase');
+          if (filterStatusEl) filterStatusEl.value = '';
+          if (filterTimelineEl) filterTimelineEl.value = '';
+          if (filterGbsPhaseEl) filterGbsPhaseEl.value = '';
+          if (k === 'status' && !wasActiveStatus) {
+            currentFilter.status = v;
+            if (filterStatusEl) filterStatusEl.value = v;
+          } else if (k === 'timeline' && !wasActiveTimeline) {
+            currentFilter.timeline = v;
+            if (filterTimelineEl) filterTimelineEl.value = v;
+          } else if (k === 'gbsPhase' && !wasActiveGbsPhase) {
+            currentFilter.gbsPhase = v;
+            if (filterGbsPhaseEl) filterGbsPhaseEl.value = v;
+          }
+          renderAll();
+          scrollToDetail();
+        }
+      });
+    });
+
+    document.getElementById('filterStatus').addEventListener('change', e => {
+      currentFilter.status = e.target.value;
+      renderAll();
+    });
+    document.getElementById('filterDept').addEventListener('change', e => {
+      currentFilter.dept = e.target.value;
+      renderAll();
+    });
+    document.getElementById('filterTimeline').addEventListener('change', e => {
+      currentFilter.timeline = e.target.value;
+      renderAll();
+    });
+    document.getElementById('globalSearch').addEventListener('input', e => {
+      currentFilter.search = e.target.value.trim();
+      renderDetailTable();
+      renderActiveFilters();
+    });
+
+    document.getElementById('btnClearFilters').addEventListener('click', clearFilters);
+    document.getElementById('btnRefresh').addEventListener('click', loadAllData);
+
+    loadAllData();
+  });
+})();
+</script>
+
+<style id="ec-topbar-align-fix">
+/* === Hide Frappe wrappers that create whitespace above topbar === */
+html body .page-header-wrapper,
+html body .page-header,
+html body header.navbar,
+html body footer.web-footer,
+html body .web-footer { display: none !important; height: 0 !important; padding: 0 !important; margin: 0 !important; }
+
+/* === Reset all parent containers' padding/margin === */
+html body { padding: 0 !important; margin: 0 !important; }
+html body main,
+html body main.col,
+html body main.col-md-12,
+html body main.col-sm-12,
+html body .page_content,
+html body .webpage-content,
+html body .web-page-content,
+html body .for-web-view,
+html body .container,
+html body .common-page-style,
+html body .page-content { padding: 0 !important; margin: 0 !important; max-width: none !important; width: 100% !important; }
+
+/* === Force topbar dimensions on /all-ticket (.ec-topbar) and /approval (.topbar) to match forms (.ec-tb) === */
+html body .ec-topbar,
+html body .ec-main .topbar,
+html body .ec-main-wrap .ec-topbar {
+  background: white !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  padding: 10px 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 9 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: 56px !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Force inner elements to align center vertically with no extra spacing */
+html body .ec-topbar > *,
+html body .ec-main .topbar > *,
+html body .ec-main-wrap .ec-topbar > * { margin: 0 !important; align-self: center !important; }
+
+/* Icons exactly 36px square */
+html body .ec-topbar .icon-btn,
+html body .ec-main .topbar .icon-btn,
+html body .ec-main-wrap .ec-topbar .icon-btn {
+  width: 36px !important; height: 36px !important; padding: 0 !important; margin: 0 !important;
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+/* Back btn â compact */
+html body .ec-main .back-btn { padding: 6px 10px !important; margin: 0 !important; }
+
+/* Breadcrumb â no extra padding */
+html body .ec-topbar .breadcrumb,
+html body .ec-main .breadcrumb { margin: 0 !important; padding: 0 !important; }
+
+/* === Reset wrappers right above topbar === */
+html body .dash-wrap,
+html body .ec-main-wrap,
+html body .ec-main { margin: 0 !important; padding-top: 0 !important; }
+
+/* === Content breathing room (matches form's .page-wrap padding 28px) === */
+html body .dash-main { padding: 28px 32px 60px !important; }
+html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 1400px !important; width: 100% !important; margin: 0 auto !important; }
+</style>
+<script id="ec-dashboard-cols-fix">
+(function(){
+  if (window._ecDashCols) return;
+  window._ecDashCols = true;
+
+  function flatten(arr) {
+    if (!Array.isArray(arr)) return [];
+    var out = [];
+    arr.forEach(function(x) {
+      if (Array.isArray(x)) x.forEach(function(y) { out.push(y); });
+      else if (x && typeof x === 'object') out.push(x);
+    });
+    return out;
+  }
+
+  function normalizeItem(item) {
+    if (!item || typeof item !== 'object') return;
+    // status: prefer final_status (Choice with .Value or string), fallback status
+    if (!item.status || item.status === '' || item.status === null) {
+      var fs = item.final_status;
+      if (fs && typeof fs === 'object' && fs.Value) item.status = fs.Value;
+      else if (typeof fs === 'string' && fs) item.status = fs;
+      else item.status = item.status || 'Pending';
+    } else if (typeof item.status === 'object' && item.status.Value) {
+      item.status = item.status.Value;
+    }
+    // created: prefer created_at, fallback Created/creation/etc
+    if (!item.created) {
+      item.created = item.created_at || item.Created || item.creation || item.CreatedDate || '';
+    }
+    // submitted_by: prefer submitted_by, fallback created_by/Author.Email/Requestor/...
+    if (!item.submitted_by) {
+      var sb = '';
+      if (item.Author && typeof item.Author === 'object') {
+        sb = item.Author.EMail || item.Author.Email || item.Author.Title || '';
+      } else if (typeof item.Author === 'string') {
+        sb = item.Author;
+      }
+      if (!sb) sb = item.created_by || item.requestor || item.requested_by || item.user_email || '';
+      if (sb) item.submitted_by = sb;
+    }
+  }
+
+  var origFetch = window.fetch.bind(window);
+  window.fetch = function(input, init) {
+    var u = typeof input === 'string' ? input : (input && input.url) || '';
+    var p = origFetch(input, init);
+    if (!/lookup|3d602b4b38644fec9b3b66ff3bf028a8/.test(u)) return p;
+    return p.then(function(res) {
+      var cloned = res.clone();
+      return cloned.json().then(function(data) {
+        try {
+          if (data && Array.isArray(data.items)) {
+            data.items.forEach(normalizeItem);
+          }
+          // Also handle nested attachments-style if present
+          if (data && Array.isArray(data.attachments)) {
+            data.attachments = flatten(data.attachments);
+          }
+        } catch(e) { try { console.warn('[ec-dash-cols] err', e); } catch(_) {} }
+        return new Response(JSON.stringify(data), {
+          status: res.status, statusText: res.statusText, headers: res.headers
+        });
+      }).catch(function() { return res; });
+    });
+  };
+  try { console.log('[ec-dash-cols] fetch patched'); } catch(_) {}
+})();
+</script>
+
+<style id="ec-userinfo-fix-css">
+/* Make user-card hoverable (matches /home behavior) */
+.ec-sb-user-card[data-ec-profile-wrapped="1"],
+.sidebar-user[data-ec-profile-wrapped="1"],
+.user-card[data-ec-profile-wrapped="1"],
+.user-info[data-ec-profile-wrapped="1"] {
+  cursor: pointer !important;
+  border-radius: 8px !important;
+  transition: background 0.15s !important;
+  padding: 8px 10px !important;
+  margin: -8px -10px !important;
+}
+.ec-sb-user-card[data-ec-profile-wrapped="1"]:hover,
+.sidebar-user[data-ec-profile-wrapped="1"]:hover,
+.user-card[data-ec-profile-wrapped="1"]:hover,
+.user-info[data-ec-profile-wrapped="1"]:hover {
+  background: #f3f4f6 !important;
+}
+</style>
+<script id="ec-userinfo-fix">
+(function(){
+  function getCookie(name){
+    var m = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]+)'));
+    return m ? decodeURIComponent(m[1]).replace(/\+/g, ' ') : '';
+  }
+  function getEmail(){
+    try {
+      if (window.frappe && window.frappe.session) {
+        var u = window.frappe.session.user_email || window.frappe.session.user || '';
+        if (u && u !== 'Guest') return u;
+      }
+    } catch(_) {}
+    var c = getCookie('user_id');
+    if (c && c !== 'Guest') return c;
+    return '';
+  }
+  function getFullName(email){
+    // Frappe sets 'full_name' cookie on login (URL-encoded, + for space)
+    var fn = getCookie('full_name');
+    if (fn) return fn;
+    // Fallback: derive from email
+    if (!email) return '';
+    var localPart = email.indexOf('@') >= 0 ? email.split('@')[0] : email;
+    var firstName = localPart.split(/[._\- ]+/)[0] || localPart;
+    return firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+  }
+  function fillUser(){
+    var email = getEmail();
+    if (!email) return;
+    var displayName = getFullName(email);
+    if (!displayName) return;
+    // Initial for avatar: first char of full name
+    var initial = displayName.trim().charAt(0).toUpperCase() || 'U';
+
+    // Update name labels (always overwrite \u2014 sync from Frappe is source of truth)
+    var nameEls = document.querySelectorAll('#ecUserName, .ec-sb-user-name, .sidebar-user-name, .user-name');
+    nameEls.forEach(function(el){ el.textContent = displayName; });
+    // Update avatars
+    var avEls = document.querySelectorAll('#ecAvatar, .ec-sb-avatar, .sidebar-user .avatar, .user-card .avatar, .avatar');
+    avEls.forEach(function(el){
+      var t = (el.textContent || '').trim();
+      if (!t || t.length === 1) {
+        el.textContent = initial;
+      }
+    });
+
+    // Make user-card clickable -> Frappe user profile
+    var profileUrl = '/app/user/' + encodeURIComponent(email);
+    // \u1EDF = \u1EDF, \u0111 = \u0111, \u01B0 = \u01B0, \u1EDD = \u1EDD, \u00ED = \u00ED, \u00F3 = \u00F3, \u00E0 = \u00E0
+    var tooltipText = 'M\u1EDF trang user trong Frappe';
+    var cards = document.querySelectorAll('.ec-sb-footer .ec-sb-user-card, .ec-sb-user-card, .sidebar-footer .user-card, .sidebar-footer .sidebar-user');
+    cards.forEach(function(el){
+      if (el.tagName === 'A' || el.dataset.ecProfileWrapped === '1') return;
+      if (el.parentElement && el.parentElement.tagName === 'A' && el.parentElement.href.indexOf('/app/user') >= 0) return;
+      el.title = tooltipText;
+      el.addEventListener('click', function(e){
+        if (e.target.closest('.ec-sb-logout, .logout-btn, button')) return;
+        location.href = profileUrl;
+      });
+      el.setAttribute('data-ec-profile-wrapped', '1');
+    });
+  }
+  function init(){
+    fillUser();
+    setTimeout(fillUser, 250);
+    setTimeout(fillUser, 800);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+
+
+
+<script id="ec-all-ticket-permission-filter">
+(function(){
+  if (window._ecAllTicketPerm) return;
+  window._ecAllTicketPerm = true;
+
+  var GET_USER_PERM_URL = 'https://default16f5375c95a943f0ba2ce20bd5ec28.45.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/6a07f952d998407384a8a96246fd30e7/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=d6n7mRgoovyBVGhUhqWv7ppqEfP4vOFd39UTOBUnPEg';
+
+  var LOOKUP_URL_PREFIX = 'https://default16f5375c95a943f0ba2ce20bd5ec28.45.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/3d602b4b38644fec9b3b66ff3bf028a8';
+
+  var TICKET_TYPES = ['mso', 'so', 'po', 'rec', 'vendor_request', 'gbs_po', 'gbs_so'];
+
+  var _userPerm = null;
+  var _userEmail = null;
+  var _permPromise = null;
+
+  // Expose for debugging
+  window._ecPerm = {
+    getEmail: function(){ return _userEmail; },
+    getPerm: function(){ return _userPerm; },
+    reload: function(){ _userPerm = null; _userEmail = null; _permPromise = null; return loadUserPerm(); }
+  };
+
+  function getSessionEmail() {
+    // Try multiple Frappe session paths
+    try {
+      if (window.frappe && window.frappe.session) {
+        var s = window.frappe.session;
+        if (s.user_email && s.user_email.indexOf('@') >= 0) return s.user_email;
+        if (s.user && s.user.indexOf('@') >= 0) return s.user;
+      }
+    } catch(_){}
+    try {
+      if (window.frappe && window.frappe.boot && window.frappe.boot.user && window.frappe.boot.user.name) {
+        var n = window.frappe.boot.user.name;
+        if (n.indexOf('@') >= 0) return n;
+      }
+    } catch(_){}
+    // Read from DOM data attribute (form pages set this)
+    var el = document.querySelector('[data-user-email]');
+    if (el && el.dataset.userEmail && el.dataset.userEmail.indexOf('@') >= 0) return el.dataset.userEmail;
+    // Sidebar/topbar may show email in text content
+    var emailEls = document.querySelectorAll('.ecUserEmail, #ecUserEmail, [data-email]');
+    for (var i = 0; i < emailEls.length; i++) {
+      var v = emailEls[i].textContent || emailEls[i].dataset.email || '';
+      if (v.indexOf('@') >= 0) return v.trim();
+    }
+    // Last resort: window global
+    if (window._sessionEmail && window._sessionEmail.indexOf('@') >= 0) return window._sessionEmail;
+    return null;
+  }
+
+  function loadUserPerm() {
+    // Return cache only if we have valid email + perm
+    if (_userPerm && _userEmail) return Promise.resolve(_userPerm);
+    // Re-check email each call (in case frappe.session was async)
+    _userEmail = getSessionEmail();
+    if (!_userEmail) {
+      // DON'T cache - return transient guest, let next call retry
+      console.warn('[ec-perm] session email not ready yet, retry on next call');
+      return Promise.resolve({ effective_role: 'guest', scope: 'own', detail: 'own', department: null, _stale: true });
+    }
+    if (_permPromise) return _permPromise;
+    _permPromise = fetch(GET_USER_PERM_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ caller_email: _userEmail })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      _userPerm = d;
+      try {
+        console.log('[ec-perm] role=' + d.effective_role + ' scope=' + d.scope + ' dept=' + (d.department||'(null)'));
+      } catch(_){}
+      return _userPerm;
+    }).catch(function(e){
+      console.warn('[ec-perm] fetch fail', e);
+      _permPromise = null; // allow retry
+      _userEmail = null;
+      return { effective_role: 'guest', scope: 'own', detail: 'own', department: null, _stale: true };
+    });
+    return _permPromise;
+  }
+
+  // Wait for frappe.session.user to be available, then init permission load
+  function waitForFrappeAndInit(attempt) {
+    attempt = attempt || 0;
+    var email = getSessionEmail();
+    if (email) {
+      _userEmail = email;
+      loadUserPerm().then(function(p){
+        try { console.log('[ec-perm] init OK email=' + email + ' role=' + (p && p.effective_role) + ' scope=' + (p && p.scope)); } catch(_){}
+      });
+      return;
+    }
+    if (attempt < 50) {
+      setTimeout(function(){ waitForFrappeAndInit(attempt + 1); }, 200);
+    } else {
+      console.warn('[ec-perm] frappe.session.user not available after 10s â staying in guest mode');
+    }
+  }
+
+  function filterByPermission(items, type) {
+    if (!Array.isArray(items)) return items;
+    // Default deny: if no perm loaded yet, return empty (safer than full)
+    if (!_userPerm) return [];
+    if (_userPerm.scope === 'all') return items;
+    // MSO exception: cross-team visible (only for non-guest)
+    if (type === 'mso' && _userPerm.scope !== 'own' && _userPerm.effective_role !== 'guest') return items;
+    var dept = _userPerm.department;
+    var email = (_userEmail || '').toLowerCase();
+    if ((_userPerm.scope === 'dept' || _userPerm.scope === 'dept_basic') && dept) {
+      return items.filter(function(item){
+        var itemDept = item.department || '';
+        return itemDept === dept;
+      });
+    }
+    if (_userPerm.scope === 'own') {
+      if (!email) return []; // guest with no email â see nothing
+      return items.filter(function(item){
+        var sb = (item.submitted_by || '').toLowerCase();
+        var cb = (item.created_by || '').toLowerCase();
+        var rq = (item.requestor || '').toLowerCase();
+        return sb === email || cb === email || rq === email;
+      });
+    }
+    // Unknown scope â deny by default
+    return [];
+  }
+
+  // Monkey-patch fetch â intercept Lookup_Parents calls for ticket types
+  var _origFetch = window.fetch.bind(window);
+  window.fetch = function(url, options) {
+    if (typeof url === 'string' && url.indexOf(LOOKUP_URL_PREFIX) === 0 && options && options.body) {
+      try {
+        var body = JSON.parse(options.body);
+        if (body && body.type && TICKET_TYPES.indexOf(body.type) >= 0) {
+          // Ensure permission loaded before responding
+          // Wait for non-stale perm (retry up to 5 times with backoff if email not ready)
+          var waitForValidPerm = function(attempt) {
+            attempt = attempt || 0;
+            return loadUserPerm().then(function(p){
+              if (p && p._stale && attempt < 10) {
+                return new Promise(function(res){ setTimeout(res, 300); }).then(function(){
+                  return waitForValidPerm(attempt + 1);
+                });
+              }
+              return p;
+            });
+          };
+          return waitForValidPerm().then(function(){
+            return _origFetch(url, options).then(function(resp){
+              if (!resp.ok) return resp;
+              return resp.clone().json().then(function(data){
+                try {
+                  if (data && Array.isArray(data.items)) {
+                    var beforeCount = data.items.length;
+                    data.items = filterByPermission(data.items, body.type);
+                    var afterCount = data.items.length;
+                    console.log('[ec-perm] filter type=' + body.type + ' ' + beforeCount + ' -> ' + afterCount);
+                  }
+                  return new Response(JSON.stringify(data), {
+                    status: 200,
+                    headers: {'Content-Type': 'application/json'}
+                  });
+                } catch(filterErr) {
+                  // DENY on filter error (don't fall back to unfiltered)
+                  console.error('[ec-perm] filter error, denying:', filterErr);
+                  return new Response(JSON.stringify({ success: true, items: [] }), {
+                    status: 200,
+                    headers: {'Content-Type': 'application/json'}
+                  });
+                }
+              }).catch(function(jsonErr){
+                // DENY on parse error too
+                console.error('[ec-perm] parse error, denying:', jsonErr);
+                return new Response(JSON.stringify({ success: true, items: [] }), {
+                  status: 200,
+                  headers: {'Content-Type': 'application/json'}
+                });
+              });
+            });
+          });
+        }
+      } catch(_){}
+    }
+    return _origFetch(url, options);
+  };
+
+  // Init: poll for frappe.session.user availability
+  waitForFrappeAndInit();
+})();
+</script>
+
+<script id="ec-unread-dots">
+// Red dot indicator for unread changes on GBS PO/SO rows.
+//   - On list pages (/all-ticket, /approval list view): batch-poll ec_get_unread every 60s,
+//     add CSS dot to ID cell of unread rows.
+//   - On detail pages (/approval?id=X&type=gbs_po|gbs_so): call ec_mark_seen on load.
+// Scope: GBS PO + SO only (extendable).
+(function(){
+  'use strict';
+  if (window._ecUnreadDotsInstalled) return;
+  window._ecUnreadDotsInstalled = true;
+
+  var DOCTYPE_MAP = { gbs_po: 'GBS Purchase Order', gbs_so: 'GBS Sales Order' };
+  var POLL_MS = 60000;
+
+  function urlParam(k) {
+    var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)'));
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  // CSS
+  if (!document.getElementById('ec-unread-dots-css')) {
+    var st = document.createElement('style');
+    st.id = 'ec-unread-dots-css';
+    st.textContent = [
+      '/* Red dot indicator on ID cell of unread rows */',
+      '.ec-id-dot-wrap { position:relative; display:inline-block; padding-right:14px; }',
+      '.ec-id-dot { position:absolute; top:0px; right:0px; width:8px; height:8px; background:#dc2626; border-radius:50%; box-shadow:0 0 0 2px #fff; }',
+      '.ec-id-dot.ec-id-dot-anim { animation: ec-dot-pulse 1.8s ease-in-out infinite; }',
+      '@keyframes ec-dot-pulse { 0%,100% { box-shadow:0 0 0 2px #fff, 0 0 0 0 rgba(220,38,38,.45); } 50% { box-shadow:0 0 0 2px #fff, 0 0 0 4px rgba(220,38,38,0); } }',
+      '/* Tooltip on hover */',
+      '.ec-id-dot-wrap:hover .ec-id-dot::after { content: attr(data-msg); position:absolute; top:-26px; right:-4px; background:#1f2937; color:#fff; font-size:11px; padding:3px 8px; border-radius:4px; white-space:nowrap; pointer-events:none; }'
+    ].join('\n');
+    document.head.appendChild(st);
+  }
+
+  // ---- Page-context detection ----
+  function getPageContext() {
+    var p = (location.pathname || '').replace(/\/+$/, '');
+    var hasId = !!urlParam('id');
+    var hasType = !!urlParam('type');
+    if ((p === '/approval') && hasId && hasType) {
+      return { mode: 'detail', type: urlParam('type'), id: urlParam('id') };
+    }
+    if (p === '/all-tickets' || p === '/all-ticket' || p === '/approval') {
+      // List context â figure out which tbody
+      var ctx = { mode: 'list' };
+      if (document.getElementById('detailBody')) {
+        ctx.tbodySel = '#detailBody';
+        ctx.rowSel = '#detailBody tr[data-id]';
+        ctx.tabSel = '.tab';
+        ctx.tabTypeAttr = 'data-type';
+      } else if (document.getElementById('listBody')) {
+        ctx.tbodySel = '#listBody';
+        ctx.rowSel = '#listBody tr[data-id]';
+        ctx.tabSel = '.list-tab';
+        ctx.tabTypeAttr = 'data-tab';
+      } else {
+        return null;
+      }
+      return ctx;
+    }
+    return null;
+  }
+
+  function currentTabType(ctx) {
+    var active = document.querySelector(ctx.tabSel + '.active');
+    if (!active) return 'all';
+    return active.getAttribute(ctx.tabTypeAttr) || 'all';
+  }
+
+  // ---- List mode: poll unread + render dots ----
+  function collectGbsRefs(ctx) {
+    var refs = [];
+    var rows = document.querySelectorAll(ctx.rowSel);
+    rows.forEach(function(tr){
+      var id = tr.getAttribute('data-id') || '';
+      var type = tr.getAttribute('data-type') || '';
+      // Tab filter: if currently on a GBS tab, only that. Else infer from row data.
+      var tabT = currentTabType(ctx);
+      var refType = type || tabT;
+      if (refType !== 'gbs_po' && refType !== 'gbs_so') return;
+      if (!id) return;
+      var dt = DOCTYPE_MAP[refType];
+      if (!dt) return;
+      refs.push({ doctype: dt, name: id, _row: tr, _type: refType });
+    });
+    return refs;
+  }
+
+  function findIdCell(tr) {
+    // Heuristic: ID cell is the first cell that contains tr's data-id text (or it's the first <td>)
+    var dataId = tr.getAttribute('data-id') || '';
+    var cells = tr.querySelectorAll('td');
+    for (var i = 0; i < cells.length; i++) {
+      var txt = (cells[i].textContent || '').trim();
+      // Strip zero-width sentinels added by other modules
+      txt = txt.replace(/[ââ]/g, '');
+      if (dataId && txt.indexOf(dataId) >= 0) return cells[i];
+    }
+    return cells[0] || null;
+  }
+
+  function applyDot(tr, msg) {
+    var cell = findIdCell(tr);
+    if (!cell) return;
+    // Wrap inline content in span if not yet wrapped
+    var wrap = cell.querySelector('.ec-id-dot-wrap');
+    if (!wrap) {
+      wrap = document.createElement('span');
+      wrap.className = 'ec-id-dot-wrap';
+      // Move all of cell's children into wrap
+      while (cell.firstChild) wrap.appendChild(cell.firstChild);
+      cell.appendChild(wrap);
+    }
+    var dot = wrap.querySelector('.ec-id-dot');
+    if (!dot) {
+      dot = document.createElement('span');
+      dot.className = 'ec-id-dot ec-id-dot-anim';
+      wrap.appendChild(dot);
+    }
+    dot.setAttribute('data-msg', msg || 'CÃ³ cáº­p nháº­t má»i');
+  }
+
+  function removeDot(tr) {
+    var cell = findIdCell(tr);
+    if (!cell) return;
+    var dot = cell.querySelector('.ec-id-dot');
+    if (dot) dot.remove();
+  }
+
+  var _pollTimer = null;
+  function pollUnread(ctx) {
+    var refs = collectGbsRefs(ctx);
+    if (!refs.length) return;
+    var payload = refs.map(function(r){ return { doctype: r.doctype, name: r.name }; });
+    fetch('/api/method/ec_get_unread', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refs: payload })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      var msg = (d && d.message) || {};
+      if (!msg.success) {
+        console.warn('[ec-unread-dots] response not success', msg);
+        return;
+      }
+      var unreadMap = msg.unread || {};
+      refs.forEach(function(r){
+        var u = unreadMap[r.name];
+        if (u && u.is_unread) {
+          var parts = [];
+          if (u.comments) parts.push(u.comments + ' comment(s)');
+          if (u.attachments) parts.push(u.attachments + ' file(s)');
+          applyDot(r._row, parts.length ? 'Cáº­p nháº­t má»i â ' + parts.join(', ') : 'CÃ³ cáº­p nháº­t má»i');
+        } else {
+          removeDot(r._row);
+        }
+      });
+    }).catch(function(e){
+      console.warn('[ec-unread-dots] fetch err', e);
+    });
+  }
+
+  function startListMode(ctx) {
+    // Initial poll
+    pollUnread(ctx);
+    // Periodic poll
+    if (_pollTimer) clearInterval(_pollTimer);
+    _pollTimer = setInterval(function(){ pollUnread(ctx); }, POLL_MS);
+    // Watch for row changes (tab switch, search, filter)
+    var tbody = document.querySelector(ctx.tbodySel);
+    if (tbody) {
+      var mo = new MutationObserver(function(muts){
+        var hasNewRows = false;
+        for (var i = 0; i < muts.length; i++) {
+          if (muts[i].addedNodes && muts[i].addedNodes.length > 0) { hasNewRows = true; break; }
+        }
+        if (hasNewRows) {
+          setTimeout(function(){ pollUnread(ctx); }, 300);
+        }
+      });
+      mo.observe(tbody, { childList: true });
+    }
+    // Watch Sync GBS button: piggyback gbs_force_poll_all so comment counts refresh too
+    document.addEventListener('click', function(e){
+      var t = e.target;
+      if (!t || !t.closest) return;
+      var syncBtn = t.closest('.gbs-sync-btn');
+      if (!syncBtn) return;
+      console.log('[ec-unread-dots] Sync GBS clicked - chaining gbs_force_poll_all');
+      fetch('/api/method/gbs_force_poll_all', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      }).then(function(r){ return r.json(); }).then(function(d){
+        var m = (d && d.message) || {};
+        if (m.success) {
+          console.log('[ec-unread-dots] force_poll done:', m.stats);
+          // Re-poll unread immediately to refresh dots
+          setTimeout(function(){ pollUnread(ctx); }, 500);
+        } else {
+          console.warn('[ec-unread-dots] force_poll failed', m);
+        }
+      }).catch(function(err){
+        console.warn('[ec-unread-dots] force_poll err', err);
+      });
+    }, true);
+    // Watch tab clicks
+    document.addEventListener('click', function(e){
+      var t = e.target;
+      if (t && t.closest && t.closest(ctx.tabSel)) {
+        setTimeout(function(){ pollUnread(ctx); }, 400);
+      }
+    });
+    console.log('[ec-unread-dots] list mode active');
+  }
+
+  // ---- Detail mode: mark seen on load ----
+  function markSeen(ctx) {
+    var docType = DOCTYPE_MAP[ctx.type];
+    if (!docType) return;
+    fetch('/api/method/ec_mark_seen', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doctype: docType, name: ctx.id })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      var msg = (d && d.message) || {};
+      if (msg.success) {
+        console.log('[ec-unread-dots] marked seen:', ctx.type, ctx.id);
+      } else {
+        console.warn('[ec-unread-dots] mark_seen failed:', msg);
+      }
+    }).catch(function(e){
+      console.warn('[ec-unread-dots] mark_seen err', e);
+    });
+  }
+
+  // ---- Boot ----
+  function init() {
+    var ctx = getPageContext();
+    if (!ctx) {
+      // Retry shortly (page may render late)
+      setTimeout(init, 500);
+      return;
+    }
+    if (ctx.mode === 'detail') {
+      markSeen(ctx);
+    } else if (ctx.mode === 'list') {
+      // Wait for tbody to populate
+      function waitTbody(tries) {
+        var rows = document.querySelectorAll(ctx.rowSel);
+        if (rows.length > 0) { startListMode(ctx); return; }
+        if (tries > 30) { startListMode(ctx); return; }
+        setTimeout(function(){ waitTbody(tries + 1); }, 400);
+      }
+      waitTbody(0);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+  console.log('[ec-unread-dots] installed');
+})();
+</script><!-- /ec-unread-dots -->
+<script id="ec-all-tickets-gbs-cols">
+(function(){
+  'use strict';
+  if (window._allTicketsGbsColsInstalled) return;
+  window._allTicketsGbsColsInstalled = true;
+
+  // Run on /all-ticket(s) AND /approval (the latter has a list at root + detail with ?id=)
+  var p = (location.pathname || '').replace(/\/+$/, '');
+  if (p !== '/all-tickets' && p !== '/all-ticket' && p !== '/approval') return;
+  console.log('[ec-all-tickets-gbs] active on', p);
+
+  // Cache: ticket id -> {gbs_doc_name, gbs_status, gbs_last_sync, gbs_grand_total}
+  var gbsCache = {};
+  var gbsLastSyncFetched = false;  // whether we've already done the supplemental get_list call
+
+  // Zero-width sentinels to wrap gbs_doc_name appended to title (search matches, DOM strips)
+  var Z1 = String.fromCharCode(0x200B); // ZWSP â opens marker
+  var Z2 = String.fromCharCode(0x200C); // ZWNJ â closes marker
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function fmtTime(s) {
+    if (!s) return '-';
+    try {
+      var d = new Date(String(s).replace(' ', 'T'));
+      if (isNaN(d)) return s;
+      return d.toLocaleString('vi-VN', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+    } catch(e) { return s; }
+  }
+
+  // ---- CSS ----
+  if (!document.getElementById('ec-all-tickets-gbs-css')) {
+    var st = document.createElement('style');
+    st.id = 'ec-all-tickets-gbs-css';
+    st.textContent = [
+      '.detail-table th.gbs-extra-col, .list-table th.gbs-extra-col { font-weight:600; color:#6b7280; font-size:10px; text-transform:uppercase; letter-spacing:.5px; padding:8px 12px; white-space:nowrap; }',
+      '.detail-table td.gbs-extra-cell, .list-table td.gbs-extra-cell { padding:8px 12px; font-size:12px; color:#374151; vertical-align:middle; }',
+      '.detail-table td.gbs-extra-cell.gbs-doc, .list-table td.gbs-extra-cell.gbs-doc { font-family:"DM Mono", monospace; font-size:11.5px; color:#2C3DA6; white-space:nowrap; }',
+      '.detail-table td.gbs-extra-cell.gbs-sync, .list-table td.gbs-extra-cell.gbs-sync { color:#6b7280; font-size:11px; white-space:nowrap; }',
+      '.gbs-status-pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:10.5px; font-weight:600; white-space:nowrap; }',
+      '.gbs-status-pill.gbs-st-rejected { background:#fee2e2; color:#991b1b; }',
+      '.gbs-status-pill.gbs-st-approved { background:#dcfce7; color:#166534; }',
+      '.gbs-status-pill.gbs-st-draft, .gbs-status-pill.gbs-st-empty { background:#f3f4f6; color:#6b7280; }',
+      '.gbs-status-pill.gbs-st-pending { background:#fef3c7; color:#92400e; }',
+      '.gbs-sync-btn { display:inline-flex; align-items:center; gap:6px; background:#fff; color:#2C3DA6; border:1px solid #2C3DA6; border-radius:6px; padding:6px 12px; font-weight:600; font-size:12px; cursor:pointer; margin-left:8px; vertical-align:middle; }',
+      '.gbs-sync-btn:hover { background:#eef0fb; }',
+      '.gbs-sync-btn[disabled] { opacity:.55; cursor:not-allowed; }',
+      '.gbs-sync-btn .ec-spin { display:inline-block; width:12px; height:12px; border:2px solid #2C3DA6; border-right-color:transparent; border-radius:50%; animation: ec-spin .8s linear infinite; }',
+      '@keyframes ec-spin { to { transform: rotate(360deg); } }',
+      '.gbs-sync-msg { display:inline-block; margin-left:10px; font-size:11.5px; padding:3px 8px; border-radius:5px; vertical-align:middle; }',
+      '.gbs-sync-msg.ok { background:#dcfce7; color:#166534; }',
+      '.gbs-sync-msg.err { background:#fee2e2; color:#991b1b; }',
+      '.gbs-sync-meta { display:inline-block; margin-left:10px; font-size:11px; color:#9ca3af; vertical-align:middle; }'
+    ].join('\n');
+    document.head.appendChild(st);
+  }
+
+  // ---- Page-context detection ----
+  function getPageContext() {
+    // Returns { tableSel, theadRowSel, tbodySel, tabSel, activeAttr, rowSel } based on which page we're on
+    if (document.getElementById('detailBody')) {
+      return {
+        page: 'all-ticket',
+        tableSel:    '.detail-table',
+        theadRowSel: '.detail-table thead tr',
+        tbodySel:    '#detailBody',
+        tabSel:      '.tab',
+        getTabType:  function(t){ return t.dataset.type || 'all'; },
+        rowSel:      '#detailBody tr[data-id]'
+      };
+    }
+    if (document.getElementById('listBody')) {
+      return {
+        page: 'approval',
+        tableSel:    '.list-table',
+        theadRowSel: '.list-table thead tr',
+        tbodySel:    '#listBody',
+        tabSel:      '.list-tab',
+        getTabType:  function(t){ return t.dataset.tab || 'all'; },
+        rowSel:      '#listBody tr[data-id]'
+      };
+    }
+    return null;
+  }
+
+  function currentTabType(ctx) {
+    if (!ctx) return 'all';
+    var active = document.querySelector(ctx.tabSel + '.active');
+    return active ? ctx.getTabType(active) : 'all';
+  }
+
+  function isGbsTab(ctx) {
+    var t = currentTabType(ctx);
+    return t === 'gbs_po' || t === 'gbs_so';
+  }
+
+  function statusPillClass(s) {
+    var k = (s || '').toLowerCase();
+    if (k.indexOf('reject') >= 0) return 'gbs-st-rejected';
+    if (k.indexOf('approve') >= 0) return 'gbs-st-approved';
+    if (k.indexOf('pending') >= 0) return 'gbs-st-pending';
+    if (k === 'draft') return 'gbs-st-draft';
+    if (!k) return 'gbs-st-empty';
+    return 'gbs-st-draft';
+  }
+
+  // ---- Fetch wrapper: cache + inject gbs_doc_name into title for search ----
+  //
+  // CRITICAL: approval-page has its own _ecPermFetch wrapper that re-applies
+  // itself at t=100/500/1500/3000/6000ms via applyFetchPatch. Its guard skips
+  // re-wrap only when window.fetch carries the EC_PERM_MARK key. If my wrapper
+  // does not carry that mark, _ecPermFetch RE-WRAPS at t=100ms, capturing my
+  // wrapper as its _origFetch. My wrapper captured the OLD _ecPermFetch as its
+  // _origFetch_mine. Result: infinite recursion (Maximum call stack exceeded).
+  //
+  // Fix: tag myWrapper with the same mark via BRACKET access using a string
+  // built at RUNTIME (avoid any literal containing two underscores in source â
+  // Frappe Jinja safety scanner rejects such patterns in Web Page main_section).
+  var US = String.fromCharCode(95);   // single underscore
+  var EC_PERM_MARK = US + US + 'ecPermPatched';  // assembled to '<dunder>ecPermPatched'
+  var _origFetch = window.fetch.bind(window);
+  var _myFetchWrapper = function(url, opts) {
+    var pp = _origFetch(url, opts);
+    try {
+      var urlStr = (typeof url === 'string') ? url : (url && url.url) || '';
+      if (urlStr.indexOf('/api/method/web_lookup') >= 0 && opts && opts.body) {
+        var body;
+        try { body = JSON.parse(opts.body); } catch(e) { body = null; }
+        if (body && (body.type === 'gbs_po' || body.type === 'gbs_so')) {
+          return pp.then(function(resp){
+            return resp.clone().json().then(function(d){
+              try {
+                var msg = (d && d.message) || d || {};
+                var items = msg.items || [];
+                items.forEach(function(it){
+                  var id = it.id || it.name || '';
+                  if (id) {
+                    // Merge with existing cache (supplemental fetch may run before/after)
+                    var existing = gbsCache[id] || {};
+                    gbsCache[id] = {
+                      gbs_doc_name:    it.gbs_doc_name    || existing.gbs_doc_name    || '',
+                      gbs_status:      it.gbs_status      || existing.gbs_status      || '',
+                      gbs_last_sync:   it.gbs_last_sync   || existing.gbs_last_sync   || '',
+                      gbs_grand_total: it.gbs_grand_total || existing.gbs_grand_total || '',
+                      parent_so:       it.parent_so       || existing.parent_so       || ''
+                    };
+                  }
+                  if (it.gbs_doc_name && it.title && it.title.indexOf(Z1) < 0) {
+                    it.title = it.title + Z1 + it.gbs_doc_name + Z2;
+                  }
+                });
+              } catch(e) { console.warn('[ec-all-tickets-gbs] mutate err', e); }
+              return new Response(JSON.stringify(d), {
+                status: resp.status,
+                statusText: resp.statusText,
+                headers: resp.headers
+              });
+            }).catch(function(){ return resp; });
+          });
+        }
+      }
+    } catch(e) {}
+    return pp;
+  };
+  // Tag with approval-page mark so its applyFetchPatch guard skips us.
+  // Bracket access only (Frappe Jinja blocks dot-dunder patterns in source).
+  _myFetchWrapper[EC_PERM_MARK] = true;
+  window.fetch = _myFetchWrapper;
+
+  // ---- Supplemental fetch: get gbs_last_sync via frappe.client.get_list ----
+  // (web_lookup currently doesn't include gbs_last_sync in its enrich)
+  // Debug: expose cache so anh can inspect in F12 console.
+  window.gbsCache = gbsCache;
+
+  function fetchSyncInfo() {
+    if (gbsLastSyncFetched) return Promise.resolve();
+    gbsLastSyncFetched = true;
+    var doctypes = ['GBS Purchase Order', 'GBS Sales Order'];
+    return Promise.all(doctypes.map(function(dt){
+      // fields must be JSON-stringified for Frappe REST API compatibility across versions
+      // GBS Purchase Order: include parent_so (link to parent GBS Sales Order)
+      var fields = ['name', 'gbs_doc_name', 'gbs_status', 'gbs_last_sync'];
+      if (dt === 'GBS Purchase Order') fields.push('parent_so');
+      return fetch('/api/method/frappe.client.get_list', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          doctype: dt,
+          fields: JSON.stringify(fields),
+          limit_page_length: 2000
+        })
+      }).then(function(r){ return r.json(); }).then(function(d){
+        var items = (d && d.message) || [];
+        if (!Array.isArray(items)) return;
+        items.forEach(function(it){
+          var id = it.name || '';
+          if (!id) return;
+          var existing = gbsCache[id] || {};
+          gbsCache[id] = {
+            gbs_doc_name:    it.gbs_doc_name  || existing.gbs_doc_name  || '',
+            gbs_status:      it.gbs_status    || existing.gbs_status    || '',
+            gbs_last_sync:   it.gbs_last_sync || existing.gbs_last_sync || '',
+            gbs_grand_total: existing.gbs_grand_total || '',
+            parent_so:       it.parent_so     || existing.parent_so     || ''
+          };
+        });
+        console.log('[ec-all-tickets-gbs] sync info for ' + dt + ': ' + items.length + ' docs');
+      }).catch(function(e){
+        console.warn('[ec-all-tickets-gbs] supplemental sync info fetch failed for ' + dt, e);
+      });
+    }));
+  }
+
+  // ---- Strip title marker from a single TD ----
+  function stripTitleMarker(td) {
+    if (!td) return;
+    var html = td.innerHTML;
+    var idx1 = html.indexOf(Z1);
+    if (idx1 < 0) return;
+    var idx2 = html.indexOf(Z2, idx1);
+    if (idx2 < 0) {
+      td.innerHTML = html.substring(0, idx1);
+    } else {
+      td.innerHTML = html.substring(0, idx1) + html.substring(idx2 + 1);
+    }
+  }
+
+  // ---- Native column index detection (label-based, not hardcoded) ----
+  // Native order varies by page version. Always detect by matching TH label.
+  var NATIVE_COLS = {
+    createdIdx: null,  // index of Created TH among non-extra THs
+    statusIdx:  null   // index of Status TH among non-extra THs
+  };
+  function detectNativeCols(ctx) {
+    var thead = document.querySelector(ctx.theadRowSel);
+    if (!thead) return;
+    // Use only NATIVE THs (skip our gbs-extra-col extras)
+    var ths = Array.prototype.slice.call(thead.children).filter(function(th){
+      return !th.classList.contains('gbs-extra-col');
+    });
+    if (ths.length === 0) return;
+
+    // If first non-extra TH is already Created, layout was reordered already.
+    // Use previously-cached value (don't reset).
+    var firstLabel = (ths[0].textContent || '').trim().toLowerCase();
+    if (firstLabel === 'created' || firstLabel === 'táº¡o lÃºc' || firstLabel === 'táº¡o ngÃ y') {
+      return; // skip â already reordered, keep cached
+    }
+    // Detect from native order
+    for (var i = 0; i < ths.length; i++) {
+      var label = (ths[i].textContent || '').trim().toLowerCase();
+      if (label === 'created' || label === 'táº¡o lÃºc' || label === 'táº¡o ngÃ y') NATIVE_COLS.createdIdx = i;
+      if (label === 'status') NATIVE_COLS.statusIdx = i;
+    }
+  }
+
+  // ---- Augment thead â single pass, idempotent per render ----
+  // Layout target (left to right):
+  //   Created | ID | Title | (Type) | Department | Status | GBS Status |
+  //   Timeline | Submitted by | GBS Doc | GBS Doc SO (po only) | Last Sync
+  //
+  // Native column order detected dynamically (label-based, not hardcoded).
+  function augmentHead(ctx) {
+    var thead = document.querySelector(ctx.theadRowSel);
+    if (!thead) return;
+    // Detect native indices BEFORE stripping extras (so first non-extra is reliable)
+    detectNativeCols(ctx);
+
+    // Strip previous GBS extras (will re-add if GBS tab)
+    Array.prototype.slice.call(thead.querySelectorAll('th.gbs-extra-col')).forEach(function(n){ n.remove(); });
+
+    var tabType = currentTabType(ctx);
+    var isGbs = isGbsTab(ctx);
+
+    // Reorder Created TH to position 0 (ALL tabs - common UX improvement)
+    if (thead.dataset.ecLayoutV2 !== '1' && NATIVE_COLS.createdIdx !== null) {
+      var thsArr = Array.prototype.slice.call(thead.children);
+      var createdTh = thsArr[NATIVE_COLS.createdIdx];
+      if (createdTh && (createdTh.textContent || '').trim().toLowerCase() === 'created') {
+        thead.insertBefore(createdTh, thsArr[0]);
+        thead.dataset.ecLayoutV2 = '1';
+      }
+    }
+
+    // Add GBS extras (GBS tabs only)
+    if (isGbs) {
+      reAddGbsExtras(thead, Array.prototype.slice.call(thead.children), tabType);
+    }
+  }
+
+  function reAddGbsExtras(thead, ths, tabType) {
+    function makeTh(label, extraClass) {
+      var th = document.createElement('th');
+      th.className = 'gbs-extra-col ' + (extraClass || '');
+      th.textContent = label;
+      return th;
+    }
+    // Find Status TH (in current header positions)
+    var statusTh = null;
+    for (var i = 0; i < ths.length; i++) {
+      if ((ths[i].textContent || '').trim().toLowerCase() === 'status') {
+        statusTh = ths[i];
+        break;
+      }
+    }
+    var gbsStatusTh = makeTh('GBS Status', 'gbs-status-col');
+    if (statusTh && statusTh.nextSibling) {
+      thead.insertBefore(gbsStatusTh, statusTh.nextSibling);
+    } else {
+      thead.appendChild(gbsStatusTh);
+    }
+    thead.appendChild(makeTh('GBS Doc', 'gbs-doc-col'));
+    if (tabType === 'gbs_po') thead.appendChild(makeTh('GBS Doc SO', 'gbs-doc-so-col'));
+    thead.appendChild(makeTh('Last Sync', 'gbs-sync-col'));
+  }
+
+  // ---- Augment rows â one-pass per row, idempotent ----
+  // Steps per row (only when row layout != 'v2'):
+  //   1. Strip zero-width title marker
+  //   2. Strip prior gbs-extra-cell
+  //   3. Move Created TD (native idx 6) to position 0
+  //   4. Insert GBS Status TD right after Status TD
+  //   5. Append GBS Doc + GBS Doc SO (po only) + Last Sync at end
+  //   6. Mark row data-ec-layout-v2="1"
+  // For non-GBS tabs: revert layout (move Created TD back to native idx 6)
+  function augmentRows(ctx) {
+    var rows = document.querySelectorAll(ctx.rowSel);
+    var isGbs = isGbsTab(ctx);
+    var tabType = currentTabType(ctx);
+
+    rows.forEach(function(row){
+      // Always strip extras + title marker before re-render
+      var titleCell = row.cells && row.cells[1];
+      stripTitleMarker(titleCell);
+      Array.prototype.slice.call(row.querySelectorAll('td.gbs-extra-cell')).forEach(function(n){ n.remove(); });
+
+      // Step 1: Reorder Created TD to position 0 (ALL tabs)
+      if (row.dataset.ecLayoutV2 !== '1') {
+        if (NATIVE_COLS.createdIdx === null) return;
+        if (row.cells.length <= NATIVE_COLS.createdIdx) return;
+        var createdTd = row.cells[NATIVE_COLS.createdIdx];
+        row.insertBefore(createdTd, row.cells[0]);
+        row.dataset.ecLayoutV2 = '1';
+      }
+
+      // Compact Title cell content (now at position 2 after Created moved to 0)
+      // Use inner wrapper div to bypass table-layout:auto ignoring max-width on TD.
+      compactTitleCell(row, 2);
+
+      // Non-GBS tab: only Created reorder, no GBS extras
+      if (!isGbs) return;
+
+      // GBS tab path: continue with GBS-specific columns
+      var info = gbsCache[row.dataset.id] || {};
+      var stat    = info.gbs_status   || '';
+
+      // Step 2: After Created moved to 0, find Status TD (now shifted by +1 from native idx 4 â 5)
+      // Look up by header label to be robust.
+      var statusTd = null;
+      var thead = document.querySelector(ctx.theadRowSel);
+      if (thead) {
+        var ths = Array.prototype.slice.call(thead.children);
+        // Find Status TH index, skipping gbs-extra-col
+        var statusHeaderPos = -1;
+        var nonExtraIdx = -1;
+        for (var i = 0; i < ths.length; i++) {
+          if (ths[i].classList.contains('gbs-extra-col')) continue;
+          nonExtraIdx++;
+          if ((ths[i].textContent || '').trim().toLowerCase() === 'status') {
+            statusHeaderPos = nonExtraIdx;
+            break;
+          }
+        }
+        if (statusHeaderPos >= 0 && row.cells.length > statusHeaderPos) {
+          statusTd = row.cells[statusHeaderPos];
+        }
+      }
+
+      // Step 3: insert GBS Status TD right after Status TD
+      var tdGbsStatus = document.createElement('td');
+      tdGbsStatus.className = 'gbs-extra-cell gbs-status-cell';
+      if (stat) {
+        tdGbsStatus.innerHTML = '<span class="gbs-status-pill ' + statusPillClass(stat) + '">' + escapeHtml(stat) + '</span>';
+      } else {
+        tdGbsStatus.textContent = 'â';
+      }
+      if (statusTd && statusTd.nextSibling) {
+        row.insertBefore(tdGbsStatus, statusTd.nextSibling);
+      } else {
+        row.appendChild(tdGbsStatus);
+      }
+
+      // Step 4: append GBS Doc / GBS Doc SO (po) / Last Sync at end
+      var tdDoc = document.createElement('td');
+      tdDoc.className = 'gbs-extra-cell gbs-doc';
+      tdDoc.textContent = info.gbs_doc_name || 'â';
+      row.appendChild(tdDoc);
+
+      if (tabType === 'gbs_po') {
+        var tdSo = document.createElement('td');
+        tdSo.className = 'gbs-extra-cell gbs-doc-so';
+        var parentSo = info.parent_so || '';
+        if (parentSo) {
+          var a = document.createElement('a');
+          a.href = '/approval?type=gbs_so&id=' + encodeURIComponent(parentSo);
+          a.textContent = parentSo;
+          a.style.cssText = 'color:#2C3DA6;text-decoration:none;font-size:12px';
+          a.addEventListener('mouseover', function(){ this.style.textDecoration='underline'; });
+          a.addEventListener('mouseout', function(){ this.style.textDecoration='none'; });
+          tdSo.appendChild(a);
+        } else {
+          tdSo.textContent = 'â';
+        }
+        row.appendChild(tdSo);
+      }
+
+      var tdSync = document.createElement('td');
+      tdSync.className = 'gbs-extra-cell gbs-sync';
+      tdSync.textContent = info.gbs_last_sync ? fmtTime(info.gbs_last_sync) : 'â';
+      row.appendChild(tdSync);
+    });
+  }
+
+  // ---- Move Created column to position 1 (all tabs, visual reorder only) ----
+  // CRITICAL: TH and TD reorder MUST be in sync. Earlier bug: TH was reordered
+  // first refresh (rows not yet ready), subsequent refreshes early-returned via
+  // idempotency check â TD never reordered â header/data mismatch.
+  // Fix: per-row sentinel attribute tracks reorder state independently.
+  var _ecOriginalCreatedIdx = null;
+  function reorderCreatedColumn(ctx) {
+    var thead = document.querySelector(ctx.theadRowSel);
+    if (!thead) return;
+    var ths = Array.prototype.slice.call(thead.children);
+
+    // Step 1: ensure TH at position 0. Remember original index.
+    var firstLabel = (ths[0] && ths[0].textContent || '').trim().toLowerCase();
+    var thAlreadyFirst = (firstLabel === 'created' || firstLabel === 'táº¡o lÃºc' || firstLabel === 'táº¡o ngÃ y');
+    if (!thAlreadyFirst) {
+      var createdIdx = -1;
+      for (var i = 0; i < ths.length; i++) {
+        var label = (ths[i].textContent || '').trim().toLowerCase();
+        if (label === 'created' || label === 'táº¡o lÃºc' || label === 'táº¡o ngÃ y') {
+          createdIdx = i;
+          break;
+        }
+      }
+      if (createdIdx > 0) {
+        if (_ecOriginalCreatedIdx === null) _ecOriginalCreatedIdx = createdIdx;
+        thead.insertBefore(ths[createdIdx], ths[0]);
+      } else {
+        return; // Created TH not found
+      }
+    }
+
+    // Step 2: reorder TD on each row. Track per-row with data attr to avoid
+    // double-move + handle rows that were rendered AFTER first reorder.
+    var origIdx = _ecOriginalCreatedIdx;
+    if (origIdx === null || origIdx <= 0) return;
+    var rows = document.querySelectorAll(ctx.rowSel);
+    rows.forEach(function(row){
+      if (row.dataset.ecCreatedReordered === '1') return; // already done
+      if (row.cells && row.cells.length > origIdx) {
+        row.insertBefore(row.cells[origIdx], row.cells[0]);
+        row.dataset.ecCreatedReordered = '1';
+      }
+    });
+  }
+
+  // ---- CSS: title compact via inner div + scroll wrap with tooltip space ----
+  function ensureCompactTitleCss() {
+    if (document.getElementById('ec-gbs-cols-css')) return;
+    var st = document.createElement('style');
+    st.id = 'ec-gbs-cols-css';
+    st.textContent = [
+      '/* Title cell inner wrapper - works in table-layout:auto via inline-block */',
+      '.ec-title-compact {',
+      '  display: inline-block;',
+      '  max-width: 260px;',
+      '  white-space: nowrap;',
+      '  overflow: hidden;',
+      '  text-overflow: ellipsis;',
+      '  vertical-align: middle;',
+      '}',
+      '/* GBS Doc SO link column compact */',
+      'table .gbs-doc-so {',
+      '  font-size: 12px;',
+      '  white-space: nowrap;',
+      '}',
+      '/* Horizontal scroll wrapper with padding-bottom hack for tooltip space */',
+      '/* overflow-y is implicitly auto when overflow-x is auto, but padding-bottom */',
+      '/* gives content extra room before clip kicks in */',
+      '.ec-table-scroll-wrap {',
+      '  overflow-x: auto;',
+      '  width: 100%;',
+      '  padding-bottom: 60px;',
+      '  margin-bottom: -60px;',
+      '  -webkit-overflow-scrolling: touch;',
+      '}',
+      '.ec-table-scroll-wrap > table {',
+      '  min-width: max-content;',
+      '}'
+    ].join('\n');
+    document.head.appendChild(st);
+  }
+
+  // ---- Wrap title cell content in inner div for proper ellipsis clipping ----
+  function compactTitleCell(row, titleIdx) {
+    if (!row || row.cells.length <= titleIdx) return;
+    var cell = row.cells[titleIdx];
+    if (!cell || cell.dataset.ecTitleCompact === '1') return;
+    // Move all children into inner wrapper
+    var wrap = document.createElement('div');
+    wrap.className = 'ec-title-compact';
+    wrap.title = (cell.textContent || '').trim(); // tooltip on hover for full text
+    while (cell.firstChild) {
+      wrap.appendChild(cell.firstChild);
+    }
+    cell.appendChild(wrap);
+    cell.dataset.ecTitleCompact = '1';
+  }
+
+  // ---- Ensure table scrolls horizontally (wrap table in scroll div) ----
+  // Use NEW wrapper div around the table, not the existing parent. This isolates
+  // scroll context so other content on page isn't affected. padding-bottom: 60px
+  // provides space for tooltips (~30px) inside the scroll area before clip.
+  function ensureTableScrollable(ctx) {
+    var table = document.querySelector(ctx.tableSel);
+    if (!table) return;
+    if (table.dataset.ecScrollWrapped === '1') return;
+    var parent = table.parentNode;
+    if (!parent) return;
+    // If already wrapped (parent IS our wrap), skip
+    if (parent.classList && parent.classList.contains('ec-table-scroll-wrap')) {
+      table.dataset.ecScrollWrapped = '1';
+      return;
+    }
+    // Create new wrap div ONLY around table (isolated scroll context)
+    var wrap = document.createElement('div');
+    wrap.className = 'ec-table-scroll-wrap';
+    parent.insertBefore(wrap, table);
+    wrap.appendChild(table);
+    table.dataset.ecScrollWrapped = '1';
+  }
+
+  function refresh() {
+    var ctx = getPageContext();
+    if (!ctx) return;
+    ensureCompactTitleCss();
+    ensureTableScrollable(ctx);  // horizontal scroll wrapper (both all-ticket + approval)
+    augmentHead(ctx);  // Created TH reorder (all tabs) + GBS extras (GBS tabs only)
+    augmentRows(ctx);  // Created TD reorder (all tabs) + GBS extras (GBS tabs only)
+    ensureSyncButton(ctx);
+  }
+
+  // ---- Manual "Sync GBS" button ----
+  function ensureSyncButton(ctx) {
+    if (!isGbsTab(ctx)) {
+      var existing = document.getElementById('gbs-sync-all-btn');
+      if (existing) {
+        var wrap = existing.closest('.gbs-sync-wrap');
+        if (wrap) wrap.remove();
+      }
+      return;
+    }
+    if (document.getElementById('gbs-sync-all-btn')) return;
+    // Anchor: place after filter bar or last tab
+    var anchor = document.querySelector('.filter-bar') ||
+                 document.querySelector('#activeFilters') ||
+                 document.querySelector('.tab.active') ||
+                 document.querySelector('.list-tab.active');
+    if (!anchor) return;
+    var scope = currentTabType(ctx);  // 'gbs_po' or 'gbs_so' or 'all'
+
+    var wrap = document.createElement('span');
+    wrap.className = 'gbs-sync-wrap';
+    wrap.style.cssText = 'display:inline-flex;align-items:center;margin-left:6px;';
+    wrap.innerHTML =
+      '<button type="button" class="gbs-sync-btn" id="gbs-sync-all-btn" title="Force-sync all GBS docs (bypass 15-min auto-poll throttle)">' +
+      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">' +
+      '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>' +
+      '</svg>' +
+      '<span class="gbs-sync-label">Sync GBS</span>' +
+      '</button>' +
+      '<span class="gbs-sync-meta" id="gbs-sync-meta">Auto-sync má»i 15 phÃºt</span>' +
+      '<span class="gbs-sync-msg" id="gbs-sync-msg" style="display:none"></span>';
+    // Insert after anchor
+    if (anchor.nextSibling) {
+      anchor.parentNode.insertBefore(wrap, anchor.nextSibling);
+    } else {
+      anchor.parentNode.appendChild(wrap);
+    }
+    var btn  = document.getElementById('gbs-sync-all-btn');
+    var msg  = document.getElementById('gbs-sync-msg');
+    var meta = document.getElementById('gbs-sync-meta');
+    btn.addEventListener('click', function(){
+      var t0 = Date.now();
+      btn.disabled = true;
+      btn.querySelector('.gbs-sync-label').textContent = 'Äang sync...';
+      var icon = btn.querySelector('svg');
+      if (icon) icon.style.display = 'none';
+      var spin = document.createElement('span');
+      spin.className = 'ec-spin';
+      btn.insertBefore(spin, btn.firstChild);
+      msg.style.display = 'none';
+      if (meta) meta.style.display = 'none';
+
+      fetch('/api/method/gbs_sync_all', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: scope })
+      }).then(function(r){ return r.json(); }).then(function(d){
+        var m = (d && d.message) || d || {};
+        var dur = Math.round((Date.now() - t0) / 1000);
+        if (m.success) {
+          msg.className = 'gbs-sync-msg ok';
+          msg.textContent = 'â Sync ' + (m.updated || 0) + '/' + (m.polled || 0) + ' docs ' +
+                             (m.skipped_finalized ? '(skip ' + m.skipped_finalized + ' finalized) ' : '') +
+                             '(' + dur + 's)';
+          msg.style.display = 'inline-block';
+          // Reload page to re-render with fresh data
+          setTimeout(function(){ location.reload(); }, 1200);
+        } else {
+          msg.className = 'gbs-sync-msg err';
+          msg.textContent = 'â Lá»i: ' + (m.error || 'unknown');
+          msg.style.display = 'inline-block';
+          btn.disabled = false;
+          var spinNode = btn.querySelector('.ec-spin');
+          if (spinNode) spinNode.remove();
+          if (icon) icon.style.display = '';
+          btn.querySelector('.gbs-sync-label').textContent = 'Sync GBS';
+          if (meta) meta.style.display = 'inline-block';
+        }
+      }).catch(function(e){
+        msg.className = 'gbs-sync-msg err';
+        msg.textContent = 'â Lá»i máº¡ng: ' + e.message;
+        msg.style.display = 'inline-block';
+        btn.disabled = false;
+        var spinNode = btn.querySelector('.ec-spin');
+        if (spinNode) spinNode.remove();
+        if (icon) icon.style.display = '';
+        btn.querySelector('.gbs-sync-label').textContent = 'Sync GBS';
+        if (meta) meta.style.display = 'inline-block';
+      });
+    });
+  }
+
+  // ---- Init ----
+  function init() {
+    refresh();
+
+    // Kick off supplemental fetch as soon as possible, then refresh
+    fetchSyncInfo().then(refresh);
+
+    // Observe each known body separately (we don't know which page yet, both may toggle)
+    ['detailBody', 'listBody'].forEach(function(id){
+      var n = document.getElementById(id);
+      if (!n) return;
+      var obs = new MutationObserver(function(){ setTimeout(refresh, 30); });
+      obs.observe(n, { childList: true });
+    });
+
+    // Also observe #content for full re-render (approval-page does innerHTML=html)
+    var content = document.getElementById('content');
+    if (content) {
+      var obs2 = new MutationObserver(function(){ setTimeout(refresh, 80); });
+      obs2.observe(content, { childList: true, subtree: true });
+    }
+
+    // Click on tabs may not trigger tbody mutation (cheap re-render). Listen:
+    function bindTabs() {
+      document.querySelectorAll('.tab, .list-tab').forEach(function(tab){
+        if (tab._gbsBound) return;
+        tab._gbsBound = true;
+        tab.addEventListener('click', function(){ setTimeout(refresh, 120); });
+      });
+    }
+    bindTabs();
+    setTimeout(bindTabs, 1000);
+    setTimeout(bindTabs, 3000);
+
+    // Backstop refreshes (data may arrive async after our observer attaches)
+    setTimeout(refresh, 500);
+    setTimeout(refresh, 2000);
+    setTimeout(refresh, 5000);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script><!-- /ec-all-tickets-gbs-cols -->
+

@@ -66,13 +66,16 @@ function makeSandbox(pathname, hasMarker) {
     { key: 'core.home', route: '/home', active_patterns: ['/', '/home'] },
     { key: 'apc.catalog', route: '/approvals', active_patterns: ['/approvals', '/approvals/*'] },
     { key: 'apc.dashboard', route: '/approvals/dashboard', active_patterns: ['/approvals/dashboard'] },
-    { key: 'apc.legacy_tickets', route: '/approval', active_patterns: ['/approval'] },
+    { key: 'approval.inbox', route: '/approval', active_patterns: ['/approval'] },
+    { key: 'tickets.all', route: '/all-ticket', active_patterns: ['/all-ticket'] },
   ];
   ok(M(NAV, '/approvals/hr-activity') === 'apc.catalog', 'hr-activity highlights Approval Center (bug fixed via registry matching)');
   ok(M(NAV, '/approvals/dashboard') === 'apc.dashboard', 'exact route outranks catalog prefix pattern');
   ok(M(NAV, '/approvals') === 'apc.catalog', 'catalog exact');
   ok(M(NAV, '/approvals/') === 'apc.catalog', 'trailing slash normalized');
-  ok(M(NAV, '/approval') === 'apc.legacy_tickets', 'legacy /approval matches ONLY its exact item (no prefix bleed)');
+  ok(M(NAV, '/approval') === 'approval.inbox', 'legacy /approval matches ONLY its exact item (no prefix bleed)');
+  ok(M(NAV, '/all-ticket') === 'tickets.all', '/all-ticket highlights its own entry');
+  ok(M(NAV, '/all-tickets') === null, 'duplicate route /all-tickets matches NOTHING (no lookalike bleed)');
   ok(M(NAV, '/home') === 'core.home' && M(NAV, '/') === 'core.home', '/ aliases /home');
   ok(M(NAV, '/approvals/leave?id=EC-LV-0001&tab=my-requests'.split('?')[0]) === 'apc.catalog', 'deep-link path matches catalog');
   ok(M(NAV, '/gbs-po-form') === null, 'G1 regression: unknown route matches NOTHING (no substring fallback)');
