@@ -98,6 +98,18 @@ class TestShellMigration(unittest.TestCase):
         self.assertEqual(src.count('href="https://docs.ecentric.vn"'), 1)
 
 
+    def test_all_ticket_shell_zone(self):
+        src = _read(LP, "all_ticket", "main_section.html")
+        self.assertEqual(src.count('data-ec-shell="1"'), 1)
+        self.assertEqual(src.count('data-ec-shell-header-right="1"'), 1)
+        self.assertEqual(src.count('<aside class="ec-sb">'), 0)
+        self.assertIn('class="ec-shell-fallback"', src)
+        self.assertEqual(src.count("data-ec-notification-bell"), 0)
+        # hidden legacy .sidebar stays byte-present (dead markup, zero risk)
+        self.assertIn('<aside class="sidebar">', src)
+        self.assertIn('.dash-wrap > aside.sidebar { display: none !important; }', src)
+
+
 class TestPageSyncModules(unittest.TestCase):
     def _mod(self, name):
         fake = types.ModuleType("frappe")
