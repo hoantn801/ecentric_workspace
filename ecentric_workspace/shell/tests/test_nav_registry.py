@@ -13,7 +13,7 @@ class TestRegistryCompose(unittest.TestCase):
     def test_compose_is_valid_and_deterministic(self):
         a, b = nav.compose(), nav.compose()
         self.assertEqual(a, b)
-        self.assertGreaterEqual(len(a), 4)  # home + 3 approval items in v1
+        self.assertGreaterEqual(len(a), 14)  # full IA after the 2B.1 nav patch
         keys = [it["key"] for it in a]
         self.assertEqual(len(keys), len(set(keys)))
 
@@ -50,7 +50,7 @@ class TestRegistryCompose(unittest.TestCase):
 
     def test_no_business_data_fields(self):
         # registry payload must stay navigation-only
-        allowed = set(nav.REQUIRED_FIELDS) | {"badge_source", "keywords"}
+        allowed = set(nav.REQUIRED_FIELDS) | {"badge_source", "keywords", "children"}
         for it in nav.compose():
             self.assertTrue(set(it) <= allowed, "unexpected fields: %s" % (set(it) - allowed))
 
@@ -116,9 +116,70 @@ class TestBootApiGating(unittest.TestCase):
         for it in out["nav"]:
             self.assertEqual(
                 set(it),
-                {"key", "label", "route", "icon", "group", "active_patterns", "keywords"},
+                {"key", "label", "route", "icon", "group", "active_patterns",
+                 "keywords", "children"},
                 "boot nav must not leak extra fields")
         self.assertEqual(set(out["user"]), {"name", "full_name", "image"})
+
+
+class TestSidebarIA(unittest.TestCase):
+    """Locks the PO-approved sidebar IA (2B.1 urgent nav patch). Routes were
+    extracted VERBATIM from the legacy production sidebars -- never invented."""
+
+    def _by_key(self):
+        return {it["key"]: it for it in nav.compose()}
+
+    def test_exact_ia_map(self):
+        expected = {
+            "apc.catalog": ("Phê duyệt", "Approval Center", "/approvals"),
+            "apc.dashboard": ("Phê duyệt", "Dashboard", "/approvals/dashboard"),
+            "tickets.all": ("Chứng từ", "Dashboard", "/all-ticket"),
+            "approval.inbox": ("Chứng từ", "All Tickets", "/approval"),
+            "legacy.create_mso": ("Tạo mới", "MSO Request", "/mso-form"),
+            "legacy.create_so": ("Tạo mới", "SO Request", "/so-form"),
+            "legacy.create_po": ("Tạo mới", "PO Request", "/form-po"),
+            "legacy.create_rec": ("Tạo mới", "REC Request", "/form-rec"),
+            "gbs.po": ("GBS", "GBS Purchase Order", "/gbs-po-form"),
+            "gbs.so": ("GBS", "GBS Sales Order", "/gbs-so-form"),
+            "docs.architecture": ("Hướng dẫn", "Docs / Architecture", "/docs/architecture"),
+            "docs.gbsflow": ("Hướng dẫn", "GBS Flow & Definitions", "/docs/gbs-flow"),
+        }
+        by = self._by_key()
+        for key, (group, label, route) in expected.items():
+            it = by[key]
+            self.assertEqual((it["group"], it["label"], it["route"]),
+                             (group, label, route), key)
+
+    def test_others_submenu(self):
+        others = self._by_key()["legacy.others"]
+        kids = [(c["label"], c["route"]) for c in others["children"]]
+        self.assertEqual(kids, [("Client Request", "/client-request"),
+                                ("Vendor Request", "/vendor-request"),
+                                ("Contract Request", "/contract-request")])
+
+    def test_stale_duplicate_absent(self):
+        routes = set()
+        for it in nav.compose():
+            routes.add(it["route"])
+            for c in it.get("children", []):
+                routes.add(c["route"])
+        for stale in ("/all-tickets", "/all-internal-requests", "/po-form", "/rec-form"):
+            self.assertNotIn(stale, routes, stale)
+
+    def test_child_duplicate_rejected(self):
+        items = nav.compose()
+        bad = dict(items[0], key="x.dup", route="/client-request")  # child route exists
+        with self.assertRaises(ValueError):
+            nav.validate(items + [bad])
+
+    def test_nested_children_rejected(self):
+        base = dict(nav.CORE_ITEMS[0])
+        child = {"key": "c.x", "label": "X", "route": "/cx", "icon": "doc", "order": 1,
+                 "active_patterns": ["/cx"], "visible_when": "internal", "owner": "t",
+                 "children": []}
+        parent = dict(base, key="p.x", route="/px", children=[child])
+        with self.assertRaises(ValueError):
+            nav.validate([parent])
 
 
 if __name__ == "__main__":

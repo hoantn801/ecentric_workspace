@@ -137,6 +137,13 @@ a.ec-shell-crumblink:focus-visible{ outline:2px solid #2C3DA6; outline-offset:2p
   text-decoration:none;
 }
 
+/* ---- collapsible submenu (2B.1 nav patch, minimal) ------------------------ */
+.ec-shell-subtoggle{ width:100%; border:none; background:transparent; cursor:pointer; font:inherit; text-align:left; }
+.ec-shell-chev{ width:14px; height:14px; margin-left:auto; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; transition:transform .15s; }
+.ec-shell-subtoggle[aria-expanded="true"] .ec-shell-chev{ transform:rotate(180deg); }
+.ec-shell-children{ display:flex; flex-direction:column; gap:2px; }
+.ec-shell-item.ec-shell-child{ padding-left:38px; font-size:13px; }
+
 /* ---- keyboard focus (focus-visible only; no outline suppression) --------- */
 .ec-shell-mount a:focus-visible, .ec-shell-mount button:focus-visible,
 .ec-shell-drawer a:focus-visible, .ec-shell-drawer button:focus-visible,

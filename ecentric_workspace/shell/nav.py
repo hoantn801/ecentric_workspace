@@ -30,7 +30,7 @@ REQUIRED_FIELDS = (
 )
 
 #: display order of groups; unknown groups sort after these, alphabetically.
-GROUP_ORDER = ["", "Phê duyệt"]
+GROUP_ORDER = ["", "Phê duyệt", "Chứng từ", "Tạo mới", "GBS", "Hướng dẫn"]
 
 CORE_ITEMS = [
     {
@@ -49,41 +49,61 @@ CORE_ITEMS = [
 
 
 def _providers():
-    """Module-owned providers, registered centrally (Phase 1B: core + approval)."""
+    """Module-owned providers, registered centrally."""
     from ecentric_workspace.approval_center import nav as approval_nav
+    from ecentric_workspace.legacy_pages import nav as legacy_nav
     return [
         ("core", lambda: list(CORE_ITEMS)),
         ("approval_center", approval_nav.items),
+        ("legacy_pages", legacy_nav.items),
     ]
 
 
+CHILD_FIELDS = ("key", "label", "route", "icon", "order",
+                "active_patterns", "visible_when", "owner")
+
+
+def _validate_entry(it, seen_keys, seen_routes, is_child=False):
+    fields = CHILD_FIELDS if is_child else REQUIRED_FIELDS
+    for f in fields:
+        if f not in it:
+            raise ValueError("nav item missing field %r: %r" % (f, it.get("key")))
+    if not isinstance(it["order"], int):
+        raise ValueError("nav item %r: order must be int" % it["key"])
+    if not it["route"].startswith("/"):
+        raise ValueError("nav item %r: route must start with '/'" % it["key"])
+    if it["key"] in seen_keys:
+        raise ValueError("duplicate nav key: %r" % it["key"])
+    if it["route"] in seen_routes:
+        raise ValueError("duplicate nav route: %r" % it["route"])
+    seen_keys.add(it["key"]); seen_routes.add(it["route"])
+    pats = it["active_patterns"]
+    if not isinstance(pats, list) or not pats:
+        raise ValueError("nav item %r: active_patterns must be non-empty list" % it["key"])
+    for pat in pats:
+        if not isinstance(pat, str) or not pat.startswith("/"):
+            raise ValueError("nav item %r: bad active pattern %r" % (it["key"], pat))
+    if it["visible_when"] != "internal":
+        raise ValueError("nav item %r: v1 supports visible_when='internal' only" % it["key"])
+    kws = it.get("keywords", [])
+    if not isinstance(kws, list) or any(not isinstance(k, str) or not k.strip() for k in kws):
+        raise ValueError("nav item %r: keywords must be a list of non-empty strings" % it["key"])
+    if is_child and "children" in it:
+        raise ValueError("nav child %r: nested children are not supported" % it["key"])
+
+
 def validate(items):
-    """Reject malformed/duplicate items. Raises ValueError (fail loud, pre-deploy)."""
+    """Reject malformed/duplicate items (children included -- keys and routes
+    are globally unique). Raises ValueError (fail loud, pre-deploy)."""
     seen_keys, seen_routes = set(), set()
     for it in items:
-        for f in REQUIRED_FIELDS:
-            if f not in it:
-                raise ValueError("nav item missing field %r: %r" % (f, it.get("key")))
-        if not isinstance(it["order"], int):
-            raise ValueError("nav item %r: order must be int" % it["key"])
-        if not it["route"].startswith("/"):
-            raise ValueError("nav item %r: route must start with '/'" % it["key"])
-        if it["key"] in seen_keys:
-            raise ValueError("duplicate nav key: %r" % it["key"])
-        if it["route"] in seen_routes:
-            raise ValueError("duplicate nav route: %r" % it["route"])
-        seen_keys.add(it["key"]); seen_routes.add(it["route"])
-        kws = it.get("keywords", [])
-        if not isinstance(kws, list) or any(not isinstance(k, str) or not k.strip() for k in kws):
-            raise ValueError("nav item %r: keywords must be a list of non-empty strings" % it["key"])
-        pats = it["active_patterns"]
-        if not isinstance(pats, list) or not pats:
-            raise ValueError("nav item %r: active_patterns must be non-empty list" % it["key"])
-        for p in pats:
-            if not isinstance(p, str) or not p.startswith("/"):
-                raise ValueError("nav item %r: bad active pattern %r" % (it["key"], p))
-        if it["visible_when"] != "internal":
-            raise ValueError("nav item %r: v1 supports visible_when='internal' only" % it["key"])
+        _validate_entry(it, seen_keys, seen_routes)
+        kids = it.get("children", [])
+        if kids:
+            if not isinstance(kids, list):
+                raise ValueError("nav item %r: children must be a list" % it["key"])
+            for ch in kids:
+                _validate_entry(ch, seen_keys, seen_routes, is_child=True)
     return items
 
 
@@ -101,6 +121,12 @@ def compose():
         for it in provider():
             it = dict(it)
             it.setdefault("owner", owner)
+            if it.get("children"):
+                kids = [dict(ch) for ch in it["children"]]
+                for ch in kids:
+                    ch.setdefault("owner", owner)
+                kids.sort(key=lambda ch: (ch["order"], ch["key"]))
+                it["children"] = kids
             items.append(it)
     validate(items)
     items.sort(key=lambda it: (_group_rank(it["group"]), it["order"], it["key"]))
