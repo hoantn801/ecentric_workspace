@@ -10,34 +10,20 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP = os.path.dirname(os.path.dirname(HERE))
 LP = os.path.join(APP, "legacy_pages")
-PAGES = ('gbs_po_form', 'gbs_so_form')
+PAGES = ('client_request', 'vendor_request', 'contract_request')
 ENDPOINTS = {
-    "gbs_po_form": {
-        "gbs_list_po_lookups": 3,
-        "web_lookup": 2,
-        "gbs_so_create_po_helper": 2,
-        "gbs_list": 6,
-        "submit_gbs_po": 7,
-        "ec_get_field_descriptions": 2,
-        "resubmit_gbs_po": 1,
-        "gbs_convert_attachments_to_anon": 2,
-        "gbs_create_upload_session": 1,
-        "submit_gbs_so": 2,
-        "resubmit_gbs_so": 1
+    "client_request": {
+        "web_lookup": 7,
+        "ecentric_workspace.api.submit_client_request": 1
     },
-    "gbs_so_form": {
-        "gbs_item_get_uom": 1,
-        "web_lookup": 2,
-        "gbs_list_so_lookups": 2,
-        "gbs_so_create_po_helper": 1,
-        "gbs_list": 4,
-        "ec_get_field_descriptions": 2,
-        "submit_gbs_po": 2,
-        "resubmit_gbs_po": 1,
-        "gbs_convert_attachments_to_anon": 2,
-        "gbs_create_upload_session": 1,
-        "submit_gbs_so": 9,
-        "resubmit_gbs_so": 1
+    "vendor_request": {
+        "web_lookup": 7,
+        "ecentric_workspace.api.submit_vendor_request": 1
+    },
+    "contract_request": {
+        "web_lookup": 1,
+        "submit_contract_request": 1,
+        "frappe.auth.get_logged_user": 1
     }
 }
 
