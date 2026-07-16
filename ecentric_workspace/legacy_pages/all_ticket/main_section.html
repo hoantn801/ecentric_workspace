@@ -1,4 +1,4 @@
-﻿
+
 <script id="ec-csrf-fetch-patch">
 (function(){
   if (window.ecFetchPatched) return;
@@ -427,18 +427,18 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
     <div class="sidebar-section">
       <div class="sidebar-label">Dashboard</div>
       <a class="sidebar-link active" href="/all-ticket">
-        <span class="sl-icon">ð</span>
+        <span class="sl-icon">📊</span>
         <span>All Tickets</span>
       </a>
       <a class="sidebar-link" href="/approval">
-        <span class="sl-icon">â</span>
+        <span class="sl-icon">✓</span>
         <span>Approval</span>
         <span class="sl-badge" id="sbApprovalBadge">--</span>
       </a>
     </div>
 
     <div class="sidebar-section">
-      <div class="sidebar-label">Táº¡o má»i</div>
+      <div class="sidebar-label">Tạo mới</div>
       <a class="sidebar-link" href="/mso-form">
         <span class="sl-icon">+</span>
         <span>MSO Request</span>
@@ -473,80 +473,80 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
     <div class="dash-header">
     <div class="header-row">
       <div>
-        <div class="header-title">All Tickets â Dashboard</div>
-        <div class="header-sub">MSO / SO / PO / REC Â· Live data tá»« SharePoint Â· <span id="lastUpdated">Äang táº£i...</span></div>
+        <div class="header-title">All Tickets — Dashboard</div>
+        <div class="header-sub">MSO / SO / PO / REC · Live data từ SharePoint · <span id="lastUpdated">Đang tải...</span></div>
       </div>
       <div class="header-actions">
         <input type="text" class="header-search" id="globalSearch" placeholder="Search ID, title..."/>
-        <button class="btn-refresh" id="btnRefresh">â» Reload</button>
+        <button class="btn-refresh" id="btnRefresh">↻ Reload</button>
       </div>
     </div>
   </div>
 
-  <div class="sec-title">ð KPIs tá»ng quan</div>
+  <div class="sec-title">📊 KPIs tổng quan</div>
   <div class="kpi-row">
     <div class="kpi-card" data-filter="all">
-      <div class="kpi-label">Tá»ng tickets</div>
+      <div class="kpi-label">Tổng tickets</div>
       <div class="kpi-value" id="kpiTotal">--</div>
-      <div class="kpi-sub">Click Äá» xem all</div>
+      <div class="kpi-sub">Click để xem all</div>
     </div>
     <div class="kpi-card kpi-pending" data-filter="status:Pending">
-      <div class="kpi-label">Äang chá» duyá»t</div>
+      <div class="kpi-label">Đang chờ duyệt</div>
       <div class="kpi-value" id="kpiPending">--</div>
-      <div class="kpi-sub">Click Äá» filter</div>
+      <div class="kpi-sub">Click để filter</div>
     </div>
     <div class="kpi-card kpi-approved" data-filter="status:Approved">
-      <div class="kpi-label">ÄÃ£ duyá»t</div>
+      <div class="kpi-label">Đã duyệt</div>
       <div class="kpi-value" id="kpiApproved">--</div>
-      <div class="kpi-sub">HoÃ n thÃ nh</div>
+      <div class="kpi-sub">Hoàn thành</div>
     </div>
     <div class="kpi-card kpi-late" data-filter="timeline:late">
-      <div class="kpi-label">Trá» deadline</div>
+      <div class="kpi-label">Trễ deadline</div>
       <div class="kpi-value" id="kpiLate">--</div>
-      <div class="kpi-sub">â  Cáº§n xá»­ lÃ½</div>
+      <div class="kpi-sub">⚠ Cần xử lý</div>
     </div>
     <!-- EC-GBS-FIN-v1 -->
     <div class="kpi-card" data-filter="gbsPhase:gbs_pending" style="border-left:4px solid #f59e0b">
-      <div class="kpi-label">â³ Chá» GBS duyá»t</div>
+      <div class="kpi-label">⏳ Chờ GBS duyệt</div>
       <div class="kpi-value" id="kpiGbsPending">--</div>
       <div class="kpi-sub">Local Approved, GBS Pending</div>
     </div>
     <div class="kpi-card kpi-late" data-filter="gbsPhase:gbs_overdue" style="border-left:4px solid #dc2626">
-      <div class="kpi-label">â Trá» GBS (>1 ngÃ y)</div>
+      <div class="kpi-label">⛔ Trễ GBS (>1 ngày)</div>
       <div class="kpi-value" id="kpiGbsOverdue">--</div>
-      <div class="kpi-sub">Cáº§n nháº¯c GBS team</div>
+      <div class="kpi-sub">Cần nhắc GBS team</div>
     </div>
   </div>
 
-  <div class="sec-title">â± Timeline status</div>
+  <div class="sec-title">⏱ Timeline status</div>
   <div class="timeline-row">
     <div class="card tl-card tl-ontime" data-filter="timeline:ontime">
-      <div class="tl-label">â± On time</div>
+      <div class="tl-label">⏱ On time</div>
       <div class="tl-row">
         <div class="tl-value" id="tlOntime">--</div>
-        <div class="tl-sub">tickets cÃ²n trong SLA</div>
+        <div class="tl-sub">tickets còn trong SLA</div>
       </div>
       <div class="tl-bar"><div id="tlOntimeBar" style="width:0%"></div></div>
     </div>
     <div class="card tl-card tl-risk" data-filter="timeline:risk">
-      <div class="tl-label">â  Risk</div>
+      <div class="tl-label">⚠ Risk</div>
       <div class="tl-row">
         <div class="tl-value" id="tlRisk">--</div>
-        <div class="tl-sub">â¤2 ngÃ y tá»i deadline</div>
+        <div class="tl-sub">≤2 ngày tới deadline</div>
       </div>
       <div class="tl-bar"><div id="tlRiskBar" style="width:0%"></div></div>
     </div>
     <div class="card tl-card tl-late" data-filter="timeline:late">
-      <div class="tl-label">â Trá»</div>
+      <div class="tl-label">⛔ Trễ</div>
       <div class="tl-row">
         <div class="tl-value" id="tlLate">--</div>
-        <div class="tl-sub">vÆ°á»£t SLA chÆ°a duyá»t</div>
+        <div class="tl-sub">vượt SLA chưa duyệt</div>
       </div>
       <div class="tl-bar"><div id="tlLateBar" style="width:0%"></div></div>
     </div>
   </div>
 
-  <div class="sec-title">ð PhÃ¢n bá»</div>
+  <div class="sec-title">📈 Phân bổ</div>
   <div class="charts-row">
     <div class="card chart-card">
       <div class="chart-title">Tickets theo Department</div>
@@ -561,7 +561,7 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
     </div>
   </div>
 
-  <div class="sec-title">ð¢ Department Ã Status (click Äá» filter)</div>
+  <div class="sec-title">🔢 Department × Status (click để filter)</div>
   <div class="card matrix-card">
     <table class="matrix-table">
       <thead>
@@ -573,11 +573,11 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
           <th class="center">Total</th>
         </tr>
       </thead>
-      <tbody id="matrixBody"><tr><td colspan="5" class="loading-row"><div class="loader"></div> Äang táº£i data...</td></tr></tbody>
+      <tbody id="matrixBody"><tr><td colspan="5" class="loading-row"><div class="loader"></div> Đang tải data...</td></tr></tbody>
     </table>
   </div>
 
-  <div class="sec-title">ð Chi tiáº¿t tickets</div>
+  <div class="sec-title">📋 Chi tiết tickets</div>
   <div class="card detail-card">
     <!-- EC-GBS-FIN-v1: My Approval tab CSS + element -->
     <style id="ec-gbs-fin-v1-style">
@@ -588,8 +588,8 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
       .tab[data-type="mine"].active .badge { background: rgba(255,255,255,0.3); color: white; }
     </style>
     <div class="tabs-bar">
-      <button class="tab" data-type="mine" id="ecFinTabMine">ð¤ My Approval <span class="badge" id="badgeMine">--</span></button>
-      <button class="tab active" data-type="all">Táº¥t cáº£ <span class="badge" id="badgeAll">--</span></button>
+      <button class="tab" data-type="mine" id="ecFinTabMine">👤 My Approval <span class="badge" id="badgeMine">--</span></button>
+      <button class="tab active" data-type="all">Tất cả <span class="badge" id="badgeAll">--</span></button>
       <button class="tab" data-type="mso">MSO <span class="badge" id="badgeMso">--</span></button>
       <button class="tab" data-type="so">SO <span class="badge" id="badgeSo">--</span></button>
       <button class="tab" data-type="po">PO <span class="badge" id="badgePo">--</span></button>
@@ -618,15 +618,15 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
       </select>
       <select id="filterTimeline">
         <option value="">All timeline</option>
-        <option value="ontime">â± On time</option>
-        <option value="risk">â  Risk</option>
-        <option value="late">â Trá»</option>
+        <option value="ontime">⏱ On time</option>
+        <option value="risk">⚠ Risk</option>
+        <option value="late">⛔ Trễ</option>
       </select>
       <!-- EC-GBS-FIN-v1 -->
       <select id="filterGbsPhase">
         <option value="">All GBS phase</option>
-        <option value="gbs_pending">â³ Chá» GBS</option>
-        <option value="gbs_overdue">â Trá» GBS</option>
+        <option value="gbs_pending">⏳ Chờ GBS</option>
+        <option value="gbs_overdue">⛔ Trễ GBS</option>
       </select>
       <span id="activeFilters"></span>
       <button class="filter-clear" id="btnClearFilters">Clear all</button>
@@ -644,7 +644,7 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
             <th>Submitted by</th>
           </tr>
         </thead>
-        <tbody id="detailBody"><tr><td colspan="7" class="loading-row"><div class="loader"></div> Äang táº£i tickets...</td></tr></tbody>
+        <tbody id="detailBody"><tr><td colspan="7" class="loading-row"><div class="loader"></div> Đang tải tickets...</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -688,9 +688,9 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
   }
 
   async function loadAllData() {
-    document.getElementById('lastUpdated').textContent = 'Äang táº£i...';
-    document.getElementById('matrixBody').innerHTML = '<tr><td colspan="5" class="loading-row"><div class="loader"></div> Äang táº£i data...</td></tr>';
-    document.getElementById('detailBody').innerHTML = '<tr><td colspan="7" class="loading-row"><div class="loader"></div> Äang táº£i tickets...</td></tr>';
+    document.getElementById('lastUpdated').textContent = 'Đang tải...';
+    document.getElementById('matrixBody').innerHTML = '<tr><td colspan="5" class="loading-row"><div class="loader"></div> Đang tải data...</td></tr>';
+    document.getElementById('detailBody').innerHTML = '<tr><td colspan="7" class="loading-row"><div class="loader"></div> Đang tải tickets...</td></tr>';
 
     const types = ['mso', 'so', 'po', 'rec', 'vendor_request', 'gbs_po', 'gbs_so'];
     const results = await Promise.all(types.map(t => fetchType(t)));
@@ -703,7 +703,7 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
       t.gbs_timeline = computeGbsTimeline(t, now); // EC-GBS-FIN-v1
     });
 
-    document.getElementById('lastUpdated').textContent = 'Cáº­p nháº­t ' + now.toLocaleTimeString('vi-VN');
+    document.getElementById('lastUpdated').textContent = 'Cập nhật ' + now.toLocaleTimeString('vi-VN');
     renderAll();
   }
 
@@ -816,7 +816,7 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
   function renderDeptBars() {
     const depts = {};
     allTickets.forEach(t => {
-      const d = t.department || '(KhÃ´ng xÃ¡c Äá»nh)';
+      const d = t.department || '(Không xác định)';
       if (!depts[d]) depts[d] = { total: 0, ontime: 0, risk: 0, late: 0, done: 0 };
       depts[d].total++;
       if (t.status === 'Approved' || t.status === 'Rejected') {
@@ -845,19 +845,19 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
           <div class="bar-stack" style="width: ${widthPct}%;">
             <div style="width: ${segOntime}%; background: #16a34a;" title="On time: ${c.ontime}"></div>
             <div style="width: ${segRisk}%; background: #f59e0b;" title="Risk: ${c.risk}"></div>
-            <div style="width: ${segLate}%; background: #dc2626;" title="Trá»: ${c.late}"></div>
-            <div style="width: ${segDone}%; background: #2C3DA6;" title="ÄÃ£ xá»­ lÃ½: ${c.done}"></div>
+            <div style="width: ${segLate}%; background: #dc2626;" title="Trễ: ${c.late}"></div>
+            <div style="width: ${segDone}%; background: #2C3DA6;" title="Đã xử lý: ${c.done}"></div>
           </div>
         </div>
         <div class="dept-stats">
           ${c.ontime > 0 ? `<span class="stat-tag stat-ontime" title="On time">${c.ontime}</span>` : ''}
           ${c.risk > 0 ? `<span class="stat-tag stat-risk" title="Risk">${c.risk}</span>` : ''}
-          ${c.late > 0 ? `<span class="stat-tag stat-late" title="Trá»">${c.late}</span>` : ''}
-          ${c.done > 0 ? `<span class="stat-tag stat-done" title="ÄÃ£ xá»­ lÃ½">${c.done}</span>` : ''}
+          ${c.late > 0 ? `<span class="stat-tag stat-late" title="Trễ">${c.late}</span>` : ''}
+          ${c.done > 0 ? `<span class="stat-tag stat-done" title="Đã xử lý">${c.done}</span>` : ''}
         </div>
         <div class="bar-count">${c.total}</div>
       </div>`;
-    }).join('') || '<div class="empty-state">ChÆ°a cÃ³ data</div>';
+    }).join('') || '<div class="empty-state">Chưa có data</div>';
     document.getElementById('deptBarList').innerHTML = html;
     document.querySelectorAll('.bar-row').forEach(row => {
       row.addEventListener('click', () => {
@@ -875,7 +875,7 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
     const total = counts.reduce((a, b) => a + b, 0);
     if (total === 0) {
       document.getElementById('donutSvg').innerHTML = '<circle cx="100" cy="100" r="70" fill="none" stroke="#dde0ed" stroke-width="35"/><text x="100" y="105" text-anchor="middle" font-size="20" fill="#6b7280">0</text>';
-      document.getElementById('donutLegend').innerHTML = '<div class="empty-state">ChÆ°a cÃ³ data</div>';
+      document.getElementById('donutLegend').innerHTML = '<div class="empty-state">Chưa có data</div>';
       return;
     }
     let svg = '';
@@ -914,7 +914,7 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
   function renderMatrix() {
     const depts = [...new Set(allTickets.map(t => t.department).filter(Boolean))].sort();
     if (depts.length === 0) {
-      document.getElementById('matrixBody').innerHTML = '<tr><td colspan="5" class="empty-state">ChÆ°a cÃ³ data</td></tr>';
+      document.getElementById('matrixBody').innerHTML = '<tr><td colspan="5" class="empty-state">Chưa có data</td></tr>';
       return;
     }
     const html = depts.map(dept => {
@@ -958,7 +958,7 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
   function renderDetailTable() {
     const tickets = getFilteredTickets();
     if (tickets.length === 0) {
-      document.getElementById('detailBody').innerHTML = '<tr><td colspan="7" class="empty-state">KhÃ´ng cÃ³ ticket nÃ o match filter</td></tr>';
+      document.getElementById('detailBody').innerHTML = '<tr><td colspan="7" class="empty-state">Không có ticket nào match filter</td></tr>';
       return;
     }
     const now = new Date();
@@ -971,11 +971,11 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
       const dateStr = created ? created.toLocaleDateString('vi-VN') : '-';
       const tlClass = t.timeline || '';
       let tlText = '-';
-      if (t.timeline === 'ontime') tlText = 'â± On time';
-      else if (t.timeline === 'risk') tlText = 'â  Risk';
+      if (t.timeline === 'ontime') tlText = '⏱ On time';
+      else if (t.timeline === 'risk') tlText = '⚠ Risk';
       else if (t.timeline === 'late') {
         const overdue = getDaysOverdue(t, now);
-        tlText = 'â Trá» ' + overdue + 'd';
+        tlText = '⛔ Trễ ' + overdue + 'd';
       }
       const submitter = t.submitted_by || t.created_by || t.requestor || '-';
       return `<tr data-id="${t.id}" data-type="${t.type}">
@@ -1003,12 +1003,12 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
     if (currentFilter.status) tags.push({ k: 'status', label: 'Status: ' + currentFilter.status });
     if (currentFilter.dept) tags.push({ k: 'dept', label: 'Dept: ' + currentFilter.dept });
     if (currentFilter.timeline) {
-      const lbl = currentFilter.timeline === 'ontime' ? 'On time' : (currentFilter.timeline === 'risk' ? 'Risk' : 'Trá»');
+      const lbl = currentFilter.timeline === 'ontime' ? 'On time' : (currentFilter.timeline === 'risk' ? 'Risk' : 'Trễ');
       tags.push({ k: 'timeline', label: 'Timeline: ' + lbl });
     }
     if (currentFilter.search) tags.push({ k: 'search', label: 'Search: ' + currentFilter.search });
     document.getElementById('activeFilters').innerHTML = tags.map(t => 
-      '<span class="filter-tag">' + t.label + ' <button data-key="' + t.k + '">Ã</button></span>'
+      '<span class="filter-tag">' + t.label + ' <button data-key="' + t.k + '">×</button></span>'
     ).join('');
     document.querySelectorAll('.filter-tag button').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1228,10 +1228,10 @@ html body .ec-main-wrap .ec-topbar .icon-btn {
   flex-shrink: 0 !important;
 }
 
-/* Back btn â compact */
+/* Back btn — compact */
 html body .ec-main .back-btn { padding: 6px 10px !important; margin: 0 !important; }
 
-/* Breadcrumb â no extra padding */
+/* Breadcrumb — no extra padding */
 html body .ec-topbar .breadcrumb,
 html body .ec-main .breadcrumb { margin: 0 !important; padding: 0 !important; }
 
@@ -1503,7 +1503,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
     if (attempt < 50) {
       setTimeout(function(){ waitForFrappeAndInit(attempt + 1); }, 200);
     } else {
-      console.warn('[ec-perm] frappe.session.user not available after 10s â staying in guest mode');
+      console.warn('[ec-perm] frappe.session.user not available after 10s — staying in guest mode');
     }
   }
 
@@ -1523,7 +1523,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       });
     }
     if (_userPerm.scope === 'own') {
-      if (!email) return []; // guest with no email â see nothing
+      if (!email) return []; // guest with no email → see nothing
       return items.filter(function(item){
         var sb = (item.submitted_by || '').toLowerCase();
         var cb = (item.created_by || '').toLowerCase();
@@ -1531,11 +1531,11 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
         return sb === email || cb === email || rq === email;
       });
     }
-    // Unknown scope â deny by default
+    // Unknown scope → deny by default
     return [];
   }
 
-  // Monkey-patch fetch â intercept Lookup_Parents calls for ticket types
+  // Monkey-patch fetch — intercept Lookup_Parents calls for ticket types
   var _origFetch = window.fetch.bind(window);
   window.fetch = function(url, options) {
     if (typeof url === 'string' && url.indexOf(LOOKUP_URL_PREFIX) === 0 && options && options.body) {
@@ -1643,7 +1643,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       return { mode: 'detail', type: urlParam('type'), id: urlParam('id') };
     }
     if (p === '/all-tickets' || p === '/all-ticket' || p === '/approval') {
-      // List context â figure out which tbody
+      // List context — figure out which tbody
       var ctx = { mode: 'list' };
       if (document.getElementById('detailBody')) {
         ctx.tbodySel = '#detailBody';
@@ -1695,7 +1695,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
     for (var i = 0; i < cells.length; i++) {
       var txt = (cells[i].textContent || '').trim();
       // Strip zero-width sentinels added by other modules
-      txt = txt.replace(/[ââ]/g, '');
+      txt = txt.replace(/[​‌]/g, '');
       if (dataId && txt.indexOf(dataId) >= 0) return cells[i];
     }
     return cells[0] || null;
@@ -1719,7 +1719,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       dot.className = 'ec-id-dot ec-id-dot-anim';
       wrap.appendChild(dot);
     }
-    dot.setAttribute('data-msg', msg || 'CÃ³ cáº­p nháº­t má»i');
+    dot.setAttribute('data-msg', msg || 'Có cập nhật mới');
   }
 
   function removeDot(tr) {
@@ -1752,7 +1752,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
           var parts = [];
           if (u.comments) parts.push(u.comments + ' comment(s)');
           if (u.attachments) parts.push(u.attachments + ' file(s)');
-          applyDot(r._row, parts.length ? 'Cáº­p nháº­t má»i â ' + parts.join(', ') : 'CÃ³ cáº­p nháº­t má»i');
+          applyDot(r._row, parts.length ? 'Cập nhật mới — ' + parts.join(', ') : 'Có cập nhật mới');
         } else {
           removeDot(r._row);
         }
@@ -1883,8 +1883,8 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
   var gbsLastSyncFetched = false;  // whether we've already done the supplemental get_list call
 
   // Zero-width sentinels to wrap gbs_doc_name appended to title (search matches, DOM strips)
-  var Z1 = String.fromCharCode(0x200B); // ZWSP â opens marker
-  var Z2 = String.fromCharCode(0x200C); // ZWNJ â closes marker
+  var Z1 = String.fromCharCode(0x200B); // ZWSP — opens marker
+  var Z2 = String.fromCharCode(0x200C); // ZWNJ — closes marker
 
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -1985,7 +1985,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
   // _origFetch_mine. Result: infinite recursion (Maximum call stack exceeded).
   //
   // Fix: tag myWrapper with the same mark via BRACKET access using a string
-  // built at RUNTIME (avoid any literal containing two underscores in source â
+  // built at RUNTIME (avoid any literal containing two underscores in source —
   // Frappe Jinja safety scanner rejects such patterns in Web Page main_section).
   var US = String.fromCharCode(95);   // single underscore
   var EC_PERM_MARK = US + US + 'ecPermPatched';  // assembled to '<dunder>ecPermPatched'
@@ -2115,18 +2115,18 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
     // If first non-extra TH is already Created, layout was reordered already.
     // Use previously-cached value (don't reset).
     var firstLabel = (ths[0].textContent || '').trim().toLowerCase();
-    if (firstLabel === 'created' || firstLabel === 'táº¡o lÃºc' || firstLabel === 'táº¡o ngÃ y') {
-      return; // skip â already reordered, keep cached
+    if (firstLabel === 'created' || firstLabel === 'tạo lúc' || firstLabel === 'tạo ngày') {
+      return; // skip — already reordered, keep cached
     }
     // Detect from native order
     for (var i = 0; i < ths.length; i++) {
       var label = (ths[i].textContent || '').trim().toLowerCase();
-      if (label === 'created' || label === 'táº¡o lÃºc' || label === 'táº¡o ngÃ y') NATIVE_COLS.createdIdx = i;
+      if (label === 'created' || label === 'tạo lúc' || label === 'tạo ngày') NATIVE_COLS.createdIdx = i;
       if (label === 'status') NATIVE_COLS.statusIdx = i;
     }
   }
 
-  // ---- Augment thead â single pass, idempotent per render ----
+  // ---- Augment thead — single pass, idempotent per render ----
   // Layout target (left to right):
   //   Created | ID | Title | (Type) | Department | Status | GBS Status |
   //   Timeline | Submitted by | GBS Doc | GBS Doc SO (po only) | Last Sync
@@ -2186,7 +2186,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
     thead.appendChild(makeTh('Last Sync', 'gbs-sync-col'));
   }
 
-  // ---- Augment rows â one-pass per row, idempotent ----
+  // ---- Augment rows — one-pass per row, idempotent ----
   // Steps per row (only when row layout != 'v2'):
   //   1. Strip zero-width title marker
   //   2. Strip prior gbs-extra-cell
@@ -2226,7 +2226,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       var info = gbsCache[row.dataset.id] || {};
       var stat    = info.gbs_status   || '';
 
-      // Step 2: After Created moved to 0, find Status TD (now shifted by +1 from native idx 4 â 5)
+      // Step 2: After Created moved to 0, find Status TD (now shifted by +1 from native idx 4 → 5)
       // Look up by header label to be robust.
       var statusTd = null;
       var thead = document.querySelector(ctx.theadRowSel);
@@ -2254,7 +2254,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       if (stat) {
         tdGbsStatus.innerHTML = '<span class="gbs-status-pill ' + statusPillClass(stat) + '">' + escapeHtml(stat) + '</span>';
       } else {
-        tdGbsStatus.textContent = 'â';
+        tdGbsStatus.textContent = '—';
       }
       if (statusTd && statusTd.nextSibling) {
         row.insertBefore(tdGbsStatus, statusTd.nextSibling);
@@ -2265,7 +2265,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       // Step 4: append GBS Doc / GBS Doc SO (po) / Last Sync at end
       var tdDoc = document.createElement('td');
       tdDoc.className = 'gbs-extra-cell gbs-doc';
-      tdDoc.textContent = info.gbs_doc_name || 'â';
+      tdDoc.textContent = info.gbs_doc_name || '—';
       row.appendChild(tdDoc);
 
       if (tabType === 'gbs_po') {
@@ -2281,14 +2281,14 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
           a.addEventListener('mouseout', function(){ this.style.textDecoration='none'; });
           tdSo.appendChild(a);
         } else {
-          tdSo.textContent = 'â';
+          tdSo.textContent = '—';
         }
         row.appendChild(tdSo);
       }
 
       var tdSync = document.createElement('td');
       tdSync.className = 'gbs-extra-cell gbs-sync';
-      tdSync.textContent = info.gbs_last_sync ? fmtTime(info.gbs_last_sync) : 'â';
+      tdSync.textContent = info.gbs_last_sync ? fmtTime(info.gbs_last_sync) : '—';
       row.appendChild(tdSync);
     });
   }
@@ -2296,7 +2296,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
   // ---- Move Created column to position 1 (all tabs, visual reorder only) ----
   // CRITICAL: TH and TD reorder MUST be in sync. Earlier bug: TH was reordered
   // first refresh (rows not yet ready), subsequent refreshes early-returned via
-  // idempotency check â TD never reordered â header/data mismatch.
+  // idempotency check → TD never reordered → header/data mismatch.
   // Fix: per-row sentinel attribute tracks reorder state independently.
   var _ecOriginalCreatedIdx = null;
   function reorderCreatedColumn(ctx) {
@@ -2306,12 +2306,12 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
 
     // Step 1: ensure TH at position 0. Remember original index.
     var firstLabel = (ths[0] && ths[0].textContent || '').trim().toLowerCase();
-    var thAlreadyFirst = (firstLabel === 'created' || firstLabel === 'táº¡o lÃºc' || firstLabel === 'táº¡o ngÃ y');
+    var thAlreadyFirst = (firstLabel === 'created' || firstLabel === 'tạo lúc' || firstLabel === 'tạo ngày');
     if (!thAlreadyFirst) {
       var createdIdx = -1;
       for (var i = 0; i < ths.length; i++) {
         var label = (ths[i].textContent || '').trim().toLowerCase();
-        if (label === 'created' || label === 'táº¡o lÃºc' || label === 'táº¡o ngÃ y') {
+        if (label === 'created' || label === 'tạo lúc' || label === 'tạo ngày') {
           createdIdx = i;
           break;
         }
@@ -2453,7 +2453,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       '</svg>' +
       '<span class="gbs-sync-label">Sync GBS</span>' +
       '</button>' +
-      '<span class="gbs-sync-meta" id="gbs-sync-meta">Auto-sync má»i 15 phÃºt</span>' +
+      '<span class="gbs-sync-meta" id="gbs-sync-meta">Auto-sync mỗi 15 phút</span>' +
       '<span class="gbs-sync-msg" id="gbs-sync-msg" style="display:none"></span>';
     // Insert after anchor
     if (anchor.nextSibling) {
@@ -2467,7 +2467,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
     btn.addEventListener('click', function(){
       var t0 = Date.now();
       btn.disabled = true;
-      btn.querySelector('.gbs-sync-label').textContent = 'Äang sync...';
+      btn.querySelector('.gbs-sync-label').textContent = 'Đang sync...';
       var icon = btn.querySelector('svg');
       if (icon) icon.style.display = 'none';
       var spin = document.createElement('span');
@@ -2486,7 +2486,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
         var dur = Math.round((Date.now() - t0) / 1000);
         if (m.success) {
           msg.className = 'gbs-sync-msg ok';
-          msg.textContent = 'â Sync ' + (m.updated || 0) + '/' + (m.polled || 0) + ' docs ' +
+          msg.textContent = '✓ Sync ' + (m.updated || 0) + '/' + (m.polled || 0) + ' docs ' +
                              (m.skipped_finalized ? '(skip ' + m.skipped_finalized + ' finalized) ' : '') +
                              '(' + dur + 's)';
           msg.style.display = 'inline-block';
@@ -2494,7 +2494,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
           setTimeout(function(){ location.reload(); }, 1200);
         } else {
           msg.className = 'gbs-sync-msg err';
-          msg.textContent = 'â Lá»i: ' + (m.error || 'unknown');
+          msg.textContent = '✕ Lỗi: ' + (m.error || 'unknown');
           msg.style.display = 'inline-block';
           btn.disabled = false;
           var spinNode = btn.querySelector('.ec-spin');
@@ -2505,7 +2505,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
         }
       }).catch(function(e){
         msg.className = 'gbs-sync-msg err';
-        msg.textContent = 'â Lá»i máº¡ng: ' + e.message;
+        msg.textContent = '✕ Lỗi mạng: ' + e.message;
         msg.style.display = 'inline-block';
         btn.disabled = false;
         var spinNode = btn.querySelector('.ec-spin');

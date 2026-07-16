@@ -334,29 +334,36 @@ class TestPaymentRequestComposition(unittest.TestCase):
         return ps._html()
 
     def test_composition_markers_and_order(self):
+        # Updated 2026-07-16 for the upstream A2 composition (PR#173/174):
+        # main + hidden ec-approver-wrap(ec-esign-panel) + unified ec-docsign
+        # section; requester raw panel + inline editor removed upstream
+        # (Phase C re-introduces a governed editor inside the drawer).
         html = self._composed()
         marker = html.index('data-ec-shell="1"')
         content = html.index('<div class="content">')
+        wrap = html.index('id="ec-approver-wrap"')
         panel = html.index('id="ec-esign-panel"')
-        req = html.index('id="ec-req-sign"')
-        coords = html.index('id="ec-pph-coords"')
-        editor = html.index('id="ec-pph-editor"')
-        # shell chrome first, business content next, then SCTS panels appended
-        self.assertTrue(marker < content < panel < req < coords < editor,
+        docsign = html.index('id="ec-docsign"')
+        self.assertTrue(marker < content < wrap < panel < docsign,
                         "composition order changed")
         self.assertEqual(html.count('data-ec-shell="1"'), 1)
         self.assertEqual(html.count('data-ec-shell-header-right="1"'), 1)
+        self.assertEqual(html.count('id="ec-approver-wrap"'), 1)
         self.assertEqual(html.count('id="ec-esign-panel"'), 1)
-        self.assertEqual(html.count('id="ec-req-sign"'), 1)
-        self.assertEqual(html.count('id="ec-pph-editor"'), 1)
+        self.assertEqual(html.count('id="ec-docsign"'), 1)
 
     def test_no_esign_selector_depends_on_replaced_markup(self):
         base = os.path.join(APP, "approval_center", "esign", "ui")
         for f in ("payment_request_signing.html", "requester_signing_panel.html",
-                  "pdf_placement_editor.html"):
+                  "pdf_placement_editor.html", "document_signing_section.html"):
             src = _read(base, f)
+            # scan CODE only: drop //-comment lines (A2's document section
+            # DOCUMENTS its anti-coupling rule in comments mentioning the
+            # shell selectors -- that is the opposite of coupling).
+            code = "\n".join(l for l in src.splitlines()
+                              if not l.strip().startswith("//"))
             for sel in ('ec-sidebar', 'class="topbar"', '.crumb', 'ec-shell'):
-                self.assertNotIn(sel, src, "%s couples to shell markup: %s" % (f, sel))
+                self.assertNotIn(sel, code, "%s couples to shell markup: %s" % (f, sel))
 
 
 if __name__ == "__main__":
