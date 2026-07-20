@@ -1,0 +1,466 @@
+<!-- HIDE-NAVBAR-V1 -->
+<style>
+  /* Hide Frappe default navbar + footer to give full-screen workspace */
+  body > header,
+  body > footer,
+  body > nav.navbar,
+  header.navbar,
+  .navbar.navbar-light,
+  .web-page-header,
+  #navbarSupportedContent,
+  .navbar-collapse {
+    display: none !important;
+  }
+  body { padding: 0 !important; margin: 0 !important; }
+  body main { padding-top: 0 !important; }
+  body .main-section, body main.container, body main.fluid {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  /* If Frappe wraps page content in a container, expand it */
+  body .page_content { padding: 0 !important; }
+</style>
+<style>
+/* GBS Flow Docs - styles match approval-page neutral theme */
+#gbs-flow-docs { max-width: 1200px; margin: 0 auto; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #111827; line-height: 1.5; }
+#gbs-flow-docs h1 { font-size: 26px; font-weight: 700; margin: 0 0 4px; color: #111827; }
+#gbs-flow-docs .gfd-meta { font-size: 13px; color: #6b7280; margin-bottom: 20px; }
+#gbs-flow-docs .gfd-tabs { display: flex; gap: 4px; border-bottom: 2px solid #e5e7eb; margin-bottom: 20px; }
+#gbs-flow-docs .gfd-tab-btn { padding: 10px 18px; border: none; background: transparent; cursor: pointer; font-size: 14px; font-weight: 500; color: #6b7280; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+#gbs-flow-docs .gfd-tab-btn:hover { color: #2C3DA6; background: #f9fafb; }
+#gbs-flow-docs .gfd-tab-btn.active { color: #2C3DA6; border-bottom-color: #2C3DA6; font-weight: 600; }
+#gbs-flow-docs .gfd-tab-panel { display: none; }
+#gbs-flow-docs .gfd-tab-panel.active { display: block; }
+#gbs-flow-docs h2 { font-size: 19px; font-weight: 700; color: #2C3DA6; margin: 24px 0 12px; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb; }
+#gbs-flow-docs h3 { font-size: 15px; font-weight: 700; color: #374151; margin: 18px 0 8px; }
+#gbs-flow-docs p { margin: 8px 0; font-size: 14px; color: #374151; }
+#gbs-flow-docs ul { padding-left: 24px; margin: 8px 0; }
+#gbs-flow-docs li { margin: 4px 0; font-size: 14px; color: #374151; }
+#gbs-flow-docs .gfd-diagram { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 12px 0; overflow-x: auto; }
+#gbs-flow-docs .gfd-callout { background: #eef0fb; border-left: 4px solid #2C3DA6; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 13.5px; }
+#gbs-flow-docs .gfd-callout.warn { background: #fef3c7; border-left-color: #f59e0b; }
+#gbs-flow-docs .gfd-callout.danger { background: #fee2e2; border-left-color: #dc2626; }
+#gbs-flow-docs .gfd-callout.success { background: #d1fae5; border-left-color: #10b981; }
+#gbs-flow-docs .gfd-callout b { color: #111827; }
+#gbs-flow-docs table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+#gbs-flow-docs th { background: #f3f4f6; padding: 8px 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 2px solid #e5e7eb; }
+#gbs-flow-docs td { padding: 8px 12px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+#gbs-flow-docs code { background: #f3f4f6; padding: 2px 6px; border-radius: 3px; font-family: 'Menlo', 'Monaco', 'Courier New', monospace; font-size: 12.5px; color: #c026d3; }
+#gbs-flow-docs .gfd-actor { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+#gbs-flow-docs .gfd-actor.user { background: #dbeafe; color: #1e40af; }
+#gbs-flow-docs .gfd-actor.finance { background: #fef3c7; color: #92400e; }
+#gbs-flow-docs .gfd-actor.system { background: #e0e7ff; color: #4338ca; }
+#gbs-flow-docs .gfd-actor.gbs { background: #d1fae5; color: #065f46; }
+#gbs-flow-docs .gfd-def-group { background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; margin: 8px 0; overflow: hidden; }
+#gbs-flow-docs .gfd-def-group-header { background: #f9fafb; padding: 10px 16px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+#gbs-flow-docs .gfd-def-group-header:hover { background: #f3f4f6; }
+#gbs-flow-docs .gfd-def-group-count { font-size: 12px; color: #6b7280; }
+#gbs-flow-docs .gfd-def-group-body { padding: 0 16px 12px; display: none; }
+#gbs-flow-docs .gfd-def-group.expanded .gfd-def-group-body { display: block; }
+#gbs-flow-docs .gfd-def-item { padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+#gbs-flow-docs .gfd-def-item:last-child { border-bottom: none; }
+#gbs-flow-docs .gfd-def-label { font-weight: 600; color: #111827; font-size: 14px; }
+#gbs-flow-docs .gfd-def-field { font-family: monospace; font-size: 12.5px; color: #6b7280; margin-left: 8px; }
+#gbs-flow-docs .gfd-def-desc { font-size: 13px; color: #4b5563; margin-top: 4px; white-space: pre-wrap; }
+#gbs-flow-docs .gfd-def-empty { padding: 12px; color: #6b7280; font-size: 13px; }
+#gbs-flow-docs .gfd-search { width: 100%; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 14px; margin-bottom: 12px; }
+#gbs-flow-docs .gfd-search:focus { outline: none; border-color: #2C3DA6; }
+
+
+/* === PART_A_SIDEBAR_2026-06-01 - sidebar layout from /all-ticket === */
+.dash-wrap { display: flex; min-height: 100vh; max-width: none; width: 100%; }
+.dash-wrap > main.gfd-content { flex: 1; overflow-y: auto; min-width: 0; padding: 0; }
+/* eCentric Workspace sidebar */
+.ec-sb { width: 264px; flex-shrink: 0; background: white; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; box-sizing: border-box; }
+.ec-sb-header { padding: 18px 18px 10px; }
+.ec-sb-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.ec-sb-brand:hover { text-decoration: none; }
+.ec-sb-logo { width: 40px; height: 40px; flex-shrink: 0; display: block; object-fit: contain; }
+.ec-sb-name { font-size: 15px; font-weight: 700; color: #111827; line-height: 1.2; letter-spacing: -0.3px; }
+.ec-sb-search { margin: 4px 16px 10px; position: relative; }
+.ec-sb-search input { width: 100%; padding: 8px 12px 8px 34px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; background: #fafbfc; font-family: inherit; outline: none; transition: border-color .15s, background .15s; }
+.ec-sb-search input:focus { border-color: #2C3DA6; background: white; }
+.ec-sb-search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #9ca3af; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.ec-sb-kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: #9ca3af; background: white; border: 1px solid #e5e7eb; padding: 1px 5px; border-radius: 4px; pointer-events: none; }
+.ec-sb-nav { padding: 4px 8px 8px; flex: 1; overflow-y: auto; }
+.ec-sb-label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.6px; padding: 12px 12px 4px; }
+.ec-sb-link { display: grid !important; grid-template-columns: 18px 1fr !important; column-gap: 11px !important; align-items: center !important; padding: 8px 12px; border-radius: 6px; color: #4b5563; text-decoration: none; font-size: 13.5px; font-weight: 500; transition: background .15s, color .15s; margin-bottom: 1px; }
+.ec-sb-link:hover { background: #f3f4f6; color: #111827; text-decoration: none; }
+.ec-sb-link.active { background: #eef0fb; color: #2C3DA6; font-weight: 600; }
+.ec-sb-link.active svg { stroke-width: 2; }
+.ec-sb-link svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.ec-sb-footer { padding: 12px; border-top: 1px solid #f3f4f6; display: flex; align-items: center; gap: 8px; }
+.ec-sb-user-card { flex: 1; display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; min-width: 0; }
+.ec-sb-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #2C3DA6, #EF7CAF); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+.ec-sb-user-info { flex: 1; min-width: 0; }
+.ec-sb-user-name { font-size: 13px; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ec-sb-user-role { font-size: 11px; color: #6b7280; }
+.ec-sb-logout { width: 36px; height: 36px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: transparent; border: none; color: #6b7280; cursor: pointer; transition: background .15s, color .15s; }
+.ec-sb-logout:hover { background: #fee2e2; color: #dc2626; }
+.ec-sb-logout svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+
+</style>
+<div class="dash-wrap" data-part-a="PART_A_SIDEBAR_2026-06-01">
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric">
+    <!-- ERP Shell v1 opt-in (document-page rollout). Legacy page: shell renders the
+         shared sidebar; form/submit/chain logic below is byte-preserved. -->
+    <nav class="ec-shell-fallback" aria-label="Điều hướng">
+      <a href="/home">Trang chủ</a>
+      <a href="/approvals">Approval Center</a>
+      <a href="/all-ticket">Dashboard</a>
+    </nav>
+  </aside>
+<main class="gfd-content"><div class="ec-shell-tbright" data-ec-shell-header-right="1"></div>
+
+
+<div id="gbs-flow-docs">
+  <h1>GBS Sales Order &amp; Purchase Order — Flow &amp; Definitions</h1>
+  <div class="gfd-meta">Hệ thống đồng bộ tài liệu giữa eCentric Workspace (team.ecentric.vn) ↔ GBS (team.boxme.asia). Cập nhật: 2026-06-01 · Sync version: v13</div>
+
+  <div class="gfd-tabs" role="tablist">
+    <button class="gfd-tab-btn active" data-tab="overview">Tổng quan</button>
+    <button class="gfd-tab-btn" data-tab="happy">Happy path</button>
+    <button class="gfd-tab-btn" data-tab="errors">Error & Edge cases</button>
+    <button class="gfd-tab-btn" data-tab="defs">Định nghĩa từng trường</button>
+  </div>
+
+  <!-- ============ TAB 1: OVERVIEW ============ -->
+  <div class="gfd-tab-panel active" data-tab="overview">
+    <h2>1. Tổng quan luồng làm việc</h2>
+    <p>GBS SO/PO là hệ thống yêu cầu đơn hàng nội bộ. Form được tạo trên eCentric, qua duyệt Finance, sau đó tự động đồng bộ sang GBS (ERPNext bên Boxme) để xử lý kế toán/xuất hóa đơn.</p>
+
+    <h3>Các bên tham gia</h3>
+    <ul>
+      <li><span class="gfd-actor user">User</span> — người tạo SO/PO (Submitter)</li>
+      <li><span class="gfd-actor finance">Finance</span> — duyệt L1 trên eCentric (vai trò: Finance Approver)</li>
+      <li><span class="gfd-actor system">System</span> — sync engine tự động giữa 2 nền tảng</li>
+      <li><span class="gfd-actor gbs">GBS Team</span> — Revenue Verifier + Revenue Manager bên Boxme</li>
+    </ul>
+
+    <h3>Sơ đồ tổng thể</h3>
+    <div class="gfd-diagram">
+      <pre class="mermaid">
+flowchart LR
+    Start([Bắt đầu]):::startNode --> Create[User tạo SO/PO trên form]
+    Create --> FinReview{Finance review}
+    FinReview -->|Phê duyệt| Sync[Sync sang GBS]
+    FinReview -->|Send back| CanSua[Trạng thái Cần sửa]
+    CanSua --> EditForm[User chỉnh sửa form]
+    EditForm --> Resubmit[Submit lại]
+    Resubmit --> FinReview
+    Sync --> GBSReview[GBS Verifier/Manager review]
+    GBSReview -->|Approve| Done([Approved - To Bill]):::endNode
+    GBSReview -->|Reject| GBSReject[GBS Rejected]
+    GBSReject --> Resubmit
+    classDef startNode fill:#d1fae5,stroke:#10b981
+    classDef endNode fill:#fce7f3,stroke:#ec4899
+      </pre>
+    </div>
+
+    <div class="gfd-callout">
+      <b>Lưu ý:</b> Toàn bộ flow là 2 chiều — sau khi GBS quyết định, eCentric tự đồng bộ trạng thái về qua scheduled poll (15 phút) hoặc click "Check Status" thủ công trên detail page.
+    </div>
+
+    <h3>Sự khác biệt giữa SO và PO</h3>
+    <table>
+      <thead><tr><th>Khía cạnh</th><th>Sales Order (SO)</th><th>Purchase Order (PO)</th></tr></thead>
+      <tbody>
+        <tr><td>Mục đích</td><td>Đơn hàng bán (revenue)</td><td>Đơn hàng mua (cost)</td></tr>
+        <tr><td>Boxme workflow</td><td>GBS Services Sales Order Approval (chain Verifier → Manager)</td><td>PO Approval Workflow (1 step Submit → Pending Verifier)</td></tr>
+        <tr><td>Có Parent SO?</td><td>Không</td><td>Có thể (PO tạo từ SO sẽ link)</td></tr>
+        <tr><td>Auto-advance sau sync</td><td>Có (v12) — Services tự lên Pending Revenue Manager</td><td>Chưa có (cần click Submit on GBS thủ công)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============ TAB 2: HAPPY PATH ============ -->
+  <div class="gfd-tab-panel" data-tab="happy">
+    <h2>2. Happy path — flow chi tiết từng bước</h2>
+
+    <h3>Bước 1: User tạo form</h3>
+    <p>Vào menu <b>SO Request</b> hoặc <b>PO Request</b> (sidebar). Điền form gồm các trường bắt buộc: title, customer/supplier, brand, project, dates, items (item_code, qty, rate), taxes template, store, attachments.</p>
+    <ul>
+      <li>Trạng thái local: <code>Pending</code></li>
+      <li>Submitter tự động lấy từ session email (<code>frappe.session.user</code>) — kể cả nếu form gửi rỗng (defensive fallback v7).</li>
+      <li>Attachments upload trực tiếp lên SharePoint qua Upload Session, không qua server proxy.</li>
+    </ul>
+
+    <h3>Bước 2: Finance duyệt</h3>
+    <p>Finance vào <b>All Tickets</b> → tab GBS SO/PO → mở doc → click <b>Approve</b> (hoặc <b>Send back</b>/<b>Reject</b>).</p>
+    <ul>
+      <li>Approve → status local = <code>Approved</code> → triggers sync hook (After Save).</li>
+      <li>Send back → status = <code>Cần sửa</code> → user thấy banner đỏ + button "Sửa &amp; Submit lại".</li>
+      <li>Reject → status = <code>Rejected</code> → kết thúc, không tiếp tục.</li>
+    </ul>
+
+    <h3>Bước 3: Sync sang GBS (tự động)</h3>
+    <p>Sync code <code>sync_gbs_so_outgoing</code> (v13) hoặc <code>sync_gbs_po_outgoing</code> chạy ngay sau Save khi status = Approved.</p>
+    <ul>
+      <li>POST mới: gửi toàn bộ payload (title, customer, items, taxes, project, custom_store, etc.) lên boxme. Tạo doc với workflow_state = Draft.</li>
+      <li>Sau POST thành công cho Services SO: auto fire <code>apply_workflow "Submit for Approval"</code> → boxme đi Pending Revenue Manager. (v12)</li>
+      <li>Attachments: tách rời upload SharePoint anonymous link + POST File record sang boxme.</li>
+    </ul>
+
+    <h3>Bước 4: GBS Team review</h3>
+    <p>Verifier (<code>trucdt@boxme.asia</code>...) review → Manager (<code>thuynt2@boxme.asia</code>...) approve.</p>
+    <ul>
+      <li>Boxme state chuyển: Pending Revenue Verifier → Pending Revenue Manager → Approved.</li>
+      <li>Sau Approved: docstatus = 1, status = "To Bill", invoice-ready.</li>
+    </ul>
+
+    <h3>Bước 5: Polling đồng bộ trạng thái về</h3>
+    <p><code>poll_gbs_status</code> chạy mỗi 15 phút (cron) cập nhật <code>gbs_status</code> trên local. User cũng có thể click "Check Status" button thủ công.</p>
+
+    <div class="gfd-callout success">
+      <b>Hoàn tất:</b> Local doc gbs_status = Approved + boxme docstatus = 1 → flow xong, doc sẵn sàng xuất hóa đơn.
+    </div>
+
+    <h3>State diagram chi tiết</h3>
+    <div class="gfd-diagram">
+      <pre class="mermaid">
+stateDiagram-v2
+    [*] --> Pending : User submit form
+    Pending --> Approved : Finance approve
+    Pending --> CanSua : Finance send back
+    CanSua --> Pending : User edit + resubmit
+    Approved --> GBSDraft : Sync POST
+    GBSDraft --> GBSPendingManager : Auto Submit for Approval (Services)
+    GBSPendingManager --> GBSApproved : Manager approve
+    GBSPendingManager --> GBSRejected : Manager reject
+    GBSRejected --> Approved : User resubmit cycle
+    GBSApproved --> [*] : Invoice ready
+
+    state CanSua {
+      [*] --> ClickResubmit
+      ClickResubmit --> FormEdit
+      FormEdit --> SubmitAgain
+      SubmitAgain --> [*]
+    }
+      </pre>
+    </div>
+  </div>
+
+  <!-- ============ TAB 3: ERRORS & EDGE CASES ============ -->
+  <div class="gfd-tab-panel" data-tab="errors">
+    <h2>3. Error paths &amp; Edge cases</h2>
+
+    <h3>3.1. GBS reject — Resubmit cycle</h3>
+    <p>Khi GBS Verifier/Manager reject, boxme state = Rejected, poll cập nhật local gbs_status = "Rejected".</p>
+    <ul>
+      <li>Detail page hiện banner đỏ + button <b>Resubmit</b> (chỉ submitter mới thấy).</li>
+      <li>Click Resubmit → <code>resubmit_gbs_doc</code> set status = "Cần sửa" + redirect đến form edit mode.</li>
+      <li>User chỉnh sửa fields/items/attachments → submit lại → <code>resubmit_gbs_so/po</code> save toàn bộ field thay đổi + reset status = Pending.</li>
+      <li>Finance approve lại → sync v13 detect <code>resubmit_count &gt; pushed_count</code> → apply Resubmit transition trên boxme (Rejected → Draft) → settle loop ~1s (defends race condition) → PUT updated fields → auto Submit for Approval lại (Services).</li>
+    </ul>
+
+    <div class="gfd-diagram">
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    actor User
+    actor Finance
+    participant eCentric
+    participant Sync as Sync v13
+    participant Boxme
+
+    Boxme->>eCentric: Rejected (qua poll)
+    User->>eCentric: Click Resubmit
+    eCentric->>User: Redirect form edit
+    User->>eCentric: Edit + Submit lại
+    eCentric->>Finance: Status Pending
+    Finance->>eCentric: Approve
+    eCentric->>Sync: Trigger
+    Sync->>Boxme: apply_workflow Resubmit
+    Boxme-->>Sync: Rejected → Draft
+    Note over Sync: Settle loop 1s (race defense)
+    Sync->>Boxme: PUT updated fields
+    Boxme-->>Sync: 200 OK
+    Sync->>Boxme: apply Submit for Approval
+    Boxme-->>Sync: Draft → Pending Manager
+      </pre>
+    </div>
+
+    <h3>3.2. Race condition giữa apply_workflow và PUT (v13 fix)</h3>
+    <p>Boxme có cache lag giữa workflow commit và state validate. Khi sync apply Resubmit (Rejected → Draft) thành công rồi PUT ngay → có thể 417 vì state cache chưa refresh.</p>
+    <div class="gfd-callout warn">
+      <b>Fix v13:</b> Sau apply Resubmit, sync chạy 1 vòng GET state loop (max 5 lần) — mỗi GET là natural delay ~100-300ms. Đợi đến khi state thực sự = Draft mới PUT. Nếu không settle được, vẫn PUT (best effort).
+    </div>
+
+    <h3>3.3. Doc đã finalized — không PUT nữa (v13 fix)</h3>
+    <p>Sau khi boxme team Approve (docstatus = 1, state = Approved/Cancelled), doc bị locked không sửa được. Nếu local <code>resubmit_count &gt; pushed_count</code> mismatch nào đó còn sót → sync sẽ retry PUT → 417 vô tận.</p>
+    <div class="gfd-callout success">
+      <b>Fix v13:</b> Trước khi PUT, sync check <code>boxme.docstatus</code>. Nếu = 1 → skip PUT + bump tracker + clear sync_error → no more retry loop.
+    </div>
+
+    <h3>3.4. Consumer Goods skip-chain prevention (v4/v5 guard)</h3>
+    <p>Boxme workflow design: chỉ "Submit for Approval" transitions yêu cầu <code>order_type.endswith('Services')</code>. Với Consumer Goods orders, workflow chỉ có "Submit" → Approved (skip-chain).</p>
+    <div class="gfd-callout danger">
+      <b>Sự cố trước đó:</b> v4 guard chỉ block Consumer Goods, không cover trường hợp Services SO khi boxme đã past Draft state. Click "Submit on GBS" sai timing → fallback fire Approve skip-chain. <b>v5 fix:</b> Sales Order doctype NEVER fallback. Chỉ apply_workflow. PO không thay đổi (PO workflow không có skip-chain).
+    </div>
+
+    <h3>3.5. Rate input parseFloat vi-VN (form fix v2)</h3>
+    <p>Khi user nhập rate dạng <code>12.962.962,962</code> (vi-VN với dấu phẩy thập phân), native form handler strip cả dấu phẩy trước khi parseFloat → biến 12,96 triệu thành 12 tỷ.</p>
+    <div class="gfd-callout warn">
+      <b>Fix:</b> <code>ec-gbs-rate-input-fix</code> v2 với smart detection: phát hiện dấu phẩy (decimal vi-VN), preserve precision. Override native focusin/focusout handlers via capture phase + stopImmediatePropagation.
+    </div>
+
+    <h3>3.6. Submitter empty fallback (v7)</h3>
+    <p>Nếu form quên gửi <code>submittedBy</code> field (auto-fill JS lỗi), submit endpoint dùng <code>frappe.session.user</code> fallback. Đảm bảo submitter luôn có giá trị → Resubmit button hiển thị đúng cho người tạo doc.</p>
+
+    <h3>3.7. PUT lên Pending Verifier/Manager state (chưa fix)</h3>
+    <p>Trường hợp: doc đã Pending Verifier/Manager trên boxme, user resubmit local → sync cố PUT update fields → 417 vì <code>allow_edit</code> perm chỉ cho Verifier/Manager. Sales User (commercial@ecentric.vn) không edit được.</p>
+    <div class="gfd-callout">
+      <b>Tạm thời:</b> sync sẽ log sync_error và skip. User cần coordinate với boxme team (rút lại review hoặc reject để rồi resubmit). Backlog: notify boxme via comment + design decision.
+    </div>
+  </div>
+
+  <!-- ============ TAB 4: DEFINITIONS ============ -->
+  <div class="gfd-tab-panel" data-tab="defs">
+    <h2>4. Định nghĩa từng trường</h2>
+    <p>Định nghĩa tự động tải từ DocType <code>EC Field Description</code> (single source of truth). Khi anh cập nhật từ điển, trang này tự load lại.</p>
+
+    <input class="gfd-search" type="text" placeholder="Tìm field name hoặc label..." id="gfd-search-input" />
+
+    <div id="gfd-defs-container">
+      <div class="gfd-def-empty">Đang tải định nghĩa...</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  // ===== Mermaid init =====
+  if (window.mermaid) {
+    window.mermaid.initialize({
+      startOnLoad: false,
+      theme: 'neutral',
+      flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' },
+      sequence: { useMaxWidth: true, showSequenceNumbers: false }
+    });
+  }
+
+  // ===== Tab switcher =====
+  function activateTab(name) {
+    document.querySelectorAll('#gbs-flow-docs .gfd-tab-btn').forEach(function(b){
+      b.classList.toggle('active', b.dataset.tab === name);
+    });
+    document.querySelectorAll('#gbs-flow-docs .gfd-tab-panel').forEach(function(p){
+      p.classList.toggle('active', p.dataset.tab === name);
+    });
+    if (name === 'defs') loadDefinitions();
+    // Re-render mermaid in newly active tab
+    setTimeout(function(){
+      if (window.mermaid && window.mermaid.run) {
+        try { window.mermaid.run({ querySelector: '#gbs-flow-docs .gfd-tab-panel.active .mermaid' }); } catch(e){}
+      }
+    }, 50);
+  }
+  document.querySelectorAll('#gbs-flow-docs .gfd-tab-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){ activateTab(btn.dataset.tab); });
+  });
+
+  // Initial render on overview tab
+  setTimeout(function(){
+    if (window.mermaid && window.mermaid.run) {
+      try { window.mermaid.run({ querySelector: '#gbs-flow-docs .gfd-tab-panel.active .mermaid' }); } catch(e){}
+    }
+  }, 100);
+
+  // ===== Definitions loader =====
+  var _defsLoaded = false;
+  var _allDefs = [];
+
+  function loadDefinitions() {
+    if (_defsLoaded) return;
+    _defsLoaded = true;
+    var container = document.getElementById('gfd-defs-container');
+    var filters = JSON.stringify([['ref_doctype','like','GBS%'],['is_active','=',1]]);
+    var fields = JSON.stringify(['name','ref_doctype','fieldname','label','description']);
+    var url = '/api/resource/EC Field Description?filters=' + encodeURIComponent(filters) + '&fields=' + encodeURIComponent(fields) + '&order_by=ref_doctype%20asc%2Cfieldname%20asc&limit_page_length=500';
+
+    fetch(url, { credentials: 'include' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        var data = (j && j.data) || [];
+        _allDefs = data;
+        renderDefinitions(data);
+      })
+      .catch(function(e){
+        container.innerHTML = '<div class="gfd-def-empty">Không tải được định nghĩa: ' + (e.message || e) + '</div>';
+      });
+  }
+
+  function escHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  function renderDefinitions(records) {
+    var container = document.getElementById('gfd-defs-container');
+    if (!records || records.length === 0) {
+      container.innerHTML = '<div class="gfd-def-empty">Chưa có định nghĩa nào cho GBS DocType.</div>';
+      return;
+    }
+    // Group by ref_doctype
+    var groups = {};
+    records.forEach(function(r){
+      var k = r.ref_doctype || '(Không xác định)';
+      if (!groups[k]) groups[k] = [];
+      groups[k].push(r);
+    });
+    var keys = Object.keys(groups).sort();
+    var html = '';
+    keys.forEach(function(k, idx){
+      var items = groups[k];
+      var expandedClass = idx === 0 ? ' expanded' : '';
+      html += '<div class="gfd-def-group' + expandedClass + '">';
+      html += '<div class="gfd-def-group-header" data-group="' + escHtml(k) + '">';
+      html += '<span>' + escHtml(k) + '</span>';
+      html += '<span class="gfd-def-group-count">' + items.length + ' field' + (items.length > 1 ? 's' : '') + '</span>';
+      html += '</div>';
+      html += '<div class="gfd-def-group-body">';
+      items.forEach(function(it){
+        html += '<div class="gfd-def-item">';
+        html += '<div><span class="gfd-def-label">' + escHtml(it.label || it.fieldname) + '</span>';
+        html += '<span class="gfd-def-field">' + escHtml(it.fieldname) + '</span></div>';
+        if (it.description) {
+          html += '<div class="gfd-def-desc">' + escHtml(it.description) + '</div>';
+        }
+        html += '</div>';
+      });
+      html += '</div></div>';
+    });
+    container.innerHTML = html;
+
+    // Group expand/collapse
+    document.querySelectorAll('#gfd-defs-container .gfd-def-group-header').forEach(function(h){
+      h.addEventListener('click', function(){
+        h.parentNode.classList.toggle('expanded');
+      });
+    });
+  }
+
+  // Search filter
+  var searchInput = document.getElementById('gfd-search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', function(){
+      var q = searchInput.value.trim().toLowerCase();
+      if (!q) { renderDefinitions(_allDefs); return; }
+      var filtered = _allDefs.filter(function(r){
+        return (r.fieldname || '').toLowerCase().indexOf(q) >= 0 ||
+               (r.label || '').toLowerCase().indexOf(q) >= 0 ||
+               (r.description || '').toLowerCase().indexOf(q) >= 0;
+      });
+      renderDefinitions(filtered);
+    });
+  }
+})();
+</script>
+
+</main></div><!-- /PART_A_SIDEBAR_2026-06-01 -->
