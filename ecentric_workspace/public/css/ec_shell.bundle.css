@@ -19,6 +19,17 @@
 
 /* ---- tokens (scoped to shell roots; values mirror the existing palette A) */
 .ec-shell-mount, .ec-shell-drawer, .ec-shell-tbright {
+  /* CANONICAL SHELL TYPOGRAPHY LOCK (2026-07-20). Never rely on font
+   * inheritance at the shell ROOTS: each page's parent chain differs
+   * (measured: /docs/gbs-flow inherited the theme's InterVariable -> visibly
+   * thinner nav; legacy form pages carry universal 'DM Sans' rules). Class
+   * specificity beats the universal selector and explicit root values make
+   * shell typography identical on every route. The search input keeps its own
+   * inherited font declaration BY DESIGN: inputs do not take page fonts by
+   * default, so it picks up the locked stack from these roots. */
+  font-family: Inter, system-ui, sans-serif;
+  letter-spacing: normal;
+  line-height: 1.5;
   --ec-navy:#2C3DA6; --ec-navy-50:#eef0fb; --ec-navy-700:#1f2d80;
   --ec-yellow:#FFC000; --ec-pink:#EF7CAF;
   --ec-gray-50:#f9fafb; --ec-gray-100:#f3f4f6; --ec-gray-200:#e5e7eb;
@@ -32,7 +43,6 @@
   background:#fff; border-right:1px solid var(--ec-gray-200);
   display:flex; flex-direction:column;
   position:sticky; top:0; height:100vh; overflow:hidden;
-  font-family:inherit;
 }
 /* Sticky regions (UX follow-up): head/search/foot are fixed shell areas; the
  * NAV LIST is the only independently scrollable region. Same model applies

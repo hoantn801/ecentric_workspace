@@ -393,6 +393,20 @@ class TestSidebarStickyAndInstantNav(unittest.TestCase):
     def test_drawer_inner_scroll(self):
         self.assertIn("overflow:hidden;   /* inner nav scrolls, not the drawer */", self._css())
 
+    def test_shell_typography_lock(self):
+        # Measured leak (2026-07-20): /docs/gbs-flow rendered the sidebar in
+        # InterVariable via font INHERITANCE (page parent chains differ; some
+        # pages carry universal DM-Sans rules). Shell ROOTS must declare
+        # explicit typography; only the search input may inherit (it picks up
+        # the locked stack from the roots).
+        css = self._css()
+        self.assertIn("font-family: Inter, system-ui, sans-serif;", css)
+        self.assertIn("letter-spacing: normal;", css)
+        self.assertIn("line-height: 1.5;", css)
+        self.assertEqual(css.count("font-family:inherit"), 1)
+        i = css.index("font-family:inherit")
+        self.assertIn("ec-shell-search-in", css[max(0, i - 200):i])
+
     def test_no_reveal_or_fade_masking(self):
         # Smoothness Stabilization: masking is FORBIDDEN. The static shell is
         # visible from first paint; hydration must not need any hiding.
