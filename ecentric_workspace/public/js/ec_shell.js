@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.6.0 (prerender for no-store nav routes)';
+  var VERSION = 'ec-shell v1.7.0 (static fallback hydration + eager intent prerender)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -395,6 +395,26 @@
     return urls;
   }
 
+  var eagered = {};
+  function eagerPrerender(href) {
+    // one-off EAGER rule for the exact route the user is about to click
+    // (pointer intent / keyboard focus). Same allow-list as prefetch; never
+    // query/detail URLs (shouldPrefetch already rejects them via callers).
+    if (eagered[href]) return;
+    if (!(window.HTMLScriptElement && HTMLScriptElement.supports &&
+          HTMLScriptElement.supports('speculationrules'))) return;
+    var path = href.split('?')[0].split('#')[0];
+    if (path.indexOf('?') >= 0 || path !== href) return;   // plain routes only
+    eagered[href] = 1;
+    try {
+      var s = document.createElement('script');
+      s.type = 'speculationrules';
+      s.setAttribute('data-ec-shell-spec-eager', '1');
+      s.textContent = JSON.stringify({ prerender: [{ source: 'list', urls: [path], eagerness: 'eager' }] });
+      document.head.appendChild(s);
+    } catch (e) {}
+  }
+
   function injectSpeculationRules() {
     if (S.specDone) return;
     if (!(window.HTMLScriptElement && HTMLScriptElement.supports &&
@@ -641,7 +661,15 @@
       var href = a.getAttribute('href');
       if (!shouldPrefetch(href, window.location.origin, knownNavRoutes())) return;
       clearTimeout(hoverTimer);
-      hoverTimer = setTimeout(function () { prefetch(href); }, 65);
+      hoverTimer = setTimeout(function () { prefetch(href); eagerPrerender(href); }, 65);
+    }, true);
+    document.addEventListener('focusin', function (ev) {
+      var a = intentTarget(ev);
+      if (!a) return;
+      var href = a.getAttribute('href');
+      if (shouldPrefetch(href, window.location.origin, knownNavRoutes())) {
+        prefetch(href); eagerPrerender(href);
+      }
     }, true);
     document.addEventListener('pointerout', function () { clearTimeout(hoverTimer); }, true);
     document.addEventListener('pointerdown', function (ev) {

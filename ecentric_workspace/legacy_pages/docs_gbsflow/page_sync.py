@@ -29,6 +29,8 @@ def sync(html=None):
     res = page_sync_util.upsert_web_page(ROUTE, NAME, TITLE, html)
     if res.get("name") and frappe.db.exists("Web Page", res["name"]):
         res.update(page_sync_util.strip_legacy_shims(res["name"]))
+        from ecentric_workspace.legacy_pages import serving
+        res.update(serving.ensure_static_serving(res["name"], html))
     return res
 
 

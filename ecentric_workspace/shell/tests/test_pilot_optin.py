@@ -62,11 +62,17 @@ class TestOptIn(unittest.TestCase):
             else:
                 self.assertEqual(n, 0, "%s must NOT opt in during Phase 1B" % fname)
 
-    def test_pilot_pages_keep_fallback_nav(self):
+    def test_pilot_pages_have_full_static_shell(self):
+        # Smoothness Stabilization: fallback = COMPLETE server-rendered shell
+        # (same registry, same classes) -- visible from first paint.
         for fname in PILOT:
             src = _read(FRONTEND, fname)
-            self.assertIn('class="ec-shell-fallback"', src, fname)
-            self.assertIn('href="/approvals"', src, fname)
+            self.assertIn('ec-shell-fallback', src, fname)
+            for marker in ('class="ec-shell-head"', "ec-shell-search-in",
+                           'class="ec-shell-foot"', "ec-shell-grouplabel",
+                           'href="/approvals"', 'href="/all-ticket"',
+                           "ec-shell-active"):
+                self.assertIn(marker, src, "%s missing %s" % (fname, marker))
 
     def test_pilot_pages_lost_embedded_sidebar(self):
         for fname in PILOT:
@@ -183,6 +189,15 @@ class TestHeaderPolish(unittest.TestCase):
         code = "\n".join(l for l in js.splitlines() if not l.strip().startswith("//"))
         self.assertEqual(code.count(BELL), 1,
                          "exactly ONE bell emission point (bellHtml)")
+
+    def test_pages_carry_exactly_one_static_bell(self):
+        # static bell lives in the header-right slot so NC works pre-hydration
+        for fname in PILOT:
+            src = _read(FRONTEND, fname)
+            self.assertEqual(src.count(BELL), 1, fname)
+            i_tb = src.index('data-ec-shell-header-right="1"')
+            self.assertGreater(src.index(BELL), i_tb, fname + ": bell must be in tbright")
+        js = _read(APP, "public", "js", "ec_shell.js")
         self.assertIn("renderHeaderRight", js)
         self.assertIn("{ bell: false }", js, "drawer must never render a bell")
 
@@ -254,11 +269,9 @@ class TestSmoothnessCore(unittest.TestCase):
         self.assertNotIn("preventDefault(); window.location", js)
         self.assertNotIn("document.startViewTransition(", js)   # detect-only, never called
 
-    def test_transition_css(self):
+    def test_transition_css_removed(self):
         css = _read(APP, "public", "css", "ec_shell.bundle.css")
-        self.assertIn(".ec-shell-mount~.ec-main{ animation:ec-shell-fadein 120ms ease-out; }", css)
-        self.assertIn("@keyframes ec-shell-fadein", css)
-        self.assertIn("prefers-reduced-motion", css)
+        self.assertNotIn("ec-shell-fadein", css)
 
 
 class TestNavSearch(unittest.TestCase):
@@ -380,16 +393,39 @@ class TestSidebarStickyAndInstantNav(unittest.TestCase):
     def test_drawer_inner_scroll(self):
         self.assertIn("overflow:hidden;   /* inner nav scrolls, not the drawer */", self._css())
 
-    def test_fallback_delayed_reveal(self):
+    def test_no_reveal_or_fade_masking(self):
+        # Smoothness Stabilization: masking is FORBIDDEN. The static shell is
+        # visible from first paint; hydration must not need any hiding.
         css = self._css()
-        self.assertIn(".ec-shell-fallback{ opacity:0; animation:ec-shell-reveal .15s ease .45s forwards; }", css)
-        self.assertIn("@keyframes ec-shell-reveal", css)
-        self.assertIn("prefers-reduced-motion:reduce){ .ec-shell-fallback{ opacity:1;", css)
+        self.assertNotIn("ec-shell-reveal", css)
+        self.assertNotIn("ec-shell-fadein", css)
+        self.assertNotIn(".ec-shell-fallback{ opacity:0", css)
 
     def test_prefetch_covers_registry_routes(self):
         js = _read(APP, "public", "js", "ec_shell.js")
         self.assertIn("function shouldPrefetch(href, origin, knownRoutes)", js)
         self.assertIn("knownNavRoutes()", js)
+
+    def test_eager_intent_prerender(self):
+        js = _read(APP, "public", "js", "ec_shell.js")
+        self.assertIn("eagerPrerender", js)
+        self.assertIn("eagerness: 'eager'", js)
+        self.assertIn("data-ec-shell-spec-eager", js)
+        self.assertIn("'focusin'", js)
+
+    def test_fallback_parity_with_js(self):
+        # fallback.py must render the same icon paths + classes as ec_shell.js
+        from ecentric_workspace.shell import fallback as fb
+        js = _read(APP, "public", "js", "ec_shell.js")
+        for name, path in fb.ICONS.items():
+            self.assertIn(path, js, "icon %s diverged from ec_shell.js" % name)
+        inner = fb.render_mount_inner("/approvals/leave")
+        for cls in ("ec-shell-head", "ec-shell-search", "ec-shell-nav",
+                    "ec-shell-item", "ec-shell-foot", "ec-shell-subtoggle",
+                    "ec-shell-children"):
+            self.assertIn(cls, inner, cls)
+        self.assertNotIn("data-ec-notification-bell", inner,
+                         "mount fallback must NOT carry a bell (tbright owns it)")
 
     def test_prerender_speculation_rules(self):
         js = _read(APP, "public", "js", "ec_shell.js")
