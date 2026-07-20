@@ -95,8 +95,8 @@ class TestDocPagesShell(unittest.TestCase):
             self.assertEqual(src.count('data-ec-shell="1"'), 1, slug)
             self.assertEqual(src.count('data-ec-shell-header-right="1"'), 1, slug)
             self.assertEqual(src.count('<aside class="ec-sb">'), 0, slug)
-            self.assertEqual(src.count("data-ec-notification-bell"), 0, slug)
-            self.assertIn('class="ec-shell-fallback"', src, slug)
+            self.assertEqual(src.count('data-ec-notification-bell="1"'), 1, slug)
+            self.assertIn('ec-shell-fallback', src, slug)
 
     def test_profile_contracts(self):
         for slug, profile in PAGES.items():

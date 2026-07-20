@@ -41,14 +41,11 @@
 .ec-shell-nav{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
 .ec-shell-search-results{ flex:1 1 auto; min-height:0; overflow-y:auto; }
 
-/* Fallback delayed reveal (UX follow-up): the static fallback stays invisible
- * for ~450ms so a cached shell render replaces it before it ever paints during
- * rapid navigation; on genuine cold start / kill switch / no-JS it appears via
- * the CSS animation with no script needed. Reduced-motion users see it
- * immediately (accessibility over polish). */
-.ec-shell-fallback{ opacity:0; animation:ec-shell-reveal .15s ease .45s forwards; }
-@keyframes ec-shell-reveal{ from{ opacity:0; } to{ opacity:1; } }
-@media (prefers-reduced-motion:reduce){ .ec-shell-fallback{ opacity:1; animation:none; } }
+/* Smoothness Stabilization: the delayed-reveal masking is REMOVED. Pages now
+ * ship a COMPLETE server-rendered static shell (shell/fallback.py, generated
+ * from the same registry with identical classes), so the sidebar is visible
+ * from first paint and hydration causes no layout shift. Never reintroduce
+ * opacity/visibility hiding of the fallback. */
 .ec-shell-mount .ec-shell-fallback{ display:flex; flex-direction:column; gap:2px; padding:14px 10px; }
 .ec-shell-mount .ec-shell-fallback a{
   display:block; padding:9px 12px; border-radius:8px; text-decoration:none;
@@ -127,9 +124,7 @@
  * so non-opted pages are untouched). ~120ms, content never hidden. The
  * cross-document @view-transition rule is injected by ec_shell.js (feature-
  * detected) so unsupporting browsers and non-shell pages are unaffected. */
-.ec-shell-mount~.ec-main{ animation:ec-shell-fadein 120ms ease-out; }
-@keyframes ec-shell-fadein{ from{ opacity:.55; } to{ opacity:1; } }
-@media (prefers-reduced-motion:reduce){ .ec-shell-mount~.ec-main{ animation:none; } }
+/* (content fade also removed -- no latency masking of any kind) */
 
 /* ---- page-header right region (bell + reserved Action Center slot) ------- */
 /* Lives inside the page-owned .topbar; margin-left:auto right-aligns it even

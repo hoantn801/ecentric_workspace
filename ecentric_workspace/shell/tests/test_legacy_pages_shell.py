@@ -88,8 +88,10 @@ class TestCreationForms(unittest.TestCase):
             self.assertEqual(src.count('data-ec-shell="1"'), 1, slug)
             self.assertEqual(src.count('data-ec-shell-header-right="1"'), 1, slug)
             self.assertEqual(src.count('<aside class="ec-sb">'), 0, slug)
-            self.assertEqual(src.count("data-ec-notification-bell"), 0, slug)
-            self.assertIn('class="ec-shell-fallback"', src)
+            self.assertEqual(src.count('data-ec-notification-bell="1"'), 1, slug)
+            self.assertGreater(src.index("data-ec-notification-bell"),
+                               src.index('data-ec-shell-header-right="1"'), slug)
+            self.assertIn('ec-shell-fallback', src)
 
     def test_business_contracts(self):
         for slug in FORM_PAGES:
@@ -187,9 +189,9 @@ class TestShellMigration(unittest.TestCase):
         self.assertEqual(src.count('data-ec-shell="1"'), 1)
         self.assertEqual(src.count('data-ec-shell-header-right="1"'), 1)
         self.assertEqual(src.count('<aside class="ec-sidebar">'), 0)
-        self.assertIn('class="ec-shell-fallback"', src)
-        # the shell emits the ONLY bell at runtime; static page has none
-        self.assertEqual(src.count("data-ec-notification-bell"), 0)
+        self.assertIn('ec-shell-fallback', src)
+        # exactly ONE static bell, inside the header-right slot
+        self.assertEqual(src.count('data-ec-notification-bell="1"'), 1)
         # functional topbar-left business elements retained
         for marker in ('id="pageTitle"', 'id="tkId"', 'id="tkStatus"',
                        'class="back-btn" href="/all-ticket"'):
@@ -203,11 +205,40 @@ class TestShellMigration(unittest.TestCase):
         self.assertEqual(src.count('data-ec-shell="1"'), 1)
         self.assertEqual(src.count('data-ec-shell-header-right="1"'), 1)
         self.assertEqual(src.count('<aside class="ec-sb">'), 0)
-        self.assertIn('class="ec-shell-fallback"', src)
-        self.assertEqual(src.count("data-ec-notification-bell"), 0)
+        self.assertIn('ec-shell-fallback', src)
+        self.assertEqual(src.count('data-ec-notification-bell="1"'), 1)
         # hidden legacy .sidebar stays byte-present (dead markup, zero risk)
         self.assertIn('<aside class="sidebar">', src)
         self.assertIn('.dash-wrap > aside.sidebar { display: none !important; }', src)
+
+
+class TestStaticServingSafety(unittest.TestCase):
+    """Part D: dynamic_template=0 is only safe because every legacy page is
+    Jinja-free (identical HTML for all users; personal data via APIs)."""
+
+    def test_all_legacy_pages_jinja_free(self):
+        for slug in sorted(os.listdir(LP)):
+            f = os.path.join(LP, slug, "main_section.html")
+            if not os.path.isfile(f):
+                continue
+            src = _read(LP, slug, "main_section.html")
+            self.assertNotIn("{{", src, slug)
+            self.assertNotIn("{%", src, slug)
+
+    def test_all_page_syncs_wire_static_serving(self):
+        n = 0
+        for slug in sorted(os.listdir(LP)):
+            ps = os.path.join(LP, slug, "page_sync.py")
+            if os.path.isfile(ps):
+                self.assertIn("ensure_static_serving", _read(LP, slug, "page_sync.py"), slug)
+                n += 1
+        self.assertEqual(n, 13)
+
+    def test_serving_module_fail_open(self):
+        src = _read(os.path.dirname(LP), "legacy_pages", "serving.py")
+        self.assertIn("ec_legacy_static_serving_disabled", src)   # kill switch
+        self.assertIn("except Exception", src)                    # fail-open
+        self.assertIn('"{{"', src.replace("'", '"'))              # jinja guard
 
 
 class TestPageSyncModules(unittest.TestCase):
