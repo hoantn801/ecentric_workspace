@@ -242,9 +242,34 @@ def render_topbar_inner(route, detail_html=None):
             + render_tbright_inner() + "</div>")
 
 
+def render_quickaccess_inner():
+    """Daily Cockpit "Truy cập nhanh" tiles -- derived from the SAME canonical
+    registry as the sidebar (2C.2 rule: no second route catalog). Flattens
+    navigable items + children; skips non-navigable group toggles and the
+    homepage itself. Regenerated together with mount/crumbs, so tiles can
+    never drift from the registry."""
+    items = shell_nav.compose()
+    h = []
+    for it in items:
+        kids = it.get("children") or []
+        flatset = kids if kids else [it]
+        for x in flatset:
+            if x.get("navigable") is False or x["key"] == "core.home":
+                continue
+            group = x.get("group") or it.get("group") or ""
+            h.append(
+                '<a class="ec-ck-qa-tile" href="%s">%s'
+                '<span class="ec-ck-qa-label">%s</span>'
+                '<span class="ec-ck-qa-group">%s</span></a>'
+                % (_esc(x["route"]), _svg(x.get("icon") or it.get("icon") or "doc"),
+                   _esc(x["label"]), _esc(group)))
+    return "".join(h)
+
+
 MOUNT_RE = re.compile(r'(<aside class="ec-shell-mount"[^>]*>).*?(</aside>)', re.S)
 TBRIGHT_RE = re.compile(r'(<div class="ec-shell-tbright" data-ec-shell-header-right="1">).*?(</div>)', re.S)
 CRUMBS_RE = re.compile(r'(<div class="[^"]*ec-shell-crumbs[^"]*" data-ec-shell-crumbs="1">)(.*?)(</div>)', re.S)
+QUICKACCESS_RE = re.compile(r'(<div class="[^"]*ec-ck-qa[^"]*" data-ec-shell-quickaccess="1">).*?(</div>)', re.S)
 DETAIL_RE = re.compile(r'<strong[^>]*data-ec-shell-crumb-detail="1"[^>]*>.*?</strong>', re.S)
 
 
@@ -298,6 +323,9 @@ def regenerate(repo, check=False):
                 d = DETAIL_RE.search(m.group(2))
                 return m.group(1) + crumbs_inner(route, d.group(0) if d else None) + m.group(3)
             new = CRUMBS_RE.sub(_crumbs, new, count=1)
+        if QUICKACCESS_RE.search(new):
+            new = QUICKACCESS_RE.sub(
+                lambda m: m.group(1) + render_quickaccess_inner() + m.group(2), new, count=1)
         if new != src:
             if not check:
                 io.open(path, "w", encoding="utf-8", newline="").write(new)

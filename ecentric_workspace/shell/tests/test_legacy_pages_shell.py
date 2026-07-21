@@ -234,7 +234,7 @@ class TestStaticServingSafety(unittest.TestCase):
             if os.path.isfile(ps):
                 self.assertIn("ensure_static_serving", _read(LP, slug, "page_sync.py"), slug)
                 n += 1
-        self.assertEqual(n, 13)
+        self.assertEqual(n, 14)  # 13 legacy pages + home (2C.2)
 
     def test_serving_module_fail_open(self):
         src = _read(os.path.dirname(LP), "legacy_pages", "serving.py")

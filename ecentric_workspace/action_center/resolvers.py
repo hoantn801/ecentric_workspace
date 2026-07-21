@@ -152,4 +152,52 @@ def resolve_item(todo_row):
         "priority": priority,
         "due_at": str(due) if due else "",
         "modified": str(modified) if modified else "",
+        # ---- v1 additive canonical fields (2C.2 shared provider) ----------
+        # Aliases + derived state; NOTHING above changed or removed, so the
+        # existing homepage widget / any consumer of v0 keeps working.
+        "source_type": src["source_key"],
+        "source_id": (ref_type + "/" + ref_name) if (ref_type and ref_name) else todo_name,
+        "status": todo_row.get("status") or "Open",
+        # resolution is DERIVED: an item exists only while its governed source
+        # keeps the ToDo open (engine/WTU/PM close it); never stored here.
+        "resolution_state": "open",
+        # bucket is filled by the API layer (needs "today"); default here so
+        # the key always exists for consumers.
+        "bucket": "undated",
     }
+
+
+# ---- v1 pure helpers (no frappe import: unit-testable) -----------------------
+
+BUCKETS = ("overdue", "today", "upcoming", "undated")
+
+
+def bucket_for(due_at, today):
+    """Classify a due datetime/date/ISO-string against `today` (a date).
+
+    Contract (2C.2): a missing/unparseable due date is EXPLICITLY "undated"
+    (hiển thị "Không hạn") -- never infer or fake a date.
+    """
+    if not due_at:
+        return "undated"
+    s = str(due_at).strip()
+    if not s:
+        return "undated"
+    d = _parse_date(s)
+    if d is None:
+        return "undated"
+    if d < today:
+        return "overdue"
+    if d == today:
+        return "today"
+    return "upcoming"
+
+
+def _parse_date(s):
+    """date part of 'YYYY-MM-DD[ HH:MM:SS]' -> datetime.date, else None."""
+    import datetime
+    part = s[:10]
+    try:
+        return datetime.date(int(part[0:4]), int(part[5:7]), int(part[8:10]))
+    except (ValueError, IndexError):
+        return None
