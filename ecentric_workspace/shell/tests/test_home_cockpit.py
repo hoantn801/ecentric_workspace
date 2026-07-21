@@ -96,7 +96,7 @@ class TestQuickAccessRegistryParity(unittest.TestCase):
         m = fb.QUICKACCESS_RE.search(src)
         import ecentric_workspace.shell.nav as nav
         known = set()
-        for it in nav.compose():
+        for it in nav.compose_all():
             known.add(it["route"])
             for ch in it.get("children") or []:
                 known.add(ch["route"])

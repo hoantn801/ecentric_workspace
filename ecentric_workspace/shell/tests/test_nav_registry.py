@@ -49,8 +49,10 @@ class TestRegistryCompose(unittest.TestCase):
             nav.validate([bad])
 
     def test_hr_nav_present_and_salary_no_prerender(self):
-        """HR provider: employee-facing entries + salary marked no_prerender."""
-        items = nav.compose()
+        """HR provider: employee-facing entries + salary marked no_prerender.
+        Context split: HR items live in compose("hr") (and compose_all), NOT
+        in the default approval_document sidebar."""
+        items = nav.compose("hr")
         hr = [it for it in items if it.get("owner") == "hr"]
         routes = sorted(it["route"] for it in hr)
         self.assertEqual(routes, ["/ec-hr/attendance", "/ec-hr/salary"])

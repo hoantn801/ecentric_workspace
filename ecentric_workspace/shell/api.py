@@ -40,40 +40,57 @@ def get_shell_boot():
         # Website Users keep their current experience untouched (fail closed).
         return {"enabled": False, "reason": "not_internal"}
 
-    items = shell_nav.compose()
-    # v1: every validated item is visible_when == "internal"; the compose()
-    # validator guarantees it, so no per-item capability evaluation yet.
-    nav = [
-        {
-            "key": it["key"],
-            "label": it["label"],
-            "route": it["route"],
-            "icon": it["icon"],
-            "group": it["group"],
-            "active_patterns": it["active_patterns"],
-            "keywords": it.get("keywords", []),
-            "no_prerender": bool(it.get("no_prerender")),
-            "children": [
-                {
-                    "key": ch["key"], "label": ch["label"], "route": ch["route"],
-                    "icon": ch["icon"], "active_patterns": ch["active_patterns"],
-                    "keywords": ch.get("keywords", []),
-                }
-                for ch in it.get("children", [])
-            ],
+    # v2 (nav contexts): serialize EVERY context; the client resolves its
+    # context from location.pathname with the same canonical logic as the
+    # server-side fallback (shell_nav.resolve_context port). The legacy `nav`
+    # key stays = DEFAULT context so pre-context cached JS keeps working.
+    contexts = {
+        name: {
+            "items": [_ser(it) for it in shell_nav.compose(name)],
+            "entry": (shell_nav.CONTEXTS[name].get("entry") or None),
         }
-        for it in items
-    ]
+        for name in shell_nav.CONTEXTS
+    }
 
     info = frappe.db.get_value(
         "User", user, ["full_name", "user_image"], as_dict=True
     ) or {}
     return {
         "enabled": True,
-        "nav": nav,
+        "nav": contexts[shell_nav.DEFAULT_CONTEXT]["items"],
+        "contexts": contexts,
+        "context_order": list(shell_nav.CONTEXT_ORDER),
+        "default_context": shell_nav.DEFAULT_CONTEXT,
+        "all_items": [_ser(it) for it in shell_nav.compose_all()],
         "user": {
             "name": user,
             "full_name": info.get("full_name") or user,
             "image": info.get("user_image") or "",
         },
+    }
+
+
+def _ser(it):
+    """Serialize one nav item. SECURITY: `no_prerender` is derived from the
+    item flag OR the central route policy -- moving/removing a provider can
+    never un-protect a no-warm route (route_policy is nav-independent)."""
+    from ecentric_workspace.shell import route_policy
+    return {
+        "key": it["key"],
+        "label": it["label"],
+        "route": it["route"],
+        "icon": it["icon"],
+        "group": it["group"],
+        "active_patterns": it["active_patterns"],
+        "keywords": it.get("keywords", []),
+        "no_prerender": bool(it.get("no_prerender")) or route_policy.no_warm(it["route"]),
+        "children": [
+            {
+                "key": ch["key"], "label": ch["label"], "route": ch["route"],
+                "icon": ch["icon"], "active_patterns": ch["active_patterns"],
+                "keywords": ch.get("keywords", []),
+                "no_prerender": bool(ch.get("no_prerender")) or route_policy.no_warm(ch["route"]),
+            }
+            for ch in it.get("children", [])
+        ],
     }

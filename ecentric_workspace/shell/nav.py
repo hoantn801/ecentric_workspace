@@ -61,6 +61,56 @@ def _providers():
     ]
 
 
+# ---------------------------------------------------------------- contexts --
+#: Navigation contexts (architecture correction, 2026-07-21). ONE shared
+#: chrome; a context only decides WHICH registered items the sidebar shows.
+#: - providers: owners whose items belong to the context ("core" everywhere
+#:   so "Trang chủ" is always reachable).
+#: - entry: module-launcher metadata rendered in the `home` context (and
+#:   nowhere else). Adding a future module (pm, alert_center) = one provider
+#:   registration + one CONTEXTS entry; shell core stays untouched.
+CONTEXTS = {
+    "home": {
+        "providers": ["core"],
+        "launcher": True,          # synthesizes PHÂN HỆ entries from CONTEXTS
+        "entry": None,
+    },
+    "approval_document": {
+        "providers": ["core", "approval_center", "legacy_pages"],
+        "entry": {"key": "ctx.approval_document", "label": "Phê duyệt & Chứng từ",
+                  "route": "/approvals", "icon": "check"},
+    },
+    "hr": {
+        "providers": ["core", "hr"],
+        "entry": {"key": "ctx.hr", "label": "Nhân sự",
+                  "route": "/ec-hr/attendance", "icon": "doc"},
+    },
+}
+#: order in which specialized contexts are probed for route resolution and in
+#: which launcher entries render.
+CONTEXT_ORDER = ["approval_document", "hr"]
+DEFAULT_CONTEXT = "approval_document"
+LAUNCHER_GROUP = "Phân hệ"
+
+
+def _launcher_items():
+    """PHÂN HỆ entries for the `home` context -- derived ONLY from CONTEXTS
+    metadata (no second route catalog)."""
+    out = []
+    for i, name in enumerate(CONTEXT_ORDER):
+        e = CONTEXTS[name].get("entry")
+        if not e:
+            continue
+        out.append({
+            "key": e["key"], "label": e["label"], "route": e["route"],
+            "icon": e.get("icon", "doc"), "group": LAUNCHER_GROUP,
+            "order": (i + 1) * 10, "active_patterns": [e["route"]],
+            "visible_when": "internal", "owner": "shell.context",
+            "keywords": [],
+        })
+    return out
+
+
 CHILD_FIELDS = ("key", "label", "route", "icon", "order",
                 "active_patterns", "visible_when", "owner")
 
@@ -116,10 +166,11 @@ def _group_rank(group):
         return (len(GROUP_ORDER), group)
 
 
-def compose():
-    """Deterministic, validated nav list (visibility filtering happens in api.py)."""
+def _compose_owners(owners=None, extra=None):
     items = []
     for owner, provider in _providers():
+        if owners is not None and owner not in owners:
+            continue
         for it in provider():
             it = dict(it)
             it.setdefault("owner", owner)
@@ -130,6 +181,82 @@ def compose():
                 kids.sort(key=lambda ch: (ch["order"], ch["key"]))
                 it["children"] = kids
             items.append(it)
+    for it in (extra or []):
+        items.append(dict(it))
     validate(items)
     items.sort(key=lambda it: (_group_rank(it["group"]), it["order"], it["key"]))
     return items
+
+
+def compose(context=None):
+    """Deterministic, validated nav list for ONE context (sidebar scope).
+
+    context=None keeps the historical signature and returns DEFAULT_CONTEXT
+    (approval_document) -- every pre-context caller keeps its behavior.
+    """
+    name = context or DEFAULT_CONTEXT
+    if name not in CONTEXTS:
+        name = DEFAULT_CONTEXT
+    ctx = CONTEXTS[name]
+    extra = _launcher_items() if ctx.get("launcher") else None
+    return _compose_owners(ctx["providers"], extra=extra)
+
+
+def compose_all():
+    """ALL registered real items across every context (global discovery:
+    homepage Quick Access + shell search). Synthetic launcher entries are
+    EXCLUDED -- they duplicate routes that real items already own."""
+    return _compose_owners(owners=None)
+
+
+def resolve_context(path):
+    """Canonical route -> context. Server (fallback regen) and client
+    (ec_shell.js port) both use this logic; parity is test-enforced.
+
+    1. Probe specialized contexts (CONTEXT_ORDER) with the SAME matchActive
+       scorer over their NON-core items; best positive score wins.
+    2. Otherwise "/" and core.home patterns belong to `home`.
+    3. Anything else falls back to DEFAULT_CONTEXT (backward compatible for
+       unregistered shell adopters).
+    """
+    p = _norm_path(path)
+    best, best_score = None, 0
+    for name in CONTEXT_ORDER:
+        score = _context_score(name, p)
+        if score > best_score:
+            best, best_score = name, score
+    if best:
+        return best
+    for pat in CORE_ITEMS[0]["active_patterns"]:
+        if _norm_path(pat) == p:
+            return "home"
+    return DEFAULT_CONTEXT
+
+
+def _norm_path(p):
+    p = (p or "/").split("?")[0].split("#")[0]
+    if len(p) > 1 and p.endswith("/"):
+        p = p[:-1]
+    return p or "/"
+
+
+def _context_score(name, path):
+    """Best matchActive-style score of `path` against the context's own
+    (non-core) items. Mirrors ec_shell.js matchActive scoring."""
+    score = 0
+    for it in compose(name):
+        if it.get("owner") in ("core", "shell.context"):
+            continue
+        cands = [it] + list(it.get("children") or [])
+        for c in cands:
+            if _norm_path(c["route"]) == path:
+                score = max(score, 1000 + len(c["route"]))
+                continue
+            for pat in c.get("active_patterns") or []:
+                if pat.endswith("/*"):
+                    base = _norm_path(pat[:-2])
+                    if path == base or path.startswith(base + "/"):
+                        score = max(score, 500 + len(base))
+                elif _norm_path(pat) == path:
+                    score = max(score, 800 + len(pat))
+    return score

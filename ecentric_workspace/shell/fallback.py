@@ -127,7 +127,7 @@ def render_nav(items, active_key):
 def render_mount_inner(route):
     """Full static sidebar for a page at `route` (head + search + nav + foot).
     Same geometry as the hydrated shell; ec_shell.js replaces it in place."""
-    items = shell_nav.compose()
+    items = shell_nav.compose(shell_nav.resolve_context(route))
     active = match_active(items, route)
     head = ('<div class="ec-shell-head">'
             '<a class="ec-shell-brand" href="/">'
@@ -177,7 +177,7 @@ def _crumb_target(route):
     """Resolve route -> (registry item, group label) via the SAME matcher the
     shell uses. Children resolve to themselves; their crumb group falls back
     to the parent's group (registry stays the single source of truth)."""
-    items = shell_nav.compose()
+    items = shell_nav.compose(shell_nav.resolve_context(route))
     key = match_active(items, route)
     parent_group = {}
     flat = []
@@ -244,11 +244,12 @@ def render_topbar_inner(route, detail_html=None):
 
 def render_quickaccess_inner():
     """Daily Cockpit "Truy cập nhanh" tiles -- derived from the SAME canonical
-    registry as the sidebar (2C.2 rule: no second route catalog). Flattens
-    navigable items + children; skips non-navigable group toggles and the
-    homepage itself. Regenerated together with mount/crumbs, so tiles can
-    never drift from the registry."""
-    items = shell_nav.compose()
+    registry as the sidebar (2C.2 rule: no second route catalog). After the
+    context split this deliberately enumerates ALL contexts (compose_all):
+    the sidebar is context-scoped, discovery is global. Skips non-navigable
+    group toggles and the homepage itself. Regenerated together with
+    mount/crumbs, so tiles can never drift from the registry."""
+    items = shell_nav.compose_all()
     h = []
     for it in items:
         kids = it.get("children") or []

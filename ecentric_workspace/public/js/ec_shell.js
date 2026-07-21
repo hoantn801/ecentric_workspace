@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.8.1 (HR nav + salary no-warm exclusion)';
+  var VERSION = 'ec-shell v1.9.0 (navigation contexts: scoped sidebar, global discovery)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -108,9 +108,47 @@
     return !!(knownRoutes && knownRoutes.indexOf(path) >= 0);
   }
 
+  // ---- navigation contexts (mirror of shell/nav.py; parity test-enforced).
+  // Sidebar = context-scoped; discovery (search/prefetch allow-list) = global.
+  function ctxItems(boot, name) {
+    if (boot && boot.contexts && boot.contexts[name]) return boot.contexts[name].items || [];
+    return (boot && boot.nav) || [];                        // pre-context payload
+  }
+  function allItems(boot) {
+    if (boot && boot.all_items) return boot.all_items;
+    return (boot && boot.nav) || [];
+  }
+  function resolveContext(boot, pathname) {
+    if (!boot || !boot.contexts) return null;               // pre-context payload
+    var path = normPath(pathname);
+    var order = boot.context_order || [];
+    var best = null, bestScore = 0;
+    order.forEach(function (name) {
+      var score = 0;
+      flattenNav(ctxItems(boot, name)).forEach(function (it) {
+        if (it.key && (it.key.indexOf('core.') === 0 || it.key.indexOf('ctx.') === 0)) return;
+        if (normPath(it.route) === path) { score = Math.max(score, 1000 + it.route.length); return; }
+        (it.active_patterns || []).forEach(function (pat) {
+          if (pat.slice(-2) === '/*') {
+            var base = normPath(pat.slice(0, -2));
+            if (path === base || path.indexOf(base + '/') === 0) score = Math.max(score, 500 + base.length);
+          } else if (normPath(pat) === path) {
+            score = Math.max(score, 800 + pat.length);
+          }
+        });
+      });
+      if (score > bestScore) { best = name; bestScore = score; }
+    });
+    if (best) return best;
+    if (path === '/' || path === '/home') return 'home';
+    return boot.default_context || 'approval_document';
+  }
   function knownNavRoutes() {
     if (!S.boot) return [];
-    return flattenNav(S.boot.nav)
+    // GLOBAL allow-list (all contexts): homepage Quick Access links cross
+    // contexts and may be prefetched -- EXCEPT no_prerender routes (central
+    // route_policy is already folded into the flag server-side).
+    return flattenNav(allItems(S.boot))
       .filter(function (it) { return !it.no_prerender; })   // SECURITY: salary never prefetched/eager-prerendered
       .map(function (it) { return it.route; });
   }
@@ -331,7 +369,7 @@
           'hidden aria-label="Xóa tìm kiếm">&times;</button>' +
       '</div>' +
       '<div class="ec-shell-search-results" role="listbox" hidden></div>' +
-      navHtml(boot.nav, activeKey) +
+      navHtml((S.ctxNav || boot.nav), activeKey) +
       '<div class="ec-shell-foot">' +
         '<a class="ec-shell-usercard" href="/app/user" title="' + esc(u.name) + '">' + av +
           '<span class="ec-shell-username">' + esc(u.full_name || u.name) + '</span></a>' +
@@ -424,7 +462,7 @@
     if (S.specDone) return;
     if (!(window.HTMLScriptElement && HTMLScriptElement.supports &&
           HTMLScriptElement.supports('speculationrules'))) return;
-    var urls = prerenderUrls(S.boot && S.boot.nav, window.location.pathname);
+    var urls = prerenderUrls(S.boot && (S.ctxNav || S.boot.nav), window.location.pathname);
     if (!urls.length) return;
     S.specDone = true;
     try {
@@ -559,7 +597,7 @@
       return;
     }
     ensureCatalog();
-    var res = searchNav(buildSearchEntries(S.boot && S.boot.nav, SEARCH.types), q, 8);
+    var res = searchNav(buildSearchEntries(S.boot && allItems(S.boot), SEARCH.types), q, 8);
     SEARCH.flat = res.modules.concat(res.types);
     if (SEARCH.sel >= SEARCH.flat.length) SEARCH.sel = SEARCH.flat.length - 1;
     var h = '';
@@ -763,7 +801,9 @@
 
   function render() {
     if (!S.mount || !S.boot) return;
-    S.activeKey = matchActive(S.boot.nav, window.location.pathname);
+    S.context = resolveContext(S.boot, window.location.pathname);
+    S.ctxNav = S.context ? ctxItems(S.boot, S.context) : S.boot.nav;
+    S.activeKey = matchActive(S.ctxNav, window.location.pathname);
     var bellInHeader = renderHeaderRight();          // exactly ONE bell per page
     S.mount.innerHTML = shellHtml(S.boot, S.activeKey, { bell: !bellInHeader });
     bindLogoFallback();
@@ -832,6 +872,9 @@
       searchNav: searchNav,
       catalogCacheValid: catalogCacheValid,
       prerenderUrls: prerenderUrls,
+      resolveContext: resolveContext,
+      ctxItems: ctxItems,
+      allItems: allItems,
       reinit: reinit
     };
   }
