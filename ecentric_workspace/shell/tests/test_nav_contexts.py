@@ -101,8 +101,10 @@ class TestSalaryNeverWarmable(unittest.TestCase):
         self.assertIn("/ec-hr/salary", {i["route"] for i in nav.compose("hr")})
         qa = fb.render_quickaccess_inner()
         self.assertIn('href="/ec-hr/salary"', qa, "salary stays in Quick Access")
-        home = _read(APP, "legacy_pages", "home", "main_section.html")
-        self.assertIn('href="/ec-hr/salary"', home)
+        # NOTE (Homepage Sync Safety Hotfix): the authored cockpit homepage was
+        # retired; no repo page renders the quick-access marker until the
+        # incremental Homepage migration phase. The renderer contract above
+        # remains the governed discovery surface.
 
     def test_salary_excluded_from_all_three_warming_paths(self):
         js = _read(APP, "public", "js", "ec_shell.js")
@@ -145,14 +147,6 @@ class TestStaticHydratedContextParity(unittest.TestCase):
                 self.assertTrue(has_appr_group and not has_hr_group and not has_launcher, route)
             elif ctx == "home":
                 self.assertTrue(has_launcher and not has_appr_group and not has_hr_group, route)
-
-    def test_home_static_shows_launcher(self):
-        src = _read(APP, "legacy_pages", "home", "main_section.html")
-        self.assertIn('<div class="ec-shell-grouplabel">Phân hệ</div>', src)
-        self.assertIn("Phê duyệt &amp; Chứng từ", src)
-        m = fb.MOUNT_RE.search(src)
-        self.assertEqual(m.group(0), m.group(1) + fb.render_mount_inner("/home") + m.group(2),
-                         "home static fallback == canonical home-context render")
 
     def test_hr_boundary_sync_contracts(self):
         sb = _read(APP, "hr", "pages", "shell_boundary.py")

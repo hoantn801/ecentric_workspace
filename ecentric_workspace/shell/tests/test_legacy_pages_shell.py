@@ -231,10 +231,16 @@ class TestStaticServingSafety(unittest.TestCase):
         n = 0
         for slug in sorted(os.listdir(LP)):
             ps = os.path.join(LP, slug, "page_sync.py")
-            if os.path.isfile(ps):
-                self.assertIn("ensure_static_serving", _read(LP, slug, "page_sync.py"), slug)
-                n += 1
-        self.assertEqual(n, 14)  # 13 legacy pages + home (2C.2)
+            if not os.path.isfile(ps):
+                continue
+            if slug == "home":
+                # Homepage Sync Safety Hotfix: home is GUARDED (zero-write) and
+                # EXEMPT from static serving -- the live page carries Jinja.
+                self.assertNotIn("ensure_static_serving", _read(LP, slug, "page_sync.py"))
+                continue
+            self.assertIn("ensure_static_serving", _read(LP, slug, "page_sync.py"), slug)
+            n += 1
+        self.assertEqual(n, 13)  # 13 legacy pages (home exempt, guarded)
 
     def test_serving_module_fail_open(self):
         src = _read(os.path.dirname(LP), "legacy_pages", "serving.py")
