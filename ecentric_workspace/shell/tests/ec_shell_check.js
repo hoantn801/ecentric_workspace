@@ -319,6 +319,49 @@ const BOOT2 = JSON.parse(JSON.stringify(BOOT1)); BOOT2.nav[1].label = 'Approval 
     ok(SP(O + '/ec-hr/salary', O, known) === false, 'SECURITY: salary absolute URL also not prefetchable');
   }
 
+  // ---- navigation contexts: resolveContext parity + scoped vs global -------
+  {
+    const env = makeSandbox('/x', false);
+    vm.runInContext(SRC, env.sb);
+    const RC = env.win.ECShell.resolveContext, CI = env.win.ECShell.ctxItems, AI = env.win.ECShell.allItems;
+    const BOOT = {
+      default_context: 'approval_document',
+      context_order: ['approval_document', 'hr'],
+      contexts: {
+        home: { items: [
+          { key: 'core.home', route: '/home', active_patterns: ['/', '/home'] },
+          { key: 'ctx.approval_document', route: '/approvals', active_patterns: ['/approvals'] },
+          { key: 'ctx.hr', route: '/ec-hr/attendance', active_patterns: ['/ec-hr/attendance'] }] },
+        approval_document: { items: [
+          { key: 'core.home', route: '/home', active_patterns: ['/', '/home'] },
+          { key: 'apc.catalog', route: '/approvals', active_patterns: ['/approvals', '/approvals/*'] },
+          { key: 'legacy.create_po', route: '/form-po', active_patterns: ['/form-po'] }] },
+        hr: { items: [
+          { key: 'core.home', route: '/home', active_patterns: ['/', '/home'] },
+          { key: 'hr.attendance', route: '/ec-hr/attendance', active_patterns: ['/ec-hr/attendance'] },
+          { key: 'hr.salary', route: '/ec-hr/salary', active_patterns: ['/ec-hr/salary'], no_prerender: true }] }
+      },
+      all_items: [
+        { key: 'apc.catalog', route: '/approvals' },
+        { key: 'hr.salary', route: '/ec-hr/salary', no_prerender: true },
+        { key: 'hr.attendance', route: '/ec-hr/attendance' }]
+    };
+    ok(RC(BOOT, '/approvals/leave') === 'approval_document', 'ctx: /approvals/* -> approval_document');
+    ok(RC(BOOT, '/form-po') === 'approval_document', 'ctx: /form-po -> approval_document');
+    ok(RC(BOOT, '/ec-hr/salary') === 'hr', 'ctx: /ec-hr/salary -> hr');
+    ok(RC(BOOT, '/') === 'home', 'ctx: / -> home (never silently approval)');
+    ok(RC(BOOT, '/weekly-update') === 'approval_document', 'ctx: unregistered -> default');
+    ok(RC({ nav: [] }, '/x') === null, 'ctx: pre-context payload -> null (legacy render path)');
+    ok(CI(BOOT, 'hr').length === 3 && CI(BOOT, 'hr')[2].no_prerender === true, 'ctxItems returns scoped items');
+    ok(AI(BOOT).some(i => i.route === '/ec-hr/salary'), 'allItems: salary DISCOVERABLE globally');
+    const PN2 = env.win.ECShell.prerenderUrls(CI(BOOT, 'hr'), '/ec-hr/attendance');
+    ok(PN2.indexOf('/ec-hr/salary') === -1, 'salary NEVER in Speculation prerender list');
+    ok(PN2.indexOf('/home') >= 0, 'hr context still prerenders its own safe routes');
+    const known = AI(BOOT).filter(i => !i.no_prerender).map(i => i.route);
+    ok(known.indexOf('/ec-hr/salary') === -1 && known.indexOf('/approvals') >= 0,
+       'salary NEVER in prefetch/eager allow-list; cross-context routes stay warm-able');
+  }
+
   console.log(failures === 0 ? '\nALL CHECKS PASSED' : '\n' + failures + ' FAILURES');
   process.exit(failures ? 1 : 0);
 })();
