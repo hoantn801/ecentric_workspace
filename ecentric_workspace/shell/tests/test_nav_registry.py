@@ -48,9 +48,25 @@ class TestRegistryCompose(unittest.TestCase):
         with self.assertRaises(ValueError):
             nav.validate([bad])
 
+    def test_hr_nav_present_and_salary_no_prerender(self):
+        """HR provider: employee-facing entries + salary marked no_prerender."""
+        items = nav.compose()
+        hr = [it for it in items if it.get("owner") == "hr"]
+        routes = sorted(it["route"] for it in hr)
+        self.assertEqual(routes, ["/ec-hr/attendance", "/ec-hr/salary"])
+        for it in hr:
+            self.assertEqual(it["group"], "Nhân sự")
+            self.assertEqual(it["visible_when"], "internal")
+        sal = next(it for it in hr if it["route"] == "/ec-hr/salary")
+        att = next(it for it in hr if it["route"] == "/ec-hr/attendance")
+        self.assertTrue(sal.get("no_prerender") is True,
+                        "salary route MUST be flagged no_prerender (never warmed)")
+        self.assertNotIn("no_prerender", att,
+                         "attendance uses normal shell nav behavior")
+
     def test_no_business_data_fields(self):
         # registry payload must stay navigation-only
-        allowed = set(nav.REQUIRED_FIELDS) | {"badge_source", "keywords", "children"}
+        allowed = set(nav.REQUIRED_FIELDS) | {"badge_source", "keywords", "children", "no_prerender"}
         for it in nav.compose():
             self.assertTrue(set(it) <= allowed, "unexpected fields: %s" % (set(it) - allowed))
 
@@ -117,7 +133,7 @@ class TestBootApiGating(unittest.TestCase):
             self.assertEqual(
                 set(it),
                 {"key", "label", "route", "icon", "group", "active_patterns",
-                 "keywords", "children"},
+                 "keywords", "no_prerender", "children"},
                 "boot nav must not leak extra fields")
         self.assertEqual(set(out["user"]), {"name", "full_name", "image"})
 

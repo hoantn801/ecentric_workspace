@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.8.0 (global header: registry crumbs + 3-slot header-right)';
+  var VERSION = 'ec-shell v1.8.1 (HR nav + salary no-warm exclusion)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -110,7 +110,9 @@
 
   function knownNavRoutes() {
     if (!S.boot) return [];
-    return flattenNav(S.boot.nav).map(function (it) { return it.route; });
+    return flattenNav(S.boot.nav)
+      .filter(function (it) { return !it.no_prerender; })   // SECURITY: salary never prefetched/eager-prerendered
+      .map(function (it) { return it.route; });
   }
 
   // pure: deterministic Vietnamese-insensitive normalization. Per-char NFD
@@ -387,6 +389,7 @@
     var seen = {}, urls = [];
     flattenNav(bootNav).forEach(function (it) {
       if (it.children && it.children.length) return;      // non-navigable toggle
+      if (it.no_prerender) return;                        // SECURITY: never warm (salary)
       var route = it.route;
       if (!route || route.charAt(0) !== '/') return;
       if (route.indexOf('?') >= 0 || route.indexOf('#') >= 0) return;
