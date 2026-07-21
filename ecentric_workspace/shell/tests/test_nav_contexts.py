@@ -157,7 +157,8 @@ class TestStaticHydratedContextParity(unittest.TestCase):
     def test_hr_boundary_sync_contracts(self):
         sb = _read(APP, "hr", "pages", "shell_boundary.py")
         self.assertIn("System Manager", sb)                      # SM-gated
-        self.assertIn("_strip_zones(ms) != _strip_zones(new)", sb)  # byte proof
+        self.assertIn("_strip_zones(ms_clean) != _strip_zones(new)", sb)  # byte proof
+        self.assertIn("STRAY_LT_RE", sb)  # stray-literal repair (attendance regression)
         self.assertIn('render_mount_inner("/" + route)', sb)     # canonical renderer
         self.assertIn("sync_hr_attendance_page", sb)
         self.assertIn("sync_hr_salary_page", sb)
