@@ -34,6 +34,8 @@ ICONS = {
     "burger": '<path d="M3 6h18M3 12h18M3 18h18"/>',
     "search": '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
     "logout": '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>',
+    "reminder": '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
+    "gear": '<circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/>',
 }
 LOGO_SRC = "/files/eCentric%20logo%20-%20mini.png"
 
@@ -150,16 +152,100 @@ def render_mount_inner(route):
 
 
 def render_tbright_inner():
-    """Static header-right content: reserved Action Center slot + THE single
-    notification bell (NC binds to the marker with or without the shell)."""
-    return ('<span class="ec-shell-actionslot" data-ec-shell-action-slot="1" aria-hidden="true"></span>'
+    """Canonical header-right: exactly THREE global slots (Global Header phase).
+    1. Reminder / Action Center -- inert disabled placeholder carrying the
+       frozen extension marker data-ec-shell-action-slot="1". NO business data
+       model behind it yet -- shell contract only.
+    2. Notification bell -- UNCHANGED frozen NC marker contract
+       (data-ec-notification-bell="1"), the ONLY bell on the page.
+    3. Settings -- prepared inert slot (data-ec-shell-settings-slot="1");
+       no governed settings destination exists, so it is disabled, not fake.
+    Home/Help are deliberately ABSENT from the global header: both already
+    live in the sidebar (brand link -> / ; HƯỚNG DẪN group)."""
+    return ('<button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" '
+            'data-ec-shell-action-slot="1" disabled aria-disabled="true" '
+            'title="Nhắc việc (sắp ra mắt)" aria-label="Nhắc việc (sắp ra mắt)">%s</button>'
             '<a class="ec-shell-iconbtn" href="/app/notification-log" '
             'data-ec-notification-bell="1" aria-label="Thông báo" title="Thông báo">%s</a>'
-            % _svg("bell"))
+            '<button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" '
+            'data-ec-shell-settings-slot="1" disabled aria-disabled="true" '
+            'title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)">%s</button>'
+            % (_svg("reminder"), _svg("bell"), _svg("gear")))
+
+
+def _crumb_target(route):
+    """Resolve route -> (registry item, group label) via the SAME matcher the
+    shell uses. Children resolve to themselves; their crumb group falls back
+    to the parent's group (registry stays the single source of truth)."""
+    items = shell_nav.compose()
+    key = match_active(items, route)
+    parent_group = {}
+    flat = []
+    for it in items:
+        flat.append(it)
+        for ch in it.get("children") or []:
+            flat.append(ch)
+            parent_group[ch["key"]] = it.get("group") or ""
+    it = next((x for x in flat if x["key"] == key), None)
+    if it is None:
+        return None, ""
+    return it, (it.get("group") or parent_group.get(it["key"], ""))
+
+
+def crumbs_inner(route, detail_html=None):
+    """Registry-derived breadcrumb inner: [Group /] Item [/ detail].
+    - Item label/route come ONLY from the canonical registry entry matched by
+      match_active (no second route map, no hardcoded labels).
+    - Item renders as a LINK when a detail suffix follows or when the page is
+      a pattern-matched descendant; as the CURRENT element when it IS the page.
+    - detail_html (optional, page-owned) is carried VERBATIM so live nodes
+      like <strong id="pageTitle"> survive regeneration untouched."""
+    it, group = _crumb_target(route)
+    if it is None:
+        return detail_html or ""
+    h = []
+    if group:
+        h.append('<span class="ec-shell-crumb-group">%s</span>' % _esc(group))
+        h.append('<span class="sep ec-shell-crumb-sep">/</span>')
+    linked = bool(detail_html) or _norm(it["route"]) != _norm(route)
+    if linked:
+        h.append('<a class="ec-shell-crumblink" href="%s">%s</a>'
+                 % (_esc(it["route"]), _esc(it["label"])))
+    else:
+        h.append('<strong class="ec-shell-crumb-current">%s</strong>' % _esc(it["label"]))
+    if detail_html:
+        h.append('<span class="sep ec-shell-crumb-sep">/</span>')
+        h.append(detail_html)
+    return "".join(h)
+
+
+def crumbs_container(route, detail_html=None, extra_cls=""):
+    cls = (extra_cls + " " if extra_cls else "") + "ec-shell-crumbs"
+    return ('<div class="%s" data-ec-shell-crumbs="1">%s</div>'
+            % (cls, crumbs_inner(route, detail_html)))
+
+
+def make_detail(inner_html, node_id=None):
+    """Canonical detail node (page-owned suffix). data-ec-shell-crumb-detail is
+    the contract regeneration preserves verbatim and page JS may update."""
+    idattr = ' id="%s"' % node_id if node_id else ""
+    return ('<strong class="ec-shell-crumb-current ec-shell-crumb-detail" '
+            'data-ec-shell-crumb-detail="1"%s>%s</strong>' % (idattr, inner_html))
+
+
+def render_topbar_inner(route, detail_html=None):
+    """Complete canonical topbar (crumbs + header-right) for pages that have
+    NO page topbar of their own (docs/gbs-flow family). Pages WITH a topbar
+    keep their container and only get canonical inners."""
+    return (crumbs_container(route, detail_html)
+            + '<div class="ec-shell-tbright" data-ec-shell-header-right="1">'
+            + render_tbright_inner() + "</div>")
 
 
 MOUNT_RE = re.compile(r'(<aside class="ec-shell-mount"[^>]*>).*?(</aside>)', re.S)
 TBRIGHT_RE = re.compile(r'(<div class="ec-shell-tbright" data-ec-shell-header-right="1">).*?(</div>)', re.S)
+CRUMBS_RE = re.compile(r'(<div class="[^"]*ec-shell-crumbs[^"]*" data-ec-shell-crumbs="1">)(.*?)(</div>)', re.S)
+DETAIL_RE = re.compile(r'<strong[^>]*data-ec-shell-crumb-detail="1"[^>]*>.*?</strong>', re.S)
 
 
 def page_route_map(repo):
@@ -207,6 +293,11 @@ def regenerate(repo, check=False):
         new = MOUNT_RE.sub(lambda m: m.group(1) + inner + m.group(2), src, count=1)
         if TBRIGHT_RE.search(new):
             new = TBRIGHT_RE.sub(lambda m: m.group(1) + render_tbright_inner() + m.group(2), new, count=1)
+        if CRUMBS_RE.search(new):
+            def _crumbs(m):
+                d = DETAIL_RE.search(m.group(2))
+                return m.group(1) + crumbs_inner(route, d.group(0) if d else None) + m.group(3)
+            new = CRUMBS_RE.sub(_crumbs, new, count=1)
         if new != src:
             if not check:
                 io.open(path, "w", encoding="utf-8", newline="").write(new)
