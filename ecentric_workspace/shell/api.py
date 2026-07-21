@@ -52,6 +52,7 @@ def get_shell_boot():
             "group": it["group"],
             "active_patterns": it["active_patterns"],
             "keywords": it.get("keywords", []),
+            "no_prerender": bool(it.get("no_prerender")),
             "children": [
                 {
                     "key": ch["key"], "label": ch["label"], "route": ch["route"],

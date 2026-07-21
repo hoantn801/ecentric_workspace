@@ -300,6 +300,25 @@ const BOOT2 = JSON.parse(JSON.stringify(BOOT1)); BOOT2.nav[1].label = 'Approval 
     ok(new Set(urls).size === urls.length, 'prerender list deduped');
   }
 
+  // ---- 10. HR nav (v1.8.1): salary no_prerender exclusion ------------------
+  {
+    const PN = v0.win.ECShell.prerenderUrls, SP = v0.win.ECShell.shouldPrefetch;
+    const O = 'https://team.ecentric.vn';
+    const nav = [
+      { key: 'core.home', route: '/home', active_patterns: ['/'] },
+      { key: 'hr.attendance', route: '/ec-hr/attendance', active_patterns: ['/ec-hr/attendance'] },
+      { key: 'hr.salary', route: '/ec-hr/salary', active_patterns: ['/ec-hr/salary'], no_prerender: true },
+    ];
+    const urls = PN(nav, '/home');
+    ok(urls.indexOf('/ec-hr/attendance') >= 0, 'HR: attendance IS prerenderable (normal shell nav)');
+    ok(urls.indexOf('/ec-hr/salary') < 0, 'SECURITY: salary NEVER in prerender allow-list (no_prerender)');
+    // prefetch: knownNavRoutes filters no_prerender, so salary is not in the list passed to shouldPrefetch
+    const known = nav.filter(it => !it.no_prerender).map(it => it.route);
+    ok(SP('/ec-hr/attendance', O, known) === true, 'HR: attendance is prefetchable');
+    ok(SP('/ec-hr/salary', O, known) === false, 'SECURITY: salary is NOT prefetchable (excluded from knownRoutes)');
+    ok(SP(O + '/ec-hr/salary', O, known) === false, 'SECURITY: salary absolute URL also not prefetchable');
+  }
+
   console.log(failures === 0 ? '\nALL CHECKS PASSED' : '\n' + failures + ' FAILURES');
   process.exit(failures ? 1 : 0);
 })();

@@ -30,7 +30,7 @@ REQUIRED_FIELDS = (
 )
 
 #: display order of groups; unknown groups sort after these, alphabetically.
-GROUP_ORDER = ["", "Phê duyệt", "Chứng từ", "Tạo mới", "GBS", "Hướng dẫn"]
+GROUP_ORDER = ["", "Phê duyệt", "Chứng từ", "Tạo mới", "GBS", "Hướng dẫn", "Nhân sự"]
 
 CORE_ITEMS = [
     {
@@ -52,10 +52,12 @@ def _providers():
     """Module-owned providers, registered centrally."""
     from ecentric_workspace.approval_center import nav as approval_nav
     from ecentric_workspace.legacy_pages import nav as legacy_nav
+    from ecentric_workspace.hr import nav as hr_nav
     return [
         ("core", lambda: list(CORE_ITEMS)),
         ("approval_center", approval_nav.items),
         ("legacy_pages", legacy_nav.items),
+        ("hr", hr_nav.items),
     ]
 
 
