@@ -168,7 +168,7 @@ class TestMojibakeGuard(unittest.TestCase):
 
     def test_representative_vietnamese_intact(self):
         src = _read(LP, "approval_page", "main_section.html")
-        for w in ("Trang chủ", "Đang tải chi tiết", "Trợ giúp", "Cài đặt",
+        for w in ("Trang chủ", "Đang tải chi tiết", "Nhắc việc", "Cài đặt",
                   "Điều hướng eCentric"):
             self.assertIn(w, src, w)
 
@@ -196,8 +196,10 @@ class TestShellMigration(unittest.TestCase):
         for marker in ('id="pageTitle"', 'id="tkId"', 'id="tkStatus"',
                        'class="back-btn" href="/all-ticket"'):
             self.assertIn(marker, src, marker)
-        # Help/docs + Settings buttons preserved (locked scope)
-        self.assertEqual(src.count('href="https://docs.ecentric.vn"'), 1)
+        # Global Header phase: redundant Home/Help/legacy-Settings icons are
+        # REMOVED from the global header (Home + Help live in the sidebar).
+        self.assertEqual(src.count('href="https://docs.ecentric.vn"'), 0)
+        self.assertEqual(src.count('class="icon-btn"'), 0)
 
 
     def test_all_ticket_shell_zone(self):

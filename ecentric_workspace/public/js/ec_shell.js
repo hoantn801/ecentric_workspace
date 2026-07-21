@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.7.0 (static fallback hydration + eager intent prerender)';
+  var VERSION = 'ec-shell v1.8.0 (global header: registry crumbs + 3-slot header-right)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -244,7 +244,9 @@
     bell:  '<path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
     burger:'<path d="M3 6h18M3 12h18M3 18h18"/>',
     search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
-    logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>'
+    logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>',
+    reminder:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
+    gear:'<circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/>'
   };
   function svg(name) {
     return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || ICONS.doc) + '</svg>';
@@ -728,11 +730,21 @@
     // Right side of the page header hosts [reserved Action Center slot][bell].
     var slot = document.querySelector('[data-ec-shell-header-right="1"]');
     if (!slot) return false;
+    // Canonical 3-slot global header-right (identical markup to the static
+    // fallback renderer -- shell/fallback.py render_tbright_inner):
+    //   [Reminder/Action Center slot][Notification bell][Settings slot].
+    // Reminder + Settings are inert disabled placeholders (contract nodes
+    // data-ec-shell-action-slot / data-ec-shell-settings-slot); no business
+    // data or fake behavior behind them yet. Home/Help never render here --
+    // both live in the sidebar.
     slot.innerHTML =
-      // Reserved for the future Action Center entry (Phase 1C+). Kept empty
-      // and non-interactive on purpose -- do NOT put content here yet.
-      '<span class="ec-shell-actionslot" data-ec-shell-action-slot="1" aria-hidden="true"></span>' +
-      bellHtml();
+      '<button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" ' +
+        'data-ec-shell-action-slot="1" disabled aria-disabled="true" ' +
+        'title="Nhắc việc (sắp ra mắt)" aria-label="Nhắc việc (sắp ra mắt)">' + svg('reminder') + '</button>' +
+      bellHtml() +
+      '<button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" ' +
+        'data-ec-shell-settings-slot="1" disabled aria-disabled="true" ' +
+        'title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)">' + svg('gear') + '</button>';
     return true;
   }
 

@@ -131,7 +131,6 @@ class TestHeaderPolish(unittest.TestCase):
     CRUMB_PAGES = {
         "leave.main_section.html": "Leave",
         "hr_activity.main_section.html": "HR Activity",
-        "approvals_dashboard.main_section.html": "Bảng điều hành vận hành",
         "lateral_move.main_section.html": "Employee Lateral Move",
         "promotion.main_section.html": "Promotion Request",
         "employee_referral.main_section.html": "Employee Referral",
@@ -170,17 +169,27 @@ class TestHeaderPolish(unittest.TestCase):
                     _read(FRONTEND, fname).count("data-ec-shell-header-right"), 0, fname)
 
     def test_breadcrumb_parent_links_to_approvals(self):
+        # Global Header phase: form pages = [Phê duyệt / Approval Center(link)
+        # / <detail>]; the detail is the page-owned current element.
         for fname, current in self.CRUMB_PAGES.items():
             src = _read(FRONTEND, fname)
             self.assertIn('<a class="ec-shell-crumblink" href="/approvals">Approval Center</a>',
                           src, fname)
-            # current item is plain <strong>, never a self-link
-            self.assertIn("<strong>%s</strong>" % current, src, fname)
+            self.assertIn('data-ec-shell-crumb-detail="1">%s</strong>' % current, src, fname)
             self.assertNotIn('href="/approvals/%s"><strong>' % fname.split(".")[0], src)
+
+    def test_dashboard_breadcrumb_is_registry_current(self):
+        # /approvals/dashboard is its OWN registry entry => current, no
+        # self-link, label comes from the registry ("Dashboard")
+        src = _read(FRONTEND, "approvals_dashboard.main_section.html")
+        crumbs = src[src.index('data-ec-shell-crumbs="1"'):]
+        crumbs = crumbs[:crumbs.index("</div>")]
+        self.assertIn('<strong class="ec-shell-crumb-current">Dashboard</strong>', crumbs)
+        self.assertNotIn("ec-shell-crumblink", crumbs)
 
     def test_hub_breadcrumb_is_current_not_self_linked(self):
         src = _read(FRONTEND, "approvals.main_section.html")
-        self.assertIn('<div class="crumb"><strong>Approval Center</strong></div>', src)
+        self.assertIn('<strong class="ec-shell-crumb-current">Approval Center</strong>', src)
         self.assertEqual(src.count("ec-shell-crumblink"), 0,
                          "hub is the breadcrumb root; no parent link")
 
@@ -221,11 +230,20 @@ class TestHeaderPolish(unittest.TestCase):
         self.assertIn("a.ec-shell-crumblink:focus-visible", css)
 
     def test_action_slot_reserved_not_implemented(self):
+        # Global Header phase: the Action Center slot is a VISIBLE disabled
+        # placeholder (contract node only -- no business behavior), and the
+        # Settings slot follows the same rule. Markup parity with
+        # shell/fallback.py render_tbright_inner is enforced separately.
         js = _read(APP, "public", "js", "ec_shell.js")
         self.assertIn('data-ec-shell-action-slot="1"', js)
-        self.assertIn('aria-hidden="true"', js)
+        self.assertIn('data-ec-shell-settings-slot="1"', js)
+        for frag in ('disabled aria-disabled="true"',
+                     'Nhắc việc (sắp ra mắt)', 'Cài đặt (sắp ra mắt)'):
+            self.assertIn(frag, js, frag)
+        # no fake behavior: the placeholders never get click handlers
+        self.assertNotIn("settings-slot').addEventListener", js)
         css = _read(APP, "public", "css", "ec_shell.bundle.css")
-        self.assertIn(".ec-shell-actionslot{ display:none; }", css)
+        self.assertIn(".ec-shell-slot-disabled{", css)
 
 
 class TestSmoothnessCore(unittest.TestCase):
