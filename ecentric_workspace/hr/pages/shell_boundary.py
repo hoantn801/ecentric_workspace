@@ -32,6 +32,14 @@ TBRIGHT_RE = fb.TBRIGHT_RE
 TOPBAR_RE = re.compile(r'<div class="ec-shell-topbar" data-ec-shell-topbar="1">.*?'
                        r'data-ec-shell-header-right="1">.*?</div></div>', re.S)
 
+#: stray-literal repair (regression 2026-07-21, /ec-hr/attendance): the live
+#: page carries ONE raw "<" text node between the dash wrapper open and the
+#: shell mount -- a leftover of the HR workstream's original aside injection.
+#: A bare "<" (or "&lt;") IMMEDIATELY before the canonical mount can never be
+#: legitimate content, so the transform removes it (transform-level fix, NOT
+#: CSS hiding). Strictly anchored: only matches directly before the mount.
+STRAY_LT_RE = re.compile(r'(?:<|&lt;)(?=\s*<aside class="ec-shell-mount")')
+
 
 def _strip_zones(html):
     """Remove both shell zones entirely (order matters: the canonical topbar
@@ -43,26 +51,31 @@ def _strip_zones(html):
     return html
 
 
-def upgrade(route, required_scripts):
-    """Idempotent context-aware shell-boundary upgrade for one HR page."""
+def transform(ms, route, required_scripts):
+    """PURE context-aware shell-boundary transform for one HR page.
+
+    Returns (new_html, info). Raises ValueError on any guard failure so the
+    frappe-facing wrapper can frappe.throw. Pure so the regression tests can
+    exercise the exact production logic without a bench."""
     ctx = shell_nav.resolve_context("/" + route)
     if ctx != "hr":
-        frappe.throw(_("Route %s does not resolve to the hr context") % route)
-    name = frappe.db.get_value("Web Page", {"route": route}, "name")
-    if not name:
-        return {"action": "skipped", "reason": "page missing", "route": route}
-    ms = frappe.db.get_value("Web Page", name, "main_section") or ""
+        raise ValueError("Route %s does not resolve to the hr context" % route)
 
     for guard, expect in (('data-ec-shell="1"', 1),
                           ('data-ec-notification-bell="1"', 1)):
         if ms.count(guard) != expect:
-            frappe.throw(_("Shell guard failed on %s: %s x%s") % (route, guard, ms.count(guard)))
+            raise ValueError("Shell guard failed on %s: %s x%s" % (route, guard, ms.count(guard)))
     for sid in required_scripts:
         if ms.count('<script id="%s"' % sid) != 1:
-            frappe.throw(_("Business script missing on %s: %s") % (route, sid))
+            raise ValueError("Business script missing on %s: %s" % (route, sid))
+
+    # stray-literal repair BEFORE the zone work; the byte proof below then
+    # runs against the repaired baseline (the stray is the ONLY sanctioned
+    # out-of-zone change, and its removal count is reported).
+    ms_clean, stray_removed = STRAY_LT_RE.subn("", ms)
 
     new = MOUNT_RE.sub(lambda m: m.group(1) + fb.render_mount_inner("/" + route) + m.group(2),
-                       ms, count=1)
+                       ms_clean, count=1)
     if TOPBAR_RE.search(new):
         new = TOPBAR_RE.sub(
             '<div class="ec-shell-topbar" data-ec-shell-topbar="1">'
@@ -72,21 +85,40 @@ def upgrade(route, required_scripts):
             '<div class="ec-shell-topbar" data-ec-shell-topbar="1">'
             + fb.render_topbar_inner("/" + route) + "</div>", new, count=1)
 
-    if _strip_zones(ms) != _strip_zones(new):
-        frappe.throw(_("Boundary proof failed on %s: business bytes would change") % route)
+    if _strip_zones(ms_clean) != _strip_zones(new):
+        raise ValueError("Boundary proof failed on %s: business bytes would change" % route)
     for sid in required_scripts:
         if new.count('<script id="%s"' % sid) != 1:
-            frappe.throw(_("Business script lost on %s: %s") % (route, sid))
+            raise ValueError("Business script lost on %s: %s" % (route, sid))
     if new.count('data-ec-notification-bell="1"') != 1:
-        frappe.throw(_("Bell contract violated on %s") % route)
+        raise ValueError("Bell contract violated on %s" % route)
+    if STRAY_LT_RE.search(new):
+        raise ValueError("Stray literal remains before shell mount on %s" % route)
+
+    return new, {"context": ctx, "stray_removed": stray_removed}
+
+
+def upgrade(route, required_scripts):
+    """Idempotent context-aware shell-boundary upgrade for one HR page."""
+    name = frappe.db.get_value("Web Page", {"route": route}, "name")
+    if not name:
+        return {"action": "skipped", "reason": "page missing", "route": route}
+    ms = frappe.db.get_value("Web Page", name, "main_section") or ""
+
+    try:
+        new, info = transform(ms, route, required_scripts)
+    except ValueError as e:
+        frappe.throw(_(str(e)))
 
     if new == ms:
-        return {"action": "unchanged", "route": route, "name": name, "context": ctx}
+        return {"action": "unchanged", "route": route, "name": name,
+                "context": info["context"], "stray_removed": 0}
     doc = frappe.get_doc("Web Page", name)
     doc.main_section = new
     doc.main_section_html = new
     doc.save(ignore_permissions=True)
-    return {"action": "updated", "route": route, "name": name, "context": ctx,
+    return {"action": "updated", "route": route, "name": name,
+            "context": info["context"], "stray_removed": info["stray_removed"],
             "len_before": len(ms), "len_after": len(new)}
 
 
