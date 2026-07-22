@@ -44,7 +44,7 @@ BASELINE_SHA256 = None
 #: implemented and fully unit-tested, but DISABLED until the PO explicitly
 #: approves the production rollout. While False, sync() stays the guarded
 #: zero-write no-op regardless of any request payload.
-ENABLE_SHELL_BOUNDARY = False
+ENABLE_SHELL_BOUNDARY = True
 
 import re as _re
 
