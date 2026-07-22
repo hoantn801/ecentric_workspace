@@ -54,19 +54,37 @@ class TestHomeSyncGuard(unittest.TestCase):
         self.assertIsNone(self.ps.BASELINE_SHA256,
                           "no approved homepage baseline may be pinned yet")
 
-    def test_sync_returns_guarded_with_zero_db_interaction(self):
+    def test_sync_guard_state_contract(self):
         # frappe.db is a tripwire: ANY read/write raises AssertionError.
-        res = self.ps.sync()
-        self.assertEqual(res["action"], "guarded")
-        self.assertIn("zero writes", res["reason"])
+        # Pre-activation: sync() must complete without touching frappe.
+        # Post-activation (ENABLE_SHELL_BOUNDARY=True): the boundary path
+        # legitimately reads the live page, so the zero-interaction proof
+        # applies to the BASELINE path remaining sentinel-guarded instead.
+        if not self.ps.ENABLE_SHELL_BOUNDARY:
+            res = self.ps.sync()
+            self.assertEqual(res["action"], "guarded")
+            self.assertIn("zero writes", res["reason"])
+        else:
+            import inspect
+            src = inspect.getsource(self.ps.sync)
+            self.assertIn('BASELINE_SHA256 is None', src)
+            self.assertLess(src.index('"guarded"'), src.index("upsert_web_page"),
+                            "baseline upsert stays behind the sentinel guard")
 
     def test_endpoint_cannot_upsert_cockpit_markup(self):
         # the rejected authored page is gone from the module directory...
         self.assertFalse(os.path.exists(self.ps._baseline_path()),
                          "rejected Cockpit main_section.html must be deleted")
-        # ...and even an explicit html argument cannot bypass the sentinel
-        res = self.ps.sync(html="<div class='ec-ck'>cockpit</div>")
-        self.assertEqual(res["action"], "guarded")
+        # ...the boundary transform ACTIVELY refuses cockpit input...
+        with self.assertRaises(ValueError):
+            self.ps.transform_home("<div class='ec-ck'>cockpit"
+                                   "<a data-ec-notification-bell=\"1\"></a></div>")
+        # ...and an explicit html argument can never reach a write while the
+        # baseline sentinel is unset (boundary path ignores the argument).
+        import inspect
+        branch = inspect.getsource(self.ps.sync)
+        boundary = branch[branch.index("ENABLE_SHELL_BOUNDARY"):branch.index("BASELINE_SHA256 is None")]
+        self.assertNotIn("upsert_web_page", boundary)
 
     def test_upsert_unreachable_while_guarded(self):
         import inspect

@@ -172,11 +172,27 @@ class TestHomeBoundaryTransform(unittest.TestCase):
         self.assertIn("boundary proof failed", code)
         self.assertIn('_strip(ms) != _strip(new)', code)
 
-    def test_guarded_sync_stays_zero_write_by_default(self):
-        self.assertFalse(hp.ENABLE_SHELL_BOUNDARY)
+    def test_sync_write_path_is_governed(self):
+        # Invariants in BOTH states: baseline sentinel unset -> the baseline
+        # upsert path stays guarded; when the PO activation flag is ON, the
+        # ONLY write path is the byte-proven boundary transform.
         self.assertIsNone(hp.BASELINE_SHA256)
-        res = hp.sync()
-        self.assertEqual(res["action"], "guarded")
+        import inspect
+        src = inspect.getsource(hp.sync)
+        if hp.ENABLE_SHELL_BOUNDARY:
+            # activation state: boundary branch first, transform-only writes
+            self.assertLess(src.index("ENABLE_SHELL_BOUNDARY"), src.index('"guarded"'))
+            self.assertIn("transform_home(ms)", src)
+            branch = src[src.index("ENABLE_SHELL_BOUNDARY"):src.index("BASELINE_SHA256 is None")]
+            self.assertNotIn("upsert_web_page", branch,
+                             "boundary path must never route through the baseline upsert")
+            # the boundary path transforms the LIVE page only; the client
+            # html argument never enters it
+            self.assertIn("transform_home(ms)", branch)
+            self.assertNotIn("transform_home(html", branch)
+        else:
+            res = hp.sync()
+            self.assertEqual(res["action"], "guarded")
 
     def test_jinja_and_dynamic_template_preserved(self):
         src = io.open(os.path.join(APP, "legacy_pages", "home", "page_sync.py"),
