@@ -93,6 +93,33 @@ class TestThreeTierModel(unittest.TestCase):
         sal = next(i for i in nav.compose("home") if i["route"] == "/ec-hr/salary")
         self.assertTrue(route_policy.no_warm(sal["route"]))
 
+    def test_approval_nav_badge_via_governed_badge_source(self):
+        """Preserve-UX: the legacy approvals_count Jinja badge survives as a
+        governed badge_source on the portal item -- same semantics: user-
+        scoped count from the EXISTING shared action provider, zero hides."""
+        appr = next(i for i in nav.compose("home") if i["key"] == "home.portal.approvals")
+        self.assertEqual(appr.get("badge_source"), "action_center.approvals")
+        # no other portal item grows a badge
+        others = [i for i in nav.compose("home") if i["key"] != "home.portal.approvals"]
+        self.assertFalse(any(i.get("badge_source") for i in others))
+        js = io.open(os.path.join(APP, "public", "js", "ec_shell.js"), encoding="utf-8").read()
+        # registered-key resolver, session-scoped provider, zero-hides contract
+        self.assertIn("'action_center.approvals': {", js)
+        self.assertIn("ecentric_workspace.action_center.api.get_action_items", js)
+        self.assertIn("=== 'approval'", js)
+        self.assertIn("if (n > 0)", js, "zero must keep the badge hidden")
+        self.assertIn('data-ec-shell-badge="', js)
+        self.assertIn("never a raw URL from the payload", js)
+        css = io.open(os.path.join(APP, "public", "css", "ec_shell.bundle.css"), encoding="utf-8").read()
+        self.assertIn(".ec-shell-badge{", css)
+        # boot serialization carries the field
+        api = io.open(os.path.join(APP, "shell", "api.py"), encoding="utf-8").read()
+        self.assertIn('"badge_source": it.get("badge_source") or ""', api)
+        # KPI card / business content untouched by this change: transform
+        # keeps proving byte-preservation (badge lives in shell zone only)
+        code = io.open(os.path.join(APP, "legacy_pages", "home", "page_sync.py"), encoding="utf-8").read()
+        self.assertIn("boundary proof failed", code)
+
     def test_module_contexts_unchanged(self):
         self.assertFalse(any(i["owner"] == "home_portal"
                              for i in nav.compose("approval_document")))

@@ -74,7 +74,13 @@ HOME_PORTAL_ITEMS = [
      "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
     {"key": "home.portal.approvals", "label": "Phê duyệt", "route": "/approvals", "icon": "check",
      "group": "Workspace", "order": 30, "active_patterns": ["/approvals"],
-     "visible_when": "internal", "owner": "home_portal", "alias": True},
+     "visible_when": "internal", "owner": "home_portal", "alias": True,
+     # Preserve-UX: the legacy sidebar showed a pending-approval Jinja badge
+     # ({% if approvals_count %}) inside the replaced zone. Same UX via the
+     # governed badge_source contract: the EXISTING session-scoped shared
+     # action provider; the client counts its approval-source items (no
+     # duplicate count system, zero hides the badge as before).
+     "badge_source": "action_center.approvals"},
     {"key": "home.portal.pm", "label": "Công việc", "route": "/pm", "icon": "doc",
      "group": "Workspace", "order": 40, "active_patterns": ["/pm"],
      "visible_when": "internal", "owner": "home_portal",

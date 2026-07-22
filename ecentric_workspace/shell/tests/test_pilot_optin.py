@@ -317,6 +317,11 @@ class TestNavSearch(unittest.TestCase):
         self.assertEqual(eps, {
             "/api/method/ecentric_workspace.shell.api.get_shell_boot",
             "/api/method/ecentric_workspace.approval_center.api.catalog.list_catalog",
+            # DELIBERATE (Preserve-UX badge): the shared session-scoped action
+            # provider feeds the portal approval badge (badge_source registry
+            # key, never a raw URL from the payload). No other business
+            # endpoint may be added here.
+            "/api/method/ecentric_workspace.action_center.api.get_action_items",
             "/api/method/logout",
         }, "no business-record search endpoints allowed")
         self.assertIn("c.route; })", js)                       # route-less cards dropped
