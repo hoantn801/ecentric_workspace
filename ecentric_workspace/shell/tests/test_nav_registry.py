@@ -135,7 +135,7 @@ class TestBootApiGating(unittest.TestCase):
             self.assertEqual(
                 set(it),
                 {"key", "label", "route", "icon", "group", "active_patterns",
-                 "keywords", "no_prerender", "children"},
+                 "keywords", "no_prerender", "soon", "children"},
                 "boot nav must not leak extra fields")
         self.assertEqual(set(out["user"]), {"name", "full_name", "image"})
 

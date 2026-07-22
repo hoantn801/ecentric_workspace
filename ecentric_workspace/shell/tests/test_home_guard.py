@@ -94,9 +94,14 @@ class TestCockpitRetired(unittest.TestCase):
             if fname.endswith((".html",)):
                 self.fail("no authored homepage HTML may exist while guarded: " + fname)
         ps = open(os.path.join(home, "page_sync.py"), encoding="utf-8").read()
-        for marker in ("ec-ck", "ec-cockpit-js", "data-ec-shell-quickaccess",
-                       "_with_live_chatbot"):
+        # cockpit markup may only appear inside the REFUSAL guard strings; no
+        # authored cockpit markup (class definitions / injected scripts) may
+        # exist in the sync path.
+        for marker in ('class="ec-ck', "ec-ck-grid", "ck-attn",
+                       "data-ec-shell-quickaccess", "_with_live_chatbot"):
             self.assertNotIn(marker, ps, marker)
+        self.assertIn("rejected Cockpit markup detected", ps,
+                      "transform must actively REFUSE cockpit input")
 
     def test_action_provider_backend_intact(self):
         api = open(os.path.join(APP, "action_center", "api.py"), encoding="utf-8").read()

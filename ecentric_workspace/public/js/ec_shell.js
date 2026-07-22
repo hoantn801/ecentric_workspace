@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.9.0 (navigation contexts: scoped sidebar, global discovery)';
+  var VERSION = 'ec-shell v1.10.0 (home portal context: visibility vs discoverability)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -299,7 +299,8 @@
 
   function itemHtml(it, activeKey, extraCls) {
     var act = it.key === activeKey ? ' ec-shell-active' : '';
-    return '<a class="ec-shell-item' + (extraCls || '') + act + '" href="' + esc(it.route) + '"' +
+    var soon = it.soon ? ' ec-shell-item-soon' : '';   // coming-soon: visible, muted
+    return '<a class="ec-shell-item' + (extraCls || '') + soon + act + '" href="' + esc(it.route) + '"' +
            (act ? ' aria-current="page"' : '') + '>' + svg(it.icon) +
            '<span>' + esc(it.label) + '</span></a>';
   }

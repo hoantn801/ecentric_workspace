@@ -52,17 +52,24 @@ class TestRouteToContext(unittest.TestCase):
         self.assertEqual([i["label"] for i in hr if i["owner"] == "hr"],
                          ["Chấm công", "Phiếu lương"])
 
-    def test_home_launcher_from_context_metadata(self):
+    def test_home_portal_preserves_restored_ia(self):
+        # PO-locked: portal context == the restored Homepage 4-group IA
         home = nav.compose("home")
-        launcher = [i for i in home if i["group"] == nav.LAUNCHER_GROUP]
-        self.assertEqual([i["label"] for i in launcher],
-                         ["Phê duyệt & Chứng từ", "Nhân sự"])
-        for i in launcher:
-            self.assertEqual(i["owner"], "shell.context")
-            name = i["key"].split(".", 1)[1]
-            self.assertEqual(i["route"], nav.CONTEXTS[name]["entry"]["route"],
-                             "launcher entry must come from CONTEXTS metadata")
-        self.assertIn("core.home", [i["key"] for i in home])
+        groups = []
+        for i in home:
+            if i["group"] not in groups:
+                groups.append(i["group"])
+        self.assertEqual(groups, ["Workspace", "Nhân sự", "Báo cáo & Phân tích", "Tài nguyên"])
+        self.assertEqual(len(home), 16)
+        labels = {i["label"]: i["route"] for i in home}
+        # approved route migrations
+        self.assertEqual(labels["Phê duyệt"], "/approvals")
+        self.assertEqual(labels["Chấm công"], "/ec-hr/attendance")
+        self.assertEqual(labels["Phiếu lương"], "/ec-hr/salary")
+        self.assertEqual(labels["Nghỉ phép"], "/approvals/leave")
+        # rejected launcher stays gone
+        self.assertFalse(any(i["group"] == "Phân hệ" for i in home))
+        self.assertFalse(hasattr(nav, "_launcher_items"))
 
     def test_compose_all_spans_contexts(self):
         allr = {i["route"] for i in nav.compose_all()}
