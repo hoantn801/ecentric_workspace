@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.9.0 (navigation contexts: scoped sidebar, global discovery)';
+  var VERSION = 'ec-shell v1.10.1 (portal approval badge via governed badge_source)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -299,9 +299,51 @@
 
   function itemHtml(it, activeKey, extraCls) {
     var act = it.key === activeKey ? ' ec-shell-active' : '';
-    return '<a class="ec-shell-item' + (extraCls || '') + act + '" href="' + esc(it.route) + '"' +
+    var soon = it.soon ? ' ec-shell-item-soon' : '';   // coming-soon: visible, muted
+    // badge_source: governed count slot, filled by bindBadges() after boot;
+    // hidden until a POSITIVE count arrives (zero keeps it hidden, as the
+    // legacy Jinja badge did).
+    var badge = it.badge_source
+      ? '<span class="ec-shell-badge" data-ec-shell-badge="' + esc(it.badge_source) + '" hidden></span>'
+      : '';
+    return '<a class="ec-shell-item' + (extraCls || '') + soon + act + '" href="' + esc(it.route) + '"' +
            (act ? ' aria-current="page"' : '') + '>' + svg(it.icon) +
-           '<span>' + esc(it.label) + '</span></a>';
+           '<span>' + esc(it.label) + '</span>' + badge + '</a>';
+  }
+
+  // governed badge resolvers -- ONLY session-scoped shared providers; a
+  // badge_source is a REGISTERED KEY here, never a raw URL from the payload.
+  var BADGE_SOURCES = {
+    'action_center.approvals': {
+      url: '/api/method/ecentric_workspace.action_center.api.get_action_items',
+      count: function (msg) {
+        var items = (msg && msg.items) || [];
+        return items.filter(function (x) {
+          return (x.source_type || x.source_key) === 'approval';
+        }).length;
+      }
+    }
+  };
+  var badgeCache = {};   // per-pageview promise cache (one fetch per source)
+
+  function bindBadges() {
+    var nodes = document.querySelectorAll('[data-ec-shell-badge]');
+    if (!nodes.length) return;
+    Array.prototype.forEach.call(nodes, function (el) {
+      var key = el.getAttribute('data-ec-shell-badge');
+      var src = BADGE_SOURCES[key];
+      if (!src) return;                                  // unknown key: stay hidden
+      if (!badgeCache[key]) {
+        badgeCache[key] = fetch(src.url, {
+          credentials: 'same-origin', headers: { Accept: 'application/json' }
+        }).then(function (r) { return r.json(); })
+          .then(function (j) { return src.count(j && j.message); })
+          .catch(function () { return 0; });
+      }
+      badgeCache[key].then(function (n) {
+        if (n > 0) { el.textContent = n > 99 ? '99+' : String(n); el.hidden = false; }
+      });
+    });
   }
 
   function navHtml(nav, activeKey) {
@@ -807,6 +849,7 @@
     var bellInHeader = renderHeaderRight();          // exactly ONE bell per page
     S.mount.innerHTML = shellHtml(S.boot, S.activeKey, { bell: !bellInHeader });
     bindLogoFallback();
+    try { bindBadges(); } catch (e) { warn(e); }   // badges are cosmetic; never block
   }
 
   function reinit() {  // idempotent: safe to call repeatedly

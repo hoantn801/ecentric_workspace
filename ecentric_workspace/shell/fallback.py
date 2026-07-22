@@ -86,7 +86,7 @@ def _item_html(it, active_key, extra_cls=""):
     act = " ec-shell-active" if it["key"] == active_key else ""
     cur = ' aria-current="page"' if act else ""
     return ('<a class="ec-shell-item%s%s" href="%s"%s>%s<span>%s</span></a>'
-            % (extra_cls, act, _esc(it["route"]), cur, _svg(it["icon"]), _esc(it["label"])))
+            % (extra_cls + (" ec-shell-item-soon" if it.get("soon") else ""), act, _esc(it["route"]), cur, _svg(it["icon"]), _esc(it["label"])))
 
 
 def render_nav(items, active_key):

@@ -48,6 +48,84 @@ CORE_ITEMS = [
 ]
 
 
+#: Homepage PORTAL navigation (3-tier model, PO-locked 2026-07-21):
+#: preserves the restored Homepage 4-group IA. Per-item metadata separates
+#: VISIBILITY (portal sidebar shows everything, incl. coming-soon) from
+#: DISCOVERABILITY (compose_all/search/prefetch enumerate only governed
+#: live routes):
+#:   alias: True        -> route is canonically owned by ANOTHER context
+#:                         item (portal shows a navigation alias only);
+#:                         excluded from compose_all().
+#:   discoverable: False-> coming-soon: visible in the portal, NEVER in
+#:                         compose_all()/search; the "?" in the route also
+#:                         keeps it out of every warm path by the existing
+#:                         no-query rule.
+#:   soon: True         -> renderers add ec-shell-item-soon styling.
+#: Approved route migrations: Phê duyệt -> /approvals, Chấm công ->
+#: /ec-hr/attendance, Phiếu lương -> /ec-hr/salary (no-warm holds via
+#: route_policy regardless of this link), Nghỉ phép -> /approvals/leave.
+HOME_PORTAL_ITEMS = [
+    {"key": "home.portal.home", "label": "Trang chủ", "route": "/", "icon": "home",
+     "group": "Workspace", "order": 10, "active_patterns": ["/", "/home"],
+     "visible_when": "internal", "owner": "home_portal", "alias": True,
+     "keywords": ["trang chu", "home"]},
+    {"key": "home.portal.overview", "label": "Tổng quan", "route": "/coming-soon?tool=tong-quan",
+     "icon": "chart", "group": "Workspace", "order": 20, "active_patterns": ["/coming-soon?tool=tong-quan"],
+     "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
+    {"key": "home.portal.approvals", "label": "Phê duyệt", "route": "/approvals", "icon": "check",
+     "group": "Workspace", "order": 30, "active_patterns": ["/approvals"],
+     "visible_when": "internal", "owner": "home_portal", "alias": True,
+     # Preserve-UX: the legacy sidebar showed a pending-approval Jinja badge
+     # ({% if approvals_count %}) inside the replaced zone. Same UX via the
+     # governed badge_source contract: the EXISTING session-scoped shared
+     # action provider; the client counts its approval-source items (no
+     # duplicate count system, zero hides the badge as before).
+     "badge_source": "action_center.approvals"},
+    {"key": "home.portal.pm", "label": "Công việc", "route": "/pm", "icon": "doc",
+     "group": "Workspace", "order": 40, "active_patterns": ["/pm"],
+     "visible_when": "internal", "owner": "home_portal",
+     "keywords": ["cong viec", "task", "project", "pm"]},
+    {"key": "home.portal.hall", "label": "eCentric Hall", "route": "/hall", "icon": "home",
+     "group": "Workspace", "order": 50, "active_patterns": ["/hall"],
+     "visible_when": "internal", "owner": "home_portal", "keywords": ["hall"]},
+    {"key": "home.portal.attendance", "label": "Chấm công", "route": "/ec-hr/attendance",
+     "icon": "check", "group": "Nhân sự", "order": 10, "active_patterns": ["/ec-hr/attendance"],
+     "visible_when": "internal", "owner": "home_portal", "alias": True},
+    {"key": "home.portal.leave", "label": "Nghỉ phép", "route": "/approvals/leave",
+     "icon": "doc", "group": "Nhân sự", "order": 20, "active_patterns": ["/approvals/leave"],
+     "visible_when": "internal", "owner": "home_portal",
+     "keywords": ["nghi phep", "leave", "xin nghi"]},
+    {"key": "home.portal.salary", "label": "Phiếu lương", "route": "/ec-hr/salary",
+     "icon": "doc", "group": "Nhân sự", "order": 30, "active_patterns": ["/ec-hr/salary"],
+     "visible_when": "internal", "owner": "home_portal", "alias": True},
+    {"key": "home.portal.kpi", "label": "Mục tiêu KPI", "route": "/coming-soon?tool=kpi",
+     "icon": "chart", "group": "Nhân sự", "order": 40, "active_patterns": ["/coming-soon?tool=kpi"],
+     "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
+    {"key": "home.portal.weekly", "label": "Báo cáo tuần", "route": "/weekly-update",
+     "icon": "chart", "group": "Báo cáo & Phân tích", "order": 10, "active_patterns": ["/weekly-update"],
+     "visible_when": "internal", "owner": "home_portal",
+     "keywords": ["bao cao tuan", "weekly", "wtu"]},
+    {"key": "home.portal.pulse", "label": "Team Pulse", "route": "/team-pulse",
+     "icon": "chart", "group": "Báo cáo & Phân tích", "order": 20, "active_patterns": ["/team-pulse"],
+     "visible_when": "internal", "owner": "home_portal", "keywords": ["team pulse"]},
+    {"key": "home.portal.alerts", "label": "Alert Center", "route": "/alerts",
+     "icon": "bell", "group": "Báo cáo & Phân tích", "order": 30, "active_patterns": ["/alerts"],
+     "visible_when": "internal", "owner": "home_portal", "keywords": ["alert", "canh bao"]},
+    {"key": "home.portal.intranet", "label": "Intranet", "route": "/coming-soon?tool=intranet",
+     "icon": "doc", "group": "Tài nguyên", "order": 10, "active_patterns": ["/coming-soon?tool=intranet"],
+     "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
+    {"key": "home.portal.training", "label": "Đào tạo", "route": "/coming-soon?tool=dao-tao",
+     "icon": "doc", "group": "Tài nguyên", "order": 20, "active_patterns": ["/coming-soon?tool=dao-tao"],
+     "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
+    {"key": "home.portal.hiring", "label": "Tuyển dụng", "route": "/coming-soon?tool=tuyen-dung",
+     "icon": "doc", "group": "Tài nguyên", "order": 30, "active_patterns": ["/coming-soon?tool=tuyen-dung"],
+     "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
+    {"key": "home.portal.feedback", "label": "Góp ý BGD", "route": "/coming-soon?tool=gop-y",
+     "icon": "doc", "group": "Tài nguyên", "order": 40, "active_patterns": ["/coming-soon?tool=gop-y"],
+     "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
+]
+
+
 def _providers():
     """Module-owned providers, registered centrally."""
     from ecentric_workspace.approval_center import nav as approval_nav
@@ -58,6 +136,7 @@ def _providers():
         ("approval_center", approval_nav.items),
         ("legacy_pages", legacy_nav.items),
         ("hr", hr_nav.items),
+        ("home_portal", lambda: list(HOME_PORTAL_ITEMS)),
     ]
 
 
@@ -71,9 +150,13 @@ def _providers():
 #:   registration + one CONTEXTS entry; shell core stays untouched.
 CONTEXTS = {
     "home": {
-        "providers": ["core"],
-        "launcher": True,          # synthesizes PHÂN HỆ entries from CONTEXTS
+        # PORTAL context (rejected launcher removed): preserves the restored
+        # Homepage 4-group IA verbatim; visibility != discoverability (see
+        # HOME_PORTAL_ITEMS). Trang chủ lives INSIDE group Workspace exactly
+        # like the restored sidebar, so `core` is not composed here.
+        "providers": ["home_portal"],
         "entry": None,
+        "group_order": ["Workspace", "Nhân sự", "Báo cáo & Phân tích", "Tài nguyên"],
     },
     "approval_document": {
         "providers": ["core", "approval_center", "legacy_pages"],
@@ -90,27 +173,6 @@ CONTEXTS = {
 #: which launcher entries render.
 CONTEXT_ORDER = ["approval_document", "hr"]
 DEFAULT_CONTEXT = "approval_document"
-LAUNCHER_GROUP = "Phân hệ"
-
-
-def _launcher_items():
-    """PHÂN HỆ entries for the `home` context -- derived ONLY from CONTEXTS
-    metadata (no second route catalog)."""
-    out = []
-    for i, name in enumerate(CONTEXT_ORDER):
-        e = CONTEXTS[name].get("entry")
-        if not e:
-            continue
-        out.append({
-            "key": e["key"], "label": e["label"], "route": e["route"],
-            "icon": e.get("icon", "doc"), "group": LAUNCHER_GROUP,
-            "order": (i + 1) * 10, "active_patterns": [e["route"]],
-            "visible_when": "internal", "owner": "shell.context",
-            "keywords": [],
-        })
-    return out
-
-
 CHILD_FIELDS = ("key", "label", "route", "icon", "order",
                 "active_patterns", "visible_when", "owner")
 
@@ -166,7 +228,7 @@ def _group_rank(group):
         return (len(GROUP_ORDER), group)
 
 
-def _compose_owners(owners=None, extra=None):
+def _compose_owners(owners=None, keep=None, group_order=None):
     items = []
     for owner, provider in _providers():
         if owners is not None and owner not in owners:
@@ -174,6 +236,8 @@ def _compose_owners(owners=None, extra=None):
         for it in provider():
             it = dict(it)
             it.setdefault("owner", owner)
+            if keep is not None and not keep(it):
+                continue
             if it.get("children"):
                 kids = [dict(ch) for ch in it["children"]]
                 for ch in kids:
@@ -181,10 +245,10 @@ def _compose_owners(owners=None, extra=None):
                 kids.sort(key=lambda ch: (ch["order"], ch["key"]))
                 it["children"] = kids
             items.append(it)
-    for it in (extra or []):
-        items.append(dict(it))
     validate(items)
-    items.sort(key=lambda it: (_group_rank(it["group"]), it["order"], it["key"]))
+    rank = _group_rank if group_order is None else (
+        lambda g: group_order.index(g) if g in group_order else len(group_order))
+    items.sort(key=lambda it: (rank(it["group"]), it["order"], it["key"]))
     return items
 
 
@@ -193,20 +257,27 @@ def compose(context=None):
 
     context=None keeps the historical signature and returns DEFAULT_CONTEXT
     (approval_document) -- every pre-context caller keeps its behavior.
-    """
+    The portal context shows EVERYTHING it declares (visibility), including
+    coming-soon and alias entries -- discovery filtering happens ONLY in
+    compose_all()."""
     name = context or DEFAULT_CONTEXT
     if name not in CONTEXTS:
         name = DEFAULT_CONTEXT
     ctx = CONTEXTS[name]
-    extra = _launcher_items() if ctx.get("launcher") else None
-    return _compose_owners(ctx["providers"], extra=extra)
+    return _compose_owners(ctx["providers"], group_order=ctx.get("group_order"))
 
 
 def compose_all():
-    """ALL registered real items across every context (global discovery:
-    homepage Quick Access + shell search). Synthetic launcher entries are
-    EXCLUDED -- they duplicate routes that real items already own."""
-    return _compose_owners(owners=None)
+    """ALL canonically registered, GOVERNED-LIVE items across every context
+    (global discovery: Quick Access + shell search + warm allow-lists).
+    Excluded by design:
+    - alias items (their route is canonically owned by another context's
+      item -- keeping them would duplicate routes in discovery);
+    - discoverable=False items (coming-soon: visible on the portal only).
+    """
+    return _compose_owners(
+        owners=None,
+        keep=lambda it: not it.get("alias") and it.get("discoverable", True) is not False)
 
 
 def resolve_context(path):
