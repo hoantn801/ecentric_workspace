@@ -61,6 +61,36 @@ CANON_TOPBAR_RE = _re.compile(
     r'data-ec-shell-header-right="1">.*?</div></div>', _re.S)
 MOUNT_FULL_RE = _re.compile(r'<aside class="ec-shell-mount".*?</aside>', _re.S)
 
+#: 3. Homepage UX polish (visual only, 2026-07-22): a governed ADDITIVE style
+#:    zone injected right after the canonical topbar -- classic marker
+#:    pattern (strip-and-reinject, idempotent). Pure CSS density overrides
+#:    scoped to the page's own body classes; ZERO business-markup changes,
+#:    zero behavior changes. Removing this block restores the old spacing.
+POLISH_RE = _re.compile(r'<style id="ec-home-polish">.*?</style>', _re.S)
+POLISH_STYLE = (
+    '<style id="ec-home-polish">'
+    '/* Homepage UX polish -- visual density only (governed zone) */'
+    '.content{padding:18px 22px 26px !important;}'
+    '.greeting{margin-bottom:12px !important;}'
+    '.greeting h1{font-size:20px !important;margin-bottom:2px !important;}'
+    '.stats-strip{gap:10px !important;margin-bottom:14px !important;}'
+    '.stat-card{padding:12px 14px !important;border-radius:10px !important;}'
+    '.stat-value{font-size:22px !important;line-height:1.15 !important;}'
+    '.stat-label{font-size:11.5px !important;}'
+    '.stat-meta{font-size:11px !important;}'
+    '.bento{gap:14px !important;}'
+    '.panel{padding:14px 16px !important;border-radius:10px !important;}'
+    '.panel-header{margin-bottom:8px !important;}'
+    '.panel-title{font-size:13.5px !important;}'
+    '.quick-grid{gap:8px !important;}'
+    '.quick-item{padding:9px 6px !important;border-radius:9px !important;}'
+    '.quick-icon{width:26px !important;height:26px !important;}'
+    '.quick-label{font-size:11.5px !important;}'
+    '.checkin-card{padding:14px 16px !important;}'
+    '.news-grid{gap:10px !important;}'
+    '.approval-item{padding:8px 0 !important;}'
+    '</style>')
+
 
 def transform_home(ms):
     """PURE shell-boundary transform for the restored Homepage.
@@ -100,11 +130,16 @@ def transform_home(ms):
     else:
         raise ValueError("no topbar zone found (neither legacy nor canonical)")
 
+    # zone 3: UX-polish style -- strip-and-reinject right after the topbar
+    new = POLISH_RE.sub("", new)
+    new = new.replace(topbar, topbar + POLISH_STYLE, 1)
+
     def _strip(h):
         h = LEGACY_SIDEBAR_RE.sub("", h)
         h = MOUNT_FULL_RE.sub("", h)
         h = LEGACY_TOPBAR_RE.sub("", h)
         h = CANON_TOPBAR_RE.sub("", h)
+        h = POLISH_RE.sub("", h)
         return h
 
     if _strip(ms) != _strip(new):
@@ -112,7 +147,8 @@ def transform_home(ms):
     for marker, n in (('data-ec-shell="1"', 1),
                       ('data-ec-notification-bell="1"', 1),
                       ('data-ec-shell-topbar="1"', 1),
-                      ('data-ec-shell-crumbs="1"', 1)):
+                      ('data-ec-shell-crumbs="1"', 1),
+                      ('<style id="ec-home-polish">', 1)):
         if new.count(marker) != n:
             raise ValueError("post-condition failed: %s x%s" % (marker, new.count(marker)))
     for keep in ("ec-chatbot-js", "ec-csrf-fetch-patch", "ec-action-center-widget",
