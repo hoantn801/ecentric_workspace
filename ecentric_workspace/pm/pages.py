@@ -37,6 +37,29 @@ BACK_RE = re.compile(r'<div class="nav-label"[^>]*style="margin-top:10px;"[^>]*>
                      r'<a class="nav-item" href="/home">.*?</a>\s*', re.S)
 FOOTER_RE = re.compile(r'<div class="sidebar-footer">.*?(?=</aside>)', re.S)
 SEARCH_RE = re.compile(r'<div class="sidebar-search">.*?</div>\s*', re.S)
+RAIL_ASIDE_RE = re.compile(r'<aside class="ec-sidebar">.*?</aside>', re.S)
+TOPBAR_OPEN_RE = re.compile(r'<div class="topbar">')
+
+
+def _find_rail(ms):
+    """Locate the PM navigation rail CONTAINER enclosing #pm-nav, in ANY
+    migration state (structural, not one class serialization):
+      - <aside class="ec-sidebar"> ... </aside>   (legacy full OR dual-rail
+        trimmed -- the 2nd rail the previous transform left in production)
+      - <div id="ec-pm-nav-bridge" ...> ... </div>  (already single-sidebar)
+    Returns (start, end, kind) where kind in {"aside", "bridge"}."""
+    nav = ms.find('id="pm-nav"')
+    if nav < 0:
+        raise ValueError("PM rail not found (#pm-nav absent)")
+    m = RAIL_ASIDE_RE.search(ms)
+    if m and m.start() <= nav < m.end():
+        return m.start(), m.end(), "aside"
+    b = ms.find('<div id="ec-pm-nav-bridge"')
+    if b >= 0:
+        end = boundary.walk_div(ms, b)
+        if b <= nav < end:
+            return b, end, "bridge"
+    raise ValueError("PM rail container around #pm-nav not recognized")
 #: REAL production shape (UAT 417 root cause, verified live 2026-07-23):
 #: the breadcrumb contains literal prefix text before the strong --
 #: `<div class="breadcrumb">Project Management / <strong id="pm-crumb">...`.
@@ -83,51 +106,63 @@ def transform(ms):
         if biz not in ms:
             raise ValueError("PM business control missing: %s" % biz)
 
+    from ecentric_workspace.shell import fallback as fb
     ms_clean = GRID_RE.sub("", ms)
-    s0, s1, t0, t1 = boundary.find_window(ms_clean)
-    aside = ms_clean[s0:s1]
-    topbar = ms_clean[t0:t1]
 
     # every SPA view anchor must survive BYTE-EXACT
     view_items = re.findall(r'<a class="nav-item" data-view=.*?</a>', ms_clean, re.S)
     if not view_items:
         raise ValueError("pm-nav view anchors not found")
 
-    # --- #pm-search: RELOCATE byte-exact from the rail into the topbar ------
-    sm = SEARCH_RE.search(aside) or SEARCH_RE.search(ms_clean)
+    # --- locate the PM rail (structural, any state) + the topbar -----------
+    r0, r1, kind = _find_rail(ms_clean)
+    rail = ms_clean[r0:r1]
+    tm = TOPBAR_OPEN_RE.search(ms_clean)
+    if not tm:
+        raise ValueError("PM topbar not found")
+    t0 = tm.start()
+    t1 = boundary.walk_div(ms_clean, t0)
+    topbar = ms_clean[t0:t1]
+    if not (r1 <= t0):
+        raise ValueError("PM rail must precede the topbar")
+
+    # --- #pm-search: extract from the rail (legacy/dual) or already moved --
+    sm = SEARCH_RE.search(rail)
     if sm:
         search_block = sm.group(0).strip()
     elif 'class="ec-pm-topsearch"' in ms_clean:
-        search_block = None      # already relocated (idempotent)
+        search_block = None                    # already relocated (idempotent)
     else:
         raise ValueError("#pm-search block not found")
 
-    # --- hidden #pm-nav compatibility bridge (NOT navigation UI) -----------
-    # keep #pm-nav (7 data-view anchors) + footer user-card so the shipped
-    # SPA bindings (go(), fillUser) keep working; drop brand/back chrome and
-    # the relocated search. The visible sidebar is the canonical shell mount.
-    if aside.startswith('<aside class="ec-sidebar"'):
-        inner = aside[len('<aside class="ec-sidebar">'):-len('</aside>')]
+    # --- hidden #pm-nav compatibility bridge (NOT navigation UI): keep
+    #     #pm-nav (7 data-view anchors) + footer user-card so shipped SPA
+    #     bindings (go(), fillUser) keep working; drop brand/back chrome and
+    #     the relocated search.
+    if kind == "aside":
+        inner = rail[len('<aside class="ec-sidebar">'):-len('</aside>')]
         inner = HEADER_RE.sub("", inner, count=1)
         inner = BACK_RE.sub("", inner, count=1)
         inner = SEARCH_RE.sub("", inner, count=1)
         bridge = ('<div id="ec-pm-nav-bridge" hidden aria-hidden="true" '
                   'style="display:none">' + inner + '</div>')
-    elif 'id="ec-pm-nav-bridge"' in ms_clean:
-        # idempotent path: the sidebar zone is the canonical mount and the
-        # hidden bridge already lives in the gap (ms_clean[s1:t0]) -- keep it
-        # in place, add nothing.
-        bridge = ""
-    else:
-        raise ValueError("neither legacy .ec-sidebar nor #ec-pm-nav-bridge present")
+    else:                                      # already a bridge -> rebuild
+        inner = rail[rail.index(">") + 1:-len('</div>')]
+        bridge = ('<div id="ec-pm-nav-bridge" hidden aria-hidden="true" '
+                  'style="display:none">' + inner + '</div>')
 
-    # --- topbar: canonical crumbs + tbright, business controls preserved ---
-    from ecentric_workspace.shell import fallback as fb
+    # single visible rail = the canonical shell mount. Add it (legacy) or
+    # keep the one already present (dual-rail/single) -- the bridge REPLACES
+    # the located rail in place.
+    has_mount = 'data-ec-shell="1"' in ms_clean
+    mount = boundary.mount_html("/pm")
+    rail_zone = bridge if has_mount else (mount + bridge)
+
+    # --- topbar: canonicalize crumbs/bell/settings ONLY if still legacy;
+    #     relocate the extracted search either way ---------------------------
     relocated = ('<div class="ec-pm-topsearch">%s</div>' % search_block) if search_block else ""
     m = CRUMB_RE.search(topbar)
     if m:
-        # m.group(1) = legacy static prefix text ("Project Management / ") --
-        # superseded by the registry crumbs (group + item), deliberately dropped.
         detail = ('<strong class="ec-shell-crumb-current ec-shell-crumb-detail" '
                   'data-ec-shell-crumb-detail="1" id="pm-crumb">%s</strong>' % m.group(2))
         new_topbar = CRUMB_RE.sub(
@@ -139,24 +174,24 @@ def transform(ms):
             '<div class="ec-shell-tbright" data-ec-shell-header-right="1">%s</div>'
             % fb.render_tbright_inner(), new_topbar, count=1)
         new_topbar = SETTINGS_RE.sub("", new_topbar, count=1)
-        # inject the relocated search right after the crumbs (before actions)
-        if relocated:
-            new_topbar = new_topbar.replace(
-                '</div><div class="topbar-actions">',
-                '</div>' + relocated + '<div class="topbar-actions">', 1)
+    elif 'data-ec-shell-crumbs="1"' in topbar:
+        new_topbar = topbar                    # already canonical (dual-rail/single)
     else:
-        if 'data-ec-shell-crumbs="1"' not in topbar:
-            raise ValueError("PM topbar has neither legacy crumb nor canonical crumbs")
-        new_topbar = topbar   # already canonical (idempotent)
+        raise ValueError("PM topbar has neither legacy crumb nor canonical crumbs")
+    if relocated:
+        if '<div class="topbar-actions">' not in new_topbar:
+            raise ValueError("PM topbar-actions anchor not found for search relocation")
+        new_topbar = new_topbar.replace(
+            '<div class="topbar-actions">', relocated + '<div class="topbar-actions">', 1)
 
-    mount = boundary.mount_html("/pm")
     _assert_jinja_safe(GRID_STYLE, "ec-pm-shell-grid")
     _assert_jinja_safe(mount, "shell mount")
     _assert_jinja_safe(bridge, "pm-nav bridge")
     injected_topbar_delta = new_topbar.replace(topbar, "") if topbar in new_topbar else new_topbar
     _assert_jinja_safe(injected_topbar_delta, "topbar chrome")
-    # single visible rail = shell mount; hidden bridge follows (display:none)
-    new = (ms_clean[:s0] + mount + bridge + ms_clean[s1:t0]
+
+    # assemble: prefix + rail_zone + gap(between rail & topbar) + topbar + suffix
+    new = (ms_clean[:r0] + rail_zone + ms_clean[r1:t0]
            + new_topbar + GRID_STYLE + ms_clean[t1:])
 
     # SPA preservation proofs (byte-exact fragments)
