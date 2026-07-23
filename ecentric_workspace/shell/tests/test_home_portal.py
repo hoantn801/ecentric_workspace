@@ -206,6 +206,21 @@ class TestHomeBoundaryTransform(unittest.TestCase):
         self.assertNotIn("display:none", zone)             # never hides content
         for sel in (".stat-card", ".panel", ".quick-item", ".checkin-card"):
             self.assertIn(sel, zone, sel)
+        # compact-density pass (v2): homepage-scoped sidebar tightening; the
+        # scroll fallback is untouched (no overflow overrides, no clipping)
+        for sel in (".ecentric-app .ec-shell-item{padding:6px 12px",
+                    ".ecentric-app .ec-shell-grouplabel{padding:7px 12px 3px",
+                    ".ecentric-app .ec-shell-head{", ".ecentric-app .ec-shell-foot{"):
+            self.assertIn(sel, zone, sel)
+        # structural check (comment mentions overflow legitimately): no
+        # hiding DECLARATION may exist in the zone
+        for decl in ("overflow:hidden", "overflow-y:hidden", "overflow-x:hidden"):
+            self.assertNotIn(decl, zone, "never fake shorter pages via overflow")
+        self.assertNotIn("display:none", zone)
+        # readability floor: no font below 11px anywhere in the zone
+        import re as _re
+        for m2 in _re.finditer(r"font-size:(\d+(?:\.\d+)?)px", zone):
+            self.assertGreaterEqual(float(m2.group(1)), 11.0, m2.group(0))
         again, _ = hp.transform_home(new)
         self.assertEqual(again, new)
         # icons: every portal item has a DISTINCT icon now
