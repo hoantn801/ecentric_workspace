@@ -99,6 +99,27 @@ def _assert_jinja_safe(fragment, what):
             raise ValueError("Jinja delimiter %r in injected %s" % (d, what))
 
 
+#: PM JS fillUser() writes to these ids. The prior dual-rail migration
+#: trimmed the sidebar-footer, so production may already LACK them while the
+#: shipped SPA still calls el("pm-av").textContent = ... (silent runtime
+#: error). The hidden bridge GUARANTEES each exists exactly once (inert,
+#: display:none) so the SPA binding is null-safe -- WITHOUT restoring a
+#: second visible user card (the shell foot is the only visible one).
+FILLUSER_HOOKS = ("pm-av", "pm-uname", "pm-urole")
+
+
+def _ensure_filluser_hooks(inner):
+    """Append hidden stubs for any fillUser hook missing from the bridge
+    inner. Idempotent: present hooks (legacy footer, or a prior compat block)
+    are never duplicated."""
+    missing = [h for h in FILLUSER_HOOKS if ('id="%s"' % h) not in inner]
+    if missing:
+        stubs = "".join('<span id="%s"></span>' % h for h in missing)
+        inner += ('<div class="ec-pm-compat" hidden aria-hidden="true">'
+                  + stubs + '</div>')
+    return inner
+
+
 def transform(ms):
     if ms.count('id="pm-nav"') != 1 or ms.count('id="pm-search"') != 1:
         raise ValueError("PM internal nav/search anchors missing")
@@ -144,12 +165,12 @@ def transform(ms):
         inner = HEADER_RE.sub("", inner, count=1)
         inner = BACK_RE.sub("", inner, count=1)
         inner = SEARCH_RE.sub("", inner, count=1)
-        bridge = ('<div id="ec-pm-nav-bridge" hidden aria-hidden="true" '
-                  'style="display:none">' + inner + '</div>')
     else:                                      # already a bridge -> rebuild
         inner = rail[rail.index(">") + 1:-len('</div>')]
-        bridge = ('<div id="ec-pm-nav-bridge" hidden aria-hidden="true" '
-                  'style="display:none">' + inner + '</div>')
+    # guarantee the fillUser DOM hooks survive exactly once (hidden)
+    inner = _ensure_filluser_hooks(inner)
+    bridge = ('<div id="ec-pm-nav-bridge" hidden aria-hidden="true" '
+              'style="display:none">' + inner + '</div>')
 
     # single visible rail = the canonical shell mount. Add it (legacy) or
     # keep the one already present (dual-rail/single) -- the bridge REPLACES
