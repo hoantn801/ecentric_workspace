@@ -27,7 +27,12 @@ HEADER_RE = re.compile(r'<div class="sidebar-header">.*?</div>\s*', re.S)
 BACK_RE = re.compile(r'<div class="nav-label"[^>]*style="margin-top:10px;"[^>]*>.*?</div>\s*'
                      r'<a class="nav-item" href="/home">.*?</a>\s*', re.S)
 FOOTER_RE = re.compile(r'<div class="sidebar-footer">.*?(?=</aside>)', re.S)
-CRUMB_RE = re.compile(r'<div class="breadcrumb">\s*<strong id="pm-crumb">(.*?)</strong>\s*</div>', re.S)
+#: REAL production shape (UAT 417 root cause, verified live 2026-07-23):
+#: the breadcrumb contains literal prefix text before the strong --
+#: `<div class="breadcrumb">Project Management / <strong id="pm-crumb">...`.
+#: `[^<]*` accepts exactly that (text-only prefix); any ELEMENT before the
+#: strong keeps the guard strict and the transform refuses.
+CRUMB_RE = re.compile(r'<div class="breadcrumb">([^<]*)<strong id="pm-crumb">(.*?)</strong>\s*</div>', re.S)
 BELL_A_RE = re.compile(r'<a class="icon-btn" id="tb-bell"[^>]*data-ec-notification-bell="1"[^>]*>.*?</a>', re.S)
 SETTINGS_RE = re.compile(r'\s*<button class="icon-btn" title="C(?:à|&#224;)i (?:đ|&#273;)(?:ặ|&#7863;)t">.*?</button>', re.S)
 GRID_RE = re.compile(r'<style id="ec-pm-shell-grid">.*?</style>', re.S)
@@ -70,8 +75,10 @@ def transform(ms):
     m = CRUMB_RE.search(topbar)
     if m:
         from ecentric_workspace.shell import fallback as fb
+        # m.group(1) = legacy static prefix text ("Project Management / ") --
+        # superseded by the registry crumbs (group + item), deliberately dropped.
         detail = ('<strong class="ec-shell-crumb-current ec-shell-crumb-detail" '
-                  'data-ec-shell-crumb-detail="1" id="pm-crumb">%s</strong>' % m.group(1))
+                  'data-ec-shell-crumb-detail="1" id="pm-crumb">%s</strong>' % m.group(2))
         new_topbar = CRUMB_RE.sub(
             lambda _m: '<div class="breadcrumb ec-shell-crumbs" data-ec-shell-crumbs="1">%s</div>'
                        % fb.crumbs_inner("/pm", detail), topbar, count=1)
