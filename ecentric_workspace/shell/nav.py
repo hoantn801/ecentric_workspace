@@ -283,7 +283,8 @@ def compose(context=None):
     if name not in CONTEXTS:
         name = DEFAULT_CONTEXT
     ctx = CONTEXTS[name]
-    return _compose_owners(ctx["providers"], group_order=ctx.get("group_order"))
+    return _compose_owners(ctx["providers"], group_order=ctx.get("group_order"),
+                           keep=lambda it: not it.get("sidebar_hidden"))
 
 
 def compose_all():
@@ -292,11 +293,15 @@ def compose_all():
     Excluded by design:
     - alias items (their route is canonically owned by another context's
       item -- keeping them would duplicate routes in discovery);
-    - discoverable=False items (coming-soon: visible on the portal only).
+    - discoverable=False items (coming-soon: visible on the portal only);
+    - view=True items (SPA intra-page views, e.g. /pm#overview -- one page,
+      not separate destinations).
     """
     return _compose_owners(
         owners=None,
-        keep=lambda it: not it.get("alias") and it.get("discoverable", True) is not False)
+        keep=lambda it: (not it.get("alias")
+                         and not it.get("view")
+                         and it.get("discoverable", True) is not False))
 
 
 def resolve_context(path):

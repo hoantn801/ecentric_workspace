@@ -146,13 +146,16 @@ class TestReportingTransform(unittest.TestCase):
 PM_FIXTURE = ('<style>#ec-pm-root{display:grid;grid-template-columns:248px 1fr;}</style>'
               '<div id="ec-pm-root">'
               '<aside class="ec-sidebar"><div class="sidebar-header"><a href="/home" class="brand">B</a></div>'
-              '<div class="sidebar-search"><input type="text" id="pm-search"></div>'
+              '<div class="sidebar-search"><svg class="search-icon"><use href="#p-search"/></svg>'
+              '<input type="text" id="pm-search" placeholder="Tìm"></div>'
               '<nav class="nav-section" id="pm-nav"><div class="nav-label">QLDA</div>'
               '<a class="nav-item" data-view="dashboard"><span>DB</span></a>'
               '<a class="nav-item" data-view="mytasks"><span>MT</span></a>'
               '<div class="nav-label" style="margin-top:10px;">Khác</div>'
               '<a class="nav-item" href="/home"><span>Trang chủ</span></a></nav>'
-              '<div class="sidebar-footer"><a href="/app/user" class="user-card"><div class="avatar">A</div></a></div></aside>'
+              '<div class="sidebar-footer"><a href="/app/user" class="user-card">'
+              '<div class="avatar" id="pm-av">A</div><div><div id="pm-uname">U</div>'
+              '<div id="pm-urole">R</div></div></a></div></aside>'
               '<main><div class="topbar">'
               '<div class="breadcrumb">Project Management / <strong id="pm-crumb">Tổng quan</strong></div>'
               '<div class="topbar-actions"><span class="preview-tag" id="pm-preview"></span>'
@@ -167,33 +170,60 @@ PM_FIXTURE = ('<style>#ec-pm-root{display:grid;grid-template-columns:248px 1fr;}
 
 
 class TestPMTransform(unittest.TestCase):
-    def test_spa_safe_dual_rail(self):
+    def test_single_sidebar_spa_safe(self):
         new = pm_pages.transform(PM_FIXTURE)
-        # SPA internals byte-exact
-        self.assertIn('<nav class="nav-section" id="pm-nav"><div class="nav-label">QLDA</div>'
-                      '<a class="nav-item" data-view="dashboard"><span>DB</span></a>'
-                      '<a class="nav-item" data-view="mytasks"><span>MT</span></a>', new)
-        self.assertEqual(new.count('id="pm-search"'), 1)
-        # chrome trimmed: brand/footer/back-entry gone; shell mount added
-        self.assertNotIn('class="sidebar-header"', new)
-        self.assertNotIn('class="sidebar-footer"', new)
-        self.assertNotIn('<a class="nav-item" href="/home">', new)
+        # 7 SPA view anchors survive BYTE-EXACT inside the hidden bridge
+        self.assertIn('<a class="nav-item" data-view="dashboard"><span>DB</span></a>', new)
+        self.assertIn('<a class="nav-item" data-view="mytasks"><span>MT</span></a>', new)
+        # single VISIBLE rail: legacy .ec-sidebar gone; exactly one shell mount
+        self.assertNotIn('class="ec-sidebar"', new)
         self.assertEqual(new.count('data-ec-shell="1"'), 1)
+        # hidden #pm-nav compatibility bridge: exactly once, not visible
+        self.assertEqual(new.count('id="ec-pm-nav-bridge"'), 1)
+        bridge = re.search(r'<div id="ec-pm-nav-bridge"[^>]*>', new).group(0)
+        self.assertIn("display:none", bridge)
+        self.assertIn('hidden', bridge)
+        self.assertEqual(new.count('id="pm-nav"'), 1)     # bridge keeps the router hook
+        # SPA DOM bindings preserved for go()/fillUser
+        for hook in ('id="pm-av"', 'id="pm-uname"', 'id="pm-urole"'):
+            self.assertEqual(new.count(hook), 1, hook)
+        # #pm-search relocated (byte-exact id) into the topbar, exactly once
+        self.assertEqual(new.count('id="pm-search"'), 1)
+        self.assertEqual(new.count('class="ec-pm-topsearch"'), 1)
+        self.assertLess(new.index('ec-pm-topsearch'), new.index('class="topbar-actions"'))
+        # brand/back chrome dropped
+        self.assertNotIn('class="sidebar-header"', new)
+        self.assertNotIn('<a class="nav-item" href="/home">', new)
         # business topbar controls preserved; settings stub gone
         for keep in ('id="tb-timer"', 'id="tb-new"', 'id="pm-preview"'):
-            self.assertIn(keep, new)
+            self.assertEqual(new.count(keep), 1, keep)
         self.assertNotIn('title="Cài đặt"', new)
-        # crumbs canonical with live pm-crumb detail; the legacy static
-        # "Project Management / " prefix (the 417 root cause) is dropped in
-        # favour of registry crumbs
+        # canonical crumbs; legacy static prefix dropped
         self.assertIn('data-ec-shell-crumb-detail="1" id="pm-crumb">Tổng quan</strong>', new)
         self.assertNotIn("Project Management / <strong", new)
         # exactly ONE bell ELEMENT (JS string mention ignored)
         self.assertEqual(len(re.findall(r'<[a-zA-Z][^>]*data-ec-notification-bell="1"', new)), 1)
-        self.assertIn('binds data-ec-notification-bell', new)  # JS string untouched
+        self.assertIn('binds data-ec-notification-bell', new)
         self.assertIn('<style id="ec-pm-shell-grid">', new)
         again = pm_pages.transform(new)
         self.assertEqual(again, new, "idempotent")
+
+    def test_pm_view_items_and_discovery(self):
+        pm = nav.compose("pm")
+        views = [i for i in pm if i.get("view")]
+        self.assertEqual([i["label"] for i in views],
+                         ["Tổng quan", "Việc của tôi", "Dự án", "Công việc",
+                          "Timesheet", "Recurring", "Yêu cầu giao việc"])
+        self.assertEqual([i["route"] for i in views],
+                         ["/pm#overview", "/pm#mywork", "/pm#projects", "/pm#work/list",
+                          "/pm#timesheet", "/pm#recurring", "/pm#assignments/in"])
+        # /pm discoverable exactly once; NO hash route in discovery
+        allr = [i["route"] for i in nav.compose_all()]
+        self.assertEqual(allr.count("/pm"), 1)
+        self.assertFalse(any("#" in r for r in allr))
+        # deep links still resolve to pm
+        for r in ("/pm", "/pm#recurring", "/pm#project/ABC", "/pm#task/T1"):
+            self.assertEqual(nav.resolve_context(r), "pm")
 
     def test_refuses_without_spa_anchors(self):
         with self.assertRaises(ValueError):

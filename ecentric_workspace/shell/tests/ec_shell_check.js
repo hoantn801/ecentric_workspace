@@ -362,6 +362,30 @@ const BOOT2 = JSON.parse(JSON.stringify(BOOT1)); BOOT2.nav[1].label = 'Approval 
        'salary NEVER in prefetch/eager allow-list; cross-context routes stay warm-able');
   }
 
+  // ---- hash-aware active state (v1.12.0): SPA view items, MPA-safe --------
+  {
+    const env = makeSandbox('/pm', false);
+    vm.runInContext(SRC, env.sb);
+    const HAK = env.win.ECShell.hashActiveKey, HHI = env.win.ECShell.hasHashItems;
+    const pmViews = [
+      { key: 'pm.view.overview', route: '/pm#overview', active_patterns: ['/pm'] },
+      { key: 'pm.view.mywork', route: '/pm#mywork', active_patterns: ['/pm'] },
+      { key: 'pm.view.recurring', route: '/pm#recurring', active_patterns: ['/pm'] }
+    ];
+    ok(HHI(pmViews) === true, 'hasHashItems detects SPA view items');
+    ok(HAK(pmViews, '/pm', '#recurring') === 'pm.view.recurring', 'hash picks the matching view');
+    ok(HAK(pmViews, '/pm', '#mywork') === 'pm.view.mywork', 'hash picks mywork');
+    ok(HAK(pmViews, '/pm', '') === 'pm.view.overview', 'empty hash -> first view (overview)');
+    ok(HAK(pmViews, '/pm', '#task/T1') === 'pm.view.overview', 'unknown detail hash -> first view fallback');
+    // MPA safety: a context with NO hash items is never touched
+    const mpa = [
+      { key: 'apc.catalog', route: '/approvals', active_patterns: ['/approvals'] },
+      { key: 'legacy.create_po', route: '/form-po', active_patterns: ['/form-po'] }
+    ];
+    ok(HHI(mpa) === false, 'hasHashItems false for pure MPA context');
+    ok(HAK(mpa, '/approvals', '#whatever') === null, 'MPA items ignored by hash matcher');
+  }
+
   console.log(failures === 0 ? '\nALL CHECKS PASSED' : '\n' + failures + ' FAILURES');
   process.exit(failures ? 1 : 0);
 })();
