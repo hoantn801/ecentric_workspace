@@ -83,8 +83,7 @@ HOME_PORTAL_ITEMS = [
      "badge_source": "action_center.approvals"},
     {"key": "home.portal.pm", "label": "Công việc", "route": "/pm", "icon": "briefcase",
      "group": "Workspace", "order": 40, "active_patterns": ["/pm"],
-     "visible_when": "internal", "owner": "home_portal",
-     "keywords": ["cong viec", "task", "project", "pm"]},
+     "visible_when": "internal", "owner": "home_portal", "alias": True},
     {"key": "home.portal.hall", "label": "eCentric Hall", "route": "/hall", "icon": "building",
      "group": "Workspace", "order": 50, "active_patterns": ["/hall"],
      "visible_when": "internal", "owner": "home_portal", "keywords": ["hall"]},
@@ -103,14 +102,13 @@ HOME_PORTAL_ITEMS = [
      "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
     {"key": "home.portal.weekly", "label": "Báo cáo tuần", "route": "/weekly-update",
      "icon": "chart", "group": "Báo cáo & Phân tích", "order": 10, "active_patterns": ["/weekly-update"],
-     "visible_when": "internal", "owner": "home_portal",
-     "keywords": ["bao cao tuan", "weekly", "wtu"]},
+     "visible_when": "internal", "owner": "home_portal", "alias": True},
     {"key": "home.portal.pulse", "label": "Team Pulse", "route": "/team-pulse",
      "icon": "activity", "group": "Báo cáo & Phân tích", "order": 20, "active_patterns": ["/team-pulse"],
-     "visible_when": "internal", "owner": "home_portal", "keywords": ["team pulse"]},
+     "visible_when": "internal", "owner": "home_portal", "alias": True},
     {"key": "home.portal.alerts", "label": "Alert Center", "route": "/alerts",
      "icon": "bell", "group": "Báo cáo & Phân tích", "order": 30, "active_patterns": ["/alerts"],
-     "visible_when": "internal", "owner": "home_portal", "keywords": ["alert", "canh bao"]},
+     "visible_when": "internal", "owner": "home_portal", "alias": True},
     {"key": "home.portal.intranet", "label": "Intranet", "route": "/coming-soon?tool=intranet",
      "icon": "globe", "group": "Tài nguyên", "order": 10, "active_patterns": ["/coming-soon?tool=intranet"],
      "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
@@ -131,11 +129,17 @@ def _providers():
     from ecentric_workspace.approval_center import nav as approval_nav
     from ecentric_workspace.legacy_pages import nav as legacy_nav
     from ecentric_workspace.hr import nav as hr_nav
+    from ecentric_workspace.alerts import nav as alerts_nav
+    from ecentric_workspace.reporting import nav as reporting_nav
+    from ecentric_workspace.pm import nav as pm_nav
     return [
         ("core", lambda: list(CORE_ITEMS)),
         ("approval_center", approval_nav.items),
         ("legacy_pages", legacy_nav.items),
         ("hr", hr_nav.items),
+        ("alerts", alerts_nav.items),
+        ("reporting", reporting_nav.items),
+        ("pm", pm_nav.items),
         ("home_portal", lambda: list(HOME_PORTAL_ITEMS)),
     ]
 
@@ -168,10 +172,25 @@ CONTEXTS = {
         "entry": {"key": "ctx.hr", "label": "Nhân sự",
                   "route": "/ec-hr/attendance", "icon": "doc"},
     },
+    "alert_center": {
+        "providers": ["core", "alerts"],
+        "entry": {"key": "ctx.alert_center", "label": "Alert Center",
+                  "route": "/alerts", "icon": "bell"},
+    },
+    "reporting": {
+        "providers": ["core", "reporting"],
+        "entry": {"key": "ctx.reporting", "label": "Báo cáo & Phân tích",
+                  "route": "/weekly-update", "icon": "chart"},
+    },
+    "pm": {
+        "providers": ["core", "pm"],
+        "entry": {"key": "ctx.pm", "label": "Công việc",
+                  "route": "/pm", "icon": "briefcase"},
+    },
 }
 #: order in which specialized contexts are probed for route resolution and in
 #: which launcher entries render.
-CONTEXT_ORDER = ["approval_document", "hr"]
+CONTEXT_ORDER = ["approval_document", "hr", "alert_center", "reporting", "pm"]
 DEFAULT_CONTEXT = "approval_document"
 CHILD_FIELDS = ("key", "label", "route", "icon", "order",
                 "active_patterns", "visible_when", "owner")
@@ -301,6 +320,11 @@ def resolve_context(path):
     for pat in CORE_ITEMS[0]["active_patterns"]:
         if _norm_path(pat) == p:
             return "home"
+    # portal-owned routes (e.g. /hall, deferred modules): a NON-alias home
+    # portal item matching the path keeps the route in the `home` context
+    # instead of falling through to the approval default.
+    if _context_score("home", p) > 0:
+        return "home"
     return DEFAULT_CONTEXT
 
 
@@ -318,6 +342,8 @@ def _context_score(name, path):
     for it in compose(name):
         if it.get("owner") in ("core", "shell.context"):
             continue
+        if it.get("alias"):
+            continue          # alias routes belong to their canonical context
         cands = [it] + list(it.get("children") or [])
         for c in cands:
             if _norm_path(c["route"]) == path:

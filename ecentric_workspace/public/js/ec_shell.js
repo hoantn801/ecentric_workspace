@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.10.2 (homepage polish: distinct portal icons)';
+  var VERSION = 'ec-shell v1.11.0 (module contexts: alert_center, reporting, pm)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -127,6 +127,7 @@
       var score = 0;
       flattenNav(ctxItems(boot, name)).forEach(function (it) {
         if (it.key && (it.key.indexOf('core.') === 0 || it.key.indexOf('ctx.') === 0)) return;
+        if (it.alias) return;   // alias routes belong to their canonical context
         if (normPath(it.route) === path) { score = Math.max(score, 1000 + it.route.length); return; }
         (it.active_patterns || []).forEach(function (pat) {
           if (pat.slice(-2) === '/*') {
@@ -141,6 +142,19 @@
     });
     if (best) return best;
     if (path === '/' || path === '/home') return 'home';
+    // portal-owned routes (non-alias home items, e.g. /hall)
+    var homeHit = false;
+    flattenNav(ctxItems(boot, 'home')).forEach(function (it) {
+      if (it.alias || (it.key && it.key.indexOf('core.') === 0)) return;
+      if (normPath(it.route) === path) { homeHit = true; return; }
+      (it.active_patterns || []).forEach(function (pat) {
+        if (pat.slice(-2) === '/*') {
+          var b = normPath(pat.slice(0, -2));
+          if (path === b || path.indexOf(b + '/') === 0) homeHit = true;
+        } else if (normPath(pat) === path) { homeHit = true; }
+      });
+    });
+    if (homeHit) return 'home';
     return boot.default_context || 'approval_document';
   }
   function knownNavRoutes() {

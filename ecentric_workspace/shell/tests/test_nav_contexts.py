@@ -34,7 +34,8 @@ class TestRouteToContext(unittest.TestCase):
         "/ec-hr/salary": "hr",
         "/": "home",
         "/home": "home",
-        "/weekly-update": "approval_document",   # unregistered -> DEFAULT
+        "/weekly-update": "reporting",           # module context (2026-07-22)
+        "/xyz-unregistered": "approval_document",  # unregistered -> DEFAULT
     }
 
     def test_resolution_matrix(self):
