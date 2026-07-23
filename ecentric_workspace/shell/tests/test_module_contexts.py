@@ -169,6 +169,91 @@ PM_FIXTURE = ('<style>#ec-pm-root{display:grid;grid-template-columns:248px 1fr;}
               '</div></main></div>')
 
 
+def _dual_rail_fixture():
+    """The EXACT prior dual-rail transform output shipped to production:
+    canonical shell mount + a TRIMMED <aside class="ec-sidebar"> rail (still
+    holding #pm-search + #pm-nav + footer) + an ALREADY-canonical topbar
+    (crumbs + tbright). This is what the 417 refused to recognize."""
+    from ecentric_workspace.shell import fallback as fb
+    mount = pm_pages.boundary.mount_html("/pm")
+    crumbs = fb.crumbs_inner("/pm",
+        '<strong class="ec-shell-crumb-current ec-shell-crumb-detail" '
+        'data-ec-shell-crumb-detail="1" id="pm-crumb">Tổng quan</strong>')
+    return ('<style>#ec-pm-root{display:grid}</style><div id="ec-pm-root">'
+            + mount
+            + '<aside class="ec-sidebar">'
+              '<div class="sidebar-search"><svg class="search-icon"><use href="#p-search"/></svg>'
+              '<input type="text" id="pm-search" placeholder="Tìm"></div>'
+              '<nav class="nav-section" id="pm-nav"><div class="nav-label">QLDA</div>'
+              '<a class="nav-item" data-view="dashboard"><span>DB</span></a>'
+              '<a class="nav-item" data-view="mytasks"><span>MT</span></a></nav>'
+              '<div class="sidebar-footer"><a class="user-card"><div class="avatar" id="pm-av">A</div>'
+              '<div id="pm-uname">U</div><div id="pm-urole">R</div></a></div></aside>'
+            + '<main><div class="topbar">'
+              '<div class="breadcrumb ec-shell-crumbs" data-ec-shell-crumbs="1">' + crumbs + '</div>'
+              '<div class="topbar-actions"><span id="pm-preview"></span>'
+              '<button id="tb-timer"></button><button id="tb-new">New</button>'
+              '<div class="ec-shell-tbright" data-ec-shell-header-right="1">'
+            + fb.render_tbright_inner() + '</div></div></div>'
+              '<div class="content">SPA BODY</div></main></div>')
+
+
+DUAL_RAIL_FIXTURE = None  # built lazily (needs frappe stub) in the test
+
+
+class TestPMMigrationStates(unittest.TestCase):
+    """417 UAT root cause (2026-07-23): production was in the DUAL-RAIL state
+    (canonical mount + a 2nd trimmed .ec-sidebar rail). The new detector
+    locked onto the mount and could see neither .ec-sidebar (it was in the
+    gap) nor a bridge -> refusal. The transformer now finds the rail by its
+    real structural anchor (#pm-nav container), supporting all 4 states."""
+
+    def test_dual_rail_production_state_migrates(self):
+        dual = _dual_rail_fixture()
+        # sanity: the fixture IS the dual-rail shape (mount + 2nd .ec-sidebar)
+        self.assertEqual(dual.count('data-ec-shell="1"'), 1)
+        self.assertIn('<aside class="ec-sidebar">', dual)
+        self.assertTrue(dual.index('data-ec-shell="1"') < dual.index('class="ec-sidebar"'))
+        # migrate -> single sidebar
+        single = pm_pages.transform(dual)
+        self.assertNotIn('class="ec-sidebar"', single)          # 2nd rail gone
+        self.assertEqual(single.count('id="ec-pm-nav-bridge"'), 1)
+        self.assertEqual(single.count('data-ec-shell="1"'), 1)   # single mount kept
+        self.assertEqual(single.count('id="pm-search"'), 1)      # relocated, once
+        self.assertEqual(single.count('class="ec-pm-topsearch"'), 1)
+        self.assertLess(single.index('ec-pm-topsearch'), single.index('class="topbar-actions"'))
+        for hook in ('id="pm-nav"', 'id="pm-av"', 'id="pm-uname"', 'id="pm-urole"'):
+            self.assertEqual(single.count(hook), 1, hook)
+        self.assertEqual(len(re.findall(r'<[a-zA-Z][^>]*data-ec-notification-bell="1"', single)), 1)
+        # second transform byte-identical (idempotent convergence)
+        self.assertEqual(pm_pages.transform(single), single)
+
+    def test_all_four_states_converge(self):
+        legacy = PM_FIXTURE
+        from_legacy = pm_pages.transform(legacy)
+        from_dual = pm_pages.transform(_dual_rail_fixture())
+        # every entry state ends single-sidebar + idempotent
+        for st in (from_legacy, from_dual):
+            self.assertNotIn('class="ec-sidebar"', st)
+            self.assertEqual(st.count('id="ec-pm-nav-bridge"'), 1)
+            self.assertEqual(pm_pages.transform(st), st)
+
+    def test_refused_transform_writes_nothing(self):
+        # a state with no #pm-nav is refused BEFORE any doc mutation; the
+        # whitelisted endpoint routes ValueError -> frappe.throw (417), which
+        # rolls the request back -> zero writes. Prove the refusal is raised
+        # by transform() itself (pure, no side effects).
+        with self.assertRaises(ValueError):
+            pm_pages.transform('<div id="ec-pm-root"><main>no rail here</main></div>')
+        import inspect
+        src = inspect.getsource(pm_pages.sync_pm_page)
+        self.assertIn("transform(ms)", src)
+        self.assertIn("frappe.throw", src)
+        # the doc.save happens ONLY after a successful transform
+        self.assertLess(src.index("transform(ms)"), src.index("doc.save"))
+        self.assertIn("except ValueError", src)
+
+
 class TestPMTransform(unittest.TestCase):
     def test_single_sidebar_spa_safe(self):
         new = pm_pages.transform(PM_FIXTURE)
