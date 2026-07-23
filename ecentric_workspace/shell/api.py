@@ -85,6 +85,7 @@ def _ser(it):
         "keywords": it.get("keywords", []),
         "no_prerender": bool(it.get("no_prerender")) or route_policy.no_warm(it["route"]),
         "soon": bool(it.get("soon")),
+        "alias": bool(it.get("alias")),
         "badge_source": it.get("badge_source") or "",
         "children": [
             {

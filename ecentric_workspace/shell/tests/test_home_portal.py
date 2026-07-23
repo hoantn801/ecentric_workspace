@@ -81,10 +81,15 @@ class TestThreeTierModel(unittest.TestCase):
                              for i in allitems))
 
     def test_approved_live_routes_now_discoverable(self):
+        # module contexts (2026-07-22) took canonical ownership of 4 routes;
+        # /hall + /approvals/leave stay portal-canonical
         allr = {i["route"]: i["owner"] for i in nav.compose_all()}
-        for r in ("/pm", "/hall", "/weekly-update", "/team-pulse", "/alerts",
-                  "/approvals/leave"):
-            self.assertEqual(allr.get(r), "home_portal", r)
+        self.assertEqual(allr.get("/hall"), "home_portal")
+        self.assertEqual(allr.get("/approvals/leave"), "home_portal")
+        self.assertEqual(allr.get("/pm"), "pm")
+        self.assertEqual(allr.get("/weekly-update"), "reporting")
+        self.assertEqual(allr.get("/team-pulse"), "reporting")
+        self.assertEqual(allr.get("/alerts"), "alerts")
 
     def test_salary_discoverable_never_warmable(self):
         self.assertIn("/ec-hr/salary", {i["route"] for i in nav.compose_all()})
