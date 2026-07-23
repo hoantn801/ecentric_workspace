@@ -194,6 +194,42 @@ class TestHomeBoundaryTransform(unittest.TestCase):
             res = hp.sync()
             self.assertEqual(res["action"], "guarded")
 
+    def test_ux_polish_zone_contract(self):
+        """Homepage UX polish (visual only): additive style zone, distinct
+        portal icons -- zero behavior/route/business changes."""
+        # zone: injected once, after the topbar, idempotent, CSS-only
+        new, _ = hp.transform_home(self._page_for_polish())
+        self.assertEqual(new.count('<style id="ec-home-polish">'), 1)
+        self.assertGreater(new.index("ec-home-polish"), new.index('data-ec-shell-topbar="1"'))
+        zone = hp.POLISH_RE.search(new).group(0)
+        self.assertNotIn("<script", zone)                  # CSS only
+        self.assertNotIn("display:none", zone)             # never hides content
+        for sel in (".stat-card", ".panel", ".quick-item", ".checkin-card"):
+            self.assertIn(sel, zone, sel)
+        again, _ = hp.transform_home(new)
+        self.assertEqual(again, new)
+        # icons: every portal item has a DISTINCT icon now
+        icons = [i["icon"] for i in nav.compose("home")]
+        self.assertEqual(len(icons), len(set(icons)), "portal icons must be distinct")
+        # routes untouched by the polish pass
+        labels = {i["label"]: i["route"] for i in nav.compose("home")}
+        self.assertEqual(labels["Phê duyệt"], "/approvals")
+        self.assertEqual(labels["Chấm công"], "/ec-hr/attendance")
+        self.assertEqual(labels["Phiếu lương"], "/ec-hr/salary")
+        self.assertEqual(labels["Nghỉ phép"], "/approvals/leave")
+
+    def _page_for_polish(self):
+        return ('<div class="ecentric-app"><aside class="ec-sidebar"><nav>x</nav></aside>'
+                '<div class="ec-main"><div class="topbar">\n<div class="breadcrumb"><strong>T</strong></div>\n'
+                '<div class="topbar-actions">\n<a href="/help" class="icon-btn"><svg></svg></a>\n'
+                '<a data-ec-notification-bell="1" class="icon-btn"><svg></svg></a>\n'
+                '<a href="/app/user-settings" class="icon-btn"><svg></svg></a>\n</div>\n</div>'
+                '<div class="content"><h1>{{ first_name }}</h1>'
+                '<button onclick="ecentricCheckin()">c</button>'
+                '<script id="ec-action-center-widget" src="/x.js"></script>'
+                '<script id="ec-csrf-fetch-patch">c()</script><script id="ec-chatbot-js">g()</script>'
+                '</div></div></div>')
+
     def test_jinja_and_dynamic_template_preserved(self):
         src = io.open(os.path.join(APP, "legacy_pages", "home", "page_sync.py"),
                       encoding="utf-8").read()
