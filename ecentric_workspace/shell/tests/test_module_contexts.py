@@ -121,6 +121,15 @@ class TestReportingTransform(unittest.TestCase):
         src = _rep_fixture('<aside class="wu-roadmap" id="wu-roadmap" hidden>R</aside>')
         new = rep_pages.transform(src, "weekly-update")
         self.assertEqual(new.count('data-ec-notification-bell="1"'), 1)
+        # UAT hotfix: shell-isolation zone injected exactly once, CSS-only,
+        # re-asserting canonical geometry against the pages' generic selectors
+        self.assertEqual(new.count('<style id="ec-reporting-shell-isolation">'), 1)
+        zone = rep_pages.ISOLATION_RE.search(new).group(0)
+        self.assertNotIn("<script", zone)
+        for sel in (".ec-shell-mount{", ".ec-shell-search-in{", "a.ec-shell-item{",
+                    ".ec-shell-topbar{", ".ec-shell-tbright{"):
+            self.assertIn(sel, zone, sel)
+        self.assertNotIn("display:none", zone)
         self.assertIn("{% if x %}J{% endif %}", new)
         self.assertIn('<aside class="wu-roadmap" id="wu-roadmap" hidden>R</aside>', new)
         self.assertNotIn("stale home clone", new)
@@ -145,7 +154,7 @@ PM_FIXTURE = ('<style>#ec-pm-root{display:grid;grid-template-columns:248px 1fr;}
               '<a class="nav-item" href="/home"><span>Trang chủ</span></a></nav>'
               '<div class="sidebar-footer"><a href="/app/user" class="user-card"><div class="avatar">A</div></a></div></aside>'
               '<main><div class="topbar">'
-              '<div class="breadcrumb"><strong id="pm-crumb">Tổng quan</strong></div>'
+              '<div class="breadcrumb">Project Management / <strong id="pm-crumb">Tổng quan</strong></div>'
               '<div class="topbar-actions"><span class="preview-tag" id="pm-preview"></span>'
               '<button class="tb-timer" id="tb-timer"></button>'
               '<button class="pm-btn primary" id="tb-new">New</button>'
@@ -174,8 +183,11 @@ class TestPMTransform(unittest.TestCase):
         for keep in ('id="tb-timer"', 'id="tb-new"', 'id="pm-preview"'):
             self.assertIn(keep, new)
         self.assertNotIn('title="Cài đặt"', new)
-        # crumbs canonical with live pm-crumb detail
+        # crumbs canonical with live pm-crumb detail; the legacy static
+        # "Project Management / " prefix (the 417 root cause) is dropped in
+        # favour of registry crumbs
         self.assertIn('data-ec-shell-crumb-detail="1" id="pm-crumb">Tổng quan</strong>', new)
+        self.assertNotIn("Project Management / <strong", new)
         # exactly ONE bell ELEMENT (JS string mention ignored)
         self.assertEqual(len(re.findall(r'<[a-zA-Z][^>]*data-ec-notification-bell="1"', new)), 1)
         self.assertIn('binds data-ec-notification-bell', new)  # JS string untouched
@@ -186,6 +198,13 @@ class TestPMTransform(unittest.TestCase):
     def test_refuses_without_spa_anchors(self):
         with self.assertRaises(ValueError):
             pm_pages.transform(PM_FIXTURE.replace('id="pm-nav"', 'id="x"'))
+
+    def test_guard_rejects_element_before_crumb(self):
+        # [^<]* accepts TEXT prefix only; an unknown ELEMENT keeps refusal
+        bad = PM_FIXTURE.replace('Project Management / <strong id="pm-crumb">',
+                                 '<span>PM</span><strong id="pm-crumb">')
+        with self.assertRaises(ValueError):
+            pm_pages.transform(bad)
 
 
 if __name__ == "__main__":
