@@ -199,6 +199,50 @@ class TestPMTransform(unittest.TestCase):
         with self.assertRaises(ValueError):
             pm_pages.transform(PM_FIXTURE.replace('id="pm-nav"', 'id="x"'))
 
+    def test_pm_injected_markup_is_jinja_safe(self):
+        """Production incident 2026-07-23: /pm is Jinja-rendered; injected
+        minified CSS emitted '){#ec-pm-root' -> unterminated Jinja comment ->
+        TemplateSyntaxError. EVERY injected shell fragment must be free of
+        Jinja delimiters ({#, {{, {%) unless explicitly approved."""
+        import types
+        from ecentric_workspace.shell import fallback as fb
+        frags = {
+            "GRID_STYLE": pm_pages.GRID_STYLE,
+            "mount(/pm)": fb.render_mount_inner("/pm"),
+            "tbright": fb.render_tbright_inner(),
+            "crumbs(/pm)": fb.crumbs_inner("/pm"),
+            "reporting ISOLATION_STYLE": rep_pages.ISOLATION_STYLE,
+            "reporting topbar(/weekly-update)": fb.render_topbar_inner("/weekly-update"),
+            "alerts topbar(/alerts)": fb.render_topbar_inner("/alerts"),
+        }
+        for what, frag in frags.items():
+            for d in ("{#", "{{", "{%"):
+                self.assertNotIn(d, frag, "%s contains Jinja delimiter %r" % (what, d))
+        # runtime guard wired into the transform itself
+        import inspect
+        src = inspect.getsource(pm_pages)
+        self.assertIn('JINJA_DELIMS = ("{#", "{{", "{%")', src)
+        self.assertIn('_assert_jinja_safe(GRID_STYLE', src)
+        # end-to-end: transformed output adds NO new Jinja tokens
+        new = pm_pages.transform(PM_FIXTURE)
+        for d in ("{#", "{{", "{%"):
+            self.assertEqual(new.count(d), PM_FIXTURE.count(d), d)
+
+    def test_pm_repairs_broken_migrated_state_idempotently(self):
+        """The failed production state = migrated page carrying the OLD
+        minified grid zone (with '{#'). Re-running the transform must strip
+        it and inject the fixed zone (repair-in-place)."""
+        good = pm_pages.transform(PM_FIXTURE)
+        broken = pm_pages.GRID_RE.sub(
+            '<style id="ec-pm-shell-grid">#ec-pm-root{grid-template-columns:auto 248px 1fr !important;}'
+            '@media (max-width:1100px){#ec-pm-root{grid-template-columns:auto 1fr !important;}}</style>',
+            good, count=1)
+        self.assertIn("{#", broken)
+        repaired = pm_pages.transform(broken)
+        self.assertNotIn("{#", repaired)
+        self.assertEqual(repaired, good, "repair must converge to the fixed canonical state")
+        self.assertEqual(pm_pages.transform(repaired), repaired, "idempotent after repair")
+
     def test_guard_rejects_element_before_crumb(self):
         # [^<]* accepts TEXT prefix only; an unknown ELEMENT keeps refusal
         bad = PM_FIXTURE.replace('Project Management / <strong id="pm-crumb">',

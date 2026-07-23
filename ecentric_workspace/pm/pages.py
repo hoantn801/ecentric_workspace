@@ -36,12 +36,28 @@ CRUMB_RE = re.compile(r'<div class="breadcrumb">([^<]*)<strong id="pm-crumb">(.*
 BELL_A_RE = re.compile(r'<a class="icon-btn" id="tb-bell"[^>]*data-ec-notification-bell="1"[^>]*>.*?</a>', re.S)
 SETTINGS_RE = re.compile(r'\s*<button class="icon-btn" title="C(?:à|&#224;)i (?:đ|&#273;)(?:ặ|&#7863;)t">.*?</button>', re.S)
 GRID_RE = re.compile(r'<style id="ec-pm-shell-grid">.*?</style>', re.S)
-GRID_STYLE = ('<style id="ec-pm-shell-grid">'
-              '#ec-pm-root{grid-template-columns:auto 248px 1fr !important;}'
-              '#ec-pm-root .ec-sidebar .sidebar-search{margin-top:10px;}'
-              '@media (max-width:1100px){#ec-pm-root{grid-template-columns:auto 1fr !important;}'
-              '#ec-pm-root .ec-sidebar{display:none;}}'
+#: JINJA-SAFETY (production incident 2026-07-23): /pm renders through the
+#: dynamic Frappe/Jinja pipeline, so injected markup must NEVER contain the
+#: Jinja delimiters `{#`, `{{` or `{%`. The previous minified form emitted
+#: `...1100px){#ec-pm-root{...` -> parsed as an unterminated Jinja comment
+#: -> TemplateSyntaxError, page broken. CSS block boundaries therefore keep
+#: explicit whitespace/newlines (see test_pm_injected_markup_is_jinja_safe).
+GRID_STYLE = ('<style id="ec-pm-shell-grid">\n'
+              '#ec-pm-root { grid-template-columns: auto 248px 1fr !important; }\n'
+              '#ec-pm-root .ec-sidebar .sidebar-search { margin-top: 10px; }\n'
+              '@media (max-width: 1100px) {\n'
+              '  #ec-pm-root { grid-template-columns: auto 1fr !important; }\n'
+              '  #ec-pm-root .ec-sidebar { display: none; }\n'
+              '}\n'
               '</style>')
+
+JINJA_DELIMS = ("{#", "{{", "{%")
+
+
+def _assert_jinja_safe(fragment, what):
+    for d in JINJA_DELIMS:
+        if d in fragment:
+            raise ValueError("Jinja delimiter %r in injected %s" % (d, what))
 
 
 def transform(ms):
@@ -93,7 +109,13 @@ def transform(ms):
             raise ValueError("PM topbar has neither legacy crumb nor canonical crumbs")
         new_topbar = topbar   # already canonical (idempotent)
 
-    new = (ms_clean[:s0] + boundary.mount_html("/pm") + rail + ms_clean[s1:t0]
+    mount = boundary.mount_html("/pm")
+    _assert_jinja_safe(GRID_STYLE, "ec-pm-shell-grid")
+    _assert_jinja_safe(mount, "shell mount")
+    # new_topbar may legitimately contain business text but never NEW Jinja:
+    injected_topbar_delta = new_topbar.replace(topbar, "") if topbar in new_topbar else new_topbar
+    _assert_jinja_safe(injected_topbar_delta, "topbar chrome")
+    new = (ms_clean[:s0] + mount + rail + ms_clean[s1:t0]
            + new_topbar + GRID_STYLE + ms_clean[t1:])
 
     # SPA preservation proofs (byte-exact fragments)
