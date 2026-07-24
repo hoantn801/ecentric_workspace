@@ -228,6 +228,52 @@ class TestPMMigrationStates(unittest.TestCase):
         # second transform byte-identical (idempotent convergence)
         self.assertEqual(pm_pages.transform(single), single)
 
+    def test_dual_rail_without_footer_synthesizes_hooks(self):
+        """Exact production 417 gap: the prior dual-rail migration trimmed the
+        sidebar-footer, so #pm-av/#pm-uname/#pm-urole are ABSENT while PM JS
+        fillUser() still references them. The hidden bridge must synthesize
+        each exactly once (inert), never restoring a visible 2nd user card."""
+        from ecentric_workspace.shell import fallback as fb
+        mount = pm_pages.boundary.mount_html("/pm")
+        crumbs = fb.crumbs_inner("/pm",
+            '<strong class="ec-shell-crumb-current ec-shell-crumb-detail" '
+            'data-ec-shell-crumb-detail="1" id="pm-crumb">Tổng quan</strong>')
+        dual = ('<style>#ec-pm-root{display:grid}</style><div id="ec-pm-root">' + mount +
+                '<aside class="ec-sidebar"><div class="sidebar-search">'
+                '<svg class="search-icon"></svg><input id="pm-search"></div>'
+                '<nav class="nav-section" id="pm-nav">'
+                '<a class="nav-item" data-view="dashboard"><span>D</span></a></nav></aside>'
+                '<main><div class="topbar"><div class="breadcrumb ec-shell-crumbs" '
+                'data-ec-shell-crumbs="1">' + crumbs + '</div><div class="topbar-actions">'
+                '<span id="pm-preview"></span><button id="tb-timer"></button>'
+                '<button id="tb-new"></button><div class="ec-shell-tbright" '
+                'data-ec-shell-header-right="1">' + fb.render_tbright_inner() +
+                '</div></div></div><div class="content">B</div></main></div>')
+        # precondition: footer hooks already GONE (the real production gap)
+        for h in ('pm-av', 'pm-uname', 'pm-urole'):
+            self.assertEqual(dual.count('id="%s"' % h), 0, h)
+        single = pm_pages.transform(dual)
+        # each hook synthesized exactly once, inside the hidden bridge, inert
+        for h in ('pm-av', 'pm-uname', 'pm-urole'):
+            self.assertEqual(single.count('id="%s"' % h), 1, h)
+        self.assertIn('<div class="ec-pm-compat" hidden aria-hidden="true">', single)
+        bi = single.index('id="ec-pm-nav-bridge"')
+        for h in ('pm-av', 'pm-uname', 'pm-urole'):
+            self.assertGreater(single.index('id="%s"' % h), bi,
+                               "%s must live inside the hidden bridge" % h)
+        # no second VISIBLE user card
+        self.assertNotIn('class="ec-sidebar"', single)
+        self.assertNotIn('sidebar-footer', single)
+        # second transform byte-identical
+        self.assertEqual(pm_pages.transform(single), single)
+
+    def test_legacy_footer_hooks_not_duplicated(self):
+        # legacy PM keeps its footer hooks; the synthesizer must NOT add a
+        # second copy
+        single = pm_pages.transform(PM_FIXTURE)
+        for h in ('pm-av', 'pm-uname', 'pm-urole'):
+            self.assertEqual(single.count('id="%s"' % h), 1, h)
+
     def test_all_four_states_converge(self):
         legacy = PM_FIXTURE
         from_legacy = pm_pages.transform(legacy)
