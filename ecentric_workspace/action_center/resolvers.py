@@ -46,6 +46,113 @@ def build_approval_url(doctype, name):
     return "/approval?id=" + _q(str(name or ""), safe="") + "&type=" + _q(t, safe="")
 
 
+# ---- approval-engine link contract (Phase 1b.3) ----------------------------
+#: The Approval Engine's request DocType, and the canonical Link field every
+#: governed business form carries back to its engine request.
+APPROVAL_REQUEST_DT = "EC Approval Request"
+APPROVAL_LINK_FIELD = "approval_request"
+
+#: SAFETY GATE (Phase 1b.3 generalized-scope review). ~31 DocTypes carry the
+#: engine link, but the Action Center feed gates VISIBILITY through the ONE
+#: canonical helper engine.permissions.can_view_request. A DocType may be
+#: normalized to the approval route ONLY if its own form `_can_view` is >= that
+#: helper (the feed must NEVER grant a broader view than the business form).
+#:
+#: Parity audit of all 26 form `_can_view` (2026-07-28):
+#:   FULFILLER-pattern  (SM|requester|approver|fulfillment_owner|eligible_fulfiller)
+#:     -> form >= canonical (form also scans Draft processes); feed <= form. SAFE.
+#:     = AI Topup, Asset Request, Data Request, Document Request, Resignation,
+#:       System Request.
+#:   NO-FULFILLER pattern (SM|requester|approver only) -- 15 forms -- and
+#:   SNAPSHOT pattern (SM|requester|snapshot-approver) -- 5 forms:
+#:     canonical is BROADER (adds fulfillment_owner + eligible_fulfiller) ->
+#:     EXCLUDED until their permission contract is aligned (delegate to / adopt
+#:     the fulfiller pattern). Excluded DocTypes fall back to the generic
+#:     referenced document (their pre-1b.3 behavior; no regression).
+#: Adding a DocType here REQUIRES proving form >= can_view_request.
+APPROVAL_NORMALIZE_ALLOWLIST = frozenset({
+    "EC AI Topup Request",
+    "EC Asset Request",
+    "EC Data Request",
+    "EC Document Request",
+    "EC Resignation Request",
+    "EC System Request",
+})
+
+#: cache: (doctype, fieldname) -> bool. DocType meta is static per process, so a
+#: single get_meta() per DocType is enough (never one per ToDo row).
+_META_FIELD_CACHE = {}
+
+
+def _link_field(doctype, fieldname):
+    dt = (doctype or "").strip()
+    if not dt or not fieldname:
+        return None
+    ck = (dt, fieldname)
+    if ck in _META_FIELD_CACHE:
+        return _META_FIELD_CACHE[ck]
+    f = None
+    try:
+        f = frappe.get_meta(dt).get_field(fieldname)
+    except Exception:
+        f = None
+    _META_FIELD_CACHE[ck] = f
+    return f
+
+
+def has_engine_approval_link(doctype):
+    """True if `doctype` is an approval-governed business form: it declares a
+    Link field `approval_request` whose options is `EC Approval Request`.
+
+    METADATA-DRIVEN via Frappe get_meta -- never a hardcoded list of the ~28
+    approval business DocTypes. Cached per DocType."""
+    f = _link_field(doctype, APPROVAL_LINK_FIELD)
+    return bool(f and getattr(f, "fieldtype", None) == "Link"
+                and (getattr(f, "options", None) or "").strip() == APPROVAL_REQUEST_DT)
+
+
+def has_field(doctype, fieldname):
+    """True if `doctype` declares `fieldname` (metadata; cached)."""
+    return _link_field(doctype, fieldname) is not None
+
+
+def build_approval_center_url(route, business_name):
+    """Canonical Approval Center form deep-link: ``<route>?id=<business_name>``.
+
+    EC approval-center forms (AI Topup, purchase/SO-PO, asset, HR, ...) each live
+    at their own governed route -- stored, leading-slash-validated, on
+    ``EC Approval Type.route`` (e.g. ``/approvals/ai-topup``) -- and read
+    ``?id=<business doc name>``. Canonical counterpart to
+    :func:`build_approval_url` (the legacy ``/approval`` inbox for
+    MSO/SO/PO/REC/GBS). Returns '' when the route is missing so the caller falls
+    back instead of emitting a dead link."""
+    r = (route or "").strip()
+    if not r:
+        return ""
+    if not r.startswith("/"):
+        r = "/" + r
+    return r + "?id=" + _q(str(business_name or ""), safe="")
+
+
+def apply_approval_normalization(item, request_name, route, business_name, title=None):
+    """Normalize `item` as a governed approval (source_type=approval) with the
+    canonical Approval Center URL. Preserves the original business reference
+    fields already on `item` (reference_type/reference_name) for display/audit,
+    and records the linked engine request. ONE place the approval source strings
+    + URL are applied, for BOTH direct EC Approval Request references and linked
+    business documents (single normalized adapter)."""
+    item["source_key"] = _APPROVAL_SRC["source_key"]
+    item["source_type"] = _APPROVAL_SRC["source_key"]
+    item["source_label"] = _APPROVAL_SRC["source_label"]
+    item["action_label"] = _APPROVAL_SRC["action_label"]
+    item["action_url"] = build_approval_center_url(route, business_name)
+    item["source_name"] = request_name           # linked EC Approval Request
+    item["approval_request"] = request_name       # explicit, for audit
+    if title:
+        item["title"] = title
+    return item
+
+
 def build_wtu_url(week_label):
     """Weekly Update form deep-link. UI reads URLSearchParams.get('week')."""
     return "/weekly-update?week=" + _q(str(week_label or ""), safe="")

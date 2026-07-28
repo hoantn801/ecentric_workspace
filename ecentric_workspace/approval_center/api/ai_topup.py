@@ -8,6 +8,7 @@ actions to show, but the backend re-validates every write elsewhere.
 import frappe
 from frappe import _
 from ecentric_workspace.approval_center.api._common import requester_display
+from ecentric_workspace.approval_center.engine import permissions as _perm
 
 BIZ = "EC AI Topup Request"
 APPROVAL_TYPE = "AI_TOPUP"
@@ -48,18 +49,8 @@ def _employee_ctx(user=None):
 
 
 def _is_fulfiller(user=None):
-    user = user or frappe.session.user
-    if _sm():
-        return True
-    # configured Fulfiller on the active AI_TOPUP process, or has an open fulfillment ToDo
-    procs = frappe.get_all("EC Approval Process",
-                           filters={"approval_type": APPROVAL_TYPE, "status": "Active"}, pluck="name")
-    for p in procs:
-        if frappe.db.exists("EC Approval Participant",
-                            {"parent": p, "parenttype": "EC Approval Process",
-                             "participant_purpose": "Fulfiller", "user": user}):
-            return True
-    return bool(frappe.db.exists("ToDo", {"reference_type": BIZ, "allocated_to": user, "status": "Open"}))
+    # Canonical Approval Engine rule (single definition) -- unchanged behavior.
+    return _perm.is_eligible_fulfiller(user or frappe.session.user, APPROVAL_TYPE, BIZ)
 
 
 def _has_any_approver_row(user=None):
@@ -73,14 +64,12 @@ def _req_of(biz_name):
 
 
 def _can_view(user, biz, req):
-    if _sm() or biz.requested_by == user:
-        return True
-    if req and frappe.db.exists("EC Approval Request Approver",
-                                {"approval_request": req.name, "approver": user}):
-        return True
-    if biz.fulfillment_owner == user or _is_fulfiller(user):
-        return True
-    return False
+    # Canonical Approval Engine visibility (single definition), shared with the
+    # Action Center feed -- no second permission definition. Behavior unchanged.
+    return _perm.can_view_request(
+        req.name if req else None, user, business_doctype=BIZ,
+        requested_by=biz.requested_by, fulfillment_owner=biz.fulfillment_owner,
+        approval_type=APPROVAL_TYPE)
 
 
 def _pending_row(req, user):
