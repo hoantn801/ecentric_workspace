@@ -17,89 +17,43 @@ Permission scope:
 
 import frappe
 
-from ecentric_workspace.action_center.resolvers import (
-    bucket_for,
-    build_approval_url,
-    resolve_item,
-)
+from ecentric_workspace.action_center import feed as ac_feed
+from ecentric_workspace.action_center.resolvers import build_approval_url
+
+
+def _require_user():
+    if not frappe.session.user or frappe.session.user == "Guest":
+        frappe.response["http_status_code"] = 401
+        return None
+    return frappe.session.user
 
 
 @frappe.whitelist(methods=["GET"])
-def get_action_items():
-    """Return canonical Action Center feed for the current user."""
-    if not frappe.session.user or frappe.session.user == "Guest":
-        frappe.response["http_status_code"] = 401
-        return {"success": False, "error": "Unauthorized", "count": 0, "items": []}
+def get_action_items(cursor=None, limit=None):
+    """Canonical Action Center feed for the current user (session-scoped).
 
-    user = frappe.session.user
-    rows = frappe.db.sql(
-        "SELECT name, description, reference_type, reference_name, "
-        "       priority, modified, date "
-        "FROM `tabToDo` "
-        "WHERE allocated_to=%s AND status=%s "
-        "ORDER BY modified DESC LIMIT 20",
-        (user, "Open"),
-        as_dict=True,
-    )
+    Delegates ALL counting / classification / due derivation / terminal
+    filtering / ordering / pagination to the shared feed service -- no logic
+    is duplicated here. Backward-compatible envelope: success/count/items/
+    counts/generated_at are unchanged for the existing homepage widget; the
+    `total` / `returned` / `next_cursor` keys are additive (cursor pagination
+    for the future full Action Center). `cursor`/`limit` are optional (the
+    widget passes neither -> the first page of DEFAULT_LIMIT)."""
+    user = _require_user()
+    if not user:
+        return {"success": False, "error": "Unauthorized", "count": 0, "items": [], "counts": {}}
 
-    items = []
-    for r in rows:
-        try:
-            items.append(resolve_item(r))
-        except Exception:
-            frappe.log_error(
-                frappe.get_traceback(),
-                "action_center.resolve_item failed for ToDo " + str(r.get("name") or ""),
-            )
-            # Skip a single bad row; do not break the whole feed.
-            continue
-
-    # ---- v1 additive enrichment (2C.2): governed due dates + buckets ------
-    # For engine-backed approval items the ToDo carries no date, but the
-    # ACTIVE EC Approval Request Level does (SLA due_at). That is a governed
-    # source record -- we derive, we never invent. Everything else keeps its
-    # ToDo.date (WTU obligations set it; bare items stay "undated").
-    today = frappe.utils.getdate()
-    counts = {"overdue": 0, "today": 0, "upcoming": 0, "undated": 0}
-    for it in items:
-        if not it.get("due_at") and it.get("source_key") == "approval":
-            due = _engine_level_due(it.get("reference_type"), it.get("reference_name"))
-            if due:
-                it["due_at"] = str(due)
-        it["bucket"] = bucket_for(it.get("due_at"), today)
-        counts[it["bucket"]] = counts.get(it["bucket"], 0) + 1
-
-    # Backward-compatible: success/count/items unchanged; new keys additive.
+    res = ac_feed.build_feed(user, cursor=cursor, limit=limit or ac_feed.DEFAULT_LIMIT)
     return {
         "success": True,
-        "count": len(items),
-        "items": items,
-        "counts": counts,
-        "generated_at": str(frappe.utils.now_datetime()),
+        "count": res["returned"],          # backward-compat: items on this page
+        "items": res["items"],
+        "counts": res["counts"],
+        "total": res["total"],
+        "returned": res["returned"],
+        "next_cursor": res["next_cursor"],
+        "generated_at": res["generated_at"],
     }
-
-
-def _engine_level_due(ref_type, ref_name):
-    """due_at of the ACTIVE approval level for a business doc, else None.
-
-    Read-only, two indexed lookups; scope safety: the caller already holds an
-    Open ToDo for this doc (engine granted read via DocShare), so exposing the
-    level due date leaks nothing beyond the user's own queue.
-    """
-    if not (ref_type and ref_name):
-        return None
-    req = frappe.get_all(
-        "EC Approval Request",
-        filters={"reference_doctype": ref_type, "reference_name": ref_name,
-                 "approval_status": ["in", ["Pending", "Information Required"]]},
-        fields=["name"], limit=1, ignore_permissions=True)
-    if not req:
-        return None
-    lv = frappe.get_all(
-        "EC Approval Request Level",
-        filters={"approval_request": req[0]["name"], "level_status": "In Progress"},
-        fields=["due_at"], limit=1, ignore_permissions=True)
-    return lv[0]["due_at"] if lv else None
 
 
 @frappe.whitelist(methods=["GET"])

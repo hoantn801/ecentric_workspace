@@ -53,6 +53,9 @@ doc_events = {
     "Task": {
         # G4.10: enforce PM transition rules on EVERY save path (API + generic apply_workflow).
         "before_save": "ecentric_workspace.pm.api.tasks.pm_task_transition_guard",
+        # AC-1a: close assignment ToDos when a Task enters a terminal state
+        # (keeps the shared Action feed / tabToDo hygienic).
+        "on_update": "ecentric_workspace.pm.api.todo_lifecycle.pm_task_close_todos_on_terminal",
     },
     "PM Task Label": {
         # G4.9: block hard-delete of an in-use label on EVERY delete path (incl. Administrator).
