@@ -38,6 +38,10 @@ EC_LEVEL = "EC Approval Request Level"
 FEED_BUCKETS = ("overdue", "act_now", "upcoming", "undated")
 _BUCKET_RANK = {b: i for i, b in enumerate(FEED_BUCKETS)}
 _SOURCE_PRIORITY = {"approval": 0, "task": 1, "weekly_report": 2, "generic": 3}
+#: item source_type -> the canonical source_counts key exposed to consumers.
+SOURCE_COUNT_KEY = {"approval": "approval", "task": "pm",
+                    "weekly_report": "weekly_update", "generic": "generic_todo"}
+SOURCE_COUNT_KEYS = ("approval", "pm", "weekly_update", "generic_todo")
 _APPROVAL_TERMINAL = frozenset({"Approved", "Rejected", "Cancelled"})
 _WTU_TERMINAL = frozenset({"Submitted", "Reviewed"})
 
@@ -194,6 +198,7 @@ def build_feed(user, cursor=None, limit=DEFAULT_LIMIT):
 
     items = []
     counts = {b: 0 for b in FEED_BUCKETS}
+    source_counts = {k: 0 for k in SOURCE_COUNT_KEYS}
     for r in rows:
         try:
             it = resolve_item(r)
@@ -223,6 +228,8 @@ def build_feed(user, cursor=None, limit=DEFAULT_LIMIT):
         it["_creation"] = str(r.get("creation") or "")
         items.append(it)
         counts[bucket] += 1
+        sk = SOURCE_COUNT_KEY.get(it.get("source_type"), "generic_todo")
+        source_counts[sk] += 1
 
     items = order_items(items)
     total = len(items)
@@ -233,7 +240,8 @@ def build_feed(user, cursor=None, limit=DEFAULT_LIMIT):
 
     return {
         "items": page,
-        "counts": counts,
+        "counts": counts,               # bucket counts (overdue/act_now/upcoming/undated)
+        "source_counts": source_counts,  # per-source counts (approval/pm/weekly_update/generic_todo)
         "total": total,
         "returned": len(page),
         "next_cursor": next_cursor,

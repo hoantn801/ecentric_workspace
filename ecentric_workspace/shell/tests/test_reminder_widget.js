@@ -1,0 +1,29 @@
+// Homepage "Việc cần làm" badge must bind to the shared feed.total (Phase 1b).
+'use strict';
+const fs = require('fs'); const path = require('path');
+const W = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'js', 'action_center_widget.js'), 'utf8');
+let failures = 0;
+function ok(c, m) { if (!c) { failures++; console.error('FAIL: ' + m); } else { console.log('ok  - ' + m); } }
+
+ok(/function renderBadge\(total\)/.test(W), 'widget has renderBadge(total)');
+ok(W.indexOf('msg.total') >= 0, 'badge reads feed.total from the shared provider');
+ok(/panel\.querySelector\('\.approval-list'\)/.test(W), 'still renders into .approval-list panel');
+ok(/data-ec-ac-badge="1"/.test(W), 'targets the widget-owned [data-ec-ac-badge] placeholder');
+ok(/badge.hidden = false/.test(W), 'badge shown only when total > 0');
+ok(/badge.textContent = String\(n\)/.test(W), 'badge text set from feed total (n), not a global count');
+ok(W.indexOf('items.length') >= 0, 'list still uses page items');
+ok(/n === 0/.test(W) && /badge.hidden = true/.test(W), 'badge HIDDEN (not removed) when total is 0');
+ok(/total - DISPLAY_LIMIT/.test(W), 'Xem thêm uses feed.total, not page length');
+
+ok(/function renderKpi\(sourceCounts\)/.test(W), 'widget has renderKpi(sourceCounts)');
+ok(/sourceCounts.approval/.test(W), 'KPI binds to source_counts.approval');
+ok(/data-ec-ac-kpi="approval"/.test(W), 'KPI targets the widget-owned placeholder');
+ok(/yêu cầu cần phản hồi/.test(W), 'meta uses session-scoped wording');
+ok(/msg.source_counts/.test(W), 'reads source_counts from the shared feed');
+// header Xem tất cả -> homepage (safe for all shell users, not /app)
+const S = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'js', 'ec_shell.js'), 'utf8');
+ok(/ec-shell-rm-all" href="\/">Xem tất cả/.test(S), 'Xem tất cả -> / (homepage action section)');
+ok(!/\/app\/todo\/view\/list/.test(S), 'no /app/todo Desk path (permission-safe)');
+
+console.log(failures === 0 ? '\nALL CHECKS PASSED' : '\n' + failures + ' FAILURES');
+process.exit(failures ? 1 : 0);

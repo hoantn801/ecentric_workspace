@@ -85,7 +85,48 @@
     return null;
   }
 
-  function renderCards(items) {
+  // Bind the "Việc cần làm" panel-title badge to the SHARED provider's
+  // feed.total (session-scoped). Fixes the legacy Jinja `approvals_count`
+  // (a GLOBAL, unscoped Leave+SO count) that was stuck/wrong. The widget is
+  // an app asset -> no homepage Web Page markup change.
+  function renderBadge(total) {
+    var panel = findPanel();
+    if (!panel) return;
+    // Prefer the governed widget-owned placeholder [data-ec-ac-badge] (the
+    // homepage no longer server-renders any count). Fall back to the legacy
+    // .panel-title .badge only if an un-neutralized page is still live.
+    var title = panel.querySelector('.panel-title');
+    if (!title) return;
+    var badge = title.querySelector('[data-ec-ac-badge="1"]') || title.querySelector('.badge');
+    var n = (typeof total === 'number' && total > 0) ? total : 0;
+    if (n === 0) {
+      if (badge) { badge.hidden = true; badge.textContent = ''; }   // hidden, never removed
+      return;
+    }
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'badge b-pink';
+      badge.setAttribute('data-ec-ac-badge', '1');
+      title.appendChild(document.createTextNode(' '));
+      title.appendChild(badge);
+    }
+    badge.textContent = String(n);
+    badge.hidden = false;
+  }
+
+  // KPI "Phê duyệt chờ" -> feed.source_counts.approval (session-scoped). The
+  // homepage ships a neutral "—" placeholder; hydration fills the real count.
+  // On API failure the widget leaves "—" (never a knowingly-false 0).
+  function renderKpi(sourceCounts) {
+    if (!sourceCounts || typeof sourceCounts.approval !== 'number') return;
+    var n = sourceCounts.approval;
+    var val = document.querySelector('[data-ec-ac-kpi="approval"]');
+    if (val) val.textContent = String(n);
+    var meta = document.querySelector('[data-ec-ac-kpi-meta="1"]');
+    if (meta) meta.textContent = n + ' yêu cầu cần phản hồi';
+  }
+
+  function renderCards(items, total) {
     var panel = findPanel();
     if (!panel) return;
     var listEl = panel.querySelector('.approval-list');
@@ -94,7 +135,8 @@
       listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#6b7280;font-size:13px;">Không có việc nào cần làm</div>';
       return;
     }
-    var total = items.length;
+    // total = feed.total (ALL open actions), NOT the returned page length.
+    if (typeof total !== 'number') total = items.length;
     var visibleItems = items.slice(0, DISPLAY_LIMIT);
     var html = visibleItems.map(function(it) {
       // action_url is supplied by the server resolver. NO URL building here.
@@ -131,7 +173,13 @@
         type: 'GET',
         callback: function(r) {
           var msg = r && r.message;
-          if (msg && msg.success && msg.items) renderCards(msg.items);
+          if (!msg || !msg.success) return;
+          // feed.total is the single source of truth for the badge + "more".
+          var total = (typeof msg.total === 'number') ? msg.total
+                    : ((msg.items && msg.items.length) || 0);
+          renderBadge(total);
+          renderKpi(msg.source_counts);
+          renderCards(msg.items || [], total);
         }
       });
     }

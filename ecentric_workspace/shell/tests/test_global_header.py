@@ -67,12 +67,14 @@ class TestCanonicalHeaderPerRoute(unittest.TestCase):
             self.assertIsNone(help_.search(src), route + ": legacy icon-btn/ec-ib remains")
             self.assertNotIn("docs.ecentric.vn", src, route)
 
-    def test_inert_slots_have_no_fake_behavior(self):
-        onclick = re.compile(r'data-ec-shell-(?:action|settings)-slot="1"[^>]*onclick')
+    def test_settings_slot_still_inert(self):
+        # Phase 1b: the REMINDER slot is now active; the SETTINGS slot stays an
+        # inert disabled placeholder (no governed destination yet).
+        onclick = re.compile(r'data-ec-shell-settings-slot="1"[^>]*onclick')
         for path, route in _pages():
             src = _read(path)
             self.assertIsNone(onclick.search(src), route)
-            for m in re.finditer(r'<button[^>]*data-ec-shell-(?:action|settings)-slot="1"[^>]*>', src):
+            for m in re.finditer(r'<button[^>]*data-ec-shell-settings-slot="1"[^>]*>', src):
                 self.assertIn("disabled", m.group(0), route)
                 self.assertIn('aria-disabled="true"', m.group(0), route)
 
@@ -129,13 +131,17 @@ class TestHydrationParity(unittest.TestCase):
     def test_js_carries_static_tbright_fragments(self):
         js = _read(APP, "public", "js", "ec_shell.js")
         static = fb.render_tbright_inner()
-        for frag in ('data-ec-shell-action-slot="1" disabled aria-disabled="true"',
-                     'data-ec-shell-settings-slot="1" disabled aria-disabled="true"',
-                     'title="Nhắc việc (sắp ra mắt)"',
+        for frag in ('data-ec-shell-action-slot="1"',                       # reminder (active)
+                     'data-ec-shell-reminder-badge="1"',                     # badge node
+                     'data-ec-shell-settings-slot="1" disabled aria-disabled="true"',  # settings inert
                      'title="Cài đặt (sắp ra mắt)"',
                      'data-ec-notification-bell="1"'):
             self.assertIn(frag, static, "static: " + frag)
             self.assertIn(frag, js, "js: " + frag)
+        # reminder is ACTIVE now: NOT disabled, real title
+        self.assertNotIn('data-ec-shell-action-slot="1" disabled', static)
+        self.assertIn('title="Nhắc việc"', static)
+        self.assertIn('title="Nhắc việc"', js)
         for icon in ("reminder", "gear"):
             self.assertIn(fb.ICONS[icon], js, icon)
 
@@ -145,6 +151,54 @@ class TestHydrationParity(unittest.TestCase):
         css = _read(APP, "public", "css", "ec_shell.bundle.css")
         self.assertIn(".ec-shell-topbar{", css)
         self.assertIn(".ec-shell-crumbs{", css)
+
+
+class TestHeaderReminder(unittest.TestCase):
+    """Phase 1b: Header Reminder slot -- active button + badge + drawer over
+    the SHARED action feed. NC bell + Settings contracts preserved."""
+
+    def test_reminder_button_active_with_badge_node(self):
+        static = fb.render_tbright_inner()
+        js = _read(APP, "public", "js", "ec_shell.js")
+        for frag in ('class="ec-shell-iconbtn ec-shell-reminder"',
+                     'data-ec-shell-action-slot="1"',
+                     'data-ec-shell-reminder-badge="1"',
+                     'aria-haspopup="dialog"'):
+            self.assertIn(frag, static, "static: " + frag)
+            self.assertIn(frag, js, "js: " + frag)
+        # badge hidden at SSR (count is client-side, session-scoped)
+        self.assertIn('data-ec-shell-reminder-badge="1" hidden', static)
+
+    def test_reminder_delegates_shared_feed_and_caps_badge(self):
+        js = _read(APP, "public", "js", "ec_shell.js")
+        # header endpoint = get_reminder_summary (delegates build_feed)
+        self.assertIn("action_center.api.get_reminder_summary", js)
+        # attention badge caps at 9+
+        self.assertIn("n > 9 ? '9+'", js)
+        self.assertIn("attention_count", js)
+        # drawer buckets + total + Xem tất cả
+        for frag in ("Quá hạn", "Cần làm", "Sắp tới", "Không hạn",
+                     "ec-shell-reminder-drawer", "Xem tất cả", "ec-shell-rm-total"):
+            self.assertIn(frag, js, frag)
+        # edge states
+        self.assertIn("Không tải được", js)               # API error
+        self.assertIn("Không có việc nào cần làm", js)     # empty
+
+    def test_nc_and_settings_contracts_preserved(self):
+        static = fb.render_tbright_inner()
+        self.assertEqual(static.count('data-ec-notification-bell="1"'), 1)
+        self.assertIn('href="/app/notification-log"', static)
+        self.assertIn('data-ec-shell-settings-slot="1" disabled', static)
+
+    def test_reminder_badge_css_within_z_budget(self):
+        css = _read(APP, "public", "css", "ec_shell.bundle.css")
+        self.assertIn(".ec-shell-reminder-badge{", css)
+        self.assertIn(".ec-shell-reminder-drawer{", css)
+        # drawer z-index must not exceed the NC popover budget (1000)
+        import re as _re
+        m = _re.search(r"\.ec-shell-reminder-drawer\{[^}]*z-index:(\d+)", css)
+        self.assertIsNotNone(m)
+        self.assertLessEqual(int(m.group(1)), 1000)
 
 
 if __name__ == "__main__":

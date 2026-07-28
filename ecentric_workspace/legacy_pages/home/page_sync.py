@@ -220,6 +220,125 @@ def sync(html=None):
     return page_sync_util.upsert_web_page(ROUTE, NAME, TITLE, html)
 
 
+# --------------------------------------------------------------------------- #
+# Action badge neutralization (Phase 1b deployment blocker fix, 2026-07-24)     #
+# --------------------------------------------------------------------------- #
+# The homepage "Việc cần làm" badge was Jinja `{{ approvals_count }}` where
+# approvals_count = leave_count + so_count, and leave_count/so_count were
+# GLOBAL, UNSCOPED frappe.db.count(...) of Open Leave Applications + draft
+# Sales Orders (gated to System Users). That exposed a wrong, non-session-
+# scoped count server-side; the asset-only widget override was insufficient
+# because the SSR still computed + showed it (flash of the global count).
+#
+# Governed fix (server-side, byte-proof, idempotent): remove the two
+# frappe.db.count queries (neutralize the set-vars to 0 so downstream
+# {{ approvals_count }}/{{ so_count }}/{{ leave_count }} references keep
+# rendering a harmless 0 instead of erroring) and replace the badge with a
+# NEUTRAL HIDDEN placeholder OWNED by the Action Center widget
+# (data-ec-ac-badge). The widget fills it from the session-scoped feed.total;
+# it stays hidden before hydration, when total==0, and when the API fails.
+
+_LEAVE_SET_LEGACY = ("{% set leave_count = frappe.db.count('Leave Application', "
+                     "filters={'status': 'Open', 'docstatus': 0}) if is_system_user "
+                     "and frappe.db.exists('DocType', 'Leave Application') else 0 %}")
+_SO_SET_LEGACY = ("{% set so_count = frappe.db.count('Sales Order', "
+                  "filters={'docstatus': 0}) if is_system_user "
+                  "and frappe.db.exists('DocType', 'Sales Order') else 0 %}")
+_APPROVALS_SET_LEGACY = "{% set approvals_count = leave_count + so_count %}"
+_BADGE_LEGACY = ('{% if approvals_count %}<span class="badge b-pink">'
+                 '{{ approvals_count }}</span>{% endif %}')
+_KPI_VAL_LEGACY = '<div class="stat-value">{{ approvals_count }}</div>'
+_KPI_META_LEGACY = ('<div class="stat-meta">{{ so_count }} SO · '
+                    '{{ leave_count }} đơn nghỉ phép</div>')
+
+_LEAVE_SET_NEUTRAL = "{% set leave_count = 0 %}"
+_SO_SET_NEUTRAL = "{% set so_count = 0 %}"
+_APPROVALS_SET_NEUTRAL = "{% set approvals_count = 0 %}"
+#: always-present, hidden, widget-owned placeholder (no server count).
+_BADGE_NEUTRAL = '<span class="badge b-pink" data-ec-ac-badge="1" hidden></span>'
+#: KPI "Phê duyệt chờ" value -> widget-owned; NEUTRAL "—" until hydration
+#: (never a knowingly-false 0). The widget fills it from
+#: feed.source_counts.approval (session-scoped).
+_KPI_VAL_NEUTRAL = '<div class="stat-value" data-ec-ac-kpi="approval">—</div>'
+#: KPI meta -> session-scoped wording; widget fills "X yêu cầu cần phản hồi".
+_KPI_META_NEUTRAL = '<div class="stat-meta" data-ec-ac-kpi-meta="1"></div>'
+
+_NEUTRALIZE = [
+    (_LEAVE_SET_LEGACY, _LEAVE_SET_NEUTRAL),
+    (_SO_SET_LEGACY, _SO_SET_NEUTRAL),
+    (_APPROVALS_SET_LEGACY, _APPROVALS_SET_NEUTRAL),
+    (_BADGE_LEGACY, _BADGE_NEUTRAL),
+    (_KPI_VAL_LEGACY, _KPI_VAL_NEUTRAL),
+    (_KPI_META_LEGACY, _KPI_META_NEUTRAL),
+]
+
+
+def neutralize_legacy_action_counts(ms):
+    """PURE transform: strip the global-count Jinja + widget-own the badge.
+
+    Byte-proof by construction (only the four named zones change). Idempotent
+    (already-neutralized input returns unchanged). Refuses an UNKNOWN state
+    (neither legacy nor neutralized markers present) rather than guessing.
+    Returns (new_html, changed_count)."""
+    if "data-ec-ac-badge" in ms and _BADGE_LEGACY not in ms:
+        # already neutralized -> no-op (but assert the global count is gone
+        # and the KPI is widget-owned, never a false zero)
+        if "frappe.db.count('Leave Application'" in ms or "frappe.db.count('Sales Order'" in ms:
+            raise ValueError("partial neutralization: badge done but count queries remain")
+        if 'data-ec-ac-kpi="approval"' not in ms:
+            raise ValueError("partial neutralization: badge done but KPI not widget-owned")
+        return ms, 0
+    if _BADGE_LEGACY not in ms:
+        raise ValueError("unknown homepage state: legacy action badge not found")
+    new = ms
+    changed = 0
+    for legacy, neutral in _NEUTRALIZE:
+        if legacy in new:
+            new = new.replace(legacy, neutral, 1)
+            changed += 1
+    # post-conditions: no global count queries; widget-owned placeholders in
+    # place of any server-rendered count (no knowingly-false zero).
+    if "frappe.db.count('Leave Application'" in new or "frappe.db.count('Sales Order'" in new:
+        raise ValueError("global count query still present after neutralization")
+    if new.count('data-ec-ac-badge="1"') != 1:
+        raise ValueError("expected exactly one widget badge placeholder")
+    if new.count('data-ec-ac-kpi="approval"') != 1:
+        raise ValueError("expected the KPI value to be a widget-owned placeholder")
+    if new.count('data-ec-ac-kpi-meta="1"') != 1:
+        raise ValueError("expected the KPI meta to be a widget-owned placeholder")
+    # the KPI value must NOT be a hardcoded 0 (no false zero)
+    if '<div class="stat-value">0</div>' in new:
+        raise ValueError("KPI must not display a false 0")
+    return new, changed
+
+
+@frappe.whitelist(methods=["POST"])
+def sync_home_action_badge():
+    """SM-gated governed re-sync of ONLY the homepage action-count Jinja.
+
+    Reads the live main_section, neutralizes the legacy global count +
+    widget-owns the badge, and writes it back. Idempotent (re-run = unchanged).
+    Separate from the guarded baseline sync -- this is a targeted, byte-proof
+    correction, not a full-page overwrite. dynamic_template stays 1."""
+    if "System Manager" not in frappe.get_roles(frappe.session.user):
+        frappe.throw(_("Only System Manager may sync the homepage."), frappe.PermissionError)
+    name = page_sync_util.find_web_page(ROUTE, NAME)
+    if not name:
+        return {"action": "skipped", "reason": "homepage Web Page missing"}
+    ms = frappe.db.get_value("Web Page", name, "main_section") or ""
+    try:
+        new, changed = neutralize_legacy_action_counts(ms)
+    except ValueError as e:
+        frappe.throw(_(str(e)))
+    if new == ms:
+        return {"action": "unchanged", "route": ROUTE, "name": name}
+    doc = frappe.get_doc("Web Page", name)
+    doc.main_section = new
+    doc.main_section_html = new
+    doc.save(ignore_permissions=True)
+    return {"action": "updated", "route": ROUTE, "name": name, "zones_changed": changed}
+
+
 @frappe.whitelist(methods=["POST"])
 def sync_home_page():
     if "System Manager" not in frappe.get_roles(frappe.session.user):

@@ -49,7 +49,42 @@ def get_action_items(cursor=None, limit=None):
         "count": res["returned"],          # backward-compat: items on this page
         "items": res["items"],
         "counts": res["counts"],
+        "source_counts": res["source_counts"],
         "total": res["total"],
+        "returned": res["returned"],
+        "next_cursor": res["next_cursor"],
+        "generated_at": res["generated_at"],
+    }
+
+
+#: how many top items the header drawer shows before "Xem tất cả".
+REMINDER_TOP_N = 8
+
+
+@frappe.whitelist(methods=["GET"])
+def get_reminder_summary(limit=None):
+    """Header Reminder drawer feed (Phase 1b). DELEGATES to the shared
+    build_feed -- no classification/counting logic is duplicated here.
+
+    Returns the SAME feed result's total + counts + top prioritized items,
+    plus a derived attention_count = overdue + act_now (the header badge).
+    Session-scoped; the client may only page (limit), never pass a user."""
+    user = _require_user()
+    if not user:
+        return {"success": False, "error": "Unauthorized",
+                "total": 0, "attention_count": 0, "counts": {}, "items": []}
+
+    n = limit or REMINDER_TOP_N
+    res = ac_feed.build_feed(user, cursor=None, limit=n)
+    counts = res["counts"]
+    attention_count = counts.get("overdue", 0) + counts.get("act_now", 0)
+    return {
+        "success": True,
+        "total": res["total"],             # ALL open actions (badge on the widget)
+        "attention_count": attention_count,  # overdue + act_now (header badge)
+        "counts": counts,                  # full-feed bucket counts
+        "source_counts": res["source_counts"],  # SAME per-source counts (no dup query)
+        "items": res["items"],             # top-N, already deterministically ordered
         "returned": res["returned"],
         "next_cursor": res["next_cursor"],
         "generated_at": res["generated_at"],

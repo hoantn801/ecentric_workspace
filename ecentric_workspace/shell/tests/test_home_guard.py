@@ -134,5 +134,83 @@ class TestCockpitRetired(unittest.TestCase):
             self.assertIn(keep, res, keep)
 
 
+class TestHomeActionBadgeNeutralization(unittest.TestCase):
+    """Phase 1b blocker fix: the homepage must stop server-rendering the
+    global, unscoped approvals_count. Prove the count queries are gone and
+    the badge is a widget-owned hidden placeholder."""
+    @classmethod
+    def setUpClass(cls):
+        cls._saved = sys.modules.get("frappe")
+        _install_tripwire_frappe()
+        for m in ("ecentric_workspace.legacy_pages.home.page_sync",
+                  "ecentric_workspace.approval_center.page_sync_util"):
+            sys.modules.pop(m, None)
+        cls.hp = importlib.import_module("ecentric_workspace.legacy_pages.home.page_sync")
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls._saved is not None:
+            sys.modules["frappe"] = cls._saved
+
+    def _fixture(self):
+        hp = self.hp
+        return ('<div class="content">' + hp._LEAVE_SET_LEGACY + hp._SO_SET_LEGACY +
+                hp._APPROVALS_SET_LEGACY +
+                '<div class="stat-card">' + hp._KPI_VAL_LEGACY +
+                '<div class="stat-label">Phê duyệt chờ</div>' + hp._KPI_META_LEGACY + '</div>'
+                '<div class="panel-title">Việc cần làm ' + hp._BADGE_LEGACY + '</div>'
+                '<div class="approval-list">{% if approvals_count == 0 %}e{% else %}x{% endif %}</div>'
+                '<script id="ec-chatbot-js">g()</script></div>')
+
+    def test_global_count_removed_no_false_zero_widget_owned(self):
+        new, changed = self.hp.neutralize_legacy_action_counts(self._fixture())
+        self.assertEqual(changed, 6)
+        # #1/#6 legacy global count logic GONE
+        self.assertNotIn("frappe.db.count('Leave Application'", new)
+        self.assertNotIn("frappe.db.count('Sales Order'", new)
+        # badge = neutral hidden widget-owned placeholder
+        self.assertEqual(new.count('data-ec-ac-badge="1"'), 1)
+        self.assertIn('data-ec-ac-badge="1" hidden', new)
+        self.assertNotIn(self.hp._BADGE_LEGACY, new)
+        # KPI "Phê duyệt chờ": widget-owned + NEUTRAL "—", NOT a false 0
+        self.assertEqual(new.count('data-ec-ac-kpi="approval"'), 1)
+        self.assertIn('data-ec-ac-kpi="approval">—</div>', new)
+        self.assertNotIn('<div class="stat-value">0</div>', new)
+        self.assertNotIn(self.hp._KPI_VAL_LEGACY, new)
+        # meta: session-scoped placeholder (widget fills "X yêu cầu cần phản hồi")
+        self.assertEqual(new.count('data-ec-ac-kpi-meta="1"'), 1)
+        self.assertNotIn(self.hp._KPI_META_LEGACY, new)
+        self.assertIn('ec-chatbot-js', new)
+
+    def test_idempotent_and_byteproof(self):
+        fx = self._fixture()
+        new, _ = self.hp.neutralize_legacy_action_counts(fx)
+        again, c2 = self.hp.neutralize_legacy_action_counts(new)
+        self.assertEqual(again, new)
+        self.assertEqual(c2, 0)
+        def strip(h):
+            for a, b in self.hp._NEUTRALIZE:
+                h = h.replace(a, "@@").replace(b, "@@")
+            return h
+        self.assertEqual(strip(fx), strip(new))     # only the 4 zones change
+
+    def test_refuses_unknown_state(self):
+        with self.assertRaises(ValueError):
+            self.hp.neutralize_legacy_action_counts("<div>no badge</div>")
+
+    def test_partial_state_refused(self):
+        # badge neutralized but a count query left -> refuse (fail loud)
+        bad = ('data-ec-ac-badge="1"' + self.hp._LEAVE_SET_LEGACY)
+        with self.assertRaises(ValueError):
+            self.hp.neutralize_legacy_action_counts(bad)
+
+    def test_sync_endpoint_sm_gated(self):
+        src = open(os.path.join(APP, "legacy_pages", "home", "page_sync.py"),
+                   encoding="utf-8").read()
+        self.assertIn("def sync_home_action_badge", src)
+        self.assertIn("System Manager", src)
+        self.assertIn("dynamic_template stays 1", src)
+
+
 if __name__ == "__main__":
     unittest.main()

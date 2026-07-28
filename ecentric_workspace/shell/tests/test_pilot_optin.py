@@ -229,19 +229,16 @@ class TestHeaderPolish(unittest.TestCase):
         self.assertIn(":focus-visible", css)
         self.assertIn("a.ec-shell-crumblink:focus-visible", css)
 
-    def test_action_slot_reserved_not_implemented(self):
-        # Global Header phase: the Action Center slot is a VISIBLE disabled
-        # placeholder (contract node only -- no business behavior), and the
-        # Settings slot follows the same rule. Markup parity with
-        # shell/fallback.py render_tbright_inner is enforced separately.
+    def test_action_slot_active_settings_reserved(self):
+        # Phase 1b: the Action/Reminder slot is ACTIVE (badge + drawer over the
+        # shared feed); the Settings slot remains a VISIBLE disabled placeholder.
         js = _read(APP, "public", "js", "ec_shell.js")
         self.assertIn('data-ec-shell-action-slot="1"', js)
+        self.assertIn('data-ec-shell-reminder-badge="1"', js)
         self.assertIn('data-ec-shell-settings-slot="1"', js)
-        for frag in ('disabled aria-disabled="true"',
-                     'Nhắc việc (sắp ra mắt)', 'Cài đặt (sắp ra mắt)'):
-            self.assertIn(frag, js, frag)
-        # no fake behavior: the placeholders never get click handlers
-        self.assertNotIn("settings-slot').addEventListener", js)
+        # settings still inert placeholder
+        self.assertIn('Cài đặt (sắp ra mắt)', js)
+        self.assertIn('data-ec-shell-settings-slot="1" disabled aria-disabled="true"', js)
         css = _read(APP, "public", "css", "ec_shell.bundle.css")
         self.assertIn(".ec-shell-slot-disabled{", css)
 
@@ -322,6 +319,10 @@ class TestNavSearch(unittest.TestCase):
             # key, never a raw URL from the payload). No other business
             # endpoint may be added here.
             "/api/method/ecentric_workspace.action_center.api.get_action_items",
+            # DELIBERATE (Phase 1b Header Reminder): the header badge + drawer
+            # call the shared session-scoped feed (get_reminder_summary
+            # delegates build_feed). No other business endpoint may be added.
+            "/api/method/ecentric_workspace.action_center.api.get_reminder_summary",
             "/api/method/logout",
         }, "no business-record search endpoints allowed")
         self.assertIn("c.route; })", js)                       # route-less cards dropped

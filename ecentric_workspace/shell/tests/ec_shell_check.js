@@ -386,6 +386,18 @@ const BOOT2 = JSON.parse(JSON.stringify(BOOT1)); BOOT2.nav[1].label = 'Approval 
     ok(HAK(mpa, '/approvals', '#whatever') === null, 'MPA items ignored by hash matcher');
   }
 
+  // ---- Phase 1b: header reminder badge cap (source contract in the asset) --
+  {
+    const SRC2 = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'js', 'ec_shell.js'), 'utf8');
+    ok(/n > 9 \? '9\+'/.test(SRC2), 'reminder badge caps attention at 9+');
+    ok(SRC2.indexOf('get_reminder_summary') >= 0, 'reminder delegates get_reminder_summary (shared feed)');
+    ok(SRC2.indexOf('data-ec-shell-reminder-badge="1"') >= 0, 'reminder badge node emitted');
+    ok(/attention_count/.test(SRC2), 'badge bound to attention_count (overdue+act_now)');
+    ok(SRC2.indexOf('Xem tất cả') >= 0, 'drawer footer Xem tất cả');
+    ok(/data-ec-notification-bell="1"/.test(SRC2), 'NC bell contract preserved in header');
+    ok(/data-ec-shell-settings-slot="1" disabled/.test(SRC2), 'Settings slot still inert');
+  }
+
   console.log(failures === 0 ? '\nALL CHECKS PASSED' : '\n' + failures + ' FAILURES');
   process.exit(failures ? 1 : 0);
 })();
