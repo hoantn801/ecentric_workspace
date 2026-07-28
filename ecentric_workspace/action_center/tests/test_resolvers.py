@@ -75,6 +75,23 @@ class TestActionCenterResolvers(FrappeTestCase):
         self.assertEqual(item["reference_type"], "EC AI Topup Request")
         self.assertEqual(item["reference_name"], "EC-AITOP-1")
 
+    def test_apply_approval_normalization_fulfillment_stage(self):
+        item = {"reference_type": "EC AI Topup Request", "reference_name": "EC-AITOP-1",
+                "source_type": "generic", "source_key": "generic",
+                "action_url": "/app/ec-ai-topup-request/EC-AITOP-1", "title": "EC-AITOP-1"}
+        resolvers.apply_approval_normalization(
+            item, "REQ-1", "/approvals/ai-topup", "EC-AITOP-1", stage="fulfillment")
+        self.assertEqual(item["source_family"], "approval")
+        self.assertEqual(item["action_stage"], "fulfillment")
+        self.assertEqual(item["source_type"], "approval")           # family (backward compat)
+        self.assertEqual(item["source_label"], "THỰC HIỆN")
+        self.assertEqual(item["action_url"], "/approvals/ai-topup?id=EC-AITOP-1")
+        # approval stage keeps the approve label
+        item2 = dict(item)
+        resolvers.apply_approval_normalization(item2, "REQ-1", "/approvals/ai-topup", "EC-AITOP-1")
+        self.assertEqual(item2["action_stage"], "approval")
+        self.assertEqual(item2["source_label"], "PHÊ DUYỆT")
+
     def test_has_engine_approval_link_is_metadata_driven(self):
         # Real approval-center DocType carries approval_request Link(EC Approval Request).
         resolvers._META_FIELD_CACHE.clear()

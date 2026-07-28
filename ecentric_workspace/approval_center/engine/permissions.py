@@ -24,27 +24,55 @@ def is_system_manager(user=None):
     return "System Manager" in frappe.get_roles(user or frappe.session.user)
 
 
+def _is_configured_fulfiller(user, approval_type):
+    """A configured Fulfiller participant on an Active process of approval_type."""
+    if not approval_type:
+        return False
+    procs = frappe.get_all(
+        "EC Approval Process",
+        filters={"approval_type": approval_type, "status": "Active"},
+        pluck="name") or []
+    for p in procs:
+        if frappe.db.exists("EC Approval Participant",
+                            {"parent": p, "parenttype": "EC Approval Process",
+                             "participant_purpose": "Fulfiller", "user": user}):
+            return True
+    return False
+
+
 def is_eligible_fulfiller(user, approval_type=None, business_doctype=None):
     """Matches the approval APIs' ``_is_fulfiller``: a System Manager, a
     configured Fulfiller participant on an Active process of ``approval_type``,
-    or a user holding an Open ToDo on ``business_doctype``."""
+    or a user holding an Open ToDo on ``business_doctype``.
+
+    UNCHANGED behavior -- kept as-is for the form APIs and can_fulfill."""
     if is_system_manager(user):
         return True
-    if approval_type:
-        procs = frappe.get_all(
-            "EC Approval Process",
-            filters={"approval_type": approval_type, "status": "Active"},
-            pluck="name") or []
-        for p in procs:
-            if frappe.db.exists("EC Approval Participant",
-                                {"parent": p, "parenttype": "EC Approval Process",
-                                 "participant_purpose": "Fulfiller", "user": user}):
-                return True
+    if _is_configured_fulfiller(user, approval_type):
+        return True
     if business_doctype and frappe.db.exists(
             "ToDo", {"reference_type": business_doctype,
                      "allocated_to": user, "status": "Open"}):
         return True
     return False
+
+
+def is_eligible_fulfiller_without_todo(user=None, approval_type=None, fulfillment_owner=None):
+    """Fulfillment ENTITLEMENT, decoupled from any ToDo (Phase 1b.3.1 hotfix).
+
+    True for the fulfillment owner, a System Manager, or a configured Fulfiller
+    participant on an Active process of ``approval_type``. Deliberately EXCLUDES
+    the 'any Open ToDo on the DocType' path so that -- when the Action Center feed
+    pairs this with the separate record-scoped Open-ToDo gate -- the SAME ToDo row
+    can never establish BOTH permission (entitlement) and action existence. The
+    existing ``is_eligible_fulfiller`` / ``can_fulfill`` keep their ToDo-inclusive
+    behavior for the form APIs (not migrated in this hotfix)."""
+    user = user or frappe.session.user
+    if fulfillment_owner and fulfillment_owner == user:
+        return True
+    if is_system_manager(user):
+        return True
+    return _is_configured_fulfiller(user, approval_type)
 
 
 def can_view_request(request_name, user=None, business_doctype=None,
@@ -66,6 +94,19 @@ def can_view_request(request_name, user=None, business_doctype=None,
             "EC Approval Request Approver",
             {"approval_request": request_name, "approver": user}):
         return True
+    if fulfillment_owner and fulfillment_owner == user:
+        return True
+    return is_eligible_fulfiller(user, approval_type, business_doctype)
+
+
+def can_fulfill(user=None, business_doctype=None, fulfillment_owner=None, approval_type=None):
+    """Canonical FULFILLMENT-action permission (Phase 1b.3.1). Distinct from
+    can_view_request: only the fulfillment owner or an eligible fulfiller may act
+    on a fulfillment stage -- a requester/approver who can merely VIEW the request
+    must NOT receive the fulfillment action. Mirrors the form APIs'
+    claim_fulfillment (_is_fulfiller) / complete_fulfillment (owner or SM) gates.
+    """
+    user = user or frappe.session.user
     if fulfillment_owner and fulfillment_owner == user:
         return True
     return is_eligible_fulfiller(user, approval_type, business_doctype)

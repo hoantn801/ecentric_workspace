@@ -42,8 +42,15 @@ _SOURCE_PRIORITY = {"approval": 0, "task": 1, "weekly_report": 2, "generic": 3}
 #: item source_type -> the canonical source_counts key exposed to consumers.
 SOURCE_COUNT_KEY = {"approval": "approval", "task": "pm",
                     "weekly_report": "weekly_update", "generic": "generic_todo"}
-SOURCE_COUNT_KEYS = ("approval", "pm", "weekly_update", "generic_todo")
+#: Phase 1b.3.1: `fulfillment` is a SEPARATE count (approval-family, but NOT a
+#: pending approval). Additive -- existing consumers that read source_counts.approval
+#: keep working; the approval count no longer double-counts fulfillment actions.
+SOURCE_COUNT_KEYS = ("approval", "pm", "weekly_update", "generic_todo", "fulfillment")
 _APPROVAL_TERMINAL = frozenset({"Approved", "Rejected", "Cancelled"})
+#: fulfillment_status values that keep a governed fulfillment action OPEN. Terminal
+#: fulfillment = {"Completed", "Cancelled"}; "Not Started" = still in the approval
+#: stage. Active = the action is live and belongs in the feed.
+_FULFILLMENT_ACTIVE = frozenset({"Assigned", "In Progress"})
 _WTU_TERMINAL = frozenset({"Submitted", "Reviewed"})
 
 DEFAULT_LIMIT = 20
@@ -199,17 +206,17 @@ def _engine_link_state(rows, user):
         # metadata-detected but NOT allow-listed -> skip: the feed must not use a
         # broader permission than the form; item falls back to generic.
 
-    # business doc -> request name (+ fulfillment owner), batched per DocType
-    fulfiller_of = {}
+    # linked business doc -> request name (+ governed fulfillment fields), batched.
+    ful_by_biz = {}                    # (biz_dt,biz_name) -> {owner,status,due}
     for dt, names in biz_by_dt.items():
-        has_ful = R.has_field(dt, "fulfillment_owner")
-        fields = ["name", "approval_request"] + (["fulfillment_owner"] if has_ful else [])
+        extra = [f for f in ("fulfillment_owner", "fulfillment_status", "fulfillment_due_at")
+                 if R.has_field(dt, f)]
         docs = frappe.get_all(dt, filters={"name": ["in", list(names)]},
-                              fields=fields, ignore_permissions=True) or []
+                              fields=["name", "approval_request"] + extra,
+                              ignore_permissions=True) or []
         for d in docs:
             req_of[(dt, d["name"])] = (d.get("approval_request") or "").strip()
-            if has_ful:
-                fulfiller_of[(dt, d["name"])] = (d.get("fulfillment_owner") or "").strip()
+            ful_by_biz[(dt, d["name"])] = _ful_fields(d)
 
     out = {}
     req_names = sorted({v for v in req_of.values() if v})
@@ -239,37 +246,130 @@ def _engine_link_state(rows, user):
         level_map.setdefault(lv["approval_request"], {})[lv.get("level_no")] = (
             lv.get("level_status") or "", str(lv.get("due_at")) if lv.get("due_at") else "")
 
+    # Resolve the business document per key. For direct EC Approval Request refs
+    # this REVERSE-resolves via reference_doctype/reference_name BEFORE any stage
+    # selection; a failed reverse resolution (missing / not allow-listed) yields a
+    # generic fallback -- never an inferred fulfillment or a reused approval SLA.
+    biz_of_key = {}                    # key -> (biz_dt, biz_name) or None
+    direct_need = {}                   # dt -> {names} needing a reverse fulfillment fetch
+    for key, reqname in req_of.items():
+        req = req_index.get(reqname) if reqname else None
+        if not req:
+            biz_of_key[key] = None
+            continue
+        if key[0] == R.APPROVAL_REQUEST_DT:
+            bdt = (req.get("reference_doctype") or "").strip()
+            bnm = (req.get("reference_name") or "").strip()
+            if not bdt or not bnm or bdt not in R.APPROVAL_NORMALIZE_ALLOWLIST:
+                biz_of_key[key] = None           # reverse resolution failed / not aligned
+                continue
+            biz_of_key[key] = (bdt, bnm)
+            if (bdt, bnm) not in ful_by_biz:
+                direct_need.setdefault(bdt, set()).add(bnm)
+        else:
+            biz_of_key[key] = (key[0], key[1])
+
+    for dt, names in direct_need.items():
+        extra = [f for f in ("fulfillment_owner", "fulfillment_status", "fulfillment_due_at")
+                 if R.has_field(dt, f)]
+        if not extra:
+            continue
+        for d in frappe.get_all(dt, filters={"name": ["in", list(names)]},
+                                fields=["name"] + extra, ignore_permissions=True) or []:
+            ful_by_biz[(dt, d["name"])] = _ful_fields(d)
+
     for key, reqname in req_of.items():
         req = req_index.get(reqname) if reqname else None
         if not req:
             out[key] = {"found": False}          # missing/invalid link -> fallback
             continue
-        terminal = req.get("approval_status") in _APPROVAL_TERMINAL
+        biz_pair = biz_of_key.get(key)
+        if biz_pair is None:
+            out[key] = {"found": False}          # reverse resolution failed -> generic
+            continue
+        biz_dt, biz = biz_pair
+        appr_status = req.get("approval_status")
         route = type_route.get(req.get("approval_type"), "")
-        cur = req.get("current_level") or 0
-        ls, due = level_map.get(reqname, {}).get(cur, ("", ""))
-        active = (ls == "In Progress")
-        biz = key[1]
-        biz_dt = key[0]
-        if key[0] == R.APPROVAL_REQUEST_DT:
-            biz = (req.get("reference_name") or "").strip() or key[1]
-            biz_dt = (req.get("reference_doctype") or "").strip()
-            # Direct engine reference: gate on the underlying business DocType's
-            # permission alignment, same as linked business docs.
-            if biz_dt not in R.APPROVAL_NORMALIZE_ALLOWLIST:
-                out[key] = {"found": False}          # not aligned -> generic fallback
-                continue
-        # Visibility via THE canonical Approval Engine service (single definition,
-        # also used by the approval-center form APIs). Never a second rule here.
-        visible = acperm.can_view_request(
-            reqname, user, business_doctype=biz_dt,
-            requested_by=req.get("requested_by"),
-            fulfillment_owner=fulfiller_of.get(key, ""),
-            approval_type=req.get("approval_type"))
-        out[key] = {"found": True, "terminal": terminal, "active": active,
-                    "due": due if active else "", "route": route,
-                    "request": reqname, "biz_name": biz, "visible": visible}
+        atype = req.get("approval_type")
+        ful = ful_by_biz.get((biz_dt, biz), {})
+        ful_status = ful.get("status", "")
+
+        # ---- STAGE selection (Phase 1b.3.1, tightened gate) ----------------
+        # Approval-decision terminal != overall-action terminal, BUT fulfillment
+        # is permitted ONLY for an APPROVED request whose governed fulfillment is
+        # active AND that has an OPEN fulfillment ToDo for THIS user. Rejected /
+        # Cancelled requests can NEVER enter fulfillment even with stale
+        # Assigned/In Progress fields; a terminal/missing fulfillment status or a
+        # missing Open ToDo excludes the item (both sides must agree).
+        # Resolve the governed Open fulfillment ToDo ONCE (for Approved + active
+        # candidates) -- it gates the stage AND supplies the due-fallback date.
+        ftodo = (_open_fulfillment_todo(biz_dt, biz, user)
+                 if (appr_status == "Approved" and ful_status in _FULFILLMENT_ACTIVE)
+                 else None)
+        if appr_status not in _APPROVAL_TERMINAL:
+            # APPROVAL stage: due from the CURRENT actionable level SLA only.
+            cur = req.get("current_level") or 0
+            ls, lvl_due = level_map.get(reqname, {}).get(cur, ("", ""))
+            visible = acperm.can_view_request(
+                reqname, user, business_doctype=biz_dt,
+                requested_by=req.get("requested_by"),
+                fulfillment_owner=ful.get("owner", ""), approval_type=atype)
+            out[key] = {"found": True, "stage": "approval", "terminal": False,
+                        "active": (ls == "In Progress"),
+                        "due": lvl_due if ls == "In Progress" else "",
+                        "route": route, "request": reqname, "biz_name": biz,
+                        "visible": visible}
+        elif (ftodo is not None
+              and acperm.is_eligible_fulfiller_without_todo(
+                  user, approval_type=atype, fulfillment_owner=ful.get("owner", ""))):
+            # FULFILLMENT stage requires TWO INDEPENDENT signals (Phase 1b.3.1):
+            #   ENTITLEMENT  = is_eligible_fulfiller_without_todo -- fulfillment
+            #                  owner / configured Fulfiller participant / SM, with
+            #                  the ToDo path DELIBERATELY EXCLUDED; AND
+            #   ACTION EXISTS = ftodo -- a record-scoped Open fulfillment ToDo for
+            #                  THIS user (the engine's per-record assignment).
+            # The SAME ToDo row can never establish both, so an Open ToDo alone
+            # never grants permission or exposes the business URL. A requester/
+            # approver who can merely VIEW never gets it. Due precedence =
+            # fulfillment_due_at -> the SAME governed Open ToDo's date -> undated.
+            # NEVER the approval-level SLA.
+            todo_date = str(ftodo.get("date")) if ftodo.get("date") else ""
+            out[key] = {"found": True, "stage": "fulfillment", "terminal": False,
+                        "active": True, "due": (ful.get("due", "") or todo_date),
+                        "route": route, "request": reqname, "biz_name": biz,
+                        "visible": True}
+        else:
+            # Rejected/Cancelled, OR Approved without an active+open fulfillment
+            # -> excluded (terminal). No approval-level SLA is ever reused here.
+            out[key] = {"found": True, "stage": "approval", "terminal": True,
+                        "active": False, "due": "", "route": route,
+                        "request": reqname, "biz_name": biz, "visible": False}
     return out
+
+
+def _ful_fields(doc):
+    """Normalize a business doc's governed fulfillment fields."""
+    return {
+        "owner": (doc.get("fulfillment_owner") or "").strip(),
+        "status": (doc.get("fulfillment_status") or "").strip(),
+        "due": str(doc.get("fulfillment_due_at")) if doc.get("fulfillment_due_at") else "",
+    }
+
+
+def _open_fulfillment_todo(biz_dt, biz_name, user):
+    """Return THIS user's governed Open fulfillment ToDo on THIS business document
+    as {"name", "date"}, or None. The business fulfillment_status and this ToDo
+    must AGREE; None -> the item is excluded (never inferred from the status field
+    alone). The returned `date` is the authoritative ToDo.date the fulfillment due
+    fallback uses (fulfillment_due_at -> THIS ToDo.date -> undated) -- never a
+    different ToDo's date and never the approval-level SLA."""
+    if not biz_dt or not biz_name:
+        return None
+    rows = frappe.get_all(
+        "ToDo", filters={"reference_type": biz_dt, "reference_name": biz_name,
+                         "allocated_to": user, "status": "Open"},
+        fields=["name", "date"], limit=1, ignore_permissions=True) or []
+    return rows[0] if rows else None
 
 
 # ---- the shared feed -------------------------------------------------------
@@ -338,15 +438,24 @@ def _classified_feed(user):
             if el.get("found"):
                 if el["terminal"]:
                     continue                          # terminal -> excluded (policy unchanged)
+                stage = el.get("stage", "approval")
                 if el["visible"] and el["route"]:
-                    # normalize -> canonical Approval Center route + level-SLA due
-                    R.apply_approval_normalization(it, el["request"], el["route"], el["biz_name"])
+                    # stage-aware normalize -> canonical Approval Center route.
+                    R.apply_approval_normalization(
+                        it, el["request"], el["route"], el["biz_name"], stage=stage)
                     active = el["active"]
-                    it["due_at"] = el["due"] or ""    # request-level SLA drives the bucket
+                    # el["due"] is already the governed value: for fulfillment it
+                    # is fulfillment_due_at -> the governed Open ToDo's date; for
+                    # approval it is the current level SLA. Never a row-derived or
+                    # approval-SLA leak.
+                    it["due_at"] = el["due"] or ""
                     terminal = False
-                # else: not visible, OR no canonical route -> DO NOT emit an approval
-                # label with a dead/leaked link; keep resolve_item's generic
-                # referenced-document fallback (source stays generic).
+                elif stage == "fulfillment":
+                    # fulfillment action but user is NOT owner/eligible fulfiller
+                    # -> NO item (a viewer must not receive a fulfillment action).
+                    continue
+                # else: approval stage not visible / no route -> keep resolve_item's
+                # generic referenced-document fallback (source stays generic).
             # else: missing/invalid link -> generic referenced-document fallback.
         else:
             # PRECEDENCE 2..4: legacy /approval, PM Task, Weekly Update.
@@ -370,7 +479,12 @@ def _classified_feed(user):
         it["_creation"] = str(r.get("creation") or "")
         items.append(it)
         counts[bucket] += 1
-        sk = SOURCE_COUNT_KEY.get(it.get("source_type"), "generic_todo")
+        # Fulfillment-stage actions are approval-FAMILY but NOT pending approvals:
+        # count them separately so source_counts.approval stays accurate.
+        if it.get("action_stage") == "fulfillment":
+            sk = "fulfillment"
+        else:
+            sk = SOURCE_COUNT_KEY.get(it.get("source_type"), "generic_todo")
         source_counts[sk] += 1
 
     return order_items(items), counts, source_counts
