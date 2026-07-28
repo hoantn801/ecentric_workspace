@@ -92,21 +92,26 @@
   function renderBadge(total) {
     var panel = findPanel();
     if (!panel) return;
+    // Prefer the governed widget-owned placeholder [data-ec-ac-badge] (the
+    // homepage no longer server-renders any count). Fall back to the legacy
+    // .panel-title .badge only if an un-neutralized page is still live.
     var title = panel.querySelector('.panel-title');
     if (!title) return;
-    var badge = title.querySelector('.badge');
+    var badge = title.querySelector('[data-ec-ac-badge="1"]') || title.querySelector('.badge');
     var n = (typeof total === 'number' && total > 0) ? total : 0;
     if (n === 0) {
-      if (badge) badge.parentNode.removeChild(badge);   // hide when nothing open
+      if (badge) { badge.hidden = true; badge.textContent = ''; }   // hidden, never removed
       return;
     }
     if (!badge) {
       badge = document.createElement('span');
       badge.className = 'badge b-pink';
+      badge.setAttribute('data-ec-ac-badge', '1');
       title.appendChild(document.createTextNode(' '));
       title.appendChild(badge);
     }
     badge.textContent = String(n);
+    badge.hidden = false;
   }
 
   function renderCards(items, total) {

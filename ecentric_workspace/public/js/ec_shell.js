@@ -975,7 +975,13 @@
         body += rows.map(reminderItemHtml).join('');
       });
       if (!body) body = '<div class="ec-shell-rm-empty">Không có việc nào cần làm 👍</div>';
-      foot = '<a class="ec-shell-rm-all" href="/app/todo/view/list?status=Open">Xem tất cả</a>';
+      // "Xem tất cả" -> the user's Open ToDo list in Desk (a REAL, existing
+      // route; the full /action-center page is deferred to Phase 2).
+      // Session-scoped via allocated_to = the boot user.
+      var u = (S.boot && S.boot.user && S.boot.user.name) || '';
+      var allUrl = '/app/todo/view/list?status=Open' +
+        (u ? '&allocated_to=' + encodeURIComponent(u) : '');
+      foot = '<a class="ec-shell-rm-all" href="' + allUrl + '">Xem tất cả</a>';
     }
     var el = document.createElement('div');
     el.className = 'ec-shell-reminder-drawer';
