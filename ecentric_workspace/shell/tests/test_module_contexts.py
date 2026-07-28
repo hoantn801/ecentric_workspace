@@ -142,6 +142,82 @@ class TestReportingTransform(unittest.TestCase):
         self.assertIn('id="tp-ai-panel">AI</aside>', new)
         self.assertIn('<div class="ec-shell-grouplabel">Báo cáo &amp; Phân tích</div>', new)
 
+    def test_exact_production_weekly_update_state_migrates(self):
+        """Root cause (2026-07-24): /weekly-update was RE-SAVED to its legacy
+        state AFTER sync_reporting_pages ran (Web Page modified 07-24 > the
+        07-23 sync), reverting to the stale 4-group Homepage-clone sidebar +
+        a breadcrumb-only topbar (no bell). This is the EXACT production shape;
+        the reporting transform must migrate it and stay idempotent."""
+        prod_wu = (
+            '<div class="ecentric-app">'
+            '<aside class="ec-sidebar">'
+            '  <div class="sidebar-header"><a class="brand" href="/">eCentric</a></div>'
+            '  <div class="sidebar-search"><input id="home-search"></div>'
+            '  <nav class="nav-section"><div class="nav-label">Workspace</div>'
+            '    <a class="nav-item" href="/">Trang chủ</a>'
+            '    <a class="nav-item" href="/all-ticket">Phê duyệt</a></nav>'
+            '  <nav class="nav-section"><div class="nav-label">Nhân sự</div>'
+            '    <a class="nav-item" href="/coming-soon?tool=cham-cong">Chấm công</a></nav>'
+            '  <nav class="nav-section"><div class="nav-label">Báo cáo &amp; Phân tích</div>'
+            '    <a class="nav-item" href="/weekly-update">Báo cáo tuần</a></nav>'
+            '  <nav class="nav-section"><div class="nav-label">Tài nguyên</div>'
+            '    <a class="nav-item" href="/coming-soon?tool=intranet">Intranet</a></nav>'
+            '  <div class="sidebar-footer"><a class="user-card" href="/app/user">U</a></div>'
+            '</aside>'
+            '  <div class="ec-main">'
+            '    <div class="topbar"><div class="breadcrumb"><strong>Báo cáo tuần</strong></div></div>'
+            '    <div class="content">'
+            '      {% set week = frappe.form_dict.week %}{% if week %}<b>{{ week }}</b>{% endif %}'
+            '      <div id="wtu-form" data-week="{{ week }}"></div>'
+            '      <script id="ec-csrf-fetch-patch">c()</script>'
+            '      <script id="wu-week-nav-js">/* ?week= deep-link nav */w()</script>'
+            '      <script id="wu-ai-score-js">a()</script>'
+            '      <script id="ec-chatbot-js">g()</script>'
+            '      <aside class="wu-roadmap" id="wu-roadmap" aria-label="Week timeline" hidden>R</aside>'
+            '    </div>'
+            '  </div>'
+            '</div>')
+        # precondition: EXACTLY the QC-measured stale state
+        self.assertEqual(prod_wu.count('data-ec-shell="1"'), 0)
+        self.assertEqual(prod_wu.count('data-ec-notification-bell="1"'), 0)
+        self.assertEqual(prod_wu.count('<aside class="ec-sidebar">'), 1)
+
+        single = rep_pages.transform(prod_wu, "weekly-update")
+        # canonical reporting Shared Shell
+        self.assertEqual(single.count('data-ec-shell="1"'), 1)
+        self.assertNotIn('<aside class="ec-sidebar">', single)
+        self.assertEqual(single.count('data-ec-notification-bell="1"'), 1)   # first bell added
+        self.assertEqual(single.count('data-ec-shell-header-right="1"'), 1)
+        self.assertEqual(single.count('<style id="ec-reporting-shell-isolation">'), 1)
+        self.assertIn('<strong class="ec-shell-crumb-current">Báo cáo tuần</strong>', single)
+        self.assertIn('<div class="ec-shell-grouplabel">Báo cáo &amp; Phân tích</div>', single)
+        # business/Jinja/scripts/?week= deep-link markup byte-preserved
+        self.assertIn('{% set week = frappe.form_dict.week %}{% if week %}<b>{{ week }}</b>{% endif %}', single)
+        self.assertIn('data-week="{{ week }}"', single)
+        for sid in ('ec-csrf-fetch-patch', 'wu-week-nav-js', 'wu-ai-score-js', 'ec-chatbot-js'):
+            self.assertEqual(single.count('id="%s"' % sid), 1, sid)
+        self.assertIn('id="wu-roadmap"', single)               # business aside kept
+        # second sync byte-identical
+        self.assertEqual(rep_pages.transform(single, "weekly-update"), single)
+
+    def test_reporting_refuses_unknown_state(self):
+        # a page with neither a legacy sidebar nor a canonical mount is refused
+        # BEFORE any write (pure transform raises; sync routes it to throw/417)
+        with self.assertRaises(ValueError):
+            rep_pages.transform('<div class="content">no shell zones here</div>', "weekly-update")
+        # missing a required business script is refused too
+        with self.assertRaises(ValueError):
+            rep_pages.transform(
+                _rep_fixture('').replace('wu-week-nav-js', 'x'), "weekly-update")
+
+    def test_team_pulse_canonical_state_byte_idempotent(self):
+        # after migration, re-running the sync on the canonical team-pulse
+        # state must be a byte-identical no-op (protects the already-migrated
+        # sibling while weekly-update is re-synced)
+        legacy_tp = _rep_fixture('<aside class="tp-ai-panel" id="tp-ai-panel">AI</aside>')
+        canonical = rep_pages.transform(legacy_tp, "team-pulse")
+        self.assertEqual(rep_pages.transform(canonical, "team-pulse"), canonical)
+
 
 PM_FIXTURE = ('<style>#ec-pm-root{display:grid;grid-template-columns:248px 1fr;}</style>'
               '<div id="ec-pm-root">'
