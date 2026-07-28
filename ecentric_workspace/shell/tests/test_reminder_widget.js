@@ -13,7 +13,16 @@ ok(/badge.hidden = false/.test(W), 'badge shown only when total > 0');
 ok(/badge.textContent = String\(n\)/.test(W), 'badge text set from feed total (n), not a global count');
 ok(W.indexOf('items.length') >= 0, 'list still uses page items');
 ok(/n === 0/.test(W) && /badge.hidden = true/.test(W), 'badge HIDDEN (not removed) when total is 0');
-ok(/total - DISPLAY_LIMIT/.test(W), 'Xem thêm uses feed.total, not page length');
+// Phase 1b.2 follow-up: aggregate "Xem thêm N việc" link REMOVED from the widget.
+// Assert against EXECUTABLE code only -- strip // line comments so the checks
+// aren't fooled by documentation that names the removed route on purpose.
+const Wc = W.replace(/\/\/.*$/gm, '');
+ok(!/\/app\/todo\/view\/list/.test(Wc), 'widget: no /app/todo/view/list Desk-list route');
+ok(!/ec-ac-more/.test(Wc), 'widget: no ec-ac-more aggregate anchor (incl. CSS) remains');
+ok(!/Xem thêm/.test(Wc), 'widget: aggregate "Xem thêm" link absent');
+ok(!/allocated_to=/.test(Wc), 'widget: no ToDo-list query string built');
+ok(/it\.action_url/.test(W) && /href="' \+ esc\(href\)/.test(W),
+   'widget: individual cards still bind the server-provided canonical action_url');
 
 ok(/function renderKpi\(sourceCounts\)/.test(W), 'widget has renderKpi(sourceCounts)');
 ok(/sourceCounts.approval/.test(W), 'KPI binds to source_counts.approval');
