@@ -170,18 +170,20 @@ def render_mount_inner(route):
 
 def render_tbright_inner():
     """Canonical header-right: exactly THREE global slots (Global Header phase).
-    1. Reminder / Action Center -- inert disabled placeholder carrying the
-       frozen extension marker data-ec-shell-action-slot="1". NO business data
-       model behind it yet -- shell contract only.
+    1. Reminder / Action Center -- ACTIVE (Phase 1b). Carries the frozen
+       marker data-ec-shell-action-slot="1" + a hidden badge node; the
+       count + drawer are hydrated client-side (session-scoped feed).
     2. Notification bell -- UNCHANGED frozen NC marker contract
        (data-ec-notification-bell="1"), the ONLY bell on the page.
     3. Settings -- prepared inert slot (data-ec-shell-settings-slot="1");
        no governed settings destination exists, so it is disabled, not fake.
     Home/Help are deliberately ABSENT from the global header: both already
     live in the sidebar (brand link -> / ; HƯỚNG DẪN group)."""
-    return ('<button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" '
-            'data-ec-shell-action-slot="1" disabled aria-disabled="true" '
-            'title="Nhắc việc (sắp ra mắt)" aria-label="Nhắc việc (sắp ra mắt)">%s</button>'
+    return ('<button type="button" class="ec-shell-iconbtn ec-shell-reminder" '
+            'data-ec-shell-action-slot="1" aria-label="Nhắc việc" title="Nhắc việc" '
+            'aria-haspopup="dialog" aria-expanded="false">%s'
+            '<span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span>'
+            '</button>'
             '<a class="ec-shell-iconbtn" href="/app/notification-log" '
             'data-ec-notification-bell="1" aria-label="Thông báo" title="Thông báo">%s</a>'
             '<button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" '

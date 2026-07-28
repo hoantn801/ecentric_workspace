@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.12.0 (hash-aware active state for SPA view items)';
+  var VERSION = 'ec-shell v1.13.0 (header reminder drawer -> shared action feed)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -780,6 +780,21 @@
     if (dinp && dinp.focus) dinp.focus();
   }
 
+  function bindReminder() {
+    if (S._reminderBound) return;
+    S._reminderBound = true;
+    document.addEventListener('click', function (ev) {
+      var btn = ev.target && ev.target.closest && ev.target.closest('[data-ec-shell-action-slot="1"]');
+      if (btn) { ev.preventDefault(); toggleReminder(); return; }
+      // click outside the drawer closes it
+      if (R.open && ev.target && ev.target.closest &&
+          !ev.target.closest('[data-ec-shell-reminder-drawer="1"]')) closeReminder();
+    });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && R.open) closeReminder();
+    });
+  }
+
   function bindOnce() {
     if (S.bound) return;
     S.bound = true;
@@ -878,6 +893,126 @@
     document.body.appendChild(S.burger);
   }
 
+  // ---- Header Reminder (Phase 1b): badge + drawer over the shared Action
+  // feed. Session-scoped (get_reminder_summary delegates build_feed). The
+  // NC bell + Settings slot contracts are untouched.
+  var REMINDER_URL = '/api/method/ecentric_workspace.action_center.api.get_reminder_summary';
+  var R = { open: false, data: null, loading: false };
+  var _BUCKET_META = [
+    ['overdue', 'Quá hạn', 'ec-shell-rm-overdue'],
+    ['act_now', 'Cần làm', 'ec-shell-rm-actnow'],
+    ['upcoming', 'Sắp tới', ''],
+    ['undated', 'Không hạn', '']
+  ];
+
+  function reminderBtn() { return document.querySelector('[data-ec-shell-action-slot="1"]'); }
+
+  function setReminderBadge(attention) {
+    var btn = reminderBtn();
+    if (!btn) return;
+    var b = btn.querySelector('[data-ec-shell-reminder-badge="1"]');
+    if (!b) return;
+    var n = attention || 0;
+    if (n <= 0) { b.hidden = true; b.textContent = ''; return; }
+    b.textContent = n > 9 ? '9+' : String(n);   // cap per contract
+    b.hidden = false;
+  }
+
+  function fetchReminder(cb) {
+    if (R.loading) return;
+    R.loading = true;
+    fetch(REMINDER_URL, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        R.loading = false;
+        var m = j && j.message;
+        R.data = (m && m.success) ? m : null;
+        if (cb) cb();
+      })
+      .catch(function () { R.loading = false; R.data = null; if (cb) cb(); });
+  }
+
+  function hydrateReminderBadge() {
+    // count is client-side + session-scoped; the static fallback ships no
+    // count, hydration fills it. Errors leave the badge hidden (never fake).
+    if (!reminderBtn()) return;   // no header-right on this page -> nothing to hydrate
+    fetchReminder(function () { setReminderBadge(R.data ? R.data.attention_count : 0); });
+  }
+
+  function reminderItemHtml(it) {
+    var due = it.due_at ? (String(it.due_at).slice(8, 10) + '/' + String(it.due_at).slice(5, 7)) : 'Không hạn';
+    var overdue = it.bucket === 'overdue' ? ' ec-shell-rm-due-overdue' : '';
+    return '<a class="ec-shell-rm-item" href="' + esc(it.action_url || '#') + '">' +
+      '<span class="ec-shell-rm-src">' + esc(it.source_label || '') + '</span>' +
+      '<span class="ec-shell-rm-title">' + esc(it.title || '') + '</span>' +
+      '<span class="ec-shell-rm-due' + overdue + '">' + esc(due) + '</span></a>';
+  }
+
+  function buildReminderDrawer() {
+    var d = R.data;
+    var head, body, foot;
+    if (!d) {
+      head = '<div class="ec-shell-rm-head"><strong>Nhắc việc</strong></div>';
+      body = '<div class="ec-shell-rm-empty">Không tải được. Thử lại sau.</div>';
+      foot = '';
+    } else if (!d.total) {
+      head = '<div class="ec-shell-rm-head"><strong>Nhắc việc</strong>' +
+             '<span class="ec-shell-rm-total">0</span></div>';
+      body = '<div class="ec-shell-rm-empty">Không có việc nào cần làm 👍</div>';
+      foot = '';
+    } else {
+      head = '<div class="ec-shell-rm-head"><strong>Nhắc việc</strong>' +
+             '<span class="ec-shell-rm-total">' + esc(String(d.total)) + '</span></div>';
+      var items = d.items || [], byBucket = {};
+      items.forEach(function (it) { (byBucket[it.bucket] = byBucket[it.bucket] || []).push(it); });
+      body = '';
+      _BUCKET_META.forEach(function (m) {
+        var rows = byBucket[m[0]] || [];
+        var c = (d.counts && d.counts[m[0]]) || 0;
+        if (!c) return;
+        body += '<div class="ec-shell-rm-group ' + m[2] + '">' + esc(m[1]) +
+                ' <span>(' + c + ')</span></div>';
+        body += rows.map(reminderItemHtml).join('');
+      });
+      if (!body) body = '<div class="ec-shell-rm-empty">Không có việc nào cần làm 👍</div>';
+      foot = '<a class="ec-shell-rm-all" href="/app/todo/view/list?status=Open">Xem tất cả</a>';
+    }
+    var el = document.createElement('div');
+    el.className = 'ec-shell-reminder-drawer';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-label', 'Nhắc việc');
+    el.setAttribute('data-ec-shell-reminder-drawer', '1');
+    el.innerHTML = head + '<div class="ec-shell-rm-body">' + body + '</div>' + foot;
+    return el;
+  }
+
+  function closeReminder() {
+    R.open = false;
+    var d = document.querySelector('[data-ec-shell-reminder-drawer="1"]');
+    if (d && d.parentNode) d.parentNode.removeChild(d);
+    var btn = reminderBtn();
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+
+  function openReminder() {
+    var btn = reminderBtn();
+    if (!btn) return;
+    closeReminder();
+    R.open = true;
+    btn.setAttribute('aria-expanded', 'true');
+    var render = function () {
+      if (!R.open) return;
+      var existing = document.querySelector('[data-ec-shell-reminder-drawer="1"]');
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      var drawer = buildReminderDrawer();
+      btn.parentNode.appendChild(drawer);       // anchored in tbright (position:relative)
+    };
+    if (R.data) render();
+    else { render(); fetchReminder(function () { setReminderBadge(R.data ? R.data.attention_count : 0); render(); }); }
+  }
+
+  function toggleReminder() { if (R.open) closeReminder(); else openReminder(); }
+
   function renderHeaderRight() {
     // Optional page slot: <div class="ec-shell-tbright" data-ec-shell-header-right="1">
     // Right side of the page header hosts [reserved Action Center slot][bell].
@@ -891,9 +1026,11 @@
     // data or fake behavior behind them yet. Home/Help never render here --
     // both live in the sidebar.
     slot.innerHTML =
-      '<button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" ' +
-        'data-ec-shell-action-slot="1" disabled aria-disabled="true" ' +
-        'title="Nhắc việc (sắp ra mắt)" aria-label="Nhắc việc (sắp ra mắt)">' + svg('reminder') + '</button>' +
+      '<button type="button" class="ec-shell-iconbtn ec-shell-reminder" ' +
+        'data-ec-shell-action-slot="1" aria-label="Nhắc việc" title="Nhắc việc" ' +
+        'aria-haspopup="dialog" aria-expanded="false">' + svg('reminder') +
+        '<span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span>' +
+      '</button>' +
       bellHtml() +
       '<button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" ' +
         'data-ec-shell-settings-slot="1" disabled aria-disabled="true" ' +
@@ -924,6 +1061,7 @@
     S.mount.innerHTML = shellHtml(S.boot, S.activeKey, { bell: !bellInHeader });
     bindLogoFallback();
     try { bindBadges(); } catch (e) { warn(e); }   // badges are cosmetic; never block
+    try { bindReminder(); hydrateReminderBadge(); } catch (e) { warn(e); }
   }
 
   function reinit() {  // idempotent: safe to call repeatedly

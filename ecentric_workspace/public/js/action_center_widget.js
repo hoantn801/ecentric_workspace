@@ -85,7 +85,31 @@
     return null;
   }
 
-  function renderCards(items) {
+  // Bind the "Việc cần làm" panel-title badge to the SHARED provider's
+  // feed.total (session-scoped). Fixes the legacy Jinja `approvals_count`
+  // (a GLOBAL, unscoped Leave+SO count) that was stuck/wrong. The widget is
+  // an app asset -> no homepage Web Page markup change.
+  function renderBadge(total) {
+    var panel = findPanel();
+    if (!panel) return;
+    var title = panel.querySelector('.panel-title');
+    if (!title) return;
+    var badge = title.querySelector('.badge');
+    var n = (typeof total === 'number' && total > 0) ? total : 0;
+    if (n === 0) {
+      if (badge) badge.parentNode.removeChild(badge);   // hide when nothing open
+      return;
+    }
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'badge b-pink';
+      title.appendChild(document.createTextNode(' '));
+      title.appendChild(badge);
+    }
+    badge.textContent = String(n);
+  }
+
+  function renderCards(items, total) {
     var panel = findPanel();
     if (!panel) return;
     var listEl = panel.querySelector('.approval-list');
@@ -94,7 +118,8 @@
       listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#6b7280;font-size:13px;">Không có việc nào cần làm</div>';
       return;
     }
-    var total = items.length;
+    // total = feed.total (ALL open actions), NOT the returned page length.
+    if (typeof total !== 'number') total = items.length;
     var visibleItems = items.slice(0, DISPLAY_LIMIT);
     var html = visibleItems.map(function(it) {
       // action_url is supplied by the server resolver. NO URL building here.
@@ -131,7 +156,12 @@
         type: 'GET',
         callback: function(r) {
           var msg = r && r.message;
-          if (msg && msg.success && msg.items) renderCards(msg.items);
+          if (!msg || !msg.success) return;
+          // feed.total is the single source of truth for the badge + "more".
+          var total = (typeof msg.total === 'number') ? msg.total
+                    : ((msg.items && msg.items.length) || 0);
+          renderBadge(total);
+          renderCards(msg.items || [], total);
         }
       });
     }

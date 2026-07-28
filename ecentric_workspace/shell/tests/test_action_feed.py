@@ -305,5 +305,47 @@ class TestPmCloseHook(unittest.TestCase):
         self.assertIn("action_center.patches.p002_reconcile_stale_task_todos", patches)
 
 
+class TestReminderSummary(unittest.TestCase):
+    def setUp(self):
+        _install(FK, purge=False)
+        FK.db = _FakeDB(); FK.getall_map = {}; FK.session.user = "u@e.c"
+        FK.db.get_value_map = {("Weekly Team Update", "W1", "week_label"): "2026-W30"}
+
+    def test_delegates_feed_and_derives_attention(self):
+        FK.db.todo_rows = [
+            _todo("a", "", "", date="2026-07-20", created="1"),   # overdue
+            _todo("b", "", "", date="2026-07-24", created="2"),   # today -> act_now
+            _todo("c", "", "", date="2026-07-30", created="3"),   # upcoming
+            _todo("d", "", "", date="", created="4"),             # undated
+        ]
+        r = ac_api.get_reminder_summary()
+        self.assertTrue(r["success"])
+        # attention = overdue + act_now
+        self.assertEqual(r["attention_count"], r["counts"]["overdue"] + r["counts"]["act_now"])
+        self.assertEqual(r["attention_count"], 2)
+        self.assertEqual(r["total"], 4)                # ALL open, not just attention
+        # same shape/source as build_feed (no duplicated logic)
+        self.assertIn("counts", r); self.assertIn("items", r)
+
+    def test_zero_and_guest(self):
+        FK.db.todo_rows = []
+        r = ac_api.get_reminder_summary()
+        self.assertEqual(r["total"], 0)
+        self.assertEqual(r["attention_count"], 0)
+        FK.session.user = "Guest"
+        g = ac_api.get_reminder_summary()
+        self.assertFalse(g["success"])
+        self.assertEqual(FK.response.get("http_status_code"), 401)
+
+    def test_no_user_param_only_limit(self):
+        import inspect
+        self.assertEqual(list(inspect.signature(ac_api.get_reminder_summary).parameters), ["limit"])
+        src = io.open(os.path.join(APP, "action_center", "api.py"), encoding="utf-8").read()
+        self.assertIn("ac_feed.build_feed(user", src)           # delegates
+        # no duplicated classification in the api layer
+        self.assertNotIn("classify(", src)
+        self.assertNotIn('counts["overdue"] += ', src)
+
+
 if __name__ == "__main__":
     unittest.main()
