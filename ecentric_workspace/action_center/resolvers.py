@@ -31,7 +31,6 @@ APPROVAL_DOCTYPES = frozenset({
     "PO Request",
     "REC Request",
     "Vendor Code Request",
-    "Brand Approver",
     "Sales Order",
     "Leave Application",
 })

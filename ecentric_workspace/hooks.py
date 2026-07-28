@@ -165,7 +165,8 @@ fixtures = [
             "PM Recurrence-checklist_template", "Task-pm_checklist",
             # Alert Center Phase B (ALERT_CENTER/01_PHASE_B_PLAN.md, decision D1):
             # daily KAM owner for marketplace alerts - NOT the approval manager.
-            "Brand Approver-kam_owner",
+            # Moved onto native Brand (2026-07-28 brand consolidation).
+            "Brand-ec_kam_owner",
         ]]],
     },
     {

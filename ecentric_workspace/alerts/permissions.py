@@ -111,12 +111,14 @@ def get_allowed_brands(user=None):
     allowed = {}
     try:
         rows = frappe.get_all(
-            "Brand Approver",
-            filters={"status": "Active"},
-            fields=["name", "kam_owner", "manager_email", "leader_email"],
+            "Brand",
+            filters={"ec_status": "Active"},
+            fields=["name", "ec_kam_owner as kam_owner",
+                    "ec_manager_email as manager_email",
+                    "ec_leader_email as leader_email"],
         )
     except Exception:
-        # Fail-safe: a broken Brand Approver lookup must never widen access.
+        # Fail-safe: a broken Brand lookup must never widen access.
         frappe.log_error(frappe.get_traceback(), "alerts.get_allowed_brands")
         return {}
 

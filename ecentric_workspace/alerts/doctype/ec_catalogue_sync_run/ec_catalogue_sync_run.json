@@ -37,7 +37,7 @@
   "summary_json"
  ],
  "fields": [
-  {"fieldname": "brand", "fieldtype": "Link", "label": "Brand", "options": "Brand Approver", "in_list_view": 1, "in_standard_filter": 1, "search_index": 1},
+  {"fieldname": "brand", "fieldtype": "Link", "label": "Brand", "options": "Brand", "in_list_view": 1, "in_standard_filter": 1, "search_index": 1},
   {"fieldname": "requested_by", "fieldtype": "Link", "label": "Requested By", "options": "User", "read_only": 1},
   {"fieldname": "trigger_type", "fieldtype": "Select", "label": "Trigger Type", "options": "Manual\nScheduled\nBackfill", "default": "Manual", "in_standard_filter": 1},
   {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Queued\nRunning\nCompleted\nPartial\nFailed\nCancelled", "default": "Queued", "in_list_view": 1, "in_standard_filter": 1, "search_index": 1},

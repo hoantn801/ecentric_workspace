@@ -116,7 +116,7 @@
    "fieldname": "brand",
    "fieldtype": "Link",
    "label": "Brand",
-   "options": "Brand Approver",
+   "options": "Brand",
    "in_standard_filter": 1
   },
   {

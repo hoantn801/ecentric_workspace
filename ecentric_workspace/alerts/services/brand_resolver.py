@@ -29,7 +29,7 @@ def resolve_brand(omisell_shop_id=None, payload_brand=None):
         if brand:
             return brand, shop
     if payload_brand and frappe.db.exists(
-        "Brand Approver", {"name": payload_brand, "status": "Active"}
+        "Brand", {"name": payload_brand, "ec_status": "Active"}
     ):
         return payload_brand, shop
     return None, shop
@@ -45,8 +45,9 @@ def resolve_owner(shop_name, brand):
             return kam
     if brand:
         row = frappe.db.get_value(
-            "Brand Approver", brand,
-            ["kam_owner", "manager_email", "leader_email"], as_dict=True,
+            "Brand", brand,
+            ["ec_kam_owner as kam_owner", "ec_manager_email as manager_email",
+             "ec_leader_email as leader_email"], as_dict=True,
         )
         if row:
             return row.kam_owner or row.manager_email or row.leader_email

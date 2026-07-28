@@ -27,7 +27,7 @@
   "notes"
  ],
  "fields": [
-  {"fieldname": "brand", "fieldtype": "Link", "label": "Brand", "options": "Brand Approver", "reqd": 1, "unique": 1, "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "brand", "fieldtype": "Link", "label": "Brand", "options": "Brand", "reqd": 1, "unique": 1, "in_list_view": 1, "in_standard_filter": 1},
   {"fieldname": "sec_basis", "fieldtype": "Section Break", "label": "Price evaluation basis (which discount components are subtracted from RSP for the min-price check)"},
   {"fieldname": "include_seller_discount", "fieldtype": "Check", "label": "Include Seller Discount", "default": "1", "in_list_view": 1, "description": "Subtract product-level seller discount (Omisell discount_seller) from RSP."},
   {"fieldname": "include_seller_voucher", "fieldtype": "Check", "label": "Include Seller / Shop Voucher", "default": "1", "in_list_view": 1, "description": "Subtract seller/shop voucher (Omisell voucher_seller)."},

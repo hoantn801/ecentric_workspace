@@ -52,7 +52,7 @@
   "note"
  ],
  "fields": [
-  {"fieldname": "brand", "fieldtype": "Link", "label": "Brand", "options": "Brand Approver", "in_list_view": 1, "in_standard_filter": 1, "search_index": 1},
+  {"fieldname": "brand", "fieldtype": "Link", "label": "Brand", "options": "Brand", "in_list_view": 1, "in_standard_filter": 1, "search_index": 1},
   {"fieldname": "platform", "fieldtype": "Select", "label": "Platform", "options": "Shopee\nLazada\nTikTok\nOther", "in_list_view": 1, "in_standard_filter": 1},
   {"fieldname": "shop", "fieldtype": "Link", "label": "Shop", "options": "EC Marketplace Shop", "in_standard_filter": 1},
   {"fieldname": "omisell_shop_id", "fieldtype": "Data", "label": "Omisell Shop ID", "search_index": 1},

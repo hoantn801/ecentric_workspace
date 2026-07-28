@@ -302,11 +302,12 @@ def alert_occurrences(alert, start=0, page_len=50):
 def my_scope():
     """Allowed brands + role per brand for the UI (filter dropdown, defaults).
     Supervisors (System Manager) have implicit access to ALL brands, so we
-    return the full active Brand Approver list for them too - otherwise the
+    return the full active Brand list for them too - otherwise the
     brand <select> in the policy/rule drawers would be blank (UAT bug)."""
     allowed = perms.require_alert_center_access()
     if allowed == perms.ALL_BRANDS:
         brands = {b: "supervisor" for b in frappe.get_all(
-            "Brand Approver", filters={"status": "Active"}, pluck="name")}
+            "Brand", filters={"ec_status": "Active",
+                              "ec_brand_code": ("is", "set")}, pluck="name")}
         return {"supervisor": True, "brands": brands}
     return {"supervisor": False, "brands": allowed}

@@ -76,11 +76,19 @@ def _cache_run(brand):
 
 
 def _ba_rows(brands=None):
-    """Active Brand Approver rows (optionally restricted to a code set)."""
-    filters = {"status": ("in", ["Active", "Inactive"])}  # include inactive to flag it
-    rows = frappe.get_all("Brand Approver", filters=filters,
-                          fields=["name", "status", "kam_owner",
-                                  "manager_email", "leader_email"])
+    """Brand config rows from native Brand (optionally restricted to a code set).
+
+    Only Brand records that carry an eCentric brand code participate in Alert
+    Center; plain ERPNext catalogue Brands (no ec_brand_code) are ignored,
+    otherwise they would show up as junk rows on Integration Health.
+    """
+    filters = {"ec_status": ("in", ["Active", "Inactive"]),  # include inactive to flag it
+               "ec_brand_code": ("is", "set")}
+    rows = frappe.get_all("Brand", filters=filters,
+                          fields=["name", "ec_status as status",
+                                  "ec_kam_owner as kam_owner",
+                                  "ec_manager_email as manager_email",
+                                  "ec_leader_email as leader_email"])
     if brands is not None:
         rows = [r for r in rows if r["name"] in brands]
     return rows

@@ -526,7 +526,7 @@ def _db_validate_gift(norm, idx):
     user = frappe.session.user
     if not perms.can_manage_policy(user, norm["brand"]):
         errs.append("row %d: brand %s is outside your scope" % (idx, norm["brand"]))
-    elif not frappe.db.exists("Brand Approver", norm["brand"]):
+    elif not frappe.db.exists("Brand", norm["brand"]):
         errs.append("row %d: brand %s does not exist" % (idx, norm["brand"]))
     return errs
 
@@ -548,7 +548,7 @@ def _db_validate(norm, idx):
     user = frappe.session.user
     if not perms.can_manage_policy(user, norm["brand"]):
         errs.append("row %d: brand %s is outside your scope" % (idx, norm["brand"]))
-    elif not frappe.db.exists("Brand Approver", norm["brand"]):
+    elif not frappe.db.exists("Brand", norm["brand"]):
         errs.append("row %d: brand %s does not exist" % (idx, norm["brand"]))
     if norm.get("shop") and not frappe.db.exists("EC Marketplace Shop", norm["shop"]):
         errs.append("row %d: shop %s does not exist" % (idx, norm["shop"]))
