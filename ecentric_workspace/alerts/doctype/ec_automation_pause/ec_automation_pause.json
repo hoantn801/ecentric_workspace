@@ -42,7 +42,7 @@
    "fieldname": "brand",
    "fieldtype": "Link",
    "label": "Brand",
-   "options": "Brand Approver",
+   "options": "Brand",
    "reqd": 1,
    "in_list_view": 1,
    "in_standard_filter": 1,

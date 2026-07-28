@@ -62,7 +62,7 @@ def derive(facts):
     # --- hard blockers, precedence order ---
     if not f.get("ba_exists") or (f.get("ba_status") or "") != "Active":
         hard.append(_b("missing_brand_approver",
-                       "Missing or inactive Brand Approver record"))
+                       "Missing or inactive Brand record"))
     elif not f.get("bis_exists"):
         hard.append(_b("missing_bis",
                        "Missing EC Brand Integration Settings"))
@@ -89,7 +89,7 @@ def derive(facts):
     if not hard:
         if not f.get("kam_owner"):
             warns.append(_w("no_kam_owner",
-                            "No KAM owner on Brand Approver (alerts get fallback owner)"))
+                            "No KAM owner on Brand (alerts get fallback owner)"))
         if cov is not None and float(cov) < min_coverage:
             warns.append(_w("low_policy_coverage",
                             "Policy coverage %.0f%% < %.0f%%" % (float(cov), min_coverage)))
@@ -120,7 +120,7 @@ def derive(facts):
 
 _ACTIONS = {
     "missing_brand_approver": ("create_brand_approver",
-        "Create/activate the Brand Approver record"),
+        "Create/activate the Brand record"),
     "missing_bis": ("create_bis",
         "Create EC Brand Integration Settings before preview/pull"),
     "bis_disabled": ("enable_bis", "Enable the integration (set enabled=1)"),
@@ -129,7 +129,7 @@ _ACTIONS = {
         "Run the credential probe to validate keys"),
     "breaker_open": ("reset_breaker",
         "Investigate ingestion_api_failed, then reset Consecutive Failures to 0"),
-    "no_kam_owner": ("set_kam", "Set kam_owner on the Brand Approver record"),
+    "no_kam_owner": ("set_kam", "Set KAM Owner on the Brand record"),
     "low_policy_coverage": ("add_policies",
         "Add price policies for uncovered SKUs"),
     "stale_sync_scheduled": ("check_pull_status",

@@ -1221,17 +1221,18 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         document.getElementById('clientId').value = clientId;
         document.getElementById('clientDisplay').value = (_clientsCache[clientId] || clientId) + ' (' + clientId + ')';
       } else if (brandCode) {
-        // CLIENT_FALLBACK_2026-06-03: fetch Brand Approver record directly if cache miss
-        fetch('/api/resource/Brand%20Approver/' + encodeURIComponent(brandCode), { credentials: 'include', headers: { 'Accept': 'application/json' } })
+        // CLIENT_FALLBACK_2026-06-03: fetch the native Brand record directly if cache miss
+        fetch('/api/resource/Brand/' + encodeURIComponent(brandCode), { credentials: 'include', headers: { 'Accept': 'application/json' } })
           .then(function (r) { return r.json(); })
           .then(function (resp) {
             var bd = (resp && resp.data) || {};
-            if (bd.client_id) {
-              document.getElementById('clientId').value = bd.client_id;
-              document.getElementById('clientDisplay').value = (_clientsCache[bd.client_id] || bd.client_id) + ' (' + bd.client_id + ')';
-              console.log('[so-form] client filled from Brand Approver fallback:', bd.client_id);
+            var cid = bd.ec_parent_client || bd.client_id;
+            if (cid) {
+              document.getElementById('clientId').value = cid;
+              document.getElementById('clientDisplay').value = (_clientsCache[cid] || cid) + ' (' + cid + ')';
+              console.log('[so-form] client filled from Brand fallback:', cid);
             } else {
-              console.warn('[so-form] Brand Approver has no client_id field for', brandCode);
+              console.warn('[so-form] Brand has no ec_parent_client for', brandCode);
             }
           })
           .catch(function (e) { console.warn('[so-form] Brand fallback fetch failed:', e); });

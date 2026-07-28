@@ -6,7 +6,7 @@ FLOW A - Incident ToDo (per Alert Case): one open ToDo per ACTIVE incident
   violation after terminal is a new case = a new ToDo (old never reopened).
 
 FLOW B - Setup ToDo (aggregated per Brand): missing_policy is NOT one ToDo per
-  case. ONE open setup ToDo per (brand, owner), reference_type="Brand Approver",
+  case. ONE open setup ToDo per (brand, owner), reference_type="Brand",
   reference_name=brand, description prefixed with the marker
   "[price_setup_missing]". Description shows the distinct missing-COVERAGE SKU
   count (order-derived, from services.policy_coverage - NOT a count of active
@@ -78,7 +78,7 @@ SYSTEM_RULES = frozenset({
     "stock_lock_api_failed",
 })
 
-SETUP_REF_DOCTYPE = "Brand Approver"
+SETUP_REF_DOCTYPE = "Brand"
 SETUP_MARKER = "[price_setup_missing]"
 
 _INCIDENT_LABEL = {

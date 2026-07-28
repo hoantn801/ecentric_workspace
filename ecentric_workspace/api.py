@@ -478,7 +478,7 @@ TYPE_DOCTYPE_MAP = {
     "so": "Service Request",
     "po": "Procurement Request",
     "rec": "Reconciliation Request",
-    "brand": "Brand Approver",
+    "brand": "Brand",
     "client": "Customer",
     "service_type": "Item",
     "vendor": "Supplier",
@@ -543,9 +543,11 @@ def _build_chain_for_doc(doc, recipe_name):
     brand = None
     if getattr(doc, "brand_code", None):
         brand = frappe.db.get_value(
-            "Brand Approver",
+            "Brand",
             doc.brand_code,
-            ["manager_email", "leader_email", "finance_email"],
+            ["ec_manager_email as manager_email",
+             "ec_leader_email as leader_email",
+             "ec_finance_email as finance_email"],
             as_dict=True
         )
 
