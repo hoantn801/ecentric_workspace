@@ -134,20 +134,28 @@ def build_approval_center_url(route, business_name):
     return r + "?id=" + _q(str(business_name or ""), safe="")
 
 
-def apply_approval_normalization(item, request_name, route, business_name, title=None):
-    """Normalize `item` as a governed approval (source_type=approval) with the
-    canonical Approval Center URL. Preserves the original business reference
-    fields already on `item` (reference_type/reference_name) for display/audit,
-    and records the linked engine request. ONE place the approval source strings
-    + URL are applied, for BOTH direct EC Approval Request references and linked
-    business documents (single normalized adapter)."""
-    item["source_key"] = _APPROVAL_SRC["source_key"]
-    item["source_type"] = _APPROVAL_SRC["source_key"]
-    item["source_label"] = _APPROVAL_SRC["source_label"]
-    item["action_label"] = _APPROVAL_SRC["action_label"]
+def apply_approval_normalization(item, request_name, route, business_name,
+                                 title=None, stage="approval"):
+    """Normalize `item` as a governed approval-FAMILY action with the canonical
+    Approval Center URL. ONE place the source strings + URL are applied, for BOTH
+    direct EC Approval Request references and linked business documents, and for
+    BOTH lifecycle stages (Phase 1b.3.1):
+      stage="approval"    -> pending approval decision ("PHÊ DUYỆT").
+      stage="fulfillment" -> approval done, fulfillment still open ("THỰC HIỆN").
+    Both keep source_type=approval (source_family) for backward compatibility;
+    the additive `action_stage` discriminates them and drives the separate
+    source_counts (approval vs fulfillment). Preserves the business reference
+    fields already on `item` (reference_type/reference_name) for display/audit."""
+    src = _FULFILLMENT_SRC if stage == "fulfillment" else _APPROVAL_SRC
+    item["source_key"] = src["source_key"]
+    item["source_type"] = src["source_key"]       # "approval" (source family) -- backward compat
+    item["source_family"] = "approval"
+    item["action_stage"] = stage                  # "approval" | "fulfillment"
+    item["source_label"] = src["source_label"]
+    item["action_label"] = src["action_label"]
     item["action_url"] = build_approval_center_url(route, business_name)
-    item["source_name"] = request_name           # linked EC Approval Request
-    item["approval_request"] = request_name       # explicit, for audit
+    item["source_name"] = request_name            # linked EC Approval Request
+    item["approval_request"] = request_name        # explicit, for audit
     if title:
         item["title"] = title
     return item
@@ -210,6 +218,14 @@ _APPROVAL_SRC = {
     "source_key": "approval",
     "source_label": "PHÊ DUYỆT",
     "action_label": "Phê duyệt",
+}
+#: fulfillment-stage display (Phase 1b.3.1). Same source_family (approval) + the
+#: same canonical business-form URL, but a distinct label + action_stage so the
+#: UI shows "thực hiện" (fulfil) rather than "phê duyệt" (approve).
+_FULFILLMENT_SRC = {
+    "source_key": "approval",
+    "source_label": "THỰC HIỆN",
+    "action_label": "Thực hiện",
 }
 _GENERIC_SRC = {
     "source_key": "generic",

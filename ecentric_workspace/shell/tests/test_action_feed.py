@@ -247,7 +247,9 @@ class TestBuildFeed(unittest.TestCase):
         FK.db.get_value_map = {("Weekly Team Update", "W1", "week_label"): "W30"}
         res = feed.build_feed("u@e.c", limit=20)
         sc = res["source_counts"]
-        self.assertEqual(sc, {"approval": 1, "pm": 1, "weekly_update": 1, "generic_todo": 1})
+        # Phase 1b.3.1: `fulfillment` is an additive key (0 here -- no fulfillment items).
+        self.assertEqual(sc, {"approval": 1, "pm": 1, "weekly_update": 1,
+                              "generic_todo": 1, "fulfillment": 0})
         # source_counts sums to total (full filtered feed, pre-pagination)
         self.assertEqual(sum(sc.values()), res["total"])
         # exposed by BOTH endpoints, same shape, no dup query
@@ -896,6 +898,253 @@ class TestApprovalNormalization(unittest.TestCase):
         self.assertEqual(it["bucket"], "overdue")
 
 
+class TestFulfillmentStage(unittest.TestCase):
+    """Phase 1b.3.1: approval-fulfillment lifecycle. Approval DECISION terminal is
+    not the overall action terminal -- an Approved request with an OPEN governed
+    fulfillment stays in the feed as a distinct fulfillment-stage action."""
+
+    AITOP = "EC AI Topup Request"
+
+    def setUp(self):
+        _install(FK, purge=False)
+        FK.db = _FakeDB(); FK.getall_map = {}; FK.session.user = "hoan.tran@e.c"
+        FK.meta_map = {
+            self.AITOP: {"approval_request": _FakeField("Link", "EC Approval Request"),
+                         "fulfillment_owner": _FakeField("Link", "User"),
+                         "fulfillment_status": _FakeField("Select"),
+                         "fulfillment_due_at": _FakeField("Datetime")},
+        }
+        from ecentric_workspace.action_center import resolvers as R
+        R._META_FIELD_CACHE.clear()
+        self.R = R
+
+    def _biz(self, name, req, status="Assigned", owner="hoan.tran@e.c", due="",
+             open_todo=True, todo_user="hoan.tran@e.c", todo_date=""):
+        FK.getall_map.setdefault(self.AITOP, []).append(
+            {"name": name, "approval_request": req,
+             "fulfillment_owner": owner, "fulfillment_status": status,
+             "fulfillment_due_at": due})
+        if open_todo:                    # governed Open fulfillment ToDo (record-scoped)
+            FK.getall_map.setdefault("ToDo", []).append(
+                {"name": "TD-" + name, "reference_type": self.AITOP,
+                 "reference_name": name, "allocated_to": todo_user,
+                 "status": "Open", "date": todo_date})
+
+    def _req(self, name, approval_status="Approved", reference_name="", requested_by="boss@e.c",
+             atype="AITOP", level=1):
+        FK.getall_map.setdefault("EC Approval Request", []).append(
+            {"name": name, "approval_status": approval_status, "current_level": level,
+             "approval_type": atype, "requested_by": requested_by,
+             "reference_doctype": self.AITOP, "reference_name": reference_name})
+
+    def _type(self, name="AITOP", route="/approvals/ai-topup"):
+        FK.getall_map.setdefault("EC Approval Type", []).append({"name": name, "route": route})
+
+    def _level(self, req, status, due, level_no=1):
+        FK.getall_map.setdefault("EC Approval Request Level", []).append(
+            {"approval_request": req, "level_no": level_no, "level_status": status, "due_at": due})
+
+    def _process(self, atype="AITOP", proc="PROC-1"):
+        FK.getall_map.setdefault("EC Approval Process", []).append(
+            {"name": proc, "approval_type": atype, "status": "Active"})
+
+    def _participant(self, user, proc="PROC-1"):
+        # entitlement via a configured Fulfiller participant (NOT via a ToDo).
+        if FK.db.exist_rows is None:
+            FK.db.exist_rows = {}
+        FK.db.exist_rows.setdefault("EC Approval Participant", []).append(
+            {"parent": proc, "parenttype": "EC Approval Process",
+             "participant_purpose": "Fulfiller", "user": user})
+
+    def _find(self, res, todo):
+        for i in res["items"]:
+            if i["todo_name"] == todo:
+                return i
+        return None
+
+    def test_approval_pending_is_approval_stage(self):
+        # description = approval prompt; approval still Pending -> approval stage.
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-1")]
+        self._biz("EC-AITOP-1", "REQ-1", status="Not Started", owner="")
+        self._req("REQ-1", approval_status="Pending", reference_name="EC-AITOP-1",
+                  requested_by="hoan.tran@e.c")
+        self._type(); self._level("REQ-1", "In Progress", "2026-07-20 09:00:00")
+        it = self._find(feed.build_feed("hoan.tran@e.c", limit=20), "t")
+        self.assertEqual(it["action_stage"], "approval")
+        self.assertEqual(it["source_family"], "approval")
+        self.assertEqual(it["bucket"], "overdue")             # approval-level SLA
+
+    def test_production_shaped_fulfillment_remains(self):
+        # PROD evidence: approval Approved (approval ToDos cancelled), fulfillment
+        # ToDo Open for hoan.tran, description "AI Topup fulfillment queue".
+        FK.db.todo_rows = [{"name": "t", "description": "AI Topup fulfillment queue",
+                            "reference_type": self.AITOP, "reference_name": "EC-AITOP-2026-00001",
+                            "priority": "Medium", "modified": "2026-07-27", "creation": "1",
+                            "date": "", "status": "Open"}]
+        self._biz("EC-AITOP-2026-00001", "EC-APR-2026-00003", status="Assigned",
+                  owner="hoan.tran@e.c", due="2026-07-30 09:00:00")
+        self._req("EC-APR-2026-00003", approval_status="Approved",
+                  reference_name="EC-AITOP-2026-00001", requested_by="boss@e.c")
+        self._type()
+        self._level("EC-APR-2026-00003", "Approved", "2026-07-10 09:00:00")   # OLD approval SLA
+        res = feed.build_feed("hoan.tran@e.c", limit=20)
+        it = self._find(res, "t")
+        self.assertIsNotNone(it)                              # NOT excluded
+        self.assertEqual(it["action_stage"], "fulfillment")
+        self.assertEqual(it["source_family"], "approval")
+        # canonical business-form route
+        self.assertEqual(it["action_url"], "/approvals/ai-topup?id=EC-AITOP-2026-00001")
+        # due from fulfillment SLA (future) -> upcoming; NOT the old approval SLA (would be overdue)
+        self.assertEqual(it["due_at"], "2026-07-30 09:00:00")
+        self.assertEqual(it["bucket"], "upcoming")
+        # counts: fulfillment++ and NOT pending approval
+        self.assertEqual(res["source_counts"]["fulfillment"], 1)
+        self.assertEqual(res["source_counts"]["approval"], 0)
+
+    def test_fulfillment_due_fallbacks(self):
+        # governed SLA overdue -> overdue
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-1")]
+        self._biz("EC-AITOP-1", "REQ-1", status="In Progress", owner="hoan.tran@e.c",
+                  due="2026-07-20 09:00:00")
+        self._req("REQ-1", reference_name="EC-AITOP-1"); self._type()
+        self._level("REQ-1", "Approved", "2026-07-01")
+        self.assertEqual(self._find(feed.build_feed("hoan.tran@e.c", 20), "t")["bucket"], "overdue")
+
+    def test_fulfillment_todo_date_fallback_when_no_sla(self):
+        # no fulfillment SLA -> fall back to the GOVERNED Open ToDo's date (today)
+        # -> act_now. The date comes from _open_fulfillment_todo, not the feed row.
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-1", date="2000-01-01")]
+        self._biz("EC-AITOP-1", "REQ-1", status="Assigned", owner="hoan.tran@e.c", due="",
+                  todo_date="2026-07-24")          # governed ToDo.date
+        self._req("REQ-1", reference_name="EC-AITOP-1"); self._type()
+        self._level("REQ-1", "Approved", "2026-07-01")
+        it = self._find(feed.build_feed("hoan.tran@e.c", 20), "t")
+        self.assertEqual(it["due_at"], "2026-07-24")   # governed ToDo.date, NOT the row's 2000-01-01
+        self.assertEqual(it["bucket"], "act_now")
+
+    def test_fulfillment_undated_when_neither(self):
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-1", date="")]
+        self._biz("EC-AITOP-1", "REQ-1", status="Assigned", owner="hoan.tran@e.c", due="")
+        self._req("REQ-1", reference_name="EC-AITOP-1"); self._type()
+        self._level("REQ-1", "Approved", "2026-07-01")
+        it = self._find(feed.build_feed("hoan.tran@e.c", 20), "t")
+        self.assertEqual(it["due_at"], "")
+        self.assertEqual(it["bucket"], "act_now")             # active undated -> act_now
+
+    def test_completed_fulfillment_disappears(self):
+        # governed terminal fulfillment (Completed) -> excluded even if a ToDo lingers.
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-1")]
+        self._biz("EC-AITOP-1", "REQ-1", status="Completed", owner="hoan.tran@e.c")
+        self._req("REQ-1", reference_name="EC-AITOP-1"); self._type()
+        self._level("REQ-1", "Approved", "2026-07-01")
+        self.assertIsNone(self._find(feed.build_feed("hoan.tran@e.c", 20), "t"))
+
+    def test_rejected_without_fulfillment_excluded(self):
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-1")]
+        self._biz("EC-AITOP-1", "REQ-1", status="Not Started", owner="")
+        self._req("REQ-1", approval_status="Rejected", reference_name="EC-AITOP-1")
+        self._type(); self._level("REQ-1", "Rejected", "2026-07-01")
+        self.assertIsNone(self._find(feed.build_feed("hoan.tran@e.c", 20), "t"))
+
+    # ---- PO decoupling matrix: ENTITLEMENT (no ToDo) x ACTION-EXISTENCE (ToDo) --
+    def test_eligible_participant_with_open_todo_included(self):
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-1")]
+        self._biz("EC-AITOP-1", "REQ-1", status="Assigned", owner="other@e.c",
+                  due="2026-07-24 09:00:00", open_todo=True)
+        self._req("REQ-1", reference_name="EC-AITOP-1"); self._type()
+        self._level("REQ-1", "Approved", "2026-07-01")
+        self._process(); self._participant("hoan.tran@e.c")   # entitled via participant
+        it = self._find(feed.build_feed("hoan.tran@e.c", 20), "t")
+        self.assertIsNotNone(it)
+        self.assertEqual(it["action_stage"], "fulfillment")
+
+    def test_eligible_participant_no_open_todo_excluded(self):
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-1")]
+        self._biz("EC-AITOP-1", "REQ-1", status="Assigned", owner="other@e.c",
+                  due="2026-07-24 09:00:00", open_todo=False)  # entitled but no ACTION
+        self._req("REQ-1", reference_name="EC-AITOP-1"); self._type()
+        self._level("REQ-1", "Approved", "2026-07-01")
+        self._process(); self._participant("hoan.tran@e.c")
+        self.assertIsNone(self._find(feed.build_feed("hoan.tran@e.c", 20), "t"))
+
+    def test_ineligible_user_with_open_todo_excluded(self):
+        # KEY decoupling: an Open ToDo EXISTS but the user has NO entitlement
+        # (not owner, not participant, not SM) -> the ToDo alone does NOT grant
+        # the fulfillment action; item excluded, no business URL leaked.
+        FK.db.exist_rows = {}            # participant exists -> False
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-1")]
+        self._biz("EC-AITOP-1", "REQ-1", status="Assigned", owner="other@e.c",
+                  due="2026-07-24 09:00:00", open_todo=True)
+        self._req("REQ-1", reference_name="EC-AITOP-1"); self._type()
+        self._level("REQ-1", "Approved", "2026-07-01")
+        self._process()                  # process exists, but user is NOT a participant
+        self.assertIsNone(self._find(feed.build_feed("hoan.tran@e.c", 20), "t"))
+
+    def test_fulfillment_owner_with_open_todo_included(self):
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-1")]
+        self._biz("EC-AITOP-1", "REQ-1", status="Assigned", owner="hoan.tran@e.c",
+                  due="2026-07-24 09:00:00", open_todo=True)
+        self._req("REQ-1", reference_name="EC-AITOP-1"); self._type()
+        self._level("REQ-1", "Approved", "2026-07-01")
+        it = self._find(feed.build_feed("hoan.tran@e.c", 20), "t")
+        self.assertIsNotNone(it)
+        self.assertEqual(it["action_stage"], "fulfillment")
+
+    def test_stale_open_todo_does_not_grant_permission(self):
+        # A stale/misassigned Open ToDo for a user with NO entitlement must NOT
+        # produce a fulfillment item -- the ToDo row cannot establish permission.
+        FK.db.exist_rows = {}            # no participant, not SM
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-1")]
+        self._biz("EC-AITOP-1", "REQ-1", status="Assigned", owner="other@e.c",
+                  due="2026-07-24 09:00:00", open_todo=True)
+        self._req("REQ-1", reference_name="EC-AITOP-1"); self._type()
+        self._level("REQ-1", "Approved", "2026-07-01")
+        it = self._find(feed.build_feed("hoan.tran@e.c", 20), "t")
+        self.assertIsNone(it)
+
+    # ---- PO explicit correctness-gate regression matrix -------------------
+    def _gate_case(self, appr_status, ful_status, open_todo):
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-G")]
+        # owner == user so entitlement holds; open_todo toggles the governed ToDo.
+        self._biz("EC-AITOP-G", "REQ-G", status=ful_status, owner="hoan.tran@e.c",
+                  due="2026-07-24 09:00:00", open_todo=open_todo)
+        self._req("REQ-G", approval_status=appr_status, reference_name="EC-AITOP-G")
+        self._type(); self._level("REQ-G", "Approved", "2026-07-01")
+        return self._find(feed.build_feed("hoan.tran@e.c", 20), "t")
+
+    def test_gate_approved_assigned_open_included(self):
+        it = self._gate_case("Approved", "Assigned", True)
+        self.assertIsNotNone(it)
+        self.assertEqual(it["action_stage"], "fulfillment")
+
+    def test_gate_approved_completed_open_excluded(self):
+        self.assertIsNone(self._gate_case("Approved", "Completed", True))
+
+    def test_gate_approved_assigned_no_open_excluded(self):
+        self.assertIsNone(self._gate_case("Approved", "Assigned", False))
+
+    def test_gate_rejected_assigned_open_excluded(self):
+        self.assertIsNone(self._gate_case("Rejected", "Assigned", True))
+
+    def test_gate_cancelled_in_progress_open_excluded(self):
+        self.assertIsNone(self._gate_case("Cancelled", "In Progress", True))
+
+    def test_direct_ref_reverse_resolution_failure_no_fulfillment(self):
+        # Direct EC Approval Request whose reference_doctype/name are missing ->
+        # reverse resolution fails -> generic fallback, NO fulfillment inference,
+        # NO reuse of the approval-level SLA.
+        FK.db.todo_rows = [_todo("t", "EC Approval Request", "REQ-D")]
+        FK.getall_map.setdefault("EC Approval Request", []).append(
+            {"name": "REQ-D", "approval_status": "Approved", "current_level": 1,
+             "approval_type": "AITOP", "requested_by": "boss@e.c",
+             "reference_doctype": "", "reference_name": ""})   # reverse-resolution fails
+        self._type(); self._level("REQ-D", "Approved", "2026-07-01 09:00:00")
+        it = self._find(feed.build_feed("hoan.tran@e.c", 20), "t")
+        self.assertEqual(it["source_type"], "generic")        # generic fallback
+        self.assertNotIn("/approvals/", it["action_url"])     # no route
+        self.assertNotEqual(it.get("due_at"), "2026-07-01 09:00:00")  # no approval-SLA reuse
+
+
 class TestAllowlistFormParity(unittest.TestCase):
     """Phase 1b.3 generalized-scope gate: every DocType the feed normalizes
     (APPROVAL_NORMALIZE_ALLOWLIST) must map to a form whose `_can_view` is >=
@@ -993,6 +1242,46 @@ class TestCanonicalVisibilityHelper(unittest.TestCase):
         self.assertFalse(ac_perm.can_view_request("R", "u@e.c", requested_by="boss@e.c",
                                                   fulfillment_owner="other@e.c",
                                                   approval_type="AITOP", business_doctype="X"))
+
+    def test_can_fulfill_owner_or_eligible_only(self):
+        # owner -> True
+        self.assertTrue(ac_perm.can_fulfill("u@e.c", business_doctype="X",
+                                            fulfillment_owner="u@e.c", approval_type="AITOP"))
+        # eligible fulfiller via open ToDo -> True
+        FK.db.exist_rows = {"ToDo": [{"reference_type": "X", "allocated_to": "u@e.c",
+                                      "status": "Open"}]}
+        self.assertTrue(ac_perm.can_fulfill("u@e.c", business_doctype="X",
+                                            fulfillment_owner="boss@e.c", approval_type="AITOP"))
+        # neither owner nor eligible -> False (a mere viewer gets no fulfillment action)
+        FK.db.exist_rows = {}
+        self.assertFalse(ac_perm.can_fulfill("u@e.c", business_doctype="X",
+                                             fulfillment_owner="boss@e.c", approval_type="AITOP"))
+
+    def test_is_eligible_fulfiller_without_todo_excludes_todo_path(self):
+        # Entitlement = owner / SM / configured participant. The 'any Open ToDo on
+        # the DocType' path is DELIBERATELY excluded (unlike is_eligible_fulfiller).
+        # owner
+        self.assertTrue(ac_perm.is_eligible_fulfiller_without_todo(
+            "u@e.c", approval_type="AITOP", fulfillment_owner="u@e.c"))
+        # System Manager
+        FK.roles = {"u@e.c": ["System Manager"]}
+        self.assertTrue(ac_perm.is_eligible_fulfiller_without_todo("u@e.c", approval_type="AITOP"))
+        FK.roles = {}
+        # configured Fulfiller participant
+        FK.getall_map = {"EC Approval Process": [{"name": "P1", "approval_type": "AITOP",
+                                                  "status": "Active"}]}
+        FK.db.exist_rows = {"EC Approval Participant": [
+            {"parent": "P1", "parenttype": "EC Approval Process",
+             "participant_purpose": "Fulfiller", "user": "u@e.c"}]}
+        self.assertTrue(ac_perm.is_eligible_fulfiller_without_todo("u@e.c", approval_type="AITOP"))
+        # an Open ToDo on the DocType is NOT sufficient here (decoupled)
+        FK.getall_map = {}
+        FK.db.exist_rows = {"ToDo": [{"reference_type": "X", "allocated_to": "u@e.c",
+                                      "status": "Open"}]}
+        self.assertFalse(ac_perm.is_eligible_fulfiller_without_todo(
+            "u@e.c", approval_type="AITOP", fulfillment_owner="boss@e.c"))
+        # but the ToDo-inclusive is_eligible_fulfiller (unchanged) STILL grants it
+        self.assertTrue(ac_perm.is_eligible_fulfiller("u@e.c", "AITOP", business_doctype="X"))
 
     def test_is_actionable_current_level_pending(self):
         FK.db.exist_rows = {"EC Approval Request Approver":
