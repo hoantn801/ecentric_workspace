@@ -15,5 +15,15 @@ ok(W.indexOf('items.length') >= 0, 'list still uses page items');
 ok(/n === 0/.test(W) && /badge.hidden = true/.test(W), 'badge HIDDEN (not removed) when total is 0');
 ok(/total - DISPLAY_LIMIT/.test(W), 'Xem thêm uses feed.total, not page length');
 
+ok(/function renderKpi\(sourceCounts\)/.test(W), 'widget has renderKpi(sourceCounts)');
+ok(/sourceCounts.approval/.test(W), 'KPI binds to source_counts.approval');
+ok(/data-ec-ac-kpi="approval"/.test(W), 'KPI targets the widget-owned placeholder');
+ok(/yêu cầu cần phản hồi/.test(W), 'meta uses session-scoped wording');
+ok(/msg.source_counts/.test(W), 'reads source_counts from the shared feed');
+// header Xem tất cả -> homepage (safe for all shell users, not /app)
+const S = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'js', 'ec_shell.js'), 'utf8');
+ok(/ec-shell-rm-all" href="\/">Xem tất cả/.test(S), 'Xem tất cả -> / (homepage action section)');
+ok(!/\/app\/todo\/view\/list/.test(S), 'no /app/todo Desk path (permission-safe)');
+
 console.log(failures === 0 ? '\nALL CHECKS PASSED' : '\n' + failures + ' FAILURES');
 process.exit(failures ? 1 : 0);

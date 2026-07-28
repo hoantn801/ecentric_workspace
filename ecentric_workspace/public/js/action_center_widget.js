@@ -114,6 +114,18 @@
     badge.hidden = false;
   }
 
+  // KPI "Phê duyệt chờ" -> feed.source_counts.approval (session-scoped). The
+  // homepage ships a neutral "—" placeholder; hydration fills the real count.
+  // On API failure the widget leaves "—" (never a knowingly-false 0).
+  function renderKpi(sourceCounts) {
+    if (!sourceCounts || typeof sourceCounts.approval !== 'number') return;
+    var n = sourceCounts.approval;
+    var val = document.querySelector('[data-ec-ac-kpi="approval"]');
+    if (val) val.textContent = String(n);
+    var meta = document.querySelector('[data-ec-ac-kpi-meta="1"]');
+    if (meta) meta.textContent = n + ' yêu cầu cần phản hồi';
+  }
+
   function renderCards(items, total) {
     var panel = findPanel();
     if (!panel) return;
@@ -166,6 +178,7 @@
           var total = (typeof msg.total === 'number') ? msg.total
                     : ((msg.items && msg.items.length) || 0);
           renderBadge(total);
+          renderKpi(msg.source_counts);
           renderCards(msg.items || [], total);
         }
       });

@@ -247,18 +247,29 @@ _SO_SET_LEGACY = ("{% set so_count = frappe.db.count('Sales Order', "
 _APPROVALS_SET_LEGACY = "{% set approvals_count = leave_count + so_count %}"
 _BADGE_LEGACY = ('{% if approvals_count %}<span class="badge b-pink">'
                  '{{ approvals_count }}</span>{% endif %}')
+_KPI_VAL_LEGACY = '<div class="stat-value">{{ approvals_count }}</div>'
+_KPI_META_LEGACY = ('<div class="stat-meta">{{ so_count }} SO · '
+                    '{{ leave_count }} đơn nghỉ phép</div>')
 
 _LEAVE_SET_NEUTRAL = "{% set leave_count = 0 %}"
 _SO_SET_NEUTRAL = "{% set so_count = 0 %}"
 _APPROVALS_SET_NEUTRAL = "{% set approvals_count = 0 %}"
 #: always-present, hidden, widget-owned placeholder (no server count).
 _BADGE_NEUTRAL = '<span class="badge b-pink" data-ec-ac-badge="1" hidden></span>'
+#: KPI "Phê duyệt chờ" value -> widget-owned; NEUTRAL "—" until hydration
+#: (never a knowingly-false 0). The widget fills it from
+#: feed.source_counts.approval (session-scoped).
+_KPI_VAL_NEUTRAL = '<div class="stat-value" data-ec-ac-kpi="approval">—</div>'
+#: KPI meta -> session-scoped wording; widget fills "X yêu cầu cần phản hồi".
+_KPI_META_NEUTRAL = '<div class="stat-meta" data-ec-ac-kpi-meta="1"></div>'
 
 _NEUTRALIZE = [
     (_LEAVE_SET_LEGACY, _LEAVE_SET_NEUTRAL),
     (_SO_SET_LEGACY, _SO_SET_NEUTRAL),
     (_APPROVALS_SET_LEGACY, _APPROVALS_SET_NEUTRAL),
     (_BADGE_LEGACY, _BADGE_NEUTRAL),
+    (_KPI_VAL_LEGACY, _KPI_VAL_NEUTRAL),
+    (_KPI_META_LEGACY, _KPI_META_NEUTRAL),
 ]
 
 
@@ -270,9 +281,12 @@ def neutralize_legacy_action_counts(ms):
     (neither legacy nor neutralized markers present) rather than guessing.
     Returns (new_html, changed_count)."""
     if "data-ec-ac-badge" in ms and _BADGE_LEGACY not in ms:
-        # already neutralized -> no-op (but assert the global count is gone)
+        # already neutralized -> no-op (but assert the global count is gone
+        # and the KPI is widget-owned, never a false zero)
         if "frappe.db.count('Leave Application'" in ms or "frappe.db.count('Sales Order'" in ms:
             raise ValueError("partial neutralization: badge done but count queries remain")
+        if 'data-ec-ac-kpi="approval"' not in ms:
+            raise ValueError("partial neutralization: badge done but KPI not widget-owned")
         return ms, 0
     if _BADGE_LEGACY not in ms:
         raise ValueError("unknown homepage state: legacy action badge not found")
@@ -282,11 +296,19 @@ def neutralize_legacy_action_counts(ms):
         if legacy in new:
             new = new.replace(legacy, neutral, 1)
             changed += 1
-    # post-conditions: no global count queries; exactly one widget placeholder
+    # post-conditions: no global count queries; widget-owned placeholders in
+    # place of any server-rendered count (no knowingly-false zero).
     if "frappe.db.count('Leave Application'" in new or "frappe.db.count('Sales Order'" in new:
         raise ValueError("global count query still present after neutralization")
     if new.count('data-ec-ac-badge="1"') != 1:
         raise ValueError("expected exactly one widget badge placeholder")
+    if new.count('data-ec-ac-kpi="approval"') != 1:
+        raise ValueError("expected the KPI value to be a widget-owned placeholder")
+    if new.count('data-ec-ac-kpi-meta="1"') != 1:
+        raise ValueError("expected the KPI meta to be a widget-owned placeholder")
+    # the KPI value must NOT be a hardcoded 0 (no false zero)
+    if '<div class="stat-value">0</div>' in new:
+        raise ValueError("KPI must not display a false 0")
     return new, changed
 
 

@@ -198,6 +198,31 @@ class TestBuildFeed(unittest.TestCase):
         self.assertEqual(res["total"], res["counts"]["overdue"] + res["counts"]["act_now"]
                          + res["counts"]["upcoming"] + res["counts"]["undated"])
 
+    def test_source_counts_across_full_feed(self):
+        FK.db.todo_rows = [
+            _todo("a", "PO Request", "PO-1", created="1"),      # approval
+            _todo("b", "Task", "TASK-1", created="2"),          # pm
+            _todo("c", "Weekly Team Update", "W1", date="2026-07-24", created="3"),  # weekly_update
+            _todo("d", "", "", date="2026-07-24", created="4"),  # generic_todo
+        ]
+        FK.getall_map = {
+            "EC Approval Request": [{"name": "R", "reference_name": "PO-1", "approval_status": "Pending"}],
+            "EC Approval Request Level": [{"approval_request": "R", "level_status": "In Progress", "due_at": "2026-07-24 09:00"}],
+            "Task": [{"name": "TASK-1", "workflow_state": "In Progress", "status": "Working", "exp_end_date": "2026-07-24"}],
+            "Weekly Team Update": [{"name": "W1", "status": "Draft"}],
+        }
+        FK.db.get_value_map = {("Weekly Team Update", "W1", "week_label"): "W30"}
+        res = feed.build_feed("u@e.c", limit=20)
+        sc = res["source_counts"]
+        self.assertEqual(sc, {"approval": 1, "pm": 1, "weekly_update": 1, "generic_todo": 1})
+        # source_counts sums to total (full filtered feed, pre-pagination)
+        self.assertEqual(sum(sc.values()), res["total"])
+        # exposed by BOTH endpoints, same shape, no dup query
+        r1 = ac_api.get_action_items()
+        self.assertIn("source_counts", r1)
+        r2 = ac_api.get_reminder_summary()
+        self.assertEqual(r2["source_counts"], sc)
+
     def test_pagination_cursor(self):
         FK.db.todo_rows = [_todo("t%02d" % i, "", "", date="2026-07-2%d" % (i % 6), created="%02d" % i)
                            for i in range(25)]  # bare ToDos, undated? date set -> various buckets

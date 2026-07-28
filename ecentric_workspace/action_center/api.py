@@ -49,6 +49,7 @@ def get_action_items(cursor=None, limit=None):
         "count": res["returned"],          # backward-compat: items on this page
         "items": res["items"],
         "counts": res["counts"],
+        "source_counts": res["source_counts"],
         "total": res["total"],
         "returned": res["returned"],
         "next_cursor": res["next_cursor"],
@@ -82,6 +83,7 @@ def get_reminder_summary(limit=None):
         "total": res["total"],             # ALL open actions (badge on the widget)
         "attention_count": attention_count,  # overdue + act_now (header badge)
         "counts": counts,                  # full-feed bucket counts
+        "source_counts": res["source_counts"],  # SAME per-source counts (no dup query)
         "items": res["items"],             # top-N, already deterministically ordered
         "returned": res["returned"],
         "next_cursor": res["next_cursor"],

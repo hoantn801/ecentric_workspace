@@ -156,24 +156,30 @@ class TestHomeActionBadgeNeutralization(unittest.TestCase):
         hp = self.hp
         return ('<div class="content">' + hp._LEAVE_SET_LEGACY + hp._SO_SET_LEGACY +
                 hp._APPROVALS_SET_LEGACY +
-                '<div class="stat-value">{{ approvals_count }}</div>'
-                '<div class="stat-meta">{{ so_count }} SO · {{ leave_count }} đơn</div>'
+                '<div class="stat-card">' + hp._KPI_VAL_LEGACY +
+                '<div class="stat-label">Phê duyệt chờ</div>' + hp._KPI_META_LEGACY + '</div>'
                 '<div class="panel-title">Việc cần làm ' + hp._BADGE_LEGACY + '</div>'
                 '<div class="approval-list">{% if approvals_count == 0 %}e{% else %}x{% endif %}</div>'
                 '<script id="ec-chatbot-js">g()</script></div>')
 
-    def test_global_count_removed_and_badge_widget_owned(self):
+    def test_global_count_removed_no_false_zero_widget_owned(self):
         new, changed = self.hp.neutralize_legacy_action_counts(self._fixture())
-        self.assertEqual(changed, 4)
-        # #1 legacy global count logic GONE
+        self.assertEqual(changed, 6)
+        # #1/#6 legacy global count logic GONE
         self.assertNotIn("frappe.db.count('Leave Application'", new)
         self.assertNotIn("frappe.db.count('Sales Order'", new)
-        # #2 badge = neutral hidden widget-owned placeholder
+        # badge = neutral hidden widget-owned placeholder
         self.assertEqual(new.count('data-ec-ac-badge="1"'), 1)
         self.assertIn('data-ec-ac-badge="1" hidden', new)
         self.assertNotIn(self.hp._BADGE_LEGACY, new)
-        # downstream refs still render (now 0) -- no Jinja error
-        self.assertIn('{{ approvals_count }}', new)
+        # KPI "Phê duyệt chờ": widget-owned + NEUTRAL "—", NOT a false 0
+        self.assertEqual(new.count('data-ec-ac-kpi="approval"'), 1)
+        self.assertIn('data-ec-ac-kpi="approval">—</div>', new)
+        self.assertNotIn('<div class="stat-value">0</div>', new)
+        self.assertNotIn(self.hp._KPI_VAL_LEGACY, new)
+        # meta: session-scoped placeholder (widget fills "X yêu cầu cần phản hồi")
+        self.assertEqual(new.count('data-ec-ac-kpi-meta="1"'), 1)
+        self.assertNotIn(self.hp._KPI_META_LEGACY, new)
         self.assertIn('ec-chatbot-js', new)
 
     def test_idempotent_and_byteproof(self):

@@ -975,13 +975,12 @@
         body += rows.map(reminderItemHtml).join('');
       });
       if (!body) body = '<div class="ec-shell-rm-empty">Không có việc nào cần làm 👍</div>';
-      // "Xem tất cả" -> the user's Open ToDo list in Desk (a REAL, existing
-      // route; the full /action-center page is deferred to Phase 2).
-      // Session-scoped via allocated_to = the boot user.
-      var u = (S.boot && S.boot.user && S.boot.user.name) || '';
-      var allUrl = '/app/todo/view/list?status=Open' +
-        (u ? '&allocated_to=' + encodeURIComponent(u) : '');
-      foot = '<a class="ec-shell-rm-all" href="' + allUrl + '">Xem tất cả</a>';
+      // "Xem tất cả" -> the existing Homepage action section ("Việc cần làm"
+      // widget on /). Chosen over /app/todo because Desk (/app) access is not
+      // guaranteed for every target user; the homepage is reachable by every
+      // shell user (no dead / permission-denied path). The full /action-center
+      // page is deferred to Phase 2.
+      foot = '<a class="ec-shell-rm-all" href="/">Xem tất cả</a>';
     }
     var el = document.createElement('div');
     el.className = 'ec-shell-reminder-drawer';
