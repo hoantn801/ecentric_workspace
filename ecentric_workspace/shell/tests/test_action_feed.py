@@ -447,5 +447,136 @@ class TestBucketPreviewsNoStarvation(unittest.TestCase):
         self.assertNotIn("frappe.db.count", api_src)
 
 
+class TestActiveSourceClassification(unittest.TestCase):
+    """Phase 1b.2 item #2: prove the SOURCE-ACTIVE mapping. `act_now` ("Đang
+    xử lý") holds GENUINE source-active records only -- an approval awaiting
+    this user, a PM Task In Progress, a due-today item -- NOT every Open ToDo.
+    Also reproduces the reported overdue=20 / act_now=0 / upcoming=1 to explain
+    WHY act_now is 0 (active approvals whose SLA already elapsed are overdue)."""
+
+    def setUp(self):
+        _install(FK, purge=False)
+        FK.db = _FakeDB(); FK.getall_map = {}; FK.session.user = "u@e.c"
+        FK.db.get_value_map = {
+            ("Weekly Team Update", "W1", "week_label"): "2026-W30",
+            ("Task", "TASK-A", "subject"): "A",
+        }
+
+    def _bucket(self, todo_name, res):
+        for i in res["items"]:
+            if i["todo_name"] == todo_name:
+                return i["bucket"]
+        return None   # excluded (terminal)
+
+    def test_approval_active_no_sla_is_act_now(self):
+        # Awaiting this user, In-Progress level, NO SLA date -> active undated -> act_now.
+        FK.db.todo_rows = [_todo("ap", "PO Request", "PO-1")]
+        FK.getall_map = {
+            "EC Approval Request": [{"name": "R", "reference_name": "PO-1", "approval_status": "Pending"}],
+            "EC Approval Request Level": [{"approval_request": "R", "level_status": "In Progress"}],  # no due_at
+        }
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertEqual(self._bucket("ap", res), "act_now")
+
+    def test_approval_active_sla_past_is_overdue_not_act_now(self):
+        FK.db.todo_rows = [_todo("ap", "PO Request", "PO-1")]
+        FK.getall_map = {
+            "EC Approval Request": [{"name": "R", "reference_name": "PO-1", "approval_status": "Pending"}],
+            "EC Approval Request Level": [{"approval_request": "R", "level_status": "In Progress", "due_at": "2026-07-20 09:00:00"}],
+        }
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertEqual(self._bucket("ap", res), "overdue")
+
+    def test_approval_active_sla_future_is_upcoming(self):
+        FK.db.todo_rows = [_todo("ap", "PO Request", "PO-1")]
+        FK.getall_map = {
+            "EC Approval Request": [{"name": "R", "reference_name": "PO-1", "approval_status": "Pending"}],
+            "EC Approval Request Level": [{"approval_request": "R", "level_status": "In Progress", "due_at": "2026-07-30 09:00:00"}],
+        }
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertEqual(self._bucket("ap", res), "upcoming")
+
+    def test_approval_terminal_is_excluded(self):
+        FK.db.todo_rows = [_todo("ap", "PO Request", "PO-1")]
+        FK.getall_map = {
+            "EC Approval Request": [{"name": "R", "reference_name": "PO-1", "approval_status": "Approved"}],
+        }
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertIsNone(self._bucket("ap", res))   # terminal -> not in feed
+
+    def test_pm_task_active_states(self):
+        FK.db.todo_rows = [
+            _todo("t_today", "Task", "T-TODAY", created="1"),
+            _todo("t_past", "Task", "T-PAST", created="2"),
+            _todo("t_future", "Task", "T-FUTURE", created="3"),
+            _todo("t_done", "Task", "T-DONE", created="4"),
+        ]
+        FK.getall_map = {"Task": [
+            {"name": "T-TODAY", "workflow_state": "In Progress", "status": "Working", "exp_end_date": "2026-07-24"},
+            {"name": "T-PAST", "workflow_state": "In Progress", "status": "Working", "exp_end_date": "2026-07-20"},
+            {"name": "T-FUTURE", "workflow_state": "In Progress", "status": "Working", "exp_end_date": "2026-07-30"},
+            {"name": "T-DONE", "workflow_state": "Done", "status": "Completed", "exp_end_date": "2026-07-10"},
+        ]}
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertEqual(self._bucket("t_today", res), "act_now")
+        self.assertEqual(self._bucket("t_past", res), "overdue")
+        self.assertEqual(self._bucket("t_future", res), "upcoming")
+        self.assertIsNone(self._bucket("t_done", res))         # terminal excluded
+
+    def test_plain_open_todo_is_not_active(self):
+        # A WTU (never source-active) and a bare generic ToDo, both undated,
+        # must fall to `undated` -- proving we do NOT reclassify every Open
+        # ToDo as active.
+        FK.db.todo_rows = [
+            _todo("wtu", "Weekly Team Update", "W1", created="1"),   # no date
+            _todo("bare", "", "", created="2"),                      # no ref, no date
+        ]
+        FK.getall_map = {"Weekly Team Update": [{"name": "W1", "status": "Draft"}]}
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertEqual(self._bucket("wtu", res), "undated")
+        self.assertEqual(self._bucket("bare", res), "undated")
+
+    def test_reproduce_20_overdue_0_actnow_1_upcoming(self):
+        # 20 approvals awaiting this user whose In-Progress SLA already elapsed
+        # -> all OVERDUE (never act_now); 1 approval with a future SLA ->
+        # upcoming. Explains the reported counts: act_now=0 is CORRECT, not a
+        # bug -- every active item's due date is in the past.
+        rows, reqs, lvls = [], [], []
+        for i in range(20):
+            ref = "PO-%02d" % i
+            rows.append(_todo("o%02d" % i, "PO Request", ref, created="%03d" % i))
+            reqs.append({"name": "R%02d" % i, "reference_name": ref, "approval_status": "Pending"})
+            lvls.append({"approval_request": "R%02d" % i, "level_status": "In Progress", "due_at": "2026-07-20 09:00:00"})
+        rows.append(_todo("up", "PO Request", "PO-UP", created="999"))
+        reqs.append({"name": "RUP", "reference_name": "PO-UP", "approval_status": "Pending"})
+        lvls.append({"approval_request": "RUP", "level_status": "In Progress", "due_at": "2026-07-30 09:00:00"})
+        FK.db.todo_rows = rows
+        FK.getall_map = {"EC Approval Request": reqs, "EC Approval Request Level": lvls}
+        res = feed.build_feed("u@e.c", limit=100)
+        self.assertEqual(res["counts"], {"overdue": 20, "act_now": 0, "upcoming": 1, "undated": 0})
+
+    def test_task_item_action_url_is_pm_spa_and_never_todo_list(self):
+        # End-to-end: a PM Task item's server-built action_url is the canonical
+        # PM SPA deep-link, and NO item in a mixed feed points at the ToDo list.
+        FK.db.todo_rows = [
+            _todo("t", "Task", "T-TODAY", created="1"),
+            _todo("ap", "PO Request", "PO-1", created="2"),
+            _todo("wtu", "Weekly Team Update", "W1", date="2026-07-24", created="3"),
+        ]
+        FK.getall_map = {
+            "Task": [{"name": "T-TODAY", "workflow_state": "In Progress", "status": "Working", "exp_end_date": "2026-07-24"}],
+            "EC Approval Request": [{"name": "R", "reference_name": "PO-1", "approval_status": "Pending"}],
+            "EC Approval Request Level": [{"approval_request": "R", "level_status": "In Progress", "due_at": "2026-07-24 09:00"}],
+            "Weekly Team Update": [{"name": "W1", "status": "Draft"}],
+        }
+        FK.db.get_value_map[("Task", "T-TODAY", "subject")] = "X"
+        res = feed.build_feed("u@e.c", limit=20)
+        urls = {i["todo_name"]: i["action_url"] for i in res["items"]}
+        self.assertTrue(urls["t"].startswith("/pm#task/"))
+        for u in urls.values():
+            self.assertNotIn("/app/todo", u)
+            self.assertNotIn("todo/view/list", u)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -52,8 +52,31 @@ def build_wtu_url(week_label):
 
 
 def build_task_url(name):
-    """Frappe-native Task desk form (the only canonical individual-Task URL)."""
+    """Frappe Desk Task form ``/app/task/<name>``.
+
+    Kept for the notification subsystem (``notification_center.resolvers`` /
+    ``pm.api.notifications``), which delegates here for its email/card links.
+    NOTE: requires Desk access. The Action Center feed uses
+    :func:`build_pm_task_url` instead (portal SPA, permission-safe).
+    """
     return "/app/task/" + _q(str(name or ""), safe="")
+
+
+def build_pm_task_url(name):
+    """Canonical PM SPA task-detail deep-link: ``/pm#task/<name>``.
+
+    This is the Action Center's canonical PM Task destination. ``/pm`` is the
+    portal SPA -- permission-safe for any internal website user, unlike the Desk
+    form ``/app/task/<name>`` (which needs Desk access and is a permission-denied
+    dead path for non-System users). The SPA router (``pm_app.html``
+    ``pmApplyRoute``) recognises ``#task/<name>`` and runs
+    ``go('work'); openTask(decodeURIComponent(name))`` -- opening the task detail
+    with no document reload. The name occupies ONE hash segment (slash-encoded to
+    %2F) so the router's ``hash.split('/')`` keeps it intact and
+    ``decodeURIComponent`` restores it. Built server-side so the frontend never
+    guesses a route from source_type.
+    """
+    return "/pm#task/" + _q(str(name or ""), safe="")
 
 
 def build_desk_fallback_url(doctype, name):
@@ -118,7 +141,9 @@ def resolve_item(todo_row):
         src = _TASK_SRC
         title = frappe.db.get_value(TASK, ref_name, "subject") or ref_name
         subtitle = ref_name
-        action_url = build_task_url(ref_name)
+        # Canonical Action Center PM destination = the portal SPA task detail
+        # (permission-safe), NOT the Desk form used by notifications.
+        action_url = build_pm_task_url(ref_name)
     elif ref_type in APPROVAL_DOCTYPES and ref_name:
         src = _APPROVAL_SRC
         info = frappe.db.get_value(ref_type, ref_name, ["title", "name"], as_dict=True) or {}

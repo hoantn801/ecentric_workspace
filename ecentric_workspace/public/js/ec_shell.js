@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.14.0 (reminder drawer: per-bucket previews + toggles)';
+  var VERSION = 'ec-shell v1.15.0 (reminder: canonical PM route, "Đang xử lý", no footer)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -908,9 +908,13 @@
   var REMINDER_URL = '/api/method/ecentric_workspace.action_center.api.get_reminder_summary';
   var R = { open: false, data: null, loading: false };
   // [key, label, groupClass, defaultExpanded]
+  // act_now keeps its INTERNAL key (backward-compatible with the feed
+  // contract) but shows as "Đang xử lý" -- its classifier holds genuine
+  // source-active records (approval awaiting this user, PM Task In Progress,
+  // due-today), not every Open ToDo.
   var _BUCKET_META = [
     ['overdue', 'Quá hạn', 'ec-shell-rm-overdue', true],
-    ['act_now', 'Cần làm', 'ec-shell-rm-actnow', true],
+    ['act_now', 'Đang xử lý', 'ec-shell-rm-actnow', true],
     ['upcoming', 'Sắp tới', '', false],
     ['undated', 'Không hạn', '', false]
   ];
@@ -997,9 +1001,10 @@
         body += bucketSectionHtml(m, (bi[m[0]] || []), c, !!more[m[0]]);
       });
       if (!body) body = '<div class="ec-shell-rm-empty">Không có việc nào cần làm 👍</div>';
-      // "Xem tất cả" -> the existing Homepage action section (/). Desk (/app)
-      // access is not guaranteed for every shell user -> no dead path.
-      foot = '<a class="ec-shell-rm-all" href="/">Xem tất cả</a>';
+      // Aggregate "see all" footer intentionally REMOVED (Phase 1b.2): the
+      // full /action-center page is deferred to Phase 2. No aggregate link is
+      // rendered rather than pointing at a placeholder or a non-canonical root.
+      foot = '';
     }
     var el = document.createElement('div');
     el.className = 'ec-shell-reminder-drawer';

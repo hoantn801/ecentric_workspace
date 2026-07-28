@@ -20,9 +20,14 @@ ok(/sourceCounts.approval/.test(W), 'KPI binds to source_counts.approval');
 ok(/data-ec-ac-kpi="approval"/.test(W), 'KPI targets the widget-owned placeholder');
 ok(/yêu cầu cần phản hồi/.test(W), 'meta uses session-scoped wording');
 ok(/msg.source_counts/.test(W), 'reads source_counts from the shared feed');
-// header Xem tất cả -> homepage (safe for all shell users, not /app)
+// Phase 1b.2: drawer footer "Xem tất cả" REMOVED (full /action-center is
+// Phase 2); act_now shows as "Đang xử lý" (internal key kept).
 const S = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'js', 'ec_shell.js'), 'utf8');
-ok(/ec-shell-rm-all" href="\/">Xem tất cả/.test(S), 'Xem tất cả -> / (homepage action section)');
+ok(!/Xem tất cả/.test(S), 'drawer footer "Xem tất cả" removed (no aggregate link)');
+ok(!/ec-shell-rm-all/.test(S), 'no rm-all footer anchor rendered');
+ok(/foot = '';/.test(S), "footer intentionally empty (no placeholder path)");
+ok(/\['act_now', 'Đang xử lý'/.test(S), "act_now bucket labelled 'Đang xử lý'");
+ok(/\['act_now'/.test(S), "internal bucket key 'act_now' kept (backward-compatible)");
 ok(!/\/app\/todo\/view\/list/.test(S), 'no /app/todo Desk path (permission-safe)');
 
 console.log(failures === 0 ? '\nALL CHECKS PASSED' : '\n' + failures + ' FAILURES');

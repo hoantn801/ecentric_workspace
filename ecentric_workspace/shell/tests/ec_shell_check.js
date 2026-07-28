@@ -393,7 +393,8 @@ const BOOT2 = JSON.parse(JSON.stringify(BOOT1)); BOOT2.nav[1].label = 'Approval 
     ok(SRC2.indexOf('get_reminder_summary') >= 0, 'reminder delegates get_reminder_summary (shared feed)');
     ok(SRC2.indexOf('data-ec-shell-reminder-badge="1"') >= 0, 'reminder badge node emitted');
     ok(/attention_count/.test(SRC2), 'badge bound to attention_count (overdue+act_now)');
-    ok(SRC2.indexOf('Xem tất cả') >= 0, 'drawer footer Xem tất cả');
+    ok(SRC2.indexOf('Xem tất cả') < 0, 'drawer footer "Xem tất cả" removed (Phase 1b.2)');
+    ok(/\['act_now', 'Đang xử lý'/.test(SRC2), "act_now bucket relabelled 'Đang xử lý' (key kept)");
     ok(/data-ec-shell-rm-toggle/.test(SRC2), 'bucket headers are accessible toggle buttons');
     ok(/aria-expanded/.test(SRC2), 'toggle exposes aria-expanded');
     ok(/data-ec-shell-rm-more/.test(SRC2), 'per-bucket Xem thêm control');
