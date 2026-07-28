@@ -9,7 +9,7 @@ in-flight requests.
 """
 import frappe
 from frappe import _
-from frappe.utils import now_datetime, add_to_date
+from frappe.utils import now_datetime, add_to_date, getdate
 
 OPEN_STATUSES = ("Pending", "Information Required")
 TERMINAL = ("Approved", "Rejected", "Cancelled")
@@ -257,22 +257,37 @@ def _drop_share_messages():
                                 if not any(k in _txt(m) for k in ("Read access", "Shared with", "shared with"))]
 
 
-def _engine_ensure_todo(doctype, name, user, description):
+#: stable marker (Custom Field on ToDo, created by patch p044) distinguishing
+#: FULFILLMENT-stage tasks from approval-stage or unrelated tasks on the same
+#: business document. Every fulfillment lifecycle op is scoped to this flag so an
+#: unrelated Open ToDo on the same document is NEVER touched.
+FULFILLMENT_MARKER = "ec_fulfillment"
+
+
+def _engine_ensure_todo(doctype, name, user, description, date=None, fulfillment=False):
     """Create the next approver's/fulfiller's Open ToDo for THIS business document.
     Idempotent (skips if an Open ToDo already exists). Inserted with ignore_permissions - a
     ToDo insert never needs the acting user to hold write/share perm on the business DocType.
-    assigned_by stays the real acting user (frappe.session.user) so the audit trail is honest."""
+    assigned_by stays the real acting user (frappe.session.user) so the audit trail is honest.
+    `date` (optional) is written to ToDo.date -- callers pass the governed SLA due (e.g. a
+    fulfillment producer passes fulfillment_due_at) so the task carries its own due date.
+    `fulfillment=True` stamps the stable FULFILLMENT_MARKER so lifecycle ops can scope to it."""
     if frappe.db.exists("ToDo", {"reference_type": doctype, "reference_name": name,
                                  "allocated_to": user, "status": "Open"}):
         return
-    frappe.get_doc({
+    todo = {
         "doctype": "ToDo",
         "allocated_to": user,
         "reference_type": doctype,
         "reference_name": name,
         "assigned_by": frappe.session.user,
         "description": description or _("Approval Center task"),
-    }).insert(ignore_permissions=True)
+    }
+    if date:
+        todo["date"] = date
+    if fulfillment:
+        todo[FULFILLMENT_MARKER] = 1
+    frappe.get_doc(todo).insert(ignore_permissions=True)
 
 
 def _engine_grant_read(doctype, name, user):
@@ -317,11 +332,13 @@ def _engine_maintain_assign(doctype, name, user, add=True):
     frappe.db.set_value(doctype, name, "_assign", frappe.as_json(cur), update_modified=False)
 
 
-def assign(doctype, name, users, description=None):
+def assign(doctype, name, users, description=None, date=None, fulfillment=False):
     """Assign the next approver(s)/fulfiller(s) to a business document. Idempotent (skips a user who
     already has an OPEN ToDo). Silent: mutes Frappe's share/assignment msgprints (no popups) while
     KEEPING the actual DocShare read access + ToDo. Real errors PROPAGATE so a failed assignment
-    rolls back.
+    rolls back. `date` (optional) sets ToDo.date on newly created tasks -- fulfillment producers
+    pass fulfillment_due_at so the pool ToDos carry the governed due date. `fulfillment=True`
+    stamps the FULFILLMENT_MARKER so lifecycle ops scope to fulfillment tasks only.
 
     ENGINE-OWNED INTERNAL OP - runs AFTER the acting approver has already been authorized (see
     approve/reject/etc.). It deliberately does NOT go through the public frappe.desk.form.assign_to.add,
@@ -336,9 +353,83 @@ def assign(doctype, name, users, description=None):
     frappe.flags.mute_messages = True
     try:
         for u in [x for x in dict.fromkeys(users) if x and x != "Guest"]:
-            _engine_ensure_todo(doctype, name, u, description)
+            _engine_ensure_todo(doctype, name, u, description, date, fulfillment)
             _engine_grant_read(doctype, name, u)
             _engine_maintain_assign(doctype, name, u, add=True)
+    finally:
+        frappe.flags.mute_messages = prev_mute
+    _drop_share_messages()
+
+
+def close_fulfillment_todos(doctype, name, keep_user=None):
+    """Close Open FULFILLMENT ToDos (FULFILLMENT_MARKER=1) for a business document,
+    optionally keeping `keep_user`'s. SCOPED: an unrelated Open ToDo on the same
+    document (no marker) is NEVER touched."""
+    prev_mute = frappe.flags.mute_messages
+    frappe.flags.mute_messages = True
+    try:
+        for td in frappe.get_all("ToDo", filters={
+                "reference_type": doctype, "reference_name": name, "status": "Open",
+                FULFILLMENT_MARKER: 1}, fields=["name", "allocated_to"]):
+            if keep_user and td.allocated_to == keep_user:
+                continue
+            frappe.db.set_value("ToDo", td.name, "status", "Cancelled", update_modified=False)
+            _engine_maintain_assign(doctype, name, td.allocated_to, add=False)
+    finally:
+        frappe.flags.mute_messages = prev_mute
+
+
+def _as_date(v):
+    """Date-only normalization for write-idempotent ToDo.date comparison; None-safe."""
+    if not v:
+        return None
+    try:
+        return getdate(v)
+    except Exception:
+        return str(v)[:10]
+
+
+def _ensure_fulfillment_todo(doctype, name, user, description, date=None):
+    """Guarantee `user` has exactly one OPEN, MARKED fulfillment ToDo and that its
+    date == `date`. If the user already has an Open ToDo on the document, it is
+    UPGRADED in place (marker set, date re-stamped to the governed fulfillment_due_at)
+    -- never a duplicate. Otherwise a marked ToDo is created."""
+    existing = frappe.get_all("ToDo", filters={
+        "reference_type": doctype, "reference_name": name,
+        "allocated_to": user, "status": "Open"},
+        fields=["name", "date", FULFILLMENT_MARKER], limit=1) or []
+    if existing:
+        td = existing[0]
+        patch = {}
+        if not td.get(FULFILLMENT_MARKER):
+            patch[FULFILLMENT_MARKER] = 1
+        if date and _as_date(td.get("date")) != _as_date(date):
+            # ToDo.date is a Date field; compare date-only so a repeat run is a
+            # true no-op (write-idempotent), not a value-stable re-write.
+            patch["date"] = date          # update a missing/old date to fulfillment_due_at
+        if patch:
+            frappe.db.set_value("ToDo", td["name"], patch, update_modified=False)
+    else:
+        _engine_ensure_todo(doctype, name, user, description, date, fulfillment=True)
+    _engine_grant_read(doctype, name, user)
+    _engine_maintain_assign(doctype, name, user, add=True)
+
+
+def ensure_sole_todo(doctype, name, user, description=None, date=None):
+    """Reconcile the FULFILLMENT ToDos of a business document to EXACTLY ONE, owned
+    by `user` (Phase 1b.3.1b). Closes every OTHER Open fulfillment ToDo (scoped --
+    unrelated tasks untouched) and guarantees `user` has one marked Open ToDo whose
+    date == the governed fulfillment_due_at (created OR upgraded in place).
+
+    Used by fulfillment CLAIM (the claimant, incl. a System Manager who was not in
+    the fulfiller pool, ends with exactly one task) and by REASSIGNMENT (the old
+    owner's task is closed, the new owner's ensured). Reuses the engine assignment
+    service -- no direct ToDo inserts."""
+    close_fulfillment_todos(doctype, name, keep_user=user)
+    prev_mute = frappe.flags.mute_messages
+    frappe.flags.mute_messages = True
+    try:
+        _ensure_fulfillment_todo(doctype, name, user, description, date)
     finally:
         frappe.flags.mute_messages = prev_mute
     _drop_share_messages()
@@ -362,6 +453,168 @@ def close_todos(doctype, name, keep_user=None):
             _engine_maintain_assign(doctype, name, td.allocated_to, add=False)
     finally:
         frappe.flags.mute_messages = prev_mute
+
+
+# --------------------------------------------------------------------------- #
+# Fulfillment ToDo lifecycle (Phase 1b.3.1b) -- generic across every
+# fulfillment-capable form. reassign/cancel are ENGINE-INTERNAL (NOT whitelisted):
+# no governed UI/use case exposes them yet; they are used by reconciliation and
+# reserved for a future governed UI, with target-eligibility + explicit
+# cancellation authority baked in.
+# --------------------------------------------------------------------------- #
+_FULFILLMENT_ACTIVE = ("Assigned", "In Progress")
+_FULFILLMENT_TERMINAL = ("Completed", "Cancelled")
+#: the six governed fulfillment-capable business DocTypes.
+FULFILLMENT_DOCTYPES = ("EC AI Topup Request", "EC Asset Request", "EC Data Request",
+                        "EC Document Request", "EC Resignation Request", "EC System Request")
+
+
+def _fulfillment_snapshot(business_doctype, name):
+    return frappe.db.get_value(
+        business_doctype, name,
+        ["fulfillment_status", "fulfillment_owner", "fulfillment_due_at",
+         "approval_request", "requested_by"], as_dict=True) or {}
+
+
+def _assert_owner_or_sm(actor, owner):
+    if actor != owner and "System Manager" not in frappe.get_roles(actor):
+        frappe.throw(_("Only the fulfillment owner or a System Manager may perform this action."))
+
+
+def _assert_can_cancel(actor):
+    """Cancellation authority is EXPLICIT (Phase 1b.3.1b review): System Manager
+    only -- NOT automatically every fulfillment owner. Completing is the owner's
+    action; cancelling an approved-and-assigned request is an admin action."""
+    if "System Manager" not in frappe.get_roles(actor):
+        frappe.throw(_("Only a System Manager may cancel an active fulfillment."))
+
+
+def _resolve_fulfillers(approval_request, requested_by):
+    """Eligible fulfillers for a request = the resolved Fulfiller participants of
+    its Active approval process. Returns a set of user ids (may be empty)."""
+    if not approval_request:
+        return set()
+    proc_name = frappe.db.get_value("EC Approval Request", approval_request, "approval_process")
+    if not proc_name:
+        return set()
+    try:
+        proc = frappe.get_doc("EC Approval Process", proc_name)
+    except Exception:
+        return set()
+    parts = [p for p in proc.participants if p.participant_purpose == "Fulfiller"]
+    return {u for u, _lbl in resolve_participants(parts, requested_by)}
+
+
+def reassign_fulfillment(business_doctype, name, new_user, actor=None, description=None):
+    """Governed fulfillment REASSIGNMENT (engine-internal). Reconciles ToDos: closes
+    the OLD owner's fulfillment task and ensures the NEW owner has exactly one
+    (ensure_sole_todo, scoped to fulfillment). Keeps the stage active and re-stamps
+    fulfillment_due_at. Owner-or-SM gated. The TARGET must be an ENABLED, ELIGIBLE
+    fulfiller (a resolved Fulfiller participant, or a System Manager). Audited;
+    no direct ToDo inserts."""
+    actor = actor or frappe.session.user
+    snap = _fulfillment_snapshot(business_doctype, name)
+    if snap.get("fulfillment_status") not in _FULFILLMENT_ACTIVE:
+        frappe.throw(_("This request has no active fulfillment to reassign."))
+    _assert_owner_or_sm(actor, snap.get("fulfillment_owner"))
+    if not new_user or new_user == "Guest":
+        frappe.throw(_("A valid new fulfiller is required."))
+    if not frappe.db.get_value("User", new_user, "enabled"):
+        frappe.throw(_("The new fulfiller must be an enabled user."))
+    eligible = _resolve_fulfillers(snap.get("approval_request"), snap.get("requested_by"))
+    if new_user not in eligible and "System Manager" not in frappe.get_roles(new_user):
+        frappe.throw(_("The new fulfiller is not eligible to fulfill this request."))
+    frappe.db.set_value(business_doctype, name,
+                        {"fulfillment_owner": new_user, "fulfillment_status": "In Progress"})
+    ensure_sole_todo(business_doctype, name, new_user, description, snap.get("fulfillment_due_at"))
+    if snap.get("approval_request"):
+        log_action(snap["approval_request"], "Assigned", actor,
+                   comment=_("Fulfillment reassigned to {0}").format(new_user),
+                   new_status="In Progress", related_user=new_user)
+    notify([snap.get("requested_by"), new_user],
+           _("Fulfillment reassigned to {0}: {1}").format(new_user, name), business_doctype, name)
+    return {"owner": new_user, "reassigned": True}
+
+
+def cancel_fulfillment(business_doctype, name, reason=None, actor=None):
+    """Governed fulfillment CANCELLATION (engine-internal): mark
+    fulfillment_status='Cancelled' and CLOSE ALL Open FULFILLMENT ToDos (scoped --
+    unrelated ToDos untouched). Authority is EXPLICIT: System Manager only.
+    Audited (action 'Cancelled'). Distinct from request-level cancel() (blocked
+    once Approved)."""
+    actor = actor or frappe.session.user
+    snap = _fulfillment_snapshot(business_doctype, name)
+    if snap.get("fulfillment_status") not in _FULFILLMENT_ACTIVE:
+        frappe.throw(_("This request has no active fulfillment to cancel."))
+    _assert_can_cancel(actor)
+    frappe.db.set_value(business_doctype, name, {"fulfillment_status": "Cancelled"})
+    close_fulfillment_todos(business_doctype, name)   # scoped: fulfillment tasks only
+    if snap.get("approval_request"):
+        log_action(snap["approval_request"], "Cancelled", actor,
+                   comment=reason or _("Fulfillment cancelled"), new_status="Cancelled")
+    notify([snap.get("requested_by"), snap.get("fulfillment_owner")],
+           _("Fulfillment cancelled: {0}").format(name), business_doctype, name)
+    return {"cancelled": True}
+
+
+# ---- idempotent reconciliation (Phase 1b.3.1b review, blocker 2) -----------
+def _open_todos_on(doctype, name):
+    return frappe.get_all(
+        "ToDo", filters={"reference_type": doctype, "reference_name": name, "status": "Open"},
+        fields=["name", "allocated_to", "date", FULFILLMENT_MARKER]) or []
+
+
+def _count_open_fulfillment(dts):
+    n = 0
+    for dt in dts:
+        n += frappe.db.count("ToDo", {"reference_type": dt, "status": "Open",
+                                      FULFILLMENT_MARKER: 1}) or 0
+    return n
+
+
+def reconcile_fulfillment_todos(doctypes=None):
+    """Idempotent reconciliation of fulfillment ToDos for the six governed
+    fulfillment DocTypes (blocker 2). Existing production records that were claimed
+    before this batch never retrigger claim_fulfillment, so their governed ToDos
+    may be missing/unmarked/mis-dated. Rules:
+        Approved + active + owner    -> exactly one owner fulfillment ToDo
+        Approved + active + no owner -> one pool ToDo per eligible fulfiller
+        terminal fulfillment         -> no Open fulfillment ToDos
+    First retroactively MARKS legacy fulfillment ToDos (only those allocated to a
+    fulfillment participant, so UNRELATED ToDos are never touched), then applies
+    the rules via the scoped engine helpers. Returns before/after Open-fulfillment
+    counts. Safe to re-run (a second run makes no changes)."""
+    dts = list(doctypes or FULFILLMENT_DOCTYPES)
+    before = _count_open_fulfillment(dts)
+    for dt in dts:
+        recs = frappe.get_all(
+            dt, filters={"fulfillment_status": ["in", list(_FULFILLMENT_ACTIVE) + list(_FULFILLMENT_TERMINAL)]},
+            fields=["name", "fulfillment_status", "fulfillment_owner", "fulfillment_due_at",
+                    "approval_request", "requested_by"], ignore_permissions=True) or []
+        for r in recs:
+            status = r.get("fulfillment_status")
+            owner = (r.get("fulfillment_owner") or "").strip()
+            due = r.get("fulfillment_due_at")
+            fulfillers = _resolve_fulfillers(r.get("approval_request"), r.get("requested_by"))
+            participants = set(fulfillers) | ({owner} if owner else set())
+            # retroactively MARK legacy fulfillment ToDos (participant-allocated only)
+            for td in _open_todos_on(dt, r["name"]):
+                if td.get("allocated_to") in participants and not td.get(FULFILLMENT_MARKER):
+                    frappe.db.set_value("ToDo", td["name"], {FULFILLMENT_MARKER: 1}, update_modified=False)
+            if status in _FULFILLMENT_TERMINAL:
+                close_fulfillment_todos(dt, r["name"])                     # terminal -> none
+            elif owner:
+                ensure_sole_todo(dt, r["name"], owner, _("Fulfillment"), due)   # exactly one owner
+            else:
+                for u in fulfillers:
+                    _ensure_fulfillment_todo(dt, r["name"], u, _("Fulfillment"), due)  # one per fulfiller
+                for td in _open_todos_on(dt, r["name"]):                   # drop marked non-fulfillers
+                    if td.get(FULFILLMENT_MARKER) and td.get("allocated_to") not in fulfillers:
+                        frappe.db.set_value("ToDo", td["name"], {"status": "Cancelled"},
+                                            update_modified=False)
+                        _engine_maintain_assign(dt, r["name"], td.get("allocated_to"), add=False)
+    after = _count_open_fulfillment(dts)
+    return {"before": before, "after": after, "doctypes": dts}
 
 
 # --------------------------------------------------------------------------- #

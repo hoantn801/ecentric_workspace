@@ -161,6 +161,9 @@ fixtures = [
         "dt": "Custom Field",
         "filters": [["name", "in", [
             "Project-ec_department", "Project-ec_manager",
+            # Phase 1b.3.1b: fulfillment-action marker on ToDo (p044) -- scopes the
+            # fulfillment ToDo lifecycle so unrelated ToDos are never touched.
+            "ToDo-ec_fulfillment",
             # PM v2 Batch G1 checklist foundation (created by p005_pm_checklist):
             "PM Recurrence-checklist_template", "Task-pm_checklist",
             # Brand consolidation (2026-07-28): native Brand is the single brand

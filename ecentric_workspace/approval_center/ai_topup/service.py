@@ -112,7 +112,9 @@ def on_final_approval(name):
         "fulfillment_sla_holiday_list": sla["holiday_list"] if sla else None,
     })
     if fulfillers:
-        engine.assign(BUSINESS_DT, name, fulfillers, _("AI Topup fulfillment queue"))
+        engine.assign(BUSINESS_DT, name, fulfillers, _("AI Topup fulfillment queue"),
+                      date=sla["due_at"] if sla else None,
+                      fulfillment=True)
     engine.notify([doc.requested_by] + fulfillers,
                   _("Approved - fulfillment assigned: {0}").format(name), BUSINESS_DT, name)
 
@@ -132,7 +134,8 @@ def claim_fulfillment(name, user=None):
     if not frappe.db.sql("select 1 from `tabEC AI Topup Request` where name=%s and fulfillment_owner=%s",
                          (name, user)):
         frappe.throw(_("This request has already been claimed by another fulfiller."))
-    engine.close_todos(BUSINESS_DT, name, keep_user=user)
+    engine.ensure_sole_todo(BUSINESS_DT, name, user, _("AI Topup fulfillment queue"),
+                            date=frappe.db.get_value(BUSINESS_DT, name, "fulfillment_due_at"))
     doc = frappe.get_doc(BUSINESS_DT, name)
     engine.log_action(doc.approval_request, "Started", user, comment=_("Fulfillment claimed"),
                       new_status="In Progress")  # durable audited claim event
@@ -152,7 +155,7 @@ def complete_fulfillment(name, user=None):
     doc.fulfillment_status = "Completed"
     doc.save(ignore_permissions=True)
     _upsert_account(doc)
-    engine.close_todos(BUSINESS_DT, name)   # close the owner's fulfillment ToDo on completion
+    engine.close_fulfillment_todos(BUSINESS_DT, name)   # close the owner's fulfillment ToDo on completion
     engine.notify([doc.requested_by, doc.confirmed_account_manager, doc.fulfillment_owner],
                   _("AI Topup completed: {0}").format(name), BUSINESS_DT, name)
 

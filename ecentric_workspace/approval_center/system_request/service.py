@@ -92,7 +92,9 @@ def on_final_approval(name):
         "fulfillment_sla_holiday_list": sla["holiday_list"] if sla else None,
     })
     if fulfillers:
-        engine.assign(BUSINESS_DT, name, fulfillers, _("System Request fulfillment queue"))
+        engine.assign(BUSINESS_DT, name, fulfillers, _("System Request fulfillment queue"),
+                      date=sla["due_at"] if sla else None,
+                      fulfillment=True)
     engine.notify([doc.requested_by] + fulfillers,
                   _("Da duyet - chuyen Operation xu ly: {0}").format(name), BUSINESS_DT, name)
 
@@ -110,7 +112,8 @@ def claim_fulfillment(name, user=None):
     if not frappe.db.sql("select 1 from `tabEC System Request` where name=%s and fulfillment_owner=%s",
                          (name, user)):
         frappe.throw(_("Yeu cau nay da duoc nguoi khac nhan xu ly."))
-    engine.close_todos(BUSINESS_DT, name, keep_user=user)
+    engine.ensure_sole_todo(BUSINESS_DT, name, user, _("System Request fulfillment queue"),
+                            date=frappe.db.get_value(BUSINESS_DT, name, "fulfillment_due_at"))
     doc = frappe.get_doc(BUSINESS_DT, name)
     engine.log_action(doc.approval_request, "Started", user, comment=_("Fulfillment claimed"),
                       new_status="In Progress")
@@ -142,7 +145,7 @@ def complete_fulfillment(name, user=None, payload=None):
     doc.completed_by = user
     doc.completed_at = now_datetime()
     doc.save(ignore_permissions=True)
-    engine.close_todos(BUSINESS_DT, name)
+    engine.close_fulfillment_todos(BUSINESS_DT, name)
     engine.notify([doc.requested_by, doc.fulfillment_owner],
                   _("System Request da hoan tat: {0}").format(name), BUSINESS_DT, name)
     return {"completed": True}
