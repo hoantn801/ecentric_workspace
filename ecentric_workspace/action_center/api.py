@@ -74,8 +74,8 @@ def get_reminder_summary(limit=None):
         return {"success": False, "error": "Unauthorized",
                 "total": 0, "attention_count": 0, "counts": {}, "items": []}
 
-    n = limit or REMINDER_TOP_N
-    res = ac_feed.build_feed(user, cursor=None, limit=n)
+    n = limit or ac_feed.PREVIEW_N
+    res = ac_feed.bucket_previews(user, preview_n=n)
     counts = res["counts"]
     attention_count = counts.get("overdue", 0) + counts.get("act_now", 0)
     return {
@@ -84,11 +84,29 @@ def get_reminder_summary(limit=None):
         "attention_count": attention_count,  # overdue + act_now (header badge)
         "counts": counts,                  # full-feed bucket counts
         "source_counts": res["source_counts"],  # SAME per-source counts (no dup query)
-        "items": res["items"],             # top-N, already deterministically ordered
-        "returned": res["returned"],
-        "next_cursor": res["next_cursor"],
+        # PER-BUCKET previews (1b.1): each bucket independently populated from
+        # the ONE classified feed -> a high-priority bucket never starves a
+        # later one. bucket_has_more drives the per-bucket "Xem thêm N việc".
+        "bucket_items": res["bucket_items"],
+        "bucket_has_more": res["bucket_has_more"],
+        "preview_n": res["preview_n"],
         "generated_at": res["generated_at"],
     }
+
+
+@frappe.whitelist(methods=["GET"])
+def get_reminder_bucket(bucket=None, cursor=None, limit=None):
+    """Governed per-bucket pagination for the header drawer's 'Xem thêm N
+    việc'. Delegates to the shared bucket_page (one classified feed; bounded
+    scan; NEVER an unbounded ToDo fetch). Session-scoped; the client may pass
+    only bucket/cursor/limit, never a user."""
+    user = _require_user()
+    if not user:
+        return {"success": False, "error": "Unauthorized", "items": [], "count": 0}
+    res = ac_feed.bucket_page(user, bucket, cursor=cursor,
+                              limit=limit or ac_feed.DEFAULT_LIMIT)
+    res["success"] = True
+    return res
 
 
 @frappe.whitelist(methods=["GET"])

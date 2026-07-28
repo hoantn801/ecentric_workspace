@@ -323,6 +323,9 @@ class TestNavSearch(unittest.TestCase):
             # call the shared session-scoped feed (get_reminder_summary
             # delegates build_feed). No other business endpoint may be added.
             "/api/method/ecentric_workspace.action_center.api.get_reminder_summary",
+            # DELIBERATE (1b.1): governed per-bucket load-more (Xem thêm) via
+            # the shared feed. Session-scoped; no separate source query.
+            "/api/method/ecentric_workspace.action_center.api.get_reminder_bucket",
             "/api/method/logout",
         }, "no business-record search endpoints allowed")
         self.assertIn("c.route; })", js)                       # route-less cards dropped

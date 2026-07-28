@@ -394,6 +394,11 @@ const BOOT2 = JSON.parse(JSON.stringify(BOOT1)); BOOT2.nav[1].label = 'Approval 
     ok(SRC2.indexOf('data-ec-shell-reminder-badge="1"') >= 0, 'reminder badge node emitted');
     ok(/attention_count/.test(SRC2), 'badge bound to attention_count (overdue+act_now)');
     ok(SRC2.indexOf('Xem tất cả') >= 0, 'drawer footer Xem tất cả');
+    ok(/data-ec-shell-rm-toggle/.test(SRC2), 'bucket headers are accessible toggle buttons');
+    ok(/aria-expanded/.test(SRC2), 'toggle exposes aria-expanded');
+    ok(/data-ec-shell-rm-more/.test(SRC2), 'per-bucket Xem thêm control');
+    ok(/get_reminder_bucket/.test(SRC2), 'per-bucket load-more delegates get_reminder_bucket');
+    ok(/d.bucket_items/.test(SRC2), 'drawer renders per-bucket previews (no global starvation)');
     ok(/data-ec-notification-bell="1"/.test(SRC2), 'NC bell contract preserved in header');
     ok(/data-ec-shell-settings-slot="1" disabled/.test(SRC2), 'Settings slot still inert');
   }

@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.13.0 (header reminder drawer -> shared action feed)';
+  var VERSION = 'ec-shell v1.14.0 (reminder drawer: per-bucket previews + toggles)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -784,11 +784,20 @@
     if (S._reminderBound) return;
     S._reminderBound = true;
     document.addEventListener('click', function (ev) {
-      var btn = ev.target && ev.target.closest && ev.target.closest('[data-ec-shell-action-slot="1"]');
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      var btn = t.closest('[data-ec-shell-action-slot="1"]');
       if (btn) { ev.preventDefault(); toggleReminder(); return; }
+      // per-bucket toggle (native <button> -> Enter/Space fire click too)
+      var tog = t.closest('[data-ec-shell-rm-toggle]');
+      if (tog) { ev.preventDefault(); toggleBucket(tog.getAttribute('data-ec-shell-rm-toggle')); return; }
+      // per-bucket "Xem thêm N việc"
+      var more = t.closest('[data-ec-shell-rm-more]');
+      if (more) { ev.preventDefault(); loadMoreBucket(more.getAttribute('data-ec-shell-rm-more'), more); return; }
+      // an item link inside the drawer -> let it navigate, but do not close-outside
+      if (t.closest('[data-ec-shell-reminder-drawer="1"]')) return;
       // click outside the drawer closes it
-      if (R.open && ev.target && ev.target.closest &&
-          !ev.target.closest('[data-ec-shell-reminder-drawer="1"]')) closeReminder();
+      if (R.open) closeReminder();
     });
     document.addEventListener('keydown', function (ev) {
       if (ev.key === 'Escape' && R.open) closeReminder();
@@ -898,12 +907,14 @@
   // NC bell + Settings slot contracts are untouched.
   var REMINDER_URL = '/api/method/ecentric_workspace.action_center.api.get_reminder_summary';
   var R = { open: false, data: null, loading: false };
+  // [key, label, groupClass, defaultExpanded]
   var _BUCKET_META = [
-    ['overdue', 'Quá hạn', 'ec-shell-rm-overdue'],
-    ['act_now', 'Cần làm', 'ec-shell-rm-actnow'],
-    ['upcoming', 'Sắp tới', ''],
-    ['undated', 'Không hạn', '']
+    ['overdue', 'Quá hạn', 'ec-shell-rm-overdue', true],
+    ['act_now', 'Cần làm', 'ec-shell-rm-actnow', true],
+    ['upcoming', 'Sắp tới', '', false],
+    ['undated', 'Không hạn', '', false]
   ];
+  var _RM_BUCKET_URL = '/api/method/ecentric_workspace.action_center.api.get_reminder_bucket';
 
   function reminderBtn() { return document.querySelector('[data-ec-shell-action-slot="1"]'); }
 
@@ -948,38 +959,46 @@
       '<span class="ec-shell-rm-due' + overdue + '">' + esc(due) + '</span></a>';
   }
 
+  function bucketSectionHtml(meta, rows, count, hasMore) {
+    var key = meta[0], label = meta[1], gcls = meta[2], expanded = meta[3];
+    var chev = expanded ? 'ec-shell-rm-chev-open' : '';
+    var head = '<button type="button" class="ec-shell-rm-group ' + gcls +
+      '" data-ec-shell-rm-toggle="' + key + '" aria-expanded="' + (expanded ? 'true' : 'false') +
+      '"><span class="ec-shell-rm-chev ' + chev + '" aria-hidden="true">\u203a</span>' +
+      esc(label) + ' <span class="ec-shell-rm-gcount">(' + count + ')</span></button>';
+    var list = rows.map(reminderItemHtml).join('');
+    var more = hasMore
+      ? '<button type="button" class="ec-shell-rm-more" data-ec-shell-rm-more="' + key +
+        '">Xem thêm ' + (count - rows.length) + ' việc</button>'
+      : '';
+    var panel = '<div class="ec-shell-rm-panel" data-ec-shell-rm-panel="' + key + '"' +
+      (expanded ? '' : ' hidden') + '>' + list + more + '</div>';
+    return head + panel;
+  }
+
   function buildReminderDrawer() {
     var d = R.data;
-    var head, body, foot;
+    var head, body, foot = '';
     if (!d) {
       head = '<div class="ec-shell-rm-head"><strong>Nhắc việc</strong></div>';
       body = '<div class="ec-shell-rm-empty">Không tải được. Thử lại sau.</div>';
-      foot = '';
     } else if (!d.total) {
       head = '<div class="ec-shell-rm-head"><strong>Nhắc việc</strong>' +
              '<span class="ec-shell-rm-total">0</span></div>';
       body = '<div class="ec-shell-rm-empty">Không có việc nào cần làm 👍</div>';
-      foot = '';
     } else {
       head = '<div class="ec-shell-rm-head"><strong>Nhắc việc</strong>' +
              '<span class="ec-shell-rm-total">' + esc(String(d.total)) + '</span></div>';
-      var items = d.items || [], byBucket = {};
-      items.forEach(function (it) { (byBucket[it.bucket] = byBucket[it.bucket] || []).push(it); });
+      var bi = d.bucket_items || {}, counts = d.counts || {}, more = d.bucket_has_more || {};
       body = '';
       _BUCKET_META.forEach(function (m) {
-        var rows = byBucket[m[0]] || [];
-        var c = (d.counts && d.counts[m[0]]) || 0;
-        if (!c) return;
-        body += '<div class="ec-shell-rm-group ' + m[2] + '">' + esc(m[1]) +
-                ' <span>(' + c + ')</span></div>';
-        body += rows.map(reminderItemHtml).join('');
+        var c = counts[m[0]] || 0;
+        if (!c) return;                              // empty buckets hidden
+        body += bucketSectionHtml(m, (bi[m[0]] || []), c, !!more[m[0]]);
       });
       if (!body) body = '<div class="ec-shell-rm-empty">Không có việc nào cần làm 👍</div>';
-      // "Xem tất cả" -> the existing Homepage action section ("Việc cần làm"
-      // widget on /). Chosen over /app/todo because Desk (/app) access is not
-      // guaranteed for every target user; the homepage is reachable by every
-      // shell user (no dead / permission-denied path). The full /action-center
-      // page is deferred to Phase 2.
+      // "Xem tất cả" -> the existing Homepage action section (/). Desk (/app)
+      // access is not guaranteed for every shell user -> no dead path.
       foot = '<a class="ec-shell-rm-all" href="/">Xem tất cả</a>';
     }
     var el = document.createElement('div');
@@ -987,8 +1006,55 @@
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-label', 'Nhắc việc');
     el.setAttribute('data-ec-shell-reminder-drawer', '1');
-    el.innerHTML = head + '<div class="ec-shell-rm-body">' + body + '</div>' + foot;
+    el.innerHTML = head + '<div class="ec-shell-rm-body">' + body + '</div>' +
+                   (foot ? '<div class="ec-shell-rm-foot">' + foot + '</div>' : '');
     return el;
+  }
+
+  function toggleBucket(key) {
+    var drawer = document.querySelector('[data-ec-shell-reminder-drawer="1"]');
+    if (!drawer) return;
+    var btn = drawer.querySelector('[data-ec-shell-rm-toggle="' + key + '"]');
+    var panel = drawer.querySelector('[data-ec-shell-rm-panel="' + key + '"]');
+    if (!btn || !panel) return;
+    var open = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+    panel.hidden = open;
+    var chev = btn.querySelector('.ec-shell-rm-chev');
+    if (chev) chev.classList.toggle('ec-shell-rm-chev-open', !open);
+  }
+
+  function loadMoreBucket(key, btn) {
+    if (btn._loading) return;
+    btn._loading = true;
+    var cursor = btn.getAttribute('data-ec-shell-rm-cursor') || '';
+    // page PAST the previews already shown (first request skips preview_n)
+    var shown = btn.parentNode.querySelectorAll('.ec-shell-rm-item').length;
+    var url = _RM_BUCKET_URL + '?bucket=' + encodeURIComponent(key) +
+      (cursor ? '&cursor=' + encodeURIComponent(cursor) : '&cursor=' + encodeURIComponent(_offsetCursor(shown)));
+    fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        btn._loading = false;
+        var m = j && j.message;
+        if (!m || !m.success) return;
+        var panel = btn.parentNode;
+        var frag = (m.items || []).map(reminderItemHtml).join('');
+        btn.insertAdjacentHTML('beforebegin', frag);
+        if (m.next_cursor) {
+          btn.setAttribute('data-ec-shell-rm-cursor', m.next_cursor);
+          var remaining = m.count - panel.querySelectorAll('.ec-shell-rm-item').length;
+          btn.textContent = 'Xem thêm ' + (remaining > 0 ? remaining : 0) + ' việc';
+        } else {
+          btn.parentNode.removeChild(btn);          // all loaded
+        }
+      })
+      .catch(function () { btn._loading = false; });
+  }
+
+  // offset cursor mirrors feed.encode_cursor({o:n}) (base64 of {"o":n})
+  function _offsetCursor(n) {
+    try { return btoa(JSON.stringify({ o: n })); } catch (e) { return ''; }
   }
 
   function closeReminder() {

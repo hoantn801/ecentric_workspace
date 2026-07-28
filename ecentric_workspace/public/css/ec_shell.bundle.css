@@ -143,26 +143,43 @@
 /* Reserved for Action Center (Phase 1C+): intentionally empty and inert. */
 /* Global header (canonical): crumbs + 3-slot header-right ----------------- */
 /* Header Reminder (Phase 1b): badge + drawer over the shared Action feed. */
-.ec-shell-reminder{ position:relative; }
-.ec-shell-reminder-badge{ position:absolute; top:2px; right:2px; min-width:15px; height:15px;
-  padding:0 4px; border-radius:8px; background:#DC2626; color:#fff; font-size:9.5px;
-  font-weight:700; line-height:15px; text-align:center; pointer-events:none; }
+.ec-shell-reminder{ position:relative; overflow:visible; }
+.ec-shell-reminder-badge{ position:absolute; top:-4px; right:-6px; min-width:16px; height:16px;
+  padding:0 4px; border-radius:9px; background:#DC2626; color:#fff; font-size:10px;
+  font-weight:700; line-height:16px; text-align:center; pointer-events:none;
+  box-shadow:0 0 0 2px #fff; }
 .ec-shell-reminder[aria-expanded="true"]{ background:var(--ec-gray-100); color:var(--ec-gray-900); }
 .ec-shell-reminder-drawer{ position:absolute; top:calc(100% + 8px); right:0; width:340px;
-  max-height:70vh; overflow-y:auto; background:#fff; border:1px solid var(--ec-gray-200);
-  border-radius:12px; box-shadow:0 12px 32px rgba(17,24,39,.16); z-index:1000;
+  display:flex; flex-direction:column; max-height:min(70vh, 560px);
+  background:#fff; border:1px solid var(--ec-gray-200); border-radius:12px;
+  box-shadow:0 12px 32px rgba(17,24,39,.16); z-index:1000; overflow:hidden;
   font-family:Inter, system-ui, sans-serif; }
+.ec-shell-rm-body{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+.ec-shell-rm-foot{ flex:0 0 auto; position:sticky; bottom:0; }
 .ec-shell-rm-head{ display:flex; align-items:center; justify-content:space-between;
   padding:12px 14px; border-bottom:1px solid var(--ec-gray-100); font-size:14px; }
 .ec-shell-rm-total{ font-size:12px; font-weight:700; color:#fff; background:#2C3DA6;
   border-radius:9px; padding:1px 8px; }
 .ec-shell-rm-body{ padding:4px 0; }
 .ec-shell-rm-empty{ padding:22px 14px; text-align:center; color:var(--ec-gray-500); font-size:13px; }
-.ec-shell-rm-group{ padding:8px 14px 4px; font-size:11px; font-weight:700; letter-spacing:.4px;
-  text-transform:uppercase; color:var(--ec-gray-400); }
+.ec-shell-rm-group{ display:flex; align-items:center; gap:6px; width:100%;
+  padding:9px 14px 5px; font-size:11px; font-weight:700; letter-spacing:.4px;
+  text-transform:uppercase; color:var(--ec-gray-400); background:transparent;
+  border:0; cursor:pointer; text-align:left; }
+.ec-shell-rm-group:hover{ background:var(--ec-gray-50); }
+.ec-shell-rm-group:focus-visible{ outline:2px solid var(--ec-navy); outline-offset:-2px; }
 .ec-shell-rm-group.ec-shell-rm-overdue{ color:#B42318; }
 .ec-shell-rm-group.ec-shell-rm-actnow{ color:#B54708; }
-.ec-shell-rm-group span{ font-weight:600; }
+.ec-shell-rm-gcount{ font-weight:600; }
+.ec-shell-rm-chev{ display:inline-block; transition:transform .15s; font-size:14px;
+  line-height:1; color:var(--ec-gray-400); }
+.ec-shell-rm-chev.ec-shell-rm-chev-open{ transform:rotate(90deg); }
+.ec-shell-rm-panel{ }
+.ec-shell-rm-more{ display:block; width:100%; padding:8px 14px; font-size:12px;
+  font-weight:600; color:#2C3DA6; background:transparent; border:0; cursor:pointer;
+  text-align:left; }
+.ec-shell-rm-more:hover{ background:var(--ec-gray-50); }
+.ec-shell-rm-more:focus-visible{ outline:2px solid var(--ec-navy); outline-offset:-2px; }
 a.ec-shell-rm-item{ display:flex; align-items:center; gap:9px; padding:8px 14px;
   text-decoration:none; color:inherit; }
 a.ec-shell-rm-item:hover{ background:var(--ec-gray-50); }

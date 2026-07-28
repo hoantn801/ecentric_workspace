@@ -349,8 +349,10 @@ class TestReminderSummary(unittest.TestCase):
         self.assertEqual(r["attention_count"], r["counts"]["overdue"] + r["counts"]["act_now"])
         self.assertEqual(r["attention_count"], 2)
         self.assertEqual(r["total"], 4)                # ALL open, not just attention
-        # same shape/source as build_feed (no duplicated logic)
-        self.assertIn("counts", r); self.assertIn("items", r)
+        # per-bucket previews shape (1b.1): bucket_items + bucket_has_more
+        self.assertIn("counts", r); self.assertIn("bucket_items", r)
+        self.assertIn("bucket_has_more", r)
+        self.assertEqual(set(r["bucket_items"]), {"overdue", "act_now", "upcoming", "undated"})
 
     def test_zero_and_guest(self):
         FK.db.todo_rows = []
@@ -370,6 +372,79 @@ class TestReminderSummary(unittest.TestCase):
         # no duplicated classification in the api layer
         self.assertNotIn("classify(", src)
         self.assertNotIn('counts["overdue"] += ', src)
+
+
+class TestBucketPreviewsNoStarvation(unittest.TestCase):
+    """Phase 1b.1: per-bucket previews from the ONE classified feed -- a
+    high-priority bucket must never starve a later one."""
+    def setUp(self):
+        _install(FK, purge=False)
+        FK.db = _FakeDB(); FK.getall_map = {}; FK.session.user = "u@e.c"
+
+    def _rows_19_overdue_1_upcoming(self):
+        rows = [_todo("o%02d" % i, "", "", date="2026-07-20", created="%03d" % i)
+                for i in range(19)]                         # 19 overdue
+        rows.append(_todo("up1", "", "", date="2026-07-30", created="999"))  # 1 upcoming
+        return rows
+
+    def test_19_overdue_1_upcoming_upcoming_never_starved(self):
+        FK.db.todo_rows = self._rows_19_overdue_1_upcoming()
+        res = feed.bucket_previews("u@e.c", preview_n=4)
+        # truthful counts
+        self.assertEqual(res["counts"], {"overdue": 19, "act_now": 0, "upcoming": 1, "undated": 0})
+        self.assertEqual(res["total"], 20)
+        # each bucket independently populated -> upcoming ALWAYS present
+        self.assertEqual(len(res["bucket_items"]["overdue"]), 4)      # capped at preview_n
+        self.assertEqual(len(res["bucket_items"]["upcoming"]), 1)     # the item IS included
+        self.assertEqual(res["bucket_items"]["upcoming"][0]["todo_name"], "up1")
+        # per-bucket has-more: overdue yes, upcoming no
+        self.assertTrue(res["bucket_has_more"]["overdue"])
+        self.assertFalse(res["bucket_has_more"]["upcoming"])
+
+    def test_reminder_summary_end_to_end(self):
+        FK.db.todo_rows = self._rows_19_overdue_1_upcoming()
+        r = ac_api.get_reminder_summary()
+        self.assertEqual(r["counts"]["upcoming"], 1)
+        self.assertEqual(len(r["bucket_items"]["upcoming"]), 1)       # visible after toggle
+        self.assertTrue(r["bucket_has_more"]["overdue"])
+        self.assertEqual(r["attention_count"], 19)                   # overdue + act_now
+
+    def test_per_bucket_pagination_bounded(self):
+        FK.db.todo_rows = self._rows_19_overdue_1_upcoming()
+        p1 = ac_api.get_reminder_bucket(bucket="overdue", limit=10)
+        self.assertEqual(p1["count"], 19)
+        self.assertEqual(p1["returned"], 10)
+        self.assertIsNotNone(p1["next_cursor"])
+        p2 = ac_api.get_reminder_bucket(bucket="overdue", cursor=p1["next_cursor"], limit=10)
+        self.assertEqual(p2["returned"], 9)                          # remainder
+        self.assertIsNone(p2["next_cursor"])
+        # no overlap
+        s1 = {i["todo_name"] for i in p1["items"]}
+        s2 = {i["todo_name"] for i in p2["items"]}
+        self.assertEqual(s1 & s2, set())
+        # bounded scan (never unbounded fetch)
+        src = io.open(os.path.join(APP, "action_center", "feed.py"), encoding="utf-8").read()
+        self.assertIn("LIMIT %s", src)
+        self.assertIn("_SCAN_CAP", src)
+
+    def test_bad_bucket_returns_empty(self):
+        FK.db.todo_rows = []
+        r = ac_api.get_reminder_bucket(bucket="nonsense", limit=10)
+        self.assertEqual(r["items"], [])
+        self.assertEqual(r["count"], 0)
+
+    def test_one_classifier_no_dup(self):
+        src = io.open(os.path.join(APP, "action_center", "feed.py"), encoding="utf-8").read()
+        # exactly ONE classification pass reused by all three consumers
+        self.assertEqual(src.count("def _classified_feed"), 1)
+        for fn in ("def build_feed", "def bucket_previews", "def bucket_page"):
+            self.assertIn(fn, src)
+            body_start = src.index(fn)
+            body = src[body_start:body_start + 600]
+            self.assertIn("_classified_feed(user)", body, fn)
+        # no separate per-source count query in the api layer
+        api_src = io.open(os.path.join(APP, "action_center", "api.py"), encoding="utf-8").read()
+        self.assertNotIn("frappe.db.count", api_src)
 
 
 if __name__ == "__main__":
