@@ -34,6 +34,7 @@ WTU = "Weekly Team Update"
 TASK = "Task"
 EC_REQUEST = "EC Approval Request"
 EC_LEVEL = "EC Approval Request Level"
+EC_TYPE = "EC Approval Type"
 
 FEED_BUCKETS = ("overdue", "act_now", "upcoming", "undated")
 _BUCKET_RANK = {b: i for i, b in enumerate(FEED_BUCKETS)}
@@ -160,6 +161,117 @@ def _wtu_state(names):
     return out
 
 
+# ---- approval-engine link normalization (Phase 1b.3) -----------------------
+def _engine_link_state(rows, user):
+    """Metadata-driven approval normalization for engine-governed business
+    documents AND direct EC Approval Request references.
+
+    Returns a map key=(reference_type, reference_name) -> dict:
+      found     linked EC Approval Request resolved (else generic fallback)
+      terminal  request in a terminal approval_status (-> excluded)
+      active    current level is In Progress (actionable)
+      due       current In-Progress level SLA due_at (or '')  -> drives bucket
+      route     EC Approval Type.route for the canonical Approval Center URL
+      request   linked EC Approval Request name
+      biz_name  business doc name used for `?id=`
+      visible   user is requester / a pending approver / the fulfiller
+
+    Chain: business doc --approval_request--> EC Approval Request
+    --approval_type--> EC Approval Type.route. Detection is Frappe-meta driven
+    (resolvers.has_engine_approval_link), never a hardcoded DocType list.
+    Every lookup is BATCHED (one get_all per DocType / engine table); bounded by
+    len(rows) (<= _SCAN_CAP)."""
+    from ecentric_workspace.action_center import resolvers as R
+    from ecentric_workspace.approval_center.engine import permissions as acperm
+
+    biz_by_dt = {}                     # engine-linked business DocType -> {names}
+    req_of = {}                        # (rt,rn) -> linked request name
+    for r in rows:
+        rt = (r.get("reference_type") or "").strip()
+        rn = (r.get("reference_name") or "").strip()
+        if not rt or not rn:
+            continue
+        if rt == R.APPROVAL_REQUEST_DT:
+            req_of[(rt, rn)] = rn                        # direct; gated by reference_doctype below
+        elif R.has_engine_approval_link(rt) and rt in R.APPROVAL_NORMALIZE_ALLOWLIST:
+            # metadata-detected AND permission-aligned (form >= canonical helper).
+            biz_by_dt.setdefault(rt, set()).add(rn)
+        # metadata-detected but NOT allow-listed -> skip: the feed must not use a
+        # broader permission than the form; item falls back to generic.
+
+    # business doc -> request name (+ fulfillment owner), batched per DocType
+    fulfiller_of = {}
+    for dt, names in biz_by_dt.items():
+        has_ful = R.has_field(dt, "fulfillment_owner")
+        fields = ["name", "approval_request"] + (["fulfillment_owner"] if has_ful else [])
+        docs = frappe.get_all(dt, filters={"name": ["in", list(names)]},
+                              fields=fields, ignore_permissions=True) or []
+        for d in docs:
+            req_of[(dt, d["name"])] = (d.get("approval_request") or "").strip()
+            if has_ful:
+                fulfiller_of[(dt, d["name"])] = (d.get("fulfillment_owner") or "").strip()
+
+    out = {}
+    req_names = sorted({v for v in req_of.values() if v})
+    if not req_names:
+        for k in req_of:
+            out[k] = {"found": False}
+        return out
+
+    reqs = frappe.get_all(
+        EC_REQUEST, filters={"name": ["in", req_names]},
+        fields=["name", "approval_status", "current_level", "approval_type",
+                "requested_by", "reference_doctype", "reference_name"],
+        ignore_permissions=True) or []
+    req_index = {r["name"]: r for r in reqs}
+
+    type_names = sorted({(r.get("approval_type") or "") for r in reqs if r.get("approval_type")})
+    type_route = {}
+    if type_names:
+        for t in frappe.get_all(EC_TYPE, filters={"name": ["in", type_names]},
+                                fields=["name", "route"], ignore_permissions=True) or []:
+            type_route[t["name"]] = (t.get("route") or "").strip()
+
+    level_map = {}                     # request -> {level_no: (level_status, due_at)}
+    for lv in frappe.get_all(EC_LEVEL, filters={"approval_request": ["in", req_names]},
+                             fields=["approval_request", "level_no", "level_status", "due_at"],
+                             ignore_permissions=True) or []:
+        level_map.setdefault(lv["approval_request"], {})[lv.get("level_no")] = (
+            lv.get("level_status") or "", str(lv.get("due_at")) if lv.get("due_at") else "")
+
+    for key, reqname in req_of.items():
+        req = req_index.get(reqname) if reqname else None
+        if not req:
+            out[key] = {"found": False}          # missing/invalid link -> fallback
+            continue
+        terminal = req.get("approval_status") in _APPROVAL_TERMINAL
+        route = type_route.get(req.get("approval_type"), "")
+        cur = req.get("current_level") or 0
+        ls, due = level_map.get(reqname, {}).get(cur, ("", ""))
+        active = (ls == "In Progress")
+        biz = key[1]
+        biz_dt = key[0]
+        if key[0] == R.APPROVAL_REQUEST_DT:
+            biz = (req.get("reference_name") or "").strip() or key[1]
+            biz_dt = (req.get("reference_doctype") or "").strip()
+            # Direct engine reference: gate on the underlying business DocType's
+            # permission alignment, same as linked business docs.
+            if biz_dt not in R.APPROVAL_NORMALIZE_ALLOWLIST:
+                out[key] = {"found": False}          # not aligned -> generic fallback
+                continue
+        # Visibility via THE canonical Approval Engine service (single definition,
+        # also used by the approval-center form APIs). Never a second rule here.
+        visible = acperm.can_view_request(
+            reqname, user, business_doctype=biz_dt,
+            requested_by=req.get("requested_by"),
+            fulfillment_owner=fulfiller_of.get(key, ""),
+            approval_type=req.get("approval_type"))
+        out[key] = {"found": True, "terminal": terminal, "active": active,
+                    "due": due if active else "", "route": route,
+                    "request": reqname, "biz_name": biz, "visible": visible}
+    return out
+
+
 # ---- the shared feed -------------------------------------------------------
 def _load_open_todos(user):
     return frappe.db.sql(
@@ -182,13 +294,20 @@ def _classified_feed(user):
     today = frappe.utils.getdate()
     rows = _load_open_todos(user)
 
+    from ecentric_workspace.action_center import resolvers as R
     from ecentric_workspace.action_center.resolvers import APPROVAL_DOCTYPES
+    # Engine-link normalization runs BEFORE bucket classification + source_counts
+    # so approval-governed business docs (direct or linked) are counted/classified
+    # as approvals, not generic ToDos.
+    engine_map = _engine_link_state(rows, user)
     approval_names, task_names, wtu_names = set(), set(), set()
     for r in rows:
         rt = (r.get("reference_type") or "").strip()
         rn = (r.get("reference_name") or "").strip()
         if not rn:
             continue
+        if (rt, rn) in engine_map:
+            continue                                  # handled by the engine adapter
         if rt in APPROVAL_DOCTYPES:
             approval_names.add(rn)
         elif rt == TASK:
@@ -209,19 +328,39 @@ def _classified_feed(user):
             frappe.log_error(frappe.get_traceback(),
                              "action_center.feed resolve failed " + str(r.get("name")))
             continue
-        st = it.get("source_type")
+        rt = it.get("reference_type")
         rn = it.get("reference_name")
         terminal = active = False
-        if st == "approval" and rn in appr:
-            terminal, active, due = appr[rn]
-            if due and not it.get("due_at"):
-                it["due_at"] = due
-        elif st == "task" and rn in tsk:
-            terminal, active, due = tsk[rn]
-            if due and not it.get("due_at"):
-                it["due_at"] = due
-        elif st == "weekly_report" and rn in wtu:
-            terminal, active, _ = wtu[rn]
+        # PRECEDENCE 1: governed approval (direct EC Approval Request OR a business
+        # doc linked via approval_request). The SAME normalized adapter for both.
+        el = engine_map.get((rt, rn))
+        if el is not None:
+            if el.get("found"):
+                if el["terminal"]:
+                    continue                          # terminal -> excluded (policy unchanged)
+                if el["visible"] and el["route"]:
+                    # normalize -> canonical Approval Center route + level-SLA due
+                    R.apply_approval_normalization(it, el["request"], el["route"], el["biz_name"])
+                    active = el["active"]
+                    it["due_at"] = el["due"] or ""    # request-level SLA drives the bucket
+                    terminal = False
+                # else: not visible, OR no canonical route -> DO NOT emit an approval
+                # label with a dead/leaked link; keep resolve_item's generic
+                # referenced-document fallback (source stays generic).
+            # else: missing/invalid link -> generic referenced-document fallback.
+        else:
+            # PRECEDENCE 2..4: legacy /approval, PM Task, Weekly Update.
+            st = it.get("source_type")
+            if st == "approval" and rn in appr:
+                terminal, active, due = appr[rn]
+                if due and not it.get("due_at"):
+                    it["due_at"] = due
+            elif st == "task" and rn in tsk:
+                terminal, active, due = tsk[rn]
+                if due and not it.get("due_at"):
+                    it["due_at"] = due
+            elif st == "weekly_report" and rn in wtu:
+                terminal, active, _ = wtu[rn]
         bucket = classify(it.get("due_at"), today, active, terminal)
         if bucket is None:
             continue

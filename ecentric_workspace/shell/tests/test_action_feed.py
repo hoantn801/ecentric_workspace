@@ -26,6 +26,7 @@ class _FakeDB:
         self.get_value_map = {}          # (doctype, name, field) -> value
         self.set_calls = []              # (doctype, name, field, value)
         self.open_task_todos = []        # for pm close tests
+        self.exist_rows = None           # None -> legacy always-True; dict dt->[rows] to match
     def sql(self, q, params, as_dict=False):
         return list(self.todo_rows)
     def get_value(self, doctype, name, field=None, as_dict=False):
@@ -34,10 +35,30 @@ class _FakeDB:
         return self.get_value_map.get((doctype, name, field))
     def set_value(self, doctype, name, field, value, update_modified=True):
         self.set_calls.append((doctype, name, field, value))
-    def exists(self, *a, **k):
-        return True
+    def exists(self, doctype=None, filters=None, *a, **k):
+        if self.exist_rows is None:
+            return True                  # backward-compatible default
+        f = filters or {}
+        for r in self.exist_rows.get(doctype, []):
+            if all(r.get(k2) == v for k2, v in f.items()):
+                return True
+        return False
     def table_exists(self, *a, **k):
         return True
+
+
+class _FakeField:
+    def __init__(self, fieldtype, options=None):
+        self.fieldtype = fieldtype
+        self.options = options
+
+
+class _FakeMeta:
+    def __init__(self, fields):
+        self._fields = fields            # {fieldname: _FakeField}
+
+    def get_field(self, name):
+        return self._fields.get(name)
 
 
 class _FakeFrappe(types.ModuleType):
@@ -47,14 +68,23 @@ class _FakeFrappe(types.ModuleType):
         self.session = types.SimpleNamespace(user="u@e.c")
         self.flags = types.SimpleNamespace(in_install=False, in_migrate=False, in_patch=False)
         self.response = {}
+        self.meta_map = {}               # doctype -> {fieldname: _FakeField}
+        self.roles = {}                  # user -> [roles]
         self.getall_map = {}             # doctype -> list of dict rows (filtered by name/ref)
         self.utils = types.SimpleNamespace(
             getdate=lambda *a: datetime.date(2026, 7, 24),
             now_datetime=lambda: "2026-07-24 10:00:00")
         self.whitelist = lambda *a, **k: (lambda f: f)
         self._ = lambda s: s
+
+    def get_meta(self, doctype):
+        return _FakeMeta(self.meta_map.get(doctype, {}))
+
+    def get_roles(self, user=None):
+        return list(self.roles.get(user or self.session.user, []))
+
     def get_all(self, doctype, filters=None, fields=None, limit=None, ignore_permissions=False,
-                order_by=None, limit_page_length=None):
+                order_by=None, limit_page_length=None, pluck=None):
         rows = self.getall_map.get(doctype, [])
         f = filters or {}
         out = []
@@ -70,6 +100,8 @@ class _FakeFrappe(types.ModuleType):
                 out.append(dict(r))
         if limit:
             out = out[:limit]
+        if pluck:
+            return [r.get(pluck) for r in out]
         return out
     def log_error(self, *a, **k):
         pass
@@ -90,6 +122,7 @@ def _install(fake, purge=True):
 FK = _FakeFrappe(); _install(FK)
 from ecentric_workspace.action_center import feed          # noqa: E402
 from ecentric_workspace.action_center import api as ac_api  # noqa: E402
+from ecentric_workspace.approval_center.engine import permissions as ac_perm  # noqa: E402
 
 TODAY = datetime.date(2026, 7, 24)
 
@@ -576,6 +609,400 @@ class TestActiveSourceClassification(unittest.TestCase):
         for u in urls.values():
             self.assertNotIn("/app/todo", u)
             self.assertNotIn("todo/view/list", u)
+
+
+class TestApprovalNormalization(unittest.TestCase):
+    """Phase 1b.3: approval-governed business-source normalization. A business
+    document linked to the Approval Engine via `approval_request` (metadata-
+    detected) is normalized as source_type=approval with the canonical Approval
+    Center route + level-SLA due, for BOTH direct EC Approval Request references
+    and linked business documents."""
+
+    AITOP = "EC AI Topup Request"        # allow-listed (fulfiller pattern)
+    ASSET = "EC Asset Request"           # allow-listed (fulfiller pattern)
+    PURCH = "EC Purchase Request"        # engine-linked but EXCLUDED (snapshot pattern)
+    PLAIN = "Some Business Doc"          # no approval_request field -> generic
+
+    def setUp(self):
+        _install(FK, purge=False)
+        FK.db = _FakeDB(); FK.getall_map = {}; FK.session.user = "u@e.c"
+        # metadata: which DocTypes carry the engine link (+ AITOP fulfilment)
+        FK.meta_map = {
+            self.AITOP: {"approval_request": _FakeField("Link", "EC Approval Request"),
+                         "fulfillment_owner": _FakeField("Data")},
+            self.ASSET: {"approval_request": _FakeField("Link", "EC Approval Request"),
+                         "fulfillment_owner": _FakeField("Data")},
+            self.PURCH: {"approval_request": _FakeField("Link", "EC Approval Request")},
+            self.PLAIN: {"some_other": _FakeField("Data")},
+        }
+        from ecentric_workspace.action_center import resolvers as R
+        R._META_FIELD_CACHE.clear()      # meta cache persists per-process
+        self.R = R
+
+    # --- graph builders -----------------------------------------------------
+    def _biz_rows(self, dt, name, approval_request, fulfillment_owner=None):
+        row = {"name": name, "approval_request": approval_request}
+        if fulfillment_owner is not None:
+            row["fulfillment_owner"] = fulfillment_owner
+        FK.getall_map.setdefault(dt, []).append(row)
+
+    def _request(self, name, status="Pending", level=1, atype="AITOP",
+                 requested_by="u@e.c", reference_name="", reference_doctype=""):
+        FK.getall_map.setdefault("EC Approval Request", []).append(
+            {"name": name, "approval_status": status, "current_level": level,
+             "approval_type": atype, "requested_by": requested_by,
+             "reference_doctype": reference_doctype, "reference_name": reference_name})
+
+    def _type(self, name, route):
+        FK.getall_map.setdefault("EC Approval Type", []).append({"name": name, "route": route})
+
+    def _level(self, req, level_no, status, due):
+        FK.getall_map.setdefault("EC Approval Request Level", []).append(
+            {"approval_request": req, "level_no": level_no, "level_status": status, "due_at": due})
+
+    def _approver(self, req, approver, status="Pending"):
+        FK.getall_map.setdefault("EC Approval Request Approver", []).append(
+            {"approval_request": req, "approver": approver, "status": status})
+
+    def _find(self, res, todo):
+        for i in res["items"]:
+            if i["todo_name"] == todo:
+                return i
+        return None
+
+    # --- tests --------------------------------------------------------------
+    def test_linked_ai_topup_normalized_as_approval(self):
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-1")]
+        self._biz_rows(self.AITOP, "EC-AITOP-1", "REQ-1", fulfillment_owner="")
+        self._request("REQ-1", status="Pending", level=1, atype="AITOP",
+                      requested_by="u@e.c", reference_name="EC-AITOP-1")
+        self._type("AITOP", "/approvals/ai-topup")
+        self._level("REQ-1", 1, "In Progress", "2026-07-20 09:00:00")
+        res = feed.build_feed("u@e.c", limit=20)
+        it = self._find(res, "t")
+        self.assertIsNotNone(it)
+        self.assertEqual(it["source_type"], "approval")          # normalized
+        self.assertEqual(it["action_url"], "/approvals/ai-topup?id=EC-AITOP-1")
+        self.assertNotIn("/app/", it["action_url"])              # not the Desk fallback
+        self.assertEqual(it["source_name"], "REQ-1")            # linked engine request
+        self.assertEqual(it["reference_type"], self.AITOP)      # business ref preserved
+        self.assertEqual(it["bucket"], "overdue")               # past SLA drives bucket
+
+    def test_allowlisted_asset_request_normalizes(self):
+        # A second allow-listed (fulfiller-pattern) form normalizes correctly.
+        FK.db.todo_rows = [_todo("t", self.ASSET, "EC-ASSET-1")]
+        self._biz_rows(self.ASSET, "EC-ASSET-1", "REQ-A", fulfillment_owner="")
+        self._request("REQ-A", status="Pending", atype="ASSET_REQUEST",
+                      requested_by="u@e.c", reference_name="EC-ASSET-1")
+        self._type("ASSET_REQUEST", "/approvals/asset-request")
+        self._level("REQ-A", 1, "In Progress", "2026-07-24 09:00:00")
+        it = self._find(feed.build_feed("u@e.c", limit=20), "t")
+        self.assertEqual(it["source_type"], "approval")
+        self.assertEqual(it["action_url"], "/approvals/asset-request?id=EC-ASSET-1")
+        self.assertEqual(it["bucket"], "act_now")
+
+    def test_direct_ec_approval_request_reference(self):
+        FK.db.todo_rows = [_todo("t", "EC Approval Request", "REQ-D")]
+        self._request("REQ-D", status="Pending", level=1, atype="AITOP",
+                      requested_by="u@e.c", reference_doctype=self.AITOP,
+                      reference_name="EC-AITOP-9")
+        self._type("AITOP", "/approvals/ai-topup")
+        self._level("REQ-D", 1, "In Progress", "2026-07-30 09:00:00")
+        res = feed.build_feed("u@e.c", limit=20)
+        it = self._find(res, "t")
+        self.assertEqual(it["source_type"], "approval")
+        # direct reference -> ?id uses the request's business reference_name
+        self.assertEqual(it["action_url"], "/approvals/ai-topup?id=EC-AITOP-9")
+        self.assertEqual(it["bucket"], "upcoming")              # future SLA
+
+    def test_excluded_snapshot_form_stays_generic_even_if_visible(self):
+        # SAFETY GATE: EC Purchase Request carries the engine link and the
+        # canonical helper would grant view, but its form (_can_view) uses the
+        # snapshot pattern (no fulfiller) -- canonical is BROADER, so the feed
+        # must NOT normalize it. Stays generic (no approval route leaked).
+        FK.db.todo_rows = [_todo("t", self.PURCH, "EC-PUR-1")]
+        self._biz_rows(self.PURCH, "EC-PUR-1", "REQ-P")
+        self._request("REQ-P", status="Pending", atype="PURCHASE",
+                      requested_by="u@e.c", reference_name="EC-PUR-1")   # even as requester
+        self._type("PURCHASE", "/approvals/purchase-request")
+        self._level("REQ-P", 1, "In Progress", "2026-07-24 09:00:00")
+        it = self._find(feed.build_feed("u@e.c", limit=20), "t")
+        self.assertEqual(it["source_type"], "generic")          # NOT normalized (excluded)
+        self.assertNotIn("/approvals/", it["action_url"])       # no engine route
+        self.assertTrue(it["action_url"].startswith("/app/"))
+
+    def test_direct_ref_to_excluded_doctype_stays_generic(self):
+        # Direct EC Approval Request whose reference_doctype is excluded -> generic.
+        FK.db.todo_rows = [_todo("t", "EC Approval Request", "REQ-X")]
+        self._request("REQ-X", status="Pending", atype="PURCHASE",
+                      requested_by="u@e.c", reference_doctype=self.PURCH,
+                      reference_name="EC-PUR-9")
+        self._type("PURCHASE", "/approvals/purchase-request")
+        self._level("REQ-X", 1, "In Progress", "2026-07-24 09:00:00")
+        it = self._find(feed.build_feed("u@e.c", limit=20), "t")
+        self.assertEqual(it["source_type"], "generic")
+        self.assertNotIn("/approvals/", it["action_url"])
+
+    def test_allowlist_membership(self):
+        # The allow-list is exactly the fulfiller-pattern (form >= canonical) forms.
+        self.assertEqual(self.R.APPROVAL_NORMALIZE_ALLOWLIST, frozenset({
+            "EC AI Topup Request", "EC Asset Request", "EC Data Request",
+            "EC Document Request", "EC Resignation Request", "EC System Request"}))
+        self.assertNotIn("EC Purchase Request", self.R.APPROVAL_NORMALIZE_ALLOWLIST)
+        self.assertNotIn("EC Leave Request", self.R.APPROVAL_NORMALIZE_ALLOWLIST)
+
+    def test_source_counts_shift_and_generic_decreases(self):
+        FK.db.todo_rows = [
+            _todo("a", self.AITOP, "EC-AITOP-1", created="1"),
+            _todo("g", self.PLAIN, "PLAIN-1", created="2"),     # no engine link -> generic
+        ]
+        self._biz_rows(self.AITOP, "EC-AITOP-1", "REQ-1", fulfillment_owner="")
+        self._request("REQ-1", requested_by="u@e.c", reference_name="EC-AITOP-1")
+        self._type("AITOP", "/approvals/ai-topup")
+        self._level("REQ-1", 1, "In Progress", "2026-07-20 09:00:00")
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertEqual(res["source_counts"]["approval"], 1)   # linked form counted as approval
+        self.assertEqual(res["source_counts"]["generic_todo"], 1)  # only the true generic
+        # non-approval business doc stays generic
+        g = self._find(res, "g")
+        self.assertEqual(g["source_type"], "generic")
+        self.assertTrue(g["action_url"].startswith("/app/"))
+
+    def test_terminal_request_excluded(self):
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-1")]
+        self._biz_rows(self.AITOP, "EC-AITOP-1", "REQ-1", fulfillment_owner="")
+        self._request("REQ-1", status="Approved", requested_by="u@e.c", reference_name="EC-AITOP-1")
+        self._type("AITOP", "/approvals/ai-topup")
+        self._level("REQ-1", 1, "Approved", "2026-07-20 09:00:00")
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertIsNone(self._find(res, "t"))                # terminal -> excluded
+        self.assertEqual(res["total"], 0)
+
+    def test_missing_or_invalid_link_falls_back_to_generic(self):
+        FK.db.todo_rows = [
+            _todo("empty", self.AITOP, "EC-AITOP-2", created="1"),   # approval_request blank
+            _todo("dangling", self.AITOP, "EC-AITOP-3", created="2"),  # points at missing request
+        ]
+        self._biz_rows(self.AITOP, "EC-AITOP-2", "", fulfillment_owner="")
+        self._biz_rows(self.AITOP, "EC-AITOP-3", "REQ-GONE", fulfillment_owner="")
+        # no EC Approval Request rows for REQ-GONE
+        res = feed.build_feed("u@e.c", limit=20)
+        for name in ("empty", "dangling"):
+            it = self._find(res, name)
+            self.assertIsNotNone(it, name)
+            self.assertEqual(it["source_type"], "generic", name)          # safe fallback
+            self.assertTrue(it["action_url"].startswith("/app/"), name)
+            self.assertNotIn("/approvals/", it["action_url"], name)       # no leaked route
+
+    def test_feed_gates_on_canonical_helper_false_falls_back_generic(self):
+        # The feed delegates visibility to the ONE canonical engine helper; when
+        # it denies, no approval route is emitted (generic fallback, no leak).
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-1")]
+        self._biz_rows(self.AITOP, "EC-AITOP-1", "REQ-1", fulfillment_owner="other@e.c")
+        self._request("REQ-1", status="Pending", requested_by="boss@e.c", reference_name="EC-AITOP-1")
+        self._type("AITOP", "/approvals/ai-topup")
+        self._level("REQ-1", 1, "In Progress", "2026-07-24 09:00:00")
+        orig = ac_perm.can_view_request
+        ac_perm.can_view_request = lambda *a, **k: False
+        try:
+            res = feed.build_feed("u@e.c", limit=20)
+        finally:
+            ac_perm.can_view_request = orig
+        it = self._find(res, "t")
+        self.assertEqual(it["source_type"], "generic")         # NOT normalized
+        self.assertNotIn("/approvals/", it["action_url"])      # engine route not leaked
+        self.assertTrue(it["action_url"].startswith("/app/"))
+
+    def test_feed_delegates_visibility_with_correct_inputs(self):
+        # Prove the feed calls the canonical helper (not a private reimplementation)
+        # and passes the linked request + business fields it resolved.
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-1")]
+        self._biz_rows(self.AITOP, "EC-AITOP-1", "REQ-1", fulfillment_owner="ful@e.c")
+        self._request("REQ-1", status="Pending", requested_by="boss@e.c", reference_name="EC-AITOP-1")
+        self._type("AITOP", "/approvals/ai-topup")
+        self._level("REQ-1", 1, "In Progress", "2026-07-24 09:00:00")
+        seen = {}
+        orig = ac_perm.can_view_request
+        def _spy(request_name, user=None, business_doctype=None, requested_by=None,
+                 fulfillment_owner=None, approval_type=None):
+            seen.update(request_name=request_name, user=user, business_doctype=business_doctype,
+                        requested_by=requested_by, fulfillment_owner=fulfillment_owner,
+                        approval_type=approval_type)
+            return True
+        ac_perm.can_view_request = _spy
+        try:
+            res = feed.build_feed("u@e.c", limit=20)
+        finally:
+            ac_perm.can_view_request = orig
+        self.assertEqual(self._find(res, "t")["source_type"], "approval")
+        self.assertEqual(seen["request_name"], "REQ-1")
+        self.assertEqual(seen["user"], "u@e.c")
+        self.assertEqual(seen["business_doctype"], self.AITOP)
+        self.assertEqual(seen["requested_by"], "boss@e.c")
+        self.assertEqual(seen["fulfillment_owner"], "ful@e.c")
+        self.assertEqual(seen["approval_type"], "AITOP")
+
+    def test_direct_ref_passes_reference_doctype_to_helper(self):
+        # For a direct EC Approval Request ToDo, the business_doctype passed to the
+        # helper is the request's reference_doctype (not "EC Approval Request").
+        FK.db.todo_rows = [_todo("t", "EC Approval Request", "REQ-D")]
+        FK.getall_map.setdefault("EC Approval Request", []).append(
+            {"name": "REQ-D", "approval_status": "Pending", "current_level": 1,
+             "approval_type": "AITOP", "requested_by": "boss@e.c",
+             "reference_doctype": self.AITOP, "reference_name": "EC-AITOP-9"})
+        self._type("AITOP", "/approvals/ai-topup")
+        self._level("REQ-D", 1, "In Progress", "2026-07-24 09:00:00")
+        seen = {}
+        orig = ac_perm.can_view_request
+        def _spy(request_name, user=None, business_doctype=None, **k):
+            seen.update(request_name=request_name, business_doctype=business_doctype)
+            return True
+        ac_perm.can_view_request = _spy
+        try:
+            feed.build_feed("u@e.c", limit=20)
+        finally:
+            ac_perm.can_view_request = orig
+        self.assertEqual(seen.get("request_name"), "REQ-D")
+        self.assertEqual(seen.get("business_doctype"), self.AITOP)
+
+    def test_blank_route_falls_back_to_generic_no_dead_link(self):
+        # A visible governed request whose EC Approval Type has no route must NOT
+        # be labelled approval with an empty action_url -> generic fallback.
+        FK.db.todo_rows = [_todo("t", self.AITOP, "EC-AITOP-1")]
+        self._biz_rows(self.AITOP, "EC-AITOP-1", "REQ-1", fulfillment_owner="")
+        self._request("REQ-1", status="Pending", requested_by="u@e.c", reference_name="EC-AITOP-1")
+        self._type("AITOP", "")                                 # blank route
+        self._level("REQ-1", 1, "In Progress", "2026-07-24 09:00:00")
+        res = feed.build_feed("u@e.c", limit=20)
+        it = self._find(res, "t")
+        self.assertEqual(it["source_type"], "generic")
+        self.assertTrue(it["action_url"].startswith("/app/"))
+        self.assertNotEqual(it["action_url"], "")              # never a dead link
+
+    def test_legacy_approval_doctypes_unchanged(self):
+        # A legacy /approval form (no approval_request field) keeps its /approval
+        # URL via the existing reverse-lookup adapter -- byte-for-byte behavior.
+        FK.db.todo_rows = [_todo("t", "PO Request", "PO-1")]
+        FK.db.get_value_map = {("PO Request", "PO-1", "title"): "PO one",
+                               ("PO Request", "PO-1", "name"): "PO-1"}
+        FK.getall_map = {
+            "EC Approval Request": [{"name": "R", "reference_name": "PO-1", "approval_status": "Pending"}],
+            "EC Approval Request Level": [{"approval_request": "R", "level_status": "In Progress", "due_at": "2026-07-23 09:00:00"}],
+        }
+        res = feed.build_feed("u@e.c", limit=20)
+        it = self._find(res, "t")
+        self.assertEqual(it["source_type"], "approval")
+        self.assertTrue(it["action_url"].startswith("/approval?id=PO-1"))
+        self.assertEqual(it["bucket"], "overdue")
+
+
+class TestAllowlistFormParity(unittest.TestCase):
+    """Phase 1b.3 generalized-scope gate: every DocType the feed normalizes
+    (APPROVAL_NORMALIZE_ALLOWLIST) must map to a form whose `_can_view` is >=
+    the canonical helper -- i.e. it either DELEGATES to can_view_request or
+    structurally contains the full fulfiller superset (SM, requester, approver
+    row, fulfillment_owner, _is_fulfiller). Static/source proof so the feed can
+    never grant a broader view than the business form."""
+
+    #: allow-listed business DocType -> its approval-center API module.
+    DT_TO_MODULE = {
+        "EC AI Topup Request": "ai_topup",
+        "EC Asset Request": "asset_request",
+        "EC Data Request": "data_request",
+        "EC Document Request": "document_request",
+        "EC Resignation Request": "resignation",
+        "EC System Request": "system_request",
+    }
+
+    def _can_view_body(self, module):
+        import re as _re
+        path = os.path.join(APP, "approval_center", "api", module + ".py")
+        src = io.open(path, encoding="utf-8").read()
+        m = _re.search(r"\ndef _can_view\([^)]*\):\n(.*?)(?=\ndef |\n@|\Z)", src, _re.S)
+        return m.group(1) if m else ""
+
+    def test_allowlist_maps_exactly_to_audited_modules(self):
+        from ecentric_workspace.action_center import resolvers as R
+        self.assertEqual(set(R.APPROVAL_NORMALIZE_ALLOWLIST), set(self.DT_TO_MODULE))
+
+    def test_each_allowlisted_form_is_superset_of_canonical(self):
+        for dt, module in self.DT_TO_MODULE.items():
+            body = self._can_view_body(module)
+            self.assertTrue(body, "%s: _can_view not found" % module)
+            delegates = ("can_view_request" in body)
+            superset = all(tok in body for tok in (
+                "requested_by == user", "_sm()", "EC Approval Request Approver",
+                "fulfillment_owner", "_is_fulfiller"))
+            self.assertTrue(delegates or superset,
+                            "%s (_can_view) is NOT >= canonical helper" % module)
+
+    def test_excluded_patterns_are_not_allowlisted(self):
+        # No-fulfiller + snapshot forms must be absent (canonical would be broader).
+        from ecentric_workspace.action_center import resolvers as R
+        for dt in ("EC Leave Request", "EC Hiring Request", "EC Purchase Request",
+                   "EC Payment Request", "EC Affiliate Bonus Request",
+                   "EC Service Referral Request", "EC Promotion Request"):
+            self.assertNotIn(dt, R.APPROVAL_NORMALIZE_ALLOWLIST, dt)
+
+
+class TestCanonicalVisibilityHelper(unittest.TestCase):
+    """Phase 1b.3 (integration): the ONE canonical Approval Engine visibility
+    rule (engine.permissions.can_view_request) -- the same function the approval
+    form APIs call. Exercises each branch directly."""
+
+    def setUp(self):
+        _install(FK, purge=False)
+        FK.db = _FakeDB(); FK.getall_map = {}; FK.roles = {}; FK.session.user = "u@e.c"
+        FK.db.exist_rows = {}            # switch exists() to filter-matching mode
+
+    def test_system_manager_sees_all(self):
+        FK.roles = {"u@e.c": ["System Manager"]}
+        self.assertTrue(ac_perm.can_view_request("R", "u@e.c", business_doctype="X",
+                                                 requested_by="boss@e.c", approval_type="AITOP"))
+
+    def test_requester(self):
+        self.assertTrue(ac_perm.can_view_request("R", "u@e.c", requested_by="u@e.c"))
+
+    def test_approver_row(self):
+        FK.db.exist_rows = {"EC Approval Request Approver":
+                            [{"approval_request": "R", "approver": "u@e.c"}]}
+        self.assertTrue(ac_perm.can_view_request("R", "u@e.c", requested_by="boss@e.c"))
+
+    def test_fulfillment_owner(self):
+        self.assertTrue(ac_perm.can_view_request("R", "u@e.c", requested_by="boss@e.c",
+                                                 fulfillment_owner="u@e.c"))
+
+    def test_eligible_fulfiller_via_open_todo_on_business_doctype(self):
+        FK.db.exist_rows = {"ToDo": [{"reference_type": "EC AI Topup Request",
+                                      "allocated_to": "u@e.c", "status": "Open"}]}
+        self.assertTrue(ac_perm.can_view_request("R", "u@e.c", requested_by="boss@e.c",
+                                                 business_doctype="EC AI Topup Request"))
+
+    def test_eligible_fulfiller_via_configured_participant(self):
+        FK.getall_map = {"EC Approval Process": [{"name": "PROC-1", "approval_type": "AITOP",
+                                                  "status": "Active"}]}
+        FK.db.exist_rows = {"EC Approval Participant":
+                            [{"parent": "PROC-1", "parenttype": "EC Approval Process",
+                              "participant_purpose": "Fulfiller", "user": "u@e.c"}]}
+        self.assertTrue(ac_perm.can_view_request("R", "u@e.c", requested_by="boss@e.c",
+                                                 approval_type="AITOP", business_doctype="X"))
+
+    def test_no_relationship_denied(self):
+        # not SM, not requester, no approver row, not fulfiller owner, no participant,
+        # no open ToDo -> denied.
+        self.assertFalse(ac_perm.can_view_request("R", "u@e.c", requested_by="boss@e.c",
+                                                  fulfillment_owner="other@e.c",
+                                                  approval_type="AITOP", business_doctype="X"))
+
+    def test_is_actionable_current_level_pending(self):
+        FK.db.exist_rows = {"EC Approval Request Approver":
+                            [{"approval_request": "R", "level_no": 2,
+                              "approver": "u@e.c", "status": "Pending"}]}
+        self.assertTrue(ac_perm.is_actionable("R", 2, "u@e.c", approval_status="Pending"))
+        # terminal request -> never actionable
+        self.assertFalse(ac_perm.is_actionable("R", 2, "u@e.c", approval_status="Approved"))
+        # not the current level -> not actionable
+        self.assertFalse(ac_perm.is_actionable("R", 1, "u@e.c", approval_status="Pending"))
 
 
 if __name__ == "__main__":

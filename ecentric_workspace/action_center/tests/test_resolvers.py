@@ -44,6 +44,46 @@ class TestActionCenterResolvers(FrappeTestCase):
         self.assertEqual(resolvers.build_task_url("TASK 100/200"),
                          "/app/task/TASK%20100%2F200")
 
+    def test_build_approval_center_url(self):
+        # Phase 1b.3: canonical Approval Center form deep-link (EC Approval
+        # Type.route + ?id=<business name>).
+        self.assertEqual(
+            resolvers.build_approval_center_url("/approvals/ai-topup", "EC-AITOP-1"),
+            "/approvals/ai-topup?id=EC-AITOP-1")
+        # missing leading slash is added
+        self.assertEqual(
+            resolvers.build_approval_center_url("approvals/ai-topup", "X"),
+            "/approvals/ai-topup?id=X")
+        # empty route -> empty (caller falls back, never a dead link)
+        self.assertEqual(resolvers.build_approval_center_url("", "X"), "")
+        # id is URL-encoded
+        self.assertEqual(
+            resolvers.build_approval_center_url("/approvals/x", "A/B C"),
+            "/approvals/x?id=A%2FB%20C")
+
+    def test_apply_approval_normalization_sets_approval_source_and_preserves_ref(self):
+        item = {"reference_type": "EC AI Topup Request", "reference_name": "EC-AITOP-1",
+                "source_type": "generic", "source_key": "generic",
+                "action_url": "/app/ec-ai-topup-request/EC-AITOP-1", "title": "EC-AITOP-1"}
+        resolvers.apply_approval_normalization(item, "REQ-1", "/approvals/ai-topup", "EC-AITOP-1")
+        self.assertEqual(item["source_type"], "approval")
+        self.assertEqual(item["source_key"], "approval")
+        self.assertEqual(item["action_url"], "/approvals/ai-topup?id=EC-AITOP-1")
+        self.assertEqual(item["source_name"], "REQ-1")
+        self.assertEqual(item["approval_request"], "REQ-1")
+        # business reference fields preserved for display/audit
+        self.assertEqual(item["reference_type"], "EC AI Topup Request")
+        self.assertEqual(item["reference_name"], "EC-AITOP-1")
+
+    def test_has_engine_approval_link_is_metadata_driven(self):
+        # Real approval-center DocType carries approval_request Link(EC Approval Request).
+        resolvers._META_FIELD_CACHE.clear()
+        self.assertTrue(resolvers.has_engine_approval_link("EC AI Topup Request"))
+        # A non-approval DocType does not.
+        self.assertFalse(resolvers.has_engine_approval_link("ToDo"))
+        # Never hardcodes the 28 approval DocTypes: the detection reads meta.
+        self.assertFalse(resolvers.has_engine_approval_link(""))
+
     def test_build_pm_task_url_is_spa_deep_link(self):
         # Phase 1b.2: the Action Center's canonical PM Task destination is the
         # portal SPA detail deep-link, NOT the Desk form.
