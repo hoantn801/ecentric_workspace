@@ -171,18 +171,63 @@ class TestHeaderReminder(unittest.TestCase):
 
     def test_reminder_delegates_shared_feed_and_caps_badge(self):
         js = _read(APP, "public", "js", "ec_shell.js")
-        # header endpoint = get_reminder_summary (delegates build_feed)
+        # header endpoints: summary (per-bucket previews) + bucket (Xem thêm)
         self.assertIn("action_center.api.get_reminder_summary", js)
+        self.assertIn("action_center.api.get_reminder_bucket", js)
         # attention badge caps at 9+
         self.assertIn("n > 9 ? '9+'", js)
         self.assertIn("attention_count", js)
-        # drawer buckets + total + Xem tất cả
+        # per-bucket drawer: bucket_items/bucket_has_more, all four labels, total
         for frag in ("Quá hạn", "Cần làm", "Sắp tới", "Không hạn",
-                     "ec-shell-reminder-drawer", "Xem tất cả", "ec-shell-rm-total"):
+                     "ec-shell-reminder-drawer", "Xem tất cả", "ec-shell-rm-total",
+                     "d.bucket_items", "d.bucket_has_more"):
             self.assertIn(frag, js, frag)
         # edge states
         self.assertIn("Không tải được", js)               # API error
         self.assertIn("Không có việc nào cần làm", js)     # empty
+
+    def test_bucket_headers_are_accessible_toggles(self):
+        js = _read(APP, "public", "js", "ec_shell.js")
+        # accessible toggle: <button>, aria-expanded, chevron, per-bucket panel
+        self.assertIn('data-ec-shell-rm-toggle', js)
+        self.assertIn('aria-expanded', js)
+        self.assertIn('ec-shell-rm-chev', js)
+        self.assertIn('data-ec-shell-rm-panel', js)
+        # native <button> -> Enter/Space fire click; delegation handles toggle
+        self.assertIn("data-ec-shell-rm-toggle]", js)
+        self.assertIn("function toggleBucket", js)
+        # default expand: overdue/act_now true, upcoming/undated false
+        self.assertIn("['overdue', 'Quá hạn', 'ec-shell-rm-overdue', true]", js)
+        self.assertIn("['upcoming', 'Sắp tới', '', false]", js)
+        # empty buckets hidden (count 0 -> skip)
+        self.assertIn("if (!c) return;", js)
+
+    def test_per_bucket_load_more(self):
+        js = _read(APP, "public", "js", "ec_shell.js")
+        self.assertIn('data-ec-shell-rm-more', js)
+        self.assertIn("function loadMoreBucket", js)
+        self.assertIn("Xem thêm ", js)
+        # governed per-bucket pagination via the bucket endpoint + cursor
+        self.assertIn("_RM_BUCKET_URL", js)
+        self.assertIn("next_cursor", js)
+
+    def test_badge_position_and_scroll_contracts(self):
+        css = _read(APP, "public", "css", "ec_shell.bundle.css")
+        # 9+ capsule sits OUTSIDE the icon top-right; button overflow visible
+        self.assertIn(".ec-shell-reminder{ position:relative; overflow:visible;", css)
+        import re as _re
+        m = _re.search(r"\.ec-shell-reminder-badge\{([^}]*)\}", css)
+        self.assertIsNotNone(m)
+        badge = m.group(1)
+        for prop in ("position:absolute", "top:-4px", "right:-6px", "min-width:16px",
+                     "height:16px", "font-size:10px", "line-height:16px", "pointer-events:none"):
+            self.assertIn(prop, badge, prop)
+        # drawer scrollable body + sticky footer + capped height
+        self.assertIn("max-height:min(70vh, 560px)", css)
+        self.assertIn(".ec-shell-rm-body{", css)
+        self.assertIn("overflow-y:auto", css)
+        self.assertIn(".ec-shell-rm-foot{", css)
+        self.assertIn("position:sticky", css)
 
     def test_nc_and_settings_contracts_preserved(self):
         static = fb.render_tbright_inner()

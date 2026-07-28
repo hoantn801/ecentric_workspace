@@ -48,6 +48,8 @@ _WTU_TERMINAL = frozenset({"Submitted", "Reviewed"})
 DEFAULT_LIMIT = 20
 MAX_LIMIT = 100
 _SCAN_CAP = 500
+#: default per-bucket preview size for the header reminder drawer.
+PREVIEW_N = 4
 
 
 # ---- pure helpers (no frappe): classification + ordering + cursor ----------
@@ -169,14 +171,15 @@ def _load_open_todos(user):
         (user, "Open", _SCAN_CAP), as_dict=True) or []
 
 
-def build_feed(user, cursor=None, limit=DEFAULT_LIMIT):
-    """Classified, terminal-filtered, deterministically ordered, paginated
-    feed for ONE user. counts are over the FULL filtered feed (a badge and a
-    list can never disagree); items is the requested page."""
-    limit = max(1, min(int(limit or DEFAULT_LIMIT), MAX_LIMIT))
-    offset = decode_cursor(cursor)
+def _classified_feed(user):
+    """THE one classification + ordering pass. Loads the user's Open ToDos
+    (bounded by _SCAN_CAP), resolves, derives governed due dates, terminal-
+    filters, classifies and deterministically orders. Returns
+    (ordered_items, counts, source_counts). Every consumer -- flat pagination
+    (build_feed), per-bucket previews (bucket_previews) and per-bucket
+    pagination (bucket_page) -- reuses THIS; no separate source queries, no
+    duplicated classifier, no unbounded fetch."""
     today = frappe.utils.getdate()
-
     rows = _load_open_todos(user)
 
     from ecentric_workspace.action_center.resolvers import APPROVAL_DOCTYPES
@@ -231,19 +234,81 @@ def build_feed(user, cursor=None, limit=DEFAULT_LIMIT):
         sk = SOURCE_COUNT_KEY.get(it.get("source_type"), "generic_todo")
         source_counts[sk] += 1
 
-    items = order_items(items)
-    total = len(items)
-    page = items[offset:offset + limit]
-    for it in page:
-        it.pop("_creation", None)
-    next_cursor = encode_cursor(offset + limit) if (offset + limit) < total else None
+    return order_items(items), counts, source_counts
 
+
+def _clean(items):
+    out = []
+    for it in items:
+        it = dict(it)
+        it.pop("_creation", None)
+        out.append(it)
+    return out
+
+
+def build_feed(user, cursor=None, limit=DEFAULT_LIMIT):
+    """Flat, deterministically ordered, paginated feed (badge + 'Xem tất cả'
+    consumers). Reuses _classified_feed."""
+    limit = max(1, min(int(limit or DEFAULT_LIMIT), MAX_LIMIT))
+    offset = decode_cursor(cursor)
+    items, counts, source_counts = _classified_feed(user)
+    total = len(items)
+    page = _clean(items[offset:offset + limit])
+    next_cursor = encode_cursor(offset + limit) if (offset + limit) < total else None
     return {
         "items": page,
-        "counts": counts,               # bucket counts (overdue/act_now/upcoming/undated)
-        "source_counts": source_counts,  # per-source counts (approval/pm/weekly_update/generic_todo)
+        "counts": counts,
+        "source_counts": source_counts,
         "total": total,
         "returned": len(page),
         "next_cursor": next_cursor,
         "generated_at": str(frappe.utils.now_datetime()),
+    }
+
+
+def bucket_previews(user, preview_n=PREVIEW_N):
+    """PER-BUCKET previews: the FIRST `preview_n` items of EACH bucket from
+    the ONE classified+ordered feed BEFORE any global pagination. A high-
+    priority bucket can never starve a later one (fixes overdue eating the
+    whole limit while upcoming has a count but no payload). No separate source
+    queries; bounded scan."""
+    preview_n = max(1, min(int(preview_n or PREVIEW_N), MAX_LIMIT))
+    items, counts, source_counts = _classified_feed(user)
+    bucket_items = {b: [] for b in FEED_BUCKETS}
+    for it in items:
+        b = it.get("bucket")
+        if b in bucket_items and len(bucket_items[b]) < preview_n:
+            bucket_items[b].append(it)
+    bucket_items = {b: _clean(v) for b, v in bucket_items.items()}
+    bucket_has_more = {b: counts.get(b, 0) > len(bucket_items[b]) for b in FEED_BUCKETS}
+    return {
+        "total": len(items),
+        "counts": counts,
+        "source_counts": source_counts,
+        "bucket_items": bucket_items,
+        "bucket_has_more": bucket_has_more,
+        "preview_n": preview_n,
+        "generated_at": str(frappe.utils.now_datetime()),
+    }
+
+
+def bucket_page(user, bucket, cursor=None, limit=DEFAULT_LIMIT):
+    """Governed per-bucket pagination ('Xem thêm N việc'): items of ONE bucket,
+    deterministically ordered, paged by cursor. Reuses _classified_feed
+    (bounded scan; NEVER an unbounded ToDo fetch)."""
+    if bucket not in FEED_BUCKETS:
+        return {"bucket": bucket, "items": [], "count": 0, "returned": 0, "next_cursor": None}
+    limit = max(1, min(int(limit or DEFAULT_LIMIT), MAX_LIMIT))
+    offset = decode_cursor(cursor)
+    items, counts, _ = _classified_feed(user)
+    rows = [it for it in items if it.get("bucket") == bucket]
+    total = len(rows)
+    page = _clean(rows[offset:offset + limit])
+    next_cursor = encode_cursor(offset + limit) if (offset + limit) < total else None
+    return {
+        "bucket": bucket,
+        "items": page,
+        "count": total,
+        "returned": len(page),
+        "next_cursor": next_cursor,
     }
