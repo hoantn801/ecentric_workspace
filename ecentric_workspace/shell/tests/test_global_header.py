@@ -177,11 +177,13 @@ class TestHeaderReminder(unittest.TestCase):
         # attention badge caps at 9+
         self.assertIn("n > 9 ? '9+'", js)
         self.assertIn("attention_count", js)
-        # per-bucket drawer: bucket_items/bucket_has_more, all four labels, total
-        for frag in ("Quá hạn", "Cần làm", "Sắp tới", "Không hạn",
-                     "ec-shell-reminder-drawer", "Xem tất cả", "ec-shell-rm-total",
+        # per-bucket drawer: bucket_items/bucket_has_more, all four labels, total.
+        # Phase 1b.2: act_now labelled "Đang xử lý"; footer "Xem tất cả" removed.
+        for frag in ("Quá hạn", "Đang xử lý", "Sắp tới", "Không hạn",
+                     "ec-shell-reminder-drawer", "ec-shell-rm-total",
                      "d.bucket_items", "d.bucket_has_more"):
             self.assertIn(frag, js, frag)
+        self.assertNotIn("Xem tất cả", js)                 # footer removed (Phase 2 page deferred)
         # edge states
         self.assertIn("Không tải được", js)               # API error
         self.assertIn("Không có việc nào cần làm", js)     # empty

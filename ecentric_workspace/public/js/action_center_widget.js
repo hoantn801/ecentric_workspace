@@ -7,7 +7,10 @@
 //   - No underline anywhere on the card (normal / hover / focus).
 //   - 3 compact lines per card: priority + source + time, title, subtitle.
 //     title and subtitle are single-line with ellipsis.
-//   - DISPLAY_LIMIT = 4. Footer "Xem thêm N việc →" only when total > 4.
+//   - DISPLAY_LIMIT = 4: at most 4 cards. The aggregate "Xem thêm N việc"
+//     footer was REMOVED (Phase 1b.2 follow-up) -- it exposed the Desk
+//     ToDo-list route (/app/todo/view/list), not reachable by all employees;
+//     the full /action-center page is deferred to Phase 2.
 //
 // Loaded by:
 //   <script id="ec-action-center-widget"
@@ -49,8 +52,8 @@
       '.ec-ac-time{margin-left:auto;color:#6b7280;font-size:11px;}' +
       // Title + subtitle are single line, ellipsis.
       '.ec-ac-title{font-size:13.5px;font-weight:600;color:#111827;line-height:1.35;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
-      '.ec-ac-subtitle{font-size:11.5px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
-      '.ec-ac-more,.ec-ac-more:hover,.ec-ac-more:focus,.ec-ac-more:visited{display:block;text-align:center;padding:10px;font-size:12.5px;color:#2C3DA6;font-weight:600;text-decoration:none !important;background:#f9fafb;border-top:1px solid #e5e7eb;}';
+      '.ec-ac-subtitle{font-size:11.5px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}';
+      // (.ec-ac-more rule removed with the aggregate "Xem thêm" link, Phase 1b.2.)
     document.head.appendChild(st);
   }
 
@@ -155,12 +158,11 @@
         '<div class="ec-ac-subtitle">' + esc(it.subtitle || '') + '</div>' +
       '</a>';
     }).join('');
-    if (total > DISPLAY_LIMIT) {
-      var more = total - DISPLAY_LIMIT;
-      var u = (window.frappe && window.frappe.session && window.frappe.session.user) || '';
-      var moreLink = '/app/todo/view/list?status=Open&allocated_to=' + encodeURIComponent(u);
-      html += '<a href="' + moreLink + '" class="ec-ac-more">Xem thêm ' + more + ' việc →</a>';
-    }
+    // Phase 1b.2 follow-up: the aggregate "Xem thêm N việc" link is REMOVED.
+    // It exposed the Desk ToDo-list route (/app/todo/view/list), which normal
+    // employees may not be able to open, and the full /action-center page is
+    // deferred to Phase 2. Individual item cards above keep their server-built
+    // canonical action_url. No placeholder/redirect is rendered in its place.
     listEl.innerHTML = html;
   }
 
