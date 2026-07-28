@@ -123,9 +123,12 @@ class TestCockpitRetired(unittest.TestCase):
 
     def test_action_provider_backend_intact(self):
         api = open(os.path.join(APP, "action_center", "api.py"), encoding="utf-8").read()
-        for keep in ("def get_action_items", "def get_my_requests_summary",
-                     "_engine_level_due", "counts[it[\"bucket\"]]"):
+        for keep in ("def get_action_items", "def get_my_requests_summary"):
             self.assertIn(keep, api, keep)
+        # classification/due logic moved to the shared feed service (1a)
+        feed = open(os.path.join(APP, "action_center", "feed.py"), encoding="utf-8").read()
+        for keep in ("def build_feed", "def classify", "counts[bucket] += 1"):
+            self.assertIn(keep, feed, keep)
         res = open(os.path.join(APP, "action_center", "resolvers.py"), encoding="utf-8").read()
         for keep in ("def bucket_for", '"resolution_state"', '"source_type"'):
             self.assertIn(keep, res, keep)

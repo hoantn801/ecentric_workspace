@@ -57,17 +57,22 @@ class TestProviderSourceContracts(unittest.TestCase):
     def _src(self, *parts):
         return io.open(os.path.join(APP, *parts), encoding="utf-8").read()
 
-    def test_endpoints_take_no_client_parameters(self):
-        # Session-scoped by construction: a client cannot pass user/filters.
+    def test_endpoints_take_no_client_user_parameter(self):
+        # Session-scoped by construction: a client can page (cursor/limit) but
+        # can NEVER pass a user/filter that widens scope.
         from ecentric_workspace.action_center import api
-        self.assertEqual(list(inspect.signature(api.get_action_items).parameters), [])
+        self.assertEqual(list(inspect.signature(api.get_action_items).parameters),
+                         ["cursor", "limit"])
         self.assertEqual(list(inspect.signature(api.get_my_requests_summary).parameters), [])
 
     def test_session_user_is_the_only_scope(self):
-        src = self._src("action_center", "api.py")
-        self.assertIn("allocated_to=%s", src)
-        self.assertIn('"requested_by": user', src)
-        self.assertIn('frappe.session.user == "Guest"', src)
+        # scope lives in the shared feed service now (api delegates to it)
+        feed_src = self._src("action_center", "feed.py")
+        api_src = self._src("action_center", "api.py")
+        self.assertIn("allocated_to=%s AND status=%s", feed_src)
+        self.assertIn('(user, "Open"', feed_src)
+        self.assertIn('"requested_by": user', api_src)     # get_my_requests_summary
+        self.assertIn('frappe.session.user == "Guest"', api_src)
 
     def test_v0_payload_keys_unchanged(self):
         src = self._src("action_center", "resolvers.py")
@@ -82,21 +87,26 @@ class TestProviderSourceContracts(unittest.TestCase):
             self.assertIn(key + ":", src, key)
 
     def test_no_fake_dates_and_no_new_persistence(self):
-        api_src = self._src("action_center", "api.py")
+        feed_src = self._src("action_center", "feed.py")
         res_src = self._src("action_center", "resolvers.py")
-        # due only ever COPIED from ToDo.date or EC Approval Request Level
-        self.assertIn("EC Approval Request Level", api_src)
-        self.assertNotIn("add_days", api_src)
-        self.assertNotIn("frappe.new_doc", api_src)
-        self.assertNotIn("insert(", api_src)  # provider is read-only
-        self.assertNotIn("insert(", res_src)
+        # due only ever COPIED from a governed source (ToDo.date, EC Approval
+        # Request Level SLA, Task.exp_end_date) -- never invented
+        self.assertIn("EC Approval Request Level", feed_src)
+        self.assertIn("exp_end_date", feed_src)
+        self.assertNotIn("add_days", feed_src)
+        self.assertNotIn("frappe.new_doc", feed_src)
+        self.assertNotIn(".insert(", feed_src)     # provider is read-only
+        self.assertNotIn(".insert(", res_src)
 
     def test_counts_derive_from_the_same_items(self):
-        # anti-drift: counts must be accumulated in the same loop that
-        # buckets the returned items -- no separate COUNT query.
+        # anti-drift: counts accumulated in the same loop that classifies the
+        # feed -- no separate COUNT query. ONE shared service.
+        feed_src = self._src("action_center", "feed.py")
         api_src = self._src("action_center", "api.py")
-        self.assertIn('counts[it["bucket"]]', api_src)
-        self.assertNotIn("SELECT COUNT", api_src.upper())
+        self.assertIn("counts[bucket] += 1", feed_src)
+        self.assertNotIn("SELECT COUNT", feed_src.upper())
+        self.assertIn("ac_feed.build_feed", api_src)        # api delegates
+        self.assertNotIn("bucket_for(", api_src)            # no duplicated logic
 
 
 if __name__ == "__main__":
