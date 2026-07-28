@@ -154,8 +154,8 @@ scheduler_events["cron"].setdefault("*/30 * * * *", []).append(
 
 # Fixtures
 # --------
-# PM v2 custom fields owned by this app (PM1-T01). Filtered so only these two
-# Custom Fields are exported/synced -- never every Custom Field on the site.
+# Custom Fields owned by this app. Filtered so only these Custom Fields are
+# exported/synced -- never every Custom Field on the site.
 fixtures = [
     {
         "dt": "Custom Field",
@@ -163,10 +163,21 @@ fixtures = [
             "Project-ec_department", "Project-ec_manager",
             # PM v2 Batch G1 checklist foundation (created by p005_pm_checklist):
             "PM Recurrence-checklist_template", "Task-pm_checklist",
-            # Alert Center Phase B (ALERT_CENTER/01_PHASE_B_PLAN.md, decision D1):
-            # daily KAM owner for marketplace alerts - NOT the approval manager.
-            # Moved onto native Brand (2026-07-28 brand consolidation).
-            "Brand-ec_kam_owner",
+            # Brand consolidation (2026-07-28): native Brand is the single brand
+            # master after Brand Approver was retired. ALL 16 ec_* Custom Fields on
+            # Brand are app-owned and MUST ship as fixtures -- a bench built from
+            # this app alone would otherwise get a Brand with no ec_status /
+            # ec_kam_owner, and alerts.permissions.get_allowed_brands would fall
+            # back to an EMPTY scope (every KAM sees zero brands, silently).
+            # ec_kam_owner = daily KAM for marketplace alerts (Alert Center
+            # decision D1) - NOT the approval manager.
+            "Brand-ec_legacy_key",
+            "Brand-ec_sect", "Brand-ec_brand_code", "Brand-ec_brand_name",
+            "Brand-ec_status", "Brand-ec_parent_client", "Brand-ec_cb1",
+            "Brand-ec_kam_owner", "Brand-ec_manager_email",
+            "Brand-ec_leader_email", "Brand-ec_finance_email",
+            "Brand-ec_sect2", "Brand-ec_approval_recipe", "Brand-ec_gbs_recipe",
+            "Brand-ec_cb2", "Brand-ec_boxme_customer",
         ]]],
     },
     {
