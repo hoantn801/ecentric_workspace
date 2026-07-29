@@ -206,12 +206,20 @@ class TestHeaderReminder(unittest.TestCase):
 
     def test_per_bucket_load_more(self):
         js = _read(APP, "public", "js", "ec_shell.js")
-        self.assertIn('data-ec-shell-rm-more', js)
+        # a REAL accessible button (native -> Enter/Space, focusable) per bucket
+        self.assertIn('<button type="button" class="ec-shell-rm-more" data-ec-shell-rm-more="', js)
         self.assertIn("function loadMoreBucket", js)
         self.assertIn("Xem thêm ", js)
         # governed per-bucket pagination via the bucket endpoint + cursor
         self.assertIn("_RM_BUCKET_URL", js)
+        self.assertIn("'?bucket=' + encodeURIComponent(key)", js)   # per-bucket independence
         self.assertIn("next_cursor", js)
+        # delegated handler fires loadMoreBucket and does NOT navigate away
+        self.assertIn("t.closest('[data-ec-shell-rm-more]')", js)
+        self.assertIn("ev.preventDefault(); loadMoreBucket(", js)
+        # updates the remaining count, and removes the control when all loaded
+        self.assertIn("btn.textContent = 'Xem thêm '", js)
+        self.assertIn("btn.parentNode.removeChild(btn)", js)
 
     def test_badge_position_and_scroll_contracts(self):
         css = _read(APP, "public", "css", "ec_shell.bundle.css")
@@ -237,15 +245,26 @@ class TestHeaderReminder(unittest.TestCase):
         self.assertIn('href="/app/notification-log"', static)
         self.assertIn('data-ec-shell-settings-slot="1" disabled', static)
 
-    def test_reminder_badge_css_within_z_budget(self):
+    def test_reminder_drawer_portaled_above_page(self):
         css = _read(APP, "public", "css", "ec_shell.bundle.css")
         self.assertIn(".ec-shell-reminder-badge{", css)
         self.assertIn(".ec-shell-reminder-drawer{", css)
-        # drawer z-index must not exceed the NC popover budget (1000)
         import re as _re
-        m = _re.search(r"\.ec-shell-reminder-drawer\{[^}]*z-index:(\d+)", css)
+        m = _re.search(r"\.ec-shell-reminder-drawer\{([^}]*)\}", css)
         self.assertIsNotNone(m)
-        self.assertLessEqual(int(m.group(1)), 1000)
+        rule = m.group(1)
+        # Portaled to <body> with position:fixed to escape the topbar stacking
+        # context (so the lower "Xem thêm" region is not overlapped -> clickable).
+        self.assertIn("position:fixed", rule)
+        # z-index must sit ABOVE the topbar (<=900) and the NC popover (1100);
+        # the drawer and the NC dropdown are mutually exclusive so this is safe.
+        z = int(_re.search(r"z-index:(\d+)", rule).group(1))
+        self.assertGreaterEqual(z, 1100)
+        # JS portals the drawer to <body> and positions it fixed from the button rect.
+        js = _read(APP, "public", "js", "ec_shell.js")
+        self.assertIn("document.body.appendChild(drawer)", js)
+        self.assertIn("drawer.style.position = 'fixed'", js)
+        self.assertIn("getBoundingClientRect", js)
 
 
 if __name__ == "__main__":

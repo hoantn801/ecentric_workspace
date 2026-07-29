@@ -111,7 +111,13 @@ class TestThreeTierModel(unittest.TestCase):
         # registered-key resolver, session-scoped provider, zero-hides contract
         self.assertIn("'action_center.approvals': {", js)
         self.assertIn("ecentric_workspace.action_center.api.get_action_items", js)
-        self.assertIn("=== 'approval'", js)
+        # Binds the AUTHORITATIVE feed.source_counts.approval (identical to the
+        # homepage KPI, excludes fulfillment). The old client-side item filter
+        # items.filter(source_type==='approval') -- which double-counted
+        # fulfillment items -- is removed.
+        self.assertIn("msg.source_counts", js)
+        self.assertIn("sc.approval", js)
+        self.assertNotIn("=== 'approval'", js)
         self.assertIn("if (n > 0)", js, "zero must keep the badge hidden")
         self.assertIn('data-ec-shell-badge="', js)
         self.assertIn("never a raw URL from the payload", js)

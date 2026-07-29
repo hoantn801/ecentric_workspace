@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.15.0 (reminder: canonical PM route, "Đang xử lý", no footer)';
+  var VERSION = 'ec-shell v1.16.0 (sidebar badge = source_counts.approval; drawer portaled fixed -> Xem thêm clickable)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -386,11 +386,15 @@
   var BADGE_SOURCES = {
     'action_center.approvals': {
       url: '/api/method/ecentric_workspace.action_center.api.get_action_items',
+      // Authoritative full-feed pending-approval count, IDENTICAL to the homepage
+      // KPI "Phê duyệt chờ". source_counts.approval counts the approval STAGE only;
+      // fulfillment-stage items (which keep source_type="approval" as a family but
+      // are NOT pending approvals) live in source_counts.fulfillment and are
+      // deliberately excluded here. The old items.filter(source_type==='approval')
+      // derivation double-counted fulfillment items and was page-limited -- removed.
       count: function (msg) {
-        var items = (msg && msg.items) || [];
-        return items.filter(function (x) {
-          return (x.source_type || x.source_key) === 'approval';
-        }).length;
+        var sc = (msg && msg.source_counts) || {};
+        return sc.approval || 0;
       }
     }
   };
@@ -1081,7 +1085,17 @@
       var existing = document.querySelector('[data-ec-shell-reminder-drawer="1"]');
       if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
       var drawer = buildReminderDrawer();
-      btn.parentNode.appendChild(drawer);       // anchored in tbright (position:relative)
+      // PORTAL to <body> with FIXED positioning anchored to the header button.
+      // Appending inside the page topbar trapped the drawer in the topbar's
+      // stacking/overflow context, so its lower region (the "Xem thêm" button)
+      // was overlapped by higher-stacked page content and could not be clicked.
+      // Body + position:fixed escapes every ancestor stacking context and clip.
+      var r = btn.getBoundingClientRect();
+      drawer.style.position = 'fixed';
+      drawer.style.top = (r.bottom + 8) + 'px';
+      drawer.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+      drawer.style.left = 'auto';
+      document.body.appendChild(drawer);
     };
     if (R.data) render();
     else { render(); fetchReminder(function () { setReminderBadge(R.data ? R.data.attention_count : 0); render(); }); }

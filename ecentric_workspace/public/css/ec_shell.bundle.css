@@ -139,7 +139,7 @@
 /* ---- page-header right region (bell + reserved Action Center slot) ------- */
 /* Lives inside the page-owned .topbar; margin-left:auto right-aligns it even
  * on topbars without a .spacer. Tokens resolve via the scope list above. */
-.ec-shell-tbright{ margin-left:auto; display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+.ec-shell-tbright{ position:relative; margin-left:auto; display:flex; align-items:center; gap:6px; flex:0 0 auto; }
 /* Reserved for Action Center (Phase 1C+): intentionally empty and inert. */
 /* Global header (canonical): crumbs + 3-slot header-right ----------------- */
 /* Header Reminder (Phase 1b): badge + drawer over the shared Action feed. */
@@ -149,10 +149,14 @@
   font-weight:700; line-height:16px; text-align:center; pointer-events:none;
   box-shadow:0 0 0 2px #fff; }
 .ec-shell-reminder[aria-expanded="true"]{ background:var(--ec-gray-100); color:var(--ec-gray-900); }
-.ec-shell-reminder-drawer{ position:absolute; top:calc(100% + 8px); right:0; width:340px;
+/* Portaled to <body> with position:fixed (JS sets top/right from the header
+ * button rect) so the drawer escapes the page topbar's stacking/overflow
+ * context -- otherwise its lower region ("Xem thêm") is overlapped by page
+ * content and not clickable. z-index sits above the topbar (<=900) and page. */
+.ec-shell-reminder-drawer{ position:fixed; width:340px;
   display:flex; flex-direction:column; max-height:min(70vh, 560px);
   background:#fff; border:1px solid var(--ec-gray-200); border-radius:12px;
-  box-shadow:0 12px 32px rgba(17,24,39,.16); z-index:1000; overflow:hidden;
+  box-shadow:0 12px 32px rgba(17,24,39,.16); z-index:2000; overflow:hidden;
   font-family:Inter, system-ui, sans-serif; }
 .ec-shell-rm-body{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
 .ec-shell-rm-foot{ flex:0 0 auto; position:sticky; bottom:0; }
