@@ -424,7 +424,16 @@ def _classified_feed(user):
     for r in rows:
         try:
             it = resolve_item(r)
-        except Exception:
+        except Exception as e:
+            # Do NOT blanket-swallow a genuine DB operational fault (missing
+            # column/table, lost connection): re-raise so it surfaces loudly
+            # instead of silently dropping every affected row. Ordinary per-row
+            # resolution errors are still caught so one bad ToDo cannot sink the
+            # whole feed. (getattr fallback keeps this import-safe even if the
+            # request-local db is not yet bound.)
+            _oe = getattr(getattr(frappe, "db", None), "OperationalError", None)
+            if _oe is not None and isinstance(e, _oe):
+                raise
             frappe.log_error(frappe.get_traceback(),
                              "action_center.feed resolve failed " + str(r.get("name")))
             continue

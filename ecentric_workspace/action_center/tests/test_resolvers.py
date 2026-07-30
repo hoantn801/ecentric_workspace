@@ -269,3 +269,160 @@ class TestActionCenterResolvers(FrappeTestCase):
         self.assertEqual(item["source_key"], "generic")
         self.assertEqual(item["action_url"], "/app/todo/todo-5")
         self.assertNotIn("/approval", item["action_url"])
+
+
+class _FakeDocField(dict):
+    """Minimal stand-in for a Frappe DocField (dict-like + .fieldtype attr)."""
+
+    @property
+    def fieldtype(self):
+        return self.get("fieldtype")
+
+
+class _FakeMeta:
+    """Stand-in for frappe.get_meta(dt): knows its title_field + fields."""
+
+    def __init__(self, title_field, fields):
+        self._title_field = title_field
+        self._fields = {f["fieldname"]: f for f in fields}
+
+    def get_title_field(self):
+        return self._title_field or "name"
+
+    def has_field(self, fn):
+        return fn in self._fields
+
+    def get_field(self, fn):
+        f = self._fields.get(fn)
+        return _FakeDocField(f) if f else None
+
+
+class TestActionCenterTitleResolution(FrappeTestCase):
+    """resolve_title must be metadata-driven: it may only SELECT columns that
+    physically exist, so a DocType without a `title` column can never trigger
+    MySQL 1054 (Unknown column). Hotfix for the hard-coded ["title","name"]
+    query that assumed every referenced DocType has a physical `title` column.
+
+    The fake DB below emulates MySQL 1054: selecting a column that is not a
+    physical column raises -- exactly as the real database would. So any test
+    that resolves without raising proves no invalid SQL was issued."""
+
+    #: doctype -> (title_field, declared docfields, physical columns)
+    SCHEMA = {
+        # title_field="subject"; subject is a real Data column.
+        "Leave Application": ("subject",
+            [{"fieldname": "subject", "fieldtype": "Data"}],
+            {"name", "subject"}),
+        # no title_field configured -> get_title_field() returns "name".
+        "PO Request": ("",
+            [{"fieldname": "amount", "fieldtype": "Currency"}],
+            {"name", "amount"}),
+        # title_field points at a field with NO physical column (virtual/misconfig).
+        "SO Request": ("headline",
+            [{"fieldname": "headline", "fieldtype": "Data", "is_virtual": 1}],
+            {"name"}),
+        # title_field points at a real column.
+        "MSO Request": ("request_title",
+            [{"fieldname": "request_title", "fieldtype": "Data"}],
+            {"name", "request_title"}),
+    }
+
+    RECORDS = {
+        ("Leave Application", "LEAVE-1"): {"name": "LEAVE-1", "subject": "Annual leave"},
+        ("PO Request", "PO-1"): {"name": "PO-1", "amount": 100},
+        ("SO Request", "SO-1"): {"name": "SO-1"},
+        ("MSO Request", "MSO-1"): {"name": "MSO-1", "request_title": "Brand X May"},
+        # ("MSO Request", "MSO-GONE") deliberately absent -> get_value None.
+    }
+
+    def _reset_title_cache(self):
+        # Request-scoped cache lives on frappe.local; drop it so each test
+        # starts with a clean per-request cache.
+        if hasattr(frappe.local, resolvers._TITLE_FIELD_LOCAL_ATTR):
+            delattr(frappe.local, resolvers._TITLE_FIELD_LOCAL_ATTR)
+
+    def setUp(self):
+        self._reset_title_cache()
+        self._orig_meta = frappe.get_meta
+        self._orig_gv = frappe.db.get_value
+        self.select_log = []
+        frappe.get_meta = self._fake_meta
+        frappe.db.get_value = self._fake_get_value
+
+    def tearDown(self):
+        frappe.get_meta = self._orig_meta
+        frappe.db.get_value = self._orig_gv
+        self._reset_title_cache()
+
+    def _fake_meta(self, dt):
+        tf, fields, _cols = self.SCHEMA[dt]
+        return _FakeMeta(tf, fields)
+
+    def _fake_get_value(self, dt, name, fields, as_dict=False, **kw):
+        _tf, _fields, cols = self.SCHEMA[dt]
+        req = list(fields) if isinstance(fields, (list, tuple)) else [fields]
+        self.select_log.append((dt, tuple(req)))
+        for c in req:
+            if c not in cols:
+                raise Exception("(1054, \"Unknown column '%s' in 'field list'\")" % c)
+        rec = self.RECORDS.get((dt, name))
+        if rec is None:
+            return None
+        return {c: rec.get(c) for c in req} if as_dict else [rec.get(c) for c in req]
+
+    def _selected_columns(self):
+        return [c for _dt, cols in self.select_log for c in cols]
+
+    def test_title_field_subject_used(self):
+        # DocType with title_field="subject" -> uses subject.
+        self.assertEqual(
+            resolvers.resolve_title("Leave Application", "LEAVE-1"), "Annual leave")
+
+    def test_no_title_field_uses_name(self):
+        # DocType without title_field -> uses name; never SELECTs `title`.
+        self.assertEqual(resolvers.resolve_title("PO Request", "PO-1"), "PO-1")
+        self.assertNotIn("title", self._selected_columns())
+
+    def test_title_field_missing_physical_column_no_invalid_sql(self):
+        # title_field missing physically -> no invalid SQL; falls back to name.
+        title = resolvers.resolve_title("SO Request", "SO-1")   # must not raise
+        self.assertEqual(title, "SO-1")
+        self.assertNotIn("headline", self._selected_columns())
+        self.assertNotIn("title", self._selected_columns())
+
+    def test_missing_record_safe_fallback(self):
+        # Referenced record missing -> get_value None -> fall back to ref name.
+        self.assertEqual(resolvers.resolve_title("MSO Request", "MSO-GONE"), "MSO-GONE")
+
+    def test_mixed_feed_of_many_doctypes_no_exception(self):
+        # Mixed feed of many DocTypes (some without a `title` column) -> no exception.
+        for dt, nm in (("Leave Application", "LEAVE-1"), ("PO Request", "PO-1"),
+                       ("SO Request", "SO-1"), ("MSO Request", "MSO-1"),
+                       ("MSO Request", "MSO-GONE")):
+            resolvers.resolve_title(dt, nm)   # no raise
+        self.assertNotIn("title", self._selected_columns())
+
+    def test_title_field_resolution_cached_per_doctype(self):
+        # Metadata resolved once per DocType even across many feed rows.
+        calls = {"n": 0}
+        base = self._fake_meta
+
+        def counting_meta(dt):
+            calls["n"] += 1
+            return base(dt)
+
+        frappe.get_meta = counting_meta
+        for _ in range(5):
+            resolvers.resolve_title("MSO Request", "MSO-1")
+        self.assertEqual(calls["n"], 1)   # 5 rows -> 1 get_meta
+
+    def test_resolve_item_approval_branch_uses_metadata_title(self):
+        # End-to-end: the approval branch of resolve_item now resolves the title
+        # via metadata (title_field) instead of a hard-coded ["title","name"].
+        item = resolvers.resolve_item({
+            "name": "todo-t", "reference_type": "Leave Application",
+            "reference_name": "LEAVE-1", "description": "x",
+            "priority": "Medium", "modified": "",
+        })
+        self.assertEqual(item["title"], "Annual leave")
+        self.assertNotIn("title", self._selected_columns())

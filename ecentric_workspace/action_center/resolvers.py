@@ -100,6 +100,74 @@ def _link_field(doctype, fieldname):
     return f
 
 
+#: Fieldtypes that carry no queryable DB column. A (mis)configured title_field
+#: pointing at one must never end up in a SQL SELECT.
+_NO_COLUMN_FIELDTYPES = frozenset({
+    "Section Break", "Column Break", "Tab Break", "Fold",
+    "HTML", "Heading", "Button", "Table", "Table MultiSelect",
+})
+
+#: Attribute name for the request-scoped title-field cache on frappe.local.
+_TITLE_FIELD_LOCAL_ATTR = "_ec_ac_title_fields"
+
+
+def _title_field_cache():
+    """Request-scoped cache (doctype -> validated title field or None).
+
+    Lives on `frappe.local`, which the framework resets per request, so the
+    title field is deduplicated only WITHIN a single feed request and is never
+    retained across requests or for the process lifetime. `frappe.get_meta()`
+    already provides framework-level meta cache + invalidation; this cache only
+    avoids re-running get_title_field()/has_field() for the same DocType across
+    the many rows of one feed."""
+    cache = getattr(frappe.local, _TITLE_FIELD_LOCAL_ATTR, None)
+    if cache is None:
+        cache = {}
+        setattr(frappe.local, _TITLE_FIELD_LOCAL_ATTR, cache)
+    return cache
+
+
+def _title_field(doctype):
+    """The DocType's configured title field, validated to be a real, queryable
+    column. Returns None when the DocType has no usable title field, in which
+    case the caller falls back to `name`. Metadata-driven: never assumes a
+    physical `title` column exists. Cached per DocType for one feed request."""
+    dt = (doctype or "").strip()
+    if not dt:
+        return None
+    cache = _title_field_cache()
+    if dt in cache:
+        return cache[dt]
+    tf = None
+    try:
+        meta = frappe.get_meta(dt)
+        cand = meta.get_title_field()            # configured title_field, or "name"
+        if cand and cand != "name" and meta.has_field(cand):
+            df = meta.get_field(cand)
+            if df and not df.get("is_virtual") and df.fieldtype not in _NO_COLUMN_FIELDTYPES:
+                tf = cand
+    except Exception:
+        tf = None
+    cache[dt] = tf
+    return tf
+
+
+def resolve_title(doctype, name):
+    """Human title for (doctype, name), resolved via DocType metadata:
+      configured title_field (validated to physically exist) -> else `name`.
+    Only ever SELECTs columns known to exist, so a DocType without a `title`
+    column can never trigger MySQL 1054 (Unknown column). Falls back to the
+    record `name` when the title field is empty or the record is missing."""
+    dt = (doctype or "").strip()
+    nm = (name or "").strip()
+    if not dt or not nm:
+        return nm
+    tf = _title_field(dt)
+    fields = ["name"] + ([tf] if tf else [])
+    row = frappe.db.get_value(dt, nm, fields, as_dict=True) or {}
+    return (row.get(tf) if tf else None) or row.get("name") or nm
+
+
 def has_engine_approval_link(doctype):
     """True if `doctype` is an approval-governed business form: it declares a
     Link field `approval_request` whose options is `EC Approval Request`.
@@ -269,8 +337,7 @@ def resolve_item(todo_row):
         action_url = build_pm_task_url(ref_name)
     elif ref_type in APPROVAL_DOCTYPES and ref_name:
         src = _APPROVAL_SRC
-        info = frappe.db.get_value(ref_type, ref_name, ["title", "name"], as_dict=True) or {}
-        title = info.get("title") or info.get("name") or ref_name
+        title = resolve_title(ref_type, ref_name)
         subtitle = ref_type + " · " + ref_name
         action_url = build_approval_url(ref_type, ref_name)
     elif ref_type and ref_name:
