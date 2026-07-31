@@ -13,7 +13,7 @@ class TestRegistryCompose(unittest.TestCase):
     def test_compose_is_valid_and_deterministic(self):
         a, b = nav.compose(), nav.compose()
         self.assertEqual(a, b)
-        self.assertGreaterEqual(len(a), 13)  # full IA (docs pair collapsed into 1 parent)
+        self.assertGreaterEqual(len(a), 10)  # GD2 C2: create_rec/gbs.po/gbs.so retired (13 -> 10); /others kept
         keys = [it["key"] for it in a]
         self.assertEqual(len(keys), len(set(keys)))
 
@@ -148,6 +148,8 @@ class TestSidebarIA(unittest.TestCase):
         return {it["key"]: it for it in nav.compose()}
 
     def test_exact_ia_map(self):
+        # GD2 C2 scope: legacy.create_rec, gbs.po, gbs.so retired (+ create_vendor).
+        # MSO/SO/PO kept on governed current routes.
         expected = {
             "apc.catalog": ("Phê duyệt", "Approval Center", "/approvals"),
             "apc.dashboard": ("Phê duyệt", "Dashboard", "/approvals/dashboard"),
@@ -156,15 +158,14 @@ class TestSidebarIA(unittest.TestCase):
             "legacy.create_mso": ("Tạo mới", "MSO Request", "/mso-form"),
             "legacy.create_so": ("Tạo mới", "SO Request", "/so-form"),
             "legacy.create_po": ("Tạo mới", "PO Request", "/form-po"),
-            "legacy.create_rec": ("Tạo mới", "REC Request", "/form-rec"),
-            "gbs.po": ("GBS", "GBS Purchase Order", "/gbs-po-form"),
-            "gbs.so": ("GBS", "GBS Sales Order", "/gbs-so-form"),
         }
         by = self._by_key()
         for key, (group, label, route) in expected.items():
             it = by[key]
             self.assertEqual((it["group"], it["label"], it["route"]),
                              (group, label, route), key)
+        for retired in ("legacy.create_rec", "legacy.create_vendor", "gbs.po", "gbs.so"):
+            self.assertNotIn(retired, by, retired)
 
     def test_guides_submenu(self):
         guides = self._by_key()["docs.guides"]
@@ -174,11 +175,14 @@ class TestSidebarIA(unittest.TestCase):
                                 ("GBS Flow & Definitions", "/docs/gbs-flow")])
 
     def test_others_submenu(self):
+        # GD2 C2: Vendor Request retired; Client + Contract Request kept (their
+        # pages are governed-published as a gated pre-deploy step).
         others = self._by_key()["legacy.others"]
         kids = [(c["label"], c["route"]) for c in others["children"]]
         self.assertEqual(kids, [("Client Request", "/client-request"),
-                                ("Vendor Request", "/vendor-request"),
                                 ("Contract Request", "/contract-request")])
+        routes = {c["route"] for it in nav.compose() for c in it.get("children", [])}
+        self.assertNotIn("/vendor-request", routes)
 
     def test_stale_duplicate_absent(self):
         routes = set()

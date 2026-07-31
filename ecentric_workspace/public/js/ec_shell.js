@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.16.0 (sidebar badge = source_counts.approval; drawer portaled fixed -> Xem thêm clickable)';
+  var VERSION = 'ec-shell v1.17.0 (GD2 C2: retire Vendor Request; static shell regen; /others+/guides submenu anchors; contracts preserved)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,

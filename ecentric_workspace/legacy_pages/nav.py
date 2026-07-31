@@ -36,23 +36,20 @@ def items():
               ["so", "service order", "tao moi"]),
         _item("legacy.create_po", "PO Request", "/form-po", "Tạo mới", 30,
               ["po", "procurement", "mua hang", "tao moi"]),
-        _item("legacy.create_rec", "REC Request", "/form-rec", "Tạo mới", 40,
-              ["rec", "reconciliation", "doi soat", "tao moi"]),
-        # "/others" is a NON-NAVIGABLE anchor route (unique, never rendered as a
-        # link -- the submenu toggle is a button). Low-frequency creation routes.
+        # GD2 C2 scope: retire legacy.create_rec (/form-rec), legacy.create_vendor
+        # (/vendor-request), gbs.po (/gbs-po-form), gbs.so (/gbs-so-form).
+        # MSO/SO/PO kept on governed routes (/mso-form, /so-form, /form-po).
+        # "/others" is a NON-NAVIGABLE anchor (submenu toggle button); Client +
+        # Contract Request kept. Their target pages are governed-published
+        # (published 0->1, rollback 1->0) as a gated PRE-deploy step so the rolled-
+        # out nav never exposes a broken link.
         _item("legacy.others", "Others", "/others", "Tạo mới", 50,
               ["khac", "others"], children=[
                   _child("legacy.create_client", "Client Request", "/client-request", 10,
                          ["client", "khach hang"]),
-                  _child("legacy.create_vendor", "Vendor Request", "/vendor-request", 20,
-                         ["vendor", "nha cung cap"]),
                   _child("legacy.create_contract", "Contract Request", "/contract-request", 30,
                          ["contract", "hop dong"]),
               ]),
-        _item("gbs.po", "GBS Purchase Order", "/gbs-po-form", "GBS", 10,
-              ["gbs", "purchase order", "boxme"]),
-        _item("gbs.so", "GBS Sales Order", "/gbs-so-form", "GBS", 20,
-              ["gbs", "sales order", "boxme"]),
         # HƯỚNG DẪN: one collapsible parent (same minimal children mechanism as
         # Others). "/guides" is a non-navigable anchor route (button toggle).
         _item("docs.guides", "Hướng dẫn", "/guides", "Hướng dẫn", 10,
