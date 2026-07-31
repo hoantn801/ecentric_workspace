@@ -39,17 +39,16 @@ def items():
         # GD2 C2 scope: retire legacy.create_rec (/form-rec), legacy.create_vendor
         # (/vendor-request), gbs.po (/gbs-po-form), gbs.so (/gbs-so-form).
         # MSO/SO/PO kept on governed routes (/mso-form, /so-form, /form-po).
-        # "/others" is a NON-NAVIGABLE anchor (submenu toggle button); Client +
-        # Contract Request kept. Their target pages are governed-published
-        # (published 0->1, rollback 1->0) as a gated PRE-deploy step so the rolled-
-        # out nav never exposes a broken link.
-        _item("legacy.others", "Others", "/others", "Tạo mới", 50,
-              ["khac", "others"], children=[
-                  _child("legacy.create_client", "Client Request", "/client-request", 10,
-                         ["client", "khach hang"]),
-                  _child("legacy.create_contract", "Contract Request", "/contract-request", 30,
-                         ["contract", "hop dong"]),
-              ]),
+        #
+        # "/others" submenu removed entirely: its children legacy.create_client
+        # (/client-request) and legacy.create_contract (/contract-request) are
+        # UNAVAILABLE in C2 scope — their submit endpoints
+        # (ecentric_workspace.api.submit_client_request / submit_contract_request)
+        # do not exist (HTTP 417 "Failed to get method"), so the forms cannot
+        # submit. The two Web Pages are left at published=0 (page source/backend
+        # NOT deleted); submit API is intentionally NOT implemented in C2. With no
+        # children left, the /others parent is dropped (an empty toggle would
+        # render a broken /others leaf link).
         # HƯỚNG DẪN: one collapsible parent (same minimal children mechanism as
         # Others). "/guides" is a non-navigable anchor route (button toggle).
         _item("docs.guides", "Hướng dẫn", "/guides", "Hướng dẫn", 10,

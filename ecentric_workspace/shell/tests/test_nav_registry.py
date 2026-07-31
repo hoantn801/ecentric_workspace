@@ -13,7 +13,7 @@ class TestRegistryCompose(unittest.TestCase):
     def test_compose_is_valid_and_deterministic(self):
         a, b = nav.compose(), nav.compose()
         self.assertEqual(a, b)
-        self.assertGreaterEqual(len(a), 10)  # GD2 C2: create_rec/gbs.po/gbs.so retired (13 -> 10); /others kept
+        self.assertGreaterEqual(len(a), 9)  # GD2 C2: create_rec/gbs.po/gbs.so + /others removed (13 -> 9)
         keys = [it["key"] for it in a]
         self.assertEqual(len(keys), len(set(keys)))
 
@@ -174,15 +174,21 @@ class TestSidebarIA(unittest.TestCase):
         self.assertEqual(kids, [("Docs / Architecture", "/docs/architecture"),
                                 ("GBS Flow & Definitions", "/docs/gbs-flow")])
 
-    def test_others_submenu(self):
-        # GD2 C2: Vendor Request retired; Client + Contract Request kept (their
-        # pages are governed-published as a gated pre-deploy step).
-        others = self._by_key()["legacy.others"]
-        kids = [(c["label"], c["route"]) for c in others["children"]]
-        self.assertEqual(kids, [("Client Request", "/client-request"),
-                                ("Contract Request", "/contract-request")])
-        routes = {c["route"] for it in nav.compose() for c in it.get("children", [])}
-        self.assertNotIn("/vendor-request", routes)
+    def test_others_submenu_removed(self):
+        # GD2 C2: /others removed entirely — Client/Contract Request unavailable
+        # (no submit endpoint); Vendor Request retired. None of these keys/routes
+        # may appear in the composed nav. Web Pages kept at published=0 (not here).
+        by = self._by_key()
+        for key in ("legacy.others", "legacy.create_client",
+                    "legacy.create_contract", "legacy.create_vendor"):
+            self.assertNotIn(key, by, key)
+        routes = set()
+        for it in nav.compose():
+            routes.add(it["route"])
+            for c in it.get("children", []):
+                routes.add(c["route"])
+        for gone in ("/others", "/client-request", "/contract-request", "/vendor-request"):
+            self.assertNotIn(gone, routes, gone)
 
     def test_stale_duplicate_absent(self):
         routes = set()
@@ -195,7 +201,7 @@ class TestSidebarIA(unittest.TestCase):
 
     def test_child_duplicate_rejected(self):
         items = nav.compose()
-        bad = dict(items[0], key="x.dup", route="/client-request")  # child route exists
+        bad = dict(items[0], key="x.dup", route="/docs/architecture")  # existing child route (guides submenu)
         with self.assertRaises(ValueError):
             nav.validate(items + [bad])
 
