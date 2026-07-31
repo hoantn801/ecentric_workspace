@@ -94,7 +94,14 @@ class TestBreadcrumbRegistryParity(unittest.TestCase):
             src = _read(path)
             inner = fb.CRUMBS_RE.search(src).group(2)
             key = fb.match_active(items, route)
-            it = next(x for x in flat if x["key"] == key)
+            it = next((x for x in flat if x["key"] == key), None)
+            if it is None:
+                # GD2 C2: page retired from the sidebar (create_rec/gbs.po/gbs.so/
+                # create_vendor) but kept live. Its route no longer matches a nav
+                # entry, so the breadcrumb degrades to detail-only with NO orphaned
+                # crumb-link pointing at a removed registry item.
+                self.assertNotIn("ec-shell-crumblink", inner, route)
+                continue
             group = it.get("group") or pgroup.get(it["key"], "")
             self.assertIn(fb._esc(it["label"]), inner, route)
             if group:
