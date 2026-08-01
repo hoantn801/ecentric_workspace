@@ -28,7 +28,7 @@ class TestRouteToContext(unittest.TestCase):
         "/approvals/leave": "approval_document",
         "/approval": "approval_document",
         "/all-ticket": "approval_document",
-        "/form-po": "approval_document",
+        "/gbs-po-form-v2": "approval_document",
         "/docs/gbs-flow": "approval_document",
         "/ec-hr/attendance": "hr",
         "/ec-hr/salary": "hr",
@@ -74,7 +74,7 @@ class TestRouteToContext(unittest.TestCase):
 
     def test_compose_all_spans_contexts(self):
         allr = {i["route"] for i in nav.compose_all()}
-        for r in ("/approvals", "/form-po", "/ec-hr/attendance", "/ec-hr/salary"):
+        for r in ("/approvals", "/gbs-po-form-v2", "/ec-hr/attendance", "/ec-hr/salary"):
             self.assertIn(r, allr, r)
         # synthetic launcher entries are discovery-excluded (route dupes)
         self.assertFalse(any(i["owner"] == "shell.context" for i in nav.compose_all()))

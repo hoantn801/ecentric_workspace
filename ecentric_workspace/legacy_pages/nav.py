@@ -9,10 +9,10 @@ PO Request is /form-po and REC Request is /form-rec (NOT /po-form or
 """
 
 
-def _item(key, label, route, group, order, keywords, icon="doc", children=None):
+def _item(key, label, route, group, order, keywords, icon="doc", children=None, patterns=None):
     it = {
         "key": key, "label": label, "route": route, "icon": icon,
-        "group": group, "order": order, "active_patterns": [route],
+        "group": group, "order": order, "active_patterns": patterns or [route],
         "visible_when": "internal", "keywords": keywords, "owner": "legacy_pages",
     }
     if children:
@@ -30,12 +30,20 @@ def _child(key, label, route, order, keywords):
 
 def items():
     return [
-        _item("legacy.create_mso", "MSO Request", "/mso-form", "Tạo mới", 10,
-              ["mso", "tao moi", "master service order"]),
-        _item("legacy.create_so", "SO Request", "/so-form", "Tạo mới", 20,
-              ["so", "service order", "tao moi"]),
-        _item("legacy.create_po", "PO Request", "/form-po", "Tạo mới", 30,
-              ["po", "procurement", "mua hang", "tao moi"]),
+        # GD2 C2 UAT fix: canonical destinations are the v2 routes (legacy
+        # /mso-form, /so-form, /form-po 301-redirect to these). Nav links point
+        # straight at the canonical route; the legacy route is kept as an
+        # active_pattern so the exact matcher highlights the item on both the
+        # canonical URL and any legacy URL still resolving through the redirect.
+        _item("legacy.create_mso", "MSO Request", "/mso-plan-form", "Tạo mới", 10,
+              ["mso", "tao moi", "master service order"],
+              patterns=["/mso-plan-form", "/mso-form"]),
+        _item("legacy.create_so", "SO Request", "/gbs-so-form-v2", "Tạo mới", 20,
+              ["so", "service order", "tao moi"],
+              patterns=["/gbs-so-form-v2", "/so-form"]),
+        _item("legacy.create_po", "PO Request", "/gbs-po-form-v2", "Tạo mới", 30,
+              ["po", "procurement", "mua hang", "tao moi"],
+              patterns=["/gbs-po-form-v2", "/form-po"]),
         # GD2 C2 scope: retire legacy.create_rec (/form-rec), legacy.create_vendor
         # (/vendor-request), gbs.po (/gbs-po-form), gbs.so (/gbs-so-form).
         # MSO/SO/PO kept on governed routes (/mso-form, /so-form, /form-po).

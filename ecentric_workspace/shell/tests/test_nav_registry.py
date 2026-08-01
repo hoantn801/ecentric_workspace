@@ -155,9 +155,9 @@ class TestSidebarIA(unittest.TestCase):
             "apc.dashboard": ("Phê duyệt", "Dashboard", "/approvals/dashboard"),
             "tickets.all": ("Chứng từ", "Dashboard", "/all-ticket"),
             "approval.inbox": ("Chứng từ", "All Tickets", "/approval"),
-            "legacy.create_mso": ("Tạo mới", "MSO Request", "/mso-form"),
-            "legacy.create_so": ("Tạo mới", "SO Request", "/so-form"),
-            "legacy.create_po": ("Tạo mới", "PO Request", "/form-po"),
+            "legacy.create_mso": ("Tạo mới", "MSO Request", "/mso-plan-form"),
+            "legacy.create_so": ("Tạo mới", "SO Request", "/gbs-so-form-v2"),
+            "legacy.create_po": ("Tạo mới", "PO Request", "/gbs-po-form-v2"),
         }
         by = self._by_key()
         for key, (group, label, route) in expected.items():

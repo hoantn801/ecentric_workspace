@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.17.0 (GD2 C2: retire Vendor Request; static shell regen; /others+/guides submenu anchors; contracts preserved)';
+  var VERSION = 'ec-shell v1.17.1 (GD2 C2 UAT: canonical creation routes MSO=/mso-plan-form, SO=/gbs-so-form-v2, PO=/gbs-po-form-v2; legacy routes kept as active_patterns)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
