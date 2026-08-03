@@ -148,9 +148,13 @@ def pm_overdue_scan():
         if not users:
             continue
         subject = "[Overdue] Nhiem vu qua han: " + (t.get("subject") or t["name"])
-        notify_users(users, subject, t["name"], from_user="Administrator",
-                     event_type="task_overdue", due_suffix=str(t.get("exp_end_date")))
-    frappe.db.commit()
+        try:
+            notify_users(users, subject, t["name"], from_user="Administrator",
+                         event_type="task_overdue", due_suffix=str(t.get("exp_end_date")))
+            frappe.db.commit()
+        except Exception:
+            frappe.db.rollback()
+            frappe.log_error(frappe.get_traceback(), "pm_overdue_scan")
 
 
 def pm_due_soon_scan(window_days=2):
@@ -175,9 +179,13 @@ def pm_due_soon_scan(window_days=2):
         if not users:
             continue
         subject = "[Sap den han] Nhiem vu: " + (t.get("subject") or t["name"])
-        notify_users(users, subject, t["name"], from_user="Administrator",
-                     event_type="task_due_soon", due_suffix=str(t.get("exp_end_date")))
-    frappe.db.commit()
+        try:
+            notify_users(users, subject, t["name"], from_user="Administrator",
+                         event_type="task_due_soon", due_suffix=str(t.get("exp_end_date")))
+            frappe.db.commit()
+        except Exception:
+            frappe.db.rollback()
+            frappe.log_error(frappe.get_traceback(), "pm_due_soon_scan")
 
 
 @frappe.whitelist()

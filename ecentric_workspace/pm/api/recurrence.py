@@ -342,7 +342,7 @@ def _process(name, today):
                              (frappe.db.get_value("Task", new_task, "subject") or new_task),
                              new_task, from_user="Administrator")
     except Exception:
-        pass
+        frappe.log_error(frappe.get_traceback(), "PM Recurrence notify")
     r.occurrences_done = (r.occurrences_done or 0) + 1
     r.last_task = new_task
     r.last_run_date = nrd
