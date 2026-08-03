@@ -37,16 +37,29 @@ def _html():
 #   2. ec-drift-settled-guard-v1 (also site-authored): item-level drift banner
 #      now only renders when the doc has actually settled on both sides
 #      (status Approved AND gbs_status Approved/Completed).
-#   3. ec-resubmit-repoll-v1 (this commit): ensureButton() returned without
+#   3. ec-resubmit-repoll-v1 (previous commit): ensureButton() returned without
 #      re-arming its 3s poll once the Resubmit button existed, so after a
 #      resubmit flipped status to "Can sua" the stale button stayed on screen
 #      next to the banner's "Sua & Submit lai" -- the "2 nut resubmit" report.
 #      It now keeps polling, and restores the Submit-on-GBS button it hid.
+#   4. ec-resubmit-merge-v1 (this commit): the two stages of the resubmit flow
+#      rendered two DIFFERENT call-to-actions -- stage 1 (Approved + GBS
+#      Rejected) injected a small orange "Resubmit" button at the BOTTOM next to
+#      "Check Status", stage 2 ("Can sua") showed "Sua & Submit lai" in a yellow
+#      banner at the TOP. Same flow, same destination (/gbs-so-form-v2?edit=...),
+#      two names in two places; reported as "2 nut resubmit 1 duoi 1 tren khong
+#      dong bo". Stage 1 now renders #ec-gbs-resubmit-banner at the top of
+#      #content, styled to match #ec-can-sua-banner and carrying the same
+#      "Sua & Submit lai" label, so the page does not visibly change shape as the
+#      doc moves from one stage to the next. The insert path also re-arms the 3s
+#      poll -- ec-resubmit-repoll-v1 only re-armed on the "already exists" branch,
+#      which was unreachable because the insert path fell off the end of the
+#      function, so the poll died after the very first insert.
 # upsert_web_page REFUSES to write when live hashes to none of the accepted
 # values, so a repo snapshot can never silently revert a live edit. Deliberate
 # update = edit main_section.html, bump this constant, and move the value it
 # replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "78298a9ec4ca4420b608625788ee30713c9ff222ffd2177a17df7bc14e5a81fa"
+BASELINE_SHA256 = "ef66131a5dded4e48cbe00e9235c9859a85b449135bc195bffc2b5f4dfaa8ab5"
 
 # Live values this snapshot is allowed to overwrite. C4b was authored in the
 # repo, not on the site, so at deploy time live still holds the #138 bytes
@@ -62,6 +75,10 @@ BASELINE_SHA256 = "78298a9ec4ca4420b608625788ee30713c9ff222ffd2177a17df7bc14e5a8
 SUPERSEDES_SHA256 = (
     "3f825f4e4761a69d1cdb6033eeabbd1b8b23476c2fad33d9226b137c124a4454",  # #138
     "4d5ea138c4674b114df4451289d138ad80a9e512a37d705819b975dec13ef361",  # C4b (#64)
+    # pre-merge-v1 bytes: what live held after ec-resubmit-repoll-v1 was applied
+    # on the site (2026-08-03 16:20). team.ecentric.vn has since been written
+    # forward to BASELINE_SHA256, so the first sync there returns "unchanged".
+    "78298a9ec4ca4420b608625788ee30713c9ff222ffd2177a17df7bc14e5a81fa",  # repoll-v1
 )
 
 

@@ -5894,6 +5894,13 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
     st.textContent = [
       '.ec-gbs-resubmit-btn { background:#f59e0b; color:white; border:none; border-radius:6px; padding:8px 14px; font-weight:600; font-size:13px; cursor:pointer; margin-left:8px; }',
       '.ec-gbs-resubmit-btn:hover { background:#d97706; }',
+      /* ec-resubmit-merge-v1: CTA now lives in a banner at the top, styled to match
+         the #ec-can-sua-banner of the next stage so the two stages look identical. */
+      '#ec-gbs-resubmit-banner { background:#fef3c7; border:1px solid #f59e0b; border-radius:8px; padding:14px 16px; margin-bottom:14px; }',
+      '#ec-gbs-resubmit-banner .ecrb-title { font-size:14px; font-weight:700; color:#92400e; margin-bottom:6px; }',
+      '#ec-gbs-resubmit-banner .ecrb-reason { font-size:13px; color:#78350f; margin-bottom:10px; line-height:1.5; }',
+      '#ec-gbs-resubmit-banner .ec-gbs-resubmit-btn { margin-left:0; background:#2C3DA6; }',
+      '#ec-gbs-resubmit-banner .ec-gbs-resubmit-btn:hover { background:#1f2d80; }',
       '.ec-gbs-resubmit-modal { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:10000; display:flex; align-items:center; justify-content:center; }',
       '.ec-gbs-resubmit-modal .modal-card { background:#fff; border-radius:10px; padding:20px; width:480px; max-width:90vw; box-shadow:0 10px 40px rgba(0,0,0,0.2); }',
       '.ec-gbs-resubmit-modal h3 { margin:0 0 12px 0; font-size:16px; color:#111827; }',
@@ -6017,6 +6024,9 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
       var existing = document.getElementById('ec-gbs-resubmit-btn');
       if (existing && !shouldShow) {
         existing.remove();
+        /* ec-resubmit-merge-v1: the button now lives inside a top banner - drop that too */
+        var _bnRemove = document.getElementById('ec-gbs-resubmit-banner');
+        if (_bnRemove) _bnRemove.remove();
         /* ec-resubmit-repoll-v1: un-hide the Submit-on-GBS button this block hid */
         var _sbRestore = findSubmitBtn(); if (_sbRestore) _sbRestore.style.display = '';
       }
@@ -6033,34 +6043,43 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
          the banner's "Sửa & Submit lại". Keep the 3s poll alive so it gets removed. */
       if (existing) { setTimeout(ensureButton, 3000); return; }
 
-      // Find anchor: Submit on GBS button OR Check Status button - inject Resubmit nearby
-      var submitBtn = findSubmitBtn();
-      var anchor = submitBtn;
-      if (!anchor) {
-        // Fallback: find Check Status button
-        var btns = document.querySelectorAll('button');
-        for (var i = 0; i < btns.length; i++) {
-          if (/Check\s+Status/i.test((btns[i].textContent || '').trim())) { anchor = btns[i]; break; }
-        }
-      }
-      if (!anchor) {
-        // No anchor yet, retry
-        setTimeout(ensureButton, 1000);
-        return;
-      }
+      /* ec-resubmit-merge-v1 2026-08-03: the resubmit CTA used to be injected at the
+         BOTTOM of the page, next to "Check Status", labelled "Resubmit" - while the
+         next stage ("Can sua") showed a DIFFERENT button at the TOP labelled
+         "Sua & Submit lai". Two names, two places, one and the same flow; reported as
+         "2 nut resubmit 1 duoi 1 tren khong dong bo". Both stages now render a single
+         button with the same label in the same spot at the top of the detail panel.
+         Same anchor + same styling as #ec-can-sua-banner, so the page looks unchanged
+         to the user as the doc moves from one stage to the next. */
 
-      // Hide Submit on GBS (it would 417 anyway in Rejected state)
+      // "Submit on GBS" would 417 while boxme holds the doc Rejected - keep it hidden.
+      var submitBtn = findSubmitBtn();
       if (submitBtn) submitBtn.style.display = 'none';
+
+      var host = document.querySelector('#content') || document.querySelector('main') || document.body;
+      if (!host) { setTimeout(ensureButton, 1000); return; }
+
+      var banner = document.createElement('div');
+      banner.id = 'ec-gbs-resubmit-banner';
+      banner.innerHTML =
+        '<div class="ecrb-title">\u26a0\ufe0f GBS \u0111\u00e3 t\u1eeb ch\u1ed1i doc n\u00e0y</div>' +
+        '<div class="ecrb-reason">B\u1ea5m n\u00fat b\u00ean d\u01b0\u1edbi \u0111\u1ec3 nh\u1eadp l\u00fd do, r\u1ed3i form s\u1ebd m\u1edf \u1edf ch\u1ebf \u0111\u1ed9 ch\u1ec9nh s\u1eeda. S\u1eeda xong b\u1ea5m Submit l\u1ea1i, doc ch\u1ea1y l\u1ea1i chu\u1ed7i duy\u1ec7t t\u1eeb Finance.</div>';
 
       var btn = document.createElement('button');
       btn.id = 'ec-gbs-resubmit-btn';
       btn.className = 'ec-gbs-resubmit-btn';
-      btn.textContent = 'Resubmit';
+      btn.textContent = 'S\u1eeda & Submit l\u1ea1i';
       btn.addEventListener('click', function(){ openModal(state); });
-      if (anchor.parentNode) {
-        anchor.parentNode.insertBefore(btn, anchor.nextSibling);
-      }
-      console.log('[ec-gbs-resubmit] button inserted (gbs_status=' + state.gbs_status + ')');
+      banner.appendChild(btn);
+
+      if (host.firstChild) host.insertBefore(banner, host.firstChild);
+      else host.appendChild(banner);
+      console.log('[ec-gbs-resubmit] banner inserted at top (gbs_status=' + state.gbs_status + ')');
+      /* ec-resubmit-merge-v1: re-arm the poll on the INSERT path too. ec-resubmit-repoll-v1
+         only re-armed on the "already exists" path, which was unreachable because this path
+         fell off the end of the function - so after the very first insert the poll died and
+         the button could go stale again once the doc moved to "Can sua". */
+      setTimeout(ensureButton, 3000);
     });
   }
 
