@@ -58,12 +58,20 @@ def _read(*parts):
 # #138 (2026-08-03): the 4 legacy creation forms (mso_form, so_form, form_po,
 # form_rec) were REMOVED from the repo -- see LIVE_PAGES / TestPageSyncGuards
 # below. TestCreationForms and its FORM_PAGES / FORM_ENDPOINTS censuses went
-# with them; the live creation forms are now /mso-plan-form, /gbs-so-form-v2
-# and /gbs-po-form-v2, which are site-owned and out of this file's scope.
+# with them; the live creation forms are /mso-plan-form, /gbs-so-form-v2 and
+# /gbs-po-form-v2.
+#
+# #61 (2026-08-03): those three were still SITE-ONLY -- they existed on
+# team.ecentric.vn and nowhere else, so a rebuild would have lost them and no
+# review could see what they contained. They are now imported VERBATIM (byte
+# round-trip verified against live) and join LIVE_PAGES, which means they are
+# covered by the Jinja-free scan, the static-serving wiring census and the
+# drift-lock guards below like every other repo-owned legacy page.
 
-# The only legacy_pages folders that still ship a repo snapshot + page_sync.
+# The only legacy_pages folders that ship a repo snapshot + page_sync.
 # home is separate: it is guarded/zero-write and has no main_section.html.
-LIVE_PAGES = ("all_ticket", "approval_page", "docs_architecture", "docs_gbsflow")
+LIVE_PAGES = ("all_ticket", "approval_page", "docs_architecture", "docs_gbsflow",
+              "gbs_po_form_v2", "gbs_so_form_v2", "mso_plan_form")
 
 
 class TestEndpointCensus(unittest.TestCase):
@@ -199,7 +207,9 @@ class TestStaticServingSafety(unittest.TestCase):
                 continue
             self.assertIn("ensure_static_serving", _read(LP, slug, "page_sync.py"), slug)
             n += 1
-        # #138: was 13; 9 dead folders deleted 2026-08-03, leaving LIVE_PAGES.
+        # #138: was 13; 9 dead folders deleted 2026-08-03, leaving 4.
+        # #61: +3 (mso_plan_form, gbs_so_form_v2, gbs_po_form_v2) imported from
+        # live the same day, so the census is back to len(LIVE_PAGES) = 7.
         self.assertEqual(n, len(LIVE_PAGES))  # home exempt, guarded
 
     def test_serving_module_fail_open(self):
@@ -224,16 +234,29 @@ class TestPageSyncModules(unittest.TestCase):
         return importlib.import_module("ecentric_workspace.legacy_pages." + name + ".page_sync")
 
     def test_html_is_verbatim_file(self):
-        for name, fname in (("approval_page", "approval_page"), ("all_ticket", "all_ticket")):
+        # #61: every repo-owned legacy page, not just the original two. _html()
+        # must hand back the file byte-for-byte, otherwise BASELINE_SHA256 (which
+        # is the sha of the FILE) would not describe what sync() actually writes
+        # and the drift lock would refuse on a site that never drifted.
+        for name in LIVE_PAGES:
             mod = self._mod(name)
-            self.assertEqual(mod._html(), _read(LP, fname, "main_section.html"),
+            self.assertEqual(mod._html(), _read(LP, name, "main_section.html"),
                              name + ": _html() must be the exact file (idempotency)")
 
     def test_live_identity_constants(self):
-        m1 = self._mod("approval_page")
-        self.assertEqual((m1.ROUTE, m1.NAME, m1.TITLE), ("approval", "approval-page", "Approval"))
-        m2 = self._mod("all_ticket")
-        self.assertEqual((m2.ROUTE, m2.NAME, m2.TITLE), ("all-ticket", "all-ticket", "All Ticket"))
+        # ROUTE/NAME/TITLE must equal what live already holds, or the first sync
+        # after deploy would "update" instead of returning "unchanged".
+        expected = {
+            "approval_page": ("approval", "approval-page", "Approval"),
+            "all_ticket": ("all-ticket", "all-ticket", "All Ticket"),
+            # #61, read off live team.ecentric.vn at import time:
+            "mso_plan_form": ("mso-plan-form", "mso-plan-form", "MSO Plan Form"),
+            "gbs_so_form_v2": ("gbs-so-form-v2", "gbs-so-form-v2", "gbs-so-form-v2"),
+            "gbs_po_form_v2": ("gbs-po-form-v2", "gbs-po-form-v2", "gbs-po-form-v2"),
+        }
+        for name, want in expected.items():
+            m = self._mod(name)
+            self.assertEqual((m.ROUTE, m.NAME, m.TITLE), want, name)
 
 
 class TestPageSyncGuards(unittest.TestCase):
@@ -277,11 +300,93 @@ class TestPageSyncGuards(unittest.TestCase):
                 self.fail(slug + ": whitelisted endpoint must take no arguments")
 
     def test_util_defaults_are_backward_compatible(self):
-        """The 22 Approval Center callers keep their historical behaviour."""
+        """Any caller that passes neither guard keeps the historical behaviour."""
         src = _read(APP, "approval_center", "page_sync_util.py")
         self.assertIn("def upsert_web_page(route, name, title, html, publish=1, expect_sha=None)", src)
         self.assertIn("def content_sha256(", src)
         self.assertIn('"action": "refused"', src)
+        # #144: the third publish mode. "preserve" keeps live's flag on an
+        # existing page but creates a NEW page published -- publish=None would
+        # create it hidden and the route would 404 until somebody noticed.
+        self.assertIn('if publish == "preserve":', src)
+        self.assertIn("want_published = doc.published if existing else 1", src)
+        self.assertIn("want_published = doc.published if existing else 0", src)
+
+
+class TestApprovalCenterPageSyncGuards(unittest.TestCase):
+    """#144 (2026-08-03). The legacy pages were locked down under #138, but the
+    27 Approval Center page_sync modules were still unguarded: each one would
+    overwrite its live Web Page with the repo snapshot on any call, so a single
+    stray POST to a sync endpoint could revert an edit made on the site.
+
+    Every module must now (a) pass publish="preserve", (b) pin a BASELINE_SHA256
+    so upsert_web_page REFUSES to write on live drift, and (c) keep its
+    whitelisted endpoint argument-free so force=1 is unreachable over HTTP.
+
+    BASELINE_SHA256 here is the sha of what _html() RETURNS, not of a file on
+    disk: several modules compose their HTML (payment_request injects the e-sign
+    panel, dashboard stitches sections), so there is no single file to hash.
+    That is why this test checks shape and presence only; the byte-level match
+    against live was verified at import time and is re-checked by sync() itself
+    every time it runs."""
+
+    AC = os.path.join(APP, "approval_center")
+
+    def _modules(self):
+        """EVERY sync module under approval_center, at any depth.
+
+        The first sweep of #144 walked approval_center/<type>/page_sync.py only
+        and therefore missed hub_page_sync.py, which sits directly under
+        approval_center/ and syncs the /approvals HUB -- the most-visited page of
+        the lot, and at that point the only one still running with both guards
+        off. Walking the tree instead of globbing one fixed depth is what stops
+        that from happening again: a new module in a new place is picked up
+        automatically and fails this test until it is guarded."""
+        for root, _dirs, files in os.walk(self.AC):
+            if "__pycache__" in root or "/tests" in root.replace(os.sep, "/"):
+                continue
+            for f in sorted(files):
+                if f == "page_sync.py" or f.endswith("_page_sync.py"):
+                    rel = os.path.relpath(os.path.join(root, f), self.AC)
+                    yield rel, _read(root, f)
+
+    def test_every_module_is_guarded(self):
+        n = 0
+        for slug, src in self._modules():
+            n += 1
+            self.assertIn('publish="preserve"', src, slug + ": missing publish=preserve")
+            self.assertIn("expect_sha=None if force else", src, slug + ": missing drift lock")
+            self.assertIn("def sync(html=None, force=0)", src, slug + ": sync() signature")
+            ns = {}
+            for line in src.splitlines():
+                if line.startswith("BASELINE_SHA256"):
+                    exec(line, ns)          # noqa: S102 -- a single literal assignment
+                    break
+            self.assertIn("BASELINE_SHA256", ns, slug + ": missing BASELINE_SHA256")
+            self.assertRegex(ns["BASELINE_SHA256"], r"^[0-9a-f]{64}$",
+                             slug + ": BASELINE_SHA256 must be a sha256 hex digest")
+            self.assertIn("SUPERSEDES_SHA256", src, slug + ": missing SUPERSEDES_SHA256")
+        # 27 per-type modules + hub_page_sync.py (/approvals).
+        self.assertEqual(n, 28, "expected 28 Approval Center sync modules, found %d" % n)
+
+    def test_no_module_hand_rolls_its_own_upsert(self):
+        """7 modules used to carry a private copy of the lookup/insert/update
+        logic, which is exactly why the drift lock could not reach them. They all
+        delegate to the shared helper now, and must keep doing so."""
+        for slug, src in self._modules():
+            self.assertIn("page_sync_util.upsert_web_page(", src, slug)
+            for hand_rolled in ("frappe.new_doc(\"Web Page\")", "doc.save(ignore_permissions=True)"):
+                self.assertNotIn(hand_rolled, src,
+                                 slug + ": re-implements the upsert instead of delegating")
+
+    def test_endpoints_cannot_force(self):
+        """No caller can pass force=1 and disarm the drift lock over HTTP."""
+        for slug, src in self._modules():
+            for line in src.splitlines():
+                if line.startswith("def sync_") and line.rstrip().endswith("():"):
+                    break
+            else:
+                self.fail(slug + ": whitelisted endpoint must take no arguments")
 
 
 if __name__ == "__main__":

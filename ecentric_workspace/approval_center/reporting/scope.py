@@ -22,11 +22,49 @@ ADMIN_ROLES = ("System Manager", "Approval Admin")
 
 
 def _managed_departments(user):
-    """Departments whose department_head is an Employee of this user. Fail-closed -> []."""
-    emps = frappe.get_all("Employee", filters={"user_id": user}, pluck="name")
-    if not emps:
+    """Departments this user heads. Fail-closed -> [].
+
+    #139 (2026-08-03): this used to query Department.department_head unconditionally.
+    That column does not exist on this site -- Department here is stock ERPNext plus a
+    local set of Custom Fields, and the head is recorded on `manager_email` (a User
+    email), not on an Employee link. Every call therefore raised
+    (1054, "Unknown column 'department_head' in 'WHERE'"), which propagated out of
+    resolve_scope and killed reporting.api.get_dashboard for EVERY non-admin caller
+    (admins return before this line). 418 Error Log rows between 2026-07-19 and
+    2026-08-03 are exactly this.
+
+    The lookup is now meta-driven and never assumes a column. It reads the SAME two
+    sources, in the SAME order, as engine.service.resolve_department_manager_user --
+    Department.department_head -> Employee.user_id first, then Department.manager_email
+    as a direct user -- so "who the dashboard treats as head of a department" can never
+    disagree with "who the engine routes that department's approvals to". A field that
+    does not exist is skipped, not queried; when neither exists the result is []
+    (fail-closed) and the caller falls through to the approver/requester tier.
+    """
+    if not user or user == "Guest":
         return []
-    return frappe.get_all("Department", filters={"department_head": ["in", emps]}, pluck="name")
+    meta = frappe.get_meta("Department")
+    found = []
+    if meta.has_field("department_head"):
+        emps = frappe.get_all("Employee", filters={"user_id": user}, pluck="name")
+        if emps:
+            found += frappe.get_all(
+                "Department",
+                filters={"department_head": ["in", emps], "disabled": 0},
+                pluck="name",
+            )
+    if meta.has_field("manager_email"):
+        found += frappe.get_all(
+            "Department",
+            filters={"manager_email": user, "disabled": 0},
+            pluck="name",
+        )
+    seen, out = set(), []
+    for d in found:
+        if d not in seen:
+            seen.add(d)
+            out.append(d)
+    return out
 
 
 def resolve_scope(user=None):

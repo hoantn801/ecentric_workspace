@@ -274,11 +274,45 @@ class TestSystemRequest(FrappeTestCase):
         self.assertEqual(r1["action"], "created")
         self.assertEqual(page_sync.sync()["action"], "unchanged")           # re-run: no insert
         self.assertEqual(page_sync.sync(html="<div>x</div>")["action"], "updated")
+        # #144: live now holds "<div>x</div>", which is NOT the snapshot this commit
+        # ships, so a plain re-sync is REFUSED -- that is the drift lock doing its job
+        # (asserted on its own in test_page_sync_drift_lock below).
+        self.assertEqual(page_sync.sync()["action"], "refused")
         # simulate a partial-migrate page whose route drifted: a plain route lookup would miss,
-        # but the slug-named page still exists -> re-sync must ADOPT+UPDATE it (no DuplicateEntryError)
+        # but the slug-named page still exists -> re-sync must ADOPT+UPDATE it (no DuplicateEntryError).
+        # force=1 drops ONLY the drift lock; it is the documented escape hatch and it also
+        # restores the shipped snapshot for whatever test runs next.
         frappe.db.set_value("Web Page", r1["name"], "route", "zz-drift/" + slug)
-        r2 = page_sync.sync()
+        r2 = page_sync.sync(force=1)
         self.assertEqual(r2["action"], "updated")
         self.assertEqual(r2["name"], r1["name"])
         self.assertEqual(frappe.db.get_value("Web Page", r1["name"], "route"), page_sync.ROUTE)
         self.assertEqual(frappe.db.count("Web Page", {"name": r1["name"]}), 1)
+
+    def test_page_sync_drift_lock(self):
+        """#144: a repo snapshot must never silently revert an edit made on the site."""
+        if not frappe.db.exists("DocType", "Web Page"):
+            self.skipTest("Web Page DocType not installed")
+        page_sync.sync(force=1)                                   # start from the shipped snapshot
+        name = page_sync.sync()["name"]
+        frappe.db.set_value("Web Page", name, "main_section_html", "<div>edited on the site</div>")
+        frappe.db.commit()
+        res = page_sync.sync()
+        self.assertEqual(res["action"], "refused")                # writes nothing
+        self.assertEqual(frappe.db.get_value("Web Page", name, "main_section_html"),
+                         "<div>edited on the site</div>")         # live edit survived
+        self.assertEqual(page_sync.sync(force=1)["action"], "updated")   # escape hatch works
+        self.assertEqual(page_sync.sync()["action"], "unchanged")        # back on baseline
+
+    def test_page_sync_preserves_unpublished(self):
+        """#144: re-syncing must not undo a deliberate un-publish."""
+        if not frappe.db.exists("DocType", "Web Page"):
+            self.skipTest("Web Page DocType not installed")
+        page_sync.sync(force=1)
+        name = page_sync.sync()["name"]
+        frappe.db.set_value("Web Page", name, "published", 0)
+        frappe.db.commit()
+        page_sync.sync()
+        self.assertEqual(frappe.db.get_value("Web Page", name, "published"), 0)
+        frappe.db.set_value("Web Page", name, "published", 1)
+        frappe.db.commit()

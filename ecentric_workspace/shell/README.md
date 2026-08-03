@@ -72,6 +72,20 @@ node ecentric_workspace/shell/tests/ec_shell_check.js
    - `…approval_center.leave.page_sync.sync_leave_page`
    - `…approval_center.hr_activity.page_sync.sync_hr_activity_page`
    - `…approval_center.dashboard.page_sync.sync_dashboard_page`
+
+   **Expected result on a clean deploy: `{"action": "unchanged"}` for every
+   page.** Since #144 every sync module is drift-locked: it writes only when the
+   live `main_section_html` still hashes to the module's `BASELINE_SHA256` (or
+   to a value listed in `SUPERSEDES_SHA256`). Anything else returns
+   `{"action": "refused"}` and writes **nothing** — that is not a failure, it is
+   the guard reporting that live was edited on the site after the repo snapshot
+   was taken. Do NOT reach for `force=1` (it is unreachable over HTTP by design,
+   see `TestApprovalCenterPageSyncGuards.test_endpoints_cannot_force`); re-snapshot
+   live into the repo and bump the constant instead.
+
+   The same modules pass `publish="preserve"`, so re-syncing never re-publishes a
+   page an operator deliberately turned off; only a page that does not exist yet
+   is created published.
 6. **Cache clear** (page sync): `frappe.website.doctype.web_page…` route cache —
    use the existing force_clear_cache step from the proven deploy scripts.
 7. **Smoke tests** (prod): the 4 routes render; correct active item; bell badge

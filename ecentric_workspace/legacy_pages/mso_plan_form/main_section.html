@@ -1,0 +1,1081 @@
+<script id="ec-csrf-fetch-patch">
+(function(){
+  if (window.ecFetchPatched) return;
+  window.ecFetchPatched = true;
+  var origFetch = window.fetch;
+  function getCsrf() {
+    return (window.frappe && window.frappe.csrf_token) ||
+           (window.CTX && window.CTX.csrfToken) ||
+           window.csrf_token ||
+           (document.cookie.match(/csrf_token=([^;]+)/) || [])[1] ||
+           'token';
+  }
+  window.fetch = function(url, opts) {
+    opts = opts || {};
+    var u = (typeof url === 'string') ? url : (url && url.url) || '';
+    var method = (opts.method || 'GET').toUpperCase();
+    var isApi = u.indexOf('/api/method/') >= 0 || u.indexOf('/api/resource/') >= 0;
+    if (isApi && method !== 'GET' && method !== 'HEAD') {
+      opts.headers = opts.headers || {};
+      if (opts.headers.set && typeof opts.headers.set === 'function') {
+        if (!opts.headers.get('X-Frappe-CSRF-Token')) {
+          opts.headers.set('X-Frappe-CSRF-Token', getCsrf());
+        }
+      } else {
+        var hasToken = false;
+        for (var k in opts.headers) {
+          if (k.toLowerCase() === 'x-frappe-csrf-token') { hasToken = true; break; }
+        }
+        if (!hasToken) {
+          opts.headers['X-Frappe-CSRF-Token'] = getCsrf();
+        }
+      }
+      if (opts.credentials === undefined) opts.credentials = 'include';
+    }
+    return origFetch.call(window, url, opts);
+  };
+  console.log('[ec-csrf] fetch wrapper installed');
+})();
+</script><style>
+  /* Hide Frappe default navbar + footer to give full-screen workspace */
+  body > header,
+  body > footer,
+  body > nav.navbar,
+  header.navbar,
+  .navbar.navbar-light,
+  .web-page-header,
+  #navbarSupportedContent,
+  .navbar-collapse {
+    display: none !important;
+  }
+  body { padding: 0 !important; margin: 0 !important; }
+  body main { padding-top: 0 !important; }
+  body .main-section, body main.container, body main.fluid {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  /* If Frappe wraps page content in a container, expand it */
+  body .page_content { padding: 0 !important; }
+</style><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+body { margin: 0 !important; padding: 0 !important; background: #f7f8fb !important; font-family: 'Inter', system-ui, sans-serif !important; }
+body header.navbar, footer.web-footer, .web-footer { display: none !important; }
+.page-content, .common-page-style, .container, main.col, .web-page-content, .page_content, .for-web-view { padding: 0 !important; margin: 0 !important; max-width: none !important; width: 100% !important; }
+
+#ec-shell { display: grid; grid-template-columns: 264px 1fr; min-height: 100vh; font-family: 'Inter', system-ui, sans-serif; color: #1f2937; font-size: 14px; line-height: 1.5; }
+#ec-shell .ec-sb { background: white; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; box-sizing: border-box; }
+#ec-shell .ec-sb-header { padding: 18px 18px 10px; }
+#ec-shell .ec-sb-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+#ec-shell .ec-sb-brand:hover { text-decoration: none; }
+#ec-shell .ec-sb-logo { width: 40px; height: 40px; flex-shrink: 0; display: block; object-fit: contain; }
+#ec-shell .ec-sb-name { font-size: 15px; font-weight: 700; color: #111827; line-height: 1.2; letter-spacing: -0.3px; }
+#ec-shell .ec-sb-search { margin: 4px 16px 10px; position: relative; }
+#ec-shell .ec-sb-search input { width: 100%; padding: 8px 12px 8px 34px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; background: #fafbfc; font-family: inherit; outline: none; transition: border-color .15s, background .15s; }
+#ec-shell .ec-sb-search input:focus { border-color: #2C3DA6; background: white; }
+#ec-shell .ec-sb-search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #9ca3af; stroke: currentColor; fill: none; stroke-width: 1.75; pointer-events: none; }
+#ec-shell .ec-sb-kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: #9ca3af; background: white; border: 1px solid #e5e7eb; padding: 1px 5px; border-radius: 4px; pointer-events: none; }
+#ec-shell .ec-sb-nav { padding: 4px 8px 8px; flex: 1; overflow-y: auto; }
+#ec-shell .ec-sb-label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.6px; padding: 12px 12px 4px; }
+#ec-shell .ec-sb-link { display: grid !important; grid-template-columns: 18px 1fr !important; column-gap: 11px !important; align-items: center !important; padding: 8px 12px; border-radius: 6px; color: #4b5563; text-decoration: none; font-size: 13.5px; font-weight: 500; margin-bottom: 1px; transition: background .15s, color .15s; }
+#ec-shell .ec-sb-link:hover { background: #f3f4f6; color: #111827; text-decoration: none; }
+#ec-shell .ec-sb-link.active { background: #eef0fb; color: #2C3DA6; font-weight: 600; }
+#ec-shell .ec-sb-link.active svg { stroke-width: 2; }
+#ec-shell .ec-sb-link svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; grid-column: 1; }
+#ec-shell .ec-sb-link span { grid-column: 2; text-align: left; }
+#ec-shell .ec-sb-footer { padding: 12px; border-top: 1px solid #f3f4f6; display: flex; align-items: center; gap: 8px; }
+#ec-shell .ec-sb-user-card { flex: 1; display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; min-width: 0; }
+#ec-shell .ec-sb-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #2C3DA6, #EF7CAF); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+#ec-shell .ec-sb-user-info { flex: 1; min-width: 0; }
+#ec-shell .ec-sb-user-name { font-size: 13px; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ec-shell .ec-sb-user-role { font-size: 11px; color: #6b7280; }
+#ec-shell .ec-sb-logout { width: 36px; height: 36px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: transparent; border: none; color: #6b7280; cursor: pointer; transition: background .15s, color .15s; }
+#ec-shell .ec-sb-logout:hover { background: #fee2e2; color: #dc2626; }
+#ec-shell .ec-sb-logout svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+#ec-shell .ec-main { min-width: 0; display: flex; flex-direction: column; }
+#ec-shell .ec-tb { background: white; border-bottom: 1px solid #e5e7eb; padding: 10px 28px; display: flex; align-items: center; justify-content: space-between; gap: 16px; position: sticky; top: 0; z-index: 9; }
+#ec-shell .ec-bc { font-size: 13px; color: #6b7280; display: flex; align-items: center; gap: 6px; }
+#ec-shell .ec-bc a { color: #6b7280; text-decoration: none; }
+#ec-shell .ec-bc a:hover { color: #2C3DA6; }
+#ec-shell .ec-bc .sep { color: #d1d5db; }
+#ec-shell .ec-bc strong { color: #111827; font-weight: 600; }
+#ec-shell .ec-tb-actions { display: flex; gap: 4px; }
+#ec-shell .ec-ib { width: 36px; height: 36px; border-radius: 8px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #6b7280; position: relative; transition: all .15s; text-decoration: none; }
+#ec-shell .ec-ib:hover { background: #f3f4f6; color: #111827; }
+#ec-shell .ec-ib .dot { position: absolute; top: 8px; right: 9px; width: 6px; height: 6px; background: #EF7CAF; border-radius: 50%; border: 2px solid white; }
+#ec-shell .ec-content { padding: 0; }
+#ec-shell .ec-content > * { max-width: 100%; }
+
+@media (max-width: 1100px) {
+  #ec-shell { grid-template-columns: 64px 1fr; }
+  #ec-shell .ec-sb-name, #ec-shell .ec-sb-label, #ec-shell .ec-sb-link span, #ec-shell .ec-sb-search, #ec-shell .ec-sb-user-info { display: none; }
+  #ec-shell .ec-sb-link { grid-template-columns: 1fr !important; justify-items: center !important; }
+  #ec-shell .ec-sb-brand { justify-content: center; }
+  #ec-shell .ec-sb-footer { justify-content: center; }
+}
+</style><style id="ec-polish-overrides">
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+#ec-shell {
+  --navy: #2C3DA6 !important;
+  --navy2: #3d52cc !important;
+  --navy-light: rgba(44,61,166,0.08) !important;
+  --gold: #FFC000 !important;
+  --gold2: #FFD440 !important;
+  --gold-light: rgba(255,192,0,0.14) !important;
+  --gold-border: rgba(255,192,0,0.4) !important;
+  --bg: #f7f8fb !important;
+  --border: #e5e7eb !important;
+  --text: #1f2937 !important;
+  --muted: #6b7280 !important;
+  --muted2: #9ca3af !important;
+  --radius: 8px !important;
+  --radius-lg: 12px !important;
+}
+#ec-shell *, #ec-shell *::before, #ec-shell *::after { font-family: 'Inter', system-ui, sans-serif !important; }
+#ec-shell .form-card { box-shadow: 0 1px 3px rgba(15,23,42,0.06); border-color: var(--border); }
+#ec-shell .form-header { background: linear-gradient(135deg, #2C3DA6 0%, #3d52cc 100%) !important; padding: 28px 36px 24px !important; }
+#ec-shell .form-header::after { background: rgba(255,192,0,0.18) !important; }
+#ec-shell .form-header h1 { letter-spacing: -0.5px; font-weight: 700 !important; font-size: 22px !important; }
+#ec-shell .form-header p { color: rgba(255,255,255,0.85) !important; font-size: 13px; }
+#ec-shell .header-badge { background: rgba(255,192,0,0.22) !important; border: 1px solid rgba(255,192,0,0.5) !important; color: #FFD440 !important; font-feature-settings: 'tnum'; font-variant-numeric: tabular-nums; letter-spacing: 0.3px; padding: 4px 11px !important; }
+#ec-shell .id-display { background: rgba(255,255,255,0.1) !important; border-color: rgba(255,255,255,0.2) !important; }
+#ec-shell .id-display span:last-child { color: #FFD440 !important; font-feature-settings: 'tnum'; font-variant-numeric: tabular-nums; }
+#ec-shell .section-title-text { font-weight: 700 !important; letter-spacing: 0.6px !important; color: #6b7280 !important; }
+#ec-shell .section-title-icon { background: #eef0fb !important; }
+#ec-shell .section-title-icon svg { color: #2C3DA6 !important; }
+#ec-shell .field-label { font-weight: 600 !important; font-size: 12px !important; color: #4b5563 !important; }
+#ec-shell .f-control { border-radius: 8px !important; padding: 10px 13px !important; font-size: 13.5px !important; background: white !important; transition: border-color .15s, box-shadow .15s; }
+#ec-shell .f-control:hover { border-color: #d1d5db !important; }
+#ec-shell .f-control:focus { border-color: #2C3DA6 !important; box-shadow: 0 0 0 3px rgba(44,61,166,0.12) !important; }
+#ec-shell .num-wrap .f-control, #ec-shell .currency-prefix { font-family: 'Inter', system-ui, sans-serif !important; font-feature-settings: 'tnum' !important; font-variant-numeric: tabular-nums !important; }
+#ec-shell .upload-zone { border-radius: 12px !important; }
+#ec-shell .upload-zone:hover, #ec-shell .upload-zone.drag-over { background: rgba(44,61,166,0.05) !important; border-color: #2C3DA6 !important; }
+#ec-shell .form-footer { background: #fafbfc !important; padding: 18px 36px !important; }
+#ec-shell .btn { padding: 10px 20px !important; border-radius: 8px !important; font-weight: 600 !important; font-size: 13.5px !important; }
+#ec-shell .btn-submit { background: #2C3DA6 !important; color: white !important; }
+#ec-shell .btn-submit:hover { background: #1f2d80 !important; box-shadow: 0 4px 12px rgba(44,61,166,0.25) !important; transform: translateY(-1px); }
+#ec-shell .btn-draft { background: rgba(255,192,0,0.15) !important; color: #b88600 !important; border-color: rgba(255,192,0,0.45) !important; }
+#ec-shell .btn-draft:hover { background: rgba(255,192,0,0.25) !important; }
+#ec-shell .btn-cancel:hover { background: #f3f4f6 !important; color: #1f2937 !important; }
+#ec-shell .expense-total { background: linear-gradient(135deg, #2C3DA6 0%, #3d52cc 100%) !important; border-radius: 12px !important; padding: 16px 20px !important; }
+#ec-shell .expense-total-value { font-feature-settings: 'tnum' !important; font-variant-numeric: tabular-nums !important; letter-spacing: -0.3px; }
+#ec-shell .back-link { background: white !important; border-color: var(--border) !important; border-radius: 8px !important; padding: 6px 12px 6px 8px !important; }
+#ec-shell .back-link:hover { color: #2C3DA6 !important; border-color: #2C3DA6 !important; background: #eef0fb !important; }
+#ec-shell #chainPreview { border-radius: 12px !important; box-shadow: 0 1px 3px rgba(15,23,42,0.06) !important; padding: 18px !important; }
+#ec-shell #chainPreview .cp-num { background: #2C3DA6 !important; }
+#ec-shell #chainPreview .cp-step-final .cp-num { background: #10b981 !important; }
+#ec-shell #chainPreview .cp-step { background: #fafbfc !important; border-color: var(--border) !important; }
+#ec-shell #chainPreview .cp-step-email { font-family: 'Inter', sans-serif !important; font-feature-settings: 'tnum' !important; opacity: 0.7; }
+#ec-shell .toast { border-radius: 10px !important; box-shadow: 0 8px 24px rgba(15,23,42,0.12) !important; }
+#ec-shell .form-section { padding: 26px 36px !important; }
+#ec-shell .line-item, #ec-shell .so-line, #ec-shell .item-card { border-radius: 12px !important; }
+#ec-shell table { border-radius: 8px; overflow: hidden; }
+
+/* Phase 8.14 — Form polish fixes */
+/* Fix 1: Auto-generated/readonly fields visual */
+#ec-shell .f-control[readonly], #ec-shell .f-control:disabled, #ec-shell input[placeholder*="Tự sinh"], #ec-shell input[placeholder*="Auto"], #ec-shell input[placeholder*="Sẽ fill"] {
+  background: #f3f4f6 !important;
+  color: #9ca3af !important;
+  cursor: not-allowed !important;
+  border-style: dashed !important;
+  border-color: #d1d5db !important;
+}
+#ec-shell .f-control[readonly]:focus, #ec-shell .f-control:disabled:focus { box-shadow: none !important; border-color: #d1d5db !important; }
+/* Status pending field readonly — match the pattern */
+#ec-shell input[value="Pending"][readonly], #ec-shell input[id*="status"][readonly] {
+  background: #fffbeb !important;
+  color: #b88600 !important;
+  border-color: #fde68a !important;
+  font-weight: 500;
+}
+
+/* Fix 3: Chain Preview sticky fix — no clip */
+#ec-shell #chainPreview {
+  position: sticky !important;
+  top: 70px !important;
+  max-height: calc(100vh - 100px) !important;
+  overflow-y: auto !important;
+  margin-bottom: 20px;
+}
+
+/* Fix 4: Currency prefix no overlap */
+#ec-shell .num-wrap .f-control { padding-left: 36px !important; }
+#ec-shell .currency-prefix { left: 14px !important; font-size: 13px !important; color: #9ca3af !important; font-weight: 600 !important; }
+/* Pending dot — no overlap text */
+#ec-shell input[value="Pending"][readonly], #ec-shell .pending-field { padding-left: 28px !important; background-image: url("data:image/svg+xml,%3Csvg width='8' height='8' viewBox='0 0 8 8' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='4' cy='4' r='4' fill='%23FFC000'/%3E%3C/svg%3E") !important; background-repeat: no-repeat !important; background-position: 12px center !important; }
+
+/* Fix 5: Alert / Notice — flex align */
+#ec-shell .alert, #ec-shell .form-notice, #ec-shell .notice, #ec-shell .alert-warning, #ec-shell .alert-info, #ec-shell .form-warning {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+  padding: 14px 18px !important;
+  border-radius: 10px !important;
+  line-height: 1.5;
+}
+#ec-shell .alert > svg, #ec-shell .alert > .icon, #ec-shell .form-notice > svg, #ec-shell .notice > svg { flex-shrink: 0 !important; margin-top: 2px !important; }
+/* Yellow-bordered warning specifically */
+#ec-shell [style*="border-color: rgb(252, 211, 77)"], #ec-shell [class*="warning"], #ec-shell [class*="warn"] { display: flex !important; align-items: flex-start !important; gap: 12px !important; }
+/* Link-banner specifically (PO/SO/REC alerts) */
+#ec-shell .link-banner { display: flex !important; align-items: flex-start !important; gap: 12px !important; padding: 14px 18px !important; }
+#ec-shell .link-banner > svg, #ec-shell .link-banner > .icon { flex-shrink: 0 !important; margin-top: 2px !important; width: 18px !important; height: 18px !important; }
+#ec-shell .link-banner p { margin: 0 !important; padding: 0 !important; line-height: 1.5 !important; }
+
+/* Phase 8.15 — Animate submit icon during loading
+   PO/REC forms set btn.style.opacity='.7' + pointer-events='none' when fetching.
+   Match that inline style and spin any SVG inside. */
+@keyframes ec-btn-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+#ec-shell .btn-submit[style*="opacity"] svg,
+#ec-shell .btn-submit[style*="pointer-events"] svg,
+#ec-shell .btn-submit.loading svg,
+#ec-shell button[type="submit"][style*="opacity"] svg {
+  animation: ec-btn-spin 0.9s linear infinite !important;
+  transform-origin: center !important;
+}
+</style>
+<div id="ec-shell">
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><a class="ec-shell-item" href="/home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><div class="ec-shell-grouplabel">Phê duyệt</div><a class="ec-shell-item" href="/approvals"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Approval Center</span></a><a class="ec-shell-item" href="/approvals/dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Dashboard</span></a><div class="ec-shell-grouplabel">Chứng từ</div><a class="ec-shell-item" href="/all-ticket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Dashboard</span></a><a class="ec-shell-item" href="/approval"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>All Tickets</span></a><div class="ec-shell-grouplabel">Tạo mới</div><a class="ec-shell-item ec-shell-active" href="/mso-plan-form" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>MSO Request</span></a><a class="ec-shell-item" href="/gbs-so-form-v2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>SO Request</span></a><a class="ec-shell-item" href="/gbs-po-form-v2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>PO Request</span></a><button type="button" class="ec-shell-item ec-shell-subtoggle" data-ec-shell-subtoggle="docs.guides" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Hướng dẫn</span><svg class="ec-shell-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="ec-shell-children" hidden data-ec-shell-children="docs.guides"><a class="ec-shell-item ec-shell-child" href="/docs/architecture"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Docs / Architecture</span></a><a class="ec-shell-item ec-shell-child" href="/docs/gbs-flow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>GBS Flow &amp; Definitions</span></a></div></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
+  <main class="ec-main">
+    <div class="ec-tb">
+      <div class="ec-bc ec-shell-crumbs" data-ec-shell-crumbs="1"><span class="ec-shell-crumb-group">Tạo mới</span><span class="sep ec-shell-crumb-sep">/</span><strong class="ec-shell-crumb-current">MSO Request</strong></div>
+      <div class="ec-tb-actions">
+        <div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Nhắc việc" title="Nhắc việc" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><a class="ec-shell-iconbtn" href="/app/notification-log" data-ec-notification-bell="1" aria-label="Thông báo" title="Thông báo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></a><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div>
+      </div>
+    </div>
+    <div class="ec-content">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #1a2355; --navy2: #242f6b; --navy-light: rgba(26,35,85,0.06);
+  --gold: #c8962e; --gold2: #e8b84b; --gold-light: rgba(200,150,46,0.12); --gold-border: rgba(200,150,46,0.3);
+  --bg: #f0f2f8; --surface: #fff; --border: #dde0ed;
+  --text: #1a2355; --muted: #7b82a0; --muted2: #a0a6bf;
+  --danger: #c0392b; --danger-bg: #fff0f0; --danger-border: #f5c6c6;
+  --success: #166534; --success-bg: #f0fdf4; --success-border: #bbf7d0;
+  --warn: #f59e0b; --warn-bg: #fffbeb; --warn-border: #fcd34d;
+  --radius: 10px; --radius-lg: 14px;
+  --brand: #4f46e5;
+}
+/* Chain Preview Sidebar (Phase 8.1) — 2-column layout */
+.page-wrap { display: grid; grid-template-columns: 1fr 290px; gap: 28px; align-items: start; }
+.page-wrap > .back-link { grid-column: 1 / -1; justify-self: start; }
+.page-wrap > .form-card { grid-column: 1; min-width: 0; }
+#chainPreview { grid-column: 2; position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); font-size: 12px; }
+#chainPreview.collapsed { padding: 12px; max-height: 50px; overflow: hidden; }
+#chainPreview .cp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+#chainPreview .cp-title { font-weight: 700; font-size: 12px; color: var(--text); display: flex; align-items: center; gap: 6px; }
+#chainPreview .cp-toggle { background: none; border: 1px solid var(--border); width: 24px; height: 24px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+#chainPreview.collapsed .cp-head { margin: 0; }
+#chainPreview.collapsed .cp-title, #chainPreview.collapsed .cp-body, #chainPreview.collapsed .cp-meta { display: none; }
+#chainPreview .cp-meta { font-size: 10px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
+#chainPreview .cp-meta strong { color: var(--text); font-weight: 600; }
+#chainPreview .cp-step { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: var(--bg); }
+#chainPreview .cp-num { width: 24px; height: 24px; border-radius: 50%; background: var(--brand); color: #fff; font-weight: 700; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+#chainPreview .cp-step-final .cp-num { background: #16a34a; }
+#chainPreview .cp-step-info { flex: 1; min-width: 0; }
+#chainPreview .cp-step-role { font-weight: 600; color: var(--text); font-size: 12px; }
+#chainPreview .cp-step-who { font-size: 11px; color: var(--muted); margin-top: 2px; word-break: break-all; }
+#chainPreview .cp-step-email { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted2); margin-top: 4px; word-break: break-all; opacity: 0.75; letter-spacing: -0.1px; }
+#chainPreview .cp-step-warn { font-size: 10px; color: var(--danger); margin-top: 4px; line-height: 1.3; padding: 4px 6px; background: var(--danger-bg); border-radius: 4px; }
+#chainPreview .cp-cc { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+#chainPreview .cp-cc-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 6px; }
+#chainPreview .cp-cc-email { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted2); padding: 4px 8px; background: var(--bg); border-radius: 4px; margin-bottom: 4px; word-break: break-all; }
+#chainPreview .cp-empty { padding: 20px 12px; text-align: center; color: var(--muted); font-size: 11px; line-height: 1.5; background: var(--bg); border-radius: 8px; }
+@media (max-width: 1100px) {
+  .page-wrap { grid-template-columns: 1fr; }
+  .page-wrap > .form-card { grid-column: 1; }
+  #chainPreview { grid-column: 1; position: static; max-height: none; }
+}
+* { font-family: 'DM Sans', system-ui, sans-serif; }
+body { background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; min-height: 100vh; }
+.page-wrap { max-width: 1380px; margin: 0 auto; padding: 28px 28px 80px; }
+.back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); text-decoration: none; margin-bottom: 18px; padding: 5px 10px 5px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; transition: all .18s; }
+.back-link:hover { color: var(--navy); border-color: var(--navy); background: var(--navy-light); }
+.back-link svg { width: 14px; height: 14px; }
+.form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.form-header { background: var(--navy); padding: 32px 40px 28px; position: relative; overflow: hidden; }
+.form-header::before { content: ''; position: absolute; top: -40px; right: -30px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.04); pointer-events: none; }
+.form-header::after { content: ''; position: absolute; bottom: -60px; right: 80px; width: 130px; height: 130px; border-radius: 50%; background: rgba(200,150,46,0.07); pointer-events: none; }
+.header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.header-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(200,150,46,0.18); border: 1px solid var(--gold-border); color: var(--gold2); font-family: 'DM Mono', monospace; font-size: 11px; padding: 4px 12px; border-radius: 20px; flex-shrink: 0; }
+.form-header h1 { color: #fff; font-size: 26px; font-weight: 600; letter-spacing: -.4px; margin-top: 12px; }
+.form-header p { color: rgba(255,255,255,0.48); font-size: 13px; margin-top: 5px; }
+.id-display { margin-top: 14px; display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; padding: 6px 12px; }
+.id-display span:first-child { font-size: 11px; color: rgba(255,255,255,0.45); }
+.id-display span:last-child { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--gold2); font-weight: 500; }
+.required-note { font-size: 12px; color: var(--muted2); padding: 14px 40px 0; }
+.required-note span { color: var(--danger); }
+.form-section { padding: 32px 40px; border-bottom: 1px solid var(--border); }
+.form-section:last-of-type { border-bottom: none; }
+.section-title { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+.section-title-icon { width: 26px; height: 26px; border-radius: 6px; background: var(--navy-light); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.section-title-icon svg { width: 14px; height: 14px; color: var(--navy); }
+.section-title-text { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); white-space: nowrap; }
+.section-title-line { flex: 1; height: 1px; background: var(--border); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+.col-full { grid-column: 1 / -1; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field-label { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .2px; display: flex; align-items: center; gap: 4px; }
+.req { color: var(--danger); font-size: 12px; }
+.field-hint { font-size: 11px; color: var(--muted2); margin-top: 3px; }
+.error-msg { font-size: 11px; color: var(--danger); margin-top: 3px; display: none; }
+.field.has-error .error-msg { display: block; }
+.field.has-error .f-control { border-color: var(--danger) !important; box-shadow: 0 0 0 3px rgba(192,57,43,.08) !important; }
+.f-control { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; color: var(--text); background: var(--surface); outline: none; transition: border-color .15s, box-shadow .15s; appearance: none; }
+.f-control:hover { border-color: #b0b6cc; }
+.f-control:focus { border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-light); }
+.f-control[readonly], .f-control:disabled { background: var(--bg); color: var(--muted); cursor: default; }
+.f-control[readonly]:focus { border-color: var(--border); box-shadow: none; }
+textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans', system-ui, sans-serif; }
+.select-wrap { position: relative; }
+.select-wrap select { padding-right: 32px; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 7L11 1' stroke='%237b82a0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+.num-wrap { position: relative; }
+.currency-prefix { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; pointer-events: none; }
+.num-wrap .f-control { padding-left: 30px; font-family: 'DM Mono', monospace; }
+.upload-zone { border: 2px dashed var(--border); border-radius: var(--radius-lg); padding: 28px 24px; text-align: center; cursor: pointer; transition: all .2s; background: var(--bg); position: relative; }
+.upload-zone:hover, .upload-zone.drag-over { border-color: var(--navy); background: var(--navy-light); }
+.upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.upload-icon { width: 42px; height: 42px; margin: 0 auto 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.upload-icon svg { width: 18px; height: 18px; color: var(--muted); }
+.upload-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.upload-sub { font-size: 12px; color: var(--muted); }
+.upload-sub span { color: var(--navy); font-weight: 500; }
+.upload-limit { font-size: 11px; color: var(--muted2); margin-top: 5px; }
+.file-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.file-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.file-meta { flex: 1; min-width: 0; }
+.file-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-size { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.file-remove { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border); background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 14px; flex-shrink: 0; }
+.form-footer { padding: 20px 40px; background: var(--bg); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+.form-footer-left { flex: 1; font-size: 11px; color: var(--muted); }
+.form-footer-left strong { color: var(--danger); }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 22px; border-radius: var(--radius); font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all .18s; white-space: nowrap; }
+.btn svg { width: 14px; height: 14px; }
+.btn-cancel { background: var(--surface); color: var(--muted); border-color: var(--border); }
+.btn-cancel:hover { background: var(--bg); color: var(--text); }
+.btn-draft { background: var(--gold-light); color: var(--gold); border-color: var(--gold-border); }
+.btn-submit { background: var(--navy); color: #fff; }
+.btn-submit:hover { background: var(--navy2); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,35,85,0.25); }
+.toast { position: fixed; top: 20px; right: 20px; background: var(--success-bg); border: 1px solid var(--success-border); color: var(--success); padding: 12px 18px; border-radius: var(--radius); font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; opacity: 0; pointer-events: none; transform: translateY(-8px); transition: all .25s; z-index: 999; box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+.toast.show { opacity: 1; pointer-events: all; transform: translateY(0); }
+.toast svg { width: 16px; height: 16px; flex-shrink: 0; }
+.expense-total { margin-top: 16px; padding: 14px 18px; background: var(--navy); border-radius: var(--radius); display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; }
+.expense-total-label { font-size: 12px; color: rgba(255,255,255,0.65); font-weight: 500; }
+.expense-total-value { font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 600; color: var(--gold2); }
+.expense-total .margin-row { display: flex; gap: 14px; align-items: center; font-size: 11px; color: rgba(255,255,255,0.55); }
+.expense-total .margin-row strong { font-family: 'DM Mono', monospace; font-weight: 600; }
+.expense-total .margin-row strong.pos { color: #86efac; }
+.expense-total .margin-row strong.neg { color: #fca5a5; }
+/* Status readonly indicator */
+.status-readonly-wrap { position: relative; }
+.status-readonly-wrap .status-dot { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; pointer-events: none; z-index: 2; }
+.status-readonly-wrap .f-control[readonly] { padding-left: 32px; }
+/* File icons */
+.file-icon { width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 11px; font-weight: 700; font-family: 'DM Mono', monospace; }
+.file-icon.pdf { background: #fff0f0; color: var(--danger); }
+.file-icon.img { background: #f0f7ff; color: #1864ab; }
+.file-icon.xls { background: #f0fff4; color: #166534; }
+.file-icon.doc { background: #eef3ff; color: #3b5bdb; }
+.file-icon.ppt { background: #fff7ed; color: #c2410c; }
+.file-icon.other { background: var(--bg); color: var(--muted); }
+.file-error { font-size: 11px; color: var(--danger); padding: 8px 12px; background: var(--danger-bg); border: 1px solid var(--danger-border); border-radius: 6px; margin-top: 8px; display: none; }
+/* Spinner */
+@keyframes msospin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+.btn-submit.loading svg.spin { animation: msospin 0.9s linear infinite; }
+.btn-submit.loading { opacity: .85; pointer-events: none; }
+@media (max-width: 768px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .col-full { grid-column: 1; }
+  .form-section { padding: 20px; }
+  .form-header { padding: 20px 20px 16px; }
+  .page-wrap { padding: 20px 16px 60px; }
+  .form-footer { padding: 16px 20px; }
+  .required-note { padding: 12px 20px 0; }
+}
+</style>
+<style id="ec-mso-plan-css">
+.bl-table{width:100%;border-collapse:collapse;font-size:13px}
+.bl-table th{background:#f8f7f4;text-align:left;padding:8px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#6b6b6b;border-bottom:2px solid #e8e5df;white-space:nowrap}
+.bl-table td{padding:6px 6px;border-bottom:1px solid #efede8;vertical-align:top}
+.bl-teamhead td{background:#f2f0ea;font-weight:700;font-size:12px;letter-spacing:.4px;color:#4a4a4a;padding:8px 10px;border-bottom:1px solid #e2ded6}
+.bl-table .f-control{min-width:0;padding:8px 10px;font-size:13px}
+.bl-row-del{background:none;border:none;color:#b3b3b3;font-size:16px;cursor:pointer;padding:6px}
+.bl-row-del:hover{color:#c0392b}
+.bl-add{margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:#f4f2ee;border:1px dashed #c9c4ba;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;color:#5a5a5a;cursor:pointer}
+.bl-add:hover{background:#ece9e2}
+.bl-totals{display:flex;gap:26px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px;padding:12px 14px;background:#faf9f6;border:1px solid #eceae4;border-radius:10px;font-size:13px}
+.bl-totals b{font-size:15px}
+.bl-note{font-size:11px;color:#8a8a8a;margin-top:6px}
+@media (max-width:1024px){.bl-wrap{overflow-x:auto}.bl-table{min-width:860px}}
+</style>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toastText"></span>
+</div>
+
+<div class="page-wrap">
+  <a class="back-link" href="/mso-approval">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    Quay lại trang chủ
+  </a>
+
+  <div class="form-card">
+    <div class="form-header">
+      <div class="header-top">
+        <div></div>
+        <div class="header-badge">
+          <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#e8b84b"/></svg>
+          MSO
+        </div>
+      </div>
+      <h1>MSO — K&#7871; ho&#7841;ch th&#225;ng theo Brand</h1>
+      <p>KAM khai ho&#7841;t &#273;&#7897;ng + ng&#226;n s&#225;ch th&#225;ng cho brand. SO trong th&#225;ng ph&#7843;i n&#7857;m trong ng&#226;n s&#225;ch n&#224;y.</p>
+      <div class="id-display">
+        <span>MSO ID</span>
+        <span id="msoIdDisplay">MSO-yyyy-mm-BRAND</span>
+      </div>
+    </div>
+
+    <p class="required-note">C&#225;c tr&#432;&#7901;ng c&#243; d&#7845;u <span>*</span> l&#224; b&#7855;t bu&#7897;c.</p>
+
+    <div class="form-section">
+      <div class="section-title">
+        <div class="section-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>
+        <span class="section-title-text">Th&#244;ng tin chung</span>
+        <div class="section-title-line"></div>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label class="field-label" for="brand">Brand <span class="req">*</span></label>
+          <div class="select-wrap">
+            <select class="f-control" id="brand"><option value="">-- &#272;ang t&#7843;i brand... --</option></select>
+          </div>
+          <span class="field-hint" id="brandHint">Brand c&#7911;a k&#7871; ho&#7841;ch th&#225;ng n&#224;y</span>
+          <span class="error-msg">Vui l&#242;ng ch&#7885;n brand</span>
+        </div>
+        <div class="field">
+          <label class="field-label" for="month">Th&#225;ng k&#7871; ho&#7841;ch <span class="req">*</span></label>
+          <input class="f-control" type="month" id="month"/>
+          <span class="field-hint">1 brand / th&#225;ng = 1 MSO duy nh&#7845;t</span>
+          <span class="error-msg">Vui l&#242;ng ch&#7885;n th&#225;ng</span>
+        </div>
+        <div class="field">
+          <label class="field-label" for="channel">Channel</label>
+          <div class="select-wrap">
+            <select class="f-control" id="channel">
+              <option value="GBS" selected>GBS</option>
+              <option value="Direct">Direct</option>
+            </select>
+          </div>
+          <span class="field-hint">Brand k&#253; qua GBS hay EC tr&#7921;c ti&#7871;p</span>
+        </div>
+        <div class="field">
+          <label class="field-label" for="submittedBy">KAM (email login)</label>
+          <input class="f-control" id="submittedBy" readonly placeholder="Auto t&#7915; session"/>
+          <span class="field-hint">T&#7921; &#273;i&#7873;n theo t&#224;i kho&#7843;n &#273;ang &#273;&#259;ng nh&#7853;p</span>
+        </div>
+        <div class="field col-full">
+          <label class="field-label" for="forecastGmv">Doanh thu b&#225;n h&#224;ng tr&#234;n s&#224;n d&#7921; ki&#7871;n (GMV)</label>
+          <div class="num-wrap">
+            <span class="currency-prefix">&#8363;</span>
+            <input class="f-control" type="text" id="forecastGmv" placeholder="0" inputmode="numeric"/>
+          </div>
+          <span class="field-hint">Doanh thu c&#7911;a BRAND tr&#234;n s&#224;n — ch&#7881; s&#7889; k&#7871; ho&#7841;ch + c&#259;n c&#7913; t&#237;nh ph&#237; %, kh&#244;ng ph&#7843;i doanh thu EC</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">
+        <div class="section-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+        <span class="section-title-text">Ng&#226;n s&#225;ch theo ho&#7841;t &#273;&#7897;ng <span class="req">*</span></span>
+        <div class="section-title-line"></div>
+      </div>
+      <div class="bl-wrap">
+        <table class="bl-table">
+          <thead>
+            <tr>
+              <th style="width:17%">Team</th>
+              <th style="width:15%">Nh&#243;m</th>
+              <th style="width:21%">Kho&#7843;n m&#7909;c</th>
+              <th style="width:10%">Lo&#7841;i ph&#237;</th>
+              <th style="width:7%">%</th>
+              <th style="width:15%">Amount (VND, +VAT)</th>
+              <th style="width:12%">Ghi ch&#250;</th>
+              <th style="width:3%"></th>
+            </tr>
+          </thead>
+          <tbody id="blBody"></tbody>
+        </table>
+      </div>
+      <button type="button" class="bl-add" id="blAdd">+ Th&#234;m d&#242;ng</button>
+      <div class="bl-note">Amount l&#224; s&#7889; ch&#432;a g&#7891;m VAT. D&#242;ng lo&#7841;i ph&#237; "% GMV" s&#7869; t&#7921; t&#237;nh Amount theo GMV d&#7921; ki&#7871;n. D&#242;ng &#273;&#7875; tr&#7889;ng/0 s&#7869; t&#7921; b&#7887; qua khi g&#7917;i.</div>
+      <div class="bl-totals">
+        <span>T&#7893;ng chi ph&#237; ho&#7841;t &#273;&#7897;ng: <b id="totOps">0</b> &#273;</span>
+        <span>T&#7893;ng ph&#237; agency EC: <b id="totFee">0</b> &#273;</span>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">
+        <div class="section-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></div>
+        <span class="section-title-text">T&#224;i li&#7879;u &#273;&#237;nh k&#232;m <span class="req">*</span> (k&#7871; ho&#7841;ch / brief — b&#7855;t bu&#7897;c)</span>
+        <div class="section-title-line"></div>
+      </div>
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.zip"/>
+        <div class="upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+        <div class="upload-title">K&#233;o th&#7843; file v&#224;o &#273;&#226;y</div>
+        <div class="upload-sub">ho&#7863;c <span>click &#273;&#7875; ch&#7885;n file</span></div>
+        <div class="upload-limit">PDF, Word, Excel, PowerPoint, h&#236;nh &#7843;nh — t&#7889;i &#273;a 20MB / file</div>
+      </div>
+      <div class="file-list" id="fileList"></div>
+    </div>
+
+    <div class="form-section">
+      <div class="field col-full">
+        <label class="field-label" for="notes">Ghi ch&#250;</label>
+        <textarea class="f-control" id="notes" rows="3" placeholder="Ghi ch&#250; th&#234;m cho c&#7845;p duy&#7879;t (optional)"></textarea>
+      </div>
+    </div>
+
+    <div class="form-footer">
+      <span class="form-footer-left"><strong>*</strong> B&#7855;t bu&#7897;c tr&#432;&#7899;c khi g&#7917;i duy&#7879;t</span>
+      <button class="btn btn-cancel" id="btnCancel">Hu&#7927;</button>
+      <button class="btn btn-draft" id="btnDraft">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+        L&#432;u nh&#225;p
+      </button>
+      <button class="btn btn-submit" id="submitBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        G&#7917;i duy&#7879;t
+      </button>
+    </div>
+  </div>
+
+  <aside id="chainPreview">
+    <div class="cp-head">
+      <span class="cp-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Chu&#7895;i duy&#7879;t
+      </span>
+      <button type="button" class="cp-toggle" id="cpToggle" title="Collapse / expand">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+    </div>
+    <div class="cp-meta" id="cpMeta">Ch&#7885;n brand &#273;&#7875; xem chu&#7895;i duy&#7879;t.</div>
+    <div class="cp-body" id="cpBody"><div class="cp-empty">Chu&#7895;i duy&#7879;t s&#7869; hi&#7879;n &#7903; &#273;&#226;y khi b&#7841;n ch&#7885;n brand.</div></div>
+  </aside>
+</div>
+</div>
+
+<script id="ec-mso-plan-main">
+(function () {
+  'use strict';
+  var LK = { brands: [], items_ops: [], items_fee: [], teams: [], hof_email: '', ceo_email: '' };
+  var _files = [];
+  var GRP_OPS = 'Chi phí hoạt động';
+  var GRP_FEE = 'Phí agency EC';
+
+  function $(id) { return document.getElementById(id); }
+  function showToast(msg, type) {
+    var t = $('toast'); $('toastText').textContent = msg;
+    t.classList.toggle('error', type === 'error');
+    t.classList.add('show');
+    clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('show'); }, type === 'error' ? 6000 : 3500);
+  }
+  function parseNum(el) {
+    var v = (typeof el === 'string' ? el : (el && el.value) || '').replace(/[^\d]/g, '');
+    return v ? parseInt(v, 10) : 0;
+  }
+  function fmt(n) { return (n || 0).toLocaleString('vi-VN'); }
+  function hookNumInput(el) {
+    el.addEventListener('input', function () {
+      var n = parseNum(el);
+      el.value = n ? fmt(n) : '';
+      recompute();
+    });
+  }
+  function frappeErr(raw, fallback) {
+    try {
+      var j = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (j && j._server_messages) {
+        var arr = JSON.parse(j._server_messages);
+        if (arr.length) { var m0 = JSON.parse(arr[0]); return (m0.message || '').replace(/<[^>]+>/g, ''); }
+      }
+      if (j && j.exception) return j.exception.split(':').slice(1).join(':').trim() || j.exception;
+      if (j && j.message && typeof j.message === 'string') return j.message;
+    } catch (e) {}
+    return fallback || 'Có lỗi xảy ra';
+  }
+
+  // ---- Budget lines ----
+  function rowTemplate() {
+    var teamOpts = '<option value=""></option>' + LK.teams.map(function (t) { return '<option>' + t + '</option>'; }).join('');
+    return '<tr>' +
+      '<td><div class="select-wrap"><select class="f-control bl-team">' + teamOpts + '</select></div></td>' +
+      '<td><div class="select-wrap"><select class="f-control bl-group">' +
+        '<option value="' + GRP_OPS + '">Chi phí hoạt động</option>' +
+        '<option value="' + GRP_FEE + '">Phí agency EC</option></select></div></td>' +
+      '<td><div class="select-wrap"><select class="f-control bl-cat"></select></div></td>' +
+      '<td><div class="select-wrap"><select class="f-control bl-feetype"><option value="Fixed">Fixed</option><option value="% GMV">% GMV</option></select></div></td>' +
+      '<td><input class="f-control bl-pct" type="text" inputmode="decimal" disabled placeholder="-"/></td>' +
+      '<td><input class="f-control bl-amount" type="text" inputmode="numeric" placeholder="0"/></td>' +
+      '<td><input class="f-control bl-note" type="text" placeholder=""/></td>' +
+      '<td><button type="button" class="bl-row-del" title="Xoá dòng">&#215;</button></td>' +
+    '</tr>';
+  }
+  function fillCats(tr) {
+    var grp = tr.querySelector('.bl-group').value;
+    var list = grp === GRP_FEE ? LK.items_fee : LK.items_ops;
+    var sel = tr.querySelector('.bl-cat');
+    sel.innerHTML = '<option value=""></option>' + list.map(function (i) {
+      return '<option value="' + i.item_code + '">' + i.item_code + ' — ' + i.item_name + '</option>';
+    }).join('');
+  }
+  function teamHeadFor(team) {
+    var heads = document.querySelectorAll('#blBody tr.bl-teamhead');
+    for (var i = 0; i < heads.length; i++) {
+      if ((heads[i].dataset.team || '') === team) return heads[i];
+    }
+    return null;
+  }
+  function cleanupHeads() {
+    document.querySelectorAll('#blBody tr.bl-teamhead').forEach(function (h) {
+      var nx = h.nextElementSibling;
+      if (!nx || nx.classList.contains('bl-teamhead')) h.remove();
+    });
+  }
+  function repositionRow(tr) {
+    var team = tr.querySelector('.bl-team').value;
+    if (!team) return;
+    var tb = $('blBody');
+    var head = teamHeadFor(team);
+    if (!head) {
+      head = document.createElement('tr');
+      head.className = 'bl-teamhead';
+      head.dataset.team = team;
+      head.innerHTML = '<td colspan="8">' + team + '</td>';
+      tb.appendChild(head);
+    }
+    var ref = head.nextElementSibling;
+    while (ref && !ref.classList.contains('bl-teamhead')) ref = ref.nextElementSibling;
+    tb.insertBefore(tr, ref);
+    cleanupHeads();
+  }
+  function addRow(pre) {
+    var tb = $('blBody');
+    tb.insertAdjacentHTML('beforeend', rowTemplate());
+    var tr = tb.lastElementChild;
+    if (pre) {
+      tr.querySelector('.bl-team').value = pre.team || '';
+      tr.querySelector('.bl-group').value = pre.group || GRP_OPS;
+      fillCats(tr);
+      tr.querySelector('.bl-cat').value = pre.cat || '';
+      if (pre.fee_type === '% GMV') {
+        tr.querySelector('.bl-feetype').value = '% GMV';
+        tr.querySelector('.bl-pct').disabled = false;
+        tr.querySelector('.bl-amount').disabled = true;
+      }
+    } else {
+      fillCats(tr);
+    }
+    var amountEl = tr.querySelector('.bl-amount');
+    amountEl.addEventListener('input', function () {
+      var n = parseNum(amountEl); amountEl.value = n ? fmt(n) : ''; recompute();
+    });
+    return tr;
+  }
+  function prefillTemplate() {
+    var defs = LK.item_defaults || [];
+    if (!defs.length) { addRow(); return; }
+    var tb = $('blBody');
+    var teams = LK.teams.concat(['']);
+    teams.forEach(function (team) {
+      var mine = defs.filter(function (d) { return (d.ec_mso_team || '') === team; });
+      if (!mine.length) return;
+      tb.insertAdjacentHTML('beforeend', '<tr class="bl-teamhead" data-team="' + team + '"><td colspan="8">' + (team || 'Khác') + '</td></tr>');
+      mine.forEach(function (d) {
+        addRow({ team: team, group: d.item_group, cat: d.item_code, fee_type: d.ec_mso_fee_type });
+      });
+    });
+    recompute();
+  }
+  document.addEventListener('change', function (e) {
+    var tr = e.target.closest && e.target.closest('#blBody tr');
+    if (!tr) return;
+    if (e.target.classList.contains('bl-group')) { fillCats(tr); recompute(); }
+    if (e.target.classList.contains('bl-team')) { repositionRow(tr); }
+    if (e.target.classList.contains('bl-feetype')) {
+      var isPct = e.target.value === '% GMV';
+      tr.querySelector('.bl-pct').disabled = !isPct;
+      tr.querySelector('.bl-amount').disabled = isPct;
+      if (!isPct) tr.querySelector('.bl-pct').value = '';
+      recompute();
+    }
+  });
+  document.addEventListener('input', function (e) {
+    if (e.target.classList && e.target.classList.contains('bl-pct')) recompute();
+  });
+  document.addEventListener('click', function (e) {
+    if (e.target.classList && e.target.classList.contains('bl-row-del')) {
+      e.target.closest('tr').remove(); cleanupHeads(); recompute();
+    }
+  });
+
+  function readRows() {
+    var gmv = parseNum($('forecastGmv'));
+    var rows = [];
+    document.querySelectorAll('#blBody tr:not(.bl-teamhead)').forEach(function (tr) {
+      var feeType = tr.querySelector('.bl-feetype').value;
+      var pct = parseFloat((tr.querySelector('.bl-pct').value || '').replace(',', '.')) || 0;
+      var amount = feeType === '% GMV' ? Math.round(pct * gmv / 100) : parseNum(tr.querySelector('.bl-amount'));
+      rows.push({
+        category_group: tr.querySelector('.bl-group').value,
+        category: tr.querySelector('.bl-cat').value,
+        team: tr.querySelector('.bl-team').value,
+        fee_type: feeType,
+        fee_percent: pct,
+        amount: amount,
+        note: tr.querySelector('.bl-note').value.trim(),
+        _tr: tr
+      });
+    });
+    return rows;
+  }
+  function recompute() {
+    var totOps = 0, totFee = 0;
+    readRows().forEach(function (r) {
+      if (r.fee_type === '% GMV') { r._tr.querySelector('.bl-amount').value = r.amount ? fmt(r.amount) : ''; }
+      if (r.category_group === GRP_OPS) totOps += r.amount; else totFee += r.amount;
+    });
+    $('totOps').textContent = fmt(totOps);
+    $('totFee').textContent = fmt(totFee);
+  }
+
+  // ---- ID preview + chain preview ----
+  function updateIdPreview() {
+    var b = $('brand').value || 'BRAND';
+    var m = $('month').value || 'yyyy-mm';
+    $('msoIdDisplay').textContent = 'MSO-' + m + '-' + b;
+  }
+  function brandInfo() {
+    var code = $('brand').value;
+    for (var i = 0; i < LK.brands.length; i++) if (LK.brands[i].name === code) return LK.brands[i];
+    return null;
+  }
+  function renderChain() {
+    var b = brandInfo();
+    var body = $('cpBody'), meta = $('cpMeta');
+    if (!b) { body.innerHTML = '<div class="cp-empty">Chuỗi duyệt sẽ hiện ở đây khi bạn chọn brand.</div>'; return; }
+    meta.textContent = 'Brand ' + (b.brand_name || b.name) + ' — 4 cấp duyệt';
+    var steps = [
+      ['1. Manager', b.manager_email],
+      ['2. Finance', b.finance_email],
+      ['3. HOF', LK.hof_email],
+      ['4. CEO', LK.ceo_email]
+    ];
+    body.innerHTML = steps.map(function (s) {
+      var ok = !!s[1];
+      return '<div class="cp-step"><span class="cp-step-name">' + s[0] + '</span> ' +
+        (ok ? '<span class="cp-step-email">' + s[1] + '</span>'
+            : '<span class="cp-step-email" style="color:#c0392b;font-weight:600">CHƯA CÓ — báo admin điền</span>') + '</div>';
+    }).join('');
+  }
+  function chainMissing() {
+    var b = brandInfo();
+    if (!b) return 'brand';
+    var miss = [];
+    if (!b.manager_email) miss.push('Manager (Brand)');
+    if (!b.finance_email) miss.push('Finance (Brand)');
+    if (!LK.hof_email) miss.push('HOF (Global Role)');
+    if (!LK.ceo_email) miss.push('CEO (Global Role)');
+    return miss.length ? miss.join(', ') : '';
+  }
+
+  // ---- Files ----
+  function renderFileList() {
+    var list = $('fileList');
+    list.innerHTML = '';
+    _files.forEach(function (f, idx) {
+      var div = document.createElement('div');
+      div.className = 'file-item';
+      div.innerHTML = '<div class="file-meta"><div class="file-name" title="' + f.name + '">' + f.name + '</div>' +
+        '<div class="file-size">' + (f.size / 1024 / 1024).toFixed(2) + ' MB</div></div>' +
+        '<button type="button" class="file-remove" data-idx="' + idx + '" title="Xoá">&#215;</button>';
+      list.appendChild(div);
+    });
+    list.querySelectorAll('.file-remove').forEach(function (btn) {
+      btn.addEventListener('click', function () { _files.splice(parseInt(btn.dataset.idx, 10), 1); renderFileList(); });
+    });
+  }
+  function hookUpload() {
+    var zone = $('uploadZone'), input = $('fileInput');
+    zone.addEventListener('click', function () { input.click(); });
+    input.addEventListener('change', function () { ingest(input.files); input.value = ''; });
+    zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.classList.add('drag'); });
+    zone.addEventListener('dragleave', function () { zone.classList.remove('drag'); });
+    zone.addEventListener('drop', function (e) { e.preventDefault(); zone.classList.remove('drag'); ingest(e.dataTransfer.files); });
+    function ingest(files) {
+      Array.from(files).forEach(function (f) {
+        if (f.size > 20 * 1024 * 1024) { showToast(f.name + ' vượt 20MB', 'error'); return; }
+        if (!_files.some(function (x) { return x.name === f.name && x.size === f.size; })) _files.push(f);
+      });
+      renderFileList();
+    }
+  }
+  async function uploadFiles(docname) {
+    for (var i = 0; i < _files.length; i++) {
+      var fd = new FormData();
+      fd.append('file', _files[i]);
+      fd.append('doctype', 'MSO');
+      fd.append('docname', docname);
+      fd.append('is_private', '1');
+      var res = await fetch('/api/method/upload_file', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error('Upload file "' + _files[i].name + '" lỗi: ' + frappeErr(await res.text()));
+    }
+  }
+
+  // ---- Load lookups ----
+  async function loadLookups() {
+    try {
+      var res = await fetch('/api/method/ec_mso_lookups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      var raw = await res.json();
+      var d = (raw && raw.message) || raw;
+      if (!d || !d.success) throw new Error('Lookup failed');
+      LK = d;
+      var bs = $('brand');
+      bs.innerHTML = '<option value="">-- Chọn brand --</option>' + d.brands.map(function (b) {
+        return '<option value="' + b.name + '">' + (b.brand_name || b.name) + ' (' + b.name + ')</option>';
+      }).join('');
+      if (d.user && d.user.indexOf('@') > -1) $('submittedBy').value = d.user;
+    } catch (err) {
+      showToast('Không tải được danh mục: ' + err.message, 'error');
+    }
+  }
+
+  // ---- Validate + submit ----
+  function validate() {
+    var ok = true;
+    [['brand'], ['month']].forEach(function (pair) {
+      var el = $(pair[0]); var f = el.closest('.field');
+      if (!el.value) { f.classList.add('has-error'); ok = false; } else f.classList.remove('has-error');
+    });
+    if (!ok) return 'Vui lòng điền đủ Brand và Tháng';
+    var rows = readRows();
+    var active = rows.filter(function (r) { return r.amount > 0; });
+    if (!active.length) return 'Nhập số tiền cho ít nhất 1 dòng ngân sách (dòng để trống/0 sẽ tự bỏ qua)';
+    for (var i = 0; i < active.length; i++) {
+      var r = active[i];
+      if (!r.category) return 'Có dòng đã nhập tiền nhưng chưa chọn khoản mục';
+      if (r.fee_type === '% GMV' && !parseNum($('forecastGmv'))) return 'Có dòng dùng % GMV — nhập GMV dự kiến trước';
+    }
+    var miss = chainMissing();
+    if (miss && miss !== 'brand') return 'Thiếu email duyệt: ' + miss;
+    if (!_files.length) return 'MSO bắt buộc đính kèm ít nhất 1 tài liệu';
+    return '';
+  }
+  function payload() {
+    return {
+      brand: $('brand').value,
+      month: $('month').value,
+      channel: $('channel').value,
+      kam: $('submittedBy').value || undefined,
+      forecast_gmv: parseNum($('forecastGmv')),
+      notes: $('notes').value.trim(),
+      budget_lines: readRows().filter(function (r) { return r.amount > 0; }).map(function (r) {
+        return { category_group: r.category_group, category: r.category, team: r.team,
+                 fee_type: r.fee_type, fee_percent: r.fee_percent, amount: r.amount, note: r.note };
+      })
+    };
+  }
+  async function submitForm() {
+    var errMsg = validate();
+    if (errMsg) { showToast(errMsg, 'error'); return; }
+    var btn = $('submitBtn'); var orig = btn.innerHTML;
+    btn.disabled = true; btn.classList.add('loading'); btn.innerHTML = 'Đang gửi...';
+    try {
+      // 1. Tạo MSO draft
+      var res = await fetch('/api/resource/MSO', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload()) });
+      var body = await res.text();
+      if (!res.ok) throw new Error(frappeErr(body, 'Tạo MSO lỗi HTTP ' + res.status));
+      var doc = JSON.parse(body).data;
+      // 2. Upload files
+      await uploadFiles(doc.name);
+      // 3. Trình duyệt (workflow)
+      var res2 = await fetch('/api/method/frappe.model.workflow.apply_workflow', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doc: doc, action: 'Submit for Approval' })
+      });
+      if (!res2.ok) throw new Error(frappeErr(await res2.text(), 'Trình duyệt lỗi'));
+      $('msoIdDisplay').textContent = doc.name;
+      try { localStorage.removeItem('mso_plan_draft'); } catch (e) {}
+      btn.innerHTML = '✓ Đã gửi duyệt: ' + doc.name;
+      btn.style.background = '#166534';
+      showToast('MSO ' + doc.name + ' đã gửi duyệt — đang chờ Manager.', 'ok');
+    } catch (err) {
+      showToast(err.message, 'error');
+      btn.disabled = false; btn.classList.remove('loading'); btn.innerHTML = orig;
+    }
+  }
+
+  // ---- Draft localStorage ----
+  function saveDraft() {
+    try {
+      var d = payload(); d._files_note = _files.length;
+      localStorage.setItem('mso_plan_draft', JSON.stringify(d));
+      var b = $('btnDraft'); var o = b.innerHTML;
+      b.innerHTML = '✓ Đã lưu nháp'; setTimeout(function () { b.innerHTML = o; }, 1800);
+    } catch (e) { showToast('Không lưu được nháp: ' + e.message, 'error'); }
+  }
+  function loadDraft() {
+    try {
+      var raw = localStorage.getItem('mso_plan_draft');
+      if (!raw) return;
+      var d = JSON.parse(raw);
+      if (d.brand) window._pendingBrand = d.brand;
+      if (d.month) $('month').value = d.month;
+      if (d.channel) $('channel').value = d.channel;
+      if (d.forecast_gmv) $('forecastGmv').value = fmt(d.forecast_gmv);
+      if (d.notes) $('notes').value = d.notes;
+      (d.budget_lines || []).forEach(function (r) {
+        var tr = addRow();
+        tr.querySelector('.bl-group').value = r.category_group; fillCats(tr);
+        tr.querySelector('.bl-cat').value = r.category;
+        tr.querySelector('.bl-team').value = r.team || '';
+        tr.querySelector('.bl-feetype').value = r.fee_type;
+        var isPct = r.fee_type === '% GMV';
+        tr.querySelector('.bl-pct').disabled = !isPct;
+        tr.querySelector('.bl-amount').disabled = isPct;
+        if (isPct) tr.querySelector('.bl-pct').value = r.fee_percent;
+        else tr.querySelector('.bl-amount').value = r.amount ? fmt(r.amount) : '';
+      });
+      recompute();
+    } catch (e) {}
+  }
+
+  // ---- Init ----
+  function init() {
+    $('month').value = new Date().toISOString().slice(0, 7);
+    hookNumInput($('forecastGmv'));
+    hookUpload();
+    $('blAdd').addEventListener('click', function () { addRow(); });
+    $('brand').addEventListener('change', function () { updateIdPreview(); renderChain(); });
+    $('month').addEventListener('change', updateIdPreview);
+    $('submitBtn').addEventListener('click', submitForm);
+    $('btnDraft').addEventListener('click', saveDraft);
+    $('btnCancel').addEventListener('click', function () { history.back(); });
+    $('cpToggle').addEventListener('click', function () { $('chainPreview').classList.toggle('collapsed'); });
+    loadLookups().then(function () {
+      loadDraft();
+      if (document.querySelectorAll('#blBody tr:not(.bl-teamhead)').length === 0) prefillTemplate();
+      if (window._pendingBrand) { $('brand').value = window._pendingBrand; renderChain(); }
+      updateIdPreview();
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
+<style id="ec-userinfo-fix-css">
+/* Make user-card hoverable (matches /home behavior) */
+.ec-sb-user-card[data-ec-profile-wrapped="1"],
+.sidebar-user[data-ec-profile-wrapped="1"],
+.user-card[data-ec-profile-wrapped="1"],
+.user-info[data-ec-profile-wrapped="1"] {
+  cursor: pointer !important;
+  border-radius: 8px !important;
+  transition: background 0.15s !important;
+  padding: 8px 10px !important;
+  margin: -8px -10px !important;
+}
+.ec-sb-user-card[data-ec-profile-wrapped="1"]:hover,
+.sidebar-user[data-ec-profile-wrapped="1"]:hover,
+.user-card[data-ec-profile-wrapped="1"]:hover,
+.user-info[data-ec-profile-wrapped="1"]:hover {
+  background: #f3f4f6 !important;
+}
+</style><script id="ec-userinfo-fix">
+(function(){
+  function getCookie(name){
+    var m = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]+)'));
+    return m ? decodeURIComponent(m[1]).replace(/\+/g, ' ') : '';
+  }
+  function getEmail(){
+    try {
+      if (window.frappe && window.frappe.session) {
+        var u = window.frappe.session.user_email || window.frappe.session.user || '';
+        if (u && u !== 'Guest') return u;
+      }
+    } catch(_) {}
+    var c = getCookie('user_id');
+    if (c && c !== 'Guest') return c;
+    return '';
+  }
+  function getFullName(email){
+    // Frappe sets 'full_name' cookie on login (URL-encoded, + for space)
+    var fn = getCookie('full_name');
+    if (fn) return fn;
+    // Fallback: derive from email
+    if (!email) return '';
+    var localPart = email.indexOf('@') >= 0 ? email.split('@')[0] : email;
+    var firstName = localPart.split(/[._\- ]+/)[0] || localPart;
+    return firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+  }
+  function fillUser(){
+    var email = getEmail();
+    if (!email) return;
+    var displayName = getFullName(email);
+    if (!displayName) return;
+    // Initial for avatar: first char of full name
+    var initial = displayName.trim().charAt(0).toUpperCase() || 'U';
+
+    // Update name labels (always overwrite \u2014 sync from Frappe is source of truth)
+    var nameEls = document.querySelectorAll('#ecUserName, .ec-sb-user-name, .sidebar-user-name, .user-name');
+    nameEls.forEach(function(el){ el.textContent = displayName; });
+    // Update avatars
+    var avEls = document.querySelectorAll('#ecAvatar, .ec-sb-avatar, .sidebar-user .avatar, .user-card .avatar, .avatar');
+    avEls.forEach(function(el){
+      var t = (el.textContent || '').trim();
+      if (!t || t.length === 1) {
+        el.textContent = initial;
+      }
+    });
+
+    // Make user-card clickable -> Frappe user profile
+    var profileUrl = '/app/user/' + encodeURIComponent(email);
+    // \u1EDF = \u1EDF, \u0111 = \u0111, \u01B0 = \u01B0, \u1EDD = \u1EDD, \u00ED = \u00ED, \u00F3 = \u00F3, \u00E0 = \u00E0
+    var tooltipText = 'M\u1EDF trang user trong Frappe';
+    var cards = document.querySelectorAll('.ec-sb-footer .ec-sb-user-card, .ec-sb-user-card, .sidebar-footer .user-card, .sidebar-footer .sidebar-user');
+    cards.forEach(function(el){
+      if (el.tagName === 'A' || el.dataset.ecProfileWrapped === '1') return;
+      if (el.parentElement && el.parentElement.tagName === 'A' && el.parentElement.href.indexOf('/app/user') >= 0) return;
+      el.title = tooltipText;
+      el.addEventListener('click', function(e){
+        if (e.target.closest('.ec-sb-logout, .logout-btn, button')) return;
+        location.href = profileUrl;
+      });
+      el.setAttribute('data-ec-profile-wrapped', '1');
+    });
+  }
+  function init(){
+    fillUser();
+    setTimeout(fillUser, 250);
+    setTimeout(fillUser, 800);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+<script id="ec-nav-hl-v1">
+(function(){
+  function ap(){
+    var a = document.querySelector('.ec-shell-nav a[href="/mso-form"]');
+    if (a && !a.classList.contains('ec-shell-active')){ a.classList.add('ec-shell-active'); a.setAttribute('aria-current','page'); }
+  }
+  ap(); setTimeout(ap, 800); setTimeout(ap, 2500);
+})();
+</script>

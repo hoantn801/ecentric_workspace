@@ -38,10 +38,13 @@ def _reset():
 
 class TestPageSync(FrappeTestCase):
     def test_idempotent_create_then_update(self):
-        r1 = page_sync.sync()
+        r1 = page_sync.sync(force=1)                      # force=1: ignore whatever an earlier test left
         r2 = page_sync.sync()
-        self.assertIn(r1["action"], ("created", "updated"))
-        self.assertEqual(r2["action"], "updated")
+        self.assertIn(r1["action"], ("created", "updated", "unchanged"))
+        # #144: this module used to hand-roll its own upsert and so re-wrote the page on
+        # every call; it now delegates to the shared helper, which short-circuits to
+        # "unchanged" when live already holds the shipped snapshot.
+        self.assertEqual(r2["action"], "unchanged")
         self.assertEqual(len(frappe.get_all("Web Page", filters={"route": "approvals/ai-topup"})), 1)
         self.assertEqual(frappe.db.get_value("Web Page", {"route": "approvals/ai-topup"}, "published"), 1)
 

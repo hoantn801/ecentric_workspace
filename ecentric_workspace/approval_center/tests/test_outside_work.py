@@ -313,6 +313,10 @@ class TestOutsideWorkPageSync(FrappeTestCase):
         self.assertEqual(r2["action"], "unchanged")                 # idempotent, same source
         r3 = page_sync.sync(html="<div>changed</div>")
         self.assertEqual(r3["action"], "updated")
+        # #144: live no longer matches the shipped snapshot -> a plain re-sync refuses,
+        # and force=1 is the documented way back (it also cleans up for the next test).
+        self.assertEqual(page_sync.sync()["action"], "refused")
+        self.assertEqual(page_sync.sync(force=1)["action"], "updated")
 
     def test_sync_endpoint_sm_only(self):
         u = _user(PFX + "psync_plain@example.com")                  # no System Manager
