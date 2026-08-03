@@ -181,6 +181,17 @@ fixtures = [
             "Brand-ec_leader_email", "Brand-ec_finance_email",
             "Brand-ec_sect2", "Brand-ec_approval_recipe", "Brand-ec_gbs_recipe",
             "Brand-ec_cb2", "Brand-ec_boxme_customer",
+            # C4b B7 (2026-08-03): buoc "Gui lai / Can sua" cho MSO / Sales Order /
+            # Purchase Order. ec_revision_reason giu ly do nguoi duyet yeu cau sua,
+            # ec_revision_count dem so lan. CHUNG KHONG PHAI TRANG THAI -- trang thai
+            # duy nhat van la workflow_state cua Frappe Workflow. Nhan "Can sua" tren
+            # trang /approval duoc suy ra tu (workflow_state == "Draft" VA
+            # ec_revision_reason con noi dung), nen khong co cho nao luu trang thai
+            # song song. Thieu 2 field nay thi ec_*_before_save se chan moi buoc
+            # Pending -> Draft (bat buoc co ly do >= 10 ky tu) => phai ship cung nhau.
+            "MSO-ec_revision_reason", "MSO-ec_revision_count",
+            "Sales Order-ec_revision_reason", "Sales Order-ec_revision_count",
+            "Purchase Order-ec_revision_reason", "Purchase Order-ec_revision_count",
         ]]],
     },
     {

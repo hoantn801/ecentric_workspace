@@ -26,11 +26,23 @@ def _html():
         return fh.read()
 
 
-# Live bytes this snapshot was taken from (re-snapshotted 2026-08-03, #138).
-# upsert_web_page REFUSES to write when live no longer hashes to this, so a repo
-# snapshot can never silently revert a live edit. Deliberate update = re-snapshot
-# live into main_section.html, then bump this constant in the same commit.
-BASELINE_SHA256 = "5f78091710e070d8ced163351a1381f6e3ea2b9089b71b7d741411766df2843a"
+# sha256 of main_section.html as it ships in this commit (C4b, 2026-08-03: the
+# ec-native-rows-v1 Desk redirect was removed so MSO/SO/PO rows open /approval
+# again). upsert_web_page REFUSES to write when live hashes to none of the
+# accepted values, so a repo snapshot can never silently revert a live edit.
+# Deliberate update = edit main_section.html, bump this constant, and move the
+# value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
+BASELINE_SHA256 = "6a5009ad76abd904d60f72d41f36803551cfbec49d45721752dd08e2ec18d389"
+
+# Live values this snapshot is allowed to overwrite. C4b was authored in the
+# repo, not on the site, so at deploy time live still holds the #138 bytes
+# (5f7809...) -- without listing them here the first sync would be refused and
+# the only way through would be force=1, which disarms the drift lock entirely.
+# After the first successful sync live holds BASELINE_SHA256 and re-runs are
+# "unchanged". Prune entries once the deploy is confirmed on every environment.
+SUPERSEDES_SHA256 = (
+    "5f78091710e070d8ced163351a1381f6e3ea2b9089b71b7d741411766df2843a",  # #138
+)
 
 
 def sync(html=None, force=0):
@@ -41,7 +53,7 @@ def sync(html=None, force=0):
     res = page_sync_util.upsert_web_page(
         ROUTE, NAME, TITLE, html,
         publish=None,
-        expect_sha=None if force else BASELINE_SHA256,
+        expect_sha=None if force else ((BASELINE_SHA256,) + SUPERSEDES_SHA256),
     )
     if res.get("action") == "refused":
         return res

@@ -2550,27 +2550,18 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
 (function(){
   'use strict';
   if (window._ecNativeRowsV1) return; window._ecNativeRowsV1 = true;
-  var SLUG = { mso: 'mso', so: 'sales-order', po: 'purchase-order' };
-  // EC docs (native) mo trong Desk form (workflow actions co san); GBS docs giu /approval
-  document.addEventListener('click', function(ev){
-    var row = ev.target.closest && ev.target.closest('#detailBody tr[data-id]');
-    if (!row) return;
-    var t = row.dataset.type || '';
-    if (!SLUG[t]) return;
-    ev.preventDefault(); ev.stopImmediatePropagation(); ev.stopPropagation();
-    window.location.href = '/app/' + SLUG[t] + '/' + encodeURIComponent(row.dataset.id);
-  }, true);
-  function rewrite(){
-    document.querySelectorAll('#detailBody tr[data-id]').forEach(function(row){
-      var t = row.dataset.type || '';
-      if (!SLUG[t]) return;
-      var a = row.querySelector('a.detail-id-link');
-      if (a) a.setAttribute('href', '/app/' + SLUG[t] + '/' + encodeURIComponent(row.dataset.id));
-    });
-  }
-  var tb = document.getElementById('detailBody');
-  if (tb) new MutationObserver(rewrite).observe(tb, {childList: true});
-  rewrite();
+  // ===== C4b B3 2026-08-03: DA GO phan doi huong dong MSO / SO / PO sang Desk =====
+  // Khoi cu bat su kien click (capture) va viet lai href cua a.detail-id-link
+  // thanh /app/<slug>/<name>, ep moi chung tu native mo trong Desk form.
+  // Ly do bo:
+  //   1. Tren live co 57/119 tai khoan la Website User — ho khong vao duoc /app,
+  //      bam vao dong la roi thang vao trang bao loi khong co quyen.
+  //   2. Ly do ban dau chi la trang /approval hien sai trang thai cho SO/PO
+  //      (SAL-ORD-2026-00005 status='Draft', current_level trong). C4b B1/B2 da
+  //      sua o get_ticket_detail nen ly do do khong con.
+  // Bo khoi nay xong, dong tu dong tro lai href goc do trang sinh ra:
+  //   /approval?id=<name>&type=<mso|so|po>
+  // Phan doi ten tab EC SO / EC PO ben duoi KHONG lien quan, nen giu nguyen.
   // Phan loai tab: EC vs GBS
   function relabel(){
     document.querySelectorAll('.tab').forEach(function(b){

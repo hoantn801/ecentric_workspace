@@ -17,7 +17,14 @@ LP = os.path.join(APP, "legacy_pages")
 # Endpoint census from the 2B.1 design trace (counts as of ground truth).
 APPROVAL_ENDPOINTS = {
     "ecentric_workspace.api.approval_decision": 2,
-    "ecentric_workspace.api.get_ticket_detail": 2,
+    # C4b (2026-08-03): was 2, now 3. The Send back flow for the three NATIVE
+    # types (MSO / Sales Order / Purchase Order) reads the document through
+    # get_ticket_detail instead of /api/resource, because 57 of 119 enabled
+    # users are Website Users and would get 403 reading the DocType directly --
+    # and because only get_ticket_detail returns `status` normalised from
+    # workflow_state plus the revision_reason / revision_count keys the
+    # "Can sua" banner needs. See fetchDoc() in approval_page/main_section.html.
+    "ecentric_workspace.api.get_ticket_detail": 3,
     "approve_contract": 2,
     "resubmit_gbs_doc": 1,
     "submit_gbs_doc": 1,

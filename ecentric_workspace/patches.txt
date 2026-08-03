@@ -81,3 +81,5 @@ ecentric_workspace.action_center.patches.p002_reconcile_stale_task_todos
 ecentric_workspace.alerts.patches.p006_brand_consolidation
 
 ecentric_workspace.approval_center.patches.p044_todo_fulfillment_marker
+ecentric_workspace.approval_center.patches.p045_ec_sales_admin_order_perms
+ecentric_workspace.approval_center.patches.p046_send_back_transitions

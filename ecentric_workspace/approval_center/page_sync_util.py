@@ -22,6 +22,15 @@ existing Approval Center callers keep their exact current behaviour:
                           drifted (somebody edited the page after the repo
                           snapshot was taken) the call REFUSES and writes
                           nothing, instead of silently reverting live.
+  expect_sha=(a, b)    -- same lock, several acceptable live values (C4b,
+                          2026-08-03). Needed whenever a page change is authored
+                          in the REPO rather than on the site: at deploy time
+                          live still holds the bytes being superseded, and after
+                          the first successful write it holds the new snapshot.
+                          Both are "not drifted", so both must be accepted --
+                          otherwise the only way to ship a repo-authored page
+                          edit is force=1, which disarms the lock completely and
+                          would silently revert a genuine live edit.
 
 Rationale: a repo snapshot must never win over live by accident. Reverting live
 is a deliberate act -- it requires bumping the caller's BASELINE_SHA256."""
@@ -69,11 +78,14 @@ def upsert_web_page(route, name, title, html, publish=1, expect_sha=None):
     existing = find_web_page(route, name)
     doc = frappe.get_doc("Web Page", existing) if existing else frappe.new_doc("Web Page")
     live_sha = content_sha256(doc.main_section_html or "") if existing else None
-    if expect_sha and existing and live_sha != expect_sha:
-        # Live drifted since the repo snapshot was taken -> do NOT revert it.
-        return {"action": "refused", "reason": "live drift (expect_sha mismatch)",
-                "route": route, "name": doc.name,
-                "expect_sha": expect_sha, "live_sha": live_sha}
+    if expect_sha and existing:
+        # A single hex string (historical) or a sequence of acceptable ones.
+        accepted = (expect_sha,) if isinstance(expect_sha, str) else tuple(expect_sha)
+        if live_sha not in accepted:
+            # Live drifted since the repo snapshot was taken -> do NOT revert it.
+            return {"action": "refused", "reason": "live drift (expect_sha mismatch)",
+                    "route": route, "name": doc.name,
+                    "expect_sha": expect_sha, "live_sha": live_sha}
     want_published = doc.published if (publish is None and existing) else (0 if publish is None else publish)
     if existing and (doc.main_section or "") == html and (doc.main_section_html or "") == html \
             and doc.published == want_published and doc.title == title and doc.route == route:

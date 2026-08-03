@@ -705,6 +705,23 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
     setTimeout(() => t.classList.remove('show'), 4500);
   }
 
+  // C4b B1/B2 2026-08-03: mot cap duyet co the do NHIEU nguoi cung dam nhiem.
+  // SO/PO native khong luu email nguoi duyet tren chung tu — nguoi duyet la MOI
+  // user giu Role 'EC Sales Admin' (hien tai 2 nguoi). Server tra ve ca
+  // `approvers` (mang) lan `approver` (chuoi noi dau phay, de hien thi), nen moi
+  // cho so sanh email phai so voi CA DANH SACH, khong so bang '===' voi 1 chuoi.
+  function ecStepEmails(step) {
+    if (!step) return [];
+    let raw = step.approvers;
+    if (!Array.isArray(raw)) raw = String(step.approver || step.approver_email || '').split(',');
+    const out = [];
+    raw.forEach(function (e) {
+      const t = String(e == null ? '' : e).trim().toLowerCase();
+      if (t && out.indexOf(t) === -1) out.push(t);
+    });
+    return out;
+  }
+
   function parseChain(item) {
     const raw = val(item, 'approval_chain');
     if (!raw) return [];
@@ -770,7 +787,7 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
     const total = chain.length;
     const isCurrentApprover = currentEmail && finalStatus === 'Pending' && chain.some((c, i) => {
       const lvl = c.level || (i + 1);
-      return (c.approver || '').toLowerCase() === currentEmail.toLowerCase() && lvl === currentLevel;
+      return ecStepEmails(c).indexOf(currentEmail.toLowerCase()) > -1 && lvl === currentLevel;
     });
 
     let html = '<div class="panel"><div class="panel-header"><span class="panel-title">Approval Chain</span></div><div class="panel-body">';
@@ -792,6 +809,10 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
       html += '<div class="step-content">';
       html += '<div class="step-role">Level ' + (step.level || (idx + 1)) + ' · ' + escapeHtml((step.role || 'approver').replace(/_/g, ' ')) + '</div>';
       html += '<div class="step-email">' + escapeHtml(step.approver || '—') + '</div>';
+      // C4b: cap duyet theo Role co the nhieu nguoi — noi ro de khoi tuong phai cho du ca hai.
+      if (ecStepEmails(step).length > 1) {
+        html += '<div class="step-status" style="color:var(--gray-500)">Ai xử lý trước cũng được</div>';
+      }
       if (isDone) html += '<div class="step-status">✓ Approved</div>';
       else if (isRejected) html += '<div class="step-status">✗ Rejected</div>';
       else if (isCurrent) html += '<div class="step-status">→ Đang chờ duyệt</div>';
@@ -2137,9 +2158,18 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       var chain = typeof chainRaw === 'string' ? JSON.parse(chainRaw) : chainRaw;
       if (!Array.isArray(chain)) return false;
       var emailLow = email.toLowerCase();
+      // C4b B1/B2 2026-08-03: mot cap co the nhieu nguoi duyet (SO/PO lay theo
+      // Role 'EC Sales Admin'). Server tra ve `approvers` (mang) va `approver`
+      // (chuoi noi dau phay) — phai so voi ca danh sach, khong so bang '==='.
       return chain.some(function(step){
-        var ap = (step.approver || step.approver_email || '').toLowerCase();
-        return ap === emailLow;
+        var raw = step.approvers;
+        if (!(raw instanceof Array)) {
+          raw = String((step.approver || step.approver_email || '')).split(',');
+        }
+        for (var i = 0; i < raw.length; i++) {
+          if (String(raw[i] == null ? '' : raw[i]).trim().toLowerCase() === emailLow) return true;
+        }
+        return false;
       });
     } catch(e) { return false; }
   }
@@ -3774,13 +3804,36 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
   }
   var ticketType = urlParam('type');
   var ticketId   = urlParam('id');
-  if (ticketType !== 'gbs_so' && ticketType !== 'gbs_po') return;
+  // C4b B7 2026-08-03: mo cho ca MSO / SO / PO native — truoc day khoi nay chi
+  // chay cho GBS SO/PO nen 3 loai native khong he co nut "Gui lai / Cần sửa".
+  // Native khac GBS o 3 diem, xu ly bang co IS_NATIVE ben duoi:
+  //   1. Lay du lieu qua get_ticket_detail (da chuan hoa status/revision_*),
+  //      khong qua /api/resource — nhieu nguoi duyet la Website User nen doc
+  //      thang bang native se bi chan quyen.
+  //   2. Khong co bang approval_history — moc thoi gian/nguoi gui lai doc tu
+  //      nhat ky duyet (ec_approval_log).
+  //   3. Khong co web form sua SO/PO — nut "Sửa & Submit lại" tro ve Desk form.
+  var EC_SB_CFG = {
+    'gbs_so': { doctype: 'GBS Sales Order',    form: '/gbs-so-form-v2', native: false },
+    'gbs_po': { doctype: 'GBS Purchase Order', form: '/gbs-po-form-v2', native: false },
+    'mso':    { doctype: 'MSO',                form: '/app/mso',             native: true },
+    'so':     { doctype: 'Sales Order',        form: '/app/sales-order',     native: true },
+    'po':     { doctype: 'Purchase Order',     form: '/app/purchase-order',  native: true }
+  };
+  var CFG = EC_SB_CFG[ticketType];
+  if (!CFG) return;
   if (!ticketId) return;
-  console.log('[ec-gbs-send-back] active for', ticketType, ticketId);
+  console.log('[ec-send-back] active for', ticketType, ticketId);
 
-  var DOCTYPE = (ticketType === 'gbs_po') ? 'GBS Purchase Order' : 'GBS Sales Order';
-  var FORM_ROUTE = (ticketType === 'gbs_po') ? '/gbs-po-form-v2' : '/gbs-so-form-v2';
+  var DOCTYPE = CFG.doctype;
+  var FORM_ROUTE = CFG.form;
+  var IS_NATIVE = CFG.native;
   var docData = null;
+
+  function resubmitUrl(){
+    if (IS_NATIVE) return FORM_ROUTE + '/' + encodeURIComponent(ticketId);
+    return FORM_ROUTE + '?edit=' + encodeURIComponent(ticketId);
+  }
 
   // ---- CSS ----
   if (!document.getElementById('ec-gbs-send-back-css')) {
@@ -3826,6 +3879,29 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
     return null;
   }
   function fetchDoc(){
+    // C4b B7 2026-08-03: 3 loai native (MSO / Sales Order / Purchase Order) phai
+    // lay du lieu qua get_ticket_detail, KHONG qua /api/resource, vi 2 ly do:
+    //   1. Quyen: nhieu nguoi duyet la Website User (57/119 tren live) nen doc
+    //      thang bang native qua /api/resource se bi tra 403.
+    //   2. Chuan hoa: chi get_ticket_detail moi tra ve 'status' da quy doi tu
+    //      workflow_state va 2 khoa 'revision_reason' / 'revision_count' —
+    //      ban ghi tho chi co 'ec_revision_reason' / 'ec_revision_count'.
+    // Dang goi giong het loadTicket() cua trang: POST JSON {type, id},
+    // doc ket qua o d.message.item (fallback d.message.data).
+    if (IS_NATIVE) {
+      return fetch('/api/method/ecentric_workspace.api.get_ticket_detail', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: ticketType, id: ticketId })
+      }).then(function(r){ return r.json(); }).then(function(d){
+        var payload = (d && d.message) || d || {};
+        docData = payload.item || payload.data || null;
+        return docData;
+      }).catch(function(e){
+        console.warn('[ec-send-back] fetchDoc (native) err', e);
+        return null;
+      });
+    }
     var encName = encodeURIComponent(DOCTYPE) + '/' + encodeURIComponent(ticketId);
     return fetch('/api/resource/' + encName, {
       method: 'GET', credentials: 'include',
@@ -3838,6 +3914,10 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       return null;
     });
   }
+  // LUU Y: ham nay hien KHONG duoc goi o dau (quyen bam nut do may chu quyet
+  // dinh trong approval_decision). Neu sau nay dung lai thi phai sua truoc:
+  // tu C4b, mot cap duyet co the do NHIEU nguoi dam nhiem nen `approver` la
+  // chuoi noi dau phay — phai so voi `approvers` (mang), khong so bang '==='.
   function currentApproverEmail(){
     if (!docData || !docData.approval_chain) return null;
     var chain = docData.approval_chain;
@@ -3900,10 +3980,13 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
         var msg = (d && d.message) || d || {};
         if (msg.success) {
           bg.remove();
-          alert('Đã gửi lại doc cho submitter. Trạng thái: ' + msg.status);
+          // C4b B7: may chu tra message_vi de nguoi dung doc duoc tieng Viet.
+          alert(msg.message_vi || ('Đã gửi lại cho người tạo. Trạng thái: ' + msg.status));
           location.reload();
         } else {
-          alert('Lỗi: ' + (msg.error || 'unknown'));
+          // C4b B7: uu tien message_vi — cac loi moi (send_back_reason_too_short,
+          // send_back_not_pending) chi co ma tieng Anh o msg.error.
+          alert('Lỗi: ' + (msg.message_vi || msg.error || 'unknown'));
           btnConfirm.disabled = false;
           btnConfirm.textContent = 'Send back';
         }
@@ -3975,6 +4058,38 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       }
     } catch(e){}
 
+    // C4b B7 2026-08-03: MSO / Sales Order / Purchase Order native KHONG co bang
+    // `approval_history` (da xac nhan tren live: chi GBS SO/PO moi co field nay).
+    // Nguoi va thoi diem gui lai doc tu nhat ky duyet `ec_approval_log`, la mot
+    // Long Text moi dong co dang:  "<thoi diem> | <nguoi> | <noi dung>".
+    // Uu tien dong do approval_decision ghi ("... | gui lai (can sua): <ly do>")
+    // vi dong do co dung email nguoi bam nut. Neu nguoi duyet thao tac thang
+    // trong Desk thi khong co dong do — luc ay lay dong chuyen trang thai
+    // "Pending X -> Draft" do ec_*_before_save ghi, cung co email o cot 2.
+    if (IS_NATIVE && sentBy === '—') {
+      try {
+        var logRaw = String(docData.ec_approval_log || '');
+        var lines = logRaw.split('\n');
+        var pick = null;
+        var k;
+        for (k = lines.length - 1; k >= 0; k--) {
+          if (lines[k].indexOf('gui lai (can sua)') > -1) { pick = lines[k]; break; }
+        }
+        if (!pick) {
+          for (k = lines.length - 1; k >= 0; k--) {
+            if (lines[k].indexOf('-> Draft') > -1) { pick = lines[k]; break; }
+          }
+        }
+        if (pick) {
+          var parts = pick.split('|');
+          if (parts.length >= 2) {
+            sentAt = (parts[0] || '').trim() || '—';
+            sentBy = (parts[1] || '').trim() || '—';
+          }
+        }
+      } catch(e){}
+    }
+
     var html = '<div id="ec-can-sua-banner">' +
       '<div class="csb-title">⚠️ Cần sửa</div>' +
       '<div class="csb-reason">' + escapeHtml(reason) + '</div>' +
@@ -4023,7 +4138,9 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       if (btn && !btn.dataset.ecBound) {
         btn.dataset.ecBound = '1';
         btn.addEventListener('click', function(){
-          window.location.href = FORM_ROUTE + '?edit=' + encodeURIComponent(ticketId);
+          // C4b B7 2026-08-03: GBS mo web form (?edit=), native mo Desk form
+          // (/app/<slug>/<name>) — xem resubmitUrl() va ghi chu o dau khoi.
+          window.location.href = resubmitUrl();
         });
       }
     }
