@@ -4038,6 +4038,15 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
 
     // Build banner HTML (shared between primary and fallback paths)
     var reason = docData.revision_reason || '(không có lý do — Finance có thể chưa nhập)';
+    /* ec-cansua-meta-v1 2026-08-03: co HAI duong dan dan toi trang thai "Can sua":
+         (1) Finance send back  -> bump `revision_count`, ghi su kien 'send_back'
+         (2) GBS/boxme reject rồi nguoi dung bam "Sua & Submit lai"
+                                -> bump `resubmit_count`, ghi su kien
+                                   'resubmit_after_gbs_reject'
+       Banner cu chi biet duong (1) nen voi cac doc di duong (2) no hien
+       "Yeu cau boi - . - . Lan thu 0" (vi du that: GBS-SO-2026-07-31-00016,
+       GBS-SO-2026-07-24-00004, GBS-PO-2026-07-09-00004). Chi sai o cho hien
+       thi, du lieu duoi database van dung. Nay doc ca hai duong. */
     var revCount = docData.revision_count || 0;
     var submitter = (docData.submitted_by || '').toLowerCase();
     var currentUser = (getSessionEmail() || '').toLowerCase();
@@ -4059,19 +4068,32 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
     }
 
     var sentBy = '—', sentAt = '—';
+    /* ec-cansua-meta-v1: 'gbsreject' khi doc quay ve Can sua vi GBS tu choi,
+       'sendback' khi Finance tra ve. Lay su kien MOI NHAT trong hai loai, vi mot
+       doc co the da tung di ca hai duong (vi du that: GBS-SO-2026-07-31-00009 co
+       send_back ngay 31/07 roi resubmit_after_gbs_reject ngay 03/08 - ly do dang
+       nam o Can sua bay gio la cai sau). */
+    var metaKind = 'sendback';
     try {
       var h = docData.approval_history;
       if (typeof h === 'string') h = JSON.parse(h);
       if (Array.isArray(h)) {
         for (var j = h.length - 1; j >= 0; j--) {
-          if (h[j] && h[j].event === 'send_back') {
+          var ev = h[j] && h[j].event;
+          if (ev === 'send_back' || ev === 'resubmit_after_gbs_reject') {
             sentBy = h[j].by || '—';
             sentAt = h[j].at || '—';
+            if (ev === 'resubmit_after_gbs_reject') {
+              metaKind = 'gbsreject';
+              revCount = h[j].resubmit_count || docData.resubmit_count || revCount;
+            }
             break;
           }
         }
       }
     } catch(e){}
+    /* Cat bo phan micro-giay: "2026-08-03 16:22:56.135705" -> "2026-08-03 16:22" */
+    if (sentAt && sentAt !== '—') sentAt = String(sentAt).slice(0, 16);
 
     // C4b B7 2026-08-03: MSO / Sales Order / Purchase Order native KHONG co bang
     // `approval_history` (da xac nhan tren live: chi GBS SO/PO moi co field nay).
@@ -4108,7 +4130,9 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
     var html = '<div id="ec-can-sua-banner">' +
       '<div class="csb-title">⚠️ Cần sửa</div>' +
       '<div class="csb-reason">' + escapeHtml(reason) + '</div>' +
-      '<div class="csb-meta">Yêu cầu bởi <b>' + escapeHtml(sentBy) + '</b> · ' + escapeHtml(sentAt) + ' · Lần thứ ' + revCount + '</div>';
+      (metaKind === 'gbsreject'
+        ? '<div class="csb-meta">GBS từ chối · Mở sửa bởi <b>' + escapeHtml(sentBy) + '</b> · ' + escapeHtml(sentAt) + ' · Lần thứ ' + revCount + '</div>'
+        : '<div class="csb-meta">Yêu cầu bởi <b>' + escapeHtml(sentBy) + '</b> · ' + escapeHtml(sentAt) + ' · Lần thứ ' + revCount + '</div>');
     var _canRS = isSubmitter || (window._ecIsAdmin === true);
     if (_canRS) {
       html += '<button class="csb-btn" id="ec-csb-resubmit-btn">Sửa & Submit lại' + (isSubmitter ? '' : ' (admin)') + '</button>';

@@ -55,11 +55,27 @@ def _html():
 #      poll -- ec-resubmit-repoll-v1 only re-armed on the "already exists" branch,
 #      which was unreachable because the insert path fell off the end of the
 #      function, so the poll died after the very first insert.
+#   5. ec-cansua-meta-v1 (this commit): the "Can sua" banner's meta line rendered
+#      "Yeu cau boi - . - . Lan thu 0" for every doc that reached "Can sua" by way
+#      of a GBS/boxme rejection. Two distinct routes land on that status: the
+#      Finance send-back bumps `revision_count` and writes an approval_history
+#      event 'send_back', while GBS reject + the user pressing "Sua & Submit lai"
+#      bumps `resubmit_count` and writes 'resubmit_after_gbs_reject'. The banner
+#      only ever scanned for 'send_back', so on the second route it found nothing
+#      and fell back to its em-dash placeholders with a zero counter (live at the
+#      time: GBS-SO-2026-07-22-00002, GBS-SO-2026-07-24-00004,
+#      GBS-SO-2026-07-31-00016, GBS-PO-2026-07-09-00004). It now takes the NEWEST
+#      of the two event kinds -- a doc can have travelled both roads -- reads
+#      `resubmit_count` on the GBS route, and trims the microseconds off the
+#      timestamp. Wording branches too: on the GBS route the person in `by` did
+#      not request the change, GBS did, so it reads "GBS tu choi . Mo sua boi X"
+#      instead of "Yeu cau boi X". Display-only; no stored value changed, so every
+#      existing doc renders correctly with no backfill.
 # upsert_web_page REFUSES to write when live hashes to none of the accepted
 # values, so a repo snapshot can never silently revert a live edit. Deliberate
 # update = edit main_section.html, bump this constant, and move the value it
 # replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "ef66131a5dded4e48cbe00e9235c9859a85b449135bc195bffc2b5f4dfaa8ab5"
+BASELINE_SHA256 = "4ed7fbdaf76a04ec440705e3f6f051205ff66347d93999faf2663a70dfb37d61"
 
 # Live values this snapshot is allowed to overwrite. C4b was authored in the
 # repo, not on the site, so at deploy time live still holds the #138 bytes
@@ -79,6 +95,10 @@ SUPERSEDES_SHA256 = (
     # on the site (2026-08-03 16:20). team.ecentric.vn has since been written
     # forward to BASELINE_SHA256, so the first sync there returns "unchanged".
     "78298a9ec4ca4420b608625788ee30713c9ff222ffd2177a17df7bc14e5a81fa",  # repoll-v1
+    # pre-cansua-meta-v1 bytes: what live held after ec-resubmit-merge-v1 was
+    # written to the site (2026-08-03). team.ecentric.vn has since been written
+    # forward to BASELINE_SHA256, so the first sync there returns "unchanged".
+    "ef66131a5dded4e48cbe00e9235c9859a85b449135bc195bffc2b5f4dfaa8ab5",  # merge-v1
 )
 
 
