@@ -129,7 +129,7 @@ def can_view_task(task, user=None):
         return True
     if task.get("owner") == user:
         return True
-    if user in (task.get("_assign") or ""):
+    if user in (frappe.parse_json(task.get("_assign") or "[]") or []):
         return True
     project = task.get("project")
     if project and can_view_project(project, user):
@@ -141,7 +141,7 @@ def is_task_assignee(task, user=None):
     """G4.10: True if `user` is in the task's native _assign list. `task` is a dict/doc
     exposing _assign (same shape can_view_task consumes). Canonical assignee check."""
     user = user or frappe.session.user
-    return user in (task.get("_assign") or "")
+    return user in (frappe.parse_json(task.get("_assign") or "[]") or [])
 
 
 def can_transition_any_task(user=None):
@@ -193,7 +193,7 @@ def task_scope_or_filters(user=None):
     if can_see_all_pm_data(user):
         return None
     visible = get_visible_project_names(user) or []
-    ors = [["owner", "=", user], ["_assign", "like", "%{0}%".format(user)]]
+    ors = [["owner", "=", user], ["_assign", "like", '%"{0}"%'.format(user)]]
     if visible:
         ors.append(["project", "in", visible])
     return ors

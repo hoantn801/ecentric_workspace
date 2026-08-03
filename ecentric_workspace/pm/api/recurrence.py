@@ -162,6 +162,9 @@ def create_with_task(subject, frequency, project=None, assignee=None, descriptio
 @frappe.whitelist()
 def get_for_task(task):
     pmperm.require_pm_access()
+    src = frappe.db.get_value("Task", task, ["name", "owner", "project", "_assign"], as_dict=True)
+    if not src or not pmperm.can_view_task(src, frappe.session.user):
+        frappe.throw(_("Not permitted."), frappe.PermissionError)
     name = _active_rule_for(task)
     if not name:
         return {"exists": False}
