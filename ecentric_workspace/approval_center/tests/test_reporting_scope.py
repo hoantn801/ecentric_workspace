@@ -46,6 +46,25 @@ def _employee(user, department=None):
     return e.name
 
 
+def _set_dept_head(dept, user, emp):
+    """Seed 'head of this department' using whichever source the SITE actually has.
+
+    #139: this file used to write Department.department_head unconditionally, but that
+    column exists only when HRMS is installed. On team.ecentric.vn the head is recorded
+    on the Custom Field Department.manager_email, so the unconditional write raised
+    (1054, "Unknown column 'department_head'") in setUpClass and took the whole module
+    down before a single assertion ran. Returns the fieldname actually written, or None.
+    """
+    meta = frappe.get_meta("Department")
+    if meta.has_field("department_head"):
+        frappe.db.set_value("Department", dept, "department_head", emp)
+        return "department_head"
+    if meta.has_field("manager_email"):
+        frappe.db.set_value("Department", dept, "manager_email", user)
+        return "manager_email"
+    return None
+
+
 def _ensure_type():
     if not frappe.db.exists("EC Approval Type", TYPE):
         frappe.get_doc({"doctype": "EC Approval Type", "approval_code": TYPE,
@@ -79,7 +98,7 @@ class TestReportingScope(FrappeTestCase):
         cls.admin = _user(PFX + "admin@x.com"); frappe.get_doc("User", cls.admin).add_roles("System Manager")
         cls.mgr = _user(PFX + "mgr@x.com")
         cls.emp_mgr = _employee(cls.mgr, cls.d_fin)
-        frappe.db.set_value("Department", cls.d_fin, "department_head", cls.emp_mgr)
+        cls.head_field = _set_dept_head(cls.d_fin, cls.mgr, cls.emp_mgr)
         cls.req_fin = _user(PFX + "reqfin@x.com"); _employee(cls.req_fin, cls.d_fin)
         cls.req_hr = _user(PFX + "reqhr@x.com"); _employee(cls.req_hr, cls.d_hr)
         cls.approver = _user(PFX + "appr@x.com"); _employee(cls.approver, cls.d_hr)
@@ -128,3 +147,23 @@ class TestReportingScope(FrappeTestCase):
         u = _user(PFX + "fin_gov@x.com")
         # a plain governance-style role name must not grant org-wide scope
         self.assertNotEqual(_scope.resolve_scope(u)["mode"], "admin")
+
+    # --- #139 regression -----------------------------------------------------
+    def test_managed_departments_never_queries_an_absent_column(self):
+        """The bug: _managed_departments queried Department.department_head even when
+        that column does not exist, so resolve_scope raised OperationalError 1054 and
+        get_dashboard died for EVERY non-admin caller. Calling it must now be safe for
+        any user regardless of which head field the site has."""
+        for u in (self.mgr, self.req_hr, self.approver, PFX + "nobody@x.com", "Guest", None):
+            _scope._managed_departments(u)  # must not raise
+
+    def test_head_sources_agree_with_the_engine_resolver(self):
+        """The dashboard's notion of 'head of department X' must match the engine's,
+        or a manager sees a department whose approvals route to someone else."""
+        from ecentric_workspace.approval_center.engine import service as _engine
+        for dept in _scope._managed_departments(self.mgr):
+            self.assertEqual(_engine.resolve_department_manager_user(dept), self.mgr)
+
+    def test_unknown_user_is_not_a_department_head(self):
+        self.assertEqual(_scope._managed_departments(PFX + "nobody@x.com"), [])
+        self.assertEqual(_scope._managed_departments("Guest"), [])
