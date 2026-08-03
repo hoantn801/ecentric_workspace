@@ -10,9 +10,11 @@ per source_task. Permission enforced in this service layer.
 """
 
 import re
+import time
 
 import frappe
 from frappe import _
+from frappe.exceptions import QueryDeadlockError
 from frappe.desk.form.assign_to import add as _assign_add
 from frappe.utils import nowdate, getdate, add_days, add_months
 
@@ -351,18 +353,65 @@ def _process(name, today):
     r.save(ignore_permissions=True)
 
 
+def _process_with_retry(name, today, attempts=4):
+    """Generate for one rule, retrying on transient DB deadlocks (MySQL 1213). ERPNext Task
+    nested-set updates can deadlock under contention; the DB itself advises 'try restarting
+    transaction'. Non-deadlock errors are logged once and skipped (never block other rules)."""
+    for i in range(attempts):
+        try:
+            _process(name, today)
+            frappe.db.commit()
+            return True
+        except QueryDeadlockError:
+            frappe.db.rollback()
+            if i == attempts - 1:
+                frappe.log_error(frappe.get_traceback(),
+                                 "PM Recurrence run_due deadlock (gave up): " + str(name))
+            else:
+                time.sleep(0.4 * (i + 1))
+        except Exception:
+            frappe.db.rollback()
+            frappe.log_error(frappe.get_traceback(), "PM Recurrence run_due")
+            return False
+    return False
+
+
 def run_due():
     """Daily scheduler entry point (registered in hooks scheduler_events)."""
     today = getdate(nowdate())
     rules = frappe.get_all(DT, filters={"status": "Active", "next_run_date": ["<=", today]},
                            fields=["name"])
     for row in rules:
-        try:
-            _process(row["name"], today)
-            frappe.db.commit()
-        except Exception:
-            frappe.db.rollback()
-            frappe.log_error(frappe.get_traceback(), "PM Recurrence run_due")
+        _process_with_retry(row["name"], today)
+
+
+@frappe.whitelist()
+def generate_now():
+    """On-demand catch-up generation (same idempotent logic as the 00:00 scheduler), scoped to
+    rules the caller owns, or all for a PM leader. Catches up missed days up to today (capped).
+    Returns how many tasks were generated. Lets users 'Sinh ngay' instead of waiting for 00:00."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    leader = pmperm.can_transition_any_task(user)
+    today = getdate(nowdate())
+    rules = frappe.get_all(DT, filters={"status": "Active", "next_run_date": ["<=", today]},
+                           fields=["name", "owner"])
+    generated = 0
+    for row in rules:
+        if not (leader or row.get("owner") == user):
+            continue
+        for _n in range(60):  # catch up missed occurrences, capped to avoid runaway
+            b = frappe.db.get_value(DT, row["name"],
+                                    ["occurrences_done", "next_run_date", "status"], as_dict=True)
+            if (not b or b.status != "Active" or not b.next_run_date
+                    or getdate(b.next_run_date) > today):
+                break
+            if not _process_with_retry(row["name"], today):
+                break
+            after = frappe.db.get_value(DT, row["name"], "occurrences_done") or 0
+            if after > (b.occurrences_done or 0):
+                generated += 1
+    return {"generated": generated}
 
 
 @frappe.whitelist()

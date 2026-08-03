@@ -114,6 +114,9 @@
   .pm-st-meta{ display:flex; align-items:center; gap:8px; flex:0 0 auto; }
   .pm-chk-add{ display:inline-flex; align-items:center; gap:6px; margin-top:10px; font-size:12.5px; color:var(--navy); cursor:pointer; }
   .pm-chk-add:hover{ text-decoration:underline; }
+  /* ec-pm-chk-underline-fix */
+  .pm-chk-add:has(.pm-chk-addform):hover{ text-decoration:none; }
+  .pm-chk-addform, .pm-chk-addform *{ text-decoration:none; }
   .pm-chk-addform{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
   .pm-chk-addform .pm-chk-title{ flex:1; min-width:160px; }
   .pm-chk-reqlbl{ font-size:12.5px; color:var(--gray-600); display:flex; align-items:center; gap:5px; white-space:nowrap; }
@@ -412,6 +415,8 @@
   .pm-subform input[type=date]{ -webkit-appearance:none; appearance:none; line-height:normal; display:inline-flex; align-items:center; color:var(--gray-800); }
   .pm-subform input[type=date]::-webkit-calendar-picker-indicator{ margin-left:auto; opacity:.55; cursor:pointer; }
   .pm-subform input[type=date]:hover::-webkit-calendar-picker-indicator{ opacity:.85; }
+  /* ec-pm-time-icon-fix */
+  #pm-st-time,#pm-en-time{ background-image:none; min-width:96px; }
   .pm-subf-title{ flex:2 1 180px; min-width:140px; background-image:none !important; }
   .pm-subf-asg{ flex:1 1 150px; min-width:120px; background-image:none !important; }
   .pm-subf-start{ flex:0 0 142px; }
@@ -1620,16 +1625,16 @@
     } else if(ac&&ac.active){
       h+='<div style="background:var(--yellow-50);border:1px solid #ffe08a;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;color:#92400e">Bạn đang có timer chạy ở task <b>'+esc(ac.task)+'</b>. Dừng nó trước khi bắt đầu task này.</div>';
     } else if(!terminal){
-      h+='<button class="pm-btn primary" id="tk-start" style="width:100%;justify-content:center;margin-bottom:12px"><svg class="icon icon-sm"><use href="#p-clock"/></svg> Start Work</button>';
+      /* ec-pm-worktime-simplify: bo nut Start Work (timer) */
     }
     if(terminal){
       /* G4.3: terminal task -> no Start/Log; read-only note. History below stays visible. */
       h+='<div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12.5px;color:var(--gray-500)">Nhiệm vụ đã đóng — Reopen để ghi giờ hoặc giao việc.</div>';
     } else {
-      h+='<details style="margin-bottom:10px"><summary style="cursor:pointer;font-size:12.5px;color:var(--gray-600);user-select:none">Log manually</summary><div style="padding-top:10px">'+
+      h+='<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:600;color:var(--gray-700);margin-bottom:8px">Ghi nhận giờ đã xử lý</div><div style="padding-top:2px">'+
         '<div style="display:flex;gap:8px;margin-bottom:8px"><input class="pm-input" id="wt-date" type="date" style="flex:1;padding-left:11px;background-image:none"><input class="pm-input" id="wt-hours" type="number" step="0.25" min="0" placeholder="Số giờ" style="width:100px;padding-left:11px;background-image:none"></div>'+
         '<input class="pm-input" id="wt-desc" placeholder="Mô tả (tuỳ chọn)" style="padding-left:11px;background-image:none;margin-bottom:8px;width:100%">'+
-        '<button class="pm-btn" id="wt-log" style="width:100%;justify-content:center">Lưu giờ</button></div></details>';
+        '<button class="pm-btn primary" id="wt-log" style="width:100%;justify-content:center">Lưu giờ</button></div></div>';
     }
     h+='<div style="font-size:12px;color:var(--gray-500);margin-bottom:6px">Tổng đã log: <b style="color:var(--gray-900)">'+total+'h</b></div>';
     if(rows.length){h+=rows.map(function(r){return '<div class="pm-sub"><span>'+esc((r.from_time||"").slice(0,10))+' · '+esc(r.hours)+'h'+(r.description?' · '+esc(r.description):'')+'</span><span class="pm-mini-av" title="'+esc(r.owner||"")+'">'+ini(r.owner||"")+'</span></div>';}).join("");}
@@ -2288,7 +2293,7 @@
     Promise.all([api(PM+"recurrence.list"),api(PM+"tasks.list",{page_length:2000})]).then(function(res){
       var rules=(res[0]&&res[0].rows)||[];var tasks=(res[1]&&res[1].rows)||[];var tmap={};tasks.forEach(function(t){tmap[t.name]=t;});
       var today=new Date().toISOString().slice(0,10);function d10(v){return v?String(v).slice(0,10):null;}
-      var CTA='<button class="pm-btn primary" id="rec-new-cta"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo việc định kỳ</button>';var h=head("Recurring","Quy tắc lặp và nhiệm vụ định kỳ hằng ngày",CTA);
+      var CTA='<button class="pm-btn" id="rec-gen-now"><svg class="icon icon-sm"><use href="#p-repeat"/></svg> Sinh ngay</button><button class="pm-btn primary" id="rec-new-cta"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo việc định kỳ</button>';var h=head("Recurring","Nhiệm vụ định kỳ tự sinh lúc 00:00 mỗi ngày · bấm Sinh ngay để tạo thủ công",CTA);
       if(!rules.length){c.innerHTML=h+'<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-repeat"/></svg><div>Chưa có quy tắc lặp.<br>Bấm <b>+ Tạo việc định kỳ</b> để bắt đầu.</div><div style="margin-top:12px"><button class="pm-btn primary" id="rec-new-cta2"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo việc định kỳ</button></div></div></div>';var b0=el("rec-new-cta2");if(b0)b0.onclick=openRecurringCreate;return;}
       var active=rules.filter(function(r){return r.status==="Active";});
       var paused=rules.filter(function(r){return r.status==="Paused";});
@@ -2302,7 +2307,7 @@
       var alerts=recAlerts(rules,tmap);
       h+='<div class="stats-strip dc-block" style="grid-template-columns:repeat(7,1fr)">'+
         ccard("s-green","Đang chạy",active.length,"")+ccard("s-pink","Rule rủi ro",ruleRisk,"")+ccard("s-navy","Sinh hôm nay",genToday.length,"")+ccard("s-yellow","Chờ xử lý hôm nay",pendingToday,"")+ccard("s-pink","Quá hạn sinh ra",overdueGen,"")+ccard("s-yellow","Chưa giao sinh ra",noassGen,"")+ccard("s-pink","Blocked sinh ra",blockedGen,"")+'</div>';
-      h+='<div class="dc-sec-title">Cảnh báo định kỳ'+(alerts.length?' <span style="color:var(--gray-400);font-weight:500">('+alerts.length+')</span>':'')+'</div><div class="panel dc-block" id="rec-alerts"></div>';
+      h+=(alerts.length?'<details class="dc-analytics"><summary>Cảnh báo định kỳ ('+alerts.length+')</summary><div class="panel dc-block" id="rec-alerts"></div></details>':'<div class="dc-block" id="rec-alerts" style="display:none"></div>');
       h+='<div class="dc-sec-title">Nhiệm vụ sinh hôm nay</div><div class="dc-block" id="rec-today"></div>';
       h+='<div class="dc-sec-title">Quy tắc đang chạy</div><div class="dc-block" id="rec-active"></div>';
       h+='<details class="dc-analytics"><summary>Tạm dừng ('+paused.length+') / Đã huỷ-xong ('+ended.length+')</summary><div id="rec-other"></div></details>';
@@ -2313,6 +2318,7 @@
       recRuleTable(el("rec-active"),active,tmap,true);
       recRuleTable(el("rec-other"),paused.concat(ended),tmap,true);
       var bn=el("rec-new-cta");if(bn)bn.onclick=openRecurringCreate;
+      var bg=el("rec-gen-now");if(bg)bg.onclick=function(){var self=this;self.disabled=true;self.textContent="Đang sinh...";api(PM+"recurrence.generate_now").then(function(r){toast("Đã sinh "+((r&&r.generated)||0)+" nhiệm vụ");showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);self.disabled=false;self.textContent="Sinh ngay";});};
     }).catch(function(e){errBox(c,e);});}
 
   /* G4.11: create a recurring task directly (base task + rule in one transaction), or pick an
