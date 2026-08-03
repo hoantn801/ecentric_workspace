@@ -114,6 +114,9 @@
   .pm-st-meta{ display:flex; align-items:center; gap:8px; flex:0 0 auto; }
   .pm-chk-add{ display:inline-flex; align-items:center; gap:6px; margin-top:10px; font-size:12.5px; color:var(--navy); cursor:pointer; }
   .pm-chk-add:hover{ text-decoration:underline; }
+  /* ec-pm-chk-underline-fix */
+  .pm-chk-add:has(.pm-chk-addform):hover{ text-decoration:none; }
+  .pm-chk-addform, .pm-chk-addform *{ text-decoration:none; }
   .pm-chk-addform{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
   .pm-chk-addform .pm-chk-title{ flex:1; min-width:160px; }
   .pm-chk-reqlbl{ font-size:12.5px; color:var(--gray-600); display:flex; align-items:center; gap:5px; white-space:nowrap; }
