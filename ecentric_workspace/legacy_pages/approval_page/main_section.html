@@ -4042,6 +4042,21 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
     var submitter = (docData.submitted_by || '').toLowerCase();
     var currentUser = (getSessionEmail() || '').toLowerCase();
     var isSubmitter = (currentUser === submitter);
+    var docOwner = (docData.owner || docData.created_by || '').toLowerCase();
+    if (!isSubmitter && currentUser && currentUser === docOwner) { isSubmitter = true; }
+    if (!isSubmitter) { /* ec-resubmit-realuser-v1: getSessionEmail rong tren portal -> fetch user that, reveal nut cho submitter/owner (backend van gac quyen) */
+      window._ecCurUserPromise = window._ecCurUserPromise || fetch('/api/method/frappe.auth.get_logged_user', {credentials:'include'}).then(function(r){ return r.json(); }).then(function(d){ return (((d && d.message) || '') + '').toLowerCase(); }).catch(function(){ return ''; });
+      window._ecCurUserPromise.then(function(realU){
+        if (!(realU && (realU === submitter || realU === docOwner))) return;
+        if (document.getElementById('ec-csb-resubmit-btn')) return;
+        var note = document.getElementById('ec-csb-nonsubmitter-note');
+        if (!note || !note.parentNode) return;
+        var b = document.createElement('button');
+        b.className = 'csb-btn'; b.id = 'ec-csb-resubmit-btn'; b.textContent = 'S\u1eeda & Submit l\u1ea1i';
+        note.parentNode.insertBefore(b, note); note.style.display = 'none';
+        b.addEventListener('click', function(){ window.location.href = resubmitUrl(); });
+      });
+    }
 
     var sentBy = '—', sentAt = '—';
     try {
@@ -4588,6 +4603,7 @@ function ecDriftBadge(doc){
       var gg = parseFloat(doc.gbs_grand_total || 0);
       /* ec-drift-v3 gate removed - item-level only */
       if (!doc.gbs_doc_name) return; /* ec-drift-v2 item-level */
+      var ecLst = ((doc.status||'')+'').toLowerCase(); var ecGst = ((doc.gbs_status||'')+'').toLowerCase(); if (ecLst !== 'approved' || !(ecGst === 'approved' || ecGst === 'completed')) return; /* ec-drift-settled-guard-v1 */
       var ecGJ = {}; try { ecGJ = JSON.parse(doc.gbs_response_json || '{}'); } catch(e) { return; }
       var ecGItems = ecGJ.items || []; var ecLItems = doc.items || [];
       if (!ecGItems.length && !ecLItems.length) return;
@@ -6001,6 +6017,8 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
       var existing = document.getElementById('ec-gbs-resubmit-btn');
       if (existing && !shouldShow) {
         existing.remove();
+        /* ec-resubmit-repoll-v1: un-hide the Submit-on-GBS button this block hid */
+        var _sbRestore = findSubmitBtn(); if (_sbRestore) _sbRestore.style.display = '';
       }
 
       if (!shouldShow) {
@@ -6009,7 +6027,11 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
         return;
       }
 
-      if (existing) return;
+      /* ec-resubmit-repoll-v1: previously `return` with no re-poll, so once the button
+         was inserted ensureButton() never ran again — after the user resubmitted and
+         status flipped to 'Cần sửa' the stale Resubmit button stayed on screen next to
+         the banner's "Sửa & Submit lại". Keep the 3s poll alive so it gets removed. */
+      if (existing) { setTimeout(ensureButton, 3000); return; }
 
       // Find anchor: Submit on GBS button OR Check Status button - inject Resubmit nearby
       var submitBtn = findSubmitBtn();
