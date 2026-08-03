@@ -33,7 +33,7 @@ def _html():
 
 
 # sha256 of main_section.html as it ships in this commit == the live
-# main_section_html at import time (314352e40235f532b64ad87f03a2d949d63c5f87d35e2ba6d00ae2542ad2e7d7).
+# main_section_html at import time (bccf9fbded81630c3e3d23bcf94d1055e5c47d7fbed669bdb9ea6c27d62483db).
 #
 # upsert_web_page REFUSES to write (and changes nothing) when live hashes to
 # none of the accepted values. This page has a history of being edited straight
@@ -42,8 +42,8 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "314352e40235f532b64ad87f03a2d949d63c5f87d35e2ba6d00ae2542ad2e7d7"
-SUPERSEDES_SHA256 = ()
+BASELINE_SHA256 = "bccf9fbded81630c3e3d23bcf94d1055e5c47d7fbed669bdb9ea6c27d62483db"
+SUPERSEDES_SHA256 = ("314352e40235f532b64ad87f03a2d949d63c5f87d35e2ba6d00ae2542ad2e7d7",)
 
 
 def sync(html=None, force=0):

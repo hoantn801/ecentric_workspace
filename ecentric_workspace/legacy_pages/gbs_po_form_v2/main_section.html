@@ -777,18 +777,127 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 <table class="items-table" style="width:100%;border-collapse:collapse;margin-top:8px">
   <thead>
     <tr style="background:#f9fafb">
-      <th style="padding:8px 10px;text-align:left;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;width:30%">Item Code</th>
-      <th style="padding:8px 10px;text-align:left;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;width:35%">Tên sản phẩm</th>
+      <th style="padding:8px 10px;text-align:left;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;width:25%">Item Code</th>
+      <th style="padding:8px 10px;text-align:left;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;width:30%">Tên sản phẩm</th>
       <th style="padding:8px 10px;text-align:left;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;width:10%">Số lượng</th>
       <th style="padding:8px 10px;text-align:left;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;width:12%">Giá</th>
       <th style="padding:8px 10px;text-align:left;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;width:13%">Thành tiền</th>
       
+      <th id="ec-th-item-tax" style="padding:8px 10px;text-align:left;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;width:10%">VAT</th>
       <th style="width:32px"></th>
     </tr>
   </thead>
   <tbody id="itemsBody"></tbody>
 </table>
 <button type="button" id="btnAddRow" style="background:rgba(44,61,166,0.08);color:#2C3DA6;border:1px dashed #2C3DA6;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-top:10px;width:100%">+ Thêm dòng item</button>
+<script id="ec-gbs-po-item-tax">
+/* v18 2026-08-03 - VAT theo từng dòng cho GBS PO (#178).
+   Ô trống = theo header. Header FCT => khoá cột. Mode ecbuy => ẩn cột. */
+(function(){
+  window.EC_ITEM_TAX = [];
+  window.EC_ITEM_TAX_LOADED = false;
+
+  window.ecItemTaxOptionsHtml = function(){
+    if (!window.EC_ITEM_TAX_LOADED) return '<option value="">— đang tải… —</option>';
+    var h = '<option value="">— theo header —</option>';
+    window.EC_ITEM_TAX.forEach(function(t){
+      h += '<option value="' + t.name + '">VAT ' + (parseFloat(t.rate) || 0) + '%</option>';
+    });
+    return h;
+  };
+
+  window.ecItemTaxRate = function(name){
+    for (var i = 0; i < window.EC_ITEM_TAX.length; i++) {
+      if (window.EC_ITEM_TAX[i].name === name) return parseFloat(window.EC_ITEM_TAX[i].rate) || 0;
+    }
+    return 0;
+  };
+
+  window.ecFillAllItemTaxSelects = function(){
+    document.querySelectorAll('#itemsBody .item-tax').forEach(function(sel){
+      var keep = sel.value;
+      sel.innerHTML = window.ecItemTaxOptionsHtml();
+      if (keep) sel.value = keep;
+    });
+  };
+
+  window.ecCurrentPoMode = function(){
+    var b = document.querySelector('.ec-uni-btn.on');
+    return (b && b.dataset) ? (b.dataset.m || '') : '';
+  };
+
+  window.ecIsFctTemplate = function(name){
+    return !!name && String(name).indexOf('FCT') >= 0;
+  };
+
+  window.ecToggleItemTaxColumn = function(){
+    var hide = (window.ecCurrentPoMode() === 'ecbuy');
+    var th = document.getElementById('ec-th-item-tax');
+    if (th) th.style.display = hide ? 'none' : '';
+    var hdr = document.getElementById('ec-taxes-template');
+    var lockFct = window.ecIsFctTemplate(hdr ? hdr.value : '');
+    document.querySelectorAll('#itemsBody .item-tax').forEach(function(sel){
+      var td = sel.parentNode;
+      if (td && td.tagName === 'TD') td.style.display = hide ? 'none' : '';
+      sel.disabled = lockFct;
+      if (lockFct) sel.value = '';
+      sel.title = lockFct ? 'Header đang dùng template FCT — cả PO tính theo header' : '';
+    });
+  };
+
+  window.ecComputeVatPerLine = function(headerRate, parseFn){
+    var net = 0, vat = 0, hasLine = false;
+    var pf = parseFn || function(v){ return parseFloat(String(v).replace(/[^0-9.-]/g, '')) || 0; };
+    document.querySelectorAll('#itemsBody tr').forEach(function(tr){
+      var qtyEl = tr.querySelector('.item-qty');
+      var rateEl = tr.querySelector('.item-rate');
+      if (!qtyEl || !rateEl) return;
+      var amt = (parseFloat(qtyEl.value) || 0) * (pf(rateEl.value) || 0);
+      var sel = tr.querySelector('.item-tax');
+      var r = headerRate;
+      if (sel && !sel.disabled && sel.value) { r = window.ecItemTaxRate(sel.value); hasLine = true; }
+      net += amt;
+      vat += amt * r / 100;
+    });
+    return { net: net, vat: vat, hasLine: hasLine };
+  };
+
+  function ecItemTaxSettled(){
+    window.EC_ITEM_TAX_LOADED = true;
+    window.ecFillAllItemTaxSelects();
+    window.ecToggleItemTaxColumn();
+  }
+
+  window.ecLoadItemTaxTemplates = function(){
+    return fetch('/api/resource/GBS%20Item%20Tax%20Template?fields=%5B%22name%22%2C%22rate%22%5D&limit_page_length=0',
+                 { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        window.EC_ITEM_TAX = (j && j.data) || [];
+        ecItemTaxSettled();
+      })
+      .catch(function(){
+        window.EC_ITEM_TAX = [];
+        ecItemTaxSettled();
+        if (typeof showGbsToast === 'function') {
+          showGbsToast('Không tải được danh sách VAT theo dòng', 'error');
+        }
+      });
+  };
+
+  function ecItemTaxBoot(){
+    window.ecLoadItemTaxTemplates();
+    document.addEventListener('click', function(e){
+      var t = e.target;
+      if (t && t.classList && t.classList.contains('ec-uni-btn')) {
+        setTimeout(window.ecToggleItemTaxColumn, 60);
+      }
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ecItemTaxBoot);
+  else ecItemTaxBoot();
+})();
+</script>
 <datalist id="itemCodes"></datalist>
 <div style="display:flex;justify-content:flex-end;gap:14px;padding:16px 12px;background:#f9fafb;border-radius:7px;margin-top:14px">
   <span style="font-size:13px;color:#6b7280;align-self:center">Tổng cộng:</span>
@@ -1854,9 +1963,11 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       '<td style="padding:6px 4px"><input class="f-control item-qty" type="number" min="0" step="0.01" value="1"/></td>' +
       '<td style="padding:6px 4px"><input class="f-control item-rate" type="text" inputmode="numeric" data-rate-formatted="1" value="0" style="text-align:right"/></td>' +
       '<td style="padding:6px 4px"><input class="f-control item-amount" readonly value="0" style="text-align:right"/></td>' +
+      '<td style="padding:6px 4px"><select class="f-control item-tax">' + (window.ecItemTaxOptionsHtml ? window.ecItemTaxOptionsHtml() : '<option value=""></option>') + '</select></td>' +
       
       '<td style="padding:6px 4px"><button class="btn-remove" type="button" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:16px;font-weight:700">x</button></td>';
     _id('itemsBody').appendChild(tr);
+    if (window.ecToggleItemTaxColumn) window.ecToggleItemTaxColumn();
 
     // warehouse column removed - skip warehouse cell setup
 
@@ -1970,6 +2081,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       tr.querySelector('.item-qty').value = r.qty;
       tr.querySelector('.item-rate').value = ecBulkFmt(r.rate);
       if (r.warehouse) tr.querySelector('.item-warehouse').value = r.warehouse;
+      if (r.item_tax_template) { var _bt = tr.querySelector('.item-tax'); if (_bt) _bt.value = r.item_tax_template; }
       tr.querySelector('.item-qty').dispatchEvent(new Event('input'));
     });
     showGbsToast('Th' + String.fromCharCode(0x00EA) + 'm ' + rows.length + ' d' + String.fromCharCode(0x00F2) + 'ng');
@@ -2064,7 +2176,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
           item_code: code,
           item_name: tr.querySelector('.item-name').value,
           qty: parseFloat(tr.querySelector('.item-qty').value) || 0,
-          rate: _gbsParseNum ? _gbsParseNum(tr.querySelector('.item-rate').value) : (parseFloat(tr.querySelector('.item-rate').value) || 0)
+          rate: _gbsParseNum ? _gbsParseNum(tr.querySelector('.item-rate').value) : (parseFloat(tr.querySelector('.item-rate').value) || 0),
+          item_tax_template: (function(){ var s = tr.querySelector('.item-tax'); return (s && !s.disabled && s.value) ? s.value : ''; })()
           // warehouse removed - set_warehouse at doc level auto-fills each item server-side
         });
       });
@@ -4260,6 +4373,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var info = getTaxInfo();
     var totalTaxRate = info.rate;
     var components = info.components || [];
+    // v18 2026-08-03 - VAT theo tung dong (dong de trong lay rate header)
+    var perLine = window.ecComputeVatPerLine ? window.ecComputeVatPerLine(totalTaxRate, parseClean) : null;
+    var useLine = !!(perLine && perLine.hasLine && components.length < 2);
 
     // Build inner HTML
     var rowsHtml = '<div class="ec-vat-row subtotal"><span>Tổng (chưa VAT):</span><span class="ec-vat-amt">' + fmtVnd(subtotal) + '</span></div>';
@@ -4276,12 +4392,13 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       });
     } else {
       // Single component (or empty fallback): one VAT line
-      var vat = subtotal * totalTaxRate / 100;
+      var vat = useLine ? perLine.vat : (subtotal * totalTaxRate / 100);
       var rateDisp = (totalTaxRate % 1 === 0) ? totalTaxRate : totalTaxRate.toFixed(2);
-      rowsHtml += '<div class="ec-vat-row vat"><span>VAT (' + rateDisp + '%):</span><span class="ec-vat-amt">' + fmtVnd(vat) + '</span></div>';
+      var vatLabel = useLine ? 'VAT (theo từng dòng)' : ('VAT (' + rateDisp + '%)');
+      rowsHtml += '<div class="ec-vat-row vat"><span>' + vatLabel + ':</span><span class="ec-vat-amt">' + fmtVnd(vat) + '</span></div>';
     }
 
-    var totalVat = subtotal * totalTaxRate / 100;
+    var totalVat = useLine ? perLine.vat : (subtotal * totalTaxRate / 100);
     var grand = subtotal + totalVat;
     rowsHtml += '<div class="ec-vat-row grand"><span>Tổng cộng (đã VAT):</span><span class="ec-vat-amt">' + fmtVnd(grand) + '</span></div>';
 
@@ -4293,6 +4410,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     renameHeaders();
     renderSummary();
     relocateTaxTemplate();
+    if (window.ecToggleItemTaxColumn) window.ecToggleItemTaxColumn();
   }
 
   var debounceTimer = null;
@@ -4306,6 +4424,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var t = e.target;
     if (!t) return;
     if (t.id === 'ec-taxes-template') {
+      scheduleRefresh();
+    }
+    // v18 2026-08-03 - <select> phat 'change', khong phat 'input'
+    if (t.classList && t.classList.contains('item-tax')) {
       scheduleRefresh();
     }
   });
@@ -4983,6 +5105,21 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       uomI.value = item.uom;
       fireEvt(uomI, 'input');
     }
+    /* v18 2026-08-03 VAT theo dong: khoi phuc lua chon khi sua PO. Neu danh sach
+       template chua tai xong thi tam them option, ecFillAllItemTaxSelects() se
+       dung lai gia tri nay khi render lai. */
+    var taxI = row.querySelector('.item-tax');
+    if (taxI && item.item_tax_template) {
+      taxI.value = item.item_tax_template;
+      if (taxI.value !== item.item_tax_template) {
+        var topt = document.createElement('option');
+        topt.value = item.item_tax_template;
+        topt.textContent = item.item_tax_template;
+        taxI.appendChild(topt);
+        taxI.value = item.item_tax_template;
+      }
+      fireEvt(taxI, 'change');
+    }
     if (qtyI)  fireEvt(qtyI,  'input');
     if (rateI) fireEvt(rateI, 'input');
   }
@@ -5009,6 +5146,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         rate: rate,
         amount: parseRateValue(amountEl ? amountEl.value : (qty * rate))
       };
+      // v18 2026-08-03 VAT theo dong: chi gui khi nguoi dung chon
+      var taxEl = row.querySelector('.item-tax');
+      if (taxEl && !taxEl.disabled && taxEl.value) it.item_tax_template = taxEl.value;
       // Warehouse: doc child schema requires 'warehouse' on EVERY item (SO+PO).
       // Prefer per-row select for SO; if empty (e.g. options loaded after
       // prefill ran), fallback to form-level set_warehouse for BOTH SO + PO.
