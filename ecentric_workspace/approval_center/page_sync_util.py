@@ -16,6 +16,14 @@ existing Approval Center callers keep their exact current behaviour:
   publish=None         -- PRESERVE the live published flag (a page an operator
                           deliberately un-published stays un-published; a page
                           that does not exist yet is created UN-published).
+  publish="preserve"   -- (2026-08-03, #144) PRESERVE the live published flag on
+                          an existing page, but CREATE a new page published. This
+                          is what the 27 Approval Center pages want: they are all
+                          live and published today, so re-syncing them must not
+                          silently re-publish one an operator turned off, while a
+                          first-ever sync on a fresh site must still produce a
+                          reachable page (publish=None would create it hidden and
+                          the route would 404 until somebody noticed).
   expect_sha=None      -- historical behaviour: overwrite live unconditionally.
   expect_sha="<hex>"   -- OPTIMISTIC LOCK: write only if the live
                           main_section_html still hashes to this value. If live
@@ -86,7 +94,13 @@ def upsert_web_page(route, name, title, html, publish=1, expect_sha=None):
             return {"action": "refused", "reason": "live drift (expect_sha mismatch)",
                     "route": route, "name": doc.name,
                     "expect_sha": expect_sha, "live_sha": live_sha}
-    want_published = doc.published if (publish is None and existing) else (0 if publish is None else publish)
+    if publish == "preserve":
+        # keep whatever live says; a page that does not exist yet is born published
+        want_published = doc.published if existing else 1
+    elif publish is None:
+        want_published = doc.published if existing else 0
+    else:
+        want_published = publish
     if existing and (doc.main_section or "") == html and (doc.main_section_html or "") == html \
             and doc.published == want_published and doc.title == title and doc.route == route:
         return {"action": "unchanged", "route": route, "name": doc.name}

@@ -22,10 +22,45 @@ def _html():
         return fh.read()
 
 
-def sync(html=None):
+# --- drift lock (#144, 2026-08-03) -------------------------------------------
+# sha256 of the exact HTML this commit ships. Verified equal to the live
+# main_section_html of /approvals (Web Page "approval-center") on
+# team.ecentric.vn at the time of the commit, so the first sync after deploy
+# returns "unchanged".
+#
+# This module was the ONE page_sync that lived directly under approval_center/
+# instead of in a per-type subfolder, so the first sweep of #144 -- which walked
+# approval_center/<type>/page_sync.py -- did not reach it. It was still calling
+# upsert_web_page with both guards off, which made the Approval Center HUB the
+# single most exposed page on the site: a stray POST to sync_approvals_page
+# would have reverted /approvals to the repo snapshot and re-published it even
+# if an operator had deliberately turned it off. The census test in
+# shell/tests/test_legacy_pages_shell.py now globs this file too.
+#
+# Deliberate update = edit frontend/approvals.main_section.html, bump
+# BASELINE_SHA256, move the value it replaced into SUPERSEDES_SHA256 -- all in
+# the same commit.
+BASELINE_SHA256 = "243836867f03377a37c3542a52a10a9b287475c3574019b7d34d1ac3447eb392"
+SUPERSEDES_SHA256 = ()
+
+
+def sync(html=None, force=0):
+    """Guarded sync (#144).
+
+    publish="preserve" -- never re-publishes a page an operator un-published;
+                          a page that does not exist yet is created published.
+    expect_sha         -- refuses (writes nothing) when live has drifted away
+                          from the snapshot this commit ships.
+    force=1            -- drops ONLY the drift lock; it never force-publishes.
+    """
     html = html if html is not None else _html()
-    res = page_sync_util.upsert_web_page(ROUTE, NAME, TITLE, html)
-    if res.get("name") and frappe.db.exists("Web Page", res["name"]):
+    res = page_sync_util.upsert_web_page(
+        ROUTE, NAME, TITLE, html,
+        publish="preserve",
+        expect_sha=None if force else ((BASELINE_SHA256,) + SUPERSEDES_SHA256),
+    )
+    if res.get("action") != "refused" and res.get("name") \
+            and frappe.db.exists("Web Page", res["name"]):
         res.update(page_sync_util.strip_legacy_shims(res["name"]))
     else:
         res.update({"inspected_fields": [], "shim_fields_stripped": [], "has_legacy_shim": False})

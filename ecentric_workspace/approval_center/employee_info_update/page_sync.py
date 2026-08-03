@@ -7,6 +7,8 @@ import os
 import frappe
 from frappe import _
 
+from ecentric_workspace.approval_center import page_sync_util
+
 ROUTE = "approvals/employee-information-update"
 NAME = "approval-center-employee-information-update"
 TITLE = "Employee Information Update"
@@ -18,31 +20,44 @@ def _html():
         return fh.read()
 
 
-def sync(html=None):
-    if not frappe.db.exists("DocType", "Web Page"):
-        return {"action": "skipped", "reason": "Web Page DocType missing", "route": ROUTE, "name": NAME}
+# --- drift lock (#144, 2026-08-03) -------------------------------------------
+# sha256 of the exact HTML this commit ships. Verified equal to the live
+# main_section_html on team.ecentric.vn at the time of the commit, so the first
+# sync after deploy returns "unchanged".
+#
+# upsert_web_page REFUSES to write (and changes nothing) when live hashes to
+# none of the accepted values below. That is the whole point: several of these
+# pages have been edited directly on the site in the past, and without the lock
+# a stray call to the whitelisted sync endpoint would silently revert live to
+# whatever the repo happened to hold.
+#
+# Deliberate update = edit the frontend source, bump BASELINE_SHA256 to the new
+# sha, and move the value it replaced into SUPERSEDES_SHA256 -- all in the same
+# commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
+# still holds the bytes being superseded, and after the first successful write
+# it holds the new snapshot; both are "not drifted", so both must be accepted.
+BASELINE_SHA256 = "e9e7092d8b3b3a2401537c5ac63d643a4318777998b35161667b60bedfe81473"
+SUPERSEDES_SHA256 = ()
+
+
+def sync(html=None, force=0):
+    """Guarded sync (#144). Delegates to the shared upsert helper -- this module
+    used to carry its own hand-rolled copy of the lookup/insert/update logic,
+    which meant the drift lock and the publish-preserve rule could not reach it.
+
+    publish="preserve" -- never re-publishes a page an operator un-published;
+                          a page that does not exist yet is created published.
+    expect_sha         -- refuses (writes nothing) when live has drifted away
+                          from the snapshot this commit ships.
+    force=1            -- drops ONLY the drift lock; it never force-publishes.
+
+    Returns {action: created|updated|unchanged|skipped|refused, route, name}."""
     html = html if html is not None else _html()
-    name = NAME if frappe.db.exists("Web Page", NAME) else None
-    if not name:
-        found = frappe.get_all("Web Page", filters={"route": ROUTE}, pluck="name")
-        name = found[0] if found else None
-    existed = bool(name)
-    doc = frappe.get_doc("Web Page", name) if name else frappe.new_doc("Web Page")
-    if existed and (doc.main_section or "") == html and (doc.main_section_html or "") == html \
-            and doc.published and doc.title == TITLE:
-        return {"action": "unchanged", "route": ROUTE, "name": doc.name}
-    if not existed:
-        doc.route = ROUTE
-    doc.title = TITLE
-    doc.published = 1
-    doc.content_type = "HTML"
-    doc.main_section = html
-    doc.main_section_html = html
-    doc.save(ignore_permissions=True)
-    frappe.db.commit()
-    action = "updated" if existed else "created"
-    frappe.logger("approval_center").info("employee_info_update page_sync: %s Web Page /%s" % (action, ROUTE))
-    return {"action": action, "route": ROUTE, "name": doc.name}
+    return page_sync_util.upsert_web_page(
+        ROUTE, NAME, TITLE, html,
+        publish="preserve",
+        expect_sha=None if force else ((BASELINE_SHA256,) + SUPERSEDES_SHA256),
+    )
 
 
 @frappe.whitelist(methods=["POST"])

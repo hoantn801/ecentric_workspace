@@ -205,3 +205,7 @@ class TestDataRequest(FrappeTestCase):
         self.assertEqual(page_sync.sync()["action"], "created")
         self.assertEqual(page_sync.sync()["action"], "unchanged")
         self.assertEqual(page_sync.sync(html="<div>x</div>")["action"], "updated")
+        # #144: live no longer matches the shipped snapshot -> a plain re-sync refuses,
+        # and force=1 is the documented way back (it also cleans up for the next test).
+        self.assertEqual(page_sync.sync()["action"], "refused")
+        self.assertEqual(page_sync.sync(force=1)["action"], "updated")
