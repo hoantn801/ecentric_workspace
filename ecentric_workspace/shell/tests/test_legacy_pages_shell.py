@@ -48,63 +48,15 @@ def _read(*parts):
         return fh.read()
 
 
-FORM_PAGES = ("mso_form", "so_form", "form_po", "form_rec")
-# NOTE: the legacy logout endpoint was chrome INSIDE the removed ec-sb aside;
-# the shared shell owns logout now, so it is intentionally absent below.
-FORM_ENDPOINTS = {
-    "mso_form": {
-        "ec_create_upload_session": 1,
-        "ec_list_departments": 1,
-                "submit_mso_v2": 2,
-        "web_lookup": 1
-    },
-    "so_form": {
-        "ec_create_upload_session": 1,
-        "ec_list_departments": 1,
-        "ecentric_workspace.api.get_mso_budget": 1,
-                "submit_so_v2": 2,
-        "web_lookup": 1
-    },
-    "form_po": {
-        "ec_list_departments": 1,
-        "ecentric_workspace.api.get_so_budget": 1,
-        "ecentric_workspace.api.submit_po": 1,
-                "web_lookup": 4
-    },
-    "form_rec": {
-        "ec_list_departments": 1,
-        "ecentric_workspace.api.submit_rec": 1,
-                "web_lookup": 2
-    }
-}
+# #138 (2026-08-03): the 4 legacy creation forms (mso_form, so_form, form_po,
+# form_rec) were REMOVED from the repo -- see LIVE_PAGES / TestPageSyncGuards
+# below. TestCreationForms and its FORM_PAGES / FORM_ENDPOINTS censuses went
+# with them; the live creation forms are now /mso-plan-form, /gbs-so-form-v2
+# and /gbs-po-form-v2, which are site-owned and out of this file's scope.
 
-
-class TestCreationForms(unittest.TestCase):
-    """UX follow-up: 4 high-frequency creation forms on shared shell."""
-
-    def test_shell_zone(self):
-        for slug in FORM_PAGES:
-            src = _read(LP, slug, "main_section.html")
-            self.assertEqual(src.count('data-ec-shell="1"'), 1, slug)
-            self.assertEqual(src.count('data-ec-shell-header-right="1"'), 1, slug)
-            self.assertEqual(src.count('<aside class="ec-sb">'), 0, slug)
-            self.assertEqual(src.count('data-ec-notification-bell="1"'), 1, slug)
-            self.assertGreater(src.index("data-ec-notification-bell"),
-                               src.index('data-ec-shell-header-right="1"'), slug)
-            self.assertIn('ec-shell-fallback', src)
-
-    def test_business_contracts(self):
-        for slug in FORM_PAGES:
-            src = _read(LP, slug, "main_section.html")
-            self.assertIn('<aside id="chainPreview"', src, slug)
-            for ep, n in FORM_ENDPOINTS[slug].items():
-                self.assertEqual(src.count("api/method/" + ep), n, "%s:%s" % (slug, ep))
-
-    def test_clean_encoding(self):
-        for slug in FORM_PAGES:
-            src = _read(LP, slug, "main_section.html")
-            for m in ("Ã", "Ä", "â€", "á»"):
-                self.assertEqual(src.count(m), 0, "%s:%s" % (slug, m))
+# The only legacy_pages folders that still ship a repo snapshot + page_sync.
+# home is separate: it is guarded/zero-write and has no main_section.html.
+LIVE_PAGES = ("all_ticket", "approval_page", "docs_architecture", "docs_gbsflow")
 
 
 class TestEndpointCensus(unittest.TestCase):
@@ -240,7 +192,8 @@ class TestStaticServingSafety(unittest.TestCase):
                 continue
             self.assertIn("ensure_static_serving", _read(LP, slug, "page_sync.py"), slug)
             n += 1
-        self.assertEqual(n, 13)  # 13 legacy pages (home exempt, guarded)
+        # #138: was 13; 9 dead folders deleted 2026-08-03, leaving LIVE_PAGES.
+        self.assertEqual(n, len(LIVE_PAGES))  # home exempt, guarded
 
     def test_serving_module_fail_open(self):
         src = _read(os.path.dirname(LP), "legacy_pages", "serving.py")
@@ -274,6 +227,54 @@ class TestPageSyncModules(unittest.TestCase):
         self.assertEqual((m1.ROUTE, m1.NAME, m1.TITLE), ("approval", "approval-page", "Approval"))
         m2 = self._mod("all_ticket")
         self.assertEqual((m2.ROUTE, m2.NAME, m2.TITLE), ("all-ticket", "all-ticket", "All Ticket"))
+
+
+class TestPageSyncGuards(unittest.TestCase):
+    """#138 (2026-08-03). A repo snapshot must never silently win over live.
+
+    Every surviving page_sync must (a) pass publish=None so a page an operator
+    deliberately un-published is NOT re-published, and (b) pin BASELINE_SHA256 to
+    the sha256 of its own main_section.html so upsert_web_page REFUSES to write
+    when live has drifted since the snapshot was taken. Updating a page on
+    purpose therefore means re-snapshotting live AND bumping the constant in the
+    same commit -- exactly the rule agreed for legacy page ownership."""
+
+    def test_guards_present_and_baseline_matches_snapshot(self):
+        for slug in LIVE_PAGES:
+            src = _read(LP, slug, "page_sync.py")
+            self.assertIn("publish=None", src, slug)
+            self.assertIn("expect_sha=", src, slug)
+            self.assertIn('res.get("action") == "refused"', src, slug)
+            ns = {}
+            for line in src.splitlines():
+                if line.startswith("BASELINE_SHA256"):
+                    exec(line, ns)          # noqa: S102 -- a single literal assignment
+                    break
+            self.assertIn("BASELINE_SHA256", ns, slug + ": missing BASELINE_SHA256")
+            with open(os.path.join(LP, slug, "main_section.html"), "rb") as fh:
+                want = hashlib.sha256(fh.read()).hexdigest()
+            self.assertEqual(ns["BASELINE_SHA256"], want,
+                             slug + ": BASELINE_SHA256 must be the sha256 of "
+                                    "main_section.html (re-snapshot and bump together)")
+
+    def test_endpoints_cannot_force(self):
+        """The whitelisted POST endpoints stay no-arg: no caller can pass force=1
+        and drop the drift lock over HTTP."""
+        for slug in LIVE_PAGES:
+            src = _read(LP, slug, "page_sync.py")
+            self.assertIn("def sync(html=None, force=0)", src, slug)
+            for line in src.splitlines():
+                if line.startswith("def sync_") and line.rstrip().endswith("():"):
+                    break
+            else:
+                self.fail(slug + ": whitelisted endpoint must take no arguments")
+
+    def test_util_defaults_are_backward_compatible(self):
+        """The 22 Approval Center callers keep their historical behaviour."""
+        src = _read(APP, "approval_center", "page_sync_util.py")
+        self.assertIn("def upsert_web_page(route, name, title, html, publish=1, expect_sha=None)", src)
+        self.assertIn("def content_sha256(", src)
+        self.assertIn('"action": "refused"', src)
 
 
 if __name__ == "__main__":

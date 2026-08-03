@@ -24,9 +24,25 @@ def _html():
         return fh.read()
 
 
-def sync(html=None):
+# Live bytes this snapshot was taken from (re-snapshotted 2026-08-03, #138).
+# upsert_web_page REFUSES to write when live no longer hashes to this, so a repo
+# snapshot can never silently revert a live edit. Deliberate update = re-snapshot
+# live into main_section.html, then bump this constant in the same commit.
+BASELINE_SHA256 = "0efc501dc5b74dc7fe41f52dae34fe610175501c2dfff1850a6950706c536a01"
+
+
+def sync(html=None, force=0):
+    """Guarded sync. publish=None never re-publishes a page an operator
+    un-published; expect_sha refuses (writes nothing) on live drift.
+    force=1 drops only the drift lock -- it never force-publishes."""
     html = html if html is not None else _html()
-    res = page_sync_util.upsert_web_page(ROUTE, NAME, TITLE, html)
+    res = page_sync_util.upsert_web_page(
+        ROUTE, NAME, TITLE, html,
+        publish=None,
+        expect_sha=None if force else BASELINE_SHA256,
+    )
+    if res.get("action") == "refused":
+        return res
     if res.get("name") and frappe.db.exists("Web Page", res["name"]):
         res.update(page_sync_util.strip_legacy_shims(res["name"]))
         from ecentric_workspace.legacy_pages import serving

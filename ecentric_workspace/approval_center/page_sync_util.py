@@ -7,8 +7,36 @@ a page with that slug already exists (e.g. from a partial/failed migrate or a pr
 sync). This helper looks a page up by (1) the canonical name, (2) the exact route,
 and (3) the route slug Frappe would assign, then UPDATES it in place; it only inserts
 when no such page exists. Re-running is always safe (no DuplicateEntryError). Never
-deletes a page; never uses raw SQL; never publishes a catalog card."""
+deletes a page; never uses raw SQL; never publishes a catalog card.
+
+SAFETY (2026-08-03, #138). Two OPTIONAL guards, both OFF by default so the 22
+existing Approval Center callers keep their exact current behaviour:
+
+  publish=1 (default)  -- historical behaviour: always force published=1.
+  publish=None         -- PRESERVE the live published flag (a page an operator
+                          deliberately un-published stays un-published; a page
+                          that does not exist yet is created UN-published).
+  expect_sha=None      -- historical behaviour: overwrite live unconditionally.
+  expect_sha="<hex>"   -- OPTIMISTIC LOCK: write only if the live
+                          main_section_html still hashes to this value. If live
+                          drifted (somebody edited the page after the repo
+                          snapshot was taken) the call REFUSES and writes
+                          nothing, instead of silently reverting live.
+
+Rationale: a repo snapshot must never win over live by accident. Reverting live
+is a deliberate act -- it requires bumping the caller's BASELINE_SHA256."""
+import hashlib
+
 import frappe
+
+
+def content_sha256(html):
+    """sha256 of page HTML, computed on UTF-8 bytes (LF, as stored in the repo)."""
+    if html is None:
+        html = ""
+    if isinstance(html, bytes):
+        return hashlib.sha256(html).hexdigest()
+    return hashlib.sha256(html.encode("utf-8")).hexdigest()
 
 
 def _slug(route):
@@ -30,18 +58,29 @@ def find_web_page(route, name=None):
     return None
 
 
-def upsert_web_page(route, name, title, html):
-    """Idempotent create-or-update. Returns {action: created|updated|unchanged|skipped, route, name}."""
+def upsert_web_page(route, name, title, html, publish=1, expect_sha=None):
+    """Idempotent create-or-update.
+
+    Returns {action: created|updated|unchanged|skipped|refused, route, name}.
+    See the module docstring for `publish` and `expect_sha`; both default to the
+    historical behaviour, so existing callers are unaffected."""
     if not frappe.db.exists("DocType", "Web Page"):
         return {"action": "skipped", "reason": "Web Page DocType missing", "route": route, "name": name}
     existing = find_web_page(route, name)
     doc = frappe.get_doc("Web Page", existing) if existing else frappe.new_doc("Web Page")
+    live_sha = content_sha256(doc.main_section_html or "") if existing else None
+    if expect_sha and existing and live_sha != expect_sha:
+        # Live drifted since the repo snapshot was taken -> do NOT revert it.
+        return {"action": "refused", "reason": "live drift (expect_sha mismatch)",
+                "route": route, "name": doc.name,
+                "expect_sha": expect_sha, "live_sha": live_sha}
+    want_published = doc.published if (publish is None and existing) else (0 if publish is None else publish)
     if existing and (doc.main_section or "") == html and (doc.main_section_html or "") == html \
-            and doc.published and doc.title == title and doc.route == route:
+            and doc.published == want_published and doc.title == title and doc.route == route:
         return {"action": "unchanged", "route": route, "name": doc.name}
     doc.route = route            # set before save so a new page autonames correctly; also normalises a
     doc.title = title            # page previously found by slug/name whose route drifted
-    doc.published = 1            # controlled/direct UAT; catalog card stays inactive
+    doc.published = want_published   # publish=1 (default) forces published; publish=None preserves live
     doc.content_type = "HTML"
     doc.main_section = html
     doc.main_section_html = html

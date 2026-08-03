@@ -443,10 +443,6 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
         <span class="sl-icon">+</span>
         <span>PO Request</span>
       </a>
-      <a class="sidebar-link" href="/form-rec">
-        <span class="sl-icon">+</span>
-        <span>REC Request</span>
-      </a>
     </div>
   </aside>
 
@@ -463,7 +459,7 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
     <div class="header-row">
       <div>
         <div class="header-title">All Tickets — Dashboard</div>
-        <div class="header-sub">MSO / SO / PO / REC · Live data từ SharePoint · <span id="lastUpdated">Đang tải...</span></div>
+        <div class="header-sub">MSO / SO / PO / GBS SO / GBS PO · Live data từ SharePoint · <span id="lastUpdated">Đang tải...</span></div>
       </div>
       <div class="header-actions">
         <input type="text" class="header-search" id="globalSearch" placeholder="Search ID, title..."/>
@@ -582,8 +578,6 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
       <button class="tab" data-type="mso">MSO <span class="badge" id="badgeMso">--</span></button>
       <button class="tab" data-type="so">SO <span class="badge" id="badgeSo">--</span></button>
       <button class="tab" data-type="po">PO <span class="badge" id="badgePo">--</span></button>
-      <button class="tab" data-type="rec">REC <span class="badge" id="badgeRec">--</span></button>
-      <button class="tab" data-type="vendor_request">Vendor <span class="badge" id="badgeVendor">--</span></button>
       <button class="tab" data-type="gbs_po">GBS PO <span class="badge" id="badgeGbs_po">--</span></button>
       <button class="tab" data-type="gbs_so">GBS SO <span class="badge" id="badgeGbs_so">--</span></button>
     </div>
@@ -646,9 +640,9 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
 
   const LOOKUP_URL = '/api/method/web_lookup';
 
-  const SLA_DAYS = { mso: 7, so: 5, po: 5, rec: 3, vendor_request: 4, gbs_po: 7, gbs_so: 5 };
-  const TYPE_COLORS = { mso: '#7F77DD', so: '#1D9E75', po: '#D85A30', rec: '#D4537E', vendor_request: '#0EA5E9', gbs_po: '#8B5CF6', gbs_so: '#06B6D4' };
-  const TYPE_LABELS = { mso: 'MSO', so: 'SO', po: 'PO', rec: 'REC', vendor_request: 'Vendor', gbs_po: 'GBS PO', gbs_so: 'GBS SO' };
+  const SLA_DAYS = { mso: 7, so: 5, po: 5, gbs_po: 7, gbs_so: 5 };
+  const TYPE_COLORS = { mso: '#7F77DD', so: '#1D9E75', po: '#D85A30', gbs_po: '#8B5CF6', gbs_so: '#06B6D4' };
+  const TYPE_LABELS = { mso: 'MSO', so: 'SO', po: 'PO', gbs_po: 'GBS PO', gbs_so: 'GBS SO' };
 
   let allTickets = [];
   // EC-GBS-FIN-v1: extended with gbsPhase + mine filters
@@ -681,7 +675,7 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
     document.getElementById('matrixBody').innerHTML = '<tr><td colspan="5" class="loading-row"><div class="loader"></div> Đang tải data...</td></tr>';
     document.getElementById('detailBody').innerHTML = '<tr><td colspan="7" class="loading-row"><div class="loader"></div> Đang tải tickets...</td></tr>';
 
-    const types = ['mso', 'so', 'po', 'rec', 'vendor_request', 'gbs_po', 'gbs_so'];
+    const types = ['mso', 'so', 'po', 'gbs_po', 'gbs_so'];
     const results = await Promise.all(types.map(t => fetchType(t)));
     allTickets = results.flat();
 
@@ -859,7 +853,7 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
   }
 
   function renderDonut() {
-    const types = ['mso', 'so', 'po', 'rec', 'vendor_request', 'gbs_po', 'gbs_so'];
+    const types = ['mso', 'so', 'po', 'gbs_po', 'gbs_so'];
     const counts = types.map(t => allTickets.filter(x => x.type === t).length);
     const total = counts.reduce((a, b) => a + b, 0);
     if (total === 0) {
@@ -935,13 +929,10 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
 
   function renderBadges() {
     document.getElementById('badgeAll').textContent = allTickets.length;
-    ['mso', 'so', 'po', 'rec', 'gbs_po', 'gbs_so'].forEach(t => {
+    ['mso', 'so', 'po', 'gbs_po', 'gbs_so'].forEach(t => {
       document.getElementById('badge' + t.charAt(0).toUpperCase() + t.slice(1)).textContent =
         allTickets.filter(x => x.type === t).length;
     });
-    // Vendor request has different ID convention (badgeVendor)
-    var vBadge = document.getElementById('badgeVendor');
-    if (vBadge) vBadge.textContent = allTickets.filter(x => x.type === 'vendor_request').length;
   }
 
   function renderDetailTable() {
@@ -1406,7 +1397,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
 
   var LOOKUP_URL_PREFIX = 'https://default16f5375c95a943f0ba2ce20bd5ec28.45.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/3d602b4b38644fec9b3b66ff3bf028a8';
 
-  var TICKET_TYPES = ['mso', 'so', 'po', 'rec', 'vendor_request', 'gbs_po', 'gbs_so'];
+  var TICKET_TYPES = ['mso', 'so', 'po', 'gbs_po', 'gbs_so'];
 
   var _userPerm = null;
   var _userEmail = null;
@@ -2553,4 +2544,48 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
   }
 })();
 </script><!-- /ec-all-tickets-gbs-cols -->
+
+
+<script id="ec-native-rows-v1">
+(function(){
+  'use strict';
+  if (window._ecNativeRowsV1) return; window._ecNativeRowsV1 = true;
+  var SLUG = { mso: 'mso', so: 'sales-order', po: 'purchase-order' };
+  // EC docs (native) mo trong Desk form (workflow actions co san); GBS docs giu /approval
+  document.addEventListener('click', function(ev){
+    var row = ev.target.closest && ev.target.closest('#detailBody tr[data-id]');
+    if (!row) return;
+    var t = row.dataset.type || '';
+    if (!SLUG[t]) return;
+    ev.preventDefault(); ev.stopImmediatePropagation(); ev.stopPropagation();
+    window.location.href = '/app/' + SLUG[t] + '/' + encodeURIComponent(row.dataset.id);
+  }, true);
+  function rewrite(){
+    document.querySelectorAll('#detailBody tr[data-id]').forEach(function(row){
+      var t = row.dataset.type || '';
+      if (!SLUG[t]) return;
+      var a = row.querySelector('a.detail-id-link');
+      if (a) a.setAttribute('href', '/app/' + SLUG[t] + '/' + encodeURIComponent(row.dataset.id));
+    });
+  }
+  var tb = document.getElementById('detailBody');
+  if (tb) new MutationObserver(rewrite).observe(tb, {childList: true});
+  rewrite();
+  // Phan loai tab: EC vs GBS
+  function relabel(){
+    document.querySelectorAll('.tab').forEach(function(b){
+      var t = b.dataset.type;
+      var label = t === 'so' ? 'EC SO' : (t === 'po' ? 'EC PO' : null);
+      if (!label) return;
+      var badge = b.querySelector('.badge');
+      if (!badge) return;
+      b.textContent = '';
+      b.appendChild(document.createTextNode(label + ' '));
+      b.appendChild(badge);
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', relabel);
+  else relabel();
+})();
+</script>
 

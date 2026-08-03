@@ -365,6 +365,22 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
 .row .val .pill { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.2px; }
 .row .val .pill.in-budget { background: var(--green-50); color: var(--green); border: 1px solid #86efac; }
 .row .val .pill.out-budget { background: var(--red-50); color: var(--red); border: 1px solid #fca5a5; }
+/* D9 2026-08-02 — bang ngan sach MSO (budget_lines) */
+.bl-wrap { overflow-x: auto; }
+.bl-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.bl-table th { text-align: left; font-size: 10.5px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.6px; padding: 6px 8px; border-bottom: 1px solid var(--gray-200); white-space: nowrap; }
+.bl-table td { padding: 7px 8px; border-bottom: 1px solid var(--gray-100); color: var(--gray-900); vertical-align: top; }
+.bl-table .num { text-align: right; font-feature-settings: "tnum"; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bl-table .bl-name { font-weight: 600; color: var(--gray-900); }
+.bl-table .bl-code { margin-top: 2px; font-size: 10.5px; letter-spacing: 0.3px; color: var(--gray-400); }
+.bl-table .bl-note { margin-top: 2px; font-size: 11.5px; font-style: italic; color: var(--gray-500); }
+.bl-table .bl-pct { color: var(--gray-500); font-weight: 500; }
+.bl-table tr.bl-group td { background: var(--gray-50, #f9fafb); font-weight: 700; font-size: 12px; color: var(--navy); text-transform: uppercase; letter-spacing: 0.4px; }
+.bl-table tr.bl-sub td { font-weight: 600; color: var(--gray-600); background: #fcfcfd; }
+.bl-table tr.bl-grand td { font-weight: 800; color: var(--navy); border-top: 2px solid var(--navy); border-bottom: none; font-size: 13.5px; }
+.bl-foot { margin-top: 8px; font-size: 12px; color: var(--gray-600); line-height: 1.6; }
+.bl-warn { margin-top: 10px; padding: 9px 11px; border-radius: 7px; background: var(--red-50); color: var(--red); border: 1px solid #fca5a5; font-size: 12.5px; line-height: 1.5; }
+.row .val.total { color: var(--navy); font-weight: 800; }
 
 .attach-list { display: flex; flex-direction: column; gap: 8px; }
 .attach-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; text-decoration: none; color: var(--gray-700); transition: all 0.15s; font-size: 13px; }
@@ -526,8 +542,6 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
 .list-table .type-pill.t-mso { background: #ede9fe; color: #6d28d9; }
 .list-table .type-pill.t-so { background: #d1fae5; color: #047857; }
 .list-table .type-pill.t-po { background: #fed7aa; color: #c2410c; }
-.list-table .type-pill.t-rec { background: #fbcfe8; color: #be185d; }
-.list-table .type-pill.t-vendor_request { background: #cffafe; color: #0e7490; }
 .list-table .status-cell { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
 .list-table .status-cell.status-pending { background: var(--yellow-50); color: #b88600; border: 1px solid #fde68a; }
 .list-table .status-cell.status-approved { background: var(--green-50); color: var(--green); border: 1px solid #86efac; }
@@ -636,8 +650,6 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
     if (upper.startsWith('MSO-')) return 'mso';
     if (upper.startsWith('SO-')) return 'so';
     if (upper.startsWith('PO-')) return 'po';
-    if (upper.startsWith('REC-')) return 'rec';
-    if (upper.startsWith('VR-') || upper.startsWith('VENDOR-')) return 'vendor_request';
     return null;
   }
 
@@ -791,7 +803,16 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
     if (currentEmail && isCurrentApprover) {
       html += '<div class="chain-summary" style="background: var(--navy-50); color: var(--navy); margin-top: 12px; margin-bottom: 0;"><strong>Bạn là approver hiện tại</strong></div>';
     } else if (currentEmail && status === 'Pending') {
-      html += '<div class="chain-summary" style="margin-top: 12px; margin-bottom: 0;">Bạn (<strong>' + escapeHtml(currentEmail) + '</strong>) không trong chain hiện tại</div>';
+      // D9: noi ro han — truoc day chi ghi "khong trong chain hien tai" trong khi nut
+      // Approve/Reject van sang, khien nguoi dung tuong la loi. Quyen duyet con co the den
+      // tu role trong Workflow; server moi la noi quyet dinh cuoi cung.
+      var curStep = chain.filter(function (c, i) { return (c.level || (i + 1)) === currentLevel; })[0];
+      var curWho = curStep ? (curStep.approver || '—') : '—';
+      html += '<div class="chain-summary" style="margin-top: 12px; margin-bottom: 0;">Bạn (<strong>'
+        + escapeHtml(currentEmail) + '</strong>) không phải approver của cấp đang chờ (Level '
+        + escapeHtml(String(currentLevel)) + ' — <strong>' + escapeHtml(curWho) + '</strong>). '
+        + 'Nút Approve/Reject vẫn hiển thị vì quyền duyệt còn có thể đến từ role trong Workflow; '
+        + 'hệ thống sẽ kiểm tra lại khi bạn bấm.</div>';
     }
 
     html += '</div></div>';
@@ -806,10 +827,13 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
     } else {
       html += '<div class="attach-list">';
       list.forEach(f => {
-        html += '<a class="attach-item" href="' + escapeHtml(f.url) + '" target="_blank" rel="noopener">';
+        html += '<div class="attach-row" style="display:flex;align-items:center;gap:4px">';
+        html += '<a class="attach-item" href="' + escapeHtml(f.url) + '" target="_blank" rel="noopener" style="flex:1;min-width:0">';
         html += '<svg class="attach-icon icon icon-sm"><use href="#i-paperclip"/></svg>';
         html += '<span class="attach-name">' + escapeHtml(f.name || 'attachment') + '</span>';
         html += '</a>';
+        html += '<button type="button" class="ec-att-del-btn" title="Xoá file khỏi doc + GBS" data-att-url="' + escapeHtml(f.url) + '" data-att-name="' + escapeHtml(f.name || '') + '" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:17px;line-height:1;padding:0 6px;flex:none">\u00d7</button>';
+        html += '</div>';
       });
       html += '</div>';
     }
@@ -817,26 +841,180 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
     return html;
   }
 
+  // ---- Xoá file đính kèm (detail view) — gọi gbs_remove_attachment ----
+  if (!window._ecAttDelWired) {
+    window._ecAttDelWired = true;
+    document.addEventListener('click', function(ev){
+      var b = ev.target.closest && ev.target.closest('.ec-att-del-btn');
+      if (!b || b.disabled) return;
+      ev.preventDefault(); ev.stopPropagation();
+      var url = b.getAttribute('data-att-url') || '';
+      var nm  = b.getAttribute('data-att-name') || '';
+      if (!window.confirm('Xoá file "' + (nm || url) + '" khỏi chứng từ này (và bên GBS)?')) return;
+      var sp = new URLSearchParams(location.search);
+      var ty = sp.get('type') || '';
+      var dct = (ty === 'gbs_po') ? 'GBS Purchase Order' : 'GBS Sales Order';
+      b.disabled = true; var _old = b.textContent; b.textContent = '\u2026';
+      fetch('/api/method/gbs_remove_attachment', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-Frappe-CSRF-Token': (window.frappe && frappe.csrf_token) || '' },
+        body: JSON.stringify({ doctype: dct, name: (sp.get('id')||''), url: url, fname: nm })
+      }).then(function(r){ return r.json(); }).then(function(j){
+        var m = (j && j.message) || {};
+        if (m.success) {
+          var row = b.closest('.attach-row'); if (row && row.parentNode) row.parentNode.removeChild(row);
+          try { if (typeof showToast === 'function') showToast('Đã xoá file' + (m.boxme_deleted ? ' (+ GBS)' : ''), 'success'); } catch(e){}
+        } else { b.disabled = false; b.textContent = _old; alert('Xoá lỗi: ' + (m.error || 'không rõ')); }
+      }).catch(function(e){ b.disabled = false; b.textContent = _old; alert('Lỗi kết nối: ' + e); });
+    }, true);
+  }
+
+  // ---- D9 2026-08-02: khoi TAI CHINH cua MSO ----
+  // Truoc: gom budget_lines theo `team` roi do vao 5 o cung cua mo hinh cu (MSO Request),
+  // lam mat chieu category_group/fee_type/fee_percent va cong gop "chi phi hoat dong"
+  // voi "phi agency EC" vao chung mot o. Gio doc thang budget_lines native.
+  function msoBudgetLines(item) {
+    var raw = item && (item.budget_lines || item.budget_lines_view);
+    if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch (e) { raw = null; } }
+    return Array.isArray(raw) ? raw : [];
+  }
+
+  function msoGmv(item) {
+    var g = Number(val(item, 'forecast_gmv', 'total_est_revenue') || 0);
+    if (isNaN(g) || g <= 0) return 0;
+    return g;
+  }
+
+  function pctOfGmv(amount, gmv) {
+    if (!gmv) return '';
+    var p = (Number(amount || 0) / gmv) * 100;
+    if (isNaN(p) || !isFinite(p)) return '';
+    return (Math.round(p * 10) / 10).toFixed(1).replace('.', ',') + '%';
+  }
+
+  function moneyWithPct(v, gmv) {
+    var p = pctOfGmv(v, gmv);
+    return p ? (fmtMoney(v) + '  ·  ' + p + ' GMV') : fmtMoney(v);
+  }
+
+  // Doi chieu tong tren chung tu voi tong cong dong chi tiet — lech thi canh bao,
+  // de nguoi duyet khong duyet nham mot con so da cu.
+  function msoTotalsWarning(item) {
+    var lines = msoBudgetLines(item);
+    if (lines.length === 0) return '';
+    var sum = 0;
+    lines.forEach(function (l) {
+      var a = Number(l.amount || 0);
+      if (!isNaN(a)) sum += a;
+    });
+    var op = Number(val(item, 'total_operating_budget') || 0);
+    var fee = Number(val(item, 'total_ec_fee') || 0);
+    if (isNaN(op)) op = 0;
+    if (isNaN(fee)) fee = 0;
+    if (Math.abs(sum - (op + fee)) < 1) return '';
+    return '<div class="bl-warn"><strong>Cần kiểm tra:</strong> tổng các dòng chi tiết ('
+      + escapeHtml(fmtMoney(sum)) + ') không khớp với tổng ghi trên chứng từ ('
+      + escapeHtml(fmtMoney(op + fee)) + ').</div>';
+  }
+
+  function renderMsoBudgetTable(item) {
+    var lines = msoBudgetLines(item);
+    if (lines.length === 0) return '';
+    var gmv = msoGmv(item);
+    var ORDER = ['Chi phí hoạt động', 'Phí agency EC'];
+    var groups = {};
+    var seen = [];
+    lines.forEach(function (l) {
+      var g = String(l.category_group || 'Khác').trim() || 'Khác';
+      if (!groups[g]) { groups[g] = []; seen.push(g); }
+      groups[g].push(l);
+    });
+    var names = ORDER.filter(function (g) { return seen.indexOf(g) >= 0; })
+      .concat(seen.filter(function (g) { return ORDER.indexOf(g) < 0; }));
+    var grand = 0;
+    var html = '<div class="bl-wrap"><table class="bl-table"><thead><tr>'
+      + '<th>Khoản chi</th><th>Team phụ trách</th><th>Cách tính</th>'
+      + '<th class="num">Tỉ lệ</th><th class="num">Số tiền</th><th class="num">% GMV</th>'
+      + '</tr></thead><tbody>';
+    names.forEach(function (g) {
+      // D9b: tong cua nhom nam ngay tren dong tieu de nhom (bo dong "Cong ..." rieng)
+      // => phai cong truoc khi in tieu de, nen khong cong trong vong lap dong nua.
+      var sub = 0;
+      groups[g].forEach(function (l) {
+        var a = Number(l.amount || 0);
+        if (!isNaN(a)) sub += a;
+      });
+      grand += sub;
+      html += '<tr class="bl-group"><td colspan="4">' + escapeHtml(g)
+        + ' (' + groups[g].length + ' khoản)</td>'
+        + '<td class="num">' + escapeHtml(fmtMoney(sub)) + '</td>'
+        + '<td class="num">' + escapeHtml(pctOfGmv(sub, gmv) || '—') + '</td></tr>';
+      groups[g].forEach(function (l) {
+        var amt = Number(l.amount || 0);
+        if (isNaN(amt)) amt = 0;
+        var pctNum = Number(l.fee_percent || 0);
+        var rate = (!isNaN(pctNum) && pctNum) ? (pctNum + '% GMV') : '—';
+        var cell = '<div class="bl-name">'
+          + escapeHtml(String(l.category_name || l.category || '—').trim()) + '</div>';
+        if (l.category) cell += '<div class="bl-code">' + escapeHtml(l.category) + '</div>';
+        if (l.note) cell += '<div class="bl-note">' + escapeHtml(l.note) + '</div>';
+        html += '<tr>'
+          + '<td>' + cell + '</td>'
+          + '<td>' + escapeHtml(l.team || '—') + '</td>'
+          + '<td>' + escapeHtml(l.fee_type || '—') + '</td>'
+          + '<td class="num">' + escapeHtml(rate) + '</td>'
+          + '<td class="num">' + escapeHtml(fmtMoney(amt)) + '</td>'
+          + '<td class="num bl-pct">' + escapeHtml(pctOfGmv(amt, gmv) || '—') + '</td>'
+          + '</tr>';
+      });
+    });
+    html += '<tr class="bl-grand"><td colspan="4">TỔNG NGÂN SÁCH</td>'
+      + '<td class="num">' + escapeHtml(fmtMoney(grand)) + '</td>'
+      + '<td class="num">' + escapeHtml(pctOfGmv(grand, gmv) || '—') + '</td></tr>';
+    html += '</tbody></table></div>';
+    if (gmv) {
+      html += '<div class="bl-foot">Trên GMV dự kiến ' + escapeHtml(fmtMoney(gmv))
+        + ', tổng ngân sách chiếm <strong>' + escapeHtml(pctOfGmv(grand, gmv))
+        + '</strong>. Cột “% GMV” là số tiền của dòng chia cho GMV dự kiến; cột “Tỉ lệ” là mức phí ghi trên dòng đó.</div>';
+    }
+    html += msoTotalsWarning(item);
+    return html;
+  }
+
   function renderRows(item, type) {
     const sections = [];
 
     if (type === 'mso') {
+      // D9: bo dong "Department" (MSO native khong co ec_team, truoc day fallback ve brand code
+      // nen hien dung bang Brand — gay hieu nham). Thay bang Channel + Thang + KAM.
       sections.push({ title: 'Thông tin chung', rows: [
         ['Title', val(item, 'mso_title', 'Title', 'title')],
-        ['Department', val(item, 'department')],
         ['Brand', val(item, 'brand_name', 'brand_code')],
-        ['Submitted by', val(item, 'submitted_by')],
-        ['PIC', val(item, 'pic')],
-        ['Campaign No.', val(item, 'campaign_no')]
+        ['Tháng', val(item, 'month', 'campaign_no')],
+        ['Channel', val(item, 'channel')],
+        ['KAM', val(item, 'kam', 'pic')],
+        ['Người tạo', val(item, 'submitted_by', 'created_by')],
+        ['Cập nhật lần cuối', (function () {
+          var m = val(item, 'modified');
+          if (!m) return null;
+          var who = val(item, 'modified_by');
+          return who ? (fmtDate(m) + ' — ' + who) : fmtDate(m);
+        })()],
+        ['Ghi chú', val(item, 'notes')]
       ]});
+      var msoGmvVal = msoGmv(item);
+      var msoOpBudget = Number(val(item, 'total_operating_budget') || 0);
+      var msoEcFee = Number(val(item, 'total_ec_fee') || 0);
+      if (isNaN(msoOpBudget)) msoOpBudget = 0;
+      if (isNaN(msoEcFee)) msoEcFee = 0;
       sections.push({ title: 'Tài chính', rows: [
-        ['Total Est. Revenue', fmtMoney(val(item, 'total_est_revenue')), 'money'],
-        ['Exp. E-commerce', fmtMoney(val(item, 'exp_ecommerce')), 'money'],
-        ['Exp. Merchandise', fmtMoney(val(item, 'exp_merch')), 'money'],
-        ['Exp. Media', fmtMoney(val(item, 'exp_media')), 'money'],
-        ['Exp. Production', fmtMoney(val(item, 'exp_production')), 'money'],
-        ['Exp. Service', fmtMoney(val(item, 'exp_service')), 'money']
+        ['Doanh thu dự kiến (GMV)', fmtMoney(msoGmvVal), 'money'],
+        ['Tổng chi phí hoạt động', moneyWithPct(msoOpBudget, msoGmvVal), 'money'],
+        ['Tổng phí agency EC', moneyWithPct(msoEcFee, msoGmvVal), 'money'],
+        ['TỔNG NGÂN SÁCH', moneyWithPct(msoOpBudget + msoEcFee, msoGmvVal), 'money total']
       ]});
+      var msoBlHtml = renderMsoBudgetTable(item);
+      if (msoBlHtml) sections.push({ title: 'Chi tiết ngân sách', html: msoBlHtml });
     } else if (type === 'so') {
       const inOut = val(item, 'in_out_budget');
       const inOutHtml = inOut ? '<span class="pill ' + (inOut === 'In Budget' ? 'in-budget' : 'out-budget') + '">' + escapeHtml(inOut) + '</span>' : '—';
@@ -879,45 +1057,6 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
         ['Estimated Exp. (-VAT)', fmtMoney(val(item, 'estimated_exp_vat_out')), 'money'],
         ['Prepaid amount', fmtMoney(val(item, 'prepaid_amount')), 'money']
       ]});
-    } else if (type === 'rec') {
-      sections.push({ title: 'Thông tin chung', rows: [
-        ['Title', val(item, 'mso_title', 'Title', 'title')],
-        ['PO Reference', val(item, 'procurement_request_id', 'po_ref'), 'mono'],
-        ['Department', val(item, 'department')],
-        ['Submitted by', val(item, 'submitted_by', 'requestor')],
-        ['Client Name', val(item, 'client_name')],
-        ['Invoice No.', val(item, 'invoice_no'), 'mono'],
-        ['Contract No.', val(item, 'contract_no'), 'mono'],
-        ['Description', val(item, 'description')]
-      ]});
-      sections.push({ title: 'Tài chính', rows: [
-        ['Actual Expense (+VAT)', fmtMoney(val(item, 'actual_expense_vat_in')), 'money'],
-        ['Actual Expense (-VAT)', fmtMoney(val(item, 'actual_expense_vat_out')), 'money'],
-        ['Chênh lệch', fmtMoney(val(item, 'chenh_lech')), 'money']
-      ]});
-    } else if (type === 'vendor_request') {
-      sections.push({ title: 'Thông tin chung', rows: [
-        ['Title', val(item, 'mso_title', 'Title', 'title')],
-        ['Vendor Name', val(item, 'vendor_name')],
-        ['Vendor Code (suggested)', val(item, 'vendor_code'), 'mono'],
-        ['Tax Code', val(item, 'tax_code'), 'mono'],
-        ['Department', val(item, 'department')],
-        ['Requested by', val(item, 'requested_by', 'submitted_by')],
-        ['Contact Person', val(item, 'contact_person')],
-        ['Contact Email', val(item, 'contact_email')],
-        ['Contact Phone', val(item, 'contact_phone')],
-        ['Address', val(item, 'address')],
-        ['Payment Terms', val(item, 'payment_terms')],
-        ['Purpose', val(item, 'purpose')]
-      ]});
-      const finRows = [['Estimated Annual Spend', fmtMoney(val(item, 'estimated_annual_spend')), 'money']];
-      sections.push({ title: 'Tài chính & Status', rows: finRows });
-      const statusRows = [];
-      const mgrStatus = val(item, 'manager_status'); if (mgrStatus) statusRows.push(['Manager Decision', mgrStatus]);
-      const finStatus = val(item, 'finance_status'); if (finStatus) statusRows.push(['Finance Decision', finStatus]);
-      const finalStatus = val(item, 'final_status'); if (finalStatus) statusRows.push(['Final Status', finalStatus]);
-      const createdId = val(item, 'created_vendor_id'); if (createdId) statusRows.push(['→ Created Vendor', createdId, 'mono']);
-      if (statusRows.length) sections.push({ title: 'Decisions', rows: statusRows });
     }
 
     const metaRows = [['Created at', fmtDate(val(item, 'created_at', 'Created'))]];
@@ -930,7 +1069,11 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
     sections.push({ title: 'Metadata', rows: metaRows });
 
     return sections.map(s => {
-      const rowsHtml = s.rows.map(r => {
+      // D9: section co the la HTML nguyen khoi (bang ngan sach) thay vi cap label/value
+      if (s.html) {
+        return '<div class="detail-section"><div class="detail-section-title">' + escapeHtml(s.title) + '</div>' + s.html + '</div>';
+      }
+      const rowsHtml = (s.rows || []).map(r => {
         const cls = (r[2] === 'raw') ? '' : (r[2] || '');
         const valHtml = (r[2] === 'raw') ? r[1] : (r[1] === null || r[1] === undefined || r[1] === '' ? '—' : escapeHtml(r[1]));
         return '<div class="row"><div class="lbl">' + escapeHtml(r[0]) + '</div><div class="val ' + cls + '">' + valHtml + '</div></div>';
@@ -962,7 +1105,7 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
     html += '<button class="btn btn-approve" id="btnApprove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Approve</button>';
     html += '<button class="btn btn-reject" id="btnReject"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Reject</button>';
     html += '</div>';
-    html += '<div class="approver-line">Approver: <strong>' + (getSessionEmail() || 'Chưa login') + '</strong></div>';
+    html += '<div class="approver-line">Thao tác dưới tên: <strong>' + (getSessionEmail() || 'Chưa login') + '</strong></div>';
     html += '</div></div>';
     return html;
   }
@@ -999,7 +1142,7 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
       const res = await fetch(ENDPOINTS.decision, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ doctype: ({mso:'MSO Request',so:'Service Request',po:'Procurement Request',rec:'Reconciliation Request',vendor_request:'Vendor Code Request'}[type]||type), name: ticketId, decision: String(decision).toLowerCase(), approver_email: approver, caller_email: approver, comment })
+        body: JSON.stringify({ doctype: type, name: ticketId, decision: String(decision).toLowerCase(), approver_email: approver, caller_email: approver, comment })
       });
       // ec-friendly-error-v2: parse error body, show user-friendly Vietnamese toast
       if (!res.ok) {
@@ -1176,7 +1319,7 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
       html += '<button class="btn btn-secondary" id="btnApproveAll" style="background: var(--green-50); color: var(--green); border: 1px solid #86efac;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/><polyline points="20 12 9 23 4 18" opacity="0.5"/></svg>Approve all pending</button>';
       html += '<button class="btn btn-reject" id="btnRejectAll"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Reject all pending</button>';
       html += '</div>';
-      html += '<div class="approver-line">Approver: <strong>' + (getSessionEmail() || 'Chưa login') + '</strong></div>';
+      html += '<div class="approver-line">Thao tác dưới tên: <strong>' + (getSessionEmail() || 'Chưa login') + '</strong></div>';
     }
     html += '</div>';
 
@@ -1325,16 +1468,33 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
       const payload = (data && data.message) || data || {};
       if (!payload.success) throw new Error(payload.error || data.exception || 'Load failed');
       const item = payload.item || payload.data;
+
+      // C4c 2026-08-02: may chu tra ve co _restricted khi nguoi dung khong du
+      // quyen xem chi tiet day du. Hien dai bao o dau trang. Dat trong
+      // setTimeout vi #content bi ve lai o cuoi ham nay, dai bao chen truoc do
+      // se bi xoa mat.
+      try {
+        if (item && item._restricted) {
+          window._ecApprovalRestricted = true;
+          if (window._ecPerm && window._ecPerm.showBanner) {
+            setTimeout(window._ecPerm.showBanner, 300);
+            setTimeout(window._ecPerm.showBanner, 1200);
+          }
+        } else {
+          window._ecApprovalRestricted = false;
+          if (window._ecPerm && window._ecPerm.hideBanner) window._ecPerm.hideBanner();
+        }
+      } catch (e) {}
+
       const status = (val(item, 'final_status', 'status') || 'Pending').trim();
 
       document.getElementById('pageTitle').textContent =
         type === 'mso' ? 'Master Service Order' :
         type === 'so'  ? 'Service Order' :
         type === 'po'  ? 'Procurement Order' :
-        type === 'vendor_request' ? 'Vendor Code Request' :
         type === 'gbs_po' ? 'GBS Purchase Order' :
         type === 'gbs_so' ? 'GBS Sales Order' :
-        'Reconciliation Request';
+        'Chứng từ';
       document.getElementById('tkId').textContent = ticketId;
       const sb = document.getElementById('tkStatus');
       sb.textContent = status;
@@ -1369,13 +1529,13 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
   }
 
   // ============== LIST VIEW ==============
-  const SLA_DAYS = { mso: 7, so: 5, po: 5, rec: 3, vendor_request: 4, gbs_po: 7, gbs_so: 5 };
-  const TYPE_LABELS_FULL = { mso: 'MSO', so: 'SO', po: 'PO', rec: 'REC', vendor_request: 'Vendor', gbs_po: 'GBS PO', gbs_so: 'GBS SO' };
+  const SLA_DAYS = { mso: 7, so: 5, po: 5, gbs_po: 7, gbs_so: 5 };
+  const TYPE_LABELS_FULL = { mso: 'MSO', so: 'SO', po: 'PO', gbs_po: 'GBS PO', gbs_so: 'GBS SO' };
   // EC-GBS-FIN-v1: extended ListState.filter with gbsPhase + mine
   const ListState = { allTickets: [], filter: { type: 'all', status: '', dept: '', search: '', dateFrom: '', dateTo: '', card: '', gbsPhase: '', mine: false } };
 
   async function fetchAllTypes() {
-    const types = ['mso', 'so', 'po', 'rec', 'vendor_request', 'gbs_po', 'gbs_so'];
+    const types = ['mso', 'so', 'po', 'gbs_po', 'gbs_so'];
     const promises = types.map(t =>
       fetch(ENDPOINTS.lookup, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: t }) })
         .then(r => r.json()).catch(() => ({ items: [] }))
@@ -1448,7 +1608,7 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
     const ca = ListState.filter.card;
 
     let html = '<div class="list-view">';
-    html += '<div class="list-header"><h1>All Tickets</h1><p>Tất cả tickets MSO / SO / PO / REC / Vendor — click card để filter, click row để xem chi tiết.</p></div>';
+    html += '<div class="list-header"><h1>All Tickets</h1><p>Tất cả tickets MSO / SO / PO / GBS SO / GBS PO — click card để filter, click row để xem chi tiết.</p></div>';
     html += '<div class="stats-grid">';
     html += '<div class="stat-card s-total' + (ca === 'total' ? ' active' : '') + '" data-card="total"><div class="stat-label">Tổng tickets</div><div class="stat-value">' + total + '</div><div class="stat-meta">Click để xem tất cả</div></div>';
     html += '<div class="stat-card s-pending' + (ca === 'pending' ? ' active' : '') + '" data-card="pending"><div class="stat-label">Đang xử lý</div><div class="stat-value">' + pending + '</div><div class="stat-meta">Cần duyệt</div></div>';
@@ -1460,7 +1620,7 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
     html += '</div>';
 
     const counts = {};
-    ['mso', 'so', 'po', 'rec', 'vendor_request', 'gbs_po', 'gbs_so'].forEach(t => { counts[t] = all.filter(x => x._type === t).length; });
+    ['mso', 'so', 'po', 'gbs_po', 'gbs_so'].forEach(t => { counts[t] = all.filter(x => x._type === t).length; });
     const ft = ListState.filter.type;
     // EC-GBS-FIN-v1: My Approval tab (pink) + count
     const _ecMe = ((window.frappe && window.frappe.session && (window.frappe.session.user_email || window.frappe.session.user)) || '').toLowerCase();
@@ -1471,8 +1631,6 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
     html += '<button class="list-tab' + (ft === 'mso' ? ' active' : '') + '" data-tab="mso">MSO<span class="tab-badge">' + counts.mso + '</span></button>';
     html += '<button class="list-tab' + (ft === 'so' ? ' active' : '') + '" data-tab="so">SO<span class="tab-badge">' + counts.so + '</span></button>';
     html += '<button class="list-tab' + (ft === 'po' ? ' active' : '') + '" data-tab="po">PO<span class="tab-badge">' + counts.po + '</span></button>';
-    html += '<button class="list-tab' + (ft === 'rec' ? ' active' : '') + '" data-tab="rec">REC<span class="tab-badge">' + counts.rec + '</span></button>';
-    html += '<button class="list-tab' + (ft === 'vendor_request' ? ' active' : '') + '" data-tab="vendor_request">Vendor<span class="tab-badge">' + counts.vendor_request + '</span></button>';
           html += '<button class="list-tab' + (ft === 'gbs_po' ? ' active' : '') + '" data-tab="gbs_po">GBS PO<span class="tab-badge">' + counts.gbs_po + '</span></button>';
           html += '<button class="list-tab' + (ft === 'gbs_so' ? ' active' : '') + '" data-tab="gbs_so">GBS SO<span class="tab-badge">' + counts.gbs_so + '</span></button>';
     html += '</div>';
@@ -1648,7 +1806,7 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
     let type = (getQuery('type') || '').toLowerCase();
     if (!type && id) type = detectTypeFromId(id);
 
-    if (id && ['mso','so','po','rec','vendor_request','gbs_po','gbs_so'].includes(type)) {
+    if (id && ['mso','so','po','gbs_po','gbs_so'].includes(type)) {
       loadTicket(type, id);
     } else {
       loadList();
@@ -1910,7 +2068,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
   var GET_USER_PERM_URL = 'https://default16f5375c95a943f0ba2ce20bd5ec28.45.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/6a07f952d998407384a8a96246fd30e7/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=d6n7mRgoovyBVGhUhqWv7ppqEfP4vOFd39UTOBUnPEg';
   var DETAIL_URL_PREFIX = 'https://default16f5375c95a943f0ba2ce20bd5ec28.45.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/dc4cdd49b8ae429aaf5a8dbd78aba208';
   var LOOKUP_URL_PREFIX = 'https://default16f5375c95a943f0ba2ce20bd5ec28.45.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/3d602b4b38644fec9b3b66ff3bf028a8';
-  var TICKET_TYPES = ['mso', 'so', 'po', 'rec', 'vendor_request', 'gbs_po', 'gbs_so'];
+  var TICKET_TYPES = ['mso', 'so', 'po', 'gbs_po', 'gbs_so'];
 
   var _userPerm = null;
   var _userEmail = null;
@@ -1919,7 +2077,10 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
   window._ecPerm = {
     getEmail: function(){ return _userEmail; },
     getPerm: function(){ return _userPerm; },
-    isRestricted: function(){ return window._ecApprovalRestricted === true; }
+    isRestricted: function(){ return window._ecApprovalRestricted === true; },
+    // C4c 2026-08-02: dua 2 ham dai bao ra ngoai de khoi IIFE khac goi duoc.
+    showBanner: function(){ try { showRestrictedBanner(); } catch (e) {} },
+    hideBanner: function(){ try { hideRestrictedBanner(); } catch (e) {} }
   };
 
   function getSessionEmail() {
@@ -2680,7 +2841,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       '  Thêm file đính kèm',
       '</button>',
       '<input type="file" id="ec-attach-input" multiple style="display:none" />',
-      '<div class="ec-attach-hint">Tối đa 20 file, mỗi file ≤ 60MB. Upload trực tiếp lên SharePoint + push GBS.</div>',
+      '<div class="ec-attach-hint">Tối đa 20 file, mỗi file ≤ 15MB (t\u1ed5ng \u2264 17MB/l\u1ea7n). Upload trực tiếp lên SharePoint + push GBS.</div>',
       '<div class="ec-attach-progress" id="ec-attach-progress"></div>'
     ].join('\n');
     body.appendChild(wrap);
@@ -2694,13 +2855,21 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       var files = input.files;
       if (!files || files.length === 0) return;
       if (files.length > 20) { prog.className = 'ec-attach-progress err'; prog.textContent = 'Quá 20 file, chia nhỏ.'; return; }
+      var ecTotalBytes = 0;
+      for (var tzi = 0; tzi < files.length; tzi++) { ecTotalBytes += (files[tzi].size || 0); }
+      if (ecTotalBytes > 17 * 1024 * 1024) { /* ec-attach-limit-v1 */
+        prog.className = 'ec-attach-progress err';
+        prog.textContent = 'T\u1ed5ng file m\u1ed7i l\u1ea7n \u2264 17MB (hi\u1ec7n ' + Math.round(ecTotalBytes/1048576) + 'MB) \u2014 chia nh\u1ecf.';
+        input.value = '';
+        return;
+      }
       var oversize = [];
       for (var i = 0; i < files.length; i++) {
-        if ((files[i].size || 0) > 60 * 1024 * 1024) oversize.push(files[i].name);
+        if ((files[i].size || 0) > 15 * 1024 * 1024) oversize.push(files[i].name);
       }
       if (oversize.length) {
         prog.className = 'ec-attach-progress err';
-        prog.textContent = 'Vượt 60MB: ' + oversize.join(', ');
+        prog.textContent = 'Vượt 15MB: ' + oversize.join(', ');
         input.value = '';
         return;
       }
@@ -3555,7 +3724,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
         return;
       }
       // Redirect to PO form with from_so URL param
-      location.href = '/gbs-po-form?from_so=' + encodeURIComponent(ticketId);
+      location.href = '/gbs-po-form-v2?from_so=' + encodeURIComponent(ticketId);
     });
   }
 
@@ -3610,7 +3779,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
   console.log('[ec-gbs-send-back] active for', ticketType, ticketId);
 
   var DOCTYPE = (ticketType === 'gbs_po') ? 'GBS Purchase Order' : 'GBS Sales Order';
-  var FORM_ROUTE = (ticketType === 'gbs_po') ? '/gbs-po-form' : '/gbs-so-form';
+  var FORM_ROUTE = (ticketType === 'gbs_po') ? '/gbs-po-form-v2' : '/gbs-so-form-v2';
   var docData = null;
 
   // ---- CSS ----
@@ -3810,10 +3979,11 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       '<div class="csb-title">⚠️ Cần sửa</div>' +
       '<div class="csb-reason">' + escapeHtml(reason) + '</div>' +
       '<div class="csb-meta">Yêu cầu bởi <b>' + escapeHtml(sentBy) + '</b> · ' + escapeHtml(sentAt) + ' · Lần thứ ' + revCount + '</div>';
-    if (isSubmitter) {
-      html += '<button class="csb-btn" id="ec-csb-resubmit-btn">Sửa & Submit lại</button>';
+    var _canRS = isSubmitter || (window._ecIsAdmin === true);
+    if (_canRS) {
+      html += '<button class="csb-btn" id="ec-csb-resubmit-btn">Sửa & Submit lại' + (isSubmitter ? '' : ' (admin)') + '</button>';
     } else {
-      html += '<div style="font-size:11.5px; color:#92400e;">(Chỉ submitter <b>' + escapeHtml(submitter) + '</b> mới sửa được)</div>';
+      html += '<div style="font-size:11.5px; color:#92400e;" id="ec-csb-nonsubmitter-note">(Chỉ submitter <b>' + escapeHtml(submitter) + '</b> hoặc admin mới sửa được)</div>';
     }
     html += '</div>';
 
@@ -3848,17 +4018,36 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       console.log('[ec-gbs-send-back] Cần sửa banner injected via FALLBACK path csb_fallback_2026-05-31 (isSubmitter=' + isSubmitter + ')');
     }
 
-    if (isSubmitter) {
+    function _ecAttachResubmit(){
       var btn = document.getElementById('ec-csb-resubmit-btn');
-      if (btn) {
+      if (btn && !btn.dataset.ecBound) {
+        btn.dataset.ecBound = '1';
         btn.addEventListener('click', function(){
           window.location.href = FORM_ROUTE + '?edit=' + encodeURIComponent(ticketId);
         });
       }
     }
+    if (isSubmitter || window._ecIsAdmin === true) {
+      _ecAttachResubmit();
+    } else if (window._ecAdminPromise) {
+      window._ecAdminPromise.then(function(isAdmin){
+        if (!isAdmin) return;
+        if (!document.getElementById('ec-csb-resubmit-btn')) {
+          var note = document.getElementById('ec-csb-nonsubmitter-note');
+          if (note) {
+            var b = document.createElement('button');
+            b.className = 'csb-btn'; b.id = 'ec-csb-resubmit-btn'; b.textContent = 'Sửa & Submit lại (admin)';
+            note.parentNode.insertBefore(b, note); note.style.display = 'none';
+          }
+        }
+        _ecAttachResubmit();
+      });
+    }
     return true;
   }
 
+
+  window._ecAdminPromise = window._ecAdminPromise || fetch('/api/method/ec_session_is_admin', {credentials:'include'}).then(function(r){ return r.json(); }).then(function(j){ window._ecIsAdmin = !!(j && j.message && j.message.is_admin); return window._ecIsAdmin; }).catch(function(){ window._ecIsAdmin = false; return false; });
 
   // ---- Init + observe ----
   function tick(){
@@ -3903,6 +4092,9 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
   if (!ticketId) return;
   var docType = (ticketType === 'gbs_po') ? 'GBS Purchase Order' : 'GBS Sales Order';
   console.log('[ec-gbs-timeline] active for', docType, ticketId);
+  var ecCurUser = (window.frappe && frappe.session && frappe.session.user) || '';
+  /* ec-cbtn-v2 curuser */
+  if (!ecCurUser) { try { fetch('/api/method/frappe.auth.get_logged_user', { credentials:'include' }).then(function(r){ return r.json(); }).then(function(d){ ecCurUser = (d && d.message) || ecCurUser; if (typeof refreshTimeline === 'function') { refreshTimeline(); } }).catch(function(){}); } catch (e) {} }
 
   // ---- CSS ----
   if (!document.getElementById('ec-gbs-timeline-css')) {
@@ -3961,7 +4153,14 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       '#ec-gbs-timeline-panel .tl-reply .tl-send:disabled { background:#9ca3af; cursor:not-allowed; }',
       '#ec-gbs-timeline-panel .tl-status { font-size:11px; padding:5px 10px; margin:0 18px 8px; border-radius:5px; display:none; }',
       '#ec-gbs-timeline-panel .tl-status.tl-ok { background:#dcfce7; color:#166534; display:block; }',
-      '#ec-gbs-timeline-panel .tl-status.tl-err { background:#fee2e2; color:#991b1b; display:block; word-break:break-all; }'
+      '#ec-gbs-timeline-panel .tl-status.tl-err { background:#fee2e2; color:#991b1b; display:block; word-break:break-all; }',
+      '/* ec-cbtn-v1 */ #ec-gbs-timeline-panel .tl-cbtns { margin-top:4px; display:flex; gap:8px; }',
+      '#ec-gbs-timeline-panel .tl-cbtn { font-size:11px; background:transparent; border:1px solid #e5e7eb; border-radius:4px; padding:2px 8px; cursor:pointer; color:#6b7280; }',
+      '#ec-gbs-timeline-panel .tl-cbtn:hover { background:#f3f4f6; color:#111827; }',
+      '#ec-gbs-timeline-panel .tl-cbtn.tl-cdel:hover { background:#fee2e2; color:#991b1b; border-color:#fecaca; }',
+      '/* ec-drift-v1 */ #ec-gbs-timeline-panel .ec-drift { margin:8px 18px; padding:8px 12px; background:#fff7ed; border:1px solid #fed7aa; border-radius:6px; font-size:12px; color:#9a3412; display:flex; align-items:center; justify-content:space-between; gap:10px; }',
+      '#ec-gbs-timeline-panel .ec-drift button { background:#ea580c; color:#fff; border:none; border-radius:5px; padding:4px 10px; font-size:11.5px; cursor:pointer; }',
+      '#ec-gbs-timeline-panel .ec-drift button:disabled { background:#9ca3af; cursor:not-allowed; }'
     ].join('\n');
     document.head.appendChild(st);
   }
@@ -4150,6 +4349,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
           actor: actor,
           text: parsed.origin === 'ecentric' ? T.eventCommentEC : T.eventCommentGBS,
           content: parsed.body,
+          cname: (c.name || ''), clocal: !!c.local_only, cmine: ((parsed.origin === 'ecentric') && (((parsed.user || '') === ecCurUser) || ((c.comment_email || '') === ecCurUser))),
           contentOrigin: parsed.origin,
           is_html: true
         });
@@ -4253,6 +4453,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
         '    <span class="tl-text">' + escapeHtml(ev.text) + '</span>',
         '    <span class="tl-time">' + escapeHtml(fmtTime(ev.at)) + '</span>',
         '  </div>',
+        (ev.cmine ? ('<div class="tl-cbtns" data-cname="' + escapeHtml(ev.cname || '') + '" data-clocal="' + (ev.clocal ? '1' : '0') + '">' + '<button class="tl-cbtn tl-cedit">S\u1eeda</button>' + '<button class="tl-cbtn tl-cdel">Xo\u00e1</button></div>') : ''),
         content,
         '</div>'
       ].join('');
@@ -4260,6 +4461,43 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
   }
 
   // ---- Fetch local doc + boxme comments + merge ----
+function ecDriftBadge(doc){
+    try {
+      var host = document.getElementById('ec-gbs-timeline-panel');
+      if (!host) return;
+      var old = document.getElementById('ec-drift-badge');
+      if (old && old.parentNode) old.parentNode.removeChild(old);
+      var lg = parseFloat(doc.grand_total || 0);
+      var gg = parseFloat(doc.gbs_grand_total || 0);
+      /* ec-drift-v3 gate removed - item-level only */
+      if (!doc.gbs_doc_name) return; /* ec-drift-v2 item-level */
+      var ecGJ = {}; try { ecGJ = JSON.parse(doc.gbs_response_json || '{}'); } catch(e) { return; }
+      var ecGItems = ecGJ.items || []; var ecLItems = doc.items || [];
+      if (!ecGItems.length && !ecLItems.length) return;
+      var ecKey = function(it){ return (it.item_code||'') + '|' + (Math.round(parseFloat(it.qty||0)*1000)/1000) + '|' + (Math.round(parseFloat(it.rate||0)*100)/100) + '|' + (Math.round(parseFloat(it.amount||0)*100)/100) + '|' + ((it.delivery_date||'')+'').substring(0,10); };
+      var ecCount = function(arr){ var mm={}; for (var i=0;i<arr.length;i++){ var k=ecKey(arr[i]); mm[k]=(mm[k]||0)+1; } return mm; };
+      var ecLM = ecCount(ecLItems); var ecGM = ecCount(ecGItems);
+      var ecSame = true; var ecAll = {};
+      for (var ka in ecLM) { ecAll[ka]=1; }
+      for (var kb in ecGM) { ecAll[kb]=1; }
+      for (var kk in ecAll) { if ((ecLM[kk]||0) !== (ecGM[kk]||0)) { ecSame = false; } }
+      var ecDt = ((((doc.transaction_date||'')+'').substring(0,10)) === (((ecGJ.transaction_date||'')+'').substring(0,10))) && ((((doc.delivery_date||'')+'').substring(0,10)) === (((ecGJ.delivery_date||'')+'').substring(0,10))); if (ecSame && ecDt) return; /* ec-drift-v4 */
+      var b = document.createElement('div');
+      b.id = 'ec-drift-badge';
+      b.className = 'ec-drift';
+      b.innerHTML = '<span>\u26a0 GBS \u0111\u00e3 s\u1eeda items (t\u1ed5ng l\u1ec7ch) \u2014 EC ch\u01b0a c\u1eadp nh\u1eadt</span><button id="ec-pull-btn">K\u00e9o l\u1ea1i t\u1eeb GBS</button>';
+      var hh = host.querySelector('.tl-h');
+      if (hh && hh.parentNode) hh.parentNode.insertBefore(b, hh.nextSibling); else host.insertBefore(b, host.firstChild);
+      var pb = document.getElementById('ec-pull-btn');
+      if (pb) pb.addEventListener('click', function(){
+        if (!window.confirm('K\u00e9o items t\u1eeb GBS v\u1ec1 EC? Ghi \u0111\u00e8 qty/rate/amount/uom theo GBS, gi\u1eef warehouse.')) return;
+        pb.disabled = true; pb.textContent = '\u0110ang k\u00e9o...';
+        fetch('/api/method/gbs_pull_items_from_boxme', { method:'POST', credentials:'include', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ doctype: docType, name: ticketId, dry_run: 0 }) })
+          .then(function(r){ return r.json(); }).then(function(d){ var mm = (d && d.message) || 0; if (!mm || !mm.success) { window.alert('L\u1ed7i k\u00e9o: ' + ((mm && mm.error) || 'unknown')); pb.disabled = false; pb.textContent = 'K\u00e9o l\u1ea1i t\u1eeb GBS'; } else { window.location.reload(); } })
+          .catch(function(e){ window.alert('L\u1ed7i: ' + e.message); pb.disabled = false; pb.textContent = 'K\u00e9o l\u1ea1i t\u1eeb GBS'; });
+      });
+    } catch (e) {}
+  }
   function refreshTimeline() {
     setStatus('');
     var localPromise = fetch('/api/resource/' + encodeURIComponent(docType) + '/' + encodeURIComponent(ticketId), {
@@ -4289,6 +4527,7 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
       var doc = arr[0]; var cm = arr[1];
       var events = eventsFromDoc(doc).concat(eventsFromComments(cm.comments));
       renderFeed(events, cm.gbs_doc_name || doc.gbs_doc_name || '', cm.warning);
+      ecDriftBadge(doc);
     });
   }
 
@@ -4315,6 +4554,27 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
   }
   if (!window._ecLightboxBound) {
     window._ecLightboxBound = true;
+    document.addEventListener('click', function(ev2){
+      var tg = ev2.target;
+      if (!tg || !tg.classList) return;
+      var wrap = tg.closest ? tg.closest('#ec-gbs-timeline-panel .tl-cbtns') : null;
+      if (!wrap) return;
+      var cnm = wrap.getAttribute('data-cname');
+      var clo = wrap.getAttribute('data-clocal') === '1';
+      if (tg.classList.contains('tl-cdel')) {
+        if (!window.confirm('Xo\u00e1 comment n\u00e0y?')) return;
+        fetch('/api/method/gbs_delete_comment', { method:'POST', credentials:'include', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ doctype: docType, name: ticketId, comment_name: cnm, local_only: clo ? 1 : 0 }) })
+          .then(function(r){ return r.json(); }).then(function(d){ var mm = (d && d.message) || 0; if (!mm || !mm.success) { setStatus(((mm && mm.error) || 'delete error'), true); } else { setStatus('\u0110\u00e3 xo\u00e1', false); refreshTimeline(); } });
+      } else if (tg.classList.contains('tl-cedit')) {
+        var item = wrap.closest('.tl-item');
+        var cont2 = item ? item.querySelector('.tl-content') : null;
+        var cur = cont2 ? (cont2.textContent || '').trim() : '';
+        var nv = window.prompt('S\u1eeda comment:', cur);
+        if (nv === null || !nv.trim()) return;
+        fetch('/api/method/gbs_edit_comment', { method:'POST', credentials:'include', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ doctype: docType, name: ticketId, comment_name: cnm, content: nv, is_html: 0, local_only: clo ? 1 : 0 }) })
+          .then(function(r){ return r.json(); }).then(function(d){ var mm = (d && d.message) || 0; if (!mm || !mm.success) { setStatus(((mm && mm.error) || 'edit error'), true); } else { setStatus('\u0110\u00e3 s\u1eeda', false); refreshTimeline(); } });
+      }
+    });
     document.addEventListener('click', function(e){
       if (e.target && e.target.tagName === 'IMG') {
         var content = e.target.closest ? e.target.closest('#ec-gbs-timeline-panel .tl-content') : null;
@@ -5588,7 +5848,7 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
         modal.remove();
         // v2 (2026-05-29): redirect to form edit mode so user can update fields/items/attachments
         // before re-submitting. After form Submit → resubmit_gbs_so/po → status=Pending → Finance approve → sync to boxme.
-        var redirect = msg.redirect_to || ((docType === 'GBS Sales Order' ? '/gbs-so-form?edit=' : '/gbs-po-form?edit=') + encodeURIComponent(ticketId));
+        var redirect = msg.redirect_to || ((docType === 'GBS Sales Order' ? '/gbs-so-form-v2?edit=' : '/gbs-po-form-v2?edit=') + encodeURIComponent(ticketId));
         location.href = redirect;
       }).catch(function(e){
         btn.disabled = false; btn.textContent = 'Xác nhận resubmit';
