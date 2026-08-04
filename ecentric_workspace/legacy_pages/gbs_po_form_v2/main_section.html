@@ -1863,6 +1863,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     t.classList.add('show');
     setTimeout(function(){ t.classList.remove('show'); }, 4500);
   }
+  // FB#1 2026-08-04: showGbsToast nam trong IIFE nen cac script khac
+  // (vd ec-po-unified, ec-gbs-po-item-tax) goi khong toi -> bao loi chi
+  // hien o badge tren dinh form, phai keo len moi thay. Xuat ra window.
+  window.showGbsToast = showGbsToast;
   function fmtVND(n) { return (Math.round(n)||0).toLocaleString('vi-VN') + ' VND'; }
   function todayISO() { return new Date().toISOString().slice(0, 10); }
 
@@ -3084,9 +3088,12 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 
 
 <script id="ec-gbs-priority-picker">
-// Priority picker on GBS PO/SO forms. 3 pill toggles: Thap / TB / Cao.
-// Default Medium (TB). Value saved into hidden input #priority and submitted
-// via fetch wrapper (extends submit_gbs_po/submit_gbs_so payload).
+// Priority picker on GBS PO forms. 2 pill toggles: Normal / Urgent.
+// 2026-08-04: doi tu 3 nac (Low/Medium/High) sang 2 nac. Field `priority` cua
+// GBS Purchase Order gio chi con options Normal/Urgent (Property Setter), va
+// sync_gbs_po_outgoing day gia tri nay sang boxme thanh custom_approval_priority.
+// Default Normal. Value saved into hidden input #priority and submitted
+// via fetch wrapper (extends submit_gbs_po payload).
 (function(){
   'use strict';
   if (window._ecGbsPriorityInstalled) return;
@@ -3105,14 +3112,37 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       '.ec-pri-opt:last-child { border-right:none; }',
       '.ec-pri-opt:hover { background:#f9fafb; }',
       '.ec-pri-opt.ec-pri-selected { color:#fff; font-weight:600; }',
-      '.ec-pri-opt.ec-pri-selected[data-pri="Low"] { background:#10b981; }',
-      '.ec-pri-opt.ec-pri-selected[data-pri="Medium"] { background:#FFC000; color:#5b3a00; }',
-      '.ec-pri-opt.ec-pri-selected[data-pri="High"] { background:#dc2626; }'
+      '.ec-pri-opt.ec-pri-selected[data-pri="Normal"] { background:#10b981; }',
+      '.ec-pri-opt.ec-pri-selected[data-pri="Urgent"] { background:#dc2626; }'
     ].join('\n');
     document.head.appendChild(st);
   }
 
-  var currentValue = 'Medium';
+  var currentValue = 'Normal';
+
+  // Chuan hoa moi gia tri cu ve dung 2 nac moi: High -> Urgent, con lai -> Normal.
+  // Can cho che do sua phieu: 190 phieu cu dang giu Medium/High, neu gui nguyen
+  // chuoi do len thi may chu tu choi vi options gio chi con Normal/Urgent.
+  function normPri(v) {
+    var t = String(v == null ? '' : v).trim();
+    return (t === 'Urgent' || t === 'High') ? 'Urgent' : 'Normal';
+  }
+
+  // Dat gia tri tu ben ngoai (che do sua phieu goi qua window.ecSetPriority).
+  function applyPriority(v) {
+    currentValue = normPri(v);
+    var hidden = document.getElementById('priority');
+    if (hidden) hidden.value = currentValue;
+    var wrap = document.getElementById('ec-pri-wrap');
+    if (!wrap) return currentValue;
+    var opts = wrap.querySelectorAll('.ec-pri-opt');
+    opts.forEach(function (x) {
+      if (x.getAttribute('data-pri') === currentValue) x.classList.add('ec-pri-selected');
+      else x.classList.remove('ec-pri-selected');
+    });
+    return currentValue;
+  }
+  window.ecSetPriority = applyPriority;
 
   function buildPicker() {
     if (document.getElementById('ec-pri-wrap')) return true;
@@ -3131,11 +3161,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     wrap.innerHTML = [
       '<div class="ec-pri-label">Mức ưu tiên</div>',
       '<div class="ec-pri-row">',
-      '  <div class="ec-pri-opt" data-pri="Low">Thấp</div>',
-      '  <div class="ec-pri-opt ec-pri-selected" data-pri="Medium">TB</div>',
-      '  <div class="ec-pri-opt" data-pri="High">Cao</div>',
+      '  <div class="ec-pri-opt ec-pri-selected" data-pri="Normal">Normal</div>',
+      '  <div class="ec-pri-opt" data-pri="Urgent">Urgent</div>',
       '</div>',
-      '<input type="hidden" id="priority" name="priority" value="Medium" />'
+      '<input type="hidden" id="priority" name="priority" value="Normal" />'
     ].join('\n');
     row.parentNode.insertBefore(wrap, row.nextSibling);
 
@@ -3143,13 +3172,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var opts = wrap.querySelectorAll('.ec-pri-opt');
     opts.forEach(function(o){
       o.addEventListener('click', function(){
-        opts.forEach(function(x){ x.classList.remove('ec-pri-selected'); });
-        o.classList.add('ec-pri-selected');
-        currentValue = o.dataset.pri;
-        var hidden = document.getElementById('priority');
-        if (hidden) hidden.value = currentValue;
+        applyPriority(o.getAttribute('data-pri'));
       });
     });
+    applyPriority(currentValue);
     console.log('[ec-gbs-priority] picker installed');
     return true;
   }
@@ -3164,8 +3190,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       if (/\/api\/method\/submit_gbs_(po|so)/.test(u) && opts && opts.body && typeof opts.body === 'string') {
         var body = null;
         try { body = JSON.parse(opts.body); } catch(_) {}
-        if (body && !body.priority) {
-          body.priority = currentValue || 'Medium';
+        if (body) {
+          body.priority = normPri(body.priority || currentValue);
           opts.body = JSON.stringify(body);
         }
       }
@@ -3281,7 +3307,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var ql = (query || '').toLowerCase().trim();
     visibleItems = [];
     if (items.length === 0) {
-      p.innerHTML = '<div class="ec-ic-empty">Chưa có items (chờ load từ boxme...)</div>';
+      // 2026-08-04: cho phep script khac doi cau thong bao theo nguon item dang dung
+      // (mode "Mua ngoai (so EC)" doc master EC chu khong doc catalog boxme).
+      p.innerHTML = '<div class="ec-ic-empty">' + escHtml(window._ecItemEmptyMsg || 'Chưa có items (chờ load từ boxme...)') + '</div>';
       activeIdx = -1;
       return;
     }
@@ -3376,6 +3404,13 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     activeIdx = -1;
     visibleItems = [];
   }
+
+  // 2026-08-04: danh sach item nap bang ajax. Neu nguoi dung bam vao o Item Code
+  // TRUOC khi nap xong thi panel dung mai o trang thai rong. Export hook de
+  // ec-po-unified ve lai panel ngay khi co du lieu.
+  window._ecItemPanelRefresh = function(){
+    try { if (panel && !panel.hidden && currentInput) renderPanel(currentInput.value); } catch(e){}
+  };
 
   // ---- Hook per row ----
   var debounceTimer = null;
@@ -4006,7 +4041,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     'title':            'Tiêu đề ngắn gọn đơn hàng — sẽ push sang boxme làm tên doc. VD: "Request Booking Fee Dutch Lady May.2026".',
     'department':       'Phòng ban submit request. Auto-fill từ user profile, có thể đổi.',
     'brand':            'Brand liên quan tới request. Sẽ quyết định approval chain (mỗi brand có recipe khác nhau).',
-    'priority':         'Mức ưu tiên duyệt: Thấp / TB / Cao. Hiển thị trên dashboard approver. Default = TB.'
+    'priority':         'Mức ưu tiên duyệt: Normal / Urgent. Urgent sẽ đẩy sang boxme thành custom_approval_priority = Urgent. Default = Normal.'
   };
 
   // Map Vietnamese label text → fieldname (case-insensitive, trims whitespace).
@@ -5035,11 +5070,14 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       setInput('ec-service-start-date', doc.service_start_date);
       setInput('ec-service-end-date',   doc.service_end_date);
       setInput('notes', doc.notes);
-      // Priority: hidden input directly. Picker wrapper reads .value to inject;
-      // we also do same in our own payload build. Visual pill may not refresh
-      // (we cannot rely on .priority-btn selector — class name unknown), but
-      // data is correct on submit.
-      setInput('priority', doc.priority || 'Medium');
+      // Priority: picker expose window.ecSetPriority de dat CA pill lan hidden
+      // input, dong thoi chuan hoa gia tri cu (Low/Medium -> Normal, High ->
+      // Urgent) vi phieu cu con giu 3 nac cu.
+      if (typeof window.ecSetPriority === 'function') {
+        window.ecSetPriority(doc.priority);
+      } else {
+        setInput('priority', (doc.priority === 'Urgent' || doc.priority === 'High') ? 'Urgent' : 'Normal');
+      }
       // Pic / submitted_by — usually auto-filled by form from session,
       // but if doc has explicit values keep them.
       setInput('pic', doc.pic);
@@ -5210,7 +5248,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       set_warehouse: val('set_warehouse'),
       project: val('project'),
       campaign_no: val('campaignNo'),
-      priority: val('priority') || 'Medium',
+      priority: (val('priority') === 'Urgent' || val('priority') === 'High') ? 'Urgent' : 'Normal',
       service_start_date: val('ec-service-start-date'),
       service_end_date:   val('ec-service-end-date'),
       notes: val('notes'),
@@ -5849,8 +5887,16 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   if (_soIsEc) MODE = 'ecbuy';
   var LKI = null;
   var EC_ITEMS = {};
+  var _ecItemPool = [];  // FB#2: mode ecbuy -> item picker chi hien item master EC
+  var _lkState = 'loading';   // 'loading' | 'ok' | 'error'
   var _lastUploadSession = '';
   var _poBudget = null; // 'in' | 'out' | null (vs SO tham chiếu)
+
+  // 2026-08-04 fix: cai getter NGAY tu dau (truoc day chi cai sau khi loadLK xong).
+  // Nho vay nguon item luon dung theo mode ke ca khi nguoi dung bam vao o Item Code
+  // trong luc ajax con chay; setter van ghi thang vao kho boxme nen mode gbsbuy khong mat item.
+  installEcItemPool();
+  syncItemUi();
 
   var css = document.createElement('style');
   css.textContent = '.ec-uni-bar{margin:18px 28px 0;padding:12px 16px;background:#fff;border:1.5px solid #e2ded6;border-radius:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:13px}' +
@@ -5931,16 +5977,38 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     return parseFloat(str) || 0;
   }
   function fmt(n){return (n||0).toLocaleString('vi-VN');}
+  // FB#3 2026-08-04: ban cu lay _server_messages[0]. ERPNext msgprint cac thong
+  // bao vo hai TRUOC khi hook Before Save throw (vd "Item Price added for X in
+  // Price List - Standard Buying" tu insert_item_price), nen [0] la thong bao
+  // vo hai con loi that nam o cuoi -> nguoi dung thay "Loi:" ma khong hieu gi.
+  // Uu tien: message co raise_exception -> message cuoi khong phai alert -> [0].
   function frappeErr(raw, fb){
     try{ var j = typeof raw==='string' ? JSON.parse(raw) : raw;
-      if (j && j._server_messages){ var a = JSON.parse(j._server_messages); if(a.length) return JSON.parse(a[0]).message.replace(/<[^>]+>/g,''); }
+      if (j && j._server_messages){
+        var a = JSON.parse(j._server_messages);
+        var parsed = [];
+        for (var i=0;i<a.length;i++){
+          try{ parsed.push(JSON.parse(a[i])); }catch(e2){ parsed.push({message: String(a[i])}); }
+        }
+        var pick = null;
+        for (var k=0;k<parsed.length;k++){ if (parsed[k] && parsed[k].raise_exception){ pick = parsed[k]; break; } }
+        if (!pick){
+          for (var m=parsed.length-1;m>=0;m--){ if (parsed[m] && !parsed[m].alert){ pick = parsed[m]; break; } }
+        }
+        if (!pick && parsed.length) pick = parsed[parsed.length-1];
+        if (pick && pick.message) return String(pick.message).replace(/<[^>]+>/g,'').trim();
+      }
       if (j && j.exception) return j.exception.split(':').slice(1).join(':').trim();
     }catch(e){}
     return fb || 'Loi khong xac dinh';
   }
+  // FB#1 2026-08-04: badge nam tren dinh .form-card nen sau khi bam Submit
+  // (da cuon xuong cuoi form) nguoi dung khong thay gi. Van giu badge, them
+  // toast noi len goc phai — dung dung ham showGbsToast san co cua form.
   function notice(msg, bad){
     var el = $id('ecUniBadge');
     if (el){ el.textContent = msg; el.style.color = bad ? '#c0392b' : '#166534'; el.style.fontWeight='700'; }
+    if (typeof window.showGbsToast === 'function') window.showGbsToast(msg, bad ? 'error' : 'success');
   }
 
   function syncSvcDates(){
@@ -6003,21 +6071,31 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     });
     var ew = $id('ecPoWrap');
     if (ew) ew.classList.toggle('ec-uni-hide', m!=='ecbuy');
+    syncItemUi();            // FB#2: doi mode -> doi nguon item cua picker
     if (m==='ecbuy') refreshPoBudget();
   }
 
-  function loadLK(){
+  function loadLK(_retry){
     fetch('/api/method/ec_so_lookups', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
       .then(function(r){ return r.json(); })
       .then(function(j){
         LKI = (j && j.message) || {};
         (LKI.items||[]).forEach(function(it){ EC_ITEMS[it.item_code] = it; });
+        _ecItemPool = ecItemArr();
+        _lkState = _ecItemPool.length ? 'ok' : 'error';
+        installEcItemPool(); syncItemUi();
         var s = $id('ecSupplier');
         if (s) s.innerHTML = '<option value=""></option>' + (LKI.suppliers||[]).filter(function(x){return !x.ec_is_internal;}).map(function(x){
           return '<option value="'+x.name+'">'+(x.supplier_name||x.name)+'</option>';
         }).join('');
         var so = $id('ecSoRef');
-        if (so) so.innerHTML = '<option value=""></option>' + (LKI.recent_sos||[]).map(function(x){
+        // FB#3 2026-08-04: chi hien SO kenh Direct. SO kenh GBS do GBS tu tao PO
+        // (GBS Purchase Order) roi dong bo nguoc ve, hook ec_po_before_save luon
+        // throw neu gan SO kenh GBS -> truoc day dropdown van cho chon 14/16 SO
+        // ma chon cai nao cung bao loi.
+        if (so) so.innerHTML = '<option value=""></option>' + (LKI.recent_sos||[]).filter(function(x){
+          return (x.ec_channel||'') !== 'GBS';
+        }).map(function(x){
           return '<option value="'+x.name+'" data-brand="'+(x.ec_brand||'')+'">'+x.name+' — '+(x.customer||'')+' ('+fmt(x.grand_total)+' đ)</option>';
         }).join('');
         ecCb(s, '-- Chọn nhà cung cấp --');
@@ -6036,7 +6114,53 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
           }
           _applySoRef(); setTimeout(_applySoRef, 800); setTimeout(_applySoRef, 1800);
         }
-      }).catch(function(){});
+      }).catch(function(){
+        // 2026-08-04: truoc day nuot loi im lang -> dropdown item rong ma khong ai biet.
+        if (!_retry){ setTimeout(function(){ loadLK(1); }, 2000); return; }
+        _lkState = 'error'; syncItemUi();
+        if (typeof window.showGbsToast === 'function') window.showGbsToast('Không tải được danh mục item/NCC sổ EC — tải lại trang.', 'error');
+      });
+  }
+
+  // ---- FB#2 2026-08-04: mode "Mua ngoai (so EC)" -> item picker doc master EC
+  // (ec_so_lookups.items, item_group "Chi phi hoat dong" + "Phi agency EC"),
+  // KHONG doc catalog boxme 1737 ma so EC khong dung duoc. Truoc day nguoi dung
+  // chon phai item GBS roi bi chan o "Item chua co trong master EC".
+  // Cach lam giong het ec-so-unified tren /gbs-so-form-v2 (mode direct).
+  function ecItemArr(){
+    return ((LKI&&LKI.items)||[]).map(function(it){
+      return {item_code:it.item_code, item_name:it.item_name, uom:it.stock_uom||'Nos', stock_uom:it.stock_uom||'Nos'};
+    });
+  }
+  function installEcItemPool(){
+    if (window._ecPoolInstalled) return;
+    try{
+      var _real = window._gbsItems || [];
+      Object.defineProperty(window, '_gbsItems', {
+        configurable:true,
+        get:function(){ return (MODE==='ecbuy') ? _ecItemPool.slice() : _real; },
+        // LUON ghi vao _real: catalog boxme nap bang ajax, mode mac dinh cua form PO
+        // la 'ecbuy' nen neu chan setter thi ban ghi catalog bi nuot -> doi sang
+        // 'gbsbuy' se rong item. Chi getter moi doi nguon theo mode.
+        set:function(v){ _real = v; }
+      });
+      window._ecPoolInstalled = true;
+    }catch(e){}
+  }
+  function syncItemUi(){
+    var btn = document.getElementById('btnRefreshItems');
+    if (btn) btn.style.display = (MODE==='ecbuy') ? 'none' : '';
+    // 2026-08-04 fix: mode ecbuy lay item tu ec_so_lookups (ajax). Khi chua nap xong
+    // panel hien "Chua co items (cho load tu boxme...)" -> sai nguon, nguoi dung tuong
+    // hong. Doi cau thong bao theo dung nguon + trang thai, va ve lai panel neu dang mo.
+    if (MODE === 'ecbuy'){
+      window._ecItemEmptyMsg = (_lkState === 'error')
+        ? 'Không tải được danh mục item sổ EC — tải lại trang (Ctrl+Shift+R) rồi thử lại.'
+        : 'Đang tải danh mục item sổ EC...';
+    } else {
+      window._ecItemEmptyMsg = 'Chưa có items (chờ load từ boxme...)';
+    }
+    if (typeof window._ecItemPanelRefresh === 'function') window._ecItemPanelRefresh();
   }
 
   function domTotal(){

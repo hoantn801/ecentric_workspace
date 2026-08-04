@@ -43,8 +43,11 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "01da088994cd5c4479d83b47b7f59b74989cc3721d39554a979de3f01abb6efc"
-SUPERSEDES_SHA256 = ()
+BASELINE_SHA256 = "894d84f7d03ce39664b6edbd319d3803bace6ae3431ed6b907898d11c41d4ed5"
+SUPERSEDES_SHA256 = (
+    "252629aa972b5b2c1a18986fb424bb9dfcf526e53d36151ca80b54818f889665",
+    "01da088994cd5c4479d83b47b7f59b74989cc3721d39554a979de3f01abb6efc",
+)
 
 
 def sync(html=None, force=0):
