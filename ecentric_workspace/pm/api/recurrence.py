@@ -324,6 +324,48 @@ def _clone(r, occ_date):
                             "task": t.name, "label": lid}).insert(ignore_permissions=True)
     except Exception:
         frappe.log_error(frappe.get_traceback(), "Recurring label copy failed: " + t.name)
+    # point2-A: snapshot the SOURCE task's OWN checklist items (task goc = template) so steps added
+    # directly on the source recur on every generated task. Never fail generation on a copy error.
+    try:
+        _sitems = src.get("pm_checklist") or []
+        for _it in _sitems:
+            t.append("pm_checklist", {
+                "item_label": _it.get("item_label"),
+                "is_required": _it.get("is_required"),
+                "is_done": 0,
+                "source_template_item": _it.get("source_template_item") or _it.get("item_label"),
+            })
+        if _sitems:
+            t.save(ignore_permissions=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Recurring source-checklist copy failed: " + t.name)
+    # point2-B: clone the SOURCE task's direct sub-tasks (one level) so each occurrence carries its
+    # own assignable sub-tasks. Subject/desc/priority/dates/assignees copied; child parent = new task.
+    # Nested-set writes here are covered by run_due's deadlock retry. Never fail generation.
+    try:
+        _kids = frappe.get_all("Task", filters={"parent_task": r.source_task},
+                               fields=["name", "subject", "description", "priority", "exp_start_date",
+                                       "exp_end_date", "pm_start_time", "pm_end_time", "_assign"],
+                               order_by="creation asc", limit_page_length=0)
+        for _k in _kids:
+            _child = frappe.get_doc({
+                "doctype": "Task", "subject": _k.get("subject"), "description": _k.get("description"),
+                "priority": _k.get("priority"), "project": src.get("project"),
+                "parent_task": t.name, "exp_start_date": occ_date,
+                "pm_start_time": _k.get("pm_start_time"), "pm_end_time": _k.get("pm_end_time"),
+            })
+            if _k.get("exp_start_date") and _k.get("exp_end_date"):
+                _cd = (getdate(_k["exp_end_date"]) - getdate(_k["exp_start_date"])).days
+                _child.exp_end_date = add_days(occ_date, max(0, _cd))
+            _child.insert(ignore_permissions=True)
+            try:
+                _ku = [u for u in frappe.parse_json(_k.get("_assign") or "[]") if u]
+                if _ku:
+                    _assign_add({"doctype": "Task", "name": _child.name, "assign_to": _ku, "notify": 0})
+            except Exception:
+                pass
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Recurring subtask copy failed: " + t.name)
     return t.name
 
 
