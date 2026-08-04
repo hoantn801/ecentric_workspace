@@ -3088,9 +3088,12 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 
 
 <script id="ec-gbs-priority-picker">
-// Priority picker on GBS PO/SO forms. 3 pill toggles: Thap / TB / Cao.
-// Default Medium (TB). Value saved into hidden input #priority and submitted
-// via fetch wrapper (extends submit_gbs_po/submit_gbs_so payload).
+// Priority picker on GBS PO forms. 2 pill toggles: Normal / Urgent.
+// 2026-08-04: doi tu 3 nac (Low/Medium/High) sang 2 nac. Field `priority` cua
+// GBS Purchase Order gio chi con options Normal/Urgent (Property Setter), va
+// sync_gbs_po_outgoing day gia tri nay sang boxme thanh custom_approval_priority.
+// Default Normal. Value saved into hidden input #priority and submitted
+// via fetch wrapper (extends submit_gbs_po payload).
 (function(){
   'use strict';
   if (window._ecGbsPriorityInstalled) return;
@@ -3109,14 +3112,37 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       '.ec-pri-opt:last-child { border-right:none; }',
       '.ec-pri-opt:hover { background:#f9fafb; }',
       '.ec-pri-opt.ec-pri-selected { color:#fff; font-weight:600; }',
-      '.ec-pri-opt.ec-pri-selected[data-pri="Low"] { background:#10b981; }',
-      '.ec-pri-opt.ec-pri-selected[data-pri="Medium"] { background:#FFC000; color:#5b3a00; }',
-      '.ec-pri-opt.ec-pri-selected[data-pri="High"] { background:#dc2626; }'
+      '.ec-pri-opt.ec-pri-selected[data-pri="Normal"] { background:#10b981; }',
+      '.ec-pri-opt.ec-pri-selected[data-pri="Urgent"] { background:#dc2626; }'
     ].join('\n');
     document.head.appendChild(st);
   }
 
-  var currentValue = 'Medium';
+  var currentValue = 'Normal';
+
+  // Chuan hoa moi gia tri cu ve dung 2 nac moi: High -> Urgent, con lai -> Normal.
+  // Can cho che do sua phieu: 190 phieu cu dang giu Medium/High, neu gui nguyen
+  // chuoi do len thi may chu tu choi vi options gio chi con Normal/Urgent.
+  function normPri(v) {
+    var t = String(v == null ? '' : v).trim();
+    return (t === 'Urgent' || t === 'High') ? 'Urgent' : 'Normal';
+  }
+
+  // Dat gia tri tu ben ngoai (che do sua phieu goi qua window.ecSetPriority).
+  function applyPriority(v) {
+    currentValue = normPri(v);
+    var hidden = document.getElementById('priority');
+    if (hidden) hidden.value = currentValue;
+    var wrap = document.getElementById('ec-pri-wrap');
+    if (!wrap) return currentValue;
+    var opts = wrap.querySelectorAll('.ec-pri-opt');
+    opts.forEach(function (x) {
+      if (x.getAttribute('data-pri') === currentValue) x.classList.add('ec-pri-selected');
+      else x.classList.remove('ec-pri-selected');
+    });
+    return currentValue;
+  }
+  window.ecSetPriority = applyPriority;
 
   function buildPicker() {
     if (document.getElementById('ec-pri-wrap')) return true;
@@ -3135,11 +3161,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     wrap.innerHTML = [
       '<div class="ec-pri-label">Mức ưu tiên</div>',
       '<div class="ec-pri-row">',
-      '  <div class="ec-pri-opt" data-pri="Low">Thấp</div>',
-      '  <div class="ec-pri-opt ec-pri-selected" data-pri="Medium">TB</div>',
-      '  <div class="ec-pri-opt" data-pri="High">Cao</div>',
+      '  <div class="ec-pri-opt ec-pri-selected" data-pri="Normal">Normal</div>',
+      '  <div class="ec-pri-opt" data-pri="Urgent">Urgent</div>',
       '</div>',
-      '<input type="hidden" id="priority" name="priority" value="Medium" />'
+      '<input type="hidden" id="priority" name="priority" value="Normal" />'
     ].join('\n');
     row.parentNode.insertBefore(wrap, row.nextSibling);
 
@@ -3147,13 +3172,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var opts = wrap.querySelectorAll('.ec-pri-opt');
     opts.forEach(function(o){
       o.addEventListener('click', function(){
-        opts.forEach(function(x){ x.classList.remove('ec-pri-selected'); });
-        o.classList.add('ec-pri-selected');
-        currentValue = o.dataset.pri;
-        var hidden = document.getElementById('priority');
-        if (hidden) hidden.value = currentValue;
+        applyPriority(o.getAttribute('data-pri'));
       });
     });
+    applyPriority(currentValue);
     console.log('[ec-gbs-priority] picker installed');
     return true;
   }
@@ -3168,8 +3190,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       if (/\/api\/method\/submit_gbs_(po|so)/.test(u) && opts && opts.body && typeof opts.body === 'string') {
         var body = null;
         try { body = JSON.parse(opts.body); } catch(_) {}
-        if (body && !body.priority) {
-          body.priority = currentValue || 'Medium';
+        if (body) {
+          body.priority = normPri(body.priority || currentValue);
           opts.body = JSON.stringify(body);
         }
       }
@@ -4019,7 +4041,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     'title':            'Tiêu đề ngắn gọn đơn hàng — sẽ push sang boxme làm tên doc. VD: "Request Booking Fee Dutch Lady May.2026".',
     'department':       'Phòng ban submit request. Auto-fill từ user profile, có thể đổi.',
     'brand':            'Brand liên quan tới request. Sẽ quyết định approval chain (mỗi brand có recipe khác nhau).',
-    'priority':         'Mức ưu tiên duyệt: Thấp / TB / Cao. Hiển thị trên dashboard approver. Default = TB.'
+    'priority':         'Mức ưu tiên duyệt: Normal / Urgent. Urgent sẽ đẩy sang boxme thành custom_approval_priority = Urgent. Default = Normal.'
   };
 
   // Map Vietnamese label text → fieldname (case-insensitive, trims whitespace).
@@ -5048,11 +5070,14 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       setInput('ec-service-start-date', doc.service_start_date);
       setInput('ec-service-end-date',   doc.service_end_date);
       setInput('notes', doc.notes);
-      // Priority: hidden input directly. Picker wrapper reads .value to inject;
-      // we also do same in our own payload build. Visual pill may not refresh
-      // (we cannot rely on .priority-btn selector — class name unknown), but
-      // data is correct on submit.
-      setInput('priority', doc.priority || 'Medium');
+      // Priority: picker expose window.ecSetPriority de dat CA pill lan hidden
+      // input, dong thoi chuan hoa gia tri cu (Low/Medium -> Normal, High ->
+      // Urgent) vi phieu cu con giu 3 nac cu.
+      if (typeof window.ecSetPriority === 'function') {
+        window.ecSetPriority(doc.priority);
+      } else {
+        setInput('priority', (doc.priority === 'Urgent' || doc.priority === 'High') ? 'Urgent' : 'Normal');
+      }
       // Pic / submitted_by — usually auto-filled by form from session,
       // but if doc has explicit values keep them.
       setInput('pic', doc.pic);
@@ -5223,7 +5248,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       set_warehouse: val('set_warehouse'),
       project: val('project'),
       campaign_no: val('campaignNo'),
-      priority: val('priority') || 'Medium',
+      priority: (val('priority') === 'Urgent' || val('priority') === 'High') ? 'Urgent' : 'Normal',
       service_start_date: val('ec-service-start-date'),
       service_end_date:   val('ec-service-end-date'),
       notes: val('notes'),

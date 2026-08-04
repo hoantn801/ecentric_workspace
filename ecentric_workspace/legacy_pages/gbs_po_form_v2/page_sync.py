@@ -42,8 +42,18 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "1644261f5858fc2b42068f70d5ab7b305147cc03f16214320d08efca37fdc904"
+BASELINE_SHA256 = "c835882aab6a9e8c64a29876c41f580f6cf07724c433ef6eb8396e8781717505"
 SUPERSEDES_SHA256 = (
+    # bytes truoc khi doi widget "Muc uu tien" cua PO tu 3 nac sang 2 nac
+    # (2026-08-04). Ban cu: Thap/TB/Cao = Low/Medium/High, mac dinh Medium.
+    # Ban moi: Normal (xanh la) / Urgent (do), mac dinh Normal, gui dung chuoi
+    # Normal/Urgent trong payload submit_gbs_po va resubmit_gbs_po. Field
+    # priority cua GBS Purchase Order da duoc doi options bang Property Setter
+    # (GBS Purchase Order-priority-options = "Normal\nUrgent"), va
+    # sync_gbs_po_outgoing day gia tri nay sang boxme thanh
+    # custom_approval_priority. Live team.ecentric.vn da duoc ghi thang len
+    # BASELINE_SHA256 cung ngay nen sync dau tien o do tra ve "unchanged".
+    "1644261f5858fc2b42068f70d5ab7b305147cc03f16214320d08efca37fdc904",  # pre-po-priority-2steps
     "6b018840a200452851c1d70f7be0f3cdb51d5d362cbd415745046223ca4d81bd",
     "4bab5c38fbb0789695858ac532342b9a3eaaad63b878667e8ce847f21f784982",
     "bccf9fbded81630c3e3d23bcf94d1055e5c47d7fbed669bdb9ea6c27d62483db",
