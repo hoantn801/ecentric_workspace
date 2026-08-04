@@ -22,6 +22,7 @@ from frappe.model.workflow import (
 from frappe.utils import get_datetime, getdate
 
 from ecentric_workspace.pm import permissions as pmperm
+from ecentric_workspace.pm.deadlock import retry_on_deadlock
 from ecentric_workspace.pm.api import notifications as pmnotif
 from ecentric_workspace.pm.api import labels as pmlabels
 
@@ -599,6 +600,7 @@ def _expand_project_dates(project, child_start, child_end, user):
 
 
 @frappe.whitelist()
+@retry_on_deadlock
 def create(project, subject, parent_task=None, priority=None,
            exp_start_date=None, exp_end_date=None, description=None, assignee=None,
            pm_start_time=None, pm_end_time=None, assignees=None):
@@ -678,6 +680,7 @@ def create(project, subject, parent_task=None, priority=None,
 
 
 @frappe.whitelist()
+@retry_on_deadlock
 def update(name, subject=None, description=None, priority=None,
            exp_start_date=None, exp_end_date=None, project=None, assignee=None,
            pm_start_time=None, pm_end_time=None):
@@ -799,6 +802,7 @@ def assign(name, users):
     users = [u for u in (users or []) if u]
     if not users:
         frappe.throw(_("No users to assign."))
+    users = _validate_assignees(users)  # audit D14: reject disabled/non-system users (parity with create/update)
 
     _assign_add({"doctype": "Task", "name": name, "assign_to": users})
     pmnotif.notify_task_assignment(users, name,

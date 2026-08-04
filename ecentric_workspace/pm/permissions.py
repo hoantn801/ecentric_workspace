@@ -122,6 +122,15 @@ def can_view_project(name, user=None):
     return name in set(visible)
 
 
+def assignees_of(task):
+    """Canonical parse of a Task's native _assign into a list of user emails. Single source of
+    truth for assignee membership (avoids the substring-match footgun). `task` is a dict/doc."""
+    try:
+        return [u for u in (frappe.parse_json(task.get("_assign") or "[]") or []) if u]
+    except Exception:
+        return []
+
+
 def can_view_task(task, user=None):
     """task: dict-like with keys name, owner, project, _assign."""
     user = user or frappe.session.user
@@ -129,7 +138,7 @@ def can_view_task(task, user=None):
         return True
     if task.get("owner") == user:
         return True
-    if user in (frappe.parse_json(task.get("_assign") or "[]") or []):
+    if user in assignees_of(task):
         return True
     project = task.get("project")
     if project and can_view_project(project, user):
@@ -141,7 +150,7 @@ def is_task_assignee(task, user=None):
     """G4.10: True if `user` is in the task's native _assign list. `task` is a dict/doc
     exposing _assign (same shape can_view_task consumes). Canonical assignee check."""
     user = user or frappe.session.user
-    return user in (frappe.parse_json(task.get("_assign") or "[]") or [])
+    return user in assignees_of(task)
 
 
 def can_transition_any_task(user=None):
