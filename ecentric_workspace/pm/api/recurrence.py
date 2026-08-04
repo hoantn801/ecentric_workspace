@@ -1,14 +1,22 @@
-"""PM v2 - Recurring tasks (custom PM Recurrence + daily scheduler).
+"""PM v2 - Recurring tasks (SELF-CONTAINED PM Recurrence + daily scheduler).
 
-The custom DocType PM Recurrence holds the rule; a daily scheduler (run_due)
-clones the source Task into a new Task per occurrence. NO native Auto Repeat;
-native Task is NOT modified. Frequencies: Daily / Weekly / Biweekly / Monthly.
+Redesign 2026-08-04 (Cách 2): a `PM Recurrence` rule now holds its OWN template
+(subject, description, priority, assignees, time window, checklist items and
+one level of sub-tasks) directly on the rule + its child tables. There is NO
+`source_task` template any more — the daily scheduler (run_due) builds each
+occurrence's Task purely from the rule's own data.
 
-Duplicate prevention: generate exactly when next_run_date <= today, then advance
-next_run_date + record last_run_date (idempotent guard). One active recurrence
-per source_task. Permission enforced in this service layer.
+  * Frequencies: Daily / Weekly / Biweekly / Monthly (monthly anchored to start day).
+  * Duplicate prevention: generate exactly when next_run_date <= today, then advance
+    next_run_date + record last_run_date (idempotent guard).
+  * NO native Auto Repeat; native Task is NOT modified.
+  * Permission enforced in this service layer (require_pm_access + _manage).
+
+Legacy `source_task` / `checklist_template` columns are kept for audit/rollback but
+are no longer written or read by generation (see patch p017/p018 for the migration).
 """
 
+import json
 import re
 import time
 
@@ -24,8 +32,12 @@ from ecentric_workspace.pm.api import notifications as pmnotif
 DT = "PM Recurrence"
 _DAYS = {"Daily": 1, "Weekly": 7, "Biweekly": 14}
 _FREQ = ("Daily", "Weekly", "Biweekly", "Monthly")
+_PRIORITIES = ("Low", "Medium", "High", "Urgent")
 
 
+# --------------------------------------------------------------------------
+# Small helpers
+# --------------------------------------------------------------------------
 def _advance(d, frequency, anchor=None, occ=None):
     d = getdate(d)
     if frequency == "Monthly":
@@ -37,34 +49,37 @@ def _advance(d, frequency, anchor=None, occ=None):
     return add_days(d, _DAYS.get(frequency, 1))
 
 
-def _active_rule_for(task):
-    rows = frappe.get_all(DT, filters={"source_task": task, "status": ["in", ["Active", "Paused"]]},
-                          fields=["name"], limit_page_length=1)
-    return rows[0]["name"] if rows else None
+def _load_list(v):
+    """Parse a JSON list (or already-list); anything else -> []."""
+    if v in (None, ""):
+        return []
+    if isinstance(v, list):
+        return v
+    try:
+        out = json.loads(v)
+        return out if isinstance(out, list) else []
+    except Exception:
+        return []
 
 
-def _as_dict(r):
-    return {
-        "name": r.name, "source_task": r.source_task, "project": r.project,
-        "frequency": r.frequency, "status": r.status,
-        "start_date": str(r.start_date) if r.start_date else None,
-        "next_run_date": str(r.next_run_date) if r.next_run_date else None,
-        "end_date": str(r.end_date) if r.end_date else None,
-        "max_occurrences": r.max_occurrences or 0, "occurrences_done": r.occurrences_done or 0,
-        "last_task": r.last_task, "last_run_date": str(r.last_run_date) if r.last_run_date else None,
-        "checklist_template": r.get("checklist_template"),
-    }
+def _clean_assignees(v):
+    """Return the subset of `v` (JSON list / list of emails) that are enabled Users. Order kept,
+    de-duped. Invalid/disabled entries are silently dropped (never a 500)."""
+    raw = [u for u in _load_list(v) if u]
+    if not raw:
+        return []
+    valid = set(u["name"] for u in frappe.get_all(
+        "User", filters={"name": ["in", list(set(raw))], "enabled": 1},
+        fields=["name"], limit_page_length=0, ignore_permissions=True))
+    out = []
+    for u in raw:
+        if u in valid and u not in out:
+            out.append(u)
+    return out
 
 
-def _manage(name):
-    pmperm.require_pm_access()
-    r = frappe.get_doc(DT, name)
-    me = frappe.session.user
-    ok = (pmperm.can_see_all_pm_data(me) or r.owner == me
-          or pmperm.can_view_task(frappe.get_doc("Task", r.source_task).as_dict(), me))
-    if not ok:
-        frappe.throw(_("Not permitted."), frappe.PermissionError)
-    return r
+def _clean_priority(v):
+    return v if v in _PRIORITIES else None
 
 
 def _safe_getdate(v, label):
@@ -76,9 +91,8 @@ def _safe_getdate(v, label):
 
 
 def _safe_max_occ(v):
-    """G5.1: max_occurrences is optional. Omitted/blank -> 0 (the 'unlimited' sentinel). When
-    SUPPLIED it must be a POSITIVE integer (>=1); 0, negatives, floats ('1.5') and non-numerics
-    ('abc') are friendly-rejected — never a 500."""
+    """max_occurrences is optional. Omitted/blank -> 0 (the 'unlimited' sentinel). When SUPPLIED it
+    must be a POSITIVE integer (>=1); 0, negatives, floats and non-numerics are friendly-rejected."""
     if v in (None, ""):
         return 0
     s = str(v).strip()
@@ -87,124 +101,196 @@ def _safe_max_occ(v):
     return int(s)
 
 
+def _clean_int(v, default=0):
+    try:
+        n = int(str(v).strip())
+        return n if n >= 0 else default
+    except Exception:
+        return default
+
+
+# --------------------------------------------------------------------------
+# Template <-> rule serialization
+# --------------------------------------------------------------------------
+def _apply_template(r, subject=None, description=None, priority=None, assignees=None,
+                    template_start_time=None, template_end_time=None, duration_days=None,
+                    project=None, checklist_items=None, subtasks=None, labels=None,
+                    is_create=False):
+    """Write template fields + child tables onto rule doc `r`. On update, a field left as None is
+    UNCHANGED; child tables / labels are replaced only when a (possibly empty) list is supplied."""
+    if subject is not None:
+        subject = (subject or "").strip()
+        if is_create and not subject:
+            frappe.throw(_("Tên nhiệm vụ là bắt buộc."))
+        if subject:
+            r.template_subject = subject
+    if description is not None:
+        r.template_description = description
+    if priority is not None:
+        r.template_priority = _clean_priority(priority)
+    if assignees is not None:
+        r.template_assignees = json.dumps(_clean_assignees(assignees))
+    if template_start_time is not None:
+        r.template_start_time = template_start_time or None
+    if template_end_time is not None:
+        r.template_end_time = template_end_time or None
+    if duration_days is not None:
+        r.template_duration_days = _clean_int(duration_days, 0)
+    if project is not None:
+        r.project = project or None
+    # child: checklist items (replace-all when a list is supplied)
+    if checklist_items is not None:
+        r.set("pm_checklist_items", [])
+        for it in _load_list(checklist_items):
+            lbl = (it.get("item_label") if isinstance(it, dict) else str(it)).strip() \
+                if it is not None else ""
+            if not lbl:
+                continue
+            req = 1
+            if isinstance(it, dict) and it.get("is_required") in (0, "0", False, "false", "False"):
+                req = 0
+            r.append("pm_checklist_items", {"item_label": lbl, "is_required": req})
+    # child: sub-tasks (one level; replace-all when supplied)
+    if subtasks is not None:
+        r.set("pm_subtasks", [])
+        for st in _load_list(subtasks):
+            if not isinstance(st, dict):
+                continue
+            subj = (st.get("subject") or "").strip()
+            if not subj:
+                continue
+            r.append("pm_subtasks", {
+                "subject": subj,
+                "description": st.get("description") or None,
+                "priority": _clean_priority(st.get("priority")),
+                "assignees": json.dumps(_clean_assignees(st.get("assignees"))),
+            })
+    # labels (JSON list of PM Task Label names that still exist)
+    if labels is not None:
+        names = [l for l in _load_list(labels) if l]
+        if names:
+            exist = set(x["name"] for x in frappe.get_all(
+                "PM Task Label", filters={"name": ["in", list(set(names))]},
+                fields=["name"], limit_page_length=0, ignore_permissions=True))
+            names = [l for l in names if l in exist]
+        r.template_labels = json.dumps(names)
+
+
+def _template_dict(r):
+    """Serialize a rule's template (fields + child tables + labels) for the editor."""
+    items = [{"item_label": c.item_label, "is_required": 1 if c.is_required else 0}
+             for c in sorted(r.get("pm_checklist_items") or [], key=lambda x: (x.idx or 0))]
+    subs = [{"subject": c.subject, "description": c.get("description"),
+             "priority": c.get("priority"), "assignees": _load_list(c.get("assignees"))}
+            for c in sorted(r.get("pm_subtasks") or [], key=lambda x: (x.idx or 0))]
+    return {
+        "template_subject": r.get("template_subject"),
+        "template_description": r.get("template_description"),
+        "template_priority": r.get("template_priority"),
+        "assignees": _load_list(r.get("template_assignees")),
+        "template_start_time": r.get("template_start_time"),
+        "template_end_time": r.get("template_end_time"),
+        "template_duration_days": r.get("template_duration_days") or 0,
+        "checklist_items": items,
+        "subtasks": subs,
+        "labels": _load_list(r.get("template_labels")),
+    }
+
+
+def _as_dict(r):
+    out = {
+        "name": r.name, "project": r.project,
+        "frequency": r.frequency, "status": r.status,
+        "start_date": str(r.start_date) if r.start_date else None,
+        "next_run_date": str(r.next_run_date) if r.next_run_date else None,
+        "end_date": str(r.end_date) if r.end_date else None,
+        "max_occurrences": r.max_occurrences or 0, "occurrences_done": r.occurrences_done or 0,
+        "last_task": r.last_task, "last_run_date": str(r.last_run_date) if r.last_run_date else None,
+    }
+    out.update(_template_dict(r))
+    return out
+
+
+def _manage(name):
+    """Permission gate for a single rule: PM leader / owner / project viewer. No source_task."""
+    pmperm.require_pm_access()
+    r = frappe.get_doc(DT, name)
+    me = frappe.session.user
+    ok = (pmperm.can_see_all_pm_data(me) or r.owner == me
+          or (r.project and pmperm.can_view_project(r.project, me)))
+    if not ok:
+        frappe.throw(_("Not permitted."), frappe.PermissionError)
+    return r
+
+
 # --------------------------------------------------------------------------
 # CRUD / control (service-layer permission)
 # --------------------------------------------------------------------------
 @frappe.whitelist()
-def create(source_task, frequency, start_date=None, end_date=None, max_occurrences=None,
-           checklist_template=None):
+def create(subject, frequency, description=None, priority=None, assignees=None, project=None,
+           template_start_time=None, template_end_time=None, duration_days=None,
+           checklist_items=None, subtasks=None, labels=None,
+           start_date=None, end_date=None, max_occurrences=None):
+    """Create a SELF-CONTAINED recurrence rule. No source task is created or referenced."""
     pmperm.require_pm_access()
-    user = frappe.session.user
-    if not source_task or not frequency:
-        frappe.throw(_("Source task and frequency are required."))
+    subject = (subject or "").strip()
+    if not subject or not frequency:
+        frappe.throw(_("Tên nhiệm vụ và tần suất là bắt buộc."))
     if frequency not in _FREQ:
-        frappe.throw(_("Invalid frequency."))
-    doc = frappe.get_doc("Task", source_task)
-    if not pmperm.can_view_task(doc.as_dict(), user):
-        frappe.throw(_("Not permitted to make this task recurring."), frappe.PermissionError)
-    if _active_rule_for(source_task):
-        frappe.throw(_("This task already has an active recurrence. Pause or cancel it first."))
-    # G5.1: validate dates + max_occurrences BEFORE insert (friendly errors, never a 500).
+        frappe.throw(_("Tần suất không hợp lệ."))
     sd = _safe_getdate(start_date, _("Ngày bắt đầu")) if start_date else getdate(nowdate())
     ed = _safe_getdate(end_date, _("Ngày kết thúc")) if end_date else None
     if ed and ed < sd:
         frappe.throw(_("Ngày kết thúc không được trước ngày bắt đầu."))
     mo = _safe_max_occ(max_occurrences)
     r = frappe.get_doc({
-        "doctype": DT, "source_task": source_task, "project": doc.get("project"),
-        "frequency": frequency, "start_date": sd, "next_run_date": sd,
-        "end_date": ed,
-        "max_occurrences": mo,
-        "occurrences_done": 0, "status": "Active",
-        "checklist_template": checklist_template or None,  # G2: optional; unchanged if None
+        "doctype": DT, "frequency": frequency,
+        "start_date": sd, "next_run_date": sd, "end_date": ed,
+        "max_occurrences": mo, "occurrences_done": 0, "status": "Active",
     })
+    _apply_template(r, subject=subject, description=description, priority=priority,
+                    assignees=assignees, template_start_time=template_start_time,
+                    template_end_time=template_end_time, duration_days=duration_days,
+                    project=project, checklist_items=checklist_items, subtasks=subtasks,
+                    labels=labels, is_create=True)
     r.insert(ignore_permissions=True)
     return _as_dict(r)
 
 
 @frappe.whitelist()
-def create_with_task(subject, frequency, project=None, assignee=None, description=None,
-                     priority=None, exp_start_date=None, exp_end_date=None,
-                     pm_start_time=None, pm_end_time=None, start_date=None, end_date=None,
-                     max_occurrences=None, checklist_template=None, labels=None):
-    """G4.11: create a NEW base task AND its recurrence rule in ONE transaction. If the rule
-    fails to create, the base task insert is rolled back -> no partial state. Permission goes
-    through tasks.create / labels.set_task_labels / create (each runs its own service guards).
-    No subtree clone."""
-    pmperm.require_pm_access()
-    if not subject or not frequency:
-        frappe.throw(_("Subject and frequency are required."))
-    # G5.1: fail fast on rule validity BEFORE creating the base task, so an invalid rule never
-    # creates-then-rolls-back a task (create() re-validates as defence in depth).
-    if frequency not in _FREQ:
-        frappe.throw(_("Invalid frequency."))
-    _rsd = _safe_getdate(start_date, _("Ngày bắt đầu")) if start_date else getdate(nowdate())
-    _red = _safe_getdate(end_date, _("Ngày kết thúc")) if end_date else None
-    if _red and _red < _rsd:
+def update_template(name, subject=None, description=None, priority=None, assignees=None,
+                    project=None, template_start_time=None, template_end_time=None,
+                    duration_days=None, checklist_items=None, subtasks=None, labels=None,
+                    frequency=None, start_date=None, end_date=None, max_occurrences=None):
+    """Edit a rule's template (fields + checklist + sub-tasks) AND/OR its schedule, inline. Only
+    supplied arguments are changed. This is the 'sửa task/subtask ngay trong quy tắc' entry point."""
+    r = _manage(name)
+    if frequency is not None:
+        if frequency not in _FREQ:
+            frappe.throw(_("Tần suất không hợp lệ."))
+        r.frequency = frequency
+    if start_date is not None:
+        r.start_date = _safe_getdate(start_date, _("Ngày bắt đầu")) if start_date else None
+    if end_date is not None:
+        r.end_date = _safe_getdate(end_date, _("Ngày kết thúc")) if end_date else None
+    if r.start_date and r.end_date and getdate(r.end_date) < getdate(r.start_date):
         frappe.throw(_("Ngày kết thúc không được trước ngày bắt đầu."))
-    _safe_max_occ(max_occurrences)
-    from ecentric_workspace.pm.api import tasks as pmtasks
-    from ecentric_workspace.pm.api import labels as pmlabels
-    try:
-        t = pmtasks.create(
-            project or "", subject, priority=priority,
-            exp_start_date=exp_start_date, exp_end_date=exp_end_date,
-            description=description, assignee=assignee,
-            pm_start_time=pm_start_time, pm_end_time=pm_end_time)
-        task_name = t["name"]
-        if labels:
-            pmlabels.set_task_labels(task_name, labels)
-        rule = create(source_task=task_name, frequency=frequency, start_date=start_date,
-                      end_date=end_date, max_occurrences=max_occurrences,
-                      checklist_template=checklist_template)
-    except Exception:
-        frappe.db.rollback()
-        raise
-    return {"task": task_name, "rule": rule}
-
-
-@frappe.whitelist()
-def get_for_task(task):
-    pmperm.require_pm_access()
-    src = frappe.db.get_value("Task", task, ["name", "owner", "project", "_assign"], as_dict=True)
-    if not src or not pmperm.can_view_task(src, frappe.session.user):
-        frappe.throw(_("Not permitted."), frappe.PermissionError)
-    name = _active_rule_for(task)
-    if not name:
-        return {"exists": False}
-    out = _as_dict(frappe.get_doc(DT, name))
-    out["exists"] = True
-    return out
+    if max_occurrences is not None:
+        r.max_occurrences = _safe_max_occ(max_occurrences)
+    _apply_template(r, subject=subject, description=description, priority=priority,
+                    assignees=assignees, template_start_time=template_start_time,
+                    template_end_time=template_end_time, duration_days=duration_days,
+                    project=project, checklist_items=checklist_items, subtasks=subtasks,
+                    labels=labels, is_create=False)
+    r.save(ignore_permissions=True)
+    return _as_dict(r)
 
 
 @frappe.whitelist()
 def get(name):
-    """G5.2 §D: read-only rule detail for the PM recurring detail drawer. Uses the SAME permission
-    gate as _manage (require_pm_access + owner/can_view check) but performs NO mutation. Returns
-    every _as_dict field (including start_date, which list() omits) PLUS the source task's subject,
-    assignees and labels, and rule creation/update metadata — so the drawer never shows a blank
-    placeholder. No schema change, no write."""
-    import json
-    from ecentric_workspace.pm.api.labels import labels_for_tasks
-    r = _manage(name)  # read-only use of the same gate; _manage does not write
+    """Full rule detail (template fields + checklist + sub-tasks + labels + meta) for the editor."""
+    r = _manage(name)
     out = _as_dict(r)
-    src = None
-    try:
-        src = frappe.get_doc("Task", r.source_task)
-    except Exception:
-        src = None
-    out["source_subject"] = (src.get("subject") if src else None) or r.source_task
-    assignees = []
-    if src and src.get("_assign"):
-        try:
-            assignees = json.loads(src.get("_assign")) or []
-        except Exception:
-            assignees = []
-    out["assignees"] = assignees
-    try:
-        out["labels"] = labels_for_tasks([r.source_task]).get(r.source_task, [])
-    except Exception:
-        out["labels"] = []
     out["owner"] = r.owner
     out["creation"] = str(r.creation) if r.get("creation") else None
     out["modified"] = str(r.modified) if r.get("modified") else None
@@ -213,25 +299,22 @@ def get(name):
 
 
 @frappe.whitelist()
-def list(task=None, project=None):
+def list(project=None):
     pmperm.require_pm_access()
     me = frappe.session.user
     conds = {}
-    if task:
-        conds["source_task"] = task
     if project:
         conds["project"] = project
     rows = frappe.get_all(
         DT, filters=conds,
-        fields=["name", "source_task", "project", "frequency", "next_run_date",
+        fields=["name", "template_subject", "project", "frequency", "next_run_date",
                 "occurrences_done", "last_task", "status", "end_date", "max_occurrences",
-                "last_run_date",  # lets the UI identify tasks generated TODAY
-                "checklist_template"],  # G2: rule's linked checklist template
+                "last_run_date"],
         order_by="modified desc", limit_page_length=200)
     if pmperm.can_see_all_pm_data(me):
         return {"rows": rows}
     out = [x for x in rows if (x.get("project") and pmperm.can_view_project(x["project"], me))
-           or frappe.db.get_value("Task", x.get("source_task"), "owner") == me]
+           or frappe.db.get_value(DT, x["name"], "owner") == me]
     return {"rows": out}
 
 
@@ -262,106 +345,73 @@ def cancel(name):
 
 
 # --------------------------------------------------------------------------
-# Scheduler (daily) - idempotent generation
+# Scheduler (daily) - idempotent generation, built purely from the rule's template
 # --------------------------------------------------------------------------
 def _clone(r, occ_date):
-    src = frappe.get_doc("Task", r.source_task)
+    """Build ONE occurrence Task (+ checklist + labels + one level of sub-tasks) from rule `r`.
+    Every side-part is wrapped so a partial failure never aborts the whole generation."""
     fields = {
-        "doctype": "Task", "subject": src.subject, "description": src.get("description"),
-        "priority": src.get("priority"), "project": src.get("project"),
-        "parent_task": src.get("parent_task"), "exp_start_date": occ_date,
-        # G4.11: snapshot the source task's optional time-of-day window onto each generated task.
-        "pm_start_time": src.get("pm_start_time"), "pm_end_time": src.get("pm_end_time"),
+        "doctype": "Task", "subject": r.get("template_subject") or "(no subject)",
+        "description": r.get("template_description"),
+        "priority": _clean_priority(r.get("template_priority")),
+        "project": r.get("project"), "parent_task": None, "exp_start_date": occ_date,
+        "pm_start_time": r.get("template_start_time"), "pm_end_time": r.get("template_end_time"),
     }
-    if src.get("exp_start_date") and src.get("exp_end_date"):
-        dur = (getdate(src.exp_end_date) - getdate(src.exp_start_date)).days
-        fields["exp_end_date"] = add_days(occ_date, max(0, dur))
+    dur = _clean_int(r.get("template_duration_days"), 0)
+    if dur > 0:
+        fields["exp_end_date"] = add_days(occ_date, dur)
     t = frappe.get_doc(fields)
     t.insert(ignore_permissions=True)  # active workflow sets workflow_state=Backlog on insert
-    # F1: inherit the source task's assignee(s) so the generated daily task lands in the
-    # right person's "Việc của tôi". notify=0 -> no daily assignment spam (the recurring
-    # notification below still goes to the rule owner). Never fail generation on assign error.
+    # assignees (notify=0 -> no daily assignment spam; recurring notice below goes to owner)
     try:
-        users = [u for u in frappe.parse_json(src.get("_assign") or "[]") if u]
+        users = _load_list(r.get("template_assignees"))
         if users:
             _assign_add({"doctype": "Task", "name": t.name, "assign_to": users, "notify": 0})
     except Exception:
         frappe.log_error(frappe.get_traceback(), "Recurring assignment failed: " + t.name)
-    # G2: snapshot the rule's checklist template into the generated task's pm_checklist.
-    # SNAPSHOT (copy) -> later template edits never mutate past generated tasks (auditable).
-    # Missing/inactive/empty template -> task still created (never fail generation).
+    # checklist snapshot
     try:
-        tmpl_name = r.get("checklist_template")
-        if tmpl_name and frappe.db.exists("PM Checklist Template", tmpl_name):
-            tmpl = frappe.get_doc("PM Checklist Template", tmpl_name)
-            if tmpl.get("is_active"):
-                items = sorted(tmpl.get("items") or [], key=lambda x: (x.idx or 0))
-                for it in items:
-                    t.append("pm_checklist", {
-                        "item_label": it.item_label,
-                        "is_required": it.is_required,
-                        "is_done": 0,
-                        # G2.1: store the template item ROW ID for stable traceability;
-                        # fall back to the label only if the row name is missing.
-                        "source_template_item": (it.name or it.item_label),
-                    })
-                if items:
-                    t.save(ignore_permissions=True)
-    except Exception:
-        frappe.log_error(frappe.get_traceback(), "Recurring checklist copy failed: " + t.name)
-    # G4.9: snapshot the source task's labels onto the generated task (copy, not a live link;
-    # later catalogue edits never mutate past generated tasks). Inactive labels already on the
-    # source are preserved. Never fail generation on a label-copy error.
-    try:
-        seen = set()
-        for a in frappe.get_all("PM Task Label Assignment", filters={"task": r.source_task},
-                                fields=["label"], limit_page_length=0):
-            lid = a.get("label")
-            if not lid or lid in seen:
-                continue
-            seen.add(lid)
-            frappe.get_doc({"doctype": "PM Task Label Assignment",
-                            "task": t.name, "label": lid}).insert(ignore_permissions=True)
-    except Exception:
-        frappe.log_error(frappe.get_traceback(), "Recurring label copy failed: " + t.name)
-    # point2-A: snapshot the SOURCE task's OWN checklist items (task goc = template) so steps added
-    # directly on the source recur on every generated task. Never fail generation on a copy error.
-    try:
-        _sitems = src.get("pm_checklist") or []
-        for _it in _sitems:
+        citems = sorted(r.get("pm_checklist_items") or [], key=lambda x: (x.idx or 0))
+        for it in citems:
             t.append("pm_checklist", {
-                "item_label": _it.get("item_label"),
-                "is_required": _it.get("is_required"),
-                "is_done": 0,
-                "source_template_item": _it.get("source_template_item") or _it.get("item_label"),
+                "item_label": it.item_label, "is_required": it.is_required, "is_done": 0,
+                "source_template_item": (it.name or it.item_label),
             })
-        if _sitems:
+        if citems:
             t.save(ignore_permissions=True)
     except Exception:
-        frappe.log_error(frappe.get_traceback(), "Recurring source-checklist copy failed: " + t.name)
-    # point2-B: clone the SOURCE task's direct sub-tasks (one level) so each occurrence carries its
-    # own assignable sub-tasks. Subject/desc/priority/dates/assignees copied; child parent = new task.
-    # Nested-set writes here are covered by run_due's deadlock retry. Never fail generation.
+        frappe.log_error(frappe.get_traceback(), "Recurring checklist copy failed: " + t.name)
+    # labels snapshot (attach existing labels; missing labels skipped)
     try:
-        _kids = frappe.get_all("Task", filters={"parent_task": r.source_task},
-                               fields=["name", "subject", "description", "priority", "exp_start_date",
-                                       "exp_end_date", "pm_start_time", "pm_end_time", "_assign"],
-                               order_by="creation asc", limit_page_length=0)
-        for _k in _kids:
-            _child = frappe.get_doc({
-                "doctype": "Task", "subject": _k.get("subject"), "description": _k.get("description"),
-                "priority": _k.get("priority"), "project": src.get("project"),
-                "parent_task": t.name, "exp_start_date": occ_date,
-                "pm_start_time": _k.get("pm_start_time"), "pm_end_time": _k.get("pm_end_time"),
+        want = [l for l in _load_list(r.get("template_labels")) if l]
+        if want:
+            exist = set(x["name"] for x in frappe.get_all(
+                "PM Task Label", filters={"name": ["in", list(set(want))]},
+                fields=["name"], limit_page_length=0))
+            seen = set()
+            for lid in want:
+                if lid in exist and lid not in seen:
+                    seen.add(lid)
+                    frappe.get_doc({"doctype": "PM Task Label Assignment",
+                                    "task": t.name, "label": lid}).insert(ignore_permissions=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Recurring label copy failed: " + t.name)
+    # sub-tasks (one level); nested-set writes covered by run_due's deadlock retry
+    try:
+        for st in sorted(r.get("pm_subtasks") or [], key=lambda x: (x.idx or 0)):
+            child = frappe.get_doc({
+                "doctype": "Task", "subject": st.subject,
+                "description": st.get("description"),
+                "priority": _clean_priority(st.get("priority")),
+                "project": r.get("project"), "parent_task": t.name,
+                "exp_start_date": occ_date,
             })
-            if _k.get("exp_start_date") and _k.get("exp_end_date"):
-                _cd = (getdate(_k["exp_end_date"]) - getdate(_k["exp_start_date"])).days
-                _child.exp_end_date = add_days(occ_date, max(0, _cd))
-            _child.insert(ignore_permissions=True)
+            child.insert(ignore_permissions=True)
             try:
-                _ku = [u for u in frappe.parse_json(_k.get("_assign") or "[]") if u]
-                if _ku:
-                    _assign_add({"doctype": "Task", "name": _child.name, "assign_to": _ku, "notify": 0})
+                cu = _clean_assignees(st.get("assignees")) or _load_list(r.get("template_assignees"))
+                if cu:
+                    _assign_add({"doctype": "Task", "name": child.name,
+                                 "assign_to": cu, "notify": 0})
             except Exception:
                 pass
     except Exception:
@@ -404,8 +454,7 @@ def _process(name, today):
 
 def _process_with_retry(name, today, attempts=4):
     """Generate for one rule, retrying on transient DB deadlocks (MySQL 1213). ERPNext Task
-    nested-set updates can deadlock under contention; the DB itself advises 'try restarting
-    transaction'. Non-deadlock errors are logged once and skipped (never block other rules)."""
+    nested-set updates can deadlock under contention. Non-deadlock errors are logged + skipped."""
     for i in range(attempts):
         try:
             _process(name, today)
@@ -437,8 +486,7 @@ def run_due():
 @frappe.whitelist()
 def generate_now():
     """On-demand catch-up generation (same idempotent logic as the 00:00 scheduler), scoped to
-    rules the caller owns, or all for a PM leader. Catches up missed days up to today (capped).
-    Returns how many tasks were generated. Lets users 'Sinh ngay' instead of waiting for 00:00."""
+    rules the caller owns, or all for a PM leader. Catches up missed days up to today (capped)."""
     pmperm.require_pm_access()
     user = frappe.session.user
     leader = pmperm.can_transition_any_task(user)
