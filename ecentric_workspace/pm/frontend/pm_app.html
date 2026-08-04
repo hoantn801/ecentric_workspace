@@ -173,7 +173,8 @@
   .panel-header{ padding:14px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--gray-100); gap:12px; flex-wrap:wrap; }
   .panel-title{ font-size:14px; font-weight:600; color:var(--gray-900); display:flex; align-items:center; gap:8px; }
   .panel-tools{ display:flex; align-items:center; gap:8px; }
-  .pm-input{ padding:7px 11px 7px 30px; border:1px solid var(--gray-200); border-radius:8px; font-size:13px; font-family:inherit; background:var(--gray-50) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='15' height='15' fill='none' stroke='%239ca3af' stroke-width='2' viewBox='0 0 24 24'><circle cx='11' cy='11' r='7'/><path d='m21 21-4.3-4.3'/></svg>") 9px center no-repeat; }
+  .pm-input{ padding:7px 11px; border:1px solid var(--gray-200); border-radius:8px; font-size:13px; font-family:inherit; background:var(--gray-50); }
+  .pm-input.pm-search{ padding-left:30px; background:var(--gray-50) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='15' height='15' fill='none' stroke='%239ca3af' stroke-width='2' viewBox='0 0 24 24'><circle cx='11' cy='11' r='7'/><path d='m21 21-4.3-4.3'/></svg>") 9px center no-repeat; }
   .pm-input:focus{ outline:none; border-color:var(--navy); background-color:#fff; }
   select.pm-sel{ padding:7px 11px; border:1px solid var(--gray-200); border-radius:8px; font-size:13px; font-family:inherit; background:#fff; color:var(--gray-700); }
 
@@ -694,7 +695,6 @@
         <button class="tb-timer" id="tb-timer" title="Timer đang chạy — bấm để mở task"></button>
         <button class="pm-btn primary" id="tb-new" style="padding:7px 12px"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button>
         <a class="icon-btn" id="tb-bell" href="/app/notification-log" target="_blank" rel="noopener" data-ec-notification-bell="1" aria-label="Thông báo" title="Thông báo" style="position:relative"><svg class="icon icon-sm"><use href="#p-bell"/></svg></a>
-        <button class="icon-btn" title="Cài đặt"><svg class="icon icon-sm"><use href="#p-settings"/></svg></button>
       </div>
     </div>
     <div class="content" id="pm-view"><div class="pm-state"><span class="spin"></span></div></div>
@@ -803,8 +803,12 @@
     t.className="pm-toast show has-action";
     window._toastTimer=setTimeout(function(){t.className="pm-toast";t.textContent="";window._toastTimer=null;},6000);}
   function spin(c){c.innerHTML='<div class="pm-state"><span class="spin"></span></div>';}
-  function errOf(e){return (e&&e.message)||(e&&e._server_messages)||e||"loi";}
-  function errBox(c,e){c.innerHTML='<div class="pm-err" title="'+esc(errOf(e))+'">Không tải được dữ liệu. Vui lòng thử lại.</div>';}
+  function errOf(e){ if(!e) return "Đã có lỗi.";
+    try{ var sm=e._server_messages||(e.responseJSON&&e.responseJSON._server_messages);
+      if(sm){ var arr=(typeof sm==="string")?JSON.parse(sm):sm; if(arr&&arr.length){ var o=arr[0]; if(typeof o==="string"){ try{o=JSON.parse(o);}catch(_z){o={message:o};} } var m=o&&(o.message||o.title); if(m) return String(m).replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim(); } }
+    }catch(_e){}
+    return (e&&e.message)||(e&&e.responseJSON&&e.responseJSON.message)||"Đã có lỗi. Vui lòng thử lại."; }
+  function errBox(c,e,retry){c.innerHTML='<div class="pm-err">'+esc(errOf(e))+(retry?' <button type="button" class="pm-btn" id="pm-err-retry" style="margin-top:8px">Thử lại</button>':'')+'</div>';var rb=el("pm-err-retry");if(rb&&retry)rb.onclick=retry;}
   function emptyBox(c,msg){c.innerHTML='<div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>'+esc(msg)+'</div></div>';}
 
   function head(title,sub,right){return '<div class="pm-head"><div><h1>'+esc(title)+'</h1>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div><div>'+(right||'')+'</div></div>';}
@@ -1023,7 +1027,7 @@
       window._pm_departments=depts;var view=pmProjView();
       c.innerHTML=head("Dự án",(r.total||0)+" dự án trong phạm vi của bạn",'<button class="pm-btn primary" id="pm-newproj"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Dự án mới</button>')+ /* G5.2 adoption policy: any PM user can create a Project (backend still validates; delete stays leader-only) */
         '<div class="project-toolbar"><span class="pm-vtoggle" id="pm-vtoggle"><button data-pv="card"'+(view==="card"?' class="active"':'')+'>Thẻ</button><button data-pv="list"'+(view==="list"?' class="active"':'')+'>Danh sách</button></span>'+
-        '<div class="project-toolbar-r"><input class="pm-input" id="pm-pq" placeholder="Tìm dự án..."><select class="pm-sel" id="pm-pf"><option value="">Tất cả trạng thái</option><option>Open</option><option>Completed</option><option>Cancelled</option></select><select class="pm-sel" id="pm-pdept">'+pmDeptFilterOptions("")+'</select></div></div>'+
+        '<div class="project-toolbar-r"><input class="pm-input pm-search" id="pm-pq" placeholder="Tìm dự án..."><select class="pm-sel" id="pm-pf"><option value="">Tất cả trạng thái</option><option>Open</option><option>Completed</option><option>Cancelled</option></select><select class="pm-sel" id="pm-pdept">'+pmDeptFilterOptions("")+'</select></div></div>'+
         '<div id="pm-ptbl"></div>';
       if(el("pm-newproj"))el("pm-newproj").onclick=newProject;
       el("pm-pq").oninput=renderProjectsView; el("pm-pf").onchange=renderProjectsView; if(el("pm-pdept"))el("pm-pdept").onchange=renderProjectsView;
@@ -1271,7 +1275,7 @@
     var lbls=pmAllLabels(ts);
     var P=[["mine","Của tôi"],["today","Hôm nay"],["week","Tuần này"],["overdue","Quá hạn"],["blocked","Blocked"],["review","Chờ duyệt"],["noassignee","Chưa giao"],["nodue","Chưa có hạn"]];
     return '<div class="pm-filters">'+
-      '<input class="pm-input" id="f-q" placeholder="Tìm..." value="'+esc(F.q)+'" style="max-width:170px">'+
+      '<input class="pm-input pm-search" id="f-q" placeholder="Tìm..." value="'+esc(F.q)+'" style="max-width:170px">'+
       '<select class="pm-sel" id="f-status"><option value="">Trạng thái</option>'+COLS.map(function(s){return opt(s,s,F.status);}).join("")+'</select>'+
       '<select class="pm-sel" id="f-assignee"><option value="">Người nhận</option>'+asg.map(function(a){return opt(a,a,F.assignee);}).join("")+'</select>'+
       '<select class="pm-sel" id="f-label"><option value="">Nhãn</option>'+lbls.map(function(l){return opt(l.name,l.label_name,F.label);}).join("")+'</select>'+
@@ -1567,9 +1571,7 @@
         '<div id="pm-comments" class="pm-cmt-list"><span class="spin"></span></div>'+
         '<div class="pm-composer"><textarea class="pm-cmt-input2" id="pm-cmt-input" rows="2" placeholder="Viết bình luận... (Enter gửi, Shift+Enter xuống dòng)"></textarea>'+
         '<div class="pm-composer-bar"><div class="pm-composer-ic">'+
-        '<button class="pm-ic-btn" type="button" disabled title="Đính kèm tệp (sắp có)">'+SVG_ATTACH+'</button>'+
-        '<button class="pm-ic-btn" type="button" disabled title="Chèn liên kết (sắp có)">'+SVG_LINK+'</button>'+
-        '<button class="pm-ic-btn" type="button" disabled title="Nhắc tới người (sắp có)">@</button></div>'+
+        '</div>'+
         '<button class="pm-btn primary" id="pm-cmt-send">'+SVG_SEND+'Gửi</button></div></div></div></div>';
       c.innerHTML=h;c.classList.add("pm-cols");
       pmWireTaskMenus(c); /* UIUX-3: task detail header ⋯ -> Xoá nhiệm vụ */
@@ -2177,7 +2179,7 @@
         return '<tr class="rc-row" data-rrule="'+esc(r.name)+'" style="cursor:pointer"><td class="t-main">'+esc(r.source_task)+'</td><td>'+esc(FREQ_VN[r.frequency]||r.frequency)+'</td><td>'+esc(r.next_run_date||"-")+'</td><td>'+(r.occurrences_done||0)+'</td><td>'+(r.max_occurrences?r.max_occurrences:"—")+'</td><td'+(lt?' class="dc-link" data-task="'+esc(r.last_task)+'" style="cursor:pointer"':'')+'>'+esc(r.last_task||"-")+'</td><td><span class="pm-badge '+recBadge(r.status)+'">'+esc(r.status)+'</span></td><td>'+ruleHealthBadge(ruleHealth(r,lt))+'</td>'+
           (showActions?'<td style="text-align:right;white-space:nowrap">'+(r.status==="Active"?'<button class="pm-btn rc-a" data-a="pause" data-n="'+esc(r.name)+'">Tạm dừng</button>':r.status==="Paused"?'<button class="pm-btn rc-a" data-a="resume" data-n="'+esc(r.name)+'">Tiếp tục</button>':'')+((r.status==="Active"||r.status==="Paused")?' <button class="pm-btn rc-a" data-a="cancel" data-n="'+esc(r.name)+'">Huỷ</button>':'')+'</td>':'')+'</tr>';}).join("")+'</tbody></table></div>';
     Array.prototype.forEach.call(host.querySelectorAll("[data-task]"),function(x){x.onclick=function(e){e.stopPropagation();openTask(x.getAttribute("data-task"));};});
-    Array.prototype.forEach.call(host.querySelectorAll(".rc-a"),function(btn){btn.onclick=function(e){e.stopPropagation();api(PM+"recurrence."+btn.getAttribute("data-a"),{name:btn.getAttribute("data-n")}).then(function(){showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};});
+    Array.prototype.forEach.call(host.querySelectorAll(".rc-a"),function(btn){btn.onclick=function(e){e.stopPropagation();var a=btn.getAttribute("data-a");if(a==="cancel"&&!window.confirm("Huỷ quy tắc lặp này? Các nhiệm vụ đã sinh vẫn được giữ."))return;api(PM+"recurrence."+a,{name:btn.getAttribute("data-n")}).then(function(){showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};});
     Array.prototype.forEach.call(host.querySelectorAll(".rc-row"),function(tr){tr.onclick=function(){openRecurringDetail(byName[tr.getAttribute("data-rrule")],tmap);};});}
   /* G5.2 §D: read-only recurring rule detail drawer. All fields come from recurrence.list (_as_dict);
      no extra API/schema needed. Pause/Resume/Cancel reuse the governed recurrence.* endpoints. */
@@ -2214,7 +2216,7 @@
       (acts?'<div class="pm-dsec">Thao tác</div><div style="display:flex;gap:8px;flex-wrap:wrap">'+acts+'</div>':'');
     if(el("rd-src"))el("rd-src").onclick=function(){openTask(r.source_task);};
     if(el("rd-last"))el("rd-last").onclick=function(){openTask(r.last_task);};
-    Array.prototype.forEach.call(c.querySelectorAll("[data-rd-a]"),function(b){b.onclick=function(){var a=b.getAttribute("data-rd-a");b.disabled=true;api(PM+"recurrence."+a,{name:r.name}).then(function(){toast("Đã cập nhật quy tắc");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};});}
+    Array.prototype.forEach.call(c.querySelectorAll("[data-rd-a]"),function(b){b.onclick=function(){var a=b.getAttribute("data-rd-a");if(a==="cancel"&&!window.confirm("Huỷ quy tắc lặp này? Các nhiệm vụ đã sinh vẫn được giữ."))return;b.disabled=true;api(PM+"recurrence."+a,{name:r.name}).then(function(){toast("Đã cập nhật quy tắc");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};});}
   /* G5.0: Assignment Acceptance — request a task be given to a user; recipient accepts /
      rejects / proposes a new time. Replaces the hidden "Thông báo" slot. */
   function asgFmt(d){return d?String(d).slice(0,16).replace("T"," "):"—";}
