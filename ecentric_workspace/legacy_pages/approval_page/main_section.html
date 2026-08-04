@@ -943,14 +943,11 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
     return Array.isArray(raw) ? raw : [];
   }
 
-  // 2026-08-04 (fb#2): nhan hien thi doi GMV -> NMV. FIELDNAME `forecast_gmv` va
-  // gia tri luu cua fee_type ('% GMV') GIU NGUYEN — ec_mso_before_save so sanh
-  // bang chuoi '% GMV', doi gia tri se lam hong engine tinh ngan sach.
+  // 2026-08-04 (fb#2): nhan hien thi doi GMV -> NMV. FIELDNAME `forecast_gmv` GIU NGUYEN.
+  // 2026-08-04 (fb#5): bo han loai phi '% GMV'. KAM go thang so tien, he thong khong
+  // tinh amount tu phan tram nua, nen bang duoi khong con cot 'Cach tinh' / 'Ti le'.
+  // Field fee_type / fee_percent van con tren DocType de 2 dong cu giu nguyen so da luu.
   function msoNmvLabel() { return 'NMV'; }
-  function msoFeeTypeLabel(v) {
-    var s = String(v == null ? '' : v).trim();
-    return s === '% GMV' ? '% NMV' : (s || '—');
-  }
   function msoGmv(item) {
     var g = Number(val(item, 'forecast_gmv', 'total_est_revenue') || 0);
     if (isNaN(g) || g <= 0) return 0;
@@ -1033,8 +1030,8 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
       .concat(seen.filter(function (g) { return ORDER.indexOf(g) < 0; }));
     var grand = 0;
     var html = '<div class="bl-wrap"><table class="bl-table"><thead><tr>'
-      + '<th>Khoản chi</th><th>Team phụ trách</th><th>Cách tính</th>'
-      + '<th class="num">Tỉ lệ</th><th class="num">Số tiền</th><th class="num">% NMV</th>'
+      + '<th>Khoản chi</th><th>Team phụ trách</th>'
+      + '<th class="num">Số tiền</th><th class="num">% NMV</th>'
       + '</tr></thead><tbody>';
     names.forEach(function (g) {
       // D9b: tong cua nhom nam ngay tren dong tieu de nhom (bo dong "Cong ..." rieng)
@@ -1045,15 +1042,13 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
         if (!isNaN(a)) sub += a;
       });
       grand += sub;
-      html += '<tr class="bl-group"><td colspan="4">' + escapeHtml(g)
+      html += '<tr class="bl-group"><td colspan="2">' + escapeHtml(g)
         + ' (' + groups[g].length + ' khoản)</td>'
         + '<td class="num">' + escapeHtml(fmtMoney(sub)) + '</td>'
         + '<td class="num">' + escapeHtml(pctOfGmv(sub, gmv) || '—') + '</td></tr>';
       groups[g].forEach(function (l) {
         var amt = Number(l.amount || 0);
         if (isNaN(amt)) amt = 0;
-        var pctNum = Number(l.fee_percent || 0);
-        var rate = (!isNaN(pctNum) && pctNum) ? (pctNum + '% NMV') : '—';
         var cell = '<div class="bl-name">'
           + escapeHtml(String(l.category_name || l.category || '—').trim()) + '</div>';
         if (l.category) cell += '<div class="bl-code">' + escapeHtml(l.category) + '</div>';
@@ -1061,21 +1056,19 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
         html += '<tr>'
           + '<td>' + cell + '</td>'
           + '<td>' + escapeHtml(l.team || '—') + '</td>'
-          + '<td>' + escapeHtml(msoFeeTypeLabel(l.fee_type)) + '</td>'
-          + '<td class="num">' + escapeHtml(rate) + '</td>'
           + '<td class="num">' + escapeHtml(fmtMoney(amt)) + '</td>'
           + '<td class="num bl-pct">' + escapeHtml(pctOfGmv(amt, gmv) || '—') + '</td>'
           + '</tr>';
       });
     });
-    html += '<tr class="bl-grand"><td colspan="4">TỔNG NGÂN SÁCH</td>'
+    html += '<tr class="bl-grand"><td colspan="2">TỔNG NGÂN SÁCH</td>'
       + '<td class="num">' + escapeHtml(fmtMoney(grand)) + '</td>'
       + '<td class="num">' + escapeHtml(pctOfGmv(grand, gmv) || '—') + '</td></tr>';
     html += '</tbody></table></div>';
     if (gmv) {
       html += '<div class="bl-foot">Trên NMV dự kiến ' + escapeHtml(fmtMoney(gmv))
         + ', tổng ngân sách chiếm <strong>' + escapeHtml(pctOfGmv(grand, gmv))
-        + '</strong>. Cột “% NMV” là số tiền của dòng chia cho NMV dự kiến; cột “Tỉ lệ” là mức phí ghi trên dòng đó.</div>';
+        + '</strong>. Cột “% NMV” là số tiền của dòng chia cho NMV dự kiến.</div>';
     }
     html += msoTotalsWarning(item);
     return html;

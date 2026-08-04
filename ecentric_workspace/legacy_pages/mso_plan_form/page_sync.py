@@ -43,7 +43,7 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "161cd7a8dfa5273cb9720de650deb7a31ab3116c296e240d96c7d9bad3e38ab7"
+BASELINE_SHA256 = "51135084243aa8819a56c6e4776dc99c142ecdcdf28e052fc8f1ffc43bc3ad38"
 SUPERSEDES_SHA256 = (
     # bytes ban dau khi repo-hoa trang nay (#61). Live tren team.ecentric.vn da
     # duoc ghi thang len BASELINE_SHA256 ngay 2026-08-04 (round feedback MSO 1:
@@ -62,6 +62,13 @@ SUPERSEDES_SHA256 = (
     # trang duyet. Live team.ecentric.vn da duoc ghi thang len BASELINE_SHA256
     # cung ngay nen sync dau tien o do tra ve "unchanged".
     "eddcf6d7522c5bf210894d9c26f0c38d760823d5498afc7530a5b81534f2d6f0",
+    # bytes truoc round feedback MSO 2 (2026-08-04): round do BO HAN loai phi
+    # '% GMV' / '% NMV' khoi form. KAM go thang so tien vao o Amount; may chu
+    # khong con tinh amount = fee_percent * forecast_gmv / 100 nua (nhanh do da
+    # bi go khoi ec_mso_before_save v3.5). Bang ngan sach mat 2 cot 'Loai phi'
+    # va '%'. Live team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung
+    # ngay nen sync dau tien o do tra ve "unchanged".
+    "161cd7a8dfa5273cb9720de650deb7a31ab3116c296e240d96c7d9bad3e38ab7",  # pre-mso-fb-2
 )
 
 

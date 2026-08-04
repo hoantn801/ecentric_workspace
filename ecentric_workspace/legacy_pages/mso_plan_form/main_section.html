@@ -498,12 +498,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
           <thead>
             <tr>
               <th style="width:17%">Team</th>
-              <th style="width:15%">Nh&#243;m</th>
-              <th style="width:21%">Kho&#7843;n m&#7909;c</th>
-              <th style="width:10%">Lo&#7841;i ph&#237;</th>
-              <th style="width:7%">%</th>
-              <th style="width:15%">Amount (VND, +VAT)</th>
-              <th style="width:12%">Ghi ch&#250;</th>
+              <th style="width:17%">Nh&#243;m</th>
+              <th style="width:28%">Kho&#7843;n m&#7909;c</th>
+              <th style="width:20%">Amount (VND, +VAT)</th>
+              <th style="width:15%">Ghi ch&#250;</th>
               <th style="width:3%"></th>
             </tr>
           </thead>
@@ -511,7 +509,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         </table>
       </div>
       <button type="button" class="bl-add" id="blAdd">+ Th&#234;m d&#242;ng</button>
-      <div class="bl-note">Amount l&#224; s&#7889; ch&#432;a g&#7891;m VAT. D&#242;ng lo&#7841;i ph&#237; "% NMV" s&#7869; t&#7921; t&#237;nh Amount theo NMV d&#7921; ki&#7871;n. D&#242;ng &#273;&#7875; tr&#7889;ng/0 s&#7869; t&#7921; b&#7887; qua khi g&#7917;i.</div>
+      <div class="bl-note">Amount l&#224; s&#7889; ch&#432;a g&#7891;m VAT, nh&#7853;p tr&#7921;c ti&#7871;p b&#7857;ng s&#7889;. D&#242;ng &#273;&#7875; tr&#7889;ng/0 s&#7869; t&#7921; b&#7887; qua khi g&#7917;i.</div>
       <div class="bl-totals">
         <span>T&#7893;ng chi ph&#237; ho&#7841;t &#273;&#7897;ng: <b id="totOps">0</b> &#273;</span>
         <span>T&#7893;ng ph&#237; agency EC: <b id="totFee">0</b> &#273;</span>
@@ -623,8 +621,6 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         '<option value="' + GRP_OPS + '">Chi phí hoạt động</option>' +
         '<option value="' + GRP_FEE + '">Phí agency EC</option></select></div></td>' +
       '<td><div class="select-wrap"><select class="f-control bl-cat"></select></div></td>' +
-      '<td><div class="select-wrap"><select class="f-control bl-feetype"><option value="Fixed">Fixed</option><option value="% GMV">% NMV</option></select></div></td>' +
-      '<td><input class="f-control bl-pct" type="text" inputmode="decimal" disabled placeholder="-"/></td>' +
       '<td><input class="f-control bl-amount" type="text" inputmode="numeric" placeholder="0"/></td>' +
       '<td><input class="f-control bl-note" type="text" placeholder=""/></td>' +
       '<td><button type="button" class="bl-row-del" title="Xoá dòng">&#215;</button></td>' +
@@ -660,7 +656,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       head = document.createElement('tr');
       head.className = 'bl-teamhead';
       head.dataset.team = team;
-      head.innerHTML = '<td colspan="8">' + team + '</td>';
+      head.innerHTML = '<td colspan="6">' + team + '</td>';
       tb.appendChild(head);
     }
     var ref = head.nextElementSibling;
@@ -677,11 +673,6 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       tr.querySelector('.bl-group').value = pre.group || GRP_OPS;
       fillCats(tr);
       tr.querySelector('.bl-cat').value = pre.cat || '';
-      if (pre.fee_type === '% GMV') {
-        tr.querySelector('.bl-feetype').value = '% GMV';
-        tr.querySelector('.bl-pct').disabled = false;
-        tr.querySelector('.bl-amount').disabled = true;
-      }
     } else {
       fillCats(tr);
     }
@@ -699,9 +690,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     teams.forEach(function (team) {
       var mine = defs.filter(function (d) { return (d.ec_mso_team || '') === team; });
       if (!mine.length) return;
-      tb.insertAdjacentHTML('beforeend', '<tr class="bl-teamhead" data-team="' + team + '"><td colspan="8">' + (team || 'Khác') + '</td></tr>');
+      tb.insertAdjacentHTML('beforeend', '<tr class="bl-teamhead" data-team="' + team + '"><td colspan="6">' + (team || 'Khác') + '</td></tr>');
       mine.forEach(function (d) {
-        addRow({ team: team, group: d.item_group, cat: d.item_code, fee_type: d.ec_mso_fee_type });
+        addRow({ team: team, group: d.item_group, cat: d.item_code });
       });
     });
     recompute();
@@ -711,16 +702,6 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     if (!tr) return;
     if (e.target.classList.contains('bl-group')) { fillCats(tr); recompute(); }
     if (e.target.classList.contains('bl-team')) { repositionRow(tr); }
-    if (e.target.classList.contains('bl-feetype')) {
-      var isPct = e.target.value === '% GMV';
-      tr.querySelector('.bl-pct').disabled = !isPct;
-      tr.querySelector('.bl-amount').disabled = isPct;
-      if (!isPct) tr.querySelector('.bl-pct').value = '';
-      recompute();
-    }
-  });
-  document.addEventListener('input', function (e) {
-    if (e.target.classList && e.target.classList.contains('bl-pct')) recompute();
   });
   document.addEventListener('click', function (e) {
     if (e.target.classList && e.target.classList.contains('bl-row-del')) {
@@ -729,19 +710,13 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   });
 
   function readRows() {
-    var gmv = parseNum($('forecastGmv'));
     var rows = [];
     document.querySelectorAll('#blBody tr:not(.bl-teamhead)').forEach(function (tr) {
-      var feeType = tr.querySelector('.bl-feetype').value;
-      var pct = parseFloat((tr.querySelector('.bl-pct').value || '').replace(',', '.')) || 0;
-      var amount = feeType === '% GMV' ? Math.round(pct * gmv / 100) : parseNum(tr.querySelector('.bl-amount'));
       rows.push({
         category_group: tr.querySelector('.bl-group').value,
         category: tr.querySelector('.bl-cat').value,
         team: tr.querySelector('.bl-team').value,
-        fee_type: feeType,
-        fee_percent: pct,
-        amount: amount,
+        amount: parseNum(tr.querySelector('.bl-amount')),
         note: tr.querySelector('.bl-note').value.trim(),
         _tr: tr
       });
@@ -751,7 +726,6 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   function recompute() {
     var totOps = 0, totFee = 0;
     readRows().forEach(function (r) {
-      if (r.fee_type === '% GMV') { r._tr.querySelector('.bl-amount').value = r.amount ? fmt(r.amount) : ''; }
       if (r.category_group === GRP_OPS) totOps += r.amount; else totFee += r.amount;
     });
     $('totOps').textContent = fmt(totOps);
@@ -907,7 +881,6 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     for (var i = 0; i < active.length; i++) {
       var r = active[i];
       if (!r.category) return 'Có dòng đã nhập tiền nhưng chưa chọn khoản mục';
-      if (r.fee_type === '% GMV' && !parseNum($('forecastGmv'))) return 'Có dòng dùng % NMV — nhập Target NMV trước';
     }
     var miss = chainMissing();
     if (miss) return 'Thiếu email duyệt: ' + miss;
@@ -923,7 +896,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       notes: $('notes').value.trim(),
       budget_lines: readRows().filter(function (r) { return r.amount > 0; }).map(function (r) {
         return { category_group: r.category_group, category: r.category, team: r.team,
-                 fee_type: r.fee_type, fee_percent: r.fee_percent, amount: r.amount, note: r.note };
+                 fee_type: 'Fixed', amount: r.amount, note: r.note };
       })
     };
   }
@@ -980,12 +953,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         tr.querySelector('.bl-group').value = r.category_group; fillCats(tr);
         tr.querySelector('.bl-cat').value = r.category;
         tr.querySelector('.bl-team').value = r.team || '';
-        tr.querySelector('.bl-feetype').value = r.fee_type;
-        var isPct = r.fee_type === '% GMV';
-        tr.querySelector('.bl-pct').disabled = !isPct;
-        tr.querySelector('.bl-amount').disabled = isPct;
-        if (isPct) tr.querySelector('.bl-pct').value = r.fee_percent;
-        else tr.querySelector('.bl-amount').value = r.amount ? fmt(r.amount) : '';
+        tr.querySelector('.bl-amount').value = r.amount ? fmt(r.amount) : '';
       });
       recompute();
     } catch (e) {}
