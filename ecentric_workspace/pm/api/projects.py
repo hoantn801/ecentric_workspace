@@ -70,8 +70,9 @@ def get(name):
 
     doc = frappe.get_doc("Project", name)
     counts = {}
-    for t in frappe.get_all("Task", filters={"project": name}, fields=["status"]):
-        counts[t["status"]] = counts.get(t["status"], 0) + 1
+    for t in frappe.get_all("Task", filters={"project": name}, fields=["workflow_state"]):
+        _ws = t["workflow_state"] or "—"
+        counts[_ws] = counts.get(_ws, 0) + 1
     return {"project": doc.as_dict(), "task_status_counts": counts}
 
 

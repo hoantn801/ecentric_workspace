@@ -26,9 +26,13 @@ _DAYS = {"Daily": 1, "Weekly": 7, "Biweekly": 14}
 _FREQ = ("Daily", "Weekly", "Biweekly", "Monthly")
 
 
-def _advance(d, frequency):
+def _advance(d, frequency, anchor=None, occ=None):
     d = getdate(d)
     if frequency == "Monthly":
+        # audit D5: anchor monthly occurrences to the rule's start day-of-month (clamped per month)
+        # so a rule starting on the 31st does not permanently drift to the 28th after February.
+        if anchor and occ is not None:
+            return add_months(getdate(anchor), int(occ))
         return add_months(d, 1)
     return add_days(d, _DAYS.get(frequency, 1))
 
@@ -336,7 +340,7 @@ def _process(name, today):
         r.status = "Completed"; r.save(ignore_permissions=True); return
     # idempotent guard: never generate twice for the same date
     if r.last_run_date and getdate(r.last_run_date) == nrd:
-        r.next_run_date = _advance(nrd, r.frequency)
+        r.next_run_date = _advance(nrd, r.frequency, r.start_date, r.occurrences_done)
         r.save(ignore_permissions=True)
         return
     new_task = _clone(r, nrd)
@@ -349,7 +353,7 @@ def _process(name, today):
     r.occurrences_done = (r.occurrences_done or 0) + 1
     r.last_task = new_task
     r.last_run_date = nrd
-    r.next_run_date = _advance(nrd, r.frequency)
+    r.next_run_date = _advance(nrd, r.frequency, r.start_date, r.occurrences_done)
     if (r.end_date and getdate(r.next_run_date) > getdate(r.end_date)) or \
        (r.max_occurrences and r.occurrences_done >= r.max_occurrences):
         r.status = "Completed"

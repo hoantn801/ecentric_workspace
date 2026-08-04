@@ -156,6 +156,7 @@ def counts(task_names):
         except Exception:
             task_names = [task_names]
     task_names = [t for t in (task_names or []) if t]
+    task_names = pmperm.visible_task_subset(task_names)  # audit D4: scope to caller-visible tasks
     out = {}
     if not task_names:
         return {"counts": out}

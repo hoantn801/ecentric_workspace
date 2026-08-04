@@ -146,6 +146,23 @@ def can_view_task(task, user=None):
     return False
 
 
+def visible_task_subset(names, user=None):
+    """audit D4: subset of task `names` the caller may view (owner / assignee / visible project).
+    Leaders get all. One query, no N+1. Used to scope batch enrichment endpoints instead of
+    trusting client-supplied names."""
+    user = user or frappe.session.user
+    names = [n for n in (names or []) if n]
+    if not names or can_see_all_pm_data(user):
+        return names
+    ors = [["owner", "=", user], ["_assign", "like", '%"{0}"%'.format(user)]]
+    visible = get_visible_project_names(user) or []
+    if visible:
+        ors.append(["project", "in", visible])
+    rows = frappe.get_all("Task", filters={"name": ["in", names]}, or_filters=ors,
+                          fields=["name"], limit_page_length=0)
+    return [r["name"] for r in rows]
+
+
 def is_task_assignee(task, user=None):
     """G4.10: True if `user` is in the task's native _assign list. `task` is a dict/doc
     exposing _assign (same shape can_view_task consumes). Canonical assignee check."""
