@@ -1863,6 +1863,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     t.classList.add('show');
     setTimeout(function(){ t.classList.remove('show'); }, 4500);
   }
+  // FB#1 2026-08-04: showGbsToast nam trong IIFE nen cac script khac
+  // (vd ec-po-unified, ec-gbs-po-item-tax) goi khong toi -> bao loi chi
+  // hien o badge tren dinh form, phai keo len moi thay. Xuat ra window.
+  window.showGbsToast = showGbsToast;
   function fmtVND(n) { return (Math.round(n)||0).toLocaleString('vi-VN') + ' VND'; }
   function todayISO() { return new Date().toISOString().slice(0, 10); }
 
@@ -5849,6 +5853,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   if (_soIsEc) MODE = 'ecbuy';
   var LKI = null;
   var EC_ITEMS = {};
+  var _ecItemPool = [];  // FB#2: mode ecbuy -> item picker chi hien item master EC
   var _lastUploadSession = '';
   var _poBudget = null; // 'in' | 'out' | null (vs SO tham chiếu)
 
@@ -5931,16 +5936,38 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     return parseFloat(str) || 0;
   }
   function fmt(n){return (n||0).toLocaleString('vi-VN');}
+  // FB#3 2026-08-04: ban cu lay _server_messages[0]. ERPNext msgprint cac thong
+  // bao vo hai TRUOC khi hook Before Save throw (vd "Item Price added for X in
+  // Price List - Standard Buying" tu insert_item_price), nen [0] la thong bao
+  // vo hai con loi that nam o cuoi -> nguoi dung thay "Loi:" ma khong hieu gi.
+  // Uu tien: message co raise_exception -> message cuoi khong phai alert -> [0].
   function frappeErr(raw, fb){
     try{ var j = typeof raw==='string' ? JSON.parse(raw) : raw;
-      if (j && j._server_messages){ var a = JSON.parse(j._server_messages); if(a.length) return JSON.parse(a[0]).message.replace(/<[^>]+>/g,''); }
+      if (j && j._server_messages){
+        var a = JSON.parse(j._server_messages);
+        var parsed = [];
+        for (var i=0;i<a.length;i++){
+          try{ parsed.push(JSON.parse(a[i])); }catch(e2){ parsed.push({message: String(a[i])}); }
+        }
+        var pick = null;
+        for (var k=0;k<parsed.length;k++){ if (parsed[k] && parsed[k].raise_exception){ pick = parsed[k]; break; } }
+        if (!pick){
+          for (var m=parsed.length-1;m>=0;m--){ if (parsed[m] && !parsed[m].alert){ pick = parsed[m]; break; } }
+        }
+        if (!pick && parsed.length) pick = parsed[parsed.length-1];
+        if (pick && pick.message) return String(pick.message).replace(/<[^>]+>/g,'').trim();
+      }
       if (j && j.exception) return j.exception.split(':').slice(1).join(':').trim();
     }catch(e){}
     return fb || 'Loi khong xac dinh';
   }
+  // FB#1 2026-08-04: badge nam tren dinh .form-card nen sau khi bam Submit
+  // (da cuon xuong cuoi form) nguoi dung khong thay gi. Van giu badge, them
+  // toast noi len goc phai — dung dung ham showGbsToast san co cua form.
   function notice(msg, bad){
     var el = $id('ecUniBadge');
     if (el){ el.textContent = msg; el.style.color = bad ? '#c0392b' : '#166534'; el.style.fontWeight='700'; }
+    if (typeof window.showGbsToast === 'function') window.showGbsToast(msg, bad ? 'error' : 'success');
   }
 
   function syncSvcDates(){
@@ -6003,6 +6030,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     });
     var ew = $id('ecPoWrap');
     if (ew) ew.classList.toggle('ec-uni-hide', m!=='ecbuy');
+    syncItemUi();            // FB#2: doi mode -> doi nguon item cua picker
     if (m==='ecbuy') refreshPoBudget();
   }
 
@@ -6012,12 +6040,19 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       .then(function(j){
         LKI = (j && j.message) || {};
         (LKI.items||[]).forEach(function(it){ EC_ITEMS[it.item_code] = it; });
+        _ecItemPool = ecItemArr(); installEcItemPool(); syncItemUi();
         var s = $id('ecSupplier');
         if (s) s.innerHTML = '<option value=""></option>' + (LKI.suppliers||[]).filter(function(x){return !x.ec_is_internal;}).map(function(x){
           return '<option value="'+x.name+'">'+(x.supplier_name||x.name)+'</option>';
         }).join('');
         var so = $id('ecSoRef');
-        if (so) so.innerHTML = '<option value=""></option>' + (LKI.recent_sos||[]).map(function(x){
+        // FB#3 2026-08-04: chi hien SO kenh Direct. SO kenh GBS do GBS tu tao PO
+        // (GBS Purchase Order) roi dong bo nguoc ve, hook ec_po_before_save luon
+        // throw neu gan SO kenh GBS -> truoc day dropdown van cho chon 14/16 SO
+        // ma chon cai nao cung bao loi.
+        if (so) so.innerHTML = '<option value=""></option>' + (LKI.recent_sos||[]).filter(function(x){
+          return (x.ec_channel||'') !== 'GBS';
+        }).map(function(x){
           return '<option value="'+x.name+'" data-brand="'+(x.ec_brand||'')+'">'+x.name+' — '+(x.customer||'')+' ('+fmt(x.grand_total)+' đ)</option>';
         }).join('');
         ecCb(s, '-- Chọn nhà cung cấp --');
@@ -6037,6 +6072,36 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
           _applySoRef(); setTimeout(_applySoRef, 800); setTimeout(_applySoRef, 1800);
         }
       }).catch(function(){});
+  }
+
+  // ---- FB#2 2026-08-04: mode "Mua ngoai (so EC)" -> item picker doc master EC
+  // (ec_so_lookups.items, item_group "Chi phi hoat dong" + "Phi agency EC"),
+  // KHONG doc catalog boxme 1737 ma so EC khong dung duoc. Truoc day nguoi dung
+  // chon phai item GBS roi bi chan o "Item chua co trong master EC".
+  // Cach lam giong het ec-so-unified tren /gbs-so-form-v2 (mode direct).
+  function ecItemArr(){
+    return ((LKI&&LKI.items)||[]).map(function(it){
+      return {item_code:it.item_code, item_name:it.item_name, uom:it.stock_uom||'Nos', stock_uom:it.stock_uom||'Nos'};
+    });
+  }
+  function installEcItemPool(){
+    if (window._ecPoolInstalled) return;
+    try{
+      var _real = window._gbsItems || [];
+      Object.defineProperty(window, '_gbsItems', {
+        configurable:true,
+        get:function(){ return (MODE==='ecbuy') ? _ecItemPool.slice() : _real; },
+        // LUON ghi vao _real: catalog boxme nap bang ajax, mode mac dinh cua form PO
+        // la 'ecbuy' nen neu chan setter thi ban ghi catalog bi nuot -> doi sang
+        // 'gbsbuy' se rong item. Chi getter moi doi nguon theo mode.
+        set:function(v){ _real = v; }
+      });
+      window._ecPoolInstalled = true;
+    }catch(e){}
+  }
+  function syncItemUi(){
+    var btn = document.getElementById('btnRefreshItems');
+    if (btn) btn.style.display = (MODE==='ecbuy') ? 'none' : '';
   }
 
   function domTotal(){
