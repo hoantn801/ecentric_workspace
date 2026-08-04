@@ -6212,10 +6212,14 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   function syncSoJust(why){
     var w = $id('ecSoJustWrap');
     if (!w) return;
-    var show = (MODE === 'direct') && (_soOut !== false);
+    // 2026-08-04 fix: chi hien khi DA co ket luan "Out of Budget". Truoc day dung
+    // (_soOut !== false) nen luc _soOut con null (chua kiem tra xong ngan sach) o
+    // giai trinh da bat ra ma khong kem dong ly do nao -> nguoi dung khong hieu vi sao.
+    var show = (MODE === 'direct') && (_soOut === true);
     w.style.display = show ? 'block' : 'none';
     var el = $id('ecSoJustWhy');
-    if (el) el.textContent = show ? (why || '') : '';
+    // goi khong kem why (vd tu setMode) thi giu nguyen dong ly do dang co
+    if (el){ if (!show) el.textContent = ''; else if (why != null) el.textContent = why; }
   }
   function refreshMso(){ clearTimeout(_mt); _mt = setTimeout(doRefreshMso, 350); }
   function fmtVN2(n){ return (n||0).toLocaleString('vi-VN'); }
@@ -6232,6 +6236,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         : 'Chưa chọn Brand + Tháng nên chưa gắn được MSO — tạm xếp là ngoài ngân sách.');
       return;
     }
+    // lan dau (chua co ket luan nao) thi bao "dang kiem tra". KHONG reset _soOut o
+    // day: refreshMso chay lai moi khi go SL/gia, reset se lam o giai trinh nhap nhay.
+    if (!note.textContent && !note.innerHTML){ note.textContent='Đang kiểm tra ngân sách MSO...'; note.style.color='#6b6b6b'; }
     try{
       var res = await fetch('/api/method/ec_so_budget_check', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({brand:b, month:m})});
       var d = ((await res.json())||{}).message||{};
@@ -6262,7 +6269,14 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         _soOut = true;
         syncSoJust('Brand ' + b + ' chưa có MSO duyệt cho tháng ' + m + ' — SO xếp là ngoài ngân sách, bắt buộc giải trình và đi duyệt 4 cấp.');
       }
-    }catch(e){}
+    }catch(e){
+      // 2026-08-04: truoc day nuot loi im lang -> dong ngan sach trong tron, khong
+      // biet la loi hay chua co MSO. Bao ro va van bat giai trinh cho an toan.
+      note.textContent = 'Không kiểm tra được ngân sách MSO (lỗi kết nối) — SO tạm xếp NGOÀI ngân sách.';
+      note.style.color = '#c0392b';
+      _soOut = true;
+      syncSoJust('Chưa kiểm tra được ngân sách MSO — bắt buộc nhập lý do giải trình mới trình duyệt được.');
+    }
   }
   var HIDE_DIRECT_IDS = ['customer','set_warehouse','project','ec-price-list','ec-order-type'];
   function setMode(m){
@@ -6443,7 +6457,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       // khi form khong co o do. _soOut !== false = chua chung minh duoc In Budget.
       var _just = (($id('ecSoJustification')||{}).value||'').trim();
       if (_soOut !== false && !_just){
-        syncSoJust();
+        // luc bam Trinh duyet ma chua co ket luan -> coi nhu Out of Budget de o
+        // giai trinh hien ra kem ly do (syncSoJust chi hien khi _soOut === true)
+        if (_soOut !== true){ _soOut = true; syncSoJust('Chưa xác định được ngân sách MSO cho SO này — nhập lý do giải trình để trình duyệt.'); }
+        else syncSoJust();
         notice('SO ngoài/vượt ngân sách MSO — nhập Lý do giải trình trước khi trình duyệt (SO sẽ đi duyệt 4 cấp)', true);
         var _jw = $id('ecSoJustWrap');
         if (_jw){ _jw.scrollIntoView({behavior:'smooth', block:'center'}); var _ji=$id('ecSoJustification'); if(_ji) _ji.focus(); }

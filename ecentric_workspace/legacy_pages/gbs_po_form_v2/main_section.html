@@ -3285,7 +3285,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var ql = (query || '').toLowerCase().trim();
     visibleItems = [];
     if (items.length === 0) {
-      p.innerHTML = '<div class="ec-ic-empty">Chưa có items (chờ load từ boxme...)</div>';
+      // 2026-08-04: cho phep script khac doi cau thong bao theo nguon item dang dung
+      // (mode "Mua ngoai (so EC)" doc master EC chu khong doc catalog boxme).
+      p.innerHTML = '<div class="ec-ic-empty">' + escHtml(window._ecItemEmptyMsg || 'Chưa có items (chờ load từ boxme...)') + '</div>';
       activeIdx = -1;
       return;
     }
@@ -3380,6 +3382,13 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     activeIdx = -1;
     visibleItems = [];
   }
+
+  // 2026-08-04: danh sach item nap bang ajax. Neu nguoi dung bam vao o Item Code
+  // TRUOC khi nap xong thi panel dung mai o trang thai rong. Export hook de
+  // ec-po-unified ve lai panel ngay khi co du lieu.
+  window._ecItemPanelRefresh = function(){
+    try { if (panel && !panel.hidden && currentInput) renderPanel(currentInput.value); } catch(e){}
+  };
 
   // ---- Hook per row ----
   var debounceTimer = null;
@@ -5854,8 +5863,15 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   var LKI = null;
   var EC_ITEMS = {};
   var _ecItemPool = [];  // FB#2: mode ecbuy -> item picker chi hien item master EC
+  var _lkState = 'loading';   // 'loading' | 'ok' | 'error'
   var _lastUploadSession = '';
   var _poBudget = null; // 'in' | 'out' | null (vs SO tham chiếu)
+
+  // 2026-08-04 fix: cai getter NGAY tu dau (truoc day chi cai sau khi loadLK xong).
+  // Nho vay nguon item luon dung theo mode ke ca khi nguoi dung bam vao o Item Code
+  // trong luc ajax con chay; setter van ghi thang vao kho boxme nen mode gbsbuy khong mat item.
+  installEcItemPool();
+  syncItemUi();
 
   var css = document.createElement('style');
   css.textContent = '.ec-uni-bar{margin:18px 28px 0;padding:12px 16px;background:#fff;border:1.5px solid #e2ded6;border-radius:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:13px}' +
@@ -6034,13 +6050,15 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     if (m==='ecbuy') refreshPoBudget();
   }
 
-  function loadLK(){
+  function loadLK(_retry){
     fetch('/api/method/ec_so_lookups', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
       .then(function(r){ return r.json(); })
       .then(function(j){
         LKI = (j && j.message) || {};
         (LKI.items||[]).forEach(function(it){ EC_ITEMS[it.item_code] = it; });
-        _ecItemPool = ecItemArr(); installEcItemPool(); syncItemUi();
+        _ecItemPool = ecItemArr();
+        _lkState = _ecItemPool.length ? 'ok' : 'error';
+        installEcItemPool(); syncItemUi();
         var s = $id('ecSupplier');
         if (s) s.innerHTML = '<option value=""></option>' + (LKI.suppliers||[]).filter(function(x){return !x.ec_is_internal;}).map(function(x){
           return '<option value="'+x.name+'">'+(x.supplier_name||x.name)+'</option>';
@@ -6071,7 +6089,12 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
           }
           _applySoRef(); setTimeout(_applySoRef, 800); setTimeout(_applySoRef, 1800);
         }
-      }).catch(function(){});
+      }).catch(function(){
+        // 2026-08-04: truoc day nuot loi im lang -> dropdown item rong ma khong ai biet.
+        if (!_retry){ setTimeout(function(){ loadLK(1); }, 2000); return; }
+        _lkState = 'error'; syncItemUi();
+        if (typeof window.showGbsToast === 'function') window.showGbsToast('Không tải được danh mục item/NCC sổ EC — tải lại trang.', 'error');
+      });
   }
 
   // ---- FB#2 2026-08-04: mode "Mua ngoai (so EC)" -> item picker doc master EC
@@ -6102,6 +6125,17 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   function syncItemUi(){
     var btn = document.getElementById('btnRefreshItems');
     if (btn) btn.style.display = (MODE==='ecbuy') ? 'none' : '';
+    // 2026-08-04 fix: mode ecbuy lay item tu ec_so_lookups (ajax). Khi chua nap xong
+    // panel hien "Chua co items (cho load tu boxme...)" -> sai nguon, nguoi dung tuong
+    // hong. Doi cau thong bao theo dung nguon + trang thai, va ve lai panel neu dang mo.
+    if (MODE === 'ecbuy'){
+      window._ecItemEmptyMsg = (_lkState === 'error')
+        ? 'Không tải được danh mục item sổ EC — tải lại trang (Ctrl+Shift+R) rồi thử lại.'
+        : 'Đang tải danh mục item sổ EC...';
+    } else {
+      window._ecItemEmptyMsg = 'Chưa có items (chờ load từ boxme...)';
+    }
+    if (typeof window._ecItemPanelRefresh === 'function') window._ecItemPanelRefresh();
   }
 
   function domTotal(){
