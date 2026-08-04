@@ -1738,6 +1738,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     t.classList.add('show');
     setTimeout(function(){ t.classList.remove('show'); }, 4500);
   }
+  // 2026-08-04: showGbsToast nam trong IIFE nen ec-so-unified goi khong toi
+  // (notice() co try showGbsToast nhung typeof luon la 'undefined') -> bao loi
+  // chi hien o badge tren dinh form, phai keo len moi thay. Xuat ra window.
+  window.showGbsToast = showGbsToast;
   function fmtVND(n) { return (Math.round(n)||0).toLocaleString('vi-VN') + ' VND'; }
   function todayISO() { return new Date().toISOString().slice(0, 10); }
 
@@ -6160,7 +6164,14 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       '<input type="month" class="ec-uni-month" id="ecUniMonth"/></div>' +
       '<div style="flex:1;min-width:220px"><label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:5px">M&#195; MSO (t&#7921; g&#7855;n theo Brand + Th&#225;ng)</label>' +
       '<input class="f-control" id="ecUniMsoCode" readonly placeholder="&#8212; ch&#432;a x&#225;c &#273;&#7883;nh &#8212;" style="width:100%;padding:9px 12px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;background:#f3f4f6;font-weight:600"/></div>' +
-      '<div id="ecUniMsoNote" style="flex-basis:100%;font-size:12px;color:#6b6b6b"></div></div>';
+      '<div id="ecUniMsoNote" style="flex-basis:100%;font-size:12px;color:#6b6b6b"></div></div>' +
+      // 2026-08-04: form thieu han o nhap ly do giai trinh. Hook ec_so_before_save
+      // (D2) chan luc TRINH DUYET neu ec_in_out_budget = "Out of Budget" ma
+      // ec_over_justification rong -> nguoi dung thay loi do nhung khong co cho nhap.
+      '<div id="ecSoJustWrap" style="display:none;margin-top:12px;padding:14px 16px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px">' +
+      '<label style="font-size:11px;font-weight:700;color:#9a3412;display:block;margin-bottom:5px">L&#221; DO GI&#7842;I TR&#204;NH (SO ngo&#224;i/v&#432;&#7907;t ng&#226;n s&#225;ch MSO) <span style="color:#dc2626">*</span></label>' +
+      '<textarea class="f-control" id="ecSoJustification" rows="2" placeholder="V&#237; d&#7909;: campaign ph&#225;t sinh theo y&#234;u c&#7847;u brand, &#273;&#227; th&#7889;ng nh&#7845;t mi&#7879;ng v&#7899;i Finance ng&#224;y ..." style="width:100%;padding:9px 12px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px"></textarea>' +
+      '<div id="ecSoJustWhy" style="font-size:12px;color:#9a3412;margin-top:7px"></div></div>';
     sec.parentElement.insertBefore(p, sec.nextSibling);
     var dd = $id('delivery_date');
     var mm = $id('ecUniMonth');
@@ -6169,16 +6180,58 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     if (!mm.value) mm.value = (dd && dd.value) ? dd.value.slice(0,7) : new Date().toISOString().slice(0,7);
     mm.addEventListener('change', refreshMso);
     if (brandEl) brandEl.addEventListener('change', refreshMso);
+    // 2026-08-04: so tien tung dong doi -> trang thai ngan sach doi -> an/hien o giai trinh
+    document.addEventListener('input', function(e){
+      if (!e.target || !e.target.classList) return;
+      if (e.target.classList.contains('item-rate') || e.target.classList.contains('item-qty')
+          || e.target.classList.contains('item-code')) refreshMso();
+    });
+    var ext0 = $id('ecExtSvc');
+    if (ext0) ext0.addEventListener('change', refreshMso);
     refreshMso();
   }
-  var _mt = null; var _msoState = null; // 'ok' | 'none' | null
+
+  // ---- 2026-08-04: doan truoc ec_in_out_budget y het ec_so_before_save ----
+  // Server: In Budget CHI KHI co MSO duyet VA (da dung + SO nay) <= tran, ca hai
+  // nhom "Chi phi hoat dong" va "Phi agency EC". Khong co brand (dich vu ngoai)
+  // hoac khong co MSO -> luon Out of Budget.
+  var GRP_OPS = 'Chi phí hoạt động';
+  var GRP_FEE = 'Phí agency EC';
+  var _soOut = null;                 // true = Out of Budget, false = In Budget
+  function soRowTotals(){
+    var t = {ops:0, fee:0};
+    readDomRows().forEach(function(r){
+      var it = EC_ITEMS[r.item_code];
+      var g = it ? (it.item_group||'') : '';
+      var amt = (r.qty||0) * (r.rate||0);
+      if (g === GRP_OPS) t.ops += amt;
+      else if (g === GRP_FEE) t.fee += amt;
+    });
+    return t;
+  }
+  function syncSoJust(why){
+    var w = $id('ecSoJustWrap');
+    if (!w) return;
+    var show = (MODE === 'direct') && (_soOut !== false);
+    w.style.display = show ? 'block' : 'none';
+    var el = $id('ecSoJustWhy');
+    if (el) el.textContent = show ? (why || '') : '';
+  }
   function refreshMso(){ clearTimeout(_mt); _mt = setTimeout(doRefreshMso, 350); }
   function fmtVN2(n){ return (n||0).toLocaleString('vi-VN'); }
   async function doRefreshMso(){
     var code = $id('ecUniMsoCode'), note = $id('ecUniMsoNote');
     if (!code) return;
     var b = ($id('brand')||{}).value, m = ($id('ecUniMonth')||{}).value;
-    if (!b || !m){ code.value=''; note.textContent='Chọn Brand + Tháng để xác định MSO.'; note.style.color='#6b6b6b'; return; }
+    if (!b || !m){
+      code.value=''; note.textContent='Chọn Brand + Tháng để xác định MSO.'; note.style.color='#6b6b6b';
+      // khong co Brand (vd tick "Dich vu ngoai") -> server khong gan duoc MSO -> Out of Budget
+      _soOut = true;
+      syncSoJust((($id('ecExtSvc')||{}).checked)
+        ? 'Dịch vụ ngoài: SO không gắn được MSO nên hệ thống xếp là ngoài ngân sách — bắt buộc giải trình, và SO sẽ đi duyệt 4 cấp.'
+        : 'Chưa chọn Brand + Tháng nên chưa gắn được MSO — tạm xếp là ngoài ngân sách.');
+      return;
+    }
     try{
       var res = await fetch('/api/method/ec_so_budget_check', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({brand:b, month:m})});
       var d = ((await res.json())||{}).message||{};
@@ -6187,6 +6240,17 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         code.value = d.mso;
         note.innerHTML = 'Brand <b>'+b+'</b> &#183; th&#225;ng <b>'+m+'</b> &#183; Chi ph&#237; H&#272;: <b>'+fmtVN2(d.used_ops)+'</b> / '+fmtVN2(d.budget_ops)+' &#273; &#183; Ph&#237; EC: <b>'+fmtVN2(d.used_fee)+'</b> / '+fmtVN2(d.budget_fee)+' &#273;';
         note.style.color = '#166534';
+        var _t = soRowTotals();
+        var _okOps = ((d.used_ops||0) + _t.ops) <= (d.budget_ops||0);
+        var _okFee = ((d.used_fee||0) + _t.fee) <= (d.budget_fee||0);
+        _soOut = !(_okOps && _okFee);
+        syncSoJust(_soOut
+          ? ('SO này vượt trần MSO ' + d.mso + ' ('
+             + (!_okOps ? 'Chi phí HĐ ' + fmtVN2((d.used_ops||0) + _t.ops) + ' / ' + fmtVN2(d.budget_ops) : '')
+             + (!_okOps && !_okFee ? ' · ' : '')
+             + (!_okFee ? 'Phí EC ' + fmtVN2((d.used_fee||0) + _t.fee) + ' / ' + fmtVN2(d.budget_fee) : '')
+             + ') — bắt buộc giải trình, SO sẽ đi duyệt 4 cấp.')
+          : '');
       } else {
         _msoState = 'none';
         code.value = '';
@@ -6195,6 +6259,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
           : (inGrace ? '&#9888; Brand <b>'+b+'</b> ch&#432;a c&#243; MSO th&#225;ng <b>'+m+'</b> — giai &#273;o&#7841;n chuy&#7875;n &#273;&#7893;i (&#273;&#7871;n h&#7871;t '+EC_MSO_GRACE+'): v&#7851;n t&#7841;o &#273;&#432;&#7907;c, t&#237;nh <b>Out of Budget &#8594; duy&#7879;t 4 c&#7845;p</b>. Khai MSO &#273;&#7875; &#273;i 2 c&#7845;p nh&#7865;.'
           : '&#9940; Brand <b>'+b+'</b> CH&#431;A c&#243; MSO &#273;&#227; duy&#7879;t cho th&#225;ng <b>'+m+'</b> &#8594; KH&#212;NG khai &#273;&#432;&#7907;c SO s&#7893; EC. T&#7841;o + duy&#7879;t MSO tr&#432;&#7899;c (/mso-plan-form), ho&#7863;c tick D&#7883;ch v&#7909; ngo&#224;i.');
         note.style.color = '#c0392b';
+        _soOut = true;
+        syncSoJust('Brand ' + b + ' chưa có MSO duyệt cho tháng ' + m + ' — SO xếp là ngoài ngân sách, bắt buộc giải trình và đi duyệt 4 cấp.');
       }
     }catch(e){}
   }
@@ -6221,6 +6287,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     if (m!=='direct' && $id('ecExtSvc')){ $id('ecExtSvc').checked=false; syncExt(); }
     else if (m==='direct') syncExt();
     syncItemUi();
+    syncSoJust();          // 2026-08-04: o giai trinh chi thuoc mode direct
     refreshMso();
   }
 
@@ -6280,7 +6347,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   function notice(msg, bad){
     var el = $id('ecUniBadge');
     if (el){ el.textContent = msg; el.style.color = bad ? '#c0392b' : '#166534'; el.style.fontWeight='700'; }
-    try{ if (typeof showGbsToast === 'function') showGbsToast(msg, bad?'error':''); }catch(e){}
+    try{ if (typeof window.showGbsToast === 'function') window.showGbsToast(msg, bad?'error':''); }catch(e){}
   }
   function readDomRows(){
     var rows = [];
@@ -6303,6 +6370,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       ec_mso_month: month, ec_store: opts.store||'', ec_vat_template: opts.vat||'',
       ec_attach_session: opts.attach||'',
       ec_gbs_so_ref: opts.gbsRef||'', ec_gbs_sync_status: opts.gbsRef?'Synced':'', ec_contract: opts.contract||'', ec_external_service: opts.external?1:0,
+      ec_over_justification: opts.justification||'',
       items: opts.items.map(function(r){ return {item_code:r.item_code, qty:r.qty, rate:r.rate, delivery_date: opts.delivery}; })
     };
     var res = await fetch('/api/resource/Sales Order', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
@@ -6371,6 +6439,16 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       if (bad.length){ notice('Item chưa có trong master EC: '+bad.map(function(b){return b.item_code;}).join(', ')+' — tạo Item EC trước (/app/item)', true); return; }
       var txn = ($id('transaction_date')||{}).value, dl = ($id('delivery_date')||{}).value;
       if (!txn||!dl){ notice('Chọn ngày giao dịch + giao hàng', true); return; }
+      // 2026-08-04: chan tai cho thay vi de server throw "nhap Ly do giai trinh"
+      // khi form khong co o do. _soOut !== false = chua chung minh duoc In Budget.
+      var _just = (($id('ecSoJustification')||{}).value||'').trim();
+      if (_soOut !== false && !_just){
+        syncSoJust();
+        notice('SO ngoài/vượt ngân sách MSO — nhập Lý do giải trình trước khi trình duyệt (SO sẽ đi duyệt 4 cấp)', true);
+        var _jw = $id('ecSoJustWrap');
+        if (_jw){ _jw.scrollIntoView({behavior:'smooth', block:'center'}); var _ji=$id('ecSoJustification'); if(_ji) _ji.focus(); }
+        return;
+      }
       btn.disabled = true;
       try{
         var doc = await createNativeSO({
@@ -6378,7 +6456,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
           brand:b, team:($id('department')||{}).value||'',
           txn:txn, delivery:dl,
           store:($id('ec-store')||{}).value||'', vat:($id('ec-taxes-template')||{}).value||'',
-          attach:_lastUploadSession, contract:($id('ecContract')||{}).value||'', items:rows
+          attach:_lastUploadSession, contract:($id('ecContract')||{}).value||'', items:rows,
+          justification:_just
         });
         notice('✓ Đã tạo + gửi duyệt SO sổ EC: '+doc.name+' ('+(doc.ec_in_out_budget||'')+')', false);
       }catch(e){ notice('Lỗi: '+e.message, true); btn.disabled=false; }
