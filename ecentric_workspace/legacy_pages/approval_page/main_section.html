@@ -400,6 +400,12 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
 .chain-step .step-role { font-size: 10.5px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
 .chain-step .step-email { font-size: 13px; font-weight: 500; color: var(--gray-900); word-break: break-word; }
 .chain-step .step-status { font-size: 11.5px; color: var(--gray-500); margin-top: 2px; }
+.chain-step .step-avatars { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.ec-av { position: relative; width: 28px; height: 28px; border-radius: 50%; color: #fff; font-size: 10.5px; font-weight: 700; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; flex: none; cursor: default; outline: none; }
+.ec-av:focus { box-shadow: 0 0 0 3px var(--navy-50); }
+.ec-av .ec-av-tip { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: var(--gray-900, #111827); color: #fff; font-size: 11px; font-weight: 500; letter-spacing: 0; padding: 4px 8px; border-radius: 6px; white-space: nowrap; opacity: 0; visibility: hidden; transition: opacity 0.12s; pointer-events: none; z-index: 40; }
+.ec-av:hover .ec-av-tip, .ec-av:focus .ec-av-tip { opacity: 1; visibility: visible; }
+@media (max-width: 640px) { .ec-av .ec-av-tip { white-space: normal; max-width: 200px; text-align: center; } }
 .chain-step.done .step-status { color: var(--green); font-weight: 600; }
 .chain-step.rejected .step-status { color: var(--red); font-weight: 600; }
 .chain-summary { padding: 8px 12px; background: var(--gray-50); border-radius: 8px; font-size: 12px; color: var(--gray-600); margin-bottom: 12px; }
@@ -722,6 +728,42 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
     return out;
   }
 
+  // 2026-08-04 (fb#6): mot cap duyet co the co 4-5 nguoi (vd Role 'EC Finance').
+  // In ca chuoi email noi dau phay thi tran dong va khong doc noi. Doi sang bubble
+  // 2 chu cai (hoan.tran -> HT); tro chuot / cham vao bubble hien full email.
+  function ecInitials(email) {
+    var local = String(email || '').split('@')[0];
+    var parts = local.split(/[._\-]+/).filter(function (p) { return p; });
+    var s;
+    if (parts.length >= 2) s = parts[0].charAt(0) + parts[1].charAt(0);
+    else s = local.substring(0, 2);
+    return s.toUpperCase() || '?';
+  }
+  var EC_AV_COLORS = ['#2C3DA6', '#0f766e', '#b45309', '#7c3aed', '#be123c', '#0369a1', '#4d7c0f'];
+  function ecAvatarColor(email) {
+    var s = String(email || ''), h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 100000;
+    return EC_AV_COLORS[h % EC_AV_COLORS.length];
+  }
+  function ecApproverBubbles(emails) {
+    if (!emails || !emails.length) return '<span class="step-email">—</span>';
+    if (emails.length === 1) return '<div class="step-email">' + escapeHtml(emails[0]) + '</div>';
+    var html = '<div class="step-avatars">';
+    emails.forEach(function (e) {
+      html += '<span class="ec-av" style="background:' + ecAvatarColor(e) + '" tabindex="0" title="' + escapeHtml(e) + '">'
+        + escapeHtml(ecInitials(e))
+        + '<span class="ec-av-tip">' + escapeHtml(e) + '</span></span>';
+    });
+    html += '</div>';
+    return html;
+  }
+  // fb#3: dat ten cap duyet dung nhu flow da chot: Leader - SA - HOF - CEO.
+  var EC_ROLE_LABEL = { manager: 'Leader', finance: 'SA / Finance', hof: 'HOF', ceo: 'CEO' };
+  function ecRoleLabel(role) {
+    var k = String(role || 'approver').toLowerCase().replace(/[\s-]+/g, '_');
+    return EC_ROLE_LABEL[k] || String(role || 'approver').replace(/_/g, ' ');
+  }
+
   function parseChain(item) {
     const raw = val(item, 'approval_chain');
     if (!raw) return [];
@@ -807,11 +849,12 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
       html += '<div class="chain-step ' + klass + '">';
       html += '<div class="step-num">' + (step.level || (idx + 1)) + '</div>';
       html += '<div class="step-content">';
-      html += '<div class="step-role">Level ' + (step.level || (idx + 1)) + ' · ' + escapeHtml((step.role || 'approver').replace(/_/g, ' ')) + '</div>';
-      html += '<div class="step-email">' + escapeHtml(step.approver || '—') + '</div>';
+      html += '<div class="step-role">Level ' + (step.level || (idx + 1)) + ' · ' + escapeHtml(ecRoleLabel(step.role)) + '</div>';
+      var stepEmails = ecStepEmails(step);
+      html += ecApproverBubbles(stepEmails.length ? stepEmails : (step.approver ? [step.approver] : []));
       // C4b: cap duyet theo Role co the nhieu nguoi — noi ro de khoi tuong phai cho du ca hai.
-      if (ecStepEmails(step).length > 1) {
-        html += '<div class="step-status" style="color:var(--gray-500)">Ai xử lý trước cũng được</div>';
+      if (stepEmails.length > 1) {
+        html += '<div class="step-status" style="color:var(--gray-500)">' + stepEmails.length + ' người — ai xử lý trước cũng được</div>';
       }
       if (isDone) html += '<div class="step-status">✓ Approved</div>';
       else if (isRejected) html += '<div class="step-status">✗ Rejected</div>';
@@ -900,13 +943,18 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
     return Array.isArray(raw) ? raw : [];
   }
 
+  // 2026-08-04 (fb#2): nhan hien thi doi GMV -> NMV. FIELDNAME `forecast_gmv` GIU NGUYEN.
+  // 2026-08-04 (fb#5): bo han loai phi '% GMV'. KAM go thang so tien, he thong khong
+  // tinh amount tu phan tram nua, nen bang duoi khong con cot 'Cach tinh' / 'Ti le'.
+  // Field fee_type / fee_percent van con tren DocType de 2 dong cu giu nguyen so da luu.
+  function msoNmvLabel() { return 'NMV'; }
   function msoGmv(item) {
     var g = Number(val(item, 'forecast_gmv', 'total_est_revenue') || 0);
     if (isNaN(g) || g <= 0) return 0;
     return g;
   }
 
-  function pctOfGmv(amount, gmv) {
+  function pctOfGmv(amount, gmv) {  // ti le tren NMV du kien
     if (!gmv) return '';
     var p = (Number(amount || 0) / gmv) * 100;
     if (isNaN(p) || !isFinite(p)) return '';
@@ -915,7 +963,7 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
 
   function moneyWithPct(v, gmv) {
     var p = pctOfGmv(v, gmv);
-    return p ? (fmtMoney(v) + '  ·  ' + p + ' GMV') : fmtMoney(v);
+    return p ? (fmtMoney(v) + '  ·  ' + p + ' NMV') : fmtMoney(v);
   }
 
   // Doi chieu tong tren chung tu voi tong cong dong chi tiet — lech thi canh bao,
@@ -938,6 +986,34 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
       + escapeHtml(fmtMoney(op + fee)) + ').</div>';
   }
 
+  // fb#4: bang tom tat tai chinh — cung khung .bl-table voi bang chi tiet ben duoi.
+  function renderMsoFinanceTable(nmv, opBudget, ecFee) {
+    var total = Number(opBudget || 0) + Number(ecFee || 0);
+    function row(label, amount, klass) {
+      return '<tr' + (klass ? ' class="' + klass + '"' : '') + '>'
+        + '<td>' + escapeHtml(label) + '</td>'
+        + '<td class="num">' + escapeHtml(fmtMoney(amount)) + '</td>'
+        + '<td class="num bl-pct">' + escapeHtml(pctOfGmv(amount, nmv) || '—') + '</td>'
+        + '</tr>';
+    }
+    var html = '<div class="bl-wrap"><table class="bl-table"><thead><tr>'
+      + '<th>Khoản mục</th><th class="num">Số tiền (VND)</th><th class="num">% NMV</th>'
+      + '</tr></thead><tbody>';
+    html += '<tr class="bl-group"><td>Doanh thu bán hàng dự kiến (Target NMV)</td>'
+      + '<td class="num">' + escapeHtml(fmtMoney(nmv)) + '</td>'
+      + '<td class="num">100,0%</td></tr>';
+    html += row('Tổng chi phí hoạt động', opBudget);
+    html += row('Tổng phí agency EC', ecFee);
+    html += '<tr class="bl-grand"><td>TỔNG NGÂN SÁCH</td>'
+      + '<td class="num">' + escapeHtml(fmtMoney(total)) + '</td>'
+      + '<td class="num">' + escapeHtml(pctOfGmv(total, nmv) || '—') + '</td></tr>';
+    html += '</tbody></table></div>';
+    if (!nmv) {
+      html += '<div class="bl-foot">Chưa có Target NMV nên không tính được cột %.</div>';
+    }
+    return html;
+  }
+
   function renderMsoBudgetTable(item) {
     var lines = msoBudgetLines(item);
     if (lines.length === 0) return '';
@@ -954,8 +1030,8 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
       .concat(seen.filter(function (g) { return ORDER.indexOf(g) < 0; }));
     var grand = 0;
     var html = '<div class="bl-wrap"><table class="bl-table"><thead><tr>'
-      + '<th>Khoản chi</th><th>Team phụ trách</th><th>Cách tính</th>'
-      + '<th class="num">Tỉ lệ</th><th class="num">Số tiền</th><th class="num">% GMV</th>'
+      + '<th>Khoản chi</th><th>Team phụ trách</th>'
+      + '<th class="num">Số tiền</th><th class="num">% NMV</th>'
       + '</tr></thead><tbody>';
     names.forEach(function (g) {
       // D9b: tong cua nhom nam ngay tren dong tieu de nhom (bo dong "Cong ..." rieng)
@@ -966,15 +1042,13 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
         if (!isNaN(a)) sub += a;
       });
       grand += sub;
-      html += '<tr class="bl-group"><td colspan="4">' + escapeHtml(g)
+      html += '<tr class="bl-group"><td colspan="2">' + escapeHtml(g)
         + ' (' + groups[g].length + ' khoản)</td>'
         + '<td class="num">' + escapeHtml(fmtMoney(sub)) + '</td>'
         + '<td class="num">' + escapeHtml(pctOfGmv(sub, gmv) || '—') + '</td></tr>';
       groups[g].forEach(function (l) {
         var amt = Number(l.amount || 0);
         if (isNaN(amt)) amt = 0;
-        var pctNum = Number(l.fee_percent || 0);
-        var rate = (!isNaN(pctNum) && pctNum) ? (pctNum + '% GMV') : '—';
         var cell = '<div class="bl-name">'
           + escapeHtml(String(l.category_name || l.category || '—').trim()) + '</div>';
         if (l.category) cell += '<div class="bl-code">' + escapeHtml(l.category) + '</div>';
@@ -982,21 +1056,19 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
         html += '<tr>'
           + '<td>' + cell + '</td>'
           + '<td>' + escapeHtml(l.team || '—') + '</td>'
-          + '<td>' + escapeHtml(l.fee_type || '—') + '</td>'
-          + '<td class="num">' + escapeHtml(rate) + '</td>'
           + '<td class="num">' + escapeHtml(fmtMoney(amt)) + '</td>'
           + '<td class="num bl-pct">' + escapeHtml(pctOfGmv(amt, gmv) || '—') + '</td>'
           + '</tr>';
       });
     });
-    html += '<tr class="bl-grand"><td colspan="4">TỔNG NGÂN SÁCH</td>'
+    html += '<tr class="bl-grand"><td colspan="2">TỔNG NGÂN SÁCH</td>'
       + '<td class="num">' + escapeHtml(fmtMoney(grand)) + '</td>'
       + '<td class="num">' + escapeHtml(pctOfGmv(grand, gmv) || '—') + '</td></tr>';
     html += '</tbody></table></div>';
     if (gmv) {
-      html += '<div class="bl-foot">Trên GMV dự kiến ' + escapeHtml(fmtMoney(gmv))
+      html += '<div class="bl-foot">Trên NMV dự kiến ' + escapeHtml(fmtMoney(gmv))
         + ', tổng ngân sách chiếm <strong>' + escapeHtml(pctOfGmv(grand, gmv))
-        + '</strong>. Cột “% GMV” là số tiền của dòng chia cho GMV dự kiến; cột “Tỉ lệ” là mức phí ghi trên dòng đó.</div>';
+        + '</strong>. Cột “% NMV” là số tiền của dòng chia cho NMV dự kiến.</div>';
     }
     html += msoTotalsWarning(item);
     return html;
@@ -1007,12 +1079,13 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
 
     if (type === 'mso') {
       // D9: bo dong "Department" (MSO native khong co ec_team, truoc day fallback ve brand code
-      // nen hien dung bang Brand — gay hieu nham). Thay bang Channel + Thang + KAM.
+      // nen hien dung bang Brand — gay hieu nham). Thay bang Thang + KAM.
+      // 2026-08-04 (fb#1): bo dong 'Channel' — field MSO.channel khong duoc bat ky
+      // Server Script / report nao doc, chi la chu trang tri tren man duyet.
       sections.push({ title: 'Thông tin chung', rows: [
         ['Title', val(item, 'mso_title', 'Title', 'title')],
         ['Brand', val(item, 'brand_name', 'brand_code')],
         ['Tháng', val(item, 'month', 'campaign_no')],
-        ['Channel', val(item, 'channel')],
         ['KAM', val(item, 'kam', 'pic')],
         ['Người tạo', val(item, 'submitted_by', 'created_by')],
         ['Cập nhật lần cuối', (function () {
@@ -1028,12 +1101,10 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
       var msoEcFee = Number(val(item, 'total_ec_fee') || 0);
       if (isNaN(msoOpBudget)) msoOpBudget = 0;
       if (isNaN(msoEcFee)) msoEcFee = 0;
-      sections.push({ title: 'Tài chính', rows: [
-        ['Doanh thu dự kiến (GMV)', fmtMoney(msoGmvVal), 'money'],
-        ['Tổng chi phí hoạt động', moneyWithPct(msoOpBudget, msoGmvVal), 'money'],
-        ['Tổng phí agency EC', moneyWithPct(msoEcFee, msoGmvVal), 'money'],
-        ['TỔNG NGÂN SÁCH', moneyWithPct(msoOpBudget + msoEcFee, msoGmvVal), 'money total']
-      ]});
+      // 2026-08-04 (fb#4): truoc day 4 dong nay la `rows:` va moneyWithPct() dan
+      // tien + % vao CUNG 1 o. Doi sang dung bang .bl-table nhu 'Chi tiet ngan sach'
+      // de % nam rieng mot cot, doc thang hang duoc.
+      sections.push({ title: 'Tài chính', html: renderMsoFinanceTable(msoGmvVal, msoOpBudget, msoEcFee) });
       var msoBlHtml = renderMsoBudgetTable(item);
       if (msoBlHtml) sections.push({ title: 'Chi tiết ngân sách', html: msoBlHtml });
     } else if (type === 'so') {
@@ -6280,3 +6351,423 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
   }
 })();
 </script><!-- /v1_approval_list_url_state -->
+<script id="ec-mso-thread">
+/* 2026-08-04 (feedback #5): MSO tren /approval truoc day khong co tep dinh kem va
+   khong co cho trao doi.
+     - Tep: File da duoc form /mso-plan-form upload dung (native /api/method/upload_file),
+       nhung parseAttachments() cua trang duyet chi doc field attachment_url/attached_pdf/
+       attachment/attachments tren payload -> MSO luon ra "Khong co file dinh kem".
+     - Chat: khong co panel nao.
+   Khoi nay lay y tuong tu #ec-gbs-timeline nhung la khoi RIENG, gate ticketType==='mso'.
+   Ly do khong noi rong gate cua khoi GBS: gbs_fetch_comments luon goi sang boxme va
+   doan merge comment local cua no khoa cung vao 2 doctype GBS -> MSO se loi. Theo rang
+   buoc "GBS SO PO dang chay on roi khong dong vao", khong sua gi cua GBS.
+   Server: ec_mso_thread (moi, chi doc). Gui/sua/xoa comment dung lai
+   gbs_post_comment / gbs_edit_comment / gbs_delete_comment o nhanh local_only san co. */
+(function () {
+  'use strict';
+  if (window._ecMsoThreadInstalled) return;
+  window._ecMsoThreadInstalled = true;
+
+  function urlParam(k) {
+    var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)'));
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  var ticketType = urlParam('type');
+  var ticketId = urlParam('id');
+  if (ticketType !== 'mso') return;
+  if (!ticketId) return;
+  var DOCTYPE = 'MSO';
+  console.log('[ec-mso-thread] active for', DOCTYPE, ticketId);
+
+  var STATE = { files: [], comments: [], user: '', canWrite: 0, loaded: false };
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function initials(email) {
+    var local = String(email || '').split('@')[0];
+    var parts = local.split(/[._\-]+/).filter(function (p) { return p; });
+    var s = parts.length >= 2 ? (parts[0].charAt(0) + parts[1].charAt(0)) : local.substring(0, 2);
+    return s.toUpperCase() || '?';
+  }
+  var AVC = ['#2C3DA6', '#0f766e', '#b45309', '#7c3aed', '#be123c', '#0369a1', '#4d7c0f'];
+  function avColor(email) {
+    var s = String(email || ''), h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 100000;
+    return AVC[h % AVC.length];
+  }
+  function fmtBytes(n) {
+    n = Number(n || 0);
+    if (!n) return '';
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return (Math.round(n / 102.4) / 10) + ' KB';
+    return (Math.round(n / 104857.6) / 10) + ' MB';
+  }
+  function fmtWhen(s) {
+    if (!s) return '';
+    var d = new Date(String(s).replace(' ', 'T'));
+    if (isNaN(d.getTime())) return String(s).substring(0, 16);
+    function p(n) { return (n < 10 ? '0' : '') + n; }
+    return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  /* ---------------- CSS ---------------- */
+  if (!document.getElementById('ec-mso-thread-css')) {
+    var st = document.createElement('style');
+    st.id = 'ec-mso-thread-css';
+    st.textContent = [
+      '#ec-mso-thread-panel { margin-top:16px; }',
+      '#ec-mso-thread-panel .mt-h { display:flex; align-items:center; justify-content:space-between; gap:10px; }',
+      '#ec-mso-thread-panel .mt-refresh { font-size:11px; background:transparent; border:1px solid #e5e7eb; border-radius:5px; padding:4px 10px; cursor:pointer; color:#4b5563; font-family:inherit; }',
+      '#ec-mso-thread-panel .mt-refresh:hover { background:#f3f4f6; }',
+      '#ec-mso-thread-panel .mt-status { font-size:11.5px; padding:6px 10px; border-radius:5px; margin-bottom:10px; display:none; }',
+      '#ec-mso-thread-panel .mt-status.ok { background:#dcfce7; color:#166534; display:block; }',
+      '#ec-mso-thread-panel .mt-status.err { background:#fee2e2; color:#991b1b; display:block; word-break:break-word; }',
+      '#ec-mso-thread-panel .mt-feed { display:flex; flex-direction:column; gap:14px; }',
+      '#ec-mso-thread-panel .mt-empty { color:#9ca3af; font-size:12.5px; font-style:italic; padding:8px 0; }',
+      '#ec-mso-thread-panel .mt-item { display:flex; gap:10px; }',
+      '#ec-mso-thread-panel .mt-av { width:32px; height:32px; border-radius:50%; color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none; }',
+      '#ec-mso-thread-panel .mt-b { flex:1; min-width:0; }',
+      '#ec-mso-thread-panel .mt-meta { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; font-size:12px; }',
+      '#ec-mso-thread-panel .mt-who { font-weight:600; color:#111827; }',
+      '#ec-mso-thread-panel .mt-when { color:#9ca3af; font-size:11px; }',
+      '#ec-mso-thread-panel .mt-tag { font-size:10px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:4px; }',
+      '#ec-mso-thread-panel .mt-body { margin-top:4px; font-size:12.5px; color:#374151; background:#f9fafb; padding:8px 10px; border-radius:6px; line-height:1.55; border-left:3px solid #e5e7eb; word-break:break-word; }',
+      '#ec-mso-thread-panel .mt-body p { margin:0 0 6px; }',
+      '#ec-mso-thread-panel .mt-body p:last-child { margin-bottom:0; }',
+      '#ec-mso-thread-panel .mt-body img { max-width:100%; height:auto; border-radius:4px; }',
+      '#ec-mso-thread-panel .mt-item.mt-sys .mt-body { background:#fffbeb; border-left-color:#fcd34d; color:#92400e; }',
+      '#ec-mso-thread-panel .mt-cbtns { margin-top:4px; display:flex; gap:8px; }',
+      '#ec-mso-thread-panel .mt-cbtn { font-size:11px; background:transparent; border:1px solid #e5e7eb; border-radius:4px; padding:2px 8px; cursor:pointer; color:#6b7280; font-family:inherit; }',
+      '#ec-mso-thread-panel .mt-cbtn:hover { background:#f3f4f6; color:#111827; }',
+      '#ec-mso-thread-panel .mt-cbtn.mt-del:hover { background:#fee2e2; color:#991b1b; border-color:#fecaca; }',
+      '#ec-mso-thread-panel .mt-reply { margin-top:14px; padding-top:14px; border-top:1px solid #f3f4f6; display:flex; gap:8px; align-items:flex-end; }',
+      '#ec-mso-thread-panel .mt-reply textarea { flex:1; min-height:40px; max-height:160px; padding:9px 11px; border:1px solid #e5e7eb; border-radius:6px; font-family:inherit; font-size:12.5px; resize:vertical; outline:none; }',
+      '#ec-mso-thread-panel .mt-reply textarea:focus { border-color:#2C3DA6; }',
+      '#ec-mso-thread-panel .mt-send { background:#2C3DA6; color:#fff; border:none; border-radius:6px; padding:9px 16px; font-weight:600; font-size:12.5px; cursor:pointer; font-family:inherit; flex:none; }',
+      '#ec-mso-thread-panel .mt-send:hover { background:#1f2d80; }',
+      '#ec-mso-thread-panel .mt-send:disabled { background:#9ca3af; cursor:not-allowed; }',
+      '#ec-mso-thread-panel .mt-hint { font-size:11px; color:#9ca3af; margin-top:6px; }',
+      '.ec-msoatt-row { display:flex; align-items:center; gap:6px; }',
+      '.ec-msoatt-row + .ec-msoatt-row { margin-top:4px; }',
+      '.ec-msoatt-row .ec-msoatt-sub { font-size:11px; color:#9ca3af; }',
+      '.ec-msoatt-add { display:inline-flex; align-items:center; gap:6px; background:#fff; color:#2C3DA6; border:1px dashed #2C3DA6; border-radius:6px; padding:8px 14px; font-weight:600; font-size:12.5px; cursor:pointer; font-family:inherit; margin-top:10px; }',
+      '.ec-msoatt-add:hover { background:#eef0fb; }',
+      '.ec-msoatt-add:disabled { opacity:.55; cursor:not-allowed; }',
+      '.ec-msoatt-msg { font-size:11.5px; margin-top:8px; }',
+      '.ec-msoatt-msg.ok { color:#166534; }',
+      '.ec-msoatt-msg.err { color:#991b1b; word-break:break-word; }'
+    ].join('\n');
+    document.head.appendChild(st);
+  }
+
+  /* ---------------- server ---------------- */
+  function fetchThread() {
+    return fetch('/api/method/ec_mso_thread', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doctype: DOCTYPE, name: ticketId })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      var m = (d && d.message) || {};
+      if (!m.success) throw new Error(m.error || 'fetch_failed');
+      return m;
+    });
+  }
+
+  function refresh() {
+    return fetchThread().then(function (m) {
+      STATE.files = m.files || [];
+      STATE.comments = m.comments || [];
+      STATE.user = m.user || '';
+      STATE.canWrite = m.can_write ? 1 : 0;
+      STATE.loaded = true;
+      renderAttachments();
+      renderFeed();
+      setStatus('', '');
+    })['catch'](function (e) {
+      STATE.loaded = true;
+      setStatus('Không tải được tệp/trao đổi: ' + e.message, 'err');
+      renderAttachments();
+      renderFeed();
+    });
+  }
+
+  function setStatus(msg, kind) {
+    var el = document.getElementById('ec-mso-thread-status');
+    if (!el) return;
+    el.className = 'mt-status' + (kind ? ' ' + kind : '');
+    el.textContent = msg || '';
+    if (!msg) el.style.display = 'none';
+  }
+
+  /* ---------------- attachments panel ---------------- */
+  function findAttachPanel() {
+    var titles = document.querySelectorAll('.panel .panel-title');
+    for (var i = 0; i < titles.length; i++) {
+      var t = (titles[i].textContent || '').trim().toLowerCase();
+      if (t.indexOf('tài liệu đính kèm') === 0 || t.indexOf('tai lieu dinh kem') === 0) {
+        return titles[i].closest('.panel');
+      }
+    }
+    return null;
+  }
+
+  function renderAttachments() {
+    var panel = findAttachPanel();
+    if (!panel) return false;
+    var body = panel.querySelector('.panel-body');
+    if (!body) return false;
+    var html = '';
+    if (!STATE.loaded) {
+      html = '<div class="attach-empty">Đang tải…</div>';
+    } else if (!STATE.files.length) {
+      html = '<div class="attach-empty">Không có file đính kèm</div>';
+    } else {
+      html = '<div class="attach-list">';
+      STATE.files.forEach(function (f) {
+        var sub = [fmtBytes(f.file_size), f.owner, fmtWhen(f.creation)].filter(function (x) { return x; }).join(' · ');
+        html += '<div class="ec-msoatt-row">'
+          + '<a class="attach-item" href="' + esc(f.file_url) + '" target="_blank" rel="noopener" style="flex:1;min-width:0">'
+          + '<svg class="attach-icon icon icon-sm"><use href="#i-paperclip"/></svg>'
+          + '<span class="attach-name">' + esc(f.file_name || 'attachment')
+          + '<span class="ec-msoatt-sub" style="display:block">' + esc(sub) + '</span></span>'
+          + '</a></div>';
+      });
+      html += '</div>';
+    }
+    if (STATE.canWrite) {
+      html += '<input type="file" id="ec-msoatt-input" multiple style="display:none"/>'
+        + '<button type="button" class="ec-msoatt-add" id="ec-msoatt-btn">+ Thêm tệp đính kèm</button>'
+        + '<div class="ec-msoatt-msg" id="ec-msoatt-msg"></div>';
+    }
+    body.innerHTML = html;
+    var btn = document.getElementById('ec-msoatt-btn');
+    var inp = document.getElementById('ec-msoatt-input');
+    if (btn && inp) {
+      btn.addEventListener('click', function () { inp.value = ''; inp.click(); });
+      inp.addEventListener('change', function () { uploadFiles(inp.files); });
+    }
+    return true;
+  }
+
+  function attMsg(text, kind) {
+    var el = document.getElementById('ec-msoatt-msg');
+    if (!el) return;
+    el.className = 'ec-msoatt-msg' + (kind ? ' ' + kind : '');
+    el.textContent = text || '';
+  }
+
+  function uploadOne(file) {
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('doctype', DOCTYPE);
+    fd.append('docname', ticketId);
+    fd.append('is_private', '1');
+    return fetch('/api/method/upload_file', { method: 'POST', credentials: 'include', body: fd })
+      .then(function (r) {
+        if (r.ok) return r.json();
+        return r.text().then(function (t) {
+          var m = t.match(/<pre>([\s\S]*?)<\/pre>/);
+          throw new Error((m ? m[1] : t).substring(0, 200));
+        });
+      });
+  }
+
+  function uploadFiles(fileList) {
+    var files = Array.prototype.slice.call(fileList || []);
+    if (!files.length) return;
+    var btn = document.getElementById('ec-msoatt-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Đang tải lên…'; }
+    attMsg('Đang tải lên ' + files.length + ' tệp…', '');
+    var chain = Promise.resolve();
+    var okCount = 0, errs = [];
+    files.forEach(function (f) {
+      chain = chain.then(function () {
+        return uploadOne(f).then(function () { okCount++; })
+          ['catch'](function (e) { errs.push(f.name + ': ' + e.message); });
+      });
+    });
+    chain.then(function () {
+      return refresh();
+    }).then(function () {
+      if (errs.length) attMsg('Đã tải lên ' + okCount + ' tệp. Lỗi: ' + errs.join(' | '), 'err');
+      else attMsg('Đã tải lên ' + okCount + ' tệp.', 'ok');
+      var b = document.getElementById('ec-msoatt-btn');
+      if (b) { b.disabled = false; b.textContent = '+ Thêm tệp đính kèm'; }
+    });
+  }
+
+  /* ---------------- comment thread panel ---------------- */
+  function buildPanel() {
+    var exist = document.getElementById('ec-mso-thread-panel');
+    if (exist) return exist;
+    var panel = document.createElement('div');
+    panel.id = 'ec-mso-thread-panel';
+    panel.className = 'panel';
+    panel.innerHTML = [
+      '<div class="panel-header"><div class="mt-h" style="width:100%">',
+      '  <span class="panel-title">Trao đổi</span>',
+      '  <button type="button" class="mt-refresh" id="ec-mso-thread-refresh">Làm mới</button>',
+      '</div></div>',
+      '<div class="panel-body">',
+      '  <div class="mt-status" id="ec-mso-thread-status"></div>',
+      '  <div class="mt-feed" id="ec-mso-thread-feed"><div class="mt-empty">Đang tải…</div></div>',
+      '  <div class="mt-reply" id="ec-mso-thread-reply" style="display:none">',
+      '    <textarea id="ec-mso-thread-input" placeholder="Nhập nội dung trao đổi về MSO này..."></textarea>',
+      '    <button type="button" class="mt-send" id="ec-mso-thread-send">Gửi</button>',
+      '  </div>',
+      '  <div class="mt-hint" id="ec-mso-thread-hint"></div>',
+      '</div>'
+    ].join('\n');
+    return panel;
+  }
+
+  function renderFeed() {
+    var feed = document.getElementById('ec-mso-thread-feed');
+    if (!feed) return;
+    if (!STATE.loaded) { feed.innerHTML = '<div class="mt-empty">Đang tải…</div>'; return; }
+    if (!STATE.comments.length) {
+      feed.innerHTML = '<div class="mt-empty">Chưa có trao đổi nào. Người duyệt và người gửi đều có thể để lại ghi chú ở đây.</div>';
+    } else {
+      var html = '';
+      STATE.comments.forEach(function (c) {
+        var isSys = c.comment_type !== 'Comment';
+        html += '<div class="mt-item' + (isSys ? ' mt-sys' : '') + '" data-cname="' + esc(c.name) + '">';
+        html += '<span class="mt-av" style="background:' + avColor(c.by) + '" title="' + esc(c.by) + '">' + esc(initials(c.by)) + '</span>';
+        html += '<div class="mt-b">';
+        html += '<div class="mt-meta"><span class="mt-who">' + esc(c.by || '—') + '</span>';
+        if (isSys) html += '<span class="mt-tag">' + esc(c.comment_type) + '</span>';
+        html += '<span class="mt-when">' + esc(fmtWhen(c.creation)) + (c.edited ? ' · đã sửa' : '') + '</span></div>';
+        html += '<div class="mt-body">' + (c.content || '') + '</div>';
+        if (!isSys && c.mine) {
+          html += '<div class="mt-cbtns">'
+            + '<button type="button" class="mt-cbtn mt-edit">Sửa</button>'
+            + '<button type="button" class="mt-cbtn mt-del">Xoá</button></div>';
+        }
+        html += '</div></div>';
+      });
+      feed.innerHTML = html;
+    }
+    var reply = document.getElementById('ec-mso-thread-reply');
+    var hint = document.getElementById('ec-mso-thread-hint');
+    if (reply) reply.style.display = '';
+    if (hint) hint.textContent = 'Ctrl+Enter để gửi nhanh. Nội dung lưu ngay trên MSO này, không đẩy sang GBS.';
+  }
+
+  function postComment() {
+    var inp = document.getElementById('ec-mso-thread-input');
+    var btn = document.getElementById('ec-mso-thread-send');
+    if (!inp) return;
+    var text = (inp.value || '').trim();
+    if (!text) { setStatus('Nhập nội dung trước', 'err'); return; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Đang gửi…'; }
+    setStatus('', '');
+    fetch('/api/method/gbs_post_comment', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doctype: DOCTYPE, name: ticketId, content: text, is_html: 0 })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      var m = (d && d.message) || {};
+      if (!m.success) throw new Error(m.error || 'post_failed');
+      inp.value = '';
+      return refresh();
+    })['catch'](function (e) {
+      setStatus('Lỗi gửi: ' + e.message, 'err');
+    }).then(function () {
+      if (btn) { btn.disabled = false; btn.textContent = 'Gửi'; }
+    });
+  }
+
+  function onFeedClick(e) {
+    var editBtn = e.target.closest ? e.target.closest('.mt-edit') : null;
+    var delBtn = e.target.closest ? e.target.closest('.mt-del') : null;
+    if (!editBtn && !delBtn) return;
+    var item = e.target.closest('.mt-item');
+    if (!item) return;
+    var cname = item.getAttribute('data-cname');
+    if (delBtn) {
+      if (!window.confirm('Xoá bình luận này?')) return;
+      delBtn.disabled = true;
+      fetch('/api/method/gbs_delete_comment', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comment_name: cname, local_only: 1 })
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        var m = (d && d.message) || {};
+        if (!m.success) throw new Error(m.error || 'delete_failed');
+        return refresh();
+      })['catch'](function (err) { setStatus('Lỗi xoá: ' + err.message, 'err'); delBtn.disabled = false; });
+      return;
+    }
+    var bodyEl = item.querySelector('.mt-body');
+    var current = bodyEl ? (bodyEl.textContent || '').trim() : '';
+    var next = window.prompt('Sửa bình luận:', current);
+    if (next === null) return;
+    next = String(next).trim();
+    if (!next) { setStatus('Nội dung không được để trống', 'err'); return; }
+    fetch('/api/method/gbs_edit_comment', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comment_name: cname, content: next, is_html: 0, local_only: 1 })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      var m = (d && d.message) || {};
+      if (!m.success) throw new Error(m.error || 'edit_failed');
+      return refresh();
+    })['catch'](function (err) { setStatus('Lỗi sửa: ' + err.message, 'err'); });
+  }
+
+  /* ---------------- mount ---------------- */
+  function insertPanel() {
+    if (document.getElementById('ec-mso-thread-panel')) return true;
+    var content = document.getElementById('content');
+    if (!content || content.children.length === 0) return false;
+    var panel = buildPanel();
+    content.appendChild(panel);
+    var rf = document.getElementById('ec-mso-thread-refresh');
+    if (rf) rf.addEventListener('click', function () { STATE.loaded = false; renderFeed(); refresh(); });
+    var send = document.getElementById('ec-mso-thread-send');
+    if (send) send.addEventListener('click', postComment);
+    var inp = document.getElementById('ec-mso-thread-input');
+    if (inp) {
+      inp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) postComment();
+      });
+    }
+    var feed = document.getElementById('ec-mso-thread-feed');
+    if (feed) feed.addEventListener('click', onFeedClick);
+    console.log('[ec-mso-thread] panel inserted');
+    return true;
+  }
+
+  var _tries = 0;
+  function init() {
+    _tries++;
+    if (!insertPanel()) {
+      if (_tries < 60) setTimeout(init, 500);
+      else console.warn('[ec-mso-thread] gave up after 60 tries; #content never populated');
+      return;
+    }
+    renderAttachments();
+    renderFeed();
+    refresh();
+    var contentEl = document.getElementById('content');
+    if (contentEl && !window._ecMsoThreadObserver) {
+      var obs = new MutationObserver(function () {
+        if (!document.getElementById('ec-mso-thread-panel')) {
+          _tries = 0;
+          setTimeout(init, 200);
+        } else if (STATE.loaded) {
+          // trang render lai khung "Tai lieu dinh kem" -> ve lai danh sach file
+          var p = findAttachPanel();
+          if (p && !p.querySelector('.ec-msoatt-row') && !p.querySelector('#ec-msoatt-btn')) renderAttachments();
+        }
+      });
+      obs.observe(contentEl, { childList: true, subtree: true });
+      window._ecMsoThreadObserver = obs;
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script><!-- /ec-mso-thread -->

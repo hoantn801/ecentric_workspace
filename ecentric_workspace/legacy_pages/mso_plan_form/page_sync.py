@@ -43,8 +43,33 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "5adb8dc45511b2182cfa4a1d64648f07377247239c85c79e0c0f714e3c9d60b2"
-SUPERSEDES_SHA256 = ()
+BASELINE_SHA256 = "51135084243aa8819a56c6e4776dc99c142ecdcdf28e052fc8f1ffc43bc3ad38"
+SUPERSEDES_SHA256 = (
+    # bytes ban dau khi repo-hoa trang nay (#61). Live tren team.ecentric.vn da
+    # duoc ghi thang len BASELINE_SHA256 ngay 2026-08-04 (round feedback MSO 1:
+    # bo Channel, GMV -> NMV, preview chuoi duyet doc tu ec_mso_lookups.chain),
+    # nen sync dau tien o do tra ve "unchanged"; entry nay de cac moi truong
+    # chua nhan ban ghi do van sync tien len duoc.
+    "5adb8dc45511b2182cfa4a1d64648f07377247239c85c79e0c0f714e3c9d60b2",
+    # bytes cua round feedback MSO 1 truoc khi sua lai card "Chuoi duyet"
+    # (fb round 1b, 2026-08-04). Ban render fb#3 nhet ten cap + email + ghi chu
+    # thanh 3 con flex ngang nhau trong .cp-step (display:flex), cot email co lai
+    # ~40px, cong word-break:break-all -> email bi be theo tung ky tu
+    # ("lam.n / guyen / @ece / ntric.v / n"). Ban nay quay lai dung khung san co
+    # cua trang (.cp-num + .cp-step-info), doi sang word-break:break-word +
+    # overflow-wrap:anywhere, va cap nao co nhieu nguoi (Finance dang 4 nguoi) thi
+    # hien bubble chu cai dau, tro chuot vao ra full mail -- giong cach lam o
+    # trang duyet. Live team.ecentric.vn da duoc ghi thang len BASELINE_SHA256
+    # cung ngay nen sync dau tien o do tra ve "unchanged".
+    "eddcf6d7522c5bf210894d9c26f0c38d760823d5498afc7530a5b81534f2d6f0",
+    # bytes truoc round feedback MSO 2 (2026-08-04): round do BO HAN loai phi
+    # '% GMV' / '% NMV' khoi form. KAM go thang so tien vao o Amount; may chu
+    # khong con tinh amount = fee_percent * forecast_gmv / 100 nua (nhanh do da
+    # bi go khoi ec_mso_before_save v3.5). Bang ngan sach mat 2 cot 'Loai phi'
+    # va '%'. Live team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung
+    # ngay nen sync dau tien o do tra ve "unchanged".
+    "161cd7a8dfa5273cb9720de650deb7a31ab3116c296e240d96c7d9bad3e38ab7",  # pre-mso-fb-2
+)
 
 
 def sync(html=None, force=0):

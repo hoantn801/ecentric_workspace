@@ -75,7 +75,7 @@ def _html():
 # values, so a repo snapshot can never silently revert a live edit. Deliberate
 # update = edit main_section.html, bump this constant, and move the value it
 # replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "4ed7fbdaf76a04ec440705e3f6f051205ff66347d93999faf2663a70dfb37d61"
+BASELINE_SHA256 = "60233a2a8399c2ba330fb6c640c83c2c15c7fdc198bbb0813aeb2715703d12bb"
 
 # Live values this snapshot is allowed to overwrite. C4b was authored in the
 # repo, not on the site, so at deploy time live still holds the #138 bytes
@@ -99,6 +99,21 @@ SUPERSEDES_SHA256 = (
     # written to the site (2026-08-03). team.ecentric.vn has since been written
     # forward to BASELINE_SHA256, so the first sync there returns "unchanged".
     "ef66131a5dded4e48cbe00e9235c9859a85b449135bc195bffc2b5f4dfaa8ab5",  # merge-v1
+    # pre-mso-feedback-1 bytes: ban repo truoc round feedback MSO 1 (2026-08-04).
+    # Round do sua rieng phan MSO cua trang duyet: bo dong Channel, doi nhan
+    # GMV -> NMV (gia tri luu '% GMV' GIU NGUYEN vi ec_mso_before_save so sanh
+    # bang chuoi do), tach % ra cot rieng trong bang Tai chinh, bubble chu cai
+    # dau cho danh sach nguoi duyet, va them khoi #ec-mso-thread (tep dinh kem +
+    # trao doi). Live team.ecentric.vn da duoc ghi thang len BASELINE_SHA256
+    # cung ngay nen sync dau tien o do tra ve "unchanged".
+    "4ed7fbdaf76a04ec440705e3f6f051205ff66347d93999faf2663a70dfb37d61",  # pre-mso-fb-1
+    # pre-mso-feedback-2 bytes: ban repo truoc round feedback MSO 2 (2026-08-04).
+    # Round do bo loai phi '% GMV' khoi he thong, nen bang ngan sach MSO tren
+    # trang duyet bo 2 cot 'Cach tinh' va 'Ti le' (colspan 4 -> 2) va bo helper
+    # msoFeeTypeLabel. Cot '% NMV' (so tien dong / NMV du kien) GIU NGUYEN — do la
+    # yeu cau fb#4, khong lien quan den loai phi. Live team.ecentric.vn da duoc ghi
+    # thang len BASELINE_SHA256 cung ngay nen sync dau tien o do tra ve "unchanged".
+    "52028d811c5cf18f705c062c8cc020f0ce16f5f0a2cdc47d63f3ef82d17504cf",  # pre-mso-fb-2
 )
 
 
