@@ -276,7 +276,15 @@ body header.navbar, footer.web-footer, .web-footer { display: none !important; }
 #chainPreview .cp-step-info { flex: 1; min-width: 0; }
 #chainPreview .cp-step-role { font-weight: 600; color: var(--text); font-size: 12px; }
 #chainPreview .cp-step-who { font-size: 11px; color: var(--muted); margin-top: 2px; word-break: break-all; }
-#chainPreview .cp-step-email { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted2); margin-top: 4px; word-break: break-all; opacity: 0.75; letter-spacing: -0.1px; }
+#chainPreview .cp-step-email { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted2); margin-top: 4px; word-break: break-word; overflow-wrap: anywhere; opacity: 0.75; letter-spacing: -0.1px; line-height: 1.45; }
+    /* fb1b: note + bubble cho cap duyet nhieu nguoi */
+    #chainPreview .cp-step-note { font-size: 10px; color: var(--muted); margin-top: 5px; line-height: 1.45; }
+    #chainPreview .cp-avs { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+    #chainPreview .cp-av { position: relative; width: 26px; height: 26px; border-radius: 50%; color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 0.2px; display: inline-flex; align-items: center; justify-content: center; flex: none; cursor: default; outline: none; }
+    #chainPreview .cp-av:focus { box-shadow: 0 0 0 3px rgba(44, 61, 166, 0.18); }
+    #chainPreview .cp-av .cp-av-tip { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #111827; color: #fff; font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0; padding: 4px 8px; border-radius: 6px; white-space: nowrap; opacity: 0; visibility: hidden; transition: opacity 0.12s; pointer-events: none; z-index: 40; }
+    #chainPreview .cp-av:hover .cp-av-tip, #chainPreview .cp-av:focus .cp-av-tip { opacity: 1; visibility: visible; }
+    #chainPreview .cp-skip { display: inline-block; margin-left: 6px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #92400e; background: #fef3c7; border-radius: 4px; padding: 1px 5px; vertical-align: 1px; }
 #chainPreview .cp-step-warn { font-size: 10px; color: var(--danger); margin-top: 4px; line-height: 1.3; padding: 4px 6px; background: var(--danger-bg); border-radius: 4px; }
 #chainPreview .cp-cc { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
 #chainPreview .cp-cc-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 6px; }
@@ -464,27 +472,17 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
           <span class="error-msg">Vui l&#242;ng ch&#7885;n th&#225;ng</span>
         </div>
         <div class="field">
-          <label class="field-label" for="channel">Channel</label>
-          <div class="select-wrap">
-            <select class="f-control" id="channel">
-              <option value="GBS" selected>GBS</option>
-              <option value="Direct">Direct</option>
-            </select>
-          </div>
-          <span class="field-hint">Brand k&#253; qua GBS hay EC tr&#7921;c ti&#7871;p</span>
-        </div>
-        <div class="field">
           <label class="field-label" for="submittedBy">KAM (email login)</label>
           <input class="f-control" id="submittedBy" readonly placeholder="Auto t&#7915; session"/>
           <span class="field-hint">T&#7921; &#273;i&#7873;n theo t&#224;i kho&#7843;n &#273;ang &#273;&#259;ng nh&#7853;p</span>
         </div>
         <div class="field col-full">
-          <label class="field-label" for="forecastGmv">Doanh thu b&#225;n h&#224;ng tr&#234;n s&#224;n d&#7921; ki&#7871;n (GMV)</label>
+          <label class="field-label" for="forecastGmv">Doanh thu b&#225;n h&#224;ng d&#7921; ki&#7871;n (Target NMV)</label>
           <div class="num-wrap">
             <span class="currency-prefix">&#8363;</span>
             <input class="f-control" type="text" id="forecastGmv" placeholder="0" inputmode="numeric"/>
           </div>
-          <span class="field-hint">Doanh thu c&#7911;a BRAND tr&#234;n s&#224;n — ch&#7881; s&#7889; k&#7871; ho&#7841;ch + c&#259;n c&#7913; t&#237;nh ph&#237; %, kh&#244;ng ph&#7843;i doanh thu EC</span>
+          <span class="field-hint">NMV m&#7909;c ti&#234;u c&#7911;a BRAND (doanh thu sau tr&#7915; hu&#7927;/tr&#7843; h&#224;ng) — ch&#7881; s&#7889; k&#7871; ho&#7841;ch + c&#259;n c&#7913; t&#237;nh ph&#237; %, kh&#244;ng ph&#7843;i doanh thu EC</span>
         </div>
       </div>
     </div>
@@ -513,7 +511,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         </table>
       </div>
       <button type="button" class="bl-add" id="blAdd">+ Th&#234;m d&#242;ng</button>
-      <div class="bl-note">Amount l&#224; s&#7889; ch&#432;a g&#7891;m VAT. D&#242;ng lo&#7841;i ph&#237; "% GMV" s&#7869; t&#7921; t&#237;nh Amount theo GMV d&#7921; ki&#7871;n. D&#242;ng &#273;&#7875; tr&#7889;ng/0 s&#7869; t&#7921; b&#7887; qua khi g&#7917;i.</div>
+      <div class="bl-note">Amount l&#224; s&#7889; ch&#432;a g&#7891;m VAT. D&#242;ng lo&#7841;i ph&#237; "% NMV" s&#7869; t&#7921; t&#237;nh Amount theo NMV d&#7921; ki&#7871;n. D&#242;ng &#273;&#7875; tr&#7889;ng/0 s&#7869; t&#7921; b&#7887; qua khi g&#7917;i.</div>
       <div class="bl-totals">
         <span>T&#7893;ng chi ph&#237; ho&#7841;t &#273;&#7897;ng: <b id="totOps">0</b> &#273;</span>
         <span>T&#7893;ng ph&#237; agency EC: <b id="totFee">0</b> &#273;</span>
@@ -576,7 +574,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 <script id="ec-mso-plan-main">
 (function () {
   'use strict';
-  var LK = { brands: [], items_ops: [], items_fee: [], teams: [], hof_email: '', ceo_email: '' };
+  var LK = { brands: [], items_ops: [], items_fee: [], teams: [], hof_email: '', ceo_email: '', chain: null };
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
   var _files = [];
   var GRP_OPS = 'Chi phí hoạt động';
   var GRP_FEE = 'Phí agency EC';
@@ -622,7 +623,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         '<option value="' + GRP_OPS + '">Chi phí hoạt động</option>' +
         '<option value="' + GRP_FEE + '">Phí agency EC</option></select></div></td>' +
       '<td><div class="select-wrap"><select class="f-control bl-cat"></select></div></td>' +
-      '<td><div class="select-wrap"><select class="f-control bl-feetype"><option value="Fixed">Fixed</option><option value="% GMV">% GMV</option></select></div></td>' +
+      '<td><div class="select-wrap"><select class="f-control bl-feetype"><option value="Fixed">Fixed</option><option value="% GMV">% NMV</option></select></div></td>' +
       '<td><input class="f-control bl-pct" type="text" inputmode="decimal" disabled placeholder="-"/></td>' +
       '<td><input class="f-control bl-amount" type="text" inputmode="numeric" placeholder="0"/></td>' +
       '<td><input class="f-control bl-note" type="text" placeholder=""/></td>' +
@@ -768,32 +769,66 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     for (var i = 0; i < LK.brands.length; i++) if (LK.brands[i].name === code) return LK.brands[i];
     return null;
   }
+  // 2026-08-04 (fb#3): preview phai dung DUNG cong thuc server (ec_mso_before_save v3.4).
+  // Truoc day preview doc Brand.ec_manager_email / ec_finance_email — 2 field server
+  // da ngung dung tu 2026-07-29 — nen preview lech han voi chain that sau khi submit.
+  // Nguon su that duy nhat bay gio: LK.chain do ec_mso_lookups tra ve (cung ham resolve).
+  function chainSteps() {
+    var ch = LK.chain || null;
+    if (!ch) return null;
+    var fin = ch.finance || [];
+    return [
+      { name: 'Leader', who: ch.l1 ? [ch.l1] : [], note: ch.l1_note || '', skip: ch.l1_skip ? 1 : 0 },
+      { name: 'SA / Finance', who: fin, note: fin.length > 1 ? 'Ai xử lý trước cũng được' : '' },
+      { name: 'HOF', who: ch.hof ? [ch.hof] : [], note: '' },
+      { name: 'CEO', who: ch.ceo ? [ch.ceo] : [], note: '' }
+    ];
+  }
+  // fb1b: cap nao chi 1 nguoi thi in thang email; cap nhieu nguoi (Finance dang 4)
+  // thi in bubble chu cai dau, tro vao ra full mail — de card khong bi vo chu.
+  function cpInitials(email) {
+    var local = String(email || '').split('@')[0];
+    var parts = local.split(/[._\-]+/).filter(function (p) { return p; });
+    var s2 = parts.length >= 2 ? (parts[0].charAt(0) + parts[1].charAt(0)) : local.substring(0, 2);
+    return s2.toUpperCase() || '?';
+  }
+  var CP_AV_COLORS = ['#2C3DA6', '#0f766e', '#b45309', '#7c3aed', '#be123c', '#0369a1', '#4d7c0f'];
+  function cpAvColor(email) {
+    var t = String(email || ''), h = 0;
+    for (var i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) % 100000;
+    return CP_AV_COLORS[h % CP_AV_COLORS.length];
+  }
+  function cpWho(list) {
+    if (!list || !list.length) return '<div class="cp-step-warn">Chưa có — báo admin điền</div>';
+    if (list.length === 1) return '<div class="cp-step-email">' + escapeHtml(list[0]) + '</div>';
+    return '<div class="cp-avs">' + list.map(function (e) {
+      return '<span class="cp-av" style="background:' + cpAvColor(e) + '" tabindex="0" title="' + escapeHtml(e) + '">' +
+        escapeHtml(cpInitials(e)) + '<span class="cp-av-tip">' + escapeHtml(e) + '</span></span>';
+    }).join('') + '</div>';
+  }
   function renderChain() {
     var b = brandInfo();
     var body = $('cpBody'), meta = $('cpMeta');
-    if (!b) { body.innerHTML = '<div class="cp-empty">Chuỗi duyệt sẽ hiện ở đây khi bạn chọn brand.</div>'; return; }
-    meta.textContent = 'Brand ' + (b.brand_name || b.name) + ' — 4 cấp duyệt';
-    var steps = [
-      ['1. Manager', b.manager_email],
-      ['2. Finance', b.finance_email],
-      ['3. HOF', LK.hof_email],
-      ['4. CEO', LK.ceo_email]
-    ];
-    body.innerHTML = steps.map(function (s) {
-      var ok = !!s[1];
-      return '<div class="cp-step"><span class="cp-step-name">' + s[0] + '</span> ' +
-        (ok ? '<span class="cp-step-email">' + s[1] + '</span>'
-            : '<span class="cp-step-email" style="color:#c0392b;font-weight:600">CHƯA CÓ — báo admin điền</span>') + '</div>';
+    var steps = chainSteps();
+    if (!steps) { body.innerHTML = '<div class="cp-empty">Chuỗi duyệt sẽ hiện ở đây khi tải xong danh mục.</div>'; return; }
+    meta.innerHTML = (b ? '<strong>' + escapeHtml(b.brand_name || b.name) + '</strong> — ' : '') +
+      'chuỗi duyệt theo người gửi ' + escapeHtml(LK.user || '');
+    body.innerHTML = steps.map(function (s, i) {
+      var h = '<div class="cp-step' + (i === steps.length - 1 ? ' cp-step-final' : '') + '">' +
+        '<span class="cp-num">' + (i + 1) + '</span>' +
+        '<div class="cp-step-info">' +
+        '<div class="cp-step-role">' + escapeHtml(s.name) +
+        (s.skip ? '<span class="cp-skip">tự bỏ qua</span>' : '') + '</div>' +
+        cpWho(s.who);
+      if (s.note) h += '<div class="cp-step-note">' + escapeHtml(s.note) + '</div>';
+      return h + '</div></div>';
     }).join('');
   }
   function chainMissing() {
-    var b = brandInfo();
-    if (!b) return 'brand';
+    var steps = chainSteps();
+    if (!steps) return 'danh mục chưa tải xong';
     var miss = [];
-    if (!b.manager_email) miss.push('Manager (Brand)');
-    if (!b.finance_email) miss.push('Finance (Brand)');
-    if (!LK.hof_email) miss.push('HOF (Global Role)');
-    if (!LK.ceo_email) miss.push('CEO (Global Role)');
+    steps.forEach(function (s) { if (!s.who || !s.who.length) miss.push(s.name); });
     return miss.length ? miss.join(', ') : '';
   }
 
@@ -872,10 +907,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     for (var i = 0; i < active.length; i++) {
       var r = active[i];
       if (!r.category) return 'Có dòng đã nhập tiền nhưng chưa chọn khoản mục';
-      if (r.fee_type === '% GMV' && !parseNum($('forecastGmv'))) return 'Có dòng dùng % GMV — nhập GMV dự kiến trước';
+      if (r.fee_type === '% GMV' && !parseNum($('forecastGmv'))) return 'Có dòng dùng % NMV — nhập Target NMV trước';
     }
     var miss = chainMissing();
-    if (miss && miss !== 'brand') return 'Thiếu email duyệt: ' + miss;
+    if (miss) return 'Thiếu email duyệt: ' + miss;
     if (!_files.length) return 'MSO bắt buộc đính kèm ít nhất 1 tài liệu';
     return '';
   }
@@ -883,7 +918,6 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     return {
       brand: $('brand').value,
       month: $('month').value,
-      channel: $('channel').value,
       kam: $('submittedBy').value || undefined,
       forecast_gmv: parseNum($('forecastGmv')),
       notes: $('notes').value.trim(),
@@ -939,7 +973,6 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       var d = JSON.parse(raw);
       if (d.brand) window._pendingBrand = d.brand;
       if (d.month) $('month').value = d.month;
-      if (d.channel) $('channel').value = d.channel;
       if (d.forecast_gmv) $('forecastGmv').value = fmt(d.forecast_gmv);
       if (d.notes) $('notes').value = d.notes;
       (d.budget_lines || []).forEach(function (r) {
