@@ -791,11 +791,15 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 </table>
 <button type="button" id="btnAddRow" style="background:rgba(44,61,166,0.08);color:#2C3DA6;border:1px dashed #2C3DA6;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-top:10px;width:100%">+ Thêm dòng item</button>
 <script id="ec-gbs-po-item-tax">
-/* v18 2026-08-03 - VAT theo từng dòng cho GBS PO (#178).
-   Ô trống = theo header. Header FCT => khoá cột. Mode ecbuy => ẩn cột. */
+/* v19 2026-08-04 - VAT theo từng dòng cho GBS PO (#178, #183).
+   Danh sách VAT lấy trực tiếp từ boxme qua /api/method/gbs_list_item_tax_templates
+   (không hardcode, không đọc bảng mirror trong site).
+   Ô trống = theo header. Header nhiều sắc thuế (FCT) => khoá cột.
+   Mode ecbuy => ẩn cột. */
 (function(){
   window.EC_ITEM_TAX = [];
   window.EC_ITEM_TAX_LOADED = false;
+  window.EC_HEADER_TAX_ACC = {};
 
   window.ecItemTaxOptionsHtml = function(){
     if (!window.EC_ITEM_TAX_LOADED) return '<option value="">— đang tải… —</option>';
@@ -827,7 +831,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   };
 
   window.ecIsFctTemplate = function(name){
-    return !!name && String(name).indexOf('FCT') >= 0;
+    if (!name) return false;
+    var accs = window.EC_HEADER_TAX_ACC && window.EC_HEADER_TAX_ACC[name];
+    if (accs && accs.length) return accs.length > 1;
+    return String(name).indexOf('FCT') >= 0;
   };
 
   window.ecToggleItemTaxColumn = function(){
@@ -869,11 +876,21 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   }
 
   window.ecLoadItemTaxTemplates = function(){
-    return fetch('/api/resource/GBS%20Item%20Tax%20Template?fields=%5B%22name%22%2C%22rate%22%5D&limit_page_length=0',
-                 { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+    return fetch('/api/method/gbs_list_item_tax_templates', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}'
+    })
       .then(function(r){ return r.json(); })
       .then(function(j){
-        window.EC_ITEM_TAX = (j && j.data) || [];
+        var m = (j && j.message) || {};
+        var list = [];
+        (m.templates || []).forEach(function(t){
+          if (t && t.is_purchase) list.push({ name: t.name, rate: parseFloat(t.rate) || 0 });
+        });
+        list.sort(function(a, b){ return a.rate - b.rate; });
+        window.EC_ITEM_TAX = list;
+        window.EC_HEADER_TAX_ACC = m.header_accounts || {};
         ecItemTaxSettled();
       })
       .catch(function(){
