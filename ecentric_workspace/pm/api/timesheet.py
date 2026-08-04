@@ -84,6 +84,10 @@ def log(task, hours, log_date=None, description=None):
         frappe.throw(_("Hours must be greater than 0."))
 
     day = log_date or frappe.utils.nowdate()
+    try:
+        frappe.utils.getdate(day)
+    except Exception:
+        frappe.throw(_("Ngày ghi giờ không hợp lệ."))
     name = _create_timesheet(user, task, doc.get("project"), hrs, description,
                              from_time=day + " 09:00:00")
     return {"timesheet": name, "task": task, "hours": hrs, "date": day}

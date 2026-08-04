@@ -122,6 +122,15 @@ def can_view_project(name, user=None):
     return name in set(visible)
 
 
+def assignees_of(task):
+    """Canonical parse of a Task's native _assign into a list of user emails. Single source of
+    truth for assignee membership (avoids the substring-match footgun). `task` is a dict/doc."""
+    try:
+        return [u for u in (frappe.parse_json(task.get("_assign") or "[]") or []) if u]
+    except Exception:
+        return []
+
+
 def can_view_task(task, user=None):
     """task: dict-like with keys name, owner, project, _assign."""
     user = user or frappe.session.user
@@ -129,7 +138,7 @@ def can_view_task(task, user=None):
         return True
     if task.get("owner") == user:
         return True
-    if user in (task.get("_assign") or ""):
+    if user in assignees_of(task):
         return True
     project = task.get("project")
     if project and can_view_project(project, user):
@@ -137,11 +146,28 @@ def can_view_task(task, user=None):
     return False
 
 
+def visible_task_subset(names, user=None):
+    """audit D4: subset of task `names` the caller may view (owner / assignee / visible project).
+    Leaders get all. One query, no N+1. Used to scope batch enrichment endpoints instead of
+    trusting client-supplied names."""
+    user = user or frappe.session.user
+    names = [n for n in (names or []) if n]
+    if not names or can_see_all_pm_data(user):
+        return names
+    ors = [["owner", "=", user], ["_assign", "like", '%"{0}"%'.format(user)]]
+    visible = get_visible_project_names(user) or []
+    if visible:
+        ors.append(["project", "in", visible])
+    rows = frappe.get_all("Task", filters={"name": ["in", names]}, or_filters=ors,
+                          fields=["name"], limit_page_length=0)
+    return [r["name"] for r in rows]
+
+
 def is_task_assignee(task, user=None):
     """G4.10: True if `user` is in the task's native _assign list. `task` is a dict/doc
     exposing _assign (same shape can_view_task consumes). Canonical assignee check."""
     user = user or frappe.session.user
-    return user in (task.get("_assign") or "")
+    return user in assignees_of(task)
 
 
 def can_transition_any_task(user=None):
@@ -193,7 +219,7 @@ def task_scope_or_filters(user=None):
     if can_see_all_pm_data(user):
         return None
     visible = get_visible_project_names(user) or []
-    ors = [["owner", "=", user], ["_assign", "like", "%{0}%".format(user)]]
+    ors = [["owner", "=", user], ["_assign", "like", '%"{0}"%'.format(user)]]
     if visible:
         ors.append(["project", "in", visible])
     return ors

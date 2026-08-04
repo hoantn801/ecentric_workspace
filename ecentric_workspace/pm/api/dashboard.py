@@ -127,7 +127,7 @@ def control_center():
     if pmperm.can_see_all_pm_data(user):
         allt = frappe.get_all("Task", fields=FIELDS, limit_page_length=0)
         scope = allt
-        wstart = frappe.utils.add_days(today, -frappe.utils.getdate(today).weekday())
+        wstart = str(frappe.utils.add_days(today, -frappe.utils.getdate(today).weekday()))
         out["team"] = {
             "active": len([t for t in allt if is_active(t)]),
             "overdue": len([t for t in allt if is_overdue(t)]),

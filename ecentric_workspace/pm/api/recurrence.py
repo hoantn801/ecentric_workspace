@@ -26,9 +26,13 @@ _DAYS = {"Daily": 1, "Weekly": 7, "Biweekly": 14}
 _FREQ = ("Daily", "Weekly", "Biweekly", "Monthly")
 
 
-def _advance(d, frequency):
+def _advance(d, frequency, anchor=None, occ=None):
     d = getdate(d)
     if frequency == "Monthly":
+        # audit D5: anchor monthly occurrences to the rule's start day-of-month (clamped per month)
+        # so a rule starting on the 31st does not permanently drift to the 28th after February.
+        if anchor and occ is not None:
+            return add_months(getdate(anchor), int(occ))
         return add_months(d, 1)
     return add_days(d, _DAYS.get(frequency, 1))
 
@@ -162,6 +166,9 @@ def create_with_task(subject, frequency, project=None, assignee=None, descriptio
 @frappe.whitelist()
 def get_for_task(task):
     pmperm.require_pm_access()
+    src = frappe.db.get_value("Task", task, ["name", "owner", "project", "_assign"], as_dict=True)
+    if not src or not pmperm.can_view_task(src, frappe.session.user):
+        frappe.throw(_("Not permitted."), frappe.PermissionError)
     name = _active_rule_for(task)
     if not name:
         return {"exists": False}
@@ -333,7 +340,7 @@ def _process(name, today):
         r.status = "Completed"; r.save(ignore_permissions=True); return
     # idempotent guard: never generate twice for the same date
     if r.last_run_date and getdate(r.last_run_date) == nrd:
-        r.next_run_date = _advance(nrd, r.frequency)
+        r.next_run_date = _advance(nrd, r.frequency, r.start_date, r.occurrences_done)
         r.save(ignore_permissions=True)
         return
     new_task = _clone(r, nrd)
@@ -342,11 +349,11 @@ def _process(name, today):
                              (frappe.db.get_value("Task", new_task, "subject") or new_task),
                              new_task, from_user="Administrator")
     except Exception:
-        pass
+        frappe.log_error(frappe.get_traceback(), "PM Recurrence notify")
     r.occurrences_done = (r.occurrences_done or 0) + 1
     r.last_task = new_task
     r.last_run_date = nrd
-    r.next_run_date = _advance(nrd, r.frequency)
+    r.next_run_date = _advance(nrd, r.frequency, r.start_date, r.occurrences_done)
     if (r.end_date and getdate(r.next_run_date) > getdate(r.end_date)) or \
        (r.max_occurrences and r.occurrences_done >= r.max_occurrences):
         r.status = "Completed"

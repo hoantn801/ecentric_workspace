@@ -233,6 +233,7 @@ def labels_for_tasks_api(task_names):
             task_names = json.loads(task_names)
         except Exception:
             task_names = [task_names]
+    task_names = pmperm.visible_task_subset(task_names)  # audit D4: scope to caller-visible tasks
     return {"map": labels_for_tasks(task_names)}
 
 
