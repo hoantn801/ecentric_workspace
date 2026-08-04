@@ -662,10 +662,6 @@
     <div class="sidebar-header">
       <a href="/home" class="brand"><span class="logo">PM</span><span class="brand-name">eCentric<br>Workspace</span></a>
     </div>
-    <div class="sidebar-search">
-      <svg class="icon icon-sm search-icon"><use href="#p-search"/></svg>
-      <input type="text" id="pm-search" placeholder="Tìm dự án, nhiệm vụ...">
-    </div>
     <nav class="nav-section" id="pm-nav">
       <div class="nav-label">Quản lý dự án</div>
       <a class="nav-item" data-view="dashboard"><svg class="icon"><use href="#p-grid"/></svg><span>Tổng quan</span></a>
@@ -1637,7 +1633,7 @@
       h+='<div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12.5px;color:var(--gray-500)">Nhiệm vụ đã đóng — Reopen để ghi giờ hoặc giao việc.</div>';
     } else {
       h+='<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:600;color:var(--gray-700);margin-bottom:8px">Ghi nhận giờ đã xử lý</div><div style="padding-top:2px">'+
-        '<div style="display:flex;gap:8px;margin-bottom:8px"><input class="pm-input" id="wt-date" type="date" style="flex:1;padding-left:11px;background-image:none"><input class="pm-input" id="wt-hours" type="number" step="0.25" min="0" placeholder="Số giờ" style="width:100px;padding-left:11px;background-image:none"></div>'+
+        '<div style="display:flex;gap:8px;margin-bottom:8px"><input class="pm-input" id="wt-date" type="date" style="flex:1;padding-left:11px;background-image:none"><input class="pm-input" id="wt-h" type="number" min="0" step="1" placeholder="Giờ" style="width:74px;padding-left:11px;background-image:none"><input class="pm-input" id="wt-m" type="number" min="0" max="59" step="1" placeholder="Phút" style="width:74px;padding-left:11px;background-image:none"></div>'+
         '<input class="pm-input" id="wt-desc" placeholder="Mô tả (tuỳ chọn)" style="padding-left:11px;background-image:none;margin-bottom:8px;width:100%">'+
         '<button class="pm-btn primary" id="wt-log" style="width:100%;justify-content:center">Lưu giờ</button></div></div>';
     }
@@ -1653,7 +1649,7 @@
     if(ac&&ac.active&&ac.task===task&&ac.status==="Running"){var base=ac.elapsed_seconds||0,t0=Date.now();window._pmTick=setInterval(function(){var e2=el("tk-el");if(!e2){clearTick();return;}e2.textContent=fmtDur(base+Math.floor((Date.now()-t0)/1000));},1000);}
     var dt=el("wt-date");if(dt)dt.value=new Date().toISOString().slice(0,10);
     refreshTimerChip();
-    if(el("wt-log"))el("wt-log").onclick=function(){var hrs=el("wt-hours").value,day=el("wt-date").value,ds=el("wt-desc").value;var btn=this;
+    if(el("wt-log"))el("wt-log").onclick=function(){var _h=parseFloat(el("wt-h").value)||0,_m=parseFloat(el("wt-m").value)||0,hrs=Math.round((_h+_m/60)*10000)/10000,day=el("wt-date").value,ds=el("wt-desc").value;var btn=this;
       if(!hrs||parseFloat(hrs)<=0){toast("Nhập số giờ > 0",true);return;}
       btn.disabled=true;btn.textContent="Đang lưu...";
       api(PM+"timesheet.log",{task:task,hours:hrs,log_date:day,description:ds}).then(function(){toast("Đã lưu "+hrs+"h");loadWorktime(task,terminal);}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu giờ";});};}
@@ -2354,14 +2350,14 @@
               '<div class="pm-field rcf-full"><label>Checklist mẫu</label><select class="pm-sel" id="rcf-tmpl"><option value="">— Không —</option>'+tmpls.map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.template_name||t.name)+'</option>';}).join("")+'</select></div>'+
               '<div class="pm-field rcf-full"><label>Nhãn</label><div id="rcf-labels"></div></div>'+
             '</div>'+
-            '<div class="rcf-sec">Thời gian của mỗi nhiệm vụ</div>'+
-            '<div class="rcf-help-block">Thời gian của mỗi nhiệm vụ xác định lịch thực hiện của từng Task được sinh. Chu kỳ lặp xác định những ngày hệ thống tạo Task.</div>'+
-            '<div class="rcf-grid">'+
+            '<details class="rcf-adv" style="margin:8px 0"><summary style="cursor:pointer;font-size:12.5px;color:var(--gray-600);user-select:none">Giờ/ngày thực hiện mỗi task (tuỳ chọn)</summary>'+
+            '<div class="rcf-help-block" style="margin-top:6px">Đặt lịch thực hiện cho từng Task sinh ra. Bỏ trống cũng được — Task vẫn tạo đúng chu kỳ lặp.</div>'+
+            '<div class="rcf-grid" style="margin-top:6px">'+
               '<div class="pm-field"><label>Ngày bắt đầu</label><input type="date" class="pm-input" id="rcf-sd"></div>'+
               '<div class="pm-field"><label>Giờ bắt đầu</label><input type="time" class="pm-input" id="rcf-st"></div>'+
               '<div class="pm-field"><label>Ngày kết thúc</label><input type="date" class="pm-input" id="rcf-ed"></div>'+
               '<div class="pm-field"><label>Giờ kết thúc</label><input type="time" class="pm-input" id="rcf-et"></div>'+
-            '</div>'+
+            '</div></details>'+
           '</div>'+
           '<div id="rc-exist-pane" style="display:none">'+
             '<div class="rcf-sec rcf-sec-first">Nhiệm vụ mẫu</div>'+
@@ -2541,7 +2537,7 @@
     render();
   }
   Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.onclick=function(){var v=b.getAttribute("data-view");if(v==="notifications"){window.open("/app/notification-log","_blank","noopener");return;}go(v);};});
-  el("pm-search").addEventListener("keydown",function(e){if(e.key==="Enter"){F.q=this.value.trim().toLowerCase();go("tasks");}});
+  { var _ps=el("pm-search"); if(_ps) _ps.addEventListener("keydown",function(e){if(e.key==="Enter"){F.q=this.value.trim().toLowerCase();go("tasks");}}); }
 
   function fillUser(){
     if(!LIVE){ window._pmUser="hoan.tran@ecentric.vn"; el("pm-av").textContent="PV"; el("pm-uname").textContent="Preview User"; el("pm-urole").textContent="Mock"; el("pm-preview").style.display="inline-block"; return; }
