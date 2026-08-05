@@ -418,6 +418,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 .bl-team-add{background:#fff;border:1px dashed #c9c4ba;border-radius:6px;padding:3px 10px;font-size:11.5px;font-weight:600;color:#5a5a5a;cursor:pointer;letter-spacing:0;text-transform:none;font-family:inherit}
 .bl-team-add:hover{background:#ece9e2;border-color:#b3ada1}
 .bl-table .f-control{min-width:0;padding:8px 10px;font-size:13px}
+.bl-name{width:100%;padding:8px 10px;font-size:13px;line-height:20px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bl-name.ec-empty{color:var(--muted)}
 .bl-row-del{background:none;border:none;color:#b3b3b3;font-size:16px;cursor:pointer;padding:6px}
 .bl-row-del:hover{color:#c0392b}
 .bl-add{margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:#f4f2ee;border:1px dashed #c9c4ba;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;color:#5a5a5a;cursor:pointer}
@@ -505,9 +507,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         <table class="bl-table">
           <thead>
             <tr>
-              <th style="width:52%">Kho&#7843;n m&#7909;c</th>
+              <th style="width:26%">M&#227; kho&#7843;n m&#7909;c</th>
+              <th style="width:30%">T&#234;n kho&#7843;n m&#7909;c</th>
               <th style="width:22%">Amount (VND, +VAT)</th>
-              <th style="width:23%">Ghi ch&#250;</th>
+              <th style="width:19%">Ghi ch&#250;</th>
               <th style="width:3%"></th>
             </tr>
           </thead>
@@ -629,7 +632,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   }
   function headHtml(team) {
     var label = team || 'Khác';
-    return '<td colspan="4"><div class="bl-teamhead-in">' +
+    return '<td colspan="5"><div class="bl-teamhead-in">' +
       '<span>' + esc(label) + '</span>' +
       '<button type="button" class="bl-team-add" data-team="' + esc(team) + '" title="Thêm dòng cho ' + esc(label) + '">+ Thêm dòng</button>' +
       '</div></td>';
@@ -639,21 +642,37 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   // va de chon sai. Dropdown "Khoan muc" gio gom CA HAI nhom; nhom cua dong duoc
   // suy ra tu khoan muc da chon va ghi vao o an .bl-group -- readRows() /
   // recompute() / payload() doc y nguyen, khong phai sua.
+  // 2026-08-05: TACH cot "Khoan muc" thanh 2 cot -- "Ma khoan muc" (dropdown) va
+  // "Ten khoan muc" (chi doc, tu dien theo ma da chon). Truoc do ca ma lan ten
+  // nam chung trong mot o dropdown hep nen bi cat cut, vi du
+  // "GBS_PVH_VHTTLK - Phi van hanh tiep thi lien ket cua Ecentric".
+  // O tim kiem trong dropdown VAN tim duoc bang ten: <option>.text van giu ca
+  // "ma - ten" (buildList() doc o.text), chi RIENG chu hien tren nut da chon la
+  // rut gon con ma, qua thuoc tinh data-ec-short (xem ec-mso-searchable-dropdowns).
   var GRP_OF = {};   // item_code -> category_group
+  var NAME_OF = {};  // item_code -> item_name
   function buildGrpOf() {
-    GRP_OF = {};
-    (LK.items_ops || []).forEach(function (i) { GRP_OF[i.item_code] = GRP_OPS; });
-    (LK.items_fee || []).forEach(function (i) { GRP_OF[i.item_code] = GRP_FEE; });
+    GRP_OF = {}; NAME_OF = {};
+    (LK.items_ops || []).forEach(function (i) { GRP_OF[i.item_code] = GRP_OPS; NAME_OF[i.item_code] = i.item_name || ''; });
+    (LK.items_fee || []).forEach(function (i) { GRP_OF[i.item_code] = GRP_FEE; NAME_OF[i.item_code] = i.item_name || ''; });
   }
   function syncRowGroup(tr) {
     var cat = tr.querySelector('.bl-cat').value;
     tr.querySelector('.bl-group').value = cat ? (GRP_OF[cat] || GRP_OPS) : GRP_OPS;
+    var nm = tr.querySelector('.bl-name');
+    if (nm) {
+      var txt = cat ? (NAME_OF[cat] || '') : '';
+      nm.textContent = txt || (cat ? '' : '\u2014');
+      nm.title = txt;
+      if (txt) nm.classList.remove('ec-empty'); else nm.classList.add('ec-empty');
+    }
   }
   function rowTemplate() {
     return '<tr>' +
       '<td><input type="hidden" class="bl-team" value=""/>' +
       '<input type="hidden" class="bl-group" value="' + GRP_OPS + '"/>' +
       '<div class="select-wrap"><select class="f-control bl-cat"></select></div></td>' +
+      '<td><div class="bl-name ec-empty" title="">&#8212;</div></td>' +
       '<td><input class="f-control bl-amount" type="text" inputmode="numeric" placeholder="0"/></td>' +
       '<td><input class="f-control bl-note" type="text" placeholder=""/></td>' +
       '<td><button type="button" class="bl-row-del" title="Xoá dòng">&#215;</button></td>' +
@@ -664,7 +683,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var sel = tr.querySelector('.bl-cat');
     var keep = sel.value;
     sel.innerHTML = '<option value="">-- Chọn khoản mục --</option>' + list.map(function (i) {
-      return '<option value="' + i.item_code + '">' + i.item_code + ' — ' + i.item_name + '</option>';
+      return '<option value="' + i.item_code + '" data-ec-short="' + i.item_code + '">' + i.item_code + ' — ' + i.item_name + '</option>';
     }).join('');
     if (keep) sel.value = keep;
   }
@@ -990,7 +1009,14 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       try { localStorage.removeItem('mso_plan_draft'); } catch (e) {}
       btn.innerHTML = '✓ Đã gửi duyệt: ' + doc.name;
       btn.style.background = '#166534';
-      showToast('MSO ' + doc.name + ' đã gửi duyệt — đang chờ Manager.', 'ok');
+      showToast('MSO ' + doc.name + ' đã gửi duyệt — đang mở trang duyệt...', 'ok');
+      // 2026-08-05: gui duyet xong thi sang thang trang chi tiet /approval, giong
+      // cach /all-ticket va /approval mo mot ticket. Truoc do form dung yen o
+      // trang tao, nguoi gui phai tu di tim MSO vua tao de xem chuoi duyet /
+      // dinh kem. Cho ~1.1s de nguoi dung kip doc toast va thay nut xanh.
+      setTimeout(function () {
+        window.location.href = '/approval?id=' + encodeURIComponent(doc.name) + '&type=mso';
+      }, 1100);
     } catch (err) {
       showToast(err.message, 'error');
       btn.disabled = false; btn.classList.remove('loading'); btn.innerHTML = orig;
@@ -1299,9 +1325,12 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       for (var i = 0; i < selectEl.options.length; i++) {
         if (selectEl.options[i].value === v) { opt = selectEl.options[i]; break; }
       }
-      var txt = opt ? (opt.text || opt.value) : v;
+      var full = opt ? (opt.text || opt.value) : v;
+      // option co data-ec-short -> nut chi hien phan rut gon (vi du chi rieng ma
+      // khoan muc), nhung tooltip va o tim kiem van dung chu day du.
+      var txt = (opt && opt.getAttribute('data-ec-short')) || full;
       display.textContent = txt;
-      display.title = txt; // chu bi cat ngang -> hover ra day du
+      display.title = full; // chu bi cat ngang -> hover ra day du
       display.classList.remove('ec-empty');
     }
     function positionPanel() {

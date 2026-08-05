@@ -43,7 +43,7 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "bed58f7c2907097d4641cbaaaeb7227a007628911fa05e5c191fe6efa19bd8ee"
+BASELINE_SHA256 = "eb68eb4c4e7e9fcc6b5a0f8b4bc68a18e6dd79a1818c322c8fea2aa0c99ebc29"
 SUPERSEDES_SHA256 = (
     # bytes ban dau khi repo-hoa trang nay (#61). Live tren team.ecentric.vn da
     # duoc ghi thang len BASELINE_SHA256 ngay 2026-08-04 (round feedback MSO 1:
@@ -160,6 +160,34 @@ SUPERSEDES_SHA256 = (
     # team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay nen sync
     # dau tien o do tra ve "unchanged".
     "6a4aff420f931cbf3b24f7094c673bd79988f4d28b27fcd10dd237179cd7d9f3",  # mso-fb-3 v6
+
+    # bytes truoc khi TACH cot "Khoan muc" thanh 2 cot (2026-08-05). Ban truoc
+    # do gop ca ma lan ten vao mot dropdown hep -> chuoi dai bi cat cut tren
+    # man hinh, vi du "GBS_PVH_VHTTLK - Phi van hanh tiep thi lien ket cua
+    # Ecentric". Ban nay: cot "Ma khoan muc" giu dropdown (nut da chon chi in
+    # ma, qua thuoc tinh data-ec-short moi them vao <option>), cot "Ten khoan
+    # muc" moi la o chi doc dien tu NAME_OF theo ma da chon; o tim kiem trong
+    # dropdown VAN tim duoc bang ten vi <option>.text van la "ma - ten". Cot
+    # Ghi chu thu tu 23% xuong 19%, hang tieu de team colspan 4 -> 5. Live
+    # team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay.
+    "bed58f7c2907097d4641cbaaaeb7227a007628911fa05e5c191fe6efa19bd8ee",  # pre-split-code-name
+
+    # bytes truoc khi dong khung o "Ten khoan muc" (2026-08-05). Ban truoc do in
+    # ten dang chu tran, khong co vien, nen nhin lech han so voi cac o input
+    # ben canh -> bang trong lon xon. Ban nay cho .bl-name muon dung bo vien /
+    # bo goc / padding cua .f-control, nen xam (--bg) de bao hieu chi doc.
+    # Thuan CSS, khong dong vao logic. Live team.ecentric.vn da duoc ghi thang
+    # len BASELINE_SHA256 cung ngay.
+    "15018222b67fb299a4be155040fcd239c138740828fa583219396e4d82c28916",  # pre-boxed-item-name
+
+    # bytes truoc khi CHUYEN TRANG SAU KHI GUI DUYET (2026-08-05). Truoc do
+    # submitForm() chi doi nut thanh "Da gui duyet: <ten>" roi dung yen o trang
+    # tao, nguoi gui phai tu vao /all-ticket tim lai MSO vua tao moi xem duoc
+    # chuoi duyet / dinh kem. Ban nay sau khi apply_workflow thanh cong thi
+    # setTimeout 1100ms roi window.location.href =
+    # "/approval?id=<ten>&type=mso" (type "mso" da duoc /approval ho tro san).
+    # Live team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay.
+    "815fb053b79f94350ebd9b0b88165471ea74a57e39691d847dbe5cc987a53be8",  # pre-redirect-after-submit
 )
 
 
