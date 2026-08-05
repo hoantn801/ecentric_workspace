@@ -689,7 +689,6 @@
       <div class="topbar-actions">
         <span class="preview-tag" id="pm-preview" style="display:none;">Preview (mock)</span>
         <button class="tb-timer" id="tb-timer" title="Timer đang chạy — bấm để mở task"></button>
-        <button class="pm-btn primary" id="tb-new" style="padding:7px 12px"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button>
         <a class="icon-btn" id="tb-bell" href="/app/notification-log" target="_blank" rel="noopener" data-ec-notification-bell="1" aria-label="Thông báo" title="Thông báo" style="position:relative"><svg class="icon icon-sm"><use href="#p-bell"/></svg></a>
       </div>
     </div>
@@ -990,12 +989,12 @@
       var mine=vTasks.filter(function(t){return names(t._assign).indexOf(user)>=0;});
       var focus=mwFocus(mine,recToday);
       var groups=[["attention","Cần xử lý",d.attention||[]],["week","Tuần này",d.week||[]],["nodue","Chưa có hạn",d.nodue||[]],["done","Đã hoàn thành",d.done||[]]];
-      var h=head("Việc của tôi","Công việc cần xử lý trong ngày");
+      var h=head("Việc của tôi","Công việc cần xử lý trong ngày",'<button class="pm-btn primary" id="mw-new"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button>');
       h+='<div class="dc-mini dc-block">'+dcMiniCard("Quá hạn",mc.overdue,"overdue","s-pink")+dcMiniCard("Hôm nay",mc.today,"today","s-navy")+dcMiniCard("Tuần này",mc.week,"week","s-yellow")+dcMiniCard("Chờ duyệt",mc.review,"review","s-navy")+dcMiniCard("Blocked",mc.blocked,"blocked","s-pink")+dcMiniCard("Định kỳ hôm nay",recToday.length,"","s-green")+'</div>';
       h+='<div id="mw-tcard">'+mwTimerCard(ac,tmap,(ac&&ac.active)?null:(focus[0]&&focus[0].t))+'</div>';
       h+='<div class="dc-sec-title">Cần xử lý hôm nay (Focus)</div><div class="dc-block" id="mw-focus"></div>';
       h+='<details class="dc-analytics"><summary>Danh sách chi tiết theo nhóm</summary><div id="mw-groups"></div></details>';
-      c.innerHTML=h;
+      c.innerHTML=h;var _mwn=el("mw-new");if(_mwn)_mwn.onclick=function(){newTask(null);};
       mwFocusTable(el("mw-focus"),focus,(ac&&ac.active)?ac:null);
       chkBadgesInto(el("mw-focus"),focus.map(function(x){return x.t.name;})); /* G4 checklist progress badge */
       mwWireActions(el("mw-tcard"));
@@ -1294,7 +1293,7 @@
   // ---- Unified "Công việc" page: tabbed views (Danh sách/Kanban/Lịch/Gantt/Bảng) ----
   function workTabs(active){var T=[["tasks","list","Danh sách"],["board","board","Kanban"],["calendar","calendar","Lịch"],["gantt","gantt","Gantt"]]; /* G4.8c: removed "Bảng" tab (showTasks(true) code kept for safety) */
     return '<div class="seg work-tabs">'+T.map(function(t){return '<button data-wt="'+t[0]+'"'+(active===t[1]?' class="active"':'')+'>'+t[2]+'</button>';}).join("")+'</div>';}
-  function workHeader(active){return '<div class="pm-head"><div><h1>Công việc</h1></div><div>'+workTabs(active)+'</div></div>';}
+  function workHeader(active){return '<div class="pm-head"><div><h1>Công việc</h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+workTabs(active)+'<button class="pm-btn primary" data-new="1"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button></div></div>';}
   function wireWorkTabs(){Array.prototype.forEach.call(el("pm-view").querySelectorAll("[data-wt]"),function(b){b.onclick=function(){go(b.getAttribute("data-wt"));};});var n=el("pm-view").querySelector("[data-new]");if(n)n.onclick=function(){newTask(null);};}
   function showWork(){var v=window._workView;if(!v){try{v=localStorage.getItem("pm_work_view");}catch(_){}window._workView=v=v||"list";}
     if(v==="board")showBoard();else if(v==="calendar")showCalendar();else if(v==="gantt")showGantt();else if(v==="table")showTasks(true);else showTasks();}
@@ -1480,9 +1479,9 @@
       '<span class="pm-sub-dot" style="background:'+gColor(t.workflow_state)+'" title="'+esc(t.workflow_state||"")+'"></span>'+
       '<span class="pm-st-title">'+esc(t.subject||t.name)+'</span>'+
       '<span class="pm-st-meta">'+badge(t.workflow_state)+(due?'<span class="pm-sub-due">'+due+'</span>':'')+(a.length?'<span class="pm-mini-av" title="'+esc(fn)+' · '+esc(a[0])+'">'+ini(a[0])+'</span>':'<span style="color:var(--gray-300)">—</span>')+'</span></div>';}
-  function loadSubtree(rootName,project,terminal){var host=el("pm-subs");if(!host)return;host.innerHTML='<span class="spin"></span>';
-    /* G4.8d: "+ Thêm nhiệm vụ con" CTA lives inside this tab (empty-state + footer); hidden when terminal. */
-    function addCta(){return terminal?'':'<div class="pm-subadd" id="pm-st-add"><span class="pm-sub-plus">+</span><span>Thêm nhiệm vụ con</span></div>';}
+  function loadSubtree(rootName,project,terminal,noAdd){var host=el("pm-subs");if(!host)return;host.innerHTML='<span class="spin"></span>';
+    /* CTA hidden when terminal OR when this task is itself a sub-task (2-level cap: no sub-of-sub). */
+    function addCta(){return (terminal||noAdd)?'':'<div class="pm-subadd" id="pm-st-add"><span class="pm-sub-plus">+</span><span>Thêm nhiệm vụ con</span></div>';}
     function wireAdd(){var a=el("pm-st-add");if(a)a.onclick=function(){newTask(project||"",rootName);};}
     api(PM+"tasks.subtree",{name:rootName}).then(function(res){var rows=(res&&res.rows)||[];window._pmUserNames=Object.assign(window._pmUserNames||{},(res&&res.user_names)||{});
       var tc=el("pm-bt-subs-c");if(tc){var done=rows.filter(function(r){return ["Done","Cancelled"].indexOf(r.workflow_state)>=0;}).length;tc.textContent="("+done+"/"+rows.length+")";}
@@ -1600,7 +1599,7 @@
       (function(){function saveTime(){var st=el("pm-st-time"),en=el("pm-en-time");if(!st&&!en)return;
         api(PM+"tasks.update",{name:name,pm_start_time:(st&&st.value)||"",pm_end_time:(en&&en.value)||""}).then(function(){openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);openTask(name);});}
         if(el("pm-st-time"))el("pm-st-time").onchange=saveTime; if(el("pm-en-time"))el("pm-en-time").onchange=saveTime;})();
-      pmDecompWire(name,t.project); loadSubtree(name,t.project,pmTerminal(t)); /* G4.8: PHÂN RÃ tabs + nested subtask tree */
+      pmDecompWire(name,t.project); loadSubtree(name,t.project,pmTerminal(t),!!t.parent_task); /* 2-level cap: no add-subtask on a sub-task */
       loadWorktime(name,pmTerminal(t)); loadComments(name); loadChecklist(name,t.workflow_state);
       if(el("pm-cmt-send"))el("pm-cmt-send").onclick=function(){var v=el("pm-cmt-input").value.trim();if(!v){toast("Nhập bình luận",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang gửi...";
         api(PM+"comments.add",{reference_doctype:"Task",reference_name:name,content:v}).then(function(){el("pm-cmt-input").value="";loadComments(name);btn.disabled=false;btn.textContent="Gửi";}).catch(function(e){toast("Lỗi gửi bình luận: "+errOf(e),true);btn.disabled=false;btn.textContent="Gửi";});};
@@ -1686,7 +1685,7 @@
         pmFieldInput("Nhãn",'<div id="nt-labels"></div>')+ /* G5.2 §B shared picker */
         '<div style="display:flex;gap:8px;margin-top:10px"><button class="pm-btn primary" id="nt-create" style="flex:1;justify-content:center"><svg class="icon icon-sm"><use href="#p-plus"/></svg> <span id="nt-create-lbl">Tạo nhiệm vụ</span></button><button class="pm-btn" id="nt-cancel">Huỷ</button></div>';
       _niFix(c);
-      function loadParents(pre){api(PM+"tasks.list",{project:el("nt-project").value,page_length:200}).then(function(d){el("nt-parent").innerHTML='<option value="">— Không —</option>'+(d.rows||[]).map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.subject||t.name)+'</option>';}).join("");if(pre)el("nt-parent").value=pre;}).catch(function(){});}
+      function loadParents(pre){api(PM+"tasks.list",{project:el("nt-project").value,page_length:200}).then(function(d){el("nt-parent").innerHTML='<option value="">— Không —</option>'+(d.rows||[]).filter(function(t){return !t.parent_task;}).map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.subject||t.name)+'</option>';}).join("");if(pre)el("nt-parent").value=pre;}).catch(function(){});}
       el("nt-project").onchange=function(){loadParents();}; loadParents(parentTask);
       pmLabelPicker(el("nt-labels"),{labels:labels,selected:[]}); /* G5.2 §B shared picker */
       pmEmailChips(el("nt-assignee"),{placeholder:"Nhập email và nhấn Enter",max:(opts.mode==="request"&&!parentTask)?1:1e9,onChange:function(){updateAsgState();}}); /* G5.2 fix: multi-assignee */

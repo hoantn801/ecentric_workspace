@@ -75,7 +75,7 @@ def _html():
 # values, so a repo snapshot can never silently revert a live edit. Deliberate
 # update = edit main_section.html, bump this constant, and move the value it
 # replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "60233a2a8399c2ba330fb6c640c83c2c15c7fdc198bbb0813aeb2715703d12bb"
+BASELINE_SHA256 = "04ca8c056688321d646234fb5eab353252260f05c71c8f5eccec814dd508682a"
 
 # Live values this snapshot is allowed to overwrite. C4b was authored in the
 # repo, not on the site, so at deploy time live still holds the #138 bytes
@@ -114,6 +114,16 @@ SUPERSEDES_SHA256 = (
     # yeu cau fb#4, khong lien quan den loai phi. Live team.ecentric.vn da duoc ghi
     # thang len BASELINE_SHA256 cung ngay nen sync dau tien o do tra ve "unchanged".
     "52028d811c5cf18f705c062c8cc020f0ce16f5f0a2cdc47d63f3ef82d17504cf",  # pre-mso-fb-2
+    # pre-mso-webform-resubmit bytes: ban repo truoc 2026-08-05, khi nut
+    # "Sua & Submit lai" cua MSO con tro sang Desk form /desk/mso/<id> (giao dien
+    # thô, khac han luc gui). Ban nay them khoa `webForm: '/mso-plan-form'` vao
+    # EC_SB_CFG['mso'] va cho resubmitUrl() uu tien CFG.webForm, nen MSO ve
+    # /mso-plan-form?edit=<id> giong cach GBS SO/PO dang lam. CO Y GIU
+    # `native: true` cho MSO: co `native` con quyet dinh viec doc du lieu qua
+    # get_ticket_detail va viec khong co bang approval_history -- chi rieng dich
+    # cua nut resubmit doi. Live team.ecentric.vn da duoc ghi thang len
+    # BASELINE_SHA256 cung ngay nen sync dau tien o do tra ve "unchanged".
+    "60233a2a8399c2ba330fb6c640c83c2c15c7fdc198bbb0813aeb2715703d12bb",  # pre-mso-webform-resubmit
 )
 
 

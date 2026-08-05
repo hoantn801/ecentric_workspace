@@ -43,7 +43,7 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "eb68eb4c4e7e9fcc6b5a0f8b4bc68a18e6dd79a1818c322c8fea2aa0c99ebc29"
+BASELINE_SHA256 = "019d95118ea5c98cc06139080a8049b6647a3a1819bfa4a479663af49eb4555f"
 SUPERSEDES_SHA256 = (
     # bytes ban dau khi repo-hoa trang nay (#61). Live tren team.ecentric.vn da
     # duoc ghi thang len BASELINE_SHA256 ngay 2026-08-04 (round feedback MSO 1:
@@ -188,6 +188,18 @@ SUPERSEDES_SHA256 = (
     # "/approval?id=<ten>&type=mso" (type "mso" da duoc /approval ho tro san).
     # Live team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay.
     "815fb053b79f94350ebd9b0b88165471ea74a57e39691d847dbe5cc987a53be8",  # pre-redirect-after-submit
+    # pre-edit-mode bytes: ban repo truoc khi form co CHE DO SUA (2026-08-05).
+    # Truoc do /mso-plan-form chi biet TAO MOI, nen nut "Sua & Submit lai" tren
+    # trang /approval bat buoc phai nem nguoi dung sang Desk form /desk/mso/<id>.
+    # Ban nay them ?edit=<MSO-ID>: doc chung tu qua get_ticket_detail, doc tep da
+    # dinh kem qua ec_mso_thread, khoa Brand + Thang (vi autoname
+    # "format:MSO-{month}-{brand}" khong doi ten ban ghi duoc), PUT thay vi POST,
+    # va chon action workflow "Resubmit" khi dang o Rejected. Trang thai khac
+    # Draft/Rejected thi hien banner do va khoa nut gui (workflow "MSO Approval"
+    # dat allow_edit = "System Manager" cho moi buoc Pending). Combobox
+    # ec-mso-searchable-dropdowns cung duoc day de ton trong <select disabled>.
+    # Live team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay.
+    "eb68eb4c4e7e9fcc6b5a0f8b4bc68a18e6dd79a1818c322c8fea2aa0c99ebc29",  # pre-edit-mode
 )
 
 

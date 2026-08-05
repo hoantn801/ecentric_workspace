@@ -3883,11 +3883,17 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
   //      thang bang native se bi chan quyen.
   //   2. Khong co bang approval_history — moc thoi gian/nguoi gui lai doc tu
   //      nhat ky duyet (ec_approval_log).
-  //   3. Khong co web form sua SO/PO — nut "Sửa & Submit lại" tro ve Desk form.
+  //   3. Nut "Sửa & Submit lại": loai nao co web form sua thi ve web form,
+  //      con lai moi ve Desk form (xem `webForm` va resubmitUrl() ben duoi).
+  // 2026-08-05: `native` va `webForm` la HAI viec khac nhau — dung gop lam mot.
+  // `native: true` con quyet dinh viec doc du lieu qua get_ticket_detail va viec
+  // khong co bang approval_history; MSO van la doctype native nen phai giu
+  // `native: true`, chi rieng dich cua nut "Sửa & Submit lại" doi sang web form
+  // /mso-plan-form?edit=<id> (form nay da co che do sua tu 2026-08-05).
   var EC_SB_CFG = {
     'gbs_so': { doctype: 'GBS Sales Order',    form: '/gbs-so-form-v2', native: false },
     'gbs_po': { doctype: 'GBS Purchase Order', form: '/gbs-po-form-v2', native: false },
-    'mso':    { doctype: 'MSO',                form: '/app/mso',             native: true },
+    'mso':    { doctype: 'MSO',                form: '/app/mso',             native: true, webForm: '/mso-plan-form' },
     'so':     { doctype: 'Sales Order',        form: '/app/sales-order',     native: true },
     'po':     { doctype: 'Purchase Order',     form: '/app/purchase-order',  native: true }
   };
@@ -3902,6 +3908,8 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
   var docData = null;
 
   function resubmitUrl(){
+    // Co web form sua -> luon uu tien, ke ca doctype native (MSO).
+    if (CFG.webForm) return CFG.webForm + '?edit=' + encodeURIComponent(ticketId);
     if (IS_NATIVE) return FORM_ROUTE + '/' + encodeURIComponent(ticketId);
     return FORM_ROUTE + '?edit=' + encodeURIComponent(ticketId);
   }
