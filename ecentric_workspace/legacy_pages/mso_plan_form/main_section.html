@@ -1081,7 +1081,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 })();
 </script>
 <script id="ec-mso-searchable-dropdowns">
-// ec-mso-searchable-dropdowns v2 -- 2026-08-05
+// ec-mso-searchable-dropdowns v3 -- 2026-08-05
 // Thay <select> nguyen ban bang combobox co o tim kiem, dung DUNG mau UI/UX cua
 // /gbs-so-form-v2 va /gbs-po-form-v2 (script `ec-gbs-searchable-dropdowns`).
 // Ap dung cho: #brand (Thong tin chung) va 3 cot Team / Nhom / Khoan muc trong
@@ -1098,6 +1098,17 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 //    1024px) cat cut. Tu lat len tren khi thieu cho ben duoi.
 //  - Chu bi cat ngang thi hover ra tooltip day du (title).
 //
+// v3 (feedback round 3c): cach sua "mo" o v2 KHONG an -- o van bi to xam. Ly do
+//  that su: chinh trang nay, khoi "Phase 8.14", co rule
+//      #ec-shell .f-control[readonly] { background:#f3f4f6 !important;
+//        color:#9ca3af !important; cursor:not-allowed !important;
+//        border-style:dashed !important }
+//  vua co #id vua co !important, nen ghi de bang selector class thuong (du dai
+//  hon) van thua. Thay vi chong !important, v3 bo han goc re: o hien thi doi tu
+//  <input readonly> sang <button type="button">. Khong con thuoc tinh readonly
+//  thi rule tren khong khop nua, ca khoi CSS tro lai binh thuong, va nut cung
+//  bam / focus bang ban phim tot hon input readonly.
+//
 // LUU Y: file nay la ES5 (var / function) -- giu dung style cua trang goc.
 (function () {
   'use strict';
@@ -1110,16 +1121,17 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     st.id = 'ec-mso-searchable-css';
     st.textContent = [
       '.ec-cb { position: relative; }',
-      '.ec-cb .ec-cb-display { cursor: pointer; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; padding-right: 28px; background-image: none !important; }',
-      // .f-control[readonly] to o nay thanh xam (background var(--bg) + color
-      // var(--muted)) -- dung cho o that su khong nhap duoc, nhung o nay CHON
-      // duoc nen phai tra lai mau binh thuong.
-      '.ec-cb .ec-cb-display[readonly] { background: var(--surface, #fff); color: var(--text, #1f2340); cursor: pointer; }',
-      '.ec-cb .ec-cb-display[readonly]:hover { border-color: #b0b6cc; }',
-      '.ec-cb .ec-cb-display[readonly]:focus { border-color: var(--navy, #1a2355); box-shadow: 0 0 0 3px var(--navy-light, rgba(26,35,85,.06)); }',
+      // v3: o hien thi la <button type="button">, KHONG con thuoc tinh readonly.
+      // v2 dung <input readonly> nen dinh rule cua khoi "Phase 8.14" ngay trong
+      // trang nay:
+      //     #ec-shell .f-control[readonly] { background:#f3f4f6 !important;
+      //       color:#9ca3af !important; border-style:dashed !important; ... }
+      // Rule do co ca #id lan !important nen moi ghi de bang class deu thua ->
+      // o da chon van bi to xam. Bo han thuoc tinh readonly thi rule do khong
+      // con khop nua, khong phai dung !important o day.
+      '.ec-cb .ec-cb-display { display: block; width: 100%; text-align: left; cursor: pointer; font-family: inherit; line-height: normal; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; padding-right: 28px; background-image: none; }',
       // chua chon -> xam nhu placeholder
-      '.ec-cb .ec-cb-display[readonly].ec-empty { color: var(--muted2, #a0a6bf); }',
-      '.ec-cb .ec-cb-display::placeholder { color: var(--muted2, #a0a6bf); }',
+      '.ec-cb .ec-cb-display.ec-empty { color: var(--muted2, #a0a6bf); }',
       '.ec-cb-arrow { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); color: var(--muted, #7b82a0); pointer-events: none; font-size: 9px; }',
       // position:fixed -> khong bi to tien overflow (.bl-wrap) cat
       '.ec-cb-panel { position: fixed; background: #fff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 99999; max-height: 320px; display: flex; flex-direction: column; overflow: hidden; }',
@@ -1172,11 +1184,11 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 
     var wrap = document.createElement('div');
     wrap.className = 'ec-cb';
-    var display = document.createElement('input');
-    display.type = 'text';
-    display.readOnly = true;
+    var display = document.createElement('button');
+    display.type = 'button'; // trong form -> phai bao type de khong submit
     display.className = 'f-control ec-cb-display ec-empty';
-    display.placeholder = basePlaceholder;
+    var curPlaceholder = basePlaceholder;
+    display.textContent = curPlaceholder;
     var arrow = document.createElement('span');
     arrow.className = 'ec-cb-arrow';
     arrow.textContent = '▼';
@@ -1213,9 +1225,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       var v = selectEl.value, opt = null;
       // placeholder cua .bl-cat doi theo Nhom -> cap nhat lai moi lan sync
       var f = selectEl.options.length ? selectEl.options[0] : null;
-      if (f && isPlaceholder(f) && f.text) display.placeholder = f.text;
+      if (f && isPlaceholder(f) && f.text) curPlaceholder = f.text;
       if (!v) {
-        display.value = '';
+        display.textContent = curPlaceholder;
         display.title = '';
         display.classList.add('ec-empty');
         return;
@@ -1224,7 +1236,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         if (selectEl.options[i].value === v) { opt = selectEl.options[i]; break; }
       }
       var txt = opt ? (opt.text || opt.value) : v;
-      display.value = txt;
+      display.textContent = txt;
       display.title = txt; // chu bi cat ngang -> hover ra day du
       display.classList.remove('ec-empty');
     }
@@ -1380,6 +1392,6 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
-  console.log('[ec-mso-searchable-dropdowns] v2 installed');
+  console.log("[ec-mso-searchable-dropdowns] v3 installed");
 })();
 </script><!-- /ec-mso-searchable-dropdowns -->
