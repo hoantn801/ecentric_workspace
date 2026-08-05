@@ -2281,6 +2281,36 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var leaderEmail = (opt && opt.dataset.leaderEmail) || '';
     var recipe = (opt && opt.dataset.gbsRecipe) || 'GBS Finance Only (1 level)';
 
+    // 2026-08-06 FIX 3: che do "Brand truc tiep" ghi thang SO vao so EC, di theo
+    // Workflow "EC SO Approval" cua site (dang bat): voi ec_channel != "GBS" thi
+    // Draft -> Pending Manager -> Pending Finance -> Pending HOF -> Pending CEO ->
+    // Approved, tuc 4 cap. Khung xem truoc nay truoc day luon ve theo recipe cua so
+    // GBS (ca 11 brand deu la "GBS Finance Only (1 level)") nen so EC hien ra 1 cap,
+    // sai voi luong duyet that. Chi doi nhanh direct; nhanh GBS giu nguyen.
+    if (window.EC_SO_MODE === 'direct') {
+      var lk = window.EC_SO_LKI || {};
+      var ecLevels = [
+        {role: 'Manager', email: '(quản lý trực tiếp)'},
+        {role: 'Finance', email: lk.finance_email || '(EC Finance)'},
+        {role: 'HOF',     email: lk.hof_email || '(EC HOF)'},
+        {role: 'CEO',     email: lk.ceo_email || '(EC CEO)'}
+      ];
+      meta.innerHTML = '<strong>Form:</strong> SO sổ EC &middot; <strong>Dept:</strong> ' + deptVal
+        + ' &middot; <strong>Brand:</strong> ' + brandVal
+        + '<div style="font-size:11px;color:#6b7280;margin-top:4px">Luồng: EC SO Approval (4 cấp)</div>';
+      var ecHtml = '';
+      ecLevels.forEach(function (l, i) {
+        ecHtml += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f3f4f6">';
+        ecHtml += '<div style="background:#2C3DA6;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">' + (i + 1) + '</div>';
+        ecHtml += '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600;color:#111827">L' + (i + 1) + ' — ' + l.role + '</div>';
+        ecHtml += '<div style="font-size:11.5px;color:#6b7280;margin-top:2px">' + l.email + '</div></div></div>';
+      });
+      ecHtml += '<div style="padding:10px 0 4px;font-size:11px;color:#6b7280">Brand: ' + brandName + '</div>';
+      ecHtml += '<span id="ecChainMark" style="display:none"></span>';
+      body.innerHTML = ecHtml;
+      return;
+    }
+
     meta.innerHTML = '<strong>Form:</strong> ' + FORM_LABEL + ' &middot; <strong>Dept:</strong> ' + deptVal + ' &middot; <strong>Brand:</strong> ' + brandVal + '<div style="font-size:11px;color:#6b7280;margin-top:4px">Recipe: ' + recipe + '</div>';
 
     var levels = [];
@@ -2308,6 +2338,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     body.innerHTML = html;
   }
 
+  window._gbsRenderChain = renderGbsChain;   // 2026-08-06: block EC goi lai khi doi mode
+
   function hookGbs() {
     var brand = document.getElementById('brand');
     var dept = document.getElementById('department');
@@ -2322,7 +2354,11 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       var body = document.getElementById('cpBody');
       if (!body) return;
       var has4Level = body.innerHTML.indexOf('L2 ') >= 0 && body.innerHTML.indexOf('L3 ') >= 0 && body.innerHTML.indexOf('Brand leader') >= 0;
-      if (has4Level) renderGbsChain();
+      if (has4Level) { renderGbsChain(); return; }
+      // 2026-08-06: o che do so EC, script goc co the ve de len khung 4 cap cua EC.
+      // Thieu diem danh dau #ecChainMark = da bi ghi de -> ve lai.
+      if (window.EC_SO_MODE === 'direct' && brand.value && dept.value
+          && !document.getElementById('ecChainMark')) renderGbsChain();
     }, 800);
     enhanceBrandOptions();
   }
@@ -3094,7 +3130,11 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var ql = (query || '').toLowerCase().trim();
     visibleItems = [];
     if (items.length === 0) {
-      p.innerHTML = '<div class="ec-ic-empty">Chưa có items (chờ load từ boxme...)</div>';
+      // 2026-08-06: so EC khong lay item tu boxme (dung master Item cua EC qua
+      // ec_so_lookups) nen dong chu "cho load tu boxme" o che do nay la sai.
+      p.innerHTML = '<div class="ec-ic-empty">' + (window.EC_SO_MODE === 'direct'
+        ? 'Đang tải danh mục khoản mục sổ EC...'
+        : 'Chưa có items (chờ load từ boxme...)') + '</div>';
       activeIdx = -1;
       return;
     }
@@ -5368,6 +5408,12 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
           o.textContent = label;
           storeSel.appendChild(o);
         });
+        // 2026-08-06: giu lai danh sach store goc cua boxme de che do "Brand truc
+        // tiep" (so EC) co the doi sang danh sach san Shopee/Lazada/TikTok/Khac roi
+        // TRA LAI nguyen ven khi quay ve che do GBS. Chi la luu tru, khong doi gi
+        // cua nhanh GBS.
+        window._ecBoxmeStores = (m.stores || []).slice();
+        try { if (typeof window._ecSyncStoreOptions === 'function') window._ecSyncStoreOptions(); } catch (_e) {}
       }
 
       var plSel = document.getElementById('ec-price-list');
@@ -6191,6 +6237,20 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     // 2026-08-05: tran ngan sach tinh theo team -> doi team phai tinh lai note
     var dep0 = $id('department');
     if (dep0) dep0.addEventListener('change', refreshMso);
+    // 2026-08-06 FIX 1: truoc day chi dua vao su kien 'change' cua Brand/Thang.
+    // Brand duoc dien BANG CODE (loadBrands + window._pendingBrand khi khoi phuc
+    // nhap, hoac setMode) thi KHONG co su kien 'change' nao ban ra -> o "MA MSO"
+    // dung yen o trang thai rong du MSO da duyet ton tai. Theo doi thang gia tri
+    // cua 3 o thay vi cho su kien: doi la goi lai ec_so_budget_check.
+    var _msoWatchKey = null;
+    setInterval(function(){
+      var k = (($id('brand')||{}).value||'') + '|'
+            + (($id('ecUniMonth')||{}).value||'') + '|'
+            + (($id('department')||{}).value||'');
+      if (k === _msoWatchKey) return;
+      _msoWatchKey = k;
+      refreshMso();
+    }, 600);
     refreshMso();
   }
 
@@ -6307,9 +6367,51 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     if (m!=='direct' && $id('ecExtSvc')){ $id('ecExtSvc').checked=false; syncExt(); }
     else if (m==='direct') syncExt();
     syncItemUi();
+    syncStoreOptions();    // 2026-08-06: so EC dung danh sach san, so GBS dung boxme
     syncSoJust();          // 2026-08-04: o giai trinh chi thuoc mode direct
     refreshMso();
+    // 2026-08-06 FIX 3: khung xem truoc chain o sidebar duoc ve boi block
+    // gbs_chain_override_v2 (IIFE rieng, khong thay bien MODE). Bao mode qua window
+    // de no biet dang o so EC hay so GBS.
+    window.EC_SO_MODE = m;
+    try { if (typeof window._gbsRenderChain === 'function') window._gbsRenderChain(); } catch (_e) {}
   }
+
+  // ---- 2026-08-06 FIX 5: store cho so EC ----------------------------------
+  // So EC co brand ban truc tiep (BBT-VN Bong Bach Tuyet, FES-VN Cafepho, HNW-VN
+  // Honeywell) — nhung brand nay khong co ban ghi Store ben GBS/boxme nen dropdown
+  // "Store (Platform)" rong. So EC khong can chi tiet tung gian hang nhu GBS, chi
+  // can biet ban tren san nao. Dung CHUNG o #ec-store (khong tao o moi) de moi thu
+  // dua vao no — rang buoc bat buoc luc submit, payload ec_store, viec chuyen o len
+  // "Thong tin chung" — deu chay nguyen nhu cu.
+  var EC_DIRECT_STORES = ['Shopee', 'Lazada', 'TikTok', 'Khác'];
+  function syncStoreOptions(){
+    var sel = $id('ec-store');
+    if (!sel) return;
+    var want = (MODE === 'direct') ? 'direct' : 'gbs';
+    if (sel.getAttribute('data-ec-store-mode') === want) return;
+    if (want === 'gbs' && !window._ecBoxmeStores) return;   // boxme chua tai xong -> de yen
+    var keep = sel.value;
+    var html = '<option value="">-- Chọn store --</option>';
+    if (want === 'direct'){
+      EC_DIRECT_STORES.forEach(function(s){
+        html += '<option value="' + s + '">' + s + '</option>';
+      });
+    } else {
+      (window._ecBoxmeStores || []).forEach(function(s){
+        var parts = [];
+        if (s.store_name) parts.push(s.store_name);
+        if (s.customer)   parts.push(s.customer);
+        if (s.channel)    parts.push(s.channel);
+        html += '<option value="' + s.name + '">' + s.name + (parts.length ? ' — ' + parts.join(', ') : '') + '</option>';
+      });
+    }
+    sel.innerHTML = html;
+    sel.setAttribute('data-ec-store-mode', want);
+    sel.value = keep;                      // gia tri cu con trong danh sach moi thi giu
+    if (sel._ecCbSync) sel._ecCbSync();
+  }
+  window._ecSyncStoreOptions = syncStoreOptions;
 
   // ---- EC lookups ----
   function loadMap(){
@@ -6317,6 +6419,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       .then(function(r){ return r.json(); })
       .then(function(j){
         LKI = (j && j.message) || {};
+        window.EC_SO_LKI = LKI;   // 2026-08-06: block chain o sidebar can hof_email/ceo_email
+        try { if (typeof window._gbsRenderChain === 'function') window._gbsRenderChain(); } catch (_e) {}
         (LKI.items||[]).forEach(function(it){
           EC_ITEMS[it.item_code] = it;
         });
@@ -6330,7 +6434,15 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
           return '<option value="'+c.name+'">'+c.name+' — '+(c.party_name||'')+'</option>';
         }).join('');
         ecCb(selC, '-- Chọn khách hàng --');
-        ecCb(sel, '-- Chọn hợp đồng --');
+        // 2026-08-06 FIX 2: doctype Contract dang RONG (0 ban ghi) nen dropdown chi
+        // co dung 1 option trong -> ec-cb ve ra thanh xam khong chu, nhin nhu loi.
+        // Noi thang la chua co hop dong thay vi de trong.
+        ecCb(sel, ((LKI.contracts||[]).length ? '-- Chọn hợp đồng --' : 'Chưa có hợp đồng nào trên hệ thống'));
+        // 2026-08-06 FIX 5: danh sach store cho so EC. Brand truc tiep (BBT-VN,
+        // FES-VN, HNW-VN...) khong co store ben GBS nen dropdown boxme rong.
+        // So EC chi can san: Shopee / Lazada / TikTok / Khac.
+        window._ecBoxmeStores = window._ecBoxmeStores || null;
+        syncStoreOptions();
       }).catch(function(){});
   }
 
