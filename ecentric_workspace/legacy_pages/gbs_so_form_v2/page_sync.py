@@ -43,11 +43,22 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "ad8f81ea40a4b6a943c481d04e77bffcb2f259beb3b64118712eea3e7d1b5aab"
+BASELINE_SHA256 = "5762d691ccf31e77810a09e6824b38f74c9f46a687ff84fd8dfaac513bfdede2"
 SUPERSEDES_SHA256 = (
     "252629aa972b5b2c1a18986fb424bb9dfcf526e53d36151ca80b54818f889665",
     "01da088994cd5c4479d83b47b7f59b74989cc3721d39554a979de3f01abb6efc",
     "894d84f7d03ce39664b6edbd319d3803bace6ae3431ed6b907898d11c41d4ed5",
+    # bytes truoc khi SIET NGAN SACH THEO TEAM (2026-08-05). Truoc do o ngan sach
+    # tren form goi /api/method/ec_so_budget_check chi voi {brand, month} nen so
+    # hien ra la tong CA BRAND, trong khi ec_so_before_save v11 da chuyen sang
+    # cong tran tu cac dong `MSO Budget Line` cua DUNG team -> man hinh va ket
+    # luan luc luu lech nhau. Ban nay gui them team (lay tu #department, chi
+    # nhanh MODE==='direct'; nhanh 'gbsrev' giu nguyen brand-wide), in ten team
+    # vao dong note xanh va vao cau giai trinh khi vuot tran, va them listener
+    # 'change' tren #department goi refreshMso() -- truoc day doi team khong
+    # tinh lai ngan sach. Live team.ecentric.vn da duoc ghi thang len
+    # BASELINE_SHA256 cung ngay nen sync dau tien o do tra ve "unchanged".
+    "ad8f81ea40a4b6a943c481d04e77bffcb2f259beb3b64118712eea3e7d1b5aab",  # pre-team-budget
 )
 
 
