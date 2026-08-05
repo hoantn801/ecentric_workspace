@@ -43,7 +43,7 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "11c71d930fd836b22150b27cae7fc8261a5d36f2905c4e90f3b69e963ccf61d9"
+BASELINE_SHA256 = "a3589bd4e64ffb97f62a9771a52374093567d20dd596dcd220ab7d20f6301196"
 SUPERSEDES_SHA256 = (
     # bytes ban dau khi repo-hoa trang nay (#61). Live tren team.ecentric.vn da
     # duoc ghi thang len BASELINE_SHA256 ngay 2026-08-04 (round feedback MSO 1:
@@ -91,6 +91,21 @@ SUPERSEDES_SHA256 = (
     # thang len BASELINE_SHA256 cung ngay nen sync dau tien o do tra ve
     # "unchanged".
     "9afb4ae3369be56ccd368ba5f246de5d4bef317f8e634351377573368c7a74b2",  # mso-fb-3 v1
+    # bytes cua ban combobox v2 (2026-08-05, cung ngay). v2 van chua het loi "o
+    # bi to xam": v2 gan class f-control cho o hien thi (de .field.has-error
+    # .f-control cua validate() con chay) va ghi de mau bang selector class
+    # .ec-cb .ec-cb-display[readonly]. Nhung chinh trang nay, khoi "Phase 8.14 --
+    # Form polish fixes", co rule
+    #     #ec-shell .f-control[readonly] { background:#f3f4f6 !important;
+    #       color:#9ca3af !important; cursor:not-allowed !important;
+    #       border-style:dashed !important }
+    # vua co #id vua co !important -> moi selector class deu thua, o DA CHON van
+    # xam + vien dut. v3 khong leo thang !important ma bo goc re: o hien thi doi
+    # tu <input readonly> sang <button type="button">, khong con thuoc tinh
+    # readonly nen rule tren khong con khop; .value/.placeholder doi sang
+    # .textContent + bien curPlaceholder. Live team.ecentric.vn da duoc ghi thang
+    # len BASELINE_SHA256 cung ngay nen sync dau tien o do tra ve "unchanged".
+    "11c71d930fd836b22150b27cae7fc8261a5d36f2905c4e90f3b69e963ccf61d9",  # mso-fb-3 v2
 )
 
 
