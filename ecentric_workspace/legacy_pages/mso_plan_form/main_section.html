@@ -716,17 +716,28 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   }
   function prefillTemplate() {
     var defs = LK.item_defaults || [];
-    if (!defs.length) { addRow(); return; }
     var tb = $('blBody');
-    var teams = LK.teams.concat(['']);
-    teams.forEach(function (team) {
-      var mine = defs.filter(function (d) { return (d.ec_mso_team || '') === team; });
-      if (!mine.length) return;
+    // 2026-08-05: dung hang tieu de cho TAT CA team trong LK.teams, ke ca team
+    // chua co khoan muc mac dinh nao (Merchandise, Operation, HR, Finance...).
+    // Tu khi bo cot Team (v5), team nao khong co hang tieu de thi KHONG CO cach
+    // nao cap ngan sach cho team do nua; ma ngan sach gio siet theo team nen
+    // tran cua ho = 0 -> moi SO deu Out of Budget + bat giai trinh. Team khong
+    // dung thi cu de trong, dong trong/0 tu bo qua khi gui.
+    (LK.teams || []).forEach(function (team) {
       tb.insertAdjacentHTML('beforeend', '<tr class="bl-teamhead" data-team="' + esc(team) + '">' + headHtml(team) + '</tr>');
-      mine.forEach(function (d) {
-        addRow({ team: team, group: d.item_group, cat: d.item_code });
-      });
+      defs.filter(function (d) { return (d.ec_mso_team || '') === team; })
+        .forEach(function (d) {
+          addRow({ team: team, group: d.item_group, cat: d.item_code });
+        });
     });
+    // nhom "Khac" (team rong) chi dung khi that su co khoan muc mac dinh khong
+    // gan team -- khong tu bay ra mot hang tieu de rong.
+    var orphan = defs.filter(function (d) { return !(d.ec_mso_team || ''); });
+    if (orphan.length) {
+      tb.insertAdjacentHTML('beforeend', '<tr class="bl-teamhead" data-team="">' + headHtml('') + '</tr>');
+      orphan.forEach(function (d) { addRow({ team: '', group: d.item_group, cat: d.item_code }); });
+    }
+    if (!document.querySelectorAll('#blBody tr.bl-teamhead').length) addRow();
     recompute();
   }
   document.addEventListener('change', function (e) {

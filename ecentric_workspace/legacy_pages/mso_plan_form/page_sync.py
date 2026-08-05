@@ -43,7 +43,7 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "c642c7847d6a042e3fd6f08795272f64cf10b7596a7ce43b9618a1b6ec9b6f2d"
+BASELINE_SHA256 = "6a4aff420f931cbf3b24f7094c673bd79988f4d28b27fcd10dd237179cd7d9f3"
 SUPERSEDES_SHA256 = (
     # bytes ban dau khi repo-hoa trang nay (#61). Live tren team.ecentric.vn da
     # duoc ghi thang len BASELINE_SHA256 ngay 2026-08-04 (round feedback MSO 1:
@@ -131,6 +131,22 @@ SUPERSEDES_SHA256 = (
     # dong o nhom "Khac". Live team.ecentric.vn da duoc ghi thang len
     # BASELINE_SHA256 cung ngay nen sync dau tien o do tra ve "unchanged".
     "4871550ecf514c2675185822f4d41506cec395c2bc53d4706b47c61d59aafa9e",  # mso-fb-3 v4
+    # bytes cua ban v5 (2026-08-05, cung ngay). v5 bo cot Team nen team cua mot
+    # dong hoan toan do hang tieu de quyet dinh -- nhung prefillTemplate() chi
+    # dung hang tieu de cho team NAO CO item mac dinh (ec_mso_default), tren live
+    # la 4 team: Media 3, Service 3, E-commerce Operation 2, Production 1. Bon
+    # team con lai (Merchandise Content & Design / Operation Data & System / HR /
+    # Finance & Accounting) khong co hang tieu de nao -> khong con cach nao cap
+    # ngan sach cho ho. Cong voi ec_so_before_save v11 (siet tran theo team) thi
+    # tran cua 4 team do = 0 va moi SO cua ho deu Out of Budget + bat giai trinh.
+    # v6 dung hang tieu de cho DU 8 team trong LK.teams ke ca team chua co khoan
+    # muc mac dinh; team khong dung thi de trong, dong trong/0 tu bo qua khi gui.
+    # Nhom "Khac" (team rong) chi hien khi that su co item mac dinh khong gan
+    # team, khong con tu bay ra mot hang tieu de rong. cleanupHeads() giu san
+    # hang tieu de cua team nam trong LK.teams nen 8 hang nay khong bi don di.
+    # Live team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay nen
+    # sync dau tien o do tra ve "unchanged".
+    "c642c7847d6a042e3fd6f08795272f64cf10b7596a7ce43b9618a1b6ec9b6f2d",  # mso-fb-3 v5
 )
 
 
