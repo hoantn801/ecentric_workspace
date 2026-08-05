@@ -405,7 +405,12 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 }
 </style>
 <style id="ec-mso-plan-css">
-.bl-table{width:100%;border-collapse:collapse;font-size:13px}
+/* table-layout:fixed -> be rong cot lay dung theo % khai o <th>, noi dung ben
+   trong khong con keo gian cot duoc nua. Truoc day o hien thi cua combobox la
+   <input> (be rong noi tai nho) nen bang tu can bang; tu khi doi sang <button>
+   thi be rong noi tai = do dai chu, cot "Khoan muc" phinh ra va day cot Amount
+   / Ghi chu tran ra ngoai. Chu dai bi cat da co ellipsis + tooltip khi ro chuot. */
+.bl-table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
 .bl-table th{background:#f8f7f4;text-align:left;padding:8px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#6b6b6b;border-bottom:2px solid #e8e5df;white-space:nowrap}
 .bl-table td{padding:6px 6px;border-bottom:1px solid #efede8;vertical-align:top}
 .bl-teamhead td{background:#f2f0ea;font-weight:700;font-size:12px;letter-spacing:.4px;color:#4a4a4a;padding:8px 10px;border-bottom:1px solid #e2ded6}
@@ -497,11 +502,11 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         <table class="bl-table">
           <thead>
             <tr>
-              <th style="width:17%">Team</th>
-              <th style="width:17%">Nh&#243;m</th>
-              <th style="width:28%">Kho&#7843;n m&#7909;c</th>
-              <th style="width:20%">Amount (VND, +VAT)</th>
-              <th style="width:15%">Ghi ch&#250;</th>
+              <th style="width:15%">Team</th>
+              <th style="width:15%">Nh&#243;m</th>
+              <th style="width:32%">Kho&#7843;n m&#7909;c</th>
+              <th style="width:18%">Amount (VND, +VAT)</th>
+              <th style="width:17%">Ghi ch&#250;</th>
               <th style="width:3%"></th>
             </tr>
           </thead>

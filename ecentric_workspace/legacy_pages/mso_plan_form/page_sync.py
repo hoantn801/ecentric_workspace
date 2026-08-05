@@ -43,7 +43,7 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "a3589bd4e64ffb97f62a9771a52374093567d20dd596dcd220ab7d20f6301196"
+BASELINE_SHA256 = "4871550ecf514c2675185822f4d41506cec395c2bc53d4706b47c61d59aafa9e"
 SUPERSEDES_SHA256 = (
     # bytes ban dau khi repo-hoa trang nay (#61). Live tren team.ecentric.vn da
     # duoc ghi thang len BASELINE_SHA256 ngay 2026-08-04 (round feedback MSO 1:
@@ -106,6 +106,18 @@ SUPERSEDES_SHA256 = (
     # .textContent + bien curPlaceholder. Live team.ecentric.vn da duoc ghi thang
     # len BASELINE_SHA256 cung ngay nen sync dau tien o do tra ve "unchanged".
     "11c71d930fd836b22150b27cae7fc8261a5d36f2905c4e90f3b69e963ccf61d9",  # mso-fb-3 v2
+    # bytes cua ban combobox v3 (2026-08-05, cung ngay). v3 chua het xam nhung
+    # de lo mot he qua: bang .bl-table dung table-layout mac dinh (auto), be rong
+    # cot phu thuoc noi dung. O hien thi cu la <input> nen be rong noi tai nho,
+    # bang tu can bang; doi sang <button> thi be rong noi tai = do dai chu, cot
+    # "Khoan muc" (REV_MKT_PACKAGES -- Goi Marketing TMDT (GBS thu brand)...)
+    # phinh ra va day 2 cot Amount / Ghi chu tran ra ngoai khung. v4 dat
+    # table-layout:fixed cho .bl-table -- be rong lay dung theo % da khai san o
+    # <th> -- va can lai ty le cot 15/15/32/18/17/3 cho khop noi dung that. Chu
+    # dai bi cat da co ellipsis + tooltip khi ro chuot san tu v2. Live
+    # team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay nen sync
+    # dau tien o do tra ve "unchanged".
+    "a3589bd4e64ffb97f62a9771a52374093567d20dd596dcd220ab7d20f6301196",  # mso-fb-3 v3
 )
 
 
