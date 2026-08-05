@@ -505,10 +505,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         <table class="bl-table">
           <thead>
             <tr>
-              <th style="width:17%">Nh&#243;m</th>
-              <th style="width:40%">Kho&#7843;n m&#7909;c</th>
-              <th style="width:20%">Amount (VND, +VAT)</th>
-              <th style="width:20%">Ghi ch&#250;</th>
+              <th style="width:52%">Kho&#7843;n m&#7909;c</th>
+              <th style="width:22%">Amount (VND, +VAT)</th>
+              <th style="width:23%">Ghi ch&#250;</th>
               <th style="width:3%"></th>
             </tr>
           </thead>
@@ -630,30 +629,44 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   }
   function headHtml(team) {
     var label = team || 'Khác';
-    return '<td colspan="5"><div class="bl-teamhead-in">' +
+    return '<td colspan="4"><div class="bl-teamhead-in">' +
       '<span>' + esc(label) + '</span>' +
       '<button type="button" class="bl-team-add" data-team="' + esc(team) + '" title="Thêm dòng cho ' + esc(label) + '">+ Thêm dòng</button>' +
       '</div></td>';
   }
+  // 2026-08-05: BO cot "Nhom" khoi bang. Nhom (Chi phi hoat dong / Phi agency EC)
+  // da duoc quy dinh san o Item (item_group) nen bat nguoi nhap chon lai la thua
+  // va de chon sai. Dropdown "Khoan muc" gio gom CA HAI nhom; nhom cua dong duoc
+  // suy ra tu khoan muc da chon va ghi vao o an .bl-group -- readRows() /
+  // recompute() / payload() doc y nguyen, khong phai sua.
+  var GRP_OF = {};   // item_code -> category_group
+  function buildGrpOf() {
+    GRP_OF = {};
+    (LK.items_ops || []).forEach(function (i) { GRP_OF[i.item_code] = GRP_OPS; });
+    (LK.items_fee || []).forEach(function (i) { GRP_OF[i.item_code] = GRP_FEE; });
+  }
+  function syncRowGroup(tr) {
+    var cat = tr.querySelector('.bl-cat').value;
+    tr.querySelector('.bl-group').value = cat ? (GRP_OF[cat] || GRP_OPS) : GRP_OPS;
+  }
   function rowTemplate() {
     return '<tr>' +
       '<td><input type="hidden" class="bl-team" value=""/>' +
-      '<div class="select-wrap"><select class="f-control bl-group">' +
-        '<option value="' + GRP_OPS + '">Chi phí hoạt động</option>' +
-        '<option value="' + GRP_FEE + '">Phí agency EC</option></select></div></td>' +
-      '<td><div class="select-wrap"><select class="f-control bl-cat"></select></div></td>' +
+      '<input type="hidden" class="bl-group" value="' + GRP_OPS + '"/>' +
+      '<div class="select-wrap"><select class="f-control bl-cat"></select></div></td>' +
       '<td><input class="f-control bl-amount" type="text" inputmode="numeric" placeholder="0"/></td>' +
       '<td><input class="f-control bl-note" type="text" placeholder=""/></td>' +
       '<td><button type="button" class="bl-row-del" title="Xoá dòng">&#215;</button></td>' +
     '</tr>';
   }
   function fillCats(tr) {
-    var grp = tr.querySelector('.bl-group').value;
-    var list = grp === GRP_FEE ? LK.items_fee : LK.items_ops;
+    var list = (LK.items_ops || []).concat(LK.items_fee || []);
     var sel = tr.querySelector('.bl-cat');
+    var keep = sel.value;
     sel.innerHTML = '<option value="">-- Chọn khoản mục --</option>' + list.map(function (i) {
       return '<option value="' + i.item_code + '">' + i.item_code + ' — ' + i.item_name + '</option>';
     }).join('');
+    if (keep) sel.value = keep;
   }
   function teamHeadFor(team) {
     var heads = document.querySelectorAll('#blBody tr.bl-teamhead');
@@ -699,9 +712,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var tr = tb.lastElementChild;
     if (pre) {
       tr.querySelector('.bl-team').value = pre.team || '';
-      tr.querySelector('.bl-group').value = pre.group || GRP_OPS;
       fillCats(tr);
       tr.querySelector('.bl-cat').value = pre.cat || '';
+      syncRowGroup(tr);
     } else {
       fillCats(tr);
     }
@@ -743,7 +756,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   document.addEventListener('change', function (e) {
     var tr = e.target.closest && e.target.closest('#blBody tr');
     if (!tr) return;
-    if (e.target.classList.contains('bl-group')) { fillCats(tr); recompute(); }
+    if (e.target.classList.contains('bl-cat')) { syncRowGroup(tr); recompute(); }
   });
   document.addEventListener('click', function (e) {
     var t = e.target;
@@ -755,7 +768,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     // Nut "+ Them dong" nam ngay tren hang tieu de cua tung team: dong moi tu
     // nhan team cua nhom do, khong phai chon lai.
     if (t.classList.contains('bl-team-add')) {
-      var row = addRow({ team: t.dataset.team || '', group: GRP_OPS });
+      var row = addRow({ team: t.dataset.team || '' });
       var cb = row.querySelector('.bl-cat');
       if (cb) { try { cb.focus(); } catch (err) {} }
       recompute();
@@ -910,6 +923,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       var d = (raw && raw.message) || raw;
       if (!d || !d.success) throw new Error('Lookup failed');
       LK = d;
+      buildGrpOf();
       var bs = $('brand');
       bs.innerHTML = '<option value="">-- Chọn brand --</option>' + d.brands.map(function (b) {
         return '<option value="' + b.name + '">' + (b.brand_name || b.name) + ' (' + b.name + ')</option>';
@@ -1421,7 +1435,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 
   // -------- Ap dung --------
   function upgradeRows(root) {
-    var sels = (root || document).querySelectorAll('#blBody select.bl-group, #blBody select.bl-cat');
+    var sels = (root || document).querySelectorAll('#blBody select.bl-cat');
     for (var i = 0; i < sels.length; i++) attachCombobox(sels[i]);
   }
   function upgradeBrand() {

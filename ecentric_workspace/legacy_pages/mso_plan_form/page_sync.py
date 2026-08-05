@@ -43,7 +43,7 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "6a4aff420f931cbf3b24f7094c673bd79988f4d28b27fcd10dd237179cd7d9f3"
+BASELINE_SHA256 = "bed58f7c2907097d4641cbaaaeb7227a007628911fa05e5c191fe6efa19bd8ee"
 SUPERSEDES_SHA256 = (
     # bytes ban dau khi repo-hoa trang nay (#61). Live tren team.ecentric.vn da
     # duoc ghi thang len BASELINE_SHA256 ngay 2026-08-04 (round feedback MSO 1:
@@ -147,6 +147,19 @@ SUPERSEDES_SHA256 = (
     # Live team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay nen
     # sync dau tien o do tra ve "unchanged".
     "c642c7847d6a042e3fd6f08795272f64cf10b7596a7ce43b9618a1b6ec9b6f2d",  # mso-fb-3 v5
+    # bytes cua ban v6 (2026-08-05, cung ngay). v7 BO NOT cot "Nhom": nhom cua
+    # mot khoan muc da duoc quy dinh san o Item (item_group) nen bat KAM chon lai
+    # vua thua vua de chon lech voi Item. Dropdown "Khoan muc" gio gom CA HAI
+    # nhom (LK.items_ops + LK.items_fee) trong mot danh sach; nhom cua dong duoc
+    # suy ra tu khoan muc qua map GRP_OF va ghi vao o an <input type="hidden"
+    # class="bl-group"> nen readRows() / recompute() / payload() / saveDraft()
+    # doc y nguyen, khong phai sua. Listener 'change' doi tu .bl-group sang
+    # .bl-cat (goi syncRowGroup + recompute); upgradeRows() cua combobox khong
+    # con nham .bl-group nua vi no khong con la <select>. Bang con 4 cot voi ty
+    # le 52/22/23/3 va colspan cua hang tieu de team giam tu 5 xuong 4. Live
+    # team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay nen sync
+    # dau tien o do tra ve "unchanged".
+    "6a4aff420f931cbf3b24f7094c673bd79988f4d28b27fcd10dd237179cd7d9f3",  # mso-fb-3 v6
 )
 
 
