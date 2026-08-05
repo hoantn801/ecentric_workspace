@@ -1081,41 +1081,59 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 })();
 </script>
 <script id="ec-mso-searchable-dropdowns">
-// ec-mso-searchable-dropdowns v1 -- 2026-08-05
+// ec-mso-searchable-dropdowns v2 -- 2026-08-05
 // Thay <select> nguyen ban bang combobox co o tim kiem, dung DUNG mau UI/UX cua
 // /gbs-so-form-v2 va /gbs-po-form-v2 (script `ec-gbs-searchable-dropdowns`).
 // Ap dung cho: #brand (Thong tin chung) va 3 cot Team / Nhom / Khoan muc trong
 // bang ngan sach. Select goc van giu nguyen va van nhan value -> readRows(),
 // fillCats(), repositionRow() va toan bo logic submit KHONG doi.
 // Vi cac dong ngan sach duoc tao dong, dung MutationObserver tren #blBody.
+//
+// v2 (feedback round 3b):
+//  - O hien thi khong con bi "mo": input readonly bi .f-control[readonly] to
+//    xam (background var(--bg) + color var(--muted)). Ghi de lai: o da chon thi
+//    den binh thuong, chi o CHUA chon moi xam (placeholder).
+//  - Panel khong con bi cat: render position:fixed va do toa do tu
+//    getBoundingClientRect() nen khong bi .bl-wrap{overflow-x:auto} (breakpoint
+//    1024px) cat cut. Tu lat len tren khi thieu cho ben duoi.
+//  - Chu bi cat ngang thi hover ra tooltip day du (title).
+//
 // LUU Y: file nay la ES5 (var / function) -- giu dung style cua trang goc.
 (function () {
   'use strict';
   if (window._ecMsoSearchableInstalled) return;
   window._ecMsoSearchableInstalled = true;
 
-  // -------- CSS (giong ec-searchable-css cua SO/PO, them 2 tweak cho o trong bang) --------
+  // -------- CSS (giong ec-searchable-css cua SO/PO, them tweak cho o trong bang) --------
   if (!document.getElementById('ec-mso-searchable-css')) {
     var st = document.createElement('style');
     st.id = 'ec-mso-searchable-css';
     st.textContent = [
       '.ec-cb { position: relative; }',
-      '.ec-cb .ec-cb-display { cursor: pointer; background-image: none !important; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; padding-right: 28px; }',
-      '.ec-cb-display.ec-empty { color: var(--muted2, #a0a6bf); }',
+      '.ec-cb .ec-cb-display { cursor: pointer; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; padding-right: 28px; background-image: none !important; }',
+      // .f-control[readonly] to o nay thanh xam (background var(--bg) + color
+      // var(--muted)) -- dung cho o that su khong nhap duoc, nhung o nay CHON
+      // duoc nen phai tra lai mau binh thuong.
+      '.ec-cb .ec-cb-display[readonly] { background: var(--surface, #fff); color: var(--text, #1f2340); cursor: pointer; }',
+      '.ec-cb .ec-cb-display[readonly]:hover { border-color: #b0b6cc; }',
+      '.ec-cb .ec-cb-display[readonly]:focus { border-color: var(--navy, #1a2355); box-shadow: 0 0 0 3px var(--navy-light, rgba(26,35,85,.06)); }',
+      // chua chon -> xam nhu placeholder
+      '.ec-cb .ec-cb-display[readonly].ec-empty { color: var(--muted2, #a0a6bf); }',
+      '.ec-cb .ec-cb-display::placeholder { color: var(--muted2, #a0a6bf); }',
       '.ec-cb-arrow { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); color: var(--muted, #7b82a0); pointer-events: none; font-size: 9px; }',
-      '.ec-cb-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; min-width: 260px; background: #fff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 9999; max-height: 320px; display: flex; flex-direction: column; }',
+      // position:fixed -> khong bi to tien overflow (.bl-wrap) cat
+      '.ec-cb-panel { position: fixed; background: #fff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 99999; max-height: 320px; display: flex; flex-direction: column; overflow: hidden; }',
       '.ec-cb-panel[hidden] { display: none !important; }',
-      '.ec-cb-search-wrap { padding: 8px; border-bottom: 1px solid #f3f4f6; }',
-      '.ec-cb-search { width: 100%; padding: 7px 10px; border: 1px solid #e5e7eb; border-radius: 5px; font-size: 12.5px; font-family: inherit; }',
+      '.ec-cb-search-wrap { padding: 8px; border-bottom: 1px solid #f3f4f6; flex: 0 0 auto; }',
+      '.ec-cb-search { width: 100%; padding: 7px 10px; border: 1px solid #e5e7eb; border-radius: 5px; font-size: 12.5px; font-family: inherit; box-sizing: border-box; }',
       '.ec-cb-search:focus { outline: none; border-color: var(--navy, #1a2355); }',
-      '.ec-cb-list { flex: 1; overflow-y: auto; padding: 4px 0; max-height: 250px; }',
+      '.ec-cb-count { padding: 6px 12px; font-size: 11px; color: #6b7280; border-bottom: 1px solid #f1f2f6; background: #f9fafb; flex: 0 0 auto; }',
+      '.ec-cb-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px 0; }',
       '.ec-cb-option { padding: 8px 12px; font-size: 12.5px; cursor: pointer; color: #374151; line-height: 1.4; }',
       '.ec-cb-option:hover, .ec-cb-option.ec-cb-active { background: #f3f4f6; }',
       '.ec-cb-option.ec-cb-selected { background: var(--navy-light, rgba(26,35,85,0.06)); color: var(--navy, #1a2355); font-weight: 600; }',
       '.ec-cb-option mark { background: #fef3c7; color: #92400e; padding: 0 1px; border-radius: 2px; font-weight: 600; }',
-      '.ec-cb-empty { padding: 12px; text-align: center; color: #9ca3af; font-size: 12px; font-style: italic; }',
-      '.ec-cb-count { padding: 6px 12px; font-size: 11px; color: #6b7280; border-bottom: 1px solid #f9fafb; background: #f9fafb; }',
-      '.bl-table td .ec-cb-panel { min-width: 340px; }'
+      '.ec-cb-empty { padding: 12px; text-align: center; color: #9ca3af; font-size: 12px; font-style: italic; }'
     ].join('\n');
     document.head.appendChild(st);
   }
@@ -1146,6 +1164,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     if (!selectEl || selectEl._ecCbAttached) return;
     selectEl._ecCbAttached = true;
 
+    var inTable = !!(selectEl.closest && selectEl.closest('.bl-table'));
+    var minW = inTable ? 340 : 260;
+
     var first = selectEl.options.length ? selectEl.options[0] : null;
     var basePlaceholder = (first && isPlaceholder(first) && first.text) ? first.text : 'Chọn...';
 
@@ -1170,10 +1191,11 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 
     wrap.appendChild(display);
     wrap.appendChild(arrow);
-    wrap.appendChild(panel);
     selectEl.parentNode.insertBefore(wrap, selectEl);
     selectEl.style.display = 'none';
     selectEl.setAttribute('data-ec-cb-hidden', '1');
+    // panel nam o body -> khong to tien nao cat duoc no
+    document.body.appendChild(panel);
 
     var searchWrap = panel.querySelector('.ec-cb-search-wrap');
     var searchInput = panel.querySelector('.ec-cb-search');
@@ -1192,13 +1214,44 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       // placeholder cua .bl-cat doi theo Nhom -> cap nhat lai moi lan sync
       var f = selectEl.options.length ? selectEl.options[0] : null;
       if (f && isPlaceholder(f) && f.text) display.placeholder = f.text;
-      if (!v) { display.value = ''; display.classList.add('ec-empty'); return; }
+      if (!v) {
+        display.value = '';
+        display.title = '';
+        display.classList.add('ec-empty');
+        return;
+      }
       for (var i = 0; i < selectEl.options.length; i++) {
         if (selectEl.options[i].value === v) { opt = selectEl.options[i]; break; }
       }
-      display.value = opt ? (opt.text || opt.value) : v;
+      var txt = opt ? (opt.text || opt.value) : v;
+      display.value = txt;
+      display.title = txt; // chu bi cat ngang -> hover ra day du
       display.classList.remove('ec-empty');
     }
+    function positionPanel() {
+      var r = display.getBoundingClientRect();
+      var vw = document.documentElement.clientWidth;
+      var vh = document.documentElement.clientHeight;
+      var w = Math.max(r.width, minW);
+      if (w > vw - 16) w = vw - 16;
+      var left = r.left;
+      if (left + w > vw - 8) left = vw - 8 - w;
+      if (left < 8) left = 8;
+      panel.style.width = w + 'px';
+      panel.style.left = left + 'px';
+      var below = vh - r.bottom - 10;
+      var above = r.top - 10;
+      if (below >= 180 || below >= above) {
+        panel.style.top = (r.bottom + 4) + 'px';
+        panel.style.bottom = 'auto';
+        panel.style.maxHeight = Math.min(320, Math.max(120, below)) + 'px';
+      } else {
+        panel.style.top = 'auto';
+        panel.style.bottom = (vh - r.top + 4) + 'px';
+        panel.style.maxHeight = Math.min(320, Math.max(120, above)) + 'px';
+      }
+    }
+    var onReflow = function () { if (!panel.hidden) positionPanel(); };
     function buildList(query) {
       var ql = (query || '').toLowerCase().trim();
       visibleOpts = [];
@@ -1216,7 +1269,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         var cur = selectEl.value;
         listEl.innerHTML = visibleOpts.map(function (o, idx) {
           return '<div class="ec-cb-option' + (o.value === cur ? ' ec-cb-selected' : '') +
-                 '" data-idx="' + idx + '">' + highlight(o.text, ql) + '</div>';
+                 '" data-idx="' + idx + '" title="' + escHtml(o.text) + '">' + highlight(o.text, ql) + '</div>';
         }).join('');
         if (visibleOpts.length > 10) {
           countEl.style.display = 'block';
@@ -1234,9 +1287,18 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       panel.hidden = false;
       searchInput.value = '';
       buildList('');
+      positionPanel();
+      window.addEventListener('scroll', onReflow, true);
+      window.addEventListener('resize', onReflow);
       if (searchWrap.style.display !== 'none') setTimeout(function () { searchInput.focus(); }, 30);
     }
-    function closePanel() { panel.hidden = true; activeIndex = -1; }
+    function closePanel() {
+      if (panel.hidden) return;
+      panel.hidden = true;
+      activeIndex = -1;
+      window.removeEventListener('scroll', onReflow, true);
+      window.removeEventListener('resize', onReflow);
+    }
     function selectOption(idx) {
       if (idx < 0 || idx >= visibleOpts.length) return;
       selectEl.value = visibleOpts[idx].value;
@@ -1261,7 +1323,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       else if (e.key === 'Escape') closePanel();
     });
     arrow.addEventListener('click', function () { panel.hidden ? openPanel() : closePanel(); });
-    searchInput.addEventListener('input', debounce(function () { buildList(searchInput.value); }, 120));
+    searchInput.addEventListener('input', debounce(function () { buildList(searchInput.value); positionPanel(); }, 120));
     searchInput.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') { closePanel(); display.focus(); }
       else if (e.key === 'ArrowDown') { e.preventDefault(); setActive(Math.min(activeIndex + 1, visibleOpts.length - 1)); }
@@ -1273,15 +1335,22 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       if (o) selectOption(parseInt(o.getAttribute('data-idx'), 10));
     });
     document.addEventListener('mousedown', function (e) {
-      if (!panel.hidden && !wrap.contains(e.target)) closePanel();
+      if (!panel.hidden && !wrap.contains(e.target) && !panel.contains(e.target)) closePanel();
     });
 
     // fillCats() ghi lai innerHTML cua .bl-cat -> childList mutation -> sync ngay
     new MutationObserver(function () { syncDisplay(); })
       .observe(selectEl, { childList: true });
-    // gan value bang JS khong sinh event nao -> poll nhe
+    // gan value bang JS khong sinh event nao -> poll nhe; tien the don panel
+    // mo coi khi dong ngan sach bi xoa (panel nam o body nen khong tu mat).
     var prev = selectEl.value;
-    setInterval(function () {
+    var poll = setInterval(function () {
+      if (!document.documentElement.contains(selectEl)) {
+        clearInterval(poll);
+        closePanel();
+        if (panel.parentNode) panel.parentNode.removeChild(panel);
+        return;
+      }
       if (selectEl.value !== prev) { prev = selectEl.value; syncDisplay(); }
     }, 300);
 
@@ -1311,6 +1380,6 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
-  console.log('[ec-mso-searchable-dropdowns] installed');
+  console.log('[ec-mso-searchable-dropdowns] v2 installed');
 })();
 </script><!-- /ec-mso-searchable-dropdowns -->

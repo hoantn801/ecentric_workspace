@@ -43,7 +43,7 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "9afb4ae3369be56ccd368ba5f246de5d4bef317f8e634351377573368c7a74b2"
+BASELINE_SHA256 = "11c71d930fd836b22150b27cae7fc8261a5d36f2905c4e90f3b69e963ccf61d9"
 SUPERSEDES_SHA256 = (
     # bytes ban dau khi repo-hoa trang nay (#61). Live tren team.ecentric.vn da
     # duoc ghi thang len BASELINE_SHA256 ngay 2026-08-04 (round feedback MSO 1:
@@ -80,6 +80,17 @@ SUPERSEDES_SHA256 = (
     # team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay nen sync
     # dau tien o do tra ve "unchanged".
     "51135084243aa8819a56c6e4776dc99c142ecdcdf28e052fc8f1ffc43bc3ad38",  # pre-mso-fb-3
+    # bytes cua ban combobox v1 (2026-08-05, cung ngay). v1 con 2 loi UI:
+    # (1) o hien thi la <input readonly> nen dinh .f-control[readonly] ->
+    # background var(--bg) + color var(--muted), o DA CHON cung bi to xam nhu
+    # o khong nhap duoc; (2) panel dat position:absolute trong o cua bang nen
+    # bi .bl-wrap{overflow-x:auto} (media max-width:1024px) cat cut danh sach.
+    # v2 ghi de lai mau cho [readonly] (chi o CHUA chon moi xam) va doi panel
+    # sang position:fixed render o document.body, tu lat len tren khi thieu
+    # cho, cong tooltip khi chu bi cat ngang. Live team.ecentric.vn da duoc ghi
+    # thang len BASELINE_SHA256 cung ngay nen sync dau tien o do tra ve
+    # "unchanged".
+    "9afb4ae3369be56ccd368ba5f246de5d4bef317f8e634351377573368c7a74b2",  # mso-fb-3 v1
 )
 
 
