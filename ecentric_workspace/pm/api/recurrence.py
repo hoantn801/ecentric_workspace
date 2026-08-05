@@ -34,6 +34,10 @@ _DAYS = {"Daily": 1, "Weekly": 7, "Biweekly": 14}
 _FREQ = ("Daily", "Weekly", "Biweekly", "Monthly")
 _PRIORITIES = ("Low", "Medium", "High", "Urgent")
 
+# NOTE: this module defines a whitelisted `list()` endpoint which shadows the builtin `list`.
+# Capture the builtin here (before `def list`) so isinstance()/list() calls stay correct.
+_LIST = list
+
 
 # --------------------------------------------------------------------------
 # Small helpers
@@ -53,11 +57,11 @@ def _load_list(v):
     """Parse a JSON list (or already-list); anything else -> []."""
     if v in (None, ""):
         return []
-    if isinstance(v, list):
+    if isinstance(v, _LIST):
         return v
     try:
         out = json.loads(v)
-        return out if isinstance(out, list) else []
+        return out if isinstance(out, _LIST) else []
     except Exception:
         return []
 
@@ -69,7 +73,7 @@ def _clean_assignees(v):
     if not raw:
         return []
     valid = set(u["name"] for u in frappe.get_all(
-        "User", filters={"name": ["in", list(set(raw))], "enabled": 1},
+        "User", filters={"name": ["in", _LIST(set(raw))], "enabled": 1},
         fields=["name"], limit_page_length=0, ignore_permissions=True))
     out = []
     for u in raw:
@@ -170,7 +174,7 @@ def _apply_template(r, subject=None, description=None, priority=None, assignees=
         names = [l for l in _load_list(labels) if l]
         if names:
             exist = set(x["name"] for x in frappe.get_all(
-                "PM Task Label", filters={"name": ["in", list(set(names))]},
+                "PM Task Label", filters={"name": ["in", _LIST(set(names))]},
                 fields=["name"], limit_page_length=0, ignore_permissions=True))
             names = [l for l in names if l in exist]
         r.template_labels = json.dumps(names)
@@ -386,7 +390,7 @@ def _clone(r, occ_date):
         want = [l for l in _load_list(r.get("template_labels")) if l]
         if want:
             exist = set(x["name"] for x in frappe.get_all(
-                "PM Task Label", filters={"name": ["in", list(set(want))]},
+                "PM Task Label", filters={"name": ["in", _LIST(set(want))]},
                 fields=["name"], limit_page_length=0))
             seen = set()
             for lid in want:
