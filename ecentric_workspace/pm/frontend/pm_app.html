@@ -689,7 +689,6 @@
       <div class="topbar-actions">
         <span class="preview-tag" id="pm-preview" style="display:none;">Preview (mock)</span>
         <button class="tb-timer" id="tb-timer" title="Timer đang chạy — bấm để mở task"></button>
-        <button class="pm-btn primary" id="tb-new" style="padding:7px 12px"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button>
         <a class="icon-btn" id="tb-bell" href="/app/notification-log" target="_blank" rel="noopener" data-ec-notification-bell="1" aria-label="Thông báo" title="Thông báo" style="position:relative"><svg class="icon icon-sm"><use href="#p-bell"/></svg></a>
       </div>
     </div>
@@ -990,12 +989,12 @@
       var mine=vTasks.filter(function(t){return names(t._assign).indexOf(user)>=0;});
       var focus=mwFocus(mine,recToday);
       var groups=[["attention","Cần xử lý",d.attention||[]],["week","Tuần này",d.week||[]],["nodue","Chưa có hạn",d.nodue||[]],["done","Đã hoàn thành",d.done||[]]];
-      var h=head("Việc của tôi","Công việc cần xử lý trong ngày");
+      var h=head("Việc của tôi","Công việc cần xử lý trong ngày",'<button class="pm-btn primary" id="mw-new"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button>');
       h+='<div class="dc-mini dc-block">'+dcMiniCard("Quá hạn",mc.overdue,"overdue","s-pink")+dcMiniCard("Hôm nay",mc.today,"today","s-navy")+dcMiniCard("Tuần này",mc.week,"week","s-yellow")+dcMiniCard("Chờ duyệt",mc.review,"review","s-navy")+dcMiniCard("Blocked",mc.blocked,"blocked","s-pink")+dcMiniCard("Định kỳ hôm nay",recToday.length,"","s-green")+'</div>';
       h+='<div id="mw-tcard">'+mwTimerCard(ac,tmap,(ac&&ac.active)?null:(focus[0]&&focus[0].t))+'</div>';
       h+='<div class="dc-sec-title">Cần xử lý hôm nay (Focus)</div><div class="dc-block" id="mw-focus"></div>';
       h+='<details class="dc-analytics"><summary>Danh sách chi tiết theo nhóm</summary><div id="mw-groups"></div></details>';
-      c.innerHTML=h;
+      c.innerHTML=h;var _mwn=el("mw-new");if(_mwn)_mwn.onclick=function(){newTask(null);};
       mwFocusTable(el("mw-focus"),focus,(ac&&ac.active)?ac:null);
       chkBadgesInto(el("mw-focus"),focus.map(function(x){return x.t.name;})); /* G4 checklist progress badge */
       mwWireActions(el("mw-tcard"));
@@ -1294,7 +1293,7 @@
   // ---- Unified "Công việc" page: tabbed views (Danh sách/Kanban/Lịch/Gantt/Bảng) ----
   function workTabs(active){var T=[["tasks","list","Danh sách"],["board","board","Kanban"],["calendar","calendar","Lịch"],["gantt","gantt","Gantt"]]; /* G4.8c: removed "Bảng" tab (showTasks(true) code kept for safety) */
     return '<div class="seg work-tabs">'+T.map(function(t){return '<button data-wt="'+t[0]+'"'+(active===t[1]?' class="active"':'')+'>'+t[2]+'</button>';}).join("")+'</div>';}
-  function workHeader(active){return '<div class="pm-head"><div><h1>Công việc</h1></div><div>'+workTabs(active)+'</div></div>';}
+  function workHeader(active){return '<div class="pm-head"><div><h1>Công việc</h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+workTabs(active)+'<button class="pm-btn primary" data-new="1"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button></div></div>';}
   function wireWorkTabs(){Array.prototype.forEach.call(el("pm-view").querySelectorAll("[data-wt]"),function(b){b.onclick=function(){go(b.getAttribute("data-wt"));};});var n=el("pm-view").querySelector("[data-new]");if(n)n.onclick=function(){newTask(null);};}
   function showWork(){var v=window._workView;if(!v){try{v=localStorage.getItem("pm_work_view");}catch(_){}window._workView=v=v||"list";}
     if(v==="board")showBoard();else if(v==="calendar")showCalendar();else if(v==="gantt")showGantt();else if(v==="table")showTasks(true);else showTasks();}
