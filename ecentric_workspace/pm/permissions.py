@@ -122,6 +122,44 @@ def can_view_project(name, user=None):
     return name in set(visible)
 
 
+def projects_with_my_tasks(user=None):
+    """Projects where the user OWNS or is ASSIGNED at least one task. Used to let an assignee OPEN
+    an otherwise-invisible project (need-to-know) — NOT to grant full task visibility there."""
+    user = user or frappe.session.user
+    names = set()
+    for t in frappe.get_all(
+            "Task",
+            or_filters=[["owner", "=", user], ["_assign", "like", '%"{0}"%'.format(user)]],
+            fields=["project"], limit_page_length=0):
+        if t.get("project"):
+            names.add(t["project"])
+    return names
+
+
+def can_open_project(name, user=None):
+    """Weaker than can_view_project: may the user OPEN this project's page? True if they can view it
+    fully OR they have a task they own/are assigned in it. READ views use this + project_view_scope
+    to show ONLY the user's own tasks in an assignment-only project. It intentionally does NOT feed
+    can_view_task (which still uses can_view_project), so it never leaks other tasks' content."""
+    user = user or frappe.session.user
+    if can_view_project(name, user):
+        return True
+    return name in projects_with_my_tasks(user)
+
+
+def project_view_scope(name, user=None):
+    """Gate + scope for a project READ view. Throws if the user cannot open it. Returns the
+    or_filters to AND into the project's task query: None = all tasks (full-visibility project or a
+    leader); otherwise the user's own-task scope (assignment-only project -> only their tasks).
+    Leak-free: a project the user only reaches via an assignment shows just that assignment."""
+    user = user or frappe.session.user
+    if not can_open_project(name, user):
+        frappe.throw(_("Not permitted to view this project."), frappe.PermissionError)
+    if can_view_project(name, user):
+        return None
+    return task_scope_or_filters(user)
+
+
 def assignees_of(task):
     """Canonical parse of a Task's native _assign into a list of user emails. Single source of
     truth for assignee membership (avoids the substring-match footgun). `task` is a dict/doc."""
