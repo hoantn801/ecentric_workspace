@@ -28,7 +28,8 @@ def _html():
 # upsert_web_page REFUSES to write when live no longer hashes to this, so a repo
 # snapshot can never silently revert a live edit. Deliberate update = re-snapshot
 # live into main_section.html, then bump this constant in the same commit.
-BASELINE_SHA256 = "6fc49bd561adac70fe1e02b1120fb51f8db69100b10cf8a8ca8ed6df49bedf0f"
+BASELINE_SHA256 = "1abf28fa26882727eecae687d3a0b7350183e8266d75674a5b2bc67b8e798e33"
+SUPERSEDES_SHA256 = ("6fc49bd561adac70fe1e02b1120fb51f8db69100b10cf8a8ca8ed6df49bedf0f",)
 
 
 def sync(html=None, force=0):
@@ -39,7 +40,7 @@ def sync(html=None, force=0):
     res = page_sync_util.upsert_web_page(
         ROUTE, NAME, TITLE, html,
         publish=None,
-        expect_sha=None if force else BASELINE_SHA256,
+        expect_sha=None if force else ((BASELINE_SHA256,) + SUPERSEDES_SHA256),
     )
     if res.get("action") == "refused":
         return res

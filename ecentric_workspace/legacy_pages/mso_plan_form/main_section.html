@@ -614,7 +614,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 
   // ---- Budget lines ----
   function rowTemplate() {
-    var teamOpts = '<option value=""></option>' + LK.teams.map(function (t) { return '<option>' + t + '</option>'; }).join('');
+    var teamOpts = '<option value="">-- Chọn team --</option>' + LK.teams.map(function (t) { return '<option>' + t + '</option>'; }).join('');
     return '<tr>' +
       '<td><div class="select-wrap"><select class="f-control bl-team">' + teamOpts + '</select></div></td>' +
       '<td><div class="select-wrap"><select class="f-control bl-group">' +
@@ -630,7 +630,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var grp = tr.querySelector('.bl-group').value;
     var list = grp === GRP_FEE ? LK.items_fee : LK.items_ops;
     var sel = tr.querySelector('.bl-cat');
-    sel.innerHTML = '<option value=""></option>' + list.map(function (i) {
+    sel.innerHTML = '<option value="">-- Chọn khoản mục --</option>' + list.map(function (i) {
       return '<option value="' + i.item_code + '">' + i.item_code + ' — ' + i.item_name + '</option>';
     }).join('');
   }
@@ -1080,3 +1080,237 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   ap(); setTimeout(ap, 800); setTimeout(ap, 2500);
 })();
 </script>
+<script id="ec-mso-searchable-dropdowns">
+// ec-mso-searchable-dropdowns v1 -- 2026-08-05
+// Thay <select> nguyen ban bang combobox co o tim kiem, dung DUNG mau UI/UX cua
+// /gbs-so-form-v2 va /gbs-po-form-v2 (script `ec-gbs-searchable-dropdowns`).
+// Ap dung cho: #brand (Thong tin chung) va 3 cot Team / Nhom / Khoan muc trong
+// bang ngan sach. Select goc van giu nguyen va van nhan value -> readRows(),
+// fillCats(), repositionRow() va toan bo logic submit KHONG doi.
+// Vi cac dong ngan sach duoc tao dong, dung MutationObserver tren #blBody.
+// LUU Y: file nay la ES5 (var / function) -- giu dung style cua trang goc.
+(function () {
+  'use strict';
+  if (window._ecMsoSearchableInstalled) return;
+  window._ecMsoSearchableInstalled = true;
+
+  // -------- CSS (giong ec-searchable-css cua SO/PO, them 2 tweak cho o trong bang) --------
+  if (!document.getElementById('ec-mso-searchable-css')) {
+    var st = document.createElement('style');
+    st.id = 'ec-mso-searchable-css';
+    st.textContent = [
+      '.ec-cb { position: relative; }',
+      '.ec-cb .ec-cb-display { cursor: pointer; background-image: none !important; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; padding-right: 28px; }',
+      '.ec-cb-display.ec-empty { color: var(--muted2, #a0a6bf); }',
+      '.ec-cb-arrow { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); color: var(--muted, #7b82a0); pointer-events: none; font-size: 9px; }',
+      '.ec-cb-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; min-width: 260px; background: #fff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 9999; max-height: 320px; display: flex; flex-direction: column; }',
+      '.ec-cb-panel[hidden] { display: none !important; }',
+      '.ec-cb-search-wrap { padding: 8px; border-bottom: 1px solid #f3f4f6; }',
+      '.ec-cb-search { width: 100%; padding: 7px 10px; border: 1px solid #e5e7eb; border-radius: 5px; font-size: 12.5px; font-family: inherit; }',
+      '.ec-cb-search:focus { outline: none; border-color: var(--navy, #1a2355); }',
+      '.ec-cb-list { flex: 1; overflow-y: auto; padding: 4px 0; max-height: 250px; }',
+      '.ec-cb-option { padding: 8px 12px; font-size: 12.5px; cursor: pointer; color: #374151; line-height: 1.4; }',
+      '.ec-cb-option:hover, .ec-cb-option.ec-cb-active { background: #f3f4f6; }',
+      '.ec-cb-option.ec-cb-selected { background: var(--navy-light, rgba(26,35,85,0.06)); color: var(--navy, #1a2355); font-weight: 600; }',
+      '.ec-cb-option mark { background: #fef3c7; color: #92400e; padding: 0 1px; border-radius: 2px; font-weight: 600; }',
+      '.ec-cb-empty { padding: 12px; text-align: center; color: #9ca3af; font-size: 12px; font-style: italic; }',
+      '.ec-cb-count { padding: 6px 12px; font-size: 11px; color: #6b7280; border-bottom: 1px solid #f9fafb; background: #f9fafb; }',
+      '.bl-table td .ec-cb-panel { min-width: 340px; }'
+    ].join('\n');
+    document.head.appendChild(st);
+  }
+
+  // -------- Helpers --------
+  function escHtml(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function highlight(text, q) {
+    if (!q) return escHtml(text);
+    var i = String(text).toLowerCase().indexOf(q.toLowerCase());
+    if (i < 0) return escHtml(text);
+    return escHtml(text.slice(0, i)) + '<mark>' + escHtml(text.slice(i, i + q.length)) + '</mark>' + escHtml(text.slice(i + q.length));
+  }
+  function debounce(fn, ms) {
+    var t;
+    return function () {
+      var ctx = this, args = arguments;
+      clearTimeout(t);
+      t = setTimeout(function () { fn.apply(ctx, args); }, ms);
+    };
+  }
+  // option placeholder = value rong (vi du "-- Chon khoan muc --")
+  function isPlaceholder(o) { return !o.value; }
+
+  // -------- Combobox factory --------
+  function attachCombobox(selectEl) {
+    if (!selectEl || selectEl._ecCbAttached) return;
+    selectEl._ecCbAttached = true;
+
+    var first = selectEl.options.length ? selectEl.options[0] : null;
+    var basePlaceholder = (first && isPlaceholder(first) && first.text) ? first.text : 'Chọn...';
+
+    var wrap = document.createElement('div');
+    wrap.className = 'ec-cb';
+    var display = document.createElement('input');
+    display.type = 'text';
+    display.readOnly = true;
+    display.className = 'f-control ec-cb-display ec-empty';
+    display.placeholder = basePlaceholder;
+    var arrow = document.createElement('span');
+    arrow.className = 'ec-cb-arrow';
+    arrow.textContent = '▼';
+    var panel = document.createElement('div');
+    panel.className = 'ec-cb-panel';
+    panel.hidden = true;
+    panel.innerHTML = [
+      '<div class="ec-cb-search-wrap"><input class="ec-cb-search" placeholder="Tìm..." /></div>',
+      '<div class="ec-cb-count" style="display:none"></div>',
+      '<div class="ec-cb-list"></div>'
+    ].join('');
+
+    wrap.appendChild(display);
+    wrap.appendChild(arrow);
+    wrap.appendChild(panel);
+    selectEl.parentNode.insertBefore(wrap, selectEl);
+    selectEl.style.display = 'none';
+    selectEl.setAttribute('data-ec-cb-hidden', '1');
+
+    var searchWrap = panel.querySelector('.ec-cb-search-wrap');
+    var searchInput = panel.querySelector('.ec-cb-search');
+    var listEl = panel.querySelector('.ec-cb-list');
+    var countEl = panel.querySelector('.ec-cb-count');
+    var activeIndex = -1;
+    var visibleOpts = [];
+
+    function selectableCount() {
+      var n = 0;
+      for (var i = 0; i < selectEl.options.length; i++) if (!isPlaceholder(selectEl.options[i])) n++;
+      return n;
+    }
+    function syncDisplay() {
+      var v = selectEl.value, opt = null;
+      // placeholder cua .bl-cat doi theo Nhom -> cap nhat lai moi lan sync
+      var f = selectEl.options.length ? selectEl.options[0] : null;
+      if (f && isPlaceholder(f) && f.text) display.placeholder = f.text;
+      if (!v) { display.value = ''; display.classList.add('ec-empty'); return; }
+      for (var i = 0; i < selectEl.options.length; i++) {
+        if (selectEl.options[i].value === v) { opt = selectEl.options[i]; break; }
+      }
+      display.value = opt ? (opt.text || opt.value) : v;
+      display.classList.remove('ec-empty');
+    }
+    function buildList(query) {
+      var ql = (query || '').toLowerCase().trim();
+      visibleOpts = [];
+      for (var i = 0; i < selectEl.options.length; i++) {
+        var o = selectEl.options[i];
+        if (isPlaceholder(o)) continue;
+        if (!ql || (o.text || '').toLowerCase().indexOf(ql) >= 0 || (o.value || '').toLowerCase().indexOf(ql) >= 0) {
+          visibleOpts.push({ value: o.value, text: o.text || o.value });
+        }
+      }
+      if (!visibleOpts.length) {
+        listEl.innerHTML = '<div class="ec-cb-empty">Không có kết quả</div>';
+        countEl.style.display = 'none';
+      } else {
+        var cur = selectEl.value;
+        listEl.innerHTML = visibleOpts.map(function (o, idx) {
+          return '<div class="ec-cb-option' + (o.value === cur ? ' ec-cb-selected' : '') +
+                 '" data-idx="' + idx + '">' + highlight(o.text, ql) + '</div>';
+        }).join('');
+        if (visibleOpts.length > 10) {
+          countEl.style.display = 'block';
+          countEl.textContent = visibleOpts.length + ' kết quả';
+        } else {
+          countEl.style.display = 'none';
+        }
+      }
+      activeIndex = -1;
+    }
+    function openPanel() {
+      if (!panel.hidden) return;
+      // danh sach ngan (Nhom chi co 2 muc) thi khong can o tim kiem
+      searchWrap.style.display = selectableCount() >= 6 ? '' : 'none';
+      panel.hidden = false;
+      searchInput.value = '';
+      buildList('');
+      if (searchWrap.style.display !== 'none') setTimeout(function () { searchInput.focus(); }, 30);
+    }
+    function closePanel() { panel.hidden = true; activeIndex = -1; }
+    function selectOption(idx) {
+      if (idx < 0 || idx >= visibleOpts.length) return;
+      selectEl.value = visibleOpts[idx].value;
+      syncDisplay();
+      closePanel();
+      try { selectEl.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+      try { selectEl.dispatchEvent(new Event('input', { bubbles: true })); } catch (e2) {}
+    }
+    function setActive(idx) {
+      var nodes = listEl.querySelectorAll('.ec-cb-option');
+      for (var i = 0; i < nodes.length; i++) nodes[i].classList.remove('ec-cb-active');
+      if (idx >= 0 && nodes[idx]) {
+        nodes[idx].classList.add('ec-cb-active');
+        nodes[idx].scrollIntoView({ block: 'nearest' });
+      }
+      activeIndex = idx;
+    }
+
+    display.addEventListener('click', function () { panel.hidden ? openPanel() : closePanel(); });
+    display.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); openPanel(); }
+      else if (e.key === 'Escape') closePanel();
+    });
+    arrow.addEventListener('click', function () { panel.hidden ? openPanel() : closePanel(); });
+    searchInput.addEventListener('input', debounce(function () { buildList(searchInput.value); }, 120));
+    searchInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { closePanel(); display.focus(); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); setActive(Math.min(activeIndex + 1, visibleOpts.length - 1)); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(Math.max(activeIndex - 1, 0)); }
+      else if (e.key === 'Enter') { e.preventDefault(); selectOption(activeIndex >= 0 ? activeIndex : 0); }
+    });
+    listEl.addEventListener('click', function (e) {
+      var o = e.target.closest('.ec-cb-option');
+      if (o) selectOption(parseInt(o.getAttribute('data-idx'), 10));
+    });
+    document.addEventListener('mousedown', function (e) {
+      if (!panel.hidden && !wrap.contains(e.target)) closePanel();
+    });
+
+    // fillCats() ghi lai innerHTML cua .bl-cat -> childList mutation -> sync ngay
+    new MutationObserver(function () { syncDisplay(); })
+      .observe(selectEl, { childList: true });
+    // gan value bang JS khong sinh event nao -> poll nhe
+    var prev = selectEl.value;
+    setInterval(function () {
+      if (selectEl.value !== prev) { prev = selectEl.value; syncDisplay(); }
+    }, 300);
+
+    syncDisplay();
+  }
+
+  // -------- Ap dung --------
+  function upgradeRows(root) {
+    var sels = (root || document).querySelectorAll('#blBody select.bl-team, #blBody select.bl-group, #blBody select.bl-cat');
+    for (var i = 0; i < sels.length; i++) attachCombobox(sels[i]);
+  }
+  function upgradeBrand() {
+    var b = document.getElementById('brand');
+    if (b && b.tagName === 'SELECT') attachCombobox(b);
+  }
+  function init() {
+    upgradeBrand();
+    upgradeRows(document);
+    var body = document.getElementById('blBody');
+    if (body) {
+      new MutationObserver(function () { upgradeRows(document); })
+        .observe(body, { childList: true, subtree: true });
+    }
+    setTimeout(function () { upgradeBrand(); upgradeRows(document); }, 600);
+    setTimeout(function () { upgradeBrand(); upgradeRows(document); }, 2000);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+
+  console.log('[ec-mso-searchable-dropdowns] installed');
+})();
+</script><!-- /ec-mso-searchable-dropdowns -->
