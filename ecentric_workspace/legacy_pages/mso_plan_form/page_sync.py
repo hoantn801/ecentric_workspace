@@ -43,7 +43,7 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "51135084243aa8819a56c6e4776dc99c142ecdcdf28e052fc8f1ffc43bc3ad38"
+BASELINE_SHA256 = "9afb4ae3369be56ccd368ba5f246de5d4bef317f8e634351377573368c7a74b2"
 SUPERSEDES_SHA256 = (
     # bytes ban dau khi repo-hoa trang nay (#61). Live tren team.ecentric.vn da
     # duoc ghi thang len BASELINE_SHA256 ngay 2026-08-04 (round feedback MSO 1:
@@ -69,6 +69,17 @@ SUPERSEDES_SHA256 = (
     # va '%'. Live team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung
     # ngay nen sync dau tien o do tra ve "unchanged".
     "161cd7a8dfa5273cb9720de650deb7a31ab3116c296e240d96c7d9bad3e38ab7",  # pre-mso-fb-2
+    # bytes truoc round feedback MSO 3 (2026-08-05): dong dau tien cua dropdown
+    # Team / Khoan muc la <option value=""></option> -- value rong VA text rong,
+    # trinh duyet ve ra mot dong trang o dau danh sach. Round nay dat nhan that
+    # ("-- Chon team --" / "-- Chon khoan muc --") va them script
+    # ec-mso-searchable-dropdowns: combobox co o tim kiem dung dung mau UI/UX cua
+    # ec-gbs-searchable-dropdowns tren /gbs-so-form-v2 va /gbs-po-form-v2, ap dung
+    # cho #brand va 3 cot Team / Nhom / Khoan muc. Select goc van nam trong DOM
+    # (an di) va van nhan value nen readRows()/fillCats()/submit khong doi. Live
+    # team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay nen sync
+    # dau tien o do tra ve "unchanged".
+    "51135084243aa8819a56c6e4776dc99c142ecdcdf28e052fc8f1ffc43bc3ad38",  # pre-mso-fb-3
 )
 
 
