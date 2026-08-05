@@ -43,8 +43,32 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "5762d691ccf31e77810a09e6824b38f74c9f46a687ff84fd8dfaac513bfdede2"
+BASELINE_SHA256 = "2f15491dceff1e118eb7caf58baa5064aa250c1f6f72d9fdd19f7ed1b2554679"
 SUPERSEDES_SHA256 = (
+    # bytes truoc dot sua 5 diem cua form SO so EC (2026-08-06). Gom:
+    #  (1) O "MA MSO" khong hien du MSO da duyet ton tai: truoc day chi goi lai
+    #      ec_so_budget_check khi co su kien 'change' tren Brand/Thang. Brand duoc
+    #      dien BANG CODE (loadBrands + window._pendingBrand khi khoi phuc nhap,
+    #      hoac setMode) thi khong ban su kien nao -> o ma dung yen o trang thai
+    #      rong. Ban nay theo doi thang gia tri Brand|Thang|Department moi 600ms.
+    #  (2) "Hop dong tham chieu": doctype Contract dang rong (0 ban ghi) nen
+    #      dropdown chi con 1 option trong, ec-cb ve ra thanh xam khong chu. Doi
+    #      placeholder thanh "Chua co hop dong nao tren he thong".
+    #  (3) Khung xem truoc chain o sidebar luon ve theo recipe cua so GBS (ca 11
+    #      brand deu la "GBS Finance Only (1 level)") ke ca khi dang o so EC, trong
+    #      khi Workflow "EC SO Approval" tren site di 4 cap Manager -> Finance ->
+    #      HOF -> CEO voi ec_channel != "GBS". Them nhanh rieng cho MODE 'direct'
+    #      (qua window.EC_SO_MODE / window._gbsRenderChain); nhanh GBS giu nguyen.
+    #  (4) Bang chon khoan muc o so EC bao "cho load tu boxme" - sai vi so EC lay
+    #      item tu master Item qua ec_so_lookups. Doi cau chu theo mode.
+    #  (5) "Store (Platform)": brand ban truc tiep (BBT-VN, FES-VN, HNW-VN) khong
+    #      co ban ghi Store ben GBS nen dropdown rong. Che do 'direct' nay dung
+    #      danh sach san Shopee / Lazada / TikTok / Khac; che do GBS van dung danh
+    #      sach boxme (luu o window._ecBoxmeStores va tra lai nguyen ven khi doi
+    #      mode). Van dung chung o #ec-store nen rang buoc bat buoc luc submit,
+    #      payload ec_store va viec chuyen o len "Thong tin chung" khong doi.
+    # Live team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay.
+    "5762d691ccf31e77810a09e6824b38f74c9f46a687ff84fd8dfaac513bfdede2",
     "252629aa972b5b2c1a18986fb424bb9dfcf526e53d36151ca80b54818f889665",
     "01da088994cd5c4479d83b47b7f59b74989cc3721d39554a979de3f01abb6efc",
     "894d84f7d03ce39664b6edbd319d3803bace6ae3431ed6b907898d11c41d4ed5",
