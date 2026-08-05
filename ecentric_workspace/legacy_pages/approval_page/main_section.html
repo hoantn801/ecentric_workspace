@@ -3883,11 +3883,17 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
   //      thang bang native se bi chan quyen.
   //   2. Khong co bang approval_history — moc thoi gian/nguoi gui lai doc tu
   //      nhat ky duyet (ec_approval_log).
-  //   3. Khong co web form sua SO/PO — nut "Sửa & Submit lại" tro ve Desk form.
+  //   3. Nut "Sửa & Submit lại": loai nao co web form sua thi ve web form,
+  //      con lai moi ve Desk form (xem `webForm` va resubmitUrl() ben duoi).
+  // 2026-08-05: `native` va `webForm` la HAI viec khac nhau — dung gop lam mot.
+  // `native: true` con quyet dinh viec doc du lieu qua get_ticket_detail va viec
+  // khong co bang approval_history; MSO van la doctype native nen phai giu
+  // `native: true`, chi rieng dich cua nut "Sửa & Submit lại" doi sang web form
+  // /mso-plan-form?edit=<id> (form nay da co che do sua tu 2026-08-05).
   var EC_SB_CFG = {
     'gbs_so': { doctype: 'GBS Sales Order',    form: '/gbs-so-form-v2', native: false },
     'gbs_po': { doctype: 'GBS Purchase Order', form: '/gbs-po-form-v2', native: false },
-    'mso':    { doctype: 'MSO',                form: '/app/mso',             native: true },
+    'mso':    { doctype: 'MSO',                form: '/app/mso',             native: true, webForm: '/mso-plan-form' },
     'so':     { doctype: 'Sales Order',        form: '/app/sales-order',     native: true },
     'po':     { doctype: 'Purchase Order',     form: '/app/purchase-order',  native: true }
   };
@@ -3902,6 +3908,8 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
   var docData = null;
 
   function resubmitUrl(){
+    // Co web form sua -> luon uu tien, ke ca doctype native (MSO).
+    if (CFG.webForm) return CFG.webForm + '?edit=' + encodeURIComponent(ticketId);
     if (IS_NATIVE) return FORM_ROUTE + '/' + encodeURIComponent(ticketId);
     return FORM_ROUTE + '?edit=' + encodeURIComponent(ticketId);
   }
@@ -6363,7 +6371,29 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
    doan merge comment local cua no khoa cung vao 2 doctype GBS -> MSO se loi. Theo rang
    buoc "GBS SO PO dang chay on roi khong dong vao", khong sua gi cua GBS.
    Server: ec_mso_thread (moi, chi doc). Gui/sua/xoa comment dung lai
-   gbs_post_comment / gbs_edit_comment / gbs_delete_comment o nhanh local_only san co. */
+   gbs_post_comment / gbs_edit_comment / gbs_delete_comment o nhanh local_only san co.
+
+   2026-08-06 (round 3) them 3 thu, van trong khoi RIENG nay:
+     1. Nut xoa "x" tren tung tep dinh kem, giong SO/PO. KHONG dung lai
+        gbs_remove_attachment vi script do chan cung 2 doctype GBS va viec chinh
+        cua no la go URL khoi attachment_url + xoa File ben boxme -- MSO khong co
+        truong do va khong ton tai tren boxme. Endpoint moi:
+        ec_mso_remove_attachment (chi cho chu tep hoac System Manager, va tu choi
+        moi doctype bat dau bang "GBS ").
+     2. Comment bang ANH: o nhap doi tu <textarea> sang contenteditable de dan
+        (Ctrl+V) anh truc tiep, giong #ec-gbs-timeline. Khac 1 diem quan trong:
+        ban GBS day anh len boxme qua upload_image_to_boxme roi hien qua
+        proxy_boxme_file -- MSO khong co ban ghi ben boxme nen anh duoc upload
+        NATIVE (/api/method/upload_file, is_private=1, attach vao chinh MSO), tuc
+        la anh an theo dung quyen doc cua MSO. Anh dan trong comment se bi
+        ec_mso_thread danh dau in_comment=1 va bi loai khoi khung "Tai lieu dinh
+        kem" de khung do khong bi loang.
+     3. Lich su duyet chen thang vao dong trao doi theo thu tu thoi gian: ai
+        duyet, luc nao, tu buoc nao sang buoc nao. MSO la doctype native nen
+        KHONG co truong approval_history JSON nhu GBS SO/PO; nguon that su la
+        tabVersion (Frappe tu ghi moi lan doi workflow_state kem owner +
+        creation). Server tra ve from_state/to_state tho, nhan tieng Viet do
+        front-end dat o bang EV_LABEL ben duoi. */
 (function () {
   'use strict';
   if (window._ecMsoThreadInstalled) return;
@@ -6380,7 +6410,35 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
   var DOCTYPE = 'MSO';
   console.log('[ec-mso-thread] active for', DOCTYPE, ticketId);
 
-  var STATE = { files: [], comments: [], user: '', canWrite: 0, loaded: false };
+  var STATE = { files: [], comments: [], events: [], user: '', canWrite: 0, loaded: false };
+
+  /* Nhan tieng Viet cho tung buoc workflow "MSO Approval". Key = "<tu>|<den>".
+     Dat o front-end de server giu nguyen du lieu tho tu tabVersion. */
+  var EV_LABEL = {
+    'Draft|Pending Manager': 'Trình duyệt',
+    'Rejected|Pending Manager': 'Trình lại sau khi bị từ chối',
+    'Pending Manager|Pending Finance': 'Duyệt cấp 1 — Leader',
+    'Pending Finance|Pending HOF': 'Duyệt cấp 2 — Sale Admin / Finance',
+    'Pending HOF|Pending CEO': 'Duyệt cấp 3 — HOF',
+    'Pending CEO|Approved': 'Duyệt cấp 4 — CEO (hoàn tất)'
+  };
+  function evLabel(ev) {
+    var from = ev.from_state || '', to = ev.to_state || '';
+    var k = from + '|' + to;
+    if (EV_LABEL[k]) return EV_LABEL[k];
+    if (to === 'Rejected') return 'Từ chối';
+    if (to === 'Draft') return 'Trả về để sửa';
+    if (to === 'Approved') return 'Duyệt hoàn tất';
+    if (!from) return 'Chuyển sang ' + to;
+    return from + ' → ' + to;
+  }
+  function evKind(ev) {
+    var to = ev.to_state || '';
+    if (to === 'Rejected') return 'rej';
+    if (to === 'Approved') return 'ok';
+    if (to === 'Draft') return 'back';
+    return 'go';
+  }
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -6457,7 +6515,23 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
       '.ec-msoatt-add:disabled { opacity:.55; cursor:not-allowed; }',
       '.ec-msoatt-msg { font-size:11.5px; margin-top:8px; }',
       '.ec-msoatt-msg.ok { color:#166534; }',
-      '.ec-msoatt-msg.err { color:#991b1b; word-break:break-word; }'
+      '.ec-msoatt-msg.err { color:#991b1b; word-break:break-word; }',
+      '.ec-msoatt-del { border:none; background:none; color:#dc2626; cursor:pointer; font-size:17px; line-height:1; padding:0 6px; flex:none; }',
+      '.ec-msoatt-del:disabled { color:#d1d5db; cursor:not-allowed; }',
+      /* o nhap contenteditable (thay textarea) de dan anh truc tiep */
+      '#ec-mso-thread-panel .mt-input { flex:1; min-height:40px; max-height:220px; overflow-y:auto; padding:9px 11px; border:1px solid #e5e7eb; border-radius:6px; font-family:inherit; font-size:12.5px; line-height:1.55; outline:none; color:#374151; }',
+      '#ec-mso-thread-panel .mt-input:focus { border-color:#2C3DA6; }',
+      '#ec-mso-thread-panel .mt-input:empty:before { content:attr(data-placeholder); color:#9ca3af; }',
+      '#ec-mso-thread-panel .mt-input img { max-width:220px; height:auto; border-radius:4px; margin:4px 0; display:block; }',
+      '#ec-mso-thread-panel .mt-input img[data-uploading="1"] { opacity:.45; outline:2px dashed #93c5fd; }',
+      '#ec-mso-thread-panel .mt-input img[data-error="1"] { outline:2px solid #dc2626; }',
+      /* moc lich su duyet nam chung dong voi comment */
+      '#ec-mso-thread-panel .mt-ev .mt-av { border-radius:8px; font-size:14px; }',
+      '#ec-mso-thread-panel .mt-ev .mt-body { background:#f8fafc; border-left-color:#cbd5e1; color:#334155; font-weight:500; }',
+      '#ec-mso-thread-panel .mt-ev.ev-ok .mt-body { background:#f0fdf4; border-left-color:#86efac; color:#166534; }',
+      '#ec-mso-thread-panel .mt-ev.ev-rej .mt-body { background:#fef2f2; border-left-color:#fca5a5; color:#991b1b; }',
+      '#ec-mso-thread-panel .mt-ev.ev-back .mt-body { background:#fffbeb; border-left-color:#fcd34d; color:#92400e; }',
+      '#ec-mso-thread-panel .mt-ev .mt-flow { display:block; font-weight:400; font-size:11px; color:#94a3b8; margin-top:2px; }'
     ].join('\n');
     document.head.appendChild(st);
   }
@@ -6479,6 +6553,7 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
     return fetchThread().then(function (m) {
       STATE.files = m.files || [];
       STATE.comments = m.comments || [];
+      STATE.events = m.events || [];
       STATE.user = m.user || '';
       STATE.canWrite = m.can_write ? 1 : 0;
       STATE.loaded = true;
@@ -6519,20 +6594,29 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
     var body = panel.querySelector('.panel-body');
     if (!body) return false;
     var html = '';
+    /* Anh dan trong o trao doi cung la File attach vao MSO -> khong liet ke o day,
+       neu khong khung "Tai lieu dinh kem" se day anh chat va mat y nghia. */
+    var visible = STATE.files.filter(function (f) { return !f.in_comment; });
     if (!STATE.loaded) {
       html = '<div class="attach-empty">Đang tải…</div>';
-    } else if (!STATE.files.length) {
+    } else if (!visible.length) {
       html = '<div class="attach-empty">Không có file đính kèm</div>';
     } else {
       html = '<div class="attach-list">';
-      STATE.files.forEach(function (f) {
+      visible.forEach(function (f) {
         var sub = [fmtBytes(f.file_size), f.owner, fmtWhen(f.creation)].filter(function (x) { return x; }).join(' · ');
         html += '<div class="ec-msoatt-row">'
           + '<a class="attach-item" href="' + esc(f.file_url) + '" target="_blank" rel="noopener" style="flex:1;min-width:0">'
           + '<svg class="attach-icon icon icon-sm"><use href="#i-paperclip"/></svg>'
           + '<span class="attach-name">' + esc(f.file_name || 'attachment')
           + '<span class="ec-msoatt-sub" style="display:block">' + esc(sub) + '</span></span>'
-          + '</a></div>';
+          + '</a>';
+        if (f.can_delete) {
+          html += '<button type="button" class="ec-msoatt-del" title="Xoá tệp khỏi MSO này"'
+            + ' data-att-file="' + esc(f.name) + '"'
+            + ' data-att-label="' + esc(f.file_name || 'attachment') + '">×</button>';
+        }
+        html += '</div>';
       });
       html += '</div>';
     }
@@ -6548,7 +6632,31 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
       btn.addEventListener('click', function () { inp.value = ''; inp.click(); });
       inp.addEventListener('change', function () { uploadFiles(inp.files); });
     }
+    var dels = body.querySelectorAll('.ec-msoatt-del');
+    for (var d = 0; d < dels.length; d++) dels[d].addEventListener('click', onDeleteAttachment);
     return true;
+  }
+
+  function onDeleteAttachment(e) {
+    var btn = e.currentTarget;
+    var fname = btn.getAttribute('data-att-file');
+    var label = btn.getAttribute('data-att-label') || fname;
+    if (!fname) return;
+    if (!window.confirm('Xoá tệp "' + label + '" khỏi MSO này?')) return;
+    btn.disabled = true;
+    attMsg('Đang xoá "' + label + '"…', '');
+    fetch('/api/method/ec_mso_remove_attachment', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doctype: DOCTYPE, name: ticketId, file: fname })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      var m = (d && d.message) || {};
+      if (!m.success) throw new Error(m.error || 'delete_failed');
+      return refresh().then(function () { attMsg('Đã xoá "' + label + '".', 'ok'); });
+    })['catch'](function (err) {
+      attMsg('Lỗi xoá: ' + err.message, 'err');
+      btn.disabled = false;
+    });
   }
 
   function attMsg(text, kind) {
@@ -6614,7 +6722,7 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
       '  <div class="mt-status" id="ec-mso-thread-status"></div>',
       '  <div class="mt-feed" id="ec-mso-thread-feed"><div class="mt-empty">Đang tải…</div></div>',
       '  <div class="mt-reply" id="ec-mso-thread-reply" style="display:none">',
-      '    <textarea id="ec-mso-thread-input" placeholder="Nhập nội dung trao đổi về MSO này..."></textarea>',
+      '    <div class="mt-input" id="ec-mso-thread-input" contenteditable="true" data-placeholder="Nhập nội dung trao đổi về MSO này... (dán ảnh bằng Ctrl+V)"></div>',
       '    <button type="button" class="mt-send" id="ec-mso-thread-send">Gửi</button>',
       '  </div>',
       '  <div class="mt-hint" id="ec-mso-thread-hint"></div>',
@@ -6627,11 +6735,36 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
     var feed = document.getElementById('ec-mso-thread-feed');
     if (!feed) return;
     if (!STATE.loaded) { feed.innerHTML = '<div class="mt-empty">Đang tải…</div>'; return; }
-    if (!STATE.comments.length) {
+
+    /* Tron comment va moc duyet vao 1 dong theo thoi gian, cu nhat len truoc,
+       de doc mot mach: ai trinh, ai duyet luc nao, xen giua la trao doi. */
+    var rows = [];
+    STATE.comments.forEach(function (c) {
+      rows.push({ when: c.creation || '', kind: 'c', c: c });
+    });
+    STATE.events.forEach(function (ev) {
+      rows.push({ when: ev.when || '', kind: 'e', e: ev });
+    });
+    rows.sort(function (a, b) { return String(a.when) < String(b.when) ? -1 : (String(a.when) > String(b.when) ? 1 : 0); });
+
+    if (!rows.length) {
       feed.innerHTML = '<div class="mt-empty">Chưa có trao đổi nào. Người duyệt và người gửi đều có thể để lại ghi chú ở đây.</div>';
     } else {
       var html = '';
-      STATE.comments.forEach(function (c) {
+      rows.forEach(function (row) {
+        if (row.kind === 'e') {
+          var ev = row.e;
+          html += '<div class="mt-item mt-ev ev-' + evKind(ev) + '">';
+          html += '<span class="mt-av" style="background:' + avColor(ev.by) + '" title="' + esc(ev.by) + '">✓</span>';
+          html += '<div class="mt-b">';
+          html += '<div class="mt-meta"><span class="mt-who">' + esc(ev.by || '—') + '</span>';
+          html += '<span class="mt-when">' + esc(fmtWhen(ev.when)) + '</span></div>';
+          html += '<div class="mt-body">' + esc(evLabel(ev))
+            + '<span class="mt-flow">' + esc((ev.from_state || '—') + ' → ' + (ev.to_state || '—')) + '</span></div>';
+          html += '</div></div>';
+          return;
+        }
+        var c = row.c;
         var isSys = c.comment_type !== 'Comment';
         html += '<div class="mt-item' + (isSys ? ' mt-sys' : '') + '" data-cname="' + esc(c.name) + '">';
         html += '<span class="mt-av" style="background:' + avColor(c.by) + '" title="' + esc(c.by) + '">' + esc(initials(c.by)) + '</span>';
@@ -6652,25 +6785,124 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
     var reply = document.getElementById('ec-mso-thread-reply');
     var hint = document.getElementById('ec-mso-thread-hint');
     if (reply) reply.style.display = '';
-    if (hint) hint.textContent = 'Ctrl+Enter để gửi nhanh. Nội dung lưu ngay trên MSO này, không đẩy sang GBS.';
+    if (hint) hint.textContent = 'Ctrl+Enter để gửi nhanh. Dán ảnh trực tiếp bằng Ctrl+V. Nội dung lưu ngay trên MSO này, không đẩy sang GBS.';
+  }
+
+  /* ---------------- dan anh vao o trao doi ---------------- */
+  function insertNodeAtCaret(node) {
+    var inp = document.getElementById('ec-mso-thread-input');
+    if (!inp) return;
+    inp.focus();
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !inp.contains(sel.anchorNode)) {
+      inp.appendChild(node);
+      return;
+    }
+    var range = sel.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  function insertPastedImage(file) {
+    /* Anh duoc upload NATIVE va attach vao chinh MSO (is_private=1) nen chi ai doc
+       duoc MSO moi xem duoc anh. Khong dung duong boxme cua GBS: MSO khong ton tai
+       ben do. Hien tam bang dataURL de nguoi dung thay ngay, sau khi upload xong
+       thi doi src sang file_url that. */
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = document.createElement('img');
+      img.src = reader.result;
+      img.setAttribute('data-uploading', '1');
+      insertNodeAtCaret(img);
+      var btn = document.getElementById('ec-mso-thread-send');
+      if (btn) { btn.disabled = true; btn.textContent = 'Đang tải ảnh…'; }
+      uploadOne(file).then(function (d) {
+        var url = (d && d.message && d.message.file_url) || '';
+        if (!url) throw new Error('upload khong tra ve file_url');
+        img.src = url;
+        img.removeAttribute('data-uploading');
+      })['catch'](function (e) {
+        img.removeAttribute('data-uploading');
+        img.setAttribute('data-error', '1');
+        setStatus('Không tải được ảnh: ' + e.message, 'err');
+      }).then(function () {
+        var b = document.getElementById('ec-mso-thread-send');
+        var inp = document.getElementById('ec-mso-thread-input');
+        var pending = inp ? inp.querySelector('img[data-uploading="1"]') : null;
+        if (b && !pending) { b.disabled = false; b.textContent = 'Gửi'; }
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function onPaste(e) {
+    var cd = e.clipboardData || window.clipboardData;
+    if (!cd) return;
+    var items = cd.items || [];
+    var imgFile = null;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].kind === 'file' && String(items[i].type).indexOf('image/') === 0) {
+        imgFile = items[i].getAsFile();
+        break;
+      }
+    }
+    if (imgFile) {
+      e.preventDefault();
+      insertPastedImage(imgFile);
+      return;
+    }
+    /* Dan chu: ep ve text thuan de khong keo theo mau/font tu Word, Excel. */
+    var text = cd.getData ? cd.getData('text/plain') : '';
+    if (text) {
+      e.preventDefault();
+      insertNodeAtCaret(document.createTextNode(text));
+    }
   }
 
   function postComment() {
     var inp = document.getElementById('ec-mso-thread-input');
     var btn = document.getElementById('ec-mso-thread-send');
     if (!inp) return;
-    var text = (inp.value || '').trim();
-    if (!text) { setStatus('Nhập nội dung trước', 'err'); return; }
+    if (inp.querySelector('img[data-uploading="1"]')) {
+      setStatus('Ảnh đang tải lên, đợi một chút rồi gửi', 'err');
+      return;
+    }
+    var imgs = inp.querySelectorAll('img');
+    var text = (inp.textContent || '').trim();
+    if (!text && !imgs.length) { setStatus('Nhập nội dung trước', 'err'); return; }
+
+    var content, isHtml;
+    if (imgs.length) {
+      /* Co anh -> gui HTML. Don cac thuoc tinh tam truoc khi luu de trong DB chi
+         con the <img src="/private/files/..."> sach se. */
+      var tmp = document.createElement('div');
+      tmp.innerHTML = inp.innerHTML;
+      var ti = tmp.querySelectorAll('img');
+      for (var i = 0; i < ti.length; i++) {
+        ti[i].removeAttribute('data-uploading');
+        ti[i].removeAttribute('data-error');
+        if (String(ti[i].getAttribute('src') || '').indexOf('data:') === 0) ti[i].parentNode.removeChild(ti[i]);
+      }
+      content = tmp.innerHTML;
+      isHtml = 1;
+    } else {
+      content = text;
+      isHtml = 0;
+    }
     if (btn) { btn.disabled = true; btn.textContent = 'Đang gửi…'; }
     setStatus('', '');
     fetch('/api/method/gbs_post_comment', {
       method: 'POST', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ doctype: DOCTYPE, name: ticketId, content: text, is_html: 0 })
+      body: JSON.stringify({ doctype: DOCTYPE, name: ticketId, content: content, is_html: isHtml })
     }).then(function (r) { return r.json(); }).then(function (d) {
       var m = (d && d.message) || {};
       if (!m.success) throw new Error(m.error || 'post_failed');
-      inp.value = '';
+      inp.innerHTML = '';
       return refresh();
     })['catch'](function (e) {
       setStatus('Lỗi gửi: ' + e.message, 'err');
@@ -6701,6 +6933,12 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
       return;
     }
     var bodyEl = item.querySelector('.mt-body');
+    if (bodyEl && bodyEl.querySelector('img')) {
+      /* O sua la window.prompt (chi chu) -> sua se lam mat anh. Voi comment co
+         anh, xoa roi gui lai la duong an toan. */
+      setStatus('Bình luận có ảnh thì không sửa được tại đây — xoá rồi gửi lại giúp em.', 'err');
+      return;
+    }
     var current = bodyEl ? (bodyEl.textContent || '').trim() : '';
     var next = window.prompt('Sửa bình luận:', current);
     if (next === null) return;
@@ -6731,8 +6969,9 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
     var inp = document.getElementById('ec-mso-thread-input');
     if (inp) {
       inp.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) postComment();
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); postComment(); }
       });
+      inp.addEventListener('paste', onPaste);
     }
     var feed = document.getElementById('ec-mso-thread-feed');
     if (feed) feed.addEventListener('click', onFeedClick);

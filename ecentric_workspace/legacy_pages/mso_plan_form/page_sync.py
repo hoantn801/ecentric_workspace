@@ -43,7 +43,7 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "c642c7847d6a042e3fd6f08795272f64cf10b7596a7ce43b9618a1b6ec9b6f2d"
+BASELINE_SHA256 = "019d95118ea5c98cc06139080a8049b6647a3a1819bfa4a479663af49eb4555f"
 SUPERSEDES_SHA256 = (
     # bytes ban dau khi repo-hoa trang nay (#61). Live tren team.ecentric.vn da
     # duoc ghi thang len BASELINE_SHA256 ngay 2026-08-04 (round feedback MSO 1:
@@ -131,6 +131,75 @@ SUPERSEDES_SHA256 = (
     # dong o nhom "Khac". Live team.ecentric.vn da duoc ghi thang len
     # BASELINE_SHA256 cung ngay nen sync dau tien o do tra ve "unchanged".
     "4871550ecf514c2675185822f4d41506cec395c2bc53d4706b47c61d59aafa9e",  # mso-fb-3 v4
+    # bytes cua ban v5 (2026-08-05, cung ngay). v5 bo cot Team nen team cua mot
+    # dong hoan toan do hang tieu de quyet dinh -- nhung prefillTemplate() chi
+    # dung hang tieu de cho team NAO CO item mac dinh (ec_mso_default), tren live
+    # la 4 team: Media 3, Service 3, E-commerce Operation 2, Production 1. Bon
+    # team con lai (Merchandise Content & Design / Operation Data & System / HR /
+    # Finance & Accounting) khong co hang tieu de nao -> khong con cach nao cap
+    # ngan sach cho ho. Cong voi ec_so_before_save v11 (siet tran theo team) thi
+    # tran cua 4 team do = 0 va moi SO cua ho deu Out of Budget + bat giai trinh.
+    # v6 dung hang tieu de cho DU 8 team trong LK.teams ke ca team chua co khoan
+    # muc mac dinh; team khong dung thi de trong, dong trong/0 tu bo qua khi gui.
+    # Nhom "Khac" (team rong) chi hien khi that su co item mac dinh khong gan
+    # team, khong con tu bay ra mot hang tieu de rong. cleanupHeads() giu san
+    # hang tieu de cua team nam trong LK.teams nen 8 hang nay khong bi don di.
+    # Live team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay nen
+    # sync dau tien o do tra ve "unchanged".
+    "c642c7847d6a042e3fd6f08795272f64cf10b7596a7ce43b9618a1b6ec9b6f2d",  # mso-fb-3 v5
+    # bytes cua ban v6 (2026-08-05, cung ngay). v7 BO NOT cot "Nhom": nhom cua
+    # mot khoan muc da duoc quy dinh san o Item (item_group) nen bat KAM chon lai
+    # vua thua vua de chon lech voi Item. Dropdown "Khoan muc" gio gom CA HAI
+    # nhom (LK.items_ops + LK.items_fee) trong mot danh sach; nhom cua dong duoc
+    # suy ra tu khoan muc qua map GRP_OF va ghi vao o an <input type="hidden"
+    # class="bl-group"> nen readRows() / recompute() / payload() / saveDraft()
+    # doc y nguyen, khong phai sua. Listener 'change' doi tu .bl-group sang
+    # .bl-cat (goi syncRowGroup + recompute); upgradeRows() cua combobox khong
+    # con nham .bl-group nua vi no khong con la <select>. Bang con 4 cot voi ty
+    # le 52/22/23/3 va colspan cua hang tieu de team giam tu 5 xuong 4. Live
+    # team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay nen sync
+    # dau tien o do tra ve "unchanged".
+    "6a4aff420f931cbf3b24f7094c673bd79988f4d28b27fcd10dd237179cd7d9f3",  # mso-fb-3 v6
+
+    # bytes truoc khi TACH cot "Khoan muc" thanh 2 cot (2026-08-05). Ban truoc
+    # do gop ca ma lan ten vao mot dropdown hep -> chuoi dai bi cat cut tren
+    # man hinh, vi du "GBS_PVH_VHTTLK - Phi van hanh tiep thi lien ket cua
+    # Ecentric". Ban nay: cot "Ma khoan muc" giu dropdown (nut da chon chi in
+    # ma, qua thuoc tinh data-ec-short moi them vao <option>), cot "Ten khoan
+    # muc" moi la o chi doc dien tu NAME_OF theo ma da chon; o tim kiem trong
+    # dropdown VAN tim duoc bang ten vi <option>.text van la "ma - ten". Cot
+    # Ghi chu thu tu 23% xuong 19%, hang tieu de team colspan 4 -> 5. Live
+    # team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay.
+    "bed58f7c2907097d4641cbaaaeb7227a007628911fa05e5c191fe6efa19bd8ee",  # pre-split-code-name
+
+    # bytes truoc khi dong khung o "Ten khoan muc" (2026-08-05). Ban truoc do in
+    # ten dang chu tran, khong co vien, nen nhin lech han so voi cac o input
+    # ben canh -> bang trong lon xon. Ban nay cho .bl-name muon dung bo vien /
+    # bo goc / padding cua .f-control, nen xam (--bg) de bao hieu chi doc.
+    # Thuan CSS, khong dong vao logic. Live team.ecentric.vn da duoc ghi thang
+    # len BASELINE_SHA256 cung ngay.
+    "15018222b67fb299a4be155040fcd239c138740828fa583219396e4d82c28916",  # pre-boxed-item-name
+
+    # bytes truoc khi CHUYEN TRANG SAU KHI GUI DUYET (2026-08-05). Truoc do
+    # submitForm() chi doi nut thanh "Da gui duyet: <ten>" roi dung yen o trang
+    # tao, nguoi gui phai tu vao /all-ticket tim lai MSO vua tao moi xem duoc
+    # chuoi duyet / dinh kem. Ban nay sau khi apply_workflow thanh cong thi
+    # setTimeout 1100ms roi window.location.href =
+    # "/approval?id=<ten>&type=mso" (type "mso" da duoc /approval ho tro san).
+    # Live team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay.
+    "815fb053b79f94350ebd9b0b88165471ea74a57e39691d847dbe5cc987a53be8",  # pre-redirect-after-submit
+    # pre-edit-mode bytes: ban repo truoc khi form co CHE DO SUA (2026-08-05).
+    # Truoc do /mso-plan-form chi biet TAO MOI, nen nut "Sua & Submit lai" tren
+    # trang /approval bat buoc phai nem nguoi dung sang Desk form /desk/mso/<id>.
+    # Ban nay them ?edit=<MSO-ID>: doc chung tu qua get_ticket_detail, doc tep da
+    # dinh kem qua ec_mso_thread, khoa Brand + Thang (vi autoname
+    # "format:MSO-{month}-{brand}" khong doi ten ban ghi duoc), PUT thay vi POST,
+    # va chon action workflow "Resubmit" khi dang o Rejected. Trang thai khac
+    # Draft/Rejected thi hien banner do va khoa nut gui (workflow "MSO Approval"
+    # dat allow_edit = "System Manager" cho moi buoc Pending). Combobox
+    # ec-mso-searchable-dropdowns cung duoc day de ton trong <select disabled>.
+    # Live team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay.
+    "eb68eb4c4e7e9fcc6b5a0f8b4bc68a18e6dd79a1818c322c8fea2aa0c99ebc29",  # pre-edit-mode
 )
 
 

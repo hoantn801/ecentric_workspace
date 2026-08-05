@@ -75,7 +75,7 @@ def _html():
 # values, so a repo snapshot can never silently revert a live edit. Deliberate
 # update = edit main_section.html, bump this constant, and move the value it
 # replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "60233a2a8399c2ba330fb6c640c83c2c15c7fdc198bbb0813aeb2715703d12bb"
+BASELINE_SHA256 = "03f31b79f6c5b9530c2d0f0ee4e49e7cec4a60642230154163281adc8d0ae7e0"
 
 # Live values this snapshot is allowed to overwrite. C4b was authored in the
 # repo, not on the site, so at deploy time live still holds the #138 bytes
@@ -114,6 +114,40 @@ SUPERSEDES_SHA256 = (
     # yeu cau fb#4, khong lien quan den loai phi. Live team.ecentric.vn da duoc ghi
     # thang len BASELINE_SHA256 cung ngay nen sync dau tien o do tra ve "unchanged".
     "52028d811c5cf18f705c062c8cc020f0ce16f5f0a2cdc47d63f3ef82d17504cf",  # pre-mso-fb-2
+    # pre-mso-webform-resubmit bytes: ban repo truoc 2026-08-05, khi nut
+    # "Sua & Submit lai" cua MSO con tro sang Desk form /desk/mso/<id> (giao dien
+    # thô, khac han luc gui). Ban nay them khoa `webForm: '/mso-plan-form'` vao
+    # EC_SB_CFG['mso'] va cho resubmitUrl() uu tien CFG.webForm, nen MSO ve
+    # /mso-plan-form?edit=<id> giong cach GBS SO/PO dang lam. CO Y GIU
+    # `native: true` cho MSO: co `native` con quyet dinh viec doc du lieu qua
+    # get_ticket_detail va viec khong co bang approval_history -- chi rieng dich
+    # cua nut resubmit doi. Live team.ecentric.vn da duoc ghi thang len
+    # BASELINE_SHA256 cung ngay nen sync dau tien o do tra ve "unchanged".
+    "60233a2a8399c2ba330fb6c640c83c2c15c7fdc198bbb0813aeb2715703d12bb",  # pre-mso-webform-resubmit
+    # pre-mso-thread-round3 bytes: ban repo truoc 2026-08-06. Round 3 sua duy nhat
+    # khoi #ec-mso-thread (khoi rieng cua MSO; khong cham gi vao #ec-gbs-timeline):
+    #   1. Moi tep trong khung "Tai lieu dinh kem" co nut "x" xoa, hien khi
+    #      can_delete = 1 (chu tep hoac System Manager). Goi endpoint MOI
+    #      ec_mso_remove_attachment -- KHONG dung lai gbs_remove_attachment vi
+    #      script do chan cung 2 doctype GBS va viec chinh cua no la go URL khoi
+    #      attachment_url roi xoa File ben boxme; MSO khong co truong do va khong
+    #      ton tai tren boxme.
+    #   2. O trao doi doi tu <textarea> sang contenteditable de dan anh bang
+    #      Ctrl+V. Anh duoc upload NATIVE (/api/method/upload_file, is_private=1,
+    #      attach vao chinh MSO) chu khong day len boxme nhu ban GBS, nen anh an
+    #      theo dung quyen doc cua MSO. Comment co anh gui voi is_html=1.
+    #      ec_mso_thread v3 danh dau nhung File nay bang in_comment=1 va
+    #      front-end loai chung khoi khung "Tai lieu dinh kem".
+    #   3. Lich su duyet (ai duyet, luc nao, tu buoc nao sang buoc nao) chen thang
+    #      vao dong trao doi theo thu tu thoi gian. MSO la doctype native nen
+    #      KHONG co truong approval_history JSON nhu GBS SO/PO; nguon la tabVersion
+    #      (Frappe tu ghi moi lan doi workflow_state kem owner + creation).
+    #      Server tra ve from_state/to_state tho, nhan tieng Viet nam o bang
+    #      EV_LABEL trong trang. Hai Server Script di kem (ec_mso_thread v3 va
+    #      ec_mso_remove_attachment v1) song tren site, khong nam trong repo.
+    # Live team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay nen
+    # sync dau tien o do tra ve "unchanged".
+    "04ca8c056688321d646234fb5eab353252260f05c71c8f5eccec814dd508682a",  # pre-mso-thread-round3
 )
 
 

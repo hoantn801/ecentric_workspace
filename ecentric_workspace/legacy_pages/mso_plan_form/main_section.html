@@ -313,6 +313,14 @@ body { background: var(--bg); color: var(--text); font-size: 14px; line-height: 
 .id-display span:first-child { font-size: 11px; color: rgba(255,255,255,0.45); }
 .id-display span:last-child { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--gold2); font-weight: 500; }
 .required-note { font-size: 12px; color: var(--muted2); padding: 14px 40px 0; }
+/* 2026-08-05: bang thong bao cua che do SUA (/mso-plan-form?edit=<MSO-ID>). */
+.edit-banner { margin: 14px 40px 0; padding: 12px 14px; border: 1px solid #fcd34d; background: #fffbeb; border-radius: var(--radius); font-size: 13px; color: #78350f; line-height: 1.5; }
+.edit-banner .eb-reason { margin-top: 6px; padding-left: 10px; border-left: 3px solid #f59e0b; color: #92400e; }
+.edit-banner .eb-sub { margin-top: 6px; font-size: 12px; color: #a16207; }
+.edit-banner.eb-locked { border-color: #fca5a5; background: #fef2f2; color: #7f1d1d; }
+.edit-banner.eb-locked .eb-sub { color: #b91c1c; }
+.edit-banner a { color: inherit; text-decoration: underline; }
+.file-item.file-item-old { background: #f8f9fb; }
 .required-note span { color: var(--danger); }
 .form-section { padding: 32px 40px; border-bottom: 1px solid var(--border); }
 .form-section:last-of-type { border-bottom: none; }
@@ -402,6 +410,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   .page-wrap { padding: 20px 16px 60px; }
   .form-footer { padding: 16px 20px; }
   .required-note { padding: 12px 20px 0; }
+  .edit-banner { margin: 12px 20px 0; }
 }
 </style>
 <style id="ec-mso-plan-css">
@@ -418,6 +427,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 .bl-team-add{background:#fff;border:1px dashed #c9c4ba;border-radius:6px;padding:3px 10px;font-size:11.5px;font-weight:600;color:#5a5a5a;cursor:pointer;letter-spacing:0;text-transform:none;font-family:inherit}
 .bl-team-add:hover{background:#ece9e2;border-color:#b3ada1}
 .bl-table .f-control{min-width:0;padding:8px 10px;font-size:13px}
+.bl-name{width:100%;padding:8px 10px;font-size:13px;line-height:20px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bl-name.ec-empty{color:var(--muted)}
 .bl-row-del{background:none;border:none;color:#b3b3b3;font-size:16px;cursor:pointer;padding:6px}
 .bl-row-del:hover{color:#c0392b}
 .bl-add{margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:#f4f2ee;border:1px dashed #c9c4ba;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;color:#5a5a5a;cursor:pointer}
@@ -455,6 +466,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         <span id="msoIdDisplay">MSO-yyyy-mm-BRAND</span>
       </div>
     </div>
+
+    <div class="edit-banner" id="editBanner" hidden></div>
 
     <p class="required-note">C&#225;c tr&#432;&#7901;ng c&#243; d&#7845;u <span>*</span> l&#224; b&#7855;t bu&#7897;c.</p>
 
@@ -505,10 +518,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         <table class="bl-table">
           <thead>
             <tr>
-              <th style="width:17%">Nh&#243;m</th>
-              <th style="width:40%">Kho&#7843;n m&#7909;c</th>
-              <th style="width:20%">Amount (VND, +VAT)</th>
-              <th style="width:20%">Ghi ch&#250;</th>
+              <th style="width:26%">M&#227; kho&#7843;n m&#7909;c</th>
+              <th style="width:30%">T&#234;n kho&#7843;n m&#7909;c</th>
+              <th style="width:22%">Amount (VND, +VAT)</th>
+              <th style="width:19%">Ghi ch&#250;</th>
               <th style="width:3%"></th>
             </tr>
           </thead>
@@ -584,6 +597,19 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
   var _files = [];
+  // 2026-08-05: CHE DO SUA -- /mso-plan-form?edit=<MSO-ID>.
+  // Truoc do form nay chi biet TAO MOI, nen nut "Sửa & Submit lại" o trang
+  // /approval bat buoc phai nem nguoi dung sang Desk form (/desk/mso/<id>) --
+  // giao dien thô, khac han luc gui. Gio mo lai dung form nay, giong het cach
+  // GBS SO/PO da lam bang ?edit=.
+  // Chi 2 trang thai sua duoc: Draft va Rejected. Workflow "MSO Approval" dat
+  // allow_edit = "System Manager" cho MOI buoc Pending -> KAM khong luu duoc.
+  var EDIT_NAME = '';
+  var _oldFiles = [];   // tep da dinh kem san tren chung tu (chi doc)
+  function urlParamEdit() {
+    var m = String(location.search || '').match(/[?&]edit=([^&]*)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
   var GRP_OPS = 'Chi phí hoạt động';
   var GRP_FEE = 'Phí agency EC';
 
@@ -635,25 +661,55 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       '<button type="button" class="bl-team-add" data-team="' + esc(team) + '" title="Thêm dòng cho ' + esc(label) + '">+ Thêm dòng</button>' +
       '</div></td>';
   }
+  // 2026-08-05: BO cot "Nhom" khoi bang. Nhom (Chi phi hoat dong / Phi agency EC)
+  // da duoc quy dinh san o Item (item_group) nen bat nguoi nhap chon lai la thua
+  // va de chon sai. Dropdown "Khoan muc" gio gom CA HAI nhom; nhom cua dong duoc
+  // suy ra tu khoan muc da chon va ghi vao o an .bl-group -- readRows() /
+  // recompute() / payload() doc y nguyen, khong phai sua.
+  // 2026-08-05: TACH cot "Khoan muc" thanh 2 cot -- "Ma khoan muc" (dropdown) va
+  // "Ten khoan muc" (chi doc, tu dien theo ma da chon). Truoc do ca ma lan ten
+  // nam chung trong mot o dropdown hep nen bi cat cut, vi du
+  // "GBS_PVH_VHTTLK - Phi van hanh tiep thi lien ket cua Ecentric".
+  // O tim kiem trong dropdown VAN tim duoc bang ten: <option>.text van giu ca
+  // "ma - ten" (buildList() doc o.text), chi RIENG chu hien tren nut da chon la
+  // rut gon con ma, qua thuoc tinh data-ec-short (xem ec-mso-searchable-dropdowns).
+  var GRP_OF = {};   // item_code -> category_group
+  var NAME_OF = {};  // item_code -> item_name
+  function buildGrpOf() {
+    GRP_OF = {}; NAME_OF = {};
+    (LK.items_ops || []).forEach(function (i) { GRP_OF[i.item_code] = GRP_OPS; NAME_OF[i.item_code] = i.item_name || ''; });
+    (LK.items_fee || []).forEach(function (i) { GRP_OF[i.item_code] = GRP_FEE; NAME_OF[i.item_code] = i.item_name || ''; });
+  }
+  function syncRowGroup(tr) {
+    var cat = tr.querySelector('.bl-cat').value;
+    tr.querySelector('.bl-group').value = cat ? (GRP_OF[cat] || GRP_OPS) : GRP_OPS;
+    var nm = tr.querySelector('.bl-name');
+    if (nm) {
+      var txt = cat ? (NAME_OF[cat] || '') : '';
+      nm.textContent = txt || (cat ? '' : '\u2014');
+      nm.title = txt;
+      if (txt) nm.classList.remove('ec-empty'); else nm.classList.add('ec-empty');
+    }
+  }
   function rowTemplate() {
     return '<tr>' +
       '<td><input type="hidden" class="bl-team" value=""/>' +
-      '<div class="select-wrap"><select class="f-control bl-group">' +
-        '<option value="' + GRP_OPS + '">Chi phí hoạt động</option>' +
-        '<option value="' + GRP_FEE + '">Phí agency EC</option></select></div></td>' +
-      '<td><div class="select-wrap"><select class="f-control bl-cat"></select></div></td>' +
+      '<input type="hidden" class="bl-group" value="' + GRP_OPS + '"/>' +
+      '<div class="select-wrap"><select class="f-control bl-cat"></select></div></td>' +
+      '<td><div class="bl-name ec-empty" title="">&#8212;</div></td>' +
       '<td><input class="f-control bl-amount" type="text" inputmode="numeric" placeholder="0"/></td>' +
       '<td><input class="f-control bl-note" type="text" placeholder=""/></td>' +
       '<td><button type="button" class="bl-row-del" title="Xoá dòng">&#215;</button></td>' +
     '</tr>';
   }
   function fillCats(tr) {
-    var grp = tr.querySelector('.bl-group').value;
-    var list = grp === GRP_FEE ? LK.items_fee : LK.items_ops;
+    var list = (LK.items_ops || []).concat(LK.items_fee || []);
     var sel = tr.querySelector('.bl-cat');
+    var keep = sel.value;
     sel.innerHTML = '<option value="">-- Chọn khoản mục --</option>' + list.map(function (i) {
-      return '<option value="' + i.item_code + '">' + i.item_code + ' — ' + i.item_name + '</option>';
+      return '<option value="' + i.item_code + '" data-ec-short="' + i.item_code + '">' + i.item_code + ' — ' + i.item_name + '</option>';
     }).join('');
+    if (keep) sel.value = keep;
   }
   function teamHeadFor(team) {
     var heads = document.querySelectorAll('#blBody tr.bl-teamhead');
@@ -699,9 +755,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var tr = tb.lastElementChild;
     if (pre) {
       tr.querySelector('.bl-team').value = pre.team || '';
-      tr.querySelector('.bl-group').value = pre.group || GRP_OPS;
       fillCats(tr);
       tr.querySelector('.bl-cat').value = pre.cat || '';
+      syncRowGroup(tr);
     } else {
       fillCats(tr);
     }
@@ -716,23 +772,34 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   }
   function prefillTemplate() {
     var defs = LK.item_defaults || [];
-    if (!defs.length) { addRow(); return; }
     var tb = $('blBody');
-    var teams = LK.teams.concat(['']);
-    teams.forEach(function (team) {
-      var mine = defs.filter(function (d) { return (d.ec_mso_team || '') === team; });
-      if (!mine.length) return;
+    // 2026-08-05: dung hang tieu de cho TAT CA team trong LK.teams, ke ca team
+    // chua co khoan muc mac dinh nao (Merchandise, Operation, HR, Finance...).
+    // Tu khi bo cot Team (v5), team nao khong co hang tieu de thi KHONG CO cach
+    // nao cap ngan sach cho team do nua; ma ngan sach gio siet theo team nen
+    // tran cua ho = 0 -> moi SO deu Out of Budget + bat giai trinh. Team khong
+    // dung thi cu de trong, dong trong/0 tu bo qua khi gui.
+    (LK.teams || []).forEach(function (team) {
       tb.insertAdjacentHTML('beforeend', '<tr class="bl-teamhead" data-team="' + esc(team) + '">' + headHtml(team) + '</tr>');
-      mine.forEach(function (d) {
-        addRow({ team: team, group: d.item_group, cat: d.item_code });
-      });
+      defs.filter(function (d) { return (d.ec_mso_team || '') === team; })
+        .forEach(function (d) {
+          addRow({ team: team, group: d.item_group, cat: d.item_code });
+        });
     });
+    // nhom "Khac" (team rong) chi dung khi that su co khoan muc mac dinh khong
+    // gan team -- khong tu bay ra mot hang tieu de rong.
+    var orphan = defs.filter(function (d) { return !(d.ec_mso_team || ''); });
+    if (orphan.length) {
+      tb.insertAdjacentHTML('beforeend', '<tr class="bl-teamhead" data-team="">' + headHtml('') + '</tr>');
+      orphan.forEach(function (d) { addRow({ team: '', group: d.item_group, cat: d.item_code }); });
+    }
+    if (!document.querySelectorAll('#blBody tr.bl-teamhead').length) addRow();
     recompute();
   }
   document.addEventListener('change', function (e) {
     var tr = e.target.closest && e.target.closest('#blBody tr');
     if (!tr) return;
-    if (e.target.classList.contains('bl-group')) { fillCats(tr); recompute(); }
+    if (e.target.classList.contains('bl-cat')) { syncRowGroup(tr); recompute(); }
   });
   document.addEventListener('click', function (e) {
     var t = e.target;
@@ -744,7 +811,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     // Nut "+ Them dong" nam ngay tren hang tieu de cua tung team: dong moi tu
     // nhan team cua nhom do, khong phai chon lai.
     if (t.classList.contains('bl-team-add')) {
-      var row = addRow({ team: t.dataset.team || '', group: GRP_OPS });
+      var row = addRow({ team: t.dataset.team || '' });
       var cb = row.querySelector('.bl-cat');
       if (cb) { try { cb.focus(); } catch (err) {} }
       recompute();
@@ -852,6 +919,15 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   function renderFileList() {
     var list = $('fileList');
     list.innerHTML = '';
+    // Che do sua: tep da dinh kem san hien truoc va KHONG co nut xoa. Xoa tep
+    // cu lam o trang /approval (khoi ec-mso-thread da co san chuc nang do).
+    _oldFiles.forEach(function (f) {
+      var d0 = document.createElement('div');
+      d0.className = 'file-item file-item-old';
+      d0.innerHTML = '<div class="file-meta"><div class="file-name" title="' + esc(f.file_name) + '">' + esc(f.file_name) + '</div>' +
+        '<div class="file-size">' + ((f.file_size || 0) / 1024 / 1024).toFixed(2) + ' MB — đã đính kèm</div></div>';
+      list.appendChild(d0);
+    });
     _files.forEach(function (f, idx) {
       var div = document.createElement('div');
       div.className = 'file-item';
@@ -899,6 +975,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       var d = (raw && raw.message) || raw;
       if (!d || !d.success) throw new Error('Lookup failed');
       LK = d;
+      buildGrpOf();
       var bs = $('brand');
       bs.innerHTML = '<option value="">-- Chọn brand --</option>' + d.brands.map(function (b) {
         return '<option value="' + b.name + '">' + (b.brand_name || b.name) + ' (' + b.name + ')</option>';
@@ -926,7 +1003,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     }
     var miss = chainMissing();
     if (miss) return 'Thiếu email duyệt: ' + miss;
-    if (!_files.length) return 'MSO bắt buộc đính kèm ít nhất 1 tài liệu';
+    // Che do sua: chung tu da co tep thi khong bat dinh kem lai.
+    if (!_files.length && !_oldFiles.length) return 'MSO bắt buộc đính kèm ít nhất 1 tài liệu';
     return '';
   }
   function payload() {
@@ -948,27 +1026,139 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var btn = $('submitBtn'); var orig = btn.innerHTML;
     btn.disabled = true; btn.classList.add('loading'); btn.innerHTML = 'Đang gửi...';
     try {
-      // 1. Tạo MSO draft
-      var res = await fetch('/api/resource/MSO', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload()) });
-      var body = await res.text();
-      if (!res.ok) throw new Error(frappeErr(body, 'Tạo MSO lỗi HTTP ' + res.status));
-      var doc = JSON.parse(body).data;
+      var doc;
+      if (EDIT_NAME) {
+        // 1b. SUA: cap nhat chung tu da co, KHONG tao moi. Ten ban ghi sinh tu
+        // autoname "format:MSO-{month}-{brand}" nen brand/thang da bi khoa o
+        // applyEditDoc() -- payload() gui lai dung gia tri cu.
+        var resE = await fetch('/api/resource/MSO/' + encodeURIComponent(EDIT_NAME), {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload())
+        });
+        var bodyE = await resE.text();
+        if (!resE.ok) throw new Error(frappeErr(bodyE, 'Cập nhật MSO lỗi HTTP ' + resE.status));
+        doc = JSON.parse(bodyE).data;
+      } else {
+        // 1. Tạo MSO draft
+        var res = await fetch('/api/resource/MSO', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload()) });
+        var body = await res.text();
+        if (!res.ok) throw new Error(frappeErr(body, 'Tạo MSO lỗi HTTP ' + res.status));
+        doc = JSON.parse(body).data;
+      }
       // 2. Upload files
       await uploadFiles(doc.name);
       // 3. Trình duyệt (workflow)
+      // Workflow "MSO Approval": Draft --"Submit for Approval"--> Pending Manager,
+      // Rejected --"Resubmit"--> Pending Manager. Gui sai ten action se bao
+      // "Transition not allowed".
+      var wfAction = (doc.workflow_state === 'Rejected') ? 'Resubmit' : 'Submit for Approval';
       var res2 = await fetch('/api/method/frappe.model.workflow.apply_workflow', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ doc: doc, action: 'Submit for Approval' })
+        body: JSON.stringify({ doc: doc, action: wfAction })
       });
       if (!res2.ok) throw new Error(frappeErr(await res2.text(), 'Trình duyệt lỗi'));
       $('msoIdDisplay').textContent = doc.name;
       try { localStorage.removeItem('mso_plan_draft'); } catch (e) {}
-      btn.innerHTML = '✓ Đã gửi duyệt: ' + doc.name;
+      btn.innerHTML = (EDIT_NAME ? '✓ Đã gửi lại: ' : '✓ Đã gửi duyệt: ') + doc.name;
       btn.style.background = '#166534';
-      showToast('MSO ' + doc.name + ' đã gửi duyệt — đang chờ Manager.', 'ok');
+      showToast('MSO ' + doc.name + ' đã gửi duyệt — đang mở trang duyệt...', 'ok');
+      // 2026-08-05: gui duyet xong thi sang thang trang chi tiet /approval, giong
+      // cach /all-ticket va /approval mo mot ticket. Truoc do form dung yen o
+      // trang tao, nguoi gui phai tu di tim MSO vua tao de xem chuoi duyet /
+      // dinh kem. Cho ~1.1s de nguoi dung kip doc toast va thay nut xanh.
+      setTimeout(function () {
+        window.location.href = '/approval?id=' + encodeURIComponent(doc.name) + '&type=mso';
+      }, 1100);
     } catch (err) {
       showToast(err.message, 'error');
       btn.disabled = false; btn.classList.remove('loading'); btn.innerHTML = orig;
+    }
+  }
+
+  // ---- Che do sua (?edit=) ----
+  // Doc chung tu qua get_ticket_detail chu KHONG qua /api/resource/MSO/<name>:
+  // endpoint do da chuan hoa san status/revision_reason va tu kiem tra quyen
+  // (chinh chu / duoc giao viec / co role), giong het trang /approval dang dung.
+  async function loadForEdit(name) {
+    var res = await fetch('/api/method/ecentric_workspace.api.get_ticket_detail?type=mso&id=' + encodeURIComponent(name));
+    var raw = await res.json();
+    var d = (raw && raw.message) || raw;
+    if (!d || !d.success) throw new Error((d && d.error) === 'ticket_not_found' ? ('Không tìm thấy MSO ' + name) : ('Không đọc được MSO ' + name));
+    var it = d.item || {};
+    if (it._restricted) throw new Error('Bạn không có quyền sửa MSO ' + name);
+    return it;
+  }
+  async function loadOldFiles(name) {
+    try {
+      var res = await fetch('/api/method/ec_mso_thread?doctype=MSO&name=' + encodeURIComponent(name));
+      var raw = await res.json();
+      var d = (raw && raw.message) || raw;
+      _oldFiles = (d && d.success && d.files) ? d.files : [];
+    } catch (e) { _oldFiles = []; }
+    renderFileList();
+  }
+  function applyEditDoc(it) {
+    $('brand').value = it.brand || '';
+    $('month').value = it.month || '';
+    $('submittedBy').value = it.kam || it.owner || '';
+    var gmv = parseNum(String(it.forecast_gmv || ''));
+    $('forecastGmv').value = gmv ? fmt(gmv) : '';
+    $('notes').value = it.notes || '';
+    // Ten ban ghi = MSO-{month}-{brand}. Doi brand hoac thang khi sua se KHONG
+    // doi duoc ten ban ghi -> khoa hai o nay lai cho khoi lech.
+    $('brand').disabled = true;
+    $('month').readOnly = true;
+    $('blBody').innerHTML = '';
+    (it.budget_lines || []).forEach(function (r) {
+      var tr = addRow({ team: r.team || '', group: r.category_group, cat: r.category });
+      tr.querySelector('.bl-amount').value = r.amount ? fmt(r.amount) : '';
+      var nt = tr.querySelector('.bl-note');
+      if (nt) nt.value = r.note || '';
+    });
+    // Team chua co dong nao van phai co hang tieu de, neu khong se khong con
+    // cach nao bam "+ Thêm dòng" de cap ngan sach cho team do.
+    (LK.teams || []).forEach(function (team) { ensureHead(team); });
+    recompute();
+    $('msoIdDisplay').textContent = it.name || EDIT_NAME;
+  }
+  function renderEditBanner(it) {
+    var b = $('editBanner');
+    var reason = String(it.revision_reason || '').trim();
+    var ws = it.workflow_state || 'Draft';
+    var label = ws === 'Rejected' ? 'đã bị từ chối' : (reason ? 'được gửi lại để sửa' : 'đang là bản nháp');
+    var h = '<strong>Đang sửa ' + esc(it.name || EDIT_NAME) + '</strong> — chứng từ ' + label + '.';
+    if (reason) h += '<div class="eb-reason">Lý do gửi lại: ' + esc(reason) + '</div>';
+    h += '<div class="eb-sub">Brand và Tháng bị khoá vì mã MSO sinh ra từ hai trường này. Bấm “Gửi lại duyệt” để trình lại từ đầu chuỗi duyệt.</div>';
+    b.innerHTML = h;
+    b.hidden = false;
+  }
+  function renderEditLocked(it, ws) {
+    var nm = it.name || EDIT_NAME;
+    var b = $('editBanner');
+    b.className = 'edit-banner eb-locked';
+    b.innerHTML = '<strong>' + esc(nm) + ' đang ở bước duyệt “' + esc(ws) + '” nên chưa sửa được.</strong>' +
+      '<div class="eb-sub">Người duyệt cần bấm “Gửi lại” trên trang duyệt để trả chứng từ về cho bạn. ' +
+      '<a href="/approval?id=' + encodeURIComponent(nm) + '&type=mso">Mở trang duyệt</a></div>';
+    b.hidden = false;
+    $('submitBtn').disabled = true;
+  }
+  async function initEdit() {
+    var bd = $('btnDraft');
+    if (bd) bd.style.display = 'none';   // ban nhap localStorage vo nghia khi sua chung tu that
+    var h1 = document.querySelector('.form-header h1');
+    if (h1) h1.textContent = 'MSO — Sửa & gửi lại duyệt';
+    var sb = $('submitBtn');
+    sb.innerHTML = sb.innerHTML.replace('Gửi duyệt', 'Gửi lại duyệt');
+    try {
+      var it = await loadForEdit(EDIT_NAME);
+      var ws = it.workflow_state || 'Draft';
+      if (ws !== 'Draft' && ws !== 'Rejected') { renderEditLocked(it, ws); return; }
+      applyEditDoc(it);
+      renderEditBanner(it);
+      renderChain();
+      await loadOldFiles(EDIT_NAME);
+    } catch (err) {
+      showToast(err.message, 'error');
+      $('submitBtn').disabled = true;
     }
   }
 
@@ -1000,6 +1190,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 
   // ---- Init ----
   function init() {
+    EDIT_NAME = urlParamEdit();
     $('month').value = new Date().toISOString().slice(0, 7);
     hookNumInput($('forecastGmv'));
     hookUpload();
@@ -1011,6 +1202,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     $('btnCancel').addEventListener('click', function () { history.back(); });
     $('cpToggle').addEventListener('click', function () { $('chainPreview').classList.toggle('collapsed'); });
     loadLookups().then(function () {
+      // ?edit=<MSO-ID> -> mo chung tu that, bo qua ban nhap localStorage va bo
+      // qua bo dong mac dinh (prefillTemplate) vi dong da co san tren chung tu.
+      if (EDIT_NAME) return initEdit();
       loadDraft();
       if (document.querySelectorAll('#blBody tr:not(.bl-teamhead)').length === 0) prefillTemplate();
       if (window._pendingBrand) { $('brand').value = window._pendingBrand; renderChain(); }
@@ -1171,6 +1365,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       '.ec-cb .ec-cb-display { display: block; width: 100%; text-align: left; cursor: pointer; font-family: inherit; line-height: normal; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; padding-right: 28px; background-image: none; }',
       // chua chon -> xam nhu placeholder
       '.ec-cb .ec-cb-display.ec-empty { color: var(--muted2, #a0a6bf); }',
+      // select goc bi disabled (vd o Brand trong che do sua ?edit=) -> nut hien
+      // thi cung phai khoa theo, neu khong nguoi dung van mo duoc panel va doi
+      // duoc gia tri trong khi form da coi la khoa.
+      '.ec-cb .ec-cb-display:disabled { background: #f3f4f6; color: #6b7280; cursor: not-allowed; }',
       '.ec-cb-arrow { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); color: var(--muted, #7b82a0); pointer-events: none; font-size: 9px; }',
       // position:fixed -> khong bi to tien overflow (.bl-wrap) cat
       '.ec-cb-panel { position: fixed; background: #fff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 99999; max-height: 320px; display: flex; flex-direction: column; overflow: hidden; }',
@@ -1274,9 +1472,12 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       for (var i = 0; i < selectEl.options.length; i++) {
         if (selectEl.options[i].value === v) { opt = selectEl.options[i]; break; }
       }
-      var txt = opt ? (opt.text || opt.value) : v;
+      var full = opt ? (opt.text || opt.value) : v;
+      // option co data-ec-short -> nut chi hien phan rut gon (vi du chi rieng ma
+      // khoan muc), nhung tooltip va o tim kiem van dung chu day du.
+      var txt = (opt && opt.getAttribute('data-ec-short')) || full;
       display.textContent = txt;
-      display.title = txt; // chu bi cat ngang -> hover ra day du
+      display.title = full; // chu bi cat ngang -> hover ra day du
       display.classList.remove('ec-empty');
     }
     function positionPanel() {
@@ -1332,6 +1533,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       activeIndex = -1;
     }
     function openPanel() {
+      if (selectEl.disabled) return;
       if (!panel.hidden) return;
       // danh sach ngan (Nhom chi co 2 muc) thi khong can o tim kiem
       searchWrap.style.display = selectableCount() >= 6 ? '' : 'none';
@@ -1403,14 +1605,19 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         return;
       }
       if (selectEl.value !== prev) { prev = selectEl.value; syncDisplay(); }
+      if (display.disabled !== !!selectEl.disabled) {
+        display.disabled = !!selectEl.disabled;
+        if (display.disabled) closePanel();
+      }
     }, 300);
 
+    display.disabled = !!selectEl.disabled;
     syncDisplay();
   }
 
   // -------- Ap dung --------
   function upgradeRows(root) {
-    var sels = (root || document).querySelectorAll('#blBody select.bl-group, #blBody select.bl-cat');
+    var sels = (root || document).querySelectorAll('#blBody select.bl-cat');
     for (var i = 0; i < sels.length; i++) attachCombobox(sels[i]);
   }
   function upgradeBrand() {
