@@ -625,6 +625,11 @@ def create(project, subject, parent_task=None, priority=None,
         parent = frappe.get_doc("Task", parent_task)
         if not pmperm.can_view_task(parent.as_dict(), user):
             frappe.throw(_("Not permitted to add a sub-task to this task."), frappe.PermissionError)
+        # 2-LEVEL CAP: a sub-task can never itself have children. Hierarchy stays
+        # Project -> Task -> Sub-task (simpler to manage; use the checklist for finer breakdown).
+        if parent.get("parent_task"):
+            frappe.throw(_("Chỉ hỗ trợ 2 cấp nhiệm vụ: không thể tạo nhiệm vụ con của một nhiệm vụ con. "
+                           "Hãy dùng checklist cho các việc nhỏ hơn."))
         # G4.8f: terminal parents (Done/Completed/Closed/Cancelled) are immutable — no new
         # sub-tasks. Backend trust boundary (frontend already hides the CTA). Canonical shared
         # helper; never reads workflow_state by hand.
