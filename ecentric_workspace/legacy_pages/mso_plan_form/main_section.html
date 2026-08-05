@@ -413,7 +413,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 .bl-table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
 .bl-table th{background:#f8f7f4;text-align:left;padding:8px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#6b6b6b;border-bottom:2px solid #e8e5df;white-space:nowrap}
 .bl-table td{padding:6px 6px;border-bottom:1px solid #efede8;vertical-align:top}
-.bl-teamhead td{background:#f2f0ea;font-weight:700;font-size:12px;letter-spacing:.4px;color:#4a4a4a;padding:8px 10px;border-bottom:1px solid #e2ded6}
+.bl-teamhead td{background:#f2f0ea;font-weight:700;font-size:12px;letter-spacing:.4px;color:#4a4a4a;padding:6px 10px;border-bottom:1px solid #e2ded6}
+.bl-teamhead-in{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.bl-team-add{background:#fff;border:1px dashed #c9c4ba;border-radius:6px;padding:3px 10px;font-size:11.5px;font-weight:600;color:#5a5a5a;cursor:pointer;letter-spacing:0;text-transform:none;font-family:inherit}
+.bl-team-add:hover{background:#ece9e2;border-color:#b3ada1}
 .bl-table .f-control{min-width:0;padding:8px 10px;font-size:13px}
 .bl-row-del{background:none;border:none;color:#b3b3b3;font-size:16px;cursor:pointer;padding:6px}
 .bl-row-del:hover{color:#c0392b}
@@ -502,18 +505,17 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         <table class="bl-table">
           <thead>
             <tr>
-              <th style="width:15%">Team</th>
-              <th style="width:15%">Nh&#243;m</th>
-              <th style="width:32%">Kho&#7843;n m&#7909;c</th>
-              <th style="width:18%">Amount (VND, +VAT)</th>
-              <th style="width:17%">Ghi ch&#250;</th>
+              <th style="width:17%">Nh&#243;m</th>
+              <th style="width:40%">Kho&#7843;n m&#7909;c</th>
+              <th style="width:20%">Amount (VND, +VAT)</th>
+              <th style="width:20%">Ghi ch&#250;</th>
               <th style="width:3%"></th>
             </tr>
           </thead>
           <tbody id="blBody"></tbody>
         </table>
       </div>
-      <button type="button" class="bl-add" id="blAdd">+ Th&#234;m d&#242;ng</button>
+      <button type="button" class="bl-add" id="blAdd">+ Th&#234;m d&#242;ng ch&#432;a g&#225;n team</button>
       <div class="bl-note">Amount l&#224; s&#7889; ch&#432;a g&#7891;m VAT, nh&#7853;p tr&#7921;c ti&#7871;p b&#7857;ng s&#7889;. D&#242;ng &#273;&#7875; tr&#7889;ng/0 s&#7869; t&#7921; b&#7887; qua khi g&#7917;i.</div>
       <div class="bl-totals">
         <span>T&#7893;ng chi ph&#237; ho&#7841;t &#273;&#7897;ng: <b id="totOps">0</b> &#273;</span>
@@ -618,11 +620,25 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   }
 
   // ---- Budget lines ----
+  // Cot "Team" da bo khoi bang: team cua mot dong duoc quyet dinh boi hang tieu
+  // de nhom ma dong do nam duoi, va chon bang nut "+ Them dong" ngay tren hang
+  // do. Gia tri team van di theo dong qua o an ben duoi -- readRows() /
+  // saveDraft() / submitForm() doc y nguyen nhu cu, khong phai sua.
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function headHtml(team) {
+    var label = team || 'Khác';
+    return '<td colspan="5"><div class="bl-teamhead-in">' +
+      '<span>' + esc(label) + '</span>' +
+      '<button type="button" class="bl-team-add" data-team="' + esc(team) + '" title="Thêm dòng cho ' + esc(label) + '">+ Thêm dòng</button>' +
+      '</div></td>';
+  }
   function rowTemplate() {
-    var teamOpts = '<option value="">-- Chọn team --</option>' + LK.teams.map(function (t) { return '<option>' + t + '</option>'; }).join('');
     return '<tr>' +
-      '<td><div class="select-wrap"><select class="f-control bl-team">' + teamOpts + '</select></div></td>' +
-      '<td><div class="select-wrap"><select class="f-control bl-group">' +
+      '<td><input type="hidden" class="bl-team" value=""/>' +
+      '<div class="select-wrap"><select class="f-control bl-group">' +
         '<option value="' + GRP_OPS + '">Chi phí hoạt động</option>' +
         '<option value="' + GRP_FEE + '">Phí agency EC</option></select></div></td>' +
       '<td><div class="select-wrap"><select class="f-control bl-cat"></select></div></td>' +
@@ -647,23 +663,31 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     return null;
   }
   function cleanupHeads() {
+    // Giu lai hang tieu de cua team co that ke ca khi khong con dong nao, de nut
+    // "+ Them dong" cua team do van con cho bam -- xoa het dong roi van them lai
+    // duoc. Chi don hang tieu de rong cua nhom "Khac" (data-team rong) va cua
+    // team la khong nam trong danh sach LK.teams.
     document.querySelectorAll('#blBody tr.bl-teamhead').forEach(function (h) {
       var nx = h.nextElementSibling;
-      if (!nx || nx.classList.contains('bl-teamhead')) h.remove();
+      if (nx && !nx.classList.contains('bl-teamhead')) return;
+      var t = h.dataset.team || '';
+      if (!t || (LK.teams || []).indexOf(t) === -1) h.remove();
     });
   }
-  function repositionRow(tr) {
-    var team = tr.querySelector('.bl-team').value;
-    if (!team) return;
-    var tb = $('blBody');
+  function ensureHead(team) {
     var head = teamHeadFor(team);
-    if (!head) {
-      head = document.createElement('tr');
-      head.className = 'bl-teamhead';
-      head.dataset.team = team;
-      head.innerHTML = '<td colspan="6">' + team + '</td>';
-      tb.appendChild(head);
-    }
+    if (head) return head;
+    head = document.createElement('tr');
+    head.className = 'bl-teamhead';
+    head.dataset.team = team;
+    head.innerHTML = headHtml(team);
+    $('blBody').appendChild(head);
+    return head;
+  }
+  function repositionRow(tr) {
+    var team = tr.querySelector('.bl-team').value || '';
+    var tb = $('blBody');
+    var head = ensureHead(team);
     var ref = head.nextElementSibling;
     while (ref && !ref.classList.contains('bl-teamhead')) ref = ref.nextElementSibling;
     tb.insertBefore(tr, ref);
@@ -681,6 +705,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     } else {
       fillCats(tr);
     }
+    // Khong con cot Team de tu chon -> dong phai duoc xep vao dung nhom ngay khi
+    // tao, neu khong no se nam lac loai o cuoi bang.
+    repositionRow(tr);
     var amountEl = tr.querySelector('.bl-amount');
     amountEl.addEventListener('input', function () {
       var n = parseNum(amountEl); amountEl.value = n ? fmt(n) : ''; recompute();
@@ -695,7 +722,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     teams.forEach(function (team) {
       var mine = defs.filter(function (d) { return (d.ec_mso_team || '') === team; });
       if (!mine.length) return;
-      tb.insertAdjacentHTML('beforeend', '<tr class="bl-teamhead" data-team="' + team + '"><td colspan="6">' + (team || 'Khác') + '</td></tr>');
+      tb.insertAdjacentHTML('beforeend', '<tr class="bl-teamhead" data-team="' + esc(team) + '">' + headHtml(team) + '</tr>');
       mine.forEach(function (d) {
         addRow({ team: team, group: d.item_group, cat: d.item_code });
       });
@@ -706,11 +733,21 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var tr = e.target.closest && e.target.closest('#blBody tr');
     if (!tr) return;
     if (e.target.classList.contains('bl-group')) { fillCats(tr); recompute(); }
-    if (e.target.classList.contains('bl-team')) { repositionRow(tr); }
   });
   document.addEventListener('click', function (e) {
-    if (e.target.classList && e.target.classList.contains('bl-row-del')) {
-      e.target.closest('tr').remove(); cleanupHeads(); recompute();
+    var t = e.target;
+    if (!t || !t.classList) return;
+    if (t.classList.contains('bl-row-del')) {
+      t.closest('tr').remove(); cleanupHeads(); recompute();
+      return;
+    }
+    // Nut "+ Them dong" nam ngay tren hang tieu de cua tung team: dong moi tu
+    // nhan team cua nhom do, khong phai chon lai.
+    if (t.classList.contains('bl-team-add')) {
+      var row = addRow({ team: t.dataset.team || '', group: GRP_OPS });
+      var cb = row.querySelector('.bl-cat');
+      if (cb) { try { cb.focus(); } catch (err) {} }
+      recompute();
     }
   });
 
@@ -954,10 +991,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       if (d.forecast_gmv) $('forecastGmv').value = fmt(d.forecast_gmv);
       if (d.notes) $('notes').value = d.notes;
       (d.budget_lines || []).forEach(function (r) {
-        var tr = addRow();
-        tr.querySelector('.bl-group').value = r.category_group; fillCats(tr);
-        tr.querySelector('.bl-cat').value = r.category;
-        tr.querySelector('.bl-team').value = r.team || '';
+        var tr = addRow({ team: r.team || '', group: r.category_group, cat: r.category });
         tr.querySelector('.bl-amount').value = r.amount ? fmt(r.amount) : '';
       });
       recompute();
@@ -1376,7 +1410,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 
   // -------- Ap dung --------
   function upgradeRows(root) {
-    var sels = (root || document).querySelectorAll('#blBody select.bl-team, #blBody select.bl-group, #blBody select.bl-cat');
+    var sels = (root || document).querySelectorAll('#blBody select.bl-group, #blBody select.bl-cat');
     for (var i = 0; i < sels.length; i++) attachCombobox(sels[i]);
   }
   function upgradeBrand() {

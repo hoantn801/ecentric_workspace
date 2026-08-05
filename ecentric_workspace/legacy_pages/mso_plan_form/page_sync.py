@@ -43,7 +43,7 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "4871550ecf514c2675185822f4d41506cec395c2bc53d4706b47c61d59aafa9e"
+BASELINE_SHA256 = "c642c7847d6a042e3fd6f08795272f64cf10b7596a7ce43b9618a1b6ec9b6f2d"
 SUPERSEDES_SHA256 = (
     # bytes ban dau khi repo-hoa trang nay (#61). Live tren team.ecentric.vn da
     # duoc ghi thang len BASELINE_SHA256 ngay 2026-08-04 (round feedback MSO 1:
@@ -118,6 +118,19 @@ SUPERSEDES_SHA256 = (
     # team.ecentric.vn da duoc ghi thang len BASELINE_SHA256 cung ngay nen sync
     # dau tien o do tra ve "unchanged".
     "a3589bd4e64ffb97f62a9771a52374093567d20dd596dcd220ab7d20f6301196",  # mso-fb-3 v3
+    # bytes cua ban v4 (2026-08-05, cung ngay). v4 khoa be rong cot nhung cot
+    # "Khoan muc" van hep vi bang phai chia cho ca cot "Team". v5 BO HAN cot Team
+    # khoi bang ngan sach: team cua mot dong duoc quyet dinh boi hang tieu de nhom
+    # ma dong do nam duoi, va moi hang tieu de team gio co nut "+ Them dong" ben
+    # phai de them dong thang vao dung team do. Gia tri team van di theo dong qua
+    # o an <input type="hidden" class="bl-team"> nen readRows() / validate() /
+    # payload() / saveDraft() doc y nguyen, khong phai sua. Bang con 5 cot voi ty
+    # le 17/40/20/20/3 -- cot Khoan muc rong tu 32% len 40%. He qua chap nhan:
+    # khong doi team cua mot dong tai cho duoc nua, phai xoa dong roi them lai o
+    # nhom dung. Nut duoi bang doi nhan thanh "+ Them dong chua gan team" va tao
+    # dong o nhom "Khac". Live team.ecentric.vn da duoc ghi thang len
+    # BASELINE_SHA256 cung ngay nen sync dau tien o do tra ve "unchanged".
+    "4871550ecf514c2675185822f4d41506cec395c2bc53d4706b47c61d59aafa9e",  # mso-fb-3 v4
 )
 
 
