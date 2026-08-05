@@ -1657,7 +1657,7 @@
 
   function _niFix(c){Array.prototype.forEach.call(c.querySelectorAll(".ni"),function(i){i.style.backgroundImage="none";i.style.paddingLeft="11px";i.style.width="100%";});}
   function newTask(project,parentTask,onCreated,opts){opts=opts||{};var _titleFor=function(rm){return rm?"Yêu cầu xác nhận":(parentTask?"Tạo nhiệm vụ con":"Tạo nhiệm vụ");};
-    openD();el("pm-dt").textContent=_titleFor(opts.mode==="request"&&!parentTask);var c=el("pm-dbody");c.classList.remove("pm-cols");clearDtInline();spin(c);
+    openD();el("pm-drawer").classList.add("pm-d-md");el("pm-dt").textContent=_titleFor(opts.mode==="request"&&!parentTask);var c=el("pm-dbody");c.classList.remove("pm-cols");clearDtInline();spin(c);
     Promise.all([api(PM+"projects.list",{page_length:500}).catch(function(){return {rows:[]};}),
                  api(PM+"labels.list_labels",{}).catch(function(){return {rows:[]};}),
                  api(PM+"checklist.list_templates",{}).catch(function(){return {rows:[]};})]).then(function(res){
@@ -2142,7 +2142,7 @@
     Array.prototype.forEach.call(host.querySelectorAll(".rc-row"),function(tr){tr.onclick=function(){openRecurringDetail(byName[tr.getAttribute("data-rrule")],tmap);};});}
   /* G5.2 §D: read-only recurring rule detail drawer. All fields come from recurrence.list (_as_dict);
      no extra API/schema needed. Pause/Resume/Cancel reuse the governed recurrence.* endpoints. */
-  function openRecurringDetail(r,tmap){if(!r)return;openD();el("pm-dt").textContent="Quy tắc định kỳ";var c=el("pm-dbody");c.classList.remove("pm-cols");spin(c);
+  function openRecurringDetail(r,tmap){if(!r)return;openD();el("pm-drawer").classList.add("pm-d-md");el("pm-dt").textContent="Quy tắc định kỳ";var c=el("pm-dbody");c.classList.remove("pm-cols");spin(c);
     var lt=r.last_task&&tmap&&tmap[r.last_task];
     /* fetch the self-contained rule template (subject/desc/assignees/checklist/subtasks/dates); fall back to list row on failure */
     api(PM+"recurrence.get",{name:r.name}).then(function(d){renderRecDetail(c,d||r,r,lt);}).catch(function(){renderRecDetail(c,r,r,lt);});}
@@ -2331,7 +2331,7 @@
   /* Self-contained "cửa A": create a recurring rule that owns its own template (subject, desc,
      assignees, times, checklist, sub-tasks). No source task, no checklist template. */
   function openRecurringCreate(){
-    openD();el("pm-dt").textContent="Tạo việc định kỳ";var c=el("pm-dbody");c.classList.remove("pm-cols");spin(c);
+    openD();el("pm-drawer").classList.add("pm-d-md");el("pm-dt").textContent="Tạo việc định kỳ";var c=el("pm-dbody");c.classList.remove("pm-cols");spin(c);
     c.innerHTML='<div class="pm-recform"><div class="pm-recform-body">'+
         '<div class="rcf-sec rcf-sec-first">Nhiệm vụ mẫu</div>'+
         recEditorHtml({})+
