@@ -1572,7 +1572,7 @@
     recWireSchedule(c);
     el("rt-cancel").onclick=close;
     el("rt-submit").onclick=function(){var col=recScheduleCollect(c);var btn=this;btn.disabled=true;
-      api(PM+"recurrence.create_from_task",{task:t.name,frequency:col.freq,interval:col.interval,weekly_days:JSON.stringify(col.wd),monthly_day:col.monthlyDay||null,start_date:col.start,end_date:col.end,max_occurrences:col.max}).then(function(){toast("Đã tạo lịch định kỳ");close();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});};}
+      api(PM+"recurrence.create_from_task",{task:t.name,frequency:col.freq,interval:col.interval,weekly_days:JSON.stringify(col.wd),monthly_day:col.monthlyDay||null,duration_days:(col.durMonthly!=null?col.durMonthly:null),start_date:col.start,end_date:col.end,max_occurrences:0}).then(function(){toast("Đã tạo lịch định kỳ");close();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});};}
   function openTask(name){if(!name){toast("Thiếu mã nhiệm vụ",true);return;} /* guard: never open a blank modal on an empty/missing task id */
     window._pmTaskOpen=true;if(typeof pmSetHash==="function")pmSetHash("#task/"+encodeURIComponent(name)); /* G5.2 §7: route-state for the task-detail drawer */
     openD();el("pm-dt").textContent=name;var c=el("pm-dbody");c.classList.remove("pm-cols");spin(c);
@@ -2209,19 +2209,15 @@
     function freqOpt(){return ["Daily","Weekly","Monthly"].map(function(k){return '<option value="'+k+'"'+(d.frequency===k?' selected':'')+'>'+esc(FREQ_VN[k]||k)+'</option>';}).join("");}
     var WD=["T2","T3","T4","T5","T6","T7","CN"];
     var chips=WD.map(function(lb,i){var on=wd.indexOf(i)>=0;return '<button type="button" class="re-wd'+(on?' re-wd-on':'')+'" data-wd="'+i+'" style="min-width:38px;padding:6px 8px;border:1px solid var(--gray-200);border-radius:8px;background:'+(on?'var(--navy)':'#fff')+';color:'+(on?'#fff':'var(--gray-700)')+';cursor:pointer;font-size:12px">'+lb+'</button>';}).join("");
-    var maxv=(d.max_occurrences&&d.max_occurrences>0)?d.max_occurrences:"";
-    var iv=(d.interval&&d.interval>0)?d.interval:1;
-    var md=(d.monthly_day!=null&&d.monthly_day!=="")?d.monthly_day:"";
+    var ms=(d.monthly_day!=null&&d.monthly_day!=="")?d.monthly_day:"";
+    var me=(ms!==""&&d.template_duration_days!=null&&d.template_duration_days!=="")?(parseInt(ms,10)+parseInt(d.template_duration_days,10)):"";
     return '<div class="pm-field"><label>Tần suất *</label><select class="pm-sel" id="re-freq">'+freqOpt()+'</select></div>'+
-      '<div class="pm-field"><label>Lặp mỗi</label><div style="display:flex;gap:8px;align-items:center"><input type="number" min="1" class="pm-input" id="re-interval" value="'+esc(iv)+'" style="width:80px;padding-left:11px;background-image:none"><span id="re-interval-unit" style="font-size:13px;color:var(--gray-600)">ngày</span></div></div>'+
       '<div class="pm-field rcf-full" id="re-weekdays-wrap"><label>Vào các thứ</label><div id="re-weekdays" style="display:flex;gap:6px;flex-wrap:wrap">'+chips+'</div></div>'+
-      '<div class="pm-field" id="re-monthly-wrap"><label>Vào ngày</label><input type="number" min="1" max="31" class="pm-input" id="re-monthly-day" value="'+esc(md)+'" style="padding-left:11px;background-image:none"></div>'+
+      '<div class="pm-field rcf-full" id="re-monthly-wrap"><label>Hằng tháng</label><div style="display:flex;gap:8px;align-items:center"><span style="font-size:13px;color:var(--gray-600)">Từ ngày</span><input type="number" min="1" max="31" class="pm-input" id="re-mstart" value="'+esc(ms)+'" style="width:74px;padding-left:11px;background-image:none"><span style="font-size:13px;color:var(--gray-600)">đến ngày</span><input type="number" min="1" max="31" class="pm-input" id="re-mend" value="'+esc(me)+'" style="width:74px;padding-left:11px;background-image:none"></div></div>'+
       '<div class="pm-field"><label>Bắt đầu áp dụng</label><input type="date" class="pm-input" id="re-start" value="'+esc(d.start_date||"")+'"></div>'+
-      '<div class="pm-field"><label>Kết thúc</label><input type="date" class="pm-input" id="re-end" value="'+esc(d.end_date||"")+'"></div>'+
-      '<div class="pm-field"><label>Số lần tối đa</label><input type="number" min="0" class="pm-input" id="re-max" value="'+esc(maxv)+'" style="padding-left:11px;background-image:none"></div>';}
+      '<div class="pm-field"><label>Cho tới ngày (ngừng lặp)</label><input type="date" class="pm-input" id="re-end" value="'+esc(d.end_date||"")+'"></div>';}
   /* Show/hide weekday chips (Weekly) + monthly-day (Monthly) + interval unit label. Call on render + on freq change. */
   function recFreqUI(c){var fs=el("re-freq");if(!fs)return;var f=fs.value;
-    var unit=el("re-interval-unit");if(unit)unit.textContent=(f==="Weekly")?"tuần":((f==="Monthly")?"tháng":"ngày");
     var ww=el("re-weekdays-wrap");if(ww)ww.style.display=(f==="Weekly")?"":"none";
     var mw=el("re-monthly-wrap");if(mw)mw.style.display=(f==="Monthly")?"":"none";}
   /* Wire freq change + weekday chip toggles (scoped to container c). */
@@ -2231,9 +2227,12 @@
     recFreqUI(c);}
   function recScheduleCollect(c){
     var wd=[];Array.prototype.forEach.call(c.querySelectorAll("#re-weekdays .re-wd-on"),function(b){wd.push(parseInt(b.getAttribute("data-wd"),10));});
-    var iv=parseInt(el("re-interval").value,10);if(!iv||iv<1)iv=1;
-    var md=el("re-monthly-day")?el("re-monthly-day").value:"";
-    return {freq:el("re-freq").value,interval:iv,wd:wd,monthlyDay:(md!==""?parseInt(md,10):null),start:el("re-start").value||null,end:el("re-end").value||null,max:el("re-max").value||0};}
+    var f=el("re-freq").value;
+    var ms=el("re-mstart")?parseInt(el("re-mstart").value,10):NaN;
+    var me=el("re-mend")?parseInt(el("re-mend").value,10):NaN;
+    var durMonthly=(f==="Monthly"&&!isNaN(ms)&&!isNaN(me)&&me>=ms)?(me-ms):null;
+    return {freq:f,interval:1,wd:wd,monthlyDay:(!isNaN(ms)?ms:null),durMonthly:durMonthly,
+            start:el("re-start").value||null,end:el("re-end").value||null,max:0};}
   function recEditorHtml(d){d=d||{};
     function pri(){return '<option value="">—</option>'+["Low","Medium","High","Urgent"].map(function(p){return '<option'+(d.template_priority===p?' selected':'')+'>'+p+'</option>';}).join("");}
     var chk=(d.checklist_items||[]).map(function(it){return recChkRow(it);}).join("");
@@ -2267,7 +2266,7 @@
     var subs=[];Array.prototype.forEach.call(c.querySelectorAll("#re-sub .re-sub-row"),function(row){var s=row.querySelector(".re-sub-subject").value.trim();if(s){var a=row.querySelector(".re-sub-assignees").value.split(",").map(function(x){return x.trim();}).filter(Boolean);subs.push({subject:s,assignees:a});}});
     var asg=el("re-assignees").value.split(",").map(function(x){return x.trim();}).filter(Boolean);
     var sch=recScheduleCollect(c);
-    return {chk:chk,subs:subs,asg:asg,freq:sch.freq,interval:sch.interval,wd:sch.wd,monthlyDay:sch.monthlyDay,start:sch.start,end:sch.end,max:sch.max};}
+    return {chk:chk,subs:subs,asg:asg,freq:sch.freq,interval:sch.interval,wd:sch.wd,monthlyDay:sch.monthlyDay,durMonthly:sch.durMonthly,start:sch.start,end:sch.end,max:sch.max};}
   function renderRecDetail(c,d,r,lt){
     var metaLast=r.last_task?('<span class="dc-link" id="re-last" style="cursor:pointer">'+esc(r.last_task)+'</span>'):"—";
     var acts='';
@@ -2295,7 +2294,7 @@
     if(el("re-cancel"))el("re-cancel").onclick=function(){closeD();};
     Array.prototype.forEach.call(c.querySelectorAll("[data-rd-a]"),function(b){b.onclick=function(){var a=b.getAttribute("data-rd-a");if(a==="cancel"&&!window.confirm("Huỷ quy tắc lặp này? Các nhiệm vụ đã sinh vẫn được giữ."))return;b.disabled=true;api(PM+"recurrence."+a,{name:r.name}).then(function(){toast("Đã cập nhật quy tắc");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};});
     el("re-save").onclick=function(){var col=recCollect(c);var sj=el("re-subject").value.trim();if(!sj){toast("Nhập tên nhiệm vụ",true);return;}var btn=this;btn.disabled=true;
-      api(PM+"recurrence.update_template",{name:r.name, subject:sj, description:el("re-desc").value||null, priority:el("re-priority").value||null, assignees:JSON.stringify(col.asg), project:el("re-project").value.trim()||null, template_start_time:el("re-st").value||null, template_end_time:el("re-et").value||null, duration_days:el("re-dur").value||0, checklist_items:JSON.stringify(col.chk), subtasks:JSON.stringify(col.subs), frequency:el("re-freq").value, interval:col.interval, weekly_days:JSON.stringify(col.wd), monthly_day:col.monthlyDay||null, start_date:el("re-start").value||null, end_date:el("re-end").value||null, max_occurrences:el("re-max").value||0}).then(function(){toast("Đã lưu quy tắc");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});};}
+      api(PM+"recurrence.update_template",{name:r.name, subject:sj, description:el("re-desc").value||null, priority:el("re-priority").value||null, assignees:JSON.stringify(col.asg), project:el("re-project").value.trim()||null, template_start_time:el("re-st").value||null, template_end_time:el("re-et").value||null, duration_days:(col.durMonthly!=null?col.durMonthly:(el("re-dur").value||0)), checklist_items:JSON.stringify(col.chk), subtasks:JSON.stringify(col.subs), frequency:el("re-freq").value, interval:col.interval, weekly_days:JSON.stringify(col.wd), monthly_day:col.monthlyDay||null, start_date:el("re-start").value||null, end_date:el("re-end").value||null, max_occurrences:0}).then(function(){toast("Đã lưu quy tắc");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});};}
   /* G5.0: Assignment Acceptance — request a task be given to a user; recipient accepts /
      rejects / proposes a new time. Replaces the hidden "Thông báo" slot. */
   function asgFmt(d){return d?String(d).slice(0,16).replace("T"," "):"—";}
@@ -2424,7 +2423,7 @@
     el("re-submit").onclick=function(){var btn=this;var _ot=btn.innerHTML;function _busy(on){btn.disabled=on;if(on){btn.textContent="Đang tạo...";}else{btn.innerHTML=_ot;}}
       var subj=el("re-subject").value.trim();if(!subj){toast("Nhập tên nhiệm vụ",true);return;}
       var col=recCollect(c);_busy(true);
-      api(PM+"recurrence.create",{subject:subj, frequency:el("re-freq").value, interval:col.interval, weekly_days:JSON.stringify(col.wd), monthly_day:col.monthlyDay||null, description:el("re-desc").value||null, priority:el("re-priority").value||null, assignees:JSON.stringify(col.asg), project:el("re-project").value.trim()||null, template_start_time:el("re-st").value||null, template_end_time:el("re-et").value||null, duration_days:el("re-dur").value||0, checklist_items:JSON.stringify(col.chk), subtasks:JSON.stringify(col.subs), start_date:el("re-start").value||null, end_date:el("re-end").value||null, max_occurrences:el("re-max").value||0}).then(function(){toast("Đã tạo việc định kỳ");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);_busy(false);});};}
+      api(PM+"recurrence.create",{subject:subj, frequency:el("re-freq").value, interval:col.interval, weekly_days:JSON.stringify(col.wd), monthly_day:col.monthlyDay||null, description:el("re-desc").value||null, priority:el("re-priority").value||null, assignees:JSON.stringify(col.asg), project:el("re-project").value.trim()||null, template_start_time:el("re-st").value||null, template_end_time:el("re-et").value||null, duration_days:(col.durMonthly!=null?col.durMonthly:(el("re-dur").value||0)), checklist_items:JSON.stringify(col.chk), subtasks:JSON.stringify(col.subs), start_date:el("re-start").value||null, end_date:el("re-end").value||null, max_occurrences:0}).then(function(){toast("Đã tạo việc định kỳ");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);_busy(false);});};}
 
   function tsSum(rows,pred){var s=0;rows.forEach(function(r){if(pred(r))s+=(r.hours||0);});return Math.round(s*100)/100;}
   function showTimesheet(){var c=el("pm-view");spin(c);
