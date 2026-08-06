@@ -100,12 +100,33 @@ def _advance(r, current):
                     return d
         return add_days(current, 7 * interval)  # safety net
     if freq == "Monthly":
-        anchor = getdate(r.get("start_date") or current)
-        occ = int(r.get("occurrences_done") or 0)
-        return _month_on_day(add_months(anchor, occ * interval), r.get("monthly_day") or anchor.day)
+        # next month after `current`, on the chosen day (clamped). Re-targeting monthly_day each
+        # step means a 31st rule recovers to 31 in long months (no permanent Feb-drift).
+        day = r.get("monthly_day") or getdate(r.get("start_date") or current).day
+        return _month_on_day(add_months(current, interval), day)
     if freq == "Biweekly":  # legacy frequency kept for pre-existing rules
         return add_days(current, 14 * interval)
     return add_days(current, interval)  # Daily
+
+
+def _first_occurrence(frequency, start, weekly_days=None, monthly_day=None):
+    """First occurrence date ON/AFTER `start` that matches the pattern (so a Weekly rule starts on
+    the first selected weekday, a Monthly rule on day-X of this month or next)."""
+    start = getdate(start)
+    if frequency == "Weekly":
+        days = _clean_weekdays(weekly_days) or [start.weekday()]
+        for i in range(7):
+            d = add_days(start, i)
+            if d.weekday() in days:
+                return d
+        return start
+    if frequency == "Monthly":
+        day = _clean_monthday(monthly_day) or start.day
+        cand = _month_on_day(start, day)
+        if cand < start:
+            cand = _month_on_day(add_months(start, 1), day)
+        return cand
+    return start  # Daily
 
 
 def _load_list(v):
@@ -308,7 +329,9 @@ def create(subject, frequency, description=None, priority=None, assignees=None, 
     mo = _safe_max_occ(max_occurrences)
     r = frappe.get_doc({
         "doctype": DT, "frequency": frequency,
-        "start_date": sd, "next_run_date": sd, "end_date": ed,
+        "start_date": sd,
+        "next_run_date": _first_occurrence(frequency, sd, weekly_days, monthly_day),
+        "end_date": ed,
         "max_occurrences": mo, "occurrences_done": 0, "status": "Active",
         "interval": max(_clean_int(interval, 1), 1),
         "weekly_days": json.dumps(_clean_weekdays(weekly_days)),
@@ -419,7 +442,7 @@ def cancel(name):
 
 @frappe.whitelist()
 def create_from_task(task, frequency, start_date=None, end_date=None, max_occurrences=None,
-                     interval=None, weekly_days=None, monthly_day=None):
+                     interval=None, weekly_days=None, monthly_day=None, duration_days=None):
     """Make an EXISTING top-level task recurring: SNAPSHOT its content (subject/desc/priority/
     assignees/project/time window/duration + its checklist + one level of sub-tasks + labels) into a
     NEW self-contained rule. The task itself is left untouched. Sub-tasks cannot be made recurring
@@ -434,6 +457,8 @@ def create_from_task(task, frequency, start_date=None, end_date=None, max_occurr
     dur = 0
     if t.get("exp_start_date") and t.get("exp_end_date"):
         dur = max(0, (getdate(t.exp_end_date) - getdate(t.exp_start_date)).days)
+    if duration_days not in (None, ""):
+        dur = _clean_int(duration_days, dur)  # monthly "từ ngày X đến ngày Y" overrides task span
     citems = [{"item_label": c.get("item_label"), "is_required": 1 if c.get("is_required") else 0}
               for c in (t.get("pm_checklist") or []) if c.get("item_label")]
     subs = []
