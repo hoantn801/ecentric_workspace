@@ -330,8 +330,9 @@ def list(project=None, view="list", start=0, page_length=50, status=None):
 
     or_filters = None
     if project:
-        if not pmperm.can_view_project(project, user):
-            frappe.throw(_("Not permitted to view this project."), frappe.PermissionError)
+        # need-to-know: open the project but scope its task list to the caller's own tasks when
+        # they only reach it via an assignment (project_view_scope returns None for full access).
+        or_filters = pmperm.project_view_scope(project, user)
         and_filters["project"] = project
     else:
         or_filters = pmperm.task_scope_or_filters(user)  # None = all
@@ -393,11 +394,10 @@ def gantt(project):
     user = frappe.session.user
     if not project:
         frappe.throw(_("Project is required for the Gantt view."))
-    if not pmperm.can_view_project(project, user):
-        frappe.throw(_("Not permitted to view this project."), frappe.PermissionError)
+    _scope = pmperm.project_view_scope(project, user)  # gate + own-task scope (None = all)
 
     tasks = frappe.get_all(
-        "Task", filters={"project": project},
+        "Task", filters={"project": project}, or_filters=_scope,
         fields=["name", "subject", "project", "exp_start_date", "exp_end_date",
                 "progress", "workflow_state", "parent_task", "priority", "_assign"],
         order_by="exp_start_date asc, creation asc",
@@ -446,8 +446,7 @@ def gantt_all(project=None, assignee=None, status=None, priority=None, overdue=N
     and_filters = {}
     or_filters = None
     if project and project != "all":
-        if not pmperm.can_view_project(project, user):
-            frappe.throw(_("Not permitted to view this project."), frappe.PermissionError)
+        or_filters = pmperm.project_view_scope(project, user)  # gate + own-task scope (None = all)
         and_filters["project"] = project
     else:
         or_filters = pmperm.task_scope_or_filters(user)  # None = all in PM
@@ -579,7 +578,7 @@ def _expand_project_dates(project, child_start, child_end, user):
         proj = frappe.get_doc("Project", project)
     except frappe.DoesNotExistError:
         return  # missing project link -> stop gracefully
-    if not pmperm.can_view_project(project, user):
+    if not pmperm.can_open_project(project, user):
         frappe.throw(
             _("Not permitted to adjust the date range of project {0}.").format(project),
             frappe.PermissionError,
@@ -626,6 +625,11 @@ def create(project, subject, parent_task=None, priority=None,
         parent = frappe.get_doc("Task", parent_task)
         if not pmperm.can_view_task(parent.as_dict(), user):
             frappe.throw(_("Not permitted to add a sub-task to this task."), frappe.PermissionError)
+        # 2-LEVEL CAP: a sub-task can never itself have children. Hierarchy stays
+        # Project -> Task -> Sub-task (simpler to manage; use the checklist for finer breakdown).
+        if parent.get("parent_task"):
+            frappe.throw(_("Chỉ hỗ trợ 2 cấp nhiệm vụ: không thể tạo nhiệm vụ con của một nhiệm vụ con. "
+                           "Hãy dùng checklist cho các việc nhỏ hơn."))
         # G4.8f: terminal parents (Done/Completed/Closed/Cancelled) are immutable — no new
         # sub-tasks. Backend trust boundary (frontend already hides the CTA). Canonical shared
         # helper; never reads workflow_state by hand.

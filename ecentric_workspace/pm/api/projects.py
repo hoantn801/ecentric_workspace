@@ -28,9 +28,13 @@ def list(start=0, page_length=20, status=None):
 
     visible = pmperm.get_visible_project_names(user)
     if visible is not None:
-        if not visible:
+        # need-to-know: also show projects where the user only has an assigned/owned task
+        # (they can open it, but its task list is scoped to their own tasks). NOTE: this module
+        # defines `def list`, which shadows the builtin `list` -> use sorted(), never bare list().
+        openable = set(visible) | pmperm.projects_with_my_tasks(user)
+        if not openable:
             return {"rows": [], "total": 0}
-        filters["name"] = ["in", visible]
+        filters["name"] = ["in", sorted(openable)]
 
     rows = frappe.get_all(
         "Project", filters=filters, fields=_FIELDS,
@@ -44,6 +48,7 @@ def list(start=0, page_length=20, status=None):
         agg = {}
         for t in frappe.get_all(
             "Task", filters={"project": ["in", names]},
+            or_filters=pmperm.task_scope_or_filters(user),  # scope counts to the user's own tasks
             fields=["project", "workflow_state"], limit_page_length=0,
         ):
             a = agg.setdefault(t["project"], {"total": 0, "done": 0})
@@ -65,12 +70,11 @@ def get(name):
     """Project detail + task status breakdown. Permission-checked."""
     pmperm.require_pm_access()
     user = frappe.session.user
-    if not pmperm.can_view_project(name, user):
-        frappe.throw(frappe._("Not permitted to view this project."), frappe.PermissionError)
+    _scope = pmperm.project_view_scope(name, user)  # throws if not permitted; None or own-task scope
 
     doc = frappe.get_doc("Project", name)
     counts = {}
-    for t in frappe.get_all("Task", filters={"project": name}, fields=["workflow_state"]):
+    for t in frappe.get_all("Task", filters={"project": name}, or_filters=_scope, fields=["workflow_state"]):
         _ws = t["workflow_state"] or "—"
         counts[_ws] = counts.get(_ws, 0) + 1
     return {"project": doc.as_dict(), "task_status_counts": counts}
@@ -88,13 +92,12 @@ def detail(name):
     """
     pmperm.require_pm_access()
     user = frappe.session.user
-    if not pmperm.can_view_project(name, user):
-        frappe.throw(frappe._("Not permitted to view this project."), frappe.PermissionError)
+    _scope = pmperm.project_view_scope(name, user)  # throws if not permitted; None or own-task scope
 
     doc = frappe.get_doc("Project", name)
     today = frappe.utils.nowdate()
     rows = frappe.get_all(
-        "Task", filters={"project": name},
+        "Task", filters={"project": name}, or_filters=_scope,
         fields=["name", "workflow_state", "exp_end_date", "_assign"],
         limit_page_length=0,
     )

@@ -24,7 +24,7 @@ import frappe
 from frappe import _
 from frappe.exceptions import QueryDeadlockError
 from frappe.desk.form.assign_to import add as _assign_add
-from frappe.utils import nowdate, getdate, add_days, add_months
+from frappe.utils import nowdate, getdate, add_days, add_months, get_last_day
 
 from ecentric_workspace.pm import permissions as pmperm
 from ecentric_workspace.pm.api import notifications as pmnotif
@@ -34,30 +34,110 @@ _DAYS = {"Daily": 1, "Weekly": 7, "Biweekly": 14}
 _FREQ = ("Daily", "Weekly", "Biweekly", "Monthly")
 _PRIORITIES = ("Low", "Medium", "High", "Urgent")
 
+# NOTE: this module defines a whitelisted `list()` endpoint which shadows the builtin `list`.
+# Capture the builtin here (before `def list`) so isinstance()/list() calls stay correct.
+_LIST = list
+
 
 # --------------------------------------------------------------------------
 # Small helpers
 # --------------------------------------------------------------------------
-def _advance(d, frequency, anchor=None, occ=None):
-    d = getdate(d)
+def _clean_weekdays(v):
+    """Normalize a weekday selection to a sorted list of ints Mon=0..Sun=6 (dedup, in-range)."""
+    out = []
+    for x in _load_list(v):
+        try:
+            n = int(x)
+        except Exception:
+            continue
+        if 0 <= n <= 6 and n not in out:
+            out.append(n)
+    return sorted(out)
+
+
+def _clean_monthday(v):
+    if v in (None, ""):
+        return None
+    try:
+        return min(max(int(v), 1), 31)
+    except Exception:
+        return None
+
+
+def _weekly_days(r):
+    """Selected weekdays for a Weekly rule; default = the rule's start weekday."""
+    days = _clean_weekdays(r.get("weekly_days"))
+    if not days:
+        base = r.get("start_date") or r.get("next_run_date") or nowdate()
+        days = [getdate(base).weekday()]
+    return days
+
+
+def _month_on_day(base, day):
+    """`base`'s month with day-of-month `day`, clamped to that month's last day."""
+    base = getdate(base)
+    last = getdate(get_last_day(base)).day
+    return base.replace(day=min(max(int(day or base.day), 1), last))
+
+
+def _advance(r, current):
+    """Next occurrence date strictly AFTER `current`, honoring frequency + interval + (weekly)
+    selected weekdays + (monthly) day-of-month. Monthly anchors to the start month via
+    occurrences_done so it never drifts. `r` is the rule doc/dict."""
+    current = getdate(current)
+    freq = r.get("frequency")
+    interval = max(_clean_int(r.get("interval"), 1), 1)
+    if freq == "Weekly":
+        days = _weekly_days(r)
+        anchor = getdate(r.get("start_date") or current)
+        anchor_mon = add_days(anchor, -anchor.weekday())
+        d = current
+        for _ in range(400):  # bounded forward search
+            d = add_days(d, 1)
+            if d.weekday() in days:
+                wk = (add_days(d, -d.weekday()) - anchor_mon).days // 7
+                if wk % interval == 0:
+                    return d
+        return add_days(current, 7 * interval)  # safety net
+    if freq == "Monthly":
+        # next month after `current`, on the chosen day (clamped). Re-targeting monthly_day each
+        # step means a 31st rule recovers to 31 in long months (no permanent Feb-drift).
+        day = r.get("monthly_day") or getdate(r.get("start_date") or current).day
+        return _month_on_day(add_months(current, interval), day)
+    if freq == "Biweekly":  # legacy frequency kept for pre-existing rules
+        return add_days(current, 14 * interval)
+    return add_days(current, interval)  # Daily
+
+
+def _first_occurrence(frequency, start, weekly_days=None, monthly_day=None):
+    """First occurrence date ON/AFTER `start` that matches the pattern (so a Weekly rule starts on
+    the first selected weekday, a Monthly rule on day-X of this month or next)."""
+    start = getdate(start)
+    if frequency == "Weekly":
+        days = _clean_weekdays(weekly_days) or [start.weekday()]
+        for i in range(7):
+            d = add_days(start, i)
+            if d.weekday() in days:
+                return d
+        return start
     if frequency == "Monthly":
-        # audit D5: anchor monthly occurrences to the rule's start day-of-month (clamped per month)
-        # so a rule starting on the 31st does not permanently drift to the 28th after February.
-        if anchor and occ is not None:
-            return add_months(getdate(anchor), int(occ))
-        return add_months(d, 1)
-    return add_days(d, _DAYS.get(frequency, 1))
+        day = _clean_monthday(monthly_day) or start.day
+        cand = _month_on_day(start, day)
+        if cand < start:
+            cand = _month_on_day(add_months(start, 1), day)
+        return cand
+    return start  # Daily
 
 
 def _load_list(v):
     """Parse a JSON list (or already-list); anything else -> []."""
     if v in (None, ""):
         return []
-    if isinstance(v, list):
+    if isinstance(v, _LIST):
         return v
     try:
         out = json.loads(v)
-        return out if isinstance(out, list) else []
+        return out if isinstance(out, _LIST) else []
     except Exception:
         return []
 
@@ -69,7 +149,7 @@ def _clean_assignees(v):
     if not raw:
         return []
     valid = set(u["name"] for u in frappe.get_all(
-        "User", filters={"name": ["in", list(set(raw))], "enabled": 1},
+        "User", filters={"name": ["in", _LIST(set(raw))], "enabled": 1},
         fields=["name"], limit_page_length=0, ignore_permissions=True))
     out = []
     for u in raw:
@@ -170,7 +250,7 @@ def _apply_template(r, subject=None, description=None, priority=None, assignees=
         names = [l for l in _load_list(labels) if l]
         if names:
             exist = set(x["name"] for x in frappe.get_all(
-                "PM Task Label", filters={"name": ["in", list(set(names))]},
+                "PM Task Label", filters={"name": ["in", _LIST(set(names))]},
                 fields=["name"], limit_page_length=0, ignore_permissions=True))
             names = [l for l in names if l in exist]
         r.template_labels = json.dumps(names)
@@ -206,6 +286,9 @@ def _as_dict(r):
         "end_date": str(r.end_date) if r.end_date else None,
         "max_occurrences": r.max_occurrences or 0, "occurrences_done": r.occurrences_done or 0,
         "last_task": r.last_task, "last_run_date": str(r.last_run_date) if r.last_run_date else None,
+        "interval": max(_clean_int(r.get("interval"), 1), 1),
+        "weekly_days": _clean_weekdays(r.get("weekly_days")),
+        "monthly_day": r.get("monthly_day") or None,
     }
     out.update(_template_dict(r))
     return out
@@ -230,7 +313,8 @@ def _manage(name):
 def create(subject, frequency, description=None, priority=None, assignees=None, project=None,
            template_start_time=None, template_end_time=None, duration_days=None,
            checklist_items=None, subtasks=None, labels=None,
-           start_date=None, end_date=None, max_occurrences=None):
+           start_date=None, end_date=None, max_occurrences=None,
+           interval=None, weekly_days=None, monthly_day=None):
     """Create a SELF-CONTAINED recurrence rule. No source task is created or referenced."""
     pmperm.require_pm_access()
     subject = (subject or "").strip()
@@ -245,8 +329,13 @@ def create(subject, frequency, description=None, priority=None, assignees=None, 
     mo = _safe_max_occ(max_occurrences)
     r = frappe.get_doc({
         "doctype": DT, "frequency": frequency,
-        "start_date": sd, "next_run_date": sd, "end_date": ed,
+        "start_date": sd,
+        "next_run_date": _first_occurrence(frequency, sd, weekly_days, monthly_day),
+        "end_date": ed,
         "max_occurrences": mo, "occurrences_done": 0, "status": "Active",
+        "interval": max(_clean_int(interval, 1), 1),
+        "weekly_days": json.dumps(_clean_weekdays(weekly_days)),
+        "monthly_day": _clean_monthday(monthly_day),
     })
     _apply_template(r, subject=subject, description=description, priority=priority,
                     assignees=assignees, template_start_time=template_start_time,
@@ -261,7 +350,8 @@ def create(subject, frequency, description=None, priority=None, assignees=None, 
 def update_template(name, subject=None, description=None, priority=None, assignees=None,
                     project=None, template_start_time=None, template_end_time=None,
                     duration_days=None, checklist_items=None, subtasks=None, labels=None,
-                    frequency=None, start_date=None, end_date=None, max_occurrences=None):
+                    frequency=None, start_date=None, end_date=None, max_occurrences=None,
+                    interval=None, weekly_days=None, monthly_day=None):
     """Edit a rule's template (fields + checklist + sub-tasks) AND/OR its schedule, inline. Only
     supplied arguments are changed. This is the 'sửa task/subtask ngay trong quy tắc' entry point."""
     r = _manage(name)
@@ -277,6 +367,12 @@ def update_template(name, subject=None, description=None, priority=None, assigne
         frappe.throw(_("Ngày kết thúc không được trước ngày bắt đầu."))
     if max_occurrences is not None:
         r.max_occurrences = _safe_max_occ(max_occurrences)
+    if interval is not None:
+        r.interval = max(_clean_int(interval, 1), 1)
+    if weekly_days is not None:
+        r.weekly_days = json.dumps(_clean_weekdays(weekly_days))
+    if monthly_day is not None:
+        r.monthly_day = _clean_monthday(monthly_day)
     _apply_template(r, subject=subject, description=description, priority=priority,
                     assignees=assignees, template_start_time=template_start_time,
                     template_end_time=template_end_time, duration_days=duration_days,
@@ -344,6 +440,48 @@ def cancel(name):
     return _as_dict(r)
 
 
+@frappe.whitelist()
+def create_from_task(task, frequency, start_date=None, end_date=None, max_occurrences=None,
+                     interval=None, weekly_days=None, monthly_day=None, duration_days=None):
+    """Make an EXISTING top-level task recurring: SNAPSHOT its content (subject/desc/priority/
+    assignees/project/time window/duration + its checklist + one level of sub-tasks + labels) into a
+    NEW self-contained rule. The task itself is left untouched. Sub-tasks cannot be made recurring
+    (2-level cap)."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    t = frappe.get_doc("Task", task)
+    if not pmperm.can_view_task(t.as_dict(), user):
+        frappe.throw(_("Not permitted."), frappe.PermissionError)
+    if t.get("parent_task"):
+        frappe.throw(_("Chỉ nhiệm vụ cấp 1 mới tạo được định kỳ (nhiệm vụ con thì không)."))
+    dur = 0
+    if t.get("exp_start_date") and t.get("exp_end_date"):
+        dur = max(0, (getdate(t.exp_end_date) - getdate(t.exp_start_date)).days)
+    if duration_days not in (None, ""):
+        dur = _clean_int(duration_days, dur)  # monthly "từ ngày X đến ngày Y" overrides task span
+    citems = [{"item_label": c.get("item_label"), "is_required": 1 if c.get("is_required") else 0}
+              for c in (t.get("pm_checklist") or []) if c.get("item_label")]
+    subs = []
+    for k in frappe.get_all("Task", filters={"parent_task": task},
+                            fields=["subject", "description", "priority", "_assign"],
+                            order_by="creation asc", limit_page_length=0):
+        subs.append({"subject": k.get("subject"), "description": k.get("description"),
+                     "priority": k.get("priority"), "assignees": _load_list(k.get("_assign"))})
+    lbls = [a["label"] for a in frappe.get_all(
+        "PM Task Label Assignment", filters={"task": task}, fields=["label"],
+        limit_page_length=0) if a.get("label")]
+    sd = start_date or (str(t.get("exp_start_date")) if t.get("exp_start_date") else None)
+    return create(
+        subject=t.get("subject") or task, frequency=frequency,
+        description=t.get("description"), priority=t.get("priority"),
+        assignees=json.dumps(_load_list(t.get("_assign"))), project=t.get("project"),
+        template_start_time=t.get("pm_start_time"), template_end_time=t.get("pm_end_time"),
+        duration_days=dur, checklist_items=json.dumps(citems), subtasks=json.dumps(subs),
+        labels=json.dumps(lbls), start_date=sd, end_date=end_date,
+        max_occurrences=max_occurrences, interval=interval, weekly_days=weekly_days,
+        monthly_day=monthly_day)
+
+
 # --------------------------------------------------------------------------
 # Scheduler (daily) - idempotent generation, built purely from the rule's template
 # --------------------------------------------------------------------------
@@ -386,7 +524,7 @@ def _clone(r, occ_date):
         want = [l for l in _load_list(r.get("template_labels")) if l]
         if want:
             exist = set(x["name"] for x in frappe.get_all(
-                "PM Task Label", filters={"name": ["in", list(set(want))]},
+                "PM Task Label", filters={"name": ["in", _LIST(set(want))]},
                 fields=["name"], limit_page_length=0))
             seen = set()
             for lid in want:
@@ -432,7 +570,7 @@ def _process(name, today):
         r.status = "Completed"; r.save(ignore_permissions=True); return
     # idempotent guard: never generate twice for the same date
     if r.last_run_date and getdate(r.last_run_date) == nrd:
-        r.next_run_date = _advance(nrd, r.frequency, r.start_date, r.occurrences_done)
+        r.next_run_date = _advance(r, nrd)
         r.save(ignore_permissions=True)
         return
     new_task = _clone(r, nrd)
