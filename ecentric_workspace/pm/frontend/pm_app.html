@@ -1546,7 +1546,7 @@
       '<input class="pm-input" id="wtd-desc" placeholder="Mô tả (tuỳ chọn)" style="padding-left:11px;background-image:none;margin-bottom:16px;width:100%">'+
       '<div style="display:flex;gap:8px;justify-content:flex-end"><button class="pm-btn" id="wtd-skip">Bỏ qua</button><button class="pm-btn primary" id="wtd-confirm">Xác nhận hoàn thành</button></div>'+
       '</div>';
-    document.body.appendChild(ov);
+    (el("ec-pm-root")||document.body).appendChild(ov);
     function close(){if(ov&&ov.parentNode)ov.parentNode.removeChild(ov);}
     ov.onclick=function(e){if(e.target===ov)close();};
     el("wtd-skip").onclick=function(){close();pmDoTransition(name,action);};
@@ -1565,7 +1565,7 @@
       '<div class="rcf-grid">'+recScheduleHtml({start_date:t.exp_start_date||""})+'</div>'+
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px"><button class="pm-btn" id="rt-cancel">Huỷ</button><button class="pm-btn primary" id="rt-submit">Tạo lịch định kỳ</button></div>'+
       '</div>';
-    document.body.appendChild(ov);
+    (el("ec-pm-root")||document.body).appendChild(ov);
     var c=el("pm-rec-modal");
     function close(){if(ov&&ov.parentNode)ov.parentNode.removeChild(ov);}
     ov.onclick=function(e){if(e.target===ov)close();};
@@ -2208,7 +2208,7 @@
     var wd=d.weekly_days||[];
     function freqOpt(){return ["Daily","Weekly","Monthly"].map(function(k){return '<option value="'+k+'"'+(d.frequency===k?' selected':'')+'>'+esc(FREQ_VN[k]||k)+'</option>';}).join("");}
     var WD=["T2","T3","T4","T5","T6","T7","CN"];
-    var chips=WD.map(function(lb,i){var on=wd.indexOf(i)>=0;return '<button type="button" class="re-wd'+(on?' re-wd-on':'')+'" data-wd="'+i+'" style="min-width:38px;padding:6px 8px;border:1px solid var(--gray-200);border-radius:8px;background:'+(on?'var(--navy)':'#fff')+';color:'+(on?'#fff':'var(--gray-700)')+';cursor:pointer;font-size:12px">'+lb+'</button>';}).join("");
+    var chips=WD.map(function(lb,i){var on=wd.indexOf(i)>=0;return '<button type="button" class="re-wd'+(on?' re-wd-on':'')+'" data-wd="'+i+'" style="min-width:42px;padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;background:'+(on?'#1f2d80':'#fff')+';color:'+(on?'#fff':'#334155')+';cursor:pointer;font-size:13px;font-weight:600">'+lb+'</button>';}).join("");
     var ms=(d.monthly_day!=null&&d.monthly_day!=="")?d.monthly_day:"";
     var me=(ms!==""&&d.template_duration_days!=null&&d.template_duration_days!=="")?(parseInt(ms,10)+parseInt(d.template_duration_days,10)):"";
     return '<div class="pm-field"><label>Tần suất *</label><select class="pm-sel" id="re-freq">'+freqOpt()+'</select></div>'+
@@ -2223,7 +2223,7 @@
   /* Wire freq change + weekday chip toggles (scoped to container c). */
   function recWireSchedule(c){
     if(el("re-freq"))el("re-freq").onchange=function(){recFreqUI(c);};
-    Array.prototype.forEach.call(c.querySelectorAll("#re-weekdays .re-wd"),function(b){b.onclick=function(){var on=this.classList.toggle("re-wd-on");this.style.background=on?"var(--navy)":"#fff";this.style.color=on?"#fff":"var(--gray-700)";};});
+    Array.prototype.forEach.call(c.querySelectorAll("#re-weekdays .re-wd"),function(b){b.onclick=function(){var on=this.classList.toggle("re-wd-on");this.style.background=on?"#1f2d80":"#fff";this.style.color=on?"#fff":"#334155";};});
     recFreqUI(c);}
   function recScheduleCollect(c){
     var wd=[];Array.prototype.forEach.call(c.querySelectorAll("#re-weekdays .re-wd-on"),function(b){wd.push(parseInt(b.getAttribute("data-wd"),10));});
