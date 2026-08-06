@@ -5413,7 +5413,12 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         // TRA LAI nguyen ven khi quay ve che do GBS. Chi la luu tru, khong doi gi
         // cua nhanh GBS.
         window._ecBoxmeStores = (m.stores || []).slice();
-        try { if (typeof window._ecSyncStoreOptions === 'function') window._ecSyncStoreOptions(); } catch (_e) {}
+        // 2026-08-06 FIX 5b: vong lap ngay tren APPEND thang 88 store boxme vao
+        // #ec-store bat ke dang o mode nao. Neu syncStoreOptions() da chay TRUOC do
+        // (attr data-ec-store-mode='direct') thi loi goi duoi day bi chan boi guard
+        // early-return -> so EC hien 4 san + 88 store GBS = 92 dong. Truyen force=1
+        // de bat dung lai danh sach. Nhanh GBS dung lai y het tu window._ecBoxmeStores.
+        try { if (typeof window._ecSyncStoreOptions === 'function') window._ecSyncStoreOptions(true); } catch (_e) {}
       }
 
       var plSel = document.getElementById('ec-price-list');
@@ -6187,7 +6192,18 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     if (schedSec) schedSec.classList.add('ec-uni-hide');
   }
   function moveBack(){
-    _moved.forEach(function(m){ m.parent.insertBefore(m.el, m.next); });
+    // 2026-08-06 FIX 5c: ca 3 o duoc chuyen trong CUNG mot vong lap, nen `next` ghi
+    // lai cua o truoc co the chinh la o sau -- va o sau da bi chuyen di noi khac.
+    // insertBefore voi mot node khong con la con cua parent nem NotFoundError ->
+    // setMode() chet giua chung, khong doi duoc tu "Brand truc tiep" ve "GBS thu
+    // Brand". Tra lai theo THU TU NGUOC va bo qua moc `next` da khong con hop le
+    // (insertBefore(el, null) = appendChild).
+    for (var _i = _moved.length - 1; _i >= 0; _i--){
+      var m = _moved[_i];
+      if (!m || !m.parent) continue;
+      var ref = (m.next && m.next.parentElement === m.parent) ? m.next : null;
+      try { m.parent.insertBefore(m.el, ref); } catch (_e) { m.parent.appendChild(m.el); }
+    }
     _moved = [];
     var schedSec = $id('customer') ? $id('customer').closest('.form-section') : null;
     if (schedSec) schedSec.classList.remove('ec-uni-hide');
@@ -6261,6 +6277,12 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   var GRP_OPS = 'Chi phí hoạt động';
   var GRP_FEE = 'Phí agency EC';
   var _soOut = null;                 // true = Out of Budget, false = In Budget
+  // 2026-08-06 FIX 1c: cung loi voi `_mt` -- `_msoState` duoc gan ('ok'/'none') va
+  // doc (guard luc submit) nhung CHUA BAO GIO khai bao. Block script nay chay
+  // "use strict" nen GAN vao bien chua khai bao cung nem ReferenceError -> nhanh
+  // has_mso cua doRefreshMso() chet ngay dong dau, roi vao catch va hien "Khong
+  // kiem tra duoc ngan sach MSO (loi ket noi)" du API tra ve 200 va co MSO.
+  var _msoState = '';                // '' | 'ok' | 'none'
   function soRowTotals(){
     var t = {ops:0, fee:0};
     readDomRows().forEach(function(r){
@@ -6284,6 +6306,12 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     // goi khong kem why (vd tu setMode) thi giu nguyen dong ly do dang co
     if (el){ if (!show) el.textContent = ''; else if (why != null) el.textContent = why; }
   }
+  // 2026-08-06 FIX 1b: _mt CHUA BAO GIO duoc khai bao. Doc mot bien chua khai bao
+  // luon nem ReferenceError, nen refreshMso() HONG TU DAU: o "MA MSO" khong bao gio
+  // duoc dien, va vi setMode() goi refreshMso() nen moi thu dat SAU no trong setMode
+  // -- ke ca window.EC_SO_MODE -- cung khong chay, lam khung chain sidebar mac ket o
+  // recipe so GBS. Khai bao dung 1 dong la ca hai trieu chung het.
+  var _mt = null;
   function refreshMso(){ clearTimeout(_mt); _mt = setTimeout(doRefreshMso, 350); }
   function fmtVN2(n){ return (n||0).toLocaleString('vi-VN'); }
   async function doRefreshMso(){
@@ -6385,11 +6413,13 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
   // dua vao no — rang buoc bat buoc luc submit, payload ec_store, viec chuyen o len
   // "Thong tin chung" — deu chay nguyen nhu cu.
   var EC_DIRECT_STORES = ['Shopee', 'Lazada', 'TikTok', 'Khác'];
-  function syncStoreOptions(){
+  function syncStoreOptions(force){
     var sel = $id('ec-store');
     if (!sel) return;
     var want = (MODE === 'direct') ? 'direct' : 'gbs';
-    if (sel.getAttribute('data-ec-store-mode') === want) return;
+    // force=1: dung khi boxme vua append them option vao thang #ec-store -> phai ve
+    // lai du attr da khop, neu khong danh sach GBS se lot vao so EC (loi 92 dong).
+    if (!force && sel.getAttribute('data-ec-store-mode') === want) return;
     if (want === 'gbs' && !window._ecBoxmeStores) return;   // boxme chua tai xong -> de yen
     var keep = sel.value;
     var html = '<option value="">-- Chọn store --</option>';
