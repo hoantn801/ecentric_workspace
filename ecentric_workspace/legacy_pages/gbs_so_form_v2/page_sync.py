@@ -43,8 +43,46 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "2f15491dceff1e118eb7caf58baa5064aa250c1f6f72d9fdd19f7ed1b2554679"
+BASELINE_SHA256 = "bd831d4757ee98a44541ff53042c232ce120199cfc6f81fe747fdc2504ddf73e"
 SUPERSEDES_SHA256 = (
+    # bytes truoc FIX 5c (2026-08-06): moveBack() tra 3 o (ec-store, transaction_date,
+    # delivery_date) ve cho cu bang insertBefore(el, next). Nhung ca 3 duoc chuyen di
+    # trong cung mot vong lap nen `next` cua o truoc chinh la o sau -- da bi chuyen
+    # noi khac -> insertBefore nem NotFoundError, setMode() chet giua chung va KHONG
+    # doi duoc tu "Brand truc tiep" ve "GBS thu Brand". Da bat duoc tren Chrome that:
+    # "NotFoundError: Failed to execute 'insertBefore' ... at moveBack ... at setMode".
+    # Sua: tra lai theo thu tu nguoc, bo qua moc `next` khong con hop le.
+    "6710bce4d4970cba85a00ac83b43a40b4cd31e35e7140d1731c2a425c6b3e076",
+    # bytes truoc FIX 5b (2026-08-06): dropdown "Store (Platform)" o so EC hien 92 dong
+    # -- 4 san (Shopee/Lazada/TikTok/Khac) CONG 88 store cua GBS/boxme (vd "DUTCHLADY
+    # -- Dutchlady (SHP), GBS_FCV, Shopee"). Nguyen nhan la dua vao THU TU tra ve:
+    # vong lap dien store boxme append thang vao #ec-store bat ke mode, con loi goi
+    # window._ecSyncStoreOptions() ngay sau do bi guard early-return chan lai vi
+    # attribute data-ec-store-mode da = 'direct'. Da tai hien tren Chrome that: sau
+    # khi append tay 88 option roi goi _ecSyncStoreOptions() -> 93 option. Sua bang
+    # tham so force: syncStoreOptions(force) bo qua guard, va cho boxme goi force=1.
+    # Nhanh GBS ve lai y het tu window._ecBoxmeStores nen khong doi gi.
+    "bde88156516f31b45d738c3da55f9337ed7bc9005d0522d2567a51d672fa1782",
+    # bytes truoc FIX 1c (2026-08-06): cung mot loai loi voi `_mt`. Bien `_msoState`
+    # duoc GAN ('ok' / 'none') trong doRefreshMso() va DOC trong guard luc submit,
+    # nhung khong he duoc khai bao o dau. Block script nay chay "use strict" nen
+    # gan vao bien chua khai bao cung nem ReferenceError -> nhanh has_mso cua
+    # doRefreshMso() chet ngay dong dau tien, roi thang vao catch va in "Khong kiem
+    # tra duoc ngan sach MSO (loi ket noi)" mac du API /api/method/ec_so_budget_check
+    # tra ve 200 kem mso=MSO-2026-08-EC. Da xac minh bang cach hook window.fetch
+    # tren Chrome that: request 200, body co has_mso=true, nhung o ma van rong.
+    # Them dung mot dong `var _msoState = '';`.
+    "97739385cf9bcf0bcb59e97d4cee3baf5eeb2ef261ffccfe5c6aed49e3580940",
+    # bytes truoc FIX 1b (2026-08-06, cung ngay): bien `_mt` dung trong
+    # `refreshMso(){ clearTimeout(_mt); _mt = setTimeout(doRefreshMso,350); }`
+    # CHUA BAO GIO duoc khai bao trong file. Doc mot bien chua khai bao nem
+    # ReferenceError ngay, nen refreshMso() hong tu dau -> (a) o "MA MSO" khong bao
+    # gio duoc dien, va (b) setMode() goi refreshMso() o gan cuoi nen MOI dong dat
+    # sau no trong setMode khong chay, ke ca `window.EC_SO_MODE = m` -> khung xem
+    # truoc chain o sidebar mac ket o recipe so GBS du dang o che do Brand truc tiep.
+    # Da xac minh bang console that tren Chrome: "ReferenceError: _mt is not defined
+    # at refreshMso ... at setMode". Them dung mot dong `var _mt = null;`.
+    "2f15491dceff1e118eb7caf58baa5064aa250c1f6f72d9fdd19f7ed1b2554679",
     # bytes truoc dot sua 5 diem cua form SO so EC (2026-08-06). Gom:
     #  (1) O "MA MSO" khong hien du MSO da duyet ton tai: truoc day chi goi lai
     #      ec_so_budget_check khi co su kien 'change' tren Brand/Thang. Brand duoc
