@@ -1248,7 +1248,7 @@
     if(p==="nodue")return !due;
     if(p==="week"){var dd=new Date();var dow=(dd.getDay()+6)%7;var m0=new Date(dd);m0.setDate(dd.getDate()-dow);var ws=m0.toISOString().slice(0,10);var e=new Date(m0);e.setDate(m0.getDate()+6);var we=e.toISOString().slice(0,10);return due>=ws&&due<=we;}
     return true;}
-  function presetBar(){var P=[["mine","My Tasks"],["today","Due Today"],["week","This Week"],["overdue","Overdue"],["blocked","Blocked"],["review","Waiting Review"],["noassignee","No Assignee"],["nodue","No Due Date"]];
+  function presetBar(){var P=[["mine","My Tasks"],["today","Due Today"],["week","This Week"],["overdue","Overdue"],["review","Waiting Review"],["noassignee","No Assignee"],["nodue","No Due Date"]];
     return '<div class="pm-filters" style="margin-bottom:8px">'+P.map(function(p){return '<button class="pm-btn pm-preset'+(F.preset===p[0]?" primary":"")+'" data-preset="'+p[0]+'">'+p[1]+'</button>';}).join("")+'</div>';}
   function filteredTasks(){var all=window._pm_tasks||[];
     function match(t){
