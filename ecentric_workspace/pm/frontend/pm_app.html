@@ -133,13 +133,15 @@
   .pm-lock{ margin-left:6px; font-size:11px; }
   .pm-board-readonly .pm-card{ cursor:default; }
   /* G4.8d: row background by hierarchy depth (global + project task lists). Hover stays clear. */
-  .pm-tbl tr.pm-depth-0 > td{ background:#EEF1FC; }            /* parent = group header: light indigo */
-  .pm-tbl tr.pm-depth-0 > td.t-main{ font-weight:700; color:var(--navy); box-shadow:inset 3px 0 0 var(--navy); }
+  .pm-tbl tr.pm-depth-0 > td{ background:#FFFFFF; }            /* top-level standalone = white */
+  .pm-tbl tr.pm-depth-0 > td.t-main{ font-weight:600; color:var(--gray-900); }
+  .pm-tbl tr.pm-parent > td{ background:#EEF1FC; }             /* parent WITH children = group header (indigo) */
+  .pm-tbl tr.pm-parent > td.t-main{ font-weight:700; color:var(--navy); box-shadow:inset 3px 0 0 var(--navy); }
   .pm-tbl tr.pm-depth-1 > td, .pm-tbl tr.pm-depth-2plus > td{ background:#FFFFFF; }  /* children: white */
   .pm-tbl tr.pm-depth-1 > td.t-main{ font-weight:500; }
   .pm-tbl tr.pm-depth-1 > td.t-main, .pm-tbl tr.pm-depth-2plus > td.t-main{ box-shadow:inset 2px 0 0 #E2E8F0; }  /* indent guide */
-  .pm-tbl tr.pm-depth-0:hover > td{ background:#E2E7FA; }
-  .pm-tbl tr.pm-depth-1:hover > td, .pm-tbl tr.pm-depth-2plus:hover > td{ background:#F5F7FF; }
+  .pm-tbl tr.pm-depth-0:hover > td, .pm-tbl tr.pm-depth-1:hover > td, .pm-tbl tr.pm-depth-2plus:hover > td{ background:#F5F7FF; }
+  .pm-tbl tr.pm-parent:hover > td{ background:#E2E7FA; }
   .pm-tt-lead{ color:#94A3B8; }
   /* 2-card layout: gray body, white content + comments cards, 16px gap, comments ~360px */
   .pm-drawer.expanded .body.pm-cols{ background:var(--gray-50); }
@@ -1333,7 +1335,7 @@
     var head='<table class="pm-tbl"><thead><tr><th>Nhiệm vụ</th><th>Trạng thái</th><th>Dự án</th>'+(compact?'':'<th>Hạn</th>')+'<th>Người nhận</th>'+(lead?'<th class="pm-act-col"></th>':'')+'</tr></thead><tbody>';
     function rowHtml(t,depth,hasKids,collapsed){var tg=tagsCompact(t,3);var term=(t.workflow_state==="Done"||t.workflow_state==="Cancelled");
       var caret=hasKids?'<span class="pm-tt-caret'+(collapsed?' collapsed':'')+'" data-ttcol="'+esc(t.name)+'">▾</span>':(depth>0?'<span class="pm-tt-lead">↳</span>':'<span class="pm-tt-sp"></span>');
-      return '<tr data-task="'+esc(t.name)+'" class="'+pmDepthClass(depth)+'"><td class="t-main"><div style="display:flex;align-items:flex-start;gap:9px"><span style="margin-left:'+(Math.min(depth,6)*18)+'px;flex:0 0 auto">'+pjCheck(t,true,true)+'</span><div style="flex:1;min-width:0"><span class="pm-tt-name">'+caret+'<span'+(term?' style="text-decoration:line-through;color:var(--gray-400)"':'')+'>'+esc(t.subject||t.name)+'</span></span>'+(tg?'<div class="pm-tags" style="margin-top:4px">'+tg+'</div>':'')+(labelChips(t,2)?'<div class="pm-labels-row" style="margin-top:4px">'+labelChips(t,2)+'</div>':'')+'</div></div></td><td>'+badge(t.workflow_state)+'</td><td>'+pmProjLabel(t)+'</td>'+
+      return '<tr data-task="'+esc(t.name)+'" class="'+pmDepthClass(depth)+((hasKids&&depth===0)?' pm-parent':'')+'"><td class="t-main"><div style="display:flex;align-items:flex-start;gap:9px"><span style="margin-left:'+(Math.min(depth,6)*18)+'px;flex:0 0 auto">'+pjCheck(t,true,true)+'</span><div style="flex:1;min-width:0"><span class="pm-tt-name">'+caret+'<span'+(term?' style="text-decoration:line-through;color:var(--gray-400)"':'')+'>'+esc(t.subject||t.name)+'</span></span>'+(tg?'<div class="pm-tags" style="margin-top:4px">'+tg+'</div>':'')+(labelChips(t,2)?'<div class="pm-labels-row" style="margin-top:4px">'+labelChips(t,2)+'</div>':'')+'</div></div></td><td>'+badge(t.workflow_state)+'</td><td>'+pmProjLabel(t)+'</td>'+
         (compact?'':'<td>'+esc(fmtEndCell(t))+'</td>')+'<td>'+pmAssignee(t,false)+'</td>'+(lead?'<td class="pm-act-col">'+pmTaskMenuHtml(t.name)+'</td>':'')+'</tr>';}
     var body="";
     if(compact){ rows.forEach(function(t){body+=rowHtml(t,0,false,false);}); }
