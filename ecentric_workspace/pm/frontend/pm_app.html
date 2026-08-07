@@ -160,13 +160,13 @@
   .pm-head h1{ font-size:18px; font-weight:700; color:var(--gray-900); letter-spacing:-0.3px; margin:0; }
   .pm-head .sub{ color:var(--gray-500); font-size:13px; margin-top:2px; }
 
-  .stats-strip{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:22px; }
-  .stat-card{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; }
+  .stats-strip{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px; }
+  .stat-card{ background:#fff; border:1px solid var(--gray-200); border-radius:10px; padding:11px 13px; position:relative; overflow:hidden; }
   .stat-card::before{ content:''; position:absolute; top:0; left:0; width:3px; height:100%; }
   .stat-card.s-navy::before{ background:var(--navy);} .stat-card.s-yellow::before{ background:var(--yellow);}
   .stat-card.s-pink::before{ background:var(--pink);} .stat-card.s-green::before{ background:var(--green);}
-  .stat-label{ font-size:12px; font-weight:500; color:var(--gray-500); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:8px; }
-  .stat-value{ font-size:26px; font-weight:700; color:var(--gray-900); line-height:1.1; letter-spacing:-0.5px; }
+  .stat-label{ font-size:10.5px; font-weight:500; color:var(--gray-500); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; }
+  .stat-value{ font-size:20px; font-weight:700; color:var(--gray-900); line-height:1.1; letter-spacing:-0.5px; }
   .stat-meta{ font-size:12px; color:var(--gray-500); margin-top:6px; }
 
   .panel{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; overflow:hidden; margin-bottom:18px; }
@@ -818,7 +818,7 @@
   function head(title,sub,right){return '<div class="pm-head"><div><h1>'+esc(title)+'</h1>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div><div>'+(right||'')+'</div></div>';}
 
   function sc(k,l,n){return '<div class="stat-card '+k+'"><div class="stat-label">'+l+'</div><div class="stat-value">'+(n==null?"-":n)+'</div></div>';}
-  function ccard(k,label,n,preset){return '<div class="stat-card '+k+'"'+(preset?' data-nav-preset="'+preset+'" style="cursor:pointer"':'')+'><div class="stat-label">'+esc(label)+'</div><div class="stat-value">'+(n||0)+'</div></div>';}
+  function ccard(k,label,n,preset,navView){var attr=preset?(' data-nav-preset="'+preset+'" style="cursor:pointer"'):(navView?(' data-nav-view="'+navView+'" style="cursor:pointer"'):'');return '<div class="stat-card '+k+'"'+attr+'><div class="stat-label">'+esc(label)+'</div><div class="stat-value">'+(n||0)+'</div></div>';}
   function navPreset(p){F={status:"",project:"",assignee:"",priority:"",overdue:false,label:"",q:"",preset:p};go("tasks");}
   function navAssignee(u){F={status:"",project:"",assignee:u,priority:"",overdue:false,label:"",q:"",preset:""};go("tasks");}
   function attList(b,rows){if(!b)return;rows=rows||[];if(!rows.length){return emptyBox(b,"Không có việc cần chú ý.");}
@@ -875,8 +875,8 @@
     out.sort(function(x,y){return (rank[x.r]-rank[y.r])||((dcD(x.t)||"9999")<(dcD(y.t)||"9999")?-1:1);});return out;}
   function dcRiskBadge(lvl){var m={high:["Rủi ro cao","st-Blocked"],attention:["Cần chú ý","st-Review"],stable:["Ổn định","st-Done"]}[lvl]||["Ổn định","st-Done"];return '<span class="pm-badge '+m[1]+'">'+m[0]+'</span>';}
   function dcHealthTable(host,rows){if(!host)return;if(!rows.length){return emptyBox(host,"Chưa có dự án.");}
-    host.innerHTML='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Dự án</th><th>Rủi ro</th><th>Tiến độ</th><th>Mở</th><th>Quá hạn</th><th>Blocked</th><th>Chưa giao</th><th>Chưa có hạn</th><th>Quản lý</th></tr></thead><tbody>'+
-      rows.map(function(p){var a=p.a;return '<tr data-proj="'+esc(p.name)+'"><td class="t-main">'+esc(p.project_name)+'</td><td>'+dcRiskBadge(p.lvl)+'</td><td>'+p.progress+'%</td><td>'+a.open+'</td><td'+(a.overdue?' style="color:var(--pink);font-weight:600"':'')+'>'+a.overdue+'</td><td'+(a.blocked?' style="color:var(--pink);font-weight:600"':'')+'>'+a.blocked+'</td><td>'+a.noass+'</td><td>'+a.nodue+'</td><td>'+esc(p.manager)+'</td></tr>';}).join("")+'</tbody></table></div>';
+    host.innerHTML='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Dự án</th><th>Rủi ro</th><th>Tiến độ</th><th>Mở</th><th>Quá hạn</th><th>Chưa giao</th><th>Chưa có hạn</th><th>Quản lý</th></tr></thead><tbody>'+
+      rows.map(function(p){var a=p.a;return '<tr data-proj="'+esc(p.name)+'"><td class="t-main">'+esc(p.project_name)+'</td><td>'+dcRiskBadge(p.lvl)+'</td><td>'+p.progress+'%</td><td>'+a.open+'</td><td'+(a.overdue?' style="color:var(--pink);font-weight:600"':'')+'>'+a.overdue+'</td><td>'+a.noass+'</td><td>'+a.nodue+'</td><td>'+esc(p.manager)+'</td></tr>';}).join("")+'</tbody></table></div>';
     Array.prototype.forEach.call(host.querySelectorAll("tr[data-proj]"),function(tr){tr.onclick=function(){openProject(tr.getAttribute("data-proj"));};});}
   function dcWlTable(host,rows){if(!host)return;if(!rows.length){return emptyBox(host,"Chưa có dữ liệu workload.");}
     host.innerHTML='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Người nhận</th><th>Mở</th><th>Quá hạn</th><th>Hôm nay</th><th>Tuần này</th><th>Blocked</th><th>Chờ duyệt</th><th>Chưa có hạn</th></tr></thead><tbody>'+
@@ -892,7 +892,7 @@
   // projects.list/control_center only give the CURRENT snapshot, so a line chart would be
   // misleading. Add later via a backend aggregate/history endpoint that stores periodic snapshots.
   /* G4.12: PM Overview charts via shared ECharts (window.PMCharts). Replaces the old CSS donut. */
-  function pmChartBox(id,h){return '<div class="pm-chart" style="height:'+(h||200)+'px"><div class="pm-chart-box" id="'+esc(id)+'" style="height:100%"></div><div class="pm-chart-fb" id="'+esc(id)+'-fb" hidden></div></div>';}
+  function pmChartBox(id,h){return '<div class="pm-chart" style="height:'+(h||175)+'px"><div class="pm-chart-box" id="'+esc(id)+'" style="height:100%"></div><div class="pm-chart-fb" id="'+esc(id)+'-fb" hidden></div></div>';}
   function pmStatusColor(label){var m={Backlog:"#94a3b8","To Do":"#2C3DA6","In Progress":"#0e9aa7",Blocked:"#c0392b",Review:"#b8860b",Done:"#0a7a4f",Cancelled:"#cbd5e1"};return m[label]||"#2C3DA6";}
   function pmSafeChart(box,fallback,renderFn){try{if(!box)throw new Error("Chart container not found");renderFn();}catch(err){if(window.console&&console.error)console.error("[PMCharts]",err);if(window.ECCharts&&box&&fallback)ECCharts.fallback(box,fallback,'<div class="pm-chart-empty">Không thể hiển thị biểu đồ.</div>');}}
   function segBar(segs){var total=segs.reduce(function(a,s){return a+(s[1]||0);},0)||1;
@@ -919,14 +919,14 @@
         var nStable=ph.filter(function(p){return p.lvl==="stable";}).length,nAtt=ph.filter(function(p){return p.lvl==="attention";}).length,nHigh=ph.filter(function(p){return p.lvl==="high";}).length;
         var sd={};tasks.forEach(function(t){var ws=t.workflow_state||"Backlog";sd[ws]=(sd[ws]||0)+1;});
         h+='<div class="dc-sec-title">Tổng quan</div>';
-        h+='<div class="stats-strip dc-block" style="grid-template-columns:repeat(7,1fr)">'+
-          ccard("s-navy","Dự án",projs.length,"")+ccard("s-yellow","Cần chú ý",atRisk,"")+ccard("s-pink","Quá hạn",kOverdue,"overdue")+ccard("s-pink","Blocked",kBlocked,"blocked")+ccard("s-yellow","Chờ duyệt",kReview,"review")+ccard("s-yellow","Chưa giao",kNoass,"noassignee")+ccard("s-navy","Chưa có hạn",kNodue,"nodue")+'</div>';
+        h+='<div class="stats-strip dc-block" style="grid-template-columns:repeat(6,1fr)">'+
+          ccard("s-navy","Dự án",projs.length,"","projects")+ccard("s-yellow","Cần chú ý",atRisk,"","projects")+ccard("s-pink","Quá hạn",kOverdue,"overdue")+ccard("s-yellow","Chờ duyệt",kReview,"review")+ccard("s-yellow","Chưa giao",kNoass,"noassignee")+ccard("s-navy","Chưa có hạn",kNodue,"nodue")+'</div>';
         var riskPanel='<div class="panel"><div class="panel-header"><div class="panel-title">Rủi ro dự án</div></div>'+pmChartBox("pmc-risk")+'</div>';
         var duePanel=distPanel("Áp lực hạn",{"Quá hạn":kOverdue,"Hôm nay":kToday,"Tuần này":kWeek,"Chưa có hạn":kNodue},["Quá hạn","Hôm nay","Tuần này","Chưa có hạn"],{"Quá hạn":"db-pink","Hôm nay":"db-navy","Tuần này":"db-yellow","Chưa có hạn":"db-gray"});
         var statusPanel='<div class="panel"><div class="panel-header"><div class="panel-title">Phân bố trạng thái</div></div>'+pmChartBox("pmc-status")+'</div>';
         h+='<div class="dc-charts">'+riskPanel+duePanel+statusPanel+'</div>';
         h+='<div class="dc-sec-title">Sức khỏe dự án</div><div class="dc-block" id="dc-health"></div>';
-        h+='<div class="dc-sec-title">Workload theo người</div><div class="panel dc-block">'+pmChartBox("dc-wlbar",230)+'</div>';
+        h+='<div class="dc-sec-title">Workload theo người</div><div class="panel dc-block">'+pmChartBox("dc-wlbar",200)+'</div>';
       }
       // Non-leader: Focus chỉ trên task được giao cho chính họ (an toàn), không chỉ dựa vào permission-scope.
       var focusTasks=leader?tasks:tasks.filter(function(t){return names(t._assign).indexOf(user)>=0;});
@@ -941,7 +941,7 @@
             var statusBox=el("pmc-status"),statusFb=el("pmc-status-fb");
             var wlBox=el("dc-wlbar"),wlFb=el("dc-wlbar-fb");
             pmSafeChart(riskBox,riskFb,function(){PMCharts.renderRiskDonut(riskBox,riskFb,[["Ổn định",nStable,"#0a7a4f"],["Cần chú ý",nAtt,"#b8860b"],["Rủi ro cao",nHigh,"#c0392b"]],{centerNum:projs.length,centerLabel:"dự án"});});
-            pmSafeChart(statusBox,statusFb,function(){PMCharts.renderStatusBar(statusBox,statusFb,sd,["Backlog","To Do","In Progress","Blocked","Review","Done","Cancelled"],{colorFor:pmStatusColor});});
+            pmSafeChart(statusBox,statusFb,function(){PMCharts.renderStatusBar(statusBox,statusFb,sd,["Backlog","To Do","In Progress","Review","Done","Cancelled"],{colorFor:pmStatusColor});});
             pmSafeChart(wlBox,wlFb,function(){PMCharts.renderWorkload(wlBox,wlFb,wl,{onClick:function(u){navAssignee(u);}});});
             PMCharts.attachResize();
           });
@@ -950,6 +950,7 @@
         var pd2={};tasks.forEach(function(t){var pr=t.priority||"—";pd2[pr]=(pd2[pr]||0)+1;});el("dc-prio").innerHTML=distPanel("Phân bố ưu tiên",pd2,["Urgent","High","Medium","Low","—"],{Urgent:"db-pink",High:"db-orange",Medium:"db-navy",Low:"db-gray"});}
       dcFocusList(el("dc-focus"),dcFocus(focusTasks));
       Array.prototype.forEach.call(c.querySelectorAll("[data-nav-preset]"),function(b){b.onclick=function(){navPreset(b.getAttribute("data-nav-preset"));};});
+      Array.prototype.forEach.call(c.querySelectorAll("[data-nav-view]"),function(b){b.onclick=function(){go(b.getAttribute("data-nav-view"));};});
     }).catch(function(e){errBox(c,e);});}
 
   // ---- Batch E: My Work daily cockpit ----
