@@ -707,7 +707,7 @@
 
 <div class="pm-dbg" id="pm-dbg"></div>
 <div class="pm-drawer" id="pm-drawer"><header><div class="dt" id="pm-dt">Nhiệm vụ</div>
-  <button class="pm-btn" id="pm-dclose" style="flex:0 0 auto">Đóng</button></header><div class="body" id="pm-dbody"></div></div>
+  <button class="pm-btn" id="pm-dclose" title="Đóng (Esc)" aria-label="Đóng" style="flex:0 0 auto;width:34px;height:34px;padding:0;font-size:17px;line-height:1;display:inline-flex;align-items:center;justify-content:center">✕</button></header><div class="body" id="pm-dbody"></div></div>
 <div class="pm-toast" id="pm-toast"></div>
 
 <!-- G4.12: shared ECharts dashboard library (same vendor/theme/lifecycle as Alert Center). Loaded before the PM app script so window.PMCharts is ready. -->
@@ -1475,6 +1475,7 @@
     window._dCloseTimer=setTimeout(function(){dr.classList.remove("expanded","pm-d-md","pm-d-sm");window._dCloseTimer=null;},170); /* keep .expanded until fade-out done, then reset (incl. UIUX-2 size variants) */
     if(el("pm-dexpand"))el("pm-dexpand").textContent="Mở rộng";}
   el("pm-dclose").onclick=closeD; el("pm-dbg").onclick=closeD;
+  if(!window._pmEscBound){window._pmEscBound=true;document.addEventListener("keydown",function(e){if(e.key!=="Escape")return;var dr=el("pm-drawer");if(!dr||!dr.classList.contains("open"))return;var tg=e.target,tn=tg&&tg.tagName;if(tn==="INPUT"||tn==="TEXTAREA"||tn==="SELECT"||(tg&&tg.isContentEditable))return;closeD();});}
   if(el("pm-dexpand"))el("pm-dexpand").onclick=function(){var ex=el("pm-drawer").classList.toggle("expanded");this.textContent=ex?"Thu nhỏ":"Mở rộng";};
   var SVG_ATTACH='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.2 9.19a1 1 0 0 1-1.41-1.41l8.49-8.48"/></svg>';
   var SVG_LINK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
@@ -1688,9 +1689,8 @@
           '<div class="pm-prop"><label>Dự án</label><div class="v">'+pmProjLabel(t)+'</div></div>'+
           '<div class="pm-prop"><label>Ưu tiên</label><div class="v"><span class="pm-inline" data-inline="priority">'+renderInlineDisplay("priority",t)+'</span></div></div>'+
           '<div class="pm-prop" style="grid-column:1/-1"><label>Người nhận</label><div class="v">'+(a.length?a.slice(0,5).map(function(u){var fn=(window._pmUserNames&&window._pmUserNames[u])||u;return '<span class="pm-assignee-chip" title="'+esc(fn)+' · '+esc(u)+'"><span class="pm-mini-av">'+ini(u)+'</span>'+esc(fn)+'</span>';}).join("")+(a.length>5?'<span class="pm-tag tg-more">+'+(a.length-5)+'</span>':''):'<span style="color:var(--gray-400)">Chưa giao</span>')+'</div></div>'+
-          '<div class="pm-prop"><label>Bắt đầu</label><div class="v"><span class="pm-inline" data-inline="start">'+renderInlineDisplay("start",t)+'</span></div></div>'+
-          '<div class="pm-prop"><label>Hạn</label><div class="v"><span class="pm-inline" data-inline="end">'+renderInlineDisplay("end",t)+'</span></div></div>'+
-          '<div class="pm-prop" style="grid-column:1/-1"><label>Giờ (tuỳ chọn)</label><div class="v" style="display:flex;gap:8px;align-items:center"><input type="time" class="pm-input" id="pm-st-time" value="'+esc(t.pm_start_time?String(t.pm_start_time).slice(0,5):"")+'"'+(pmTerminal(t)?" disabled":"")+' style="width:auto;padding:4px 8px"><span style="color:var(--gray-400)">–</span><input type="time" class="pm-input" id="pm-en-time" value="'+esc(t.pm_end_time?String(t.pm_end_time).slice(0,5):"")+'"'+(pmTerminal(t)?" disabled":"")+' style="width:auto;padding:4px 8px"></div></div>'+
+          '<div class="pm-prop"><label>Bắt đầu</label><div class="v" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="pm-inline" data-inline="start">'+renderInlineDisplay("start",t)+'</span><input type="time" class="pm-input" id="pm-st-time" title="Giờ bắt đầu" value="'+esc(t.pm_start_time?String(t.pm_start_time).slice(0,5):"")+'"'+(pmTerminal(t)?" disabled":"")+' style="width:auto;padding:4px 8px"></div></div>'+
+          '<div class="pm-prop"><label>Hạn</label><div class="v" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="pm-inline" data-inline="end">'+renderInlineDisplay("end",t)+'</span><input type="time" class="pm-input" id="pm-en-time" title="Giờ kết thúc" value="'+esc(t.pm_end_time?String(t.pm_end_time).slice(0,5):"")+'"'+(pmTerminal(t)?" disabled":"")+' style="width:auto;padding:4px 8px"></div></div>'+
           '<div class="pm-prop" style="grid-column:1/-1"><label>Nhãn</label><div class="v" id="pm-labels-box"></div></div>'+
         '</div>'+
         '<div class="pm-dsec">Mô tả</div><div class="pm-inline pm-desc-inline" data-inline="desc">'+renderInlineDisplay("desc",t)+'</div>'+
