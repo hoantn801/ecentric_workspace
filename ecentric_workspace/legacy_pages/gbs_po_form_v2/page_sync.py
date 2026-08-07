@@ -42,8 +42,15 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "927446b3fc2114c4084b66551e77541c2d184aa098d02b832943ea5c402a6b18"
+BASELINE_SHA256 = "6a14afe753abd13c83386ff89847e686586d1359dafeed5d99da8152502e2d42"
 SUPERSEDES_SHA256 = (
+    # bytes truoc FIX 11 (2026-08-07): khi mo form PO tu duong ?from_so=SAL-ORD-...,
+    # ham _applySoRef quet .ec-cb-display trong CA so.parentNode -- ma o "Nha cung
+    # cap (EC)" va o "SO tham chieu" nam CHUNG mot .field, nen no ghi de luon phan
+    # hien thi cua supplier: man hinh bao "Nha cung cap (EC) = SAL-ORD-..." trong khi
+    # gia tri that van rong. Da bat duoc tren Chrome that. Sua: chi ghi vao khung
+    # .ec-cb cua chinh o SO.
+    "927446b3fc2114c4084b66551e77541c2d184aa098d02b832943ea5c402a6b18",
     # bytes truoc FIX 10 (2026-08-07): o VAT tren form chi la CHU tham chieu, khong
     # gan vao bang thue that cua chung tu -> Purchase Order so EC luu
     # total_taxes_and_charges = 0 va grand_total = tong CHUA VAT. Bat duoc tren live:

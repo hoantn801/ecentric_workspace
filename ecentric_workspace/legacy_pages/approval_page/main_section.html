@@ -7374,7 +7374,7 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
     html += '<button type="button" class="scp2-btn-primary" id="ec-ecso-po-btn"' + (approved ? '' : ' disabled')
       + '>+ Tạo PO từ SO</button>';
     html += '<div class="scp2-hint">' + (approved
-      ? 'Chọn những dòng cần mua ngoài. Mã hàng và số lượng được chép sang, đơn giá để trống vì giá mua khác giá bán.'
+      ? 'Chọn những dòng cần mua ngoài. Mã hàng, số lượng và đơn giá được chép sang — đơn giá chỉ là gợi ý, nhớ sửa theo giá mua thật.'
       : 'SO phải duyệt xong mới tạo được đơn mua — hiện đang ở bước <b>' + esc(SO.workflow_state || '') + '</b>. '
         + 'Lý do: hạn mức của PO lấy theo tổng SO, SO chưa duyệt thì con số đó chưa chắc chắn.')
       + '</div>';
@@ -7394,10 +7394,10 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
     h += '<div class="scp2-card-h"><h3>Tạo đơn mua từ ' + esc(ticketId) + '</h3>'
       + '<div class="scp2-sub">Tick những dòng eCentric phải đi mua ngoài.</div></div>';
     h += '<div class="scp2-card-body">';
-    h += '<div class="scp2-note">Đơn giá <b>không</b> được chép sang — giá bán cho brand khác giá mua '
-      + 'của nhà cung cấp. Nhập giá mua thật ở form PO.</div>';
+    h += '<div class="scp2-note">Đơn giá được chép sang làm <b>giá gợi ý</b>. Đây là giá <b>bán</b> cho '
+      + 'brand, không phải giá mua của nhà cung cấp — nhớ sửa lại ở form PO trước khi trình duyệt.</div>';
     h += '<table><thead><tr><th style="width:34px"></th><th>Mã hàng</th><th>Tên</th>'
-      + '<th class="r">SL</th><th class="r">Giá bán trên SO</th></tr></thead><tbody>';
+      + '<th class="r">SL</th><th class="r">Giá bán trên SO (gợi ý)</th></tr></thead><tbody>';
     items.forEach(function (it, i) {
       var grp = ITEM_GROUP[it.item_code] || '';
       var isRev = (grp === REV_GROUP);
@@ -7438,7 +7438,10 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
         if (!chks[i].checked) continue;
         var it = items[parseInt(chks[i].getAttribute('data-idx'), 10)];
         if (!it) continue;
-        chosen.push({ item_code: it.item_code, item_name: it.item_name || '', qty: it.qty || 0, rate: 0 });
+        // 2026-08-07: chep ca don gia tu SO sang lam GIA GOI Y (truoc do de trong).
+        // Day la gia BAN cho brand, khong phai gia mua -- hop thoai va bang gia da
+        // ghi ro de nguoi tao sua lai truoc khi trinh duyet.
+        chosen.push({ item_code: it.item_code, item_name: it.item_name || '', qty: it.qty || 0, rate: it.rate || 0 });
         codes.push(it.item_code);
       }
       if (!chosen.length) return;
