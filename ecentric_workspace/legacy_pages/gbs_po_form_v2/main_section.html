@@ -4379,6 +4379,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var parsed = parseTaxRateFromName(sel.value);
     return { rate: parsed, components: parsed > 0 ? [{label: 'VAT ' + parsed + '%', rate: parsed}] : [] };
   }
+  // 2026-08-07 FIX 10: mo ra ngoai de nhanh PO so EC lay duoc thue suat dang chon.
+  // Truoc day Purchase Order native luu total_taxes_and_charges = 0 -> thieu tien thue.
+  window._ecGetVatRate = function () { try { return getTaxInfo().rate || 0; } catch (e) { return 0; } };
 
   // Move tax template selector to just before VAT summary
   function relocateTaxTemplate() {
@@ -6227,6 +6230,13 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       if (!sup){ notice('Chọn Nhà cung cấp (EC)', true); return; }
       var soRefEl = $id('ecSoRef');
       if (!soRefEl.value){ notice('PO Mua ngoài bắt buộc gắn SO tham chiếu — khoản mua nội bộ (không gắn doanh thu) đi luồng ĐNMH', true); return; }
+      // 2026-08-07 FIX 9: bat buoc Tieu de giong nhanh GBS.
+      var _t0 = $id('title');
+      if (!_t0 || !(_t0.value||'').trim()){
+        notice('Nhập Tiêu đề cho đơn mua (VD: "Thue KOC review Friso thang 8")', true);
+        if (_t0){ _t0.scrollIntoView({behavior:'smooth', block:'center'}); _t0.focus(); }
+        return;
+      }
       var rows = readRows();
       if (!rows.length){ notice('Nhập ít nhất 1 dòng item có SL + giá', true); return; }
       var bad = rows.filter(function(r){ return !EC_ITEMS[r.item_code]; });
@@ -6236,6 +6246,12 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       if (_poBudget==='out' && !(($id('ecJustification')||{}).value||'').trim()){ notice('PO vượt tổng SO tham chiếu — nhập Lý do giải trình (duyệt 4 cấp)', true); return; }
       btn.disabled = true;
       try{
+        // 2026-08-07: gui ca TIEU DE nguoi tao go o o "Tieu de" (#title) vao truong
+        // `title` cua Purchase Order, de danh sach /all-ticket khong phai tu ghep ten.
+        var _ttl = (($id('title')||{}).value || '').trim();
+        // FIX 10: gan DONG THUE that de ERPNext tu tinh thue + tong cong.
+        var _vat = 0;
+        try { if (typeof window._ecGetVatRate === 'function') _vat = Number(window._ecGetVatRate()) || 0; } catch (_e) {}
         var body = {
           supplier: sup, company: 'eCentric',
           transaction_date: txn, schedule_date: sched,
@@ -6245,6 +6261,12 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
           ec_over_justification: (($id('ecJustification')||{}).value||'').trim(),
           items: rows.map(function(r){ var it = {item_code:r.item_code, qty:r.qty, rate:r.rate, schedule_date: sched}; if (soRefEl.value) it.sales_order = soRefEl.value; return it; })
         };
+        if (_ttl) body.title = _ttl;
+        if (_vat > 0) {
+          body.taxes = [{ charge_type: 'On Net Total', account_head: 'VAT - EC',
+                          rate: _vat, category: 'Total', add_deduct_tax: 'Add',
+                          description: 'VAT ' + _vat + '%' }];
+        }
         var res = await fetch('/api/resource/Purchase Order', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
         var txt = await res.text();
         if (!res.ok) throw new Error(frappeErr(txt, 'Tao PO so EC loi'));

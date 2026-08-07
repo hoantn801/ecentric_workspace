@@ -43,8 +43,24 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "575b1aae7b6b3e8b0840b33d3401874e1dd076d10503356bcaaaa3e15cb1121a"
+BASELINE_SHA256 = "21f3cf18fb441cbd70b9dd5d1a231772dd74fbb361bcf7d34f0c37a6195eaa44"
 SUPERSEDES_SHA256 = (
+    # bytes truoc FIX 10 (2026-08-07): o VAT tren form chi la CHU tham chieu, khong
+    # gan vao bang thue that cua chung tu -> Sales Order so EC luu
+    # total_taxes_and_charges = 0 va grand_total = tong CHUA VAT. Bat duoc tren live:
+    # SAL-ORD-2026-00052 chon "GBS - Thue GTGT 8%" ma thue = 0. Sua: gan mot dong
+    # thue that (On Net Total / VAT - EC / thue suat dang chon) khi tao chung tu de
+    # ERPNext tu tinh. Da thu tren live: 100.000 + 8% -> thue 8.000, tong 108.000.
+    "75478972937ba0f98defdc1784d720f762e950cb21ad1bf7a7574ece871a0978",
+    # bytes truoc khi bat buoc Tieu de o nhanh so EC (2026-08-07): o "Tieu de" van
+    # de trong duoc nen SO tao ra khong co tieu de, danh sach lai roi ve ghep ten.
+    # Nhanh GBS von da bat buoc truong nay -- nay hai nhanh giong nhau.
+    "90db783b58c731a1d4c8a1dc0a6ba3426e5d5a82af54d307b807393e676bbf7d",
+    # bytes truoc FIX 9 (2026-08-07): nhanh so EC bo qua o "Tieu de" (#title) nen
+    # SO tao ra khong co tieu de; danh sach /all-ticket phai tu ghep (khach [kenh])
+    # va doc khong ra don nao voi don nao. Sua: gui #title vao truong `title` cua
+    # Sales Order. web_lookup da duoc sua cung nhip de uu tien tieu de nay.
+    "575b1aae7b6b3e8b0840b33d3401874e1dd076d10503356bcaaaa3e15cb1121a",
     # bytes truoc FIX 8 (2026-08-07): file dinh kem cua SO so EC chi len SharePoint
     # theo phien upload, Sales Order chi luu ma phien (ec_attach_session) -> trang
     # /approval doc bang File nen luon "Khong co file dinh kem". Sua: giu lai doi
