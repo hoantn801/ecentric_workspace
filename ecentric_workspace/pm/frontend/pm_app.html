@@ -530,18 +530,18 @@
   .g-divider::after{ content:''; position:absolute; left:4px; top:0; bottom:0; width:1px; background:var(--gray-200); }
   .g-divider:hover::after{ background:var(--navy); width:2px; left:3px; }
 
-  .pm-board{ display:flex; gap:12px; overflow-x:auto; padding-bottom:10px; }
-  .pm-col{ min-width:230px; flex:1; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:12px; display:flex; flex-direction:column; }
+  .pm-board{ display:flex; gap:10px; overflow-x:auto; padding-bottom:10px; }
+  .pm-col{ min-width:0; flex:0 0 256px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:10px; display:flex; flex-direction:column; }
   .pm-col.drag-over{ border-color:var(--navy); background:var(--navy-50); }
   .pm-col.drop-ok{ outline:2px dashed var(--navy); outline-offset:-3px; }
   .pm-col.drop-no{ opacity:.5; }
   .pm-card .pm-lock{ color:var(--gray-400); font-weight:500; }
-  .pm-col h3{ font-size:12.5px; margin:0; padding:11px 12px; display:flex; align-items:center; justify-content:space-between; }
+  .pm-col h3{ font-size:12px; margin:0; padding:9px 11px; display:flex; align-items:center; justify-content:space-between; }
   .pm-col .col-count{ font-size:11px; color:var(--gray-400); }
-  .pm-col .col-body{ padding:0 10px 10px; display:flex; flex-direction:column; gap:8px; min-height:40px; }
-  .pm-card{ background:#fff; border:1px solid var(--gray-200); border-left:3px solid var(--navy); border-radius:8px; padding:11px 12px; cursor:grab; transition:box-shadow .12s; }
+  .pm-col .col-body{ padding:0 8px 8px; display:flex; flex-direction:column; gap:7px; min-height:40px; }
+  .pm-card{ background:#fff; border:1px solid var(--gray-200); border-left:3px solid var(--navy); border-radius:8px; padding:8px 10px; cursor:grab; transition:box-shadow .12s; }
   .pm-card:hover{ box-shadow:0 2px 10px rgba(44,61,166,.10); }
-  .pm-card .c-title{ font-size:13px; font-weight:600; color:var(--gray-900); }
+  .pm-card .c-title{ font-size:12.5px; font-weight:600; color:var(--gray-900); }
   .pm-card .c-meta{ font-size:11px; color:var(--gray-500); margin-top:7px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .pm-mini-av{ width:20px; height:20px; border-radius:50%; background:var(--navy-50); color:var(--navy); font-size:10px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
 
@@ -1354,7 +1354,7 @@
   function pmSubRow(t){var term=(t.workflow_state==="Done"||t.workflow_state==="Cancelled");return '<div class="pj-sub" style="display:flex;align-items:flex-start;font-size:11px;color:var(--gray-600);line-height:1.3">'+pjCheck(t,true)+'<span class="pj-open" data-task="'+esc(t.name)+'" style="cursor:pointer;white-space:normal'+(term?';text-decoration:line-through;color:var(--gray-400)':'')+'">'+esc(t.subject||t.name)+'</span></div>';}
   function pmBoardCard(t,byParent,opts){opts=opts||{};var kids=byParent[t.name]||[];var st=t.workflow_state,term=(st==="Done"||st==="Cancelled");
     return '<div class="pm-card'+(isOverdue(t)?' card-overdue':'')+'" data-task="'+esc(t.name)+'" data-state="'+esc(st)+'" style="cursor:pointer;border:1px solid #eef0f3;box-shadow:none">'+
-      '<div style="display:flex;align-items:flex-start">'+pjCheck(t)+'<div class="c-title" style="font-size:13px;font-weight:600;line-height:1.35;white-space:normal'+(term?';text-decoration:line-through;color:var(--gray-400)':'')+'">'+esc(t.subject||t.name)+'</div></div>'+
+      '<div style="display:flex;align-items:flex-start">'+pjCheck(t)+'<div class="c-title" style="font-size:12.5px;font-weight:600;line-height:1.3;white-space:normal'+(term?';text-decoration:line-through;color:var(--gray-400)':'')+'">'+esc(t.subject||t.name)+'</div></div>'+
       (opts.status&&!done_state(st)?'<div style="font-size:11.5px;color:'+(_PM_SDOT[st]||'#9ca3af')+';margin:3px 0 0 25px">'+esc(st||'')+'</div>':'')+
       (kids.length?'<div class="pj-subs" style="margin-top:8px;display:flex;flex-direction:column;gap:6px">'+kids.map(function(k){return pmSubRow(k);}).join("")+'</div>':'')+
       '<div class="c-meta" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px">'+
