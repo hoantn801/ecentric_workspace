@@ -1374,8 +1374,15 @@
     function labelOf(k,sample){if(mode==="person")return k?((window._pmUserNames&&window._pmUserNames[k])||k):"Chưa giao";return k?(sample.project_name||k):"Ngoài dự án";}
     var byG={},ord=[];roots.forEach(function(t){var k=keyOf(t);if(!byG[k]){byG[k]=[];ord.push(k);}byG[k].push(t);});
     ord.sort(function(a,b){if(!a)return 1;if(!b)return -1;return String(labelOf(a,byG[a][0])).localeCompare(String(labelOf(b,byG[b][0])));});
+    window._pmGrpCol=window._pmGrpCol||{};
+    function _cget(key){var v=window._pmGrpCol[key];return v===undefined?true:v;} /* default collapsed like Teams */
+    function _card(t){return pmBoardCard(t,byParent,{status:true,proj:(mode==="person")});}
+    function _sec(k,sec,label,list,color){if(!list.length)return '';var ck=mode+"|"+k+"|"+sec,col=_cget(ck);
+      return '<div class="pj-sec" style="margin-top:6px;border-top:1px solid #eef0f3"><div class="pj-sec-h" data-sec="'+esc(ck)+'" style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:'+color+';cursor:pointer;padding:7px 2px;font-weight:600"><span style="display:inline-block;font-size:9px;transform:rotate('+(col?0:90)+'deg)">▶</span>'+label+' ('+list.length+')</div>'+(col?'':'<div style="padding-top:4px">'+list.map(_card).join("")+'</div>')+'</div>';}
     host.innerHTML=ord.length?'<div class="pm-board">'+ord.map(function(k){var lbl=labelOf(k,byG[k][0]);
-      return '<div class="pm-col" data-grp="'+esc(k)+'"><h3><span style="font-weight:600;font-size:13px">'+esc(lbl)+'</span><span class="col-count">'+byG[k].length+'</span></h3><div class="col-body">'+byG[k].map(function(t){return pmBoardCard(t,byParent,{status:true,proj:(mode==="person")});}).join("")+'</div></div>';}).join("")+'</div>':'<div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>Chưa có nhiệm vụ.</div></div>';
+      var act=[],dn=[],cx=[];byG[k].forEach(function(t){var s=t.workflow_state;if(s==="Cancelled")cx.push(t);else if(s==="Done")dn.push(t);else act.push(t);});
+      return '<div class="pm-col" data-grp="'+esc(k)+'"><h3><span style="font-weight:600;font-size:13px">'+esc(lbl)+'</span><span class="col-count">'+byG[k].length+'</span></h3><div class="col-body">'+act.map(_card).join("")+_sec(k,"done","Đã xong",dn,"#16a34a")+_sec(k,"canc","Đã huỷ",cx,"#b91c1c")+'</div></div>';}).join("")+'</div>':'<div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>Chưa có nhiệm vụ.</div></div>';
+    Array.prototype.forEach.call(host.querySelectorAll(".pj-sec-h[data-sec]"),function(h){h.onclick=function(){var ck=h.getAttribute("data-sec");window._pmGrpCol[ck]=!_cget(ck);renderBoard();};});
     pmWireCardActions(host);
     Array.prototype.forEach.call(host.querySelectorAll(".pm-card[data-task]"),function(k){k.onclick=function(){openTask(k.getAttribute("data-task"));};});
   }
