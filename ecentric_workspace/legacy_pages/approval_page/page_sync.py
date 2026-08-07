@@ -75,7 +75,7 @@ def _html():
 # values, so a repo snapshot can never silently revert a live edit. Deliberate
 # update = edit main_section.html, bump this constant, and move the value it
 # replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "21e8668cfff0eb9f24ed77ccad4cda49de6f2b2ec7f548cef6b67a78401477d4"
+BASELINE_SHA256 = "39a78856cfa5a8b5414716abb3e3b85b84899867d8efc4eb6a4f8cec5d9374ea"
 
 # Live values this snapshot is allowed to overwrite. C4b was authored in the
 # repo, not on the site, so at deploy time live still holds the #138 bytes
@@ -89,6 +89,11 @@ BASELINE_SHA256 = "21e8668cfff0eb9f24ed77ccad4cda49de6f2b2ec7f548cef6b67a7840147
 # it listed lets those environments sync forward; on team.ecentric.vn live is
 # already at BASELINE_SHA256, so the first sync there returns "unchanged".
 SUPERSEDES_SHA256 = (
+    # bytes truoc khi them dong "Tieu de" vao khung Chi tiet cua SO/PO so EC
+    # (2026-08-07): tu FIX 9 nguoi tao da go duoc tieu de va danh sach /all-ticket
+    # hien dung, nhung khung Chi tiet lai khong co dong nao cho no. Chi hien khi
+    # tieu de khac ten khach/NCC vi ERPNext dat mac dinh title = ten do.
+    "21e8668cfff0eb9f24ed77ccad4cda49de6f2b2ec7f548cef6b67a78401477d4",
     # bytes truoc khoi #ec-ecdoc-detail (2026-08-07): khung "Chi tiet" cua SO/PO so EC
     # gan nhu trong vi nhanh so/po trong ham dung chi tiet van doc bo truong cua mo
     # hinh Power Automate cu (service_name, master_service_ref, total_est_revenue,
