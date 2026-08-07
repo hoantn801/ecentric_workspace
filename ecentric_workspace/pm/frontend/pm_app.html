@@ -886,7 +886,7 @@
     host.innerHTML='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Nhiệm vụ</th><th>Dự án</th><th>Trạng thái</th><th>Người nhận</th><th>Hạn</th><th>Ưu tiên</th><th>Lý do</th></tr></thead><tbody>'+
       rows.slice(0,40).map(function(x){var t=x.t;var a=names(t._assign);return '<tr data-task="'+esc(t.name)+'"><td class="t-main">'+esc(t.subject||t.name)+'</td><td>'+esc(t.project||"-")+'</td><td>'+badge(t.workflow_state)+'</td><td>'+(a.length?'<span class="pm-mini-av" title="'+esc(a[0])+'">'+ini(a[0])+'</span>':'<span style="color:var(--gray-400)">-</span>')+'</td><td>'+esc(fmtEndCell(t))+'</td><td>'+(t.priority?esc(t.priority):"-")+'</td><td>'+dcReasonBadge(x.r)+'</td></tr>';}).join("")+'</tbody></table></div>';
     Array.prototype.forEach.call(host.querySelectorAll("tr[data-task]"),function(tr){tr.onclick=function(){openTask(tr.getAttribute("data-task"));};});}
-  function dcMiniCard(label,n,preset,k){return '<div class="stat-card '+k+'" data-nav-preset="'+preset+'" style="cursor:pointer;padding:12px 14px"><div class="stat-label">'+label+'</div><div class="stat-value" style="font-size:22px">'+(n||0)+'</div></div>';}
+  function dcMiniCard(label,n,filt,k){var on=(filt&&window._mwFilter===filt);return '<div class="stat-card '+k+'"'+(filt?' data-mw-filter="'+filt+'"':'')+' style="cursor:pointer;padding:11px 13px'+(on?';border-color:var(--navy);box-shadow:0 0 0 1px var(--navy) inset':'')+'"><div class="stat-label">'+label+'</div><div class="stat-value" style="font-size:20px">'+(n||0)+'</div></div>';}
   // Batch C.2 charts (CSS-only)
   // NOTE: no line/trend chart — that needs historical time-series snapshots. tasks.list/
   // projects.list/control_center only give the CURRENT snapshot, so a line chart would be
@@ -969,9 +969,10 @@
     var rb=x.isRec?recReasonBadge(x.reason):dcReasonBadge(x.reason);
     var rec=x.isRec?' <span class="dc-reason" style="color:#6d28d9;background:#f3e8ff">Định kỳ</span>':'';
     var noass=(a.length===0&&dcActive(t)&&x.reason!=="noassignee")?' <span class="dc-reason" style="color:#925f00;background:#fff7e6">Chưa giao</span>':'';
-    return '<tr data-task="'+esc(t.name)+'"><td class="t-main">'+esc(t.subject||t.name)+'</td><td>'+esc(t.project||"-")+'</td><td>'+esc(fmtEndCell(t))+'</td><td>'+(t.priority?esc(t.priority):"-")+'</td><td>'+badge(t.workflow_state)+'</td><td>'+rb+rec+noass+'</td><td style="text-align:right;white-space:nowrap">'+mwTimerBtn(t,ac)+'<button class="pm-btn mw-open" data-task="'+esc(t.name)+'">Mở</button></td></tr>';}
+    return '<tr data-task="'+esc(t.name)+'"><td class="t-main">'+esc(t.subject||t.name)+'</td><td>'+esc(t.project||"-")+'</td><td>'+esc(fmtEndCell(t))+'</td><td>'+(t.priority?esc(t.priority):"-")+'</td><td>'+badge(t.workflow_state)+'</td><td>'+rb+rec+noass+'</td><td style="text-align:right;white-space:nowrap">'+(dcActive(t)?'<button class="pm-btn mw-done" data-task="'+esc(t.name)+'" style="color:#0a7a4f;border-color:#86efac">✓ Xong</button> ':'')+'<button class="pm-btn mw-open" data-task="'+esc(t.name)+'">Mở</button></td></tr>';}
   function mwWireActions(scope){if(!scope)return;
     Array.prototype.forEach.call(scope.querySelectorAll(".mw-open"),function(b){b.onclick=function(e){e.stopPropagation();openTask(b.getAttribute("data-task"));};});
+    Array.prototype.forEach.call(scope.querySelectorAll(".mw-done"),function(b){b.onclick=function(e){e.stopPropagation();openDonePopup(b.getAttribute("data-task"),"Done",function(){showMyTasks();});};});
     Array.prototype.forEach.call(scope.querySelectorAll(".mw-start"),function(b){b.onclick=function(e){e.stopPropagation();b.disabled=true;api(PM+"timer.start",{task:b.getAttribute("data-task")}).then(function(){refreshTimerChip();showMyTasks();}).catch(function(err){toast("Lỗi: "+errOf(err),true);showMyTasks();});};});
     Array.prototype.forEach.call(scope.querySelectorAll(".mw-stop"),function(b){b.onclick=function(e){e.stopPropagation();b.disabled=true;b.textContent="...";api(PM+"timer.stop",{description:""}).then(function(r){toast("Đã lưu "+((r&&r.hours)||0)+"h worktime");refreshTimerChip();showMyTasks();}).catch(function(err){toast("Lỗi: "+errOf(err),true);showMyTasks();});};});
     Array.prototype.forEach.call(scope.querySelectorAll(".mw-link[data-task]"),function(x){x.onclick=function(e){if(e)e.stopPropagation();openTask(x.getAttribute("data-task"));};});}
@@ -987,6 +988,8 @@
   function mwStartClock(ac){if(window._mwTick){clearInterval(window._mwTick);window._mwTick=null;}
     if(!ac||!ac.active||ac.status!=="Running")return;var base=ac.elapsed_seconds||0,t0=Date.now();
     window._mwTick=setInterval(function(){var cl=el("mw-clock");if(!cl){clearInterval(window._mwTick);window._mwTick=null;return;}cl.textContent=fmtDur(base+Math.floor((Date.now()-t0)/1000));},1000);}
+  function mwApplyFilter(mine,recToday,f){if(f==="rectoday")return recToday;if(f==="review")return mine.filter(function(t){return t.workflow_state==="Review";});if(f==="overdue")return mine.filter(dcIsOverdue);if(f==="today")return mine.filter(dcIsToday);if(f==="week")return mine.filter(dcIsWeek);return mine;}
+  function mwFilterLabel(f){return {overdue:"Quá hạn",today:"Hôm nay",week:"Tuần này",review:"Chờ duyệt",rectoday:"Định kỳ hôm nay"}[f]||f;}
   function showMyTasks(){var c=el("pm-view");spin(c);
     Promise.all([api(PM+"dashboard.my_tasklist"),api(PM+"dashboard.control_center"),api(PM+"recurrence.list").catch(function(){return {rows:[]};}),api(PM+"tasks.list",{page_length:2000}).catch(function(){return {rows:[]};}),api(PM+"timer.get_active").catch(function(){return {active:false};})]).then(function(res){
       var d=res[0]||{};var cc=res[1]||{};var mc=(cc.my&&cc.my.counts)||{};
@@ -997,19 +1000,29 @@
       var mine=vTasks.filter(function(t){return names(t._assign).indexOf(user)>=0;});
       var focus=mwFocus(mine,recToday);
       var groups=[["attention","Cần xử lý",d.attention||[]],["week","Tuần này",d.week||[]],["nodue","Chưa có hạn",d.nodue||[]],["done","Đã hoàn thành",d.done||[]]];
+      var filt=window._mwFilter||null;
       var h=head("Việc của tôi","Công việc cần xử lý trong ngày");
-      h+='<div class="dc-mini dc-block">'+dcMiniCard("Quá hạn",mc.overdue,"overdue","s-pink")+dcMiniCard("Hôm nay",mc.today,"today","s-navy")+dcMiniCard("Tuần này",mc.week,"week","s-yellow")+dcMiniCard("Chờ duyệt",mc.review,"review","s-navy")+dcMiniCard("Định kỳ hôm nay",recToday.length,"","s-green")+'</div>';
-      h+='<div class="dc-sec-title">Cần xử lý hôm nay (Focus)</div><div class="dc-block" id="mw-focus"></div>';
-      h+='<details class="dc-analytics"><summary>Danh sách chi tiết theo nhóm</summary><div id="mw-groups"></div></details>';
+      h+='<div class="dc-mini dc-block">'+dcMiniCard("Quá hạn",mc.overdue,"overdue","s-pink")+dcMiniCard("Hôm nay",mc.today,"today","s-navy")+dcMiniCard("Tuần này",mc.week,"week","s-yellow")+dcMiniCard("Chờ duyệt",mc.review,"review","s-navy")+dcMiniCard("Định kỳ hôm nay",recToday.length,"rectoday","s-green")+'</div>';
+      if(filt){
+        var flist=mwApplyFilter(mine,recToday,filt);
+        h+='<div class="dc-sec-title" style="display:flex;align-items:center;gap:10px">Đang lọc: '+esc(mwFilterLabel(filt))+' <span style="color:var(--gray-400);font-weight:500">('+flist.length+')</span> <button class="pm-btn" id="mw-clearfilter" style="font-size:12px">✕ Bỏ lọc</button></div><div class="dc-block" id="mw-flist"></div>';
+      }else{
+        h+='<div class="dc-sec-title">Cần xử lý hôm nay (Focus)</div><div class="dc-block" id="mw-focus"></div>';
+        h+='<details class="dc-analytics"><summary>Danh sách chi tiết theo nhóm</summary><div id="mw-groups"></div></details>';
+      }
       c.innerHTML=h;
-      mwFocusTable(el("mw-focus"),focus,(ac&&ac.active)?ac:null);
-      chkBadgesInto(el("mw-focus"),focus.map(function(x){return x.t.name;})); /* G4 checklist progress badge */
-      var _tc=el("mw-tcard");if(_tc)mwWireActions(_tc); /* timer card removed -> guard null */
-      var gh="";groups.forEach(function(g){if(g[2].length)gh+='<div class="panel"><div class="panel-header"><div class="panel-title">'+g[1]+' <span style="color:var(--gray-400);font-weight:500">('+g[2].length+')</span></div></div><div id="mw-g-'+g[0]+'"></div></div>';});
-      el("mw-groups").innerHTML=gh||'<div class="dc-pad" style="color:var(--gray-400)">Không có nhóm.</div>';
-      groups.forEach(function(g){if(g[2].length)taskTable(el("mw-g-"+g[0]),g[2]);});
-      Array.prototype.forEach.call(c.querySelectorAll("[data-nav-preset]"),function(b){b.onclick=function(){navPreset(b.getAttribute("data-nav-preset"));};});
-      mwStartClock(ac);
+      if(filt){
+        taskTable(el("mw-flist"),flist);
+        chkBadgesInto(el("mw-flist"),flist.map(function(t){return t.name;}));
+        var cb=el("mw-clearfilter");if(cb)cb.onclick=function(){window._mwFilter=null;showMyTasks();};
+      }else{
+        mwFocusTable(el("mw-focus"),focus,(ac&&ac.active)?ac:null);
+        chkBadgesInto(el("mw-focus"),focus.map(function(x){return x.t.name;})); /* G4 checklist progress badge */
+        var gh="";groups.forEach(function(g){if(g[2].length)gh+='<div class="panel"><div class="panel-header"><div class="panel-title">'+g[1]+' <span style="color:var(--gray-400);font-weight:500">('+g[2].length+')</span></div></div><div id="mw-g-'+g[0]+'"></div></div>';});
+        el("mw-groups").innerHTML=gh||'<div class="dc-pad" style="color:var(--gray-400)">Không có nhóm.</div>';
+        groups.forEach(function(g){if(g[2].length)taskTable(el("mw-g-"+g[0]),g[2]);});
+      }
+      Array.prototype.forEach.call(c.querySelectorAll("[data-mw-filter]"),function(b){b.onclick=function(){var f=b.getAttribute("data-mw-filter");window._mwFilter=(window._mwFilter===f?null:f);showMyTasks();};});
     }).catch(function(e){errBox(c,e);});}
 
   function pmProjView(){try{return localStorage.getItem("pm_project_view")||"card";}catch(_){return "card";}}
