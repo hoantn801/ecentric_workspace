@@ -133,12 +133,13 @@
   .pm-lock{ margin-left:6px; font-size:11px; }
   .pm-board-readonly .pm-card{ cursor:default; }
   /* G4.8d: row background by hierarchy depth (global + project task lists). Hover stays clear. */
-  .pm-tbl tr.pm-depth-0 > td{ background:#FFFFFF; }            /* clean hierarchy: parents white */
-  .pm-tbl tr.pm-depth-0 > td.t-main{ font-weight:600; color:var(--gray-900); }
-  .pm-tbl tr.pm-depth-1 > td, .pm-tbl tr.pm-depth-2plus > td{ background:#FAFBFF; }  /* children: whisper tint */
+  .pm-tbl tr.pm-depth-0 > td{ background:#EEF1FC; }            /* parent = group header: light indigo */
+  .pm-tbl tr.pm-depth-0 > td.t-main{ font-weight:700; color:var(--navy); box-shadow:inset 3px 0 0 var(--navy); }
+  .pm-tbl tr.pm-depth-1 > td, .pm-tbl tr.pm-depth-2plus > td{ background:#FFFFFF; }  /* children: white */
   .pm-tbl tr.pm-depth-1 > td.t-main{ font-weight:500; }
-  .pm-tbl tr.pm-depth-1 > td.t-main, .pm-tbl tr.pm-depth-2plus > td.t-main{ box-shadow:inset 2px 0 0 #C7D2FE; }  /* indent guide */
-  .pm-tbl tr.pm-depth-0:hover > td, .pm-tbl tr.pm-depth-1:hover > td, .pm-tbl tr.pm-depth-2plus:hover > td{ background:#EEF2FF; }
+  .pm-tbl tr.pm-depth-1 > td.t-main, .pm-tbl tr.pm-depth-2plus > td.t-main{ box-shadow:inset 2px 0 0 #E2E8F0; }  /* indent guide */
+  .pm-tbl tr.pm-depth-0:hover > td{ background:#E2E7FA; }
+  .pm-tbl tr.pm-depth-1:hover > td, .pm-tbl tr.pm-depth-2plus:hover > td{ background:#F5F7FF; }
   .pm-tt-lead{ color:#94A3B8; }
   /* 2-card layout: gray body, white content + comments cards, 16px gap, comments ~360px */
   .pm-drawer.expanded .body.pm-cols{ background:var(--gray-50); }
