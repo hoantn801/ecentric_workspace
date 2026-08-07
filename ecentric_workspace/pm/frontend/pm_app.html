@@ -715,6 +715,8 @@
 (function(){
   var PM="ecentric_workspace.pm.api.";
   var COLS=["Backlog","To Do","In Progress","Blocked","Review","Done","Cancelled"];
+  var BOARD_COLS=["To Do","In Progress","Review","Done"]; /* Kanban = 4 core cols; Backlog/Blocked fold into To Do, Cancelled hidden. */
+  var FILTER_STATES=["To Do","In Progress","Review","Done","Cancelled"]; /* lean status filter (drop Backlog/Blocked) */
   var CRUMB={dashboard:"Tổng quan",mytasks:"Việc của tôi",projects:"Dự án",work:"Công việc",tasks:"Công việc",board:"Công việc",gantt:"Công việc",calendar:"Công việc",timesheet:"Timesheet",recurring:"Recurring",assignments:"Yêu cầu giao việc",notifications:"Thông báo"};
   var LIVE=(location.protocol!=="file:");  // live over http(s); mock only for offline file:// preview
   var el=function(id){return document.getElementById(id);};
@@ -995,14 +997,13 @@
       var focus=mwFocus(mine,recToday);
       var groups=[["attention","Cần xử lý",d.attention||[]],["week","Tuần này",d.week||[]],["nodue","Chưa có hạn",d.nodue||[]],["done","Đã hoàn thành",d.done||[]]];
       var h=head("Việc của tôi","Công việc cần xử lý trong ngày");
-      h+='<div class="dc-mini dc-block">'+dcMiniCard("Quá hạn",mc.overdue,"overdue","s-pink")+dcMiniCard("Hôm nay",mc.today,"today","s-navy")+dcMiniCard("Tuần này",mc.week,"week","s-yellow")+dcMiniCard("Chờ duyệt",mc.review,"review","s-navy")+dcMiniCard("Blocked",mc.blocked,"blocked","s-pink")+dcMiniCard("Định kỳ hôm nay",recToday.length,"","s-green")+'</div>';
-      h+='<div id="mw-tcard">'+mwTimerCard(ac,tmap,(ac&&ac.active)?null:(focus[0]&&focus[0].t))+'</div>';
+      h+='<div class="dc-mini dc-block">'+dcMiniCard("Quá hạn",mc.overdue,"overdue","s-pink")+dcMiniCard("Hôm nay",mc.today,"today","s-navy")+dcMiniCard("Tuần này",mc.week,"week","s-yellow")+dcMiniCard("Chờ duyệt",mc.review,"review","s-navy")+dcMiniCard("Định kỳ hôm nay",recToday.length,"","s-green")+'</div>';
       h+='<div class="dc-sec-title">Cần xử lý hôm nay (Focus)</div><div class="dc-block" id="mw-focus"></div>';
       h+='<details class="dc-analytics"><summary>Danh sách chi tiết theo nhóm</summary><div id="mw-groups"></div></details>';
       c.innerHTML=h;
       mwFocusTable(el("mw-focus"),focus,(ac&&ac.active)?ac:null);
       chkBadgesInto(el("mw-focus"),focus.map(function(x){return x.t.name;})); /* G4 checklist progress badge */
-      mwWireActions(el("mw-tcard"));
+      var _tc=el("mw-tcard");if(_tc)mwWireActions(_tc); /* timer card removed -> guard null */
       var gh="";groups.forEach(function(g){if(g[2].length)gh+='<div class="panel"><div class="panel-header"><div class="panel-title">'+g[1]+' <span style="color:var(--gray-400);font-weight:500">('+g[2].length+')</span></div></div><div id="mw-g-'+g[0]+'"></div></div>';});
       el("mw-groups").innerHTML=gh||'<div class="dc-pad" style="color:var(--gray-400)">Không có nhóm.</div>';
       groups.forEach(function(g){if(g[2].length)taskTable(el("mw-g-"+g[0]),g[2]);});
@@ -1247,7 +1248,7 @@
     if(p==="nodue")return !due;
     if(p==="week"){var dd=new Date();var dow=(dd.getDay()+6)%7;var m0=new Date(dd);m0.setDate(dd.getDate()-dow);var ws=m0.toISOString().slice(0,10);var e=new Date(m0);e.setDate(m0.getDate()+6);var we=e.toISOString().slice(0,10);return due>=ws&&due<=we;}
     return true;}
-  function presetBar(){var P=[["mine","My Tasks"],["today","Due Today"],["week","This Week"],["overdue","Overdue"],["blocked","Blocked"],["review","Waiting Review"],["noassignee","No Assignee"],["nodue","No Due Date"]];
+  function presetBar(){var P=[["mine","My Tasks"],["today","Due Today"],["week","This Week"],["overdue","Overdue"],["review","Waiting Review"],["noassignee","No Assignee"],["nodue","No Due Date"]];
     return '<div class="pm-filters" style="margin-bottom:8px">'+P.map(function(p){return '<button class="pm-btn pm-preset'+(F.preset===p[0]?" primary":"")+'" data-preset="'+p[0]+'">'+p[1]+'</button>';}).join("")+'</div>';}
   function filteredTasks(){var all=window._pm_tasks||[];
     function match(t){
@@ -1270,22 +1271,22 @@
     return Object.keys(inSet).map(function(k){return inSet[k];});}
   function uniq(a){var o={},r=[];a.forEach(function(x){if(x&&!o[x]){o[x]=1;r.push(x);}});return r;}
   function opt(v,l,sel){return '<option value="'+esc(v)+'"'+(sel===v?' selected':'')+'>'+esc(l)+'</option>';}
-  function filterBar(){var ts=window._pm_tasks||[];
+  function filterBar(compact){var ts=window._pm_tasks||[];
     var projs=uniq(ts.map(function(t){return t.project;}));
     var asg=uniq([].concat.apply([],ts.map(function(t){return names(t._assign);})));
     var pri=uniq(ts.map(function(t){return t.priority;}));
     var lbls=pmAllLabels(ts);
-    var P=[["mine","Của tôi"],["today","Hôm nay"],["week","Tuần này"],["overdue","Quá hạn"],["blocked","Blocked"],["review","Chờ duyệt"],["noassignee","Chưa giao"],["nodue","Chưa có hạn"]];
+    var P=[["mine","Của tôi"],["today","Hôm nay"],["week","Tuần này"],["overdue","Quá hạn"],["review","Chờ duyệt"],["noassignee","Chưa giao"],["nodue","Chưa có hạn"]];
     return '<div class="pm-filters">'+
       '<input class="pm-input pm-search" id="f-q" placeholder="Tìm..." value="'+esc(F.q)+'" style="max-width:170px">'+
-      '<select class="pm-sel" id="f-status"><option value="">Trạng thái</option>'+COLS.map(function(s){return opt(s,s,F.status);}).join("")+'</select>'+
+      '<select class="pm-sel" id="f-status"><option value="">Trạng thái</option>'+FILTER_STATES.map(function(s){return opt(s,s,F.status);}).join("")+'</select>'+
       '<select class="pm-sel" id="f-assignee"><option value="">Người nhận</option>'+asg.map(function(a){return opt(a,a,F.assignee);}).join("")+'</select>'+
       '<select class="pm-sel" id="f-label"><option value="">Nhãn</option>'+lbls.map(function(l){return opt(l.name,l.label_name,F.label);}).join("")+'</select>'+
       '<select class="pm-sel" id="f-project"><option value="">Dự án</option>'+projs.map(function(p){return opt(p,p,F.project);}).join("")+'</select>'+
       '<select class="pm-sel" id="f-priority"><option value="">Ưu tiên</option>'+pri.map(function(p){return opt(p,p,F.priority);}).join("")+'</select>'+
       '<button class="pm-btn" id="f-clear">Xóa</button>'+
-      '<span class="pm-fdiv"></span>'+
-      P.map(function(p){return '<button class="pm-btn pm-preset'+(F.preset===p[0]?" primary":"")+'" data-preset="'+p[0]+'">'+p[1]+'</button>';}).join("")+
+      (compact?'':('<span class="pm-fdiv"></span>'+
+      P.map(function(p){return '<button class="pm-btn pm-preset'+(F.preset===p[0]?" primary":"")+'" data-preset="'+p[0]+'">'+p[1]+'</button>';}).join("")))+
       '</div>';}
   function wireFilters(rerender){
     var q=el("f-q");if(q)q.oninput=function(){F.q=this.value.toLowerCase();rerender();};
@@ -1331,20 +1332,57 @@
     Array.prototype.forEach.call(c.querySelectorAll(".pm-tt-caret[data-ttcol]"),function(x){x.onclick=function(e){e.stopPropagation();var id=x.getAttribute("data-ttcol");window._gtCollapsed[id]=!window._gtCollapsed[id];taskTable(c,rows,compact);};});
     pmWireTaskMenus(c);}
 
+  function pmBoardGroup(){if(window._boardGroup)return window._boardGroup;var v="status";try{v=localStorage.getItem("pm_board_group")||"status";}catch(_){}window._boardGroup=v;return v;}
+  function setBoardGroup(g){window._boardGroup=g;try{localStorage.setItem("pm_board_group",g);}catch(_){}}
+  function boardGroupBar(){var g=pmBoardGroup();function b(k,t){return '<button data-bg="'+k+'" class="'+(g===k?"active":"")+'">'+t+'</button>';}
+    return '<div class="pm-bgrp" style="display:flex;align-items:center;gap:8px;margin:0 0 10px"><span style="font-size:12px;color:var(--gray-500)">Nhóm:</span><div class="seg">'+b("status","Trạng thái")+b("project","Dự án")+b("person","Người")+'</div></div>';}
   function showBoard(){var c=el("pm-view");spin(c);
     loadTasks(function(){
       c.innerHTML=workHeader("board")+
-        filterBar()+'<div id="pm-boardwrap"></div>';
-      wireWorkTabs(); wireFilters(renderBoard); renderBoard();
+        filterBar(true)+boardGroupBar()+'<div id="pm-boardwrap"></div>';
+      wireWorkTabs(); wireFilters(renderBoard);
+      Array.prototype.forEach.call(c.querySelectorAll("[data-bg]"),function(b){b.onclick=function(){setBoardGroup(b.getAttribute("data-bg"));showBoard();};});
+      renderBoard();
     },c);}
+  var _PM_SDOT={"To Do":"#9ca3af","In Progress":"#3b82f6","Review":"#f59e0b","Done":"#22c55e","Cancelled":"#9ca3af","Backlog":"#9ca3af"};
+  function pmStatusDot(s){var c=_PM_SDOT[s]||"#9ca3af";return '<span class="pm-sdot" title="'+esc(s||"")+'" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+c+';flex:0 0 auto;margin-right:8px"></span>';}
+  function pjSetLocalState(name,state){var ts=window._pm_tasks||[];for(var i=0;i<ts.length;i++){if(ts[i].name===name){ts[i].workflow_state=state;ts[i].status=(state==="Done"?"Completed":(state==="Cancelled"?"Cancelled":"Open"));break;}}}
+  function pjCheck(t,small){var done=(t.workflow_state==="Done");var sz=small?14:17,fs=small?9:11,mt=small?1:1;return '<span class="pj-check" data-task="'+esc(t.name)+'" data-done="'+(done?1:0)+'" title="'+(done?"Bỏ hoàn thành":"Đánh dấu hoàn thành")+'" style="flex:0 0 auto;width:'+sz+'px;height:'+sz+'px;border-radius:50%;border:1.5px solid '+(done?"#22c55e":"#cbd5e1")+';background:'+(done?"#22c55e":"#fff")+';color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:'+fs+'px;line-height:1;cursor:pointer;margin-right:8px;margin-top:'+mt+'px">'+(done?"✓":"")+'</span>';}
+  function pjToggleDone(name,done){if(done){api(PM+"tasks.set_status",{name:name,action:"To Do"}).then(function(){toast(name+" → To Do");pjSetLocalState(name,"To Do");renderBoard();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});}else{openDonePopup(name,"Done",function(){pjSetLocalState(name,"Done");renderBoard();});}}
+  function pmRenderBoardGrouped(host,allRows,roots,mode){
+    /* MS-Teams "Group by" columns. mode: project|person. Each column = a group;
+       root tasks stacked as cards; subtasks inline; round completion checkbox. */
+    var byParent={};allRows.forEach(function(t){if(t.parent_task)(byParent[t.parent_task]=byParent[t.parent_task]||[]).push(t);});
+    function keyOf(t){return mode==="person"?((names(t._assign)||[])[0]||""):(t.project||"");}
+    function labelOf(k,sample){if(mode==="person")return k?((window._pmUserNames&&window._pmUserNames[k])||k):"Chưa giao";return k?(sample.project_name||k):"Ngoài dự án";}
+    var byG={},ord=[];roots.forEach(function(t){var k=keyOf(t);if(!byG[k]){byG[k]=[];ord.push(k);}byG[k].push(t);});
+    ord.sort(function(a,b){if(!a)return 1;if(!b)return -1;return String(labelOf(a,byG[a][0])).localeCompare(String(labelOf(b,byG[b][0])));});
+    function subRow(t){var done=(t.workflow_state==="Done");return '<div class="pj-sub" style="display:flex;align-items:flex-start;font-size:11px;color:var(--gray-600);line-height:1.3">'+pjCheck(t,true)+'<span class="pj-open" data-task="'+esc(t.name)+'" style="cursor:pointer;white-space:normal'+(done?';text-decoration:line-through;color:var(--gray-400)':'')+'">'+esc(t.subject||t.name)+'</span></div>';}
+    function pcard(t){var kids=byParent[t.name]||[];var done=(t.workflow_state==="Done");
+      return '<div class="pm-card'+(isOverdue(t)?' card-overdue':'')+'" data-task="'+esc(t.name)+'" style="cursor:pointer;border:1px solid #eef0f3;box-shadow:none">'+
+        '<div style="display:flex;align-items:flex-start">'+pjCheck(t)+'<div class="c-title" style="font-size:13px;font-weight:600;line-height:1.35;white-space:normal'+(done?';text-decoration:line-through;color:var(--gray-400)':'')+'">'+esc(t.subject||t.name)+'</div></div>'+
+        (done?'':'<div style="font-size:11.5px;color:'+(_PM_SDOT[t.workflow_state]||'#9ca3af')+';margin:3px 0 0 25px">'+esc(t.workflow_state||'')+'</div>')+
+        (kids.length?'<div class="pj-subs" style="margin-top:8px;display:flex;flex-direction:column;gap:6px">'+kids.map(subRow).join("")+'</div>':'')+
+        '<div class="c-meta" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between">'+pmAssignee(t,false)+'<span style="font-size:11.5px;color:var(--gray-400)">'+esc(fmtEndCell(t))+'</span></div>'+
+        '</div>';}
+    host.innerHTML=ord.length?'<div class="pm-board">'+ord.map(function(k){var lbl=labelOf(k,byG[k][0]);
+      return '<div class="pm-col" data-grp="'+esc(k)+'"><h3><span style="font-weight:600;font-size:13px">'+esc(lbl)+'</span><span class="col-count">'+byG[k].length+'</span></h3><div class="col-body">'+byG[k].map(pcard).join("")+'</div></div>';}).join("")+'</div>':'<div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>Chưa có nhiệm vụ.</div></div>';
+    Array.prototype.forEach.call(host.querySelectorAll(".pj-check[data-task]"),function(x){x.onclick=function(e){e.stopPropagation();pjToggleDone(x.getAttribute("data-task"),x.getAttribute("data-done")==="1");};});
+    Array.prototype.forEach.call(host.querySelectorAll(".pj-open[data-task]"),function(r){r.onclick=function(e){e.stopPropagation();openTask(r.getAttribute("data-task"));};});
+    Array.prototype.forEach.call(host.querySelectorAll(".pm-card[data-task]"),function(k){k.onclick=function(){openTask(k.getAttribute("data-task"));};});
+  }
   function renderBoard(){renderBoardInto(el("pm-boardwrap"),filteredTasks(),showBoard);}
   function renderBoardInto(host,rows,after){var allRows=rows||[];
     /* G4.8c: child counts from the full set, then render ONLY root tasks as cards. */
     var kids={};allRows.forEach(function(t){if(t.parent_task){var k=kids[t.parent_task]||(kids[t.parent_task]={t:0,d:0});k.t++;if(["Done","Cancelled"].indexOf(t.workflow_state)>=0)k.d++;}});
     window._pmBoardKids=kids;
     var roots=allRows.filter(function(t){return !t.parent_task;});
-    var by={};COLS.forEach(function(s){by[s]=[];});roots.forEach(function(t){var s=t.workflow_state||"Backlog";(by[s]=by[s]||[]).push(t);});
-    host.innerHTML='<div class="pm-board">'+COLS.map(function(s){return '<div class="pm-col" data-col="'+esc(s)+'"><h3>'+badge(s)+'<span class="col-count">'+by[s].length+'</span></h3><div class="col-body" data-body="'+esc(s)+'">'+by[s].map(card).join("")+'</div></div>';}).join("")+'</div>';
+    var _bg=pmBoardGroup();
+    if(_bg==="project"||_bg==="person"){ pmRenderBoardGrouped(host,allRows,roots,_bg); }
+    else {
+    var by={};BOARD_COLS.forEach(function(s){by[s]=[];});roots.forEach(function(t){var s=t.workflow_state||"To Do";if(BOARD_COLS.indexOf(s)<0){if(s==="Cancelled")return;s="To Do";}(by[s]=by[s]||[]).push(t);}); /* fold Backlog/Blocked -> To Do; hide Cancelled */
+    host.innerHTML='<div class="pm-board">'+BOARD_COLS.map(function(s){return '<div class="pm-col" data-col="'+esc(s)+'"><h3>'+badge(s)+'<span class="col-count">'+by[s].length+'</span></h3><div class="col-body" data-body="'+esc(s)+'">'+by[s].map(card).join("")+'</div></div>';}).join("")+'</div>';
+    }
     /* G4.10: per-card allowed transitions from the backend in ONE request -> draggability + valid drop targets. No hard-coded _isLeader. */
     var names=roots.map(function(t){return t.name;});window._pmTransMap={};
     if(names.length){api(PM+"tasks.transitions_bulk",{task_names:JSON.stringify(names)}).then(function(r){window._pmTransMap=(r&&r.map)||{};pmApplyBoardPerms(host,after);}).catch(function(){pmApplyBoardPerms(host,after);});}
@@ -1355,7 +1393,7 @@
       (tags?'<div class="c-tags pm-tags">'+tags+'</div>':'')+(lbls?'<div class="c-labels pm-labels-row">'+lbls+'</div>':'')+
       (kids?'<div class="c-sub">'+kids.d+'/'+kids.t+' nhiệm vụ con</div>':'')+
       '<div class="c-meta">'+pmProjLabel(t)+pmAssignee(t,false)+'</div></div>';}
-  function pmCardTargets(name){var m=(window._pmTransMap||{})[name];if(!m||m.terminal||!m.transitions||!m.transitions.length)return null;
+  function pmCardTargets(name){var m=(window._pmTransMap||{})[name];if(!m||!m.transitions||!m.transitions.length)return null; /* FREE: terminal cards draggable too (reopen) */
     var set={};m.transitions.forEach(function(x){set[x.next_state]=1;});return set;}
   function pmApplyBoardPerms(host,after){
     Array.prototype.forEach.call(host.querySelectorAll(".pm-card"),function(k){
@@ -1374,6 +1412,7 @@
       col.ondrop=function(e){var tg=window._pmDragTargets;if(!tg||!tg[to])return;e.preventDefault();col.classList.remove("drag-over");
         var t=e.dataTransfer.getData("t"),f=e.dataTransfer.getData("s");if(f===to)return;pmDropToColumn(t,to,col,after);};});}
   function pmDropToColumn(name,to,col,after){var m=(window._pmTransMap||{})[name];if(!m)return;
+    if(to==="Done"){openDonePopup(name,"Done",function(){(after||showBoard)();});return;} /* worktime popup when dropping into Done */
     var acts=(m.transitions||[]).filter(function(x){return x.next_state===to;});
     if(!acts.length){toast("Không có chuyển trạng thái hợp lệ sang "+to,true);return;}
     if(acts.length===1){pmApplyTransition(name,acts[0].action,to,after);return;}
@@ -1536,7 +1575,7 @@
   /* Feature B: "Done" transition popup — capture worktime, then run the transition. Lightweight overlay,
      independent of the main task drawer. */
   function pmDoTransition(name,action){return api(PM+"tasks.set_status",{name:name,action:action}).then(function(r){toast("Trạng thái: "+r.workflow_state);openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});}
-  function openDonePopup(name,action){
+  function openDonePopup(name,action,after){
     var ov=document.createElement("div");ov.id="pm-done-ov";
     ov.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center";
     ov.innerHTML='<div style="background:#fff;border-radius:14px;padding:22px;width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.25)">'+
@@ -1544,16 +1583,39 @@
       '<div style="font-size:13px;color:var(--gray-600);margin-bottom:14px">Bạn đã xử lý bao nhiêu giờ?</div>'+
       '<div style="display:flex;gap:8px;margin-bottom:10px"><input class="pm-input" id="wtd-h" type="number" min="0" step="1" placeholder="Giờ" style="flex:1;padding-left:11px;background-image:none"><input class="pm-input" id="wtd-m" type="number" min="0" max="59" step="1" placeholder="Phút" style="flex:1;padding-left:11px;background-image:none"></div>'+
       '<input class="pm-input" id="wtd-desc" placeholder="Mô tả (tuỳ chọn)" style="padding-left:11px;background-image:none;margin-bottom:16px;width:100%">'+
-      '<div style="display:flex;gap:8px;justify-content:flex-end"><button class="pm-btn" id="wtd-skip">Bỏ qua</button><button class="pm-btn primary" id="wtd-confirm">Xác nhận hoàn thành</button></div>'+
+      '<div style="display:flex;gap:8px;justify-content:flex-end"><button class="pm-btn" id="wtd-skip">Huỷ</button><button class="pm-btn primary" id="wtd-confirm">Xác nhận hoàn thành</button></div>'+
       '</div>';
     (el("ec-pm-root")||document.body).appendChild(ov);
     function close(){if(ov&&ov.parentNode)ov.parentNode.removeChild(ov);}
     ov.onclick=function(e){if(e.target===ov)close();};
-    el("wtd-skip").onclick=function(){close();pmDoTransition(name,action);};
+    function complete(){api(PM+"tasks.set_status",{name:name,action:action}).then(function(r){toast("Trạng thái: "+r.workflow_state);if(after){after();}else{openTask(name);refreshTaskContext();}}).catch(function(e){toast("Lỗi: "+errOf(e),true);if(after){after();}else{openTask(name);}});}
+    el("wtd-skip").onclick=function(){close();}; /* Huỷ = đóng popup, KHÔNG hoàn thành (phòng bấm Done nhầm) */
     el("wtd-confirm").onclick=function(){var _h=parseFloat(el("wtd-h").value)||0,_m=parseFloat(el("wtd-m").value)||0,total=_h+_m/60;var btn=this;btn.disabled=true;
       if(total>0){var hrs=Math.round(total*10000)/10000,today=new Date().toISOString().slice(0,10);
-        api(PM+"timesheet.log",{task:name,hours:hrs,log_date:today,description:el("wtd-desc").value||""}).then(function(){close();pmDoTransition(name,action);}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});}
-      else{close();pmDoTransition(name,action);}};}
+        api(PM+"timesheet.log",{task:name,hours:hrs,log_date:today,description:el("wtd-desc").value||""}).then(function(){close();complete();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});}
+      else{close();complete();}};}
+  /* On-demand worktime logging (no completion). Anyone with access can log hours for a chosen day,
+     as many times as needed, even while the task is still open. */
+  function openLogHoursPopup(task,after){
+    var ov=document.createElement("div");ov.id="pm-log-ov";
+    ov.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center";
+    var today=new Date().toISOString().slice(0,10);
+    ov.innerHTML='<div style="background:#fff;border-radius:14px;padding:22px;width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.25)">'+
+      '<div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:4px">Ghi giờ đã xử lý</div>'+
+      '<div style="font-size:13px;color:var(--gray-600);margin-bottom:14px">Có thể ghi nhiều lần, không cần hoàn thành task.</div>'+
+      '<div class="pm-field" style="margin-bottom:10px"><label>Ngày</label><input class="pm-input" id="wtl-date" type="date" value="'+today+'"></div>'+
+      '<div style="display:flex;gap:8px;margin-bottom:10px"><input class="pm-input" id="wtl-h" type="number" min="0" step="1" placeholder="Giờ" style="flex:1;padding-left:11px;background-image:none"><input class="pm-input" id="wtl-m" type="number" min="0" max="59" step="1" placeholder="Phút" style="flex:1;padding-left:11px;background-image:none"></div>'+
+      '<input class="pm-input" id="wtl-desc" placeholder="Mô tả (tuỳ chọn)" style="padding-left:11px;background-image:none;margin-bottom:16px;width:100%">'+
+      '<div style="display:flex;gap:8px;justify-content:flex-end"><button class="pm-btn" id="wtl-cancel">Huỷ</button><button class="pm-btn primary" id="wtl-save">Lưu giờ</button></div>'+
+      '</div>';
+    (el("ec-pm-root")||document.body).appendChild(ov);
+    function close(){if(ov&&ov.parentNode)ov.parentNode.removeChild(ov);}
+    ov.onclick=function(e){if(e.target===ov)close();};
+    el("wtl-cancel").onclick=function(){close();};
+    el("wtl-save").onclick=function(){var _h=parseFloat(el("wtl-h").value)||0,_m=parseFloat(el("wtl-m").value)||0,total=_h+_m/60;
+      if(total<=0){toast("Nhập số giờ",true);return;}
+      var hrs=Math.round(total*10000)/10000,day=el("wtl-date").value||today;var btn=this;btn.disabled=true;
+      api(PM+"timesheet.log",{task:task,hours:hrs,log_date:day,description:el("wtl-desc").value||""}).then(function(){toast("Đã ghi "+hrs+"h");close();if(after)after();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});};}
   /* Feature C: schedule-only recurrence modal launched from a top-level task. Reuses the Teams-style
      schedule block (re-* ids) — safe because only one such block is in the DOM at a time. */
   function openTaskRecurModal(t){
@@ -1683,13 +1745,15 @@
       /* G4.3: terminal task -> no Start/Log; read-only note. History below stays visible. */
       h+='<div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12.5px;color:var(--gray-500)">Nhiệm vụ đã đóng — Reopen để ghi giờ hoặc giao việc.</div>';
     } else {
-      /* ec-pm-worktime-donepopup: inline worktime logging moved to the "Done" transition popup (Feature B).
-         History + total remain visible below. */
+      /* inline logging moved to the Done popup; keep an on-demand "+ Ghi giờ" so anyone can log
+         hours ad-hoc (multiple times, task need not be done). */
+      h+='<div style="margin-bottom:10px"><button class="pm-btn" id="wt-add"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Ghi giờ</button></div>';
     }
-    h+='<div style="font-size:12px;color:var(--gray-500);margin-bottom:6px">Tổng đã log: <b style="color:var(--gray-900)">'+total+'h</b></div>';
-    if(rows.length){h+=rows.map(function(r){return '<div class="pm-sub"><span>'+esc((r.from_time||"").slice(0,10))+' · '+esc(r.hours)+'h'+(r.description?' · '+esc(r.description):'')+'</span><span class="pm-mini-av" title="'+esc(r.owner||"")+'">'+ini(r.owner||"")+'</span></div>';}).join("");}
-    else{h+='<div style="font-size:12.5px;color:var(--gray-400);padding:6px 0">Chưa có log giờ.</div>';}
+    h+='<details class="dc-analytics"><summary style="cursor:pointer;font-size:12.5px;color:var(--gray-600);user-select:none">Giờ đã xử lý — Tổng <b style="color:var(--gray-900)">'+total+'h</b>'+(rows.length?(' · '+rows.length+' lần'):'')+'</summary><div style="margin-top:6px">'+
+      (rows.length?rows.map(function(r){return '<div class="pm-sub"><span>'+esc((r.from_time||"").slice(0,10))+' · '+esc(r.hours)+'h'+(r.description?' · '+esc(r.description):'')+'</span><span class="pm-mini-av" title="'+esc(r.owner||"")+'">'+ini(r.owner||"")+'</span></div>';}).join(""):'<div style="font-size:12.5px;color:var(--gray-400);padding:6px 0">Chưa có log giờ.</div>')+
+      '</div></details>';
     b.innerHTML=h;
+    if(el("wt-add"))el("wt-add").onclick=function(){openLogHoursPopup(task,function(){loadWorktime(task,terminal);});};
     function tk(m2){api(PM+"timer."+m2).then(function(){loadWorktime(task,terminal);}).catch(function(e){toast("Lỗi: "+errOf(e),true);loadWorktime(task,terminal);});}
     if(el("tk-start"))el("tk-start").onclick=function(){this.disabled=true;api(PM+"timer.start",{task:task}).then(function(){loadWorktime(task,terminal);}).catch(function(e){toast("Lỗi: "+errOf(e),true);loadWorktime(task,terminal);});};
     if(el("tk-pause"))el("tk-pause").onclick=function(){tk("pause");};
