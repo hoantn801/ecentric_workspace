@@ -715,6 +715,7 @@
 (function(){
   var PM="ecentric_workspace.pm.api.";
   var COLS=["Backlog","To Do","In Progress","Blocked","Review","Done","Cancelled"];
+  var BOARD_COLS=["To Do","In Progress","Review","Done"]; /* Kanban = 4 core cols; Backlog/Blocked fold into To Do, Cancelled hidden. COLS (all 7) stays for status filters. */
   var CRUMB={dashboard:"Tổng quan",mytasks:"Việc của tôi",projects:"Dự án",work:"Công việc",tasks:"Công việc",board:"Công việc",gantt:"Công việc",calendar:"Công việc",timesheet:"Timesheet",recurring:"Recurring",assignments:"Yêu cầu giao việc",notifications:"Thông báo"};
   var LIVE=(location.protocol!=="file:");  // live over http(s); mock only for offline file:// preview
   var el=function(id){return document.getElementById(id);};
@@ -1343,8 +1344,8 @@
     var kids={};allRows.forEach(function(t){if(t.parent_task){var k=kids[t.parent_task]||(kids[t.parent_task]={t:0,d:0});k.t++;if(["Done","Cancelled"].indexOf(t.workflow_state)>=0)k.d++;}});
     window._pmBoardKids=kids;
     var roots=allRows.filter(function(t){return !t.parent_task;});
-    var by={};COLS.forEach(function(s){by[s]=[];});roots.forEach(function(t){var s=t.workflow_state||"Backlog";(by[s]=by[s]||[]).push(t);});
-    host.innerHTML='<div class="pm-board">'+COLS.map(function(s){return '<div class="pm-col" data-col="'+esc(s)+'"><h3>'+badge(s)+'<span class="col-count">'+by[s].length+'</span></h3><div class="col-body" data-body="'+esc(s)+'">'+by[s].map(card).join("")+'</div></div>';}).join("")+'</div>';
+    var by={};BOARD_COLS.forEach(function(s){by[s]=[];});roots.forEach(function(t){var s=t.workflow_state||"To Do";if(BOARD_COLS.indexOf(s)<0){if(s==="Cancelled")return;s="To Do";}(by[s]=by[s]||[]).push(t);}); /* fold Backlog/Blocked -> To Do; hide Cancelled */
+    host.innerHTML='<div class="pm-board">'+BOARD_COLS.map(function(s){return '<div class="pm-col" data-col="'+esc(s)+'"><h3>'+badge(s)+'<span class="col-count">'+by[s].length+'</span></h3><div class="col-body" data-body="'+esc(s)+'">'+by[s].map(card).join("")+'</div></div>';}).join("")+'</div>';
     /* G4.10: per-card allowed transitions from the backend in ONE request -> draggability + valid drop targets. No hard-coded _isLeader. */
     var names=roots.map(function(t){return t.name;});window._pmTransMap={};
     if(names.length){api(PM+"tasks.transitions_bulk",{task_names:JSON.stringify(names)}).then(function(r){window._pmTransMap=(r&&r.map)||{};pmApplyBoardPerms(host,after);}).catch(function(){pmApplyBoardPerms(host,after);});}
