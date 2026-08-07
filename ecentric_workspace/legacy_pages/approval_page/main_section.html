@@ -7130,6 +7130,11 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
 
   function buildHtml(d) {
     var gen = '';
+    // 2026-08-07: Tieu de nguoi tao go. ERPNext dat mac dinh title = ten khach/NCC
+    // nen chi hien khi khac cai mac dinh do, tranh lap dong voi "Khach hang".
+    var _tt = (d.title || '').trim();
+    var _dft = IS_SO ? (d.customer || '') : (d.supplier || '');
+    if (_tt && _tt !== _dft) gen += rowT('Tiêu đề', _tt);
     if (IS_SO) {
       gen += rowT('Khách hàng', d.customer);
       gen += rowT('Brand', d.ec_brand);
