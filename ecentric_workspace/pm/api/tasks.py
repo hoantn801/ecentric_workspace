@@ -51,6 +51,12 @@ _STALE_MSG = ("Trạng thái nhiệm vụ đã thay đổi hoặc bạn không c
 # is_task_terminal + reports stay consistent; other states map to the active "Open".
 _STATE_STATUS = {"Done": "Completed", "Cancelled": "Cancelled"}
 
+# The lean, ordered status set shown as a segmented control (Hoàn 2026-08-06). Backlog/Blocked are
+# NOT offered as buttons (Backlog folds into To Do; Blocked becomes a label). Existing tasks parked
+# in a hidden state still work — the button to re-enter that state is just not shown. Cancel is a
+# separate leader-only action, not part of the 4.
+_VISIBLE_STATES = ("To Do", "In Progress", "Review", "Done")
+
 
 def _pm_states():
     """Ordered list of the active Task workflow's states = the switchable status buttons."""
@@ -842,8 +848,9 @@ def assign(name, users):
 
 @frappe.whitelist()
 def get_transitions(name):
-    """FREE status model: EVERY workflow state is a switchable target (no fixed order). `next_state`
-    drives the frontend (a Done button opens the worktime popup). Cancelled is leader-only."""
+    """Lean status model for the segmented control: the 4 visible states + the current one (so the
+    UI highlights it). `transitions` = the clickable non-current states (Done drives the worktime
+    popup). `cancel` = whether a separate leader-only Huỷ is available."""
     pmperm.require_pm_access()
     user = frappe.session.user
     doc = frappe.get_doc("Task", name)
@@ -851,9 +858,12 @@ def get_transitions(name):
         frappe.throw(_("Not permitted."), frappe.PermissionError)
     leader = pmperm.can_transition_any_task(user)
     cur = doc.get("workflow_state")
-    out = [{"action": s, "next_state": s} for s in _pm_states()
-           if s != cur and not (s == "Cancelled" and not leader)]
-    return {"current": cur, "transitions": out}
+    return {
+        "current": cur,
+        "states": list(_VISIBLE_STATES),
+        "transitions": [{"action": s, "next_state": s} for s in _VISIBLE_STATES if s != cur],
+        "cancel": bool(leader),
+    }
 
 
 @frappe.whitelist()
@@ -871,7 +881,6 @@ def transitions_bulk(task_names):
         except Exception:
             task_names = [task_names]
     names = tuple(dict.fromkeys(t for t in (task_names or []) if t))[:500]
-    states = _pm_states()
     out = {}
     for nm in names:
         if not frappe.db.exists("Task", nm):
@@ -880,10 +889,9 @@ def transitions_bulk(task_names):
         if not pmperm.can_view_task(doc.as_dict(), user):
             continue
         cur = doc.get("workflow_state")
-        # FREE status: every state is a droppable Kanban target (Cancelled leader-only).
-        trans = [{"action": s, "next_state": s} for s in states
-                 if s != cur and not (s == "Cancelled" and not leader)]
-        out[nm] = {"current": cur, "terminal": pmperm.is_task_terminal(doc), "transitions": trans}
+        trans = [{"action": s, "next_state": s} for s in _VISIBLE_STATES if s != cur]
+        out[nm] = {"current": cur, "terminal": pmperm.is_task_terminal(doc),
+                   "states": list(_VISIBLE_STATES), "transitions": trans}
     return {"map": out}
 
 
