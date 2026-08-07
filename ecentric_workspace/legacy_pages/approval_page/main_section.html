@@ -7360,7 +7360,13 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
     p.id = 'ec-ecso-po-panel';
     p.className = 'panel';
 
-    var approved = (SO.workflow_state === 'Approved');
+    // 2026-08-07: SO kenh GBS KHONG duoc tao PO so EC. PO cua nhung don do la GBS
+    // tu tao ben boxme (GBS Purchase Order) roi dong bo nguoc ve; ec_po_before_save
+    // throw thang neu gan SO kenh GBS. Truoc day nut van sang tren nhung SO nay ->
+    // bam vao, chon nha cung cap, nhap gia xong moi bi chan o buoc cuoi. Do live
+    // 2026-08-07: 15/22 SO so EC la kenh GBS, tuc phan lon roi vao duong cut do.
+    var isGbsChannel = ((SO.ec_channel || '') === 'GBS');
+    var approved = (SO.workflow_state === 'Approved') && !isGbsChannel;
     var html = '<div class="panel-header"><span class="panel-title">Đơn mua từ SO này</span></div><div class="panel-body">';
     html += '<div class="scp2-summary">SO có <b>' + (SO.items || []).length + '</b> dòng hàng, tổng '
       + esc(vnd(SO.grand_total)) + '. Đã tạo <b>' + CHILD.length + '</b> đơn mua từ SO này.</div>';
@@ -7373,11 +7379,19 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
     }
     html += '<button type="button" class="scp2-btn-primary" id="ec-ecso-po-btn"' + (approved ? '' : ' disabled')
       + '>+ Tạo PO từ SO</button>';
-    html += '<div class="scp2-hint">' + (approved
-      ? 'Chọn những dòng cần mua ngoài. Mã hàng, số lượng và đơn giá được chép sang — đơn giá chỉ là gợi ý, nhớ sửa theo giá mua thật.'
-      : 'SO phải duyệt xong mới tạo được đơn mua — hiện đang ở bước <b>' + esc(SO.workflow_state || '') + '</b>. '
-        + 'Lý do: hạn mức của PO lấy theo tổng SO, SO chưa duyệt thì con số đó chưa chắc chắn.')
-      + '</div>';
+    var hint;
+    if (isGbsChannel) {
+      hint = 'SO này thuộc <b>kênh GBS</b> nên không tạo đơn mua sổ EC được. Hàng mua cho đơn kênh GBS '
+        + 'do GBS tự tạo bên boxme rồi đồng bộ ngược về — nhìn ở tab <b>GBS PO</b>. '
+        + 'Nếu đây thật sự là khoản eCentric đi mua ngoài thì phải gắn vào một SO <b>kênh Direct</b>.';
+    } else if (!approved) {
+      hint = 'SO phải duyệt xong mới tạo được đơn mua — hiện đang ở bước <b>' + esc(SO.workflow_state || '') + '</b>. '
+        + 'Lý do: hạn mức của PO lấy theo tổng SO, SO chưa duyệt thì con số đó chưa chắc chắn.';
+    } else {
+      hint = 'Chọn những dòng cần mua ngoài. Mã hàng, số lượng và đơn giá được chép sang — '
+        + 'đơn giá chỉ là gợi ý, nhớ sửa theo giá mua thật.';
+    }
+    html += '<div class="scp2-hint">' + hint + '</div>';
     html += '</div>';
     p.innerHTML = html;
     content.appendChild(p);
