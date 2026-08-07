@@ -2200,8 +2200,7 @@
     var foot;
     if(wfState==="Done"){foot='<span class="pm-badge st-Done">Đã hoàn thành</span>';}
     else if(wfState==="Cancelled"){foot='<span class="pm-badge st-Cancelled">Đã huỷ</span>';}
-    else if(chkComplete(d)&&window._pmChkCanComplete){foot='<button class="pm-btn primary" id="pm-chk-complete">Hoàn thành nhiệm vụ</button>';}
-    else if(chkComplete(d)){foot='<span style="font-size:12px;color:var(--gray-500)">Các bước đã hoàn tất. Hãy chuyển trạng thái bằng thao tác Workflow phù hợp.</span>';}
+    else if(chkComplete(d)){foot='<span style="font-size:12px;color:var(--gray-500)">Các bước đã hoàn tất. Chuyển trạng thái bằng nút Workflow bên dưới.</span>';}
     else{var rem=(d.required_total||0)>0?((d.required_total||0)-(d.required_done||0)):((d.total||0)-(d.done||0));foot='<span style="font-size:12px;color:var(--gray-500)">Còn '+rem+' mục'+((d.required_total||0)>0?' bắt buộc':'')+' chưa xong</span>';}
     var _tc=el("pm-bt-steps-c");if(_tc)_tc.textContent="("+d.done+"/"+d.total+")"; /* G4.8: tab count */
     b.innerHTML='<div class="pm-prog" style="margin-bottom:10px"><i style="width:'+pct+'%"></i></div>'+
