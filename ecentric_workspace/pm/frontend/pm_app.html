@@ -1544,12 +1544,12 @@
       '<div style="font-size:13px;color:var(--gray-600);margin-bottom:14px">Bạn đã xử lý bao nhiêu giờ?</div>'+
       '<div style="display:flex;gap:8px;margin-bottom:10px"><input class="pm-input" id="wtd-h" type="number" min="0" step="1" placeholder="Giờ" style="flex:1;padding-left:11px;background-image:none"><input class="pm-input" id="wtd-m" type="number" min="0" max="59" step="1" placeholder="Phút" style="flex:1;padding-left:11px;background-image:none"></div>'+
       '<input class="pm-input" id="wtd-desc" placeholder="Mô tả (tuỳ chọn)" style="padding-left:11px;background-image:none;margin-bottom:16px;width:100%">'+
-      '<div style="display:flex;gap:8px;justify-content:flex-end"><button class="pm-btn" id="wtd-skip">Bỏ qua</button><button class="pm-btn primary" id="wtd-confirm">Xác nhận hoàn thành</button></div>'+
+      '<div style="display:flex;gap:8px;justify-content:flex-end"><button class="pm-btn" id="wtd-skip">Huỷ</button><button class="pm-btn primary" id="wtd-confirm">Xác nhận hoàn thành</button></div>'+
       '</div>';
     (el("ec-pm-root")||document.body).appendChild(ov);
     function close(){if(ov&&ov.parentNode)ov.parentNode.removeChild(ov);}
     ov.onclick=function(e){if(e.target===ov)close();};
-    el("wtd-skip").onclick=function(){close();pmDoTransition(name,action);};
+    el("wtd-skip").onclick=function(){close();}; /* Huỷ = đóng popup, KHÔNG hoàn thành (phòng bấm Done nhầm) */
     el("wtd-confirm").onclick=function(){var _h=parseFloat(el("wtd-h").value)||0,_m=parseFloat(el("wtd-m").value)||0,total=_h+_m/60;var btn=this;btn.disabled=true;
       if(total>0){var hrs=Math.round(total*10000)/10000,today=new Date().toISOString().slice(0,10);
         api(PM+"timesheet.log",{task:name,hours:hrs,log_date:today,description:el("wtd-desc").value||""}).then(function(){close();pmDoTransition(name,action);}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});}
