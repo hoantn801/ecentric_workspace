@@ -969,7 +969,7 @@
     var rb=x.isRec?recReasonBadge(x.reason):dcReasonBadge(x.reason);
     var rec=x.isRec?' <span class="dc-reason" style="color:#6d28d9;background:#f3e8ff">Định kỳ</span>':'';
     var noass=(a.length===0&&dcActive(t)&&x.reason!=="noassignee")?' <span class="dc-reason" style="color:#925f00;background:#fff7e6">Chưa giao</span>':'';
-    return '<tr data-task="'+esc(t.name)+'"><td class="t-main">'+esc(t.subject||t.name)+'</td><td>'+esc(t.project||"-")+'</td><td>'+esc(fmtEndCell(t))+'</td><td>'+(t.priority?esc(t.priority):"-")+'</td><td>'+badge(t.workflow_state)+'</td><td>'+rb+rec+noass+'</td><td style="text-align:right;white-space:nowrap">'+(dcActive(t)?'<button class="pm-btn mw-done" data-task="'+esc(t.name)+'" style="color:#0a7a4f;border-color:#86efac">✓ Xong</button> ':'')+'<button class="pm-btn mw-open" data-task="'+esc(t.name)+'">Mở</button></td></tr>';}
+    return '<tr data-task="'+esc(t.name)+'"><td class="t-main">'+esc(t.subject||t.name)+'</td><td>'+esc(t.project||"-")+'</td><td>'+esc(fmtEndCell(t))+'</td><td>'+(t.priority?esc(t.priority):"-")+'</td><td>'+badge(t.workflow_state)+'</td><td>'+rb+rec+noass+'</td><td style="text-align:right;white-space:nowrap">'+(dcActive(t)?'<button class="pm-btn mw-done" data-task="'+esc(t.name)+'" style="color:#0a7a4f;border-color:#86efac">✓ Xong</button>':'')+'</td></tr>';}
   function mwWireActions(scope){if(!scope)return;
     Array.prototype.forEach.call(scope.querySelectorAll(".mw-open"),function(b){b.onclick=function(e){e.stopPropagation();openTask(b.getAttribute("data-task"));};});
     Array.prototype.forEach.call(scope.querySelectorAll(".mw-done"),function(b){b.onclick=function(e){e.stopPropagation();openDonePopup(b.getAttribute("data-task"),"Done",function(){showMyTasks();});};});
@@ -1780,7 +1780,8 @@
          hours ad-hoc (multiple times, task need not be done). */
       h+='<div style="margin-bottom:10px"><button class="pm-btn" id="wt-add"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Ghi giờ</button></div>';
     }
-    h+='<details class="dc-analytics"><summary style="cursor:pointer;font-size:12.5px;color:var(--gray-600);user-select:none">Giờ đã xử lý — Tổng <b style="color:var(--gray-900)">'+total+'h</b>'+(rows.length?(' · '+rows.length+' lần'):'')+'</summary><div style="margin-top:6px">'+
+    var subH=Math.round(((d.subtask_hours)||0)*100)/100;var rollup=Math.round((total+subH)*100)/100;
+    h+='<details class="dc-analytics"><summary style="cursor:pointer;font-size:12.5px;color:var(--gray-600);user-select:none">Giờ đã xử lý — Tổng <b style="color:var(--gray-900)">'+rollup+'h</b>'+(subH>0?' <span style="color:var(--gray-400);font-weight:400">(gồm '+subH+'h từ nhiệm vụ con'+(total>0?', '+total+'h của task này':'')+')</span>':'')+(rows.length?(' · '+rows.length+' lần'):'')+'</summary><div style="margin-top:6px">'+
       (rows.length?rows.map(function(r){return '<div class="pm-sub"><span>'+esc((r.from_time||"").slice(0,10))+' · '+esc(r.hours)+'h'+(r.description?' · '+esc(r.description):'')+'</span><span class="pm-mini-av" title="'+esc(r.owner||"")+'">'+ini(r.owner||"")+'</span></div>';}).join(""):'<div style="font-size:12.5px;color:var(--gray-400);padding:6px 0">Chưa có log giờ.</div>')+
       '</div></details>';
     b.innerHTML=h;
@@ -2174,7 +2175,7 @@
   // G3 checklist: render the task's checklist instance (tick/untick). Section hidden if no items.
   function chkRow(it){var done=it.is_done?1:0;
     var meta=(done&&it.completed_by)?'<span class="pm-chk-meta">'+esc((it.completed_by||"").split("@")[0])+(it.completed_at?(" · "+esc(String(it.completed_at).slice(0,16))):"")+'</span>':'';
-    return '<div class="pm-chk-item'+(done?' done':'')+'" data-row="'+esc(it.name)+'" data-done="'+done+'"><span class="pm-chk-box">'+(done?'✓':'')+'</span><span class="pm-chk-label">'+esc(it.item_label)+(it.is_required?' <span class="pm-chk-req">*</span>':'')+'</span>'+meta+'</div>';}
+    return '<div class="pm-chk-item'+(done?' done':'')+'" data-row="'+esc(it.name)+'" data-done="'+done+'"><span class="pm-chk-box">'+(done?'✓':'')+'</span><span class="pm-chk-label">'+esc(it.item_label)+(it.is_required?' <span class="pm-chk-req">*</span>':'')+'</span>'+meta+'<span class="pm-chk-acts" style="display:inline-flex;gap:2px;flex:0 0 auto"><button type="button" class="pm-chk-edit" data-row="'+esc(it.name)+'" title="Sửa" style="border:none;background:none;cursor:pointer;color:var(--gray-400);font-size:13px;padding:2px 5px;line-height:1">✎</button><button type="button" class="pm-chk-del" data-row="'+esc(it.name)+'" title="Xoá" style="border:none;background:none;cursor:pointer;color:var(--gray-400);font-size:13px;padding:2px 5px;line-height:1">✕</button></span></div>';}
   function chkComplete(d){var rt=d.required_total||0,rd=d.required_done||0,tt=d.total||0,dn=d.done||0;return rt>0?(rd===rt):(tt>0&&dn===tt);}
   /* G4.8b: "+ Thêm bước" — add a checklist step from the modal (checklist.add_item). Hidden when terminal. */
   function chkAddHtml(locked){return locked?'':'<div class="pm-chk-add" id="pm-chk-add"><span class="pm-sub-plus">+</span><span>Thêm bước</span></div>';}
@@ -2199,8 +2200,7 @@
     var foot;
     if(wfState==="Done"){foot='<span class="pm-badge st-Done">Đã hoàn thành</span>';}
     else if(wfState==="Cancelled"){foot='<span class="pm-badge st-Cancelled">Đã huỷ</span>';}
-    else if(chkComplete(d)&&window._pmChkCanComplete){foot='<button class="pm-btn primary" id="pm-chk-complete">Hoàn thành nhiệm vụ</button>';}
-    else if(chkComplete(d)){foot='<span style="font-size:12px;color:var(--gray-500)">Các bước đã hoàn tất. Hãy chuyển trạng thái bằng thao tác Workflow phù hợp.</span>';}
+    else if(chkComplete(d)){foot='<span style="font-size:12px;color:var(--gray-500)">Các bước đã hoàn tất. Chuyển trạng thái bằng nút Workflow bên dưới.</span>';}
     else{var rem=(d.required_total||0)>0?((d.required_total||0)-(d.required_done||0)):((d.total||0)-(d.done||0));foot='<span style="font-size:12px;color:var(--gray-500)">Còn '+rem+' mục'+((d.required_total||0)>0?' bắt buộc':'')+' chưa xong</span>';}
     var _tc=el("pm-bt-steps-c");if(_tc)_tc.textContent="("+d.done+"/"+d.total+")"; /* G4.8: tab count */
     b.innerHTML='<div class="pm-prog" style="margin-bottom:10px"><i style="width:'+pct+'%"></i></div>'+
@@ -2212,6 +2212,15 @@
       if(b._chkBusy)return;b._chkBusy=true;b.style.pointerEvents="none"; /* guard double-click only on the checklist, not the modal */
       var rn=x.getAttribute("data-row");var nv=x.getAttribute("data-done")==="1"?0:1;
       api(PM+"checklist.set_item",{task:task,row_name:rn,is_done:nv}).then(function(res){renderChecklist(b,task,res,wfState);/* re-render clears busy + re-enables */}).catch(function(err){b._chkBusy=false;b.style.pointerEvents="";toast("Lỗi: "+errOf(err),true);loadChecklist(task,wfState);/* resync from backend */});
+    };});
+    Array.prototype.forEach.call(b.querySelectorAll(".pm-chk-del"),function(x){x.onclick=function(e){e.stopPropagation();if(!window.confirm("Xoá bước này?"))return;var rn=x.getAttribute("data-row");api(PM+"checklist.remove_item",{task:task,row_name:rn}).then(function(res){renderChecklist(b,task,res,wfState);}).catch(function(err){toast("Lỗi: "+errOf(err),true);loadChecklist(task,wfState);});};});
+    Array.prototype.forEach.call(b.querySelectorAll(".pm-chk-edit"),function(x){x.onclick=function(e){e.stopPropagation();var rn=x.getAttribute("data-row");var item=x.closest(".pm-chk-item");var lbl=item&&item.querySelector(".pm-chk-label");if(!lbl)return;var cur=(lbl.textContent||"").replace(/\s*\*\s*$/,"").trim();
+      var inp=document.createElement("input");inp.className="pm-input";inp.value=cur;inp.style.cssText="flex:1;padding:3px 7px;font-size:13px;background-image:none";
+      lbl.replaceWith(inp);inp.focus();inp.select();var doneEdit=false;
+      inp.onclick=function(ev){ev.stopPropagation();};
+      function save(){if(doneEdit)return;doneEdit=true;var v=(inp.value||"").trim();if(!v){loadChecklist(task,wfState);return;}api(PM+"checklist.update_item",{task:task,row_name:rn,title:v}).then(function(res){renderChecklist(b,task,res,wfState);}).catch(function(err){toast("Lỗi: "+errOf(err),true);loadChecklist(task,wfState);});}
+      inp.addEventListener("keydown",function(ev){if(ev.key==="Enter"){ev.preventDefault();save();}else if(ev.key==="Escape"){ev.preventDefault();doneEdit=true;loadChecklist(task,wfState);}});
+      inp.addEventListener("blur",save);
     };});
     if(el("pm-chk-complete"))el("pm-chk-complete").onclick=function(){var btn=this;btn.disabled=true;btn.textContent="Đang hoàn thành...";
       api(PM+"checklist.complete_task",{task:task}).then(function(){toast("Đã hoàn thành nhiệm vụ");openTask(task);refreshTaskContext();}).catch(function(err){toast("Lỗi: "+errOf(err),true);btn.disabled=false;btn.textContent="Hoàn thành task";});};}
