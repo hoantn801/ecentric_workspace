@@ -2175,7 +2175,7 @@
   // G3 checklist: render the task's checklist instance (tick/untick). Section hidden if no items.
   function chkRow(it){var done=it.is_done?1:0;
     var meta=(done&&it.completed_by)?'<span class="pm-chk-meta">'+esc((it.completed_by||"").split("@")[0])+(it.completed_at?(" · "+esc(String(it.completed_at).slice(0,16))):"")+'</span>':'';
-    return '<div class="pm-chk-item'+(done?' done':'')+'" data-row="'+esc(it.name)+'" data-done="'+done+'"><span class="pm-chk-box">'+(done?'✓':'')+'</span><span class="pm-chk-label">'+esc(it.item_label)+(it.is_required?' <span class="pm-chk-req">*</span>':'')+'</span>'+meta+'</div>';}
+    return '<div class="pm-chk-item'+(done?' done':'')+'" data-row="'+esc(it.name)+'" data-done="'+done+'"><span class="pm-chk-box">'+(done?'✓':'')+'</span><span class="pm-chk-label">'+esc(it.item_label)+(it.is_required?' <span class="pm-chk-req">*</span>':'')+'</span>'+meta+'<span class="pm-chk-acts" style="display:inline-flex;gap:2px;flex:0 0 auto"><button type="button" class="pm-chk-edit" data-row="'+esc(it.name)+'" title="Sửa" style="border:none;background:none;cursor:pointer;color:var(--gray-400);font-size:13px;padding:2px 5px;line-height:1">✎</button><button type="button" class="pm-chk-del" data-row="'+esc(it.name)+'" title="Xoá" style="border:none;background:none;cursor:pointer;color:var(--gray-400);font-size:13px;padding:2px 5px;line-height:1">✕</button></span></div>';}
   function chkComplete(d){var rt=d.required_total||0,rd=d.required_done||0,tt=d.total||0,dn=d.done||0;return rt>0?(rd===rt):(tt>0&&dn===tt);}
   /* G4.8b: "+ Thêm bước" — add a checklist step from the modal (checklist.add_item). Hidden when terminal. */
   function chkAddHtml(locked){return locked?'':'<div class="pm-chk-add" id="pm-chk-add"><span class="pm-sub-plus">+</span><span>Thêm bước</span></div>';}
@@ -2212,6 +2212,15 @@
       if(b._chkBusy)return;b._chkBusy=true;b.style.pointerEvents="none"; /* guard double-click only on the checklist, not the modal */
       var rn=x.getAttribute("data-row");var nv=x.getAttribute("data-done")==="1"?0:1;
       api(PM+"checklist.set_item",{task:task,row_name:rn,is_done:nv}).then(function(res){renderChecklist(b,task,res,wfState);/* re-render clears busy + re-enables */}).catch(function(err){b._chkBusy=false;b.style.pointerEvents="";toast("Lỗi: "+errOf(err),true);loadChecklist(task,wfState);/* resync from backend */});
+    };});
+    Array.prototype.forEach.call(b.querySelectorAll(".pm-chk-del"),function(x){x.onclick=function(e){e.stopPropagation();if(!window.confirm("Xoá bước này?"))return;var rn=x.getAttribute("data-row");api(PM+"checklist.remove_item",{task:task,row_name:rn}).then(function(res){renderChecklist(b,task,res,wfState);}).catch(function(err){toast("Lỗi: "+errOf(err),true);loadChecklist(task,wfState);});};});
+    Array.prototype.forEach.call(b.querySelectorAll(".pm-chk-edit"),function(x){x.onclick=function(e){e.stopPropagation();var rn=x.getAttribute("data-row");var item=x.closest(".pm-chk-item");var lbl=item&&item.querySelector(".pm-chk-label");if(!lbl)return;var cur=(lbl.textContent||"").replace(/\s*\*\s*$/,"").trim();
+      var inp=document.createElement("input");inp.className="pm-input";inp.value=cur;inp.style.cssText="flex:1;padding:3px 7px;font-size:13px;background-image:none";
+      lbl.replaceWith(inp);inp.focus();inp.select();var doneEdit=false;
+      inp.onclick=function(ev){ev.stopPropagation();};
+      function save(){if(doneEdit)return;doneEdit=true;var v=(inp.value||"").trim();if(!v){loadChecklist(task,wfState);return;}api(PM+"checklist.update_item",{task:task,row_name:rn,title:v}).then(function(res){renderChecklist(b,task,res,wfState);}).catch(function(err){toast("Lỗi: "+errOf(err),true);loadChecklist(task,wfState);});}
+      inp.addEventListener("keydown",function(ev){if(ev.key==="Enter"){ev.preventDefault();save();}else if(ev.key==="Escape"){ev.preventDefault();doneEdit=true;loadChecklist(task,wfState);}});
+      inp.addEventListener("blur",save);
     };});
     if(el("pm-chk-complete"))el("pm-chk-complete").onclick=function(){var btn=this;btn.disabled=true;btn.textContent="Đang hoàn thành...";
       api(PM+"checklist.complete_task",{task:task}).then(function(){toast("Đã hoàn thành nhiệm vụ");openTask(task);refreshTaskContext();}).catch(function(err){toast("Lỗi: "+errOf(err),true);btn.disabled=false;btn.textContent="Hoàn thành task";});};}
