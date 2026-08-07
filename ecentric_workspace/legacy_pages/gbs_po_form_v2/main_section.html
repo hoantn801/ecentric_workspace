@@ -4379,6 +4379,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var parsed = parseTaxRateFromName(sel.value);
     return { rate: parsed, components: parsed > 0 ? [{label: 'VAT ' + parsed + '%', rate: parsed}] : [] };
   }
+  // 2026-08-07 FIX 10: mo ra ngoai de nhanh PO so EC lay duoc thue suat dang chon.
+  // Truoc day Purchase Order native luu total_taxes_and_charges = 0 -> thieu tien thue.
+  window._ecGetVatRate = function () { try { return getTaxInfo().rate || 0; } catch (e) { return 0; } };
 
   // Move tax template selector to just before VAT summary
   function relocateTaxTemplate() {
@@ -6246,6 +6249,9 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         // 2026-08-07: gui ca TIEU DE nguoi tao go o o "Tieu de" (#title) vao truong
         // `title` cua Purchase Order, de danh sach /all-ticket khong phai tu ghep ten.
         var _ttl = (($id('title')||{}).value || '').trim();
+        // FIX 10: gan DONG THUE that de ERPNext tu tinh thue + tong cong.
+        var _vat = 0;
+        try { if (typeof window._ecGetVatRate === 'function') _vat = Number(window._ecGetVatRate()) || 0; } catch (_e) {}
         var body = {
           supplier: sup, company: 'eCentric',
           transaction_date: txn, schedule_date: sched,
@@ -6256,6 +6262,11 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
           items: rows.map(function(r){ var it = {item_code:r.item_code, qty:r.qty, rate:r.rate, schedule_date: sched}; if (soRefEl.value) it.sales_order = soRefEl.value; return it; })
         };
         if (_ttl) body.title = _ttl;
+        if (_vat > 0) {
+          body.taxes = [{ charge_type: 'On Net Total', account_head: 'VAT - EC',
+                          rate: _vat, category: 'Total', add_deduct_tax: 'Add',
+                          description: 'VAT ' + _vat + '%' }];
+        }
         var res = await fetch('/api/resource/Purchase Order', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
         var txt = await res.text();
         if (!res.ok) throw new Error(frappeErr(txt, 'Tao PO so EC loi'));

@@ -4268,6 +4268,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     // Fallback for templates with no API rate (e.g. 0% templates or fetch failed)
     return parseTaxRateFromName(sel.value);
   }
+  // 2026-08-07 FIX 10: mo ra ngoai de nhanh SO so EC lay duoc thue suat dang chon.
+  // Truoc day o VAT chi la chu tham chieu (ec_vat_template) -> Sales Order native luu
+  // total_taxes_and_charges = 0 va grand_total = tong CHUA VAT, tuc la thieu tien thue.
+  window._ecGetVatRate = getTaxRate;
 
   // Move tax template selector to just before VAT summary for better UX
   // (user picks rate immediately above the calculated VAT line)
@@ -6575,6 +6579,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     // /all-ticket phai tu ghep "khach [kenh]" -- doc khong ra don hang nao voi don
     // hang nao. De trong thi ERPNext van tu dat title = ten khach nhu cu.
     var _ttl = (($id('title')||{}).value || '').trim();
+    // FIX 10: gan DONG THUE that vao chung tu de ERPNext tu tinh
+    // total_taxes_and_charges + grand_total. Thue suat lay tu chinh o VAT tren form.
+    var _vat = 0;
+    try { if (typeof window._ecGetVatRate === 'function') _vat = Number(window._ecGetVatRate()) || 0; } catch (_e) {}
     var body = {
       customer: opts.customer, company: 'eCentric', order_type: 'Sales',
       transaction_date: opts.txn, delivery_date: opts.delivery,
@@ -6586,6 +6594,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       items: opts.items.map(function(r){ return {item_code:r.item_code, qty:r.qty, rate:r.rate, delivery_date: opts.delivery}; })
     };
     if (_ttl) body.title = _ttl;
+    if (_vat > 0) {
+      body.taxes = [{ charge_type: 'On Net Total', account_head: 'VAT - EC',
+                      rate: _vat, description: 'VAT ' + _vat + '%' }];
+    }
     var res = await fetch('/api/resource/Sales Order', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
     var txt = await res.text();
     if (!res.ok) throw new Error(frappeErr(txt, 'Tao SO so EC loi'));
