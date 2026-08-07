@@ -715,7 +715,8 @@
 (function(){
   var PM="ecentric_workspace.pm.api.";
   var COLS=["Backlog","To Do","In Progress","Blocked","Review","Done","Cancelled"];
-  var BOARD_COLS=["To Do","In Progress","Review","Done"]; /* Kanban = 4 core cols; Backlog/Blocked fold into To Do, Cancelled hidden. COLS (all 7) stays for status filters. */
+  var BOARD_COLS=["To Do","In Progress","Review","Done"]; /* Kanban = 4 core cols; Backlog/Blocked fold into To Do, Cancelled hidden. */
+  var FILTER_STATES=["To Do","In Progress","Review","Done","Cancelled"]; /* lean status filter (drop Backlog/Blocked) */
   var CRUMB={dashboard:"Tổng quan",mytasks:"Việc của tôi",projects:"Dự án",work:"Công việc",tasks:"Công việc",board:"Công việc",gantt:"Công việc",calendar:"Công việc",timesheet:"Timesheet",recurring:"Recurring",assignments:"Yêu cầu giao việc",notifications:"Thông báo"};
   var LIVE=(location.protocol!=="file:");  // live over http(s); mock only for offline file:// preview
   var el=function(id){return document.getElementById(id);};
@@ -1275,10 +1276,10 @@
     var asg=uniq([].concat.apply([],ts.map(function(t){return names(t._assign);})));
     var pri=uniq(ts.map(function(t){return t.priority;}));
     var lbls=pmAllLabels(ts);
-    var P=[["mine","Của tôi"],["today","Hôm nay"],["week","Tuần này"],["overdue","Quá hạn"],["blocked","Blocked"],["review","Chờ duyệt"],["noassignee","Chưa giao"],["nodue","Chưa có hạn"]];
+    var P=[["mine","Của tôi"],["today","Hôm nay"],["week","Tuần này"],["overdue","Quá hạn"],["review","Chờ duyệt"],["noassignee","Chưa giao"],["nodue","Chưa có hạn"]];
     return '<div class="pm-filters">'+
       '<input class="pm-input pm-search" id="f-q" placeholder="Tìm..." value="'+esc(F.q)+'" style="max-width:170px">'+
-      '<select class="pm-sel" id="f-status"><option value="">Trạng thái</option>'+COLS.map(function(s){return opt(s,s,F.status);}).join("")+'</select>'+
+      '<select class="pm-sel" id="f-status"><option value="">Trạng thái</option>'+FILTER_STATES.map(function(s){return opt(s,s,F.status);}).join("")+'</select>'+
       '<select class="pm-sel" id="f-assignee"><option value="">Người nhận</option>'+asg.map(function(a){return opt(a,a,F.assignee);}).join("")+'</select>'+
       '<select class="pm-sel" id="f-label"><option value="">Nhãn</option>'+lbls.map(function(l){return opt(l.name,l.label_name,F.label);}).join("")+'</select>'+
       '<select class="pm-sel" id="f-project"><option value="">Dự án</option>'+projs.map(function(p){return opt(p,p,F.project);}).join("")+'</select>'+
