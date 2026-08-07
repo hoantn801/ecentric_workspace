@@ -1556,6 +1556,28 @@
       if(total>0){var hrs=Math.round(total*10000)/10000,today=new Date().toISOString().slice(0,10);
         api(PM+"timesheet.log",{task:name,hours:hrs,log_date:today,description:el("wtd-desc").value||""}).then(function(){close();complete();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});}
       else{close();complete();}};}
+  /* On-demand worktime logging (no completion). Anyone with access can log hours for a chosen day,
+     as many times as needed, even while the task is still open. */
+  function openLogHoursPopup(task,after){
+    var ov=document.createElement("div");ov.id="pm-log-ov";
+    ov.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center";
+    var today=new Date().toISOString().slice(0,10);
+    ov.innerHTML='<div style="background:#fff;border-radius:14px;padding:22px;width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.25)">'+
+      '<div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:4px">Ghi giờ đã xử lý</div>'+
+      '<div style="font-size:13px;color:var(--gray-600);margin-bottom:14px">Có thể ghi nhiều lần, không cần hoàn thành task.</div>'+
+      '<div class="pm-field" style="margin-bottom:10px"><label>Ngày</label><input class="pm-input" id="wtl-date" type="date" value="'+today+'"></div>'+
+      '<div style="display:flex;gap:8px;margin-bottom:10px"><input class="pm-input" id="wtl-h" type="number" min="0" step="1" placeholder="Giờ" style="flex:1;padding-left:11px;background-image:none"><input class="pm-input" id="wtl-m" type="number" min="0" max="59" step="1" placeholder="Phút" style="flex:1;padding-left:11px;background-image:none"></div>'+
+      '<input class="pm-input" id="wtl-desc" placeholder="Mô tả (tuỳ chọn)" style="padding-left:11px;background-image:none;margin-bottom:16px;width:100%">'+
+      '<div style="display:flex;gap:8px;justify-content:flex-end"><button class="pm-btn" id="wtl-cancel">Huỷ</button><button class="pm-btn primary" id="wtl-save">Lưu giờ</button></div>'+
+      '</div>';
+    (el("ec-pm-root")||document.body).appendChild(ov);
+    function close(){if(ov&&ov.parentNode)ov.parentNode.removeChild(ov);}
+    ov.onclick=function(e){if(e.target===ov)close();};
+    el("wtl-cancel").onclick=function(){close();};
+    el("wtl-save").onclick=function(){var _h=parseFloat(el("wtl-h").value)||0,_m=parseFloat(el("wtl-m").value)||0,total=_h+_m/60;
+      if(total<=0){toast("Nhập số giờ",true);return;}
+      var hrs=Math.round(total*10000)/10000,day=el("wtl-date").value||today;var btn=this;btn.disabled=true;
+      api(PM+"timesheet.log",{task:task,hours:hrs,log_date:day,description:el("wtl-desc").value||""}).then(function(){toast("Đã ghi "+hrs+"h");close();if(after)after();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});};}
   /* Feature C: schedule-only recurrence modal launched from a top-level task. Reuses the Teams-style
      schedule block (re-* ids) — safe because only one such block is in the DOM at a time. */
   function openTaskRecurModal(t){
@@ -1685,13 +1707,15 @@
       /* G4.3: terminal task -> no Start/Log; read-only note. History below stays visible. */
       h+='<div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12.5px;color:var(--gray-500)">Nhiệm vụ đã đóng — Reopen để ghi giờ hoặc giao việc.</div>';
     } else {
-      /* ec-pm-worktime-donepopup: inline worktime logging moved to the "Done" transition popup (Feature B).
-         History + total remain visible below. */
+      /* inline logging moved to the Done popup; keep an on-demand "+ Ghi giờ" so anyone can log
+         hours ad-hoc (multiple times, task need not be done). */
+      h+='<div style="margin-bottom:10px"><button class="pm-btn" id="wt-add"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Ghi giờ</button></div>';
     }
     h+='<details class="dc-analytics"><summary style="cursor:pointer;font-size:12.5px;color:var(--gray-600);user-select:none">Giờ đã xử lý — Tổng <b style="color:var(--gray-900)">'+total+'h</b>'+(rows.length?(' · '+rows.length+' lần'):'')+'</summary><div style="margin-top:6px">'+
       (rows.length?rows.map(function(r){return '<div class="pm-sub"><span>'+esc((r.from_time||"").slice(0,10))+' · '+esc(r.hours)+'h'+(r.description?' · '+esc(r.description):'')+'</span><span class="pm-mini-av" title="'+esc(r.owner||"")+'">'+ini(r.owner||"")+'</span></div>';}).join(""):'<div style="font-size:12.5px;color:var(--gray-400);padding:6px 0">Chưa có log giờ.</div>')+
       '</div></details>';
     b.innerHTML=h;
+    if(el("wt-add"))el("wt-add").onclick=function(){openLogHoursPopup(task,function(){loadWorktime(task,terminal);});};
     function tk(m2){api(PM+"timer."+m2).then(function(){loadWorktime(task,terminal);}).catch(function(e){toast("Lỗi: "+errOf(e),true);loadWorktime(task,terminal);});}
     if(el("tk-start"))el("tk-start").onclick=function(){this.disabled=true;api(PM+"timer.start",{task:task}).then(function(){loadWorktime(task,terminal);}).catch(function(e){toast("Lỗi: "+errOf(e),true);loadWorktime(task,terminal);});};
     if(el("tk-pause"))el("tk-pause").onclick=function(){tk("pause");};
