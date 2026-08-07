@@ -1332,20 +1332,45 @@
     Array.prototype.forEach.call(c.querySelectorAll(".pm-tt-caret[data-ttcol]"),function(x){x.onclick=function(e){e.stopPropagation();var id=x.getAttribute("data-ttcol");window._gtCollapsed[id]=!window._gtCollapsed[id];taskTable(c,rows,compact);};});
     pmWireTaskMenus(c);}
 
+  function pmBoardGroup(){if(window._boardGroup)return window._boardGroup;var v="status";try{v=localStorage.getItem("pm_board_group")||"status";}catch(_){}window._boardGroup=v;return v;}
+  function setBoardGroup(g){window._boardGroup=g;try{localStorage.setItem("pm_board_group",g);}catch(_){}}
+  function boardGroupBar(){var g=pmBoardGroup();return '<div class="pm-bgrp" style="display:flex;align-items:center;gap:8px;margin:0 0 10px"><span style="font-size:12px;color:var(--gray-500)">Nhóm:</span><div class="seg"><button data-bg="status" class="'+(g==="status"?"active":"")+'">Trạng thái</button><button data-bg="project" class="'+(g==="project"?"active":"")+'">Dự án</button></div></div>';}
   function showBoard(){var c=el("pm-view");spin(c);
     loadTasks(function(){
       c.innerHTML=workHeader("board")+
-        filterBar()+'<div id="pm-boardwrap"></div>';
-      wireWorkTabs(); wireFilters(renderBoard); renderBoard();
+        filterBar()+boardGroupBar()+'<div id="pm-boardwrap"></div>';
+      wireWorkTabs(); wireFilters(renderBoard);
+      Array.prototype.forEach.call(c.querySelectorAll("[data-bg]"),function(b){b.onclick=function(){setBoardGroup(b.getAttribute("data-bg"));showBoard();};});
+      renderBoard();
     },c);}
+  var _PM_SDOT={"To Do":"#9ca3af","In Progress":"#3b82f6","Review":"#f59e0b","Done":"#22c55e","Cancelled":"#9ca3af","Backlog":"#9ca3af"};
+  function pmStatusDot(s){var c=_PM_SDOT[s]||"#9ca3af";return '<span class="pm-sdot" title="'+esc(s||"")+'" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+c+';flex:0 0 auto;margin-right:8px"></span>';}
+  function pmRenderBoardByProject(host,allRows,roots){
+    window._gtCollapsed=window._gtCollapsed||{};
+    var byParent={};allRows.forEach(function(t){if(t.parent_task)(byParent[t.parent_task]=byParent[t.parent_task]||[]).push(t);});
+    var byP={},ord=[];roots.forEach(function(t){var k=t.project||"";if(!byP[k]){byP[k]=[];ord.push(k);}byP[k].push(t);});
+    ord.sort(function(a,b){if(!a)return 1;if(!b)return -1;var la=(byP[a][0].project_name||a),lb=(byP[b][0].project_name||b);return String(la).localeCompare(String(lb));});
+    function orow(t,sub){var kids=byParent[t.name]||[];var hk=kids.length>0&&!sub;var col=!!window._gtCollapsed[t.name];
+      var caret=hk?'<span class="pm-ocaret'+(col?" collapsed":"")+'" data-ocol="'+esc(t.name)+'" style="cursor:pointer;width:14px;display:inline-block;color:var(--gray-400)">'+(col?"▸":"▾")+'</span>':'<span style="width:14px;display:inline-block"></span>';
+      var h='<div class="pm-orow'+(sub?" pm-osub":"")+'" data-task="'+esc(t.name)+'" style="display:flex;align-items:center;gap:2px;padding:7px 10px;'+(sub?"padding-left:38px;background:var(--gray-50);":"")+'border-top:1px solid var(--gray-100);cursor:pointer">'+caret+pmStatusDot(t.workflow_state)+'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"'+(isOverdue(t)?' class="pm-od-txt"':'')+'>'+esc(t.subject||t.name)+'</span><span style="flex:0 0 auto;margin:0 10px;font-size:12px;color:var(--gray-400)">'+esc(fmtEndCell(t))+'</span><span style="flex:0 0 auto">'+pmAssignee(t,false)+'</span></div>';
+      if(hk&&!col)kids.forEach(function(k){h+=orow(k,true);});
+      return h;}
+    host.innerHTML=ord.length?ord.map(function(k){var lbl=k?(byP[k][0].project_name||k):"Ngoài dự án";
+      return '<div class="pm-lane" style="margin-bottom:14px;border:1px solid var(--gray-200);border-radius:10px;overflow:hidden"><div class="pm-lane-h" style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--gray-100);font-weight:600;font-size:13px">'+esc(lbl)+'<span class="col-count">'+byP[k].length+'</span></div>'+byP[k].map(function(t){return orow(t,false);}).join("")+'</div>';}).join(""):'<div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>Chưa có nhiệm vụ.</div></div>';
+    Array.prototype.forEach.call(host.querySelectorAll(".pm-orow[data-task]"),function(r){r.onclick=function(){openTask(r.getAttribute("data-task"));};});
+    Array.prototype.forEach.call(host.querySelectorAll(".pm-ocaret[data-ocol]"),function(x){x.onclick=function(e){e.stopPropagation();var id=x.getAttribute("data-ocol");window._gtCollapsed[id]=!window._gtCollapsed[id];renderBoard();};});
+  }
   function renderBoard(){renderBoardInto(el("pm-boardwrap"),filteredTasks(),showBoard);}
   function renderBoardInto(host,rows,after){var allRows=rows||[];
     /* G4.8c: child counts from the full set, then render ONLY root tasks as cards. */
     var kids={};allRows.forEach(function(t){if(t.parent_task){var k=kids[t.parent_task]||(kids[t.parent_task]={t:0,d:0});k.t++;if(["Done","Cancelled"].indexOf(t.workflow_state)>=0)k.d++;}});
     window._pmBoardKids=kids;
     var roots=allRows.filter(function(t){return !t.parent_task;});
+    if(pmBoardGroup()==="project"){ pmRenderBoardByProject(host,allRows,roots); }
+    else {
     var by={};BOARD_COLS.forEach(function(s){by[s]=[];});roots.forEach(function(t){var s=t.workflow_state||"To Do";if(BOARD_COLS.indexOf(s)<0){if(s==="Cancelled")return;s="To Do";}(by[s]=by[s]||[]).push(t);}); /* fold Backlog/Blocked -> To Do; hide Cancelled */
     host.innerHTML='<div class="pm-board">'+BOARD_COLS.map(function(s){return '<div class="pm-col" data-col="'+esc(s)+'"><h3>'+badge(s)+'<span class="col-count">'+by[s].length+'</span></h3><div class="col-body" data-body="'+esc(s)+'">'+by[s].map(card).join("")+'</div></div>';}).join("")+'</div>';
+    }
     /* G4.10: per-card allowed transitions from the backend in ONE request -> draggability + valid drop targets. No hard-coded _isLeader. */
     var names=roots.map(function(t){return t.name;});window._pmTransMap={};
     if(names.length){api(PM+"tasks.transitions_bulk",{task_names:JSON.stringify(names)}).then(function(r){window._pmTransMap=(r&&r.map)||{};pmApplyBoardPerms(host,after);}).catch(function(){pmApplyBoardPerms(host,after);});}
