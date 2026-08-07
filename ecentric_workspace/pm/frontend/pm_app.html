@@ -1346,19 +1346,24 @@
   var _PM_SDOT={"To Do":"#9ca3af","In Progress":"#3b82f6","Review":"#f59e0b","Done":"#22c55e","Cancelled":"#9ca3af","Backlog":"#9ca3af"};
   function pmStatusDot(s){var c=_PM_SDOT[s]||"#9ca3af";return '<span class="pm-sdot" title="'+esc(s||"")+'" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+c+';flex:0 0 auto;margin-right:8px"></span>';}
   function pmRenderBoardByProject(host,allRows,roots){
-    window._gtCollapsed=window._gtCollapsed||{};
+    /* MS-Teams "Group by" style: one COLUMN per project; root tasks are cards
+       stacked in the column; each card shows its subtasks (1 level) inline. */
     var byParent={};allRows.forEach(function(t){if(t.parent_task)(byParent[t.parent_task]=byParent[t.parent_task]||[]).push(t);});
     var byP={},ord=[];roots.forEach(function(t){var k=t.project||"";if(!byP[k]){byP[k]=[];ord.push(k);}byP[k].push(t);});
     ord.sort(function(a,b){if(!a)return 1;if(!b)return -1;var la=(byP[a][0].project_name||a),lb=(byP[b][0].project_name||b);return String(la).localeCompare(String(lb));});
-    function orow(t,sub){var kids=byParent[t.name]||[];var hk=kids.length>0&&!sub;var col=!!window._gtCollapsed[t.name];
-      var caret=hk?'<span class="pm-ocaret'+(col?" collapsed":"")+'" data-ocol="'+esc(t.name)+'" style="cursor:pointer;width:14px;display:inline-block;color:var(--gray-400)">'+(col?"▸":"▾")+'</span>':'<span style="width:14px;display:inline-block"></span>';
-      var h='<div class="pm-orow'+(sub?" pm-osub":"")+'" data-task="'+esc(t.name)+'" style="display:flex;align-items:center;gap:2px;padding:7px 10px;'+(sub?"padding-left:38px;background:var(--gray-50);":"")+'border-top:1px solid var(--gray-100);cursor:pointer">'+caret+pmStatusDot(t.workflow_state)+'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"'+(isOverdue(t)?' class="pm-od-txt"':'')+'>'+esc(t.subject||t.name)+'</span><span style="flex:0 0 auto;margin:0 10px;font-size:12px;color:var(--gray-400)">'+esc(fmtEndCell(t))+'</span><span style="flex:0 0 auto">'+pmAssignee(t,false)+'</span></div>';
-      if(hk&&!col)kids.forEach(function(k){h+=orow(k,true);});
-      return h;}
-    host.innerHTML=ord.length?ord.map(function(k){var lbl=k?(byP[k][0].project_name||k):"Ngoài dự án";
-      return '<div class="pm-lane" style="margin-bottom:14px;border:1px solid var(--gray-200);border-radius:10px;overflow:hidden"><div class="pm-lane-h" style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--gray-100);font-weight:600;font-size:13px">'+esc(lbl)+'<span class="col-count">'+byP[k].length+'</span></div>'+byP[k].map(function(t){return orow(t,false);}).join("")+'</div>';}).join(""):'<div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>Chưa có nhiệm vụ.</div></div>';
-    Array.prototype.forEach.call(host.querySelectorAll(".pm-orow[data-task]"),function(r){r.onclick=function(){openTask(r.getAttribute("data-task"));};});
-    Array.prototype.forEach.call(host.querySelectorAll(".pm-ocaret[data-ocol]"),function(x){x.onclick=function(e){e.stopPropagation();var id=x.getAttribute("data-ocol");window._gtCollapsed[id]=!window._gtCollapsed[id];renderBoard();};});
+    function subRow(t){return '<div class="pj-sub" data-task="'+esc(t.name)+'" style="display:flex;align-items:center;font-size:12.5px;color:var(--gray-700);cursor:pointer">'+pmStatusDot(t.workflow_state)+'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(t.subject||t.name)+'</span></div>';}
+    function pcard(t){var kids=byParent[t.name]||[];var lbls=labelChips(t,2);
+      return '<div class="pm-card'+(isOverdue(t)?' card-overdue':'')+'" data-task="'+esc(t.name)+'" style="cursor:pointer">'+
+        '<div class="c-title">'+esc(t.subject||t.name)+'</div>'+
+        '<div style="margin:5px 0">'+badge(t.workflow_state)+'</div>'+
+        (lbls?'<div class="c-labels pm-labels-row">'+lbls+'</div>':'')+
+        (kids.length?'<div class="pj-subs" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--gray-100);display:flex;flex-direction:column;gap:6px">'+kids.map(subRow).join("")+'</div>':'')+
+        '<div class="c-meta" style="margin-top:8px">'+pmAssignee(t,false)+'<span style="font-size:12px;color:var(--gray-400)">'+esc(fmtEndCell(t))+'</span></div>'+
+        '</div>';}
+    host.innerHTML=ord.length?'<div class="pm-board">'+ord.map(function(k){var lbl=k?(byP[k][0].project_name||k):"Ngoài dự án";
+      return '<div class="pm-col" data-proj="'+esc(k)+'"><h3><span style="font-weight:600">'+esc(lbl)+'</span><span class="col-count">'+byP[k].length+'</span></h3><div class="col-body">'+byP[k].map(pcard).join("")+'</div></div>';}).join("")+'</div>':'<div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>Chưa có nhiệm vụ.</div></div>';
+    Array.prototype.forEach.call(host.querySelectorAll(".pj-sub[data-task]"),function(r){r.onclick=function(e){e.stopPropagation();openTask(r.getAttribute("data-task"));};});
+    Array.prototype.forEach.call(host.querySelectorAll(".pm-card[data-task]"),function(k){k.onclick=function(){openTask(k.getAttribute("data-task"));};});
   }
   function renderBoard(){renderBoardInto(el("pm-boardwrap"),filteredTasks(),showBoard);}
   function renderBoardInto(host,rows,after){var allRows=rows||[];
