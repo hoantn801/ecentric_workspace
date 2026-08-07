@@ -2949,9 +2949,15 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
 
 
 <script id="ec-gbs-priority-picker">
-// Priority picker on GBS PO/SO forms. 3 pill toggles: Thap / TB / Cao.
-// Default Medium (TB). Value saved into hidden input #priority and submitted
-// via fetch wrapper (extends submit_gbs_po/submit_gbs_so payload).
+// Priority picker on GBS SO forms. 2 pill toggles: Normal / Urgent.
+// 2026-08-07: doi tu 3 nac (Thap/TB/Cao) sang 2 nac, bam theo ban GBS PO da doi
+// tu 2026-08-04. Field `priority` cua GBS Sales Order gio chi con options
+// Normal/Urgent (Property Setter) va 292 phieu cu da duoc doi sang gia tri moi.
+// LUU Y: sync_approval_todos_gbs_so truoc day day thang doc.priority vao
+// ToDo.priority -- ma ToDo chi nhan Low/Medium/High. Da sua cung nhip thanh
+// Urgent/High -> High, con lai -> Medium, neu khong nguoi duyet mat viec.
+// Default Normal. Value saved into hidden input #priority and submitted
+// via fetch wrapper (extends submit_gbs_po payload).
 (function(){
   'use strict';
   if (window._ecGbsPriorityInstalled) return;
@@ -2970,14 +2976,37 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       '.ec-pri-opt:last-child { border-right:none; }',
       '.ec-pri-opt:hover { background:#f9fafb; }',
       '.ec-pri-opt.ec-pri-selected { color:#fff; font-weight:600; }',
-      '.ec-pri-opt.ec-pri-selected[data-pri="Low"] { background:#10b981; }',
-      '.ec-pri-opt.ec-pri-selected[data-pri="Medium"] { background:#FFC000; color:#5b3a00; }',
-      '.ec-pri-opt.ec-pri-selected[data-pri="High"] { background:#dc2626; }'
+      '.ec-pri-opt.ec-pri-selected[data-pri="Normal"] { background:#10b981; }',
+      '.ec-pri-opt.ec-pri-selected[data-pri="Urgent"] { background:#dc2626; }'
     ].join('\n');
     document.head.appendChild(st);
   }
 
-  var currentValue = 'Medium';
+  var currentValue = 'Normal';
+
+  // Chuan hoa moi gia tri cu ve dung 2 nac moi: High -> Urgent, con lai -> Normal.
+  // Can cho che do sua phieu: 190 phieu cu dang giu Medium/High, neu gui nguyen
+  // chuoi do len thi may chu tu choi vi options gio chi con Normal/Urgent.
+  function normPri(v) {
+    var t = String(v == null ? '' : v).trim();
+    return (t === 'Urgent' || t === 'High') ? 'Urgent' : 'Normal';
+  }
+
+  // Dat gia tri tu ben ngoai (che do sua phieu goi qua window.ecSetPriority).
+  function applyPriority(v) {
+    currentValue = normPri(v);
+    var hidden = document.getElementById('priority');
+    if (hidden) hidden.value = currentValue;
+    var wrap = document.getElementById('ec-pri-wrap');
+    if (!wrap) return currentValue;
+    var opts = wrap.querySelectorAll('.ec-pri-opt');
+    opts.forEach(function (x) {
+      if (x.getAttribute('data-pri') === currentValue) x.classList.add('ec-pri-selected');
+      else x.classList.remove('ec-pri-selected');
+    });
+    return currentValue;
+  }
+  window.ecSetPriority = applyPriority;
 
   function buildPicker() {
     if (document.getElementById('ec-pri-wrap')) return true;
@@ -2996,11 +3025,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     wrap.innerHTML = [
       '<div class="ec-pri-label">Mức ưu tiên</div>',
       '<div class="ec-pri-row">',
-      '  <div class="ec-pri-opt" data-pri="Low">Thấp</div>',
-      '  <div class="ec-pri-opt ec-pri-selected" data-pri="Medium">TB</div>',
-      '  <div class="ec-pri-opt" data-pri="High">Cao</div>',
+      '  <div class="ec-pri-opt ec-pri-selected" data-pri="Normal">Normal</div>',
+      '  <div class="ec-pri-opt" data-pri="Urgent">Urgent</div>',
       '</div>',
-      '<input type="hidden" id="priority" name="priority" value="Medium" />'
+      '<input type="hidden" id="priority" name="priority" value="Normal" />'
     ].join('\n');
     row.parentNode.insertBefore(wrap, row.nextSibling);
 
@@ -3008,13 +3036,10 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var opts = wrap.querySelectorAll('.ec-pri-opt');
     opts.forEach(function(o){
       o.addEventListener('click', function(){
-        opts.forEach(function(x){ x.classList.remove('ec-pri-selected'); });
-        o.classList.add('ec-pri-selected');
-        currentValue = o.dataset.pri;
-        var hidden = document.getElementById('priority');
-        if (hidden) hidden.value = currentValue;
+        applyPriority(o.getAttribute('data-pri'));
       });
     });
+    applyPriority(currentValue);
     console.log('[ec-gbs-priority] picker installed');
     return true;
   }
@@ -3029,8 +3054,8 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       if (/\/api\/method\/submit_gbs_(po|so)/.test(u) && opts && opts.body && typeof opts.body === 'string') {
         var body = null;
         try { body = JSON.parse(opts.body); } catch(_) {}
-        if (body && !body.priority) {
-          body.priority = currentValue || 'Medium';
+        if (body) {
+          body.priority = normPri(body.priority || currentValue);
           opts.body = JSON.stringify(body);
         }
       }
@@ -3942,7 +3967,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     'title':            'Tiêu đề ngắn gọn đơn hàng — sẽ push sang boxme làm tên doc. VD: "Request Booking Fee Dutch Lady May.2026".',
     'department':       'Phòng ban submit request. Auto-fill từ user profile, có thể đổi.',
     'brand':            'Brand liên quan tới request. Sẽ quyết định approval chain (mỗi brand có recipe khác nhau).',
-    'priority':         'Mức ưu tiên duyệt: Thấp / TB / Cao. Hiển thị trên dashboard approver. Default = TB.'
+    'priority':         'Mức ưu tiên duyệt: Normal / Urgent. Hiển thị trên dashboard approver. Default = Normal.'
   };
 
   // Map Vietnamese label text → fieldname (case-insensitive, trims whitespace).
