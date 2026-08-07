@@ -825,8 +825,8 @@
     b.innerHTML=rows.slice(0,15).map(function(t){return '<div class="dc-att" data-task="'+esc(t.name)+'"><div class="dc-att-main">'+esc(t.subject||t.name)+'<span class="dc-att-sub">'+esc(t.project||"")+(t.exp_end_date?" · hạn "+esc(t.exp_end_date):"")+'</span></div>'+badge(t.workflow_state)+'</div>';}).join("");
     Array.prototype.forEach.call(b.querySelectorAll("[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});}
   function wlTable(b,rows){if(!b)return;rows=rows||[];if(!rows.length){return emptyBox(b,"Chưa có dữ liệu workload.");}
-    b.innerHTML='<table class="pm-tbl"><thead><tr><th>Người nhận</th><th>Đang mở</th><th>Quá hạn</th><th>Tuần này</th><th>Đang làm</th><th>Blocked</th></tr></thead><tbody>'+
-      rows.map(function(w){return '<tr data-assignee="'+esc(w.assignee)+'" style="cursor:pointer"><td class="t-main">'+esc(w.assignee)+'</td><td>'+(w.active||0)+'</td><td>'+(w.overdue||0)+'</td><td>'+(w.due_week||0)+'</td><td>'+(w.in_progress||0)+'</td><td>'+(w.blocked||0)+'</td></tr>';}).join("")+'</tbody></table>';
+    b.innerHTML='<table class="pm-tbl"><thead><tr><th>Người nhận</th><th>Đang mở</th><th>Quá hạn</th><th>Tuần này</th><th>Đang làm</th></tr></thead><tbody>'+
+      rows.map(function(w){return '<tr data-assignee="'+esc(w.assignee)+'" style="cursor:pointer"><td class="t-main">'+esc(w.assignee)+'</td><td>'+(w.active||0)+'</td><td>'+(w.overdue||0)+'</td><td>'+(w.due_week||0)+'</td><td>'+(w.in_progress||0)+'</td></tr>';}).join("")+'</tbody></table>';
     Array.prototype.forEach.call(b.querySelectorAll("tr[data-assignee]"),function(tr){tr.onclick=function(){navAssignee(tr.getAttribute("data-assignee"));};});}
 
   function distBar(label,n,total,cls){var pct=total?Math.round(n*100/total):0;return '<div class="db-row"><div class="db-label">'+esc(label)+'</div><div class="db-track"><div class="db-fill '+(cls||"")+'" style="width:'+pct+'%"></div></div><div class="db-val">'+n+'</div></div>';}
