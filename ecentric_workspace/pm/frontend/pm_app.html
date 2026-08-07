@@ -996,8 +996,7 @@
       var focus=mwFocus(mine,recToday);
       var groups=[["attention","Cần xử lý",d.attention||[]],["week","Tuần này",d.week||[]],["nodue","Chưa có hạn",d.nodue||[]],["done","Đã hoàn thành",d.done||[]]];
       var h=head("Việc của tôi","Công việc cần xử lý trong ngày");
-      h+='<div class="dc-mini dc-block">'+dcMiniCard("Quá hạn",mc.overdue,"overdue","s-pink")+dcMiniCard("Hôm nay",mc.today,"today","s-navy")+dcMiniCard("Tuần này",mc.week,"week","s-yellow")+dcMiniCard("Chờ duyệt",mc.review,"review","s-navy")+dcMiniCard("Blocked",mc.blocked,"blocked","s-pink")+dcMiniCard("Định kỳ hôm nay",recToday.length,"","s-green")+'</div>';
-      h+='<div id="mw-tcard">'+mwTimerCard(ac,tmap,(ac&&ac.active)?null:(focus[0]&&focus[0].t))+'</div>';
+      h+='<div class="dc-mini dc-block">'+dcMiniCard("Quá hạn",mc.overdue,"overdue","s-pink")+dcMiniCard("Hôm nay",mc.today,"today","s-navy")+dcMiniCard("Tuần này",mc.week,"week","s-yellow")+dcMiniCard("Chờ duyệt",mc.review,"review","s-navy")+dcMiniCard("Định kỳ hôm nay",recToday.length,"","s-green")+'</div>';
       h+='<div class="dc-sec-title">Cần xử lý hôm nay (Focus)</div><div class="dc-block" id="mw-focus"></div>';
       h+='<details class="dc-analytics"><summary>Danh sách chi tiết theo nhóm</summary><div id="mw-groups"></div></details>';
       c.innerHTML=h;
