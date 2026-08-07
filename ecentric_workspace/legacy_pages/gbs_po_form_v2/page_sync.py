@@ -42,8 +42,17 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "9b09857c96014bf1fced44368d64f8e8e7f4f2dd27d102a0ba72f5293b661302"
+BASELINE_SHA256 = "846f4da71414f4af35a45b60772b9a58d35bbe81ce1b7ae2c8a5a9804719653e"
 SUPERSEDES_SHA256 = (
+    # bytes truoc khi bat buoc Tieu de o nhanh so EC (2026-08-07): o "Tieu de" van
+    # de trong duoc nen PO tao ra khong co tieu de, danh sach lai roi ve ghep ten.
+    # Nhanh GBS von da bat buoc truong nay -- nay hai nhanh giong nhau.
+    "1207b653678a3d87c990353048dff28c2a7f5c7924fbe8939dd679d44abf99ea",
+    # bytes truoc FIX 9 (2026-08-07): nhanh so EC bo qua o "Tieu de" (#title) nen
+    # PO tao ra khong co tieu de; danh sach /all-ticket phai tu ghep (ten NCC)
+    # va doc khong ra don nao voi don nao. Sua: gui #title vao truong `title` cua
+    # Purchase Order. web_lookup da duoc sua cung nhip de uu tien tieu de nay.
+    "9b09857c96014bf1fced44368d64f8e8e7f4f2dd27d102a0ba72f5293b661302",
     # bytes truoc FIX 8 (2026-08-07): file dinh kem cua PO so EC chi len SharePoint
     # theo phien upload, Purchase Order chi luu ma phien -> trang /approval doc bang
     # File nen luon "Khong co file dinh kem". Sua: giu lai doi tuong File luc upload
