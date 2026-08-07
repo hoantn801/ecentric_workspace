@@ -860,7 +860,7 @@ def get_transitions(name):
     cur = doc.get("workflow_state")
     return {
         "current": cur,
-        "states": list(_VISIBLE_STATES),
+        "states": builtins.list(_VISIBLE_STATES),
         "transitions": [{"action": s, "next_state": s} for s in _VISIBLE_STATES if s != cur],
         "cancel": bool(leader),
     }
@@ -891,7 +891,7 @@ def transitions_bulk(task_names):
         cur = doc.get("workflow_state")
         trans = [{"action": s, "next_state": s} for s in _VISIBLE_STATES if s != cur]
         out[nm] = {"current": cur, "terminal": pmperm.is_task_terminal(doc),
-                   "states": list(_VISIBLE_STATES), "transitions": trans}
+                   "states": builtins.list(_VISIBLE_STATES), "transitions": trans}
     return {"map": out}
 
 
