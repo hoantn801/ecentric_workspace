@@ -75,7 +75,7 @@ def _html():
 # values, so a repo snapshot can never silently revert a live edit. Deliberate
 # update = edit main_section.html, bump this constant, and move the value it
 # replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "4b542fd7b2e8b4cf82a53bef69eca76dff79b536583a0b278614a240bc573fb7"
+BASELINE_SHA256 = "866752cb1df04c778f22679e2b56885bc4815b3fb01a4f070f33ca43c09a1a51"
 
 # Live values this snapshot is allowed to overwrite. C4b was authored in the
 # repo, not on the site, so at deploy time live still holds the #138 bytes
@@ -89,6 +89,13 @@ BASELINE_SHA256 = "4b542fd7b2e8b4cf82a53bef69eca76dff79b536583a0b278614a240bc573
 # it listed lets those environments sync forward; on team.ecentric.vn live is
 # already at BASELINE_SHA256, so the first sync there returns "unchanged".
 SUPERSEDES_SHA256 = (
+    # bytes truoc khi sua style hop thoai "Tao PO tu SO" (2026-08-07): CSS cua nut va
+    # hop thoai bi long trong "#ec-ecso-po-panel ...", ma hop thoai lai duoc gan vao
+    # <body> nen khong khop selector -> nut "Tiep tuc sang form PO" hien tho, khong
+    # mau, khac han hop thoai ben GBS SO. Sua: dua style ra ngoai va dung dung bo
+    # card header/body/footer cua #ec-gbs-so-child-po-section, them dong dem so dong
+    # da chon o chan hop thoai giong ban GBS.
+    "4b542fd7b2e8b4cf82a53bef69eca76dff79b536583a0b278614a240bc573fb7",
     # bytes truoc khoi #ec-ecso-child-po (2026-08-07): trang duyet cua SO so EC khong
     # co duong tao PO, nguoi dung phai tu vao form PO roi tu nho ma SO. Khoi
     # #ec-gbs-so-child-po-section ben canh chi phuc vu gbs_so va goi
