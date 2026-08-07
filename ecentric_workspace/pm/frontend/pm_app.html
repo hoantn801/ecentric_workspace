@@ -1327,10 +1327,10 @@
 
   function taskTable(c,rows,compact){ if(!rows||!rows.length){return emptyBox(c,"Chưa có nhiệm vụ.");}
     var lead=!!window._isLeader;
-    var head='<table class="pm-tbl"><thead><tr><th>Nhiệm vụ</th><th>Trạng thái</th><th>Dự án</th>'+(compact?'':'<th>Hạn</th>')+'<th>Người nhận</th>'+(lead?'<th class="pm-act-col"></th>':'')+'</tr></thead><tbody>';
-    function rowHtml(t,depth,hasKids,collapsed){var tg=tagsCompact(t,3);
+    var head='<table class="pm-tbl"><thead><tr><th style="width:30px"></th><th>Nhiệm vụ</th><th>Trạng thái</th><th>Dự án</th>'+(compact?'':'<th>Hạn</th>')+'<th>Người nhận</th>'+(lead?'<th class="pm-act-col"></th>':'')+'</tr></thead><tbody>';
+    function rowHtml(t,depth,hasKids,collapsed){var tg=tagsCompact(t,3);var term=(t.workflow_state==="Done"||t.workflow_state==="Cancelled");
       var caret=hasKids?'<span class="pm-tt-caret'+(collapsed?' collapsed':'')+'" data-ttcol="'+esc(t.name)+'">▾</span>':(depth>0?'<span class="pm-tt-lead">↳</span>':'<span class="pm-tt-sp"></span>');
-      return '<tr data-task="'+esc(t.name)+'" class="'+pmDepthClass(depth)+'"><td class="t-main"><span class="pm-tt-name" style="padding-left:'+(Math.min(depth,6)*18)+'px">'+caret+'<span>'+esc(t.subject||t.name)+'</span></span>'+(tg?'<div class="pm-tags" style="margin-top:4px">'+tg+'</div>':'')+(labelChips(t,2)?'<div class="pm-labels-row" style="margin-top:4px">'+labelChips(t,2)+'</div>':'')+'</td><td>'+badge(t.workflow_state)+'</td><td>'+pmProjLabel(t)+'</td>'+
+      return '<tr data-task="'+esc(t.name)+'" class="'+pmDepthClass(depth)+'"><td style="text-align:center;vertical-align:middle" class="pm-lchk-cell">'+pjCheck(t,true)+'</td><td class="t-main"><span class="pm-tt-name" style="padding-left:'+(Math.min(depth,6)*18)+'px">'+caret+'<span'+(term?' style="text-decoration:line-through;color:var(--gray-400)"':'')+'>'+esc(t.subject||t.name)+'</span></span>'+(tg?'<div class="pm-tags" style="margin-top:4px">'+tg+'</div>':'')+(labelChips(t,2)?'<div class="pm-labels-row" style="margin-top:4px">'+labelChips(t,2)+'</div>':'')+'</td><td>'+badge(t.workflow_state)+'</td><td>'+pmProjLabel(t)+'</td>'+
         (compact?'':'<td>'+esc(fmtEndCell(t))+'</td>')+'<td>'+pmAssignee(t,false)+'</td>'+(lead?'<td class="pm-act-col">'+pmTaskMenuHtml(t.name)+'</td>':'')+'</tr>';}
     var body="";
     if(compact){ rows.forEach(function(t){body+=rowHtml(t,0,false,false);}); }
@@ -1344,6 +1344,9 @@
     c.innerHTML=head+body+'</tbody></table>';
     Array.prototype.forEach.call(c.querySelectorAll("tr[data-task]"),function(tr){tr.onclick=function(){openTask(tr.getAttribute("data-task"));};});
     Array.prototype.forEach.call(c.querySelectorAll(".pm-tt-caret[data-ttcol]"),function(x){x.onclick=function(e){e.stopPropagation();var id=x.getAttribute("data-ttcol");window._gtCollapsed[id]=!window._gtCollapsed[id];taskTable(c,rows,compact);};});
+    Array.prototype.forEach.call(c.querySelectorAll(".pj-check[data-task]"),function(x){x.onclick=function(e){e.stopPropagation();var nm=x.getAttribute("data-task"),term=x.getAttribute("data-term")==="1";
+      if(term){api(PM+"tasks.set_status",{name:nm,action:"To Do"}).then(function(){toast(nm+" → To Do");pjSetLocalState(nm,"To Do");taskTable(c,rows,compact);}).catch(function(er){toast("Lỗi: "+errOf(er),true);});}
+      else{openDonePopup(nm,"Done",function(){pjSetLocalState(nm,"Done");taskTable(c,rows,compact);});}};});
     pmWireTaskMenus(c);}
 
   function pmBoardGroup(){if(window._boardGroup)return window._boardGroup;var v="status";try{v=localStorage.getItem("pm_board_group")||"status";}catch(_){}window._boardGroup=v;return v;}
