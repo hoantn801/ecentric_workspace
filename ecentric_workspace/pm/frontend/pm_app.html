@@ -2215,8 +2215,12 @@
   function renderGantt(b,rows){
     if(!rows.length){return emptyBox(b,"Không có nhiệm vụ phù hợp.");}
     rows=gStableOrder(rows);
-    var sched=rows.filter(function(t){return dnum(t.start)!=null&&dnum(t.end)!=null;});
-    var unsched=rows.filter(function(t){return dnum(t.start)==null||dnum(t.end)==null;});
+    /* a task is "scheduled" only with BOTH dates AND both in a sane window — a garbage date
+       (e.g. year 0011 typo) must not paint a clamped sliver bar at the far left. */
+    var _gFlo=dnum("2015-01-01"),_gCei=dnum(new Date().toISOString().slice(0,10))+5*365*86400000;
+    function _gSched(t){var s=dnum(t.start),e=dnum(t.end);return s!=null&&e!=null&&s>=_gFlo&&s<=_gCei&&e>=_gFlo&&e<=_gCei;}
+    var sched=rows.filter(_gSched);
+    var unsched=rows.filter(function(t){return !_gSched(t);});
     var dom=gDomain(rows),min=dom[0],max=dom[1],span=Math.max(max-min,86400000);
     window._gDom={min:min,span:span};
     if(window._gLabelW==null){var _lw=null;try{_lw=parseInt(localStorage.getItem("pm_g_label_w"),10);}catch(_e){}window._gLabelW=(_lw&&_lw>=220&&_lw<=520)?_lw:220;}
