@@ -1043,15 +1043,21 @@
   function pmProjTagCache(name,tags){var rows=window._pm_projects||[];for(var i=0;i<rows.length;i++){if(rows[i].name===name){rows[i]._user_tags=tags||"";break;}}}
   function pmProjTagFilterOptions(sel){sel=sel||"";return '<option value="">Tất cả nhãn</option>'+pmAllProjTags().map(function(t){return '<option value="'+esc(t)+'"'+(t===sel?' selected':'')+'>'+esc(t)+'</option>';}).join("");}
   function pmProjTagAddPopover(anchor,proj){var ex=document.getElementById("pm-ptagpop");if(ex)ex.remove();
-    var w=document.createElement("div");w.id="pm-ptagpop";w.style.cssText="position:absolute;z-index:9998;background:#fff;border:1px solid var(--gray-200);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:8px;width:220px";
-    w.innerHTML='<div style="font-size:11px;color:var(--gray-500);margin-bottom:5px">Thêm nhãn (brand…)</div><div style="display:flex;gap:6px;align-items:center"><input class="pm-input" id="pm-ptag-inp" placeholder="Tên nhãn" style="flex:1 1 auto;min-width:0;padding-left:9px;background-image:none;font-size:12.5px"><button class="pm-btn primary" id="pm-ptag-go" style="flex:0 0 auto;font-size:12.5px;padding:6px 12px">Thêm</button></div>';
-    document.body.appendChild(w);var r=anchor.getBoundingClientRect();w.style.top=(r.bottom+window.scrollY+4)+"px";w.style.left=(Math.max(8,r.left+window.scrollX-60))+"px";
+    var pobj=(window._pm_projects||[]).filter(function(p){return p.name===proj;})[0];var have=pobj?pmProjTags(pobj):[];
+    var avail=pmAllProjTags().filter(function(t){return have.indexOf(t)<0;});
+    var w=document.createElement("div");w.id="pm-ptagpop";w.style.cssText="position:absolute;z-index:9998;background:#fff;border:1px solid var(--gray-200);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:10px;width:250px";
+    w.innerHTML='<div style="font-size:11px;color:var(--gray-500);margin-bottom:6px">Thêm nhãn (brand…)</div>'+
+      '<div style="display:flex;gap:6px;align-items:center"><input class="pm-input" id="pm-ptag-inp" placeholder="Tên nhãn mới" style="flex:1 1 auto;min-width:0;padding-left:9px;background-image:none;font-size:12.5px"><button class="pm-btn primary" id="pm-ptag-go" style="flex:0 0 auto;font-size:12.5px;padding:6px 12px;white-space:nowrap">Thêm</button></div>'+
+      (avail.length?('<div style="font-size:10.5px;color:var(--gray-400);margin:9px 0 5px">Nhãn đã có — bấm để chọn</div><div style="display:flex;flex-wrap:wrap;gap:6px">'+avail.map(function(tg){return '<button type="button" class="pm-ptag-pick" data-tag="'+esc(tg)+'" style="border:1px solid #dfe3f0;background:#f5f7ff;color:var(--navy);border-radius:12px;padding:3px 10px;font-size:11px;cursor:pointer">'+esc(tg)+'</button>';}).join("")+'</div>'):'');
+    document.body.appendChild(w);var r=anchor.getBoundingClientRect();w.style.top=(r.bottom+window.scrollY+4)+"px";w.style.left=(Math.max(8,Math.min(r.left+window.scrollX-60,window.innerWidth+window.scrollX-260)))+"px";
     var inp=w.querySelector("#pm-ptag-inp");if(inp)inp.focus();
     function close(){if(w.parentNode)w.parentNode.removeChild(w);document.removeEventListener("mousedown",out);}
     function out(e){if(!w.contains(e.target)&&e.target!==anchor)close();}
     setTimeout(function(){document.addEventListener("mousedown",out);},0);
-    function go(){var v=(inp.value||"").trim();if(!v){toast("Nhập tên nhãn",true);return;}var b=w.querySelector("#pm-ptag-go");b.disabled=true;api(PM+"projects.add_project_tag",{project:proj,tag:v}).then(function(r2){toast("Đã thêm nhãn "+v);pmProjTagCache(proj,r2&&r2._user_tags);close();renderProjectsView();}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});}
-    w.querySelector("#pm-ptag-go").onclick=go;if(inp)inp.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();go();}});}
+    function add(v){v=(v||"").trim();if(!v){toast("Nhập tên nhãn",true);return;}var b=w.querySelector("#pm-ptag-go");if(b)b.disabled=true;api(PM+"projects.add_project_tag",{project:proj,tag:v}).then(function(r2){toast("Đã thêm nhãn "+v);pmProjTagCache(proj,r2&&r2._user_tags);close();renderProjectsView();}).catch(function(e){toast("Lỗi: "+errOf(e),true);if(b)b.disabled=false;});}
+    w.querySelector("#pm-ptag-go").onclick=function(){add(inp.value);};
+    if(inp)inp.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();add(inp.value);}});
+    Array.prototype.forEach.call(w.querySelectorAll(".pm-ptag-pick"),function(b){b.onclick=function(){add(b.getAttribute("data-tag"));};});}
   function pmProjTagRemove(proj,tag){api(PM+"projects.remove_project_tag",{project:proj,tag:tag}).then(function(r2){toast("Đã bỏ nhãn "+tag);pmProjTagCache(proj,r2&&r2._user_tags);renderProjectsView();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});}
   function pmFilterProjects(){var rows=window._pm_projects||[];var q=(el("pm-pq")?el("pm-pq").value:"").toLowerCase();var f=el("pm-pf")?el("pm-pf").value:"";var d=el("pm-pdept")?el("pm-pdept").value:"";var tg=el("pm-ptag")?el("pm-ptag").value:"";
     return rows.filter(function(p){return (!q||(p.project_name||p.name).toLowerCase().indexOf(q)>=0)&&(!f||p.status===f)&&(!d||p.ec_department===d)&&(!tg||pmProjTags(p).indexOf(tg)>=0);});}
