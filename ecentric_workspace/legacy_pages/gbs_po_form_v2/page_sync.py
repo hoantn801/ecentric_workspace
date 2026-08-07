@@ -42,8 +42,15 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "c835882aab6a9e8c64a29876c41f580f6cf07724c433ef6eb8396e8781717505"
+BASELINE_SHA256 = "9b09857c96014bf1fced44368d64f8e8e7f4f2dd27d102a0ba72f5293b661302"
 SUPERSEDES_SHA256 = (
+    # bytes truoc FIX 8 (2026-08-07): file dinh kem cua PO so EC chi len SharePoint
+    # theo phien upload, Purchase Order chi luu ma phien -> trang /approval doc bang
+    # File nen luon "Khong co file dinh kem". Sua: giu lai doi tuong File luc upload
+    # va sau khi tao PO thi dinh kem NATIVE (/api/method/upload_file, is_private=1)
+    # vao chinh PO, dung cach /mso-plan-form lam. Duong SharePoint giu nguyen.
+    # Chi nhanh ecbuy goi ham nay; nhanh GBS khong doi hanh vi.
+    "c835882aab6a9e8c64a29876c41f580f6cf07724c433ef6eb8396e8781717505",
     # bytes truoc khi doi widget "Muc uu tien" cua PO tu 3 nac sang 2 nac
     # (2026-08-04). Ban cu: Thap/TB/Cao = Low/Medium/High, mac dinh Medium.
     # Ban moi: Normal (xanh la) / Urgent (do), mac dinh Normal, gui dung chuoi

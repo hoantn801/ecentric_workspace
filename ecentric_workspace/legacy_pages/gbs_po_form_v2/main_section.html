@@ -2635,6 +2635,12 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     if (window._gbsUploadedFiles[key] && window._gbsUploadedFiles[key].status !== 'error') return;
     console.log('[ec-gbs-upload v3] uploadFile triggered for', key, file.size, 'bytes');
     window._gbsUploadedFiles[key] = { status: 'uploading', progress: 0 };
+    // 2026-08-07 FIX 8: giu lai chinh doi tuong File de nhanh ecbuy (PO so EC) con
+    // dinh kem NATIVE vao Purchase Order sau khi tao xong. Truoc day file chi len
+    // SharePoint theo phien upload va PO chi luu ma phien -> trang /approval doc
+    // bang File nen luon "Khong co file dinh kem". Nhanh GBS khong dung bien nay.
+    window._ecRawFiles = window._ecRawFiles || {};
+    window._ecRawFiles[key] = file;
     updateUI();
 
     fetch('/api/method/gbs_create_upload_session', {
@@ -3060,6 +3066,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       if (!nameEl) return;
       var name = (nameEl.textContent || '').trim();
       if (!name) return;
+      if (window._ecRawFiles) delete window._ecRawFiles[name];   // FIX 8
       if (window._gbsUploadedFiles && window._gbsUploadedFiles[name]) {
         delete window._gbsUploadedFiles[name];
         console.log('[ec-upload-remove-sync] removed', name, 'from _gbsUploadedFiles');
@@ -6244,9 +6251,36 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         var doc = JSON.parse(txt).data;
         var r2 = await fetch('/api/method/frappe.model.workflow.apply_workflow', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({doc: doc, action: 'Submit for Approval'})});
         if (!r2.ok) throw new Error(frappeErr(await r2.text(), 'Trinh duyet PO loi'));
+        // FIX 8: day file cua form vao chinh PO bang duong native de trang /approval
+        // hien duoc (SharePoint van giu nguyen).
+        try { await ecAttachRawFiles('Purchase Order', doc.name); } catch (_e) {}
         notice('✓ Đã tạo + gửi duyệt PO sổ EC: '+doc.name+' ('+(doc.ec_in_out_budget||'')+')', false);
       }catch(e){ notice('Lỗi: '+e.message, true); btn.disabled=false; }
     }, true);
+  }
+
+  // ---- FIX 8 (2026-08-07): dinh kem NATIVE vao chung tu so EC ----
+  function ecAttachRawFiles(doctype, docname){
+    var map = window._ecRawFiles || {};
+    var keys = Object.keys(map);
+    if (!keys.length) return Promise.resolve(0);
+    var done = 0;
+    var chain = Promise.resolve();
+    keys.forEach(function(k){
+      chain = chain.then(function(){
+        var f = map[k];
+        if (!f) return;
+        var fd = new FormData();
+        fd.append('file', f);
+        fd.append('doctype', doctype);
+        fd.append('docname', docname);
+        fd.append('is_private', '1');
+        return fetch('/api/method/upload_file', {method:'POST', credentials:'include', body: fd})
+          .then(function(r){ if (r.ok) { done++; } else { console.warn('[ec-attach-native] loi', k, r.status); } })
+          ['catch'](function(e){ console.warn('[ec-attach-native] loi', k, e); });
+      });
+    });
+    return chain.then(function(){ return done; });
   }
 
   // capture upload session id (dùng chung SP session của form gốc)

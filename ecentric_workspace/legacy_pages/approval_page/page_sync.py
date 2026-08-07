@@ -75,7 +75,7 @@ def _html():
 # values, so a repo snapshot can never silently revert a live edit. Deliberate
 # update = edit main_section.html, bump this constant, and move the value it
 # replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "03f31b79f6c5b9530c2d0f0ee4e49e7cec4a60642230154163281adc8d0ae7e0"
+BASELINE_SHA256 = "21e8668cfff0eb9f24ed77ccad4cda49de6f2b2ec7f548cef6b67a78401477d4"
 
 # Live values this snapshot is allowed to overwrite. C4b was authored in the
 # repo, not on the site, so at deploy time live still holds the #138 bytes
@@ -89,6 +89,25 @@ BASELINE_SHA256 = "03f31b79f6c5b9530c2d0f0ee4e49e7cec4a60642230154163281adc8d0ae
 # it listed lets those environments sync forward; on team.ecentric.vn live is
 # already at BASELINE_SHA256, so the first sync there returns "unchanged".
 SUPERSEDES_SHA256 = (
+    # bytes truoc khoi #ec-ecdoc-detail (2026-08-07): khung "Chi tiet" cua SO/PO so EC
+    # gan nhu trong vi nhanh so/po trong ham dung chi tiet van doc bo truong cua mo
+    # hinh Power Automate cu (service_name, master_service_ref, total_est_revenue,
+    # platform) -- Sales Order / Purchase Order native khong co truong nao trong so do.
+    # Sua bang khoi rieng doc thang /api/resource, khong dong vao ham cu.
+    "6335b8c6143d14236058a2b63f9f1cccdb7942bb43c097420918986782680863",
+    # bytes chi thieu nhan "Draft -> Pending Finance" (2026-08-07): SO nao bi
+    # ec_so_before_save bo qua cap 1 (nguoi duyet cap 1 trung HOF/CEO) thi Version
+    # ghi thang Draft -> Pending Finance, khong khop bang nhan nen dong lich su hien
+    # tho "Draft -> Pending Finance". Da bat duoc tren live voi SAL-ORD-2026-00052.
+    "bb071cdcd3ee9478dc61ccd638ad0c92c0ccc506c29fe992d2bfd9121640198b",
+    # bytes truoc khi mo khoi #ec-mso-thread cho SO/PO (2026-08-07): trang duyet cua
+    # SO/PO so EC khong co luong trao doi, khong them/xoa duoc tep dinh kem va khong
+    # co lich su duyet -- trong khi MSO da co tu 2026-08-04. Sua: doi cong gate tu
+    # ticketType === 'mso' sang bang TYPE_MAP {mso, so, po} + bang nhan buoc duyet
+    # rieng cho workflow "EC SO Approval" / "EC PO Approval". Khong sua backend:
+    # ec_mso_thread va ec_mso_remove_attachment von da nhan moi doctype khong bat
+    # dau bang "GBS ". Nhanh gbs_so/gbs_po giu nguyen #ec-gbs-timeline.
+    "03f31b79f6c5b9530c2d0f0ee4e49e7cec4a60642230154163281adc8d0ae7e0",
     "3f825f4e4761a69d1cdb6033eeabbd1b8b23476c2fad33d9226b137c124a4454",  # #138
     "4d5ea138c4674b114df4451289d138ad80a9e512a37d705819b975dec13ef361",  # C4b (#64)
     # pre-merge-v1 bytes: what live held after ec-resubmit-repoll-v1 was applied

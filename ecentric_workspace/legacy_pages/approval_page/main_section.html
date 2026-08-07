@@ -6405,16 +6405,30 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
   }
   var ticketType = urlParam('type');
   var ticketId = urlParam('id');
-  if (ticketType !== 'mso') return;
+  /* 2026-08-07: mo rong tu 'mso' sang ca 'so' va 'po' (SO/PO SO EC, doctype native).
+     Truoc do trang duyet cua SO/PO khong co cho trao doi, khong them/xoa duoc tep,
+     khong co lich su duyet -- trong khi MSO da co tu 2026-08-04. Hai endpoint
+     ec_mso_thread / ec_mso_remove_attachment VON DA nhan moi doctype khong bat dau
+     bang "GBS " nen khong phai sua backend, chi mo cong o day.
+     KHONG dung cho gbs_so/gbs_po: hai loai do da co #ec-gbs-timeline rieng va rang
+     buoc "GBS SO PO dang chay on roi khong dong vao" van giu nguyen. */
+  var TYPE_MAP = {
+    'mso': { doctype: 'MSO',            label: 'MSO' },
+    'so':  { doctype: 'Sales Order',    label: 'SO sổ EC' },
+    'po':  { doctype: 'Purchase Order', label: 'PO sổ EC' }
+  };
+  var CFG = TYPE_MAP[ticketType];
+  if (!CFG) return;
   if (!ticketId) return;
-  var DOCTYPE = 'MSO';
+  var DOCTYPE = CFG.doctype;
+  var LABEL = CFG.label;
   console.log('[ec-mso-thread] active for', DOCTYPE, ticketId);
 
   var STATE = { files: [], comments: [], events: [], user: '', canWrite: 0, loaded: false };
 
   /* Nhan tieng Viet cho tung buoc workflow "MSO Approval". Key = "<tu>|<den>".
      Dat o front-end de server giu nguyen du lieu tho tu tabVersion. */
-  var EV_LABEL = {
+  var EV_LABEL_MSO = {
     'Draft|Pending Manager': 'Trình duyệt',
     'Rejected|Pending Manager': 'Trình lại sau khi bị từ chối',
     'Pending Manager|Pending Finance': 'Duyệt cấp 1 — Leader',
@@ -6422,6 +6436,30 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
     'Pending HOF|Pending CEO': 'Duyệt cấp 3 — HOF',
     'Pending CEO|Approved': 'Duyệt cấp 4 — CEO (hoàn tất)'
   };
+  /* Doc thang tu Workflow "EC SO Approval" tren live 2026-08-07: SO co HAI nhanh --
+     nhanh 4 cap (Manager > Finance > HOF > CEO) cho SO thuong, va nhanh Sales Admin
+     > GBS cho SO di qua GBS. */
+  var EV_LABEL_SO = {
+    'Draft|Pending Manager': 'Trình duyệt',
+    'Draft|Pending Sales Admin': 'Trình duyệt (luồng GBS)',
+    /* ec_so_before_save bo qua cap 1 khi nguoi duyet cap 1 trung HOF/CEO -> Version
+       ghi thang Draft -> Pending Finance, khong co moc Pending Manager. */
+    'Draft|Pending Finance': 'Trình duyệt (cấp 1 tự động bỏ qua)',
+    'Rejected|Draft': 'Gửi lại sau khi bị từ chối',
+    'Pending Manager|Pending Finance': 'Duyệt cấp 1 — Leader',
+    'Pending Finance|Pending HOF': 'Duyệt cấp 2 — Sale Admin / Finance',
+    'Pending HOF|Pending CEO': 'Duyệt cấp 3 — HOF',
+    'Pending CEO|Approved': 'Duyệt cấp 4 — CEO (hoàn tất)',
+    'Pending Sales Admin|Pending GBS': 'Sales Admin duyệt — chuyển sang GBS'
+  };
+  /* Workflow "EC PO Approval": 1 cap duy nhat (Sales Admin). */
+  var EV_LABEL_PO = {
+    'Draft|Pending Sales Admin': 'Trình duyệt',
+    'Rejected|Draft': 'Gửi lại sau khi bị từ chối',
+    'Pending Sales Admin|Approved': 'Duyệt — Sales Admin (hoàn tất)'
+  };
+  var EV_LABEL = (DOCTYPE === 'Sales Order') ? EV_LABEL_SO
+    : (DOCTYPE === 'Purchase Order') ? EV_LABEL_PO : EV_LABEL_MSO;
   function evLabel(ev) {
     var from = ev.from_state || '', to = ev.to_state || '';
     var k = from + '|' + to;
@@ -6612,7 +6650,7 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
           + '<span class="ec-msoatt-sub" style="display:block">' + esc(sub) + '</span></span>'
           + '</a>';
         if (f.can_delete) {
-          html += '<button type="button" class="ec-msoatt-del" title="Xoá tệp khỏi MSO này"'
+          html += '<button type="button" class="ec-msoatt-del" title="Xoá tệp khỏi ' + LABEL + ' này"'
             + ' data-att-file="' + esc(f.name) + '"'
             + ' data-att-label="' + esc(f.file_name || 'attachment') + '">×</button>';
         }
@@ -6642,7 +6680,7 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
     var fname = btn.getAttribute('data-att-file');
     var label = btn.getAttribute('data-att-label') || fname;
     if (!fname) return;
-    if (!window.confirm('Xoá tệp "' + label + '" khỏi MSO này?')) return;
+    if (!window.confirm('Xoá tệp "' + label + '" khỏi ' + LABEL + ' này?')) return;
     btn.disabled = true;
     attMsg('Đang xoá "' + label + '"…', '');
     fetch('/api/method/ec_mso_remove_attachment', {
@@ -6722,7 +6760,7 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
       '  <div class="mt-status" id="ec-mso-thread-status"></div>',
       '  <div class="mt-feed" id="ec-mso-thread-feed"><div class="mt-empty">Đang tải…</div></div>',
       '  <div class="mt-reply" id="ec-mso-thread-reply" style="display:none">',
-      '    <div class="mt-input" id="ec-mso-thread-input" contenteditable="true" data-placeholder="Nhập nội dung trao đổi về MSO này... (dán ảnh bằng Ctrl+V)"></div>',
+      '    <div class="mt-input" id="ec-mso-thread-input" contenteditable="true" data-placeholder="Nhập nội dung trao đổi về ' + LABEL + ' này... (dán ảnh bằng Ctrl+V)"></div>',
       '    <button type="button" class="mt-send" id="ec-mso-thread-send">Gửi</button>',
       '  </div>',
       '  <div class="mt-hint" id="ec-mso-thread-hint"></div>',
@@ -6785,7 +6823,7 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
     var reply = document.getElementById('ec-mso-thread-reply');
     var hint = document.getElementById('ec-mso-thread-hint');
     if (reply) reply.style.display = '';
-    if (hint) hint.textContent = 'Ctrl+Enter để gửi nhanh. Dán ảnh trực tiếp bằng Ctrl+V. Nội dung lưu ngay trên MSO này, không đẩy sang GBS.';
+    if (hint) hint.textContent = 'Ctrl+Enter để gửi nhanh. Dán ảnh trực tiếp bằng Ctrl+V. Nội dung lưu ngay trên ' + LABEL + ' này, không đẩy sang GBS.';
   }
 
   /* ---------------- dan anh vao o trao doi ---------------- */
@@ -7010,3 +7048,192 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
   else init();
 })();
 </script><!-- /ec-mso-thread -->
+<script id="ec-ecdoc-detail">
+/* 2026-08-07: khung "Chi tiet" cua SO/PO SO EC tren /approval gan nhu trong.
+   Nguyen nhan: nhanh `type === 'so'` / `type === 'po'` trong ham dung chi tiet van
+   doc bo truong cua mo hinh Power Automate cu (service_name, master_service_ref,
+   total_est_revenue, platform...). Sales Order / Purchase Order native khong he co
+   nhung truong do -> moi dong deu ra "—", va khong co bang mat hang, khong co MSO
+   tham chieu, khong co ngay giao dich, khong co VAT.
+   Khoi nay KHONG sua ham cu (van phuc vu mso/gbs_so/gbs_po) ma doc thang chung tu
+   qua /api/resource roi ve lai than khung "Chi tiet" cho dung 2 loai nay. */
+(function () {
+  'use strict';
+  if (window._ecDocDetailInstalled) return;
+  window._ecDocDetailInstalled = true;
+
+  function urlParam(k) {
+    var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)'));
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  var ticketType = urlParam('type');
+  var ticketId = urlParam('id');
+  var MAP = { 'so': 'Sales Order', 'po': 'Purchase Order' };
+  var DOCTYPE = MAP[ticketType];
+  if (!DOCTYPE || !ticketId) return;
+  var IS_SO = (DOCTYPE === 'Sales Order');
+  var DOC = null;
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function money(n) {
+    var v = Number(n || 0);
+    if (!v) return '0 đ';
+    return v.toLocaleString('vi-VN') + ' đ';
+  }
+  function qty(n) {
+    var v = Number(n || 0);
+    return (Math.round(v * 100) / 100).toLocaleString('vi-VN');
+  }
+  function dmy(s) {
+    if (!s) return '';
+    var p = String(s).substring(0, 10).split('-');
+    return p.length === 3 ? (p[2] + '/' + p[1] + '/' + p[0]) : String(s);
+  }
+
+  function row(label, value, cls) {
+    if (value === null || value === undefined || value === '') return '';
+    return '<div class="row"><div class="lbl">' + esc(label) + '</div>'
+      + '<div class="val ' + (cls || '') + '">' + value + '</div></div>';
+  }
+  function rowT(label, value, cls) { return row(label, esc(value), cls); }
+
+  function section(title, inner) {
+    if (!inner) return '';
+    return '<div class="detail-section"><div class="detail-section-title">' + esc(title) + '</div>'
+      + inner + '</div>';
+  }
+
+  function itemsTable(d) {
+    var its = d.items || [];
+    if (!its.length) return '';
+    var h = '<div style="overflow-x:auto"><table class="ec-ecdoc-items">'
+      + '<thead><tr><th>Mã hàng</th><th>Tên</th><th class="r">SL</th><th class="r">Đơn giá</th><th class="r">Thành tiền</th></tr></thead><tbody>';
+    its.forEach(function (it) {
+      h += '<tr><td class="mono">' + esc(it.item_code || '') + '</td>'
+        + '<td>' + esc(it.item_name || '') + '</td>'
+        + '<td class="r">' + esc(qty(it.qty)) + '</td>'
+        + '<td class="r">' + esc(money(it.rate)) + '</td>'
+        + '<td class="r b">' + esc(money(it.amount)) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    return h;
+  }
+
+  function budgetPill(v) {
+    if (!v) return '';
+    var ok = (String(v).indexOf('In Budget') === 0);
+    return '<span class="pill ' + (ok ? 'in-budget' : 'out-budget') + '">' + esc(v) + '</span>';
+  }
+
+  function buildHtml(d) {
+    var gen = '';
+    if (IS_SO) {
+      gen += rowT('Khách hàng', d.customer);
+      gen += rowT('Brand', d.ec_brand);
+      gen += rowT('Kênh', d.ec_channel);
+      gen += rowT('Team / Phòng ban', d.ec_team);
+      gen += rowT('Store (Platform)', d.ec_store);
+      gen += rowT('MSO tham chiếu', d.ec_mso, 'mono');
+      gen += rowT('Tháng MSO', d.ec_mso_month);
+      gen += rowT('Hợp đồng', d.ec_contract, 'mono');
+      if (d.ec_external_service) gen += rowT('Dịch vụ ngoài', 'Có');
+      gen += rowT('Ngày đặt hàng', dmy(d.transaction_date));
+      gen += rowT('Ngày giao hàng', dmy(d.delivery_date));
+      gen += rowT('GBS SO đối ứng', d.ec_gbs_so_ref, 'mono');
+    } else {
+      gen += rowT('Nhà cung cấp', d.supplier);
+      gen += rowT('SO tham chiếu', d.ec_so, 'mono');
+      gen += rowT('Brand', d.ec_brand);
+      gen += rowT('Team / Phòng ban', d.ec_team);
+      gen += rowT('Ngày đặt hàng', dmy(d.transaction_date));
+      gen += rowT('Ngày cần hàng', dmy(d.schedule_date));
+    }
+    gen += rowT('Người tạo', d.owner);
+    gen += row('Trạng thái duyệt', '<span class="pill">' + esc(d.workflow_state || '') + '</span>', 'raw');
+    var bp = budgetPill(d.ec_in_out_budget);
+    if (bp) gen += row(IS_SO ? 'In/Out Budget' : 'In/Out Budget (vs SO)', bp, 'raw');
+    if (d.ec_over_justification) gen += rowT('Lý do giải trình', d.ec_over_justification);
+    if (d.ec_revision_count) gen += rowT('Số lần gửi lại', String(d.ec_revision_count));
+    if (d.ec_revision_reason) gen += rowT('Lý do gửi lại', d.ec_revision_reason);
+    if (d.ec_mso_warning) gen += rowT('Cảnh báo MSO', d.ec_mso_warning);
+
+    var fin = '';
+    fin += row('Tổng (chưa VAT)', esc(money(d.net_total)), 'money');
+    if (IS_SO && d.ec_vat_template) fin += rowT('VAT template', d.ec_vat_template);
+    if (!IS_SO && d.taxes_and_charges) fin += rowT('Thuế (template)', d.taxes_and_charges);
+    fin += row('Thuế', esc(money(d.total_taxes_and_charges)), 'money');
+    fin += row('Tổng cộng (đã VAT)', '<b>' + esc(money(d.grand_total)) + '</b>', 'money');
+
+    return section('Thông tin chung', gen)
+      + section('Chi tiết mặt hàng', itemsTable(d))
+      + section('Tài chính', fin)
+      + section('Metadata', rowT('Tạo lúc', String(d.creation || '').substring(0, 19))
+        + rowT('Cập nhật lần cuối', String(d.modified || '').substring(0, 19)
+          + (d.modified_by ? ' — ' + d.modified_by : '')));
+  }
+
+  if (!document.getElementById('ec-ecdoc-detail-css')) {
+    var st = document.createElement('style');
+    st.id = 'ec-ecdoc-detail-css';
+    st.textContent = [
+      '.ec-ecdoc-items { width:100%; border-collapse:collapse; font-size:12.5px; margin-top:4px; }',
+      '.ec-ecdoc-items th { text-align:left; font-size:10.5px; letter-spacing:.4px; text-transform:uppercase;',
+      '  color:#6b7280; font-weight:700; padding:6px 8px; border-bottom:1px solid #e5e7eb; white-space:nowrap; }',
+      '.ec-ecdoc-items td { padding:7px 8px; border-bottom:1px solid #f3f4f6; color:#374151; vertical-align:top; }',
+      '.ec-ecdoc-items th.r, .ec-ecdoc-items td.r { text-align:right; white-space:nowrap; }',
+      '.ec-ecdoc-items td.b { font-weight:600; color:#111827; }',
+      '.ec-ecdoc-items td.mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px; }',
+      '.ec-ecdoc-items tr:last-child td { border-bottom:none; }'
+    ].join('\n');
+    document.head.appendChild(st);
+  }
+
+  function detailPanel() {
+    var titles = document.querySelectorAll('.panel .panel-title');
+    for (var i = 0; i < titles.length; i++) {
+      var t = (titles[i].textContent || '').trim().toLowerCase();
+      if (t === 'chi tiết' || t === 'chi tiet') return titles[i].closest('.panel');
+    }
+    return null;
+  }
+
+  function paint() {
+    if (!DOC) return false;
+    var panel = detailPanel();
+    if (!panel) return false;
+    var body = panel.querySelector('.panel-body');
+    if (!body) return false;
+    if (body.getAttribute('data-ec-ecdoc') === ticketId) return true;
+    body.innerHTML = buildHtml(DOC);
+    body.setAttribute('data-ec-ecdoc', ticketId);
+    return true;
+  }
+
+  var _tries = 0;
+  function tick() {
+    _tries++;
+    if (!paint() && _tries < 60) setTimeout(tick, 500);
+  }
+
+  fetch('/api/resource/' + encodeURIComponent(DOCTYPE) + '/' + encodeURIComponent(ticketId), {
+    credentials: 'include'
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    DOC = (d && d.data) || null;
+    if (!DOC) { console.warn('[ec-ecdoc-detail] khong doc duoc chung tu'); return; }
+    tick();
+    var content = document.getElementById('content');
+    if (content && !window._ecDocDetailObserver) {
+      var obs = new MutationObserver(function () {
+        var p = detailPanel();
+        var b = p ? p.querySelector('.panel-body') : null;
+        if (b && b.getAttribute('data-ec-ecdoc') !== ticketId) paint();
+      });
+      obs.observe(content, { childList: true, subtree: true });
+      window._ecDocDetailObserver = obs;
+    }
+  })['catch'](function (e) { console.warn('[ec-ecdoc-detail]', e); });
+})();
+</script><!-- /ec-ecdoc-detail -->
