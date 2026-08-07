@@ -1357,7 +1357,7 @@
       api(PM+"tasks.set_status",{name:name,action:s}).then(function(){toast(name+" → "+s);pjSetLocalState(name,s);after&&after();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};});}
   function pmListAsgPopover(anchor,name,after){var ex=document.getElementById("pm-lapop");if(ex)ex.remove();
     var w=document.createElement("div");w.id="pm-lapop";w.style.cssText="position:absolute;z-index:9998;background:#fff;border:1px solid var(--gray-200);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:8px;width:236px";
-    w.innerHTML='<div style="font-size:11px;color:var(--gray-500);margin-bottom:5px">Thêm người thực hiện</div><div style="display:flex;gap:6px"><input class="pm-input" id="pm-lasg-inp" placeholder="user@ecentric.vn" style="flex:1;padding-left:9px;background-image:none;font-size:12.5px"><button class="pm-btn primary" id="pm-lasg-go" style="font-size:12.5px">Thêm</button></div>';
+    w.innerHTML='<div style="font-size:11px;color:var(--gray-500);margin-bottom:5px">Thêm người thực hiện</div><div style="display:flex;gap:6px;align-items:center"><input class="pm-input" id="pm-lasg-inp" placeholder="user@ecentric.vn" style="flex:1 1 auto;min-width:0;padding-left:9px;background-image:none;font-size:12.5px"><button class="pm-btn primary" id="pm-lasg-go" style="flex:0 0 auto;font-size:12.5px;padding:6px 12px;white-space:nowrap">Thêm</button></div>';
     document.body.appendChild(w);var r=anchor.getBoundingClientRect();w.style.top=(r.bottom+window.scrollY+4)+"px";w.style.left=(Math.max(8,r.left+window.scrollX-110))+"px";
     var inp=w.querySelector("#pm-lasg-inp");if(inp)inp.focus();
     function close(){if(w.parentNode)w.parentNode.removeChild(w);document.removeEventListener("mousedown",out);}
