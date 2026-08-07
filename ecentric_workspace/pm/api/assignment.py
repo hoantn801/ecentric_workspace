@@ -472,3 +472,18 @@ def pm_assignment_request_before_delete(doc, method=None):
         return
     if doc.get("status") in ("Accepted", "Rejected") or (doc.get("events") or []):
         frappe.throw(_("Yêu cầu đã có lịch sử và không thể xoá."), frappe.PermissionError)
+
+
+@frappe.whitelist()
+def list_assignable():
+    """Directory of assignable users (enabled System Users) for the assignee picker.
+    PM-access gated. Returns [{email, full_name}] sorted by name."""
+    pmperm.require_pm_access()
+    rows = frappe.get_all(
+        "User",
+        filters={"enabled": 1, "user_type": "System User",
+                 "name": ["not in", ["Administrator", "Guest"]]},
+        fields=["name", "full_name"], order_by="full_name asc", limit_page_length=0,
+    )
+    return {"rows": [{"email": r["name"], "full_name": r.get("full_name") or r["name"]}
+                     for r in rows]}

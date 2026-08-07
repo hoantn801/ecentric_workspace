@@ -1766,7 +1766,7 @@
         '<div class="pm-decomp">'+
           '<div class="pm-decomp-tabs" id="pm-decomp-tabs">'+
             '<button class="pm-decomp-tab active" data-dtab="steps">Các bước <span class="pm-decomp-c" id="pm-bt-steps-c"></span></button>'+
-            '<button class="pm-decomp-tab" data-dtab="subs">Nhiệm vụ con <span class="pm-decomp-c" id="pm-bt-subs-c"></span></button>'+
+            (t.parent_task?'':'<button class="pm-decomp-tab" data-dtab="subs">Nhiệm vụ con <span class="pm-decomp-c" id="pm-bt-subs-c"></span></button>')+
           '</div>'+
           '<div class="pm-decomp-panel" id="pm-dp-steps"><div class="pm-decomp-help">Các bước nhỏ để hoàn thành nhiệm vụ này, không theo dõi độc lập.</div><div id="pm-chk"></div></div>'+
           '<div class="pm-decomp-panel" id="pm-dp-subs" style="display:none"><div class="pm-decomp-help">Công việc độc lập, có thể giao người và theo dõi riêng.</div><div class="pm-subs" id="pm-subs"></div></div>'+
@@ -1884,8 +1884,10 @@
     openD();el("pm-drawer").classList.add("pm-d-md");el("pm-dt").textContent=_titleFor(opts.mode==="request"&&!parentTask);var c=el("pm-dbody");c.classList.remove("pm-cols");clearDtInline();spin(c);
     Promise.all([api(PM+"projects.list",{page_length:500}).catch(function(){return {rows:[]};}),
                  api(PM+"labels.list_labels",{}).catch(function(){return {rows:[]};}),
-                 api(PM+"checklist.list_templates",{}).catch(function(){return {rows:[]};})]).then(function(res){
-      var rows=res[0].rows||[],labels=res[1].rows||[],tmpls=res[2].rows||[];
+                 api(PM+"checklist.list_templates",{}).catch(function(){return {rows:[]};}),
+                 api(PM+"assignment.list_assignable",{}).catch(function(){return {rows:[]};})]).then(function(res){
+      var rows=res[0].rows||[],labels=res[1].rows||[],tmpls=res[2].rows||[],asgUsers=(res[3]&&res[3].rows)||[];
+      var asgPickOpts='<option value="">— Chọn nhân viên —</option>'+asgUsers.map(function(u){return '<option value="'+esc(u.email)+'">'+esc(u.full_name||u.email)+'</option>';}).join("");
       /* G4.8c: task ngoài dự án — project is optional; never force a selection. */
       var popts='<option value=""'+(!project?' selected':'')+'>— Ngoài dự án —</option>'+rows.map(function(p){return '<option value="'+esc(p.name)+'"'+(p.name===project?' selected':'')+'>'+esc(p.project_name||p.name)+'</option>';}).join("");
       var pri=["Low","Medium","High","Urgent"].map(function(x){return '<option'+(x==="Medium"?' selected':'')+'>'+x+'</option>';}).join("");
@@ -1899,7 +1901,7 @@
         pmFieldInput("Dự án",'<select class="pm-sel" id="nt-project" style="width:100%">'+popts+'</select>')+
         '<div id="nt-parent-wrap">'+pmFieldInput("Nhiệm vụ cha",'<select class="pm-sel" id="nt-parent" style="width:100%"><option value="">— Không —</option></select>')+'</div>'+
         '<div class="pm-dsec">Phân công</div>'+
-        pmFieldInput('<span id="nt-asg-lbl">Người phụ trách</span>','<div id="nt-assignee" class="pm-chipbox"></div><div id="nt-asg-help" class="pm-asg-help" style="display:none">Yêu cầu xác nhận hiện chỉ hỗ trợ 1 người nhận. Chọn Phân công ngay để giao cho nhiều người.</div>')+ /* G5.2 fix: multi-assignee chip input + request-mode single-recipient guard */
+        pmFieldInput('<span id="nt-asg-lbl">Người phụ trách</span>','<select class="pm-sel" id="nt-asg-pick" style="width:100%;margin-bottom:6px">'+asgPickOpts+'</select><div id="nt-assignee" class="pm-chipbox"></div><div id="nt-asg-help" class="pm-asg-help" style="display:none">Yêu cầu xác nhận hiện chỉ hỗ trợ 1 người nhận. Chọn Phân công ngay để giao cho nhiều người.</div>')+ /* G5.2 fix: dropdown picker + multi-assignee chips + request-mode single-recipient guard */
         pmFieldInput("Ưu tiên",'<select class="pm-sel" id="nt-priority" style="width:100%">'+pri+'</select>')+
         '<div class="pm-dsec">Lịch</div>'+
         '<div id="nt-sched-d" style="display:flex;gap:10px">'+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="nt-start" type="date">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="nt-end" type="date">')+'</div>'+
@@ -1912,8 +1914,10 @@
       _niFix(c);
       function loadParents(pre){api(PM+"tasks.list",{project:el("nt-project").value,page_length:200}).then(function(d){el("nt-parent").innerHTML='<option value="">— Không —</option>'+(d.rows||[]).filter(function(t){return !t.parent_task;}).map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.subject||t.name)+'</option>';}).join("");if(pre)el("nt-parent").value=pre;}).catch(function(){});}
       el("nt-project").onchange=function(){loadParents();}; loadParents(parentTask);
+      if(parentTask){["nt-project","nt-parent"].forEach(function(id){var e2=el(id);if(e2){e2.disabled=true;e2.style.opacity=".55";e2.style.cursor="not-allowed";e2.title="Đã chọn sẵn từ nhiệm vụ cha";}});} /* subtask: project+parent locked/dimmed */
       pmLabelPicker(el("nt-labels"),{labels:labels,selected:[]}); /* G5.2 §B shared picker */
-      pmEmailChips(el("nt-assignee"),{placeholder:"Nhập email và nhấn Enter",max:(opts.mode==="request"&&!parentTask)?1:1e9,onChange:function(){updateAsgState();}}); /* G5.2 fix: multi-assignee */
+      pmEmailChips(el("nt-assignee"),{placeholder:"Hoặc gõ email…",max:(opts.mode==="request"&&!parentTask)?1:1e9,onChange:function(){updateAsgState();}}); /* G5.2 fix: multi-assignee */
+      if(el("nt-asg-pick"))el("nt-asg-pick").onchange=function(){var v=this.value;if(!v)return;var box=el("nt-assignee");if(box&&box._addOne)box._addOne(v);this.value="";}; /* pick employee from dropdown -> add chip */
       var _submitting=false; /* G5.2 fix: double-submit guard */
       function updateAsgState(){ var rm=_m.v==="request"; var n=pmEmailChipsGet(el("nt-assignee")).length; /* G5.2 UX guard: Request mode <= 1 recipient */
         var help=el("nt-asg-help"); if(help)help.style.display=rm?"":"none";
@@ -2727,6 +2731,7 @@
       inp.onblur=function(){ if(inp.value.trim()){ addRaw(inp.value); inp.value=""; render(); changed(); } };
     }
     host._render=render;
+    host._addOne=function(v){addRaw(v);render();changed();};
     render();
   }
   function pmLabelPicker(host, opts){
