@@ -1780,7 +1780,8 @@
          hours ad-hoc (multiple times, task need not be done). */
       h+='<div style="margin-bottom:10px"><button class="pm-btn" id="wt-add"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Ghi giờ</button></div>';
     }
-    h+='<details class="dc-analytics"><summary style="cursor:pointer;font-size:12.5px;color:var(--gray-600);user-select:none">Giờ đã xử lý — Tổng <b style="color:var(--gray-900)">'+total+'h</b>'+(rows.length?(' · '+rows.length+' lần'):'')+'</summary><div style="margin-top:6px">'+
+    var subH=Math.round(((d.subtask_hours)||0)*100)/100;var rollup=Math.round((total+subH)*100)/100;
+    h+='<details class="dc-analytics"><summary style="cursor:pointer;font-size:12.5px;color:var(--gray-600);user-select:none">Giờ đã xử lý — Tổng <b style="color:var(--gray-900)">'+rollup+'h</b>'+(subH>0?' <span style="color:var(--gray-400);font-weight:400">(gồm '+subH+'h từ nhiệm vụ con'+(total>0?', '+total+'h của task này':'')+')</span>':'')+(rows.length?(' · '+rows.length+' lần'):'')+'</summary><div style="margin-top:6px">'+
       (rows.length?rows.map(function(r){return '<div class="pm-sub"><span>'+esc((r.from_time||"").slice(0,10))+' · '+esc(r.hours)+'h'+(r.description?' · '+esc(r.description):'')+'</span><span class="pm-mini-av" title="'+esc(r.owner||"")+'">'+ini(r.owner||"")+'</span></div>';}).join(""):'<div style="font-size:12.5px;color:var(--gray-400);padding:6px 0">Chưa có log giờ.</div>')+
       '</div></details>';
     b.innerHTML=h;
