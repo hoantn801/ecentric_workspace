@@ -1271,7 +1271,7 @@
     return Object.keys(inSet).map(function(k){return inSet[k];});}
   function uniq(a){var o={},r=[];a.forEach(function(x){if(x&&!o[x]){o[x]=1;r.push(x);}});return r;}
   function opt(v,l,sel){return '<option value="'+esc(v)+'"'+(sel===v?' selected':'')+'>'+esc(l)+'</option>';}
-  function filterBar(){var ts=window._pm_tasks||[];
+  function filterBar(compact){var ts=window._pm_tasks||[];
     var projs=uniq(ts.map(function(t){return t.project;}));
     var asg=uniq([].concat.apply([],ts.map(function(t){return names(t._assign);})));
     var pri=uniq(ts.map(function(t){return t.priority;}));
@@ -1285,8 +1285,8 @@
       '<select class="pm-sel" id="f-project"><option value="">Dự án</option>'+projs.map(function(p){return opt(p,p,F.project);}).join("")+'</select>'+
       '<select class="pm-sel" id="f-priority"><option value="">Ưu tiên</option>'+pri.map(function(p){return opt(p,p,F.priority);}).join("")+'</select>'+
       '<button class="pm-btn" id="f-clear">Xóa</button>'+
-      '<span class="pm-fdiv"></span>'+
-      P.map(function(p){return '<button class="pm-btn pm-preset'+(F.preset===p[0]?" primary":"")+'" data-preset="'+p[0]+'">'+p[1]+'</button>';}).join("")+
+      (compact?'':('<span class="pm-fdiv"></span>'+
+      P.map(function(p){return '<button class="pm-btn pm-preset'+(F.preset===p[0]?" primary":"")+'" data-preset="'+p[0]+'">'+p[1]+'</button>';}).join("")))+
       '</div>';}
   function wireFilters(rerender){
     var q=el("f-q");if(q)q.oninput=function(){F.q=this.value.toLowerCase();rerender();};
@@ -1334,35 +1334,40 @@
 
   function pmBoardGroup(){if(window._boardGroup)return window._boardGroup;var v="status";try{v=localStorage.getItem("pm_board_group")||"status";}catch(_){}window._boardGroup=v;return v;}
   function setBoardGroup(g){window._boardGroup=g;try{localStorage.setItem("pm_board_group",g);}catch(_){}}
-  function boardGroupBar(){var g=pmBoardGroup();return '<div class="pm-bgrp" style="display:flex;align-items:center;gap:8px;margin:0 0 10px"><span style="font-size:12px;color:var(--gray-500)">Nhóm:</span><div class="seg"><button data-bg="status" class="'+(g==="status"?"active":"")+'">Trạng thái</button><button data-bg="project" class="'+(g==="project"?"active":"")+'">Dự án</button></div></div>';}
+  function boardGroupBar(){var g=pmBoardGroup();function b(k,t){return '<button data-bg="'+k+'" class="'+(g===k?"active":"")+'">'+t+'</button>';}
+    return '<div class="pm-bgrp" style="display:flex;align-items:center;gap:8px;margin:0 0 10px"><span style="font-size:12px;color:var(--gray-500)">Nhóm:</span><div class="seg">'+b("status","Trạng thái")+b("project","Dự án")+b("person","Người")+'</div></div>';}
   function showBoard(){var c=el("pm-view");spin(c);
     loadTasks(function(){
       c.innerHTML=workHeader("board")+
-        filterBar()+boardGroupBar()+'<div id="pm-boardwrap"></div>';
+        filterBar(true)+boardGroupBar()+'<div id="pm-boardwrap"></div>';
       wireWorkTabs(); wireFilters(renderBoard);
       Array.prototype.forEach.call(c.querySelectorAll("[data-bg]"),function(b){b.onclick=function(){setBoardGroup(b.getAttribute("data-bg"));showBoard();};});
       renderBoard();
     },c);}
   var _PM_SDOT={"To Do":"#9ca3af","In Progress":"#3b82f6","Review":"#f59e0b","Done":"#22c55e","Cancelled":"#9ca3af","Backlog":"#9ca3af"};
   function pmStatusDot(s){var c=_PM_SDOT[s]||"#9ca3af";return '<span class="pm-sdot" title="'+esc(s||"")+'" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+c+';flex:0 0 auto;margin-right:8px"></span>';}
-  function pmRenderBoardByProject(host,allRows,roots){
-    /* MS-Teams "Group by" style: one COLUMN per project; root tasks are cards
-       stacked in the column; each card shows its subtasks (1 level) inline. */
+  function pjCheck(t){var done=(t.workflow_state==="Done");return '<span class="pj-check" data-task="'+esc(t.name)+'" data-done="'+(done?1:0)+'" title="'+(done?"Bỏ hoàn thành":"Đánh dấu hoàn thành")+'" style="flex:0 0 auto;width:17px;height:17px;border-radius:50%;border:1.5px solid '+(done?"#22c55e":"#cbd5e1")+';background:'+(done?"#22c55e":"#fff")+';color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;line-height:1;cursor:pointer;margin-right:8px;margin-top:1px">'+(done?"✓":"")+'</span>';}
+  function pjToggleDone(name,done){if(done){api(PM+"tasks.set_status",{name:name,action:"To Do"}).then(function(){toast(name+" → To Do");renderBoard();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});}else{openDonePopup(name,"Done",function(){renderBoard();});}}
+  function pmRenderBoardGrouped(host,allRows,roots,mode){
+    /* MS-Teams "Group by" columns. mode: project|person. Each column = a group;
+       root tasks stacked as cards; subtasks inline; round completion checkbox. */
     var byParent={};allRows.forEach(function(t){if(t.parent_task)(byParent[t.parent_task]=byParent[t.parent_task]||[]).push(t);});
-    var byP={},ord=[];roots.forEach(function(t){var k=t.project||"";if(!byP[k]){byP[k]=[];ord.push(k);}byP[k].push(t);});
-    ord.sort(function(a,b){if(!a)return 1;if(!b)return -1;var la=(byP[a][0].project_name||a),lb=(byP[b][0].project_name||b);return String(la).localeCompare(String(lb));});
-    function subRow(t){return '<div class="pj-sub" data-task="'+esc(t.name)+'" style="display:flex;align-items:center;font-size:12.5px;color:var(--gray-700);cursor:pointer">'+pmStatusDot(t.workflow_state)+'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(t.subject||t.name)+'</span></div>';}
-    function pcard(t){var kids=byParent[t.name]||[];var lbls=labelChips(t,2);
-      return '<div class="pm-card'+(isOverdue(t)?' card-overdue':'')+'" data-task="'+esc(t.name)+'" style="cursor:pointer">'+
-        '<div class="c-title">'+esc(t.subject||t.name)+'</div>'+
-        '<div style="margin:5px 0">'+badge(t.workflow_state)+'</div>'+
-        (lbls?'<div class="c-labels pm-labels-row">'+lbls+'</div>':'')+
-        (kids.length?'<div class="pj-subs" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--gray-100);display:flex;flex-direction:column;gap:6px">'+kids.map(subRow).join("")+'</div>':'')+
-        '<div class="c-meta" style="margin-top:8px">'+pmAssignee(t,false)+'<span style="font-size:12px;color:var(--gray-400)">'+esc(fmtEndCell(t))+'</span></div>'+
+    function keyOf(t){return mode==="person"?((names(t._assign)||[])[0]||""):(t.project||"");}
+    function labelOf(k,sample){if(mode==="person")return k?((window._pmUserNames&&window._pmUserNames[k])||k):"Chưa giao";return k?(sample.project_name||k):"Ngoài dự án";}
+    var byG={},ord=[];roots.forEach(function(t){var k=keyOf(t);if(!byG[k]){byG[k]=[];ord.push(k);}byG[k].push(t);});
+    ord.sort(function(a,b){if(!a)return 1;if(!b)return -1;return String(labelOf(a,byG[a][0])).localeCompare(String(labelOf(b,byG[b][0])));});
+    function subRow(t){var done=(t.workflow_state==="Done");return '<div class="pj-sub" style="display:flex;align-items:flex-start;font-size:12.5px;color:var(--gray-700);line-height:1.35">'+pjCheck(t)+'<span class="pj-open" data-task="'+esc(t.name)+'" style="cursor:pointer;white-space:normal'+(done?';text-decoration:line-through;color:var(--gray-400)':'')+'">'+esc(t.subject||t.name)+'</span></div>';}
+    function pcard(t){var kids=byParent[t.name]||[];var done=(t.workflow_state==="Done");
+      return '<div class="pm-card'+(isOverdue(t)?' card-overdue':'')+'" data-task="'+esc(t.name)+'" style="cursor:pointer;border:1px solid #eef0f3;box-shadow:none">'+
+        '<div style="display:flex;align-items:flex-start">'+pjCheck(t)+'<div class="c-title" style="font-size:13px;font-weight:600;line-height:1.35;white-space:normal'+(done?';text-decoration:line-through;color:var(--gray-400)':'')+'">'+esc(t.subject||t.name)+'</div></div>'+
+        (done?'':'<div style="font-size:11.5px;color:'+(_PM_SDOT[t.workflow_state]||'#9ca3af')+';margin:3px 0 0 25px">'+esc(t.workflow_state||'')+'</div>')+
+        (kids.length?'<div class="pj-subs" style="margin-top:8px;display:flex;flex-direction:column;gap:6px">'+kids.map(subRow).join("")+'</div>':'')+
+        '<div class="c-meta" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between">'+pmAssignee(t,false)+'<span style="font-size:11.5px;color:var(--gray-400)">'+esc(fmtEndCell(t))+'</span></div>'+
         '</div>';}
-    host.innerHTML=ord.length?'<div class="pm-board">'+ord.map(function(k){var lbl=k?(byP[k][0].project_name||k):"Ngoài dự án";
-      return '<div class="pm-col" data-proj="'+esc(k)+'"><h3><span style="font-weight:600">'+esc(lbl)+'</span><span class="col-count">'+byP[k].length+'</span></h3><div class="col-body">'+byP[k].map(pcard).join("")+'</div></div>';}).join("")+'</div>':'<div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>Chưa có nhiệm vụ.</div></div>';
-    Array.prototype.forEach.call(host.querySelectorAll(".pj-sub[data-task]"),function(r){r.onclick=function(e){e.stopPropagation();openTask(r.getAttribute("data-task"));};});
+    host.innerHTML=ord.length?'<div class="pm-board">'+ord.map(function(k){var lbl=labelOf(k,byG[k][0]);
+      return '<div class="pm-col" data-grp="'+esc(k)+'"><h3><span style="font-weight:600;font-size:13px">'+esc(lbl)+'</span><span class="col-count">'+byG[k].length+'</span></h3><div class="col-body">'+byG[k].map(pcard).join("")+'</div></div>';}).join("")+'</div>':'<div class="pm-state"><svg class="icon em-ic"><use href="#p-inbox"/></svg><div>Chưa có nhiệm vụ.</div></div>';
+    Array.prototype.forEach.call(host.querySelectorAll(".pj-check[data-task]"),function(x){x.onclick=function(e){e.stopPropagation();pjToggleDone(x.getAttribute("data-task"),x.getAttribute("data-done")==="1");};});
+    Array.prototype.forEach.call(host.querySelectorAll(".pj-open[data-task]"),function(r){r.onclick=function(e){e.stopPropagation();openTask(r.getAttribute("data-task"));};});
     Array.prototype.forEach.call(host.querySelectorAll(".pm-card[data-task]"),function(k){k.onclick=function(){openTask(k.getAttribute("data-task"));};});
   }
   function renderBoard(){renderBoardInto(el("pm-boardwrap"),filteredTasks(),showBoard);}
@@ -1371,7 +1376,8 @@
     var kids={};allRows.forEach(function(t){if(t.parent_task){var k=kids[t.parent_task]||(kids[t.parent_task]={t:0,d:0});k.t++;if(["Done","Cancelled"].indexOf(t.workflow_state)>=0)k.d++;}});
     window._pmBoardKids=kids;
     var roots=allRows.filter(function(t){return !t.parent_task;});
-    if(pmBoardGroup()==="project"){ pmRenderBoardByProject(host,allRows,roots); }
+    var _bg=pmBoardGroup();
+    if(_bg==="project"||_bg==="person"){ pmRenderBoardGrouped(host,allRows,roots,_bg); }
     else {
     var by={};BOARD_COLS.forEach(function(s){by[s]=[];});roots.forEach(function(t){var s=t.workflow_state||"To Do";if(BOARD_COLS.indexOf(s)<0){if(s==="Cancelled")return;s="To Do";}(by[s]=by[s]||[]).push(t);}); /* fold Backlog/Blocked -> To Do; hide Cancelled */
     host.innerHTML='<div class="pm-board">'+BOARD_COLS.map(function(s){return '<div class="pm-col" data-col="'+esc(s)+'"><h3>'+badge(s)+'<span class="col-count">'+by[s].length+'</span></h3><div class="col-body" data-body="'+esc(s)+'">'+by[s].map(card).join("")+'</div></div>';}).join("")+'</div>';
