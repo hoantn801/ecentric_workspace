@@ -7130,7 +7130,19 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
 
   function buildHtml(d) {
     var gen = '';
-    // 2026-08-07: Tieu de nguoi tao go. ERPNext dat mac dinh title = ten khach/NCC
+    // 2026-08-07: SO doi ung -- bao ngay dau khung Chi tiet de khong ai nham voi
+    // phieu ban that. Nhan dien: kenh GBS + co ec_gbs_so_ref.
+    if (IS_SO && (d.ec_channel || '') === 'GBS' && d.ec_gbs_so_ref) {
+      gen += '<div class="row"><div class="lbl">Loại phiếu</div><div class="val">'
+        + '<span class="pill out-budget">SO đối ứng — máy tự tạo</span>'
+        + '<div style="font-size:11.5px;color:#6b7280;margin-top:6px;line-height:1.55">'
+        + 'Phiếu này KHÔNG do người khai. Hệ thống tự sinh khi '
+        + '<a href="/approval?id=' + encodeURIComponent(d.ec_gbs_so_ref) + '&type=gbs_so" '
+        + 'style="color:#2C3DA6;font-weight:600;text-decoration:none">' + esc(d.ec_gbs_so_ref) + '</a>'
+        + ' được duyệt, để ghi nhận phần doanh thu của eCentric. Không tạo đơn mua từ phiếu này.'
+        + '</div></div></div>';
+    }
+    // Tieu de nguoi tao go. ERPNext dat mac dinh title = ten khach/NCC
     // nen chi hien khi khac cai mac dinh do, tranh lap dong voi "Khach hang".
     var _tt = (d.title || '').trim();
     var _dft = IS_SO ? (d.customer || '') : (d.supplier || '');
@@ -7381,9 +7393,13 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
       + '>+ Tạo PO từ SO</button>';
     var hint;
     if (isGbsChannel) {
-      hint = 'SO này thuộc <b>kênh GBS</b> nên không tạo đơn mua sổ EC được. Hàng mua cho đơn kênh GBS '
-        + 'do GBS tự tạo bên boxme rồi đồng bộ ngược về — nhìn ở tab <b>GBS PO</b>. '
-        + 'Nếu đây thật sự là khoản eCentric đi mua ngoài thì phải gắn vào một SO <b>kênh Direct</b>.';
+      hint = (SO.ec_gbs_so_ref
+          ? 'Đây là <b>SO đối ứng</b> — máy tự sinh từ <b>' + esc(SO.ec_gbs_so_ref) + '</b> để ghi nhận '
+            + 'phần doanh thu của eCentric, không phải đơn hàng eCentric đi bán. '
+          : 'SO này thuộc <b>kênh GBS</b>. ')
+        + 'Hàng mua cho đơn kênh GBS do GBS tự tạo bên boxme rồi đồng bộ ngược về — nhìn ở tab '
+        + '<b>GBS PO</b>. Nếu đây thật sự là khoản eCentric đi mua ngoài thì phải gắn vào một SO '
+        + '<b>kênh Direct</b>.';
     } else if (!approved) {
       hint = 'SO phải duyệt xong mới tạo được đơn mua — hiện đang ở bước <b>' + esc(SO.workflow_state || '') + '</b>. '
         + 'Lý do: hạn mức của PO lấy theo tổng SO, SO chưa duyệt thì con số đó chưa chắc chắn.';

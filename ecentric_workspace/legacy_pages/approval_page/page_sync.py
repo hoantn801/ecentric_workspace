@@ -75,7 +75,7 @@ def _html():
 # values, so a repo snapshot can never silently revert a live edit. Deliberate
 # update = edit main_section.html, bump this constant, and move the value it
 # replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "7ca8029a578e793a4da5e41f898ccba072081ef7f3ab4552bbd31a1f6c3640c8"
+BASELINE_SHA256 = "60294cbc6f4a8f7b51a95d1d2ed2d2d1938ab68098ebae527a817ac3676d5f12"
 
 # Live values this snapshot is allowed to overwrite. C4b was authored in the
 # repo, not on the site, so at deploy time live still holds the #138 bytes
@@ -89,6 +89,13 @@ BASELINE_SHA256 = "7ca8029a578e793a4da5e41f898ccba072081ef7f3ab4552bbd31a1f6c364
 # it listed lets those environments sync forward; on team.ecentric.vn live is
 # already at BASELINE_SHA256, so the first sync there returns "unchanged".
 SUPERSEDES_SHA256 = (
+    # bytes truoc khi ghi ro "SO doi ung" (2026-08-07): 15/22 SO so EC la phieu doi
+    # ung do backend ec_revenue_engine tu sinh khi GBS SO duoc duyet, nhung tren trang
+    # duyet khong co dau hieu nao -- nguoi xem tuong la don hang eCentric ban. Them
+    # dong "Loai phieu: SO doi ung - may tu tao" o dau khung Chi tiet kem link ve GBS
+    # SO goc, va noi ro trong khung tao PO. web_lookup cung duoc sua cung nhip de tieu
+    # de danh sach hien "Doi ung <GBS SO> - <brand>".
+    "7ca8029a578e793a4da5e41f898ccba072081ef7f3ab4552bbd31a1f6c3640c8",
     # bytes truoc khi chan SO kenh GBS o nut "Tao PO tu SO" (2026-08-07): nut van sang
     # tren SO kenh GBS, nguoi dung di het mot vong (chon dong, chon nha cung cap, nhap
     # gia) roi moi bi ec_po_before_save chan o buoc cuoi voi loi "SO ... thuoc kenh
