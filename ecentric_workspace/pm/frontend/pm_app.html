@@ -969,7 +969,7 @@
     var rb=x.isRec?recReasonBadge(x.reason):dcReasonBadge(x.reason);
     var rec=x.isRec?' <span class="dc-reason" style="color:#6d28d9;background:#f3e8ff">Định kỳ</span>':'';
     var noass=(a.length===0&&dcActive(t)&&x.reason!=="noassignee")?' <span class="dc-reason" style="color:#925f00;background:#fff7e6">Chưa giao</span>':'';
-    return '<tr data-task="'+esc(t.name)+'"><td class="t-main">'+esc(t.subject||t.name)+'</td><td>'+esc(t.project||"-")+'</td><td>'+esc(fmtEndCell(t))+'</td><td>'+(t.priority?esc(t.priority):"-")+'</td><td>'+badge(t.workflow_state)+'</td><td>'+rb+rec+noass+'</td><td style="text-align:right;white-space:nowrap">'+(dcActive(t)?'<button class="pm-btn mw-done" data-task="'+esc(t.name)+'" style="color:#0a7a4f;border-color:#86efac">✓ Xong</button> ':'')+'<button class="pm-btn mw-open" data-task="'+esc(t.name)+'">Mở</button></td></tr>';}
+    return '<tr data-task="'+esc(t.name)+'"><td class="t-main">'+esc(t.subject||t.name)+'</td><td>'+esc(t.project||"-")+'</td><td>'+esc(fmtEndCell(t))+'</td><td>'+(t.priority?esc(t.priority):"-")+'</td><td>'+badge(t.workflow_state)+'</td><td>'+rb+rec+noass+'</td><td style="text-align:right;white-space:nowrap">'+(dcActive(t)?'<button class="pm-btn mw-done" data-task="'+esc(t.name)+'" style="color:#0a7a4f;border-color:#86efac">✓ Xong</button>':'')+'</td></tr>';}
   function mwWireActions(scope){if(!scope)return;
     Array.prototype.forEach.call(scope.querySelectorAll(".mw-open"),function(b){b.onclick=function(e){e.stopPropagation();openTask(b.getAttribute("data-task"));};});
     Array.prototype.forEach.call(scope.querySelectorAll(".mw-done"),function(b){b.onclick=function(e){e.stopPropagation();openDonePopup(b.getAttribute("data-task"),"Done",function(){showMyTasks();});};});
