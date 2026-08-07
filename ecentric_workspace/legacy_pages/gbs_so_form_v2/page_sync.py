@@ -43,8 +43,15 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "21f3cf18fb441cbd70b9dd5d1a231772dd74fbb361bcf7d34f0c37a6195eaa44"
+BASELINE_SHA256 = "4a4c4a90c3342b2e0029f103171798feed1a7357ada3527d1f662c8b627ce5ac"
 SUPERSEDES_SHA256 = (
+    # bytes truoc khi rut Muc uu tien ve 2 nac (2026-08-07): form SO con 3 nac
+    # Thap/TB/Cao trong khi form PO da doi sang Normal/Urgent tu 2026-08-04.
+    # Doi cung nhip 3 thu tren site: Property Setter options/default cho
+    # GBS Sales Order.priority, doi 292 phieu cu (146 High->Urgent,
+    # 146 Medium->Normal), va sua sync_approval_todos_gbs_so vi script do day
+    # thang doc.priority vao ToDo.priority ma ToDo chi nhan Low/Medium/High.
+    "21f3cf18fb441cbd70b9dd5d1a231772dd74fbb361bcf7d34f0c37a6195eaa44",
     # bytes truoc FIX 10 (2026-08-07): o VAT tren form chi la CHU tham chieu, khong
     # gan vao bang thue that cua chung tu -> Sales Order so EC luu
     # total_taxes_and_charges = 0 va grand_total = tong CHUA VAT. Bat duoc tren live:

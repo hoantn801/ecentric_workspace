@@ -6114,11 +6114,19 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
           var _has=false;
           for (var _i=0;_i<so.options.length;_i++){ if (so.options[_i].value===_fromSo){ _has=true; break; } }
           if (!_has){ var _o=new Option(_fromSo+' — (SO sổ EC)', _fromSo); _o.setAttribute('data-brand',''); so.add(_o); }
-          function _applySoRef(){                               // set gia tri + dong bo TAT CA display (form goc co the tao 2 wrap)
+          function _applySoRef(){
             so.value = _fromSo;
             var _op = so.options[so.selectedIndex];
             var _t = _op ? (_op.text||_op.value) : _fromSo;
-            (so.parentNode || document).querySelectorAll('.ec-cb-display').forEach(function(d){ d.value=_t; d.classList.remove('ec-empty'); });
+            // 2026-08-07 FIX 11: truoc day quet .ec-cb-display trong CA
+            // `so.parentNode` -- ma o "Nha cung cap (EC)" va o "SO tham chieu"
+            // nam CHUNG mot .field, nen dong nay ghi de luon phan hien thi cua
+            // supplier: nguoi dung thay "Nha cung cap (EC) = SAL-ORD-..." trong
+            // khi gia tri that van rong. Chi ghi vao khung .ec-cb cua chinh o SO.
+            var _cb = so.previousElementSibling;
+            if (_cb && _cb.classList && _cb.classList.contains('ec-cb')) {
+              _cb.querySelectorAll('.ec-cb-display').forEach(function(d){ d.value=_t; d.classList.remove('ec-empty'); });
+            }
             if (so._ecCbSync) so._ecCbSync();
             so.dispatchEvent(new Event('change', {bubbles:true}));
           }

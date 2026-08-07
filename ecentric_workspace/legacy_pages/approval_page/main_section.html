@@ -7130,7 +7130,19 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
 
   function buildHtml(d) {
     var gen = '';
-    // 2026-08-07: Tieu de nguoi tao go. ERPNext dat mac dinh title = ten khach/NCC
+    // 2026-08-07: SO doi ung -- bao ngay dau khung Chi tiet de khong ai nham voi
+    // phieu ban that. Nhan dien: kenh GBS + co ec_gbs_so_ref.
+    if (IS_SO && (d.ec_channel || '') === 'GBS' && d.ec_gbs_so_ref) {
+      gen += '<div class="row"><div class="lbl">Loại phiếu</div><div class="val">'
+        + '<span class="pill out-budget">SO đối ứng — máy tự tạo</span>'
+        + '<div style="font-size:11.5px;color:#6b7280;margin-top:6px;line-height:1.55">'
+        + 'Phiếu này KHÔNG do người khai. Hệ thống tự sinh khi '
+        + '<a href="/approval?id=' + encodeURIComponent(d.ec_gbs_so_ref) + '&type=gbs_so" '
+        + 'style="color:#2C3DA6;font-weight:600;text-decoration:none">' + esc(d.ec_gbs_so_ref) + '</a>'
+        + ' được duyệt, để ghi nhận phần doanh thu của eCentric. Không tạo đơn mua từ phiếu này.'
+        + '</div></div></div>';
+    }
+    // Tieu de nguoi tao go. ERPNext dat mac dinh title = ten khach/NCC
     // nen chi hien khi khac cai mac dinh do, tranh lap dong voi "Khach hang".
     var _tt = (d.title || '').trim();
     var _dft = IS_SO ? (d.customer || '') : (d.supplier || '');
@@ -7242,3 +7254,255 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
   })['catch'](function (e) { console.warn('[ec-ecdoc-detail]', e); });
 })();
 </script><!-- /ec-ecdoc-detail -->
+<script id="ec-ecso-child-po">
+/* 2026-08-07: trang duyet cua SO SO EC chua co duong tao PO. Ben GBS SO da co tu lau
+   (#ec-gbs-so-child-po-section) nhung khoi do chan cung ticketType==='gbs_so' va goi
+   gbs_so_create_po_helper -- script do lam viec tren doctype "GBS Sales Order" nen
+   khong dung cho Sales Order native duoc.
+   Khoi RIENG nay lam dung viec do cho type=so, giu y het thao tac ben GBS de nguoi
+   dung khong phai hoc lai: bam nut -> hop thoai tick tung dong -> nhay sang form PO.
+   Form PO VON DA nhan ?from_so=SAL-ORD-... (tu chuyen sang che do "Mua ngoai (so EC)"
+   va tu dien o "SO tham chieu"), nen o day chi can mo duong vao.
+   KHAC ban GBS o hai diem, co y:
+     1. Dong thuoc nhom "Phi agency EC" la phi eCentric THU cua brand, khong phai
+        khoan di mua -- van hien nhung KHONG tick san va co canh bao. Do live
+        2026-08-07: 21 SO so EC thi phan lon dong hang la REV_QL_TT / REV_MKT_* deu
+        thuoc nhom nay.
+     2. CHEP ma hang + so luong, DE TRONG don gia. Gia ban cho brand khac gia mua cua
+        nha cung cap; chep sang se tao PO sai so tien ma nhin rat giong dung. */
+(function () {
+  'use strict';
+  if (window._ecSoChildPoInstalled) return;
+  window._ecSoChildPoInstalled = true;
+
+  function urlParam(k) {
+    var m = location.search.match(new RegExp('[?&]' + k + '=([^&]*)'));
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  var ticketType = urlParam('type');
+  var ticketId = urlParam('id');
+  if (ticketType !== 'so' || !ticketId) return;
+
+  var REV_GROUP = 'Phí agency EC';
+  var SO = null, ITEM_GROUP = {}, CHILD = [];
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function vnd(n) { return (Number(n) || 0).toLocaleString('vi-VN') + ' đ'; }
+  function qtyf(n) { return (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('vi-VN'); }
+
+  if (!document.getElementById('ec-ecso-child-po-css')) {
+    var st = document.createElement('style');
+    st.id = 'ec-ecso-child-po-css';
+    st.textContent = [
+      '#ec-ecso-po-panel .scp2-summary { font-size:12.5px; color:#6b7280; margin-bottom:12px; }',
+      '#ec-ecso-po-panel .scp2-child { border:1px solid #e5e7eb; border-radius:6px; padding:8px 10px;',
+      '  margin-bottom:8px; font-size:12.5px; display:flex; justify-content:space-between; gap:10px; }',
+      '#ec-ecso-po-panel .scp2-child a { color:#2C3DA6; font-weight:600; text-decoration:none; }',
+      '#ec-ecso-po-panel .scp2-child a:hover { text-decoration:underline; }',
+      '#ec-ecso-po-panel .scp2-hint { font-size:11.5px; color:#9ca3af; margin-top:8px; line-height:1.5; }',
+      /* Nut + hop thoai dung DUNG bo style cua #ec-gbs-so-child-po-section de hai
+         luong nhin y het nhau. Khong long trong #ec-ecso-po-panel vi hop thoai
+         duoc gan vao <body>, long vao thi mat het style (loi da gap 2026-08-07). */
+      '.scp2-btn-primary { background:#2C3DA6; color:#fff; border:none; border-radius:6px; padding:8px 16px;',
+      '  font-weight:600; font-size:13px; cursor:pointer; font-family:inherit;',
+      '  display:inline-flex; align-items:center; gap:6px; }',
+      '.scp2-btn-primary:hover { background:#1f2d80; }',
+      '.scp2-btn-primary[disabled] { background:#9ca3af; cursor:not-allowed; }',
+      '.scp2-modal { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:10000;',
+      '  display:flex; align-items:center; justify-content:center; }',
+      '.scp2-modal .scp2-card { background:#fff; border-radius:10px; width:720px; max-width:92vw;',
+      '  max-height:88vh; display:flex; flex-direction:column; box-shadow:0 10px 40px rgba(0,0,0,0.2); }',
+      '.scp2-modal .scp2-card-h { padding:18px 20px; border-bottom:1px solid #e5e7eb; }',
+      '.scp2-modal .scp2-card-h h3 { margin:0; font-size:16px; color:#111827; }',
+      '.scp2-modal .scp2-card-h .scp2-sub { font-size:12px; color:#6b7280; margin-top:4px; }',
+      '.scp2-modal .scp2-card-body { padding:16px 20px; overflow-y:auto; flex:1; }',
+      '.scp2-modal table { width:100%; border-collapse:collapse; font-size:12.5px; }',
+      '.scp2-modal th { text-align:left; padding:8px 10px; background:#f9fafb; color:#6b7280;',
+      '  font-weight:600; font-size:10.5px; text-transform:uppercase; letter-spacing:0.4px;',
+      '  border-bottom:1px solid #e5e7eb; }',
+      '.scp2-modal td { padding:8px 10px; border-bottom:1px solid #f3f4f6; }',
+      '.scp2-modal th.r, .scp2-modal td.r { text-align:right; white-space:nowrap; }',
+      '.scp2-modal tr.rev td { background:#fff7ed; }',
+      '.scp2-modal .scp2-code { font-family:"DM Mono",monospace; color:#2C3DA6; font-size:11.5px; }',
+      '.scp2-modal .scp2-warn { display:block; font-size:10.5px; color:#92400e; margin-top:3px; }',
+      '.scp2-modal .scp2-note { background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af;',
+      '  border-radius:6px; padding:9px 11px; font-size:12px; line-height:1.55; margin-bottom:12px; }',
+      '.scp2-modal .scp2-card-f { padding:14px 20px; border-top:1px solid #e5e7eb; display:flex;',
+      '  justify-content:space-between; align-items:center; gap:10px; background:#fafbfc;',
+      '  border-radius:0 0 10px 10px; }',
+      '.scp2-modal .scp2-running { font-size:12px; color:#374151; }',
+      '.scp2-modal .scp2-acts { display:flex; gap:8px; }',
+      '.scp2-modal .scp2-cancel { background:#fff; color:#4b5563; border:1px solid #e5e7eb;',
+      '  border-radius:6px; padding:8px 14px; font-weight:600; font-size:13px; cursor:pointer;',
+      '  font-family:inherit; }'
+    ].join('\n');
+    document.head.appendChild(st);
+  }
+
+  function loadAll() {
+    return fetch('/api/resource/Sales%20Order/' + encodeURIComponent(ticketId), { credentials: 'include' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        SO = (d && d.data) || null;
+        if (!SO) throw new Error('khong doc duoc SO');
+        var codes = (SO.items || []).map(function (i) { return i.item_code; });
+        var q = '/api/resource/Item?limit_page_length=0&fields=' +
+          encodeURIComponent('["item_code","item_group"]') +
+          '&filters=' + encodeURIComponent(JSON.stringify([['item_code', 'in', codes]]));
+        return fetch(q, { credentials: 'include' }).then(function (r) { return r.json(); });
+      })
+      .then(function (d) {
+        ((d && d.data) || []).forEach(function (x) { ITEM_GROUP[x.item_code] = x.item_group; });
+        var q2 = '/api/resource/Purchase%20Order?limit_page_length=0&fields=' +
+          encodeURIComponent('["name","workflow_state","grand_total","supplier"]') +
+          '&filters=' + encodeURIComponent(JSON.stringify([['ec_so', '=', ticketId]]));
+        return fetch(q2, { credentials: 'include' }).then(function (r) { return r.json(); });
+      })
+      .then(function (d) { CHILD = (d && d.data) || []; });
+  }
+
+  function buildPanel() {
+    if (document.getElementById('ec-ecso-po-panel')) return true;
+    var content = document.getElementById('content');
+    if (!content || content.children.length === 0) return false;
+    var p = document.createElement('div');
+    p.id = 'ec-ecso-po-panel';
+    p.className = 'panel';
+
+    // 2026-08-07: SO kenh GBS KHONG duoc tao PO so EC. PO cua nhung don do la GBS
+    // tu tao ben boxme (GBS Purchase Order) roi dong bo nguoc ve; ec_po_before_save
+    // throw thang neu gan SO kenh GBS. Truoc day nut van sang tren nhung SO nay ->
+    // bam vao, chon nha cung cap, nhap gia xong moi bi chan o buoc cuoi. Do live
+    // 2026-08-07: 15/22 SO so EC la kenh GBS, tuc phan lon roi vao duong cut do.
+    var isGbsChannel = ((SO.ec_channel || '') === 'GBS');
+    var approved = (SO.workflow_state === 'Approved') && !isGbsChannel;
+    var html = '<div class="panel-header"><span class="panel-title">Đơn mua từ SO này</span></div><div class="panel-body">';
+    html += '<div class="scp2-summary">SO có <b>' + (SO.items || []).length + '</b> dòng hàng, tổng '
+      + esc(vnd(SO.grand_total)) + '. Đã tạo <b>' + CHILD.length + '</b> đơn mua từ SO này.</div>';
+    if (CHILD.length) {
+      CHILD.forEach(function (c) {
+        html += '<div class="scp2-child"><span><a href="/approval?id=' + encodeURIComponent(c.name)
+          + '&type=po">' + esc(c.name) + '</a> — ' + esc(c.supplier || '') + '</span>'
+          + '<span>' + esc(vnd(c.grand_total)) + ' · ' + esc(c.workflow_state || '') + '</span></div>';
+      });
+    }
+    html += '<button type="button" class="scp2-btn-primary" id="ec-ecso-po-btn"' + (approved ? '' : ' disabled')
+      + '>+ Tạo PO từ SO</button>';
+    var hint;
+    if (isGbsChannel) {
+      hint = (SO.ec_gbs_so_ref
+          ? 'Đây là <b>SO đối ứng</b> — máy tự sinh từ <b>' + esc(SO.ec_gbs_so_ref) + '</b> để ghi nhận '
+            + 'phần doanh thu của eCentric, không phải đơn hàng eCentric đi bán. '
+          : 'SO này thuộc <b>kênh GBS</b>. ')
+        + 'Hàng mua cho đơn kênh GBS do GBS tự tạo bên boxme rồi đồng bộ ngược về — nhìn ở tab '
+        + '<b>GBS PO</b>. Nếu đây thật sự là khoản eCentric đi mua ngoài thì phải gắn vào một SO '
+        + '<b>kênh Direct</b>.';
+    } else if (!approved) {
+      hint = 'SO phải duyệt xong mới tạo được đơn mua — hiện đang ở bước <b>' + esc(SO.workflow_state || '') + '</b>. '
+        + 'Lý do: hạn mức của PO lấy theo tổng SO, SO chưa duyệt thì con số đó chưa chắc chắn.';
+    } else {
+      hint = 'Chọn những dòng cần mua ngoài. Mã hàng, số lượng và đơn giá được chép sang — '
+        + 'đơn giá chỉ là gợi ý, nhớ sửa theo giá mua thật.';
+    }
+    html += '<div class="scp2-hint">' + hint + '</div>';
+    html += '</div>';
+    p.innerHTML = html;
+    content.appendChild(p);
+    var b = document.getElementById('ec-ecso-po-btn');
+    if (b && approved) b.addEventListener('click', openModal);
+    return true;
+  }
+
+  function openModal() {
+    var items = SO.items || [];
+    var mask = document.createElement('div');
+    mask.className = 'scp2-modal';
+    var h = '<div class="scp2-card">';
+    h += '<div class="scp2-card-h"><h3>Tạo đơn mua từ ' + esc(ticketId) + '</h3>'
+      + '<div class="scp2-sub">Tick những dòng eCentric phải đi mua ngoài.</div></div>';
+    h += '<div class="scp2-card-body">';
+    h += '<div class="scp2-note">Đơn giá được chép sang làm <b>giá gợi ý</b>. Đây là giá <b>bán</b> cho '
+      + 'brand, không phải giá mua của nhà cung cấp — nhớ sửa lại ở form PO trước khi trình duyệt.</div>';
+    h += '<table><thead><tr><th style="width:34px"></th><th>Mã hàng</th><th>Tên</th>'
+      + '<th class="r">SL</th><th class="r">Giá bán trên SO (gợi ý)</th></tr></thead><tbody>';
+    items.forEach(function (it, i) {
+      var grp = ITEM_GROUP[it.item_code] || '';
+      var isRev = (grp === REV_GROUP);
+      h += '<tr class="' + (isRev ? 'rev' : '') + '">'
+        + '<td><input type="checkbox" class="scp2-chk" data-idx="' + i + '"' + (isRev ? '' : ' checked') + '/></td>'
+        + '<td><span class="scp2-code">' + esc(it.item_code) + '</span></td>'
+        + '<td>' + esc(it.item_name || '')
+        + (isRev ? '<span class="scp2-warn">Nhóm "' + esc(REV_GROUP) + '" — phí eCentric thu của brand, thường không phải khoản đi mua.</span>' : '')
+        + '</td>'
+        + '<td class="r">' + esc(qtyf(it.qty)) + '</td>'
+        + '<td class="r">' + esc(vnd(it.rate)) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '<div class="scp2-card-f"><span class="scp2-running" id="scp2-run"></span>'
+      + '<span class="scp2-acts">'
+      + '<button type="button" class="scp2-cancel" id="scp2-cancel">Huỷ</button>'
+      + '<button type="button" class="scp2-btn-primary" id="scp2-ok">Tiếp tục sang form PO</button>'
+      + '</span></div></div>';
+    mask.innerHTML = h;
+    document.body.appendChild(mask);
+
+    var chks = mask.querySelectorAll('.scp2-chk');
+    function recount() {
+      var n = mask.querySelectorAll('.scp2-chk:checked').length;
+      var run = document.getElementById('scp2-run');
+      if (run) run.textContent = 'Đã chọn ' + n + '/' + items.length + ' dòng';
+      var ok = document.getElementById('scp2-ok');
+      if (ok) ok.disabled = (n === 0);
+    }
+    for (var c = 0; c < chks.length; c++) chks[c].addEventListener('change', recount);
+    recount();
+
+    mask.addEventListener('click', function (e) { if (e.target === mask) mask.remove(); });
+    document.getElementById('scp2-cancel').addEventListener('click', function () { mask.remove(); });
+    document.getElementById('scp2-ok').addEventListener('click', function () {
+      var chosen = [], codes = [];
+      for (var i = 0; i < chks.length; i++) {
+        if (!chks[i].checked) continue;
+        var it = items[parseInt(chks[i].getAttribute('data-idx'), 10)];
+        if (!it) continue;
+        // 2026-08-07: chep ca don gia tu SO sang lam GIA GOI Y (truoc do de trong).
+        // Day la gia BAN cho brand, khong phai gia mua -- hop thoai va bang gia da
+        // ghi ro de nguoi tao sua lai truoc khi trinh duyet.
+        chosen.push({ item_code: it.item_code, item_name: it.item_name || '', qty: it.qty || 0, rate: it.rate || 0 });
+        codes.push(it.item_code);
+      }
+      if (!chosen.length) return;
+      try {
+        sessionStorage.setItem('gbs_po_from_so', JSON.stringify({
+          parent_so: ticketId,
+          so: {
+            so_title: SO.title || ticketId,
+            department: SO.ec_team || '',
+            brand_code: SO.ec_brand || '',
+            transaction_date: SO.transaction_date || '',
+            delivery_date: SO.delivery_date || '',
+            notes: ''
+          },
+          items: chosen,
+          item_codes: codes,
+          ts: new Date().getTime()
+        }));
+      } catch (e) {
+        window.alert('Không lưu được lựa chọn: ' + e.message);
+        return;
+      }
+      location.href = '/gbs-po-form-v2?from_so=' + encodeURIComponent(ticketId);
+    });
+  }
+
+  var _t = 0;
+  function boot() {
+    _t++;
+    if (!buildPanel() && _t < 60) setTimeout(boot, 500);
+  }
+  loadAll().then(boot)['catch'](function (e) { console.warn('[ec-ecso-child-po]', e); });
+})();
+</script><!-- /ec-ecso-child-po -->

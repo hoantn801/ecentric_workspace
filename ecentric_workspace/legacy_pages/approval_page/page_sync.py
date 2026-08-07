@@ -75,7 +75,7 @@ def _html():
 # values, so a repo snapshot can never silently revert a live edit. Deliberate
 # update = edit main_section.html, bump this constant, and move the value it
 # replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "39a78856cfa5a8b5414716abb3e3b85b84899867d8efc4eb6a4f8cec5d9374ea"
+BASELINE_SHA256 = "60294cbc6f4a8f7b51a95d1d2ed2d2d1938ab68098ebae527a817ac3676d5f12"
 
 # Live values this snapshot is allowed to overwrite. C4b was authored in the
 # repo, not on the site, so at deploy time live still holds the #138 bytes
@@ -89,6 +89,39 @@ BASELINE_SHA256 = "39a78856cfa5a8b5414716abb3e3b85b84899867d8efc4eb6a4f8cec5d937
 # it listed lets those environments sync forward; on team.ecentric.vn live is
 # already at BASELINE_SHA256, so the first sync there returns "unchanged".
 SUPERSEDES_SHA256 = (
+    # bytes truoc khi ghi ro "SO doi ung" (2026-08-07): 15/22 SO so EC la phieu doi
+    # ung do backend ec_revenue_engine tu sinh khi GBS SO duoc duyet, nhung tren trang
+    # duyet khong co dau hieu nao -- nguoi xem tuong la don hang eCentric ban. Them
+    # dong "Loai phieu: SO doi ung - may tu tao" o dau khung Chi tiet kem link ve GBS
+    # SO goc, va noi ro trong khung tao PO. web_lookup cung duoc sua cung nhip de tieu
+    # de danh sach hien "Doi ung <GBS SO> - <brand>".
+    "7ca8029a578e793a4da5e41f898ccba072081ef7f3ab4552bbd31a1f6c3640c8",
+    # bytes truoc khi chan SO kenh GBS o nut "Tao PO tu SO" (2026-08-07): nut van sang
+    # tren SO kenh GBS, nguoi dung di het mot vong (chon dong, chon nha cung cap, nhap
+    # gia) roi moi bi ec_po_before_save chan o buoc cuoi voi loi "SO ... thuoc kenh
+    # GBS". Do live 2026-08-07: 15/22 SO so EC la kenh GBS nen phan lon roi vao duong
+    # cut do. Sua: nut mo cho SO kenh GBS, kem giai thich PO cua don kenh GBS do GBS
+    # tu tao ben boxme roi dong bo nguoc ve.
+    "a30529c9cca6ccc47319372e8b1532bc3e341224a32ffd2177129d7e770e9092",
+    # bytes truoc khi chep don gia sang PO (2026-08-07): ban dau hop thoai "Tao PO tu
+    # SO" co y de trong don gia vi gia ban khac gia mua. Dung thuc te thay bat nguoi
+    # tao go lai tung dong, nen doi sang chep gia tu SO lam GIA GOI Y, kem canh bao
+    # ro o hop thoai va o tieu de cot rang day la gia ban, phai sua lai.
+    "866752cb1df04c778f22679e2b56885bc4815b3fb01a4f070f33ca43c09a1a51",
+    # bytes truoc khi sua style hop thoai "Tao PO tu SO" (2026-08-07): CSS cua nut va
+    # hop thoai bi long trong "#ec-ecso-po-panel ...", ma hop thoai lai duoc gan vao
+    # <body> nen khong khop selector -> nut "Tiep tuc sang form PO" hien tho, khong
+    # mau, khac han hop thoai ben GBS SO. Sua: dua style ra ngoai va dung dung bo
+    # card header/body/footer cua #ec-gbs-so-child-po-section, them dong dem so dong
+    # da chon o chan hop thoai giong ban GBS.
+    "4b542fd7b2e8b4cf82a53bef69eca76dff79b536583a0b278614a240bc573fb7",
+    # bytes truoc khoi #ec-ecso-child-po (2026-08-07): trang duyet cua SO so EC khong
+    # co duong tao PO, nguoi dung phai tu vao form PO roi tu nho ma SO. Khoi
+    # #ec-gbs-so-child-po-section ben canh chi phuc vu gbs_so va goi
+    # gbs_so_create_po_helper (chay tren doctype "GBS Sales Order") nen khong dung lai
+    # duoc. Khoi moi giu y het thao tac ben GBS nhung khong tick san dong thuoc nhom
+    # "Phi agency EC" va KHONG chep don gia.
+    "39a78856cfa5a8b5414716abb3e3b85b84899867d8efc4eb6a4f8cec5d9374ea",
     # bytes truoc khi them dong "Tieu de" vao khung Chi tiet cua SO/PO so EC
     # (2026-08-07): tu FIX 9 nguoi tao da go duoc tieu de va danh sach /all-ticket
     # hien dung, nhung khung Chi tiet lai khong co dong nao cho no. Chi hien khi
