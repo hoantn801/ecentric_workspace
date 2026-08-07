@@ -1577,7 +1577,7 @@
     window._pmTaskOpen=true;if(typeof pmSetHash==="function")pmSetHash("#task/"+encodeURIComponent(name)); /* G5.2 §7: route-state for the task-detail drawer */
     openD();el("pm-dt").textContent=name;var c=el("pm-dbody");c.classList.remove("pm-cols");spin(c);
     Promise.all([api(PM+"tasks.get",{name:name}),api(PM+"tasks.get_transitions",{name:name})]).then(function(res){
-      var t=res[0].task||{},subs=res[0].subtasks||[],tr=res[1].transitions||[];var a=names(t._assign);
+      var t=res[0].task||{},subs=res[0].subtasks||[],tr=res[1].transitions||[];var wfStates=res[1].states||[],wfCur=res[1].current,wfCancel=res[1].cancel;var a=names(t._assign);
       var _seen={};tr=tr.filter(function(x){if(_seen[x.action])return false;_seen[x.action]=1;return true;});
       window._pmChkCanComplete=tr.some(function(x){return x.next_state==="Done";}); /* G4.8d: checklist complete only when a real Done transition exists for this task+user */
       el("pm-dt").textContent=t.subject||name;
@@ -1605,7 +1605,7 @@
           '<div class="pm-decomp-panel" id="pm-dp-subs" style="display:none"><div class="pm-decomp-help">Công việc độc lập, có thể giao người và theo dõi riêng.</div><div class="pm-subs" id="pm-subs"></div></div>'+
         '</div>'+
         '<div class="pm-dsec">Workflow</div>'+
-        '<div class="pm-field"><label>Chuyển trạng thái</label><div class="pm-actions">'+(tr.length?tr.map(function(x){return '<button class="pm-btn pm-act" data-act="'+esc(x.action)+'">'+esc(x.action)+'</button>';}).join(""):'<span style="color:var(--gray-400);font-size:13px">Không có</span>')+'</div></div>'+
+        '<div class="pm-field"><label>Chuyển trạng thái</label>'+(function(){var VN={"To Do":"Cần làm","In Progress":"Đang làm","Review":"Chờ duyệt","Done":"Xong","Backlog":"Chờ xử lý","Blocked":"Bị chặn","Cancelled":"Đã huỷ"};var ls=(wfStates.length?wfStates:tr.map(function(x){return x.action;}));var segs=ls.map(function(s){var on=(s===wfCur);return '<button class="pm-btn pm-act" data-act="'+esc(s)+'"'+(on?' data-cur="1"':'')+' style="'+(on?"background:#1f2d80;color:#fff;border-color:#1f2d80;cursor:default":"")+'">'+esc(VN[s]||s)+'</button>';}).join("");return '<div class="pm-actions" style="display:flex;gap:8px;flex-wrap:wrap">'+segs+'</div>'+(wfCancel?'<div style="margin-top:8px"><button class="pm-btn" id="pm-wf-cancel" style="color:#b91c1c;border-color:#fca5a5;font-size:12px">Huỷ nhiệm vụ</button></div>':'');})()+'</div>'+
         ((!t.parent_task&&!pmTerminal(t))?'<div class="pm-field"><button class="pm-btn" id="pm-mkrec"><svg class="icon icon-sm"><use href="#p-repeat"/></svg> Tạo định kỳ</button></div>':'')+ /* Feature C: recurrence from top-level task only */
         '<div class="pm-field" id="pm-assign-sec"></div>'+ /* G5.2: assignment section rendered by renderAssignSec() — terminal / assigned(read-only) / unassigned(Phân công ngay + eligibility-gated Yêu cầu xác nhận) / open-request(waiting) */
         '<div class="pm-dsec">Worktime</div><div id="pm-wt"><span class="spin"></span></div>';
@@ -1618,11 +1618,12 @@
       c.innerHTML=h;c.classList.add("pm-cols");
       pmWireTaskMenus(c); /* UIUX-3: task detail header ⋯ -> Xoá nhiệm vụ */
       pmWireLabels(t); /* G4.9: render label chips + editor */
-      var _nextByAct={};tr.forEach(function(x){_nextByAct[x.action]=x.next_state;}); /* Feature B: map action -> next_state to detect the Done transition */
-      Array.prototype.forEach.call(c.querySelectorAll(".pm-act"),function(b){b.onclick=function(){var act=b.getAttribute("data-act");
-        if(_nextByAct[act]==="Done"){openDonePopup(name,act);return;} /* Feature B: capture worktime before completing */
+      Array.prototype.forEach.call(c.querySelectorAll(".pm-act"),function(b){b.onclick=function(){if(b.getAttribute("data-cur")==="1")return; /* current state = highlighted, not clickable */
+        var act=b.getAttribute("data-act");
+        if(act==="Done"){openDonePopup(name,act);return;} /* Feature B: capture worktime before completing */
         b.disabled=true;
         api(PM+"tasks.set_status",{name:name,action:act}).then(function(r){toast("Trạng thái: "+r.workflow_state);openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};});
+      if(el("pm-wf-cancel"))el("pm-wf-cancel").onclick=function(){if(!window.confirm("Huỷ nhiệm vụ này?"))return;var b=this;b.disabled=true;api(PM+"tasks.set_status",{name:name,action:"Cancelled"}).then(function(){toast("Đã huỷ nhiệm vụ");openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};
       if(el("pm-mkrec"))el("pm-mkrec").onclick=function(){openTaskRecurModal(t);}; /* Feature C: create recurrence from this top-level task */
       (function renderAssignSec(){var sec=el("pm-assign-sec");if(!sec)return; /* G5.2 item1: state-aware assignment section */
         function chips(){return a.slice(0,5).map(function(u){var fn=(window._pmUserNames&&window._pmUserNames[u])||u;return '<span class="pm-assignee-chip" title="'+esc(fn)+' · '+esc(u)+'"><span class="pm-mini-av">'+ini(u)+'</span>'+esc(fn)+'</span>';}).join("")+(a.length>5?'<span class="pm-tag tg-more">+'+(a.length-5)+'</span>':'');}
