@@ -1355,7 +1355,7 @@
       (tags?'<div class="c-tags pm-tags">'+tags+'</div>':'')+(lbls?'<div class="c-labels pm-labels-row">'+lbls+'</div>':'')+
       (kids?'<div class="c-sub">'+kids.d+'/'+kids.t+' nhiệm vụ con</div>':'')+
       '<div class="c-meta">'+pmProjLabel(t)+pmAssignee(t,false)+'</div></div>';}
-  function pmCardTargets(name){var m=(window._pmTransMap||{})[name];if(!m||m.terminal||!m.transitions||!m.transitions.length)return null;
+  function pmCardTargets(name){var m=(window._pmTransMap||{})[name];if(!m||!m.transitions||!m.transitions.length)return null; /* FREE: terminal cards draggable too (reopen) */
     var set={};m.transitions.forEach(function(x){set[x.next_state]=1;});return set;}
   function pmApplyBoardPerms(host,after){
     Array.prototype.forEach.call(host.querySelectorAll(".pm-card"),function(k){
@@ -1374,6 +1374,7 @@
       col.ondrop=function(e){var tg=window._pmDragTargets;if(!tg||!tg[to])return;e.preventDefault();col.classList.remove("drag-over");
         var t=e.dataTransfer.getData("t"),f=e.dataTransfer.getData("s");if(f===to)return;pmDropToColumn(t,to,col,after);};});}
   function pmDropToColumn(name,to,col,after){var m=(window._pmTransMap||{})[name];if(!m)return;
+    if(to==="Done"){openDonePopup(name,"Done",function(){(after||showBoard)();});return;} /* worktime popup when dropping into Done */
     var acts=(m.transitions||[]).filter(function(x){return x.next_state===to;});
     if(!acts.length){toast("Không có chuyển trạng thái hợp lệ sang "+to,true);return;}
     if(acts.length===1){pmApplyTransition(name,acts[0].action,to,after);return;}
@@ -1536,7 +1537,7 @@
   /* Feature B: "Done" transition popup — capture worktime, then run the transition. Lightweight overlay,
      independent of the main task drawer. */
   function pmDoTransition(name,action){return api(PM+"tasks.set_status",{name:name,action:action}).then(function(r){toast("Trạng thái: "+r.workflow_state);openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});}
-  function openDonePopup(name,action){
+  function openDonePopup(name,action,after){
     var ov=document.createElement("div");ov.id="pm-done-ov";
     ov.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center";
     ov.innerHTML='<div style="background:#fff;border-radius:14px;padding:22px;width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.25)">'+
@@ -1549,11 +1550,12 @@
     (el("ec-pm-root")||document.body).appendChild(ov);
     function close(){if(ov&&ov.parentNode)ov.parentNode.removeChild(ov);}
     ov.onclick=function(e){if(e.target===ov)close();};
+    function complete(){api(PM+"tasks.set_status",{name:name,action:action}).then(function(r){toast("Trạng thái: "+r.workflow_state);if(after){after();}else{openTask(name);refreshTaskContext();}}).catch(function(e){toast("Lỗi: "+errOf(e),true);if(after){after();}else{openTask(name);}});}
     el("wtd-skip").onclick=function(){close();}; /* Huỷ = đóng popup, KHÔNG hoàn thành (phòng bấm Done nhầm) */
     el("wtd-confirm").onclick=function(){var _h=parseFloat(el("wtd-h").value)||0,_m=parseFloat(el("wtd-m").value)||0,total=_h+_m/60;var btn=this;btn.disabled=true;
       if(total>0){var hrs=Math.round(total*10000)/10000,today=new Date().toISOString().slice(0,10);
-        api(PM+"timesheet.log",{task:name,hours:hrs,log_date:today,description:el("wtd-desc").value||""}).then(function(){close();pmDoTransition(name,action);}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});}
-      else{close();pmDoTransition(name,action);}};}
+        api(PM+"timesheet.log",{task:name,hours:hrs,log_date:today,description:el("wtd-desc").value||""}).then(function(){close();complete();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});}
+      else{close();complete();}};}
   /* Feature C: schedule-only recurrence modal launched from a top-level task. Reuses the Teams-style
      schedule block (re-* ids) — safe because only one such block is in the DOM at a time. */
   function openTaskRecurModal(t){
@@ -1686,9 +1688,9 @@
       /* ec-pm-worktime-donepopup: inline worktime logging moved to the "Done" transition popup (Feature B).
          History + total remain visible below. */
     }
-    h+='<div style="font-size:12px;color:var(--gray-500);margin-bottom:6px">Tổng đã log: <b style="color:var(--gray-900)">'+total+'h</b></div>';
-    if(rows.length){h+=rows.map(function(r){return '<div class="pm-sub"><span>'+esc((r.from_time||"").slice(0,10))+' · '+esc(r.hours)+'h'+(r.description?' · '+esc(r.description):'')+'</span><span class="pm-mini-av" title="'+esc(r.owner||"")+'">'+ini(r.owner||"")+'</span></div>';}).join("");}
-    else{h+='<div style="font-size:12.5px;color:var(--gray-400);padding:6px 0">Chưa có log giờ.</div>';}
+    h+='<details class="dc-analytics"><summary style="cursor:pointer;font-size:12.5px;color:var(--gray-600);user-select:none">Giờ đã xử lý — Tổng <b style="color:var(--gray-900)">'+total+'h</b>'+(rows.length?(' · '+rows.length+' lần'):'')+'</summary><div style="margin-top:6px">'+
+      (rows.length?rows.map(function(r){return '<div class="pm-sub"><span>'+esc((r.from_time||"").slice(0,10))+' · '+esc(r.hours)+'h'+(r.description?' · '+esc(r.description):'')+'</span><span class="pm-mini-av" title="'+esc(r.owner||"")+'">'+ini(r.owner||"")+'</span></div>';}).join(""):'<div style="font-size:12.5px;color:var(--gray-400);padding:6px 0">Chưa có log giờ.</div>')+
+      '</div></details>';
     b.innerHTML=h;
     function tk(m2){api(PM+"timer."+m2).then(function(){loadWorktime(task,terminal);}).catch(function(e){toast("Lỗi: "+errOf(e),true);loadWorktime(task,terminal);});}
     if(el("tk-start"))el("tk-start").onclick=function(){this.disabled=true;api(PM+"timer.start",{task:task}).then(function(){loadWorktime(task,terminal);}).catch(function(e){toast("Lỗi: "+errOf(e),true);loadWorktime(task,terminal);});};
