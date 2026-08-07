@@ -482,6 +482,10 @@
   .pm-sub[draggable="true"]:active{ cursor:grabbing; }
   .gantt-label{ background:#fff; position:sticky; left:0; z-index:6; border-right:1px solid var(--gray-200); }
   .gantt-row:hover .gantt-label{ background:var(--gray-50); }
+  /* anti-glitch: isolate each row so the sticky name column is always painted above its bars
+     (some GPUs composite a bar's layer over the sticky column despite correct z-order) */
+  .gantt-row, .g-proj-row{ isolation:isolate; }
+  .gantt-label, .g-proj-label, .g-axis-corner{ background-clip:padding-box; }
   .g-proj-label{ background:var(--gray-50); position:sticky; left:0; z-index:6; border-right:1px solid var(--gray-200); }
   .g-axis-corner{ position:sticky; left:0; z-index:6; background:#fff; border-right:1px solid var(--gray-200); }
   .cal-head{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
