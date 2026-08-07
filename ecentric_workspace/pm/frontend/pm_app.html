@@ -1002,7 +1002,7 @@
       c.innerHTML=h;
       mwFocusTable(el("mw-focus"),focus,(ac&&ac.active)?ac:null);
       chkBadgesInto(el("mw-focus"),focus.map(function(x){return x.t.name;})); /* G4 checklist progress badge */
-      mwWireActions(el("mw-tcard"));
+      var _tc=el("mw-tcard");if(_tc)mwWireActions(_tc); /* timer card removed -> guard null */
       var gh="";groups.forEach(function(g){if(g[2].length)gh+='<div class="panel"><div class="panel-header"><div class="panel-title">'+g[1]+' <span style="color:var(--gray-400);font-weight:500">('+g[2].length+')</span></div></div><div id="mw-g-'+g[0]+'"></div></div>';});
       el("mw-groups").innerHTML=gh||'<div class="dc-pad" style="color:var(--gray-400)">Không có nhóm.</div>';
       groups.forEach(function(g){if(g[2].length)taskTable(el("mw-g-"+g[0]),g[2]);});
