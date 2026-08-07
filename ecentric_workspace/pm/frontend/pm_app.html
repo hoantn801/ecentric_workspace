@@ -122,9 +122,10 @@
   .pm-chk-reqlbl{ font-size:12.5px; color:var(--gray-600); display:flex; align-items:center; gap:5px; white-space:nowrap; }
   /* G4.8c: global-list hierarchy + assignee name + kanban card sub/lock */
   .pm-tt-name{ display:inline-flex; align-items:center; gap:6px; }
-  .pm-tt-caret{ cursor:pointer; color:#CBD5E1; font-size:11px; width:14px; display:inline-block; text-align:center; }
-  .pm-tt-caret.collapsed{ display:inline-block; transform:rotate(-90deg); }
-  .pm-tt-lead{ color:#CBD5E1; width:14px; display:inline-block; text-align:center; }
+  .pm-tt-caret{ cursor:pointer; color:var(--navy); font-size:13px; width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; border-radius:5px; transition:background .12s; }
+  .pm-tt-caret:hover{ background:#D6DBF5; }
+  .pm-tt-caret.collapsed{ transform:rotate(-90deg); }
+  .pm-tt-lead{ color:#CBD5E1; width:18px; display:inline-block; text-align:center; }
   .pm-tt-sp{ width:14px; display:inline-block; }
   .pm-asg-name{ display:inline-flex; align-items:center; gap:6px; }
   .pm-asg-fn{ font-size:12.5px; color:var(--gray-700); overflow:hidden; text-overflow:ellipsis; }
@@ -1031,7 +1032,7 @@
   function pmProjView(){try{return localStorage.getItem("pm_project_view")||"card";}catch(_){return "card";}}
   function pmSetProjView(v){try{localStorage.setItem("pm_project_view",v);}catch(_){}}
   /* UIUX-1: Department helpers. Options sourced from DocType Department (cached in window._pm_departments). */
-  function pmDeptList(){return window._pm_departments||[];}
+  function pmDeptList(){return (window._pm_departments||[]).filter(function(d){var n=d.department_name||d.name||"";return n!=="All Departments"&&d.name!=="All Departments";});} /* hide ERPNext root "All Departments" */
   function pmDeptOptions(sel){sel=sel||"";var seen=false;var o='<option value="">— Không —</option>';
     pmDeptList().forEach(function(d){var v=d.name;if(v===sel)seen=true;o+='<option value="'+esc(v)+'"'+(v===sel?' selected':'')+'>'+esc(d.department_name||d.name)+'</option>';});
     if(sel&&!seen)o+='<option value="'+esc(sel)+'" selected>'+esc(sel)+'</option>';return o;}
@@ -1332,7 +1333,7 @@
     var lead=!!window._isLeader;
     var head='<table class="pm-tbl"><thead><tr><th>Nhiệm vụ</th><th>Trạng thái</th><th>Dự án</th>'+(compact?'':'<th>Hạn</th>')+'<th>Người nhận</th>'+(lead?'<th class="pm-act-col"></th>':'')+'</tr></thead><tbody>';
     function rowHtml(t,depth,hasKids,collapsed){var tg=tagsCompact(t,3);var term=(t.workflow_state==="Done"||t.workflow_state==="Cancelled");
-      var caret=hasKids?'<span class="pm-tt-caret'+(collapsed?' collapsed':'')+'" data-ttcol="'+esc(t.name)+'">▾</span>':(depth>0?'<span class="pm-tt-lead">↳</span>':'<span class="pm-tt-sp"></span>');
+      var caret=hasKids?'<span class="pm-tt-caret'+(collapsed?' collapsed':'')+'" data-ttcol="'+esc(t.name)+'">▾</span>':'<span class="pm-tt-sp"></span>';
       return '<tr data-task="'+esc(t.name)+'" class="'+pmDepthClass(depth)+((hasKids&&depth===0)?' pm-parent':'')+'"><td class="t-main"><div style="display:flex;align-items:flex-start;gap:9px"><span style="margin-left:'+(Math.min(depth,6)*18)+'px;flex:0 0 auto">'+pjCheck(t,true,true)+'</span><div style="flex:1;min-width:0"><span class="pm-tt-name">'+caret+'<span'+(term?' style="text-decoration:line-through;color:var(--gray-400)"':'')+'>'+esc(t.subject||t.name)+'</span></span>'+(tg?'<div class="pm-tags" style="margin-top:4px">'+tg+'</div>':'')+(labelChips(t,2)?'<div class="pm-labels-row" style="margin-top:4px">'+labelChips(t,2)+'</div>':'')+'</div></div></td><td>'+badge(t.workflow_state)+'</td><td>'+pmProjLabel(t)+'</td>'+
         (compact?'':'<td>'+esc(fmtEndCell(t))+'</td>')+'<td>'+pmAssignee(t,false)+'</td>'+(lead?'<td class="pm-act-col">'+pmTaskMenuHtml(t.name)+'</td>':'')+'</tr>';}
     var body="";
