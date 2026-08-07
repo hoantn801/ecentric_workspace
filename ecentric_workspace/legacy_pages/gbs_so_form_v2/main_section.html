@@ -2097,8 +2097,17 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
         body: JSON.stringify(data)
       }).then(function(r){return r.json();}).then(function(d){
         if (!d.success) { var errMsg = d.error || 'Submit failed'; if (d.error === 'missing_fields' && Array.isArray(d.fields)) { var labelMap = {title:'Tiêu đề', brand_code:'Brand', brand_name:'Brand', brand:'Brand', department:'Phòng ban', supplier:'Nhà cung cấp', customer:'Khách hàng', transaction_date:'Ngày đặt hàng', schedule_date:'Ngày giao hàng', delivery_date:'Ngày giao hàng', set_warehouse:'Kho mặc định', warehouse:'Kho', items:'Sản phẩm', attachment:'Chứng từ đính kèm', notes:'Ghi chú', grand_total:'Tổng tiền'}; errMsg = 'Thiếu các trường bắt buộc: ' + d.fields.map(function(f){return labelMap[f]||f;}).join(', '); } throw new Error(errMsg); }
-        showGbsToast('Created: ' + (d.name || 'OK'));
-        setTimeout(function(){ window.location.href = '/approval'; }, 1500);
+        showGbsToast('Created: ' + (d.name || 'OK') + ' — dang mo trang duyet...');
+        // 2026-08-07 FIX 6a: truoc day nhay ve /approval TRONG (khong kem id) nen
+        // nguoi gui roi vao danh sach va phai tu di tim SO vua tao. Nay mo thang
+        // phieu vua tao giong MSO: /approval?id=<ten>&type=gbs_so. Neu vi ly do
+        // nao do backend khong tra ve ten thi giu nguyen hanh vi cu.
+        setTimeout(function(){
+          var nm = d.name || d.id || '';
+          window.location.href = nm
+            ? ('/approval?id=' + encodeURIComponent(nm) + '&type=gbs_so')
+            : '/approval';
+        }, 1500);
       }).catch(function(e){
         showGbsToast('L' + String.fromCharCode(0x1ED7) + 'i: ' + e.message, 'error');
         btn.disabled = false; btn.textContent = 'Submit';
@@ -2425,6 +2434,12 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     if (window._gbsUploadedFiles[key] && window._gbsUploadedFiles[key].status !== 'error') return;
     console.log('[ec-gbs-so-upload] uploadFile triggered for', key, file.size, 'bytes');
     window._gbsUploadedFiles[key] = { status: 'uploading', progress: 0 };
+    // 2026-08-07 FIX 8: giu lai chinh doi tuong File de nhanh EC (SO so EC) con
+    // dinh kem NATIVE vao Sales Order sau khi tao xong. Truoc day file chi len
+    // SharePoint theo phien upload va SO chi luu ma phien -> trang /approval doc
+    // bang File nen luon "Khong co file dinh kem". Nhanh GBS khong dung bien nay.
+    window._ecRawFiles = window._ecRawFiles || {};
+    window._ecRawFiles[key] = file;
     updateUI();
 
     fetch('/api/method/gbs_create_upload_session', {
@@ -2904,6 +2919,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       if (!nameEl) return;
       var name = (nameEl.textContent || '').trim();
       if (!name) return;
+      if (window._ecRawFiles) delete window._ecRawFiles[name];   // FIX 8
       if (window._gbsUploadedFiles && window._gbsUploadedFiles[name]) {
         delete window._gbsUploadedFiles[name];
         console.log('[ec-upload-remove-sync] removed', name, 'from _gbsUploadedFiles');
@@ -6522,6 +6538,35 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     return rows;
   }
 
+  // ---- FIX 8 (2026-08-07): dinh kem NATIVE vao chung tu so EC ----
+  // File cua form len SharePoint theo phien upload, chung tu chi luu ma phien
+  // (ec_attach_session) -> trang /approval doc bang File nen khong thay gi. Sau khi
+  // tao SO xong thi day chinh nhung file do vao Sales Order bang duong native
+  // (/api/method/upload_file, is_private=1), dung cach /mso-plan-form dang lam.
+  // Duong SharePoint giu nguyen, khong bo.
+  function attachRawFiles(doctype, docname){
+    var map = window._ecRawFiles || {};
+    var keys = Object.keys(map);
+    if (!keys.length) return Promise.resolve(0);
+    var done = 0;
+    var chain = Promise.resolve();
+    keys.forEach(function(k){
+      chain = chain.then(function(){
+        var f = map[k];
+        if (!f) return;
+        var fd = new FormData();
+        fd.append('file', f);
+        fd.append('doctype', doctype);
+        fd.append('docname', docname);
+        fd.append('is_private', '1');
+        return fetch('/api/method/upload_file', {method:'POST', credentials:'include', body: fd})
+          .then(function(r){ if (r.ok) { done++; } else { console.warn('[ec-attach-native] loi', k, r.status); } })
+          ['catch'](function(e){ console.warn('[ec-attach-native] loi', k, e); });
+      });
+    });
+    return chain.then(function(){ return done; });
+  }
+
   // ---- native SO creation ----
   async function createNativeSO(opts){
     var month = ($id('ecUniMonth')||{}).value || (opts.delivery||'').slice(0,7);
@@ -6541,6 +6586,7 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     var doc = JSON.parse(txt).data;
     var r2 = await fetch('/api/method/frappe.model.workflow.apply_workflow', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({doc: doc, action: 'Submit for Approval'})});
     if (!r2.ok) throw new Error(frappeErr(await r2.text(), 'Trinh duyet SO EC loi'));
+    try { await attachRawFiles('Sales Order', doc.name); } catch (_e) {}
     return doc;
   }
 
@@ -6624,7 +6670,13 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
           attach:_lastUploadSession, contract:($id('ecContract')||{}).value||'', items:rows,
           justification:_just
         });
-        notice('✓ Đã tạo + gửi duyệt SO sổ EC: '+doc.name+' ('+(doc.ec_in_out_budget||'')+')', false);
+        notice('✓ Đã tạo + gửi duyệt SO sổ EC: '+doc.name+' ('+(doc.ec_in_out_budget||'')+') — đang mở trang duyệt...', false);
+        // 2026-08-07 FIX 6b: truoc day form dung yen tai trang tao sau khi trinh
+        // duyet, nguoi gui phai tu di tim SO vua tao de xem chuoi duyet / dinh kem.
+        // Nay mo thang phieu vua tao giong MSO. Cho ~1.1s de kip doc thong bao.
+        setTimeout(function(){
+          window.location.href = '/approval?id=' + encodeURIComponent(doc.name) + '&type=so';
+        }, 1100);
       }catch(e){ notice('Lỗi: '+e.message, true); btn.disabled=false; }
     }, true);
   }

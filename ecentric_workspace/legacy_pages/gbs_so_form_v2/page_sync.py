@@ -43,8 +43,23 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "bd831d4757ee98a44541ff53042c232ce120199cfc6f81fe747fdc2504ddf73e"
+BASELINE_SHA256 = "575b1aae7b6b3e8b0840b33d3401874e1dd076d10503356bcaaaa3e15cb1121a"
 SUPERSEDES_SHA256 = (
+    # bytes truoc FIX 8 (2026-08-07): file dinh kem cua SO so EC chi len SharePoint
+    # theo phien upload, Sales Order chi luu ma phien (ec_attach_session) -> trang
+    # /approval doc bang File nen luon "Khong co file dinh kem". Sua: giu lai doi
+    # tuong File luc upload va sau khi tao SO thi dinh kem NATIVE
+    # (/api/method/upload_file, is_private=1) vao chinh SO. Duong SharePoint giu
+    # nguyen. Chi nhanh direct goi ham nay; nhanh gbsrev khong doi hanh vi.
+    "5629b18fd902f7e6de40afdba6becd60567b651a3bf12d1977c9398a08f46499",
+    # bytes truoc FIX 6a/6b (2026-08-07): sau khi trinh duyet, form dung yen o trang
+    # tao (nhanh direct / SO so EC) hoac nhay ve /approval TRONG khong kem id (nhanh
+    # gbsrev / GBS SO). Ca hai deu bat nguoi gui tu di tim lai phieu vua tao de xem
+    # chuoi duyet va dinh kem -- trong khi /mso-plan-form da mo thang phieu tu
+    # 2026-08-05. Sua: mo /approval?id=<ten>&type=so cho SO so EC va
+    # /approval?id=<ten>&type=gbs_so cho GBS SO. Nhanh GBS giu nguyen duong cu
+    # (/approval khong id) neu backend khong tra ve ten.
+    "bd831d4757ee98a44541ff53042c232ce120199cfc6f81fe747fdc2504ddf73e",
     # bytes truoc FIX 5c (2026-08-06): moveBack() tra 3 o (ec-store, transaction_date,
     # delivery_date) ve cho cu bang insertBefore(el, next). Nhung ca 3 duoc chuyen di
     # trong cung mot vong lap nen `next` cua o truoc chinh la o sau -- da bi chuyen
