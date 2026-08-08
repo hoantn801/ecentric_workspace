@@ -52,11 +52,13 @@ def _require_access(reference_doctype, reference_name):
 @frappe.whitelist()
 def add(reference_doctype, reference_name, content):
     """Add a timeline comment to a PM Project/Task the caller can access. Governed + audited
-    (Comment carries its own owner/creation). Returns the new comment row."""
+    (Comment carries its own owner/creation). `content` may contain safe rich HTML
+    (links/images/line-breaks) — it is server-sanitised (scripts/handlers stripped). Returns row."""
     content = (content or "").strip()
     if not content:
         frappe.throw(_("Nội dung bình luận trống."))
     _require_access(reference_doctype, reference_name)
+    content = frappe.utils.sanitize_html(content)  # strip script/on*/js: — keep a/img/br/basic
     doc = frappe.get_doc({
         "doctype": "Comment",
         "comment_type": "Comment",
@@ -68,6 +70,40 @@ def add(reference_doctype, reference_name, content):
     doc.insert(ignore_permissions=True)
     return {"name": doc.name, "content": doc.content,
             "owner": doc.owner, "creation": str(doc.creation)}
+
+
+@frappe.whitelist()
+def upload(reference_doctype, reference_name, filename, dataurl):
+    """Upload a comment attachment (image/file) for a PM Project/Task the caller can access.
+    Stored as a PUBLIC File attached to the doc so every PM user can view it inline without a
+    per-doc file permission. Returns {file_url, is_image, file_name}."""
+    _require_access(reference_doctype, reference_name)
+    import base64
+    s = dataurl or ""
+    is_image = False
+    if s.startswith("data:") and "," in s:
+        header, b64 = s.split(",", 1)
+        is_image = "image/" in header
+    else:
+        b64 = s
+    try:
+        raw = base64.b64decode(b64)
+    except Exception:
+        frappe.throw(_("Tệp không hợp lệ."))
+    if not raw:
+        frappe.throw(_("Tệp rỗng."))
+    if len(raw) > 8 * 1024 * 1024:
+        frappe.throw(_("Tệp quá lớn (tối đa 8MB)."))
+    f = frappe.get_doc({
+        "doctype": "File",
+        "file_name": (filename or "attachment")[:140],
+        "attached_to_doctype": reference_doctype,
+        "attached_to_name": reference_name,
+        "is_private": 0,
+        "content": raw,
+    })
+    f.insert(ignore_permissions=True)
+    return {"file_url": f.file_url, "is_image": bool(is_image), "file_name": f.file_name}
 
 
 @frappe.whitelist()
