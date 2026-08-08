@@ -2453,11 +2453,11 @@
     var ms=(d.monthly_day!=null&&d.monthly_day!=="")?d.monthly_day:"";
     var me=(ms!==""&&d.template_duration_days!=null&&d.template_duration_days!=="")?(parseInt(ms,10)+parseInt(d.template_duration_days,10)):"";
     return '<div class="pm-field rcf-full" style="margin-bottom:2px"><div style="font-size:12.5px;color:var(--gray-500);background:#f5f7ff;border:1px solid #e2e8f0;border-radius:8px;padding:8px 11px">📅 Chọn tần suất — hệ thống sẽ tự tạo nhiệm vụ vào các ngày ở mục <b>Dự kiến</b> bên dưới.</div></div>'+
-      '<div class="pm-field"><label>Tần suất *</label><select class="pm-sel" id="re-freq">'+freqOpt()+'</select></div>'+
-      '<div class="pm-field rcf-full" id="re-weekdays-wrap"><label>Vào các thứ</label><div id="re-weekdays" style="display:flex;gap:6px;flex-wrap:wrap">'+chips+'</div></div>'+
-      '<div class="pm-field rcf-full" id="re-monthly-wrap"><label>Hằng tháng</label><div style="display:flex;gap:8px;align-items:center"><span style="font-size:13px;color:var(--gray-600)">Từ ngày</span><input type="number" min="1" max="31" class="pm-input" id="re-mstart" value="'+esc(ms)+'" style="width:74px;padding-left:11px;background-image:none"><span style="font-size:13px;color:var(--gray-600)">đến ngày</span><input type="number" min="1" max="31" class="pm-input" id="re-mend" value="'+esc(me)+'" style="width:74px;padding-left:11px;background-image:none"></div></div>'+
-      '<div class="pm-field"><label>Bắt đầu áp dụng</label><input type="date" class="pm-input" id="re-start" value="'+esc(d.start_date||"")+'"><div style="font-size:11px;color:var(--gray-400);margin-top:3px">Bỏ trống = bắt đầu từ hôm nay</div></div>'+
-      '<div class="pm-field"><label>Lặp cho tới ngày</label><input type="date" class="pm-input" id="re-end" value="'+esc(d.end_date||"")+'"><div style="font-size:11px;color:var(--gray-400);margin-top:3px">Bỏ trống = lặp không giới hạn</div></div>'+
+      '<div class="pm-field"><label data-hint="frequency">Tần suất *</label><select class="pm-sel" id="re-freq">'+freqOpt()+'</select></div>'+
+      '<div class="pm-field rcf-full" id="re-weekdays-wrap"><label data-hint="weekly_days">Vào các thứ</label><div id="re-weekdays" style="display:flex;gap:6px;flex-wrap:wrap">'+chips+'</div></div>'+
+      '<div class="pm-field rcf-full" id="re-monthly-wrap"><label data-hint="monthly_day">Hằng tháng</label><div style="display:flex;gap:8px;align-items:center"><span style="font-size:13px;color:var(--gray-600)">Từ ngày</span><input type="number" min="1" max="31" class="pm-input" id="re-mstart" value="'+esc(ms)+'" style="width:74px;padding-left:11px;background-image:none"><span style="font-size:13px;color:var(--gray-600)">đến ngày</span><input type="number" min="1" max="31" class="pm-input" id="re-mend" value="'+esc(me)+'" style="width:74px;padding-left:11px;background-image:none"></div></div>'+
+      '<div class="pm-field"><label data-hint="start_date">Bắt đầu áp dụng</label><input type="date" class="pm-input" id="re-start" value="'+esc(d.start_date||"")+'"><div style="font-size:11px;color:var(--gray-400);margin-top:3px">Bỏ trống = bắt đầu từ hôm nay</div></div>'+
+      '<div class="pm-field"><label data-hint="end_date">Lặp cho tới ngày</label><input type="date" class="pm-input" id="re-end" value="'+esc(d.end_date||"")+'"><div style="font-size:11px;color:var(--gray-400);margin-top:3px">Bỏ trống = lặp không giới hạn</div></div>'+
       '<div class="pm-field rcf-full" id="re-preview-wrap"><label>Dự kiến các lần sinh kế tiếp</label><div id="re-preview" style="font-size:13px;color:var(--gray-700);line-height:2"></div></div>';}
   /* Client-side preview of upcoming generation dates (mirrors backend _advance: Daily/Weekly multi-weekday/Monthly-on-day, from start, until end). Approximate, labelled "dự kiến". */
   function recPreviewDates(s){var out=[],today=new Date();today.setHours(0,0,0,0);
@@ -2506,7 +2506,7 @@
       '<div class="pm-field rcf-full"><label>Người thực hiện</label><input class="pm-input" id="re-assignees" placeholder="user@ecentric.vn, user2@..." value="'+esc(asg)+'" style="padding-left:11px;background-image:none"></div>'+
       '<div class="pm-field"><label>Giờ bắt đầu</label><input type="time" class="pm-input" id="re-st" value="'+esc(d.template_start_time||"")+'"></div>'+
       '<div class="pm-field"><label>Giờ kết thúc</label><input type="time" class="pm-input" id="re-et" value="'+esc(d.template_end_time||"")+'"></div>'+
-      '<div class="pm-field"><label>Số ngày kéo dài</label><input type="number" min="0" class="pm-input" id="re-dur" value="'+esc(dur)+'" style="padding-left:11px;background-image:none"></div>'+
+      '<div class="pm-field"><label data-hint="template_duration_days">Số ngày kéo dài</label><input type="number" min="0" class="pm-input" id="re-dur" value="'+esc(dur)+'" style="padding-left:11px;background-image:none"></div>'+
       recScheduleHtml(d)+
       '</div>'+
       '<div class="rcf-sec">Checklist mẫu</div><div id="re-chk">'+chk+'</div><button type="button" class="pm-btn" id="re-chk-add" style="margin-top:6px">➕ Thêm bước</button>'+
@@ -2518,7 +2518,14 @@
     wireDel(c);
     if(el("re-chk-add"))el("re-chk-add").onclick=function(){var box=el("re-chk");box.insertAdjacentHTML("beforeend",recChkRow({}));wireDel(box);};
     if(el("re-sub-add"))el("re-sub-add").onclick=function(){var box=el("re-sub");box.insertAdjacentHTML("beforeend",recSubRow({}));wireDel(box);};
-    recWireSchedule(c);}
+    recWireSchedule(c);pmApplyHints(c,"PM Recurrence");}
+  /* Field-hint tooltips synced from DocType "EC Field Description" (ref_doctype + fieldname + description).
+     Any <label data-hint="fieldname"> in `container` gets an ⓘ with the description as tooltip. Cached per ref_doctype. */
+  function pmApplyHints(container,refdt){if(!container)return;window._pmHints=window._pmHints||{};
+    function inject(map){Array.prototype.forEach.call(container.querySelectorAll("label[data-hint]"),function(lb){var fn=lb.getAttribute("data-hint");var d=map[fn];if(!d||lb.querySelector(".pm-hint"))return;
+      var i=document.createElement("span");i.className="pm-hint";i.title=d;i.setAttribute("aria-label",d);i.textContent="ⓘ";i.style.cssText="cursor:help;color:#94a3b8;font-size:12px;margin-left:5px;font-weight:400;vertical-align:middle";lb.appendChild(i);});}
+    if(window._pmHints[refdt]){inject(window._pmHints[refdt]);return;}
+    api("frappe.client.get_list",{doctype:"EC Field Description",filters:[["ref_doctype","=",refdt],["is_active","=",1]],fields:["fieldname","description"],limit_page_length:0}).then(function(r){var rows=Array.isArray(r)?r:((r&&r.message)||[]);var m={};rows.forEach(function(x){m[x.fieldname]=x.description;});window._pmHints[refdt]=m;inject(m);}).catch(function(){});}
   function recCollect(c){
     var chk=[];Array.prototype.forEach.call(c.querySelectorAll("#re-chk .re-chk-row"),function(row){var lb=row.querySelector(".re-chk-label").value.trim();if(lb)chk.push({item_label:lb,is_required:row.querySelector(".re-chk-req").checked?1:0});});
     var subs=[];Array.prototype.forEach.call(c.querySelectorAll("#re-sub .re-sub-row"),function(row){var s=row.querySelector(".re-sub-subject").value.trim();if(s){var a=row.querySelector(".re-sub-assignees").value.split(",").map(function(x){return x.trim();}).filter(Boolean);subs.push({subject:s,assignees:a});}});
