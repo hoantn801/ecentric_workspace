@@ -377,6 +377,8 @@
   .pm-cmt-head b{ color:var(--gray-900); }
   .pm-cmt-time{ color:var(--gray-400); font-size:11px; margin-left:auto; }
   .pm-cmt-body{ font-size:13px; color:var(--gray-800); white-space:pre-wrap; padding-left:27px; line-height:1.45; }
+  .pm-cmt-body img{ max-width:100%; border-radius:8px; margin-top:6px; display:block; }
+  .pm-cmt-body a{ color:var(--navy); word-break:break-all; }
   /* ---- C1-B inline edit ---- */
   .pm-inline{ cursor:text; border-radius:6px; padding:2px 6px; margin:-2px -6px; transition:background .12s, box-shadow .12s; display:inline-block; max-width:100%; }
   .pm-inline:hover{ background:var(--navy-50); box-shadow:inset 0 0 0 1px var(--navy-100); }
@@ -1807,8 +1809,13 @@
         '<div class="pm-dsec">Worktime</div><div id="pm-wt"><span class="spin"></span></div>';
       h+='</div><div class="pm-d-side"><div class="pm-side-h">Bình luận</div>'+
         '<div id="pm-comments" class="pm-cmt-list"><span class="spin"></span></div>'+
-        '<div class="pm-composer"><textarea class="pm-cmt-input2" id="pm-cmt-input" rows="2" placeholder="Viết bình luận... (Enter gửi, Shift+Enter xuống dòng)"></textarea>'+
-        '<div class="pm-composer-bar"><div class="pm-composer-ic">'+
+        '<div class="pm-composer"><div id="pm-cmt-att" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:6px"></div><textarea class="pm-cmt-input2" id="pm-cmt-input" rows="2" placeholder="Viết bình luận... (Enter gửi, Shift+Enter xuống dòng)"></textarea>'+
+        '<div class="pm-composer-bar"><div class="pm-composer-ic" style="display:flex;gap:1px;align-items:center">'+
+        '<button type="button" id="pm-cmt-link" title="Gắn link" style="border:none;background:none;cursor:pointer;font-size:15px;padding:3px 5px;border-radius:6px">🔗</button>'+
+        '<button type="button" id="pm-cmt-file" title="Đính kèm tệp" style="border:none;background:none;cursor:pointer;font-size:15px;padding:3px 5px;border-radius:6px">📎</button>'+
+        '<button type="button" id="pm-cmt-img" title="Chèn ảnh" style="border:none;background:none;cursor:pointer;font-size:15px;padding:3px 5px;border-radius:6px">🖼️</button>'+
+        '<button type="button" id="pm-cmt-emoji" title="Emoji / sticker" style="border:none;background:none;cursor:pointer;font-size:15px;padding:3px 5px;border-radius:6px">😀</button>'+
+        '<input type="file" id="pm-cmt-file-inp" style="display:none"><input type="file" id="pm-cmt-img-inp" accept="image/*" style="display:none">'+
         '</div>'+
         '<button class="pm-btn primary" id="pm-cmt-send">'+SVG_SEND+'Gửi</button></div></div></div></div>';
       c.innerHTML=h;c.classList.add("pm-cols");
@@ -1854,15 +1861,44 @@
         if(el("pm-st-time"))el("pm-st-time").onchange=saveTime; if(el("pm-en-time"))el("pm-en-time").onchange=saveTime;})();
       pmDecompWire(name,t.project); loadSubtree(name,t.project,pmTerminal(t),!!t.parent_task); /* 2-level cap: no add-subtask on a sub-task */
       loadWorktime(name,pmTerminal(t)); loadComments(name); loadChecklist(name,t.workflow_state);
-      if(el("pm-cmt-send"))el("pm-cmt-send").onclick=function(){var v=el("pm-cmt-input").value.trim();if(!v){toast("Nhập bình luận",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang gửi...";
-        api(PM+"comments.add",{reference_doctype:"Task",reference_name:name,content:v}).then(function(){el("pm-cmt-input").value="";loadComments(name);btn.disabled=false;btn.textContent="Gửi";}).catch(function(e){toast("Lỗi gửi bình luận: "+errOf(e),true);btn.disabled=false;btn.textContent="Gửi";});};
+      window._pmCmtAttach=[];pmCmtRenderAtt();
+      function pmCmtUpload(inp,forceImg){var f=inp.files&&inp.files[0];if(!f)return;if(f.size>8*1024*1024){toast("Tệp quá lớn (tối đa 8MB)",true);inp.value="";return;}
+        var rd=new FileReader();rd.onload=function(){api(PM+"comments.upload",{reference_doctype:"Task",reference_name:name,filename:f.name,dataurl:rd.result}).then(function(r){window._pmCmtAttach.push({url:r.file_url,is_image:(!!r.is_image||!!forceImg),name:r.file_name||f.name});pmCmtRenderAtt();}).catch(function(e){toast("Lỗi tải tệp: "+errOf(e),true);});inp.value="";};rd.readAsDataURL(f);}
+      if(el("pm-cmt-file"))el("pm-cmt-file").onclick=function(){el("pm-cmt-file-inp").click();};
+      if(el("pm-cmt-img"))el("pm-cmt-img").onclick=function(){el("pm-cmt-img-inp").click();};
+      if(el("pm-cmt-file-inp"))el("pm-cmt-file-inp").onchange=function(){pmCmtUpload(this,false);};
+      if(el("pm-cmt-img-inp"))el("pm-cmt-img-inp").onchange=function(){pmCmtUpload(this,true);};
+      if(el("pm-cmt-link"))el("pm-cmt-link").onclick=function(){var u=window.prompt("Dán đường link:");if(u&&u.trim()){var ta=el("pm-cmt-input");ta.value=(ta.value?ta.value+" ":"")+u.trim()+" ";ta.focus();}};
+      if(el("pm-cmt-emoji"))el("pm-cmt-emoji").onclick=function(){pmCmtEmojiPopover(this);};
+      if(el("pm-cmt-send"))el("pm-cmt-send").onclick=function(){var txt=el("pm-cmt-input").value.trim();var atts=window._pmCmtAttach||[];if(!txt&&!atts.length){toast("Nhập bình luận hoặc đính kèm",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang gửi...";
+        api(PM+"comments.add",{reference_doctype:"Task",reference_name:name,content:pmCmtBuildContent(txt,atts)}).then(function(){el("pm-cmt-input").value="";window._pmCmtAttach=[];pmCmtRenderAtt();loadComments(name);btn.disabled=false;btn.textContent="Gửi";}).catch(function(e){toast("Lỗi gửi bình luận: "+errOf(e),true);btn.disabled=false;btn.textContent="Gửi";});};
       if(el("pm-cmt-input"))el("pm-cmt-input").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(el("pm-cmt-send"))el("pm-cmt-send").click();}});
     }).catch(function(e){errBox(c,e);});}
 
   function loadComments(task){var b=el("pm-comments");if(!b)return;
     api(PM+"comments.list",{reference_doctype:"Task",reference_name:task}).then(function(r){if(el("pm-comments"))renderComments(el("pm-comments"),(r&&r.rows)||[]);}).catch(function(e){if(el("pm-comments"))el("pm-comments").innerHTML='<div style="font-size:12.5px;color:var(--gray-400);padding:4px 0">Không tải được bình luận.</div>';});}
   function renderComments(b,rows){if(!rows.length){b.innerHTML='<div style="font-size:12.5px;color:var(--gray-400);padding:4px 0">Chưa có bình luận.</div>';return;}
-    b.innerHTML=rows.map(function(cm){var who=(cm.owner||"").split("@")[0];return '<div class="pm-cmt-card"><div class="pm-cmt-head"><span class="pm-mini-av">'+ini(cm.owner||"?")+'</span><b>'+esc(who)+'</b><span class="pm-cmt-time">'+esc((cm.creation||"").slice(0,16))+'</span></div><div class="pm-cmt-body">'+esc(stripTags(cm.content||""))+'</div></div>';}).join("");}
+    b.innerHTML=rows.map(function(cm){var who=(cm.owner||"").split("@")[0];var body=cm.content||"";var html=/[<][a-z!/]/i.test(body)?pmCmtSanitize(body):esc(body).replace(/\n/g,"<br>").replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');return '<div class="pm-cmt-card"><div class="pm-cmt-head"><span class="pm-mini-av">'+ini(cm.owner||"?")+'</span><b>'+esc(who)+'</b><span class="pm-cmt-time">'+esc((cm.creation||"").slice(0,16))+'</span></div><div class="pm-cmt-body">'+html+'</div></div>';}).join("");}
+  /* comment composer helpers: attachment strip, safe HTML build/sanitize, emoji picker */
+  function pmCmtRenderAtt(){var b=el("pm-cmt-att");if(!b)return;var a=window._pmCmtAttach||[];if(!a.length){b.style.display="none";b.innerHTML="";return;}b.style.display="flex";
+    b.innerHTML=a.map(function(x,i){var inner=x.is_image?'<img src="'+esc(x.url)+'" style="width:34px;height:34px;object-fit:cover;border-radius:6px">':'<span style="font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📎 '+esc(x.name)+'</span>';return '<span style="display:inline-flex;align-items:center;gap:6px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:3px 7px">'+inner+'<span data-rmatt="'+i+'" title="Bỏ" style="cursor:pointer;color:#94a3b8;font-size:12px">✕</span></span>';}).join("");
+    Array.prototype.forEach.call(b.querySelectorAll("[data-rmatt]"),function(x){x.onclick=function(){window._pmCmtAttach.splice(+x.getAttribute("data-rmatt"),1);pmCmtRenderAtt();};});}
+  function pmCmtBuildContent(text,atts){var safe=esc(text||"").replace(/\n/g,"<br>").replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
+    var att=(atts||[]).map(function(x){return x.is_image?'<br><img src="'+esc(x.url)+'">':'<br><a href="'+esc(x.url)+'" target="_blank" rel="noopener">📎 '+esc(x.name)+'</a>';}).join("");
+    return safe+att;}
+  function pmCmtSanitize(html){var d=document.createElement("div");d.innerHTML=String(html||"");
+    Array.prototype.forEach.call(d.querySelectorAll("script,style,iframe,object,embed,link,meta"),function(n){n.parentNode&&n.parentNode.removeChild(n);});
+    Array.prototype.forEach.call(d.querySelectorAll("*"),function(n){[].slice.call(n.attributes).forEach(function(a){var v=(a.value||"").trim();if(/^on/i.test(a.name)||((a.name==="href"||a.name==="src")&&/^\s*javascript:/i.test(v)))n.removeAttribute(a.name);});if(n.tagName==="A"){n.setAttribute("target","_blank");n.setAttribute("rel","noopener");}});
+    return d.innerHTML;}
+  var PM_EMOJI=["👍","🙏","🎉","✅","🔥","😀","😄","😅","😂","😍","😮","😢","😡","👏","💪","🚀","💡","⚠️","❤️","👀","🤝","📌","⏰","❌"];
+  function pmCmtEmojiPopover(anchor){var ex=document.getElementById("pm-emoji-pop");if(ex){ex.remove();return;}
+    var w=document.createElement("div");w.id="pm-emoji-pop";w.style.cssText="position:absolute;z-index:9998;background:#fff;border:1px solid var(--gray-200);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.16);padding:8px;width:240px;display:flex;flex-wrap:wrap;gap:2px";
+    w.innerHTML=PM_EMOJI.map(function(e){return '<button type="button" class="pm-emo" style="border:none;background:none;cursor:pointer;font-size:20px;padding:3px;border-radius:6px;line-height:1">'+e+'</button>';}).join("");
+    (el("ec-pm-root")||document.body).appendChild(w);var r=anchor.getBoundingClientRect();w.style.top=(r.top+window.scrollY-200)+"px";w.style.left=(Math.max(8,r.left+window.scrollX-90))+"px";
+    function close(){if(w.parentNode)w.parentNode.removeChild(w);document.removeEventListener("mousedown",out);}
+    function out(e){if(!w.contains(e.target)&&e.target!==anchor)close();}
+    setTimeout(function(){document.addEventListener("mousedown",out);},0);
+    Array.prototype.forEach.call(w.querySelectorAll(".pm-emo"),function(b){b.onclick=function(){var ta=el("pm-cmt-input");if(ta){ta.value=(ta.value||"")+b.textContent;ta.focus();}close();};});}
   function fmtDur(s){s=Math.max(0,Math.floor(s));var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),x=s%60;return (h<10?"0":"")+h+":"+(m<10?"0":"")+m+":"+(x<10?"0":"")+x;}
   function clearTick(){if(window._pmTick){clearInterval(window._pmTick);window._pmTick=null;}}
   function loadWorktime(task,terminal){var b=el("pm-wt");if(!b)return;clearTick();b.innerHTML='<span class="spin"></span>';
