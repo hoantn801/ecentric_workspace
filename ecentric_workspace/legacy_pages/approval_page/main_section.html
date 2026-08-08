@@ -1484,8 +1484,8 @@ body header.navbar, .web-footer, footer.web-footer { display: none !important; }
     html += '<select id="listDept"><option value="">Tất cả dept</option>';
     depts.forEach(d => { html += '<option value="' + escapeHtml(d) + '"' + (ListState.filter.dept === d ? ' selected' : '') + '>' + escapeHtml(d) + '</option>'; });
     html += '</select>';
-    html += '<input type="date" id="listDateFrom" value="' + ListState.filter.dateFrom + '" />';
-    html += '<input type="date" id="listDateTo" value="' + ListState.filter.dateTo + '" />';
+    html += '<input data-ec-dp-range="apprlist" data-ec-dp-role="start" type="date" id="listDateFrom" value="' + ListState.filter.dateFrom + '" />';
+    html += '<input data-ec-dp-range="apprlist" data-ec-dp-role="end" type="date" id="listDateTo" value="' + ListState.filter.dateTo + '" />';
     // EC-GBS-FIN-v1: GBS phase dropdown
     html += '<select id="listGbsPhase"><option value="">All GBS phase</option><option value="gbs_pending"' + (ListState.filter.gbsPhase === 'gbs_pending' ? ' selected' : '') + '>⏳ Chờ GBS</option><option value="gbs_overdue"' + (ListState.filter.gbsPhase === 'gbs_overdue' ? ' selected' : '') + '>⛔ Trễ GBS</option></select>';
     html += '<button class="filter-clear" id="listClear">Clear filters</button>';
