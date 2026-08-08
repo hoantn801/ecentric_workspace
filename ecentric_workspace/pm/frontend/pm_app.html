@@ -462,21 +462,23 @@
   .pm-tbl tbody tr{ transition:background .1s; }
   .pm-drawer .body{ padding:20px 22px; }
   .pm-field{ margin-bottom:18px; }
-  .gantt-wrap{ overflow-x:auto; padding:6px 6px 10px; }
+  .gantt-wrap{ overflow:auto; max-height:72vh; padding:6px 6px 10px; }
   .gantt{ min-width:680px; }
-  .gantt-axis{ display:grid; grid-template-columns:220px 1fr; border-bottom:1px solid var(--gray-200); }
-  .gantt-axis .ticks{ position:relative; height:24px; }
-  .gantt-axis .tick{ position:absolute; top:5px; font-size:11px; color:var(--gray-400); transform:translateX(-50%); }
+  /* sticky date header: stays fixed while task/project rows scroll under it */
+  .gantt-axis{ display:grid; grid-template-columns:220px 1fr; border-bottom:1px solid var(--gray-200); position:sticky; top:0; z-index:7; background:#fff; }
+  .gantt-axis .ticks{ position:relative; height:22px; background:#fff; }
+  .gantt-axis .tick{ position:absolute; top:5px; font-size:10px; color:var(--gray-400); transform:translateX(-50%); }
   .gantt-row{ display:grid; grid-template-columns:220px 1fr; align-items:center; border-bottom:1px solid var(--gray-100); }
   .gantt-row:hover{ background:var(--gray-50); }
-  .gantt-label{ padding:8px 12px; font-size:13px; color:var(--gray-800); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+  .gantt-label{ padding:6px 10px; font-size:12px; color:var(--gray-800); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
   .gantt-label .ind{ display:inline-block; width:14px; }
-  .gantt-track{ position:relative; height:32px; }
+  .gantt-track{ position:relative; height:28px; }
   .gantt-grid{ position:absolute; inset:0; pointer-events:none; }
   .gantt-grid .gl{ position:absolute; top:0; bottom:0; width:1px; background:var(--gray-100); }
-  .gantt-bar{ position:absolute; top:7px; height:18px; border-radius:5px; cursor:pointer; overflow:hidden; min-width:6px; box-shadow:0 1px 2px rgba(0,0,0,.12); }
+  .gantt-grid .g-weekend{ position:absolute; top:0; bottom:0; background:rgba(15,23,42,.045); }
+  .gantt-bar{ position:absolute; top:6px; height:16px; border-radius:5px; cursor:pointer; overflow:hidden; min-width:6px; box-shadow:0 1px 2px rgba(0,0,0,.12); }
   .gantt-bar .fill{ position:absolute; left:0; top:0; height:100%; background:rgba(0,0,0,.20); }
-  .gantt-bar .lab{ position:relative; font-size:10.5px; color:#fff; padding:0 6px; line-height:18px; white-space:nowrap; font-weight:600; }
+  .gantt-bar .lab{ position:relative; font-size:9.5px; color:#fff; padding:0 6px; line-height:16px; white-space:nowrap; font-weight:600; }
   .gantt-bar.is-overdue{ outline:2px solid var(--pink); outline-offset:-1px; }
   .g-ctrlbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:10px 14px; border-bottom:1px solid var(--gray-100); }
   .g-seg{ display:inline-flex; border:1px solid var(--gray-200); border-radius:8px; overflow:hidden; }
@@ -484,7 +486,7 @@
   .g-seg button:first-child{ border-left:none; }
   .g-seg button.active{ background:var(--navy); color:#fff; font-weight:600; }
   .g-proj-row{ display:grid; grid-template-columns:220px 1fr; align-items:center; background:var(--gray-50); border-bottom:1px solid var(--gray-200); }
-  .g-proj-label{ padding:9px 12px; font-weight:700; font-size:13px; color:var(--gray-900); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .g-proj-label{ padding:7px 10px; font-weight:700; font-size:12px; color:var(--gray-900); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .g-caret{ display:inline-block; width:14px; color:var(--gray-500); cursor:pointer; }
   .g-caret.collapsed{ display:inline-block; transform:rotate(-90deg); }
   .gantt-label.is-parent{ font-weight:600; color:var(--gray-900); }
@@ -503,7 +505,7 @@
   .gantt-row, .g-proj-row{ isolation:isolate; }
   .gantt-label, .g-proj-label, .g-axis-corner{ background-clip:padding-box; }
   .g-proj-label{ background:var(--gray-50); position:sticky; left:0; z-index:6; border-right:1px solid var(--gray-200); }
-  .g-axis-corner{ position:sticky; left:0; z-index:6; background:#fff; border-right:1px solid var(--gray-200); }
+  .g-axis-corner{ position:sticky; left:0; top:0; z-index:9; background:#fff; border-right:1px solid var(--gray-200); }
   .cal-head{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
   .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--gray-200); border:1px solid var(--gray-200); border-radius:10px; overflow:hidden; }
   .cal-dow{ background:var(--gray-50); padding:7px 8px; font-size:11.5px; font-weight:700; color:var(--gray-500); text-align:center; text-transform:uppercase; letter-spacing:.03em; }
@@ -2321,6 +2323,8 @@
     var todayMs=dnum(new Date().toISOString().slice(0,10));
     var tickHtml=ticks.map(function(tk){var p=(tk.ms-min)/span*100;var lp=Math.max(p,0);var ts=lp<3?'left:'+lp+'%;transform:none;padding-left:10px':'left:'+lp+'%';return '<div class="tick" style="'+ts+'">'+esc(tk.label)+'</div>';}).join("");
     var gridHtml=ticks.map(function(tk){return '<div class="gl" style="left:'+((tk.ms-min)/span*100)+'%"></div>';}).join("");
+    /* weekend shading (Sat/Sun) — only at day zoom and bounded range, else invisible/too many bands */
+    if((window._gScale||"week")==="day"&&(max-min)/86400000<=200){var _wk="";for(var _d=gStartOfDay(min);_d<=max;_d+=86400000){var _wd=new Date(_d).getDay();if(_wd===0||_wd===6){_wk+='<div class="g-weekend" style="left:'+((_d-min)/span*100)+'%;width:'+(86400000/span*100)+'%"></div>';}}gridHtml=_wk+gridHtml;}
     if(todayMs!=null&&todayMs>=min&&todayMs<=max)gridHtml+='<div class="g-today" style="left:'+((todayMs-min)/span*100)+'%"></div>';
     var html='<div class="gantt-wrap"><div class="gantt" style="min-width:'+(chartW+labelW)+'px;--g-label-w:'+labelW+'px"><div class="g-divider"></div>';
     html+='<div class="gantt-axis"><div class="g-axis-corner"></div><div class="ticks">'+tickHtml+'</div></div>';
