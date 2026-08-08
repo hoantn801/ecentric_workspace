@@ -2782,7 +2782,7 @@
       var ruleRisk=active.filter(function(r){var hh=ruleHealth(r,r.last_task&&tmap[r.last_task]);return hh==="notgen"||hh==="risk"||hh==="attention";}).length;
       var alerts=recAlerts(rules,tmap);
       h+='<div class="stats-strip dc-block rec-strip">'+
-        ccard("s-green","Quy tắc đang chạy",active.length,"")+ccard("s-pink","Quy tắc cần chú ý",ruleRisk,"")+ccard("s-navy","Việc tạo hôm nay",genToday.length,"")+ccard("s-yellow","Đang chờ xử lý",pendingToday,"")+ccard("s-pink","Việc bị quá hạn",overdueGen,"")+ccard("s-yellow","Việc chưa có người làm",noassGen,"")+ccard("s-pink","Việc bị chặn",blockedGen,"")+'</div>';
+        ccard("s-green","Quy tắc đang chạy",active.length,"")+ccard("s-pink","Quy tắc cần chú ý",ruleRisk,"")+ccard("s-navy","Việc tạo hôm nay",genToday.length,"")+ccard("s-yellow","Đang chờ xử lý",pendingToday,"")+ccard("s-pink","Việc bị quá hạn",overdueGen,"")+ccard("s-yellow","Việc chưa có người làm",noassGen,"")+'</div>';
       h+=(alerts.length?'<details class="dc-analytics"><summary>Cảnh báo định kỳ ('+alerts.length+')</summary><div class="panel dc-block" id="rec-alerts"></div></details>':'<div class="dc-block" id="rec-alerts" style="display:none"></div>');
       h+='<div class="dc-sec-title">Việc tạo hôm nay</div><div class="dc-block" id="rec-today"></div>';
       h+='<div class="dc-sec-title">Quy tắc đang chạy</div><div class="dc-block" id="rec-active"></div>';
