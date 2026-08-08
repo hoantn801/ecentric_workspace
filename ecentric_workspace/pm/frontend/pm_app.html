@@ -441,6 +441,8 @@
   .pm-cmt-input2{ width:100%; box-sizing:border-box; border:1px solid var(--gray-200); border-radius:10px; padding:9px 11px; font:inherit; font-size:13px; resize:vertical; background:#fff; }
   .pm-composer-bar{ display:flex; align-items:center; justify-content:space-between; margin-top:7px; }
   .pm-composer-ic{ display:flex; gap:2px; }
+  .pm-composer{ position:relative; border-radius:8px; }
+  .pm-composer.pm-drop-hot{ outline:2px dashed var(--navy,#1f2d80); outline-offset:3px; background:rgba(31,45,128,.04); }
   .pm-ic-btn{ width:28px; height:28px; border:none; background:transparent; border-radius:7px; color:var(--gray-500); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; }
   .pm-ic-btn:hover:not(:disabled){ background:var(--gray-200); }
   .pm-ic-btn:disabled{ opacity:.4; cursor:not-allowed; }
@@ -1862,12 +1864,22 @@
       pmDecompWire(name,t.project); loadSubtree(name,t.project,pmTerminal(t),!!t.parent_task); /* 2-level cap: no add-subtask on a sub-task */
       loadWorktime(name,pmTerminal(t)); loadComments(name); loadChecklist(name,t.workflow_state);
       window._pmCmtAttach=[];pmCmtRenderAtt();
-      function pmCmtUpload(inp,forceImg){var f=inp.files&&inp.files[0];if(!f)return;if(f.size>8*1024*1024){toast("Tệp quá lớn (tối đa 8MB)",true);inp.value="";return;}
-        var rd=new FileReader();rd.onload=function(){api(PM+"comments.upload",{reference_doctype:"Task",reference_name:name,filename:f.name,dataurl:rd.result}).then(function(r){window._pmCmtAttach.push({url:r.file_url,is_image:(!!r.is_image||!!forceImg),name:r.file_name||f.name});pmCmtRenderAtt();}).catch(function(e){toast("Lỗi tải tệp: "+errOf(e),true);});inp.value="";};rd.readAsDataURL(f);}
+      function pmCmtUploadFile(f,forceImg){if(!f)return;if(f.size>8*1024*1024){toast("Tệp quá lớn (tối đa 8MB)",true);return;}
+        var isImg=(!!forceImg)||(f.type&&f.type.indexOf("image/")===0);var fn=f.name||("paste-"+Date.now()+((f.type&&f.type.split("/")[1])?("."+f.type.split("/")[1]):".png"));
+        var rd=new FileReader();rd.onload=function(){api(PM+"comments.upload",{reference_doctype:"Task",reference_name:name,filename:fn,dataurl:rd.result}).then(function(r){window._pmCmtAttach.push({url:r.file_url,is_image:(!!r.is_image||!!isImg),name:r.file_name||fn});pmCmtRenderAtt();}).catch(function(e){toast("Lỗi tải tệp: "+errOf(e),true);});};rd.readAsDataURL(f);}
+      function pmCmtUpload(inp,forceImg){var f=inp.files&&inp.files[0];if(!f)return;pmCmtUploadFile(f,forceImg);inp.value="";}
       if(el("pm-cmt-file"))el("pm-cmt-file").onclick=function(){el("pm-cmt-file-inp").click();};
       if(el("pm-cmt-img"))el("pm-cmt-img").onclick=function(){el("pm-cmt-img-inp").click();};
       if(el("pm-cmt-file-inp"))el("pm-cmt-file-inp").onchange=function(){pmCmtUpload(this,false);};
       if(el("pm-cmt-img-inp"))el("pm-cmt-img-inp").onchange=function(){pmCmtUpload(this,true);};
+      /* paste image directly into the composer (Ctrl+V) */
+      if(el("pm-cmt-input"))el("pm-cmt-input").addEventListener("paste",function(e){var items=(e.clipboardData&&e.clipboardData.items)||[];var got=false;for(var i=0;i<items.length;i++){var it=items[i];if(it.kind==="file"&&it.type&&it.type.indexOf("image/")===0){var f=it.getAsFile();if(f){got=true;pmCmtUploadFile(f,true);}}}if(got)e.preventDefault();});
+      /* drag & drop file onto the composer -> auto upload */
+      (function(){var comp=c.querySelector(".pm-composer");if(!comp)return;
+        function stop(e){e.preventDefault();e.stopPropagation();}
+        comp.addEventListener("dragover",function(e){stop(e);comp.classList.add("pm-drop-hot");});
+        comp.addEventListener("dragleave",function(e){stop(e);comp.classList.remove("pm-drop-hot");});
+        comp.addEventListener("drop",function(e){stop(e);comp.classList.remove("pm-drop-hot");var fs=(e.dataTransfer&&e.dataTransfer.files)||[];for(var i=0;i<fs.length;i++)pmCmtUploadFile(fs[i],false);});})();
       if(el("pm-cmt-link"))el("pm-cmt-link").onclick=function(){var u=window.prompt("Dán đường link:");if(u&&u.trim()){var ta=el("pm-cmt-input");ta.value=(ta.value?ta.value+" ":"")+u.trim()+" ";ta.focus();}};
       if(el("pm-cmt-emoji"))el("pm-cmt-emoji").onclick=function(){pmCmtEmojiPopover(this);};
       if(el("pm-cmt-send"))el("pm-cmt-send").onclick=function(){var txt=el("pm-cmt-input").value.trim();var atts=window._pmCmtAttach||[];if(!txt&&!atts.length){toast("Nhập bình luận hoặc đính kèm",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang gửi...";
