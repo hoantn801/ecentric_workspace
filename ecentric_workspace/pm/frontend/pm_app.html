@@ -1139,12 +1139,12 @@
       '<div class="pd-wh-prog"><span class="pm-badge '+L[1]+'">'+L[0]+'</span><div class="pd-wh-bar"><div style="width:'+prog+'%"></div></div><span class="pd-wh-pct">'+prog+'%</span></div>'+
       '<button class="pm-btn primary" id="pm-newt"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhiệm vụ</button></div>';}
   function pdHealthPills(d){var rk=d.risk||{};
-    var P=[["open","Đang mở",rk.active,"s-navy"],["overdue","Quá hạn",rk.overdue,"s-pink"],["blocked","Blocked",rk.blocked,"s-pink"],["review","Chờ duyệt",rk.review,"s-yellow"],["noassignee","Chưa giao",rk.no_assignee,"s-yellow"],["nodue","Chưa có hạn",rk.no_due,"s-navy"],["completed","Hoàn thành",rk.completed,"s-green"]];
+    var P=[["open","Đang mở",rk.active,"s-navy"],["overdue","Quá hạn",rk.overdue,"s-pink"],["review","Chờ duyệt",rk.review,"s-yellow"],["noassignee","Chưa giao",rk.no_assignee,"s-yellow"],["nodue","Chưa có hạn",rk.no_due,"s-navy"],["completed","Hoàn thành",rk.completed,"s-green"]];
     return P.map(function(p){return '<button class="pd-pill '+p[3]+'" data-card="'+p[0]+'" title="Lọc: '+esc(p[1])+'"><span class="pd-pill-n">'+(p[2]||0)+'</span><span class="pd-pill-l">'+p[1]+'</span></button>';}).join("");}
   function openProject(name){var c=el("pm-view");spin(c);window._pdFilter="";window._pdCurTab="tasks";
     window._pmOpenProject=name;if(typeof pmSetHash==="function")pmSetHash("#project/"+encodeURIComponent(name)); /* G5.2 §7: deep-linkable project detail */
     api(PM+"projects.detail",{name:name}).then(function(d){var p=d.project||{};window._pd={name:name,d:d};
-      var VIEWSW=[["tasks","Danh sách"],["board","Kanban"],["gantt","Gantt"],["timesheet","Timesheet"]];
+      var VIEWSW=[["tasks","Danh sách"],["board","Kanban"],["calendar","Lịch"],["gantt","Gantt"],["timesheet","Timesheet"]];
       c.innerHTML='<button class="pm-btn" id="pm-back" style="margin-bottom:12px"><svg class="icon icon-sm"><use href="#p-back"/></svg> Dự án</button>'+
         pdWorkHead(p,d)+
         '<div class="pd-health" id="pd-health">'+pdHealthPills(d)+'</div>'+
@@ -1157,7 +1157,7 @@
       window._pdSel=setView; /* metric-click / post-write refresh re-render the current view (keeps _pdFilter) */
       function syncPills(){Array.prototype.forEach.call(c.querySelectorAll("#pd-health .pd-pill[data-card]"),function(x){x.classList.toggle("active",x.getAttribute("data-card")===window._pdFilter);});}
       window._pdSyncPills=syncPills;
-      Array.prototype.forEach.call(sw,function(b){b.onclick=function(){var v=b.getAttribute("data-view");if(v==="gantt"||v==="timesheet"){window._pdFilter="";}setView(v);syncPills();};}); /* manual switch to Gantt/Timesheet clears metric filter */
+      Array.prototype.forEach.call(sw,function(b){b.onclick=function(){var v=b.getAttribute("data-view");if(v==="gantt"||v==="timesheet"||v==="calendar"){window._pdFilter="";}setView(v);syncPills();};}); /* manual switch to Gantt/Lịch/Timesheet clears metric filter */
       Array.prototype.forEach.call(c.querySelectorAll("#pd-health .pd-pill[data-card]"),function(x){x.onclick=function(){
         var k=x.getAttribute("data-card");window._pdFilter=(window._pdFilter===k)?"":k; /* toggle off if same pill */
         if(window._pdFilter&&window._pdCurTab!=="tasks"&&window._pdCurTab!=="board"){setView("tasks");}else{pdRender(window._pdCurTab);}
@@ -1167,7 +1167,13 @@
     }).catch(function(e){errBox(c,e);});}
   function pdRender(tab){if(!window._pd)return;var name=window._pd.name;var b=el("pd-body");if(!b)return;
     if(tab==="tasks"){spin(b);return api(PM+"tasks.list",{project:name,page_length:500}).then(function(r){b.innerHTML='<div id="pd-tflt"></div><div id="pd-ttbl"></div>';renderPdFilterChip(el("pd-tflt"),(r.rows||[]).length);pdTaskTable(el("pd-ttbl"),r.rows||[]);}).catch(function(e){errBox(b,e);});}
-    if(tab==="board"){spin(b);return api(PM+"tasks.list",{project:name,page_length:500}).then(function(r){b.innerHTML='<div id="pd-bflt"></div><div id="pd-board"></div>';renderPdFilterChip(el("pd-bflt"),(r.rows||[]).length);renderBoardInto(el("pd-board"),pdFilterRows(r.rows||[]),function(){pdRender("board");});}).catch(function(e){errBox(b,e);});}
+    if(tab==="board"){spin(b);return api(PM+"tasks.list",{project:name,page_length:500}).then(function(r){
+      if(["status","person"].indexOf(window._boardGroup)<0)window._boardGroup="status";var g=window._boardGroup;
+      b.innerHTML='<div id="pd-bflt"></div><div class="pm-bgrp" style="display:flex;align-items:center;gap:8px;margin:0 0 10px"><span style="font-size:12px;color:var(--gray-500)">Nhóm:</span><div class="seg"><button data-pbg="status" class="'+(g==="status"?"active":"")+'">Trạng thái</button><button data-pbg="person" class="'+(g==="person"?"active":"")+'">Người</button></div></div><div id="pd-board"></div>';
+      renderPdFilterChip(el("pd-bflt"),(r.rows||[]).length);
+      Array.prototype.forEach.call(b.querySelectorAll("[data-pbg]"),function(x){x.onclick=function(){window._boardGroup=x.getAttribute("data-pbg");pdRender("board");};});
+      renderBoardInto(el("pd-board"),pdFilterRows(r.rows||[]),function(){pdRender("board");});}).catch(function(e){errBox(b,e);});}
+    if(tab==="calendar"){spin(b);return api(PM+"tasks.gantt",{project:name}).then(function(d){b.innerHTML='<div id="pd-cal"></div>';pdCalendar(el("pd-cal"),d.rows||[]);}).catch(function(e){errBox(b,e);});}
     if(tab==="gantt"){spin(b);return api(PM+"tasks.gantt",{project:name}).then(function(d){b.innerHTML='<div class="panel"><div id="pd-gantt"></div></div>';renderGantt(el("pd-gantt"),d.rows||[]);}).catch(function(e){errBox(b,e);});}
     if(tab==="timesheet"){spin(b);return api(PM+"timesheet.report",{project:name}).then(function(d){pdTimesheet(b,d);}).catch(function(e){errBox(b,e);});}}
   var PDF_LBL={open:"Đang mở",overdue:"Quá hạn",blocked:"Blocked",review:"Chờ duyệt",noassignee:"Chưa giao",nodue:"Chưa có hạn",completed:"Hoàn thành"};
@@ -2165,6 +2171,22 @@
     Array.prototype.forEach.call(c.querySelectorAll(".cal-more[data-day]"),function(x){x.onclick=function(){window._calRef=new Date(x.getAttribute("data-day")+"T00:00:00");window._calView="week";renderCalendar();};});}
   function showCalendar(){var c=el("pm-view");spin(c);window._calRef=window._calRef||new Date();
     api(PM+"tasks.gantt_all").then(function(d){window._calRows=d.rows||[];renderCalendar();}).catch(function(e){errBox(c,e);});}
+  /* Project-detail calendar tab: reuses the calendar grid builders, scoped to one project's rows,
+     rendered INTO a container (pd-body) rather than the whole work view. Own ref/view state. */
+  function pdCalendar(host,rows){if(!host)return;
+    window._calRows=rows||[];window._calF={project:"",status:"",assignee:"",mine:false,overdue:false};
+    if(!window._pdCalRef)window._pdCalRef=new Date();var view=window._pdCalView||"month";
+    window._calRef=window._pdCalRef;window._calView=view;var ref=window._calRef;
+    var label=(view==="month")?("Tháng "+(ref.getMonth()+1)+" "+ref.getFullYear()):(function(){var dw=(ref.getDay()+6)%7;var mn=new Date(ref);mn.setDate(ref.getDate()-dw);var mx=new Date(mn);mx.setDate(mn.getDate()+6);return mn.getDate()+"/"+(mn.getMonth()+1)+" – "+mx.getDate()+"/"+(mx.getMonth()+1)+"/"+mx.getFullYear();})();
+    var head='<div class="cal-head" style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><button class="pm-btn" id="pdc-today">Hôm nay</button><button class="pm-btn" id="pdc-prev">‹</button><button class="pm-btn" id="pdc-next">›</button><span class="cal-label" style="font-weight:600;margin:0 6px">'+esc(label)+'</span><span class="seg" id="pdc-view" style="margin-left:auto"><button data-cv="month"'+(view==="month"?' class="active"':'')+'>Tháng</button><button data-cv="week"'+(view==="week"?' class="active"':'')+'>Tuần</button></span></div>';
+    host.innerHTML=head+'<div class="cal-layout"><div class="cal-main">'+((view==="month")?renderCalMonth():renderCalWeek())+'</div></div>';
+    function step(dir){var r=window._pdCalRef;if(view==="month")r.setMonth(r.getMonth()+dir);else r.setDate(r.getDate()+7*dir);window._pdCalRef=new Date(r);pdCalendar(host,rows);}
+    var t0=host.querySelector("#pdc-today");if(t0)t0.onclick=function(){window._pdCalRef=new Date();pdCalendar(host,rows);};
+    var pv=host.querySelector("#pdc-prev");if(pv)pv.onclick=function(){step(-1);};
+    var nx=host.querySelector("#pdc-next");if(nx)nx.onclick=function(){step(1);};
+    Array.prototype.forEach.call(host.querySelectorAll("#pdc-view button[data-cv]"),function(bn){bn.onclick=function(){window._pdCalView=bn.getAttribute("data-cv");pdCalendar(host,rows);};});
+    Array.prototype.forEach.call(host.querySelectorAll(".cal-chip[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});
+    Array.prototype.forEach.call(host.querySelectorAll(".cal-more[data-day]"),function(x){x.onclick=function(){window._pdCalRef=new Date(x.getAttribute("data-day")+"T00:00:00");window._pdCalView="week";pdCalendar(host,rows);};});}
 
   function showGantt(){var c=el("pm-view");spin(c);
     api(PM+"projects.list",{page_length:200}).then(function(r){var rows=r.rows||[];window._pm_projects=rows;var sel=window._pm_gproj||"";
