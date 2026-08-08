@@ -1770,7 +1770,7 @@
     var c=el("pm-rec-modal");
     function close(){if(ov&&ov.parentNode)ov.parentNode.removeChild(ov);}
     ov.onclick=function(e){if(e.target===ov)close();};
-    recWireSchedule(c);
+    recWireSchedule(c);pmApplyHints(c,"PM Recurrence"); /* ⓘ field hints in the task-level recurrence modal too */
     el("rt-cancel").onclick=close;
     el("rt-submit").onclick=function(){var col=recScheduleCollect(c);var btn=this;btn.disabled=true;
       api(PM+"recurrence.create_from_task",{task:t.name,frequency:col.freq,interval:col.interval,weekly_days:JSON.stringify(col.wd),monthly_day:col.monthlyDay||null,duration_days:(col.durMonthly!=null?col.durMonthly:null),start_date:col.start,end_date:col.end,max_occurrences:0}).then(function(){toast("Đã tạo lịch định kỳ");close();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});};}
