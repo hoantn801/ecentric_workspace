@@ -2179,7 +2179,7 @@
     window._calRef=window._pdCalRef;window._calView=view;var ref=window._calRef;
     var label=(view==="month")?("Tháng "+(ref.getMonth()+1)+" "+ref.getFullYear()):(function(){var dw=(ref.getDay()+6)%7;var mn=new Date(ref);mn.setDate(ref.getDate()-dw);var mx=new Date(mn);mx.setDate(mn.getDate()+6);return mn.getDate()+"/"+(mn.getMonth()+1)+" – "+mx.getDate()+"/"+(mx.getMonth()+1)+"/"+mx.getFullYear();})();
     var head='<div class="cal-head" style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><button class="pm-btn" id="pdc-today">Hôm nay</button><button class="pm-btn" id="pdc-prev">‹</button><button class="pm-btn" id="pdc-next">›</button><span class="cal-label" style="font-weight:600;margin:0 6px">'+esc(label)+'</span><span class="seg" id="pdc-view" style="margin-left:auto"><button data-cv="month"'+(view==="month"?' class="active"':'')+'>Tháng</button><button data-cv="week"'+(view==="week"?' class="active"':'')+'>Tuần</button></span></div>';
-    host.innerHTML=head+'<div class="cal-layout"><div class="cal-main">'+((view==="month")?renderCalMonth():renderCalWeek())+'</div></div>';
+    host.innerHTML=head+'<div class="cal-layout"><div class="cal-main">'+((view==="month")?renderCalMonth():renderCalWeek())+'</div><aside class="cal-aside">'+renderCalAside()+'</aside></div>';
     function step(dir){var r=window._pdCalRef;if(view==="month")r.setMonth(r.getMonth()+dir);else r.setDate(r.getDate()+7*dir);window._pdCalRef=new Date(r);pdCalendar(host,rows);}
     var t0=host.querySelector("#pdc-today");if(t0)t0.onclick=function(){window._pdCalRef=new Date();pdCalendar(host,rows);};
     var pv=host.querySelector("#pdc-prev");if(pv)pv.onclick=function(){step(-1);};
