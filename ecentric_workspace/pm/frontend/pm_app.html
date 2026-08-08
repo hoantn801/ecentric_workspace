@@ -591,6 +591,8 @@
   .rcf-grid + .rcf-grid{ margin-top:14px; }
   .pm-recform .rcf-grid .pm-field{ margin-bottom:0; min-width:0; }
   .rcf-full{ grid-column:1 / -1; }
+  .rcf-datepair{ display:grid; grid-template-columns:1fr 1fr; gap:14px 18px; }
+  @media (max-width:520px){ .rcf-datepair{ grid-template-columns:1fr; } }
   /* G5.2 §5: recurring form semantic sections */
   .rcf-sec{ font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--navy); font-weight:700; margin:20px 0 12px; padding-top:16px; border-top:1px solid var(--gray-100); }
   .rcf-sec.rcf-sec-first{ margin-top:0; padding-top:0; border-top:none; }
@@ -2504,11 +2506,13 @@
     var ms=(d.monthly_day!=null&&d.monthly_day!=="")?d.monthly_day:"";
     var me=(ms!==""&&d.template_duration_days!=null&&d.template_duration_days!=="")?(parseInt(ms,10)+parseInt(d.template_duration_days,10)):"";
     return '<div class="pm-field rcf-full" style="margin-bottom:2px"><div style="font-size:12.5px;color:var(--gray-500);background:#f5f7ff;border:1px solid #e2e8f0;border-radius:8px;padding:8px 11px">📅 Chọn tần suất — hệ thống sẽ tự tạo nhiệm vụ vào các ngày ở mục <b>Dự kiến</b> bên dưới.</div></div>'+
-      '<div class="pm-field"><label data-hint="frequency">Tần suất *</label><select class="pm-sel" id="re-freq">'+freqOpt()+'</select></div>'+
+      '<div class="pm-field rcf-full"><label data-hint="frequency">Tần suất *</label><select class="pm-sel" id="re-freq" style="max-width:240px">'+freqOpt()+'</select></div>'+
       '<div class="pm-field rcf-full" id="re-weekdays-wrap"><label data-hint="weekly_days">Vào các thứ</label><div id="re-weekdays" style="display:flex;gap:6px;flex-wrap:wrap">'+chips+'</div></div>'+
       '<div class="pm-field rcf-full" id="re-monthly-wrap"><label data-hint="monthly_day">Hằng tháng</label><div style="display:flex;gap:8px;align-items:center"><span style="font-size:13px;color:var(--gray-600)">Từ ngày</span><input type="number" min="1" max="31" class="pm-input" id="re-mstart" value="'+esc(ms)+'" style="width:74px;padding-left:11px;background-image:none"><span style="font-size:13px;color:var(--gray-600)">đến ngày</span><input type="number" min="1" max="31" class="pm-input" id="re-mend" value="'+esc(me)+'" style="width:74px;padding-left:11px;background-image:none"></div></div>'+
-      '<div class="pm-field"><label data-hint="start_date">Bắt đầu áp dụng</label><input type="date" class="pm-input" id="re-start" value="'+esc(d.start_date||"")+'"><div style="font-size:11px;color:var(--gray-400);margin-top:3px">Bỏ trống = bắt đầu từ hôm nay</div></div>'+
-      '<div class="pm-field"><label data-hint="end_date">Lặp cho tới ngày</label><input type="date" class="pm-input" id="re-end" value="'+esc(d.end_date||"")+'"><div style="font-size:11px;color:var(--gray-400);margin-top:3px">Bỏ trống = lặp không giới hạn</div></div>'+
+      '<div class="rcf-full"><div class="rcf-datepair">'+
+        '<div class="pm-field"><label data-hint="start_date">Bắt đầu áp dụng</label><input type="date" class="pm-input" id="re-start" value="'+esc(d.start_date||"")+'"><div style="font-size:11px;color:var(--gray-400);margin-top:3px">Bỏ trống = bắt đầu từ hôm nay</div></div>'+
+        '<div class="pm-field"><label data-hint="end_date">Lặp cho tới ngày</label><input type="date" class="pm-input" id="re-end" value="'+esc(d.end_date||"")+'"><div style="font-size:11px;color:var(--gray-400);margin-top:3px">Bỏ trống = lặp không giới hạn</div></div>'+
+      '</div></div>'+
       '<div class="pm-field rcf-full" id="re-preview-wrap"><label>Dự kiến các lần sinh kế tiếp</label><div id="re-preview" style="font-size:13px;color:var(--gray-700);line-height:2"></div></div>';}
   /* Client-side preview of upcoming generation dates (mirrors backend _advance: Daily/Weekly multi-weekday/Monthly-on-day, from start, until end). Approximate, labelled "dự kiến". */
   function recPreviewDates(s){var out=[],today=new Date();today.setHours(0,0,0,0);
