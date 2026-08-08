@@ -1800,8 +1800,8 @@
           '<div class="pm-prop"><label>Dự án</label><div class="v">'+pmProjLabel(t)+'</div></div>'+
           '<div class="pm-prop"><label>Ưu tiên</label><div class="v"><span class="pm-inline" data-inline="priority">'+renderInlineDisplay("priority",t)+'</span></div></div>'+
           '<div class="pm-prop" style="grid-column:1/-1"><label>Người nhận</label><div class="v">'+(a.length?a.slice(0,5).map(function(u){var fn=(window._pmUserNames&&window._pmUserNames[u])||u;return '<span class="pm-assignee-chip" title="'+esc(fn)+' · '+esc(u)+'"><span class="pm-mini-av">'+ini(u)+'</span>'+esc(fn)+'</span>';}).join("")+(a.length>5?'<span class="pm-tag tg-more">+'+(a.length-5)+'</span>':''):'<span style="color:var(--gray-400)">Chưa giao</span>')+'</div></div>'+
-          '<div class="pm-prop"><label>Bắt đầu</label><div class="v" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input type="date" class="pm-input" id="pm-d-start" data-ec-dp-range="taskdt" data-ec-dp-role="start" value="'+esc(ymd(t.exp_start_date)||"")+'" style="width:auto;background-image:none;padding-left:11px"><input type="time" class="pm-input" id="pm-st-time" title="Giờ bắt đầu" value="'+esc(t.pm_start_time?String(t.pm_start_time).slice(0,5):"")+'" style="width:auto;padding:4px 8px"></div></div>'+
-          '<div class="pm-prop"><label>Hạn</label><div class="v" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input type="date" class="pm-input" id="pm-d-end" data-ec-dp-range="taskdt" data-ec-dp-role="end" value="'+esc(ymd(t.exp_end_date)||"")+'" style="width:auto;background-image:none;padding-left:11px"><input type="time" class="pm-input" id="pm-en-time" title="Giờ kết thúc" value="'+esc(t.pm_end_time?String(t.pm_end_time).slice(0,5):"")+'" style="width:auto;padding:4px 8px"></div></div>'+
+          '<div class="pm-prop"><label>Bắt đầu</label><div class="v" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input type="datetime-local" class="pm-input" id="pm-d-start" data-ec-dp-range="taskdt" data-ec-dp-role="start" value="'+esc(t.exp_start_date?(ymd(t.exp_start_date)+"T"+(t.pm_start_time?String(t.pm_start_time).slice(0,5):"00:00")):"")+'" style="width:auto;background-image:none;padding-left:11px"></div></div>'+
+          '<div class="pm-prop"><label>Hạn</label><div class="v" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input type="datetime-local" class="pm-input" id="pm-d-end" data-ec-dp-range="taskdt" data-ec-dp-role="end" value="'+esc(t.exp_end_date?(ymd(t.exp_end_date)+"T"+(t.pm_end_time?String(t.pm_end_time).slice(0,5):"00:00")):"")+'" style="width:auto;background-image:none;padding-left:11px"></div></div>'+
           '<div class="pm-prop" style="grid-column:1/-1"><label>Nhãn</label><div class="v" id="pm-labels-box"></div></div>'+
         '</div>'+
         '<div class="pm-dsec">Mô tả</div><div class="pm-inline pm-desc-inline" data-inline="desc">'+renderInlineDisplay("desc",t)+'</div>'+
@@ -1868,15 +1868,14 @@
       /* A2: "Sửa (form)" button removed — inline edit is the primary path. editTask() kept as internal fallback only. */
       inlineWire(c,t,name); /* C1-B: click-to-edit priority/start/end/desc in main + title in header */
       /* G4.11: optional time-of-day, saved via tasks.update (validation server-side). */
-      (function(){function saveTime(){var st=el("pm-st-time"),en=el("pm-en-time");if(!st&&!en)return;
-        api(PM+"tasks.update",{name:name,pm_start_time:(st&&st.value)||"",pm_end_time:(en&&en.value)||""}).then(function(){openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);openTask(name);});}
-        if(el("pm-st-time"))el("pm-st-time").onchange=saveTime; if(el("pm-en-time"))el("pm-en-time").onchange=saveTime;})();
-      (function(){ /* task-detail start/end dates via ec_datepicker inputs; save on change (not blur), keep start<=end guard */
-        function saveDate(field,inp){var val=inp.value||"";
-          if(field==="start"){var ed=ymd(t.exp_end_date);if(val&&ed&&ed<val){toast("Bắt đầu không được sau hạn",true);openTask(name);return;}}
-          else{var sd=ymd(t.exp_start_date);if(val&&sd&&val<sd){toast("Hạn không được trước ngày bắt đầu",true);openTask(name);return;}}
-          var payload={name:name};payload[field==="start"?"exp_start_date":"exp_end_date"]=val;
-          api(PM+"tasks.update",payload).then(function(){if(field==="start")t.exp_start_date=val;else t.exp_end_date=val;toast("Đã lưu");refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);openTask(name);});}
+      (function(){ /* task-detail start/end via ec_datepicker datetime-local (date + time wheel in one control); split into exp_*_date + pm_*_time on change; start<=end guard on date part */
+        function saveDate(field,inp){var raw=inp.value||"";var dp=raw?raw.slice(0,10):"";var tp=(raw&&raw.length>=16)?raw.slice(11,16):"";
+          if(field==="start"){var ed=ymd(t.exp_end_date);if(dp&&ed&&ed<dp){toast("Bắt đầu không được sau hạn",true);openTask(name);return;}}
+          else{var sd=ymd(t.exp_start_date);if(dp&&sd&&dp<sd){toast("Hạn không được trước ngày bắt đầu",true);openTask(name);return;}}
+          var payload={name:name};
+          if(field==="start"){payload.exp_start_date=dp;payload.pm_start_time=tp;}
+          else{payload.exp_end_date=dp;payload.pm_end_time=tp;}
+          api(PM+"tasks.update",payload).then(function(){if(field==="start"){t.exp_start_date=dp;t.pm_start_time=tp;}else{t.exp_end_date=dp;t.pm_end_time=tp;}toast("Đã lưu");refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);openTask(name);});}
         if(el("pm-d-start"))el("pm-d-start").onchange=function(){saveDate("start",this);};
         if(el("pm-d-end"))el("pm-d-end").onchange=function(){saveDate("end",this);};})();
       pmDecompWire(name,t.project); loadSubtree(name,t.project,pmTerminal(t),!!t.parent_task); /* 2-level cap: no add-subtask on a sub-task */
