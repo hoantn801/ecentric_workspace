@@ -2533,7 +2533,7 @@
       '<button type="button" class="pm-btn re-sub-del">✕</button></div>';}
   /* Teams-style recurrence schedule block (frequency + interval + weekday chips + monthly-day + start/end/max).
      Shared by the recurrence editor (Feature A) and the in-task "Tạo định kỳ" modal (Feature C). Uses re-* ids. */
-  function recScheduleHtml(d){d=d||{};
+  function recScheduleHtml(d,showDur){d=d||{};
     var wd=d.weekly_days||[];
     function freqOpt(){return ["Daily","Weekly","Monthly"].map(function(k){return '<option value="'+k+'"'+(d.frequency===k?' selected':'')+'>'+esc(FREQ_VN[k]||k)+'</option>';}).join("");}
     var WD=["T2","T3","T4","T5","T6","T7","CN"];
@@ -2548,6 +2548,7 @@
         '<div class="pm-field"><label data-hint="start_date">Bắt đầu áp dụng</label><input type="date" class="pm-input" id="re-start" value="'+esc(d.start_date||"")+'"><div style="font-size:11px;color:var(--gray-400);margin-top:3px">Bỏ trống = bắt đầu từ hôm nay</div></div>'+
         '<div class="pm-field"><label data-hint="end_date">Lặp cho tới ngày</label><input type="date" class="pm-input" id="re-end" value="'+esc(d.end_date||"")+'"><div style="font-size:11px;color:var(--gray-400);margin-top:3px">Bỏ trống = lặp không giới hạn</div></div>'+
       '</div></div>'+
+      (showDur?'<div class="pm-field" id="re-dur-wrap"><label data-hint="template_duration_days">Mỗi lần kéo dài (số ngày)</label><input type="number" min="0" class="pm-input" id="re-dur" value="'+esc((d.template_duration_days!=null&&d.template_duration_days!=="")?d.template_duration_days:"")+'" style="padding-left:11px;background-image:none;max-width:150px"><div style="font-size:11px;color:var(--gray-400);margin-top:3px">Bỏ trống/0 = gói gọn trong ngày</div></div>':'')+
       '<div class="pm-field rcf-full" id="re-preview-wrap"><label>Dự kiến các lần sinh kế tiếp</label><div id="re-preview" style="font-size:13px;color:var(--gray-700);line-height:2"></div></div>';}
   /* Client-side preview of upcoming generation dates (mirrors backend _advance: Daily/Weekly multi-weekday/Monthly-on-day, from start, until end). Approximate, labelled "dự kiến". */
   function recPreviewDates(s){var out=[],today=new Date();today.setHours(0,0,0,0);
@@ -2566,7 +2567,8 @@
   /* Show/hide weekday chips (Weekly) + monthly-day (Monthly) + interval unit label. Call on render + on freq change. */
   function recFreqUI(c){var fs=el("re-freq");if(!fs)return;var f=fs.value;
     var ww=el("re-weekdays-wrap");if(ww)ww.style.display=(f==="Weekly")?"":"none";
-    var mw=el("re-monthly-wrap");if(mw)mw.style.display=(f==="Monthly")?"":"none";}
+    var mw=el("re-monthly-wrap");if(mw)mw.style.display=(f==="Monthly")?"":"none";
+    var dw=el("re-dur-wrap");if(dw)dw.style.display=(f==="Monthly")?"none":"";}
   /* Wire freq change + weekday chip toggles (scoped to container c). */
   function recWireSchedule(c){
     if(el("re-freq"))el("re-freq").onchange=function(){recFreqUI(c);recRenderPreview(c);};
@@ -2588,19 +2590,18 @@
     var asg=(d.assignees||[]).join(", ");
     var maxv=(d.max_occurrences&&d.max_occurrences>0)?d.max_occurrences:"";
     var dur=(d.template_duration_days!=null&&d.template_duration_days!=="")?d.template_duration_days:"";
-    return '<div class="rcf-grid">'+
-      '<div class="pm-field rcf-full"><label>Tên nhiệm vụ *</label><input class="pm-input" id="re-subject" placeholder="Tên việc định kỳ" value="'+esc(d.template_subject||"")+'" style="padding-left:11px;background-image:none"></div>'+
-      '<div class="pm-field rcf-full"><label>Mô tả</label><textarea class="pm-input" id="re-desc" rows="2">'+esc(d.template_description||"")+'</textarea></div>'+
-      '<div class="pm-field"><label>Độ ưu tiên</label><select class="pm-sel" id="re-priority">'+pri()+'</select></div>'+
-      '<div class="pm-field"><label>Dự án</label><input class="pm-input" id="re-project" placeholder="PROJ-..." value="'+esc(d.project||"")+'" style="padding-left:11px;background-image:none"></div>'+
-      '<div class="pm-field rcf-full"><label>Người thực hiện</label><input class="pm-input" id="re-assignees" placeholder="user@ecentric.vn, user2@..." value="'+esc(asg)+'" style="padding-left:11px;background-image:none"></div>'+
-      '<div class="pm-field"><label>Giờ bắt đầu</label><input type="time" class="pm-input" id="re-st" value="'+esc(d.template_start_time||"")+'"></div>'+
-      '<div class="pm-field"><label>Giờ kết thúc</label><input type="time" class="pm-input" id="re-et" value="'+esc(d.template_end_time||"")+'"></div>'+
-      '<div class="pm-field"><label data-hint="template_duration_days">Số ngày kéo dài</label><input type="number" min="0" class="pm-input" id="re-dur" value="'+esc(dur)+'" style="padding-left:11px;background-image:none"></div>'+
-      recScheduleHtml(d)+
+    return '<div class="rcf-sec rcf-sec-first">Nội dung nhiệm vụ</div>'+
+      '<div class="rcf-grid">'+
+        '<div class="pm-field rcf-full"><label>Tên nhiệm vụ *</label><input class="pm-input" id="re-subject" placeholder="Tên việc định kỳ" value="'+esc(d.template_subject||"")+'" style="padding-left:11px;background-image:none"></div>'+
+        '<div class="pm-field rcf-full"><label>Mô tả</label><textarea class="pm-input" id="re-desc" rows="2">'+esc(d.template_description||"")+'</textarea></div>'+
+        '<div class="pm-field"><label>Độ ưu tiên</label><select class="pm-sel" id="re-priority">'+pri()+'</select></div>'+
+        '<div class="pm-field"><label>Dự án</label><input class="pm-input" id="re-project" placeholder="PROJ-..." value="'+esc(d.project||"")+'" style="padding-left:11px;background-image:none"></div>'+
+        '<div class="pm-field rcf-full"><label>Người thực hiện</label><input class="pm-input" id="re-assignees" placeholder="user@ecentric.vn, user2@..." value="'+esc(asg)+'" style="padding-left:11px;background-image:none"></div>'+
       '</div>'+
-      '<div class="rcf-sec">Checklist mẫu</div><div id="re-chk">'+chk+'</div><button type="button" class="pm-btn" id="re-chk-add" style="margin-top:6px">➕ Thêm bước</button>'+
-      '<div class="rcf-sec">Nhiệm vụ con</div><div id="re-sub">'+subs+'</div><button type="button" class="pm-btn" id="re-sub-add" style="margin-top:6px">➕ Thêm nhiệm vụ con</button>';}
+      '<div class="rcf-sec">Checklist các bước</div><div id="re-chk">'+chk+'</div><button type="button" class="pm-btn" id="re-chk-add" style="margin-top:6px">➕ Thêm bước</button>'+
+      '<div class="rcf-sec">Nhiệm vụ con</div><div id="re-sub">'+subs+'</div><button type="button" class="pm-btn" id="re-sub-add" style="margin-top:6px">➕ Thêm nhiệm vụ con</button>'+
+      '<div class="rcf-sec">Lịch lặp</div>'+
+      '<div class="rcf-grid">'+recScheduleHtml(d,true)+'</div>';}
   function recWireEditor(c){
     function wireDel(root){
       Array.prototype.forEach.call(root.querySelectorAll(".re-chk-del"),function(b){b.onclick=function(){var row=this.parentNode;row.parentNode.removeChild(row);};});
@@ -2649,7 +2650,7 @@
     if(el("re-cancel"))el("re-cancel").onclick=function(){closeD();};
     Array.prototype.forEach.call(c.querySelectorAll("[data-rd-a]"),function(b){b.onclick=function(){var a=b.getAttribute("data-rd-a");if(a==="cancel"&&!window.confirm("Huỷ quy tắc lặp này? Các nhiệm vụ đã sinh vẫn được giữ."))return;b.disabled=true;api(PM+"recurrence."+a,{name:r.name}).then(function(){toast("Đã cập nhật quy tắc");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};});
     el("re-save").onclick=function(){var col=recCollect(c);var sj=el("re-subject").value.trim();if(!sj){toast("Nhập tên nhiệm vụ",true);return;}var btn=this;btn.disabled=true;
-      api(PM+"recurrence.update_template",{name:r.name, subject:sj, description:el("re-desc").value||null, priority:el("re-priority").value||null, assignees:JSON.stringify(col.asg), project:el("re-project").value.trim()||null, template_start_time:el("re-st").value||null, template_end_time:el("re-et").value||null, duration_days:(col.durMonthly!=null?col.durMonthly:(el("re-dur").value||0)), checklist_items:JSON.stringify(col.chk), subtasks:JSON.stringify(col.subs), frequency:el("re-freq").value, interval:col.interval, weekly_days:JSON.stringify(col.wd), monthly_day:col.monthlyDay||null, start_date:el("re-start").value||null, end_date:el("re-end").value||null, max_occurrences:0}).then(function(){toast("Đã lưu quy tắc");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});};}
+      api(PM+"recurrence.update_template",{name:r.name, subject:sj, description:el("re-desc").value||null, priority:el("re-priority").value||null, assignees:JSON.stringify(col.asg), project:el("re-project").value.trim()||null, template_start_time:null, template_end_time:null, duration_days:(col.durMonthly!=null?col.durMonthly:((el("re-dur")&&el("re-dur").value)||0)), checklist_items:JSON.stringify(col.chk), subtasks:JSON.stringify(col.subs), frequency:el("re-freq").value, interval:col.interval, weekly_days:JSON.stringify(col.wd), monthly_day:col.monthlyDay||null, start_date:el("re-start").value||null, end_date:el("re-end").value||null, max_occurrences:0}).then(function(){toast("Đã lưu quy tắc");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});};}
   /* G5.0: Assignment Acceptance — request a task be given to a user; recipient accepts /
      rejects / proposes a new time. Replaces the hidden "Thông báo" slot. */
   function asgFmt(d){return d?String(d).slice(0,16).replace("T"," "):"—";}
@@ -2778,7 +2779,7 @@
     el("re-submit").onclick=function(){var btn=this;var _ot=btn.innerHTML;function _busy(on){btn.disabled=on;if(on){btn.textContent="Đang tạo...";}else{btn.innerHTML=_ot;}}
       var subj=el("re-subject").value.trim();if(!subj){toast("Nhập tên nhiệm vụ",true);return;}
       var col=recCollect(c);_busy(true);
-      api(PM+"recurrence.create",{subject:subj, frequency:el("re-freq").value, interval:col.interval, weekly_days:JSON.stringify(col.wd), monthly_day:col.monthlyDay||null, description:el("re-desc").value||null, priority:el("re-priority").value||null, assignees:JSON.stringify(col.asg), project:el("re-project").value.trim()||null, template_start_time:el("re-st").value||null, template_end_time:el("re-et").value||null, duration_days:(col.durMonthly!=null?col.durMonthly:(el("re-dur").value||0)), checklist_items:JSON.stringify(col.chk), subtasks:JSON.stringify(col.subs), start_date:el("re-start").value||null, end_date:el("re-end").value||null, max_occurrences:0}).then(function(){toast("Đã tạo việc định kỳ");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);_busy(false);});};}
+      api(PM+"recurrence.create",{subject:subj, frequency:el("re-freq").value, interval:col.interval, weekly_days:JSON.stringify(col.wd), monthly_day:col.monthlyDay||null, description:el("re-desc").value||null, priority:el("re-priority").value||null, assignees:JSON.stringify(col.asg), project:el("re-project").value.trim()||null, template_start_time:null, template_end_time:null, duration_days:(col.durMonthly!=null?col.durMonthly:((el("re-dur")&&el("re-dur").value)||0)), checklist_items:JSON.stringify(col.chk), subtasks:JSON.stringify(col.subs), start_date:el("re-start").value||null, end_date:el("re-end").value||null, max_occurrences:0}).then(function(){toast("Đã tạo việc định kỳ");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);_busy(false);});};}
 
   function tsSum(rows,pred){var s=0;rows.forEach(function(r){if(pred(r))s+=(r.hours||0);});return Math.round(s*100)/100;}
   function showTimesheet(){var c=el("pm-view");spin(c);
