@@ -448,6 +448,8 @@
   .pm-hint{ display:inline-flex; align-items:center; justify-content:center; margin-left:5px; color:#c2c9d4; cursor:help; vertical-align:middle; position:relative; top:-1px; transition:color .12s ease; outline:none; }
   .pm-hint:hover, .pm-hint:focus{ color:var(--navy,#1f2d80); }
   .pm-hint svg{ display:block; }
+  /* ec_datepicker (feat/ec-datepicker) popup appends to <body> at z-index 1200; PM modals sit at 9999 -> lift the popup above them so the calendar isn't trapped behind the modal */
+  .ec-dp-pop{ z-index:10050 !important; }
   .pm-composer{ position:relative; border-radius:8px; }
   .pm-composer.pm-drop-hot{ outline:2px dashed var(--navy,#1f2d80); outline-offset:3px; background:rgba(31,45,128,.04); }
   .pm-ic-btn{ width:28px; height:28px; border:none; background:transparent; border-radius:7px; color:var(--gray-500); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; }
