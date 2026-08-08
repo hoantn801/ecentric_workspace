@@ -169,6 +169,9 @@
   .stat-card::before{ content:''; position:absolute; top:0; left:0; width:3px; height:100%; }
   .stat-card.s-navy::before{ background:var(--navy);} .stat-card.s-yellow::before{ background:var(--yellow);}
   .stat-card.s-pink::before{ background:var(--pink);} .stat-card.s-green::before{ background:var(--green);}
+  .stats-strip.ts-strip{ grid-template-columns:repeat(5,1fr); }
+  @media (max-width:1100px){ .stats-strip.ts-strip{ grid-template-columns:repeat(3,1fr); } }
+  @media (max-width:640px){ .stats-strip.ts-strip{ grid-template-columns:1fr 1fr; } }
   .stat-label{ font-size:10.5px; font-weight:500; color:var(--gray-500); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; }
   .stat-value{ font-size:20px; font-weight:700; color:var(--gray-900); line-height:1.1; letter-spacing:-0.5px; }
   .stat-meta{ font-size:12px; color:var(--gray-500); margin-top:6px; }
@@ -217,6 +220,7 @@
   .ts-chart{ height:200px; }
   .ts-cc-full{ grid-column:1 / -1; }
   .ts-chart-heat{ height:170px; }
+  .seg.seg-sm button{ padding:3px 9px; font-size:11px; }
   .ts-chart-fb{ display:none; }
   /* ec_datepicker wraps date inputs in .ec-dp-wrap (block, full-width) -> cap it inside filter bars so the two date fields don't stretch the whole row */
   .pm-filters .ec-dp-wrap{ display:inline-flex; width:auto; max-width:190px; flex:0 0 auto; vertical-align:middle; }
@@ -2790,7 +2794,7 @@
         '<input class="pm-input" id="ts-from" data-ec-dp-range="tsf" data-ec-dp-role="start" type="date" value="'+esc(F.from_date||"")+'" style="background-image:none;padding-left:11px" title="Từ">'+
         '<input class="pm-input" id="ts-to" data-ec-dp-range="tsf" data-ec-dp-role="end" type="date" value="'+esc(F.to_date||"")+'" style="background-image:none;padding-left:11px" title="Đến">'+
         '<button class="pm-btn primary" id="ts-apply">Lọc</button><button class="pm-btn" id="ts-clear">Xoá lọc</button></div>'+
-      '<div class="stats-strip">'+sc("s-navy","Tổng giờ",Math.round((d.total_hours||0)*100)/100)+sc("s-navy","TB giờ/ngày",Math.round((d.total_hours||0)/Math.max(Object.keys(d.by_day||{}).length,1)*100)/100)+sc("s-yellow","Tuần này",tsSum(rows,function(r){var x=(r.from_time||"").slice(0,10);return x>=ws&&x<=weStr;}))+sc("s-pink","Tháng này",tsSum(rows,function(r){return (r.from_time||"").slice(0,7)===mon;}))+sc("s-green","Số log",rows.length)+'</div>'+
+      '<div class="stats-strip ts-strip">'+sc("s-navy","Tổng giờ",Math.round((d.total_hours||0)*100)/100)+sc("s-navy","TB giờ/ngày",Math.round((d.total_hours||0)/Math.max(Object.keys(d.by_day||{}).length,1)*100)/100)+sc("s-yellow","Tuần này",tsSum(rows,function(r){var x=(r.from_time||"").slice(0,10);return x>=ws&&x<=weStr;}))+sc("s-pink","Tháng này",tsSum(rows,function(r){return (r.from_time||"").slice(0,7)===mon;}))+sc("s-green","Số log",rows.length)+'</div>'+
       '<div class="panel"><div class="panel-header"><div class="panel-title">Biểu đồ</div></div>'+
         '<div class="ts-charts">'+
           '<div class="ts-cc"><div class="ts-cc-t">Giờ mỗi ngày</div><div id="ts-c-hours" class="ts-chart"></div></div>'+
@@ -2799,7 +2803,7 @@
           '<div class="ts-cc"><div class="ts-cc-t">Giờ theo người</div><div id="ts-c-user" class="ts-chart"></div></div>'+
           '<div class="ts-cc"><div class="ts-cc-t">Top task theo giờ</div><div id="ts-c-toptask" class="ts-chart"></div></div>'+
           '<div class="ts-cc"><div class="ts-cc-t">Xu hướng theo tuần</div><div id="ts-c-week" class="ts-chart"></div></div>'+
-          '<div class="ts-cc ts-cc-full"><div class="ts-cc-t">Mật độ giờ theo ngày</div><div id="ts-c-heat" class="ts-chart ts-chart-heat"></div></div>'+
+          '<div class="ts-cc ts-cc-full"><div class="ts-cc-t" style="display:flex;justify-content:space-between;align-items:center">Mật độ giờ<span class="seg seg-sm" id="ts-heat-seg"><button data-heat="day" class="active">Ngày</button><button data-heat="week">Tuần</button><button data-heat="month">Tháng</button></span></div><div id="ts-c-heat" class="ts-chart ts-chart-heat"></div></div>'+
         '</div>'+
         '<div style="font-size:11px;color:var(--gray-400);padding:2px 14px 12px">Biểu đồ theo <b>ngày ghi nhận log</b> — nếu ghi giờ dồn vào cuối tuần, phân bố theo ngày có thể chưa phản ánh đúng ngày làm thực tế.</div>'+
       '</div>'+
@@ -2856,13 +2860,24 @@
     if(el("ts-c-user"))C.setOption(el("ts-c-user"),hbarOpt(uN,uV,"#2563eb","h"),true);
     if(el("ts-c-toptask"))C.setOption(el("ts-c-toptask"),hbarOpt(tN,tV,"#b3541e","h"),true);
     if(el("ts-c-week"))C.setOption(el("ts-c-week"),{grid:{left:6,right:12,top:14,bottom:24,containLabel:true},tooltip:{trigger:"axis"},xAxis:{type:"category",data:wk.map(function(k){return k.slice(5);}),axisTick:{show:false},axisLabel:{fontSize:9,color:"#64748b",rotate:(wk.length>10?40:0)}},yAxis:{type:"value",axisLabel:{fontSize:9,color:"#94a3b8"},splitLine:{lineStyle:{color:"#eef1f7"}}},series:[{type:"line",smooth:true,symbolSize:5,data:wv,itemStyle:{color:"#1f2d80"},lineStyle:{color:"#1f2d80"},areaStyle:{color:"rgba(31,45,128,.08)"}}]},true);
-    // calendar heatmap (last ~120 days present)
-    var eh=el("ts-c-heat"),hk=days;
-    if(eh&&hk.length){var rmax=hk[hk.length-1],rminMs=Math.max(dnum(hk[0]),dnum(rmax)-119*86400000),rmin=new Date(rminMs).toISOString().slice(0,10);
-      var hd=hk.filter(function(k){return k>=rmin;}).map(function(k){return [k,Math.round((byDay[k]||0)*100)/100];});
-      var mv=Math.max.apply(null,hd.map(function(x){return x[1];}).concat([1]));
-      C.setOption(eh,{tooltip:{formatter:function(p){return p.value[0]+": <b>"+p.value[1]+"</b>h";}},visualMap:{min:0,max:mv,show:false,inRange:{color:["#eef1f7","#9aa8e0","#1f2d80"]}},calendar:{top:18,left:26,right:8,bottom:2,cellSize:["auto",13],range:[rmin,rmax],itemStyle:{borderColor:"#fff",borderWidth:2},splitLine:{show:false},yearLabel:{show:false},dayLabel:{fontSize:9,color:"#94a3b8",firstDay:1,nameMap:["CN","T2","T3","T4","T5","T6","T7"]},monthLabel:{fontSize:9,color:"#64748b"}},series:[{type:"heatmap",coordinateSystem:"calendar",data:hd}]},true);}
+    // calendar heatmap with Ngày/Tuần/Tháng density toggle
+    window._tsHeatData={d:d,days:days,byDay:byDay};if(!window._tsHeat)window._tsHeat="day";
+    var seg=el("ts-heat-seg");
+    if(seg)Array.prototype.forEach.call(seg.children,function(b){b.classList.toggle("active",b.getAttribute("data-heat")===window._tsHeat);b.onclick=function(){window._tsHeat=b.getAttribute("data-heat");Array.prototype.forEach.call(seg.children,function(x){x.classList.toggle("active",x===b);});tsRenderHeat();};});
+    tsRenderHeat();
     if(C.attachResize)C.attachResize();}
+  function tsRenderHeat(){var C=window.ECCharts;if(!C||!C.ok||!C.ok())return;var eh=el("ts-c-heat");var HD=window._tsHeatData;if(!eh||!HD)return;
+    var d=HD.d,days=HD.days,byDay=HD.byDay;if(!days.length){eh.innerHTML="";return;}
+    var mode=window._tsHeat||"day";
+    var rmax=days[days.length-1],rminMs=Math.max(dnum(days[0]),dnum(rmax)-119*86400000),rmin=new Date(rminMs).toISOString().slice(0,10);
+    var inR=days.filter(function(k){return k>=rmin;});
+    function wkStart(k){var t=dnum(k);var dt=new Date(t);var dow=(dt.getDay()+6)%7;return new Date(t-dow*86400000).toISOString().slice(0,10);}
+    var wkTot={};inR.forEach(function(k){var w=wkStart(k);wkTot[w]=(wkTot[w]||0)+(byDay[k]||0);});
+    function val(k){if(mode==="week")return wkTot[wkStart(k)]||0;if(mode==="month")return (d.by_month&&d.by_month[k.slice(0,7)])||0;return byDay[k]||0;}
+    var hd=inR.map(function(k){return [k,Math.round(val(k)*100)/100];});
+    var mv=Math.max.apply(null,hd.map(function(x){return x[1];}).concat([1]));
+    var unit=mode==="week"?"h/tuần":(mode==="month"?"h/tháng":"h");
+    C.setOption(eh,{tooltip:{formatter:function(p){return p.value[0]+": <b>"+p.value[1]+"</b> "+unit;}},visualMap:{min:0,max:mv,show:false,inRange:{color:["#eef1f7","#9aa8e0","#1f2d80"]}},calendar:{top:18,left:26,right:8,bottom:2,cellSize:["auto",13],range:[rmin,rmax],itemStyle:{borderColor:"#fff",borderWidth:2},splitLine:{show:false},yearLabel:{show:false},dayLabel:{fontSize:9,color:"#94a3b8",firstDay:1,nameMap:["CN","T2","T3","T4","T5","T6","T7"]},monthLabel:{fontSize:9,color:"#64748b"}},series:[{type:"heatmap",coordinateSystem:"calendar",data:hd}]},true);}
 
   function notifBucket(cr){var d=(cr||"").slice(0,10);if(!d)return "Cũ hơn";
     var td=new Date().toISOString().slice(0,10);var y=new Date(Date.now()-86400000).toISOString().slice(0,10);
