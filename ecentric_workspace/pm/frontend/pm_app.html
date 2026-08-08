@@ -215,6 +215,8 @@
   .ts-cc{ border:1px solid var(--gray-100); border-radius:10px; padding:8px 10px 6px; min-width:0; }
   .ts-cc-t{ font-size:12px; font-weight:600; color:var(--gray-600); margin-bottom:4px; }
   .ts-chart{ height:200px; }
+  .ts-cc-full{ grid-column:1 / -1; }
+  .ts-chart-heat{ height:170px; }
   .ts-chart-fb{ display:none; }
   /* ec_datepicker wraps date inputs in .ec-dp-wrap (block, full-width) -> cap it inside filter bars so the two date fields don't stretch the whole row */
   .pm-filters .ec-dp-wrap{ display:inline-flex; width:auto; max-width:190px; flex:0 0 auto; vertical-align:middle; }
@@ -2794,6 +2796,10 @@
           '<div class="ts-cc"><div class="ts-cc-t">Giờ mỗi ngày</div><div id="ts-c-hours" class="ts-chart"></div></div>'+
           '<div class="ts-cc"><div class="ts-cc-t">Số task mỗi ngày</div><div id="ts-c-tasks" class="ts-chart"></div></div>'+
           '<div class="ts-cc"><div class="ts-cc-t">Giờ theo dự án</div><div id="ts-c-proj" class="ts-chart"></div><div id="ts-c-proj-fb" class="ts-chart-fb"></div></div>'+
+          '<div class="ts-cc"><div class="ts-cc-t">Giờ theo người</div><div id="ts-c-user" class="ts-chart"></div></div>'+
+          '<div class="ts-cc"><div class="ts-cc-t">Top task theo giờ</div><div id="ts-c-toptask" class="ts-chart"></div></div>'+
+          '<div class="ts-cc"><div class="ts-cc-t">Xu hướng theo tuần</div><div id="ts-c-week" class="ts-chart"></div></div>'+
+          '<div class="ts-cc ts-cc-full"><div class="ts-cc-t">Mật độ giờ theo ngày</div><div id="ts-c-heat" class="ts-chart ts-chart-heat"></div></div>'+
         '</div>'+
         '<div style="font-size:11px;color:var(--gray-400);padding:2px 14px 12px">Biểu đồ theo <b>ngày ghi nhận log</b> — nếu ghi giờ dồn vào cuối tuần, phân bố theo ngày có thể chưa phản ánh đúng ngày làm thực tế.</div>'+
       '</div>'+
@@ -2829,10 +2835,33 @@
       xAxis:{type:"category",data:lab,axisTick:{show:false},axisLabel:{fontSize:9,color:"#64748b",interval:(lab.length>16?Math.ceil(lab.length/16):0),rotate:(lab.length>10?40:0)}},
       yAxis:{type:"value",minInterval:(isCount?1:0),axisLabel:{fontSize:9,color:"#94a3b8"},splitLine:{lineStyle:{color:"#eef1f7"}}},
       series:[{type:"bar",data:data,barMaxWidth:20,itemStyle:{color:color,borderRadius:[3,3,0,0]}}]};}
+    function hbarOpt(names,data,color,unit){return {grid:{left:6,right:30,top:6,bottom:6,containLabel:true},
+      tooltip:{trigger:"axis",axisPointer:{type:"shadow"},formatter:function(a){var p=a[0];return p.name+": <b>"+p.value+"</b>"+unit;}},
+      xAxis:{type:"value",axisLabel:{fontSize:9,color:"#94a3b8"},splitLine:{lineStyle:{color:"#eef1f7"}},minInterval:(unit===" task"?1:0)},
+      yAxis:{type:"category",inverse:true,data:names,axisTick:{show:false},axisLine:{show:false},axisLabel:{fontSize:9,color:"#64748b"}},
+      series:[{type:"bar",data:data,barMaxWidth:15,itemStyle:{color:color,borderRadius:[0,3,3,0]},label:{show:true,position:"right",fontSize:9,color:"#64748b"}}]};}
+    function topN(map,n){return Object.keys(map).map(function(k){return [k,map[k]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,n);}
+    // hours per person
+    var byU={};(rows||[]).forEach(function(r){var u=(r.owner||"?").split("@")[0];byU[u]=(byU[u]||0)+(r.hours||0);});
+    var uT=topN(byU,10),uN=uT.map(function(x){return x[0];}),uV=uT.map(function(x){return Math.round(x[1]*100)/100;});
+    // top task by hours
+    var byT={};(rows||[]).forEach(function(r){var t=r.task||"?";byT[t]=(byT[t]||0)+(r.hours||0);});
+    var tT=topN(byT,10),tN=tT.map(function(x){return x[0].length>18?("…"+x[0].slice(-16)):x[0];}),tV=tT.map(function(x){return Math.round(x[1]*100)/100;});
+    // weekly trend
+    var wk=Object.keys(d.by_week||{}).sort(),wv=wk.map(function(k){return Math.round((d.by_week[k]||0)*100)/100;});
     var e1=el("ts-c-hours"),e2=el("ts-c-tasks"),e3=el("ts-c-proj");
     if(e1)C.setOption(e1,barOpt(hrs,"#1f2d80",false),true);
     if(e2)C.setOption(e2,barOpt(tcnt,"#0a7a4f",true),true);
     if(e3&&window.PMCharts&&window.PMCharts.renderRiskDonut)window.PMCharts.renderRiskDonut(e3,el("ts-c-proj-fb"),segs,{centerNum:Math.round((d.total_hours||0)*100)/100,centerLabel:"giờ"});
+    if(el("ts-c-user"))C.setOption(el("ts-c-user"),hbarOpt(uN,uV,"#2563eb","h"),true);
+    if(el("ts-c-toptask"))C.setOption(el("ts-c-toptask"),hbarOpt(tN,tV,"#b3541e","h"),true);
+    if(el("ts-c-week"))C.setOption(el("ts-c-week"),{grid:{left:6,right:12,top:14,bottom:24,containLabel:true},tooltip:{trigger:"axis"},xAxis:{type:"category",data:wk.map(function(k){return k.slice(5);}),axisTick:{show:false},axisLabel:{fontSize:9,color:"#64748b",rotate:(wk.length>10?40:0)}},yAxis:{type:"value",axisLabel:{fontSize:9,color:"#94a3b8"},splitLine:{lineStyle:{color:"#eef1f7"}}},series:[{type:"line",smooth:true,symbolSize:5,data:wv,itemStyle:{color:"#1f2d80"},lineStyle:{color:"#1f2d80"},areaStyle:{color:"rgba(31,45,128,.08)"}}]},true);
+    // calendar heatmap (last ~120 days present)
+    var eh=el("ts-c-heat"),hk=days;
+    if(eh&&hk.length){var rmax=hk[hk.length-1],rminMs=Math.max(dnum(hk[0]),dnum(rmax)-119*86400000),rmin=new Date(rminMs).toISOString().slice(0,10);
+      var hd=hk.filter(function(k){return k>=rmin;}).map(function(k){return [k,Math.round((byDay[k]||0)*100)/100];});
+      var mv=Math.max.apply(null,hd.map(function(x){return x[1];}).concat([1]));
+      C.setOption(eh,{tooltip:{formatter:function(p){return p.value[0]+": <b>"+p.value[1]+"</b>h";}},visualMap:{min:0,max:mv,show:false,inRange:{color:["#eef1f7","#9aa8e0","#1f2d80"]}},calendar:{top:18,left:26,right:8,bottom:2,cellSize:["auto",13],range:[rmin,rmax],itemStyle:{borderColor:"#fff",borderWidth:2},splitLine:{show:false},yearLabel:{show:false},dayLabel:{fontSize:9,color:"#94a3b8",firstDay:1,nameMap:["CN","T2","T3","T4","T5","T6","T7"]},monthLabel:{fontSize:9,color:"#64748b"}},series:[{type:"heatmap",coordinateSystem:"calendar",data:hd}]},true);}
     if(C.attachResize)C.attachResize();}
 
   function notifBucket(cr){var d=(cr||"").slice(0,10);if(!d)return "Cũ hơn";
