@@ -210,6 +210,9 @@
   .pm-filters{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
   .pm-preset{ font-size:12px; padding:5px 11px; font-weight:500; }
   .pm-filters .pm-input{ min-width:170px; }
+  /* ec_datepicker wraps date inputs in .ec-dp-wrap (block, full-width) -> cap it inside filter bars so the two date fields don't stretch the whole row */
+  .pm-filters .ec-dp-wrap{ display:inline-flex; width:auto; max-width:190px; flex:0 0 auto; vertical-align:middle; }
+  .pm-filters .ec-dp-wrap .ec-dp-field{ min-width:150px; }
   .pm-chk{ display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--gray-600); border:1px solid var(--gray-200); border-radius:8px; padding:7px 12px; cursor:pointer; background:#fff; user-select:none; }
   .pm-chk input{ accent-color:var(--navy); margin:0; }
   .stat-card:hover{ border-color:var(--gray-300); box-shadow:0 4px 12px rgba(0,0,0,.05); }
