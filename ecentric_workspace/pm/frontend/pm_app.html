@@ -223,6 +223,18 @@
   .ts-chart-heat{ height:170px; }
   .seg.seg-sm button{ padding:3px 9px; font-size:11px; }
   .ts-chart-fb{ display:none; }
+  .pm-combo{ position:relative; }
+  .pm-combo-field{ display:flex; align-items:center; flex-wrap:wrap; gap:5px; border:1px solid var(--gray-200); border-radius:8px; padding:3px 7px; background:#fff; min-height:37px; }
+  .pm-combo-field:focus-within{ border-color:var(--navy,#1f2d80); box-shadow:0 0 0 3px rgba(31,45,128,.14); }
+  .pm-combo-input{ border:none; outline:none; box-shadow:none; flex:1 1 90px; min-width:80px; padding:4px 4px; background:transparent; font-size:13px; font-family:inherit; color:var(--gray-700); }
+  .pm-combo-menu{ position:absolute; left:0; right:0; top:100%; margin-top:4px; background:#fff; border:1px solid var(--gray-200); border-radius:8px; box-shadow:0 8px 24px rgba(15,23,42,.14); max-height:230px; overflow:auto; z-index:60; }
+  .pm-combo-opt{ padding:7px 11px; font-size:13px; cursor:pointer; }
+  .pm-combo-opt:hover{ background:var(--navy-50,#eef1fc); }
+  .pm-combo-sub{ color:var(--gray-400); font-size:11px; margin-left:6px; }
+  .pm-combo-empty{ padding:9px 11px; font-size:12.5px; color:var(--gray-400); }
+  .pm-combo-chip{ display:inline-flex; align-items:center; gap:5px; background:var(--navy-50,#eef1fc); color:var(--navy,#1f2d80); border-radius:8px; padding:2px 8px; font-size:12px; font-weight:600; }
+  .pm-combo-x{ cursor:pointer; color:#94a3b8; font-size:11px; }
+  .pm-combo-x:hover{ color:var(--pink,#d6336c); }
   /* ec_datepicker wraps date inputs in .ec-dp-wrap (block, full-width) -> cap it inside filter bars so the two date fields don't stretch the whole row */
   .pm-filters .ec-dp-wrap{ display:inline-flex; width:auto; max-width:190px; flex:0 0 auto; vertical-align:middle; }
   .pm-filters .ec-dp-wrap .ec-dp-field{ min-width:150px; }
@@ -2595,8 +2607,8 @@
         '<div class="pm-field rcf-full"><label>Tên nhiệm vụ *</label><input class="pm-input" id="re-subject" placeholder="Tên việc định kỳ" value="'+esc(d.template_subject||"")+'" style="padding-left:11px;background-image:none"></div>'+
         '<div class="pm-field rcf-full"><label>Mô tả</label><textarea class="pm-input" id="re-desc" rows="2">'+esc(d.template_description||"")+'</textarea></div>'+
         '<div class="pm-field"><label>Độ ưu tiên</label><select class="pm-sel" id="re-priority">'+pri()+'</select></div>'+
-        '<div class="pm-field"><label>Dự án</label><input class="pm-input" id="re-project" placeholder="PROJ-..." value="'+esc(d.project||"")+'" style="padding-left:11px;background-image:none"></div>'+
-        '<div class="pm-field rcf-full"><label>Người thực hiện</label><input class="pm-input" id="re-assignees" placeholder="user@ecentric.vn, user2@..." value="'+esc(asg)+'" style="padding-left:11px;background-image:none"></div>'+
+        '<div class="pm-field"><label>Dự án</label><div class="pm-combo" id="re-project-combo"><input type="hidden" id="re-project" value="'+esc(d.project||"")+'"><div class="pm-combo-field"><input class="pm-combo-input" id="re-project-in" placeholder="Tìm dự án..." autocomplete="off"></div><div class="pm-combo-menu" style="display:none"></div></div></div>'+
+        '<div class="pm-field rcf-full"><label>Người thực hiện</label><div class="pm-combo pm-combo-multi" id="re-assignees-combo"><input type="hidden" id="re-assignees" value="'+esc(asg)+'"><div class="pm-combo-field"><span class="pm-combo-chips" id="re-assignees-chips"></span><input class="pm-combo-input" id="re-assignees-in" placeholder="Tìm người..." autocomplete="off"></div><div class="pm-combo-menu" style="display:none"></div></div></div>'+
       '</div>'+
       '<div class="rcf-sec">Checklist các bước</div><div id="re-chk">'+chk+'</div><button type="button" class="pm-btn" id="re-chk-add" style="margin-top:6px">➕ Thêm bước</button>'+
       '<div class="rcf-sec">Nhiệm vụ con</div><div id="re-sub">'+subs+'</div><button type="button" class="pm-btn" id="re-sub-add" style="margin-top:6px">➕ Thêm nhiệm vụ con</button>'+
@@ -2610,6 +2622,31 @@
     if(el("re-chk-add"))el("re-chk-add").onclick=function(){var box=el("re-chk");box.insertAdjacentHTML("beforeend",recChkRow({}));wireDel(box);};
     if(el("re-sub-add"))el("re-sub-add").onclick=function(){var box=el("re-sub");box.insertAdjacentHTML("beforeend",recSubRow({}));wireDel(box);};
     recWireSchedule(c);pmApplyHints(c,"PM Recurrence");}
+  /* Lightweight searchable dropdown (single or multi). Keeps a hidden input (id) holding the value:
+     single = one value; multi = comma-joined. options = [{v,l}]. So callers/save read el(id).value unchanged. */
+  function pmWireCombo(comboId,options,o){o=o||{};var multi=!!o.multi;var wrap=el(comboId);if(!wrap)return;
+    var hidden=wrap.querySelector('input[type=hidden]');var inp=wrap.querySelector('.pm-combo-input');var menu=wrap.querySelector('.pm-combo-menu');var chips=wrap.querySelector('.pm-combo-chips');
+    function labelOf(v){for(var i=0;i<options.length;i++)if(options[i].v===v)return options[i].l;return v;}
+    function sel(){return (hidden.value||"").split(",").map(function(x){return x.trim();}).filter(Boolean);}
+    function renderChips(){if(!chips)return;var vs=sel();chips.innerHTML=vs.map(function(v){return '<span class="pm-combo-chip">'+esc(labelOf(v))+'<span class="pm-combo-x" data-rm="'+esc(v)+'">✕</span></span>';}).join("");
+      Array.prototype.forEach.call(chips.querySelectorAll('[data-rm]'),function(x){x.onmousedown=function(e){e.preventDefault();e.stopPropagation();var v=x.getAttribute('data-rm');hidden.value=sel().filter(function(y){return y!==v;}).join(",");renderChips();};});}
+    function close(){menu.style.display="none";}
+    function render(q){q=(q||"").toLowerCase();var s=sel();
+      var list=options.filter(function(op){if(multi&&op.v&&s.indexOf(op.v)>=0)return false;return !q||((op.l||"").toLowerCase().indexOf(q)>=0||(op.v||"").toLowerCase().indexOf(q)>=0);}).slice(0,60);
+      menu.innerHTML=list.length?list.map(function(op){return '<div class="pm-combo-opt" data-v="'+esc(op.v)+'">'+esc(op.l)+((op.v&&op.l!==op.v)?' <span class="pm-combo-sub">'+esc(op.v)+'</span>':'')+'</div>';}).join(""):'<div class="pm-combo-empty">Không có kết quả</div>';
+      Array.prototype.forEach.call(menu.querySelectorAll('.pm-combo-opt'),function(op){op.onmousedown=function(e){e.preventDefault();var v=op.getAttribute('data-v');
+        if(multi){if(v&&sel().indexOf(v)<0){hidden.value=sel().concat([v]).join(",");}inp.value="";renderChips();render("");}
+        else{hidden.value=v;inp.value=v?labelOf(v):"";close();}};});}
+    function open(){menu.style.display="block";render(inp.value);}
+    inp.addEventListener('focus',open);inp.addEventListener('input',function(){open();render(inp.value);});
+    inp.addEventListener('blur',function(){setTimeout(function(){close();if(!multi){var v=hidden.value;inp.value=v?labelOf(v):"";}},160);});
+    if(multi)renderChips();else{var v0=hidden.value;if(v0)inp.value=labelOf(v0);}}
+  function recLoadPickers(){
+    Promise.all([api(PM+"projects.list",{page_length:500}).catch(function(){return {rows:[]};}),api(PM+"assignment.list_assignable",{}).catch(function(){return {rows:[]};})]).then(function(res){
+      var projs=(res[0].rows||[]).map(function(p){return {v:p.name,l:p.project_name||p.name};});projs.unshift({v:"",l:"— Ngoài dự án —"});
+      var users=(res[1].rows||[]).map(function(u){return {v:u.email,l:u.full_name||u.email};});
+      pmWireCombo("re-project-combo",projs,{multi:false});
+      pmWireCombo("re-assignees-combo",users,{multi:true});});}
   /* Field-hint tooltips synced from DocType "EC Field Description" (ref_doctype + fieldname + description).
      Any <label data-hint="fieldname"> in `container` gets an ⓘ with the description as tooltip. Cached per ref_doctype. */
   function pmApplyHints(container,refdt){if(!container)return;window._pmHints=window._pmHints||{};
@@ -2645,7 +2682,7 @@
       '<div class="pm-recform-foot"><button class="pm-btn" id="re-cancel">Đóng</button><button class="pm-btn primary" id="re-save">Lưu</button></div>'+
       '</div>';
     c.classList.add("pm-cols");
-    recWireEditor(c);
+    recWireEditor(c);recLoadPickers();
     if(el("re-last"))el("re-last").onclick=function(){openTask(r.last_task);};
     if(el("re-cancel"))el("re-cancel").onclick=function(){closeD();};
     Array.prototype.forEach.call(c.querySelectorAll("[data-rd-a]"),function(b){b.onclick=function(){var a=b.getAttribute("data-rd-a");if(a==="cancel"&&!window.confirm("Huỷ quy tắc lặp này? Các nhiệm vụ đã sinh vẫn được giữ."))return;b.disabled=true;api(PM+"recurrence."+a,{name:r.name}).then(function(){toast("Đã cập nhật quy tắc");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};});
@@ -2774,7 +2811,7 @@
       '</div>'+
     '</div>';
     c.classList.add("pm-cols");
-    recWireEditor(c);
+    recWireEditor(c);recLoadPickers();
     el("re-cancel").onclick=function(){closeD();};
     el("re-submit").onclick=function(){var btn=this;var _ot=btn.innerHTML;function _busy(on){btn.disabled=on;if(on){btn.textContent="Đang tạo...";}else{btn.innerHTML=_ot;}}
       var subj=el("re-subject").value.trim();if(!subj){toast("Nhập tên nhiệm vụ",true);return;}
