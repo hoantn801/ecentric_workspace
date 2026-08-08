@@ -43,8 +43,15 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "4a4c4a90c3342b2e0029f103171798feed1a7357ada3527d1f662c8b627ce5ac"
+BASELINE_SHA256 = "9abdb28f8dd0c3738a9c932e20c0d0d3a7eaf4da98c994132b6137bd2b74208a"
 SUPERSEDES_SHA256 = (
+    # bytes truoc khi sua link chet /mso-approval (2026-08-07): nut "Quay lai trang
+    # chu" tro toi /mso-approval -- route nay KHONG ton tai tren site (chi co /home,
+    # /all-ticket, /approval, /approvals). Nguoi dung bam vao roi ket o trang 404,
+    # tren do chuong thong bao lai bao loi nen nhin y het loi phan quyen. Da gap that:
+    # linh.ngo@ecentric.vn tuong khong co quyen vao MSO/SO/PO. Sua: back-link -> /home,
+    # nut Huy -> /all-ticket.
+    "4a4c4a90c3342b2e0029f103171798feed1a7357ada3527d1f662c8b627ce5ac",
     # bytes truoc khi rut Muc uu tien ve 2 nac (2026-08-07): form SO con 3 nac
     # Thap/TB/Cao trong khi form PO da doi sang Normal/Urgent tu 2026-08-04.
     # Doi cung nhip 3 thu tren site: Property Setter options/default cho
