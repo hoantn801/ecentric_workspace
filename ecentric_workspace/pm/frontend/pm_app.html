@@ -2492,7 +2492,7 @@
     return "stable";}
   function ruleHealthBadge(k){
     if(k==="maxed")return '<span class="pm-badge st-Backlog">Đã đủ số lần</span>';
-    if(k==="notgen")return '<span class="pm-badge" style="background:#fdebd0;color:#a05a00">Chưa sinh hôm nay</span>';
+    if(k==="notgen")return '<span class="pm-badge" style="background:#fdebd0;color:#a05a00">Chưa tạo hôm nay</span>';
     if(k==="risk")return '<span class="pm-badge st-Blocked">Rủi ro</span>';
     if(k==="attention")return '<span class="pm-badge st-Review">Cần chú ý</span>';
     if(k==="stable")return '<span class="pm-badge st-Done">Ổn định</span>';
@@ -2510,11 +2510,11 @@
   function recAlertList(host,alerts){if(!host)return;
     if(!alerts.length){host.innerHTML='<div class="dc-pad" style="color:#0a7a4f;font-weight:600">Không có cảnh báo định kỳ.</div>';return;}
     host.innerHTML=alerts.slice(0,20).map(function(x){
-      var bd=x.kind==="notgen"?'<span class="dc-reason" style="color:#a05a00;background:#fdebd0">Chưa sinh hôm nay</span>':recReasonBadge(x.kind);
-      var title=x.t?(x.t.subject||x.t.name):("Chưa sinh: "+(x.r.template_subject||x.r.name));var proj=(x.t&&x.t.project)||x.r.project||"";
+      var bd=x.kind==="notgen"?'<span class="dc-reason" style="color:#a05a00;background:#fdebd0">Chưa tạo hôm nay</span>':recReasonBadge(x.kind);
+      var title=x.t?(x.t.subject||x.t.name):("Chưa tạo: "+(x.r.template_subject||x.r.name));var proj=(x.t&&x.t.project)||x.r.project||"";
       return '<div class="rec-alert" data-task="'+esc(x.task)+'">'+bd+'<span class="rec-alert-main">'+esc(title)+(proj?' <span style="color:var(--gray-400)">· '+esc(proj)+'</span>':'')+'</span><span class="rec-alert-rule">'+esc(x.r.template_subject||x.r.name)+'</span></div>';}).join("");
     Array.prototype.forEach.call(host.querySelectorAll("[data-task]"),function(x){x.onclick=function(){openTask(x.getAttribute("data-task"));};});}
-  function recTodayTable(host,rows){if(!host)return;if(!rows.length){return emptyBox(host,"Hôm nay chưa có nhiệm vụ định kỳ nào được sinh.");}
+  function recTodayTable(host,rows){if(!host)return;if(!rows.length){return emptyBox(host,"Hôm nay chưa có nhiệm vụ nào được tạo tự động.");}
     host.innerHTML='<div class="pd-tbl-wrap"><table class="pm-tbl pd-tbl"><thead><tr><th>Nhiệm vụ</th><th>Dự án</th><th>Người nhận</th><th>Trạng thái</th><th>Hạn</th><th>Quy tắc nguồn</th><th>Tình trạng</th><th></th></tr></thead><tbody>'+
       rows.map(function(x){var t=x.t,r=x.r;var a=t?names(t._assign):[];var noass=t&&a.length===0;
         return '<tr'+(t?' data-task="'+esc(t.name)+'"':'')+'><td class="t-main">'+esc(t?(t.subject||t.name):r.last_task)+'</td><td>'+esc((t&&t.project)||r.project||"-")+'</td><td>'+(a.length?'<span class="pm-mini-av" title="'+esc(a[0])+'">'+ini(a[0])+'</span>':'<span style="color:var(--gray-400)">Chưa giao</span>')+'</td><td>'+(t?badge(t.workflow_state):"-")+'</td><td>'+esc((t&&t.exp_end_date)||"-")+'</td><td>'+esc(r.template_subject||r.name)+'</td><td>'+recReasonBadge(recTaskReason(t))+(noass&&recTaskReason(t)!=="noassignee"?' <span class="dc-reason" style="color:#925f00;background:#fff7e6">Chưa giao</span>':'')+'</td><td style="text-align:right">'+(t?'<button class="pm-btn rec-open" data-task="'+esc(t.name)+'">Mở</button>':'')+'</td></tr>';}).join("")+'</tbody></table></div>';
@@ -2526,7 +2526,7 @@
         return '<tr class="rc-row" data-rrule="'+esc(r.name)+'" style="cursor:pointer"><td class="t-main">'+esc(r.template_subject||r.name)+'</td><td>'+esc(FREQ_VN[r.frequency]||r.frequency)+'</td><td>'+esc(r.next_run_date||"-")+'</td><td>'+(r.occurrences_done||0)+'</td><td>'+(r.max_occurrences?r.max_occurrences:"—")+'</td><td'+(lt?' class="dc-link" data-task="'+esc(r.last_task)+'" style="cursor:pointer"':'')+'>'+esc(r.last_task||"-")+'</td><td><span class="pm-badge '+recBadge(r.status)+'">'+esc(r.status)+'</span></td><td>'+ruleHealthBadge(ruleHealth(r,lt))+'</td>'+
           (showActions?'<td style="text-align:right;white-space:nowrap">'+(r.status==="Active"?'<button class="pm-btn rc-a" data-a="pause" data-n="'+esc(r.name)+'">Tạm dừng</button>':r.status==="Paused"?'<button class="pm-btn rc-a" data-a="resume" data-n="'+esc(r.name)+'">Tiếp tục</button>':'')+((r.status==="Active"||r.status==="Paused")?' <button class="pm-btn rc-a" data-a="cancel" data-n="'+esc(r.name)+'">Huỷ</button>':'')+'</td>':'')+'</tr>';}).join("")+'</tbody></table></div>';
     Array.prototype.forEach.call(host.querySelectorAll("[data-task]"),function(x){x.onclick=function(e){e.stopPropagation();openTask(x.getAttribute("data-task"));};});
-    Array.prototype.forEach.call(host.querySelectorAll(".rc-a"),function(btn){btn.onclick=function(e){e.stopPropagation();var a=btn.getAttribute("data-a");if(a==="cancel"&&!window.confirm("Huỷ quy tắc lặp này? Các nhiệm vụ đã sinh vẫn được giữ."))return;api(PM+"recurrence."+a,{name:btn.getAttribute("data-n")}).then(function(){showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};});
+    Array.prototype.forEach.call(host.querySelectorAll(".rc-a"),function(btn){btn.onclick=function(e){e.stopPropagation();var a=btn.getAttribute("data-a");if(a==="cancel"&&!window.confirm("Huỷ quy tắc lặp này? Các nhiệm vụ đã tạo vẫn được giữ."))return;api(PM+"recurrence."+a,{name:btn.getAttribute("data-n")}).then(function(){showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};});
     Array.prototype.forEach.call(host.querySelectorAll(".rc-row"),function(tr){tr.onclick=function(){openRecurringDetail(byName[tr.getAttribute("data-rrule")],tmap);};});}
   /* G5.2 §D: read-only recurring rule detail drawer. All fields come from recurrence.list (_as_dict);
      no extra API/schema needed. Pause/Resume/Cancel reuse the governed recurrence.* endpoints. */
@@ -2561,7 +2561,7 @@
         '<div class="pm-field"><label data-hint="end_date">Lặp cho tới ngày</label><input type="date" class="pm-input" id="re-end" value="'+esc(d.end_date||"")+'"><div style="font-size:11px;color:var(--gray-400);margin-top:3px">Bỏ trống = lặp không giới hạn</div></div>'+
       '</div></div>'+
       (showDur?'<div class="pm-field" id="re-dur-wrap"><label data-hint="template_duration_days">Mỗi lần kéo dài (số ngày)</label><input type="number" min="0" class="pm-input" id="re-dur" value="'+esc((d.template_duration_days!=null&&d.template_duration_days!=="")?d.template_duration_days:"")+'" style="padding-left:11px;background-image:none;max-width:150px"><div style="font-size:11px;color:var(--gray-400);margin-top:3px">Bỏ trống/0 = gói gọn trong ngày</div></div>':'')+
-      '<div class="pm-field rcf-full" id="re-preview-wrap"><label>Dự kiến các lần sinh kế tiếp</label><div id="re-preview" style="font-size:13px;color:var(--gray-700);line-height:2"></div></div>';}
+      '<div class="pm-field rcf-full" id="re-preview-wrap"><label>Dự kiến các lần tạo kế tiếp</label><div id="re-preview" style="font-size:13px;color:var(--gray-700);line-height:2"></div></div>';}
   /* Client-side preview of upcoming generation dates (mirrors backend _advance: Daily/Weekly multi-weekday/Monthly-on-day, from start, until end). Approximate, labelled "dự kiến". */
   function recPreviewDates(s){var out=[],today=new Date();today.setHours(0,0,0,0);
     var start=s.start?new Date(s.start+"T00:00:00"):new Date(today);if(isNaN(start))start=new Date(today);if(start<today)start=new Date(today);
@@ -2685,7 +2685,7 @@
     recWireEditor(c);recLoadPickers();
     if(el("re-last"))el("re-last").onclick=function(){openTask(r.last_task);};
     if(el("re-cancel"))el("re-cancel").onclick=function(){closeD();};
-    Array.prototype.forEach.call(c.querySelectorAll("[data-rd-a]"),function(b){b.onclick=function(){var a=b.getAttribute("data-rd-a");if(a==="cancel"&&!window.confirm("Huỷ quy tắc lặp này? Các nhiệm vụ đã sinh vẫn được giữ."))return;b.disabled=true;api(PM+"recurrence."+a,{name:r.name}).then(function(){toast("Đã cập nhật quy tắc");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};});
+    Array.prototype.forEach.call(c.querySelectorAll("[data-rd-a]"),function(b){b.onclick=function(){var a=b.getAttribute("data-rd-a");if(a==="cancel"&&!window.confirm("Huỷ quy tắc lặp này? Các nhiệm vụ đã tạo vẫn được giữ."))return;b.disabled=true;api(PM+"recurrence."+a,{name:r.name}).then(function(){toast("Đã cập nhật quy tắc");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);b.disabled=false;});};});
     el("re-save").onclick=function(){var col=recCollect(c);var sj=el("re-subject").value.trim();if(!sj){toast("Nhập tên nhiệm vụ",true);return;}var btn=this;btn.disabled=true;
       api(PM+"recurrence.update_template",{name:r.name, subject:sj, description:el("re-desc").value||null, priority:el("re-priority").value||null, assignees:JSON.stringify(col.asg), project:el("re-project").value.trim()||null, template_start_time:null, template_end_time:null, duration_days:(col.durMonthly!=null?col.durMonthly:((el("re-dur")&&el("re-dur").value)||0)), checklist_items:JSON.stringify(col.chk), subtasks:JSON.stringify(col.subs), frequency:el("re-freq").value, interval:col.interval, weekly_days:JSON.stringify(col.wd), monthly_day:col.monthlyDay||null, start_date:el("re-start").value||null, end_date:el("re-end").value||null, max_occurrences:0}).then(function(){toast("Đã lưu quy tắc");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;});};}
   /* G5.0: Assignment Acceptance — request a task be given to a user; recipient accepts /
@@ -2769,7 +2769,7 @@
     Promise.all([api(PM+"recurrence.list"),api(PM+"tasks.list",{page_length:2000})]).then(function(res){
       var rules=(res[0]&&res[0].rows)||[];var tasks=(res[1]&&res[1].rows)||[];var tmap={};tasks.forEach(function(t){tmap[t.name]=t;});
       var today=new Date().toISOString().slice(0,10);function d10(v){return v?String(v).slice(0,10):null;}
-      var CTA='<button class="pm-btn" id="rec-gen-now"><svg class="icon icon-sm"><use href="#p-repeat"/></svg> Sinh ngay</button><button class="pm-btn primary" id="rec-new-cta"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo việc định kỳ</button>';var h=head("Recurring","Nhiệm vụ định kỳ tự sinh lúc 00:00 mỗi ngày · bấm Sinh ngay để tạo thủ công",CTA);
+      var CTA='<button class="pm-btn primary" id="rec-new-cta"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo việc định kỳ</button>';var h=head("Recurring","Quy tắc lặp — hệ thống tự tạo nhiệm vụ mới theo lịch (mỗi ngày lúc 00:00)",CTA);
       if(!rules.length){c.innerHTML=h+'<div class="panel"><div class="pm-state"><svg class="icon em-ic"><use href="#p-repeat"/></svg><div>Chưa có quy tắc lặp.<br>Bấm <b>+ Tạo việc định kỳ</b> để bắt đầu.</div><div style="margin-top:12px"><button class="pm-btn primary" id="rec-new-cta2"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo việc định kỳ</button></div></div></div>';var b0=el("rec-new-cta2");if(b0)b0.onclick=openRecurringCreate;return;}
       var active=rules.filter(function(r){return r.status==="Active";});
       var paused=rules.filter(function(r){return r.status==="Paused";});
@@ -2782,9 +2782,9 @@
       var ruleRisk=active.filter(function(r){var hh=ruleHealth(r,r.last_task&&tmap[r.last_task]);return hh==="notgen"||hh==="risk"||hh==="attention";}).length;
       var alerts=recAlerts(rules,tmap);
       h+='<div class="stats-strip dc-block rec-strip">'+
-        ccard("s-green","Đang chạy",active.length,"")+ccard("s-pink","Rule rủi ro",ruleRisk,"")+ccard("s-navy","Sinh hôm nay",genToday.length,"")+ccard("s-yellow","Chờ xử lý hôm nay",pendingToday,"")+ccard("s-pink","Quá hạn sinh ra",overdueGen,"")+ccard("s-yellow","Chưa giao sinh ra",noassGen,"")+ccard("s-pink","Blocked sinh ra",blockedGen,"")+'</div>';
+        ccard("s-green","Quy tắc đang chạy",active.length,"")+ccard("s-pink","Quy tắc cần chú ý",ruleRisk,"")+ccard("s-navy","Việc tạo hôm nay",genToday.length,"")+ccard("s-yellow","Đang chờ xử lý",pendingToday,"")+ccard("s-pink","Việc bị quá hạn",overdueGen,"")+ccard("s-yellow","Việc chưa giao người",noassGen,"")+ccard("s-pink","Việc bị chặn",blockedGen,"")+'</div>';
       h+=(alerts.length?'<details class="dc-analytics"><summary>Cảnh báo định kỳ ('+alerts.length+')</summary><div class="panel dc-block" id="rec-alerts"></div></details>':'<div class="dc-block" id="rec-alerts" style="display:none"></div>');
-      h+='<div class="dc-sec-title">Nhiệm vụ sinh hôm nay</div><div class="dc-block" id="rec-today"></div>';
+      h+='<div class="dc-sec-title">Việc tạo hôm nay</div><div class="dc-block" id="rec-today"></div>';
       h+='<div class="dc-sec-title">Quy tắc đang chạy</div><div class="dc-block" id="rec-active"></div>';
       h+='<details class="dc-analytics"><summary>Tạm dừng ('+paused.length+') / Đã huỷ-xong ('+ended.length+')</summary><div id="rec-other"></div></details>';
       c.innerHTML=h;
@@ -2794,7 +2794,6 @@
       recRuleTable(el("rec-active"),active,tmap,true);
       recRuleTable(el("rec-other"),paused.concat(ended),tmap,true);
       var bn=el("rec-new-cta");if(bn)bn.onclick=openRecurringCreate;
-      var bg=el("rec-gen-now");if(bg)bg.onclick=function(){var self=this;self.disabled=true;self.textContent="Đang sinh...";api(PM+"recurrence.generate_now").then(function(r){toast("Đã sinh "+((r&&r.generated)||0)+" nhiệm vụ");showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);self.disabled=false;self.textContent="Sinh ngay";});};
     }).catch(function(e){errBox(c,e);});}
 
   /* Self-contained "cửa A": create a recurring rule that owns its own template (subject, desc,
