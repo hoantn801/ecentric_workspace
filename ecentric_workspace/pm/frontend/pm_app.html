@@ -1800,8 +1800,8 @@
           '<div class="pm-prop"><label>Dự án</label><div class="v">'+pmProjLabel(t)+'</div></div>'+
           '<div class="pm-prop"><label>Ưu tiên</label><div class="v"><span class="pm-inline" data-inline="priority">'+renderInlineDisplay("priority",t)+'</span></div></div>'+
           '<div class="pm-prop" style="grid-column:1/-1"><label>Người nhận</label><div class="v">'+(a.length?a.slice(0,5).map(function(u){var fn=(window._pmUserNames&&window._pmUserNames[u])||u;return '<span class="pm-assignee-chip" title="'+esc(fn)+' · '+esc(u)+'"><span class="pm-mini-av">'+ini(u)+'</span>'+esc(fn)+'</span>';}).join("")+(a.length>5?'<span class="pm-tag tg-more">+'+(a.length-5)+'</span>':''):'<span style="color:var(--gray-400)">Chưa giao</span>')+'</div></div>'+
-          '<div class="pm-prop"><label>Bắt đầu</label><div class="v" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="pm-inline" data-inline="start">'+renderInlineDisplay("start",t)+'</span><input type="time" class="pm-input" id="pm-st-time" title="Giờ bắt đầu" value="'+esc(t.pm_start_time?String(t.pm_start_time).slice(0,5):"")+'" style="width:auto;padding:4px 8px"></div></div>'+
-          '<div class="pm-prop"><label>Hạn</label><div class="v" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="pm-inline" data-inline="end">'+renderInlineDisplay("end",t)+'</span><input type="time" class="pm-input" id="pm-en-time" title="Giờ kết thúc" value="'+esc(t.pm_end_time?String(t.pm_end_time).slice(0,5):"")+'" style="width:auto;padding:4px 8px"></div></div>'+
+          '<div class="pm-prop"><label>Bắt đầu</label><div class="v" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input type="date" class="pm-input" id="pm-d-start" data-ec-dp-range="taskdt" data-ec-dp-role="start" value="'+esc(ymd(t.exp_start_date)||"")+'" style="width:auto;background-image:none;padding-left:11px"><input type="time" class="pm-input" id="pm-st-time" title="Giờ bắt đầu" value="'+esc(t.pm_start_time?String(t.pm_start_time).slice(0,5):"")+'" style="width:auto;padding:4px 8px"></div></div>'+
+          '<div class="pm-prop"><label>Hạn</label><div class="v" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input type="date" class="pm-input" id="pm-d-end" data-ec-dp-range="taskdt" data-ec-dp-role="end" value="'+esc(ymd(t.exp_end_date)||"")+'" style="width:auto;background-image:none;padding-left:11px"><input type="time" class="pm-input" id="pm-en-time" title="Giờ kết thúc" value="'+esc(t.pm_end_time?String(t.pm_end_time).slice(0,5):"")+'" style="width:auto;padding:4px 8px"></div></div>'+
           '<div class="pm-prop" style="grid-column:1/-1"><label>Nhãn</label><div class="v" id="pm-labels-box"></div></div>'+
         '</div>'+
         '<div class="pm-dsec">Mô tả</div><div class="pm-inline pm-desc-inline" data-inline="desc">'+renderInlineDisplay("desc",t)+'</div>'+
@@ -1824,7 +1824,6 @@
         '<div id="pm-comments" class="pm-cmt-list"><span class="spin"></span></div>'+
         '<div class="pm-composer"><div id="pm-cmt-att" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:6px"></div><textarea class="pm-cmt-input2" id="pm-cmt-input" rows="2" placeholder="Viết bình luận... (Enter gửi, Shift+Enter xuống dòng)"></textarea>'+
         '<div class="pm-composer-bar"><div class="pm-composer-ic" style="display:flex;gap:1px;align-items:center">'+
-        '<button type="button" id="pm-cmt-link" title="Gắn link" style="border:none;background:none;cursor:pointer;font-size:15px;padding:3px 5px;border-radius:6px">🔗</button>'+
         '<button type="button" id="pm-cmt-file" title="Đính kèm tệp" style="border:none;background:none;cursor:pointer;font-size:15px;padding:3px 5px;border-radius:6px">📎</button>'+
         '<button type="button" id="pm-cmt-img" title="Chèn ảnh" style="border:none;background:none;cursor:pointer;font-size:15px;padding:3px 5px;border-radius:6px">🖼️</button>'+
         '<button type="button" id="pm-cmt-emoji" title="Emoji / sticker" style="border:none;background:none;cursor:pointer;font-size:15px;padding:3px 5px;border-radius:6px">😀</button>'+
@@ -1872,6 +1871,14 @@
       (function(){function saveTime(){var st=el("pm-st-time"),en=el("pm-en-time");if(!st&&!en)return;
         api(PM+"tasks.update",{name:name,pm_start_time:(st&&st.value)||"",pm_end_time:(en&&en.value)||""}).then(function(){openTask(name);refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);openTask(name);});}
         if(el("pm-st-time"))el("pm-st-time").onchange=saveTime; if(el("pm-en-time"))el("pm-en-time").onchange=saveTime;})();
+      (function(){ /* task-detail start/end dates via ec_datepicker inputs; save on change (not blur), keep start<=end guard */
+        function saveDate(field,inp){var val=inp.value||"";
+          if(field==="start"){var ed=ymd(t.exp_end_date);if(val&&ed&&ed<val){toast("Bắt đầu không được sau hạn",true);openTask(name);return;}}
+          else{var sd=ymd(t.exp_start_date);if(val&&sd&&val<sd){toast("Hạn không được trước ngày bắt đầu",true);openTask(name);return;}}
+          var payload={name:name};payload[field==="start"?"exp_start_date":"exp_end_date"]=val;
+          api(PM+"tasks.update",payload).then(function(){if(field==="start")t.exp_start_date=val;else t.exp_end_date=val;toast("Đã lưu");refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);openTask(name);});}
+        if(el("pm-d-start"))el("pm-d-start").onchange=function(){saveDate("start",this);};
+        if(el("pm-d-end"))el("pm-d-end").onchange=function(){saveDate("end",this);};})();
       pmDecompWire(name,t.project); loadSubtree(name,t.project,pmTerminal(t),!!t.parent_task); /* 2-level cap: no add-subtask on a sub-task */
       loadWorktime(name,pmTerminal(t)); loadComments(name); loadChecklist(name,t.workflow_state);
       window._pmCmtAttach=[];pmCmtRenderAtt();
@@ -1891,7 +1898,6 @@
         comp.addEventListener("dragover",function(e){stop(e);comp.classList.add("pm-drop-hot");});
         comp.addEventListener("dragleave",function(e){stop(e);comp.classList.remove("pm-drop-hot");});
         comp.addEventListener("drop",function(e){stop(e);comp.classList.remove("pm-drop-hot");var fs=(e.dataTransfer&&e.dataTransfer.files)||[];for(var i=0;i<fs.length;i++)pmCmtUploadFile(fs[i],false);});})();
-      if(el("pm-cmt-link"))el("pm-cmt-link").onclick=function(){var u=window.prompt("Dán đường link:");if(u&&u.trim()){var ta=el("pm-cmt-input");ta.value=(ta.value?ta.value+" ":"")+u.trim()+" ";ta.focus();}};
       if(el("pm-cmt-emoji"))el("pm-cmt-emoji").onclick=function(){pmCmtEmojiPopover(this);};
       if(el("pm-cmt-send"))el("pm-cmt-send").onclick=function(){var txt=el("pm-cmt-input").value.trim();var atts=window._pmCmtAttach||[];if(!txt&&!atts.length){toast("Nhập bình luận hoặc đính kèm",true);return;}var btn=this;btn.disabled=true;btn.textContent="Đang gửi...";
         api(PM+"comments.add",{reference_doctype:"Task",reference_name:name,content:pmCmtBuildContent(txt,atts)}).then(function(){el("pm-cmt-input").value="";window._pmCmtAttach=[];pmCmtRenderAtt();loadComments(name);btn.disabled=false;btn.textContent="Gửi";}).catch(function(e){toast("Lỗi gửi bình luận: "+errOf(e),true);btn.disabled=false;btn.textContent="Gửi";});};
