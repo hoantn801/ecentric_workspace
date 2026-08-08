@@ -441,6 +441,9 @@
   .pm-cmt-input2{ width:100%; box-sizing:border-box; border:1px solid var(--gray-200); border-radius:10px; padding:9px 11px; font:inherit; font-size:13px; resize:vertical; background:#fff; }
   .pm-composer-bar{ display:flex; align-items:center; justify-content:space-between; margin-top:7px; }
   .pm-composer-ic{ display:flex; gap:2px; }
+  .pm-hint{ display:inline-flex; align-items:center; justify-content:center; margin-left:5px; color:#c2c9d4; cursor:help; vertical-align:middle; position:relative; top:-1px; transition:color .12s ease; outline:none; }
+  .pm-hint:hover, .pm-hint:focus{ color:var(--navy,#1f2d80); }
+  .pm-hint svg{ display:block; }
   .pm-composer{ position:relative; border-radius:8px; }
   .pm-composer.pm-drop-hot{ outline:2px dashed var(--navy,#1f2d80); outline-offset:3px; background:rgba(31,45,128,.04); }
   .pm-ic-btn{ width:28px; height:28px; border:none; background:transparent; border-radius:7px; color:var(--gray-500); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; }
@@ -2571,7 +2574,7 @@
      Any <label data-hint="fieldname"> in `container` gets an ⓘ with the description as tooltip. Cached per ref_doctype. */
   function pmApplyHints(container,refdt){if(!container)return;window._pmHints=window._pmHints||{};
     function inject(map){Array.prototype.forEach.call(container.querySelectorAll("label[data-hint]"),function(lb){var fn=lb.getAttribute("data-hint");var d=map[fn];if(!d||lb.querySelector(".pm-hint"))return;
-      var i=document.createElement("span");i.className="pm-hint";i.title=d;i.setAttribute("aria-label",d);i.textContent="ⓘ";i.style.cssText="cursor:help;color:#94a3b8;font-size:12px;margin-left:5px;font-weight:400;vertical-align:middle";lb.appendChild(i);});}
+      var i=document.createElement("span");i.className="pm-hint";i.title=d;i.setAttribute("aria-label",d);i.setAttribute("tabindex","0");i.innerHTML='<svg viewBox="0 0 16 16" width="13" height="13" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.35" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="5.15" r="0.95" fill="currentColor"/><rect x="7.15" y="6.9" width="1.7" height="4.5" rx="0.85" fill="currentColor"/></svg>';lb.appendChild(i);});}
     if(window._pmHints[refdt]){inject(window._pmHints[refdt]);return;}
     api(PM+"meta.field_hints",{ref_doctype:refdt}).then(function(r){var rows=(r&&r.rows)||[];var m={};rows.forEach(function(x){m[x.fieldname]=x.description;});window._pmHints[refdt]=m;inject(m);}).catch(function(){});}
   function recCollect(c){
