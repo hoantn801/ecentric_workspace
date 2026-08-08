@@ -466,8 +466,11 @@
   .gantt{ min-width:680px; }
   /* sticky date header: stays fixed while task/project rows scroll under it */
   .gantt-axis{ display:grid; grid-template-columns:220px 1fr; border-bottom:1px solid var(--gray-200); position:sticky; top:0; z-index:7; background:#fff; }
-  .gantt-axis .ticks{ position:relative; height:22px; background:#fff; }
-  .gantt-axis .tick{ position:absolute; top:5px; font-size:10px; color:var(--gray-400); transform:translateX(-50%); }
+  .gantt-axis .ticks{ position:relative; height:34px; background:#fff; }
+  .gantt-axis .tick{ position:absolute; top:4px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; line-height:1.25; }
+  .gantt-axis .tick .tk-d{ font-size:11.5px; color:var(--gray-600); font-weight:600; }
+  .gantt-axis .tick .tk-wd{ font-size:9.5px; color:var(--gray-400); }
+  .gantt-axis .tick.is-wknd .tk-wd{ color:var(--pink,#d6336c); }
   .gantt-row{ display:grid; grid-template-columns:220px 1fr; align-items:center; border-bottom:1px solid var(--gray-100); }
   .gantt-row:hover{ background:var(--gray-50); }
   .gantt-label{ padding:6px 10px; font-size:12px; color:var(--gray-800); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
@@ -2264,15 +2267,12 @@
           '<span style="font-size:12px;color:var(--gray-500)">Dự án:</span><select class="pm-sel" id="g-proj" style="min-width:190px"><option value="all"'+((window._pm_gproj||"all")==="all"?" selected":"")+'>Tất cả dự án</option>'+rows.map(function(p){return opt(p.name,p.project_name||p.name,window._pm_gproj);}).join("")+'</select><span style="display:inline-block;width:8px"></span>'+
           '<span style="font-size:12px;color:var(--gray-500)">Nhóm:</span>'+gSeg("g-group","group",[["project","Dự án"],["people","Người"]],window._gGroup||"project")+'<span style="display:inline-block;width:8px"></span>'+
           '<span style="font-size:12px;color:var(--gray-500)">Mức:</span>'+gSeg("g-scale","scale",[["day","Ngày"],["week","Tuần"],["month","Tháng"]],window._gScale||"week")+
-          '<span style="font-size:12px;color:var(--gray-500);margin-left:6px">Phạm vi:</span>'+gSeg("g-range","range",[["today","Hôm nay"],["week","Tuần này"],["month","Tháng này"],["all","Tất cả"],["custom","Tuỳ chọn"]],window._gRange||"all")+
-          '<span id="g-custom" style="display:'+((window._gRange==="custom")?"inline-flex":"none")+';gap:6px;align-items:center"><input class="pm-input" id="g-from" data-ec-dp-range="gf" data-ec-dp-role="start" type="date" style="background-image:none;padding-left:10px" value="'+esc((window._gCustom&&window._gCustom.from)||"")+'"><input class="pm-input" id="g-to" data-ec-dp-range="gf" data-ec-dp-role="end" type="date" style="background-image:none;padding-left:10px" value="'+esc((window._gCustom&&window._gCustom.to)||"")+'"><button class="pm-btn" id="g-apply">Áp dụng</button></span>'+
         '</div><div class="g-ctrlbar" id="g-filterbar"></div><div id="g-body"></div></div>';
       el("g-proj").onchange=function(){window._pm_gproj=this.value;window._gCollapsed={};loadGantt();};
       Array.prototype.forEach.call(el("g-scale").children,function(btn){btn.onclick=function(){window._gScale=btn.getAttribute("data-scale");Array.prototype.forEach.call(el("g-scale").children,function(x){x.classList.toggle("active",x===btn);});loadGantt();};});
-      Array.prototype.forEach.call(el("g-range").children,function(btn){btn.onclick=function(){window._gRange=btn.getAttribute("data-range");Array.prototype.forEach.call(el("g-range").children,function(x){x.classList.toggle("active",x===btn);});el("g-custom").style.display=(window._gRange==="custom")?"inline-flex":"none";if(window._gRange!=="custom")loadGantt();};});
       Array.prototype.forEach.call(el("g-group").children,function(btn){btn.onclick=function(){window._gGroup=btn.getAttribute("data-group");window._gCollapsed={};Array.prototype.forEach.call(el("g-group").children,function(x){x.classList.toggle("active",x===btn);});applyGantt();};});
-      if(el("g-apply"))el("g-apply").onclick=function(){window._gCustom={from:el("g-from").value,to:el("g-to").value};loadGantt();};
       wireWorkTabs();
+      window._gRange="all"; /* range control removed -> Gantt always auto-fits all task dates */
       loadGantt();
     }).catch(function(e){errBox(c,e);});}
   function gVScrollEl(){var x=el("g-body");while(x){var s;try{s=getComputedStyle(x);}catch(_){return null;}if((s.overflowY==="auto"||s.overflowY==="scroll")&&x.scrollHeight>x.clientHeight+2)return x;x=x.parentElement;}return null;}
@@ -2321,7 +2321,11 @@
     if(window._gLabelW==null){var _lw=null;try{_lw=parseInt(localStorage.getItem("pm_g_label_w"),10);}catch(_e){}window._gLabelW=(_lw&&_lw>=220&&_lw<=520)?_lw:220;}
     var ticks=gTicks(min,max),chartW=Math.max(680,ticks.length*gCellW());window._gChartW=chartW;var labelW=window._gLabelW;
     var todayMs=dnum(new Date().toISOString().slice(0,10));
-    var tickHtml=ticks.map(function(tk){var p=(tk.ms-min)/span*100;var lp=Math.max(p,0);var ts=lp<3?'left:'+lp+'%;transform:none;padding-left:10px':'left:'+lp+'%';return '<div class="tick" style="'+ts+'">'+esc(tk.label)+'</div>';}).join("");
+    var _WDVN=["CN","T2","T3","T4","T5","T6","T7"];var _isDayScale=(window._gScale||"week")==="day";
+    var tickHtml=ticks.map(function(tk){var p=(tk.ms-min)/span*100;var lp=Math.max(p,0);var ts=lp<3?'left:'+lp+'%;transform:none;padding-left:10px':'left:'+lp+'%';
+      var wdi=new Date(tk.ms).getDay();var wknd=_isDayScale&&(wdi===0||wdi===6);
+      var wd=_isDayScale?('<span class="tk-wd">'+_WDVN[wdi]+'</span>'):'';
+      return '<div class="tick'+(wknd?' is-wknd':'')+'" style="'+ts+'"><span class="tk-d">'+esc(tk.label)+'</span>'+wd+'</div>';}).join("");
     var gridHtml=ticks.map(function(tk){return '<div class="gl" style="left:'+((tk.ms-min)/span*100)+'%"></div>';}).join("");
     /* weekend shading (Sat/Sun) — only at day zoom and bounded range, else invisible/too many bands */
     if((window._gScale||"week")==="day"&&(max-min)/86400000<=200){var _wk="";for(var _d=gStartOfDay(min);_d<=max;_d+=86400000){var _wd=new Date(_d).getDay();if(_wd===0||_wd===6){_wk+='<div class="g-weekend" style="left:'+((_d-min)/span*100)+'%;width:'+(86400000/span*100)+'%"></div>';}}gridHtml=_wk+gridHtml;}
