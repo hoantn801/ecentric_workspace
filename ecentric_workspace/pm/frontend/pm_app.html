@@ -2456,16 +2456,32 @@
       '<div class="pm-field rcf-full" id="re-weekdays-wrap"><label>Vào các thứ</label><div id="re-weekdays" style="display:flex;gap:6px;flex-wrap:wrap">'+chips+'</div></div>'+
       '<div class="pm-field rcf-full" id="re-monthly-wrap"><label>Hằng tháng</label><div style="display:flex;gap:8px;align-items:center"><span style="font-size:13px;color:var(--gray-600)">Từ ngày</span><input type="number" min="1" max="31" class="pm-input" id="re-mstart" value="'+esc(ms)+'" style="width:74px;padding-left:11px;background-image:none"><span style="font-size:13px;color:var(--gray-600)">đến ngày</span><input type="number" min="1" max="31" class="pm-input" id="re-mend" value="'+esc(me)+'" style="width:74px;padding-left:11px;background-image:none"></div></div>'+
       '<div class="pm-field"><label>Bắt đầu áp dụng</label><input type="date" class="pm-input" id="re-start" value="'+esc(d.start_date||"")+'"></div>'+
-      '<div class="pm-field"><label>Cho tới ngày (ngừng lặp)</label><input type="date" class="pm-input" id="re-end" value="'+esc(d.end_date||"")+'"></div>';}
+      '<div class="pm-field"><label>Cho tới ngày (ngừng lặp)</label><input type="date" class="pm-input" id="re-end" value="'+esc(d.end_date||"")+'"></div>'+
+      '<div class="pm-field rcf-full" id="re-preview-wrap"><label>Dự kiến các lần sinh kế tiếp</label><div id="re-preview" style="font-size:13px;color:var(--gray-700);line-height:2"></div></div>';}
+  /* Client-side preview of upcoming generation dates (mirrors backend _advance: Daily/Weekly multi-weekday/Monthly-on-day, from start, until end). Approximate, labelled "dự kiến". */
+  function recPreviewDates(s){var out=[],today=new Date();today.setHours(0,0,0,0);
+    var start=s.start?new Date(s.start+"T00:00:00"):new Date(today);if(isNaN(start))start=new Date(today);if(start<today)start=new Date(today);
+    var end=s.end?new Date(s.end+"T00:00:00"):null;if(end)end.setHours(0,0,0,0);
+    function ok(d){return !end||d<=end;}
+    if(s.freq==="Daily"){var d=new Date(start);for(var i=0;i<800&&out.length<6;i++){if(!ok(d))break;out.push(new Date(d));d.setDate(d.getDate()+1);}}
+    else if(s.freq==="Weekly"){var wd=(s.wd&&s.wd.length)?s.wd:[(start.getDay()+6)%7];var d=new Date(start);for(var i=0;i<800&&out.length<6;i++){if(!ok(d))break;if(wd.indexOf((d.getDay()+6)%7)>=0)out.push(new Date(d));d.setDate(d.getDate()+1);}}
+    else if(s.freq==="Monthly"){var day=s.monthlyDay||start.getDate();var m=new Date(start.getFullYear(),start.getMonth(),1);for(var i=0;i<80&&out.length<6;i++){var dim=new Date(m.getFullYear(),m.getMonth()+1,0).getDate();var dd=new Date(m.getFullYear(),m.getMonth(),Math.min(day,dim));if(dd>=start){if(!ok(dd))break;out.push(dd);}m.setMonth(m.getMonth()+1);}}
+    return out;}
+  function recRenderPreview(c){var box=el("re-preview");if(!box)return;var s=recScheduleCollect(c);var ds=recPreviewDates(s);
+    if(!ds.length){box.innerHTML='<span style="color:var(--gray-400)">Chưa có ngày phù hợp — kiểm tra Tần suất / thứ / khoảng ngày.</span>';return;}
+    var DOW=["CN","T2","T3","T4","T5","T6","CN"];var vn=["CN","T2","T3","T4","T5","T6","T7"];
+    function fmt(d){return vn[d.getDay()]+" "+d.getDate()+"/"+(d.getMonth()+1);}
+    box.innerHTML=ds.map(function(d){return '<span style="display:inline-block;background:#eef1fc;color:#1f2d80;border-radius:10px;padding:2px 10px;margin:2px 6px 2px 0;font-weight:600;font-size:12px">'+fmt(d)+'</span>';}).join("")+(s.end?'':'<span style="color:var(--gray-400)">…</span>');}
   /* Show/hide weekday chips (Weekly) + monthly-day (Monthly) + interval unit label. Call on render + on freq change. */
   function recFreqUI(c){var fs=el("re-freq");if(!fs)return;var f=fs.value;
     var ww=el("re-weekdays-wrap");if(ww)ww.style.display=(f==="Weekly")?"":"none";
     var mw=el("re-monthly-wrap");if(mw)mw.style.display=(f==="Monthly")?"":"none";}
   /* Wire freq change + weekday chip toggles (scoped to container c). */
   function recWireSchedule(c){
-    if(el("re-freq"))el("re-freq").onchange=function(){recFreqUI(c);};
-    Array.prototype.forEach.call(c.querySelectorAll("#re-weekdays .re-wd"),function(b){b.onclick=function(){var on=this.classList.toggle("re-wd-on");this.style.background=on?"#1f2d80":"#fff";this.style.color=on?"#fff":"#334155";};});
-    recFreqUI(c);}
+    if(el("re-freq"))el("re-freq").onchange=function(){recFreqUI(c);recRenderPreview(c);};
+    Array.prototype.forEach.call(c.querySelectorAll("#re-weekdays .re-wd"),function(b){b.onclick=function(){var on=this.classList.toggle("re-wd-on");this.style.background=on?"#1f2d80":"#fff";this.style.color=on?"#fff":"#334155";recRenderPreview(c);};});
+    ["re-mstart","re-mend","re-start","re-end"].forEach(function(id){var e2=el(id);if(e2){e2.oninput=function(){recRenderPreview(c);};e2.onchange=function(){recRenderPreview(c);};}});
+    recFreqUI(c);recRenderPreview(c);}
   function recScheduleCollect(c){
     var wd=[];Array.prototype.forEach.call(c.querySelectorAll("#re-weekdays .re-wd-on"),function(b){wd.push(parseInt(b.getAttribute("data-wd"),10));});
     var f=el("re-freq").value;
