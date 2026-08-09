@@ -1,0 +1,807 @@
+<!--
+  /pnl-dashboard - Dashboard PnL eCentric (giai doan 1: DOANH THU)
+
+  Nguon du lieu duy nhat: Server Script API `ec_pnl_data` (chi doc, phan quyen
+  o server). Frontend KHONG phai bien gioi bao mat - moi rang buoc quyen nam o
+  server, trang chi hien thi cai server tra ve.
+
+  Bieu do dung ECharts self-host chung cua ERP (window.ECCharts / ECChartTheme).
+  KHONG Chart.js, KHONG CDN.
+
+  ES5 nghiem ngat: chi var / function, khong arrow, khong template literal.
+  Moi selector CSS deu prefix bang #ec-pnl-root de khong ro ra ERP shell.
+-->
+<div id="ec-pnl-root">
+<style>
+#ec-pnl-root{
+  --navy:#2C3DA6;
+  --c-approved:#1f3a5f;
+  --c-pending:#2f6db0;
+  --c-draft:#5b9bd5;
+  --ink:#0f172a; --muted:#64748b; --faint:#94a3b8;
+  --line:#e2e8f0; --grid:#eef2f7;
+  --surface:#ffffff; --bg:#f7f8fb;
+  --ok:#1a8754; --warn:#d4a017; --bad:#db2777;
+  --r:12px;
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  color:var(--ink);
+}
+body > header, body > footer, body > nav.navbar,
+.web-page-header, .web-footer{ display:none !important; }
+body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; }
+
+#ec-pnl-root *{ box-sizing:border-box; }
+#ec-pnl-root .pnl-main{ padding:20px 22px 48px; max-width:1440px; margin:0 auto; }
+
+#ec-pnl-root .pnl-head{ display:flex; flex-wrap:wrap; align-items:flex-start;
+  gap:12px; justify-content:space-between; margin-bottom:16px; }
+#ec-pnl-root .pnl-h1{ font-size:22px; font-weight:700; margin:0 0 4px; }
+#ec-pnl-root .pnl-sub{ font-size:13px; color:var(--muted); margin:0; }
+#ec-pnl-root .pnl-badge{ display:inline-flex; align-items:center; gap:6px;
+  font-size:12px; font-weight:600; padding:5px 10px; border-radius:999px;
+  background:#eef2ff; color:#3730a3; border:1px solid #e0e7ff; }
+#ec-pnl-root .pnl-badge.warn{ background:#fffbeb; color:#92400e; border-color:#fde68a; }
+
+#ec-pnl-root .pnl-card{ background:var(--surface); border:1px solid var(--line);
+  border-radius:var(--r); padding:16px 18px; }
+#ec-pnl-root .pnl-card + .pnl-card{ margin-top:14px; }
+#ec-pnl-root .pnl-card-h{ display:flex; flex-wrap:wrap; gap:10px;
+  align-items:baseline; justify-content:space-between; margin-bottom:12px; }
+#ec-pnl-root .pnl-card-t{ font-size:14px; font-weight:700; margin:0; }
+#ec-pnl-root .pnl-card-n{ font-size:12px; color:var(--muted); margin:2px 0 0; }
+
+#ec-pnl-root .pnl-filters{ display:flex; flex-wrap:wrap; gap:10px 14px;
+  align-items:flex-end; }
+#ec-pnl-root .pnl-f{ display:flex; flex-direction:column; gap:4px; }
+#ec-pnl-root .pnl-f label{ font-size:11px; font-weight:600; color:var(--muted);
+  text-transform:uppercase; letter-spacing:.03em; }
+#ec-pnl-root select, #ec-pnl-root input[type=date]{
+  font:inherit; font-size:13px; padding:7px 9px; border:1px solid var(--line);
+  border-radius:8px; background:#fff; color:var(--ink); min-width:130px; }
+#ec-pnl-root .pnl-seg{ display:inline-flex; border:1px solid var(--line);
+  border-radius:8px; overflow:hidden; background:#fff; }
+#ec-pnl-root .pnl-seg button{ font:inherit; font-size:13px; padding:7px 13px;
+  border:0; background:#fff; color:var(--muted); cursor:pointer; }
+#ec-pnl-root .pnl-seg button + button{ border-left:1px solid var(--line); }
+#ec-pnl-root .pnl-seg button.on{ background:var(--navy); color:#fff; font-weight:600; }
+#ec-pnl-root .pnl-btn{ font:inherit; font-size:13px; font-weight:600; padding:8px 14px;
+  border:1px solid var(--line); border-radius:8px; background:#fff;
+  color:var(--ink); cursor:pointer; }
+#ec-pnl-root .pnl-btn:hover{ background:#f8fafc; }
+#ec-pnl-root .pnl-btn[disabled]{ opacity:.55; cursor:not-allowed; }
+#ec-pnl-root .pnl-presets{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+#ec-pnl-root .pnl-chip{ font:inherit; font-size:12px; padding:5px 11px; cursor:pointer;
+  border:1px solid var(--line); border-radius:999px; background:#fff; color:var(--muted); }
+#ec-pnl-root .pnl-chip.on{ background:#eef2ff; border-color:#c7d2fe;
+  color:#3730a3; font-weight:600; }
+
+#ec-pnl-root .pnl-kpis{ display:grid; gap:14px; margin:14px 0;
+  grid-template-columns:repeat(4,minmax(0,1fr)); }
+#ec-pnl-root .pnl-kpi{ background:var(--surface); border:1px solid var(--line);
+  border-radius:var(--r); padding:15px 16px; border-top:3px solid var(--faint); }
+#ec-pnl-root .pnl-kpi.k-total{ border-top-color:var(--navy); }
+#ec-pnl-root .pnl-kpi.k-approved{ border-top-color:var(--c-approved); }
+#ec-pnl-root .pnl-kpi.k-pending{ border-top-color:var(--c-pending); }
+#ec-pnl-root .pnl-kpi.k-draft{ border-top-color:var(--c-draft); }
+#ec-pnl-root .pnl-kpi-l{ font-size:12px; color:var(--muted); font-weight:600;
+  display:flex; align-items:center; gap:6px; }
+#ec-pnl-root .pnl-kpi-v{ font-size:26px; font-weight:700; margin:6px 0 2px;
+  letter-spacing:-.02em; }
+#ec-pnl-root .pnl-kpi-s{ font-size:12px; color:var(--muted); }
+#ec-pnl-root .pnl-conf{ font-size:10px; font-weight:700; padding:2px 6px;
+  border-radius:999px; background:#f1f5f9; color:var(--muted); }
+
+#ec-pnl-root .pnl-grid2{ display:grid; gap:14px; margin-top:14px;
+  grid-template-columns:repeat(2,minmax(0,1fr)); }
+#ec-pnl-root .pnl-chart{ width:100%; height:320px; }
+#ec-pnl-root .pnl-chart.tall{ height:380px; }
+#ec-pnl-root .pnl-fb{ display:flex; align-items:center; justify-content:center;
+  height:180px; color:var(--muted); font-size:13px; text-align:center;
+  background:#f8fafc; border:1px dashed var(--line); border-radius:8px; padding:14px; }
+
+#ec-pnl-root table{ width:100%; border-collapse:collapse; font-size:13px; }
+#ec-pnl-root th{ text-align:left; font-size:11px; text-transform:uppercase;
+  letter-spacing:.03em; color:var(--muted); font-weight:700;
+  padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap; }
+#ec-pnl-root td{ padding:8px 10px; border-bottom:1px solid var(--grid); }
+#ec-pnl-root td.num, #ec-pnl-root th.num{ text-align:right;
+  font-variant-numeric:tabular-nums; white-space:nowrap; }
+#ec-pnl-root tbody tr:hover{ background:#f8fafc; }
+#ec-pnl-root .pnl-scroll{ overflow-x:auto; }
+#ec-pnl-root .pnl-tag{ display:inline-block; font-size:11px; font-weight:600;
+  padding:2px 7px; border-radius:999px; }
+#ec-pnl-root .pnl-tag.approved{ background:#e8edf3; color:#1f3a5f; }
+#ec-pnl-root .pnl-tag.pending{ background:#e8f0fa; color:#22568a; }
+#ec-pnl-root .pnl-tag.draft{ background:#eef5fc; color:#3f6f9e; }
+
+#ec-pnl-root .pnl-note{ font-size:12px; color:var(--muted); line-height:1.7; margin:0; }
+#ec-pnl-root .pnl-note b{ color:var(--ink); }
+#ec-pnl-root .pnl-msg{ padding:16px 18px; border-radius:var(--r);
+  font-size:13px; line-height:1.6; }
+#ec-pnl-root .pnl-msg.err{ background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
+#ec-pnl-root .pnl-msg.info{ background:#f8fafc; border:1px solid var(--line); color:var(--muted); }
+#ec-pnl-root .pnl-hidden{ display:none !important; }
+#ec-pnl-root .pnl-spin{ display:inline-block; width:14px; height:14px;
+  border:2px solid #cbd5e1; border-top-color:var(--navy); border-radius:50%;
+  animation:pnlspin .7s linear infinite; vertical-align:-2px; }
+@keyframes pnlspin{ to{ transform:rotate(360deg); } }
+
+#ec-pnl-root .ec-shell-fallback{ display:flex; flex-wrap:wrap; gap:14px;
+  padding:10px 22px; border-bottom:1px solid var(--line); background:#fff;
+  font-size:13px; }
+#ec-pnl-root .ec-shell-fallback a{ color:var(--muted); text-decoration:none; }
+#ec-pnl-root .ec-shell-fallback a:hover{ color:var(--navy); }
+
+@media (max-width:1024px){
+  #ec-pnl-root .pnl-kpis{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+  #ec-pnl-root .pnl-grid2{ grid-template-columns:1fr; }
+}
+@media (max-width:640px){
+  #ec-pnl-root .pnl-main{ padding:14px 12px 40px; }
+  #ec-pnl-root .pnl-kpis{ grid-template-columns:1fr; }
+  #ec-pnl-root .pnl-kpi-v{ font-size:22px; }
+  #ec-pnl-root .pnl-chart{ height:280px; }
+}
+</style>
+
+<aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric">
+  <nav class="ec-shell-fallback">
+    <a href="/home">Trang chủ</a>
+    <a href="/all-ticket">Tất cả phiếu</a>
+    <a href="/approval">Duyệt</a>
+    <a href="/mso-plan-form">MSO</a>
+    <a href="/gbs-so-form-v2">Sales Order</a>
+    <a href="/gbs-po-form-v2">Purchase Order</a>
+  </nav>
+</aside>
+
+<main class="ec-main pnl-main">
+  <div class="pnl-head">
+    <div>
+      <h1 class="pnl-h1">Doanh thu eCentric</h1>
+      <p class="pnl-sub" id="pnl-sub">Đang tải dữ liệu…</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span class="pnl-badge" id="pnl-scope">—</span>
+      <button class="pnl-btn" id="pnl-reload" type="button">Tải lại</button>
+    </div>
+  </div>
+
+  <div class="pnl-msg err pnl-hidden" id="pnl-err"></div>
+
+  <section class="pnl-card" id="pnl-filter-card">
+    <div class="pnl-filters">
+      <div class="pnl-f">
+        <label for="pnl-from">Từ ngày</label>
+        <input type="date" id="pnl-from">
+      </div>
+      <div class="pnl-f">
+        <label for="pnl-to">Đến ngày</label>
+        <input type="date" id="pnl-to">
+      </div>
+      <div class="pnl-f">
+        <label>Xem theo</label>
+        <div class="pnl-seg" id="pnl-gran">
+          <button type="button" data-g="day">Ngày</button>
+          <button type="button" data-g="week">Tuần</button>
+          <button type="button" data-g="month" class="on">Tháng</button>
+        </div>
+      </div>
+      <div class="pnl-f">
+        <label for="pnl-channel">Kênh</label>
+        <select id="pnl-channel">
+          <option value="all">Tất cả</option>
+          <option value="GBS">GBS (đối ứng)</option>
+          <option value="Direct">Direct (brand trực tiếp)</option>
+        </select>
+      </div>
+      <div class="pnl-f">
+        <label for="pnl-brand">Brand</label>
+        <select id="pnl-brand"><option value="">Tất cả brand</option></select>
+      </div>
+      <div class="pnl-f">
+        <label for="pnl-team">Phòng ban</label>
+        <select id="pnl-team"><option value="">Tất cả phòng ban</option></select>
+      </div>
+      <button class="pnl-btn" id="pnl-apply" type="button">Áp dụng</button>
+    </div>
+    <div class="pnl-presets" id="pnl-presets">
+      <button class="pnl-chip" type="button" data-p="30">30 ngày qua</button>
+      <button class="pnl-chip" type="button" data-p="90">90 ngày qua</button>
+      <button class="pnl-chip" type="button" data-p="mtd">Tháng này</button>
+      <button class="pnl-chip" type="button" data-p="ytd">Từ đầu năm</button>
+      <button class="pnl-chip on" type="button" data-p="all">Toàn bộ dữ liệu</button>
+    </div>
+  </section>
+
+  <section class="pnl-kpis">
+    <div class="pnl-kpi k-total">
+      <div class="pnl-kpi-l">Tổng doanh thu</div>
+      <div class="pnl-kpi-v" id="k-total">—</div>
+      <div class="pnl-kpi-s" id="k-total-s">—</div>
+    </div>
+    <div class="pnl-kpi k-approved">
+      <div class="pnl-kpi-l">Đã duyệt <span class="pnl-conf">tin cậy 90%</span></div>
+      <div class="pnl-kpi-v" id="k-approved">—</div>
+      <div class="pnl-kpi-s" id="k-approved-s">—</div>
+    </div>
+    <div class="pnl-kpi k-pending">
+      <div class="pnl-kpi-l">Đang xử lý <span class="pnl-conf">tin cậy 50%</span></div>
+      <div class="pnl-kpi-v" id="k-pending">—</div>
+      <div class="pnl-kpi-s" id="k-pending-s">—</div>
+    </div>
+    <div class="pnl-kpi k-draft">
+      <div class="pnl-kpi-l">Khai báo <span class="pnl-conf">tin cậy 30%</span></div>
+      <div class="pnl-kpi-v" id="k-draft">—</div>
+      <div class="pnl-kpi-s" id="k-draft-s">—</div>
+    </div>
+  </section>
+
+  <section class="pnl-card">
+    <div class="pnl-card-h">
+      <div>
+        <h2 class="pnl-card-t">Doanh thu theo thời gian</h2>
+        <p class="pnl-card-n" id="pnl-time-n">Cột xếp chồng theo ba lớp độ tin cậy. Giá trị hiển thị là 100% số gốc, không nhân hệ số.</p>
+      </div>
+    </div>
+    <div class="pnl-chart tall" id="ch-time"></div>
+    <div class="pnl-fb pnl-hidden" id="fb-time"></div>
+  </section>
+
+  <div class="pnl-grid2">
+    <section class="pnl-card">
+      <div class="pnl-card-h">
+        <div>
+          <h2 class="pnl-card-t">Theo brand</h2>
+          <p class="pnl-card-n" id="pnl-brand-n">Bấm vào một brand để lọc toàn trang.</p>
+        </div>
+      </div>
+      <div class="pnl-chart" id="ch-brand"></div>
+      <div class="pnl-fb pnl-hidden" id="fb-brand"></div>
+    </section>
+
+    <section class="pnl-card">
+      <div class="pnl-card-h">
+        <div>
+          <h2 class="pnl-card-t">Theo phòng ban</h2>
+          <p class="pnl-card-n" id="pnl-team-n">Bấm vào một phòng ban để lọc toàn trang.</p>
+        </div>
+      </div>
+      <div class="pnl-chart" id="ch-team"></div>
+      <div class="pnl-fb pnl-hidden" id="fb-team"></div>
+    </section>
+  </div>
+
+  <section class="pnl-card">
+    <div class="pnl-card-h">
+      <div>
+        <h2 class="pnl-card-t">Theo dịch vụ</h2>
+        <p class="pnl-card-n">Nhóm phí lấy từ Item master (không lấy nhóm ghi trên dòng chứng từ — nguồn đó đang lệch). Bấm vào một dịch vụ để xem các chứng từ bên trong.</p>
+      </div>
+      <div class="pnl-presets" id="pnl-svc-groups"></div>
+    </div>
+    <div class="pnl-chart tall" id="ch-svc"></div>
+    <div class="pnl-fb pnl-hidden" id="fb-svc"></div>
+    <div id="pnl-drill" class="pnl-hidden" style="margin-top:14px">
+      <div class="pnl-card-h">
+        <h3 class="pnl-card-t" id="pnl-drill-t">Chi tiết</h3>
+        <button class="pnl-btn" type="button" id="pnl-drill-x">Đóng</button>
+      </div>
+      <div class="pnl-scroll"><table>
+        <thead><tr><th>Chứng từ</th><th>Ngày</th><th>Brand</th><th>Phòng ban</th><th>Trạng thái</th><th class="num">Giá trị</th></tr></thead>
+        <tbody id="pnl-drill-b"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section class="pnl-card">
+    <div class="pnl-card-h">
+      <div>
+        <h2 class="pnl-card-t">Bảng số liệu</h2>
+        <p class="pnl-card-n">Bản đọc được của mọi biểu đồ ở trên — dùng khi cần đối chiếu hoặc copy số.</p>
+      </div>
+      <div class="pnl-seg" id="pnl-tabs">
+        <button type="button" data-t="time" class="on">Thời gian</button>
+        <button type="button" data-t="brand">Brand</button>
+        <button type="button" data-t="team">Phòng ban</button>
+        <button type="button" data-t="svc">Dịch vụ</button>
+        <button type="button" data-t="so">Chứng từ lớn nhất</button>
+      </div>
+    </div>
+    <div class="pnl-scroll"><table>
+      <thead id="pnl-tb-h"></thead>
+      <tbody id="pnl-tb-b"></tbody>
+    </table></div>
+  </section>
+
+  <section class="pnl-card">
+    <h2 class="pnl-card-t" style="margin-bottom:8px">Cách đọc số này</h2>
+    <p class="pnl-note" id="pnl-foot">—</p>
+  </section>
+</main>
+
+<script src="/assets/ecentric_workspace/charts/vendor/echarts.min.js"></script>
+<script src="/assets/ecentric_workspace/charts/chart_theme.js"></script>
+<script src="/assets/ecentric_workspace/charts/chart_common.js"></script>
+<script id="ec-pnl-dashboard">
+(function () {
+  "use strict";
+
+  var C = { approved: "#1f3a5f", pending: "#2f6db0", draft: "#5b9bd5" };
+  var LAYERS = [
+    { k: "approved", t: "Đã duyệt", c: C.approved },
+    { k: "pending", t: "Đang xử lý", c: C.pending },
+    { k: "draft", t: "Khai báo", c: C.draft }
+  ];
+
+  var state = {
+    from: "", to: "", gran: "month", channel: "all",
+    brand: "", team: "", preset: "all", svcGroup: "", tab: "time"
+  };
+  var DATA = null;
+  var busy = false;
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+  function num(v) {
+    var n = Number(v || 0);
+    return n.toLocaleString("vi-VN", { maximumFractionDigits: 0 });
+  }
+  function money(v) {
+    var n = Number(v || 0);
+    if (Math.abs(n) >= 1e9) return (n / 1e9).toFixed(2).replace(".", ",") + " tỷ";
+    if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(0) + " tr";
+    return num(n);
+  }
+  function pct(part, whole) {
+    if (!whole) return "0%";
+    return Math.round((part * 1000) / whole) / 10 + "%";
+  }
+  function iso(d) {
+    var m = d.getMonth() + 1, dd = d.getDate();
+    return d.getFullYear() + "-" + (m < 10 ? "0" + m : m) + "-" + (dd < 10 ? "0" + dd : dd);
+  }
+  function chartsOk() { return !!(window.ECCharts && ECCharts.ok && ECCharts.ok()); }
+  function tokens() {
+    if (window.ECChartTheme && ECChartTheme.tokens) return ECChartTheme.tokens();
+    return { ink: "#0f172a", muted: "#64748b", grid: "#eef2f7", axis: "#64748b",
+             border: "#e2e8f0", surface: "#ffffff" };
+  }
+
+  // ---------------------------------------------------------------- transport
+  function call(args) {
+    if (!(window.frappe && frappe.call)) {
+      return Promise.reject(new Error("Không tải được frappe. Hãy tải lại trang."));
+    }
+    return frappe.call({ method: "ec_pnl_data", args: args || {}, type: "GET" })
+      .then(function (r) { return r && r.message; });
+  }
+
+  // ---------------------------------------------------------------- chart core
+  function baseOption(horizontal) {
+    var t = tokens();
+    var axisLabel = { color: t.muted, fontSize: 11 };
+    return {
+      animationDuration: 420,
+      color: [C.approved, C.pending, C.draft],
+      textStyle: { fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Arial, sans-serif" },
+      grid: { left: 8, right: 20, top: 12, bottom: 8, containLabel: true },
+      legend: {
+        bottom: 0, itemWidth: 10, itemHeight: 10, itemGap: 18,
+        textStyle: { color: t.muted, fontSize: 11 }
+      },
+      tooltip: {
+        trigger: "axis", confine: true,
+        axisPointer: { type: "shadow", shadowStyle: { color: "rgba(15,23,42,0.04)" } },
+        backgroundColor: t.surface, borderColor: t.border, borderWidth: 1,
+        textStyle: { color: t.ink, fontSize: 12 },
+        formatter: function (ps) {
+          if (!ps || !ps.length) return "";
+          var out = '<div style="font-weight:700;margin-bottom:6px">' + esc(ps[0].axisValueLabel) + "</div>";
+          var sum = 0, i;
+          for (i = 0; i < ps.length; i++) {
+            var v = horizontal ? ps[i].value[0] : ps[i].value;
+            sum += Number(v || 0);
+            out += '<div style="display:flex;gap:10px;justify-content:space-between">'
+                 + "<span>" + ps[i].marker + esc(ps[i].seriesName) + "</span>"
+                 + '<b style="font-variant-numeric:tabular-nums">' + num(v) + " đ</b></div>";
+          }
+          out += '<div style="margin-top:6px;padding-top:5px;border-top:1px solid ' + t.border
+               + ';display:flex;gap:10px;justify-content:space-between">'
+               + "<span>Tổng</span><b>" + num(sum) + " đ</b></div>";
+          return out;
+        }
+      }
+    };
+  }
+
+  function stackSeries(rows, horizontal) {
+    var out = [], i, j;
+    for (i = 0; i < LAYERS.length; i++) {
+      var L = LAYERS[i], vals = [];
+      for (j = 0; j < rows.length; j++) {
+        var v = rows[j][L.k] || 0;
+        vals.push(horizontal ? [v, rows[j].label] : v);
+      }
+      var isTop = (i === LAYERS.length - 1);
+      out.push({
+        name: L.t, type: "bar", stack: "s", barMaxWidth: horizontal ? 16 : 26,
+        itemStyle: {
+          color: L.c, borderColor: "#ffffff", borderWidth: 2,
+          borderRadius: isTop ? (horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]) : 0
+        },
+        emphasis: { focus: "series" },
+        data: vals
+      });
+    }
+    return out;
+  }
+
+  function draw(elId, fbId, option, onClick) {
+    var el = $(elId), fb = $(fbId);
+    if (!el) return;
+    if (!chartsOk()) {
+      el.style.display = "none";
+      fb.className = "pnl-fb";
+      fb.textContent = "Không tải được thư viện biểu đồ. Số liệu vẫn xem được đầy đủ ở mục “Bảng số liệu” bên dưới.";
+      return;
+    }
+    el.style.display = "";
+    fb.className = "pnl-fb pnl-hidden";
+    var inst = ECCharts.setOption(el, option, true);
+    if (inst && onClick) {
+      try { inst.off("click"); } catch (e) {}
+      inst.on("click", onClick);
+    }
+  }
+
+  function emptyBox(elId, fbId, msg) {
+    var el = $(elId), fb = $(fbId);
+    if (el) el.style.display = "none";
+    if (fb) { fb.className = "pnl-fb"; fb.textContent = msg; }
+  }
+
+  // ---------------------------------------------------------------- renderers
+  function renderTime() {
+    var rows = DATA.series || [];
+    if (!rows.length) { emptyBox("ch-time", "fb-time", "Không có chứng từ nào trong khoảng đã chọn."); return; }
+    var t = tokens(), cats = [], i;
+    for (i = 0; i < rows.length; i++) cats.push(rows[i].label);
+    var o = baseOption(false);
+    o.xAxis = {
+      type: "category", data: cats,
+      axisLine: { lineStyle: { color: t.border } },
+      axisTick: { show: false },
+      axisLabel: { color: t.muted, fontSize: 11, hideOverlap: true }
+    };
+    o.yAxis = {
+      type: "value", splitLine: { lineStyle: { color: t.grid } },
+      axisLabel: { color: t.muted, fontSize: 11,
+        formatter: function (v) { return money(v); } }
+    };
+    o.series = stackSeries(rows, false);
+    o.series[o.series.length - 1].label = {
+      show: true, position: "top", color: t.muted, fontSize: 10,
+      formatter: function (p) {
+        var r = rows[p.dataIndex];
+        return r && r.total ? money(r.total) : "";
+      }
+    };
+    o.grid.bottom = 26;
+    draw("ch-time", "fb-time", o, null);
+  }
+
+  function renderDim(elId, fbId, rows, limit, onPick, labelW) {
+    if (!rows || !rows.length) { emptyBox(elId, fbId, "Không có số liệu."); return; }
+    var t = tokens();
+    var boxEl = $(elId);
+    var boxW = (boxEl && boxEl.clientWidth) ? boxEl.clientWidth : 600;
+    var lw = Math.max(64, Math.min(labelW || 124, Math.round(boxW * 0.34)));
+    var use = rows.slice(0, limit).slice().reverse();
+    var cats = [], i;
+    for (i = 0; i < use.length; i++) cats.push(use[i].label);
+    var o = baseOption(true);
+    o.grid = { left: 14, right: 40, top: 12, bottom: 26, containLabel: true };
+    o.xAxis = {
+      type: "value", splitLine: { lineStyle: { color: t.grid } },
+      axisLabel: { color: t.muted, fontSize: 11, hideOverlap: true,
+        formatter: function (v) { return money(v); } }
+    };
+    o.yAxis = {
+      type: "category", data: cats,
+      axisLine: { lineStyle: { color: t.border } },
+      axisTick: { show: false },
+      axisLabel: { color: t.ink, fontSize: 11, margin: 10, width: lw,
+        overflow: "truncate", ellipsis: "…" }
+    };
+    o.series = stackSeries(use, true);
+    o.series[o.series.length - 1].label = {
+      show: true, position: "right", color: t.muted, fontSize: 10,
+      formatter: function (p) {
+        var r = use[p.dataIndex];
+        return r && r.total ? money(r.total) : "";
+      }
+    };
+    draw(elId, fbId, o, function (p) {
+      var r = use[p.dataIndex];
+      if (r && onPick) onPick(r);
+    });
+  }
+
+  function svcRows() {
+    var items = (DATA.items || []).slice();
+    if (!state.svcGroup) return items;
+    var out = [], i;
+    for (i = 0; i < items.length; i++) {
+      if (items[i].group === state.svcGroup) out.push(items[i]);
+    }
+    return out;
+  }
+
+  function renderSvcGroups() {
+    var box = $("pnl-svc-groups");
+    var gs = DATA.by_service || [];
+    var h = '<button class="pnl-chip' + (state.svcGroup ? "" : " on")
+          + '" type="button" data-g="">Tất cả nhóm</button>';
+    var i;
+    for (i = 0; i < gs.length; i++) {
+      h += '<button class="pnl-chip' + (state.svcGroup === gs[i].key ? " on" : "")
+         + '" type="button" data-g="' + esc(gs[i].key) + '">'
+         + esc(gs[i].key) + " · " + money(gs[i].total) + "</button>";
+    }
+    box.innerHTML = h;
+  }
+
+  function renderSvc() {
+    renderSvcGroups();
+    renderDim("ch-svc", "fb-svc", svcRows(), 14, function (r) { drill(r); }, 280);
+  }
+
+  function drill(row) {
+    var lines = DATA.lines || [], hit = [], i;
+    for (i = 0; i < lines.length; i++) {
+      if (lines[i].item_code === row.item_code) hit.push(lines[i]);
+    }
+    $("pnl-drill-t").textContent = "Chi tiết: " + row.label + " (" + hit.length + " dòng · " + money(row.total) + ")";
+    var h = "";
+    for (i = 0; i < hit.length; i++) {
+      var l = hit[i];
+      h += "<tr><td>" + esc(l.so) + "</td><td>" + esc(l.date) + "</td><td>"
+         + esc(l.brand) + "</td><td>" + esc(l.team) + '</td><td><span class="pnl-tag '
+         + esc(l.layer) + '">' + esc(l.state) + '</span></td><td class="num">'
+         + num(l.amount) + "</td></tr>";
+    }
+    if (!hit.length) h = '<tr><td colspan="6">Không có dòng nào.</td></tr>';
+    $("pnl-drill-b").innerHTML = h;
+    $("pnl-drill").className = "";
+  }
+
+  function renderKpis() {
+    var t = DATA.totals || {};
+    $("k-total").textContent = num(t.total) + " đ";
+    $("k-total-s").textContent = (t.count || 0) + " chứng từ · đã loại "
+      + ((DATA.excluded || {}).rejected_count || 0) + " phiếu từ chối";
+    var i;
+    for (i = 0; i < LAYERS.length; i++) {
+      var L = LAYERS[i];
+      $("k-" + L.k).textContent = num(t[L.k]) + " đ";
+      $("k-" + L.k + "-s").textContent = (t[L.k + "_cnt"] || 0) + " chứng từ · "
+        + pct(t[L.k] || 0, t.total || 0) + " tổng";
+    }
+  }
+
+  function renderTable() {
+    var head = "", body = "", rows, i;
+    if (state.tab === "so") {
+      head = "<tr><th>Chứng từ</th><th>Ngày</th><th>Brand</th><th>Phòng ban</th><th>Kênh</th><th>Trạng thái</th><th class='num'>Giá trị</th></tr>";
+      rows = DATA.top_so || [];
+      for (i = 0; i < rows.length; i++) {
+        var s = rows[i];
+        body += "<tr><td>" + esc(s.name) + "</td><td>" + esc(s.date) + "</td><td>"
+             + esc(s.brand) + "</td><td>" + esc(s.team) + "</td><td>" + esc(s.channel)
+             + '</td><td><span class="pnl-tag ' + esc(s.layer) + '">' + esc(s.state)
+             + '</span></td><td class="num">' + num(s.net_total) + "</td></tr>";
+      }
+    } else {
+      var label = "Kỳ";
+      if (state.tab === "brand") { rows = DATA.by_brand; label = "Brand"; }
+      else if (state.tab === "team") { rows = DATA.by_team; label = "Phòng ban"; }
+      else if (state.tab === "svc") { rows = svcRows(); label = "Dịch vụ"; }
+      else { rows = DATA.series; }
+      rows = rows || [];
+      head = "<tr><th>" + label + "</th><th class='num'>Đã duyệt</th><th class='num'>Đang xử lý</th>"
+           + "<th class='num'>Khai báo</th><th class='num'>Tổng</th><th class='num'>Chứng từ</th></tr>";
+      for (i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        body += "<tr><td>" + esc(r.label) + '</td><td class="num">' + num(r.approved)
+             + '</td><td class="num">' + num(r.pending) + '</td><td class="num">'
+             + num(r.draft) + '</td><td class="num"><b>' + num(r.total)
+             + '</b></td><td class="num">' + (r.count || 0) + "</td></tr>";
+      }
+    }
+    if (!body) body = '<tr><td colspan="7">Không có số liệu.</td></tr>';
+    $("pnl-tb-h").innerHTML = head;
+    $("pnl-tb-b").innerHTML = body;
+  }
+
+  function renderFoot() {
+    var m = DATA.meta || {}, rc = DATA.recon || {}, ex = DATA.excluded || {};
+    var h = "";
+    h += "<b>Thước đo:</b> giá trị trước thuế (net_total). Toàn bộ chứng từ tạo trước 07/08/2026 chưa gắn dòng thuế thật, "
+       + "nên dùng giá trị trước thuế để các tháng so sánh được với nhau. "
+       + "Trong kỳ này có " + (rc.so_with_tax || 0) + " chứng từ đã có thuế.<br>";
+    h += "<b>Ba lớp:</b> giá trị hiển thị luôn là 100% số gốc. Tỷ lệ 90 / 50 / 30 chỉ là nhãn "
+       + "độ tin cậy để biết khả năng thành tiền thật, không phải hệ số nhân.<br>";
+    h += "<b>Đã loại khỏi mọi con số:</b> " + (ex.rejected_count || 0) + " phiếu bị từ chối, tương đương "
+       + num(ex.rejected_amount) + " đ.<br>";
+    h += "<b>Đối chiếu:</b> tổng theo chứng từ " + num(rc.header_net_total)
+       + " đ, tổng theo dòng chi tiết " + num(rc.line_amount) + " đ, chênh lệch "
+       + num(rc.delta) + " đ" + ((rc.delta === 0) ? " (khớp tuyệt đối)." : " — cần rà lại.") + "<br>";
+    h += "<b>Phạm vi:</b> " + esc(m.date_from) + " → " + esc(m.date_to)
+       + " · dữ liệu hệ thống có từ " + esc(m.data_from) + " đến " + esc(m.data_to)
+       + " · cập nhật " + esc(m.generated_at) + ".";
+    if (m.notes && m.notes.length) h += "<br><b>Ghi chú:</b> " + esc(m.notes.join(" | "));
+    h += "<br><b>Chưa có trong bản này:</b> chi phí và lương — sẽ cắm vào ở vòng sau, "
+       + "lúc đó trang mới hiện được lợi nhuận thật.";
+    $("pnl-foot").innerHTML = h;
+  }
+
+  function fillSelect(el, list, cur, allLabel) {
+    var h = '<option value="">' + allLabel + "</option>", i;
+    for (i = 0; i < list.length; i++) {
+      h += '<option value="' + esc(list[i]) + '"' + (list[i] === cur ? " selected" : "")
+         + ">" + esc(list[i]) + "</option>";
+    }
+    el.innerHTML = h;
+  }
+
+  function renderAll() {
+    var sc = DATA.scope || {}, m = DATA.meta || {};
+    var label = { admin: "Toàn công ty", management: "Ban điều hành", manager: "Quản lý" };
+    $("pnl-scope").textContent = "Phạm vi: " + (label[sc.mode] || sc.mode);
+    $("pnl-sub").textContent = "Doanh thu ghi nhận trên Sales Order sổ eCentric · "
+      + m.date_from + " → " + m.date_to;
+    fillSelect($("pnl-brand"), (DATA.options || {}).brands || [], state.brand, "Tất cả brand");
+    fillSelect($("pnl-team"), (DATA.options || {}).teams || [], state.team, "Tất cả phòng ban");
+    if (!$("pnl-from").value) $("pnl-from").value = m.date_from;
+    if (!$("pnl-to").value) $("pnl-to").value = m.date_to;
+    renderKpis();
+    renderTime();
+    renderDim("ch-brand", "fb-brand", DATA.by_brand, 10, function (r) {
+      state.brand = (state.brand === r.key) ? "" : r.key;
+      $("pnl-brand").value = state.brand; load();
+    });
+    renderDim("ch-team", "fb-team", DATA.by_team, 10, function (r) {
+      state.team = (state.team === r.key) ? "" : r.key;
+      $("pnl-team").value = state.team; load();
+    });
+    renderSvc();
+    renderTable();
+    renderFoot();
+    if (window.ECCharts && ECCharts.attachResize) ECCharts.attachResize(140);
+  }
+
+  // ---------------------------------------------------------------- loading
+  function setBusy(on) {
+    busy = on;
+    var b = $("pnl-reload");
+    b.disabled = on;
+    b.innerHTML = on ? '<span class="pnl-spin"></span> Đang tải' : "Tải lại";
+  }
+
+  function showErr(msg) {
+    var e = $("pnl-err");
+    e.className = "pnl-msg err";
+    e.textContent = msg;
+  }
+  function hideErr() { $("pnl-err").className = "pnl-msg err pnl-hidden"; }
+
+  function load() {
+    if (busy) return;
+    setBusy(true);
+    hideErr();
+    $("pnl-drill").className = "pnl-hidden";
+    var args = { granularity: state.gran, channel: state.channel };
+    if (state.from) args.date_from = state.from;
+    if (state.to) args.date_to = state.to;
+    if (state.brand) args.brand = state.brand;
+    if (state.team) args.team = state.team;
+    call(args).then(function (res) {
+      setBusy(false);
+      if (!res) { showErr("Máy chủ không trả về dữ liệu. Hãy thử tải lại."); return; }
+      if (!res.ok) {
+        $("pnl-filter-card").className = "pnl-card pnl-hidden";
+        if (res.error === "no_permission") {
+          showErr("Bạn không có quyền xem báo cáo doanh thu này. Trang chỉ mở cho CEO, "
+                + "HOF và cấp quản lý có nhân sự trực thuộc. Nếu bạn cho rằng đây là nhầm lẫn, "
+                + "báo phòng Operation, System & Data để kiểm tra lại hồ sơ nhân sự của bạn.");
+        } else {
+          showErr(res.message || "Không tải được báo cáo. Hãy thử lại sau ít phút.");
+        }
+        return;
+      }
+      DATA = res;
+      renderAll();
+    }).catch(function (err) {
+      setBusy(false);
+      showErr("Không tải được số liệu: " + ((err && err.message) || err));
+    });
+  }
+
+  // ---------------------------------------------------------------- events
+  function applyPreset(p) {
+    var now = new Date(), from = null, to = new Date();
+    if (p === "30") { from = new Date(); from.setDate(now.getDate() - 29); }
+    else if (p === "90") { from = new Date(); from.setDate(now.getDate() - 89); }
+    else if (p === "mtd") { from = new Date(now.getFullYear(), now.getMonth(), 1); }
+    else if (p === "ytd") { from = new Date(now.getFullYear(), 0, 1); }
+    if (p === "all") {
+      state.from = ""; state.to = "";
+      $("pnl-from").value = ""; $("pnl-to").value = "";
+    } else {
+      state.from = iso(from); state.to = iso(to);
+      $("pnl-from").value = state.from; $("pnl-to").value = state.to;
+    }
+    state.preset = p;
+  }
+
+  function markSeg(boxId, attr, val) {
+    var box = $(boxId), bs = box.getElementsByTagName("button"), i;
+    for (i = 0; i < bs.length; i++) {
+      bs[i].className = (bs[i].getAttribute(attr) === val) ? "on" : "";
+    }
+  }
+
+  function bind() {
+    $("pnl-reload").addEventListener("click", load);
+    $("pnl-apply").addEventListener("click", function () {
+      state.from = $("pnl-from").value;
+      state.to = $("pnl-to").value;
+      state.channel = $("pnl-channel").value;
+      state.brand = $("pnl-brand").value;
+      state.team = $("pnl-team").value;
+      load();
+    });
+    $("pnl-gran").addEventListener("click", function (e) {
+      var g = e.target && e.target.getAttribute("data-g");
+      if (!g) return;
+      state.gran = g; markSeg("pnl-gran", "data-g", g); load();
+    });
+    $("pnl-presets").addEventListener("click", function (e) {
+      var p = e.target && e.target.getAttribute("data-p");
+      if (!p) return;
+      applyPreset(p);
+      var bs = $("pnl-presets").getElementsByTagName("button"), i;
+      for (i = 0; i < bs.length; i++) {
+        bs[i].className = (bs[i].getAttribute("data-p") === p) ? "pnl-chip on" : "pnl-chip";
+      }
+      load();
+    });
+    $("pnl-svc-groups").addEventListener("click", function (e) {
+      var g = e.target && e.target.getAttribute("data-g");
+      if (g === null || typeof g === "undefined") return;
+      state.svcGroup = g;
+      renderSvc();
+      if (state.tab === "svc") renderTable();
+    });
+    $("pnl-tabs").addEventListener("click", function (e) {
+      var t = e.target && e.target.getAttribute("data-t");
+      if (!t) return;
+      state.tab = t; markSeg("pnl-tabs", "data-t", t); renderTable();
+    });
+    $("pnl-drill-x").addEventListener("click", function () {
+      $("pnl-drill").className = "pnl-hidden";
+    });
+  }
+
+  function boot() { bind(); load(); }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else { boot(); }
+})();
+</script>
+</div>
