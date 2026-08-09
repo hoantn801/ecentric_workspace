@@ -235,6 +235,14 @@
   .pm-combo-chip{ display:inline-flex; align-items:center; gap:5px; background:var(--navy-50,#eef1fc); color:var(--navy,#1f2d80); border-radius:8px; padding:2px 8px; font-size:12px; font-weight:600; }
   .pm-combo-x{ cursor:pointer; color:#94a3b8; font-size:11px; }
   .pm-combo-x:hover{ color:var(--pink,#d6336c); }
+  /* Tao nhiem vu modal: wider + 2-col grid + clean assignee (chips only, no email input) */
+  .pm-drawer.expanded.pm-d-md:has(.nt-form){ width:880px; max-width:94vw; }
+  .nt-form .pm-field{ margin-bottom:0; min-width:0; }
+  .nt-form .pm-input, .nt-form .pm-sel{ width:100%; box-sizing:border-box; }
+  .nt-form .pm-input:focus, .nt-form textarea.pm-input:focus{ outline:none; border-color:var(--navy,#2C3DA6); box-shadow:0 0 0 3px rgba(44,61,166,.14); }
+  .nt-form #nt-assignee{ border:none; background:transparent; padding:0; min-height:0; margin-top:2px; }
+  .nt-form #nt-assignee .pm-chip-in{ display:none; }
+  .nt-form #nt-assignee .pm-chipwrap{ padding:0; gap:6px; }
   /* ec_datepicker wraps date inputs in .ec-dp-wrap (block, full-width) -> cap it inside filter bars so the two date fields don't stretch the whole row */
   .pm-filters .ec-dp-wrap{ display:inline-flex; width:auto; max-width:190px; flex:0 0 auto; vertical-align:middle; }
   .pm-filters .ec-dp-wrap .ec-dp-field{ min-width:150px; }
@@ -782,7 +790,7 @@
   function pst(s){return "pst-"+(s||"").replace(/\s/g,"");}
   function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"})[c];});}
   function stripTags(s){return (s==null?"":String(s)).replace(/<[^>]*>/g,"");}
-  function pmFieldInput(label,inner){return '<div class="pm-field"><label>'+label+'</label>'+inner+'</div>';}
+  function pmFieldInput(label,inner,cls){return '<div class="pm-field'+(cls?' '+cls:'')+'"><label>'+label+'</label>'+inner+'</div>';}
   function ymd(s){return s?String(s).slice(0,10):"";}
   function badge(s){return '<span class="pm-badge '+st(s)+'">'+esc(s||"-")+'</span>';}
   function names(a){if(!a)return [];try{return JSON.parse(a);}catch(e){return [a];}}
@@ -2023,22 +2031,29 @@
       var subBanner=parentTask?'<div style="background:var(--navy-50);border:1px solid var(--navy-100);border-radius:8px;padding:9px 12px;margin-bottom:14px;font-size:12.5px;color:var(--navy)">Tạo <b>nhiệm vụ con</b> — dự án &amp; nhiệm vụ cha đã chọn sẵn bên dưới.</div>':'';
       /* G5.2 §A: canonical Task modal, two modes — Phân công ngay (direct: tasks.create+assign) / Yêu cầu xác nhận (request: assignment.create_with_task). Toggle hidden for subtasks. */
       var toggle=parentTask?'':'<div class="seg" style="margin:2px 0 10px"><button type="button" data-ntmode="direct">Phân công ngay</button><button type="button" data-ntmode="request">Yêu cầu xác nhận</button></div><div id="nt-modehelp" style="font-size:12px;color:var(--gray-500);margin:0 0 12px"></div>';
-      c.innerHTML=subBanner+toggle+
-        '<div class="pm-dsec">Cơ bản</div>'+
-        pmFieldInput("Tiêu đề *",'<input class="pm-input ni" id="nt-subject" placeholder="Bạn cần làm gì?">')+
-        pmFieldInput("Dự án",'<select class="pm-sel" id="nt-project" style="width:100%">'+popts+'</select>')+
-        '<div id="nt-parent-wrap">'+pmFieldInput("Nhiệm vụ cha",'<select class="pm-sel" id="nt-parent" style="width:100%"><option value="">— Không —</option></select>')+'</div>'+
-        '<div class="pm-dsec">Phân công</div>'+
-        pmFieldInput('<span id="nt-asg-lbl">Người phụ trách</span>','<div class="pm-combo" id="nt-asg-combo" style="margin-bottom:6px"><div class="pm-combo-field"><input class="pm-combo-input" id="nt-asg-in" placeholder="Tìm nhân viên (tên/email)…" autocomplete="off"></div><div class="pm-combo-menu" style="display:none"></div></div><div id="nt-assignee" class="pm-chipbox"></div><div id="nt-asg-help" class="pm-asg-help" style="display:none">Yêu cầu xác nhận hiện chỉ hỗ trợ 1 người nhận. Chọn Phân công ngay để giao cho nhiều người.</div>')+ /* searchable employee combobox -> adds chips to nt-assignee */
-        pmFieldInput("Ưu tiên",'<select class="pm-sel" id="nt-priority" style="width:100%">'+pri+'</select>')+
-        '<div class="pm-dsec">Lịch</div>'+
-        '<div id="nt-sched-d" style="display:flex;gap:10px">'+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="nt-start" data-ec-dp-range="ntd" data-ec-dp-role="start" type="date">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="nt-end" data-ec-dp-range="ntd" data-ec-dp-role="end" type="date">')+'</div>'+
-        '<div id="nt-sched-r" style="display:none;gap:10px">'+pmFieldInput("Đề xuất bắt đầu",'<input class="pm-input ni" id="nt-ps" data-ec-dp-range="ntp" data-ec-dp-role="start" type="datetime-local">')+pmFieldInput("Đề xuất kết thúc",'<input class="pm-input ni" id="nt-pe" data-ec-dp-range="ntp" data-ec-dp-role="end" type="datetime-local">')+'</div>'+
-        '<div class="pm-dsec">Chi tiết</div>'+
-        pmFieldInput("Mô tả",'<textarea class="pm-input ni" id="nt-desc" rows="3" style="resize:vertical" placeholder="Mô tả / ghi chú (tuỳ chọn)"></textarea>')+
-        '<div id="nt-req-extra" style="display:none">'+pmFieldInput("Checklist mẫu",'<select class="pm-sel" id="nt-tmpl" style="width:100%">'+tmplOpts+'</select>')+pmFieldInput("Lời nhắn",'<textarea class="pm-input ni" id="nt-msg" rows="2" style="resize:vertical" placeholder="Lời nhắn cho người nhận (tuỳ chọn)"></textarea>')+'</div>'+
-        pmFieldInput("Nhãn",'<div id="nt-labels"></div>')+ /* G5.2 §B shared picker */
-        '<div style="display:flex;gap:8px;margin-top:10px"><button class="pm-btn primary" id="nt-create" style="flex:1;justify-content:center"><svg class="icon icon-sm"><use href="#p-plus"/></svg> <span id="nt-create-lbl">Tạo nhiệm vụ</span></button><button class="pm-btn" id="nt-cancel">Huỷ</button></div>';
+      c.innerHTML='<div class="nt-form">'+subBanner+toggle+
+        '<div class="rcf-sec rcf-sec-first">Cơ bản</div>'+
+        '<div class="rcf-grid">'+
+          pmFieldInput("Tiêu đề *",'<input class="pm-input ni" id="nt-subject" placeholder="Bạn cần làm gì?">',"rcf-full")+
+          pmFieldInput("Dự án",'<select class="pm-sel" id="nt-project" style="width:100%">'+popts+'</select>')+
+          '<div id="nt-parent-wrap">'+pmFieldInput("Nhiệm vụ cha",'<select class="pm-sel" id="nt-parent" style="width:100%"><option value="">— Không —</option></select>')+'</div>'+
+        '</div>'+
+        '<div class="rcf-sec">Phân công</div>'+
+        '<div class="rcf-grid">'+
+          pmFieldInput('<span id="nt-asg-lbl">Người phụ trách</span>','<div class="pm-combo" id="nt-asg-combo"><div class="pm-combo-field"><input class="pm-combo-input" id="nt-asg-in" placeholder="Tìm nhân viên (tên/email)…" autocomplete="off"></div><div class="pm-combo-menu" style="display:none"></div></div><div id="nt-assignee" class="pm-chipbox"></div><div id="nt-asg-help" class="pm-asg-help" style="display:none">Yêu cầu xác nhận hiện chỉ hỗ trợ 1 người nhận. Chọn Phân công ngay để giao cho nhiều người.</div>',"rcf-full")+ /* searchable employee combobox -> adds chips to nt-assignee */
+          pmFieldInput("Ưu tiên",'<select class="pm-sel" id="nt-priority" style="width:100%">'+pri+'</select>')+
+        '</div>'+
+        '<div class="rcf-sec">Lịch</div>'+
+        '<div id="nt-sched-d" class="rcf-grid">'+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="nt-start" data-ec-dp-range="ntd" data-ec-dp-role="start" type="date">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="nt-end" data-ec-dp-range="ntd" data-ec-dp-role="end" type="date">')+'</div>'+
+        '<div id="nt-sched-r" class="rcf-grid" style="display:none">'+pmFieldInput("Đề xuất bắt đầu",'<input class="pm-input ni" id="nt-ps" data-ec-dp-range="ntp" data-ec-dp-role="start" type="datetime-local">')+pmFieldInput("Đề xuất kết thúc",'<input class="pm-input ni" id="nt-pe" data-ec-dp-range="ntp" data-ec-dp-role="end" type="datetime-local">')+'</div>'+
+        '<div class="rcf-sec">Chi tiết</div>'+
+        '<div class="rcf-grid">'+
+          pmFieldInput("Mô tả",'<textarea class="pm-input ni" id="nt-desc" rows="3" style="resize:vertical" placeholder="Mô tả / ghi chú (tuỳ chọn)"></textarea>',"rcf-full")+
+          '<div id="nt-req-extra" class="rcf-full" style="display:none">'+pmFieldInput("Checklist mẫu",'<select class="pm-sel" id="nt-tmpl" style="width:100%">'+tmplOpts+'</select>')+pmFieldInput("Lời nhắn",'<textarea class="pm-input ni" id="nt-msg" rows="2" style="resize:vertical" placeholder="Lời nhắn cho người nhận (tuỳ chọn)"></textarea>')+'</div>'+
+          pmFieldInput("Nhãn",'<div id="nt-labels"></div>',"rcf-full")+ /* G5.2 §B shared picker */
+        '</div>'+
+        '<div style="display:flex;gap:8px;margin-top:16px"><button class="pm-btn primary" id="nt-create" style="flex:1;justify-content:center"><svg class="icon icon-sm"><use href="#p-plus"/></svg> <span id="nt-create-lbl">Tạo nhiệm vụ</span></button><button class="pm-btn" id="nt-cancel">Huỷ</button></div>'+
+      '</div>';
       _niFix(c);
       function loadParents(pre){api(PM+"tasks.list",{project:el("nt-project").value,page_length:200}).then(function(d){el("nt-parent").innerHTML='<option value="">— Không —</option>'+(d.rows||[]).filter(function(t){return !t.parent_task;}).map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.subject||t.name)+'</option>';}).join("");if(pre)el("nt-parent").value=pre;}).catch(function(){});}
       el("nt-project").onchange=function(){loadParents();}; loadParents(parentTask);
@@ -2054,7 +2069,7 @@
       function applyMode(){var rm=_m.v==="request";
         Array.prototype.forEach.call(c.querySelectorAll("[data-ntmode]"),function(b){b.classList.toggle("active",b.getAttribute("data-ntmode")===_m.v);});
         var pw=el("nt-parent-wrap");if(pw)pw.style.display=rm?"none":"";
-        el("nt-sched-d").style.display=rm?"none":"flex";el("nt-sched-r").style.display=rm?"flex":"none";
+        el("nt-sched-d").style.display=rm?"none":"";el("nt-sched-r").style.display=rm?"":"none";
         el("nt-req-extra").style.display=rm?"":"none";
         el("nt-asg-lbl").textContent=rm?"Người nhận *":"Người phụ trách";
         el("nt-create-lbl").textContent=rm?"Gửi yêu cầu":(parentTask?"Tạo nhiệm vụ con":"Tạo nhiệm vụ");
