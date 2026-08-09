@@ -241,7 +241,7 @@ def create_request(task, recipient, proposed_start=None, proposed_end=None, mess
 @frappe.whitelist()
 def create_with_task(subject, recipient=None, project=None, description=None, priority=None,
                      proposed_start=None, proposed_end=None, message=None,
-                     checklist_template=None, labels=None, recipients=None):
+                     checklist_template=None, labels=None, recipients=None, parent_task=None):
     """G5.0 primary flow: create a NEW UNASSIGNED Backlog task + its assignment request in ONE
     transaction. The task stays unassigned in Backlog until Accepted. Rolls back on any failure.
 
@@ -268,7 +268,8 @@ def create_with_task(subject, recipient=None, project=None, description=None, pr
     sd, st = _split(proposed_start)
     ed, et = _split(proposed_end)
     try:
-        t = pmtasks.create(project or "", subject, priority=priority, description=description,
+        t = pmtasks.create(project or "", subject, parent_task=(parent_task or None),
+                           priority=priority, description=description,
                            exp_start_date=sd, exp_end_date=ed, pm_start_time=st, pm_end_time=et)
         task_name = t["name"]
         if labels:

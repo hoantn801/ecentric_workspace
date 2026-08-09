@@ -2049,7 +2049,7 @@
         '<div id="nt-sched-d" class="rcf-grid nt-fields">'+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="nt-start" data-ec-dp-range="ntd" data-ec-dp-role="start" type="date">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="nt-end" data-ec-dp-range="ntd" data-ec-dp-role="end" type="date">')+'</div>'+
         '<div id="nt-sched-r" class="rcf-grid nt-fields" style="display:none">'+pmFieldInput("Đề xuất bắt đầu",'<input class="pm-input ni" id="nt-ps" data-ec-dp-range="ntp" data-ec-dp-role="start" type="date">')+pmFieldInput("Đề xuất kết thúc",'<input class="pm-input ni" id="nt-pe" data-ec-dp-range="ntp" data-ec-dp-role="end" type="date">')+'</div>'+
         '<div class="rcf-grid nt-fields">'+
-          '<div id="nt-req-extra" class="rcf-full" style="display:none">'+pmFieldInput("Checklist mẫu",'<select class="pm-sel" id="nt-tmpl" style="width:100%">'+tmplOpts+'</select>')+pmFieldInput("Lời nhắn",'<textarea class="pm-input ni" id="nt-msg" rows="2" style="resize:vertical" placeholder="Lời nhắn cho người nhận (tuỳ chọn)"></textarea>')+'</div>'+
+          '<div id="nt-req-extra" class="rcf-full" style="display:none">'+pmFieldInput("Lời nhắn",'<textarea class="pm-input ni" id="nt-msg" rows="2" style="resize:vertical" placeholder="Lời nhắn cho người nhận (tuỳ chọn)"></textarea>')+'</div>'+
           pmFieldInput("Nhãn",'<div id="nt-labels"></div>',"rcf-full")+ /* G5.2 §B shared picker */
         '</div>'+
         '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;align-items:center"><button class="pm-btn" id="nt-cancel">Huỷ</button><button class="pm-btn primary" id="nt-create" style="min-width:150px;justify-content:center"><span id="nt-create-lbl">Tạo nhiệm vụ</span></button></div>'+
@@ -2068,7 +2068,7 @@
       var _m={v:(opts.mode==="request"&&!parentTask)?"request":"direct"};
       function applyMode(){var rm=_m.v==="request";
         Array.prototype.forEach.call(c.querySelectorAll("[data-ntmode]"),function(b){b.classList.toggle("active",b.getAttribute("data-ntmode")===_m.v);});
-        var pw=el("nt-parent-wrap");if(pw)pw.style.display=rm?"none":"";
+        var pw=el("nt-parent-wrap");if(pw)pw.style.display="";
         el("nt-sched-d").style.display=rm?"none":"";el("nt-sched-r").style.display=rm?"":"none";
         el("nt-req-extra").style.display=rm?"":"none";
         el("nt-asg-lbl").textContent=rm?"Người nhận *":"Người phụ trách";
@@ -2088,7 +2088,7 @@
           if(!asg.length){toast("Nhập người nhận",true);return;}
           if(asg.length>1){toast("Chế độ Yêu cầu xác nhận chỉ hỗ trợ 1 người nhận. Dùng Phân công ngay để giao cho nhiều người.",true);return;}
           _submitting=true;btn.disabled=true;btn.textContent="Đang gửi...";
-          Promise.resolve(api(PM+"assignment.create_with_task",{subject:s,recipient:asg[0],project:el("nt-project").value||"",description:el("nt-desc").value||null,priority:el("nt-priority").value||null,proposed_start:el("nt-ps").value||null,proposed_end:el("nt-pe").value||null,message:el("nt-msg").value||null,checklist_template:el("nt-tmpl").value||null,labels:lbls.length?JSON.stringify(lbls):null}))
+          Promise.resolve(api(PM+"assignment.create_with_task",{subject:s,recipient:asg[0],project:el("nt-project").value||"",parent_task:el("nt-parent").value||null,description:el("nt-desc").value||null,priority:el("nt-priority").value||null,proposed_start:el("nt-ps").value||null,proposed_end:el("nt-pe").value||null,message:el("nt-msg").value||null,labels:lbls.length?JSON.stringify(lbls):null}))
             .then(function(){toast("Đã gửi yêu cầu giao việc");closeD();if(onCreated){try{onCreated();}catch(_){}}})
             .catch(function(e){toast("Lỗi: "+errOf(e),true);}) /* keep modal open + fields intact on error */
             .finally(restore);
