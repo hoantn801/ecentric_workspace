@@ -2125,8 +2125,10 @@
         pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="np-start" data-ec-dp-range="np" data-ec-dp-role="start" type="date" value="'+esc(ymd(v.expected_start_date)||"")+'">')+
         pmFieldInput("Hạn",'<input class="pm-input ni" id="np-end" data-ec-dp-range="np" data-ec-dp-role="end" type="date" value="'+esc(ymd(v.expected_end_date)||"")+'">')+
         pmFieldInput("Ưu tiên",'<select class="pm-sel" id="np-priority" style="width:100%">'+pri+'</select>')+
+        pmFieldInput("Nhãn",'<div id="np-tags"></div>')+
       '</div>';}
-  function pmProjWirePickers(){
+  function pmProjWirePickers(v){
+    if(el("np-tags"))pmEmailChips(el("np-tags"),{placeholder:"Thêm nhãn…",values:(pmProjTags(v||{})||[])});
     api(PM+"assignment.list_assignable",{}).then(function(res){
       var users=((res&&res.rows)||[]).map(function(u){return {v:u.email,l:u.full_name||u.email};});
       users.unshift({v:"",l:"— Không —"});
@@ -2140,17 +2142,29 @@
     c.innerHTML='<div class="nt-form">'+pmProjFormFields({})+
       '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;align-items:center"><button class="pm-btn" id="np-cancel">Huỷ</button><button class="pm-btn primary" id="np-create" style="min-width:130px;justify-content:center">Tạo dự án</button></div>'+
     '</div>';
-    _niFix(c);pmProjWirePickers();el("np-cancel").onclick=closeD;
+    _niFix(c);pmProjWirePickers({});el("np-cancel").onclick=closeD;
     el("np-create").onclick=function(){if(!pmProjValidate())return;var btn=this;btn.disabled=true;btn.textContent="Đang tạo...";
-      api(PM+"projects.create",pmProjPayload()).then(function(r){toast("Đã tạo "+(r.project_name||r.name));closeD();openProject(r.name);}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML='Tạo dự án';});};}
+      var tgs=pmEmailChipsGet(el("np-tags"))||[];
+      api(PM+"projects.create",pmProjPayload()).then(function(r){
+        function applyTags(i){if(i>=tgs.length){toast("Đã tạo "+(r.project_name||r.name));closeD();openProject(r.name);return;}
+          api(PM+"projects.add_project_tag",{project:r.name,tag:tgs[i]}).then(function(){applyTags(i+1);}).catch(function(){applyTags(i+1);});}
+        applyTags(0);
+      }).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML='Tạo dự án';});};}
   function editProject(name){openD();el("pm-drawer").classList.add("pm-d-md");el("pm-dt").textContent="Chỉnh sửa dự án";var c=el("pm-dbody");spin(c);
     api(PM+"projects.get",{name:name}).then(function(res){var p=(res&&res.project)||{};
       c.innerHTML='<div class="nt-form">'+pmProjFormFields(p)+
         '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;align-items:center"><button class="pm-btn" id="np-cancel">Huỷ</button><button class="pm-btn primary" id="np-save" style="min-width:110px;justify-content:center">Lưu</button></div>'+
       '</div>';
-      _niFix(c);pmProjWirePickers();el("np-cancel").onclick=closeD;
+      _niFix(c);pmProjWirePickers(p);el("np-cancel").onclick=closeD;
       el("np-save").onclick=function(){if(!pmProjValidate())return;var btn=this;btn.disabled=true;btn.textContent="Đang lưu...";
-        api(PM+"projects.update",pmProjPayload(name)).then(function(r){toast("Đã lưu "+(r.project_name||r.name));closeD();showProjects();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu";});};
+        var have=pmProjTags(p)||[],now=pmEmailChipsGet(el("np-tags"))||[];
+        var ops=now.filter(function(x){return have.indexOf(x)<0;}).map(function(t){return {a:"add_project_tag",t:t};})
+          .concat(have.filter(function(x){return now.indexOf(x)<0;}).map(function(t){return {a:"remove_project_tag",t:t};}));
+        api(PM+"projects.update",pmProjPayload(name)).then(function(r){
+          function run(i){if(i>=ops.length){toast("Đã lưu "+(r.project_name||r.name));closeD();showProjects();return;}
+            api(PM+"projects."+ops[i].a,{project:name,tag:ops[i].t}).then(function(){run(i+1);}).catch(function(){run(i+1);});}
+          run(0);
+        }).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu";});};
     }).catch(function(e){c.innerHTML='<div class="pm-err">'+esc(errOf(e))+'</div>';});}
   function confirmDeleteProject(name){var p=(window._pm_projects||[]).filter(function(x){return x.name===name;})[0]||{name:name};
     if((p.task_total||0)>0){toast("Dự án đã có nhiệm vụ và không thể xoá. Hãy đóng hoặc huỷ dự án.",true);return;}
