@@ -2125,10 +2125,10 @@
         pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="np-start" data-ec-dp-range="np" data-ec-dp-role="start" type="date" value="'+esc(ymd(v.expected_start_date)||"")+'">')+
         pmFieldInput("Hạn",'<input class="pm-input ni" id="np-end" data-ec-dp-range="np" data-ec-dp-role="end" type="date" value="'+esc(ymd(v.expected_end_date)||"")+'">')+
         pmFieldInput("Ưu tiên",'<select class="pm-sel" id="np-priority" style="width:100%">'+pri+'</select>')+
-        pmFieldInput("Nhãn",'<div id="np-tags"></div>')+
+        pmFieldInput("Nhãn",'<div class="pm-combo pm-combo-multi" id="np-tags-combo"><input type="hidden" id="np-tags" value="'+esc((pmProjTags(v||{})||[]).join(","))+'"><div class="pm-combo-field"><span class="pm-combo-chips" id="np-tags-chips"></span><input class="pm-combo-input" id="np-tags-in" placeholder="Tìm / thêm nhãn…" autocomplete="off"></div><div class="pm-combo-menu" style="display:none"></div></div>')+
       '</div>';}
   function pmProjWirePickers(v){
-    if(el("np-tags"))pmEmailChips(el("np-tags"),{placeholder:"Thêm nhãn…",values:(pmProjTags(v||{})||[])});
+    if(el("np-tags-combo"))pmWireCombo("np-tags-combo",(pmAllProjTags()||[]).map(function(t){return {v:t,l:t};}),{multi:true,allowCreate:true});
     api(PM+"assignment.list_assignable",{}).then(function(res){
       var users=((res&&res.rows)||[]).map(function(u){return {v:u.email,l:u.full_name||u.email};});
       users.unshift({v:"",l:"— Không —"});
@@ -2144,7 +2144,7 @@
     '</div>';
     _niFix(c);pmProjWirePickers({});el("np-cancel").onclick=closeD;
     el("np-create").onclick=function(){if(!pmProjValidate())return;var btn=this;btn.disabled=true;btn.textContent="Đang tạo...";
-      var tgs=pmEmailChipsGet(el("np-tags"))||[];
+      var tgs=((el("np-tags")&&el("np-tags").value)||"").split(",").map(function(x){return x.trim();}).filter(Boolean);
       api(PM+"projects.create",pmProjPayload()).then(function(r){
         function applyTags(i){if(i>=tgs.length){toast("Đã tạo "+(r.project_name||r.name));closeD();openProject(r.name);return;}
           api(PM+"projects.add_project_tag",{project:r.name,tag:tgs[i]}).then(function(){applyTags(i+1);}).catch(function(){applyTags(i+1);});}
@@ -2157,7 +2157,7 @@
       '</div>';
       _niFix(c);pmProjWirePickers(p);el("np-cancel").onclick=closeD;
       el("np-save").onclick=function(){if(!pmProjValidate())return;var btn=this;btn.disabled=true;btn.textContent="Đang lưu...";
-        var have=pmProjTags(p)||[],now=pmEmailChipsGet(el("np-tags"))||[];
+        var have=pmProjTags(p)||[],now=((el("np-tags")&&el("np-tags").value)||"").split(",").map(function(x){return x.trim();}).filter(Boolean);
         var ops=now.filter(function(x){return have.indexOf(x)<0;}).map(function(t){return {a:"add_project_tag",t:t};})
           .concat(have.filter(function(x){return now.indexOf(x)<0;}).map(function(t){return {a:"remove_project_tag",t:t};}));
         api(PM+"projects.update",pmProjPayload(name)).then(function(r){
@@ -2674,22 +2674,28 @@
     recWireSchedule(c);pmApplyHints(c,"PM Recurrence");}
   /* Lightweight searchable dropdown (single or multi). Keeps a hidden input (id) holding the value:
      single = one value; multi = comma-joined. options = [{v,l}]. So callers/save read el(id).value unchanged. */
-  function pmWireCombo(comboId,options,o){o=o||{};var multi=!!o.multi;var pick=o.onPick;var wrap=el(comboId);if(!wrap)return;
+  function pmWireCombo(comboId,options,o){o=o||{};var multi=!!o.multi;var pick=o.onPick;var canCreate=!!o.allowCreate;var wrap=el(comboId);if(!wrap)return;
     var hidden=wrap.querySelector('input[type=hidden]');var inp=wrap.querySelector('.pm-combo-input');var menu=wrap.querySelector('.pm-combo-menu');var chips=wrap.querySelector('.pm-combo-chips');
     function labelOf(v){for(var i=0;i<options.length;i++)if(options[i].v===v)return options[i].l;return v;}
     function sel(){return ((hidden&&hidden.value)||"").split(",").map(function(x){return x.trim();}).filter(Boolean);}
     function renderChips(){if(!chips)return;var vs=sel();chips.innerHTML=vs.map(function(v){return '<span class="pm-combo-chip">'+esc(labelOf(v))+'<span class="pm-combo-x" data-rm="'+esc(v)+'">✕</span></span>';}).join("");
       Array.prototype.forEach.call(chips.querySelectorAll('[data-rm]'),function(x){x.onmousedown=function(e){e.preventDefault();e.stopPropagation();var v=x.getAttribute('data-rm');hidden.value=sel().filter(function(y){return y!==v;}).join(",");renderChips();};});}
     function close(){menu.style.display="none";}
-    function render(q){q=(q||"").toLowerCase();var s=sel();
-      var list=options.filter(function(op){if(multi&&op.v&&s.indexOf(op.v)>=0)return false;return !q||((op.l||"").toLowerCase().indexOf(q)>=0||(op.v||"").toLowerCase().indexOf(q)>=0);}).slice(0,60);
-      menu.innerHTML=list.length?list.map(function(op){return '<div class="pm-combo-opt" data-v="'+esc(op.v)+'">'+esc(op.l)+((op.v&&op.l!==op.v)?' <span class="pm-combo-sub">'+esc(op.v)+'</span>':'')+'</div>';}).join(""):'<div class="pm-combo-empty">Không có kết quả</div>';
-      Array.prototype.forEach.call(menu.querySelectorAll('.pm-combo-opt'),function(op){op.onmousedown=function(e){e.preventDefault();var v=op.getAttribute('data-v');
+    function addChip(v){v=(v||"").trim();if(!v)return;if(sel().indexOf(v)<0)hidden.value=sel().concat([v]).join(",");inp.value="";renderChips();render("");}
+    function render(q){var ql=(q||"").toLowerCase();var s=sel();var qt=(q||"").trim();
+      var list=options.filter(function(op){if(multi&&op.v&&s.indexOf(op.v)>=0)return false;return !ql||((op.l||"").toLowerCase().indexOf(ql)>=0||(op.v||"").toLowerCase().indexOf(ql)>=0);}).slice(0,60);
+      var html=list.map(function(op){return '<div class="pm-combo-opt" data-v="'+esc(op.v)+'">'+esc(op.l)+((op.v&&op.l!==op.v)?' <span class="pm-combo-sub">'+esc(op.v)+'</span>':'')+'</div>';}).join("");
+      if(canCreate&&qt&&!options.some(function(op){return (op.v||"").toLowerCase()===qt.toLowerCase();})&&s.indexOf(qt)<0)html+='<div class="pm-combo-opt pm-combo-create" data-create="'+esc(qt)+'">＋ Tạo “'+esc(qt)+'”</div>';
+      menu.innerHTML=html||'<div class="pm-combo-empty">Không có kết quả</div>';
+      Array.prototype.forEach.call(menu.querySelectorAll('.pm-combo-opt'),function(op){op.onmousedown=function(e){e.preventDefault();
+        var cr=op.getAttribute('data-create');if(cr!=null){addChip(cr);return;}
+        var v=op.getAttribute('data-v');
         if(pick){pick(v);inp.value="";close();return;}
-        if(multi){if(v&&sel().indexOf(v)<0){hidden.value=sel().concat([v]).join(",");}inp.value="";renderChips();render("");}
+        if(multi)addChip(v);
         else{hidden.value=v;inp.value=v?labelOf(v):"";close();}};});}
     function open(){menu.style.display="block";render(inp.value);}
     inp.addEventListener('focus',open);inp.addEventListener('input',function(){open();render(inp.value);});
+    inp.addEventListener('keydown',function(e){if(e.key==="Enter"&&canCreate&&multi){var qt=(inp.value||"").trim();if(qt){e.preventDefault();addChip(qt);}}});
     inp.addEventListener('blur',function(){setTimeout(function(){close();if(!multi){var v=hidden.value;inp.value=v?labelOf(v):"";}},160);});
     if(multi)renderChips();else if(hidden){var v0=hidden.value;if(v0)inp.value=labelOf(v0);}}
   function recLoadPickers(){
