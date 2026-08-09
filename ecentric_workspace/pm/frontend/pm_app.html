@@ -1638,6 +1638,7 @@
     dr.classList.add("expanded");void dr.offsetWidth; /* commit centered+opacity:0 'from' state so transition is fade-in, not right slide */
     dg.classList.add("open");dr.classList.add("open");}
   function closeD(){clearTick();window._pmTaskOpen=false;if(typeof pmSyncHash==="function")pmSyncHash(); /* G5.2 §7: restore the underlying view route on drawer close */
+    try{Array.prototype.forEach.call(document.querySelectorAll('.pm-lblpop-in'),function(p){if(p.parentNode)p.parentNode.removeChild(p);});}catch(_e){} /* remove any orphaned label-picker popover portaled outside the drawer */
     var dg=el("pm-dbg"),dr=el("pm-drawer");dg.classList.remove("open");dr.classList.remove("open");
     if(window._dCloseTimer)clearTimeout(window._dCloseTimer);
     window._dCloseTimer=setTimeout(function(){dr.classList.remove("expanded","pm-d-md","pm-d-sm");window._dCloseTimer=null;},170); /* keep .expanded until fade-out done, then reset (incl. UIUX-2 size variants) */
