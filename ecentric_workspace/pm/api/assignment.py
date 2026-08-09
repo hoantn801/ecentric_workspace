@@ -211,6 +211,33 @@ def request_eligibility(task):
     return {"eligible": code == "ok", "reason_code": code, "message": msg}
 
 
+def _create_recipient_todo(req_name, task, recipient, subject, due):
+    """Reminder ToDo so a Pending assignment request appears in the recipient's 'Nhắc việc' (shell
+    action feed) + 'Việc của tôi'. Tagged [XN:<req>] for precise close on response. Best-effort:
+    a ToDo failure must never break the governed request flow."""
+    try:
+        frappe.get_doc({
+            "doctype": "ToDo", "allocated_to": recipient, "status": "Open",
+            "reference_type": "Task", "reference_name": task,
+            "date": due or frappe.utils.nowdate(), "priority": "Medium",
+            "description": "[XN:{0}] Yêu cau xac nhan nhan viec: {1}. Mo 'Yeu cau giao viec' de phan hoi.".format(
+                req_name, subject or task),
+        }).insert(ignore_permissions=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "assignment recipient ToDo create failed: " + str(req_name))
+
+
+def _close_request_todos(req_name, recipient):
+    """Close the recipient's reminder ToDo(s) for a request once it leaves Pending. Best-effort."""
+    try:
+        for n in frappe.get_all("ToDo", filters={
+                "allocated_to": recipient, "status": "Open",
+                "description": ["like", "%[XN:{0}]%".format(req_name)]}, pluck="name"):
+            frappe.db.set_value("ToDo", n, "status", "Closed")
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "assignment recipient ToDo close failed: " + str(req_name))
+
+
 @frappe.whitelist()
 def create_request(task, recipient, proposed_start=None, proposed_end=None, message=None):
     """Create a Pending request for an EXISTING eligible task. Only a delegator (owner / project
@@ -235,13 +262,19 @@ def create_request(task, recipient, proposed_start=None, proposed_end=None, mess
             doc.insert(ignore_permissions=True)
     except frappe.DuplicateEntryError:
         frappe.throw(_("Nhiệm vụ đã có một yêu cầu giao việc đang mở."))
+    _due = None
+    try:
+        _due = frappe.utils.getdate(proposed_start) if proposed_start else None
+    except Exception:
+        _due = None
+    _create_recipient_todo(doc.name, task, recipient, tdoc.get("subject"), _due)
     return _as_dict(doc)
 
 
 @frappe.whitelist()
 def create_with_task(subject, recipient=None, project=None, description=None, priority=None,
                      proposed_start=None, proposed_end=None, message=None,
-                     checklist_template=None, labels=None, recipients=None):
+                     checklist_template=None, labels=None, recipients=None, parent_task=None):
     """G5.0 primary flow: create a NEW UNASSIGNED Backlog task + its assignment request in ONE
     transaction. The task stays unassigned in Backlog until Accepted. Rolls back on any failure.
 
@@ -268,7 +301,8 @@ def create_with_task(subject, recipient=None, project=None, description=None, pr
     sd, st = _split(proposed_start)
     ed, et = _split(proposed_end)
     try:
-        t = pmtasks.create(project or "", subject, priority=priority, description=description,
+        t = pmtasks.create(project or "", subject, parent_task=(parent_task or None),
+                           priority=priority, description=description,
                            exp_start_date=sd, exp_end_date=ed, pm_start_time=st, pm_end_time=et)
         task_name = t["name"]
         if labels:
@@ -336,6 +370,7 @@ def respond(name, decision, reason=None, counter_start=None, counter_end=None):
     _set_open_keys(doc)
     with _service():
         doc.save(ignore_permissions=True)
+    _close_request_todos(doc.name, doc.recipient)  # response given -> clear the recipient's reminder
     return _as_dict(doc)
 
 
@@ -395,6 +430,16 @@ def requester_action(name, action, proposed_start=None, proposed_end=None, messa
             doc.save(ignore_permissions=True)
     except frappe.DuplicateEntryError:
         frappe.throw(_("Nhiệm vụ đã có một yêu cầu giao việc đang mở."))
+    if action in ("accept_counter", "cancel"):
+        _close_request_todos(doc.name, doc.recipient)  # closed/decided -> clear reminder
+    elif action == "resend":
+        _due = None
+        try:
+            _due = frappe.utils.getdate(doc.proposed_start) if doc.proposed_start else None
+        except Exception:
+            _due = None
+        _create_recipient_todo(doc.name, doc.task, doc.recipient,
+                               frappe.db.get_value("Task", doc.task, "subject"), _due)  # reopened -> new reminder
     return _as_dict(doc)
 
 
