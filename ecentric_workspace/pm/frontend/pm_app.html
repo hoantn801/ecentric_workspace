@@ -666,7 +666,7 @@
   .pm-lblopt2{ text-align:left; border:none; background:transparent; cursor:pointer; padding:5px 6px; border-radius:6px; }
   .pm-lblopt2:hover{ background:var(--gray-50); }
   .pm-lblnone{ font-size:12px; color:var(--gray-400); padding:8px 6px; }
-  .pm-lblnew{ display:flex; align-items:center; gap:4px; width:100%; margin-top:6px; padding:7px 6px; border:none; border-top:1px solid var(--gray-100); background:transparent; cursor:pointer; color:var(--navy); font-size:12.5px; }
+  .pm-lblnew{ display:flex; align-items:center; justify-content:center; gap:4px; width:100%; margin-top:6px; padding:8px 6px; border:none; border-top:1px solid var(--gray-100); background:transparent; cursor:pointer; color:var(--navy); font-size:12.5px; font-weight:600; }
   .pm-lblnew:hover{ background:var(--gray-50); }
   .pm-recform .pm-input, .pm-recform .pm-sel{ width:100%; box-sizing:border-box; }
   .pm-recform .pm-input{ background-image:none; padding-left:11px; transition:border-color .12s ease, box-shadow .12s ease; }
@@ -3054,9 +3054,9 @@
       var avail=host._pmCat.filter(function(l){ return host._pmSel.indexOf(l.name)<0 && (l.is_active===undefined||l.is_active); });
       pop.innerHTML='<div class="pm-lblpop-in"><input class="pm-input pm-lblsearch" placeholder="Tìm nhãn..."><div class="pm-lbllist">'+
         (avail.length?avail.map(function(l){ return '<button type="button" class="pm-lblopt2" data-pickid="'+esc(l.name)+'"><span class="pm-lbl pm-lbl-'+esc(l.color_key||"gray")+'">'+esc(l.label_name||l.name)+'</span></button>'; }).join(""):'<div class="pm-lblnone">Không còn nhãn để chọn</div>')+
-        '</div><button type="button" class="pm-lblnew" data-lblnew="1"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhãn mới</button></div>';
+        '</div><button type="button" class="pm-lblnew" data-lblnew="1">Tạo nhãn mới</button></div>';
       var inb=pop.querySelector(".pm-lblpop-in");
-      document.body.appendChild(inb); host._pmLblPanel=inb; /* move OUT of the transformed drawer so position:fixed anchors to the viewport (not the drawer) */
+      (el("ec-pm-root")||document.body).appendChild(inb); host._pmLblPanel=inb; /* move OUT of the transformed drawer so position:fixed anchors to viewport; ec-pm-root (not body) so --navy CSS vars resolve */
       pop.hidden=false;
       try{ var _btn=host.querySelector("[data-lbladd]");
         if(_btn){ inb.style.position="fixed"; inb.style.margin="0"; inb.style.zIndex="10050"; var _br=_btn.getBoundingClientRect(); var _ph=inb.offsetHeight||300, _pw=inb.offsetWidth||320;
