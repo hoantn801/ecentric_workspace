@@ -2718,8 +2718,8 @@
   function asgFmt(d){return d?String(d).slice(0,16).replace("T"," "):"—";}
   function asgStatusBadge(st){var m={Pending:"tg-medium","Reschedule Proposed":"tg-high",Accepted:"tg-low",Rejected:"tg-urgent",Cancelled:"tg-nodue"};return '<span class="pm-tag '+(m[st]||"tg-medium")+'">'+esc(st)+'</span>';}
   function showAssignments(){var c=el("pm-view");spin(c);window._asgTab=window._asgTab||"in";
-    Promise.all([api(PM+"assignment.list_incoming").catch(function(){return {rows:[]};}),
-                 api(PM+"assignment.list_outgoing").catch(function(){return {rows:[]};})]).then(function(res){
+    var _load=function(){return Promise.all([api(PM+"assignment.list_incoming"),api(PM+"assignment.list_outgoing")]);};
+    _load().catch(function(){return new Promise(function(rs){setTimeout(function(){_load().then(rs).catch(function(){rs([{rows:[]},{rows:[]}]);});},400);});}).then(function(res){
       var inc=(res[0].rows||[]),out=(res[1].rows||[]);
       /* G5.2 item2: each card's COUNT is the length of the exact {row,tab} set it renders when active.
          respond=incoming Pending, awaiting=outgoing Pending, reschedule=outgoing Reschedule Proposed,
