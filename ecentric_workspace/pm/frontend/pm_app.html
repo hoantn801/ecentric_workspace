@@ -235,6 +235,14 @@
   .pm-combo-chip{ display:inline-flex; align-items:center; gap:5px; background:var(--navy-50,#eef1fc); color:var(--navy,#1f2d80); border-radius:8px; padding:2px 8px; font-size:12px; font-weight:600; }
   .pm-combo-x{ cursor:pointer; color:#94a3b8; font-size:11px; }
   .pm-combo-x:hover{ color:var(--pink,#d6336c); }
+  /* assignment 'propose new schedule' inline form: 2 date cols + reason|button row (tidy, ~2 rows) */
+  .asg-resch{ margin-top:8px; }
+  .asg-resch-dates{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .asg-resch-dates .ec-dp-wrap{ display:block; width:100%; }
+  .asg-resch-row{ display:flex; gap:8px; align-items:flex-end; margin-top:8px; }
+  .asg-resch-row textarea{ flex:1 1 auto; min-width:0; }
+  .asg-resch-row .pm-btn{ flex:0 0 auto; white-space:nowrap; }
+  @media (max-width:560px){ .asg-resch-dates{ grid-template-columns:1fr; } }
   /* Tao nhiem vu modal: wider + 2-col grid + clean assignee (chips only, no email input) */
   .pm-drawer.expanded.pm-d-md:has(.nt-form){ width:880px; max-width:94vw; }
   .nt-form .pm-field{ margin-bottom:0; min-width:0; }
@@ -2776,7 +2784,7 @@
     if(act==="resend"){api(PM+"assignment.requester_action",{name:name,action:"resend"}).then(function(){toast("Đã gửi lại");showAssignments();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});return;}
     if(act==="reject"){inline.innerHTML='<textarea class="pm-input" id="asg-reason" rows="2" placeholder="Lý do từ chối (bắt buộc)" style="background-image:none;padding-left:11px"></textarea><button class="pm-btn primary" id="asg-reject-go" style="margin-top:6px">Gửi từ chối</button>';
       el("asg-reject-go").onclick=function(){api(PM+"assignment.respond",{name:name,decision:"reject",reason:el("asg-reason").value}).then(function(){toast("Đã từ chối");showAssignments();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};return;}
-    if(act==="reschedule"){inline.innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap"><input type="datetime-local" class="pm-input" id="asg-cs" data-ec-dp-range="asg" data-ec-dp-role="start" style="width:auto;background-image:none;padding-left:11px"><input type="datetime-local" class="pm-input" id="asg-ce" data-ec-dp-range="asg" data-ec-dp-role="end" style="width:auto;background-image:none;padding-left:11px"></div><textarea class="pm-input" id="asg-rreason" rows="2" placeholder="Lý do (bắt buộc)" style="margin-top:6px;background-image:none;padding-left:11px"></textarea><button class="pm-btn primary" id="asg-resch-go" style="margin-top:6px">Gửi đề xuất</button>';
+    if(act==="reschedule"){inline.innerHTML='<div class="asg-resch"><div class="asg-resch-dates"><input type="datetime-local" class="pm-input" id="asg-cs" data-ec-dp-range="asg" data-ec-dp-role="start" style="background-image:none;padding-left:11px"><input type="datetime-local" class="pm-input" id="asg-ce" data-ec-dp-range="asg" data-ec-dp-role="end" style="background-image:none;padding-left:11px"></div><div class="asg-resch-row"><textarea class="pm-input" id="asg-rreason" rows="2" placeholder="Lý do (bắt buộc)" style="background-image:none;padding-left:11px"></textarea><button class="pm-btn primary" id="asg-resch-go">Gửi đề xuất</button></div></div>';
       el("asg-resch-go").onclick=function(){api(PM+"assignment.respond",{name:name,decision:"reschedule",counter_start:el("asg-cs").value||null,counter_end:el("asg-ce").value||null,reason:el("asg-rreason").value}).then(function(){toast("Đã gửi đề xuất lịch khác");showAssignments();}).catch(function(e){toast("Lỗi: "+errOf(e),true);});};return;}
   }
   /* G5.2 §A: retired standalone drawer — now delegates to the canonical Task modal (request mode).
