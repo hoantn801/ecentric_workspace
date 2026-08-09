@@ -243,6 +243,12 @@
   .nt-form #nt-assignee{ border:none; background:transparent; padding:0; min-height:0; margin-top:2px; }
   .nt-form #nt-assignee .pm-chip-in{ display:none; }
   .nt-form #nt-assignee .pm-chipwrap{ border:none; background:transparent; padding:0; min-height:0; gap:6px; }
+  .nt-form .nt-title{ width:100%; border:none; outline:none; background:transparent; font-size:22px; font-weight:700; color:var(--gray-900); padding:4px 2px; box-sizing:border-box; }
+  .nt-form .nt-title::placeholder{ color:var(--gray-300); font-weight:700; }
+  .nt-form .nt-descin{ width:100%; border:none; outline:none; resize:vertical; background:transparent; font-size:14px; color:var(--gray-700); padding:2px 2px 12px; min-height:40px; box-sizing:border-box; border-bottom:1px solid var(--gray-100); margin-bottom:14px; }
+  .nt-form .nt-descin::placeholder{ color:var(--gray-400); }
+  .nt-form .nt-fields{ gap:12px 18px; margin-bottom:14px; }
+  .nt-form .rcf-sec{ margin:14px 0 10px; padding-top:12px; }
   /* ec_datepicker wraps date inputs in .ec-dp-wrap (block, full-width) -> cap it inside filter bars so the two date fields don't stretch the whole row */
   .pm-filters .ec-dp-wrap{ display:inline-flex; width:auto; max-width:190px; flex:0 0 auto; vertical-align:middle; }
   .pm-filters .ec-dp-wrap .ec-dp-field{ min-width:150px; }
@@ -2032,27 +2038,21 @@
       /* G5.2 §A: canonical Task modal, two modes — Phân công ngay (direct: tasks.create+assign) / Yêu cầu xác nhận (request: assignment.create_with_task). Toggle hidden for subtasks. */
       var toggle=parentTask?'':'<div class="seg" style="margin:2px 0 10px"><button type="button" data-ntmode="direct">Phân công ngay</button><button type="button" data-ntmode="request">Yêu cầu xác nhận</button></div><div id="nt-modehelp" style="font-size:12px;color:var(--gray-500);margin:0 0 12px"></div>';
       c.innerHTML='<div class="nt-form">'+subBanner+toggle+
-        '<div class="rcf-sec rcf-sec-first">Cơ bản</div>'+
-        '<div class="rcf-grid">'+
-          pmFieldInput("Tiêu đề *",'<input class="pm-input ni" id="nt-subject" placeholder="Bạn cần làm gì?">',"rcf-full")+
+        '<input class="nt-title ni" id="nt-subject" placeholder="Tên nhiệm vụ…" autocomplete="off">'+
+        '<textarea class="nt-descin ni" id="nt-desc" rows="2" placeholder="Thêm mô tả…"></textarea>'+
+        '<div class="rcf-grid nt-fields">'+
           pmFieldInput("Dự án",'<select class="pm-sel" id="nt-project" style="width:100%">'+popts+'</select>')+
           '<div id="nt-parent-wrap">'+pmFieldInput("Nhiệm vụ cha",'<select class="pm-sel" id="nt-parent" style="width:100%"><option value="">— Không —</option></select>')+'</div>'+
-        '</div>'+
-        '<div class="rcf-sec">Phân công</div>'+
-        '<div class="rcf-grid">'+
           pmFieldInput('<span id="nt-asg-lbl">Người phụ trách</span>','<div class="pm-combo" id="nt-asg-combo"><div class="pm-combo-field"><input class="pm-combo-input" id="nt-asg-in" placeholder="Tìm nhân viên (tên/email)…" autocomplete="off"></div><div class="pm-combo-menu" style="display:none"></div></div><div id="nt-assignee" class="pm-chipbox"></div><div id="nt-asg-help" class="pm-asg-help" style="display:none">Yêu cầu xác nhận hiện chỉ hỗ trợ 1 người nhận. Chọn Phân công ngay để giao cho nhiều người.</div>')+ /* searchable employee combobox -> adds chips to nt-assignee */
           pmFieldInput("Ưu tiên",'<select class="pm-sel" id="nt-priority" style="width:100%">'+pri+'</select>')+
         '</div>'+
-        '<div class="rcf-sec">Lịch</div>'+
-        '<div id="nt-sched-d" class="rcf-grid">'+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="nt-start" data-ec-dp-range="ntd" data-ec-dp-role="start" type="date">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="nt-end" data-ec-dp-range="ntd" data-ec-dp-role="end" type="date">')+'</div>'+
-        '<div id="nt-sched-r" class="rcf-grid" style="display:none">'+pmFieldInput("Đề xuất bắt đầu",'<input class="pm-input ni" id="nt-ps" data-ec-dp-range="ntp" data-ec-dp-role="start" type="datetime-local">')+pmFieldInput("Đề xuất kết thúc",'<input class="pm-input ni" id="nt-pe" data-ec-dp-range="ntp" data-ec-dp-role="end" type="datetime-local">')+'</div>'+
-        '<div class="rcf-sec">Chi tiết</div>'+
-        '<div class="rcf-grid">'+
-          pmFieldInput("Mô tả",'<textarea class="pm-input ni" id="nt-desc" rows="3" style="resize:vertical" placeholder="Mô tả / ghi chú (tuỳ chọn)"></textarea>',"rcf-full")+
+        '<div id="nt-sched-d" class="rcf-grid nt-fields">'+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="nt-start" data-ec-dp-range="ntd" data-ec-dp-role="start" type="date">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="nt-end" data-ec-dp-range="ntd" data-ec-dp-role="end" type="date">')+'</div>'+
+        '<div id="nt-sched-r" class="rcf-grid nt-fields" style="display:none">'+pmFieldInput("Đề xuất bắt đầu",'<input class="pm-input ni" id="nt-ps" data-ec-dp-range="ntp" data-ec-dp-role="start" type="datetime-local">')+pmFieldInput("Đề xuất kết thúc",'<input class="pm-input ni" id="nt-pe" data-ec-dp-range="ntp" data-ec-dp-role="end" type="datetime-local">')+'</div>'+
+        '<div class="rcf-grid nt-fields">'+
           '<div id="nt-req-extra" class="rcf-full" style="display:none">'+pmFieldInput("Checklist mẫu",'<select class="pm-sel" id="nt-tmpl" style="width:100%">'+tmplOpts+'</select>')+pmFieldInput("Lời nhắn",'<textarea class="pm-input ni" id="nt-msg" rows="2" style="resize:vertical" placeholder="Lời nhắn cho người nhận (tuỳ chọn)"></textarea>')+'</div>'+
           pmFieldInput("Nhãn",'<div id="nt-labels"></div>',"rcf-full")+ /* G5.2 §B shared picker */
         '</div>'+
-        '<div style="display:flex;gap:8px;margin-top:16px"><button class="pm-btn primary" id="nt-create" style="flex:1;justify-content:center"><svg class="icon icon-sm"><use href="#p-plus"/></svg> <span id="nt-create-lbl">Tạo nhiệm vụ</span></button><button class="pm-btn" id="nt-cancel">Huỷ</button></div>'+
+        '<div style="display:flex;gap:8px;margin-top:14px"><button class="pm-btn primary" id="nt-create" style="flex:1;justify-content:center"><svg class="icon icon-sm"><use href="#p-plus"/></svg> <span id="nt-create-lbl">Tạo nhiệm vụ</span></button><button class="pm-btn" id="nt-cancel">Huỷ</button></div>'+
       '</div>';
       _niFix(c);
       function loadParents(pre){api(PM+"tasks.list",{project:el("nt-project").value,page_length:200}).then(function(d){el("nt-parent").innerHTML='<option value="">— Không —</option>'+(d.rows||[]).filter(function(t){return !t.parent_task;}).map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.subject||t.name)+'</option>';}).join("");if(pre)el("nt-parent").value=pre;}).catch(function(){});}
