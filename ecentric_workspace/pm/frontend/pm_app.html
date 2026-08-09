@@ -3041,8 +3041,15 @@
     function closePop(){ var pnl=host._pmLblPanel; if(pnl&&pnl.parentNode)pnl.parentNode.removeChild(pnl); host._pmLblPanel=null; var p=host.querySelector(".pm-lblpop"); if(p){p.hidden=true;p.innerHTML="";} document.removeEventListener("mousedown",outside,true); document.removeEventListener("keydown",onEsc,true); document.removeEventListener("scroll",closePop,true); }
     function outside(e){ var pnl=host._pmLblPanel; if(!host.contains(e.target) && !(pnl&&pnl.contains(e.target))) closePop(); }
     function onEsc(e){ if(e.key==="Escape"){ e.stopPropagation(); closePop(); } }
-    function createNew(){ var nm=window.prompt("Tên nhãn mới:"); if(!nm||!nm.trim()) return; nm=nm.trim();
-      api(PM+"labels.create_label",{label_name:nm,color_key:"blue"}).then(function(r){ var id=(r&&(r.name||r.label_name))||nm; host._pmCat.push({name:id,label_name:nm,color_key:(r&&r.color_key)||"blue",is_active:1}); if(host._pmSel.indexOf(id)<0)host._pmSel.push(id); closePop(); render(); }).catch(function(e){ toast("Lỗi tạo nhãn: "+errOf(e),true); }); }
+    function createNew(){ var pnl=host._pmLblPanel; if(!pnl){ return; } /* inline create form (giống popover tag dự án) — no window.prompt */
+      pnl.innerHTML='<div style="font-size:11px;color:var(--gray-500);margin-bottom:6px">Tạo nhãn mới</div>'+
+        '<input class="pm-input pm-lblnewin" placeholder="Tên nhãn mới" style="width:100%;box-sizing:border-box;background-image:none;padding-left:11px">'+
+        '<button type="button" class="pm-btn primary pm-lblnewgo" style="width:100%;justify-content:center;margin-top:8px">Thêm nhãn</button>';
+      var i=pnl.querySelector(".pm-lblnewin"); if(i){try{i.focus();}catch(_){}}
+      function go(){ var nm=(i.value||"").trim(); if(!nm){ toast("Nhập tên nhãn",true); return; } var b=pnl.querySelector(".pm-lblnewgo"); if(b)b.disabled=true;
+        api(PM+"labels.create_label",{label_name:nm,color_key:"blue"}).then(function(r){ var id=(r&&(r.name||r.label_name))||nm; host._pmCat.push({name:id,label_name:nm,color_key:(r&&r.color_key)||"blue",is_active:1}); if(host._pmSel.indexOf(id)<0)host._pmSel.push(id); closePop(); render(); }).catch(function(e){ toast("Lỗi tạo nhãn: "+errOf(e),true); if(b)b.disabled=false; }); }
+      pnl.querySelector(".pm-lblnewgo").onclick=go;
+      if(i)i.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); go(); } }); }
     function openPop(){ var pop=host.querySelector(".pm-lblpop");
       var avail=host._pmCat.filter(function(l){ return host._pmSel.indexOf(l.name)<0 && (l.is_active===undefined||l.is_active); });
       pop.innerHTML='<div class="pm-lblpop-in"><input class="pm-input pm-lblsearch" placeholder="Tìm nhãn..."><div class="pm-lbllist">'+
