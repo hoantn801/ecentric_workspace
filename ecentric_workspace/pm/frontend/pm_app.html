@@ -3038,7 +3038,7 @@
     if(!host) return; opts=opts||{};
     host._pmCat=(opts.labels||[]).slice(); host._pmSel=(opts.selected||[]).slice();
     function cat(id){ for(var i=0;i<host._pmCat.length;i++){ if(host._pmCat[i].name===id) return host._pmCat[i]; } return {name:id,label_name:id,color_key:"gray"}; }
-    function closePop(){ var p=host.querySelector(".pm-lblpop"); if(p){p.hidden=true;p.innerHTML="";} document.removeEventListener("mousedown",outside,true); document.removeEventListener("keydown",onEsc,true); }
+    function closePop(){ var p=host.querySelector(".pm-lblpop"); if(p){p.hidden=true;p.innerHTML="";} document.removeEventListener("mousedown",outside,true); document.removeEventListener("keydown",onEsc,true); document.removeEventListener("scroll",closePop,true); }
     function outside(e){ if(!host.contains(e.target)) closePop(); }
     function onEsc(e){ if(e.key==="Escape"){ e.stopPropagation(); closePop(); } }
     function createNew(){ var nm=window.prompt("Tên nhãn mới:"); if(!nm||!nm.trim()) return; nm=nm.trim();
@@ -3049,11 +3049,16 @@
         (avail.length?avail.map(function(l){ return '<button type="button" class="pm-lblopt2" data-pickid="'+esc(l.name)+'"><span class="pm-lbl pm-lbl-'+esc(l.color_key||"gray")+'">'+esc(l.label_name||l.name)+'</span></button>'; }).join(""):'<div class="pm-lblnone">Không còn nhãn để chọn</div>')+
         '</div><button type="button" class="pm-lblnew" data-lblnew="1"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo nhãn mới</button></div>';
       pop.hidden=false;
-      try{ var _inb=pop.querySelector(".pm-lblpop-in"); var _r=pop.getBoundingClientRect(); var _need=(_inb?_inb.offsetHeight:280)+16; var _below=window.innerHeight-_r.bottom; pop.classList.toggle("pm-lblpop-up", (_below<_need && _r.top>_need)); }catch(_e){} /* flip up when not enough room below (e.g. Nhãn is the last field) */
+      /* Position the panel as fixed (floats over the modal, never grows the scroll area). Flip above if not enough room below. */
+      try{ var _btn=host.querySelector("[data-lbladd]"); var _inb=pop.querySelector(".pm-lblpop-in");
+        if(_btn&&_inb){ _inb.style.position="fixed"; _inb.style.margin="0"; _inb.style.zIndex="10050"; var _br=_btn.getBoundingClientRect(); var _ph=_inb.offsetHeight||300, _pw=_inb.offsetWidth||320;
+          var _below=window.innerHeight-_br.bottom;
+          _inb.style.top=((_below>=_ph+12)?(_br.bottom+6):Math.max(8,_br.top-_ph-6))+"px";
+          _inb.style.left=Math.max(12,Math.min(_br.left, window.innerWidth-_pw-12))+"px"; } }catch(_e){}
       var srch=pop.querySelector(".pm-lblsearch"); if(srch){ try{srch.focus();}catch(_){} srch.oninput=function(){ var q=this.value.trim().toLowerCase(); Array.prototype.forEach.call(pop.querySelectorAll(".pm-lblopt2"),function(o){ o.style.display=o.textContent.toLowerCase().indexOf(q)>=0?"":"none"; }); }; }
       Array.prototype.forEach.call(pop.querySelectorAll("[data-pickid]"),function(b){ b.onclick=function(e){ e.stopPropagation(); host._pmSel.push(b.getAttribute("data-pickid")); closePop(); render(); }; });
       var nb=pop.querySelector("[data-lblnew]"); if(nb) nb.onclick=function(e){ e.stopPropagation(); createNew(); };
-      setTimeout(function(){ document.addEventListener("mousedown",outside,true); document.addEventListener("keydown",onEsc,true); },0);
+      setTimeout(function(){ document.addEventListener("mousedown",outside,true); document.addEventListener("keydown",onEsc,true); document.addEventListener("scroll",closePop,true); },0);
     }
     function render(){
       var chips=host._pmSel.map(function(id){ var l=cat(id); return '<span class="pm-lblchip pm-lbl-'+esc(l.color_key||"gray")+'">'+esc(l.label_name||id)+'<button type="button" class="pm-lblchip-x" data-rmlid="'+esc(id)+'" aria-label="Bỏ nhãn">×</button></span>'; }).join("");
