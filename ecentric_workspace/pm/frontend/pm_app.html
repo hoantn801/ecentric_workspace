@@ -1638,6 +1638,7 @@
     dr.classList.add("expanded");void dr.offsetWidth; /* commit centered+opacity:0 'from' state so transition is fade-in, not right slide */
     dg.classList.add("open");dr.classList.add("open");}
   function closeD(){clearTick();window._pmTaskOpen=false;if(typeof pmSyncHash==="function")pmSyncHash(); /* G5.2 §7: restore the underlying view route on drawer close */
+    try{Array.prototype.forEach.call(document.querySelectorAll('.pm-lblpop-in'),function(p){if(p.parentNode)p.parentNode.removeChild(p);});}catch(_e){} /* remove any orphaned label-picker popover portaled outside the drawer */
     var dg=el("pm-dbg"),dr=el("pm-drawer");dg.classList.remove("open");dr.classList.remove("open");
     if(window._dCloseTimer)clearTimeout(window._dCloseTimer);
     window._dCloseTimer=setTimeout(function(){dr.classList.remove("expanded","pm-d-md","pm-d-sm");window._dCloseTimer=null;},170); /* keep .expanded until fade-out done, then reset (incl. UIUX-2 size variants) */
@@ -2055,7 +2056,7 @@
           pmFieldInput("Ưu tiên",'<select class="pm-sel" id="nt-priority" style="width:100%">'+pri+'</select>')+
         '</div>'+
         '<div id="nt-sched-d" class="rcf-grid nt-fields">'+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="nt-start" data-ec-dp-range="ntd" data-ec-dp-role="start" type="date">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="nt-end" data-ec-dp-range="ntd" data-ec-dp-role="end" type="date">')+'</div>'+
-        '<div id="nt-sched-r" class="rcf-grid nt-fields" style="display:none">'+pmFieldInput("Đề xuất bắt đầu",'<input class="pm-input ni" id="nt-ps" data-ec-dp-range="ntp" data-ec-dp-role="start" type="date">')+pmFieldInput("Đề xuất kết thúc",'<input class="pm-input ni" id="nt-pe" data-ec-dp-range="ntp" data-ec-dp-role="end" type="date">')+'</div>'+
+        '<div id="nt-sched-r" class="rcf-grid nt-fields" style="display:none">'+pmFieldInput("Đề xuất bắt đầu",'<input class="pm-input ni" id="nt-ps" data-ec-dp-range="ntp" data-ec-dp-role="start" type="datetime-local">')+pmFieldInput("Đề xuất kết thúc",'<input class="pm-input ni" id="nt-pe" data-ec-dp-range="ntp" data-ec-dp-role="end" type="datetime-local">')+'</div>'+
         '<div class="rcf-grid nt-fields">'+
           '<div id="nt-req-extra" class="rcf-full" style="display:none">'+pmFieldInput("Lời nhắn",'<textarea class="pm-input ni" id="nt-msg" rows="2" style="resize:vertical" placeholder="Lời nhắn cho người nhận (tuỳ chọn)"></textarea>')+'</div>'+
           pmFieldInput("Nhãn",'<div id="nt-labels"></div>',"rcf-full")+ /* G5.2 §B shared picker */
@@ -2117,29 +2118,54 @@
   /* UIUX-1: shared Create/Edit project form fields (reused by newProject + editProject). */
   function pmProjFormFields(v){v=v||{};
     var pri=["Low","Medium","High"].map(function(x){return '<option'+((v.priority||"Medium")===x?' selected':'')+'>'+x+'</option>';}).join("");
-    return pmFieldInput("Tên dự án *",'<input class="pm-input ni" id="np-name" placeholder="Tên dự án" value="'+esc(v.project_name||"")+'">')+
-      pmFieldInput("Quản lý (email)",'<input class="pm-input ni" id="np-mgr" placeholder="user@ecentric.vn" value="'+esc(v.ec_manager||"")+'">')+
-      pmFieldInput("Phòng ban",'<select class="pm-sel" id="np-dept" style="width:100%">'+pmDeptOptions(v.ec_department||"")+'</select>')+
-      '<div style="display:flex;gap:10px">'+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="np-start" data-ec-dp-range="np" data-ec-dp-role="start" type="date" value="'+esc(ymd(v.expected_start_date)||"")+'">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="np-end" data-ec-dp-range="np" data-ec-dp-role="end" type="date" value="'+esc(ymd(v.expected_end_date)||"")+'">')+'</div>'+
-      pmFieldInput("Ưu tiên",'<select class="pm-sel" id="np-priority" style="width:100%">'+pri+'</select>')+
-      pmFieldInput("Mô tả",'<textarea class="pm-input ni" id="np-desc" rows="3" style="resize:vertical">'+esc(v.notes||"")+'</textarea>');}
+    return '<input class="nt-title ni" id="np-name" placeholder="Tên dự án…" autocomplete="off" value="'+esc(v.project_name||"")+'">'+
+      '<textarea class="nt-descin ni" id="np-desc" rows="2" placeholder="Thêm mô tả…">'+esc(v.notes||"")+'</textarea>'+
+      '<div class="rcf-grid nt-fields">'+
+        pmFieldInput("Quản lý",'<div class="pm-combo" id="np-mgr-combo"><input type="hidden" id="np-mgr" value="'+esc(v.ec_manager||"")+'"><div class="pm-combo-field"><input class="pm-combo-input" id="np-mgr-in" placeholder="Tìm nhân viên (tên/email)…" autocomplete="off"></div><div class="pm-combo-menu" style="display:none"></div></div>')+
+        pmFieldInput("Phòng ban",'<select class="pm-sel" id="np-dept" style="width:100%">'+pmDeptOptions(v.ec_department||"")+'</select>')+
+        pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="np-start" data-ec-dp-range="np" data-ec-dp-role="start" type="date" value="'+esc(ymd(v.expected_start_date)||"")+'">')+
+        pmFieldInput("Hạn",'<input class="pm-input ni" id="np-end" data-ec-dp-range="np" data-ec-dp-role="end" type="date" value="'+esc(ymd(v.expected_end_date)||"")+'">')+
+        pmFieldInput("Ưu tiên",'<select class="pm-sel" id="np-priority" style="width:100%">'+pri+'</select>')+
+        pmFieldInput("Nhãn",'<div class="pm-combo pm-combo-multi" id="np-tags-combo"><input type="hidden" id="np-tags" value="'+esc((pmProjTags(v||{})||[]).join(","))+'"><div class="pm-combo-field"><span class="pm-combo-chips" id="np-tags-chips"></span><input class="pm-combo-input" id="np-tags-in" placeholder="Tìm / thêm nhãn…" autocomplete="off"></div><div class="pm-combo-menu" style="display:none"></div></div>')+
+      '</div>';}
+  function pmProjWirePickers(v){
+    if(el("np-tags-combo"))pmWireCombo("np-tags-combo",(pmAllProjTags()||[]).map(function(t){return {v:t,l:t};}),{multi:true,allowCreate:true});
+    api(PM+"assignment.list_assignable",{}).then(function(res){
+      var users=((res&&res.rows)||[]).map(function(u){return {v:u.email,l:u.full_name||u.email};});
+      users.unshift({v:"",l:"— Không —"});
+      pmWireCombo("np-mgr-combo",users,{multi:false});
+    }).catch(function(){});}
   function pmProjPayload(name){var nm=el("np-name").value.trim();var sd=el("np-start").value,ed=el("np-end").value;
     var p={project_name:nm,manager:el("np-mgr").value.trim()||null,department:el("np-dept").value||null,expected_start_date:sd||null,expected_end_date:ed||null,priority:el("np-priority").value,description:el("np-desc").value||null};
     if(name)p.name=name;return p;}
   function pmProjValidate(){var nm=el("np-name").value.trim();if(!nm){toast("Nhập tên dự án",true);return false;}var sd=el("np-start").value,ed=el("np-end").value;if(sd&&ed&&ed<sd){toast("Hạn không được trước ngày bắt đầu",true);return false;}return true;}
   function newProject(){openD();el("pm-drawer").classList.add("pm-d-md");el("pm-dt").textContent="Tạo dự án";var c=el("pm-dbody");
-    c.innerHTML=pmProjFormFields({})+
-      '<div style="display:flex;gap:8px"><button class="pm-btn primary" id="np-create"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo dự án</button><button class="pm-btn" id="np-cancel">Huỷ</button></div>';
-    _niFix(c);el("np-cancel").onclick=closeD;
+    c.innerHTML='<div class="nt-form">'+pmProjFormFields({})+
+      '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;align-items:center"><button class="pm-btn" id="np-cancel">Huỷ</button><button class="pm-btn primary" id="np-create" style="min-width:130px;justify-content:center">Tạo dự án</button></div>'+
+    '</div>';
+    _niFix(c);pmProjWirePickers({});el("np-cancel").onclick=closeD;
     el("np-create").onclick=function(){if(!pmProjValidate())return;var btn=this;btn.disabled=true;btn.textContent="Đang tạo...";
-      api(PM+"projects.create",pmProjPayload()).then(function(r){toast("Đã tạo "+(r.project_name||r.name));closeD();openProject(r.name);}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML='Tạo dự án';});};}
+      var tgs=((el("np-tags")&&el("np-tags").value)||"").split(",").map(function(x){return x.trim();}).filter(Boolean);
+      api(PM+"projects.create",pmProjPayload()).then(function(r){
+        function applyTags(i){if(i>=tgs.length){toast("Đã tạo "+(r.project_name||r.name));closeD();openProject(r.name);return;}
+          api(PM+"projects.add_project_tag",{project:r.name,tag:tgs[i]}).then(function(){applyTags(i+1);}).catch(function(){applyTags(i+1);});}
+        applyTags(0);
+      }).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML='Tạo dự án';});};}
   function editProject(name){openD();el("pm-drawer").classList.add("pm-d-md");el("pm-dt").textContent="Chỉnh sửa dự án";var c=el("pm-dbody");spin(c);
     api(PM+"projects.get",{name:name}).then(function(res){var p=(res&&res.project)||{};
-      c.innerHTML=pmProjFormFields(p)+
-        '<div style="display:flex;gap:8px"><button class="pm-btn primary" id="np-save">Lưu</button><button class="pm-btn" id="np-cancel">Huỷ</button></div>';
-      _niFix(c);el("np-cancel").onclick=closeD;
+      c.innerHTML='<div class="nt-form">'+pmProjFormFields(p)+
+        '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;align-items:center"><button class="pm-btn" id="np-cancel">Huỷ</button><button class="pm-btn primary" id="np-save" style="min-width:110px;justify-content:center">Lưu</button></div>'+
+      '</div>';
+      _niFix(c);pmProjWirePickers(p);el("np-cancel").onclick=closeD;
       el("np-save").onclick=function(){if(!pmProjValidate())return;var btn=this;btn.disabled=true;btn.textContent="Đang lưu...";
-        api(PM+"projects.update",pmProjPayload(name)).then(function(r){toast("Đã lưu "+(r.project_name||r.name));closeD();showProjects();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu";});};
+        var have=pmProjTags(p)||[],now=((el("np-tags")&&el("np-tags").value)||"").split(",").map(function(x){return x.trim();}).filter(Boolean);
+        var ops=now.filter(function(x){return have.indexOf(x)<0;}).map(function(t){return {a:"add_project_tag",t:t};})
+          .concat(have.filter(function(x){return now.indexOf(x)<0;}).map(function(t){return {a:"remove_project_tag",t:t};}));
+        api(PM+"projects.update",pmProjPayload(name)).then(function(r){
+          function run(i){if(i>=ops.length){toast("Đã lưu "+(r.project_name||r.name));closeD();showProjects();return;}
+            api(PM+"projects."+ops[i].a,{project:name,tag:ops[i].t}).then(function(){run(i+1);}).catch(function(){run(i+1);});}
+          run(0);
+        }).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu";});};
     }).catch(function(e){c.innerHTML='<div class="pm-err">'+esc(errOf(e))+'</div>';});}
   function confirmDeleteProject(name){var p=(window._pm_projects||[]).filter(function(x){return x.name===name;})[0]||{name:name};
     if((p.task_total||0)>0){toast("Dự án đã có nhiệm vụ và không thể xoá. Hãy đóng hoặc huỷ dự án.",true);return;}
@@ -2649,22 +2675,28 @@
     recWireSchedule(c);pmApplyHints(c,"PM Recurrence");}
   /* Lightweight searchable dropdown (single or multi). Keeps a hidden input (id) holding the value:
      single = one value; multi = comma-joined. options = [{v,l}]. So callers/save read el(id).value unchanged. */
-  function pmWireCombo(comboId,options,o){o=o||{};var multi=!!o.multi;var pick=o.onPick;var wrap=el(comboId);if(!wrap)return;
+  function pmWireCombo(comboId,options,o){o=o||{};var multi=!!o.multi;var pick=o.onPick;var canCreate=!!o.allowCreate;var wrap=el(comboId);if(!wrap)return;
     var hidden=wrap.querySelector('input[type=hidden]');var inp=wrap.querySelector('.pm-combo-input');var menu=wrap.querySelector('.pm-combo-menu');var chips=wrap.querySelector('.pm-combo-chips');
     function labelOf(v){for(var i=0;i<options.length;i++)if(options[i].v===v)return options[i].l;return v;}
     function sel(){return ((hidden&&hidden.value)||"").split(",").map(function(x){return x.trim();}).filter(Boolean);}
     function renderChips(){if(!chips)return;var vs=sel();chips.innerHTML=vs.map(function(v){return '<span class="pm-combo-chip">'+esc(labelOf(v))+'<span class="pm-combo-x" data-rm="'+esc(v)+'">✕</span></span>';}).join("");
       Array.prototype.forEach.call(chips.querySelectorAll('[data-rm]'),function(x){x.onmousedown=function(e){e.preventDefault();e.stopPropagation();var v=x.getAttribute('data-rm');hidden.value=sel().filter(function(y){return y!==v;}).join(",");renderChips();};});}
     function close(){menu.style.display="none";}
-    function render(q){q=(q||"").toLowerCase();var s=sel();
-      var list=options.filter(function(op){if(multi&&op.v&&s.indexOf(op.v)>=0)return false;return !q||((op.l||"").toLowerCase().indexOf(q)>=0||(op.v||"").toLowerCase().indexOf(q)>=0);}).slice(0,60);
-      menu.innerHTML=list.length?list.map(function(op){return '<div class="pm-combo-opt" data-v="'+esc(op.v)+'">'+esc(op.l)+((op.v&&op.l!==op.v)?' <span class="pm-combo-sub">'+esc(op.v)+'</span>':'')+'</div>';}).join(""):'<div class="pm-combo-empty">Không có kết quả</div>';
-      Array.prototype.forEach.call(menu.querySelectorAll('.pm-combo-opt'),function(op){op.onmousedown=function(e){e.preventDefault();var v=op.getAttribute('data-v');
+    function addChip(v){v=(v||"").trim();if(!v)return;if(sel().indexOf(v)<0)hidden.value=sel().concat([v]).join(",");inp.value="";renderChips();render("");}
+    function render(q){var ql=(q||"").toLowerCase();var s=sel();var qt=(q||"").trim();
+      var list=options.filter(function(op){if(multi&&op.v&&s.indexOf(op.v)>=0)return false;return !ql||((op.l||"").toLowerCase().indexOf(ql)>=0||(op.v||"").toLowerCase().indexOf(ql)>=0);}).slice(0,60);
+      var html=list.map(function(op){return '<div class="pm-combo-opt" data-v="'+esc(op.v)+'">'+esc(op.l)+((op.v&&op.l!==op.v)?' <span class="pm-combo-sub">'+esc(op.v)+'</span>':'')+'</div>';}).join("");
+      if(canCreate&&qt&&!options.some(function(op){return (op.v||"").toLowerCase()===qt.toLowerCase();})&&s.indexOf(qt)<0)html+='<div class="pm-combo-opt pm-combo-create" data-create="'+esc(qt)+'">＋ Tạo “'+esc(qt)+'”</div>';
+      menu.innerHTML=html||'<div class="pm-combo-empty">Không có kết quả</div>';
+      Array.prototype.forEach.call(menu.querySelectorAll('.pm-combo-opt'),function(op){op.onmousedown=function(e){e.preventDefault();
+        var cr=op.getAttribute('data-create');if(cr!=null){addChip(cr);return;}
+        var v=op.getAttribute('data-v');
         if(pick){pick(v);inp.value="";close();return;}
-        if(multi){if(v&&sel().indexOf(v)<0){hidden.value=sel().concat([v]).join(",");}inp.value="";renderChips();render("");}
+        if(multi)addChip(v);
         else{hidden.value=v;inp.value=v?labelOf(v):"";close();}};});}
     function open(){menu.style.display="block";render(inp.value);}
     inp.addEventListener('focus',open);inp.addEventListener('input',function(){open();render(inp.value);});
+    inp.addEventListener('keydown',function(e){if(e.key==="Enter"&&canCreate&&multi){var qt=(inp.value||"").trim();if(qt){e.preventDefault();addChip(qt);}}});
     inp.addEventListener('blur',function(){setTimeout(function(){close();if(!multi){var v=hidden.value;inp.value=v?labelOf(v):"";}},160);});
     if(multi)renderChips();else if(hidden){var v0=hidden.value;if(v0)inp.value=labelOf(v0);}}
   function recLoadPickers(){
@@ -2718,8 +2750,8 @@
   function asgFmt(d){return d?String(d).slice(0,16).replace("T"," "):"—";}
   function asgStatusBadge(st){var m={Pending:"tg-medium","Reschedule Proposed":"tg-high",Accepted:"tg-low",Rejected:"tg-urgent",Cancelled:"tg-nodue"};return '<span class="pm-tag '+(m[st]||"tg-medium")+'">'+esc(st)+'</span>';}
   function showAssignments(){var c=el("pm-view");spin(c);window._asgTab=window._asgTab||"in";
-    Promise.all([api(PM+"assignment.list_incoming").catch(function(){return {rows:[]};}),
-                 api(PM+"assignment.list_outgoing").catch(function(){return {rows:[]};})]).then(function(res){
+    var _load=function(){return Promise.all([api(PM+"assignment.list_incoming"),api(PM+"assignment.list_outgoing")]);};
+    _load().catch(function(){return new Promise(function(rs){setTimeout(function(){_load().then(rs).catch(function(){rs([{rows:[]},{rows:[]}]);});},400);});}).then(function(res){
       var inc=(res[0].rows||[]),out=(res[1].rows||[]);
       /* G5.2 item2: each card's COUNT is the length of the exact {row,tab} set it renders when active.
          respond=incoming Pending, awaiting=outgoing Pending, reschedule=outgoing Reschedule Proposed,
