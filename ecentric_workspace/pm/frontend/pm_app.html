@@ -2015,7 +2015,7 @@
                  api(PM+"checklist.list_templates",{}).catch(function(){return {rows:[]};}),
                  api(PM+"assignment.list_assignable",{}).catch(function(){return {rows:[]};})]).then(function(res){
       var rows=res[0].rows||[],labels=res[1].rows||[],tmpls=res[2].rows||[],asgUsers=(res[3]&&res[3].rows)||[];
-      var asgPickOpts='<option value="">— Chọn nhân viên —</option>'+asgUsers.map(function(u){return '<option value="'+esc(u.email)+'">'+esc(u.full_name||u.email)+'</option>';}).join("");
+      var asgUserOpts=asgUsers.map(function(u){return {v:u.email,l:u.full_name||u.email};});
       /* G4.8c: task ngoài dự án — project is optional; never force a selection. */
       var popts='<option value=""'+(!project?' selected':'')+'>— Ngoài dự án —</option>'+rows.map(function(p){return '<option value="'+esc(p.name)+'"'+(p.name===project?' selected':'')+'>'+esc(p.project_name||p.name)+'</option>';}).join("");
       var pri=["Low","Medium","High","Urgent"].map(function(x){return '<option'+(x==="Medium"?' selected':'')+'>'+x+'</option>';}).join("");
@@ -2029,7 +2029,7 @@
         pmFieldInput("Dự án",'<select class="pm-sel" id="nt-project" style="width:100%">'+popts+'</select>')+
         '<div id="nt-parent-wrap">'+pmFieldInput("Nhiệm vụ cha",'<select class="pm-sel" id="nt-parent" style="width:100%"><option value="">— Không —</option></select>')+'</div>'+
         '<div class="pm-dsec">Phân công</div>'+
-        pmFieldInput('<span id="nt-asg-lbl">Người phụ trách</span>','<select class="pm-sel" id="nt-asg-pick" style="width:100%;margin-bottom:6px">'+asgPickOpts+'</select><div id="nt-assignee" class="pm-chipbox"></div><div id="nt-asg-help" class="pm-asg-help" style="display:none">Yêu cầu xác nhận hiện chỉ hỗ trợ 1 người nhận. Chọn Phân công ngay để giao cho nhiều người.</div>')+ /* G5.2 fix: dropdown picker + multi-assignee chips + request-mode single-recipient guard */
+        pmFieldInput('<span id="nt-asg-lbl">Người phụ trách</span>','<div class="pm-combo" id="nt-asg-combo" style="margin-bottom:6px"><div class="pm-combo-field"><input class="pm-combo-input" id="nt-asg-in" placeholder="Tìm nhân viên (tên/email)…" autocomplete="off"></div><div class="pm-combo-menu" style="display:none"></div></div><div id="nt-assignee" class="pm-chipbox"></div><div id="nt-asg-help" class="pm-asg-help" style="display:none">Yêu cầu xác nhận hiện chỉ hỗ trợ 1 người nhận. Chọn Phân công ngay để giao cho nhiều người.</div>')+ /* searchable employee combobox -> adds chips to nt-assignee */
         pmFieldInput("Ưu tiên",'<select class="pm-sel" id="nt-priority" style="width:100%">'+pri+'</select>')+
         '<div class="pm-dsec">Lịch</div>'+
         '<div id="nt-sched-d" style="display:flex;gap:10px">'+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="nt-start" data-ec-dp-range="ntd" data-ec-dp-role="start" type="date">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="nt-end" data-ec-dp-range="ntd" data-ec-dp-role="end" type="date">')+'</div>'+
@@ -2045,7 +2045,7 @@
       if(parentTask){["nt-project","nt-parent"].forEach(function(id){var e2=el(id);if(e2){e2.disabled=true;e2.style.opacity=".55";e2.style.cursor="not-allowed";e2.title="Đã chọn sẵn từ nhiệm vụ cha";}});} /* subtask: project+parent locked/dimmed */
       pmLabelPicker(el("nt-labels"),{labels:labels,selected:[]}); /* G5.2 §B shared picker */
       pmEmailChips(el("nt-assignee"),{placeholder:"Hoặc gõ email…",max:(opts.mode==="request"&&!parentTask)?1:1e9,onChange:function(){updateAsgState();}}); /* G5.2 fix: multi-assignee */
-      if(el("nt-asg-pick"))el("nt-asg-pick").onchange=function(){var v=this.value;if(!v)return;var box=el("nt-assignee");if(box&&box._addOne)box._addOne(v);this.value="";}; /* pick employee from dropdown -> add chip */
+      pmWireCombo("nt-asg-combo",asgUserOpts,{onPick:function(v){var box=el("nt-assignee");if(box&&box._addOne)box._addOne(v);}}); /* searchable employee picker -> add chip */
       var _submitting=false; /* G5.2 fix: double-submit guard */
       function updateAsgState(){ var rm=_m.v==="request"; var n=pmEmailChipsGet(el("nt-assignee")).length; /* G5.2 UX guard: Request mode <= 1 recipient */
         var help=el("nt-asg-help"); if(help)help.style.display=rm?"":"none";
@@ -2626,10 +2626,10 @@
     recWireSchedule(c);pmApplyHints(c,"PM Recurrence");}
   /* Lightweight searchable dropdown (single or multi). Keeps a hidden input (id) holding the value:
      single = one value; multi = comma-joined. options = [{v,l}]. So callers/save read el(id).value unchanged. */
-  function pmWireCombo(comboId,options,o){o=o||{};var multi=!!o.multi;var wrap=el(comboId);if(!wrap)return;
+  function pmWireCombo(comboId,options,o){o=o||{};var multi=!!o.multi;var pick=o.onPick;var wrap=el(comboId);if(!wrap)return;
     var hidden=wrap.querySelector('input[type=hidden]');var inp=wrap.querySelector('.pm-combo-input');var menu=wrap.querySelector('.pm-combo-menu');var chips=wrap.querySelector('.pm-combo-chips');
     function labelOf(v){for(var i=0;i<options.length;i++)if(options[i].v===v)return options[i].l;return v;}
-    function sel(){return (hidden.value||"").split(",").map(function(x){return x.trim();}).filter(Boolean);}
+    function sel(){return ((hidden&&hidden.value)||"").split(",").map(function(x){return x.trim();}).filter(Boolean);}
     function renderChips(){if(!chips)return;var vs=sel();chips.innerHTML=vs.map(function(v){return '<span class="pm-combo-chip">'+esc(labelOf(v))+'<span class="pm-combo-x" data-rm="'+esc(v)+'">✕</span></span>';}).join("");
       Array.prototype.forEach.call(chips.querySelectorAll('[data-rm]'),function(x){x.onmousedown=function(e){e.preventDefault();e.stopPropagation();var v=x.getAttribute('data-rm');hidden.value=sel().filter(function(y){return y!==v;}).join(",");renderChips();};});}
     function close(){menu.style.display="none";}
@@ -2637,12 +2637,13 @@
       var list=options.filter(function(op){if(multi&&op.v&&s.indexOf(op.v)>=0)return false;return !q||((op.l||"").toLowerCase().indexOf(q)>=0||(op.v||"").toLowerCase().indexOf(q)>=0);}).slice(0,60);
       menu.innerHTML=list.length?list.map(function(op){return '<div class="pm-combo-opt" data-v="'+esc(op.v)+'">'+esc(op.l)+((op.v&&op.l!==op.v)?' <span class="pm-combo-sub">'+esc(op.v)+'</span>':'')+'</div>';}).join(""):'<div class="pm-combo-empty">Không có kết quả</div>';
       Array.prototype.forEach.call(menu.querySelectorAll('.pm-combo-opt'),function(op){op.onmousedown=function(e){e.preventDefault();var v=op.getAttribute('data-v');
+        if(pick){pick(v);inp.value="";close();return;}
         if(multi){if(v&&sel().indexOf(v)<0){hidden.value=sel().concat([v]).join(",");}inp.value="";renderChips();render("");}
         else{hidden.value=v;inp.value=v?labelOf(v):"";close();}};});}
     function open(){menu.style.display="block";render(inp.value);}
     inp.addEventListener('focus',open);inp.addEventListener('input',function(){open();render(inp.value);});
     inp.addEventListener('blur',function(){setTimeout(function(){close();if(!multi){var v=hidden.value;inp.value=v?labelOf(v):"";}},160);});
-    if(multi)renderChips();else{var v0=hidden.value;if(v0)inp.value=labelOf(v0);}}
+    if(multi)renderChips();else if(hidden){var v0=hidden.value;if(v0)inp.value=labelOf(v0);}}
   function recLoadPickers(){
     Promise.all([api(PM+"projects.list",{page_length:500}).catch(function(){return {rows:[]};}),api(PM+"assignment.list_assignable",{}).catch(function(){return {rows:[]};})]).then(function(res){
       var projs=(res[0].rows||[]).map(function(p){return {v:p.name,l:p.project_name||p.name};});projs.unshift({v:"",l:"— Ngoài dự án —"});
