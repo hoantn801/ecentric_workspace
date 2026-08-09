@@ -2117,27 +2117,38 @@
   /* UIUX-1: shared Create/Edit project form fields (reused by newProject + editProject). */
   function pmProjFormFields(v){v=v||{};
     var pri=["Low","Medium","High"].map(function(x){return '<option'+((v.priority||"Medium")===x?' selected':'')+'>'+x+'</option>';}).join("");
-    return pmFieldInput("Tên dự án *",'<input class="pm-input ni" id="np-name" placeholder="Tên dự án" value="'+esc(v.project_name||"")+'">')+
-      pmFieldInput("Quản lý (email)",'<input class="pm-input ni" id="np-mgr" placeholder="user@ecentric.vn" value="'+esc(v.ec_manager||"")+'">')+
-      pmFieldInput("Phòng ban",'<select class="pm-sel" id="np-dept" style="width:100%">'+pmDeptOptions(v.ec_department||"")+'</select>')+
-      '<div style="display:flex;gap:10px">'+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="np-start" data-ec-dp-range="np" data-ec-dp-role="start" type="date" value="'+esc(ymd(v.expected_start_date)||"")+'">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="np-end" data-ec-dp-range="np" data-ec-dp-role="end" type="date" value="'+esc(ymd(v.expected_end_date)||"")+'">')+'</div>'+
-      pmFieldInput("Ưu tiên",'<select class="pm-sel" id="np-priority" style="width:100%">'+pri+'</select>')+
-      pmFieldInput("Mô tả",'<textarea class="pm-input ni" id="np-desc" rows="3" style="resize:vertical">'+esc(v.notes||"")+'</textarea>');}
+    return '<input class="nt-title ni" id="np-name" placeholder="Tên dự án…" autocomplete="off" value="'+esc(v.project_name||"")+'">'+
+      '<textarea class="nt-descin ni" id="np-desc" rows="2" placeholder="Thêm mô tả…">'+esc(v.notes||"")+'</textarea>'+
+      '<div class="rcf-grid nt-fields">'+
+        pmFieldInput("Quản lý",'<div class="pm-combo" id="np-mgr-combo"><input type="hidden" id="np-mgr" value="'+esc(v.ec_manager||"")+'"><div class="pm-combo-field"><input class="pm-combo-input" id="np-mgr-in" placeholder="Tìm nhân viên (tên/email)…" autocomplete="off"></div><div class="pm-combo-menu" style="display:none"></div></div>')+
+        pmFieldInput("Phòng ban",'<select class="pm-sel" id="np-dept" style="width:100%">'+pmDeptOptions(v.ec_department||"")+'</select>')+
+        pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="np-start" data-ec-dp-range="np" data-ec-dp-role="start" type="date" value="'+esc(ymd(v.expected_start_date)||"")+'">')+
+        pmFieldInput("Hạn",'<input class="pm-input ni" id="np-end" data-ec-dp-range="np" data-ec-dp-role="end" type="date" value="'+esc(ymd(v.expected_end_date)||"")+'">')+
+        pmFieldInput("Ưu tiên",'<select class="pm-sel" id="np-priority" style="width:100%">'+pri+'</select>')+
+      '</div>';}
+  function pmProjWirePickers(){
+    api(PM+"assignment.list_assignable",{}).then(function(res){
+      var users=((res&&res.rows)||[]).map(function(u){return {v:u.email,l:u.full_name||u.email};});
+      users.unshift({v:"",l:"— Không —"});
+      pmWireCombo("np-mgr-combo",users,{multi:false});
+    }).catch(function(){});}
   function pmProjPayload(name){var nm=el("np-name").value.trim();var sd=el("np-start").value,ed=el("np-end").value;
     var p={project_name:nm,manager:el("np-mgr").value.trim()||null,department:el("np-dept").value||null,expected_start_date:sd||null,expected_end_date:ed||null,priority:el("np-priority").value,description:el("np-desc").value||null};
     if(name)p.name=name;return p;}
   function pmProjValidate(){var nm=el("np-name").value.trim();if(!nm){toast("Nhập tên dự án",true);return false;}var sd=el("np-start").value,ed=el("np-end").value;if(sd&&ed&&ed<sd){toast("Hạn không được trước ngày bắt đầu",true);return false;}return true;}
   function newProject(){openD();el("pm-drawer").classList.add("pm-d-md");el("pm-dt").textContent="Tạo dự án";var c=el("pm-dbody");
-    c.innerHTML=pmProjFormFields({})+
-      '<div style="display:flex;gap:8px"><button class="pm-btn primary" id="np-create"><svg class="icon icon-sm"><use href="#p-plus"/></svg> Tạo dự án</button><button class="pm-btn" id="np-cancel">Huỷ</button></div>';
-    _niFix(c);el("np-cancel").onclick=closeD;
+    c.innerHTML='<div class="nt-form">'+pmProjFormFields({})+
+      '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;align-items:center"><button class="pm-btn" id="np-cancel">Huỷ</button><button class="pm-btn primary" id="np-create" style="min-width:130px;justify-content:center">Tạo dự án</button></div>'+
+    '</div>';
+    _niFix(c);pmProjWirePickers();el("np-cancel").onclick=closeD;
     el("np-create").onclick=function(){if(!pmProjValidate())return;var btn=this;btn.disabled=true;btn.textContent="Đang tạo...";
       api(PM+"projects.create",pmProjPayload()).then(function(r){toast("Đã tạo "+(r.project_name||r.name));closeD();openProject(r.name);}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.innerHTML='Tạo dự án';});};}
   function editProject(name){openD();el("pm-drawer").classList.add("pm-d-md");el("pm-dt").textContent="Chỉnh sửa dự án";var c=el("pm-dbody");spin(c);
     api(PM+"projects.get",{name:name}).then(function(res){var p=(res&&res.project)||{};
-      c.innerHTML=pmProjFormFields(p)+
-        '<div style="display:flex;gap:8px"><button class="pm-btn primary" id="np-save">Lưu</button><button class="pm-btn" id="np-cancel">Huỷ</button></div>';
-      _niFix(c);el("np-cancel").onclick=closeD;
+      c.innerHTML='<div class="nt-form">'+pmProjFormFields(p)+
+        '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;align-items:center"><button class="pm-btn" id="np-cancel">Huỷ</button><button class="pm-btn primary" id="np-save" style="min-width:110px;justify-content:center">Lưu</button></div>'+
+      '</div>';
+      _niFix(c);pmProjWirePickers();el("np-cancel").onclick=closeD;
       el("np-save").onclick=function(){if(!pmProjValidate())return;var btn=this;btn.disabled=true;btn.textContent="Đang lưu...";
         api(PM+"projects.update",pmProjPayload(name)).then(function(r){toast("Đã lưu "+(r.project_name||r.name));closeD();showProjects();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Lưu";});};
     }).catch(function(e){c.innerHTML='<div class="pm-err">'+esc(errOf(e))+'</div>';});}
