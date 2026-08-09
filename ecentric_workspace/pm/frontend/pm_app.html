@@ -2052,7 +2052,7 @@
           '<div id="nt-req-extra" class="rcf-full" style="display:none">'+pmFieldInput("Checklist mẫu",'<select class="pm-sel" id="nt-tmpl" style="width:100%">'+tmplOpts+'</select>')+pmFieldInput("Lời nhắn",'<textarea class="pm-input ni" id="nt-msg" rows="2" style="resize:vertical" placeholder="Lời nhắn cho người nhận (tuỳ chọn)"></textarea>')+'</div>'+
           pmFieldInput("Nhãn",'<div id="nt-labels"></div>',"rcf-full")+ /* G5.2 §B shared picker */
         '</div>'+
-        '<div style="display:flex;gap:8px;margin-top:14px"><button class="pm-btn primary" id="nt-create" style="flex:1;justify-content:center"><svg class="icon icon-sm"><use href="#p-plus"/></svg> <span id="nt-create-lbl">Tạo nhiệm vụ</span></button><button class="pm-btn" id="nt-cancel">Huỷ</button></div>'+
+        '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;align-items:center"><button class="pm-btn" id="nt-cancel">Huỷ</button><button class="pm-btn primary" id="nt-create" style="min-width:150px;justify-content:center"><span id="nt-create-lbl">Tạo nhiệm vụ</span></button></div>'+
       '</div>';
       _niFix(c);
       function loadParents(pre){api(PM+"tasks.list",{project:el("nt-project").value,page_length:200}).then(function(d){el("nt-parent").innerHTML='<option value="">— Không —</option>'+(d.rows||[]).filter(function(t){return !t.parent_task;}).map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.subject||t.name)+'</option>';}).join("");if(pre)el("nt-parent").value=pre;}).catch(function(){});}
