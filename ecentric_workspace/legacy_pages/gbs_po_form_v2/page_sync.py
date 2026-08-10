@@ -42,8 +42,15 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "6a14afe753abd13c83386ff89847e686586d1359dafeed5d99da8152502e2d42"
+BASELINE_SHA256 = "80edae80119586dc184512b81355eae2924cd486d065261b13bc03b2f96bd162"
 SUPERSEDES_SHA256 = (
+    # bytes truoc khi sua link chet /mso-approval (2026-08-07): nut "Quay lai trang
+    # chu" tro toi /mso-approval -- route nay KHONG ton tai tren site (chi co /home,
+    # /all-ticket, /approval, /approvals). Nguoi dung bam vao roi ket o trang 404,
+    # tren do chuong thong bao lai bao loi nen nhin y het loi phan quyen. Da gap that:
+    # linh.ngo@ecentric.vn tuong khong co quyen vao MSO/SO/PO. Sua: back-link -> /home,
+    # nut Huy -> /all-ticket.
+    "6a14afe753abd13c83386ff89847e686586d1359dafeed5d99da8152502e2d42",
     # bytes truoc FIX 11 (2026-08-07): khi mo form PO tu duong ?from_so=SAL-ORD-...,
     # ham _applySoRef quet .ec-cb-display trong CA so.parentNode -- ma o "Nha cung
     # cap (EC)" va o "SO tham chieu" nam CHUNG mot .field, nen no ghi de luon phan

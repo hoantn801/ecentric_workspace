@@ -10,6 +10,16 @@ logic and the frontend never builds routes.
 Canonical item shape (the only contract the frontend depends on):
     {name, subject, message, source_type, source_label,
      action_url, is_read, created_at, from_user}
+
+PRECEDENCE (2026-08-10). Notification Log carries a native `link` field. When the
+producer filled it, that link IS the canonical click target and wins over anything
+derived from (document_type, document_name). Reason: the EC approval Server Scripts
+(ec_mso_before_save / ec_so_before_save / ec_po_before_save) write
+`/approval?id=<name>&type=mso|so|po` there, and MSO / Purchase Order are NOT in
+ac.APPROVAL_DOCTYPES -- so without this the bell fell through to
+build_desk_fallback_url and dumped approvers on the Desk form (/app/mso/<name>)
+instead of the approval page. Rows with an empty `link` keep the old behaviour
+exactly, so nothing that worked before changes.
 """
 
 import frappe
@@ -55,13 +65,14 @@ def resolve_notification(row):
     dt = row.get("document_type") or ""
     dn = row.get("document_name") or ""
     source_type, source_label = _source(dt)
+    explicit = (row.get("link") or "").strip()
     return {
         "name": row.get("name"),
         "subject": row.get("subject") or "",
         "message": row.get("email_content") or "",
         "source_type": source_type,
         "source_label": source_label,
-        "action_url": _action_url(dt, dn),
+        "action_url": explicit or _action_url(dt, dn),
         "is_read": 1 if row.get("read") else 0,
         "created_at": str(row.get("creation") or ""),
         "from_user": row.get("from_user") or "",

@@ -43,8 +43,15 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "019d95118ea5c98cc06139080a8049b6647a3a1819bfa4a479663af49eb4555f"
+BASELINE_SHA256 = "2da1cee74e4a414679af490df4b0dd77088e49792beec2b4e3aff5fa854430bd"
 SUPERSEDES_SHA256 = (
+    # bytes truoc khi sua link chet /mso-approval (2026-08-07): nut "Quay lai trang
+    # chu" tro toi /mso-approval -- route nay KHONG ton tai tren site (chi co /home,
+    # /all-ticket, /approval, /approvals). Nguoi dung bam vao roi ket o trang 404,
+    # tren do chuong thong bao lai bao loi nen nhin y het loi phan quyen. Da gap that:
+    # linh.ngo@ecentric.vn tuong khong co quyen vao MSO/SO/PO. Sua: back-link -> /home,
+    # nut Huy -> /all-ticket.
+    "019d95118ea5c98cc06139080a8049b6647a3a1819bfa4a479663af49eb4555f",
     # bytes ban dau khi repo-hoa trang nay (#61). Live tren team.ecentric.vn da
     # duoc ghi thang len BASELINE_SHA256 ngay 2026-08-04 (round feedback MSO 1:
     # bo Channel, GMV -> NMV, preview chuoi duyet doc tu ec_mso_lookups.chain),

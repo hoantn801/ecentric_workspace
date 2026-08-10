@@ -471,6 +471,22 @@ class TestResolver(unittest.TestCase):
                                          "document_type": "Lead", "document_name": "LEAD-9"})
         self.assertEqual(item["action_url"], "/app/lead/LEAD-9")
 
+    def test_explicit_link_wins_over_desk_fallback(self):
+        # MSO is not an Action Center approval DocType, so the derived URL would be
+        # the Desk form. The producer-supplied `link` must win.
+        item = res.resolve_notification({
+            "name": "N", "subject": "s", "document_type": "MSO",
+            "document_name": "MSO-2026-08-DUT",
+            "link": "/approval?id=MSO-2026-08-DUT&type=mso"})
+        self.assertEqual(item["action_url"], "/approval?id=MSO-2026-08-DUT&type=mso")
+
+    def test_blank_link_falls_back_to_derived_url(self):
+        # Whitespace-only link must not shadow the derived URL.
+        item = res.resolve_notification({"name": "N", "subject": "s",
+                                         "document_type": "Lead", "document_name": "LEAD-9",
+                                         "link": "   "})
+        self.assertEqual(item["action_url"], "/app/lead/LEAD-9")
+
 
 class TestServiceEmit(unittest.TestCase):
     def setUp(self):
