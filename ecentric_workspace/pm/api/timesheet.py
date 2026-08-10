@@ -130,7 +130,19 @@ def list(task=None, project=None, user=None, from_date=None, to_date=None):
     total = 0
     for r in rows:
         total += (r.get("hours") or 0)
-    return {"rows": rows, "total_hours": total}
+
+    # Rollup: sum hours logged on direct child tasks so a parent task can show
+    # the whole cluster's effort (parent's own rows stay in `rows`/`total_hours`).
+    subtask_hours = 0
+    if task:
+        kids = frappe.get_all("Task", filters={"parent_task": task}, pluck="name")
+        if kids:
+            for kr in frappe.get_all(
+                "Timesheet Detail", filters=[["task", "in", kids]], fields=["hours"]
+            ):
+                subtask_hours += (kr.get("hours") or 0)
+
+    return {"rows": rows, "total_hours": total, "subtask_hours": subtask_hours}
 
 
 @frappe.whitelist()

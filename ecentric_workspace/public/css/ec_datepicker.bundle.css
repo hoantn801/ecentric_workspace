@@ -1,0 +1,155 @@
+/* Copyright (c) 2026, eCentric and contributors
+ * ec_datepicker -- shared date / datetime / range picker skin. SELF-CONTAINED
+ * bundle entry (Frappe's esbuild stages *.bundle.css in a temp dir without
+ * siblings, so no relative imports here -- same rule as ec_shell.bundle.css).
+ *
+ * Enhances native <input type="date"|"datetime-local">. Native input is
+ * clipped (kept for value + submit); .ec-dp-field is the visible control.
+ * Pink accent, mobile-first, scrollable time wheels beside the calendar,
+ * date-range band. Theme inherits ec_shell --ec-* vars where present. */
+:root {
+  --ec-dp-accent: #2563eb;               /* blue-600 -- primary: selection / endpoints / band */
+  --ec-dp-accent-strong: #1d4ed8;        /* blue-700 -- hover */
+  --ec-dp-accent-weak: #dbeafe;          /* blue-100 -- focus ring / hover wash */
+  --ec-dp-range: #eaf1fe;                /* soft blue -- range band */
+  --ec-dp-today: #db2777;                /* pink accent -- "today" ring only */
+  --ec-dp-text: var(--ec-gray-800, #1f2933);
+  --ec-dp-muted: var(--ec-gray-500, #6b7280);
+  --ec-dp-border: var(--ec-gray-200, #e5e7eb);
+  --ec-dp-bg: #fff;
+  --ec-dp-hover: var(--ec-gray-100, #f3f4f6);
+  --ec-dp-radius: 12px;
+  --ec-dp-shadow: 0 8px 28px rgba(16, 24, 40, .16);
+}
+
+/* native input kept for value/submit, hidden from view */
+.ec-dp-native {
+  position: absolute !important;
+  width: 1px; height: 1px; padding: 0; margin: -1px; border: 0;
+  clip: rect(0 0 0 0); clip-path: inset(50%);
+  overflow: hidden; white-space: nowrap; opacity: 0; pointer-events: none;
+}
+
+.ec-dp-wrap { position: relative; display: inline-flex; width: 100%; }
+
+.ec-dp-field {
+  display: inline-flex; align-items: center; justify-content: space-between;
+  gap: 8px; width: 100%; min-height: 40px; padding: 8px 12px;
+  font: inherit; font-size: 14px; line-height: 1.3; text-align: left;
+  color: var(--ec-dp-text); background: var(--ec-dp-bg);
+  border: 1px solid var(--ec-dp-border); border-radius: 8px; cursor: pointer;
+  transition: border-color .12s ease, box-shadow .12s ease;
+}
+.ec-dp-field:hover { border-color: var(--ec-dp-accent); }
+.ec-dp-field:focus-visible {
+  outline: none; border-color: var(--ec-dp-accent);
+  box-shadow: 0 0 0 3px var(--ec-dp-accent-weak);
+}
+.ec-dp-field:disabled { opacity: .55; cursor: not-allowed; background: var(--ec-dp-hover); }
+.ec-dp-field.ec-dp-empty .ec-dp-val { color: var(--ec-dp-muted); }
+.ec-dp-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ec-dp-ico { flex: 0 0 auto; display: inline-flex; color: var(--ec-dp-accent); }
+
+/* popover (portaled to <body>, fixed-positioned) */
+.ec-dp-pop {
+  position: fixed; z-index: 1200; width: auto; max-width: min(96vw, 500px);
+  padding: 12px; background: var(--ec-dp-bg);
+  border: 1px solid var(--ec-dp-border); border-radius: var(--ec-dp-radius);
+  box-shadow: var(--ec-dp-shadow); color: var(--ec-dp-text);
+  -webkit-user-select: none; user-select: none;
+}
+.ec-dp-body { display: flex; gap: 12px; align-items: flex-start; }
+.ec-dp-cal { flex: 0 0 auto; width: 266px; }
+
+.ec-dp-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.ec-dp-title { font-weight: 600; font-size: 14px; }
+.ec-dp-nav {
+  width: 32px; height: 32px; border: none; border-radius: 8px;
+  background: transparent; color: var(--ec-dp-text); font-size: 20px; line-height: 1; cursor: pointer;
+}
+.ec-dp-nav:hover { background: var(--ec-dp-accent-weak); color: var(--ec-dp-accent-strong); }
+.ec-dp-nav:focus-visible { outline: 2px solid var(--ec-dp-accent); outline-offset: 1px; }
+
+.ec-dp-wd { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 4px; }
+.ec-dp-wd span { text-align: center; font-size: 11px; font-weight: 600; color: var(--ec-dp-muted); padding: 4px 0; }
+
+.ec-dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.ec-dp-cell {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 38px; padding: 0; border: none; border-radius: 8px;
+  background: transparent; color: var(--ec-dp-text); font: inherit; font-size: 13px; cursor: pointer;
+}
+.ec-dp-blank { visibility: hidden; }
+.ec-dp-cell:hover:not([disabled]) { background: var(--ec-dp-accent-weak); }
+.ec-dp-cell.is-today { box-shadow: inset 0 0 0 1.5px var(--ec-dp-today); }
+.ec-dp-cell.is-range { background: var(--ec-dp-range); border-radius: 0; }
+.ec-dp-cell.is-range-start { background: var(--ec-dp-accent); color: #fff; border-radius: 8px 0 0 8px; }
+.ec-dp-cell.is-range-end { background: var(--ec-dp-accent); color: #fff; border-radius: 0 8px 8px 0; }
+.ec-dp-cell.is-sel { background: var(--ec-dp-accent); color: #fff; font-weight: 600; border-radius: 8px; }
+.ec-dp-cell:focus-visible { outline: 2px solid var(--ec-dp-accent); outline-offset: 1px; }
+.ec-dp-cell[disabled] { color: var(--ec-dp-muted); opacity: .4; cursor: not-allowed; }
+
+/* time -- manual hh:mm inputs on top + scrollable wheels beside the calendar */
+.ec-dp-time { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; }
+.ec-dp-time-top { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+.ec-dp-tin {
+  width: 56px; height: 34px; text-align: center;
+  font: inherit; font-size: 15px; font-weight: 600;
+  color: var(--ec-dp-text); background: var(--ec-dp-bg);
+  border: 1px solid var(--ec-dp-border); border-radius: 8px;
+}
+.ec-dp-tin:focus, .ec-dp-tin:focus-visible {
+  outline: none; border-color: var(--ec-dp-accent); box-shadow: 0 0 0 3px var(--ec-dp-accent-weak);
+}
+.ec-dp-wheels { display: flex; align-items: center; gap: 4px; }
+/* wheelbox: fixed frame; the pink band stays centred while the column scrolls.
+   Wheel padding = (height - item)/2 so value v centres at scrollTop = v*36. */
+.ec-dp-wheelbox {
+  position: relative; width: 56px; height: 196px; overflow: hidden;
+  border: 1px solid var(--ec-dp-border); border-radius: 8px;
+}
+.ec-dp-band {
+  position: absolute; left: 4px; right: 4px; top: 50%; height: 36px;
+  transform: translateY(-50%); background: var(--ec-dp-accent);
+  border-radius: 8px; pointer-events: none; z-index: 0;
+}
+.ec-dp-wheel {
+  position: absolute; inset: 0; overflow-y: auto; padding: 80px 0;
+  scroll-snap-type: y mandatory;   /* instant scrollTop for the seamless loop jump */
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.ec-dp-wheel::-webkit-scrollbar { display: none; }
+.ec-dp-opt {
+  position: relative; z-index: 1;
+  display: block; width: 100%; height: 36px; scroll-snap-align: center;
+  border: none; background: transparent; color: var(--ec-dp-text);
+  font: inherit; font-size: 14px; cursor: pointer;
+}
+.ec-dp-opt:hover:not(.is-sel) { color: var(--ec-dp-accent-strong); }
+.ec-dp-opt.is-sel { color: #fff; font-weight: 700; }
+.ec-dp-colon { font-weight: 700; color: var(--ec-dp-muted); }
+
+.ec-dp-ft { display: flex; gap: 8px; margin-top: 12px; }
+.ec-dp-btn {
+  flex: 1; min-height: 36px; padding: 6px 10px; font: inherit; font-size: 13px; font-weight: 600;
+  border: 1px solid var(--ec-dp-border); border-radius: 8px;
+  background: var(--ec-dp-bg); color: var(--ec-dp-text); cursor: pointer;
+}
+.ec-dp-btn:hover { background: var(--ec-dp-accent-weak); color: var(--ec-dp-accent-strong); }
+.ec-dp-btn:focus-visible { outline: 2px solid var(--ec-dp-accent); outline-offset: 1px; }
+.ec-dp-ok { background: var(--ec-dp-accent); border-color: var(--ec-dp-accent); color: #fff; }
+.ec-dp-ok:hover { background: var(--ec-dp-accent-strong); color: #fff; }
+
+/* larger touch targets + stacked time on small screens / coarse pointers */
+@media (max-width: 640px), (pointer: coarse) {
+  .ec-dp-body { flex-direction: column; align-items: stretch; }
+  .ec-dp-cal { width: 100%; }
+  .ec-dp-cell { height: 44px; font-size: 15px; }
+  .ec-dp-nav { width: 40px; height: 40px; }
+  .ec-dp-btn { min-height: 42px; }
+  .ec-dp-time { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--ec-dp-border); }
+  /* smaller frame on mobile: padding = (160 - 36)/2 = 62 keeps v*36 centred */
+  .ec-dp-wheelbox { height: 160px; width: 64px; }
+  .ec-dp-wheel { padding: 62px 0; }
+}

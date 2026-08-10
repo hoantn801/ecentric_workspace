@@ -100,6 +100,10 @@ HOME_PORTAL_ITEMS = [
     {"key": "home.portal.kpi", "label": "Mục tiêu KPI", "route": "/coming-soon?tool=kpi",
      "icon": "target", "group": "Nhân sự", "order": 40, "active_patterns": ["/coming-soon?tool=kpi"],
      "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
+    {"key": "home.portal.reports", "label": "Trung tâm Báo cáo", "route": "/reports",
+     "icon": "folder", "group": "Báo cáo & Phân tích", "order": 5, "active_patterns": ["/reports"],
+     "visible_when": "internal", "owner": "home_portal", "alias": True,
+     "keywords": ["trung tam bao cao", "reports", "bao cao", "cong cu", "tools"]},
     {"key": "home.portal.weekly", "label": "Báo cáo tuần", "route": "/weekly-update",
      "icon": "chart", "group": "Báo cáo & Phân tích", "order": 10, "active_patterns": ["/weekly-update"],
      "visible_when": "internal", "owner": "home_portal", "alias": True},
@@ -180,7 +184,7 @@ CONTEXTS = {
     "reporting": {
         "providers": ["core", "reporting"],
         "entry": {"key": "ctx.reporting", "label": "Báo cáo & Phân tích",
-                  "route": "/weekly-update", "icon": "chart"},
+                  "route": "/reports", "icon": "chart"},
     },
     "pm": {
         "providers": ["core", "pm"],

@@ -211,6 +211,43 @@ def request_eligibility(task):
     return {"eligible": code == "ok", "reason_code": code, "message": msg}
 
 
+def _req_todo(req_name, task, allocated_to, subject, note, due=None):
+    """Create a reminder ToDo tagged [XN:<req>] for `allocated_to` so an assignment request that
+    needs THIS person's action shows in their 'Nhắc việc' (shell action feed) + 'Việc của tôi'.
+    Best-effort: a ToDo failure must never break the governed request flow."""
+    if not allocated_to:
+        return
+    try:
+        frappe.get_doc({
+            "doctype": "ToDo", "allocated_to": allocated_to, "status": "Open",
+            "reference_type": "Task", "reference_name": task,
+            "date": due or frappe.utils.nowdate(), "priority": "Medium",
+            "description": "[XN:{0}] {1}: {2}".format(req_name, note, subject or task),
+        }).insert(ignore_permissions=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "assignment ToDo create failed: " + str(req_name))
+
+
+def _close_request_todos(req_name, who=None):
+    """Close reminder ToDo(s) tagged [XN:<req>]. `who`=email closes only that person's; None closes
+    both parties' (used at terminal states). Best-effort."""
+    try:
+        f = {"status": "Open", "description": ["like", "%[XN:{0}]%".format(req_name)]}
+        if who:
+            f["allocated_to"] = who
+        for n in frappe.get_all("ToDo", filters=f, pluck="name"):
+            frappe.db.set_value("ToDo", n, "status", "Closed")
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "assignment ToDo close failed: " + str(req_name))
+
+
+def _task_subject(task):
+    try:
+        return frappe.db.get_value("Task", task, "subject") or task
+    except Exception:
+        return task
+
+
 @frappe.whitelist()
 def create_request(task, recipient, proposed_start=None, proposed_end=None, message=None):
     """Create a Pending request for an EXISTING eligible task. Only a delegator (owner / project
@@ -235,13 +272,20 @@ def create_request(task, recipient, proposed_start=None, proposed_end=None, mess
             doc.insert(ignore_permissions=True)
     except frappe.DuplicateEntryError:
         frappe.throw(_("Nhiệm vụ đã có một yêu cầu giao việc đang mở."))
+    _due = None
+    try:
+        _due = frappe.utils.getdate(proposed_start) if proposed_start else None
+    except Exception:
+        _due = None
+    _req_todo(doc.name, task, recipient, tdoc.get("subject"),
+              "Yêu cầu nhận việc — mở 'Yêu cầu giao việc' để phản hồi", _due)
     return _as_dict(doc)
 
 
 @frappe.whitelist()
 def create_with_task(subject, recipient=None, project=None, description=None, priority=None,
                      proposed_start=None, proposed_end=None, message=None,
-                     checklist_template=None, labels=None, recipients=None):
+                     checklist_template=None, labels=None, recipients=None, parent_task=None):
     """G5.0 primary flow: create a NEW UNASSIGNED Backlog task + its assignment request in ONE
     transaction. The task stays unassigned in Backlog until Accepted. Rolls back on any failure.
 
@@ -268,7 +312,8 @@ def create_with_task(subject, recipient=None, project=None, description=None, pr
     sd, st = _split(proposed_start)
     ed, et = _split(proposed_end)
     try:
-        t = pmtasks.create(project or "", subject, priority=priority, description=description,
+        t = pmtasks.create(project or "", subject, parent_task=(parent_task or None),
+                           priority=priority, description=description,
                            exp_start_date=sd, exp_end_date=ed, pm_start_time=st, pm_end_time=et)
         task_name = t["name"]
         if labels:
@@ -336,6 +381,17 @@ def respond(name, decision, reason=None, counter_start=None, counter_end=None):
     _set_open_keys(doc)
     with _service():
         doc.save(ignore_permissions=True)
+    # reminder hand-off: recipient's reminder closes; if B rejects or proposes a new schedule, A (requester) gets one.
+    if decision == "accept":
+        _close_request_todos(doc.name)
+    elif decision == "reject":
+        _close_request_todos(doc.name, doc.recipient)
+        _req_todo(doc.name, doc.task, doc.requested_by, _task_subject(doc.task),
+                  "Yêu cầu bị TỪ CHỐI — xem lại / gửi lại")
+    elif decision == "reschedule":
+        _close_request_todos(doc.name, doc.recipient)
+        _req_todo(doc.name, doc.task, doc.requested_by, _task_subject(doc.task),
+                  "Có ĐỀ XUẤT LỊCH MỚI — duyệt hoặc phản hồi")
     return _as_dict(doc)
 
 
@@ -395,6 +451,17 @@ def requester_action(name, action, proposed_start=None, proposed_end=None, messa
             doc.save(ignore_permissions=True)
     except frappe.DuplicateEntryError:
         frappe.throw(_("Nhiệm vụ đã có một yêu cầu giao việc đang mở."))
+    if action in ("accept_counter", "cancel"):
+        _close_request_todos(doc.name)  # decided/closed -> clear both parties' reminders
+    elif action == "resend":
+        _close_request_todos(doc.name)  # clear requester's own reminder
+        _due = None
+        try:
+            _due = frappe.utils.getdate(doc.proposed_start) if doc.proposed_start else None
+        except Exception:
+            _due = None
+        _req_todo(doc.name, doc.task, doc.recipient, _task_subject(doc.task),
+                  "Yêu cầu nhận việc — mở 'Yêu cầu giao việc' để phản hồi", _due)  # reopened -> recipient reminder
     return _as_dict(doc)
 
 
@@ -472,3 +539,18 @@ def pm_assignment_request_before_delete(doc, method=None):
         return
     if doc.get("status") in ("Accepted", "Rejected") or (doc.get("events") or []):
         frappe.throw(_("Yêu cầu đã có lịch sử và không thể xoá."), frappe.PermissionError)
+
+
+@frappe.whitelist()
+def list_assignable():
+    """Directory of assignable users (enabled System Users) for the assignee picker.
+    PM-access gated. Returns [{email, full_name}] sorted by name."""
+    pmperm.require_pm_access()
+    rows = frappe.get_all(
+        "User",
+        filters={"enabled": 1, "user_type": "System User",
+                 "name": ["not in", ["Administrator", "Guest"]]},
+        fields=["name", "full_name"], order_by="full_name asc", limit_page_length=0,
+    )
+    return {"rows": [{"email": r["name"], "full_name": r.get("full_name") or r["name"]}
+                     for r in rows]}

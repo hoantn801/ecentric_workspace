@@ -46,6 +46,36 @@ _CANCEL_ACTION = "Cancel"
 _STALE_MSG = ("Trạng thái nhiệm vụ đã thay đổi hoặc bạn không còn quyền thực hiện thao tác "
               "này. Vui lòng tải lại.")
 
+# FREE-STATUS model (2026-08-06, Hoàn): a user may switch a task to ANY workflow state directly
+# (no fixed To Do->Start->Review->Done order). Native `status` synced for terminal states so
+# is_task_terminal + reports stay consistent; other states map to the active "Open".
+_STATE_STATUS = {"Done": "Completed", "Cancelled": "Cancelled"}
+
+# The lean, ordered status set shown as a segmented control (Hoàn 2026-08-06). Backlog/Blocked are
+# NOT offered as buttons (Backlog folds into To Do; Blocked becomes a label). Existing tasks parked
+# in a hidden state still work — the button to re-enter that state is just not shown. Cancel is a
+# separate leader-only action, not part of the 4.
+_VISIBLE_STATES = ("To Do", "In Progress", "Review", "Done")
+
+
+def _pm_states():
+    """Ordered list of the active Task workflow's states = the switchable status buttons."""
+    fallback = ["Backlog", "To Do", "In Progress", "Review", "Done", "Cancelled"]
+    try:
+        wf = frappe.db.get_value("Workflow", {"document_type": "Task", "is_active": 1}, "name")
+        if not wf:
+            return fallback
+        seen, out = set(), []
+        for r in frappe.get_all("Workflow Document State", filters={"parent": wf},
+                                fields=["state"], order_by="idx"):
+            s = r.get("state")
+            if s and s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out or fallback
+    except Exception:
+        return fallback
+
 
 def _dedupe_transitions(raw):
     """Dedupe frappe.model.workflow.get_transitions output by (action, next_state). The frappe
@@ -818,18 +848,21 @@ def assign(name, users):
 
 @frappe.whitelist()
 def get_transitions(name):
-    """Allowed PM Task Workflow actions for the current user + task state (UI buttons)."""
+    """Lean status model for the segmented control: the 4 visible states + the current one (so the
+    UI highlights it). `transitions` = the clickable non-current states (Done drives the worktime
+    popup). `cancel` = whether a separate leader-only Huỷ is available."""
     pmperm.require_pm_access()
     user = frappe.session.user
     doc = frappe.get_doc("Task", name)
     if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted."), frappe.PermissionError)
-    # G5.1: dedupe by (action, next_state) so the detail action menu no longer shows the same
-    # action once per role (e.g. "Move to To Do" ×3). Genuinely different actions to the same
-    # state are kept; Kanban transitions_bulk already dedupes identically.
+    leader = pmperm.can_transition_any_task(user)
+    cur = doc.get("workflow_state")
     return {
-        "current": doc.get("workflow_state"),
-        "transitions": _dedupe_transitions(_wf_get_transitions(doc)),
+        "current": cur,
+        "states": builtins.list(_VISIBLE_STATES),
+        "transitions": [{"action": s, "next_state": s} for s in _VISIBLE_STATES if s != cur],
+        "cancel": bool(leader),
     }
 
 
@@ -853,59 +886,47 @@ def transitions_bulk(task_names):
         if not frappe.db.exists("Task", nm):
             continue
         doc = frappe.get_doc("Task", nm)
-        d = doc.as_dict()
-        if not pmperm.can_view_task(d, user):
+        if not pmperm.can_view_task(doc.as_dict(), user):
             continue
-        deduped = _dedupe_transitions(_wf_get_transitions(doc))
-        out[nm] = {
-            "current": doc.get("workflow_state"),
-            "terminal": pmperm.is_task_terminal(doc),
-            # ADOPTION (G5.2): can_view_task already passed above (continue-guard) => the caller is
-            # an accessor and may run operational transitions on this task. Cancel stays leader-only.
-            "transitions": _filter_transitions(deduped, leader, True),
-        }
+        cur = doc.get("workflow_state")
+        trans = [{"action": s, "next_state": s} for s in _VISIBLE_STATES if s != cur]
+        out[nm] = {"current": cur, "terminal": pmperm.is_task_terminal(doc),
+                   "states": builtins.list(_VISIBLE_STATES), "transitions": trans}
     return {"map": out}
 
 
 @frappe.whitelist()
 def set_status(name, action):
-    """Apply a PM Task Workflow transition by ACTION name (governed + audited).
-
-    PM1-T07: replaces direct status writes. apply_workflow validates the
-    transition is legal for the current workflow_state AND allowed for the
-    user's role, and records the change in the document's audit trail.
-    """
+    """FREE status change: `action` is the TARGET workflow state. Any accessor may switch a task to
+    any state (no fixed order). Guards kept: Cancelled is leader-only; a parent can't be Done while
+    it still has open sub-tasks. Sets the state directly (bypasses the transition graph BY DESIGN);
+    native `status` is synced for terminal states so is_task_terminal + reports stay consistent."""
     pmperm.require_pm_access()
     user = frappe.session.user
     doc = frappe.get_doc("Task", name)
-    d = doc.as_dict()
-    if not pmperm.can_view_task(d, user):
+    if not pmperm.can_view_task(doc.as_dict(), user):
         frappe.throw(_("Not permitted to change this task."), frappe.PermissionError)
+    target = action
+    if target not in _pm_states():
+        frappe.throw(_(_STALE_MSG))
     leader = pmperm.can_transition_any_task(user)
-    # ADOPTION (G5.2): a PM Member may run OPERATIONAL transitions on any task they can ACCESS
-    # (can_view_task enforced above) -- not only tasks assigned to them. Administrative Cancel
-    # stays leader-only. The PM Task Workflow roles (PM Member excluded from Cancel) and the
-    # before_save guard enforce the same, so apply_workflow is defense-in-depth.
-    if not leader and action == _CANCEL_ACTION:
+    if target == "Cancelled" and not leader:
         frappe.throw(_("Chỉ quản lý mới được huỷ nhiệm vụ."), frappe.PermissionError)
-    # exact current transitions from the workflow backend (re-read live -> catches stale UI).
-    # can_act=True for a non-leader here because can_view_task passed above (accessor may act).
-    _allowed = {t["action"] for t in _filter_transitions(
-        _dedupe_transitions(_wf_get_transitions(doc)), leader, True)}
-    if action not in _allowed:
-        frappe.throw(_(_STALE_MSG))
-    # G4.8: cannot complete a parent while it still has open sub-tasks (canonical terminal check).
-    if action in _DONE_ACTIONS and pmperm.has_open_children(name):
+    # cannot complete a parent while it still has open sub-tasks (canonical terminal check).
+    if target == "Done" and pmperm.has_open_children(name):
         frappe.throw(_("Không thể hoàn thành nhiệm vụ khi vẫn còn nhiệm vụ con chưa đóng."))
-    try:
-        doc = apply_workflow(doc, action)  # governed + audited executor
-    except WorkflowTransitionError:
-        frappe.throw(_(_STALE_MSG))
-    pmnotif.notify_users(pmnotif._task_recipients(doc.as_dict(), exclude=user),
-                         "Nhiem vu '" + (doc.get("subject") or name) + "' -> " + (doc.get("workflow_state") or ""),
-                         name, event_type="mention", severity="info",
-                         due_suffix=doc.get("workflow_state"))
-    return {"name": doc.name, "workflow_state": doc.get("workflow_state")}
+    cur = doc.get("workflow_state")
+    if cur != target:
+        frappe.db.set_value("Task", name,
+                            {"workflow_state": target, "status": _STATE_STATUS.get(target, "Open")})
+        try:
+            d2 = frappe.get_doc("Task", name).as_dict()
+            pmnotif.notify_users(pmnotif._task_recipients(d2, exclude=user),
+                                 "Nhiem vu '" + (d2.get("subject") or name) + "' -> " + target,
+                                 name, event_type="mention", severity="info", due_suffix=target)
+        except Exception:
+            pass
+    return {"name": name, "workflow_state": target}
 
 
 @frappe.whitelist()

@@ -37,8 +37,22 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "1c56e03bccf777286e281dc39fafdd375610c2ebd14bb6c1978b467aa7fae802"
-SUPERSEDES_SHA256 = ()
+BASELINE_SHA256 = "2645973df8a3bcfad7c10b38e44119256e073144c6d4bfb5910a7ba2650e5457"
+
+# Giá trị live mà snapshot này được phép ghi đè.
+#
+# 1c56e03b... là bytes của d6d412c (GD2 C2 UAT fix), tức là baseline ĐÚNG cho tới khi
+# PR #241 (b082c2a, ec-datepicker: thêm data-ec-dp-range vào form lọc) sửa
+# frontend/ai_topup.main_section.html mà KHÔNG bump hằng số này. Từ đó BASELINE_SHA256
+# không còn khớp HTML repo ship, nên sync ghi được đúng một lần rồi refused vĩnh viễn.
+# tools/ci/check.py (phép kiểm `pagesync`) bắt được sai lệch đó.
+#
+# Liệt kê ở đây để cả hai trạng thái live đều đi tiếp được: môi trường còn giữ bytes
+# d6d412c thì sync tiến lên, môi trường đã nhận bytes #241 thì trả về "unchanged".
+# Bỏ entry này khi đã xác nhận deploy trên mọi môi trường.
+SUPERSEDES_SHA256 = (
+    "1c56e03bccf777286e281dc39fafdd375610c2ebd14bb6c1978b467aa7fae802",
+)
 
 
 def sync(html=None, force=0):

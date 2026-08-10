@@ -7,12 +7,13 @@ Module path: ecentric_workspace.pm.api.projects
 """
 
 import frappe
+from frappe import _
 
 from ecentric_workspace.pm import permissions as pmperm
 
 _FIELDS = [
     "name", "project_name", "status", "percent_complete",
-    "ec_department", "ec_manager", "owner", "modified",
+    "ec_department", "ec_manager", "owner", "modified", "_user_tags",
 ]
 
 
@@ -227,3 +228,34 @@ def delete(name):
         frappe.throw(frappe._("Không thể xoá: dự án còn liên kết với dữ liệu khác. "
                               "Hãy gỡ liên kết hoặc đóng/huỷ dự án."))
     return {"deleted": name}
+
+
+def _assert_can_tag(project):
+    """Shared gate for project tag mutations: PM access + project visibility."""
+    pmperm.require_pm_access()
+    if not pmperm.can_view_project(project, frappe.session.user):
+        frappe.throw(_("Không có quyền gắn nhãn dự án này."), frappe.PermissionError)
+
+
+@frappe.whitelist()
+def add_project_tag(project, tag):
+    """Attach a tag (e.g. brand) to a Project via native Frappe tags (_user_tags)."""
+    _assert_can_tag(project)
+    tag = (tag or "").strip()
+    if not tag:
+        frappe.throw(_("Tên nhãn không được để trống."))
+    from frappe.desk.doctype.tag.tag import DocTags
+    DocTags("Project").add(project, tag)
+    return {"project": project,
+            "_user_tags": frappe.db.get_value("Project", project, "_user_tags")}
+
+
+@frappe.whitelist()
+def remove_project_tag(project, tag):
+    """Remove a tag from a Project (native _user_tags)."""
+    _assert_can_tag(project)
+    tag = (tag or "").strip()
+    from frappe.desk.doctype.tag.tag import DocTags
+    DocTags("Project").remove(project, tag)
+    return {"project": project,
+            "_user_tags": frappe.db.get_value("Project", project, "_user_tags")}

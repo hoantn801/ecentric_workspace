@@ -1,0 +1,119 @@
+<!--
+  Reports Center hub. Route /reports (Web Page "reports-center").
+  Opts into the SHARED ERP shell (ec-shell-mount + root grid 248px 1fr);
+  ec_shell.js hydrates the sidebar. Cards are DATA-DRIVEN from
+  ecentric_workspace.reporting.api.catalog.list_reports_catalog -- the API
+  returns only cards the viewer may SEE (UX). Real data security stays on each
+  destination report page. No hardcoded report list here.
+-->
+<style>
+  body > header, body > footer, body > nav.navbar, header.navbar, .navbar.navbar-light,
+  .web-page-header, #navbarSupportedContent, .navbar-collapse, .web-footer, footer.web-footer { display:none !important; }
+  body { background:#f7f8fb !important; padding:0 !important; margin:0 !important; }
+  .page-content, .common-page-style, .container, main, .web-page-content, .page_content,
+  .main-section, main.container, main.fluid { padding:0 !important; margin:0 !important; max-width:none !important; }
+</style>
+<style>
+  #ec-rc-root{
+    --navy:#1e3a5f; --blue:#2563eb; --blue-50:#eff4ff; --blue-100:#dbeafe;
+    --pink:#db2777; --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-400:#9ca3af;
+    --gray-500:#6b7280; --gray-700:#374151; --gray-800:#1f2933; --gray-900:#111827; --bg:#f7f8fb;
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    color:var(--gray-800); font-size:14px; line-height:1.5; background:var(--bg);
+    display:grid; grid-template-columns:248px 1fr; min-height:100vh;
+  }
+  #ec-rc-root, #ec-rc-root *{ box-sizing:border-box; }
+  /* col 1: shared shell mount (hydrated by ec_shell.js); static fallback = blank */
+  #ec-rc-root .ec-shell-mount{ background:#fff; border-right:1px solid var(--gray-200);
+    position:sticky; top:0; height:100vh; overflow:auto; }
+  /* col 2 */
+  #ec-rc-root .rc-main{ min-width:0; display:flex; flex-direction:column; }
+  #ec-rc-root .rc-topbar{ background:#fff; border-bottom:1px solid var(--gray-200);
+    min-height:60px; padding:0 24px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:20; }
+  #ec-rc-root .rc-topbar .crumb{ font-size:13px; color:var(--gray-500); }
+  #ec-rc-root .rc-topbar .crumb strong{ color:var(--gray-900); }
+  #ec-rc-root .rc-content{ padding:24px; max-width:1320px; width:100%; }
+  #ec-rc-root .rc-title{ font-size:24px; font-weight:800; color:var(--gray-900); letter-spacing:-.4px; margin:0 0 4px; }
+  #ec-rc-root .rc-desc{ font-size:13.5px; color:var(--gray-500); margin:0 0 20px; max-width:640px; }
+  #ec-rc-root .rc-sec{ font-size:13px; font-weight:700; letter-spacing:.4px; text-transform:uppercase;
+    color:var(--gray-500); margin:26px 0 12px; }
+  #ec-rc-root .rc-sec:first-child{ margin-top:0; }
+  #ec-rc-root .rc-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(288px,1fr)); gap:16px; }
+  #ec-rc-root .rc-card{ background:#fff; border:1px solid var(--gray-200); border-radius:14px;
+    padding:18px; display:flex; flex-direction:column; gap:10px; text-decoration:none; color:inherit;
+    transition:border-color .12s ease, box-shadow .12s ease, transform .12s ease; }
+  #ec-rc-root a.rc-card:hover{ border-color:var(--blue); box-shadow:0 6px 20px rgba(37,99,235,.12); transform:translateY(-2px); }
+  #ec-rc-root .rc-card .rc-ic{ width:40px; height:40px; border-radius:10px; background:var(--blue-50); color:var(--blue);
+    display:flex; align-items:center; justify-content:center; }
+  #ec-rc-root .rc-card .rc-ic svg{ width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  #ec-rc-root .rc-card .rc-ct{ font-size:16px; font-weight:700; color:var(--gray-900); }
+  #ec-rc-root .rc-card .rc-cd{ font-size:13px; color:var(--gray-500); flex:1; }
+  #ec-rc-root .rc-card .rc-badge{ align-self:flex-start; font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px;
+    background:var(--blue-50); color:var(--blue); }
+  #ec-rc-root .rc-card.rc-soon{ opacity:.62; cursor:default; }
+  #ec-rc-root .rc-card.rc-soon .rc-badge{ background:var(--gray-100); color:var(--gray-500); }
+  #ec-rc-root .rc-empty{ padding:48px 16px; text-align:center; color:var(--gray-500); font-size:14px; }
+  @media (max-width:900px){ #ec-rc-root{ grid-template-columns:1fr; } #ec-rc-root .ec-shell-mount{ display:none; } }
+</style>
+
+<div id="ec-rc-root">
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"></aside>
+  <div class="rc-main">
+    <div class="rc-topbar" data-ec-shell-topbar="1">
+      <div class="crumb"><span>Báo cáo &amp; Phân tích</span> / <strong>Trung tâm Báo cáo</strong></div>
+    </div>
+    <div class="rc-content">
+      <h1 class="rc-title">Trung tâm Báo cáo</h1>
+      <p class="rc-desc">Các báo cáo và dashboard bạn được phép xem. Danh sách tùy theo quyền của tài khoản.</p>
+      <div id="ec-rc-sections">
+        <div class="rc-empty">Đang tải…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script id="ec-reports-center">
+(function () {
+  var ICON = '<svg viewBox="0 0 24 24"><path d="M4 19V5m0 14h16M8 16v-5m4 5V8m4 8v-3"/></svg>';
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  var TOOL_ICON = '<svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4l-5 5a2.1 2.1 0 0 0 3 3l5-5a4 4 0 0 0 5.4-5.4l-2.2 2.2-2.1-2.1z"/></svg>';
+  function card(r){
+    var soon = r.status !== 'Active' || !r.route;
+    var isTool = r.type === 'Công cụ';
+    var inner =
+      '<div class="rc-ic">' + (isTool ? TOOL_ICON : ICON) + '</div>' +
+      '<div class="rc-ct">' + esc(r.title) + '</div>' +
+      '<div class="rc-cd">' + esc(r.description) + '</div>' +
+      '<span class="rc-badge">' + esc(soon ? 'Sắp ra mắt' : r.category) + '</span>';
+    if (soon) return '<div class="rc-card rc-soon">' + inner + '</div>';
+    // external tools open in a new tab (noopener: never expose window.opener)
+    var attrs = r.new_tab ? ' target="_blank" rel="noopener noreferrer"' : '';
+    return '<a class="rc-card" href="' + esc(r.route) + '"' + attrs + '>' + inner + '</a>';
+  }
+  function section(title, list){
+    if (!list.length) return '';
+    return '<h2 class="rc-sec">' + esc(title) + '</h2>'
+         + '<div class="rc-grid">' + list.map(card).join('') + '</div>';
+  }
+  function render(items){
+    var host = document.getElementById('ec-rc-sections');
+    if (!host) return;
+    if (!items || !items.length){
+      host.innerHTML = '<div class="rc-empty">Chưa có mục nào bạn được phép xem.</div>';
+      return;
+    }
+    var reports = items.filter(function(x){ return x.type !== 'Công cụ'; });
+    var tools = items.filter(function(x){ return x.type === 'Công cụ'; });
+    host.innerHTML = section('Báo cáo', reports) + section('Công cụ', tools);
+  }
+  function load(){
+    if (!window.frappe || !frappe.call){ setTimeout(load, 150); return; }
+    frappe.call({ method: 'ecentric_workspace.reporting.api.catalog.list_reports_catalog' })
+      .then(function(r){ render((r && r.message && r.message.reports) || []); })
+      .catch(function(){ render([]); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load);
+  else load();
+})();
+</script>

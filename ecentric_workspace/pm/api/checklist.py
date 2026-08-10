@@ -145,6 +145,53 @@ def add_item(task, title, is_required=0):
     return _summary(frappe.get_doc("Task", task))
 
 
+def _chk_editable_doc(task):
+    """Shared gate for checklist mutations: PM access + can_view_task + not terminal."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    doc = frappe.get_doc("Task", task)
+    if not pmperm.can_view_task(doc.as_dict(), user):
+        frappe.throw(_("Not permitted to edit this task's checklist."), frappe.PermissionError)
+    pmperm.assert_task_not_terminal(
+        doc, _("Không thể chỉnh checklist sau khi nhiệm vụ đã hoàn thành/huỷ. Vui lòng Reopen trước."))
+    return doc
+
+
+@frappe.whitelist()
+def remove_item(task, row_name):
+    """Delete ONE checklist step by child row name (standard document API, audited)."""
+    doc = _chk_editable_doc(task)
+    row = None
+    for it in (doc.get("pm_checklist") or []):
+        if it.name == row_name:
+            row = it
+            break
+    if not row:
+        frappe.throw(_("Checklist item not found."))
+    doc.remove(row)
+    doc.save(ignore_permissions=True)
+    return _summary(frappe.get_doc("Task", task))
+
+
+@frappe.whitelist()
+def update_item(task, row_name, title):
+    """Rename ONE checklist step by child row name. Title required + trimmed."""
+    doc = _chk_editable_doc(task)
+    title = (title or "").strip()
+    if not title:
+        frappe.throw(_("Tên bước là bắt buộc."))
+    row = None
+    for it in (doc.get("pm_checklist") or []):
+        if it.name == row_name:
+            row = it
+            break
+    if not row:
+        frappe.throw(_("Checklist item not found."))
+    row.item_label = title
+    doc.save(ignore_permissions=True)
+    return _summary(frappe.get_doc("Task", task))
+
+
 @frappe.whitelist()
 def counts(task_names):
     """G4: batch checklist progress for a list of task names (read-only, no N calls).

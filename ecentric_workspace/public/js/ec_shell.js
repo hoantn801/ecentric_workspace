@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.17.1 (GD2 C2 UAT: canonical creation routes MSO=/mso-plan-form, SO=/gbs-so-form-v2, PO=/gbs-po-form-v2; legacy routes kept as active_patterns)';
+  var VERSION = 'ec-shell v1.18.0 (hash-active segment match: #ctx/sub views like /pm#work/board|calendar|gantt highlight their base nav item instead of falling back to the first view)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -271,19 +271,30 @@
     return bestKey;
   }
 
+  function hashSeg(h) {                         // first path segment of a hash
+    var s = String(h || '').replace(/^#/, '');
+    var i = s.indexOf('/');
+    return i < 0 ? s : s.slice(0, i);
+  }
+
   function hashActiveKey(items, pathname, hash) {
     var path = normPath(pathname);
     var h = hash || '';
-    var fallback = null, exact = null;
+    var curSeg = hashSeg(h);
+    var fallback = null, exact = null, seg = null;
     flattenNav(items).forEach(function (it) {
       var r = it.route || '';
       var hi = r.indexOf('#');
       if (hi < 0) return;                      // MPA item -> not our concern
       if (normPath(r.slice(0, hi)) !== path) return;
       if (fallback === null) fallback = it.key; // first same-path view
-      if (('#' + r.slice(hi + 1)) === h) exact = it.key;
+      var rh = '#' + r.slice(hi + 1);
+      if (rh === h) exact = it.key;
+      // sub-view (e.g. #work/board) shares the base nav item (#work/list):
+      // match on first hash segment when no exact hit exists.
+      if (seg === null && curSeg && hashSeg(rh) === curSeg) seg = it.key;
     });
-    return exact || fallback;                  // empty/other hash -> first view
+    return exact || seg || fallback;           // empty/other hash -> first view
   }
 
   function hasHashItems(items) {

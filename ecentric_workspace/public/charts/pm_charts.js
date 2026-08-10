@@ -120,7 +120,7 @@
       animationDuration: anim.duration, animationEasing: anim.easing,
       grid: Object.assign({}, themeGrid, { top: 10, bottom: 6, left: 6, right: 16, containLabel: true }),
       tooltip: themeTooltip({ trigger: "axis", axisPointer: { type: "shadow" } }),
-      legend: themeLegend({ bottom: 0, data: ["Đang mở", "Rủi ro"] }),
+      legend: themeLegend({ bottom: 0, data: ["Đang mở", "Rủi ro"], itemGap: 26, itemWidth: 14, itemHeight: 10, padding: [4, 8] }),
       xAxis: { type: "value", axisLabel: themeAxisLabel, splitLine: themeSplit, minInterval: 1 },
       yAxis: { type: "category", inverse: true, data: names, axisLabel: themeAxisLabel,
         axisTick: { show: false }, axisLine: { show: false } },
