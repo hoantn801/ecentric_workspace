@@ -1,4 +1,4 @@
-﻿# Patches for ecentric_workspace
+# Patches for ecentric_workspace
 # Format: <category>.<module>.<patch_file_name>
 
 [pre_model_sync]
