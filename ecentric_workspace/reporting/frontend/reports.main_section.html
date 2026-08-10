@@ -35,6 +35,9 @@
   #ec-rc-root .rc-content{ padding:24px; max-width:1320px; width:100%; }
   #ec-rc-root .rc-title{ font-size:24px; font-weight:800; color:var(--gray-900); letter-spacing:-.4px; margin:0 0 4px; }
   #ec-rc-root .rc-desc{ font-size:13.5px; color:var(--gray-500); margin:0 0 20px; max-width:640px; }
+  #ec-rc-root .rc-sec{ font-size:13px; font-weight:700; letter-spacing:.4px; text-transform:uppercase;
+    color:var(--gray-500); margin:26px 0 12px; }
+  #ec-rc-root .rc-sec:first-child{ margin-top:0; }
   #ec-rc-root .rc-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(288px,1fr)); gap:16px; }
   #ec-rc-root .rc-card{ background:#fff; border:1px solid var(--gray-200); border-radius:14px;
     padding:18px; display:flex; flex-direction:column; gap:10px; text-decoration:none; color:inherit;
@@ -62,8 +65,8 @@
     <div class="rc-content">
       <h1 class="rc-title">Trung tâm Báo cáo</h1>
       <p class="rc-desc">Các báo cáo và dashboard bạn được phép xem. Danh sách tùy theo quyền của tài khoản.</p>
-      <div class="rc-grid" id="ec-rc-grid">
-        <div class="rc-empty">Đang tải báo cáo…</div>
+      <div id="ec-rc-sections">
+        <div class="rc-empty">Đang tải…</div>
       </div>
     </div>
   </div>
@@ -74,24 +77,35 @@
   var ICON = '<svg viewBox="0 0 24 24"><path d="M4 19V5m0 14h16M8 16v-5m4 5V8m4 8v-3"/></svg>';
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  var TOOL_ICON = '<svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4l-5 5a2.1 2.1 0 0 0 3 3l5-5a4 4 0 0 0 5.4-5.4l-2.2 2.2-2.1-2.1z"/></svg>';
   function card(r){
     var soon = r.status !== 'Active' || !r.route;
+    var isTool = r.type === 'Công cụ';
     var inner =
-      '<div class="rc-ic">' + ICON + '</div>' +
+      '<div class="rc-ic">' + (isTool ? TOOL_ICON : ICON) + '</div>' +
       '<div class="rc-ct">' + esc(r.title) + '</div>' +
       '<div class="rc-cd">' + esc(r.description) + '</div>' +
       '<span class="rc-badge">' + esc(soon ? 'Sắp ra mắt' : r.category) + '</span>';
     if (soon) return '<div class="rc-card rc-soon">' + inner + '</div>';
-    return '<a class="rc-card" href="' + esc(r.route) + '">' + inner + '</a>';
+    // external tools open in a new tab (noopener: never expose window.opener)
+    var attrs = r.new_tab ? ' target="_blank" rel="noopener noreferrer"' : '';
+    return '<a class="rc-card" href="' + esc(r.route) + '"' + attrs + '>' + inner + '</a>';
   }
-  function render(reports){
-    var grid = document.getElementById('ec-rc-grid');
-    if (!grid) return;
-    if (!reports || !reports.length){
-      grid.innerHTML = '<div class="rc-empty">Chưa có báo cáo nào bạn được phép xem.</div>';
+  function section(title, list){
+    if (!list.length) return '';
+    return '<h2 class="rc-sec">' + esc(title) + '</h2>'
+         + '<div class="rc-grid">' + list.map(card).join('') + '</div>';
+  }
+  function render(items){
+    var host = document.getElementById('ec-rc-sections');
+    if (!host) return;
+    if (!items || !items.length){
+      host.innerHTML = '<div class="rc-empty">Chưa có mục nào bạn được phép xem.</div>';
       return;
     }
-    grid.innerHTML = reports.map(card).join('');
+    var reports = items.filter(function(x){ return x.type !== 'Công cụ'; });
+    var tools = items.filter(function(x){ return x.type === 'Công cụ'; });
+    host.innerHTML = section('Báo cáo', reports) + section('Công cụ', tools);
   }
   function load(){
     if (!window.frappe || !frappe.call){ setTimeout(load, 150); return; }

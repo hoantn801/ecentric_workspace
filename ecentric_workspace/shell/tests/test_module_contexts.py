@@ -72,7 +72,8 @@ class TestContextOwnership(unittest.TestCase):
 
     def test_home_and_hall_unchanged_portal(self):
         home = nav.compose("home")
-        self.assertEqual(len(home), 16)
+        # 16 restored-IA items + 1 approved addition: "Trung tâm Báo cáo" (/reports)
+        self.assertEqual(len(home), 17)
         hall = next(i for i in home if i["route"] == "/hall")
         self.assertNotIn("alias", hall)   # /hall stays canonical portal-owned
 

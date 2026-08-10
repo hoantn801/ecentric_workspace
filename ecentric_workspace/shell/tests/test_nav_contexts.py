@@ -61,7 +61,8 @@ class TestRouteToContext(unittest.TestCase):
             if i["group"] not in groups:
                 groups.append(i["group"])
         self.assertEqual(groups, ["Workspace", "Nhân sự", "Báo cáo & Phân tích", "Tài nguyên"])
-        self.assertEqual(len(home), 16)
+        # 16 restored-IA items + 1 approved addition: "Trung tâm Báo cáo" (/reports)
+        self.assertEqual(len(home), 17)
         labels = {i["label"]: i["route"] for i in home}
         # approved route migrations
         self.assertEqual(labels["Phê duyệt"], "/approvals")

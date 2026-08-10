@@ -28,8 +28,9 @@ def list_reports_catalog(include_disabled_admin=0):
 
     rows = frappe.get_all(
         "EC Report",
-        fields=["name", "report_title", "category", "card_status", "route",
-                "icon", "description", "visibility_mode", "sort_order"],
+        fields=["name", "report_title", "card_type", "category", "card_status",
+                "route", "open_new_tab", "icon", "description", "visibility_mode",
+                "sort_order"],
         order_by="sort_order asc, report_title asc",
     )
     roles_map = _child_map("EC Report Role", "role")
@@ -44,13 +45,17 @@ def list_reports_catalog(include_disabled_admin=0):
             ctx=ctx, include_disabled=include_disabled,
         ):
             continue
+        route = (r.route or "") if r.card_status == "Active" else ""
+        external = route.startswith("http://") or route.startswith("https://")
         cards.append({
             "code": r.name,
             "title": r.report_title,
+            "type": r.card_type or "Báo cáo",
             "category": r.category or "Khác",
             "status": r.card_status,
             # a route is only exposed for an Active card (never a dead link)
-            "route": (r.route or "") if r.card_status == "Active" else "",
+            "route": route,
+            "new_tab": bool(r.open_new_tab) or external,
             "icon": r.icon or "chart",
             "description": r.description or "",
         })
