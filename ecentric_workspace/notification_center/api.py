@@ -21,7 +21,7 @@ from ecentric_workspace.notification_center.resolvers import resolve_notificatio
 
 # Native Notification Log fields we read (all standard Frappe v15 fields).
 _FIELDS = ["name", "subject", "email_content", "document_type", "document_name",
-           "from_user", "read", "type", "creation"]
+           "from_user", "read", "type", "creation", "link"]
 _MAX_LIMIT = 50
 
 
