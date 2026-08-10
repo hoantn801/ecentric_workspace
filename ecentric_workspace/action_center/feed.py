@@ -475,8 +475,20 @@ def _classified_feed(user):
                     it["due_at"] = due
             elif st == "task" and rn in tsk:
                 terminal, active, due = tsk[rn]
-                if due and not it.get("due_at"):
-                    it["due_at"] = due
+                # A PM task's deadline is GOVERNED by its exp_end_date, NEVER the
+                # assignment ToDo.date. `frappe.desk.form.assign_to.add` is called
+                # without a date (pm/api/tasks.py), so ToDo.date defaults to the
+                # assignment day -- using it as the due date wrongly marks a live,
+                # long-running task overdue from the day it was assigned. Override
+                # with exp_end_date; a task with no exp_end_date -> undated (never
+                # inferred from the assignment day).
+                # EXCEPTION: assignment-request reminders (tagged [XN:<req>]) carry
+                # a meaningful PROPOSED schedule in ToDo.date -> keep what
+                # resolve_item already surfaced as due_at for those.
+                if "[XN:" in (r.get("description") or ""):
+                    pass
+                else:
+                    it["due_at"] = due or ""
             elif st == "weekly_report" and rn in wtu:
                 terminal, active, _ = wtu[rn]
         bucket = classify(it.get("due_at"), today, active, terminal)
