@@ -1,0 +1,138 @@
+{
+ "doctype": "DocType",
+ "name": "EC Report",
+ "module": "Reporting",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "engine": "InnoDB",
+ "naming_rule": "By fieldname",
+ "autoname": "field:report_code",
+ "title_field": "report_title",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "sort_order",
+ "sort_order": "ASC",
+ "field_order": [
+  "report_code",
+  "report_title",
+  "category",
+  "sort_order",
+  "column_break_meta",
+  "card_status",
+  "route",
+  "icon",
+  "description",
+  "section_break_visibility",
+  "visibility_mode",
+  "allowed_roles",
+  "allowed_departments"
+ ],
+ "fields": [
+  {
+   "fieldname": "report_code",
+   "fieldtype": "Data",
+   "label": "Report Code",
+   "reqd": 1,
+   "unique": 1,
+   "set_only_once": 1,
+   "description": "UPPER_SNAKE integration key; becomes the record name and cannot change."
+  },
+  {
+   "fieldname": "report_title",
+   "fieldtype": "Data",
+   "label": "Report Title",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "label": "Category",
+   "options": "Doanh thu\nCommercial\nVận hành\nNhân sự\nKhác",
+   "default": "Khác",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Sort Order",
+   "default": "0"
+  },
+  {
+   "fieldname": "column_break_meta",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "card_status",
+   "fieldtype": "Select",
+   "label": "Card Status",
+   "options": "Active\nComing Soon\nDisabled",
+   "default": "Coming Soon",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "route",
+   "fieldtype": "Data",
+   "label": "Route",
+   "description": "Destination path, must start with '/' when Card Status is Active."
+  },
+  {
+   "fieldname": "icon",
+   "fieldtype": "Data",
+   "label": "Icon",
+   "description": "Icon key resolved by the shell ICONS map (e.g. chart, wallet, activity)."
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "section_break_visibility",
+   "fieldtype": "Section Break",
+   "label": "Visibility"
+  },
+  {
+   "fieldname": "visibility_mode",
+   "fieldtype": "Select",
+   "label": "Visibility Mode",
+   "options": "All Internal Users\nRestricted Roles\nRestricted Departments\nAdmin Only",
+   "default": "All Internal Users",
+   "reqd": 1,
+   "description": "UX card visibility only. The destination page/API is the real security boundary."
+  },
+  {
+   "fieldname": "allowed_roles",
+   "fieldtype": "Table",
+   "label": "Allowed Roles",
+   "options": "EC Report Role",
+   "depends_on": "eval:doc.visibility_mode=='Restricted Roles'"
+  },
+  {
+   "fieldname": "allowed_departments",
+   "fieldtype": "Table",
+   "label": "Allowed Departments",
+   "options": "EC Report Department",
+   "depends_on": "eval:doc.visibility_mode=='Restricted Departments'"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

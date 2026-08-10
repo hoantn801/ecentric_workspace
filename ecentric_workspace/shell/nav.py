@@ -180,7 +180,7 @@ CONTEXTS = {
     "reporting": {
         "providers": ["core", "reporting"],
         "entry": {"key": "ctx.reporting", "label": "Báo cáo & Phân tích",
-                  "route": "/weekly-update", "icon": "chart"},
+                  "route": "/reports", "icon": "chart"},
     },
     "pm": {
         "providers": ["core", "pm"],

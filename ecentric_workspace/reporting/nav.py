@@ -2,6 +2,11 @@
 """Reporting navigation provider (context `reporting`)."""
 
 ITEMS = [
+    {"key": "reporting.hub", "label": "Trung tâm Báo cáo", "route": "/reports",
+     "icon": "grid", "group": "Báo cáo & Phân tích", "order": 5,
+     "active_patterns": ["/reports", "/reports/*"],
+     "visible_when": "internal", "owner": "reporting",
+     "keywords": ["trung tam bao cao", "reports", "bao cao", "pnl", "commercial"]},
     {"key": "reporting.weekly", "label": "Báo cáo tuần", "route": "/weekly-update",
      "icon": "chart", "group": "Báo cáo & Phân tích", "order": 10,
      "active_patterns": ["/weekly-update"],   # ?week= deep links: query is
