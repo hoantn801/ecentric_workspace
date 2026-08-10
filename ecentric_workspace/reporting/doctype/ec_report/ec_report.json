@@ -17,11 +17,13 @@
  "field_order": [
   "report_code",
   "report_title",
+  "card_type",
   "category",
   "sort_order",
   "column_break_meta",
   "card_status",
   "route",
+  "open_new_tab",
   "icon",
   "description",
   "section_break_visibility",
@@ -45,6 +47,16 @@
    "label": "Report Title",
    "reqd": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "card_type",
+   "fieldtype": "Select",
+   "label": "Loại",
+   "options": "Báo cáo\nCông cụ",
+   "default": "Báo cáo",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Báo cáo = dashboard/số liệu. Công cụ = tiện ích tích hợp (Metric, Kalodata...)."
   },
   {
    "fieldname": "category",
@@ -76,8 +88,15 @@
   {
    "fieldname": "route",
    "fieldtype": "Data",
-   "label": "Route",
-   "description": "Destination path, must start with '/' when Card Status is Active."
+   "label": "Route / URL",
+   "description": "Internal path starting with '/' (e.g. /pnl-dashboard) OR an external tool URL (https://...)."
+  },
+  {
+   "fieldname": "open_new_tab",
+   "fieldtype": "Check",
+   "label": "Mở tab mới",
+   "default": "0",
+   "description": "Tự bật cho URL ngoài. Dùng cho công cụ tích hợp bên thứ ba."
   },
   {
    "fieldname": "icon",

@@ -29,6 +29,11 @@ class ECReport(Document):
 
         route = (self.route or "").strip()
         self.route = route
+        is_external = route.startswith("http://") or route.startswith("https://")
         if self.card_status == "Active":
-            if not route or not route.startswith("/"):
-                frappe.throw(_("An Active report needs a Route starting with '/'."))
+            if not route or not (route.startswith("/") or is_external):
+                frappe.throw(_("An Active card needs a Route starting with '/' "
+                               "or a full https:// URL (external tool)."))
+        # external tools always open in a new tab
+        if is_external:
+            self.open_new_tab = 1

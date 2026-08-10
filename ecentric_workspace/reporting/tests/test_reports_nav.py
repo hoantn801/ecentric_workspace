@@ -24,6 +24,21 @@ class TestReportsNav(unittest.TestCase):
     def test_reports_route_resolves_to_reporting_context(self):
         self.assertEqual(nav.resolve_context("/reports"), "reporting")
 
+    def test_home_portal_sidebar_shows_reports_hub(self):
+        # the HOMEPAGE sidebar renders HOME_PORTAL_ITEMS, a list separate from
+        # the reporting provider -- the hub must be declared there too or it is
+        # invisible on /home (regression: it was missing on first deploy).
+        portal = {i["route"]: i for i in nav.compose("home")}
+        self.assertIn("/reports", portal)
+        it = portal["/reports"]
+        self.assertEqual(it["group"], "Báo cáo & Phân tích")
+        self.assertTrue(it.get("alias"), "portal entry is an alias of the canonical reporting item")
+
+    def test_reports_not_duplicated_in_discovery(self):
+        # alias items are excluded from compose_all(), so /reports appears once
+        routes = [i["route"] for i in nav.compose_all()]
+        self.assertEqual(routes.count("/reports"), 1)
+
     def test_full_registry_still_valid(self):
         # compose_all() runs validate() across every provider -> no dup key/route
         allr = [it["route"] for it in nav.compose_all()]
