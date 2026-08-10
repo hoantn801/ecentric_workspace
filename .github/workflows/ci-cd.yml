@@ -1,0 +1,95 @@
+# Auto Deploy sẵn có của Frappe Cloud chạy ngay khi nhận webhook GitHub, tức là SONG SONG
+# với CI. Muốn "chỉ deploy khi kiểm xanh" thì phải TẮT Auto Deploy trên dashboard của bench
+# group và để job `deploy` bên dưới bấm nút.
+#
+# Cần cấu hình trước ở Settings của repo:
+#   Secrets   FC_API_KEY, FC_API_SECRET
+#   Variables FC_BENCH_GROUP, FC_TEAM, và FC_HOST (tuỳ chọn)
+#
+# Lấy FC_BENCH_GROUP / FC_TEAM bằng `python tools/ci/deploy_frappe_cloud.py --list-groups`.
+# ĐỪNG chép giá trị từ repo ecentric_app sang: đó là bench group của app khác.
+
+name: CI/CD
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      skip_sites:
+        description: "Only deploy app code, skip site creation and migration"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  pre-deploy:
+    name: Pre-deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Khớp `requires-python = ">=3.10"` trong pyproject.toml và bản Python của
+          # bench Frappe v16 (xem [tool.bench.frappe-dependencies]). Đổi ở đây thì đổi
+          # cả hai chỗ kia.
+          python-version: "3.12"
+
+      - name: Install jinja2
+        # Phụ thuộc DUY NHẤT của bộ Pre-deploy. KHÔNG cài frappe: phép kiểm `pagesync`
+        # import các module page_sync bằng stub trong tools/ci/stubs, còn frappe thật thì
+        # đòi site + DB + Redis -- tức là hết còn là một job CI nhẹ.
+        run: python -m pip install --quiet "jinja2>=3.1"
+
+      - name: Pre-deploy before deploy
+        run: python tools/ci/check.py
+
+  deploy:
+    name: Deploy lên Frappe Cloud
+    needs: pre-deploy
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Environment `frappe-cloud` giữ secret và cho phép bật "Required reviewers" nếu
+    # sau này muốn chèn một bước duyệt tay trước khi lên production.
+    environment: frappe-cloud
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check required variables
+        # Thiếu biến thì hỏng ngay ở đây với một câu tiếng người, thay vì hỏng bên trong
+        # script với "Thiếu --group".
+        run: |
+          test -n "${{ vars.FC_BENCH_GROUP }}" || {
+            echo "No repository variable FC_BENCH_GROUP."
+            echo "Get name via: python tools/ci/deploy_frappe_cloud.py --list-groups"
+            exit 1
+          }
+          test -n "${{ vars.FC_TEAM }}" || {
+            echo "No repository variable FC_TEAM."
+            echo "If empty, Press will use the default team of the user and return an empty list."
+            exit 1
+          }
+
+      - name: Trigger deploy
+        env:
+          FC_API_KEY: ${{ secrets.FC_API_KEY }}
+          FC_API_SECRET: ${{ secrets.FC_API_SECRET }}
+          FC_HOST: ${{ vars.FC_HOST || 'https://cloud.frappe.io' }}
+        run: |
+          python tools/ci/deploy_frappe_cloud.py \
+            --group "${{ vars.FC_BENCH_GROUP }}" \
+            --team "${{ vars.FC_TEAM }}" \
+            --app ecentric_workspace \
+            --commit "${{ github.sha }}" \
+            ${{ inputs.skip_sites && '--skip-sites' || '' }} \
+            --wait
