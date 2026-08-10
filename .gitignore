@@ -10,3 +10,7 @@ dist/
 .DS_Store
 *.swp
 *.swo
+
+# tools/ci/deploy_frappe_cloud.py đọc FC_API_KEY / FC_API_SECRET từ file này khi chạy ở
+# máy. Trên CI thì secret đến từ môi trường và không có .env nào cả.
+.env
