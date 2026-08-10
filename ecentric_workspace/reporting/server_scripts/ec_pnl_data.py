@@ -30,6 +30,20 @@
 # item_group snapshot tren dong SO - snapshot bi lech (REV_MKT_DAYLYLIVE nam o
 # ca 2 nhom). Chi tiet cap 2 la item_code.
 #
+# QUYEN XEM (siet lai 2026-08-10 theo yeu cau cua Hoan):
+#   Chi cho vao khi thoa MOT trong ba dieu kien:
+#     1. co role 'System Manager'
+#     2. co ban ghi 'EC Viewer Permission' voi scope = 'all'
+#     3. Employee.department = 'Management - EC'
+#   Ban dau con dieu kien thu 4 la "co nhan su truc thuoc" (reports_to tro ve
+#   minh). Da BO: dieu kien do bat trung ca truong nhom cap duoi phong ban
+#   (Project Lead, Senior Project Lead, Analytics Engineer, Merchandise &
+#   Content Lead) chu khong chi cap quan ly phong -> 13 nguoi thay vi 8.
+#   KHONG loc bang tu khoa designation (quy tac A14); ranh gioi duy nhat co
+#   that trong du lieu la phong ban 'Management - EC'. Doctype 'Global Role'
+#   (ceo/hof) KHONG ton tai tren site nay - chi nam trong runbook trong _archive.
+#   Mo them cho ai = them ban ghi EC Viewer Permission scope='all', khong sua code.
+#
 # Params (form_dict, tat ca optional):
 #   date_from, date_to : YYYY-MM-DD. Mac dinh = khoang co du lieu.
 #   granularity        : day | week | month  (mac dinh month)
@@ -94,13 +108,6 @@ else:
             scope_mode = "admin"
     if not scope_mode and viewer_dept == MGMT_DEPT:
         scope_mode = "management"
-    if not scope_mode and emp_key:
-        sub_rows = frappe.db.sql("""
-            SELECT name FROM `tabEmployee`
-            WHERE status = 'Active' AND reports_to = %s LIMIT 1
-        """, (emp_key,))
-        if sub_rows:
-            scope_mode = "manager"
 
 if not scope_mode:
     frappe.response["message"] = {

@@ -738,9 +738,9 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
       if (!res.ok) {
         $("pnl-filter-card").className = "pnl-card pnl-hidden";
         if (res.error === "no_permission") {
-          showErr("Bạn không có quyền xem báo cáo doanh thu này. Trang chỉ mở cho CEO, "
-                + "HOF và cấp quản lý có nhân sự trực thuộc. Nếu bạn cho rằng đây là nhầm lẫn, "
-                + "báo phòng Operation, System & Data để kiểm tra lại hồ sơ nhân sự của bạn.");
+          showErr("Bạn không có quyền xem báo cáo doanh thu này. Trang chỉ mở cho ban điều hành "
+                + "(phòng Management). Nếu bạn cho rằng đây là nhầm lẫn, báo phòng Operation, "
+                + "System & Data để kiểm tra lại hồ sơ nhân sự của bạn.");
         } else {
           showErr(res.message || "Không tải được báo cáo. Hãy thử lại sau ít phút.");
         }
