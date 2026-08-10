@@ -75,7 +75,7 @@ def _html():
 # values, so a repo snapshot can never silently revert a live edit. Deliberate
 # update = edit main_section.html, bump this constant, and move the value it
 # replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "60294cbc6f4a8f7b51a95d1d2ed2d2d1938ab68098ebae527a817ac3676d5f12"
+BASELINE_SHA256 = "533b91dbec7f3cb492e66cf2b26bf7fb7d855b09976e4c4eae3da65d499b107a"
 
 # Live values this snapshot is allowed to overwrite. C4b was authored in the
 # repo, not on the site, so at deploy time live still holds the #138 bytes
@@ -89,6 +89,12 @@ BASELINE_SHA256 = "60294cbc6f4a8f7b51a95d1d2ed2d2d1938ab68098ebae527a817ac3676d5
 # it listed lets those environments sync forward; on team.ecentric.vn live is
 # already at BASELINE_SHA256, so the first sync there returns "unchanged".
 SUPERSEDES_SHA256 = (
+    # bytes cua 0fc4abf ("SO doi ung" + tao PO tu SO + VAT + uu tien 2 nac). Day la
+    # baseline DUNG cho toi khi PR #241 (b082c2a, ec-datepicker: them data-ec-dp-range
+    # vao form loc) sua main_section.html ma KHONG bump BASELINE_SHA256 -- sync ghi
+    # duoc dung mot lan roi refused vinh vien. tools/ci/check.py (phep kiem `pagesync`)
+    # bat duoc sai lech do; entry nay cho moi truong con giu bytes 0fc4abf di tiep.
+    "60294cbc6f4a8f7b51a95d1d2ed2d2d1938ab68098ebae527a817ac3676d5f12",
     # bytes truoc khi ghi ro "SO doi ung" (2026-08-07): 15/22 SO so EC la phieu doi
     # ung do backend ec_revenue_engine tu sinh khi GBS SO duoc duyet, nhung tren trang
     # duyet khong co dau hieu nao -- nguoi xem tuong la don hang eCentric ban. Them

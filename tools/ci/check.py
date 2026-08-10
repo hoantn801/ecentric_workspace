@@ -432,7 +432,9 @@ def check_pagesync():
             "SUPERSEDES_SHA256 = (\"%s\",)"
             % (rel(path), baseline, actual, actual, baseline))
 
-    summary = "%d trang khớp sha" % checked
+    # `checked` là số trang ĐÃ BĂM được, không phải số trang khớp -- gọi nó là "khớp"
+    # thì dòng tóm tắt sẽ nói "35 trang khớp sha" ngay bên cạnh 3 trang đang RỚT.
+    summary = "%d trang kiểm sha" % checked
     if skipped:
         summary += ", %d bỏ qua (BASELINE_SHA256 = None)" % skipped
     return problems, summary
