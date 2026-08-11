@@ -176,7 +176,16 @@ def can_view_task(task, user=None):
         return True
     if task.get("owner") == user:
         return True
-    if user in assignees_of(task):
+    assignees = assignees_of(task)
+    # `Document.as_dict()` does NOT reliably surface the system `_assign` column, so a task
+    # dict built from as_dict() can look unassigned even when the caller IS an assignee
+    # (this wrongly denied cross-department assignees "Not permitted to view this task").
+    # When no assignee is visible on the passed-in task but we have its name, read the
+    # authoritative `_assign` from the DB before denying.
+    if not assignees and task.get("name"):
+        raw = frappe.db.get_value("Task", task.get("name"), "_assign")
+        assignees = [u for u in (frappe.parse_json(raw or "[]") or []) if u]
+    if user in assignees:
         return True
     project = task.get("project")
     if project and can_view_project(project, user):

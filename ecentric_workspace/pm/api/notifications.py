@@ -16,7 +16,7 @@ from frappe.utils import nowdate, getdate, today, add_days
 
 from ecentric_workspace.pm import permissions as pmperm
 from ecentric_workspace.notification_center import events as ncev
-from ecentric_workspace.action_center.resolvers import build_task_url
+from ecentric_workspace.action_center.resolvers import build_pm_task_url
 
 
 def _stable_dedupe(event_type, task_name, user, suffix=None):
@@ -43,7 +43,7 @@ def notify_users(users, subject, task_name, from_user=None, dedup_key=None,
             return
     except Exception:
         pass
-    url = action_url or build_task_url(task_name)
+    url = action_url or build_pm_task_url(task_name)
     seen = set()
     for u in users or []:
         if not u or u == from_user or u in seen or u == "Administrator":
@@ -72,7 +72,7 @@ def notify_task_assignment(users, task_name, subject="", actor=None):
             return
     except Exception:
         pass
-    url = build_task_url(task_name)
+    url = build_pm_task_url(task_name)
     seen = set()
     for u in users or []:
         if not u or u == actor or u in seen or u == "Administrator":
