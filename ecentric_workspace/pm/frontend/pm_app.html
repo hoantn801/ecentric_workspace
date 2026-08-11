@@ -163,6 +163,34 @@
   .pm-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:12px; flex-wrap:wrap; }
   .pm-head h1{ font-size:18px; font-weight:700; color:var(--gray-900); letter-spacing:-0.3px; margin:0; }
   .pm-head .sub{ color:var(--gray-500); font-size:13px; margin-top:2px; }
+  /* ===== Hướng dẫn (guide) — scoped .pm-guide ===== */
+  .pm-guide{ max-width:920px; }
+  .pm-guide .g-hero{ background:linear-gradient(135deg,var(--navy),#3b1d6e); color:#fff; border-radius:16px; padding:22px 24px; margin-bottom:18px; }
+  .pm-guide .g-hero h2{ margin:0 0 6px; font-size:20px; font-weight:800; letter-spacing:-0.3px; }
+  .pm-guide .g-hero p{ margin:0; font-size:13.5px; line-height:1.6; opacity:.92; }
+  .pm-guide .g-toc{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px; }
+  .pm-guide .g-toc a{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; color:var(--navy); background:var(--navy-50); border:1px solid var(--gray-200); padding:6px 11px; border-radius:20px; text-decoration:none; }
+  .pm-guide .g-toc a:hover{ background:var(--navy); color:#fff; }
+  .pm-guide .g-step{ position:relative; background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:18px 20px 18px 20px; margin-bottom:16px; }
+  .pm-guide .g-step .g-num{ position:absolute; top:-11px; left:18px; width:26px; height:26px; border-radius:50%; background:var(--navy); color:#fff; font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,.15); }
+  .pm-guide .g-step h3{ margin:4px 0 4px; font-size:16px; font-weight:700; color:var(--gray-900); display:flex; align-items:center; gap:9px; }
+  .pm-guide .g-step h3 .g-ic{ width:20px; height:20px; color:var(--navy); flex-shrink:0; }
+  .pm-guide .g-step h3 .g-ic svg{ width:20px; height:20px; stroke:currentColor; fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+  .pm-guide .g-step .g-lead{ color:var(--gray-600); font-size:13.5px; line-height:1.6; margin:2px 0 12px; }
+  .pm-guide .g-ol{ margin:0; padding:0; list-style:none; counter-reset:gsub; }
+  .pm-guide .g-ol li{ position:relative; padding:6px 0 6px 30px; font-size:13.5px; line-height:1.6; color:var(--gray-800); border-top:1px dashed var(--gray-100); }
+  .pm-guide .g-ol li:first-child{ border-top:none; }
+  .pm-guide .g-ol li::before{ counter-increment:gsub; content:counter(gsub); position:absolute; left:0; top:7px; width:20px; height:20px; border-radius:50%; background:var(--gray-100); color:var(--navy); font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .pm-guide .g-ol li b{ color:var(--gray-900); }
+  .pm-guide .g-pill{ display:inline-block; padding:1px 8px; border-radius:6px; background:var(--navy-50); color:var(--navy); font-size:12px; font-weight:700; }
+  .pm-guide .g-tip{ display:flex; gap:9px; background:#fef9e7; border:1px solid #f6e6a8; border-radius:10px; padding:10px 13px; margin-top:12px; font-size:12.8px; line-height:1.55; color:#7a5b00; }
+  .pm-guide .g-tip b{ color:#7a5b00; }
+  .pm-guide .g-two{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media(max-width:720px){ .pm-guide .g-two{ grid-template-columns:1fr; } }
+  .pm-guide .g-card{ border:1px solid var(--gray-200); border-radius:11px; padding:13px 14px; background:var(--gray-50); }
+  .pm-guide .g-card h4{ margin:0 0 5px; font-size:13.5px; font-weight:700; color:var(--gray-900); }
+  .pm-guide .g-card p{ margin:0; font-size:12.8px; line-height:1.55; color:var(--gray-600); }
+  .pm-guide .g-foot{ text-align:center; color:var(--gray-400); font-size:12px; margin:22px 0 8px; }
 
   .stats-strip{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px; }
   .stat-card{ background:#fff; border:1px solid var(--gray-200); border-radius:10px; padding:11px 13px; position:relative; overflow:hidden; }
@@ -733,6 +761,7 @@
   <symbol id="p-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
   <symbol id="p-back" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></symbol>
   <symbol id="p-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+  <symbol id="p-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
   <symbol id="p-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></symbol>
   <symbol id="p-inbox" viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.5 5h13l3.5 7v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/></symbol>
 </defs></svg>
@@ -757,6 +786,7 @@
       <!-- G4.11: PM sidebar "Thông báo" hidden (backend + topbar bell retained). -->
       <a class="nav-item" data-view="assignments"><svg class="icon"><use href="#p-inbox"/></svg><span>Yêu cầu giao việc</span></a>
       <div class="nav-label" style="margin-top:10px;">Khác</div>
+      <a class="nav-item" data-view="guide"><svg class="icon"><use href="#p-book"/></svg><span>Hướng dẫn</span></a>
       <a class="nav-item" href="/home"><svg class="icon"><use href="#p-back"/></svg><span>Về Workspace</span></a>
     </nav>
     <div class="sidebar-footer">
@@ -797,7 +827,7 @@
   var COLS=["Backlog","To Do","In Progress","Blocked","Review","Done","Cancelled"];
   var BOARD_COLS=["To Do","In Progress","Review","Done"]; /* Kanban = 4 core cols; Backlog/Blocked fold into To Do, Cancelled hidden. */
   var FILTER_STATES=["To Do","In Progress","Review","Done","Cancelled"]; /* lean status filter (drop Backlog/Blocked) */
-  var CRUMB={dashboard:"Tổng quan",mytasks:"Việc của tôi",projects:"Dự án",work:"Công việc",tasks:"Công việc",board:"Công việc",gantt:"Công việc",calendar:"Công việc",timesheet:"Timesheet",recurring:"Recurring",assignments:"Yêu cầu giao việc",notifications:"Thông báo"};
+  var CRUMB={dashboard:"Tổng quan",mytasks:"Việc của tôi",projects:"Dự án",work:"Công việc",tasks:"Công việc",board:"Công việc",gantt:"Công việc",calendar:"Công việc",timesheet:"Timesheet",recurring:"Recurring",assignments:"Yêu cầu giao việc",notifications:"Thông báo",guide:"Hướng dẫn"};
   var LIVE=(location.protocol!=="file:");  // live over http(s); mock only for offline file:// preview
   var el=function(id){return document.getElementById(id);};
   function st(s){return "st-"+(s||"Backlog").replace(/\s/g,"");}
@@ -3003,7 +3033,105 @@
   // replaced by raw Desk. The nav onclick below short-circuits before go() so
   // _curView / active nav / breadcrumb stay on the current PM view.
   function redirectToGlobalNotifications(){ window.open("/app/notification-log","_blank","noopener"); }
-  var VIEWS={dashboard:showDashboard,mytasks:showMyTasks,projects:showProjects,work:showWork,tasks:showTasks,board:showBoard,gantt:showGantt,calendar:showCalendar,timesheet:showTimesheet,recurring:showRecurring,assignments:showAssignments,notifications:redirectToGlobalNotifications};
+  function showGuide(){var c=el("pm-view");
+    function ic(id){return '<span class="g-ic"><svg viewBox="0 0 24 24"><use href="#'+id+'"/></svg></span>';}
+    function step(n,anchor,icon,title,lead,items,tip){
+      var li=items.map(function(x){return '<li>'+x+'</li>';}).join("");
+      return '<div class="g-step" id="'+anchor+'"><div class="g-num">'+n+'</div>'+
+        '<h3>'+ic(icon)+title+'</h3>'+
+        (lead?'<div class="g-lead">'+lead+'</div>':'')+
+        '<ol class="g-ol">'+li+'</ol>'+
+        (tip?'<div class="g-tip"><b>Mẹo:</b> '+tip+'</div>':'')+'</div>';
+    }
+    function jump(a){return "document.getElementById('"+a+"').scrollIntoView({behavior:'smooth',block:'start'})";}
+    var h=head("Hướng dẫn sử dụng","Làm quen với Quản lý dự án chỉ trong vài phút — theo đúng thứ tự bạn sẽ dùng hằng ngày.");
+    var body='<div class="pm-guide">';
+    body+='<div class="g-hero"><h2>Chào mừng đến với Quản lý dự án 👋</h2><p>Nơi bạn tạo dự án, giao việc cho đồng đội, theo dõi tiến độ và chấm giờ làm — tất cả trong một chỗ. Cứ đi lần lượt các bước bên dưới là dùng được ngay.</p></div>';
+    body+='<div class="g-toc">'+
+      '<a onclick="'+jump("g-s1")+'">1 · Tạo dự án</a>'+
+      '<a onclick="'+jump("g-s2")+'">2 · Tạo nhiệm vụ</a>'+
+      '<a onclick="'+jump("g-s3")+'">3 · Giao việc</a>'+
+      '<a onclick="'+jump("g-s4")+'">4 · Theo dõi</a>'+
+      '<a onclick="'+jump("g-s5")+'">5 · Việc của tôi</a>'+
+      '<a onclick="'+jump("g-s6")+'">6 · Làm & hoàn thành</a>'+
+      '<a onclick="'+jump("g-s7")+'">7 · Chấm giờ</a>'+
+      '<a onclick="'+jump("g-s8")+'">8 · Việc lặp lại</a>'+
+    '</div>';
+
+    body+=step(1,"g-s1","p-folder","Tạo dự án",
+      'Dự án là “thư mục lớn” gom các nhiệm vụ của một mảng công việc (ví dụ một khách hàng, một chiến dịch).',
+      ['Vào <span class="g-pill">Dự án</span> ở menu bên trái, bấm <b>+ Dự án mới</b>.',
+       'Nhập <b>tên dự án</b> và mô tả ngắn.',
+       'Chọn <b>Quản lý</b> (người phụ trách), <b>Phòng ban</b>, ngày <b>Bắt đầu</b> / <b>Hạn</b>, mức <b>Ưu tiên</b>.',
+       'Thêm <b>Nhãn</b> nếu muốn phân loại (gõ để tìm nhãn cũ hoặc tạo nhãn mới).',
+       'Bấm <b>Tạo dự án</b>. Dự án mới hiện ngay ở dạng thẻ với thanh tiến độ.'],
+      'Chưa cần điền hết — tên dự án là đủ để bắt đầu, các thông tin khác bổ sung sau cũng được.');
+
+    body+=step(2,"g-s2","p-plus","Tạo nhiệm vụ",
+      'Nhiệm vụ (task) là từng đầu việc cụ thể. Có thể tạo trong một dự án hoặc tạo lẻ.',
+      ['Mở một dự án (hoặc vào <span class="g-pill">Công việc</span>), bấm <b>+ Nhiệm vụ</b>.',
+       'Nhập <b>tên nhiệm vụ</b> và mô tả.',
+       'Đặt <b>Ngày bắt đầu</b> / <b>Hạn hoàn thành</b> (có thể chọn cả giờ), mức <b>Ưu tiên</b>, gán <b>Dự án</b>.',
+       'Cần chia nhỏ? Thêm <b>Checklist các bước</b> hoặc <b>Nhiệm vụ con</b>.',
+       'Bấm <b>Tạo</b>.'],
+      'Hạn hoàn thành chính là mốc hệ thống dùng để nhắc việc và tính trễ hạn — nên đặt đúng ngay từ đầu.');
+
+    body+=step(3,"g-s3","p-inbox","Giao việc cho người khác",
+      'Có hai cách giao việc, tùy bạn muốn giao thẳng hay cần người nhận đồng ý trước.',
+      ['<b>Cách 1 — Phân công ngay:</b> trong nhiệm vụ, ô <b>Người thực hiện</b> gõ tên/email để chọn. Việc được giao ngay, người đó thấy trong “Việc của tôi”.',
+       'Giao cho <b>nhiều người</b>: là một việc chung — ai hoàn thành thì cả nhóm cùng xong.',
+       '<b>Cách 2 — Yêu cầu xác nhận:</b> vào <span class="g-pill">Yêu cầu giao việc</span> → <b>+ Yêu cầu xác nhận</b>, chọn người nhận và đề xuất lịch (ngày + giờ).',
+       'Người nhận có thể <b>Đồng ý</b>, <b>Từ chối</b>, hoặc <b>đề xuất lịch khác</b>. Bạn sẽ được nhắc lại khi họ phản hồi.'],
+      'Dùng “Yêu cầu xác nhận” khi cần người nhận cam kết lịch trước; dùng “Phân công ngay” cho việc rõ ràng, giao là làm.');
+
+    body+=step(4,"g-s4","p-list","Theo dõi tiến độ",
+      'Mỗi dự án xem được theo 4 kiểu, bấm tab để đổi qua lại — dữ liệu như nhau, chỉ khác cách nhìn.',
+      ['<b>Danh sách</b>: bảng đầy đủ, lọc theo trạng thái / người / ưu tiên.',
+       '<b>Kanban</b>: các cột trạng thái, kéo thả thẻ để đổi trạng thái.',
+       '<b>Gantt</b>: thanh thời gian, thấy việc nào chạy khi nào, cuối tuần được tô nhạt.',
+       '<b>Lịch</b>: nhiệm vụ đặt lên lịch theo hạn.'],
+      'Ở <span class="g-pill">Tổng quan</span> có các thẻ số liệu — bấm vào một thẻ để lọc nhanh danh sách việc tương ứng.');
+
+    body+=step(5,"g-s5","p-bell","Việc của tôi & Nhắc việc",
+      'Đây là nơi bạn xem mọi việc đang chờ mình xử lý.',
+      ['<span class="g-pill">Việc của tôi</span>: tất cả nhiệm vụ được giao cho bạn.',
+       'Chuông <b>Nhắc việc</b> ở góc trên: gom việc theo <b>Trễ hạn</b>, <b>Hôm nay</b>, <b>Sắp tới</b>, <b>Không hạn</b>.',
+       'Yêu cầu giao việc đang chờ bạn phản hồi cũng xuất hiện ở đây.',
+       'Bấm một mục để mở thẳng nhiệm vụ.'],
+      'Một việc chỉ rời khỏi Nhắc việc khi nó được hoàn thành hoặc hủy — cứ xử lý là danh sách tự gọn lại.');
+
+    body+=step(6,"g-s6","p-grid","Làm & hoàn thành nhiệm vụ",
+      'Mở một nhiệm vụ để cập nhật tiến độ và trao đổi.',
+      ['Đổi <b>trạng thái</b> (Chưa làm → Đang làm → Xong) trực tiếp trong nhiệm vụ hoặc kéo thẻ ở Kanban.',
+       'Tick các mục <b>Checklist</b> khi làm xong từng bước.',
+       'Trao đổi ở phần <b>Bình luận</b> — có thể <b>kéo thả file</b> hoặc <b>dán ảnh (Ctrl+V)</b> vào thẳng khung chat.',
+       'Khi xong, chuyển trạng thái <b>Hoàn thành</b> — thanh tiến độ dự án tự cập nhật.'],
+      '');
+
+    body+=step(7,"g-s7","p-clock","Chấm giờ làm (Timesheet)",
+      'Ghi lại thời gian bạn bỏ ra cho từng nhiệm vụ để báo cáo và nhìn lại năng suất.',
+      ['Vào <span class="g-pill">Timesheet</span> để xem giờ đã ghi và các biểu đồ tổng hợp.',
+       'Bấm bấm giờ ngay trong nhiệm vụ, hoặc nhập tay số giờ.',
+       'Xem nhanh: giờ theo ngày, theo dự án, theo người, và các việc tốn giờ nhất.'],
+      '');
+
+    body+=step(8,"g-s8","p-repeat","Việc lặp lại tự động (Recurring)",
+      'Với việc làm đi làm lại theo lịch (hằng ngày/tuần/tháng), tạo một quy tắc — hệ thống tự sinh nhiệm vụ mới.',
+      ['Vào <span class="g-pill">Recurring</span> → <b>+ Tạo việc định kỳ</b>.',
+       'Điền nội dung nhiệm vụ (tên, mô tả, người thực hiện, checklist, nhiệm vụ con) — đây là “khuôn” cho mỗi lần tạo.',
+       'Chọn <b>Tần suất</b> (hằng ngày/tuần/tháng), ngày <b>Bắt đầu áp dụng</b> và <b>Lặp cho tới ngày</b>.',
+       'Xem trước <b>Dự kiến các lần tạo kế tiếp</b> để chắc lịch đúng, rồi bấm <b>Tạo việc định kỳ</b>.'],
+      'Mỗi ngày lúc 00:00 hệ thống tự tạo nhiệm vụ cho các quy tắc đang chạy. Có thể tạm dừng quy tắc bất cứ lúc nào.');
+
+    body+='<div class="g-two">'+
+      '<div class="g-card"><h4>Không thấy nút nào đó?</h4><p>Một số thao tác phụ thuộc quyền của bạn (thành viên, quản lý dự án…). Nếu thiếu quyền, liên hệ quản lý dự án hoặc quản trị hệ thống.</p></div>'+
+      '<div class="g-card"><h4>Cần hỗ trợ thêm?</h4><p>Nhắn cho người phụ trách hệ thống nội bộ. Trang hướng dẫn này sẽ được cập nhật khi có tính năng mới.</p></div>'+
+    '</div>';
+    body+='<div class="g-foot">Quản lý dự án · eCentric Workspace</div>';
+    body+='</div>';
+    c.innerHTML=h+body;
+  }
+  var VIEWS={dashboard:showDashboard,mytasks:showMyTasks,projects:showProjects,work:showWork,tasks:showTasks,board:showBoard,gantt:showGantt,calendar:showCalendar,timesheet:showTimesheet,recurring:showRecurring,assignments:showAssignments,notifications:redirectToGlobalNotifications,guide:showGuide};
   function go(v){if(window.PMCharts)PMCharts.disposeAll();window._pmOpenProject=null;var WM={tasks:"list",board:"board",gantt:"gantt",calendar:"calendar",table:"table",work:null};var isW=Object.prototype.hasOwnProperty.call(WM,v);var navKey=isW?"work":v;
     window._curView=navKey;Array.prototype.forEach.call(el("pm-nav").querySelectorAll(".nav-item[data-view]"),function(b){b.classList.toggle("active",b.getAttribute("data-view")===navKey);});
     el("pm-crumb").textContent=isW?"Công việc":(CRUMB[v]||"Tổng quan");
