@@ -1,0 +1,143 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:report_code",
+ "creation": "2026-08-10 16:26:04.080708",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "report_code",
+  "report_title",
+  "card_type",
+  "category",
+  "sort_order",
+  "column_break_meta",
+  "card_status",
+  "route",
+  "open_new_tab",
+  "icon",
+  "description",
+  "section_break_visibility",
+  "visibility_mode",
+  "allowed_roles",
+  "allowed_departments"
+ ],
+ "fields": [
+  {
+   "fieldname": "report_code",
+   "fieldtype": "Data",
+   "label": "Report Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "report_title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Report Title",
+   "reqd": 1
+  },
+  {
+   "fieldname": "card_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Card Type",
+   "options": "Báo cáo\nCông cụ",
+   "reqd": 1
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Category",
+   "options": "Doanh thu\nCommercial\nVận hành\nNhân sự\nKhác"
+  },
+  {
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Sort Order"
+  },
+  {
+   "fieldname": "column_break_meta",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "card_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Card Status",
+   "options": "Active\nComing Soon\nDisabled",
+   "reqd": 1
+  },
+  {
+   "fieldname": "route",
+   "fieldtype": "Data",
+   "label": "Route"
+  },
+  {
+   "fieldname": "open_new_tab",
+   "fieldtype": "Check",
+   "label": "Open in New Tab"
+  },
+  {
+   "fieldname": "icon",
+   "fieldtype": "Data",
+   "label": "Icon"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "section_break_visibility",
+   "fieldtype": "Section Break",
+   "label": "Visibility"
+  },
+  {
+   "fieldname": "visibility_mode",
+   "fieldtype": "Select",
+   "label": "Visibility Mode",
+   "options": "All Internal Users\nRestricted Roles\nRestricted Departments\nAdmin Only",
+   "reqd": 1
+  },
+  {
+   "fieldname": "allowed_roles",
+   "fieldtype": "Table",
+   "label": "Allowed Roles",
+   "options": "EC Report Role"
+  },
+  {
+   "fieldname": "allowed_departments",
+   "fieldtype": "Table",
+   "label": "Allowed Departments",
+   "options": "EC Report Department"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-10 16:26:04.080708",
+ "modified_by": "Administrator",
+ "module": "Reporting",
+ "name": "EC Report",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
