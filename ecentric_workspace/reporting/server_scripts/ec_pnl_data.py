@@ -47,6 +47,12 @@
 # Params (form_dict, tat ca optional):
 #   date_from, date_to : YYYY-MM-DD. Mac dinh = khoang co du lieu.
 #   granularity        : day | week | month  (mac dinh month)
+#   date_basis         : txn | delivery  (mac dinh txn)
+#       txn      = transaction_date = ngay chung tu. Tren GBS SO no trung ngay
+#                  BAT DAU ky dich vu o 263/308 phieu.
+#       delivery = delivery_date = ngay giao. Trung ngay KET THUC ky dich vu o
+#                  280/308 phieu.
+#       Ca 175 phieu dang tinh deu co du ca 2 ngay; 63 phieu roi khac thang.
 #   channel            : all | Direct | GBS  (mac dinh all)
 #   brand, team        : loc them theo ec_brand / ec_team
 #   debug_as_user      : chi System Manager, de xem thu goc nhin cua nguoi khac
@@ -122,12 +128,18 @@ else:
     granularity = (fd.get("granularity") or "month").lower().strip()
     if granularity not in ("day", "week", "month"):
         granularity = "month"
+    basis = (fd.get("date_basis") or "txn").lower().strip()
+    if basis not in ("txn", "delivery"):
+        basis = "txn"
+    # danh sach trang, KHONG ghep chuoi tu input nguoi dung vao SQL
+    dcol = "so.delivery_date" if basis == "delivery" else "so.transaction_date"
+    dfield = "delivery_date" if basis == "delivery" else "transaction_date"
     channel = (fd.get("channel") or "all").strip()
     f_brand = (fd.get("brand") or "").strip()
     f_team = (fd.get("team") or "").strip()
 
     bound = frappe.db.sql("""
-        SELECT MIN(transaction_date) AS dmin, MAX(transaction_date) AS dmax
+        SELECT MIN(""" + dfield + """) AS dmin, MAX(""" + dfield + """) AS dmax
         FROM `tabSales Order`
         WHERE docstatus < 2 AND ifnull(workflow_state, '') <> 'Rejected'
     """, as_dict=True)
@@ -150,15 +162,16 @@ else:
 
     # ------------------------------------------------------------ header rows
     so_rows = frappe.db.sql("""
-        SELECT so.name, so.transaction_date, so.workflow_state, so.docstatus,
+        SELECT so.name, so.transaction_date, so.delivery_date,
+               so.workflow_state, so.docstatus,
                so.ec_channel, so.ec_brand, so.ec_team, so.customer,
                so.net_total, so.total_taxes_and_charges, so.grand_total,
                so.ec_gbs_so_ref, so.ec_in_out_budget
         FROM `tabSales Order` so
         WHERE so.docstatus < 2
-          AND so.transaction_date >= %(df)s AND so.transaction_date <= %(dt)s
+          AND """ + dcol + """ >= %(df)s AND """ + dcol + """ <= %(dt)s
     """ + where_extra + """
-        ORDER BY so.transaction_date ASC
+        ORDER BY """ + dcol + """ ASC
     """, args, as_dict=True)
 
     item_rows = frappe.db.sql("""
@@ -168,7 +181,7 @@ else:
         INNER JOIN `tabSales Order` so ON so.name = soi.parent
         LEFT JOIN `tabItem` it ON it.name = soi.item_code
         WHERE so.docstatus < 2
-          AND so.transaction_date >= %(df)s AND so.transaction_date <= %(dt)s
+          AND """ + dcol + """ >= %(df)s AND """ + dcol + """ <= %(dt)s
     """ + where_extra, args, as_dict=True)
 
     # ------------------------------------------------------------ classify
@@ -239,7 +252,7 @@ else:
     # ------------------------------------------------------------ time series
     ser = {}
     for r in live_rows:
-        b = bucket_of(r.get("transaction_date"), granularity)
+        b = bucket_of(r.get(dfield), granularity)
         if b not in ser:
             ser[b] = blank()
         ser[b] = bump(ser[b], layer_of.get(r.get("name")), r.get("net_total"))
@@ -328,7 +341,9 @@ else:
     for r in ranked[:25]:
         top_so = top_so + [{
             "name": r.get("name"),
-            "date": str(r.get("transaction_date") or ""),
+            "date": str(r.get(dfield) or ""),
+            "txn_date": str(r.get("transaction_date") or ""),
+            "delivery_date": str(r.get("delivery_date") or ""),
             "brand": r.get("ec_brand") or "",
             "team": r.get("ec_team") or "",
             "channel": r.get("ec_channel") or "",
@@ -355,7 +370,9 @@ else:
             "item_name": (r.get("master_name") or r.get("item_code") or ""),
             "group": (r.get("master_group") or "(chua phan nhom)"),
             "amount": r.get("amount") or 0,
-            "date": str(h.get("transaction_date") or ""),
+            "date": str(h.get(dfield) or ""),
+            "txn_date": str(h.get("transaction_date") or ""),
+            "delivery_date": str(h.get("delivery_date") or ""),
             "brand": h.get("ec_brand") or "",
             "team": h.get("ec_team") or "",
             "channel": h.get("ec_channel") or "",
@@ -376,6 +393,9 @@ else:
         "meta": {"date_from": date_from, "date_to": date_to,
                  "data_from": dmin, "data_to": dmax,
                  "granularity": granularity, "channel": channel,
+                 "date_basis": basis,
+                 "date_basis_label": ("Ngay giao" if basis == "delivery"
+                                      else "Ngay chung tu"),
                  "brand": f_brand, "team": f_team,
                  "generated_at": str(frappe.utils.now_datetime()),
                  "measure": "net_total (truoc thue)",

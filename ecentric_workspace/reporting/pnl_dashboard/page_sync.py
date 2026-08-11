@@ -36,12 +36,13 @@ def _html():
 #
 # Sua co chu dich = sua file frontend, bump BASELINE_SHA256 sang sha moi, va day
 # gia tri cu xuong SUPERSEDES_SHA256 -- tat ca trong CUNG mot commit.
-BASELINE_SHA256 = "2b5e41f5cbb09d130a80a4891d8698beaf1d64bf8d273a759f21d3fbcaedc5e2"
+BASELINE_SHA256 = "2ccce1d24666bd8ab432f8d45c84f115ec3f8e3fba7dc35497dc3e627ff65152"
 SUPERSEDES_SHA256 = (
     "d7803811ea6df96756f58a090178e04ca3110f839d5dfb12cff029ab8a7acca9",   # ban dau 2026-08-10
     "1936ee8870e35ae3b31eb4b7bbf2de2338f560754d44b0e6de9a49fb1cd8c812",   # sau khi Viet hoa thong bao tu choi quyen
     "91148d93594d80c010335c88f8b57cb1495b83d85055ca7b34dcb12fab12d907",   # sau khi vao dung contract luoi ERP shell
     "2452ea70cdeae38065739e83bd440a39b7ba4350d299d9b8ca933a8c4b3e4daa",   # sau khi siet quyen ve phong Management
+    "2b5e41f5cbb09d130a80a4891d8698beaf1d64bf8d273a759f21d3fbcaedc5e2",   # sau khi lap day chieu ngang man rong
 )
 
 
