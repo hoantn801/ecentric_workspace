@@ -3277,11 +3277,11 @@
   // /pm#guide item (i.e. pm/nav.py is live), this no-ops -> no duplicate. Remove this
   // block once the backend nav item is confirmed live.  Risk if left: a harmless extra
   // clone attempt on load; zero effect once server provides the item.
-  function ecInjectGuideNav(){
+  function ecEnsureGuideNav(){
     try{
-      if(document.querySelector('.ec-shell-item[href$="#guide"]')) return true; // server or prior inject
+      if(document.querySelector('.ec-shell-item[href$="#guide"]')) return; // server or prior inject present
       var items=document.querySelectorAll('.ec-shell-nav .ec-shell-item[href*="/pm#"]');
-      if(!items.length) return false;
+      if(!items.length) return; // shell nav not rendered yet -> observer will retry
       var last=items[items.length-1];
       var g=last.cloneNode(true);
       g.setAttribute("href","/pm#guide");
@@ -3290,10 +3290,15 @@
       var svg=g.querySelector("svg"); if(svg){ svg.innerHTML='<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>'; }
       var sp=g.querySelector("span"); if(sp){ sp.textContent="Hướng dẫn"; }
       last.parentNode.insertBefore(g, last.nextSibling);
-      return true;
-    }catch(_){ return false; }
+    }catch(_){}
   }
-  if(!ecInjectGuideNav()){ var _gn=0, _gt=setInterval(function(){ if(ecInjectGuideNav()|| ++_gn>20) clearInterval(_gt); }, 250); }
+  // ec_shell.js hydrates and REBUILDS .ec-shell-nav after this script runs, wiping a one-shot
+  // injection. A MutationObserver re-adds the item after every rebuild (callback is O(1) once the
+  // item exists). Auto-disconnects after 30s (nav is stable by then) to avoid lingering overhead.
+  ecEnsureGuideNav();
+  try{ var _gmo=new MutationObserver(function(){ ecEnsureGuideNav(); });
+       _gmo.observe(document.documentElement,{childList:true,subtree:true});
+       setTimeout(function(){ try{ _gmo.disconnect(); }catch(_){ } }, 30000); }catch(_){}
   fillUser(); loadRecSet(); refreshTimerChip(); setInterval(refreshTimerChip,20000); pmApplyRoute();
 })();
 </script>
