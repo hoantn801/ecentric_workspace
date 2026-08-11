@@ -3155,7 +3155,7 @@
   function pmApplyRoute(){
     var h=(location.hash||"").replace(/^#\/?/,""); _pmExpectedHash=location.hash;
     var p=h.split("/"), head=p[0]||"overview";
-    var VMAP={overview:"dashboard",mywork:"mytasks",projects:"projects",timesheet:"timesheet",recurring:"recurring"};
+    var VMAP={overview:"dashboard",mywork:"mytasks",projects:"projects",timesheet:"timesheet",recurring:"recurring",guide:"guide"};
     if(head==="task"&&p[1]){ go("work"); openTask(decodeURIComponent(p[1])); return; }
     if(head==="project"&&p[1]){ go("projects"); openProject(decodeURIComponent(p[1])); return; }
     if(head==="assignments"){ window._asgTab=(p[1]==="out")?"out":"in"; go("assignments"); return; }
@@ -3269,6 +3269,31 @@
   // data-ec-notification-bell="1"); the global asset handles plain-click (dropdown)
   // and Ctrl/Cmd/middle-click keeps the native /app/notification-log link. No PM handler.
   if(el("tb-timer"))el("tb-timer").onclick=function(){if(window._activeTimer&&window._activeTimer.task)openTask(window._activeTimer.task);};
+  // TEMP-WORKAROUND (2026-08-11): the visible PM sidebar is the ERP shell nav built
+  // server-side from pm/nav.py. The canonical fix adds a "Hướng dẫn" -> /pm#guide item
+  // there, but that needs a backend app update (currently gated behind an unrelated
+  // migrate blocker). Until that deploys, inject the shell nav item client-side so the
+  // menu shows now. IDEMPOTENT + self-deactivating: if the server already renders a
+  // /pm#guide item (i.e. pm/nav.py is live), this no-ops -> no duplicate. Remove this
+  // block once the backend nav item is confirmed live.  Risk if left: a harmless extra
+  // clone attempt on load; zero effect once server provides the item.
+  function ecInjectGuideNav(){
+    try{
+      if(document.querySelector('.ec-shell-item[href$="#guide"]')) return true; // server or prior inject
+      var items=document.querySelectorAll('.ec-shell-nav .ec-shell-item[href*="/pm#"]');
+      if(!items.length) return false;
+      var last=items[items.length-1];
+      var g=last.cloneNode(true);
+      g.setAttribute("href","/pm#guide");
+      g.setAttribute("data-ec-shell-key","pm.view.guide");
+      g.classList.remove("ec-shell-active");
+      var svg=g.querySelector("svg"); if(svg){ svg.innerHTML='<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>'; }
+      var sp=g.querySelector("span"); if(sp){ sp.textContent="Hướng dẫn"; }
+      last.parentNode.insertBefore(g, last.nextSibling);
+      return true;
+    }catch(_){ return false; }
+  }
+  if(!ecInjectGuideNav()){ var _gn=0, _gt=setInterval(function(){ if(ecInjectGuideNav()|| ++_gn>20) clearInterval(_gt); }, 250); }
   fillUser(); loadRecSet(); refreshTimerChip(); setInterval(refreshTimerChip,20000); pmApplyRoute();
 })();
 </script>
