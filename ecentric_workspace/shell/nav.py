@@ -119,9 +119,21 @@ HOME_PORTAL_ITEMS = [
     {"key": "home.portal.training", "label": "Đào tạo", "route": "/coming-soon?tool=dao-tao",
      "icon": "book", "group": "Tài nguyên", "order": 20, "active_patterns": ["/coming-soon?tool=dao-tao"],
      "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
-    {"key": "home.portal.hiring", "label": "Tuyển dụng", "route": "/coming-soon?tool=tuyen-dung",
-     "icon": "userplus", "group": "Tài nguyên", "order": 30, "active_patterns": ["/coming-soon?tool=tuyen-dung"],
-     "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
+    # Trang THẬT, do app `ecentric_app` phục vụ từ file www/ec-app/hr/recruitment
+    # (TemplatePage), không phải Web Page của app này. Tiền tố "/ec-app" là ranh giới
+    # sở hữu route của app đó và KHÔNG được rút gọn thành "/hr/recruitment": hrms khai
+    # website_route_rules cho "/hr/<path:app_path>" nên Frappe đổi đường dẫn TRƯỚC khi
+    # hỏi renderer, và route phẳng trả về SPA Roster của hrms kèm HTTP 200 (khảo sát
+    # 2026-08-10, ecentric_app/routing/ownership.py).
+    # `/ec-app/hr/opening` là trang con (chi tiết một tin) nên vào active_patterns;
+    # `/ec-app/hr/applicants` có mục riêng trên sidebar của ecentric_app, không gộp vào đây.
+    # Quyền là HR User / HR Manager, chặn ở phía trang (policies.HR_READ) -- mục này
+    # vẫn hiện với mọi nhân viên vì nav v1 chỉ có visible_when="internal".
+    {"key": "home.portal.hiring", "label": "Tuyển dụng", "route": "/ec-app/hr/recruitment",
+     "icon": "userplus", "group": "Tài nguyên", "order": 30,
+     "active_patterns": ["/ec-app/hr/recruitment", "/ec-app/hr/opening"],
+     "visible_when": "internal", "owner": "home_portal",
+     "keywords": ["tuyen dung", "recruitment", "hiring", "tin tuyen dung", "ung vien"]},
     {"key": "home.portal.feedback", "label": "Góp ý BGD", "route": "/coming-soon?tool=gop-y",
      "icon": "message", "group": "Tài nguyên", "order": 40, "active_patterns": ["/coming-soon?tool=gop-y"],
      "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
