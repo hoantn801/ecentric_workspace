@@ -28,6 +28,7 @@ VIEWS = [
     ("pm.view.timesheet", "Timesheet", "/pm#timesheet", "clock", 50),
     ("pm.view.recurring", "Recurring", "/pm#recurring", "repeat", 60),
     ("pm.view.assignments", "Yêu cầu giao việc", "/pm#assignments/in", "inbox2", 70),
+    ("pm.view.guide", "Hướng dẫn", "/pm#guide", "book", 80),
 ]
 
 
