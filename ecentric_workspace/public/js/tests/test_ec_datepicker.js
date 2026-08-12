@@ -95,6 +95,18 @@ ok(/--ec-dp-accent:\s*#2563eb/.test(CSS), 'CSS: blue primary accent (#2563eb)');
 ok(/--ec-dp-today:\s*#db2777/.test(CSS), 'CSS: pink kept as the "today" accent');
 ok(/--ec-dp-range/.test(CSS), 'CSS: range band token');
 
+// ---- month/year chooser (fast jump to a far-away date, e.g. a 1999 birthday) ----
+ok(/data-ec-dp-ym/.test(SRC), 'header title opens a month/year chooser');
+ok(/renderYM/.test(SRC) && /YEARS_PER_PAGE/.test(SRC), 'paged year grid + month grid');
+ok(/data-ym-year/.test(SRC) && /data-ym-month/.test(SRC), 'year and month cells are selectable');
+ok(/ymStep === 'month'/.test(SRC), 'two-step flow: pick year then month');
+ok(/this\.mode = null;\s+\/\/ always open on the day calendar/.test(SRC),
+  'popover always opens on the day calendar');
+ok(/if \(this\.mode === 'ym'\) \{ this\.mode = null;/.test(SRC),
+  'Esc backs out of the chooser before closing');
+ok(/ec-dp-ymgrid/.test(CSS) && /ec-dp-ymcell/.test(CSS), 'CSS: chooser grid styled');
+ok(/\.ec-dp-title \{[\s\S]*?cursor: pointer/.test(CSS), 'CSS: title looks clickable');
+
 // ---- hooks wiring (regression guard) ----
 ok(HOOKS.indexOf('ec_datepicker.bundle.js') >= 0, 'hooks: JS bundle in web_include_js');
 ok(HOOKS.indexOf('ec_datepicker.bundle.css') >= 0, 'hooks: CSS bundle in web_include_css');

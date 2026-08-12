@@ -175,6 +175,7 @@
     this.view = { y: base.y, m: base.m };
     this.draft = parseNative(this.input.value)
       ? clone(base) : { y: base.y, m: base.m, d: base.d, hh: 0, mm: 0 };
+    this.mode = null;            // always open on the day calendar
     this.pop = mk('div', 'ec-dp-pop' + (this.withTime ? ' has-time' : ''));
     this.pop.setAttribute('role', 'dialog');
     this.pop.setAttribute('aria-label', 'Chọn ngày');
@@ -226,13 +227,86 @@
     return { start: parseNative(s.input.value), end: parseNative(e.input.value) };
   };
 
+  //: month/year chooser -- clicking the header title opens a paged YEAR grid
+  //: (12 years per page) then a MONTH grid, so a far-away date (e.g. a 1999
+  //: birthday) takes a few clicks instead of dozens of month arrows.
+  var YEARS_PER_PAGE = 12;
+
+  DP.prototype.renderYM = function () {
+    var v = this.view, h = '';
+    if (this.ymStep === 'month') {
+      h += '<div class="ec-dp-hd">'
+        + '<button type="button" class="ec-dp-nav" data-ymnav="-1" aria-label="Năm trước">‹</button>'
+        + '<button type="button" class="ec-dp-title" data-ec-dp-ym="back">' + v.y + '</button>'
+        + '<button type="button" class="ec-dp-nav" data-ymnav="1" aria-label="Năm sau">›</button></div>';
+      h += '<div class="ec-dp-ymgrid">';
+      for (var m = 1; m <= 12; m++)
+        h += '<button type="button" class="ec-dp-ymcell' + (m === v.m ? ' is-sel' : '')
+          + '" data-ym-month="' + m + '">Th' + m + '</button>';
+      h += '</div>';
+    } else {
+      var start = this.ymPage;
+      h += '<div class="ec-dp-hd">'
+        + '<button type="button" class="ec-dp-nav" data-ymnav="-1" aria-label="Trang trước">‹</button>'
+        + '<button type="button" class="ec-dp-title" data-ec-dp-ym="back">'
+        + start + ' – ' + (start + YEARS_PER_PAGE - 1) + '</button>'
+        + '<button type="button" class="ec-dp-nav" data-ymnav="1" aria-label="Trang sau">›</button></div>';
+      h += '<div class="ec-dp-ymgrid">';
+      for (var i = 0; i < YEARS_PER_PAGE; i++) {
+        var y = start + i;
+        h += '<button type="button" class="ec-dp-ymcell' + (y === v.y ? ' is-sel' : '')
+          + '" data-ym-year="' + y + '">' + y + '</button>';
+      }
+      h += '</div>';
+    }
+    this.pop.innerHTML = '<div class="ec-dp-body"><div class="ec-dp-cal">' + h + '</div></div>';
+    this.bindYM();
+    var sel = this.pop.querySelector('.ec-dp-ymcell.is-sel') || this.pop.querySelector('.ec-dp-ymcell');
+    if (sel) sel.focus();
+  };
+
+  DP.prototype.bindYM = function () {
+    var self = this;
+    this.pop.querySelectorAll('[data-ymnav]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var d = +b.getAttribute('data-ymnav');
+        if (self.ymStep === 'month') self.view = { y: self.view.y + d, m: self.view.m };
+        else self.ymPage += d * YEARS_PER_PAGE;
+        self.renderYM();
+      });
+    });
+    // header title in the chooser = go back (month step -> year step -> calendar)
+    var back = this.pop.querySelector('[data-ec-dp-ym="back"]');
+    if (back) back.addEventListener('click', function () {
+      if (self.ymStep === 'month') { self.ymStep = 'year'; self.renderYM(); }
+      else { self.mode = null; self.render(); }
+    });
+    this.pop.querySelectorAll('[data-ym-year]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        self.view = { y: +b.getAttribute('data-ym-year'), m: self.view.m };
+        self.ymStep = 'month';
+        self.renderYM();
+      });
+    });
+    this.pop.querySelectorAll('[data-ym-month]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        self.view = { y: self.view.y, m: +b.getAttribute('data-ym-month') };
+        self.mode = null;          // back to the day calendar on the chosen month
+        self.render();
+      });
+    });
+  };
+
   DP.prototype.render = function () {
+    if (this.mode === 'ym') return this.renderYM();
     var self = this, v = this.view, min = this.input.getAttribute('min'),
       max = this.input.getAttribute('max'), pair = this.rangePair();
     var h = '<div class="ec-dp-body"><div class="ec-dp-cal">';
     h += '<div class="ec-dp-hd">'
       + '<button type="button" class="ec-dp-nav" data-mv="-1" aria-label="Tháng trước">‹</button>'
-      + '<span class="ec-dp-title">' + MONTHS_VI[v.m - 1] + ' ' + v.y + '</span>'
+      + '<button type="button" class="ec-dp-title" data-ec-dp-ym="1" aria-haspopup="true" '
+      + 'aria-expanded="false" title="Chọn tháng / năm">'
+      + MONTHS_VI[v.m - 1] + ' ' + v.y + '<span class="ec-dp-caret">▾</span></button>'
       + '<button type="button" class="ec-dp-nav" data-mv="1" aria-label="Tháng sau">›</button></div>';
     h += '<div class="ec-dp-wd">';
     for (var i = 0; i < 7; i++) h += '<span>' + WEEKDAYS_VI[i] + '</span>';
@@ -339,6 +413,14 @@
     this.pop.querySelectorAll('.ec-dp-nav').forEach(function (b) {
       b.addEventListener('click', function () { self.moveMonth(+b.getAttribute('data-mv')); });
     });
+    // header title -> month/year chooser (start on the year page holding view.y)
+    var ttl = this.pop.querySelector('[data-ec-dp-ym="1"]');
+    if (ttl) ttl.addEventListener('click', function () {
+      self.mode = 'ym';
+      self.ymStep = 'year';
+      self.ymPage = self.view.y - ((self.view.y % YEARS_PER_PAGE + YEARS_PER_PAGE) % YEARS_PER_PAGE);
+      self.renderYM();
+    });
     this.pop.querySelectorAll('.ec-dp-cell[data-d]').forEach(function (b) {
       if (b.disabled) return;
       b.addEventListener('click', function () { self.pickDay(+b.getAttribute('data-d')); });
@@ -430,7 +512,13 @@
 
   DP.prototype.onKey = function (e) {
     if (!this.pop) return;
-    if (e.key === 'Escape') { e.preventDefault(); this.close(); return; }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      // Esc backs out of the month/year chooser first, then closes the popover
+      if (this.mode === 'ym') { this.mode = null; this.render(); }
+      else this.close();
+      return;
+    }
     var cell = document.activeElement;
     if (!cell || !cell.classList || !cell.classList.contains('ec-dp-cell')) return;
     var d = +cell.getAttribute('data-d'), move = 0;

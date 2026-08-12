@@ -62,7 +62,25 @@
 .ec-dp-cal { flex: 0 0 auto; width: 266px; }
 
 .ec-dp-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.ec-dp-title { font-weight: 600; font-size: 14px; }
+.ec-dp-title {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-weight: 600; font-size: 14px; color: var(--ec-dp-text);
+  padding: 5px 10px; border: none; border-radius: 8px; background: transparent; cursor: pointer;
+}
+.ec-dp-title:hover { background: var(--ec-dp-accent-weak); color: var(--ec-dp-accent-strong); }
+.ec-dp-title:focus-visible { outline: 2px solid var(--ec-dp-accent); outline-offset: 1px; }
+.ec-dp-caret { font-size: 10px; color: var(--ec-dp-muted); }
+.ec-dp-title:hover .ec-dp-caret { color: var(--ec-dp-accent-strong); }
+
+/* month / year chooser grid (3 cols x 4 rows) */
+.ec-dp-ymgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding-top: 4px; }
+.ec-dp-ymcell {
+  height: 44px; border: none; border-radius: 8px; background: transparent;
+  color: var(--ec-dp-text); font: inherit; font-size: 13.5px; cursor: pointer;
+}
+.ec-dp-ymcell:hover { background: var(--ec-dp-accent-weak); }
+.ec-dp-ymcell.is-sel { background: var(--ec-dp-accent); color: #fff; font-weight: 600; }
+.ec-dp-ymcell:focus-visible { outline: 2px solid var(--ec-dp-accent); outline-offset: 1px; }
 .ec-dp-nav {
   width: 32px; height: 32px; border: none; border-radius: 8px;
   background: transparent; color: var(--ec-dp-text); font-size: 20px; line-height: 1; cursor: pointer;
