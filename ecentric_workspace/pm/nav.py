@@ -23,6 +23,7 @@ APP = {"key": "pm.app", "label": "Công việc", "route": "/pm", "icon": "briefc
 VIEWS = [
     ("pm.view.overview", "Tổng quan", "/pm#overview", "grid", 10),
     ("pm.view.mywork", "Việc của tôi", "/pm#mywork", "inbox", 20),
+    ("pm.view.schedule", "Lịch làm việc", "/pm#schedule", "calendar", 25),
     ("pm.view.projects", "Dự án", "/pm#projects", "folder", 30),
     ("pm.view.work", "Công việc", "/pm#work/list", "list", 40),
     ("pm.view.timesheet", "Timesheet", "/pm#timesheet", "clock", 50),
