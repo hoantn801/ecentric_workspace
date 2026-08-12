@@ -15,7 +15,7 @@ PROCESS_CODE = "SYSTEM_REQUEST-V1"
 APPROVAL_TYPE = "SYSTEM_REQUEST"
 # Config seed defaults (may be overridden by args). Emails allowed in setup/config only.
 DEFAULT_REVIEWERS = ["hoan.tran@ecentric.vn", "thuong.nguyen@ecentric.vn"]
-DEFAULT_FULFILLERS = ["hoan.tran@ecentric.vn", "thuong.nguyen@ecentric.vn"]
+DEFAULT_FULFILLERS = ["hoan.tran@ecentric.vn", "thuong.nguyen@ecentric.vn", "dong.diep@ecentric.vn"]
 
 
 def _require_sm():
