@@ -52,7 +52,7 @@ def get_notifications(limit=20):
     return {"success": True, "count": len(items), "unread": unread, "items": items}
 
 
-@frappe.whitelist(methods=["GET"])
+@frappe.whitelist(methods=["GET"], allow_guest=True)
 def get_unread_count():
     """Current user's unread Notification Log count (badge source)."""
     user = _current_user()
@@ -101,7 +101,7 @@ _PREF_OTHER = ("quiet_hours_start", "quiet_hours_end", "timezone",
                "minimum_severity", "enabled_event_types")
 
 
-@frappe.whitelist(methods=["GET"])
+@frappe.whitelist(methods=["GET"], allow_guest=True)
 def get_preferences():
     """Return the CURRENT user's notification preferences (defaults if none saved)."""
     user = _current_user()

@@ -63,7 +63,9 @@ CORE_ITEMS = [
 #:   soon: True         -> renderers add ec-shell-item-soon styling.
 #: Approved route migrations: Phê duyệt -> /approvals, Chấm công ->
 #: /ec-hr/attendance, Phiếu lương -> /ec-hr/salary (no-warm holds via
-#: route_policy regardless of this link), Nghỉ phép -> /approvals/leave.
+#: route_policy regardless of this link), Nghỉ phép -> /ec-hr/leave
+#: (moved 2026-08-14 from /approvals/leave: leave now uses the native
+#: Leave Application flow on the eCentric HR portal page).
 HOME_PORTAL_ITEMS = [
     {"key": "home.portal.home", "label": "Trang chủ", "route": "/", "icon": "home",
      "group": "Workspace", "order": 10, "active_patterns": ["/", "/home"],
@@ -90,8 +92,8 @@ HOME_PORTAL_ITEMS = [
     {"key": "home.portal.attendance", "label": "Chấm công", "route": "/ec-hr/attendance",
      "icon": "clock", "group": "Nhân sự", "order": 10, "active_patterns": ["/ec-hr/attendance"],
      "visible_when": "internal", "owner": "home_portal", "alias": True},
-    {"key": "home.portal.leave", "label": "Nghỉ phép", "route": "/approvals/leave",
-     "icon": "calendar", "group": "Nhân sự", "order": 20, "active_patterns": ["/approvals/leave"],
+    {"key": "home.portal.leave", "label": "Nghỉ phép", "route": "/ec-hr/leave",
+     "icon": "calendar", "group": "Nhân sự", "order": 20, "active_patterns": ["/ec-hr/leave"],
      "visible_when": "internal", "owner": "home_portal",
      "keywords": ["nghi phep", "leave", "xin nghi"]},
     {"key": "home.portal.salary", "label": "Phiếu lương", "route": "/ec-hr/salary",
