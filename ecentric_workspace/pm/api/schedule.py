@@ -69,17 +69,16 @@ def week(user=None, week_start=None):
         fields=["name", "task", "user", "start", "end", "hours", "state", "source_note"],
         order_by="start asc", ignore_permissions=True) or []
 
-    # subjects for the blocks' tasks + the caller's open backlog tasks
-    task_names = list({b["task"] for b in blocks if b.get("task")})
-    subj = {}
-    if task_names:
-        for t in frappe.get_all("Task", filters={"name": ["in", task_names]},
-                                fields=["name", "subject"], ignore_permissions=True) or []:
-            subj[t["name"]] = t.get("subject")
+    # Backlog = open tasks NOT already scheduled this week (once a task has a block this
+    # week it leaves the "chưa xếp lịch" tray).
+    scheduled = {b["task"] for b in blocks if b.get("task")}
+    backlog = [t for t in _open_tasks_for(target) if t["name"] not in scheduled]
 
-    backlog = _open_tasks_for(target)
-    for t in backlog:
-        subj.setdefault(t["name"], t.get("subject"))
+    # Enriched meta (label + tooltip info) for every task shown: blocks + backlog.
+    task_names = list(scheduled | {t["name"] for t in backlog})
+    subj, meta = {}, _task_meta(task_names)
+    for nm, m in meta.items():
+        subj[nm] = m.get("subject") or nm
 
     return {
         "readonly": readonly,
@@ -88,7 +87,41 @@ def week(user=None, week_start=None):
         "blocks": blocks,
         "backlog": backlog,
         "subjects": subj,
+        "meta": meta,
     }
+
+
+def _task_meta(task_names):
+    """name -> {subject, project, state, end, assignees, attach} for tooltips/labels."""
+    out = {}
+    if not task_names:
+        return out
+    rows = frappe.get_all(
+        "Task", filters={"name": ["in", task_names]},
+        fields=["name", "subject", "project", "workflow_state", "status", "exp_end_date", "_assign"],
+        ignore_permissions=True) or []
+    pids = list({r.get("project") for r in rows if r.get("project")})
+    pnames = {}
+    if pids:
+        for p in frappe.get_all("Project", filters={"name": ["in", pids]},
+                                fields=["name", "project_name"], ignore_permissions=True) or []:
+            pnames[p["name"]] = p.get("project_name") or p["name"]
+    att = {}
+    for f in frappe.get_all("File", filters={"attached_to_doctype": "Task",
+                                             "attached_to_name": ["in", task_names]},
+                            fields=["attached_to_name"], ignore_permissions=True) or []:
+        k = f.get("attached_to_name")
+        att[k] = att.get(k, 0) + 1
+    for r in rows:
+        out[r["name"]] = {
+            "subject": r.get("subject") or r["name"],
+            "project": pnames.get(r.get("project")) or (r.get("project") or ""),
+            "state": r.get("workflow_state") or r.get("status") or "",
+            "end": str(r.get("exp_end_date")) if r.get("exp_end_date") else "",
+            "assignees": [u for u in (frappe.parse_json(r.get("_assign") or "[]") or []) if u],
+            "attach": att.get(r["name"], 0),
+        }
+    return out
 
 
 def _open_tasks_for(user):
