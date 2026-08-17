@@ -3250,11 +3250,13 @@
       if(st._ro) return;
       var body=el("sch-body"); if(!body) return;
       var drag=null, ghost=null;
+      function cancelDrag(){ drag=null; var gs=document.querySelectorAll(".sch-ghost"); for(var i=0;i<gs.length;i++){ if(gs[i].parentNode) gs[i].parentNode.removeChild(gs[i]); } ghost=null; }
       function bodyRect(){ return body.getBoundingClientRect(); }
       function toDayMin(cx,cy){ var r=bodyRect(); var d=Math.floor((cx-r.left-GUT)/st._dw); d=Math.max(0,Math.min(6,d)); var m=snap((cy-r.top)/HP*60); return {d:d,m:m}; }
       function findBlk(name){ var arr=(st.data.blocks||[]); for(var i=0;i<arr.length;i++) if(arr[i].name===name) return arr[i]; return null; }
 
       body.addEventListener("mousedown",function(e){
+        cancelDrag();
         var xb=e.target.closest?e.target.closest(".x"):null; if(xb){ e.preventDefault(); var nm=xb.getAttribute("data-name"); api(PM+"schedule.remove",{name:nm}).then(function(){ load(); }).catch(function(er){ toast("Lỗi: "+errOf(er),true); }); return; }
         var rz=e.target.closest?e.target.closest(".rz"):null;
         var blk=e.target.closest?e.target.closest(".sch-blk"):null;
@@ -3263,11 +3265,16 @@
       });
       // chips (in side panel) start a new-block drag
       var side=c.querySelector(".sch-side");
-      if(side) side.addEventListener("mousedown",function(e){ var chip=e.target.closest?e.target.closest(".sch-chip"):null; if(!chip)return; e.preventDefault(); drag={mode:"new",task:chip.getAttribute("data-task"),label:chip.textContent.trim()}; ghost=document.createElement("div"); ghost.className="sch-ghost"; ghost.textContent=drag.label; document.body.appendChild(ghost); ghost.style.left=(e.clientX+8)+"px"; ghost.style.top=(e.clientY+8)+"px"; });
+      if(side) side.addEventListener("mousedown",function(e){ var chip=e.target.closest?e.target.closest(".sch-chip"):null; if(!chip)return; e.preventDefault(); cancelDrag(); drag={mode:"new",task:chip.getAttribute("data-task"),label:chip.textContent.trim()}; ghost=document.createElement("div"); ghost.className="sch-ghost"; ghost.textContent=drag.label; document.body.appendChild(ghost); ghost.style.left=(e.clientX+8)+"px"; ghost.style.top=(e.clientY+8)+"px"; });
 
+      function _blur(){ cancelDrag(); }
+      function _key(e){ if(e.key==="Escape") cancelDrag(); }
       document.addEventListener("mousemove",_mm);
       document.addEventListener("mouseup",_mu);
-      st._detach=function(){ document.removeEventListener("mousemove",_mm); document.removeEventListener("mouseup",_mu); if(ghost&&ghost.parentNode)ghost.parentNode.removeChild(ghost); };
+      window.addEventListener("mouseup",_mu);
+      window.addEventListener("blur",_blur);
+      document.addEventListener("keydown",_key);
+      st._detach=function(){ document.removeEventListener("mousemove",_mm); document.removeEventListener("mouseup",_mu); window.removeEventListener("mouseup",_mu); window.removeEventListener("blur",_blur); document.removeEventListener("keydown",_key); cancelDrag(); };
       function _mm(e){ if(!drag)return; if(drag.mode!=="new"){ drag.moved=true; } if(drag.mode==="new"){ if(ghost){ ghost.style.left=(e.clientX+8)+"px"; ghost.style.top=(e.clientY+8)+"px"; } return; } var p=toDayMin(e.clientX,e.clientY); if(drag.mode==="rz"){ drag.b._e=Math.max(drag.b._s+15,p.m); paintBlock(drag.b); } else if(drag.mode==="mv"){ var dur=drag.b._e-drag.b._s; var ns=snap(p.m-(drag.off||0)); ns=Math.max(0,Math.min(HN*60-dur,ns)); drag.b._s=ns; drag.b._e=ns+dur; drag.b._di=p.d; paintBlock(drag.b); } }
       function _mu(e){ if(!drag){ return; } var dg=drag; drag=null;
         if(dg.mode==="new"){ if(ghost&&ghost.parentNode)ghost.parentNode.removeChild(ghost); ghost=null; var r=bodyRect(); if(e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom){ var p=toDayMin(e.clientX,e.clientY); var s=Math.min(HN*60-60,p.m); api(PM+"schedule.place",{task:dg.task,start:buildDT(p.d,s),end:buildDT(p.d,s+60)}).then(function(){ load(); }).catch(function(er){ toast("Lỗi: "+errOf(er),true); }); } return; }
