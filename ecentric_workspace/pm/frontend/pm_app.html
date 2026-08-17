@@ -166,8 +166,9 @@
 .sch-wrap{ display:grid; grid-template-columns:190px 1fr; gap:12px; align-items:start; }
   .sch-side{ position:sticky; top:8px; }
   .sch-side .lbl{ font-size:12px; font-weight:600; color:var(--gray-500); margin-bottom:8px; }
-  .sch-chip{ display:flex; align-items:center; gap:6px; background:#fff; border:1px solid var(--gray-200); border-radius:8px; padding:7px 9px; font-size:12.5px; margin-bottom:6px; cursor:grab; color:var(--gray-800); }
-  .sch-chip .g{ opacity:.45; }
+  .sch-chip{ display:flex; align-items:center; justify-content:flex-start; gap:6px; background:#fff; border:1px solid var(--gray-200); border-radius:8px; padding:7px 9px; font-size:12.5px; margin-bottom:6px; cursor:grab; color:var(--gray-800); }
+  .sch-chip > span{ flex:1 1 auto; min-width:0; text-align:left; }
+  .sch-chip .g{ opacity:.45; flex:0 0 auto; }
   .sch-empty{ font-size:12px; color:var(--gray-400); padding:6px 2px; }
   .sch-legend{ margin-top:12px; border-top:1px solid var(--gray-100); padding-top:10px; font-size:11px; color:var(--gray-500); line-height:1.7; }
   .sch-legend .sw{ display:inline-block; width:16px; height:10px; border-radius:3px; vertical-align:-1px; margin-right:5px; }
