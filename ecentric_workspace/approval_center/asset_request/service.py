@@ -122,6 +122,7 @@ def claim_fulfillment(name, user=None):
     user = user or frappe.session.user
     if not frappe.db.exists("ToDo", {"reference_type": BUSINESS_DT, "reference_name": name,
                                      "allocated_to": user, "status": "Open"}) \
+            and not engine.is_active_process_fulfiller(APPROVAL_TYPE, user) \
             and "System Manager" not in frappe.get_roles(user):
         frappe.throw(_("Ban khong thuoc nhom Operation xu ly yeu cau nay."))
     frappe.db.sql(
