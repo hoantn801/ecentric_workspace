@@ -694,6 +694,22 @@ def build_snapshot(req, process, levels, requester):
             }).insert(ignore_permissions=True)
 
 
+def is_active_process_fulfiller(approval_type, user=None):
+    """True if `user` is a Fulfiller participant on the current Active/Draft process for
+    `approval_type`. Dynamic (reads live config), so a newly-added fulfiller can claim from the
+    queue right away - keeps claim permission consistent with queue visibility. Read-only; no
+    workflow/state change."""
+    user = user or frappe.session.user
+    for name in frappe.get_all("EC Approval Process",
+                               filters={"approval_type": approval_type, "status": ["in", ["Active", "Draft"]]},
+                               pluck="name"):
+        if frappe.db.exists("EC Approval Participant",
+                            {"parent": name, "parenttype": "EC Approval Process",
+                             "participant_purpose": "Fulfiller", "user": user}):
+            return True
+    return False
+
+
 def submit(reference_doctype, reference_name, approval_type, requester, process_code=None,
            activate_first_level=True):
     process = resolve_process(approval_type, process_code)
