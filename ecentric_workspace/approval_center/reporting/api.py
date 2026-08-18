@@ -20,7 +20,7 @@ _ALLOWED_STATUS = set(_status.ENGINE_STATUSES)
 _ALLOWED_SLA = {"breached", "configured_policy", "operational_default", "unavailable"}
 
 
-def _parse_filters(filters):
+def _parse_filters(filters, force_date=True):
     if isinstance(filters, str):
         try:
             filters = json.loads(filters or "{}")
@@ -31,11 +31,12 @@ def _parse_filters(filters):
     # date range: default = current month
     df = filters.get("date_from")
     dt = filters.get("date_to")
-    if not (df and dt):
+    if not (df and dt) and force_date:
         df = str(get_first_day(nowdate()))
         dt = str(get_last_day(nowdate()))
-    out["date_from"] = str(df) + " 00:00:00"
-    out["date_to"] = str(dt) + " 23:59:59"
+    if df and dt:
+        out["date_from"] = str(df) + " 00:00:00"
+        out["date_to"] = str(dt) + " 23:59:59"
     for k in ("category", "approval_type", "department", "requester", "approver"):
         v = filters.get(k)
         if v not in (None, "", []):
@@ -107,3 +108,20 @@ def get_request_timeline(name):
                                      "request_level", "new_status"],
                              order_by="seq asc")
     return {"header": header, "actions": actions}
+
+
+@frappe.whitelist()
+def list_requests(filters=None, start=0, page_length=50, search=None):
+    """Paginated cross-form request list (all statuses) for the 'All requests' page. Scope-resolved
+    server-side; no date default (show all in scope unless a range is passed)."""
+    scope = _scope.resolve_scope(frappe.session.user)
+    f = _parse_filters(filters, force_date=False)
+    try:
+        start = max(0, int(start))
+        page_length = min(200, max(1, int(page_length)))
+    except (TypeError, ValueError):
+        start, page_length = 0, 50
+    out = _service.list_requests(scope, f, start=start, page_length=page_length,
+                                 search=(search or None))
+    out["scope_mode"] = scope.get("mode")
+    return out

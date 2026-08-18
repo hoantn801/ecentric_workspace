@@ -125,6 +125,52 @@ def fetch_levels_for_bottleneck(scope, filters, completed_from=None, completed_t
     return frappe.db.sql(sql, params, as_dict=True)
 
 
+def _search_clause(search, params):
+    if not search:
+        return None
+    params["search"] = "%" + str(search).strip() + "%"
+    return ("(r.name LIKE %(search)s OR t.approval_title LIKE %(search)s "
+            "OR r.requested_by LIKE %(search)s OR r.requester_department LIKE %(search)s)")
+
+
+def _list_where(scope, filters, search, params):
+    where = ["1=1"]
+    sp, sparams = _scope.scope_predicate(scope)
+    where.append(sp)
+    params.update(sparams)
+    where.extend(_non_date_filters(filters, params))
+    df = (filters or {}).get("date_from")
+    dt = (filters or {}).get("date_to")
+    if df and dt:
+        params["date_from"] = df
+        params["date_to"] = dt
+        where.append("COALESCE(r.submitted_at, r.creation) BETWEEN %(date_from)s AND %(date_to)s")
+    sc = _search_clause(search, params)
+    if sc:
+        where.append(sc)
+    return " AND ".join(where)
+
+
+def fetch_requests_page(scope, filters, start, page_length, search=None):
+    """One governed, scoped, paginated page of requests across all forms (all statuses)."""
+    params = {}
+    where = _list_where(scope, filters, search, params)
+    params["_start"] = int(start)
+    params["_len"] = int(page_length)
+    sql = ("SELECT " + _FIELDS + _BASE + " WHERE " + where +
+           " ORDER BY COALESCE(r.submitted_at, r.creation) DESC LIMIT %(_start)s, %(_len)s")
+    return frappe.db.sql(sql, params, as_dict=True)
+
+
+def count_requests(scope, filters, search=None):
+    params = {}
+    where = _list_where(scope, filters, search, params)
+    row = frappe.db.sql("SELECT COUNT(*) AS c FROM `tabEC Approval Request` r "
+                        "LEFT JOIN `tabEC Approval Type` t ON t.name = r.approval_type "
+                        "WHERE " + where, params, as_dict=True)
+    return row[0]["c"] if row else 0
+
+
 def is_visible(scope, request_name):
     """True iff `request_name` falls within the caller's scope. Used to gate the timeline
     drawer without any DocPerm dependency."""
