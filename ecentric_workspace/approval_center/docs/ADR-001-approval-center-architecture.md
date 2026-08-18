@@ -21,6 +21,8 @@ Implemented on 2026-08-18:
   compatibility required by the existing engine tests;
 - e-sign platform ownership remains complete under `platform/esign`;
 - no Web Page HTML or drift-lock source is changed by this migration.
+- orphaned compatibility packages `core/` and `application/` have been removed;
+  their authoritative implementations already live in the shared and business modules.
 
 ## Context
 

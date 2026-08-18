@@ -3,7 +3,7 @@
 
 Exposes ONLY `list_catalog` (whitelisted). Normal users never get raw DocType
 access (DocPerm is System Manager only); visibility is enforced here via
-`approval_center.permissions`. Returns just what the page needs.
+`shared.catalog_permissions`. Returns just what the page needs.
 """
 import frappe
 from frappe.utils import getdate, nowdate
