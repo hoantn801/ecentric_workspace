@@ -15,6 +15,7 @@
   "hours",
   "section_break_state",
   "state",
+  "timesheet",
   "source_note"
  ],
  "fields": [
@@ -72,6 +73,13 @@
    "in_standard_filter": 1,
    "label": "State",
    "options": "Dự kiến\nĐã xác nhận"
+  },
+  {
+   "fieldname": "timesheet",
+   "fieldtype": "Link",
+   "label": "Timesheet",
+   "options": "Timesheet",
+   "read_only": 1
   },
   {
    "fieldname": "source_note",
