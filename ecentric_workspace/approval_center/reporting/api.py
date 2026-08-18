@@ -111,11 +111,14 @@ def get_request_timeline(name):
 
 
 @frappe.whitelist()
-def list_requests(filters=None, start=0, page_length=50, search=None):
+def list_requests(filters=None, start=0, page_length=50, search=None, box=None):
     """Paginated cross-form request list (all statuses) for the 'All requests' page. Scope-resolved
     server-side; no date default (show all in scope unless a range is passed)."""
     scope = _scope.resolve_scope(frappe.session.user)
     f = _parse_filters(filters, force_date=False)
+    if box in ("received", "sent"):
+        f["box"] = box
+        f["_me"] = frappe.session.user
     try:
         start = max(0, int(start))
         page_length = min(200, max(1, int(page_length)))

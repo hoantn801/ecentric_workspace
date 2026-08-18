@@ -497,8 +497,47 @@ def list_requests(scope, filters, start=0, page_length=50, search=None):
     rows = _q.fetch_requests_page(scope, filters, start, page_length, search)
     total = _q.count_requests(scope, filters, search)
     sla_by = {r["name"]: _sla.sla_state(r, ref_now=now) for r in rows}
-    return {"rows": [_row_view(r, sla_by, now) for r in rows],
-            "total": total, "start": int(start), "page_length": int(page_length)}
+    views = [_row_view(r, sla_by, now) for r in rows]
+    _enrich_list_rows(views)
+    return {"rows": views, "total": total, "start": int(start), "page_length": int(page_length)}
+
+
+def _enrich_list_rows(views):
+    """Add Teams-style 'sent by' (requester_info) + 'sent to' (distinct approvers) to each list
+    row. Batched (2 queries total, bounded by the page size) - no per-row query."""
+    import frappe
+    if not views:
+        return
+    names = [v["name"] for v in views]
+    appr = frappe.get_all("EC Approval Request Approver",
+                          filters={"approval_request": ["in", names]},
+                          fields=["approval_request", "approver", "status", "level_no"])
+    users = set(v.get("requester") for v in views if v.get("requester"))
+    by_req = defaultdict(list)
+    for a in appr:
+        by_req[a["approval_request"]].append(a)
+        if a.get("approver"):
+            users.add(a["approver"])
+    umap = {}
+    if users:
+        for u in frappe.get_all("User", filters={"name": ["in", list(users)]},
+                                fields=["name", "full_name", "user_image"]):
+            umap[u["name"]] = u
+
+    def _info(u, status=None):
+        d = umap.get(u) or {}
+        return {"user": u, "name": (d.get("full_name") or u or ""), "image": d.get("user_image"),
+                "status": status}
+
+    for v in views:
+        v["requester_info"] = _info(v.get("requester"))
+        seen, sto = set(), []
+        for a in sorted(by_req.get(v["name"], []), key=lambda x: x.get("level_no") or 0):
+            if a["approver"] in seen:
+                continue
+            seen.add(a["approver"])
+            sto.append(_info(a["approver"], a.get("status")))
+        v["sent_to"] = sto
 
 
 def drilldown(scope, filters, limit=200):
