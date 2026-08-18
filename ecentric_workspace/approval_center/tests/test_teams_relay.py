@@ -1,39 +1,41 @@
 # Copyright (c) 2026, eCentric and contributors
-"""engine.notify -> Teams DM relay: link builder + kill-switch + per-recipient send."""
+"""engine.notify routes every approval notification through the notification_center pipeline
+(events.publish_notification_event), which owns the in-app log AND fans out to the working
+'eCentric Copilot' Teams channel. Verifies event_type + per-recipient dispatch + Guest/None skip."""
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.engine import service as engine
 
 
-class TestTeamsRelay(FrappeTestCase):
-    def test_kill_switch_blocks_send(self):
-        orig = frappe.conf.get("ec_approval_teams_disabled")
-        frappe.conf.ec_approval_teams_disabled = 1
+class TestNotifyRouting(FrappeTestCase):
+    def test_notify_publishes_approval_required_per_recipient(self):
+        from ecentric_workspace.notification_center import events as ncev
+        calls = []
+        real = ncev.publish_notification_event
+        ncev.publish_notification_event = lambda *a, **k: calls.append((a, k)) or {"ok": True}
         try:
-            calls = []
-            import ecentric_workspace.notification_center.providers.teams_bot as tb
-            real = tb.send_personal
-            tb.send_personal = lambda *a, **k: calls.append(a)
-            try:
-                engine._send_teams_batch(["x@x.com"], "hi", "EC Approval Type", "X")
-            finally:
-                tb.send_personal = real
-            self.assertEqual(calls, [])
+            engine.notify(["a@x.com", "b@x.com", "Guest", None], "Approval needed: X",
+                          "EC Approval Type", "X")
         finally:
-            frappe.conf.ec_approval_teams_disabled = orig
+            ncev.publish_notification_event = real
+        recipients = {a[1] for a, k in calls}
+        self.assertEqual(recipients, {"a@x.com", "b@x.com"})      # Guest/None skipped
+        for a, k in calls:
+            self.assertEqual(a[0], "approval_required")           # event_type -> teams ON by default
+            self.assertEqual(a[2], "Approval needed: X")          # title
+            self.assertEqual(k.get("reference_doctype"), "EC Approval Type")
+            self.assertIn("dedupe_key", k)                        # unique -> never wrongly suppressed
 
-    def test_send_calls_per_recipient_when_configured(self):
-        import ecentric_workspace.notification_center.providers.teams_bot as tb
-        real_send, real_cfg = tb.send_personal, tb.is_configured
-        sent = []
-        tb.is_configured = lambda *a, **k: True
-        tb.send_personal = lambda u, activity, cfg=None: sent.append(u)
-        orig = frappe.conf.get("ec_approval_teams_disabled")
-        frappe.conf.ec_approval_teams_disabled = 0
+    def test_notify_never_raises_on_pipeline_error(self):
+        from ecentric_workspace.notification_center import events as ncev
+        real = ncev.publish_notification_event
+
+        def boom(*a, **k):
+            raise RuntimeError("provider down")
+
+        ncev.publish_notification_event = boom
         try:
-            engine._send_teams_batch(["a@x.com", "b@x.com", "Guest", None], "subj", "EC Approval Type", "X")
+            engine.notify(["a@x.com"], "subj", "EC Approval Type", "X")   # must not raise
         finally:
-            tb.send_personal, tb.is_configured = real_send, real_cfg
-            frappe.conf.ec_approval_teams_disabled = orig
-        self.assertEqual(set(sent), {"a@x.com", "b@x.com"})   # Guest/None skipped
+            ncev.publish_notification_event = real
