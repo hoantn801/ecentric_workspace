@@ -18,7 +18,7 @@ TITLE = "Approval Center"
 
 def _html():
     base = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(base, "hub", "ui", "main_section.html"), encoding="utf-8") as fh:
+    with open(os.path.join(base, "ui", "main_section.html"), encoding="utf-8") as fh:
         return fh.read()
 
 
@@ -40,8 +40,8 @@ def _html():
 # Deliberate update = edit frontend/approvals.main_section.html, bump
 # BASELINE_SHA256, move the value it replaced into SUPERSEDES_SHA256 -- all in
 # the same commit.
-BASELINE_SHA256 = "243836867f03377a37c3542a52a10a9b287475c3574019b7d34d1ac3447eb392"
-SUPERSEDES_SHA256 = ()
+BASELINE_SHA256 = "167633893d650b0d186e9eb4f638a8dc10478119d10610fb4e166d6088f0a191"
+SUPERSEDES_SHA256 = ("243836867f03377a37c3542a52a10a9b287475c3574019b7d34d1ac3447eb392",)
 
 
 def sync(html=None, force=0):
