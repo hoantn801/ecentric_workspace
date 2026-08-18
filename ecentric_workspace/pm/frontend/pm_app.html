@@ -3183,7 +3183,7 @@
   }
   function showSchedule(){
     var c=el("pm-view"); spin(c);
-    var GUT=42, HN=24, OFFHP=48, WORKHP=100, WS=8, WE=18;
+    var GUT=42, HN=24, OFFHP=34, WORKHP=76, WS=8, WE=18;
     var Y_WS=WS*OFFHP, Y_WE=Y_WS+(WE-WS)*WORKHP, HH=Y_WE+(HN-WE)*OFFHP;
     var PAL=[["#E6EEFB","#1f2d80"],["#EAF3DE","#3B6D11"],["#FAEEDA","#854F0B"],["#FBEAF0","#993556"],["#EEEDFE","#3C3489"],["#E1F5EE","#0F6E56"]];
     var st=window._sch=window._sch||{};
@@ -3197,11 +3197,13 @@
     function minOf(d){ return d.getHours()*60+d.getMinutes(); }
     function buildDT(di,mins){ var d=new Date(st.ws); d.setDate(st.ws.getDate()+di); return isoOf(d)+" "+pad(Math.floor(mins/60))+":"+pad(mins%60)+":00"; }
     function colorFor(task){ var h=0,i; for(i=0;i<(task||"").length;i++){h=(h*31+task.charCodeAt(i))>>>0;} return PAL[h%PAL.length]; }
+    function scroller(){ var n=c.parentElement; while(n){ try{ var oy=getComputedStyle(n).overflowY; if((oy==="auto"||oy==="scroll") && n.scrollHeight>n.clientHeight+4) return n; }catch(_){} n=n.parentElement; } return document.scrollingElement||document.documentElement; }
     function minToY(m){ var h=m/60; if(h<=WS) return h*OFFHP; if(h<=WE) return Y_WS+(h-WS)*WORKHP; return Y_WE+(h-WE)*OFFHP; }
     function yToMin(y){ var h; if(y<=Y_WS) h=y/OFFHP; else if(y<=Y_WE) h=WS+(y-Y_WS)/WORKHP; else h=WE+(y-Y_WE)/OFFHP; return h*60; }
-    function load(_retry){ spin(c); api(PM+"schedule.week",{week_start:isoOf(st.ws),user:st.user||null}).then(function(r){ st.data=r||{}; render(); }).catch(function(e){ if(!_retry){ setTimeout(function(){ load(true); }, 700); return; } c.innerHTML='<div class="panel"><div class="pm-state">Lỗi tải lịch: '+esc(errOf(e))+'<br><button class="pm-btn" style="margin-top:10px" onclick="location.reload()">Tải lại</button></div></div>'; }); }
+    function load(_retry){ var _sc=scroller(), _sp=_sc?_sc.scrollTop:0; spin(c); api(PM+"schedule.week",{week_start:isoOf(st.ws),user:st.user||null}).then(function(r){ st.data=r||{}; render(); if(_sc){ try{_sc.scrollTop=_sp;}catch(_){} } }).catch(function(e){ if(!_retry){ setTimeout(function(){ load(true); }, 700); return; } c.innerHTML='<div class="panel"><div class="pm-state">Lỗi tải lịch: '+esc(errOf(e))+'<br><button class="pm-btn" style="margin-top:10px" onclick="location.reload()">Tải lại</button></div></div>'; }); }
 
     function render(){
+      var _sc=scroller(), _sp=_sc?_sc.scrollTop:0;
       var d=st.data||{}, blocks=d.blocks||[], backlog=d.backlog||[], subj=d.subjects||{}, meta=d.meta||{}, ro=!!d.readonly;
       var DN=["T2","T3","T4","T5","T6","T7","CN"], now=new Date();
       var days=[]; var i; for(i=0;i<7;i++){ var dd=new Date(st.ws); dd.setDate(st.ws.getDate()+i); days.push(dd); }
@@ -3250,6 +3252,7 @@
       body+='</div></div>';
 
       c.innerHTML=h+'<div class="sch-wrap" style="grid-template-columns:'+(_col?'38px':'168px')+' 1fr">'+side+'<div class="sch-cal">'+hdr+body+'</div></div>';
+      if(_sc){ try{_sc.scrollTop=_sp;}catch(_){} }
       st._ro=ro;
       wire();
       var bp=el("sch-prev"); if(bp)bp.onclick=function(){ st.ws=new Date(st.ws.getTime()-7*86400000); load(); };
@@ -3293,7 +3296,7 @@
       function _mu(e){ if(!drag){ return; } var dg=drag; drag=null;
         if(dg.mode==="new"){ if(ghost&&ghost.parentNode)ghost.parentNode.removeChild(ghost); ghost=null; var r=daysRect(); if(r&&e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom){ var p=toDayMin(e.clientX,e.clientY); var sm=Math.min(HN*60-60,p.m); api(PM+"schedule.place",{task:dg.task,start:buildDT(p.d,sm),end:buildDT(p.d,sm+60)}).then(function(){ load(); }).catch(function(er){ toast("Lỗi: "+errOf(er),true); }); } return; }
         if(dg.mode==="mv"||dg.mode==="rz"){ if(dg.mode==="mv" && !dg.moved){ try{openTask(dg.b.task);}catch(_){}
-          return; } var b=dg.b; api(PM+"schedule.move",{name:b.name,start:buildDT(b._di,b._s),end:buildDT(b._di,b._e)}).then(function(){ load(); }).catch(function(er){ toast("Lỗi: "+errOf(er),true); load(); }); }
+          return; } var b=dg.b; b.start=buildDT(b._di,b._s); b.end=buildDT(b._di,b._e); render(); api(PM+"schedule.move",{name:b.name,start:b.start,end:b.end}).then(function(){}).catch(function(er){ toast("Lỗi: "+errOf(er),true); load(); }); }
       }
     }
     function paintBlock(b){ var days=document.getElementById("sch-days"); if(!days)return; var elm=days.querySelector('.sch-blk[data-name="'+b.name+'"]'); if(!elm)return; elm.style.left="calc("+(b._di*100/7)+"% + 1px)"; elm.style.width="calc("+(100/7)+"% - 2px)"; elm.style.top=minToY(b._s)+"px"; elm.style.height=Math.max(15,minToY(b._e)-minToY(b._s))+"px"; elm.style.zIndex="6"; var lab=elm.querySelector("div"); if(lab){ lab.textContent=pad(Math.floor(b._s/60))+":"+pad(b._s%60)+"–"+pad(Math.floor(b._e/60))+":"+pad(b._e%60); } }
