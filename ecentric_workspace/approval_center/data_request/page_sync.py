@@ -8,7 +8,7 @@ import os
 import frappe
 from frappe import _
 
-from ecentric_workspace.approval_center import page_sync_util
+from ecentric_workspace.approval_center.shared import page_sync as page_sync_util
 
 ROUTE = "approvals/data-request"
 NAME = "approval-center-data-request"
@@ -17,7 +17,7 @@ TITLE = "Data Request"
 
 def _html():
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    with open(os.path.join(base, "frontend", "data_request.main_section.html"), encoding="utf-8") as fh:
+    with open(os.path.join(base, "data_request", "ui", "main_section.html"), encoding="utf-8") as fh:
         return fh.read()
 
 

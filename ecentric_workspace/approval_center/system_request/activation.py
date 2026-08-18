@@ -5,7 +5,7 @@ only, dry-run by default, audited, never run at migrate."""
 import frappe
 from frappe import _
 
-from ecentric_workspace.approval_center.services.activation_flags import is_dry_run
+from ecentric_workspace.approval_center.shared.activation_flags import is_dry_run
 
 from ecentric_workspace.approval_center.system_request.setup import validate_system_request_v1
 

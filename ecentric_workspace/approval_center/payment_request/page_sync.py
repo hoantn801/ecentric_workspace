@@ -11,7 +11,7 @@ import os
 import frappe
 from frappe import _
 
-from ecentric_workspace.approval_center import page_sync_util
+from ecentric_workspace.approval_center.shared import page_sync as page_sync_util
 
 ROUTE = "approvals/payment-request"
 NAME = "payment-request"
@@ -62,7 +62,7 @@ def _esign_requester_panel():
 
 
 def _document_signing_section():
-    """Phase A2 unified 'Tài liệu & ký số' section. Consumes the deployed A1/B1 read endpoints;
+    """Phase A2 unified 'TÃƒÆ’Ã‚Â i liÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡u & kÃƒÆ’Ã‚Â½ sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ' section. Consumes the deployed A1/B1 read endpoints;
     replaces the requester raw signing panel + inline placement editor for the document-setup
     stage. Returns '' if the source is missing so a sync never fails on its absence."""
     try:
@@ -75,7 +75,7 @@ def _document_signing_section():
 
 def _html():
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    with open(os.path.join(base, "frontend", "payment_request.main_section.html"),
+    with open(os.path.join(base, "payment_request", "ui", "main_section.html"),
               encoding="utf-8") as fh:
         main = fh.read()
     # Whole section is rebuilt from source on every sync, so appending each panel exactly

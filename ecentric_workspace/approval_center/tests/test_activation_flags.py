@@ -7,7 +7,7 @@ Pure-Python (no Frappe), so it runs under bench AND standalone:
 """
 import unittest
 
-from ecentric_workspace.approval_center.services.activation_flags import (
+from ecentric_workspace.approval_center.shared.activation_flags import (
     is_truthy, is_explicit_false, is_dry_run)
 
 

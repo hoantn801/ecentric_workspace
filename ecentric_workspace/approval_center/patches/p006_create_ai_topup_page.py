@@ -15,7 +15,7 @@ TITLE = "AI Topup"
 
 def _html():
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    with open(os.path.join(base, "frontend", "ai_topup.main_section.html"), encoding="utf-8") as fh:
+    with open(os.path.join(base, "ai_topup", "ui", "main_section.html"), encoding="utf-8") as fh:
         return fh.read()
 
 

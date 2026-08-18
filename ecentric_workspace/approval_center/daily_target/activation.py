@@ -5,7 +5,7 @@ System-Manager only, dry-run by default, audited, never run at migrate."""
 import frappe
 from frappe import _
 
-from ecentric_workspace.approval_center.services.activation_flags import is_dry_run
+from ecentric_workspace.approval_center.shared.activation_flags import is_dry_run
 
 from ecentric_workspace.approval_center.daily_target.setup import (
     validate_daily_target_v1, PROCESS_PROJECT, PROCESS_CONSOLIDATED)
