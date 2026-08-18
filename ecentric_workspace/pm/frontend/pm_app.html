@@ -165,7 +165,11 @@
   .pm-head .sub{ color:var(--gray-500); font-size:13px; margin-top:2px; }
 .sch-wrap{ display:grid; grid-template-columns:168px 1fr; gap:12px; align-items:start; }
   .sch-side{ position:sticky; top:8px; }
-  .sch-side .lbl{ font-size:11px; font-weight:600; color:var(--gray-500); margin-bottom:6px; }
+  .sch-side .lbl{ font-size:11px; font-weight:600; color:var(--gray-500); margin-bottom:6px; display:flex; align-items:center; gap:5px; }
+  .sch-toggle{ margin-left:auto; border:none; background:transparent; color:var(--gray-400); cursor:pointer; padding:2px; border-radius:5px; line-height:0; }
+  .sch-toggle:hover{ background:var(--gray-100); color:var(--navy); }
+  .sch-collapsed{ display:flex; justify-content:center; padding-top:2px; }
+  .sch-collapsed .sch-toggle{ margin:0; }
   .sch-chip{ display:flex; align-items:center; justify-content:flex-start; gap:5px; background:#fff; border:1px solid var(--gray-200); border-radius:7px; padding:5px 8px; font-size:11px; line-height:1.3; margin-bottom:4px; cursor:grab; color:var(--gray-800); }
   .sch-chip > span{ flex:1 1 auto; min-width:0; text-align:left; }
   .sch-chip .g{ opacity:.45; flex:0 0 auto; }
@@ -3183,6 +3187,7 @@
     var PAL=[["#E6EEFB","#1f2d80"],["#EAF3DE","#3B6D11"],["#FAEEDA","#854F0B"],["#FBEAF0","#993556"],["#EEEDFE","#3C3489"],["#E1F5EE","#0F6E56"]];
     var st=window._sch=window._sch||{};
     if(!st.ws){ var t=new Date(); t.setHours(0,0,0,0); var wd=(t.getDay()+6)%7; t.setDate(t.getDate()-wd); st.ws=t; }
+    if(st.sideCollapsed===undefined){ try{st.sideCollapsed=(localStorage.getItem("pm_sch_side")==="1");}catch(_){ st.sideCollapsed=false; } }
     function pad(n){return (n<10?"0":"")+n;}
     function isoOf(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
     function parseDT(x){ if(!x)return null; var m=String(x).match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/); if(!m)return null; return new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]); }
@@ -3206,8 +3211,11 @@
       var h=head("Lịch làm việc", (ro?("Lịch của "+esc(st.user||"")+" · "):"")+"Tuần "+wl+" · kéo việc vào khung giờ, kéo mép dưới để giãn", right);
 
       var chips=backlog.length? backlog.map(function(t){ var col=colorFor(t.name); return '<div class="sch-chip" data-task="'+esc(t.name)+'" style="border-left:3px solid '+col[1]+'"><svg class="icon icon-sm g"><use href="#p-grip"/></svg><span>'+esc(t.subject||t.name)+'</span></div>'; }).join(''):'<div class="sch-empty">Không có việc chờ xếp.</div>';
-      var side='<div class="sch-side"><div class="lbl"><svg class="icon icon-sm"><use href="#p-inbox"/></svg> Chưa xếp lịch</div>'+(ro?'':chips)
-        +'<div class="sch-legend"><div><span class="sw" style="border:1.5px dashed var(--navy)"></span>Dự kiến</div><div><span class="sw" style="background:#EAF3DE"></span>Đã trôi qua → tự ghi</div><div><span class="sw" style="background:#C7F0DE"></span>Đã xác nhận</div></div></div>';
+      var _col=st.sideCollapsed;
+      var side=_col
+        ? '<div class="sch-side sch-collapsed"><button class="sch-toggle" id="sch-exp" title="Mở rộng danh sách việc"><svg class="icon icon-sm"><use href="#p-inbox"/></svg></button></div>'
+        : '<div class="sch-side"><div class="lbl"><svg class="icon icon-sm"><use href="#p-inbox"/></svg> Chưa xếp lịch<button class="sch-toggle" id="sch-col" title="Thu gọn"><svg class="icon icon-sm"><use href="#p-back"/></svg></button></div>'+(ro?'':chips)
+          +'<div class="sch-legend"><div><span class="sw" style="border:1.5px dashed var(--navy)"></span>Dự kiến</div><div><span class="sw" style="background:#EAF3DE"></span>Đã trôi qua → tự ghi</div><div><span class="sw" style="background:#C7F0DE"></span>Đã xác nhận</div></div></div>';
 
       var hdr='<div class="sch-hdr" style="position:relative;height:24px"><div style="position:absolute;left:'+GUT+'px;right:0;top:0;height:24px">';
       for(i=0;i<7;i++){ var td=(days[i].toDateString()===now.toDateString()); hdr+='<div style="position:absolute;left:'+(i*100/7)+'%;width:'+(100/7)+'%;text-align:center;font-size:11px;font-weight:600;color:'+(td?'var(--navy)':'var(--gray-500)')+'">'+DN[i]+' '+days[i].getDate()+'/'+(days[i].getMonth()+1)+'</div>'; }
@@ -3239,13 +3247,14 @@
       if(ti>=0){ var yn=minToY(now.getHours()*60+now.getMinutes()); body+='<div style="position:absolute;left:'+(ti*100/7)+'%;width:'+(100/7)+'%;top:'+yn+'px;height:2px;background:#D4537E;z-index:5"></div>'; }
       body+='</div></div>';
 
-      c.innerHTML=h+'<div class="sch-wrap">'+side+'<div class="sch-cal">'+hdr+body+'</div></div>';
+      c.innerHTML=h+'<div class="sch-wrap" style="grid-template-columns:'+(_col?'38px':'168px')+' 1fr">'+side+'<div class="sch-cal">'+hdr+body+'</div></div>';
       st._ro=ro;
       wire();
       var bp=el("sch-prev"); if(bp)bp.onclick=function(){ st.ws=new Date(st.ws.getTime()-7*86400000); load(); };
       var bn=el("sch-next"); if(bn)bn.onclick=function(){ st.ws=new Date(st.ws.getTime()+7*86400000); load(); };
       var bt=el("sch-today"); if(bt)bt.onclick=function(){ var t=new Date(); t.setHours(0,0,0,0); var wd=(t.getDay()+6)%7; t.setDate(t.getDate()-wd); st.ws=t; load(); };
       var bc=el("sch-confirm"); if(bc)bc.onclick=function(){ var names=pend.map(function(b){return b.name;}); bc.disabled=true; api(PM+"schedule.confirm",{names:JSON.stringify(names)}).then(function(){ toast("Đã xác nhận "+names.length+" mục"); load(); }).catch(function(e){ toast("Lỗi: "+errOf(e),true); bc.disabled=false; }); };
+      var _tg=el("sch-col")||el("sch-exp"); if(_tg)_tg.onclick=function(){ st.sideCollapsed=!st.sideCollapsed; try{localStorage.setItem("pm_sch_side",st.sideCollapsed?"1":"0");}catch(_){} render(); };
     }
 
     function daysRect(){ var e2=document.getElementById("sch-days"); return e2?e2.getBoundingClientRect():null; }
@@ -3308,7 +3317,7 @@
     if(window._pmOpenProject) return "#project/"+encodeURIComponent(window._pmOpenProject);
     if(v==="work") return "#work/"+(window._workView||"list");
     if(v==="assignments") return "#assignments/"+(window._asgTab||"in");
-    var m={dashboard:"#overview",mytasks:"#mywork",projects:"#projects",timesheet:"#timesheet",recurring:"#recurring"};
+    var m={dashboard:"#overview",mytasks:"#mywork",projects:"#projects",timesheet:"#timesheet",recurring:"#recurring",schedule:"#schedule",guide:"#guide"};
     return m[v]||"#overview";
   }
   function pmSyncHash(){ if(!window._pmTaskOpen) pmSetHash(pmBaseHash()); }
