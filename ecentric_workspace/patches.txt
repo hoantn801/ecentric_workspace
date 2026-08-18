@@ -91,3 +91,4 @@ ecentric_workspace.approval_center.patches.p047_create_pnl_dashboard_page
 ecentric_workspace.reporting.patches.p001_seed_pnl_report
 ecentric_workspace.reporting.patches.p002_create_reports_page
 ecentric_workspace.approval_center.patches.p048_create_all_requests_page
+ecentric_workspace.platform.esign.patches.p001_migrate_api_namespace
