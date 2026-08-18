@@ -75,7 +75,7 @@ def _html():
 # values, so a repo snapshot can never silently revert a live edit. Deliberate
 # update = edit main_section.html, bump this constant, and move the value it
 # replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "533b91dbec7f3cb492e66cf2b26bf7fb7d855b09976e4c4eae3da65d499b107a"
+BASELINE_SHA256 = "1c34b7f7db3bea512f62ab6a0dbed13f51930d98b215363ef50b7e05798b82ae"
 
 # Live values this snapshot is allowed to overwrite. C4b was authored in the
 # repo, not on the site, so at deploy time live still holds the #138 bytes
@@ -89,6 +89,7 @@ BASELINE_SHA256 = "533b91dbec7f3cb492e66cf2b26bf7fb7d855b09976e4c4eae3da65d499b1
 # it listed lets those environments sync forward; on team.ecentric.vn live is
 # already at BASELINE_SHA256, so the first sync there returns "unchanged".
 SUPERSEDES_SHA256 = (
+    "533b91dbec7f3cb492e66cf2b26bf7fb7d855b09976e4c4eae3da65d499b107a",
     # bytes cua 0fc4abf ("SO doi ung" + tao PO tu SO + VAT + uu tien 2 nac). Day la
     # baseline DUNG cho toi khi PR #241 (b082c2a, ec-datepicker: them data-ec-dp-range
     # vao form loc) sua main_section.html ma KHONG bump BASELINE_SHA256 -- sync ghi

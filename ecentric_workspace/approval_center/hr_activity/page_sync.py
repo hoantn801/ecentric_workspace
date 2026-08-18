@@ -36,8 +36,8 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "4b108847bf466e8604819d50bbe14d54fcabecd91739847a54aae5c96ef5047e"
-SUPERSEDES_SHA256 = ()
+BASELINE_SHA256 = "72587f61a19d3b22a72fa4a2bae6d9734e9774e822a98679a8f624f15b3a8d06"
+SUPERSEDES_SHA256 = ("4b108847bf466e8604819d50bbe14d54fcabecd91739847a54aae5c96ef5047e",)
 
 
 def sync(html=None, force=0):

@@ -43,8 +43,9 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "2da1cee74e4a414679af490df4b0dd77088e49792beec2b4e3aff5fa854430bd"
+BASELINE_SHA256 = "c649214a4c5a728a24e6f2f36ac22cd2b629b9896b55b79760ef36c2c77fd0f9"
 SUPERSEDES_SHA256 = (
+    "2da1cee74e4a414679af490df4b0dd77088e49792beec2b4e3aff5fa854430bd",
     # bytes truoc khi sua link chet /mso-approval (2026-08-07): nut "Quay lai trang
     # chu" tro toi /mso-approval -- route nay KHONG ton tai tren site (chi co /home,
     # /all-ticket, /approval, /approvals). Nguoi dung bam vao roi ket o trang 404,

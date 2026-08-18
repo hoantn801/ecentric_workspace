@@ -32,7 +32,7 @@ def _html():
 # accepted values, so a repo snapshot can never silently revert a live edit.
 # Deliberate update = edit main_section.html, bump this constant, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "6a5009ad76abd904d60f72d41f36803551cfbec49d45721752dd08e2ec18d389"
+BASELINE_SHA256 = "c12f872cec6fe437b71c1b0289560e396032444f4e4b2da58d1c0a78dab778da"
 
 # Live values this snapshot is allowed to overwrite. C4b was authored in the
 # repo, not on the site, so at deploy time live still holds the #138 bytes
@@ -41,6 +41,7 @@ BASELINE_SHA256 = "6a5009ad76abd904d60f72d41f36803551cfbec49d45721752dd08e2ec18d
 # After the first successful sync live holds BASELINE_SHA256 and re-runs are
 # "unchanged". Prune entries once the deploy is confirmed on every environment.
 SUPERSEDES_SHA256 = (
+    "6a5009ad76abd904d60f72d41f36803551cfbec49d45721752dd08e2ec18d389",
     "5f78091710e070d8ced163351a1381f6e3ea2b9089b71b7d741411766df2843a",  # #138
 )
 
