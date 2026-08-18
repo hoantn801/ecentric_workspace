@@ -12,9 +12,9 @@ from unittest.mock import patch
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign import orchestrator, service as esvc, tasks
-from ecentric_workspace.approval_center.esign import signed_files
-from ecentric_workspace.approval_center.esign.providers.base import NormalizedDocState
+from ecentric_workspace.platform.esign import orchestrator, service as esvc, tasks
+from ecentric_workspace.platform.esign import signed_files
+from ecentric_workspace.platform.esign.providers.base import NormalizedDocState
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 from ecentric_workspace.approval_center.tests.test_scts_orchestration import (
     _scts_stack, _transport, _AdapterFactory)
@@ -88,7 +88,7 @@ class TestEsignSchedulers(FrappeTestCase):
 
         walk(sched)
         for t in ("poll_pending", "sweep_stale", "orphan_file_scan", "retrieve_signed_bundles"):
-            path = "ecentric_workspace.approval_center.esign.tasks." + t
+            path = "ecentric_workspace.platform.esign.tasks." + t
             self.assertEqual(flat.count(path), 1, "%s registered %d times" % (t, flat.count(path)))
 
     # ---- gates OFF -> zero adapter / network ----

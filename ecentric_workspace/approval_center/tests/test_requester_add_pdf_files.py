@@ -19,9 +19,9 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import payment_request as papi
-from ecentric_workspace.approval_center.esign import package as pkgsvc
-from ecentric_workspace.approval_center.esign import requester
-from ecentric_workspace.approval_center.esign import hashing
+from ecentric_workspace.platform.esign import package as pkgsvc
+from ecentric_workspace.platform.esign import requester
+from ecentric_workspace.platform.esign import hashing
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 BD, AT = "EC Payment Request", "PAYMENT_REQUEST"

@@ -11,8 +11,8 @@ from unittest.mock import patch
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign import package as pkgsvc, signed_files
-from ecentric_workspace.approval_center.esign.providers.base import NormalizedDocState
+from ecentric_workspace.platform.esign import package as pkgsvc, signed_files
+from ecentric_workspace.platform.esign.providers.base import NormalizedDocState
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 PKG = "EC Digital Signature Package"

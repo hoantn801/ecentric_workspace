@@ -47,7 +47,7 @@ class TestDocumentSectionShell(FrappeTestCase):
 
     def test_governed_endpoints_only_no_cdn(self):
         h = self._h()
-        self.assertIn("approval_center.esign.api.", h)
+        self.assertIn("platform.esign.api.", h)
         for m in ("document_setup_state", "set_document_requires_signature", "signer_plan",
                   "set_representative_attachment", "signing_readiness", "placement_state",
                   "save_placement", "delete_placement"):
@@ -58,7 +58,7 @@ class TestDocumentSectionShell(FrappeTestCase):
 
     def test_shell_main_source_preserved(self):
         base = os.path.dirname(os.path.dirname(os.path.abspath(page_sync.__file__)))
-        main = open(os.path.join(base, "frontend", "payment_request.main_section.html"),
+        main = open(os.path.join(base, "payment_request", "ui", "main_section.html"),
                     encoding="utf-8").read()
         # A2 did not touch the shell main: anchors present exactly as shipped
         self.assertEqual(main.count('data-ec-shell="1"'), 1)

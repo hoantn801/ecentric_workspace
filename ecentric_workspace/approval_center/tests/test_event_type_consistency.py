@@ -11,7 +11,7 @@ import os
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign import state as sm
+from ecentric_workspace.platform.esign import state as sm
 
 
 def _emitted_event_types():
@@ -19,7 +19,7 @@ def _emitted_event_types():
     events.emit("X", ...), set_dsr_status(..., event_type="X"),
     set_package_status(..., event_type="X"); PLUS the state-name defaults used when
     set_dsr_status / set_package_status omit event_type (to_status.replace(' ', ''))."""
-    import ecentric_workspace.approval_center.esign as pkg
+    import ecentric_workspace.platform.esign as pkg
     base = os.path.dirname(pkg.__file__)
     literals = set()
     for root, _dirs, files in os.walk(base):

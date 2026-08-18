@@ -4,7 +4,7 @@ UAT) vs public publish (card Active). System-Manager only, dry-run by default, n
 import frappe
 from frappe import _
 
-from ecentric_workspace.approval_center.services.activation_flags import is_dry_run
+from ecentric_workspace.approval_center.shared.activation_flags import is_dry_run
 
 from ecentric_workspace.approval_center.leave.setup import validate_leave_v1
 

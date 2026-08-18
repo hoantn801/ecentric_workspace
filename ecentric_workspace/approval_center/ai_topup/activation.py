@@ -8,7 +8,7 @@ any validation failure, audited. Never run during migrate or automatically."""
 import frappe
 from frappe import _
 
-from ecentric_workspace.approval_center.services.activation_flags import is_dry_run
+from ecentric_workspace.approval_center.shared.activation_flags import is_dry_run
 
 CALENDAR = "EC_STANDARD_9_18"
 PROCESS = "AI_TOPUP-V1"

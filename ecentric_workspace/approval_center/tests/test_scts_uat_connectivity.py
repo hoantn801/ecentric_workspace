@@ -42,7 +42,7 @@ class TestSctsUatConnectivity(FrappeTestCase):
         return s
 
     def test_authenticate_live(self):
-        from ecentric_workspace.approval_center.esign.providers import get_adapter
+        from ecentric_workspace.platform.esign.providers import get_adapter
         adapter = get_adapter(self._settings())
         out = adapter.test_connection()
         self.assertTrue(out.get("ok"))
@@ -52,6 +52,6 @@ class TestSctsUatConnectivity(FrappeTestCase):
         user_id = frappe.conf.get("ec_scts_uat_probe_user")
         if not user_id:
             self.skipTest("set site_config ec_scts_uat_probe_user to a real SCTS user id")
-        from ecentric_workspace.approval_center.esign.providers import get_adapter
+        from ecentric_workspace.platform.esign.providers import get_adapter
         sigs = get_adapter(s).list_user_signatures(user_id)
         self.assertIsInstance(sigs, list)

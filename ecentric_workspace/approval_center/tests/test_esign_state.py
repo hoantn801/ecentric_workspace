@@ -4,12 +4,12 @@ Runnable anywhere: python -m unittest ecentric_workspace.approval_center.tests.t
 """
 import unittest
 
-from ecentric_workspace.approval_center.esign import state as sm
-from ecentric_workspace.approval_center.esign.sanitize import REDACTED, safe_error, sanitize
-from ecentric_workspace.approval_center.esign.providers.base import (
+from ecentric_workspace.platform.esign import state as sm
+from ecentric_workspace.platform.esign.sanitize import REDACTED, safe_error, sanitize
+from ecentric_workspace.platform.esign.providers.base import (
     NormalizedDocState, SignatureProviderAdapter,
 )
-from ecentric_workspace.approval_center.esign.providers.mock import MockAdapter
+from ecentric_workspace.platform.esign.providers.mock import MockAdapter
 
 
 class TestStateMachine(unittest.TestCase):

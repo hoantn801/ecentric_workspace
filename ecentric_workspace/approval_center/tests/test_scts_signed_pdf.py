@@ -11,8 +11,8 @@ import hashlib
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign.providers.base import ProviderError
-from ecentric_workspace.approval_center.esign.providers.scts_client import SctsClient
+from ecentric_workspace.platform.esign.providers.base import ProviderError
+from ecentric_workspace.platform.esign.providers.scts_client import SctsClient
 from ecentric_workspace.approval_center.tests import scts_fixtures as sx
 
 PDF = b"%PDF-1.4 signed\n%%EOF"

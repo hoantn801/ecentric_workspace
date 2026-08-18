@@ -5,8 +5,8 @@ confirmed SCTS body {"Site","Username","Password"}, blank-Site fail-closed befor
 sanitized 4xx, and token/expiry passthrough."""
 import unittest
 
-from ecentric_workspace.approval_center.esign.providers.base import ProviderError
-from ecentric_workspace.approval_center.esign.providers.scts_client import SctsClient
+from ecentric_workspace.platform.esign.providers.base import ProviderError
+from ecentric_workspace.platform.esign.providers.scts_client import SctsClient
 
 
 class _Resp(object):

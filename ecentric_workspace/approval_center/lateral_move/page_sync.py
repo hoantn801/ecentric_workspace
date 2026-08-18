@@ -7,7 +7,7 @@ import os
 import frappe
 from frappe import _
 
-from ecentric_workspace.approval_center import page_sync_util
+from ecentric_workspace.approval_center.shared import page_sync as page_sync_util
 
 ROUTE = "approvals/lateral-move"
 NAME = "lateral-move"
@@ -16,7 +16,7 @@ TITLE = "Employee Lateral Move"
 
 def _html():
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    with open(os.path.join(base, "frontend", "lateral_move.main_section.html"), encoding="utf-8") as fh:
+    with open(os.path.join(base, "lateral_move", "ui", "main_section.html"), encoding="utf-8") as fh:
         return fh.read()
 
 

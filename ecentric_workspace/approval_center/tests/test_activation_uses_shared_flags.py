@@ -20,7 +20,7 @@ MODULES = [
 
 AC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 IMPORT_RE = re.compile(
-    r"from ecentric_workspace\.approval_center\.services\.activation_flags import .*is_dry_run")
+    r"from ecentric_workspace\.approval_center\.shared\.activation_flags import .*is_dry_run")
 
 
 class TestActivationUsesSharedFlags(unittest.TestCase):
@@ -41,7 +41,7 @@ class TestActivationUsesSharedFlags(unittest.TestCase):
             self.assertNotIn('else "apply"', src, m + ": real-exec mode should be 'commit'")
 
     def test_shared_util_exists(self):
-        self.assertTrue(os.path.exists(os.path.join(AC_DIR, "services", "activation_flags.py")))
+        self.assertTrue(os.path.exists(os.path.join(AC_DIR, "shared", "activation_flags.py")))
 
 
 if __name__ == "__main__":

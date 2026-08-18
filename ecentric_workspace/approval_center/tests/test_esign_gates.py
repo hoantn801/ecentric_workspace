@@ -10,9 +10,9 @@ from unittest.mock import patch
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign import guard, tasks, service as esvc
-from ecentric_workspace.approval_center.esign.providers import get_adapter
-from ecentric_workspace.approval_center.esign.providers.base import ProviderError
+from ecentric_workspace.platform.esign import guard, tasks, service as esvc
+from ecentric_workspace.platform.esign.providers import get_adapter
+from ecentric_workspace.platform.esign.providers.base import ProviderError
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 

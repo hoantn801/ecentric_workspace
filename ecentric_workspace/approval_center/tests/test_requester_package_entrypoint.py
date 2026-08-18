@@ -5,7 +5,7 @@ the bench: bench --site <site> run-tests --module ecentric_workspace.approval_ce
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign import requester, package as pkgsvc
+from ecentric_workspace.platform.esign import requester, package as pkgsvc
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 AR = "EC Approval Request"

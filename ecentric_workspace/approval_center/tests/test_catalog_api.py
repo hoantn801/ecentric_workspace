@@ -14,7 +14,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import catalog
-from ecentric_workspace.approval_center import permissions as perms
+from ecentric_workspace.approval_center.shared import catalog_permissions as perms
 
 CAT = "EC Approval Category"
 TYP = "EC Approval Type"

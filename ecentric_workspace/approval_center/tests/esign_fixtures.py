@@ -7,8 +7,8 @@ import frappe
 
 from ecentric_workspace.approval_center.api import payment_request as papi
 from ecentric_workspace.approval_center.tests import erp_fixtures as erp
-from ecentric_workspace.approval_center.esign import package as pkgsvc
-from ecentric_workspace.approval_center.esign.providers.mock import MockAdapter
+from ecentric_workspace.platform.esign import package as pkgsvc
+from ecentric_workspace.platform.esign.providers.mock import MockAdapter
 from ecentric_workspace.approval_center.payment_request import setup as psetup
 
 PFX = "zzesn_"  # lowercase: frappe lowercases User.name on insert; mixed-case
@@ -179,7 +179,7 @@ def submit_and_lock(biz_name, requester, pkg_name):
     pkgsvc.lock_package(pkg_name, ar)
     # Both creation triggers pass through Active; 'Before First Signing Level' mode
     # activates without a provider document (worker creates lazily).
-    from ecentric_workspace.approval_center.esign import events
+    from ecentric_workspace.platform.esign import events
     events.set_package_status(pkg_name, "Active")
     return ar
 
@@ -206,7 +206,7 @@ def full_stack(requester_email=PFX + "req@example.com", mgr_email=PFX + "mgr@exa
 
 def run_worker_for_latest(ar):
     """Run the background worker synchronously for the newest DSR of the request."""
-    from ecentric_workspace.approval_center.esign import tasks
+    from ecentric_workspace.platform.esign import tasks
     dsr = frappe.get_all("EC Digital Signature Request", filters={"approval_request": ar},
                          order_by="creation desc", limit_page_length=1, pluck="name")
     assert dsr, "no signature request found"

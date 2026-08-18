@@ -7,7 +7,7 @@ import os
 import frappe
 from frappe import _
 
-from ecentric_workspace.approval_center import page_sync_util
+from ecentric_workspace.approval_center.shared import page_sync as page_sync_util
 
 ROUTE = "approvals/employee-information-update"
 NAME = "approval-center-employee-information-update"
@@ -16,7 +16,7 @@ TITLE = "Employee Information Update"
 
 def _html():
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    with open(os.path.join(base, "frontend", "employee_info_update.main_section.html"), encoding="utf-8") as fh:
+    with open(os.path.join(base, "employee_info_update", "ui", "main_section.html"), encoding="utf-8") as fh:
         return fh.read()
 
 

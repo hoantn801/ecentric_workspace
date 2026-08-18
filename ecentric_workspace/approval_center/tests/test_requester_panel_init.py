@@ -21,7 +21,9 @@ import os
 
 from frappe.tests.utils import FrappeTestCase
 
-_UI = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "esign", "ui")
+_UI = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "platform", "esign", "ui")
 
 
 def _panel():

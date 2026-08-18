@@ -5,7 +5,7 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign import ui_state
+from ecentric_workspace.platform.esign import ui_state
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 _FORBIDDEN = ("password", "token", "authorization", "secret", "base64", "/private/files")

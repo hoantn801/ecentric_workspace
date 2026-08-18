@@ -11,19 +11,22 @@ import os
 import frappe
 from frappe import _
 
-from ecentric_workspace.approval_center import page_sync_util
+from ecentric_workspace.approval_center.shared import page_sync as page_sync_util
 
 ROUTE = "approvals/payment-request"
 NAME = "payment-request"
 TITLE = "Payment Request"
 
+_PLATFORM_ESIGN_UI = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "platform", "esign", "ui")
+
 
 def _esign_panel():
     """The governed SCTS signing panel appended to the PR detail page (S2B-B). Returns an
     empty string if the panel source is missing so a sync never fails on its absence."""
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # approval_center
     try:
-        with open(os.path.join(base, "esign", "ui", "payment_request_signing.html"),
+        with open(os.path.join(_PLATFORM_ESIGN_UI, "payment_request_signing.html"),
                   encoding="utf-8") as fh:
             return fh.read()
     except OSError:
@@ -35,9 +38,8 @@ def _esign_editor_panel():
     from /assets/ecentric_workspace/) BEFORE the editor so window.ECoords exists; PDF.js is
     loaded locally by the editor itself. Returns '' if the source is missing so a sync never
     fails on its absence. EC_PPH_CONFIG is resolved by the editor from the backend."""
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # approval_center
     try:
-        with open(os.path.join(base, "esign", "ui", "pdf_placement_editor.html"),
+        with open(os.path.join(_PLATFORM_ESIGN_UI, "pdf_placement_editor.html"),
                   encoding="utf-8") as fh:
             editor = fh.read()
     except OSError:
@@ -51,9 +53,8 @@ def _esign_requester_panel():
     """The requester pre-approval Prepare/Lock entry point, appended once. Visibility + status
     are decided by the governed backend readiness; the actions are local (no SCTS/DSR). Returns
     '' if the source is missing so a sync never fails on its absence."""
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # approval_center
     try:
-        with open(os.path.join(base, "esign", "ui", "requester_signing_panel.html"),
+        with open(os.path.join(_PLATFORM_ESIGN_UI, "requester_signing_panel.html"),
                   encoding="utf-8") as fh:
             return fh.read()
     except OSError:
@@ -61,12 +62,11 @@ def _esign_requester_panel():
 
 
 def _document_signing_section():
-    """Phase A2 unified 'Tài liệu & ký số' section. Consumes the deployed A1/B1 read endpoints;
+    """Phase A2 unified 'TÃƒÆ’Ã‚Â i liÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡u & kÃƒÆ’Ã‚Â½ sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ' section. Consumes the deployed A1/B1 read endpoints;
     replaces the requester raw signing panel + inline placement editor for the document-setup
     stage. Returns '' if the source is missing so a sync never fails on its absence."""
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # approval_center
     try:
-        with open(os.path.join(base, "esign", "ui", "document_signing_section.html"),
+        with open(os.path.join(_PLATFORM_ESIGN_UI, "document_signing_section.html"),
                   encoding="utf-8") as fh:
             return fh.read()
     except OSError:
@@ -75,7 +75,7 @@ def _document_signing_section():
 
 def _html():
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    with open(os.path.join(base, "frontend", "payment_request.main_section.html"),
+    with open(os.path.join(base, "payment_request", "ui", "main_section.html"),
               encoding="utf-8") as fh:
         main = fh.read()
     # Whole section is rebuilt from source on every sync, so appending each panel exactly
@@ -108,8 +108,8 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "77a9a462aef1ab9e353784518aa880491fac5a29a53c0c8564e5309ab58c76c4"
-SUPERSEDES_SHA256 = ()
+BASELINE_SHA256 = "d8f7d3572013ea4ec4f4b2c2997659a229b18979576cc9e9f939de8fc00ed68a"
+SUPERSEDES_SHA256 = ("77a9a462aef1ab9e353784518aa880491fac5a29a53c0c8564e5309ab58c76c4",)
 
 
 def sync(html=None, force=0):

@@ -11,7 +11,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import payment_request as papi
-from ecentric_workspace.approval_center.esign import signer_plan as sp
+from ecentric_workspace.platform.esign import signer_plan as sp
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 BD, AT = "EC Payment Request", "PAYMENT_REQUEST"

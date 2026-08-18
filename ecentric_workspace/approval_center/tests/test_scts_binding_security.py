@@ -13,10 +13,10 @@ from unittest.mock import patch
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign import binding
-from ecentric_workspace.approval_center.esign import service as esvc
-from ecentric_workspace.approval_center.esign import tasks
-from ecentric_workspace.approval_center.esign.providers.base import (
+from ecentric_workspace.platform.esign import binding
+from ecentric_workspace.platform.esign import service as esvc
+from ecentric_workspace.platform.esign import tasks
+from ecentric_workspace.platform.esign.providers.base import (
     NormalizedDocState, ProviderError, VerificationResult)
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
@@ -132,7 +132,7 @@ class TestSctsBindingSecurity(FrappeTestCase):
 
     # ---- no SCTS write after failed validation (worker path) ----
     def test_no_provider_write_after_failed_validation(self):
-        from ecentric_workspace.approval_center.esign.providers.mock import MockAdapter
+        from ecentric_workspace.platform.esign.providers.mock import MockAdapter
         h, dsr = self._queued("h11r", "h11m")
         frappe.db.set_value(DSR, dsr, "effective_signature_id", "SIG-FORGED")  # break chain
         writes = {"create": 0, "bulk": 0}
@@ -157,7 +157,7 @@ class TestSctsBindingSecurity(FrappeTestCase):
 
     # ---- worker-level failure classification (B4) ----
     def _run_worker_with_owner(self, dsr, owner_result=None, transient=False):
-        from ecentric_workspace.approval_center.esign import tasks as _t
+        from ecentric_workspace.platform.esign import tasks as _t
         calls = {"bulk": 0}
 
         class _OwnStub(object):

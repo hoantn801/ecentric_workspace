@@ -15,7 +15,7 @@ frappe.pages["ec-signing-inbox"].on_page_load = function (wrapper) {
   function esc(s) { return frappe.utils.escape_html(s == null ? "" : String(s)); }
   function load() {
     frappe.call({
-      method: "ecentric_workspace.approval_center.esign.api.signing_inbox",
+      method: "ecentric_workspace.platform.esign.api.signing_inbox",
       args: { filters: JSON.stringify({ bucket: st.bucket }),
               start: st.start, page_length: st.page_length },
     }).then(function (r) {

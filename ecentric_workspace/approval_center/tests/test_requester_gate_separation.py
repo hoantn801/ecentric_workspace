@@ -7,7 +7,7 @@ write gates; the actual signing WRITE stays fail-closed behind the gates. Runs o
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign import guard, requester
+from ecentric_workspace.platform.esign import guard, requester
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 AR = "EC Approval Request"

@@ -7,8 +7,8 @@ provider submission), unique key backstop, retry gating.
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign import service as esvc
-from ecentric_workspace.approval_center.esign.providers.mock import MockAdapter
+from ecentric_workspace.platform.esign import service as esvc
+from ecentric_workspace.platform.esign.providers.mock import MockAdapter
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 

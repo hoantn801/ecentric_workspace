@@ -10,8 +10,8 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.engine import service as engine
-from ecentric_workspace.approval_center.esign import package as pkgsvc, service as esvc, tasks
-from ecentric_workspace.approval_center.esign import api as esign_api
+from ecentric_workspace.platform.esign import package as pkgsvc, service as esvc, tasks
+from ecentric_workspace.platform.esign import api as esign_api
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 from ecentric_workspace.approval_center.tests import scts_fixtures as sx
 
@@ -85,7 +85,7 @@ class _Fac(object):
         self.transport = transport
 
     def __call__(self, settings):
-        from ecentric_workspace.approval_center.esign.providers.scts import SctsAdapter
+        from ecentric_workspace.platform.esign.providers.scts import SctsAdapter
         ad = SctsAdapter(settings, transport=self.transport, sleeper=lambda *_: None)
         ad._cached_token = lambda: "tok"
         ad._password = lambda f: "tok" if f == "token_cache" else "pw"

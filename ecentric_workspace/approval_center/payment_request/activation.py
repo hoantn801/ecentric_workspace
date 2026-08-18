@@ -5,9 +5,10 @@ only, dry-run by default, audited, never run at migrate."""
 import frappe
 from frappe import _
 
-from ecentric_workspace.approval_center.services.activation_flags import is_dry_run
+from ecentric_workspace.approval_center.shared.activation_flags import is_dry_run
 
 from ecentric_workspace.approval_center.payment_request.setup import validate_payment_request_v1
+from ecentric_workspace.platform.esign.flow import drift as esign_drift
 
 TYPE = "PAYMENT_REQUEST"
 PROCESS = "PAYMENT_REQUEST-V1"
@@ -55,10 +56,12 @@ def publish_payment_request_after_uat(dry_run=1, apply=0, commit=0):
     dry = is_dry_run(dry_run, apply, commit)
     v = validate_payment_request_v1()
     active = frappe.db.get_value("EC Approval Process", PROCESS, "status") == "Active"
-    ok = v["ok"] and active
+    esign_blockers = esign_drift.blockers()
+    ok = v["ok"] and active and not esign_blockers
     blockers = [c["check"] for c in v.get("checks", []) if not c.get("ok")]
     if not active:
         blockers = blockers + ["process not Active (run enable_payment_request_uat(apply=1) first)"]
+    blockers = blockers + esign_blockers
     report = {"operation": "publish", "mode": "dry_run" if dry else "commit",
               "validation": v, "process_active": active, "blockers": blockers, "ready": ok}
     if not ok:
