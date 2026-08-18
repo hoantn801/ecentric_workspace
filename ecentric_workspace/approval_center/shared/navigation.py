@@ -14,7 +14,7 @@ def items():
             "label": "Approval Center",
             "route": "/approvals",
             "icon": "check",
-            "group": "PhÃª duyá»‡t",
+            "group": "Phê duyệt",
             "order": 10,
             # Matches the hub AND every /approvals/<slug> form page, so form
             # pages (e.g. /approvals/hr-activity) highlight this item -- fixing
@@ -25,11 +25,23 @@ def items():
             "owner": "approval_center",
         },
         {
+            "key": "apc.all",
+            "label": "Tất cả yêu cầu",
+            "route": "/approvals/all-requests",
+            "icon": "list",
+            "group": "Phê duyệt",
+            "order": 15,
+            "active_patterns": ["/approvals/all-requests"],
+            "visible_when": "internal",
+            "keywords": ["tat ca", "all requests", "danh sach yeu cau", "tong hop"],
+            "owner": "approval_center",
+        },
+        {
             "key": "apc.dashboard",
             "label": "Dashboard",
             "route": "/approvals/dashboard",
             "icon": "chart",
-            "group": "PhÃª duyá»‡t",
+            "group": "Phê duyệt",
             "order": 20,
             # Exact pattern outranks apc.catalog's prefix pattern (longest/most
             # specific wins in ec_shell.js matchActive).
@@ -45,7 +57,7 @@ def items():
             "label": "All Tickets",     # renamed per approved sidebar IA (2B.1 nav patch)
             "route": "/approval",
             "icon": "doc",
-            "group": "Chá»©ng tá»«",
+            "group": "Chứng từ",
             "order": 20,
             # Preserves the existing hub-sidebar affordance to the legacy
             # /approval?id=&type= detail page (T4; page itself untouched).
@@ -56,10 +68,10 @@ def items():
         },
         {
             "key": "tickets.all",
-            "label": "Dashboard",       # approved IA: CHá»¨NG Tá»ª / Dashboard
+            "label": "Dashboard",       # approved IA: CHỨNG TỪ / Dashboard
             "route": "/all-ticket",
             "icon": "chart",
-            "group": "Chá»©ng tá»«",
+            "group": "Chứng từ",
             "order": 10,
             "active_patterns": ["/all-ticket"],
             "visible_when": "internal",
@@ -67,5 +79,3 @@ def items():
             "owner": "approval_center",
         },
     ]
-
-

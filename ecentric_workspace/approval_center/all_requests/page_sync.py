@@ -1,0 +1,34 @@
+# Copyright (c) 2026, eCentric and contributors
+"""Idempotent Web Page sync for the Approval Center 'All requests' list page.
+Route /approvals/all-requests. Delegates to the shared ORM-only upsert + shim strip."""
+import os
+
+import frappe
+from frappe import _
+
+from ecentric_workspace.approval_center.shared import page_sync as page_sync_util
+
+ROUTE = "approvals/all-requests"
+NAME = "approvals-all-requests"
+TITLE = "Approval Center - All Requests"
+
+
+def _html():
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    with open(os.path.join(base, "all_requests", "ui", "main_section.html"), encoding="utf-8") as fh:
+        return fh.read()
+
+
+def sync(html=None):
+    html = html if html is not None else _html()
+    res = page_sync_util.upsert_web_page(ROUTE, NAME, TITLE, html)
+    if res.get("name") and frappe.db.exists("Web Page", res["name"]):
+        res.update(page_sync_util.strip_legacy_shims(res["name"]))
+    return res
+
+
+@frappe.whitelist(methods=["POST"])
+def sync_all_requests_page():
+    if "System Manager" not in frappe.get_roles(frappe.session.user):
+        frappe.throw(_("Only System Manager may sync the All Requests page."), frappe.PermissionError)
+    return sync()
