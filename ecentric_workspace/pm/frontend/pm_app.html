@@ -3279,7 +3279,7 @@
           return '<div class="scm-row"><div class="scm-info"><div class="scm-t">'+esc(subjt)+'</div><div class="scm-sub">'+dstr+' · '+tr+'</div></div><input class="scm-h" type="number" step="0.25" min="0" value="'+(b.hours||0)+'" data-name="'+esc(b.name)+'"><span class="scm-u">giờ</span></div>'; }).join('');
         var ov=document.createElement('div'); ov.className='scm-ov';
         ov.innerHTML='<div class="scm-card"><div class="scm-hd">Xác nhận giờ đã làm<span class="scm-x">&times;</span></div><div class="scm-desc">Kiểm tra số giờ thực tế trước khi ghi vào Timesheet — sửa nếu cần. Sau khi xác nhận, mỗi mục sinh một dòng Timesheet.</div><div class="scm-list">'+rowsHtml+'</div><div class="scm-ft"><span class="scm-tot"></span><div><button class="pm-btn scm-cancel">Huỷ</button> <button class="pm-btn primary scm-go">Xác nhận & ghi giờ</button></div></div></div>';
-        document.body.appendChild(ov);
+        (document.getElementById("ec-pm-root")||document.body).appendChild(ov);
         function tot(){ var t=0; Array.prototype.forEach.call(ov.querySelectorAll('.scm-h'),function(i){t+=parseFloat(i.value)||0;}); ov.querySelector('.scm-tot').textContent='Tổng: '+(Math.round(t*100)/100)+' giờ'; }
         tot(); Array.prototype.forEach.call(ov.querySelectorAll('.scm-h'),function(i){i.addEventListener('input',tot);});
         function close(){ if(ov.parentNode)ov.parentNode.removeChild(ov); }
@@ -3313,7 +3313,7 @@
         else if(blk){ e.preventDefault(); var b=findBlk(blk.getAttribute("data-name")); var p=toDayMin(e.clientX,e.clientY); drag={mode:"mv",b:b,off:p.m-b._s,moved:false}; }
       });
       var side=c.querySelector(".sch-side");
-      if(side) side.addEventListener("mousedown",function(e){ var chip=e.target.closest?e.target.closest(".sch-chip"):null; if(!chip)return; e.preventDefault(); cancelDrag(); drag={mode:"new",task:chip.getAttribute("data-task"),label:chip.textContent.trim()}; ghost=document.createElement("div"); ghost.className="sch-ghost"; ghost.textContent=drag.label; document.body.appendChild(ghost); ghost.style.left=(e.clientX+8)+"px"; ghost.style.top=(e.clientY+8)+"px"; });
+      if(side) side.addEventListener("mousedown",function(e){ var chip=e.target.closest?e.target.closest(".sch-chip"):null; if(!chip)return; e.preventDefault(); cancelDrag(); drag={mode:"new",task:chip.getAttribute("data-task"),label:chip.textContent.trim()}; ghost=document.createElement("div"); ghost.className="sch-ghost"; ghost.textContent=drag.label; (document.getElementById("ec-pm-root")||document.body).appendChild(ghost); ghost.style.left=(e.clientX+8)+"px"; ghost.style.top=(e.clientY+8)+"px"; });
 
       function _blur(){ cancelDrag(); }
       function _key(e){ if(e.key==="Escape") cancelDrag(); }
