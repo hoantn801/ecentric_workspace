@@ -148,6 +148,15 @@ def _list_where(scope, filters, search, params):
     sc = _search_clause(search, params)
     if sc:
         where.append(sc)
+    box = (filters or {}).get("box")
+    me = (filters or {}).get("_me")
+    if box == "sent" and me:
+        params["_me_sent"] = me
+        where.append("r.requested_by = %(_me_sent)s")
+    elif box == "received" and me:
+        params["_me_recv"] = me
+        where.append("EXISTS (SELECT 1 FROM `tabEC Approval Request Approver` va "
+                     "WHERE va.approval_request = r.name AND va.approver = %(_me_recv)s)")
     return " AND ".join(where)
 
 

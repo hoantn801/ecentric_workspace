@@ -180,8 +180,18 @@ def remove(name):
     """Delete the caller's OWN block."""
     pmperm.require_pm_access()
     caller = frappe.session.user
-    b = frappe.db.get_value(BLOCK, name, ["name", "user"], as_dict=True)
+    b = frappe.db.get_value(BLOCK, name, ["name", "user", "timesheet"], as_dict=True)
     _require_own(b, caller)
+    # clean up the materialized Draft Timesheet (if any) so removing a block also
+    # removes the hours it logged; best-effort, only Draft (docstatus 0).
+    ts = b.get("timesheet")
+    if ts:
+        try:
+            if frappe.db.exists("Timesheet", ts) and int(
+                    frappe.db.get_value("Timesheet", ts, "docstatus") or 0) == 0:
+                frappe.delete_doc("Timesheet", ts, ignore_permissions=True, force=True)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "schedule remove timesheet")
     frappe.delete_doc(BLOCK, name, ignore_permissions=True)
     return {"ok": True, "name": name}
 
@@ -198,18 +208,48 @@ def confirm(names, hours_map=None):
     hmap = frappe.parse_json(hours_map) if isinstance(hours_map, str) else (hours_map or {})
     done = []
     for nm in names:
-        b = frappe.db.get_value(BLOCK, nm, ["name", "user"], as_dict=True)
+        b = frappe.db.get_value(
+            BLOCK, nm, ["name", "user", "task", "start", "hours", "timesheet"], as_dict=True)
         if not b or b.get("user") != caller:
             continue
-        vals = {"state": "Đã xác nhận"}
+        hrs = b.get("hours") or 0
         if hmap and nm in hmap:
             try:
-                vals["hours"] = round(float(hmap[nm]), 2)
+                hrs = round(float(hmap[nm]), 2)
             except Exception:
                 pass
+        ts = _sync_timesheet(caller, b, hrs)
+        vals = {"state": "Đã xác nhận", "hours": hrs}
+        if ts:
+            vals["timesheet"] = ts
         frappe.db.set_value(BLOCK, nm, vals, update_modified=True)
         done.append(nm)
     return {"confirmed": done}
+
+
+def _sync_timesheet(user, block, hours):
+    """Materialize a confirmed block into a native Draft Timesheet (best-effort).
+
+    Reuses pm.api.timesheet._create_timesheet -> ONE Draft Timesheet with a single
+    time log, so there is no cross-log overlap validation (overlapping planned blocks
+    can each still produce their own confirmed log). On re-confirm the existing
+    (Draft) timesheet's hours are updated instead of duplicating. Never breaks the
+    confirm flow: a Timesheet failure is logged and the block still confirms."""
+    from ecentric_workspace.pm.api import timesheet as pmts
+    try:
+        existing = block.get("timesheet")
+        if existing and frappe.db.exists("Timesheet", existing):
+            doc = frappe.get_doc("Timesheet", existing)
+            if int(getattr(doc, "docstatus", 0) or 0) == 0 and doc.get("time_logs"):
+                doc.time_logs[0].hours = hours
+                doc.save(ignore_permissions=True)
+            return existing
+        proj = frappe.db.get_value("Task", block.get("task"), "project")
+        return pmts._create_timesheet(user, block.get("task"), proj, hours,
+                                      "Lịch làm việc", from_time=block.get("start"))
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "schedule confirm timesheet")
+        return None
 
 
 @frappe.whitelist()

@@ -170,6 +170,21 @@
   .sch-toggle:hover{ background:var(--gray-100); color:var(--navy); }
   .sch-collapsed{ display:flex; justify-content:center; padding-top:2px; }
   .sch-collapsed .sch-toggle{ margin:0; }
+  .scm-ov{ position:fixed; inset:0; z-index:2000; background:rgba(10,14,39,.45); display:flex; align-items:center; justify-content:center; padding:20px; }
+  .scm-card{ background:#fff; border-radius:14px; width:470px; max-width:96vw; max-height:86vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  .scm-hd{ font-size:16px; font-weight:700; color:var(--gray-900); padding:16px 18px 4px; display:flex; justify-content:space-between; align-items:center; }
+  .scm-hd .scm-x{ cursor:pointer; color:var(--gray-400); font-size:22px; font-weight:400; line-height:1; }
+  .scm-desc{ font-size:12.5px; color:var(--gray-500); padding:0 18px 10px; line-height:1.5; }
+  .scm-list{ overflow-y:auto; padding:0 18px; }
+  .scm-row{ display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid var(--gray-100); }
+  .scm-row:first-child{ border-top:none; }
+  .scm-info{ flex:1; min-width:0; }
+  .scm-t{ font-size:13px; font-weight:600; color:var(--gray-800); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .scm-sub{ font-size:11.5px; color:var(--gray-500); }
+  .scm-h{ width:66px; padding:6px 8px; border:1px solid var(--gray-200); border-radius:7px; font-size:13px; font-family:inherit; text-align:right; }
+  .scm-u{ font-size:12px; color:var(--gray-500); }
+  .scm-ft{ display:flex; justify-content:space-between; align-items:center; padding:12px 18px; border-top:1px solid var(--gray-100); }
+  .scm-tot{ font-size:13px; font-weight:600; color:var(--gray-800); }
   .sch-chip{ display:flex; align-items:center; justify-content:flex-start; gap:5px; background:#fff; border:1px solid var(--gray-200); border-radius:7px; padding:5px 8px; font-size:11px; line-height:1.3; margin-bottom:4px; cursor:grab; color:var(--gray-800); }
   .sch-chip > span{ flex:1 1 auto; min-width:0; text-align:left; }
   .sch-chip .g{ opacity:.45; flex:0 0 auto; }
@@ -3183,7 +3198,7 @@
   }
   function showSchedule(){
     var c=el("pm-view"); spin(c);
-    var GUT=42, HN=24, OFFHP=48, WORKHP=100, WS=8, WE=18;
+    var GUT=42, HN=24, OFFHP=34, WORKHP=76, WS=8, WE=18;
     var Y_WS=WS*OFFHP, Y_WE=Y_WS+(WE-WS)*WORKHP, HH=Y_WE+(HN-WE)*OFFHP;
     var PAL=[["#E6EEFB","#1f2d80"],["#EAF3DE","#3B6D11"],["#FAEEDA","#854F0B"],["#FBEAF0","#993556"],["#EEEDFE","#3C3489"],["#E1F5EE","#0F6E56"]];
     var st=window._sch=window._sch||{};
@@ -3197,11 +3212,13 @@
     function minOf(d){ return d.getHours()*60+d.getMinutes(); }
     function buildDT(di,mins){ var d=new Date(st.ws); d.setDate(st.ws.getDate()+di); return isoOf(d)+" "+pad(Math.floor(mins/60))+":"+pad(mins%60)+":00"; }
     function colorFor(task){ var h=0,i; for(i=0;i<(task||"").length;i++){h=(h*31+task.charCodeAt(i))>>>0;} return PAL[h%PAL.length]; }
+    function scroller(){ var n=c.parentElement; while(n){ try{ var oy=getComputedStyle(n).overflowY; if((oy==="auto"||oy==="scroll") && n.scrollHeight>n.clientHeight+4) return n; }catch(_){} n=n.parentElement; } return document.scrollingElement||document.documentElement; }
     function minToY(m){ var h=m/60; if(h<=WS) return h*OFFHP; if(h<=WE) return Y_WS+(h-WS)*WORKHP; return Y_WE+(h-WE)*OFFHP; }
     function yToMin(y){ var h; if(y<=Y_WS) h=y/OFFHP; else if(y<=Y_WE) h=WS+(y-Y_WS)/WORKHP; else h=WE+(y-Y_WE)/OFFHP; return h*60; }
-    function load(_retry){ spin(c); api(PM+"schedule.week",{week_start:isoOf(st.ws),user:st.user||null}).then(function(r){ st.data=r||{}; render(); }).catch(function(e){ if(!_retry){ setTimeout(function(){ load(true); }, 700); return; } c.innerHTML='<div class="panel"><div class="pm-state">Lỗi tải lịch: '+esc(errOf(e))+'<br><button class="pm-btn" style="margin-top:10px" onclick="location.reload()">Tải lại</button></div></div>'; }); }
+    function load(_retry){ var _sc=scroller(), _sp=_sc?_sc.scrollTop:0; spin(c); api(PM+"schedule.week",{week_start:isoOf(st.ws),user:st.user||null}).then(function(r){ st.data=r||{}; render(); if(_sc){ try{_sc.scrollTop=_sp;}catch(_){} } }).catch(function(e){ if(!_retry){ setTimeout(function(){ load(true); }, 700); return; } c.innerHTML='<div class="panel"><div class="pm-state">Lỗi tải lịch: '+esc(errOf(e))+'<br><button class="pm-btn" style="margin-top:10px" onclick="location.reload()">Tải lại</button></div></div>'; }); }
 
     function render(){
+      var _sc=scroller(), _sp=_sc?_sc.scrollTop:0;
       var d=st.data||{}, blocks=d.blocks||[], backlog=d.backlog||[], subj=d.subjects||{}, meta=d.meta||{}, ro=!!d.readonly;
       var DN=["T2","T3","T4","T5","T6","T7","CN"], now=new Date();
       var days=[]; var i; for(i=0;i<7;i++){ var dd=new Date(st.ws); dd.setDate(st.ws.getDate()+i); days.push(dd); }
@@ -3250,12 +3267,29 @@
       body+='</div></div>';
 
       c.innerHTML=h+'<div class="sch-wrap" style="grid-template-columns:'+(_col?'38px':'168px')+' 1fr">'+side+'<div class="sch-cal">'+hdr+body+'</div></div>';
+      if(_sc){ try{_sc.scrollTop=_sp;}catch(_){} }
       st._ro=ro;
       wire();
       var bp=el("sch-prev"); if(bp)bp.onclick=function(){ st.ws=new Date(st.ws.getTime()-7*86400000); load(); };
       var bn=el("sch-next"); if(bn)bn.onclick=function(){ st.ws=new Date(st.ws.getTime()+7*86400000); load(); };
       var bt=el("sch-today"); if(bt)bt.onclick=function(){ var t=new Date(); t.setHours(0,0,0,0); var wd=(t.getDay()+6)%7; t.setDate(t.getDate()-wd); st.ws=t; load(); };
-      var bc=el("sch-confirm"); if(bc)bc.onclick=function(){ var names=pend.map(function(b){return b.name;}); bc.disabled=true; api(PM+"schedule.confirm",{names:JSON.stringify(names)}).then(function(){ toast("Đã xác nhận "+names.length+" mục"); load(); }).catch(function(e){ toast("Lỗi: "+errOf(e),true); bc.disabled=false; }); };
+      function openConfirmModal(){
+        var rowsHtml=pend.map(function(b){ var s0=parseDT(b.start), e0=parseDT(b.end); var subjt=subj[b.task]||b.task;
+          var dstr=s0?(pad(s0.getDate())+'/'+pad(s0.getMonth()+1)):''; var tr=(s0&&e0)?(pad(s0.getHours())+':'+pad(s0.getMinutes())+'–'+pad(e0.getHours())+':'+pad(e0.getMinutes())):'';
+          return '<div class="scm-row"><div class="scm-info"><div class="scm-t">'+esc(subjt)+'</div><div class="scm-sub">'+dstr+' · '+tr+'</div></div><input class="scm-h" type="number" step="0.25" min="0" value="'+(b.hours||0)+'" data-name="'+esc(b.name)+'"><span class="scm-u">giờ</span></div>'; }).join('');
+        var ov=document.createElement('div'); ov.className='scm-ov';
+        ov.innerHTML='<div class="scm-card"><div class="scm-hd">Xác nhận giờ đã làm<span class="scm-x">&times;</span></div><div class="scm-desc">Kiểm tra số giờ thực tế trước khi ghi vào Timesheet — sửa nếu cần. Sau khi xác nhận, mỗi mục sinh một dòng Timesheet.</div><div class="scm-list">'+rowsHtml+'</div><div class="scm-ft"><span class="scm-tot"></span><div><button class="pm-btn scm-cancel">Huỷ</button> <button class="pm-btn primary scm-go">Xác nhận & ghi giờ</button></div></div></div>';
+        document.body.appendChild(ov);
+        function tot(){ var t=0; Array.prototype.forEach.call(ov.querySelectorAll('.scm-h'),function(i){t+=parseFloat(i.value)||0;}); ov.querySelector('.scm-tot').textContent='Tổng: '+(Math.round(t*100)/100)+' giờ'; }
+        tot(); Array.prototype.forEach.call(ov.querySelectorAll('.scm-h'),function(i){i.addEventListener('input',tot);});
+        function close(){ if(ov.parentNode)ov.parentNode.removeChild(ov); }
+        ov.querySelector('.scm-x').onclick=close; ov.querySelector('.scm-cancel').onclick=close;
+        ov.addEventListener('mousedown',function(e){ if(e.target===ov)close(); });
+        ov.querySelector('.scm-go').onclick=function(){ var names=[], hmap={}; Array.prototype.forEach.call(ov.querySelectorAll('.scm-h'),function(i){ var nm=i.getAttribute('data-name'); names.push(nm); hmap[nm]=parseFloat(i.value)||0; });
+          var gb=ov.querySelector('.scm-go'); gb.disabled=true;
+          api(PM+"schedule.confirm",{names:JSON.stringify(names),hours_map:JSON.stringify(hmap)}).then(function(){ toast("Đã xác nhận "+names.length+" mục & ghi Timesheet"); close(); load(); }).catch(function(e){ toast("Lỗi: "+errOf(e),true); gb.disabled=false; }); };
+      }
+      var bc=el("sch-confirm"); if(bc)bc.onclick=openConfirmModal;
       var _tg=el("sch-col")||el("sch-exp"); if(_tg)_tg.onclick=function(){ st.sideCollapsed=!st.sideCollapsed; try{localStorage.setItem("pm_sch_side",st.sideCollapsed?"1":"0");}catch(_){} render(); };
     }
 
@@ -3293,7 +3327,7 @@
       function _mu(e){ if(!drag){ return; } var dg=drag; drag=null;
         if(dg.mode==="new"){ if(ghost&&ghost.parentNode)ghost.parentNode.removeChild(ghost); ghost=null; var r=daysRect(); if(r&&e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom){ var p=toDayMin(e.clientX,e.clientY); var sm=Math.min(HN*60-60,p.m); api(PM+"schedule.place",{task:dg.task,start:buildDT(p.d,sm),end:buildDT(p.d,sm+60)}).then(function(){ load(); }).catch(function(er){ toast("Lỗi: "+errOf(er),true); }); } return; }
         if(dg.mode==="mv"||dg.mode==="rz"){ if(dg.mode==="mv" && !dg.moved){ try{openTask(dg.b.task);}catch(_){}
-          return; } var b=dg.b; api(PM+"schedule.move",{name:b.name,start:buildDT(b._di,b._s),end:buildDT(b._di,b._e)}).then(function(){ load(); }).catch(function(er){ toast("Lỗi: "+errOf(er),true); load(); }); }
+          return; } var b=dg.b; b.start=buildDT(b._di,b._s); b.end=buildDT(b._di,b._e); render(); api(PM+"schedule.move",{name:b.name,start:b.start,end:b.end}).then(function(){}).catch(function(er){ toast("Lỗi: "+errOf(er),true); load(); }); }
       }
     }
     function paintBlock(b){ var days=document.getElementById("sch-days"); if(!days)return; var elm=days.querySelector('.sch-blk[data-name="'+b.name+'"]'); if(!elm)return; elm.style.left="calc("+(b._di*100/7)+"% + 1px)"; elm.style.width="calc("+(100/7)+"% - 2px)"; elm.style.top=minToY(b._s)+"px"; elm.style.height=Math.max(15,minToY(b._e)-minToY(b._s))+"px"; elm.style.zIndex="6"; var lab=elm.querySelector("div"); if(lab){ lab.textContent=pad(Math.floor(b._s/60))+":"+pad(b._s%60)+"–"+pad(Math.floor(b._e/60))+":"+pad(b._e%60); } }
