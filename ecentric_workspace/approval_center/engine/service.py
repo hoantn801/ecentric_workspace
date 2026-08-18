@@ -232,13 +232,63 @@ def log_action(request_name, action, actor, level_no=None, level_name=None, comm
 
 
 def notify(users, subject, doctype, name):
-    for u in set(u for u in users if u and u != "Guest"):
+    ulist = [u for u in set(u for u in users if u and u != "Guest")]
+    for u in ulist:
         try:
             frappe.get_doc({"doctype": "Notification Log", "for_user": u, "type": "Alert",
                             "subject": subject, "document_type": doctype, "document_name": name}
                            ).insert(ignore_permissions=True)
         except Exception:
             frappe.log_error(title="approval_center notify failed")
+    # Best-effort Microsoft Teams DM (async, kill-switchable). Never blocks or breaks the approval
+    # action: enqueued after commit, all failures swallowed. Recipients without the Teams bot
+    # installed simply keep the in-app Notification Log only.
+    if ulist and not frappe.conf.get("ec_approval_teams_disabled"):
+        try:
+            frappe.enqueue("ecentric_workspace.approval_center.engine.service._send_teams_batch",
+                           queue="short", enqueue_after_commit=True,
+                           users=ulist, subject=subject, doctype=doctype, name=name)
+        except Exception:
+            frappe.log_error(title="approval_center teams enqueue failed")
+
+
+def _approval_link(doctype, name):
+    """Deep link to the request in its form page: <site>/<type route>?id=<business name>. None if
+    the type has no published route."""
+    try:
+        atype = frappe.db.get_value(doctype, name, "approval_type")
+        route = frappe.db.get_value("EC Approval Type", atype, "route") if atype else None
+        if not route:
+            return None
+        route = route if route.startswith("/") else "/" + route
+        return frappe.utils.get_url() + route + "?id=" + name
+    except Exception:
+        return None
+
+
+def _send_teams_batch(users, subject, doctype, name):
+    """Background worker: send one Teams DM per recipient via the notification_center bot.
+    Fully guarded - a missing bot config, uninstalled recipient or transport error is logged and
+    skipped, never raised."""
+    if frappe.conf.get("ec_approval_teams_disabled"):
+        return
+    try:
+        from ecentric_workspace.notification_center.providers import teams_bot
+    except Exception:
+        return
+    try:
+        if not teams_bot.is_configured():
+            return
+    except Exception:
+        return
+    link = _approval_link(doctype, name)
+    text = "**%s**" % subject + (("\n\n[Mo yeu cau](%s)" % link) if link else "")
+    activity = {"type": "message", "textFormat": "markdown", "text": text}
+    for u in set(x for x in (users or []) if x and x != "Guest"):
+        try:
+            teams_bot.send_personal(u, activity)
+        except Exception:
+            frappe.log_error(title="approval_center teams send failed")
 
 
 def _drop_share_messages():

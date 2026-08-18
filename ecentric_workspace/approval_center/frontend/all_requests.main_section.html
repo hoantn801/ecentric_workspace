@@ -1,0 +1,144 @@
+<!--
+  Approval Center - All Requests. Route /approvals/all-requests (Web Page "approvals-all-requests").
+  Governed cross-form list via ecentric_workspace.approval_center.reporting.api.list_requests
+  (scope resolved server-side). eCentric shell. Marker: ec-approval-all. Does NOT touch other pages.
+-->
+<style>
+  body > header, body > footer, body > nav.navbar, header.navbar, .navbar.navbar-light,
+  .web-page-header, #navbarSupportedContent, .navbar-collapse, .web-footer, footer.web-footer { display:none !important; }
+  body { background:#f7f8fb !important; padding:0 !important; margin:0 !important; }
+  .page-content, .common-page-style, .container, main, .web-page-content, .page_content, .main-section, main.container, main.fluid { padding:0 !important; margin:0 !important; max-width:none !important; }
+</style>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  #ec-apl-root{ --navy:#2C3DA6; --navy-50:#eef0fb; --pink:#EF7CAF; --green:#10b981; --amber:#d97706; --amber-50:#fffbeb; --red:#dc2626; --red-50:#fef2f2;
+    --gray-50:#fafbfc; --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-300:#d1d5db; --gray-400:#9ca3af; --gray-500:#6b7280; --gray-600:#4b5563; --gray-700:#374151; --gray-800:#1f2937; --gray-900:#111827; --bg:#f7f8fb; }
+  #ec-apl-root, #ec-apl-root *{ box-sizing:border-box; }
+  #ec-apl-root{ font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--gray-800); font-size:14px; line-height:1.5; display:grid; grid-template-columns:248px 1fr; min-height:100vh; }
+  #ec-apl-root .icon{ width:18px; height:18px; flex-shrink:0; stroke:currentColor; fill:none; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
+  #ec-apl-root .ec-sidebar{ background:#fff; border-right:1px solid var(--gray-200); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; }
+  #ec-apl-root .ec-sidebar .sb-head{ padding:16px; display:flex; align-items:center; gap:10px; }
+  #ec-apl-root .ec-sidebar .logo{ width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,var(--navy),var(--pink)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; }
+  #ec-apl-root .ec-sidebar .brand-name{ font-size:15px; font-weight:700; color:var(--gray-900); }
+  #ec-apl-root .ec-sidebar .nav{ padding:6px 8px; display:flex; flex-direction:column; gap:2px; }
+  #ec-apl-root .ec-sidebar a.nav-item{ display:flex; align-items:center; gap:14px; padding:9px 14px; border-radius:8px; text-decoration:none; color:var(--gray-700); font-size:13.5px; font-weight:500; }
+  #ec-apl-root .ec-sidebar a.nav-item:hover{ background:var(--gray-100); color:var(--gray-900); }
+  #ec-apl-root .ec-sidebar a.nav-item.active{ background:var(--navy-50); color:var(--navy); font-weight:600; }
+  #ec-apl-root .ec-main{ min-width:0; display:flex; flex-direction:column; }
+  #ec-apl-root .topbar{ background:#fff; border-bottom:1px solid var(--gray-200); min-height:60px; padding:0 24px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:20; }
+  #ec-apl-root .topbar .hamburger{ display:none; background:none; border:none; cursor:pointer; color:var(--gray-600); }
+  #ec-apl-root .topbar .crumb{ font-size:13px; color:var(--gray-500); } #ec-apl-root .topbar .crumb strong{ color:var(--gray-900); }
+  #ec-apl-root .topbar .spacer{ flex:1; } #ec-apl-root .scope-badge{ font-size:12px; font-weight:600; padding:5px 10px; border-radius:999px; background:var(--navy-50); color:var(--navy); }
+  #ec-apl-root .content{ padding:24px; max-width:1360px; width:100%; }
+  #ec-apl-root .apl-title{ font-size:23px; font-weight:800; color:var(--gray-900); letter-spacing:-0.4px; margin:0 0 2px; }
+  #ec-apl-root .apl-desc{ font-size:13px; color:var(--gray-500); margin:0 0 16px; }
+  #ec-apl-root .filters{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:14px 16px; margin-bottom:16px; }
+  #ec-apl-root .fgrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; }
+  #ec-apl-root .fgrid label{ display:block; font-size:11.5px; font-weight:600; color:var(--gray-500); margin-bottom:3px; }
+  #ec-apl-root .fgrid select, #ec-apl-root .fgrid input{ width:100%; padding:7px 9px; border:1px solid var(--gray-200); border-radius:8px; font-size:13px; font-family:inherit; background:#fff; }
+  #ec-apl-root .factions{ display:flex; gap:8px; margin-top:12px; align-items:center; }
+  #ec-apl-root .btn{ padding:8px 16px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; font-size:13px; font-weight:600; cursor:pointer; color:var(--gray-700); }
+  #ec-apl-root .btn.primary{ background:var(--navy); border-color:var(--navy); color:#fff; }
+  #ec-apl-root .btn:disabled{ opacity:.5; cursor:not-allowed; }
+  #ec-apl-root .card{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; overflow:hidden; }
+  #ec-apl-root table{ width:100%; border-collapse:collapse; }
+  #ec-apl-root thead th{ text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--gray-500); font-weight:700; padding:11px 12px; border-bottom:1px solid var(--gray-200); background:var(--gray-50); }
+  #ec-apl-root tbody td{ padding:10px 12px; border-bottom:1px solid var(--gray-100); font-size:13px; color:var(--gray-700); }
+  #ec-apl-root tbody tr:hover{ background:var(--gray-50); }
+  #ec-apl-root .pill{ display:inline-block; padding:2px 9px; border-radius:999px; font-size:11.5px; font-weight:600; }
+  #ec-apl-root .pill.Pending{ background:var(--navy-50); color:var(--navy); } #ec-apl-root .pill.Information{ background:var(--amber-50); color:var(--amber); }
+  #ec-apl-root .pill.Completed{ background:#ecfdf5; color:var(--green); } #ec-apl-root .pill.Rejected{ background:var(--red-50); color:var(--red); } #ec-apl-root .pill.Cancelled{ background:var(--gray-100); color:var(--gray-500); }
+  #ec-apl-root .pill.breach{ background:var(--red-50); color:var(--red); }
+  #ec-apl-root a.open-link{ color:var(--navy); font-weight:600; text-decoration:none; cursor:pointer; } #ec-apl-root a.open-link:hover{ text-decoration:underline; }
+  #ec-apl-root .pager{ display:flex; align-items:center; justify-content:space-between; padding:12px 14px; }
+  #ec-apl-root .pager .info{ font-size:12.5px; color:var(--gray-500); }
+  #ec-apl-root .state{ padding:44px; text-align:center; color:var(--gray-500); } #ec-apl-root .state h4{ margin:0 0 6px; color:var(--gray-700); }
+  #ec-apl-root .skel{ height:44px; border-bottom:1px solid var(--gray-100); background:var(--gray-50); }
+  @media (max-width:900px){ #ec-apl-root{ grid-template-columns:1fr; } #ec-apl-root .ec-sidebar{ position:fixed; left:0; top:0; width:248px; z-index:50; transform:translateX(-100%); transition:transform .22s; } #ec-apl-root.sb-open .ec-sidebar{ transform:translateX(0); } #ec-apl-root .topbar .hamburger{ display:block; } #ec-apl-root .card{ overflow-x:auto; } }
+</style>
+
+<div id="ec-apl-root">
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><a class="ec-shell-item" href="/home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><div class="ec-shell-grouplabel">Phê duyệt</div><a class="ec-shell-item" href="/approvals"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Approval Center</span></a><a class="ec-shell-item ec-shell-active" href="/approvals/all-requests" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Tất cả yêu cầu</span></a><a class="ec-shell-item" href="/approvals/dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Dashboard</span></a><div class="ec-shell-grouplabel">Chứng từ</div><a class="ec-shell-item" href="/all-ticket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Dashboard</span></a><a class="ec-shell-item" href="/approval"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>All Tickets</span></a><div class="ec-shell-grouplabel">Tạo mới</div><a class="ec-shell-item" href="/mso-plan-form"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>MSO Request</span></a><a class="ec-shell-item" href="/gbs-so-form-v2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>SO Request</span></a><a class="ec-shell-item" href="/gbs-po-form-v2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>PO Request</span></a><button type="button" class="ec-shell-item ec-shell-subtoggle" data-ec-shell-subtoggle="docs.guides" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Hướng dẫn</span><svg class="ec-shell-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="ec-shell-children" hidden data-ec-shell-children="docs.guides"><a class="ec-shell-item ec-shell-child" href="/docs/architecture"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Docs / Architecture</span></a><a class="ec-shell-item ec-shell-child" href="/docs/gbs-flow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>GBS Flow &amp; Definitions</span></a></div></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
+  <div class="ec-main">
+    <div class="topbar">
+      <button class="hamburger" data-ec-shell-open="1" aria-label="Menu"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg></button>
+      <div class="crumb ec-shell-crumbs" data-ec-shell-crumbs="1"><span class="ec-shell-crumb-group">Phê duyệt</span><span class="sep ec-shell-crumb-sep">/</span><strong class="ec-shell-crumb-current">Tất cả yêu cầu</strong></div>
+      <div class="spacer"></div><div class="scope-badge" id="apl-scope">—</div><div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Nhắc việc" title="Nhắc việc" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><a class="ec-shell-iconbtn" href="/app/notification-log" data-ec-notification-bell="1" aria-label="Thông báo" title="Thông báo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></a><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div>
+    </div>
+    <div class="content">
+      <h1 class="apl-title">Tất cả yêu cầu</h1>
+      <p class="apl-desc">Toàn bộ yêu cầu phê duyệt xuyên suốt các form — theo phạm vi quyền của bạn.</p>
+      <div class="filters">
+        <div class="fgrid">
+          <div><label>Tìm kiếm</label><input id="f-search" placeholder="Mã / tiêu đề / người yêu cầu..."></div>
+          <div><label>Từ ngày</label><input type="date" id="f-from"></div>
+          <div><label>Đến ngày</label><input type="date" id="f-to"></div>
+          <div><label>Nhóm</label><select id="f-category"><option value="">Tất cả</option></select></div>
+          <div><label>Loại yêu cầu</label><select id="f-type"><option value="">Tất cả</option></select></div>
+          <div><label>Phòng ban</label><select id="f-department"><option value="">Tất cả</option></select></div>
+          <div><label>Trạng thái</label><select id="f-status"><option value="">Tất cả</option></select></div>
+        </div>
+        <div class="factions"><button type="button" class="btn primary" id="apl-apply">Áp dụng</button><button type="button" class="btn" id="apl-reset">Đặt lại</button></div>
+      </div>
+      <div class="card" id="apl-body"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+    </div>
+  </div>
+</div>
+
+<script id="ec-approval-all">
+(function(){
+  "use strict";
+  var API="ecentric_workspace.approval_center.reporting.api";
+  var $=function(id){return document.getElementById(id);};
+  var state={ start:0, page_length:50, total:0, options:null };
+  function call(m,a){ if(!(window.frappe&&frappe.call)) return Promise.reject(new Error("frappe unavailable")); return frappe.call({method:API+"."+m,args:a||{}}).then(function(r){return r&&r.message;}); }
+  function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+  function fmtDT(s){ if(!s) return "—"; var d=new Date(String(s).replace(" ","T")); if(isNaN(d)) return esc(s); function p(n){return(n<10?"0":"")+n;} return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes()); }
+  function statusLabel(s){ return {Pending:"Chờ duyệt","Information Required":"Cần bổ sung",Completed:"Hoàn tất",Rejected:"Từ chối",Cancelled:"Đã hủy",Draft:"Nháp"}[s]||s; }
+  function pillCls(s){ return s==="Information Required"?"Information":s; }
+  function scopeLabel(m){ return {admin:"Toàn tổ chức",department:"Phòng ban",approver:"Người duyệt",requester:"Cá nhân"}[m]||"—"; }
+  function fillSelect(sel,items,vk,lk){ var cur=sel.value; sel.length=1; (items||[]).forEach(function(it){ var o=document.createElement("option"); o.value=vk?it[vk]:it; o.textContent=lk?(it[lk]||it[vk]):it; sel.appendChild(o); }); sel.value=cur; }
+  function filters(){ var f={category:$("f-category").value,approval_type:$("f-type").value,department:$("f-department").value,status:$("f-status").value,date_from:$("f-from").value,date_to:$("f-to").value};
+    Object.keys(f).forEach(function(k){ if(!f[k]) delete f[k]; }); return f; }
+
+  function loadOptions(){ return call("get_filter_options").then(function(o){ state.options=o||{};
+    $("apl-scope").textContent=scopeLabel((o||{}).scope_mode);
+    fillSelect($("f-category"),o.categories||[]); fillSelect($("f-type"),o.types||[],"v","label");
+    fillSelect($("f-department"),o.departments||[]); fillSelect($("f-status"),o.statuses||[]);
+  }).catch(function(){}); }
+
+  function load(){ $("apl-body").innerHTML='<div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>';
+    return call("list_requests",{ filters:JSON.stringify(filters()), start:state.start, page_length:state.page_length, search:$("f-search").value||"" })
+      .then(function(res){ state.total=(res&&res.total)||0; render((res&&res.rows)||[]); }).catch(function(){ renderError(); }); }
+  function renderError(){ $("apl-body").innerHTML='<div class="state"><h4>Không tải được dữ liệu</h4><p>Vui lòng thử lại.</p><button type="button" class="btn primary" id="apl-retry">Thử lại</button></div>'; var r=$("apl-retry"); if(r) r.onclick=load; }
+
+  function render(rows){
+    if(!rows.length){ $("apl-body").innerHTML='<div class="state"><h4>Không có yêu cầu</h4><p>Không có yêu cầu nào khớp bộ lọc trong phạm vi của bạn.</p></div>'; return; }
+    var head='<table><thead><tr><th>Ngày gửi</th><th>Mã</th><th>Tiêu đề</th><th>Loại</th><th>Người yêu cầu</th><th>Phòng ban</th><th>Cấp hiện tại</th><th>Trạng thái</th><th></th></tr></thead><tbody>';
+    var body=rows.map(function(r){ var breach=r.sla_breached?'<span class="pill breach">Quá hạn</span> ':'';
+      var open=r.detail_route?'<a class="open-link" href="'+esc(r.detail_route)+'" data-open="1">Mở ▸</a>':'<span style="color:var(--gray-300)">—</span>';
+      return '<tr><td>'+fmtDT(r.submitted_at)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||"")+'</td><td>'+esc(r.approval_type||"")+'</td><td>'+esc(r.requester||"")+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"—")+'</td><td>'+breach+'<span class="pill '+pillCls(r.status)+'">'+esc(statusLabel(r.status_label||r.status))+'</span></td><td>'+open+'</td></tr>'; }).join("");
+    var from=state.total?state.start+1:0, to=Math.min(state.start+rows.length,state.total);
+    var pager='<div class="pager"><div class="info">'+from+'–'+to+' / '+state.total+'</div><div><button type="button" class="btn" id="apl-prev"'+(state.start<=0?" disabled":"")+'>‹ Trước</button> <button type="button" class="btn" id="apl-next"'+(state.start+state.page_length>=state.total?" disabled":"")+'>Sau ›</button></div></div>';
+    $("apl-body").innerHTML='<div style="overflow-x:auto">'+head+body+'</tbody></table></div>'+pager;
+    wire();
+  }
+  function wire(){
+    Array.prototype.forEach.call(document.querySelectorAll('#apl-body a.open-link[data-open]'),function(a){ a.onclick=function(e){ e.preventDefault(); window.location.href=a.getAttribute("href"); }; });
+    var pv=$("apl-prev"), nx=$("apl-next");
+    if(pv) pv.onclick=function(){ state.start=Math.max(0,state.start-state.page_length); load(); };
+    if(nx) nx.onclick=function(){ if(state.start+state.page_length<state.total){ state.start+=state.page_length; load(); } };
+  }
+
+  function apply(){ state.start=0; load(); }
+  function boot(){
+    $("apl-apply").onclick=apply;
+    $("apl-reset").onclick=function(){ ["f-search","f-from","f-to","f-category","f-type","f-department","f-status"].forEach(function(id){ $(id).value=""; }); state.start=0; load(); };
+    $("f-search").addEventListener("keydown",function(e){ if(e.key==="Enter") apply(); });
+    var ham=$("apl-ham"); if(ham) ham.onclick=function(){ document.getElementById("ec-apl-root").classList.toggle("sb-open"); };
+    loadOptions().then(load);
+  }
+  window.ApprovalAll={ state:state, boot:boot, load:load, render:render, filters:filters, _call:call };
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
+})();
+</script>

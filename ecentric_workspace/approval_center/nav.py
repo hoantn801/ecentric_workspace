@@ -25,6 +25,18 @@ def items():
             "owner": "approval_center",
         },
         {
+            "key": "apc.all",
+            "label": "Tất cả yêu cầu",
+            "route": "/approvals/all-requests",
+            "icon": "list",
+            "group": "Phê duyệt",
+            "order": 15,
+            "active_patterns": ["/approvals/all-requests"],
+            "visible_when": "internal",
+            "keywords": ["tat ca", "all requests", "danh sach yeu cau", "tong hop"],
+            "owner": "approval_center",
+        },
+        {
             "key": "apc.dashboard",
             "label": "Dashboard",
             "route": "/approvals/dashboard",
