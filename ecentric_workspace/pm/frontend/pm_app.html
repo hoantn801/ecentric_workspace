@@ -3198,7 +3198,7 @@
     function colorFor(task){ var h=0,i; for(i=0;i<(task||"").length;i++){h=(h*31+task.charCodeAt(i))>>>0;} return PAL[h%PAL.length]; }
     function minToY(m){ var h=m/60; if(h<=WS) return h*OFFHP; if(h<=WE) return Y_WS+(h-WS)*WORKHP; return Y_WE+(h-WE)*OFFHP; }
     function yToMin(y){ var h; if(y<=Y_WS) h=y/OFFHP; else if(y<=Y_WE) h=WS+(y-Y_WS)/WORKHP; else h=WE+(y-Y_WE)/OFFHP; return h*60; }
-    function load(){ spin(c); api(PM+"schedule.week",{week_start:isoOf(st.ws),user:st.user||null}).then(function(r){ st.data=r||{}; render(); }).catch(function(e){ c.innerHTML='<div class="panel"><div class="pm-state">Lỗi tải lịch: '+esc(errOf(e))+'</div></div>'; }); }
+    function load(_retry){ spin(c); api(PM+"schedule.week",{week_start:isoOf(st.ws),user:st.user||null}).then(function(r){ st.data=r||{}; render(); }).catch(function(e){ if(!_retry){ setTimeout(function(){ load(true); }, 700); return; } c.innerHTML='<div class="panel"><div class="pm-state">Lỗi tải lịch: '+esc(errOf(e))+'<br><button class="pm-btn" style="margin-top:10px" onclick="location.reload()">Tải lại</button></div></div>'; }); }
 
     function render(){
       var d=st.data||{}, blocks=d.blocks||[], backlog=d.backlog||[], subj=d.subjects||{}, meta=d.meta||{}, ro=!!d.readonly;
