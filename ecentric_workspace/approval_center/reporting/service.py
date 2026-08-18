@@ -491,6 +491,16 @@ def _attention(period, open_rows, sla_by_name, now):
     return out
 
 
+def list_requests(scope, filters, start=0, page_length=50, search=None):
+    """Governed, paginated cross-form request list (all statuses) for the 'All requests' page."""
+    now = now_datetime()
+    rows = _q.fetch_requests_page(scope, filters, start, page_length, search)
+    total = _q.count_requests(scope, filters, search)
+    sla_by = {r["name"]: _sla.sla_state(r, ref_now=now) for r in rows}
+    return {"rows": [_row_view(r, sla_by, now) for r in rows],
+            "total": total, "start": int(start), "page_length": int(page_length)}
+
+
 def drilldown(scope, filters, limit=200):
     """Governed filtered request list for KPI/chart drill-down + action table 'open detail'."""
     now = now_datetime()
