@@ -5,7 +5,7 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign import inbox
+from ecentric_workspace.platform.esign import inbox
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 

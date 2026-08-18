@@ -122,7 +122,7 @@ def make_scts_settings(name="EC-DSPS-SCTS-UAT", base_url="https://scts.uat.local
 def make_adapter(transport, settings=None):
     """Build an SctsAdapter over a fake transport, bypassing frappe credential/token I/O
     (patched by the caller's test where a frappe context is available)."""
-    from ecentric_workspace.approval_center.esign.providers.scts import SctsAdapter
+    from ecentric_workspace.platform.esign.providers.scts import SctsAdapter
     return SctsAdapter(settings or make_scts_settings(), transport=transport,
                        sleeper=lambda *_: None)
 

@@ -7,7 +7,7 @@ pages exist with the right role restriction. Runs on the bench:
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign import api
+from ecentric_workspace.platform.esign import api
 from ecentric_workspace.approval_center.payment_request import page_sync
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 

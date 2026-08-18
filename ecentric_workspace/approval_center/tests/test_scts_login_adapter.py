@@ -13,8 +13,8 @@ from unittest.mock import patch
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign.providers.base import ProviderError
-from ecentric_workspace.approval_center.esign.providers.scts import SctsAdapter
+from ecentric_workspace.platform.esign.providers.base import ProviderError
+from ecentric_workspace.platform.esign.providers.scts import SctsAdapter
 from ecentric_workspace.approval_center.tests import scts_fixtures as sx
 
 SETTINGS = "EC Digital Signature Provider Settings"
@@ -62,7 +62,7 @@ class TestSctsLoginAdapter(FrappeTestCase):
             "login": sx.login_ok("tok", 60),
             "get_signatures": sx.signatures_for("U1", "SIG1"),
         })
-        from ecentric_workspace.approval_center.esign import api
+        from ecentric_workspace.platform.esign import api
         with patch.object(api, "get_adapter", lambda st: SctsAdapter(s, transport=t)):
             out = api.verify_mapping(mapping.name)
         self.assertTrue(out["verified"])

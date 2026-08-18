@@ -123,7 +123,7 @@ scheduler_events = {
             # signal). Kill-switched via site_config ec_esign_scheduler_disabled
             # (fail-safe: config read error => disabled). Inert until an esign
             # profile is enabled + gates opened.
-            "ecentric_workspace.approval_center.esign.tasks.poll_pending",
+            "ecentric_workspace.platform.esign.tasks.poll_pending",
         ],
     },
 }
@@ -131,15 +131,15 @@ scheduler_events = {
 # esign S2A: stale monitor + orphan-file scan share the same kill switch and are
 # inert without enabled profiles.
 scheduler_events["hourly"].append(
-    "ecentric_workspace.approval_center.esign.tasks.sweep_stale")
+    "ecentric_workspace.platform.esign.tasks.sweep_stale")
 scheduler_events["daily"].append(
-    "ecentric_workspace.approval_center.esign.tasks.orphan_file_scan")
+    "ecentric_workspace.platform.esign.tasks.orphan_file_scan")
 # esign S2B-C1: bounded retry (*/30) of signed-PDF retrieval for terminal-completed
 # packages whose signed bundle is not yet complete. Safe GET/download only; never resends
 # AddDocument/bulk-process. Same kill switch (ec_esign_scheduler_disabled) + per-provider
 # integration gate (exits with zero SCTS calls while OFF).
 scheduler_events["cron"].setdefault("*/30 * * * *", []).append(
-    "ecentric_workspace.approval_center.esign.tasks.retrieve_signed_bundles")
+    "ecentric_workspace.platform.esign.tasks.retrieve_signed_bundles")
 
 # Permissions
 # -----------

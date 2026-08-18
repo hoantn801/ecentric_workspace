@@ -13,8 +13,8 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import payment_request as papi
-from ecentric_workspace.approval_center.esign import document_setup as ds
-from ecentric_workspace.approval_center.esign import package as pkgsvc
+from ecentric_workspace.platform.esign import document_setup as ds
+from ecentric_workspace.platform.esign import package as pkgsvc
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 BD, AT = "EC Payment Request", "PAYMENT_REQUEST"
@@ -211,7 +211,7 @@ class TestDocumentSetupWrite(FrappeTestCase):
         pkgsvc.save_placements(draft, [{"signature_file": dsf, "page_index": 1, "x": 10, "y": 10,
                                         "width": 50, "height": 20, "level_no": 1,
                                         "signature_type": "mock"}])
-        from ecentric_workspace.approval_center.esign import requester
+        from ecentric_workspace.platform.esign import requester
         requester.requester_lock_signing_package(BD, biz)      # -> Locked
         frappe.set_user("Administrator")
         out = _write(req, biz, ref, False)

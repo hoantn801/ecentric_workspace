@@ -392,7 +392,7 @@ class TestPaymentRequestComposition(unittest.TestCase):
         self.assertEqual(html.count('id="ec-docsign"'), 1)
 
     def test_no_esign_selector_depends_on_replaced_markup(self):
-        base = os.path.join(APP, "approval_center", "esign", "ui")
+        base = os.path.join(APP, "platform", "esign", "ui")
         for f in ("payment_request_signing.html", "requester_signing_panel.html",
                   "pdf_placement_editor.html", "document_signing_section.html"):
             src = _read(base, f)

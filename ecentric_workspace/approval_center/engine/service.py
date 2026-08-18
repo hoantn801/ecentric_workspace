@@ -828,7 +828,7 @@ def _signature_guard(req, level_no, actor):
     Fail-closed: an import/runtime error blocks approval rather than silently
     allowing an unsigned completion. Types without an enabled+gated signing profile:
     one indexed query, behavior unchanged."""
-    from ecentric_workspace.approval_center.esign import guard as esign_guard
+    from ecentric_workspace.platform.esign import guard as esign_guard
     esign_guard.assert_level_completable(req, level_no, actor)
 
 

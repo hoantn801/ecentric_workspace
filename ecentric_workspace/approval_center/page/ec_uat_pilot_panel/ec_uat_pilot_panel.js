@@ -16,7 +16,7 @@ frappe.pages["ec-uat-pilot-panel"].on_page_load = function (wrapper) {
     '<button class="btn btn-xs btn-danger" id="ecUatApply" disabled>Probe apply=1</button>' +
     '<div id="ecUatOut" style="margin-top:8px"></div>');
   function readiness() {
-    frappe.call({ method: "ecentric_workspace.approval_center.esign.api.uat_pilot_readiness",
+    frappe.call({ method: "ecentric_workspace.platform.esign.api.uat_pilot_readiness",
       args: { payment_request_name: $b.find("#ecUatPr").val() || undefined } })
       .then(function (r) {
         var m = r.message || {};
@@ -30,14 +30,14 @@ frappe.pages["ec-uat-pilot-panel"].on_page_load = function (wrapper) {
   }
   $b.find("#ecUatRefresh").on("click", readiness);
   $b.find("#ecUatPreview").on("click", function () {
-    frappe.call({ method: "ecentric_workspace.approval_center.esign.api.run_scts_uat_pilot_probe",
+    frappe.call({ method: "ecentric_workspace.platform.esign.api.run_scts_uat_pilot_probe",
       type: "POST", args: { payment_request_name: $b.find("#ecUatPr").val(), apply: 0 } })
       .then(function (r) { $b.find("#ecUatOut").html("<pre>" +
         esc(JSON.stringify(r.message, null, 2)) + "</pre>"); });
   });
   $b.find("#ecUatApply").on("click", function () {
     if (!window.confirm("Chạy probe apply=1 (một lần gửi UAT, không tự gửi lại)?")) return;
-    frappe.call({ method: "ecentric_workspace.approval_center.esign.api.run_scts_uat_pilot_probe",
+    frappe.call({ method: "ecentric_workspace.platform.esign.api.run_scts_uat_pilot_probe",
       type: "POST", args: { payment_request_name: $b.find("#ecUatPr").val(), apply: 1 } })
       .then(function (r) { $b.find("#ecUatOut").html("<pre>" +
         esc(JSON.stringify(r.message, null, 2)) + "</pre>"); });

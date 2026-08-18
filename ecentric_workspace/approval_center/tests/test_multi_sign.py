@@ -9,7 +9,7 @@ fail-closed as a selection; gate OFF by default; no provider batch call is made 
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign import multi_sign
+from ecentric_workspace.platform.esign import multi_sign
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 from ecentric_workspace.approval_center.tests import test_uat_pilot as up
 
@@ -78,7 +78,7 @@ class TestMultiSelectSequentialSign(FrappeTestCase):
     def test_one_invalid_item_fails_pre_write(self):
         mgr, h1, h2 = _two_ready_same_manager("msm6", "ms11r", "ms12r")
         ar2 = frappe.db.get_value("EC Payment Request", h2["biz"], "approval_request")
-        from ecentric_workspace.approval_center.esign import package as pkgsvc
+        from ecentric_workspace.platform.esign import package as pkgsvc
         pkg2 = pkgsvc.active_package_for_request(ar2)
         frappe.db.set_value("EC Digital Signature Package", pkg2, "package_hash", "TAMPERED")
         frappe.set_user(mgr)

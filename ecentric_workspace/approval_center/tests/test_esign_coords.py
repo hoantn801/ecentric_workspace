@@ -3,7 +3,7 @@
 are frappe-free (pure math) and run in any Python; they also run under bench run-tests."""
 import unittest
 
-from ecentric_workspace.approval_center.esign import coords as C
+from ecentric_workspace.platform.esign import coords as C
 
 PAGE = (612.0, 792.0)  # US Letter, unrotated mediabox
 

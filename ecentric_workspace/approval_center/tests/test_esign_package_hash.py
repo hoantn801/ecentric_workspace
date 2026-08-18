@@ -3,7 +3,7 @@
 idempotency-key derivation. Runnable anywhere via unittest."""
 import unittest
 
-from ecentric_workspace.approval_center.esign import hashing
+from ecentric_workspace.platform.esign import hashing
 
 
 def _files():

@@ -6,10 +6,10 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import payment_request as papi
-from ecentric_workspace.approval_center.esign import package as pkgsvc
-from ecentric_workspace.approval_center.esign import placement_service as ps
-from ecentric_workspace.approval_center.esign import signer_plan as sp
-from ecentric_workspace.approval_center.esign import document_setup as ds
+from ecentric_workspace.platform.esign import package as pkgsvc
+from ecentric_workspace.platform.esign import placement_service as ps
+from ecentric_workspace.platform.esign import signer_plan as sp
+from ecentric_workspace.platform.esign import document_setup as ds
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 BD = "EC Payment Request"

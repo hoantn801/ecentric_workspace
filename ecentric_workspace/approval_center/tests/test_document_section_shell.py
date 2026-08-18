@@ -47,7 +47,7 @@ class TestDocumentSectionShell(FrappeTestCase):
 
     def test_governed_endpoints_only_no_cdn(self):
         h = self._h()
-        self.assertIn("approval_center.esign.api.", h)
+        self.assertIn("platform.esign.api.", h)
         for m in ("document_setup_state", "set_document_requires_signature", "signer_plan",
                   "set_representative_attachment", "signing_readiness", "placement_state",
                   "save_placement", "delete_placement"):

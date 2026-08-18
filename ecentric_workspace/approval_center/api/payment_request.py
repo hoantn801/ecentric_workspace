@@ -373,7 +373,7 @@ def submit_request(name):
     doc.request_title = gen_title(doc)
     doc.submitted_at = now_datetime()
     doc.save(ignore_permissions=True)
-    from ecentric_workspace.approval_center.esign import guard as _esign_guard
+    from ecentric_workspace.platform.esign import guard as _esign_guard
     _req_sig = _esign_guard.requester_signature_required(BIZ, APPROVAL_TYPE)
     prev = frappe.flags.mute_messages
     frappe.flags.mute_messages = True

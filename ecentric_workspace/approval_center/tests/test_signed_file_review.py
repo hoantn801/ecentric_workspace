@@ -8,7 +8,7 @@ from unittest.mock import patch
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign import review, signed_files
+from ecentric_workspace.platform.esign import review, signed_files
 from ecentric_workspace.approval_center.tests import test_pr_signed_files as base
 
 PKG = "EC Digital Signature Package"
@@ -113,7 +113,7 @@ class TestSignedFileReview(FrappeTestCase):
         review.accept_candidate(dsf)
         self.assertEqual(frappe.db.get_value("ToDo", other1.name, "status"), "Open")
         self.assertEqual(frappe.db.get_value("ToDo", other2.name, "status"), "Open")
-        from ecentric_workspace.approval_center.esign.signed_files import REVIEW_TODO_MARKER
+        from ecentric_workspace.platform.esign.signed_files import REVIEW_TODO_MARKER
         marked = frappe.get_all("ToDo", filters={
             "reference_type": PKG, "reference_name": pkg,
             "description": ["like", "%" + REVIEW_TODO_MARKER + "%"]},

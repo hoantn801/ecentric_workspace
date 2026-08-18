@@ -10,7 +10,7 @@ from unittest.mock import patch
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign import pilot
+from ecentric_workspace.platform.esign import pilot
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 SETTINGS = "EC Digital Signature Provider Settings"
@@ -131,7 +131,7 @@ class TestUatPilotProbe(FrappeTestCase):
     def test_apply0_makes_no_external_write(self):
         h = _ready_stack("q1r", "q1m")
         frappe.set_user(h["mgr"])
-        from ecentric_workspace.approval_center.esign import tasks
+        from ecentric_workspace.platform.esign import tasks
 
         def spy(settings):
             raise AssertionError("no adapter should be built in apply=0")

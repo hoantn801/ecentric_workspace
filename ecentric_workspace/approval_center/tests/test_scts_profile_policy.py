@@ -7,7 +7,7 @@ levels are signable, WITHOUT admins recreating every level. Runs on the bench:
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign import guard
+from ecentric_workspace.platform.esign import guard
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 PROFILE = "ZZESN_PAYR"

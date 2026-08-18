@@ -12,7 +12,7 @@ frappe.ui.form.on("EC SCTS User Mapping", {
     if (!frm.is_new() && !frm.is_dirty() && frappe.user.has_role("System Manager")) {
       frm.add_custom_button(__("Verify Mapping"), function () {
         frappe.call({
-          method: "ecentric_workspace.approval_center.esign.api.verify_mapping",
+          method: "ecentric_workspace.platform.esign.api.verify_mapping",
           args: { mapping_name: frm.doc.name },
           freeze: true,
           freeze_message: __("Đang xác minh với SCTS…"),

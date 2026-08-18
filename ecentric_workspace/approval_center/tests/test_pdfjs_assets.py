@@ -13,7 +13,7 @@ import unittest
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _APP = os.path.dirname(os.path.dirname(_HERE))  # ecentric_workspace/
 _VENDOR = os.path.join(_APP, "public", "vendor", "pdfjs")
-_EDITOR = os.path.join(_APP, "approval_center", "esign", "ui", "pdf_placement_editor.html")
+_EDITOR = os.path.join(_APP, "platform", "esign", "ui", "pdf_placement_editor.html")
 _MIN_SAFE = (4, 2, 67)
 
 

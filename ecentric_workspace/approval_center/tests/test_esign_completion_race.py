@@ -22,7 +22,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.engine import service as engine
-from ecentric_workspace.approval_center.esign import guard, service as esvc
+from ecentric_workspace.platform.esign import guard, service as esvc
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 
@@ -122,7 +122,7 @@ class TestCompletionRace(FrappeTestCase):
         self.assertEqual(frappe.db.get_value("EC Digital Signature Request", dsr,
                                              "status"), "Approval Completed")
         # and the state machine itself has no exit from Approval Completed
-        from ecentric_workspace.approval_center.esign import state as sm
+        from ecentric_workspace.platform.esign import state as sm
         self.assertEqual(sm.DSR_TRANSITIONS["Approval Completed"], ())
 
     def test_repeated_double_completion_exactly_once(self):

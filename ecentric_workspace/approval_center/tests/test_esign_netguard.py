@@ -2,7 +2,7 @@
 """SSRF / provider-URL safety tests (Phase 8). Frappe-free, deterministic."""
 import unittest
 
-from ecentric_workspace.approval_center.esign import netguard as N
+from ecentric_workspace.platform.esign import netguard as N
 
 
 class TestNetguard(unittest.TestCase):

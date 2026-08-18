@@ -6,7 +6,7 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.esign import package as pkgsvc
+from ecentric_workspace.platform.esign import package as pkgsvc
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 
@@ -105,7 +105,7 @@ class TestEsignUploadRules(FrappeTestCase):
 
     def test_revision_supersedes_and_cancels_inflight(self):
         h = fx.full_stack(fx.PFX + "u6r@example.com", fx.PFX + "u6m@example.com")
-        from ecentric_workspace.approval_center.esign import service as esvc
+        from ecentric_workspace.platform.esign import service as esvc
         frappe.set_user(h["mgr"])
         r = esvc.approve_and_sign("EC Payment Request", h["biz"])
         frappe.set_user("Administrator")

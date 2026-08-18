@@ -32,15 +32,17 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import payment_request as papi
-from ecentric_workspace.approval_center.esign import package as pkgsvc
-from ecentric_workspace.approval_center.esign import requester
+from ecentric_workspace.platform.esign import package as pkgsvc
+from ecentric_workspace.platform.esign import requester
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 
 BD, AT = "EC Payment Request", "PAYMENT_REQUEST"
 AR = "EC Approval Request"
 PROFILE = "ZZESN_PAYR"
 
-_UI = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "esign", "ui")
+_UI = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "platform", "esign", "ui")
 
 
 def _panel_html():

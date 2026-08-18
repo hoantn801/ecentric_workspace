@@ -9,9 +9,9 @@ import json
 import os
 import unittest
 
-from ecentric_workspace.approval_center.esign import state as sm
-from ecentric_workspace.approval_center.esign.flow import resolve
-from ecentric_workspace.approval_center.esign.flow.payment_request import (
+from ecentric_workspace.platform.esign import state as sm
+from ecentric_workspace.platform.esign.flow import resolve
+from ecentric_workspace.platform.esign.flow.payment_request import (
     EXPECTED_PROFILE_POLICY, STEPS,
 )
 
