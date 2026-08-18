@@ -183,10 +183,11 @@
   .sch-blk .rz{ position:absolute; left:0; bottom:0; width:100%; height:7px; cursor:ns-resize; }
   .sch-ghost{ position:fixed; pointer-events:none; z-index:1300; background:var(--navy-50); border:1px solid var(--navy); color:var(--navy); border-radius:6px; padding:4px 8px; font-size:12px; box-shadow:0 4px 12px rgba(0,0,0,.15); }
   .sch-ro{ font-size:12px; color:var(--gray-600); background:var(--gray-100); padding:3px 11px; border-radius:20px; }
-  .sch-nav{ display:inline-flex; border:1px solid var(--gray-200); border-radius:8px; overflow:hidden; vertical-align:middle; }
-  .sch-nav button{ border:none; background:#fff; padding:7px 12px; font-size:13px; font-weight:500; color:var(--gray-700); cursor:pointer; font-family:inherit; border-left:1px solid var(--gray-200); }
-  .sch-nav button:first-child{ border-left:none; }
+  .sch-nav{ display:inline-flex; align-items:stretch; border:1px solid var(--gray-200); border-radius:9px; overflow:hidden; background:#fff; vertical-align:middle; }
+  .sch-nav button{ border:none; background:transparent; padding:6px 13px; font-size:13px; font-weight:500; color:var(--gray-600); cursor:pointer; font-family:inherit; display:flex; align-items:center; transition:background .12s,color .12s; }
+  .sch-nav button+button{ border-left:1px solid var(--gray-200); }
   .sch-nav button:hover{ background:var(--gray-50); color:var(--navy); }
+  .sch-nav button.accent{ color:var(--navy); font-weight:600; background:var(--navy-50); }
   .sch-nav .icon{ vertical-align:-2px; }
   /* ===== Hướng dẫn (guide) — scoped .pm-guide ===== */
   .pm-guide{ max-width:1180px; margin:0 auto; }
@@ -3206,7 +3207,8 @@
       var days=[]; var i; for(i=0;i<7;i++){ var dd=new Date(st.ws); dd.setDate(st.ws.getDate()+i); days.push(dd); }
       var wl=days[0].getDate()+"/"+(days[0].getMonth()+1)+" – "+days[6].getDate()+"/"+(days[6].getMonth()+1);
       var pend=blocks.filter(function(b){var e=parseDT(b.end);return e&&e<now&&b.state!=="Đã xác nhận";});
-      var right='<div class="sch-nav"><button id="sch-prev" title="Tuần trước"><svg class="icon icon-sm"><use href="#p-back"/></svg></button><button id="sch-today">Tuần này</button><button id="sch-next" title="Tuần sau"><svg class="icon icon-sm" style="transform:scaleX(-1)"><use href="#p-back"/></svg></button></div>'
+      var _tw=new Date(); _tw.setHours(0,0,0,0); _tw.setDate(_tw.getDate()-((_tw.getDay()+6)%7)); var _isCur=(st.ws.getTime()===_tw.getTime());
+      var right='<div class="sch-nav"><button id="sch-prev" title="Tuần trước"><svg class="icon icon-sm"><use href="#p-back"/></svg></button><button id="sch-today"'+(_isCur?'':' class="accent"')+' title="Về tuần hiện tại">Hôm nay</button><button id="sch-next" title="Tuần sau"><svg class="icon icon-sm" style="transform:scaleX(-1)"><use href="#p-back"/></svg></button></div>'
         +(ro?'<span class="sch-ro" style="margin-left:8px"><svg class="icon icon-sm"><use href="#p-eye"/></svg> Chỉ xem</span>':(pend.length?'<button class="pm-btn primary" id="sch-confirm" style="margin-left:8px"><svg class="icon icon-sm"><use href="#p-check"/></svg> Xác nhận giờ ('+pend.length+')</button>':''));
       var h=head("Lịch làm việc", (ro?("Lịch của "+esc(st.user||"")+" · "):"")+"Tuần "+wl+" · kéo việc vào khung giờ, kéo mép dưới để giãn", right);
 
@@ -3217,8 +3219,8 @@
         : '<div class="sch-side"><div class="lbl"><svg class="icon icon-sm"><use href="#p-inbox"/></svg> Chưa xếp lịch<button class="sch-toggle" id="sch-col" title="Thu gọn"><svg class="icon icon-sm"><use href="#p-back"/></svg></button></div>'+(ro?'':chips)
           +'<div class="sch-legend"><div><span class="sw" style="border:1.5px dashed var(--navy)"></span>Dự kiến</div><div><span class="sw" style="background:#EAF3DE"></span>Đã trôi qua → tự ghi</div><div><span class="sw" style="background:#C7F0DE"></span>Đã xác nhận</div></div></div>';
 
-      var hdr='<div class="sch-hdr" style="position:relative;height:24px"><div style="position:absolute;left:'+GUT+'px;right:0;top:0;height:24px">';
-      for(i=0;i<7;i++){ var td=(days[i].toDateString()===now.toDateString()); hdr+='<div style="position:absolute;left:'+(i*100/7)+'%;width:'+(100/7)+'%;text-align:center;font-size:11px;font-weight:600;color:'+(td?'var(--navy)':'var(--gray-500)')+'">'+DN[i]+' '+days[i].getDate()+'/'+(days[i].getMonth()+1)+'</div>'; }
+      var hdr='<div class="sch-hdr" style="position:relative;height:26px;background:#FAFBFC;border-bottom:1px solid var(--gray-200)"><div style="position:absolute;left:'+GUT+'px;right:0;top:0;height:26px">';
+      for(i=0;i<7;i++){ var td=(days[i].toDateString()===now.toDateString()); hdr+='<div style="position:absolute;left:'+(i*100/7)+'%;width:'+(100/7)+'%;height:26px;line-height:26px;text-align:center;font-size:11px;font-weight:600;border-left:1px solid var(--gray-100);color:'+(td?'var(--navy)':'var(--gray-500)')+'">'+DN[i]+' '+days[i].getDate()+'/'+(days[i].getMonth()+1)+'</div>'; }
       hdr+='</div></div>';
 
       var body='<div id="sch-body" style="position:relative;height:'+HH+'px;border-top:1px solid var(--gray-100)">';
