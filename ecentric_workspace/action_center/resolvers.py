@@ -346,6 +346,13 @@ def resolve_item(todo_row):
         title = ref_name
         subtitle = ref_type
         action_url = build_desk_fallback_url(ref_type, ref_name)
+    elif "[XNGIO]" in (description or ""):
+        # PM time-blocking "confirm your hours" reminder -> the week calendar (portal),
+        # NOT the Desk ToDo form. Tag is set by pm.api.schedule._ensure_nudge_todo.
+        src = _GENERIC_SRC
+        title = "Xác nhận giờ đã làm"
+        subtitle = ""
+        action_url = "/pm#schedule"
     else:
         # Bare ToDo with no reference -> link to the ToDo itself in Desk.
         src = _GENERIC_SRC
