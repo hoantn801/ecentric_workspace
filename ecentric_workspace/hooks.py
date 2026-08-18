@@ -86,6 +86,8 @@ scheduler_events = {
     "daily": [
         "ecentric_workspace.pm.api.recurrence.run_due",
         "ecentric_workspace.pm.api.notifications.pm_overdue_scan",
+        # PM time-blocking: morning reminder to confirm elapsed unconfirmed hours.
+        "ecentric_workspace.pm.api.schedule.nudge_unconfirmed",
         # Notification Delivery v1: new producers (distinct jobs, not duplicates).
         "ecentric_workspace.pm.api.notifications.pm_due_soon_scan",
         "ecentric_workspace.weekly_report.scheduler.wr_due_overdue_scan",

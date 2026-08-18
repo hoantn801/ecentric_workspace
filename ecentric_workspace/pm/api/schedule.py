@@ -25,6 +25,9 @@ from ecentric_workspace.pm import permissions as pmperm
 
 BLOCK = "EC PM Time Block"
 _TERMINAL_WF = ("Done", "Cancelled")
+#: description tag on the "confirm your hours" reminder ToDo, so the Action Center can
+#: route it to the week calendar (resolvers.resolve_item) and confirm() can close it.
+NUDGE_TAG = "[XNGIO]"
 
 
 def _monday(d):
@@ -224,6 +227,12 @@ def confirm(names, hours_map=None):
             vals["timesheet"] = ts
         frappe.db.set_value(BLOCK, nm, vals, update_modified=True)
         done.append(nm)
+    # if nothing is left elapsed-and-unconfirmed, clear the morning reminder.
+    try:
+        if not _pending_names_for(caller):
+            _close_nudge_todo(caller)
+    except Exception:
+        pass
     return {"confirmed": done}
 
 
@@ -266,3 +275,66 @@ def task_history(task):
         order_by="start asc", ignore_permissions=True) or []
     total = round(sum((r.get("hours") or 0) for r in rows), 2)
     return {"rows": rows, "total": total}
+
+
+# ---- morning nudge: remind users to confirm elapsed unconfirmed hours ----------
+def _pending_names_for(user):
+    """Block names for `user` that have already elapsed but are still 'Dự kiến'."""
+    now = str(frappe.utils.now_datetime())
+    return frappe.get_all(
+        BLOCK, filters={"user": user, "state": "Dự kiến", "end": ["<", now]},
+        pluck="name", ignore_permissions=True) or []
+
+
+def _close_nudge_todo(user):
+    for n in frappe.get_all(
+            "ToDo", filters={"allocated_to": user, "status": "Open",
+                             "description": ["like", "%" + NUDGE_TAG + "%"]},
+            pluck="name", ignore_permissions=True) or []:
+        frappe.db.set_value("ToDo", n, "status", "Closed")
+
+
+def _ensure_nudge_todo(user, count):
+    """Upsert ONE open reminder ToDo (tagged NUDGE_TAG) for `user`. Idempotent:
+    updates the existing one's count/date and cancels any duplicates."""
+    desc = "%s Xác nhận giờ đã làm (%d mục) — mở Lịch làm việc" % (NUDGE_TAG, count)
+    existing = frappe.get_all(
+        "ToDo", filters={"allocated_to": user, "status": "Open",
+                         "description": ["like", "%" + NUDGE_TAG + "%"]},
+        pluck="name", ignore_permissions=True) or []
+    if existing:
+        frappe.db.set_value("ToDo", existing[0],
+                            {"description": desc, "date": frappe.utils.nowdate()})
+        for extra in existing[1:]:
+            frappe.db.set_value("ToDo", extra, "status", "Cancelled")
+        return existing[0]
+    try:
+        d = frappe.get_doc({
+            "doctype": "ToDo", "allocated_to": user, "status": "Open",
+            "priority": "Medium", "date": frappe.utils.nowdate(), "description": desc})
+        d.insert(ignore_permissions=True)
+        return d.name
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "schedule nudge todo")
+        return None
+
+
+def nudge_unconfirmed():
+    """Scheduler (daily, morning): for every user with elapsed-but-unconfirmed blocks,
+    ensure a 'Xác nhận giờ' reminder ToDo (shows in Nhắc việc -> /pm#schedule); clear the
+    reminder for users who have nothing pending. Fully idempotent."""
+    now = str(frappe.utils.now_datetime())
+    counts = {}
+    for r in frappe.get_all(BLOCK, filters={"state": "Dự kiến", "end": ["<", now]},
+                            fields=["user"], ignore_permissions=True) or []:
+        u = r.get("user")
+        if u:
+            counts[u] = counts.get(u, 0) + 1
+    for u, c in counts.items():
+        _ensure_nudge_todo(u, c)
+    for t in frappe.get_all(
+            "ToDo", filters={"status": "Open", "description": ["like", "%" + NUDGE_TAG + "%"]},
+            fields=["name", "allocated_to"], ignore_permissions=True) or []:
+        if t.get("allocated_to") not in counts:
+            frappe.db.set_value("ToDo", t["name"], "status", "Closed")
+    frappe.db.commit()
