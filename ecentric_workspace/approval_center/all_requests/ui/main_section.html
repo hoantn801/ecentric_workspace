@@ -1,6 +1,7 @@
 <!--
-  Approval Center - All Requests (Teams-Approvals style). Route /approvals/all-requests.
-  Backend: ecentric_workspace.approval_center.reporting.api.list_requests (box=received|sent|all). Marker: ec-approval-all.
+  Approval Center - All Requests. Route /approvals/all-requests (Web Page "approvals-all-requests").
+  Governed cross-form list via ecentric_workspace.approval_center.reporting.api.list_requests
+  (scope resolved server-side). eCentric shell. Marker: ec-approval-all. Does NOT touch other pages.
 -->
 <style>
   body > header, body > footer, body > nav.navbar, header.navbar, .navbar.navbar-light,
@@ -10,45 +11,57 @@
 </style>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-  #ec-apl-root{ --navy:#2C3DA6; --navy-50:#eef0fb; --pink:#EF7CAF; --green:#10b981; --green-50:#ecfdf5; --amber:#d97706; --amber-50:#fffbeb; --red:#dc2626; --red-50:#fef2f2; --purple:#7c3aed; --purple-50:#f3e8ff;
+  #ec-apl-root{ --navy:#2C3DA6; --navy-50:#eef0fb; --pink:#EF7CAF; --green:#10b981; --amber:#d97706; --amber-50:#fffbeb; --red:#dc2626; --red-50:#fef2f2;
     --gray-50:#fafbfc; --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-300:#d1d5db; --gray-400:#9ca3af; --gray-500:#6b7280; --gray-600:#4b5563; --gray-700:#374151; --gray-800:#1f2937; --gray-900:#111827; --bg:#f7f8fb; }
   #ec-apl-root, #ec-apl-root *{ box-sizing:border-box; }
   #ec-apl-root{ font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--gray-800); font-size:14px; line-height:1.5; display:grid; grid-template-columns:248px 1fr; min-height:100vh; }
   #ec-apl-root .icon{ width:18px; height:18px; flex-shrink:0; stroke:currentColor; fill:none; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
+  #ec-apl-root .ec-sidebar{ background:#fff; border-right:1px solid var(--gray-200); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; }
+  #ec-apl-root .ec-sidebar .sb-head{ padding:16px; display:flex; align-items:center; gap:10px; }
+  #ec-apl-root .ec-sidebar .logo{ width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,var(--navy),var(--pink)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; }
+  #ec-apl-root .ec-sidebar .brand-name{ font-size:15px; font-weight:700; color:var(--gray-900); }
+  #ec-apl-root .ec-sidebar .nav{ padding:6px 8px; display:flex; flex-direction:column; gap:2px; }
+  #ec-apl-root .ec-sidebar a.nav-item{ display:flex; align-items:center; gap:14px; padding:9px 14px; border-radius:8px; text-decoration:none; color:var(--gray-700); font-size:13.5px; font-weight:500; }
+  #ec-apl-root .ec-sidebar a.nav-item:hover{ background:var(--gray-100); color:var(--gray-900); }
+  #ec-apl-root .ec-sidebar a.nav-item.active{ background:var(--navy-50); color:var(--navy); font-weight:600; }
   #ec-apl-root .ec-main{ min-width:0; display:flex; flex-direction:column; }
   #ec-apl-root .topbar{ background:#fff; border-bottom:1px solid var(--gray-200); min-height:60px; padding:0 24px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:20; }
   #ec-apl-root .topbar .hamburger{ display:none; background:none; border:none; cursor:pointer; color:var(--gray-600); }
   #ec-apl-root .topbar .crumb{ font-size:13px; color:var(--gray-500); } #ec-apl-root .topbar .crumb strong{ color:var(--gray-900); }
   #ec-apl-root .topbar .spacer{ flex:1; } #ec-apl-root .scope-badge{ font-size:12px; font-weight:600; padding:5px 10px; border-radius:999px; background:var(--navy-50); color:var(--navy); }
-  #ec-apl-root .content{ padding:22px 24px; max-width:1360px; width:100%; }
-  #ec-apl-root .apl-title{ font-size:22px; font-weight:800; color:var(--gray-900); letter-spacing:-0.4px; margin:0 0 2px; }
-  #ec-apl-root .apl-desc{ font-size:13px; color:var(--gray-500); margin:0 0 14px; }
-  #ec-apl-root .tabs{ display:flex; gap:6px; border-bottom:1px solid var(--gray-200); margin-bottom:14px; }
-  #ec-apl-root .tab{ padding:9px 16px; font-size:14px; font-weight:600; color:var(--gray-500); cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; margin-bottom:-1px; font-family:inherit; }
-  #ec-apl-root .tab.active{ color:var(--navy); border-bottom-color:var(--navy); }
-  #ec-apl-root .toolbar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
-  #ec-apl-root .search{ position:relative; flex:1; min-width:220px; max-width:360px; }
-  #ec-apl-root .search input{ width:100%; padding:8px 12px 8px 34px; border:1px solid var(--gray-200); border-radius:9px; font-size:13.5px; font-family:inherit; background:#fff; }
-  #ec-apl-root .search svg{ position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--gray-400); width:16px; height:16px; }
-  #ec-apl-root select{ padding:8px 10px; border:1px solid var(--gray-200); border-radius:9px; font-size:13px; font-family:inherit; background:#fff; }
+  #ec-apl-root .content{ padding:24px; max-width:1360px; width:100%; }
+  #ec-apl-root .apl-title{ font-size:23px; font-weight:800; color:var(--gray-900); letter-spacing:-0.4px; margin:0 0 2px; }
+  #ec-apl-root .apl-desc{ font-size:13px; color:var(--gray-500); margin:0 0 16px; }
+  #ec-apl-root .filters{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:14px 16px; margin-bottom:16px; }
+  #ec-apl-root .fgrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; }
+  #ec-apl-root .fgrid label{ display:block; font-size:11.5px; font-weight:600; color:var(--gray-500); margin-bottom:3px; }
+  #ec-apl-root .fgrid select, #ec-apl-root .fgrid input{ width:100%; padding:7px 9px; border:1px solid var(--gray-200); border-radius:8px; font-size:13px; font-family:inherit; background:#fff; }
+  #ec-apl-root .factions{ display:flex; gap:8px; margin-top:12px; align-items:center; }
+  #ec-apl-root .btn{ padding:8px 16px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; font-size:13px; font-weight:600; cursor:pointer; color:var(--gray-700); }
+  #ec-apl-root .btn.primary{ background:var(--navy); border-color:var(--navy); color:#fff; }
+  #ec-apl-root .btn:disabled{ opacity:.5; cursor:not-allowed; }
   #ec-apl-root .card{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; overflow:hidden; }
   #ec-apl-root table{ width:100%; border-collapse:collapse; }
-  #ec-apl-root thead th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--gray-500); font-weight:700; padding:11px 14px; border-bottom:1px solid var(--gray-200); }
-  #ec-apl-root tbody td{ padding:12px 14px; border-bottom:1px solid var(--gray-100); font-size:13.5px; color:var(--gray-700); vertical-align:middle; }
-  #ec-apl-root tbody tr{ cursor:pointer; } #ec-apl-root tbody tr:hover{ background:var(--gray-50); }
-  #ec-apl-root .t-title{ font-weight:600; color:var(--gray-900); } #ec-apl-root .t-sub{ font-size:12px; color:var(--gray-400); }
-  #ec-apl-root .pill{ display:inline-block; padding:3px 11px; border-radius:999px; font-size:12px; font-weight:600; white-space:nowrap; }
-  #ec-apl-root .pill.Pending{ background:var(--navy-50); color:var(--navy); } #ec-apl-root .pill.Information{ background:var(--amber-50); color:var(--amber); } #ec-apl-root .pill.Completed{ background:var(--green-50); color:var(--green); } #ec-apl-root .pill.Rejected{ background:var(--red-50); color:var(--red); } #ec-apl-root .pill.Cancelled{ background:var(--gray-100); color:var(--gray-500); }
+  #ec-apl-root thead th{ text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--gray-500); font-weight:700; padding:11px 12px; border-bottom:1px solid var(--gray-200); background:var(--gray-50); }
+  #ec-apl-root tbody td{ padding:10px 12px; border-bottom:1px solid var(--gray-100); font-size:13px; color:var(--gray-700); }
+  #ec-apl-root tbody tr:hover{ background:var(--gray-50); }
+  #ec-apl-root .pill{ display:inline-block; padding:2px 9px; border-radius:999px; font-size:11.5px; font-weight:600; }
+  #ec-apl-root .pill.Pending{ background:var(--navy-50); color:var(--navy); } #ec-apl-root .pill.Information{ background:var(--amber-50); color:var(--amber); }
+  #ec-apl-root .pill.Completed{ background:#ecfdf5; color:var(--green); } #ec-apl-root .pill.Rejected{ background:var(--red-50); color:var(--red); } #ec-apl-root .pill.Cancelled{ background:var(--gray-100); color:var(--gray-500); }
+  #ec-apl-root .pill.breach{ background:var(--red-50); color:var(--red); }
+  #ec-apl-root .tabs{ display:flex; gap:6px; border-bottom:1px solid var(--gray-200); margin-bottom:16px; }
+  #ec-apl-root .tab{ padding:9px 16px; font-size:14px; font-weight:600; color:var(--gray-500); cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; margin-bottom:-1px; font-family:inherit; }
+  #ec-apl-root .tab.active{ color:var(--navy); border-bottom-color:var(--navy); }
   #ec-apl-root .av{ display:inline-flex; align-items:center; justify-content:center; border-radius:50%; color:#fff; font-weight:700; overflow:hidden; flex-shrink:0; border:2px solid #fff; }
   #ec-apl-root .av img{ width:100%; height:100%; object-fit:cover; }
-  #ec-apl-root .sender{ display:flex; align-items:center; gap:9px; } #ec-apl-root .sender .nm{ font-size:13px; color:var(--gray-800); white-space:nowrap; }
+  #ec-apl-root .sender{ display:flex; align-items:center; gap:8px; } #ec-apl-root .sender .nm{ font-size:13px; color:var(--gray-800); white-space:nowrap; }
   #ec-apl-root .chips{ display:flex; align-items:center; } #ec-apl-root .chips .av{ margin-left:-8px; } #ec-apl-root .chips .av:first-child{ margin-left:0; } #ec-apl-root .chips .more{ margin-left:6px; font-size:12px; color:var(--gray-500); font-weight:600; }
-  #ec-apl-root .src{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--gray-600); } #ec-apl-root .src .dot{ width:16px; height:16px; border-radius:4px; background:var(--navy-50); color:var(--navy); display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; }
-  #ec-apl-root .pager{ display:flex; align-items:center; justify-content:space-between; padding:12px 14px; } #ec-apl-root .pager .info{ font-size:12.5px; color:var(--gray-500); }
-  #ec-apl-root .btn{ padding:7px 14px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; font-size:13px; font-weight:600; cursor:pointer; color:var(--gray-700); } #ec-apl-root .btn:disabled{ opacity:.45; cursor:not-allowed; } #ec-apl-root .btn.primary{ background:var(--navy); border-color:var(--navy); color:#fff; }
+  #ec-apl-root a.open-link{ color:var(--navy); font-weight:600; text-decoration:none; cursor:pointer; } #ec-apl-root a.open-link:hover{ text-decoration:underline; }
+  #ec-apl-root .pager{ display:flex; align-items:center; justify-content:space-between; padding:12px 14px; }
+  #ec-apl-root .pager .info{ font-size:12.5px; color:var(--gray-500); }
   #ec-apl-root .state{ padding:44px; text-align:center; color:var(--gray-500); } #ec-apl-root .state h4{ margin:0 0 6px; color:var(--gray-700); }
-  #ec-apl-root .skel{ height:52px; border-bottom:1px solid var(--gray-100); background:var(--gray-50); }
-  @media (max-width:1000px){ #ec-apl-root{ grid-template-columns:1fr; } #ec-apl-root .card{ overflow-x:auto; } #ec-apl-root .topbar .hamburger{ display:block; } }
+  #ec-apl-root .skel{ height:44px; border-bottom:1px solid var(--gray-100); background:var(--gray-50); }
+  @media (max-width:900px){ #ec-apl-root{ grid-template-columns:1fr; } #ec-apl-root .ec-sidebar{ position:fixed; left:0; top:0; width:248px; z-index:50; transform:translateX(-100%); transition:transform .22s; } #ec-apl-root.sb-open .ec-sidebar{ transform:translateX(0); } #ec-apl-root .topbar .hamburger{ display:block; } #ec-apl-root .card{ overflow-x:auto; } }
 </style>
 
 <div id="ec-apl-root">
@@ -61,16 +74,23 @@
     </div>
     <div class="content">
       <h1 class="apl-title">Tất cả yêu cầu</h1>
-      <p class="apl-desc">Toàn bộ yêu cầu phê duyệt — xem đã gửi và đã nhận, theo phạm vi quyền của bạn.</p>
+      <p class="apl-desc">Toàn bộ yêu cầu phê duyệt xuyên suốt các form — xem đã nhận / đã gửi, theo phạm vi quyền của bạn.</p>
       <div class="tabs" id="apl-tabs">
-        <button type="button" class="tab active" data-box="received">Đã nhận</button>
+        <button type="button" class="tab" data-box="received">Đã nhận</button>
         <button type="button" class="tab" data-box="sent">Đã gửi</button>
-        <button type="button" class="tab" data-box="all">Tất cả</button>
+        <button type="button" class="tab active" data-box="all">Tất cả</button>
       </div>
-      <div class="toolbar">
-        <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="f-search" placeholder="Tìm mã / tiêu đề / người..."></div>
-        <select id="f-type"><option value="">Mọi loại</option></select>
-        <select id="f-status"><option value="">Mọi trạng thái</option></select>
+      <div class="filters">
+        <div class="fgrid">
+          <div><label>Tìm kiếm</label><input id="f-search" placeholder="Mã / tiêu đề / người yêu cầu..."></div>
+          <div><label>Từ ngày</label><input type="date" id="f-from"></div>
+          <div><label>Đến ngày</label><input type="date" id="f-to"></div>
+          <div><label>Nhóm</label><select id="f-category"><option value="">Tất cả</option></select></div>
+          <div><label>Loại yêu cầu</label><select id="f-type"><option value="">Tất cả</option></select></div>
+          <div><label>Phòng ban</label><select id="f-department"><option value="">Tất cả</option></select></div>
+          <div><label>Trạng thái</label><select id="f-status"><option value="">Tất cả</option></select></div>
+        </div>
+        <div class="factions"><button type="button" class="btn primary" id="apl-apply">Áp dụng</button><button type="button" class="btn" id="apl-reset">Đặt lại</button></div>
       </div>
       <div class="card" id="apl-body"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
     </div>
@@ -82,63 +102,68 @@
   "use strict";
   var API="ecentric_workspace.approval_center.reporting.api";
   var $=function(id){return document.getElementById(id);};
-  var state={ box:"received", start:0, page_length:30, total:0, options:null };
-  function call(m,a){ if(!(window.frappe&&frappe.call)) return Promise.reject(new Error("no frappe")); return frappe.call({method:API+"."+m,args:a||{}}).then(function(r){return r&&r.message;}); }
+  var state={ box:"all", start:0, page_length:50, total:0, options:null };
+  function call(m,a){ if(!(window.frappe&&frappe.call)) return Promise.reject(new Error("frappe unavailable")); return frappe.call({method:API+"."+m,args:a||{}}).then(function(r){return r&&r.message;}); }
   function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
   function fmtDT(s){ if(!s) return "—"; var d=new Date(String(s).replace(" ","T")); if(isNaN(d)) return esc(s); function p(n){return(n<10?"0":"")+n;} return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes()); }
   function statusLabel(s){ return {Pending:"Chờ duyệt","Information Required":"Cần bổ sung",Completed:"Hoàn tất",Rejected:"Từ chối",Cancelled:"Đã hủy",Draft:"Nháp"}[s]||s; }
   function pillCls(s){ return s==="Information Required"?"Information":s; }
   function scopeLabel(m){ return {admin:"Toàn tổ chức",department:"Phòng ban",approver:"Người duyệt",requester:"Cá nhân"}[m]||"—"; }
-  function initials(name){ var p=(name||"").trim().split(/\s+/).filter(Boolean); if(!p.length) return "?"; var s=(p.length>1?(p[0][0]+p[p.length-1][0]):p[0].slice(0,2)); return s.toUpperCase(); }
+  function initials(name){ var p=(name||"").trim().split(/\s+/).filter(Boolean); if(!p.length) return "?"; var x=(p.length>1?(p[0][0]+p[p.length-1][0]):p[0].slice(0,2)); return x.toUpperCase(); }
   var AVCOL=["#2C3DA6","#10b981","#EF7CAF","#d97706","#dc2626","#7c3aed","#0891b2","#65a30d","#c026d3","#0d9488"];
   function avColor(k){ k=k||""; var h=0; for(var i=0;i<k.length;i++) h=(h*31+k.charCodeAt(i))>>>0; return AVCOL[h%AVCOL.length]; }
-  function avatar(info,size){ size=size||28; info=info||{}; var st='width:'+size+'px;height:'+size+'px;font-size:'+Math.round(size*0.4)+'px';
+  function avatar(info,size){ size=size||28; info=info||{}; var st="width:"+size+"px;height:"+size+"px;font-size:"+Math.round(size*0.4)+"px";
     if(info.image) return '<span class="av" title="'+esc(info.name)+'" style="'+st+'"><img src="'+esc(info.image)+'"></span>';
     return '<span class="av" title="'+esc(info.name)+'" style="'+st+';background:'+avColor(info.user||info.name)+'">'+esc(initials(info.name))+'</span>'; }
   function chips(list){ list=list||[]; if(!list.length) return '<span style="color:var(--gray-300)">—</span>';
-    var show=list.slice(0,5).map(function(x){return avatar(x,28);}).join(""); var more=list.length>5?('<span class="more">+'+(list.length-5)+'</span>'):'';
+    var show=list.slice(0,5).map(function(x){return avatar(x,26);}).join(""); var more=list.length>5?('<span class="more">+'+(list.length-5)+'</span>'):'';
     return '<div class="chips">'+show+more+'</div>'; }
   function fillSelect(sel,items,vk,lk){ var cur=sel.value; sel.length=1; (items||[]).forEach(function(it){ var o=document.createElement("option"); o.value=vk?it[vk]:it; o.textContent=lk?(it[lk]||it[vk]):it; sel.appendChild(o); }); sel.value=cur; }
+  function filters(){ var f={category:$("f-category").value,approval_type:$("f-type").value,department:$("f-department").value,status:$("f-status").value,date_from:$("f-from").value,date_to:$("f-to").value};
+    Object.keys(f).forEach(function(k){ if(!f[k]) delete f[k]; }); return f; }
+
   function loadOptions(){ return call("get_filter_options").then(function(o){ state.options=o||{};
-    var sb=$("apl-scope"); if(sb) sb.textContent=scopeLabel((o||{}).scope_mode);
-    fillSelect($("f-type"),o.types||[],"v","label"); fillSelect($("f-status"),o.statuses||[]);
+    $("apl-scope").textContent=scopeLabel((o||{}).scope_mode);
+    fillSelect($("f-category"),o.categories||[]); fillSelect($("f-type"),o.types||[],"v","label");
+    fillSelect($("f-department"),o.departments||[]); fillSelect($("f-status"),o.statuses||[]);
   }).catch(function(){}); }
+
   function load(){ $("apl-body").innerHTML='<div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>';
-    var filters={approval_type:$("f-type").value,status:$("f-status").value}; Object.keys(filters).forEach(function(k){ if(!filters[k]) delete filters[k]; });
-    return call("list_requests",{ box:state.box, filters:JSON.stringify(filters), start:state.start, page_length:state.page_length, search:$("f-search").value||"" })
+    return call("list_requests",{ box:state.box, filters:JSON.stringify(filters()), start:state.start, page_length:state.page_length, search:$("f-search").value||"" })
       .then(function(res){ state.total=(res&&res.total)||0; render((res&&res.rows)||[]); }).catch(function(){ renderError(); }); }
   function renderError(){ $("apl-body").innerHTML='<div class="state"><h4>Không tải được dữ liệu</h4><p>Vui lòng thử lại.</p><button type="button" class="btn primary" id="apl-retry">Thử lại</button></div>'; var r=$("apl-retry"); if(r) r.onclick=load; }
+
   function render(rows){
-    if(!rows.length){ $("apl-body").innerHTML='<div class="state"><h4>Không có yêu cầu</h4><p>'+(state.box==="received"?"Bạn chưa có yêu cầu nào cần/đã duyệt.":state.box==="sent"?"Bạn chưa gửi yêu cầu nào.":"Không có yêu cầu khớp bộ lọc.")+'</p></div>'; return; }
-    var head='<table><thead><tr><th>Tiêu đề</th><th>Trạng thái</th><th>Nguồn</th><th>Ngày tạo</th><th>Người gửi</th><th>Người nhận</th><th></th></tr></thead><tbody>';
-    var body=rows.map(function(r){
+    if(!rows.length){ $("apl-body").innerHTML='<div class="state"><h4>Không có yêu cầu</h4><p>Không có yêu cầu nào khớp bộ lọc trong phạm vi của bạn.</p></div>'; return; }
+    var head='<table><thead><tr><th>Ngày gửi</th><th>Mã</th><th>Tiêu đề</th><th>Loại</th><th>Người gửi</th><th>Người nhận</th><th>Phòng ban</th><th>Cấp hiện tại</th><th>Trạng thái</th><th></th></tr></thead><tbody>';
+    var body=rows.map(function(r){ var breach=r.sla_breached?'<span class="pill breach">Quá hạn</span> ':'';
+      var open=r.detail_route?'<a class="open-link" href="'+esc(r.detail_route)+'" data-open="1">Mở ▸</a>':'<span style="color:var(--gray-300)">—</span>';
       var send=r.requester_info||{user:r.requester,name:r.requester};
-      var pill='<span class="pill '+pillCls(r.status)+'">'+esc(statusLabel(r.status_label||r.status))+'</span>';
-      var src='<span class="src"><span class="dot">e</span>'+esc(r.type||r.approval_type||"")+'</span>';
-      return '<tr data-route="'+esc(r.detail_route||"")+'"><td><div class="t-title">'+esc(r.type||r.name)+'</div><div class="t-sub">'+esc(r.name)+(r.department?(' · '+esc(r.department)):'')+'</div></td>'
-        +'<td>'+pill+'</td><td>'+src+'</td><td>'+fmtDT(r.submitted_at)+'</td>'
-        +'<td><div class="sender">'+avatar(send,28)+'<span class="nm">'+esc(send.name||send.user||"—")+'</span></div></td>'
-        +'<td>'+chips(r.sent_to)+'</td>'
-        +'<td>'+(r.detail_route?'<a class="btn" data-open="1" href="'+esc(r.detail_route)+'">Mở</a>':'')+'</td></tr>'; }).join("");
+      var sender='<div class="sender">'+avatar(send,28)+'<span class="nm">'+esc(send.name||send.user||"—")+'</span></div>';
+      return '<tr><td>'+fmtDT(r.submitted_at)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||"")+'</td><td>'+esc(r.approval_type||"")+'</td><td>'+sender+'</td><td>'+chips(r.sent_to)+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"—")+'</td><td>'+breach+'<span class="pill '+pillCls(r.status)+'">'+esc(statusLabel(r.status_label||r.status))+'</span></td><td>'+open+'</td></tr>'; }).join("");
     var from=state.total?state.start+1:0, to=Math.min(state.start+rows.length,state.total);
     var pager='<div class="pager"><div class="info">'+from+'–'+to+' / '+state.total+'</div><div><button type="button" class="btn" id="apl-prev"'+(state.start<=0?" disabled":"")+'>‹ Trước</button> <button type="button" class="btn" id="apl-next"'+(state.start+state.page_length>=state.total?" disabled":"")+'>Sau ›</button></div></div>';
-    $("apl-body").innerHTML='<div style="overflow-x:auto">'+head+body+'</tbody></table></div>'+pager; wire();
+    $("apl-body").innerHTML='<div style="overflow-x:auto">'+head+body+'</tbody></table></div>'+pager;
+    wire();
   }
   function wire(){
-    Array.prototype.forEach.call(document.querySelectorAll('#apl-body tbody tr'),function(tr){ tr.onclick=function(e){ if(e.target&&e.target.closest&&e.target.closest('[data-open]')) return; var rt=tr.getAttribute("data-route"); if(rt) window.location.href=rt; }; });
-    Array.prototype.forEach.call(document.querySelectorAll('#apl-body a[data-open]'),function(a){ a.onclick=function(e){ e.preventDefault(); e.stopPropagation(); window.location.href=a.getAttribute("href"); }; });
+    Array.prototype.forEach.call(document.querySelectorAll('#apl-body a.open-link[data-open]'),function(a){ a.onclick=function(e){ e.preventDefault(); window.location.href=a.getAttribute("href"); }; });
     var pv=$("apl-prev"), nx=$("apl-next");
     if(pv) pv.onclick=function(){ state.start=Math.max(0,state.start-state.page_length); load(); };
     if(nx) nx.onclick=function(){ if(state.start+state.page_length<state.total){ state.start+=state.page_length; load(); } };
   }
+
+  function apply(){ state.start=0; load(); }
   function setBox(b){ state.box=b; state.start=0; Array.prototype.forEach.call(document.querySelectorAll("#apl-tabs .tab"),function(t){ t.classList.toggle("active",t.getAttribute("data-box")===b); }); load(); }
   function boot(){
+    $("apl-apply").onclick=apply;
     Array.prototype.forEach.call(document.querySelectorAll("#apl-tabs .tab"),function(t){ t.onclick=function(){ setBox(t.getAttribute("data-box")); }; });
-    $("f-type").onchange=function(){ state.start=0; load(); }; $("f-status").onchange=function(){ state.start=0; load(); };
-    $("f-search").addEventListener("keydown",function(e){ if(e.key==="Enter"){ state.start=0; load(); } });
+    $("apl-reset").onclick=function(){ ["f-search","f-from","f-to","f-category","f-type","f-department","f-status"].forEach(function(id){ $(id).value=""; }); state.start=0; load(); };
+    $("f-search").addEventListener("keydown",function(e){ if(e.key==="Enter") apply(); });
+    var ham=$("apl-ham"); if(ham) ham.onclick=function(){ document.getElementById("ec-apl-root").classList.toggle("sb-open"); };
     loadOptions().then(load);
   }
-  window.ApprovalAll={ state:state, boot:boot, load:load, render:render, setBox:setBox, avatar:avatar, initials:initials, _call:call };
+  window.ApprovalAll={ state:state, boot:boot, load:load, render:render, filters:filters, setBox:setBox, avatar:avatar, initials:initials, _call:call };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
 })();
 </script>
