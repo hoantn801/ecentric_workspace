@@ -75,16 +75,33 @@ def week(user=None, week_start=None):
         fields=["name", "task", "user", "start", "end", "hours", "state", "source_note"],
         order_by="start asc", ignore_permissions=True) or []
 
-    # Backlog = open tasks NOT already scheduled this week (once a task has a block this
-    # week it leaves the "chưa xếp lịch" tray).
     scheduled = {b["task"] for b in blocks if b.get("task")}
-    backlog = [t for t in _open_tasks_for(target) if t["name"] not in scheduled]
+    # When viewing SOMEONE ELSE (read-only), show free/busy only: blocks for tasks the
+    # VIEWER cannot see (outside their project access) are masked to "Bận" (time + colour,
+    # no task name / tooltip), and the target's unscheduled backlog is never exposed. This
+    # keeps schedule visibility (coordination) from leaking task content beyond the
+    # viewer's project permissions. `visible_task_subset` returns everything for leaders.
+    if readonly:
+        backlog = []
+        viewable = set(pmperm.visible_task_subset(list(scheduled), caller)) if scheduled else set()
+        for b in blocks:
+            if b.get("task") not in viewable:
+                b["masked"] = 1
+    else:
+        # Backlog = open tasks NOT already scheduled this week.
+        backlog = [t for t in _open_tasks_for(target) if t["name"] not in scheduled]
+        viewable = None
 
-    # Enriched meta (label + tooltip info) for every task shown: blocks + backlog.
     task_names = list(scheduled | {t["name"] for t in backlog})
-    subj, meta = {}, _task_meta(task_names)
+    meta = _task_meta(task_names)
+    subj = {}
     for nm, m in meta.items():
-        subj[nm] = m.get("subject") or nm
+        if viewable is not None and nm not in viewable:
+            subj[nm] = "Bận"
+        else:
+            subj[nm] = m.get("subject") or nm
+    if viewable is not None:
+        meta = {k: v for k, v in meta.items() if k in viewable}
 
     return {
         "readonly": readonly,
