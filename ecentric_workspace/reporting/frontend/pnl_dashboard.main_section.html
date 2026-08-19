@@ -276,7 +276,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Doanh thu theo thời gian</h2>
-        <p class="pnl-card-n" id="pnl-time-n">Cột xếp chồng theo ba lớp độ tin cậy. Giá trị hiển thị là 100% số gốc, không nhân hệ số.</p>
+        <p class="pnl-card-n" id="pnl-time-n">Cột xếp chồng theo ba lớp độ tin cậy. Số tiền là giá trị gốc trên chứng từ; tỷ lệ 90/50/30 chỉ là mức độ tin cậy, không dùng để nhân vào tiền.</p>
       </div>
     </div>
     <div class="pnl-chart tall" id="ch-time"></div>
@@ -679,8 +679,8 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
        ? "xếp theo <b>ngày giao</b> — trên GBS Sales Order trường này trùng ngày KẾT THÚC kỳ dịch vụ ở 280/308 phiếu."
        : "xếp theo <b>ngày chứng từ</b> — trên GBS Sales Order trường này trùng ngày BẮT ĐẦU kỳ dịch vụ ở 263/308 phiếu.")
        + " Đổi mốc không làm thay đổi tổng, chỉ chuyển doanh thu sang tháng khác: 63/175 chứng từ có hai ngày rơi khác tháng nhau.<br>";
-    h += "<b>Ba lớp:</b> giá trị hiển thị luôn là 100% số gốc. Tỷ lệ 90 / 50 / 30 chỉ là nhãn "
-       + "độ tin cậy để biết khả năng thành tiền thật, không phải hệ số nhân.<br>";
+    h += "<b>Ba lớp:</b> số tiền của cả ba lớp đều là giá trị gốc trên chứng từ, không bị "
+       + "nhân với tỷ lệ nào. Tỷ lệ 90 / 50 / 30 chỉ nói lên khả năng khoản đó thành tiền thật.<br>";
     h += "<b>Đã loại khỏi mọi con số:</b> " + (ex.rejected_count || 0) + " phiếu bị từ chối, tương đương "
        + num(ex.rejected_amount) + " đ.<br>";
     h += "<b>Đối chiếu:</b> tổng theo chứng từ " + num(rc.header_net_total)
@@ -721,8 +721,9 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
       : "xếp theo ngày chứng từ (ngày bắt đầu kỳ dịch vụ)";
     $("pnl-sub").textContent = "Doanh thu trên Sales Order sổ eCentric · " + basisTxt
       + " · " + m.date_from + " → " + m.date_to;
-    $("pnl-time-n").textContent = "Cột xếp chồng theo ba lớp độ tin cậy, "
-      + basisTxt + ". Giá trị hiển thị là 100% số gốc, không nhân hệ số.";
+    $("pnl-time-n").textContent = "Cột xếp chồng theo ba lớp độ tin cậy, " + basisTxt
+      + ". Số tiền là giá trị gốc trên chứng từ; tỷ lệ 90/50/30 chỉ là mức độ tin cậy, "
+      + "không dùng để nhân vào tiền.";
     fillSelect($("pnl-brand"), (DATA.options || {}).brands || [], state.brand, "Tất cả brand");
     fillSelect($("pnl-team"), (DATA.options || {}).teams || [], state.team, "Tất cả phòng ban");
     if (!$("pnl-from").value) $("pnl-from").value = m.date_from;
