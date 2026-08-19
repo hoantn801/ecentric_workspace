@@ -965,6 +965,28 @@ from ecentric_workspace.notification_center import events as ev          # noqa:
 from ecentric_workspace.notification_center.providers import teams as tm  # noqa: E402
 
 
+class TestDedupeKeyLength(unittest.TestCase):
+    """dedupe_key is a Data(140) column; a long approval subject must never overflow it
+    (which would drop the delivery row and spam Frappe length warnings into a modal)."""
+    def setUp(self):
+        _reset("u@x.com"); FR.session.user = "u@x.com"
+
+    def test_delivery_caps_dedupe_key_to_140(self):
+        long_key = "EC AI Topup Request|EC-AITOP-2026-00005|gia.diep@ecentric.vn|" \
+                   "Fulfillment claimed by hoan.tran@ecentric.vn: EC-AITOP-2026-00005|20260819111838229137"
+        self.assertGreater(len(long_key), 140)
+        nm = ev._delivery("evt0000000000000", "u@x.com", "erp", "Sent", dedupe_key=long_key)
+        self.assertTrue(nm)
+        stored = FR._delivery[-1]["dedupe_key"]
+        self.assertLessEqual(len(stored), 140)
+        self.assertTrue(long_key.startswith(stored))
+
+    def test_short_dedupe_key_unchanged(self):
+        k = "approval_required|u@x.com|EC AI Topup Request|EC-AITOP-2026-00005"
+        ev._delivery("evt0000000000001", "u@x.com", "erp", "Sent", dedupe_key=k)
+        self.assertEqual(FR._delivery[-1]["dedupe_key"], k)
+
+
 class TestRoutingMatrix(unittest.TestCase):
     def setUp(self):
         _reset("u@x.com"); FR.session.user = "u@x.com"
