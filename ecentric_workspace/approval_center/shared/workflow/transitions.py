@@ -313,13 +313,15 @@ def _approval_link(doctype, name):
     try:
         atype = frappe.db.get_value(doctype, name, "approval_type")
         if not atype:
-            # Some business docs don't carry approval_type on the record; the linked
-            # EC Approval Request is the authoritative source (same as the reporting
-            # detail_route + the Action Center feed). Fall back to it so the Teams/inbox
-            # deep link is never empty (root cause of blank 'Link:' cards).
-            areq = frappe.db.get_value(doctype, name, "approval_request")
-            if areq:
-                atype = frappe.db.get_value("EC Approval Request", areq, "approval_type")
+            # The business doc often has no approval_type on the record, AND its
+            # approval_request back-link is not set yet at notify time (set after
+            # _activate_level). Reverse-lookup the EC Approval Request BY REFERENCE
+            # (authoritative, same type source as reporting/feed) so the deep link is
+            # populated even during submit -- root cause of blank 'Link:' Teams cards.
+            atype = frappe.db.get_value(
+                "EC Approval Request",
+                {"reference_doctype": doctype, "reference_name": name},
+                "approval_type")
         route = frappe.db.get_value("EC Approval Type", atype, "route") if atype else None
         if not route:
             return None
