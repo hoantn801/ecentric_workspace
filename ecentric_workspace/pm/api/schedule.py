@@ -113,7 +113,51 @@ def week(user=None, week_start=None):
         "backlog": backlog,
         "subjects": subj,
         "meta": meta,
+        "meetings": _ms_meetings(target, start_dt, end_dt, mask=readonly),
     }
+
+
+def _ms_meetings(email, start_dt, end_dt, mask=False):
+    """Outlook/Teams calendar 'busy' blocks for `email` in [start_dt, end_dt] (naive
+    site-local 'YYYY-MM-DD HH:MM:SS'). Overlaid on the week as read-only context so people
+    don't schedule work over a meeting.
+
+    GATED + FAIL-SAFE: returns [] unless site_config `ec_pm_calendar_sync` is truthy AND the
+    Graph app is configured with Calendars.Read (Application) consent. ANY failure (not
+    enabled, no token, 403 missing scope, network) -> [] so the schedule never breaks or
+    slows down. Subjects are replaced with 'Họp' when `mask` (viewing someone else)."""
+    try:
+        conf = frappe.get_conf() if hasattr(frappe, "get_conf") else {}
+        if not conf.get("ec_pm_calendar_sync"):
+            return []
+        from ecentric_workspace.notification_center.providers import graph as msgraph
+        if not msgraph.is_configured():
+            return []
+        ok, token = msgraph.get_app_token()
+        if not ok:
+            return []
+        import requests
+        url = ("https://graph.microsoft.com/v1.0/users/" + email + "/calendarView"
+               "?startDateTime=" + start_dt.replace(" ", "T") + "+07:00"
+               "&endDateTime=" + end_dt.replace(" ", "T") + "+07:00"
+               "&$select=subject,start,end,showAs,isAllDay&$top=100&$orderby=start/dateTime")
+        r = requests.get(url, headers={"Authorization": "Bearer " + token,
+                         "Prefer": 'outlook.timezone="Asia/Ho_Chi_Minh"'}, timeout=12)
+        if r.status_code != 200:
+            return []
+        out = []
+        for ev in (r.json().get("value") or []):
+            if ev.get("isAllDay") or (ev.get("showAs") or "busy") in ("free", "workingElsewhere"):
+                continue
+            st = ((ev.get("start") or {}).get("dateTime") or "")[:19].replace("T", " ")
+            en = ((ev.get("end") or {}).get("dateTime") or "")[:19].replace("T", " ")
+            if not st or not en:
+                continue
+            out.append({"subject": "Họp" if mask else (ev.get("subject") or "Họp"),
+                        "start": st, "end": en, "showAs": ev.get("showAs") or "busy"})
+        return out
+    except Exception:
+        return []
 
 
 def _team_user_ids(user):

@@ -196,6 +196,9 @@
   .sch-blk b{ font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
   .sch-blk .x{ cursor:pointer; opacity:.6; float:right; margin-left:3px; }
   .sch-blk .rz{ position:absolute; left:0; bottom:0; width:100%; height:7px; cursor:ns-resize; }
+  .sch-mtg{ position:absolute; box-sizing:border-box; background:#EEEDFE; color:#3C3489; border-left:3px solid #7F77DD; border-radius:6px; padding:2px 6px; font-size:10px; overflow:hidden; }
+  .sch-mtg b{ font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
+  .sch-mtg .tr{ font-size:9px; opacity:.8; }
   .sch-ghost{ position:fixed; pointer-events:none; z-index:1300; background:var(--navy-50); border:1px solid var(--navy); color:var(--navy); border-radius:6px; padding:4px 8px; font-size:12px; box-shadow:0 4px 12px rgba(0,0,0,.15); }
   .sch-ro{ font-size:12px; color:var(--gray-600); background:var(--gray-100); padding:3px 11px; border-radius:20px; }
   .sch-nav{ display:inline-flex; align-items:stretch; border:1px solid var(--gray-200); border-radius:9px; overflow:hidden; background:#fff; vertical-align:middle; }
@@ -3252,6 +3255,9 @@
         var cluster=[], cend=-1;
         arr.forEach(function(b){ if(cluster.length && b._s>=cend){ flush(cluster); cluster=[]; cend=-1; } cluster.push(b); cend=Math.max(cend,b._e); });
         flush(cluster);
+      });
+      (d.meetings||[]).forEach(function(mg){ var s0=parseDT(mg.start); if(!s0)return; var di=dayIdx(s0); if(di<0||di>6)return; var e0=parseDT(mg.end); var ms=minOf(s0), me=e0?minOf(e0):(ms+30); var left=di*100/7, top=minToY(ms), ht=Math.max(14,minToY(me)-minToY(ms)); var subj2=mg.subject||"Họp"; var tr=pad(Math.floor(ms/60))+":"+pad(ms%60)+"–"+pad(Math.floor(me/60))+":"+pad(me%60);
+        body+='<div class="sch-mtg" title="'+esc(subj2+"\n"+tr+" · Lịch họp (Outlook/Teams)")+'" style="left:calc('+left+'% + 1px);top:'+top+'px;width:calc('+(100/7)+'% - 2px);height:'+ht+'px"><b>'+esc(subj2)+'</b><div class="tr">'+tr+'</div></div>';
       });
       blocks.forEach(function(b){ if(b._di===undefined)return; var di=b._di, mc=b._mc||1, colw=(100/7)/mc; var leftp=di*100/7+(b._col||0)*colw; var top=minToY(b._s), ht=Math.max(15,minToY(b._e)-minToY(b._s));
         var e0=parseDT(b.end), past=e0&&e0<now, conf=b.state==="Đã xác nhận"; var col=colorFor(b.task); var subjt=subj[b.task]||b.task;
