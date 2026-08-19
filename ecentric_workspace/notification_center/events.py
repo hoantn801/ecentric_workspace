@@ -173,6 +173,11 @@ def _event_id(dedupe_key):
 
 def _delivery(event_id, recipient, channel, status, **kw):
     idem = event_id + "|" + recipient + "|" + channel
+    # dedupe_key is a Data(140) column; event_id (its sha1) already carries idempotency,
+    # so the stored key is display/audit only -> bound it so a long subject can never
+    # overflow the field (which would drop the whole delivery row + spam length warnings).
+    if kw.get("dedupe_key"):
+        kw["dedupe_key"] = str(kw["dedupe_key"])[:140]
     try:
         doc = frappe.get_doc(dict({
             "doctype": DELIVERY_DT, "idempotency_key": idem, "event_id": event_id,
