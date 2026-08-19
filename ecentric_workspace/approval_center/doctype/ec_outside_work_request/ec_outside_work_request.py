@@ -2,7 +2,7 @@
 """EC Outside Work Request - Outside Work business data only.
 Approval STATE lives on EC Approval Request (no approval_status here). This
 controller enforces business-intrinsic validation; orchestration is in
-ecentric_workspace.approval_center.outside_work.service. No attendance/master
+ecentric_workspace.approval_center.features.outside_work.application.service. No attendance/master
 update is performed in v1."""
 import frappe
 from frappe import _

@@ -7,7 +7,7 @@ the bench: bench --site <site> run-tests --module ecentric_workspace.approval_ce
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.payment_request import page_sync
+from ecentric_workspace.approval_center.features.payment_request.infrastructure import page_sync
 
 
 class TestRequesterPanelInjection(FrappeTestCase):

@@ -9,7 +9,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
-from ecentric_workspace.approval_center.engine.participant_rules import validate_participants
+from ecentric_workspace.approval_center.shared.workflow.participants import validate_participants
 
 
 class ECApprovalProcess(Document):

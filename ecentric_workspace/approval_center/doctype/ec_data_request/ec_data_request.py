@@ -1,7 +1,7 @@
 # Copyright (c) 2026, eCentric and contributors
 """EC Data Request - Data Request business data only. Approval STATE lives on
 EC Approval Request (no approval_status duplicated here). Orchestration is in
-ecentric_workspace.approval_center.data_request.service. No external integration."""
+ecentric_workspace.approval_center.features.data_request.application.service. No external integration."""
 import frappe
 from frappe import _
 from frappe.model.document import Document

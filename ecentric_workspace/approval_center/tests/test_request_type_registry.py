@@ -109,7 +109,8 @@ class TestStandardRequestPublicApiContract(unittest.TestCase):
                        "employee_referral", "livestream_sample", "hr_activity",
                        "asset_damage_loss"):
             path = os.path.abspath(os.path.join(
-                os.path.dirname(__file__), "..", module, "api.py"))
+                os.path.dirname(__file__), "..", "features", module,
+                "controllers", "api.py"))
             with open(path, encoding="utf-8") as handle:
                 tree = ast.parse(handle.read())
             functions = {
@@ -131,8 +132,7 @@ class TestStandardRequestPublicApiContract(unittest.TestCase):
 
     def test_shared_does_not_import_public_api_or_concrete_features(self):
         core_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "shared"))
-        forbidden = ("ecentric_workspace.approval_center.api",
-                     "ecentric_workspace.approval_center.request_types")
+        forbidden = ("ecentric_workspace.approval_center.api",)
         for root, _, files in os.walk(core_dir):
             for filename in files:
                 if not filename.endswith(".py"):
@@ -161,7 +161,8 @@ class TestStandardRequestPublicApiContract(unittest.TestCase):
         }
         module_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         for module, code in expected.items():
-            with open(os.path.join(module_root, module, "api.py"), encoding="utf-8") as handle:
+            with open(os.path.join(module_root, "features", module, "controllers", "api.py"),
+                      encoding="utf-8") as handle:
                 source = handle.read()
             self.assertIn('globals().update(bind("%s"))' % code, source, module)
 
@@ -170,7 +171,7 @@ class TestStandardRequestPublicApiContract(unittest.TestCase):
             os.path.dirname(__file__), "..", "api", "ai_topup.py"))
         with open(path, encoding="utf-8") as handle:
             source = handle.read()
-        self.assertIn("approval_center.ai_topup.api import *", source)
+        self.assertIn("approval_center.features.ai_topup.controllers.api import *", source)
 
     def test_all_26_business_apis_are_registry_backed(self):
         module_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -187,12 +188,16 @@ class TestStandardRequestPublicApiContract(unittest.TestCase):
         self.assertEqual(len(modules), 26)
         markers = ("get_definition(", "bind(", "bind_fulfillment(")
         for module in modules:
-            with open(os.path.join(module_root, module, "api.py"), encoding="utf-8") as handle:
+            with open(os.path.join(module_root, "features", module, "controllers", "api.py"),
+                      encoding="utf-8") as handle:
                 source = handle.read()
             self.assertTrue(any(marker in source for marker in markers), module)
             with open(os.path.join(compatibility_root, module + ".py"), encoding="utf-8") as handle:
                 wrapper = handle.read()
-            self.assertIn("approval_center.%s.api import *" % module, wrapper)
+            self.assertIn(
+                "approval_center.features.%s.controllers.api import *" % module,
+                wrapper,
+            )
 
 
 if __name__ == "__main__":

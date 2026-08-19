@@ -189,7 +189,7 @@ def _engine_link_state(rows, user):
     Every lookup is BATCHED (one get_all per DocType / engine table); bounded by
     len(rows) (<= _SCAN_CAP)."""
     from ecentric_workspace.action_center import resolvers as R
-    from ecentric_workspace.approval_center.engine import permissions as acperm
+    from ecentric_workspace.approval_center.shared.workflow import permissions as acperm
 
     biz_by_dt = {}                     # engine-linked business DocType -> {names}
     req_of = {}                        # (rt,rn) -> linked request name

@@ -5,7 +5,7 @@ ERP Shell v1 contracts on the Payment Request page, and the approver block is wr
 """
 import os
 from frappe.tests.utils import FrappeTestCase
-from ecentric_workspace.approval_center.payment_request import page_sync
+from ecentric_workspace.approval_center.features.payment_request.infrastructure import page_sync
 
 
 class TestDocumentSectionShell(FrappeTestCase):

@@ -3,7 +3,7 @@
 Delegates to hr_activity.page_sync.sync() (idempotent). Card stays inactive."""
 import frappe
 
-from ecentric_workspace.approval_center.hr_activity import page_sync
+from ecentric_workspace.approval_center.features.hr_activity.infrastructure import page_sync
 
 
 def execute():

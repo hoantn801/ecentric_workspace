@@ -14,13 +14,13 @@ Covers, per Batch-8 form (Purchase / Payment / Budget Setting / Affiliate Bonus)
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.purchase_request import (
+from ecentric_workspace.approval_center.features.purchase_request.infrastructure import (
     setup as pr_setup, activation as pr_act, page_sync as pr_page)
-from ecentric_workspace.approval_center.payment_request import (
+from ecentric_workspace.approval_center.features.payment_request.infrastructure import (
     setup as pay_setup, activation as pay_act, page_sync as pay_page)
-from ecentric_workspace.approval_center.budget_setting import (
+from ecentric_workspace.approval_center.features.budget_setting.infrastructure import (
     setup as bg_setup, activation as bg_act, page_sync as bg_page)
-from ecentric_workspace.approval_center.affiliate_bonus import (
+from ecentric_workspace.approval_center.features.affiliate_bonus.infrastructure import (
     setup as af_setup, activation as af_act, page_sync as af_page)
 
 

@@ -18,7 +18,7 @@ Level) plus a sorted index - never from a UI label or a UUID.
 """
 import frappe
 
-from ecentric_workspace.approval_center.engine import service as engine
+from ecentric_workspace.approval_center.shared.workflow import transitions as engine
 from ecentric_workspace.platform.esign import guard
 from ecentric_workspace.platform.esign import permissions as perms
 

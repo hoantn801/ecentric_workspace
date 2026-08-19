@@ -9,7 +9,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import budget_setting as api
-from ecentric_workspace.approval_center.budget_setting import setup as bsetup
+from ecentric_workspace.approval_center.features.budget_setting.infrastructure import setup as bsetup
 
 PFX = "ZZBUD_"
 HOF = PFX + "hof@example.com"

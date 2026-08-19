@@ -4,7 +4,7 @@
 > the reference implementation. Read this before starting form #2.
 >
 > Reference implementation: **AI Topup v1** — route `/approvals/ai-topup`, type `AI_TOPUP`, process `AI_TOPUP-V1`.
-> Reference code: `approval_center/engine/*` (shared engine), `approval_center/ai_topup/*` (business layer),
+> Reference code: `approval_center/shared/workflow/*` (shared engine), `approval_center/features/ai_topup/*` (business feature),
 > `approval_center/api/ai_topup.py` (API), `approval_center/frontend/ai_topup.main_section.html` (page).
 
 ---

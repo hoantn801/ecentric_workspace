@@ -9,7 +9,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import hr_activity as api
-from ecentric_workspace.approval_center.hr_activity import setup as hs
+from ecentric_workspace.approval_center.features.hr_activity.infrastructure import setup as hs
 
 PFX = "ZZHR_"
 HRM = PFX + "hrm@example.com"

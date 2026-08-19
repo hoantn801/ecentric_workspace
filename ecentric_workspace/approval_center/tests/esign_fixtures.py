@@ -9,7 +9,7 @@ from ecentric_workspace.approval_center.api import payment_request as papi
 from ecentric_workspace.approval_center.tests import erp_fixtures as erp
 from ecentric_workspace.platform.esign import package as pkgsvc
 from ecentric_workspace.platform.esign.providers.mock import MockAdapter
-from ecentric_workspace.approval_center.payment_request import setup as psetup
+from ecentric_workspace.approval_center.features.payment_request.infrastructure import setup as psetup
 
 PFX = "zzesn_"  # lowercase: frappe lowercases User.name on insert; mixed-case
 # emails would desync frappe.set_user(session) vs stored owner fields.

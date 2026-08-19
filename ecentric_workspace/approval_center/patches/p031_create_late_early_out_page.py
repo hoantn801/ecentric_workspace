@@ -3,7 +3,7 @@
 migrate). Delegates to late_early_out.page_sync.sync(). Published for UAT; catalog card stays inactive."""
 import frappe
 
-from ecentric_workspace.approval_center.late_early_out import page_sync
+from ecentric_workspace.approval_center.features.late_early_out.infrastructure import page_sync
 
 
 def execute():

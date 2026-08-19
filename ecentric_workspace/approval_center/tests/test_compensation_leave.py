@@ -10,7 +10,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import compensation_leave as api
-from ecentric_workspace.approval_center.compensation_leave import setup as csetup
+from ecentric_workspace.approval_center.features.compensation_leave.infrastructure import setup as csetup
 
 PFX = "ZZCL_"
 

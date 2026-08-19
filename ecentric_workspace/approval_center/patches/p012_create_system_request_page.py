@@ -4,7 +4,7 @@
 system_request.page_sync.sync(). Published for UAT; catalog card stays inactive."""
 import frappe
 
-from ecentric_workspace.approval_center.system_request import page_sync
+from ecentric_workspace.approval_center.features.system_request.infrastructure import page_sync
 
 
 def execute():

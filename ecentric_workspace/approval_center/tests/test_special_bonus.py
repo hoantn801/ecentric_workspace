@@ -10,7 +10,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import special_bonus as api
-from ecentric_workspace.approval_center.special_bonus import setup as ssetup
+from ecentric_workspace.approval_center.features.special_bonus.infrastructure import setup as ssetup
 
 PFX = "ZZSB_"
 CNB = PFX + "cnb@example.com"

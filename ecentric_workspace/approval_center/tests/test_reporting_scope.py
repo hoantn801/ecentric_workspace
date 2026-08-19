@@ -160,7 +160,7 @@ class TestReportingScope(FrappeTestCase):
     def test_head_sources_agree_with_the_engine_resolver(self):
         """The dashboard's notion of 'head of department X' must match the engine's,
         or a manager sees a department whose approvals route to someone else."""
-        from ecentric_workspace.approval_center.engine import service as _engine
+        from ecentric_workspace.approval_center.shared.workflow import transitions as _engine
         for dept in _scope._managed_departments(self.mgr):
             self.assertEqual(_engine.resolve_department_manager_user(dept), self.mgr)
 

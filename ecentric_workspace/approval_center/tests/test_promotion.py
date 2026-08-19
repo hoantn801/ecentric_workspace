@@ -10,7 +10,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import promotion as api
-from ecentric_workspace.approval_center.promotion import setup as psetup
+from ecentric_workspace.approval_center.features.promotion.infrastructure import setup as psetup
 
 PFX = "ZZPRM_"
 CNB = PFX + "cnb@example.com"       # stands in for tuan.ly

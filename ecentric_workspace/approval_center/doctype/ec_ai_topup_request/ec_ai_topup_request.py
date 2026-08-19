@@ -2,12 +2,12 @@
 """EC AI Topup Request - AI Topup business data + fulfillment lifecycle.
 Approval STATE lives on EC Approval Request (no approval_status/current_stage
 here). This controller enforces business-intrinsic validation; orchestration is
-in ecentric_workspace.approval_center.ai_topup.service."""
+in ecentric_workspace.approval_center.features.ai_topup.application.service."""
 import frappe
 from frappe import _
 from frappe.model.document import Document
 
-from ecentric_workspace.approval_center.engine.user_rules import require_active_system_user
+from ecentric_workspace.approval_center.shared.workflow.user_rules import require_active_system_user
 
 # Base evidence always needed to complete fulfillment.
 _COMPLETION_BASE = ("actual_amount", "actual_currency", "topup_datetime",

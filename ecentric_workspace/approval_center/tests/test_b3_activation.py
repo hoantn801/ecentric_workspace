@@ -6,7 +6,7 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.ai_topup import page_sync, setup, activation
+from ecentric_workspace.approval_center.features.ai_topup.infrastructure import page_sync, setup, activation
 
 PROCESS = "AI_TOPUP-V1"
 TYPE = "AI_TOPUP"

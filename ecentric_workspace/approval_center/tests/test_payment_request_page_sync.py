@@ -15,7 +15,7 @@ from unittest.mock import patch
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.payment_request import page_sync
+from ecentric_workspace.approval_center.features.payment_request.infrastructure import page_sync
 
 
 class TestPaymentRequestPageSync(FrappeTestCase):

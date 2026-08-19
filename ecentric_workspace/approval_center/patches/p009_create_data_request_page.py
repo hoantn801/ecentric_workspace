@@ -6,7 +6,7 @@ re-sync share ONE idempotent implementation. Published for UAT; catalog card
 stays inactive."""
 import frappe
 
-from ecentric_workspace.approval_center.data_request import page_sync
+from ecentric_workspace.approval_center.features.data_request.infrastructure import page_sync
 
 
 def execute():

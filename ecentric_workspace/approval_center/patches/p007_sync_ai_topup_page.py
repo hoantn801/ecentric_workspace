@@ -3,7 +3,7 @@
 run-once p006). Safe if the page already exists; writes the final B3 HTML."""
 import frappe
 
-from ecentric_workspace.approval_center.ai_topup import page_sync
+from ecentric_workspace.approval_center.features.ai_topup.infrastructure import page_sync
 
 
 def execute():

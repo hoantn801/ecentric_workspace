@@ -366,10 +366,10 @@ class TestPaymentRequestComposition(unittest.TestCase):
         fake.throw = lambda *a, **k: (_ for _ in ()).throw(Exception(a))
         sys.modules.setdefault("frappe", fake)
         for mod in ("ecentric_workspace.approval_center.page_sync_util",
-                    "ecentric_workspace.approval_center.payment_request.page_sync"):
+                    "ecentric_workspace.approval_center.features.payment_request.infrastructure.page_sync"):
             sys.modules.pop(mod, None)
         ps = importlib.import_module(
-            "ecentric_workspace.approval_center.payment_request.page_sync")
+            "ecentric_workspace.approval_center.features.payment_request.infrastructure.page_sync")
         return ps._html()
 
     def test_composition_markers_and_order(self):

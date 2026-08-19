@@ -8,7 +8,7 @@ Generic (no form-specific hardcoding); exercised end-to-end again by the per-for
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.engine import service as engine
+from ecentric_workspace.approval_center.shared.workflow import transitions as engine
 
 PFX = "ZZRES_"
 

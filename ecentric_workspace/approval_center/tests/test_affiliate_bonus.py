@@ -9,7 +9,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import affiliate_bonus as api
-from ecentric_workspace.approval_center.affiliate_bonus import setup as asetup
+from ecentric_workspace.approval_center.features.affiliate_bonus.infrastructure import setup as asetup
 
 PFX = "ZZAFB_"
 VINH = PFX + "vinh@example.com"

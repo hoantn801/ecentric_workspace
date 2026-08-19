@@ -69,9 +69,9 @@ node ecentric_workspace/shell/tests/ec_shell_check.js
 5. **Page sync** (pilot Web Pages; SM session, one POST each, explicit
    confirmation per A33):
    - `/api/method/ecentric_workspace.approval_center.hub_page_sync.sync_approvals_page`
-   - `…approval_center.leave.page_sync.sync_leave_page`
-   - `…approval_center.hr_activity.page_sync.sync_hr_activity_page`
-   - `…approval_center.dashboard.page_sync.sync_dashboard_page`
+   - `…approval_center.features.leave.infrastructure.page_sync.sync_leave_page`
+   - `…approval_center.features.hr_activity.infrastructure.page_sync.sync_hr_activity_page`
+   - `…approval_center.ui.dashboard.page_sync.sync_dashboard_page`
 
    **Expected result on a clean deploy: `{"action": "unchanged"}` for every
    page.** Since #144 every sync module is drift-locked: it writes only when the

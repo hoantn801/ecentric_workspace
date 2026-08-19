@@ -6,8 +6,8 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.engine import service as engine
-from ecentric_workspace.approval_center.engine.service import decide_level
+from ecentric_workspace.approval_center.shared.workflow import transitions as engine
+from ecentric_workspace.approval_center.shared.workflow.transitions import decide_level
 
 PFX = "ZZB1_"
 
@@ -253,7 +253,7 @@ class TestB1Safeguards(FrappeTestCase):
                               "proposed_account_manager": _user("zzb1_pm3@example.com")}).insert(ignore_permissions=True)
         frappe.db.set_value("EC AI Topup Request", doc.name, "fulfillment_status", "Assigned")
         f1 = _user("zzb1_f1@example.com"); f2 = _user("zzb1_f2@example.com")
-        from ecentric_workspace.approval_center.ai_topup import service as ai
+        from ecentric_workspace.approval_center.features.ai_topup.application import service as ai
         # make both eligible via ToDo
         engine.assign("EC AI Topup Request", doc.name, [f1, f2])
         ai.claim_fulfillment(doc.name, user=f1)
@@ -262,7 +262,7 @@ class TestB1Safeguards(FrappeTestCase):
         self.assertEqual(frappe.db.get_value("EC AI Topup Request", doc.name, "fulfillment_owner"), f1)
 
     def test_submit_only_own_request(self):
-        from ecentric_workspace.approval_center.ai_topup import service as ai
+        from ecentric_workspace.approval_center.features.ai_topup.application import service as ai
         owner = _user("zzb1_owner@example.com"); other = _user("zzb1_other@example.com")
         doc = frappe.get_doc({"doctype": "EC AI Topup Request", "account_mode": "New Account",
                               "ai_tool": _tool(), "proposed_account_email": "own@example.com",

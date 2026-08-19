@@ -9,7 +9,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import livestream_supplies as api
-from ecentric_workspace.approval_center.livestream_supplies import setup as s
+from ecentric_workspace.approval_center.features.livestream_supplies.infrastructure import setup as s
 
 PFX = "ZZLVS_"
 APP = PFX + "sang@example.com"

@@ -11,7 +11,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import resignation as api
-from ecentric_workspace.approval_center.resignation import setup as rsetup
+from ecentric_workspace.approval_center.features.resignation.infrastructure import setup as rsetup
 
 PFX = "ZZRSN_"
 HR = PFX + "hr@example.com"          # HR fulfiller (config seed, stands in for tuan.ly)

@@ -6,7 +6,7 @@ re-sync share ONE idempotent implementation. Published for UAT; catalog card
 stays inactive. Does NOT touch /approval or the AI Topup page."""
 import frappe
 
-from ecentric_workspace.approval_center.outside_work import page_sync
+from ecentric_workspace.approval_center.features.outside_work.infrastructure import page_sync
 
 
 def execute():

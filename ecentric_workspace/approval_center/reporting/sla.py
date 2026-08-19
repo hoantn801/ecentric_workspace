@@ -26,7 +26,7 @@ def _standard_periods():
 
 
 def _operational_due(activated_at):
-    from ecentric_workspace.approval_center.engine import business_hours as bh
+    from ecentric_workspace.approval_center.shared.workflow import business_hours as bh
     try:
         return bh.calculate_business_due_at(get_datetime(activated_at), DEFAULT_WORKING_HOURS,
                                             _standard_periods(), holidays=set())

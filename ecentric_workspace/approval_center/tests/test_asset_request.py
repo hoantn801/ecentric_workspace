@@ -9,9 +9,9 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import asset_request as api
-from ecentric_workspace.approval_center.asset_request import setup as arsetup
-from ecentric_workspace.approval_center.asset_request import activation as aract
-from ecentric_workspace.approval_center.asset_request import page_sync
+from ecentric_workspace.approval_center.features.asset_request.infrastructure import setup as arsetup
+from ecentric_workspace.approval_center.features.asset_request.infrastructure import activation as aract
+from ecentric_workspace.approval_center.features.asset_request.infrastructure import page_sync
 
 PFX = "ZZAR_"
 OP1 = PFX + "op1@example.com"

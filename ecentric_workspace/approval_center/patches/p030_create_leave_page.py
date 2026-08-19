@@ -3,7 +3,7 @@
 migrate). Delegates to leave.page_sync.sync(). Published for UAT; catalog card stays inactive."""
 import frappe
 
-from ecentric_workspace.approval_center.leave import page_sync
+from ecentric_workspace.approval_center.features.leave.infrastructure import page_sync
 
 
 def execute():

@@ -9,7 +9,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import employee_referral as api
-from ecentric_workspace.approval_center.employee_referral import setup as es
+from ecentric_workspace.approval_center.features.employee_referral.infrastructure import setup as es
 
 PFX = "ZZER_"
 CAR = PFX + "careers@example.com"

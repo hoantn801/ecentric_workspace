@@ -4,7 +4,7 @@
 catalog card stays Coming Soon."""
 import frappe
 
-from ecentric_workspace.approval_center.employee_info_update import page_sync
+from ecentric_workspace.approval_center.features.employee_info_update.infrastructure import page_sync
 
 
 def execute():

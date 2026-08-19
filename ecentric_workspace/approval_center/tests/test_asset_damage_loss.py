@@ -11,7 +11,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import asset_damage_loss as api
-from ecentric_workspace.approval_center.asset_damage_loss import setup as asetup
+from ecentric_workspace.approval_center.features.asset_damage_loss.infrastructure import setup as asetup
 
 PFX = "ZZADL_"
 OP1 = PFX + "op1@example.com"      # stands in for hoan.tran

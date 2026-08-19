@@ -4,7 +4,7 @@
 asset_damage_loss.page_sync.sync(). Published for UAT; catalog card stays inactive."""
 import frappe
 
-from ecentric_workspace.approval_center.asset_damage_loss import page_sync
+from ecentric_workspace.approval_center.features.asset_damage_loss.infrastructure import page_sync
 
 
 def execute():

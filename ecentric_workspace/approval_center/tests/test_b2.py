@@ -9,8 +9,8 @@ from datetime import datetime, date
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.engine import business_hours as bh
-from ecentric_workspace.approval_center.ai_topup import setup as ai_setup
+from ecentric_workspace.approval_center.shared.workflow import business_hours as bh
+from ecentric_workspace.approval_center.features.ai_topup.infrastructure import setup as ai_setup
 
 PFX = "ZZB2_"
 _STD = ([{"weekday": d, "start_time": "09:00:00", "end_time": "12:00:00"} for d in
@@ -93,7 +93,7 @@ class TestSLABusinessHours(FrappeTestCase):
         p = frappe.get_doc({"doctype": "EC Approval SLA Policy", "policy_code": PFX + "CAL",
                             "policy_name": "x", "duration_hours": 5, "use_business_hours": 0}
                            ).insert(ignore_permissions=True)
-        from ecentric_workspace.approval_center.engine import service as engine
+        from ecentric_workspace.approval_center.shared.workflow import transitions as engine
         r = engine.resolve_sla(p.policy_code, frappe.utils.get_datetime("2026-07-06 09:00:00"))
         self.assertEqual(r["use_business_hours"], 0)
         self.assertTrue(r["due_at"])

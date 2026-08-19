@@ -10,7 +10,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import leave as api
-from ecentric_workspace.approval_center.leave import setup as lsetup
+from ecentric_workspace.approval_center.features.leave.infrastructure import setup as lsetup
 
 PFX = "ZZLV_"
 

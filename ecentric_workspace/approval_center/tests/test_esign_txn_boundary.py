@@ -19,7 +19,7 @@ from unittest.mock import patch
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.engine import service as engine
+from ecentric_workspace.approval_center.shared.workflow import transitions as engine
 from ecentric_workspace.platform.esign import events, guard, service as esvc
 from ecentric_workspace.approval_center.tests import esign_fixtures as fx
 

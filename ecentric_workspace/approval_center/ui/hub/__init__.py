@@ -1,0 +1,2 @@
+"""Approval Center hub page."""
+

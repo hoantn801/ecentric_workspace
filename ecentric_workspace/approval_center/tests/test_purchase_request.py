@@ -10,7 +10,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import purchase_request as api
-from ecentric_workspace.approval_center.purchase_request import setup as psetup
+from ecentric_workspace.approval_center.features.purchase_request.infrastructure import setup as psetup
 from ecentric_workspace.approval_center.tests import erp_fixtures as erp
 
 PFX = "zzpur_"  # lowercase (frappe lowercases User.name); ERPNext-compatible fixtures via erp_fixtures

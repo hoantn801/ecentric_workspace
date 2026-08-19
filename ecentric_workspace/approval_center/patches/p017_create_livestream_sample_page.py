@@ -3,7 +3,7 @@
 at migrate). Delegates to livestream_sample.page_sync.sync() (idempotent)."""
 import frappe
 
-from ecentric_workspace.approval_center.livestream_sample import page_sync
+from ecentric_workspace.approval_center.features.livestream_sample.infrastructure import page_sync
 
 
 def execute():

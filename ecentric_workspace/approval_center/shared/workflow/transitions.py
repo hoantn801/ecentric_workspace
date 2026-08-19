@@ -658,8 +658,8 @@ def resolve_sla(sla_policy_code, from_dt=None, employee=None, company=None):
     if not pol.use_business_hours:
         return {"due_at": add_to_date(start, hours=pol.duration_hours),
                 "calendar": None, "holiday_list": None, "use_business_hours": 0}
-    from ecentric_workspace.approval_center.engine import business_hours as bh
-    from ecentric_workspace.approval_center.engine import holidays as hol
+    from ecentric_workspace.approval_center.shared.workflow import business_hours as bh
+    from ecentric_workspace.approval_center.shared.workflow import holidays as hol
     if not pol.business_calendar:
         frappe.throw(_("SLA policy {0}: business_calendar required for business hours.").format(sla_policy_code))
     cal = frappe.get_doc("EC Approval Business Calendar", pol.business_calendar)
@@ -988,12 +988,12 @@ def _evaluate(req, level_no):
 # identities). Additive: forms opt in by adding an entry; engine flow is unchanged
 # for types without a handler. Approvers/fulfillers still come from process config.
 _FULFILLMENT_HANDLERS = {
-    "EC AI Topup Request": "ecentric_workspace.approval_center.ai_topup.service.on_final_approval",
-    "EC Data Request": "ecentric_workspace.approval_center.data_request.service.on_final_approval",
-    "EC Document Request": "ecentric_workspace.approval_center.document_request.service.on_final_approval",
-    "EC System Request": "ecentric_workspace.approval_center.system_request.service.on_final_approval",
-    "EC Asset Request": "ecentric_workspace.approval_center.asset_request.service.on_final_approval",
-    "EC Resignation Request": "ecentric_workspace.approval_center.resignation.service.on_final_approval",
+    "EC AI Topup Request": "ecentric_workspace.approval_center.features.ai_topup.application.service.on_final_approval",
+    "EC Data Request": "ecentric_workspace.approval_center.features.data_request.application.service.on_final_approval",
+    "EC Document Request": "ecentric_workspace.approval_center.features.document_request.application.service.on_final_approval",
+    "EC System Request": "ecentric_workspace.approval_center.features.system_request.application.service.on_final_approval",
+    "EC Asset Request": "ecentric_workspace.approval_center.features.asset_request.application.service.on_final_approval",
+    "EC Resignation Request": "ecentric_workspace.approval_center.features.resignation.application.service.on_final_approval",
 }
 
 

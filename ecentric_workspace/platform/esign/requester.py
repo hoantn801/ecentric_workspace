@@ -249,7 +249,7 @@ def activate_level_one_after_requester_signature(request_name, dsr_name):
             "requester_signed_by": req.requested_by})
     if req.current_level and int(req.current_level) > 0:  # already activated -> idempotent
         return {"activated": False, "reason": "already_activated", "level": req.current_level}
-    from ecentric_workspace.approval_center.engine import service as engine
+    from ecentric_workspace.approval_center.shared.workflow import transitions as engine
     req_doc = frappe.get_doc(AR, request_name)
     first = engine._request_levels(request_name)[0]
     engine._activate_level(req_doc, first.level_no)   # creates Level-1 ToDos + notification once

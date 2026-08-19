@@ -10,7 +10,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import late_early_out as api
-from ecentric_workspace.approval_center.late_early_out import setup as lsetup
+from ecentric_workspace.approval_center.features.late_early_out.infrastructure import setup as lsetup
 
 PFX = "ZZLE_"
 

@@ -9,16 +9,17 @@
 Implemented on 2026-08-18:
 
 - all 26 business request types have immutable registered definitions;
-- every business module owns its `api.py`, `service.py`, immutable `definition.py`,
-  and `ui/main_section.html`;
+- all business modules live below `features/<request_type>` instead of being exposed
+  as top-level packages;
+- every feature separates immutable domain configuration, application orchestration,
+  API controllers, UI assets, and Frappe infrastructure;
 - public `api/*.py` files are compatibility wrappers for unchanged Frappe dotted paths;
 - APIs delegate through the immutable singleton `shared.facade.APPROVAL_FACADE`;
 - fulfillment request types share one fulfillment application service;
-- specialized AI Topup behavior lives under `approval_center/ai_topup` behind its
-  unchanged API path;
-- the authoritative engine implementation lives under `shared/workflow`; legacy
-  `engine/*` modules are compatibility aliases, including private helper monkeypatch
-  compatibility required by the existing engine tests;
+- specialized AI Topup behavior lives under `features/ai_topup` behind its unchanged
+  public API path;
+- the authoritative engine implementation lives under `shared/workflow`; the legacy
+  `engine`, `request_types`, and `services` compatibility packages have been removed;
 - e-sign platform ownership remains complete under `platform/esign`;
 - no Web Page HTML or drift-lock source is changed by this migration.
 - orphaned compatibility packages `core/` and `application/` have been removed;
@@ -26,10 +27,10 @@ Implemented on 2026-08-18:
 
 ## Context
 
-Approval Center already has a generic workflow engine. `engine/service.py` owns the
+Approval Center already has a generic workflow engine. `shared/workflow/transitions.py` owns the
 authoritative write-side transitions for all approval business DocTypes through
 `business_doctype`: submit, approve, reject, request information, resubmit, cancel,
-fulfillment transitions, and admin override. The other `engine/` modules already
+fulfillment transitions, and admin override. The other `shared/workflow/` modules
 separate permissions, user rules, participant rules, and business-hour/SLA concerns.
 
 The principal duplication is not the transition engine. It is the read/application
@@ -41,11 +42,31 @@ Frappe conventions remain hard boundaries. DocType controllers and JSON stay und
 assets stay under the app's `public` pipeline, and deployed patch dotted paths are
 never moved or renamed.
 
+## Feature package layout
+
+```text
+approval_center/
+  api/                         # stable public dotted-path adapters
+  features/
+    <request_type>/
+      domain/definition.py     # immutable request contract/configuration
+      application/service.py   # request-specific use cases
+      controllers/api.py       # transport adapter
+      ui/main_section.html     # page asset
+      infrastructure/          # setup, activation, page synchronization
+  shared/                      # request-agnostic abstractions and workflow core
+  doctype/, page/, patches/    # Frappe-owned layout; intentionally unchanged
+```
+
+Only package markers (`__init__.py`) may sit at a feature root. Compatibility files
+at the Approval Center root and under `api/` are explicit framework/public-boundary
+exceptions; they contain no business logic.
+
 ## Decision
 
 ### 1. Refactor the existing engine; do not build a second engine
 
-`engine/service.py` will be split incrementally, preserving its public behavior and
+The transition service is split into cohesive modules while preserving its behavior and
 compatibility imports, into cohesive workflow modules such as:
 
 ```text
@@ -56,10 +77,8 @@ approval_center/shared/workflow/
   permissions.py
 ```
 
-Existing focused modules (`engine/permissions.py`, `engine/user_rules.py`,
-`engine/business_hours.py`, and `engine/participant_rules.py`) are inputs to this
-refactor, not functionality to be reimplemented. There must be one authoritative
-write-side state machine.
+Focused permissions, user rules, calendars, and participant modules live directly
+under `shared/workflow`; there is one authoritative write-side state machine.
 
 ### 2. Add the missing generic request application layer
 
@@ -195,7 +214,7 @@ with respect to workflow transitions.
 3. Migrate one representative request type (Leave) behind its existing API module.
 4. Compare old/new behavior with API contract and permission regression tests.
 5. Migrate the remaining request types in bounded waves.
-6. Split `engine/service.py` incrementally behind compatibility imports.
+6. Move all consumers to `shared/workflow` and remove compatibility imports.
 7. Remove duplicated private API helpers only after all consumers use the shared
    application layer.
 

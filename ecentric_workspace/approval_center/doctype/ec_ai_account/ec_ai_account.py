@@ -5,7 +5,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
-from ecentric_workspace.approval_center.engine.user_rules import (
+from ecentric_workspace.approval_center.shared.workflow.user_rules import (
     normalize_email, require_active_system_user)
 
 

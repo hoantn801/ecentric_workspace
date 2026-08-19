@@ -9,7 +9,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import livestream_sample as api
-from ecentric_workspace.approval_center.livestream_sample import setup as ls
+from ecentric_workspace.approval_center.features.livestream_sample.infrastructure import setup as ls
 from ecentric_workspace.approval_center.patches import p021_backfill_livestream_sample_type as p021
 
 PFX = "ZZLS_"

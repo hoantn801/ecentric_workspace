@@ -9,9 +9,9 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import daily_target as api
-from ecentric_workspace.approval_center.daily_target import setup as dtsetup
-from ecentric_workspace.approval_center.daily_target import page_sync
-from ecentric_workspace.approval_center.daily_target import service as dtsvc
+from ecentric_workspace.approval_center.features.daily_target.infrastructure import setup as dtsetup
+from ecentric_workspace.approval_center.features.daily_target.infrastructure import page_sync
+from ecentric_workspace.approval_center.features.daily_target.application import service as dtsvc
 from ecentric_workspace.approval_center.patches import p019_hide_daily_target_project_card as p019
 
 PFX = "ZZDT_"

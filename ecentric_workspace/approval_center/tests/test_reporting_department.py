@@ -5,7 +5,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import now_datetime
 
-from ecentric_workspace.approval_center.engine.service import resolve_requester_department
+from ecentric_workspace.approval_center.shared.workflow.transitions import resolve_requester_department
 
 PFX = "zzrepdept_"
 

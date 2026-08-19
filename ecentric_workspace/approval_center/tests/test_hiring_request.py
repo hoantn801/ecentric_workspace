@@ -11,7 +11,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import hiring_request as api
-from ecentric_workspace.approval_center.hiring_request import setup as hsetup
+from ecentric_workspace.approval_center.features.hiring_request.infrastructure import setup as hsetup
 
 PFX = "ZZHIR_"
 HR = PFX + "hr@example.com"

@@ -10,7 +10,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import service_referral as api
-from ecentric_workspace.approval_center.service_referral import setup as s
+from ecentric_workspace.approval_center.features.service_referral.infrastructure import setup as s
 
 PFX = "ZZSRF_"
 A1 = PFX + "linh@example.com"

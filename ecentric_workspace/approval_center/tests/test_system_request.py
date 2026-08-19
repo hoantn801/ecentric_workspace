@@ -9,9 +9,9 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import system_request as api
-from ecentric_workspace.approval_center.system_request import setup as drsetup
-from ecentric_workspace.approval_center.system_request import activation as dract
-from ecentric_workspace.approval_center.system_request import page_sync
+from ecentric_workspace.approval_center.features.system_request.infrastructure import setup as drsetup
+from ecentric_workspace.approval_center.features.system_request.infrastructure import activation as dract
+from ecentric_workspace.approval_center.features.system_request.infrastructure import page_sync
 
 PFX = "ZZSR_"
 REV1 = PFX + "rev1@example.com"

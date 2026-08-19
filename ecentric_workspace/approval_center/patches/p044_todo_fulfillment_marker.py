@@ -37,7 +37,7 @@ def execute():
     created = _ensure_custom_field("ToDo", FIELD)
     if created:
         frappe.clear_cache(doctype="ToDo")
-    from ecentric_workspace.approval_center.engine.service import reconcile_fulfillment_todos
+    from ecentric_workspace.approval_center.shared.workflow.transitions import reconcile_fulfillment_todos
     res = reconcile_fulfillment_todos()
     msg = ("[1b.3.1b] fulfillment ToDo reconcile (marker created=%s): "
            "open fulfillment ToDos %s -> %s across %d DocTypes"

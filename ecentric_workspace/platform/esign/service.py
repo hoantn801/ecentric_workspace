@@ -258,7 +258,7 @@ def verify_and_complete(dsr_name):
     # validation -> engine.approve -> DSR 'Approval Completed', no intermediate commit.
     frappe.db.savepoint("esign_verify_complete")
     try:
-        from ecentric_workspace.approval_center.engine import service as engine
+        from ecentric_workspace.approval_center.shared.workflow import transitions as engine
         engine.approve(dsr.approval_request, actor=dsr.approver,
                        comment=_("Duyệt & Ký (ký số đã xác minh: {0})").format(dsr.name))
     except Exception as e:
@@ -306,7 +306,7 @@ def reject_with_transition(business_doctype, business_name, comment):
     prev_mute = frappe.flags.mute_messages
     frappe.flags.mute_messages = True
     try:
-        from ecentric_workspace.approval_center.engine import service as engine
+        from ecentric_workspace.approval_center.shared.workflow import transitions as engine
         engine.reject(req.name, actor=actor, comment=comment)
     finally:
         frappe.flags.mute_messages = prev_mute

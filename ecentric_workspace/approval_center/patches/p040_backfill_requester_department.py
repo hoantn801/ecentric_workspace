@@ -7,7 +7,7 @@ resolved, the row is LEFT BLANK (never guessed). Never edits business documents 
 workflow state. Safe to re-run."""
 import frappe
 
-from ecentric_workspace.approval_center.engine.service import resolve_requester_department
+from ecentric_workspace.approval_center.shared.workflow.transitions import resolve_requester_department
 
 
 def execute():

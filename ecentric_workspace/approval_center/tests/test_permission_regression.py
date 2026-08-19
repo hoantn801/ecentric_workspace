@@ -15,14 +15,14 @@ import inspect
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from ecentric_workspace.approval_center.engine import service as engine
+from ecentric_workspace.approval_center.shared.workflow import transitions as engine
 
 from ecentric_workspace.approval_center.api import hr_activity as hr_api
 from ecentric_workspace.approval_center.api import system_request as sr_api
 from ecentric_workspace.approval_center.api import livestream_sample as lv_api
-from ecentric_workspace.approval_center.hr_activity import setup as hr_setup
-from ecentric_workspace.approval_center.system_request import setup as sr_setup
-from ecentric_workspace.approval_center.livestream_sample import setup as lv_setup
+from ecentric_workspace.approval_center.features.hr_activity.infrastructure import setup as hr_setup
+from ecentric_workspace.approval_center.features.system_request.infrastructure import setup as sr_setup
+from ecentric_workspace.approval_center.features.livestream_sample.infrastructure import setup as lv_setup
 
 PFX = "ZZPERM_"
 

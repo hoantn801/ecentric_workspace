@@ -122,7 +122,7 @@ def _install(fake, purge=True):
 FK = _FakeFrappe(); _install(FK)
 from ecentric_workspace.action_center import feed          # noqa: E402
 from ecentric_workspace.action_center import api as ac_api  # noqa: E402
-from ecentric_workspace.approval_center.engine import permissions as ac_perm  # noqa: E402
+from ecentric_workspace.approval_center.shared.workflow import permissions as ac_perm  # noqa: E402
 
 TODAY = datetime.date(2026, 7, 24)
 

@@ -11,7 +11,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import lateral_move as api
-from ecentric_workspace.approval_center.lateral_move import setup as lsetup
+from ecentric_workspace.approval_center.features.lateral_move.infrastructure import setup as lsetup
 
 PFX = "ZZLM_"
 HR = PFX + "hr@example.com"         # stands in for tuan.ly

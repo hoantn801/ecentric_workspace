@@ -3,7 +3,7 @@
 at migrate). Delegates to employee_referral.page_sync.sync() (idempotent)."""
 import frappe
 
-from ecentric_workspace.approval_center.employee_referral import page_sync
+from ecentric_workspace.approval_center.features.employee_referral.infrastructure import page_sync
 
 
 def execute():

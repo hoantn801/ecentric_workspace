@@ -4,7 +4,7 @@
 budget_setting.page_sync.sync(). Published for UAT; catalog card stays inactive."""
 import frappe
 
-from ecentric_workspace.approval_center.budget_setting import page_sync
+from ecentric_workspace.approval_center.features.budget_setting.infrastructure import page_sync
 
 
 def execute():

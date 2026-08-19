@@ -11,8 +11,8 @@ from frappe.tests.utils import FrappeTestCase
 
 from ecentric_workspace.approval_center.api import payment_request as api
 from ecentric_workspace.approval_center.api import purchase_request as papi
-from ecentric_workspace.approval_center.payment_request import setup as psetup
-from ecentric_workspace.approval_center.purchase_request import setup as prsetup
+from ecentric_workspace.approval_center.features.payment_request.infrastructure import setup as psetup
+from ecentric_workspace.approval_center.features.purchase_request.infrastructure import setup as prsetup
 from ecentric_workspace.approval_center.tests import erp_fixtures as erp
 
 PFX = "zzpay_"  # lowercase: frappe lowercases User.name; mixed-case desyncs set_user vs owner fields (fresh-site portability fix, 2026-07-12)
