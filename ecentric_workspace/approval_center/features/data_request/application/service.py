@@ -94,7 +94,7 @@ def on_final_approval(name):
                       date=sla["due_at"] if sla else None,
                       fulfillment=True)
     engine.notify([doc.requested_by] + fulfillers,
-                  _("Da duyet - chuyen Data xu ly: {0}").format(name), BUSINESS_DT, name)
+                  _("Da duyet - chuyen Data xu ly: {0}").format(engine.request_label(BUSINESS_DT, name)), BUSINESS_DT, name)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -116,7 +116,7 @@ def claim_fulfillment(name, user=None):
     doc = frappe.get_doc(BUSINESS_DT, name)
     engine.log_action(doc.approval_request, "Started", user, comment=_("Fulfillment claimed"),
                       new_status="In Progress")
-    engine.notify([doc.requested_by], _("Data da nhan xu ly boi {0}: {1}").format(user, name),
+    engine.notify([doc.requested_by], _("Data da nhan xu ly boi {0}: {1}").format(user, engine.request_label(BUSINESS_DT, name)),
                   BUSINESS_DT, name)
     return {"owner": user}
 
@@ -142,5 +142,5 @@ def complete_fulfillment(name, user=None, payload=None):
     doc.save(ignore_permissions=True)
     engine.close_fulfillment_todos(BUSINESS_DT, name)
     engine.notify([doc.requested_by, doc.fulfillment_owner],
-                  _("Data Request da hoan tat: {0}").format(name), BUSINESS_DT, name)
+                  _("Data Request da hoan tat: {0}").format(engine.request_label(BUSINESS_DT, name)), BUSINESS_DT, name)
     return {"completed": True}
