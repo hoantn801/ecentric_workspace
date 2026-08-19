@@ -23,7 +23,7 @@ def list_queue(definition, section, fields, order_by):
 
 def claim(definition, name):
     service = __import__(
-        "ecentric_workspace.approval_center.%s.service" % definition.feature,
+        "ecentric_workspace.approval_center.features.%s.application.service" % definition.feature,
         fromlist=["claim_fulfillment"])
     previous = frappe.flags.mute_messages
     frappe.flags.mute_messages = True
@@ -37,7 +37,7 @@ def claim(definition, name):
 
 def complete(definition, name, payload=None):
     service = __import__(
-        "ecentric_workspace.approval_center.%s.service" % definition.feature,
+        "ecentric_workspace.approval_center.features.%s.application.service" % definition.feature,
         fromlist=["complete_fulfillment"])
     previous = frappe.flags.mute_messages
     frappe.flags.mute_messages = True
