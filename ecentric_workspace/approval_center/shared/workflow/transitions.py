@@ -252,6 +252,40 @@ def request_label(reference_doctype, reference_name, approval_type=None):
     return ("{0} {1}".format(label, reference_name)).strip() if label else (reference_name or "")
 
 
+_AMOUNT_FIELDS = ("payment_amount", "requested_amount", "total_amount", "amount",
+                  "approved_amount", "budget")
+
+
+def request_summary(reference_doctype, reference_name):
+    """One-line notification body: sender + department + amount (best-effort). Meta-driven
+    so it never reads a missing field; returns '' on any error (notif text must not break a
+    txn). Joined with a middot into a single line so it renders across all channels."""
+    try:
+        meta = frappe.get_meta(reference_doctype)
+        fnames = set(df.fieldname for df in meta.fields)
+    except Exception:
+        return ""
+    wanted = [f for f in ("requested_by", "department", "requester_department") if f in fnames]
+    amount_field = next((f for f in _AMOUNT_FIELDS if f in fnames), None)
+    fields = wanted + ([amount_field] if amount_field else [])
+    if not fields:
+        return ""
+    row = frappe.db.get_value(reference_doctype, reference_name, fields, as_dict=True) or {}
+    parts = []
+    sender = row.get("requested_by")
+    if sender:
+        parts.append("Người gửi: " + (frappe.db.get_value("User", sender, "full_name") or sender))
+    dept = row.get("department") or row.get("requester_department")
+    if dept:
+        parts.append("Phòng ban: " + str(dept))
+    if amount_field and row.get(amount_field):
+        try:
+            parts.append("Số tiền: " + "{:,.0f} VND".format(float(row.get(amount_field))))
+        except (TypeError, ValueError):
+            pass
+    return " · ".join(parts)
+
+
 def notify(users, subject, doctype, name):
     """Publish an approval notification to each recipient through the notification_center
     pipeline (events.publish_notification_event). That single path owns the in-app Notification
@@ -261,11 +295,12 @@ def notify(users, subject, doctype, name):
     accidental suppression of distinct approval events on the same request)."""
     from ecentric_workspace.notification_center import events as ncev
     action_url = _approval_link(doctype, name)
+    message = request_summary(doctype, name)
     stamp = now_datetime().strftime("%Y%m%d%H%M%S%f")
     for u in set(u for u in users if u and u != "Guest"):
         try:
             ncev.publish_notification_event(
-                "approval_required", u, subject or "", action_url=action_url,
+                "approval_required", u, subject or "", message=message, action_url=action_url,
                 reference_doctype=doctype, reference_name=name,
                 dedupe_key="|".join([doctype or "", name or "", u, stamp]))
         except Exception:
