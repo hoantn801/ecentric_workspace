@@ -116,7 +116,7 @@ def on_final_approval(name):
                       date=sla["due_at"] if sla else None,
                       fulfillment=True)
     engine.notify([doc.requested_by] + fulfillers,
-                  _("Approved - fulfillment assigned: {0}").format(name), BUSINESS_DT, name)
+                  _("Approved - fulfillment assigned: {0}").format(engine.request_label(BUSINESS_DT, name)), BUSINESS_DT, name)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -139,7 +139,7 @@ def claim_fulfillment(name, user=None):
     doc = frappe.get_doc(BUSINESS_DT, name)
     engine.log_action(doc.approval_request, "Started", user, comment=_("Fulfillment claimed"),
                       new_status="In Progress")  # durable audited claim event
-    engine.notify([doc.requested_by], _("Fulfillment claimed by {0}: {1}").format(user, name),
+    engine.notify([doc.requested_by], _("Fulfillment claimed by {0}: {1}").format(user, engine.request_label(BUSINESS_DT, name)),
                   BUSINESS_DT, name)
     return {"owner": user}
 
@@ -157,7 +157,7 @@ def complete_fulfillment(name, user=None):
     _upsert_account(doc)
     engine.close_fulfillment_todos(BUSINESS_DT, name)   # close the owner's fulfillment ToDo on completion
     engine.notify([doc.requested_by, doc.confirmed_account_manager, doc.fulfillment_owner],
-                  _("AI Topup completed: {0}").format(name), BUSINESS_DT, name)
+                  _("AI Topup completed: {0}").format(engine.request_label(BUSINESS_DT, name)), BUSINESS_DT, name)
 
 
 def _upsert_account(doc):

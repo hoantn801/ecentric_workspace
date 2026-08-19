@@ -231,6 +231,27 @@ def log_action(request_name, action, actor, level_no=None, level_name=None, comm
     }).insert(ignore_permissions=True)
 
 
+def request_label(reference_doctype, reference_name, approval_type=None):
+    """Human-friendly label for a request in notifications. Returns the reference doc's
+    title (its DocType title_field, e.g. request_title -> 'De nghi top up AI - Higgsfield')
+    so Teams/inbox cards show a meaningful name instead of the opaque record id. Falls back
+    to '<Type label> <id>' then the id. Never raises (notification text must not break a txn)."""
+    title = ""
+    try:
+        meta = frappe.get_meta(reference_doctype)
+        tf = getattr(meta, "title_field", None)
+        if tf:
+            title = frappe.db.get_value(reference_doctype, reference_name, tf) or ""
+    except Exception:
+        title = ""
+    if title:
+        return title
+    label = ""
+    if approval_type:
+        label = frappe.db.get_value("EC Approval Type", approval_type, "approval_title") or ""
+    return ("{0} {1}".format(label, reference_name)).strip() if label else (reference_name or "")
+
+
 def notify(users, subject, doctype, name):
     """Publish an approval notification to each recipient through the notification_center
     pipeline (events.publish_notification_event). That single path owns the in-app Notification
@@ -830,7 +851,7 @@ def _activate_level(req, level_no):
     approvers = frappe.get_all("EC Approval Request Approver",
                                filters={"approval_request": req.name, "level_no": level_no, "status": "Pending"},
                                pluck="approver")
-    notify(approvers, _("Approval needed: {0}").format(req.name), req.reference_doctype, req.reference_name)
+    notify(approvers, _("C\u1ea7n duy\u1ec7t: {0}").format(request_label(req.reference_doctype, req.reference_name, req.approval_type)), req.reference_doctype, req.reference_name)
     close_todos(req.reference_doctype, req.reference_name)   # close prior-level ToDos before assigning the new level
     assign(req.reference_doctype, req.reference_name, approvers,
            _("Approval level {0}").format(level_no))

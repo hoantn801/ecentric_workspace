@@ -607,12 +607,17 @@ def _notify_approver(approver_email, doc):
     from ecentric_workspace.action_center.resolvers import build_approval_url
     rel_url = build_approval_url(doc.doctype, doc.name)
     try:
+        from ecentric_workspace.approval_center.shared.workflow.transitions import request_label as _rlabel
+        _label = _rlabel(doc.doctype, doc.name)
+    except Exception:
+        _label = doc.name
+    try:
         from ecentric_workspace.notification_center import events as _ncev
         _level = doc.get("current_level") or 1
         _ncev.publish_notification_event(
             "approval_required", approver_email,
-            "C\u1ea7n duy\u1ec7t: " + doc.doctype + " " + doc.name,
-            "Y\u00eau c\u1ea7u " + doc.name + " \u0111ang ch\u1edd b\u1ea1n duy\u1ec7t.",
+            "C\u1ea7n duy\u1ec7t: " + _label,
+            "Y\u00eau c\u1ea7u \"" + _label + "\" \u0111ang ch\u1edd b\u1ea1n duy\u1ec7t.",
             action_url=rel_url, reference_doctype=doc.doctype, reference_name=doc.name,
             actor=(doc.get("submitted_by") or doc.owner),
             dedupe_key="approval_required|" + doc.doctype + "|" + doc.name + "|"
@@ -624,7 +629,7 @@ def _notify_approver(approver_email, doc):
         approval_url = site_url + rel_url
         frappe.sendmail(
             recipients=[approver_email],
-            subject="[Approval needed] {0}: {1}".format(doc.doctype, doc.name),
+            subject="[Approval needed] {0}".format(_label),
             message="""
             <p>You have a new approval request:</p>
             <p><b>Type:</b> {0}<br>

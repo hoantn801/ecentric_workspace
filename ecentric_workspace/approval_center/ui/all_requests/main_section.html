@@ -45,6 +45,7 @@
   #ec-apl-root thead th{ text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--gray-500); font-weight:700; padding:11px 12px; border-bottom:1px solid var(--gray-200); background:var(--gray-50); }
   #ec-apl-root tbody td{ padding:10px 12px; border-bottom:1px solid var(--gray-100); font-size:13px; color:var(--gray-700); }
   #ec-apl-root tbody tr:hover{ background:var(--gray-50); }
+  #ec-apl-root tbody tr[data-route]{ cursor:pointer; }
   #ec-apl-root .pill{ display:inline-block; padding:2px 9px; border-radius:999px; font-size:11.5px; font-weight:600; }
   #ec-apl-root .pill.Pending{ background:var(--navy-50); color:var(--navy); } #ec-apl-root .pill.Information{ background:var(--amber-50); color:var(--amber); }
   #ec-apl-root .pill.Completed{ background:#ecfdf5; color:var(--green); } #ec-apl-root .pill.Rejected{ background:var(--red-50); color:var(--red); } #ec-apl-root .pill.Cancelled{ background:var(--gray-100); color:var(--gray-500); }
@@ -56,7 +57,6 @@
   #ec-apl-root .av img{ width:100%; height:100%; object-fit:cover; }
   #ec-apl-root .sender{ display:flex; align-items:center; gap:8px; } #ec-apl-root .sender .nm{ font-size:13px; color:var(--gray-800); white-space:nowrap; }
   #ec-apl-root .chips{ display:flex; align-items:center; } #ec-apl-root .chips .av{ margin-left:-8px; } #ec-apl-root .chips .av:first-child{ margin-left:0; } #ec-apl-root .chips .more{ margin-left:6px; font-size:12px; color:var(--gray-500); font-weight:600; }
-  #ec-apl-root a.open-link{ color:var(--navy); font-weight:600; text-decoration:none; cursor:pointer; } #ec-apl-root a.open-link:hover{ text-decoration:underline; }
   #ec-apl-root .pager{ display:flex; align-items:center; justify-content:space-between; padding:12px 14px; }
   #ec-apl-root .pager .info{ font-size:12.5px; color:var(--gray-500); }
   #ec-apl-root .state{ padding:44px; text-align:center; color:var(--gray-500); } #ec-apl-root .state h4{ margin:0 0 6px; color:var(--gray-700); }
@@ -135,19 +135,18 @@
 
   function render(rows){
     if(!rows.length){ $("apl-body").innerHTML='<div class="state"><h4>Không có yêu cầu</h4><p>Không có yêu cầu nào khớp bộ lọc trong phạm vi của bạn.</p></div>'; return; }
-    var head='<table><thead><tr><th>Ngày gửi</th><th>Mã</th><th>Tiêu đề</th><th>Loại</th><th>Người gửi</th><th>Người nhận</th><th>Phòng ban</th><th>Cấp hiện tại</th><th>Trạng thái</th><th></th></tr></thead><tbody>';
+    var head='<table><thead><tr><th>Ngày gửi</th><th>Mã</th><th>Tiêu đề</th><th>Loại</th><th>Người gửi</th><th>Người nhận</th><th>Phòng ban</th><th>Cấp hiện tại</th><th>Trạng thái</th></tr></thead><tbody>';
     var body=rows.map(function(r){ var breach=r.sla_breached?'<span class="pill breach">Quá hạn</span> ':'';
-      var open=r.detail_route?'<a class="open-link" href="'+esc(r.detail_route)+'" data-open="1">Mở ▸</a>':'<span style="color:var(--gray-300)">—</span>';
       var send=r.requester_info||{user:r.requester,name:r.requester};
       var sender='<div class="sender">'+avatar(send,28)+'<span class="nm">'+esc(send.name||send.user||"—")+'</span></div>';
-      return '<tr><td>'+fmtDT(r.submitted_at)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||"")+'</td><td>'+esc(r.approval_type||"")+'</td><td>'+sender+'</td><td>'+chips(r.sent_to)+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"—")+'</td><td>'+breach+'<span class="pill '+pillCls(r.status)+'">'+esc(statusLabel(r.status_label||r.status))+'</span></td><td>'+open+'</td></tr>'; }).join("");
+      return '<tr'+(r.detail_route?' data-route="'+esc(r.detail_route)+'"':'')+'><td>'+fmtDT(r.submitted_at)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||"")+'</td><td>'+esc(r.approval_type||"")+'</td><td>'+sender+'</td><td>'+chips(r.sent_to)+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"—")+'</td><td>'+breach+'<span class="pill '+pillCls(r.status)+'">'+esc(statusLabel(r.status_label||r.status))+'</span></td></tr>'; }).join("");
     var from=state.total?state.start+1:0, to=Math.min(state.start+rows.length,state.total);
     var pager='<div class="pager"><div class="info">'+from+'–'+to+' / '+state.total+'</div><div><button type="button" class="btn" id="apl-prev"'+(state.start<=0?" disabled":"")+'>‹ Trước</button> <button type="button" class="btn" id="apl-next"'+(state.start+state.page_length>=state.total?" disabled":"")+'>Sau ›</button></div></div>';
     $("apl-body").innerHTML='<div style="overflow-x:auto">'+head+body+'</tbody></table></div>'+pager;
     wire();
   }
   function wire(){
-    Array.prototype.forEach.call(document.querySelectorAll('#apl-body a.open-link[data-open]'),function(a){ a.onclick=function(e){ e.preventDefault(); window.location.href=a.getAttribute("href"); }; });
+    Array.prototype.forEach.call(document.querySelectorAll('#apl-body tbody tr[data-route]'),function(tr){ tr.onclick=function(){ var rt=tr.getAttribute("data-route"); if(rt) window.location.href=rt; }; });
     var pv=$("apl-prev"), nx=$("apl-next");
     if(pv) pv.onclick=function(){ state.start=Math.max(0,state.start-state.page_length); load(); };
     if(nx) nx.onclick=function(){ if(state.start+state.page_length<state.total){ state.start+=state.page_length; load(); } };
