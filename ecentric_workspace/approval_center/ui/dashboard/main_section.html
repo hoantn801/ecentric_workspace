@@ -76,8 +76,9 @@
   #ec-apd-root .legend-note{ font-size:11.5px; color:var(--gray-400); margin-top:8px; }
   /* table */
   #ec-apd-root table{ width:100%; border-collapse:collapse; }
-  #ec-apd-root thead th{ text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--gray-500); font-weight:700; padding:9px 10px; border-bottom:1px solid var(--gray-200); }
-  #ec-apd-root tbody td{ padding:10px; border-bottom:1px solid var(--gray-100); font-size:13px; color:var(--gray-700); }
+  #ec-apd-root thead th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--gray-500); font-weight:700; padding:8px 10px; border-bottom:1px solid var(--gray-200); }
+  #ec-apd-root tbody td{ padding:7px 10px; border-bottom:1px solid var(--gray-100); font-size:12px; color:var(--gray-700); vertical-align:middle; }
+  #ec-apd-root tbody tr[data-route]{ cursor:pointer; }
   #ec-apd-root tbody tr:hover{ background:var(--gray-50); }
   #ec-apd-root .pill{ display:inline-block; padding:2px 9px; border-radius:999px; font-size:11.5px; font-weight:600; }
   #ec-apd-root .pill.Pending{ background:var(--navy-50); color:var(--navy); } #ec-apd-root .pill.Information{ background:var(--amber-50); color:var(--amber); } #ec-apd-root .pill.breach{ background:var(--red-50); color:var(--red); }
@@ -319,11 +320,10 @@
   function sortRows(rows){ return rows.slice().sort(function(a,b){ if(!!b.sla_breached-!!a.sla_breached) return (!!b.sla_breached)-(!!a.sla_breached); return (b.pending_age_seconds||0)-(a.pending_age_seconds||0); }); }
   function renderTable(d){ var rows=sortRows(applyTableFilter(d.attention||[],d)); var el=$("apd-table");
     if(!rows.length){ el.innerHTML='<div class="state" style="padding:24px"><h4>Không có hồ sơ cần chú ý</h4><p>Không có yêu cầu quá hạn hoặc cần bổ sung trong phạm vi hiện tại.</p></div>'; return; }
-    var head='<table><thead><tr><th>Tuổi / SLA</th><th>Mã</th><th>Loại</th><th>Người yêu cầu</th><th>Phòng ban</th><th>Cấp</th><th>Tín hiệu</th><th>Trạng thái</th><th>Ngày gửi</th><th></th></tr></thead><tbody>';
+    var head='<table><thead><tr><th>Tuổi / SLA</th><th>Mã</th><th>Loại</th><th>Người yêu cầu</th><th>Phòng ban</th><th>Cấp</th><th>Tín hiệu</th><th>Trạng thái</th><th>Ngày gửi</th></tr></thead><tbody>';
     var body=rows.map(function(r){ var breach=r.sla_breached?'<span class="pill breach">Quá hạn</span> ':''; var age=r.pending_age_seconds!=null?fmtDur(r.pending_age_seconds):"—";
       var pill='<span class="pill '+(r.status==="Information Required"?"Information":"Pending")+'">'+esc(statusLabel(r.status_label||r.status))+'</span>';
-      var open=r.detail_route?'<a class="open-link" href="'+esc(r.detail_route)+'" data-open="1">Mở ▸</a>':'<span style="color:var(--gray-300)">—</span>';
-      return '<tr data-name="'+esc(r.name)+'"><td>'+breach+age+'</td><td><a class="open-link" data-drawer="'+esc(r.name)+'">'+esc(r.name)+'</a></td><td>'+esc(r.type||"")+'</td><td>'+esc(r.requester||"")+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"")+'</td><td class="signal">'+esc(rowSignal(r))+'</td><td>'+pill+'</td><td>'+fmtDT(r.submitted_at)+'</td><td>'+open+'</td></tr>'; }).join("");
+      return '<tr data-name="'+esc(r.name)+'"'+(r.detail_route?' data-route="'+esc(r.detail_route)+'"':'')+'><td>'+breach+age+'</td><td><a class="open-link" data-drawer="'+esc(r.name)+'">'+esc(r.name)+'</a></td><td>'+esc(r.type||"")+'</td><td>'+esc(r.requester||"")+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"")+'</td><td class="signal">'+esc(rowSignal(r))+'</td><td>'+pill+'</td><td>'+fmtDT(r.submitted_at)+'</td></tr>'; }).join("");
     el.innerHTML=head+body+'</tbody></table>'; wireTable(); }
   function scrollTable(){ var t=$("apd-table"); if(t&&t.scrollIntoView) t.scrollIntoView({behavior:"smooth"}); }
 
@@ -335,7 +335,7 @@
     if(!t){ body+='<div class="state">Không tải được lịch sử.</div>'; }
     else if(!acts.length){ body+='<div class="state" style="padding:20px">Chưa có hoạt động.</div>'; }
     else { body+='<ul class="tl">'+acts.map(function(a){ return '<li><div style="font-weight:600">'+esc(a.action)+'</div><div style="font-size:12px;color:var(--gray-500)">'+esc(a.actor||"")+' · '+fmtDT(a.action_time)+'</div>'+(a.comment?'<div style="font-size:12.5px;margin-top:3px">"'+esc(a.comment)+'"</div>':'')+'</li>'; }).join("")+'</ul>'; }
-    if(h.reference_doctype&&h.reference_name){ /* link back to form via type route handled by table 'Mở' */ }
+    if(h.reference_doctype&&h.reference_name){ /* row-click navigates to the form; Mã opens the history drawer */ }
     body+='</div>'; ov.innerHTML=body; (document.getElementById("ec-apd-root")||document.body).appendChild(ov);
     ov.querySelector("#dw-x").onclick=function(){ ov.remove(); }; ov.addEventListener("click",function(e){ if(e.target===ov) ov.remove(); }); }
 
@@ -390,8 +390,8 @@
   }
   function wireTable(){
     Array.prototype.forEach.call(document.querySelectorAll("#apd-tabs .qbtn"),function(b){ b.onclick=function(){ var qf=b.getAttribute("data-qf"); state.tableFilter=(state.tableFilter&&state.tableFilter.qf===qf)?null:{qf:qf}; renderTabs(); renderTable(state.data); }; });
-    Array.prototype.forEach.call(document.querySelectorAll('#apd-table a.open-link[data-open]'),function(a){ a.onclick=function(e){ e.preventDefault(); window.location.href=a.getAttribute("href"); }; });
-    Array.prototype.forEach.call(document.querySelectorAll('#apd-table a[data-drawer]'),function(a){ a.onclick=function(e){ e.preventDefault(); openDrawer(a.getAttribute("data-drawer")); }; });
+    Array.prototype.forEach.call(document.querySelectorAll('#apd-table a[data-drawer]'),function(a){ a.onclick=function(e){ e.preventDefault(); e.stopPropagation(); openDrawer(a.getAttribute("data-drawer")); }; });
+    Array.prototype.forEach.call(document.querySelectorAll('#apd-table tbody tr[data-route]'),function(tr){ tr.onclick=function(){ var rt=tr.getAttribute("data-route"); if(rt) window.location.href=rt; }; });
   }
 
   function boot(){ setDateInputs(rangeFor("month"));

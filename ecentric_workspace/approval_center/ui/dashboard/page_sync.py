@@ -36,7 +36,7 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "10ea6e183ceb2f04f174944b9d2ae6b932b2f1cfd992c6c48ae43f31689b9ae4"
+BASELINE_SHA256 = "89e35dad1cb252278f9dfbd1a33f113196b9c9bf73ee62721563581421e8be7a"
 
 # GiÃƒÆ’Ã‚Â¡ trÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ live mÃƒÆ’Ã‚Â  snapshot nÃƒÆ’Ã‚Â y Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c phÃƒÆ’Ã‚Â©p ghi Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â¨.
 #
@@ -50,6 +50,7 @@ BASELINE_SHA256 = "10ea6e183ceb2f04f174944b9d2ae6b932b2f1cfd992c6c48ae43f31689b9
 # d6d412c thÃƒÆ’Ã‚Â¬ sync tiÃƒÂ¡Ã‚ÂºÃ‚Â¿n lÃƒÆ’Ã‚Âªn, mÃƒÆ’Ã‚Â´i trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Âng Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ nhÃƒÂ¡Ã‚ÂºÃ‚Â­n bytes #241 thÃƒÆ’Ã‚Â¬ trÃƒÂ¡Ã‚ÂºÃ‚Â£ vÃƒÂ¡Ã‚Â»Ã‚Â "unchanged".
 # BÃƒÂ¡Ã‚Â»Ã‚Â entry nÃƒÆ’Ã‚Â y khi Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ xÃƒÆ’Ã‚Â¡c nhÃƒÂ¡Ã‚ÂºÃ‚Â­n deploy trÃƒÆ’Ã‚Âªn mÃƒÂ¡Ã‚Â»Ã‚Âi mÃƒÆ’Ã‚Â´i trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Âng.
 SUPERSEDES_SHA256 = (
+    "10ea6e183ceb2f04f174944b9d2ae6b932b2f1cfd992c6c48ae43f31689b9ae4",  # superseded by 89e35dad (compact table + row-click)
     "b49848db98abac2b5662695c9d80a9ddedf0f0546850b7f42fd09c09d0ccab00",  # superseded by 10ea6e183ceb
     "5c6b19cb4355d31589cc57b8a6287b8cc74035c5728477554eb719c3eae7e074",
 )
