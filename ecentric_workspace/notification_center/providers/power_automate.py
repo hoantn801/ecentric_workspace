@@ -137,6 +137,43 @@ def send_event(payload, cfg=None):
     return ("skip", prov, "PA_UNKNOWN_BODY", "unrecognized flow response")
 
 
+_AMOUNT_FIELDS = ("payment_amount", "requested_amount", "total_amount", "amount",
+                  "approved_amount", "budget")
+
+
+def _request_fields(reference_doctype, reference_name):
+    """Best-effort structured extras for the card: requester full name, department, amount.
+    Meta-driven (never reads a missing field); all '' on any error. Lets the flow lay out
+    'Người gửi'/'Phòng ban'/'Số tiền' as separate lines instead of one blob in message."""
+    import frappe
+    out = {"requester_name": "", "department": "", "amount": ""}
+    if not reference_doctype or not reference_name:
+        return out
+    try:
+        fnames = set(df.fieldname for df in frappe.get_meta(reference_doctype).fields)
+    except Exception:
+        return out
+    want = [f for f in ("requested_by", "department", "requester_department") if f in fnames]
+    amount_field = next((f for f in _AMOUNT_FIELDS if f in fnames), None)
+    fields = want + ([amount_field] if amount_field else [])
+    if not fields:
+        return out
+    try:
+        row = frappe.db.get_value(reference_doctype, reference_name, fields, as_dict=True) or {}
+    except Exception:
+        return out
+    sender = row.get("requested_by")
+    if sender:
+        out["requester_name"] = frappe.db.get_value("User", sender, "full_name") or sender
+    out["department"] = row.get("department") or row.get("requester_department") or ""
+    if amount_field and row.get(amount_field):
+        try:
+            out["amount"] = "{:,.0f} VND".format(float(row.get(amount_field)))
+        except (TypeError, ValueError):
+            pass
+    return out
+
+
 def build_payload(doc):
     """Build the ERP->flow JSON contract from a Delivery Log doc."""
     return {
@@ -150,4 +187,5 @@ def build_payload(doc):
         "action_url": doc.get("action_url") or "",   # absolute ERP deep link
         "reference_doctype": doc.get("reference_doctype") or "",
         "reference_name": doc.get("reference_name") or "",
+        **_request_fields(doc.get("reference_doctype"), doc.get("reference_name")),
     }
