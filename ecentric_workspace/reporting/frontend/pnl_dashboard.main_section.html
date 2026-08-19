@@ -212,6 +212,13 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
         </div>
       </div>
       <div class="pnl-f">
+        <label>Tính theo</label>
+        <div class="pnl-seg" id="pnl-basis">
+          <button type="button" data-b="txn" class="on">Ngày chứng từ</button>
+          <button type="button" data-b="delivery">Ngày giao</button>
+        </div>
+      </div>
+      <div class="pnl-f">
         <label for="pnl-channel">Kênh</label>
         <select id="pnl-channel">
           <option value="all">Tất cả</option>
@@ -269,7 +276,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Doanh thu theo thời gian</h2>
-        <p class="pnl-card-n" id="pnl-time-n">Cột xếp chồng theo ba lớp độ tin cậy. Giá trị hiển thị là 100% số gốc, không nhân hệ số.</p>
+        <p class="pnl-card-n" id="pnl-time-n">Cột xếp chồng theo ba lớp độ tin cậy. Số tiền là giá trị gốc trên chứng từ; tỷ lệ 90/50/30 chỉ là mức độ tin cậy, không dùng để nhân vào tiền.</p>
       </div>
     </div>
     <div class="pnl-chart tall" id="ch-time"></div>
@@ -316,7 +323,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
         <button class="pnl-btn" type="button" id="pnl-drill-x">Đóng</button>
       </div>
       <div class="pnl-scroll"><table>
-        <thead><tr><th>Chứng từ</th><th>Ngày</th><th>Brand</th><th>Phòng ban</th><th>Trạng thái</th><th class="num">Giá trị</th></tr></thead>
+        <thead><tr><th>Chứng từ</th><th>Ngày chứng từ</th><th>Ngày giao</th><th>Brand</th><th>Phòng ban</th><th>Trạng thái</th><th class="num">Giá trị</th></tr></thead>
         <tbody id="pnl-drill-b"></tbody>
       </table></div>
     </div>
@@ -364,7 +371,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
   ];
 
   var state = {
-    from: "", to: "", gran: "month", channel: "all",
+    from: "", to: "", gran: "month", basis: "txn", channel: "all",
     brand: "", team: "", preset: "all", svcGroup: "", tab: "time"
   };
   var DATA = null;
@@ -599,12 +606,13 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     var h = "";
     for (i = 0; i < hit.length; i++) {
       var l = hit[i];
-      h += "<tr><td>" + esc(l.so) + "</td><td>" + esc(l.date) + "</td><td>"
+      h += "<tr><td>" + esc(l.so) + "</td>" + dcell(l.txn_date, "txn")
+         + dcell(l.delivery_date, "delivery") + "<td>"
          + esc(l.brand) + "</td><td>" + esc(l.team) + '</td><td><span class="pnl-tag '
          + esc(l.layer) + '">' + esc(l.state) + '</span></td><td class="num">'
          + num(l.amount) + "</td></tr>";
     }
-    if (!hit.length) h = '<tr><td colspan="6">Không có dòng nào.</td></tr>';
+    if (!hit.length) h = '<tr><td colspan="7">Không có dòng nào.</td></tr>';
     $("pnl-drill-b").innerHTML = h;
     $("pnl-drill").className = "";
   }
@@ -628,11 +636,13 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
   function renderTable() {
     var head = "", body = "", rows, i;
     if (state.tab === "so") {
-      head = "<tr><th>Chứng từ</th><th>Ngày</th><th>Brand</th><th>Phòng ban</th><th>Kênh</th><th>Trạng thái</th><th class='num'>Giá trị</th></tr>";
+      head = "<tr><th>Chứng từ</th><th>Ngày chứng từ</th><th>Ngày giao</th><th>Brand</th>"
+           + "<th>Phòng ban</th><th>Kênh</th><th>Trạng thái</th><th class='num'>Giá trị</th></tr>";
       rows = DATA.top_so || [];
       for (i = 0; i < rows.length; i++) {
         var s = rows[i];
-        body += "<tr><td>" + esc(s.name) + "</td><td>" + esc(s.date) + "</td><td>"
+        body += "<tr><td>" + esc(s.name) + "</td>" + dcell(s.txn_date, "txn")
+             + dcell(s.delivery_date, "delivery") + "<td>"
              + esc(s.brand) + "</td><td>" + esc(s.team) + "</td><td>" + esc(s.channel)
              + '</td><td><span class="pnl-tag ' + esc(s.layer) + '">' + esc(s.state)
              + '</span></td><td class="num">' + num(s.net_total) + "</td></tr>";
@@ -654,7 +664,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
              + '</b></td><td class="num">' + (r.count || 0) + "</td></tr>";
       }
     }
-    if (!body) body = '<tr><td colspan="7">Không có số liệu.</td></tr>';
+    if (!body) body = '<tr><td colspan="8">Không có số liệu.</td></tr>';
     $("pnl-tb-h").innerHTML = head;
     $("pnl-tb-b").innerHTML = body;
   }
@@ -665,8 +675,12 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     h += "<b>Thước đo:</b> giá trị trước thuế (net_total). Toàn bộ chứng từ tạo trước 07/08/2026 chưa gắn dòng thuế thật, "
        + "nên dùng giá trị trước thuế để các tháng so sánh được với nhau. "
        + "Trong kỳ này có " + (rc.so_with_tax || 0) + " chứng từ đã có thuế.<br>";
-    h += "<b>Ba lớp:</b> giá trị hiển thị luôn là 100% số gốc. Tỷ lệ 90 / 50 / 30 chỉ là nhãn "
-       + "độ tin cậy để biết khả năng thành tiền thật, không phải hệ số nhân.<br>";
+    h += "<b>Mốc thời gian:</b> đang " + ((m.date_basis === "delivery")
+       ? "xếp theo <b>ngày giao</b> — trên GBS Sales Order trường này trùng ngày KẾT THÚC kỳ dịch vụ ở 280/308 phiếu."
+       : "xếp theo <b>ngày chứng từ</b> — trên GBS Sales Order trường này trùng ngày BẮT ĐẦU kỳ dịch vụ ở 263/308 phiếu.")
+       + " Đổi mốc không làm thay đổi tổng, chỉ chuyển doanh thu sang tháng khác: 63/175 chứng từ có hai ngày rơi khác tháng nhau.<br>";
+    h += "<b>Ba lớp:</b> số tiền của cả ba lớp đều là giá trị gốc trên chứng từ, không bị "
+       + "nhân với tỷ lệ nào. Tỷ lệ 90 / 50 / 30 chỉ nói lên khả năng khoản đó thành tiền thật.<br>";
     h += "<b>Đã loại khỏi mọi con số:</b> " + (ex.rejected_count || 0) + " phiếu bị từ chối, tương đương "
        + num(ex.rejected_amount) + " đ.<br>";
     h += "<b>Đối chiếu:</b> tổng theo chứng từ " + num(rc.header_net_total)
@@ -679,6 +693,14 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     h += "<br><b>Chưa có trong bản này:</b> chi phí và lương — sẽ cắm vào ở vòng sau, "
        + "lúc đó trang mới hiện được lợi nhuận thật.";
     $("pnl-foot").innerHTML = h;
+  }
+
+  // to dam cot ngay dang duoc dung de gom nhom, cot con lai de nhat
+  function dcell(v, which) {
+    if (which === state.basis) {
+      return '<td><b>' + esc(v) + "</b></td>";
+    }
+    return '<td style="color:var(--muted)">' + esc(v) + "</td>";
   }
 
   function fillSelect(el, list, cur, allLabel) {
@@ -694,8 +716,14 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     var sc = DATA.scope || {}, m = DATA.meta || {};
     var label = { admin: "Toàn công ty", management: "Ban điều hành", manager: "Quản lý" };
     $("pnl-scope").textContent = "Phạm vi: " + (label[sc.mode] || sc.mode);
-    $("pnl-sub").textContent = "Doanh thu ghi nhận trên Sales Order sổ eCentric · "
-      + m.date_from + " → " + m.date_to;
+    var basisTxt = (state.basis === "delivery")
+      ? "xếp theo ngày giao (ngày kết thúc kỳ dịch vụ)"
+      : "xếp theo ngày chứng từ (ngày bắt đầu kỳ dịch vụ)";
+    $("pnl-sub").textContent = "Doanh thu trên Sales Order sổ eCentric · " + basisTxt
+      + " · " + m.date_from + " → " + m.date_to;
+    $("pnl-time-n").textContent = "Cột xếp chồng theo ba lớp độ tin cậy, " + basisTxt
+      + ". Số tiền là giá trị gốc trên chứng từ; tỷ lệ 90/50/30 chỉ là mức độ tin cậy, "
+      + "không dùng để nhân vào tiền.";
     fillSelect($("pnl-brand"), (DATA.options || {}).brands || [], state.brand, "Tất cả brand");
     fillSelect($("pnl-team"), (DATA.options || {}).teams || [], state.team, "Tất cả phòng ban");
     if (!$("pnl-from").value) $("pnl-from").value = m.date_from;
@@ -736,7 +764,8 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     setBusy(true);
     hideErr();
     $("pnl-drill").className = "pnl-hidden";
-    var args = { granularity: state.gran, channel: state.channel };
+    var args = { granularity: state.gran, date_basis: state.basis,
+                 channel: state.channel };
     if (state.from) args.date_from = state.from;
     if (state.to) args.date_to = state.to;
     if (state.brand) args.brand = state.brand;
@@ -801,6 +830,11 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
       var g = e.target && e.target.getAttribute("data-g");
       if (!g) return;
       state.gran = g; markSeg("pnl-gran", "data-g", g); load();
+    });
+    $("pnl-basis").addEventListener("click", function (e) {
+      var bb = e.target && e.target.getAttribute("data-b");
+      if (!bb) return;
+      state.basis = bb; markSeg("pnl-basis", "data-b", bb); load();
     });
     $("pnl-presets").addEventListener("click", function (e) {
       var p = e.target && e.target.getAttribute("data-p");
