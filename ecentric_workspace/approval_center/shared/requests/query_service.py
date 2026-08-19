@@ -160,7 +160,7 @@ def detail(definition, name):
     business = frappe.get_doc(definition.business_doctype, name)
     request = capabilities.approval_request_for(definition, name)
     if not capabilities.can_view(user, business, request):
-        frappe.throw(_("BÃ¡ÂºÂ¡n khÃƒÂ´ng cÃƒÂ³ quyÃ¡Â»Ân xem yÃƒÂªu cÃ¡ÂºÂ§u nÃƒÂ y."), frappe.PermissionError)
+        frappe.throw(_("Bạn không có quyền xem yêu cầu này."), frappe.PermissionError)
     levels, approvers, timeline = [], [], []
     if request:
         levels = frappe.get_all(
