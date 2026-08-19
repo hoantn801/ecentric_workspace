@@ -37,7 +37,7 @@ class StaticOptions:
 
 
 def service_callbacks(feature, title=False):
-    base = "ecentric_workspace.approval_center.%s.service" % feature
+    base = "ecentric_workspace.approval_center.features.%s.application.service" % feature
     return {
         "title_builder": ServiceMethod(base, "gen_title") if title else None,
         "submitter": ServiceMethod(base, "submit"),

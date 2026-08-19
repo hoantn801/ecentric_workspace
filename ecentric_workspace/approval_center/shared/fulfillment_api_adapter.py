@@ -41,7 +41,7 @@ def bind_fulfillment(code, queue_fields, order_by, operation_fields=False):
         @frappe.whitelist(methods=["POST"])
         def set_operation_fields(name, operation_expected_completion_date=None, operation_note=None):
             service = __import__(
-                "ecentric_workspace.approval_center.%s.service" % definition.feature,
+                "ecentric_workspace.approval_center.features.%s.application.service" % definition.feature,
                 fromlist=["set_operation_fields"])
             service.set_operation_fields(
                 name, operation_expected_completion_date=operation_expected_completion_date,
