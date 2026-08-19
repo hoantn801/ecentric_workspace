@@ -246,7 +246,7 @@ def notify(users, subject, doctype, name):
             ncev.publish_notification_event(
                 "approval_required", u, subject or "", action_url=action_url,
                 reference_doctype=doctype, reference_name=name,
-                dedupe_key="|".join([doctype or "", name or "", u, subject or "", stamp]))
+                dedupe_key="|".join([doctype or "", name or "", u, stamp]))
         except Exception:
             frappe.log_error(title="approval_center notify failed")
 

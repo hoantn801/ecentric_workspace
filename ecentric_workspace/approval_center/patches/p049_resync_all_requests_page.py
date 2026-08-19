@@ -7,7 +7,7 @@ p048 already ran on earlier deploys, so it will not re-execute; a fresh patch is
 the repo's convention for pushing edited page HTML into the live Web Page on the
 next `bench migrate` (i.e. on Frappe Cloud deploy) with no manual command.
 Idempotent: page_sync.upsert_web_page returns 'unchanged' if content matches."""
-from ecentric_workspace.approval_center.all_requests import page_sync
+from ecentric_workspace.approval_center.ui.all_requests import page_sync
 
 
 def execute():
