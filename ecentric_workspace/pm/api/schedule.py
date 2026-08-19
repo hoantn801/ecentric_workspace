@@ -85,6 +85,7 @@ def week(user=None, week_start=None):
 
     return {
         "readonly": readonly,
+        "is_leader": pmperm.can_see_all_pm_data(caller),
         "user": target,
         "week_start": str(mon),
         "blocks": blocks,
@@ -92,6 +93,21 @@ def week(user=None, week_start=None):
         "subjects": subj,
         "meta": meta,
     }
+
+
+@frappe.whitelist()
+def viewable_users():
+    """Leaders only: internal users whose week a leader may open (read-only). Returns
+    [] for non-leaders so the UI never shows the picker to ordinary users."""
+    caller = frappe.session.user
+    if not pmperm.can_see_all_pm_data(caller):
+        return {"users": []}
+    rows = frappe.get_all(
+        "User", filters={"enabled": 1, "user_type": "System User",
+                         "name": ["not in", ["Administrator", "Guest"]]},
+        fields=["name", "full_name"], order_by="full_name asc",
+        ignore_permissions=True) or []
+    return {"users": rows}
 
 
 def _task_meta(task_names):

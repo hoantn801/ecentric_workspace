@@ -3225,7 +3225,7 @@
       var wl=days[0].getDate()+"/"+(days[0].getMonth()+1)+" – "+days[6].getDate()+"/"+(days[6].getMonth()+1);
       var pend=blocks.filter(function(b){var e=parseDT(b.end);return e&&e<now&&b.state!=="Đã xác nhận";});
       var _tw=new Date(); _tw.setHours(0,0,0,0); _tw.setDate(_tw.getDate()-((_tw.getDay()+6)%7)); var _isCur=(st.ws.getTime()===_tw.getTime());
-      var right='<div class="sch-nav"><button id="sch-prev" title="Tuần trước"><svg class="icon icon-sm"><use href="#p-back"/></svg></button><button id="sch-today"'+(_isCur?'':' class="accent"')+' title="Về tuần hiện tại">Hôm nay</button><button id="sch-next" title="Tuần sau"><svg class="icon icon-sm" style="transform:scaleX(-1)"><use href="#p-back"/></svg></button></div>'
+      var right=(d.is_leader?'<select id="sch-user" class="pm-sel sch-user" style="margin-right:8px;min-width:150px" title="Xem lịch của người khác"><option value="">Lịch của tôi</option></select>':'')+'<div class="sch-nav"><button id="sch-prev" title="Tuần trước"><svg class="icon icon-sm"><use href="#p-back"/></svg></button><button id="sch-today"'+(_isCur?'':' class="accent"')+' title="Về tuần hiện tại">Hôm nay</button><button id="sch-next" title="Tuần sau"><svg class="icon icon-sm" style="transform:scaleX(-1)"><use href="#p-back"/></svg></button></div>'
         +(ro?'<span class="sch-ro" style="margin-left:8px"><svg class="icon icon-sm"><use href="#p-eye"/></svg> Chỉ xem</span>':(pend.length?'<button class="pm-btn primary" id="sch-confirm" style="margin-left:8px"><svg class="icon icon-sm"><use href="#p-check"/></svg> Xác nhận giờ ('+pend.length+')</button>':''));
       var h=head("Lịch làm việc", (ro?("Lịch của "+esc(st.user||"")+" · "):"")+"Tuần "+wl+" · kéo việc vào khung giờ, kéo mép dưới để giãn", right);
 
@@ -3290,6 +3290,11 @@
           api(PM+"schedule.confirm",{names:JSON.stringify(names),hours_map:JSON.stringify(hmap)}).then(function(){ toast("Đã xác nhận "+names.length+" mục & ghi Timesheet"); close(); load(); }).catch(function(e){ toast("Lỗi: "+errOf(e),true); gb.disabled=false; }); };
       }
       var bc=el("sch-confirm"); if(bc)bc.onclick=openConfirmModal;
+      if(d.is_leader){
+        var us=el("sch-user");
+        function fillUsers(){ if(!us)return; us.innerHTML='<option value="">Lịch của tôi</option>'+(st.users||[]).map(function(u){ return '<option value="'+esc(u.name)+'"'+(u.name===st.user?' selected':'')+'>'+esc(u.full_name||u.name)+'</option>'; }).join(''); us.value=st.user||""; us.onchange=function(){ st.user=us.value||null; load(); }; }
+        if(!st.users){ api(PM+"schedule.viewable_users",{}).then(function(r){ st.users=(r&&r.users)||[]; fillUsers(); }).catch(function(){ st.users=[]; }); } else { fillUsers(); }
+      }
       var _tg=el("sch-col")||el("sch-exp"); if(_tg)_tg.onclick=function(){ st.sideCollapsed=!st.sideCollapsed; try{localStorage.setItem("pm_sch_side",st.sideCollapsed?"1":"0");}catch(_){} render(); };
     }
 
