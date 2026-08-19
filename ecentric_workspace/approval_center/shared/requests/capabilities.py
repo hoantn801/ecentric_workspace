@@ -1,6 +1,8 @@
 """Canonical read-side visibility and capability derivation."""
 import frappe
 
+from ecentric_workspace.approval_center.shared.workflow.permissions import can_view_request
+
 
 OPEN_STATUSES = ("Pending", "Information Required")
 
@@ -22,15 +24,22 @@ def approval_request_for(definition, business_name):
     return frappe.db.get_value(
         "EC Approval Request", approval_request,
         ["name", "approval_status", "current_level",
-         "information_requested_from_level", "requested_by"], as_dict=True)
+         "information_requested_from_level", "requested_by", "approval_type"], as_dict=True)
 
 
 def can_view(user, business_doc, approval_request):
-    if business_doc.requested_by == user or is_system_manager(user):
-        return True
-    return bool(approval_request and frappe.db.exists(
-        "EC Approval Request Approver",
-        {"approval_request": approval_request.name, "approver": user}))
+    # Single source of truth for "who may view a request" -- delegate to the canonical
+    # engine check so form detail agrees with the Action Center feed (both allow the
+    # requester, any approver, the fulfillment owner and eligible fulfillers). Forms
+    # without a fulfillment_owner field -> getattr None, which can_view_request handles.
+    return can_view_request(
+        approval_request.name if approval_request else None,
+        user,
+        business_doctype=business_doc.doctype,
+        requested_by=getattr(business_doc, "requested_by", None),
+        fulfillment_owner=getattr(business_doc, "fulfillment_owner", None),
+        approval_type=(approval_request.get("approval_type") if approval_request else None),
+    )
 
 
 def _pending_row(approval_request, user):
