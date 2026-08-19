@@ -50,17 +50,20 @@ def _require_own(block, user):
 def week(user=None, week_start=None):
     """Blocks for `user`'s week + that user's open tasks (backlog) + a name map.
 
-    `user` defaults to the caller. Viewing SOMEONE ELSE is allowed only for leaders and
-    is READ-ONLY (readonly=True in the response). `week_start` is any date in the target
-    week (defaults to today); the range is that week's Monday 00:00 .. +7 days."""
+    `user` defaults to the caller. Viewing SOMEONE ELSE (READ-ONLY) is allowed when the
+    caller is a leader (whole company) or shares a team/department with the target.
+    `week_start` is any date in the target week; range = that week's Monday 00:00 .. +7d."""
     pmperm.require_pm_access()
     caller = frappe.session.user
     target = user or caller
+    leader = pmperm.can_see_all_pm_data(caller)
+    team = _team_user_ids(caller)
     readonly = False
     if target != caller:
-        if not pmperm.can_see_all_pm_data(caller):
+        if leader or target in team:
+            readonly = True
+        else:
             frappe.throw(_("Không có quyền xem lịch người này."), frappe.PermissionError)
-        readonly = True
 
     mon = _monday(week_start or nowdate())
     start_dt = "%s 00:00:00" % mon
@@ -85,7 +88,8 @@ def week(user=None, week_start=None):
 
     return {
         "readonly": readonly,
-        "is_leader": pmperm.can_see_all_pm_data(caller),
+        "is_leader": leader,
+        "can_view_others": leader or bool(team),
         "user": target,
         "week_start": str(mon),
         "blocks": blocks,
@@ -95,18 +99,59 @@ def week(user=None, week_start=None):
     }
 
 
+def _team_user_ids(user):
+    """User ids sharing at least one team/department with `user` (excludes self). Uses the
+    same department resolution as pmperm.get_user_departments (Employee.department +
+    Employee Department Membership). Fail-safe -> [] if unresolved."""
+    try:
+        depts = list(pmperm.get_user_departments(user) or [])
+    except Exception:
+        depts = []
+    if not depts:
+        return []
+    emp_names = set()
+    try:
+        for e in frappe.get_all("Employee",
+                                filters={"department": ["in", depts], "user_id": ["!=", ""]},
+                                fields=["name", "user_id"], ignore_permissions=True) or []:
+            if e.get("name"):
+                emp_names.add(e["name"])
+    except Exception:
+        pass
+    try:
+        for m in frappe.get_all("Employee Department Membership",
+                                filters={"department": ["in", depts]},
+                                fields=["parent"], ignore_permissions=True) or []:
+            if m.get("parent"):
+                emp_names.add(m["parent"])
+    except Exception:
+        pass
+    ids = set()
+    if emp_names:
+        for e in frappe.get_all("Employee", filters={"name": ["in", list(emp_names)],
+                                "user_id": ["!=", ""]},
+                                fields=["user_id"], ignore_permissions=True) or []:
+            if e.get("user_id"):
+                ids.add(e["user_id"])
+    ids.discard(user)
+    return list(ids)
+
+
 @frappe.whitelist()
 def viewable_users():
-    """Leaders only: internal users whose week a leader may open (read-only). Returns
-    [] for non-leaders so the UI never shows the picker to ordinary users."""
+    """Internal users whose week the caller may open (read-only): a leader sees the whole
+    company; everyone else sees their own team/department. Empty -> UI hides the picker."""
     caller = frappe.session.user
-    if not pmperm.can_see_all_pm_data(caller):
-        return {"users": []}
-    rows = frappe.get_all(
-        "User", filters={"enabled": 1, "user_type": "System User",
-                         "name": ["not in", ["Administrator", "Guest"]]},
-        fields=["name", "full_name"], order_by="full_name asc",
-        ignore_permissions=True) or []
+    if pmperm.can_see_all_pm_data(caller):
+        flt = {"enabled": 1, "user_type": "System User",
+               "name": ["not in", ["Administrator", "Guest"]]}
+    else:
+        ids = _team_user_ids(caller)
+        if not ids:
+            return {"users": []}
+        flt = {"enabled": 1, "name": ["in", ids]}
+    rows = frappe.get_all("User", filters=flt, fields=["name", "full_name"],
+                          order_by="full_name asc", ignore_permissions=True) or []
     return {"users": rows}
 
 
