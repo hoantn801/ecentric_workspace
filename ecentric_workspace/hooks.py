@@ -86,8 +86,6 @@ scheduler_events = {
     "daily": [
         "ecentric_workspace.pm.api.recurrence.run_due",
         "ecentric_workspace.pm.api.notifications.pm_overdue_scan",
-        # PM time-blocking: morning reminder to confirm elapsed unconfirmed hours.
-        "ecentric_workspace.pm.api.schedule.nudge_unconfirmed",
         # Notification Delivery v1: new producers (distinct jobs, not duplicates).
         "ecentric_workspace.pm.api.notifications.pm_due_soon_scan",
         "ecentric_workspace.weekly_report.scheduler.wr_due_overdue_scan",
@@ -142,6 +140,13 @@ scheduler_events["daily"].append(
 # integration gate (exits with zero SCTS calls while OFF).
 scheduler_events["cron"].setdefault("*/30 * * * *", []).append(
     "ecentric_workspace.platform.esign.tasks.retrieve_signed_bundles")
+
+# PM time-blocking: remind users to confirm elapsed unconfirmed hours TWICE a day
+# (evaluated in the site timezone Asia/Ho_Chi_Minh = Vietnam): 09:00 + 18:00.
+scheduler_events["cron"].setdefault("0 9 * * *", []).append(
+    "ecentric_workspace.pm.api.schedule.nudge_unconfirmed")
+scheduler_events["cron"].setdefault("0 18 * * *", []).append(
+    "ecentric_workspace.pm.api.schedule.nudge_unconfirmed")
 
 # Permissions
 # -----------
