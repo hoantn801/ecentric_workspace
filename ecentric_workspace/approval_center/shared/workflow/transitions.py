@@ -312,6 +312,14 @@ def _approval_link(doctype, name):
     the type has no published route. Used as the Teams card 'open' action."""
     try:
         atype = frappe.db.get_value(doctype, name, "approval_type")
+        if not atype:
+            # Some business docs don't carry approval_type on the record; the linked
+            # EC Approval Request is the authoritative source (same as the reporting
+            # detail_route + the Action Center feed). Fall back to it so the Teams/inbox
+            # deep link is never empty (root cause of blank 'Link:' cards).
+            areq = frappe.db.get_value(doctype, name, "approval_request")
+            if areq:
+                atype = frappe.db.get_value("EC Approval Request", areq, "approval_type")
         route = frappe.db.get_value("EC Approval Type", atype, "route") if atype else None
         if not route:
             return None
