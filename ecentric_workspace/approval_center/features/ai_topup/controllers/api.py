@@ -10,6 +10,7 @@ from frappe import _
 from ecentric_workspace.approval_center.shared.requests.query_service import requester_display
 from ecentric_workspace.approval_center.shared.workflow import permissions as _perm
 from ecentric_workspace.approval_center.shared.registry import get_definition
+from ecentric_workspace.approval_center.shared.requests import query_service as _query_service
 
 _DEFINITION = get_definition("AI_TOPUP")
 BIZ = _DEFINITION.business_doctype
@@ -348,8 +349,10 @@ def get_request_detail(name):
             if _lv:
                 _a["level_no"] = _lv.level_no
                 _a["level_name"] = _lv.level_name
-    attachments = frappe.get_all("File", filters={"attached_to_doctype": BIZ, "attached_to_name": name},
-                                 fields=["file_name", "file_url", "is_private", "owner", "creation"])
+    attachments = _query_service.dedupe_attachments(
+        frappe.get_all("File", filters={"attached_to_doctype": BIZ, "attached_to_name": name},
+                       fields=["file_name", "file_url", "is_private", "owner", "creation"],
+                       order_by="creation asc"))
     ff = {"status": biz.fulfillment_status, "owner": biz.fulfillment_owner,
           "due_at": biz.fulfillment_due_at, "completed_by": biz.completed_by, "completed_at": biz.completed_at,
           "eligible_fulfillers": [], "ai_account": None}
