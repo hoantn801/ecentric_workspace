@@ -157,7 +157,8 @@ class TestHomeBoundaryTransform(unittest.TestCase):
         self.assertNotIn('/app/user-settings', new)
         self.assertEqual(new.count('data-ec-shell="1"'), 1)
         self.assertEqual(new.count('data-ec-shell-topbar="1"'), 1)
-        self.assertEqual(new.count('data-ec-notification-bell="1"'), 1)
+        self.assertEqual(new.count('data-ec-notification-bell="1"'), 0)
+        self.assertEqual(new.count('data-ec-shell-action-slot="1"'), 1)
         # static portal sidebar with the 4 approved groups
         for g in ("Workspace", "Nhân sự", "Báo cáo &amp; Phân tích", "Tài nguyên"):
             self.assertIn('<div class="ec-shell-grouplabel">%s</div>' % g, new, g)

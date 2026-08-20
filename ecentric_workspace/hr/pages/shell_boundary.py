@@ -61,10 +61,16 @@ def transform(ms, route, required_scripts):
     if ctx != "hr":
         raise ValueError("Route %s does not resolve to the hr context" % route)
 
-    for guard, expect in (('data-ec-shell="1"', 1),
-                          ('data-ec-notification-bell="1"', 1)):
-        if ms.count(guard) != expect:
-            raise ValueError("Shell guard failed on %s: %s x%s" % (route, guard, ms.count(guard)))
+    if ms.count('data-ec-shell="1"') != 1:
+        raise ValueError("Shell guard failed on %s: data-ec-shell=\"1\" x%s"
+                         % (route, ms.count('data-ec-shell="1"')))
+    # PRE-condition on the INCOMING page: it must already carry a header-right
+    # artifact. Accept BOTH shapes -- pages synced before 2026-08-20 still hold
+    # the legacy notification bell, newer ones the "Việc của tôi" inbox. The
+    # POST-condition below is the one that pins the new contract.
+    if (ms.count('data-ec-shell-action-slot="1"')
+            + ms.count('data-ec-notification-bell="1"')) < 1:
+        raise ValueError("Shell guard failed on %s: no header-right artifact" % route)
     for sid in required_scripts:
         if ms.count('<script id="%s"' % sid) != 1:
             raise ValueError("Business script missing on %s: %s" % (route, sid))
@@ -90,8 +96,12 @@ def transform(ms, route, required_scripts):
     for sid in required_scripts:
         if new.count('<script id="%s"' % sid) != 1:
             raise ValueError("Business script lost on %s: %s" % (route, sid))
-    if new.count('data-ec-notification-bell="1"') != 1:
-        raise ValueError("Bell contract violated on %s" % route)
+    # header contract (PO 2026-08-20): ONE "Việc của tôi" inbox, NO standalone
+    # bell -- notifications moved into the inbox drawer's right lane.
+    if new.count('data-ec-shell-action-slot="1"') != 1:
+        raise ValueError("Header inbox contract violated on %s" % route)
+    if new.count('data-ec-notification-bell="1"') != 0:
+        raise ValueError("Stale notification bell remains on %s" % route)
     if STRAY_LT_RE.search(new):
         raise ValueError("Stray literal remains before shell mount on %s" % route)
 

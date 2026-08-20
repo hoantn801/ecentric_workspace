@@ -3,9 +3,10 @@
 
 One canonical header on every migrated route:
 - exactly ONE registry-derived breadcrumb container (data-ec-shell-crumbs)
-- exactly ONE notification marker (data-ec-notification-bell)
-- exactly THREE global header-right slots: Reminder (action-slot), bell,
-  Settings (settings-slot) -- Reminder/Settings inert, no fake behavior
+- exactly TWO global header-right slots: "Việc của tôi" inbox (action-slot)
+  and Settings (settings-slot) -- Settings inert, no fake behavior
+- NO standalone notification bell: notifications moved into the inbox drawer's
+  right lane (PO 2026-08-20); notification DELIVERY is unaffected
 - NO Home / Help icons in the global header (they live in the sidebar)
 - breadcrumb labels come ONLY from shell.nav (registry parity)
 - static markup parity with the JS hydrator (no hydration layout shift)
@@ -39,22 +40,22 @@ class TestCanonicalHeaderPerRoute(unittest.TestCase):
         for path, route in _pages():
             src = _read(path)
             self.assertEqual(len(fb.CRUMBS_RE.findall(src)), 1, route)
-            self.assertEqual(src.count('data-ec-notification-bell="1"'), 1, route)
+            self.assertEqual(src.count('data-ec-notification-bell="1"'), 0, route)
             self.assertEqual(src.count('data-ec-shell-header-right="1"'), 1, route)
 
-    def test_three_global_slots_reminder_bell_settings(self):
+    def test_two_global_slots_inbox_settings(self):
         for path, route in _pages():
             src = _read(path)
             self.assertEqual(src.count('data-ec-shell-action-slot="1"'), 1, route)
             self.assertEqual(src.count('data-ec-shell-settings-slot="1"'), 1, route)
             tb = fb.TBRIGHT_RE.search(src)
             self.assertIsNotNone(tb, route)
-            # order inside header-right: reminder < bell < settings
             inner = tb.group(0)
+            # order inside header-right: inbox < settings, and NO bell survives
             self.assertLess(inner.index('data-ec-shell-action-slot="1"'),
-                            inner.index('data-ec-notification-bell="1"'), route)
-            self.assertLess(inner.index('data-ec-notification-bell="1"'),
                             inner.index('data-ec-shell-settings-slot="1"'), route)
+            self.assertNotIn('data-ec-notification-bell', inner, route)
+            self.assertIn('Việc của tôi', inner, route)
 
     def test_no_home_or_help_icons_in_global_header(self):
         # structural: the removed legacy elements, in ANY encoding variant
@@ -141,15 +142,16 @@ class TestHydrationParity(unittest.TestCase):
         for frag in ('data-ec-shell-action-slot="1"',                       # reminder (active)
                      'data-ec-shell-reminder-badge="1"',                     # badge node
                      'data-ec-shell-settings-slot="1" disabled aria-disabled="true"',  # settings inert
-                     'title="Cài đặt (sắp ra mắt)"',
-                     'data-ec-notification-bell="1"'):
+                     'title="Cài đặt (sắp ra mắt)"'):
             self.assertIn(frag, static, "static: " + frag)
             self.assertIn(frag, js, "js: " + frag)
-        # reminder is ACTIVE now: NOT disabled, real title
+        # the standalone bell is GONE from the header (merged into the inbox)
+        self.assertNotIn('data-ec-notification-bell="1"', static)
+        # inbox is ACTIVE: NOT disabled, real title
         self.assertNotIn('data-ec-shell-action-slot="1" disabled', static)
-        self.assertIn('title="Nhắc việc"', static)
-        self.assertIn('title="Nhắc việc"', js)
-        for icon in ("reminder", "gear"):
+        self.assertIn('title="Việc của tôi"', static)
+        self.assertIn('title="Việc của tôi"', js)
+        for icon in ("inbox", "gear"):
             self.assertIn(fb.ICONS[icon], js, icon)
 
     def test_gbsflow_gets_full_canonical_topbar(self):
@@ -239,18 +241,24 @@ class TestHeaderReminder(unittest.TestCase):
         for prop in ("position:absolute", "top:-4px", "right:-6px", "min-width:16px",
                      "height:16px", "font-size:10px", "line-height:16px", "pointer-events:none"):
             self.assertIn(prop, badge, prop)
-        # drawer scrollable body + sticky footer + capped height
-        self.assertIn("max-height:min(70vh, 560px)", css)
-        self.assertIn(".ec-shell-rm-body{", css)
+        # full-height right-edge panel over a backdrop; each lane scrolls itself
+        self.assertIn(".ec-shell-rm-backdrop{", css)
+        self.assertIn(".ec-shell-rm-lanes{", css)
+        self.assertIn(".ec-shell-rm-lane{", css)
         self.assertIn("overflow-y:auto", css)
-        self.assertIn(".ec-shell-rm-foot{", css)
-        self.assertIn("position:sticky", css)
+        self.assertIn("overscroll-behavior:contain", css)
 
-    def test_nc_and_settings_contracts_preserved(self):
+    def test_notifications_moved_into_drawer_settings_still_inert(self):
         static = fb.render_tbright_inner()
-        self.assertEqual(static.count('data-ec-notification-bell="1"'), 1)
-        self.assertIn('href="/app/notification-log"', static)
+        # no standalone bell in the header any more
+        self.assertEqual(static.count('data-ec-notification-bell="1"'), 0)
         self.assertIn('data-ec-shell-settings-slot="1" disabled', static)
+        # the drawer's notification lane reads the SAME governed NC endpoints
+        js = _read(APP, "public", "js", "ec_shell.js")
+        self.assertIn("notification_center.api.", js)
+        self.assertIn("get_notifications", js)
+        self.assertIn("mark_all_read", js)
+        self.assertIn('data-ec-shell-nc-lane="1"', js)
 
     def test_reminder_drawer_portaled_above_page(self):
         css = _read(APP, "public", "css", "ec_shell.bundle.css")
@@ -267,11 +275,17 @@ class TestHeaderReminder(unittest.TestCase):
         # the drawer and the NC dropdown are mutually exclusive so this is safe.
         z = int(_re.search(r"z-index:(\d+)", rule).group(1))
         self.assertGreaterEqual(z, 1100)
-        # JS portals the drawer to <body> and positions it fixed from the button rect.
+        # right-edge, full-height panel (not a small anchored popover)
+        self.assertIn("right:0", rule)
+        self.assertIn("bottom:0", rule)
+        # JS portals BOTH the backdrop and the drawer to <body>
         js = _read(APP, "public", "js", "ec_shell.js")
-        self.assertIn("document.body.appendChild(drawer)", js)
-        self.assertIn("drawer.style.position = 'fixed'", js)
-        self.assertIn("getBoundingClientRect", js)
+        self.assertIn("document.body.appendChild(buildReminderDrawer())", js)
+        self.assertIn('data-ec-shell-rm-backdrop', js)
+        # two lanes, and rows stay LINKS (no action buttons that could misfire)
+        self.assertIn("ec-shell-rm-lanes", js)
+        self.assertIn("ec-shell-rm-work", js)
+        self.assertIn("ec-shell-rm-nc", js)
 
 
 if __name__ == "__main__":

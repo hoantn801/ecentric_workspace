@@ -96,7 +96,8 @@ class TestStrayLiteralRepair(unittest.TestCase):
         self.assertEqual(new.count('<aside class="ec-shell-mount"'), 1)
         self.assertEqual(new.count('data-ec-shell-topbar="1"'), 1)
         self.assertEqual(new.count('data-ec-shell-header-right="1"'), 1)
-        self.assertEqual(new.count('data-ec-notification-bell="1"'), 1)
+        self.assertEqual(new.count('data-ec-notification-bell="1"'), 0)
+        self.assertEqual(new.count('data-ec-shell-action-slot="1"'), 1)
         # HR context nav rendered statically
         self.assertIn('<div class="ec-shell-grouplabel">Nhân sự</div>', new)
 
