@@ -52,7 +52,7 @@
 
 /* popover (portaled to <body>, fixed-positioned) */
 .ec-dp-pop {
-  position: fixed; z-index: 1200; width: auto; max-width: min(96vw, 500px);
+  position: fixed; z-index: 10050; width: auto; max-width: min(96vw, 500px);
   padding: 12px; background: var(--ec-dp-bg);
   border: 1px solid var(--ec-dp-border); border-radius: var(--ec-dp-radius);
   box-shadow: var(--ec-dp-shadow); color: var(--ec-dp-text);

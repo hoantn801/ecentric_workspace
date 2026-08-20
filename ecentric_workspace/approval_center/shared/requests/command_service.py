@@ -5,6 +5,43 @@ from frappe import _
 from ecentric_workspace.approval_center.shared.requests import capabilities, query_service
 
 
+def claim_uploaded_files(document):
+    """Stop Frappe creating a SECOND File row for the same upload.
+
+    The forms upload through /api/method/upload_file without a `fieldname`, so the File row
+    is stored with attached_to_field empty. Frappe's attach_files_to_document hook (on_update)
+    looks for an existing File matching doctype+name+url+FIELD; the empty field means it never
+    matches, so it inserts a duplicate row for the Attach field and the attachment list shows
+    every file twice.
+
+    Called right before save: for each Attach field carrying a value, adopt the orphan row
+    (same doc + same url, no field yet) by stamping the fieldname on it, so the hook's check
+    matches and no duplicate is inserted. Best-effort: never blocks the save."""
+    try:
+        attach_fields = [df.fieldname for df in document.meta.fields
+                         if df.fieldtype in ("Attach", "Attach Image")]
+    except Exception:
+        return
+    for fieldname in attach_fields:
+        url = (document.get(fieldname) or "").strip()
+        if not url.startswith(("/files", "/private/files")):
+            continue
+        try:
+            if frappe.db.exists("File", {"file_url": url, "attached_to_doctype": document.doctype,
+                                         "attached_to_name": document.name,
+                                         "attached_to_field": fieldname}):
+                continue
+            orphan = frappe.db.get_value("File", {"file_url": url,
+                                                  "attached_to_doctype": document.doctype,
+                                                  "attached_to_name": document.name,
+                                                  "attached_to_field": ["in", ["", None]]}, "name")
+            if orphan:
+                frappe.db.set_value("File", orphan, "attached_to_field", fieldname)
+        except Exception:
+            frappe.logger("approval_center").warning(
+                "claim_uploaded_files: could not adopt file for %s.%s" % (document.doctype, fieldname))
+
+
 def save_draft(definition, name=None, payload=None):
     user = frappe.session.user
     data = frappe.parse_json(payload) if isinstance(payload, str) else (payload or {})
@@ -29,6 +66,8 @@ def save_draft(definition, name=None, payload=None):
         definition.draft_preparer(document)
     if definition.title_builder:
         document.request_title = definition.title_builder(document)
+    if document.name:
+        claim_uploaded_files(document)   # adopt orphan File rows so the save does not duplicate them
     document.save(ignore_permissions=True)
     request = capabilities.approval_request_for(definition, document.name)
     return {"name": document.name,

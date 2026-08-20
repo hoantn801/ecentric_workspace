@@ -155,6 +155,25 @@ def list_my_approvals(definition, section="pending"):
     return {"rows": output}
 
 
+def dedupe_attachments(rows):
+    """One row per physical file.
+
+    Uploading through the form creates TWO File records for the same upload: the
+    /api/method/upload_file call stores one with attached_to_field empty, then Frappe's
+    standard attach_files_to_document hook -- whose duplicate check includes
+    attached_to_field -- does not recognise it and stores a second one for the Attach
+    field. Both point at the SAME file_url, so the attachment list showed every file
+    twice. Collapse by file_url, keeping the earliest record."""
+    seen, out = set(), []
+    for r in rows or []:
+        key = (r.get("file_url") or "").strip() or ("name:" + str(r.get("file_name") or ""))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(r)
+    return out
+
+
 def detail(definition, name):
     user = frappe.session.user
     business = frappe.get_doc(definition.business_doctype, name)
@@ -184,10 +203,11 @@ def detail(definition, name):
             if level:
                 action["level_no"] = level.level_no
                 action["level_name"] = level.level_name
-    attachments = frappe.get_all(
+    attachments = dedupe_attachments(frappe.get_all(
         "File", filters={"attached_to_doctype": definition.business_doctype,
                          "attached_to_name": name},
-        fields=["file_name", "file_url", "is_private", "owner", "creation"])
+        fields=["file_name", "file_url", "is_private", "owner", "creation"],
+        order_by="creation asc"))
     status = request.approval_status if request else "Draft"
     return {
         "business": business.as_dict(),
