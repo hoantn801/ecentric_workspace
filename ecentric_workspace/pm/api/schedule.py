@@ -19,7 +19,8 @@ import json
 
 import frappe
 from frappe import _
-from frappe.utils import get_datetime, getdate, add_days, nowdate, time_diff_in_hours
+from frappe.utils import (get_datetime, getdate, add_days, nowdate, now_datetime,
+                          time_diff_in_hours)
 
 from ecentric_workspace.pm import permissions as pmperm
 
@@ -158,6 +159,145 @@ def _ms_meetings(email, start_dt, end_dt, mask=False):
         return out
     except Exception:
         return []
+
+
+def _ms_today_events(email):
+    """Today's Outlook/Teams meetings for `email` with the extra fields the home widget
+    needs: `id` (for RSVP), join url, location, and the caller's own response status.
+    GATED + FAIL-SAFE like _ms_meetings: returns [] unless ec_pm_calendar_sync is on and
+    Graph is configured/authorized; any error -> []. Only the caller's OWN calendar is
+    requested by callers of this helper."""
+    try:
+        conf = frappe.get_conf() if hasattr(frappe, "get_conf") else {}
+        if not conf.get("ec_pm_calendar_sync"):
+            return []
+        from ecentric_workspace.notification_center.providers import graph as msgraph
+        if not msgraph.is_configured():
+            return []
+        ok, token = msgraph.get_app_token()
+        if not ok:
+            return []
+        import requests
+        day = nowdate()
+        start_dt = "%sT00:00:00+07:00" % day
+        end_dt = "%sT00:00:00+07:00" % add_days(day, 1)
+        url = ("https://graph.microsoft.com/v1.0/users/" + email + "/calendarView"
+               "?startDateTime=" + start_dt + "&endDateTime=" + end_dt +
+               "&$select=id,subject,start,end,showAs,isAllDay,onlineMeeting,location,responseStatus"
+               "&$top=50&$orderby=start/dateTime")
+        r = requests.get(url, headers={"Authorization": "Bearer " + token,
+                         "Prefer": 'outlook.timezone="Asia/Ho_Chi_Minh"'}, timeout=12)
+        if r.status_code != 200:
+            return []
+        out = []
+        for ev in (r.json().get("value") or []):
+            if ev.get("isAllDay") or (ev.get("showAs") or "busy") in ("free", "workingElsewhere"):
+                continue
+            st = ((ev.get("start") or {}).get("dateTime") or "")[:19].replace("T", " ")
+            en = ((ev.get("end") or {}).get("dateTime") or "")[:19].replace("T", " ")
+            if not st or not en:
+                continue
+            join = ((ev.get("onlineMeeting") or {}) or {}).get("joinUrl") or ""
+            loc = ((ev.get("location") or {}) or {}).get("displayName") or ""
+            resp = ((ev.get("responseStatus") or {}) or {}).get("response") or "none"
+            out.append({"id": ev.get("id") or "", "subject": ev.get("subject") or "Họp",
+                        "start": st, "end": en, "join_url": join, "location": loc,
+                        "response": resp, "showAs": ev.get("showAs") or "busy"})
+        return out
+    except Exception:
+        return []
+
+
+@frappe.whitelist()
+def today():
+    """Home 'Lịch hôm nay' widget data for the CALLER (own data only, read):
+      - meetings: today's Outlook/Teams meetings (fail-safe [] when sync off/unauthorized)
+      - blocks:   today's scheduled work blocks (EC PM Time Block)
+      - due_unscheduled: count of tasks due today that aren't time-blocked today (the nudge)
+    The client computes 'next up' + countdown from `now` + these lists."""
+    pmperm.require_pm_access()
+    caller = frappe.session.user
+    conf = frappe.get_conf() if hasattr(frappe, "get_conf") else {}
+    day = nowdate()
+    start_dt = "%s 00:00:00" % day
+    end_dt = "%s 00:00:00" % add_days(day, 1)
+
+    rows = frappe.get_all(
+        BLOCK,
+        filters=[["user", "=", caller], ["start", ">=", start_dt], ["start", "<", end_dt]],
+        fields=["name", "task", "start", "end", "hours", "state"],
+        order_by="start asc", ignore_permissions=True) or []
+
+    scheduled_tasks = {b["task"] for b in rows if b.get("task")}
+    meta = _task_meta(list(scheduled_tasks))
+    blocks = []
+    for b in rows:
+        m = meta.get(b.get("task"), {})
+        blocks.append({
+            "name": b["name"], "task": b.get("task"),
+            "subject": m.get("subject") or (b.get("task") or "Việc"),
+            "project": m.get("project") or "",
+            "start": str(b["start"]), "end": str(b["end"]),
+            "state": b.get("state") or "", "hours": b.get("hours") or 0,
+        })
+
+    # Nudge: open tasks due TODAY that don't yet have a block today.
+    due = frappe.get_all(
+        "Task",
+        or_filters=[["owner", "=", caller], ["_assign", "like", '%"{0}"%'.format(caller)]],
+        filters=[["status", "not in", ["Completed", "Cancelled"]], ["exp_end_date", "=", day]],
+        fields=["name", "workflow_state"], limit_page_length=0, ignore_permissions=True) or []
+    due = [t for t in due if t.get("workflow_state") not in _TERMINAL_WF]
+    due_unscheduled = len([t for t in due if t["name"] not in scheduled_tasks])
+
+    return {
+        "date": str(day),
+        "now": str(now_datetime())[:19],
+        "sync_on": bool(conf.get("ec_pm_calendar_sync")),
+        "meetings": _ms_today_events(caller),
+        "blocks": blocks,
+        "due_unscheduled": due_unscheduled,
+    }
+
+
+@frappe.whitelist()
+def rsvp(event_id, response, comment=None):
+    """Respond to a meeting invite from ERP — writes back to Outlook via Graph, on the
+    CALLER'S OWN calendar only. `response` in accept|decline|tentative. Requires
+    ec_pm_calendar_sync + Calendars.ReadWrite (Application) consent on the Graph app."""
+    pmperm.require_pm_access()
+    caller = frappe.session.user
+    if not event_id:
+        frappe.throw(_("Thiếu sự kiện."))
+    action = {"accept": "accept", "decline": "decline",
+              "tentative": "tentativelyAccept"}.get((response or "").lower())
+    if not action:
+        frappe.throw(_("Phản hồi không hợp lệ."))
+    conf = frappe.get_conf() if hasattr(frappe, "get_conf") else {}
+    if not conf.get("ec_pm_calendar_sync"):
+        frappe.throw(_("Đồng bộ lịch chưa được bật."))
+    from ecentric_workspace.notification_center.providers import graph as msgraph
+    if not msgraph.is_configured():
+        frappe.throw(_("Chưa cấu hình lịch."))
+    ok, token = msgraph.get_app_token()
+    if not ok:
+        frappe.throw(_("Không lấy được token lịch."))
+    from urllib.parse import quote
+    import requests
+    try:
+        url = ("https://graph.microsoft.com/v1.0/users/" + caller +
+               "/events/" + quote(event_id, safe="") + "/" + action)
+        body = {"sendResponse": True}
+        if comment:
+            body["comment"] = comment
+        r = requests.post(url, headers={"Authorization": "Bearer " + token,
+                          "Content-Type": "application/json"}, json=body, timeout=12)
+        if r.status_code in (200, 202, 204):
+            return {"ok": True, "response": (response or "").lower()}
+        return {"ok": False, "code": "RSVP_" + str(r.status_code)}
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "schedule rsvp")
+        return {"ok": False, "code": "RSVP_EXC"}
 
 
 def _team_user_ids(user):
