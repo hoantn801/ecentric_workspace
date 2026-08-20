@@ -969,13 +969,39 @@
     fetchReminder(function () { setReminderBadge(R.data ? R.data.attention_count : 0); });
   }
 
+  //: source/stage -> icon key + tone class, so a row is recognisable at a glance
+  //: instead of every line looking identical.
+  var _RM_ICON = {
+    approval: ['check', 'ec-shell-rm-t-appr'],
+    fulfillment: ['inbox2', 'ec-shell-rm-t-ful'],
+    task: ['briefcase', 'ec-shell-rm-t-task'],
+    weekly_report: ['chart', 'ec-shell-rm-t-wtu'],
+    generic: ['doc', 'ec-shell-rm-t-gen']
+  };
+
+  function _rmIcon(it) {
+    var key = (it.action_stage === 'fulfillment') ? 'fulfillment'
+            : (it.source_type || it.source_key || 'generic');
+    return _RM_ICON[key] || _RM_ICON.generic;
+  }
+
   function reminderItemHtml(it) {
-    var due = it.due_at ? (String(it.due_at).slice(8, 10) + '/' + String(it.due_at).slice(5, 7)) : 'Không hạn';
-    var overdue = it.bucket === 'overdue' ? ' ec-shell-rm-due-overdue' : '';
-    return '<a class="ec-shell-rm-item" href="' + esc(it.action_url || '#') + '">' +
-      '<span class="ec-shell-rm-src">' + esc(it.source_label || '') + '</span>' +
-      '<span class="ec-shell-rm-title">' + esc(it.title || '') + '</span>' +
-      '<span class="ec-shell-rm-due' + overdue + '">' + esc(due) + '</span></a>';
+    var raw = String(it.due_at || '');
+    var due = raw ? (raw.slice(8, 10) + '/' + raw.slice(5, 7)) : 'Không hạn';
+    var ic = _rmIcon(it);
+    // meta line carries WHAT it is + WHEN, so the user can triage before opening
+    var meta = [it.source_label || '', it.subtitle || ''].filter(Boolean).join(' · ');
+    var cls = 'ec-shell-rm-item'
+            + (it.bucket === 'overdue' ? ' ec-shell-rm-od' : '')
+            + (it.bucket === 'act_now' ? ' ec-shell-rm-now' : '');
+    return '<a class="' + cls + '" href="' + esc(it.action_url || '#') + '">' +
+      '<span class="ec-shell-rm-ic ' + ic[1] + '" aria-hidden="true">' + svg(ic[0]) + '</span>' +
+      '<span class="ec-shell-rm-txt">' +
+        '<span class="ec-shell-rm-title">' + esc(it.title || '') + '</span>' +
+        (meta ? '<span class="ec-shell-rm-meta">' + esc(meta) + '</span>' : '') +
+      '</span>' +
+      '<span class="ec-shell-rm-due">' + esc(due) + '</span>' +
+      '<span class="ec-shell-rm-chevr" aria-hidden="true">›</span></a>';
   }
 
   function bucketSectionHtml(meta, rows, count, hasMore) {
@@ -1056,9 +1082,10 @@
   function workLaneInner() {
     var d = R.data;
     if (!d) return '<div class="ec-shell-rm-empty">Không tải được. Thử lại sau.</div>';
-    var head = '<div class="ec-shell-rm-head"><strong>Việc của tôi</strong>' +
-      '<span class="ec-shell-rm-total">' + esc(String(d.total || 0)) + '</span></div>';
-    if (!d.total) return head + '<div class="ec-shell-rm-empty">Không có việc nào cần làm.</div>';
+    // no lane heading here: the drawer bar already says "Việc của tôi" (the old
+    // markup repeated the title twice, once in the bar and once per lane).
+    var head = '';
+    if (!d.total) return '<div class="ec-shell-rm-empty">Không có việc nào cần làm.</div>';
     var bi = d.bucket_items || {}, counts = d.counts || {}, more = d.bucket_has_more || {};
     var body = '';
     _BUCKET_META.forEach(function (m) {
@@ -1085,6 +1112,8 @@
     el.innerHTML =
       '<div class="ec-shell-rm-bar">' +
         '<span class="ec-shell-rm-bartitle">Việc của tôi</span>' +
+        ((R.data && R.data.total)
+          ? '<span class="ec-shell-rm-total">' + esc(String(R.data.total)) + '</span>' : '') +
         '<span class="ec-shell-nc-spacer"></span>' +
         '<button type="button" class="ec-shell-rm-close" data-ec-shell-rm-close="1" ' +
           'aria-label="Đóng">×</button>' +
