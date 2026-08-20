@@ -17,8 +17,11 @@ ROUTE = "approvals/payment-request"
 NAME = "payment-request"
 TITLE = "Payment Request"
 
+# .../ecentric_workspace/approval_center/features/payment_request/infrastructure/page_sync.py
+# -> 5 dirname = .../ecentric_workspace (REORG FIX: 3 dirname trỏ nhầm features/platform -> panel rỗng)
 _PLATFORM_ESIGN_UI = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__)))))),
     "platform", "esign", "ui")
 
 
@@ -108,8 +111,10 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "61526b3fb36c365c33ef9bebf0881f17a332c5c0c7cdd7ce0ae32942d46191ae"
+BASELINE_SHA256 = "9ce2d2e5f38b6e897daf5c8092bf4b561ad1ba1ed6b71aa96bba9ad98be9324c"
 SUPERSEDES_SHA256 = (
+    "61526b3fb36c365c33ef9bebf0881f17a332c5c0c7cdd7ce0ae32942d46191ae",   # baseline trước fix path (compose thiếu panel do bug reorg)
+    "402a09e9930947a9700d50c95ca5a7d078ead062edbe3a18e0af841eaf67c116",   # live sau lần resync 2026-08-21 (panel esign rỗng)
     "b143bbcf4adc1f7f197376785b9d0e036835f3807381342c7ab72675ebbc828e",
     "d8f7d3572013ea4ec4f4b2c2997659a229b18979576cc9e9f939de8fc00ed68a",
     "77a9a462aef1ab9e353784518aa880491fac5a29a53c0c8564e5309ab58c76c4",
