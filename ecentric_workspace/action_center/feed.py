@@ -55,7 +55,11 @@ _WTU_TERMINAL = frozenset({"Submitted", "Reviewed"})
 
 DEFAULT_LIMIT = 20
 MAX_LIMIT = 100
-_SCAN_CAP = 500
+#: hard bound on how many Open ToDos one feed pass scans. Raised 500 -> 2000
+#: (PO 2026-08-12) because the old cap silently under-reported the badge for
+#: heavy users; anything beyond it is reported via the `truncated` flag rather
+#: than shown as a wrong number.
+_SCAN_CAP = 2000
 #: default per-bucket preview size for the header reminder drawer.
 PREVIEW_N = 4
 
@@ -374,13 +378,16 @@ def _open_fulfillment_todo(biz_dt, biz_name, user):
 
 # ---- the shared feed -------------------------------------------------------
 def _load_open_todos(user):
+    """Fetches _SCAN_CAP + 1 rows so an overflow can be DETECTED by the caller
+    (see _classified_feed) instead of being silently swallowed. Returns a plain
+    list -- the stable seam every test/stub replaces."""
     return frappe.db.sql(
         "SELECT name, description, reference_type, reference_name, "
         "       priority, modified, creation, date, status "
         "FROM `tabToDo` "
         "WHERE allocated_to=%s AND status=%s "
         "ORDER BY creation ASC, name ASC LIMIT %s",
-        (user, "Open", _SCAN_CAP), as_dict=True) or []
+        (user, "Open", _SCAN_CAP + 1), as_dict=True) or []
 
 
 def _classified_feed(user):
@@ -393,6 +400,10 @@ def _classified_feed(user):
     duplicated classifier, no unbounded fetch."""
     today = frappe.utils.getdate()
     rows = _load_open_todos(user)
+    # overflow detection lives HERE so _load_open_todos keeps its list contract
+    truncated = len(rows) > _SCAN_CAP
+    if truncated:
+        rows = rows[:_SCAN_CAP]
 
     from ecentric_workspace.action_center import resolvers as R
     from ecentric_workspace.action_center.resolvers import APPROVAL_DOCTYPES
@@ -419,6 +430,7 @@ def _classified_feed(user):
     wtu = _wtu_state(wtu_names)
 
     items = []
+    dedup = {}          # (reference_type, reference_name) -> kept item
     counts = {b: 0 for b in FEED_BUCKETS}
     source_counts = {k: 0 for k in SOURCE_COUNT_KEYS}
     for r in rows:
@@ -498,7 +510,32 @@ def _classified_feed(user):
         it["active"] = bool(active)
         it["resolution_state"] = "open"
         it["_creation"] = str(r.get("creation") or "")
-        items.append(it)
+
+        # DEDUP (PO-locked 2026-08-12): several Open ToDos may point at the SAME
+        # business document (e.g. the user is both approver and fulfiller, or a
+        # stale duplicate survived). Show ONE card per document and count it
+        # once -- previously each row produced its own card and inflated both
+        # the badge and the bucket counts. The most urgent bucket wins; ties
+        # keep the first (creation ASC) row. Un-referenced ToDos (no rn) are
+        # inherently distinct and are never merged.
+        dk = (rt, rn) if rn else None
+        if dk is not None and dk in dedup:
+            prev = dedup[dk]
+            if _BUCKET_RANK.get(bucket, 99) < _BUCKET_RANK.get(prev["bucket"], 99):
+                # replace the kept card, moving the counts to the new bucket
+                counts[prev["bucket"]] -= 1
+                prev_sk = prev.pop("_sk")
+                source_counts[prev_sk] -= 1
+                items[prev["_idx"]] = it
+                it["_idx"] = prev["_idx"]
+                dedup[dk] = it
+            else:
+                continue                                  # keep the existing card
+        else:
+            it["_idx"] = len(items)
+            items.append(it)
+            if dk is not None:
+                dedup[dk] = it
         counts[bucket] += 1
         # Fulfillment-stage actions are approval-FAMILY but NOT pending approvals:
         # count them separately so source_counts.approval stays accurate.
@@ -507,8 +544,9 @@ def _classified_feed(user):
         else:
             sk = SOURCE_COUNT_KEY.get(it.get("source_type"), "generic_todo")
         source_counts[sk] += 1
+        it["_sk"] = sk        # remembered so a later dedup swap can un-count it
 
-    return order_items(items), counts, source_counts
+    return order_items(items), counts, source_counts, truncated
 
 
 def _clean(items):
@@ -516,6 +554,8 @@ def _clean(items):
     for it in items:
         it = dict(it)
         it.pop("_creation", None)
+        it.pop("_idx", None)
+        it.pop("_sk", None)
         out.append(it)
     return out
 
@@ -525,7 +565,7 @@ def build_feed(user, cursor=None, limit=DEFAULT_LIMIT):
     consumers). Reuses _classified_feed."""
     limit = max(1, min(int(limit or DEFAULT_LIMIT), MAX_LIMIT))
     offset = decode_cursor(cursor)
-    items, counts, source_counts = _classified_feed(user)
+    items, counts, source_counts, truncated = _classified_feed(user)
     total = len(items)
     page = _clean(items[offset:offset + limit])
     next_cursor = encode_cursor(offset + limit) if (offset + limit) < total else None
@@ -534,6 +574,10 @@ def build_feed(user, cursor=None, limit=DEFAULT_LIMIT):
         "counts": counts,
         "source_counts": source_counts,
         "total": total,
+        # True when the user has more Open ToDos than _SCAN_CAP: consumers show
+        # "<cap>+" instead of a number that is knowingly short.
+        "truncated": truncated,
+        "scan_cap": _SCAN_CAP,
         "returned": len(page),
         "next_cursor": next_cursor,
         "generated_at": str(frappe.utils.now_datetime()),
@@ -547,7 +591,7 @@ def bucket_previews(user, preview_n=PREVIEW_N):
     whole limit while upcoming has a count but no payload). No separate source
     queries; bounded scan."""
     preview_n = max(1, min(int(preview_n or PREVIEW_N), MAX_LIMIT))
-    items, counts, source_counts = _classified_feed(user)
+    items, counts, source_counts, truncated = _classified_feed(user)
     bucket_items = {b: [] for b in FEED_BUCKETS}
     for it in items:
         b = it.get("bucket")
@@ -559,6 +603,8 @@ def bucket_previews(user, preview_n=PREVIEW_N):
         "total": len(items),
         "counts": counts,
         "source_counts": source_counts,
+        "truncated": truncated,
+        "scan_cap": _SCAN_CAP,
         "bucket_items": bucket_items,
         "bucket_has_more": bucket_has_more,
         "preview_n": preview_n,
@@ -574,7 +620,7 @@ def bucket_page(user, bucket, cursor=None, limit=DEFAULT_LIMIT):
         return {"bucket": bucket, "items": [], "count": 0, "returned": 0, "next_cursor": None}
     limit = max(1, min(int(limit or DEFAULT_LIMIT), MAX_LIMIT))
     offset = decode_cursor(cursor)
-    items, counts, _ = _classified_feed(user)
+    items, counts, _, _tr = _classified_feed(user)
     rows = [it for it in items if it.get("bucket") == bucket]
     total = len(rows)
     page = _clean(rows[offset:offset + limit])
