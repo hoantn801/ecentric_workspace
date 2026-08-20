@@ -64,3 +64,44 @@ class TestDocumentSectionShell(FrappeTestCase):
         self.assertEqual(main.count('data-ec-shell="1"'), 1)
         self.assertEqual(main.count('class="ec-shell-mount"'), 1)
         self.assertIn("ec-shell-tbright", main)
+
+    # ---- smoothness overnight pass (2026-08-21) regressions ----
+    def test_no_legacy_placement_editor_injected(self):
+        h = self._h()
+        self.assertNotIn("pdf_placement_editor", h)
+        self.assertNotIn('id="ec-pph-coords"', h)
+        self.assertNotIn('id="ec-pph-editor"', h)              # standalone legacy editor never injected
+
+    def test_drawer_isolates_legacy_layers(self):
+        h = self._h()
+        self.assertIn("#ec-pph-editor{display:none", h)        # legacy requester editor always hidden
+        self.assertIn("html.ecd-drawer-open", h)               # drawer-open hides legacy layers
+
+    def test_local_first_drawer_markers(self):
+        h = self._h()
+        self.assertIn("hydrateBoxes", h)                       # full redraw ONLY on open/reload
+        self.assertIn("_onDragMove", h); self.assertIn("_onDragEnd", h)
+        self.assertIn("requestAnimationFrame", h)              # rAF-coalesced drag
+        self.assertIn("ecdPlaceHint", h)                       # visible PDF helper hint
+        self.assertIn("Đang chọn vị trí", h)                   # active placement-button state
+
+    def test_serialized_save_and_caches(self):
+        h = self._h()
+        self.assertIn("_dispatch", h)                          # per-box serialized save (no double-create)
+        self.assertIn("pend.inflight", h)
+        self.assertIn("pend.queued", h)
+        self.assertIn("pdfDocs", h)                            # PDF cached per file_url across reopens
+        self.assertIn("rowsStale", h)                          # rows refreshed once on close, not per save
+
+    def test_identity_watcher_present(self):
+        h = self._h()
+        self.assertIn("_checkIdentity", h)
+        self.assertIn("_loadTok", h)
+        self.assertIn("_clearDocState", h)
+
+    def test_progressive_submit_cta(self):
+        h = self._h()
+        self.assertIn("Tiếp tục: Thêm chứng từ", h)
+        self.assertIn('id="payr-continue"', h)
+        self.assertIn("continueToDocuments", h)
+        self.assertNotIn('id="payr-submit"', h)                # submit CTA removed from the create stage
