@@ -18,7 +18,12 @@ Permission scope:
 import frappe
 
 from ecentric_workspace.action_center import feed as ac_feed
+from ecentric_workspace.action_center import resolvers as ac_resolvers
 from ecentric_workspace.action_center.resolvers import build_approval_url
+
+#: how many of the user's own open requests the summary lists (counts are NOT
+#: derived from this page -- see get_my_requests_summary)
+_MY_REQ_LIMIT = 10
 
 
 def _require_user():
@@ -115,8 +120,11 @@ def get_my_requests_summary():
 
     Smallest governed aggregate (2C.2 locked scope): read-only over EC
     Approval Request, requester = SESSION user (client cannot pass a user),
-    status Pending / Information Required only. Counts come from the SAME
-    rows returned, so displayed counts can never drift from the list.
+    status Pending / Information Required only.
+
+    Counts are computed over ALL matching rows (frappe.db.count), independent of
+    the display limit -- deriving them from the limited page under-reported for
+    any user with more than `_MY_REQ_LIMIT` open requests.
     """
     if not frappe.session.user or frappe.session.user == "Guest":
         frappe.response["http_status_code"] = 401
@@ -129,20 +137,24 @@ def get_my_requests_summary():
                  "approval_status": ["in", ["Pending", "Information Required"]]},
         fields=["name", "approval_type", "reference_doctype", "reference_name",
                 "approval_status", "current_level", "submitted_at"],
-        order_by="submitted_at desc", limit=10, ignore_permissions=True)
+        order_by="submitted_at desc", limit=_MY_REQ_LIMIT, ignore_permissions=True)
+
+    # counts over the FULL set, not just the displayed page
+    counts = {
+        "pending": frappe.db.count("EC Approval Request",
+                                   {"requested_by": user, "approval_status": "Pending"}),
+        "information_required": frappe.db.count(
+            "EC Approval Request",
+            {"requested_by": user, "approval_status": "Information Required"}),
+    }
 
     items = []
-    counts = {"pending": 0, "information_required": 0}
     for r in rows:
         st = (r.get("approval_status") or "").strip()
-        key = "information_required" if st == "Information Required" else "pending"
-        counts[key] += 1
-        title = ""
-        try:
-            title = frappe.db.get_value(
-                r["reference_doctype"], r["reference_name"], "title") or ""
-        except Exception:
-            title = ""
+        # metadata-driven title: NEVER SELECT a hard-coded `title` column (that
+        # raised MySQL 1054 per row on DocTypes without one, silently swallowed)
+        title = ac_resolvers.resolve_title(r.get("reference_doctype"),
+                                           r.get("reference_name"))
         items.append({
             "request": r["name"],
             "source_type": "approval",
@@ -154,4 +166,8 @@ def get_my_requests_summary():
             "submitted_at": str(r.get("submitted_at") or ""),
             "action_url": build_approval_url(r.get("reference_doctype"), r.get("reference_name")),
         })
-    return {"success": True, "counts": counts, "count": len(items), "items": items}
+    total = counts["pending"] + counts["information_required"]
+    return {"success": True, "counts": counts,
+            # `count` is the TRUE total; `shown` is how many rows this page holds
+            "count": total, "shown": len(items),
+            "truncated": total > len(items), "items": items}

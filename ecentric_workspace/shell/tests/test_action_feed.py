@@ -226,8 +226,14 @@ class TestBuildFeed(unittest.TestCase):
         self.assertEqual(routes["td-task"]["bucket"], "upcoming")
         # WTU today -> act_now
         self.assertEqual(routes["td-wtu"]["bucket"], "act_now")
-        # counts over full feed
-        self.assertEqual(res["counts"]["overdue"], 2)   # td-appr + td-appr2 (both PO-1 overdue)
+        # counts over full feed. DEDUP (PO-locked 2026-08-12): td-appr and
+        # td-appr2 both point at PO-1, so the feed shows ONE card for that
+        # document and counts it once -- previously each ToDo produced its own
+        # card and inflated the badge.
+        self.assertEqual(res["counts"]["overdue"], 1)
+        self.assertNotIn("td-appr2", routes)            # merged into td-appr
+        self.assertEqual(len([i for i in res["items"]
+                              if i.get("reference_name") == "PO-1"]), 1)
         self.assertEqual(res["total"], res["counts"]["overdue"] + res["counts"]["act_now"]
                          + res["counts"]["upcoming"] + res["counts"]["undated"])
 
@@ -477,9 +483,133 @@ class TestBucketPreviewsNoStarvation(unittest.TestCase):
             body_start = src.index(fn)
             body = src[body_start:body_start + 600]
             self.assertIn("_classified_feed(user)", body, fn)
-        # no separate per-source count query in the api layer
+        # No separate per-source count query in the FEED endpoints: the feed's
+        # counts/source_counts must come from the one classified pass. Scoped to
+        # the feed section of api.py -- get_my_requests_summary is a DIFFERENT
+        # aggregate (the user's own submitted requests) and legitimately counts
+        # over the full set so its totals do not drift with the display limit.
         api_src = io.open(os.path.join(APP, "action_center", "api.py"), encoding="utf-8").read()
-        self.assertNotIn("frappe.db.count", api_src)
+        feed_section = api_src[:api_src.index("def get_my_requests_summary")]
+        self.assertNotIn("frappe.db.count", feed_section)
+        self.assertNotIn("source_counts[", api_src)   # never recomputed here
+
+
+class TestScanBoundAndDedup(unittest.TestCase):
+    """PO-locked 2026-08-12. Two honesty rules for the badge:
+
+      * the scan is BOUNDED, and when the bound is hit the API says so
+        (`truncated`) instead of publishing a number it knows is short;
+      * one business document produces ONE card, however many Open ToDos point
+        at it -- the user is often both approver and fulfiller, and stale
+        duplicates survive, both of which used to inflate the badge.
+    """
+
+    def setUp(self):
+        _install(FK, purge=False)
+        FK.db = _FakeDB(); FK.getall_map = {}
+        FK.session.user = "u@e.c"
+        FK.db.get_value_map = {}
+
+    def _plain(self, n, start=0):
+        # un-referenced ToDos: inherently distinct, never merged
+        return [_todo("td-%d" % i, "", "", created="%04d" % i)
+                for i in range(start, start + n)]
+
+    def test_under_cap_is_not_truncated(self):
+        FK.db.todo_rows = self._plain(5)
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertFalse(res["truncated"])
+        self.assertEqual(res["total"], 5)
+        self.assertEqual(res["scan_cap"], feed._SCAN_CAP)
+
+    def test_exactly_at_cap_is_not_truncated(self):
+        # off-by-one guard: the cap itself is a complete answer
+        FK.db.todo_rows = self._plain(feed._SCAN_CAP)
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertFalse(res["truncated"])
+        self.assertEqual(res["total"], feed._SCAN_CAP)
+
+    def test_over_cap_sets_truncated_and_clips(self):
+        FK.db.todo_rows = self._plain(feed._SCAN_CAP + 25)
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertTrue(res["truncated"])
+        self.assertEqual(res["total"], feed._SCAN_CAP)      # clipped, not 2025
+
+    def test_loader_fetches_one_more_than_cap(self):
+        # overflow can only be DETECTED if the query asks for cap+1
+        src = io.open(os.path.join(APP, "action_center", "feed.py"), encoding="utf-8").read()
+        body = src.split("def _load_open_todos")[1].split("\ndef ")[0]
+        self.assertIn("_SCAN_CAP + 1", body)
+
+    def test_cap_is_2000(self):
+        self.assertEqual(feed._SCAN_CAP, 2000)
+
+    def test_previews_expose_the_same_flag(self):
+        # the drawer reads bucket_previews, not build_feed -- both must tell the
+        # truth or the header count and the drawer count disagree
+        FK.db.todo_rows = self._plain(feed._SCAN_CAP + 3)
+        prev = feed.bucket_previews("u@e.c")
+        self.assertTrue(prev["truncated"])
+        self.assertEqual(prev["scan_cap"], feed._SCAN_CAP)
+
+    def test_duplicate_todos_on_one_doc_collapse_to_one_card(self):
+        FK.db.todo_rows = [
+            _todo("td-a", "Task", "TASK-9", date="2026-07-26", created="1"),
+            _todo("td-b", "Task", "TASK-9", date="2026-07-26", created="2"),
+            _todo("td-c", "Task", "TASK-9", date="2026-07-26", created="3"),
+        ]
+        FK.getall_map = {"Task": [{"name": "TASK-9", "workflow_state": "In Progress",
+                                   "status": "Working", "exp_end_date": "2026-07-26"}]}
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertEqual(res["total"], 1)
+        self.assertEqual(sum(res["counts"].values()), 1)
+        self.assertEqual(sum(res["source_counts"].values()), 1)
+
+    def test_dedup_keeps_the_most_urgent_bucket(self):
+        # same doc, two ToDos: one overdue, one upcoming. The card the user sees
+        # must be the URGENT one -- keeping whichever row arrived first would
+        # hide an overdue item behind a future date.
+        FK.db.todo_rows = [
+            _todo("td-later", "Task", "TASK-7", date="2026-07-30", created="1"),
+            _todo("td-late", "Task", "TASK-7", date="2026-07-10", created="2"),
+        ]
+        FK.getall_map = {"Task": [{"name": "TASK-7", "workflow_state": "In Progress",
+                                   "status": "Working", "exp_end_date": ""}]}
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertEqual(res["total"], 1)
+        kept = res["items"][0]["bucket"]
+        # assert on RANK, not on a literal bucket name: an ACTIVE PM task with a
+        # past date is deliberately act_now (someone is already on it) rather
+        # than overdue, and that classification is not what this test governs.
+        self.assertLess(feed._BUCKET_RANK[kept], feed._BUCKET_RANK["upcoming"])
+        self.assertEqual(res["counts"][kept], 1)
+        self.assertEqual(res["counts"]["upcoming"], 0)      # un-counted on swap
+        self.assertEqual(sum(res["counts"].values()), 1)
+
+    def test_unreferenced_todos_are_never_merged(self):
+        FK.db.todo_rows = self._plain(4)
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertEqual(res["total"], 4)
+
+    def test_internal_keys_never_leak_to_the_client(self):
+        FK.db.todo_rows = self._plain(3)
+        for it in feed.build_feed("u@e.c", limit=20)["items"]:
+            for k in ("_idx", "_sk", "_creation"):
+                self.assertNotIn(k, it)
+
+
+class TestReminderTotalLabelJS(unittest.TestCase):
+    """The drawer must render "<cap>+" when the server reports truncation."""
+
+    def test_label_helper_exists_and_reads_the_flag(self):
+        js = io.open(os.path.join(APP, "public", "js", "ec_shell.js"), encoding="utf-8").read()
+        self.assertIn("function rmTotalLabel(", js)
+        body = js.split("function rmTotalLabel(")[1].split("\n  }")[0]
+        self.assertIn("truncated", body)
+        self.assertIn("scan_cap", body)
+        self.assertIn("+", body)
+        # and it is actually WIRED into the drawer header, not just defined
+        self.assertIn("rmTotalLabel(R.data)", js)
 
 
 class TestActiveSourceClassification(unittest.TestCase):

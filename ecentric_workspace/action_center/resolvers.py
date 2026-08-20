@@ -135,11 +135,23 @@ def _title_field_cache():
     retained across requests or for the process lifetime. `frappe.get_meta()`
     already provides framework-level meta cache + invalidation; this cache only
     avoids re-running get_title_field()/has_field() for the same DocType across
-    the many rows of one feed."""
-    cache = getattr(frappe.local, _TITLE_FIELD_LOCAL_ATTR, None)
+    the many rows of one feed.
+
+    Degrades gracefully: outside a request context (background job started
+    before request-local init, bench execute, tests) `frappe.local` may be
+    absent or read-only. Caching is an optimisation, never a requirement, so we
+    fall back to a throwaway dict -- raising here used to abort resolve_title
+    and silently DROP every approval item from the feed."""
+    local = getattr(frappe, "local", None)
+    if local is None:
+        return {}
+    cache = getattr(local, _TITLE_FIELD_LOCAL_ATTR, None)
     if cache is None:
         cache = {}
-        setattr(frappe.local, _TITLE_FIELD_LOCAL_ATTR, cache)
+        try:
+            setattr(local, _TITLE_FIELD_LOCAL_ATTR, cache)
+        except Exception:
+            pass          # un-settable local -> per-call dict, still correct
     return cache
 
 

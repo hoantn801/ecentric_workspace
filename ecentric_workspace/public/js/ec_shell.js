@@ -18,7 +18,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.19.0 (single header inbox "Việc của tôi": reminder clock + notification bell merged into one button opening a wide right-hand drawer with two lanes -- work | notifications; rows are links only, every action happens on the destination page)';
+  var VERSION = 'ec-shell v1.19.1 (honest totals: one card per business document, bounded scan raised to 2000 with a "2000+" label when it overflows) (v1.19.0: single header inbox "Viec cua toi": single header inbox "Việc của tôi": reminder clock + notification bell merged into one button opening a wide right-hand drawer with two lanes -- work | notifications; rows are links only, every action happens on the destination page)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -937,6 +937,16 @@
 
   function reminderBtn() { return document.querySelector('[data-ec-shell-action-slot="1"]'); }
 
+  // The server scans a BOUNDED number of open ToDos per pass (feed._SCAN_CAP)
+  // and reports `truncated` when the user has more than that. Show "<cap>+"
+  // rather than a total we already know is short -- a knowingly wrong number is
+  // worse than an honest lower bound.
+  function rmTotalLabel(d) {
+    var n = (d && d.total) || 0;
+    return (d && d.truncated) ? (String(d.scan_cap || n) + '+') : String(n);
+  }
+
+
   function setReminderBadge(attention) {
     var btn = reminderBtn();
     if (!btn) return;
@@ -1113,7 +1123,7 @@
       '<div class="ec-shell-rm-bar">' +
         '<span class="ec-shell-rm-bartitle">Việc của tôi</span>' +
         ((R.data && R.data.total)
-          ? '<span class="ec-shell-rm-total">' + esc(String(R.data.total)) + '</span>' : '') +
+          ? '<span class="ec-shell-rm-total">' + esc(rmTotalLabel(R.data)) + '</span>' : '') +
         '<span class="ec-shell-nc-spacer"></span>' +
         '<button type="button" class="ec-shell-rm-close" data-ec-shell-rm-close="1" ' +
           'aria-label="Đóng">×</button>' +
