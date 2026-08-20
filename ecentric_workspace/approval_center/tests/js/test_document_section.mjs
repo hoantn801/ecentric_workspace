@@ -7,7 +7,7 @@
 import fs from "fs"; import vm from "vm";
 import { fileURLToPath } from "url"; import path from "path";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const HTML = fs.readFileSync(path.join(HERE, "..", "..", "esign", "ui", "document_signing_section.html"), "utf8");
+const HTML = fs.readFileSync(path.join(HERE, "..", "..", "..", "platform", "esign", "ui", "document_signing_section.html"), "utf8");
 const SRC = HTML.match(/<script id="ec-docsign-script">([\s\S]*?)<\/script>/)[1];
 
 let els = {};
@@ -46,7 +46,7 @@ let calls=[],uploads=[];
 function mk(opts){ opts=opts||{};
   els={}; ["ec-docsign","ecdCount","ecdSummary","ecdBanner","ecdRows","ecdUpload","ecdUploadBtn","ecdUploadHint",
     "ecdDrawerOv","ecdDrawerName","ecdDrawerSummary","ecdDrawerClose","ecdViewer","ecdSignerCards","ecdDrawerFoot",
-    "ecdViewerMsg","ecdStage","ecdCanvas","ecdLayer","ecdProg","ecdSaveState","ecdRoBanner","ecdDrawerErr",
+    "ecdViewerMsg","ecdStage","ecdCanvas","ecdLayer","ecdProg","ecdSaveState","ecdRoBanner","ecdDrawerErr","ecdPlaceHint",
     "ec-approver-wrap","payr-body"].forEach(id=>els[id]=mkEl(id));
   const contentHost=mkEl("content-host"); els["payr-body"].parentNode=contentHost; els["ec-docsign"].parentNode=mkEl("body");
   calls=[];uploads=[];
@@ -60,16 +60,19 @@ function mk(opts){ opts=opts||{};
       if(/placement_state$/.test(o.method))return Promise.resolve({message:{ok:true,is_pdf:false,file_url:"/x.pdf",required_slot_count:2,covered_slot_count:0,required_slots:[{slot_key:"requester",label:"Người đề nghị",candidates:[]},{slot_key:"L2",label:"Finance",candidates:[]}],placements:[]}});
       return Promise.resolve({message:{}}); },
     utils:{escape_html:x=>String(x==null?"":x)},show_alert(){},csrf_token:"t",boot:{} };
+  const ivals=[];
   const sb={ document:{ getElementById:id=>els[id]||null,
-      querySelector:sel=>(sel.indexOf("content")>=0?contentHost:els["ec-approver-wrap"]) },
+      querySelector:sel=>(sel.indexOf("content")>=0?contentHost:els["ec-approver-wrap"]),
+      addEventListener(){}, createElement:t=>mkEl("_new_"+t),
+      documentElement:{classList:{add(){},remove(){}}} },
     location:{ search: opts.search!==undefined?opts.search:"?id=EC-PAYR-2026-00012" },
-    URLSearchParams,Promise,String,Array,Object,setInterval:()=>1,clearInterval:()=>{},
+    URLSearchParams,Promise,String,Array,Object,setInterval:(f)=>{ivals.push(f);return ivals.length;},clearInterval:()=>{},
     FormData:function(){this._d={};this.append=(k,v)=>{this._d[k]=v;};},
     fetch:(url,o)=>{uploads.push({url,o});return Promise.resolve({json:()=>Promise.resolve({message:{file_url:"/private/files/up.pdf"}})});},
     confirm:()=>true,open:()=>{},console };
   sb.__import=()=>Promise.resolve({GlobalWorkerOptions:{},getDocument:()=>({promise:Promise.resolve({getPage:()=>Promise.resolve({getViewport:({scale})=>({width:612*(scale||1),height:792*(scale||1)}),render:()=>({promise:Promise.resolve()})})})})});
   vm.createContext(sb); sb.window=sb; sb.frappe=frappe; sb.contentHost=contentHost;
-  return {sb,els,contentHost}; }
+  return {sb,els,contentHost,ivals}; }
 
 const tick=async()=>{for(let i=0;i<8;i++)await Promise.resolve();};
 let pass=0,fail=0; const ok=(c,m)=>{console.log((c?"  ok - ":"  FAIL - ")+m);pass+=c;fail+=!c;};
@@ -142,7 +145,7 @@ async function main(){
   (function(){
     const e={}; ["ec-docsign","ecdCount","ecdSummary","ecdBanner","ecdRows","ecdUpload","ecdUploadBtn",
       "ecdUploadHint","ecdDrawerOv","ecdDrawerName","ecdDrawerSummary","ecdDrawerClose","ecdViewer",
-      "ecdSignerCards","ecdDrawerFoot","ecdRoBanner","ecdDrawerErr","ec-approver-wrap","payr-body"].forEach(id=>{
+      "ecdSignerCards","ecdDrawerFoot","ecdRoBanner","ecdDrawerErr","ecdPlaceHint","ec-approver-wrap","payr-body"].forEach(id=>{
         e[id]={id,_html:"",textContent:"",_attrs:{},style:{display:""},disabled:false,files:[],parentNode:null,
           getAttribute(k){return (k in this._attrs)?this._attrs[k]:null;},setAttribute(k,v){this._attrs[k]=String(v);},
           appendChild(c){c.parentNode=this;},querySelectorAll(){return [];}};
@@ -151,7 +154,7 @@ async function main(){
         Object.defineProperty(e[id],"onclick",{get(){return this._k;},set(f){this._k=f;}}); });
     const ch={appendChild(){}}; e["payr-body"].parentNode=ch;
     let posted=0;
-    const sbx={document:{getElementById:id=>e[id]||null,querySelector:()=>ch},location:{search:""},
+    const sbx={document:{getElementById:id=>e[id]||null,querySelector:()=>ch,addEventListener(){},createElement:t=>({style:{},appendChild(){},querySelector:()=>({}),addEventListener(){}}),documentElement:{classList:{add(){},remove(){}}}},location:{search:""},
       URLSearchParams,Promise,String,Array,Object,setInterval:()=>1,clearInterval:()=>{},
       FormData:function(){this.append=()=>{};},fetch:()=>{posted++;return Promise.resolve({json:()=>Promise.resolve({message:{}})});},
       confirm:()=>true,open:()=>{},console};
@@ -163,6 +166,14 @@ async function main(){
     e["ecdUpload"].files=[{name:"z.pdf"}]; if(e["ecdUpload"].onchange) e["ecdUpload"].onchange({target:e["ecdUpload"]});
     ok(posted===0,"unsaved: upload handler cannot POST (no fake attached_to_name)");
   })();
+
+  // ISSUE 4: navigating an existing PR -> "Tạo mới" clears the previous PR's documents at once
+  h=mk({}); vm.runInContext(SRC.replace(/import\(/g,"__import("),h.sb); await tick();
+  ok(h.els["ecdRows"]._html.length>0,"identity: existing request A shows documents");
+  h.sb.location.search="";                                   // navigate to a new/unsaved request
+  h.ivals.forEach(f=>f()); await tick();                     // fire the identity watcher
+  ok(h.els["ecdRows"]._html==="","ISSUE 4: previous PR documents disappear immediately on new-request nav");
+  ok(h.els["ecdBanner"]._html.indexOf("Vui lòng lưu nháp")>=0,"ISSUE 4: renders the unsaved/new-request state");
 
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail?1:0);
 }

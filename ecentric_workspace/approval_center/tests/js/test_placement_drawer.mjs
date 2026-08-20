@@ -6,7 +6,7 @@
 import fs from "fs"; import vm from "vm";
 import { fileURLToPath } from "url"; import path from "path";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const HTML = fs.readFileSync(path.join(HERE, "..", "..", "esign", "ui", "document_signing_section.html"), "utf8");
+const HTML = fs.readFileSync(path.join(HERE, "..", "..", "..", "platform", "esign", "ui", "document_signing_section.html"), "utf8");
 const SRC = HTML.match(/<script id="ec-docsign-script">([\s\S]*?)<\/script>/)[1];
 
 let els={}, timers=[], _cache={};
@@ -28,7 +28,7 @@ function qsa(sel){ const attr=sel.replace(/[\[\].]/g,"");
 
 ["ec-docsign","ecdCount","ecdSummary","ecdBanner","ecdRows","ecdUpload","ecdUploadBtn","ecdUploadHint",
  "ecdDrawerOv","ecdDrawerName","ecdDrawerSummary","ecdDrawerClose","ecdViewer","ecdViewerMsg","ecdStage",
- "ecdCanvas","ecdLayer","ecdSignerCards","ecdProg","ecdSaveState","ecdDrawerFoot","ecdRoBanner","ecdDrawerErr","ec-approver-wrap","payr-body"]
+ "ecdCanvas","ecdLayer","ecdSignerCards","ecdProg","ecdSaveState","ecdDrawerFoot","ecdRoBanner","ecdDrawerErr","ecdPlaceHint","ec-approver-wrap","payr-body"]
  .forEach(id=>els[id]=mkEl(id));
 
 const STATE={editable:true,can_classify:true,needs_review:false,current_package_status:null,
@@ -54,7 +54,7 @@ const frappe={ call(o){ calls.push({method:o.method,args:o.args});
   return Promise.resolve({message:{}}); },
   utils:{escape_html:x=>String(x==null?"":x)},show_alert(){},csrf_token:"t",boot:{} };
 const ch={appendChild(){}}; els["payr-body"].parentNode=ch;
-const sb={document:{getElementById:id=>els[id]||null,querySelector:sel=>(sel.indexOf("content")>=0?ch:els["ec-approver-wrap"]),addEventListener(){},createElement:(t)=>mkEl("_new_"+t)},
+const sb={document:{getElementById:id=>els[id]||null,querySelector:sel=>(sel.indexOf("content")>=0?ch:els["ec-approver-wrap"]),addEventListener(){},createElement:(t)=>mkEl("_new_"+t),documentElement:{classList:{_s:{},add(c){this._s[c]=1;},remove(c){delete this._s[c];},has(c){return !!this._s[c];}}}},
   location:{search:"?id=EC-PAYR-1"},URLSearchParams,Promise,String,Array,Object,JSON,Math,
   setTimeout:(f)=>{timers.push(f);return timers.length;},clearTimeout:()=>{},setInterval:()=>1,clearInterval:()=>{},
   FormData:function(){this.append=()=>{};},fetch:()=>Promise.resolve({json:()=>Promise.resolve({message:{}})}),
@@ -69,6 +69,7 @@ vm.createContext(sb); sb.window=sb; sb.frappe=frappe;
 function selectSlot(key){ const b=els["ec-docsign"].querySelectorAll("[data-add]").find(c=>c.getAttribute("data-add")===key);
   if(b&&b.onclick) b.onclick({stopPropagation(){}}); return b; }
 function clickLayer(x,y){ els["ecdLayer"].onclick({target:els["ecdLayer"],clientX:x,clientY:y}); }
+function closeDrawerViaEsc(){ els["ecdDrawerClose"].onclick(); }
 const tick=async()=>{for(let i=0;i<10;i++)await Promise.resolve();};
 const flush=async()=>{const t=timers.slice();timers=[];for(const f of t){f();await tick();}};
 let pass=0,fail=0; const ok=(c,m)=>{console.log((c?"  ok - ":"  FAIL - ")+m);pass+=c;fail+=!c;};
@@ -154,6 +155,32 @@ async function main(){
   PSTATE=Object.assign({},PSTATE,{covered_slot_count:1,placements:[{name:"PL1",x:50,y:60,width:120,height:40,signer_slot_key:"requester"}]});
   btn.onclick(); await tick();
   ok(els["ecdLayer"]._kids.length>=1 || els["ecdProg"].textContent==="1/2","24: reopen restores persisted placement + progress");
+
+  // ===== stability-pass UAT regressions =====
+  // ISSUE 1: opening the drawer flags the document root so legacy placement layers are hidden
+  PSTATE=Object.assign({},PSTATE,{editable:true,covered_slot_count:0,placements:[]});
+  btn.onclick(); await tick();
+  ok(sb.document.documentElement.classList.has("ecd-drawer-open"),"ISSUE 1: drawer-open flag hides legacy layers");
+
+  // ISSUE 3: selecting a signer flips the button to the active state + shows the PDF helper hint
+  saveOk=true; selectSlot("requester"); await tick();
+  ok(els["ecdSignerCards"]._html.indexOf("Đang chọn vị trí")>=0,"ISSUE 3: button shows active '● Đang chọn vị trí…'");
+  ok(els["ecdPlaceHint"].style.display==="block","ISSUE 3: PDF helper hint visible while placing");
+
+  // ISSUE 2: placing renders the box OPTIMISTICALLY and the save RESPONSE does not rebuild boxes
+  const kidsB4=els["ecdLayer"]._kids.length;
+  clickLayer(140,90); await tick();
+  ok(els["ecdLayer"]._kids.length===kidsB4+1,"ISSUE 2: box appears immediately (optimistic), before save returns");
+  const optEl=els["ecdLayer"]._kids[els["ecdLayer"]._kids.length-1];
+  await flush();
+  ok(els["ecdLayer"]._kids.length===kidsB4+1 && els["ecdLayer"]._kids.indexOf(optEl)>=0,
+     "ISSUE 2: save response does NOT rebuild boxes (same element kept, no top-left reset)");
+  ok(optEl._p && optEl._p.name==="PL1","ISSUE 2: optimistic box adopts the server name in place");
+  ok(els["ecdPlaceHint"].style.display==="none","ISSUE 3: placement mode exits after one box (hint hidden)");
+
+  // ISSUE 1: closing the drawer clears the legacy-hide flag
+  closeDrawerViaEsc();
+  ok(!sb.document.documentElement.classList.has("ecd-drawer-open"),"ISSUE 1: closing the drawer restores legacy layers");
 
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail?1:0);
 }

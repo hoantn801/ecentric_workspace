@@ -62,7 +62,7 @@ def _esign_requester_panel():
 
 
 def _document_signing_section():
-    """Phase A2 unified 'TÃƒÆ’Ã‚Â i liÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡u & kÃƒÆ’Ã‚Â½ sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ' section. Consumes the deployed A1/B1 read endpoints;
+    """Phase A2 unified 'Tai lieu & ky so' section. Consumes the deployed A1/B1 read endpoints;
     replaces the requester raw signing panel + inline placement editor for the document-setup
     stage. Returns '' if the source is missing so a sync never fails on its absence."""
     try:
