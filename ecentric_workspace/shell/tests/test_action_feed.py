@@ -731,7 +731,11 @@ class TestApprovalNormalization(unittest.TestCase):
         it = self._find(feed.build_feed("u@e.c", limit=20), "t")
         self.assertEqual(it["source_type"], "generic")          # NOT normalized (excluded)
         self.assertNotIn("/approvals/", it["action_url"])       # no engine route
-        self.assertTrue(it["action_url"].startswith("/app/"))
+        # POLICY CHANGE 2026-08-21: when normalization cannot apply, an
+        # engine-governed doc lands on the Approval Center HUB, never on
+        # Frappe Desk (/app/* is permission-denied for portal users, so the
+        # reminder pointed at a page they could not open).
+        self.assertEqual(it["action_url"], "/approvals")
 
     def test_direct_ref_to_excluded_doctype_stays_generic(self):
         # Direct EC Approval Request whose reference_doctype is excluded -> generic.
@@ -768,6 +772,9 @@ class TestApprovalNormalization(unittest.TestCase):
         # non-approval business doc stays generic
         g = self._find(res, "g")
         self.assertEqual(g["source_type"], "generic")
+        # a doc with NO engine link and no portal page keeps the Desk fallback:
+        # there is nowhere better to send it (see test_no_desk_urls for the gate
+        # that every GOVERNED source must resolve to a portal route).
         self.assertTrue(g["action_url"].startswith("/app/"))
 
     def test_terminal_request_excluded(self):
@@ -793,7 +800,11 @@ class TestApprovalNormalization(unittest.TestCase):
             it = self._find(res, name)
             self.assertIsNotNone(it, name)
             self.assertEqual(it["source_type"], "generic", name)          # safe fallback
-            self.assertTrue(it["action_url"].startswith("/app/"), name)
+        # POLICY CHANGE 2026-08-21: when normalization cannot apply, an
+        # engine-governed doc lands on the Approval Center HUB, never on
+        # Frappe Desk (/app/* is permission-denied for portal users, so the
+        # reminder pointed at a page they could not open).
+            self.assertEqual(it["action_url"], "/approvals", name)
             self.assertNotIn("/approvals/", it["action_url"], name)       # no leaked route
 
     def test_feed_gates_on_canonical_helper_false_falls_back_generic(self):
@@ -813,7 +824,11 @@ class TestApprovalNormalization(unittest.TestCase):
         it = self._find(res, "t")
         self.assertEqual(it["source_type"], "generic")         # NOT normalized
         self.assertNotIn("/approvals/", it["action_url"])      # engine route not leaked
-        self.assertTrue(it["action_url"].startswith("/app/"))
+        # POLICY CHANGE 2026-08-21: when normalization cannot apply, an
+        # engine-governed doc lands on the Approval Center HUB, never on
+        # Frappe Desk (/app/* is permission-denied for portal users, so the
+        # reminder pointed at a page they could not open).
+        self.assertEqual(it["action_url"], "/approvals")
 
     def test_feed_delegates_visibility_with_correct_inputs(self):
         # Prove the feed calls the canonical helper (not a private reimplementation)
@@ -878,7 +893,11 @@ class TestApprovalNormalization(unittest.TestCase):
         res = feed.build_feed("u@e.c", limit=20)
         it = self._find(res, "t")
         self.assertEqual(it["source_type"], "generic")
-        self.assertTrue(it["action_url"].startswith("/app/"))
+        # POLICY CHANGE 2026-08-21: when normalization cannot apply, an
+        # engine-governed doc lands on the Approval Center HUB, never on
+        # Frappe Desk (/app/* is permission-denied for portal users, so the
+        # reminder pointed at a page they could not open).
+        self.assertEqual(it["action_url"], "/approvals")
         self.assertNotEqual(it["action_url"], "")              # never a dead link
 
     def test_legacy_approval_doctypes_unchanged(self):
@@ -1165,10 +1184,20 @@ class TestAllowlistFormParity(unittest.TestCase):
 
     def _can_view_body(self, module):
         import re as _re
-        path = os.path.join(APP, "approval_center", "api", module + ".py")
-        src = io.open(path, encoding="utf-8").read()
-        m = _re.search(r"\ndef _can_view\([^)]*\):\n(.*?)(?=\ndef |\n@|\Z)", src, _re.S)
-        return m.group(1) if m else ""
+        # the module refactor moved these controllers from
+        # approval_center/api/<module>.py to
+        # approval_center/features/<module>/controllers/api.py (old path kept as
+        # a re-export shim without _can_view). Try the new location first.
+        for path in (os.path.join(APP, "approval_center", "features", module,
+                                  "controllers", "api.py"),
+                     os.path.join(APP, "approval_center", "api", module + ".py")):
+            if not os.path.exists(path):
+                continue
+            src = io.open(path, encoding="utf-8").read()
+            m = _re.search(r"\ndef _can_view\([^)]*\):\n(.*?)(?=\ndef |\n@|\Z)", src, _re.S)
+            if m:
+                return m.group(1)
+        return ""
 
     def test_allowlist_maps_exactly_to_audited_modules(self):
         from ecentric_workspace.action_center import resolvers as R

@@ -22,6 +22,22 @@ import frappe
 WTU = "Weekly Team Update"
 TASK = "Task"
 
+#: Approval Center hub -- the portal home for engine-governed business forms
+#: whose per-record route cannot be resolved.
+APPROVAL_HUB_ROUTE = "/approvals"
+
+#: reference_type -> PORTAL destination for sources that own a portal page but
+#: have no per-record deep link. Without this the resolver fell through to the
+#: Desk fallback (/app/<doctype>/<name>), a permission-denied dead end for
+#: portal users -- the reminder pointed at a page they cannot open.
+#: Every DocType this app files ToDos against MUST resolve to a portal route;
+#: action_center/tests/test_no_desk_urls.py scans the repo and enforces it.
+PORTAL_FALLBACK = {
+    "EC Alert": "/alerts",          # alert case handling lives on the dashboard
+    "Brand": "/alerts",             # per-brand setup ToDo (missing mapping/price)
+    "EC Order Retry": "/alerts",    # retry queue
+}
+
 # Approval-style DocTypes (route /approval?id=&type=).
 APPROVAL_DOCTYPES = frozenset({
     "GBS Purchase Order",
@@ -340,6 +356,30 @@ def resolve_item(todo_row):
         title = resolve_title(ref_type, ref_name)
         subtitle = ref_type + " · " + ref_name
         action_url = build_approval_url(ref_type, ref_name)
+    elif ref_type and ref_name and has_engine_approval_link(ref_type):
+        # Engine-governed business document. Its canonical per-record URL is
+        # applied later by the feed (apply_approval_normalization). If that
+        # lookup is unavailable -- the type has no route configured yet, or the
+        # engine link is missing -- send the user to the Approval Center HUB
+        # instead of Desk: these forms exist precisely because portal users
+        # cannot open /app.
+        #
+        # ONLY the URL changes. source_key/source_type stay GENERIC on purpose:
+        # marking them "approval" here pushed them into the legacy approval
+        # branch of _classified_feed, whose terminal check then DROPPED the item
+        # from the feed entirely.
+        src = _GENERIC_SRC
+        title = ref_name
+        subtitle = ref_type
+        action_url = APPROVAL_HUB_ROUTE
+    elif ref_type in PORTAL_FALLBACK and ref_name:
+        # Governed portal home for sources that have a page but no per-record
+        # deep link (Alert Center). Sending these to Desk produced a
+        # permission-denied dead end for portal users.
+        src = _GENERIC_SRC
+        title = ref_name
+        subtitle = ref_type
+        action_url = PORTAL_FALLBACK[ref_type]
     elif ref_type and ref_name:
         # Unknown DocType with a reference -> safe Desk fallback.
         src = _GENERIC_SRC
