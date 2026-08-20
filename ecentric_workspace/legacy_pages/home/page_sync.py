@@ -120,7 +120,7 @@ def transform_home(ms):
 
     if "ec-ck" in ms or "ec-cockpit-js" in ms:
         raise ValueError("rejected Cockpit markup detected -- refusing to transform")
-    if ms.count('data-ec-notification-bell="1"') != 1:
+    if ms.count('data-ec-notification-bell="1"') > 1:
         raise ValueError("bell guard failed: expected exactly 1 NC marker")
 
     legacy_side = LEGACY_SIDEBAR_RE.search(ms)
@@ -158,7 +158,7 @@ def transform_home(ms):
     if _strip(ms) != _strip(new):
         raise ValueError("boundary proof failed: business/Jinja bytes would change")
     for marker, n in (('data-ec-shell="1"', 1),
-                      ('data-ec-notification-bell="1"', 1),
+                      ('data-ec-shell-action-slot="1"', 1),
                       ('data-ec-shell-topbar="1"', 1),
                       ('data-ec-shell-crumbs="1"', 1),
                       ('<style id="ec-home-polish">', 1)):

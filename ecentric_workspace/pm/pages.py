@@ -234,9 +234,15 @@ def transform(ms):
     if '#pm-search' not in "".join(re.findall(r'<div class="ec-pm-topsearch">.*?</div>', new, re.S)) \
             and new.count('class="ec-pm-topsearch"') != 1:
         raise ValueError("relocated #pm-search topbar block missing")
-    # structural bell: exactly ONE bell ELEMENT (JS-string mentions ignored)
-    if len(re.findall(r'<[a-zA-Z][^>]*data-ec-notification-bell="1"', new)) != 1:
-        raise ValueError("PM bell element count != 1")
+    # Header contract (PO 2026-08-20): the standalone bell is GONE -- BELL_A_RE
+    # strips the legacy PM bell and the shared header no longer emits one, so
+    # notifications live in the "Việc của tôi" inbox drawer instead. Assert the
+    # single inbox slot and that NO bell ELEMENT survives (JS-string mentions
+    # ignored, same as before).
+    if len(re.findall(r'<[a-zA-Z][^>]*data-ec-notification-bell="1"', new)) != 0:
+        raise ValueError("PM bell element still present (expected 0)")
+    if new.count('data-ec-shell-action-slot="1"') != 1:
+        raise ValueError("PM header inbox slot count != 1")
     if new.count('data-ec-shell="1"') != 1 or new.count('data-ec-shell-crumbs="1"') != 1 \
             or new.count('data-ec-shell-header-right="1"') != 1 \
             or new.count('<style id="ec-pm-shell-grid">') != 1:

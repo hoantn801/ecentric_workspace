@@ -5,9 +5,10 @@
 //   * exact/most-specific active-route matching (no fuzzy "contains" fallbacks)
 //   * mobile drawer + backdrop + keyboard accessibility
 // It must NEVER: touch business/approval logic, mutate records, bypass
-// permissions, reimplement Notification Center (the bell below only EMITS the
-// frozen contract marker data-ec-notification-bell="1"; the NC asset owns all
-// bell behavior), or break the page when boot fails (static fallback remains).
+// permissions, reimplement Notification Center (the drawer's notification lane
+// only READS the governed NC endpoints; the NC asset still owns delivery --
+// realtime, toast, sound, desktop), or break the page when boot fails (static
+// fallback remains).
 //
 // Kill switch: site_config `ec_shell_disabled: 1` -> boot returns
 // {enabled:false} -> fallback nav stays. Any boot error == same (fail closed
@@ -17,7 +18,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.18.0 (hash-active segment match: #ctx/sub views like /pm#work/board|calendar|gantt highlight their base nav item instead of falling back to the first view)';
+  var VERSION = 'ec-shell v1.19.0 (single header inbox "Việc của tôi": reminder clock + notification bell merged into one button opening a wide right-hand drawer with two lanes -- work | notifications; rows are links only, every action happens on the destination page)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -459,29 +460,22 @@
     return '<nav class="ec-shell-nav" aria-label="Điều hướng chính">' + h + '</nav>';
   }
 
-  // Bell: EMITS the frozen NC contract marker; NC binds/badges it itself
-  // (capture-phase click + MutationObserver adoption). No shell-side bell JS.
-  // SINGLE EMISSION POINT -- rendered either in the page header-right slot
-  // (preferred) or in the sidebar head, never both, never in the drawer.
-  function bellHtml() {
-    return '<a class="ec-shell-iconbtn" href="/app/notification-log" ' +
-      'data-ec-notification-bell="1" aria-label="Thông báo" title="Thông báo">' +
-      svg('bell') + '</a>';
-  }
-
+  // The standalone notification bell was REMOVED (PO 2026-08-20): notifications
+  // now live in the right-hand lane of the "Việc của tôi" drawer, behind the
+  // single header inbox. notification_center.js keeps delivering realtime
+  // toasts/sound/desktop -- its init() runs without a bell node and its
+  // MutationObserver simply never finds one to badge.
   function shellHtml(boot, activeKey, opts) {
     var u = boot.user || {};
     var av = u.image
       ? '<span class="ec-shell-avatar"><img src="' + esc(u.image) + '" alt=""></span>'
       : '<span class="ec-shell-avatar">' + esc(initials(u.full_name || u.name)) + '</span>';
-    var headBell = (opts && opts.bell) ? bellHtml() : '';
     return (
       '<div class="ec-shell-head">' +
         '<a class="ec-shell-brand" href="/">' +
           '<img class="ec-shell-logoimg" src="' + LOGO_SRC + '" alt="eCentric">' +
           '<span class="ec-shell-logo" hidden>eC</span>' +
         '<span class="ec-shell-brandname">eCentric</span></a>' +
-        headBell +
       '</div>' +
       // nav search (1C.1): input under the brand area + grouped results.
       // Frontend-only; module entries from the boot nav, approval types from
@@ -809,6 +803,12 @@
       // per-bucket "Xem thêm N việc"
       var more = t.closest('[data-ec-shell-rm-more]');
       if (more) { ev.preventDefault(); loadMoreBucket(more.getAttribute('data-ec-shell-rm-more'), more); return; }
+      // drawer close button
+      if (t.closest('[data-ec-shell-rm-close="1"]')) { ev.preventDefault(); closeReminder(); return; }
+      // notifications: mark every one read (governed NC endpoint)
+      if (t.closest('[data-ec-shell-nc-readall="1"]')) { ev.preventDefault(); markAllNotificationsRead(); return; }
+      // backdrop click closes
+      if (t.closest('[data-ec-shell-rm-backdrop="1"]')) { ev.preventDefault(); closeReminder(); return; }
       // an item link inside the drawer -> let it navigate, but do not close-outside
       if (t.closest('[data-ec-shell-reminder-drawer="1"]')) return;
       // click outside the drawer closes it
@@ -995,39 +995,105 @@
     return head + panel;
   }
 
-  function buildReminderDrawer() {
+  // ---- notifications lane (right column) -----------------------------------
+  // Reads the SAME governed Notification Center endpoints the old bell used;
+  // no second notification store, no shell-side delivery logic.
+  var _NC = '/api/method/ecentric_workspace.notification_center.api.';
+  var N = { items: [], unread: 0, loaded: false };
+
+  function fetchNotifications(cb) {
+    fetch(_NC + 'get_notifications?limit=6',
+          { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var m = (j && j.message) || {};
+        N.items = m.items || [];
+        N.unread = m.unread || 0;
+        N.loaded = true;
+        if (cb) cb();
+      })
+      .catch(function () { N.loaded = true; if (cb) cb(); });
+  }
+
+  function markAllNotificationsRead() {
+    fetch(_NC + 'mark_all_read', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { Accept: 'application/json', 'X-Frappe-CSRF-Token': (window.frappe && frappe.csrf_token) || '' }
+    }).then(function () {
+      N.items = N.items.map(function (it) { it.is_read = 1; return it; });
+      N.unread = 0;
+      var host = document.querySelector('[data-ec-shell-nc-lane="1"]');
+      if (host) host.innerHTML = notificationLaneInner();
+    }).catch(function () {});
+  }
+
+  function notificationItemHtml(it) {
+    var unread = it.is_read ? '' : ' ec-shell-nc-unread';
+    var when = esc(it.age || it.creation_display || '');
+    return '<a class="ec-shell-nc-item' + unread + '" href="' + esc(it.action_url || '#') + '">' +
+      '<span class="ec-shell-nc-dot" aria-hidden="true"></span>' +
+      '<span class="ec-shell-nc-txt">' +
+        '<span class="ec-shell-nc-title">' + esc(it.title || it.subject || '') + '</span>' +
+        (when ? '<span class="ec-shell-nc-when">' + when + '</span>' : '') +
+      '</span></a>';
+  }
+
+  function notificationLaneInner() {
+    var head = '<div class="ec-shell-nc-head"><strong>Thông báo</strong>' +
+      (N.unread > 0 ? '<span class="ec-shell-nc-unreaddot" aria-label="Có thông báo chưa đọc"></span>' : '') +
+      '<span class="ec-shell-nc-spacer"></span>' +
+      (N.unread > 0
+        ? '<button type="button" class="ec-shell-nc-readall" data-ec-shell-nc-readall="1">Đọc hết</button>'
+        : '') +
+      '</div>';
+    var body;
+    if (!N.loaded) body = '<div class="ec-shell-rm-empty">Đang tải…</div>';
+    else if (!N.items.length) body = '<div class="ec-shell-rm-empty">Chưa có thông báo.</div>';
+    else body = N.items.map(notificationItemHtml).join('');
+    return head + '<div class="ec-shell-nc-list">' + body + '</div>';
+  }
+
+  function workLaneInner() {
     var d = R.data;
-    var head, body, foot = '';
-    if (!d) {
-      head = '<div class="ec-shell-rm-head"><strong>Nhắc việc</strong></div>';
-      body = '<div class="ec-shell-rm-empty">Không tải được. Thử lại sau.</div>';
-    } else if (!d.total) {
-      head = '<div class="ec-shell-rm-head"><strong>Nhắc việc</strong>' +
-             '<span class="ec-shell-rm-total">0</span></div>';
-      body = '<div class="ec-shell-rm-empty">Không có việc nào cần làm 👍</div>';
-    } else {
-      head = '<div class="ec-shell-rm-head"><strong>Nhắc việc</strong>' +
-             '<span class="ec-shell-rm-total">' + esc(String(d.total)) + '</span></div>';
-      var bi = d.bucket_items || {}, counts = d.counts || {}, more = d.bucket_has_more || {};
-      body = '';
-      _BUCKET_META.forEach(function (m) {
-        var c = counts[m[0]] || 0;
-        if (!c) return;                              // empty buckets hidden
-        body += bucketSectionHtml(m, (bi[m[0]] || []), c, !!more[m[0]]);
-      });
-      if (!body) body = '<div class="ec-shell-rm-empty">Không có việc nào cần làm 👍</div>';
-      // Aggregate "see all" footer intentionally REMOVED (Phase 1b.2): the
-      // full /action-center page is deferred to Phase 2. No aggregate link is
-      // rendered rather than pointing at a placeholder or a non-canonical root.
-      foot = '';
-    }
+    if (!d) return '<div class="ec-shell-rm-empty">Không tải được. Thử lại sau.</div>';
+    var head = '<div class="ec-shell-rm-head"><strong>Việc của tôi</strong>' +
+      '<span class="ec-shell-rm-total">' + esc(String(d.total || 0)) + '</span></div>';
+    if (!d.total) return head + '<div class="ec-shell-rm-empty">Không có việc nào cần làm.</div>';
+    var bi = d.bucket_items || {}, counts = d.counts || {}, more = d.bucket_has_more || {};
+    var body = '';
+    _BUCKET_META.forEach(function (m) {
+      var c = counts[m[0]] || 0;
+      if (!c) return;                                // empty buckets hidden
+      body += bucketSectionHtml(m, (bi[m[0]] || []), c, !!more[m[0]]);
+    });
+    if (!body) body = '<div class="ec-shell-rm-empty">Không có việc nào cần làm.</div>';
+    return head + body;
+  }
+
+  function buildReminderDrawer() {
+    // Wide two-lane drawer (PO 2026-08-20): work on the left, notifications on
+    // the right. The lanes stay SEPARATE -- merging them into one timeline let
+    // low-value notices push real work out of view. Rows are links only: every
+    // action (approve, claim) happens on the destination page, so a stray click
+    // in the drawer can never mutate a request.
     var el = document.createElement('div');
     el.className = 'ec-shell-reminder-drawer';
     el.setAttribute('role', 'dialog');
-    el.setAttribute('aria-label', 'Nhắc việc');
+    el.setAttribute('aria-modal', 'true');
+    el.setAttribute('aria-label', 'Việc của tôi');
     el.setAttribute('data-ec-shell-reminder-drawer', '1');
-    el.innerHTML = head + '<div class="ec-shell-rm-body">' + body + '</div>' +
-                   (foot ? '<div class="ec-shell-rm-foot">' + foot + '</div>' : '');
+    el.innerHTML =
+      '<div class="ec-shell-rm-bar">' +
+        '<span class="ec-shell-rm-bartitle">Việc của tôi</span>' +
+        '<span class="ec-shell-nc-spacer"></span>' +
+        '<button type="button" class="ec-shell-rm-close" data-ec-shell-rm-close="1" ' +
+          'aria-label="Đóng">×</button>' +
+      '</div>' +
+      '<div class="ec-shell-rm-lanes">' +
+        '<div class="ec-shell-rm-lane ec-shell-rm-work">' + workLaneInner() + '</div>' +
+        '<div class="ec-shell-rm-lane ec-shell-rm-nc" data-ec-shell-nc-lane="1">' +
+          notificationLaneInner() + '</div>' +
+      '</div>';
     return el;
   }
 
@@ -1081,8 +1147,10 @@
     R.open = false;
     var d = document.querySelector('[data-ec-shell-reminder-drawer="1"]');
     if (d && d.parentNode) d.parentNode.removeChild(d);
+    var bd = document.querySelector('[data-ec-shell-rm-backdrop="1"]');
+    if (bd && bd.parentNode) bd.parentNode.removeChild(bd);
     var btn = reminderBtn();
-    if (btn) btn.setAttribute('aria-expanded', 'false');
+    if (btn) { btn.setAttribute('aria-expanded', 'false'); if (btn.focus) btn.focus(); }
   }
 
   function openReminder() {
@@ -1095,21 +1163,26 @@
       if (!R.open) return;
       var existing = document.querySelector('[data-ec-shell-reminder-drawer="1"]');
       if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
-      var drawer = buildReminderDrawer();
-      // PORTAL to <body> with FIXED positioning anchored to the header button.
-      // Appending inside the page topbar trapped the drawer in the topbar's
-      // stacking/overflow context, so its lower region (the "Xem thêm" button)
-      // was overlapped by higher-stacked page content and could not be clicked.
-      // Body + position:fixed escapes every ancestor stacking context and clip.
-      var r = btn.getBoundingClientRect();
-      drawer.style.position = 'fixed';
-      drawer.style.top = (r.bottom + 8) + 'px';
-      drawer.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
-      drawer.style.left = 'auto';
-      document.body.appendChild(drawer);
+      // PORTAL to <body>: a full-height panel pinned to the right edge, over a
+      // dimmed backdrop. Body-level + position:fixed escapes every ancestor
+      // stacking context and clip (the old in-topbar drawer had its lower
+      // region overlapped, which is why "Xem thêm" was unclickable).
+      if (!document.querySelector('[data-ec-shell-rm-backdrop="1"]')) {
+        var bd = document.createElement('div');
+        bd.className = 'ec-shell-rm-backdrop';
+        bd.setAttribute('data-ec-shell-rm-backdrop', '1');
+        document.body.appendChild(bd);
+      }
+      document.body.appendChild(buildReminderDrawer());
     };
-    if (R.data) render();
-    else { render(); fetchReminder(function () { setReminderBadge(R.data ? R.data.attention_count : 0); render(); }); }
+    if (!R.data) fetchReminder(function () {
+      setReminderBadge(R.data ? R.data.attention_count : 0); render();
+    });
+    if (!N.loaded) fetchNotifications(function () {
+      var host = document.querySelector('[data-ec-shell-nc-lane="1"]');
+      if (host) host.innerHTML = notificationLaneInner();
+    });
+    render();
   }
 
   function toggleReminder() { if (R.open) closeReminder(); else openReminder(); }
@@ -1119,20 +1192,22 @@
     // Right side of the page header hosts [reserved Action Center slot][bell].
     var slot = document.querySelector('[data-ec-shell-header-right="1"]');
     if (!slot) return false;
-    // Canonical 3-slot global header-right (identical markup to the static
+    // Canonical 2-slot global header-right (identical markup to the static
     // fallback renderer -- shell/fallback.py render_tbright_inner):
-    //   [Reminder/Action Center slot][Notification bell][Settings slot].
-    // Reminder + Settings are inert disabled placeholders (contract nodes
-    // data-ec-shell-action-slot / data-ec-shell-settings-slot); no business
-    // data or fake behavior behind them yet. Home/Help never render here --
-    // both live in the sidebar.
+    //   [Việc của tôi inbox][Settings slot].
+    // ONE entry point (PO 2026-08-20): the separate reminder clock and
+    // notification bell were merged -- two competing badges made neither
+    // number meaningful. The inbox opens a wide drawer holding BOTH lanes
+    // side by side (work | notifications); the badge counts ACTIONABLE WORK
+    // only, unread notifications show as a dot inside the drawer.
+    // Notification delivery (realtime, toast, sound, desktop) is untouched:
+    // notification_center.js boots independently of the bell node.
     slot.innerHTML =
       '<button type="button" class="ec-shell-iconbtn ec-shell-reminder" ' +
-        'data-ec-shell-action-slot="1" aria-label="Nhắc việc" title="Nhắc việc" ' +
-        'aria-haspopup="dialog" aria-expanded="false">' + svg('reminder') +
+        'data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" ' +
+        'aria-haspopup="dialog" aria-expanded="false">' + svg('inbox') +
         '<span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span>' +
       '</button>' +
-      bellHtml() +
       '<button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" ' +
         'data-ec-shell-settings-slot="1" disabled aria-disabled="true" ' +
         'title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)">' + svg('gear') + '</button>';

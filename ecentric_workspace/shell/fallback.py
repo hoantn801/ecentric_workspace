@@ -169,27 +169,32 @@ def render_mount_inner(route):
 
 
 def render_tbright_inner():
-    """Canonical header-right: exactly THREE global slots (Global Header phase).
-    1. Reminder / Action Center -- ACTIVE (Phase 1b). Carries the frozen
-       marker data-ec-shell-action-slot="1" + a hidden badge node; the
-       count + drawer are hydrated client-side (session-scoped feed).
-    2. Notification bell -- UNCHANGED frozen NC marker contract
-       (data-ec-notification-bell="1"), the ONLY bell on the page.
-    3. Settings -- prepared inert slot (data-ec-shell-settings-slot="1");
+    """Canonical header-right: exactly TWO global slots (PO 2026-08-20).
+    1. "Việc của tôi" inbox -- the SINGLE entry point. Carries the frozen
+       marker data-ec-shell-action-slot="1" + a hidden badge node; the count
+       and the drawer are hydrated client-side (session-scoped feed). It opens
+       a wide right-hand drawer with two lanes: work | notifications.
+    2. Settings -- prepared inert slot (data-ec-shell-settings-slot="1");
        no governed settings destination exists, so it is disabled, not fake.
+
+    The standalone notification bell was REMOVED here: two competing badges
+    (reminder count + unread count) made neither number meaningful. Notification
+    DELIVERY is unaffected -- notification_center.js init() runs without a bell
+    node (it only warns and lets its MutationObserver look for one), so
+    realtime, toast, sound and desktop notifications keep working; the drawer's
+    notification lane reads the same governed NC endpoints.
+
     Home/Help are deliberately ABSENT from the global header: both already
     live in the sidebar (brand link -> / ; HƯỚNG DẪN group)."""
     return ('<button type="button" class="ec-shell-iconbtn ec-shell-reminder" '
-            'data-ec-shell-action-slot="1" aria-label="Nhắc việc" title="Nhắc việc" '
+            'data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" '
             'aria-haspopup="dialog" aria-expanded="false">%s'
             '<span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span>'
             '</button>'
-            '<a class="ec-shell-iconbtn" href="/app/notification-log" '
-            'data-ec-notification-bell="1" aria-label="Thông báo" title="Thông báo">%s</a>'
             '<button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" '
             'data-ec-shell-settings-slot="1" disabled aria-disabled="true" '
             'title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)">%s</button>'
-            % (_svg("reminder"), _svg("bell"), _svg("gear")))
+            % (_svg("inbox"), _svg("gear")))
 
 
 def _crumb_target(route):
@@ -293,29 +298,84 @@ QUICKACCESS_RE = re.compile(r'(<div class="[^"]*ec-ck-qa[^"]*" data-ec-shell-qui
 DETAIL_RE = re.compile(r'<strong[^>]*data-ec-shell-crumb-detail="1"[^>]*>.*?</strong>', re.S)
 
 
+#: route aliases whose path differs from the plain slug rule.
+_ROUTE_ALIASES = {
+    "approvals": "/approvals",
+    "approvals_dashboard": "/approvals/dashboard",
+    "employee_info_update": "/approvals/employee-information-update",
+    "late_early_out": "/approvals/late-in-early-out",
+    "affiliate_bonus": "/approvals/affiliate-bonus-request",
+    "asset_damage_loss": "/approvals/asset-damage-loss",
+}
+
+
+def _approval_page_files(repo):
+    """(slug, html path) for every Approval Center page, across BOTH layouts.
+
+    The module refactor moved these from the flat
+    approval_center/frontend/<slug>.main_section.html into
+    approval_center/features/<slug>/ui/main_section.html (plus the hub/dashboard
+    under approval_center/ui/). Reading only the old path silently produced an
+    EMPTY page set, so the static-fallback regeneration + its parity guard
+    stopped covering all 29 pages."""
+    ac = os.path.join(repo, "ecentric_workspace", "approval_center")
+    out = []
+    legacy = os.path.join(ac, "frontend")
+    if os.path.isdir(legacy):
+        for f in sorted(os.listdir(legacy)):
+            if f.endswith(".main_section.html"):
+                out.append((f[:-len(".main_section.html")], os.path.join(legacy, f)))
+    feats = os.path.join(ac, "features")
+    if os.path.isdir(feats):
+        for slug in sorted(os.listdir(feats)):
+            p = os.path.join(feats, slug, "ui", "main_section.html")
+            if os.path.isfile(p):
+                out.append((slug, p))
+    ui = os.path.join(ac, "ui")
+    if os.path.isdir(ui):
+        for f in sorted(os.listdir(ui)):
+            if f.endswith(".main_section.html"):
+                out.append((f[:-len(".main_section.html")], os.path.join(ui, f)))
+            elif os.path.isfile(os.path.join(ui, f, "main_section.html")):
+                out.append((f, os.path.join(ui, f, "main_section.html")))
+    return out
+
+
+def _declared_route(html_path):
+    """Route from the page's OWN page_sync.py (authoritative) when it sits next
+    to the html -- the ui/<name>/ pages carry one, so hub/dashboard/all_requests
+    never have to be guessed from a directory name."""
+    ps = os.path.join(os.path.dirname(html_path), "page_sync.py")
+    if not os.path.isfile(ps):
+        return None
+    m = re.search(r'ROUTE = "([^"]+)"', io.open(ps, encoding="utf-8").read())
+    return ("/" + m.group(1)) if m else None
+
+
 def page_route_map(repo):
     """slug/file -> route for every migrated page in the repo."""
     out = {}
-    fe = os.path.join(repo, "ecentric_workspace", "approval_center", "frontend")
-    for f in sorted(os.listdir(fe)):
-        if f.endswith(".main_section.html"):
-            slug = f[:-len(".main_section.html")]
-            if slug == "approvals":
-                route = "/approvals"
-            elif slug == "approvals_dashboard":
-                route = "/approvals/dashboard"
-            else:
-                route = "/approvals/" + slug.replace("_", "-")
-            out[os.path.join(fe, f)] = route
-    # exact route aliases that differ from slug rules
-    fix = {"employee_info_update": "/approvals/employee-information-update",
-           "late_early_out": "/approvals/late-in-early-out",
-           "affiliate_bonus": "/approvals/affiliate-bonus-request",
-           "asset_damage_loss": "/approvals/asset-damage-loss"}
-    for slug, route in fix.items():
-        p = os.path.join(fe, slug + ".main_section.html")
-        if p in out:
-            out[p] = route
+    for slug, path in _approval_page_files(repo):
+        out[path] = (_declared_route(path)
+                     or _ROUTE_ALIASES.get(slug, "/approvals/" + slug.replace("_", "-")))
+    # Reporting pages opt into the shared shell too (PnL, Reports Center). The
+    # html lives in reporting/frontend/, its route in reporting/<dir>/page_sync.py.
+    rp = os.path.join(repo, "ecentric_workspace", "reporting")
+    rfe = os.path.join(rp, "frontend")
+    if os.path.isdir(rp) and os.path.isdir(rfe):
+        for slug in sorted(os.listdir(rp)):
+            ps = os.path.join(rp, slug, "page_sync.py")
+            if not os.path.isfile(ps):
+                continue
+            m = re.search(r'ROUTE = "([^"]+)"', io.open(ps, encoding="utf-8").read())
+            if not m:
+                continue
+            route = m.group(1)
+            for cand in (slug, route.replace("-", "_")):
+                ms = os.path.join(rfe, cand + ".main_section.html")
+                if os.path.isfile(ms):
+                    out[ms] = "/" + route
+                    break
     lp = os.path.join(repo, "ecentric_workspace", "legacy_pages")
     for slug in sorted(os.listdir(lp)):
         ps = os.path.join(lp, slug, "page_sync.py")
