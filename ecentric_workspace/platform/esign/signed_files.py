@@ -115,6 +115,23 @@ def retrieve_and_store_for_package(package_name, force=False):
                            fields=["name", "file", "file_name", "scts_document_file_id",
                                    "signed_file", "signed_file_sha256"],
                            order_by="idx_order asc, creation asc")
+    # eContract (2026-08): Document/Submit does NOT return per-file ids, so DSF rows may have an
+    # empty scts_document_file_id. Backfill from the Document detail (poll) by exact fileName
+    # match, then persist. Fail-closed: no match -> the per-file retrieval errors as before.
+    if any(not f.scts_document_file_id for f in files):
+        try:
+            doc = adapter.poll_status(pkg.scts_document_id)
+            by_name = {}
+            for df in (getattr(doc, "files", None) or []):
+                if df.get("name") and df.get("file_id"):
+                    by_name.setdefault(df["name"], df["file_id"])
+            for f in files:
+                if not f.scts_document_file_id and by_name.get(f.file_name):
+                    f.scts_document_file_id = by_name[f.file_name]
+                    frappe.db.set_value(DSF, f.name, "scts_document_file_id",
+                                        f.scts_document_file_id)
+        except ProviderError:
+            pass                                  # per-file path will surface the error
     results = []
     all_done = bool(files)
     for f in files:

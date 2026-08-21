@@ -195,10 +195,11 @@ class SctsAdapter(SignatureProviderAdapter):
 
     @staticmethod
     def _resolve_active(x):
-        """FAIL-CLOSED usability. An explicit isActive/active flag wins; otherwise a
-        recognized status may activate. Anything else - explicit false/inactive/revoked/
-        expired, an unrecognized value, OR missing all activity/status evidence - is
-        treated as INACTIVE/unverified."""
+        """Usability. An explicit isActive/active flag wins; an explicit status may
+        activate or deactivate. eContract (2026-08): GetSignatures returns ONLY the user's
+        usable signatures and carries NO activity/status fields at all - in that case
+        presence in the list is the usability evidence, so no-evidence => ACTIVE.
+        Any EXPLICIT negative (false/0/no, inactive/revoked/expired) still fails closed."""
         for key in ("isActive", "active"):
             if key in x and x[key] is not None:
                 v = x[key]
@@ -210,7 +211,9 @@ class SctsAdapter(SignatureProviderAdapter):
                 # explicit-but-not-true (false/0/no/anything unrecognized) -> fail closed
                 return False
         st = str(x.get("status") or "").strip().lower()
-        return st in ("active", "valid", "usable")  # inactive/revoked/expired/"" -> False
+        if not st:
+            return True   # eContract: no flag, no status -> presence in the list = usable
+        return st in ("active", "valid", "usable")  # inactive/revoked/expired -> False
 
     @staticmethod
     def _norm_signature(x):
@@ -284,8 +287,12 @@ class SctsAdapter(SignatureProviderAdapter):
         if not isinstance(raw, dict):
             raise ProviderError("scts_malformed_document",
                                 "SCTS document payload was not an object", retryable=False)
+        if isinstance(raw.get("data"), dict):                 # eContract: body boc trong "data"
+            raw = raw.get("data")
         doc_id = raw.get("id") or raw.get("documentId") or document_id
-        status = raw.get("status") or raw.get("documentStatus") or raw.get("state")
+        status = (raw.get("status") or raw.get("documentStatus") or raw.get("state")
+                  or raw.get("statusName"))
+        status = SctsAdapter._canon_doc_status(status)
         signers = [self._norm_signer(s) for s in self._as_list(
             raw.get("signers") or raw.get("signatures") or raw.get("signerSignatures"))]
         files = [self._norm_file(f) for f in self._as_list(
@@ -301,12 +308,30 @@ class SctsAdapter(SignatureProviderAdapter):
         return NormalizedDocState(str(doc_id), status, signers=signers, files=files, raw={},
                                   identity=identity)
 
+    # eContract tra statusName/tinh trang ky bang TIENG VIET - canon hoa ve tap tu vung cu
+    _VN_DOC_STATUS = {"hoàn thành": "completed", "hoan thanh": "completed",
+                      "đang xử lý": "processing", "dang xu ly": "processing",
+                      "từ chối": "rejected", "tu choi": "rejected",
+                      "đã hủy": "cancelled", "da huy": "cancelled"}
+    _VN_SIGN_STATUS = {"đã ký": "signed", "da ky": "signed",
+                       "chưa ký": "pending", "chua ky": "pending",
+                       "từ chối": "rejected", "tu choi": "rejected",
+                       "trả lại": "rejected", "tra lai": "rejected"}
+
+    @staticmethod
+    def _canon_doc_status(status):
+        if status is None:
+            return status
+        low = str(status).strip().lower()
+        return SctsAdapter._VN_DOC_STATUS.get(low, status)
+
     @staticmethod
     def _norm_signer(s):
         if not isinstance(s, dict):
             return {"user_id": None, "signature_id": None, "status": "pending",
                     "signed_at": None, "is_external": False}
-        raw_status = str(s.get("status") or s.get("signStatus") or "").lower()
+        raw_status = str(s.get("status") or s.get("signStatus") or "").strip().lower()
+        raw_status = SctsAdapter._VN_SIGN_STATUS.get(raw_status, raw_status)
         is_signed = s.get("isSigned")
         if is_signed is True or raw_status in ("signed", "completed", "done", "success"):
             norm = "signed"
@@ -316,8 +341,11 @@ class SctsAdapter(SignatureProviderAdapter):
             norm = "pending"
         return {"user_id": s.get("userId") or s.get("signerId") or s.get("signerUserId"),
                 "signature_id": s.get("signatureId") or s.get("signerSignatureId"),
+                "display_name": s.get("user") or s.get("fullName"),
                 "status": norm,
-                "signed_at": s.get("signedAt") or s.get("signedDate") or s.get("signTime"),
+                "signed_at": (s.get("signedAt") or s.get("signedDate") or s.get("signTime")
+                              or (None if str(s.get("time") or "").strip() in ("", "Chưa có")
+                                  else s.get("time"))),
                 "is_external": bool(s.get("isExternal") or s.get("external"))}
 
     @staticmethod
@@ -337,33 +365,56 @@ class SctsAdapter(SignatureProviderAdapter):
         ambiguous outcome the client raises ProviderError(ambiguous=True) - the caller must
         reconcile, never blind-recreate."""
         files = package_ctx.get("files") or []
-        order_by_dsf = {f.get("file_dsf"): f.get("order") for f in files}
-        documents = [{
-            "order": f.get("order"),
-            "fileName": f.get("name"),
-            "originalBase64": self._b64(f.get("content")),
-            "canBeSigned": bool(f.get("can_be_signed")),
-            "isSupportingDocument": bool(f.get("is_supporting_document")),
-            "sharedWithPartner": bool(f.get("share_with_partner")),
-        } for f in files]
-        signatures = [{
-            "documentIndex": order_by_dsf.get(p.get("signature_file")),
-            "page": p.get("page_index"),
-            "x": p.get("x"), "y": p.get("y"),
-            "width": p.get("width"), "height": p.get("height"),
-            "levelNo": p.get("level_no"),
-            "signatureType": p.get("signature_type"),
-            "roleTitle": p.get("scts_role_title"),
-        } for p in (package_ctx.get("placements") or [])]
+        placements = package_ctx.get("placements") or []
+        # eContract Document/Submit: Signatures are nested INSIDE each Documents[] entry.
+        by_dsf = {}
+        for pl in placements:
+            by_dsf.setdefault(pl.get("signature_file"), []).append(pl)
+        documents = []
+        for f in files:
+            b64 = self._b64(f.get("content"))
+            sigs = [{
+                "title": pl.get("scts_role_title") or "",
+                "role": pl.get("scts_role_code") or pl.get("scts_role_title") or "",
+                "signatureType": "position",
+                "keyword": "",
+                "margin": 0,
+                "canBeSigned": True,
+                "added": 1,
+                "isPlaced": True,
+                "pageIndex": int(pl.get("page_index") or 1),
+                "x": float(pl.get("x") or 0), "y": float(pl.get("y") or 0),
+                "Llx": float(pl.get("x") or 0), "Lly": float(pl.get("y") or 0),
+                "Width": int(round(float(pl.get("width") or 0))),
+                "Height": int(round(float(pl.get("height") or 0))),
+            } for pl in by_dsf.get(f.get("file_dsf"), [])]
+            documents.append({
+                "FileName": f.get("name"),
+                "FileType": "pdf",
+                "file_kind": 1 if f.get("can_be_signed") else 2,   # 1: tep chinh, 2: phu luc
+                "CanBeSigned": bool(f.get("can_be_signed")),
+                "uploadBct": False,
+                "IsSharedWithPartner": bool(f.get("share_with_partner")),
+                "PdfBase64": b64,
+                "OriginalBase64": b64,
+                "Signatures": sigs,
+            })
         payload = {
-            "workflowDefinitionId": package_ctx.get("workflow_definition_id"),
+            "docCode": package_ctx.get("doc_code"),
+            "docBatchCode": package_ctx.get("doc_batch_code") or "",
+            "docAmount": package_ctx.get("amount") or 0,
+            "docTitle": package_ctx.get("title") or package_ctx.get("doc_code"),
+            "docDescription": package_ctx.get("description") or "",
+            "documentTemplateId": package_ctx.get("document_template_id") or "",
             "documentTypeId": package_ctx.get("document_type_id"),
+            "workflowDefinitionId": package_ctx.get("workflow_definition_id"),
             "companyId": package_ctx.get("company_id"),
             "departmentId": package_ctx.get("department_id"),
-            "documentTemplateId": package_ctx.get("document_template_id"),
+            "deadlineDate": package_ctx.get("deadline") or "",
+            "fields": package_ctx.get("fields") or [],
             "Documents": documents,
-            "Signatures": signatures,
             "ExternalHandlers": [],  # external signer handlers disabled this phase
+            "DocumentRefIds": [],
         }
         raw = self._with_auth(lambda t: self._client.add_document(payload, t))
         return self._normalize_create(raw, files)
@@ -383,6 +434,8 @@ class SctsAdapter(SignatureProviderAdapter):
         if isinstance(raw, dict):
             doc_id = raw.get("documentId") or raw.get("id") or raw.get("instanceId")
             data = raw.get("data") if isinstance(raw.get("data"), dict) else None
+            if not doc_id and isinstance(raw.get("data"), str) and raw.get("data").strip():
+                doc_id = raw.get("data").strip()          # eContract: data = "<DocumentId>"
             if not doc_id and data:
                 doc_id = data.get("documentId") or data.get("id")
             rawfiles = (raw.get("files") or raw.get("documentFiles") or raw.get("Documents")

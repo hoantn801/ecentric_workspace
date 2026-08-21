@@ -7,11 +7,13 @@ single re-login on 401, configurable timeout, bounded retry for network / 5xx er
 NO retry for validation / auth / security errors, and normalization of every failure
 into base.ProviderError (retryable flag drives Retryable vs Permanent Failure upstream).
 
-It knows the four SCTS UAT endpoints required for S2B-A:
+It knows the SCTS eContract endpoints (docs: econtract.scts.com.vn/API, 2026-08):
     POST /api/Auth/login
     GET  /api/SignerSignature/GetSignatures/{userId}
     POST /api/Workflow/bulk-process
     GET  /api/Document/{documentId}
+    POST /api/Document/Submit            (create document - replaces legacy /api/AddDocument)
+    GET  /api/Document/pdf?DocumentId=&DocumentFileId=   (signed PDF, confirmed contract)
 
 It returns PARSED JSON (dict/list); provider->ERP field normalization lives in the
 adapter (scts.py). Secrets (token, password, Authorization header, file content) are
@@ -217,7 +219,8 @@ class SctsClient(object):
                             "SCTS rejected bulk-process (HTTP %s)" % status, retryable=False)
 
     def add_document(self, payload, token):
-        """POST /api/AddDocument -> raw payload (documentId + per-file ids). SCTS V1
+        """POST /api/Document/Submit (eContract) -> raw payload; `data` carries the new
+        DocumentId as a plain string. Legacy note: SCTS V1 used /api/AddDocument. V1/eContract
         contract (workflowDefinitionId / documentTypeId / companyId / departmentId /
         Documents[] / Signatures[] / ExternalHandlers[]). NON-IDEMPOTENT write: exactly ONE HTTP
         attempt, NO retry. A network error, timeout or 5xx is AMBIGUOUS - the document may
@@ -229,7 +232,7 @@ class SctsClient(object):
         if token:
             headers["Authorization"] = "Bearer %s" % token
         try:
-            resp = self._transport("POST", self._url("/api/AddDocument"),
+            resp = self._transport("POST", self._url("/api/Document/Submit"),
                                    headers=headers, json_body=payload, timeout=self.timeout,
                                    verify_tls=self.verify_tls)
         except Exception:
@@ -260,7 +263,7 @@ class SctsClient(object):
         """GET the signed PDF. Route/params/response-shape are [UAT-UNCONFIRMED]; handled
         FAIL-CLOSED. Returns RAW PDF BYTES (base64-decoded if the provider wraps it).
         Bounded retry for SAFE read failures only (network/5xx). Bytes are NEVER logged."""
-        path = route or ("/api/Document/pdf?documentId=%s&documentFileId=%s"
+        path = route or ("/api/Document/pdf?DocumentId=%s&DocumentFileId=%s"
                          % (document_id, document_file_id if document_file_id is not None else ""))
         headers = {"Accept": "application/pdf, application/json"}
         if token:

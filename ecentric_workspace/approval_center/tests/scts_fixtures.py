@@ -41,8 +41,10 @@ class FakeTransport(object):
             return "get_signatures"
         if "/api/Workflow/bulk-process" in url:
             return "bulk_process"
-        if "/api/AddDocument" in url:
+        if "/api/Document/Submit" in url or "/api/AddDocument" in url:
             return "add_document"
+        if "/api/Document/pdf" in url:
+            return "get_pdf"
         if "/api/Document/" in url:
             return "get_document"
         return "%s %s" % (method, url)
@@ -105,9 +107,11 @@ def bulk_ok(txn="BULK-TXN-1"):
 
 
 def add_document_ok(doc_id="SCTS-DOC-1", file_count=2):
-    return FakeResponse(200, {"documentId": doc_id,
-                              "documentFiles": [{"order": i, "documentFileId": "F%d" % i}
-                                                for i in range(file_count)]})
+    """eContract Document/Submit: data carries the DocumentId as a plain string (per-file ids
+    are no longer returned at create time)."""
+    return FakeResponse(200, {"success": True,
+                              "message": "Khoi tao chung tu thanh cong.",
+                              "data": doc_id, "errors": None})
 
 
 def make_scts_settings(name="EC-DSPS-SCTS-UAT", base_url="https://scts.uat.local",
