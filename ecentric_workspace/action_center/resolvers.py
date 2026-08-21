@@ -59,8 +59,21 @@ APPROVAL_DOCTYPES = frozenset({
     "REC Request",
     "Vendor Code Request",
     "Sales Order",
-    "Leave Application",
 })
+
+#: Leave Application is DELIBERATELY not in APPROVAL_DOCTYPES above. That set
+#: means "goes to the legacy /approval inbox", and /approval's TYPE_MAP only
+#: knows mso / so / po / gbs_so / gbs_po -- it silently ignores an unknown type
+#: and renders the generic 771-row ticket list, so the approver lands somewhere
+#: unrelated with no error to tell them why. Leave lives on its own HR portal
+#: page instead. Removing it from the set is not enough on its own either: the
+#: unknown-DocType arm falls back to a Desk URL, and ~44% of accounts are
+#: Website Users who cannot open Desk at all. Hence the explicit arm in
+#: resolve_item().
+LEAVE_APPLICATION = "Leave Application"
+
+#: Where a pending leave is actually decided: the HR portal page, "Của nhóm" tab.
+LEAVE_APPROVAL_URL = "/ec-hr/leave"
 
 
 def build_approval_url(doctype, name):
@@ -414,6 +427,11 @@ def resolve_item(todo_row):
         # Canonical Action Center PM destination = the portal SPA task detail
         # (permission-safe), NOT the Desk form used by notifications.
         action_url = build_pm_task_url(ref_name)
+    elif ref_type == LEAVE_APPLICATION and ref_name:
+        src = _APPROVAL_SRC
+        title = resolve_title(ref_type, ref_name)
+        subtitle = ref_type + " · " + ref_name
+        action_url = LEAVE_APPROVAL_URL
     elif ref_type in APPROVAL_DOCTYPES and ref_name:
         src = _APPROVAL_SRC
         title = resolve_title(ref_type, ref_name)
