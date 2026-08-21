@@ -78,28 +78,35 @@ class TestSctsDocumentCreation(FrappeTestCase):
                                "signature_type": "scts", "scts_role_title": "Manager"}]}
         res = ad.create_document(ctx)
         self.assertEqual(res["document_id"], "DOC9")
-        self.assertEqual(res["files"], [{"order": 0, "file_id": "F0"},
-                                        {"order": 1, "file_id": "F1"}])
+        self.assertEqual(res["files"], [{"order": 0, "file_id": None},
+                                        {"order": 1, "file_id": None}])   # eContract: no ids at create
         body = t.last_body("add_document")
-        # V1 top-level identifiers from the profile
+        # eContract root identifiers (profile) + business meta
         self.assertEqual((body["workflowDefinitionId"], body["documentTypeId"],
                           body["companyId"], body["departmentId"], body["documentTemplateId"]),
                          ("WF9", "DT3", "C1", "D2", "TPL7"))
-        # Documents[] with base64 + flags; raw bytes never in the payload
-        self.assertEqual(body["Documents"][0]["originalBase64"],
-                         base64.b64encode(b"%PDF-hello").decode())
-        self.assertNotIn("content", body["Documents"][0])
-        self.assertIs(body["Documents"][0]["canBeSigned"], True)
-        self.assertIs(body["Documents"][0]["sharedWithPartner"], True)
-        self.assertIs(body["Documents"][1]["isSupportingDocument"], True)
-        # Signatures[] carry placement coordinates mapped to the document index
-        sig = body["Signatures"][0]
-        self.assertEqual((sig["documentIndex"], sig["page"], sig["x"], sig["y"],
-                          sig["width"], sig["height"], sig["levelNo"], sig["roleTitle"]),
-                         (0, 2, 50, 60, 120, 40, 1, "Manager"))
+        self.assertEqual((body["docCode"], body["docTitle"], body["docAmount"]),
+                         ("PR-1", "T", 100))
+        # Documents[]: PascalCase, base64 kep, file_kind; raw bytes never in the payload
+        d0, d1 = body["Documents"][0], body["Documents"][1]
+        self.assertEqual(d0["PdfBase64"], base64.b64encode(b"%PDF-hello").decode())
+        self.assertEqual(d0["OriginalBase64"], d0["PdfBase64"])
+        self.assertNotIn("content", d0)
+        self.assertIs(d0["CanBeSigned"], True)
+        self.assertIs(d0["IsSharedWithPartner"], True)
+        self.assertEqual(d0["file_kind"], 1)
+        self.assertEqual(d1["file_kind"], 2)                    # supporting -> phu luc
+        self.assertEqual(d1["Signatures"], [])
+        # Signatures nested INSIDE the signable document, position-based geometry
+        sig = d0["Signatures"][0]
+        self.assertEqual((sig["pageIndex"], sig["x"], sig["y"], sig["Llx"], sig["Lly"],
+                          sig["Width"], sig["Height"], sig["title"]),
+                         (2, 50, 60, 50, 60, 120, 40, "Manager"))
+        self.assertEqual(sig["signatureType"], "position")
+        self.assertIs(sig["isPlaced"], True)
         # external handlers disabled; no legacy field names
         self.assertEqual(body["ExternalHandlers"], [])
-        for legacy in ("docCode", "files", "placements", "signatureId"):
+        for legacy in ("files", "placements", "signatureId"):
             self.assertNotIn(legacy, body)
 
     def test_create_document_ambiguous_propagates(self):
