@@ -11,12 +11,12 @@ Submitter = Callable[[str], str]
 Resubmitter = Callable[[str, Optional[str]], dict]
 
 STANDARD_STATUS_LABELS = (
-    ("Draft", "NhÃ¡p"),
-    ("Pending", "Äang phÃª duyá»‡t"),
-    ("Information Required", "Cáº§n bá»• sung"),
-    ("Approved", "ÄÃ£ duyá»‡t"),
-    ("Rejected", "Bá»‹ tá»« chá»‘i"),
-    ("Cancelled", "ÄÃ£ há»§y"),
+    ("Draft", "Nháp"),
+    ("Pending", "Đang phê duyệt"),
+    ("Information Required", "Cần bổ sung"),
+    ("Approved", "Đã duyệt"),
+    ("Rejected", "Bị từ chối"),
+    ("Cancelled", "Đã hủy"),
 )
 
 
