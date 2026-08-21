@@ -152,7 +152,7 @@ def requester_submit_and_sign(business_doctype, business_name, comment=None):
         events.emit("MappingRequired", erp_actor=requester,
                     request_meta={"business": business_name})
         frappe.throw(_("Người đề nghị chưa có ánh xạ chữ ký SCTS được xác minh."))
-    pkg_name = pkgsvc.active_package_for_request(ar)
+    pkg_name = pkgsvc.signable_package_for_request(ar)   # Locked OR Active (see flow docs)
     if not pkg_name:
         frappe.throw(_("Không có gói tài liệu sẵn sàng ký."))
     pkg = frappe.db.get_value(PKG, pkg_name, ["name", "package_version", "package_hash"], as_dict=True)

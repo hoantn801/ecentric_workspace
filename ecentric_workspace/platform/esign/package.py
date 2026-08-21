@@ -37,6 +37,20 @@ def active_package_for_request(approval_request):
     return n
 
 
+def signable_package_for_request(approval_request):
+    """The live signable package for a request: Locked (pre-provider) OR Active. Per
+    flow/payment_request.py the requester_sign step runs at package_entry ("Locked",
+    "Active") and ONLY the provider worker promotes Locked -> Active (nested inside the
+    first signing). A lookup that requires "Active" therefore deadlocks the requester
+    stage (bug found in the 2026-08-22 UAT pilot: lock -> Locked, submit_and_sign asked
+    for Active -> 'Khong co goi tai lieu san sang ky'). Post-provider invariants that
+    genuinely need Active (binding/guard completion checks) keep using their own
+    status assertions."""
+    return frappe.db.get_value("EC Digital Signature Package",
+                               {"approval_request": approval_request,
+                                "status": ["in", ("Locked", "Active")]}, "name")
+
+
 def draft_package_for_business(business_doctype, business_name):
     return frappe.db.get_value("EC Digital Signature Package",
                                {"business_doctype": business_doctype,
