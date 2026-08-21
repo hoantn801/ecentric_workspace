@@ -113,6 +113,10 @@ def _html():
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
 BASELINE_SHA256 = "9ce2d2e5f38b6e897daf5c8092bf4b561ad1ba1ed6b71aa96bba9ad98be9324c"
 SUPERSEDES_SHA256 = (
+    # Điểm bất động sau server-side write: upsert ghi compose repo -> Frappe sanitize +
+    # strip_legacy_shims biến đổi -> live luôn ổn định ở sha này (quan sát live 2026-08-21,
+    # 2 lần sync liên tiếp cùng giá trị). Mọi resync sau so live với sha này.
+    "c3483243b11defa236ad778ee123769867adfa6b285d704bd38e9ad933cc2b0c",
     "61526b3fb36c365c33ef9bebf0881f17a332c5c0c7cdd7ce0ae32942d46191ae",   # baseline trước fix path (compose thiếu panel do bug reorg)
     "402a09e9930947a9700d50c95ca5a7d078ead062edbe3a18e0af841eaf67c116",   # live sau lần resync 2026-08-21 (panel esign rỗng)
     "b143bbcf4adc1f7f197376785b9d0e036835f3807381342c7ab72675ebbc828e",
