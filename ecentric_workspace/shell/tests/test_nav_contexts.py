@@ -65,10 +65,13 @@ class TestRouteToContext(unittest.TestCase):
             if i["group"] not in groups:
                 groups.append(i["group"])
         self.assertEqual(groups, ["Workspace", "Nhân sự", "Báo cáo & Phân tích", "Tài nguyên"])
-        # 16 restored-IA items + 3 approved additions: "Trung tâm Báo cáo"
-        # (/reports), "Cài app lên điện thoại" (/ec-hr/huong-dan-cai-app) and
-        # "Việc của tôi" (/viec-cua-toi)
-        self.assertEqual(len(home), 19)
+        # 16 restored-IA items + 2 approved additions: "Trung tâm Báo cáo"
+        # (/reports) and "Cài app lên điện thoại" (/ec-hr/huong-dan-cai-app).
+        # "Việc của tôi" is registered but sidebar_hidden -- on desktop the
+        # header inbox already opens that feed, so a sidebar row for it would
+        # be a second door to the same room. compose() must not show it.
+        self.assertEqual(len(home), 18)
+        self.assertFalse(any(i["route"] == "/viec-cua-toi" for i in home))
         labels = {i["label"]: i["route"] for i in home}
         # approved route migrations
         self.assertEqual(labels["Phê duyệt"], "/approvals")
@@ -79,6 +82,16 @@ class TestRouteToContext(unittest.TestCase):
         # rejected launcher stays gone
         self.assertFalse(any(i["group"] == "Phân hệ" for i in home))
         self.assertFalse(hasattr(nav, "_launcher_items"))
+
+    def test_sidebar_hidden_item_keeps_its_context_and_discovery(self):
+        """sidebar_hidden hides the ROW, never the ROUTE. Getting this wrong
+        drops the page into DEFAULT_CONTEXT and it paints an unrelated
+        module's sidebar."""
+        self.assertEqual(nav.resolve_context("/viec-cua-toi"), "home")
+        self.assertIn("/viec-cua-toi", [i["route"] for i in nav.compose_all()])
+        self.assertNotIn("/viec-cua-toi", [i["route"] for i in nav.compose("home")])
+        self.assertIn("/viec-cua-toi",
+                      [i["route"] for i in nav.compose("home", include_hidden=True)])
 
     def test_compose_all_spans_contexts(self):
         allr = {i["route"] for i in nav.compose_all()}

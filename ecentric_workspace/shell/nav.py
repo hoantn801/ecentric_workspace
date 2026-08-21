@@ -87,7 +87,12 @@ HOME_PORTAL_ITEMS = [
     {"key": "home.portal.mywork", "label": "Việc của tôi", "route": "/viec-cua-toi",
      "icon": "inbox", "group": "Workspace", "order": 15,
      "active_patterns": ["/viec-cua-toi"], "visible_when": "internal",
-     "owner": "home_portal",
+     "owner": "home_portal", "sidebar_hidden": True,
+     # sidebar_hidden (PO 2026-08-21): on a DESKTOP the header inbox already
+     # opens this exact feed in a drawer, so a sidebar row for it is a second
+     # door to the same room. The route stays registered -- the mobile tab bar
+     # links to it, search finds it, and resolve_context() needs it to put the
+     # page in the portal context.
      # deliberately NO badge_source: the only registered resolver counts
      # APPROVALS, and this item means "everything waiting on me". The correct
      # number (overdue + act_now) already rides on the header inbox and the
@@ -314,7 +319,7 @@ def _compose_owners(owners=None, keep=None, group_order=None):
     return items
 
 
-def compose(context=None):
+def compose(context=None, include_hidden=False):
     """Deterministic, validated nav list for ONE context (sidebar scope).
 
     context=None keeps the historical signature and returns DEFAULT_CONTEXT
@@ -326,8 +331,15 @@ def compose(context=None):
     if name not in CONTEXTS:
         name = DEFAULT_CONTEXT
     ctx = CONTEXTS[name]
+    # include_hidden separates two things that are NOT the same question:
+    # "does this row appear in the sidebar" (no, for sidebar_hidden items) and
+    # "does this route belong to this context" (yes -- it is still the
+    # context's route). resolve_context() asks the second one; without this a
+    # hidden item would drop its own page into the default context and the
+    # page would paint a sidebar from a module it has nothing to do with.
+    keep = None if include_hidden else (lambda it: not it.get("sidebar_hidden"))
     return _compose_owners(ctx["providers"], group_order=ctx.get("group_order"),
-                           keep=lambda it: not it.get("sidebar_hidden"))
+                           keep=keep)
 
 
 def compose_all():
@@ -387,7 +399,7 @@ def _context_score(name, path):
     """Best matchActive-style score of `path` against the context's own
     (non-core) items. Mirrors ec_shell.js matchActive scoring."""
     score = 0
-    for it in compose(name):
+    for it in compose(name, include_hidden=True):
         if it.get("owner") in ("core", "shell.context"):
             continue
         if it.get("alias"):
