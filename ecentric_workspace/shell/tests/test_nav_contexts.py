@@ -65,13 +65,15 @@ class TestRouteToContext(unittest.TestCase):
             if i["group"] not in groups:
                 groups.append(i["group"])
         self.assertEqual(groups, ["Workspace", "Nhân sự", "Báo cáo & Phân tích", "Tài nguyên"])
-        # 16 restored-IA items + 2 approved additions: "Trung tâm Báo cáo"
-        # (/reports) and "Cài app lên điện thoại" (/ec-hr/huong-dan-cai-app).
-        # "Việc của tôi" is registered but sidebar_hidden -- on desktop the
-        # header inbox already opens that feed, so a sidebar row for it would
-        # be a second door to the same room. compose() must not show it.
-        self.assertEqual(len(home), 18)
+        # 16 restored-IA items + 1 approved addition: "Trung tâm Báo cáo"
+        # (/reports). Two more are registered but sidebar_hidden, so compose()
+        # must not show them: "Việc của tôi" (the desktop header inbox already
+        # opens that feed -- a sidebar row would be a second door to the same
+        # room) and "Cài app lên điện thoại" (a phone-install guide has no
+        # business in the desktop portal menu; it still shows inside /ec-hr).
+        self.assertEqual(len(home), 17)
         self.assertFalse(any(i["route"] == "/viec-cua-toi" for i in home))
+        self.assertFalse(any(i["route"] == "/ec-hr/huong-dan-cai-app" for i in home))
         labels = {i["label"]: i["route"] for i in home}
         # approved route migrations
         self.assertEqual(labels["Phê duyệt"], "/approvals")
@@ -92,6 +94,18 @@ class TestRouteToContext(unittest.TestCase):
         self.assertNotIn("/viec-cua-toi", [i["route"] for i in nav.compose("home")])
         self.assertIn("/viec-cua-toi",
                       [i["route"] for i in nav.compose("home", include_hidden=True)])
+
+    def test_install_guide_hidden_in_portal_but_alive_in_hr(self):
+        """The phone-install guide is pulled out of the DESKTOP portal menu
+        only. It must keep its row inside /ec-hr, keep resolving to the hr
+        context, and stay findable in search."""
+        self.assertNotIn("/ec-hr/huong-dan-cai-app",
+                         [i["route"] for i in nav.compose("home")])
+        self.assertIn("/ec-hr/huong-dan-cai-app",
+                      [i["route"] for i in nav.compose("hr")])
+        self.assertEqual(nav.resolve_context("/ec-hr/huong-dan-cai-app"), "hr")
+        self.assertIn("/ec-hr/huong-dan-cai-app",
+                      [i["route"] for i in nav.compose_all()])
 
     def test_compose_all_spans_contexts(self):
         allr = {i["route"] for i in nav.compose_all()}

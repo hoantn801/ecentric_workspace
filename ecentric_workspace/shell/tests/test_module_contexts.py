@@ -72,13 +72,15 @@ class TestContextOwnership(unittest.TestCase):
 
     def test_home_and_hall_unchanged_portal(self):
         home = nav.compose("home")
-        # 16 restored-IA items + 2 approved additions: "Trung tâm Báo cáo"
-        # (/reports) and "Cài app lên điện thoại" (/ec-hr/huong-dan-cai-app).
-        # "Việc của tôi" is registered but sidebar_hidden -- on desktop the
-        # header inbox already opens that feed, so a sidebar row for it would
-        # be a second door to the same room. compose() must not show it.
-        self.assertEqual(len(home), 18)
+        # 16 restored-IA items + 1 approved addition: "Trung tâm Báo cáo"
+        # (/reports). Two more are registered but sidebar_hidden, so compose()
+        # must not show them: "Việc của tôi" (the desktop header inbox already
+        # opens that feed -- a sidebar row would be a second door to the same
+        # room) and "Cài app lên điện thoại" (a phone-install guide has no
+        # business in the desktop portal menu; it still shows inside /ec-hr).
+        self.assertEqual(len(home), 17)
         self.assertFalse(any(i["route"] == "/viec-cua-toi" for i in home))
+        self.assertFalse(any(i["route"] == "/ec-hr/huong-dan-cai-app" for i in home))
         hall = next(i for i in home if i["route"] == "/hall")
         self.assertNotIn("alias", hall)   # /hall stays canonical portal-owned
 

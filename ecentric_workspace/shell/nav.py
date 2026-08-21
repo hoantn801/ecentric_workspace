@@ -128,6 +128,12 @@ HOME_PORTAL_ITEMS = [
      "route": "/ec-hr/huong-dan-cai-app", "icon": "book", "group": "Nhân sự", "order": 50,
      "active_patterns": ["/ec-hr/huong-dan-cai-app"],
      "visible_when": "internal", "owner": "home_portal", "alias": True,
+     "sidebar_hidden": True,
+     # sidebar_hidden (PO 2026-08-21): the portal sidebar is the DESKTOP menu,
+     # and a desktop is exactly where "cài app lên điện thoại" has nothing to
+     # do. The canonical hr.install_guide row still shows inside /ec-hr (where
+     # someone reading about the phone app actually is), and the route stays
+     # registered here so search finds it and links keep resolving.
      "keywords": ["huong dan", "cai app", "pwa", "iphone", "android"]},
     {"key": "home.portal.kpi", "label": "Mục tiêu KPI", "route": "/coming-soon?tool=kpi",
      "icon": "target", "group": "Nhân sự", "order": 40, "active_patterns": ["/coming-soon?tool=kpi"],
