@@ -111,8 +111,13 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "9ce2d2e5f38b6e897daf5c8092bf4b561ad1ba1ed6b71aa96bba9ad98be9324c"
+BASELINE_SHA256 = "df5e328b9a4d842f63a6941c5416877b36df47bc80b32e4caa4720fb8530e52c"
 SUPERSEDES_SHA256 = (
+    "9ce2d2e5f38b6e897daf5c8092bf4b561ad1ba1ed6b71aa96bba9ad98be9324c",   # compose trước fix delete-race (raw)
+    # Điểm bất động sau server-side write: upsert ghi compose repo -> Frappe sanitize +
+    # strip_legacy_shims biến đổi -> live luôn ổn định ở sha này (quan sát live 2026-08-21,
+    # 2 lần sync liên tiếp cùng giá trị). Mọi resync sau so live với sha này.
+    "c3483243b11defa236ad778ee123769867adfa6b285d704bd38e9ad933cc2b0c",
     "61526b3fb36c365c33ef9bebf0881f17a332c5c0c7cdd7ce0ae32942d46191ae",   # baseline trước fix path (compose thiếu panel do bug reorg)
     "402a09e9930947a9700d50c95ca5a7d078ead062edbe3a18e0af841eaf67c116",   # live sau lần resync 2026-08-21 (panel esign rỗng)
     "b143bbcf4adc1f7f197376785b9d0e036835f3807381342c7ab72675ebbc828e",
@@ -139,6 +144,7 @@ def sync(html=None, force=0):
     if res.get("action") != "refused" and res.get("name") \
             and frappe.db.exists("Web Page", res["name"]):
         res.update(page_sync_util.strip_legacy_shims(res["name"]))
+        res["recorded_sha"] = page_sync_util.record_live_sha(ROUTE, res["name"])
     return res
 
 

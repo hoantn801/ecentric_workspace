@@ -89,6 +89,12 @@ def upsert_web_page(route, name, title, html, publish=1, expect_sha=None):
     if expect_sha and existing:
         # A single hex string (historical) or a sequence of acceptable ones.
         accepted = (expect_sha,) if isinstance(expect_sha, str) else tuple(expect_sha)
+        # Also accept the sha RECORDED at our own last successful sync: the server post-processes
+        # HTML on save (sanitize + shim strip), so live never re-hashes to the raw repo compose.
+        # Without this, every deploy needs a hand-chased sha. Operator edits still refuse.
+        last = frappe.db.get_default("ec_page_sync_sha:%s" % route)
+        if last:
+            accepted = accepted + (last,)
         if live_sha not in accepted:
             # Live drifted since the repo snapshot was taken -> do NOT revert it.
             return {"action": "refused", "reason": "live drift (expect_sha mismatch)",
@@ -150,3 +156,14 @@ def strip_legacy_shims(name):
     return {"inspected_fields": inspected, "shim_fields_stripped": stripped, "has_legacy_shim": bool(stripped)}
 
 
+def record_live_sha(route, name):
+    """Remember the POST-PROCESSED live sha of a page we just synced, so the next expect_sha
+    check recognises our own write (server-side sanitize/shim-strip changes the bytes). Call
+    AFTER the last mutation of the sync flow (i.e. after strip_legacy_shims)."""
+    if not frappe.db.exists("Web Page", name):
+        return None
+    live = frappe.db.get_value("Web Page", name, "main_section_html") or ""
+    sha = content_sha256(live)
+    frappe.db.set_default("ec_page_sync_sha:%s" % route, sha)
+    frappe.db.commit()
+    return sha

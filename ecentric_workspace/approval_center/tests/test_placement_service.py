@@ -287,3 +287,17 @@ class TestPlacementService(FrappeTestCase):
         frappe.set_user(req); papi.submit_request(biz); frappe.set_user("Administrator")
         ok, reason = ds._setup_editable(BD, biz)
         self.assertFalse(ok); self.assertEqual(reason, "already_submitted")
+
+
+    def test_25_update_never_resurrects_deleted_placement(self):
+        req, biz = _draft("z5"); ref = _attach(biz, req)
+        frappe.set_user(req)
+        out = ps.save_placement(BD, biz, ref, _box("requester"))
+        pl = out["placement_name"]
+        ps.delete_placement(BD, biz, ref, pl)                       # row gone
+        n_before = frappe.db.count(PL)
+        out2 = ps.save_placement(BD, biz, ref, _box("requester", x=99, name=pl))  # stale UPDATE arrives late
+        frappe.set_user("Administrator")
+        self.assertFalse(out2["ok"])
+        self.assertEqual(out2["reason"], "placement_deleted")       # signalled, not silently recreated
+        self.assertEqual(frappe.db.count(PL), n_before)             # NO resurrect row
