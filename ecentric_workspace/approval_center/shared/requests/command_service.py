@@ -12,9 +12,9 @@ def save_draft(definition, name=None, payload=None):
         document = frappe.get_doc(definition.business_doctype, name)
         request = capabilities.approval_request_for(definition, name)
         if document.requested_by != user and not capabilities.is_system_manager(user):
-            frappe.throw(_("BÃ¡ÂºÂ¡n chÃ¡Â»â€° cÃƒÂ³ thÃ¡Â»Æ’ sÃ¡Â»Â­a yÃƒÂªu cÃ¡ÂºÂ§u cÃ¡Â»Â§a mÃƒÂ¬nh."), frappe.PermissionError)
+            frappe.throw(_("Bạn chỉ có thể sửa yêu cầu của mình."), frappe.PermissionError)
         if request and request.approval_status != "Information Required":
-            frappe.throw(_("ChÃ¡Â»â€° cÃƒÂ³ thÃ¡Â»Æ’ sÃ¡Â»Â­a yÃƒÂªu cÃ¡ÂºÂ§u Ã¡Â»Å¸ trÃ¡ÂºÂ¡ng thÃƒÂ¡i NhÃƒÂ¡p hoÃ¡ÂºÂ·c CÃ¡ÂºÂ§n bÃ¡Â»â€¢ sung."))
+            frappe.throw(_("Chỉ có thể sửa yêu cầu ở trạng thái Nháp hoặc Cần bổ sung."))
     else:
         document = frappe.new_doc(definition.business_doctype)
         document.requested_by = user
@@ -50,7 +50,7 @@ def submit(definition, name):
 def resolve_request(definition, name):
     document = frappe.get_doc(definition.business_doctype, name)
     if not document.approval_request:
-        frappe.throw(_("YÃƒÂªu cÃ¡ÂºÂ§u nÃƒÂ y chÃ†Â°a Ã„â€˜Ã†Â°Ã¡Â»Â£c gÃ¡Â»Â­i."))
+        frappe.throw(_("Yêu cầu này chưa được gửi."))
     return document, document.approval_request
 
 
@@ -113,7 +113,7 @@ def cancel(definition, name, reason=None):
     document = frappe.get_doc(definition.business_doctype, name)
     request = capabilities.approval_request_for(definition, name)
     if not capabilities.derive(user, document, request)["can_cancel"]:
-        frappe.throw(_("BÃ¡ÂºÂ¡n khÃƒÂ´ng Ã„â€˜Ã†Â°Ã¡Â»Â£c phÃƒÂ©p hÃ¡Â»Â§y yÃƒÂªu cÃ¡ÂºÂ§u nÃƒÂ y."), frappe.PermissionError)
+        frappe.throw(_("Bạn không được phép hủy yêu cầu này."), frappe.PermissionError)
     if request:
         engine.cancel(request.name, reason=reason)
         return {"detail": query_service.detail(definition, name)}
@@ -124,14 +124,14 @@ def cancel(definition, name, reason=None):
 def admin_approve_current_level(definition, name, reason=None):
     from ecentric_workspace.approval_center.shared.workflow import transitions as engine
     if not capabilities.is_system_manager():
-        frappe.throw(_("ChÃ¡Â»â€° System Manager mÃ¡Â»â€ºi Ã„â€˜Ã†Â°Ã¡Â»Â£c duyÃ¡Â»â€¡t thay."), frappe.PermissionError)
+        frappe.throw(_("Chỉ System Manager mới được duyệt thay."), frappe.PermissionError)
     if not (reason or "").strip():
-        frappe.throw(_("Vui lÃƒÂ²ng nhÃ¡ÂºÂ­p lÃƒÂ½ do duyÃ¡Â»â€¡t thay."))
+        frappe.throw(_("Vui lòng nhập lý do duyệt thay."))
     document, request_name = resolve_request(definition, name)
     request = capabilities.approval_request_for(definition, name)
     if not capabilities.derive(
             frappe.session.user, document, request)["can_admin_approve_current_level"]:
-        frappe.throw(_("KhÃƒÂ´ng thÃ¡Â»Æ’ duyÃ¡Â»â€¡t thay Ã¡Â»Å¸ trÃ¡ÂºÂ¡ng thÃƒÂ¡i hiÃ¡Â»â€¡n tÃ¡ÂºÂ¡i."))
+        frappe.throw(_("Không thể duyệt thay ở trạng thái hiện tại."))
     previous = frappe.flags.mute_messages
     frappe.flags.mute_messages = True
     try:

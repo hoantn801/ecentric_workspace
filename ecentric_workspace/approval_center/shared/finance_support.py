@@ -51,10 +51,10 @@ class Submitter:
         user = frappe.session.user
         document = frappe.get_doc(self.doctype, name)
         if document.approval_request:
-            frappe.throw(_("YÃƒÆ’Ã‚Âªu cÃƒÂ¡Ã‚ÂºÃ‚Â§u nÃƒÆ’Ã‚Â y Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c gÃƒÂ¡Ã‚Â»Ã‚Â­i."))
+            frappe.throw(_("Yêu cầu này đã được gửi."))
         if (document.requested_by and document.requested_by != user
                 and "System Manager" not in frappe.get_roles(user)):
-            frappe.throw(_("BÃƒÂ¡Ã‚ÂºÃ‚Â¡n chÃƒÂ¡Ã‚Â»Ã¢â‚¬Â° cÃƒÆ’Ã‚Â³ thÃƒÂ¡Ã‚Â»Ã†â€™ gÃƒÂ¡Ã‚Â»Ã‚Â­i yÃƒÆ’Ã‚Âªu cÃƒÂ¡Ã‚ÂºÃ‚Â§u cÃƒÂ¡Ã‚Â»Ã‚Â§a chÃƒÆ’Ã‚Â­nh mÃƒÆ’Ã‚Â¬nh."), frappe.PermissionError)
+            frappe.throw(_("Bạn chỉ có thể gửi yêu cầu của chính mình."), frappe.PermissionError)
         document.requested_by = document.requested_by or user
         employee = _employee(document.requested_by)
         if employee:
@@ -62,8 +62,8 @@ class Submitter:
             document.company = document.company or employee.company
         self.validator(document)
         if self.manager_required and not _manager(document.requested_by):
-            frappe.throw(_("KhÃƒÆ’Ã‚Â´ng xÃƒÆ’Ã‚Â¡c Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹nh Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c QuÃƒÂ¡Ã‚ÂºÃ‚Â£n lÃƒÆ’Ã‚Â½ trÃƒÂ¡Ã‚Â»Ã‚Â±c tiÃƒÂ¡Ã‚ÂºÃ‚Â¿p cÃƒÂ¡Ã‚Â»Ã‚Â§a bÃƒÂ¡Ã‚ÂºÃ‚Â¡n. Vui lÃƒÆ’Ã‚Â²ng liÃƒÆ’Ã‚Âªn hÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡ HR/Admin "
-                           "Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã†â€™ cÃƒÂ¡Ã‚ÂºÃ‚Â­p nhÃƒÂ¡Ã‚ÂºÃ‚Â­t 'BÃƒÆ’Ã‚Â¡o cÃƒÆ’Ã‚Â¡o cho' (reports_to) trong hÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“ sÃƒâ€ Ã‚Â¡ nhÃƒÆ’Ã‚Â¢n sÃƒÂ¡Ã‚Â»Ã‚Â± trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºc khi gÃƒÂ¡Ã‚Â»Ã‚Â­i yÃƒÆ’Ã‚Âªu cÃƒÂ¡Ã‚ÂºÃ‚Â§u."))
+            frappe.throw(_("Không xác định được Quản lý trực tiếp của bạn. Vui lòng liên hệ HR/Admin "
+                           "để cập nhật 'Báo cáo cho' (reports_to) trong hồ sơ nhân sự trước khi gửi yêu cầu."))
         document.request_title = self.title_builder(document)
         document.submitted_at = now_datetime()
         document.save(ignore_permissions=True)
@@ -96,7 +96,7 @@ class Resubmitter:
         from ecentric_workspace.approval_center.shared.workflow import transitions as engine
         document = frappe.get_doc(self.doctype, name)
         if not document.approval_request:
-            frappe.throw(_("YÃƒÆ’Ã‚Âªu cÃƒÂ¡Ã‚ÂºÃ‚Â§u nÃƒÆ’Ã‚Â y chÃƒâ€ Ã‚Â°a Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c gÃƒÂ¡Ã‚Â»Ã‚Â­i."))
+            frappe.throw(_("Yêu cầu này chưa được gửi."))
         frappe.db.set_value(self.doctype, name, "request_title", self.title_builder(document))
         previous = frappe.flags.mute_messages
         frappe.flags.mute_messages = True
