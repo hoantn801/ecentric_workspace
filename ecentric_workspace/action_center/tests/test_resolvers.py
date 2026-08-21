@@ -416,6 +416,27 @@ class TestActionCenterTitleResolution(FrappeTestCase):
             resolvers.resolve_title("MSO Request", "MSO-1")
         self.assertEqual(calls["n"], 1)   # 5 rows -> 1 get_meta
 
+    def test_leave_application_never_routes_to_the_legacy_approval_inbox(self):
+        """A pending leave must land on the HR page that can actually decide it.
+
+        /approval's TYPE_MAP knows only mso/so/po/gbs_so/gbs_po; handed
+        type=leave_application it ignores the parameter and renders the generic
+        ticket list -- a wrong destination that reports no error. And simply
+        dropping Leave Application from APPROVAL_DOCTYPES is not a fix either:
+        the unknown-DocType arm emits a Desk URL, which Website Users (~44% of
+        accounts) cannot open at all."""
+        item = resolvers.resolve_item({
+            "name": "todo-lv", "reference_type": "Leave Application",
+            "reference_name": "LEAVE-1", "description": "x",
+            "priority": "Medium", "modified": "",
+        })
+        self.assertEqual(item["action_url"], "/ec-hr/leave")
+        self.assertNotIn("/approval", item["action_url"])
+        self.assertFalse(item["action_url"].startswith("/app/"))
+        self.assertNotIn("Leave Application", resolvers.APPROVAL_DOCTYPES)
+        # still classified as an approval-family action, just routed elsewhere
+        self.assertEqual(item["title"], "Annual leave")
+
     def test_resolve_item_approval_branch_uses_metadata_title(self):
         # End-to-end: the approval branch of resolve_item now resolves the title
         # via metadata (title_field) instead of a hard-coded ["title","name"].
