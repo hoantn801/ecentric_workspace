@@ -221,7 +221,11 @@ def upsert_placement(pkg_name, dsf_name, box):
             "signer_slot_version": int(box.get("signer_slot_version") or 0) or None,
             "signature_type": box.get("signature_type") or "mock"}
     name = box.get("name")
-    if name and frappe.db.exists("EC Digital Signature Placement", name):
+    if name:
+        if not frappe.db.exists("EC Digital Signature Placement", name):
+            # UPDATE for a row that no longer exists (deleted while the request was in flight).
+            # NEVER silently resurrect it as a new row - signal the caller instead.
+            return None
         row = frappe.get_doc("EC Digital Signature Placement", name)
         if row.package != pkg.name or row.signature_file != dsf_name:
             frappe.throw(_("Vị trí ký không thuộc tài liệu này."))

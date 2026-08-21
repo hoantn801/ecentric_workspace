@@ -191,6 +191,8 @@ def save_placement(business_doctype, business_name, document_ref, box):
         "level_no": compat_level_no,
         "signer_slot_key": slot, "signer_slot_version": plan.get("slot_key_version")})
     st = placement_state(business_doctype, business_name, document_ref)
+    if name is None:                                   # update raced a delete - do NOT resurrect
+        return {"ok": False, "reason": "placement_deleted", "state": st}
     return {"ok": True, "placement_name": name, "state": st}
 
 

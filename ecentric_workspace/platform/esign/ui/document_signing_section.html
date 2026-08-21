@@ -337,7 +337,8 @@
     foreign_placement: "Vị trí ký không thuộc tài liệu này.",
     already_submitted: "Yêu cầu đã được gửi — không thể thay đổi vị trí ký.",
     package_locked: "Gói ký đã được chốt — không thể thay đổi.",
-    needs_review: "Cấu hình ký đang cần rà soát." };
+    needs_review: "Cấu hình ký đang cần rà soát.",
+    placement_deleted: "Vị trí ký đã bị xóa." };
   function saveFail(o) {                                      // o = {ok:false, reason} or null
     var r = o && o.reason; saveState("fail");
     drawerErr(_SAVE_REASON[r] || "Không thể lưu vị trí chữ ký — thử lại.");
@@ -455,22 +456,26 @@
     _persist(cid, { name: p.name, page_index: DRW.page, x: box.x, y: box.y,
                     width: box.width, height: box.height, signer_slot_key: p.signer_slot_key }, b);
   }
-  function deleteBox(b) {
-    var cid = b._cid, p = b._p, pend = DRW.pending[cid] || (DRW.pending[cid] = {});
-    if (pend.timer) clearTimeout(pend.timer);                 // cancel pending save for THIS box
-    pend.deleted = true; pend.queued = null; pend.rev = ++DRW.rev;
-    if (b.parentNode) b.parentNode.removeChild(b);            // remove immediately (local-first)
-    delete DRW.geom[cid];
-    if (!p.name) { renderCards(); return; }                  // never-saved optimistic box
+  function _sendDelete(cid, name) {
     var myToken = DRW.docToken; saveState("saving");
     window.frappe.call({ method: API + "delete_placement", type: "POST",
-      args: { payment_request_name: pr(), document_ref: DRW.ref, placement_name: p.name } })
+      args: { payment_request_name: pr(), document_ref: DRW.ref, placement_name: name } })
       .then(function (r) { if (myToken !== DRW.docToken) return;
         var o = (r && r.message) || {};
         if (o.ok === false) { saveFail(o); return; }
         DRW.st = o.state || DRW.st; saveState("saved"); drawerErr("");
         renderCards(); refreshRow(); })                      // NO box redraw
       .catch(function () { if (myToken === DRW.docToken) saveFail(null); });
+  }
+  function deleteBox(b) {
+    var cid = b._cid, p = b._p, pend = DRW.pending[cid] || (DRW.pending[cid] = {});
+    if (pend.timer) clearTimeout(pend.timer);                 // cancel pending save for THIS box
+    pend.deleted = true; pend.queued = null; pend.rev = ++DRW.rev;
+    if (b.parentNode) b.parentNode.removeChild(b);            // remove immediately (local-first)
+    delete DRW.geom[cid];
+    if (!p.name) { renderCards(); return; }                  // create in flight -> cleanup in _dispatch
+    if (pend.inflight) { pend.delName = p.name; return; }     // SERIALIZE: delete AFTER the in-flight
+    _sendDelete(cid, p.name);                                 //   save returns (server order per box)
   }
   function hydrateBoxes() {                                   // full redraw - ONLY on open/reload
     var layer = document.getElementById("ecdLayer"); layer.innerHTML = "";
@@ -505,6 +510,8 @@
             window.frappe.call({ method: API + "delete_placement", type: "POST",  // governed orphan cleanup
               args: { payment_request_name: pr(), document_ref: DRW.ref,
                       placement_name: o.placement_name } }).catch(function () {});
+          else if (pend.delName) { var dn = pend.delName; pend.delName = null;
+            _sendDelete(cid, dn); }                           // deferred delete of the named row
           pend.queued = null; return;
         }
         if (myToken !== DRW.docToken) { pend.queued = null; return; }   // drawer closed / switched
@@ -520,6 +527,8 @@
       })
       .catch(function () {
         pend.inflight = false;
+        if (pend.deleted && pend.delName) { var dn = pend.delName; pend.delName = null;
+          _sendDelete(cid, dn); return; }                     // still honour the user's delete
         if (myToken === DRW.docToken && !pend.deleted) saveFail(null);
         if (pend.queued && !pend.deleted) { var q = pend.queued; pend.queued = null; _dispatch(cid, q.box, q.el, q.rev); }
       });

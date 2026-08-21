@@ -123,8 +123,9 @@ function handle(method, args) {
   if (m === "placement_state") return placementState(id, args.document_ref);
   if (m === "save_placement") {
     if (db.submitted[id]) return { ok: false, reason: "already_submitted" };
-    const box = JSON.parse(args.box);
-    let name = box.name;
+    const box = JSON.parse(args.box); let name = box.name;
+    if (name && !db.placements[id][name])                       // mirror backend: NEVER resurrect
+      return { ok: false, reason: "placement_deleted", state: placementState(id, args.document_ref) };
     if (name && db.placements[id][name]) { db.stats.updateCalls++;
       Object.assign(db.placements[id][name], { x: box.x, y: box.y, width: box.width,
         height: box.height, page_index: box.page_index || 1 });
