@@ -38,17 +38,17 @@ def _html():
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
 BASELINE_SHA256 = "89e35dad1cb252278f9dfbd1a33f113196b9c9bf73ee62721563581421e8be7a"
 
-# GiÃƒÆ’Ã‚Â¡ trÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ live mÃƒÆ’Ã‚Â  snapshot nÃƒÆ’Ã‚Â y Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c phÃƒÆ’Ã‚Â©p ghi Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â¨.
+# Giá trị live mà snapshot này được phép ghi đè.
 #
-# 5c6b19cb... lÃƒÆ’Ã‚Â  bytes cÃƒÂ¡Ã‚Â»Ã‚Â§a d6d412c (GD2 C2 UAT fix), tÃƒÂ¡Ã‚Â»Ã‚Â©c lÃƒÆ’Ã‚Â  baseline Ãƒâ€žÃ‚ÂÃƒÆ’Ã…Â¡NG cho tÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºi khi
-# PR #241 (b082c2a, ec-datepicker: thÃƒÆ’Ã‚Âªm data-ec-dp-range vÃƒÆ’Ã‚Â o form lÃƒÂ¡Ã‚Â»Ã‚Âc) sÃƒÂ¡Ã‚Â»Ã‚Â­a
-# frontend/approvals_dashboard.main_section.html mÃƒÆ’Ã‚Â  KHÃƒÆ’Ã¢â‚¬ÂNG bump hÃƒÂ¡Ã‚ÂºÃ‚Â±ng sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ nÃƒÆ’Ã‚Â y. TÃƒÂ¡Ã‚Â»Ã‚Â« Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â³
-# BASELINE_SHA256 khÃƒÆ’Ã‚Â´ng cÃƒÆ’Ã‚Â²n khÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºp HTML repo ship, nÃƒÆ’Ã‚Âªn sync ghi Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Âºng mÃƒÂ¡Ã‚Â»Ã¢â€žÂ¢t lÃƒÂ¡Ã‚ÂºÃ‚Â§n rÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“i
-# refused vÃƒâ€žÃ‚Â©nh viÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¦n. tools/ci/check.py (phÃƒÆ’Ã‚Â©p kiÃƒÂ¡Ã‚Â»Ã†â€™m `pagesync`) bÃƒÂ¡Ã‚ÂºÃ‚Â¯t Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c sai lÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡ch Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â³.
+# 5c6b19cb... là bytes của d6d412c (GD2 C2 UAT fix), tức là baseline ĐÚNG cho tới khi
+# PR #241 (b082c2a, ec-datepicker: thêm data-ec-dp-range vào form lọc) sửa
+# frontend/approvals_dashboard.main_section.html mà KHÔNG bump hằng số này. Từ đó
+# BASELINE_SHA256 không còn khớp HTML repo ship, nên sync ghi được đúng một lần rồi
+# refused vĩnh viễn. tools/ci/check.py (phép kiểm `pagesync`) bắt được sai lệch đó.
 #
-# LiÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡t kÃƒÆ’Ã‚Âª ÃƒÂ¡Ã‚Â»Ã…Â¸ Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â¢y Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã†â€™ cÃƒÂ¡Ã‚ÂºÃ‚Â£ hai trÃƒÂ¡Ã‚ÂºÃ‚Â¡ng thÃƒÆ’Ã‚Â¡i live Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã‚Âu Ãƒâ€žÃ¢â‚¬Ëœi tiÃƒÂ¡Ã‚ÂºÃ‚Â¿p Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c: mÃƒÆ’Ã‚Â´i trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Âng cÃƒÆ’Ã‚Â²n giÃƒÂ¡Ã‚Â»Ã‚Â¯ bytes
-# d6d412c thÃƒÆ’Ã‚Â¬ sync tiÃƒÂ¡Ã‚ÂºÃ‚Â¿n lÃƒÆ’Ã‚Âªn, mÃƒÆ’Ã‚Â´i trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Âng Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ nhÃƒÂ¡Ã‚ÂºÃ‚Â­n bytes #241 thÃƒÆ’Ã‚Â¬ trÃƒÂ¡Ã‚ÂºÃ‚Â£ vÃƒÂ¡Ã‚Â»Ã‚Â "unchanged".
-# BÃƒÂ¡Ã‚Â»Ã‚Â entry nÃƒÆ’Ã‚Â y khi Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ xÃƒÆ’Ã‚Â¡c nhÃƒÂ¡Ã‚ÂºÃ‚Â­n deploy trÃƒÆ’Ã‚Âªn mÃƒÂ¡Ã‚Â»Ã‚Âi mÃƒÆ’Ã‚Â´i trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Âng.
+# Liệt kê ở đây để cả hai trạng thái live đều đi tiếp được: môi trường còn giữ bytes
+# d6d412c thì sync tiến lên, môi trường đã nhận bytes #241 thì trả về "unchanged".
+# Bỏ entry này khi đã xác nhận deploy trên mọi môi trường.
 SUPERSEDES_SHA256 = (
     "10ea6e183ceb2f04f174944b9d2ae6b932b2f1cfd992c6c48ae43f31689b9ae4",  # superseded by 89e35dad (compact table + row-click)
     "b49848db98abac2b5662695c9d80a9ddedf0f0546850b7f42fd09c09d0ccab00",  # superseded by 10ea6e183ceb

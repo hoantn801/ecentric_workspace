@@ -9,6 +9,7 @@ and the PM terminal ToDo-close hook.
 import datetime
 import io
 import os
+import re
 import sys
 import types
 import unittest
@@ -1312,37 +1313,136 @@ class TestAllowlistFormParity(unittest.TestCase):
         "EC System Request": "system_request",
     }
 
-    def _can_view_body(self, module):
-        import re as _re
-        # the module refactor moved these controllers from
-        # approval_center/api/<module>.py to
-        # approval_center/features/<module>/controllers/api.py (old path kept as
-        # a re-export shim without _can_view). Try the new location first.
+    @staticmethod
+    def _code_only(src):
+        """Source with `#` comments and triple-quoted blocks removed.
+
+        These assertions are token searches, so prose must not be able to
+        satisfy them. Verified by mutation: the docstring of
+        capabilities.can_view mentions "fulfillment_owner", and against the RAW
+        text the check stayed green even after the kwarg itself was deleted.
+
+        Deliberately line-based rather than tokenize(): these bodies are sliced
+        out mid-signature and do not parse, and a tokenize() that raises would
+        fall back to the raw source -- silently turning the guard back off.
+        """
+        fences = (chr(34) * 3, chr(39) * 3)
+        out, fence = [], None
+        for line in src.split("\n"):
+            if fence is not None:
+                if fence in line:
+                    fence = None
+                continue
+            stripped = line.strip()
+            hit = None
+            for f in fences:
+                if stripped.startswith(f):
+                    hit = f
+                    break
+            if hit is not None:
+                if stripped.count(hit) == 1:
+                    fence = hit
+                continue
+            out.append(re.sub(r"#.*$", "", line))
+        return "\n".join(out)
+
+    def _controller_src(self, module):
+        """The module refactor moved per-form controllers from
+        approval_center/api/<module>.py to
+        approval_center/features/<module>/controllers/api.py; the old path is
+        now a re-export shim. Read whichever one carries the real code."""
         for path in (os.path.join(APP, "approval_center", "features", module,
                                   "controllers", "api.py"),
                      os.path.join(APP, "approval_center", "api", module + ".py")):
-            if not os.path.exists(path):
-                continue
-            src = io.open(path, encoding="utf-8").read()
-            m = _re.search(r"\ndef _can_view\([^)]*\):\n(.*?)(?=\ndef |\n@|\Z)", src, _re.S)
-            if m:
-                return m.group(1)
+            if os.path.exists(path):
+                src = io.open(path, encoding="utf-8").read()
+                if "bind" in src or "_can_view" in src:
+                    return src
         return ""
+
+    def _can_view_body(self, module):
+        import re as _re
+        src = self._controller_src(module)
+        m = _re.search(r"\ndef _can_view\([^)]*\):\n(.*?)(?=\ndef |\n@|\Z)", src, _re.S)
+        return m.group(1) if m else ""
 
     def test_allowlist_maps_exactly_to_audited_modules(self):
         from ecentric_workspace.action_center import resolvers as R
         self.assertEqual(set(R.APPROVAL_NORMALIZE_ALLOWLIST), set(self.DT_TO_MODULE))
 
-    def test_each_allowlisted_form_is_superset_of_canonical(self):
+    def test_each_allowlisted_form_reaches_the_canonical_check(self):
+        """Every allow-listed form's view gate must END UP at can_view_request.
+
+        REWRITTEN 2026-08-21. The old version grepped each feature module for a
+        literal `def _can_view` and asserted on its body. After the module
+        refactor five of the six forms no longer define one -- they are built by
+        the shared bind()/bind_fulfillment() factory, which installs _can_view
+        for them. So the old test was not merely red, it had gone BLIND: it
+        proved nothing about the five forms it could not find, and would have
+        passed vacuously the moment someone gave ai_topup a delegating body.
+
+        The chain is asserted end to end instead:
+          form controller -> (own _can_view | shared bind factory)
+                          -> capabilities.can_view
+                          -> workflow.permissions.can_view_request
+        """
         for dt, module in self.DT_TO_MODULE.items():
+            src = self._controller_src(module)
+            self.assertTrue(src, "%s: controller source not found" % module)
             body = self._can_view_body(module)
-            self.assertTrue(body, "%s: _can_view not found" % module)
-            delegates = ("can_view_request" in body)
-            superset = all(tok in body for tok in (
-                "requested_by == user", "_sm()", "EC Approval Request Approver",
-                "fulfillment_owner", "_is_fulfiller"))
-            self.assertTrue(delegates or superset,
-                            "%s (_can_view) is NOT >= canonical helper" % module)
+            if body:
+                delegates = ("can_view_request" in body) or ("caps.can_view" in body)
+                superset = all(tok in body for tok in (
+                    "requested_by == user", "_sm()", "EC Approval Request Approver",
+                    "fulfillment_owner", "_is_fulfiller"))
+                self.assertTrue(delegates or superset,
+                                "%s defines its own _can_view and it is NOT >= "
+                                "the canonical helper" % module)
+            else:
+                self.assertTrue("bind(" in src or "bind_fulfillment(" in src,
+                                "%s has neither its own _can_view nor the shared "
+                                "bind factory -- its view gate is unaccounted for"
+                                % module)
+
+    def test_shared_bind_factory_installs_the_canonical_gate(self):
+        """The factory branch above is only safe if bind() really wires
+        _can_view to the canonical capability -- otherwise five forms would pass
+        on a promise that nothing checks."""
+        src = io.open(os.path.join(APP, "approval_center", "shared", "api_adapter.py"),
+                      encoding="utf-8").read()
+        self.assertIn("def _can_view(user, business, request):", src)
+        self.assertIn("return caps.can_view(user, business, request)", src)
+        self.assertIn('"_can_view": _can_view,', src)     # exported, not dead code
+
+    def test_capabilities_can_view_delegates_to_the_engine(self):
+        """...and capabilities.can_view must FORWARD, not re-implement. A local
+        copy of the rule is how the feed and the form drifted apart last time."""
+        src = io.open(os.path.join(APP, "approval_center", "shared", "requests",
+                                   "capabilities.py"), encoding="utf-8").read()
+        body = self._code_only(src.split("def can_view(")[1].split("\ndef ")[0])
+        self.assertIn("can_view_request", body)
+        # kwarg form, not the bare word: the docstring says "fulfillment_owner"
+        # too, and a check that prose can satisfy is not a check
+        self.assertNotIn("#", body, "comment stripper did not run")
+        for token in ("requested_by=", "fulfillment_owner=", "business_doctype="):
+            self.assertIn(token, body,
+                          "can_view drops %s on the way through" % token.rstrip("="))
+
+    def test_canonical_check_still_covers_fulfillers(self):
+        """Guard the five branches the Action Center feed depends on. If any one
+        is dropped, a fulfiller sees a reminder for a document the form then
+        refuses to open -- the exact failure this chain exists to prevent."""
+        src = io.open(os.path.join(APP, "approval_center", "shared", "workflow",
+                                   "permissions.py"), encoding="utf-8").read()
+        body = self._code_only(src.split("def can_view_request(")[1].split("\ndef ")[0])
+        self.assertNotIn("#", body, "comment stripper did not run")
+        # match the BRANCH, not the parameter name: `fulfillment_owner` also
+        # appears in the signature, so the bare word stayed green after the
+        # whole `if fulfillment_owner == user` branch was deleted (mutation M3).
+        for token in ("is_system_manager(", "requested_by == user",
+                      "EC Approval Request Approver", "fulfillment_owner == user",
+                      "is_eligible_fulfiller("):
+            self.assertIn(token, body, "can_view_request lost the %s branch" % token)
 
     def test_excluded_patterns_are_not_allowlisted(self):
         # No-fulfiller + snapshot forms must be absent (canonical would be broader).

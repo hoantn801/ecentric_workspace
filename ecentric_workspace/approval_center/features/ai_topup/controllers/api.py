@@ -19,8 +19,8 @@ OPEN = ("Pending", "Information Required")
 MAX_PAGE = _DEFINITION.max_page_length
 _EDITABLE_DRAFT = _DEFINITION.editable_fields
 _STATUS_LABEL = {  # engine + fulfillment -> user-facing Vietnamese
-    "Draft": "NhÃƒÂ¡p", "Pending": "Ã„Âang phÃƒÂª duyÃ¡Â»â€¡t", "Information Required": "CÃ¡ÂºÂ§n bÃ¡Â»â€¢ sung thÃƒÂ´ng tin",
-    "Approved": "Ã„ÂÃƒÂ£ duyÃ¡Â»â€¡t", "Rejected": "BÃ¡Â»â€¹ tÃ¡Â»Â« chÃ¡Â»â€˜i", "Cancelled": "Ã„ÂÃƒÂ£ hÃ¡Â»Â§y",
+    "Draft": "Nháp", "Pending": "Đang phê duyệt", "Information Required": "Cần bổ sung thông tin",
+    "Approved": "Đã duyệt", "Rejected": "Bị từ chối", "Cancelled": "Đã hủy",
 }
 
 
