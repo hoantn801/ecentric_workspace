@@ -376,6 +376,20 @@ def page_route_map(repo):
                 if os.path.isfile(ms):
                     out[ms] = "/" + route
                     break
+    # HR pages that ship their bytes from the repo (the guide). The three
+    # business HR pages are NOT here on purpose: their live bytes are governed
+    # by hr/pages/shell_boundary.py, which regenerates the same two zones
+    # server-side under a byte-preservation proof.
+    hp = os.path.join(repo, "ecentric_workspace", "hr", "pages")
+    if os.path.isdir(hp):
+        for slug in sorted(os.listdir(hp)):
+            ps = os.path.join(hp, slug, "page_sync.py")
+            ms = os.path.join(hp, slug, "main_section.html")
+            if not (os.path.isfile(ps) and os.path.isfile(ms)):
+                continue
+            m = re.search(r'ROUTE = "([^"]+)"', io.open(ps, encoding="utf-8").read())
+            if m:
+                out[ms] = "/" + m.group(1)
     lp = os.path.join(repo, "ecentric_workspace", "legacy_pages")
     for slug in sorted(os.listdir(lp)):
         ps = os.path.join(lp, slug, "page_sync.py")

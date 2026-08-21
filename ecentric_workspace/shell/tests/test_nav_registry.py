@@ -55,7 +55,10 @@ class TestRegistryCompose(unittest.TestCase):
         items = nav.compose("hr")
         hr = [it for it in items if it.get("owner") == "hr"]
         routes = sorted(it["route"] for it in hr)
-        self.assertEqual(routes, ["/ec-hr/attendance", "/ec-hr/salary"])
+        self.assertEqual(routes, ["/ec-hr/attendance",
+                                  "/ec-hr/huong-dan-cai-app",
+                                  "/ec-hr/leave",
+                                  "/ec-hr/salary"])
         for it in hr:
             self.assertEqual(it["group"], "Nhân sự")
             self.assertEqual(it["visible_when"], "internal")
