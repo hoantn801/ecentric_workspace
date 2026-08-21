@@ -24,6 +24,18 @@ HR_ITEMS = [
         "owner": "hr",
     },
     {
+        "key": "hr.leave",
+        "label": "Nghỉ phép",
+        "route": "/ec-hr/leave",
+        "icon": "calendar",
+        "group": "Nhân sự",
+        "order": 15,
+        "active_patterns": ["/ec-hr/leave"],
+        "visible_when": "internal",
+        "keywords": ["nghi phep", "leave", "xin nghi", "phep nam", "nghi om"],
+        "owner": "hr",
+    },
+    {
         "key": "hr.salary",
         "label": "Phiếu lương",
         "route": "/ec-hr/salary",
@@ -36,6 +48,19 @@ HR_ITEMS = [
         "owner": "hr",
         # SECURITY: never prerender / prefetch / warm the salary route.
         "no_prerender": True,
+    },
+    {
+        "key": "hr.install_guide",
+        "label": "Cài app lên điện thoại",
+        "route": "/ec-hr/huong-dan-cai-app",
+        "icon": "book",
+        "group": "Nhân sự",
+        "order": 90,
+        "active_patterns": ["/ec-hr/huong-dan-cai-app"],
+        "visible_when": "internal",
+        "keywords": ["huong dan", "cai app", "cai dat", "install", "pwa",
+                     "iphone", "android", "man hinh chinh"],
+        "owner": "hr",
     },
 ]
 

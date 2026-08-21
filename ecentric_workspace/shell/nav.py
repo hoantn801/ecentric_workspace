@@ -66,6 +66,12 @@ CORE_ITEMS = [
 #: route_policy regardless of this link), Nghỉ phép -> /ec-hr/leave
 #: (moved 2026-08-14 from /approvals/leave: leave now uses the native
 #: Leave Application flow on the eCentric HR portal page).
+#: 2026-08-21: /ec-hr/leave and /ec-hr/huong-dan-cai-app became canonically
+#: owned by the `hr` provider, so the portal entries above are aliases like
+#: attendance and salary. Before this, /ec-hr/leave scored 0 in the hr
+#: context and resolve_context() sent it to `home` -- which is why the leave
+#: page painted the full portal sidebar while its two sibling pages painted
+#: the 2-item HR sidebar.
 HOME_PORTAL_ITEMS = [
     {"key": "home.portal.home", "label": "Trang chủ", "route": "/", "icon": "home",
      "group": "Workspace", "order": 10, "active_patterns": ["/", "/home"],
@@ -94,11 +100,16 @@ HOME_PORTAL_ITEMS = [
      "visible_when": "internal", "owner": "home_portal", "alias": True},
     {"key": "home.portal.leave", "label": "Nghỉ phép", "route": "/ec-hr/leave",
      "icon": "calendar", "group": "Nhân sự", "order": 20, "active_patterns": ["/ec-hr/leave"],
-     "visible_when": "internal", "owner": "home_portal",
+     "visible_when": "internal", "owner": "home_portal", "alias": True,
      "keywords": ["nghi phep", "leave", "xin nghi"]},
     {"key": "home.portal.salary", "label": "Phiếu lương", "route": "/ec-hr/salary",
      "icon": "wallet", "group": "Nhân sự", "order": 30, "active_patterns": ["/ec-hr/salary"],
      "visible_when": "internal", "owner": "home_portal", "alias": True},
+    {"key": "home.portal.install_guide", "label": "Cài app lên điện thoại",
+     "route": "/ec-hr/huong-dan-cai-app", "icon": "book", "group": "Nhân sự", "order": 50,
+     "active_patterns": ["/ec-hr/huong-dan-cai-app"],
+     "visible_when": "internal", "owner": "home_portal", "alias": True,
+     "keywords": ["huong dan", "cai app", "pwa", "iphone", "android"]},
     {"key": "home.portal.kpi", "label": "Mục tiêu KPI", "route": "/coming-soon?tool=kpi",
      "icon": "target", "group": "Nhân sự", "order": 40, "active_patterns": ["/coming-soon?tool=kpi"],
      "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},

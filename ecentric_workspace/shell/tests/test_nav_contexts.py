@@ -50,8 +50,12 @@ class TestRouteToContext(unittest.TestCase):
         owners = {i["owner"] for i in hr}
         self.assertEqual(owners, {"core", "hr"},
                          "HR sidebar must contain zero Approval/Document entries")
+        # 2026-08-21: leave + the install guide joined the hr provider so all
+        # /ec-hr/* pages paint the SAME sidebar (before, /ec-hr/leave resolved
+        # to `home` and painted the full portal sidebar).
         self.assertEqual([i["label"] for i in hr if i["owner"] == "hr"],
-                         ["Chấm công", "Phiếu lương"])
+                         ["Chấm công", "Nghỉ phép", "Phiếu lương",
+                          "Cài app lên điện thoại"])
 
     def test_home_portal_preserves_restored_ia(self):
         # PO-locked: portal context == the restored Homepage 4-group IA
@@ -61,14 +65,16 @@ class TestRouteToContext(unittest.TestCase):
             if i["group"] not in groups:
                 groups.append(i["group"])
         self.assertEqual(groups, ["Workspace", "Nhân sự", "Báo cáo & Phân tích", "Tài nguyên"])
-        # 16 restored-IA items + 1 approved addition: "Trung tâm Báo cáo" (/reports)
-        self.assertEqual(len(home), 17)
+        # 16 restored-IA items + 2 approved additions: "Trung tâm Báo cáo"
+        # (/reports) and "Cài app lên điện thoại" (/ec-hr/huong-dan-cai-app)
+        self.assertEqual(len(home), 18)
         labels = {i["label"]: i["route"] for i in home}
         # approved route migrations
         self.assertEqual(labels["Phê duyệt"], "/approvals")
         self.assertEqual(labels["Chấm công"], "/ec-hr/attendance")
         self.assertEqual(labels["Phiếu lương"], "/ec-hr/salary")
-        self.assertEqual(labels["Nghỉ phép"], "/approvals/leave")
+        # moved 2026-08-14 from /approvals/leave to the HR portal page
+        self.assertEqual(labels["Nghỉ phép"], "/ec-hr/leave")
         # rejected launcher stays gone
         self.assertFalse(any(i["group"] == "Phân hệ" for i in home))
         self.assertFalse(hasattr(nav, "_launcher_items"))

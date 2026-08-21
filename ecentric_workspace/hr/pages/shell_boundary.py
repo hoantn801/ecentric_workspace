@@ -10,7 +10,8 @@ registry and prove everything outside them is untouched.
 
 Shell zones (both already exist on the live pages, HR MVP + 7fef8fa):
   1. <aside class="ec-shell-mount"> inner  -> context-aware static sidebar
-     (nav context `hr` -> NHÂN SỰ / Chấm công / Phiếu lương at first paint)
+     (nav context `hr` -> NHÂN SỰ / Chấm công / Nghỉ phép / Phiếu lương /
+     Cài app lên điện thoại at first paint)
   2. bare header-right div -> canonical .ec-shell-topbar (registry crumbs
      "Nhân sự / <page>" + 3-slot header-right), same recipe as /docs/gbs-flow.
 
@@ -141,6 +142,17 @@ def _require_sm():
 def sync_hr_attendance_page():
     _require_sm()
     return upgrade("ec-hr/attendance", ["ec-hr-attendance"])
+
+
+@frappe.whitelist(methods=["POST"])
+def sync_hr_leave_page():
+    """Leave joined the `hr` nav context on 2026-08-21. Before that,
+    resolve_context("/ec-hr/leave") scored 0 against the hr provider and fell
+    through to `home`, so this page alone painted the full portal sidebar while
+    its two siblings painted the HR one. Registering hr.leave fixes the
+    HYDRATED sidebar immediately; this sync fixes the FIRST PAINT too."""
+    _require_sm()
+    return upgrade("ec-hr/leave", ["ec-hr-leave"])
 
 
 @frappe.whitelist(methods=["POST"])
