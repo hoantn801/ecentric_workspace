@@ -196,7 +196,7 @@
     document.getElementById("ecdCount").textContent = (sm.documents || 0) + ' tài liệu';
     document.getElementById("ecdSummary").textContent =
       (sm.requires_signature || 0) + ' cần ký · ' + (sm.supporting_documents || 0)
-      + ' bộ chứng từ · 0/' + totalSlots + ' người ký đã thiết lập';
+      + ' bộ chứng từ · ' + totalCovered + '/' + totalSlots + ' người ký đã thiết lập';
     var banner = document.getElementById("ecdBanner");
     if (STATE.needs_review) {
       banner.innerHTML = '<div class="ecd-banner b-review">Cấu hình ký đang mơ hồ — cần rà soát trước khi tiếp tục.</div>';

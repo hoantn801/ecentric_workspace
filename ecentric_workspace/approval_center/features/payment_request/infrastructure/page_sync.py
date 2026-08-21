@@ -111,8 +111,9 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "df5e328b9a4d842f63a6941c5416877b36df47bc80b32e4caa4720fb8530e52c"
+BASELINE_SHA256 = "2915800cd5728d45414833dfcae5574fff42b12dadea18468974d7b23de4278a"
 SUPERSEDES_SHA256 = (
+    "df5e328b9a4d842f63a6941c5416877b36df47bc80b32e4caa4720fb8530e52c",   # compose trước fix header-summary
     "9ce2d2e5f38b6e897daf5c8092bf4b561ad1ba1ed6b71aa96bba9ad98be9324c",   # compose trước fix delete-race (raw)
     # Điểm bất động sau server-side write: upsert ghi compose repo -> Frappe sanitize +
     # strip_legacy_shims biến đổi -> live luôn ổn định ở sha này (quan sát live 2026-08-21,
