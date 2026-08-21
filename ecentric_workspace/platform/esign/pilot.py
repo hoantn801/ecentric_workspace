@@ -180,7 +180,7 @@ def uat_pilot_readiness(payment_request_name=None):
             chk("requester_mapping_active_verified", m.mapping_status == "Verified")
         else:
             chk("requester_mapping_active_verified", False)
-        pkg_name = pkgsvc.active_package_for_request(ar)
+        pkg_name = pkgsvc.signable_package_for_request(ar)   # Locked OR Active
         pkg = frappe.db.get_value(PKG, pkg_name,
                                   ["name", "status", "package_hash", "error_code"],
                                   as_dict=True) if pkg_name else None
@@ -274,7 +274,7 @@ def uat_pilot_readiness(payment_request_name=None):
             # operator (caller) vs signer: a WARNING for readiness (SM may inspect another
             # approver's readiness); apply=1 turns this into a hard block downstream.
             chk("caller_is_active_approver", caller == active_approver, blocking_flag=False)
-            pkg_name = pkgsvc.active_package_for_request(ar)
+            pkg_name = pkgsvc.signable_package_for_request(ar)   # Locked OR Active
             pkg = frappe.db.get_value(PKG, pkg_name,
                                       ["name", "status", "package_hash", "error_code"],
                                       as_dict=True) if pkg_name else None
