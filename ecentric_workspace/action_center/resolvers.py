@@ -36,7 +36,18 @@ PORTAL_FALLBACK = {
     "EC Alert": "/alerts",          # alert case handling lives on the dashboard
     "Brand": "/alerts",             # per-brand setup ToDo (missing mapping/price)
     "EC Order Retry": "/alerts",    # retry queue
+    # hrms DocType, not ours: hrms files the ToDo when an employee submits the
+    # request, so NOTHING in this repo mentions it and the source scan in
+    # tests/test_no_desk_urls.py could never have found it. Reported from
+    # production UAT 2026-08-21 (HR-ARQ-26-08-00010..12 opened Desk).
+    "Attendance Request": "/ec-hr/attendance",
 }
+
+#: DocTypes owned by OTHER installed apps (hrms, erpnext) that file ToDos at our
+#: users. They are listed by hand because the repo scan is structurally blind to
+#: them -- their producer lives outside this codebase. Anything added here must
+#: resolve to a portal route; the gate enforces that.
+EXTERNAL_TODO_DOCTYPES = ("Attendance Request",)
 
 # Approval-style DocTypes (route /approval?id=&type=).
 APPROVAL_DOCTYPES = frozenset({
@@ -330,6 +341,46 @@ _GENERIC_SRC = {
 }
 
 
+#: how long one unmapped-DocType report is suppressed (seconds)
+_UNMAPPED_TTL = 86400
+
+
+def _note_unmapped_doctype(doctype):
+    """Report ONCE A DAY that a DocType reached the Desk fallback.
+
+    Why this exists: every producer inside this repo is caught by the source
+    scan in tests/test_no_desk_urls.py, but ToDos also arrive from OTHER
+    installed apps -- hrms filed the Attendance Request ToDos that reached
+    production on 2026-08-21, and no amount of grepping this codebase could
+    have found them. Source scanning cannot see another app; production can.
+
+    Records the DocType NAME ONLY -- never the record name, the user or any
+    field -- so this stays safe to read and cannot leak business data. Failure
+    is swallowed: an observability aid must never break the feed it observes.
+    """
+    dt = (doctype or "").strip()
+    if not dt:
+        return
+    try:
+        cache = frappe.cache()
+        key = "ec_ac_unmapped_dt:" + dt
+        if cache.get_value(key):
+            return
+        cache.set_value(key, 1, expires_in_sec=_UNMAPPED_TTL)
+        frappe.log_error(
+            message=(
+                "Action Center: ToDo reference_type %r has no portal route, so "
+                "the reminder points at Frappe Desk (/app/...), which portal "
+                "users cannot open.\n\n"
+                "Fix: add %r to PORTAL_FALLBACK in "
+                "ecentric_workspace/action_center/resolvers.py (and to "
+                "EXTERNAL_TODO_DOCTYPES if another app owns it), then extend "
+                "action_center/tests/test_no_desk_urls.py." % (dt, dt)),
+            title="Action Center: unmapped ToDo DocType")
+    except Exception:
+        pass
+
+
 def resolve_item(todo_row):
     """Build the canonical Action Center item from a tabToDo row.
 
@@ -393,11 +444,18 @@ def resolve_item(todo_row):
         subtitle = ref_type
         action_url = PORTAL_FALLBACK[ref_type]
     elif ref_type and ref_name:
-        # Unknown DocType with a reference -> safe Desk fallback.
+        # Unknown DocType with a reference -> Desk fallback (PO decision
+        # 2026-08-21: keep the link rather than hide the item, so nothing is
+        # silently dropped from someone's work list).
+        #
+        # The accompanying trade-off is that a portal user without Desk access
+        # still hits a wall, so the unmapped type is REPORTED instead of passing
+        # unnoticed -- see _note_unmapped_doctype.
         src = _GENERIC_SRC
         title = ref_name
         subtitle = ref_type
         action_url = build_desk_fallback_url(ref_type, ref_name)
+        _note_unmapped_doctype(ref_type)
     elif "[XNGIO]" in (description or ""):
         # PM time-blocking "confirm your hours" reminder -> the week calendar (portal),
         # NOT the Desk ToDo form. Tag is set by pm.api.schedule._ensure_nudge_todo.

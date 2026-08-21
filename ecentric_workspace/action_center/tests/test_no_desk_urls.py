@@ -28,6 +28,9 @@ _fk = types.ModuleType("frappe")
 _fk.__path__ = []
 _fk.local = types.SimpleNamespace()
 _fk.db = types.SimpleNamespace(get_value=lambda *a, **kw: None)
+_fk.log_error = lambda **kw: None
+_fk.cache = lambda: types.SimpleNamespace(get_value=lambda k: None,
+                                          set_value=lambda k, v, expires_in_sec=None: None)
 
 
 class _F(dict):
@@ -108,7 +111,8 @@ class TestNoDeskUrls(unittest.TestCase):
     def test_known_sources_resolve_to_portal(self):
         for dt in ("Weekly Team Update", "Task", "PO Request", "MSO Request",
                    "GBS Sales Order", "Leave Application",
-                   "EC Alert", "Brand", "EC Order Retry"):
+                   "EC Alert", "Brand", "EC Order Retry",
+                   "Attendance Request"):
             url = self._url(dt)
             self.assertTrue(url, dt + ": no url")
             self.assertFalse(url.startswith("/app/"),
@@ -146,6 +150,87 @@ class TestNoDeskUrls(unittest.TestCase):
         # a ToDo with no reference has nowhere else to go; documented exception
         url = R.resolve_item(_todo("", "", desc="Ad-hoc", name="td-9")).get("action_url")
         self.assertEqual(url, "/app/todo/td-9")
+
+
+
+class TestExternalProducers(unittest.TestCase):
+    """The blind spot the repo scan CANNOT cover, made explicit.
+
+    _scan_todo_doctypes() reads THIS codebase. ToDos also arrive from other
+    installed apps: hrms creates one per Attendance Request when an employee
+    submits it, so `Attendance Request` appears nowhere in this repo and the
+    scan above is structurally incapable of finding it. Three of them reached
+    production on 2026-08-21 pointing at Frappe Desk.
+
+    Two defences, because neither alone is enough:
+      * this hand-maintained list, asserted to resolve to a portal route, and
+      * resolvers._note_unmapped_doctype(), which reports from PRODUCTION the
+        types no static scan can see.
+    """
+
+    def test_external_doctypes_resolve_to_portal(self):
+        for dt in R.EXTERNAL_TODO_DOCTYPES:
+            url = R.resolve_item(_todo(dt, "X-1")).get("action_url") or ""
+            self.assertTrue(url, dt + ": no url")
+            self.assertFalse(url.startswith("/app/"),
+                             "%s (owned by another app) -> Desk url %s" % (dt, url))
+
+    def test_external_doctypes_are_mapped_not_just_listed(self):
+        # listing a type without mapping it would pass the test above only by
+        # accident (e.g. if it happened to match another branch)
+        for dt in R.EXTERNAL_TODO_DOCTYPES:
+            self.assertIn(dt, R.PORTAL_FALLBACK,
+                          "%s is declared external but has no PORTAL_FALLBACK entry" % dt)
+
+    def test_attendance_request_goes_to_the_hr_page(self):
+        self.assertEqual(self._url("Attendance Request"), "/ec-hr/attendance")
+
+    def _url(self, ref_type, ref_name="X-1"):
+        return R.resolve_item(_todo(ref_type, ref_name)).get("action_url") or ""
+
+
+class TestUnmappedReporting(unittest.TestCase):
+    """An unmapped type must still be REPORTED, since the PO decision is to keep
+    the Desk link rather than hide the item."""
+
+    def test_desk_fallback_reports_the_doctype(self):
+        seen = []
+        orig_log, orig_cache = _fk.log_error, _fk.cache
+        _fk.log_error = lambda **kw: seen.append(kw.get("title"))
+
+        class _C:
+            def __init__(self):
+                self.store = {}
+
+            def get_value(self, k):
+                return self.store.get(k)
+
+            def set_value(self, k, v, expires_in_sec=None):
+                self.store[k] = v
+
+        cache = _C()
+        _fk.cache = lambda: cache
+        try:
+            R.resolve_item(_todo("Totally Unknown DocType", "Z-1"))
+            self.assertEqual(len(seen), 1, "unmapped DocType was not reported")
+            # ...and only once per day, so this cannot spam the Error Log
+            R.resolve_item(_todo("Totally Unknown DocType", "Z-2"))
+            self.assertEqual(len(seen), 1, "reported more than once for one type")
+        finally:
+            _fk.log_error, _fk.cache = orig_log, orig_cache
+
+    def test_reporting_failure_never_breaks_the_feed(self):
+        orig = _fk.cache
+
+        def _boom():
+            raise RuntimeError("redis down")
+
+        _fk.cache = _boom
+        try:
+            url = R.resolve_item(_todo("Another Unknown", "Z-3")).get("action_url")
+            self.assertTrue(url.startswith("/app/"))   # still resolved
+        finally:
+            _fk.cache = orig
 
 
 if __name__ == "__main__":
