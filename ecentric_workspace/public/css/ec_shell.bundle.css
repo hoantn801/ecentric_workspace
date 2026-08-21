@@ -178,6 +178,14 @@
   padding:13px 16px; border-bottom:1px solid var(--ec-hair); }
 .ec-shell-rm-bartitle{ font-size:15px; font-weight:600; color:var(--ec-gray-800); }
 .ec-shell-nc-spacer{ flex:1 1 auto; }
+/* "Mở trang đầy đủ": the drawer is a preview; the page at /viec-cua-toi is
+   the destination. Desktop only -- on a phone the header inbox goes straight
+   to the page and the drawer never renders. */
+.ec-shell-rm-fullpage{ font-size:13px; font-weight:600; color:var(--ec-navy);
+  text-decoration:none; padding:5px 10px; border-radius:8px; white-space:nowrap; }
+.ec-shell-rm-fullpage:hover{ background:var(--ec-navy-50); text-decoration:none; }
+.ec-shell-rm-fullpage:focus-visible{ outline:2px solid var(--ec-navy); outline-offset:2px; }
+
 .ec-shell-rm-close{ background:transparent; border:0; cursor:pointer; font-size:22px;
   line-height:1; color:var(--ec-gray-500); padding:0 4px; }
 .ec-shell-rm-close:hover{ color:var(--ec-gray-800); }

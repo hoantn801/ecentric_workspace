@@ -18,7 +18,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.19.1 (honest totals: one card per business document, bounded scan raised to 2000 with a "2000+" label when it overflows) (v1.19.0: single header inbox "Viec cua toi": single header inbox "Việc của tôi": reminder clock + notification bell merged into one button opening a wide right-hand drawer with two lanes -- work | notifications; rows are links only, every action happens on the destination page)';
+  var VERSION = 'ec-shell v1.20.0 ("Việc của tôi" is a real page at /viec-cua-toi: on a phone the header inbox navigates there instead of opening the overlay drawer; the drawer stays on desktop and links to the page. Badge mirrors into every [data-ec-shell-reminder-badge] node so a page can render its own -- e.g. the mobile tab bar.) (v1.19.1 honest totals: one card per business document, bounded scan raised to 2000 with a "2000+" label when it overflows)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -796,7 +796,20 @@
       var t = ev.target;
       if (!t || !t.closest) return;
       var btn = t.closest('[data-ec-shell-action-slot="1"]');
-      if (btn) { ev.preventDefault(); toggleReminder(); return; }
+      if (btn) {
+        ev.preventDefault();
+        // On a phone the drawer covers the very screen it floats over, cannot
+        // be linked to and has no back button, so the header inbox goes to the
+        // full page instead. 900px is the same breakpoint the sidebar uses to
+        // become a drawer (ec_shell.bundle.css), so "no sidebar" and "no
+        // reminder drawer" always agree.
+        if (window.matchMedia && window.matchMedia('(max-width: 900px)').matches) {
+          if (MY_WORK_URL !== location.pathname) location.href = MY_WORK_URL;
+          return;
+        }
+        toggleReminder();
+        return;
+      }
       // per-bucket toggle (native <button> -> Enter/Space fire click too)
       var tog = t.closest('[data-ec-shell-rm-toggle]');
       if (tog) { ev.preventDefault(); toggleBucket(tog.getAttribute('data-ec-shell-rm-toggle')); return; }
@@ -935,6 +948,9 @@
   ];
   var _RM_BUCKET_URL = '/api/method/ecentric_workspace.action_center.api.get_reminder_bucket';
 
+  //: canonical full-page view of this same feed (shell/nav.py home.portal.mywork).
+  var MY_WORK_URL = '/viec-cua-toi';
+
   function reminderBtn() { return document.querySelector('[data-ec-shell-action-slot="1"]'); }
 
   // The server scans a BOUNDED number of open ToDos per pass (feed._SCAN_CAP)
@@ -947,15 +963,20 @@
   }
 
 
+
+  //: the header inbox is no longer the only place a badge can live -- the
+  //: mobile tab bar renders its own "Việc của tôi" tab. Every node carrying
+  //: the contract attribute gets the SAME derived number from the SAME fetch;
+  //: a page never counts anything itself.
   function setReminderBadge(attention) {
-    var btn = reminderBtn();
-    if (!btn) return;
-    var b = btn.querySelector('[data-ec-shell-reminder-badge="1"]');
-    if (!b) return;
+    var nodes = document.querySelectorAll('[data-ec-shell-reminder-badge="1"]');
+    if (!nodes.length) return;
     var n = attention || 0;
-    if (n <= 0) { b.hidden = true; b.textContent = ''; return; }
-    b.textContent = n > 9 ? '9+' : String(n);   // cap per contract
-    b.hidden = false;
+    var txt = n > 9 ? '9+' : String(n);          // cap per contract
+    for (var i = 0; i < nodes.length; i++) {
+      if (n <= 0) { nodes[i].hidden = true; nodes[i].textContent = ''; }
+      else { nodes[i].textContent = txt; nodes[i].hidden = false; }
+    }
   }
 
   function fetchReminder(cb) {
@@ -1125,6 +1146,7 @@
         ((R.data && R.data.total)
           ? '<span class="ec-shell-rm-total">' + esc(rmTotalLabel(R.data)) + '</span>' : '') +
         '<span class="ec-shell-nc-spacer"></span>' +
+        '<a class="ec-shell-rm-fullpage" href="' + MY_WORK_URL + '">Mở trang đầy đủ</a>' +
         '<button type="button" class="ec-shell-rm-close" data-ec-shell-rm-close="1" ' +
           'aria-label="Đóng">×</button>' +
       '</div>' +

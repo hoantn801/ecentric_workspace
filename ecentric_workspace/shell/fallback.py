@@ -376,15 +376,18 @@ def page_route_map(repo):
                 if os.path.isfile(ms):
                     out[ms] = "/" + route
                     break
-    # HR pages that ship their bytes from the repo (the guide). The three
-    # business HR pages are NOT here on purpose: their live bytes are governed
-    # by hr/pages/shell_boundary.py, which regenerates the same two zones
-    # server-side under a byte-preservation proof.
-    hp = os.path.join(repo, "ecentric_workspace", "hr", "pages")
-    if os.path.isdir(hp):
-        for slug in sorted(os.listdir(hp)):
-            ps = os.path.join(hp, slug, "page_sync.py")
-            ms = os.path.join(hp, slug, "main_section.html")
+    # Module-owned pages that ship their BYTES from the repo, under
+    # <module>/pages/<slug>/{main_section.html,page_sync.py}. Pages whose live
+    # bytes predate the repo are NOT here on purpose: those are governed by a
+    # server-side transform (e.g. hr/pages/shell_boundary.py) that regenerates
+    # the same two zones under a byte-preservation proof.
+    for mod in ("hr", "action_center"):
+        mp = os.path.join(repo, "ecentric_workspace", mod, "pages")
+        if not os.path.isdir(mp):
+            continue
+        for slug in sorted(os.listdir(mp)):
+            ps = os.path.join(mp, slug, "page_sync.py")
+            ms = os.path.join(mp, slug, "main_section.html")
             if not (os.path.isfile(ps) and os.path.isfile(ms)):
                 continue
             m = re.search(r'ROUTE = "([^"]+)"', io.open(ps, encoding="utf-8").read())

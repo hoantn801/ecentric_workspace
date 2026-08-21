@@ -80,6 +80,20 @@ HOME_PORTAL_ITEMS = [
     {"key": "home.portal.overview", "label": "Tổng quan", "route": "/coming-soon?tool=tong-quan",
      "icon": "grid", "group": "Workspace", "order": 20, "active_patterns": ["/coming-soon?tool=tong-quan"],
      "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
+    # "Việc của tôi": the SAME session-scoped action feed the header inbox
+    # drawer shows, as a full page. Canonically owned here (not an alias) so
+    # resolve_context() puts it in the portal context. Rows are links only --
+    # every approval action still happens on its destination page.
+    {"key": "home.portal.mywork", "label": "Việc của tôi", "route": "/viec-cua-toi",
+     "icon": "inbox", "group": "Workspace", "order": 15,
+     "active_patterns": ["/viec-cua-toi"], "visible_when": "internal",
+     "owner": "home_portal",
+     # deliberately NO badge_source: the only registered resolver counts
+     # APPROVALS, and this item means "everything waiting on me". The correct
+     # number (overdue + act_now) already rides on the header inbox and the
+     # mobile tab, both fed by get_reminder_summary.
+     "keywords": ["viec cua toi", "my work", "todo", "cong viec", "thong bao",
+                  "can duyet", "inbox"]},
     {"key": "home.portal.approvals", "label": "Phê duyệt", "route": "/approvals", "icon": "check",
      "group": "Workspace", "order": 30, "active_patterns": ["/approvals"],
      "visible_when": "internal", "owner": "home_portal", "alias": True,
