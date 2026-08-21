@@ -65,9 +65,10 @@ class TestRouteToContext(unittest.TestCase):
             if i["group"] not in groups:
                 groups.append(i["group"])
         self.assertEqual(groups, ["Workspace", "Nhân sự", "Báo cáo & Phân tích", "Tài nguyên"])
-        # 16 restored-IA items + 2 approved additions: "Trung tâm Báo cáo"
-        # (/reports) and "Cài app lên điện thoại" (/ec-hr/huong-dan-cai-app)
-        self.assertEqual(len(home), 18)
+        # 16 restored-IA items + 3 approved additions: "Trung tâm Báo cáo"
+        # (/reports), "Cài app lên điện thoại" (/ec-hr/huong-dan-cai-app) and
+        # "Việc của tôi" (/viec-cua-toi)
+        self.assertEqual(len(home), 19)
         labels = {i["label"]: i["route"] for i in home}
         # approved route migrations
         self.assertEqual(labels["Phê duyệt"], "/approvals")
@@ -158,10 +159,15 @@ class TestStaticHydratedContextParity(unittest.TestCase):
             has_hr_group = '<div class="ec-shell-grouplabel">Nhân sự</div>' in src
             has_appr_group = '<div class="ec-shell-grouplabel">Tạo mới</div>' in src
             has_launcher = '<div class="ec-shell-grouplabel">Phân hệ</div>' in src
+            has_workspace = '<div class="ec-shell-grouplabel">Workspace</div>' in src
             if ctx == "approval_document":
                 self.assertTrue(has_appr_group and not has_hr_group and not has_launcher, route)
             elif ctx == "home":
-                self.assertTrue(has_launcher and not has_appr_group and not has_hr_group, route)
+                # portal IA (Workspace / Nhân sự / Báo cáo & Phân tích / Tài
+                # nguyên) -- NOT the rejected "Phân hệ" launcher, and never the
+                # approval-context "Tạo mới" group. The portal legitimately
+                # carries a Nhân sự group, so has_hr_group says nothing here.
+                self.assertTrue(has_workspace and not has_appr_group and not has_launcher, route)
 
     def test_hr_boundary_sync_contracts(self):
         sb = _read(APP, "hr", "pages", "shell_boundary.py")
