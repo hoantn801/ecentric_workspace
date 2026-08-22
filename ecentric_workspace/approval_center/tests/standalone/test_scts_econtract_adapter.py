@@ -188,7 +188,7 @@ class TestEcontractAdapter(unittest.TestCase):
                            "statusName": "Hoàn thành",
                            "files": [{"name": "hopdong.pdf", "type": "chinh"}],
                            "signers": [
-                               {"user": "HOÀN NGUYÊN TRẦN", "roleText": "Ký chính",
+                               {"user": "", "email": "hoan.tran@ecentric.vn", "roleText": "Ký chính",
                                 "status": "Đã ký", "time": "2026-08-22 13:00", "isExternal": False},
                                {"user": "LAM NGUYEN VAN", "roleText": "Duyệt",
                                 "status": "Chưa ký", "time": "Chưa có", "isExternal": False}]}}
@@ -198,7 +198,7 @@ class TestEcontractAdapter(unittest.TestCase):
         st = a.poll_status("c1d2b32f")
         self.assertEqual(st.status, "completed")           # "Hoàn thành" -> completed
         self.assertEqual(st.signers[0]["status"], "signed")
-        self.assertEqual(st.signers[0]["display_name"], "HOÀN NGUYÊN TRẦN")
+        self.assertEqual(st.signers[0]["email"], "hoan.tran@ecentric.vn")
         self.assertEqual(st.signers[0]["signed_at"], "2026-08-22 13:00")
         self.assertEqual(st.signers[1]["status"], "pending")
         self.assertIsNone(st.signers[1]["signed_at"])      # "Chưa có" -> None
@@ -208,6 +208,29 @@ class TestEcontractAdapter(unittest.TestCase):
                                             "signers": [], "files": []}}
         a = mk_adapter(lambda *a2, **k: Resp(200, detail))
         self.assertEqual(a.poll_status("x").status, "processing")
+
+
+    def test_verify_signed_by_email_when_no_userids(self):
+        """eContract detail carries NO signer userIds - verification must succeed by the
+        bound ERP user's email (observed live 2026-08-23: signer signed but verifier said
+        expected_signer_absent)."""
+        from ecentric_workspace.platform.esign.providers.base import SignatureProviderAdapter
+        detail = {"success": True, "data": {"id": "DOC-9",
+                  "files": [{"id": "f1", "name": "a.pdf"}],
+                  "signers": [
+                      {"role": "chinh", "user": "", "email": "", "status": "Chưa ký", "time": "Chưa có"},
+                      {"role": "thamgia", "user": "", "email": "hoan.tran@ecentric.vn",
+                       "status": "Đã ký", "date": "23/08/2026", "time": "01:22"}]}}
+        a = mk_adapter(lambda *a2, **k: Resp(200, detail))
+        st = a.poll_status("DOC-9")
+        vr = SignatureProviderAdapter.verify_signed_result(
+            st, {"document_id": "DOC-9", "user_id": "73f72e15-nope",
+                 "email": "hoan.tran@ecentric.vn", "file_count": 1})
+        self.assertTrue(vr.ok, vr.reason)
+        # sai email -> van fail-closed
+        vr2 = SignatureProviderAdapter.verify_signed_result(
+            st, {"document_id": "DOC-9", "user_id": "x", "email": "ai.do@ecentric.vn"})
+        self.assertFalse(vr2.ok)
 
     # ---------------- signed PDF: data.pdfBase64 (contract da confirm) ----------------
     def test_get_pdf_nested_data_and_param_casing(self):

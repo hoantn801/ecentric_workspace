@@ -226,7 +226,8 @@ def process_signing_request(dsr_name):
             _enqueue_signed_retrieval(dsr.package, out)
             return
 
-        signer = doc_state.signer(dsr.effective_scts_user_id)
+        signer = doc_state.signer(dsr.effective_scts_user_id,
+                                  dsr.actor_user or dsr.approver)
         if signer and signer.get("status") == "rejected":
             events.set_dsr_status(dsr_name, "Verification Mismatch",
                                   event_type="VerificationMismatch",
