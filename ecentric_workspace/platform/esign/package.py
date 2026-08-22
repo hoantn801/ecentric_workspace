@@ -46,9 +46,13 @@ def signable_package_for_request(approval_request):
     for Active -> 'Khong co goi tai lieu san sang ky'). Post-provider invariants that
     genuinely need Active (binding/guard completion checks) keep using their own
     status assertions."""
+    # "Provider Create Failed" is the declared PARK state of provider_create (flow docs); the
+    # state machine allows it back into "Provider Creating", and the worker re-enters it nested
+    # inside the next signing attempt - so a new signing MUST be startable from it.
     return frappe.db.get_value("EC Digital Signature Package",
                                {"approval_request": approval_request,
-                                "status": ["in", ("Locked", "Active")]}, "name")
+                                "status": ["in", ("Locked", "Active", "Provider Create Failed")]},
+                               "name")
 
 
 def draft_package_for_business(business_doctype, business_name):
