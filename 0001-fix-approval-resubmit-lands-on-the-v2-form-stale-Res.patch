@@ -1,0 +1,172 @@
+From d7e57fb79347f36f2e145c3c3d475524ad65b881 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 3 Aug 2026 09:22:03 +0000
+Subject: [PATCH 1/2] fix(approval): resubmit lands on the -v2 form; stale
+ Resubmit button is now cleared
+
+Two defects surfaced while QC-ing the GBS SO/PO resubmit flow after the C4b
+deploy. Neither was introduced by C4b.
+
+1. Route split between the two resubmit entry points.
+   /approval has always navigated to the unified -v2 forms (EC_SB_CFG maps
+   gbs_so -> /gbs-so-form-v2, gbs_po -> /gbs-po-form-v2; the pre-deploy snapshot
+   taken at 04:12 on 2026-08-03 already had them). But the modal path prefers
+   the server's redirect_to over its own fallback, and Server Script
+   resubmit_gbs_doc still returned "/gbs-so-form?edit=" / "/gbs-po-form?edit="
+   -- the pre-unification forms. So the banner button and the modal landed on
+   two different forms. Fixed on the site (Server Scripts are live-owned, not
+   repo-managed): both branches now return the -v2 route. Recorded here because
+   the GBS-side report attributed the non-v2 URL to this page.
+
+   Note the old forms are not broken: all four form pages carry the same
+   ec-gbs-form-edit-resubmit block, so ?edit= loads the doc and submits through
+   resubmit_gbs_so/resubmit_gbs_po either way. What the plain forms lack is the
+   ec-so-unified layer (mode bar, MODE='gbsrev', CSRF self-heal, MSO gate).
+
+2. ensureButton() stopped polling once its button existed.
+   The !shouldShow branch already removed a stale button and re-armed a 3s
+   poll, but the shouldShow branch ended in a bare `return`. After the button
+   was inserted the poll died, so when a resubmit flipped status to "Can sua"
+   -- without a page reload -- nothing ever removed it, and it sat next to the
+   banner's freshly rendered "Sua & Submit lai". That is the "2 nut resubmit"
+   report. The branch now re-arms the poll, and the removal branch restores the
+   Submit-on-GBS button it had hidden (previously left display:none forever, so
+   a doc that came back to Approved had no way to push to GBS).
+
+The blank-form symptom in the same report is a third, separate thing and is NOT
+addressed here: the edit block alerts and bails whenever doc.status is not
+exactly "Can sua", leaving the create form behind it visible. Any navigation to
+?edit=<id> that has not first gone through resubmit_gbs_doc reproduces it.
+
+main_section.html is re-imported verbatim from live, which had also picked up
+two site-authored edits since C4b (ec-resubmit-realuser-v1,
+ec-drift-settled-guard-v1) -- see page_sync.py for what each does. Net
+repo -> live is +23/-1 lines, purely additive apart from the one replaced
+`if (existing) return;`. BASELINE_SHA256 bumped and the C4b value moved into
+SUPERSEDES_SHA256 in the same commit, per the drift-lock contract.
+
+Verified on team.ecentric.vn: both writes are byte-identical round-trips; all
+20 script blocks in the page pass `node --check` before and after; the patched
+Server Script executes and bails safely on a doc that is not Approved+rejected.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01SkimpaMGSG778PC3z5g31J
+---
+ .../approval_page/main_section.html           | 24 ++++++++++++-
+ .../legacy_pages/approval_page/page_sync.py   | 35 ++++++++++++++-----
+ 2 files changed, 50 insertions(+), 9 deletions(-)
+
+diff --git a/ecentric_workspace/legacy_pages/approval_page/main_section.html b/ecentric_workspace/legacy_pages/approval_page/main_section.html
+index 037e8f5..7d5443c 100755
+--- a/ecentric_workspace/legacy_pages/approval_page/main_section.html
++++ b/ecentric_workspace/legacy_pages/approval_page/main_section.html
+@@ -4042,6 +4042,21 @@ html body .ec-main .content { padding: 28px 32px 40px !important; max-width: 140
+     var submitter = (docData.submitted_by || '').toLowerCase();
+     var currentUser = (getSessionEmail() || '').toLowerCase();
+     var isSubmitter = (currentUser === submitter);
++    var docOwner = (docData.owner || docData.created_by || '').toLowerCase();
++    if (!isSubmitter && currentUser && currentUser === docOwner) { isSubmitter = true; }
++    if (!isSubmitter) { /* ec-resubmit-realuser-v1: getSessionEmail rong tren portal -> fetch user that, reveal nut cho submitter/owner (backend van gac quyen) */
++      window._ecCurUserPromise = window._ecCurUserPromise || fetch('/api/method/frappe.auth.get_logged_user', {credentials:'include'}).then(function(r){ return r.json(); }).then(function(d){ return (((d && d.message) || '') + '').toLowerCase(); }).catch(function(){ return ''; });
++      window._ecCurUserPromise.then(function(realU){
++        if (!(realU && (realU === submitter || realU === docOwner))) return;
++        if (document.getElementById('ec-csb-resubmit-btn')) return;
++        var note = document.getElementById('ec-csb-nonsubmitter-note');
++        if (!note || !note.parentNode) return;
++        var b = document.createElement('button');
++        b.className = 'csb-btn'; b.id = 'ec-csb-resubmit-btn'; b.textContent = 'S\u1eeda & Submit l\u1ea1i';
++        note.parentNode.insertBefore(b, note); note.style.display = 'none';
++        b.addEventListener('click', function(){ window.location.href = resubmitUrl(); });
++      });
++    }
+ 
+     var sentBy = '—', sentAt = '—';
+     try {
+@@ -4588,6 +4603,7 @@ function ecDriftBadge(doc){
+       var gg = parseFloat(doc.gbs_grand_total || 0);
+       /* ec-drift-v3 gate removed - item-level only */
+       if (!doc.gbs_doc_name) return; /* ec-drift-v2 item-level */
++      var ecLst = ((doc.status||'')+'').toLowerCase(); var ecGst = ((doc.gbs_status||'')+'').toLowerCase(); if (ecLst !== 'approved' || !(ecGst === 'approved' || ecGst === 'completed')) return; /* ec-drift-settled-guard-v1 */
+       var ecGJ = {}; try { ecGJ = JSON.parse(doc.gbs_response_json || '{}'); } catch(e) { return; }
+       var ecGItems = ecGJ.items || []; var ecLItems = doc.items || [];
+       if (!ecGItems.length && !ecLItems.length) return;
+@@ -6001,6 +6017,8 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
+       var existing = document.getElementById('ec-gbs-resubmit-btn');
+       if (existing && !shouldShow) {
+         existing.remove();
++        /* ec-resubmit-repoll-v1: un-hide the Submit-on-GBS button this block hid */
++        var _sbRestore = findSubmitBtn(); if (_sbRestore) _sbRestore.style.display = '';
+       }
+ 
+       if (!shouldShow) {
+@@ -6009,7 +6027,11 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
+         return;
+       }
+ 
+-      if (existing) return;
++      /* ec-resubmit-repoll-v1: previously `return` with no re-poll, so once the button
++         was inserted ensureButton() never ran again — after the user resubmitted and
++         status flipped to 'Cần sửa' the stale Resubmit button stayed on screen next to
++         the banner's "Sửa & Submit lại". Keep the 3s poll alive so it gets removed. */
++      if (existing) { setTimeout(ensureButton, 3000); return; }
+ 
+       // Find anchor: Submit on GBS button OR Check Status button - inject Resubmit nearby
+       var submitBtn = findSubmitBtn();
+diff --git a/ecentric_workspace/legacy_pages/approval_page/page_sync.py b/ecentric_workspace/legacy_pages/approval_page/page_sync.py
+index 914981a..7cd754f 100644
+--- a/ecentric_workspace/legacy_pages/approval_page/page_sync.py
++++ b/ecentric_workspace/legacy_pages/approval_page/page_sync.py
+@@ -26,14 +26,27 @@ def _html():
+         return fh.read()
+ 
+ 
+-# sha256 of main_section.html as it ships in this commit (C4b, 2026-08-03: the
+-# "Gui lai / Can sua" banner + Send back button were extended to the three
+-# native flows MSO / Sales Order / Purchase Order). upsert_web_page REFUSES to
+-# write when live hashes to none of the accepted values, so a repo snapshot can
+-# never silently revert a live edit. Deliberate update = edit main_section.html,
+-# bump this constant, and move the value it replaced into SUPERSEDES_SHA256 --
+-# all in the same commit.
+-BASELINE_SHA256 = "4d5ea138c4674b114df4451289d138ad80a9e512a37d705819b975dec13ef361"
++# sha256 of main_section.html as it ships in this commit. 2026-08-03 (post-C4b):
++# re-imported VERBATIM from live, which had moved ahead of the repo by three
++# additive edits and one replaced line -- +23/-1 against the C4b baseline:
++#   1. ec-resubmit-realuser-v1  (authored on the site by the GBS side): on the
++#      portal getSessionEmail() comes back empty, so isSubmitter was false for
++#      the real submitter and the banner showed the "chi submitter moi sua duoc"
++#      note instead of the button. Falls back to frappe.auth.get_logged_user and
++#      reveals the button for submitter/owner. Backend still gates the action.
++#   2. ec-drift-settled-guard-v1 (also site-authored): item-level drift banner
++#      now only renders when the doc has actually settled on both sides
++#      (status Approved AND gbs_status Approved/Completed).
++#   3. ec-resubmit-repoll-v1 (this commit): ensureButton() returned without
++#      re-arming its 3s poll once the Resubmit button existed, so after a
++#      resubmit flipped status to "Can sua" the stale button stayed on screen
++#      next to the banner's "Sua & Submit lai" -- the "2 nut resubmit" report.
++#      It now keeps polling, and restores the Submit-on-GBS button it hid.
++# upsert_web_page REFUSES to write when live hashes to none of the accepted
++# values, so a repo snapshot can never silently revert a live edit. Deliberate
++# update = edit main_section.html, bump this constant, and move the value it
++# replaced into SUPERSEDES_SHA256 -- all in the same commit.
++BASELINE_SHA256 = "78298a9ec4ca4420b608625788ee30713c9ff222ffd2177a17df7bc14e5a81fa"
+ 
+ # Live values this snapshot is allowed to overwrite. C4b was authored in the
+ # repo, not on the site, so at deploy time live still holds the #138 bytes
+@@ -41,8 +54,14 @@ BASELINE_SHA256 = "4d5ea138c4674b114df4451289d138ad80a9e512a37d705819b975dec13ef
+ # the only way through would be force=1, which disarms the drift lock entirely.
+ # After the first successful sync live holds BASELINE_SHA256 and re-runs are
+ # "unchanged". Prune entries once the deploy is confirmed on every environment.
++#
++# 4d5ea1... is the C4b snapshot: it is what live would hold on any environment
++# that deployed C4b but never received the three site-side edits above. Keeping
++# it listed lets those environments sync forward; on team.ecentric.vn live is
++# already at BASELINE_SHA256, so the first sync there returns "unchanged".
+ SUPERSEDES_SHA256 = (
+     "3f825f4e4761a69d1cdb6033eeabbd1b8b23476c2fad33d9226b137c124a4454",  # #138
++    "4d5ea138c4674b114df4451289d138ad80a9e512a37d705819b975dec13ef361",  # C4b (#64)
+ )
+ 
+ 
+-- 
+2.43.0
+

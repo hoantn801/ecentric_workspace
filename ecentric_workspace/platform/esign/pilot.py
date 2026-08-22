@@ -347,7 +347,7 @@ def run_scts_uat_pilot_probe(payment_request_name, apply=0):
     active_approver = readiness["active_approver"]
 
     preview = {
-        "route_add_document": "POST /api/Document/Submit",
+        "route_add_document": "POST /api/AddDocument (docs say Document/Submit; live 405s it)",
         "route_bulk_process": "POST /api/Workflow/bulk-process (transitionType=approve)",
         "route_document_poll": "GET /api/Document/{id}",
         "route_signed_pdf": "GET /api/Document/pdf?DocumentId=&DocumentFileId= (confirmed 2026-08)",

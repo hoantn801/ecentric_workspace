@@ -1,0 +1,1027 @@
+"""PM v2 - Task services (PM1-T05 read + PM1-T06 write).
+
+Permission enforced in this service layer via ecentric_workspace.pm.permissions
+(department-based scope) + capability via require_pm_access(). Writes go through
+normal frappe doc APIs so DocPerm (PM1-T03 p001) + audit trail apply.
+
+Hierarchy (Phase 1): Project -> Task -> Sub-task (native parent_task).
+Module path: ecentric_workspace.pm.api.tasks
+"""
+
+import builtins  # G5.2: this module defines a whitelisted `def list(...)` which shadows the
+                 # builtin `list` type/constructor. Use builtins.list where the real type is meant.
+import json
+from datetime import datetime as _dtparse
+
+import frappe
+from frappe import _
+from frappe.desk.form.assign_to import add as _assign_add, remove as _assign_remove
+from frappe.model.workflow import (
+    apply_workflow, get_transitions as _wf_get_transitions, WorkflowTransitionError,
+)
+from frappe.utils import get_datetime, getdate
+
+from ecentric_workspace.pm import permissions as pmperm
+from ecentric_workspace.pm.deadlock import retry_on_deadlock
+from ecentric_workspace.pm.api import notifications as pmnotif
+from ecentric_workspace.pm.api import labels as pmlabels
+
+_FIELDS = [
+    "name", "subject", "status", "workflow_state", "project", "parent_task", "is_group",
+    "exp_start_date", "exp_end_date", "pm_start_time", "pm_end_time",
+    "priority", "_assign", "owner", "modified",
+]
+
+# Fields a client may edit via tasks.update (whitelist -> no arbitrary injection).
+_EDITABLE = ("subject", "description", "priority", "exp_start_date", "exp_end_date",
+             "pm_start_time", "pm_end_time", "project")
+
+# G4.8: actions on the PM Task Workflow that land a task in "Done".
+# Child-completion guard uses pmperm.has_open_children (canonical terminal semantics, shared).
+_DONE_ACTIONS = ("Mark Done", "Hoàn thành")
+
+# G4.10: Cancel is administrative -> assigned PM Members may NOT use it.
+_CANCEL_ACTION = "Cancel"
+
+_STALE_MSG = ("Trạng thái nhiệm vụ đã thay đổi hoặc bạn không còn quyền thực hiện thao tác "
+              "này. Vui lòng tải lại.")
+
+# FREE-STATUS model (2026-08-06, Hoàn): a user may switch a task to ANY workflow state directly
+# (no fixed To Do->Start->Review->Done order). Native `status` synced for terminal states so
+# is_task_terminal + reports stay consistent; other states map to the active "Open".
+_STATE_STATUS = {"Done": "Completed", "Cancelled": "Cancelled"}
+
+# The lean, ordered status set shown as a segmented control (Hoàn 2026-08-06). Backlog/Blocked are
+# NOT offered as buttons (Backlog folds into To Do; Blocked becomes a label). Existing tasks parked
+# in a hidden state still work — the button to re-enter that state is just not shown. Cancel is a
+# separate leader-only action, not part of the 4.
+_VISIBLE_STATES = ("To Do", "In Progress", "Review", "Done")
+
+
+def _pm_states():
+    """Ordered list of the active Task workflow's states = the switchable status buttons."""
+    fallback = ["Backlog", "To Do", "In Progress", "Review", "Done", "Cancelled"]
+    try:
+        wf = frappe.db.get_value("Workflow", {"document_type": "Task", "is_active": 1}, "name")
+        if not wf:
+            return fallback
+        seen, out = set(), []
+        for r in frappe.get_all("Workflow Document State", filters={"parent": wf},
+                                fields=["state"], order_by="idx"):
+            s = r.get("state")
+            if s and s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out or fallback
+    except Exception:
+        return fallback
+
+
+def _dedupe_transitions(raw):
+    """Dedupe frappe.model.workflow.get_transitions output by (action, next_state). The frappe
+    workflow is the SOURCE OF TRUTH (honors role filtering + transition conditions + any later
+    workflow change); we never keep a parallel state-machine cache."""
+    seen, out = set(), []
+    for t in (raw or []):
+        k = (t.get("action"), t.get("next_state"))
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append({"action": t.get("action"), "next_state": t.get("next_state")})
+    return out
+
+
+def _filter_transitions(deduped, leader, can_act):
+    """Business layer ON TOP of the exact workflow transitions: leader -> all; a member who can
+    ACCESS the task -> operational only (no administrative Cancel); otherwise none (read-only).
+
+    ADOPTION (G5.2): `can_act` widened from assignee-only to "any accessor". A PM Member may run
+    normal work transitions on any PM task they can view; Cancel remains leader-only. The PM Task
+    Workflow roles already exclude PM Member from Cancel, so this is consistent + defense-in-depth."""
+    if leader:
+        return deduped
+    if can_act:
+        return [t for t in deduped if t["action"] != _CANCEL_ACTION]
+    return []
+
+
+def _normalize_time(t):
+    """G4.11: '9:00' / '09:00' / '9:00:00' -> zero-padded 'HH:MM:SS', or None. Frappe stores Time
+    with an unpadded hour ('9:00:00'); normalizing makes the datetime parse robust."""
+    if not t:
+        return None
+    parts = str(t).split(".")[0].split(":")
+    while len(parts) < 3:
+        parts.append("0")
+    try:
+        return "{:02d}:{:02d}:{:02d}".format(int(parts[0]), int(parts[1]), int(parts[2]))
+    except (ValueError, IndexError):
+        return None
+
+
+def _compose_dt(d, t):
+    """G4.11: date + optional time -> a real datetime object (never a string), or None when no
+    date. Comparisons are done on datetime objects, so padded/unpadded times compare correctly."""
+    if not d:
+        return None
+    return get_datetime(str(d)[:10] + " " + (_normalize_time(t) or "00:00:00"))
+
+
+def _validate_time_window(start_date, start_time, end_date, end_time):
+    """G4.11: a time is only valid with its own date, and the end datetime may not precede the
+    start datetime. Real datetime comparison (no lexical string compare). Core fields never retyped."""
+    if start_time and not start_date:
+        frappe.throw(_("Giờ bắt đầu cần có ngày bắt đầu."))
+    if end_time and not end_date:
+        frappe.throw(_("Giờ kết thúc cần có ngày kết thúc."))
+    sdt = _compose_dt(start_date, start_time)
+    edt = _compose_dt(end_date, end_time)
+    if sdt and edt and edt < sdt:
+        frappe.throw(_("Thời điểm kết thúc không được trước thời điểm bắt đầu."))
+
+
+def _parse_time_or_throw(t, label):
+    """G5.1: None/'' -> None (time absent/cleared). A valid 'H:M[:S]' -> zero-padded 'HH:MM:SS'.
+    Anything malformed (bad minute/hour, 'abc', ...) -> friendly frappe.throw so it can NEVER
+    reach the DB Time column and raise a 500."""
+    if t is None:
+        return None
+    s = str(t).strip()
+    if s == "":
+        return None
+    bad = _("{0} không hợp lệ. Định dạng giờ là HH:MM (giờ 00–23, phút/giây 00–59).").format(label)
+    parts = s.split(".")[0].split(":")
+    if len(parts) < 2 or len(parts) > 3:
+        frappe.throw(bad)
+    while len(parts) < 3:
+        parts.append("0")
+    try:
+        h, m, sec = int(parts[0]), int(parts[1]), int(parts[2])
+    except (ValueError, TypeError):
+        frappe.throw(bad)
+    if not (0 <= h <= 23 and 0 <= m <= 59 and 0 <= sec <= 59):
+        frappe.throw(bad)
+    return "{:02d}:{:02d}:{:02d}".format(h, m, sec)
+
+
+def _parse_date_or_throw(d, label):
+    """G5.1: None/'' -> None. STRICT: the whole value must be exactly an ISO 'YYYY-MM-DD' date.
+    Trailing junk ('2026-07-01abc'), a datetime ('2026-07-01 12:00') or an impossible date
+    (2027-02-29) is rejected via friendly frappe.throw, never a 500. (Assignment datetimes are
+    handled separately by parse_datetime_or_throw, which splits off the time part first.)"""
+    if d is None:
+        return None
+    s = str(d).strip()
+    if s == "":
+        return None
+    if len(s) != 10:
+        frappe.throw(_("{0} không hợp lệ.").format(label))
+    try:
+        return _dtparse.strptime(s, "%Y-%m-%d").strftime("%Y-%m-%d")
+    except (ValueError, TypeError):
+        frappe.throw(_("{0} không hợp lệ.").format(label))
+
+
+def _clean_schedule(start_date, start_time, end_date, end_time):
+    """G5.1: validate + normalize a task schedule. Returns cleaned (sd, st, ed, et):
+    dates 'YYYY-MM-DD'|None, times 'HH:MM:SS'|None. Rules:
+      * a time still requires its own date;
+      * both times present -> compare full datetimes; otherwise compare DATES ONLY
+        (an absent time is never silently treated as midnight for ordering);
+      * malformed input -> friendly throw, never a 500;
+      * '' / null clears the field (returned as None)."""
+    sd = _parse_date_or_throw(start_date, _("Ngày bắt đầu"))
+    ed = _parse_date_or_throw(end_date, _("Ngày kết thúc"))
+    st = _parse_time_or_throw(start_time, _("Giờ bắt đầu"))
+    et = _parse_time_or_throw(end_time, _("Giờ kết thúc"))
+    if st and not sd:
+        frappe.throw(_("Giờ bắt đầu cần có ngày bắt đầu."))
+    if et and not ed:
+        frappe.throw(_("Giờ kết thúc cần có ngày kết thúc."))
+    if sd and ed:
+        if st and et:
+            if get_datetime(ed + " " + et) < get_datetime(sd + " " + st):
+                frappe.throw(_("Thời điểm kết thúc không được trước thời điểm bắt đầu."))
+        elif getdate(ed) < getdate(sd):
+            frappe.throw(_("Thời điểm kết thúc không được trước thời điểm bắt đầu."))
+    return sd, st, ed, et
+
+
+def _validate_assignee(assignee):
+    """G5.1: reject an assignee that is not an enabled System User BEFORE any assign/insert,
+    so a bad value never silently drops the assignment or 500s the native assign path."""
+    u = frappe.db.get_value("User", assignee, ["enabled", "user_type"], as_dict=True)
+    if not u:
+        frappe.throw(_("Người được giao không tồn tại."))
+    if not u.get("enabled"):
+        frappe.throw(_("Người được giao đang bị vô hiệu hoá."))
+    if u.get("user_type") == "Website User":
+        frappe.throw(_("Người được giao không có quyền truy cập hệ thống."))
+
+
+def _split_assignee_string(s):
+    """G5.2: split a comma / semicolon / newline-separated assignee string into raw parts."""
+    for sep in (";", "\n", "\r"):
+        s = s.replace(sep, ",")
+    return s.split(",")
+
+
+def _normalize_assignees(assignee=None, assignees=None):
+    """G5.2: build a clean, deduped list of assignee emails from the new `assignees` (a list, a
+    JSON-array string, or a comma/semicolon/newline-separated string) and/or the legacy singular
+    `assignee` (which may itself be separated). Trims, drops empties, dedupes case-insensitively.
+    NEVER treats a separated string as one email."""
+    raw = []
+    if assignees is not None:
+        if isinstance(assignees, (builtins.list, tuple)):  # builtins.list: `list` is shadowed here
+            raw = builtins.list(assignees)
+        elif isinstance(assignees, str):
+            s = assignees.strip()
+            if s.startswith("[") and s.endswith("]"):
+                try:
+                    parsed = json.loads(s)
+                    raw = parsed if isinstance(parsed, builtins.list) else _split_assignee_string(s)
+                except Exception:
+                    raw = _split_assignee_string(s)
+            else:
+                raw = _split_assignee_string(s)
+    if assignee:
+        raw = raw + (_split_assignee_string(assignee) if isinstance(assignee, str) else [assignee])
+    out, seen = [], set()
+    for a in raw:
+        if not isinstance(a, str):
+            continue
+        a = a.strip()
+        if not a:
+            continue
+        key = a.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(a)
+    return out
+
+
+def _validate_assignees(emails):
+    """G5.2: validate a LIST of assignees before any write. Collects ALL invalid emails and throws
+    ONE clear error (so nothing is created partially). Returns the DB-canonical User names (correct
+    casing) for the valid, enabled System Users."""
+    valid, invalid = [], []
+    for e in emails:
+        u = frappe.db.get_value("User", e, ["name", "enabled", "user_type"], as_dict=True)
+        if (not u) or (not u.get("enabled")) or (u.get("user_type") == "Website User"):
+            invalid.append(e)
+        else:
+            valid.append(u["name"])
+    if invalid:
+        frappe.throw(_("Không tìm thấy người dùng hợp lệ: {0}").format(", ".join(invalid)))
+    return valid
+
+
+def parse_datetime_or_throw(dt, label):
+    """G5.1 CANONICAL datetime validator shared by Task + Assignment scheduling (one parser, no
+    duplicated logic). None/'' -> None. A full 'YYYY-MM-DD[ HH:MM[:SS]]' (or ISO 'T' separator)
+    with a real calendar date + valid time -> normalized 'YYYY-MM-DD HH:MM:SS'. Anything malformed
+    (bad minute/hour, impossible date, 'abc') -> friendly frappe.throw, never a 500."""
+    if dt is None:
+        return None
+    s = str(dt).strip().replace("T", " ")
+    if s == "":
+        return None
+    parts = s.split(" ", 1)
+    d = _parse_date_or_throw(parts[0], label)
+    if d is None:
+        frappe.throw(_("{0} không hợp lệ.").format(label))
+    tpart = parts[1].strip() if len(parts) > 1 else ""
+    t = _parse_time_or_throw(tpart, label) if tpart else None
+    return d + " " + (t or "00:00:00")
+
+
+def _sent_fields():
+    """G5.1: the request keys actually present, so tasks.update can distinguish an OMITTED field
+    (preserve current value) from an EXPLICIT clear (sent with an empty / null value)."""
+    try:
+        return set((frappe.local.form_dict or {}).keys())
+    except Exception:
+        return set()
+
+
+def _is_clear(v):
+    """G5.1: a sent value that means 'clear this field' — None, empty, or a literal 'null'/'None'
+    (covers both the '' contract and a client that serialises JSON null as a string)."""
+    return v is None or (isinstance(v, str) and v.strip() in ("", "null", "None"))
+
+
+def _names_map(emails):
+    """email -> full_name (batch, avoids N+1). Falls back to the email when no full_name."""
+    emails = [e for e in (emails or []) if e]
+    if not emails:
+        return {}
+    out = {}
+    for u in frappe.get_all("User", filters={"name": ["in", tuple(set(emails))]},
+                            fields=["name", "full_name"]):
+        out[u["name"]] = u.get("full_name") or u["name"]
+    return out
+
+
+def _collect_assignees(rows):
+    out = []
+    for r in rows:
+        try:
+            out += frappe.parse_json(r.get("_assign") or "[]") or []
+        except Exception:
+            pass
+    return out
+
+
+def _project_names(rows):
+    pnames = [r.get("project") for r in rows if r.get("project")]
+    if not pnames:
+        return {}
+    out = {}
+    for p in frappe.get_all("Project", filters={"name": ["in", tuple(set(pnames))]},
+                            fields=["name", "project_name"]):
+        out[p["name"]] = p.get("project_name") or p["name"]
+    return out
+
+
+# --------------------------------------------------------------------------
+# READ (PM1-T05)
+# --------------------------------------------------------------------------
+@frappe.whitelist()
+def list(project=None, view="list", start=0, page_length=50, status=None):
+    """Permission-scoped task list. Returns {rows, view}."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+
+    and_filters = {}
+    if status:
+        and_filters["status"] = status
+
+    or_filters = None
+    if project:
+        # need-to-know: open the project but scope its task list to the caller's own tasks when
+        # they only reach it via an assignment (project_view_scope returns None for full access).
+        or_filters = pmperm.project_view_scope(project, user)
+        and_filters["project"] = project
+    else:
+        or_filters = pmperm.task_scope_or_filters(user)  # None = all
+
+    rows = frappe.get_all(
+        "Task", filters=and_filters or None, or_filters=or_filters, fields=_FIELDS,
+        start=int(start), page_length=int(page_length), order_by="modified desc",
+    )
+    # G4.8 additive: resolve project_name per row + a {email: full_name} map (batch, no N+1).
+    pmap = _project_names(rows)
+    for r in rows:
+        r["project_name"] = pmap.get(r.get("project")) or (r.get("project") or None)
+    lmap = pmlabels.labels_for_tasks([r["name"] for r in rows])  # G4.9: batch labels (no N+1)
+    for r in rows:
+        r["labels"] = lmap.get(r["name"], [])
+    return {"rows": rows, "view": view, "user_names": _names_map(_collect_assignees(rows))}
+
+
+@frappe.whitelist()
+def get(name):
+    """Task detail + sub-tasks. Permission-checked."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    doc = frappe.get_doc("Task", name)
+    if not pmperm.can_view_task(doc.as_dict(), user):
+        frappe.throw(_("Not permitted to view this task."), frappe.PermissionError)
+    subtasks = frappe.get_all(
+        "Task", filters={"parent_task": name},
+        fields=["name", "subject", "status", "workflow_state", "_assign",
+                "exp_end_date", "pm_start_time", "pm_end_time", "priority"],
+        order_by="creation asc",
+    )
+    d = doc.as_dict()
+    d["_assign"] = doc.get("_assign")  # as_dict() doesn't reliably surface the _assign column; needed so the modal shows assignees
+    # G4.8 additive: project display name + assignee name map. Sub-tasks inherit the project.
+    d["project_name"] = (frappe.db.get_value("Project", d.get("project"), "project_name")
+                         or d.get("project")) if d.get("project") else None
+    for s in subtasks:
+        s["project_name"] = d["project_name"]
+    emails = _collect_assignees([d] + subtasks)
+    if d.get("owner"):
+        emails.append(d.get("owner"))
+    lmap = pmlabels.labels_for_tasks([d["name"]] + [x["name"] for x in subtasks])  # G4.9
+    d["labels"] = lmap.get(d["name"], [])
+    for x in subtasks:
+        x["labels"] = lmap.get(x["name"], [])
+    return {"task": d, "subtasks": subtasks, "user_names": _names_map(emails)}
+
+
+@frappe.whitelist()
+def gantt(project):
+    """Gantt data for ONE project (permission-scoped). Never loads all tasks.
+
+    Returns rows with id/name/subject/project/start/end/progress/workflow_state/
+    parent_task/dependencies. Dependencies use native Task Depends On if present,
+    else an empty list (no custom field invented).
+    """
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    if not project:
+        frappe.throw(_("Project is required for the Gantt view."))
+    _scope = pmperm.project_view_scope(project, user)  # gate + own-task scope (None = all)
+
+    tasks = frappe.get_all(
+        "Task", filters={"project": project}, or_filters=_scope,
+        fields=["name", "subject", "project", "exp_start_date", "exp_end_date",
+                "progress", "workflow_state", "parent_task", "priority", "_assign"],
+        order_by="exp_start_date asc, creation asc",
+    )
+    task_names = [t["name"] for t in tasks]
+
+    deps = {}
+    if task_names:
+        try:
+            for d in frappe.get_all("Task Depends On",
+                                    filters={"parent": ["in", task_names]},
+                                    fields=["parent", "task"]):
+                deps.setdefault(d["parent"], []).append(d["task"])
+        except Exception:
+            deps = {}  # native depends_on table absent -> no dependencies
+
+    rows = []
+    for t in tasks:
+        rows.append({
+            "id": t["name"],
+            "name": t["name"],
+            "subject": t["subject"],
+            "project": t["project"],
+            "start": t.get("exp_start_date"),
+            "end": t.get("exp_end_date"),
+            "progress": t.get("progress") or 0,
+            "workflow_state": t.get("workflow_state"),
+            "parent_task": t.get("parent_task"),
+            "priority": t.get("priority"),
+            "_assign": t.get("_assign"),
+            "dependencies": deps.get(t["name"], []),
+        })
+    return {"project": project, "rows": rows}
+
+
+@frappe.whitelist()
+def gantt_all(project=None, assignee=None, status=None, priority=None, overdue=None):
+    """All-project Gantt (UX-4E2). Permission-scoped via the service layer. If `project`
+    is empty/'all', returns every task in the user's PM scope grouped client-side by
+    project (each row carries project + project_name). Additive, no schema.
+    """
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    today = frappe.utils.nowdate()
+
+    and_filters = {}
+    or_filters = None
+    if project and project != "all":
+        or_filters = pmperm.project_view_scope(project, user)  # gate + own-task scope (None = all)
+        and_filters["project"] = project
+    else:
+        or_filters = pmperm.task_scope_or_filters(user)  # None = all in PM
+    if status:
+        and_filters["workflow_state"] = status
+    if priority:
+        and_filters["priority"] = priority
+
+    tasks = frappe.get_all(
+        "Task", filters=and_filters or None, or_filters=or_filters,
+        fields=["name", "subject", "project", "exp_start_date", "exp_end_date",
+                "progress", "workflow_state", "parent_task", "priority", "_assign"],
+        order_by="project asc, exp_start_date asc, creation asc", limit_page_length=0,
+    )
+
+    if assignee:
+        tasks = [t for t in tasks
+                 if assignee in (frappe.parse_json(t.get("_assign") or "[]") or [])]
+    if overdue in (1, "1", True, "true", "True", "yes"):
+        def _od(t):
+            d = t.get("exp_end_date")
+            d = str(d)[:10] if d else None
+            return bool(d and d < today and t.get("workflow_state") not in ("Done", "Cancelled"))
+        tasks = [t for t in tasks if _od(t)]
+
+    # NOTE: this module defines `def list(...)`, which shadows the builtin `list`.
+    # Calling bare list(...) here would invoke tasks.list() -> bad SQL. Use sorted().
+    proj_ids = sorted({t["project"] for t in tasks if t.get("project")})
+    pnames = {}
+    if proj_ids:
+        for r in frappe.get_all("Project", filters={"name": ["in", proj_ids]},
+                                fields=["name", "project_name"]):
+            pnames[r["name"]] = r.get("project_name")
+
+    rows = []
+    for t in tasks:
+        rows.append({
+            "id": t["name"], "name": t["name"], "subject": t["subject"],
+            "project": t["project"], "project_name": pnames.get(t["project"]) or t["project"],
+            "start": t.get("exp_start_date"), "end": t.get("exp_end_date"),
+            "progress": t.get("progress") or 0, "workflow_state": t.get("workflow_state"),
+            "parent_task": t.get("parent_task"), "priority": t.get("priority"),
+            "_assign": t.get("_assign"),
+        })
+    return {"rows": rows}
+
+
+# --------------------------------------------------------------------------
+# WRITE (PM1-T06) - permission validated in service layer; DocPerm + audit apply
+# --------------------------------------------------------------------------
+def _expand_ancestor_dates(parent_task, child_start, child_end, user):
+    """Widen the WHOLE ancestor chain (root -> direct parent) so it covers a child's
+    date range. ERPNext validates a task's exp_end_date <= its parent's exp_end_date,
+    so a nested subtask whose dates exceed an ancestor would be rejected. We expand the
+    chain first.
+
+    Safe by construction:
+    - cycle/runaway guarded (visited-set + max depth);
+    - permission pre-flight on every ancestor (atomic: throw before any write, and the
+      request transaction rolls back any partial save on a later error);
+    - saves TOP-DOWN (root first) so each doc.save() is individually valid against its
+      own (already-widened) parent -> NO ignore_validate, NO flags, audit trail intact;
+    - missing parent link / empty dates handled gracefully.
+    Additive, no schema change.
+    """
+    if not parent_task or (not child_start and not child_end):
+        return
+
+    cs = frappe.utils.getdate(child_start) if child_start else None
+    ce = frappe.utils.getdate(child_end) if child_end else None
+
+    # 1. Walk direct-parent -> root, collecting ancestor docs (guarded).
+    chain = []
+    seen = set()
+    cur = parent_task
+    depth = 0
+    while cur and cur not in seen and depth < 25:
+        seen.add(cur)
+        depth += 1
+        try:
+            anc = frappe.get_doc("Task", cur)
+        except frappe.DoesNotExistError:
+            break  # broken parent link -> stop gracefully
+        chain.append(anc)
+        cur = anc.get("parent_task")
+
+    if not chain:
+        return
+
+    # 2. Permission pre-flight on every ancestor (same gate as other writes).
+    for anc in chain:
+        if not pmperm.can_view_task(anc.as_dict(), user):
+            frappe.throw(
+                _("Not permitted to adjust the date range of parent task {0}.").format(anc.name),
+                frappe.PermissionError,
+            )
+
+    # 3. Save TOP-DOWN (root -> direct parent): when each ancestor is saved its own
+    #    parent has already been widened, so ERPNext's parent-date check passes.
+    for anc in reversed(chain):
+        changed = False
+        if cs is not None:
+            anc_start = frappe.utils.getdate(anc.exp_start_date) if anc.get("exp_start_date") else None
+            if anc_start is None or cs < anc_start:
+                anc.exp_start_date = cs
+                changed = True
+        if ce is not None:
+            anc_end = frappe.utils.getdate(anc.exp_end_date) if anc.get("exp_end_date") else None
+            if anc_end is None or ce > anc_end:
+                anc.exp_end_date = ce
+                changed = True
+        if changed:
+            anc.save()  # normal validated save -> audit/history intact
+
+
+def _expand_project_dates(project, child_start, child_end, user):
+    """Widen the Project's expected date range so it covers a task/subtask's dates.
+    ERPNext validates Task.exp_end_date <= Project.expected_end_date, so a task whose
+    dates exceed the project would be rejected -- and so would any ancestor task save.
+    MUST run BEFORE ancestor expansion (ancestor task saves are also project-validated).
+    Permission via existing can_view_project; normal doc.save() -> validation + audit
+    intact (no ignore_validate / flags). Additive, no schema.
+    """
+    if not project or (not child_start and not child_end):
+        return
+    cs = frappe.utils.getdate(child_start) if child_start else None
+    ce = frappe.utils.getdate(child_end) if child_end else None
+    try:
+        proj = frappe.get_doc("Project", project)
+    except frappe.DoesNotExistError:
+        return  # missing project link -> stop gracefully
+    if not pmperm.can_open_project(project, user):
+        frappe.throw(
+            _("Not permitted to adjust the date range of project {0}.").format(project),
+            frappe.PermissionError,
+        )
+    changed = False
+    if cs is not None:
+        p_start = frappe.utils.getdate(proj.expected_start_date) if proj.get("expected_start_date") else None
+        if p_start is None or cs < p_start:
+            proj.expected_start_date = cs
+            changed = True
+    if ce is not None:
+        p_end = frappe.utils.getdate(proj.expected_end_date) if proj.get("expected_end_date") else None
+        if p_end is None or ce > p_end:
+            proj.expected_end_date = ce
+            changed = True
+    if changed:
+        proj.save()  # normal validated save -> audit/history intact
+
+
+@frappe.whitelist()
+@retry_on_deadlock
+def create(project, subject, parent_task=None, priority=None,
+           exp_start_date=None, exp_end_date=None, description=None, assignee=None,
+           pm_start_time=None, pm_end_time=None, assignees=None):
+    """Create a Task (or sub-task via parent_task) under a project the user may see.
+
+    G5.2: supports multiple assignees via `assignees` (list / JSON-array string / separated
+    string); the legacy singular `assignee` remains accepted and back-compatible."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    if not subject:
+        frappe.throw(_("Subject is required."))
+    # G5.1: validate + normalize the schedule (friendly errors, never a 500) and reject a bad
+    # assignee BEFORE creating anything (no silently-unassigned orphan task).
+    exp_start_date, pm_start_time, exp_end_date, pm_end_time = _clean_schedule(
+        exp_start_date, pm_start_time, exp_end_date, pm_end_time)
+    _asg_emails = _normalize_assignees(assignee, assignees)
+    if _asg_emails:
+        _asg_emails = _validate_assignees(_asg_emails)  # validates ALL; throws listing invalid
+    if parent_task:
+        # ERPNext Task is a NestedSet tree: a parent can only hold children if it is a
+        # Group Task (is_group=1). Ensure that before inserting the child, with the same
+        # service-layer permission checks. No schema change (is_group is a native field).
+        parent = frappe.get_doc("Task", parent_task)
+        if not pmperm.can_view_task(parent.as_dict(), user):
+            frappe.throw(_("Not permitted to add a sub-task to this task."), frappe.PermissionError)
+        # 2-LEVEL CAP: a sub-task can never itself have children. Hierarchy stays
+        # Project -> Task -> Sub-task (simpler to manage; use the checklist for finer breakdown).
+        if parent.get("parent_task"):
+            frappe.throw(_("Chỉ hỗ trợ 2 cấp nhiệm vụ: không thể tạo nhiệm vụ con của một nhiệm vụ con. "
+                           "Hãy dùng checklist cho các việc nhỏ hơn."))
+        # G4.8f: terminal parents (Done/Completed/Closed/Cancelled) are immutable — no new
+        # sub-tasks. Backend trust boundary (frontend already hides the CTA). Canonical shared
+        # helper; never reads workflow_state by hand.
+        pmperm.assert_task_not_terminal(
+            parent,
+            _("Không thể thêm nhiệm vụ con vào nhiệm vụ đã hoàn thành/huỷ. Vui lòng Reopen trước."),
+        )
+        # G4.8: a sub-task ALWAYS inherits its parent's project (incl. empty = task ngoài dự án).
+        if not project:
+            project = parent.get("project")
+        elif (parent.get("project") or None) != (project or None):
+            frappe.throw(_("Parent task must belong to the same project."))
+        if not parent.get("is_group"):
+            parent.is_group = 1
+            parent.save()  # honors DocPerm 'write' + audit; NestedSet handles the flag
+    # G4.8: project is OPTIONAL (task ngoài dự án = empty project). When set, must be viewable.
+    if project and not pmperm.can_view_project(project, user):
+        frappe.throw(_("Not permitted to create a task in this project."), frappe.PermissionError)
+
+    # Widen Project range FIRST (ERPNext validates task end <= project end), then the
+    # whole ancestor task chain, before inserting the child.
+    if project and (exp_start_date or exp_end_date):
+        _expand_project_dates(project, exp_start_date, exp_end_date, user)
+    if parent_task and (exp_start_date or exp_end_date):
+        _expand_ancestor_dates(parent_task, exp_start_date, exp_end_date, user)
+
+    doc = frappe.get_doc({
+        "doctype": "Task",
+        "subject": subject,
+        "project": project,
+        "parent_task": parent_task,
+        "priority": priority,
+        "exp_start_date": exp_start_date,
+        "exp_end_date": exp_end_date,
+        "pm_start_time": pm_start_time,
+        "pm_end_time": pm_end_time,
+        "description": description,
+    })
+    doc.insert()  # honors DocPerm 'create'; sets owner/creation (audit)
+    if _asg_emails:
+        # all assignees validated above -> ONE native assignment call for the whole list (creates
+        # one ToDo per user + _assign reflects all). No manual _assign edit, no raw ToDo insert.
+        _assign_add({"doctype": "Task", "name": doc.name, "assign_to": _asg_emails})
+        try:
+            pmnotif.notify_task_assignment(_asg_emails, doc.name,
+                                           "Ban duoc giao nhiem vu: " + (doc.subject or doc.name),
+                                           actor=user)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "PM create assign notify")
+    return {"name": doc.name, "subject": doc.subject,
+            "project": doc.project, "parent_task": doc.parent_task}
+
+
+@frappe.whitelist()
+@retry_on_deadlock
+def update(name, subject=None, description=None, priority=None,
+           exp_start_date=None, exp_end_date=None, project=None, assignee=None,
+           pm_start_time=None, pm_end_time=None):
+    """Update whitelisted Task fields + optional assignee. Status -> set_status."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    doc = frappe.get_doc("Task", name)
+    if not pmperm.can_view_task(doc.as_dict(), user):
+        frappe.throw(_("Not permitted to edit this task."), frappe.PermissionError)
+    # G4.8: a sub-task must stay in its parent's project — block moving it to a different one.
+    if project is not None and doc.get("parent_task"):
+        parent_project = frappe.db.get_value("Task", doc.get("parent_task"), "project")
+        if (parent_project or None) != (project or None):
+            frappe.throw(_("Không thể đổi dự án của nhiệm vụ con khác với nhiệm vụ cha."))
+
+    incoming = {
+        "subject": subject, "description": description, "priority": priority,
+        "exp_start_date": exp_start_date, "exp_end_date": exp_end_date,
+        "pm_start_time": pm_start_time, "pm_end_time": pm_end_time,
+        "project": project, "assignee": assignee,
+    }
+    _SCHED = ("exp_start_date", "exp_end_date", "pm_start_time", "pm_end_time")
+    sent = _sent_fields()
+    # A field is being touched iff its key was in the request (form_dict) OR a non-None value was
+    # bound (covers a direct Python call). An OMITTED field is never touched -> value preserved.
+    def _touched(field):
+        return (field in sent) or (incoming.get(field) is not None)
+    changed = []
+    # Non-schedule editable fields keep their semantics (omitted -> preserve; sent value -> set).
+    for field in _EDITABLE:
+        if field in _SCHED:
+            continue
+        val = incoming.get(field)
+        if val is not None:
+            doc.set(field, val)
+            changed.append(field)
+    # G5.1: schedule fields use request-field PRESENCE to tell an omitted field (preserve) from an
+    # explicit clear (sent as '' / null -> stored NULL). Merged as ONE window; an absent time never
+    # becomes midnight for ordering; malformed input -> friendly throw (417, never a 500).
+    _sched_sent = [f for f in _SCHED if _touched(f)]
+    if _sched_sent:
+        def _eff(field):
+            if _touched(field):
+                arg = incoming.get(field)
+                return None if _is_clear(arg) else arg
+            # G5.1.1: an OMITTED date falls back to the stored value, which Frappe returns as a
+            # 19-char datetime ('2026-07-05 00:00:00'). Normalize it to exact ISO 'YYYY-MM-DD' so
+            # the STRICT public-input parser (which still rejects '2026-07-01 12:00', junk, etc.)
+            # accepts the internal fallback. Time fields are preserved as-is.
+            current = doc.get(field)
+            if field in ("exp_start_date", "exp_end_date") and current:
+                return getdate(current).isoformat()
+            return current
+        csd, cst, ced, cet = _clean_schedule(
+            _eff("exp_start_date"), _eff("pm_start_time"), _eff("exp_end_date"), _eff("pm_end_time"))
+        cleaned = {"exp_start_date": csd, "pm_start_time": cst,
+                   "exp_end_date": ced, "pm_end_time": cet}
+        for field in _sched_sent:
+            doc.set(field, cleaned[field])
+            changed.append(field)
+    _date_changed = ("exp_start_date" in changed) or ("exp_end_date" in changed)
+    if _date_changed and doc.get("project"):
+        _expand_project_dates(doc.get("project"), doc.get("exp_start_date"), doc.get("exp_end_date"), user)
+    if _date_changed and doc.get("parent_task"):
+        _expand_ancestor_dates(doc.get("parent_task"), doc.get("exp_start_date"), doc.get("exp_end_date"), user)
+    if changed:
+        doc.save()  # honors DocPerm 'write'; audit trail
+
+    # G5.1 assignee: OMITTED -> preserve; sent '' / null -> canonical unassign (native remove, no
+    # raw _assign); a value -> validate then native assign.
+    if _touched("assignee"):
+        try:
+            current = frappe.parse_json(doc.get("_assign") or "[]") or []
+        except Exception:
+            current = []
+        if _is_clear(assignee):
+            for who in current:
+                _assign_remove("Task", doc.name, who)
+            if current:
+                changed.append("assignee")
+        else:
+            _validate_assignee(assignee)
+            if assignee not in current:
+                _assign_add({"doctype": "Task", "name": doc.name, "assign_to": [assignee]})
+                try:
+                    pmnotif.notify_task_assignment([assignee], doc.name,
+                                                   "Ban duoc giao nhiem vu: " + (doc.subject or doc.name),
+                                                   actor=user)
+                except Exception:
+                    frappe.log_error(frappe.get_traceback(), "PM update assign notify")
+                changed.append("assignee")
+
+    if not changed:
+        frappe.throw(_("No changes provided."))
+    return {"name": doc.name, "changed": changed}
+
+
+@frappe.whitelist()
+def assign(name, users):
+    """Assign user(s) to a Task via NATIVE assignment (creates ToDo + _assign)."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    doc = frappe.get_doc("Task", name)
+    if not pmperm.can_view_task(doc.as_dict(), user):
+        frappe.throw(_("Not permitted to assign this task."), frappe.PermissionError)
+    # G4.3: cannot assign a terminal task. Reopen first.
+    pmperm.assert_task_not_terminal(
+        doc, _("Không thể giao nhiệm vụ đã hoàn thành/huỷ. Vui lòng Reopen trước."))
+
+    # NOTE: builtin `list` is shadowed by the read service `def list` in this
+    # module, so do NOT reference the `list` type here. Parse via str checks only.
+    if isinstance(users, str):
+        try:
+            users = json.loads(users)
+        except Exception:
+            users = [users]
+    if isinstance(users, str):  # JSON decoded to a bare string (single email)
+        users = [users]
+    users = [u for u in (users or []) if u]
+    if not users:
+        frappe.throw(_("No users to assign."))
+    users = _validate_assignees(users)  # audit D14: reject disabled/non-system users (parity with create/update)
+
+    _assign_add({"doctype": "Task", "name": name, "assign_to": users})
+    pmnotif.notify_task_assignment(users, name,
+                                   "Ban duoc giao nhiem vu: " + (doc.get("subject") or name),
+                                   actor=user)
+    return {"name": name, "assigned": users,
+            "_assign": frappe.db.get_value("Task", name, "_assign")}
+
+
+@frappe.whitelist()
+def get_transitions(name):
+    """Lean status model for the segmented control: the 4 visible states + the current one (so the
+    UI highlights it). `transitions` = the clickable non-current states (Done drives the worktime
+    popup). `cancel` = whether a separate leader-only Huỷ is available."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    doc = frappe.get_doc("Task", name)
+    if not pmperm.can_view_task(doc.as_dict(), user):
+        frappe.throw(_("Not permitted."), frappe.PermissionError)
+    leader = pmperm.can_transition_any_task(user)
+    cur = doc.get("workflow_state")
+    return {
+        "current": cur,
+        "states": builtins.list(_VISIBLE_STATES),
+        "transitions": [{"action": s, "next_state": s} for s in _VISIBLE_STATES if s != cur],
+        "cancel": bool(leader),
+    }
+
+
+@frappe.whitelist()
+def transitions_bulk(task_names):
+    """G4.10: allowed transitions for many tasks in ONE request (the Kanban board). Per task we
+    load the doc, take the EXACT frappe.model.workflow transitions for the calling user, dedupe,
+    then apply the business filter (leader=all, assigned member=operational/no-Cancel, else none).
+    Only tasks the user may see are returned. Capped at 500."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    leader = pmperm.can_transition_any_task(user)
+    if isinstance(task_names, str):
+        try:
+            task_names = json.loads(task_names)
+        except Exception:
+            task_names = [task_names]
+    names = tuple(dict.fromkeys(t for t in (task_names or []) if t))[:500]
+    out = {}
+    for nm in names:
+        if not frappe.db.exists("Task", nm):
+            continue
+        doc = frappe.get_doc("Task", nm)
+        if not pmperm.can_view_task(doc.as_dict(), user):
+            continue
+        cur = doc.get("workflow_state")
+        trans = [{"action": s, "next_state": s} for s in _VISIBLE_STATES if s != cur]
+        out[nm] = {"current": cur, "terminal": pmperm.is_task_terminal(doc),
+                   "states": builtins.list(_VISIBLE_STATES), "transitions": trans}
+    return {"map": out}
+
+
+@frappe.whitelist()
+def set_status(name, action):
+    """FREE status change: `action` is the TARGET workflow state. Any accessor may switch a task to
+    any state (no fixed order). Guards kept: Cancelled is leader-only; a parent can't be Done while
+    it still has open sub-tasks. Sets the state directly (bypasses the transition graph BY DESIGN);
+    native `status` is synced for terminal states so is_task_terminal + reports stay consistent."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    doc = frappe.get_doc("Task", name)
+    if not pmperm.can_view_task(doc.as_dict(), user):
+        frappe.throw(_("Not permitted to change this task."), frappe.PermissionError)
+    target = action
+    if target not in _pm_states():
+        frappe.throw(_(_STALE_MSG))
+    leader = pmperm.can_transition_any_task(user)
+    if target == "Cancelled" and not leader:
+        frappe.throw(_("Chỉ quản lý mới được huỷ nhiệm vụ."), frappe.PermissionError)
+    # cannot complete a parent while it still has open sub-tasks (canonical terminal check).
+    if target == "Done" and pmperm.has_open_children(name):
+        frappe.throw(_("Không thể hoàn thành nhiệm vụ khi vẫn còn nhiệm vụ con chưa đóng."))
+    cur = doc.get("workflow_state")
+    if cur != target:
+        frappe.db.set_value("Task", name,
+                            {"workflow_state": target, "status": _STATE_STATUS.get(target, "Open")})
+        try:
+            d2 = frappe.get_doc("Task", name).as_dict()
+            pmnotif.notify_users(pmnotif._task_recipients(d2, exclude=user),
+                                 "Nhiem vu '" + (d2.get("subject") or name) + "' -> " + target,
+                                 name, event_type="mention", severity="info", due_suffix=target)
+        except Exception:
+            pass
+    return {"name": name, "workflow_state": target}
+
+
+@frappe.whitelist()
+def delete(name):
+    """Controlled hard-delete of a Task. LEADER-ONLY (can_see_all_pm_data). Allowed only
+    when the task has NO dependents (authoritative server-side checks; never trusts the
+    frontend): no child task, no Running/Paused PM Timer, no Timesheet Detail log. Uses
+    the standard frappe.delete_doc (no SQL, no force, no manual cascade) so Frappe's own
+    link checks still run; if any other document links the task, a clear error is returned.
+    """
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    if not pmperm.can_see_all_pm_data(user):
+        frappe.throw(_("Only PM leaders can delete tasks."), frappe.PermissionError)
+    if not frappe.db.exists("Task", name):
+        frappe.throw(_("Task not found."))
+    if frappe.db.count("Task", {"parent_task": name}):
+        frappe.throw(_("Nhiệm vụ có công việc con và không thể xoá."))
+    if frappe.db.count("PM Timer", {"task": name, "status": ["in", ["Running", "Paused"]]}):
+        frappe.throw(_("Nhiệm vụ đang có timer và không thể xoá."))
+    if frappe.db.count("Timesheet Detail", {"task": name}):
+        frappe.throw(_("Nhiệm vụ đã có log giờ và không thể xoá. Hãy huỷ nhiệm vụ thay vì xoá."))
+    try:
+        frappe.delete_doc("Task", name, ignore_permissions=True)  # service layer is the gate; no force -> link checks apply
+    except frappe.LinkExistsError:
+        frappe.throw(_("Không thể xoá: nhiệm vụ còn liên kết với dữ liệu khác. "
+                       "Hãy gỡ liên kết hoặc huỷ nhiệm vụ."))
+    return {"deleted": name}
+
+
+@frappe.whitelist()
+def subtree(name):
+    """G4.8 additive: ALL descendant tasks (multi-level) under `name`, returned as a flat
+    list carrying parent_task so the client builds the tree. No schema. Permission-checked
+    on the root; descendants are within the same project scope as the root. BFS per level
+    (one query per depth) to avoid N+1; a guard caps pathological depth."""
+    pmperm.require_pm_access()
+    user = frappe.session.user
+    root = frappe.get_doc("Task", name)
+    if not pmperm.can_view_task(root.as_dict(), user):
+        frappe.throw(_("Not permitted to view this task."), frappe.PermissionError)
+    out, frontier, seen, guard = [], [name], set(), 0
+    while frontier and guard < 5000:
+        guard += 1
+        kids = frappe.get_all(
+            "Task", filters={"parent_task": ["in", frontier]},
+            fields=["name", "subject", "status", "workflow_state", "parent_task",
+                    "_assign", "exp_end_date", "pm_start_time", "pm_end_time", "priority", "is_group"],
+            order_by="creation asc", limit_page_length=0,
+        )
+        frontier = []
+        for k in kids:
+            if k["name"] in seen:
+                continue
+            seen.add(k["name"])
+            out.append(k)
+            frontier.append(k["name"])
+    lmap = pmlabels.labels_for_tasks([r["name"] for r in out])  # G4.9
+    for r in out:
+        r["labels"] = lmap.get(r["name"], [])
+    return {"rows": out, "user_names": _names_map(_collect_assignees(out))}
+
+
+def pm_task_transition_guard(doc, method=None):
+    """G4.10 backend trust boundary (defense in depth). Runs on EVERY Task save — the API
+    set_status AND the generic frappe.model.workflow.apply_workflow — via the Task before_save
+    doc_event. Enforces, for a NON-leader changing workflow_state on an existing task:
+      * cannot move the task to Cancelled (administrative), and
+      * may only transition a task ASSIGNED to them.
+    Leaders (Administrator / System Manager / Management dept / PM Manager) are unaffected. No-op
+    on insert, on non-transition saves, and during install/migrate/patch."""
+    if frappe.flags.in_install or frappe.flags.in_migrate or frappe.flags.in_patch:
+        return
+    new_state = doc.get("workflow_state")
+    if not new_state:
+        return
+    before = doc.get_doc_before_save()
+    if not before:
+        return  # insert -> task creation, not a transition
+    if before.get("workflow_state") == new_state:
+        return  # no workflow transition on this save
+    user = frappe.session.user
+    if user == "Administrator" or pmperm.can_transition_any_task(user):
+        return
+    # G5.0: a governed assignment-acceptance may move the task Backlog -> To Do even though the
+    # actor (requester) is not the assignee. Narrowly scoped: only when assignment.py set the
+    # flag for THIS task, target is exactly To Do, and the request recipient is ALREADY assigned.
+    acc = frappe.flags.get("pm_assignment_acceptance")
+    if (acc and acc.get("task") == doc.name and new_state == "To Do"
+            and acc.get("recipient") and acc.get("recipient") in (doc.get("_assign") or "")):
+        return
+    if new_state == "Cancelled":
+        frappe.throw(_("Chỉ quản lý mới được huỷ nhiệm vụ."), frappe.PermissionError)
+    # ADOPTION (G5.2): a non-leader may transition (non-Cancel) any task they can ACCESS, not only
+    # tasks assigned to them. Cancel already blocked above; workflow roles are the outer gate.
+    if not pmperm.can_view_task(doc.as_dict(), user):
+        frappe.throw(_("Bạn không có quyền đổi trạng thái nhiệm vụ này."),
+                     frappe.PermissionError)

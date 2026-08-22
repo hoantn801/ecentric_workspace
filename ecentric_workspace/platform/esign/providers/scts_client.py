@@ -12,7 +12,8 @@ It knows the SCTS eContract endpoints (docs: econtract.scts.com.vn/API, 2026-08)
     GET  /api/SignerSignature/GetSignatures/{userId}
     POST /api/Workflow/bulk-process
     GET  /api/Document/{documentId}
-    POST /api/Document/Submit            (create document - replaces legacy /api/AddDocument)
+    POST /api/AddDocument                (create document; docs page says Document/Submit but the
+                                          live backend 405s it - probed 2026-08-22, AddDocument=400)
     GET  /api/Document/pdf?DocumentId=&DocumentFileId=   (signed PDF, confirmed contract)
 
 It returns PARSED JSON (dict/list); provider->ERP field normalization lives in the
@@ -219,8 +220,9 @@ class SctsClient(object):
                             "SCTS rejected bulk-process (HTTP %s)" % status, retryable=False)
 
     def add_document(self, payload, token):
-        """POST /api/Document/Submit (eContract) -> raw payload; `data` carries the new
-        DocumentId as a plain string. Legacy note: SCTS V1 used /api/AddDocument. V1/eContract
+        """POST /api/AddDocument (eContract). The 2026-08 docs list /api/Document/Submit but the
+        live backend rejects it with 405 while /api/AddDocument validates (probed 2026-08-22);
+        the payload is the eContract shape from the docs. `data` may carry the DocumentId. V1
         contract (workflowDefinitionId / documentTypeId / companyId / departmentId /
         Documents[] / Signatures[] / ExternalHandlers[]). NON-IDEMPOTENT write: exactly ONE HTTP
         attempt, NO retry. A network error, timeout or 5xx is AMBIGUOUS - the document may
@@ -232,7 +234,7 @@ class SctsClient(object):
         if token:
             headers["Authorization"] = "Bearer %s" % token
         try:
-            resp = self._transport("POST", self._url("/api/Document/Submit"),
+            resp = self._transport("POST", self._url("/api/AddDocument"),
                                    headers=headers, json_body=payload, timeout=self.timeout,
                                    verify_tls=self.verify_tls)
         except Exception:

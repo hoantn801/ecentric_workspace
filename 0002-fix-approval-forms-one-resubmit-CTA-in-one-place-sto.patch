@@ -1,0 +1,207 @@
+From 4fcec247e5c7d800af698ec1fc18f67647e50016 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 3 Aug 2026 10:02:55 +0000
+Subject: [PATCH 2/2] fix(approval,forms): one resubmit CTA in one place; stop
+ x100 rate corruption on edit
+
+Two defects reported against the resubmit flow after the C4b deploy.
+
+1. "2 nut resubmit 1 duoi 1 tren khong dong bo" (approval-page).
+   The flow has two stages and each rendered its own call-to-action:
+     stage 1  Approved + gbs_status Rejected -> small orange "Resubmit"
+              button injected at the BOTTOM, next to "Check Status"
+     stage 2  status "Can sua"                -> "Sua & Submit lai" inside a
+              yellow banner at the TOP of the page
+   Same flow, same destination (/gbs-so-form-v2?edit=<id>), two labels in two
+   places. ec-resubmit-merge-v1 gives stage 1 a #ec-gbs-resubmit-banner at the
+   top of #content, styled to match #ec-can-sua-banner and carrying the same
+   "Sua & Submit lai" label, so nothing moves on screen as the doc advances.
+   Verified live: GBS-SO-2026-08-03-00001 (stage 1) and GBS-SO-2026-07-31-00009
+   (stage 2) each render exactly one CTA, both at offsetTop 81.
+
+   The insert path also re-arms the 3s poll. ec-resubmit-repoll-v1 only re-armed
+   on the "button already exists" branch, which was unreachable: the insert path
+   fell off the end of ensureButton(), so the poll died after the first insert
+   and the stale-button case it was meant to fix could still occur in-page.
+
+2. Rate rendered x100 on the edit form (gbs-so-form-v2, gbs-po-form-v2).
+   fillRow() wrote the raw number into .item-rate:
+       rateI.value = String(item.rate)          // "19687535.45"
+   but that input is vi-VN formatted ('.' = thousands, ',' = decimal), and every
+   reader of it -- parseClean(), parseRateValue() -- strips '.' as a thousands
+   separator. 19687535.45 was therefore read back as 1968753545. On
+   GBS-SO-2026-07-31-00009 the form showed a grand total of 1.968.753.545 VND
+   against a stored grand_total of 19687535.45.
+
+   ec-edit-rate-vnfmt-v1 formats to vi-VN before filling, using the exact options
+   of formatViVN() in ec-gbs-rate-input-fix v2 (grouping + maximumFractionDigits
+   20) so no precision is lost. Round-trip checked against parseClean for
+   19687535.45 / 12962962.962 / 411957490.6 / 7067320.4 / 1000 / 0.
+   Verified live: SO 00009 -> "19.687.535,45", total 19.687.535 VND;
+   PO GBS-PO-20260617-12949 -> "1.268.218,98", total 1.268.219 VND (stored
+   1268218.98).
+
+All three pages were written to team.ecentric.vn under a sha guard, round-tripped
+byte-identical, and every <script> block passes node --check (20 blocks on
+approval-page, 29 on each form). The two -v2 form pages are live-only, not
+repo-managed; only approval-page ships here, with BASELINE_SHA256 bumped and the
+repoll-v1 hash moved into SUPERSEDES_SHA256 in the same commit.
+
+Known, deliberately out of scope (separate decision):
+  - readDomRows() in the native-SO path uses parseVN(), which drops decimals
+    entirely; broken for any decimal rate today, before and after this change.
+  - parseBulkText() splits on ',' and writes a raw number into .item-rate, so
+    bulk paste has the same class of defect as fillRow() had.
+  - parseClean() is also applied to .item-qty, which is type="number" and uses
+    '.' as its decimal separator, so a fractional qty like 1.5 reads as 15.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01SkimpaMGSG778PC3z5g31J
+---
+ .../approval_page/main_section.html           | 61 ++++++++++++-------
+ .../legacy_pages/approval_page/page_sync.py   | 21 ++++++-
+ 2 files changed, 59 insertions(+), 23 deletions(-)
+
+diff --git a/ecentric_workspace/legacy_pages/approval_page/main_section.html b/ecentric_workspace/legacy_pages/approval_page/main_section.html
+index 7d5443c..9da6aac 100755
+--- a/ecentric_workspace/legacy_pages/approval_page/main_section.html
++++ b/ecentric_workspace/legacy_pages/approval_page/main_section.html
+@@ -5894,6 +5894,13 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
+     st.textContent = [
+       '.ec-gbs-resubmit-btn { background:#f59e0b; color:white; border:none; border-radius:6px; padding:8px 14px; font-weight:600; font-size:13px; cursor:pointer; margin-left:8px; }',
+       '.ec-gbs-resubmit-btn:hover { background:#d97706; }',
++      /* ec-resubmit-merge-v1: CTA now lives in a banner at the top, styled to match
++         the #ec-can-sua-banner of the next stage so the two stages look identical. */
++      '#ec-gbs-resubmit-banner { background:#fef3c7; border:1px solid #f59e0b; border-radius:8px; padding:14px 16px; margin-bottom:14px; }',
++      '#ec-gbs-resubmit-banner .ecrb-title { font-size:14px; font-weight:700; color:#92400e; margin-bottom:6px; }',
++      '#ec-gbs-resubmit-banner .ecrb-reason { font-size:13px; color:#78350f; margin-bottom:10px; line-height:1.5; }',
++      '#ec-gbs-resubmit-banner .ec-gbs-resubmit-btn { margin-left:0; background:#2C3DA6; }',
++      '#ec-gbs-resubmit-banner .ec-gbs-resubmit-btn:hover { background:#1f2d80; }',
+       '.ec-gbs-resubmit-modal { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:10000; display:flex; align-items:center; justify-content:center; }',
+       '.ec-gbs-resubmit-modal .modal-card { background:#fff; border-radius:10px; padding:20px; width:480px; max-width:90vw; box-shadow:0 10px 40px rgba(0,0,0,0.2); }',
+       '.ec-gbs-resubmit-modal h3 { margin:0 0 12px 0; font-size:16px; color:#111827; }',
+@@ -6017,6 +6024,9 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
+       var existing = document.getElementById('ec-gbs-resubmit-btn');
+       if (existing && !shouldShow) {
+         existing.remove();
++        /* ec-resubmit-merge-v1: the button now lives inside a top banner - drop that too */
++        var _bnRemove = document.getElementById('ec-gbs-resubmit-banner');
++        if (_bnRemove) _bnRemove.remove();
+         /* ec-resubmit-repoll-v1: un-hide the Submit-on-GBS button this block hid */
+         var _sbRestore = findSubmitBtn(); if (_sbRestore) _sbRestore.style.display = '';
+       }
+@@ -6033,34 +6043,43 @@ console.log('[ec-gbs-timeline] script tag fully parsed');
+          the banner's "Sửa & Submit lại". Keep the 3s poll alive so it gets removed. */
+       if (existing) { setTimeout(ensureButton, 3000); return; }
+ 
+-      // Find anchor: Submit on GBS button OR Check Status button - inject Resubmit nearby
+-      var submitBtn = findSubmitBtn();
+-      var anchor = submitBtn;
+-      if (!anchor) {
+-        // Fallback: find Check Status button
+-        var btns = document.querySelectorAll('button');
+-        for (var i = 0; i < btns.length; i++) {
+-          if (/Check\s+Status/i.test((btns[i].textContent || '').trim())) { anchor = btns[i]; break; }
+-        }
+-      }
+-      if (!anchor) {
+-        // No anchor yet, retry
+-        setTimeout(ensureButton, 1000);
+-        return;
+-      }
++      /* ec-resubmit-merge-v1 2026-08-03: the resubmit CTA used to be injected at the
++         BOTTOM of the page, next to "Check Status", labelled "Resubmit" - while the
++         next stage ("Can sua") showed a DIFFERENT button at the TOP labelled
++         "Sua & Submit lai". Two names, two places, one and the same flow; reported as
++         "2 nut resubmit 1 duoi 1 tren khong dong bo". Both stages now render a single
++         button with the same label in the same spot at the top of the detail panel.
++         Same anchor + same styling as #ec-can-sua-banner, so the page looks unchanged
++         to the user as the doc moves from one stage to the next. */
+ 
+-      // Hide Submit on GBS (it would 417 anyway in Rejected state)
++      // "Submit on GBS" would 417 while boxme holds the doc Rejected - keep it hidden.
++      var submitBtn = findSubmitBtn();
+       if (submitBtn) submitBtn.style.display = 'none';
+ 
++      var host = document.querySelector('#content') || document.querySelector('main') || document.body;
++      if (!host) { setTimeout(ensureButton, 1000); return; }
++
++      var banner = document.createElement('div');
++      banner.id = 'ec-gbs-resubmit-banner';
++      banner.innerHTML =
++        '<div class="ecrb-title">\u26a0\ufe0f GBS \u0111\u00e3 t\u1eeb ch\u1ed1i doc n\u00e0y</div>' +
++        '<div class="ecrb-reason">B\u1ea5m n\u00fat b\u00ean d\u01b0\u1edbi \u0111\u1ec3 nh\u1eadp l\u00fd do, r\u1ed3i form s\u1ebd m\u1edf \u1edf ch\u1ebf \u0111\u1ed9 ch\u1ec9nh s\u1eeda. S\u1eeda xong b\u1ea5m Submit l\u1ea1i, doc ch\u1ea1y l\u1ea1i chu\u1ed7i duy\u1ec7t t\u1eeb Finance.</div>';
++
+       var btn = document.createElement('button');
+       btn.id = 'ec-gbs-resubmit-btn';
+       btn.className = 'ec-gbs-resubmit-btn';
+-      btn.textContent = 'Resubmit';
++      btn.textContent = 'S\u1eeda & Submit l\u1ea1i';
+       btn.addEventListener('click', function(){ openModal(state); });
+-      if (anchor.parentNode) {
+-        anchor.parentNode.insertBefore(btn, anchor.nextSibling);
+-      }
+-      console.log('[ec-gbs-resubmit] button inserted (gbs_status=' + state.gbs_status + ')');
++      banner.appendChild(btn);
++
++      if (host.firstChild) host.insertBefore(banner, host.firstChild);
++      else host.appendChild(banner);
++      console.log('[ec-gbs-resubmit] banner inserted at top (gbs_status=' + state.gbs_status + ')');
++      /* ec-resubmit-merge-v1: re-arm the poll on the INSERT path too. ec-resubmit-repoll-v1
++         only re-armed on the "already exists" path, which was unreachable because this path
++         fell off the end of the function - so after the very first insert the poll died and
++         the button could go stale again once the doc moved to "Can sua". */
++      setTimeout(ensureButton, 3000);
+     });
+   }
+ 
+diff --git a/ecentric_workspace/legacy_pages/approval_page/page_sync.py b/ecentric_workspace/legacy_pages/approval_page/page_sync.py
+index 7cd754f..d3671a1 100644
+--- a/ecentric_workspace/legacy_pages/approval_page/page_sync.py
++++ b/ecentric_workspace/legacy_pages/approval_page/page_sync.py
+@@ -37,16 +37,29 @@ def _html():
+ #   2. ec-drift-settled-guard-v1 (also site-authored): item-level drift banner
+ #      now only renders when the doc has actually settled on both sides
+ #      (status Approved AND gbs_status Approved/Completed).
+-#   3. ec-resubmit-repoll-v1 (this commit): ensureButton() returned without
++#   3. ec-resubmit-repoll-v1 (previous commit): ensureButton() returned without
+ #      re-arming its 3s poll once the Resubmit button existed, so after a
+ #      resubmit flipped status to "Can sua" the stale button stayed on screen
+ #      next to the banner's "Sua & Submit lai" -- the "2 nut resubmit" report.
+ #      It now keeps polling, and restores the Submit-on-GBS button it hid.
++#   4. ec-resubmit-merge-v1 (this commit): the two stages of the resubmit flow
++#      rendered two DIFFERENT call-to-actions -- stage 1 (Approved + GBS
++#      Rejected) injected a small orange "Resubmit" button at the BOTTOM next to
++#      "Check Status", stage 2 ("Can sua") showed "Sua & Submit lai" in a yellow
++#      banner at the TOP. Same flow, same destination (/gbs-so-form-v2?edit=...),
++#      two names in two places; reported as "2 nut resubmit 1 duoi 1 tren khong
++#      dong bo". Stage 1 now renders #ec-gbs-resubmit-banner at the top of
++#      #content, styled to match #ec-can-sua-banner and carrying the same
++#      "Sua & Submit lai" label, so the page does not visibly change shape as the
++#      doc moves from one stage to the next. The insert path also re-arms the 3s
++#      poll -- ec-resubmit-repoll-v1 only re-armed on the "already exists" branch,
++#      which was unreachable because the insert path fell off the end of the
++#      function, so the poll died after the very first insert.
+ # upsert_web_page REFUSES to write when live hashes to none of the accepted
+ # values, so a repo snapshot can never silently revert a live edit. Deliberate
+ # update = edit main_section.html, bump this constant, and move the value it
+ # replaced into SUPERSEDES_SHA256 -- all in the same commit.
+-BASELINE_SHA256 = "78298a9ec4ca4420b608625788ee30713c9ff222ffd2177a17df7bc14e5a81fa"
++BASELINE_SHA256 = "ef66131a5dded4e48cbe00e9235c9859a85b449135bc195bffc2b5f4dfaa8ab5"
+ 
+ # Live values this snapshot is allowed to overwrite. C4b was authored in the
+ # repo, not on the site, so at deploy time live still holds the #138 bytes
+@@ -62,6 +75,10 @@ BASELINE_SHA256 = "78298a9ec4ca4420b608625788ee30713c9ff222ffd2177a17df7bc14e5a8
+ SUPERSEDES_SHA256 = (
+     "3f825f4e4761a69d1cdb6033eeabbd1b8b23476c2fad33d9226b137c124a4454",  # #138
+     "4d5ea138c4674b114df4451289d138ad80a9e512a37d705819b975dec13ef361",  # C4b (#64)
++    # pre-merge-v1 bytes: what live held after ec-resubmit-repoll-v1 was applied
++    # on the site (2026-08-03 16:20). team.ecentric.vn has since been written
++    # forward to BASELINE_SHA256, so the first sync there returns "unchanged".
++    "78298a9ec4ca4420b608625788ee30713c9ff222ffd2177a17df7bc14e5a81fa",  # repoll-v1
+ )
+ 
+ 
+-- 
+2.43.0
+
