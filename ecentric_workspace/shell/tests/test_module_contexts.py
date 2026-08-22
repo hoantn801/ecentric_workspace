@@ -72,8 +72,15 @@ class TestContextOwnership(unittest.TestCase):
 
     def test_home_and_hall_unchanged_portal(self):
         home = nav.compose("home")
-        # 16 restored-IA items + 1 approved addition: "Trung tâm Báo cáo" (/reports)
+        # 16 restored-IA items + 1 approved addition: "Trung tâm Báo cáo"
+        # (/reports). Two more are registered but sidebar_hidden, so compose()
+        # must not show them: "Việc của tôi" (the desktop header inbox already
+        # opens that feed -- a sidebar row would be a second door to the same
+        # room) and "Cài app lên điện thoại" (a phone-install guide has no
+        # business in the desktop portal menu; it still shows inside /ec-hr).
         self.assertEqual(len(home), 17)
+        self.assertFalse(any(i["route"] == "/viec-cua-toi" for i in home))
+        self.assertFalse(any(i["route"] == "/ec-hr/huong-dan-cai-app" for i in home))
         hall = next(i for i in home if i["route"] == "/hall")
         self.assertNotIn("alias", hall)   # /hall stays canonical portal-owned
 
@@ -95,7 +102,8 @@ class TestAlertTransform(unittest.TestCase):
         self.assertIn('BUSINESS<table id="al-rules">', new)
         self.assertNotIn('class="ec-sidebar"', new)
         self.assertNotIn('href="/help"', new)
-        self.assertEqual(new.count('data-ec-notification-bell="1"'), 1)
+        self.assertEqual(new.count('data-ec-notification-bell="1"'), 0)
+        self.assertEqual(new.count('data-ec-shell-action-slot="1"'), 1)
         self.assertIn('<div class="ec-shell-grouplabel">Alert Center</div>', new)
         self.assertIn('<strong class="ec-shell-crumb-current">Rules</strong>', new)
         again = alert_pages.transform(new, "alerts/rules")
@@ -121,7 +129,8 @@ class TestReportingTransform(unittest.TestCase):
     def test_wu_gets_first_bell_and_keeps_jinja(self):
         src = _rep_fixture('<aside class="wu-roadmap" id="wu-roadmap" hidden>R</aside>')
         new = rep_pages.transform(src, "weekly-update")
-        self.assertEqual(new.count('data-ec-notification-bell="1"'), 1)
+        self.assertEqual(new.count('data-ec-notification-bell="1"'), 0)
+        self.assertEqual(new.count('data-ec-shell-action-slot="1"'), 1)
         # UAT hotfix: shell-isolation zone injected exactly once, CSS-only,
         # re-asserting canonical geometry against the pages' generic selectors
         self.assertEqual(new.count('<style id="ec-reporting-shell-isolation">'), 1)
@@ -187,7 +196,8 @@ class TestReportingTransform(unittest.TestCase):
         # canonical reporting Shared Shell
         self.assertEqual(single.count('data-ec-shell="1"'), 1)
         self.assertNotIn('<aside class="ec-sidebar">', single)
-        self.assertEqual(single.count('data-ec-notification-bell="1"'), 1)   # first bell added
+        self.assertEqual(single.count('data-ec-notification-bell="1"'), 0)   # bell retired
+        self.assertEqual(single.count('data-ec-shell-action-slot="1"'), 1)   # inbox added
         self.assertEqual(single.count('data-ec-shell-header-right="1"'), 1)
         self.assertEqual(single.count('<style id="ec-reporting-shell-isolation">'), 1)
         self.assertIn('<strong class="ec-shell-crumb-current">Báo cáo tuần</strong>', single)
@@ -301,7 +311,8 @@ class TestPMMigrationStates(unittest.TestCase):
         self.assertLess(single.index('ec-pm-topsearch'), single.index('class="topbar-actions"'))
         for hook in ('id="pm-nav"', 'id="pm-av"', 'id="pm-uname"', 'id="pm-urole"'):
             self.assertEqual(single.count(hook), 1, hook)
-        self.assertEqual(len(re.findall(r'<[a-zA-Z][^>]*data-ec-notification-bell="1"', single)), 1)
+        self.assertEqual(len(re.findall(r'<[a-zA-Z][^>]*data-ec-notification-bell="1"', single)), 0)
+        self.assertEqual(single.count('data-ec-shell-action-slot="1"'), 1)
         # second transform byte-identical (idempotent convergence)
         self.assertEqual(pm_pages.transform(single), single)
 
@@ -410,7 +421,8 @@ class TestPMTransform(unittest.TestCase):
         self.assertIn('data-ec-shell-crumb-detail="1" id="pm-crumb">Tổng quan</strong>', new)
         self.assertNotIn("Project Management / <strong", new)
         # exactly ONE bell ELEMENT (JS string mention ignored)
-        self.assertEqual(len(re.findall(r'<[a-zA-Z][^>]*data-ec-notification-bell="1"', new)), 1)
+        self.assertEqual(len(re.findall(r'<[a-zA-Z][^>]*data-ec-notification-bell="1"', new)), 0)
+        self.assertEqual(new.count('data-ec-shell-action-slot="1"'), 1)
         self.assertIn('binds data-ec-notification-bell', new)
         self.assertIn('<style id="ec-pm-shell-grid">', new)
         again = pm_pages.transform(new)

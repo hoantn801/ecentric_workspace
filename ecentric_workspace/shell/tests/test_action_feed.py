@@ -9,6 +9,7 @@ and the PM terminal ToDo-close hook.
 import datetime
 import io
 import os
+import re
 import sys
 import types
 import unittest
@@ -226,8 +227,14 @@ class TestBuildFeed(unittest.TestCase):
         self.assertEqual(routes["td-task"]["bucket"], "upcoming")
         # WTU today -> act_now
         self.assertEqual(routes["td-wtu"]["bucket"], "act_now")
-        # counts over full feed
-        self.assertEqual(res["counts"]["overdue"], 2)   # td-appr + td-appr2 (both PO-1 overdue)
+        # counts over full feed. DEDUP (PO-locked 2026-08-12): td-appr and
+        # td-appr2 both point at PO-1, so the feed shows ONE card for that
+        # document and counts it once -- previously each ToDo produced its own
+        # card and inflated the badge.
+        self.assertEqual(res["counts"]["overdue"], 1)
+        self.assertNotIn("td-appr2", routes)            # merged into td-appr
+        self.assertEqual(len([i for i in res["items"]
+                              if i.get("reference_name") == "PO-1"]), 1)
         self.assertEqual(res["total"], res["counts"]["overdue"] + res["counts"]["act_now"]
                          + res["counts"]["upcoming"] + res["counts"]["undated"])
 
@@ -477,9 +484,133 @@ class TestBucketPreviewsNoStarvation(unittest.TestCase):
             body_start = src.index(fn)
             body = src[body_start:body_start + 600]
             self.assertIn("_classified_feed(user)", body, fn)
-        # no separate per-source count query in the api layer
+        # No separate per-source count query in the FEED endpoints: the feed's
+        # counts/source_counts must come from the one classified pass. Scoped to
+        # the feed section of api.py -- get_my_requests_summary is a DIFFERENT
+        # aggregate (the user's own submitted requests) and legitimately counts
+        # over the full set so its totals do not drift with the display limit.
         api_src = io.open(os.path.join(APP, "action_center", "api.py"), encoding="utf-8").read()
-        self.assertNotIn("frappe.db.count", api_src)
+        feed_section = api_src[:api_src.index("def get_my_requests_summary")]
+        self.assertNotIn("frappe.db.count", feed_section)
+        self.assertNotIn("source_counts[", api_src)   # never recomputed here
+
+
+class TestScanBoundAndDedup(unittest.TestCase):
+    """PO-locked 2026-08-12. Two honesty rules for the badge:
+
+      * the scan is BOUNDED, and when the bound is hit the API says so
+        (`truncated`) instead of publishing a number it knows is short;
+      * one business document produces ONE card, however many Open ToDos point
+        at it -- the user is often both approver and fulfiller, and stale
+        duplicates survive, both of which used to inflate the badge.
+    """
+
+    def setUp(self):
+        _install(FK, purge=False)
+        FK.db = _FakeDB(); FK.getall_map = {}
+        FK.session.user = "u@e.c"
+        FK.db.get_value_map = {}
+
+    def _plain(self, n, start=0):
+        # un-referenced ToDos: inherently distinct, never merged
+        return [_todo("td-%d" % i, "", "", created="%04d" % i)
+                for i in range(start, start + n)]
+
+    def test_under_cap_is_not_truncated(self):
+        FK.db.todo_rows = self._plain(5)
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertFalse(res["truncated"])
+        self.assertEqual(res["total"], 5)
+        self.assertEqual(res["scan_cap"], feed._SCAN_CAP)
+
+    def test_exactly_at_cap_is_not_truncated(self):
+        # off-by-one guard: the cap itself is a complete answer
+        FK.db.todo_rows = self._plain(feed._SCAN_CAP)
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertFalse(res["truncated"])
+        self.assertEqual(res["total"], feed._SCAN_CAP)
+
+    def test_over_cap_sets_truncated_and_clips(self):
+        FK.db.todo_rows = self._plain(feed._SCAN_CAP + 25)
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertTrue(res["truncated"])
+        self.assertEqual(res["total"], feed._SCAN_CAP)      # clipped, not 2025
+
+    def test_loader_fetches_one_more_than_cap(self):
+        # overflow can only be DETECTED if the query asks for cap+1
+        src = io.open(os.path.join(APP, "action_center", "feed.py"), encoding="utf-8").read()
+        body = src.split("def _load_open_todos")[1].split("\ndef ")[0]
+        self.assertIn("_SCAN_CAP + 1", body)
+
+    def test_cap_is_2000(self):
+        self.assertEqual(feed._SCAN_CAP, 2000)
+
+    def test_previews_expose_the_same_flag(self):
+        # the drawer reads bucket_previews, not build_feed -- both must tell the
+        # truth or the header count and the drawer count disagree
+        FK.db.todo_rows = self._plain(feed._SCAN_CAP + 3)
+        prev = feed.bucket_previews("u@e.c")
+        self.assertTrue(prev["truncated"])
+        self.assertEqual(prev["scan_cap"], feed._SCAN_CAP)
+
+    def test_duplicate_todos_on_one_doc_collapse_to_one_card(self):
+        FK.db.todo_rows = [
+            _todo("td-a", "Task", "TASK-9", date="2026-07-26", created="1"),
+            _todo("td-b", "Task", "TASK-9", date="2026-07-26", created="2"),
+            _todo("td-c", "Task", "TASK-9", date="2026-07-26", created="3"),
+        ]
+        FK.getall_map = {"Task": [{"name": "TASK-9", "workflow_state": "In Progress",
+                                   "status": "Working", "exp_end_date": "2026-07-26"}]}
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertEqual(res["total"], 1)
+        self.assertEqual(sum(res["counts"].values()), 1)
+        self.assertEqual(sum(res["source_counts"].values()), 1)
+
+    def test_dedup_keeps_the_most_urgent_bucket(self):
+        # same doc, two ToDos: one overdue, one upcoming. The card the user sees
+        # must be the URGENT one -- keeping whichever row arrived first would
+        # hide an overdue item behind a future date.
+        FK.db.todo_rows = [
+            _todo("td-later", "Task", "TASK-7", date="2026-07-30", created="1"),
+            _todo("td-late", "Task", "TASK-7", date="2026-07-10", created="2"),
+        ]
+        FK.getall_map = {"Task": [{"name": "TASK-7", "workflow_state": "In Progress",
+                                   "status": "Working", "exp_end_date": ""}]}
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertEqual(res["total"], 1)
+        kept = res["items"][0]["bucket"]
+        # assert on RANK, not on a literal bucket name: an ACTIVE PM task with a
+        # past date is deliberately act_now (someone is already on it) rather
+        # than overdue, and that classification is not what this test governs.
+        self.assertLess(feed._BUCKET_RANK[kept], feed._BUCKET_RANK["upcoming"])
+        self.assertEqual(res["counts"][kept], 1)
+        self.assertEqual(res["counts"]["upcoming"], 0)      # un-counted on swap
+        self.assertEqual(sum(res["counts"].values()), 1)
+
+    def test_unreferenced_todos_are_never_merged(self):
+        FK.db.todo_rows = self._plain(4)
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertEqual(res["total"], 4)
+
+    def test_internal_keys_never_leak_to_the_client(self):
+        FK.db.todo_rows = self._plain(3)
+        for it in feed.build_feed("u@e.c", limit=20)["items"]:
+            for k in ("_idx", "_sk", "_creation"):
+                self.assertNotIn(k, it)
+
+
+class TestReminderTotalLabelJS(unittest.TestCase):
+    """The drawer must render "<cap>+" when the server reports truncation."""
+
+    def test_label_helper_exists_and_reads_the_flag(self):
+        js = io.open(os.path.join(APP, "public", "js", "ec_shell.js"), encoding="utf-8").read()
+        self.assertIn("function rmTotalLabel(", js)
+        body = js.split("function rmTotalLabel(")[1].split("\n  }")[0]
+        self.assertIn("truncated", body)
+        self.assertIn("scan_cap", body)
+        self.assertIn("+", body)
+        # and it is actually WIRED into the drawer header, not just defined
+        self.assertIn("rmTotalLabel(R.data)", js)
 
 
 class TestActiveSourceClassification(unittest.TestCase):
@@ -731,7 +862,11 @@ class TestApprovalNormalization(unittest.TestCase):
         it = self._find(feed.build_feed("u@e.c", limit=20), "t")
         self.assertEqual(it["source_type"], "generic")          # NOT normalized (excluded)
         self.assertNotIn("/approvals/", it["action_url"])       # no engine route
-        self.assertTrue(it["action_url"].startswith("/app/"))
+        # POLICY CHANGE 2026-08-21: when normalization cannot apply, an
+        # engine-governed doc lands on the Approval Center HUB, never on
+        # Frappe Desk (/app/* is permission-denied for portal users, so the
+        # reminder pointed at a page they could not open).
+        self.assertEqual(it["action_url"], "/approvals")
 
     def test_direct_ref_to_excluded_doctype_stays_generic(self):
         # Direct EC Approval Request whose reference_doctype is excluded -> generic.
@@ -768,6 +903,9 @@ class TestApprovalNormalization(unittest.TestCase):
         # non-approval business doc stays generic
         g = self._find(res, "g")
         self.assertEqual(g["source_type"], "generic")
+        # a doc with NO engine link and no portal page keeps the Desk fallback:
+        # there is nowhere better to send it (see test_no_desk_urls for the gate
+        # that every GOVERNED source must resolve to a portal route).
         self.assertTrue(g["action_url"].startswith("/app/"))
 
     def test_terminal_request_excluded(self):
@@ -793,7 +931,11 @@ class TestApprovalNormalization(unittest.TestCase):
             it = self._find(res, name)
             self.assertIsNotNone(it, name)
             self.assertEqual(it["source_type"], "generic", name)          # safe fallback
-            self.assertTrue(it["action_url"].startswith("/app/"), name)
+        # POLICY CHANGE 2026-08-21: when normalization cannot apply, an
+        # engine-governed doc lands on the Approval Center HUB, never on
+        # Frappe Desk (/app/* is permission-denied for portal users, so the
+        # reminder pointed at a page they could not open).
+            self.assertEqual(it["action_url"], "/approvals", name)
             self.assertNotIn("/approvals/", it["action_url"], name)       # no leaked route
 
     def test_feed_gates_on_canonical_helper_false_falls_back_generic(self):
@@ -813,7 +955,11 @@ class TestApprovalNormalization(unittest.TestCase):
         it = self._find(res, "t")
         self.assertEqual(it["source_type"], "generic")         # NOT normalized
         self.assertNotIn("/approvals/", it["action_url"])      # engine route not leaked
-        self.assertTrue(it["action_url"].startswith("/app/"))
+        # POLICY CHANGE 2026-08-21: when normalization cannot apply, an
+        # engine-governed doc lands on the Approval Center HUB, never on
+        # Frappe Desk (/app/* is permission-denied for portal users, so the
+        # reminder pointed at a page they could not open).
+        self.assertEqual(it["action_url"], "/approvals")
 
     def test_feed_delegates_visibility_with_correct_inputs(self):
         # Prove the feed calls the canonical helper (not a private reimplementation)
@@ -878,7 +1024,11 @@ class TestApprovalNormalization(unittest.TestCase):
         res = feed.build_feed("u@e.c", limit=20)
         it = self._find(res, "t")
         self.assertEqual(it["source_type"], "generic")
-        self.assertTrue(it["action_url"].startswith("/app/"))
+        # POLICY CHANGE 2026-08-21: when normalization cannot apply, an
+        # engine-governed doc lands on the Approval Center HUB, never on
+        # Frappe Desk (/app/* is permission-denied for portal users, so the
+        # reminder pointed at a page they could not open).
+        self.assertEqual(it["action_url"], "/approvals")
         self.assertNotEqual(it["action_url"], "")              # never a dead link
 
     def test_legacy_approval_doctypes_unchanged(self):
@@ -1163,10 +1313,56 @@ class TestAllowlistFormParity(unittest.TestCase):
         "EC System Request": "system_request",
     }
 
+    @staticmethod
+    def _code_only(src):
+        """Source with `#` comments and triple-quoted blocks removed.
+
+        These assertions are token searches, so prose must not be able to
+        satisfy them. Verified by mutation: the docstring of
+        capabilities.can_view mentions "fulfillment_owner", and against the RAW
+        text the check stayed green even after the kwarg itself was deleted.
+
+        Deliberately line-based rather than tokenize(): these bodies are sliced
+        out mid-signature and do not parse, and a tokenize() that raises would
+        fall back to the raw source -- silently turning the guard back off.
+        """
+        fences = (chr(34) * 3, chr(39) * 3)
+        out, fence = [], None
+        for line in src.split("\n"):
+            if fence is not None:
+                if fence in line:
+                    fence = None
+                continue
+            stripped = line.strip()
+            hit = None
+            for f in fences:
+                if stripped.startswith(f):
+                    hit = f
+                    break
+            if hit is not None:
+                if stripped.count(hit) == 1:
+                    fence = hit
+                continue
+            out.append(re.sub(r"#.*$", "", line))
+        return "\n".join(out)
+
+    def _controller_src(self, module):
+        """The module refactor moved per-form controllers from
+        approval_center/api/<module>.py to
+        approval_center/features/<module>/controllers/api.py; the old path is
+        now a re-export shim. Read whichever one carries the real code."""
+        for path in (os.path.join(APP, "approval_center", "features", module,
+                                  "controllers", "api.py"),
+                     os.path.join(APP, "approval_center", "api", module + ".py")):
+            if os.path.exists(path):
+                src = io.open(path, encoding="utf-8").read()
+                if "bind" in src or "_can_view" in src:
+                    return src
+        return ""
+
     def _can_view_body(self, module):
         import re as _re
-        path = os.path.join(APP, "approval_center", "api", module + ".py")
-        src = io.open(path, encoding="utf-8").read()
+        src = self._controller_src(module)
         m = _re.search(r"\ndef _can_view\([^)]*\):\n(.*?)(?=\ndef |\n@|\Z)", src, _re.S)
         return m.group(1) if m else ""
 
@@ -1174,16 +1370,79 @@ class TestAllowlistFormParity(unittest.TestCase):
         from ecentric_workspace.action_center import resolvers as R
         self.assertEqual(set(R.APPROVAL_NORMALIZE_ALLOWLIST), set(self.DT_TO_MODULE))
 
-    def test_each_allowlisted_form_is_superset_of_canonical(self):
+    def test_each_allowlisted_form_reaches_the_canonical_check(self):
+        """Every allow-listed form's view gate must END UP at can_view_request.
+
+        REWRITTEN 2026-08-21. The old version grepped each feature module for a
+        literal `def _can_view` and asserted on its body. After the module
+        refactor five of the six forms no longer define one -- they are built by
+        the shared bind()/bind_fulfillment() factory, which installs _can_view
+        for them. So the old test was not merely red, it had gone BLIND: it
+        proved nothing about the five forms it could not find, and would have
+        passed vacuously the moment someone gave ai_topup a delegating body.
+
+        The chain is asserted end to end instead:
+          form controller -> (own _can_view | shared bind factory)
+                          -> capabilities.can_view
+                          -> workflow.permissions.can_view_request
+        """
         for dt, module in self.DT_TO_MODULE.items():
+            src = self._controller_src(module)
+            self.assertTrue(src, "%s: controller source not found" % module)
             body = self._can_view_body(module)
-            self.assertTrue(body, "%s: _can_view not found" % module)
-            delegates = ("can_view_request" in body)
-            superset = all(tok in body for tok in (
-                "requested_by == user", "_sm()", "EC Approval Request Approver",
-                "fulfillment_owner", "_is_fulfiller"))
-            self.assertTrue(delegates or superset,
-                            "%s (_can_view) is NOT >= canonical helper" % module)
+            if body:
+                delegates = ("can_view_request" in body) or ("caps.can_view" in body)
+                superset = all(tok in body for tok in (
+                    "requested_by == user", "_sm()", "EC Approval Request Approver",
+                    "fulfillment_owner", "_is_fulfiller"))
+                self.assertTrue(delegates or superset,
+                                "%s defines its own _can_view and it is NOT >= "
+                                "the canonical helper" % module)
+            else:
+                self.assertTrue("bind(" in src or "bind_fulfillment(" in src,
+                                "%s has neither its own _can_view nor the shared "
+                                "bind factory -- its view gate is unaccounted for"
+                                % module)
+
+    def test_shared_bind_factory_installs_the_canonical_gate(self):
+        """The factory branch above is only safe if bind() really wires
+        _can_view to the canonical capability -- otherwise five forms would pass
+        on a promise that nothing checks."""
+        src = io.open(os.path.join(APP, "approval_center", "shared", "api_adapter.py"),
+                      encoding="utf-8").read()
+        self.assertIn("def _can_view(user, business, request):", src)
+        self.assertIn("return caps.can_view(user, business, request)", src)
+        self.assertIn('"_can_view": _can_view,', src)     # exported, not dead code
+
+    def test_capabilities_can_view_delegates_to_the_engine(self):
+        """...and capabilities.can_view must FORWARD, not re-implement. A local
+        copy of the rule is how the feed and the form drifted apart last time."""
+        src = io.open(os.path.join(APP, "approval_center", "shared", "requests",
+                                   "capabilities.py"), encoding="utf-8").read()
+        body = self._code_only(src.split("def can_view(")[1].split("\ndef ")[0])
+        self.assertIn("can_view_request", body)
+        # kwarg form, not the bare word: the docstring says "fulfillment_owner"
+        # too, and a check that prose can satisfy is not a check
+        self.assertNotIn("#", body, "comment stripper did not run")
+        for token in ("requested_by=", "fulfillment_owner=", "business_doctype="):
+            self.assertIn(token, body,
+                          "can_view drops %s on the way through" % token.rstrip("="))
+
+    def test_canonical_check_still_covers_fulfillers(self):
+        """Guard the five branches the Action Center feed depends on. If any one
+        is dropped, a fulfiller sees a reminder for a document the form then
+        refuses to open -- the exact failure this chain exists to prevent."""
+        src = io.open(os.path.join(APP, "approval_center", "shared", "workflow",
+                                   "permissions.py"), encoding="utf-8").read()
+        body = self._code_only(src.split("def can_view_request(")[1].split("\ndef ")[0])
+        self.assertNotIn("#", body, "comment stripper did not run")
+        # match the BRANCH, not the parameter name: `fulfillment_owner` also
+        # appears in the signature, so the bare word stayed green after the
+        # whole `if fulfillment_owner == user` branch was deleted (mutation M3).
+        for token in ("is_system_manager(", "requested_by == user",
+                      "EC Approval Request Approver", "fulfillment_owner == user",
+                      "is_eligible_fulfiller("):
+            self.assertIn(token, body, "can_view_request lost the %s branch" % token)
 
     def test_excluded_patterns_are_not_allowlisted(self):
         # No-fulfiller + snapshot forms must be absent (canonical would be broader).

@@ -12,11 +12,11 @@ def validate_purchase(doc):
                 "supplier_name", "additional_notes_comments", "estimated_purchase_date",
                 "estimated_delivery_date", "request_attachment")
     if any(not str(doc.get(f) or "").strip() for f in required) or doc.payment_amount is None:
-        frappe.throw(_("Vui lÃƒÆ’Ã‚Â²ng nhÃƒÂ¡Ã‚ÂºÃ‚Â­p Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚ÂºÃ‚Â§y Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã‚Â§ cÃƒÆ’Ã‚Â¡c trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Âng bÃƒÂ¡Ã‚ÂºÃ‚Â¯t buÃƒÂ¡Ã‚Â»Ã¢â€žÂ¢c (bao gÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“m tÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡p Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â­nh kÃƒÆ’Ã‚Â¨m) trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºc khi gÃƒÂ¡Ã‚Â»Ã‚Â­i."))
-    if not frappe.db.exists("Department", doc.department): frappe.throw(_("PhÃƒÆ’Ã‚Â²ng ban khÃƒÆ’Ã‚Â´ng hÃƒÂ¡Ã‚Â»Ã‚Â£p lÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡. Vui lÃƒÆ’Ã‚Â²ng chÃƒÂ¡Ã‚Â»Ã‚Ân phÃƒÆ’Ã‚Â²ng ban tÃƒÂ¡Ã‚Â»Ã‚Â« danh sÃƒÆ’Ã‚Â¡ch."))
+        frappe.throw(_("Vui lòng nhập đầy đủ các trường bắt buộc (bao gồm tệp đính kèm) trước khi gửi."))
+    if not frappe.db.exists("Department", doc.department): frappe.throw(_("Phòng ban không hợp lệ. Vui lòng chọn phòng ban từ danh sách."))
     try:
-        if float(doc.payment_amount) <= 0: frappe.throw(_("SÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ tiÃƒÂ¡Ã‚Â»Ã‚Ân thanh toÃƒÆ’Ã‚Â¡n phÃƒÂ¡Ã‚ÂºÃ‚Â£i lÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºn hÃƒâ€ Ã‚Â¡n 0."))
-    except (TypeError, ValueError): frappe.throw(_("SÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ tiÃƒÂ¡Ã‚Â»Ã‚Ân thanh toÃƒÆ’Ã‚Â¡n phÃƒÂ¡Ã‚ÂºÃ‚Â£i lÃƒÆ’Ã‚Â  sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ."))
-    if doc.payment_term == "Other" and not (doc.payment_term_other or "").strip(): frappe.throw(_("Vui lÃƒÆ’Ã‚Â²ng nhÃƒÂ¡Ã‚ÂºÃ‚Â­p Ãƒâ€žÃ¢â‚¬ËœiÃƒÂ¡Ã‚Â»Ã‚Âu khoÃƒÂ¡Ã‚ÂºÃ‚Â£n thanh toÃƒÆ’Ã‚Â¡n khÃƒÆ’Ã‚Â¡c khi chÃƒÂ¡Ã‚Â»Ã‚Ân 'Other'."))
-    if doc.estimated_delivery_date < doc.estimated_purchase_date: frappe.throw(_("NgÃƒÆ’Ã‚Â y giao hÃƒÆ’Ã‚Â ng dÃƒÂ¡Ã‚Â»Ã‚Â± kiÃƒÂ¡Ã‚ÂºÃ‚Â¿n khÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºc ngÃƒÆ’Ã‚Â y mua dÃƒÂ¡Ã‚Â»Ã‚Â± kiÃƒÂ¡Ã‚ÂºÃ‚Â¿n."))
+        if float(doc.payment_amount) <= 0: frappe.throw(_("Số tiền thanh toán phải lớn hơn 0."))
+    except (TypeError, ValueError): frappe.throw(_("Số tiền thanh toán phải là số."))
+    if doc.payment_term == "Other" and not (doc.payment_term_other or "").strip(): frappe.throw(_("Vui lòng nhập điều khoản thanh toán khác khi chọn 'Other'."))
+    if doc.estimated_delivery_date < doc.estimated_purchase_date: frappe.throw(_("Ngày giao hàng dự kiến không thể trước ngày mua dự kiến."))
 

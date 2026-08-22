@@ -22,6 +22,33 @@ import frappe
 WTU = "Weekly Team Update"
 TASK = "Task"
 
+#: Approval Center hub -- the portal home for engine-governed business forms
+#: whose per-record route cannot be resolved.
+APPROVAL_HUB_ROUTE = "/approvals"
+
+#: reference_type -> PORTAL destination for sources that own a portal page but
+#: have no per-record deep link. Without this the resolver fell through to the
+#: Desk fallback (/app/<doctype>/<name>), a permission-denied dead end for
+#: portal users -- the reminder pointed at a page they cannot open.
+#: Every DocType this app files ToDos against MUST resolve to a portal route;
+#: action_center/tests/test_no_desk_urls.py scans the repo and enforces it.
+PORTAL_FALLBACK = {
+    "EC Alert": "/alerts",          # alert case handling lives on the dashboard
+    "Brand": "/alerts",             # per-brand setup ToDo (missing mapping/price)
+    "EC Order Retry": "/alerts",    # retry queue
+    # hrms DocType, not ours: hrms files the ToDo when an employee submits the
+    # request, so NOTHING in this repo mentions it and the source scan in
+    # tests/test_no_desk_urls.py could never have found it. Reported from
+    # production UAT 2026-08-21 (HR-ARQ-26-08-00010..12 opened Desk).
+    "Attendance Request": "/ec-hr/attendance",
+}
+
+#: DocTypes owned by OTHER installed apps (hrms, erpnext) that file ToDos at our
+#: users. They are listed by hand because the repo scan is structurally blind to
+#: them -- their producer lives outside this codebase. Anything added here must
+#: resolve to a portal route; the gate enforces that.
+EXTERNAL_TODO_DOCTYPES = ("Attendance Request",)
+
 # Approval-style DocTypes (route /approval?id=&type=).
 APPROVAL_DOCTYPES = frozenset({
     "GBS Purchase Order",
@@ -32,8 +59,21 @@ APPROVAL_DOCTYPES = frozenset({
     "REC Request",
     "Vendor Code Request",
     "Sales Order",
-    "Leave Application",
 })
+
+#: Leave Application is DELIBERATELY not in APPROVAL_DOCTYPES above. That set
+#: means "goes to the legacy /approval inbox", and /approval's TYPE_MAP only
+#: knows mso / so / po / gbs_so / gbs_po -- it silently ignores an unknown type
+#: and renders the generic 771-row ticket list, so the approver lands somewhere
+#: unrelated with no error to tell them why. Leave lives on its own HR portal
+#: page instead. Removing it from the set is not enough on its own either: the
+#: unknown-DocType arm falls back to a Desk URL, and ~44% of accounts are
+#: Website Users who cannot open Desk at all. Hence the explicit arm in
+#: resolve_item().
+LEAVE_APPLICATION = "Leave Application"
+
+#: Where a pending leave is actually decided: the HR portal page, "Của nhóm" tab.
+LEAVE_APPROVAL_URL = "/ec-hr/leave"
 
 
 def build_approval_url(doctype, name):
@@ -119,11 +159,23 @@ def _title_field_cache():
     retained across requests or for the process lifetime. `frappe.get_meta()`
     already provides framework-level meta cache + invalidation; this cache only
     avoids re-running get_title_field()/has_field() for the same DocType across
-    the many rows of one feed."""
-    cache = getattr(frappe.local, _TITLE_FIELD_LOCAL_ATTR, None)
+    the many rows of one feed.
+
+    Degrades gracefully: outside a request context (background job started
+    before request-local init, bench execute, tests) `frappe.local` may be
+    absent or read-only. Caching is an optimisation, never a requirement, so we
+    fall back to a throwaway dict -- raising here used to abort resolve_title
+    and silently DROP every approval item from the feed."""
+    local = getattr(frappe, "local", None)
+    if local is None:
+        return {}
+    cache = getattr(local, _TITLE_FIELD_LOCAL_ATTR, None)
     if cache is None:
         cache = {}
-        setattr(frappe.local, _TITLE_FIELD_LOCAL_ATTR, cache)
+        try:
+            setattr(local, _TITLE_FIELD_LOCAL_ATTR, cache)
+        except Exception:
+            pass          # un-settable local -> per-call dict, still correct
     return cache
 
 
@@ -302,6 +354,46 @@ _GENERIC_SRC = {
 }
 
 
+#: how long one unmapped-DocType report is suppressed (seconds)
+_UNMAPPED_TTL = 86400
+
+
+def _note_unmapped_doctype(doctype):
+    """Report ONCE A DAY that a DocType reached the Desk fallback.
+
+    Why this exists: every producer inside this repo is caught by the source
+    scan in tests/test_no_desk_urls.py, but ToDos also arrive from OTHER
+    installed apps -- hrms filed the Attendance Request ToDos that reached
+    production on 2026-08-21, and no amount of grepping this codebase could
+    have found them. Source scanning cannot see another app; production can.
+
+    Records the DocType NAME ONLY -- never the record name, the user or any
+    field -- so this stays safe to read and cannot leak business data. Failure
+    is swallowed: an observability aid must never break the feed it observes.
+    """
+    dt = (doctype or "").strip()
+    if not dt:
+        return
+    try:
+        cache = frappe.cache()
+        key = "ec_ac_unmapped_dt:" + dt
+        if cache.get_value(key):
+            return
+        cache.set_value(key, 1, expires_in_sec=_UNMAPPED_TTL)
+        frappe.log_error(
+            message=(
+                "Action Center: ToDo reference_type %r has no portal route, so "
+                "the reminder points at Frappe Desk (/app/...), which portal "
+                "users cannot open.\n\n"
+                "Fix: add %r to PORTAL_FALLBACK in "
+                "ecentric_workspace/action_center/resolvers.py (and to "
+                "EXTERNAL_TODO_DOCTYPES if another app owns it), then extend "
+                "action_center/tests/test_no_desk_urls.py." % (dt, dt)),
+            title="Action Center: unmapped ToDo DocType")
+    except Exception:
+        pass
+
+
 def resolve_item(todo_row):
     """Build the canonical Action Center item from a tabToDo row.
 
@@ -335,17 +427,53 @@ def resolve_item(todo_row):
         # Canonical Action Center PM destination = the portal SPA task detail
         # (permission-safe), NOT the Desk form used by notifications.
         action_url = build_pm_task_url(ref_name)
+    elif ref_type == LEAVE_APPLICATION and ref_name:
+        src = _APPROVAL_SRC
+        title = resolve_title(ref_type, ref_name)
+        subtitle = ref_type + " · " + ref_name
+        action_url = LEAVE_APPROVAL_URL
     elif ref_type in APPROVAL_DOCTYPES and ref_name:
         src = _APPROVAL_SRC
         title = resolve_title(ref_type, ref_name)
         subtitle = ref_type + " · " + ref_name
         action_url = build_approval_url(ref_type, ref_name)
+    elif ref_type and ref_name and has_engine_approval_link(ref_type):
+        # Engine-governed business document. Its canonical per-record URL is
+        # applied later by the feed (apply_approval_normalization). If that
+        # lookup is unavailable -- the type has no route configured yet, or the
+        # engine link is missing -- send the user to the Approval Center HUB
+        # instead of Desk: these forms exist precisely because portal users
+        # cannot open /app.
+        #
+        # ONLY the URL changes. source_key/source_type stay GENERIC on purpose:
+        # marking them "approval" here pushed them into the legacy approval
+        # branch of _classified_feed, whose terminal check then DROPPED the item
+        # from the feed entirely.
+        src = _GENERIC_SRC
+        title = ref_name
+        subtitle = ref_type
+        action_url = APPROVAL_HUB_ROUTE
+    elif ref_type in PORTAL_FALLBACK and ref_name:
+        # Governed portal home for sources that have a page but no per-record
+        # deep link (Alert Center). Sending these to Desk produced a
+        # permission-denied dead end for portal users.
+        src = _GENERIC_SRC
+        title = ref_name
+        subtitle = ref_type
+        action_url = PORTAL_FALLBACK[ref_type]
     elif ref_type and ref_name:
-        # Unknown DocType with a reference -> safe Desk fallback.
+        # Unknown DocType with a reference -> Desk fallback (PO decision
+        # 2026-08-21: keep the link rather than hide the item, so nothing is
+        # silently dropped from someone's work list).
+        #
+        # The accompanying trade-off is that a portal user without Desk access
+        # still hits a wall, so the unmapped type is REPORTED instead of passing
+        # unnoticed -- see _note_unmapped_doctype.
         src = _GENERIC_SRC
         title = ref_name
         subtitle = ref_type
         action_url = build_desk_fallback_url(ref_type, ref_name)
+        _note_unmapped_doctype(ref_type)
     elif "[XNGIO]" in (description or ""):
         # PM time-blocking "confirm your hours" reminder -> the week calendar (portal),
         # NOT the Desk ToDo form. Tag is set by pm.api.schedule._ensure_nudge_todo.

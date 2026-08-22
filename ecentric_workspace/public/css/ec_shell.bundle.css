@@ -18,7 +18,13 @@
  */
 
 /* ---- tokens (scoped to shell roots; values mirror the existing palette A) */
-.ec-shell-mount, .ec-shell-drawer, .ec-shell-tbright {
+/* .ec-shell-reminder-drawer is PORTALED to <body>, so it sits outside every
+ * other shell root. It must be listed here or all --ec-* tokens resolve to
+ * nothing inside it: an undefined var makes the whole `border: 1px solid
+ * var(--ec-gray-200)` declaration invalid at computed-value time, which drops
+ * border-style to none -- that is why the drawer's divider lines disappeared
+ * while the hard-coded tint colours still showed. */
+.ec-shell-mount, .ec-shell-drawer, .ec-shell-tbright, .ec-shell-reminder-drawer {
   /* CANONICAL SHELL TYPOGRAPHY LOCK (2026-07-20). Never rely on font
    * inheritance at the shell ROOTS: each page's parent chain differs
    * (measured: /docs/gbs-flow inherited the theme's InterVariable -> visibly
@@ -149,17 +155,76 @@
   font-weight:700; line-height:16px; text-align:center; pointer-events:none;
   box-shadow:0 0 0 2px #fff; }
 .ec-shell-reminder[aria-expanded="true"]{ background:var(--ec-gray-100); color:var(--ec-gray-900); }
-/* Portaled to <body> with position:fixed (JS sets top/right from the header
- * button rect) so the drawer escapes the page topbar's stacking/overflow
- * context -- otherwise its lower region ("Xem thêm") is overlapped by page
- * content and not clickable. z-index sits above the topbar (<=900) and page. */
-.ec-shell-reminder-drawer{ position:fixed; width:340px;
-  display:flex; flex-direction:column; max-height:min(70vh, 560px);
-  background:#fff; border:1px solid var(--ec-gray-200); border-radius:12px;
-  box-shadow:0 12px 32px rgba(17,24,39,.16); z-index:2000; overflow:hidden;
-  font-family:Inter, system-ui, sans-serif; }
-.ec-shell-rm-body{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
-.ec-shell-rm-foot{ flex:0 0 auto; position:sticky; bottom:0; }
+/* "Việc của tôi": a full-height panel pinned to the RIGHT edge over a dimmed
+ * backdrop, portaled to <body> so it escapes the page topbar's stacking and
+ * overflow context (that trap is what made "Xem thêm" unclickable before).
+ * Two lanes side by side: work (wide) | notifications (narrow). */
+.ec-shell-rm-backdrop{ position:fixed; inset:0; background:rgba(17,24,39,.34);
+  z-index:1990; animation:ec-rm-fade .16s ease-out; }
+@keyframes ec-rm-fade{ from{ opacity:0 } to{ opacity:1 } }
+@keyframes ec-rm-slide{ from{ transform:translateX(18px); opacity:.4 } to{ transform:none; opacity:1 } }
+.ec-shell-reminder-drawer{ position:fixed; top:0; right:0; bottom:0; left:auto;
+  width:min(760px, 94vw); display:flex; flex-direction:column;
+  background:#fff; border-left:1px solid var(--ec-hair);
+  box-shadow:-12px 0 32px rgba(17,24,39,.16); z-index:2000; overflow:hidden;
+  font-family:Inter, system-ui, sans-serif;
+  animation:ec-rm-slide .18s cubic-bezier(.22,.61,.36,1); }
+/* one faint hairline token for every divider inside the drawer */
+.ec-shell-reminder-drawer{ --ec-hair:rgba(17,24,39,.07); }
+@media (prefers-reduced-motion: reduce){
+  .ec-shell-rm-backdrop, .ec-shell-reminder-drawer{ animation:none; }
+}
+.ec-shell-rm-bar{ flex:0 0 auto; display:flex; align-items:center; gap:10px;
+  padding:13px 16px; border-bottom:1px solid var(--ec-hair); }
+.ec-shell-rm-bartitle{ font-size:15px; font-weight:600; color:var(--ec-gray-800); }
+.ec-shell-nc-spacer{ flex:1 1 auto; }
+/* "Mở trang đầy đủ": the drawer is a preview; the page at /viec-cua-toi is
+   the destination. Desktop only -- on a phone the header inbox goes straight
+   to the page and the drawer never renders. */
+.ec-shell-rm-fullpage{ font-size:13px; font-weight:600; color:var(--ec-navy);
+  text-decoration:none; padding:5px 10px; border-radius:8px; white-space:nowrap; }
+.ec-shell-rm-fullpage:hover{ background:var(--ec-navy-50); text-decoration:none; }
+.ec-shell-rm-fullpage:focus-visible{ outline:2px solid var(--ec-navy); outline-offset:2px; }
+
+.ec-shell-rm-close{ background:transparent; border:0; cursor:pointer; font-size:22px;
+  line-height:1; color:var(--ec-gray-500); padding:0 4px; }
+.ec-shell-rm-close:hover{ color:var(--ec-gray-800); }
+.ec-shell-rm-close:focus-visible{ outline:2px solid var(--ec-navy); outline-offset:2px; }
+.ec-shell-rm-lanes{ flex:1 1 auto; min-height:0; display:grid;
+  grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);
+  border-top:1px solid var(--ec-hair); }
+.ec-shell-rm-lane{ min-width:0; overflow-y:auto; overscroll-behavior:contain; }
+.ec-shell-rm-work{ border-right:1px solid var(--ec-hair); }
+.ec-shell-rm-nc{ padding-bottom:8px; }
+/* notifications lane */
+.ec-shell-nc-head{ display:flex; align-items:center; gap:7px; padding:12px 14px;
+  border-bottom:1px solid var(--ec-hair); font-size:14px; position:sticky; top:0;
+  background:#fff; z-index:1; }
+.ec-shell-nc-unreaddot{ width:7px; height:7px; border-radius:50%; background:#2C3DA6; }
+.ec-shell-nc-readall{ background:transparent; border:0; cursor:pointer; font-size:12px;
+  font-weight:600; color:#2C3DA6; padding:0; }
+.ec-shell-nc-readall:hover{ color:#1f2d80; }
+.ec-shell-nc-readall:focus-visible{ outline:2px solid var(--ec-navy); outline-offset:2px; }
+.ec-shell-nc-list{ padding:4px 0; }
+a.ec-shell-nc-item{ display:flex; gap:9px; padding:10px 14px; text-decoration:none;
+  color:inherit; border-radius:8px; margin:0 6px 2px; }
+a.ec-shell-nc-item:hover{ background:var(--ec-gray-50); }
+.ec-shell-nc-dot{ flex:0 0 auto; width:7px; height:7px; border-radius:50%;
+  background:var(--ec-gray-200); margin-top:6px; }
+a.ec-shell-nc-unread .ec-shell-nc-dot{ background:#2C3DA6; }
+.ec-shell-nc-txt{ min-width:0; display:flex; flex-direction:column; gap:2px; }
+/* read items recede via COLOUR, never opacity (opacity muddied the text) */
+.ec-shell-nc-title{ font-size:12.5px; color:var(--ec-gray-500); line-height:1.35;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+a.ec-shell-nc-unread .ec-shell-nc-title{ color:var(--ec-gray-900); font-weight:600; }
+.ec-shell-nc-when{ font-size:11px; color:var(--ec-gray-400); }
+/* one lane on narrow viewports: work first, notifications below */
+@media (max-width: 900px){
+  .ec-shell-rm-lanes{ grid-template-columns:1fr; grid-auto-rows:min-content;
+    overflow-y:auto; }
+  .ec-shell-rm-lane{ overflow:visible; }
+  .ec-shell-rm-work{ border-right:0; border-bottom:1px solid var(--ec-hair); }
+}
 .ec-shell-rm-head{ display:flex; align-items:center; justify-content:space-between;
   padding:12px 14px; border-bottom:1px solid var(--ec-gray-100); font-size:14px; }
 .ec-shell-rm-total{ font-size:12px; font-weight:700; color:#fff; background:#2C3DA6;
@@ -184,15 +249,34 @@
   text-align:left; }
 .ec-shell-rm-more:hover{ background:var(--ec-gray-50); }
 .ec-shell-rm-more:focus-visible{ outline:2px solid var(--ec-navy); outline-offset:-2px; }
-a.ec-shell-rm-item{ display:flex; align-items:center; gap:9px; padding:8px 14px;
-  text-decoration:none; color:inherit; }
-a.ec-shell-rm-item:hover{ background:var(--ec-gray-50); }
-.ec-shell-rm-src{ flex:0 0 auto; font-size:10px; font-weight:700; color:var(--ec-gray-500);
-  background:var(--ec-gray-100); border-radius:4px; padding:2px 6px; }
-.ec-shell-rm-title{ flex:1 1 auto; min-width:0; font-size:13px; overflow:hidden;
-  text-overflow:ellipsis; white-space:nowrap; }
-.ec-shell-rm-due{ flex:0 0 auto; font-size:12px; color:var(--ec-gray-500); }
-.ec-shell-rm-due.ec-shell-rm-due-overdue{ color:#B42318; font-weight:600; }
+/* row = card: type icon + title + meta + due + chevron. Overdue/today carry a
+ * tint so priority is readable without counting dates. */
+a.ec-shell-rm-item{ display:flex; align-items:center; gap:11px;
+  margin:0 8px 6px; padding:10px 11px; border-radius:10px;
+  background:var(--ec-gray-50); text-decoration:none; color:inherit; }
+a.ec-shell-rm-item:hover{ background:var(--ec-gray-100); }
+a.ec-shell-rm-item.ec-shell-rm-od{ background:#FEF3F2; }
+a.ec-shell-rm-item.ec-shell-rm-od:hover{ background:#FEE4E2; }
+a.ec-shell-rm-item.ec-shell-rm-now{ background:#FFFAEB; }
+a.ec-shell-rm-item.ec-shell-rm-now:hover{ background:#FEF0C7; }
+.ec-shell-rm-ic{ flex:0 0 auto; width:34px; height:34px; border-radius:9px;
+  display:flex; align-items:center; justify-content:center; }
+.ec-shell-rm-ic svg{ width:18px; height:18px; fill:none; stroke:currentColor;
+  stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+.ec-shell-rm-t-appr{ background:var(--ec-navy-50); color:var(--ec-navy); }
+.ec-shell-rm-t-ful{ background:#FFF6ED; color:#B54708; }
+.ec-shell-rm-t-task{ background:#EEF4FF; color:#3538CD; }
+.ec-shell-rm-t-wtu{ background:#ECFDF3; color:#067647; }
+.ec-shell-rm-t-gen{ background:var(--ec-gray-100); color:var(--ec-gray-600); }
+a.ec-shell-rm-item.ec-shell-rm-od .ec-shell-rm-ic{ background:#FEE4E2; color:#B42318; }
+.ec-shell-rm-txt{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.ec-shell-rm-title{ font-size:13px; font-weight:600; color:var(--ec-gray-900);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ec-shell-rm-meta{ font-size:11.5px; color:var(--ec-gray-500);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ec-shell-rm-due{ flex:0 0 auto; font-size:11.5px; color:var(--ec-gray-500); }
+a.ec-shell-rm-item.ec-shell-rm-od .ec-shell-rm-due{ color:#B42318; font-weight:600; }
+.ec-shell-rm-chevr{ flex:0 0 auto; font-size:17px; line-height:1; color:var(--ec-gray-400); }
 a.ec-shell-rm-all, a.ec-shell-rm-all:hover, a.ec-shell-rm-all:visited{ display:block;
   text-align:center; padding:11px; font-size:12.5px; font-weight:600; color:#2C3DA6;
   text-decoration:none; border-top:1px solid var(--ec-gray-100); background:var(--ec-gray-50); }
@@ -275,3 +359,36 @@ a.ec-shell-crumblink:focus-visible{ outline:2px solid #2C3DA6; outline-offset:2p
 
 /* body scroll lock while the drawer is open (single, namespaced class) */
 body.ec-shell-noscroll{ overflow:hidden; }
+
+/* ---- drawer polish ------------------------------------------------------- */
+/* group headers stay pinned while their list scrolls, so the bucket you are
+ * looking at is always named */
+.ec-shell-reminder-drawer .ec-shell-rm-group{ position:sticky; top:0; z-index:1;
+  background:#fff; padding:11px 14px 7px; letter-spacing:.5px; }
+.ec-shell-rm-gcount{ font-weight:600; color:var(--ec-gray-400); }
+/* row: lift + chevron nudge on hover, real focus ring for keyboard users */
+a.ec-shell-rm-item{ transition:background .12s ease, transform .12s ease; }
+a.ec-shell-rm-item:hover{ transform:translateX(2px); }
+a.ec-shell-rm-item .ec-shell-rm-chevr{ transition:transform .12s ease, color .12s ease; }
+a.ec-shell-rm-item:hover .ec-shell-rm-chevr{ transform:translateX(3px); color:var(--ec-gray-600); }
+a.ec-shell-rm-item:focus-visible, a.ec-shell-nc-item:focus-visible{
+  outline:2px solid var(--ec-navy); outline-offset:-2px; }
+/* "Xem thêm" reads as a quiet full-width control, not a stray link */
+.ec-shell-reminder-drawer .ec-shell-rm-more{ margin:2px 8px 10px; padding:8px 10px;
+  width:calc(100% - 16px); border:1px solid var(--ec-hair); border-radius:9px;
+  color:var(--ec-navy); text-align:center; }
+.ec-shell-reminder-drawer .ec-shell-rm-more:hover{ background:var(--ec-navy-50); }
+/* total pill: softer than a solid navy block */
+.ec-shell-rm-bar .ec-shell-rm-total{ background:var(--ec-navy-50); color:var(--ec-navy);
+  font-size:12px; font-weight:700; border-radius:999px; padding:2px 9px; }
+/* empty state gets air instead of a bare sentence */
+.ec-shell-reminder-drawer .ec-shell-rm-empty{ padding:40px 18px; line-height:1.6; }
+/* thin scrollbars so the lanes feel light */
+.ec-shell-rm-lane{ scrollbar-width:thin; scrollbar-color:rgba(17,24,39,.18) transparent; }
+.ec-shell-rm-lane::-webkit-scrollbar{ width:8px; }
+.ec-shell-rm-lane::-webkit-scrollbar-thumb{ background:rgba(17,24,39,.16); border-radius:8px;
+  border:2px solid #fff; }
+.ec-shell-rm-lane::-webkit-scrollbar-track{ background:transparent; }
+/* notifications: give the lane the same breathing room as the work lane */
+.ec-shell-nc-list{ padding:6px 0 10px; }
+.ec-shell-nc-head strong{ font-weight:600; color:var(--ec-gray-900); }

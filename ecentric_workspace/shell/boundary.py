@@ -67,7 +67,7 @@ def topbar_html(route, detail_html=None):
 
 def assert_post(new, route, extra_markers=()):
     for marker, n in (('data-ec-shell="1"', 1),
-                      ('data-ec-notification-bell="1"', 1),
+                      ('data-ec-shell-action-slot="1"', 1),
                       ('data-ec-shell-topbar="1"', 1),
                       ('data-ec-shell-crumbs="1"', 1),
                       ('data-ec-shell-header-right="1"', 1)) + tuple(extra_markers):
