@@ -105,3 +105,8 @@ class TestDocumentSectionShell(FrappeTestCase):
         self.assertIn('id="payr-continue"', h)
         self.assertIn("continueToDocuments", h)
         self.assertNotIn('id="payr-submit"', h)                # submit CTA removed from the create stage
+
+    def test_title_field_present(self):                       # 2026-08-23: explicit title input
+        h = self._h()
+        self.assertIn('data-model="request_title"', h)
+        self.assertIn("Tiêu đề yêu cầu", h)

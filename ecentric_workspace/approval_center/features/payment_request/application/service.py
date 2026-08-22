@@ -3,6 +3,12 @@ from ecentric_workspace.approval_center.shared.finance_support import _, frappe,
 
 
 def payment_title(doc):
+    """User-entered title wins; auto-generated 'Payment Request - payee - amount' only when
+    the title is left blank (2026-08-23: the form now has an explicit title field, which also
+    feeds eContract docTitle via the profile's title_source)."""
+    manual = (doc.get("request_title") or "").strip()
+    if manual:
+        return manual[:180]
     amount = doc.get("payment_amount")
     amount = "%.0f" % float(amount) if amount not in (None, "") else "?"
     return ("Payment Request - %s - %s" % (doc.get("payee_full_name") or "?", amount))[:180]
