@@ -59,7 +59,7 @@ function qsa(sel) {
 ["ec-docsign","ecdCount","ecdSummary","ecdBanner","ecdRows","ecdUpload","ecdUploadBtn","ecdUploadHint",
  "ecdDrawerOv","ecdDrawerName","ecdDrawerSummary","ecdDrawerClose","ecdViewer","ecdViewerMsg","ecdStage",
  "ecdCanvas","ecdLayer","ecdSignerCards","ecdProg","ecdSaveState","ecdDrawerFoot","ecdRoBanner",
- "ecdDrawerErr","ecdPlaceHint","ec-approver-wrap","payr-body"].forEach(id => els[id] = mkEl(id));
+ "ecdDrawerErr","ecdPlaceHint","ecdTrySign","ec-approver-wrap","payr-body"].forEach(id => els[id] = mkEl(id));
 const contentHost = { appendChild() {} }; els["payr-body"].parentNode = contentHost;
 
 const doc = { _ls: {},

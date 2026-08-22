@@ -28,7 +28,7 @@ function qsa(sel){ const attr=sel.replace(/[\[\].]/g,"");
 
 ["ec-docsign","ecdCount","ecdSummary","ecdBanner","ecdRows","ecdUpload","ecdUploadBtn","ecdUploadHint",
  "ecdDrawerOv","ecdDrawerName","ecdDrawerSummary","ecdDrawerClose","ecdViewer","ecdViewerMsg","ecdStage",
- "ecdCanvas","ecdLayer","ecdSignerCards","ecdProg","ecdSaveState","ecdDrawerFoot","ecdRoBanner","ecdDrawerErr","ecdPlaceHint","ec-approver-wrap","payr-body"]
+ "ecdCanvas","ecdLayer","ecdSignerCards","ecdProg","ecdSaveState","ecdDrawerFoot","ecdRoBanner","ecdDrawerErr","ecdPlaceHint","ecdTrySign","ec-approver-wrap","payr-body"]
  .forEach(id=>els[id]=mkEl(id));
 
 const STATE={editable:true,can_classify:true,needs_review:false,current_package_status:null,
@@ -98,7 +98,7 @@ async function main(){
   const sv = calls.filter(c=>/save_placement$/.test(c.method)).pop();
   ok(!!sv,"19: select signer + click -> save_placement called");
   const box = JSON.parse(sv.args.box);
-  ok(box.signer_slot_key==="requester" && box.width===120 && Math.abs(box.x-120)<1,"box carries slot + normalized coords");
+  ok(box.signer_slot_key==="requester" && box.width===240 && box.height===120 && Math.abs(box.x-120)<1,"box carries slot + SCTS-standard 240x120 default");
   ok(els["ecdSaveState"].textContent==="Đã lưu","autosave -> 'Đã lưu' on success");
   ok(els["ecdProg"].textContent==="1/2","25: progress updates 1/2 without full reload");
 
