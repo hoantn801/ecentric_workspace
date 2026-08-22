@@ -163,12 +163,24 @@ def _enrich_signer_context(placements, dsr):
     mapping = _perms.verified_mapping(signer, dsr.get("environment")) if signer else None
     sig_type = _g.derive_signature_type(mapping)
     profile = frappe.db.get_value("EC Digital Signature Package", dsr.get("package"), "profile")
+    # Per-LEVEL title overrides from the profile's levels table (matched by level_no). The old
+    # code passed the DSR-actor is_requester for EVERY placement, so a Requester DSR titled ALL
+    # boxes with the requester role - wrong for multi-slot documents (Phase C) and fatal for
+    # eContract, where the title selects the sign-template AREA (signatureId) per box.
+    level_titles = {int(r.level_no): r.scts_role_title
+                    for r in frappe.get_all("EC Digital Signature Profile Level",
+                                            filters={"parent": profile},
+                                            fields=["level_no", "scts_role_title"])
+                    if r.level_no is not None and r.scts_role_title} if profile else {}
     for p in placements:
         if not p.get("signature_type") and sig_type:
             p["signature_type"] = sig_type
         if not p.get("scts_role_title"):
+            lvl = p.get("level_no")
+            p_is_requester = not lvl                # Phase C: requester slot carries level_no=0
             p["scts_role_title"] = _g.derive_role_title(
-                profile, level_no=p.get("level_no"), is_requester=is_req)
+                profile, level_no=lvl, is_requester=p_is_requester,
+                override=(None if p_is_requester else level_titles.get(int(lvl or 0))))
     return placements
 
 

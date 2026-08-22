@@ -366,28 +366,56 @@ class SctsAdapter(SignatureProviderAdapter):
         reconcile, never blind-recreate."""
         files = package_ctx.get("files") or []
         placements = package_ctx.get("placements") or []
-        # eContract Document/Submit: Signatures are nested INSIDE each Documents[] entry.
+        # eContract: Signatures are nested INSIDE each Documents[] entry, and EVERY signature
+        # MUST carry the signatureId of a sign AREA defined by the workflow's sign template
+        # (probed live 2026-08-23: AddDocument 400s without it). The area list comes from
+        # ConvertPdfFile; we match each placement to an area by its role TITLE (the governed
+        # scts_role_title from profile levels / requester_role_title). Fail-closed on mismatch.
         by_dsf = {}
         for pl in placements:
             by_dsf.setdefault(pl.get("signature_file"), []).append(pl)
+        areas = {}
+        if placements:
+            first_signable = next((f for f in files if f.get("can_be_signed")), None)
+            if first_signable is not None:
+                defs = self._with_auth(lambda t: self._client.convert_pdf_file(
+                    package_ctx.get("workflow_definition_id"),
+                    self._b64(first_signable.get("content")), t))
+                areas = {self._norm_title(d.get("title")): d
+                         for d in (defs or []) if isinstance(d, dict)}
+        def _area_for(pl):
+            key = self._norm_title(pl.get("scts_role_title"))
+            d = areas.get(key)
+            if not d or not d.get("signatureId"):
+                raise ProviderError(
+                    "scts_signature_area_unmatched",
+                    "no sign-template area titled %r (available: %s)"
+                    % (pl.get("scts_role_title"),
+                       ", ".join(sorted(a.get("title") or "?" for a in areas.values()))),
+                    retryable=False)
+            return d
         documents = []
         for f in files:
             b64 = self._b64(f.get("content"))
-            sigs = [{
-                "title": pl.get("scts_role_title") or "",
-                "role": pl.get("scts_role_code") or pl.get("scts_role_title") or "",
-                "signatureType": "position",
-                "keyword": "",
-                "margin": 0,
-                "canBeSigned": True,
-                "added": 1,
-                "isPlaced": True,
-                "pageIndex": int(pl.get("page_index") or 1),
-                "x": float(pl.get("x") or 0), "y": float(pl.get("y") or 0),
-                "Llx": float(pl.get("x") or 0), "Lly": float(pl.get("y") or 0),
-                "Width": int(round(float(pl.get("width") or 0))),
-                "Height": int(round(float(pl.get("height") or 0))),
-            } for pl in by_dsf.get(f.get("file_dsf"), [])]
+            sigs = []
+            for pl in by_dsf.get(f.get("file_dsf"), []):
+                d = _area_for(pl)
+                sigs.append({
+                    "signatureId": d.get("signatureId"),
+                    "title": d.get("title"),
+                    "role": d.get("role") or "",
+                    "signatureType": "position",
+                    "keyword": "",
+                    "margin": 0,
+                    "canBeSigned": True,
+                    "added": 1,
+                    "isPlaced": True,
+                    "pageIndex": int(pl.get("page_index") or 1),
+                    "x": float(pl.get("x") or 0), "y": float(pl.get("y") or 0),
+                    "Llx": float(pl.get("x") or 0), "Lly": float(pl.get("y") or 0),
+                    "Width": int(round(float(pl.get("width") or 0))),
+                    "Height": int(round(float(pl.get("height") or 0))),
+                })
             documents.append({
                 "FileName": f.get("name"),
                 "FileType": "pdf",
@@ -418,6 +446,10 @@ class SctsAdapter(SignatureProviderAdapter):
         }
         raw = self._with_auth(lambda t: self._client.add_document(payload, t))
         return self._normalize_create(raw, files)
+
+    @staticmethod
+    def _norm_title(t):
+        return " ".join(str(t or "").split()).casefold()
 
     @staticmethod
     def _b64(content):

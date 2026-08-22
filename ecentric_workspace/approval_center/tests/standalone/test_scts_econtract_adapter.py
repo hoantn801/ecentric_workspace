@@ -67,9 +67,20 @@ class TestEcontractAdapter(unittest.TestCase):
         del CALLS[:]
 
     # ---------------- create_document -> POST /api/Document/Submit ----------------
+    DEFS = json.dumps([
+        {"signatureId": "11CD2FCE-294C-49CA-BB24-EC724E3E65AD", "title": "Người trình",
+         "role": "thamgia", "signatureType": "position", "keyword": "", "margin": 0.0,
+         "canBeSigned": True, "added": 0},
+        {"signatureId": "58145BD5-5D4C-4F6D-8E26-E160152C6F57", "title": "CEO",
+         "role": "chinh", "signatureType": "position", "keyword": "", "margin": 0.0,
+         "canBeSigned": True, "added": 0}])
+
     def test_create_document_new_contract(self):
         def transport(method, url, headers=None, json_body=None, **kw):
             CALLS.append((method, url, json_body))
+            if url.endswith("/api/AddDocument/ConvertPdfFile"):
+                return Resp(200, {"success": True, "data": {"originContentBase64": "",
+                                  "contentBase64": "x", "jsonData": self.DEFS, "total": 2}})
             return Resp(200, {"success": True, "message": "Khởi tạo chứng từ thành công.",
                               "data": "7a90f618-5f90-4d8b-9f6a-a7a43364f596", "errors": None})
         a = mk_adapter(transport)
@@ -85,11 +96,12 @@ class TestEcontractAdapter(unittest.TestCase):
                "placements": [{"signature_file": "DSF1", "page_index": 1,
                                "x": 100.5, "y": 200.25, "width": 120, "height": 40,
                                "level_no": 0, "signature_type": "mock",
-                               "scts_role_title": "Người đề nghị"}]}
+                               "scts_role_title": "Người trình"}]}
         out = a.create_document(ctx)
-        m, url, body = CALLS[0]
+        self.assertTrue(CALLS[0][1].endswith("/api/AddDocument/ConvertPdfFile"))  # area lookup first
+        m, url, body = CALLS[1]
         self.assertEqual(m, "POST")
-        self.assertTrue(url.endswith("/api/AddDocument"), url)   # live route (docs\' Submit 405s)
+        self.assertTrue(url.endswith("/api/AddDocument"), url)   # live route (docs Submit 405s)
         self.assertEqual(body["docCode"], "EC-PAYR-2026-00022")
         self.assertEqual(body["workflowDefinitionId"], ctx["workflow_definition_id"])
         self.assertEqual(body["companyId"], "ECENTRIC")
@@ -102,6 +114,8 @@ class TestEcontractAdapter(unittest.TestCase):
         self.assertEqual(d["PdfBase64"], d["OriginalBase64"])
         self.assertEqual(base64.b64decode(d["PdfBase64"]), b"%PDF-1.4 test")
         sig = d["Signatures"][0]                                            # nested PER-DOCUMENT
+        self.assertEqual(sig["signatureId"], "11CD2FCE-294C-49CA-BB24-EC724E3E65AD")  # template AREA id
+        self.assertEqual(sig["title"], "Người trình"); self.assertEqual(sig["role"], "thamgia")
         self.assertEqual(sig["signatureType"], "position")
         self.assertEqual(sig["pageIndex"], 1)
         self.assertEqual((sig["x"], sig["y"]), (100.5, 200.25))
@@ -124,9 +138,31 @@ class TestEcontractAdapter(unittest.TestCase):
                           "is_supporting_document": True, "share_with_partner": False}],
                "placements": []}
         a.create_document(ctx)
-        d = CALLS[0][2]["Documents"][0]
+        self.assertFalse(any(u.endswith("ConvertPdfFile") for _m, u, _b in CALLS))  # no placements -> no lookup
+        d = CALLS[-1][2]["Documents"][0]
         self.assertEqual(d["file_kind"], 2)
         self.assertEqual(d["Signatures"], [])
+
+
+    def test_unmatched_title_fails_closed(self):
+        def transport(method, url, headers=None, json_body=None, **kw):
+            CALLS.append((method, url, json_body))
+            if url.endswith("/api/AddDocument/ConvertPdfFile"):
+                return Resp(200, {"success": True, "data": {"jsonData": self.DEFS, "total": 2}})
+            return Resp(200, {"success": True, "data": "should-not-reach"})
+        a = mk_adapter(transport)
+        ctx = {"doc_code": "X", "title": "t", "workflow_definition_id": "w",
+               "document_type_id": "d", "company_id": "c", "department_id": "p",
+               "files": [{"order": 0, "file_dsf": "D1", "name": "a.pdf", "content": b"%PDF",
+                          "can_be_signed": True, "is_supporting_document": False,
+                          "share_with_partner": False}],
+               "placements": [{"signature_file": "D1", "page_index": 1, "x": 1, "y": 2,
+                               "width": 10, "height": 10, "scts_role_title": "Chức danh lạ"}]}
+        from ecentric_workspace.platform.esign.providers.base import ProviderError as PE
+        with self.assertRaises(PE) as e:
+            a.create_document(ctx)
+        self.assertEqual(e.exception.code, "scts_signature_area_unmatched")
+        self.assertFalse(any(u.endswith("/api/AddDocument") for _m, u, _b in CALLS))  # no create sent
 
     # ---------------- GetSignatures normalize (contract moi khong co active flag) ----------------
     def test_signature_without_flags_is_active(self):

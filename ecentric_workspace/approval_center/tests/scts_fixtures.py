@@ -41,6 +41,8 @@ class FakeTransport(object):
             return "get_signatures"
         if "/api/Workflow/bulk-process" in url:
             return "bulk_process"
+        if "/api/AddDocument/ConvertPdfFile" in url:
+            return "convert_pdf"
         if "/api/Document/Submit" in url or "/api/AddDocument" in url:
             return "add_document"
         if "/api/Document/pdf" in url:
@@ -104,6 +106,20 @@ def document(doc_id, signer_user=None, signature_id=None, status="signed", files
 
 def bulk_ok(txn="BULK-TXN-1"):
     return FakeResponse(200, {"bulkJobTransactionId": txn})
+
+
+def convert_ok(defs=None):
+    """ConvertPdfFile: the workflow sign-template's AREA definitions (jsonData is a JSON
+    STRING per the live contract)."""
+    import json as _json
+    defs = defs if defs is not None else [
+        {"signatureId": "AREA-REQ", "title": "Nguoi trinh", "role": "thamgia",
+         "signatureType": "position", "keyword": "", "margin": 0.0, "canBeSigned": True, "added": 0},
+        {"signatureId": "AREA-MGR", "title": "Manager", "role": "thamgia",
+         "signatureType": "position", "keyword": "", "margin": 0.0, "canBeSigned": True, "added": 0}]
+    return FakeResponse(200, {"success": True,
+                              "data": {"originContentBase64": "", "contentBase64": "x",
+                                       "jsonData": _json.dumps(defs), "total": len(defs)}})
 
 
 def add_document_ok(doc_id="SCTS-DOC-1", file_count=2):
