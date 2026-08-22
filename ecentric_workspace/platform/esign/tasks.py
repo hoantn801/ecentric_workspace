@@ -91,7 +91,9 @@ def _ensure_provider_document(dsr, settings, adapter):
     prof = frappe.db.get_value(
         "EC Digital Signature Profile", pkg.profile,
         ["workflow_definition_id", "document_type_id", "company_id", "department_id",
-         "document_template_id"], as_dict=True) or {}
+         "document_template_id", "doc_code_source", "title_source", "amount_source"],
+        as_dict=True) or {}
+    _resolve_doc_meta(pkg, prof)                              # fills doc_*_sent once (audited)
     ctx = {
         "doc_code": pkg.doc_code_sent or pkg.business_name,
         "title": pkg.doc_title_sent or pkg.business_name,
@@ -107,7 +109,8 @@ def _ensure_provider_document(dsr, settings, adapter):
                    "share_with_partner": f.share_with_partner,
                    "content": pkgsvc.file_bytes(f.name)}  # private bytes; never logged
                   for i, f in enumerate(files)],
-        "placements": [dict(p) for p in pkgsvc.package_placements(pkg.name)],
+        "placements": _with_page_heights(pkg.name,
+                                         [dict(p) for p in pkgsvc.package_placements(pkg.name)]),
     }
     _enrich_signer_context(ctx["placements"], dsr)  # item 5: derive roleTitle/signatureType
     try:
@@ -146,6 +149,52 @@ def _ensure_provider_document(dsr, settings, adapter):
     else:  # Active (lazy mode): attribute update only
         events.emit("ProviderCreated", package=pkg.name, provider_txn_id=res["document_id"])
     return res["document_id"]
+
+
+def _resolve_doc_meta(pkg, prof):
+    """Fill the package's doc_code_sent / doc_title_sent / doc_amount_sent ONCE from the
+    profile's source-field config (doc_code_source/title_source/amount_source name business-doc
+    fieldnames). These profile fields existed in the schema but were never read (S2B gap) - the
+    provider payload fell back to the business name and amount 0."""
+    updates = {}
+    biz_fields = [f for f in (prof.get("doc_code_source"), prof.get("title_source"),
+                              prof.get("amount_source")) if f]
+    biz = frappe.db.get_value(pkg.business_doctype, pkg.business_name, biz_fields,
+                              as_dict=True) if biz_fields else {}
+    if not pkg.doc_code_sent and prof.get("doc_code_source") and biz.get(prof["doc_code_source"]):
+        updates["doc_code_sent"] = str(biz[prof["doc_code_source"]])[:140]
+    if not pkg.doc_title_sent and prof.get("title_source") and biz.get(prof["title_source"]):
+        updates["doc_title_sent"] = str(biz[prof["title_source"]])[:140]
+    if pkg.doc_amount_sent in (None, 0) and prof.get("amount_source")             and biz.get(prof["amount_source"]) is not None:
+        try:
+            updates["doc_amount_sent"] = float(biz[prof["amount_source"]])
+        except (TypeError, ValueError):
+            pass
+    if updates:
+        frappe.db.set_value("EC Digital Signature Package", pkg.name, updates)
+        for k, v in updates.items():
+            setattr(pkg, k, v)
+
+
+def _with_page_heights(pkg_name, placements):
+    """Attach the PDF page height (points) of each placement's page so the provider adapter can
+    convert our canonical TOP-LEFT-origin geometry into the provider's coordinate system (SCTS
+    expects PDF coordinates = BOTTOM-left origin; live evidence 2026-08-23: the requester's
+    signature rendered vertically mirrored). Fail-soft: unknown height -> omitted (adapter
+    falls back to 792/Letter)."""
+    sizes_by_file = {}
+    for pl in placements:
+        f = pl.get("signature_file")
+        if f not in sizes_by_file:
+            try:
+                sizes_by_file[f] = pkgsvc._page_sizes(pkgsvc.file_bytes(f)) or []
+            except Exception:
+                sizes_by_file[f] = []
+        sizes = sizes_by_file[f]
+        idx = int(pl.get("page_index") or 1) - 1
+        if 0 <= idx < len(sizes):
+            pl["page_height"] = float(sizes[idx][1])
+    return placements
 
 
 def _enrich_signer_context(placements, dsr):

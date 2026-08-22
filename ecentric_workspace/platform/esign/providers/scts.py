@@ -401,6 +401,14 @@ class SctsAdapter(SignatureProviderAdapter):
             sigs = []
             for pl in by_dsf.get(f.get("file_dsf"), []):
                 d = _area_for(pl)
+                # ERP canonical geometry is TOP-left-origin points; SCTS expects PDF
+                # coordinates (BOTTOM-left origin, "Toa do diem dat chu ky (PDF Coordinate)").
+                # Live evidence 2026-08-23: without the flip the signature rendered mirrored
+                # vertically. Lower-left corner: y_pdf = page_height - y_top - height.
+                page_h = float(pl.get("page_height") or 792.0)
+                x = float(pl.get("x") or 0)
+                h = float(pl.get("height") or 0)
+                y_pdf = max(0.0, page_h - float(pl.get("y") or 0) - h)
                 sigs.append({
                     "signatureId": d.get("signatureId"),
                     "title": d.get("title"),
@@ -412,10 +420,10 @@ class SctsAdapter(SignatureProviderAdapter):
                     "added": 1,
                     "isPlaced": True,
                     "pageIndex": int(pl.get("page_index") or 1),
-                    "x": float(pl.get("x") or 0), "y": float(pl.get("y") or 0),
-                    "Llx": float(pl.get("x") or 0), "Lly": float(pl.get("y") or 0),
+                    "x": x, "y": y_pdf,
+                    "Llx": x, "Lly": y_pdf,
                     "Width": int(round(float(pl.get("width") or 0))),
-                    "Height": int(round(float(pl.get("height") or 0))),
+                    "Height": int(round(h)),
                 })
             documents.append({
                 "FileName": f.get("name"),

@@ -96,6 +96,7 @@ class TestEcontractAdapter(unittest.TestCase):
                "placements": [{"signature_file": "DSF1", "page_index": 1,
                                "x": 100.5, "y": 200.25, "width": 120, "height": 40,
                                "level_no": 0, "signature_type": "mock",
+                               "page_height": 792.0,
                                "scts_role_title": "Người trình"}]}
         out = a.create_document(ctx)
         self.assertTrue(CALLS[0][1].endswith("/api/AddDocument/ConvertPdfFile"))  # area lookup first
@@ -118,8 +119,9 @@ class TestEcontractAdapter(unittest.TestCase):
         self.assertEqual(sig["title"], "Người trình"); self.assertEqual(sig["role"], "thamgia")
         self.assertEqual(sig["signatureType"], "position")
         self.assertEqual(sig["pageIndex"], 1)
-        self.assertEqual((sig["x"], sig["y"]), (100.5, 200.25))
-        self.assertEqual((sig["Llx"], sig["Lly"]), (100.5, 200.25))
+        # canonical top-left y=200.25 h=40 on 792pt page -> PDF bottom-left 551.75
+        self.assertEqual((sig["x"], sig["y"]), (100.5, 551.75))
+        self.assertEqual((sig["Llx"], sig["Lly"]), (100.5, 551.75))
         self.assertEqual((sig["Width"], sig["Height"]), (120, 40))
         self.assertTrue(sig["isPlaced"]); self.assertEqual(sig["added"], 1)
         # response: data la STRING DocumentId

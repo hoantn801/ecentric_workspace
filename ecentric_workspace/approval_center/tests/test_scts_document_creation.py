@@ -99,9 +99,10 @@ class TestSctsDocumentCreation(FrappeTestCase):
         self.assertEqual(d1["Signatures"], [])
         # Signatures nested INSIDE the signable document, position-based geometry
         sig = d0["Signatures"][0]
+        # top-left y=60 h=40, no page_height -> Letter fallback 792 -> bottom-left 692
         self.assertEqual((sig["pageIndex"], sig["x"], sig["y"], sig["Llx"], sig["Lly"],
                           sig["Width"], sig["Height"], sig["title"]),
-                         (2, 50, 60, 50, 60, 120, 40, "Manager"))
+                         (2, 50, 692, 50, 692, 120, 40, "Manager"))
         self.assertEqual(sig["signatureId"], "AREA-MGR")        # template AREA id (ConvertPdfFile)
         self.assertEqual(sig["signatureType"], "position")
         self.assertIs(sig["isPlaced"], True)
