@@ -46,7 +46,7 @@ let calls=[],uploads=[];
 function mk(opts){ opts=opts||{};
   els={}; ["ec-docsign","ecdCount","ecdSummary","ecdBanner","ecdRows","ecdUpload","ecdUploadBtn","ecdUploadHint",
     "ecdDrawerOv","ecdDrawerName","ecdDrawerSummary","ecdDrawerClose","ecdViewer","ecdSignerCards","ecdDrawerFoot",
-    "ecdViewerMsg","ecdStage","ecdCanvas","ecdLayer","ecdProg","ecdSaveState","ecdRoBanner","ecdDrawerErr","ecdPlaceHint",
+    "ecdViewerMsg","ecdStage","ecdCanvas","ecdLayer","ecdProg","ecdSaveState","ecdRoBanner","ecdDrawerErr","ecdPlaceHint","ecdTrySign",
     "ec-approver-wrap","payr-body"].forEach(id=>els[id]=mkEl(id));
   const contentHost=mkEl("content-host"); els["payr-body"].parentNode=contentHost; els["ec-docsign"].parentNode=mkEl("body");
   calls=[];uploads=[];
@@ -145,7 +145,7 @@ async function main(){
   (function(){
     const e={}; ["ec-docsign","ecdCount","ecdSummary","ecdBanner","ecdRows","ecdUpload","ecdUploadBtn",
       "ecdUploadHint","ecdDrawerOv","ecdDrawerName","ecdDrawerSummary","ecdDrawerClose","ecdViewer",
-      "ecdSignerCards","ecdDrawerFoot","ecdRoBanner","ecdDrawerErr","ecdPlaceHint","ec-approver-wrap","payr-body"].forEach(id=>{
+      "ecdSignerCards","ecdDrawerFoot","ecdRoBanner","ecdDrawerErr","ecdPlaceHint","ecdTrySign","ec-approver-wrap","payr-body"].forEach(id=>{
         e[id]={id,_html:"",textContent:"",_attrs:{},style:{display:""},disabled:false,files:[],parentNode:null,
           getAttribute(k){return (k in this._attrs)?this._attrs[k]:null;},setAttribute(k,v){this._attrs[k]=String(v);},
           appendChild(c){c.parentNode=this;},querySelectorAll(){return [];}};

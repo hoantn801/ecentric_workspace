@@ -391,6 +391,35 @@ def signer_plan(payment_request_name):
 
 
 @frappe.whitelist()
+def my_signature_preview(payment_request_name):
+    """Self-service SIZE PREVIEW: the CURRENT session user's own mapped SCTS signature image
+    (base64 PNG) for the placement drawer's 'Ky thu'. Governed: viewer of the business doc +
+    their OWN verified mapping only; provider integration gate must be open; image only -
+    no ids/secrets; nothing is stored."""
+    from ecentric_workspace.platform.esign import signer_plan as sp
+    perms.assert_can_view_business("EC Payment Request", payment_request_name)
+    at, prof, err = sp._resolve_type_and_profile(
+        "EC Payment Request", payment_request_name,
+        perms.business_approval_request("EC Payment Request", payment_request_name))
+    if err or not prof:
+        return {"image_base64": None, "reason": err or "profile_not_configured"}
+    mapping = perms.verified_mapping(frappe.session.user, prof.environment)
+    if not mapping:
+        return {"image_base64": None, "reason": "no_verified_mapping"}
+    s = frappe.db.get_value("EC Digital Signature Provider Settings",
+                            {"provider": prof.provider, "environment": prof.environment,
+                             "integration_enabled": 1}, "*", as_dict=True)
+    if not s:
+        return {"image_base64": None, "reason": "integration_gated"}
+    from ecentric_workspace.platform.esign.providers import get_adapter
+    try:
+        img = get_adapter(s).signature_image(mapping.scts_user_id, mapping.signature_id)
+    except Exception:
+        return {"image_base64": None, "reason": "provider_unavailable"}
+    return {"image_base64": img}
+
+
+@frappe.whitelist()
 def requester_signing_readiness(payment_request_name):
     """Read-only requester Submit & Sign readiness (fail-closed)."""
     _business_args("EC Payment Request", payment_request_name)
