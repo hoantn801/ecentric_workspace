@@ -89,7 +89,7 @@ class TestEcontractAdapter(unittest.TestCase):
         out = a.create_document(ctx)
         m, url, body = CALLS[0]
         self.assertEqual(m, "POST")
-        self.assertTrue(url.endswith("/api/Document/Submit"), url)          # route MOI
+        self.assertTrue(url.endswith("/api/AddDocument"), url)   # live route (docs\' Submit 405s)
         self.assertEqual(body["docCode"], "EC-PAYR-2026-00022")
         self.assertEqual(body["workflowDefinitionId"], ctx["workflow_definition_id"])
         self.assertEqual(body["companyId"], "ECENTRIC")
