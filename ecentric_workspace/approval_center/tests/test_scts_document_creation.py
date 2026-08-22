@@ -64,7 +64,7 @@ class TestSctsDocumentCreation(FrappeTestCase):
 
     # -- adapter: base64 payload + normalization --
     def test_create_document_v1_contract(self):
-        ad, t = _adapter({"add_document": sx.add_document_ok("DOC9", 2)})
+        ad, t = _adapter({"convert_pdf": sx.convert_ok(), "add_document": sx.add_document_ok("DOC9", 2)})
         ctx = {"doc_code": "PR-1", "title": "T", "amount": 100,
                "workflow_definition_id": "WF9", "document_type_id": "DT3",
                "company_id": "C1", "department_id": "D2", "document_template_id": "TPL7",
@@ -102,6 +102,7 @@ class TestSctsDocumentCreation(FrappeTestCase):
         self.assertEqual((sig["pageIndex"], sig["x"], sig["y"], sig["Llx"], sig["Lly"],
                           sig["Width"], sig["Height"], sig["title"]),
                          (2, 50, 60, 50, 60, 120, 40, "Manager"))
+        self.assertEqual(sig["signatureId"], "AREA-MGR")        # template AREA id (ConvertPdfFile)
         self.assertEqual(sig["signatureType"], "position")
         self.assertIs(sig["isPlaced"], True)
         # external handlers disabled; no legacy field names

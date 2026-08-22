@@ -21,6 +21,7 @@ adapter (scts.py). Secrets (token, password, Authorization header, file content)
 NEVER logged or echoed into ProviderError messages.
 """
 import base64
+import json
 import time
 
 from ecentric_workspace.platform.esign.providers.base import ProviderError
@@ -218,6 +219,60 @@ class SctsClient(object):
         # definite 4xx: a real rejection (not accepted) -> permanent, no retry.
         raise ProviderError("scts_bulk_rejected_%s" % status,
                             "SCTS rejected bulk-process (HTTP %s)" % status, retryable=False)
+
+    def convert_pdf_file(self, workflow_definition_id, pdf_b64, token, file_type="pdf"):
+        """POST /api/AddDocument/ConvertPdfFile -> the workflow sign-template's signature AREA
+        definitions (signatureId/title/role/...). Read-only template lookup: the converted
+        content is ignored by our flow. NOTE: the vendor DTO field is literally
+        'WordflowDefinitionId' (sic, docs + live). Bounded retry (safe read)."""
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = "Bearer %s" % token
+        payload = {"WordflowDefinitionId": workflow_definition_id, "Base64": pdf_b64,
+                   "FileType": file_type, "JsonFields": []}
+        attempt = 0
+        last_exc = None
+        while attempt <= self.retry_limit:
+            try:
+                resp = self._transport("POST", self._url("/api/AddDocument/ConvertPdfFile"),
+                                       headers=headers, json_body=payload, timeout=self.timeout,
+                                       verify_tls=self.verify_tls)
+            except Exception:
+                last_exc = ProviderError("scts_network_error",
+                                         "network error during convert_pdf_file", retryable=True)
+                attempt += 1
+                if attempt > self.retry_limit:
+                    raise last_exc
+                self._sleep(self._backoff_base * attempt)
+                continue
+            status = int(getattr(resp, "status_code", 0))
+            if 200 <= status < 300:
+                raw = self._parse(resp, "convert_pdf_file")
+                data = raw.get("data") if isinstance(raw, dict) else None
+                jd = data.get("jsonData") if isinstance(data, dict) else None
+                if isinstance(jd, str):
+                    try:
+                        return json.loads(jd)
+                    except ValueError:
+                        raise ProviderError("scts_malformed_response",
+                                            "convert_pdf_file jsonData was not valid JSON",
+                                            retryable=False)
+                return jd if isinstance(jd, list) else []
+            if status in _AUTH_STATUSES:
+                raise ProviderError("scts_auth_error_%s" % status,
+                                    "SCTS rejected credentials on convert_pdf_file (HTTP %s)" % status,
+                                    retryable=False)
+            if status >= 500:
+                last_exc = ProviderError("scts_server_error_%s" % status,
+                                         "SCTS server error (%s) during convert_pdf_file" % status,
+                                         retryable=True)
+                attempt += 1
+                if attempt > self.retry_limit:
+                    raise last_exc
+                self._sleep(self._backoff_base * attempt)
+                continue
+            raise ProviderError("scts_convert_rejected_%s" % status,
+                                "SCTS refused convert_pdf_file (HTTP %s)" % status, retryable=False)
 
     def add_document(self, payload, token):
         """POST /api/AddDocument (eContract). The 2026-08 docs list /api/Document/Submit but the
