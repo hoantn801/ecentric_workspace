@@ -226,6 +226,15 @@ class SctsAdapter(SignatureProviderAdapter):
                 "company": x.get("company") or x.get("companyName"),
                 "active": SctsAdapter._resolve_active(x)}
 
+    def signature_image(self, provider_user_id, signature_id):
+        """Base64 PNG of ONE owned signature (size preview in the placement drawer).
+        Read-only GetSignatures; returns None when not found. Never logged."""
+        raw = self._with_auth(lambda t: self._client.get_signatures(provider_user_id, t))
+        for x in self._as_list(raw):
+            if str(x.get("id")) == str(signature_id):
+                return x.get("base64Image")
+        return None
+
     def validate_signature_owner(self, mapped_user, signature_id):
         """LIVE ownership + usability check against GetSignatures. Returns a
         VerificationResult; the binding layer converts a False into a hard block BEFORE

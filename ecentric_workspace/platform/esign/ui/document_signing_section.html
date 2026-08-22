@@ -19,6 +19,8 @@
     .ec-docsign h3{font-size:14px;font-weight:700;color:var(--gray-900,#1f2328);margin:0 0 4px;display:flex;align-items:center;gap:8px}
     .ecd-box{position:absolute;touch-action:none;user-select:none;border:2px solid #2C3DA6;background:rgba(44,61,166,.12);border-radius:4px;cursor:move;font-size:10px;color:#2C3DA6;font-weight:700;overflow:hidden}
     .ecd-box .lbl{padding:1px 4px;white-space:nowrap}
+    .ecd-box img.sigprev{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;opacity:.92}
+    #ecdTrySign.on{background:#2C3DA6;color:#fff}
     .ecd-box .rsz{position:absolute;right:-5px;bottom:-5px;width:12px;height:12px;background:#2C3DA6;border-radius:50%;cursor:nwse-resize}
     .ecd-box .del{position:absolute;right:1px;top:1px;width:14px;height:14px;line-height:12px;text-align:center;background:#fff;border-radius:50%;cursor:pointer;color:#b35900}
     .ecd-scard.sel{border-color:#2C3DA6;box-shadow:0 0 0 2px rgba(44,61,166,.25)}
@@ -104,7 +106,8 @@
           </div>
           <div id="ecdViewerMsg" class="ecd-meta" style="padding:16px"></div>
         </div>
-        <div class="ecd-signers"><h4>Người ký <span id="ecdProg" class="ec-docsign ecd-pill p-none"></span></h4>
+        <div class="ecd-signers"><h4>Người ký <span id="ecdProg" class="ec-docsign ecd-pill p-none"></span>
+          <button class="ecd-btn" id="ecdTrySign" type="button" style="float:right;font-size:11.5px">Ký thử</button></h4>
           <div class="ecd-meta" style="margin-bottom:8px">Chọn một người ký rồi bấm lên tài liệu để đặt ô chữ ký.</div>
           <div id="ecdSignerCards"></div></div>
       </div>
@@ -484,6 +487,7 @@
       if (!p.signer_slot_key) return;                        // legacy shown as unmapped elsewhere
       layer.appendChild(mkBoxEl(p, p.name, ro));
     });
+    _applySigPreview();
   }
   function _persist(cid, box, el) {                           // debounced; RESPONSE never redraws boxes
     var pend = DRW.pending[cid] || (DRW.pending[cid] = {});
@@ -539,12 +543,13 @@
       drawerErr("Yêu cầu đã được gửi — không thể thêm vị trí ký."); return; }
     if (!DRW.slot) { drawerErr("Hãy chọn một người ký, rồi bấm lên tài liệu để đặt vị trí."); return; }
     var s = _px(), sx = s[0], sy = s[1];
-    var box = _clampBox({ x: px / sx, y: py / sy, width: 120, height: 40 });
+    var box = _clampBox({ x: px / sx, y: py / sy, width: 240, height: 120 });  // chuẩn vùng ký SCTS
     var cid = "new:" + (++DRW.rev);
     var p = { name: null, signer_slot_key: DRW.slot, x: box.x, y: box.y, width: box.width, height: box.height };
     DRW.geom[cid] = { x: box.x, y: box.y, width: box.width, height: box.height };
     var el = mkBoxEl(p, cid, false);
     document.getElementById("ecdLayer").appendChild(el);     // OPTIMISTIC render - instant, drag-stable
+    _applySigPreview();
     drawerErr("");
     _persist(cid, { name: null, page_index: DRW.page, x: box.x, y: box.y,
                     width: box.width, height: box.height, signer_slot_key: DRW.slot }, el);
@@ -559,6 +564,29 @@
       var layer = document.getElementById("ecdLayer"); layer.style.width = vp.width + "px"; layer.style.height = vp.height + "px";
       pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise.then(function () { hydrateBoxes(); });
     });
+  }
+  function _applySigPreview() {
+    var layer = document.getElementById("ecdLayer");
+    (layer._kids || []).slice().forEach(function (b) {
+      var old = b.querySelector ? b.querySelector(".sigprev") : null;
+      if (old && old.parentNode === b && b.removeChild) { try { b.removeChild(old); } catch (e) {} }
+      if (DRW.showSig && DRW.sigPreview) {
+        var img = document.createElement("img");
+        img.className = "sigprev";
+        img.setAttribute("src", "data:image/png;base64," + DRW.sigPreview);
+        b.appendChild(img);
+      }
+    });
+    var btn = document.getElementById("ecdTrySign");
+    if (btn) btn.className = "ecd-btn" + (DRW.showSig ? " on" : "");
+  }
+  function _toggleTrySign() {
+    if (DRW.showSig) { DRW.showSig = false; _applySigPreview(); return; }
+    if (DRW.sigPreview) { DRW.showSig = true; _applySigPreview(); return; }
+    call("my_signature_preview", { payment_request_name: pr() }).then(function (o) {
+      if (o && o.image_base64) { DRW.sigPreview = o.image_base64; DRW.showSig = true; _applySigPreview(); }
+      else drawerErr("Chưa lấy được mẫu chữ ký (cần mapping SCTS đã xác minh).");
+    }).catch(function () { drawerErr("Chưa lấy được mẫu chữ ký (cần mapping SCTS đã xác minh)."); });
   }
   function _setDrawerOpen(on) {   // ISSUE 1: hide legacy placement/editor layers while drawer is open
     try { document.documentElement.classList[on ? "add" : "remove"]("ecd-drawer-open"); } catch (e) {}
@@ -651,6 +679,8 @@
     document.getElementById("ecdUpload").onchange = function (e) {
       uploadFiles(e.target.files); e.target.value = ""; };
     document.getElementById("ecdDrawerClose").onclick = closeDrawer;
+    var _ts = document.getElementById("ecdTrySign");
+    if (_ts) _ts.onclick = _toggleTrySign;
     document.getElementById("ecdDrawerOv").onclick = function (e) {
       if (e.target === document.getElementById("ecdDrawerOv")) closeDrawer(); };
     document.addEventListener("mousemove", _onDragMove);     // ISSUE 2: single global drag controller
@@ -660,7 +690,7 @@
   function _clearDocState() {                                 // ISSUE 4: drop previous PR state at once
     _cancelPending(); closeDrawer();                          // cancel autosave timers + close drawer
     DRW.st = null; DRW.ref = null; DRW.slot = null; DRW.geom = {}; DRW.drag = null;
-    DRW.pdfDocs = {}; DRW.rowsStale = false;
+    DRW.pdfDocs = {}; DRW.rowsStale = false; DRW.sigPreview = null; DRW.showSig = false;
     STATE = null; PLAN = null;
     var r = document.getElementById("ecdRows"); if (r) r.innerHTML = "";
     var sm = document.getElementById("ecdSummary"); if (sm) sm.textContent = "";
