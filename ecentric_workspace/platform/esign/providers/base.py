@@ -37,10 +37,20 @@ class NormalizedDocState(object):
         # {doc_code, workflow_definition_id, document_type_id, company_id, department_id}
         self.identity = identity or {}
 
-    def signer(self, user_id):
+    def signer(self, user_id, email=None):
+        """Locate the expected signer. Primary key: provider user_id. eContract's Document
+        detail does NOT return signer userIds - internal signers are identifiable only by
+        EMAIL - so an exact-email fallback (case-insensitive, unambiguous) is authoritative
+        when user_id matching finds nothing."""
         for s in self.signers:
-            if str(s.get("user_id")) == str(user_id):
+            if s.get("user_id") is not None and str(s.get("user_id")) == str(user_id):
                 return s
+        if email:
+            em = str(email).strip().lower()
+            hits = [s for s in self.signers
+                    if str(s.get("email") or "").strip().lower() == em]
+            if len(hits) == 1:
+                return hits[0]
         return None
 
 
@@ -127,7 +137,7 @@ class SignatureProviderAdapter(object):
             return VerificationResult(False, "no_document_state")
         if str(doc_state.document_id) != str(expected.get("document_id")):
             return VerificationResult(False, "document_id_mismatch")
-        signer = doc_state.signer(expected.get("user_id"))
+        signer = doc_state.signer(expected.get("user_id"), expected.get("email"))
         if not signer:
             return VerificationResult(False, "expected_signer_absent")
         if signer.get("status") != "signed":

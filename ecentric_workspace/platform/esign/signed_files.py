@@ -38,11 +38,15 @@ def _settings_and_adapter(pkg):
 
 
 def _expected_signers(package_name):
-    """The internal SCTS signer identities ERP submitted for this package (one per Sign
-    DSR). Used to prove document identity in the signer-based fallback."""
-    ids = frappe.get_all(DSR, filters={"package": package_name, "action": "Sign"},
-                         pluck="effective_scts_user_id")
-    return {str(i) for i in ids if i}
+    """The internal signer identities ERP submitted for this package (one per Sign DSR):
+    provider user ids AND the bound ERP users' emails (eContract's Document detail exposes
+    internal signers by email only). Used in the signer-based fallback."""
+    rows = frappe.get_all(DSR, filters={"package": package_name, "action": "Sign"},
+                          fields=["effective_scts_user_id", "actor_user", "approver"])
+    ids = {str(r.effective_scts_user_id) for r in rows if r.effective_scts_user_id}
+    emails = {str(r.actor_user or r.approver).strip().lower()
+              for r in rows if (r.actor_user or r.approver)}
+    return ids, emails
 
 
 def _terminal_signed_ok(adapter, pkg):
@@ -70,17 +74,24 @@ def _terminal_signed_ok(adapter, pkg):
         return True, "terminal_status"
 
     # signer-based fallback: EVERY expected signer present + signed; identities match.
-    expected = _expected_signers(pkg.name)
-    if not expected:
+    exp_ids, exp_emails = _expected_signers(pkg.name)
+    if not (exp_ids or exp_emails):
         return False, "no_expected_signers"
     if not signers:
         return False, "no_signers"
-    present = {str(s.get("user_id")) for s in signers}
-    for e in expected:
-        if e not in present:
+    def _known(s):
+        return (str(s.get("user_id")) in exp_ids
+                or str(s.get("email") or "").strip().lower() in exp_emails)
+    present_ids = {str(s.get("user_id")) for s in signers if s.get("user_id")}
+    present_emails = {str(s.get("email") or "").strip().lower() for s in signers}
+    for e in exp_ids:
+        if e not in present_ids and not exp_emails & present_emails:
+            return False, "expected_signer_absent:%s" % e
+    for e in exp_emails:
+        if e not in present_emails and not exp_ids & present_ids:
             return False, "expected_signer_absent:%s" % e
     for s in signers:
-        if str(s.get("user_id")) not in expected:
+        if not _known(s):
             return False, "unexpected_signer_identity"
     return True, "all_expected_signers_signed"
 

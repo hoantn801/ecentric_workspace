@@ -199,7 +199,10 @@ def _expected_for(dsr):
                               ["scts_document_id"], as_dict=True)
     file_count = frappe.db.count("EC Digital Signature File", {"package": dsr.package})
     return {"document_id": pkg.scts_document_id, "user_id": dsr.effective_scts_user_id,
-            "signature_id": dsr.effective_signature_id, "file_count": file_count}
+            "signature_id": dsr.effective_signature_id, "file_count": file_count,
+            # eContract detail identifies internal signers by EMAIL only (no userIds);
+            # the ERP user id IS the company email of the bound signer.
+            "email": dsr.actor_user or dsr.approver}
 
 
 def mark_verified(dsr_name, doc_state):

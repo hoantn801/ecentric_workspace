@@ -342,6 +342,7 @@ class SctsAdapter(SignatureProviderAdapter):
         return {"user_id": s.get("userId") or s.get("signerId") or s.get("signerUserId"),
                 "signature_id": s.get("signatureId") or s.get("signerSignatureId"),
                 "display_name": s.get("user") or s.get("fullName"),
+                "email": (str(s.get("email") or "").strip().lower() or None),
                 "status": norm,
                 "signed_at": (s.get("signedAt") or s.get("signedDate") or s.get("signTime")
                               or (None if str(s.get("time") or "").strip() in ("", "Chưa có")
