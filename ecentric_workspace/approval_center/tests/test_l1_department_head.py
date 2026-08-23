@@ -37,15 +37,21 @@ def _employee(email, department=None, reports_to=None):
     return emp.name
 
 
-def _department(name, head_employee=None):
+def _department(name, head_employee=None, manager_email=None):
     dep = frappe.db.get_value("Department", {"department_name": name}, "name")
     if dep:
         d = frappe.get_doc("Department", dep)
     else:
         d = frappe.get_doc({"doctype": "Department", "department_name": name}
                            ).insert(ignore_permissions=True)
+    changed = False
     if hasattr(d, "department_head"):
         d.department_head = head_employee
+        changed = True
+    if manager_email is not None and hasattr(d, "manager_email"):
+        d.manager_email = manager_email
+        changed = True
+    if changed:
         d.save(ignore_permissions=True)
     return d.name
 
@@ -69,6 +75,24 @@ class TestL1DepartmentHead(FrappeTestCase):
         users = [u for (u, _label) in engine.resolve_participants(rows, req)]
         self.assertIn(req, users)                      # dept head (the requester) IS a candidate
         self.assertIn(ceo, users)                      # manager stays a candidate (Any One)
+
+    def test_manager_email_resolves_requester_as_head(self):
+        """Live-site model (no department_head column): the requester manages a Department via
+        Department.manager_email while their Employee.department is the reporting group
+        ('Management - EC' analogue) -> the dynamic row must still resolve the requester."""
+        if not frappe.db.has_column("Department", "manager_email"):
+            self.skipTest("Department.manager_email custom field absent on this site")
+        ceo = _user(PFX + "ceo2@example.com")
+        req = _user(PFX + "head2@example.com")
+        ceo_emp = _employee(ceo)
+        grp = _department(PFX + "Reporting Group")          # analogue of 'Management - EC'
+        _department(PFX + "Real Dept", manager_email=req)   # the dept the requester MANAGES
+        _employee(req, department=grp, reports_to=ceo_emp)  # Employee.department = group, NOT real dept
+        rows = [frappe._dict({"participant_purpose": "Approver",
+                              "source_type": "Department Manager", "sort_order": -1,
+                              "department": None, "fallback_user": None})]
+        users = [u for (u, _label) in engine.resolve_participants(rows, req)]
+        self.assertEqual(users, [req])                      # resolved via managed-dept lookup
 
     def test_validator_allows_department_manager_without_department(self):
         """Regression for the 2026-08-24 migrate failure: a dynamic 'Department Manager' row

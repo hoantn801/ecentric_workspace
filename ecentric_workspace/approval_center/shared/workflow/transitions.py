@@ -186,15 +186,22 @@ def resolve_participants(participants, requester, context=None):
             mgr = emp and emp.reports_to and frappe.db.get_value("Employee", emp.reports_to, "user_id")
             _add(mgr, "Requester Manager")
         elif st == "Department Manager":
-            dept = p.department or (_emp_user(requester) or {}).get("department")
-            head_user = None
-            if dept:
+            # Static form: the named department. Dynamic form (department empty): the
+            # requester's own department. Managers' Employee.department is the
+            # "Management - EC" reporting group (PnL gate), NOT their real department -
+            # so prefer the department the requester MANAGES (Department.manager_email),
+            # then fall back to Employee.department (correct for regular staff).
+            dept = p.department
+            if not dept:
                 try:
-                    head = frappe.db.get_value("Department", dept, "department_head")
+                    dept = frappe.db.get_value(
+                        "Department", {"manager_email": requester, "disabled": 0}, "name")
                 except Exception:
-                    head = None  # field absent -> fail closed
-                head_user = head and frappe.db.get_value("Employee", head, "user_id")
-            _add(head_user, "Department Manager")  # _add re-checks active System User
+                    dept = None  # field absent -> fail closed
+            if not dept:
+                dept = (_emp_user(requester) or {}).get("department")
+            # Ordered resolution: department_head -> manager_email (active System User only).
+            _add(resolve_department_manager_user(dept), "Department Manager")
         elif st == "Reference Department Head":
             # Generic, config-driven: resolve the Department named in a field of the business
             # record (context) via resolve_department_manager_user (department_head first, then
