@@ -139,8 +139,8 @@ def _ms_meetings(email, start_dt, end_dt, mask=False):
             return []
         import requests
         url = ("https://graph.microsoft.com/v1.0/users/" + email + "/calendarView"
-               "?startDateTime=" + start_dt.replace(" ", "T") + "+07:00"
-               "&endDateTime=" + end_dt.replace(" ", "T") + "+07:00"
+               "?startDateTime=" + start_dt.replace(" ", "T") + "%2B07:00"
+               "&endDateTime=" + end_dt.replace(" ", "T") + "%2B07:00"
                "&$select=subject,start,end,showAs,isAllDay&$top=100&$orderby=start/dateTime")
         r = requests.get(url, headers={"Authorization": "Bearer " + token,
                          "Prefer": 'outlook.timezone="Asia/Ho_Chi_Minh"'}, timeout=12)
@@ -179,8 +179,8 @@ def _ms_today_events(email):
             return []
         import requests
         day = nowdate()
-        start_dt = "%sT00:00:00+07:00" % day
-        end_dt = "%sT00:00:00+07:00" % add_days(day, 1)
+        start_dt = "%sT00:00:00%2B07:00" % day
+        end_dt = "%sT00:00:00%2B07:00" % add_days(day, 1)
         url = ("https://graph.microsoft.com/v1.0/users/" + email + "/calendarView"
                "?startDateTime=" + start_dt + "&endDateTime=" + end_dt +
                "&$select=id,subject,start,end,showAs,isAllDay,onlineMeeting,location,responseStatus"
@@ -322,8 +322,8 @@ def calendar_probe():
     import requests
     day = nowdate()
     url = ("https://graph.microsoft.com/v1.0/users/" + caller + "/calendarView"
-           "?startDateTime=" + day + "T00:00:00+07:00"
-           "&endDateTime=" + add_days(day, 1) + "T00:00:00+07:00&$select=id&$top=5")
+           "?startDateTime=" + day + "T00:00:00%2B07:00"
+           "&endDateTime=" + add_days(day, 1) + "T00:00:00%2B07:00&$select=id&$top=5")
     try:
         r = requests.get(url, headers={"Authorization": "Bearer " + token,
                          "Prefer": 'outlook.timezone="Asia/Ho_Chi_Minh"'}, timeout=12)
