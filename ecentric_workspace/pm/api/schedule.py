@@ -300,6 +300,47 @@ def rsvp(event_id, response, comment=None):
         return {"ok": False, "code": "RSVP_EXC"}
 
 
+@frappe.whitelist()
+def calendar_probe():
+    """DIAGNOSTIC (own calendar only): pinpoints why the calendar overlay is empty.
+    Returns ONLY status codes / counts / Graph error codes -- NEVER meeting content
+    (no subjects, times, attendees). Safe to call; remove once verified."""
+    pmperm.require_pm_access()
+    caller = frappe.session.user
+    conf = frappe.get_conf() if hasattr(frappe, "get_conf") else {}
+    res = {"user": caller, "sync_on": bool(conf.get("ec_pm_calendar_sync"))}
+    from ecentric_workspace.notification_center.providers import graph as msgraph
+    res["configured"] = bool(msgraph.is_configured())
+    if not res["configured"]:
+        res["stop"] = "NOT_CONFIGURED (missing ec_graph_client_id/secret/tenant)"
+        return res
+    ok, token = msgraph.get_app_token()
+    res["token_ok"] = bool(ok)
+    if not ok:
+        res["token_code"] = token  # e.g. TOKEN_401 (bad secret) / TOKEN_403 / NO_GRAPH_CREDENTIAL
+        return res
+    import requests
+    day = nowdate()
+    url = ("https://graph.microsoft.com/v1.0/users/" + caller + "/calendarView"
+           "?startDateTime=" + day + "T00:00:00+07:00"
+           "&endDateTime=" + add_days(day, 1) + "T00:00:00+07:00&$select=id&$top=5")
+    try:
+        r = requests.get(url, headers={"Authorization": "Bearer " + token,
+                         "Prefer": 'outlook.timezone="Asia/Ho_Chi_Minh"'}, timeout=12)
+        res["http_status"] = r.status_code
+        if r.status_code == 200:
+            res["count_today"] = len(r.json().get("value") or [])
+        else:
+            try:
+                res["graph_error_code"] = ((r.json().get("error") or {}) or {}).get("code")
+            except Exception:
+                res["graph_error_code"] = "PARSE_FAIL"
+    except Exception as e:
+        res["http_status"] = "EXC"
+        res["exc"] = type(e).__name__
+    return res
+
+
 def _team_user_ids(user):
     """User ids sharing at least one team/department with `user` (excludes self). Uses the
     same department resolution as pmperm.get_user_departments (Employee.department +
