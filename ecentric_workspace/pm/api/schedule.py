@@ -344,6 +344,35 @@ def calendar_probe():
         res["exc"] = type(e).__name__
     # counts only -- confirms the helper the home widget actually uses
     res["today_helper_count"] = len(_ms_today_events(caller))
+
+    # Which URL shape does Graph accept? Status/err codes only, no meeting content.
+    base = ("https://graph.microsoft.com/v1.0/users/" + caller + "/calendarView"
+            "?startDateTime=" + day + "T00:00:00%2B07:00"
+            "&endDateTime=" + add_days(day, 1) + "T00:00:00%2B07:00")
+    variants = {
+        "A_no_select_orderby": "&$top=50&$orderby=start/dateTime",
+        "B_week_shape": "&$select=subject,start,end,showAs,isAllDay&$top=100&$orderby=start/dateTime",
+        "C_no_select_no_orderby": "&$top=50",
+        "D_full_select": ("&$select=id,subject,start,end,showAs,isAllDay,onlineMeeting,"
+                          "location,responseStatus&$top=50"),
+    }
+    hdrs = {"Authorization": "Bearer " + token,
+            "Prefer": 'outlook.timezone="Asia/Ho_Chi_Minh"'}
+    tried = {}
+    for k in sorted(variants.keys()):
+        try:
+            rr = requests.get(base + variants[k], headers=hdrs, timeout=12)
+            if rr.status_code == 200:
+                tried[k] = "200 n=" + str(len(rr.json().get("value") or []))
+            else:
+                try:
+                    ec = ((rr.json().get("error") or {}) or {}).get("code")
+                except Exception:
+                    ec = "?"
+                tried[k] = str(rr.status_code) + " " + str(ec)
+        except Exception as e:
+            tried[k] = "EXC " + type(e).__name__
+    res["variants"] = tried
     return res
 
 
