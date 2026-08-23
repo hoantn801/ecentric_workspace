@@ -66,6 +66,12 @@ CORE_ITEMS = [
 #: route_policy regardless of this link), Nghỉ phép -> /ec-hr/leave
 #: (moved 2026-08-14 from /approvals/leave: leave now uses the native
 #: Leave Application flow on the eCentric HR portal page).
+#: 2026-08-21: /ec-hr/leave and /ec-hr/huong-dan-cai-app became canonically
+#: owned by the `hr` provider, so the portal entries above are aliases like
+#: attendance and salary. Before this, /ec-hr/leave scored 0 in the hr
+#: context and resolve_context() sent it to `home` -- which is why the leave
+#: page painted the full portal sidebar while its two sibling pages painted
+#: the 2-item HR sidebar.
 HOME_PORTAL_ITEMS = [
     {"key": "home.portal.home", "label": "Trang chủ", "route": "/", "icon": "home",
      "group": "Workspace", "order": 10, "active_patterns": ["/", "/home"],
@@ -74,6 +80,25 @@ HOME_PORTAL_ITEMS = [
     {"key": "home.portal.overview", "label": "Tổng quan", "route": "/coming-soon?tool=tong-quan",
      "icon": "grid", "group": "Workspace", "order": 20, "active_patterns": ["/coming-soon?tool=tong-quan"],
      "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
+    # "Việc của tôi": the SAME session-scoped action feed the header inbox
+    # drawer shows, as a full page. Canonically owned here (not an alias) so
+    # resolve_context() puts it in the portal context. Rows are links only --
+    # every approval action still happens on its destination page.
+    {"key": "home.portal.mywork", "label": "Việc của tôi", "route": "/viec-cua-toi",
+     "icon": "inbox", "group": "Workspace", "order": 15,
+     "active_patterns": ["/viec-cua-toi"], "visible_when": "internal",
+     "owner": "home_portal", "sidebar_hidden": True,
+     # sidebar_hidden (PO 2026-08-21): on a DESKTOP the header inbox already
+     # opens this exact feed in a drawer, so a sidebar row for it is a second
+     # door to the same room. The route stays registered -- the mobile tab bar
+     # links to it, search finds it, and resolve_context() needs it to put the
+     # page in the portal context.
+     # deliberately NO badge_source: the only registered resolver counts
+     # APPROVALS, and this item means "everything waiting on me". The correct
+     # number (overdue + act_now) already rides on the header inbox and the
+     # mobile tab, both fed by get_reminder_summary.
+     "keywords": ["viec cua toi", "my work", "todo", "cong viec", "thong bao",
+                  "can duyet", "inbox"]},
     {"key": "home.portal.approvals", "label": "Phê duyệt", "route": "/approvals", "icon": "check",
      "group": "Workspace", "order": 30, "active_patterns": ["/approvals"],
      "visible_when": "internal", "owner": "home_portal", "alias": True,
@@ -94,11 +119,22 @@ HOME_PORTAL_ITEMS = [
      "visible_when": "internal", "owner": "home_portal", "alias": True},
     {"key": "home.portal.leave", "label": "Nghỉ phép", "route": "/ec-hr/leave",
      "icon": "calendar", "group": "Nhân sự", "order": 20, "active_patterns": ["/ec-hr/leave"],
-     "visible_when": "internal", "owner": "home_portal",
+     "visible_when": "internal", "owner": "home_portal", "alias": True,
      "keywords": ["nghi phep", "leave", "xin nghi"]},
     {"key": "home.portal.salary", "label": "Phiếu lương", "route": "/ec-hr/salary",
      "icon": "wallet", "group": "Nhân sự", "order": 30, "active_patterns": ["/ec-hr/salary"],
      "visible_when": "internal", "owner": "home_portal", "alias": True},
+    {"key": "home.portal.install_guide", "label": "Cài app lên điện thoại",
+     "route": "/ec-hr/huong-dan-cai-app", "icon": "book", "group": "Nhân sự", "order": 50,
+     "active_patterns": ["/ec-hr/huong-dan-cai-app"],
+     "visible_when": "internal", "owner": "home_portal", "alias": True,
+     "sidebar_hidden": True,
+     # sidebar_hidden (PO 2026-08-21): the portal sidebar is the DESKTOP menu,
+     # and a desktop is exactly where "cài app lên điện thoại" has nothing to
+     # do. The canonical hr.install_guide row still shows inside /ec-hr (where
+     # someone reading about the phone app actually is), and the route stays
+     # registered here so search finds it and links keep resolving.
+     "keywords": ["huong dan", "cai app", "pwa", "iphone", "android"]},
     {"key": "home.portal.kpi", "label": "Mục tiêu KPI", "route": "/coming-soon?tool=kpi",
      "icon": "target", "group": "Nhân sự", "order": 40, "active_patterns": ["/coming-soon?tool=kpi"],
      "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
@@ -289,7 +325,7 @@ def _compose_owners(owners=None, keep=None, group_order=None):
     return items
 
 
-def compose(context=None):
+def compose(context=None, include_hidden=False):
     """Deterministic, validated nav list for ONE context (sidebar scope).
 
     context=None keeps the historical signature and returns DEFAULT_CONTEXT
@@ -301,8 +337,15 @@ def compose(context=None):
     if name not in CONTEXTS:
         name = DEFAULT_CONTEXT
     ctx = CONTEXTS[name]
+    # include_hidden separates two things that are NOT the same question:
+    # "does this row appear in the sidebar" (no, for sidebar_hidden items) and
+    # "does this route belong to this context" (yes -- it is still the
+    # context's route). resolve_context() asks the second one; without this a
+    # hidden item would drop its own page into the default context and the
+    # page would paint a sidebar from a module it has nothing to do with.
+    keep = None if include_hidden else (lambda it: not it.get("sidebar_hidden"))
     return _compose_owners(ctx["providers"], group_order=ctx.get("group_order"),
-                           keep=lambda it: not it.get("sidebar_hidden"))
+                           keep=keep)
 
 
 def compose_all():
@@ -362,7 +405,7 @@ def _context_score(name, path):
     """Best matchActive-style score of `path` against the context's own
     (non-core) items. Mirrors ec_shell.js matchActive scoring."""
     score = 0
-    for it in compose(name):
+    for it in compose(name, include_hidden=True):
         if it.get("owner") in ("core", "shell.context"):
             continue
         if it.get("alias"):

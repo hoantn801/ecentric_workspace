@@ -50,8 +50,12 @@ class TestRouteToContext(unittest.TestCase):
         owners = {i["owner"] for i in hr}
         self.assertEqual(owners, {"core", "hr"},
                          "HR sidebar must contain zero Approval/Document entries")
+        # 2026-08-21: leave + the install guide joined the hr provider so all
+        # /ec-hr/* pages paint the SAME sidebar (before, /ec-hr/leave resolved
+        # to `home` and painted the full portal sidebar).
         self.assertEqual([i["label"] for i in hr if i["owner"] == "hr"],
-                         ["Chấm công", "Phiếu lương"])
+                         ["Chấm công", "Nghỉ phép", "Phiếu lương",
+                          "Cài app lên điện thoại"])
 
     def test_home_portal_preserves_restored_ia(self):
         # PO-locked: portal context == the restored Homepage 4-group IA
@@ -61,17 +65,47 @@ class TestRouteToContext(unittest.TestCase):
             if i["group"] not in groups:
                 groups.append(i["group"])
         self.assertEqual(groups, ["Workspace", "Nhân sự", "Báo cáo & Phân tích", "Tài nguyên"])
-        # 16 restored-IA items + 1 approved addition: "Trung tâm Báo cáo" (/reports)
+        # 16 restored-IA items + 1 approved addition: "Trung tâm Báo cáo"
+        # (/reports). Two more are registered but sidebar_hidden, so compose()
+        # must not show them: "Việc của tôi" (the desktop header inbox already
+        # opens that feed -- a sidebar row would be a second door to the same
+        # room) and "Cài app lên điện thoại" (a phone-install guide has no
+        # business in the desktop portal menu; it still shows inside /ec-hr).
         self.assertEqual(len(home), 17)
+        self.assertFalse(any(i["route"] == "/viec-cua-toi" for i in home))
+        self.assertFalse(any(i["route"] == "/ec-hr/huong-dan-cai-app" for i in home))
         labels = {i["label"]: i["route"] for i in home}
         # approved route migrations
         self.assertEqual(labels["Phê duyệt"], "/approvals")
         self.assertEqual(labels["Chấm công"], "/ec-hr/attendance")
         self.assertEqual(labels["Phiếu lương"], "/ec-hr/salary")
-        self.assertEqual(labels["Nghỉ phép"], "/approvals/leave")
+        # moved 2026-08-14 from /approvals/leave to the HR portal page
+        self.assertEqual(labels["Nghỉ phép"], "/ec-hr/leave")
         # rejected launcher stays gone
         self.assertFalse(any(i["group"] == "Phân hệ" for i in home))
         self.assertFalse(hasattr(nav, "_launcher_items"))
+
+    def test_sidebar_hidden_item_keeps_its_context_and_discovery(self):
+        """sidebar_hidden hides the ROW, never the ROUTE. Getting this wrong
+        drops the page into DEFAULT_CONTEXT and it paints an unrelated
+        module's sidebar."""
+        self.assertEqual(nav.resolve_context("/viec-cua-toi"), "home")
+        self.assertIn("/viec-cua-toi", [i["route"] for i in nav.compose_all()])
+        self.assertNotIn("/viec-cua-toi", [i["route"] for i in nav.compose("home")])
+        self.assertIn("/viec-cua-toi",
+                      [i["route"] for i in nav.compose("home", include_hidden=True)])
+
+    def test_install_guide_hidden_in_portal_but_alive_in_hr(self):
+        """The phone-install guide is pulled out of the DESKTOP portal menu
+        only. It must keep its row inside /ec-hr, keep resolving to the hr
+        context, and stay findable in search."""
+        self.assertNotIn("/ec-hr/huong-dan-cai-app",
+                         [i["route"] for i in nav.compose("home")])
+        self.assertIn("/ec-hr/huong-dan-cai-app",
+                      [i["route"] for i in nav.compose("hr")])
+        self.assertEqual(nav.resolve_context("/ec-hr/huong-dan-cai-app"), "hr")
+        self.assertIn("/ec-hr/huong-dan-cai-app",
+                      [i["route"] for i in nav.compose_all()])
 
     def test_compose_all_spans_contexts(self):
         allr = {i["route"] for i in nav.compose_all()}
@@ -152,10 +186,15 @@ class TestStaticHydratedContextParity(unittest.TestCase):
             has_hr_group = '<div class="ec-shell-grouplabel">Nhân sự</div>' in src
             has_appr_group = '<div class="ec-shell-grouplabel">Tạo mới</div>' in src
             has_launcher = '<div class="ec-shell-grouplabel">Phân hệ</div>' in src
+            has_workspace = '<div class="ec-shell-grouplabel">Workspace</div>' in src
             if ctx == "approval_document":
                 self.assertTrue(has_appr_group and not has_hr_group and not has_launcher, route)
             elif ctx == "home":
-                self.assertTrue(has_launcher and not has_appr_group and not has_hr_group, route)
+                # portal IA (Workspace / Nhân sự / Báo cáo & Phân tích / Tài
+                # nguyên) -- NOT the rejected "Phân hệ" launcher, and never the
+                # approval-context "Tạo mới" group. The portal legitimately
+                # carries a Nhân sự group, so has_hr_group says nothing here.
+                self.assertTrue(has_workspace and not has_appr_group and not has_launcher, route)
 
     def test_hr_boundary_sync_contracts(self):
         sb = _read(APP, "hr", "pages", "shell_boundary.py")

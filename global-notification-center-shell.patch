@@ -1,0 +1,1036 @@
+From b59d60db70a7701036cb80193073d4d69912cdd2 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ho=C3=A0n=20Tr=E1=BA=A7n?= <hoantn801@gmail.com>
+Date: Fri, 19 Jun 2026 17:58:09 +0000
+Subject: [PATCH 1/2] Notification Center: global shell loader + badge redesign
+
+Make the Notification Center work on EVERY custom eCentric Workspace page
+(not just the homepage) and polish the unread badge.
+
+Root cause: the NC asset was injected only into the homepage Web Page record
+(patch p001, anchored on the Action Center widget). Other shell pages never
+received the loader, so their legacy bell handler still showed
+"feature in development".
+
+Fix (single shared loader point, no per-page work):
+* hooks.py: register the asset via web_include_js so Frappe injects it on every
+  website-rendered page exactly once. Deliberately NOT app_include_js (that would
+  load on Frappe Desk /app and bind its native bell).
+* notification_center.js:
+  - precise Frappe Desk guard (/app or /app/...), never lookalikes like /approval
+  - adopt the native bell via clone+replace -> strips any legacy click handler,
+    keeps href so Ctrl/Cmd/middle-click still open /app/notification-log
+  - plain left-click also stopPropagation -> defeats document-level legacy toast
+  - badge redesign: 1-9 = ~16px circle, 9+ = ~21px pill, 9-10px semibold,
+    2px white ring, existing --pink token, anchored top-right (absolute, no
+    header shift), fully hidden at 0
+  - idempotent badge mount + dropdown build; single-install guard unchanged
+    (homepage still carries the legacy <script>; second load is a no-op)
+
+Backend, permissions, Weekly Report and Alert Center logic are untouched.
+
+Tests: 36 existing pass + 15 new (TestGlobalShellLoader, TestDomRuntime).
+A node DOM-runtime harness exercises the real asset to prove badge 0/1/9/10+,
+single badge/dropdown, reinstall-no-duplicate, Desk guard and legacy-handler
+stripping.
+---
+ ecentric_workspace/hooks.py                   |  15 ++
+ .../tests/dom_runtime_check.js                | 201 ++++++++++++++++++
+ .../tests/test_notification_center.py         | 107 ++++++++++
+ .../public/js/notification_center.js          |  77 +++++--
+ 4 files changed, 385 insertions(+), 15 deletions(-)
+ create mode 100644 ecentric_workspace/notification_center/tests/dom_runtime_check.js
+
+diff --git a/ecentric_workspace/hooks.py b/ecentric_workspace/hooks.py
+index 4fec2c2..84e679b 100644
+--- a/ecentric_workspace/hooks.py
++++ b/ecentric_workspace/hooks.py
+@@ -7,6 +7,21 @@ app_description = "Employee portal + approval workflow"
+ app_email = "it@ecentric.vn"
+ app_license = "MIT"
+ 
++# Global asset includes (website context only)
++# --------------------------------------------
++# Notification Center is an app-owned, ERP-wide foundation. It must run on EVERY
++# custom eCentric Workspace page that renders the shared shell (the website/portal
++# context: /home, /overview, /approval, /tasks, /weekly-update, Team Pulse, Alert
++# Center, HR/Resource pages, and any future custom page), not just the homepage.
++#
++# `web_include_js` is the single shared loader point: Frappe injects this asset into
++# every website-rendered page exactly once. This is deliberately NOT `app_include_js`
++# (that would load into Frappe Desk /app/* and bind to Desk's native bell, which we
++# must never do). The asset itself bails out on /app/* and on pages with no eCentric
++# bell, and is single-install guarded so the homepage (which also still carries the
++# legacy per-page loader) never double-installs.
++web_include_js = ["/assets/ecentric_workspace/js/notification_center.js"]
++
+ # Document Events
+ # ---------------
+ # Hook on doctype methods - approval side effects, validation, etc.
+diff --git a/ecentric_workspace/notification_center/tests/dom_runtime_check.js b/ecentric_workspace/notification_center/tests/dom_runtime_check.js
+new file mode 100644
+index 0000000..d53dad1
+--- /dev/null
++++ b/ecentric_workspace/notification_center/tests/dom_runtime_check.js
+@@ -0,0 +1,201 @@
++// Behavioural runtime check for the Notification Center global asset.
++// Runs the REAL asset against a minimal DOM/frappe stub and asserts the badge
++// matrix (0/1/9/10+), single badge + single dropdown, reinstall-no-duplicate,
++// the Frappe-Desk guard, and that a legacy bell handler is stripped on adopt.
++//
++//   node ecentric_workspace/notification_center/tests/dom_runtime_check.js
++// Exits non-zero on the first failed assertion.
++'use strict';
++const fs = require('fs');
++const path = require('path');
++const ASSET = path.join(__dirname, '..', '..', 'public', 'js', 'notification_center.js');
++const SRC = fs.readFileSync(ASSET, 'utf8');
++
++let failures = 0;
++function ok(cond, msg) { if (!cond) { failures++; console.error('FAIL: ' + msg); } else { console.log('ok  - ' + msg); } }
++
++// ---- tiny DOM ----
++function mkClassList() {
++  const set = new Set();
++  return {
++    add: (...c) => c.forEach(x => set.add(x)),
++    remove: (...c) => c.forEach(x => set.delete(x)),
++    toggle: (c, on) => { const v = on === undefined ? !set.has(c) : !!on; v ? set.add(c) : set.delete(c); return v; },
++    contains: (c) => set.has(c),
++    _set: set,
++  };
++}
++class El {
++  constructor(tag) { this.tagName = (tag || 'div').toUpperCase(); this.children = []; this.parentNode = null;
++    this.attrs = {}; this.style = {}; this.classList = mkClassList(); this._html = ''; this.textContent = '';
++    this._listeners = {}; this.id = ''; }
++  set className(v) { this._cn = v; String(v || '').split(/\s+/).filter(Boolean).forEach(c => this.classList.add(c)); }
++  get className() { return this._cn || ''; }
++  setAttribute(k, v) { this.attrs[k] = String(v); if (k === 'id') this.id = String(v); }
++  getAttribute(k) { return this.attrs[k] === undefined ? null : this.attrs[k]; }
++  removeAttribute(k) { delete this.attrs[k]; }
++  set innerHTML(v) { this._html = v; this.children = [];
++    const re = /id="([^"]+)"/g; let m;
++    while ((m = re.exec(v))) { const e = new El('div'); e.setAttribute('id', m[1]); this.appendChild(e); } }
++  get innerHTML() { return this._html; }
++  appendChild(c) { c.parentNode = this; this.children.push(c); return c; }
++  removeChild(c) { const i = this.children.indexOf(c); if (i >= 0) this.children.splice(i, 1); c.parentNode = null; return c; }
++  replaceChild(nw, old) { const i = this.children.indexOf(old); if (i >= 0) { this.children[i] = nw; nw.parentNode = this; old.parentNode = null; } return old; }
++  cloneNode() { const e = new El(this.tagName); e.attrs = Object.assign({}, this.attrs); e._cn = this._cn;
++    String(this._cn || '').split(/\s+/).filter(Boolean).forEach(c => e.classList.add(c)); e.id = this.id; return e; }
++  contains(n) { if (n === this) return true; return this.children.some(c => c.contains && c.contains(n)); }
++  addEventListener(t, fn) { (this._listeners[t] = this._listeners[t] || []).push(fn); }
++  dispatch(t, ev) { (this._listeners[t] || []).slice().forEach(fn => fn(ev)); }
++  focus() {}
++  getBoundingClientRect() { return { bottom: 40, right: 200, top: 10, left: 180 }; }
++  querySelector(sel) { return this._find(sel, false); }
++  querySelectorAll(sel) { return this._find(sel, true); }
++  _find(sel, all) {
++    const acc = [];
++    const walk = (n) => { n.children.forEach(c => { if (c._match(sel)) acc.push(c); walk(c); }); };
++    walk(this);
++    return all ? acc : (acc[0] || null);
++  }
++  _match(sel) {
++    if (sel === '.dot') return this.classList.contains('dot');
++    if (sel === '.ec-nc-badge') return this.classList.contains('ec-nc-badge');
++    if (sel === '#ec-nc-list') return this.id === 'ec-nc-list';
++    if (sel === '#ec-nc-allread') return this.id === 'ec-nc-allread';
++    if (sel === '#ec-nc-mute') return this.id === 'ec-nc-mute';
++    return false;
++  }
++}
++
++function freshEnv(pathname, bell) {
++  const head = new El('head'); const body = new El('body');
++  const docListeners = {};
++  const byId = {};
++  const document = {
++    readyState: 'complete', head, body,
++    createElement: (t) => new El(t),
++    getElementById: (id) => byId[id] || null,
++    addEventListener: (t, fn) => { (docListeners[t] = docListeners[t] || []).push(fn); },
++    _dispatch: (t, ev) => (docListeners[t] || []).slice().forEach(fn => fn(ev)),
++    querySelector: (sel) => {
++      if (sel.indexOf('notification-log') >= 0) return bell;       // findBell primary
++      return null;
++    },
++    querySelectorAll: () => [],
++  };
++  // track elements that set an id (for getElementById of pop + css)
++  const _origAppendHead = head.appendChild.bind(head);
++  head.appendChild = (c) => { if (c.id) byId[c.id] = c; return _origAppendHead(c); };
++  const _origAppendBody = body.appendChild.bind(body);
++  body.appendChild = (c) => { if (c.id) byId[c.id] = c; return _origAppendBody(c); };
++
++  const store = {};
++  const calls = [];
++  const window = {
++    location: { pathname: pathname },
++    localStorage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
++    addEventListener: () => {},
++    frappe: { call: (o) => { calls.push(o); } },
++    AudioContext: null,
++  };
++  window.window = window;
++  return { window, document, calls, byId, bell };
++}
++
++function run(env) {
++  const fn = new Function('window', 'document', 'console', SRC + '\n//# sourceURL=nc.js');
++  fn(env.window, env.document, console);
++}
++
++// helper: feed a frappe.call callback the given unread count
++function feedUnread(env, n) {
++  // refreshCount uses get_unread_count GET; reply via its callback
++  const c = env.calls.find(c => c.method.endsWith('get_unread_count'));
++  if (c && c.callback) c.callback({ message: { success: true, unread: n } });
++}
++
++// ---------- 1) badge matrix on a normal shell page ----------
++(function () {
++  const bell = new El('a'); bell.setAttribute('href', '/app/notification-log'); bell.className = 'icon-btn';
++  const dot = new El('span'); dot.className = 'dot'; bell.appendChild(dot);
++  const env = freshEnv('/overview', bell);
++  run(env);
++  // after adopt, the bell in DOM is a clone; grab it from the stubbed querySelector path:
++  // our document.querySelector always returns the ORIGINAL bell ref; the asset replaced
++  // it only if parentNode existed. We gave no parent, so adopt returns original -> same ref.
++  const theBell = bell;
++  const badge = theBell.querySelector('.ec-nc-badge');
++  ok(!!badge, 'badge element mounted on the native bell');
++  ok(theBell.querySelectorAll('.ec-nc-badge').length === 1, 'exactly one badge on the bell');
++
++  feedUnread(env, 0);
++  ok(badge.classList.contains('on') === false, 'unread 0 -> badge hidden (no .on)');
++
++  feedUnread(env, 1);
++  ok(badge.classList.contains('on') === true && badge.textContent === '1' && !badge.classList.contains('ec-nc-badge--pill'),
++     'unread 1 -> visible circle "1" (no pill)');
++
++  feedUnread(env, 9);
++  ok(badge.textContent === '9' && !badge.classList.contains('ec-nc-badge--pill'),
++     'unread 9 -> circle "9" (no pill)');
++
++  feedUnread(env, 10);
++  ok(badge.textContent === '9+' && badge.classList.contains('ec-nc-badge--pill'),
++     'unread 10 -> "9+" pill');
++
++  feedUnread(env, 250);
++  ok(badge.textContent === '9+' && badge.classList.contains('ec-nc-badge--pill'),
++     'unread 250 -> still "9+" pill (capped)');
++
++  feedUnread(env, 0);
++  ok(badge.classList.contains('on') === false, 'back to 0 -> badge hidden again');
++
++  // single dropdown in body
++  const pops = env.document.body.children.filter(c => c.classList.contains('ec-nc-pop'));
++  ok(pops.length === 1, 'exactly one dropdown appended to body');
++})();
++
++// ---------- 2) reinstall (asset loaded twice) -> no duplicate ----------
++(function () {
++  const bell = new El('a'); bell.setAttribute('href', '/app/notification-log'); bell.className = 'icon-btn';
++  const env = freshEnv('/approval', bell);
++  run(env);
++  // simulate the homepage double-load: same window, run again
++  run(env);
++  ok(bell.querySelectorAll('.ec-nc-badge').length === 1, 'reinstall -> still one badge (single-install guard)');
++  const pops = env.document.body.children.filter(c => c.classList.contains('ec-nc-pop'));
++  ok(pops.length === 1, 'reinstall -> still one dropdown');
++})();
++
++// ---------- 3) Frappe Desk guard ----------
++(function () {
++  const bell = new El('a'); bell.setAttribute('href', '/app/notification-log'); bell.className = 'icon-btn';
++  const env = freshEnv('/app/some-desk-page', bell);
++  run(env);
++  ok(bell.querySelector('.ec-nc-badge') === null, 'on /app/* (Frappe Desk) the asset does NOT mount a badge');
++  ok(env.calls.length === 0, 'on Frappe Desk the asset makes no API calls (fully inert)');
++})();
++
++// ---------- 4) legacy "feature in development" handler is stripped on adopt ----------
++(function () {
++  const root = new El('div');               // give the bell a parent so adopt can replace it
++  const bell = new El('a'); bell.setAttribute('href', '/app/notification-log'); bell.className = 'icon-btn';
++  bell.setAttribute('onclick', "alert('Tính năng đang phát triển')");
++  let legacyFired = 0; bell.addEventListener('click', () => { legacyFired++; });
++  root.appendChild(bell);
++  const env = freshEnv('/tasks', bell);
++  // make findBell return our bell, and let adopt replace within root
++  run(env);
++  const adopted = root.children[0];
++  ok(adopted !== bell, 'native bell is replaced by a clean clone (legacy listeners dropped)');
++  ok(adopted.getAttribute('onclick') === null, 'inline onclick legacy handler removed');
++  ok(adopted.getAttribute('href') === '/app/notification-log', 'clone keeps href (Ctrl/Cmd/middle-click still native)');
++  // plain left click -> our handler intercepts + stops propagation; legacy never fires
++  let stopped = 0;
++  adopted.dispatch('click', { button: 0, preventDefault(){}, stopPropagation(){ stopped++; }, stopImmediatePropagation(){ stopped++; } });
++  ok(stopped >= 1, 'plain left-click calls stopPropagation (defeats document-level legacy toast)');
++  ok(legacyFired === 0, 'legacy click listener never fires after adopt');
++})();
++
++if (failures) { console.error('\n' + failures + ' assertion(s) FAILED'); process.exit(1); }
++console.log('\nAll runtime assertions passed.');
++process.exit(0);
+diff --git a/ecentric_workspace/notification_center/tests/test_notification_center.py b/ecentric_workspace/notification_center/tests/test_notification_center.py
+index b84e0c9..327a97d 100644
+--- a/ecentric_workspace/notification_center/tests/test_notification_center.py
++++ b/ecentric_workspace/notification_center/tests/test_notification_center.py
+@@ -473,5 +473,112 @@ class TestSingleBell(unittest.TestCase):
+                       self.js)
+ 
+ 
++
++class TestGlobalShellLoader(unittest.TestCase):
++    """Global shell loader: the NC asset must load on EVERY website-rendered eCentric
++    page via a single shared hook (web_include_js), never per-page, and never on Frappe
++    Desk. Old per-page \'Tính năng đang phát triển\' handler must be neutralised."""
++
++    def setUp(self):
++        self.hooks = _read("hooks.py")
++        self.js = _read("public", "js", "notification_center.js")
++
++    # ---- single shared global loader point ----
++    def test_web_include_js_registers_asset_globally(self):
++        self.assertIn(
++            'web_include_js = ["/assets/ecentric_workspace/js/notification_center.js"]',
++            self.hooks,
++            "asset must be registered as a global website include (one shared point)")
++
++    def test_not_bound_to_frappe_desk_app_include(self):
++        # app_include_js would load into Frappe Desk (/app) and bind its native bell;
++        # there must be no such assignment (a comment mentioning it is fine).
++        self.assertNotIn("app_include_js =", self.hooks)
++
++    def test_asset_has_precise_desk_guard(self):
++        # bails ONLY on the real Desk root (/app or /app/...), never on lookalike
++        # website routes such as /approval (Phê duyệt) or /app-... .
++        self.assertIn("_p === '/app'", self.js)
++        self.assertIn("_p.indexOf('/app/') === 0", self.js)
++        # the naive guard (which would also kill /approval) must be gone.
++        self.assertNotIn(".indexOf('/app') === 0", self.js)
++
++    def test_no_per_page_patch_created(self):
++        # global loader must NOT be implemented as a DB patch per page: the only
++        # notification_center patch is still the original homepage p001.
++        pdir = os.path.join(_pkg_root(), "notification_center", "patches")
++        pyfiles = sorted(f for f in os.listdir(pdir)
++                         if f.endswith(".py") and f != "__init__.py")
++        self.assertEqual(pyfiles, ["p001_homepage_notification_bell.py"])
++
++    # ---- badge redesign ----
++    def test_badge_hidden_when_zero(self):
++        self.assertIn("S.unread > 0", self.js)
++        self.assertIn("badgeEl.classList.remove('on')", self.js)
++
++    def test_badge_circle_and_capped_pill(self):
++        self.assertIn("ec-nc-badge--pill", self.js)      # 9+ pill variant
++        self.assertIn("'9+'", self.js)                   # capped, no header shift
++        self.assertIn("S.unread > 9", self.js)
++
++    def test_badge_uses_existing_token_white_ring_not_yellow_not_square(self):
++        self.assertIn("background:var(--pink", self.js)  # existing color token
++        self.assertIn("border:2px solid #fff", self.js)  # ~2px white ring
++        self.assertIn("border-radius:8px", self.js)      # rounded -> not a square box
++        self.assertIn("font-weight:600", self.js)        # semibold
++        self.assertNotIn("yellow", self.js.lower())      # no custom yellow
++
++    def test_badge_anchored_top_right_absolute(self):
++        # absolute placement at the bell corner -> never shifts the header
++        self.assertIn(".ec-nc-badge{position:absolute", self.js)
++        self.assertIn("top:-4px;right:-4px", self.js)
++
++    # ---- single badge / single dropdown (no duplicates on re-render) ----
++    def test_single_badge_idempotent_mount(self):
++        self.assertIn("bell.querySelector('.ec-nc-badge')", self.js)
++        self.assertIn("prev.parentNode.removeChild(prev)", self.js)
++
++    def test_single_dropdown_idempotent_build(self):
++        self.assertIn("getElementById('ec-nc-pop-root')", self.js)
++
++    def test_reinstall_guard_sets_flag(self):
++        self.assertIn("if (window._ecNotifCenterInstalled) { return; }", self.js)
++        self.assertIn("window._ecNotifCenterInstalled = true;", self.js)
++
++    # ---- legacy handler neutralised (no DB edit) ----
++    def test_legacy_handler_stripped_on_adopt(self):
++        self.assertIn("function adoptBell", self.js)
++        self.assertIn("cloneNode(true)", self.js)
++        self.assertIn("replaceChild(clone, orig)", self.js)
++        self.assertIn("removeAttribute('onclick')", self.js)
++        self.assertIn("ev.stopPropagation();", self.js)
++
++    def test_asset_does_not_contain_legacy_message(self):
++        self.assertNotIn("đang phát triển", self.js)
++
++    def test_modified_clicks_still_open_native(self):
++        # Ctrl/Cmd/Shift/Alt/middle-click fall through to /app/notification-log.
++        self.assertIn("ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey",
++                      self.js)
++
++
++class TestDomRuntime(unittest.TestCase):
++    """Execute the real asset against a DOM/frappe stub (node) to prove the runtime
++    badge matrix, single badge/dropdown, reinstall-no-duplicate, Desk guard and
++    legacy-handler stripping. Skipped automatically where node is unavailable."""
++
++    def test_dom_runtime_behaviour(self):
++        import shutil
++        import subprocess
++        node = shutil.which("node")
++        if not node:
++            self.skipTest("node not available")
++        harness = os.path.join(_pkg_root(), "notification_center", "tests",
++                               "dom_runtime_check.js")
++        proc = subprocess.run([node, harness], capture_output=True, text=True, timeout=60)
++        self.assertEqual(proc.returncode, 0,
++                         "DOM runtime assertions failed:\n" + proc.stdout + proc.stderr)
++
++
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/ecentric_workspace/public/js/notification_center.js b/ecentric_workspace/public/js/notification_center.js
+index 42876d9..cb3d6a8 100644
+--- a/ecentric_workspace/public/js/notification_center.js
++++ b/ecentric_workspace/public/js/notification_center.js
+@@ -1,18 +1,29 @@
+ // Copyright (c) 2026, eCentric and contributors
+-// Notification Center (app-owned asset, ERP-wide foundation) — SINGLE-BELL hotfix.
++// Notification Center (app-owned asset, ERP-wide GLOBAL loader).
+ //
+-// There is exactly ONE bell on /home: the native eCentric header bell
++// Loaded on EVERY website-rendered eCentric page via the `web_include_js` hook
++// (hooks.py) -- NOT per-page, NOT via a DB patch per page, and NEVER on Frappe Desk
++// (/app/*). The homepage additionally still carries the legacy per-page <script>
++// loader; the single-install guard below makes that a harmless no-op (no duplicate
++// listener / badge / dropdown).
++//
++// There is exactly ONE bell on every shell page: the native eCentric header bell
+ //   .topbar-actions a.icon-btn[href="/app/notification-log"]  (svg #i-bell + .dot)
+-// This asset does NOT render its own bell. It reuses the native bell as the trigger,
+-// shows a live unread badge on it, and opens a system-styled dropdown whose items use
+-// the server-built action_url (resolver lives in notification_center.resolvers).
++// This asset does NOT render its own bell. It ADOPTS the native bell (stripping any
++// legacy "feature-in-development" handler), shows a live unread badge on it, and
++// opens a system-styled dropdown whose items use the server-built action_url
++// (resolver lives in notification_center.resolvers).
+ //
+-// Loaded by ecentric_workspace.notification_center.patches.p001_homepage_notification_bell.
+-// All API calls go through frappe.call with the CORRECT http type (GET vs POST) to match
+-// the backend @frappe.whitelist(methods=[...]). subject/message/source are escaped (XSS).
++// All API calls go through frappe.call with the CORRECT http type (GET vs POST) to
++// match the backend @frappe.whitelist(methods=[...]). subject/message/source escaped.
+ (function () {
+   'use strict';
+   if (window._ecNotifCenterInstalled) { return; }
++  // Never bind on Frappe Desk -- Desk owns its own native bell. The custom eCentric
++  // shell pages live at website routes (/home, /overview, /approval, ...), never Desk.
++  // Match ONLY the Desk root (/app or /app/...), never lookalikes like /approval.
++  var _p = window.location.pathname || '';
++  if (_p === '/app' || _p.indexOf('/app/') === 0) { return; }
+   window._ecNotifCenterInstalled = true;
+ 
+   var LIST_LIMIT = 20;
+@@ -55,6 +66,18 @@
+     return null;
+   }
+ 
++  // Adopt the native bell: replace it with a clean clone so ANY legacy handler bound
++  // to it (inline onclick="...feature-in-development..." or addEventListener) is
++  // dropped. The clone keeps href/markup so Ctrl/Cmd/middle-click still open
++  // /app/notification-log natively. We then own the (single) click handler.
++  function adoptBell(orig) {
++    var clone = orig.cloneNode(true);
++    clone.removeAttribute('onclick');
++    clone.setAttribute('data-ec-nc', '1');
++    if (orig.parentNode) { orig.parentNode.replaceChild(clone, orig); return clone; }
++    return orig;
++  }
++
+   var S = { items: [], unread: 0, open: false, interacted: false };
+   var bell, badgeEl, pop, listEl;
+ 
+@@ -64,9 +87,12 @@
+     var st = document.createElement('style');
+     st.id = 'ec-nc-css';
+     st.textContent =
+-      // unread count badge attached to the native bell (absolute -> no header shift)
+-      '.ec-nc-badge{position:absolute;top:3px;right:4px;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--pink,#EF7CAF);color:#fff;font-size:10px;font-weight:700;line-height:15px;text-align:center;border:2px solid #fff;display:none;pointer-events:none;box-sizing:border-box;}' +
++      // unread count badge anchored to the bell's top-right corner (absolute -> no
++      // header shift). 1-9 = ~16px circle; 9+ = ~21px pill (.ec-nc-badge--pill);
++      // 9-10px semibold; ~2px white ring; existing --pink token; hidden when 0.
++      '.ec-nc-badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0;border-radius:8px;background:var(--pink,#EF7CAF);color:#fff;font-size:9.5px;font-weight:600;line-height:16px;text-align:center;border:2px solid #fff;display:none;pointer-events:none;box-sizing:border-box;font-family:inherit;}' +
+       '.ec-nc-badge.on{display:block;}' +
++      '.ec-nc-badge--pill{min-width:21px;padding:0 4px;}' +
+       // dropdown/popover: white card, light gray border, soft shadow, system radius
+       '.ec-nc-pop{position:fixed;z-index:1000;width:360px;max-width:92vw;max-height:72vh;background:#fff;border:1px solid var(--gray-200,#e5e7eb);border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.10);display:none;flex-direction:column;overflow:hidden;font-family:inherit;}' +
+       '.ec-nc-pop.on{display:flex;}' +
+@@ -95,9 +121,12 @@
+   }
+ 
+   // ---- badge mounted onto the native bell (static .dot hidden) -------------
++  // Idempotent: remove any prior badge first so a re-render never stacks badges.
+   function mountBadge() {
+     var dot = bell.querySelector('.dot');
+     if (dot) { dot.style.display = 'none'; }      // replace the placeholder dot
++    var prev = bell.querySelector('.ec-nc-badge');
++    if (prev && prev.parentNode) { prev.parentNode.removeChild(prev); }
+     badgeEl = document.createElement('span');
+     badgeEl.className = 'ec-nc-badge';
+     badgeEl.setAttribute('aria-hidden', 'true');
+@@ -105,8 +134,12 @@
+   }
+ 
+   function buildPop() {
++    // Idempotent: drop any prior dropdown so navigation/re-render never duplicates it.
++    var prev = document.getElementById('ec-nc-pop-root');
++    if (prev && prev.parentNode) { prev.parentNode.removeChild(prev); }
+     pop = document.createElement('div');
+     pop.className = 'ec-nc-pop';
++    pop.id = 'ec-nc-pop-root';
+     pop.setAttribute('role', 'dialog');
+     pop.setAttribute('aria-label', 'Thông báo');
+     pop.innerHTML =
+@@ -132,10 +165,19 @@
+     if (b) b.textContent = isMuted() ? 'Bật âm' : 'Tắt âm';
+   }
+ 
++  // 0 -> fully hidden; 1-9 -> circle; >9 -> '9+' pill (capped, no header shift).
+   function renderBadge() {
+     if (!badgeEl) return;
+-    if (S.unread > 0) { badgeEl.textContent = S.unread > 9 ? '9+' : S.unread; badgeEl.classList.add('on'); }
+-    else { badgeEl.classList.remove('on'); }
++    if (S.unread > 0) {
++      var pill = S.unread > 9;
++      badgeEl.textContent = pill ? '9+' : String(S.unread);
++      badgeEl.classList.toggle('ec-nc-badge--pill', pill);
++      badgeEl.classList.add('on');
++    } else {
++      badgeEl.classList.remove('on');
++      badgeEl.classList.remove('ec-nc-badge--pill');
++      badgeEl.textContent = '';
++    }
+   }
+ 
+   function renderList() {
+@@ -263,8 +305,9 @@
+   });
+ 
+   function init() {
+-    bell = findBell();
+-    if (!bell) { console.warn('[ec-notification-center] native header bell not found; no bell rendered'); return; }
++    var native = findBell();
++    if (!native) { console.warn('[ec-notification-center] native header bell not found; no bell rendered'); return; }
++    bell = adoptBell(native);   // strips the legacy "feature-in-development" handler
+     injectCss();
+     mountBadge();
+     buildPop();
+@@ -274,6 +317,10 @@
+       // middle-click and "open in new tab" all keep their native behaviour.
+       if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) { return; }
+       ev.preventDefault();
++      // stop bubbling so any legacy DOCUMENT-level delegated handler (the old
++      // "feature-in-development" toast) can never also fire on a plain left-click.
++      ev.stopPropagation();
++      if (ev.stopImmediatePropagation) { ev.stopImmediatePropagation(); }
+       S.interacted = true;
+       toggle();
+     });
+@@ -286,7 +333,7 @@
+     window.addEventListener('scroll', function () { if (S.open) close(); }, true);
+     refreshCount();
+     if (!wireRealtime()) { setInterval(refreshCount, POLL_MS); }
+-    console.log('[ec-notification-center] installed (reuses native bell)');
++    console.log('[ec-notification-center] installed (global loader, reuses native bell)');
+   }
+ 
+   if (document.readyState === 'loading') {
+-- 
+2.34.1
+
+
+From d7be123feb3a9e2634d4d012f39555c856c1278b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ho=C3=A0n=20Tr=E1=BA=A7n?= <hoantn801@gmail.com>
+Date: Fri, 19 Jun 2026 18:25:31 +0000
+Subject: [PATCH 2/2] Notification Center: retire homepage loader + prove
+ handler neutralization
+
+Addresses the three review points on the global-shell change.
+
+1. Retire the homepage-only loader (no double-load):
+   * NEW cleanup patch p002_retire_homepage_bell_loader removes the
+     <script id="ec-notification-center">...</script><!-- /ec-notification-center -->
+     block that p001 injected into the homepage Web Page record. Idempotent,
+     Action-Center-safe (anchor count preserved), fail-safe. Registered AFTER p001.
+   * Requires a ONE-TIME 'bench migrate' on deploy. After migrate, /home -- like
+     every other page -- loads the asset exactly once (the install guard is now
+     only defence-in-depth, not the de-dup mechanism).
+
+2. Legacy 'feature in development' handler neutralization, proven (not string-only):
+   * adoptBell() clone+replace drops addEventListener listeners AND the onclick
+     property handler; removeAttribute('onclick') drops the inline attribute.
+   * stopPropagation/stopImmediatePropagation now run on EVERY bell click so a
+     document-level delegated legacy handler can never fire; native nav is kept for
+     modifier/middle-click (we never preventDefault there).
+   * NEW bell_click_check.js executes the real asset against a bubbling mini-DOM and
+     proves, per route (/home, /overview, /approval): plain left-click opens the
+     dropdown + fires NO legacy handler (inline/property/addEventListener/delegated)
+     + cancels native nav; Ctrl/middle-click keep native nav and open nothing; Desk
+     /app and a public no-bell page stay inert.
+
+Tests: 55 pass (36 original + 19 new), incl. both node runtime harnesses.
+---
+ .../p002_retire_homepage_bell_loader.py       | 105 ++++++++++
+ .../tests/bell_click_check.js                 | 185 ++++++++++++++++++
+ .../tests/test_notification_center.py         |  83 +++++++-
+ ecentric_workspace/patches.txt                |   1 +
+ .../public/js/notification_center.js          |  10 +-
+ 5 files changed, 372 insertions(+), 12 deletions(-)
+ create mode 100644 ecentric_workspace/notification_center/patches/p002_retire_homepage_bell_loader.py
+ create mode 100644 ecentric_workspace/notification_center/tests/bell_click_check.js
+
+diff --git a/ecentric_workspace/notification_center/patches/p002_retire_homepage_bell_loader.py b/ecentric_workspace/notification_center/patches/p002_retire_homepage_bell_loader.py
+new file mode 100644
+index 0000000..aacc2b5
+--- /dev/null
++++ b/ecentric_workspace/notification_center/patches/p002_retire_homepage_bell_loader.py
+@@ -0,0 +1,105 @@
++# Copyright (c) 2026, eCentric and contributors
++"""p002_retire_homepage_bell_loader: remove the homepage-only Notification Center
++bell <script> loader that p001 inserted into the homepage Web Page record.
++
++Why: the Notification Center asset is now loaded GLOBALLY for every website page via
++the `web_include_js` hook (hooks.py). The per-homepage <script> that p001 injected is
++therefore redundant; left in place it would load the asset TWICE on /home (once from
++the Web Page record, once from web_include_js). We retire it so /home -- like every
++other page -- loads the asset exactly once. (The single-install guard in the asset is
++defence-in-depth, NOT the de-duplication mechanism.)
++
++Deployment classification: DATA MIGRATION (listed in patches.txt; one-time
++`bench migrate` runs it). NO schema change. Only the homepage Web Page record is
++mutated, and ONLY the Notification Center loader block is removed.
++
++Design (mirrors p001):
++  * Removes exactly the block p001 inserted: the
++        <script id="ec-notification-center" ...></script><!-- /ec-notification-center -->
++    loader. The Action Center widget markup and any other content are untouched.
++  * Idempotent: if the bell marker is absent -> no-op (safe to re-run / safe if p001
++    never ran on this site).
++  * Fail-safe sanity: after removal the bell marker must be gone and the Action Center
++    anchor must still be present and unchanged in count.
++  * Uses doc.save(ignore_permissions=True) so Web Page on_update hooks run once.
++"""
++
++import re
++
++import frappe
++
++WP_ROUTE = "home"
++WP_NAME_KNOWN = "ecentric-workspace"
++
++# Markers owned by notification_center p001.
++BELL_MARKER = '<script id="ec-notification-center"'
++BELL_CLOSE_COMMENT = "<!-- /ec-notification-center -->"
++# Action Center anchor that must NEVER be touched by this patch.
++AC_ANCHOR = "<!-- /ec-action-center-widget -->"
++
++TARGET_FIELDS = ("main_section", "main_section_html")
++
++# Remove the NC <script ...></script> plus an optional trailing close comment.
++# Non-greedy to the first </script>; tolerant of attribute/whitespace variance.
++_REMOVE_RE = re.compile(
++    r'<script id="ec-notification-center".*?</script>\s*(?:<!-- /ec-notification-center -->)?',
++    re.DOTALL,
++)
++
++
++def _resolve_wp_name():
++    if frappe.db.exists("Web Page", WP_NAME_KNOWN):
++        return WP_NAME_KNOWN
++    rows = frappe.get_all("Web Page", filters={"route": WP_ROUTE},
++                          fields=["name"], limit_page_length=1)
++    if rows:
++        return rows[0]["name"]
++    # Nothing to clean (no homepage Web Page on this site) -> treat as no-op.
++    return None
++
++
++def _strip(body):
++    """Return body with the NC loader block removed (idempotent)."""
++    if BELL_MARKER not in body:
++        return body, False
++    ac_before = body.count(AC_ANCHOR)
++    out = _REMOVE_RE.sub("", body)
++    if BELL_MARKER in out:
++        raise frappe.ValidationError(
++            "p002_retire_bell: NC loader still present after strip -- aborting.")
++    if out.count(AC_ANCHOR) != ac_before:
++        raise frappe.ValidationError(
++            "p002_retire_bell: Action Center anchor count changed -- aborting.")
++    return out, True
++
++
++def execute():
++    wp_name = _resolve_wp_name()
++    if not wp_name:
++        _log("p002_retire_bell: no homepage Web Page; no-op")
++        return
++    wp = frappe.get_doc("Web Page", wp_name)
++
++    changed_fields = []
++    for f in TARGET_FIELDS:
++        cur = getattr(wp, f, None) or ""
++        new, changed = _strip(cur)
++        if changed:
++            setattr(wp, f, new)
++            changed_fields.append(f)
++
++    if not changed_fields:
++        _log("p002_retire_bell: bell loader already absent; no-op on " + wp_name)
++        return
++
++    wp.save(ignore_permissions=True)
++    frappe.clear_cache(doctype="Web Page")
++    _log("p002_retire_bell: removed homepage bell loader on " + wp_name
++         + " (fields=" + str(changed_fields) + ")")
++
++
++def _log(msg):
++    try:
++        frappe.logger("notification_center").info(msg)
++    except Exception:
++        pass
+diff --git a/ecentric_workspace/notification_center/tests/bell_click_check.js b/ecentric_workspace/notification_center/tests/bell_click_check.js
+new file mode 100644
+index 0000000..aeb96d3
+--- /dev/null
++++ b/ecentric_workspace/notification_center/tests/bell_click_check.js
+@@ -0,0 +1,185 @@
++// Click-behaviour proof for the Notification Center global asset.
++// Executes the REAL asset against a mini-DOM that models event BUBBLING, the onclick
++// PROPERTY handler, the inline onclick ATTRIBUTE, addEventListener listeners and a
++// DOCUMENT-level delegated handler. For each shell route it proves:
++//   * plain left-click  -> opens the NC dropdown, fires NO legacy handler (any form),
++//                          and cancels native nav (preventDefault)
++//   * Ctrl-click / middle-click -> does NOT open the dropdown, keeps native nav
++//                          (no preventDefault), still fires NO legacy handler
++//   * Frappe Desk (/app/...) and a public page with no bell -> fully inert, no error
++//
++//   node ecentric_workspace/notification_center/tests/bell_click_check.js
++'use strict';
++const fs = require('fs');
++const path = require('path');
++const SRC = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'js', 'notification_center.js'), 'utf8');
++
++let failures = 0;
++function ok(c, m) { if (!c) { failures++; console.error('FAIL: ' + m); } else { console.log('ok  - ' + m); } }
++
++function mkClassList() {
++  const set = new Set();
++  return { add: (...c) => c.forEach(x => set.add(x)), remove: (...c) => c.forEach(x => set.delete(x)),
++    toggle: (c, on) => { const v = on === undefined ? !set.has(c) : !!on; v ? set.add(c) : set.delete(c); return v; },
++    contains: (c) => set.has(c) };
++}
++class El {
++  constructor(tag) { this.tagName = (tag || 'div').toUpperCase(); this.children = []; this.parentNode = null;
++    this.attrs = {}; this.style = {}; this.classList = mkClassList(); this.textContent = ''; this.id = '';
++    this._l = {}; this.onclick = null; }
++  set className(v) { this._cn = v; String(v || '').split(/\s+/).filter(Boolean).forEach(c => this.classList.add(c)); }
++  get className() { return this._cn || ''; }
++  setAttribute(k, v) { this.attrs[k] = String(v); if (k === 'id') this.id = String(v); }
++  getAttribute(k) { return this.attrs[k] === undefined ? null : this.attrs[k]; }
++  removeAttribute(k) { delete this.attrs[k]; }
++  set innerHTML(v) { this._html = v; this.children = []; const re = /id="([^"]+)"/g; let m;
++    while ((m = re.exec(v))) { const e = new El('div'); e.setAttribute('id', m[1]); this.appendChild(e); } }
++  get innerHTML() { return this._html || ''; }
++  appendChild(c) { c.parentNode = this; this.children.push(c); return c; }
++  removeChild(c) { const i = this.children.indexOf(c); if (i >= 0) this.children.splice(i, 1); c.parentNode = null; return c; }
++  replaceChild(nw, old) { const i = this.children.indexOf(old); if (i >= 0) { this.children[i] = nw; nw.parentNode = this; old.parentNode = null; } return old; }
++  cloneNode() { const e = new El(this.tagName); e.attrs = Object.assign({}, this.attrs); e._cn = this._cn;
++    String(this._cn || '').split(/\s+/).filter(Boolean).forEach(c => e.classList.add(c)); e.id = this.id; return e; }
++  contains(n) { if (n === this) return true; return this.children.some(c => c.contains && c.contains(n)); }
++  addEventListener(t, fn) { (this._l[t] = this._l[t] || []).push(fn); }
++  focus() {}
++  getBoundingClientRect() { return { bottom: 40, right: 200, top: 10, left: 180 }; }
++  querySelector(sel) { return this._find(sel, false); }
++  querySelectorAll(sel) { return this._find(sel, true); }
++  _find(sel, all) { const acc = []; const walk = (n) => n.children.forEach(c => { if (c._match(sel)) acc.push(c); walk(c); }); walk(this); return all ? acc : (acc[0] || null); }
++  _match(sel) {
++    if (sel === '.dot') return this.classList.contains('dot');
++    if (sel === '.ec-nc-badge') return this.classList.contains('ec-nc-badge');
++    if (sel === '#ec-nc-list') return this.id === 'ec-nc-list';
++    if (sel === '#ec-nc-allread') return this.id === 'ec-nc-allread';
++    if (sel === '#ec-nc-mute') return this.id === 'ec-nc-mute';
++    return false;
++  }
++}
++
++function makeDoc() {
++  const head = new El('head'); const body = new El('body');
++  const byId = {}; const docL = {}; let theBell = null;
++  const register = (c) => { if (c.id) byId[c.id] = c; };
++  const _h = head.appendChild.bind(head); head.appendChild = (c) => { register(c); return _h(c); };
++  const _b = body.appendChild.bind(body); body.appendChild = (c) => { register(c); return _b(c); };
++  const document = {
++    readyState: 'complete', head, body, _docL: docL,
++    createElement: (t) => new El(t),
++    getElementById: (id) => byId[id] || null,
++    addEventListener: (t, fn) => { (docL[t] = docL[t] || []).push(fn); },
++    querySelector: (sel) => (sel.indexOf('notification-log') >= 0 ? theBell : null),
++    querySelectorAll: () => [],
++    setBell: (b) => { theBell = b; },
++  };
++  return document;
++}
++
++// Dispatch a click that BUBBLES target -> ancestors -> document, honouring
++// stopPropagation / stopImmediatePropagation, the onclick property, the inline
++// onclick attribute (legacy), and addEventListener listeners.
++function dispatchClick(document, target, init) {
++  init = init || {};
++  const ev = { type: 'click', target, button: init.button || 0,
++    metaKey: !!init.metaKey, ctrlKey: !!init.ctrlKey, shiftKey: !!init.shiftKey, altKey: !!init.altKey,
++    defaultPrevented: false, _stop: false, _stopImm: false,
++    preventDefault() { this.defaultPrevented = true; },
++    stopPropagation() { this._stop = true; },
++    stopImmediatePropagation() { this._stop = true; this._stopImm = true; } };
++  const path = []; let n = target; while (n) { path.push(n); n = n.parentNode; } path.push(document);
++  for (const node of path) {
++    // inline onclick attribute (legacy) fires first on the element, like a browser
++    if (node.getAttribute && node.getAttribute('onclick') && node._inlineHandler) node._inlineHandler(ev);
++    const ls = (node._l && node._l.click) || (node._docL && node._docL.click) || [];
++    for (const fn of ls.slice()) { fn(ev); if (ev._stopImm) break; }
++    if (node.onclick) node.onclick(ev);
++    if (ev._stop) break;
++  }
++  return ev;
++}
++
++function buildEnv(pathname, withBell) {
++  const document = makeDoc();
++  const root = new El('div'); document.body.appendChild(root);
++  let bell = null, legacy = { inline: 0, prop: 0, addEL: 0, delegated: 0 };
++  if (withBell) {
++    bell = new El('a'); bell.setAttribute('href', '/app/notification-log'); bell.className = 'icon-btn';
++    const dot = new El('span'); dot.className = 'dot'; bell.appendChild(dot);
++    root.appendChild(bell);
++    document.setBell(bell);
++    // LEGACY "feature in development" handler installed in ALL forms:
++    bell.setAttribute('onclick', "ecToast('Tính năng đang phát triển')");   // inline attribute
++    bell._inlineHandler = () => { legacy.inline++; };                       // its effect
++    bell.onclick = () => { legacy.prop++; };                                // property handler
++    bell.addEventListener('click', () => { legacy.addEL++; });              // addEventListener
++    document.addEventListener('click', (e) => {                            // document-delegated
++      let t = e.target; let hit = false; while (t) { if (t === bell || (t.getAttribute && t.getAttribute('data-ec-nc'))) { hit = true; break; } t = t.parentNode; }
++      if (hit) legacy.delegated++;
++    });
++  }
++  const calls = [];
++  const win = { location: { pathname }, addEventListener: () => {},
++    localStorage: { _s: {}, getItem(k){ return k in this._s ? this._s[k] : null; }, setItem(k,v){ this._s[k]=String(v); } },
++    frappe: { call: (o) => { calls.push(o);
++      if (o.method.endsWith('get_unread_count') && o.callback) o.callback({ message: { success: true, unread: 3 } });
++      if (o.method.endsWith('get_notifications') && o.callback) o.callback({ message: { success: true, unread: 3, items: [] } });
++    } }, AudioContext: null };
++  win.window = win;
++  return { document, win, root, bell, legacy, calls };
++}
++
++function run(env) { new Function('window', 'document', 'console', SRC)(env.win, env.document, console); }
++function adoptedBell(env) { return env.root.children.find(c => c.getAttribute && c.getAttribute('data-ec-nc') === '1'); }
++function popOpen(env) { const p = env.document.getElementById('ec-nc-pop-root'); return !!(p && p.classList.contains('on')); }
++
++['/home', '/overview', '/approval'].forEach(function (route) {
++  const env = buildEnv(route, true);
++  run(env);
++  const bell = adoptedBell(env);
++  ok(!!bell, route + ': native bell adopted (clean clone in DOM)');
++  ok(bell.getAttribute('onclick') === null, route + ': inline onclick attribute removed');
++  ok(!bell.onclick, route + ': onclick property handler not present on clone');
++  ok(((bell._l && bell._l.click) || []).length === 1, route + ': only the asset click handler on the bell (legacy addEventListener dropped)');
++
++  // ---- plain left-click ----
++  let ev = dispatchClick(env.document, bell, { button: 0 });
++  ok(popOpen(env) === true, route + ': plain left-click OPENS the NC dropdown');
++  ok(ev.defaultPrevented === true, route + ': plain left-click cancels native nav (preventDefault)');
++  ok(env.legacy.inline === 0 && env.legacy.prop === 0 && env.legacy.addEL === 0 && env.legacy.delegated === 0,
++     route + ': plain left-click fires NO legacy handler (no "đang phát triển" toast)');
++
++  // close again before modifier tests
++  dispatchClick(env.document, env.document.body, { button: 0 });
++
++  // ---- Ctrl-click (open in new tab / native) ----
++  const before = Object.assign({}, env.legacy);
++  ev = dispatchClick(env.document, bell, { button: 0, ctrlKey: true });
++  ok(popOpen(env) === false, route + ': Ctrl-click does NOT open the dropdown');
++  ok(ev.defaultPrevented === false, route + ': Ctrl-click keeps native /app/notification-log nav');
++  ok(env.legacy.inline === before.inline && env.legacy.prop === before.prop && env.legacy.addEL === before.addEL && env.legacy.delegated === before.delegated,
++     route + ': Ctrl-click fires NO legacy handler');
++
++  // ---- middle-click ----
++  ev = dispatchClick(env.document, bell, { button: 1 });
++  ok(popOpen(env) === false, route + ': middle-click does NOT open the dropdown');
++  ok(ev.defaultPrevented === false, route + ': middle-click keeps native nav');
++});
++
++// Frappe Desk: inert
++(function () {
++  const env = buildEnv('/app/build', true);
++  run(env);
++  ok(adoptedBell(env) === undefined && env.calls.length === 0, '/app/* (Frappe Desk): asset inert (no adopt, no API, no Desk bind)');
++})();
++
++// public page with no eCentric bell: no error, inert
++(function () {
++  const env = buildEnv('/login', false);
++  let threw = false; try { run(env); } catch (e) { threw = true; }
++  ok(!threw, '/login (no bell): asset loads without error');
++  ok(env.calls.length === 0, '/login (no bell): asset stays inert');
++})();
++
++if (failures) { console.error('\n' + failures + ' assertion(s) FAILED'); process.exit(1); }
++console.log('\nAll click-behaviour assertions passed.');
++process.exit(0);
+diff --git a/ecentric_workspace/notification_center/tests/test_notification_center.py b/ecentric_workspace/notification_center/tests/test_notification_center.py
+index 327a97d..fc82903 100644
+--- a/ecentric_workspace/notification_center/tests/test_notification_center.py
++++ b/ecentric_workspace/notification_center/tests/test_notification_center.py
+@@ -504,12 +504,16 @@ class TestGlobalShellLoader(unittest.TestCase):
+         self.assertNotIn(".indexOf('/app') === 0", self.js)
+ 
+     def test_no_per_page_patch_created(self):
+-        # global loader must NOT be implemented as a DB patch per page: the only
+-        # notification_center patch is still the original homepage p001.
++        # The global loader must NOT be implemented as a DB patch per page. The only
++        # notification_center patches are the original homepage p001 and the SINGLE
++        # architecture-migration cleanup p002 (homepage-only -> global). No more.
+         pdir = os.path.join(_pkg_root(), "notification_center", "patches")
+         pyfiles = sorted(f for f in os.listdir(pdir)
+                          if f.endswith(".py") and f != "__init__.py")
+-        self.assertEqual(pyfiles, ["p001_homepage_notification_bell.py"])
++        self.assertEqual(pyfiles, [
++            "p001_homepage_notification_bell.py",
++            "p002_retire_homepage_bell_loader.py",
++        ])
+ 
+     # ---- badge redesign ----
+     def test_badge_hidden_when_zero(self):
+@@ -573,11 +577,74 @@ class TestDomRuntime(unittest.TestCase):
+         node = shutil.which("node")
+         if not node:
+             self.skipTest("node not available")
+-        harness = os.path.join(_pkg_root(), "notification_center", "tests",
+-                               "dom_runtime_check.js")
+-        proc = subprocess.run([node, harness], capture_output=True, text=True, timeout=60)
+-        self.assertEqual(proc.returncode, 0,
+-                         "DOM runtime assertions failed:\n" + proc.stdout + proc.stderr)
++        for harness_name in ("dom_runtime_check.js", "bell_click_check.js"):
++            harness = os.path.join(_pkg_root(), "notification_center", "tests",
++                                   harness_name)
++            proc = subprocess.run([node, harness], capture_output=True, text=True, timeout=60)
++            self.assertEqual(proc.returncode, 0,
++                             harness_name + " assertions failed:\n" + proc.stdout + proc.stderr)
++
++
++
++class TestRetireHomepageLoaderPatch(unittest.TestCase):
++    """p002 retires the homepage-only NC <script> (now redundant under the global
++    web_include_js loader) so /home loads the asset exactly once -- WITHOUT touching
++    Action Center, and idempotently (the p001 script already ran in production)."""
++
++    BELL_LOADER = (
++        '<script id="ec-notification-center" '
++        'src="/assets/ecentric_workspace/js/notification_center.js" '
++        'defer></script><!-- /ec-notification-center -->')
++    AC = "<!-- /ec-action-center-widget -->"
++
++    def setUp(self):
++        _reset()
++        from ecentric_workspace.notification_center.patches import (
++            p002_retire_homepage_bell_loader as p)
++        self.p = p
++
++    def _wp(self, body):
++        FR._webpages["ecentric-workspace"] = {
++            "route": "home", "main_section": body, "main_section_html": body}
++
++    def test_removes_bell_loader_idempotent(self):
++        body = "<div>AC widget</div>" + self.AC + self.BELL_LOADER + "<div>tail</div>"
++        self._wp(body)
++        self.p.execute()
++        out = FR._webpages["ecentric-workspace"]["main_section"]
++        self.assertNotIn('<script id="ec-notification-center"', out)
++        self.assertIn(self.AC, out)                       # Action Center untouched
++        self.assertIn("<div>AC widget</div>", out)
++        self.assertIn("<div>tail</div>", out)
++        # second run is a clean no-op (still no bell loader, AC intact).
++        self.p.execute()
++        out2 = FR._webpages["ecentric-workspace"]["main_section"]
++        self.assertNotIn('<script id="ec-notification-center"', out2)
++        self.assertIn(self.AC, out2)
++
++    def test_noop_when_loader_absent(self):
++        body = "<div>AC widget</div>" + self.AC + "<div>tail</div>"
++        self._wp(body)
++        self.p.execute()
++        out = FR._webpages["ecentric-workspace"]["main_section"]
++        self.assertEqual(out, body)                       # nothing changed
++
++    def test_action_center_anchor_count_preserved(self):
++        body = self.AC + self.BELL_LOADER + self.AC       # two AC anchors
++        self._wp(body)
++        self.p.execute()
++        out = FR._webpages["ecentric-workspace"]["main_section"]
++        self.assertEqual(out.count(self.AC), 2)
++        self.assertNotIn('<script id="ec-notification-center"', out)
++
++    def test_registered_after_p001(self):
++        lines = _read("patches.txt").splitlines()
++        p1 = [i for i, l in enumerate(lines)
++              if "notification_center.patches.p001_homepage_notification_bell" in l]
++        p2 = [i for i, l in enumerate(lines)
++              if "notification_center.patches.p002_retire_homepage_bell_loader" in l]
++        self.assertTrue(p1 and p2, "both NC patch entries must be present")
++        self.assertGreater(p2[0], p1[0], "p002 must run AFTER p001")
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/ecentric_workspace/patches.txt b/ecentric_workspace/patches.txt
+index f505566..b3e25fc 100644
+--- a/ecentric_workspace/patches.txt
++++ b/ecentric_workspace/patches.txt
+@@ -20,3 +20,4 @@ ecentric_workspace.alerts.patches.p005_backfill_order_log_brand_from_shop
+ ecentric_workspace.weekly_report.patches.p001_wtu_obligation_fields
+ ecentric_workspace.action_center.patches.p001_homepage_action_center
+ ecentric_workspace.notification_center.patches.p001_homepage_notification_bell
++ecentric_workspace.notification_center.patches.p002_retire_homepage_bell_loader
+diff --git a/ecentric_workspace/public/js/notification_center.js b/ecentric_workspace/public/js/notification_center.js
+index cb3d6a8..fe48818 100644
+--- a/ecentric_workspace/public/js/notification_center.js
++++ b/ecentric_workspace/public/js/notification_center.js
+@@ -312,15 +312,17 @@
+     mountBadge();
+     buildPop();
+     bell.addEventListener('click', function (ev) {
++      // Defeat any legacy DOCUMENT-level delegated handler (the old
++      // "feature-in-development" toast) for EVERY click type by stopping the event
++      // before it can reach document. This does NOT cancel native navigation -- that
++      // is controlled by preventDefault (below), which we only call on a plain click.
++      ev.stopPropagation();
++      if (ev.stopImmediatePropagation) { ev.stopImmediatePropagation(); }
+       // Only hijack a PLAIN left click. Ctrl/Cmd/Shift/Alt + any non-primary button
+       // fall through to the native href (/app/notification-log) -> open-in-new-tab,
+       // middle-click and "open in new tab" all keep their native behaviour.
+       if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) { return; }
+       ev.preventDefault();
+-      // stop bubbling so any legacy DOCUMENT-level delegated handler (the old
+-      // "feature-in-development" toast) can never also fire on a plain left-click.
+-      ev.stopPropagation();
+-      if (ev.stopImmediatePropagation) { ev.stopImmediatePropagation(); }
+       S.interacted = true;
+       toggle();
+     });
+-- 
+2.34.1
+

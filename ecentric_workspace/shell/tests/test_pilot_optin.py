@@ -7,13 +7,32 @@ import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP = os.path.dirname(os.path.dirname(HERE))
-FRONTEND = os.path.join(APP, "approval_center", "frontend")
+REPO = os.path.dirname(APP)
+# The module refactor moved approval pages out of the flat
+# approval_center/frontend/ into approval_center/features/<slug>/ui/ (+ the hub
+# under approval_center/ui/). Resolve them through the SAME discovery the
+# static-fallback regenerator uses, so this suite can never silently cover an
+# empty directory again.
+from ecentric_workspace.shell import fallback as _fb   # noqa: E402
+_PAGE_PATHS = {slug + ".main_section.html": path
+               for slug, path in _fb._approval_page_files(REPO)}
+
+
+def _page_names():
+    return sorted(_PAGE_PATHS)
+
+
+def _page(fname):
+    with open(_PAGE_PATHS[fname], encoding="utf-8") as fh:
+        return fh.read()
 # All migrated (shell-opted-in) pages: 1B pilots + 1C-alpha Batch A.
 PILOT = {
-    "approvals.main_section.html",
+    "hub.main_section.html",
+    # added by the module refactor: the All-requests page ships shell-opted-in
+    "all_requests.main_section.html",
     "leave.main_section.html",
     "hr_activity.main_section.html",
-    "approvals_dashboard.main_section.html",
+    "dashboard.main_section.html",
     "lateral_move.main_section.html",
     "promotion.main_section.html",
     "employee_referral.main_section.html",
@@ -53,10 +72,10 @@ def _read(*parts):
 
 class TestOptIn(unittest.TestCase):
     def test_marker_exactly_on_pilot_pages(self):
-        for fname in sorted(os.listdir(FRONTEND)):
+        for fname in _page_names():
             if not fname.endswith(".html"):
                 continue
-            n = _read(FRONTEND, fname).count(MARKER)
+            n = _page(fname).count(MARKER)
             if fname in PILOT:
                 self.assertEqual(n, 1, "%s must carry exactly one marker" % fname)
             else:
@@ -66,7 +85,7 @@ class TestOptIn(unittest.TestCase):
         # Smoothness Stabilization: fallback = COMPLETE server-rendered shell
         # (same registry, same classes) -- visible from first paint.
         for fname in PILOT:
-            src = _read(FRONTEND, fname)
+            src = _page(fname)
             self.assertIn('ec-shell-fallback', src, fname)
             for marker in ('class="ec-shell-head"', "ec-shell-search-in",
                            'class="ec-shell-foot"', "ec-shell-grouplabel",
@@ -76,20 +95,24 @@ class TestOptIn(unittest.TestCase):
 
     def test_pilot_pages_lost_embedded_sidebar(self):
         for fname in PILOT:
-            self.assertNotIn('<aside class="ec-sidebar">', _read(FRONTEND, fname), fname)
+            self.assertNotIn('<aside class="ec-sidebar">', _page(fname), fname)
 
     def test_hr_activity_wrong_active_link_gone(self):
-        src = _read(FRONTEND, "hr_activity.main_section.html")
+        src = _page("hr_activity.main_section.html")
         self.assertNotIn('nav-item active" href="/approvals/outside-work"', src)
 
 
 class TestShellAssets(unittest.TestCase):
-    def test_js_emits_frozen_bell_contract(self):
+    def test_no_bell_emitted_nc_internals_not_reimplemented(self):
+        """Header contract 2026-08-20: the shell emits NO standalone bell -- the
+        notification lane lives inside the "Việc của tôi" drawer and READS the
+        governed NC endpoints. Reading a whitelisted API is not reimplementing
+        NC: its markup, styling and delivery (realtime/toast/sound/desktop)
+        must still be owned entirely by notification_center.js."""
         js = _read(APP, "public", "js", "ec_shell.js")
-        self.assertIn(BELL, js)
-        # must not reimplement NC internals
-        for forbidden in ("ec-nc-", "mark_read", "get_notifications", "notification_center.api"):
-            self.assertNotIn(forbidden, js)
+        self.assertNotIn(BELL, js)
+        for forbidden in ("ec-nc-", "buildPop", "wireRealtime", "desktopAllowed"):
+            self.assertNotIn(forbidden, js, forbidden)
 
     def test_js_single_global_and_guards(self):
         js = _read(APP, "public", "js", "ec_shell.js")
@@ -121,8 +144,17 @@ class TestShellAssets(unittest.TestCase):
 
     def test_hooks_include_both_assets_and_keep_nc_first(self):
         hooks = _read(APP, "hooks.py")
-        self.assertIn('web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js"]', hooks)
-        self.assertIn('web_include_css = ["ec_shell.bundle.css"]', hooks)
+        # Both shell assets ship site-wide and NC must load FIRST (it owns
+        # notification delivery). Additional bundles may follow (ec_datepicker),
+        # so assert membership + order rather than an exact list literal.
+        import re as _re
+        js = _re.search(r"web_include_js = \[(.*?)\]", hooks, _re.S).group(1)
+        css = _re.search(r"web_include_css = \[(.*?)\]", hooks, _re.S).group(1)
+        self.assertIn('"notification_center.bundle.js"', js)
+        self.assertIn('"ec_shell.bundle.js"', js)
+        self.assertLess(js.index('"notification_center.bundle.js"'),
+                        js.index('"ec_shell.bundle.js"'), "NC bundle must load first")
+        self.assertIn('"ec_shell.bundle.css"', css)
 
 
 class TestHeaderPolish(unittest.TestCase):
@@ -159,20 +191,20 @@ class TestHeaderPolish(unittest.TestCase):
 
     def test_header_right_slot_on_all_pilots_once(self):
         for fname in PILOT:
-            n = _read(FRONTEND, fname).count('data-ec-shell-header-right="1"')
+            n = _page(fname).count('data-ec-shell-header-right="1"')
             self.assertEqual(n, 1, "%s must carry exactly one header-right slot" % fname)
 
     def test_header_right_absent_on_non_pilots(self):
-        for fname in sorted(os.listdir(FRONTEND)):
+        for fname in _page_names():
             if fname.endswith(".html") and fname not in PILOT:
                 self.assertEqual(
-                    _read(FRONTEND, fname).count("data-ec-shell-header-right"), 0, fname)
+                    _page(fname).count("data-ec-shell-header-right"), 0, fname)
 
     def test_breadcrumb_parent_links_to_approvals(self):
         # Global Header phase: form pages = [Phê duyệt / Approval Center(link)
         # / <detail>]; the detail is the page-owned current element.
         for fname, current in self.CRUMB_PAGES.items():
-            src = _read(FRONTEND, fname)
+            src = _page(fname)
             self.assertIn('<a class="ec-shell-crumblink" href="/approvals">Approval Center</a>',
                           src, fname)
             self.assertIn('data-ec-shell-crumb-detail="1">%s</strong>' % current, src, fname)
@@ -181,31 +213,33 @@ class TestHeaderPolish(unittest.TestCase):
     def test_dashboard_breadcrumb_is_registry_current(self):
         # /approvals/dashboard is its OWN registry entry => current, no
         # self-link, label comes from the registry ("Dashboard")
-        src = _read(FRONTEND, "approvals_dashboard.main_section.html")
+        src = _page("dashboard.main_section.html")
         crumbs = src[src.index('data-ec-shell-crumbs="1"'):]
         crumbs = crumbs[:crumbs.index("</div>")]
         self.assertIn('<strong class="ec-shell-crumb-current">Dashboard</strong>', crumbs)
         self.assertNotIn("ec-shell-crumblink", crumbs)
 
     def test_hub_breadcrumb_is_current_not_self_linked(self):
-        src = _read(FRONTEND, "approvals.main_section.html")
+        src = _page("hub.main_section.html")
         self.assertIn('<strong class="ec-shell-crumb-current">Approval Center</strong>', src)
         self.assertEqual(src.count("ec-shell-crumblink"), 0,
                          "hub is the breadcrumb root; no parent link")
 
-    def test_bell_single_emission_point_in_js(self):
+    def test_no_bell_emission_point_in_js(self):
         js = _read(APP, "public", "js", "ec_shell.js")
         code = "\n".join(l for l in js.splitlines() if not l.strip().startswith("//"))
-        self.assertEqual(code.count(BELL), 1,
-                         "exactly ONE bell emission point (bellHtml)")
+        self.assertEqual(code.count(BELL), 0,
+                         "the bell emission point was removed (merged into the inbox)")
 
-    def test_pages_carry_exactly_one_static_bell(self):
-        # static bell lives in the header-right slot so NC works pre-hydration
+    def test_pages_carry_exactly_one_static_inbox_and_no_bell(self):
+        # the single inbox lives in the header-right slot so first paint matches
+        SLOT = 'data-ec-shell-action-slot="1"'
         for fname in PILOT:
-            src = _read(FRONTEND, fname)
-            self.assertEqual(src.count(BELL), 1, fname)
+            src = _page(fname)
+            self.assertEqual(src.count(BELL), 0, fname)
+            self.assertEqual(src.count(SLOT), 1, fname)
             i_tb = src.index('data-ec-shell-header-right="1"')
-            self.assertGreater(src.index(BELL), i_tb, fname + ": bell must be in tbright")
+            self.assertGreater(src.index(SLOT), i_tb, fname + ": inbox must be in tbright")
         js = _read(APP, "public", "js", "ec_shell.js")
         self.assertIn("renderHeaderRight", js)
         self.assertIn("{ bell: false }", js, "drawer must never render a bell")
@@ -311,6 +345,10 @@ class TestNavSearch(unittest.TestCase):
         # exactly three API endpoints in the whole shell: boot, catalog, logout
         import re
         eps = set(re.findall(r"/api/method/[a-zA-Z0-9_.]+", js))
+        # the notification lane reads the governed NC endpoints (session-scoped,
+        # already whitelisted, no business-record search) -- allowed by name.
+        eps = {e for e in eps if not e.startswith(
+            "/api/method/ecentric_workspace.notification_center.api")}
         self.assertEqual(eps, {
             "/api/method/ecentric_workspace.shell.api.get_shell_boot",
             "/api/method/ecentric_workspace.approval_center.api.catalog.list_catalog",

@@ -135,7 +135,7 @@ class TestMojibakeGuard(unittest.TestCase):
 
     def test_representative_vietnamese_intact(self):
         src = _read(LP, "approval_page", "main_section.html")
-        for w in ("Trang chủ", "Đang tải chi tiết", "Nhắc việc", "Cài đặt",
+        for w in ("Trang chủ", "Đang tải chi tiết", "Việc của tôi", "Cài đặt",
                   "Điều hướng eCentric"):
             self.assertIn(w, src, w)
 
@@ -158,7 +158,8 @@ class TestShellMigration(unittest.TestCase):
         self.assertEqual(src.count('<aside class="ec-sidebar">'), 0)
         self.assertIn('ec-shell-fallback', src)
         # exactly ONE static bell, inside the header-right slot
-        self.assertEqual(src.count('data-ec-notification-bell="1"'), 1)
+        self.assertEqual(src.count('data-ec-notification-bell="1"'), 0)
+        self.assertEqual(src.count('data-ec-shell-action-slot="1"'), 1)
         # functional topbar-left business elements retained
         for marker in ('id="pageTitle"', 'id="tkId"', 'id="tkStatus"',
                        'class="back-btn" href="/all-ticket"'):
@@ -175,7 +176,8 @@ class TestShellMigration(unittest.TestCase):
         self.assertEqual(src.count('data-ec-shell-header-right="1"'), 1)
         self.assertEqual(src.count('<aside class="ec-sb">'), 0)
         self.assertIn('ec-shell-fallback', src)
-        self.assertEqual(src.count('data-ec-notification-bell="1"'), 1)
+        self.assertEqual(src.count('data-ec-notification-bell="1"'), 0)
+        self.assertEqual(src.count('data-ec-shell-action-slot="1"'), 1)
         # hidden legacy .sidebar stays byte-present (dead markup, zero risk)
         self.assertIn('<aside class="sidebar">', src)
         self.assertIn('.dash-wrap > aside.sidebar { display: none !important; }', src)

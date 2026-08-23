@@ -14,10 +14,10 @@ def validate_affiliate(doc):
                if not str(doc.get(field) or "").strip()]
     if doc.total_amount is None: missing.append("total_amount")
     if doc.budget is None: missing.append("budget")
-    if missing: frappe.throw(_("Vui lÃƒÆ’Ã‚Â²ng nhÃƒÂ¡Ã‚ÂºÃ‚Â­p Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚ÂºÃ‚Â§y Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã‚Â§ cÃƒÆ’Ã‚Â¡c trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Âng bÃƒÂ¡Ã‚ÂºÃ‚Â¯t buÃƒÂ¡Ã‚Â»Ã¢â€žÂ¢c (bao gÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“m tÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡p Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â­nh kÃƒÆ’Ã‚Â¨m) trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºc khi gÃƒÂ¡Ã‚Â»Ã‚Â­i."))
+    if missing: frappe.throw(_("Vui lòng nhập đầy đủ các trường bắt buộc (bao gồm tệp đính kèm) trước khi gửi."))
     try:
-        if float(doc.total_amount) <= 0: frappe.throw(_("TÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¢ng sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ tiÃƒÂ¡Ã‚Â»Ã‚Ân phÃƒÂ¡Ã‚ÂºÃ‚Â£i lÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºn hÃƒâ€ Ã‚Â¡n 0."))
-        if float(doc.budget) < 0: frappe.throw(_("NgÃƒÆ’Ã‚Â¢n sÃƒÆ’Ã‚Â¡ch khÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ lÃƒÆ’Ã‚Â  sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ ÃƒÆ’Ã‚Â¢m."))
-    except (TypeError, ValueError): frappe.throw(_("GiÃƒÆ’Ã‚Â¡ trÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ tiÃƒÂ¡Ã‚Â»Ã‚Ân/ngÃƒÆ’Ã‚Â¢n sÃƒÆ’Ã‚Â¡ch khÃƒÆ’Ã‚Â´ng hÃƒÂ¡Ã‚Â»Ã‚Â£p lÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡."))
-    if getdate(doc.service_month).day != 1: frappe.throw(_("ThÃƒÆ’Ã‚Â¡ng dÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ch vÃƒÂ¡Ã‚Â»Ã‚Â¥ (Service month) phÃƒÂ¡Ã‚ÂºÃ‚Â£i lÃƒÆ’Ã‚Â  ngÃƒÆ’Ã‚Â y 1 cÃƒÂ¡Ã‚Â»Ã‚Â§a thÃƒÆ’Ã‚Â¡ng."))
+        if float(doc.total_amount) <= 0: frappe.throw(_("Tổng số tiền phải lớn hơn 0."))
+        if float(doc.budget) < 0: frappe.throw(_("Ngân sách không thể là số âm."))
+    except (TypeError, ValueError): frappe.throw(_("Giá trị số tiền/ngân sách không hợp lệ."))
+    if getdate(doc.service_month).day != 1: frappe.throw(_("Tháng dịch vụ (Service month) phải là ngày 1 của tháng."))
 

@@ -48,7 +48,9 @@ class TestDocPagesShell(unittest.TestCase):
             self.assertEqual(src.count('data-ec-shell="1"'), 1, slug)
             self.assertEqual(src.count('data-ec-shell-header-right="1"'), 1, slug)
             self.assertEqual(src.count('<aside class="ec-sb">'), 0, slug)
-            self.assertEqual(src.count('data-ec-notification-bell="1"'), 1, slug)
+            # header contract 2026-08-20: bell merged into the inbox
+            self.assertEqual(src.count('data-ec-notification-bell="1"'), 0, slug)
+            self.assertEqual(src.count('data-ec-shell-action-slot="1"'), 1, slug)
             self.assertIn('ec-shell-fallback', src, slug)
 
     def test_profile_contracts(self):
