@@ -199,6 +199,25 @@
   .sch-mtg{ position:absolute; box-sizing:border-box; background:#EEEDFE; color:#3C3489; border-left:3px solid #7F77DD; border-radius:6px; padding:2px 6px; font-size:10px; overflow:hidden; }
   .sch-mtg b{ font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
   .sch-mtg .tr{ font-size:9px; opacity:.8; }
+  .sch-mtg.act{ cursor:pointer; }
+  .sch-mtg.act:hover{ background:#E2E0FB; }
+  .mtgpop{ position:fixed; z-index:1200; width:288px; background:#fff; border:1px solid var(--gray-200); border-radius:12px; box-shadow:0 12px 32px rgba(16,24,40,.16); padding:13px 14px; font-size:12px; }
+  .mtgpop h4{ margin:0 0 3px; font-size:13.5px; font-weight:600; color:var(--navy); line-height:1.35; }
+  .mtgpop .mp-sub{ color:var(--gray-500); margin-bottom:10px; }
+  .mtgpop .mp-badge{ display:inline-block; background:#EEEDFE; color:#3C3489; border-radius:20px; padding:1px 8px; font-size:10.5px; font-weight:600; margin-bottom:8px; }
+  .mtgpop .mp-row{ display:flex; gap:6px; margin-bottom:7px; }
+  .mtgpop .mp-btn{ flex:1; text-align:center; padding:7px 0; border-radius:8px; border:1px solid var(--gray-200); background:#fff; color:var(--gray-700); font-size:12px; font-weight:600; cursor:pointer; text-decoration:none; display:block; }
+  .mtgpop .mp-btn:hover{ background:var(--gray-50); }
+  .mtgpop .mp-btn.pri{ background:#7F77DD; border-color:#7F77DD; color:#fff; }
+  .mtgpop .mp-btn.pri:hover{ background:#6E66D2; }
+  .mtgpop .mp-btn[disabled]{ opacity:.55; cursor:default; }
+  .mtgpop .mp-link{ background:none; border:0; color:var(--navy); font-size:11.5px; font-weight:600; cursor:pointer; padding:4px 0; }
+  .mtgpop .mp-form{ border-top:1px solid var(--gray-100); margin-top:8px; padding-top:9px; }
+  .mtgpop .mp-form label{ display:block; font-size:11px; color:var(--gray-500); margin:0 0 3px; }
+  .mtgpop .mp-form input{ width:100%; box-sizing:border-box; font-size:12px; padding:6px 8px; border:1px solid var(--gray-200); border-radius:7px; margin-bottom:7px; }
+  .mtgpop .mp-warn{ background:#FAEEDA; color:#633806; border-radius:7px; padding:7px 9px; font-size:11px; margin-bottom:8px; }
+  .mtgpop .mp-err{ color:#A32D2D; font-size:11px; margin-top:6px; }
+  .mtgpop .mp-x{ position:absolute; top:9px; right:11px; cursor:pointer; color:var(--gray-400); font-size:15px; line-height:1; }
   .sch-ghost{ position:fixed; pointer-events:none; z-index:1300; background:var(--navy-50); border:1px solid var(--navy); color:var(--navy); border-radius:6px; padding:4px 8px; font-size:12px; box-shadow:0 4px 12px rgba(0,0,0,.15); }
   .sch-ro{ font-size:12px; color:var(--gray-600); background:var(--gray-100); padding:3px 11px; border-radius:20px; }
   .sch-nav{ display:inline-flex; align-items:stretch; border:1px solid var(--gray-200); border-radius:9px; overflow:hidden; background:#fff; vertical-align:middle; }
@@ -3256,8 +3275,26 @@
         arr.forEach(function(b){ if(cluster.length && b._s>=cend){ flush(cluster); cluster=[]; cend=-1; } cluster.push(b); cend=Math.max(cend,b._e); });
         flush(cluster);
       });
-      (d.meetings||[]).forEach(function(mg){ var s0=parseDT(mg.start); if(!s0)return; var di=dayIdx(s0); if(di<0||di>6)return; var e0=parseDT(mg.end); var ms=minOf(s0), me=e0?minOf(e0):(ms+30); var left=di*100/7, top=minToY(ms), ht=Math.max(14,minToY(me)-minToY(ms)); var subj2=mg.subject||"Họp"; var tr=pad(Math.floor(ms/60))+":"+pad(ms%60)+"–"+pad(Math.floor(me/60))+":"+pad(me%60);
-        body+='<div class="sch-mtg" title="'+esc(subj2+"\n"+tr+" · Lịch họp (Outlook/Teams)")+'" style="left:calc('+left+'% + 1px);top:'+top+'px;width:calc('+(100/7)+'% - 2px);height:'+ht+'px"><b>'+esc(subj2)+'</b><div class="tr">'+tr+'</div></div>';
+      // Meetings share the day column, so overlapping ones must split into sub-columns the
+      // same way work blocks do -- two meetings at 13:00-14:30 used to sit on top of each
+      // other and only the last one was visible. Packed per day, independently of blocks.
+      var mtgs=[]; (d.meetings||[]).forEach(function(mg){ var s0=parseDT(mg.start); if(!s0)return; var di=dayIdx(s0); if(di<0||di>6)return;
+        var e0=parseDT(mg.end); var o={}; var kk; for(kk in mg){ if(Object.prototype.hasOwnProperty.call(mg,kk)) o[kk]=mg[kk]; }
+        o._di=di; o._s=minOf(s0); o._e=e0?minOf(e0):(o._s+30); o._i=mtgs.length; mtgs.push(o); });
+      var mByDay={}; mtgs.forEach(function(m){ (mByDay[m._di]=mByDay[m._di]||[]).push(m); });
+      Object.keys(mByDay).forEach(function(k){
+        var arr=mByDay[k].slice().sort(function(a,b){return a._s-b._s||a._e-b._e;});
+        function mflush(cl){ if(!cl.length)return; var cols=[]; cl.forEach(function(b){ var placed=false,ci; for(ci=0;ci<cols.length;ci++){ if(cols[ci]<=b._s){ b._col=ci; cols[ci]=b._e; placed=true; break; } } if(!placed){ b._col=cols.length; cols.push(b._e); } }); var mc=cols.length||1; cl.forEach(function(b){ b._mc=mc; }); }
+        var cl=[], ce=-1;
+        arr.forEach(function(b){ if(cl.length && b._s>=ce){ mflush(cl); cl=[]; ce=-1; } cl.push(b); ce=Math.max(ce,b._e); });
+        mflush(cl);
+      });
+      st._mtgs=mtgs;
+      mtgs.forEach(function(mg){ var mc=mg._mc||1, colw=(100/7)/mc; var left=mg._di*100/7+(mg._col||0)*colw;
+        var top=minToY(mg._s), ht=Math.max(14,minToY(mg._e)-minToY(mg._s)); var subj2=mg.subject||"Họp";
+        var tr=pad(Math.floor(mg._s/60))+":"+pad(mg._s%60)+"–"+pad(Math.floor(mg._e/60))+":"+pad(mg._e%60);
+        var own=!!mg.id, tipx=own?"\n(bấm để phản hồi / đổi giờ)":"";
+        body+='<div class="sch-mtg'+(own?' act':'')+'" data-mtg="'+mg._i+'" title="'+esc(subj2+"\n"+tr+" · Lịch họp (Outlook/Teams)"+tipx)+'" style="left:calc('+left+'% + 1px);top:'+top+'px;width:calc('+colw+'% - 2px);height:'+ht+'px"><b>'+esc(subj2)+'</b><div class="tr">'+tr+(mg.is_organizer?' · chủ trì':'')+'</div></div>';
       });
       blocks.forEach(function(b){ if(b._di===undefined)return; var di=b._di, mc=b._mc||1, colw=(100/7)/mc; var leftp=di*100/7+(b._col||0)*colw; var top=minToY(b._s), ht=Math.max(15,minToY(b._e)-minToY(b._s));
         var e0=parseDT(b.end), past=e0&&e0<now, conf=b.state==="Đã xác nhận"; var col=colorFor(b.task); var subjt=subj[b.task]||b.task;
@@ -3307,6 +3344,81 @@
     function daysRect(){ var e2=document.getElementById("sch-days"); return e2?e2.getBoundingClientRect():null; }
     function toDayMin(cx,cy){ var r=daysRect(); if(!r)return {d:0,m:0}; var dw=r.width/7; var dd=Math.floor((cx-r.left)/dw); dd=Math.max(0,Math.min(6,dd)); var m=snap(yToMin(cy-r.top)); return {d:dd,m:m}; }
 
+    function closeMtgPop(){ var p=document.querySelector(".mtgpop"); if(p&&p.parentNode)p.parentNode.removeChild(p); }
+    function dtLocal(s){ return String(s||"").replace(" ","T").slice(0,16); }
+    function dtApi(v){ v=String(v||"").replace("T"," "); return v.length===16?(v+":00"):v; }
+
+    function openMtgPop(mg, anchor){
+      closeMtgPop();
+      var pop=document.createElement("div"); pop.className="mtgpop";
+      var r=anchor.getBoundingClientRect();
+      var top=Math.max(8,Math.min(window.innerHeight-330, r.top));
+      var left=Math.min(window.innerWidth-300, r.right+8); if(left<8) left=8;
+      pop.style.top=top+"px"; pop.style.left=left+"px";
+      var tr=String(mg.start||"").slice(11,16)+"–"+String(mg.end||"").slice(11,16);
+      var day=String(mg.start||"").slice(0,10).split("-");
+      var dstr=day.length===3?(day[2]+"/"+day[1]):"";
+      var resp=mg.response||"none", org=!!mg.is_organizer;
+      var rlabel=org?"Bạn là chủ trì":(resp==="accepted"?"Đã nhận":(resp==="declined"?"Đã từ chối":(resp==="tentativelyAccepted"?"Tạm nhận":"Chưa phản hồi")));
+      var h='<span class="mp-x">&times;</span><h4>'+esc(mg.subject||"Họp")+'</h4>'+
+            '<div class="mp-sub">'+dstr+' · '+tr+(mg.location?(' · '+esc(mg.location)):'')+'</div>'+
+            '<div class="mp-badge">'+rlabel+'</div>';
+      if(mg.ev_type==="occurrence"||mg.ev_type==="exception"){
+        h+='<div class="mp-warn">Đây là một buổi trong chuỗi họp định kỳ — thay đổi chỉ áp dụng cho buổi này.</div>';
+      }
+      h+='<div class="mp-row">';
+      if(mg.join_url){ h+='<a class="mp-btn pri" href="'+esc(mg.join_url)+'" target="_blank" rel="noopener">Tham gia</a>'; }
+      if(!org){ h+='<button class="mp-btn" data-rsvp="accept">Nhận</button><button class="mp-btn" data-rsvp="decline">Từ chối</button>'; }
+      h+='</div>';
+      if(!org){ h+='<div class="mp-row"><button class="mp-btn" data-rsvp="tentative">Tạm nhận</button></div>'; }
+      h+='<div style="text-align:center">';
+      if(org){ h+='<button class="mp-link" data-form="reschedule">Đổi giờ họp…</button>'; }
+      else if(mg.allow_propose!==false){ h+='<button class="mp-link" data-form="propose">Đề xuất giờ khác…</button>'; }
+      h+='</div><div class="mp-slot"></div>';
+      pop.innerHTML=h;
+      (document.getElementById("ec-pm-root")||document.body).appendChild(pop);
+
+      function busy(on){ Array.prototype.forEach.call(pop.querySelectorAll("button"),function(b){ if(on)b.setAttribute("disabled","1"); else b.removeAttribute("disabled"); }); }
+      function fail(msg){ var e=pop.querySelector(".mp-err"); if(!e){ e=document.createElement("div"); e.className="mp-err"; pop.appendChild(e); } e.textContent=msg; }
+      function done(msg){ closeMtgPop(); toast(msg); load(); }
+
+      pop.querySelector(".mp-x").onclick=closeMtgPop;
+      pop.onclick=function(e){ e.stopPropagation(); };
+      Array.prototype.forEach.call(pop.querySelectorAll("[data-rsvp]"),function(b){
+        b.onclick=function(){ var v=b.getAttribute("data-rsvp"); busy(true);
+          api(PM+"schedule.rsvp",{event_id:mg.id,response:v}).then(function(res){
+            if(res&&res.ok) done(v==="accept"?"Đã nhận lời mời":(v==="decline"?"Đã từ chối":"Đã tạm nhận"));
+            else { busy(false); fail("Không gửi được"+((res&&res.code)?(" ("+res.code+")"):"")); }
+          }).catch(function(er){ busy(false); fail(errOf(er)); });
+        };
+      });
+      Array.prototype.forEach.call(pop.querySelectorAll("[data-form]"),function(b){
+        b.onclick=function(){
+          var mode=b.getAttribute("data-form"); b.style.display="none";
+          var slot=pop.querySelector(".mp-slot");
+          slot.innerHTML='<div class="mp-form"><label>Bắt đầu</label><input type="datetime-local" class="mp-s" value="'+dtLocal(mg.start)+'">'+
+            '<label>Kết thúc</label><input type="datetime-local" class="mp-e" value="'+dtLocal(mg.end)+'">'+
+            '<div class="mp-row"><button class="mp-btn" data-cancel="1">Huỷ</button><button class="mp-btn pri" data-go="1">'+(mode==="reschedule"?"Đổi giờ":"Gửi đề xuất")+'</button></div>'+
+            (mode==="reschedule"?'<div style="font-size:10.5px;color:var(--gray-500)">Người tham dự sẽ nhận thư cập nhật.</div>':'')+'</div>';
+          slot.querySelector("[data-cancel]").onclick=function(){ slot.innerHTML=""; b.style.display=""; };
+          slot.querySelector("[data-go]").onclick=function(){
+            var s=dtApi(slot.querySelector(".mp-s").value), e2=dtApi(slot.querySelector(".mp-e").value);
+            if(!s||!e2){ fail("Chọn đủ giờ bắt đầu và kết thúc"); return; }
+            if(new Date(s.replace(" ","T"))>=new Date(e2.replace(" ","T"))){ fail("Giờ kết thúc phải sau giờ bắt đầu"); return; }
+            busy(true);
+            var m=(mode==="reschedule")?"schedule.reschedule":"schedule.propose_new_time";
+            api(PM+m,{event_id:mg.id,start:s,end:e2}).then(function(res){
+              if(res&&res.ok) done(mode==="reschedule"?"Đã đổi giờ họp":"Đã gửi đề xuất giờ mới");
+              else { busy(false); fail("Không gửi được"+((res&&res.code)?(" ("+res.code+")"):"")); }
+            }).catch(function(er){ busy(false); fail(errOf(er)); });
+          };
+        };
+      });
+    }
+    // bind once: showSchedule() re-runs on every navigation, and re-adding this would
+    // stack a new listener each time.
+    if(!window._pmMtgPopBound){ window._pmMtgPopBound=1; document.addEventListener("click",function(){ closeMtgPop(); }); }
+
     function wire(){
       if(st._detach){ try{st._detach();}catch(_){} st._detach=null; }
       if(st._ro) return;
@@ -3315,8 +3427,19 @@
       function cancelDrag(){ drag=null; var gs=document.querySelectorAll(".sch-ghost"); for(var i=0;i<gs.length;i++){ if(gs[i].parentNode) gs[i].parentNode.removeChild(gs[i]); } ghost=null; }
       function findBlk(name){ var arr=(st.data.blocks||[]); for(var i=0;i<arr.length;i++) if(arr[i].name===name) return arr[i]; return null; }
 
+      // Click a meeting -> Teams-style actions (join / RSVP / propose a new slot /
+      // reschedule when you organise it). Only own-calendar meetings carry an id, so a
+      // read-only teammate view has nothing to click.
+      body.addEventListener("click",function(e){
+        var mt=e.target.closest?e.target.closest(".sch-mtg.act"):null; if(!mt) return;
+        e.preventDefault(); e.stopPropagation();
+        var idx=parseInt(mt.getAttribute("data-mtg"),10);
+        var mg=(st._mtgs||[])[idx]; if(mg) openMtgPop(mg, mt);
+      });
+
       body.addEventListener("mousedown",function(e){
         cancelDrag();
+        if(e.target.closest && e.target.closest(".sch-mtg")) return;   // meetings: click, no drag
         var xb=e.target.closest?e.target.closest(".x"):null; if(xb){ e.preventDefault(); var nm=xb.getAttribute("data-name"); api(PM+"schedule.remove",{name:nm}).then(function(){ load(); }).catch(function(er){ toast("Lỗi: "+errOf(er),true); }); return; }
         var rz=e.target.closest?e.target.closest(".rz"):null;
         var blk=e.target.closest?e.target.closest(".sch-blk"):null;
