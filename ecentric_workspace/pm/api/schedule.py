@@ -179,8 +179,12 @@ def _ms_today_events(email):
             return []
         import requests
         day = nowdate()
-        start_dt = "%sT00:00:00%2B07:00" % day
-        end_dt = "%sT00:00:00%2B07:00" % add_days(day, 1)
+        # NB: build these by concatenation, NOT %-formatting -- "%2B" (the URL-encoded
+        # '+' of the +07:00 offset) is a format specifier to Python and raises
+        # ValueError: unsupported format character 'B', which the outer except swallowed
+        # into [] (the home widget showed 0 meetings while the week view worked).
+        start_dt = str(day) + "T00:00:00%2B07:00"
+        end_dt = str(add_days(day, 1)) + "T00:00:00%2B07:00"
         # NOTE: no $select here on purpose. A $select listing onlineMeeting/location/
         # responseStatus made Graph reject the whole request (400), which this helper
         # swallowed into [] -- the home widget showed 0 meetings while the week view
@@ -345,34 +349,6 @@ def calendar_probe():
     # counts only -- confirms the helper the home widget actually uses
     res["today_helper_count"] = len(_ms_today_events(caller))
 
-    # Which URL shape does Graph accept? Status/err codes only, no meeting content.
-    base = ("https://graph.microsoft.com/v1.0/users/" + caller + "/calendarView"
-            "?startDateTime=" + day + "T00:00:00%2B07:00"
-            "&endDateTime=" + add_days(day, 1) + "T00:00:00%2B07:00")
-    variants = {
-        "A_no_select_orderby": "&$top=50&$orderby=start/dateTime",
-        "B_week_shape": "&$select=subject,start,end,showAs,isAllDay&$top=100&$orderby=start/dateTime",
-        "C_no_select_no_orderby": "&$top=50",
-        "D_full_select": ("&$select=id,subject,start,end,showAs,isAllDay,onlineMeeting,"
-                          "location,responseStatus&$top=50"),
-    }
-    hdrs = {"Authorization": "Bearer " + token,
-            "Prefer": 'outlook.timezone="Asia/Ho_Chi_Minh"'}
-    tried = {}
-    for k in sorted(variants.keys()):
-        try:
-            rr = requests.get(base + variants[k], headers=hdrs, timeout=12)
-            if rr.status_code == 200:
-                tried[k] = "200 n=" + str(len(rr.json().get("value") or []))
-            else:
-                try:
-                    ec = ((rr.json().get("error") or {}) or {}).get("code")
-                except Exception:
-                    ec = "?"
-                tried[k] = str(rr.status_code) + " " + str(ec)
-        except Exception as e:
-            tried[k] = "EXC " + type(e).__name__
-    res["variants"] = tried
     return res
 
 
