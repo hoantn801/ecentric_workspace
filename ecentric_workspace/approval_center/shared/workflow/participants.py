@@ -4,19 +4,23 @@ Process and EC Approval Level). No hardcoded users/emails."""
 import frappe
 from frappe import _
 
-_RELEVANT = {"User": "user", "Role": "role", "Department Manager": "department"}
+_REQUIRED = {"User": "user", "Role": "role"}
 # "Requester Manager" resolves dynamically (Employee.reports_to) -> no static field.
+# "Department Manager": 'department' is OPTIONAL - empty means "the requester's own
+# department", resolved at submit time (transitions.resolve_participants line ~189).
+_OPTIONAL = {"Department Manager": "department"}
 
 
 def validate_participants(doc, fieldname):
     seen = set()
     for p in (doc.get(fieldname) or []):
         st = p.source_type
-        relevant = _RELEVANT.get(st)  # None for Requester Manager
-        if relevant and not p.get(relevant):
-            frappe.throw(_("Participant with source_type '{0}' requires '{1}'.").format(st, relevant))
+        required = _REQUIRED.get(st)
+        allowed = {required, _OPTIONAL.get(st)} - {None}
+        if required and not p.get(required):
+            frappe.throw(_("Participant with source_type '{0}' requires '{1}'.").format(st, required))
         for f in ("user", "role", "department"):
-            if f != relevant and p.get(f):
+            if f not in allowed and p.get(f):
                 frappe.throw(_("Participant source_type '{0}' must not populate '{1}'.").format(st, f))
         if st == "Reference Department Head" and not p.get("department_field"):
             frappe.throw(_("Participant source_type 'Reference Department Head' requires 'department_field'."))
