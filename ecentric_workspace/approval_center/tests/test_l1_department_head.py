@@ -70,6 +70,21 @@ class TestL1DepartmentHead(FrappeTestCase):
         self.assertIn(req, users)                      # dept head (the requester) IS a candidate
         self.assertIn(ceo, users)                      # manager stays a candidate (Any One)
 
+    def test_validator_allows_department_manager_without_department(self):
+        """Regression for the 2026-08-24 migrate failure: a dynamic 'Department Manager' row
+        (department empty = requester's own department) must pass validation."""
+        from ecentric_workspace.approval_center.shared.workflow.participants import validate_participants
+        row = frappe._dict({"participant_purpose": "Approver", "source_type": "Department Manager",
+                            "user": None, "role": None, "department": None})
+        validate_participants(frappe._dict({"participants": [row]}), "participants")  # must not throw
+        static = frappe._dict({"participant_purpose": "Approver", "source_type": "Department Manager",
+                               "user": None, "role": None, "department": "Some Dept"})
+        validate_participants(frappe._dict({"participants": [static]}), "participants")  # static form still OK
+        bad = frappe._dict({"participant_purpose": "Approver", "source_type": "Department Manager",
+                            "user": "x@example.com", "role": None, "department": None})
+        with self.assertRaises(frappe.ValidationError):
+            validate_participants(frappe._dict({"participants": [bad]}), "participants")
+
     def test_patch_idempotent(self):
         if not frappe.db.exists("EC Approval Process", "PAYMENT_REQUEST-V1"):
             self.skipTest("live process not seeded in CI site")
