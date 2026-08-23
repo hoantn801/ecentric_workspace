@@ -92,6 +92,11 @@
     var body = panel.querySelector('.ec-lhn');
     if(!body){ var hdr=panel.querySelector('.panel-header'); body=document.createElement('div'); body.className='ec-lhn';
       if(hdr && hdr.nextSibling){ panel.insertBefore(body, hdr.nextSibling); } else { panel.appendChild(body); } }
+    // Remove the old "Se tich hop Outlook sau" placeholder (and any stale non-header,
+    // non-widget children) so only the header + our widget body remain.
+    var kids = panel.children;
+    for(var ci=kids.length-1; ci>=0; ci--){ var k=kids[ci];
+      if(k!==body && !(k.className && String(k.className).indexOf('panel-header')>=0)){ k.parentNode.removeChild(k); } }
     var act = panel.querySelector('.panel-action'); if(act){ act.href='/pm#schedule'; }
 
     var now = d.now;
