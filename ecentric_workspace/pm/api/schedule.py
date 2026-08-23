@@ -181,9 +181,13 @@ def _ms_today_events(email):
         day = nowdate()
         start_dt = "%sT00:00:00%2B07:00" % day
         end_dt = "%sT00:00:00%2B07:00" % add_days(day, 1)
+        # NOTE: no $select here on purpose. A $select listing onlineMeeting/location/
+        # responseStatus made Graph reject the whole request (400), which this helper
+        # swallowed into [] -- the home widget showed 0 meetings while the week view
+        # (which uses a short $select) showed them fine. The default projection already
+        # includes every field read below.
         url = ("https://graph.microsoft.com/v1.0/users/" + email + "/calendarView"
                "?startDateTime=" + start_dt + "&endDateTime=" + end_dt +
-               "&$select=id,subject,start,end,showAs,isAllDay,onlineMeeting,location,responseStatus"
                "&$top=50&$orderby=start/dateTime")
         r = requests.get(url, headers={"Authorization": "Bearer " + token,
                          "Prefer": 'outlook.timezone="Asia/Ho_Chi_Minh"'}, timeout=12)
@@ -338,6 +342,8 @@ def calendar_probe():
     except Exception as e:
         res["http_status"] = "EXC"
         res["exc"] = type(e).__name__
+    # counts only -- confirms the helper the home widget actually uses
+    res["today_helper_count"] = len(_ms_today_events(caller))
     return res
 
 
