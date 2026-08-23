@@ -192,6 +192,7 @@
       + fld("_r1","Người yêu cầu",'<input class="ro" readonly value="'+esc(c.employee_name||c.user||"")+'">')
       + fld("_r2","Phòng ban (người yêu cầu)",'<input class="ro" readonly value="'+esc(c.department||"—")+'">')
       + '</div></div><div class="card"><h3>Thông tin thanh toán</h3><div class="grid2">'
+      + fld("request_title","Tiêu đề yêu cầu",'<input data-model="request_title" placeholder="Bỏ trống sẽ tự sinh: Payment Request - Người nhận - Số tiền" value="'+esc(d.request_title||"")+'">').replace('class="fld','class="fld full')
       + fld("payee_full_name","Người nhận (Payee)",'<input data-model="payee_full_name" value="'+esc(d.payee_full_name||"")+'">',true)
       + fld("payment_amount","Số tiền (VND)",'<input type="number" min="0" step="1" data-model="payment_amount" value="'+esc(d.payment_amount!=null?d.payment_amount:"")+'">',true)
       + fld("payment_date","Ngày thanh toán",'<input type="date" data-model="payment_date" value="'+esc(d.payment_date||"")+'">',true)

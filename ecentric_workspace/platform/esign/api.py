@@ -403,11 +403,15 @@ def my_signature_preview(payment_request_name):
         perms.business_approval_request("EC Payment Request", payment_request_name))
     if err or not prof:
         return {"image_base64": None, "reason": err or "profile_not_configured"}
-    mapping = perms.verified_mapping(frappe.session.user, prof.environment)
+    pmeta = frappe.db.get_value("EC Digital Signature Profile", prof,
+                                ["provider", "environment"], as_dict=True)
+    if not pmeta:
+        return {"image_base64": None, "reason": "profile_not_configured"}
+    mapping = perms.verified_mapping(frappe.session.user, pmeta.environment)
     if not mapping:
         return {"image_base64": None, "reason": "no_verified_mapping"}
     s = frappe.db.get_value("EC Digital Signature Provider Settings",
-                            {"provider": prof.provider, "environment": prof.environment,
+                            {"provider": pmeta.provider, "environment": pmeta.environment,
                              "integration_enabled": 1}, "*", as_dict=True)
     if not s:
         return {"image_base64": None, "reason": "integration_gated"}
