@@ -6608,10 +6608,18 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
     // total_taxes_and_charges + grand_total. Thue suat lay tu chinh o VAT tren form.
     var _vat = 0;
     try { if (typeof window._ecGetVatRate === 'function') _vat = Number(window._ecGetVatRate()) || 0; } catch (_e) {}
+    // 2026-08-24: ec_brand la Link toi Brand (luu TEN). Dropdown gui MA brand
+    // (opts.brand vd 'PHN'). Voi brand ten khac ma (PHN='Pin Ha Noi', DUT='DUT-VN',
+    // FRI='FRI-VN') gui MA -> Frappe bao 'Could not find Brand'. Doi MA -> TEN.
+    var _brandLink = opts.brand;
+    try {
+      var _bl = ((window.EC_SO_LKI && window.EC_SO_LKI.brands) || []).filter(function(x){ return x.brand_code === opts.brand || x.name === opts.brand; })[0];
+      if (_bl && _bl.name) _brandLink = _bl.name;
+    } catch (_e) {}
     var body = {
       customer: opts.customer, company: 'eCentric', order_type: 'Sales',
       transaction_date: opts.txn, delivery_date: opts.delivery,
-      ec_channel: opts.channel, ec_brand: opts.brand, ec_team: opts.team,
+      ec_channel: opts.channel, ec_brand: _brandLink, ec_team: opts.team,
       ec_mso_month: month, ec_store: opts.store||'', ec_vat_template: opts.vat||'',
       ec_attach_session: opts.attach||'',
       ec_gbs_so_ref: opts.gbsRef||'', ec_gbs_sync_status: opts.gbsRef?'Synced':'', ec_contract: opts.contract||'', ec_external_service: opts.external?1:0,
@@ -6698,6 +6706,21 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       if (bad.length){ notice('Item chưa có trong master EC: '+bad.map(function(b){return b.item_code;}).join(', ')+' — tạo Item EC trước (/app/item)', true); return; }
       var txn = ($id('transaction_date')||{}).value, dl = ($id('delivery_date')||{}).value;
       if (!txn||!dl){ notice('Chọn ngày giao dịch + giao hàng', true); return; }
+      // 2026-08-24 FIX: nhanh 'direct' truoc day KHONG kiem chung tu dinh kem
+      // (chi submitForm() cu va nhanh GBS moi kiem) -> SO so EC submit duoc du
+      // truong danh dau bat buoc. Bat buoc it nhat 1 file. Dung bien toan cuc
+      // (window._ecRawFiles / window._ecAttachments) vi chung phan anh dung file
+      // nguoi dung da tha, va truy cap duoc bat ke scope cua block nay.
+      var _hasAtt = false;
+      try { if (window._ecRawFiles && Object.keys(window._ecRawFiles).length) _hasAtt = true; } catch (_e) {}
+      try { if (!_hasAtt && window._ecAttachments && window._ecAttachments.length) _hasAtt = true; } catch (_e) {}
+      try { if (!_hasAtt && typeof _files !== 'undefined' && _files && _files.length) _hasAtt = true; } catch (_e) {}
+      if (!_hasAtt){
+        notice('Bắt buộc đính kèm ít nhất 1 chứng từ (đề xuất / brief / kế hoạch) trước khi gửi.', true);
+        var _aw = document.getElementById('attachmentRequiredWarn');
+        if (_aw){ _aw.style.display = 'block'; _aw.scrollIntoView({behavior:'smooth', block:'center'}); }
+        return;
+      }
       // 2026-08-04: chan tai cho thay vi de server throw "nhap Ly do giai trinh"
       // khi form khong co o do. _soOut !== false = chua chung minh duoc In Budget.
       var _just = (($id('ecSoJustification')||{}).value||'').trim();

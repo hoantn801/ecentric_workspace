@@ -43,22 +43,24 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "5b22e8028c2872b52fd0eae3f68f177d7f558055ada410bd3bad13d06338c257"
+BASELINE_SHA256 = "83845039fef9ee5f7bdc9d94e06b230718ff7d0eaecb5338e80fe30de49910d6"
 SUPERSEDES_SHA256 = (
-    # 2026-08-24: doi moc chan MSO EC_MSO_GRACE tu 2026-08 -> 2026-11. Het moc cu
-    # thi form chuyen tu "canh bao + giai trinh" sang CHAN CUNG luc submit, nen SO
-    # thang 2026-09 cua brand chua co MSO duyet khong khai duoc (vd brand PHN,
-    # 2026-09: o giai trinh da bat va chain da xep 4 cap, chi rieng nut gui bi chan).
-    # Server (ec_so_before_save) KHONG chan case nay -- no chi doi hoi
-    # ec_over_justification khi ec_in_out_budget = "Out of Budget" -- nen chan cung
-    # nam hoan toan o hookMsoGate cua form nay.
-    #
-    # 3 gia tri duoi day deu duoc chap nhan vi luc doi moc, repo va live LECH nhau
-    # dung 2 dong prerender cua ec-shell (dong 502 va 507) do mot dot sua shell khac
-    # ghi vao repo ma chua deploy. Lech nay khong lien quan logic MSO.
-    "1302267daf2ddecd91dc23e64d99978c5a21f20c9e097013d0663b32dc733fbc",  # live sau khi doi moc (2026-08-24)
-    "6ccfcca9c458f9545d4c33cbff02a1dd878063558533f2387c288202af0c23c6",  # repo truoc khi doi moc
-    "ac798876952b11414f415bbbd40dc615624b6147c479fd20d2e3aece56353c79",  # BASELINE cu
+    # 2026-08-24 (them): nhanh submit truc tiep (hookDirectSubmit) truoc day
+    # KHONG kiem chung tu dinh kem bat buoc -> SO so EC gui duoc du khong dinh
+    # kem. Them chot kiem >=1 file. Ghi thang len live.
+    "8a8e8b6d05aa68ca47668a20ea2a0063ef75f919084290c46b792b13d1365d36",  # grace+brandfix, truoc attach-guard
+    # 2026-08-24: hai thay doi cung ngay tren form SO.
+    #  (1) EC_MSO_GRACE 2026-08 -> 2026-11 (het moc thi hookMsoGate chan cung;
+    #      thang 2026-09 da vuot moc cu nen brand PHN khong khai duoc SO).
+    #  (2) createNativeSO: ec_brand la Link toi Brand (luu TEN). Dropdown gui MA
+    #      brand -> voi PHN (ten "Pin Ha Noi"), DUT (DUT-VN), FRI (FRI-VN) Frappe
+    #      bao "Could not find Brand: <ma>". Doi MA -> TEN truoc khi POST.
+    # Ca hai deu ghi thang len live (main_section + main_section_html).
+    "1302267daf2ddecd91dc23e64d99978c5a21f20c9e097013d0663b32dc733fbc",  # live sau grace, truoc brandfix
+    "5b22e8028c2872b52fd0eae3f68f177d7f558055ada410bd3bad13d06338c257",  # repo grace-only (commit device 2ebce13)
+    "6ccfcca9c458f9545d4c33cbff02a1dd878063558533f2387c288202af0c23c6",  # repo truoc grace
+    "9abdb28f8dd0c3738a9c932e20c0d0d3a7eaf4da98c994132b6137bd2b74208a",  # live truoc grace (link chet fix)
+    "ac798876952b11414f415bbbd40dc615624b6147c479fd20d2e3aece56353c79",  # BASELINE cu (pre-2026-08-24)
     "9abdb28f8dd0c3738a9c932e20c0d0d3a7eaf4da98c994132b6137bd2b74208a",
     # bytes truoc khi sua link chet /mso-approval (2026-08-07): nut "Quay lai trang
     # chu" tro toi /mso-approval -- route nay KHONG ton tai tren site (chi co /home,
