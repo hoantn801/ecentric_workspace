@@ -180,7 +180,7 @@
 
   // ---- routing ----
   function readRoute(){ state.mode="create"; var q=new URLSearchParams(window.location.search); state.id=q.get("id")||null;
-    var t=q.get("tab"); state.tab = state.id?"detail":(t||"create"); }
+    var t=q.get("tab"); state.tab = state.id?"detail":"create"; }
   function go(params,replace){ var q=new URLSearchParams(); Object.keys(params).forEach(function(k){ if(params[k])q.set(k,params[k]); });
     var url=window.location.pathname+(q.toString()?("?"+q.toString()):""); window.history[replace?"replaceState":"pushState"]({},"",url); route(); }
   function route(){ readRoute(); render(); }
@@ -188,8 +188,7 @@
 
   function tabAllowed(t){ var tb=state.boot&&state.boot.tabs||{}; return t==="create"||t==="my-requests"||(t==="my-approvals"&&tb.my_approvals)||(t==="fulfillment"&&tb.fulfillment); }
   function renderTabs(){ var box=$("ait-tabs"); if(!box)return;
-    var defs=[["create","Tạo yêu cầu",true],["my-requests","Yêu cầu của tôi",true],
-      ["my-approvals","Cần tôi duyệt",tabAllowed("my-approvals")],["fulfillment","Chờ Operation xử lý",tabAllowed("fulfillment")]];
+    var defs=[["create","Tạo yêu cầu",true]];
     box.innerHTML=defs.map(function(d){ var act=(state.tab===d[0]||(state.tab==="detail"&&d[0]==="my-requests"))?" active":"";
       return '<button class="tab'+act+'"'+(d[2]?'':' disabled')+' data-tab="'+d[0]+'">'+esc(d[1])+'</button>'; }).join(""); }
 
@@ -498,7 +497,7 @@
   // ======================= DETAIL =======================
   function renderDetail(b){ b.innerHTML=skeleton(4);
     call("get_request_detail",{name:state.id}).then(function(det){ drawDetail(b,det); })
-    .catch(function(e){ var perm=/access|permission/i.test((e&&e.message)||""); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4><button class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ go({tab:"my-requests"}); }; }); }
+    .catch(function(e){ var perm=/access|permission/i.test((e&&e.message)||""); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4><button class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ window.location.href="/approvals/all-requests"; }; }); }
   function drawDetail(b,det){ window.__lastDetail=det; var biz=det.business||{}, ap=det.approval||{}, ff=det.fulfillment||{};
     b.innerHTML='<div style="margin-bottom:12px"><button class="btn" id="d-back">‹ Danh sách</button></div>'
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.ai_tool||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+headerStatusHTML(ap,ff)+'</div></div></div>'
@@ -510,7 +509,7 @@
       +'<div class="card"><h3>Xử lý Operation</h3>'+fulfillmentSectionHTML(det)+'</div>'
       +'<div class="card"><h3>Hành động</h3>'+actionPanelHTML(det)+'</div>'
       +'<div class="card"><h3>Lịch sử</h3>'+timelineHTML(det.timeline)+'</div>';
-    $("d-back").onclick=function(){ go({tab:"my-requests"}); };
+    $("d-back").onclick=function(){ window.location.href="/approvals/all-requests"; };
     $("d-stepper").innerHTML=buildStepper(det);
     wireActionPanel(det); wireFulfillment(det);
   }
@@ -676,7 +675,7 @@
   function doCancel(name){ modal("Hủy yêu cầu",
     '<div class="banner warn">Hủy yêu cầu sẽ kết thúc luồng phê duyệt. Hành động này được ghi nhận.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="2"></textarea></div>',
     {okLabel:"Xác nhận hủy", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
-      return call("cancel",{name:name,reason:c}).then(function(res){ toast("Đã hủy yêu cầu."); if(res&&res.deleted) go({tab:"my-requests"}); else { refreshDetail(); refreshApprovals(); } }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
+      return call("cancel",{name:name,reason:c}).then(function(res){ toast("Đã hủy yêu cầu."); if(res&&res.deleted) window.location.href="/approvals/all-requests"; else { refreshDetail(); refreshApprovals(); } }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
 
   var SUBMIT_OK="Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến Quản lý trực tiếp phê duyệt.";
   // Draft edit: hydrate the create form (mode create, existing id) so Lưu nháp / Gửi phê duyệt work as usual.

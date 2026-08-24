@@ -159,7 +159,7 @@
 
   // ---- routing ----
   function readRoute(){ state.mode="create"; var q=new URLSearchParams(window.location.search); state.id=q.get("id")||null;
-    var t=q.get("tab"); state.tab = state.id?"detail":(t||"create"); }
+    var t=q.get("tab"); state.tab = state.id?"detail":"create"; }
   function go(params,replace){ var q=new URLSearchParams(); Object.keys(params).forEach(function(k){ if(params[k])q.set(k,params[k]); });
     var url=window.location.pathname+(q.toString()?("?"+q.toString()):""); window.history[replace?"replaceState":"pushState"]({},"",url); route(); }
   function route(){ readRoute(); render(); }
@@ -167,7 +167,7 @@
 
   function tabAllowed(t){ var tb=state.boot&&state.boot.tabs||{}; return t==="create"||t==="my-requests"||(t==="my-approvals"&&tb.my_approvals); }
   function renderTabs(){ var box=$("eiu-tabs"); if(!box)return;
-    var defs=[["create","Tạo mới",true],["my-requests","Yêu cầu của tôi",true],["my-approvals","Cần tôi duyệt",tabAllowed("my-approvals")]];
+    var defs=[["create","Tạo mới",true]];
     box.innerHTML=defs.map(function(d){ var act=(state.tab===d[0]||(state.tab==="detail"&&d[0]==="my-requests"))?" active":"";
       return '<button type="button" class="tab'+act+'"'+(d[2]?'':' disabled')+' data-tab="'+d[0]+'">'+esc(d[1])+'</button>'; }).join(""); }
 
@@ -201,7 +201,7 @@
       + otherFld
       + fld("current_value","Current value",'<textarea data-model="current_value" rows="2">'+esc(d.current_value||"")+'</textarea>',true).replace('class="fld','class="fld full')
       + fld("new_value","New value",'<textarea data-model="new_value" rows="2">'+esc(d.new_value||"")+'</textarea>',true).replace('class="fld','class="fld full')
-      + fld("request_attachment","Tệp đính kèm",'<input type="file" data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div>').replace('class="fld','class="fld full')
+      + fld("request_attachment","Tệp đính kèm",'<input type="file" multiple data-upload="request_attachment"><div class="hint" id="att-name">'+esc(d.request_attachment?"Đã tải":"Không bắt buộc")+'</div>').replace('class="fld','class="fld full')
       + '</div></div>'
       + '<div class="card"><h3>Người yêu cầu</h3><div class="grid2">'
       + fld("_r1","Người yêu cầu",'<input class="ro" readonly value="'+esc(c.employee_name||c.user||"")+'">')
@@ -250,11 +250,18 @@
       renderSummary(); clearFieldError(k); };
     el.addEventListener("input",h); el.addEventListener("change",h); }
   function wireModels(scope){ (scope||document).querySelectorAll("[data-model]").forEach(attachModel); }
-  function uploadFile(fileInput,field,labelId){ var file=fileInput.files&&fileInput.files[0]; if(!file) return;
+  function uploadFile(fileInput,field,labelId){ var files=fileInput.files?Array.prototype.slice.call(fileInput.files):[]; if(!files.length) return;
     var lbl=$(labelId); if(lbl) lbl.textContent="Đang tải...";
-    var fd=new FormData(); fd.append("file",file); fd.append("is_private","1"); fd.append("doctype","EC Employee Information Update Request"); fd.append("docname",state.id||"");
-    fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd})
-      .then(function(r){return r.json();}).then(function(j){ var url=j&&j.message&&j.message.file_url; setModel("request_attachment",url); if(lbl) lbl.textContent=url?("Đã tải: "+file.name):"Lỗi tải"; })
+    var DT="EC Employee Information Update Request", done=0, firstUrl=null;
+    function ensureDraft(){ if(state.id) return Promise.resolve(state.id);
+      return call("save_draft",{name:null,payload:JSON.stringify(state.draft||{})})
+        .then(function(res){ if(res&&res.name) state.id=res.name; return state.id; })
+        .catch(function(){ return null; }); }
+    function put(f){ var fd=new FormData(); fd.append("file",f); fd.append("is_private","1"); fd.append("doctype",DT); fd.append("docname",state.id||"");
+      return fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd})
+        .then(function(r){return r.json();}).then(function(j){ var url=j&&j.message&&j.message.file_url; if(url){ done++; if(!firstUrl){ firstUrl=url; setModel(field,url); } } }); }
+    ensureDraft().then(function(){ return files.reduce(function(p,f){ return p.then(function(){ return put(f); }); }, Promise.resolve()); })
+      .then(function(){ if(lbl) lbl.textContent = done?(done===1?("Đã tải: "+files[0].name):("Đã tải "+done+" tệp")):"Lỗi tải"; })
       .catch(function(){ if(lbl) lbl.textContent="Lỗi tải"; }); }
   function wireCreate(){ var b=$("eiu-body"); wireModels(b);
     var att=document.querySelector('[data-upload="request_attachment"]'); if(att) att.addEventListener("change",function(){ uploadFile(att,"request_attachment","att-name"); });
@@ -320,7 +327,7 @@
   // ======================= DETAIL =======================
   function renderDetail(b){ b.innerHTML=skeleton(4);
     call("get_detail",{name:state.id}).then(function(det){ drawDetail(b,det); })
-    .catch(function(e){ var perm=/quyền|access|permission/i.test((e&&e.message)||""); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4><button type="button" class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ go({tab:"my-requests"}); }; }); }
+    .catch(function(e){ var perm=/quyền|access|permission/i.test((e&&e.message)||""); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4><button type="button" class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ window.location.href="/approvals/all-requests"; }; }); }
   function kv(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><input class="ro" readonly value="'+esc(v==null||v===""?"—":v)+'"></div>'; }
   function drawDetail(b,det){ state.detail=det; var biz=det.business||{}, ap=det.approval||{};
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
@@ -330,7 +337,7 @@
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
       +'<div class="card"><h3>Hành động</h3>'+actionPanelHTML(det)+'</div>'
       +'<div class="card"><h3>Lịch sử</h3>'+timelineHTML(det.timeline)+'</div>';
-    $("d-back").onclick=function(){ go({tab:"my-requests"}); };
+    $("d-back").onclick=function(){ window.location.href="/approvals/all-requests"; };
     $("d-stepper").innerHTML=buildStepper(det);
     ensureActionHandlers();
   }
