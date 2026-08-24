@@ -108,6 +108,10 @@
   var API="ecentric_workspace.approval_center.reporting.api";
   var $=function(id){return document.getElementById(id);};
   var state={ box:"all", start:0, page_length:50, total:0, options:null };
+  // Ghi nhớ tab đang đứng: tab nằm trong URL (?box=) nên mở chi tiết rồi quay lại vẫn đúng chỗ,
+  // và link/refresh/nút Back của trình duyệt đều giữ nguyên ngữ cảnh.
+  (function(){ var b=new URLSearchParams(window.location.search).get("box");
+    if(["received","sent","fulfil","all"].indexOf(b)>=0) state.box=b; })();
   function call(m,a){ if(!(window.frappe&&frappe.call)) return Promise.reject(new Error("frappe unavailable")); return frappe.call({method:API+"."+m,args:a||{}}).then(function(r){return r&&r.message;}); }
   function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
   function fmtDT(s){ if(!s) return "—"; var d=new Date(String(s).replace(" ","T")); if(isNaN(d)) return esc(s); function p(n){return(n<10?"0":"")+n;} return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes()); }
@@ -144,7 +148,7 @@
     var body=rows.map(function(r){ var breach=r.sla_breached?'<span class="pill breach">Quá hạn</span> ':'';
       var send=r.requester_info||{user:r.requester,name:r.requester};
       var sender='<div class="sender">'+avatar(send,28)+'<span class="nm">'+esc(send.name||send.user||"—")+'</span></div>';
-      return '<tr'+(r.detail_route?' data-route="'+esc(r.detail_route)+'"':'')+'><td>'+fmtDT(r.submitted_at)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||"")+'</td><td>'+esc(r.approval_type||"")+'</td><td>'+sender+'</td><td>'+chips(r.sent_to)+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"—")+'</td><td>'+breach+statusCell(r)+'</td><td>'+quickActions(r)+'</td></tr>'; }).join("");
+      return '<tr'+(r.detail_route?' data-route="'+esc(withFrom(r.detail_route))+'"':'')+'><td>'+fmtDT(r.submitted_at)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||"")+'</td><td>'+esc(r.approval_type||"")+'</td><td>'+sender+'</td><td>'+chips(r.sent_to)+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"—")+'</td><td>'+breach+statusCell(r)+'</td><td>'+quickActions(r)+'</td></tr>'; }).join("");
     var from=state.total?state.start+1:0, to=Math.min(state.start+rows.length,state.total);
     var pager='<div class="pager"><div class="info">'+from+'–'+to+' / '+state.total+'</div><div><button type="button" class="btn" id="apl-prev"'+(state.start<=0?" disabled":"")+'>‹ Trước</button> <button type="button" class="btn" id="apl-next"'+(state.start+state.page_length>=state.total?" disabled":"")+'>Sau ›</button></div></div>';
     $("apl-body").innerHTML='<div style="overflow-x:auto">'+head+body+'</tbody></table></div>'+pager;
@@ -157,6 +161,14 @@
       return '<span class="pill ff">'+esc(lbl)+'</span>'+who;
     }
     return '<span class="pill '+pillCls(r.status)+'">'+esc(statusLabel(r.status_label||r.status))+'</span>';
+  }
+  function syncUrl(){
+    try{ var q=new URLSearchParams(window.location.search); q.set("box",state.box);
+      window.history.replaceState({},"",window.location.pathname+"?"+q.toString()); }catch(e){}
+  }
+  function withFrom(route){
+    if(!route) return route;
+    return route + (route.indexOf("?")>=0?"&":"?") + "from=" + encodeURIComponent(state.box);
   }
   function quickActions(r){
     var b=[];
@@ -189,16 +201,17 @@
   }
 
   function apply(){ state.start=0; load(); }
-  function setBox(b){ state.box=b; state.start=0; Array.prototype.forEach.call(document.querySelectorAll("#apl-tabs .tab"),function(t){ t.classList.toggle("active",t.getAttribute("data-box")===b); }); load(); }
+  function setBox(b){ state.box=b; state.start=0; syncUrl(); Array.prototype.forEach.call(document.querySelectorAll("#apl-tabs .tab"),function(t){ t.classList.toggle("active",t.getAttribute("data-box")===b); }); load(); }
   function boot(){
     $("apl-apply").onclick=apply;
     Array.prototype.forEach.call(document.querySelectorAll("#apl-tabs .tab"),function(t){ t.onclick=function(){ setBox(t.getAttribute("data-box")); }; });
+    Array.prototype.forEach.call(document.querySelectorAll("#apl-tabs .tab"),function(t){ t.classList.toggle("active", t.getAttribute("data-box")===state.box); });
     $("apl-reset").onclick=function(){ ["f-search","f-from","f-to","f-category","f-type","f-department","f-status"].forEach(function(id){ $(id).value=""; }); state.start=0; load(); };
     $("f-search").addEventListener("keydown",function(e){ if(e.key==="Enter") apply(); });
     var ham=$("apl-ham"); if(ham) ham.onclick=function(){ document.getElementById("ec-apl-root").classList.toggle("sb-open"); };
     loadOptions().then(load);
   }
-  window.ApprovalAll={ state:state, quickActions:quickActions, runAction:runAction, boot:boot, load:load, render:render, filters:filters, setBox:setBox, avatar:avatar, initials:initials, _call:call };
+  window.ApprovalAll={ state:state, withFrom:withFrom, syncUrl:syncUrl, quickActions:quickActions, runAction:runAction, boot:boot, load:load, render:render, filters:filters, setBox:setBox, avatar:avatar, initials:initials, _call:call };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
 })();
 </script>
