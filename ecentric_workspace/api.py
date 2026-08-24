@@ -255,7 +255,23 @@ def create_so_from_form():
     # API key tam cua hoang.le: van "does not have doctype access ... for Item".
     # frappe.has_permission tra True ngay lap tuc khi user == "Administrator", nen
     # doi session trong dung pham vi ghi la cach duy nhat chac chan.
+    #
+    # !!! frappe.set_user() PHA SESSION cua nguoi dang dang nhap -- phai chup lai
+    # va tra ve nguyen trang. Frappe set_user() lam:
+    #     frappe.local.session.sid  = username
+    #     frappe.local.session.data = frappe._dict()      # <-- WIPE
+    #     frappe.local.form_dict    = frappe._dict()
+    # Cuoi request, Session.update() ghi `str(self.data["data"])` xuong tabSessions
+    # theo self.sid THAT -> sessiondata cua phien dang dung bi ghi de bang rong.
+    # Request ke tiep resume session khong con thong tin user -> tut ve Guest, moi
+    # @frappe.whitelist() tra 403 PermissionError. Da gap live: hoang.le submit xong,
+    # trang /approval bao "HTTP 403 PermissionError" va shell hien "Tai khoan" thay
+    # vi ten -- tuc la da bi dang xuat, KHONG phai thieu quyen xem phieu.
     original_user = frappe.session.user
+    _sess = frappe.local.session
+    _saved_sid = _sess.get("sid")
+    _saved_data = _sess.get("data")
+    _saved_form_dict = frappe.local.form_dict
     frappe.set_user("Administrator")
     try:
         so.insert(ignore_permissions=True)
@@ -275,6 +291,10 @@ def create_so_from_form():
         so.save(ignore_permissions=True)
     finally:
         frappe.set_user(original_user)
+        # tra lai nguyen trang session/form_dict ma set_user da xoa
+        _sess.sid = _saved_sid
+        _sess.data = _saved_data
+        frappe.local.form_dict = _saved_form_dict
 
     # Nhat ky duyet do ec_so_before_save ghi bang frappe.session.user, luc do dang la
     # Administrator -> tra lai dung ten nguoi gui cho dong "Draft -> Pending ...".
@@ -646,6 +666,109 @@ def _to_num(v):
         return float(v) if v not in (None, "") else 0.0
     except (TypeError, ValueError):
         return 0.0
+
+
+#: Doctype native chay qua workflow duyet cua eCentric (dung cho apply_native_workflow).
+NATIVE_APPROVAL_DOCTYPES = ("Sales Order", "Purchase Order", "MSO")
+
+#: Trang thai HIEN TAI -> ai duoc phep chuyen tiep. Sao y guard trong cac Server
+#: Script Before Save (ec_so_before_save / ec_po_before_save / ec_mso_before_save).
+#: BAT BUOC kiem o day vi apply_native_workflow chay duoi Administrator, ma guard
+#: trong Before Save co nhanh `if not is_admin: ...` nen se BI BO QUA -- khong kiem
+#: lai thi bat ky user dang nhap nao cung duyet duoc moi chung tu.
+NATIVE_STATE_GUARD = {
+    "Draft": {"owner": True},
+    "Rejected": {"owner": True},
+    "Pending Manager": {"field": "ec_manager_email"},
+    "Pending Finance": {"role": "EC Finance"},
+    "Pending HOF": {"role": "EC HOF"},
+    "Pending CEO": {"role": "EC CEO"},
+    "Pending Sales Admin": {"role": "EC Sales Admin"},
+}
+
+
+def _assert_can_act(doc, user):
+    """Chan truoc khi nang quyen. Nem PermissionError neu user khong phai nguoi
+    duoc phep thao tac o trang thai hien tai cua chung tu."""
+    if user == "Administrator" or "System Manager" in frappe.get_roles(user):
+        return
+    state = (doc.get("workflow_state") or "").strip()
+    rule = NATIVE_STATE_GUARD.get(state)
+    if not rule:
+        frappe.throw(_("Trang thai '{0}' khong cho thao tac tu trang duyet.").format(state),
+                     frappe.PermissionError)
+    if rule.get("owner"):
+        if user != (doc.owner or ""):
+            frappe.throw(_("Chi nguoi tao chung tu moi thao tac duoc o buoc nay."),
+                         frappe.PermissionError)
+        return
+    if rule.get("field"):
+        expected = (doc.get(rule["field"]) or "").strip()
+        if user != expected:
+            frappe.throw(_("Buoc duyet nay danh cho {0}. Ban ({1}) khong phai nguoi duyet cap nay.")
+                         .format(expected or "(chua xac dinh)", user), frappe.PermissionError)
+        return
+    role = rule.get("role")
+    if role and role not in frappe.get_roles(user):
+        frappe.throw(_("Buoc duyet nay can Role '{0}'. Ban ({1}) chua co.").format(role, user),
+                     frappe.PermissionError)
+
+
+@frappe.whitelist()
+def apply_native_workflow(doctype, name, action):
+    """Chuyen trang thai workflow cho chung tu native, SERVER-SIDE.
+
+    Ly do: trang /approval goi apply_workflow duoi quyen NGUOI DUYET. Nguoi duyet
+    cap 1 (quan ly truc tiep) va CEO khong co role nao cho phep doc/ghi Sales Order
+    -> frappe.model.workflow.get_transitions() goi has_permission(read, throw=True)
+    va chan ngay -> Server Script approval_decision_override tra "workflow_error"
+    voi detail rong. Da kiem chung live: thai.cao (L1) va lam.nguyen (CEO) deu bi.
+
+    An toan: _assert_can_act() kiem DUNG nguoi duyet cua trang thai hien tai TRUOC
+    khi doi session, vi guard trong Before Save bi bo qua khi chay duoi Administrator.
+    Session duoc chup va tra nguyen trang (xem ghi chu o create_so_from_form).
+    """
+    _require_logged_in()
+    if doctype not in NATIVE_APPROVAL_DOCTYPES:
+        frappe.throw(_("Doctype khong duoc phep: {0}").format(doctype), frappe.PermissionError)
+
+    user = frappe.session.user
+    doc = frappe.get_doc(doctype, name)
+    _assert_can_act(doc, user)
+    prev_state = doc.get("workflow_state") or ""
+
+    original_user = user
+    _sess = frappe.local.session
+    _saved_sid = _sess.get("sid")
+    _saved_data = _sess.get("data")
+    _saved_form_dict = frappe.local.form_dict
+    frappe.set_user("Administrator")
+    try:
+        from frappe.model.workflow import apply_workflow
+        apply_workflow(frappe.get_doc(doctype, name), action)
+    finally:
+        frappe.set_user(original_user)
+        _sess.sid = _saved_sid
+        _sess.data = _saved_data
+        frappe.local.form_dict = _saved_form_dict
+
+    _fix_approval_log_actor(doctype, name, prev_state, user)
+    return {"success": True,
+            "workflow_state": frappe.db.get_value(doctype, name, "workflow_state") or "",
+            "docstatus": frappe.db.get_value(doctype, name, "docstatus")}
+
+
+def _fix_approval_log_actor(doctype, name, prev_state, actor):
+    """Before Save ghi nhat ky bang frappe.session.user -- luc do dang la
+    Administrator. Tra lai dung email nguoi duyet cho dong vua ghi."""
+    try:
+        log = frappe.db.get_value(doctype, name, "ec_approval_log") or ""
+        needle = "Administrator | " + prev_state + " ->"
+        if needle in log:
+            log = log.replace(needle, actor + " | " + prev_state + " ->")
+            frappe.db.set_value(doctype, name, "ec_approval_log", log, update_modified=False)
+    except Exception:
+        pass
 
 
 def _fix_submit_log_actor(so_name, actor):
