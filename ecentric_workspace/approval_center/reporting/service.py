@@ -573,10 +573,13 @@ def _enrich_list_rows(views):
             mine_pending.add((a["approval_request"], a.get("level_no")))
     ff_status = _fulfillment_status_map(views)
     for v in views:
-        v["can_approve"] = (v["name"], v.get("current_level")) in mine_pending
+        is_open = v.get("status") in _status.OPEN_ENGINE_STATUSES
+        # A cancelled/rejected/closed request keeps its approver rows as Pending, so the
+        # membership check alone would still offer Duyệt/Từ chối on a huỷ/hoàn tất row.
+        v["can_approve"] = bool(is_open and (v["name"], v.get("current_level")) in mine_pending)
         ff = ff_status.get(v["name"]) or (None, None)
         v["fulfillment_status"], v["fulfillment_owner"] = ff[0], ff[1]
-        v["can_claim"] = bool(ff[0] == "Assigned"
+        v["can_claim"] = bool(v.get("status") not in ("Cancelled", "Rejected") and ff[0] == "Assigned"
                               and _may_fulfil(me, v.get("reference_doctype"), v.get("approval_type")))
         v["requester_info"] = _info(v.get("requester"))
         seen, sto = set(), []
