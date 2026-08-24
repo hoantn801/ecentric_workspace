@@ -43,8 +43,22 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "ac798876952b11414f415bbbd40dc615624b6147c479fd20d2e3aece56353c79"
+BASELINE_SHA256 = "5b22e8028c2872b52fd0eae3f68f177d7f558055ada410bd3bad13d06338c257"
 SUPERSEDES_SHA256 = (
+    # 2026-08-24: doi moc chan MSO EC_MSO_GRACE tu 2026-08 -> 2026-11. Het moc cu
+    # thi form chuyen tu "canh bao + giai trinh" sang CHAN CUNG luc submit, nen SO
+    # thang 2026-09 cua brand chua co MSO duyet khong khai duoc (vd brand PHN,
+    # 2026-09: o giai trinh da bat va chain da xep 4 cap, chi rieng nut gui bi chan).
+    # Server (ec_so_before_save) KHONG chan case nay -- no chi doi hoi
+    # ec_over_justification khi ec_in_out_budget = "Out of Budget" -- nen chan cung
+    # nam hoan toan o hookMsoGate cua form nay.
+    #
+    # 3 gia tri duoi day deu duoc chap nhan vi luc doi moc, repo va live LECH nhau
+    # dung 2 dong prerender cua ec-shell (dong 502 va 507) do mot dot sua shell khac
+    # ghi vao repo ma chua deploy. Lech nay khong lien quan logic MSO.
+    "1302267daf2ddecd91dc23e64d99978c5a21f20c9e097013d0663b32dc733fbc",  # live sau khi doi moc (2026-08-24)
+    "6ccfcca9c458f9545d4c33cbff02a1dd878063558533f2387c288202af0c23c6",  # repo truoc khi doi moc
+    "ac798876952b11414f415bbbd40dc615624b6147c479fd20d2e3aece56353c79",  # BASELINE cu
     "9abdb28f8dd0c3738a9c932e20c0d0d3a7eaf4da98c994132b6137bd2b74208a",
     # bytes truoc khi sua link chet /mso-approval (2026-08-07): nut "Quay lai trang
     # chu" tro toi /mso-approval -- route nay KHONG ton tai tren site (chi co /home,
