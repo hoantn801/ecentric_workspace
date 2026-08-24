@@ -46,6 +46,10 @@
   #ec-apl-root tbody td{ padding:7px 10px; border-bottom:1px solid var(--gray-100); font-size:12px; color:var(--gray-700); vertical-align:middle; }
   #ec-apl-root tbody tr:hover{ background:var(--gray-50); }
   #ec-apl-root tbody tr[data-route]{ cursor:pointer; }
+  #ec-apl-root .qa{ display:flex; gap:6px; justify-content:flex-end; }
+  #ec-apl-root .qa .btn{ padding:4px 10px; font-size:12px; border-radius:7px; }
+  #ec-apl-root .qa .btn.ok{ background:var(--navy); border-color:var(--navy); color:#fff; }
+  #ec-apl-root .qa .btn.warn{ background:#fff; border-color:var(--gray-200); color:var(--gray-700); }
   #ec-apl-root .pill{ display:inline-block; padding:2px 9px; border-radius:999px; font-size:11.5px; font-weight:600; }
   #ec-apl-root .pill.Pending{ background:var(--navy-50); color:var(--navy); } #ec-apl-root .pill.Information{ background:var(--amber-50); color:var(--amber); }
   #ec-apl-root .pill.Completed{ background:#ecfdf5; color:var(--green); } #ec-apl-root .pill.Rejected{ background:var(--red-50); color:var(--red); } #ec-apl-root .pill.Cancelled{ background:var(--gray-100); color:var(--gray-500); }
@@ -78,6 +82,7 @@
       <div class="tabs" id="apl-tabs">
         <button type="button" class="tab" data-box="received">Đã nhận</button>
         <button type="button" class="tab" data-box="sent">Đã gửi</button>
+        <button type="button" class="tab" data-box="fulfil">Chờ tôi xử lý</button>
         <button type="button" class="tab active" data-box="all">Tất cả</button>
       </div>
       <div class="filters">
@@ -135,17 +140,40 @@
 
   function render(rows){
     if(!rows.length){ $("apl-body").innerHTML='<div class="state"><h4>Không có yêu cầu</h4><p>Không có yêu cầu nào khớp bộ lọc trong phạm vi của bạn.</p></div>'; return; }
-    var head='<table><thead><tr><th>Ngày gửi</th><th>Mã</th><th>Tiêu đề</th><th>Loại</th><th>Người gửi</th><th>Người nhận</th><th>Phòng ban</th><th>Cấp hiện tại</th><th>Trạng thái</th></tr></thead><tbody>';
+    var head='<table><thead><tr><th>Ngày gửi</th><th>Mã</th><th>Tiêu đề</th><th>Loại</th><th>Người gửi</th><th>Người nhận</th><th>Phòng ban</th><th>Cấp hiện tại</th><th>Trạng thái</th><th style="text-align:right">Thao tác</th></tr></thead><tbody>';
     var body=rows.map(function(r){ var breach=r.sla_breached?'<span class="pill breach">Quá hạn</span> ':'';
       var send=r.requester_info||{user:r.requester,name:r.requester};
       var sender='<div class="sender">'+avatar(send,28)+'<span class="nm">'+esc(send.name||send.user||"—")+'</span></div>';
-      return '<tr'+(r.detail_route?' data-route="'+esc(r.detail_route)+'"':'')+'><td>'+fmtDT(r.submitted_at)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||"")+'</td><td>'+esc(r.approval_type||"")+'</td><td>'+sender+'</td><td>'+chips(r.sent_to)+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"—")+'</td><td>'+breach+'<span class="pill '+pillCls(r.status)+'">'+esc(statusLabel(r.status_label||r.status))+'</span></td></tr>'; }).join("");
+      return '<tr'+(r.detail_route?' data-route="'+esc(r.detail_route)+'"':'')+'><td>'+fmtDT(r.submitted_at)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||"")+'</td><td>'+esc(r.approval_type||"")+'</td><td>'+sender+'</td><td>'+chips(r.sent_to)+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"—")+'</td><td>'+breach+'<span class="pill '+pillCls(r.status)+'">'+esc(statusLabel(r.status_label||r.status))+'</span></td><td>'+quickActions(r)+'</td></tr>'; }).join("");
     var from=state.total?state.start+1:0, to=Math.min(state.start+rows.length,state.total);
     var pager='<div class="pager"><div class="info">'+from+'–'+to+' / '+state.total+'</div><div><button type="button" class="btn" id="apl-prev"'+(state.start<=0?" disabled":"")+'>‹ Trước</button> <button type="button" class="btn" id="apl-next"'+(state.start+state.page_length>=state.total?" disabled":"")+'>Sau ›</button></div></div>';
     $("apl-body").innerHTML='<div style="overflow-x:auto">'+head+body+'</tbody></table></div>'+pager;
     wire();
   }
+  function quickActions(r){
+    var b=[];
+    if(r.can_approve) b.push('<button type="button" class="btn ok" data-qa="approve" data-req="'+esc(r.name)+'">Duyệt</button>'
+                            +'<button type="button" class="btn warn" data-qa="reject" data-req="'+esc(r.name)+'">Từ chối</button>');
+    if(r.can_claim) b.push('<button type="button" class="btn ok" data-qa="claim" data-req="'+esc(r.name)+'">Nhận xử lý</button>');
+    return b.length?('<div class="qa">'+b.join("")+'</div>'):'';
+  }
+  function runAction(kind,reqName,btn){
+    var API2="ecentric_workspace.approval_center.reporting.actions.";
+    var method={approve:"approve",reject:"reject",claim:"claim_fulfillment"}[kind];
+    if(!method) return;
+    var comment=null;
+    if(kind==="reject"){ comment=window.prompt("Lý do từ chối:"); if(comment===null) return; if(!comment.trim()){ alert("Vui lòng nhập lý do."); return; } }
+    if(btn) btn.disabled=true;
+    var args={request_name:reqName}; if(comment) args.comment=comment;
+    frappe.call({method:API2+method,args:args,type:"POST"})
+      .then(function(){ load(); })
+      .catch(function(e){ if(btn) btn.disabled=false; var m=(e&&e.message)||"Không thực hiện được."; alert(m); });
+  }
   function wire(){
+    Array.prototype.forEach.call(document.querySelectorAll('#apl-body [data-qa]'),function(btn){
+      btn.onclick=function(e){ e.stopPropagation(); runAction(btn.getAttribute("data-qa"), btn.getAttribute("data-req"), btn); };
+    });
+
     Array.prototype.forEach.call(document.querySelectorAll('#apl-body tbody tr[data-route]'),function(tr){ tr.onclick=function(){ var rt=tr.getAttribute("data-route"); if(rt) window.location.href=rt; }; });
     var pv=$("apl-prev"), nx=$("apl-next");
     if(pv) pv.onclick=function(){ state.start=Math.max(0,state.start-state.page_length); load(); };
@@ -162,7 +190,7 @@
     var ham=$("apl-ham"); if(ham) ham.onclick=function(){ document.getElementById("ec-apl-root").classList.toggle("sb-open"); };
     loadOptions().then(load);
   }
-  window.ApprovalAll={ state:state, boot:boot, load:load, render:render, filters:filters, setBox:setBox, avatar:avatar, initials:initials, _call:call };
+  window.ApprovalAll={ state:state, quickActions:quickActions, runAction:runAction, boot:boot, load:load, render:render, filters:filters, setBox:setBox, avatar:avatar, initials:initials, _call:call };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
 })();
 </script>

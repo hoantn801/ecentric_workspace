@@ -116,7 +116,7 @@ def list_requests(filters=None, start=0, page_length=50, search=None, box=None):
     server-side; no date default (show all in scope unless a range is passed)."""
     scope = _scope.resolve_scope(frappe.session.user)
     f = _parse_filters(filters, force_date=False)
-    if box in ("received", "sent"):
+    if box in ("received", "sent", "fulfil"):
         f["box"] = box
         f["_me"] = frappe.session.user
     try:
