@@ -62,6 +62,30 @@ def _has_decision(approval_request):
          "action": ["in", ["Approved", "Rejected", "Information Requested"]]}))
 
 
+def _is_fulfiller(user, business_doc, approval_request=None):
+    """Canonical engine rule, mirrored from the ai_topup controller."""
+    try:
+        from ecentric_workspace.approval_center.shared.workflow import permissions as _perm
+        atype = getattr(business_doc, "approval_type", None) or (
+            approval_request.get("approval_type") if approval_request else None)
+        return bool(_perm.is_eligible_fulfiller(user, atype, business_doc.doctype))
+    except Exception:
+        return False
+
+
+def _can_claim(user, business_doc, approval_request=None):
+    """Claim is offered only while the request is waiting to be picked up."""
+    if getattr(business_doc, "fulfillment_status", None) != "Assigned":
+        return False
+    return _is_fulfiller(user, business_doc, approval_request)
+
+
+def _can_complete(user, business_doc):
+    if getattr(business_doc, "fulfillment_status", None) not in ("Assigned", "In Progress"):
+        return False
+    return bool(getattr(business_doc, "fulfillment_owner", None) == user or is_system_manager(user))
+
+
 def derive(user, business_doc, approval_request):
     """Return advisory UI capabilities; write paths still revalidate authority."""
     requester = business_doc.requested_by == user
@@ -92,6 +116,9 @@ def derive(user, business_doc, approval_request):
         "can_reject": can_act,
         "can_request_information": can_act,
         "can_admin_approve_current_level": admin_approve,
+        "can_claim": _can_claim(user, business_doc, approval_request),
+        "can_complete": _can_complete(user, business_doc),
+        "can_view_fulfillment": bool(requester or admin or _is_fulfiller(user, business_doc, approval_request)),
     }
 
 
