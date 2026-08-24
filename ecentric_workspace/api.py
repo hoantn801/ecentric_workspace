@@ -169,6 +169,100 @@ def submit_so(title, department, service_name, total_est_revenue, total_est_expe
 
 
 @frappe.whitelist()
+def create_so_from_form():
+    """Tao native Sales Order (che do "Brand truc tiep" cua /gbs-so-form-v2) SERVER-SIDE.
+
+    Truoc day form POST thang /api/resource/Sales Order tu trinh duyet, chay DUOI
+    QUYEN cua KAM -> controller ERPNext (get_item_details) kiem quyen doc Item /
+    Price List theo KAM -> KAM (chi Customer / Employee / PM Member) bi chan:
+    "does not have doctype access ... for document Item". Tao server-side voi
+    frappe.flags.ignore_permissions (co THAT trong app code) -> controller bo qua
+    kiem quyen noi bo. KAM khong can bat ky quyen doctype nao.
+
+    !!! DEPLOY: BAT BUOC deploy dang APP CODE (Option A o dau file). KHONG chay
+    duoc duoi dang Server Script: safe_exec sandbox hoa frappe.flags (chi la ban
+    sao rong) nen bypass khong an -- day chinh la ly do phai chuyen sang app code.
+
+    Bao mat: chan Guest; WHITELIST tung field (khong nhan raw doc); ep
+    company='eCentric'; owner = session user; submit chi den Pending Manager, con
+    lai 4 cap duyet EC SO Approval giu nguyen. Guard ngan sach/nguoi duyet trong
+    Server Script Before Save `ec_so_before_save` van chay o buoc save.
+    """
+    _require_logged_in()
+    data = _read_json_body()
+
+    customer = data.get("customer")
+    transaction_date = data.get("transaction_date")
+    delivery_date = data.get("delivery_date")
+    items = data.get("items") or []
+    _validate_required({
+        "customer": customer,
+        "transaction_date": transaction_date,
+        "delivery_date": delivery_date,
+    })
+    if not isinstance(items, list) or not items:
+        frappe.throw(_("SO can it nhat 1 dong item."))
+
+    so = frappe.new_doc("Sales Order")
+    so.company = "eCentric"                     # ep cung, khong lay tu client
+    so.order_type = data.get("order_type") or "Sales"
+    so.customer = customer
+    so.transaction_date = transaction_date
+    so.delivery_date = delivery_date
+
+    for fname in ("ec_channel", "ec_brand", "ec_team", "ec_mso_month", "ec_store",
+                  "ec_vat_template", "ec_attach_session", "ec_gbs_so_ref",
+                  "ec_gbs_sync_status", "ec_contract", "ec_over_justification"):
+        val = data.get(fname)
+        if val not in (None, ""):
+            so.set(fname, val)
+    if data.get("ec_external_service"):
+        so.ec_external_service = 1
+    if data.get("title"):
+        so.title = data.get("title")
+
+    for it in items:
+        so.append("items", {
+            "item_code": it.get("item_code") or "",
+            "qty": _to_num(it.get("qty")),
+            "rate": _to_num(it.get("rate")),
+            "delivery_date": it.get("delivery_date") or delivery_date,
+        })
+
+    for tx in (data.get("taxes") or []):
+        if isinstance(tx, dict):
+            so.append("taxes", {
+                "charge_type": tx.get("charge_type") or "On Net Total",
+                "account_head": tx.get("account_head") or "VAT - EC",
+                "rate": _to_num(tx.get("rate")),
+                "description": tx.get("description") or "VAT",
+            })
+
+    user = frappe.session.user
+    # frappe.flags.ignore_permissions THAT (app code) -> controller ERPNext bo qua
+    # kiem quyen Item/Price List. Reset trong finally de khong ro ri sang request khac.
+    frappe.flags.ignore_permissions = True
+    try:
+        so.flags.ignore_permissions = True
+        so.insert(ignore_permissions=True)
+        # owner = KAM: KAM thay don cua minh + ec_so_before_save resolve nguoi duyet
+        # cap 1 tu Employee.reports_to cua owner.
+        frappe.db.set_value("Sales Order", so.name, "owner", user, update_modified=False)
+        # Draft -> Pending Manager (Submit for Approval). ec_l1_auto_skip co the day
+        # tiep sang Pending Finance -- dung hanh vi cu.
+        so.reload()
+        so.workflow_state = "Pending Manager"
+        so.flags.ignore_permissions = True
+        so.save(ignore_permissions=True)
+    finally:
+        frappe.flags.ignore_permissions = False
+
+    return {"success": True, "name": so.name,
+            "workflow_state": so.workflow_state,
+            "ec_in_out_budget": so.get("ec_in_out_budget") or ""}
+
+
+@frappe.whitelist()
 def submit_po(title, service_request_id, department, requestor,
               estimated_exp_vat_in, estimated_exp_vat_ex,
               department_code=None, vendor_name=None, procurement_code=None,
@@ -529,6 +623,21 @@ def _to_num(v):
         return float(v) if v not in (None, "") else 0.0
     except (TypeError, ValueError):
         return 0.0
+
+
+def _read_json_body():
+    """Parse JSON POST body. Form /gbs-so-form-v2 gui nested items/taxes nen doc
+    thang tu request body thay vi kwargs."""
+    data = None
+    try:
+        raw = frappe.request.get_data(as_text=True)
+        if raw:
+            data = frappe.parse_json(raw)
+    except Exception:
+        data = None
+    if not isinstance(data, dict):
+        data = dict(frappe.form_dict)
+    return data
 
 
 def _build_chain_for_doc(doc, recipe_name):
