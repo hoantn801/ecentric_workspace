@@ -133,6 +133,36 @@ def _search_clause(search, params):
             "OR r.requested_by LIKE %(search)s OR r.requester_department LIKE %(search)s)")
 
 
+def _fulfillment_refs():
+    """Business records currently sitting in the fulfillment stage, across every form.
+
+    fulfillment_status lives on each business DocType (not on EC Approval Request), so the
+    hub cannot filter it in the main JOIN. Open fulfillment work is small, so we collect the
+    names per registered form (only those that actually carry the field) and filter the
+    request list by reference_name. Returns [] when nothing is open."""
+    import frappe as _f
+    names = []
+    try:
+        from ecentric_workspace.approval_center.shared.registry import APPROVAL_DEFINITIONS
+        defs = list(APPROVAL_DEFINITIONS.values())
+    except Exception:
+        return names
+    seen_dt = set()
+    for d in defs:
+        dt = getattr(d, "business_doctype", None)
+        if not dt or dt in seen_dt:
+            continue
+        seen_dt.add(dt)
+        try:
+            if not _f.get_meta(dt).has_field("fulfillment_status"):
+                continue
+            names += _f.get_all(dt, filters={"fulfillment_status": ["in", ["Assigned", "In Progress"]]},
+                                pluck="name", limit_page_length=0)
+        except Exception:
+            continue
+    return names
+
+
 def _list_where(scope, filters, search, params):
     where = ["1=1"]
     sp, sparams = _scope.scope_predicate(scope)
@@ -157,6 +187,17 @@ def _list_where(scope, filters, search, params):
         params["_me_recv"] = me
         where.append("EXISTS (SELECT 1 FROM `tabEC Approval Request Approver` va "
                      "WHERE va.approval_request = r.name AND va.approver = %(_me_recv)s)")
+    elif box == "fulfil":
+        refs = _fulfillment_refs()
+        if not refs:
+            where.append("1=0")
+        else:
+            keys = []
+            for i, nm in enumerate(refs):
+                k = "_ff%d" % i
+                params[k] = nm
+                keys.append("%%(%s)s" % k)
+            where.append("r.reference_name IN (" + ", ".join(keys) + ")")
     return " AND ".join(where)
 
 

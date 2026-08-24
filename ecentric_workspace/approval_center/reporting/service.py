@@ -502,6 +502,39 @@ def list_requests(scope, filters, start=0, page_length=50, search=None):
     return {"rows": views, "total": total, "start": int(start), "page_length": int(page_length)}
 
 
+def _fulfillment_status_map(views):
+    """{request_name: fulfillment_status} for the page, batched per business DocType."""
+    import frappe
+    by_dt = defaultdict(list)
+    ref_of = {}
+    for v in views:
+        dt, ref = v.get("reference_doctype"), v.get("reference_name")
+        if dt and ref:
+            by_dt[dt].append(ref)
+            ref_of[(dt, ref)] = v["name"]
+    out = {}
+    for dt, refs in by_dt.items():
+        try:
+            if not frappe.get_meta(dt).has_field("fulfillment_status"):
+                continue
+            for row in frappe.get_all(dt, filters={"name": ["in", refs]},
+                                      fields=["name", "fulfillment_status"]):
+                key = ref_of.get((dt, row["name"]))
+                if key:
+                    out[key] = row.get("fulfillment_status")
+        except Exception:
+            continue
+    return out
+
+
+def _may_fulfil(user, business_doctype, approval_type):
+    try:
+        from ecentric_workspace.approval_center.shared.workflow import permissions as _perm
+        return bool(_perm.is_eligible_fulfiller(user, approval_type, business_doctype))
+    except Exception:
+        return False
+
+
 def _enrich_list_rows(views):
     """Add Teams-style 'sent by' (requester_info) + 'sent to' (distinct approvers) to each list
     row. Batched (2 queries total, bounded by the page size) - no per-row query."""
@@ -529,7 +562,18 @@ def _enrich_list_rows(views):
         return {"user": u, "name": (d.get("full_name") or u or ""), "image": d.get("user_image"),
                 "status": status}
 
+    me = frappe.session.user
+    # Per-row quick-action capability for the hub. Advisory only -- the write path
+    # (reporting.actions -> facade -> engine) revalidates authority on every call.
+    mine_pending = set()
+    for a in appr:
+        if a.get("approver") == me and a.get("status") == "Pending":
+            mine_pending.add((a["approval_request"], a.get("level_no")))
+    ff_status = _fulfillment_status_map(views)
     for v in views:
+        v["can_approve"] = (v["name"], v.get("current_level")) in mine_pending
+        v["can_claim"] = bool(ff_status.get(v["name"]) == "Assigned"
+                              and _may_fulfil(me, v.get("reference_doctype"), v.get("approval_type")))
         v["requester_info"] = _info(v.get("requester"))
         seen, sto = set(), []
         for a in sorted(by_req.get(v["name"], []), key=lambda x: x.get("level_no") or 0):
