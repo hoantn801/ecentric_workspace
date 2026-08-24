@@ -684,7 +684,22 @@ ELEVATED_STATES = {
     "Draft": {"owner": True},
     "Rejected": {"owner": True},
     "Pending Manager": {"field": "ec_manager_email"},
+    # Pending CEO la buoc SUBMIT (doc_status=1), khong phai save. Submit kich hoat
+    # chuoi validate cua ERPNext -> doc sang Customer roi Item. Da kiem chung live
+    # 2026-08-24 voi lam.nguyen (chi co role EC CEO): cap read Customer xong thi
+    # chan tiep o Item. Item la STANDARD-perm -- them Custom DocPerm vao Item se
+    # xoa sach phan quyen chuan cua Item cho CA CONG TY, tuyet doi khong lam.
+    # Vi vay buoc nay nang quyen, guard bang dung role EC CEO (trung voi role cua
+    # transition "Pending CEO -> Approved" trong workflow EC SO Approval).
+    "Pending CEO": {"role": "EC CEO"},
 }
+
+# GHI CHU (2026-08-24): cap Finance (L2) va HOF (L3) van chay NATIVE va dang chay
+# duoc -- nhung la nho MOI nguoi duyet hien tai (van.bui, thu.trinh, dan.ha,
+# phuong.nguyen1) deu dang co san role `Sales User` (kem read Customer/Item).
+# Neu sau nay co nguoi duyet chi duoc gan EC Finance / EC HOF ma khong co
+# Sales User, ho se bi chan y het CEO -> luc do them state tuong ung vao
+# ELEVATED_STATES (kem guard role) thay vi cap quyen doc danh muc.
 
 
 def _assert_can_act(doc, user):
