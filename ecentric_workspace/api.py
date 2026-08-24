@@ -239,23 +239,37 @@ def create_so_from_form():
             })
 
     user = frappe.session.user
-    # frappe.flags.ignore_permissions THAT (app code) -> controller ERPNext bo qua
-    # kiem quyen Item/Price List. Reset trong finally de khong ro ri sang request khac.
-    frappe.flags.ignore_permissions = True
+    # owner PHAI set TRUOC insert: Frappe chi gan owner = session user khi owner con
+    # trong (set_user_and_timestamp: `if not self.owner`). Dat truoc de
+    # ec_so_before_save resolve nguoi duyet cap 1 tu Employee.reports_to cua KAM,
+    # chu khong phai cua Administrator.
+    so.owner = user
+
+    # TAI SAO PHAI set_user thay vi frappe.flags.ignore_permissions:
+    # controller ERPNext (get_item_details) lay doc Item roi goi check_permission ->
+    # Document.has_permission() chi doc `self.flags.ignore_permissions` CUA CHINH doc
+    # Item do, roi rot xuong frappe.has_permission() -- ham nay CHI nhin
+    # frappe.session.user, KHONG doc frappe.flags.ignore_permissions. Vi vay
+    # so.flags/insert(ignore_permissions=True) (chi tac dung len doc Sales Order) va
+    # frappe.flags.ignore_permissions deu KHONG cuu duoc -> da kiem chung live bang
+    # API key tam cua hoang.le: van "does not have doctype access ... for Item".
+    # frappe.has_permission tra True ngay lap tuc khi user == "Administrator", nen
+    # doi session trong dung pham vi ghi la cach duy nhat chac chan.
+    original_user = frappe.session.user
+    frappe.set_user("Administrator")
     try:
-        so.flags.ignore_permissions = True
         so.insert(ignore_permissions=True)
-        # owner = KAM: KAM thay don cua minh + ec_so_before_save resolve nguoi duyet
-        # cap 1 tu Employee.reports_to cua owner.
-        frappe.db.set_value("Sales Order", so.name, "owner", user, update_modified=False)
         # Draft -> Pending Manager (Submit for Approval). ec_l1_auto_skip co the day
         # tiep sang Pending Finance -- dung hanh vi cu.
         so.reload()
         so.workflow_state = "Pending Manager"
-        so.flags.ignore_permissions = True
         so.save(ignore_permissions=True)
     finally:
-        frappe.flags.ignore_permissions = False
+        frappe.set_user(original_user)
+
+    # Nhat ky duyet do ec_so_before_save ghi bang frappe.session.user, luc do dang la
+    # Administrator -> tra lai dung ten nguoi gui cho dong "Draft -> Pending ...".
+    _fix_submit_log_actor(so.name, user)
 
     return {"success": True, "name": so.name,
             "workflow_state": so.workflow_state,
@@ -623,6 +637,20 @@ def _to_num(v):
         return float(v) if v not in (None, "") else 0.0
     except (TypeError, ValueError):
         return 0.0
+
+
+def _fix_submit_log_actor(so_name, actor):
+    """Doi "Administrator | Draft -> ..." thanh dung email nguoi gui trong
+    ec_approval_log. Can thiet vi buoc submit chay duoi session Administrator
+    (xem create_so_from_form). Chi doi dong Draft -> Pending, khong dung dong khac."""
+    try:
+        log = frappe.db.get_value("Sales Order", so_name, "ec_approval_log") or ""
+        if "Administrator | Draft ->" in log:
+            log = log.replace("Administrator | Draft ->", actor + " | Draft ->")
+            frappe.db.set_value("Sales Order", so_name, "ec_approval_log", log,
+                                update_modified=False)
+    except Exception:
+        pass
 
 
 def _read_json_body():
