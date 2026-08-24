@@ -671,19 +671,19 @@ def _to_num(v):
 #: Doctype native chay qua workflow duyet cua eCentric (dung cho apply_native_workflow).
 NATIVE_APPROVAL_DOCTYPES = ("Sales Order", "Purchase Order", "MSO")
 
-#: Trang thai HIEN TAI -> ai duoc phep chuyen tiep. Sao y guard trong cac Server
-#: Script Before Save (ec_so_before_save / ec_po_before_save / ec_mso_before_save).
-#: BAT BUOC kiem o day vi apply_native_workflow chay duoi Administrator, ma guard
-#: trong Before Save co nhanh `if not is_admin: ...` nen se BI BO QUA -- khong kiem
-#: lai thi bat ky user dang nhap nao cung duyet duoc moi chung tu.
-NATIVE_STATE_GUARD = {
+#: CHI cac trang thai duoi day moi nang quyen, vi khong role native nao dien ta
+#: duoc nguoi hop le:
+#:   - Draft / Rejected : nguoi TAO chung tu (KAM) -- theo thiet ke KAM khong co
+#:     quyen doctype nao het, nen khong the cap role.
+#:   - Pending Manager  : "quan ly truc tiep cua chinh nguoi tao" la quan he DONG
+#:     (Employee.reports_to), khong phai mot role co dinh.
+#: Cac cap con lai (Finance / HOF / CEO / Sales Admin) UNG voi role native that ->
+#: chay thang workflow native duoi quyen nguoi duyet, giu nguyen guard trong
+#: Before Save. KHONG nang quyen o do (tranh nhan doi logic bao mat).
+ELEVATED_STATES = {
     "Draft": {"owner": True},
     "Rejected": {"owner": True},
     "Pending Manager": {"field": "ec_manager_email"},
-    "Pending Finance": {"role": "EC Finance"},
-    "Pending HOF": {"role": "EC HOF"},
-    "Pending CEO": {"role": "EC CEO"},
-    "Pending Sales Admin": {"role": "EC Sales Admin"},
 }
 
 
@@ -693,9 +693,9 @@ def _assert_can_act(doc, user):
     if user == "Administrator" or "System Manager" in frappe.get_roles(user):
         return
     state = (doc.get("workflow_state") or "").strip()
-    rule = NATIVE_STATE_GUARD.get(state)
+    rule = ELEVATED_STATES.get(state)
     if not rule:
-        frappe.throw(_("Trang thai '{0}' khong cho thao tac tu trang duyet.").format(state),
+        frappe.throw(_("Trang thai '{0}' khong duoc nang quyen.").format(state),
                      frappe.PermissionError)
     if rule.get("owner"):
         if user != (doc.owner or ""):
@@ -734,8 +734,25 @@ def apply_native_workflow(doctype, name, action):
 
     user = frappe.session.user
     doc = frappe.get_doc(doctype, name)
+    prev_state = (doc.get("workflow_state") or "").strip()
+
+    # Kiem chung live 2026-08-24: transition "Pending Manager -> Approve" de allowed=All,
+    # NHUNG ec_so_before_save van chan dung nguoi (thu bang phuong.nguyen1 -- co quyen
+    # ghi SO nhung khong phai sep cua nguoi tao -> bi chan dung thong bao "Buoc duyet
+    # nay danh cho quan ly truc tiep (thai.cao@...)"). Vay allowed=All KHONG phai lo
+    # hong, va KHONG duoc siet transition ve mot role: cac quan ly truc tiep khong
+    # chung role nao ca, siet la gay cap 1.
+    if prev_state not in ELEVATED_STATES:
+        # Cap Finance / HOF / CEO / Sales Admin: chay NATIVE duoi quyen nguoi duyet.
+        # Workflow tu kiem role cua transition, va guard trong Before Save chay nguyen
+        # ven (khong bi bo qua vi session KHONG phai Administrator).
+        from frappe.model.workflow import apply_workflow
+        apply_workflow(doc, action)
+        return {"success": True,
+                "workflow_state": frappe.db.get_value(doctype, name, "workflow_state") or "",
+                "docstatus": frappe.db.get_value(doctype, name, "docstatus")}
+
     _assert_can_act(doc, user)
-    prev_state = doc.get("workflow_state") or ""
 
     original_user = user
     _sess = frappe.local.session
