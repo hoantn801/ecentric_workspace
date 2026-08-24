@@ -53,6 +53,21 @@ def process_preview(approval_type):
         fields=["level_no", "level_name"], order_by="level_no asc")
 
 
+def _can_fulfil(user, definition):
+    """Canonical engine rule for 'may this user work the fulfillment queue'.
+
+    The form pages gate their Operation/fulfillment tab on tabs.fulfillment; the shared
+    bootstrap never set it (only ai_topup, which kept a bespoke controller, did), so after
+    the forms moved onto the shared adapter the tab silently disappeared and nobody could
+    claim an approved request -- even though list_fulfillment_queue happily returned it.
+    Best-effort: any failure hides the tab rather than breaking the page."""
+    try:
+        from ecentric_workspace.approval_center.shared.workflow import permissions as _perm
+        return bool(_perm.is_eligible_fulfiller(user, definition.code, definition.business_doctype))
+    except Exception:
+        return False
+
+
 def bootstrap(definition):
     user = frappe.session.user
     admin = capabilities.is_system_manager(user)
@@ -60,7 +75,8 @@ def bootstrap(definition):
         "context": employee_context(user),
         "is_system_manager": admin,
         "tabs": {"create": True, "my_requests": True,
-                 "my_approvals": capabilities.has_any_approver_row(user) or admin},
+                 "my_approvals": capabilities.has_any_approver_row(user) or admin,
+                 "fulfillment": _can_fulfil(user, definition)},
         "form_options": definition.options_provider(),
     }
 
