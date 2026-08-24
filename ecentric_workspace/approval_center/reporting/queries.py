@@ -133,31 +133,53 @@ def _search_clause(search, params):
             "OR r.requested_by LIKE %(search)s OR r.requester_department LIKE %(search)s)")
 
 
-def _fulfillment_refs():
-    """Business records currently sitting in the fulfillment stage, across every form.
+def _fulfillment_refs(me=None):
+    """Business records that are MINE to work on, across every form.
 
-    fulfillment_status lives on each business DocType (not on EC Approval Request), so the
-    hub cannot filter it in the main JOIN. Open fulfillment work is small, so we collect the
-    names per registered form (only those that actually carry the field) and filter the
-    request list by reference_name. Returns [] when nothing is open."""
+    'Chờ tôi xử lý' means: still unclaimed (fulfillment_status=Assigned) on a form I am an
+    eligible fulfiller for, OR already claimed BY ME (In Progress + owner=me). Work claimed
+    by someone else is deliberately excluded -- it is not mine to act on.
+
+    fulfillment_status lives on each business DocType (not on EC Approval Request) so it
+    cannot be joined; open fulfillment work is small, so we collect names per registered form
+    and the caller filters the list by reference_name."""
     import frappe as _f
     names = []
+    if not me:
+        return names
     try:
         from ecentric_workspace.approval_center.shared.registry import APPROVAL_DEFINITIONS
         defs = list(APPROVAL_DEFINITIONS.values())
     except Exception:
         return names
-    seen_dt = set()
+    try:
+        from ecentric_workspace.approval_center.shared.workflow import permissions as _perm
+    except Exception:
+        _perm = None
+    seen = set()
     for d in defs:
         dt = getattr(d, "business_doctype", None)
-        if not dt or dt in seen_dt:
+        code = getattr(d, "code", None)
+        if not dt or dt in seen:
             continue
-        seen_dt.add(dt)
+        seen.add(dt)
         try:
             if not _f.get_meta(dt).has_field("fulfillment_status"):
                 continue
-            names += _f.get_all(dt, filters={"fulfillment_status": ["in", ["Assigned", "In Progress"]]},
+            # already mine
+            names += _f.get_all(dt, filters={"fulfillment_status": "In Progress",
+                                             "fulfillment_owner": me},
                                 pluck="name", limit_page_length=0)
+            # unclaimed, but only on forms I may actually fulfil
+            eligible = True
+            if _perm is not None:
+                try:
+                    eligible = bool(_perm.is_eligible_fulfiller(me, code, dt))
+                except Exception:
+                    eligible = False
+            if eligible:
+                names += _f.get_all(dt, filters={"fulfillment_status": "Assigned"},
+                                    pluck="name", limit_page_length=0)
         except Exception:
             continue
     return names
@@ -188,7 +210,7 @@ def _list_where(scope, filters, search, params):
         where.append("EXISTS (SELECT 1 FROM `tabEC Approval Request Approver` va "
                      "WHERE va.approval_request = r.name AND va.approver = %(_me_recv)s)")
     elif box == "fulfil":
-        refs = _fulfillment_refs()
+        refs = _fulfillment_refs(me)
         if not refs:
             where.append("1=0")
         else:

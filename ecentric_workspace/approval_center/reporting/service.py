@@ -503,7 +503,7 @@ def list_requests(scope, filters, start=0, page_length=50, search=None):
 
 
 def _fulfillment_status_map(views):
-    """{request_name: fulfillment_status} for the page, batched per business DocType."""
+    """{request_name: (fulfillment_status, fulfillment_owner)} for the page, batched per DocType."""
     import frappe
     by_dt = defaultdict(list)
     ref_of = {}
@@ -517,11 +517,13 @@ def _fulfillment_status_map(views):
         try:
             if not frappe.get_meta(dt).has_field("fulfillment_status"):
                 continue
-            for row in frappe.get_all(dt, filters={"name": ["in", refs]},
-                                      fields=["name", "fulfillment_status"]):
+            fields = ["name", "fulfillment_status"]
+            if frappe.get_meta(dt).has_field("fulfillment_owner"):
+                fields.append("fulfillment_owner")
+            for row in frappe.get_all(dt, filters={"name": ["in", refs]}, fields=fields):
                 key = ref_of.get((dt, row["name"]))
                 if key:
-                    out[key] = row.get("fulfillment_status")
+                    out[key] = (row.get("fulfillment_status"), row.get("fulfillment_owner"))
         except Exception:
             continue
     return out
@@ -572,7 +574,9 @@ def _enrich_list_rows(views):
     ff_status = _fulfillment_status_map(views)
     for v in views:
         v["can_approve"] = (v["name"], v.get("current_level")) in mine_pending
-        v["can_claim"] = bool(ff_status.get(v["name"]) == "Assigned"
+        ff = ff_status.get(v["name"]) or (None, None)
+        v["fulfillment_status"], v["fulfillment_owner"] = ff[0], ff[1]
+        v["can_claim"] = bool(ff[0] == "Assigned"
                               and _may_fulfil(me, v.get("reference_doctype"), v.get("approval_type")))
         v["requester_info"] = _info(v.get("requester"))
         seen, sto = set(), []

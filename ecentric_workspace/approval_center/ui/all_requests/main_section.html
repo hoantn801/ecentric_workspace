@@ -47,7 +47,7 @@
   #ec-apl-root tbody tr:hover{ background:var(--gray-50); }
   #ec-apl-root tbody tr[data-route]{ cursor:pointer; }
   #ec-apl-root .qa{ display:flex; gap:6px; justify-content:flex-end; }
-  #ec-apl-root .qa .btn{ padding:4px 10px; font-size:12px; border-radius:7px; }
+  #ec-apl-root .qa .btn{ padding:4px 10px; font-size:12px; border-radius:7px; white-space:nowrap; }
   #ec-apl-root .qa .btn.ok{ background:var(--navy); border-color:var(--navy); color:#fff; }
   #ec-apl-root .qa .btn.warn{ background:#fff; border-color:var(--gray-200); color:var(--gray-700); }
   #ec-apl-root .pill{ display:inline-block; padding:2px 9px; border-radius:999px; font-size:11.5px; font-weight:600; }
@@ -144,11 +144,19 @@
     var body=rows.map(function(r){ var breach=r.sla_breached?'<span class="pill breach">Quá hạn</span> ':'';
       var send=r.requester_info||{user:r.requester,name:r.requester};
       var sender='<div class="sender">'+avatar(send,28)+'<span class="nm">'+esc(send.name||send.user||"—")+'</span></div>';
-      return '<tr'+(r.detail_route?' data-route="'+esc(r.detail_route)+'"':'')+'><td>'+fmtDT(r.submitted_at)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||"")+'</td><td>'+esc(r.approval_type||"")+'</td><td>'+sender+'</td><td>'+chips(r.sent_to)+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"—")+'</td><td>'+breach+'<span class="pill '+pillCls(r.status)+'">'+esc(statusLabel(r.status_label||r.status))+'</span></td><td>'+quickActions(r)+'</td></tr>'; }).join("");
+      return '<tr'+(r.detail_route?' data-route="'+esc(r.detail_route)+'"':'')+'><td>'+fmtDT(r.submitted_at)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||"")+'</td><td>'+esc(r.approval_type||"")+'</td><td>'+sender+'</td><td>'+chips(r.sent_to)+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"—")+'</td><td>'+breach+statusCell(r)+'</td><td>'+quickActions(r)+'</td></tr>'; }).join("");
     var from=state.total?state.start+1:0, to=Math.min(state.start+rows.length,state.total);
     var pager='<div class="pager"><div class="info">'+from+'–'+to+' / '+state.total+'</div><div><button type="button" class="btn" id="apl-prev"'+(state.start<=0?" disabled":"")+'>‹ Trước</button> <button type="button" class="btn" id="apl-next"'+(state.start+state.page_length>=state.total?" disabled":"")+'>Sau ›</button></div></div>';
     $("apl-body").innerHTML='<div style="overflow-x:auto">'+head+body+'</tbody></table></div>'+pager;
     wire();
+  }
+  function statusCell(r){
+    if(state.box==="fulfil" && r.fulfillment_status){
+      var lbl = r.fulfillment_status==="Assigned" ? "Chờ nhận xử lý" : "Đang xử lý";
+      var who = (r.fulfillment_status!=="Assigned" && r.fulfillment_owner) ? ('<div class="t-sub">'+esc(r.fulfillment_owner)+'</div>') : '';
+      return '<span class="pill ff">'+esc(lbl)+'</span>'+who;
+    }
+    return '<span class="pill '+pillCls(r.status)+'">'+esc(statusLabel(r.status_label||r.status))+'</span>';
   }
   function quickActions(r){
     var b=[];
