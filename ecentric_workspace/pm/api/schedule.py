@@ -141,7 +141,9 @@ def _ms_meetings(email, start_dt, end_dt, mask=False):
         url = ("https://graph.microsoft.com/v1.0/users/" + email + "/calendarView"
                "?startDateTime=" + start_dt.replace(" ", "T") + "%2B07:00"
                "&endDateTime=" + end_dt.replace(" ", "T") + "%2B07:00"
-               "&$select=subject,start,end,showAs,isAllDay&$top=100&$orderby=start/dateTime")
+               "&$select=id,subject,start,end,showAs,isAllDay,onlineMeeting,location,"
+               "responseStatus,isOrganizer,allowNewTimeProposals,type"
+               "&$top=100&$orderby=start/dateTime")
         r = requests.get(url, headers={"Authorization": "Bearer " + token,
                          "Prefer": 'outlook.timezone="Asia/Ho_Chi_Minh"'}, timeout=12)
         if r.status_code != 200:
@@ -154,11 +156,110 @@ def _ms_meetings(email, start_dt, end_dt, mask=False):
             en = ((ev.get("end") or {}).get("dateTime") or "")[:19].replace("T", " ")
             if not st or not en:
                 continue
-            out.append({"subject": "Họp" if mask else (ev.get("subject") or "Họp"),
-                        "start": st, "end": en, "showAs": ev.get("showAs") or "busy"})
+            row = {"subject": "Họp" if mask else (ev.get("subject") or "Họp"),
+                   "start": st, "end": en, "showAs": ev.get("showAs") or "busy"}
+            # Actionable fields ONLY for the caller's own calendar. When masked (viewing a
+            # teammate) we deliberately omit the event id / join link / response so nobody
+            # can RSVP or reschedule on someone else's behalf from a read-only view.
+            if not mask:
+                row["id"] = ev.get("id") or ""
+                row["join_url"] = ((ev.get("onlineMeeting") or {}) or {}).get("joinUrl") or ""
+                row["location"] = ((ev.get("location") or {}) or {}).get("displayName") or ""
+                row["response"] = ((ev.get("responseStatus") or {}) or {}).get("response") or "none"
+                row["is_organizer"] = bool(ev.get("isOrganizer"))
+                row["allow_propose"] = ev.get("allowNewTimeProposals") is not False
+                row["ev_type"] = ev.get("type") or "singleInstance"
+            out.append(row)
         return out
     except Exception:
         return []
+
+
+def _graph_ready():
+    """(ok, token_or_none). Shared guard for the calendar WRITE endpoints: they must fail
+    loudly (unlike the read helpers, which degrade to an empty overlay)."""
+    conf = frappe.get_conf() if hasattr(frappe, "get_conf") else {}
+    if not conf.get("ec_pm_calendar_sync"):
+        frappe.throw(_("Đồng bộ lịch chưa được bật."))
+    from ecentric_workspace.notification_center.providers import graph as msgraph
+    if not msgraph.is_configured():
+        frappe.throw(_("Chưa cấu hình lịch."))
+    ok, token = msgraph.get_app_token()
+    if not ok:
+        frappe.throw(_("Không lấy được token lịch."))
+    return token
+
+
+def _gtime(dt_str):
+    """'YYYY-MM-DD HH:MM:SS' (site local) -> Graph dateTimeTimeZone."""
+    return {"dateTime": str(dt_str).replace(" ", "T")[:19],
+            "timeZone": "Asia/Ho_Chi_Minh"}
+
+
+@frappe.whitelist()
+def propose_new_time(event_id, start, end, comment=None):
+    """Tentatively accept an invite while proposing a different slot (the Teams
+    'Propose new time' action). Own calendar only; the organizer gets the proposal."""
+    pmperm.require_pm_access()
+    caller = frappe.session.user
+    if not event_id or not start or not end:
+        frappe.throw(_("Thiếu dữ liệu."))
+    if get_datetime(end) <= get_datetime(start):
+        frappe.throw(_("Giờ kết thúc phải sau giờ bắt đầu."))
+    token = _graph_ready()
+    from urllib.parse import quote
+    import requests
+    try:
+        url = ("https://graph.microsoft.com/v1.0/users/" + caller + "/events/"
+               + quote(event_id, safe="") + "/tentativelyAccept")
+        body = {"sendResponse": True,
+                "proposedNewTime": {"start": _gtime(start), "end": _gtime(end)}}
+        if comment:
+            body["comment"] = comment
+        r = requests.post(url, headers={"Authorization": "Bearer " + token,
+                          "Content-Type": "application/json"}, json=body, timeout=12)
+        if r.status_code in (200, 202, 204):
+            return {"ok": True}
+        return {"ok": False, "code": "PROPOSE_" + str(r.status_code)}
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "schedule propose_new_time")
+        return {"ok": False, "code": "PROPOSE_EXC"}
+
+
+@frappe.whitelist()
+def reschedule(event_id, start, end):
+    """Move a meeting the CALLER ORGANISES to a new slot (Graph PATCH sends the update to
+    attendees). Refuses when the caller is not the organiser -- attendees must use
+    propose_new_time instead."""
+    pmperm.require_pm_access()
+    caller = frappe.session.user
+    if not event_id or not start or not end:
+        frappe.throw(_("Thiếu dữ liệu."))
+    if get_datetime(end) <= get_datetime(start):
+        frappe.throw(_("Giờ kết thúc phải sau giờ bắt đầu."))
+    token = _graph_ready()
+    from urllib.parse import quote
+    import requests
+    base = ("https://graph.microsoft.com/v1.0/users/" + caller + "/events/"
+            + quote(event_id, safe=""))
+    hdr = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
+    try:
+        chk = requests.get(base + "?$select=isOrganizer,type", headers=hdr, timeout=12)
+        if chk.status_code != 200:
+            return {"ok": False, "code": "READ_" + str(chk.status_code)}
+        if not chk.json().get("isOrganizer"):
+            frappe.throw(_("Chỉ người chủ trì mới đổi được giờ họp. "
+                           "Bạn có thể đề xuất giờ khác."))
+        r = requests.patch(base, headers=hdr,
+                           json={"start": _gtime(start), "end": _gtime(end)}, timeout=12)
+        if r.status_code in (200, 202, 204):
+            return {"ok": True, "start": str(start), "end": str(end)}
+        return {"ok": False, "code": "PATCH_" + str(r.status_code)}
+    except frappe.exceptions.ValidationError:
+        raise
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "schedule reschedule")
+        return {"ok": False, "code": "PATCH_EXC"}
 
 
 def _ms_today_events(email):
@@ -281,15 +382,7 @@ def rsvp(event_id, response, comment=None):
               "tentative": "tentativelyAccept"}.get((response or "").lower())
     if not action:
         frappe.throw(_("Phản hồi không hợp lệ."))
-    conf = frappe.get_conf() if hasattr(frappe, "get_conf") else {}
-    if not conf.get("ec_pm_calendar_sync"):
-        frappe.throw(_("Đồng bộ lịch chưa được bật."))
-    from ecentric_workspace.notification_center.providers import graph as msgraph
-    if not msgraph.is_configured():
-        frappe.throw(_("Chưa cấu hình lịch."))
-    ok, token = msgraph.get_app_token()
-    if not ok:
-        frappe.throw(_("Không lấy được token lịch."))
+    token = _graph_ready()
     from urllib.parse import quote
     import requests
     try:
