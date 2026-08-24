@@ -259,8 +259,17 @@ def create_so_from_form():
     frappe.set_user("Administrator")
     try:
         so.insert(ignore_permissions=True)
-        # Draft -> Pending Manager (Submit for Approval). ec_l1_auto_skip co the day
-        # tiep sang Pending Finance -- dung hanh vi cu.
+        # BAT BUOC ghi lai owner SAU insert: Frappe set_user_and_timestamp() chay
+        # truoc before_save va ghi de owner khi doc con moi --
+        #   if self.is_new() and not (self.creation and self.owner):
+        #       self.creation = self.modified; self.owner = self.modified_by
+        # `creation` luon trong o doc moi nen dieu kien luon dung -> so.owner dat
+        # truoc insert BI GHI DE thanh Administrator (da gap live: phieu ra
+        # owner=Administrator, cap 1 resolve theo Administrator nen dinh tuyen nham
+        # sang HOF thay vi quan ly truc tiep cua KAM).
+        frappe.db.set_value("Sales Order", so.name, "owner", user, update_modified=False)
+        # reload de before_save cua buoc submit doc duoc owner = KAM -> resolve dung
+        # nguoi duyet cap 1 tu Employee.reports_to cua KAM.
         so.reload()
         so.workflow_state = "Pending Manager"
         so.save(ignore_permissions=True)
