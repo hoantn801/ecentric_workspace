@@ -6631,12 +6631,24 @@ textarea.f-control { resize: vertical; min-height: 80px; font-family: 'DM Sans',
       body.taxes = [{ charge_type: 'On Net Total', account_head: 'VAT - EC',
                       rate: _vat, description: 'VAT ' + _vat + '%' }];
     }
-    var res = await fetch('/api/resource/Sales Order', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    // 2026-08-24 SUA GOC: truoc day POST thang /api/resource/Sales Order roi
+    // apply_workflow — ca hai chay duoi QUYEN cua KAM nen Frappe chan doctype
+    // (Sales Order, Customer, Item, ...). Nay goi 1 Server Script API
+    // ec_so_create_from_form: no tao + trinh duyet server-side voi
+    // ignore_permissions (whitelist field, ep company, owner = KAM). KAM khong
+    // can quyen doctype nao. Guard ngan sach/nguoi duyet trong ec_so_before_save
+    // van chay nguyen ven.
+    var res = await fetch('/api/method/ec_so_create_from_form', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
     var txt = await res.text();
     if (!res.ok) throw new Error(frappeErr(txt, 'Tao SO so EC loi'));
-    var doc = JSON.parse(txt).data;
-    var r2 = await fetch('/api/method/frappe.model.workflow.apply_workflow', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({doc: doc, action: 'Submit for Approval'})});
-    if (!r2.ok) throw new Error(frappeErr(await r2.text(), 'Trinh duyet SO EC loi'));
+    var resp = (JSON.parse(txt) || {}).message || {};
+    if (!resp.success){
+      var _em = (resp.error === 'missing_fields')
+        ? ('Thieu truong bat buoc: ' + (resp.fields || []).join(', '))
+        : (resp.error || 'Tao SO so EC loi');
+      throw new Error(_em);
+    }
+    var doc = { name: resp.name, ec_in_out_budget: resp.ec_in_out_budget || '' };
     try { await attachRawFiles('Sales Order', doc.name); } catch (_e) {}
     return doc;
   }

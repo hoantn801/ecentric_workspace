@@ -43,8 +43,15 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "83845039fef9ee5f7bdc9d94e06b230718ff7d0eaecb5338e80fe30de49910d6"
+BASELINE_SHA256 = "4b498207ba2d184af451906eac1204d741b0ebd6383ba976ff6aea6b44fc057f"
 SUPERSEDES_SHA256 = (
+    # 2026-08-24 (sua goc kien truc): createNativeSO khong con POST thang
+    # /api/resource/Sales Order + apply_workflow (chay duoi quyen KAM -> Frappe
+    # chan doctype Sales Order/Customer/Item/...). Nay goi Server Script API
+    # ec_so_create_from_form tao + trinh duyet server-side (ignore_permissions,
+    # whitelist field, ep company=eCentric, owner=KAM). KAM khong can quyen
+    # doctype nao. Guard ngan sach trong ec_so_before_save van chay.
+    "83845039fef9ee5f7bdc9d94e06b230718ff7d0eaecb5338e80fe30de49910d6",  # truoc khi doi sang endpoint server-side
     # 2026-08-24 (them): nhanh submit truc tiep (hookDirectSubmit) truoc day
     # KHONG kiem chung tu dinh kem bat buoc -> SO so EC gui duoc du khong dinh
     # kem. Them chot kiem >=1 file. Ghi thang len live.
