@@ -88,6 +88,68 @@
   }
   window._ecLhnRsvp = rsvp;
 
+  // ---------------------------------------------------------------------------
+  // Public API for the home page (owned by the layout script). It calls these
+  // instead of reaching into this widget's DOM:
+  //   window.ecCalToday(cb)      -> today's data {meetings, blocks, due_unscheduled, ...}
+  //   window.ecCalFocus(key)     -> promote one event into the hero card + scroll to it.
+  //        key: event id | {id} | {title/subject} | {start} | plain title string.
+  //        returns true when an event matched, false otherwise (caller can fall back).
+  //   window.ecCalEvents()       -> the normalised event list currently displayed.
+  // Events also carry data-ev-id / data-ev-key on their rows so the host can address them.
+  // ---------------------------------------------------------------------------
+  var _last=null, _focus=null;
+
+  function evKey(it){ return it.id || ((it.kind||'')+'|'+(it.start||'')+'|'+(it.subject||'')); }
+
+  function buildItems(d){
+    var items=[];
+    (d.meetings||[]).forEach(function(m){ items.push({ kind:'m', start:m.start, end:m.end, subject:m.subject, id:m.id, join:m.join_url, loc:m.location, resp:m.response }); });
+    (d.blocks||[]).forEach(function(b){ items.push({ kind:'b', start:b.start, end:b.end, subject:b.subject, loc:b.project, state:b.state, id:b.name }); });
+    items.sort(function(a,b){ return (pdt(a.start)||0) - (pdt(b.start)||0); });
+    return items;
+  }
+
+  function matchItem(it, key){
+    if(key===null||key===undefined||key==='') return false;
+    if(typeof key==='string'){
+      return it.id===key || evKey(it)===key ||
+             String(it.subject||'').toLowerCase()===key.toLowerCase();
+    }
+    if(key.id && it.id) return it.id===key.id;
+    var t=key.title||key.subject;
+    if(t && String(it.subject||'').toLowerCase()!==String(t).toLowerCase()) return false;
+    if(key.start && String(it.start||'').slice(0,16)!==String(key.start).replace('T',' ').slice(0,16)) return false;
+    return !!(t||key.start);
+  }
+
+  window.ecCalEvents=function(){ return _last? buildItems(_last).map(function(it){
+    return { key:evKey(it), id:it.id||'', kind:it.kind, subject:it.subject,
+             start:it.start, end:it.end, location:it.loc||'', join_url:it.join||'',
+             response:it.resp||'' }; }) : []; };
+
+  window.ecCalToday=function(cb){
+    if(_last && typeof cb==='function'){ cb(_last); return; }
+    return fetchToday().then(function(m){ if(typeof cb==='function') cb(m); return m; });
+  };
+
+  window.ecCalFocus=function(key){
+    _focus=key||null;
+    var panel=findPanel();
+    var hit=false, list=_last?buildItems(_last):[];
+    for(var i=0;i<list.length;i++){ if(matchItem(list[i], _focus)){ hit=true; break; } }
+    if(panel && _last) render(panel, _last);
+    if(panel && hit){
+      try{ panel.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){ panel.scrollIntoView(); }
+      var hero=panel.querySelector('.ec-lhn-hero');
+      if(hero){ hero.style.transition='box-shadow .25s';
+        hero.style.boxShadow='0 0 0 3px rgba(127,119,221,.55)';
+        setTimeout(function(){ hero.style.boxShadow=''; }, 1400); }
+    }
+    if(!hit) _focus=null;
+    return hit;
+  };
+
   function render(panel, d){
     var body = panel.querySelector('.ec-lhn');
     if(!body){ var hdr=panel.querySelector('.panel-header'); body=document.createElement('div'); body.className='ec-lhn';
@@ -100,15 +162,24 @@
     var act = panel.querySelector('.panel-action'); if(act){ act.href='/pm#schedule'; }
 
     var now = d.now;
-    var items = [];
-    (d.meetings||[]).forEach(function(m){ items.push({ kind:'m', start:m.start, end:m.end, subject:m.subject, id:m.id, join:m.join_url, loc:m.location, resp:m.response }); });
-    (d.blocks||[]).forEach(function(b){ items.push({ kind:'b', start:b.start, end:b.end, subject:b.subject, loc:b.project, state:b.state }); });
-    items.sort(function(a,b){ return (pdt(a.start)||0) - (pdt(b.start)||0); });
+    var items = buildItems(d);
 
     var nd = pdt(now)||new Date();
-    var hero=null, upcoming=[], past=[];
-    items.forEach(function(it){ var e=pdt(it.end); var future = !e || e>nd;
+    // Which event goes in the hero card? By default the next one still ahead; when the
+    // host page asks for a specific event (window.ecCalFocus) that one is promoted, so
+    // clicking an event elsewhere on the page lands on the right meeting.
+    var hero=null, upcoming=[], past=[], i;
+    if(_focus){
+      for(i=0;i<items.length;i++){ if(matchItem(items[i], _focus)){ hero=items[i]; break; } }
+    }
+    items.forEach(function(it){
+      if(it===hero) return;
+      var e=pdt(it.end); var future = !e || e>nd;
       if(future && !hero){ hero=it; } else if(future){ upcoming.push(it); } else { past.push(it); } });
+    if(_focus && hero && upcoming.indexOf(hero)<0){
+      // a focused past event must not also be listed below as "da qua"
+      var pi=past.indexOf(hero); if(pi>=0) past.splice(pi,1);
+    }
 
     var h = '';
     var nMeet=(d.meetings||[]).length, nBlock=(d.blocks||[]).length;
@@ -156,11 +227,12 @@
 
     upcoming.forEach(function(it){
       var isM = it.kind==='m';
+      var attrs = ' data-ev-key="'+esc(evKey(it))+'"'+(it.id?(' data-ev-id="'+esc(it.id)+'"'):'');
       var bar = isM ? '#7F77DD' : '#1D9E75';
       var ico = isM ? (it.join?('<a class="ec-lhn-ic" href="'+esc(it.join)+'" target="_blank" rel="noopener" title="Tham gia"><i class="ti ti-video"></i></a>'):'')
                     : '<i class="ti ti-clock-play ec-lhn-ic" style="color:#1D9E75"></i>';
       var sub = isM ? (it.loc?esc(it.loc):'') : (it.state==='\u0110\u00e3 x\u00e1c nh\u1eadn'?'\u0111\u00e3 x\u00e1c nh\u1eadn':'vi\u1ec7c \u0111\u00e3 x\u1ebfp');
-      h += '<div class="ec-lhn-row">'+
+      h += '<div class="ec-lhn-row"'+attrs+'>'+
         '<div class="ec-lhn-time">'+hhmm(it.start)+'\u2013'+hhmm(it.end)+'</div>'+
         '<div class="ec-lhn-bar" style="background:'+bar+'"></div>'+
         '<div class="ec-lhn-main"><div class="ec-lhn-t">'+esc(it.subject)+'</div>'+(sub?('<div class="ec-lhn-s">'+sub+'</div>'):'')+'</div>'+
@@ -181,24 +253,126 @@
     body.innerHTML = h;
   }
 
-  function load(){
-    var panel=findPanel(); if(!panel) return;
-    fetch('/api/method/ecentric_workspace.pm.api.schedule.today', {
+  // ---- "Dong thoi gian hom nay" strip (.ec2-tlwrap, owned by the home layout script) ----
+  // That widget renders an empty axis; we supply the events. Axis spans 08:00 -> 18:00,
+  // so left% = (minutes - 480) / 600 * 100, clamped. Meetings ride the top lane, scheduled
+  // work the bottom one. Rendering is idempotent: our own nodes are removed first, and the
+  // host widget's markup is never modified beyond hiding its empty-state label.
+  var TL_START=480, TL_END=1080;
+  function tlWrap(){ return document.querySelector('.ec2-tlwrap'); }
+  function mins(s){ var d=pdt(s); return d? (d.getHours()*60+d.getMinutes()) : null; }
+  function pct(m){ var p=(m-TL_START)/(TL_END-TL_START)*100; return Math.max(0, Math.min(100, p)); }
+
+  function renderTimeline(d){
+    var wrap=tlWrap(); if(!wrap) return;
+    var body=wrap.querySelector('.ec2-tlbody') || wrap;
+    var old=body.querySelectorAll('.ec-lhn-ev'), oi;
+    for(oi=0; oi<old.length; oi++){ old[oi].parentNode.removeChild(old[oi]); }
+    var items=[];
+    (d.meetings||[]).forEach(function(m){ items.push({kind:'m',start:m.start,end:m.end,subject:m.subject,id:m.id,join:m.join_url,loc:m.location,resp:m.response}); });
+    (d.blocks||[]).forEach(function(b){ items.push({kind:'b',start:b.start,end:b.end,subject:b.subject,loc:b.project}); });
+    var empty=wrap.querySelector('.ec2-tlempty');
+    if(empty){ empty.style.display = items.length ? 'none' : ''; }
+    if(!items.length) return;
+
+    // Keep only what falls inside the visible window, then pack overlapping events into
+    // lanes (greedy): two meetings at the same hour must not sit on top of each other --
+    // with a fixed meeting/work lane the later one hid the earlier one completely.
+    var vis=[];
+    items.forEach(function(it){
+      var s=mins(it.start), e=mins(it.end);
+      if(s===null||e===null) return;
+      if(e<=TL_START || s>=TL_END) return;
+      it._s=s; it._e=e; vis.push(it);
+    });
+    if(!vis.length) return;
+    vis.sort(function(a,b){ return a._s-b._s || a._e-b._e; });
+    var laneEnd=[];
+    vis.forEach(function(it){
+      var li=-1, i;
+      for(i=0;i<laneEnd.length;i++){ if(laneEnd[i]<=it._s){ li=i; break; } }
+      if(li<0){ laneEnd.push(it._e); li=laneEnd.length-1; } else { laneEnd[li]=it._e; }
+      it._lane=li;
+    });
+    var n=Math.max(1, laneEnd.length), GAP=4, PAD=4;
+    var laneH=Math.max(15, Math.floor((64-2*PAD-(n-1)*GAP)/n));
+
+    vis.forEach(function(it){
+      var l=pct(it._s), w=Math.max(1.2, pct(it._e)-l);
+      var isM=it.kind==='m';
+      var el=document.createElement('div');
+      el.className='ec-lhn-ev '+(isM?'ec-lhn-ev-m':'ec-lhn-ev-b');
+      el.style.cssText='position:absolute;left:'+l+'%;width:'+w+'%;'+
+        'top:'+(PAD+it._lane*(laneH+GAP))+'px;height:'+laneH+'px;'+
+        'border-radius:5px;padding:0 7px;line-height:'+laneH+'px;'+
+        'overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer;'+
+        'font-size:'+(laneH<20?11:12)+'px;font-weight:600;box-sizing:border-box;'+
+        (isM?'background:#EEEDFE;color:#3C3489;border-left:3px solid #7F77DD;'
+            :'background:#E1F5EE;color:#0F6E56;border-left:3px solid #1D9E75;');
+      el.textContent=it.subject||(isM?'Họp':'Việc');
+      el.title=(it.subject||'')+' · '+hhmm(it.start)+'–'+hhmm(it.end)+(it.loc?(' · '+it.loc):'');
+      el.onclick=function(ev){ ev.stopPropagation(); openPop(wrap, el, it); };
+      body.appendChild(el);
+    });
+  }
+
+  // Click an event -> small popover keeping the RSVP actions available now that the
+  // separate "Lich hom nay" panel is going away.
+  function closePop(){ var p=document.getElementById('ec-lhn-pop'); if(p&&p.parentNode) p.parentNode.removeChild(p); }
+  document.addEventListener('click', closePop);
+  function openPop(wrap, anchor, it){
+    closePop();
+    var pop=document.createElement('div');
+    pop.id='ec-lhn-pop';
+    var lf=anchor.offsetLeft, tp=anchor.offsetTop+30;
+    pop.style.cssText='position:absolute;z-index:50;left:'+lf+'px;top:'+tp+'px;min-width:220px;max-width:300px;'+
+      'background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 8px 24px rgba(16,24,40,.12);padding:11px 12px;';
+    var h='<div style="font-size:13px;font-weight:600;color:#111827;line-height:1.35;margin-bottom:3px;">'+esc(it.subject||'')+'</div>'+
+      '<div style="font-size:12px;color:#6b7280;margin-bottom:'+(it.kind==='m'?'10px':'0')+';">'+hhmm(it.start)+'–'+hhmm(it.end)+(it.loc?(' · '+esc(it.loc)):'')+'</div>';
+    if(it.kind==='m'){
+      h+='<div class="ec-lhn-btns" style="display:flex;gap:6px;">';
+      if(it.join){ h+='<a class="ec-lhn-btn ec-lhn-btn-join" style="flex:1;text-align:center;font-size:12px;padding:7px 0;border-radius:7px;background:#7F77DD;color:#fff;font-weight:600;text-decoration:none;" href="'+esc(it.join)+'" target="_blank" rel="noopener">Tham gia</a>'; }
+      if(it.id && it.resp!=='organizer' && it.resp!=='accepted'){
+        h+='<button class="ec-lhn-btn" style="flex:1;font-size:12px;padding:7px 0;border-radius:7px;border:1px solid #d1d5db;background:#fff;color:#374151;cursor:pointer;" onclick="_ecLhnRsvp(\''+esc(it.id).replace(/'/g,"\\'")+'\',\'accept\',this)">Nhận</button>'+
+           '<button class="ec-lhn-btn" style="flex:1;font-size:12px;padding:7px 0;border-radius:7px;border:1px solid #d1d5db;background:#fff;color:#374151;cursor:pointer;" onclick="_ecLhnRsvp(\''+esc(it.id).replace(/'/g,"\\'")+'\',\'decline\',this)">Từ chối</button>';
+      } else if(it.resp==='organizer'){ h+='<span style="flex:1;text-align:center;font-size:12px;color:#6b7280;padding:7px 0;">Bạn là chủ trì</span>'; }
+      else if(it.resp==='accepted'){ h+='<span style="flex:1;text-align:center;font-size:12px;color:#0F6E56;padding:7px 0;">Đã nhận</span>'; }
+      h+='</div>';
+    }
+    pop.innerHTML=h;
+    pop.onclick=function(e){ e.stopPropagation(); };
+    wrap.appendChild(pop);
+  }
+
+  function fetchToday(){
+    return fetch('/api/method/ecentric_workspace.pm.api.schedule.today', {
       method:'POST', credentials:'include',
       headers:{ 'Content-Type':'application/json',
                 'X-Frappe-CSRF-Token': (window.frappe && frappe.csrf_token) || '' },
       body: JSON.stringify({})
     }).then(function(r){ return r.json(); })
-      .then(function(d){ var m=(d&&d.message)||null; if(m) render(panel, m); })
+      .then(function(d){ var m=(d&&d.message)||null; if(m) _last=m; return m; });
+  }
+
+  function load(){
+    var panel=findPanel(), wrap=tlWrap();
+    if(!panel && !wrap) return;                    // neither surface on this page
+    fetchToday().then(function(m){ if(!m) return;
+        if(panel) render(panel, m);
+        // The timeline strip belongs to the home layout script. If it renders its own
+        // events (window.ecTimelineOwnsEvents), stay out of its DOM entirely; otherwise
+        // keep painting it so the strip isn't empty.
+        if(!window.ecTimelineOwnsEvents) renderTimeline(m);
+        try{ document.dispatchEvent(new CustomEvent('ec-cal-today', {detail:m})); }catch(e){}
+      })
       .catch(function(e){ console.warn('[ec-lhn] load err', e); });
   }
 
   function init(){
     var tries=0;
     var iv=setInterval(function(){
-      var panel=findPanel();
-      if(panel){ clearInterval(iv); load(); }
-      if(++tries>30) clearInterval(iv);
+      if(findPanel() || tlWrap()){ clearInterval(iv); load(); }
+      if(++tries>40) clearInterval(iv);
     }, 200);
   }
   if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', init); } else { init(); }
