@@ -174,6 +174,47 @@ def dedupe_attachments(rows):
     return out
 
 
+def fulfillment_block(business, request):
+    """Fulfillment state for the detail page (status/owner/result), meta-driven.
+
+    The pages render an 'Xử lý Operation' section from det.fulfillment and gate the claim
+    button on capabilities.can_claim. Only ai_topup (bespoke controller) returned this block,
+    so on every shared-adapter form the section showed 'Trạng thái xử lý: —' and an approved
+    request could not be picked up from its detail page. Returns {} for forms that carry no
+    fulfillment fields at all."""
+    fields = ("fulfillment_status", "fulfillment_owner", "fulfillment_due_at",
+              "completed_by", "completed_at", "fulfillment_summary", "output_link",
+              "completed_attachment")
+    try:
+        present = set(df.fieldname for df in business.meta.fields)
+    except Exception:
+        present = set()
+    if not present & set(fields):
+        return {}
+    out = {
+        "status": business.get("fulfillment_status"),
+        "owner": business.get("fulfillment_owner"),
+        "due_at": business.get("fulfillment_due_at"),
+        "completed_by": business.get("completed_by"),
+        "completed_at": business.get("completed_at"),
+        "summary": business.get("fulfillment_summary"),
+        "output_link": business.get("output_link"),
+        "completed_attachment": business.get("completed_attachment"),
+        "eligible_fulfillers": [],
+    }
+    if request and out["status"] == "Assigned":
+        try:
+            from ecentric_workspace.approval_center.shared.workflow import transitions as _eng
+            proc = frappe.get_doc("EC Approval Process",
+                                  frappe.db.get_value("EC Approval Request", request.name, "approval_process"))
+            out["eligible_fulfillers"] = [u for u, _l in _eng.resolve_participants(
+                [p for p in proc.participants if p.participant_purpose == "Fulfiller"],
+                business.get("requested_by"))]
+        except Exception:
+            pass
+    return out
+
+
 def detail(definition, name):
     user = frappe.session.user
     business = frappe.get_doc(definition.business_doctype, name)
@@ -220,6 +261,7 @@ def detail(definition, name):
             "status_label": definition.status_label_map.get(status),
         },
         "levels": levels, "approvers": approvers, "attachments": attachments,
+        "fulfillment": fulfillment_block(business, request),
         "timeline": timeline,
         "process_preview": ([] if request else process_preview(
             business.approval_type or definition.code)),
