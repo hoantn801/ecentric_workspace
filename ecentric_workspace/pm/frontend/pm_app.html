@@ -214,7 +214,15 @@
   .mtgpop .mp-link{ background:none; border:0; color:var(--navy); font-size:11.5px; font-weight:600; cursor:pointer; padding:4px 0; }
   .mtgpop .mp-form{ border-top:1px solid var(--gray-100); margin-top:8px; padding-top:9px; }
   .mtgpop .mp-form label{ display:block; font-size:11px; color:var(--gray-500); margin:0 0 3px; }
-  .mtgpop .mp-form input{ width:100%; box-sizing:border-box; font-size:12px; padding:6px 8px; border:1px solid var(--gray-200); border-radius:7px; margin-bottom:7px; }
+  .mtgpop .mp-form input, .mtgpop .mp-form select{ width:100%; box-sizing:border-box; font-size:12px; padding:6px 8px; border:1px solid var(--gray-200); border-radius:7px; margin-bottom:7px; background:#fff; color:var(--navy); }
+  .mtgpop .mp-hm{ display:flex; align-items:center; gap:6px; }
+  .mtgpop .mp-hm select{ flex:1; }
+  .mtgpop .mp-hm span{ color:var(--gray-400); margin-bottom:7px; }
+  .mtgpop .mp-prev{ font-size:11.5px; font-weight:600; color:#3C3489; background:#EEEDFE; border-radius:7px; padding:6px 9px; margin-bottom:9px; }
+  .mtgpop .mp-badgerow{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .mtgpop .mp-badgerow .mp-badge{ margin-bottom:0; }
+  .mtgpop .mp-badgerow .mp-link{ margin-left:auto; padding:0; }
+  .mtgpop .mp-btn.on{ border-color:#7F77DD; color:#3C3489; background:#F4F3FE; }
   .mtgpop .mp-warn{ background:#FAEEDA; color:#633806; border-radius:7px; padding:7px 9px; font-size:11px; margin-bottom:8px; }
   .mtgpop .mp-err{ color:#A32D2D; font-size:11px; margin-top:6px; }
   .mtgpop .mp-x{ position:absolute; top:9px; right:11px; cursor:pointer; color:var(--gray-400); font-size:15px; line-height:1; }
@@ -3345,8 +3353,6 @@
     function toDayMin(cx,cy){ var r=daysRect(); if(!r)return {d:0,m:0}; var dw=r.width/7; var dd=Math.floor((cx-r.left)/dw); dd=Math.max(0,Math.min(6,dd)); var m=snap(yToMin(cy-r.top)); return {d:dd,m:m}; }
 
     function closeMtgPop(){ var p=document.querySelector(".mtgpop"); if(p&&p.parentNode)p.parentNode.removeChild(p); }
-    function dtLocal(s){ return String(s||"").replace(" ","T").slice(0,16); }
-    function dtApi(v){ v=String(v||"").replace("T"," "); return v.length===16?(v+":00"):v; }
 
     function openMtgPop(mg, anchor){
       closeMtgPop();
@@ -3360,20 +3366,28 @@
       var dstr=day.length===3?(day[2]+"/"+day[1]):"";
       var resp=mg.response||"none", org=!!mg.is_organizer;
       var rlabel=org?"Bạn là chủ trì":(resp==="accepted"?"Đã nhận":(resp==="declined"?"Đã từ chối":(resp==="tentativelyAccepted"?"Tạm nhận":"Chưa phản hồi")));
+      var answered=(resp==="accepted"||resp==="declined"||resp==="tentativelyAccepted");
       var h='<span class="mp-x">&times;</span><h4>'+esc(mg.subject||"Họp")+'</h4>'+
             '<div class="mp-sub">'+dstr+' · '+tr+(mg.location?(' · '+esc(mg.location)):'')+'</div>'+
-            '<div class="mp-badge">'+rlabel+'</div>';
+            '<div class="mp-badgerow"><span class="mp-badge">'+rlabel+'</span>'+
+            ((!org&&answered)?'<button class="mp-link" data-rsvp-open="1">Thay đổi</button>':'')+'</div>';
       if(mg.ev_type==="occurrence"||mg.ev_type==="exception"){
         h+='<div class="mp-warn">Đây là một buổi trong chuỗi họp định kỳ — thay đổi chỉ áp dụng cho buổi này.</div>';
       }
-      h+='<div class="mp-row">';
-      if(mg.join_url){ h+='<a class="mp-btn pri" href="'+esc(mg.join_url)+'" target="_blank" rel="noopener">Tham gia</a>'; }
-      if(!org){ h+='<button class="mp-btn" data-rsvp="accept">Nhận</button><button class="mp-btn" data-rsvp="decline">Từ chối</button>'; }
-      h+='</div>';
-      if(!org){ h+='<div class="mp-row"><button class="mp-btn" data-rsvp="tentative">Tạm nhận</button></div>'; }
+      if(mg.join_url){ h+='<div class="mp-row"><a class="mp-btn pri" href="'+esc(mg.join_url)+'" target="_blank" rel="noopener">Tham gia</a></div>'; }
+      // RSVP: once you have answered, don't keep three equal buttons shouting at you --
+      // show the answer with a "Thay doi" link that reveals the choices again. Labels stay
+      // in Teams/Outlook English so they read the same as in the meeting invite.
+      if(!org){
+        h+='<div class="mp-rsvp">'+
+           '<div class="mp-rsvp-btns"'+(answered?' style="display:none"':'')+'>'+
+             '<button class="mp-btn'+(resp==="accepted"?' on':'')+'" data-rsvp="accept">Accept</button>'+
+             '<button class="mp-btn'+(resp==="declined"?' on':'')+'" data-rsvp="decline">Decline</button>'+
+             '<button class="mp-btn'+(resp==="tentativelyAccepted"?' on':'')+'" data-rsvp="tentative">Tentative</button>'+
+           '</div></div>';
+      }
       h+='<div style="text-align:center">';
       if(org){ h+='<button class="mp-link" data-form="reschedule">Đổi giờ họp…</button>'; }
-      else if(mg.allow_propose!==false){ h+='<button class="mp-link" data-form="propose">Đề xuất giờ khác…</button>'; }
       h+='</div><div class="mp-slot"></div>';
       pop.innerHTML=h;
       (document.getElementById("ec-pm-root")||document.body).appendChild(pop);
@@ -3392,23 +3406,57 @@
           }).catch(function(er){ busy(false); fail(errOf(er)); });
         };
       });
+      var openR=pop.querySelector("[data-rsvp-open]");
+      if(openR) openR.onclick=function(){ var w=pop.querySelector(".mp-rsvp-btns"); if(w) w.style.display=""; openR.style.display="none"; };
+
       Array.prototype.forEach.call(pop.querySelectorAll("[data-form]"),function(b){
         b.onclick=function(){
-          var mode=b.getAttribute("data-form"); b.style.display="none";
+          b.style.display="none";
           var slot=pop.querySelector(".mp-slot");
-          slot.innerHTML='<div class="mp-form"><label>Bắt đầu</label><input type="datetime-local" class="mp-s" value="'+dtLocal(mg.start)+'">'+
-            '<label>Kết thúc</label><input type="datetime-local" class="mp-e" value="'+dtLocal(mg.end)+'">'+
-            '<div class="mp-row"><button class="mp-btn" data-cancel="1">Huỷ</button><button class="mp-btn pri" data-go="1">'+(mode==="reschedule"?"Đổi giờ":"Gửi đề xuất")+'</button></div>'+
-            (mode==="reschedule"?'<div style="font-size:10.5px;color:var(--gray-500)">Người tham dự sẽ nhận thư cập nhật.</div>':'')+'</div>';
+          // Native <input type="datetime-local"> is hijacked by the site-wide ec_datepicker
+          // asset: its calendar popped up at the top-left of the screen and, being outside
+          // this popover, dismissed it on the next click. Plain selects avoid that widget
+          // entirely and are quicker for the common case (same day, different hour).
+          var s0=parseDT(mg.start), e0=parseDT(mg.end);
+          if(!s0){ fail("Không đọc được giờ họp"); return; }
+          var durMin=Math.max(15, e0?Math.round((e0-s0)/60000):30);
+          var dayOpts="", i, dd, base=new Date(s0.getFullYear(),s0.getMonth(),s0.getDate());
+          for(i=-1;i<=13;i++){ dd=new Date(base.getTime()+i*86400000);
+            dayOpts+='<option value="'+dd.getFullYear()+'-'+pad(dd.getMonth()+1)+'-'+pad(dd.getDate())+'"'+(i===0?' selected':'')+'>'+
+              DN[(dd.getDay()+6)%7]+' '+pad(dd.getDate())+'/'+pad(dd.getMonth()+1)+'</option>'; }
+          var hOpts="", mOpts="", MS=[0,15,30,45];
+          for(i=0;i<24;i++) hOpts+='<option value="'+i+'"'+(i===s0.getHours()?' selected':'')+'>'+pad(i)+'</option>';
+          var curM=MS.indexOf(s0.getMinutes())>=0?s0.getMinutes():(Math.round(s0.getMinutes()/15)*15)%60;
+          for(i=0;i<MS.length;i++) mOpts+='<option value="'+MS[i]+'"'+(MS[i]===curM?' selected':'')+'>'+pad(MS[i])+'</option>';
+          var DUR=[15,30,45,60,90,120,180,240], dOpts="";
+          for(i=0;i<DUR.length;i++){ var dv=DUR[i]; dOpts+='<option value="'+dv+'"'+(dv===durMin?' selected':'')+'>'+(dv<60?(dv+" phút"):((dv/60)+" giờ"))+'</option>'; }
+          if(DUR.indexOf(durMin)<0) dOpts='<option value="'+durMin+'" selected>'+durMin+' phút</option>'+dOpts;
+          slot.innerHTML='<div class="mp-form">'+
+            '<label>Ngày</label><select class="mp-d">'+dayOpts+'</select>'+
+            '<label>Bắt đầu</label><div class="mp-hm"><select class="mp-h">'+hOpts+'</select><span>:</span><select class="mp-m">'+mOpts+'</select></div>'+
+            '<label>Kéo dài</label><select class="mp-dur">'+dOpts+'</select>'+
+            '<div class="mp-prev"></div>'+
+            '<div class="mp-row"><button class="mp-btn" data-cancel="1">Huỷ</button><button class="mp-btn pri" data-go="1">Đổi giờ</button></div>'+
+            '<div style="font-size:10.5px;color:var(--gray-500)">Người tham dự sẽ nhận thư cập nhật.</div></div>';
+          function calc(){
+            var dv=slot.querySelector(".mp-d").value.split("-");
+            var hh=parseInt(slot.querySelector(".mp-h").value,10), mm=parseInt(slot.querySelector(".mp-m").value,10);
+            var du=parseInt(slot.querySelector(".mp-dur").value,10);
+            var sD=new Date(parseInt(dv[0],10),parseInt(dv[1],10)-1,parseInt(dv[2],10),hh,mm,0);
+            var eD=new Date(sD.getTime()+du*60000);
+            return {s:sD, e:eD,
+              sApi:sD.getFullYear()+"-"+pad(sD.getMonth()+1)+"-"+pad(sD.getDate())+" "+pad(sD.getHours())+":"+pad(sD.getMinutes())+":00",
+              eApi:eD.getFullYear()+"-"+pad(eD.getMonth()+1)+"-"+pad(eD.getDate())+" "+pad(eD.getHours())+":"+pad(eD.getMinutes())+":00"};
+          }
+          function preview(){ var c=calc();
+            slot.querySelector(".mp-prev").textContent="→ "+pad(c.s.getDate())+"/"+pad(c.s.getMonth()+1)+" "+pad(c.s.getHours())+":"+pad(c.s.getMinutes())+"–"+pad(c.e.getHours())+":"+pad(c.e.getMinutes()); }
+          Array.prototype.forEach.call(slot.querySelectorAll("select"),function(s){ s.onchange=preview; });
+          preview();
           slot.querySelector("[data-cancel]").onclick=function(){ slot.innerHTML=""; b.style.display=""; };
           slot.querySelector("[data-go]").onclick=function(){
-            var s=dtApi(slot.querySelector(".mp-s").value), e2=dtApi(slot.querySelector(".mp-e").value);
-            if(!s||!e2){ fail("Chọn đủ giờ bắt đầu và kết thúc"); return; }
-            if(new Date(s.replace(" ","T"))>=new Date(e2.replace(" ","T"))){ fail("Giờ kết thúc phải sau giờ bắt đầu"); return; }
-            busy(true);
-            var m=(mode==="reschedule")?"schedule.reschedule":"schedule.propose_new_time";
-            api(PM+m,{event_id:mg.id,start:s,end:e2}).then(function(res){
-              if(res&&res.ok) done(mode==="reschedule"?"Đã đổi giờ họp":"Đã gửi đề xuất giờ mới");
+            var c=calc(); busy(true);
+            api(PM+"schedule.reschedule",{event_id:mg.id,start:c.sApi,end:c.eApi}).then(function(res){
+              if(res&&res.ok) done("Đã đổi giờ họp");
               else { busy(false); fail("Không gửi được"+((res&&res.code)?(" ("+res.code+")"):"")); }
             }).catch(function(er){ busy(false); fail(errOf(er)); });
           };
@@ -3427,9 +3475,9 @@
       function cancelDrag(){ drag=null; var gs=document.querySelectorAll(".sch-ghost"); for(var i=0;i<gs.length;i++){ if(gs[i].parentNode) gs[i].parentNode.removeChild(gs[i]); } ghost=null; }
       function findBlk(name){ var arr=(st.data.blocks||[]); for(var i=0;i<arr.length;i++) if(arr[i].name===name) return arr[i]; return null; }
 
-      // Click a meeting -> Teams-style actions (join / RSVP / propose a new slot /
-      // reschedule when you organise it). Only own-calendar meetings carry an id, so a
-      // read-only teammate view has nothing to click.
+      // Click a meeting -> Teams-style actions (join / RSVP / reschedule when you organise
+      // it). Only own-calendar meetings carry an id, so a read-only teammate view has
+      // nothing to click.
       body.addEventListener("click",function(e){
         var mt=e.target.closest?e.target.closest(".sch-mtg.act"):null; if(!mt) return;
         e.preventDefault(); e.stopPropagation();
