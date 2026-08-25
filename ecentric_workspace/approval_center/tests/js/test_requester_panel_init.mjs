@@ -14,7 +14,17 @@ import { fileURLToPath } from "url";
 import path from "path";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const PANEL = path.join(HERE, "..", "..", "esign", "ui", "requester_signing_panel.html");
+// Resolve the shipped panel by SEARCHING known roots instead of a hard-coded relative path:
+// the 2026-08-19 reorg moved it (approval_center/esign/ui -> platform/esign/ui) and these two
+// suites silently ENOENT'd for days. Fail LOUD with the roots tried if it ever moves again.
+const _ROOTS = ["../../../platform/esign/ui", "../../esign/ui", "../../ui/esign"];
+const PANEL = (() => {
+  for (const r of _ROOTS) {
+    const p = path.join(HERE, r, "requester_signing_panel.html");
+    if (fs.existsSync(p)) return p;
+  }
+  throw new Error("requester_signing_panel.html not found; roots tried: " + _ROOTS.join(", "));
+})();
 const html = fs.readFileSync(PANEL, "utf8");
 const src = html.match(/<script id="ec-req-sign-script">([\s\S]*?)<\/script>/)[1];
 
