@@ -35,7 +35,8 @@ const detail={ business:{request_title:"Trả lại laptop cũ",requested_by:"vy
                   {label:"Dự án",value:"ERP",fieldtype:"Link"},{label:"Mức ưu tiên",value:"Cao",fieldtype:"Select"},
                   {label:"Ghi chú",value:"x",fieldtype:"Data"},{label:"Địa điểm",value:"HN",fieldtype:"Data"}],
   attachments:[{file_name:"bien-ban.pdf",file_url:"/private/files/bien-ban.pdf"}],
-  timeline:[{action:"Approved",actor:"an.le",creation:"2026-08-25 09:30:00",comment:"OK"}],
+  timeline:[{action:"Approved",actor:"an.le",creation:"2026-08-25 09:30:00",comment:"OK"},
+            {action:"Skipped",actor:"Administrator",creation:"2026-08-25 09:31:00"}],
   capabilities:{can_approve:true,can_reject:true,can_request_information:true},
   type_title:"Asset Request", detail_route:"/approvals/asset-request?id=X" };
 let promptUsed=false;
@@ -60,9 +61,9 @@ w.ApprovalAll.boot(); tick(function(){
   chk("row co data-req", !!tr);
   tr.click();
   // header phải hiện NGAY trong nhịp đồng bộ, trước khi API chi tiết kịp trả về
-  const boxNow=w.document.querySelector(".ec-apl-modal").innerHTML;
-  chk("header dung ngay tu du lieu dong", /Asset Request/.test(boxNow) && /EC-APR-1/.test(boxNow)
-      && /ec-apl-skel/.test(boxNow) && /An Le/.test(boxNow));
+  const boxNow=w.document.querySelector(".ec-apl-wrap").innerHTML;
+  chk("header dung ngay tu du lieu dong", /Asset Request/.test(boxNow) && /An Le/.test(boxNow)
+      && /Chờ duyệt/.test(boxNow) && /ec-apl-skel/.test(boxNow));
   tick(function(){
     const ov=w.document.getElementById("ec-apl-ov");
     chk("mo popup", ov && !ov.hidden);
@@ -70,8 +71,15 @@ w.ApprovalAll.boot(); tick(function(){
     chk("lop phu gan vao body", ov.parentNode===w.document.body);
     chk("lop phu co bien mau rieng", /#ec-apl-ov\{[^}]*--navy:/.test(html.replace(/\s*\n\s*/g,"")));
     chk("goi API chi tiet dung ma", w.__detailFor==="EC-APR-1");
-    const box=ov.querySelector(".ec-apl-modal"), h=box.innerHTML;
-    chk("header co avatar + ma + loai", /ec-apl-av/.test(h)&&/Trả lại laptop cũ/.test(h)&&/EC-APR-1/.test(h));
+    const box=ov.querySelector(".ec-apl-wrap"), h=box.innerHTML;
+    chk("header gon: khong nhoi ma vao", /ec-apl-av/.test(h)&&/Trả lại laptop cũ/.test(h)
+        && !/ec-apl-mh[\s\S]*?EC-APR-1[\s\S]*?ec-apl-mb/.test(h));
+    chk("ma yeu cau nam duoi chan popup", /ec-apl-mf[\s\S]*class="code">EC-APR-1</.test(h));
+    chk("lich su la THE RIENG ben phai", /<aside class="ec-apl-aside">[\s\S]*Lịch sử xử lý/.test(h)
+        && !/ec-apl-modal[\s\S]*Lịch sử xử lý[\s\S]*<\/div><aside/.test(h));
+    chk("2 the la anh em, khong long nhau",
+        box.children.length===2 && box.children[0].className==="ec-apl-modal"
+        && box.children[1].className==="ec-apl-aside");
     chk("dai thong tin quyet dinh", /ec-apl-hl/.test(h)&&/2\.500\.000/.test(h)&&/Số lượng/.test(h));
     chk("ngay gui nam tren header", /Gửi 25\/08\/2026/.test(h));
     chk("nhan trang thai tren header", /class="pill Pending"/.test(h));
@@ -79,10 +87,13 @@ w.ApprovalAll.boot(); tick(function(){
     chk("hien du truong, khong gap", !/Xem thêm/.test(h)&&/Địa điểm/.test(h)&&/Mức ưu tiên/.test(h)
         &&!/hidden/.test(h.replace(/id="apl-note"[^>]*hidden[^>]*/,"")));
     chk("tieu diem nam trong popup", w.document.activeElement===box);
+    chk("chi the trai co chan nut", box.querySelectorAll(".ec-apl-mf").length===1
+        && box.querySelector(".ec-apl-aside .ec-apl-mf")===null);
     chk("ten nguoi gui thay cho email", /An Le/.test(h)&&!/vy@e\.c/.test(h));
     chk("stepper co buoc hien tai", /ec-apl-step cur/.test(h)&&/ec-apl-step done/.test(h)&&/Direct Manager/.test(h));
     chk("noi dung + dinh kem + lich su", /Máy hỏng bàn phím/.test(h)&&/bien-ban\.pdf/.test(h)&&/Lịch sử xử lý/.test(h));
-    chk("moc lich su dich sang tieng Viet", /Đã duyệt/.test(h)&&!/>Approved</.test(h));
+    chk("khong co lich su thi 1 cot", true);
+    chk("moc lich su dich sang tieng Viet", /Đã duyệt/.test(h)&&!/>Approved</.test(h)&&!/>Skipped</.test(h));
     chk("nut duyet/tu choi/bo sung", /class="btn approve"/.test(h)&&/class="btn reject"/.test(h)&&/data-a="info"/.test(h));
     chk("nut chuyen ho so ‹ ›", /data-step="-1"/.test(h)&&/data-step="1"/.test(h));
     chk("nut lui bi khoa o ho so dau", /data-step="-1"[^>]*disabled/.test(h));
@@ -104,10 +115,12 @@ w.ApprovalAll.boot(); tick(function(){
             && tt.getAttribute("aria-live")==="polite");
         w.__lean=true; w.ApprovalAll.openDetail("EC-APR-2");
         tick(function(){
-          const g=w.document.querySelector(".ec-apl-modal").innerHTML;
+          const g=w.document.querySelector(".ec-apl-wrap").innerHTML;
           chk("1 o le thi khong dung dai noi bat", !/ec-apl-hl/.test(g)&&/Số lượng/.test(g));
           chk("khong co dinh kem thi an muc", !/Đính kèm/.test(g));
           chk("khong co lich su thi an muc", !/Lịch sử xử lý/.test(g));
+          chk("khong co lich su thi khong dung the phai", !/ec-apl-aside/.test(g)
+              && w.document.querySelector(".ec-apl-wrap").children.length===1);
           Object.keys(c).forEach(k=>console.log((c[k]?"PASS":"FAIL")+" - "+k));
           console.log(failed?"SOME_FAIL":"ALL_PASS");
           process.exit(failed?1:0);
