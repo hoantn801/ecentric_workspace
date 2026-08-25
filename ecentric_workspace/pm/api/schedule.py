@@ -29,6 +29,8 @@ _TERMINAL_WF = ("Done", "Cancelled")
 #: description tag on the "confirm your hours" reminder ToDo, so the Action Center can
 #: route it to the week calendar (resolvers.resolve_item) and confirm() can close it.
 NUDGE_TAG = "[XNGIO]"
+#: same idea for the "you haven't answered these meeting invites" reminder.
+RSVP_TAG = "[RSVPHOP]"
 
 
 def _monday(d):
@@ -363,6 +365,20 @@ def rsvp(event_id, response, comment=None):
         r = requests.post(url, headers={"Authorization": "Bearer " + token,
                           "Content-Type": "application/json"}, json=body, timeout=12)
         if r.status_code in (200, 202, 204):
+            # Refresh the [RSVPHOP] reminder straight away instead of waiting for the
+            # scheduler, so answering here clears (or decrements) Nhắc việc immediately.
+            try:
+                left = _unanswered_invites(caller)
+                if left:
+                    _ensure_rsvp_todo(caller, left)
+                else:
+                    for n in frappe.get_all(
+                            "ToDo", filters={"allocated_to": caller, "status": "Open",
+                                             "description": ["like", "%" + RSVP_TAG + "%"]},
+                            pluck="name", ignore_permissions=True) or []:
+                        frappe.db.set_value("ToDo", n, "status", "Closed")
+            except Exception:
+                pass
             return {"ok": True, "response": (response or "").lower()}
         return {"ok": False, "code": "RSVP_" + str(r.status_code)}
     except Exception:
@@ -693,6 +709,100 @@ def _ensure_nudge_todo(user, count):
     except Exception:
         frappe.log_error(frappe.get_traceback(), "schedule nudge todo")
         return None
+
+
+def _unanswered_invites(email, days=7):
+    """How many meeting invites `email` has NOT answered in the next `days` (excluding
+    ones they organise and all-day/free blocks). Fail-safe: 0 on any Graph problem, so a
+    calendar outage never spams or blocks the scheduler. Counts only -- no content is
+    stored anywhere."""
+    try:
+        conf = frappe.get_conf() if hasattr(frappe, "get_conf") else {}
+        if not conf.get("ec_pm_calendar_sync"):
+            return 0
+        from ecentric_workspace.notification_center.providers import graph as msgraph
+        if not msgraph.is_configured():
+            return 0
+        ok, token = msgraph.get_app_token()
+        if not ok:
+            return 0
+        import requests
+        day = nowdate()
+        # NB: concatenate -- "%2B" is a Python format specifier, see _ms_today_events.
+        url = ("https://graph.microsoft.com/v1.0/users/" + email + "/calendarView"
+               "?startDateTime=" + str(day) + "T00:00:00%2B07:00"
+               "&endDateTime=" + str(add_days(day, days)) + "T00:00:00%2B07:00"
+               "&$select=responseStatus,isOrganizer,isAllDay,showAs&$top=100")
+        r = requests.get(url, headers={"Authorization": "Bearer " + token,
+                         "Prefer": 'outlook.timezone="Asia/Ho_Chi_Minh"'}, timeout=12)
+        if r.status_code != 200:
+            return 0
+        n = 0
+        for ev in (r.json().get("value") or []):
+            if ev.get("isOrganizer") or ev.get("isAllDay"):
+                continue
+            if (ev.get("showAs") or "busy") in ("free", "workingElsewhere"):
+                continue
+            if ((ev.get("responseStatus") or {}) or {}).get("response") in (
+                    "notResponded", "none", None):
+                n += 1
+        return n
+    except Exception:
+        return 0
+
+
+def _ensure_rsvp_todo(user, count):
+    """Upsert ONE open [RSVPHOP] reminder for `user` (same shape as _ensure_nudge_todo)."""
+    desc = "%s Phản hồi lời mời họp (%d lời mời) — mở Lịch làm việc" % (RSVP_TAG, count)
+    existing = frappe.get_all(
+        "ToDo", filters={"allocated_to": user, "status": "Open",
+                         "description": ["like", "%" + RSVP_TAG + "%"]},
+        pluck="name", ignore_permissions=True) or []
+    if existing:
+        frappe.db.set_value("ToDo", existing[0],
+                            {"description": desc, "date": frappe.utils.nowdate()})
+        for extra in existing[1:]:
+            frappe.db.set_value("ToDo", extra, "status", "Cancelled")
+        return existing[0]
+    try:
+        d = frappe.get_doc({
+            "doctype": "ToDo", "allocated_to": user, "status": "Open",
+            "priority": "Medium", "date": frappe.utils.nowdate(), "description": desc})
+        d.insert(ignore_permissions=True)
+        return d.name
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "schedule rsvp todo")
+        return None
+
+
+def nudge_unanswered_invites():
+    """Scheduler: remind people about meeting invites they have not answered, so replies
+    don't stall in Outlook. One Graph call per user, so it is deliberately scoped to users
+    who actually use PM (a linked, active Employee) and skipped entirely when calendar sync
+    is off. Idempotent: one open ToDo per user, closed as soon as they have answered."""
+    conf = frappe.get_conf() if hasattr(frappe, "get_conf") else {}
+    if not conf.get("ec_pm_calendar_sync"):
+        return
+    users = frappe.get_all(
+        "Employee", filters={"status": "Active", "user_id": ["is", "set"]},
+        pluck="user_id", ignore_permissions=True) or []
+    seen, counts = set(), {}
+    for u in users:
+        if not u or u in seen or u in ("Administrator", "Guest"):
+            continue
+        seen.add(u)
+        if not frappe.db.get_value("User", u, "enabled"):
+            continue
+        n = _unanswered_invites(u)
+        if n:
+            counts[u] = n
+            _ensure_rsvp_todo(u, n)
+    for t in frappe.get_all(
+            "ToDo", filters={"status": "Open", "description": ["like", "%" + RSVP_TAG + "%"]},
+            fields=["name", "allocated_to"], ignore_permissions=True) or []:
+        if t.get("allocated_to") not in counts:
+            frappe.db.set_value("ToDo", t["name"], "status", "Closed")
+    frappe.db.commit()
 
 
 def nudge_unconfirmed():
