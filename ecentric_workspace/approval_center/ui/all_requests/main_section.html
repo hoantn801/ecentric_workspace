@@ -46,6 +46,35 @@
   #ec-apl-root tbody td{ padding:7px 10px; border-bottom:1px solid var(--gray-100); font-size:12px; color:var(--gray-700); vertical-align:middle; }
   #ec-apl-root tbody tr:hover{ background:var(--gray-50); }
   #ec-apl-root tbody tr[data-route]{ cursor:pointer; }
+  /* popup chi tiết — xem & xử lý ngay trên danh sách, không phải rời trang */
+  #ec-apl-ov{ position:fixed; inset:0; background:rgba(17,24,39,.45); z-index:10070; display:flex;
+    align-items:flex-start; justify-content:center; padding:40px 16px; overflow:auto; }
+  #ec-apl-ov[hidden]{ display:none !important; }
+  .ec-apl-modal{ background:#fff; width:100%; max-width:860px; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.25);
+    font-family:'Inter',-apple-system,sans-serif; color:#1f2937; }
+  .ec-apl-mh{ display:flex; align-items:flex-start; gap:12px; padding:18px 20px; border-bottom:1px solid #eef0f4; }
+  .ec-apl-mh h3{ margin:0 0 2px; font-size:17px; font-weight:800; color:#111827; }
+  .ec-apl-mh .sub{ font-size:12.5px; color:#6b7280; }
+  .ec-apl-x{ margin-left:auto; border:1px solid #e5e7eb; background:#fff; border-radius:8px; width:30px; height:30px;
+    cursor:pointer; color:#6b7280; font-size:16px; line-height:1; }
+  .ec-apl-x:hover{ color:#dc2626; border-color:#fecaca; }
+  .ec-apl-mb{ padding:16px 20px; }
+  .ec-apl-sec{ margin-bottom:16px; }
+  .ec-apl-sec h4{ margin:0 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:#6b7280; }
+  .ec-apl-kv{ display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:8px 18px; }
+  .ec-apl-kv div{ font-size:13px; display:flex; gap:8px; }
+  .ec-apl-kv span{ color:#6b7280; min-width:120px; }
+  .ec-apl-kv b{ color:#111827; font-weight:600; }
+  .ec-apl-steps{ display:flex; flex-wrap:wrap; gap:8px; }
+  .ec-apl-step{ font-size:12px; padding:5px 10px; border-radius:999px; border:1px solid #e5e7eb; color:#6b7280; }
+  .ec-apl-step.done{ background:#ecfdf5; border-color:#a7f3d0; color:#047857; }
+  .ec-apl-step.cur{ background:#eef0fb; border-color:#c7d0f5; color:#2C3DA6; font-weight:600; }
+  .ec-apl-tl{ list-style:none; margin:0; padding:0; }
+  .ec-apl-tl li{ font-size:12.5px; color:#4b5563; padding:5px 0 5px 14px; border-left:2px solid #e5e7eb; }
+  .ec-apl-mf{ display:flex; gap:8px; flex-wrap:wrap; padding:14px 20px; border-top:1px solid #eef0f4; }
+  .ec-apl-mf .grow{ flex:1; }
+  .ec-apl-file{ display:block; font-size:13px; color:#2C3DA6; text-decoration:none; padding:3px 0; }
+  .ec-apl-file:hover{ text-decoration:underline; }
   #ec-apl-root .qa{ display:flex; gap:6px; justify-content:flex-end; }
   #ec-apl-root .qa .btn{ padding:4px 10px; font-size:12px; border-radius:7px; white-space:nowrap; }
   #ec-apl-root .qa .btn.ok{ background:var(--navy); border-color:var(--navy); color:#fff; }
@@ -144,11 +173,11 @@
 
   function render(rows){
     if(!rows.length){ $("apl-body").innerHTML='<div class="state"><h4>Không có yêu cầu</h4><p>Không có yêu cầu nào khớp bộ lọc trong phạm vi của bạn.</p></div>'; return; }
-    var head='<table><thead><tr><th>Ngày gửi</th><th>Mã</th><th>Tiêu đề</th><th>Loại</th><th>Người gửi</th><th>Người nhận</th><th>Phòng ban</th><th>Cấp hiện tại</th><th>Trạng thái</th><th style="text-align:right">Thao tác</th></tr></thead><tbody>';
+    var head='<table><thead><tr><th>Ngày gửi</th><th>Mã</th><th>Tiêu đề</th><th>Loại</th><th>Người gửi</th><th>Người nhận</th><th>Phòng ban</th><th>Cấp hiện tại</th><th>Trạng thái</th></tr></thead><tbody>';
     var body=rows.map(function(r){ var breach=r.sla_breached?'<span class="pill breach">Quá hạn</span> ':'';
       var send=r.requester_info||{user:r.requester,name:r.requester};
       var sender='<div class="sender">'+avatar(send,28)+'<span class="nm">'+esc(send.name||send.user||"—")+'</span></div>';
-      return '<tr'+(r.detail_route?' data-route="'+esc(withFrom(r.detail_route))+'"':'')+'><td>'+fmtDT(r.submitted_at)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||"")+'</td><td>'+esc(r.approval_type||"")+'</td><td>'+sender+'</td><td>'+chips(r.sent_to)+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"—")+'</td><td>'+breach+statusCell(r)+'</td><td>'+quickActions(r)+'</td></tr>'; }).join("");
+      return '<tr data-req="'+esc(r.name)+'"'+(r.detail_route?' data-route="'+esc(withFrom(r.detail_route))+'"':'')+'><td>'+fmtDT(r.submitted_at)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||"")+'</td><td>'+esc(r.approval_type||"")+'</td><td>'+sender+'</td><td>'+chips(r.sent_to)+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"—")+'</td><td>'+breach+statusCell(r)+'</td></tr>'; }).join("");
     var from=state.total?state.start+1:0, to=Math.min(state.start+rows.length,state.total);
     var pager='<div class="pager"><div class="info">'+from+'–'+to+' / '+state.total+'</div><div><button type="button" class="btn" id="apl-prev"'+(state.start<=0?" disabled":"")+'>‹ Trước</button> <button type="button" class="btn" id="apl-next"'+(state.start+state.page_length>=state.total?" disabled":"")+'>Sau ›</button></div></div>';
     $("apl-body").innerHTML='<div style="overflow-x:auto">'+head+body+'</tbody></table></div>'+pager;
@@ -170,6 +199,87 @@
     if(!route) return route;
     return route + (route.indexOf("?")>=0?"&":"?") + "from=" + encodeURIComponent(state.box);
   }
+  // ---- popup chi tiết ----------------------------------------------------------
+  // Hub liệt kê mọi loại yêu cầu; mở popup thay vì rời trang giúp duyệt liên tục nhiều hồ sơ
+  // mà không mất bộ lọc/vị trí cuộn. Nội dung lấy từ reporting.actions.get_request_detail
+  // (router -> đúng facade của form, đã kiểm quyền), nên không cần biết form nào.
+  var ACT="ecentric_workspace.approval_center.reporting.actions.";
+  function ovEl(){
+    var ov=document.getElementById("apl-ov");
+    if(!ov){ ov=document.createElement("div"); ov.id="apl-ov"; ov.hidden=true;
+      ov.innerHTML='<div class="ec-apl-modal" role="dialog" aria-modal="true"></div>';
+      document.getElementById("ec-apl-root").appendChild(ov);
+      ov.addEventListener("click",function(e){ if(e.target===ov) closeDetail(); });
+      document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeDetail(); });
+    }
+    return ov;
+  }
+  function closeDetail(){ var ov=document.getElementById("apl-ov"); if(ov) ov.hidden=true; }
+  function fmtVal(f){
+    var v=f.value;
+    if(f.fieldtype==="Currency"||f.fieldtype==="Float"||f.fieldtype==="Int"){
+      var n=Number(v); if(!isNaN(n)) return n.toLocaleString("vi-VN");
+    }
+    if(f.fieldtype==="Date") return fmtDT(v).split(" ")[0];
+    if(f.fieldtype==="Datetime") return fmtDT(v);
+    return String(v);
+  }
+  function openDetail(reqName){
+    if(!reqName) return;
+    var ov=ovEl(), box=ov.querySelector(".ec-apl-modal");
+    box.innerHTML='<div class="ec-apl-mb"><div class="state">Đang tải…</div></div>';
+    ov.hidden=false;
+    frappe.call({method:ACT+"get_request_detail", args:{request_name:reqName}, type:"GET"})
+      .then(function(r){ drawDetail(box, reqName, (r&&r.message)||{}); })
+      .catch(function(e){ box.innerHTML='<div class="ec-apl-mb"><div class="state"><h4>Không mở được yêu cầu</h4><p>'
+        +esc((e&&e.message)||"")+'</p></div></div><div class="ec-apl-mf"><span class="grow"></span>'
+        +'<button type="button" class="btn" data-x="1">Đóng</button></div>';
+        box.querySelector('[data-x]').onclick=closeDetail; });
+  }
+  function drawDetail(box, reqName, d){
+    var biz=d.business||{}, ap=d.approval||{}, cap=d.capabilities||{}, ff=d.fulfillment||{};
+    var levels=d.levels||[], cur=ap.current_level;
+    var steps='<div class="ec-apl-steps">'+levels.map(function(l){
+      var cls = l.level_status==="Completed" ? "done" : (l.level_no===cur ? "cur" : "");
+      return '<span class="ec-apl-step '+cls+'">'+esc(l.level_name||("Cấp "+l.level_no))+'</span>'; }).join("")+'</div>';
+    var fields=(d.display_fields||[]).map(function(f){
+      return '<div><span>'+esc(f.label)+'</span><b>'+esc(fmtVal(f))+'</b></div>'; }).join("");
+    var files=(d.attachments||[]).map(function(a){
+      return '<a class="ec-apl-file" href="'+esc(a.file_url)+'" target="_blank">'+esc(a.file_name||a.file_url)+'</a>'; }).join("")
+      || '<div class="t-sub">Không có tệp đính kèm.</div>';
+    var tl=(d.timeline||[]).slice(0,8).map(function(t){
+      return '<li>'+esc(t.action||t.event||"")+' · '+esc(t.actor||t.user||"")+' · '+fmtDT(t.creation||t.timestamp)+
+             (t.comment?(' — '+esc(t.comment)):'')+'</li>'; }).join("");
+    var ffLine = ff.status ? ('<div class="t-sub" style="margin-top:6px">Xử lý: '+
+      esc({Assigned:"Chờ nhận xử lý","In Progress":"Đang xử lý",Completed:"Hoàn tất"}[ff.status]||ff.status)+
+      (ff.owner?(" · "+esc(ff.owner)):"")+'</div>') : '';
+
+    var acts=[];
+    if(cap.can_approve) acts.push('<button type="button" class="btn ok" data-a="approve">Duyệt</button>');
+    if(cap.can_reject) acts.push('<button type="button" class="btn warn" data-a="reject">Từ chối</button>');
+    if(cap.can_request_information) acts.push('<button type="button" class="btn warn" data-a="info">Yêu cầu bổ sung</button>');
+    if(cap.can_claim) acts.push('<button type="button" class="btn ok" data-a="claim">Nhận xử lý</button>');
+
+    box.innerHTML =
+      '<div class="ec-apl-mh"><div><h3>'+esc(biz.request_title||d.type_title||reqName)+'</h3>'
+      +'<div class="sub">'+esc(reqName)+' · '+esc(d.type_title||"")+' · '+esc(biz.requested_by||"")
+      +(biz.department?(" · "+esc(biz.department)):"")+'</div>'+ffLine+'</div>'
+      +'<button type="button" class="ec-apl-x" data-x="1" aria-label="Đóng">&times;</button></div>'
+      +'<div class="ec-apl-mb">'
+      +'<div class="ec-apl-sec"><h4>Tiến trình</h4>'+steps+'</div>'
+      +(fields?('<div class="ec-apl-sec"><h4>Thông tin yêu cầu</h4><div class="ec-apl-kv">'+fields+'</div></div>'):'')
+      +'<div class="ec-apl-sec"><h4>Đính kèm</h4>'+files+'</div>'
+      +(tl?('<div class="ec-apl-sec"><h4>Lịch sử</h4><ul class="ec-apl-tl">'+tl+'</ul></div>'):'')
+      +'</div>'
+      +'<div class="ec-apl-mf">'
+      +(d.detail_route?('<a class="btn" href="'+esc(withFrom(d.detail_route))+'">Mở trang đầy đủ</a>'):'')
+      +'<span class="grow"></span>'+acts.join("")
+      +'<button type="button" class="btn" data-x="1">Đóng</button></div>';
+
+    Array.prototype.forEach.call(box.querySelectorAll('[data-x]'),function(b){ b.onclick=closeDetail; });
+    Array.prototype.forEach.call(box.querySelectorAll('[data-a]'),function(b){
+      b.onclick=function(){ runAction(b.getAttribute("data-a"), reqName, b, true); }; });
+  }
   function quickActions(r){
     var b=[];
     if(r.can_approve) b.push('<button type="button" class="btn ok" data-qa="approve" data-req="'+esc(r.name)+'">Duyệt</button>'
@@ -177,16 +287,19 @@
     if(r.can_claim) b.push('<button type="button" class="btn ok" data-qa="claim" data-req="'+esc(r.name)+'">Nhận xử lý</button>');
     return b.length?('<div class="qa">'+b.join("")+'</div>'):'';
   }
-  function runAction(kind,reqName,btn){
+  function runAction(kind,reqName,btn,fromModal){
     var API2="ecentric_workspace.approval_center.reporting.actions.";
-    var method={approve:"approve",reject:"reject",claim:"claim_fulfillment"}[kind];
+    var method={approve:"approve",reject:"reject",info:"request_information",claim:"claim_fulfillment"}[kind];
     if(!method) return;
     var comment=null;
-    if(kind==="reject"){ comment=window.prompt("Lý do từ chối:"); if(comment===null) return; if(!comment.trim()){ alert("Vui lòng nhập lý do."); return; } }
+    if(kind==="reject"||kind==="info"){
+      comment=window.prompt(kind==="reject"?"Lý do từ chối:":"Cần bổ sung thông tin gì?");
+      if(comment===null) return;
+      if(!comment.trim()){ alert("Vui lòng nhập nội dung."); return; } }
     if(btn) btn.disabled=true;
     var args={request_name:reqName}; if(comment) args.comment=comment;
     frappe.call({method:API2+method,args:args,type:"POST"})
-      .then(function(){ load(); })
+      .then(function(){ if(fromModal) closeDetail(); load(); })
       .catch(function(e){ if(btn) btn.disabled=false; var m=(e&&e.message)||"Không thực hiện được."; alert(m); });
   }
   function wire(){
@@ -194,7 +307,8 @@
       btn.onclick=function(e){ e.stopPropagation(); runAction(btn.getAttribute("data-qa"), btn.getAttribute("data-req"), btn); };
     });
 
-    Array.prototype.forEach.call(document.querySelectorAll('#apl-body tbody tr[data-route]'),function(tr){ tr.onclick=function(){ var rt=tr.getAttribute("data-route"); if(rt) window.location.href=rt; }; });
+    Array.prototype.forEach.call(document.querySelectorAll('#apl-body tbody tr[data-req]'),function(tr){
+      tr.onclick=function(){ openDetail(tr.getAttribute("data-req")); }; });
     var pv=$("apl-prev"), nx=$("apl-next");
     if(pv) pv.onclick=function(){ state.start=Math.max(0,state.start-state.page_length); load(); };
     if(nx) nx.onclick=function(){ if(state.start+state.page_length<state.total){ state.start+=state.page_length; load(); } };
@@ -211,7 +325,7 @@
     var ham=$("apl-ham"); if(ham) ham.onclick=function(){ document.getElementById("ec-apl-root").classList.toggle("sb-open"); };
     loadOptions().then(load);
   }
-  window.ApprovalAll={ state:state, withFrom:withFrom, syncUrl:syncUrl, quickActions:quickActions, runAction:runAction, boot:boot, load:load, render:render, filters:filters, setBox:setBox, avatar:avatar, initials:initials, _call:call };
+  window.ApprovalAll={ state:state, openDetail:openDetail, closeDetail:closeDetail, drawDetail:drawDetail, withFrom:withFrom, syncUrl:syncUrl, quickActions:quickActions, runAction:runAction, boot:boot, load:load, render:render, filters:filters, setBox:setBox, avatar:avatar, initials:initials, _call:call };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
 })();
 </script>
