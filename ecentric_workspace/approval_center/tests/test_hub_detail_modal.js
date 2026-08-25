@@ -1,56 +1,77 @@
 /* Popup chi tiết trên trang "Tất cả yêu cầu" (jsdom):
  *   node ecentric_workspace/approval_center/tests/test_hub_detail_modal.js <đường-dẫn-repo>
  * Bảo đảm: bỏ cột Thao tác ngoài danh sách, bấm dòng mở popup, popup nạp qua
- * reporting.actions.get_request_detail, và thao tác nằm TRONG popup rồi tự đóng + tải lại.
+ * reporting.actions.get_request_detail, thao tác nằm TRONG popup, lý do nhập tại chỗ
+ * (không dùng window.prompt) và sau khi duyệt thì nhảy sang hồ sơ kế tiếp.
  */
-const {JSDOM}=require("jsdom"); const fs=require("fs");
-const REPO=process.argv[2]||".";
-const html=fs.readFileSync(REPO+"/ecentric_workspace/approval_center/ui/all_requests/main_section.html","utf8");
-const dom=new JSDOM(html,{runScripts:"dangerously",pretendToBeVisual:true,resources:"usable",url:"https://x/approvals/all-requests"});
+const {JSDOM}=require("jsdom"); const fs=require("fs"); const path=require("path");
+const REPO=process.argv[2]||path.join(__dirname,"..","..","..");
+const html=fs.readFileSync(path.join(REPO,"ecentric_workspace/approval_center/ui/all_requests/main_section.html"),"utf8");
+const dom=new JSDOM(html,{runScripts:"dangerously",pretendToBeVisual:true,url:"https://x/approvals/all-requests"});
 const w=dom.window;
-const rows=[{name:"EC-APR-1",type:"Asset Request",approval_type:"ASSET_REQUEST",status:"Pending",status_label:"Pending",
+function row(n,t){ return {name:n,type:"Asset Request",approval_type:"ASSET_REQUEST",status:"Pending",status_label:"Pending",
   submitted_at:"2026-08-25 10:00:00",department:"Ops",current_level:2,current_level_name:"Direct Manager",
-  detail_route:"/approvals/asset-request?id=EC-ASSR-6",requester:"a@e.c",requester_info:{name:"A B"},sent_to:[],can_approve:true}];
-const detail={ business:{request_title:"Return Laptop", requested_by:"vy@e.c", department:"E-commerce - EC"},
-  approval:{current_level:2, approval_status:"Pending"},
-  levels:[{level_no:1,level_name:"Đã gửi",level_status:"Completed"},{level_no:2,level_name:"Direct Manager Review",level_status:"In Progress"},{level_no:3,level_name:"Operation Review"}],
-  display_fields:[{label:"Loại yêu cầu",value:"Return old asset",fieldtype:"Select"},{label:"Số lượng",value:1,fieldtype:"Int"}],
-  attachments:[{file_name:"bao-gia.pdf",file_url:"/private/files/bao-gia.pdf"}],
-  timeline:[{action:"Đã gửi",actor:"vy@e.c",creation:"2026-08-25 09:00:00"}],
+  detail_route:"/approvals/asset-request?id=X",requester:"a@e.c",requester_info:{name:"An Le"},sent_to:[],can_approve:true,_t:t}; }
+const rows=[row("EC-APR-1","Trả laptop"),row("EC-APR-2","Mua màn hình")];
+const detail={ business:{request_title:"Trả lại laptop cũ",requested_by:"vy@e.c",department:"E-commerce - EC",creation:"2026-08-25 09:00:00"},
+  approval:{current_level:2,approval_status:"Pending"},
+  levels:[{level_no:1,level_name:"Đã gửi",level_status:"Completed"},{level_no:2,level_name:"Direct Manager"},{level_no:3,level_name:"Operation"}],
+  display_fields:[{label:"Số tiền",value:2500000,fieldtype:"Currency"},{label:"Số lượng",value:1,fieldtype:"Int"},
+                  {label:"Lý do",value:"Máy hỏng bàn phím",fieldtype:"Small Text"}],
+  attachments:[{file_name:"bien-ban.pdf",file_url:"/private/files/bien-ban.pdf"}],
+  timeline:[{action:"Approved",actor:"an.le",creation:"2026-08-25 09:30:00",comment:"OK"}],
   capabilities:{can_approve:true,can_reject:true,can_request_information:true},
-  type_title:"Asset Request", detail_route:"/approvals/asset-request?id=EC-ASSR-6" };
+  type_title:"Asset Request", detail_route:"/approvals/asset-request?id=X" };
+let promptUsed=false;
+w.prompt=function(){ promptUsed=true; return "x"; };
+w.alert=function(){};
 w.frappe={call:function(o){
   if(/get_filter_options/.test(o.method)) return Promise.resolve({message:{scope_mode:"admin",categories:[],departments:[],types:[],statuses:[]}});
-  if(/list_requests/.test(o.method)) return Promise.resolve({message:{rows:rows,total:1}});
-  if(/get_request_detail/.test(o.method)){ w.__detailArgs=o.args; return Promise.resolve({message:detail}); }
+  if(/list_requests/.test(o.method)) return Promise.resolve({message:{rows:rows,total:2}});
+  if(/get_request_detail/.test(o.method)){ w.__detailFor=o.args.request_name; return Promise.resolve({message:detail}); }
   if(/actions\./.test(o.method)){ w.__action=o; return Promise.resolve({message:{ok:true}}); }
   return Promise.resolve({message:{}});
 }};
-w.prompt=()=> "ly do test";
-let t=0;(function poll(){ if(w.ApprovalAll){ w.ApprovalAll.boot(); setTimeout(function(){
-  const c={};
+const c={}; let failed=0;
+function chk(k,v){ c[k]=!!v; if(!v) failed++; }
+function tick(fn,ms){ setTimeout(fn,ms||120); }
+let t=0;(function poll(){ if(!w.ApprovalAll){ if(t++>60){console.log("not ready");process.exit(1);} return setTimeout(poll,20); }
+w.ApprovalAll.boot(); tick(function(){
   const body=w.document.getElementById("apl-body").innerHTML;
-  c["bo cot Thao tac"]= !/Thao tác/.test(body) && !/data-qa=/.test(body);
+  chk("bo cot Thao tac ngoai danh sach", !/Thao tác/.test(body) && !/data-qa=/.test(body));
   const tr=w.document.querySelector("#apl-body tbody tr[data-req]");
-  c["row co data-req"]= !!tr;
+  chk("row co data-req", !!tr);
   tr.click();
-  setTimeout(function(){
+  tick(function(){
     const ov=w.document.getElementById("apl-ov");
-    c["mo popup"]= ov && !ov.hidden;
-    c["goi API chi tiet dung ma"]= w.__detailArgs && w.__detailArgs.request_name==="EC-APR-1";
-    const box=ov.querySelector(".ec-apl-modal").innerHTML;
-    c["hien tieu de + ma"]= /Return Laptop/.test(box) && /EC-APR-1/.test(box);
-    c["hien tien trinh"]= /Direct Manager Review/.test(box) && /ec-apl-step cur/.test(box);
-    c["hien thong tin + dinh kem + lich su"]= /Return old asset/.test(box) && /bao-gia\.pdf/.test(box) && /Lịch sử/.test(box);
-    c["co nut thao tac trong popup"]= /data-a="approve"/.test(box) && /data-a="reject"/.test(box) && /data-a="info"/.test(box);
-    c["co link mo trang day du"]= /Mở trang đầy đủ/.test(box);
-    // bấm Duyệt trong popup
-    ov.querySelector('[data-a="approve"]').click();
-    setTimeout(function(){
-      c["duyet goi API xuyen form"]= w.__action && /actions\.approve/.test(w.__action.method) && w.__action.args.request_name==="EC-APR-1";
-      c["popup dong sau thao tac"]= w.document.getElementById("apl-ov").hidden;
-      let ok=true;Object.keys(c).forEach(k=>{console.log((c[k]?"PASS":"FAIL")+" - "+k); if(!c[k])ok=false;});
-      console.log(ok?"ALL_PASS":"SOME_FAIL");
+    chk("mo popup", ov && !ov.hidden);
+    chk("goi API chi tiet dung ma", w.__detailFor==="EC-APR-1");
+    const box=ov.querySelector(".ec-apl-modal"), h=box.innerHTML;
+    chk("header co avatar + ma + loai", /ec-apl-av/.test(h)&&/Trả lại laptop cũ/.test(h)&&/EC-APR-1/.test(h));
+    chk("dai thong tin quyet dinh", /ec-apl-hl/.test(h)&&/2\.500\.000/.test(h)&&/Ngày gửi/.test(h));
+    chk("stepper co buoc hien tai", /ec-apl-step cur/.test(h)&&/ec-apl-step done/.test(h)&&/Direct Manager/.test(h));
+    chk("noi dung + dinh kem + lich su", /Máy hỏng bàn phím/.test(h)&&/bien-ban\.pdf/.test(h)&&/Lịch sử xử lý/.test(h));
+    chk("moc lich su dich sang tieng Viet", /Đã duyệt/.test(h)&&!/>Approved</.test(h));
+    chk("nut duyet/tu choi/bo sung", /class="btn approve"/.test(h)&&/class="btn reject"/.test(h)&&/data-a="info"/.test(h));
+    chk("nut chuyen ho so ‹ ›", /data-step="-1"/.test(h)&&/data-step="1"/.test(h));
+    chk("nut lui bi khoa o ho so dau", /data-step="-1"[^>]*disabled/.test(h));
+    // Từ chối -> ô nhập tại chỗ, chặn rỗng, không dùng prompt
+    box.querySelector('[data-a="reject"]').click();
+    tick(function(){
+      const note=box.querySelector("#apl-note");
+      chk("tu choi mo o nhap trong popup", note && !note.hidden && !promptUsed);
+      note.querySelector("#apl-note-ok").click();
+      chk("chan gui khi ly do rong", !w.__action && !note.querySelector("#apl-note-err").hidden);
+      note.querySelector("#apl-note-in").value=" thiếu biên bản ";
+      note.querySelector("#apl-note-ok").click();
+      tick(function(){
+        chk("gui kem ly do da trim", w.__action && /actions\.reject/.test(w.__action.method)
+             && w.__action.args.comment==="thiếu biên bản");
+        chk("tu dong sang ho so ke tiep", w.__detailFor==="EC-APR-2");
+        Object.keys(c).forEach(k=>console.log((c[k]?"PASS":"FAIL")+" - "+k));
+        console.log(failed?"SOME_FAIL":"ALL_PASS");
+        process.exit(failed?1:0);
+      },160);
     },120);
   },200);
-},150); return;} if(t++>60){console.log("not ready");return;} setTimeout(poll,20);})();
+},160); })();
