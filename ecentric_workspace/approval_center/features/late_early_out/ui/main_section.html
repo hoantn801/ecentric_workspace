@@ -10,6 +10,15 @@
   .web-page-header, #navbarSupportedContent, .navbar-collapse, .web-footer, footer.web-footer { display:none !important; }
   body { background:#f7f8fb !important; padding:0 !important; margin:0 !important; }
   .page-content,.common-page-style,.container,main,.web-page-content,.page_content,.main-section,main.container,main.fluid{ padding:0 !important; margin:0 !important; max-width:none !important; }
+
+  /* Ô chọn: dùng dấu tích thật của trình duyệt (trước đó appearance:none làm mất dấu tích). */
+  input[type="checkbox"], input[type="radio"]{ appearance:auto; -webkit-appearance:auto; width:16px; height:16px; accent-color:#2C3DA6; cursor:pointer; }
+  /* Danh sách tệp đã tải + nút xóa */
+  .ec-file{ display:flex; align-items:center; gap:8px; padding:4px 0; font-size:13px; }
+  .ec-file a{ color:#2C3DA6; text-decoration:none; }
+  .ec-file a:hover{ text-decoration:underline; }
+  .ec-file-x{ border:1px solid #e5e7eb; background:#fff; color:#6b7280; border-radius:6px; width:22px; height:22px; line-height:1; cursor:pointer; }
+  .ec-file-x:hover{ color:#dc2626; border-color:#fecaca; }
 </style>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -283,17 +292,30 @@
   function wireModels(scope){ (scope||document).querySelectorAll("[data-model]").forEach(attachModel); }
   function uploadFile(fileInput,field,labelId){ var files=fileInput.files?Array.prototype.slice.call(fileInput.files):[]; if(!files.length) return;
     var lbl=$(labelId); if(lbl) lbl.textContent="Đang tải...";
-    var DT="EC Late Early Out Request", done=0, firstUrl=null;
-    function ensureDraft(){ if(state.id) return Promise.resolve(state.id);
-      return call("save_draft",{name:null,payload:JSON.stringify(state.draft||{})})
-        .then(function(res){ if(res&&res.name) state.id=res.name; return state.id; })
-        .catch(function(){ return null; }); }
+    var DT="EC Late Early Out Request";
+    state.draft=state.draft||{}; state.draft._attachments=state.draft._attachments||[];
     function put(f){ var fd=new FormData(); fd.append("file",f); fd.append("is_private","1"); fd.append("doctype",DT); fd.append("docname",state.id||"");
       return fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd})
-        .then(function(r){return r.json();}).then(function(j){ var url=j&&j.message&&j.message.file_url; if(url){ done++; if(!firstUrl){ firstUrl=url; setModel(field,url); } } }); }
-    ensureDraft().then(function(){ return files.reduce(function(p,f){ return p.then(function(){ return put(f); }); }, Promise.resolve()); })
-      .then(function(){ if(lbl) lbl.textContent = done?(done===1?("Đã tải: "+files[0].name):("Đã tải "+done+" tệp")):"Lỗi tải"; })
-      .catch(function(){ if(lbl) lbl.textContent="Lỗi tải"; }); }
+        .then(function(r){return r.json();}).then(function(j){ var m=j&&j.message, url=m&&m.file_url;
+          if(url) state.draft._attachments.push({url:url, name:(m&&m.file_name)||f.name}); }); }
+    files.reduce(function(p,f){ return p.then(function(){ return put(f); }); }, Promise.resolve())
+      .then(function(){ var list=state.draft._attachments;
+        if(list.length) setModel(field, list[0].url);
+        renderFileList(field, labelId); })
+      .catch(function(){ if(lbl) lbl.textContent="Lỗi tải"; });
+    fileInput.value=""; }
+  function renderFileList(field, labelId){
+    var lbl=$(labelId); if(!lbl) return;
+    var list=((state.draft||{})._attachments)||[];
+    if(!list.length){ lbl.innerHTML='<span class="hint">Chưa có tệp nào.</span>'; return; }
+    lbl.innerHTML = list.map(function(f,i){
+      return '<div class="ec-file"><a href="'+esc(f.url)+'" target="_blank">'+esc(f.name)+'</a>'
+           + '<button type="button" class="ec-file-x" data-rmfile="'+i+'" title="Xóa tệp">&times;</button></div>'; }).join("");
+    lbl.querySelectorAll("[data-rmfile]").forEach(function(btn){
+      btn.onclick=function(){ var i=+btn.getAttribute("data-rmfile");
+        state.draft._attachments.splice(i,1);
+        setModel(field, (state.draft._attachments[0]||{}).url||"");
+        renderFileList(field, labelId); }; }); }
   function wireCreate(){ var b=$("lteo-body"); var editing=state.mode==="edit"; wireModels(b);
     var att=document.querySelector('[data-upload="request_attachment"]'); if(att) att.addEventListener("change",function(){ uploadFile(att,"request_attachment","att-name"); });
     if(editing){
