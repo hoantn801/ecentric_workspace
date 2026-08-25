@@ -14,8 +14,12 @@
   if (window.__ecFormkitInstalled) return;
   window.__ecFormkitInstalled = true;
 
+  // CHỈ chạy trên các trang form của Approval Center.
+  // Bộ lọc cũ ("có phần tử #ec-*-root") quá lỏng: các trang GBS SO/PO và All Tickets cũng có
+  // root dạng đó VÀ đã tự có combobox + vùng kéo-thả riêng, nên asset này nâng cấp chồng lên,
+  // sinh ra hai ô chọn / hai vùng kéo-thả. Khoá theo đường dẫn là ranh giới rõ ràng nhất.
   function onApprovalPage() {
-    return !!document.querySelector('[id^="ec-"][id$="-root"]');
+    return /^\/approvals(\/|$)/.test(window.location.pathname || "");
   }
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -26,6 +30,7 @@
   /* ---------------------------------------------------------------- combobox */
   function enhanceSelect(sel) {
     if (!sel || sel.__ecCb || sel.multiple || sel.disabled) return;
+    if (sel.closest(".ec-cb")) return;                 // trang đã có combobox của riêng nó
     if (sel.options.length < 6) return;            // danh sách ngắn: <select> gốc dễ dùng hơn
     sel.__ecCb = true;
 
@@ -107,6 +112,10 @@
   /* ---------------------------------------------------------------- dropzone */
   function enhanceFile(inp) {
     if (!inp || inp.__ecDz) return;
+    // trang đã có vùng kéo-thả riêng (SO/PO...) -> không chồng thêm
+    if (inp.closest(".ec-dz") || (inp.parentNode && inp.parentNode.querySelector(".ec-dz"))) return;
+    var host = inp.parentNode;
+    if (host && /drop|dz|upload-zone/i.test(host.className || "")) return;
     inp.__ecDz = true;
 
     var dz = document.createElement("div");
