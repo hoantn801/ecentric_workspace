@@ -29,6 +29,27 @@ class ExactAndDateFilters:
 
 
 @dataclass(frozen=True, slots=True)
+class BrandOptions:
+    """Static options + the live Brand master list.
+
+    Brand was a free-text box, so the same brand arrived spelled several ways and could not
+    be filtered or grouped. Reads the standard `Brand` DocType (permission-checked by
+    frappe.get_all) and exposes it as `brands`; falls back to the static entries alone if the
+    DocType is unavailable, so a form never breaks over a lookup."""
+    entries: tuple = ()
+
+    def __call__(self):
+        out = {key: list(values) for key, values in self.entries}
+        try:
+            import frappe
+            out["brands"] = frappe.get_all("Brand", pluck="name", order_by="name asc",
+                                           limit_page_length=0)
+        except Exception:
+            out.setdefault("brands", [])
+        return out
+
+
+@dataclass(frozen=True, slots=True)
 class StaticOptions:
     entries: tuple = ()
 
