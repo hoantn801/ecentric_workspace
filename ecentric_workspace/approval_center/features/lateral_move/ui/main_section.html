@@ -11,6 +11,15 @@
   .web-page-header, #navbarSupportedContent, .navbar-collapse, .web-footer, footer.web-footer { display:none !important; }
   body { background:#f7f8fb !important; padding:0 !important; margin:0 !important; }
   .page-content,.common-page-style,.container,main,.web-page-content,.page_content,.main-section,main.container,main.fluid{ padding:0 !important; margin:0 !important; max-width:none !important; }
+
+  /* Ô chọn: dùng dấu tích thật của trình duyệt (trước đó appearance:none làm mất dấu tích). */
+  input[type="checkbox"], input[type="radio"]{ appearance:auto; -webkit-appearance:auto; width:16px; height:16px; accent-color:#2C3DA6; cursor:pointer; }
+  /* Danh sách tệp đã tải + nút xóa */
+  .ec-file{ display:flex; align-items:center; gap:8px; padding:4px 0; font-size:13px; }
+  .ec-file a{ color:#2C3DA6; text-decoration:none; }
+  .ec-file a:hover{ text-decoration:underline; }
+  .ec-file-x{ border:1px solid #e5e7eb; background:#fff; color:#6b7280; border-radius:6px; width:22px; height:22px; line-height:1; cursor:pointer; }
+  .ec-file-x:hover{ color:#dc2626; border-color:#fecaca; }
 </style>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');

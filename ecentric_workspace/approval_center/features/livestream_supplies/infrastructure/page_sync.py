@@ -36,8 +36,9 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "5a96867b08211cfd06ac186b45c8c5d915876084d60348bc8155c578b43cb0aa"
+BASELINE_SHA256 = "ce1dbbf8f49946c90e6cd997c1f10f0372196666cd84e594b33e38dcd7d219ab"
 SUPERSEDES_SHA256 = (
+    "5a96867b08211cfd06ac186b45c8c5d915876084d60348bc8155c578b43cb0aa",  # superseded by ce1dbbf8f499 (upload UX + tick)
     "d480d3c94c5c52a897a29499c0c8bce5d08468891c10e2e7f7978f4057088f85",  # superseded by 5a96867b0821 (nhớ tab khi quay lại hub)
     "84d032ed87f173bb9a4ea405983373267a99e13c920077a6132dfd15f6732157",  # superseded by the hub edit (bỏ 3 tab + upload nhiều tệp)
     "1e37c4d9f00cb6cb3fa02c415134cb0bdcecdf165eeb91a218bfe060b8c5d423",

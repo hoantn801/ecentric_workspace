@@ -5,6 +5,37 @@ from frappe import _
 from ecentric_workspace.approval_center.shared.requests import capabilities, query_service
 
 
+def attach_extra_files(document, urls):
+    """Attach the EXTRA files of a multi-file upload to the record.
+
+    Only one file URL fits in the Attach field, so the form uploads the rest and passes their
+    URLs in the payload (`_attachments`). Files uploaded before the record existed have no
+    attached_to_name, so they would never show up under 'Đính kèm'; this links them (and is a
+    no-op for ones already attached). Best-effort: never blocks the save."""
+    for url in (urls or []):
+        url = (url or "").strip() if isinstance(url, str) else (url or {}).get("url", "")
+        if not url.startswith(("/files", "/private/files")):
+            continue
+        try:
+            if frappe.db.exists("File", {"file_url": url, "attached_to_doctype": document.doctype,
+                                         "attached_to_name": document.name}):
+                continue
+            orphan = frappe.db.get_value("File", {"file_url": url,
+                                                  "attached_to_name": ["in", ["", None]]}, "name")
+            if orphan:
+                frappe.db.set_value("File", orphan, {"attached_to_doctype": document.doctype,
+                                                     "attached_to_name": document.name})
+            else:
+                frappe.get_doc({"doctype": "File", "file_url": url,
+                                "file_name": url.rsplit("/", 1)[-1],
+                                "is_private": 1 if url.startswith("/private") else 0,
+                                "attached_to_doctype": document.doctype,
+                                "attached_to_name": document.name}).insert(ignore_permissions=True)
+        except Exception:
+            frappe.logger("approval_center").warning(
+                "attach_extra_files: could not attach %s to %s" % (url, document.name))
+
+
 def claim_uploaded_files(document):
     """Stop Frappe creating a SECOND File row for the same upload.
 
@@ -69,6 +100,7 @@ def save_draft(definition, name=None, payload=None):
     if document.name:
         claim_uploaded_files(document)   # adopt orphan File rows so the save does not duplicate them
     document.save(ignore_permissions=True)
+    attach_extra_files(document, (data or {}).get("_attachments"))
     request = capabilities.approval_request_for(definition, document.name)
     return {"name": document.name,
             "capabilities": capabilities.derive(user, document, request)}
