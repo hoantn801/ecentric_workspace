@@ -22,7 +22,7 @@ app_license = "MIT"
 # must never do). The asset itself bails out on /app/* and on pages with no eCentric
 # bell, and is single-install guarded so the homepage (which also still carries the
 # legacy per-page loader) never double-installs.
-web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_datepicker.bundle.js"]
+web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_datepicker.bundle.js", "ec_formkit.bundle.js"]
 
 # ERP Shell v1 (Phase 1B pilot). Both assets are loaded site-wide via the same
 # proven content-hashed-bundle mechanism as the Notification Center, but
@@ -30,7 +30,7 @@ web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_dat
 # `data-ec-shell="1"` marker node (Phase 1B: only the 4 approval pilot pages).
 # Kill switch: site_config `ec_shell_disabled: 1` (fail-closed for the shell
 # only; never affects Notification Center or any business logic).
-web_include_css = ["ec_shell.bundle.css", "ec_datepicker.bundle.css"]
+web_include_css = ["ec_shell.bundle.css", "ec_datepicker.bundle.css", "ec_formkit.bundle.css"]
 
 # Document Events
 # ---------------
