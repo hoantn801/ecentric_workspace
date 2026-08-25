@@ -47,7 +47,9 @@
   #ec-apl-root tbody tr:hover{ background:var(--gray-50); }
   #ec-apl-root tbody tr[data-route]{ cursor:pointer; }
   /* popup chi tiết — xem & xử lý ngay trên danh sách, không phải rời trang */
-  #ec-apl-ov{ position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:10070; display:flex;
+  /* gắn vào <body> nên phải tự khai báo biến màu — biến của #ec-apl-root không với tới đây */
+  #ec-apl-ov{ --navy:#2C3DA6; --navy-50:#eef0fb;
+    position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:10070; display:flex;
     align-items:flex-start; justify-content:center; padding:32px 16px; overflow-y:auto;
     animation:ecAplFade .14s ease-out; }
   #ec-apl-ov[hidden]{ display:none !important; }
@@ -56,6 +58,7 @@
   .ec-apl-modal{ background:#fff; width:100%; max-width:760px; border-radius:16px; overflow:hidden;
     box-shadow:0 24px 64px rgba(15,23,42,.28); font-family:'Inter',-apple-system,sans-serif; color:#1f2937;
     animation:ecAplRise .18s cubic-bezier(.2,.8,.3,1); }
+  .ec-apl-modal .icon{ stroke:currentColor; fill:none; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
   .ec-apl-mh{ display:flex; align-items:flex-start; gap:12px; padding:18px 20px 14px; border-bottom:1px solid #eef0f4; }
   .ec-apl-av{ width:40px; height:40px; border-radius:11px; background:var(--navy-50); color:var(--navy);
     display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13.5px; flex-shrink:0; }
@@ -284,14 +287,14 @@
     "Information Provided":"Đã bổ sung", Claimed:"Nhận xử lý", Assigned:"Giao xử lý", Delegated:"Uỷ quyền" };
   var HL_KEYS=["số tiền","chi phí","giá trị","ngân sách","tổng","số lượng","ngày","thời gian","hạn"];
   function ovEl(){
-    var ov=document.getElementById("apl-ov");
+    var ov=document.getElementById("ec-apl-ov");
     if(!ov){
-      ov=document.createElement("div"); ov.id="apl-ov"; ov.hidden=true;
+      ov=document.createElement("div"); ov.id="ec-apl-ov"; ov.hidden=true;
       ov.innerHTML='<div class="ec-apl-modal" role="dialog" aria-modal="true" aria-label="Chi tiết yêu cầu"></div>';
-      document.getElementById("ec-apl-root").appendChild(ov);
+      document.body.appendChild(ov);
       ov.addEventListener("click",function(e){ if(e.target===ov) closeDetail(); });
       document.addEventListener("keydown",function(e){
-        var open=!document.getElementById("apl-ov").hidden;
+        var open=!document.getElementById("ec-apl-ov").hidden;
         if(!open) return;
         if(e.key==="Escape"){ closeDetail(); return; }
         // mũi tên chuyển hồ sơ để duyệt liên tiếp; bỏ qua khi đang gõ lý do
@@ -303,7 +306,7 @@
     return ov;
   }
   function closeDetail(){
-    var ov=document.getElementById("apl-ov");
+    var ov=document.getElementById("ec-apl-ov");
     if(ov){ ov.hidden=true; document.body.style.overflow=""; }
     state.openReq=null;
   }
