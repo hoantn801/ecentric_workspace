@@ -117,7 +117,8 @@ APPROVAL_LINK_FIELD = "approval_request"
 #:     the fulfiller pattern). Excluded DocTypes fall back to the generic
 #:     referenced document (their pre-1b.3 behavior; no regression).
 #: Adding a DocType here REQUIRES proving form >= can_view_request.
-APPROVAL_NORMALIZE_ALLOWLIST = frozenset({
+#: Seed list kept ONLY as the offline fallback (see approval_normalize_allowlist).
+_ALLOWLIST_SEED = frozenset({
     "EC AI Topup Request",
     "EC Asset Request",
     "EC Data Request",
@@ -125,6 +126,51 @@ APPROVAL_NORMALIZE_ALLOWLIST = frozenset({
     "EC Resignation Request",
     "EC System Request",
 })
+
+_ALLOWLIST_ATTR = "_ec_ac_norm_allowlist"
+
+
+def approval_normalize_allowlist():
+    """Business DocTypes whose feed items may carry the canonical per-record
+    Approval Center URL.
+
+    DERIVED FROM THE APPROVAL REGISTRY (2026-08-25), not hand-listed. The old
+    6-item list came from the _can_view parity audit of 2026-07-28, when every
+    form carried its OWN visibility rule and only six were provably no broader
+    than the canonical helper. The module refactor since then put ALL 26 forms
+    on ONE gate -- 18 through the shared bind()/bind_fulfillment() factory, the
+    other 8 through their own _can_view that delegates -- so the narrow list no
+    longer protects anything; it only sent every other form to the hub
+    (`/approvals`) instead of its own record. Verified form-by-form, and
+    shell/tests/test_action_feed.py asserts the chain for EVERY registry entry.
+
+    Deriving it means a NEW approval form is routed correctly the day it is
+    registered: nobody has to remember to edit a list here.
+
+    Falls back to the seed if the registry cannot be imported (e.g. a unit test
+    with a stubbed frappe), so the feed degrades to the old behaviour instead of
+    raising."""
+    local = getattr(frappe, "local", None)
+    cached = getattr(local, _ALLOWLIST_ATTR, None) if local is not None else None
+    if cached is not None:
+        return cached
+    try:
+        from ecentric_workspace.approval_center.shared.registry import (
+            BUSINESS_DOCTYPE_DEFINITIONS)
+        allow = frozenset(BUSINESS_DOCTYPE_DEFINITIONS.keys()) | _ALLOWLIST_SEED
+    except Exception:
+        allow = _ALLOWLIST_SEED
+    if local is not None:
+        try:
+            setattr(local, _ALLOWLIST_ATTR, allow)
+        except Exception:
+            pass
+    return allow
+
+
+#: Backward-compatible alias. Prefer approval_normalize_allowlist() -- this name
+#: is only the seed and is NOT the effective set.
+APPROVAL_NORMALIZE_ALLOWLIST = _ALLOWLIST_SEED
 
 #: cache: (doctype, fieldname) -> bool. DocType meta is static per process, so a
 #: single get_meta() per DocType is enough (never one per ToDo row).

@@ -848,28 +848,50 @@ class TestApprovalNormalization(unittest.TestCase):
         self.assertEqual(it["action_url"], "/approvals/ai-topup?id=EC-AITOP-9")
         self.assertEqual(it["bucket"], "upcoming")              # future SLA
 
-    def test_excluded_snapshot_form_stays_generic_even_if_visible(self):
-        # SAFETY GATE: EC Purchase Request carries the engine link and the
-        # canonical helper would grant view, but its form (_can_view) uses the
-        # snapshot pattern (no fulfiller) -- canonical is BROADER, so the feed
-        # must NOT normalize it. Stays generic (no approval route leaked).
-        FK.db.todo_rows = [_todo("t", self.PURCH, "EC-PUR-1")]
-        self._biz_rows(self.PURCH, "EC-PUR-1", "REQ-P")
-        self._request("REQ-P", status="Pending", atype="PURCHASE",
-                      requested_by="u@e.c", reference_name="EC-PUR-1")   # even as requester
+    def test_formerly_excluded_form_now_normalizes(self):
+        """POLICY CHANGE 2026-08-25 (PO-approved). Purchase Request used to be
+        held OUT of normalization: in the 2026-07-28 audit every form carried its
+        own _can_view, and the "snapshot / no-fulfiller" forms were narrower than
+        the canonical helper, so normalizing them would have let the feed show an
+        action the form itself would refuse to open.
+
+        That is no longer the shape of the code. purchase_request/controllers/api.py
+        is `globals().update(bind("PURCHASE_REQUEST"))`, and bind() installs
+        _can_view = caps.can_view -> can_view_request. Form gate and feed gate are
+        now literally the same function, so the exclusion protected nothing and
+        only cost the user their per-record URL (PO report: EC-DTGT-2026-00001
+        opened the hub). test_formerly_excluded_forms_share_the_canonical_gate
+        below pins the premise this rests on."""
+        FK.db.todo_rows = [_todo("t", self.PURCH, "EC-PUR-9")]
+        self._biz_rows(self.PURCH, "EC-PUR-9", "REQ-P")
+        self._request("REQ-P", status="Pending", atype="PURCHASE", requested_by="boss@e.c")
         self._type("PURCHASE", "/approvals/purchase-request")
         self._level("REQ-P", 1, "In Progress", "2026-07-24 09:00:00")
+        self._approver("REQ-P", "u@e.c")
         it = self._find(feed.build_feed("u@e.c", limit=20), "t")
-        self.assertEqual(it["source_type"], "generic")          # NOT normalized (excluded)
-        self.assertNotIn("/approvals/", it["action_url"])       # no engine route
-        # POLICY CHANGE 2026-08-21: when normalization cannot apply, an
-        # engine-governed doc lands on the Approval Center HUB, never on
-        # Frappe Desk (/app/* is permission-denied for portal users, so the
-        # reminder pointed at a page they could not open).
-        self.assertEqual(it["action_url"], "/approvals")
+        self.assertEqual(it["source_type"], "approval")
+        # `&from=all` in the PO's example URL is only the Approval Center's own
+        # back-link hint when you arrive from "Tất cả yêu cầu"; the canonical
+        # deep link is id-only and opens the same record.
+        self.assertEqual(it["action_url"], "/approvals/purchase-request?id=EC-PUR-9")
 
-    def test_direct_ref_to_excluded_doctype_stays_generic(self):
-        # Direct EC Approval Request whose reference_doctype is excluded -> generic.
+    def test_formerly_excluded_forms_share_the_canonical_gate(self):
+        """The premise of the change above, asserted instead of assumed: every
+        form that used to be excluded now routes its view check through the
+        shared bind() factory (hence through can_view_request)."""
+        import io as _io
+        for module in ("purchase_request", "payment_request", "promotion",
+                       "hiring_request", "service_referral", "affiliate_bonus"):
+            path = os.path.join(APP, "approval_center", "features", module,
+                                "controllers", "api.py")
+            if not os.path.exists(path):
+                self.fail("missing controller: %s" % module)
+            src = _io.open(path, encoding="utf-8").read()
+            self.assertIn("bind(", src, "%s no longer uses the shared factory" % module)
+
+    def test_direct_ref_to_registered_doctype_normalizes(self):
+        """Same policy change, via a DIRECT EC Approval Request whose
+        reference_doctype is a registered business form."""
         FK.db.todo_rows = [_todo("t", "EC Approval Request", "REQ-X")]
         self._request("REQ-X", status="Pending", atype="PURCHASE",
                       requested_by="u@e.c", reference_doctype=self.PURCH,
@@ -877,11 +899,12 @@ class TestApprovalNormalization(unittest.TestCase):
         self._type("PURCHASE", "/approvals/purchase-request")
         self._level("REQ-X", 1, "In Progress", "2026-07-24 09:00:00")
         it = self._find(feed.build_feed("u@e.c", limit=20), "t")
-        self.assertEqual(it["source_type"], "generic")
-        self.assertNotIn("/approvals/", it["action_url"])
+        self.assertEqual(it["source_type"], "approval")
+        self.assertIn("/approvals/purchase-request", it["action_url"])
 
-    def test_allowlist_membership(self):
-        # The allow-list is exactly the fulfiller-pattern (form >= canonical) forms.
+    def test_seed_membership(self):
+        # APPROVAL_NORMALIZE_ALLOWLIST is now only the OFFLINE FALLBACK seed --
+        # the effective set comes from approval_normalize_allowlist() (registry).
         self.assertEqual(self.R.APPROVAL_NORMALIZE_ALLOWLIST, frozenset({
             "EC AI Topup Request", "EC Asset Request", "EC Data Request",
             "EC Document Request", "EC Resignation Request", "EC System Request"}))
@@ -1293,6 +1316,82 @@ class TestFulfillmentStage(unittest.TestCase):
         self.assertEqual(it["source_type"], "generic")        # generic fallback
         self.assertNotIn("/approvals/", it["action_url"])     # no route
         self.assertNotEqual(it.get("due_at"), "2026-07-01 09:00:00")  # no approval-SLA reuse
+
+
+
+class TestAllowlistIsRegistryDerived(unittest.TestCase):
+    """PO-approved 2026-08-25. The normalize allowlist used to be six hand-typed
+    DocTypes, so EVERY other approval form (Daily Target, Promotion, Payment
+    Request...) lost its per-record URL and landed on the `/approvals` hub.
+
+    The six came from the _can_view parity audit of 2026-07-28, when each form
+    carried its own visibility rule. The module refactor since then put all 26
+    forms on ONE canonical gate, so the list protected nothing and only broke
+    routing. It is now derived from the approval registry."""
+
+    def test_allowlist_covers_every_registered_form(self):
+        from ecentric_workspace.action_center import resolvers as R
+        try:
+            from ecentric_workspace.approval_center.shared.registry import (
+                BUSINESS_DOCTYPE_DEFINITIONS)
+        except Exception:
+            self.skipTest("registry needs a real bench")
+        allow = R.approval_normalize_allowlist()
+        missing = sorted(set(BUSINESS_DOCTYPE_DEFINITIONS) - set(allow))
+        self.assertEqual(missing, [], "registered forms not in allowlist: %s" % missing)
+
+    def test_daily_target_is_allowed(self):
+        """The form the PO reported on 2026-08-25 (EC-DTGT-2026-00001 opened the
+        hub instead of /approvals/daily-target)."""
+        from ecentric_workspace.action_center import resolvers as R
+        try:
+            from ecentric_workspace.approval_center.shared.registry import (
+                BUSINESS_DOCTYPE_DEFINITIONS)
+        except Exception:
+            self.skipTest("registry needs a real bench")
+        self.assertIn("EC Daily Target Request", BUSINESS_DOCTYPE_DEFINITIONS)
+        self.assertIn("EC Daily Target Request", R.approval_normalize_allowlist())
+
+    def test_falls_back_to_seed_when_registry_unavailable(self):
+        """A stubbed-frappe unit test must degrade to the old behaviour, never
+        raise -- the feed is not allowed to die because an import failed."""
+        from ecentric_workspace.action_center import resolvers as R
+        self.assertTrue(R._ALLOWLIST_SEED)
+        self.assertTrue(set(R._ALLOWLIST_SEED) <= set(R.approval_normalize_allowlist()))
+
+    def test_feed_asks_the_function_not_the_seed(self):
+        """Guard against someone re-wiring feed.py back to the frozen constant."""
+        src = io.open(os.path.join(APP, "action_center", "feed.py"), encoding="utf-8").read()
+        self.assertIn("_allow()", src)
+        self.assertNotIn("R.APPROVAL_NORMALIZE_ALLOWLIST", src)
+
+
+class TestLeaveApprovalIsActionableNow(unittest.TestCase):
+    """PO report 2026-08-25: pending leave approvals sat in "SẮP TỚI" with the
+    employee's FIRST DAY OFF shown as the due date. Nothing is due on the day
+    someone is away -- the decision is due now."""
+
+    def setUp(self):
+        _install(FK, purge=False)
+        FK.db = _FakeDB(); FK.getall_map = {}; FK.session.user = "u@e.c"
+        FK.db.get_value_map = {}
+
+    def test_leave_start_date_is_not_the_approval_due(self):
+        FK.db.todo_rows = [_todo("td-lv", "Leave Application", "HR-LAP-2026-00017",
+                                 date="2026-08-28", created="1")]
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertEqual(res["total"], 1)
+        it = res["items"][0]
+        self.assertEqual(it["due_at"], "", "leave start date leaked into due_at")
+        self.assertEqual(it["bucket"], "act_now",
+                         "a pending leave approval must be actionable now")
+        self.assertEqual(res["counts"]["upcoming"], 0)
+
+    def test_other_sources_keep_their_todo_date(self):
+        """Scoped fix: only Leave Application loses the borrowed date."""
+        FK.db.todo_rows = [_todo("td-x", "", "", date="2026-08-28", created="1")]
+        res = feed.build_feed("u@e.c", limit=20)
+        self.assertEqual(res["items"][0]["due_at"], "2026-08-28")
 
 
 class TestAllowlistFormParity(unittest.TestCase):
