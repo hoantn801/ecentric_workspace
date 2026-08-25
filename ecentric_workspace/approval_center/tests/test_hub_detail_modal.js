@@ -76,11 +76,9 @@ w.ApprovalAll.boot(); tick(function(){
     chk("ngay gui nam tren header", /Gửi 25\/08\/2026/.test(h));
     chk("nhan trang thai tren header", /class="pill Pending"/.test(h));
     chk("mo ta dai trai ngang", /wide/.test(h));
-    chk("gap bot truong khi qua nhieu", /Xem thêm \d+ trường/.test(h)&&/more" hidden/.test(h));
+    chk("hien du truong, khong gap", !/Xem thêm/.test(h)&&/Địa điểm/.test(h)&&/Mức ưu tiên/.test(h)
+        &&!/hidden/.test(h.replace(/id="apl-note"[^>]*hidden[^>]*/,"")));
     chk("tieu diem nam trong popup", w.document.activeElement===box);
-    box.querySelector("[data-more]").click();
-    chk("bam xem them thi mo het", !box.querySelector("[data-more]")
-        && !box.querySelector(".ec-apl-kv .more").hidden);
     chk("ten nguoi gui thay cho email", /An Le/.test(h)&&!/vy@e\.c/.test(h));
     chk("stepper co buoc hien tai", /ec-apl-step cur/.test(h)&&/ec-apl-step done/.test(h)&&/Direct Manager/.test(h));
     chk("noi dung + dinh kem + lich su", /Máy hỏng bàn phím/.test(h)&&/bien-ban\.pdf/.test(h)&&/Lịch sử xử lý/.test(h));

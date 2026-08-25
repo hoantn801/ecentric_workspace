@@ -107,9 +107,6 @@
   .ec-apl-mh .sub .pill.Rejected{ background:#fef2f2; color:#dc2626; }
   .ec-apl-mh .sub .pill.Information{ background:#fffbeb; color:#b45309; }
   .ec-apl-modal:focus{ outline:none; }
-  .ec-apl-more{ grid-column:1/-1; justify-self:start; margin-top:2px; border:1px dashed #d1d5db; background:#fff;
-    color:#4b5563; font-size:12.5px; font-weight:600; font-family:inherit; border-radius:8px; padding:6px 12px; cursor:pointer; }
-  .ec-apl-more:hover{ border-color:var(--navy); color:var(--navy); background:var(--navy-50); }
   #ec-apl-toast{ position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:10080;
     background:#111827; color:#fff; font-family:'Inter',-apple-system,sans-serif; font-size:13px; font-weight:600;
     padding:10px 18px; border-radius:10px; box-shadow:0 10px 30px rgba(15,23,42,.3); max-width:90vw; }
@@ -452,14 +449,10 @@
       +parts.hl.map(function(f){ return '<div><div class="k">'+esc(f.label)+'</div><div class="v">'+esc(fmtVal(f))+'</div></div>'; }).join("")
       +'</div>') : '';
 
-    // Form nhiều trường (mua sắm, hợp đồng) dễ thành bức tường chữ: chỉ mở sẵn 6 trường đầu,
-    // phần còn lại gấp vào để người duyệt quyết bằng thông tin chính trước.
-    var MAX_OPEN=6, hidden=Math.max(0, parts.rest.length-MAX_OPEN);
-    var fields=parts.rest.map(function(f,i){
-      return '<div'+(isLong(f)?' class="wide':' class="')+(i>=MAX_OPEN?' more" hidden':'"')+'>'
-           + '<div class="k">'+esc(f.label)+'</div>'
-           + '<div class="v">'+esc(fmtVal(f))+'</div></div>'; }).join("")
-      + (hidden?('<button type="button" class="ec-apl-more" data-more="1">Xem thêm '+hidden+' trường</button>'):'');
+    // Hiện đủ mọi trường: người duyệt cần thấy hết để quyết, gấp bớt chỉ đẻ thêm một cú bấm.
+    var fields=parts.rest.map(function(f){
+      return '<div'+(isLong(f)?' class="wide"':'')+'><div class="k">'+esc(f.label)+'</div>'
+           + '<div class="v">'+esc(fmtVal(f))+'</div></div>'; }).join("");
 
     var files=(d.attachments||[]).map(function(a){
       return '<a class="ec-apl-file" href="'+esc(a.file_url)+'" target="_blank" rel="noopener">'
@@ -505,11 +498,6 @@
       +'<button type="button" class="btn" data-x="1">Đóng</button></div>';
 
     bindShell(box);
-    var more=box.querySelector('[data-more]');
-    if(more) more.onclick=function(){
-      Array.prototype.forEach.call(box.querySelectorAll('.ec-apl-kv .more'),function(el){ el.hidden=false; });
-      more.remove();
-    };
     Array.prototype.forEach.call(box.querySelectorAll('[data-a]'),function(b){
       b.onclick=function(){
         var kind=b.getAttribute("data-a");
