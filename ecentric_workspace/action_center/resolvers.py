@@ -41,13 +41,20 @@ PORTAL_FALLBACK = {
     # tests/test_no_desk_urls.py could never have found it. Reported from
     # production UAT 2026-08-21 (HR-ARQ-26-08-00010..12 opened Desk).
     "Attendance Request": "/ec-hr/attendance",
+    # Same blind spot, different producer: the ToDo for a pending leave is filed
+    # by the ec_hr_leave_apply Server Script, which lives on the SITE and not in
+    # this repo -- so the scan above cannot see it either. Listed here as the
+    # single source of truth for the destination; the dedicated arm in
+    # resolve_item() reads it from this dict and additionally keeps the approval
+    # classification, which this dict's own arm does not.
+    "Leave Application": "/ec-hr/leave",
 }
 
 #: DocTypes owned by OTHER installed apps (hrms, erpnext) that file ToDos at our
 #: users. They are listed by hand because the repo scan is structurally blind to
 #: them -- their producer lives outside this codebase. Anything added here must
 #: resolve to a portal route; the gate enforces that.
-EXTERNAL_TODO_DOCTYPES = ("Attendance Request",)
+EXTERNAL_TODO_DOCTYPES = ("Attendance Request", "Leave Application")
 
 # Approval-style DocTypes (route /approval?id=&type=).
 APPROVAL_DOCTYPES = frozenset({
@@ -73,7 +80,7 @@ APPROVAL_DOCTYPES = frozenset({
 LEAVE_APPLICATION = "Leave Application"
 
 #: Where a pending leave is actually decided: the HR portal page, "Của nhóm" tab.
-LEAVE_APPROVAL_URL = "/ec-hr/leave"
+LEAVE_APPROVAL_URL = PORTAL_FALLBACK[LEAVE_APPLICATION]
 
 
 def build_approval_url(doctype, name):

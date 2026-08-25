@@ -185,6 +185,15 @@ class TestExternalProducers(unittest.TestCase):
     def test_attendance_request_goes_to_the_hr_page(self):
         self.assertEqual(self._url("Attendance Request"), "/ec-hr/attendance")
 
+    def test_leave_application_goes_to_the_hr_page_not_the_ticket_inbox(self):
+        """/approval only maps mso/so/po/gbs_so/gbs_po. Handed an unknown type
+        it does not error -- it drops the parameter and renders the generic
+        ticket list, so the approver lands on someone else's 771 rows with
+        nothing to explain why."""
+        url = self._url("Leave Application")
+        self.assertEqual(url, "/ec-hr/leave")
+        self.assertNotIn("/approval", url)
+
     def _url(self, ref_type, ref_name="X-1"):
         return R.resolve_item(_todo(ref_type, ref_name)).get("action_url") or ""
 
