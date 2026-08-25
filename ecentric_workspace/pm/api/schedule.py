@@ -142,7 +142,7 @@ def _ms_meetings(email, start_dt, end_dt, mask=False):
                "?startDateTime=" + start_dt.replace(" ", "T") + "%2B07:00"
                "&endDateTime=" + end_dt.replace(" ", "T") + "%2B07:00"
                "&$select=id,subject,start,end,showAs,isAllDay,onlineMeeting,location,"
-               "responseStatus,isOrganizer,allowNewTimeProposals,type"
+               "responseStatus,isOrganizer,type"
                "&$top=100&$orderby=start/dateTime")
         r = requests.get(url, headers={"Authorization": "Bearer " + token,
                          "Prefer": 'outlook.timezone="Asia/Ho_Chi_Minh"'}, timeout=12)
@@ -167,7 +167,6 @@ def _ms_meetings(email, start_dt, end_dt, mask=False):
                 row["location"] = ((ev.get("location") or {}) or {}).get("displayName") or ""
                 row["response"] = ((ev.get("responseStatus") or {}) or {}).get("response") or "none"
                 row["is_organizer"] = bool(ev.get("isOrganizer"))
-                row["allow_propose"] = ev.get("allowNewTimeProposals") is not False
                 row["ev_type"] = ev.get("type") or "singleInstance"
             out.append(row)
         return out
@@ -197,40 +196,10 @@ def _gtime(dt_str):
 
 
 @frappe.whitelist()
-def propose_new_time(event_id, start, end, comment=None):
-    """Tentatively accept an invite while proposing a different slot (the Teams
-    'Propose new time' action). Own calendar only; the organizer gets the proposal."""
-    pmperm.require_pm_access()
-    caller = frappe.session.user
-    if not event_id or not start or not end:
-        frappe.throw(_("Thiếu dữ liệu."))
-    if get_datetime(end) <= get_datetime(start):
-        frappe.throw(_("Giờ kết thúc phải sau giờ bắt đầu."))
-    token = _graph_ready()
-    from urllib.parse import quote
-    import requests
-    try:
-        url = ("https://graph.microsoft.com/v1.0/users/" + caller + "/events/"
-               + quote(event_id, safe="") + "/tentativelyAccept")
-        body = {"sendResponse": True,
-                "proposedNewTime": {"start": _gtime(start), "end": _gtime(end)}}
-        if comment:
-            body["comment"] = comment
-        r = requests.post(url, headers={"Authorization": "Bearer " + token,
-                          "Content-Type": "application/json"}, json=body, timeout=12)
-        if r.status_code in (200, 202, 204):
-            return {"ok": True}
-        return {"ok": False, "code": "PROPOSE_" + str(r.status_code)}
-    except Exception:
-        frappe.log_error(frappe.get_traceback(), "schedule propose_new_time")
-        return {"ok": False, "code": "PROPOSE_EXC"}
-
-
-@frappe.whitelist()
 def reschedule(event_id, start, end):
     """Move a meeting the CALLER ORGANISES to a new slot (Graph PATCH sends the update to
-    attendees). Refuses when the caller is not the organiser -- attendees must use
-    propose_new_time instead."""
+    attendees). Refuses when the caller is not the organiser (attendees
+    can only accept/decline/tentative)."""
     pmperm.require_pm_access()
     caller = frappe.session.user
     if not event_id or not start or not end:
