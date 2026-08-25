@@ -296,7 +296,10 @@
     var lbl=$(labelId); if(lbl) lbl.textContent="Đang tải...";
     var DT="EC System Request";
     state.draft=state.draft||{}; state.draft._attachments=state.draft._attachments||[];
-    function put(f){ var fd=new FormData(); fd.append("file",f); fd.append("is_private","1"); fd.append("doctype",DT); fd.append("docname",state.id||"");
+    function put(f){ var fd=new FormData(); fd.append("file",f); fd.append("is_private","1");
+      // KHÔNG gửi doctype/docname: upload_file kiểm quyền role trên DocType đó, mà người dùng
+      // thường chỉ ghi qua API có ignore_permissions -> 'does not have doctype access'.
+      // Tải lên như tệp riêng tư rồi backend đính vào hồ sơ khi lưu (payload _attachments).
       return fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd})
         .then(function(r){ if(r.status===413){ throw new Error("Tệp quá lớn (giới hạn ~25MB): "+f.name); } return r.json().then(function(j){ return {j:j, status:r.status}; }); })
         .then(function(res){ var m=res.j&&res.j.message, url=m&&m.file_url;

@@ -20,11 +20,23 @@ def attach_extra_files(document, urls):
             if frappe.db.exists("File", {"file_url": url, "attached_to_doctype": document.doctype,
                                          "attached_to_name": document.name}):
                 continue
+            # Tệp nào đang là giá trị của một trường Attach thì gắn kèm attached_to_field,
+            # để hook attach_files_to_document của Frappe nhận ra và không tạo bản ghi thứ hai.
+            field_for_url = None
+            try:
+                for df in document.meta.fields:
+                    if df.fieldtype in ("Attach", "Attach Image") and (document.get(df.fieldname) or "") == url:
+                        field_for_url = df.fieldname
+                        break
+            except Exception:
+                field_for_url = None
             orphan = frappe.db.get_value("File", {"file_url": url,
                                                   "attached_to_name": ["in", ["", None]]}, "name")
             if orphan:
-                frappe.db.set_value("File", orphan, {"attached_to_doctype": document.doctype,
-                                                     "attached_to_name": document.name})
+                values = {"attached_to_doctype": document.doctype, "attached_to_name": document.name}
+                if field_for_url:
+                    values["attached_to_field"] = field_for_url
+                frappe.db.set_value("File", orphan, values)
             else:
                 frappe.get_doc({"doctype": "File", "file_url": url,
                                 "file_name": url.rsplit("/", 1)[-1],
