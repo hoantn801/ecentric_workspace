@@ -42,7 +42,7 @@
   #ec-leave-root .ec-main{ min-width:0;display:flex;flex-direction:column; }
   #ec-leave-root .topbar{ background:#fff;border-bottom:1px solid var(--gray-200);min-height:60px;padding:0 24px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20; }
   #ec-leave-root .crumb{ font-size:13px;color:var(--gray-500); } #ec-leave-root .crumb strong{ color:var(--gray-900); }
-  #ec-leave-root .content{ padding:22px 24px 48px;max-width:1200px;margin:0 auto;width:100%; }
+  #ec-leave-root .content{ padding:22px 24px 48px;max-width:1600px;margin:0 auto;width:100%;}
   #ec-leave-root .leave-formwrap{ max-width:none; }
   #ec-leave-root h1.pg{ font-size:22px;font-weight:800;color:var(--gray-900);margin:0 0 2px;letter-spacing:-.3px; }
   #ec-leave-root .pg-sub{ font-size:13px;color:var(--gray-500);margin:0 0 16px; }
@@ -295,13 +295,18 @@
     state.draft=state.draft||{}; state.draft._attachments=state.draft._attachments||[];
     function put(f){ var fd=new FormData(); fd.append("file",f); fd.append("is_private","1"); fd.append("doctype",DT); fd.append("docname",state.id||"");
       return fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd})
-        .then(function(r){return r.json();}).then(function(j){ var m=j&&j.message, url=m&&m.file_url;
-          if(url) state.draft._attachments.push({url:url, name:(m&&m.file_name)||f.name}); }); }
+        .then(function(r){ if(r.status===413){ throw new Error("Tệp quá lớn (giới hạn ~25MB): "+f.name); } return r.json().then(function(j){ return {j:j, status:r.status}; }); })
+        .then(function(res){ var m=res.j&&res.j.message, url=m&&m.file_url;
+          if(!url){ var why=""; try{ why=(JSON.parse(res.j._server_messages||"[]")[0]||""); }catch(e){}
+            throw new Error("Không tải được "+f.name+(why?(": "+String(why).replace(/[{}"]|message|:/g,"").slice(0,80)):"")); }
+          state.draft._attachments.push({url:url, name:(m&&m.file_name)||f.name}); }); }
     files.reduce(function(p,f){ return p.then(function(){ return put(f); }); }, Promise.resolve())
       .then(function(){ var list=state.draft._attachments;
         if(list.length) setModel(field, list[0].url);
         renderFileList(field, labelId); })
-      .catch(function(){ if(lbl) lbl.textContent="Lỗi tải"; });
+      .catch(function(e){ renderFileList(field, labelId);
+        if(lbl){ var d=document.createElement("div"); d.style.color="#dc2626"; d.style.fontSize="12.5px";
+          d.textContent=(e&&e.message)||"Lỗi tải tệp."; lbl.appendChild(d); } });
     fileInput.value=""; }
   function renderFileList(field, labelId){
     var lbl=$(labelId); if(!lbl) return;
@@ -316,7 +321,7 @@
         setModel(field, (state.draft._attachments[0]||{}).url||"");
         renderFileList(field, labelId); }; }); }
   function wireCreate(){ var b=$("leave-body"); var editing=state.mode==="edit"; wireModels(b);
-    var att=document.querySelector('[data-upload="request_attachment"]'); if(att) att.addEventListener("change",function(){ uploadFile(att,"request_attachment","att-name"); });
+    var att=document.querySelector('[data-upload="request_attachment"]'); if(att) att.addEventListener("change",function(){ uploadFile(att,"request_attachment","att-name"); }); if(att) renderFileList("request_attachment","att-name");
     if(editing){
       $("leave-edit-cancel").onclick=function(){ state._editDet=null; state.mode="create"; renderDetail($("leave-body")); };
       $("leave-resubmit").onclick=function(){ var v=validateSubmit(); if(v){ showFieldErrors(v); toast("Vui lòng kiểm tra các trường bắt buộc.",true); return; } setBusyIds(["leave-resubmit","leave-edit-cancel"],true);

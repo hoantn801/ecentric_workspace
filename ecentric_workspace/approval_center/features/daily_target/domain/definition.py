@@ -4,6 +4,7 @@ from ecentric_workspace.approval_center.shared.requests.contracts import (
     STANDARD_STATUS_LABELS,
 )
 from ecentric_workspace.approval_center.shared.definition_support import (
+    BrandOptions,
     ExactAndDateFilters,
     StaticOptions,
     service_callbacks,
@@ -18,7 +19,7 @@ def _definition(code, doctype, feature, editable, mine, approvals, options=(), f
         my_request_fields=mine,
         approval_list_fields=approvals,
         status_labels=STANDARD_STATUS_LABELS,
-        options_provider=StaticOptions(options),
+        options_provider=BrandOptions(options),
         filter_builder=ExactAndDateFilters(filters),
         **service_callbacks(feature, title=title),
     )
