@@ -7,6 +7,14 @@
 const {JSDOM}=require("jsdom"); const fs=require("fs"); const path=require("path");
 const REPO=process.argv[2]||path.join(__dirname,"..","..","..");
 const html=fs.readFileSync(path.join(REPO,"ecentric_workspace/approval_center/ui/all_requests/main_section.html"),"utf8");
+// Kiểm tra tĩnh TRƯỚC khi dựng DOM: id lớp phủ do JS tạo phải trùng id được CSS tô.
+// Lệch id thì popup mất position:fixed và rơi xuống cuối trang — đã xảy ra trên production.
+const ovId=(html.match(/ov\.id\s*=\s*"([^"]+)"/)||[])[1];
+if(!ovId) throw new Error("Không tìm thấy nơi JS đặt id cho lớp phủ popup");
+if(html.indexOf("#"+ovId+"{")<0 && html.indexOf("#"+ovId+" {")<0)
+  throw new Error('Lop phu JS tao id="'+ovId+'" nhung CSS khong co rule #'+ovId+' -> popup se mat position:fixed');
+if(!new RegExp("#"+ovId+"\\{[^}]*position:fixed").test(html.replace(/\s*\n\s*/g,"")))
+  throw new Error("Rule #"+ovId+" thieu position:fixed");
 const dom=new JSDOM(html,{runScripts:"dangerously",pretendToBeVisual:true,url:"https://x/approvals/all-requests"});
 const w=dom.window;
 function row(n,t){ return {name:n,type:"Asset Request",approval_type:"ASSET_REQUEST",status:"Pending",status_label:"Pending",
@@ -43,8 +51,11 @@ w.ApprovalAll.boot(); tick(function(){
   chk("row co data-req", !!tr);
   tr.click();
   tick(function(){
-    const ov=w.document.getElementById("apl-ov");
+    const ov=w.document.getElementById("ec-apl-ov");
     chk("mo popup", ov && !ov.hidden);
+    // id của lớp phủ PHẢI khớp rule CSS, nếu không popup mất position:fixed và rơi xuống cuối trang
+    chk("lop phu gan vao body", ov.parentNode===w.document.body);
+    chk("lop phu co bien mau rieng", /#ec-apl-ov\{[^}]*--navy:/.test(html.replace(/\s*\n\s*/g,"")));
     chk("goi API chi tiet dung ma", w.__detailFor==="EC-APR-1");
     const box=ov.querySelector(".ec-apl-modal"), h=box.innerHTML;
     chk("header co avatar + ma + loai", /ec-apl-av/.test(h)&&/Trả lại laptop cũ/.test(h)&&/EC-APR-1/.test(h));
