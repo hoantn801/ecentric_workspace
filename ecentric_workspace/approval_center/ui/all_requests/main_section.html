@@ -67,12 +67,6 @@
   .ec-apl-mh .sub{ font-size:12.5px; color:#6b7280; margin-top:3px; display:flex; flex-wrap:wrap; gap:4px 8px; align-items:center; }
   .ec-apl-mh .sub .dot{ color:#d1d5db; }
   .ec-apl-nav{ display:flex; gap:6px; align-items:center; flex-shrink:0; }
-  .ec-apl-nav .pill{ display:inline-block; padding:3px 10px; border-radius:999px; font-size:11.5px;
-    font-weight:600; margin-right:2px; background:#f3f4f6; color:#4b5563; }
-  .ec-apl-nav .pill.Pending{ background:var(--navy-50); color:var(--navy); }
-  .ec-apl-nav .pill.Completed{ background:#ecfdf5; color:#047857; }
-  .ec-apl-nav .pill.Rejected{ background:#fef2f2; color:#dc2626; }
-  .ec-apl-nav .pill.Information{ background:#fffbeb; color:#b45309; }
   .ec-apl-ib{ border:1px solid #e5e7eb; background:#fff; border-radius:9px; width:30px; height:30px; cursor:pointer;
     color:#6b7280; font-size:15px; line-height:1; display:flex; align-items:center; justify-content:center;
     transition:background .12s, color .12s, border-color .12s; }
@@ -104,6 +98,23 @@
   .ec-apl-step.rej .bul{ border-color:#dc2626; background:#dc2626; color:#fff; }
   .ec-apl-step.rej .lb{ color:#dc2626; }
   .ec-apl-kv{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px 20px; }
+  .ec-apl-mh .sub .code{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px;
+    background:#f3f4f6; border-radius:6px; padding:1px 7px; color:#4b5563; }
+  .ec-apl-mh .sub .pill{ display:inline-block; padding:3px 10px; border-radius:999px; font-size:11.5px;
+    font-weight:600; background:#f3f4f6; color:#4b5563; }
+  .ec-apl-mh .sub .pill.Pending{ background:var(--navy-50); color:var(--navy); }
+  .ec-apl-mh .sub .pill.Completed{ background:#ecfdf5; color:#047857; }
+  .ec-apl-mh .sub .pill.Rejected{ background:#fef2f2; color:#dc2626; }
+  .ec-apl-mh .sub .pill.Information{ background:#fffbeb; color:#b45309; }
+  .ec-apl-modal:focus{ outline:none; }
+  .ec-apl-more{ grid-column:1/-1; justify-self:start; margin-top:2px; border:1px dashed #d1d5db; background:#fff;
+    color:#4b5563; font-size:12.5px; font-weight:600; font-family:inherit; border-radius:8px; padding:6px 12px; cursor:pointer; }
+  .ec-apl-more:hover{ border-color:var(--navy); color:var(--navy); background:var(--navy-50); }
+  #ec-apl-toast{ position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:10080;
+    background:#111827; color:#fff; font-family:'Inter',-apple-system,sans-serif; font-size:13px; font-weight:600;
+    padding:10px 18px; border-radius:10px; box-shadow:0 10px 30px rgba(15,23,42,.3); max-width:90vw; }
+  #ec-apl-toast[hidden]{ display:none !important; }
+  #ec-apl-toast.warn{ background:#b45309; } #ec-apl-toast.err{ background:#b91c1c; }
   .ec-apl-kv .wide{ grid-column:1/-1; }
   .ec-apl-kv .k{ font-size:11px; color:#9ca3af; font-weight:600; }
   .ec-apl-kv .v{ font-size:13.5px; color:#111827; font-weight:500; margin-top:1px; word-break:break-word; white-space:pre-wrap; }
@@ -219,7 +230,7 @@
   "use strict";
   var API="ecentric_workspace.approval_center.reporting.api";
   var $=function(id){return document.getElementById(id);};
-  var state={ openReq:null, rowNames:[], box:"all", start:0, page_length:50, total:0, options:null };
+  var state={ openReq:null, rowNames:[], rowById:{}, box:"all", start:0, page_length:50, total:0, options:null };
   // Ghi nhớ tab đang đứng: tab nằm trong URL (?box=) nên mở chi tiết rồi quay lại vẫn đúng chỗ,
   // và link/refresh/nút Back của trình duyệt đều giữ nguyên ngữ cảnh.
   (function(){ var b=new URLSearchParams(window.location.search).get("box");
@@ -262,6 +273,7 @@
       var sender='<div class="sender">'+avatar(send,28)+'<span class="nm">'+esc(send.name||send.user||"—")+'</span></div>';
       return '<tr data-req="'+esc(r.name)+'"'+(r.detail_route?' data-route="'+esc(withFrom(r.detail_route))+'"':'')+'><td>'+fmtDT(r.submitted_at)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||"")+'</td><td>'+esc(r.approval_type||"")+'</td><td>'+sender+'</td><td>'+chips(r.sent_to)+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"—")+'</td><td>'+breach+statusCell(r)+'</td></tr>'; }).join("");
     state.rowNames=rows.map(function(r){ return r.name; });
+    state.rowById={}; rows.forEach(function(r){ state.rowById[r.name]=r; });
     var from=state.total?state.start+1:0, to=Math.min(state.start+rows.length,state.total);
     var pager='<div class="pager"><div class="info">'+from+'–'+to+' / '+state.total+'</div><div><button type="button" class="btn" id="apl-prev"'+(state.start<=0?" disabled":"")+'>‹ Trước</button> <button type="button" class="btn" id="apl-next"'+(state.start+state.page_length>=state.total?" disabled":"")+'>Sau ›</button></div></div>';
     $("apl-body").innerHTML='<div style="overflow-x:auto">'+head+body+'</tbody></table></div>'+pager;
@@ -331,15 +343,43 @@
     if(f.fieldtype==="Datetime") return fmtDT(v);
     return String(v);
   }
+  function headerHtml(reqName, o){
+    var list=state.rowNames||[], k=list.indexOf(reqName);
+    var nav = list.length>1
+      ? '<button type="button" class="ec-apl-ib" data-step="-1" aria-label="Yêu cầu trước"'+(k<=0?" disabled":"")+'>&#8249;</button>'
+       +'<button type="button" class="ec-apl-ib" data-step="1" aria-label="Yêu cầu sau"'+(k<0||k>=list.length-1?" disabled":"")+'>&#8250;</button>' : '';
+    var bits=[];
+    if(o.type_title) bits.push('<span>'+esc(o.type_title)+'</span>');
+    if(o.who) bits.push('<span>'+esc(o.who)+'</span>');
+    if(o.department) bits.push('<span>'+esc(o.department)+'</span>');
+    if(o.sent) bits.push('<span>Gửi '+esc(o.sent)+'</span>');
+    if(o.extra) bits.push('<span>'+esc(o.extra)+'</span>');
+    return '<div class="ec-apl-mh"><div class="ec-apl-av">'+esc(initials(o.who||o.title))+'</div>'
+      +'<div class="ttl"><h3>'+esc(o.title||reqName)+'</h3>'
+      +'<div class="sub">'+(o.status?('<span class="pill '+pillCls(o.status)+'">'+esc(statusLabel(o.status))+'</span>'):'')
+      +'<span class="code">'+esc(reqName)+'</span>'
+      +bits.join('<span class="dot">·</span>')+'</div></div>'
+      +'<div class="ec-apl-nav">'+nav
+      +'<button type="button" class="ec-apl-ib x" data-x="1" aria-label="Đóng">&times;</button></div></div>';
+  }
   function openDetail(reqName){
     if(!reqName) return;
     state.openReq=reqName;
     var ov=ovEl(), box=ov.querySelector(".ec-apl-modal");
-    box.innerHTML='<div class="ec-apl-mb" style="padding:22px 20px">'
-      +'<div class="ec-apl-skel" style="width:55%;height:18px"></div>'
-      +'<div class="ec-apl-skel" style="width:35%"></div><div class="ec-apl-skel"></div>'
-      +'<div class="ec-apl-skel" style="width:80%"></div><div class="ec-apl-skel" style="width:60%"></div></div>';
+    // Dựng header ngay từ dữ liệu đã có trên dòng — người dùng thấy đúng hồ sơ mình bấm
+    // trong cùng khung hình, chỉ phần thân mới phải chờ mạng.
+    var r=(state.rowById||{})[reqName]||{};
+    var send=r.requester_info||{};
+    box.innerHTML = headerHtml(reqName,{ title:r.type||r.title, type_title:r.approval_type,
+        who:send.name||send.user||r.requester, department:r.department,
+        sent:r.submitted_at?fmtDT(r.submitted_at).split(" ")[0]:"", status:r.status })
+      +'<div class="ec-apl-mb" style="padding:20px">'
+      +'<div class="ec-apl-skel" style="width:45%;height:16px"></div>'
+      +'<div class="ec-apl-skel"></div><div class="ec-apl-skel" style="width:80%"></div>'
+      +'<div class="ec-apl-skel" style="width:60%"></div></div>';
+    bindShell(box);
     ov.hidden=false; document.body.style.overflow="hidden";
+    focusModal(box);
     frappe.call({method:ACT+"get_request_detail", args:{request_name:reqName}, type:"GET"})
       .then(function(r){ if(state.openReq===reqName) drawDetail(box, reqName, (r&&r.message)||{}); })
       .catch(function(e){
@@ -347,8 +387,28 @@
           +'<div class="sub">'+esc((e&&e.message)||reqName)+'</div></div>'
           +'<div class="ec-apl-nav"><button type="button" class="ec-apl-ib x" data-x="1" aria-label="Đóng">&times;</button></div></div>'
           +'<div class="ec-apl-mf"><span class="grow"></span><button type="button" class="btn" data-x="1">Đóng</button></div>';
-        Array.prototype.forEach.call(box.querySelectorAll('[data-x]'),function(b){ b.onclick=closeDetail; });
+        bindShell(box);
       });
+  }
+  function bindShell(box){
+    Array.prototype.forEach.call(box.querySelectorAll('[data-x]'),function(b){ b.onclick=closeDetail; });
+    Array.prototype.forEach.call(box.querySelectorAll('[data-step]'),function(b){
+      b.onclick=function(){ stepDetail(Number(b.getAttribute("data-step"))); }; });
+  }
+  // Đưa tiêu điểm vào popup để Esc/Tab hoạt động ngay, và trình đọc màn hình đọc đúng hồ sơ.
+  function focusModal(box){
+    box.setAttribute("tabindex","-1");
+    try{ box.focus({preventScroll:true}); }catch(e){ box.focus(); }
+  }
+  // Báo kết quả bằng dải nổi ngắn: sau khi duyệt popup nhảy sang hồ sơ kế, không có phản hồi
+  // thì người dùng không biết thao tác vừa rồi đã ăn hay chưa.
+  function toast(msg, kind){
+    var t=document.getElementById("ec-apl-toast");
+    if(!t){ t=document.createElement("div"); t.id="ec-apl-toast";
+      t.setAttribute("role","status"); t.setAttribute("aria-live","polite");
+      document.body.appendChild(t); }
+    t.className=kind||"ok"; t.textContent=msg; t.hidden=false;
+    clearTimeout(t._h); t._h=setTimeout(function(){ t.hidden=true; }, 2600);
   }
   function stepperHtml(levels, cur, overall){
     if(!levels.length) return "";
@@ -392,9 +452,14 @@
       +parts.hl.map(function(f){ return '<div><div class="k">'+esc(f.label)+'</div><div class="v">'+esc(fmtVal(f))+'</div></div>'; }).join("")
       +'</div>') : '';
 
-    var fields=parts.rest.map(function(f){
-      return '<div'+(isLong(f)?' class="wide"':'')+'><div class="k">'+esc(f.label)+'</div>'
-           + '<div class="v">'+esc(fmtVal(f))+'</div></div>'; }).join("");
+    // Form nhiều trường (mua sắm, hợp đồng) dễ thành bức tường chữ: chỉ mở sẵn 6 trường đầu,
+    // phần còn lại gấp vào để người duyệt quyết bằng thông tin chính trước.
+    var MAX_OPEN=6, hidden=Math.max(0, parts.rest.length-MAX_OPEN);
+    var fields=parts.rest.map(function(f,i){
+      return '<div'+(isLong(f)?' class="wide':' class="')+(i>=MAX_OPEN?' more" hidden':'"')+'>'
+           + '<div class="k">'+esc(f.label)+'</div>'
+           + '<div class="v">'+esc(fmtVal(f))+'</div></div>'; }).join("")
+      + (hidden?('<button type="button" class="ec-apl-more" data-more="1">Xem thêm '+hidden+' trường</button>'):'');
 
     var files=(d.attachments||[]).map(function(a){
       return '<a class="ec-apl-file" href="'+esc(a.file_url)+'" target="_blank" rel="noopener">'
@@ -409,16 +474,13 @@
            +(t.comment?('<span class="cmt">'+esc(t.comment)+'</span>'):'')+'</li>'; }).join("");
 
     var sent=fmtDT(biz.creation||ap.creation||biz.submitted_at).split(" ")[0];
-    var sentTag = sent && sent!=="—" ? ('<span class="dot">·</span><span>Gửi '+esc(sent)+'</span>') : '';
-    var ffTag = (ff.status && ff.status!=="Not Started") ? ('<span class="dot">·</span><span>'
-      +esc({Assigned:"Chờ nhận xử lý","In Progress":"Đang xử lý",Completed:"Đã hoàn tất"}[ff.status]||ff.status)
-      +(ff.owner?(" — "+esc(ff.owner)):"")+'</span>') : '';
-    var stPill = overall ? '<span class="pill '+pillCls(overall)+'">'+esc(statusLabel(overall))+'</span>' : '';
+    if(sent==="—") sent="";
+    var ffText = (ff.status && ff.status!=="Not Started")
+      ? (({Assigned:"Chờ nhận xử lý","In Progress":"Đang xử lý",Completed:"Đã hoàn tất"}[ff.status]||ff.status)
+         +(ff.owner?(" — "+ff.owner):"")) : "";
+    var hint=(state.rowById||{})[reqName]||{};
+    who=(hint.requester_info&&hint.requester_info.name)||who;
 
-    var list=state.rowNames||[], k=list.indexOf(reqName);
-    var nav = list.length>1
-      ? '<button type="button" class="ec-apl-ib" data-step="-1" aria-label="Yêu cầu trước"'+(k<=0?" disabled":"")+'>&#8249;</button>'
-       +'<button type="button" class="ec-apl-ib" data-step="1" aria-label="Yêu cầu sau"'+(k<0||k>=list.length-1?" disabled":"")+'>&#8250;</button>' : '';
 
     var acts=[];
     if(cap.can_approve) acts.push('<button type="button" class="btn approve" data-a="approve">Duyệt</button>');
@@ -427,15 +489,8 @@
     if(cap.can_claim) acts.push('<button type="button" class="btn claim" data-a="claim">Nhận xử lý</button>');
 
     box.innerHTML =
-      '<div class="ec-apl-mh">'
-      +'<div class="ec-apl-av">'+esc(initials(who||title))+'</div>'
-      +'<div class="ttl"><h3>'+esc(title)+'</h3><div class="sub"><span>'+esc(reqName)+'</span>'
-      +'<span class="dot">·</span><span>'+esc(d.type_title||"")+'</span>'
-      +(who?('<span class="dot">·</span><span>'+esc(who)+'</span>'):'')
-      +(biz.department?('<span class="dot">·</span><span>'+esc(biz.department)+'</span>'):'')
-      +sentTag+ffTag+'</div></div>'
-      +'<div class="ec-apl-nav">'+stPill+nav
-      +'<button type="button" class="ec-apl-ib x" data-x="1" aria-label="Đóng">&times;</button></div></div>'
+      headerHtml(reqName,{ title:title, type_title:d.type_title, who:who,
+        department:biz.department, sent:sent, status:overall, extra:ffText })
       +'<div class="ec-apl-mb">'
       +hl
       +(levels.length?('<div class="ec-apl-sec"><h4>Tiến trình duyệt</h4>'+stepperHtml(levels,cur,overall)+'</div>'):'')
@@ -449,9 +504,12 @@
       +'<span class="grow"></span>'+acts.join("")
       +'<button type="button" class="btn" data-x="1">Đóng</button></div>';
 
-    Array.prototype.forEach.call(box.querySelectorAll('[data-x]'),function(b){ b.onclick=closeDetail; });
-    Array.prototype.forEach.call(box.querySelectorAll('[data-step]'),function(b){
-      b.onclick=function(){ stepDetail(Number(b.getAttribute("data-step"))); }; });
+    bindShell(box);
+    var more=box.querySelector('[data-more]');
+    if(more) more.onclick=function(){
+      Array.prototype.forEach.call(box.querySelectorAll('.ec-apl-kv .more'),function(el){ el.hidden=false; });
+      more.remove();
+    };
     Array.prototype.forEach.call(box.querySelectorAll('[data-a]'),function(b){
       b.onclick=function(){
         var kind=b.getAttribute("data-a");
@@ -500,6 +558,8 @@
     var args={request_name:reqName}; if(comment) args.comment=comment;
     frappe.call({method:API2+method,args:args,type:"POST"})
       .then(function(){
+        toast({approve:"Đã duyệt ",reject:"Đã từ chối ",info:"Đã gửi yêu cầu bổ sung cho ",
+               claim:"Đã nhận xử lý "}[kind]+reqName, kind==="reject"?"warn":"ok");
         if(fromModal){
           // sang thẳng hồ sơ kế tiếp nếu còn — duyệt cả xấp không phải đóng/mở lại
           var list=state.rowNames||[], k=list.indexOf(reqName);
@@ -509,7 +569,7 @@
       })
       .catch(function(e){
         if(btn){ btn.disabled=false; if(btn.dataset.lbl) btn.textContent=btn.dataset.lbl; }
-        alert((e&&e.message)||"Không thực hiện được.");
+        toast((e&&e.message)||"Không thực hiện được.","err");
       });
   }
   function wire(){
@@ -535,7 +595,7 @@
     var ham=$("apl-ham"); if(ham) ham.onclick=function(){ document.getElementById("ec-apl-root").classList.toggle("sb-open"); };
     loadOptions().then(load);
   }
-  window.ApprovalAll={ state:state, openDetail:openDetail, closeDetail:closeDetail, drawDetail:drawDetail, withFrom:withFrom, syncUrl:syncUrl, quickActions:quickActions, runAction:runAction, boot:boot, load:load, render:render, filters:filters, setBox:setBox, avatar:avatar, initials:initials, _call:call };
+  window.ApprovalAll={ state:state, openDetail:openDetail, toast:toast, closeDetail:closeDetail, drawDetail:drawDetail, withFrom:withFrom, syncUrl:syncUrl, quickActions:quickActions, runAction:runAction, boot:boot, load:load, render:render, filters:filters, setBox:setBox, avatar:avatar, initials:initials, _call:call };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
 })();
 </script>

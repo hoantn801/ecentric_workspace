@@ -29,7 +29,11 @@ const detail={ business:{request_title:"Trả lại laptop cũ",requested_by:"vy
   approval:{current_level:2,approval_status:"Pending"},
   levels:[{level_no:1,level_name:"Đã gửi",level_status:"Completed"},{level_no:2,level_name:"Direct Manager"},{level_no:3,level_name:"Operation"}],
   display_fields:[{label:"Số tiền",value:2500000,fieldtype:"Currency"},{label:"Số lượng",value:1,fieldtype:"Int"},
-                  {label:"Lý do",value:"Máy hỏng bàn phím",fieldtype:"Small Text"}],
+                  {label:"Lý do",value:"Máy hỏng bàn phím",fieldtype:"Small Text"},
+                  {label:"Loại tài sản",value:"Laptop",fieldtype:"Select"},{label:"Cấu hình",value:"Lenovo i5",fieldtype:"Data"},
+                  {label:"Mục đích",value:"Trả máy",fieldtype:"Select"},{label:"Nhà cung cấp",value:"FPT",fieldtype:"Link"},
+                  {label:"Dự án",value:"ERP",fieldtype:"Link"},{label:"Mức ưu tiên",value:"Cao",fieldtype:"Select"},
+                  {label:"Ghi chú",value:"x",fieldtype:"Data"},{label:"Địa điểm",value:"HN",fieldtype:"Data"}],
   attachments:[{file_name:"bien-ban.pdf",file_url:"/private/files/bien-ban.pdf"}],
   timeline:[{action:"Approved",actor:"an.le",creation:"2026-08-25 09:30:00",comment:"OK"}],
   capabilities:{can_approve:true,can_reject:true,can_request_information:true},
@@ -55,6 +59,10 @@ w.ApprovalAll.boot(); tick(function(){
   const tr=w.document.querySelector("#apl-body tbody tr[data-req]");
   chk("row co data-req", !!tr);
   tr.click();
+  // header phải hiện NGAY trong nhịp đồng bộ, trước khi API chi tiết kịp trả về
+  const boxNow=w.document.querySelector(".ec-apl-modal").innerHTML;
+  chk("header dung ngay tu du lieu dong", /Asset Request/.test(boxNow) && /EC-APR-1/.test(boxNow)
+      && /ec-apl-skel/.test(boxNow) && /An Le/.test(boxNow));
   tick(function(){
     const ov=w.document.getElementById("ec-apl-ov");
     chk("mo popup", ov && !ov.hidden);
@@ -67,7 +75,13 @@ w.ApprovalAll.boot(); tick(function(){
     chk("dai thong tin quyet dinh", /ec-apl-hl/.test(h)&&/2\.500\.000/.test(h)&&/Số lượng/.test(h));
     chk("ngay gui nam tren header", /Gửi 25\/08\/2026/.test(h));
     chk("nhan trang thai tren header", /class="pill Pending"/.test(h));
-    chk("mo ta dai trai ngang", /class="wide"/.test(h));
+    chk("mo ta dai trai ngang", /wide/.test(h));
+    chk("gap bot truong khi qua nhieu", /Xem thêm \d+ trường/.test(h)&&/more" hidden/.test(h));
+    chk("tieu diem nam trong popup", w.document.activeElement===box);
+    box.querySelector("[data-more]").click();
+    chk("bam xem them thi mo het", !box.querySelector("[data-more]")
+        && !box.querySelector(".ec-apl-kv .more").hidden);
+    chk("ten nguoi gui thay cho email", /An Le/.test(h)&&!/vy@e\.c/.test(h));
     chk("stepper co buoc hien tai", /ec-apl-step cur/.test(h)&&/ec-apl-step done/.test(h)&&/Direct Manager/.test(h));
     chk("noi dung + dinh kem + lich su", /Máy hỏng bàn phím/.test(h)&&/bien-ban\.pdf/.test(h)&&/Lịch sử xử lý/.test(h));
     chk("moc lich su dich sang tieng Viet", /Đã duyệt/.test(h)&&!/>Approved</.test(h));
@@ -87,6 +101,9 @@ w.ApprovalAll.boot(); tick(function(){
         chk("gui kem ly do da trim", w.__action && /actions\.reject/.test(w.__action.method)
              && w.__action.args.comment==="thiếu biên bản");
         chk("tu dong sang ho so ke tiep", w.__detailFor==="EC-APR-2");
+        const tt=w.document.getElementById("ec-apl-toast");
+        chk("bao ket qua sau thao tac", tt && !tt.hidden && /Đã từ chối EC-APR-1/.test(tt.textContent)
+            && tt.getAttribute("aria-live")==="polite");
         w.__lean=true; w.ApprovalAll.openDetail("EC-APR-2");
         tick(function(){
           const g=w.document.querySelector(".ec-apl-modal").innerHTML;
