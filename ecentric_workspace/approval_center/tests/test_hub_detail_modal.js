@@ -15,6 +15,9 @@ if(html.indexOf("#"+ovId+"{")<0 && html.indexOf("#"+ovId+" {")<0)
   throw new Error('Lop phu JS tao id="'+ovId+'" nhung CSS khong co rule #'+ovId+' -> popup se mat position:fixed');
 if(!new RegExp("#"+ovId+"\\{[^}]*position:fixed").test(html.replace(/\s*\n\s*/g,"")))
   throw new Error("Rule #"+ovId+" thieu position:fixed");
+const wrapRule=(html.match(/\.ec-apl-wrap\{[^}]*\}/)||[""])[0].replace(/\s+/g," ");
+if(!/margin:\s*auto/.test(wrapRule))
+  throw new Error("Khung popup thieu margin:auto -> se dinh goc tren trai: "+wrapRule);
 const dom=new JSDOM(html,{runScripts:"dangerously",pretendToBeVisual:true,url:"https://x/approvals/all-requests"});
 const w=dom.window;
 function row(n,t){ return {name:n,type:"Asset Request",approval_type:"ASSET_REQUEST",status:"Pending",status_label:"Pending",
@@ -77,6 +80,7 @@ w.ApprovalAll.boot(); tick(function(){
     chk("ma yeu cau nam duoi chan popup", /ec-apl-mf[\s\S]*class="code">EC-APR-1</.test(h));
     chk("lich su la THE RIENG ben phai", /<aside class="ec-apl-aside">[\s\S]*Lịch sử xử lý/.test(h)
         && !/ec-apl-modal[\s\S]*Lịch sử xử lý[\s\S]*<\/div><aside/.test(h));
+    chk("co the phai thi bo gioi han hep", !box.classList.contains("solo"));
     chk("2 the la anh em, khong long nhau",
         box.children.length===2 && box.children[0].className==="ec-apl-modal"
         && box.children[1].className==="ec-apl-aside");
@@ -119,6 +123,7 @@ w.ApprovalAll.boot(); tick(function(){
           chk("1 o le thi khong dung dai noi bat", !/ec-apl-hl/.test(g)&&/Số lượng/.test(g));
           chk("khong co dinh kem thi an muc", !/Đính kèm/.test(g));
           chk("khong co lich su thi an muc", !/Lịch sử xử lý/.test(g));
+          chk("mot the thi bo gon be ngang", w.document.querySelector(".ec-apl-wrap").classList.contains("solo"));
           chk("khong co lich su thi khong dung the phai", !/ec-apl-aside/.test(g)
               && w.document.querySelector(".ec-apl-wrap").children.length===1);
           Object.keys(c).forEach(k=>console.log((c[k]?"PASS":"FAIL")+" - "+k));

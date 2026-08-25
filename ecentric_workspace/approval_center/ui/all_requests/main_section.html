@@ -60,13 +60,16 @@
   /* gắn vào <body> nên phải tự khai báo biến màu — biến của #ec-apl-root không với tới đây */
   #ec-apl-ov{ --navy:#2C3DA6; --navy-50:#eef0fb;
     position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:10070; display:flex;
-    align-items:flex-start; justify-content:center; padding:32px 16px; overflow-y:auto;
+    align-items:flex-start; justify-content:center; padding:28px 16px; overflow-y:auto;
     animation:ecAplFade .14s ease-out; }
   #ec-apl-ov[hidden]{ display:none !important; }
   @keyframes ecAplFade{ from{ opacity:0 } to{ opacity:1 } }
   @keyframes ecAplRise{ from{ opacity:0; transform:translateY(10px) scale(.985) } to{ opacity:1; transform:none } }
   /* Hai THẺ RỜI: thẻ lớn bên trái là nội dung yêu cầu, thẻ nhỏ bên phải là lịch sử xử lý. */
-  .ec-apl-wrap{ display:flex; align-items:flex-start; gap:16px; width:100%; max-width:1140px; }
+  /* margin:auto căn giữa cả hai chiều mà vẫn cuộn được khi thẻ cao hơn màn hình
+     (align-items:center sẽ cắt mất phần đầu khi tràn). */
+  .ec-apl-wrap{ display:flex; align-items:flex-start; gap:16px; width:100%; max-width:1140px; margin:auto; }
+  .ec-apl-wrap.solo{ max-width:860px; }
   .ec-apl-wrap:focus{ outline:none; }
   .ec-apl-aside{ width:322px; flex:0 0 322px; background:#fff; border-radius:16px; overflow:hidden;
     box-shadow:0 24px 64px rgba(15,23,42,.28); font-family:'Inter',-apple-system,sans-serif; color:#1f2937;
@@ -376,7 +379,7 @@
     var ov=document.getElementById("ec-apl-ov");
     if(!ov){
       ov=document.createElement("div"); ov.id="ec-apl-ov"; ov.hidden=true;
-      ov.innerHTML='<div class="ec-apl-wrap" role="dialog" aria-modal="true" aria-label="Chi tiết yêu cầu"></div>';
+      ov.innerHTML='<div class="ec-apl-wrap solo" role="dialog" aria-modal="true" aria-label="Chi tiết yêu cầu"></div>';
       document.body.appendChild(ov);
       ov.addEventListener("click",function(e){ if(e.target===ov) closeDetail(); });
       document.addEventListener("keydown",function(e){
@@ -436,6 +439,7 @@
     // trong cùng khung hình, chỉ phần thân mới phải chờ mạng.
     var r=(state.rowById||{})[reqName]||{};
     var send=r.requester_info||{};
+    box.classList.add("solo");
     box.innerHTML = '<div class="ec-apl-modal">'
       + headerHtml(reqName,{ title:r.type||r.title, type_title:r.approval_type,
         who:send.name||send.user||r.requester, department:r.department,
@@ -551,6 +555,7 @@
     if(cap.can_request_information) acts.push('<button type="button" class="btn" data-a="info">Yêu cầu bổ sung</button>');
     if(cap.can_claim) acts.push('<button type="button" class="btn claim" data-a="claim">Nhận xử lý</button>');
 
+    box.classList.toggle("solo", !tl);
     box.innerHTML =
       '<div class="ec-apl-modal">'
       +headerHtml(reqName,{ title:title, type_title:d.type_title, who:who,

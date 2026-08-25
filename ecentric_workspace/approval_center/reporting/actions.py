@@ -107,10 +107,56 @@ def _display_fields(definition, business):
             continue
         if df.fieldtype == "Check":
             value = "Có" if value else "Không"
+        if df.fieldtype in ("Link", "Dynamic Link"):
+            value = _pretty_link(_link_title(df, business, value), value)
         label = df.label or df.fieldname
         out.append({"label": _LABEL_VI.get(label, label), "value": value,
                     "fieldtype": df.fieldtype, "raw_label": label})
     return _merge_other_pairs(out)
+
+
+def _pretty_link(title, value):
+    """Ghép tên người-đọc-được với mã đang lưu: 'FES-VN — FES Vietnam'.
+
+    Trường Link lưu MÃ (Brand.name), popup mà chỉ hiện mã thì người duyệt phải tự dịch trong
+    đầu. Giữ luôn cả mã vì đó là thứ khớp với dữ liệu ở nơi khác (đơn hàng, báo cáo)."""
+    value = "" if value is None else str(value)
+    title = "" if title is None else str(title).strip()
+    if not value or not title or title == value:
+        return value
+    return "%s — %s" % (value, title)
+
+
+# Trường tên hiển thị theo từng DocType đích; Brand dùng ec_brand_name (không phải title_field
+# chuẩn nên frappe.get_cached_value theo title_field sẽ không ra).
+_LINK_TITLE_FIELDS = {"Brand": "ec_brand_name", "Employee": "employee_name",
+                      "Supplier": "supplier_name", "Customer": "customer_name",
+                      "Project": "project_name", "Item": "item_name", "User": "full_name"}
+
+
+def _link_title(df, business, value):
+    """Tên hiển thị của bản ghi mà trường Link đang trỏ tới (None nếu không có)."""
+    if not value:
+        return None
+    target = getattr(df, "options", None)
+    if not target:
+        return None
+    # nhiều form đã lưu sẵn tên vào trường `<fieldname>_name`, dùng luôn khỏi truy vấn
+    cached = business.get((df.fieldname or "") + "_name")
+    if cached:
+        return cached
+    field = _LINK_TITLE_FIELDS.get(target)
+    if not field:
+        try:
+            field = (frappe.get_meta(target).get_title_field() or "").strip()
+        except Exception:
+            field = ""
+        if not field or field == "name":
+            return None
+    try:
+        return frappe.db.get_value(target, value, field)
+    except Exception:
+        return None
 
 
 def _merge_other_pairs(fields):
