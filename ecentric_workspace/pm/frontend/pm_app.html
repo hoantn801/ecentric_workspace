@@ -3420,10 +3420,12 @@
           var s0=parseDT(mg.start), e0=parseDT(mg.end);
           if(!s0){ fail("Không đọc được giờ họp"); return; }
           var durMin=Math.max(15, e0?Math.round((e0-s0)/60000):30);
+          // NB: `DN` lives inside render()'s scope, not here -- keep a local copy.
+          var DNL=["T2","T3","T4","T5","T6","T7","CN"];
           var dayOpts="", i, dd, base=new Date(s0.getFullYear(),s0.getMonth(),s0.getDate());
           for(i=-1;i<=13;i++){ dd=new Date(base.getTime()+i*86400000);
             dayOpts+='<option value="'+dd.getFullYear()+'-'+pad(dd.getMonth()+1)+'-'+pad(dd.getDate())+'"'+(i===0?' selected':'')+'>'+
-              DN[(dd.getDay()+6)%7]+' '+pad(dd.getDate())+'/'+pad(dd.getMonth()+1)+'</option>'; }
+              DNL[(dd.getDay()+6)%7]+' '+pad(dd.getDate())+'/'+pad(dd.getMonth()+1)+'</option>'; }
           var hOpts="", mOpts="", MS=[0,15,30,45];
           for(i=0;i<24;i++) hOpts+='<option value="'+i+'"'+(i===s0.getHours()?' selected':'')+'>'+pad(i)+'</option>';
           var curM=MS.indexOf(s0.getMinutes())>=0?s0.getMinutes():(Math.round(s0.getMinutes()/15)*15)%60;
