@@ -79,6 +79,16 @@ _LABEL_VI = {
     "Employee Name": "Nhân viên", "Position": "Vị trí", "Location": "Địa điểm",
     "Payment Method": "Hình thức thanh toán", "Bank Account": "Tài khoản ngân hàng",
     "Contract Type": "Loại hợp đồng", "Client": "Khách hàng", "Service": "Dịch vụ",
+    # thấy trực tiếp trên production 2026-08-26
+    "Scope": "Phạm vi", "Channels": "Kênh", "Target Month": "Tháng mục tiêu",
+    "Target Setting Type": "Kiểu đặt mục tiêu",
+    "Payment amount": "Số tiền", "Payment date": "Ngày thanh toán",
+    "Payee full name": "Người thụ hưởng", "Account bank": "Ngân hàng",
+    "Bank account number": "Số tài khoản", "Has purchase request?": "Có đề nghị mua hàng?",
+    "Is the cost valid?": "Chi phí hợp lệ?", "Details and attachments correct?": "Thông tin và tệp đính kèm đúng?",
+    "Reason for no purchase request": "Lý do không có đề nghị mua hàng",
+    "Expected Resolution Date": "Ngày mong muốn xong",
+    "Operation Expected Completion Date": "Ngày Operation dự kiến xong",
 }
 # Cặp "chọn Other rồi nhập tay": gộp thành một dòng để bớt nhiễu.
 _OTHER_SUFFIX = (" (Other)", " (other)", " Other")
@@ -109,6 +119,8 @@ def _display_fields(definition, business):
             value = "Có" if value else "Không"
         if df.fieldtype in ("Link", "Dynamic Link"):
             value = _pretty_link(_link_title(df, business, value), value)
+        elif df.fieldname in _CODE_FIELDS and df.fieldtype in ("Data", "Select"):
+            value = _pretty_link(_code_title(_CODE_FIELDS[df.fieldname], value), value)
         label = df.label or df.fieldname
         out.append({"label": _LABEL_VI.get(label, label), "value": value,
                     "fieldtype": df.fieldtype, "raw_label": label})
@@ -129,6 +141,24 @@ def _pretty_link(title, value):
 
 # Trường tên hiển thị theo từng DocType đích; Brand dùng ec_brand_name (không phải title_field
 # chuẩn nên frappe.get_cached_value theo title_field sẽ không ra).
+# Vài form lưu MÃ vào trường Data (không phải Link) — vd EC Daily Target Request.brand là
+# Data chứa "FES-VN". Vẫn tra tên để người duyệt khỏi phải tự dịch mã trong đầu.
+_CODE_FIELDS = {"brand": "Brand"}
+
+
+def _code_title(doctype, value):
+    """Tên hiển thị cho MÃ lưu trong trường Data; None nếu mã không tồn tại."""
+    if not value:
+        return None
+    field = _LINK_TITLE_FIELDS.get(doctype)
+    if not field:
+        return None
+    try:
+        return frappe.db.get_value(doctype, value, field)
+    except Exception:
+        return None
+
+
 _LINK_TITLE_FIELDS = {"Brand": "ec_brand_name", "Employee": "employee_name",
                       "Supplier": "supplier_name", "Customer": "customer_name",
                       "Project": "project_name", "Item": "item_name", "User": "full_name"}
