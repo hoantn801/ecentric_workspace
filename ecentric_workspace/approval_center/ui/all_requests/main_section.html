@@ -65,7 +65,20 @@
   #ec-apl-ov[hidden]{ display:none !important; }
   @keyframes ecAplFade{ from{ opacity:0 } to{ opacity:1 } }
   @keyframes ecAplRise{ from{ opacity:0; transform:translateY(10px) scale(.985) } to{ opacity:1; transform:none } }
-  .ec-apl-modal{ background:#fff; width:100%; max-width:1080px; border-radius:16px; overflow:hidden;
+  /* Hai THẺ RỜI: thẻ lớn bên trái là nội dung yêu cầu, thẻ nhỏ bên phải là lịch sử xử lý. */
+  .ec-apl-wrap{ display:flex; align-items:flex-start; gap:16px; width:100%; max-width:1140px; }
+  .ec-apl-wrap:focus{ outline:none; }
+  .ec-apl-aside{ width:322px; flex:0 0 322px; background:#fff; border-radius:16px; overflow:hidden;
+    box-shadow:0 24px 64px rgba(15,23,42,.28); font-family:'Inter',-apple-system,sans-serif; color:#1f2937;
+    animation:ecAplRise .18s cubic-bezier(.2,.8,.3,1); }
+  .ec-apl-aside .hd{ padding:14px 18px 10px; border-bottom:1px solid #eef0f4; font-size:10.5px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.05em; color:#9ca3af; }
+  .ec-apl-aside .bd{ padding:14px 18px; max-height:calc(100vh - 190px); overflow-y:auto; }
+  @media (max-width:1040px){
+    .ec-apl-wrap{ flex-direction:column; max-width:760px; }
+    .ec-apl-aside{ width:100%; flex:none; }
+  }
+  .ec-apl-modal{ background:#fff; flex:1 1 auto; min-width:0; border-radius:16px; overflow:hidden;
     box-shadow:0 24px 64px rgba(15,23,42,.28); font-family:'Inter',-apple-system,sans-serif; color:#1f2937;
     animation:ecAplRise .18s cubic-bezier(.2,.8,.3,1); }
   .ec-apl-modal .icon{ stroke:currentColor; fill:none; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
@@ -84,14 +97,6 @@
   .ec-apl-ib:disabled{ opacity:.4; cursor:not-allowed; }
   .ec-apl-ib.x:hover{ color:#dc2626; border-color:#fecaca; background:#fef2f2; }
   .ec-apl-mb{ padding:16px 20px 4px; max-height:calc(100vh - 240px); overflow-y:auto; }
-  /* Lịch sử sang cột phải: màn hình rộng còn nhiều chỗ trống, xếp dọc chỉ làm popup dài thêm. */
-  .ec-apl-cols{ display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:0 22px; align-items:start; }
-  .ec-apl-cols.one{ grid-template-columns:minmax(0,1fr); }
-  .ec-apl-side{ border-left:1px solid #eef0f4; padding-left:22px; }
-  @media (max-width:900px){
-    .ec-apl-cols{ grid-template-columns:minmax(0,1fr); }
-    .ec-apl-side{ border-left:none; padding-left:0; border-top:1px solid #eef0f4; padding-top:14px; }
-  }
   .ec-apl-sec{ margin-bottom:18px; }
   .ec-apl-sec h4{ margin:0 0 9px; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em;
     color:#9ca3af; font-weight:700; }
@@ -371,7 +376,7 @@
     var ov=document.getElementById("ec-apl-ov");
     if(!ov){
       ov=document.createElement("div"); ov.id="ec-apl-ov"; ov.hidden=true;
-      ov.innerHTML='<div class="ec-apl-modal" role="dialog" aria-modal="true" aria-label="Chi tiết yêu cầu"></div>';
+      ov.innerHTML='<div class="ec-apl-wrap" role="dialog" aria-modal="true" aria-label="Chi tiết yêu cầu"></div>';
       document.body.appendChild(ov);
       ov.addEventListener("click",function(e){ if(e.target===ov) closeDetail(); });
       document.addEventListener("keydown",function(e){
@@ -426,28 +431,29 @@
   function openDetail(reqName){
     if(!reqName) return;
     state.openReq=reqName;
-    var ov=ovEl(), box=ov.querySelector(".ec-apl-modal");
+    var ov=ovEl(), box=ov.querySelector(".ec-apl-wrap");
     // Dựng header ngay từ dữ liệu đã có trên dòng — người dùng thấy đúng hồ sơ mình bấm
     // trong cùng khung hình, chỉ phần thân mới phải chờ mạng.
     var r=(state.rowById||{})[reqName]||{};
     var send=r.requester_info||{};
-    box.innerHTML = headerHtml(reqName,{ title:r.type||r.title, type_title:r.approval_type,
+    box.innerHTML = '<div class="ec-apl-modal">'
+      + headerHtml(reqName,{ title:r.type||r.title, type_title:r.approval_type,
         who:send.name||send.user||r.requester, department:r.department,
         sent:r.submitted_at?fmtDT(r.submitted_at).split(" ")[0]:"", status:r.status })
       +'<div class="ec-apl-mb" style="padding:20px">'
       +'<div class="ec-apl-skel" style="width:45%;height:16px"></div>'
       +'<div class="ec-apl-skel"></div><div class="ec-apl-skel" style="width:80%"></div>'
-      +'<div class="ec-apl-skel" style="width:60%"></div></div>';
+      +'<div class="ec-apl-skel" style="width:60%"></div></div></div>';
     bindShell(box);
     ov.hidden=false; document.body.style.overflow="hidden";
     focusModal(box);
     frappe.call({method:ACT+"get_request_detail", args:{request_name:reqName}, type:"GET"})
       .then(function(r){ if(state.openReq===reqName) drawDetail(box, reqName, (r&&r.message)||{}); })
       .catch(function(e){
-        box.innerHTML='<div class="ec-apl-mh"><div class="ttl"><h3>Không mở được yêu cầu</h3>'
+        box.innerHTML='<div class="ec-apl-modal"><div class="ec-apl-mh"><div class="ttl"><h3>Không mở được yêu cầu</h3>'
           +'<div class="sub">'+esc((e&&e.message)||reqName)+'</div></div>'
           +'<div class="ec-apl-nav"><button type="button" class="ec-apl-ib x" data-x="1" aria-label="Đóng">&times;</button></div></div>'
-          +'<div class="ec-apl-mf"><span class="grow"></span><button type="button" class="btn" data-x="1">Đóng</button></div>';
+          +'<div class="ec-apl-mf"><span class="grow"></span><button type="button" class="btn" data-x="1">Đóng</button></div></div>';
         bindShell(box);
       });
   }
@@ -546,23 +552,23 @@
     if(cap.can_claim) acts.push('<button type="button" class="btn claim" data-a="claim">Nhận xử lý</button>');
 
     box.innerHTML =
-      headerHtml(reqName,{ title:title, type_title:d.type_title, who:who,
+      '<div class="ec-apl-modal">'
+      +headerHtml(reqName,{ title:title, type_title:d.type_title, who:who,
         department:biz.department, sent:sent, status:overall, extra:ffText })
-      +'<div class="ec-apl-mb"><div class="ec-apl-cols'+(tl?'':' one')+'"><div>'
+      +'<div class="ec-apl-mb">'
       +hl
       +(levels.length?('<div class="ec-apl-sec"><h4>Tiến trình duyệt</h4>'+stepperHtml(levels,cur,overall)+'</div>'):'')
       +(fields?('<div class="ec-apl-sec"><h4>Nội dung yêu cầu</h4><div class="ec-apl-kv">'+fields+'</div></div>'):'')
       +(files?('<div class="ec-apl-sec"><h4>Đính kèm</h4><div class="ec-apl-files">'+files+'</div></div>'):'')
       +'</div>'
-      +(tl?('<div class="ec-apl-side"><div class="ec-apl-sec"><h4>Lịch sử xử lý</h4>'
-           +'<ul class="ec-apl-tl">'+tl+'</ul></div></div>'):'')
-      +'</div></div>'
       +'<div class="ec-apl-note" id="apl-note" hidden></div>'
       +'<div class="ec-apl-mf" id="apl-foot">'
       +(d.detail_route?('<a class="link" href="'+esc(withFrom(d.detail_route))+'">Mở trang đầy đủ</a>'):'')
       +'<span class="code">'+esc(reqName)+'</span>'
       +'<span class="grow"></span>'+acts.join("")
-      +'<button type="button" class="btn" data-x="1">Đóng</button></div>';
+      +'<button type="button" class="btn" data-x="1">Đóng</button></div></div>'
+      +(tl?('<aside class="ec-apl-aside"><div class="hd">Lịch sử xử lý</div>'
+           +'<div class="bd"><ul class="ec-apl-tl">'+tl+'</ul></div></aside>'):'');
 
     bindShell(box);
     Array.prototype.forEach.call(box.querySelectorAll('[data-a]'),function(b){
