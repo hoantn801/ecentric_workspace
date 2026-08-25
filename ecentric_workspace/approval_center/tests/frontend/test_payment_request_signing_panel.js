@@ -9,7 +9,16 @@ const fs = require("fs");
 const path = require("path");
 const { JSDOM } = require("jsdom");
 
-const PANEL = path.join(__dirname, "..", "..", "esign", "ui", "payment_request_signing.html");
+// Resolve by SEARCHING known roots: the 2026-08-19 reorg moved esign/ui -> platform/esign/ui
+// and this suite silently ENOENT'd. Fail loud (with roots tried) if it ever moves again.
+const _ROOTS = ["../../../platform/esign/ui", "../../esign/ui", "../../ui/esign"];
+const PANEL = (() => {
+  for (const r of _ROOTS) {
+    const p = path.join(__dirname, r, "payment_request_signing.html");
+    if (fs.existsSync(p)) return p;
+  }
+  throw new Error("payment_request_signing.html not found; roots tried: " + _ROOTS.join(", "));
+})();
 const html = fs.readFileSync(PANEL, "utf-8");
 const divMatch = html.match(/<div id="ec-esign-panel"[^>]*><\/div>/);
 const scriptMatch = html.match(/<script id="ec-esign-panel-js">([\s\S]*?)<\/script>/);
