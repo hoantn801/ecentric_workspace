@@ -457,16 +457,50 @@
     q("nav").innerHTML = navHtml(reqName);
     bindShell(box);
   }
+  // API chi tiết đo trên production chỉ ~60ms. Ở tốc độ đó, dựng khung chờ rồi thay bằng nội
+  // dung thật chỉ tổ tạo một bước phình (thân thẻ 330px -> 360..535px), mà thẻ căn giữa nên
+  // phình là trôi lên. Nên: chờ dữ liệu rồi dựng MỘT LẦN. Chỉ khi mạng chậm quá ngưỡng mới
+  // hiện khung chờ, để người dùng biết hệ thống đang làm việc.
+  var SKELETON_AFTER_MS=180;
   function openDetail(reqName){
     if(!reqName) return;
     state.openReq=reqName;
     var ov=ovEl(), box=ov.querySelector(".ec-apl-wrap");
-    // Dựng header ngay từ dữ liệu đã có trên dòng — người dùng thấy đúng hồ sơ mình bấm
-    // trong cùng khung hình, chỉ phần thân mới phải chờ mạng.
+    var settled=false;
+    var timer=setTimeout(function(){
+      if(!settled && state.openReq===reqName) showLoading(box, ov, reqName);
+    }, SKELETON_AFTER_MS);
+    frappe.call({method:ACT+"get_request_detail", args:{request_name:reqName}, type:"GET"})
+      .then(function(r){
+        settled=true; clearTimeout(timer);
+        if(state.openReq!==reqName) return;
+        drawDetail(box, reqName, (r&&r.message)||{});
+        revealOverlay(ov, box);
+      })
+      .catch(function(e){
+        settled=true; clearTimeout(timer);
+        if(state.openReq!==reqName) return;
+        setAside(box, "");
+        ensureShell(box);
+        fillHeader(box, reqName, { title:"Không mở được yêu cầu", type_title:"", who:"" });
+        box.querySelector('[data-h="body"]').classList.remove("loading");
+        box.querySelector('[data-h="body"]').innerHTML=
+          '<div class="ec-apl-sec"><div class="ec-apl-empty">'+esc((e&&e.message)||reqName)+'</div></div>';
+        box.querySelector('[data-h="foot"]').innerHTML='<span class="grow"></span>'
+          +'<button type="button" class="btn" data-x="1">Đóng</button>';
+        bindShell(box);
+        revealOverlay(ov, box);
+      });
+  }
+  function revealOverlay(ov, box){
+    if(!ov.hidden) return;
+    lockScroll(true); ov.hidden=false; focusModal(box);
+  }
+  // Khung chờ chỉ dùng cho đường chậm; giữ sẵn cả thẻ phải và chiều cao thân để lúc nội dung
+  // về không đổi kích thước quá nhiều.
+  function showLoading(box, ov, reqName){
     var r=(state.rowById||{})[reqName]||{};
     var send=r.requester_info||{};
-    // Giữ nguyên bề ngang: hồ sơ nào cũng có ít nhất mốc "Đã gửi" nên mặc định dựng luôn thẻ
-    // phải; nếu hoá ra không có lịch sử thì mới gỡ đi (hiếm).
     box.classList.remove("solo");
     ensureShell(box);
     setAside(box, '<li class="ec-apl-skel-li"><span class="ec-apl-skel" style="width:70%"></span></li>'
@@ -483,21 +517,9 @@
     box.querySelector('[data-h="foot"]').innerHTML='<span class="grow"></span>'
       +'<button type="button" class="btn" data-x="1">Đóng</button>';
     bindShell(box);
-    if(ov.hidden){ lockScroll(true); ov.hidden=false; focusModal(box); }
-    frappe.call({method:ACT+"get_request_detail", args:{request_name:reqName}, type:"GET"})
-      .then(function(r){ if(state.openReq===reqName) drawDetail(box, reqName, (r&&r.message)||{}); })
-      .catch(function(e){
-        setAside(box, "");
-        ensureShell(box);
-        fillHeader(box, reqName, { title:"Không mở được yêu cầu", type_title:"", who:"" });
-        box.querySelector('[data-h="body"]').innerHTML=
-          '<div class="ec-apl-sec"><div class="ec-apl-empty">'+esc((e&&e.message)||reqName)+'</div></div>';
-        box.querySelector('[data-h="foot"]').innerHTML='<span class="grow"></span>'
-          +'<button type="button" class="btn" data-x="1">Đóng</button>';
-        bindShell(box);
-      });
+    revealOverlay(ov, box);
   }
-  // Thẻ phải cũng cập nhật tại chỗ: dựng lại phần tử sẽ khiến nó trượt vào lần nữa.
+  // Thẻ phải cũng cập nhật tại chỗ: dựng lại phần tử sẽ khiến nó nhấp nháy.
   function setAside(box, tl){
     var aside=box.querySelector(".ec-apl-aside");
     if(!tl){ if(aside) aside.remove(); return; }
