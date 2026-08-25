@@ -65,6 +65,15 @@ PREVIEW_N = 4
 
 
 # ---- pure helpers (no frappe): classification + ordering + cursor ----------
+def _allow():
+    """Effective normalize allowlist (registry-derived, cached per request).
+
+    Imports resolvers locally: this module keeps `resolvers` as a FUNCTION-LOCAL
+    import everywhere else, so a module-level `R` does not exist."""
+    from ecentric_workspace.action_center import resolvers as _R
+    return _R.approval_normalize_allowlist()
+
+
 def classify(due_at, today, active, terminal):
     """Bucket for one item, or None if it must be EXCLUDED (resolved/terminal)."""
     if terminal:
@@ -204,7 +213,7 @@ def _engine_link_state(rows, user):
             continue
         if rt == R.APPROVAL_REQUEST_DT:
             req_of[(rt, rn)] = rn                        # direct; gated by reference_doctype below
-        elif R.has_engine_approval_link(rt) and rt in R.APPROVAL_NORMALIZE_ALLOWLIST:
+        elif R.has_engine_approval_link(rt) and rt in _allow():
             # metadata-detected AND permission-aligned (form >= canonical helper).
             biz_by_dt.setdefault(rt, set()).add(rn)
         # metadata-detected but NOT allow-listed -> skip: the feed must not use a
@@ -264,7 +273,7 @@ def _engine_link_state(rows, user):
         if key[0] == R.APPROVAL_REQUEST_DT:
             bdt = (req.get("reference_doctype") or "").strip()
             bnm = (req.get("reference_name") or "").strip()
-            if not bdt or not bnm or bdt not in R.APPROVAL_NORMALIZE_ALLOWLIST:
+            if not bdt or not bnm or bdt not in _allow():
                 biz_of_key[key] = None           # reverse resolution failed / not aligned
                 continue
             biz_of_key[key] = (bdt, bnm)
@@ -481,7 +490,19 @@ def _classified_feed(user):
         else:
             # PRECEDENCE 2..4: legacy /approval, PM Task, Weekly Update.
             st = it.get("source_type")
-            if st == "approval" and rn in appr:
+            if rt == R.LEAVE_APPLICATION:
+                # A leave approval's ToDo.date is the LEAVE START DATE (set by
+                # the ec_hr_leave_apply script), NOT a deadline for the
+                # approver: nothing is due on the day the employee is away.
+                # Using it bucketed pending approvals into "SẮP TỚI" while the
+                # decision was already waiting -- the same class of bug as the
+                # PM-task branch below, which this mirrors. Pending approval has
+                # no SLA of its own here, so it is ACTIONABLE NOW: drop the
+                # borrowed date and let classify() put it in act_now via
+                # `active`. The start date stays visible in the subtitle.
+                it["due_at"] = ""
+                active = True
+            elif st == "approval" and rn in appr:
                 terminal, active, due = appr[rn]
                 if due and not it.get("due_at"):
                     it["due_at"] = due
