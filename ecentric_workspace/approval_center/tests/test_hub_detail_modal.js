@@ -15,6 +15,13 @@ if(html.indexOf("#"+ovId+"{")<0 && html.indexOf("#"+ovId+" {")<0)
   throw new Error('Lop phu JS tao id="'+ovId+'" nhung CSS khong co rule #'+ovId+' -> popup se mat position:fixed');
 if(!new RegExp("#"+ovId+"\\{[^}]*position:fixed").test(html.replace(/\s*\n\s*/g,"")))
   throw new Error("Rule #"+ovId+" thieu position:fixed");
+// Thẻ KHÔNG được có hiệu ứng mờ/trượt: thẻ trong suốt chồng lên bảng đọc ra như "lỗi hiển thị".
+const modalRule=(html.match(/\.ec-apl-modal\{[^}]*\}/)||[""])[0].replace(/\s+/g," ");
+if(/animation:/.test(modalRule))
+  throw new Error("The chi tiet van con animation -> hien ra mo mo: "+modalRule);
+const asideRule=(html.match(/\.ec-apl-aside\{[^}]*\}/)||[""])[0].replace(/\s+/g," ");
+if(/animation:/.test(asideRule))
+  throw new Error("The lich su van con animation: "+asideRule);
 const wrapRule=(html.match(/\.ec-apl-wrap\{[^}]*\}/)||[""])[0].replace(/\s+/g," ");
 if(!/margin:\s*auto/.test(wrapRule))
   throw new Error("Khung popup thieu margin:auto -> se dinh goc tren trai: "+wrapRule);
@@ -74,6 +81,13 @@ w.ApprovalAll.boot(); tick(function(){
       !!titleSlot.querySelector(".ec-apl-skel") && titleSlot.textContent.trim()==="");
   // Giữ NGUYÊN phần tử thẻ khi dữ liệu về; dựng lại sẽ chạy lại hiệu ứng trượt -> nháy.
   w.__cardWhileLoading = w.document.querySelector(".ec-apl-modal");
+  w.__asideWhileLoading = w.document.querySelector(".ec-apl-aside");
+  // Kích thước khung phải ổn định giữa lúc chờ và lúc có dữ liệu, nếu không thẻ vừa phình
+  // vừa trôi lên (do căn giữa) -> nhìn như giật.
+  chk("cho tai: da dung san the phai, khong doi be ngang",
+      !!w.__asideWhileLoading && !w.document.querySelector(".ec-apl-wrap").classList.contains("solo"));
+  chk("cho tai: than the giu san chieu cao",
+      w.document.querySelector('[data-h="body"]').classList.contains("loading"));
   tick(function(){
     const ov=w.document.getElementById("ec-apl-ov");
     chk("mo popup", ov && !ov.hidden);
@@ -88,6 +102,10 @@ w.ApprovalAll.boot(); tick(function(){
     chk("lich su la THE RIENG ben phai", /<aside class="ec-apl-aside">[\s\S]*Lịch sử xử lý/.test(h)
         && !/ec-apl-modal[\s\S]*Lịch sử xử lý[\s\S]*<\/div><aside/.test(h));
     chk("co the phai thi bo gioi han hep", !box.classList.contains("solo"));
+    chk("khong dung lai THE PHAI khi du lieu ve",
+        w.document.querySelector(".ec-apl-aside")===w.__asideWhileLoading);
+    chk("het cho thi bo giu chieu cao",
+        !w.document.querySelector('[data-h="body"]').classList.contains("loading"));
     chk("khong dung lai the khi du lieu ve",
         w.document.querySelector(".ec-apl-modal")===w.__cardWhileLoading);
     chk("tieu de that da thay vet xam",
