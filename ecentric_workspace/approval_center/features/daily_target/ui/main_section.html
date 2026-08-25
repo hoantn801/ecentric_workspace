@@ -207,8 +207,11 @@
       + fld("brand","Brand",(function(){ var bl=((state.boot&&state.boot.form_options&&state.boot.form_options.brands)||[]);
           if(!bl.length) return '<input data-model="brand" maxlength="140" value="'+esc(d.brand||"")+'">';
           var cur=d.brand||"";
-          var opts='<option value="">—</option>'+bl.map(function(b){ return '<option value="'+esc(b)+'"'+(b===cur?" selected":"")+'>'+esc(b)+'</option>'; }).join("");
-          if(cur && bl.indexOf(cur)<0) opts+='<option value="'+esc(cur)+'" selected>'+esc(cur)+'</option>';
+          var vals=bl.map(function(b){ return (b&&typeof b==="object")?b.value:b; });
+          var opts='<option value="">— Chọn brand —</option>'+bl.map(function(b){
+            var v=(b&&typeof b==="object")?b.value:b, l=(b&&typeof b==="object")?(b.label||b.value):b;
+            return '<option value="'+esc(v)+'"'+(v===cur?" selected":"")+'>'+esc(l)+'</option>'; }).join("");
+          if(cur && vals.indexOf(cur)<0) opts+='<option value="'+esc(cur)+'" selected>'+esc(cur)+'</option>';
           return '<select data-model="brand">'+opts+'</select>'; })(),true)
       + channelsHTML(fo)
       + (chanList().indexOf("Other")>=0 ? fld("channel_other","Kênh khác",'<input data-model="channel_other" value="'+esc(d.channel_other||"")+'">').replace('class="fld','class="fld full') : '')

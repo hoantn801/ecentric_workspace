@@ -1,0 +1,37 @@
+/* ec_formkit — nâng cấp <select> thành combobox có tìm kiếm và ô file thành vùng kéo-thả.
+   Dùng lại ngôn ngữ thị giác của form SO/PO (ec-cb-*) để toàn hệ thống nhất quán. */
+.ec-cb { position: relative; }
+.ec-cb-display { width: 100%; padding: 9px 32px 9px 12px; border: 1px solid #e5e7eb; border-radius: 8px;
+  font-size: 13.5px; background: #fff; cursor: pointer; font-family: inherit; line-height: 1.4; color: #111827;
+  text-align: left; }
+.ec-cb-display:hover { border-color: #d1d5db; }
+.ec-cb-display:focus { outline: none; border-color: #2C3DA6; box-shadow: 0 0 0 3px rgba(44,61,166,.12); }
+.ec-cb-display.ec-cb-placeholder { color: #9ca3af; }
+.ec-cb-arrow { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); color: #9ca3af;
+  pointer-events: none; font-size: 10px; }
+.ec-cb-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff;
+  border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 10060;
+  max-height: 320px; display: flex; flex-direction: column; }
+.ec-cb-panel[hidden] { display: none !important; }
+.ec-cb-search-wrap { padding: 8px; border-bottom: 1px solid #f3f4f6; }
+.ec-cb-search { width: 100%; padding: 7px 10px; border: 1px solid #e5e7eb; border-radius: 6px;
+  font-size: 12.5px; font-family: inherit; }
+.ec-cb-search:focus { outline: none; border-color: #2C3DA6; }
+.ec-cb-count { padding: 6px 12px; font-size: 11px; color: #6b7280; background: #f9fafb; border-bottom: 1px solid #f3f4f6; }
+.ec-cb-list { flex: 1; overflow-y: auto; padding: 4px 0; max-height: 250px; }
+.ec-cb-option { padding: 8px 12px; font-size: 12.5px; cursor: pointer; color: #374151; line-height: 1.4; }
+.ec-cb-option:hover, .ec-cb-active { background: #f3f4f6; }
+.ec-cb-selected { background: #eef2ff; color: #2C3DA6; font-weight: 600; }
+.ec-cb-empty { padding: 12px; text-align: center; color: #9ca3af; font-size: 12px; font-style: italic; }
+
+/* vùng kéo-thả tệp */
+.ec-dz { border: 1.5px dashed #d1d5db; border-radius: 10px; background: #fafbfc; padding: 18px 16px;
+  text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+.ec-dz:hover { border-color: #2C3DA6; background: #f7f8fd; }
+.ec-dz.ec-dz-over { border-color: #2C3DA6; background: #eef0fb; }
+.ec-dz-ic { width: 34px; height: 34px; margin: 0 auto 8px; border-radius: 9px; background: #fff;
+  border: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: center; color: #2C3DA6; }
+.ec-dz-main { font-size: 13.5px; font-weight: 600; color: #374151; }
+.ec-dz-sub { font-size: 12.5px; color: #6b7280; margin-top: 2px; }
+.ec-dz-sub a, .ec-dz-link { color: #2C3DA6; font-weight: 600; }
+.ec-dz-hint { font-size: 11.5px; color: #9ca3af; margin-top: 6px; }

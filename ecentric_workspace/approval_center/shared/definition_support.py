@@ -42,8 +42,15 @@ class BrandOptions:
         out = {key: list(values) for key, values in self.entries}
         try:
             import frappe
-            out["brands"] = frappe.get_all("Brand", pluck="name", order_by="name asc",
-                                           limit_page_length=0)
+            rows = frappe.get_all("Brand", fields=["name", "ec_brand_name", "ec_status"],
+                                  order_by="name asc", limit_page_length=0)
+            active = [r for r in rows if (r.get("ec_status") or "Active") == "Active"] or rows
+            # value = mã brand (khớp dữ liệu đang lưu); label = "MÃ — Tên" cho dễ chọn.
+            out["brands"] = [{"value": r["name"],
+                              "label": ("%s — %s" % (r["name"], r["ec_brand_name"]))
+                                       if r.get("ec_brand_name") and r["ec_brand_name"] != r["name"]
+                                       else r["name"]}
+                             for r in active]
         except Exception:
             out.setdefault("brands", [])
         return out
