@@ -30,18 +30,28 @@
   #ec-apl-root .topbar .crumb{ font-size:13px; color:var(--gray-500); } #ec-apl-root .topbar .crumb strong{ color:var(--gray-900); }
   #ec-apl-root .topbar .spacer{ flex:1; } #ec-apl-root .scope-badge{ font-size:12px; font-weight:600; padding:5px 10px; border-radius:999px; background:var(--navy-50); color:var(--navy); }
   #ec-apl-root .content{ padding:20px 24px; max-width:1600px; width:100%; margin-inline:auto;}
-  #ec-apl-root .apl-title{ font-size:23px; font-weight:800; color:var(--gray-900); letter-spacing:-0.4px; margin:0 0 2px; }
-  #ec-apl-root .apl-desc{ font-size:13px; color:var(--gray-500); margin:0 0 16px; }
-  #ec-apl-root .filters{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:14px 16px; margin-bottom:16px; }
-  #ec-apl-root .fgrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; }
-  #ec-apl-root .fgrid label{ display:block; font-size:11.5px; font-weight:600; color:var(--gray-500); margin-bottom:3px; }
-  #ec-apl-root .fgrid select, #ec-apl-root .fgrid input{ width:100%; padding:7px 9px; border:1px solid var(--gray-200); border-radius:8px; font-size:13px; font-family:inherit; background:#fff; }
-  #ec-apl-root .factions{ display:flex; gap:8px; margin-top:12px; align-items:center; }
+  #ec-apl-root .apl-title{ font-size:17px; font-weight:700; color:var(--gray-900); letter-spacing:-0.2px; margin:0; }
+  #ec-apl-root .apl-desc{ font-size:12px; color:var(--gray-500); margin:1px 0 10px; }
+  #ec-apl-root .filters{ background:#fff; border:1px solid var(--gray-200); border-radius:10px; padding:9px 12px; margin-bottom:12px; }
+  #ec-apl-root .fgrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr)); gap:7px 8px; align-items:end; }
+  #ec-apl-root .fgrid label{ display:block; font-size:10.5px; font-weight:600; color:var(--gray-500); margin-bottom:2px; }
+  #ec-apl-root .fgrid select, #ec-apl-root .fgrid input{ width:100%; padding:5px 8px; border:1px solid var(--gray-200); border-radius:7px; font-size:12.5px; font-family:inherit; background:#fff; height:30px; }
+  #ec-apl-root .fend{ display:flex; align-items:flex-end; }
+  #ec-apl-root .fend .btn{ padding:5px 12px; font-size:12.5px; height:30px; border-radius:7px; }
   #ec-apl-root .btn{ padding:8px 16px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; font-size:13px; font-weight:600; cursor:pointer; color:var(--gray-700); }
   #ec-apl-root .btn.primary{ background:var(--navy); border-color:var(--navy); color:#fff; }
   #ec-apl-root .btn:disabled{ opacity:.5; cursor:not-allowed; }
   #ec-apl-root .card{ background:#fff; border:1px solid var(--gray-200); border-radius:12px; overflow:hidden; }
-  #ec-apl-root table{ width:100%; border-collapse:collapse; }
+  #ec-apl-root table{ width:100%; border-collapse:collapse; table-layout:fixed; }
+  /* Mỗi ô đúng MỘT dòng: xuống dòng làm chiều cao hàng nhảy loạn, mắt khó quét theo cột.
+     Chữ bị cắt vẫn xem được đủ bằng tooltip, hoặc kéo giãn cột như Teams. */
+  #ec-apl-root tbody td, #ec-apl-root thead th{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #ec-apl-root thead th{ position:relative; user-select:none; }
+  #ec-apl-root th .rs{ position:absolute; top:0; right:0; width:7px; height:100%; cursor:col-resize; }
+  #ec-apl-root th .rs:hover, #ec-apl-root th .rs.on{ background:var(--navy); opacity:.35; }
+  #ec-apl-root tbody td .sender{ min-width:0; }
+  #ec-apl-root tbody td .sender .nm{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #ec-apl-root tbody td .pill{ vertical-align:middle; }
   #ec-apl-root thead th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--gray-500); font-weight:700; padding:8px 10px; border-bottom:1px solid var(--gray-200); background:var(--gray-50); }
   #ec-apl-root tbody td{ padding:7px 10px; border-bottom:1px solid var(--gray-100); font-size:12px; color:var(--gray-700); vertical-align:middle; }
   #ec-apl-root tbody tr:hover{ background:var(--gray-50); }
@@ -55,7 +65,7 @@
   #ec-apl-ov[hidden]{ display:none !important; }
   @keyframes ecAplFade{ from{ opacity:0 } to{ opacity:1 } }
   @keyframes ecAplRise{ from{ opacity:0; transform:translateY(10px) scale(.985) } to{ opacity:1; transform:none } }
-  .ec-apl-modal{ background:#fff; width:100%; max-width:760px; border-radius:16px; overflow:hidden;
+  .ec-apl-modal{ background:#fff; width:100%; max-width:1080px; border-radius:16px; overflow:hidden;
     box-shadow:0 24px 64px rgba(15,23,42,.28); font-family:'Inter',-apple-system,sans-serif; color:#1f2937;
     animation:ecAplRise .18s cubic-bezier(.2,.8,.3,1); }
   .ec-apl-modal .icon{ stroke:currentColor; fill:none; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
@@ -73,7 +83,15 @@
   .ec-apl-ib:hover:not(:disabled){ background:#f9fafb; color:#111827; border-color:#d1d5db; }
   .ec-apl-ib:disabled{ opacity:.4; cursor:not-allowed; }
   .ec-apl-ib.x:hover{ color:#dc2626; border-color:#fecaca; background:#fef2f2; }
-  .ec-apl-mb{ padding:16px 20px 4px; max-height:calc(100vh - 260px); overflow-y:auto; }
+  .ec-apl-mb{ padding:16px 20px 4px; max-height:calc(100vh - 240px); overflow-y:auto; }
+  /* Lịch sử sang cột phải: màn hình rộng còn nhiều chỗ trống, xếp dọc chỉ làm popup dài thêm. */
+  .ec-apl-cols{ display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:0 22px; align-items:start; }
+  .ec-apl-cols.one{ grid-template-columns:minmax(0,1fr); }
+  .ec-apl-side{ border-left:1px solid #eef0f4; padding-left:22px; }
+  @media (max-width:900px){
+    .ec-apl-cols{ grid-template-columns:minmax(0,1fr); }
+    .ec-apl-side{ border-left:none; padding-left:0; border-top:1px solid #eef0f4; padding-top:14px; }
+  }
   .ec-apl-sec{ margin-bottom:18px; }
   .ec-apl-sec h4{ margin:0 0 9px; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em;
     color:#9ca3af; font-weight:700; }
@@ -98,8 +116,7 @@
   .ec-apl-step.rej .bul{ border-color:#dc2626; background:#dc2626; color:#fff; }
   .ec-apl-step.rej .lb{ color:#dc2626; }
   .ec-apl-kv{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px 20px; }
-  .ec-apl-mh .sub .code{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px;
-    background:#f3f4f6; border-radius:6px; padding:1px 7px; color:#4b5563; }
+  .ec-apl-mf .code{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px; color:#9ca3af; }
   .ec-apl-mh .sub .pill{ display:inline-block; padding:3px 10px; border-radius:999px; font-size:11.5px;
     font-weight:600; background:#f3f4f6; color:#4b5563; }
   .ec-apl-mh .sub .pill.Pending{ background:var(--navy-50); color:var(--navy); }
@@ -214,8 +231,8 @@
           <div><label>Loại yêu cầu</label><select id="f-type"><option value="">Tất cả</option></select></div>
           <div><label>Phòng ban</label><select id="f-department"><option value="">Tất cả</option></select></div>
           <div><label>Trạng thái</label><select id="f-status"><option value="">Tất cả</option></select></div>
+          <div class="fend"><button type="button" class="btn" id="apl-reset" hidden>Xoá lọc</button></div>
         </div>
-        <div class="factions"><button type="button" class="btn primary" id="apl-apply">Áp dụng</button><button type="button" class="btn" id="apl-reset">Đặt lại</button></div>
       </div>
       <div class="card" id="apl-body"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
     </div>
@@ -235,8 +252,9 @@
   function call(m,a){ if(!(window.frappe&&frappe.call)) return Promise.reject(new Error("frappe unavailable")); return frappe.call({method:API+"."+m,args:a||{}}).then(function(r){return r&&r.message;}); }
   function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
   function fmtDT(s){ if(!s) return "—"; var d=new Date(String(s).replace(" ","T")); if(isNaN(d)) return esc(s); function p(n){return(n<10?"0":"")+n;} return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes()); }
-  function statusLabel(s){ return {Pending:"Chờ duyệt","Information Required":"Cần bổ sung",Completed:"Hoàn tất",Rejected:"Từ chối",Cancelled:"Đã hủy",Draft:"Nháp"}[s]||s; }
-  function pillCls(s){ return s==="Information Required"?"Information":s; }
+  function statusLabel(s){ return {Pending:"Chờ duyệt","Information Required":"Cần bổ sung",Completed:"Hoàn tất",
+    Rejected:"Từ chối",Cancelled:"Đã hủy",Draft:"Nháp",Approved:"Đã duyệt","In Progress":"Đang xử lý"}[s]||s; }
+  function pillCls(s){ return s==="Information Required"?"Information":(s==="Approved"?"Completed":s); }
   function scopeLabel(m){ return {admin:"Toàn tổ chức",department:"Phòng ban",approver:"Người duyệt",requester:"Cá nhân"}[m]||"—"; }
   function initials(name){ var p=(name||"").trim().split(/\s+/).filter(Boolean); if(!p.length) return "?"; var x=(p.length>1?(p[0][0]+p[p.length-1][0]):p[0].slice(0,2)); return x.toUpperCase(); }
   var AVCOL=["#2C3DA6","#10b981","#EF7CAF","#d97706","#dc2626","#7c3aed","#0891b2","#65a30d","#c026d3","#0d9488"];
@@ -264,17 +282,63 @@
 
   function render(rows){
     if(!rows.length){ $("apl-body").innerHTML='<div class="state"><h4>Không có yêu cầu</h4><p>Không có yêu cầu nào khớp bộ lọc trong phạm vi của bạn.</p></div>'; return; }
-    var head='<table><thead><tr><th>Ngày gửi</th><th>Mã</th><th>Tiêu đề</th><th>Loại</th><th>Người gửi</th><th>Người nhận</th><th>Phòng ban</th><th>Cấp hiện tại</th><th>Trạng thái</th></tr></thead><tbody>';
+    var ws=colWidths();
+    var head='<table style="min-width:'+ws.reduce(function(a,b){return a+b;},0)+'px">'
+      +'<colgroup>'+ws.map(function(w){ return '<col style="width:'+w+'px">'; }).join("")+'</colgroup>'
+      +'<thead><tr>'+COLS.map(function(c,i){ return '<th title="'+esc(c[0])+'">'+esc(c[0])+'</th>'; }).join("")
+      +'</tr></thead><tbody>';
     var body=rows.map(function(r){ var breach=r.sla_breached?'<span class="pill breach">Quá hạn</span> ':'';
       var send=r.requester_info||{user:r.requester,name:r.requester};
-      var sender='<div class="sender">'+avatar(send,28)+'<span class="nm">'+esc(send.name||send.user||"—")+'</span></div>';
-      return '<tr data-req="'+esc(r.name)+'"'+(r.detail_route?' data-route="'+esc(withFrom(r.detail_route))+'"':'')+'><td>'+fmtDT(r.submitted_at)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||"")+'</td><td>'+esc(r.approval_type||"")+'</td><td>'+sender+'</td><td>'+chips(r.sent_to)+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.current_level_name||r.current_level||"—")+'</td><td>'+breach+statusCell(r)+'</td></tr>'; }).join("");
+      var who=send.name||send.user||"";
+      var sender='<div class="sender">'+avatar(send,24)+'<span class="nm">'+esc(who||"—")+'</span></div>';
+      var to=(r.sent_to||[]).map(function(p){ return p.name||p.user||""; }).filter(Boolean).join(", ");
+      return '<tr data-req="'+esc(r.name)+'"'+(r.detail_route?' data-route="'+esc(withFrom(r.detail_route))+'"':'')+'>'
+        +cell(fmtDT(r.submitted_at))+cell(r.name)+cell(r.type)+cell(r.approval_type)
+        +cell(who, sender)+cell(to, chips(r.sent_to))+cell(r.department)
+        +cell(r.current_level_name||r.current_level)
+        +cell(statusLabel(r.status_label||r.status), breach+statusCell(r))
+        +'</tr>'; }).join("");
     state.rowNames=rows.map(function(r){ return r.name; });
     state.rowById={}; rows.forEach(function(r){ state.rowById[r.name]=r; });
     var from=state.total?state.start+1:0, to=Math.min(state.start+rows.length,state.total);
     var pager='<div class="pager"><div class="info">'+from+'–'+to+' / '+state.total+'</div><div><button type="button" class="btn" id="apl-prev"'+(state.start<=0?" disabled":"")+'>‹ Trước</button> <button type="button" class="btn" id="apl-next"'+(state.start+state.page_length>=state.total?" disabled":"")+'>Sau ›</button></div></div>';
     $("apl-body").innerHTML='<div style="overflow-x:auto">'+head+body+'</tbody></table></div>'+pager;
+    wireResize($("apl-body").querySelector("table"));
     wire();
+  }
+  // Bề rộng cột: mặc định vừa nội dung hay gặp, người dùng kéo lại thì nhớ cho lần sau.
+  var COLS=[["Ngày gửi",104],["Mã",158],["Tiêu đề",150],["Loại",148],["Người gửi",168],
+            ["Người nhận",112],["Phòng ban",162],["Cấp hiện tại",140],["Trạng thái",104]];
+  var COLW_KEY="ec_apl_colw";
+  function colWidths(){
+    var saved=null;
+    try{ saved=JSON.parse(window.localStorage.getItem(COLW_KEY)||"null"); }catch(e){}
+    return COLS.map(function(c,i){
+      var w=saved&&saved[i]; return (typeof w==="number"&&w>=60&&w<=600)?w:c[1]; });
+  }
+  function saveColWidths(ws){ try{ window.localStorage.setItem(COLW_KEY, JSON.stringify(ws)); }catch(e){} }
+  function wireResize(table){
+    var ws=colWidths();
+    Array.prototype.forEach.call(table.querySelectorAll("thead th"),function(th,i){
+      if(i>=COLS.length) return;
+      var grip=document.createElement("span"); grip.className="rs"; th.appendChild(grip);
+      grip.addEventListener("mousedown",function(e){
+        e.preventDefault(); e.stopPropagation();
+        var x0=e.clientX, w0=th.offsetWidth; grip.classList.add("on");
+        function mv(ev){
+          var w=Math.max(60, Math.min(600, w0+(ev.clientX-x0)));
+          ws[i]=w; th.style.width=w+"px";
+          var cg=table.querySelectorAll("colgroup col")[i]; if(cg) cg.style.width=w+"px";
+        }
+        function up(){ grip.classList.remove("on"); saveColWidths(ws);
+          document.removeEventListener("mousemove",mv); document.removeEventListener("mouseup",up); }
+        document.addEventListener("mousemove",mv); document.addEventListener("mouseup",up);
+      });
+    });
+  }
+  function cell(text, html){
+    var t=(text==null||text==="")?"—":String(text);
+    return '<td title="'+esc(t)+'">'+(html!=null?html:esc(t))+'</td>';
   }
   function statusCell(r){
     if(state.box==="fulfil" && r.fulfillment_status){
@@ -300,6 +364,7 @@
   // nhãn tiếng Việt cho mốc lịch sử — engine ghi bằng tiếng Anh
   var ACT_VI={ Submitted:"Đã gửi", Approved:"Đã duyệt", Rejected:"Từ chối", Cancelled:"Đã huỷ",
     Completed:"Hoàn tất", Resubmitted:"Gửi lại", "Information Requested":"Yêu cầu bổ sung",
+    Skipped:"Bỏ qua", Started:"Bắt đầu xử lý", Reopened:"Mở lại", Escalated:"Chuyển cấp trên",
     "Information Provided":"Đã bổ sung", Claimed:"Nhận xử lý", Assigned:"Giao xử lý", Delegated:"Uỷ quyền" };
   var HL_KEYS=["số tiền","chi phí","giá trị","ngân sách","tổng","số lượng","ngày","thời gian","hạn"];
   function ovEl(){
@@ -354,7 +419,6 @@
     return '<div class="ec-apl-mh"><div class="ec-apl-av">'+esc(initials(o.who||o.title))+'</div>'
       +'<div class="ttl"><h3>'+esc(o.title||reqName)+'</h3>'
       +'<div class="sub">'+(o.status?('<span class="pill '+pillCls(o.status)+'">'+esc(statusLabel(o.status))+'</span>'):'')
-      +'<span class="code">'+esc(reqName)+'</span>'
       +bits.join('<span class="dot">·</span>')+'</div></div>'
       +'<div class="ec-apl-nav">'+nav
       +'<button type="button" class="ec-apl-ib x" data-x="1" aria-label="Đóng">&times;</button></div></div>';
@@ -484,16 +548,19 @@
     box.innerHTML =
       headerHtml(reqName,{ title:title, type_title:d.type_title, who:who,
         department:biz.department, sent:sent, status:overall, extra:ffText })
-      +'<div class="ec-apl-mb">'
+      +'<div class="ec-apl-mb"><div class="ec-apl-cols'+(tl?'':' one')+'"><div>'
       +hl
       +(levels.length?('<div class="ec-apl-sec"><h4>Tiến trình duyệt</h4>'+stepperHtml(levels,cur,overall)+'</div>'):'')
       +(fields?('<div class="ec-apl-sec"><h4>Nội dung yêu cầu</h4><div class="ec-apl-kv">'+fields+'</div></div>'):'')
       +(files?('<div class="ec-apl-sec"><h4>Đính kèm</h4><div class="ec-apl-files">'+files+'</div></div>'):'')
-      +(tl?('<div class="ec-apl-sec"><h4>Lịch sử xử lý</h4><ul class="ec-apl-tl">'+tl+'</ul></div>'):'')
       +'</div>'
+      +(tl?('<div class="ec-apl-side"><div class="ec-apl-sec"><h4>Lịch sử xử lý</h4>'
+           +'<ul class="ec-apl-tl">'+tl+'</ul></div></div>'):'')
+      +'</div></div>'
       +'<div class="ec-apl-note" id="apl-note" hidden></div>'
       +'<div class="ec-apl-mf" id="apl-foot">'
       +(d.detail_route?('<a class="link" href="'+esc(withFrom(d.detail_route))+'">Mở trang đầy đủ</a>'):'')
+      +'<span class="code">'+esc(reqName)+'</span>'
       +'<span class="grow"></span>'+acts.join("")
       +'<button type="button" class="btn" data-x="1">Đóng</button></div>';
 
@@ -574,16 +641,26 @@
 
   function apply(){ state.start=0; load(); }
   function setBox(b){ state.box=b; state.start=0; syncUrl(); Array.prototype.forEach.call(document.querySelectorAll("#apl-tabs .tab"),function(t){ t.classList.toggle("active",t.getAttribute("data-box")===b); }); load(); }
+  // Bộ lọc tự áp dụng: chọn xong còn phải bấm "Áp dụng" là một thao tác thừa, và người dùng
+  // hay quên bấm rồi tưởng bộ lọc hỏng. Ô gõ tay thì chờ 400ms cho hết nhịp gõ.
+  var FILTER_IDS=["f-search","f-from","f-to","f-category","f-type","f-department","f-status"];
+  function anyFilter(){ return FILTER_IDS.some(function(id){ var el=$(id); return el && el.value; }); }
+  function syncResetBtn(){ var b=$("apl-reset"); if(b) b.hidden=!anyFilter(); }
+  function autoApply(){ syncResetBtn(); apply(); }
   function boot(){
-    $("apl-apply").onclick=apply;
+    FILTER_IDS.forEach(function(id){
+      var el=$(id); if(!el) return;
+      if(el.tagName==="SELECT" || el.type==="date"){ el.onchange=autoApply; }
+      else { el.addEventListener("input",function(){ clearTimeout(el._t); el._t=setTimeout(autoApply,400); }); }
+    });
     Array.prototype.forEach.call(document.querySelectorAll("#apl-tabs .tab"),function(t){ t.onclick=function(){ setBox(t.getAttribute("data-box")); }; });
     Array.prototype.forEach.call(document.querySelectorAll("#apl-tabs .tab"),function(t){ t.classList.toggle("active", t.getAttribute("data-box")===state.box); });
-    $("apl-reset").onclick=function(){ ["f-search","f-from","f-to","f-category","f-type","f-department","f-status"].forEach(function(id){ $(id).value=""; }); state.start=0; load(); };
-    $("f-search").addEventListener("keydown",function(e){ if(e.key==="Enter") apply(); });
+    $("apl-reset").onclick=function(){ FILTER_IDS.forEach(function(id){ $(id).value=""; }); autoApply(); };
+    $("f-search").addEventListener("keydown",function(e){ if(e.key==="Enter"){ clearTimeout($("f-search")._t); autoApply(); } });
     var ham=$("apl-ham"); if(ham) ham.onclick=function(){ document.getElementById("ec-apl-root").classList.toggle("sb-open"); };
     loadOptions().then(load);
   }
-  window.ApprovalAll={ state:state, openDetail:openDetail, toast:toast, closeDetail:closeDetail, drawDetail:drawDetail, withFrom:withFrom, syncUrl:syncUrl, quickActions:quickActions, runAction:runAction, boot:boot, load:load, render:render, filters:filters, setBox:setBox, avatar:avatar, initials:initials, _call:call };
+  window.ApprovalAll={ state:state, openDetail:openDetail, toast:toast, closeDetail:closeDetail, drawDetail:drawDetail, withFrom:withFrom, syncUrl:syncUrl, quickActions:quickActions, runAction:runAction, boot:boot, load:load, autoApply:autoApply, anyFilter:anyFilter, render:render, filters:filters, setBox:setBox, avatar:avatar, initials:initials, _call:call };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
 })();
 </script>
