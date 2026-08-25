@@ -21,6 +21,10 @@ function row(n,t){ return {name:n,type:"Asset Request",approval_type:"ASSET_REQU
   submitted_at:"2026-08-25 10:00:00",department:"Ops",current_level:2,current_level_name:"Direct Manager",
   detail_route:"/approvals/asset-request?id=X",requester:"a@e.c",requester_info:{name:"An Le"},sent_to:[],can_approve:true,_t:t}; }
 const rows=[row("EC-APR-1","Trả laptop"),row("EC-APR-2","Mua màn hình")];
+const detailLean={ business:{request_title:"Xin cấp tài khoản",requested_by:"b@e.c",creation:"2026-08-25 08:00:00"},
+  approval:{current_level:1,approval_status:"Pending"}, levels:[{level_no:1,level_name:"Duyệt"}],
+  display_fields:[{label:"Số lượng",value:1,fieldtype:"Int"}], attachments:[], timeline:[],
+  capabilities:{}, type_title:"System Request" };
 const detail={ business:{request_title:"Trả lại laptop cũ",requested_by:"vy@e.c",department:"E-commerce - EC",creation:"2026-08-25 09:00:00"},
   approval:{current_level:2,approval_status:"Pending"},
   levels:[{level_no:1,level_name:"Đã gửi",level_status:"Completed"},{level_no:2,level_name:"Direct Manager"},{level_no:3,level_name:"Operation"}],
@@ -36,7 +40,8 @@ w.alert=function(){};
 w.frappe={call:function(o){
   if(/get_filter_options/.test(o.method)) return Promise.resolve({message:{scope_mode:"admin",categories:[],departments:[],types:[],statuses:[]}});
   if(/list_requests/.test(o.method)) return Promise.resolve({message:{rows:rows,total:2}});
-  if(/get_request_detail/.test(o.method)){ w.__detailFor=o.args.request_name; return Promise.resolve({message:detail}); }
+  if(/get_request_detail/.test(o.method)){ w.__detailFor=o.args.request_name;
+    return Promise.resolve({message: w.__lean?detailLean:detail}); }
   if(/actions\./.test(o.method)){ w.__action=o; return Promise.resolve({message:{ok:true}}); }
   return Promise.resolve({message:{}});
 }};
@@ -59,7 +64,10 @@ w.ApprovalAll.boot(); tick(function(){
     chk("goi API chi tiet dung ma", w.__detailFor==="EC-APR-1");
     const box=ov.querySelector(".ec-apl-modal"), h=box.innerHTML;
     chk("header co avatar + ma + loai", /ec-apl-av/.test(h)&&/Trả lại laptop cũ/.test(h)&&/EC-APR-1/.test(h));
-    chk("dai thong tin quyet dinh", /ec-apl-hl/.test(h)&&/2\.500\.000/.test(h)&&/Ngày gửi/.test(h));
+    chk("dai thong tin quyet dinh", /ec-apl-hl/.test(h)&&/2\.500\.000/.test(h)&&/Số lượng/.test(h));
+    chk("ngay gui nam tren header", /Gửi 25\/08\/2026/.test(h));
+    chk("nhan trang thai tren header", /class="pill Pending"/.test(h));
+    chk("mo ta dai trai ngang", /class="wide"/.test(h));
     chk("stepper co buoc hien tai", /ec-apl-step cur/.test(h)&&/ec-apl-step done/.test(h)&&/Direct Manager/.test(h));
     chk("noi dung + dinh kem + lich su", /Máy hỏng bàn phím/.test(h)&&/bien-ban\.pdf/.test(h)&&/Lịch sử xử lý/.test(h));
     chk("moc lich su dich sang tieng Viet", /Đã duyệt/.test(h)&&!/>Approved</.test(h));
@@ -79,6 +87,17 @@ w.ApprovalAll.boot(); tick(function(){
         chk("gui kem ly do da trim", w.__action && /actions\.reject/.test(w.__action.method)
              && w.__action.args.comment==="thiếu biên bản");
         chk("tu dong sang ho so ke tiep", w.__detailFor==="EC-APR-2");
+        w.__lean=true; w.ApprovalAll.openDetail("EC-APR-2");
+        tick(function(){
+          const g=w.document.querySelector(".ec-apl-modal").innerHTML;
+          chk("1 o le thi khong dung dai noi bat", !/ec-apl-hl/.test(g)&&/Số lượng/.test(g));
+          chk("khong co dinh kem thi an muc", !/Đính kèm/.test(g));
+          chk("khong co lich su thi an muc", !/Lịch sử xử lý/.test(g));
+          Object.keys(c).forEach(k=>console.log((c[k]?"PASS":"FAIL")+" - "+k));
+          console.log(failed?"SOME_FAIL":"ALL_PASS");
+          process.exit(failed?1:0);
+        },160);
+        return;
         Object.keys(c).forEach(k=>console.log((c[k]?"PASS":"FAIL")+" - "+k));
         console.log(failed?"SOME_FAIL":"ALL_PASS");
         process.exit(failed?1:0);

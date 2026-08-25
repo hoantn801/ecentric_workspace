@@ -54,9 +54,34 @@ def claim_fulfillment(request_name):
 # --- chi tiết xuyên form cho popup của hub -----------------------------------------
 _SKIP_FIELDS = {"name", "owner", "creation", "modified", "modified_by", "docstatus", "idx",
                 "approval_request", "approval_type", "reference_key", "amended_from",
-                "naming_series", "employee", "company"}
+                "naming_series", "employee", "company",
+                # đã hiện ở đầu popup — lặp lại chỉ làm dài thêm
+                "request_title", "department", "requested_by", "requester", "requested_by_name",
+                "fulfillment_status", "fulfillment_owner", "approval_status", "final_status",
+                "status", "current_level", "current_level_name", "submitted_at"}
 _SKIP_TYPES = {"Section Break", "Column Break", "Tab Break", "HTML", "Button", "Table",
                "Attach", "Attach Image", "Text Editor", "Code"}
+
+# Nhãn meta của các DocType là tiếng Anh; popup dùng chung cho 26 form nên dịch tập trung
+# tại đây thay vì sửa nhãn từng DocType (đổi nhãn DocType ảnh hưởng cả Desk và báo cáo).
+_LABEL_VI = {
+    "Request Type": "Loại yêu cầu", "Asset Type": "Loại tài sản", "Quantity": "Số lượng",
+    "Specifications": "Cấu hình / quy cách", "Justification": "Lý do",
+    "Purpose of Request": "Mục đích", "Purpose (Other)": "Mục đích (khác)",
+    "Requested Needed Date": "Ngày cần có", "Required Date": "Ngày cần có",
+    "Needed Date": "Ngày cần có", "Start Date": "Từ ngày", "End Date": "Đến ngày",
+    "Amount": "Số tiền", "Estimated Cost": "Chi phí dự kiến", "Total Amount": "Tổng tiền",
+    "Budget": "Ngân sách", "Currency": "Đơn vị tiền", "Vendor": "Nhà cung cấp",
+    "Supplier": "Nhà cung cấp", "Brand": "Brand", "Project": "Dự án", "Platform": "Sàn",
+    "Description": "Mô tả", "Notes": "Ghi chú", "Note": "Ghi chú", "Remarks": "Ghi chú",
+    "Reason": "Lý do", "Priority": "Mức ưu tiên", "Category": "Nhóm",
+    "Leave Type": "Loại nghỉ", "From Date": "Từ ngày", "To Date": "Đến ngày",
+    "Employee Name": "Nhân viên", "Position": "Vị trí", "Location": "Địa điểm",
+    "Payment Method": "Hình thức thanh toán", "Bank Account": "Tài khoản ngân hàng",
+    "Contract Type": "Loại hợp đồng", "Client": "Khách hàng", "Service": "Dịch vụ",
+}
+# Cặp "chọn Other rồi nhập tay": gộp thành một dòng để bớt nhiễu.
+_OTHER_SUFFIX = (" (Other)", " (other)", " Other")
 
 
 def _display_fields(definition, business):
@@ -82,9 +107,37 @@ def _display_fields(definition, business):
             continue
         if df.fieldtype == "Check":
             value = "Có" if value else "Không"
-        out.append({"label": df.label or df.fieldname, "value": value,
-                    "fieldtype": df.fieldtype})
-    return out
+        label = df.label or df.fieldname
+        out.append({"label": _LABEL_VI.get(label, label), "value": value,
+                    "fieldtype": df.fieldtype, "raw_label": label})
+    return _merge_other_pairs(out)
+
+
+def _merge_other_pairs(fields):
+    """Gộp 'Purpose of Request: Other' + 'Purpose (Other): Trả laptop' thành một dòng.
+
+    Form nào có Select kèm ô nhập tay đều sinh ra 2 dòng, trong đó dòng đầu chỉ nói 'Other'
+    — không mang thông tin. Nhãn hai trường thường không trùng hẳn ('Purpose of Request' vs
+    'Purpose (Other)') nên khớp theo tiền tố, và chỉ gộp khi trường gốc đúng là 'Other'."""
+    drop = set()
+    for extra in fields:
+        raw = (extra.get("raw_label") or "").strip()
+        prefix = ""
+        for suffix in _OTHER_SUFFIX:
+            if raw.endswith(suffix):
+                prefix = raw[: -len(suffix)].strip()
+                break
+        if not prefix:
+            continue
+        for base in fields:
+            if base is extra or not (base.get("raw_label") or "").startswith(prefix):
+                continue
+            if str(base.get("value")).strip().lower() not in ("other", "khác", "khac"):
+                continue
+            base["value"] = extra.get("value")
+            drop.add(id(extra))
+            break
+    return [f for f in fields if id(f) not in drop]
 
 
 @frappe.whitelist()

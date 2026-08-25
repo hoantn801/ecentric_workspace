@@ -66,7 +66,13 @@
   .ec-apl-mh h3{ margin:0; font-size:17px; font-weight:700; color:#111827; line-height:1.35; letter-spacing:-.2px; }
   .ec-apl-mh .sub{ font-size:12.5px; color:#6b7280; margin-top:3px; display:flex; flex-wrap:wrap; gap:4px 8px; align-items:center; }
   .ec-apl-mh .sub .dot{ color:#d1d5db; }
-  .ec-apl-nav{ display:flex; gap:4px; align-items:center; flex-shrink:0; }
+  .ec-apl-nav{ display:flex; gap:6px; align-items:center; flex-shrink:0; }
+  .ec-apl-nav .pill{ display:inline-block; padding:3px 10px; border-radius:999px; font-size:11.5px;
+    font-weight:600; margin-right:2px; background:#f3f4f6; color:#4b5563; }
+  .ec-apl-nav .pill.Pending{ background:var(--navy-50); color:var(--navy); }
+  .ec-apl-nav .pill.Completed{ background:#ecfdf5; color:#047857; }
+  .ec-apl-nav .pill.Rejected{ background:#fef2f2; color:#dc2626; }
+  .ec-apl-nav .pill.Information{ background:#fffbeb; color:#b45309; }
   .ec-apl-ib{ border:1px solid #e5e7eb; background:#fff; border-radius:9px; width:30px; height:30px; cursor:pointer;
     color:#6b7280; font-size:15px; line-height:1; display:flex; align-items:center; justify-content:center;
     transition:background .12s, color .12s, border-color .12s; }
@@ -98,6 +104,7 @@
   .ec-apl-step.rej .bul{ border-color:#dc2626; background:#dc2626; color:#fff; }
   .ec-apl-step.rej .lb{ color:#dc2626; }
   .ec-apl-kv{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px 20px; }
+  .ec-apl-kv .wide{ grid-column:1/-1; }
   .ec-apl-kv .k{ font-size:11px; color:#9ca3af; font-weight:600; }
   .ec-apl-kv .v{ font-size:13.5px; color:#111827; font-weight:500; margin-top:1px; word-break:break-word; white-space:pre-wrap; }
   .ec-apl-files{ display:flex; flex-wrap:wrap; gap:7px; }
@@ -355,15 +362,21 @@
            + '<div class="lb">'+esc(l.level_name||("Cấp "+(l.level_no||idx+1)))+'</div></div>';
     }).join("")+'</div>';
   }
+  function isLong(f){
+    return /Text|Long|Markdown/.test(f.fieldtype||"") || String(f.value||"").length>60;
+  }
   function splitFields(fields){
-    var hl=[], rest=[];
+    var hl=[], rest=[], tail=[];
     fields.forEach(function(f){
       var lb=(f.label||"").toLowerCase();
       var money = f.fieldtype==="Currency";
       var keyed = HL_KEYS.some(function(k){ return lb.indexOf(k)>=0; });
-      if((money||keyed) && hl.length<4 && String(f.value).length<28) hl.push(f); else rest.push(f);
+      if(isLong(f)) tail.push(f);
+      else if((money||keyed) && hl.length<4 && String(f.value).length<28) hl.push(f);
+      else rest.push(f);
     });
-    return {hl:hl, rest:rest};
+    if(hl.length<2){ rest=hl.concat(rest); hl=[]; }   // 1 ô lẻ thì không thành "dải"
+    return {hl:hl, rest:rest.concat(tail)};
   }
   function drawDetail(box, reqName, d){
     var biz=d.business||{}, ap=d.approval||{}, cap=d.capabilities||{}, ff=d.fulfillment||{};
@@ -373,13 +386,15 @@
     var who=biz.requested_by||"";
     var parts=splitFields(d.display_fields||[]);
 
-    var hl='<div class="ec-apl-hl">'
-      +'<div><div class="k">Ngày gửi</div><div class="v">'+esc(fmtDT(biz.creation||ap.creation||biz.submitted_at).split(" ")[0])+'</div></div>'
+    // dải nổi bật chỉ đáng hiện khi có số liệu thật (tiền/số lượng/ngày cần);
+    // một mình "ngày gửi" thì thành cái hộp rỗng chiếm chỗ — đẩy lên header.
+    var hl = parts.hl.length ? ('<div class="ec-apl-hl">'
       +parts.hl.map(function(f){ return '<div><div class="k">'+esc(f.label)+'</div><div class="v">'+esc(fmtVal(f))+'</div></div>'; }).join("")
-      +'</div>';
+      +'</div>') : '';
 
     var fields=parts.rest.map(function(f){
-      return '<div><div class="k">'+esc(f.label)+'</div><div class="v">'+esc(fmtVal(f))+'</div></div>'; }).join("");
+      return '<div'+(isLong(f)?' class="wide"':'')+'><div class="k">'+esc(f.label)+'</div>'
+           + '<div class="v">'+esc(fmtVal(f))+'</div></div>'; }).join("");
 
     var files=(d.attachments||[]).map(function(a){
       return '<a class="ec-apl-file" href="'+esc(a.file_url)+'" target="_blank" rel="noopener">'
@@ -388,14 +403,17 @@
 
     var tl=(d.timeline||[]).slice(0,8).map(function(t){
       var raw=t.action||t.event||"", cls=/Approve|Duyệt|Complete/i.test(raw)?"ok":(/Reject|Từ chối/i.test(raw)?"no":"");
-      var act=ACT_VI[raw]||raw;
+      var act=ACT_VI[raw]||raw, when=fmtDT(t.creation||t.timestamp);
       return '<li class="'+cls+'"><b>'+esc(act)+'</b> · '+esc(t.actor||t.user||"")
-           +' <span class="when">'+fmtDT(t.creation||t.timestamp)+'</span>'
+           +(when&&when!=="—"?(' <span class="when">'+when+'</span>'):'')
            +(t.comment?('<span class="cmt">'+esc(t.comment)+'</span>'):'')+'</li>'; }).join("");
 
-    var ffTag = ff.status ? ('<span class="dot">·</span><span>'
+    var sent=fmtDT(biz.creation||ap.creation||biz.submitted_at).split(" ")[0];
+    var sentTag = sent && sent!=="—" ? ('<span class="dot">·</span><span>Gửi '+esc(sent)+'</span>') : '';
+    var ffTag = (ff.status && ff.status!=="Not Started") ? ('<span class="dot">·</span><span>'
       +esc({Assigned:"Chờ nhận xử lý","In Progress":"Đang xử lý",Completed:"Đã hoàn tất"}[ff.status]||ff.status)
       +(ff.owner?(" — "+esc(ff.owner)):"")+'</span>') : '';
+    var stPill = overall ? '<span class="pill '+pillCls(overall)+'">'+esc(statusLabel(overall))+'</span>' : '';
 
     var list=state.rowNames||[], k=list.indexOf(reqName);
     var nav = list.length>1
@@ -415,15 +433,14 @@
       +'<span class="dot">·</span><span>'+esc(d.type_title||"")+'</span>'
       +(who?('<span class="dot">·</span><span>'+esc(who)+'</span>'):'')
       +(biz.department?('<span class="dot">·</span><span>'+esc(biz.department)+'</span>'):'')
-      +ffTag+'</div></div>'
-      +'<div class="ec-apl-nav">'+nav
+      +sentTag+ffTag+'</div></div>'
+      +'<div class="ec-apl-nav">'+stPill+nav
       +'<button type="button" class="ec-apl-ib x" data-x="1" aria-label="Đóng">&times;</button></div></div>'
       +'<div class="ec-apl-mb">'
       +hl
       +(levels.length?('<div class="ec-apl-sec"><h4>Tiến trình duyệt</h4>'+stepperHtml(levels,cur,overall)+'</div>'):'')
       +(fields?('<div class="ec-apl-sec"><h4>Nội dung yêu cầu</h4><div class="ec-apl-kv">'+fields+'</div></div>'):'')
-      +'<div class="ec-apl-sec"><h4>Đính kèm</h4>'
-      +(files?('<div class="ec-apl-files">'+files+'</div>'):'<div class="ec-apl-empty">Không có tệp đính kèm.</div>')+'</div>'
+      +(files?('<div class="ec-apl-sec"><h4>Đính kèm</h4><div class="ec-apl-files">'+files+'</div></div>'):'')
       +(tl?('<div class="ec-apl-sec"><h4>Lịch sử xử lý</h4><ul class="ec-apl-tl">'+tl+'</ul></div>'):'')
       +'</div>'
       +'<div class="ec-apl-note" id="apl-note" hidden></div>'
