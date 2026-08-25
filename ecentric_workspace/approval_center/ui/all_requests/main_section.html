@@ -396,7 +396,7 @@
   }
   function closeDetail(){
     var ov=document.getElementById("ec-apl-ov");
-    if(ov){ ov.hidden=true; document.body.style.overflow=""; }
+    if(ov){ ov.hidden=true; lockScroll(false); }
     state.openReq=null;
   }
   function stepDetail(delta){
@@ -413,23 +413,45 @@
     if(f.fieldtype==="Datetime") return fmtDT(v);
     return String(v);
   }
-  function headerHtml(reqName, o){
+  // Khung thẻ dựng MỘT LẦN rồi chỉ đổ nội dung vào. Trước đây mỗi lần dữ liệu về lại gán
+  // innerHTML cho cả khung -> phần tử bị tạo lại -> hiệu ứng trượt chạy lần hai, nhìn như
+  // "mở thẻ cũ rồi mở thẻ mới".
+  function ensureShell(box){
+    var card=box.querySelector(".ec-apl-modal");
+    if(card) return card;
+    box.innerHTML='<div class="ec-apl-modal">'
+      +'<div class="ec-apl-mh"><div class="ec-apl-av" data-h="av"></div>'
+      +'<div class="ttl"><h3 data-h="title"></h3><div class="sub" data-h="sub"></div></div>'
+      +'<div class="ec-apl-nav" data-h="nav"></div></div>'
+      +'<div class="ec-apl-mb" data-h="body"></div>'
+      +'<div class="ec-apl-note" id="apl-note" hidden></div>'
+      +'<div class="ec-apl-mf" id="apl-foot" data-h="foot"></div></div>';
+    return box.querySelector(".ec-apl-modal");
+  }
+  function navHtml(reqName){
     var list=state.rowNames||[], k=list.indexOf(reqName);
     var nav = list.length>1
       ? '<button type="button" class="ec-apl-ib" data-step="-1" aria-label="Yêu cầu trước"'+(k<=0?" disabled":"")+'>&#8249;</button>'
        +'<button type="button" class="ec-apl-ib" data-step="1" aria-label="Yêu cầu sau"'+(k<0||k>=list.length-1?" disabled":"")+'>&#8250;</button>' : '';
+    return nav+'<button type="button" class="ec-apl-ib x" data-x="1" aria-label="Đóng">&times;</button>';
+  }
+  function fillHeader(box, reqName, o){
+    var q=function(k){ return box.querySelector('[data-h="'+k+'"]'); };
+    q("av").textContent = initials(o.who||o.title||reqName);
+    // Dòng danh sách KHÔNG có tiêu đề thật (chỉ có tên loại), nên lúc chờ để vệt xám ở chỗ
+    // tiêu đề thay vì điền tạm tên loại rồi thay chữ — đổi chữ giữa chừng chính là cái nháy.
+    q("title").innerHTML = o.title ? esc(o.title)
+      : '<span class="ec-apl-skel" style="width:260px;height:17px;display:block;margin:3px 0"></span>';
     var bits=[];
     if(o.type_title) bits.push('<span>'+esc(o.type_title)+'</span>');
     if(o.who) bits.push('<span>'+esc(o.who)+'</span>');
     if(o.department) bits.push('<span>'+esc(o.department)+'</span>');
     if(o.sent) bits.push('<span>Gửi '+esc(o.sent)+'</span>');
     if(o.extra) bits.push('<span>'+esc(o.extra)+'</span>');
-    return '<div class="ec-apl-mh"><div class="ec-apl-av">'+esc(initials(o.who||o.title))+'</div>'
-      +'<div class="ttl"><h3>'+esc(o.title||reqName)+'</h3>'
-      +'<div class="sub">'+(o.status?('<span class="pill '+pillCls(o.status)+'">'+esc(statusLabel(o.status))+'</span>'):'')
-      +bits.join('<span class="dot">·</span>')+'</div></div>'
-      +'<div class="ec-apl-nav">'+nav
-      +'<button type="button" class="ec-apl-ib x" data-x="1" aria-label="Đóng">&times;</button></div></div>';
+    q("sub").innerHTML = (o.status?('<span class="pill '+pillCls(o.status)+'">'+esc(statusLabel(o.status))+'</span>'):'')
+      + bits.join('<span class="dot">·</span>');
+    q("nav").innerHTML = navHtml(reqName);
+    bindShell(box);
   }
   function openDetail(reqName){
     if(!reqName) return;
@@ -439,27 +461,53 @@
     // trong cùng khung hình, chỉ phần thân mới phải chờ mạng.
     var r=(state.rowById||{})[reqName]||{};
     var send=r.requester_info||{};
+    var aside=box.querySelector(".ec-apl-aside"); if(aside) aside.remove();
     box.classList.add("solo");
-    box.innerHTML = '<div class="ec-apl-modal">'
-      + headerHtml(reqName,{ title:r.type||r.title, type_title:r.approval_type,
-        who:send.name||send.user||r.requester, department:r.department,
-        sent:r.submitted_at?fmtDT(r.submitted_at).split(" ")[0]:"", status:r.status })
-      +'<div class="ec-apl-mb" style="padding:20px">'
-      +'<div class="ec-apl-skel" style="width:45%;height:16px"></div>'
+    ensureShell(box);
+    fillHeader(box, reqName, { title:"", type_title:r.type||r.approval_type,
+      who:send.name||send.user||r.requester, department:r.department,
+      sent:r.submitted_at?fmtDT(r.submitted_at).split(" ")[0]:"", status:r.status });
+    box.querySelector('[data-h="body"]').innerHTML=
+       '<div class="ec-apl-skel" style="width:45%;height:16px"></div>'
       +'<div class="ec-apl-skel"></div><div class="ec-apl-skel" style="width:80%"></div>'
-      +'<div class="ec-apl-skel" style="width:60%"></div></div></div>';
+      +'<div class="ec-apl-skel" style="width:60%"></div>';
+    box.querySelector('[data-h="foot"]').innerHTML='<span class="grow"></span>'
+      +'<button type="button" class="btn" data-x="1">Đóng</button>';
     bindShell(box);
-    ov.hidden=false; document.body.style.overflow="hidden";
-    focusModal(box);
+    if(ov.hidden){ lockScroll(true); ov.hidden=false; focusModal(box); }
     frappe.call({method:ACT+"get_request_detail", args:{request_name:reqName}, type:"GET"})
       .then(function(r){ if(state.openReq===reqName) drawDetail(box, reqName, (r&&r.message)||{}); })
       .catch(function(e){
-        box.innerHTML='<div class="ec-apl-modal"><div class="ec-apl-mh"><div class="ttl"><h3>Không mở được yêu cầu</h3>'
-          +'<div class="sub">'+esc((e&&e.message)||reqName)+'</div></div>'
-          +'<div class="ec-apl-nav"><button type="button" class="ec-apl-ib x" data-x="1" aria-label="Đóng">&times;</button></div></div>'
-          +'<div class="ec-apl-mf"><span class="grow"></span><button type="button" class="btn" data-x="1">Đóng</button></div></div>';
+        setAside(box, "");
+        ensureShell(box);
+        fillHeader(box, reqName, { title:"Không mở được yêu cầu", type_title:"", who:"" });
+        box.querySelector('[data-h="body"]').innerHTML=
+          '<div class="ec-apl-sec"><div class="ec-apl-empty">'+esc((e&&e.message)||reqName)+'</div></div>';
+        box.querySelector('[data-h="foot"]').innerHTML='<span class="grow"></span>'
+          +'<button type="button" class="btn" data-x="1">Đóng</button>';
         bindShell(box);
       });
+  }
+  // Thẻ phải cũng cập nhật tại chỗ: dựng lại phần tử sẽ khiến nó trượt vào lần nữa.
+  function setAside(box, tl){
+    var aside=box.querySelector(".ec-apl-aside");
+    if(!tl){ if(aside) aside.remove(); return; }
+    if(!aside){
+      aside=document.createElement("aside"); aside.className="ec-apl-aside";
+      aside.innerHTML='<div class="hd">Lịch sử xử lý</div><div class="bd"></div>';
+      box.appendChild(aside);
+    }
+    aside.querySelector(".bd").innerHTML='<ul class="ec-apl-tl">'+tl+'</ul>';
+  }
+  // Khoá cuộn nền kèm bù bề rộng thanh cuộn: không bù thì trang co lại đúng lúc popup hiện ra,
+  // mắt thấy như cả màn hình giật một cái.
+  function lockScroll(on){
+    var b=document.body;
+    if(on){
+      var sw=window.innerWidth-document.documentElement.clientWidth;
+      b.style.overflow="hidden";
+      if(sw>0) b.style.paddingRight=sw+"px";
+    } else { b.style.overflow=""; b.style.paddingRight=""; }
   }
   function bindShell(box){
     Array.prototype.forEach.call(box.querySelectorAll('[data-x]'),function(b){ b.onclick=closeDetail; });
@@ -556,25 +604,21 @@
     if(cap.can_claim) acts.push('<button type="button" class="btn claim" data-a="claim">Nhận xử lý</button>');
 
     box.classList.toggle("solo", !tl);
-    box.innerHTML =
-      '<div class="ec-apl-modal">'
-      +headerHtml(reqName,{ title:title, type_title:d.type_title, who:who,
-        department:biz.department, sent:sent, status:overall, extra:ffText })
-      +'<div class="ec-apl-mb">'
-      +hl
+    ensureShell(box);
+    fillHeader(box, reqName, { title:title, type_title:d.type_title, who:who,
+      department:biz.department, sent:sent, status:overall, extra:ffText });
+    box.querySelector('[data-h="body"]').innerHTML =
+      hl
       +(levels.length?('<div class="ec-apl-sec"><h4>Tiến trình duyệt</h4>'+stepperHtml(levels,cur,overall)+'</div>'):'')
       +(fields?('<div class="ec-apl-sec"><h4>Nội dung yêu cầu</h4><div class="ec-apl-kv">'+fields+'</div></div>'):'')
-      +(files?('<div class="ec-apl-sec"><h4>Đính kèm</h4><div class="ec-apl-files">'+files+'</div></div>'):'')
-      +'</div>'
-      +'<div class="ec-apl-note" id="apl-note" hidden></div>'
-      +'<div class="ec-apl-mf" id="apl-foot">'
-      +(d.detail_route?('<a class="link" href="'+esc(withFrom(d.detail_route))+'">Mở trang đầy đủ</a>'):'')
+      +(files?('<div class="ec-apl-sec"><h4>Đính kèm</h4><div class="ec-apl-files">'+files+'</div></div>'):'');
+
+    box.querySelector('[data-h="foot"]').innerHTML =
+      (d.detail_route?('<a class="link" href="'+esc(withFrom(d.detail_route))+'">Mở trang đầy đủ</a>'):'')
       +'<span class="code">'+esc(reqName)+'</span>'
       +'<span class="grow"></span>'+acts.join("")
-      +'<button type="button" class="btn" data-x="1">Đóng</button></div></div>'
-      +(tl?('<aside class="ec-apl-aside"><div class="hd">Lịch sử xử lý</div>'
-           +'<div class="bd"><ul class="ec-apl-tl">'+tl+'</ul></div></aside>'):'');
-
+      +'<button type="button" class="btn" data-x="1">Đóng</button>';
+    setAside(box, tl);
     bindShell(box);
     Array.prototype.forEach.call(box.querySelectorAll('[data-a]'),function(b){
       b.onclick=function(){
