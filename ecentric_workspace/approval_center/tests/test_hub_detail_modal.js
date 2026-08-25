@@ -67,6 +67,13 @@ w.ApprovalAll.boot(); tick(function(){
   const boxNow=w.document.querySelector(".ec-apl-wrap").innerHTML;
   chk("header dung ngay tu du lieu dong", /Asset Request/.test(boxNow) && /An Le/.test(boxNow)
       && /Chờ duyệt/.test(boxNow) && /ec-apl-skel/.test(boxNow));
+  // Dòng danh sách không mang tiêu đề thật -> lúc chờ phải để vệt xám, KHÔNG điền tạm tên loại
+  // rồi thay chữ (đổi chữ giữa chừng chính là cái nháy Hoàn thấy).
+  const titleSlot=w.document.querySelector('[data-h="title"]');
+  chk("cho tai: tieu de la vet xam, khong phai chu tam",
+      !!titleSlot.querySelector(".ec-apl-skel") && titleSlot.textContent.trim()==="");
+  // Giữ NGUYÊN phần tử thẻ khi dữ liệu về; dựng lại sẽ chạy lại hiệu ứng trượt -> nháy.
+  w.__cardWhileLoading = w.document.querySelector(".ec-apl-modal");
   tick(function(){
     const ov=w.document.getElementById("ec-apl-ov");
     chk("mo popup", ov && !ov.hidden);
@@ -81,6 +88,10 @@ w.ApprovalAll.boot(); tick(function(){
     chk("lich su la THE RIENG ben phai", /<aside class="ec-apl-aside">[\s\S]*Lịch sử xử lý/.test(h)
         && !/ec-apl-modal[\s\S]*Lịch sử xử lý[\s\S]*<\/div><aside/.test(h));
     chk("co the phai thi bo gioi han hep", !box.classList.contains("solo"));
+    chk("khong dung lai the khi du lieu ve",
+        w.document.querySelector(".ec-apl-modal")===w.__cardWhileLoading);
+    chk("tieu de that da thay vet xam",
+        w.document.querySelector('[data-h="title"]').textContent.trim()==="Trả lại laptop cũ");
     chk("2 the la anh em, khong long nhau",
         box.children.length===2 && box.children[0].className==="ec-apl-modal"
         && box.children[1].className==="ec-apl-aside");
@@ -114,6 +125,8 @@ w.ApprovalAll.boot(); tick(function(){
         chk("gui kem ly do da trim", w.__action && /actions\.reject/.test(w.__action.method)
              && w.__action.args.comment==="thiếu biên bản");
         chk("tu dong sang ho so ke tiep", w.__detailFor==="EC-APR-2");
+        chk("chuyen ho so khong dung lai the",
+            w.document.querySelector(".ec-apl-modal")===w.__cardWhileLoading);
         const tt=w.document.getElementById("ec-apl-toast");
         chk("bao ket qua sau thao tac", tt && !tt.hidden && /Đã từ chối EC-APR-1/.test(tt.textContent)
             && tt.getAttribute("aria-live")==="polite");
