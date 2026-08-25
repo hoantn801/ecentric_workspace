@@ -110,3 +110,159 @@ def sync_mywork_tab():
         frappe.throw(_("Only System Manager may patch the HR tab bar."),
                      frappe.PermissionError)
     return {"results": [upgrade(r) for r in ROUTES]}
+
+
+# ---------------------------------------------------------------------------
+# ec-tabbar-shared-v1 -- thanh tab cho trang CHUA CO thanh nao (/viec-cua-toi).
+#
+# WHY THIS COPIES INSTEAD OF EMBEDDING
+#   The bar is not a small blob: ~3.2 KB of mobile app-shell CSS, ~1.8 KB of
+#   markup and a ~2.5 KB <script id="ec-cradle-js"> that DRAWS the notch (the
+#   <path d=""> ships empty) and lights the active tab from location.pathname.
+#   Pasting 7.5 KB of it in here would give the repo a second copy that drifts
+#   from the live pages the moment anyone restyles the bar -- the exact failure
+#   that made the home tile say 9 while the attendance ring said 1.
+#
+#   So this module keeps doing what its docstring promises: it governs the
+#   TRANSFORM, not the bytes. The bar is lifted from ONE canonical page at sync
+#   time. If the anchors ever stop matching exactly once, it refuses loudly
+#   instead of writing half a tab bar.
+SOURCE_ROUTE = "ec-hr/salary"       # smallest page carrying the finished bar
+BAR_MARKER = "ec-tabbar-shared-v1"
+
+CSS_ANCHOR = ".ec-tabwrap{display:none}"
+MQ_ANCHOR = "@media (max-width:900px){"
+HTML_OPEN = '<div class="ec-tabwrap">'
+HTML_CLOSE = "</span></div></div>"
+JS_OPEN = '<script id="ec-cradle-js">'
+JS_CLOSE = "</" + "script>"
+SOURCE_ROOT = "#ec-hr-sal-root"     # page-specific selector inside the CSS
+
+#: route -> the page's own root selector, which the copied CSS must be
+#: re-pointed at (it sets the bottom padding that keeps content off the bar).
+INSERT_TARGETS = {"viec-cua-toi": "#ec-mywork-root"}
+
+#: the 4th tab shipped WITHOUT data-p, so it never lit up as the active tab.
+MYWORK_A = '<a class="ec-tab-mywork" href="/viec-cua-toi">'
+MYWORK_A_ACTIVE = '<a class="ec-tab-mywork" href="/viec-cua-toi" data-p="/viec-cua-toi">'
+
+
+def _exactly_once(hay, needle, what, where):
+    n = hay.count(needle)
+    if n != 1:
+        raise ValueError("%s: expected %s exactly once, found %d" % (where, what, n))
+    return hay.index(needle)
+
+
+def _css_block(src):
+    """The bar's CSS plus the mobile app-shell rules it depends on, ending at
+    the close of the @media block. Brace-matched rather than string-matched:
+    the block nests, so a naive search for '}' cuts it in half."""
+    i = _exactly_once(src, CSS_ANCHOR, "css anchor", SOURCE_ROUTE)
+    j = src.index(MQ_ANCHOR, i)
+    depth = 0
+    for pos in range(src.index("{", j), len(src)):
+        c = src[pos]
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                return src[i:pos + 1]
+    raise ValueError("%s: tab bar css block never closes" % SOURCE_ROUTE)
+
+
+def _html_block(src):
+    i = _exactly_once(src, HTML_OPEN, "bar markup", SOURCE_ROUTE)
+    return src[i:src.index(HTML_CLOSE, i) + len(HTML_CLOSE)]
+
+
+def _js_block(src):
+    i = _exactly_once(src, JS_OPEN, "cradle script", SOURCE_ROUTE)
+    return src[i:src.index(JS_CLOSE, i) + len(JS_CLOSE)]
+
+
+def _with_active_hook(html):
+    """Give the 4th tab the data-p the cradle script matches on."""
+    if 'data-p="/viec-cua-toi"' in html:
+        return html
+    _exactly_once(html, MYWORK_A, "mywork tab", "bar markup")
+    return html.replace(MYWORK_A, MYWORK_A_ACTIVE, 1)
+
+
+def extract_bar():
+    name = frappe.db.get_value("Web Page", {"route": SOURCE_ROUTE}, "name")
+    if not name:
+        raise ValueError("source page %s is missing" % SOURCE_ROUTE)
+    src = frappe.db.get_value("Web Page", name, "main_section") or ""
+    return _css_block(src), _with_active_hook(_html_block(src)), _js_block(src)
+
+
+def insert_transform(ms, route, root_sel):
+    """Pure: append the shared bar to a page that has none."""
+    if BAR_MARKER in ms:
+        return ms                       # idempotent
+    if HTML_OPEN in ms:
+        raise ValueError("%s already carries a tab bar -- refusing to add a second" % route)
+    css, html, js = extract_bar()
+    css = css.replace(SOURCE_ROOT, root_sel)
+    if SOURCE_ROOT in css:
+        raise ValueError("%s: source root selector survived the rewrite" % route)
+    new = (ms + '\n<style id="' + BAR_MARKER + '">\n' + css + "\n</style>\n"
+           + html + "\n" + js + "\n")
+    if new.count(HTML_OPEN) != 1 or new.count(JS_OPEN) != 1:
+        raise ValueError("%s: bar did not settle" % route)
+    if new.count('id="' + BAR_MARKER + '"') != 1:
+        raise ValueError("%s: marker not written exactly once" % route)
+    return new
+
+
+def active_hook_transform(ms, route):
+    """Pure: add the missing data-p to an ALREADY patched page."""
+    if 'data-p="/viec-cua-toi"' in ms:
+        return ms
+    if MYWORK_A not in ms:
+        return ms                       # page has no mywork tab yet
+    _exactly_once(ms, MYWORK_A, "mywork tab", route)
+    return ms.replace(MYWORK_A, MYWORK_A_ACTIVE, 1)
+
+
+def _save(route, transform_fn):
+    name = frappe.db.get_value("Web Page", {"route": route}, "name")
+    if not name:
+        return {"action": "skipped", "reason": "page missing", "route": route}
+    ms = frappe.db.get_value("Web Page", name, "main_section") or ""
+    try:
+        new = transform_fn(ms)
+    except ValueError as e:
+        frappe.throw(_(str(e)))
+    if new == ms:
+        return {"action": "unchanged", "route": route, "name": name}
+    doc = frappe.get_doc("Web Page", name)
+    doc.main_section = new
+    doc.main_section_html = new
+    doc.save(ignore_permissions=True)
+    return {"action": "updated", "route": route, "name": name,
+            "len_before": len(ms), "len_after": len(new)}
+
+
+def upgrade_active_hook(route):
+    return _save(route, lambda ms: active_hook_transform(ms, route))
+
+
+def upgrade_insert(route, root_sel):
+    return _save(route, lambda ms: insert_transform(ms, route, root_sel))
+
+
+@frappe.whitelist(methods=["POST"])
+def sync_tabbar_everywhere():
+    """One entry point: replace the dead tab, give it its active hook, then put
+    the same bar on the pages that never had one. Order matters -- the bar is
+    copied FROM a page in ROUTES, so those must be correct first."""
+    if "System Manager" not in frappe.get_roles(frappe.session.user):
+        frappe.throw(_("Only System Manager may patch the tab bar."),
+                     frappe.PermissionError)
+    out = [upgrade(r) for r in ROUTES]
+    out += [upgrade_active_hook(r) for r in ROUTES]
+    out += [upgrade_insert(r, sel) for r, sel in INSERT_TARGETS.items()]
+    return {"results": out}
