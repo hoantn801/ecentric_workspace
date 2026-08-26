@@ -243,6 +243,14 @@ def _complete_dsr(dsr_name, dsr):
     return svc.verify_and_complete(dsr_name)
 
 
+def _profile_of(dsr):
+    """Profile name behind this DSR (via its package). Returns None when absent - the
+    caller then treats the handover as unconfigured and falls back, loudly."""
+    if not dsr.get("package"):
+        return None
+    return frappe.db.get_value("EC Digital Signature Package", dsr["package"], "profile")
+
+
 def process_signing_request(dsr_name):
     """State-aware worker. Safe to re-run at any time (reconciler re-entry)."""
     frappe.db.get_value(DSR, dsr_name, "name", for_update=True)
@@ -293,9 +301,31 @@ def process_signing_request(dsr_name):
                 raise ProviderError("scts_no_provider_transition",
                                     "no provider transitionType mapped for action %r"
                                     % dsr.action, retryable=False)
-            res = adapter.approve_and_sign([doc_id], dsr.effective_scts_user_id,
-                                           dsr.effective_signature_id,
-                                           transition_type=tt)  # 'approve' (never numeric)
+            # GOVERNED HANDOVER (2026-08-27). eContract broadcasts to the whole role pool
+            # unless the caller names the next handler - which is how somebody outside the
+            # chain signed EC-PAYR-2026-00026. Prefer the portal's own `transition` path
+            # with an explicit `toUsers`; fall back to the pool-wide call only when the next
+            # handler genuinely cannot be named, and RECORD why (never silently).
+            from ecentric_workspace.platform.esign import next_handler
+            stage = "requester" if dsr.actor_type == "Requester" else "approval"
+            plan = next_handler.plan_handover(dsr, _profile_of(dsr), settings.get("environment"),
+                                              stage=stage)
+            if plan["mode"] == "transition" and hasattr(adapter, "transition_with_recipients"):
+                events.emit("HandoverTargeted", signature_request=dsr_name, package=dsr.package,
+                            request_meta={"to_users": plan.get("to_users"),
+                                          "erp_users": plan.get("erp_users"),
+                                          "stage": stage})
+                res = adapter.transition_with_recipients(
+                    doc_id, dsr.effective_scts_user_id, plan["to_users"], plan["config"],
+                    dsr.effective_signature_id)
+            else:
+                events.emit("HandoverPoolFallback", signature_request=dsr_name,
+                            package=dsr.package,
+                            error_summary="next handler not named: %s" % plan.get("reason"),
+                            request_meta={"stage": stage, "reason": plan.get("reason")})
+                res = adapter.approve_and_sign([doc_id], dsr.effective_scts_user_id,
+                                               dsr.effective_signature_id,
+                                               transition_type=tt)  # 'approve' (never numeric)
             events.set_dsr_status(
                 dsr_name, "Provider Accepted",
                 extra_fields={"accepted_at": now_datetime(),

@@ -19,6 +19,8 @@
   "action",
   "transition_id",
   "transition_name",
+  "process_action",
+  "sign_type",
   "stage",
   "requires_comment",
   "terminal",
@@ -46,6 +48,18 @@
    "fieldtype": "Data",
    "label": "Transition Name",
    "in_list_view": 1
+  },
+  {
+   "fieldname": "process_action",
+   "label": "Process Action",
+   "fieldtype": "Data",
+   "description": "Provider action code for this transition (eContract: e.g. WfFunctionRunSignedOther). Captured from the provider portal - never invented."
+  },
+  {
+   "fieldname": "sign_type",
+   "label": "Sign Type",
+   "fieldtype": "Data",
+   "description": "Provider signature-type slug (eContract: e.g. ky-tham-gia). Must match the signature template the user owns."
   },
   {
    "fieldname": "stage",

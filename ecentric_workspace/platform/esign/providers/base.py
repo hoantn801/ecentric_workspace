@@ -121,6 +121,13 @@ class SignatureProviderAdapter(object):
     def execute_transition(self, instance_id, transition_id, meta=None):
         raise NotImplementedError
 
+    def transition_with_recipients(self, instance_id, provider_user_id, to_users, config,
+                                   signature_id, signature_name=None, comment=None):
+        """Sign AND name the next handler(s). Providers whose workflow would otherwise
+        broadcast to a role pool must implement this; the orchestrator prefers it and only
+        falls back to `approve_and_sign` when the next handler cannot be determined."""
+        raise NotImplementedError
+
     # --- status ---------------------------------------------------------------
     def poll_status(self, document_id):
         """Returns NormalizedDocState."""
