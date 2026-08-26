@@ -316,3 +316,25 @@ class TestNoChildTableQuery(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestProviderErrorIsDiagnosable(unittest.TestCase):
+    """Lỗi 400 phải NÓI RA field nào sai, không chỉ mã trạng thái.
+
+    Đêm 27/08 lỗi đầu chỉ có "SCTS rejected transition (HTTP 400)" — tốn nguyên một vòng
+    deploy mới biết thêm được gì. Rồi khi đã kèm nội dung thì bị cắt ở 200 ký tự, mà tài
+    liệu lỗi RFC 9110 để phần quan trọng (`errors`) ở CUỐI, nên vẫn không thấy.
+    """
+
+    def test_extracts_the_errors_object_rather_than_slicing_blindly(self):
+        with open("ecentric_workspace/platform/esign/providers/scts_client.py",
+                  encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn('data.get("errors")', src)
+        self.assertIn('"%s=%s" % (field, msgs)', src)
+
+    def test_audit_field_no_longer_truncates_at_200(self):
+        with open("ecentric_workspace/platform/esign/sanitize.py", encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn("if len(msg) > 500:", src)
+        self.assertNotIn("if len(msg) > 200:", src)
