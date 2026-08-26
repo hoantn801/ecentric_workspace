@@ -277,6 +277,25 @@
       if (S.open) renderList();
     });
   }
+  /**
+   * setInterval that skips ticks while the tab is hidden, and catches up once on re-focus.
+   * Falls back to a plain interval on browsers without the Page Visibility API.
+   */
+  function startVisibilityAwarePoll(fn, ms) {
+    var missed = false;
+    var supported = (typeof document.hidden === 'boolean');
+    setInterval(function () {
+      if (supported && document.hidden) { missed = true; return; }
+      try { fn(); } catch (e) { console.warn('[ec-notification-center] poll failed', e); }
+    }, ms);
+    if (!supported) return;
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden || !missed) return;
+      missed = false;
+      try { fn(); } catch (e) { console.warn('[ec-notification-center] refresh-on-focus failed', e); }
+    });
+  }
+
   function refreshCount() {
     call('get_unread_count', 'GET', {}, function (msg) {
       if (!msg || !msg.success) return;
@@ -671,7 +690,11 @@
     wireRealtime();
     // Always keep a slow badge poll as a safety net: realtime drives instant toast/sound/
     // desktop, but if the socket is unavailable the unread badge still stays correct.
-    setInterval(refreshCount, POLL_MS);
+    // BACKGROUND TABS DO NOT POLL (2026-08-26): this script loads on every page, so a user
+    // with ten tabs open all day was making ten times this call for nine screens nobody was
+    // looking at. Compute audit showed site-wide polling - not cron - was the main consumer.
+    // On becoming visible again we refresh once, so the badge is never stale when it matters.
+    startVisibilityAwarePoll(refreshCount, POLL_MS);
     console.log('[ec-notification-center] installed (global delegated capture loader)');
   }
 
