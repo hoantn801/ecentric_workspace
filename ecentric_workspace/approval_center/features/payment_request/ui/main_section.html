@@ -194,13 +194,36 @@
   // ======================= CREATE =======================
   function infoRequiredBannerHTML(){ var i=state._infoCtx||{}; return '<div class="banner warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div><b>Cần bổ sung thông tin.</b> Cấp: '+esc(i.level||"—")+(i.approver?(' · '+esc(i.approver)):'')+(i.comment?('<br>“'+esc(i.comment)+'”'):'')+'</div></div>'; }
 
-  function prSelectHTML(d){ var opts=state._prOptions||[];
-    if(!opts.length){ return '<select data-model="purchase_request"><option value="">— Không có Purchase Request đã duyệt —</option>'+(d.purchase_request?('<option value="'+esc(d.purchase_request)+'" selected>'+esc(d.purchase_request)+'</option>'):'')+'</select><div class="hint">Chỉ hiển thị Purchase Request của bạn đã được duyệt.</div>'; }
-    return '<select data-model="purchase_request"><option value="">— Chọn Purchase Request —</option>'+opt(opts,d.purchase_request||"")+'</select>'; }
+  // --- Nguon chi phi (funding source) ---------------------------------------
+  // Chon LOAI nguon (DNMH / PO so EC) roi chon chung tu. Chon xong tu dien nguoi nhan +
+  // so tien CON LAI. "Da tra bao nhieu" do backend TINH tu cac DNTT tro toi nguon,
+  // khong luu tren chung tu nguon -> khong bao gio lech.
+  function fmtVnd(n){ var x=Number(n||0); return (isFinite(x)?x:0).toLocaleString("vi-VN"); }
+  function srcTypeSelectHTML(d){ var types=state._fundTypes||[];
+    var o='<option value="">— Chọn loại —</option>';
+    for(var i=0;i<types.length;i++){ var t=types[i];
+      o+='<option value="'+esc(t.value)+'"'+(d.funding_source_doctype===t.value?' selected':'')+'>'+esc(t.label)+'</option>'; }
+    return '<select data-model="funding_source_doctype">'+o+'</select>'; }
+  function srcNameSelectHTML(d){
+    var dt=d.funding_source_doctype||"";
+    if(!dt) return '<select data-model="funding_source_name" disabled><option value="">— Chọn loại nguồn trước —</option></select>';
+    if(state._fundLoading) return '<select data-model="funding_source_name" disabled><option value="">Đang tải…</option></select>';
+    var opts=state._fundRows||[];
+    if(!opts.length) return '<select data-model="funding_source_name"><option value="">— Không có chứng từ đã duyệt —</option>'+(d.funding_source_name?('<option value="'+esc(d.funding_source_name)+'" selected>'+esc(d.funding_source_name)+'</option>'):'')+'</select><div class="hint">Chỉ hiện chứng từ của bạn đã được duyệt và còn số dư.</div>';
+    var o='<option value="">— Chọn chứng từ —</option>';
+    for(var i=0;i<opts.length;i++){ var r=opts[i];
+      o+='<option value="'+esc(r.value)+'"'+(d.funding_source_name===r.value?' selected':'')+'>'+esc(r.label)+' · còn '+fmtVnd(r.remaining)+'đ</option>'; }
+    return '<select data-model="funding_source_name">'+o+'</select>'; }
+  function fundingHintHTML(){ var f=state._fundSummary; if(!f) return "";
+    var over=(Number((state.draft||{}).payment_amount)||0) > (Number(f.remaining)||0)+0.5;
+    return '<div class="hint'+(over?' err':'')+'" id="payr-fund-hint">Tổng: <b>'+fmtVnd(f.total)+'đ</b> · đã thanh toán: <b>'+fmtVnd(f.used)+'đ</b> · còn lại: <b>'+fmtVnd(f.remaining)+'đ</b>'+(over?' — số tiền đang vượt phần còn lại.':'')+'</div>'; }
 
   function formCardsHTML(d,c,fo){
     var yn=fo.yes_no||["Yes","No"]; var hpr=d.has_purchase_request||"";
-    var prField=(hpr==="Yes")?fld("purchase_request","Purchase Request liên quan",prSelectHTML(d),true).replace('class="fld','class="fld full'):"";
+    var prField=(hpr==="Yes")?(
+        fld("funding_source_doctype","Loại nguồn chi phí",srcTypeSelectHTML(d),true)
+      + fld("funding_source_name","Chứng từ nguồn",srcNameSelectHTML(d)+fundingHintHTML(),true).replace('class="fld','class="fld full')
+      ):"";
     var noPrField=(hpr==="No")?fld("no_purchase_request_reason","Lý do không có Purchase Request",'<textarea data-model="no_purchase_request_reason" rows="2" placeholder="Nêu lý do không có Purchase Request.">'+esc(d.no_purchase_request_reason||"")+'</textarea>',true).replace('class="fld','class="fld full'):"";
     return '<div class="card"><h3>Người yêu cầu</h3><div class="grid2">'
       + fld("_r1","Người yêu cầu",'<input class="ro" readonly value="'+esc(c.employee_name||c.user||"")+'">')
@@ -214,8 +237,8 @@
       + fld("bank_account_number","Số tài khoản",'<input data-model="bank_account_number" value="'+esc(d.bank_account_number||"")+'">',true)
       + '<div></div>'
       + fld("reason","Lý do / nội dung thanh toán",'<textarea data-model="reason" rows="3" placeholder="Mô tả lý do / nội dung khoản thanh toán.">'+esc(d.reason||"")+'</textarea>',true).replace('class="fld','class="fld full')
-      + '</div></div><div class="card"><h3>Purchase Request</h3><div class="grid2">'
-      + fld("has_purchase_request","Có Purchase Request?",'<select data-model="has_purchase_request"><option value="">— Chọn —</option>'+opt(yn,hpr)+'</select>',true)
+      + '</div></div><div class="card"><h3>Nguồn chi phí</h3><div class="grid2">'
+      + fld("has_purchase_request","Khoản chi này có chứng từ mua hàng?",'<select data-model="has_purchase_request"><option value="">— Chọn —</option>'+opt(yn,hpr)+'</select>',true)
       + '<div></div>'
       + prField + noPrField
       + '</div></div><div class="card"><h3>Xác nhận</h3><div class="grid2">'
@@ -277,7 +300,12 @@
     if(!((d.is_cost_valid||"").toString().trim())) errs.is_cost_valid="Vui lòng chọn chi phí hợp lệ.";
     if(d.details_and_attachments_correct!=="Yes") errs.details_and_attachments_correct="Vui lòng tích xác nhận thông tin và tệp đính kèm là chính xác.";
     if(!((d.request_attachment||"").toString().trim())) errs.request_attachment="Vui lòng đính kèm tệp (bắt buộc).";
-    if(d.has_purchase_request==="Yes"){ if(!((d.purchase_request||"").toString().trim())) errs.purchase_request="Vui lòng chọn Purchase Request liên quan."; }
+    if(d.has_purchase_request==="Yes"){
+      if(!((d.funding_source_doctype||"").toString().trim())) errs.funding_source_doctype="Vui lòng chọn loại nguồn chi phí.";
+      if(!((d.funding_source_name||"").toString().trim())) errs.funding_source_name="Vui lòng chọn chứng từ nguồn.";
+      var f=state._fundSummary;
+      if(f && Number(d.payment_amount)>Number(f.remaining)+0.5) errs.payment_amount="Số tiền vượt phần còn lại của chứng từ nguồn (còn "+fmtVnd(f.remaining)+"đ).";
+    }
     else if(d.has_purchase_request==="No"){ if(!((d.no_purchase_request_reason||"").toString().trim())) errs.no_purchase_request_reason="Vui lòng nhập lý do không có Purchase Request."; }
     return Object.keys(errs).length?errs:null; }
   function mapErr(e){ var m=(e&&e.message)||"";
@@ -300,6 +328,8 @@
   function onModelInput(el){ var k=el.getAttribute("data-model");
     var v=el.type==="checkbox"?(el.checked?"Yes":"No"):(el.type==="number"?(el.value===""?null:Number(el.value)):el.value); setModel(k,v);
     if(k==="has_purchase_request"){ handleHPRChange(v); return; }
+    if(k==="funding_source_doctype"){ handleSrcTypeChange(v); return; }
+    if(k==="funding_source_name"){ handleSrcPick(v); return; }
     renderSummary(); clearFieldError(k); }
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
     if(el.type==="checkbox"||el.type==="radio"){ el.addEventListener("change",function(){ onModelInput(el); }); el.addEventListener("input",function(){ onModelInput(el); }); return; }
@@ -308,10 +338,52 @@
   function wireModels(scope){ (scope||document).querySelectorAll("[data-model]").forEach(attachModel); }
   function handleHPRChange(v){ clearFieldError("has_purchase_request");
     if(v==="Yes"){ ensurePROptions(function(){ renderCreate($("payr-body")); }); }
-    else { renderCreate($("payr-body")); } }
-  function ensurePROptions(cb){ if(state._prLoaded){ cb&&cb(); return; }
-    call("list_approved_purchase_requests",{}).then(function(res){ state._prOptions=(res&&res.rows)||[]; state._prLoaded=true; cb&&cb(); })
-    .catch(function(){ state._prOptions=[]; state._prLoaded=true; cb&&cb(); }); }
+    else { // "Khong" -> xoa moi dau vet nguon de draft cu khong lot qua
+      setModel("funding_source_doctype",""); setModel("funding_source_name","");
+      state._fundRows=[]; state._fundSummary=null; renderCreate($("payr-body")); } }
+
+  // Ban ghi/draft cu chi co `purchase_request` -> nang len cap field generic de form hien dung.
+  function promoteLegacySource(d){ if(!d) return;
+    if(!d.funding_source_name && d.purchase_request){ d.funding_source_doctype="EC Purchase Request"; d.funding_source_name=d.purchase_request; } }
+
+  // Nap danh muc LOAI nguon (va rows neu da chon san loai) - goi 1 lan.
+  function ensurePROptions(cb){ if(state._fundTypesLoaded){ cb&&cb(); return; }
+    var dt=(state.draft||{}).funding_source_doctype||"";
+    call("list_funding_sources",{source_doctype:dt}).then(function(res){
+      state._fundTypes=(res&&res.types)||[]; state._fundRows=(res&&res.rows)||[];
+      state._fundTypesLoaded=true; cb&&cb();
+    }).catch(function(e){ state._fundTypes=[]; state._fundRows=[]; state._fundTypesLoaded=true;
+      toast(mapErr(e)||"Không tải được danh sách nguồn chi phí.",true); cb&&cb(); }); }
+
+  function handleSrcTypeChange(v){ clearFieldError("funding_source_doctype");
+    setModel("funding_source_name",""); state._fundRows=[]; state._fundSummary=null;
+    if(!v){ renderCreate($("payr-body")); return; }
+    state._fundLoading=true; renderCreate($("payr-body"));
+    call("list_funding_sources",{source_doctype:v}).then(function(res){
+      state._fundRows=(res&&res.rows)||[]; state._fundLoading=false; renderCreate($("payr-body"));
+    }).catch(function(e){ state._fundRows=[]; state._fundLoading=false; renderCreate($("payr-body"));
+      toast(mapErr(e)||"Không tải được chứng từ nguồn.",true); }); }
+
+  // Chon chung tu -> tu dien nguoi nhan + so tien CON LAI (nguoi dung sua duoc de tra tung dot).
+  function handleSrcPick(v){ clearFieldError("funding_source_name");
+    state._fundSummary=null;
+    if(!v){ renderCreate($("payr-body")); return; }
+    var row=null, rows=state._fundRows||[];
+    for(var i=0;i<rows.length;i++){ if(rows[i].value===v){ row=rows[i]; break; } }
+    if(row){
+      if(!((state.draft||{}).payee_full_name||"").trim() && row.payee) setModel("payee_full_name",row.payee);
+      var cur=Number((state.draft||{}).payment_amount);
+      if(!cur || cur<=0) setModel("payment_amount", Math.max(0,Number(row.remaining)||0));
+      if(!((state.draft||{}).request_title||"").trim() && row.title) setModel("request_title",row.title);
+      state._fundSummary={total:row.total,used:row.used,remaining:row.remaining};
+    }
+    renderCreate($("payr-body"));
+    // Doc lai so du tu server: nguoi khac co the vua tru vao cung chung tu.
+    var dt=(state.draft||{}).funding_source_doctype||"";
+    call("funding_source_summary",{source_doctype:dt,source_name:v,exclude_request:state.id||""})
+      .then(function(res){ if(!res) return; state._fundSummary=res;
+        var h=$("payr-fund-hint"); if(h){ var box=document.createElement("div"); box.innerHTML=fundingHintHTML(); if(box.firstChild) h.replaceWith(box.firstChild); } })
+      .catch(function(){ /* da co so tam tu picker, khong lam phien nguoi dung */ }); }
 
   function uploadFile(fileInput,field,labelId){ var files=fileInput.files?Array.prototype.slice.call(fileInput.files):[]; if(!files.length) return;
     var lbl=$(labelId); if(lbl) lbl.textContent="Đang tải...";
@@ -524,20 +596,20 @@
   function doAdminApprove(name){ modal("Duyệt thay bước hiện tại", '<div class="banner warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div>Bạn đang duyệt thay cho bước phê duyệt hiện tại bằng quyền System Manager. Hành động này sẽ được ghi nhận trong lịch sử và không giả lập người duyệt gốc.</div></div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Xác nhận duyệt thay", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
     return call("admin_approve_current_level",{name:name,reason:c}).then(function(){ toast("Đã duyệt thay bước hiện tại. Yêu cầu đã được chuyển sang bước tiếp theo."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
 
-  function startEditDraft(det){ state.draft=Object.assign({}, det.business||{}); state.id=(det.business||{}).name; state.mode="create"; if(state.draft.has_purchase_request==="Yes"){ ensurePROptions(function(){ renderCreate($("payr-body")); }); } else { renderCreate($("payr-body")); } }
+  function startEditDraft(det){ state.draft=Object.assign({}, det.business||{}); state.id=(det.business||{}).name; state.mode="create"; if(state.draft.has_purchase_request==="Yes"){ promoteLegacySource(state.draft); ensurePROptions(function(){ renderCreate($("payr-body")); }); } else { renderCreate($("payr-body")); } }
   function doSubmitDraft(name){ if(state.busy)return; state.busy=true; var btns=Array.prototype.slice.call(document.querySelectorAll('[data-act="submitdraft"],[data-act="editdraft"]')); btns.forEach(function(b){ b.disabled=true; });
     call("submit_request",{name:name}).then(function(){ toast("Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến Quản lý trực tiếp phê duyệt."); refreshDetail(); }).catch(function(e){ if(!applyBackendError(e)){ if(window.console&&console.error) console.error("Payment Request submit error:",e); toast(friendlyErr(e),true); } btns.forEach(function(b){ b.disabled=false; }); }).then(function(){ state.busy=false; }); }
   function startEditResubmit(det){ var ap=det.approval||{}; var lvl=(det.levels||[]).find(function(l){return l.level_no===ap.information_requested_from_level;});
     var ia=(det.approvers||[]).filter(function(a){return a.status==="Information Requested";})[0]||{};
     state._infoCtx={ level:(lvl?lvl.level_name:ap.information_requested_from_level), approver:ia.approver, comment:ia.comment };
     state._editDet=det; state.draft=Object.assign({}, det.business||{}); state.id=det.business.name; state.mode="edit";
-    if(state.draft.has_purchase_request==="Yes"){ ensurePROptions(function(){ renderCreate($("payr-body")); }); } else { renderCreate($("payr-body")); } }
+    if(state.draft.has_purchase_request==="Yes"){ promoteLegacySource(state.draft); ensurePROptions(function(){ renderCreate($("payr-body")); }); } else { renderCreate($("payr-body")); } }
 
   function boot(){ ensureActionHandlers(); var t=$("payr-tabs"); if(t){ t.addEventListener("click",function(e){ var b=e.target.closest("[data-tab]"); if(b&&!b.disabled){ state.page=0; go({tab:b.getAttribute("data-tab")}); } }); }
     call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(){ var bd=$("payr-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.PaymentRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate };
+  window.PaymentRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate, handleHPRChange:handleHPRChange, handleSrcTypeChange:handleSrcTypeChange, handleSrcPick:handleSrcPick, promoteLegacySource:promoteLegacySource, fmtVnd:fmtVnd };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>
