@@ -196,7 +196,9 @@ class SctsClient(object):
             "instanceId": instance_id,
             "userId": user_id,
             "toUsers": list(to_users or []),
-            "transitionId": transition_id,
+            # The portal sends transitionId as a STRING ("-2"), not a number. eContract rejected
+            # the numeric form with a bare HTTP 400, so mirror the captured payload exactly.
+            "transitionId": str(transition_id),
             "transitionName": transition_name,
             "processAction": process_action,
             "signType": sign_type,
@@ -225,8 +227,11 @@ class SctsClient(object):
             raise ProviderError("scts_bulk_outcome_unknown",
                                 "transition outcome unknown (HTTP %s)" % status,
                                 retryable=False, ambiguous=True)
+        # A bare status code is not diagnosable: echo the provider's own message (trimmed and
+        # sanitized) so the next 400 says WHICH field it disliked instead of costing a round trip.
         raise ProviderError("scts_transition_rejected_%s" % status,
-                            "SCTS rejected transition (HTTP %s)" % status, retryable=False)
+                            "SCTS rejected transition (HTTP %s): %s"
+                            % (status, self._safe_body(resp)), retryable=False)
 
     def bulk_process(self, instance_ids, user_id, signature_id, transition_type, token):
         """POST /api/Workflow/bulk-process -> raw payload. ASYNC ACCEPTED semantics:

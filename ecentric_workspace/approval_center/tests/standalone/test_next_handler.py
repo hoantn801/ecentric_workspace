@@ -242,6 +242,39 @@ class TestPlanHandover(Base):
         self.assertEqual(plan["unmapped"], ["khong@ec.vn"])
 
 
+class TestHandoverNeverBreaksSigning(unittest.TestCase):
+    """Chỉ định người kế tiếp là CẢI TIẾN đặt lên một đường vốn đã chạy được.
+
+    Đêm 27/08 nó làm hỏng đúng đường đó hai lần: lần đầu vì ImportError, lần sau vì
+    eContract từ chối payload mới với HTTP 400 — DSR thành Permanent Failure trong khi
+    trước đó chân người trình vẫn ký được bình thường. Khoá lại bằng cách soi mã: cả khâu
+    LẬP KẾ HOẠCH lẫn LỜI GỌI đều phải có đường lùi, và lùi thì phải để lại dấu vết.
+    """
+
+    def _tasks_src(self):
+        with open("ecentric_workspace/platform/esign/tasks.py", encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_planning_failure_degrades_instead_of_propagating(self):
+        src = self._tasks_src()
+        self.assertIn("handover_planning_failed", src)
+
+    def test_definite_rejection_falls_back_to_the_proven_path(self):
+        src = self._tasks_src()
+        self.assertIn("transition_rejected_falling_back", src)
+
+    def test_ambiguous_outcome_is_never_resent(self):
+        """Timeout/5xx có thể đã được áp dụng rồi — gửi lại là ký hai lần."""
+        src = self._tasks_src()
+        self.assertIn('if getattr(exc, "ambiguous", False):', src)
+        self.assertIn("raise", src)
+
+    def test_every_fallback_leaves_a_trace(self):
+        src = self._tasks_src()
+        self.assertGreaterEqual(src.count("HandoverPoolFallback"), 2,
+                                "moi duong lui deu phai ghi su kien, khong duoc im lang")
+
+
 class TestNoChildTableQuery(unittest.TestCase):
     """Bảng con không được truy vấn bằng get_all() thiếu parent.
 

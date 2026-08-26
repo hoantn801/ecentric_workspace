@@ -320,19 +320,34 @@ def process_signing_request(dsr_name):
                 plan = {"mode": "pool", "reason": "handover_planning_failed:%s"
                                                   % type(exc).__name__}
                 frappe.log_error(frappe.get_traceback(), "esign handover planning failed")
+            res = None
             if plan["mode"] == "transition" and hasattr(adapter, "transition_with_recipients"):
                 events.emit("HandoverTargeted", signature_request=dsr_name, package=dsr.package,
                             request_meta={"to_users": plan.get("to_users"),
                                           "erp_users": plan.get("erp_users"),
                                           "stage": stage})
-                res = adapter.transition_with_recipients(
-                    doc_id, dsr.effective_scts_user_id, plan["to_users"], plan["config"],
-                    dsr.effective_signature_id)
-            else:
-                events.emit("HandoverPoolFallback", signature_request=dsr_name,
-                            package=dsr.package,
-                            error_summary="next handler not named: %s" % plan.get("reason"),
-                            request_meta={"stage": stage, "reason": plan.get("reason")})
+                try:
+                    res = adapter.transition_with_recipients(
+                        doc_id, dsr.effective_scts_user_id, plan["to_users"], plan["config"],
+                        dsr.effective_signature_id)
+                except ProviderError as exc:
+                    # A DEFINITE rejection (4xx) means the provider did NOT act, so re-sending
+                    # through the older proven path is safe and is not a double-sign. An
+                    # AMBIGUOUS outcome (timeout/5xx) may already have been applied - never
+                    # resend that one. Naming the next handler is an improvement layered on a
+                    # path that already worked; it must never stop signing altogether.
+                    if getattr(exc, "ambiguous", False):
+                        raise
+                    events.emit("HandoverPoolFallback", signature_request=dsr_name,
+                                package=dsr.package, error_summary=safe_error(exc),
+                                request_meta={"stage": stage,
+                                              "reason": "transition_rejected_falling_back"})
+            if res is None:
+                if plan["mode"] != "transition":
+                    events.emit("HandoverPoolFallback", signature_request=dsr_name,
+                                package=dsr.package,
+                                error_summary="next handler not named: %s" % plan.get("reason"),
+                                request_meta={"stage": stage, "reason": plan.get("reason")})
                 res = adapter.approve_and_sign([doc_id], dsr.effective_scts_user_id,
                                                dsr.effective_signature_id,
                                                transition_type=tt)  # 'approve' (never numeric)
