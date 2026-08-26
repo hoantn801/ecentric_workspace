@@ -29,6 +29,8 @@
   "sb_pr",
   "has_purchase_request",
   "purchase_request",
+  "funding_source_doctype",
+  "funding_source_name",
   "no_purchase_request_reason",
   "sb_chk",
   "is_cost_valid",
@@ -167,6 +169,20 @@
    "fieldtype": "Link",
    "label": "Purchase request",
    "options": "EC Purchase Request"
+  },
+  {
+   "fieldname": "funding_source_doctype",
+   "label": "Loại nguồn chi phí",
+   "fieldtype": "Select",
+   "options": "\nEC Purchase Request\nPurchase Order",
+   "description": "Chứng từ cam kết chi mà khoản thanh toán này trừ vào. Bỏ trống = chi độc lập."
+  },
+  {
+   "fieldname": "funding_source_name",
+   "label": "Chứng từ nguồn",
+   "fieldtype": "Dynamic Link",
+   "options": "funding_source_doctype",
+   "depends_on": "eval:doc.funding_source_doctype"
   },
   {
    "fieldname": "no_purchase_request_reason",

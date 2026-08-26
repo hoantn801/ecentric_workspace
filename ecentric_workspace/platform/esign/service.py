@@ -9,6 +9,7 @@ provider-verified DSR that esign.guard re-validates against the DB under lock.
 Never: raw approval-state writes, provider payloads (adapter-only), frontend-supplied
 identity (mapping-only), completion on 'accepted' (three-concept separation).
 """
+from datetime import timedelta
 import frappe
 from frappe import _
 from frappe.utils import now_datetime
@@ -198,11 +199,23 @@ def _expected_for(dsr):
     pkg = frappe.db.get_value("EC Digital Signature Package", dsr.package,
                               ["scts_document_id"], as_dict=True)
     file_count = frappe.db.count("EC Digital Signature File", {"package": dsr.package})
+    # FRESHNESS bound (2026-08-27): the signature that satisfies THIS leg must be newer
+    # than the moment the leg was queued. Email-only matching used to accept a signature
+    # the same person had made for a DIFFERENT leg earlier (see verify_signed_result).
+    from ecentric_workspace.platform.esign.providers.base import SignatureProviderAdapter
+    asked_at = dsr.get("queued_at") or dsr.get("creation")
+    signed_after = None
+    if asked_at:
+        parsed = SignatureProviderAdapter._parse_provider_time(asked_at)
+        if parsed:
+            signed_after = parsed - timedelta(
+                seconds=SignatureProviderAdapter.SIGN_TIME_TOLERANCE_SECONDS)
     return {"document_id": pkg.scts_document_id, "user_id": dsr.effective_scts_user_id,
             "signature_id": dsr.effective_signature_id, "file_count": file_count,
             # eContract detail identifies internal signers by EMAIL only (no userIds);
             # the ERP user id IS the company email of the bound signer.
-            "email": dsr.actor_user or dsr.approver}
+            "email": dsr.actor_user or dsr.approver,
+            "signed_after": signed_after}
 
 
 def mark_verified(dsr_name, doc_state):

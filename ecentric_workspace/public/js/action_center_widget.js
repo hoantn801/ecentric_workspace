@@ -187,9 +187,30 @@
     }
   }
 
+  /**
+   * setInterval that skips ticks while the tab is hidden, and catches up once on re-focus.
+   * See the 2026-08-26 compute audit: this widget loads on every page, so every background
+   * tab was fetching a list nobody could see. Falls back to a plain interval where the
+   * Page Visibility API is unavailable.
+   */
+  function startVisibilityAwarePoll(fn, ms) {
+    var missed = false;
+    var supported = (typeof document.hidden === 'boolean');
+    setInterval(function () {
+      if (supported && document.hidden) { missed = true; return; }
+      try { fn(); } catch (e) { console.warn('[ec-action-center] poll failed', e); }
+    }, ms);
+    if (!supported) return;
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden || !missed) return;
+      missed = false;
+      try { fn(); } catch (e) { console.warn('[ec-action-center] refresh-on-focus failed', e); }
+    });
+  }
+
   function init() {
     loadItems();
-    setInterval(loadItems, 90000);
+    startVisibilityAwarePoll(loadItems, 90000);
   }
 
   if (document.readyState === 'loading') {
