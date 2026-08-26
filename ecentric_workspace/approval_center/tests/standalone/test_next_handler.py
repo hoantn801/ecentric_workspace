@@ -360,3 +360,42 @@ class TestPollingLeavesATrace(unittest.TestCase):
         with open("ecentric_workspace/platform/esign/tasks.py", encoding="utf-8") as fh:
             src = fh.read()
         self.assertGreaterEqual(src.count("verification_result=vr.reason"), 2)
+
+
+class TestDiagnosticEndpointExists(unittest.TestCase):
+    """Phải có cách nhìn thấy dữ liệu nhà cung cấp trả về mà KHÔNG cần deploy thêm code.
+
+    Đêm 27/08 mất nhiều giờ đoán vì sao một chân ký không xác minh được, trong khi chữ ký
+    đã nằm sẵn trên PDF. Không endpoint nào đọc được trạng thái chứng từ phía nhà cung cấp,
+    nên mỗi câu hỏi tốn một vòng deploy. Đó là lỗ hổng công cụ, không phải lỗi suy luận.
+    """
+
+    def _api_src(self):
+        with open("ecentric_workspace/platform/esign/api.py", encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_endpoint_is_whitelisted_and_read_only(self):
+        src = self._api_src()
+        self.assertIn("def esign_document_state(payment_request_name):", src)
+        idx = src.index("def esign_document_state")
+        head = src[max(0, idx - 200):idx]
+        self.assertIn("@frappe.whitelist()", head, "phai la lenh DOC, khong methods=POST")
+
+    def test_it_is_system_manager_only(self):
+        src = self._api_src()
+        body = src[src.index("def esign_document_state"):]
+        body = body[:body.index("@frappe.whitelist", 10)]
+        self.assertIn("assert_system_manager()", body)
+
+    def test_it_replays_the_real_verification(self):
+        """Trả về lý do do CHÍNH bộ kiểm chứng sinh ra, không phải một bản diễn giải khác."""
+        src = self._api_src()
+        body = src[src.index("def esign_document_state"):]
+        self.assertIn("verify_signed_result(state, expected)", body)
+        self.assertIn("svc._expected_for", body)
+
+    def test_it_never_returns_the_raw_payload(self):
+        src = self._api_src()
+        body = src[src.index("def esign_document_state"):]
+        body = body[:body.index("@frappe.whitelist", 10)]
+        self.assertNotIn("state.raw", body, "payload tho co the chua du lieu nhay cam")
