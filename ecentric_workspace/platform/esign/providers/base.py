@@ -3,6 +3,7 @@
 orchestrator never construct provider payloads - adapters own field names, Base64
 conversion, provider IDs, transition payloads, async 'accepted' handling, polling
 normalization, file retrieval and error mapping."""
+from datetime import datetime
 
 
 class ProviderError(Exception):
@@ -128,6 +129,38 @@ class SignatureProviderAdapter(object):
     def normalize_error(self, exc_or_response):
         raise NotImplementedError
 
+    #: Clock skew + minute-granularity slack when comparing provider sign time against the
+    #: moment we queued the request. Wide enough for a provider that reports HH:MM only,
+    #: far narrower than any realistic "somebody else signed earlier" gap.
+    SIGN_TIME_TOLERANCE_SECONDS = 120
+
+    @staticmethod
+    def _parse_provider_time(value):
+        """Parse a provider timestamp into a naive datetime, or None if unreadable.
+
+        Providers are inconsistent: eContract returns Vietnamese day-first strings, others
+        ISO. Unknown shapes return None and the caller fails closed rather than guessing.
+        """
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.replace(tzinfo=None) if value.tzinfo else value
+        text = str(value).strip()
+        if not text or text.lower() in ("none", "null", "chưa có", "chua co"):
+            return None
+        text = text.replace("T", " ").replace("Z", "").strip()
+        if "+" in text[10:]:
+            text = text[:10] + text[10:].split("+")[0]
+        text = text.strip()
+        for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M",
+                    "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%d-%m-%Y %H:%M:%S",
+                    "%d-%m-%Y %H:%M", "%Y/%m/%d %H:%M:%S", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(text, fmt)
+            except ValueError:
+                continue
+        return None
+
     @staticmethod
     def verify_signed_result(doc_state, expected):
         """Pure check: doc_state (NormalizedDocState) vs expected dict
@@ -142,6 +175,23 @@ class SignatureProviderAdapter(object):
             return VerificationResult(False, "expected_signer_absent")
         if signer.get("status") != "signed":
             return VerificationResult(False, "signer_not_signed:%s" % signer.get("status"))
+        # FRESHNESS (2026-08-27). Without this, "did this email sign the document?" is true
+        # as soon as the person signed ANY area - so an approver leg was reported verified
+        # while the only signature present was that person's own REQUESTER signature from
+        # minutes earlier (pilot UAT VOID 5: DSR marked Approval Completed with zero
+        # approver signatures on the PDF). The signature that satisfies this leg must be
+        # NEWER than the moment we asked for it.
+        after = expected.get("signed_after")
+        if after:
+            signed_at = SignatureProviderAdapter._parse_provider_time(signer.get("signed_at"))
+            if not signed_at:
+                # Fail CLOSED: an unreadable timestamp cannot prove freshness. The raw value
+                # is echoed so an unknown provider format is diagnosable in one look.
+                return VerificationResult(
+                    False, "signed_at_unreadable:%s" % (signer.get("signed_at") or "none"))
+            if signed_at < after:
+                return VerificationResult(
+                    False, "signature_predates_request:%s" % signer.get("signed_at"))
         exp_sig = expected.get("signature_id")
         if exp_sig and signer.get("signature_id") and str(signer["signature_id"]) != str(exp_sig):
             return VerificationResult(False, "signature_id_mismatch")

@@ -506,6 +506,8 @@
     .catch(function(e){ var perm=/quyền|access|permission/i.test((e&&e.message)||""); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4><button type="button" class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ window.location.href=hubHref(); }; }); }
   function kv(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><input class="ro" readonly value="'+esc(v==null||v===""?"—":v)+'"></div>'; }
   function drawDetail(b,det){ state.detail=det; var biz=det.business||{}, ap=det.approval||{};
+    // Chi hoi trang thai ky khi nguoi dung THUC SU la nguoi duyet dang cho - tranh goi thua.
+    if((det.capabilities||{}).can_approve) loadSignReady();
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.payee_full_name||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+badge(ap.approval_status||"Draft")+'</div></div></div>'
       +'<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper" id="d-stepper"></div></div>'
@@ -555,7 +557,15 @@
     if(cap.can_submit){ return '<div class="actions"><button type="button" class="btn primary" data-act="submitdraft">Gửi yêu cầu</button><button type="button" class="btn" data-act="editdraft">Tiếp tục chỉnh sửa</button><button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button></div><div class="hint" style="margin-top:8px">Yêu cầu đang ở trạng thái nháp — chưa gửi phê duyệt.</div>'; }
     if(cap.can_edit&&ap.approval_status==="Information Required") btns.push('<button type="button" class="btn primary" data-act="edit">Chỉnh sửa & gửi lại</button>');
     else if(cap.can_edit) btns.push('<button type="button" class="btn" data-act="edit">Chỉnh sửa</button>');
-    if(cap.can_approve) btns.push('<button type="button" class="btn primary" data-act="approve">Duyệt</button>');
+    if(cap.can_approve){
+      // Cap yeu cau chu ky so: nut "Duyet" thuong bi backend chan
+      // ("Cap duyet nay yeu cau ky so. Vui long dung chuc nang 'Duyet & Ky'"), nen truoc day
+      // nguoi duyet vao ngo cut - he thong bao dung mot chuc nang ma no khong hien.
+      // state._signReady do loadSignReady() nap; chua biet thi hien CA HAI de khong ai bi ket.
+      var sr=state._signReady, needSign=sr&&sr.checks&&sr.checks.level_requires_signature;
+      if(needSign!==false) btns.push('<button type="button" class="btn primary" data-act="approvesign">Duyệt &amp; Ký</button>');
+      if(!needSign) btns.push('<button type="button" class="btn'+(needSign===false?' primary':'')+'" data-act="approve">Duyệt</button>');
+    }
     if(cap.can_request_information) btns.push('<button type="button" class="btn" data-act="reqinfo">Yêu cầu bổ sung</button>');
     if(cap.can_reject) btns.push('<button type="button" class="btn" data-act="reject">Từ chối</button>');
     if(cap.can_admin_approve_current_level) btns.push('<button type="button" class="btn warn" data-act="adminapprove">Duyệt thay bước hiện tại</button>');
@@ -566,6 +576,7 @@
     var det=state.detail||{}; var name=(det.business||{}).name||state.id;
     if(a==="editdraft") return startEditDraft(det); if(a==="submitdraft") return doSubmitDraft(name);
     if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det);
+    if(a==="approvesign") return doApproveAndSign(name,det);
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
     if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name); }
   function ensureActionHandlers(){ if(document.__payrActBound) return; document.__payrActBound=true; document.addEventListener("click", handleActionClick, true); }
@@ -587,6 +598,33 @@
   function summaryRows(det){ var b=det.business||{}; return '<div class="summary-row"><span>Người yêu cầu</span><b>'+esc(b.requested_by||"—")+'</b></div><div class="summary-row"><span>Người nhận</span><b>'+esc(b.payee_full_name||"—")+'</b></div><div class="summary-row"><span>Số tiền</span><b>'+esc(b.payment_amount!=null?(fmtMoney(b.payment_amount)+" VND"):"—")+'</b></div>'; }
   function doApprove(name,det){ modal("Duyệt yêu cầu", summaryRows(det)+'<div class="fld"><label>Nhận xét (không bắt buộc)</label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Duyệt", onConfirm:function(ov){ var cmt=(ov.querySelector("#m-cmt").value||"").trim();
     return call("approve",{name:name,comment:cmt}).then(function(res){ var nx=nextLevelName(res&&res.detail); toast(nx?("Đã duyệt yêu cầu. Yêu cầu đã chuyển sang "+nx+"."):"Đã duyệt yêu cầu."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
+  // Duyet KEM ky so. Endpoint tra ve "da xep hang" chu khong phai "da ky" - nha cung cap
+  // xu ly bat dong bo - nen thong bao phai noi dung su that, khong hua hen qua.
+  function doApproveAndSign(name,det){
+    modal("Duyệt & Ký số", summaryRows(det)
+      +'<div class="banner info">Cấp duyệt này yêu cầu chữ ký số. Chữ ký sẽ được gửi tới nhà cung cấp và xác nhận trong ít phút.</div>'
+      +'<div class="fld"><label>Nhận xét (không bắt buộc)</label><textarea id="m-cmt" rows="3"></textarea></div>',
+      {okLabel:"Duyệt & Ký", onConfirm:function(ov){ var cmt=(ov.querySelector("#m-cmt").value||"").trim();
+        return callEsign("pr_approve_and_sign",{payment_request_name:name,comment:cmt}).then(function(res){
+          toast((res&&res.duplicate)?"Yêu cầu ký đã tồn tại — đang chờ nhà cung cấp xác nhận."
+                                    :"Đã gửi yêu cầu ký. Chữ ký sẽ được xác nhận trong ít phút.");
+          loadSignReady(true); refreshDetail(); refreshApprovals();
+        }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
+
+  // Cac endpoint ky so nam o namespace platform.esign.api, khong phai namespace cua form.
+  function callEsign(method,args){ var fr=window.frappe; if(!fr||!fr.call) return Promise.reject(new Error("no frappe"));
+    return fr.call({method:"ecentric_workspace.platform.esign.api."+method, args:args||{},
+                    type:(/^(get_|list_|my_|signing_|requester_signing_)/.test(method)?"GET":"POST")})
+      .then(function(r){ return r&&r.message; }); }
+
+  // Nap mot lan cho moi ban ghi: cap hien tai co bat buoc ky khong.
+  function loadSignReady(force){ var id=state.id; if(!id) return;
+    if(!force && state._signReadyFor===id) return;
+    state._signReadyFor=id;
+    callEsign("signing_readiness",{payment_request_name:id}).then(function(res){
+      state._signReady=res||null; refreshDetail();
+    }).catch(function(){ state._signReady=null; }); }
+
   function doReject(name){ modal("Từ chối yêu cầu", '<div class="banner err">Sau khi từ chối, yêu cầu sẽ kết thúc.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Từ chối", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
     return call("reject",{name:name,comment:c}).then(function(){ toast("Đã từ chối."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
   function doRequestInfo(name){ modal("Yêu cầu bổ sung thông tin", '<div class="banner info">Yêu cầu sẽ được trả lại người gửi để bổ sung.</div><div class="fld"><label>Nội dung cần bổ sung <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Gửi yêu cầu", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập nội dung.",true); return Promise.reject(); }
@@ -609,7 +647,7 @@
     call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(){ var bd=$("payr-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.PaymentRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate, handleHPRChange:handleHPRChange, handleSrcTypeChange:handleSrcTypeChange, handleSrcPick:handleSrcPick, promoteLegacySource:promoteLegacySource, fmtVnd:fmtVnd };
+  window.PaymentRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate, doApproveAndSign:doApproveAndSign, loadSignReady:loadSignReady, callEsign:callEsign, handleHPRChange:handleHPRChange, handleSrcTypeChange:handleSrcTypeChange, handleSrcPick:handleSrcPick, promoteLegacySource:promoteLegacySource, fmtVnd:fmtVnd };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>

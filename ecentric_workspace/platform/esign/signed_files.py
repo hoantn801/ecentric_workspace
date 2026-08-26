@@ -2,7 +2,8 @@
 """Governed retrieval + storage of the final signed PDF (S2B-C1, hardened).
 
 Retrieval runs ONLY after BOTH gates hold (fail-closed):
-  1. the package has exactly one DSR in 'Approval Completed';
+  1. every signing leg is finished: at least one DSR in 'Approval Completed' and none still
+     in flight (one leg per signature - requester plus each signing approval level);
   2. GET /api/Document/{id} proves a terminal-signed document - an explicitly recognized
      terminal status, OR a signer-based fallback in which EVERY expected internal signer
      is present and signed, NO signer is pending/rejected/unknown, and signer identities
@@ -13,6 +14,7 @@ Storage is concurrency-safe and idempotent (row lock + reload; one accepted File
 signable row), never overwrites the original approved PDF, never touches DSR/approval
 terminal state, and appends only sanitized events (no binary/base64 ever logged).
 """
+from ecentric_workspace.platform.esign.state import DSR_TERMINAL
 import frappe
 from frappe.utils import now_datetime
 
@@ -50,12 +52,27 @@ def _expected_signers(package_name):
 
 
 def _terminal_signed_ok(adapter, pkg):
-    """(ok, reason). Fail-closed: requires exactly one Approval Completed DSR AND a
-    provider-verified terminal-signed document."""
-    completed = frappe.get_all(DSR, filters={"package": pkg.name,
-                                             "status": "Approval Completed"}, pluck="name")
-    if len(completed) != 1:
-        return False, "not_exactly_one_completed_dsr:%d" % len(completed)
+    """(ok, reason). Fail-closed: every signing leg must be finished AND the provider
+    document must be terminal-signed.
+
+    A package has ONE leg per signature: the requester leg plus one per approval level that
+    requires signing. The old rule demanded EXACTLY ONE completed leg, which is true only
+    for a single-signature document - so in real operation (requester + N approvers) the
+    signed file could never be fetched (pilot UAT VOID 5 hit `not_exactly_one_completed_dsr:2`
+    the moment the second leg finished). The real invariant is: at least one leg completed,
+    and NO leg still in flight - a leg still running means more signatures are coming and the
+    file we would download is partial.
+    """
+    rows = frappe.get_all(DSR, filters={"package": pkg.name}, fields=["name", "status"])
+    if not rows:
+        return False, "no_signature_request"
+    completed = [r for r in rows if r.status == "Approval Completed"]
+    if not completed:
+        return False, "no_completed_dsr:%d" % len(rows)
+    in_flight = [r for r in rows if r.status not in DSR_TERMINAL]
+    if in_flight:
+        return False, "signing_still_in_flight:%s" % ",".join(
+            sorted({r.status for r in in_flight}))
 
     doc = adapter.poll_status(pkg.scts_document_id)
     if not doc:

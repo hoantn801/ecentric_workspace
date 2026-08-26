@@ -1,0 +1,168 @@
+# Copyright (c) 2026, eCentric and contributors
+"""Chữ ký phải MỚI hơn thời điểm yêu cầu — tái hiện sự cố pilot UAT VOID 5 (27/08/2026).
+
+Sự việc: EC-PAYR-2026-00026 có ĐÚNG hai chữ ký trên PDF — 00:47:43 (Hoàn, vai người
+trình) và 00:48:42 (Vinh, ký từ portal). Chân NGƯỜI DUYỆT được tạo lúc 00:57:58 và
+được báo `Verified` + `Approval Completed` lúc 00:58:00, dù không hề có chữ ký nào cho
+cấp đó. Nguyên nhân: kiểm chứng chỉ hỏi "email này có trong danh sách đã ký không" —
+Hoàn đã ký từ 00:47 nên câu trả lời là "có".
+
+Bộ test này khoá lại bất biến: chữ ký thoả mãn một chân ký phải có thời điểm ký muộn
+hơn lúc chân ký đó được xếp hàng (trừ dung sai lệch đồng hồ).
+
+  python -m unittest ecentric_workspace.approval_center.tests.standalone.test_signature_freshness
+"""
+import os
+import sys
+import unittest
+from datetime import datetime, timedelta
+
+_APP = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+if _APP not in sys.path:
+    sys.path.insert(0, _APP)
+
+from ecentric_workspace.platform.esign.providers.base import (  # noqa: E402
+    NormalizedDocState, SignatureProviderAdapter)
+
+DOC = "8e912015-aaaa-bbbb-cccc-000000000001"
+HOAN = "hoan.tran@ecentric.vn"
+TOL = SignatureProviderAdapter.SIGN_TIME_TOLERANCE_SECONDS
+
+
+def _state(signers):
+    return NormalizedDocState(DOC, "processing", signers=signers,
+                              files=[{"file_id": "f1", "name": "Invoice.pdf"}])
+
+
+def _signer(email=HOAN, status="signed", signed_at="27/08/2026 00:47:43", user_id=None):
+    return {"user_id": user_id, "signature_id": None, "email": email,
+            "display_name": "Hoan", "status": status, "signed_at": signed_at,
+            "is_external": False}
+
+
+def _expected(signed_after=None, **kw):
+    out = {"document_id": DOC, "user_id": "73f72e15", "email": HOAN, "file_count": 1}
+    if signed_after is not None:
+        out["signed_after"] = signed_after
+    out.update(kw)
+    return out
+
+
+class TestTimeParser(unittest.TestCase):
+    """Nhà cung cấp trả nhiều định dạng; đọc sai định dạng sẽ khoá nhầm cả hệ thống."""
+
+    def test_vietnamese_day_first(self):
+        self.assertEqual(SignatureProviderAdapter._parse_provider_time("27/08/2026 00:47:43"),
+                         datetime(2026, 8, 27, 0, 47, 43))
+
+    def test_vietnamese_without_seconds(self):
+        self.assertEqual(SignatureProviderAdapter._parse_provider_time("27/08/2026 00:47"),
+                         datetime(2026, 8, 27, 0, 47))
+
+    def test_iso_with_t_and_z(self):
+        self.assertEqual(SignatureProviderAdapter._parse_provider_time("2026-08-27T00:47:43Z"),
+                         datetime(2026, 8, 27, 0, 47, 43))
+
+    def test_iso_with_microseconds(self):
+        self.assertEqual(SignatureProviderAdapter._parse_provider_time("2026-08-27 00:47:43.123456"),
+                         datetime(2026, 8, 27, 0, 47, 43, 123456))
+
+    def test_datetime_passthrough(self):
+        d = datetime(2026, 8, 27, 0, 47, 43)
+        self.assertEqual(SignatureProviderAdapter._parse_provider_time(d), d)
+
+    def test_unreadable_returns_none(self):
+        for bad in (None, "", "   ", "Chưa có", "chua co", "hôm qua", "null", 12345.6):
+            self.assertIsNone(SignatureProviderAdapter._parse_provider_time(bad), bad)
+
+
+class TestFreshness(unittest.TestCase):
+    def test_the_actual_incident_is_now_refused(self):
+        """Chữ ký 00:48:42 KHÔNG được xác nhận cho chân ký tạo lúc 00:57:58."""
+        asked = datetime(2026, 8, 27, 0, 57, 58) - timedelta(seconds=TOL)
+        res = SignatureProviderAdapter.verify_signed_result(
+            _state([_signer(signed_at="27/08/2026 00:48:42")]), _expected(signed_after=asked))
+        self.assertFalse(res.ok)
+        self.assertIn("signature_predates_request", res.reason)
+
+    def test_requester_leg_still_verifies(self):
+        """Chân người trình thật (tạo 00:47:37, ký 00:47:43) vẫn phải xanh."""
+        asked = datetime(2026, 8, 27, 0, 47, 37) - timedelta(seconds=TOL)
+        res = SignatureProviderAdapter.verify_signed_result(
+            _state([_signer(signed_at="27/08/2026 00:47:43")]), _expected(signed_after=asked))
+        self.assertTrue(res.ok, res.reason)
+
+    def test_signature_slightly_before_within_tolerance_passes(self):
+        """Dung sai hấp thụ lệch đồng hồ và mốc thời gian chỉ tới phút."""
+        asked_raw = datetime(2026, 8, 27, 10, 0, 0)
+        asked = asked_raw - timedelta(seconds=TOL)
+        res = SignatureProviderAdapter.verify_signed_result(
+            _state([_signer(signed_at=(asked_raw - timedelta(seconds=TOL - 10)
+                                       ).strftime("%d/%m/%Y %H:%M:%S"))]),
+            _expected(signed_after=asked))
+        self.assertTrue(res.ok, res.reason)
+
+    def test_just_outside_tolerance_is_refused(self):
+        asked_raw = datetime(2026, 8, 27, 10, 0, 0)
+        asked = asked_raw - timedelta(seconds=TOL)
+        res = SignatureProviderAdapter.verify_signed_result(
+            _state([_signer(signed_at=(asked_raw - timedelta(seconds=TOL + 30)
+                                       ).strftime("%d/%m/%Y %H:%M:%S"))]),
+            _expected(signed_after=asked))
+        self.assertFalse(res.ok)
+        self.assertIn("signature_predates_request", res.reason)
+
+    def test_unreadable_time_fails_closed_and_says_what_it_saw(self):
+        """Không đọc được giờ = không chứng minh được -> từ chối, và nêu giá trị thô."""
+        res = SignatureProviderAdapter.verify_signed_result(
+            _state([_signer(signed_at="Chưa có")]),
+            _expected(signed_after=datetime(2026, 8, 27, 0, 57, 58)))
+        self.assertFalse(res.ok)
+        self.assertIn("signed_at_unreadable", res.reason)
+
+    def test_without_signed_after_behaviour_is_unchanged(self):
+        """Không truyền mốc thì giữ nguyên hành vi cũ (tương thích ngược)."""
+        res = SignatureProviderAdapter.verify_signed_result(
+            _state([_signer(signed_at="Chưa có")]), _expected())
+        self.assertTrue(res.ok, res.reason)
+
+
+class TestUnchangedChecks(unittest.TestCase):
+    """Các phép kiểm sẵn có không được đổi hành vi."""
+
+    def test_document_mismatch(self):
+        res = SignatureProviderAdapter.verify_signed_result(_state([_signer()]),
+                                                     _expected(document_id="khac"))
+        self.assertFalse(res.ok)
+        self.assertEqual(res.reason, "document_id_mismatch")
+
+    def test_signer_absent(self):
+        res = SignatureProviderAdapter.verify_signed_result(
+            _state([_signer(email="ai.do@ecentric.vn")]), _expected())
+        self.assertFalse(res.ok)
+        self.assertEqual(res.reason, "expected_signer_absent")
+
+    def test_signer_not_signed(self):
+        res = SignatureProviderAdapter.verify_signed_result(
+            _state([_signer(status="pending", signed_at=None)]), _expected())
+        self.assertFalse(res.ok)
+        self.assertIn("signer_not_signed", res.reason)
+
+    def test_file_count_mismatch(self):
+        res = SignatureProviderAdapter.verify_signed_result(_state([_signer()]),
+                                                     _expected(file_count=3))
+        self.assertFalse(res.ok)
+        self.assertEqual(res.reason, "file_count_mismatch")
+
+    def test_freshness_runs_before_signature_id_check(self):
+        """Chữ ký cũ phải bị chặn kể cả khi signature_id khớp."""
+        asked = datetime(2026, 8, 27, 0, 57, 58) - timedelta(seconds=TOL)
+        st = _state([dict(_signer(signed_at="27/08/2026 00:48:42"), signature_id="638649a4")])
+        res = SignatureProviderAdapter.verify_signed_result(
+            st, _expected(signed_after=asked, signature_id="638649a4"))
+        self.assertFalse(res.ok)
+        self.assertIn("signature_predates_request", res.reason)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
