@@ -43,7 +43,24 @@ def _install_stub():
                 return rec.get(fieldname)
         return None
 
+    class _Profile(object):
+        """Doc cha giả: bảng con đọc qua .get("transitions") đúng như mã thật."""
+
+        def __init__(self, rows):
+            self._rows = [_D(r) for r in rows]
+
+        def get(self, key):
+            return self._rows if key == "transitions" else None
+
+    def get_doc(doctype, name):
+        if doctype == "EC Digital Signature Profile":
+            rows = [r for r in STORE.get("EC Digital Signature Profile Transition", [])
+                    if r.get("parent") == name]
+            return _Profile(rows)
+        raise Exception("no such doc")
+
     fr.get_all = get_all
+    fr.get_doc = get_doc
     fr.db = types.SimpleNamespace(get_value=get_value)
     fr._dict = _D
     sys.modules["frappe"] = fr
@@ -219,6 +236,24 @@ class TestPlanHandover(Base):
         self.assertEqual(plan["mode"], "transition")
         self.assertEqual(plan["to_users"], ["pid-co"])
         self.assertEqual(plan["unmapped"], ["khong@ec.vn"])
+
+
+class TestNoChildTableQuery(unittest.TestCase):
+    """Bảng con không được truy vấn bằng get_all() thiếu parent.
+
+    Bản đầu tiên gọi `frappe.get_all("EC Digital Signature Profile Transition", ...)` mà
+    không truyền parent — Frappe chặn, job ký chết ngay sau BindingValidated và DSR nằm im ở
+    Queued. Lỗi kiểu này không lộ ra trong test có stub (stub nào cũng trả dữ liệu), nên
+    khoá lại bằng cách soi chính mã nguồn.
+    """
+
+    def test_source_reads_transitions_from_parent_doc(self):
+        with open("ecentric_workspace/platform/esign/next_handler.py", encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertNotIn('get_all(\n        "EC Digital Signature Profile Transition"', src)
+        self.assertNotIn('get_all("EC Digital Signature Profile Transition"', src)
+        self.assertIn('frappe.get_doc("EC Digital Signature Profile"', src,
+                      "phai doc bang con qua doc cha")
 
 
 if __name__ == "__main__":
