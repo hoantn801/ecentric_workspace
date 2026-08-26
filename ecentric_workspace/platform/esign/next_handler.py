@@ -37,11 +37,18 @@ def resolve_transition_config(profile_name, action, stage=None):
     """
     if not profile_name:
         return None
-    rows = frappe.get_all(
-        "EC Digital Signature Profile Transition",
-        filters={"parent": profile_name, "action": action},
-        fields=["transition_id", "transition_name", "process_action", "sign_type", "stage",
-                "terminal"], limit_page_length=0)
+    # Read the rows off the PARENT document. `EC Digital Signature Profile Transition` is a
+    # child table (istable=1) and Frappe refuses a get_all() on one without a parent - the
+    # first version of this function did exactly that, so every signing job died right after
+    # BindingValidated with the DSR left sitting at Queued.
+    try:
+        profile = frappe.get_doc("EC Digital Signature Profile", profile_name)
+    except Exception:
+        return None
+    rows = [{"transition_id": r.transition_id, "transition_name": r.transition_name,
+             "process_action": r.process_action, "sign_type": r.sign_type,
+             "stage": r.stage, "terminal": r.terminal}
+            for r in (profile.get("transitions") or []) if r.action == action]
     if not rows:
         return None
     exact = [r for r in rows if (r.get("stage") or "") == (stage or "")]
@@ -87,7 +94,9 @@ def provider_ids_for(users, environment):
     Unverified or missing mappings are reported, never silently skipped - handing the
     document to an unverified identity is exactly the failure mode this module prevents.
     """
-    from ecentric_workspace.platform.esign import perms
+    # The module is `permissions`; every other file in this package imports it as `perms`.
+    # Getting that alias wrong made the whole signing leg die on an ImportError.
+    from ecentric_workspace.platform.esign import permissions as perms
     ids, unmapped = [], []
     for u in users or []:
         mapping = perms.verified_mapping(u, environment)

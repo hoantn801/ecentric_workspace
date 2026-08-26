@@ -308,8 +308,18 @@ def process_signing_request(dsr_name):
             # handler genuinely cannot be named, and RECORD why (never silently).
             from ecentric_workspace.platform.esign import next_handler
             stage = "requester" if dsr.actor_type == "Requester" else "approval"
-            plan = next_handler.plan_handover(dsr, _profile_of(dsr), settings.get("environment"),
-                                              stage=stage)
+            # Naming the next handler is an IMPROVEMENT on top of a path that already works.
+            # It must never be able to break signing: the first version raised on a child
+            # table query and killed the whole leg, leaving the DSR stuck at Queued with no
+            # provider call at all. Any failure here degrades to the previous behaviour and
+            # is recorded - never propagated.
+            try:
+                plan = next_handler.plan_handover(dsr, _profile_of(dsr),
+                                                  settings.get("environment"), stage=stage)
+            except Exception as exc:
+                plan = {"mode": "pool", "reason": "handover_planning_failed:%s"
+                                                  % type(exc).__name__}
+                frappe.log_error(frappe.get_traceback(), "esign handover planning failed")
             if plan["mode"] == "transition" and hasattr(adapter, "transition_with_recipients"):
                 events.emit("HandoverTargeted", signature_request=dsr_name, package=dsr.package,
                             request_meta={"to_users": plan.get("to_users"),
