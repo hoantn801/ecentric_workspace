@@ -11,6 +11,7 @@ It knows the SCTS eContract endpoints (docs: econtract.scts.com.vn/API, 2026-08)
     POST /api/Auth/login
     GET  /api/SignerSignature/GetSignatures/{userId}
     POST /api/Workflow/bulk-process
+    POST /api/Workflow/transition   (portal path: carries `toUsers` = next handler)
     GET  /api/Document/{documentId}
     POST /api/AddDocument                (create document; docs page says Document/Submit but the
                                           live backend 405s it - probed 2026-08-22, AddDocument=400)
@@ -175,6 +176,57 @@ class SctsClient(object):
             raise ProviderError("scts_signatures_rejected_%s" % e.status,
                                 "SCTS refused get_signatures (HTTP %s)" % e.status,
                                 retryable=False)
+
+    def transition(self, instance_id, user_id, to_users, transition_id, transition_name,
+                   process_action, sign_type, signature_id, signature_name, comment, token):
+        """POST /api/Workflow/transition -> raw payload.
+
+        This is what the eContract PORTAL itself calls, captured from the browser on
+        2026-08-27. It differs from bulk-process in the one field that matters for
+        governance: `toUsers` names WHO handles the document next. Without it the workflow
+        falls back to notifying the whole role pool - which is how a colleague who was not
+        the designated approver signed EC-PAYR-2026-00026 forty seconds after it was
+        submitted.
+
+        Same non-idempotent write semantics as bulk_process: exactly ONE attempt, never an
+        automatic retry; network/5xx is AMBIGUOUS (the action may have been applied) and is
+        normalized to `scts_bulk_outcome_unknown` so the caller polls instead of resending.
+        """
+        body = {
+            "instanceId": instance_id,
+            "userId": user_id,
+            "toUsers": list(to_users or []),
+            "transitionId": transition_id,
+            "transitionName": transition_name,
+            "processAction": process_action,
+            "signType": sign_type,
+            "signatureInfo": {"id": signature_id, "name": signature_name},
+            "comment": comment or "",
+        }
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = "Bearer %s" % token
+        try:
+            resp = self._transport("POST", self._url("/api/Workflow/transition"),
+                                   headers=headers, json_body=body, timeout=self.timeout,
+                                   verify_tls=self.verify_tls)
+        except Exception:
+            raise ProviderError("scts_bulk_outcome_unknown",
+                                "transition outcome unknown (network/timeout)",
+                                retryable=False, ambiguous=True)
+        status = int(getattr(resp, "status_code", 0))
+        if 200 <= status < 300:
+            return self._parse(resp, "transition")
+        if status in _AUTH_STATUSES:
+            raise ProviderError("scts_auth_error_%s" % status,
+                                "SCTS rejected credentials on transition (HTTP %s)" % status,
+                                retryable=False)
+        if status >= 500:
+            raise ProviderError("scts_bulk_outcome_unknown",
+                                "transition outcome unknown (HTTP %s)" % status,
+                                retryable=False, ambiguous=True)
+        raise ProviderError("scts_transition_rejected_%s" % status,
+                            "SCTS rejected transition (HTTP %s)" % status, retryable=False)
 
     def bulk_process(self, instance_ids, user_id, signature_id, transition_type, token):
         """POST /api/Workflow/bulk-process -> raw payload. ASYNC ACCEPTED semantics:
