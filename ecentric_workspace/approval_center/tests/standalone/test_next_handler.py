@@ -338,3 +338,64 @@ class TestProviderErrorIsDiagnosable(unittest.TestCase):
             src = fh.read()
         self.assertIn("if len(msg) > 500:", src)
         self.assertNotIn("if len(msg) > 200:", src)
+
+
+class TestPollingLeavesATrace(unittest.TestCase):
+    """Mỗi vòng kiểm chứng phải ghi dấu, không chỉ vòng đầu.
+
+    Trước đây chỉ lần chuyển Provider Accepted -> Verifying mới phát `PollTick`. Một chân ký
+    liên tục thất bại ở khâu kiểm chứng sẽ im lặng hoàn toàn: bộ điều phối vẫn thử lại mỗi 5
+    phút nhưng nhật ký sự kiện dừng hẳn — nhìn y hệt một job chết. Đêm 27/08 điều này khiến
+    mất 20 phút đi tìm một thứ không hỏng, và dẫn tới bốn kết luận sai liên tiếp về nguyên nhân.
+    """
+
+    def test_verifying_state_also_emits_a_tick(self):
+        with open("ecentric_workspace/platform/esign/tasks.py", encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn('elif dsr.status == "Verifying":', src)
+        self.assertIn('events.emit("PollTick"', src)
+
+    def test_the_reason_is_carried_on_every_tick(self):
+        """Dấu vết không có LÝ DO thì cũng vô dụng như không có dấu vết."""
+        with open("ecentric_workspace/platform/esign/tasks.py", encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertGreaterEqual(src.count("verification_result=vr.reason"), 2)
+
+
+class TestDiagnosticEndpointExists(unittest.TestCase):
+    """Phải có cách nhìn thấy dữ liệu nhà cung cấp trả về mà KHÔNG cần deploy thêm code.
+
+    Đêm 27/08 mất nhiều giờ đoán vì sao một chân ký không xác minh được, trong khi chữ ký
+    đã nằm sẵn trên PDF. Không endpoint nào đọc được trạng thái chứng từ phía nhà cung cấp,
+    nên mỗi câu hỏi tốn một vòng deploy. Đó là lỗ hổng công cụ, không phải lỗi suy luận.
+    """
+
+    def _api_src(self):
+        with open("ecentric_workspace/platform/esign/api.py", encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_endpoint_is_whitelisted_and_read_only(self):
+        src = self._api_src()
+        self.assertIn("def esign_document_state(payment_request_name):", src)
+        idx = src.index("def esign_document_state")
+        head = src[max(0, idx - 200):idx]
+        self.assertIn("@frappe.whitelist()", head, "phai la lenh DOC, khong methods=POST")
+
+    def test_it_is_system_manager_only(self):
+        src = self._api_src()
+        body = src[src.index("def esign_document_state"):]
+        body = body[:body.index("@frappe.whitelist", 10)]
+        self.assertIn("assert_system_manager()", body)
+
+    def test_it_replays_the_real_verification(self):
+        """Trả về lý do do CHÍNH bộ kiểm chứng sinh ra, không phải một bản diễn giải khác."""
+        src = self._api_src()
+        body = src[src.index("def esign_document_state"):]
+        self.assertIn("verify_signed_result(state, expected)", body)
+        self.assertIn("svc._expected_for", body)
+
+    def test_it_never_returns_the_raw_payload(self):
+        src = self._api_src()
+        body = src[src.index("def esign_document_state"):]
+        body = body[:body.index("@frappe.whitelist", 10)]
+        self.assertNotIn("state.raw", body, "payload tho co the chua du lieu nhay cam")

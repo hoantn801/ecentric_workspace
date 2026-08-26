@@ -240,6 +240,79 @@ def run_scts_uat_pilot_probe(payment_request_name, apply=0):
     return pilot.run_scts_uat_pilot_probe(payment_request_name, apply=apply)
 
 
+@frappe.whitelist()
+def esign_document_state(payment_request_name):
+    """READ-ONLY diagnosis: what the provider actually says, and why verification decides
+    what it decides.
+
+    Until now nothing could answer "why is this leg not verifying?" without shipping code -
+    every question cost a deploy cycle, and the 2026-08-27 pilot was spent guessing at a
+    document whose signature was in fact already applied. This returns the provider's own
+    normalized view side by side with the expectation the verifier is matching against, so
+    the mismatch is visible in ONE call.
+
+    System Manager only. No secrets: tokens are never part of the normalized state, and the
+    raw provider payload is deliberately NOT returned.
+    """
+    from ecentric_workspace.platform.esign.providers import get_adapter
+    from ecentric_workspace.platform.esign.sanitize import safe_error
+    perms.assert_system_manager()
+    _business_args("EC Payment Request", payment_request_name)
+
+    ar = perms.business_approval_request("EC Payment Request", payment_request_name)
+    pkg_name = frappe.db.get_value(
+        "EC Digital Signature Package",
+        {"business_doctype": "EC Payment Request", "business_name": payment_request_name,
+         "status": ["not in", ("Cancelled", "Superseded")]},
+        "name", order_by="creation desc")
+    if not pkg_name:
+        return {"ok": False, "reason": "no_package"}
+    pkg = frappe.db.get_value("EC Digital Signature Package", pkg_name,
+                              ["name", "status", "scts_document_id", "provider", "environment"],
+                              as_dict=True)
+    if not pkg.scts_document_id:
+        return {"ok": False, "reason": "no_provider_document", "package": pkg}
+
+    settings = frappe.db.get_value("EC Digital Signature Provider Settings",
+                                   {"provider": pkg.provider, "environment": pkg.environment},
+                                   "*", as_dict=True)
+    if not settings:
+        return {"ok": False, "reason": "no_provider_settings", "package": pkg}
+    adapter = get_adapter(settings)
+    try:
+        state = adapter.poll_status(pkg.scts_document_id)
+    except Exception as exc:
+        return {"ok": False, "reason": "poll_failed", "detail": safe_error(exc), "package": pkg}
+
+    dsrs = frappe.get_all("EC Digital Signature Request",
+                          filters={"package": pkg_name},
+                          fields=["name", "status", "actor_type", "approver", "actor_user",
+                                  "effective_scts_user_id", "queued_at"],
+                          order_by="creation desc", limit_page_length=0)
+    out = {"ok": True, "package": pkg,
+           "provider_status": getattr(state, "status", None),
+           "signers": [{"email": s.get("email"), "user_id": s.get("user_id"),
+                        "display_name": s.get("display_name"), "status": s.get("status"),
+                        "signed_at": s.get("signed_at")}
+                       for s in (getattr(state, "signers", None) or [])],
+           "files": [{"file_id": f.get("file_id"), "name": f.get("name")}
+                     for f in (getattr(state, "files", None) or [])],
+           "requests": dsrs, "verdicts": []}
+    # Replay the exact verification for every non-terminal leg: the reason string here is the
+    # same one the worker records, so what you read is what the worker decided.
+    from ecentric_workspace.platform.esign.providers.base import SignatureProviderAdapter
+    for row in dsrs:
+        if row.status in ("Approval Completed", "Cancelled", "Superseded", "Rejected"):
+            continue
+        expected = svc._expected_for(frappe._dict(row, package=pkg_name))
+        res = SignatureProviderAdapter.verify_signed_result(state, expected)
+        out["verdicts"].append({"request": row.name, "status": row.status,
+                                "ok": bool(res.ok), "reason": res.reason,
+                                "matched_on_email": expected.get("email"),
+                                "signed_after": str(expected.get("signed_after") or "")})
+    return out
+
+
 @frappe.whitelist(methods=["POST"])
 def retrieve_signed_files(payment_request_name):
     """SM-gated manual retrieval of the signed PDF(s) for a Payment Request's active

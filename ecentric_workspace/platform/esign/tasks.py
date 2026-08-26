@@ -373,6 +373,14 @@ def process_signing_request(dsr_name):
         if dsr.status == "Provider Accepted":
             events.set_dsr_status(dsr_name, "Verifying", event_type="PollTick",
                                   verification_result=vr.reason)
+        elif dsr.status == "Verifying":
+            # EVERY poll must leave a trace, not just the first one. Previously only the
+            # Provider Accepted -> Verifying transition emitted PollTick, so a leg that kept
+            # failing verification went completely silent: the reconciler was retrying every
+            # five minutes but the event log stopped dead, which reads exactly like a stalled
+            # job. That cost real time to chase during the 2026-08-27 pilot.
+            events.emit("PollTick", signature_request=dsr_name, package=dsr.package,
+                        verification_result=vr.reason)
     except binding.BindingError as e:
         # SECURITY/VALIDATION refusal (wrong approver, mapping/signature mismatch,
         # inactive signature, allowlist, package/hash, non-UAT provider). This is NOT a
