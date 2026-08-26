@@ -338,3 +338,25 @@ class TestProviderErrorIsDiagnosable(unittest.TestCase):
             src = fh.read()
         self.assertIn("if len(msg) > 500:", src)
         self.assertNotIn("if len(msg) > 200:", src)
+
+
+class TestPollingLeavesATrace(unittest.TestCase):
+    """Mỗi vòng kiểm chứng phải ghi dấu, không chỉ vòng đầu.
+
+    Trước đây chỉ lần chuyển Provider Accepted -> Verifying mới phát `PollTick`. Một chân ký
+    liên tục thất bại ở khâu kiểm chứng sẽ im lặng hoàn toàn: bộ điều phối vẫn thử lại mỗi 5
+    phút nhưng nhật ký sự kiện dừng hẳn — nhìn y hệt một job chết. Đêm 27/08 điều này khiến
+    mất 20 phút đi tìm một thứ không hỏng, và dẫn tới bốn kết luận sai liên tiếp về nguyên nhân.
+    """
+
+    def test_verifying_state_also_emits_a_tick(self):
+        with open("ecentric_workspace/platform/esign/tasks.py", encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn('elif dsr.status == "Verifying":', src)
+        self.assertIn('events.emit("PollTick"', src)
+
+    def test_the_reason_is_carried_on_every_tick(self):
+        """Dấu vết không có LÝ DO thì cũng vô dụng như không có dấu vết."""
+        with open("ecentric_workspace/platform/esign/tasks.py", encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertGreaterEqual(src.count("verification_result=vr.reason"), 2)
