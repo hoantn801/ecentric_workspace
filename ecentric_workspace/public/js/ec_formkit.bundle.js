@@ -112,6 +112,16 @@
   /* ---------------------------------------------------------------- dropzone */
   function enhanceFile(inp) {
     if (!inp || inp.__ecDz) return;
+    // TRANG TU KHAI QUYEN SO HUU. Loc theo duong dan van khong du: nhieu trang cung nam
+    // duoi /approvals va vai trang trong so do da co bo tai tep rieng, nen formkit boc them
+    // mot lop nua -> hai vung keo-tha chong nhau (Payment Request, 2026-08-26).
+    // `data-upload` = o tai tep do chinh trang quan ly; `data-ec-no-formkit` cho trang moi
+    // tu chon khong tham gia ma khong phai sua file nay lan nua.
+    if (inp.hasAttribute("data-upload")) return;
+    if (inp.hasAttribute("data-ec-no-formkit") || inp.closest("[data-ec-no-formkit]")) return;
+    // O tai tep bi AN la o do trang tu dieu khien bang nut rieng (vd "+ Tai tai lieu").
+    // Boc dropzone len no se tao mot vung keo-tha thu hai nam canh nut do.
+    if ((inp.style && inp.style.display === "none") || inp.hidden) return;
     // trang đã có vùng kéo-thả riêng (SO/PO...) -> không chồng thêm
     if (inp.closest(".ec-dz") || (inp.parentNode && inp.parentNode.querySelector(".ec-dz"))) return;
     var host = inp.parentNode;
