@@ -132,8 +132,14 @@ class SctsClient(object):
 
     @staticmethod
     def _safe_body(resp):
-        """A short, non-sensitive slice of the error body for diagnostics. Never returns
-        tokens: callers only surface status codes upstream."""
+        """A short, non-sensitive, INFORMATIVE slice of the error body.
+
+        A blind 200-char slice is useless for the shape providers actually return: an
+        RFC 9110 problem document puts the boilerplate ("type", "title") first and the part
+        that names the offending fields last, so the slice cut off exactly the answer. When
+        an `errors` object is present we render it compactly as `field=message` pairs, which
+        both fits and says which field the provider disliked. Never returns tokens.
+        """
         try:
             txt = resp.text or ""
         except Exception:
@@ -141,6 +147,18 @@ class SctsClient(object):
         low = txt.lower()
         if any(s in low for s in ("token", "bearer", "authorization", "password", "base64")):
             return "(body withheld - sensitive markers)"
+        try:
+            data = json.loads(txt)
+            errs = data.get("errors") if isinstance(data, dict) else None
+            if isinstance(errs, dict) and errs:
+                parts = []
+                for field, msgs in errs.items():
+                    if isinstance(msgs, (list, tuple)):
+                        msgs = "; ".join(str(m) for m in msgs)
+                    parts.append("%s=%s" % (field, msgs))
+                return ("errors: " + " | ".join(parts))[:400]
+        except Exception:
+            pass
         return txt[:200]
 
     # -- endpoints ------------------------------------------------------------
