@@ -56,6 +56,28 @@ class T(unittest.TestCase):
         self.assertIn("#ec-mywork-root", out)
         self.assertEqual(tb.insert_transform(out, "viec-cua-toi", "#ec-mywork-root"), out)
 
+    def test_insert_brings_badge_css_and_theme_color(self):
+        """The bar travels without its badge CSS and without a theme-color, so
+        the first real insert rendered a bare '9+' under the label and let
+        Android paint the toolbar its default blue."""
+        tb.extract_bar = lambda: (tb.CSS_ANCHOR + " " + tb.SOURCE_ROOT + "{a:1}",
+                                  tb.HTML_OPEN + "x" + tb.HTML_CLOSE,
+                                  tb.JS_OPEN + "y" + tb.JS_CLOSE)
+        out = tb.insert_transform("<main>trang</main>", "viec-cua-toi", "#ec-mywork-root")
+        self.assertIn(tb.EXTRAS_MARKER, out)
+        self.assertIn(".ec-tab-badge{position:absolute", out)
+        self.assertIn(".ec-tab a.on .ec-tab-badge{display:none}", out)
+        self.assertIn(tb.THEME_COLOR, out)
+        self.assertEqual(out.count('id="' + tb.EXTRAS_MARKER + '"'), 1)
+
+    def test_extras_repair_is_idempotent_and_needs_a_bar(self):
+        self.assertEqual(tb.extras_transform("<p>khong co thanh tab</p>", "x"),
+                         "<p>khong co thanh tab</p>")
+        withbar = 'x <style id="' + tb.BAR_MARKER + '">y</style>'
+        fixed = tb.extras_transform(withbar, "viec-cua-toi")
+        self.assertIn(tb.EXTRAS_MARKER, fixed)
+        self.assertEqual(tb.extras_transform(fixed, "viec-cua-toi"), fixed)
+
     def test_active_hook_noop_when_no_tab(self):
         self.assertEqual(tb.active_hook_transform("<p>khong co tab</p>", "x"),
                          "<p>khong co tab</p>")

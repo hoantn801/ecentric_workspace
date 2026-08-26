@@ -142,6 +142,40 @@ SOURCE_ROOT = "#ec-hr-sal-root"     # page-specific selector inside the CSS
 #: re-pointed at (it sets the bottom padding that keeps content off the bar).
 INSERT_TARGETS = {"viec-cua-toi": "#ec-mywork-root"}
 
+#: What the copied bar does NOT bring with it, learned the hard way on the
+#: first real insert:
+#:   * the badge markup travels with the bar, but its CSS lives in the
+#:     ec-tab-mywork-v1 block that only the three /ec-hr pages carry. Without
+#:     position:absolute the <i> drops out of the corner and renders as a bare
+#:     "9+" under the label.
+#:   * a page with no theme-color lets Android paint the toolbar its default
+#:     blue, which reads as a different app next to the /ec-hr pages.
+EXTRAS_MARKER = "ec-tabbar-extras-v1"
+THEME_COLOR = "#F4F6FB"
+
+EXTRAS = (
+    "\n"
+    '<style id="' + EXTRAS_MARKER + '">\n'
+    ".ec-tab-mywork{position:relative}\n"
+    ".ec-tab-badge{position:absolute; top:3px; left:calc(50% + 5px);\n"
+    "  min-width:17px; height:17px; padding:0 4px; border-radius:999px;\n"
+    "  background:#D7263D; color:#fff; font-size:10px; font-weight:700;\n"
+    "  line-height:17px; font-style:normal; text-align:center;\n"
+    "  box-shadow:0 0 0 2px #fff;\n"
+    "  font-variant-numeric:tabular-nums; pointer-events:none}\n"
+    ".ec-tab-badge[hidden]{display:none}\n"
+    "/* Standing ON the inbox page, the count on that tab is just an echo of\n"
+    "   what is already open -- hide it. Every other page keeps its badge. */\n"
+    ".ec-tab a.on .ec-tab-badge{display:none}\n"
+    "</style>\n"
+    "<script>\n"
+    "(function(){var m=document.querySelector('meta[name=\"theme-color\"]');\n"
+    'if(!m){m=document.createElement("meta");m.setAttribute("name","theme-color");document.head.appendChild(m);}\n'
+    'm.setAttribute("content","' + THEME_COLOR + '");})();\n'
+    "</" + "script>\n"
+)
+
+
 #: the 4th tab shipped WITHOUT data-p, so it never lit up as the active tab.
 MYWORK_A = '<a class="ec-tab-mywork" href="/viec-cua-toi">'
 MYWORK_A_ACTIVE = '<a class="ec-tab-mywork" href="/viec-cua-toi" data-p="/viec-cua-toi">'
@@ -209,11 +243,13 @@ def insert_transform(ms, route, root_sel):
     if SOURCE_ROOT in css:
         raise ValueError("%s: source root selector survived the rewrite" % route)
     new = (ms + '\n<style id="' + BAR_MARKER + '">\n' + css + "\n</style>\n"
-           + html + "\n" + js + "\n")
+           + html + "\n" + js + "\n" + EXTRAS)
     if new.count(HTML_OPEN) != 1 or new.count(JS_OPEN) != 1:
         raise ValueError("%s: bar did not settle" % route)
     if new.count('id="' + BAR_MARKER + '"') != 1:
         raise ValueError("%s: marker not written exactly once" % route)
+    if new.count('id="' + EXTRAS_MARKER + '"') != 1:
+        raise ValueError("%s: extras marker not written exactly once" % route)
     return new
 
 
@@ -254,6 +290,21 @@ def upgrade_insert(route, root_sel):
     return _save(route, lambda ms: insert_transform(ms, route, root_sel))
 
 
+def extras_transform(ms, route):
+    """Pure: give a page that ALREADY carries the bar the styling it shipped
+    without. Separate from insert_transform so the first page -- patched before
+    this gap was known -- can be repaired without re-inserting the bar."""
+    if EXTRAS_MARKER in ms:
+        return ms
+    if BAR_MARKER not in ms:
+        return ms                       # no bar here, nothing to dress
+    return ms + EXTRAS
+
+
+def upgrade_extras(route):
+    return _save(route, lambda ms: extras_transform(ms, route))
+
+
 @frappe.whitelist(methods=["POST"])
 def sync_tabbar_everywhere():
     """One entry point: replace the dead tab, give it its active hook, then put
@@ -265,4 +316,5 @@ def sync_tabbar_everywhere():
     out = [upgrade(r) for r in ROUTES]
     out += [upgrade_active_hook(r) for r in ROUTES]
     out += [upgrade_insert(r, sel) for r, sel in INSERT_TARGETS.items()]
+    out += [upgrade_extras(r) for r in INSERT_TARGETS]
     return {"results": out}
