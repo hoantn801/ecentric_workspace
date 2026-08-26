@@ -65,13 +65,17 @@ def _install_stub():
     fr._dict = _D
     sys.modules["frappe"] = fr
 
-    perms = types.ModuleType("perms")
-    perms.verified_mapping = lambda user, env: MAPPINGS.get((user, env))
-    sys.modules["ecentric_workspace.platform.esign.perms"] = perms
+    # Tên module THẬT là `permissions` (mã thật import nó dưới bí danh `perms`). Bản đầu
+    # của stub này cắm sẵn một module giả tên "perms", nên nó che mất đúng lỗi ImportError
+    # đã giết job ký trên production. Stub phải phản ánh tên thật, nếu không test chỉ đang
+    # kiểm chính cái stub của mình.
+    permissions = types.ModuleType("permissions")
+    permissions.verified_mapping = lambda user, env: MAPPINGS.get((user, env))
+    sys.modules["ecentric_workspace.platform.esign.permissions"] = permissions
     pkg = types.ModuleType("ecentric_workspace.platform.esign")
-    pkg.perms = perms
+    pkg.permissions = permissions
     sys.modules.setdefault("ecentric_workspace.platform.esign", pkg)
-    sys.modules["ecentric_workspace.platform.esign"].perms = perms
+    sys.modules["ecentric_workspace.platform.esign"].permissions = permissions
 
 
 class Base(unittest.TestCase):
@@ -246,6 +250,27 @@ class TestNoChildTableQuery(unittest.TestCase):
     Queued. Lỗi kiểu này không lộ ra trong test có stub (stub nào cũng trả dữ liệu), nên
     khoá lại bằng cách soi chính mã nguồn.
     """
+
+    def test_imports_resolve_against_the_real_package(self):
+        """Bắt lỗi ImportError mà stub không bao giờ thấy.
+
+        `next_handler` import `permissions as perms`; bản đầu viết `import perms` — module
+        đó không tồn tại, nên job ký chết ngay khi chạm tới hàm đó trên production. Test có
+        stub không phát hiện được vì stub tự cắm sẵn module giả. Ở đây soi thẳng mã nguồn và
+        đối chiếu với các file khác trong cùng package.
+        """
+        import os
+        base = "ecentric_workspace/platform/esign"
+        with open(os.path.join(base, "next_handler.py"), encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertNotIn("from ecentric_workspace.platform.esign import perms\n", src,
+                         "khong co module ten 'perms' — ten that la 'permissions'")
+        self.assertIn("import permissions as perms", src)
+        # moi ten module duoc import tu package nay phai la file co that
+        import re
+        for mod in re.findall(r"from ecentric_workspace\.platform\.esign import (\w+)", src):
+            self.assertTrue(os.path.isfile(os.path.join(base, mod + ".py")),
+                            "module khong ton tai: %s.py" % mod)
 
     def test_source_reads_transitions_from_parent_doc(self):
         with open("ecentric_workspace/platform/esign/next_handler.py", encoding="utf-8") as fh:

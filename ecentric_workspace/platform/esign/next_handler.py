@@ -94,7 +94,9 @@ def provider_ids_for(users, environment):
     Unverified or missing mappings are reported, never silently skipped - handing the
     document to an unverified identity is exactly the failure mode this module prevents.
     """
-    from ecentric_workspace.platform.esign import perms
+    # The module is `permissions`; every other file in this package imports it as `perms`.
+    # Getting that alias wrong made the whole signing leg die on an ImportError.
+    from ecentric_workspace.platform.esign import permissions as perms
     ids, unmapped = [], []
     for u in users or []:
         mapping = perms.verified_mapping(u, environment)
