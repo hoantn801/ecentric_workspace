@@ -414,7 +414,13 @@
     var hint = document.getElementById("ecdPlaceHint");
     if (hint) hint.style.display = (!ro && DRW.slot) ? "block" : "none";   // ISSUE 3: visible helper
     if (!ro) {
-      root.querySelectorAll("[data-add]").forEach(function (btn) {
+      // Tim TRONG chinh khoi the nguoi ky, khong tim tu #ec-docsign.
+      // Lop phu da duoc chuyen ra <body> (de position:fixed lay moc theo viewport), nen no
+      // KHONG con nam trong #ec-docsign - root.querySelectorAll() tra ve rong va khong nut
+      // nao duoc gan su kien: bam "Dat vi tri ky" khong an gi. Dung loi cua ban sua lop phu:
+      // da siet CSS cho song sot khi ra khoi #ec-docsign nhung bo sot cac truy van JS.
+      var cardBox = document.getElementById("ecdSignerCards");
+      (cardBox || root).querySelectorAll("[data-add]").forEach(function (btn) {
         btn.onclick = function (e) { e.stopPropagation();     // explicit intent to enter placement mode
           var k = btn.getAttribute("data-add");
           DRW.slot = (DRW.slot === k) ? null : k;             // toggle: click active again to cancel
