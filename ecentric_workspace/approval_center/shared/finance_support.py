@@ -101,8 +101,12 @@ class Resubmitter:
         previous = frappe.flags.mute_messages
         frappe.flags.mute_messages = True
         try:
-            engine.resubmit(document.approval_request, actor=actor or frappe.session.user)
+            outcome = engine.resubmit(document.approval_request,
+                                      actor=actor or frappe.session.user) or {}
         finally:
             frappe.flags.mute_messages = previous
-        return {"restarted": True}
+        # Truyen ket qua cua lop ky so ra ngoai. Gui lai co the doi HANH VI (goi ky duoc tao
+        # phien ban moi; neu da co chu ky thi duyet lai tu cap 1), va man hinh phai noi ra
+        # duoc dieu do - doi hanh vi ma im lang thi nguoi dung tuong he thong loi.
+        return {"restarted": True, "esign": outcome.get("esign") or {}}
 

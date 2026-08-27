@@ -1023,10 +1023,30 @@ def request_information(request_name, actor=None, comment=None):
            req.reference_doctype, req.reference_name)
 
 
+def _esign_on_reopen(request_name):
+    """Declared cross-module call into platform.esign. Returns a plain dict.
+
+    Only a MISSING module is tolerated. A real failure must propagate: a resubmit that
+    silently continues against a stale, frozen signing package is exactly the defect this
+    call exists to prevent (documents supplemented after a send-back never entered the
+    package, so later levels signed the old set - observed 2026-08-27).
+    """
+    try:
+        from ecentric_workspace.platform.esign import lifecycle as esign_lifecycle
+    except ImportError:
+        return {"revised": False, "new_package": None, "force_restart": False}
+    return esign_lifecycle.on_request_reopened(request_name)
+
+
 def resubmit(request_name, actor=None, restart=False):
     req = frappe.get_doc("EC Approval Request", request_name)
     if req.approval_status not in ("Information Required",) and not restart:
         frappe.throw(_("Only an Information Required request can be resubmitted."))
+    # Revise the signing package BEFORE the levels are reset: whether the approval resumes
+    # mid-chain or starts over depends on whether signatures were already collected.
+    esign = _esign_on_reopen(request_name)
+    if esign.get("force_restart"):
+        restart = True
     resume = 1 if restart else (req.information_requested_from_level or 1)
     for rl in _request_levels(request_name):
         if rl.level_no >= resume:
@@ -1039,10 +1059,18 @@ def resubmit(request_name, actor=None, restart=False):
                                     {"status": "Pending", "decided_at": None, "comment": None})
     frappe.db.set_value("EC Approval Request", request_name,
                         {"approval_status": "Pending", "information_requested_from_level": 0})   # Int NOT NULL: clear with 0, never None
+    note = None
+    if esign.get("force_restart"):
+        note = _("Bắt đầu lại từ cấp 1: tài liệu ký đã đổi nên các chữ ký số đã thu thập "
+                 "không còn chứng thực cho bộ tài liệu hiện tại.")
+    elif esign.get("revised"):
+        note = _("Đã tạo phiên bản mới của gói ký để nhận chứng từ bổ sung.")
+    elif restart:
+        note = _("Restarted from level 1 (material change)")
     log_action(request_name, "Restarted" if restart else "Resubmitted", actor or req.requested_by,
-               resume, comment=_("Restarted from level 1 (material change)") if restart else None,
-               new_status="Pending")
+               resume, comment=note, new_status="Pending")
     _activate_level(frappe.get_doc("EC Approval Request", request_name), resume)
+    return {"esign": esign}
 
 
 def cancel(request_name, actor=None, reason=None):
