@@ -15,6 +15,7 @@ from ecentric_workspace.platform.esign import guard
 from ecentric_workspace.platform.esign import package as pkgsvc
 from ecentric_workspace.platform.esign import permissions as perms
 from ecentric_workspace.platform.esign import service as svc
+from ecentric_workspace.platform.esign import shapes
 from ecentric_workspace.platform.esign import events
 
 
@@ -214,6 +215,44 @@ def list_scts_signatures(scts_user_id, environment=None):
     }
 
 
+@frappe.whitelist()
+def provider_document_shape(payment_request_name):
+    """READ-ONLY, System Manager only: WHICH FIELDS eContract returns for this document.
+
+    Written to end a specific guessing loop. `POST /api/Workflow/transition` is rejected with
+    a bare 400 and the suspicion is that `instanceId` must be a WORKFLOW/TASK id while we send
+    the DOCUMENT id - the portal's own task screen is `view-tasks.html?id=...`, which is not
+    the document id. Rather than try candidate values against a non-idempotent write, this
+    reports what the provider actually carries.
+
+    Deliberately returns SHAPE, not content: every key with the TYPE of its value, and the
+    VALUE only for keys that look like identifiers and hold a GUID-ish token. No amounts, no
+    names, no comments, no file content - so a diagnostic call can never become a data dump.
+    """
+    perms.assert_system_manager()
+    _business_args("EC Payment Request", payment_request_name)
+    pkg_name = frappe.db.get_value(
+        "EC Digital Signature Package",
+        {"business_doctype": "EC Payment Request", "business_name": payment_request_name,
+         "status": ["not in", ("Cancelled", "Superseded")]},
+        "name", order_by="creation desc")
+    if not pkg_name:
+        return {"ok": False, "reason": "no_package"}
+    doc_id = frappe.db.get_value("EC Digital Signature Package", pkg_name, "scts_document_id")
+    if not doc_id:
+        return {"ok": False, "reason": "no_provider_document", "package": pkg_name}
+    settings = frappe.db.get_value("EC Digital Signature Provider Settings",
+                                   {"integration_enabled": 1}, "*", as_dict=True)
+    if not settings:
+        frappe.throw(_("Không có Provider Settings đang bật."))
+    from ecentric_workspace.platform.esign.providers import get_adapter
+    raw = get_adapter(settings).get_document(doc_id)
+    return {"ok": True, "package": pkg_name, "document_id": doc_id,
+            "shape": shapes.shape_of(raw), "identifiers": shapes.identifiers_of(raw)}
+
+
+# camelCase la quy uoc cua eContract ("workflowInstanceId", "fileId"), nen KHONG the doi hoi
+# mot ranh gioi truoc "Id" - lan dau viet the va tuot mat dung cai field dang di tim.
 # ------------------------------ Payment Request e2e (S2B-B) ------------------------------ #
 @frappe.whitelist(methods=["POST"])
 def pr_approve_and_sign(payment_request_name, comment=None):
