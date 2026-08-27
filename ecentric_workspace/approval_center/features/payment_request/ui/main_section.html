@@ -529,6 +529,17 @@
     else { steps.push({name:"Direct Manager",state:"upcoming",statusLabel:"Chờ",meta:""}); }
     steps.push({name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:""});
     return renderStepsHTML(steps); }
+  function markSignWait(steps, det){
+    if (!signWaitActive(det)) return steps;
+    steps.forEach(function(st){
+      if (st.state === "current") {
+        st.statusLabel = "Đang chờ nhà cung cấp xác nhận…";
+        st.meta = (st.meta || "") + '<div class="hint">Chữ ký số đang được xác nhận. Màn hình tự cập nhật.</div>';
+      }
+    });
+    return steps;
+  }
+
   function buildStepper(det){ var ap=det.approval||{}; if(!ap.name) return buildDraftStepper(det);
     var levels=det.levels||[], approvers=det.approvers||[];
     var steps=[{name:"Đã gửi",state:"done",meta:""}];
@@ -541,7 +552,7 @@
       if(l.due_at&&st==="current"&&new Date(l.due_at)<new Date()){ meta+=' · <span class="ov">Quá hạn</span>'; } else if(l.due_at&&st==="current"){ meta+=" · Hạn: "+fmt(l.due_at); }
       steps.push({name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
     steps.push({name:"Hoàn tất",state:(ap.approval_status==="Approved"?"done":"upcoming"),meta:""});
-    return renderStepsHTML(steps); }
+    return renderStepsHTML(markSignWait(steps, det)); }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
   function renderStepsHTML(steps){ var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
@@ -592,6 +603,37 @@
     var ok=ov.querySelector("[data-ok]"); ok.onclick=function(){ if(!opts.onConfirm){ close(); return; } ok.disabled=true; var p=opts.onConfirm(ov); if(p&&p.then){ p.then(function(){ close(); }).catch(function(){ ok.disabled=false; }); } else { close(); } };
     return {ov:ov, close:close}; }
 
+  // --- Cho nha cung cap xac nhan chu ky ---------------------------------------------------
+  // Bam "Duyet & Ky" xong thi khong co gi thay doi tren man hinh trong 1-2 phut: SCTS xu ly
+  // bat dong bo, con thanh tien trinh chi doi khi da xac minh xong. Nguoi dung khong biet
+  // he thong da nhan lenh hay chua, nen bam lai - Hoan bao 27/08.
+  // Ghi ro dang cho, va TU hoi lai thay vi bat nguoi dung F5.
+  var SIGNWAIT = { name: null, level: null, timer: null, until: 0 };
+
+  function signWaitActive(det){
+    if (!SIGNWAIT.name || !det) return false;
+    if (String(det.name || (det.business||{}).name || state.id) !== String(SIGNWAIT.name)) return false;
+    var ap = det.approval || {};
+    if (Date.now() > SIGNWAIT.until) return false;              // het gio cho -> thoi bao dang cho
+    return String(ap.current_level || "") === String(SIGNWAIT.level || "");   // cap chua nhuc nhich
+  }
+
+  function stopSignWait(){
+    if (SIGNWAIT.timer) { clearInterval(SIGNWAIT.timer); SIGNWAIT.timer = null; }
+    SIGNWAIT.name = null; SIGNWAIT.level = null; SIGNWAIT.until = 0;
+  }
+
+  function startSignWait(name, level){
+    stopSignWait();
+    SIGNWAIT.name = name; SIGNWAIT.level = level;
+    SIGNWAIT.until = Date.now() + 6 * 60 * 1000;                // co diem dung, khong quay mai
+    SIGNWAIT.timer = setInterval(function(){
+      if (Date.now() > SIGNWAIT.until) { stopSignWait(); refreshDetail(); return; }
+      if (state.tab !== "detail" || String(state.id) !== String(name)) { stopSignWait(); return; }
+      refreshDetail();
+    }, 10000);
+  }
+
   function refreshDetail(){ if(state.tab==="detail"&&state.id) renderDetail($("payr-body")); }
   function refreshApprovals(){ if(state.tab==="my-approvals") renderMyApprovals($("payr-body")); }
   function nextLevelName(det){ if(!det) return ""; var ap=det.approval||{}; if(ap.approval_status!=="Pending"||!ap.current_level) return ""; var l=(det.levels||[]).filter(function(x){return Number(x.level_no)===Number(ap.current_level);})[0]; return l?(l.level_name||("Cấp "+ap.current_level)):""; }
@@ -608,6 +650,7 @@
         return callEsign("pr_approve_and_sign",{payment_request_name:name,comment:cmt}).then(function(res){
           toast((res&&res.duplicate)?"Yêu cầu ký đã tồn tại — đang chờ nhà cung cấp xác nhận."
                                     :"Đã gửi yêu cầu ký. Chữ ký sẽ được xác nhận trong ít phút.");
+          startSignWait(name, ((det||{}).approval||{}).current_level);
           loadSignReady(true); refreshDetail(); refreshApprovals();
         }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
 

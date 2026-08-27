@@ -123,6 +123,13 @@ scheduler_events = {
             # signal). Kill-switched via site_config ec_esign_scheduler_disabled
             # (fail-safe: config read error => disabled). Inert until an esign
             # profile is enabled + gates opened.
+        ],
+        # poll_pending moved from */5 to */1 (2026-08-27). After "Duyệt & Ký" the screen shows
+        # nothing until verification lands, so a five-minute worst case reads as a broken
+        # button. The query is a single indexed lookup that returns nothing most minutes, and
+        # it only reaches SCTS while a request is genuinely in flight - bounded by
+        # max_poll_attempts. Kept separate from the */5 block so the reason stays visible.
+        "*/1 * * * *": [
             "ecentric_workspace.platform.esign.tasks.poll_pending",
         ],
     },
