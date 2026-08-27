@@ -1,5 +1,5 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Resync trang hub sau khi tab 'Chá» tÃ´i xá»­ lÃ½' gá»™p thÃªm há»“ sÆ¡ chá» tÃ´i duyá»‡t."""
+"""Resync trang hub sau khi tab 'Chờ tôi xử lý' gộp thêm hồ sơ chờ tôi duyệt."""
 import frappe
 
 from ecentric_workspace.approval_center.ui.all_requests import page_sync
