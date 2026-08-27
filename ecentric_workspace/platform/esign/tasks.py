@@ -462,6 +462,48 @@ def poll_pending():
             frappe.log_error(frappe.get_traceback(), "esign.tasks.poll_pending %s" % r.name)
 
 
+#: A leg the provider accepted normally produces a signature within SECONDS - measured on
+#: this system: 2s, 2s, 1s. Past this many minutes with nothing happening, waiting longer is
+#: not going to help; somebody has to look.
+PROVIDER_SILENCE_MINUTES = 20
+
+
+def flag_silent_legs():
+    """Every 5 minutes: a leg the provider ACCEPTED but never acted on -> Manual Review.
+
+    On 2026-08-27 a leg sat in `Verifying` while the provider had accepted the job, returned
+    a transaction id, and then done nothing at all: no signature, not even a row in its own
+    workflow log. The only backstop was sweep_stale at 24 hours. On a live system carrying
+    real payment approvals, a whole day of looking-busy-while-stuck is not an acceptable
+    failure mode - and the person waiting has no way to tell it apart from "the provider is
+    slow today".
+
+    Deliberately conservative: only legs the provider has already ACCEPTED (so we know the
+    request left us), only after twenty minutes, and it moves them to Manual Review rather
+    than retrying - a non-idempotent signing write must never be replayed automatically.
+    """
+    if _disabled():
+        return
+    rows = frappe.get_all(DSR, filters={"status": ["in", ["Provider Accepted", "Verifying"]]},
+                          fields=["name", "status", "accepted_at", "modified", "package"],
+                          limit_page_length=200)
+    now = now_datetime()
+    cutoff = add_to_date(now, minutes=-PROVIDER_SILENCE_MINUTES)
+    for r in rows:
+        try:
+            since = r.accepted_at or r.modified
+            if not since or since > cutoff:
+                continue
+            events.set_dsr_status(
+                r.name, "Manual Review", event_type="ManualReview",
+                extra_fields={"manual_review_reason": "provider_accepted_but_silent"},
+                error_summary=("nha cung cap da nhan lenh luc %s nhung khong tao chu ky sau %s phut"
+                               % (since, PROVIDER_SILENCE_MINUTES)))
+            _dead_letter_todo(r.name)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "esign.tasks.flag_silent_legs %s" % r.name)
+
+
 def sweep_stale():
     """Hourly: non-terminal DSRs untouched beyond stale_after_hours -> Manual Review +
     ONE deduped ops ToDo (order_retry dead-letter pattern) + sanitized Error Log."""
