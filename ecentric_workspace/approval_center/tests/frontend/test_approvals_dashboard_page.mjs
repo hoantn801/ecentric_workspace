@@ -2,12 +2,13 @@
 // ECharts itself isn't loaded in jsdom; we stub window.ECCharts to record options + click
 // handlers, so we can verify chart config, drill-down wiring and instance safety without a canvas.
 import { JSDOM } from "jsdom";
+import { pageSource } from "./_page_source.mjs";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __dir = path.dirname(fileURLToPath(import.meta.url));
-const HTML = fs.readFileSync(path.join(__dir, "..", "..", "frontend", "approvals_dashboard.main_section.html"), "utf8");
+const HTML = pageSource("approvals_dashboard");
 const [markup, rest] = HTML.split('<script id="ec-approval-dashboard">');
 const JS = rest.replace(/<\/script>\s*$/, "");
 

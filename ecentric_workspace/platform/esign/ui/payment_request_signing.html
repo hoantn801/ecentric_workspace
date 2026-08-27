@@ -101,8 +101,19 @@
     _err: function(e){ var m=(e&&e.message)||"Lỗi.";
       if(window.frappe && frappe.msgprint) frappe.msgprint(m); },
 
+    // Bang "Tep ky so (SCTS)" la ban TIEN NHIEM cua drawer: nhap toa do bang so, liet ke
+    // placement kem toa do va link "xoa". Gio drawer (document_signing_section.html) so huu
+    // viec dat vi tri, con nut "Duyet & Ky" that su nam o panel hanh dong cua trang
+    // (payment_request/ui/main_section.html) va co buoc xac nhan + o ghi chu. Vay nen bang nay
+    // chi con la be mat go loi lo ra truoc mat nguoi duyet - Hoan bao 27/08. Cung ly do da
+    // khien #ec-pph-editor bi tat vinh vien; o day truoc do moi chi an TRONG LUC drawer mo,
+    // nen dong drawer lai la no hien ra.
+    // Module van giu nguyen (boot/addPlacement/save) de duong goi bang code khong gay.
+    RENDER_LEGACY_UI: false,
+
     render: function(){
       var panel = el("ec-esign-panel"); if(!panel) return;
+      if(!this.RENDER_LEGACY_UI){ panel.innerHTML = ""; return; }
       var s = this.state, pkg = s.pkg || {}, locked = pkg.status && pkg.status !== "Draft";
       var h = ['<h4>Tệp ký số (SCTS)</h4>'];
       h.push('<div>Gói: <b>'+esc(pkg.status||"Chưa có")+'</b>'+

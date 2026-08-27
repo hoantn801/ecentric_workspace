@@ -39,20 +39,31 @@ class NormalizedDocState(object):
         self.identity = identity or {}
 
     def signer(self, user_id, email=None):
-        """Locate the expected signer. Primary key: provider user_id. eContract's Document
-        detail does NOT return signer userIds - internal signers are identifiable only by
-        EMAIL - so an exact-email fallback (case-insensitive, unambiguous) is authoritative
-        when user_id matching finds nothing."""
-        for s in self.signers:
-            if s.get("user_id") is not None and str(s.get("user_id")) == str(user_id):
-                return s
+        """First signer row matching the identity, or None. Kept for callers that only need
+        "is this person on the document at all"."""
+        hits = self.signers_for(user_id, email)
+        return hits[0] if hits else None
+
+    def signers_for(self, user_id, email=None):
+        """EVERY signer row matching the identity, in provider order.
+
+        One person legitimately occupies SEVERAL rows on the same document - one per signing
+        area - and eContract confirms this: after signing as requester AND as department
+        manager, the same email appears twice with different times. The earlier
+        one-row-only lookup made that ordinary case unresolvable: with two rows it returned
+        nothing at all ("expected_signer_absent"), and with one it locked onto whichever came
+        first, so an approver leg was judged against the requester's own older signature.
+        Callers must therefore consider all rows and pick the one that satisfies them.
+        """
+        by_id = [s for s in self.signers
+                 if s.get("user_id") is not None and str(s.get("user_id")) == str(user_id)]
+        if by_id:
+            return by_id
         if email:
             em = str(email).strip().lower()
-            hits = [s for s in self.signers
+            return [s for s in self.signers
                     if str(s.get("email") or "").strip().lower() == em]
-            if len(hits) == 1:
-                return hits[0]
-        return None
+        return []
 
 
 class VerificationResult(object):
@@ -200,20 +211,28 @@ class SignatureProviderAdapter(object):
                 continue
         return None
 
+    #: A signature we are verifying lands within minutes of the request, never hours later.
+    #: Resolving a bare clock into the future beyond this would let a stale signature pass.
+    _FORWARD_GRACE_SECONDS = 3600
+
     @staticmethod
     def _nearest(candidate, reference):
-        """Shift `candidate` by whole days until it sits closest to `reference`.
+        """Resolve a date-less clock to a real day, WITHOUT inventing a future signature.
 
-        Resolves a date-less clock across a midnight boundary: 23:58 seen from a 00:03
-        reference belongs to yesterday, not to today.
+        Choosing the arithmetically closest day is wrong: from a 19:58 reference, a "04:12"
+        signature made sixteen hours earlier is closer to TOMORROW's 04:12, so a plain
+        nearest-match would move a stale signature into the future and let it pass the
+        freshness guard. Caught by test_all_rows_too_old_is_still_refused.
+
+        Rule: take the LATEST day that still sits at or before `reference` plus a small
+        forward grace. Only if no such day exists do we accept the earliest later one, which
+        covers a provider clock running slightly ahead of ours.
         """
         from datetime import timedelta
-        best = candidate
-        for days in (-1, 0, 1):
-            shifted = candidate + timedelta(days=days)
-            if abs((shifted - reference).total_seconds()) < abs((best - reference).total_seconds()):
-                best = shifted
-        return best
+        limit = reference + timedelta(seconds=SignatureProviderAdapter._FORWARD_GRACE_SECONDS)
+        options = sorted(candidate + timedelta(days=d) for d in (-1, 0, 1))
+        allowed = [o for o in options if o <= limit]
+        return allowed[-1] if allowed else options[0]
 
     @staticmethod
     def verify_signed_result(doc_state, expected):
@@ -224,9 +243,26 @@ class SignatureProviderAdapter(object):
             return VerificationResult(False, "no_document_state")
         if str(doc_state.document_id) != str(expected.get("document_id")):
             return VerificationResult(False, "document_id_mismatch")
-        signer = doc_state.signer(expected.get("user_id"), expected.get("email"))
-        if not signer:
+        fc = expected.get("file_count")
+        if fc is not None and len(doc_state.files) != int(fc):
+            return VerificationResult(False, "file_count_mismatch")
+        candidates = doc_state.signers_for(expected.get("user_id"), expected.get("email"))
+        if not candidates:
             return VerificationResult(False, "expected_signer_absent")
+        # ANY row that satisfies every condition proves this leg. Rejecting because some OTHER
+        # row of the same person is older would refuse a perfectly good signature - which is
+        # exactly what happened on 2026-08-27 once the same person held two signing areas.
+        first_failure = None
+        for signer in candidates:
+            res = SignatureProviderAdapter._check_one_signer(signer, expected)
+            if res.ok:
+                return res
+            first_failure = first_failure or res
+        return first_failure
+
+    @staticmethod
+    def _check_one_signer(signer, expected):
+        """All per-signer conditions for one candidate row."""
         if signer.get("status") != "signed":
             return VerificationResult(False, "signer_not_signed:%s" % signer.get("status"))
         # FRESHNESS (2026-08-27). Without this, "did this email sign the document?" is true
@@ -250,7 +286,4 @@ class SignatureProviderAdapter(object):
         exp_sig = expected.get("signature_id")
         if exp_sig and signer.get("signature_id") and str(signer["signature_id"]) != str(exp_sig):
             return VerificationResult(False, "signature_id_mismatch")
-        fc = expected.get("file_count")
-        if fc is not None and len(doc_state.files) != int(fc):
-            return VerificationResult(False, "file_count_mismatch")
         return VerificationResult(True, "verified")

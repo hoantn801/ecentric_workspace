@@ -3,12 +3,13 @@
 // Verifies data-driven rendering, states, search, category filter, and
 // per-status clickability. Frontend is NOT the security boundary (server is).
 import { JSDOM } from "jsdom";
+import { pageSource } from "./_page_source.mjs";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __dir = path.dirname(fileURLToPath(import.meta.url));
-const HTML = fs.readFileSync(path.join(__dir, "..", "..", "frontend", "approvals.main_section.html"), "utf8");
+const HTML = pageSource("approvals");
 const [markup, rest] = HTML.split('<script id="ec-approval-center">');
 const JS = rest.replace(/<\/script>\s*$/, "");
 

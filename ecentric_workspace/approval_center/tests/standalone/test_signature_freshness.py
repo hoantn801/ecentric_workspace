@@ -177,6 +177,64 @@ class TestFreshness(unittest.TestCase):
         self.assertTrue(res.ok, res.reason)
 
 
+class TestSamePersonSignsSeveralAreas(unittest.TestCase):
+    """Một người giữ NHIỀU vùng ký trên cùng chứng từ — chuyện bình thường ở eCentric.
+
+    Hoàn vừa là người trình vừa là trưởng bộ phận, nên ký hai lần. Quan sát thật
+    27/08/2026: eContract trả HAI dòng cho cùng email, `04:12` và `11:54`.
+
+    Cách tra cứu cũ hỏng theo cả hai chiều: có hai dòng thì nó trả về KHÔNG CÓ AI
+    (`expected_signer_absent`); có một dòng thì nó bám vào dòng đầu, nên chân người duyệt bị
+    đánh giá bằng chính chữ ký cũ của chân người trình (`signature_predates_request:04:12`).
+    """
+
+    def test_approver_leg_accepts_the_newer_row(self):
+        asked = datetime(2026, 8, 27, 11, 54, 16) - timedelta(seconds=TOL)
+        st = _state([_signer(signed_at="04:12"), _signer(signed_at="11:54")])
+        res = SignatureProviderAdapter.verify_signed_result(st, _expected(signed_after=asked))
+        self.assertTrue(res.ok, res.reason)
+
+    def test_requester_leg_still_accepts_the_older_row(self):
+        """Chân người trình xét lúc chỉ có dòng cũ — vẫn phải xanh."""
+        asked = datetime(2026, 8, 27, 4, 11, 46) - timedelta(seconds=TOL)
+        st = _state([_signer(signed_at="04:12"), _signer(signed_at="11:54")])
+        res = SignatureProviderAdapter.verify_signed_result(st, _expected(signed_after=asked))
+        self.assertTrue(res.ok, res.reason)
+
+    def test_two_rows_no_longer_mean_nobody_found(self):
+        st = _state([_signer(signed_at="04:12"), _signer(signed_at="11:54")])
+        self.assertEqual(len(st.signers_for("73f72e15", HOAN)), 2)
+        res = SignatureProviderAdapter.verify_signed_result(st, _expected())
+        self.assertNotEqual(res.reason, "expected_signer_absent")
+
+    def test_all_rows_too_old_is_still_refused(self):
+        """Không được nới lỏng: mọi dòng đều cũ hơn yêu cầu thì vẫn phải từ chối."""
+        asked = datetime(2026, 8, 27, 20, 0, 0) - timedelta(seconds=TOL)
+        st = _state([_signer(signed_at="04:12"), _signer(signed_at="11:54")])
+        res = SignatureProviderAdapter.verify_signed_result(st, _expected(signed_after=asked))
+        self.assertFalse(res.ok)
+        self.assertIn("signature_predates_request", res.reason)
+
+    def test_a_pending_row_does_not_block_a_signed_one(self):
+        st = _state([_signer(status="pending", signed_at=None), _signer(signed_at="11:54")])
+        asked = datetime(2026, 8, 27, 11, 54, 16) - timedelta(seconds=TOL)
+        res = SignatureProviderAdapter.verify_signed_result(st, _expected(signed_after=asked))
+        self.assertTrue(res.ok, res.reason)
+
+    def test_other_people_rows_are_never_considered(self):
+        st = _state([_signer(email="ai.do@ecentric.vn", signed_at="11:54"),
+                     _signer(signed_at="04:12")])
+        asked = datetime(2026, 8, 27, 11, 54, 16) - timedelta(seconds=TOL)
+        res = SignatureProviderAdapter.verify_signed_result(st, _expected(signed_after=asked))
+        self.assertFalse(res.ok, "khong duoc muon chu ky cua nguoi khac de xac nhan")
+
+    def test_file_count_is_checked_before_any_signer(self):
+        """Số tệp thuộc về TÀI LIỆU, không thuộc về từng người ký — phải kiểm một lần."""
+        st = _state([_signer(signed_at="11:54")])
+        res = SignatureProviderAdapter.verify_signed_result(st, _expected(file_count=9))
+        self.assertEqual(res.reason, "file_count_mismatch")
+
+
 class TestUnchangedChecks(unittest.TestCase):
     """Các phép kiểm sẵn có không được đổi hành vi."""
 

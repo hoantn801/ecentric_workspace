@@ -2,9 +2,10 @@
 // Form: 2 approval levels (Operation Review Any One -> CEO), NO fulfillment, COMMENTS REQUIRED ON,
 // many fields incl. conditional *_other fields and a multi-select (recommended_actions checkboxes).
 import { JSDOM } from "jsdom";
+import { pageSource } from "./_page_source.mjs";
 import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
 const __dir = path.dirname(fileURLToPath(import.meta.url));
-const HTML = fs.readFileSync(path.join(__dir, "..", "..", "frontend", "asset_damage_loss.main_section.html"), "utf8");
+const HTML = pageSource("asset_damage_loss");
 const [markup, rest] = HTML.split('<script id="ec-asset-damage-loss">');
 const JS = rest.replace(/<\/script>\s*$/, "");
 let fails = 0;

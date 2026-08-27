@@ -1,8 +1,9 @@
 // Headless tests for the HR Activity page (Node + jsdom). Form #8 (3-level, no fulfillment).
 import { JSDOM } from "jsdom";
+import { pageSource } from "./_page_source.mjs";
 import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
 const __dir = path.dirname(fileURLToPath(import.meta.url));
-const HTML = fs.readFileSync(path.join(__dir, "..", "..", "frontend", "hr_activity.main_section.html"), "utf8");
+const HTML = pageSource("hr_activity");
 const [markup, rest] = HTML.split('<script id="ec-hr-activity">');
 const JS = rest.replace(/<\/script>\s*$/, "");
 let fails = 0;
