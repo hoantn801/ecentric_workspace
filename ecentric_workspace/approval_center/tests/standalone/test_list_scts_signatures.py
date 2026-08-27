@@ -34,6 +34,13 @@ def _api_source():
     raise AssertionError("khong tim thay platform/esign/api.py. Da thu:\n  " + "\n  ".join(tried))
 
 
+def _code_only(body):
+    """Bo docstring va chu thich. Mot phep kiem soi ca loi giai thich se bat oan chinh cau
+    van dang noi ro vi sao KHONG dung thu do."""
+    body = re.sub(r'"""[\s\S]*?"""', "", body)
+    return re.sub(r"(?m)^\s*#.*$", "", body)
+
+
 def _body(src, func):
     m = re.search(r"\ndef %s\(.*?\n(.*?)(?=\n@frappe\.whitelist|\Z)" % func, src, re.S)
     assert m, "khong tim thay ham %s" % func
@@ -88,6 +95,48 @@ class TestVerifyMappingStillStrict(unittest.TestCase):
         body = _body(_api_source(), "verify_mapping")
         self.assertIn("if not owned:", body)
         self.assertIn("frappe.throw", body.split("if not owned:")[1][:200])
+
+
+class TestSignatureOverlayStaysNarrow(unittest.TestCase):
+    """Endpoint tra ve ANH chu ky - pham vi phai chat, va phai chat MAI."""
+
+    def setUp(self):
+        self.body = _body(_api_source(), "document_signature_overlay")
+
+    def test_only_for_people_who_actually_signed_this_document(self):
+        self.assertIn('!= "signed"', self.body,
+                      "phai bo qua nguoi CHUA ky - neu khong day thanh cong cu tra anh chu ky bat ky ai")
+        self.assertIn("continue", self.body)
+
+    def test_requires_business_view_permission(self):
+        self.assertIn('_business_args("EC Payment Request"', self.body,
+                      "phai gioi han o nguoi da duoc xem chinh yeu cau nay")
+
+    def test_uses_the_accessor_that_actually_returns_an_image(self):
+        # list_user_signatures() chuan hoa qua _norm_signature va LAM RUNG base64Image ->
+        # dung no o day se luon tra None ma khong bao gi.
+        # Soi CODE, khong soi chu thich: chinh cai bay nay da lam mot phep kiem truoc do do oan.
+        self.assertIn("adapter.signature_image(", self.body)
+        self.assertNotIn("list_user_signatures", _code_only(self.body))
+
+    def test_image_lookup_goes_through_a_verified_mapping(self):
+        self.assertIn("perms.verified_mapping(", self.body,
+                      "khong duoc tra anh cho danh tinh chua xac minh")
+
+    def test_a_missing_image_never_hides_the_fact_of_signing(self):
+        self.assertIn("except Exception:", self.body)
+        idx = self.body.index("except Exception:")
+        self.assertIn("out.append(row)", self.body[idx:],
+                      "loi lay anh khong duoc lam mat dong 'nguoi nay da ky'")
+
+    def test_does_not_write_anything(self):
+        for banned in ("db_set", "db.set_value", ".save(", ".insert(", "frappe.delete_doc"):
+            self.assertNotIn(banned, self.body, "phai la CHI DOC: %s" % banned)
+
+    def test_never_returns_certificate_material(self):
+        low = _code_only(self.body).lower()
+        for banned in ("hsmcert", "certificate", "private", "pfx", "p12"):
+            self.assertNotIn(banned, low, "khong duoc cham vao vat lieu chung thu: %s" % banned)
 
 
 if __name__ == "__main__":

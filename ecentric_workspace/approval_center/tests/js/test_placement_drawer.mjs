@@ -62,6 +62,8 @@ const frappe={ call(o){ calls.push({method:o.method,args:o.args});
   if(/signing_readiness$/.test(o.method))return Promise.resolve({message:{checks:{active_approver:false}}});
   if(/placement_state$/.test(o.method))return Promise.resolve({message:PSTATE});
   if(/my_signature_preview$/.test(o.method))return Promise.resolve({message:{image_base64:"iVBORw0KGgo="}});
+  if(/document_signature_overlay$/.test(o.method))return Promise.resolve({message:{ok:true,signed:[
+    {email:"h@x",signed_at:"17:59",image_base64:"iVBORw0KGgoREAL="}]}});
   if(/save_placement$/.test(o.method)){ if(saveOk){PSTATE=Object.assign({},PSTATE,{covered_slot_count:1,
       placements:[{name:"PL1",x:o.args.box?JSON.parse(o.args.box).x:10,y:10,width:120,height:40,signer_slot_key:"requester"}]});
       return Promise.resolve({message:{ok:true,placement_name:"PL1",state:PSTATE}});}
@@ -214,10 +216,46 @@ async function main(){
      "anh xem thu mo coi bi don khoi lop tai lieu");
   const boxes = els["ecdLayer"].querySelectorAll(".ecd-box");
   ok(boxes.length>0,"co it nhat mot o chu ky de kiem tra");
-  const sigKids = b => (b._kids||[]).filter(k=>((k._attrs.class||k.className||"")+"").indexOf("sigprev")>=0);
+  // anh XEM THU = .sigprev nhung KHONG phai .sigdone (chu ky that cung mang lop sigprev)
+  const cls = k => (k._attrs.class||k.className||"")+"";
+  const sigKids = b => (b._kids||[]).filter(k=>cls(k).indexOf("sigprev")>=0 && cls(k).indexOf("sigdone")<0);
   ok(boxes.every(b=>sigKids(b).length===1),"moi o mang DUNG MOT anh xem thu (khong chong lop)");
   const drawn = boxes.filter(b=>sigKids(b).length>0);
   ok(drawn.length===boxes.length,"anh mau duoc ve vao TRONG tung o, khong noi ben ngoai");
+
+  // Xem thu PHAI giong het thu SCTS in ra: anh + khoi chu "Ky boi / scts.com.vn / ngay / gio".
+  // Ban cu chi ve moi anh, nen xem thu mot dang ma ky that ra mot dang khac.
+  const sig = sigKids(boxes[0])[0];
+  const kids = sig._kids || [];
+  ok(kids.some(k=>(k.id||"").indexOf("_new_img")>=0 && k.getAttribute("src")),
+     "khoi chu ky co the anh, co gan src");
+  const txt = kids.filter(k=>((k._attrs.class||k.className||"")+"").indexOf("sigtxt")>=0)[0];
+  ok(!!txt, "khoi chu ky co phan CHU ben canh anh (khong chi moi anh)");
+  const lines = (txt._kids||[]).map(k=>k.textContent||"");
+  ok(lines.indexOf("Ký bởi:")>=0, "co dong 'Ky boi:' nhu ban SCTS in ra");
+  ok(lines.indexOf("scts.com.vn")>=0, "co ten mien scts.com.vn");
+  ok(lines.some(l=>/^\d{2}\/\d{2}\/\d{4}$/.test(l)), "co dong ngay dd/mm/yyyy");
+  ok(lines.some(l=>/^\d{2}:\d{2}:\d{2}$/.test(l)), "co dong gio HH:MM:SS");
+
+  // Chu ky DA KY that phai hien len, dong bo tu SCTS - khong chi mot dau tich.
+  const doneNodes = els["ecdLayer"].querySelectorAll(".sigdone");
+  ok(doneNodes.length>0, "chu ky that duoc ve vao o cua nguoi da ky");
+  const dImg = (doneNodes[0]._kids||[]).filter(k=>(k.id||"").indexOf("_new_img")>=0)[0];
+  ok(dImg && (dImg.getAttribute("src")||"").indexOf("iVBORw0KGgoREAL")>=0,
+     "dung dung anh chu ky SCTS tra ve, khong phai anh xem thu");
+  const dTxt = (doneNodes[0]._kids||[]).filter(k=>((k._attrs.class||k.className||"")+"").indexOf("sigtxt")>=0)[0];
+  ok(!!dTxt, "chu ky that cung co khoi chu - dung chung bo cuc voi ban xem thu");
+  ok(els["ecdSignerCards"]._html.indexOf("Đã ký")>=0, "the nguoi ky bao ro DA KY");
+  ok(els["ecdSignerCards"]._html.indexOf("17:59")>=0, "the nguoi ky hien gio ky that");
+
+  // Bam "Ky thu" khong duoc phep xoa chu ky THAT - ban truoc go moi .sigprev nen mot cai bam
+  // la mat sach chu ky tren man hinh.
+  els["ecdTrySign"].onclick(); await tick();                    // tat xem thu
+  ok(els["ecdLayer"].querySelectorAll(".sigdone").length>0,
+     "tat Ky thu: chu ky that VAN con");
+  els["ecdTrySign"].onclick(); await tick();                    // bat lai
+  ok(els["ecdLayer"].querySelectorAll(".sigdone").length>0,
+     "bat lai Ky thu: chu ky that VAN con, khong bi chong lop");
 
   // ISSUE 1: closing the drawer clears the legacy-hide flag
   closeDrawerViaEsc();

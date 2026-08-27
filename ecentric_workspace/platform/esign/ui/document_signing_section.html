@@ -8,76 +8,91 @@
      never at body/grid-root level. Governed writes go only to whitelisted endpoints. -->
 <div id="ec-docsign" class="ec-docsign" style="display:none">
   <style>
-    /* Issue 2 - clear vertical gap from the action-button row (Hủy/Lưu/Gửi) above. */
+    /* Bang mau RIENG cua drawer. Truoc day drawer muon 20 lan bien cua ERP shell
+       (--gray-200, --navy...). Shell dinh nghia lai mot bien la nut vien den, chu mo -
+       ma drawer khong so huu nhung bien ay va khong kiem soat duoc khi nao chung doi.
+       Khai o day, co gia tri mac dinh cua chinh minh, khong phu thuoc ai. */
+    .ec-docsign, .ecd-drawer-ov{
+      --ecd-line:#d9dee3; --ecd-dim:#6e7781; --ecd-ink:#24292f; --ecd-ink-2:#32383f;
+      --ecd-sub:#57606a; --ecd-soft:#eaeef2; --ecd-brand:#2C3DA6;
+    }
+
+/* Issue 2 - clear vertical gap from the action-button row (Hủy/Lưu/Gửi) above. */
     .ec-docsign{margin-top:20px}
-    /* Issue 1 - one requester upload surface: hide the LEGACY request_attachment field
+/* Issue 1 - one requester upload surface: hide the LEGACY request_attachment field
        uploader on the Payment Request page. UI-only: the <input> stays in the DOM (still
        bound to state.draft.request_attachment) so the data contract + submit validation +
        representative-pointer logic are all preserved. */
     #ec-payr-root .fld:has([data-upload="request_attachment"]){display:none !important}
-    .ec-docsign .ecd-card{background:#fff;border:1px solid var(--gray-200,#d9dee3);border-radius:12px;padding:18px 20px;margin-bottom:16px}
-    .ec-docsign h3{font-size:14px;font-weight:700;color:var(--gray-900,#1f2328);margin:0 0 4px;display:flex;align-items:center;gap:8px}
-    .ecd-box{position:absolute;touch-action:none;user-select:none;border:2px solid #2C3DA6;background:rgba(44,61,166,.12);border-radius:4px;cursor:move;font-size:10px;color:#2C3DA6;font-weight:700;overflow:hidden}
-    .ecd-box .lbl{padding:1px 4px;white-space:nowrap}
-    .ecd-box img.sigprev{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;opacity:.92}
-    #ecdTrySign.on{background:#2C3DA6;color:#fff}
-    .ecd-box .rsz{position:absolute;right:-5px;bottom:-5px;width:12px;height:12px;background:#2C3DA6;border-radius:50%;cursor:nwse-resize}
-    .ecd-box .del{position:absolute;right:1px;top:1px;width:14px;height:14px;line-height:12px;text-align:center;background:#fff;border-radius:50%;cursor:pointer;color:#b35900}
-    .ecd-scard.sel{border-color:#2C3DA6;box-shadow:0 0 0 2px rgba(44,61,166,.25)}
-    .ecd-box.ro{cursor:default}
-    .ecd-poscount{font-size:11px;color:#57606a;margin-top:4px}
-    .ecd-addpos{margin-top:6px;font-size:11.5px;padding:4px 10px;border:1px solid #2C3DA6;background:#fff;color:#2C3DA6;border-radius:6px;cursor:pointer;font-weight:600}
-    .ecd-addpos.active{background:#2C3DA6;color:#fff;border-color:#2C3DA6;box-shadow:0 0 0 2px rgba(44,61,166,.25)}
-    .ecd-placehint{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:6;background:#2C3DA6;color:#fff;padding:6px 14px;border-radius:16px;font-size:12.5px;font-weight:600;box-shadow:0 2px 10px rgba(0,0,0,.22);pointer-events:none}
-    .ecd-derr{display:none;padding:8px 12px;border-radius:8px;font-size:12.5px;background:#ffebe9;color:#b35900;border:1px solid #ffb3ab;margin:0 12px 8px}
-    .ecd-ro-banner{padding:8px 12px;border-radius:8px;font-size:12.5px;background:#fff8c5;color:#6b5900;margin:0 12px 8px}
-    .ecd-scard{cursor:pointer}
-    .ec-docsign .ecd-sub{font-size:12.5px;color:var(--gray-500,#6e7781);margin:0 0 14px}
-    .ec-docsign .ecd-row{display:flex;align-items:center;gap:14px;padding:12px 0;border-top:1px solid var(--gray-100,#eaeef2)}
-    .ec-docsign .ecd-row:first-of-type{border-top:none}
-    .ec-docsign .ecd-main{flex:1;min-width:0}
-    .ec-docsign .ecd-name{font-size:13.5px;font-weight:600;color:var(--gray-900,#1f2328);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .ec-docsign .ecd-meta{font-size:12px;color:var(--gray-500,#6e7781);margin-top:3px}
-    .ec-docsign .ecd-pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600}
-    .ec-docsign .p-none{background:#eaeef2;color:#57606a}
-    .ec-docsign .p-doing{background:#fff8c5;color:#9a6700}
-    .ec-docsign .p-done{background:#dafbe1;color:#116329}
-    .ec-docsign .p-support{background:#ddf4ff;color:#0550ae}
-    .ec-docsign .p-review{background:#ffebe9;color:#b35900}
-    .ec-docsign .ecd-chk{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--gray-700,#424a53);white-space:nowrap}
-    .ec-docsign .ecd-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--gray-200,#d9dee3);background:#fff;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--gray-800,#32383f)}
-    .ec-docsign .ecd-btn.primary{background:var(--navy,#0a2540);border-color:var(--navy,#0a2540);color:#fff}
-    .ec-docsign .ecd-btn:disabled{opacity:.5;cursor:not-allowed}
-    .ec-docsign .ecd-up{display:flex;align-items:center;gap:10px;margin-top:6px}
-    .ec-docsign .ecd-banner{padding:8px 12px;border-radius:8px;font-size:12.5px;margin-bottom:12px}
-    .ec-docsign .b-review{background:#ffebe9;color:#b35900}
-    .ec-docsign .b-info{background:#ddf4ff;color:#0550ae}
-    /* drawer shell */
+.ec-docsign .ecd-card, .ecd-drawer-ov .ecd-card{background:#fff;border:1px solid var(--ecd-line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+.ec-docsign h3, .ecd-drawer-ov h3{font-size:14px;font-weight:700;color:var(--ecd-ink);margin:0 0 4px;display:flex;align-items:center;gap:8px}
+.ecd-box{position:absolute;touch-action:none;user-select:none;border:2px solid #2C3DA6;background:rgba(44,61,166,.12);border-radius:4px;cursor:move;font-size:10px;color:#2C3DA6;font-weight:700;overflow:hidden}
+.ecd-box .lbl{padding:1px 4px;white-space:nowrap}
+/* Bo cuc PHAI giong het thu SCTS in ra: anh chu ky ben trai, khoi chu "Ky boi / ten mien /
+       ngay / gio" ben phai. Ban cu chi ve moi anh phu kin o, nen xem thu mot dang ma ky that ra
+       mot dang khac - Hoan bao 27/08. Xem thu ma khong giong that thi khong phai xem thu. */
+    .ec-docsign .ecd-signed, .ecd-drawer-ov .ecd-signed{margin-top:2px;font-size:11.5px;font-weight:600;color:#1a7f37}
+    .ecd-box .sigprev{position:absolute;inset:0;display:flex;align-items:center;gap:4px;
+      padding:3px;pointer-events:none;opacity:.92;overflow:hidden}
+    .ecd-box .sigprev img{flex:0 0 42%;max-width:42%;height:100%;object-fit:contain}
+    .ecd-box .sigprev .sigtxt{flex:1 1 auto;min-width:0;font-family:"Times New Roman",Times,serif;
+      font-weight:400;font-size:8px;line-height:1.2;color:#1a1a1a;white-space:nowrap;overflow:hidden}
+#ecdTrySign.on{background:#2C3DA6;color:#fff}
+.ecd-box .rsz{position:absolute;right:-5px;bottom:-5px;width:12px;height:12px;background:#2C3DA6;border-radius:50%;cursor:nwse-resize}
+.ecd-box .del{position:absolute;right:1px;top:1px;width:14px;height:14px;line-height:12px;text-align:center;background:#fff;border-radius:50%;cursor:pointer;color:#b35900}
+.ecd-scard.sel{border-color:#2C3DA6;box-shadow:0 0 0 2px rgba(44,61,166,.25)}
+.ecd-box.ro{cursor:default}
+.ecd-poscount{font-size:11px;color:#57606a;margin-top:4px}
+.ecd-addpos{margin-top:6px;font-size:11.5px;padding:4px 10px;border:1px solid #2C3DA6;background:#fff;color:#2C3DA6;border-radius:6px;cursor:pointer;font-weight:600}
+.ecd-addpos.active{background:#2C3DA6;color:#fff;border-color:#2C3DA6;box-shadow:0 0 0 2px rgba(44,61,166,.25)}
+.ecd-placehint{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:6;background:#2C3DA6;color:#fff;padding:6px 14px;border-radius:16px;font-size:12.5px;font-weight:600;box-shadow:0 2px 10px rgba(0,0,0,.22);pointer-events:none}
+.ecd-derr{display:none;padding:8px 12px;border-radius:8px;font-size:12.5px;background:#ffebe9;color:#b35900;border:1px solid #ffb3ab;margin:0 12px 8px}
+.ecd-ro-banner{padding:8px 12px;border-radius:8px;font-size:12.5px;background:#fff8c5;color:#6b5900;margin:0 12px 8px}
+.ecd-scard{cursor:pointer}
+.ec-docsign .ecd-sub, .ecd-drawer-ov .ecd-sub{font-size:12.5px;color:var(--ecd-dim);margin:0 0 14px}
+.ec-docsign .ecd-row, .ecd-drawer-ov .ecd-row{display:flex;align-items:center;gap:14px;padding:12px 0;border-top:1px solid var(--ecd-soft)}
+.ec-docsign .ecd-row:first-of-type, .ecd-drawer-ov .ecd-row:first-of-type{border-top:none}
+.ec-docsign .ecd-main, .ecd-drawer-ov .ecd-main{flex:1;min-width:0}
+.ec-docsign .ecd-name, .ecd-drawer-ov .ecd-name{font-size:13.5px;font-weight:600;color:var(--ecd-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ec-docsign .ecd-meta, .ecd-drawer-ov .ecd-meta{font-size:12px;color:var(--ecd-dim);margin-top:3px}
+.ec-docsign .ecd-pill, .ecd-drawer-ov .ecd-pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600}
+.ec-docsign .p-none, .ecd-drawer-ov .p-none{background:#eaeef2;color:#57606a}
+.ec-docsign .p-doing, .ecd-drawer-ov .p-doing{background:#fff8c5;color:#9a6700}
+.ec-docsign .p-done, .ecd-drawer-ov .p-done{background:#dafbe1;color:#116329}
+.ec-docsign .p-support, .ecd-drawer-ov .p-support{background:#ddf4ff;color:#0550ae}
+.ec-docsign .p-review, .ecd-drawer-ov .p-review{background:#ffebe9;color:#b35900}
+.ec-docsign .ecd-chk, .ecd-drawer-ov .ecd-chk{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ecd-sub);white-space:nowrap}
+.ec-docsign .ecd-btn, .ecd-drawer-ov .ecd-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--ecd-line);background:#fff;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--ecd-ink-2)}
+.ec-docsign .ecd-btn.primary, .ecd-drawer-ov .ecd-btn.primary{background:var(--ecd-brand);border-color:var(--ecd-brand);color:#fff}
+.ec-docsign .ecd-btn:disabled, .ecd-drawer-ov .ecd-btn:disabled{opacity:.5;cursor:not-allowed}
+.ec-docsign .ecd-up, .ecd-drawer-ov .ecd-up{display:flex;align-items:center;gap:10px;margin-top:6px}
+.ec-docsign .ecd-banner, .ecd-drawer-ov .ecd-banner{padding:8px 12px;border-radius:8px;font-size:12.5px;margin-bottom:12px}
+.ec-docsign .b-review, .ecd-drawer-ov .b-review{background:#ffebe9;color:#b35900}
+.ec-docsign .b-info, .ecd-drawer-ov .b-info{background:#ddf4ff;color:#0550ae}
+/* drawer shell */
     .ecd-drawer-ov{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:9999}
-    /* ISSUE 1: the unified drawer owns the placement workspace. The standalone legacy requester
+/* ISSUE 1: the unified drawer owns the placement workspace. The standalone legacy requester
        placement editor is fully replaced -> never render it. */
     #ec-pph-editor{display:none !important}
-    /* While the drawer is open, no legacy placement/editor/grid/toolbar (e.g. the approver
+/* While the drawer is open, no legacy placement/editor/grid/toolbar (e.g. the approver
        panel's legacy coords editor) may show through the semi-transparent overlay. Presentation
        only - approver signing markup + runtime are untouched and return when the drawer closes. */
-    html.ecd-drawer-open #ec-esign-panel,
-    html.ecd-drawer-open #ec-pph-editor,
-    html.ecd-drawer-open .ec-pph{display:none !important}
-    .ecd-drawer{position:fixed;top:0;right:0;height:100vh;width:min(1100px,94vw);background:#fff;box-shadow:-8px 0 30px rgba(0,0,0,.18);display:flex;flex-direction:column}
-    .ecd-drawer header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--gray-200,#d9dee3)}
-    .ecd-drawer .ecd-body{flex:1;display:grid;grid-template-columns:72% 28%;min-height:0}
-    /* Con cua grid mac dinh min-height:auto -> khong co lai duoc, khien cot cuon tran ra
+    html.ecd-drawer-open #ec-esign-panel, html.ecd-drawer-open #ec-pph-editor, html.ecd-drawer-open .ec-pph{display:none !important}
+.ecd-drawer{position:fixed;top:0;right:0;height:100vh;width:min(1100px,94vw);background:#fff;box-shadow:-8px 0 30px rgba(0,0,0,.18);display:flex;flex-direction:column}
+.ecd-drawer header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--ecd-line)}
+.ecd-drawer .ecd-body{flex:1;display:grid;grid-template-columns:72% 28%;min-height:0}
+/* Con cua grid mac dinh min-height:auto -> khong co lai duoc, khien cot cuon tran ra
        ngoai va thanh chan trang de len the cuoi cung (nut cua cap CEO bam khong duoc). */
     .ecd-drawer .ecd-body > *{min-height:0}
-    .ecd-viewer{position:relative;border-right:1px solid var(--gray-200,#d9dee3);display:flex;align-items:center;justify-content:center;color:var(--gray-500,#6e7781);font-size:13px;text-align:center;padding:24px}
-    /* padding-bottom du de the NGUOI KY CUOI CUNG khong bao gio nam sat mep vung cuon */
+.ecd-viewer{position:relative;border-right:1px solid var(--ecd-line);display:flex;align-items:center;justify-content:center;color:var(--ecd-dim);font-size:13px;text-align:center;padding:24px}
+/* padding-bottom du de the NGUOI KY CUOI CUNG khong bao gio nam sat mep vung cuon */
     .ecd-signers{overflow:auto;padding:16px 16px 32px}
-    .ecd-signers h4{font-size:12.5px;font-weight:700;color:var(--gray-600,#57606a);text-transform:uppercase;letter-spacing:.4px;margin:0 0 10px}
-    .ecd-scard{border:1px solid var(--gray-200,#d9dee3);border-radius:10px;padding:10px 12px;margin-bottom:8px}
-    .ecd-scard .role{font-size:13px;font-weight:700;color:var(--gray-900,#1f2328)}
-    .ecd-scard .cand{font-size:12px;color:var(--gray-600,#57606a);margin-top:3px}
-    .ecd-scard .warn{color:#9a6700;font-size:11.5px;margin-top:3px}
-    .ecd-drawer footer{padding:12px 20px;border-top:1px solid var(--gray-200,#d9dee3);display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--gray-500,#6e7781)}
+.ecd-signers h4{font-size:12.5px;font-weight:700;color:var(--ecd-sub);text-transform:uppercase;letter-spacing:.4px;margin:0 0 10px}
+.ecd-scard{border:1px solid var(--ecd-line);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.ecd-scard .role{font-size:13px;font-weight:700;color:var(--ecd-ink)}
+.ecd-scard .cand{font-size:12px;color:var(--ecd-sub);margin-top:3px}
+.ecd-scard .warn{color:#9a6700;font-size:11.5px;margin-top:3px}
+.ecd-drawer footer{padding:12px 20px;border-top:1px solid var(--ecd-line);display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--ecd-dim)}
   </style>
 
   <div class="ecd-card">
@@ -377,9 +392,13 @@
     document.getElementById("ecdProg").textContent = progressText();
     document.getElementById("ecdSignerCards").innerHTML = (st.required_slots || []).map(function (sl) {
       var done = covered[sl.slot_key] ? ' ✓' : '';
+      // Da ky roi thi noi RO la ai ky luc nao, thay vi mot dau tich khong biet cua ai.
+      var sgn = _signedFor(sl.slot_key);
       var cands = (sl.candidates || []).map(function (c) {
         var w = c.scts_mapping_status === "verified" ? "" : '<div class="warn">Chưa có cấu hình chữ ký số</div>';
-        return '<div>' + esc(c.display_name || c.user) + w + '</div>'; }).join("");
+        var mine = sgn && String(sgn.email || "").toLowerCase() === String(c.user || "").toLowerCase();
+        var when = mine ? '<div class="ecd-signed">Đã ký · ' + esc(sgn.signed_at || "") + '</div>' : '';
+        return '<div>' + esc(c.display_name || c.user) + w + when + '</div>'; }).join("");
       var n = cnt[sl.slot_key] || 0;
       var posline = n ? '<div class="ecd-poscount">' + n + ' vị trí đã đặt</div>' : '';
       // one signer may need to sign several positions/pages; ADD is explicit (ISSUE 3), hidden read-only.
@@ -419,6 +438,7 @@
     b._p = p; b._cid = cid;
     b.style.left = (g.x * sx) + "px"; b.style.top = (g.y * sy) + "px";
     b.style.width = (g.width * sx) + "px"; b.style.height = (g.height * sy) + "px";
+    if (p.signer_slot_key) { b.setAttribute("data-slot", p.signer_slot_key); }
     b.innerHTML = '<div class="lbl">' + esc(slotLabelFor(p.signer_slot_key)) + '</div>'
       + (ro ? '' : '<div class="del" title="Xoá">×</div><div class="rsz"></div>');
     if (!ro) {
@@ -492,6 +512,9 @@
       layer.appendChild(mkBoxEl(p, p.name, ro));
     });
     _applySigPreview();
+    // Trang thai ky that ve BAT DONG BO voi viec dung o. Chi ve luc nhan duoc du lieu thi o
+    // co the chua ton tai; chi ve luc dung o thi du lieu co the chua ve. Phai lam ca hai dau.
+    _applySigned();
   }
   function _persist(cid, box, el) {                           // debounced; RESPONSE never redraws boxes
     var pend = DRW.pending[cid] || (DRW.pending[cid] = {});
@@ -569,29 +592,87 @@
       pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise.then(function () { hydrateBoxes(); });
     });
   }
+  function _two(n) { return (n < 10 ? "0" : "") + n; }
+
+  // Dung lai KHOI CHU KY dung nhu SCTS in ra tren PDF: anh ben trai, ben phai la
+  //   Ky boi: / scts.com.vn / dd/mm/yyyy / HH:MM:SS
+  // Dung chung cho ca xem thu lan chu ky da ky that, de hai duong khong the lech nhau.
+  function _sigNode(imageB64, at) {
+    var when = at ? new Date(at) : new Date();
+    var wrap = document.createElement("div");
+    wrap.className = "sigprev";
+    var img = document.createElement("img");
+    img.setAttribute("src", "data:image/png;base64," + imageB64);
+    wrap.appendChild(img);
+    var txt = document.createElement("div");
+    txt.className = "sigtxt";
+    ["Ký bởi:", "scts.com.vn",
+     _two(when.getDate()) + "/" + _two(when.getMonth() + 1) + "/" + when.getFullYear(),
+     _two(when.getHours()) + ":" + _two(when.getMinutes()) + ":" + _two(when.getSeconds())
+    ].forEach(function (l) {
+      var d = document.createElement("div");
+      d.textContent = l;
+      txt.appendChild(d);
+    });
+    wrap.appendChild(txt);
+    return wrap;
+  }
+
+  // Chu ky THAT tu SCTS, ve dung vao o cua nguoi do. Dung chung _sigNode voi ban xem thu nen
+  // hai duong khong the lech nhau - Hoan bao xem thu va ky that trong khac nhau.
+  function _signedFor(slotKey) {
+    var sl = (DRW.st && DRW.st.required_slots || []).filter(
+      function (x) { return x.slot_key === slotKey; })[0];
+    if (!sl) return null;
+    var mails = (sl.candidates || []).map(function (c) {
+      return String(c.user || "").trim().toLowerCase(); });
+    var hits = (DRW.signed || []).filter(function (r) {
+      return mails.indexOf(String(r.email || "").trim().toLowerCase()) >= 0; });
+    return hits.length ? hits[hits.length - 1] : null;   // dong moi nhat cua nguoi do
+  }
+
+  function _applySigned() {
+    var layer = document.getElementById("ecdLayer");
+    if (!layer) return;
+    Array.prototype.slice.call(layer.querySelectorAll(".ecd-box")).forEach(function (b) {
+      Array.prototype.slice.call(b.querySelectorAll ? b.querySelectorAll(".sigdone") : [])
+        .forEach(function (n) { if (n.parentNode) { try { n.parentNode.removeChild(n); } catch (e) {} } });   // idempotent
+      var key = b.getAttribute("data-slot");
+      var rec = key ? _signedFor(key) : null;
+      if (!rec || !rec.image_base64) return;
+      var node = _sigNode(rec.image_base64, null);
+      node.className = "sigprev sigdone";
+      b.appendChild(node);
+    });
+    if (typeof renderSigners === "function") { try { renderSigners(); } catch (e) {} }
+  }
+
   function _applySigPreview() {
     var layer = document.getElementById("ecdLayer");
     if (!layer) return;
     // Ban cu lap qua mot thuoc tinh tam cua lop dat vi tri, thu von KHONG bao gio duoc gan o
     // dau trong file nay - nen vong lap luon chay tren mang rong: nut "Ky thu" doi mau nhung
     // khong o nao duoc ve. Lay thang cac o dang co tren DOM.
-    // Don MOI anh xem thu con sot trong lop, khong chi anh nam dung trong o. Ban cu chi go khi
-    // parentNode dung bang o dang xet, nen mot anh bi mo coi (o da bi ve lai / xoa di) se nam
-    // lai tren tai lieu va trong y het chu ky that dat sai cho.
+    // Don anh xem thu con sot trong lop, khong chi anh nam dung trong o: mot anh bi mo coi
+    // (o da bi ve lai / xoa di) se nam lai tren tai lieu va trong y het chu ky that dat sai cho.
+    //
+    // NHUNG khong duoc dong cham chu ky THAT (.sigdone). Ban truoc go moi .sigprev, ma chu ky
+    // that cung mang lop do -> bam "Ky thu" mot cai la xoa sach chu ky that tren man hinh.
+    // Test bat duoc truoc khi kip giao.
     Array.prototype.slice.call(layer.querySelectorAll(".sigprev")).forEach(function (n) {
+      var cls = " " + (n.className || "") + " ";
+      if (cls.indexOf(" sigdone ") >= 0) { return; }
       if (n.parentNode) { try { n.parentNode.removeChild(n); } catch (e) {} }
     });
     var boxes = Array.prototype.slice.call(layer.querySelectorAll(".ecd-box"));
     boxes.forEach(function (b) {
       if (DRW.showSig && DRW.sigPreview) {
-        var img = document.createElement("img");
-        img.className = "sigprev";
-        img.setAttribute("src", "data:image/png;base64," + DRW.sigPreview);
-        b.appendChild(img);
+        b.appendChild(_sigNode(DRW.sigPreview, null));
       }
     });
     var btn = document.getElementById("ecdTrySign");
     if (btn) btn.className = "ecd-btn" + (DRW.showSig ? " on" : "");
+    _applySigned();      // chu ky that luon duoc ve lai sau khi anh xem thu thay doi
   }
   function _toggleTrySign() {
     if (DRW.showSig) { DRW.showSig = false; _applySigPreview(); return; }
@@ -646,6 +727,11 @@
     document.getElementById("ecdDrawerOv").style.display = "block";
     document.getElementById("ecdViewerMsg").textContent = "Đang tải tài liệu…";
     saveState("");
+    // Trang thai ky THAT tu SCTS. Truot thi bo qua - chu ky da ky la thong tin them, khong
+    // duoc phep lam hong viec mo drawer.
+    call("document_signature_overlay", { payment_request_name: pr() })
+      .then(function (o) { DRW.signed = (o && o.signed) || []; _applySigned(); })
+      .catch(function () { DRW.signed = []; });
     Promise.all([call("placement_state", { payment_request_name: pr(), document_ref: ref }), loadPdfjs()])
       .then(function (res) {
         DRW.st = res[0] || {}; var ok = res[1];
