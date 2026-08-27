@@ -57,3 +57,28 @@ def safe_error(exc):
     if any(s in low for s in ("bearer", "token", "authorization", "base64", "password")):
         msg = "(message withheld - contained sensitive markers)"
     return "%s: %s" % (type(exc).__name__, msg)
+
+
+AUDIT_SUMMARY_LIMIT = 140
+
+
+def error_digest(msg, limit=AUDIT_SUMMARY_LIMIT):
+    """Shorten an error to fit a Data field WITHOUT throwing away the answer.
+
+    `error_summary` is a Data column, so it is cut at 140 characters. A provider validation
+    error puts the boilerplate first ("type": an RFC url, "title": "One or more validation
+    errors occurred") and names the offending FIELD last - so a plain head-slice deletes
+    precisely the part worth keeping, every single time. That is what happened to the
+    HTTP 400 from /api/Workflow/transition on 2026-08-27: the stored message ends mid-word
+    at "One or more valida".
+
+    So keep BOTH ends: the head identifies what failed, the tail names which field.
+    """
+    text = msg or ""
+    if len(text) <= limit:
+        return text
+    keep = limit - 3
+    head = keep * 45 // 100
+    tail = keep - head
+    return text[:head] + "..." + text[-tail:]
+

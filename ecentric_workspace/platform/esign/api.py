@@ -253,6 +253,67 @@ def provider_document_shape(payment_request_name):
 
 # camelCase la quy uoc cua eContract ("workflowInstanceId", "fileId"), nen KHONG the doi hoi
 # mot ranh gioi truoc "Id" - lan dau viet the va tuot mat dung cai field dang di tim.
+@frappe.whitelist()
+def document_signature_overlay(payment_request_name):
+    """Who has ACTUALLY signed this document at the provider, and what their signature looks
+    like - so the screen can show the real thing instead of a tick mark.
+
+    Scope is deliberately narrow. Images are returned ONLY for people the provider reports as
+    having signed THIS document, and only to someone already allowed to view the request. That
+    audience can open the signed PDF and see the very same signatures, so nothing is exposed
+    that was not already visible; what is NOT offered is a way to look up an arbitrary person's
+    signature image, which would be a much wider door.
+
+    Read-only. Never returns certificate or HSM material.
+    """
+    _business_args("EC Payment Request", payment_request_name)
+    pkg_name = frappe.db.get_value(
+        "EC Digital Signature Package",
+        {"business_doctype": "EC Payment Request", "business_name": payment_request_name,
+         "status": ["not in", ("Cancelled", "Superseded")]},
+        "name", order_by="creation desc")
+    if not pkg_name:
+        return {"ok": False, "reason": "no_package", "signed": []}
+    pkg = frappe.db.get_value("EC Digital Signature Package", pkg_name,
+                              ["scts_document_id", "environment"], as_dict=True)
+    if not pkg or not pkg.scts_document_id:
+        return {"ok": False, "reason": "no_provider_document", "signed": []}
+    settings = frappe.db.get_value("EC Digital Signature Provider Settings",
+                                   {"environment": pkg.environment, "integration_enabled": 1},
+                                   "*", as_dict=True)
+    if not settings:
+        return {"ok": False, "reason": "integration_closed", "signed": []}
+
+    from ecentric_workspace.platform.esign.providers import get_adapter
+    adapter = get_adapter(settings)
+    state = adapter.poll_status(pkg.scts_document_id)
+
+    out = []
+    seen_images = {}
+    for sg in (getattr(state, "signers", None) or []):
+        if (sg.get("status") or "").lower() != "signed":
+            continue
+        email = (sg.get("email") or "").strip()
+        if not email:
+            continue
+        row = {"email": email, "signed_at": sg.get("signed_at"), "image_base64": None}
+        mapping = perms.verified_mapping(email, pkg.environment)
+        if mapping:
+            key = mapping.get("signature_id")
+            if key not in seen_images:
+                # signature_image() is the existing accessor. list_user_signatures() would NOT
+                # work here: it normalizes rows through _norm_signature, which drops
+                # base64Image - so it returns None every time, silently.
+                try:
+                    seen_images[key] = adapter.signature_image(mapping.get("scts_user_id"), key)
+                except Exception:
+                    # A missing picture must never hide the FACT that somebody signed.
+                    seen_images[key] = None
+            row["image_base64"] = seen_images[key]
+        out.append(row)
+    return {"ok": True, "document_id": pkg.scts_document_id, "signed": out}
+
+
 # ------------------------------ Payment Request e2e (S2B-B) ------------------------------ #
 @frappe.whitelist(methods=["POST"])
 def pr_approve_and_sign(payment_request_name, comment=None):
