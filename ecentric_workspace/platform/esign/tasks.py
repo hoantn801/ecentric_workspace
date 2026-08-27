@@ -315,7 +315,8 @@ def process_signing_request(dsr_name):
             # is recorded - never propagated.
             try:
                 plan = next_handler.plan_handover(dsr, _profile_of(dsr),
-                                                  settings.get("environment"), stage=stage)
+                                                  settings.get("environment"), stage=stage,
+                                                  adapter=adapter, instance_id=doc_id)
             except Exception as exc:
                 plan = {"mode": "pool", "reason": "handover_planning_failed:%s"
                                                   % type(exc).__name__}

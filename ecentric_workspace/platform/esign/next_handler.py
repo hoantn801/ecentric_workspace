@@ -109,13 +109,97 @@ def provider_ids_for(users, environment):
     return ids, unmapped
 
 
-def plan_handover(dsr, profile_name, environment, stage=None):
+#: What the provider calls the transitions we are allowed to drive. "Tu choi" is a rejection
+#: and must never be taken by the approve path.
+_APPROVE_TYPES = ("approve",)
+
+
+def discover_transition(adapter, instance_id, provider_user_id):
+    """Ask the PROVIDER which transition applies right now, instead of configuring one.
+
+    Captured from the portal 2026-08-28:
+
+        GET /api/Workflow/{instanceId}?userid={userId}
+        -> availableTransitions[{transitionId, processAction, signType, isSigned, ...}]
+
+    This replaces the per-stage config, which could not have worked. In one real workflow the
+    four "Phe duyet" edges are -9, -10, -11 and -4, and the LAST one wants processAction
+    WfFunctionRunSignedA with signType ky-chinh while the others want WfFunctionRunSignedOther
+    with ky-tham-gia. One configured value per stage is therefore wrong on at least one step
+    of every single document - which is exactly what happened.
+
+    Returns (config, reason). config is None when we must not act.
+    """
+    if not hasattr(adapter, "available_transitions"):
+        return None, "adapter_cannot_discover_transitions"
+    try:
+        avail = adapter.available_transitions(instance_id, provider_user_id) or []
+    except Exception as exc:
+        return None, "transition_discovery_failed:%s" % type(exc).__name__
+    if not avail:
+        return None, "no_available_transition"
+    picks = [t for t in avail if (t.get("transition_type") or "") in _APPROVE_TYPES]
+    if not picks:
+        # Never fall back to "the first one": the other edge on this state is "Tu choi".
+        return None, "no_approve_transition:%s" % ",".join(
+            str(t.get("transition_name") or "?") for t in avail)
+    if len(picks) > 1:
+        # Two ways forward is a business choice, not something to pick blindly.
+        return None, "ambiguous_approve_transition:%s" % ",".join(
+            str(t.get("transition_id")) for t in picks)
+    t = picks[0]
+    if t.get("transition_id") is None or not t.get("process_action"):
+        return None, "incomplete_transition:%s" % t.get("transition_id")
+    return t, None
+
+
+def signature_type_matches(required, mapping_type):
+    """The transition says which KIND of signature the slot takes ("ky-chinh" /
+    "ky-tham-gia"). Sending the wrong kind is how a document walks the whole workflow with
+    its main-signature box left empty and nothing reported - observed on the portal test of
+    2026-08-28, where four approvals completed and "Ky chinh" still read "Chua co".
+
+    An unstated requirement is not a licence to send anything; it just cannot be checked.
+    """
+    want = str(required or "").strip().lower()
+    if not want:
+        return True
+    return want == str(mapping_type or "").strip().lower()
+
+
+def _mapped_signature_type(dsr, environment):
+    """Which KIND of signature this leg is about to use. The DSR stores the signature id, not
+    its type, so read it back off the verified mapping - the same row the id came from."""
+    user = dsr.get("actor_user") or dsr.get("approver")
+    if not user:
+        return None
+    try:
+        from ecentric_workspace.platform.esign import permissions as perms
+        m = perms.verified_mapping(user, environment) or {}
+    except Exception:
+        return None
+    return m.get("signature_type")
+
+
+def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, instance_id=None):
     """What to send for this leg: {mode, ...}.
 
     mode == "transition" -> name the next handler explicitly (the governed path).
     mode == "pool"       -> provider decides the recipients; `reason` says why we had to.
     """
-    cfg = resolve_transition_config(profile_name, dsr.get("action") or "Sign", stage=stage)
+    cfg = None
+    if adapter is not None and instance_id:
+        cfg, why = discover_transition(adapter, instance_id,
+                                       dsr.get("effective_scts_user_id"))
+        if cfg is None:
+            return {"mode": "pool", "reason": why}
+        want = cfg.get("sign_type")
+        have = _mapped_signature_type(dsr, environment)
+        if cfg.get("requires_signature") and not signature_type_matches(want, have):
+            return {"mode": "pool",
+                    "reason": "signature_type_mismatch:need=%s have=%s" % (want, have or "?")}
+    if cfg is None:
+        cfg = resolve_transition_config(profile_name, dsr.get("action") or "Sign", stage=stage)
     if not cfg:
         return {"mode": "pool", "reason": "no_transition_config:%s" % (stage or "default")}
 
