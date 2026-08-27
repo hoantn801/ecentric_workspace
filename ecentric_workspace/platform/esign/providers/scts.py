@@ -375,6 +375,14 @@ class SctsAdapter(SignatureProviderAdapter):
                 "signature_id": s.get("signatureId") or s.get("signerSignatureId"),
                 "display_name": s.get("user") or s.get("fullName"),
                 "email": (str(s.get("email") or "").strip().lower() or None),
+                # eContract noi ro moi o ky thuoc VAI TRO nao ("Ke toan truong", "CEO"...)
+                # va o do thuoc loai gi ("Ky chinh" / "Tham gia"). Ban chuan hoa cu vut het,
+                # chi giu email + status - nen mot o CHUA AI KY hien ra la "(chua gan)" vo
+                # danh, khong biet cua cap nao. Dem 27/08 mat nhieu gio vi khong doc duoc
+                # dieu nay, trong khi provider da noi san.
+                "role": s.get("role"),
+                "role_text": s.get("roleText"),
+                "sign_type": s.get("signType") or s.get("signTypeName"),
                 "status": norm,
                 "signed_at": (s.get("signedAt") or s.get("signedDate") or s.get("signTime")
                               or (None if str(s.get("time") or "").strip() in ("", "Chưa có")
