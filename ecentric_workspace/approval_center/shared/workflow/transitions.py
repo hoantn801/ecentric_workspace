@@ -768,6 +768,36 @@ def _guard_open(req):
         frappe.throw(_("Request is {0}; no further action is allowed.").format(req.approval_status))
 
 
+def _no_approver_message(lvl, requester):
+    """Actionable fail-closed message. The old text ("No approver resolved for level N") told
+    the user nothing they could act on; in practice the cause is almost always one of two data
+    gaps, so name them explicitly and say which department is involved. Diagnostic only - it
+    changes no behaviour and leaks no amounts/PII beyond the department name the requester
+    already belongs to. Generic: reads config/HR data, no hardcoded identities."""
+    src = {p.source_type for p in (lvl.participants or [])
+           if p.participant_purpose == "Approver"}
+    emp = _emp_user(requester) or {}
+    dept = None
+    try:
+        dept = frappe.db.get_value("Department", {"manager_email": requester, "disabled": 0}, "name")
+    except Exception:
+        dept = None
+    dept = dept or emp.get("department")
+    hints = []
+    if "Department Manager" in src:
+        if dept:
+            hints.append(_("department '{0}' has no valid manager (Department.manager_email must "
+                           "be an active user)").format(dept))
+        else:
+            hints.append(_("the requester is not linked to any department"))
+    if "Requester Manager" in src and not emp.get("reports_to"):
+        hints.append(_("the requester's Employee record has no 'Reports To'"))
+    detail = ("; ".join(hints)) if hints else _("no participant source resolved a user")
+    return _("Cannot submit: no approver could be determined for level {0} ({1}). Cause: {2}. "
+             "Ask HR/admin to fix the data above, then submit again."
+             ).format(lvl.level_no, lvl.level_name, detail)
+
+
 def build_snapshot(req, process, levels, requester):
     for lvl in levels:
         rl = frappe.get_doc({
@@ -781,8 +811,7 @@ def build_snapshot(req, process, levels, requester):
             [p for p in lvl.participants if p.participant_purpose == "Approver"], requester,
             context={"reference_doctype": req.reference_doctype, "reference_name": req.reference_name})
         if not approvers:
-            frappe.throw(_("No approver resolved for level {0} ({1}). Submission blocked.").format(
-                lvl.level_no, lvl.level_name))
+            frappe.throw(_no_approver_message(lvl, requester))
         for user, label in approvers:
             frappe.get_doc({
                 "doctype": "EC Approval Request Approver", "approval_request": req.name,

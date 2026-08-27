@@ -15,6 +15,7 @@ from ecentric_workspace.platform.esign import guard
 from ecentric_workspace.platform.esign import package as pkgsvc
 from ecentric_workspace.platform.esign import permissions as perms
 from ecentric_workspace.platform.esign import service as svc
+from ecentric_workspace.platform.esign import shapes
 from ecentric_workspace.platform.esign import events
 
 
@@ -184,6 +185,74 @@ def verify_mapping(mapping_name):
     return {"verified": True}
 
 
+@frappe.whitelist()
+def list_scts_signatures(scts_user_id, environment=None):
+    """READ-ONLY, System Manager only: which signature slots a given SCTS user owns.
+
+    Why this has to exist. `EC SCTS User Mapping.signature_id` is mandatory, and
+    `verify_mapping` refuses any id that is not owned by that user - correctly so. But
+    nothing exposed the list, so the only way to obtain a valid `signature_id` was to read
+    it out of a captured browser request or to guess. Onboarding a signer therefore
+    depended on luck, and a wrong guess would have targeted somebody else's signature.
+
+    Returns identifiers and safe labels ONLY: no images, no certificate or HSM material.
+    """
+    perms.assert_system_manager()
+    flt = {"integration_enabled": 1}
+    if environment:
+        flt["environment"] = environment
+    s = frappe.db.get_value("EC Digital Signature Provider Settings", flt, "*", as_dict=True)
+    if not s:
+        frappe.throw(_("Không có Provider Settings đang bật cho môi trường này."))
+    from ecentric_workspace.platform.esign.providers import get_adapter
+    rows = get_adapter(s).list_user_signatures(scts_user_id) or []
+    return {
+        "environment": s.get("environment"),
+        "scts_user_id": scts_user_id,
+        "signatures": [{"id": r.get("id"), "signerId": r.get("signerId"),
+                        "type": r.get("type"), "company": r.get("company"),
+                        "active": bool(r.get("active"))} for r in rows],
+    }
+
+
+@frappe.whitelist()
+def provider_document_shape(payment_request_name):
+    """READ-ONLY, System Manager only: WHICH FIELDS eContract returns for this document.
+
+    Written to end a specific guessing loop. `POST /api/Workflow/transition` is rejected with
+    a bare 400 and the suspicion is that `instanceId` must be a WORKFLOW/TASK id while we send
+    the DOCUMENT id - the portal's own task screen is `view-tasks.html?id=...`, which is not
+    the document id. Rather than try candidate values against a non-idempotent write, this
+    reports what the provider actually carries.
+
+    Deliberately returns SHAPE, not content: every key with the TYPE of its value, and the
+    VALUE only for keys that look like identifiers and hold a GUID-ish token. No amounts, no
+    names, no comments, no file content - so a diagnostic call can never become a data dump.
+    """
+    perms.assert_system_manager()
+    _business_args("EC Payment Request", payment_request_name)
+    pkg_name = frappe.db.get_value(
+        "EC Digital Signature Package",
+        {"business_doctype": "EC Payment Request", "business_name": payment_request_name,
+         "status": ["not in", ("Cancelled", "Superseded")]},
+        "name", order_by="creation desc")
+    if not pkg_name:
+        return {"ok": False, "reason": "no_package"}
+    doc_id = frappe.db.get_value("EC Digital Signature Package", pkg_name, "scts_document_id")
+    if not doc_id:
+        return {"ok": False, "reason": "no_provider_document", "package": pkg_name}
+    settings = frappe.db.get_value("EC Digital Signature Provider Settings",
+                                   {"integration_enabled": 1}, "*", as_dict=True)
+    if not settings:
+        frappe.throw(_("Không có Provider Settings đang bật."))
+    from ecentric_workspace.platform.esign.providers import get_adapter
+    raw = get_adapter(settings).get_document(doc_id)
+    return {"ok": True, "package": pkg_name, "document_id": doc_id,
+            "shape": shapes.shape_of(raw), "identifiers": shapes.identifiers_of(raw)}
+
+
+# camelCase la quy uoc cua eContract ("workflowInstanceId", "fileId"), nen KHONG the doi hoi
+# mot ranh gioi truoc "Id" - lan dau viet the va tuot mat dung cai field dang di tim.
 # ------------------------------ Payment Request e2e (S2B-B) ------------------------------ #
 @frappe.whitelist(methods=["POST"])
 def pr_approve_and_sign(payment_request_name, comment=None):
@@ -238,6 +307,82 @@ def run_scts_uat_pilot_probe(payment_request_name, apply=0):
     calls; apply=1 = heavily gated real UAT submit. Never runs automatically."""
     from ecentric_workspace.platform.esign import pilot
     return pilot.run_scts_uat_pilot_probe(payment_request_name, apply=apply)
+
+
+@frappe.whitelist()
+def esign_document_state(payment_request_name):
+    """READ-ONLY diagnosis: what the provider actually says, and why verification decides
+    what it decides.
+
+    Until now nothing could answer "why is this leg not verifying?" without shipping code -
+    every question cost a deploy cycle, and the 2026-08-27 pilot was spent guessing at a
+    document whose signature was in fact already applied. This returns the provider's own
+    normalized view side by side with the expectation the verifier is matching against, so
+    the mismatch is visible in ONE call.
+
+    System Manager only. No secrets: tokens are never part of the normalized state, and the
+    raw provider payload is deliberately NOT returned.
+    """
+    from ecentric_workspace.platform.esign.providers import get_adapter
+    from ecentric_workspace.platform.esign.sanitize import safe_error
+    perms.assert_system_manager()
+    _business_args("EC Payment Request", payment_request_name)
+
+    pkg_name = frappe.db.get_value(
+        "EC Digital Signature Package",
+        {"business_doctype": "EC Payment Request", "business_name": payment_request_name,
+         "status": ["not in", ("Cancelled", "Superseded")]},
+        "name", order_by="creation desc")
+    if not pkg_name:
+        return {"ok": False, "reason": "no_package"}
+    pkg = frappe.db.get_value("EC Digital Signature Package", pkg_name,
+                              ["name", "status", "scts_document_id", "provider", "environment"],
+                              as_dict=True)
+    if not pkg.scts_document_id:
+        return {"ok": False, "reason": "no_provider_document", "package": pkg}
+
+    settings = frappe.db.get_value("EC Digital Signature Provider Settings",
+                                   {"provider": pkg.provider, "environment": pkg.environment},
+                                   "*", as_dict=True)
+    if not settings:
+        return {"ok": False, "reason": "no_provider_settings", "package": pkg}
+    adapter = get_adapter(settings)
+    try:
+        state = adapter.poll_status(pkg.scts_document_id)
+    except Exception as exc:
+        return {"ok": False, "reason": "poll_failed", "detail": safe_error(exc), "package": pkg}
+
+    dsrs = frappe.get_all("EC Digital Signature Request",
+                          filters={"package": pkg_name},
+                          # Every field `_expected_for` reads must be here, otherwise the
+                          # replay silently differs from what the worker actually computed -
+                          # which would make this endpoint lie about the verdict.
+                          fields=["name", "status", "actor_type", "approver", "actor_user",
+                                  "effective_scts_user_id", "effective_signature_id",
+                                  "queued_at", "creation"],
+                          order_by="creation desc", limit_page_length=0)
+    out = {"ok": True, "package": pkg,
+           "provider_status": getattr(state, "status", None),
+           "signers": [{"email": s.get("email"), "user_id": s.get("user_id"),
+                        "display_name": s.get("display_name"), "status": s.get("status"),
+                        "signed_at": s.get("signed_at")}
+                       for s in (getattr(state, "signers", None) or [])],
+           "files": [{"file_id": f.get("file_id"), "name": f.get("name")}
+                     for f in (getattr(state, "files", None) or [])],
+           "requests": dsrs, "verdicts": []}
+    # Replay the exact verification for every non-terminal leg: the reason string here is the
+    # same one the worker records, so what you read is what the worker decided.
+    from ecentric_workspace.platform.esign.providers.base import SignatureProviderAdapter
+    for row in dsrs:
+        if row.status in ("Approval Completed", "Cancelled", "Superseded", "Rejected"):
+            continue
+        expected = svc._expected_for(frappe._dict(row, package=pkg_name))
+        res = SignatureProviderAdapter.verify_signed_result(state, expected)
+        out["verdicts"].append({"request": row.name, "status": row.status,
+                                "ok": bool(res.ok), "reason": res.reason,
+                                "matched_on_email": expected.get("email"),
+                                "signed_after": str(expected.get("signed_after") or "")})
+    return out
 
 
 @frappe.whitelist(methods=["POST"])

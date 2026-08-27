@@ -14,9 +14,21 @@ function mkEl(id){ const e={id,_html:"",textContent:"",_attrs:{},style:{display:
   offsetLeft:0,offsetTop:0,offsetWidth:120,offsetHeight:40,_kids:[],parentNode:null,
   getAttribute(k){return (k in this._attrs)?this._attrs[k]:null;},setAttribute(k,v){this._attrs[k]=String(v);},
   appendChild(c){c.parentNode=this;this._kids.push(c);return c;},
+  removeChild(c){const i=this._kids.indexOf(c); if(i>=0)this._kids.splice(i,1); c.parentNode=null; return c;},
   getBoundingClientRect(){return {left:0,top:0,width:this.width,height:this.height};},getContext(){return {};},
   addEventListener(){},querySelector(sel){const cls=sel.replace(".","");return this._kids.find(k=>((k._attrs.class||"")).indexOf(cls)>=0)||{onclick:null,className:cls,style:{}};},
-  querySelectorAll(sel){return qsa(sel);},click(){if(this.onclick)this.onclick();} };
+  // Bo tim cu CHI quet chuoi HTML cua ecdRows/ecdSignerCards, nen moi truy van theo lop tren
+  // #ecdLayer deu tra ve rong - duong "Ky thu" va viec don anh xem thu vi the chua tung duoc
+  // test that. Nay: selector dang ".lop" tim trong con THAT (de quy), cac dang khac giu nguyen.
+  querySelectorAll(sel){
+    if(sel.charAt(0)==="."){
+      const cls=sel.slice(1), out=[];
+      (function walk(n){ (n._kids||[]).forEach(k=>{ if(((k._attrs.class||k.className||"")+"").split(/\s+/).indexOf(cls)>=0) out.push(k); walk(k); }); })(this);
+      if(out.length || (this._kids||[]).length) return out;
+    }
+    return qsa(sel);
+  },
+  click(){if(this.onclick)this.onclick();} };
   Object.defineProperty(e,"innerHTML",{get(){return this._html;},set(v){this._html=String(v);this._kids=[];}});
   Object.defineProperty(e,"onclick",{get(){return this._oc;},set(f){this._oc=f;}});
   return e; }
@@ -30,6 +42,9 @@ function qsa(sel){ const attr=sel.replace(/[\[\].]/g,"");
  "ecdDrawerOv","ecdDrawerName","ecdDrawerSummary","ecdDrawerClose","ecdViewer","ecdViewerMsg","ecdStage",
  "ecdCanvas","ecdLayer","ecdSignerCards","ecdProg","ecdSaveState","ecdDrawerFoot","ecdRoBanner","ecdDrawerErr","ecdPlaceHint","ecdTrySign","ec-approver-wrap","payr-body"]
  .forEach(id=>els[id]=mkEl(id));
+// <body> that: lop phu phai duoc chuyen ra day de position:fixed lay moc theo viewport chu
+// khong theo mot to tien co transform/overflow (sidebar khong bi mo - anh chup 27/08).
+const BODY = mkEl("__body__");
 
 const STATE={editable:true,can_classify:true,needs_review:false,current_package_status:null,
   signer_plan:{resolved:true,summary:{required_slots:2}},summary:{documents:1,requires_signature:1,supporting_documents:0},
@@ -46,6 +61,7 @@ const frappe={ call(o){ calls.push({method:o.method,args:o.args});
   if(/signer_plan$/.test(o.method))return Promise.resolve({message:STATE.signer_plan});
   if(/signing_readiness$/.test(o.method))return Promise.resolve({message:{checks:{active_approver:false}}});
   if(/placement_state$/.test(o.method))return Promise.resolve({message:PSTATE});
+  if(/my_signature_preview$/.test(o.method))return Promise.resolve({message:{image_base64:"iVBORw0KGgo="}});
   if(/save_placement$/.test(o.method)){ if(saveOk){PSTATE=Object.assign({},PSTATE,{covered_slot_count:1,
       placements:[{name:"PL1",x:o.args.box?JSON.parse(o.args.box).x:10,y:10,width:120,height:40,signer_slot_key:"requester"}]});
       return Promise.resolve({message:{ok:true,placement_name:"PL1",state:PSTATE}});}
@@ -54,7 +70,10 @@ const frappe={ call(o){ calls.push({method:o.method,args:o.args});
   return Promise.resolve({message:{}}); },
   utils:{escape_html:x=>String(x==null?"":x)},show_alert(){},csrf_token:"t",boot:{} };
 const ch={appendChild(){}}; els["payr-body"].parentNode=ch;
-const sb={document:{getElementById:id=>els[id]||null,querySelector:sel=>(sel.indexOf("content")>=0?ch:els["ec-approver-wrap"]),addEventListener(){},createElement:(t)=>mkEl("_new_"+t),documentElement:{classList:{_s:{},add(c){this._s[c]=1;},remove(c){delete this._s[c];},has(c){return !!this._s[c];}}}},
+// Ban dau lop phu nam LONG trong khoi noi dung cua trang - dung nhu HTML thuc te, va dung
+// cho khien position:fixed bi mot to tien co transform/overflow nhot lai.
+const ANCESTOR = mkEl("__ancestor__"); ANCESTOR.appendChild(els["ecdDrawerOv"]);
+const sb={document:{getElementById:id=>els[id]||null,querySelector:sel=>(sel.indexOf("content")>=0?ch:els["ec-approver-wrap"]),addEventListener(){},createElement:(t)=>mkEl("_new_"+t),get body(){return BODY;},documentElement:{classList:{_s:{},add(c){this._s[c]=1;},remove(c){delete this._s[c];},has(c){return !!this._s[c];}}}},
   location:{search:"?id=EC-PAYR-1"},URLSearchParams,Promise,String,Array,Object,JSON,Math,
   setTimeout:(f)=>{timers.push(f);return timers.length;},clearTimeout:()=>{},setInterval:()=>1,clearInterval:()=>{},
   FormData:function(){this.append=()=>{};},fetch:()=>Promise.resolve({json:()=>Promise.resolve({message:{}})}),
@@ -82,6 +101,9 @@ async function main(){
   ok(!!btn && btn.getAttribute("data-setup")==="F1","row exposes setup button for signable doc");
   btn.onclick(); await tick();
   ok(els["ecdDrawerOv"].style.display==="block","17: drawer opens");
+  ok(els["ecdDrawerOv"].parentNode===BODY,
+     "lop phu duoc chuyen ra <body> (khong de to tien nhot position:fixed)");
+  ok(BODY._kids.indexOf(els["ecdDrawerOv"])>=0,"lop phu la con truc tiep cua <body>");
   ok(calls.some(c=>/placement_state$/.test(c.method)),"drawer loads placement_state");
   ok(els["ecdSignerCards"]._html.indexOf("Người đề nghị")>=0 && els["ecdSignerCards"]._html.indexOf("Finance")>=0,"18: signer cards from B1 required_slots");
   ok(els["ecdSignerCards"]._html.indexOf("Chưa có cấu hình chữ ký số")>=0,"missing-mapping warning shown");
@@ -177,6 +199,25 @@ async function main(){
      "ISSUE 2: save response does NOT rebuild boxes (same element kept, no top-left reset)");
   ok(optEl._p && optEl._p.name==="PL1","ISSUE 2: optimistic box adopts the server name in place");
   ok(els["ecdPlaceHint"].style.display==="none","ISSUE 3: placement mode exits after one box (hint hidden)");
+
+  // "Ky thu": anh mau phai nam TRONG o chu ky, va moi anh mo coi con sot tren lop tai lieu
+  // phai bi don. Anh mo coi trong y het mot chu ky that dat sai cho - dung thu Hoan nhin thay
+  // noi len tren file PDF ngay 27/08.
+  const orphan = sb.document.createElement("img");
+  orphan._attrs.class = "sigprev"; orphan.className = "sigprev";
+  els["ecdLayer"].appendChild(orphan);
+  ok(els["ecdLayer"].querySelectorAll(".sigprev").indexOf(orphan)>=0,"dung duoc mot anh mo coi len lop");
+  els["ecdTrySign"].onclick(); await tick(); await tick();          // bat Ky thu (2 nhip: goi API roi ve)
+  ok(!(els["ecdDrawerErr"].textContent||"").trim(),
+     "Ky thu khong bao loi khi da co o + co mau chu ky: " + (els["ecdDrawerErr"].textContent||""));
+  ok(els["ecdLayer"].querySelectorAll(".sigprev").indexOf(orphan)<0,
+     "anh xem thu mo coi bi don khoi lop tai lieu");
+  const boxes = els["ecdLayer"].querySelectorAll(".ecd-box");
+  ok(boxes.length>0,"co it nhat mot o chu ky de kiem tra");
+  const sigKids = b => (b._kids||[]).filter(k=>((k._attrs.class||k.className||"")+"").indexOf("sigprev")>=0);
+  ok(boxes.every(b=>sigKids(b).length===1),"moi o mang DUNG MOT anh xem thu (khong chong lop)");
+  const drawn = boxes.filter(b=>sigKids(b).length>0);
+  ok(drawn.length===boxes.length,"anh mau duoc ve vao TRONG tung o, khong noi ben ngoai");
 
   // ISSUE 1: closing the drawer clears the legacy-hide flag
   closeDrawerViaEsc();

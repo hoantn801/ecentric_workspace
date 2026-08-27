@@ -243,6 +243,14 @@ def _complete_dsr(dsr_name, dsr):
     return svc.verify_and_complete(dsr_name)
 
 
+def _profile_of(dsr):
+    """Profile name behind this DSR (via its package). Returns None when absent - the
+    caller then treats the handover as unconfigured and falls back, loudly."""
+    if not dsr.get("package"):
+        return None
+    return frappe.db.get_value("EC Digital Signature Package", dsr["package"], "profile")
+
+
 def process_signing_request(dsr_name):
     """State-aware worker. Safe to re-run at any time (reconciler re-entry)."""
     frappe.db.get_value(DSR, dsr_name, "name", for_update=True)
@@ -293,9 +301,56 @@ def process_signing_request(dsr_name):
                 raise ProviderError("scts_no_provider_transition",
                                     "no provider transitionType mapped for action %r"
                                     % dsr.action, retryable=False)
-            res = adapter.approve_and_sign([doc_id], dsr.effective_scts_user_id,
-                                           dsr.effective_signature_id,
-                                           transition_type=tt)  # 'approve' (never numeric)
+            # GOVERNED HANDOVER (2026-08-27). eContract broadcasts to the whole role pool
+            # unless the caller names the next handler - which is how somebody outside the
+            # chain signed EC-PAYR-2026-00026. Prefer the portal's own `transition` path
+            # with an explicit `toUsers`; fall back to the pool-wide call only when the next
+            # handler genuinely cannot be named, and RECORD why (never silently).
+            from ecentric_workspace.platform.esign import next_handler
+            stage = "requester" if dsr.actor_type == "Requester" else "approval"
+            # Naming the next handler is an IMPROVEMENT on top of a path that already works.
+            # It must never be able to break signing: the first version raised on a child
+            # table query and killed the whole leg, leaving the DSR stuck at Queued with no
+            # provider call at all. Any failure here degrades to the previous behaviour and
+            # is recorded - never propagated.
+            try:
+                plan = next_handler.plan_handover(dsr, _profile_of(dsr),
+                                                  settings.get("environment"), stage=stage)
+            except Exception as exc:
+                plan = {"mode": "pool", "reason": "handover_planning_failed:%s"
+                                                  % type(exc).__name__}
+                frappe.log_error(frappe.get_traceback(), "esign handover planning failed")
+            res = None
+            if plan["mode"] == "transition" and hasattr(adapter, "transition_with_recipients"):
+                events.emit("HandoverTargeted", signature_request=dsr_name, package=dsr.package,
+                            request_meta={"to_users": plan.get("to_users"),
+                                          "erp_users": plan.get("erp_users"),
+                                          "stage": stage})
+                try:
+                    res = adapter.transition_with_recipients(
+                        doc_id, dsr.effective_scts_user_id, plan["to_users"], plan["config"],
+                        dsr.effective_signature_id)
+                except ProviderError as exc:
+                    # A DEFINITE rejection (4xx) means the provider did NOT act, so re-sending
+                    # through the older proven path is safe and is not a double-sign. An
+                    # AMBIGUOUS outcome (timeout/5xx) may already have been applied - never
+                    # resend that one. Naming the next handler is an improvement layered on a
+                    # path that already worked; it must never stop signing altogether.
+                    if getattr(exc, "ambiguous", False):
+                        raise
+                    events.emit("HandoverPoolFallback", signature_request=dsr_name,
+                                package=dsr.package, error_summary=safe_error(exc),
+                                request_meta={"stage": stage,
+                                              "reason": "transition_rejected_falling_back"})
+            if res is None:
+                if plan["mode"] != "transition":
+                    events.emit("HandoverPoolFallback", signature_request=dsr_name,
+                                package=dsr.package,
+                                error_summary="next handler not named: %s" % plan.get("reason"),
+                                request_meta={"stage": stage, "reason": plan.get("reason")})
+                res = adapter.approve_and_sign([doc_id], dsr.effective_scts_user_id,
+                                               dsr.effective_signature_id,
+                                               transition_type=tt)  # 'approve' (never numeric)
             events.set_dsr_status(
                 dsr_name, "Provider Accepted",
                 extra_fields={"accepted_at": now_datetime(),
@@ -318,6 +373,14 @@ def process_signing_request(dsr_name):
         if dsr.status == "Provider Accepted":
             events.set_dsr_status(dsr_name, "Verifying", event_type="PollTick",
                                   verification_result=vr.reason)
+        elif dsr.status == "Verifying":
+            # EVERY poll must leave a trace, not just the first one. Previously only the
+            # Provider Accepted -> Verifying transition emitted PollTick, so a leg that kept
+            # failing verification went completely silent: the reconciler was retrying every
+            # five minutes but the event log stopped dead, which reads exactly like a stalled
+            # job. That cost real time to chase during the 2026-08-27 pilot.
+            events.emit("PollTick", signature_request=dsr_name, package=dsr.package,
+                        verification_result=vr.reason)
     except binding.BindingError as e:
         # SECURITY/VALIDATION refusal (wrong approver, mapping/signature mismatch,
         # inactive signature, allowlist, package/hash, non-UAT provider). This is NOT a

@@ -267,6 +267,22 @@ class SctsAdapter(SignatureProviderAdapter):
             instance_ids, provider_user_id, signature_id, transition_type, t))
         return {"bulk_job_transaction_id": self._extract_txn_id(raw)}
 
+    def transition_with_recipients(self, instance_id, provider_user_id, to_users, config,
+                                   signature_id, signature_name=None, comment=None):
+        """POST /api/Workflow/transition - the governed path: names WHO acts next.
+
+        `config` comes from the profile (transition id/name/action code/sign type); this
+        adapter never invents those values. Same async ACCEPTED semantics as
+        approve_and_sign: a 2xx means queued, not signed.
+        """
+        raw = self._with_auth(lambda t: self._client.transition(
+            instance_id, provider_user_id, to_users,
+            config.get("transition_id"), config.get("transition_name"),
+            config.get("process_action"), config.get("sign_type"),
+            signature_id, signature_name or config.get("sign_type") or "",
+            comment, t))
+        return {"bulk_job_transaction_id": self._extract_txn_id(raw)}
+
     @staticmethod
     def _extract_txn_id(raw):
         if isinstance(raw, dict):

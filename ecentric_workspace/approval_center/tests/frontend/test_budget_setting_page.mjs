@@ -1,9 +1,10 @@
 // Headless tests for the Budget Setting page (Node + jsdom). Two-level review (HOF -> CEO),
 // comments-required-on-approve, adaptive currency labels, attachment required.
 import { JSDOM } from "jsdom";
+import { pageSource } from "./_page_source.mjs";
 import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
 const __dir = path.dirname(fileURLToPath(import.meta.url));
-const HTML = fs.readFileSync(path.join(__dir, "..", "..", "frontend", "budget_setting.main_section.html"), "utf8");
+const HTML = pageSource("budget_setting");
 const [markup, rest] = HTML.split('<script id="ec-budget-setting">');
 const JS = rest.replace(/<\/script>\s*$/, "");
 let fails = 0;

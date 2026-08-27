@@ -1,8 +1,9 @@
 // Headless tests for the AI Topup page (Node + jsdom). B3.2.
 import { JSDOM } from "jsdom";
+import { pageSource } from "./_page_source.mjs";
 import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
 const __dir = path.dirname(fileURLToPath(import.meta.url));
-const HTML = fs.readFileSync(path.join(__dir, "..", "..", "frontend", "ai_topup.main_section.html"), "utf8");
+const HTML = pageSource("ai_topup");
 const [markup, rest] = HTML.split('<script id="ec-aitopup">');
 const JS = rest.replace(/<\/script>\s*$/, "");
 let fails = 0;

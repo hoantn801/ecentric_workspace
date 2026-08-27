@@ -1,8 +1,9 @@
 // Headless tests for the Livestream Supplies page (Node + jsdom). Single-level (Sang Bui Review), approve comment REQUIRED.
 import { JSDOM } from "jsdom";
+import { pageSource } from "./_page_source.mjs";
 import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
 const __dir = path.dirname(fileURLToPath(import.meta.url));
-const HTML = fs.readFileSync(path.join(__dir, "..", "..", "frontend", "livestream_supplies.main_section.html"), "utf8");
+const HTML = pageSource("livestream_supplies");
 const [markup, rest] = HTML.split('<script id="ec-livestream-supplies">');
 const JS = rest.replace(/<\/script>\s*$/, "");
 let fails = 0;

@@ -66,8 +66,12 @@
     .ecd-drawer{position:fixed;top:0;right:0;height:100vh;width:min(1100px,94vw);background:#fff;box-shadow:-8px 0 30px rgba(0,0,0,.18);display:flex;flex-direction:column}
     .ecd-drawer header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--gray-200,#d9dee3)}
     .ecd-drawer .ecd-body{flex:1;display:grid;grid-template-columns:72% 28%;min-height:0}
+    /* Con cua grid mac dinh min-height:auto -> khong co lai duoc, khien cot cuon tran ra
+       ngoai va thanh chan trang de len the cuoi cung (nut cua cap CEO bam khong duoc). */
+    .ecd-drawer .ecd-body > *{min-height:0}
     .ecd-viewer{position:relative;border-right:1px solid var(--gray-200,#d9dee3);display:flex;align-items:center;justify-content:center;color:var(--gray-500,#6e7781);font-size:13px;text-align:center;padding:24px}
-    .ecd-signers{overflow:auto;padding:16px}
+    /* padding-bottom du de the NGUOI KY CUOI CUNG khong bao gio nam sat mep vung cuon */
+    .ecd-signers{overflow:auto;padding:16px 16px 32px}
     .ecd-signers h4{font-size:12.5px;font-weight:700;color:var(--gray-600,#57606a);text-transform:uppercase;letter-spacing:.4px;margin:0 0 10px}
     .ecd-scard{border:1px solid var(--gray-200,#d9dee3);border-radius:10px;padding:10px 12px;margin-bottom:8px}
     .ecd-scard .role{font-size:13px;font-weight:700;color:var(--gray-900,#1f2328)}
@@ -81,8 +85,8 @@
     <div class="ecd-sub" id="ecdSummary">Đang tải…</div>
     <div id="ecdBanner"></div>
     <div id="ecdRows"></div>
-    <div class="ecd-up">
-      <input type="file" id="ecdUpload" multiple style="display:none">
+    <div class="ecd-up" data-ec-no-formkit>
+      <input type="file" id="ecdUpload" multiple style="display:none" data-ec-no-formkit>
       <button class="ecd-btn" id="ecdUploadBtn" type="button">+ Tải tài liệu</button>
       <span class="ecd-meta" id="ecdUploadHint"></span>
     </div>
@@ -567,9 +571,18 @@
   }
   function _applySigPreview() {
     var layer = document.getElementById("ecdLayer");
-    (layer._kids || []).slice().forEach(function (b) {
-      var old = b.querySelector ? b.querySelector(".sigprev") : null;
-      if (old && old.parentNode === b && b.removeChild) { try { b.removeChild(old); } catch (e) {} }
+    if (!layer) return;
+    // Ban cu lap qua mot thuoc tinh tam cua lop dat vi tri, thu von KHONG bao gio duoc gan o
+    // dau trong file nay - nen vong lap luon chay tren mang rong: nut "Ky thu" doi mau nhung
+    // khong o nao duoc ve. Lay thang cac o dang co tren DOM.
+    // Don MOI anh xem thu con sot trong lop, khong chi anh nam dung trong o. Ban cu chi go khi
+    // parentNode dung bang o dang xet, nen mot anh bi mo coi (o da bi ve lai / xoa di) se nam
+    // lai tren tai lieu va trong y het chu ky that dat sai cho.
+    Array.prototype.slice.call(layer.querySelectorAll(".sigprev")).forEach(function (n) {
+      if (n.parentNode) { try { n.parentNode.removeChild(n); } catch (e) {} }
+    });
+    var boxes = Array.prototype.slice.call(layer.querySelectorAll(".ecd-box"));
+    boxes.forEach(function (b) {
       if (DRW.showSig && DRW.sigPreview) {
         var img = document.createElement("img");
         img.className = "sigprev";
@@ -582,17 +595,51 @@
   }
   function _toggleTrySign() {
     if (DRW.showSig) { DRW.showSig = false; _applySigPreview(); return; }
+    // Khong co o nao thi khong the "ky thu" - noi ra thay vi doi mau nut roi im lang.
+    var layer = document.getElementById("ecdLayer");
+    if (!layer || !layer.querySelectorAll(".ecd-box").length) {
+      drawerErr("Chưa có ô chữ ký nào trên trang này — đặt ô trước rồi bấm Ký thử.");
+      return;
+    }
     if (DRW.sigPreview) { DRW.showSig = true; _applySigPreview(); return; }
     call("my_signature_preview", { payment_request_name: pr() }).then(function (o) {
       if (o && o.image_base64) { DRW.sigPreview = o.image_base64; DRW.showSig = true; _applySigPreview(); }
-      else drawerErr("Chưa lấy được mẫu chữ ký (cần mapping SCTS đã xác minh).");
-    }).catch(function () { drawerErr("Chưa lấy được mẫu chữ ký (cần mapping SCTS đã xác minh)."); });
+      else drawerErr("Chưa lấy được mẫu chữ ký"
+                     + ((o && o.reason) ? " (" + o.reason + ")" : " (cần mapping SCTS đã xác minh)."));
+    }).catch(function (e) {
+      drawerErr("Chưa lấy được mẫu chữ ký: " + ((e && e.message) || "lỗi không rõ"));
+    });
   }
   function _setDrawerOpen(on) {   // ISSUE 1: hide legacy placement/editor layers while drawer is open
     try { document.documentElement.classList[on ? "add" : "remove"]("ecd-drawer-open"); } catch (e) {}
   }
+  // Dua lop phu ra lam con TRUC TIEP cua <body>.
+  //
+  // Bang chung tu anh chup 27/08: sidebar va noi dung trang KHONG he bi mo, trong khi lop phu
+  // la rgba(0,0,0,.35) inset:0 - tuc no khong phu duoc viewport ma chi phu dung khung noi dung,
+  // con dai tren va dai duoi thi noi dung trang loi ra ("Yeu cau bo sung", "San sang...").
+  //
+  // Nguyen nhan: mot to tien nao do dat transform / filter / contain / overflow. Bat ky thu nao
+  // trong so do cung bien phan tu do thanh khoi chua cua position:fixed (hoac cat mat phan tran
+  // ra ngoai), nen inset:0 khong con la viewport nua va z-index 9999 bi nhot trong ngu canh xep
+  // chong cua to tien.
+  //
+  // CSS cua ERP shell nam trong head_html tren production, KHONG co trong repo - nen khong the
+  // sua "dung cho to tien" tu day, va cung khong nen: drawer khong duoc phu thuoc vao CSS ma
+  // no khong so huu. Chuyen ra body la cach duy nhat mien nhiem voi moi to tien, hien tai lan
+  // tuong lai. Chi can lam mot lan; DOM giu nguyen sau khi dong.
+  function _portalOverlay() {
+    var ov = document.getElementById("ecdDrawerOv");
+    // Chuyen cho khong bao gio duoc phep lam hong viec mo drawer: neu vi ly do nao do khong
+    // di chuyen duoc thi drawer van mo (chi la van bi to tien nhot), con hon la nem loi.
+    try {
+      if (ov && document.body && ov.parentNode !== document.body) { document.body.appendChild(ov); }
+    } catch (e) {}
+    return ov;
+  }
+
   function openDrawer(ref) {
-    _cancelPending(); _setDrawerOpen(true);                                          // switching document cancels prior timers
+    _cancelPending(); _setDrawerOpen(true); _portalOverlay();                         // switching document cancels prior timers
     DRW.ref = ref; DRW.slot = null;
     var doc = (STATE.documents || []).filter(function (d) { return d.document_ref === ref; })[0];
     document.getElementById("ecdDrawerName").textContent = "Thiết lập chữ ký — " + (doc ? doc.display_name : "");

@@ -48,8 +48,11 @@ def safe_error(exc):
         msg = str(exc)
     except Exception:
         msg = ""
-    if len(msg) > 200:
-        msg = msg[:200] + "..."
+    # 200 was cutting provider validation details in half - the part naming the offending
+    # field always comes last. 500 still fits an audit field and never carries payloads,
+    # because the provider layer already renders errors compactly.
+    if len(msg) > 500:
+        msg = msg[:500] + "..."
     low = msg.lower()
     if any(s in low for s in ("bearer", "token", "authorization", "base64", "password")):
         msg = "(message withheld - contained sensitive markers)"

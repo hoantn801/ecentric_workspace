@@ -3,9 +3,10 @@
 // Verifies the shell regression fix: .ec-sidebar + Approval Center header, no "Powered by ERPNext",
 // 3 tabs, Any-One pool visible in summary + detail, standard list columns, typed buttons, no Desk shim.
 import { JSDOM } from "jsdom";
+import { pageSource } from "./_page_source.mjs";
 import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
 const __dir = path.dirname(fileURLToPath(import.meta.url));
-const HTML = fs.readFileSync(path.join(__dir, "..", "..", "frontend", "service_referral.main_section.html"), "utf8");
+const HTML = pageSource("service_referral");
 const [markup, rest] = HTML.split('<script id="ec-service-referral">');
 const JS = rest.replace(/<\/script>\s*$/, "");
 let fails = 0;

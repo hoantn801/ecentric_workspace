@@ -1,9 +1,10 @@
 // Headless tests for the Leave page (Node + jsdom). Single-level (Direct Manager Review), no fulfillment.
 // Auto-title: no request_title input; server generates title, page shows computed preview.
 import { JSDOM } from "jsdom";
+import { pageSource } from "./_page_source.mjs";
 import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
 const __dir = path.dirname(fileURLToPath(import.meta.url));
-const HTML = fs.readFileSync(path.join(__dir, "..", "..", "frontend", "leave.main_section.html"), "utf8");
+const HTML = pageSource("leave");
 const [markup, rest] = HTML.split('<script id="ec-leave">');
 const JS = rest.replace(/<\/script>\s*$/, "");
 let fails = 0;

@@ -534,6 +534,13 @@ def resolve_item(todo_row):
         title = "Xác nhận giờ đã làm"
         subtitle = ""
         action_url = "/pm#schedule"
+    elif "[RSVPHOP]" in (description or ""):
+        # Unanswered Outlook/Teams invites -> the week calendar, where the meeting popover
+        # carries Accept / Decline / Tentative. Tag set by schedule._ensure_rsvp_todo.
+        src = _GENERIC_SRC
+        title = "Phản hồi lời mời họp"
+        subtitle = ""
+        action_url = "/pm#schedule"
     else:
         # Bare ToDo with no reference -> link to the ToDo itself in Desk.
         src = _GENERIC_SRC

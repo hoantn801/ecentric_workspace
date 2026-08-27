@@ -19,6 +19,7 @@ PAYMENT_REQUEST_DEFINITION = _make(
     "PAYMENT_REQUEST", "EC Payment Request",
     ("request_title", "reason", "payment_amount", "payment_date", "payee_full_name",
      "account_bank", "bank_account_number", "has_purchase_request", "purchase_request",
+     "funding_source_doctype", "funding_source_name",
      "no_purchase_request_reason", "is_cost_valid", "details_and_attachments_correct",
      "request_attachment", "department", "company"),
     ("name", "request_title", "payee_full_name", "payment_amount", "payment_date",

@@ -1,8 +1,9 @@
 // Headless tests for the System Request page (Node + jsdom). Form #3 (with fulfillment).
 import { JSDOM } from "jsdom";
+import { pageSource } from "./_page_source.mjs";
 import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
 const __dir = path.dirname(fileURLToPath(import.meta.url));
-const HTML = fs.readFileSync(path.join(__dir, "..", "..", "frontend", "system_request.main_section.html"), "utf8");
+const HTML = pageSource("system_request");
 const [markup, rest] = HTML.split('<script id="ec-system-request">');
 const JS = rest.replace(/<\/script>\s*$/, "");
 let fails = 0;

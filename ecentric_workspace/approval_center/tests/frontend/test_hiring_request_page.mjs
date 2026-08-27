@@ -1,9 +1,10 @@
 // Headless tests for the Hiring Request page (Node + jsdom). Multi-level (3 levels: Direct Manager -> HR -> CEO),
 // no fulfillment, comments OFF (approve does NOT force a comment), optional attachment.
 import { JSDOM } from "jsdom";
+import { pageSource } from "./_page_source.mjs";
 import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
 const __dir = path.dirname(fileURLToPath(import.meta.url));
-const HTML = fs.readFileSync(path.join(__dir, "..", "..", "frontend", "hiring_request.main_section.html"), "utf8");
+const HTML = pageSource("hiring_request");
 const [markup, rest] = HTML.split('<script id="ec-hiring-request">');
 const JS = rest.replace(/<\/script>\s*$/, "");
 let fails = 0;

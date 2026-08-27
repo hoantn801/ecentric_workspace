@@ -148,6 +148,11 @@ scheduler_events["cron"].setdefault("0 9 * * *", []).append(
 scheduler_events["cron"].setdefault("0 18 * * *", []).append(
     "ecentric_workspace.pm.api.schedule.nudge_unconfirmed")
 
+# Unanswered meeting invites: one nudge in the morning (one Graph call per active
+# employee, skipped entirely when ec_pm_calendar_sync is off).
+scheduler_events["cron"].setdefault("0 9 * * *", []).append(
+    "ecentric_workspace.pm.api.schedule.nudge_unanswered_invites")
+
 # Permissions
 # -----------
 # PM v2 uses SERVICE-LAYER permission (ecentric_workspace.pm.api.*), NOT global

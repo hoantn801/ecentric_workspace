@@ -1,8 +1,9 @@
 // Headless tests for the Affiliate Bonus page (Node + jsdom). Two-level chain (Vinh -> CEO), attachment required.
 import { JSDOM } from "jsdom";
+import { pageSource } from "./_page_source.mjs";
 import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
 const __dir = path.dirname(fileURLToPath(import.meta.url));
-const HTML = fs.readFileSync(path.join(__dir, "..", "..", "frontend", "affiliate_bonus.main_section.html"), "utf8");
+const HTML = pageSource("affiliate_bonus");
 const [markup, rest] = HTML.split('<script id="ec-affiliate-bonus">');
 const JS = rest.replace(/<\/script>\s*$/, "");
 let fails = 0;
