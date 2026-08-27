@@ -118,6 +118,10 @@ scheduler_events = {
         # next_retry_at is due and attempt_count < MAX_ATTEMPTS.
         "*/5 * * * *": [
             "ecentric_workspace.notification_center.providers.teams.process_teams_retries",
+            # esign (2026-08-27): a leg the provider ACCEPTED but never acted on. Until now
+            # the only backstop was sweep_stale at 24h - far too long on a live system that
+            # signs real payment approvals, and indistinguishable from "provider is slow".
+            "ecentric_workspace.platform.esign.tasks.flag_silent_legs",
             # esign S2A (2026-07-11): polling reconciler - AUTHORITATIVE status path
             # (Phase 1 works with polling only; callback is a later acceleration
             # signal). Kill-switched via site_config ec_esign_scheduler_disabled
