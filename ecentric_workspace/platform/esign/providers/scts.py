@@ -307,6 +307,33 @@ class SctsAdapter(SignatureProviderAdapter):
     def get_document(self, document_id):
         return self._with_auth(lambda t: self._client.get_document(document_id, t))
 
+    # -- live workflow state --------------------------------------------------
+    def available_transitions(self, instance_id, provider_user_id):
+        """What this user can actually do on this document RIGHT NOW, straight from the
+        provider. Returns [] when the call fails - the caller keeps its old path and records
+        why, rather than acting on a guess."""
+        raw = self._with_auth(
+            lambda t: self._client.get_workflow_instance(instance_id, provider_user_id, t))
+        data = raw.get("data") if isinstance(raw, dict) and isinstance(raw.get("data"), dict) else raw
+        if not isinstance(data, dict):
+            return []
+        out = []
+        for t in (data.get("availableTransitions") or []):
+            if not isinstance(t, dict):
+                continue
+            out.append({
+                "transition_id": t.get("transitionId"),
+                "transition_name": t.get("transitionName"),
+                "process_action": t.get("processAction"),
+                "sign_type": t.get("signType"),
+                "requires_signature": bool(t.get("isSigned")),
+                "transition_type": t.get("transitionType"),
+                "to_state": t.get("toState"),
+                "terminal": bool(t.get("forceStop")) or str(t.get("toState") or "") == "STOP",
+                "all_required": bool(t.get("isAllRequired")),
+            })
+        return out
+
     def get_document_status(self, provider_document_id):
         """Normalized document status (alias surface required by S2B-A §4)."""
         return self.poll_status(provider_document_id)

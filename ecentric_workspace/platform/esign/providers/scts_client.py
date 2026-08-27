@@ -488,6 +488,23 @@ class SctsClient(object):
                             "Document/pdf response shape not recognized "
                             "(UAT contract unconfirmed)", retryable=False)
 
+    def get_workflow_instance(self, instance_id, user_id, token):
+        """GET /api/Workflow/{instanceId}?userid={userId} -> the LIVE workflow state.
+
+        Captured from the portal on 2026-08-28. This is what ends three nights of guessing:
+        it returns `currentStateId`, the `history` of transitions already taken, and -
+        crucially - `availableTransitions`, each carrying its own transitionId,
+        processAction, signType, isSigned and transitionType.
+
+        Those values are NOT derivable. The four "Phe duyet" edges of one workflow turned out
+        to be -9, -10, -11 and -4, and the last one needs processAction WfFunctionRunSignedA
+        with signType ky-chinh while the others need WfFunctionRunSignedOther with
+        ky-tham-gia. Any scheme that configures one value per stage - which is what we were
+        doing - is wrong on at least one step of every document.
+        """
+        return self._request("GET", "/api/Workflow/%s?userid=%s" % (instance_id, user_id),
+                             token=token, _label="get_workflow_instance")
+
     def get_document(self, document_id, token):
         """GET /api/Document/{documentId} -> raw document payload (status/signers/files)."""
         try:
