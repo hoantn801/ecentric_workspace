@@ -76,6 +76,56 @@ class TestTimeParser(unittest.TestCase):
             self.assertIsNone(SignatureProviderAdapter._parse_provider_time(bad), bad)
 
 
+class TestBareClockFromProvider(unittest.TestCase):
+    """eContract trả giờ ký là MỘT CÁI ĐỒNG HỒ TRẦN: "04:12", không có ngày.
+
+    Quan sát thật 27/08/2026 qua endpoint chẩn đoán: `signed_at: "04:12"`. Bộ đọc thời gian
+    không có định dạng đó nên trả None, phép kiểm fail-closed, và chân ký kẹt ở Verifying
+    dù chữ ký ĐÃ nằm trên PDF. Giờ trần được giải theo mốc tham chiếu (thời điểm ta yêu cầu
+    ký), và phải vượt qua được ranh giới nửa đêm.
+    """
+
+    def test_the_actual_observed_value_now_parses(self):
+        ref = datetime(2026, 8, 27, 4, 9, 46)
+        got = SignatureProviderAdapter._parse_provider_time("04:12", reference=ref)
+        self.assertEqual(got, datetime(2026, 8, 27, 4, 12, 0))
+
+    def test_the_real_pilot_case_now_verifies(self):
+        """DSR xếp hàng 04:11:46, chữ ký "04:12" -> phải xác minh được."""
+        asked = datetime(2026, 8, 27, 4, 11, 46) - timedelta(seconds=TOL)
+        res = SignatureProviderAdapter.verify_signed_result(
+            _state([_signer(signed_at="04:12")]), _expected(signed_after=asked))
+        self.assertTrue(res.ok, res.reason)
+
+    def test_bare_clock_still_catches_a_signature_from_an_earlier_leg(self):
+        """Sự cố Vinh: ký 00:48, chân ký tạo 00:57:58 -> vẫn phải bị từ chối."""
+        asked = datetime(2026, 8, 27, 0, 57, 58) - timedelta(seconds=TOL)
+        res = SignatureProviderAdapter.verify_signed_result(
+            _state([_signer(signed_at="00:48")]), _expected(signed_after=asked))
+        self.assertFalse(res.ok)
+        self.assertIn("signature_predates_request", res.reason)
+
+    def test_midnight_crossing_resolves_to_the_nearer_day(self):
+        ref = datetime(2026, 8, 27, 0, 3, 0)
+        got = SignatureProviderAdapter._parse_provider_time("23:58", reference=ref)
+        self.assertEqual(got, datetime(2026, 8, 26, 23, 58, 0))
+
+    def test_day_month_without_year_uses_the_reference_year(self):
+        ref = datetime(2026, 8, 27, 4, 0, 0)
+        got = SignatureProviderAdapter._parse_provider_time("27/08 04:12", reference=ref)
+        self.assertEqual(got, datetime(2026, 8, 27, 4, 12, 0))
+
+    def test_without_a_reference_a_bare_clock_is_still_unreadable(self):
+        """Không có mốc tham chiếu thì đồng hồ trần vô nghĩa — thà nói không đọc được."""
+        self.assertIsNone(SignatureProviderAdapter._parse_provider_time("04:12"))
+
+    def test_full_timestamps_are_unaffected_by_the_reference(self):
+        ref = datetime(2020, 1, 1, 0, 0, 0)
+        self.assertEqual(
+            SignatureProviderAdapter._parse_provider_time("27/08/2026 04:12:43", reference=ref),
+            datetime(2026, 8, 27, 4, 12, 43))
+
+
 class TestFreshness(unittest.TestCase):
     def test_the_actual_incident_is_now_refused(self):
         """Chữ ký 00:48:42 KHÔNG được xác nhận cho chân ký tạo lúc 00:57:58."""
