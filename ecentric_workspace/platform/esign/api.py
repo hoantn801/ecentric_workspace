@@ -259,7 +259,6 @@ def esign_document_state(payment_request_name):
     perms.assert_system_manager()
     _business_args("EC Payment Request", payment_request_name)
 
-    ar = perms.business_approval_request("EC Payment Request", payment_request_name)
     pkg_name = frappe.db.get_value(
         "EC Digital Signature Package",
         {"business_doctype": "EC Payment Request", "business_name": payment_request_name,
@@ -286,8 +285,12 @@ def esign_document_state(payment_request_name):
 
     dsrs = frappe.get_all("EC Digital Signature Request",
                           filters={"package": pkg_name},
+                          # Every field `_expected_for` reads must be here, otherwise the
+                          # replay silently differs from what the worker actually computed -
+                          # which would make this endpoint lie about the verdict.
                           fields=["name", "status", "actor_type", "approver", "actor_user",
-                                  "effective_scts_user_id", "queued_at"],
+                                  "effective_scts_user_id", "effective_signature_id",
+                                  "queued_at", "creation"],
                           order_by="creation desc", limit_page_length=0)
     out = {"ok": True, "package": pkg,
            "provider_status": getattr(state, "status", None),

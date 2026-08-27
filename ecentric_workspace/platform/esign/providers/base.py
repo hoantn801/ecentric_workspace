@@ -141,12 +141,27 @@ class SignatureProviderAdapter(object):
     #: far narrower than any realistic "somebody else signed earlier" gap.
     SIGN_TIME_TOLERANCE_SECONDS = 120
 
+    #: Formats that carry no date at all, resolved against the reference moment.
+    _TIME_ONLY = ("%H:%M:%S", "%H:%M")
+    #: Formats with day+month but no year (eContract shows "23/08 01:22" in some views).
+    _NO_YEAR = ("%d/%m %H:%M:%S", "%d/%m %H:%M")
+
     @staticmethod
-    def _parse_provider_time(value):
+    def _parse_provider_time(value, reference=None):
         """Parse a provider timestamp into a naive datetime, or None if unreadable.
 
         Providers are inconsistent: eContract returns Vietnamese day-first strings, others
-        ISO. Unknown shapes return None and the caller fails closed rather than guessing.
+        ISO - and the Document detail returns the sign time as **"04:12", a bare clock with
+        no date at all** (observed 2026-08-27). A bare clock cannot be compared to anything
+        on its own, so it is resolved against `reference` (the moment we asked for the
+        signature): same calendar day, and if that lands absurdly far from the reference we
+        step a day either way to absorb a midnight crossing.
+
+        That resolution is a heuristic, but it does NOT weaken the check it serves: a
+        signature made minutes BEFORE we asked still lands before the reference and is still
+        refused - which is exactly the case this guard exists for.
+
+        Unknown shapes still return None and the caller fails closed rather than guessing.
         """
         if value is None:
             return None
@@ -166,7 +181,39 @@ class SignatureProviderAdapter(object):
                 return datetime.strptime(text, fmt)
             except ValueError:
                 continue
+        if reference is None:
+            return None                      # nothing to resolve a partial timestamp against
+        for fmt in SignatureProviderAdapter._NO_YEAR:
+            try:
+                partial = datetime.strptime(text, fmt)
+                return SignatureProviderAdapter._nearest(
+                    partial.replace(year=reference.year), reference)
+            except ValueError:
+                continue
+        for fmt in SignatureProviderAdapter._TIME_ONLY:
+            try:
+                partial = datetime.strptime(text, fmt)
+                return SignatureProviderAdapter._nearest(
+                    reference.replace(hour=partial.hour, minute=partial.minute,
+                                      second=partial.second, microsecond=0), reference)
+            except ValueError:
+                continue
         return None
+
+    @staticmethod
+    def _nearest(candidate, reference):
+        """Shift `candidate` by whole days until it sits closest to `reference`.
+
+        Resolves a date-less clock across a midnight boundary: 23:58 seen from a 00:03
+        reference belongs to yesterday, not to today.
+        """
+        from datetime import timedelta
+        best = candidate
+        for days in (-1, 0, 1):
+            shifted = candidate + timedelta(days=days)
+            if abs((shifted - reference).total_seconds()) < abs((best - reference).total_seconds()):
+                best = shifted
+        return best
 
     @staticmethod
     def verify_signed_result(doc_state, expected):
@@ -190,7 +237,8 @@ class SignatureProviderAdapter(object):
         # NEWER than the moment we asked for it.
         after = expected.get("signed_after")
         if after:
-            signed_at = SignatureProviderAdapter._parse_provider_time(signer.get("signed_at"))
+            signed_at = SignatureProviderAdapter._parse_provider_time(
+                signer.get("signed_at"), reference=after)
             if not signed_at:
                 # Fail CLOSED: an unreadable timestamp cannot prove freshness. The raw value
                 # is echoed so an unknown provider format is diagnosable in one look.
