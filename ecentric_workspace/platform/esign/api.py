@@ -184,6 +184,36 @@ def verify_mapping(mapping_name):
     return {"verified": True}
 
 
+@frappe.whitelist()
+def list_scts_signatures(scts_user_id, environment=None):
+    """READ-ONLY, System Manager only: which signature slots a given SCTS user owns.
+
+    Why this has to exist. `EC SCTS User Mapping.signature_id` is mandatory, and
+    `verify_mapping` refuses any id that is not owned by that user - correctly so. But
+    nothing exposed the list, so the only way to obtain a valid `signature_id` was to read
+    it out of a captured browser request or to guess. Onboarding a signer therefore
+    depended on luck, and a wrong guess would have targeted somebody else's signature.
+
+    Returns identifiers and safe labels ONLY: no images, no certificate or HSM material.
+    """
+    perms.assert_system_manager()
+    flt = {"integration_enabled": 1}
+    if environment:
+        flt["environment"] = environment
+    s = frappe.db.get_value("EC Digital Signature Provider Settings", flt, "*", as_dict=True)
+    if not s:
+        frappe.throw(_("Không có Provider Settings đang bật cho môi trường này."))
+    from ecentric_workspace.platform.esign.providers import get_adapter
+    rows = get_adapter(s).list_user_signatures(scts_user_id) or []
+    return {
+        "environment": s.get("environment"),
+        "scts_user_id": scts_user_id,
+        "signatures": [{"id": r.get("id"), "signerId": r.get("signerId"),
+                        "type": r.get("type"), "company": r.get("company"),
+                        "active": bool(r.get("active"))} for r in rows],
+    }
+
+
 # ------------------------------ Payment Request e2e (S2B-B) ------------------------------ #
 @frappe.whitelist(methods=["POST"])
 def pr_approve_and_sign(payment_request_name, comment=None):
