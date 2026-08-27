@@ -185,8 +185,11 @@ def request_information(definition, name, comment=None):
 def resubmit(definition, name, payload=None):
     if payload:
         save_draft(definition, name=name, payload=payload)
-    result = definition.resubmitter(name, frappe.session.user)
+    result = definition.resubmitter(name, frappe.session.user) or {}
     return {"restarted": bool(result.get("restarted")),
+            # Lop ky so co the da tao phien ban moi cho goi ky va bat duyet lai tu cap 1.
+            # Khong truyen ra thi giao dien khong the giai thich vi sao.
+            "esign": result.get("esign") or {},
             "detail": query_service.detail(definition, name)}
 
 

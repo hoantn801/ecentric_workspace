@@ -315,6 +315,24 @@
     if(/mandatory|required|bắt buộc|Vui lòng|Quản lý trực tiếp|đầy đủ|Purchase Request/i.test(m)) return m;
     if(/access|permission|allowed|quyền/i.test(m)) return "Bạn không còn quyền thực hiện hành động này.";
     return m || "Đã có lỗi. Vui lòng thử lại."; }
+  // Gui lai co the doi HANH VI, khong chi doi trang thai: neu goi ky da khoa thi no duoc tao
+  // phien ban moi de chung tu bo sung duoc dua vao, va neu da co chu ky so thu thap tren bo
+  // tai lieu cu thi quy trinh bat dau lai tu cap 1 - vi nhung chu ky do khong con chung thuc
+  // cho bo tai lieu hien tai. Doi hanh vi ma khong noi ra thi nguoi dung tuong he thong loi.
+  function resubmitMsg(res){
+    var es = (res && res.esign) || {};
+    if (es.force_restart) {
+      return "Đã gửi lại. Tài liệu ký đã đổi nên các chữ ký số cũ không còn giá trị — "
+           + "quy trình bắt đầu lại từ cấp 1 và các cấp phải ký lại.";
+    }
+    if (es.revised) {
+      return "Đã gửi lại. Gói ký đã được tạo phiên bản mới — hãy chuẩn bị và khoá lại "
+           + "để chứng từ bổ sung được đưa vào.";
+    }
+    return (res && res.restarted) ? "Đã gửi lại — duyệt lại từ đầu."
+                                  : "Đã gửi lại — tiếp tục ở cấp yêu cầu.";
+  }
+
   function resubmitErr(e){ var m=(e&&e.message)||"";
     if(/no further action|is Approved|is Rejected|is Cancelled|moved|next level|vừa được cập nhật/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Vui lòng tải lại.";
     if(/Information Required|is mandatory|is required|bắt buộc|Vui lòng|permission|quyền|Purchase Request/i.test(m)) return m;
@@ -425,7 +443,7 @@
     if(editing){
       $("payr-edit-cancel").onclick=function(){ state._editDet=null; state.mode="create"; renderDetail($("payr-body")); };
       $("payr-resubmit").onclick=function(){ var v=validateSubmit(); if(v){ showFieldErrors(v); toast("Vui lòng kiểm tra các trường bắt buộc.",true); return; } setBusyIds(["payr-resubmit","payr-edit-cancel"],true);
-        call("resubmit",{name:state.id,payload:JSON.stringify(state.draft)}).then(function(res){ toast(res&&res.restarted?"Đã gửi lại — duyệt lại từ đầu.":"Đã gửi lại — tiếp tục ở cấp yêu cầu."); state._editDet=null; state.mode="create"; renderDetail($("payr-body")); }).catch(function(e){ if(window.console&&console.error) console.error("Payment Request resubmit error:",e); toast(resubmitErr(e),true); setBusyIds(["payr-resubmit","payr-edit-cancel"],false); }); };
+        call("resubmit",{name:state.id,payload:JSON.stringify(state.draft)}).then(function(res){ toast(resubmitMsg(res)); state._editDet=null; state.mode="create"; renderDetail($("payr-body")); }).catch(function(e){ if(window.console&&console.error) console.error("Payment Request resubmit error:",e); toast(resubmitErr(e),true); setBusyIds(["payr-resubmit","payr-edit-cancel"],false); }); };
       return;
     }
     $("payr-save").onclick=function(){ saveDraft(false); };
