@@ -210,17 +210,43 @@ def _list_where(scope, filters, search, params):
         where.append("EXISTS (SELECT 1 FROM `tabEC Approval Request Approver` va "
                      "WHERE va.approval_request = r.name AND va.approver = %(_me_recv)s)")
     elif box == "fulfil":
-        refs = _fulfillment_refs(me)
-        if not refs:
-            where.append("1=0")
-        else:
-            keys = []
-            for i, nm in enumerate(refs):
-                k = "_ff%d" % i
-                params[k] = nm
-                keys.append("%%(%s)s" % k)
-            where.append("r.reference_name IN (" + ", ".join(keys) + ")")
+        where.append(_my_todo_clause(me, params))
     return " AND ".join(where)
+
+
+def awaiting_my_decision_sql(param_name):
+    """Hồ sơ ĐANG chờ chính người này bấm duyệt.
+
+    Dùng đúng định nghĩa của engine (transitions._level_pending_approvers): dòng approver ở
+    ĐÚNG cấp hiện tại và còn status='Pending'. Không dùng "là approver bất kỳ" — như vậy sẽ
+    kéo cả hồ sơ mình đã duyệt xong hoặc còn ở cấp người khác."""
+    return ("(r.approval_status IN " + _OPEN + " AND EXISTS ("
+            "SELECT 1 FROM `tabEC Approval Request Approver` va "
+            "WHERE va.approval_request = r.name AND va.approver = %(" + param_name + ")s "
+            "AND va.level_no = r.current_level AND va.status = 'Pending'))")
+
+
+def _my_todo_clause(me, params):
+    """Tab 'Chờ tôi xử lý' = MỌI việc đang chờ tôi ra tay.
+
+    Trước đây tab này chỉ có phần Operation nhận xử lý SAU khi duyệt xong, nên hồ sơ đang chờ
+    chính mình bấm duyệt lại không xuất hiện — đúng thứ người dùng vào tab này để tìm.
+    Nay là hợp của hai vế: (a) chờ tôi duyệt, (b) việc fulfilment của tôi."""
+    parts = []
+    if me:
+        params["_me_todo"] = me
+        parts.append(awaiting_my_decision_sql("_me_todo"))
+    refs = _fulfillment_refs(me)
+    if refs:
+        keys = []
+        for i, nm in enumerate(refs):
+            k = "_ff%d" % i
+            params[k] = nm
+            keys.append("%%(%s)s" % k)
+        parts.append("r.reference_name IN (" + ", ".join(keys) + ")")
+    if not parts:
+        return "1=0"
+    return "(" + " OR ".join(parts) + ")"
 
 
 def fetch_requests_page(scope, filters, start, page_length, search=None):
