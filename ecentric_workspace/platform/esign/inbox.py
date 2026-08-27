@@ -87,8 +87,11 @@ def _derive_row(ar, user, is_sm):
     is not signature-required (only signable work belongs in this inbox)."""
     if not ar.reference_doctype or not ar.reference_name:
         return None
+    # final_level bat buoc: thieu no thi chinh sach "Final Approval Level Only" luon tra False
+    # va hop thu khong bao gio danh dau la cap can ky.
     sig_level = bool(ar.current_level and guard.level_requires_signature(
-        ar.reference_doctype, ar.approval_type, ar.current_level)) \
+        ar.reference_doctype, ar.approval_type, ar.current_level,
+        final_level=guard.request_final_level(ar.name))) \
         if ar.approval_status == "Pending" else False
     completed = ar.approval_status == "Approved"
     if not sig_level and not completed:
