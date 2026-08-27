@@ -424,8 +424,13 @@ def esign_document_state(payment_request_name):
                           order_by="creation desc", limit_page_length=0)
     out = {"ok": True, "package": pkg,
            "provider_status": getattr(state, "status", None),
+           # role / role_text / sign_type: eContract noi ro moi o ky thuoc VAI TRO nao va
+           # thuoc loai gi. Thieu chung thi mot o chua ai ky hien ra la "(chua gan)" vo danh
+           # - khong biet cua cap nao, khong biet dang cho ai.
            "signers": [{"email": s.get("email"), "user_id": s.get("user_id"),
                         "display_name": s.get("display_name"), "status": s.get("status"),
+                        "role": s.get("role"), "role_text": s.get("role_text"),
+                        "sign_type": s.get("sign_type"),
                         "signed_at": s.get("signed_at")}
                        for s in (getattr(state, "signers", None) or [])],
            "files": [{"file_id": f.get("file_id"), "name": f.get("name")}
