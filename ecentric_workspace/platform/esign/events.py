@@ -5,7 +5,7 @@ import frappe
 from frappe.utils import now_datetime
 
 from ecentric_workspace.platform.esign import state as sm
-from ecentric_workspace.platform.esign.sanitize import sanitize
+from ecentric_workspace.platform.esign.sanitize import AUDIT_SUMMARY_LIMIT, error_digest, sanitize
 
 
 def emit(event_type, signature_request=None, package=None, erp_actor=None,
@@ -13,6 +13,12 @@ def emit(event_type, signature_request=None, package=None, erp_actor=None,
          response_meta=None, verification_result=None, retry_no=None, error_summary=None):
     """Insert one immutable event row. ignore_permissions: post-authorization system
     write to an SM-only DocType (house pattern - see engine.log_action)."""
+    # Khi thong diep dai hon o Data, giu NGUYEN VAN o response_meta (Small Text). Neu khong,
+    # phan noi ro provider che field nao se bien mat vinh vien va lan chan doan sau lai phai
+    # ton mot vong deploy - dung cai gia da tra nhieu lan dem 26-27/08.
+    if error_summary and len(error_summary) > AUDIT_SUMMARY_LIMIT:
+        response_meta = dict(response_meta or {})
+        response_meta.setdefault("error_full", error_summary)
     seq = 0
     if signature_request:
         seq = (frappe.db.count("EC Digital Signature Event",
@@ -29,7 +35,7 @@ def emit(event_type, signature_request=None, package=None, erp_actor=None,
             "request_meta": frappe.as_json(sanitize(request_meta)) if request_meta else None,
             "response_meta": frappe.as_json(sanitize(response_meta)) if response_meta else None,
             "verification_result": verification_result, "retry_no": retry_no,
-            "error_summary": (error_summary or "")[:140] or None,
+            "error_summary": error_digest(error_summary) or None,
         }).insert(ignore_permissions=True)
     finally:
         frappe.flags.ec_esign_event_append = prev
