@@ -93,5 +93,57 @@ class TestOwnsItsColours(unittest.TestCase):
                          "dung bien chua khai bao -> mau roi ve rong: %s" % (used - declared))
 
 
+class TestJsLookupsSurviveThePortal(unittest.TestCase):
+    """Moving the overlay to <body> breaks JS scope exactly like it breaks CSS scope.
+
+    I fixed the CSS and missed this. `root` is `#ec-docsign`; the overlay is no longer inside
+    it, so `root.querySelectorAll("[data-add]")` returned an empty list and not one of the
+    "Đặt vị trí ký" buttons got a click handler. The drawer opened, looked perfect, and did
+    nothing - reported within minutes of the deploy.
+
+    Anything that lives INSIDE the overlay must be looked up from the overlay (or by id),
+    never from `root`.
+    """
+
+    def setUp(self):
+        tried = []
+        root = _HERE
+        html = None
+        for _i in range(8):
+            path = os.path.join(root, "platform", "esign", "ui",
+                                "document_signing_section.html")
+            tried.append(path)
+            if os.path.exists(path):
+                html = io.open(path, encoding="utf-8").read()
+                break
+            parent = os.path.dirname(root)
+            if parent == root:
+                break
+            root = parent
+        assert html is not None, "khong tim thay drawer html:\n  " + "\n  ".join(tried)
+        self.html = html
+        m = re.search(r'<div class="ecd-drawer-ov" id="ecdDrawerOv">([\s\S]*?)\n  </div>', html)
+        assert m, "khong tim thay khoi lop phu"
+        self.overlay = m.group(1)
+
+    def test_no_root_lookup_targets_anything_inside_the_overlay(self):
+        offenders = []
+        for attr in re.findall(r'root\.querySelectorAll\("\[([a-z-]+)\]"\)', self.html):
+            if attr in self.overlay:
+                offenders.append(attr)
+        self.assertEqual(offenders, [],
+                         "truy van tu #ec-docsign nhung phan tu nam trong lop phu: %s" % offenders)
+
+    def test_the_place_button_is_looked_up_from_the_card_container(self):
+        self.assertIn('document.getElementById("ecdSignerCards")', self.html)
+        self.assertRegex(self.html,
+                         r'\(cardBox \|\| root\)\.querySelectorAll\("\[data-add\]"\)',
+                         "nut 'Dat vi tri ky' phai tim trong khoi the nguoi ky")
+
+    def test_the_overlay_really_does_contain_the_cards(self):
+        """Neu the nguoi ky khong con trong lop phu thi hai phep kiem tren thanh vo nghia."""
+        self.assertIn('id="ecdSignerCards"', self.overlay)
+
+
 if __name__ == "__main__":
     unittest.main()
