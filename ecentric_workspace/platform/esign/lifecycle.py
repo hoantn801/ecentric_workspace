@@ -79,12 +79,15 @@ def on_request_reopened(approval_request):
 
     # The requester must prepare and lock again; without this the gate in requester.py
     # refuses (it only accepts _START_STATES + Processing) and the flow dead-ends.
-    if pkg.business_doctype and pkg.business_name:
-        try:
-            frappe.db.set_value(pkg.business_doctype, pkg.business_name,
-                                "requester_signature_status", "Pending")
-        except Exception:
-            frappe.log_error(frappe.get_traceback(), "esign reopen: reset requester status")
+    #
+    # `requester_signature_status` lives on EC APPROVAL REQUEST, not on the business document.
+    # The first version wrote it to pkg.business_doctype ("EC Payment Request"), which has no
+    # such column - and the write was wrapped in `except Exception`, so it failed into a log
+    # line while the flow carried on believing it had reset. The requester would then be told
+    # "đã ký cho yêu cầu này" and the new package could never be signed. Writing to the wrong
+    # place and swallowing the error is worse than not trying: it looks like it worked.
+    frappe.db.set_value("EC Approval Request", approval_request,
+                        "requester_signature_status", "Pending")
 
     events.emit("RequesterPackageReset", package=new.name,
                 request_meta={"previous_package": pkg.name,

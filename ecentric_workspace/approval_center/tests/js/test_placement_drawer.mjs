@@ -13,7 +13,11 @@ let els={}, timers=[], _cache={};
 function mkEl(id){ const e={id,_html:"",textContent:"",_attrs:{},style:{display:""},width:612,height:792,
   offsetLeft:0,offsetTop:0,offsetWidth:120,offsetHeight:40,_kids:[],parentNode:null,
   getAttribute(k){return (k in this._attrs)?this._attrs[k]:null;},setAttribute(k,v){this._attrs[k]=String(v);},
-  appendChild(c){c.parentNode=this;this._kids.push(c);return c;},
+  // DOM that: appendChild DI CHUYEN node - no bi go khoi cha cu. Ban truoc chi gan
+  // parentNode moi ma khong go, nen sau khi chuyen lop phu ra <body> thi #ec-docsign VAN
+  // "chua" no, va moi phep kiem pham vi deu sai. Dung cho khien bug nut chet lot ra ngoai.
+  appendChild(c){ if(c.parentNode&&c.parentNode._kids){const i=c.parentNode._kids.indexOf(c); if(i>=0)c.parentNode._kids.splice(i,1);}
+    c.parentNode=this;this._kids.push(c);return c;},
   removeChild(c){const i=this._kids.indexOf(c); if(i>=0)this._kids.splice(i,1); c.parentNode=null; return c;},
   getBoundingClientRect(){return {left:0,top:0,width:this.width,height:this.height};},getContext(){return {};},
   addEventListener(){},querySelector(sel){const cls=sel.replace(".","");return this._kids.find(k=>((k._attrs.class||"")).indexOf(cls)>=0)||{onclick:null,className:cls,style:{}};},
@@ -26,14 +30,31 @@ function mkEl(id){ const e={id,_html:"",textContent:"",_attrs:{},style:{display:
       (function walk(n){ (n._kids||[]).forEach(k=>{ if(((k._attrs.class||k.className||"")+"").split(/\s+/).indexOf(cls)>=0) out.push(k); walk(k); }); })(this);
       if(out.length || (this._kids||[]).length) return out;
     }
-    return qsa(sel);
+    return qsa(sel, this);
   },
   click(){if(this.onclick)this.onclick();} };
   Object.defineProperty(e,"innerHTML",{get(){return this._html;},set(v){this._html=String(v);this._kids=[];}});
   Object.defineProperty(e,"onclick",{get(){return this._oc;},set(f){this._oc=f;}});
   return e; }
-function qsa(sel){ const attr=sel.replace(/[\[\].]/g,"");
-  const html=(attr==="data-setup")?(els["ecdRows"]?els["ecdRows"]._html:""):(els["ecdSignerCards"]?els["ecdSignerCards"]._html:"");
+// Selector thuoc tinh doc tu chuoi HTML cua khoi CHUA no. Nhung phai TON TRONG bao ham:
+// ban truoc bo qua phan tu dang goi, nen root.querySelectorAll("[data-add]") van "tim thay"
+// nut du root khong he chua nut do. 53 phep kiem xanh trong khi nut chet han - dung loai tu
+// tin sai da de lot ban sua lop phu ra production dem 28/08.
+const _HOST_OF = { "data-setup": "ecdRows", "data-support": "ecdRows",
+                   "data-open": "ecdRows", "data-add": "ecdSignerCards" };
+
+function _contains(node, id){
+  if(!node) return false;
+  if(node.id === id) return true;
+  return (node._kids||[]).some(k => _contains(k, id));
+}
+
+function qsa(sel, receiver){
+  const attr=sel.replace(/[\[\].]/g,"");
+  const hostId=_HOST_OF[attr];
+  // receiver === undefined nghia la goi tu document -> khong rang buoc bao ham
+  if(receiver && hostId && !_contains(receiver, hostId)) return [];
+  const html=(els[hostId]?els[hostId]._html:"");
   const key=attr+"|"+html; if(_cache[key])return _cache[key];
   const re=new RegExp(attr+'="([^"]*)"',"g");const out=[];let m;
   while((m=re.exec(html))){const fe=mkEl("_"+attr+out.length);fe._attrs[attr]=m[1];out.push(fe);} _cache[key]=out; return out; }
@@ -74,7 +95,17 @@ const frappe={ call(o){ calls.push({method:o.method,args:o.args});
 const ch={appendChild(){}}; els["payr-body"].parentNode=ch;
 // Ban dau lop phu nam LONG trong khoi noi dung cua trang - dung nhu HTML thuc te, va dung
 // cho khien position:fixed bi mot to tien co transform/overflow nhot lai.
-const ANCESTOR = mkEl("__ancestor__"); ANCESTOR.appendChild(els["ecdDrawerOv"]);
+// Cay DOM dung nhu HTML that. Thieu no thi stub khong the phat hien mot truy van sai pham
+// vi - va do chinh la cach ban sua lop phu lot ra production voi cai nut chet han.
+//   #ec-docsign  >  ecdRows, ecdCount, ...  va  #ecdDrawerOv (truoc khi chuyen ra body)
+//   #ecdDrawerOv >  ecdSignerCards, ecdLayer, ecdCanvas, ecdTrySign, ...
+["ecdCount","ecdSummary","ecdBanner","ecdRows","ecdUpload","ecdUploadBtn","ecdUploadHint"]
+  .forEach(id => els["ec-docsign"].appendChild(els[id]));
+["ecdDrawerName","ecdDrawerSummary","ecdDrawerClose","ecdViewer","ecdViewerMsg","ecdStage",
+ "ecdCanvas","ecdLayer","ecdSignerCards","ecdProg","ecdSaveState","ecdDrawerFoot",
+ "ecdRoBanner","ecdDrawerErr","ecdPlaceHint","ecdTrySign"]
+  .forEach(id => els["ecdDrawerOv"].appendChild(els[id]));
+els["ec-docsign"].appendChild(els["ecdDrawerOv"]);
 const sb={document:{getElementById:id=>els[id]||null,querySelector:sel=>(sel.indexOf("content")>=0?ch:els["ec-approver-wrap"]),addEventListener(){},createElement:(t)=>mkEl("_new_"+t),get body(){return BODY;},documentElement:{classList:{_s:{},add(c){this._s[c]=1;},remove(c){delete this._s[c];},has(c){return !!this._s[c];}}}},
   location:{search:"?id=EC-PAYR-1"},URLSearchParams,Promise,String,Array,Object,JSON,Math,
   setTimeout:(f)=>{timers.push(f);return timers.length;},clearTimeout:()=>{},setInterval:()=>1,clearInterval:()=>{},
@@ -87,8 +118,15 @@ sb.__import=(u)=>Promise.resolve({GlobalWorkerOptions:{},getDocument:()=>({promi
 const SRC2 = SRC.replace(/import\(/g,"__import(");   // route dynamic import to the stub
 vm.createContext(sb); sb.window=sb; sb.frappe=frappe;
 
-function selectSlot(key){ const b=els["ec-docsign"].querySelectorAll("[data-add]").find(c=>c.getAttribute("data-add")===key);
-  if(b&&b.onclick) b.onclick({stopPropagation(){}}); return b; }
+// Tim tu #ecdSignerCards - dung nhu ma that phai lam sau khi lop phu chuyen ra <body>.
+// Va NEM LOI khi khong thay nut hoac nut chua duoc gan su kien: ban truoc viet
+// `if(b&&b.onclick)` nen khi khong co nut nao no lang le khong lam gi, test van xanh, va
+// dung cai nut chet do da ra toi production.
+function selectSlot(key){
+  const b=els["ecdSignerCards"].querySelectorAll("[data-add]").find(c=>c.getAttribute("data-add")===key);
+  if(!b) throw new Error("khong tim thay nut [data-add] cho slot "+key+" - the nguoi ky khong duoc dung?");
+  if(!b.onclick) throw new Error("nut [data-add] cho "+key+" KHONG duoc gan su kien - bam se khong an gi");
+  b.onclick({stopPropagation(){}}); return b; }
 function clickLayer(x,y){ els["ecdLayer"].onclick({target:els["ecdLayer"],clientX:x,clientY:y}); }
 function closeDrawerViaEsc(){ els["ecdDrawerClose"].onclick(); }
 const tick=async()=>{for(let i=0;i<10;i++)await Promise.resolve();};
@@ -112,6 +150,13 @@ async function main(){
   ok(els["ecdProg"].textContent==="0/2","progress starts 0/2 (required slot count, not rows)");
   // select the requester signer via the explicit "Đặt vị trí ký" button (ISSUE 3)
   ok(els["ecdSignerCards"]._html.indexOf("data-add=")>=0,"signer card exposes explicit place-position action");
+  // Ve ra nut la mot chuyen, GAN duoc su kien lai la chuyen khac. Lop phu da chuyen ra
+  // <body> nen mot truy van tu #ec-docsign se khong thay nut nao - drawer van mo, van dep,
+  // va bam khong an gi.
+  const addBtns = els["ecdSignerCards"].querySelectorAll("[data-add]");
+  ok(addBtns.length>0, "tim thay nut '+ Dat vi tri ky' trong khoi the nguoi ky");
+  ok(addBtns.every(b=>typeof b.onclick==="function"),
+     "MOI nut '+ Dat vi tri ky' deu duoc gan su kien (khong phai nut chet)");
   selectSlot("requester"); await tick();
   // click on the PDF layer to place a box
   clickLayer(120,80); await tick();

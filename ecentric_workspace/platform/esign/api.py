@@ -267,6 +267,11 @@ def document_signature_overlay(payment_request_name):
     Read-only. Never returns certificate or HSM material.
     """
     _business_args("EC Payment Request", payment_request_name)
+    # _business_args CHI kiem ban ghi co ton tai - no khong phai mot phep kiem quyen. Moi
+    # endpoint doc khac trong file nay deu goi assert_can_view_business; ban dau tien cua ham
+    # nay thi khong, va no tra ve ANH CHU KY. Bat ky ai dang nhap doan duoc ten mot yeu cau
+    # deu lay duoc email nguoi ky, gio ky va anh chu ky cua ho.
+    perms.assert_can_view_business("EC Payment Request", payment_request_name)
     pkg_name = frappe.db.get_value(
         "EC Digital Signature Package",
         {"business_doctype": "EC Payment Request", "business_name": payment_request_name,
