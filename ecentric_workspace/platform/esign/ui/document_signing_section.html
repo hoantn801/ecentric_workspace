@@ -575,10 +575,14 @@
     // Ban cu lap qua mot thuoc tinh tam cua lop dat vi tri, thu von KHONG bao gio duoc gan o
     // dau trong file nay - nen vong lap luon chay tren mang rong: nut "Ky thu" doi mau nhung
     // khong o nao duoc ve. Lay thang cac o dang co tren DOM.
+    // Don MOI anh xem thu con sot trong lop, khong chi anh nam dung trong o. Ban cu chi go khi
+    // parentNode dung bang o dang xet, nen mot anh bi mo coi (o da bi ve lai / xoa di) se nam
+    // lai tren tai lieu va trong y het chu ky that dat sai cho.
+    Array.prototype.slice.call(layer.querySelectorAll(".sigprev")).forEach(function (n) {
+      if (n.parentNode) { try { n.parentNode.removeChild(n); } catch (e) {} }
+    });
     var boxes = Array.prototype.slice.call(layer.querySelectorAll(".ecd-box"));
     boxes.forEach(function (b) {
-      var old = b.querySelector ? b.querySelector(".sigprev") : null;
-      if (old && old.parentNode === b && b.removeChild) { try { b.removeChild(old); } catch (e) {} }
       if (DRW.showSig && DRW.sigPreview) {
         var img = document.createElement("img");
         img.className = "sigprev";
@@ -609,8 +613,33 @@
   function _setDrawerOpen(on) {   // ISSUE 1: hide legacy placement/editor layers while drawer is open
     try { document.documentElement.classList[on ? "add" : "remove"]("ecd-drawer-open"); } catch (e) {}
   }
+  // Dua lop phu ra lam con TRUC TIEP cua <body>.
+  //
+  // Bang chung tu anh chup 27/08: sidebar va noi dung trang KHONG he bi mo, trong khi lop phu
+  // la rgba(0,0,0,.35) inset:0 - tuc no khong phu duoc viewport ma chi phu dung khung noi dung,
+  // con dai tren va dai duoi thi noi dung trang loi ra ("Yeu cau bo sung", "San sang...").
+  //
+  // Nguyen nhan: mot to tien nao do dat transform / filter / contain / overflow. Bat ky thu nao
+  // trong so do cung bien phan tu do thanh khoi chua cua position:fixed (hoac cat mat phan tran
+  // ra ngoai), nen inset:0 khong con la viewport nua va z-index 9999 bi nhot trong ngu canh xep
+  // chong cua to tien.
+  //
+  // CSS cua ERP shell nam trong head_html tren production, KHONG co trong repo - nen khong the
+  // sua "dung cho to tien" tu day, va cung khong nen: drawer khong duoc phu thuoc vao CSS ma
+  // no khong so huu. Chuyen ra body la cach duy nhat mien nhiem voi moi to tien, hien tai lan
+  // tuong lai. Chi can lam mot lan; DOM giu nguyen sau khi dong.
+  function _portalOverlay() {
+    var ov = document.getElementById("ecdDrawerOv");
+    // Chuyen cho khong bao gio duoc phep lam hong viec mo drawer: neu vi ly do nao do khong
+    // di chuyen duoc thi drawer van mo (chi la van bi to tien nhot), con hon la nem loi.
+    try {
+      if (ov && document.body && ov.parentNode !== document.body) { document.body.appendChild(ov); }
+    } catch (e) {}
+    return ov;
+  }
+
   function openDrawer(ref) {
-    _cancelPending(); _setDrawerOpen(true);                                          // switching document cancels prior timers
+    _cancelPending(); _setDrawerOpen(true); _portalOverlay();                         // switching document cancels prior timers
     DRW.ref = ref; DRW.slot = null;
     var doc = (STATE.documents || []).filter(function (d) { return d.document_ref === ref; })[0];
     document.getElementById("ecdDrawerName").textContent = "Thiết lập chữ ký — " + (doc ? doc.display_name : "");
