@@ -275,12 +275,19 @@ class SctsAdapter(SignatureProviderAdapter):
         adapter never invents those values. Same async ACCEPTED semantics as
         approve_and_sign: a 2xx means queued, not signed.
         """
+        # Anh chu ky la truong BAT BUOC cua eContract o buoc nay. Lay hong thi van gui di
+        # va de provider tu tu choi, chu khong tu suy ra ket luan thay no.
+        image = None
+        try:
+            image = self.signature_image(provider_user_id, signature_id)
+        except Exception:
+            image = None
         raw = self._with_auth(lambda t: self._client.transition(
             instance_id, provider_user_id, to_users,
             config.get("transition_id"), config.get("transition_name"),
             config.get("process_action"), config.get("sign_type"),
             signature_id, signature_name or config.get("sign_type") or "",
-            comment, t))
+            comment, t, signature_image=image))
         return {"bulk_job_transaction_id": self._extract_txn_id(raw)}
 
     @staticmethod

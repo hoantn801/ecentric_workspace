@@ -196,7 +196,8 @@ class SctsClient(object):
                                 retryable=False)
 
     def transition(self, instance_id, user_id, to_users, transition_id, transition_name,
-                   process_action, sign_type, signature_id, signature_name, comment, token):
+                   process_action, sign_type, signature_id, signature_name, comment, token,
+                   signature_image=None):
         """POST /api/Workflow/transition -> raw payload.
 
         This is what the eContract PORTAL itself calls, captured from the browser on
@@ -220,7 +221,14 @@ class SctsClient(object):
             "transitionName": transition_name,
             "processAction": process_action,
             "signType": sign_type,
-            "signatureInfo": {"id": signature_id, "name": signature_name},
+            # eContract doi CA ANH trong signatureInfo, khong chi id + ten. Bo ra thi 400:
+            #   errors: SignatureInfo.Image=The Image field is required.
+            # (Doc duoc 27/08 sau khi error_digest thoi cat mat doan cuoi cua thong diep.)
+            # Cung chinh thong diep do bac bo gia thuyet cu cua minh: ASP.NET liet ke MOI
+            # field khong hop le cung luc, ma no chi keu dung mot field -> instanceId = ma
+            # chung tu la DUNG.
+            "signatureInfo": {"id": signature_id, "name": signature_name,
+                              "image": signature_image or ""},
             "comment": comment or "",
         }
         headers = {"Accept": "application/json", "Content-Type": "application/json"}
