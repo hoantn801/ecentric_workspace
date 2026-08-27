@@ -127,9 +127,7 @@ ecentric_workspace.approval_center.patches.p081_resync_hub_center_and_brand
 ecentric_workspace.approval_center.patches.p082_resync_hub_no_reflow_popup
 ecentric_workspace.approval_center.patches.p083_resync_hub_popup_no_fade
 ecentric_workspace.approval_center.patches.p084_resync_hub_popup_instant
-<<<<<<< HEAD
 ecentric_workspace.approval_center.patches.p085_resync_hub_todo_tab
-=======
 ecentric_workspace.approval_center.patches.p085_funding_source_backfill
 ecentric_workspace.approval_center.patches.p086_resync_payment_request_funding_source
 ecentric_workspace.approval_center.patches.p087_resync_payment_request_approve_and_sign
@@ -137,4 +135,3 @@ ecentric_workspace.approval_center.patches.p088_seed_scts_transition_config
 ecentric_workspace.approval_center.patches.p089_resync_payment_request_ui_fixes
 ecentric_workspace.approval_center.patches.p090_resync_payment_request_hide_legacy_esign_panel
 ecentric_workspace.approval_center.patches.p091_resync_payment_request_drawer_overlay
->>>>>>> origin/main
