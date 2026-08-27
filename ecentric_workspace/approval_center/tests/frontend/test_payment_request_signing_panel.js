@@ -48,7 +48,12 @@ function assert(c, m) { if (!c) { console.error("FAIL: " + m); process.exit(1); 
 assert(typeof w.ECEsignPanel === "object", "panel defines window.ECEsignPanel");
 w.ECEsignPanel.boot().then(function () {
   const p = w.document.getElementById("ec-esign-panel");
-  assert(p && p.innerHTML.indexOf("sign.pdf") !== -1, "panel injected + rendered file package");
+  // Bang cu KHONG duoc lo ra nua: khong ten tep, khong toa do, khong link "xoa".
+  // Drawer so huu viec dat vi tri; nut Duyet & Ky nam o panel hanh dong cua trang.
+  assert(p && p.innerHTML.trim() === "", "bang ky so cu khong con ve gi ra man hinh");
+  assert(p.innerHTML.indexOf("sign.pdf") === -1, "khong lo ten tep");
+  assert(p.innerHTML.indexOf("xo\u00e1") === -1, "khong lo link xoa placement");
+  assert(p.innerHTML.indexOf("Duy\u1ec7t") === -1, "khong ve nut Duyet & Ky trung lap");
   assert(w.ECEsignPanel.state.pr === "PR-1", "PR resolved from window.PaymentRequest.state.id");
   assert(calls.some(c => c.method === "signing_readiness"), "boot used backend signing_readiness");
   w.ECEsignPanel.addPlacement({ signature_file: "DSF-1", page_index: 1, x: 50, y: 50,

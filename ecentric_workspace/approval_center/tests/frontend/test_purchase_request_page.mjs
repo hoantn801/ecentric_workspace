@@ -2,9 +2,10 @@
 // Multi-level (4 levels: Direct Manager -> Finance -> HOF -> CEO), no fulfillment, comment optional on approve,
 // auto-generated title, required attachment upload.
 import { JSDOM } from "jsdom";
+import { pageSource } from "./_page_source.mjs";
 import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
 const __dir = path.dirname(fileURLToPath(import.meta.url));
-const HTML = fs.readFileSync(path.join(__dir, "..", "..", "frontend", "purchase_request.main_section.html"), "utf8");
+const HTML = pageSource("purchase_request");
 const [markup, rest] = HTML.split('<script id="ec-purchase-request">');
 const JS = rest.replace(/<\/script>\s*$/, "");
 let fails = 0;

@@ -1,9 +1,10 @@
 // Headless tests for the Employee Information Update page (Node + jsdom).
 // Single approval level "HR Review" -> Completed, comments off, auto-title (no request_title input).
 import { JSDOM } from "jsdom";
+import { pageSource } from "./_page_source.mjs";
 import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
 const __dir = path.dirname(fileURLToPath(import.meta.url));
-const HTML = fs.readFileSync(path.join(__dir, "..", "..", "frontend", "employee_info_update.main_section.html"), "utf8");
+const HTML = pageSource("employee_info_update");
 const [markup, rest] = HTML.split('<script id="ec-employee-info-update">');
 const JS = rest.replace(/<\/script>\s*$/, "");
 let fails = 0;
