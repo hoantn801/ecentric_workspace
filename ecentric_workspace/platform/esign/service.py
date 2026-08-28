@@ -195,6 +195,34 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
 # --------------------------------------------------------------------------- #
 # verification + completion (worker side)
 # --------------------------------------------------------------------------- #
+def _last_completed_leg_time(dsr):
+    """Moc thoi gian cua chan ky GAN NHAT da hoan tat, cung nguoi ky, cung goi.
+
+    Chu ky thoa man chan ky nay phai moi hon cai do - neu khong thi no chinh la chu ky cu.
+    Doc hong -> None (khong ha thap yeu cau, chi la khong nang len duoc).
+    """
+    if not dsr.get("package") or not dsr.get("effective_scts_user_id"):
+        return None
+    try:
+        rows = frappe.get_all(
+            "EC Digital Signature Request",
+            filters={"package": dsr.get("package"),
+                     "effective_scts_user_id": dsr.get("effective_scts_user_id"),
+                     "name": ["!=", dsr.get("name")],
+                     "status": ["in", ("Signed", "Approval Completed")]},
+            fields=["verified_at", "modified"], limit_page_length=0)
+    except Exception:
+        return None
+    from ecentric_workspace.platform.esign.providers.base import SignatureProviderAdapter
+    best = None
+    for r in rows:
+        t = SignatureProviderAdapter._parse_provider_time(r.get("verified_at")
+                                                          or r.get("modified"))
+        if t and (best is None or t > best):
+            best = t
+    return best
+
+
 def _expected_for(dsr):
     pkg = frappe.db.get_value("EC Digital Signature Package", dsr.package,
                               ["scts_document_id"], as_dict=True)
@@ -210,6 +238,19 @@ def _expected_for(dsr):
         if parsed:
             signed_after = parsed - timedelta(
                 seconds=SignatureProviderAdapter.SIGN_TIME_TOLERANCE_SECONDS)
+    # Nhung dung sai do (120 giay, de bu lech dong ho voi nha cung cap) RONG hon khoang
+    # cach giua hai chan ky lien tiep cua CUNG MOT NGUOI.
+    #
+    # 28/08: nguoi trinh ky luc 23:53; chan duyet Cap 1 cua chinh ho xep hang 23:54:01, moc
+    # tuoi thanh 23:52:01, va chu ky 23:53 - cua chan TRUOC - dat yeu cau. Cap duyet dong
+    # lai bang mot chu ky khong phai cua no.
+    #
+    # Nen dat them SAN: chu ky phai moi hon lan chan ky gan nhat CUA CUNG NGUOI DO tren
+    # cung goi da hoan tat. Dung sai chi con y nghia cho chu ky DAU TIEN, dung cho cai thu
+    # hai tro di.
+    floor = _last_completed_leg_time(dsr)
+    if floor and (signed_after is None or floor > signed_after):
+        signed_after = floor
     return {"document_id": pkg.scts_document_id, "user_id": dsr.effective_scts_user_id,
             "signature_id": dsr.effective_signature_id, "file_count": file_count,
             # eContract detail identifies internal signers by EMAIL only (no userIds);
