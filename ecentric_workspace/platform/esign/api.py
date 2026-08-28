@@ -253,6 +253,31 @@ def provider_document_shape(payment_request_name):
 
 # camelCase la quy uoc cua eContract ("workflowInstanceId", "fileId"), nen KHONG the doi hoi
 # mot ranh gioi truoc "Id" - lan dau viet the va tuot mat dung cai field dang di tim.
+@frappe.whitelist(methods=["POST"])
+def reconcile_signature_request(dsr_name):
+    """System Manager: re-verify a leg parked in Manual Review against what the provider says
+    NOW. Completes it when the signature really is there. NEVER sends anything.
+
+    The case this exists for, observed 2026-08-28: a leg was moved to Manual Review because
+    the provider had accepted the job and then done nothing for twenty minutes. Hours later
+    the signer went to the provider's own portal and signed by hand. The signature is real,
+    on the real document - but the ERP had stopped polling, so the approval sat blocked with
+    no way forward that did not involve re-sending a signing command. Re-sending would have
+    produced a SECOND signature on the same document.
+
+    So this reads, verifies, and completes. It cannot create a signature; the worst it can do
+    is refuse.
+    """
+    perms.assert_system_manager()
+    dsr = frappe.db.get_value("EC Digital Signature Request", dsr_name, "*", as_dict=True)
+    if not dsr:
+        frappe.throw(_("Không tìm thấy yêu cầu ký."))
+    if dsr.status != "Manual Review":
+        return {"ok": False, "reason": "not_in_manual_review:%s" % dsr.status}
+    out = svc.reconcile_manual_review(dsr_name)
+    return out
+
+
 @frappe.whitelist()
 def document_signature_overlay(payment_request_name):
     """Who has ACTUALLY signed this document at the provider, and what their signature looks

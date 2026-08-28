@@ -411,10 +411,31 @@ class SctsAdapter(SignatureProviderAdapter):
                 "role_text": s.get("roleText"),
                 "sign_type": s.get("signType") or s.get("signTypeName"),
                 "status": norm,
-                "signed_at": (s.get("signedAt") or s.get("signedDate") or s.get("signTime")
-                              or (None if str(s.get("time") or "").strip() in ("", "Chưa có")
-                                  else s.get("time"))),
+                "signed_at": SctsAdapter._signed_at(s),
                 "is_external": bool(s.get("isExternal") or s.get("external"))}
+
+    @staticmethod
+    def _signed_at(s):
+        """Moc ky, GHEP ngay voi gio khi provider gui rieng hai truong.
+
+        eContract tra `date` VA `time` tren tung dong nguoi ky. Ban truoc chi doc `time` -
+        mot dong ho tran nhu "11:48" - roi de tang tren phai TU DOAN ngay. Doan sai la
+        chuyen som muon: mot chu ky luc 11:48 HOM NAY, doi chieu voi mot yeu cau tao luc
+        23:23 HOM QUA, se bi suy ra thanh 11:48 hom qua va bi tu choi la "chu ky co truoc
+        yeu cau". Ca mot heuristic doan ngay ton hai dem, trong khi provider da noi san ngay
+        o ngay dong ben canh.
+        """
+        for key in ("signedAt", "signedDate", "signTime"):
+            v = s.get(key)
+            if v and str(v).strip() not in ("", "Chưa có"):
+                return v
+        t = str(s.get("time") or "").strip()
+        if t in ("", "Chưa có"):
+            return None
+        d = str(s.get("date") or "").strip()
+        if d and d not in ("Chưa có",):
+            return "%s %s" % (d, t)
+        return t
 
     @staticmethod
     def _norm_file(f):
