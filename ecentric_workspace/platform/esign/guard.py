@@ -243,7 +243,15 @@ def assert_level_completable(req, level_no, actor):
     request. No-op unless the active level requires signature under an enabled+gated
     profile; then the persisted verified-signature completion is mandatory - for
     EVERY role, with NO override."""
-    if not level_requires_signature(req.reference_doctype, req.approval_type, level_no):
+    # final_level PHAI duoc truyen. Thieu no thi voi chinh sach "Final Approval Level Only"
+    # nhanh kiem la `final_level is not None and ...` -> luon False -> ham nay thoat som va
+    # cong bat buoc ky so KHONG BAO GIO chay. Day la cong duy nhat ma engine.approve() va
+    # admin_override_current_level() dua vao, nen hau qua la nut "Duyet" thuong hoan tat cap
+    # cuoi ma khong can chu ky nao - trong khi giao dien van bao "phai Duyet & Ky", vi
+    # service.py va inbox.py deu truyen final_level.
+    # Cung ho voi allow_production_signing: cong nhin chat nhung khong kiem duoc gi.
+    if not level_requires_signature(req.reference_doctype, req.approval_type, level_no,
+                                    final_level=request_final_level(req.name)):
         return
     dsr_name = getattr(frappe.flags, FLAG_KEY, None)  # call marker ONLY (see module docstring)
     validate_completion(dsr_name, req, level_no, actor)
