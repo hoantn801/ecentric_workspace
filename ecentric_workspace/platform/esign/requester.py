@@ -121,6 +121,38 @@ def requester_signing_readiness(business_doctype, business_name):
             "checks": checks, "current_status": req.requester_signature_status}
 
 
+#: preflight_for_lock tra ve MA MAY ("missing_placement:L2:hoa-don.pdf"). Nem thang ma do
+#: vao mat nguoi de nghi thi ho khong biet phai lam gi. Ma khong doc duoc thi giu nguyen -
+#: thieu mot dong o day khong duoc bien thanh loi im lang.
+_PREFLIGHT_VI = {
+    "no_signable_file": "chưa có tệp PDF nào cần ký (hãy đính kèm và bật 'cần chữ ký')",
+    "incomplete_upload": "có tệp chưa tải lên xong",
+    "no_package": "chưa thiết lập chữ ký cho phiếu này",
+}
+
+
+def _preflight_vi(code):
+    code = str(code)
+    head = code.split(":", 1)[0]
+    if head in _PREFLIGHT_VI:
+        return _PREFLIGHT_VI[head]
+    if head == "missing_placement":
+        bits = code.split(":")
+        lvl = bits[1] if len(bits) > 1 else "?"
+        fname = bits[2] if len(bits) > 2 else "?"
+        return "thiếu vị trí ký của cấp %s trên tệp %s" % (lvl.lstrip("L"), fname)
+    if head == "signable_not_pdf":
+        return "tệp %s không phải PDF nên không ký trực tiếp được" % code.split(":", 1)[-1]
+    if head == "missing_hash":
+        return "tệp %s chưa tính được mã kiểm tra" % code.split(":", 1)[-1]
+    return code
+
+
+def _placement_refusal(missing):
+    return _("Chưa gửi được: {0}. Hãy mở 'Thiết lập chữ ký', đặt đủ vị trí ký rồi gửi lại."
+             ).format("; ".join(_preflight_vi(m) for m in missing))
+
+
 def assert_ready_to_submit(business_doctype, business_name):
     """Refuse the submit BEFORE anything is written, when the placements are incomplete.
 
@@ -139,10 +171,9 @@ def assert_ready_to_submit(business_doctype, business_name):
     if not pkg_name:
         ar = _requester_ar(business_doctype, business_name)
         pkg_name = pkgsvc.signable_package_for_request(ar) if ar else None
-    missing = pkgsvc.preflight_for_lock(pkg_name) if pkg_name else ["chưa có gói ký"]
+    missing = pkgsvc.preflight_for_lock(pkg_name) if pkg_name else ["no_package"]
     if missing:
-        frappe.throw(_("Chưa đặt đủ vị trí ký: {0}. Hãy mở 'Thiết lập chữ ký' và đặt đủ "
-                       "trước khi gửi.").format(", ".join(str(m) for m in missing)))
+        frappe.throw(_placement_refusal(missing))
 
 
 def sign_on_submit(business_doctype, business_name):
@@ -169,10 +200,9 @@ def sign_on_submit(business_doctype, business_name):
 
     pkg_name = (pkgsvc.signable_package_for_request(ar)
                 or pkgsvc.draft_package_for_business(business_doctype, business_name))
-    missing = pkgsvc.preflight_for_lock(pkg_name) if pkg_name else ["chưa có gói ký"]
+    missing = pkgsvc.preflight_for_lock(pkg_name) if pkg_name else ["no_package"]
     if missing:
-        frappe.throw(_("Chưa đặt đủ vị trí ký: {0}. Hãy mở 'Thiết lập chữ ký' và đặt đủ "
-                       "trước khi gửi.").format(", ".join(str(m) for m in missing)))
+        frappe.throw(_placement_refusal(missing))
 
     requester_lock_signing_package(business_doctype, business_name)
     return requester_submit_and_sign(business_doctype, business_name)

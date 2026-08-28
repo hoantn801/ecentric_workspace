@@ -69,9 +69,7 @@ class TestSubmitDoesTheWholeThing(unittest.TestCase):
                         "phai chan TRUOC khi khoa goi, khong phai sau")
 
     def test_the_refusal_names_what_is_missing(self):
-        raw = _fn(_src("platform", "esign", "requester.py"), "sign_on_submit")
-        self.assertIn("Chưa đặt đủ vị trí ký", raw)
-        self.assertIn("missing", self.body,
+        self.assertIn("_placement_refusal(missing)", self.body,
                       "phai noi ro thieu o nao, khong chi 'co loi'")
 
 
@@ -166,6 +164,7 @@ def _load_sign_on_submit(pkg, calls):
         "frappe": _Frappe(),
         "_": lambda s: s,
         "pkgsvc": pkg,
+        "_placement_refusal": lambda missing: "thiếu: " + "; ".join(str(m) for m in missing),
         "_requester_ar": lambda dt, dn: "AR-1",
         "prepare_requester_signing_package": lambda dt, dn: calls.append("prepare"),
         "requester_lock_signing_package": lambda dt, dn: calls.append("lock"),
@@ -246,9 +245,40 @@ class TestTheRefusalHappensBeforeAnythingIsWritten(unittest.TestCase):
                              "phep kiem truoc khi ghi khong duoc ghi gi: %s" % banned)
 
     def test_it_names_what_is_missing(self):
-        raw = _fn(_src("platform", "esign", "requester.py"), "assert_ready_to_submit")
-        self.assertIn("Chưa đặt đủ vị trí ký", raw)
-        self.assertIn('", ".join', raw)
+        body = _code(_fn(_src("platform", "esign", "requester.py"), "assert_ready_to_submit"))
+        self.assertIn("_placement_refusal(missing)", body)
+
+
+
+
+class TestTheRefusalIsReadableByAHuman(unittest.TestCase):
+    """preflight tra ve ma may. Nem "missing_placement:L2:hoa-don.pdf" vao mat nguoi de
+    nghi thi ho khong biet phai bam vao dau."""
+
+    def setUp(self):
+        src = _src("platform", "esign", "requester.py")
+        g = {"_": lambda s: s}
+        exec(compile(re.search(r"(?m)^_PREFLIGHT_VI = \{.*?\n\}", src, re.S).group(0), "x", "exec"), g)
+        exec(compile(re.search(r"(?m)^def _preflight_vi.*?(?=\ndef )", src, re.S).group(0), "x", "exec"), g)
+        self.vi = g["_preflight_vi"]
+
+    def test_every_code_preflight_can_emit_is_translated(self):
+        pkg = _src("platform", "esign", "package.py")
+        body = re.search(r"(?m)^def preflight_for_lock.*?(?=\ndef )", pkg, re.S).group(0)
+        codes = set(re.findall(r'errs\.append\("([a-z_]+)', body))
+        self.assertTrue(codes, "khong doc duoc ma nao tu preflight_for_lock")
+        for c in codes:
+            out = self.vi(c if ":" not in c else c)
+            self.assertNotEqual(out, c, "ma '%s' chua duoc dich sang tieng nguoi" % c)
+
+    def test_placement_code_names_the_level_and_the_file(self):
+        out = self.vi("missing_placement:L2:hoa-don.pdf")
+        self.assertIn("2", out)
+        self.assertIn("hoa-don.pdf", out)
+
+    def test_an_unknown_code_is_passed_through_not_swallowed(self):
+        self.assertEqual(self.vi("ma_moi_chua_biet"), "ma_moi_chua_biet",
+                         "thieu mot dong dich khong duoc bien thanh loi im lang")
 
 
 
