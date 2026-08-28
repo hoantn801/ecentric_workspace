@@ -29,6 +29,7 @@ def _stub_frappe():
     if "frappe" in sys.modules:
         return
     fr = types.ModuleType("frappe")
+    fr.conf = {}
     fr.db = types.SimpleNamespace(get_value=lambda *a, **k: None,
                                   get_all=lambda *a, **k: [])
     fr.get_all = lambda *a, **k: []
@@ -152,6 +153,54 @@ class TestSignatureTypeGuard(unittest.TestCase):
     def test_a_transition_that_states_no_requirement_is_not_blocked(self):
         self.assertTrue(nh.signature_type_matches("", "ky-tham-gia"))
         self.assertTrue(nh.signature_type_matches(None, None))
+
+
+class TestTargetedHandoverIsOffUntilProven(unittest.TestCase):
+    """Mac dinh TAT, va phai co mot phep kiem giu no nhu vay.
+
+    Duong chi dinh nguoi ky tiep la thiet ke DUNG - no noi ro AI xu ly tiep thay vi de nha
+    cung cap phat cho ca vai tro. Nhung lan duy nhat eContract NHAN THANH CONG lenh transition
+    (EC-PAYR-2026-00032), chung tu ket cung: trang thai "Cho gui di", khong dong workflow nao,
+    khong chu ky, va portal khong hien nut "Xu ly" cho chinh nguoi ma buoc do gui den. Tac vu
+    bi tieu mat ma workflow khong di.
+
+    Cung luc do duong lui KY DUOC: cung chan ky ay tren EC-PAYR-2026-00029 xong sau khoang hai
+    phut ruoi. Mot thiet ke dung tren giay dang lam hong chung tu, con cai tho hon thi chay -
+    dung tren giay khong hon mot de nghi thanh toan van ky duoc.
+    """
+
+    def setUp(self):
+        # Dat tren CHINH module ma next_handler dang giu tham chieu. Mot bo test khac cai mot
+        # stub frappe rieng vao sys.modules, nen `import frappe` o day co the ra module KHAC -
+        # va phep kiem se doc mot cau hinh khong ai dung.
+        self._old = dict(getattr(nh.frappe, "conf", {}) or {})
+
+    def tearDown(self):
+        nh.frappe.conf = self._old
+
+    def test_disabled_when_the_flag_is_absent(self):
+        nh.frappe.conf = {}
+        self.assertFalse(nh.targeted_handover_enabled())
+
+    def test_disabled_when_the_flag_is_zero(self):
+        nh.frappe.conf = {"ec_esign_targeted_handover": 0}
+        self.assertFalse(nh.targeted_handover_enabled())
+
+    def test_enabled_only_by_an_explicit_flag(self):
+        nh.frappe.conf = {"ec_esign_targeted_handover": 1}
+        self.assertTrue(nh.targeted_handover_enabled())
+
+    def test_a_broken_flag_fails_closed(self):
+        nh.frappe.conf = {"ec_esign_targeted_handover": "khong-phai-so"}
+        self.assertFalse(nh.targeted_handover_enabled(),
+                         "gia tri hong phai coi la TAT, khong duoc mo ra")
+
+    def test_plan_handover_refuses_while_disabled(self):
+        nh.frappe.conf = {}
+        plan = nh.plan_handover({}, "prof", "UAT", stage="requester",
+                                adapter=_Adapter([APPROVE]), instance_id="doc")
+        self.assertEqual(plan["mode"], "pool")
+        self.assertEqual(plan["reason"], "targeted_handover_disabled")
 
 
 if __name__ == "__main__":
