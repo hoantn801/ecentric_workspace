@@ -626,15 +626,23 @@
 
   // Chu ky THAT tu SCTS, ve dung vao o cua nguoi do. Dung chung _sigNode voi ban xem thu nen
   // hai duong khong the lech nhau - Hoan bao xem thu va ky that trong khac nhau.
+  // Khop theo O KY, khong theo email.
+  //
+  // Ban dau khop email: o nao co ung vien la nguoi da ky thi ve chu ky vao. Ngay 28/08 no ve
+  // chu ky vao o "Direct Manager Review" chi vi cung mot nguoi da ky voi vai NGUOI TRINH va
+  // tinh co cung nam trong danh sach ung vien cua cap do. Nha cung cap co dung MOT chu ky;
+  // man hinh hien HAI, tren mot o chua ai duyet. Dung khiem khuyet "khop email qua long" da
+  // sua o duong XAC MINH hom 27/08, tai tao o duong HIEN THI.
   function _signedFor(slotKey) {
     var sl = (DRW.st && DRW.st.required_slots || []).filter(
       function (x) { return x.slot_key === slotKey; })[0];
     if (!sl) return null;
-    var mails = (sl.candidates || []).map(function (c) {
-      return String(c.user || "").trim().toLowerCase(); });
     var hits = (DRW.signed || []).filter(function (r) {
-      return mails.indexOf(String(r.email || "").trim().toLowerCase()) >= 0; });
-    return hits.length ? hits[hits.length - 1] : null;   // dong moi nhat cua nguoi do
+      if (sl.kind === "requester") { return r.kind === "requester"; }
+      return r.kind === "approval_level" && r.level_ref
+             && String(r.level_ref) === String(sl.level_ref);
+    });
+    return hits.length ? hits[hits.length - 1] : null;
   }
 
   function _applySigned() {

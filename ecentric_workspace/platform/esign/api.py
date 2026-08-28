@@ -317,17 +317,33 @@ def document_signature_overlay(payment_request_name):
     from ecentric_workspace.platform.esign.providers import get_adapter
     adapter = get_adapter(settings)
     state = adapter.poll_status(pkg.scts_document_id)
+    signed_emails = {(sg.get("email") or "").strip().lower(): sg
+                     for sg in (getattr(state, "signers", None) or [])
+                     if (sg.get("status") or "").lower() == "signed" and sg.get("email")}
+
+    # WHICH SLOT was signed comes from OUR OWN completed signing legs, never from matching an
+    # email against a slot's candidate list.
+    #
+    # The first version matched by email, and on 2026-08-28 it drew a signature into the
+    # "Direct Manager Review" box because the same person had signed as REQUESTER and also
+    # happened to be a candidate for that level. The provider had exactly one signature; the
+    # screen showed two, on a box nobody had approved yet. That is the same "email matching is
+    # too loose" defect that was fixed in the VERIFICATION path on 2026-08-27, reintroduced in
+    # the display path - a screen that misreports who signed is not a cosmetic problem.
+    legs = frappe.get_all(
+        "EC Digital Signature Request",
+        filters={"package": pkg_name, "status": "Approval Completed"},
+        fields=["name", "actor_type", "actor_user", "approver", "request_level"])
 
     out = []
     seen_images = {}
-    for sg in (getattr(state, "signers", None) or []):
-        if (sg.get("status") or "").lower() != "signed":
-            continue
-        email = (sg.get("email") or "").strip()
-        if not email:
-            continue
-        row = {"email": email, "signed_at": sg.get("signed_at"), "image_base64": None}
-        mapping = perms.verified_mapping(email, pkg.environment)
+    for leg in legs:
+        who = (leg.get("actor_user") or leg.get("approver") or "").strip()
+        sg = signed_emails.get(who.lower())
+        if not sg:
+            continue          # provider has no signature for this leg: say nothing
+        image = None
+        mapping = perms.verified_mapping(who, pkg.environment)
         if mapping:
             key = mapping.get("signature_id")
             if key not in seen_images:
@@ -339,8 +355,12 @@ def document_signature_overlay(payment_request_name):
                 except Exception:
                     # A missing picture must never hide the FACT that somebody signed.
                     seen_images[key] = None
-            row["image_base64"] = seen_images[key]
-        out.append(row)
+            image = seen_images[key]
+        out.append({"email": who,
+                    "kind": "requester" if leg.get("actor_type") == "Requester" else "approval_level",
+                    "level_ref": leg.get("request_level"),
+                    "signed_at": sg.get("signed_at"),
+                    "image_base64": image})
     return {"ok": True, "document_id": pkg.scts_document_id, "signed": out}
 
 
