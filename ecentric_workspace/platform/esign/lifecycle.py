@@ -57,6 +57,35 @@ def has_collected_signatures(package_name):
                                 {"package": package_name, "status": ["in", _SIGNED]}))
 
 
+def _signable_content_changed(pkg):
+    """Noi dung CAN KY co khac so voi luc khoa goi khong?
+
+    So sanh theo ma bam noi dung (sha256) cua cac tep CAN KY - khong so theo ten tep, va
+    khong dem cac tep dinh kem chi de lam bang chung.
+
+    Doc hong thi tra True: lam lai goi ky la phien toai, con bo qua mot thay doi that su
+    la de nguyen chu ky cu tren mot to trinh da khac.
+    """
+    try:
+        signable = [f for f in pkgsvc.package_files(pkg.name) if f.get("requires_signature")]
+    except Exception:
+        return True
+    locked = {f.get("sha256") for f in signable if f.get("sha256")}
+    if not locked or len(locked) != len(signable):
+        return True                     # thieu ma bam -> khong so duoc -> lam lai cho chac
+
+    try:
+        rows = frappe.get_all("File",
+                              filters={"attached_to_doctype": pkg.business_doctype,
+                                       "attached_to_name": pkg.business_name},
+                              fields=["content_hash"], limit_page_length=0)
+    except Exception:
+        return True
+    present = {r.get("content_hash") for r in rows if r.get("content_hash")}
+    # Con nguyen ven tung tep da ky -> chi la dinh kem THEM, khong dung toi noi dung da ky.
+    return not locked.issubset(present)
+
+
 def on_request_reopened(approval_request):
     """Called by the approval flow BEFORE it resets levels.
 
@@ -69,6 +98,21 @@ def on_request_reopened(approval_request):
     out = {"revised": False, "new_package": None, "force_restart": False}
     pkg = _frozen_package(approval_request)
     if not pkg:
+        return out
+
+    # Chi lam lai goi ky khi NOI DUNG DA KY thay doi.
+    #
+    # Truoc 28/08 lan resubmit nao cung tao phien ban moi, nen ai da ky deu phai ky lai -
+    # ke ca khi nguoi de nghi chi dinh kem them mot to hoa don theo yeu cau cua Ke toan.
+    # Do la truong hop thuong gap nhat va no khong dung: to hoa don la BANG CHUNG kem
+    # theo, khong phai to trinh; khong ai ky len no, va viec them no khong lam sai mot chu
+    # ky nao da co.
+    #
+    # Nguoc lai, sua chinh to trinh (so tien, noi dung) thi BAT BUOC ky lai. Chu ky so ky
+    # len mot noi dung cu the; giu chu ky cu tren to trinh da sua la nguy tao bang chung -
+    # cap duyet se "da ky" mot to trinh ho chua tung doc.
+    if not _signable_content_changed(pkg):
+        out["unchanged"] = True
         return out
 
     signed = has_collected_signatures(pkg.name)

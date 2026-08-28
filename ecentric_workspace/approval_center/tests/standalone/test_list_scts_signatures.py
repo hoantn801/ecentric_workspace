@@ -116,7 +116,11 @@ class TestSignatureOverlayStaysNarrow(unittest.TestCase):
         MOT chu ky; man hinh hien HAI.
         """
         self.assertIn('"status": "Approval Completed"', self.body)
-        self.assertIn('"level_ref": leg.get("request_level")', self.body)
+        # 28/08: tra THANG request_level ra day thi khong o ky nao khop, vi o ky dinh danh
+        # cap bang EC Approval LEVEL con chan ky luu EC Approval REQUEST Level. Phai doi.
+        # Phep kiem giu nguyen y dinh goc (gan theo CHAN KY, khong theo email), chi doi
+        # cho cai duoc gan.
+        self.assertIn('_source_level_of(leg.get("request_level"))', self.body)
         self.assertIn('"kind"', self.body)
         self.assertNotIn("candidates", self.body,
                          "khong duoc suy tu danh sach ung vien cua o ky")

@@ -532,23 +532,36 @@ class SctsAdapter(SignatureProviderAdapter):
         by_dsf = {}
         for pl in placements:
             by_dsf.setdefault(pl.get("signature_file"), []).append(pl)
-        areas = {}
+        # MOI tep ky duoc phai co bang vung ky CUA RIENG NO.
+        #
+        # Ban dau chi goi ConvertPdfFile cho tep signable DAU TIEN roi ap bang vung do cho
+        # MOI tep. Mot tep thi khong lo ra; hai tep tro len la moi chu ky tren tep thu hai
+        # deu mang signatureId cua vung thuoc tep thu nhat - sai, va sai IM LANG. Day la lo
+        # QC #8 ghi ngay 28/08, va no chan dung ke hoach ky Payment Request kem Purchase
+        # Request trong mot lan.
+        areas_by_file = {}
         if placements:
-            first_signable = next((f for f in files if f.get("can_be_signed")), None)
-            if first_signable is not None:
+            for f in files:
+                if not f.get("can_be_signed"):
+                    continue
+                key = f.get("file_dsf")
+                if key in areas_by_file:
+                    continue
                 defs = self._with_auth(lambda t: self._client.convert_pdf_file(
                     package_ctx.get("workflow_definition_id"),
-                    self._b64(first_signable.get("content")), t))
-                areas = {self._norm_title(d.get("title")): d
-                         for d in (defs or []) if isinstance(d, dict)}
-        def _area_for(pl):
+                    self._b64(f.get("content")), t))
+                areas_by_file[key] = {self._norm_title(d.get("title")): d
+                                      for d in (defs or []) if isinstance(d, dict)}
+
+        def _area_for(pl, file_dsf):
+            areas = areas_by_file.get(file_dsf) or {}
             key = self._norm_title(pl.get("scts_role_title"))
             d = areas.get(key)
             if not d or not d.get("signatureId"):
                 raise ProviderError(
                     "scts_signature_area_unmatched",
-                    "no sign-template area titled %r (available: %s)"
-                    % (pl.get("scts_role_title"),
+                    "no sign-template area titled %r on file %r (available: %s)"
+                    % (pl.get("scts_role_title"), file_dsf,
                        ", ".join(sorted(a.get("title") or "?" for a in areas.values()))),
                     retryable=False)
             return d
@@ -557,12 +570,22 @@ class SctsAdapter(SignatureProviderAdapter):
             b64 = self._b64(f.get("content"))
             sigs = []
             for pl in by_dsf.get(f.get("file_dsf"), []):
-                d = _area_for(pl)
+                d = _area_for(pl, f.get("file_dsf"))
                 # ERP canonical geometry is TOP-left-origin points; SCTS expects PDF
                 # coordinates (BOTTOM-left origin, "Toa do diem dat chu ky (PDF Coordinate)").
                 # Live evidence 2026-08-23: without the flip the signature rendered mirrored
                 # vertically. Lower-left corner: y_pdf = page_height - y_top - height.
-                page_h = float(pl.get("page_height") or 792.0)
+                # KHONG doan chieu cao trang. Ban truoc lay 792 (Letter) khi khong doc
+                # duoc; giay A4 cao 842, nen moi chu ky tren tai lieu A4 bi day xuong 50
+                # diem - dung kieu "lech" ma khong ai chi ra duoc vi sao. Doan mot con so
+                # de dat chu ky len chung tu that la sai lang: tha tu choi.
+                if not pl.get("page_height"):
+                    raise ProviderError(
+                        "scts_page_height_unknown",
+                        "khong doc duoc chieu cao trang %s cua tep %s - khong dat duoc vi "
+                        "tri chu ky chinh xac" % (pl.get("page_index"), f.get("name")),
+                        retryable=False)
+                page_h = float(pl.get("page_height"))
                 x = float(pl.get("x") or 0)
                 h = float(pl.get("height") or 0)
                 y_pdf = max(0.0, page_h - float(pl.get("y") or 0) - h)
