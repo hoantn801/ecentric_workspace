@@ -84,7 +84,13 @@
 /* Con cua grid mac dinh min-height:auto -> khong co lai duoc, khien cot cuon tran ra
        ngoai va thanh chan trang de len the cuoi cung (nut cua cap CEO bam khong duoc). */
     .ecd-drawer .ecd-body > *{min-height:0}
-.ecd-viewer{position:relative;border-right:1px solid var(--ecd-line);display:flex;align-items:center;justify-content:center;color:var(--ecd-dim);font-size:13px;text-align:center;padding:24px}
+/* `display:flex` + `align-items:center` khong the CUON: khi trang PDF rong/cao hon khung,
+   noi dung bi day tran ra ngoai the thay vi sinh thanh cuon - do la canh "PDF tran ca
+   card". `overflow:auto` mot minh khong du, vi flex item bi ep co lai; can `min-width:0`
+   va can cho noi dung TU CO khi no nho hon khung (margin:auto) thay vi ep bang flex. */
+.ecd-viewer{position:relative;border-right:1px solid var(--ecd-line);color:var(--ecd-dim);font-size:13px;text-align:center;padding:24px;overflow:auto;min-width:0;min-height:0}
+.ecd-viewer > #ecdStage{margin:auto}
+.ecd-pager{position:sticky;bottom:0;display:flex;gap:10px;align-items:center;justify-content:center;padding:8px;background:rgba(255,255,255,.94);border-top:1px solid var(--ecd-line);font-size:12.5px;color:var(--ecd-ink)}
 /* padding-bottom du de the NGUOI KY CUOI CUNG khong bao gio nam sat mep vung cuon */
     .ecd-signers{overflow:auto;padding:16px 16px 32px}
 .ecd-signers h4{font-size:12.5px;font-weight:700;color:var(--ecd-sub);text-transform:uppercase;letter-spacing:.4px;margin:0 0 10px}
@@ -124,6 +130,11 @@
             <div id="ecdLayer" style="position:absolute;inset:0"></div>
           </div>
           <div id="ecdViewerMsg" class="ecd-meta" style="padding:16px"></div>
+          <div id="ecdPager" class="ecd-pager" style="display:none">
+            <button type="button" class="ecd-btn" data-page="prev">‹</button>
+            <span id="ecdPageLbl"></span>
+            <button type="button" class="ecd-btn" data-page="next">›</button>
+          </div>
         </div>
         <div class="ecd-signers"><h4>Người ký <span id="ecdProg" class="ec-docsign ecd-pill p-none"></span>
           <button class="ecd-btn" id="ecdTrySign" type="button" style="float:right;font-size:11.5px">Ký thử</button></h4>
@@ -515,6 +526,9 @@
     var ro = DRW.st.editable === false;
     (DRW.st.placements || []).forEach(function (p) {
       if (!p.signer_slot_key) return;                        // legacy shown as unmapped elsewhere
+      // CHI trang dang xem. Truoc day ve het moi o ky bat ke trang nao, nen o cua trang 2
+      // hien de len trang 1 - vua sai cho nhin, vua de keo nham mot o thuoc trang khac.
+      if (Number(p.page_index || 1) !== Number(DRW.page || 1)) return;
       layer.appendChild(mkBoxEl(p, p.name, ro));
     });
     _applySigPreview();
@@ -588,8 +602,29 @@
                     width: box.width, height: box.height, signer_slot_key: DRW.slot }, el);
     exitPlacementMode();
   }
+  function _syncPager() {
+    var el = document.getElementById("ecdPager");
+    if (!el) return;
+    var n = (DRW.pdf && DRW.pdf.numPages) || 1;
+    // Mot trang thi khong bay thanh dieu huong - no chi lam roi mat.
+    el.style.display = n > 1 ? "flex" : "none";
+    var lbl = document.getElementById("ecdPageLbl");
+    if (lbl) lbl.textContent = "Trang " + (DRW.page || 1) + " / " + n;
+    var prev = el.querySelector('[data-page="prev"]');
+    var next = el.querySelector('[data-page="next"]');
+    if (prev) prev.disabled = (DRW.page || 1) <= 1;
+    if (next) next.disabled = (DRW.page || 1) >= n;
+  }
+  function gotoPage(n) {
+    var total = (DRW.pdf && DRW.pdf.numPages) || 1;
+    n = Math.max(1, Math.min(total, Number(n) || 1));
+    if (n === DRW.page) return;
+    DRW.page = n;
+    renderPdf();
+  }
   function renderPdf() {
     if (!DRW.pdf) return;
+    _syncPager();
     DRW.pdf.getPage(DRW.page).then(function (pg) {
       var vp = pg.getViewport({ scale: DRW.scale });
       var mb = pg.getViewport({ scale: 1 }); DRW.pagePt = [mb.width, mb.height];
@@ -830,6 +865,15 @@
     if (_ts) _ts.onclick = _toggleTrySign;
     document.getElementById("ecdDrawerOv").onclick = function (e) {
       if (e.target === document.getElementById("ecdDrawerOv")) closeDrawer(); };
+    // Chuyen trang. Gan MOT LAN o day, tren chinh phan tu thanh dieu huong - khong gan lai
+    // trong renderPdf (moi lan ve lai se chong them mot lop su kien nua).
+    var _pg = document.getElementById("ecdPager");
+    if (_pg) _pg.onclick = function (e) {
+      var b = e.target && e.target.closest ? e.target.closest("[data-page]") : null;
+      if (!b || b.disabled) return;
+      e.stopPropagation();
+      gotoPage((DRW.page || 1) + (b.getAttribute("data-page") === "next" ? 1 : -1));
+    };
     document.addEventListener("mousemove", _onDragMove);     // ISSUE 2: single global drag controller
     document.addEventListener("mouseup", _onDragEnd);        // (no per-box listeners -> no leaks/recreation)
   }
