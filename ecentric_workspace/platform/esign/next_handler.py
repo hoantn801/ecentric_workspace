@@ -135,7 +135,12 @@ def discover_transition(adapter, instance_id, provider_user_id):
     try:
         avail = adapter.available_transitions(instance_id, provider_user_id) or []
     except Exception as exc:
-        return None, "transition_discovery_failed:%s" % type(exc).__name__
+        # Ghi CA noi dung loi, khong chi ten loai. Ban dau chi ghi type(exc).__name__ va lan
+        # chay that 28/08 tra ve dung mot chu "SctsHttpError" - biet la hong nhung khong biet
+        # ma trang thai, khong biet provider noi gi, nen lai phai doan. Dung cai sai da ton hai
+        # dem: dung cong cu de nhin roi tu bit mat o dong cuoi.
+        from ecentric_workspace.platform.esign.sanitize import safe_error
+        return None, "transition_discovery_failed:%s" % safe_error(exc)
     if not avail:
         return None, "no_available_transition"
     picks = [t for t in avail if (t.get("transition_type") or "") in _APPROVE_TYPES]
@@ -151,6 +156,16 @@ def discover_transition(adapter, instance_id, provider_user_id):
     if t.get("transition_id") is None or not t.get("process_action"):
         return None, "incomplete_transition:%s" % t.get("transition_id")
     return t, None
+
+
+#: Nhung ly do nghia la "nha cung cap noi KHONG duoc di" - phai dung lai, khong duoc lay cau
+#: hinh cu ra dung thay. Khac han voi "khong hoi duoc" (mang loi, 4xx, adapter cu).
+_REFUSALS = ("no_available_transition", "no_approve_transition",
+             "ambiguous_approve_transition", "incomplete_transition")
+
+
+def why_is_refusal(why):
+    return bool(why) and any(str(why).startswith(r) for r in _REFUSALS)
 
 
 def signature_type_matches(required, mapping_type):
@@ -188,11 +203,21 @@ def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, inst
     mode == "pool"       -> provider decides the recipients; `reason` says why we had to.
     """
     cfg = None
+    why = None
+    discovery_note = None
     if adapter is not None and instance_id:
         cfg, why = discover_transition(adapter, instance_id,
                                        dsr.get("effective_scts_user_id"))
-        if cfg is None:
-            return {"mode": "pool", "reason": why}
+    if cfg is None and why_is_refusal(why):
+        # Nha cung cap noi ro KHONG duoc di: dung lai. Khac han voi "khong hoi duoc".
+        return {"mode": "pool", "reason": why}
+    if cfg is None and why:
+        # Khong HOI duoc (mang loi, 4xx, adapter cu) thi van con cau hinh tren ho so lam duong
+        # lui. Ro rang la kem hon - id co the sai o mot so cap - nhung van dich danh nguoi ky
+        # tiep theo, con hon phat cho ca vai tro. Lan chay 28/08 rot thang ve pool va SCTS gui
+        # cho BAY truong bo phan chi vi mot loi HTTP.
+        discovery_note = why
+    if cfg is not None:
         want = cfg.get("sign_type")
         have = _mapped_signature_type(dsr, environment)
         if cfg.get("requires_signature") and not signature_type_matches(want, have):
@@ -201,7 +226,10 @@ def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, inst
     if cfg is None:
         cfg = resolve_transition_config(profile_name, dsr.get("action") or "Sign", stage=stage)
     if not cfg:
-        return {"mode": "pool", "reason": "no_transition_config:%s" % (stage or "default")}
+        return {"mode": "pool",
+                "reason": "no_transition_config:%s%s" % (
+                    stage or "default",
+                    (" after " + discovery_note) if discovery_note else "")}
 
     ar = dsr.get("approval_request")
     level = dsr.get("request_level_no")
@@ -217,8 +245,13 @@ def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, inst
     ids, unmapped = provider_ids_for(users, environment)
     if not ids:
         return {"mode": "pool", "reason": "next_handler_unmapped:%s" % ",".join(unmapped)}
-    return {"mode": "transition", "to_users": ids, "config": cfg,
-            "unmapped": unmapped, "erp_users": users}
+    out = {"mode": "transition", "to_users": ids, "config": cfg,
+           "unmapped": unmapped, "erp_users": users}
+    if discovery_note:
+        # Dung duong lui thi phai NOI RA, khong de no trong nhu duong chinh dang chay tot.
+        out["fallback_config"] = True
+        out["discovery_error"] = discovery_note
+    return out
 
 
 def _level_of(dsr):
