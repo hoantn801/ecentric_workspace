@@ -278,6 +278,25 @@ def reconcile_signature_request(dsr_name):
     return out
 
 
+
+def _source_level_of(request_level_name):
+    """Doi ten cap: EC Approval REQUEST Level (ban sao rieng tung phieu) -> EC Approval
+    LEVEL (mau quy trinh dung chung).
+
+    O ky tren tai lieu dinh danh cap bang cai THU HAI (signer_plan lay
+    `lvl.source_process_level`); con chan ky thi tro toi cai THU NHAT. So thang cai nay voi
+    cai kia thi khong bao gio khop.
+
+    Khong doi duoc thi tra None, TUYET DOI khong tra lai id goc: ve chu ky vao o cua nguoi
+    khac con te hon la khong ve.
+    """
+    try:
+        return frappe.db.get_value("EC Approval Request Level", request_level_name,
+                                   "source_process_level")
+    except Exception:
+        return None
+
+
 @frappe.whitelist()
 def document_signature_overlay(payment_request_name):
     """Who has ACTUALLY signed this document at the provider, and what their signature looks
@@ -356,9 +375,20 @@ def document_signature_overlay(payment_request_name):
                     # A missing picture must never hide the FACT that somebody signed.
                     seen_images[key] = None
             image = seen_images[key]
+        # O ky tren PDF nhan dien cap bang `source_process_level` - ten cua EC Approval
+        # LEVEL, tuc mau quy trinh dung chung. Con chan ky thi tro toi EC Approval REQUEST
+        # Level, ban sao rieng cua tung phieu. Hai cai la hai DocType khac nhau, nen tra
+        # thang `request_level` ra day thi KHONG BAO GIO khop mot o ky nao: chu ky cua moi
+        # cap duyet khong duoc ve len tai lieu, du da ky that.
+        #
+        # Chu ky "Nguoi de nghi" van hien vi no khop theo `kind`, khong can level_ref -
+        # dung nen mai moi lo ra: 28/08 "ben ERP chua co chu ky, ben SCTS thi co roi".
+        level_ref = None
+        if leg.get("request_level"):
+            level_ref = _source_level_of(leg.get("request_level"))
         out.append({"email": who,
                     "kind": "requester" if leg.get("actor_type") == "Requester" else "approval_level",
-                    "level_ref": leg.get("request_level"),
+                    "level_ref": level_ref,
                     "signed_at": sg.get("signed_at"),
                     "image_base64": image})
     return {"ok": True, "document_id": pkg.scts_document_id, "signed": out}
