@@ -112,5 +112,35 @@ class TestScope(unittest.TestCase):
                              % term)
 
 
+class TestItDoesNotClaimSuccessItDidNotHave(unittest.TestCase):
+    """Xac minh duoc chu ky KHONG dong nghia cap duyet da hoan tat.
+
+    Lan chay that 28/08: doi soat tra `ok: true, reason: verified` trong khi engine tu choi
+    (yeu cau da bi huy) va khong co gi thay doi. Chi vi minh co tra ve ca `status` nen moi
+    nhin ra - neu khong thi no da trong nhu da xong.
+    """
+
+    def setUp(self):
+        self.body = _code(_fn(_src("platform", "esign", "service.py"),
+                              "reconcile_manual_review"))
+
+    def test_ok_only_when_the_level_actually_completed(self):
+        self.assertIn('if final == "Approval Completed":', self.body)
+        self.assertRegex(self.body,
+                         r'if final == "Approval Completed":\s*\n\s*return \{"ok": True')
+
+    def test_a_refusal_reports_ok_false(self):
+        self.assertIn('"ok": False, "reason": "verified_but_engine_refused"', self.body)
+
+    def test_it_reports_why_the_engine_refused(self):
+        self.assertIn('"engine": why', self.body,
+                      "phai lay dung ly do engine ghi lai, khong de nguoi doc tu suy")
+        self.assertIn('"event_type": "ManualReview"', self.body)
+
+    def test_it_still_reports_the_verification_result(self):
+        self.assertIn('"verification": vr.reason', self.body,
+                      "phan biet 'chu ky khong hop le' voi 'chu ky hop le nhung engine tu choi'")
+
+
 if __name__ == "__main__":
     unittest.main()
