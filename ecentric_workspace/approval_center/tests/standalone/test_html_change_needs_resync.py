@@ -84,6 +84,7 @@ class TestEachTemplateLandmarkHasAPatchThatMentionsIt(unittest.TestCase):
         ("document_signing_section.html", "Math.max(0, W - w)", "clamp"),
         ("document_signing_section.html", "ecdPager", "viewer_pages"),
         ("document_signing_section.html", "overflow:auto;min-width:0", "viewer_pages"),
+        ("document_signing_section.html", "function _fitSig", "signature_fit"),
         ("requester_signing_panel.html", "requester_signature_processing", "processing_state"),
     ]
 

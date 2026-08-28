@@ -32,10 +32,16 @@
        ngay / gio" ben phai. Ban cu chi ve moi anh phu kin o, nen xem thu mot dang ma ky that ra
        mot dang khac - Hoan bao 27/08. Xem thu ma khong giong that thi khong phai xem thu. */
     .ec-docsign .ecd-signed, .ecd-drawer-ov .ecd-signed{margin-top:2px;font-size:11.5px;font-weight:600;color:#1a7f37}
-    .ecd-box .sigprev{position:absolute;inset:0;display:flex;align-items:center;gap:4px;
+    /* Chu ky phai LAP DAY o, khong phai mot cham muc nho lo tho giua khung rong.
+       Ban cu: anh ghim cung 42% chieu ngang va khoi chu co dinh 8px, canh deu hai ben - nen o
+       cang to thi chu ky trong cang nho va hai phan cang xa nhau. `justify-content:center` keo
+       anh va khoi chu dinh vao nhau o giua; anh lay het chieu cao va giu ti le that. Co chu do
+       _fitSig() dat theo chieu cao O, vi CSS thuan khong doc duoc kich thuoc phan tu. */
+    .ecd-box .sigprev{position:absolute;inset:0;display:flex;align-items:center;
+      justify-content:center;gap:6px;
       padding:3px;pointer-events:none;opacity:.92;overflow:hidden}
-    .ecd-box .sigprev img{flex:0 0 42%;max-width:42%;height:100%;object-fit:contain}
-    .ecd-box .sigprev .sigtxt{flex:1 1 auto;min-width:0;font-family:"Times New Roman",Times,serif;
+    .ecd-box .sigprev img{flex:0 1 auto;width:auto;height:100%;max-width:55%;object-fit:contain}
+    .ecd-box .sigprev .sigtxt{flex:0 1 auto;min-width:0;font-family:"Times New Roman",Times,serif;
       font-weight:400;font-size:8px;line-height:1.2;color:#1a1a1a;white-space:nowrap;overflow:hidden}
 #ecdTrySign.on{background:#2C3DA6;color:#fff}
 .ecd-box .rsz{position:absolute;right:-5px;bottom:-5px;width:12px;height:12px;background:#2C3DA6;border-radius:50%;cursor:nwse-resize}
@@ -667,6 +673,19 @@
     return wrap;
   }
 
+  // Co chu theo CHIEU CAO O, khong phai mot con so co dinh.
+  //
+  // Khoi chu co 4 dong. De chung chiem khoang 3/4 chieu cao o thi moi dong duoc ~18%, chia
+  // cho line-height 1.2 ra co chu. O nho van doc duoc (san 6px), o to khong bi mot dong chu
+  // ti hon nam giua khung rong (tran 15px). CSS thuan khong lam duoc vi no khong doc duoc
+  // kich thuoc phan tu; container query thi phu thuoc trinh duyet nen chon duong tuong minh.
+  function _fitSig(boxEl, node) {
+    var h = (boxEl && boxEl.offsetHeight) || 0;
+    if (!h) { return; }                       // o chua duoc dung len - de nguyen co mac dinh
+    var px = (h * 0.18) / 1.2;
+    node.style.fontSize = Math.max(6, Math.min(15, px)) + "px";
+  }
+
   // Chu ky THAT tu SCTS, ve dung vao o cua nguoi do. Dung chung _sigNode voi ban xem thu nen
   // hai duong khong the lech nhau - Hoan bao xem thu va ky that trong khac nhau.
   // Khop theo O KY, khong theo email.
@@ -700,6 +719,7 @@
       var node = _sigNode(rec.image_base64, null);
       node.className = "sigprev sigdone";
       b.appendChild(node);
+      _fitSig(b, node);          // sau khi gan vao DOM moi do duoc chieu cao o
     });
     if (typeof renderSigners === "function") { try { renderSigners(); } catch (e) {} }
   }
@@ -724,7 +744,9 @@
     var boxes = Array.prototype.slice.call(layer.querySelectorAll(".ecd-box"));
     boxes.forEach(function (b) {
       if (DRW.showSig && DRW.sigPreview) {
-        b.appendChild(_sigNode(DRW.sigPreview, null));
+        var pv = _sigNode(DRW.sigPreview, null);
+        b.appendChild(pv);
+        _fitSig(b, pv);          // xem thu phai to bang ky that, neu khong thi khong phai xem thu
       }
     });
     var btn = document.getElementById("ecdTrySign");
