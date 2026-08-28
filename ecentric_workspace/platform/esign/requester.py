@@ -121,6 +121,63 @@ def requester_signing_readiness(business_doctype, business_name):
             "checks": checks, "current_status": req.requester_signature_status}
 
 
+def assert_ready_to_submit(business_doctype, business_name):
+    """Refuse the submit BEFORE anything is written, when the placements are incomplete.
+
+    sign_on_submit checks the same thing, but it runs after engine.submit() has created the
+    request and stamped `approval_request` on the business document. There is no db.commit()
+    on that path today, so a throw there does roll everything back - but the guarantee is
+    incidental. One commit added anywhere in submit or its notification pipeline would turn a
+    refusal into a document that is permanently "already submitted" and permanently unsigned:
+    Submitter refuses to submit it again, and nothing ever signs it.
+
+    Reading first costs one query and does not depend on anyone preserving that property.
+
+    Only reads. Returns nothing; raises with the missing items named.
+    """
+    pkg_name = pkgsvc.draft_package_for_business(business_doctype, business_name)
+    if not pkg_name:
+        ar = _requester_ar(business_doctype, business_name)
+        pkg_name = pkgsvc.signable_package_for_request(ar) if ar else None
+    missing = pkgsvc.preflight_for_lock(pkg_name) if pkg_name else ["chưa có gói ký"]
+    if missing:
+        frappe.throw(_("Chưa đặt đủ vị trí ký: {0}. Hãy mở 'Thiết lập chữ ký' và đặt đủ "
+                       "trước khi gửi.").format(", ".join(str(m) for m in missing)))
+
+
+def sign_on_submit(business_doctype, business_name):
+    """Prepare + lock + sign, as ONE step, right after the request is submitted.
+
+    The requester used to face five separate actions for one intention: place the signature
+    boxes, send the request, prepare the package, lock the package, submit for signing. The
+    middle three are internal state-machine steps that nobody outside this module should have
+    to know exist - and on 27 and 28 August they were also unreachable, so the flow simply
+    stopped there twice with "there is no button".
+
+    Prepare and lock are local and fast; the provider call happens in the background worker
+    that requester_submit_and_sign enqueues, so submitting stays quick.
+
+    Raises when the placements are not complete: a request that goes out with an unusable
+    signing package is worse than one that refuses to go out, because the refusal is visible
+    immediately and the broken package is not.
+    """
+    ar = _requester_ar(business_doctype, business_name)
+    if not ar:
+        frappe.throw(_("Không tìm thấy yêu cầu duyệt cho phiếu này."))
+
+    prepare_requester_signing_package(business_doctype, business_name)
+
+    pkg_name = (pkgsvc.signable_package_for_request(ar)
+                or pkgsvc.draft_package_for_business(business_doctype, business_name))
+    missing = pkgsvc.preflight_for_lock(pkg_name) if pkg_name else ["chưa có gói ký"]
+    if missing:
+        frappe.throw(_("Chưa đặt đủ vị trí ký: {0}. Hãy mở 'Thiết lập chữ ký' và đặt đủ "
+                       "trước khi gửi.").format(", ".join(str(m) for m in missing)))
+
+    requester_lock_signing_package(business_doctype, business_name)
+    return requester_submit_and_sign(business_doctype, business_name)
+
+
 def requester_submit_and_sign(business_doctype, business_name, comment=None):
     """Governed requester Submit & Sign. Session user MUST be the authoritative requester
     (no admin/SM bypass); creates or reuses exactly one requester-scoped DSR under a request

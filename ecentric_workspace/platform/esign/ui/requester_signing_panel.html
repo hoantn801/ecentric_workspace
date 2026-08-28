@@ -23,7 +23,9 @@
   <h4>Ký của người đề nghị <span id="ecReqStatus" class="ec-pill">-</span></h4>
   <div id="ecReqMsg" class="ec-msg"></div>
   <div id="ecReqGate" class="ec-info" style="display:none"></div>
-  <button id="ecReqPrepare" class="btn btn-sm btn-primary">Chuẩn bị gói ký</button>
+  <!-- Chuan bi goi / Khoa goi / Trinh ky da duoc gop vao "Gui yeu cau" (28/08). Giu lai phan
+       tu de cac lenh gan su kien ben duoi khong nem loi, nhung khong bao gio hien nua. -->
+  <button id="ecReqPrepare" class="btn btn-sm btn-primary" style="display:none">Chuẩn bị gói ký</button>
   <button id="ecReqLock" class="btn btn-sm ec-sub" style="display:none">Khoá gói ký</button>
   <button id="ecReqFix" class="btn btn-sm ec-sub" style="display:none">Khôi phục gói</button>
   <!-- "Trình ký" GOI requester_submit_and_sign. Endpoint nay da co va chay duoc tu 23/08,
@@ -151,19 +153,20 @@
         var present = b(c, "package_present");
 
         // status + primary action per local package state (gate-independent).
-        var status, prepText, prepShow, lockShow, fixShow = false, signShow = false;
+        // Tu 28/08 "Gui yeu cau" lam luon chuan bi + khoa goi + ky. Nhung nut nay khong con
+        // la viec cua nguoi dung: chung la trang thai noi bo cua may. Panel gio chi BAO
+        // TRANG THAI. Ngoai le duy nhat la "Khoi phuc goi" - loi that su can nguoi can thiep.
+        var status, prepText, prepShow = false, lockShow = false, fixShow = false, signShow = false;
         if (invalid) {
-          status = "Gói lỗi (0 vị trí ký)"; prepShow = false; lockShow = false; fixShow = true;
+          status = "Gói lỗi (0 vị trí ký)"; fixShow = true;
         } else if (locked) {
-          status = "Gói đã khoá"; prepShow = false; lockShow = false; signShow = true;
+          status = "Gói đã khoá";
         } else if (readyToLock) {
-          // KHONG hien "Chinh vi tri ky" nua: khu hop nhat da co "Thiet lap chu ky" lam dung
-          // viec do. Hai nut cho cung mot viec chi lam nguoi dung phan van nen bam cai nao.
-          status = "Sẵn sàng khoá"; prepShow = false; lockShow = true;
+          status = "Sẵn sàng ký";
         } else if (present) {
-          status = "Thiếu vị trí ký"; prepText = "Đặt vị trí chữ ký"; prepShow = true; lockShow = false;
+          status = "Thiếu vị trí ký";
         } else {
-          status = "Chưa chuẩn bị gói"; prepText = "Chuẩn bị gói ký"; prepShow = true; lockShow = false;
+          status = "Chưa chuẩn bị gói";
         }
         elStatus.textContent = status;
         if (prepText) btnPrep.textContent = prepText;
@@ -185,7 +188,7 @@
           msg("Gói ký đang lỗi (đã khoá nhưng chưa có vị trí ký). Nhấn 'Khôi phục gói' để tạo "
             + "lại gói mới rồi đặt vị trí ký.", true);
         } else if (locked) {
-          msg("Đã khoá gói ký. Bấm \"Trình ký\" để gửi chữ ký của bạn tới nhà cung cấp.");
+          msg("Đã khoá gói ký và gửi chữ ký của bạn tới nhà cung cấp.");
         } else if (!b(c, "verified_mapping")) {
           msg("Người đề nghị chưa có ánh xạ chữ ký đã xác minh.", true);
         } else {

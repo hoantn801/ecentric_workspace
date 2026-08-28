@@ -65,12 +65,18 @@ class Submitter:
             frappe.throw(_("Không xác định được Quản lý trực tiếp của bạn. Vui lòng liên hệ HR/Admin "
                            "để cập nhật 'Báo cáo cho' (reports_to) trong hồ sơ nhân sự trước khi gửi yêu cầu."))
         document.request_title = self.title_builder(document)
-        document.submitted_at = now_datetime()
-        document.save(ignore_permissions=True)
         signature_required = False
         if self.requester_esign:
             from ecentric_workspace.platform.esign import guard
             signature_required = guard.requester_signature_required(self.doctype, self.code)
+        if signature_required:
+            # Tu choi TRUOC khi ghi bat cu thu gi. Xem assert_ready_to_submit: chan sau khi
+            # engine.submit() chay thi mot lan commit o bat cu dau trong duong do se bien loi
+            # tu choi thanh mot phieu "da gui" vinh vien khong ai ky duoc.
+            from ecentric_workspace.platform.esign import requester as esign_requester
+            esign_requester.assert_ready_to_submit(self.doctype, document.name)
+        document.submitted_at = now_datetime()
+        document.save(ignore_permissions=True)
         previous = frappe.flags.mute_messages
         frappe.flags.mute_messages = True
         try:
@@ -83,6 +89,16 @@ class Submitter:
         if signature_required:
             frappe.db.set_value("EC Approval Request", request_name,
                                 "requester_signature_status", "Pending")
+            # Chuan bi + khoa goi + ky, ngay tai day. Truoc do nguoi de nghi phai lam BA hanh
+            # dong nua sau khi gui - deu la trang thai noi bo cua may, khong ai ngoai module
+            # ky so can biet chung ton tai. Va trong hai ngay 27-28/08 chung con KHONG BAM
+            # DUOC, nen luong dung lai o do hai lan.
+            #
+            # Nem loi khi chua dat du vi tri ky: mot yeu cau di ra voi goi ky khong dung duoc
+            # con te hon mot yeu cau bi tu choi gui - loi tu choi thi thay ngay, con goi hong
+            # thi khong.
+            from ecentric_workspace.platform.esign import requester as esign_requester
+            esign_requester.sign_on_submit(self.doctype, document.name)
         frappe.local.message_log = []
         return request_name
 

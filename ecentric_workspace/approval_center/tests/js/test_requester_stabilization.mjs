@@ -84,15 +84,25 @@ async function main() {
   // ready to lock
   r = run(Object.assign({}, VIS, { package_present: true, placements_ready: true }));
   await tick();
-  check("ready -> 'Sẵn sàng khoá'", r.els["ecReqStatus"].textContent === "Sẵn sàng khoá");
-  check("ready -> lock shown", r.els["ecReqLock"].style.display === "inline-block");
+  // Tu 28/08 panel chi BAO TRANG THAI: "Gui yeu cau" da lam ca chuan bi + khoa goi + ky.
+  check("ready -> 'Sẵn sàng ký'", r.els["ecReqStatus"].textContent === "Sẵn sàng ký");
+  check("ready -> KHONG con nut khoa goi", r.els["ecReqLock"].style.display === "none");
+  check("ready -> KHONG con nut chuan bi", r.els["ecReqPrepare"].style.display === "none");
 
   // locked (valid)
   r = run(Object.assign({}, VIS, { package_present: true, package_locked: true }));
   await tick();
   check("locked -> 'Gói đã khoá'", r.els["ecReqStatus"].textContent === "Gói đã khoá");
   check("locked -> no buttons", r.els["ecReqPrepare"].style.display === "none" && r.els["ecReqLock"].style.display === "none");
-  check("locked -> nut Trinh ky hien ra", r.els["ecReqSign"].style.display === "inline-block");
+  // Ngoai le duy nhat con nut: goi LOI that su, can nguoi can thiep.
+  r = run(Object.assign({}, VIS, { package_present: true, package_invalid: true }));
+  await tick();
+  check("goi loi -> van con nut Khoi phuc", r.els["ecReqFix"].style.display === "inline-block");
+  check("goi loi -> khong con nut nao khac",
+        r.els["ecReqPrepare"].style.display === "none"
+        && r.els["ecReqLock"].style.display === "none"
+        && r.els["ecReqSign"].style.display === "none");
+  check("locked -> KHONG con nut Trinh ky", r.els["ecReqSign"].style.display === "none");
 
   // DANG CHO nha cung cap xac nhan. Truoc day panel TU AN o day: dieu kien hien chi nhan
   // Pending/Failed/Reconciliation Required, ma bam "Trinh ky" xong trang thai la Processing.

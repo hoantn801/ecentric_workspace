@@ -80,16 +80,32 @@ class TestTheRequesterCanFinishWithoutAnApiCall(unittest.TestCase):
         self.assertIn("btnSign.onclick", self.panel,
                       "ve ra nut ma khong gan su kien thi bam khong an gi")
 
-    def test_the_submit_button_shows_once_the_package_is_locked(self):
-        m = re.search(r'\} else if \(locked\) \{(.*?)\} else if \(readyToLock\)',
+    def test_submit_is_what_reaches_them_now(self):
+        """28/08: cach bao dam da doi, dieu duoc bao dam thi khong.
+
+        Truoc: panel phai VE RA nut "Trinh ky", vi do la duong duy nhat toi endpoint.
+        Gio: "Gui yeu cau" goi thang sign_on_submit, nen nut do la thua - nhung phep bao
+        dam van phai la "co mot duong tu dong toi endpoint", khong duoc bien mat cung voi
+        cai nut. Hai lan (27 va 28/08) luong dung lai vi khong ai goi endpoint nay.
+        """
+        submitter = _src("approval_center", "shared", "finance_support.py")
+        self.assertIn("sign_on_submit", submitter,
+                      "khong con nut Trinh ky MA submit cung khong goi -> endpoint mo coi lai")
+        requester = _src("platform", "esign", "requester.py")
+        self.assertIn("return requester_submit_and_sign", requester,
+                      "sign_on_submit phai thuc su di den endpoint gui ky")
+
+    def test_no_button_asks_for_an_internal_step(self):
+        m = re.search(r"var status, prepText, prepShow.*?\n(.*?)\n\s*elStatus\.textContent",
                       self.panel, re.S)
         self.assertIsNotNone(m)
-        self.assertIn("signShow = true", m.group(1),
-                      "khoa goi xong ma khong hien nut Trinh ky thi luong dung o day")
+        for banned in ("prepShow = true", "lockShow = true", "signShow = true"):
+            self.assertNotIn(banned, m.group(1),
+                             "buoc noi bo cua may khong duoc hoi nguoi dung: %s" % banned)
 
-    def test_the_message_tells_them_what_to_do_next(self):
-        self.assertIn('Bấm \\"Trình ký\\"', self.panel,
-                      "cau cu bao 'cho quan tri bat cong ky' - khong con dung va khong huong dan gi")
+    def test_the_message_tells_them_what_is_happening(self):
+        self.assertIn("Đã khoá gói ký và gửi chữ ký của bạn tới nhà cung cấp", self.panel,
+                      "phai noi da xay ra gi, khong bao nguoi dung di bam them mot nut nua")
 
 
 class TestEveryWhitelistedRequesterEndpointHasACaller(unittest.TestCase):
