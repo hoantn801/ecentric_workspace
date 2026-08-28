@@ -80,6 +80,19 @@ def _terminal_signed_ok(adapter, pkg):
     status = str(getattr(doc, "status", "") or "").strip().lower()
     signers = getattr(doc, "signers", []) or []
 
+    # KHONG CO NGUOI KY NAO thi khong the chung minh da ky. Vong lap ben duoi khong chan gi
+    # tren danh sach rong, roi `status in _TERMINAL_SIGNED` tra True - tuc mot chung tu
+    # provider goi la "Hoan thanh" voi 0 nguoi ky se duoc tai ve va dong dau hoan tat.
+    #
+    # Khong phai gia dinh: 28/08 chung tu do ERP tao ra tren eContract co DU 5 o ky va KHONG
+    # AI trong o nao ("Tham gia: --- / Chua co"). Day dung la lop loi cua UAT VOID 5, noi
+    # cap duyet duoc bao "da ky" trong khi PDF khong co chu ky nao.
+    #
+    # Duong tin cay duy nhat khi khong co signers la doi chieu theo chan ky ben duoi - va
+    # duong do da tu chan bang "no_signers".
+    if not signers:
+        return False, "no_signers_on_document"
+
     # any signer explicitly pending/rejected/unknown -> partial -> BLOCK (even if the
     # top-level status claims terminal).
     for s in signers:
