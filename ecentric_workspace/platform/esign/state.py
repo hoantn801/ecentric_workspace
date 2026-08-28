@@ -59,7 +59,11 @@ DSR_TRANSITIONS = {
     "Retryable Failure": ("Queued", "Manual Review", "Permanent Failure", "Cancelled", "Superseded"),
     "Permanent Failure": (),
     "Verification Mismatch": ("Manual Review",),
-    "Manual Review": ("Queued", "Cancelled", "Approval Completed"),
+    # Manual Review -> Signed: doi soat. Chan ky bi day sang day vi nha cung cap im lang; sau
+    # do chu ky THAT xuat hien (nguoi ky tu lam tren portal). Doi soat CHI doc lai trang thai
+    # ben nha cung cap va xac minh - khong bao gio gui lai lenh ky, vi lam vay se tao chu ky
+    # thu hai. Xem api.reconcile_signature_request.
+    "Manual Review": ("Queued", "Cancelled", "Approval Completed", "Signed"),
     # Manual Review -> Approval Completed is the WINNER-REPAIR edge only (R2,
     # 2026-07-12): if a losing racer stamped Manual Review between the winner's
     # engine.approve and its final write, the winner upgrades the label to the
