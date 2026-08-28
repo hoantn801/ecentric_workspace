@@ -326,6 +326,14 @@ def process_signing_request(dsr_name):
                 events.emit("HandoverTargeted", signature_request=dsr_name, package=dsr.package,
                             request_meta={"to_users": plan.get("to_users"),
                                           "erp_users": plan.get("erp_users"),
+                                          # Ai bi eContract tu choi nhan, va co hoi duoc
+                                          # khong. Thieu hai truong nay thi dsr_trace chi
+                                          # thay danh sach cuoi cung, khong thay vi sao no
+                                          # ngan di - dung khoang toi da ton hai ngay.
+                                          "dropped_not_eligible":
+                                              plan.get("dropped_not_eligible"),
+                                          "recipients_unverified":
+                                              plan.get("recipients_unverified"),
                                           "stage": stage})
                 try:
                     res = adapter.transition_with_recipients(
@@ -426,8 +434,8 @@ def process_signing_request(dsr_name):
 
 
 def poll_pending():
-    """Cron */5: reconcile every non-terminal in-flight DSR. Bounded by
-    max_poll_attempts (per settings) -> Manual Review."""
+    """Cron */1 (doi tu */5 ngay 27/08): doi soat moi chan ky con dang bay. Chan tren la
+    max_poll_attempts trong settings -> Manual Review."""
     if _disabled():
         return
     rows = frappe.get_all(DSR, filters={"status": ["in", ["Queued", "Provider Accepted",

@@ -349,6 +349,41 @@ class SctsAdapter(SignatureProviderAdapter):
             })
         return out
 
+    def eligible_recipients(self, instance_id, transition_id, provider_user_id):
+        """ID cua nhung nguoi eContract CHAP NHAN cho buoc nay. None = khong hoi duoc.
+
+        Phan biet ro "hoi duoc va danh sach RONG" (-> set()) voi "khong hoi duoc" (-> None).
+        Hai cai do dan toi hai quyet dinh khac han o tang tren: mot cai la bang chung, cai
+        kia la thieu thong tin.
+        """
+        try:
+            raw = self._with_auth(lambda t: self._client.users_for_transition(
+                instance_id, transition_id, provider_user_id, t))
+        except Exception:
+            return None
+        rows = raw
+        if isinstance(raw, dict):
+            for key in ("data", "items", "users", "result"):
+                v = raw.get(key)
+                if isinstance(v, list):
+                    rows = v
+                    break
+                if isinstance(v, dict) and isinstance(v.get("data"), list):
+                    rows = v["data"]
+                    break
+        if not isinstance(rows, list):
+            return None
+        out = set()
+        for r in rows:
+            if isinstance(r, dict):
+                for key in ("id", "userId", "userID", "guid"):
+                    if r.get(key):
+                        out.add(str(r[key]))
+                        break
+            elif r:
+                out.add(str(r))
+        return out
+
     def get_document_status(self, provider_document_id):
         """Normalized document status (alias surface required by S2B-A §4)."""
         return self.poll_status(provider_document_id)
