@@ -92,6 +92,26 @@ async function main() {
   await tick();
   check("locked -> 'Gói đã khoá'", r.els["ecReqStatus"].textContent === "Gói đã khoá");
   check("locked -> no buttons", r.els["ecReqPrepare"].style.display === "none" && r.els["ecReqLock"].style.display === "none");
+  check("locked -> nut Trinh ky hien ra", r.els["ecReqSign"].style.display === "inline-block");
+
+  // DANG CHO nha cung cap xac nhan. Truoc day panel TU AN o day: dieu kien hien chi nhan
+  // Pending/Failed/Reconciliation Required, ma bam "Trinh ky" xong trang thai la Processing.
+  // Panel bien mat dung luc nguoi dung can nhin nhat - Hoan bao 28/08 "bam xong 3-4 phut
+  // khong thay gi".
+  r = run(Object.assign({}, VIS, { pending_requester_signature: false,
+                                   requester_signature_processing: true,
+                                   package_present: true, package_locked: true }));
+  await tick();
+  check("dang xu ly -> panel VAN hien", r.els["ec-req-sign"].style.display === "block");
+  check("dang xu ly -> bao dang cho nha cung cap",
+        r.els["ecReqStatus"].textContent.indexOf("Đang chờ nhà cung cấp") === 0);
+  check("dang xu ly -> khong con nut nao de bam",
+        r.els["ecReqPrepare"].style.display === "none"
+        && r.els["ecReqLock"].style.display === "none"
+        && r.els["ecReqSign"].style.display === "none");
+  // msg() ghi vao innerHTML, khong phai textContent
+  check("dang xu ly -> co huong dan, khong de trong",
+        (r.els["ecReqMsg"].innerHTML || "").indexOf("cập nhật") > 0);
 
   // missing package
   r = run(Object.assign({}, VIS, {}));

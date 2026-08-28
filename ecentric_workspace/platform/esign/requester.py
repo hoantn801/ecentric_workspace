@@ -69,6 +69,11 @@ def requester_signing_readiness(business_doctype, business_name):
         pname and guard.requester_signature_required(business_doctype, req.approval_type))
     checks["is_requester"] = frappe.session.user == req.requested_by
     checks["pending_requester_signature"] = req.requester_signature_status in _START_STATES
+    # Dang cho nha cung cap xac nhan. Phai bao ra rieng: panel truoc day chi hien khi trang
+    # thai nam trong _START_STATES, nen ngay sau khi bam "Trinh ky" (-> Processing) no TU AN,
+    # mang theo ca nhan "dang cho" - dung luc nguoi dung can nhin nhat. Hoan bao 28/08: bam
+    # xong 3-4 phut khong thay gi.
+    checks["requester_signature_processing"] = req.requester_signature_status == "Processing"
     mapping = perms.verified_mapping(req.requested_by, prof.environment) if prof else None
     checks["verified_mapping"] = bool(mapping)
     checks["provider_uat"] = bool(prof and prof.environment == "UAT")

@@ -110,8 +110,12 @@
         var m = r.message || {}, c = m.checks || {};
         // VISIBILITY (governed): requester + requester stage + policy ONLY. Never coupled to
         // ready / gates_enabled / package / placement state.
-        var visible = b(c, "is_requester") && b(c, "pending_requester_signature")
-          && b(c, "requester_signature_required");
+        // Van hien khi DANG CHO nha cung cap xac nhan. Ban truoc chi nhan trang thai
+        // Pending/Failed/Reconciliation Required, nen ngay sau khi bam "Trinh ky" (-> Processing)
+        // panel TU AN, mang theo ca nhan "dang cho" - dung luc nguoi dung can nhin nhat.
+        var processing = b(c, "requester_signature_processing");
+        var visible = b(c, "is_requester") && b(c, "requester_signature_required")
+          && (b(c, "pending_requester_signature") || processing);
         // Pre-submission: tell the OWNER, clearly, that signing applies once submitted -
         // instead of showing nothing (fresh-request UX). No leak of any other request's state.
         var preSubmit = b(c, "not_submitted") && b(c, "is_owner")
@@ -128,6 +132,18 @@
         root.style.display = visible ? "block" : "none";
         if (!visible) return;
         relocate();
+
+        if (processing) {
+          elStatus.textContent = "Đang chờ nhà cung cấp xác nhận…";
+          btnPrep.style.display = "none"; btnLock.style.display = "none";
+          btnFix.style.display = "none"; btnSign.style.display = "none";
+          elGate.style.display = "none";
+          msg("Đã gửi chữ ký của bạn tới nhà cung cấp. Việc này thường mất 1–3 phút. "
+              + "Màn hình tự cập nhật, không cần tải lại trang.");
+          startWait();
+          return;
+        }
+        stopWait();
 
         var invalid = b(c, "package_invalid");
         var locked = b(c, "package_locked");
@@ -240,11 +256,8 @@
           message: m.duplicate ? "Yêu cầu ký đã tồn tại — đang chờ nhà cung cấp xác nhận."
                                : "Đã gửi yêu cầu ký. Chữ ký sẽ được xác nhận trong ít phút.",
           indicator: "green" });
-        elStatus.textContent = "Đang chờ nhà cung cấp xác nhận…";
-        btnSign.style.display = "none";
-        msg("Đã gửi chữ ký của bạn tới nhà cung cấp. Việc này thường mất 1–3 phút. "
-            + "Màn hình tự cập nhật, không cần tải lại trang.");
-        startWait();
+        // Khong tu ve trang thai o day: refresh() doc lai tu server va nhanh `processing`
+        // se lo phan hien thi. Ve tay o hai cho la hai nguon su that.
         refresh();
       })
       .catch(function (e) {
