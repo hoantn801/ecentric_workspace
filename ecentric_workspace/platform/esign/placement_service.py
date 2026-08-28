@@ -107,8 +107,19 @@ def placement_state(business_doctype, business_name, document_ref):
         "supporting_document": (dsf is not None and not requires_signature),
         "slot_key_version": plan.get("slot_key_version"),
         "signer_plan_resolved": plan.get("resolved"),
+        # `level_ref` MUST travel with every slot.
+        #
+        # The drawer draws a real signature into a box by comparing the box's `level_ref`
+        # against the `level_ref` the overlay endpoint reports for each signature. This
+        # projection used to drop the field, so in the browser `sl.level_ref` was
+        # `undefined`, every approval_level comparison was false, and only the requester
+        # slot (matched on `kind` alone) ever rendered. Both endpoints were individually
+        # correct; the field was lost in transit between them. 29/08: diagnosed against
+        # `signer_plan` -- which DOES carry level_ref -- and wrongly declared the data
+        # matching, because that is not the endpoint the screen reads.
         "required_slots": [{"slot_key": s["slot_key"], "label": labels[s["slot_key"]],
                             "kind": s.get("kind"), "approval_mode": s.get("approval_mode"),
+                            "level_ref": s.get("level_ref"),
                             "candidates": s.get("candidates", [])} for s in required],
         "placements": rows,
         "covered_slot_count": len(covered),
