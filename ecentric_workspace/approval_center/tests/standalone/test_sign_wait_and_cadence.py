@@ -87,7 +87,10 @@ class TestWaitingState(unittest.TestCase):
                       "khong don timer = nhieu vong lap chay chong len nhau")
 
     def test_it_stops_when_the_user_leaves_the_record(self):
-        block = re.search(r"SIGNWAIT\.timer = setInterval\(function\(\)\{(.*?)\}, 10000\)",
+        # Nhip do doi tu 10s -> 5s ngay 28/08 (chu ky that len sau 20-40 giay; 10 giay la
+        # qua thua cho mot man hinh dang cho). Khong ghim con so vao phep kiem nay nua -
+        # phep kiem thuoc ve "roi trang thi phai dung", khong phai ve nhip.
+        block = re.search(r"SIGNWAIT\.timer = setInterval\(function\(\)\{(.*?)\}, \d+\)",
                           self.page, re.S)
         self.assertIsNotNone(block)
         self.assertIn("stopSignWait()", block.group(1),
