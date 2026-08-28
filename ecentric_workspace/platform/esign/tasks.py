@@ -7,6 +7,8 @@ error => disabled; alerts precedent). POLL-FIRST rule: an uncertain previous att
 never blindly retried - the worker polls provider state and only submits when the
 expected signer is provably unsigned.
 """
+import time
+
 import frappe
 from frappe.utils import add_to_date, now_datetime
 
@@ -382,6 +384,15 @@ def process_signing_request(dsr_name):
         if dsr.status == "Provider Accepted":
             events.set_dsr_status(dsr_name, "Verifying", event_type="PollTick",
                                   verification_result=vr.reason)
+            # Lan poll ngay lap tuc o tren gan nhu luon truot: no chay khoang mot giay sau
+            # khi nha cung cap NHAN lenh, con chu ky thuong xuat hien sau 20-40 giay. Sau do
+            # thi khong con ai hoi lai cho toi vong cron - va nguoi vua bam "Duyet & Ky"
+            # ngoi nhin man hinh khong doi gi trong nhieu phut. Bao cao 28/08: "phai 2-5 phut
+            # sau no moi bao da xu ly. Delay nhu nay kha khong tot cho UI UX".
+            #
+            # Nen bam mot cong viec doi soat NHANH ngay sau day. No CHI DOC va xac minh,
+            # khong bao gio gui lenh ky - nen chay them vai lan la vo hai.
+            _enqueue_fast_verify(dsr_name)
         elif dsr.status == "Verifying":
             # EVERY poll must leave a trace, not just the first one. Previously only the
             # Provider Accepted -> Verifying transition emitted PollTick, so a leg that kept
@@ -469,6 +480,49 @@ def poll_pending():
             process_signing_request(r.name)
         except Exception:
             frappe.log_error(frappe.get_traceback(), "esign.tasks.poll_pending %s" % r.name)
+
+
+#: Doi soat nhanh ngay sau khi nha cung cap nhan lenh. Cac moc do bang giay ke tu luc bam.
+#: Chu ky that do duoc tren he nay xuat hien sau 20-40 giay; cron moi phut cong voi do tre
+#: hang doi day con so nguoi dung cam nhan len 2-5 phut.
+FAST_VERIFY_DELAYS = (8, 12, 15, 20, 25)
+#: Cac trang thai con dang bay - ra khoi tap nay thi dung ngay, khong doi tiep.
+_FAST_VERIFY_LIVE = ("Provider Accepted", "Verifying")
+
+
+def _enqueue_fast_verify(dsr_name):
+    """Bam mot vong doi soat ngan, chay nen. Nuot moi loi: day la tang tang toc, khong
+    phai duong bao dam - vong cron van la luoi an toan."""
+    try:
+        frappe.enqueue("ecentric_workspace.platform.esign.tasks.fast_verify",
+                       queue="short", timeout=180, dsr_name=dsr_name,
+                       job_name="esign_fastverify_%s" % dsr_name,
+                       enqueue_after_commit=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign.tasks._enqueue_fast_verify")
+
+
+def fast_verify(dsr_name):
+    """Hoi nha cung cap vai lan trong khoang 80 giay dau, roi nhuong lai cho vong cron.
+
+    CHI DOC + xac minh. Khong gui lenh ky, khong retry lenh ky - mot lenh ky khong
+    idempotent thi khong bao gio duoc phat lai tu dong. Cai nay chi rut ngan khoang thoi
+    gian nguoi dung ngoi nhin man hinh khong doi gi.
+    """
+    if _disabled():
+        return
+    for wait in FAST_VERIFY_DELAYS:
+        time.sleep(wait)
+        status = frappe.db.get_value(DSR, dsr_name, "status")
+        if status not in _FAST_VERIFY_LIVE:
+            return                      # da xong (hoac da hong) - khong hoi nua
+        try:
+            process_signing_request(dsr_name)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "esign.tasks.fast_verify %s" % dsr_name)
+            return
+        if frappe.db.get_value(DSR, dsr_name, "status") not in _FAST_VERIFY_LIVE:
+            return
 
 
 #: A leg the provider accepted normally produces a signature within SECONDS - measured on

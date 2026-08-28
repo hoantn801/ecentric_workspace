@@ -583,6 +583,14 @@
 
   // ---- action panel + modal (namespaced, delegated) ----
   function actionPanelHTML(det){ var cap=det.capabilities||{}; var ap=det.approval||{}; var btns=[];
+    // Dang cho nha cung cap xac nhan chu ky: KHONG hien nut nao. Truoc day thanh tien trinh
+    // doi trang thai nhung khu "Hanh dong" van nguyen nut "Duyet & Ky" - nen no doc ra la
+    // "chua an gi, bam lai di", trong khi lenh da di roi. Bam lai lan hai la ky lan hai.
+    // Hoan bao 28/08: "bam duyet va ky roi nhung no van con nut nay".
+    if (signWaitActive(det)) {
+      return '<div class="hint">Đã gửi chữ ký tới nhà cung cấp. Việc này thường mất '
+        + '20–60 giây. Màn hình tự cập nhật, không cần tải lại trang.</div>';
+    }
     if(cap.can_submit){ return '<div class="actions"><button type="button" class="btn primary" data-act="submitdraft">Gửi yêu cầu</button><button type="button" class="btn" data-act="editdraft">Tiếp tục chỉnh sửa</button><button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button></div><div class="hint" style="margin-top:8px">Yêu cầu đang ở trạng thái nháp — chưa gửi phê duyệt.</div>'; }
     if(cap.can_edit&&ap.approval_status==="Information Required") btns.push('<button type="button" class="btn primary" data-act="edit">Chỉnh sửa & gửi lại</button>');
     else if(cap.can_edit) btns.push('<button type="button" class="btn" data-act="edit">Chỉnh sửa</button>');
@@ -629,7 +637,10 @@
   var SIGNWAIT = { name: null, level: null, timer: null, until: 0 };
 
   function signWaitActive(det){
-    if (!SIGNWAIT.name || !det) return false;
+    // actionPanelHTML goi ham nay va duoc dinh nghia TRUOC no trong file. Khai bao ham thi
+    // duoc hoist, nhung `var SIGNWAIT` thi chi hoist TEN - gia tri gan sau. Neu co ai do
+    // render som hon thi `.name` se nem loi va giet ca khu hanh dong.
+    if (!SIGNWAIT || !SIGNWAIT.name || !det) return false;
     if (String(det.name || (det.business||{}).name || state.id) !== String(SIGNWAIT.name)) return false;
     var ap = det.approval || {};
     if (Date.now() > SIGNWAIT.until) return false;              // het gio cho -> thoi bao dang cho
@@ -649,7 +660,7 @@
       if (Date.now() > SIGNWAIT.until) { stopSignWait(); refreshDetail(); return; }
       if (state.tab !== "detail" || String(state.id) !== String(name)) { stopSignWait(); return; }
       refreshDetail();
-    }, 10000);
+    }, 5000);
   }
 
   function refreshDetail(){ if(state.tab==="detail"&&state.id) renderDetail($("payr-body")); }
@@ -708,7 +719,7 @@
     call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(){ var bd=$("payr-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.PaymentRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate, doApproveAndSign:doApproveAndSign, loadSignReady:loadSignReady, callEsign:callEsign, handleHPRChange:handleHPRChange, handleSrcTypeChange:handleSrcTypeChange, handleSrcPick:handleSrcPick, promoteLegacySource:promoteLegacySource, fmtVnd:fmtVnd };
+  window.PaymentRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate, doApproveAndSign:doApproveAndSign, loadSignReady:loadSignReady, callEsign:callEsign, handleHPRChange:handleHPRChange, handleSrcTypeChange:handleSrcTypeChange, handleSrcPick:handleSrcPick, promoteLegacySource:promoteLegacySource, fmtVnd:fmtVnd, startSignWait:startSignWait, stopSignWait:stopSignWait, signWaitActive:signWaitActive };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>

@@ -40,9 +40,16 @@ const doc = { getElementById: (id) => els[id] || (els[id] = mkEl(id)),
   addEventListener(){}, body: mkEl("body"), head: mkEl("head") };
 
 const calls = [];
+// GHI LAI nhip lap thay vi nuot: startSignWait dat mot dong ho tu hoi lai, va nhip do la
+// thu nguoi dung cam nhan duoc. Mot stub tra ve undefined am tham se giau mat ca viec
+// dong ho khong duoc dat lan viec no dat sai nhip.
+const timers = [];
+const timersAll = [];   // lich su KHONG bi clearInterval xoa - de con doi chieu nhip
 const win = { location: { pathname: "/approvals/payment-request", search: "" },
   addEventListener(){}, matchMedia: () => ({ matches: false, addEventListener(){} }),
-  requestAnimationFrame: (f) => f(), setTimeout, clearTimeout, console };
+  requestAnimationFrame: (f) => f(), setTimeout, clearTimeout, console,
+  setInterval: (fn, ms) => { timers.push(ms); timersAll.push(ms); return timers.length; },
+  clearInterval: (id) => { if (id) timers[id - 1] = null; } };
 win.frappe = { csrf_token: "x", call: (o) => {
   calls.push({ method: o.method, args: o.args, type: o.type });
   if (String(o.method).endsWith("get_bootstrap")) {
@@ -59,6 +66,7 @@ win.frappe = { csrf_token: "x", call: (o) => {
 let SIGNING_READINESS = { ready: false, checks: { level_requires_signature: true } };
 
 const sandbox = { window: win, document: doc, console, setTimeout, clearTimeout,
+  setInterval: win.setInterval, clearInterval: win.clearInterval,
   frappe: win.frappe, fetch: () => Promise.resolve({ ok: true, json: () => Promise.resolve({}) }),
   navigator: { userAgent: "node" } };
 sandbox.globalThis = sandbox;
@@ -105,6 +113,39 @@ const DET = { capabilities: { can_approve: true, can_reject: true, can_request_i
   // --- không phải người duyệt: không có nút nào -------------------------------
   html = PR.actionPanelHTML({ capabilities: {}, approval: {}, business: {} });
   ok(!html.includes('data-act="approvesign"'), "không phải người duyệt thì không có nút ký");
+
+  // --- ĐANG CHỜ nhà cung cấp: KHÔNG được còn nút nào ------------------------
+  // 28/08: "bấm duyệt và ký rồi nhưng nó vẫn còn nút này". Thanh tiến trình đã đổi trạng
+  // thái nhưng khu Hành động vẫn nguyên nút — đọc ra là "chưa ăn gì, bấm lại đi", trong
+  // khi lệnh đã đi. Bấm lần hai là ký lần hai.
+  st._signReady = { checks: { level_requires_signature: true } };
+  st.tab = "detail"; st.id = "EC-PAYR-2026-00038";
+  const WAITDET = { capabilities: { can_approve: true, can_reject: true, can_cancel: true },
+                    approval: { current_level: 2, approval_status: "Pending" },
+                    business: { name: "EC-PAYR-2026-00038" }, name: "EC-PAYR-2026-00038" };
+  html = PR.actionPanelHTML(WAITDET);
+  ok(html.includes('data-act="approvesign"'), "trước khi bấm: vẫn có nút Duyệt & Ký");
+
+  PR.startSignWait("EC-PAYR-2026-00038", 2);
+  html = PR.actionPanelHTML(WAITDET);
+  ok(!html.includes("data-act="), "đang chờ -> KHÔNG còn nút nào");
+  ok(/nhà cung cấp/.test(html), "đang chờ -> nói rõ đang chờ ai");
+  ok(!/vài phút|ít phút/.test(html), "không hứa 'vài phút' nữa — nay chỉ 20–60 giây");
+
+  // cấp đã nhúc nhích -> thôi báo đang chờ, trả nút về
+  html = PR.actionPanelHTML(Object.assign({}, WAITDET,
+        { approval: { current_level: 3, approval_status: "Pending" } }));
+  ok(html.includes('data-act="approvesign"'), "cấp đã sang bước sau -> hết trạng thái chờ");
+
+  // chứng từ KHÁC không được ăn theo trạng thái chờ của chứng từ này
+  html = PR.actionPanelHTML(Object.assign({}, WAITDET,
+        { name: "EC-PAYR-2026-00039", business: { name: "EC-PAYR-2026-00039" } }));
+  ok(html.includes('data-act="approvesign"'), "chứng từ khác -> không bị ẩn nút oan");
+  PR.stopSignWait();
+  html = PR.actionPanelHTML(WAITDET);
+  ok(html.includes('data-act="approvesign"'), "dừng chờ -> nút quay lại");
+  ok(timersAll.some(t => t && t <= 6000),
+     "tự hỏi lại ít nhất mỗi 6 giây (chữ ký thật lên sau 20-40s; 10s là quá thưa)");
 
   // --- loadSignReady gọi ĐÚNG endpoint, và chỉ gọi một lần cho mỗi bản ghi ----
   calls.length = 0;
