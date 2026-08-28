@@ -26,6 +26,10 @@
   <button id="ecReqPrepare" class="btn btn-sm btn-primary">Chuẩn bị gói ký</button>
   <button id="ecReqLock" class="btn btn-sm ec-sub" style="display:none">Khoá gói ký</button>
   <button id="ecReqFix" class="btn btn-sm ec-sub" style="display:none">Khôi phục gói</button>
+  <!-- "Trình ký" GOI requester_submit_and_sign. Endpoint nay da co va chay duoc tu 23/08,
+       nhung khong mot man hinh nao goi no: ca hai lan chay thu (27 va 28/08) deu phai goi
+       API bang tay. Chuan bi va khoa gia xong ma khong gui di duoc thi luong dung tai day. -->
+  <button id="ecReqSign" class="btn btn-sm btn-primary ec-sub" style="display:none">Trình ký</button>
 </div>
 <script id="ec-req-sign-script">
 (function () {
@@ -43,6 +47,7 @@
   var btnPrep = document.getElementById("ecReqPrepare");
   var btnLock = document.getElementById("ecReqLock");
   var btnFix = document.getElementById("ecReqFix");
+  var btnSign = document.getElementById("ecReqSign");
   function relocate() {
     // mount the panel INSIDE the Payment Request content column (never body/grid-root
     // level, which overlaps the left navigation).
@@ -113,11 +118,11 @@
         var present = b(c, "package_present");
 
         // status + primary action per local package state (gate-independent).
-        var status, prepText, prepShow, lockShow, fixShow = false;
+        var status, prepText, prepShow, lockShow, fixShow = false, signShow = false;
         if (invalid) {
           status = "Gói lỗi (0 vị trí ký)"; prepShow = false; lockShow = false; fixShow = true;
         } else if (locked) {
-          status = "Gói đã khoá"; prepShow = false; lockShow = false;
+          status = "Gói đã khoá"; prepShow = false; lockShow = false; signShow = true;
         } else if (readyToLock) {
           status = "Sẵn sàng khoá"; prepText = "Chỉnh vị trí ký"; prepShow = true; lockShow = true;
         } else if (present) {
@@ -130,6 +135,7 @@
         btnPrep.style.display = prepShow ? "inline-block" : "none";
         btnLock.style.display = lockShow ? "inline-block" : "none";
         btnFix.style.display = fixShow ? "inline-block" : "none";
+        btnSign.style.display = signShow ? "inline-block" : "none";
 
         // Closed provider gates: INFORMATION ONLY - must not hide the local actions above.
         if (!b(c, "gates_enabled")) {
@@ -144,7 +150,7 @@
           msg("Gói ký đang lỗi (đã khoá nhưng chưa có vị trí ký). Nhấn 'Khôi phục gói' để tạo "
             + "lại gói mới rồi đặt vị trí ký.", true);
         } else if (locked) {
-          msg("Đã khoá gói ký. Chờ quản trị bật cổng ký để gửi ký thật.");
+          msg("Đã khoá gói ký. Bấm \"Trình ký\" để gửi chữ ký của bạn tới nhà cung cấp.");
         } else if (!b(c, "verified_mapping")) {
           msg("Người đề nghị chưa có ánh xạ chữ ký đã xác minh.", true);
         } else {
@@ -198,6 +204,28 @@
         refresh();
       })
       .catch(function () { msg("Khoá gói ký thất bại (cần ít nhất một vị trí ký hợp lệ).", true); });
+  };
+
+  // "Trinh ky": gui chu ky cua nguoi de nghi toi nha cung cap. Endpoint tra ve "da xep hang"
+  // chu khong phai "da ky" - nha cung cap xu ly bat dong bo - nen thong bao phai noi dung su
+  // that, khong hua hen qua.
+  btnSign.onclick = function () {
+    var name = pr();
+    if (!name || !callReady()) return;
+    window.frappe.call({ method: "ecentric_workspace.platform.esign.api.requester_submit_and_sign",
+      type: "POST", args: { payment_request_name: name }, freeze: true,
+      freeze_message: "Đang gửi yêu cầu ký…" })
+      .then(function (r) {
+        var m = (r && r.message) || {};
+        frappe.show_alert({
+          message: m.duplicate ? "Yêu cầu ký đã tồn tại — đang chờ nhà cung cấp xác nhận."
+                               : "Đã gửi yêu cầu ký. Chữ ký sẽ được xác nhận trong ít phút.",
+          indicator: "green" });
+        refresh();
+      })
+      .catch(function (e) {
+        msg("Không gửi được yêu cầu ký: " + ((e && e.message) || "lỗi không rõ"), true);
+      });
   };
 
   // Recovery: cancel an INVALID locked package (governed, requester/SM) so a fresh Draft can

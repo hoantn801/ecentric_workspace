@@ -36,21 +36,12 @@ def _esign_panel():
         return ""
 
 
-def _esign_editor_panel():
-    """The bundled PDF placement editor, appended once. coords.js is loaded LOCALLY (served
-    from /assets/ecentric_workspace/) BEFORE the editor so window.ECoords exists; PDF.js is
-    loaded locally by the editor itself. Returns '' if the source is missing so a sync never
-    fails on its absence. EC_PPH_CONFIG is resolved by the editor from the backend."""
-    try:
-        with open(os.path.join(_PLATFORM_ESIGN_UI, "pdf_placement_editor.html"),
-                  encoding="utf-8") as fh:
-            editor = fh.read()
-    except OSError:
-        return ""
-    coords = ('<script id="ec-pph-coords" '
-              'src="/assets/ecentric_workspace/esign/coords.js"></script>')
-    return coords + "\n" + editor
 
+# _esign_editor_panel() da bi XOA (2026-08-28): trinh dat vi tri cu (pdf_placement_editor)
+# duoc drawer thay the han, va CSS cua drawer da tat #ec-pph-editor vinh vien. Ham dung HTML
+# cho no van nam lai o day, khong ai goi - code chet ma trong nhu con song la dung thu da lam
+# panel cua NGUOI DE NGHI bi bo quen suot may ngay, vi mot chu thich noi "da duoc thay the"
+# trong khi khong co gi thay the ca.
 
 def _esign_requester_panel():
     """The requester pre-approval Prepare/Lock entry point, appended once. Visibility + status
@@ -89,7 +80,14 @@ def _html():
     # SCTS block, while an actual approver still gets it. The requester raw panel + inline
     # editor are replaced by the unified section (+ drawer shell); Phase C re-introduces a
     # governed editor inside the drawer.
+    # Panel cua NGUOI DE NGHI phai co mat. No tung bi bo ra voi ly do "da duoc thay bang khu
+    # hop nhat", nhung khu hop nhat KHONG he co nut Chuan bi goi / Khoa goi / Trinh ky - nen
+    # tu do den nay khong ai chuan bi hay khoa goi qua giao dien duoc. Ca hai lan chay thu
+    # (27 va 28/08) deu phai goi API bang tay, va lan nao Hoan cung hoi "khong thay nut dau".
+    # Panel tu an mac dinh va chi hien theo readiness tinh o server, nen dua lai vao khong lam
+    # lo mot khoi SCTS tho nao cho nguoi khong phai nguoi de nghi.
     return (main + "\n"
+            + _esign_requester_panel() + "\n"
             + '<div id="ec-approver-wrap" style="display:none">\n'
             + _esign_panel()
             + '\n</div>\n'
