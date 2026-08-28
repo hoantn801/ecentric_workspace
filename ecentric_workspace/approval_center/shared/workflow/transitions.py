@@ -162,6 +162,7 @@ def resolve_department_manager_user(dept):
     return None
 
 
+
 def resolve_participants(participants, requester, context=None):
     """Expand EC Approval Participant rows to a de-duplicated ordered list of
     (user, source_label). No hardcoded identities; fail-closed on unresolved."""
@@ -202,6 +203,17 @@ def resolve_participants(participants, requester, context=None):
                 dept = (_emp_user(requester) or {}).get("department")
             # Ordered resolution: department_head -> manager_email (active System User only).
             _add(resolve_department_manager_user(dept), "Department Manager")
+            # Khong tra ra ai -> lay nguoi ma NGUOI DE NGHI DA CHON, doc tu mot truong tren
+            # chinh phieu (cau hinh o `reference_field` cua dong nay). Khong chon thi khong
+            # co ai, va build_snapshot chan viec gui - dung nhu Hoan chot 28/08: "cho chon 1
+            # trong nhung truong phong thoi", "con khong thi chan duyet roi doi gan truong
+            # phong".
+            #
+            # KHONG mo cho ca nhom. Phuong an do da can nhac va bi bac: no bien Cap 1 thanh
+            # "bat ky truong phong nao cung duyet duoc cho bat ky phong nao".
+            if len(out) == before and p.get("reference_field"):
+                _add(_ref_field_value(context, p.get("reference_field")),
+                     "Chosen Department Head")
         elif st == "Reference Department Head":
             # Generic, config-driven: resolve the Department named in a field of the business
             # record (context) via resolve_department_manager_user (department_head first, then
@@ -785,6 +797,9 @@ def _no_approver_message(lvl, requester):
     dept = dept or emp.get("department")
     hints = []
     if "Department Manager" in src:
+        # Duong duoc chot 28/08: khong tra ra truong phong thi CHAN viec gui, va noi ro
+        # phai lam gi - hoac chon nguoi duyet Cap 1 ngay tren phieu, hoac de HR gan truong
+        # phong cho phong do. Khong tu mo cho ca nhom truong phong.
         if dept:
             hints.append(_("department '{0}' has no valid manager (Department.manager_email must "
                            "be an active user)").format(dept))
