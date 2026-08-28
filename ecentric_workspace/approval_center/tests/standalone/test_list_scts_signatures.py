@@ -104,9 +104,22 @@ class TestSignatureOverlayStaysNarrow(unittest.TestCase):
         self.body = _body(_api_source(), "document_signature_overlay")
 
     def test_only_for_people_who_actually_signed_this_document(self):
-        self.assertIn('!= "signed"', self.body,
-                      "phai bo qua nguoi CHUA ky - neu khong day thanh cong cu tra anh chu ky bat ky ai")
-        self.assertIn("continue", self.body)
+        self.assertIn('== "signed"', self.body,
+                      "chi lay dong nha cung cap bao DA KY")
+        self.assertIn("signed_emails", self.body)
+
+    def test_attribution_comes_from_our_own_completed_legs(self):
+        """Gan chu ky theo CHAN KY, khong theo email trong danh sach ung vien.
+
+        28/08: ban khop email da ve chu ky vao o "Direct Manager Review" chi vi cung mot
+        nguoi da ky voi vai NGUOI TRINH va tinh co la ung vien cua cap do. Nha cung cap co
+        MOT chu ky; man hinh hien HAI.
+        """
+        self.assertIn('"status": "Approval Completed"', self.body)
+        self.assertIn('"level_ref": leg.get("request_level")', self.body)
+        self.assertIn('"kind"', self.body)
+        self.assertNotIn("candidates", self.body,
+                         "khong duoc suy tu danh sach ung vien cua o ky")
 
     def test_requires_business_view_permission(self):
         self.assertIn('_business_args("EC Payment Request"', self.body,
@@ -126,7 +139,7 @@ class TestSignatureOverlayStaysNarrow(unittest.TestCase):
     def test_a_missing_image_never_hides_the_fact_of_signing(self):
         self.assertIn("except Exception:", self.body)
         idx = self.body.index("except Exception:")
-        self.assertIn("out.append(row)", self.body[idx:],
+        self.assertIn("out.append(", self.body[idx:],
                       "loi lay anh khong duoc lam mat dong 'nguoi nay da ky'")
 
     def test_does_not_write_anything(self):
