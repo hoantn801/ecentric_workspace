@@ -249,6 +249,44 @@ def _guarded_dsr_transition(dsr_name, from_status, to_status, extra=None,
     return changed
 
 
+def reconcile_manual_review(dsr_name):
+    """Re-verify a leg parked in Manual Review against the provider's CURRENT state.
+
+    Reads only. If the signature the leg was waiting for is now really there - the signer
+    went to the provider's own portal and signed by hand - the leg is marked Signed and the
+    normal governed completion runs. If it is not there, nothing changes and the reason is
+    returned.
+
+    This never calls a signing endpoint. Re-sending a non-idempotent signing command to
+    "unstick" a leg is how you end up with two signatures on one document.
+    """
+    dsr = frappe.db.get_value(DSR, dsr_name, "*", as_dict=True)
+    if not dsr:
+        frappe.throw(_("Không tìm thấy yêu cầu ký."))
+    if dsr.status != "Manual Review":
+        return {"ok": False, "reason": "not_in_manual_review:%s" % dsr.status}
+    settings = _settings_for(dsr)      # nem to khi thieu cau hinh - khong im lang
+    doc_id = frappe.db.get_value("EC Digital Signature Package", dsr.package, "scts_document_id")
+    if not doc_id:
+        return {"ok": False, "reason": "no_provider_document"}
+
+    from ecentric_workspace.platform.esign.providers import get_adapter
+    from ecentric_workspace.platform.esign.providers.base import SignatureProviderAdapter
+    adapter = get_adapter(settings)
+    doc_state = adapter.poll_status(doc_id)
+    vr = SignatureProviderAdapter.verify_signed_result(doc_state, _expected_for(dsr))
+    events.emit("PollTick", signature_request=dsr_name, package=dsr.package,
+                verification_result=vr.reason,
+                request_meta={"source": "manual_reconcile"})
+    if not vr.ok:
+        return {"ok": False, "reason": vr.reason}
+    events.set_dsr_status(dsr_name, "Signed", event_type="Verified",
+                          verification_result=vr.reason)
+    verify_and_complete(dsr_name)
+    return {"ok": True, "reason": vr.reason,
+            "status": frappe.db.get_value(DSR, dsr_name, "status")}
+
+
 def verify_and_complete(dsr_name):
     """The governed completion path. Requires DSR already 'Signed' (verified). Sets the
     in-process call marker, then lets the ENGINE complete the level; the engine-side
