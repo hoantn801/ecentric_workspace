@@ -196,12 +196,40 @@ def _mapped_signature_type(dsr, environment):
     return m.get("signature_type")
 
 
+def targeted_handover_enabled():
+    """OFF by default since 2026-08-28, and this is deliberate.
+
+    The targeted path is the correct design - it names WHO acts next instead of letting the
+    provider notify a whole role pool. But on the one occasion eContract ACCEPTED our
+    transition (HTTP 2xx, EC-PAYR-2026-00032), the document was left in a state nobody could
+    move: status "Cho gui di", no workflow row, no signature, and the portal showed no
+    "Xu ly" button for the very person the step was addressed to. The task appears to be
+    consumed without the workflow advancing.
+
+    Meanwhile the fallback path signs: the same leg on EC-PAYR-2026-00029 completed in about
+    two and a half minutes after the transition failed and we fell back.
+
+    So a design that is right in principle is currently destroying documents, and the one
+    that is cruder works. Until we know what the provider needs that we are not sending,
+    correctness on paper does not outrank a payment request that can still be signed.
+
+    Turn back on with `bench set-config ec_esign_targeted_handover 1` once a live run proves
+    the document keeps moving.
+    """
+    try:
+        return bool(int(frappe.conf.get("ec_esign_targeted_handover") or 0))
+    except Exception:
+        return False
+
+
 def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, instance_id=None):
     """What to send for this leg: {mode, ...}.
 
     mode == "transition" -> name the next handler explicitly (the governed path).
     mode == "pool"       -> provider decides the recipients; `reason` says why we had to.
     """
+    if not targeted_handover_enabled():
+        return {"mode": "pool", "reason": "targeted_handover_disabled"}
     cfg = None
     why = None
     discovery_note = None
