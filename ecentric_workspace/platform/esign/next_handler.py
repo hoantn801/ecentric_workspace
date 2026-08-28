@@ -197,29 +197,39 @@ def _mapped_signature_type(dsr, environment):
 
 
 def targeted_handover_enabled():
-    """OFF by default since 2026-08-28, and this is deliberate.
+    """ON by default from 2026-08-28 chieu, sau khi co capture doi chieu duoc.
 
-    The targeted path is the correct design - it names WHO acts next instead of letting the
-    provider notify a whole role pool. But on the one occasion eContract ACCEPTED our
-    transition (HTTP 2xx, EC-PAYR-2026-00032), the document was left in a state nobody could
-    move: status "Cho gui di", no workflow row, no signature, and the portal showed no
-    "Xu ly" button for the very person the step was addressed to. The task appears to be
-    consumed without the workflow advancing.
+    Sang cung ngay minh TAT duong nay: mot lan eContract nhan transition (2xx,
+    EC-PAYR-2026-00032) roi de chung tu ket - khong dong workflow, khong chu ky, khong con
+    nut "Xu ly" cho chinh nguoi duoc chi dinh. Duong pool tho hon thi ky duoc, nen duong
+    dung tren giay phai nhuong duong dang chay.
 
-    Meanwhile the fallback path signs: the same leg on EC-PAYR-2026-00029 completed in about
-    two and a half minutes after the transition failed and we fell back.
+    Chieu 28/08 Hoan chup duoc lenh "Xu ly" cua chinh portal tren dung mot chung tu do ERP
+    tao ra, va no THANH CONG:
 
-    So a design that is right in principle is currently destroying documents, and the one
-    that is cruder works. Until we know what the provider needs that we are not sending,
-    correctness on paper does not outrank a payment request that can still be signed.
+        POST /api/Workflow/transition   (Content-Length 19169)
+        { instanceId, userId, toUsers:[...], transitionId:"-2",
+          transitionName:"Trinh ky", processAction:"WfFunctionRunSignedOther",
+          signType:"ky-tham-gia", signatureInfo:{id,name,image}, comment:"" }
 
-    Turn back on with `bench set-config ec_esign_targeted_handover 1` once a live run proves
-    the document keeps moving.
+    Doi chieu tung truong voi cai minh gui: HINH DANG GIONG HET, va cau hinh bac nguoi
+    trinh (p088) trung tung chu. Khac biet duy nhat tim duoc la `signatureInfo.name`:
+    portal gui ten hien thi "Ky tham gia", minh gui ma "ky-tham-gia" vi khong co ten nao
+    khac de gui. Da sua bang cach doc ten thang tu GetSignatures thay vi suy ra.
+
+    Khong khang dinh do la nguyen nhan - khong co bang chung. Nhung mot bien so da bi loai,
+    con duong pool thi dang BAO DAM phat cho ca 7 truong bo phan, nen can can da nghieng
+    lai. Tat khan cap: `bench set-config ec_esign_targeted_handover 0`.
     """
+    v = frappe.conf.get("ec_esign_targeted_handover")
+    if v is None or v == "":
+        return True
     try:
-        return bool(int(frappe.conf.get("ec_esign_targeted_handover") or 0))
+        return bool(int(v))
     except Exception:
-        return False
+        # Cau hinh sai kieu ("yes", "on") khong duoc am tham tro ve mac dinh - noi ro roi
+        # giu duong dang chay.
+        return str(v).strip().lower() not in ("0", "false", "no", "off")
 
 
 def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, instance_id=None):
