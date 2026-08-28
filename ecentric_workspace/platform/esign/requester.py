@@ -69,6 +69,11 @@ def requester_signing_readiness(business_doctype, business_name):
         pname and guard.requester_signature_required(business_doctype, req.approval_type))
     checks["is_requester"] = frappe.session.user == req.requested_by
     checks["pending_requester_signature"] = req.requester_signature_status in _START_STATES
+    # Dang cho nha cung cap xac nhan. Phai bao ra rieng: panel truoc day chi hien khi trang
+    # thai nam trong _START_STATES, nen ngay sau khi bam "Trinh ky" (-> Processing) no TU AN,
+    # mang theo ca nhan "dang cho" - dung luc nguoi dung can nhin nhat. Hoan bao 28/08: bam
+    # xong 3-4 phut khong thay gi.
+    checks["requester_signature_processing"] = req.requester_signature_status == "Processing"
     mapping = perms.verified_mapping(req.requested_by, prof.environment) if prof else None
     checks["verified_mapping"] = bool(mapping)
     checks["provider_uat"] = bool(prof and prof.environment == "UAT")
@@ -114,6 +119,93 @@ def requester_signing_readiness(business_doctype, business_name):
     ready = all(checks.get(k) for k in required)
     return {"ready": ready, "reasons": [k for k in required if not checks.get(k)],
             "checks": checks, "current_status": req.requester_signature_status}
+
+
+#: preflight_for_lock tra ve MA MAY ("missing_placement:L2:hoa-don.pdf"). Nem thang ma do
+#: vao mat nguoi de nghi thi ho khong biet phai lam gi. Ma khong doc duoc thi giu nguyen -
+#: thieu mot dong o day khong duoc bien thanh loi im lang.
+_PREFLIGHT_VI = {
+    "no_signable_file": "chưa có tệp PDF nào cần ký (hãy đính kèm và bật 'cần chữ ký')",
+    "incomplete_upload": "có tệp chưa tải lên xong",
+    "no_package": "chưa thiết lập chữ ký cho phiếu này",
+}
+
+
+def _preflight_vi(code):
+    code = str(code)
+    head = code.split(":", 1)[0]
+    if head in _PREFLIGHT_VI:
+        return _PREFLIGHT_VI[head]
+    if head == "missing_placement":
+        bits = code.split(":")
+        lvl = bits[1] if len(bits) > 1 else "?"
+        fname = bits[2] if len(bits) > 2 else "?"
+        return "thiếu vị trí ký của cấp %s trên tệp %s" % (lvl.lstrip("L"), fname)
+    if head == "signable_not_pdf":
+        return "tệp %s không phải PDF nên không ký trực tiếp được" % code.split(":", 1)[-1]
+    if head == "missing_hash":
+        return "tệp %s chưa tính được mã kiểm tra" % code.split(":", 1)[-1]
+    return code
+
+
+def _placement_refusal(missing):
+    return _("Chưa gửi được: {0}. Hãy mở 'Thiết lập chữ ký', đặt đủ vị trí ký rồi gửi lại."
+             ).format("; ".join(_preflight_vi(m) for m in missing))
+
+
+def assert_ready_to_submit(business_doctype, business_name):
+    """Refuse the submit BEFORE anything is written, when the placements are incomplete.
+
+    sign_on_submit checks the same thing, but it runs after engine.submit() has created the
+    request and stamped `approval_request` on the business document. There is no db.commit()
+    on that path today, so a throw there does roll everything back - but the guarantee is
+    incidental. One commit added anywhere in submit or its notification pipeline would turn a
+    refusal into a document that is permanently "already submitted" and permanently unsigned:
+    Submitter refuses to submit it again, and nothing ever signs it.
+
+    Reading first costs one query and does not depend on anyone preserving that property.
+
+    Only reads. Returns nothing; raises with the missing items named.
+    """
+    pkg_name = pkgsvc.draft_package_for_business(business_doctype, business_name)
+    if not pkg_name:
+        ar = _requester_ar(business_doctype, business_name)
+        pkg_name = pkgsvc.signable_package_for_request(ar) if ar else None
+    missing = pkgsvc.preflight_for_lock(pkg_name) if pkg_name else ["no_package"]
+    if missing:
+        frappe.throw(_placement_refusal(missing))
+
+
+def sign_on_submit(business_doctype, business_name):
+    """Prepare + lock + sign, as ONE step, right after the request is submitted.
+
+    The requester used to face five separate actions for one intention: place the signature
+    boxes, send the request, prepare the package, lock the package, submit for signing. The
+    middle three are internal state-machine steps that nobody outside this module should have
+    to know exist - and on 27 and 28 August they were also unreachable, so the flow simply
+    stopped there twice with "there is no button".
+
+    Prepare and lock are local and fast; the provider call happens in the background worker
+    that requester_submit_and_sign enqueues, so submitting stays quick.
+
+    Raises when the placements are not complete: a request that goes out with an unusable
+    signing package is worse than one that refuses to go out, because the refusal is visible
+    immediately and the broken package is not.
+    """
+    ar = _requester_ar(business_doctype, business_name)
+    if not ar:
+        frappe.throw(_("Không tìm thấy yêu cầu duyệt cho phiếu này."))
+
+    prepare_requester_signing_package(business_doctype, business_name)
+
+    pkg_name = (pkgsvc.signable_package_for_request(ar)
+                or pkgsvc.draft_package_for_business(business_doctype, business_name))
+    missing = pkgsvc.preflight_for_lock(pkg_name) if pkg_name else ["no_package"]
+    if missing:
+        frappe.throw(_placement_refusal(missing))
+
+    requester_lock_signing_package(business_doctype, business_name)
+    return requester_submit_and_sign(business_doctype, business_name)
 
 
 def requester_submit_and_sign(business_doctype, business_name, comment=None):

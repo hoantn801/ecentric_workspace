@@ -29,6 +29,10 @@ MAPPINGS = {}
 
 def _install_stub():
     fr = types.ModuleType("frappe")
+    # Duong chi dinh nguoi ky tiep mac dinh TAT (xem next_handler.targeted_handover_enabled).
+    # Bo test nay kiem chinh logic do nen bat len; co mot lop rieng ben duoi khang dinh mac
+    # dinh la TAT.
+    fr.conf = {"ec_esign_targeted_handover": 1}
 
     def get_all(doctype, filters=None, fields=None, **kw):
         out = []

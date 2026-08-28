@@ -23,7 +23,9 @@
   <h4>Ký của người đề nghị <span id="ecReqStatus" class="ec-pill">-</span></h4>
   <div id="ecReqMsg" class="ec-msg"></div>
   <div id="ecReqGate" class="ec-info" style="display:none"></div>
-  <button id="ecReqPrepare" class="btn btn-sm btn-primary">Chuẩn bị gói ký</button>
+  <!-- Chuan bi goi / Khoa goi / Trinh ky da duoc gop vao "Gui yeu cau" (28/08). Giu lai phan
+       tu de cac lenh gan su kien ben duoi khong nem loi, nhung khong bao gio hien nua. -->
+  <button id="ecReqPrepare" class="btn btn-sm btn-primary" style="display:none">Chuẩn bị gói ký</button>
   <button id="ecReqLock" class="btn btn-sm ec-sub" style="display:none">Khoá gói ký</button>
   <button id="ecReqFix" class="btn btn-sm ec-sub" style="display:none">Khôi phục gói</button>
   <!-- "Trình ký" GOI requester_submit_and_sign. Endpoint nay da co va chay duoc tu 23/08,
@@ -110,8 +112,12 @@
         var m = r.message || {}, c = m.checks || {};
         // VISIBILITY (governed): requester + requester stage + policy ONLY. Never coupled to
         // ready / gates_enabled / package / placement state.
-        var visible = b(c, "is_requester") && b(c, "pending_requester_signature")
-          && b(c, "requester_signature_required");
+        // Van hien khi DANG CHO nha cung cap xac nhan. Ban truoc chi nhan trang thai
+        // Pending/Failed/Reconciliation Required, nen ngay sau khi bam "Trinh ky" (-> Processing)
+        // panel TU AN, mang theo ca nhan "dang cho" - dung luc nguoi dung can nhin nhat.
+        var processing = b(c, "requester_signature_processing");
+        var visible = b(c, "is_requester") && b(c, "requester_signature_required")
+          && (b(c, "pending_requester_signature") || processing);
         // Pre-submission: tell the OWNER, clearly, that signing applies once submitted -
         // instead of showing nothing (fresh-request UX). No leak of any other request's state.
         var preSubmit = b(c, "not_submitted") && b(c, "is_owner")
@@ -129,25 +135,38 @@
         if (!visible) return;
         relocate();
 
+        if (processing) {
+          elStatus.textContent = "Đang chờ nhà cung cấp xác nhận…";
+          btnPrep.style.display = "none"; btnLock.style.display = "none";
+          btnFix.style.display = "none"; btnSign.style.display = "none";
+          elGate.style.display = "none";
+          msg("Đã gửi chữ ký của bạn tới nhà cung cấp. Việc này thường mất 1–3 phút. "
+              + "Màn hình tự cập nhật, không cần tải lại trang.");
+          startWait();
+          return;
+        }
+        stopWait();
+
         var invalid = b(c, "package_invalid");
         var locked = b(c, "package_locked");
         var readyToLock = b(c, "placements_ready");
         var present = b(c, "package_present");
 
         // status + primary action per local package state (gate-independent).
-        var status, prepText, prepShow, lockShow, fixShow = false, signShow = false;
+        // Tu 28/08 "Gui yeu cau" lam luon chuan bi + khoa goi + ky. Nhung nut nay khong con
+        // la viec cua nguoi dung: chung la trang thai noi bo cua may. Panel gio chi BAO
+        // TRANG THAI. Ngoai le duy nhat la "Khoi phuc goi" - loi that su can nguoi can thiep.
+        var status, prepText, prepShow = false, lockShow = false, fixShow = false, signShow = false;
         if (invalid) {
-          status = "Gói lỗi (0 vị trí ký)"; prepShow = false; lockShow = false; fixShow = true;
+          status = "Gói lỗi (0 vị trí ký)"; fixShow = true;
         } else if (locked) {
-          status = "Gói đã khoá"; prepShow = false; lockShow = false; signShow = true;
+          status = "Gói đã khoá";
         } else if (readyToLock) {
-          // KHONG hien "Chinh vi tri ky" nua: khu hop nhat da co "Thiet lap chu ky" lam dung
-          // viec do. Hai nut cho cung mot viec chi lam nguoi dung phan van nen bam cai nao.
-          status = "Sẵn sàng khoá"; prepShow = false; lockShow = true;
+          status = "Sẵn sàng ký";
         } else if (present) {
-          status = "Thiếu vị trí ký"; prepText = "Đặt vị trí chữ ký"; prepShow = true; lockShow = false;
+          status = "Thiếu vị trí ký";
         } else {
-          status = "Chưa chuẩn bị gói"; prepText = "Chuẩn bị gói ký"; prepShow = true; lockShow = false;
+          status = "Chưa chuẩn bị gói";
         }
         elStatus.textContent = status;
         if (prepText) btnPrep.textContent = prepText;
@@ -169,7 +188,7 @@
           msg("Gói ký đang lỗi (đã khoá nhưng chưa có vị trí ký). Nhấn 'Khôi phục gói' để tạo "
             + "lại gói mới rồi đặt vị trí ký.", true);
         } else if (locked) {
-          msg("Đã khoá gói ký. Bấm \"Trình ký\" để gửi chữ ký của bạn tới nhà cung cấp.");
+          msg("Đã khoá gói ký và gửi chữ ký của bạn tới nhà cung cấp.");
         } else if (!b(c, "verified_mapping")) {
           msg("Người đề nghị chưa có ánh xạ chữ ký đã xác minh.", true);
         } else {
@@ -240,11 +259,8 @@
           message: m.duplicate ? "Yêu cầu ký đã tồn tại — đang chờ nhà cung cấp xác nhận."
                                : "Đã gửi yêu cầu ký. Chữ ký sẽ được xác nhận trong ít phút.",
           indicator: "green" });
-        elStatus.textContent = "Đang chờ nhà cung cấp xác nhận…";
-        btnSign.style.display = "none";
-        msg("Đã gửi chữ ký của bạn tới nhà cung cấp. Việc này thường mất 1–3 phút. "
-            + "Màn hình tự cập nhật, không cần tải lại trang.");
-        startWait();
+        // Khong tu ve trang thai o day: refresh() doc lai tu server va nhanh `processing`
+        // se lo phan hien thi. Ve tay o hai cho la hai nguon su that.
         refresh();
       })
       .catch(function (e) {

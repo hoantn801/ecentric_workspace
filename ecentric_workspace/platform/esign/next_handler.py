@@ -196,12 +196,50 @@ def _mapped_signature_type(dsr, environment):
     return m.get("signature_type")
 
 
+def targeted_handover_enabled():
+    """ON by default from 2026-08-28 chieu, sau khi co capture doi chieu duoc.
+
+    Sang cung ngay minh TAT duong nay: mot lan eContract nhan transition (2xx,
+    EC-PAYR-2026-00032) roi de chung tu ket - khong dong workflow, khong chu ky, khong con
+    nut "Xu ly" cho chinh nguoi duoc chi dinh. Duong pool tho hon thi ky duoc, nen duong
+    dung tren giay phai nhuong duong dang chay.
+
+    Chieu 28/08 Hoan chup duoc lenh "Xu ly" cua chinh portal tren dung mot chung tu do ERP
+    tao ra, va no THANH CONG:
+
+        POST /api/Workflow/transition   (Content-Length 19169)
+        { instanceId, userId, toUsers:[...], transitionId:"-2",
+          transitionName:"Trinh ky", processAction:"WfFunctionRunSignedOther",
+          signType:"ky-tham-gia", signatureInfo:{id,name,image}, comment:"" }
+
+    Doi chieu tung truong voi cai minh gui: HINH DANG GIONG HET, va cau hinh bac nguoi
+    trinh (p088) trung tung chu. Khac biet duy nhat tim duoc la `signatureInfo.name`:
+    portal gui ten hien thi "Ky tham gia", minh gui ma "ky-tham-gia" vi khong co ten nao
+    khac de gui. Da sua bang cach doc ten thang tu GetSignatures thay vi suy ra.
+
+    Khong khang dinh do la nguyen nhan - khong co bang chung. Nhung mot bien so da bi loai,
+    con duong pool thi dang BAO DAM phat cho ca 7 truong bo phan, nen can can da nghieng
+    lai. Tat khan cap: `bench set-config ec_esign_targeted_handover 0`.
+    """
+    v = frappe.conf.get("ec_esign_targeted_handover")
+    if v is None or v == "":
+        return True
+    try:
+        return bool(int(v))
+    except Exception:
+        # Cau hinh sai kieu ("yes", "on") khong duoc am tham tro ve mac dinh - noi ro roi
+        # giu duong dang chay.
+        return str(v).strip().lower() not in ("0", "false", "no", "off")
+
+
 def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, instance_id=None):
     """What to send for this leg: {mode, ...}.
 
     mode == "transition" -> name the next handler explicitly (the governed path).
     mode == "pool"       -> provider decides the recipients; `reason` says why we had to.
     """
+    if not targeted_handover_enabled():
+        return {"mode": "pool", "reason": "targeted_handover_disabled"}
     cfg = None
     why = None
     discovery_note = None

@@ -29,6 +29,7 @@ def _stub_frappe():
     if "frappe" in sys.modules:
         return
     fr = types.ModuleType("frappe")
+    fr.conf = {}
     fr.db = types.SimpleNamespace(get_value=lambda *a, **k: None,
                                   get_all=lambda *a, **k: [])
     fr.get_all = lambda *a, **k: []
@@ -152,6 +153,61 @@ class TestSignatureTypeGuard(unittest.TestCase):
     def test_a_transition_that_states_no_requirement_is_not_blocked(self):
         self.assertTrue(nh.signature_type_matches("", "ky-tham-gia"))
         self.assertTrue(nh.signature_type_matches(None, None))
+
+
+class TestTargetedHandoverIsOnWithAWorkingKillSwitch(unittest.TestCase):
+    """Mac dinh BAT tu chieu 28/08, va cong tat khan cap phai thuc su tat.
+
+    Sang 28/08 duong nay bi TAT: lan duy nhat eContract nhan thanh cong lenh transition
+    (EC-PAYR-2026-00032), chung tu ket cung - trang thai "Cho gui di", khong dong workflow,
+    khong chu ky, khong con nut "Xu ly" cho chinh nguoi duoc chi dinh.
+
+    Chieu cung ngay co capture lenh "Xu ly" cua CHINH portal tren mot chung tu do ERP tao
+    ra, va no thanh cong. Doi chieu tung truong: hinh dang payload giong het, cau hinh bac
+    nguoi trinh trung tung chu. Bien so duy nhat tim duoc la signatureInfo.name (ten hien
+    thi vs ma) - da sua.
+
+    Can can nghieng lai vi duong lui khong con trung lap: no dang BAO DAM phat cho ca 7
+    truong bo phan. Nhung phai giu duoc duong tat: mot lenh `bench set-config ... 0` la ve
+    lai trang thai dang chay duoc, khong can deploy.
+    """
+
+    def setUp(self):
+        # Dat tren CHINH module ma next_handler dang giu tham chieu. Mot bo test khac cai mot
+        # stub frappe rieng vao sys.modules, nen `import frappe` o day co the ra module KHAC -
+        # va phep kiem se doc mot cau hinh khong ai dung.
+        self._old = dict(getattr(nh.frappe, "conf", {}) or {})
+
+    def tearDown(self):
+        nh.frappe.conf = self._old
+
+    def test_on_when_the_flag_is_absent(self):
+        nh.frappe.conf = {}
+        self.assertTrue(nh.targeted_handover_enabled())
+
+    def test_the_kill_switch_really_kills(self):
+        for off in (0, "0", "false", "False", "no", "off", "OFF"):
+            nh.frappe.conf = {"ec_esign_targeted_handover": off}
+            self.assertFalse(nh.targeted_handover_enabled(),
+                             "gia tri %r phai TAT duong nay" % (off,))
+
+    def test_explicit_one_is_on(self):
+        nh.frappe.conf = {"ec_esign_targeted_handover": 1}
+        self.assertTrue(nh.targeted_handover_enabled())
+
+    def test_an_empty_value_is_not_a_kill_switch(self):
+        """Cau hinh de trong la "chua dat", khong phai "tat"."""
+        for blank in (None, ""):
+            nh.frappe.conf = {"ec_esign_targeted_handover": blank}
+            self.assertTrue(nh.targeted_handover_enabled())
+
+    def test_pool_is_still_reachable_when_switched_off(self):
+        nh.frappe.conf = {"ec_esign_targeted_handover": 0}
+        plan = nh.plan_handover({}, "prof", "UAT", stage="requester",
+                                adapter=_Adapter([APPROVE]), instance_id="doc")
+        self.assertEqual(plan["mode"], "pool")
+        self.assertEqual(plan["reason"], "targeted_handover_disabled")
+
 
 
 if __name__ == "__main__":
