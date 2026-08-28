@@ -18,7 +18,7 @@ from ecentric_workspace.platform.esign import package as pkgsvc
 from ecentric_workspace.platform.esign import service as svc
 from ecentric_workspace.platform.esign.providers import get_adapter
 from ecentric_workspace.platform.esign.providers.base import (
-    ProviderError, SignatureProviderAdapter,
+    ProviderError, SignatureProviderAdapter, VerificationResult,
 )
 from ecentric_workspace.platform.esign.sanitize import safe_error
 
@@ -271,11 +271,26 @@ def process_signing_request(dsr_name):
             binding.assert_outbound_binding(dsr_name, adapter)
         doc_id = _ensure_provider_document(dsr, settings, adapter)
 
-        # POLL-FIRST: did a previous (uncertain) attempt already succeed?
+        # POLL-FIRST chi danh cho chan ky CO THE da gui roi.
+        #
+        # 28/08 23:54, EC-DSR-2026-00023: chan duyet Cap 1 vua tao xong, chua gui gi, POLL
+        # -FIRST chay ngay va thay tren tai lieu DA CO chu ky cua dung nguoi do - chu ky ma
+        # chinh ho vua dat o chan NGUOI TRINH 40 giay truoc. Ket qua: Verified ->
+        # ApprovalCompleted trong 1,4 giay, khong mot lenh nao toi SCTS, va cap duyet dong
+        # lai voi mot chu ky khong ton tai. Dung lop loi UAT VOID 5.
+        #
+        # Cau hoi ma POLL-FIRST tra loi ("lan gui truoc co thanh cong khong?") chi co nghia
+        # khi DA TUNG GUI. Chan ky chua gui bao gio thi khong the hoan tat bang cach nhin -
+        # no phai gui truoc da.
+        may_have_sent = (dsr.status in ("Provider Accepted", "Verifying")
+                         or bool(dsr.get("accepted_at"))
+                         or bool(dsr.get("bulk_job_transaction_id"))
+                         or int(dsr.get("request_attempt") or 1) > 1)
         doc_state = adapter.poll_status(doc_id)
         expected = svc._expected_for(dsr)
         expected["document_id"] = doc_id
-        vr = SignatureProviderAdapter.verify_signed_result(doc_state, expected)
+        vr = (SignatureProviderAdapter.verify_signed_result(doc_state, expected)
+              if may_have_sent else VerificationResult(False, "not_sent_yet"))
         if vr.ok:
             if dsr.status != "Signed":
                 events.set_dsr_status(dsr_name, "Signed",

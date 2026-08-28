@@ -351,10 +351,18 @@
   // out-of-page boxes (backend stays authoritative and re-validates).
   function _clampBox(box) {
     var W = DRW.pagePt[0] || 612, H = DRW.pagePt[1] || 792, minW = 20, minH = 12;
-    var w = Math.max(minW, Math.abs(+box.width || 0)), h = Math.max(minH, Math.abs(+box.height || 0));
-    var x = Math.min(Math.max(0, +box.x || 0), Math.max(0, W - minW));
-    var y = Math.min(Math.max(0, +box.y || 0), Math.max(0, H - minH));
-    w = Math.max(minW, Math.min(w, W - x)); h = Math.max(minH, Math.min(h, H - y));
+    // Keo o ra sat mep phai thi phai DAY NO VAO TRONG, khong duoc bop nho lai.
+    //
+    // Ban truoc ep x toi tan (W - minW) - tuc cho canh TRAI cua o chay ra gan mep phai
+    // trang - roi moi cat chieu rong cho vua phan con lai, nen o co lai con 20 diem. Nguoi
+    // dung keo o vao le phai va thay no "nhay sang trai va thu nho lai" (bao 28/08).
+    //
+    // Kich thuoc la thu nguoi dung da chon; vi tri moi la thu can sua. Chi bop lai khi o
+    // that su TO HON trang.
+    var w = Math.max(minW, Math.min(Math.abs(+box.width || 0), W));
+    var h = Math.max(minH, Math.min(Math.abs(+box.height || 0), H));
+    var x = Math.min(Math.max(0, +box.x || 0), Math.max(0, W - w));
+    var y = Math.min(Math.max(0, +box.y || 0), Math.max(0, H - h));
     box.x = x; box.y = y; box.width = w; box.height = h; return box;
   }
   function drawerErr(msg) {
