@@ -155,18 +155,21 @@ class TestSignatureTypeGuard(unittest.TestCase):
         self.assertTrue(nh.signature_type_matches(None, None))
 
 
-class TestTargetedHandoverIsOffUntilProven(unittest.TestCase):
-    """Mac dinh TAT, va phai co mot phep kiem giu no nhu vay.
+class TestTargetedHandoverIsOnWithAWorkingKillSwitch(unittest.TestCase):
+    """Mac dinh BAT tu chieu 28/08, va cong tat khan cap phai thuc su tat.
 
-    Duong chi dinh nguoi ky tiep la thiet ke DUNG - no noi ro AI xu ly tiep thay vi de nha
-    cung cap phat cho ca vai tro. Nhung lan duy nhat eContract NHAN THANH CONG lenh transition
-    (EC-PAYR-2026-00032), chung tu ket cung: trang thai "Cho gui di", khong dong workflow nao,
-    khong chu ky, va portal khong hien nut "Xu ly" cho chinh nguoi ma buoc do gui den. Tac vu
-    bi tieu mat ma workflow khong di.
+    Sang 28/08 duong nay bi TAT: lan duy nhat eContract nhan thanh cong lenh transition
+    (EC-PAYR-2026-00032), chung tu ket cung - trang thai "Cho gui di", khong dong workflow,
+    khong chu ky, khong con nut "Xu ly" cho chinh nguoi duoc chi dinh.
 
-    Cung luc do duong lui KY DUOC: cung chan ky ay tren EC-PAYR-2026-00029 xong sau khoang hai
-    phut ruoi. Mot thiet ke dung tren giay dang lam hong chung tu, con cai tho hon thi chay -
-    dung tren giay khong hon mot de nghi thanh toan van ky duoc.
+    Chieu cung ngay co capture lenh "Xu ly" cua CHINH portal tren mot chung tu do ERP tao
+    ra, va no thanh cong. Doi chieu tung truong: hinh dang payload giong het, cau hinh bac
+    nguoi trinh trung tung chu. Bien so duy nhat tim duoc la signatureInfo.name (ten hien
+    thi vs ma) - da sua.
+
+    Can can nghieng lai vi duong lui khong con trung lap: no dang BAO DAM phat cho ca 7
+    truong bo phan. Nhung phai giu duoc duong tat: mot lenh `bench set-config ... 0` la ve
+    lai trang thai dang chay duoc, khong can deploy.
     """
 
     def setUp(self):
@@ -178,29 +181,33 @@ class TestTargetedHandoverIsOffUntilProven(unittest.TestCase):
     def tearDown(self):
         nh.frappe.conf = self._old
 
-    def test_disabled_when_the_flag_is_absent(self):
+    def test_on_when_the_flag_is_absent(self):
         nh.frappe.conf = {}
-        self.assertFalse(nh.targeted_handover_enabled())
+        self.assertTrue(nh.targeted_handover_enabled())
 
-    def test_disabled_when_the_flag_is_zero(self):
-        nh.frappe.conf = {"ec_esign_targeted_handover": 0}
-        self.assertFalse(nh.targeted_handover_enabled())
+    def test_the_kill_switch_really_kills(self):
+        for off in (0, "0", "false", "False", "no", "off", "OFF"):
+            nh.frappe.conf = {"ec_esign_targeted_handover": off}
+            self.assertFalse(nh.targeted_handover_enabled(),
+                             "gia tri %r phai TAT duong nay" % (off,))
 
-    def test_enabled_only_by_an_explicit_flag(self):
+    def test_explicit_one_is_on(self):
         nh.frappe.conf = {"ec_esign_targeted_handover": 1}
         self.assertTrue(nh.targeted_handover_enabled())
 
-    def test_a_broken_flag_fails_closed(self):
-        nh.frappe.conf = {"ec_esign_targeted_handover": "khong-phai-so"}
-        self.assertFalse(nh.targeted_handover_enabled(),
-                         "gia tri hong phai coi la TAT, khong duoc mo ra")
+    def test_an_empty_value_is_not_a_kill_switch(self):
+        """Cau hinh de trong la "chua dat", khong phai "tat"."""
+        for blank in (None, ""):
+            nh.frappe.conf = {"ec_esign_targeted_handover": blank}
+            self.assertTrue(nh.targeted_handover_enabled())
 
-    def test_plan_handover_refuses_while_disabled(self):
-        nh.frappe.conf = {}
+    def test_pool_is_still_reachable_when_switched_off(self):
+        nh.frappe.conf = {"ec_esign_targeted_handover": 0}
         plan = nh.plan_handover({}, "prof", "UAT", stage="requester",
                                 adapter=_Adapter([APPROVE]), instance_id="doc")
         self.assertEqual(plan["mode"], "pool")
         self.assertEqual(plan["reason"], "targeted_handover_disabled")
+
 
 
 if __name__ == "__main__":

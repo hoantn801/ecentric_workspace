@@ -59,7 +59,7 @@ class TestImageIsSent(unittest.TestCase):
 
     def test_the_adapter_actually_fetches_it(self):
         body = _fn(self.adapter, "transition_with_recipients")
-        self.assertIn("self.signature_image(provider_user_id, signature_id)", body)
+        self.assertIn("self.signature_image_and_name(provider_user_id, signature_id)", body)
         self.assertIn("signature_image=image", body,
                       "lay anh ve roi khong truyen di thi van 400 nhu cu")
 
@@ -94,3 +94,41 @@ class TestImageNeverLeaks(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheDisplayNameComesFromTheProvider(unittest.TestCase):
+    """28/08: portal gui signatureInfo.name = "Ky tham gia"; minh gui ma "ky-tham-gia".
+
+    Ten hien thi KHONG suy ra duoc tu ma. Truoc day khong co ten nao khac de gui nen code
+    lay tam `sign_type`. GetSignatures tra ve ca `name` trong cung mot lan goi da dung de
+    lay anh - doc thang tu do thay vi doan.
+
+    Khong chung minh duoc day la nguyen nhan chung tu bi ket; chi la mot bien so bi loai.
+    """
+
+    def setUp(self):
+        self.src = _src("platform", "esign", "providers", "scts.py")
+
+    def test_the_name_is_read_in_the_same_call_as_the_image(self):
+        body = re.search(r"(?m)^    def signature_image_and_name.*?(?=\n    def )",
+                         self.src, re.S)
+        self.assertIsNotNone(body, "thieu ham doc ca anh lan ten")
+        self.assertIn('x.get("name")', body.group(0),
+                      "phai lay TEN tu chinh ban ghi chu ky cua nha cung cap")
+        self.assertEqual(body.group(0).count("get_signatures"), 1,
+                         "mot lan goi cho ca hai, khong goi hai lan")
+
+    def test_the_provider_name_outranks_the_code(self):
+        body = re.search(r"(?m)^    def transition_with_recipients.*?(?=\n    @|\n    def )",
+                         self.src, re.S).group(0)
+        m = re.search(r"signature_name or ([a-z_]+) or config\.get\(\"sign_type\"\)", body)
+        self.assertIsNotNone(m, "thu tu uu tien ten chu ky da bi doi")
+        self.assertEqual(m.group(1), "provider_name",
+                         "ten nha cung cap phai duoc uu tien truoc ma sign_type")
+
+    def test_a_failure_to_read_it_does_not_stop_the_send(self):
+        body = re.search(r"(?m)^    def transition_with_recipients.*?(?=\n    @|\n    def )",
+                         self.src, re.S).group(0)
+        self.assertIn("except Exception:", body)
+        self.assertIn("image, provider_name = None, None", body,
+                      "doc hong thi van gui di va de provider tu tu choi")
