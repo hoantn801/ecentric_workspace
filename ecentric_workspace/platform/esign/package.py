@@ -462,8 +462,21 @@ def _page_sizes(content):
         reader = PdfReader(io.BytesIO(content))
         sizes = []
         for pg in reader.pages:
-            box = pg.mediabox
-            sizes.append((float(box.width), float(box.height)))
+            # CROPBOX, khong phai mediabox: trinh xem (va khung dat vi tri ky cua minh) ve
+            # theo cropbox. Khi hai cai lech nhau - rat thuong gap voi PDF xuat tu Word hay
+            # tu may scan - thi toa do minh gui di lech dung bang phan chenh do, va chu ky
+            # in ra khong nam trong o. Cropbox vang mat thi pypdf tra ve chinh mediabox.
+            box = getattr(pg, "cropbox", None) or pg.mediabox
+            w, h = float(box.width), float(box.height)
+            # Trang XOAY 90/270 thi chieu rong va chieu cao doi cho nhau khi hien thi.
+            # Bo qua chi tiet nay la lech han mot canh giay.
+            try:
+                rot = int(pg.get("/Rotate", 0) or 0) % 360
+            except Exception:
+                rot = 0
+            if rot in (90, 270):
+                w, h = h, w
+            sizes.append((w, h))
         return sizes
     except Exception:
         return None
