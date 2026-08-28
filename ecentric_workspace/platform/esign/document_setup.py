@@ -178,15 +178,47 @@ def _setup_editable(bd, bn):
     sent for approval yet (no EC Approval Request). After 'Gửi yêu cầu' the request enters the
     approval lifecycle -> setup is IMMUTABLE (view-only). Belt-and-suspenders: an ambiguous or
     immutable/frozen signing package also closes the window. Authoritative BUSINESS lifecycle
-    state, NOT Frappe docstatus (EC Payment Request is not submittable). Returns (bool, reason)."""
-    if perms.business_approval_request(bd, bn):
-        return False, "already_submitted"
+    state, NOT Frappe docstatus (EC Payment Request is not submittable). Returns (bool, reason).
+
+    ONE exception, added 2026-08-29: a package that has just been REVISED after a send-back.
+
+    When an approver sends the request back and the signable content changed,
+    lifecycle.on_request_reopened supersedes the locked package and creates a fresh Draft, then
+    resets requester_signature_status to "Pending" - the requester has to sign again. Any PDF
+    attached in the meantime enters that Draft as a SIGNABLE file (requester._add_requester_pdf_files
+    marks every private PDF requires_signature=1) and therefore needs signature boxes.
+
+    Under the old rule this was unreachable: an EC Approval Request exists, so setup was
+    view-only forever. The new file could never get a box, the pre-lock check would refuse, and
+    the request could go neither forward nor back. The gate is meant to protect a LOCKED or
+    SIGNED setup, not to close the door on a Draft that nobody has signed yet.
+
+    The window is narrow on purpose: an Approval Request that is waiting for the REQUESTER's
+    signature, whose current package is a Draft. `_assert_can_classify` still restricts writes
+    to the requester, and package.assert_requester_draft_package still refuses anything but a
+    Draft."""
+    ar = perms.business_approval_request(bd, bn)
     cur_name, cur_status, is_draft, needs_review = _current_package(bd, bn)
     if needs_review:
         return False, "needs_review"
+    if ar and not (is_draft and _awaiting_requester_signature(ar)):
+        return False, "already_submitted"
     if cur_name and not is_draft:
         return False, "package_locked"
     return True, None
+
+
+#: Trang thai cua EC Approval Request nghia la "dang cho NGUOI DE NGHI ky".
+#: Giu ban sao tai day thay vi import requester._START_STATES: document_setup nam duoi
+#: requester trong thu tu import (requester -> document_setup), keo nguoc lai la vong tron.
+_AWAITING_REQUESTER = ("Pending", "Reconciliation Required", "Failed")
+
+
+def _awaiting_requester_signature(ar):
+    try:
+        return frappe.db.get_value(AR, ar, "requester_signature_status") in _AWAITING_REQUESTER
+    except Exception:
+        return False                    # doc hong -> dong cua, khong mo nham
 
 
 def _assert_setup_editable(bd, bn):

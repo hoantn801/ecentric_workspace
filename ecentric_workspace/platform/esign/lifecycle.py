@@ -34,6 +34,7 @@ import frappe
 from frappe import _
 
 from ecentric_workspace.platform.esign import events
+from ecentric_workspace.platform.esign import hashing
 from ecentric_workspace.platform.esign import package as pkgsvc
 
 #: Package states that hold a frozen file list. A Draft package still picks up new
@@ -74,16 +75,52 @@ def _signable_content_changed(pkg):
     if not locked or len(locked) != len(signable):
         return True                     # thieu ma bam -> khong so duoc -> lam lai cho chac
 
+    present = _attached_signable_shas(pkg)
+    if present is None:
+        return True
+    # Con nguyen ven tung tep da ky -> chi la dinh kem THEM, khong dung toi noi dung da ky.
+    return not locked.issubset(present)
+
+
+def _attached_signable_shas(pkg):
+    """sha256 cua cac tep dinh kem CO THE PHAI KY, tinh lai tu noi dung that.
+
+    KHONG dung `File.content_hash`. Ma bam cua goi ky do chinh module nay tinh bang sha256
+    (hashing.sha256_bytes, 64 ky tu). `File.content_hash` la truong cua Frappe va duoc sinh
+    bang thuat toan RIENG cua framework - khong co gi bao dam no cung la sha256. Neu khac
+    thuat toan thi hai tap KHONG BAO GIO giao nhau, `issubset` luon sai, va ham goi se ket
+    luan "noi dung da doi" o MOI lan gui lai: ai da ky cung phai ky lai, ke ca khi nguoi de
+    nghi chi dinh kem them mot to hoa don - dung cai phien toai ma ban 28/08 dinh bo di.
+
+    So sanh hai dai luong do bang hai thuoc do khac nhau la loi chi lo ra khi chay that;
+    bo test cu cam `content_hash` gia bang chinh ma bam cua goi nen khong the bat duoc.
+
+    Chi doc cac tep private co duoi .pdf - dung tieu chi cua _add_requester_pdf_files, la
+    noi quyet dinh tep nao vao goi. Doc du thi ton, doc thieu thi ket luan sai.
+
+    Tra ve None khi khong doc duoc: nguoi goi phai coi nhu "da doi" cho chac.
+    """
     try:
         rows = frappe.get_all("File",
                               filters={"attached_to_doctype": pkg.business_doctype,
-                                       "attached_to_name": pkg.business_name},
-                              fields=["content_hash"], limit_page_length=0)
+                                       "attached_to_name": pkg.business_name,
+                                       "is_private": 1},
+                              fields=["name", "file_name", "file_url"], limit_page_length=0)
     except Exception:
-        return True
-    present = {r.get("content_hash") for r in rows if r.get("content_hash")}
-    # Con nguyen ven tung tep da ky -> chi la dinh kem THEM, khong dung toi noi dung da ky.
-    return not locked.issubset(present)
+        return None
+    out = set()
+    for r in rows:
+        name_l = (r.get("file_name") or "").lower()
+        url_l = (r.get("file_url") or "").lower()
+        if not (name_l.endswith(".pdf") or url_l.endswith(".pdf")):
+            continue
+        try:
+            content = frappe.get_doc("File", r["name"]).get_content()
+        except Exception:
+            return None                 # mot tep khong doc duoc -> khong ket luan gi
+        if content:
+            out.add(hashing.sha256_bytes(content))
+    return out
 
 
 def on_request_reopened(approval_request):
