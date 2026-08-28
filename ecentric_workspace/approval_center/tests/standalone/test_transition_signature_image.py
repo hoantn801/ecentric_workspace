@@ -51,22 +51,22 @@ class TestImageIsSent(unittest.TestCase):
 
     def test_signature_info_carries_the_image(self):
         body = _fn(self.client, "transition")
-        self.assertRegex(body, r'"signatureInfo":\s*\{[^}]*"image":',
-                         "thieu truong image -> eContract tra 400 SignatureInfo.Image")
+        self.assertIn('"image": signature_image or ""', body,
+                      "thieu truong image -> eContract tra 400 SignatureInfo.Image")
 
     def test_the_parameter_exists_and_defaults_to_none(self):
         self.assertIn("signature_image=None", self.client)
 
     def test_the_adapter_actually_fetches_it(self):
         body = _fn(self.adapter, "transition_with_recipients")
-        self.assertIn("self.signature_image_and_name(provider_user_id, signature_id)", body)
+        self.assertIn("self.signature_record(provider_user_id, signature_id)", body)
         self.assertIn("signature_image=image", body,
                       "lay anh ve roi khong truyen di thi van 400 nhu cu")
 
     def test_a_failed_fetch_does_not_invent_a_verdict(self):
         body = _fn(self.adapter, "transition_with_recipients")
         self.assertIn("except Exception:", body)
-        self.assertIn("image = None", body)
+        self.assertIn("rec = None", body)
         self.assertNotIn("return", body.split("except Exception:")[1][:120],
                          "hong lay anh thi van gui va de provider tu choi, khong tu ket luan thay no")
 
@@ -92,10 +92,6 @@ class TestImageNeverLeaks(unittest.TestCase):
                          "khong duoc dua nguyen body (co chua anh) vao thong diep loi")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestTheDisplayNameComesFromTheProvider(unittest.TestCase):
     """28/08: portal gui signatureInfo.name = "Ky tham gia"; minh gui ma "ky-tham-gia".
 
@@ -109,14 +105,11 @@ class TestTheDisplayNameComesFromTheProvider(unittest.TestCase):
     def setUp(self):
         self.src = _src("platform", "esign", "providers", "scts.py")
 
-    def test_the_name_is_read_in_the_same_call_as_the_image(self):
-        body = re.search(r"(?m)^    def signature_image_and_name.*?(?=\n    def )",
-                         self.src, re.S)
-        self.assertIsNotNone(body, "thieu ham doc ca anh lan ten")
-        self.assertIn('x.get("name")', body.group(0),
-                      "phai lay TEN tu chinh ban ghi chu ky cua nha cung cap")
+    def test_the_name_is_read_from_the_provider_record(self):
+        body = re.search(r"(?m)^    def signature_record.*?(?=\n    def )", self.src, re.S)
+        self.assertIsNotNone(body, "thieu ham doc nguyen ban ghi chu ky")
         self.assertEqual(body.group(0).count("get_signatures"), 1,
-                         "mot lan goi cho ca hai, khong goi hai lan")
+                         "mot lan goi lay du moi truong, khong goi nhieu lan")
 
     def test_the_provider_name_outranks_the_code(self):
         body = re.search(r"(?m)^    def transition_with_recipients.*?(?=\n    @|\n    def )",
@@ -130,5 +123,9 @@ class TestTheDisplayNameComesFromTheProvider(unittest.TestCase):
         body = re.search(r"(?m)^    def transition_with_recipients.*?(?=\n    @|\n    def )",
                          self.src, re.S).group(0)
         self.assertIn("except Exception:", body)
-        self.assertIn("image, provider_name = None, None", body,
+        self.assertIn("rec = rec or {}", body,
                       "doc hong thi van gui di va de provider tu tu choi")
+
+
+if __name__ == "__main__":
+    unittest.main()
