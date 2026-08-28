@@ -233,17 +233,25 @@ class SctsAdapter(SignatureProviderAdapter):
         return img
 
     def signature_image_and_name(self, provider_user_id, signature_id):
-        """Anh + TEN HIEN THI cua mot chu ky. Mot lan goi cho ca hai.
+        """Anh + TEN HIEN THI cua mot chu ky. Giu lai cho cho goi cu; doc qua signature_record."""
+        rec = self.signature_record(provider_user_id, signature_id)
+        if not rec:
+            return None, None
+        return rec.get("base64Image"), rec.get("name")
 
-        Ten hien thi khong suy ra duoc tu ma. Portal gui `signatureInfo.name = "Ky tham
-        gia"` (chu co dau, lay tu GetSignatures), con minh truoc day gui ma `ky-tham-gia`
-        vi khong co ten nao khac de gui. Doc thang tu nha cung cap thay vi doan.
+    def signature_record(self, provider_user_id, signature_id):
+        """Ban ghi chu ky THO tu GetSignatures - toan bo truong, khong cat gon.
+
+        Vi sao can nguyen ban ghi: capture 28/08 21:35 cho thay signatureInfo cua portal
+        mang TAM truong (id, name, image, signerId, hsmId, companyId, signType, signToken),
+        va tat ca deu nam san trong GetSignatures. Cat gon o day la tu bit mat minh -
+        phien ban chi tra (image, name) da che mat hsmId sau ngay lien.
         """
         raw = self._with_auth(lambda t: self._client.get_signatures(provider_user_id, t))
         for x in self._as_list(raw):
             if str(x.get("id")) == str(signature_id):
-                return x.get("base64Image"), x.get("name")
-        return None, None
+                return x
+        return None
 
     def validate_signature_owner(self, mapped_user, signature_id):
         """LIVE ownership + usability check against GetSignatures. Returns a
@@ -287,22 +295,33 @@ class SctsAdapter(SignatureProviderAdapter):
         """
         # Anh chu ky la truong BAT BUOC cua eContract o buoc nay. Lay hong thi van gui di
         # va de provider tu tu choi, chu khong tu suy ra ket luan thay no.
-        image = None
-        provider_name = None
+        rec = None
         try:
-            image, provider_name = self.signature_image_and_name(provider_user_id, signature_id)
+            rec = self.signature_record(provider_user_id, signature_id)
         except Exception:
-            image, provider_name = None, None
-        # Uu tien TEN NHA CUNG CAP DANG GIU cho chu ky nay. Ma `sign_type` chi la chot cuoi:
-        # portal gui "Ky tham gia", minh gui "ky-tham-gia" - khong chung minh duoc day la
-        # nguyen nhan, nhung gui dung thu provider tu khai bao thi khong con la mot bien so.
+            rec = None
+        rec = rec or {}
+        image = rec.get("base64Image")
+        provider_name = rec.get("name")
+        # signatureInfo DAY DU nhu portal gui (capture bung het 28/08 21:35). Nam lenh
+        # transition truoc do deu 2xx-roi-im; chung chi mang {id, name, image} trong khi
+        # portal mang them signerId + hsmId (chung thu HSM) + companyId + signType +
+        # signToken. Khong co chung thu thi khong tao duoc chu ky - day la khac biet cuoi
+        # cung con lai giua hai payload. Moi gia tri doc tu GetSignatures, khong bia.
+        extra = {
+            "signerId": rec.get("signerId") or provider_user_id,
+            "hsmId": rec.get("hsmCertId") or rec.get("hsmId") or "",
+            "companyId": rec.get("companyId") or "",
+            "signType": config.get("sign_type") or "",
+            "signToken": 0,
+        }
         raw = self._with_auth(lambda t: self._client.transition(
             instance_id, provider_user_id, to_users,
             config.get("transition_id"), config.get("transition_name"),
             config.get("process_action"), config.get("sign_type"),
             signature_id,
             signature_name or provider_name or config.get("sign_type") or "",
-            comment, t, signature_image=image))
+            comment, t, signature_image=image, signature_extra=extra))
         return {"bulk_job_transaction_id": self._extract_txn_id(raw)}
 
     @staticmethod

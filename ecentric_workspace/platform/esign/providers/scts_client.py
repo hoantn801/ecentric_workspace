@@ -197,7 +197,7 @@ class SctsClient(object):
 
     def transition(self, instance_id, user_id, to_users, transition_id, transition_name,
                    process_action, sign_type, signature_id, signature_name, comment, token,
-                   signature_image=None):
+                   signature_image=None, signature_extra=None):
         """POST /api/Workflow/transition -> raw payload.
 
         This is what the eContract PORTAL itself calls, captured from the browser on
@@ -227,8 +227,14 @@ class SctsClient(object):
             # Cung chinh thong diep do bac bo gia thuyet cu cua minh: ASP.NET liet ke MOI
             # field khong hop le cung luc, ma no chi keu dung mot field -> instanceId = ma
             # chung tu la DUNG.
-            "signatureInfo": {"id": signature_id, "name": signature_name,
-                              "image": signature_image or ""},
+            # 28/08 21:35, capture signatureInfo BUNG DU cua portal: TAM truong, khong phai
+            # ba. Thieu nhat la hsmId (chung thu HSM) va signerId - khong co chung thu thi
+            # khong the tao chu ky, khop dung hien tuong "2xx roi im, khong ky" cua ca 5
+            # lenh transition tu ERP. Cac truong nay adapter doc tu GetSignatures va truyen
+            # xuong qua signature_extra; client khong tu bia gia tri.
+            "signatureInfo": dict({"id": signature_id, "name": signature_name,
+                                   "image": signature_image or ""},
+                                  **(signature_extra or {})),
             "comment": comment or "",
         }
         headers = {"Accept": "application/json", "Content-Type": "application/json"}
