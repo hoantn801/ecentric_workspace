@@ -74,7 +74,10 @@ const STATE={editable:true,can_classify:true,needs_review:false,current_package_
 let PSTATE={ok:true,document_ref:"F1",display_name:"a.pdf",file_url:"/private/files/a.pdf",is_pdf:true,
   requires_signature:true,editable:true,slot_key_version:1,signer_plan_resolved:true,
   required_slots:[{slot_key:"requester",label:"Người đề nghị",kind:"requester",candidates:[{user:"h@x",display_name:"Hoan",scts_mapping_status:"missing"}]},
-                  {slot_key:"level:L2:any-one",label:"Finance (một trong)",kind:"approval_level",candidates:[]}],
+                  // CUNG mot nguoi h@x vua la nguoi trinh vua la ung vien cua cap nay - dung
+                  // tinh huong da khien man hinh ve chu ky vao o cua cap chua ai duyet.
+                  {slot_key:"level:L2:any-one",label:"Finance (một trong)",kind:"approval_level",
+                   level_ref:"L2",candidates:[{user:"h@x",display_name:"Hoan",scts_mapping_status:"verified"}]}],
   placements:[],covered_slot_count:0,required_slot_count:2};
 let calls=[], saveOk=true, pdfLoaded=false;
 const frappe={ call(o){ calls.push({method:o.method,args:o.args});
@@ -84,7 +87,9 @@ const frappe={ call(o){ calls.push({method:o.method,args:o.args});
   if(/placement_state$/.test(o.method))return Promise.resolve({message:PSTATE});
   if(/my_signature_preview$/.test(o.method))return Promise.resolve({message:{image_base64:"iVBORw0KGgo="}});
   if(/document_signature_overlay$/.test(o.method))return Promise.resolve({message:{ok:true,signed:[
-    {email:"h@x",signed_at:"17:59",image_base64:"iVBORw0KGgoREAL="}]}});
+    // Nguoi nay ky voi vai NGUOI TRINH. Anh ta cung la ung vien cua cap duyet ben duoi -
+    // dung bay da lam man hinh ve chu ky vao ca o cua cap do ngay 28/08.
+    {email:"h@x",kind:"requester",level_ref:null,signed_at:"17:59",image_base64:"iVBORw0KGgoREAL="}]}});
   if(/save_placement$/.test(o.method)){ if(saveOk){PSTATE=Object.assign({},PSTATE,{covered_slot_count:1,
       placements:[{name:"PL1",x:o.args.box?JSON.parse(o.args.box).x:10,y:10,width:120,height:40,signer_slot_key:"requester"}]});
       return Promise.resolve({message:{ok:true,placement_name:"PL1",state:PSTATE}});}
@@ -292,6 +297,25 @@ async function main(){
   ok(!!dTxt, "chu ky that cung co khoi chu - dung chung bo cuc voi ban xem thu");
   ok(els["ecdSignerCards"]._html.indexOf("Đã ký")>=0, "the nguoi ky bao ro DA KY");
   ok(els["ecdSignerCards"]._html.indexOf("17:59")>=0, "the nguoi ky hien gio ky that");
+
+  // Dat them mot o cho CAP DUYET, de cac phep kiem duoi day khong rong nghia: neu chi co
+  // mot o thi "chi mot o mang chu ky" luon dung ma khong chung minh dieu gi.
+  selectSlot("level:L2:any-one"); await tick();
+  clickLayer(200,200); await tick(); await flush(); await tick();
+  const boxesNow = els["ecdLayer"].querySelectorAll(".ecd-box");
+  ok(boxesNow.length===2, "da dat duoc o thu hai cho cap duyet");
+  const doneNodes2 = els["ecdLayer"].querySelectorAll(".sigdone");
+
+  // Chu ky chi duoc ve vao O DA KY, khong ve vao moi o ma nguoi do la ung vien.
+  ok(doneNodes2.length===1,
+     "chi MOT o mang chu ky that (nguoi trinh), khong lan sang o cua cap duyet chua ai ky");
+  const signedSlots = doneNodes2.map(n=>n.parentNode && n.parentNode.getAttribute("data-slot"));
+  ok(signedSlots.indexOf("requester")>=0, "o duoc ve dung la o cua nguoi trinh");
+  ok(signedSlots.indexOf("level:L2:any-one")<0,
+     "o cua cap duyet KHONG duoc mang chu ky khi cap do chua ai ky");
+  const cardHtml = els["ecdSignerCards"]._html;
+  const afterFinance = cardHtml.slice(cardHtml.indexOf("Finance"));
+  ok(afterFinance.indexOf("Đã ký")<0, "the cua cap duyet khong duoc ghi 'Da ky'");
 
   // Bam "Ky thu" khong duoc phep xoa chu ky THAT - ban truoc go moi .sigprev nen mot cai bam
   // la mat sach chu ky tren man hinh.

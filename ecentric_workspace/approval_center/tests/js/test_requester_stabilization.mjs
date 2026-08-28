@@ -46,7 +46,8 @@ function mkFrappe(state) {
 
 function run(readiness) {
   const els = {};
-  ["ec-req-sign", "ecReqStatus", "ecReqMsg", "ecReqGate", "ecReqPrepare", "ecReqLock", "ecReqFix"]
+  ["ec-req-sign", "ecReqStatus", "ecReqMsg", "ecReqGate", "ecReqPrepare", "ecReqLock", "ecReqFix",
+   "ecReqSign"]   // nut Trinh ky - thieu no la ca kich ban chet ngay dong gan su kien
     .forEach((id) => { els[id] = mkEl(id); });
   const startParent = mkEl("body-holder"); els["ec-req-sign"].parentNode = startParent;
   const contentHost = mkEl("content-host");

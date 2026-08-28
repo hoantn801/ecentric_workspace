@@ -46,7 +46,8 @@ function mkFrappe(state, readiness) {
 // Build a sandbox with a controllable fake clock. Returns handles; does NOT auto-advance.
 function mk(sc) {
   const els = {};
-  ["ec-req-sign", "ecReqStatus", "ecReqMsg", "ecReqGate", "ecReqPrepare", "ecReqLock", "ecReqFix"]
+  ["ec-req-sign", "ecReqStatus", "ecReqMsg", "ecReqGate", "ecReqPrepare", "ecReqLock", "ecReqFix",
+   "ecReqSign"]   // nut Trinh ky - thieu no la ca kich ban chet ngay dong gan su kien
     .forEach((id) => { els[id] = mkEl(id); });
   const state = { callCount: 0, lastMethod: null, debugCount: 0 };
   const timers = new Map(); let tid = 0;
