@@ -88,10 +88,42 @@ class TestDiscovery(unittest.TestCase):
         self.assertIsNone(cfg)
         self.assertEqual(why, "no_available_transition")
 
-    def test_a_failed_call_is_named_not_swallowed(self):
-        cfg, why = nh.discover_transition(_Adapter(raises=RuntimeError("boom")), "doc", "user")
+    def test_a_failed_call_reports_WHAT_went_wrong(self):
+        """Ghi ten loai loi thoi la chua du.
+
+        Lan chay that 28/08 tra ve dung mot chu "SctsHttpError": biet la hong, khong biet ma
+        trang thai, khong biet provider noi gi - lai phai doan. Dung cai sai da ton hai dem.
+        """
+        cfg, why = nh.discover_transition(
+            _Adapter(raises=RuntimeError("HTTP 404 workflow instance not found")), "doc", "user")
         self.assertIsNone(cfg)
         self.assertIn("transition_discovery_failed", why)
+        self.assertIn("404", why, "phai mang theo noi dung loi, khong chi ten loai")
+        self.assertIn("workflow instance not found", why)
+
+
+class TestRefusalVersusUnreachable(unittest.TestCase):
+    """Hai chuyen khac han nhau, va phai xu ly khac nhau.
+
+    - Nha cung cap NOI ro khong duoc di (khong co canh approve, hai canh, thieu metadata)
+      -> dung lai. Lay cau hinh cu ra dung thay la di nguoc lai dieu ho vua noi.
+    - KHONG HOI DUOC (mang loi, 4xx) -> chua biet gi ca, van con cau hinh tren ho so lam
+      duong lui. Lan chay 28/08 rot thang ve pool vi mot loi HTTP, va SCTS gui cho BAY nguoi.
+    """
+
+    def test_provider_refusals_are_refusals(self):
+        for why in ("no_available_transition", "no_approve_transition:Từ chối",
+                    "ambiguous_approve_transition:-4,-5", "incomplete_transition:-4"):
+            self.assertTrue(nh.why_is_refusal(why), why)
+
+    def test_an_unreachable_provider_is_not_a_refusal(self):
+        for why in ("transition_discovery_failed:SctsHttpError: HTTP 404",
+                    "adapter_cannot_discover_transitions"):
+            self.assertFalse(nh.why_is_refusal(why), why)
+
+    def test_nothing_is_a_refusal_by_default(self):
+        self.assertFalse(nh.why_is_refusal(None))
+        self.assertFalse(nh.why_is_refusal(""))
 
     def test_incomplete_metadata_is_refused(self):
         bad = dict(APPROVE, process_action="")
