@@ -488,6 +488,26 @@ class SctsClient(object):
                             "Document/pdf response shape not recognized "
                             "(UAT contract unconfirmed)", retryable=False)
 
+    def users_for_transition(self, instance_id, transition_id, user_id, token):
+        """GET /api/Workflow/users-for-transition/{instanceId}/{transitionId}?userid={userId}
+
+        AI duoc phep nhan buoc nay - theo chinh eContract, khong phai theo suy luan cua ERP.
+
+        28/08 20:25: EC-PAYR-2026-00034 gui transition voi toUsers = [Lam (CEO), Hoan].
+        eContract tra 2xx roi KHONG lam gi - khong dong workflow, khong chu ky. Cung luc do
+        lenh cua portal tren cung mot chung tu, voi toUsers MOT nguoi, chay ngay. Khac biet
+        do la nguoi thu hai: buoc ke tiep la "Truong bo phan", con Lam giu vai CEO.
+
+        ERP tu chon nguoi tu chuoi duyet cua no; eContract co chuoi cua rieng no. Hai chuoi
+        khong bat buoc trung nhau, va khi lech thi eContract im lang bo ca lenh. Hoi truoc
+        khi gui thi khong con phai doan.
+        """
+        return self._request(
+            "GET",
+            "/api/Workflow/users-for-transition/%s/%s?userid=%s"
+            % (instance_id, transition_id, user_id),
+            token=token, _label="users_for_transition")
+
     def get_workflow_instance(self, instance_id, user_id, token):
         """GET /api/Workflow/{instanceId}?userid={userId} -> the LIVE workflow state.
 

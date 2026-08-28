@@ -283,8 +283,38 @@ def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, inst
     ids, unmapped = provider_ids_for(users, environment)
     if not ids:
         return {"mode": "pool", "reason": "next_handler_unmapped:%s" % ",".join(unmapped)}
+
+    # Chuoi duyet cua ERP KHONG bat buoc trung chuoi cua eContract, va khi lech thi eContract
+    # im lang bo ca lenh - 2xx, khong dong workflow, khong chu ky.
+    #
+    # 28/08 20:25, EC-PAYR-2026-00034: ERP gui toUsers = [Lam (CEO), Hoan]. Khong gi xay ra.
+    # Cung chung tu do, lenh cua portal voi toUsers MOT nguoi chay ngay. Buoc ke tiep la
+    # "Truong bo phan"; Lam giu vai CEO nen khong nhan duoc buoc do.
+    #
+    # Nen hoi eContract truoc khi gui. `None` = khong hoi duoc (giu nguyen danh sach, ghi
+    # lai ly do); mot tap RONG hoac loc het = bang chung that su rang khong ai nhan duoc,
+    # luc do lui ve pool con hon gui mot lenh chac chan bi bo.
+    dropped = []
+    eligible = None
+    if adapter is not None and instance_id and hasattr(adapter, "eligible_recipients"):
+        eligible = adapter.eligible_recipients(
+            instance_id, cfg.get("transition_id"), dsr.get("effective_scts_user_id"))
+    if eligible is not None:
+        keep = [i for i in ids if str(i) in eligible]
+        dropped = [i for i in ids if str(i) not in eligible]
+        if not keep:
+            return {"mode": "pool",
+                    "reason": "no_eligible_recipient:%d_de_xuat_0_duoc_nhan" % len(ids)}
+        ids = keep
+
     out = {"mode": "transition", "to_users": ids, "config": cfg,
            "unmapped": unmapped, "erp_users": users}
+    if dropped:
+        # Bi loai KHONG duoc im lang: no co nghia chuoi duyet ERP va quy trinh eContract
+        # dang lech nhau, va do la thu can nguoi sua chu khong phai code.
+        out["dropped_not_eligible"] = dropped
+    if eligible is None and adapter is not None and instance_id:
+        out["recipients_unverified"] = True
     if discovery_note:
         # Dung duong lui thi phai NOI RA, khong de no trong nhu duong chinh dang chay tot.
         out["fallback_config"] = True
