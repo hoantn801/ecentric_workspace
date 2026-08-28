@@ -283,8 +283,19 @@ def reconcile_manual_review(dsr_name):
     events.set_dsr_status(dsr_name, "Signed", event_type="Verified",
                           verification_result=vr.reason)
     verify_and_complete(dsr_name)
-    return {"ok": True, "reason": vr.reason,
-            "status": frappe.db.get_value(DSR, dsr_name, "status")}
+    final = frappe.db.get_value(DSR, dsr_name, "status")
+    if final == "Approval Completed":
+        return {"ok": True, "reason": vr.reason, "status": final}
+    # Xac minh duoc chu ky KHONG dong nghia cap duyet da hoan tat: engine co the tu choi vi
+    # yeu cau da huy, cap da doi, hoac chan ky khac da dong cap nay. Bao ok=True o day la
+    # noi doi - lan chay 28/08 tra ok=True trong khi yeu cau da bi huy va khong co gi thay
+    # doi. Lay dung ly do engine ghi lai thay vi de nguoi doc tu suy.
+    why = frappe.db.get_value(
+        "EC Digital Signature Event",
+        {"signature_request": dsr_name, "event_type": "ManualReview"},
+        "error_summary", order_by="event_time desc")
+    return {"ok": False, "reason": "verified_but_engine_refused",
+            "verification": vr.reason, "engine": why, "status": final}
 
 
 def verify_and_complete(dsr_name):
