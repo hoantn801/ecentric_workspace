@@ -85,6 +85,7 @@ class TestEachTemplateLandmarkHasAPatchThatMentionsIt(unittest.TestCase):
         ("document_signing_section.html", "ecdPager", "viewer_pages"),
         ("document_signing_section.html", "overflow:auto;min-width:0", "viewer_pages"),
         ("document_signing_section.html", "function _fitSig", "signature_fit"),
+        ("document_signing_section.html", "payr-formwrap:has(#payr-resubmit)", "resubmit_attach"),
         ("requester_signing_panel.html", "requester_signature_processing", "processing_state"),
     ]
 

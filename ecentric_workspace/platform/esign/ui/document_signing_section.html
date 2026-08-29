@@ -24,6 +24,16 @@
        bound to state.draft.request_attachment) so the data contract + submit validation +
        representative-pointer logic are all preserved. */
     #ec-payr-root .fld:has([data-upload="request_attachment"]){display:none !important}
+/* ...TRU man hinh "Chinh sua & gui lai".
+       "Mot be mat tai len duy nhat" chi dung khi be mat con lai MO. Sau khi bi tra lai,
+       khoi "TAI LIEU & KY SO" dang khoa (goi ky con Locked; ban moi chi duoc tao BEN TRONG
+       thao tac Gui lai), nen nut "+ Tai tai lieu" bi vo hieu. Cong voi luat an o tren,
+       man hinh do co DUNG KHONG be mat nao de dinh kem - trong khi ly do bi tra lai
+       thuong xuyen nhat lai chinh la "thieu chung tu".
+       Nguoi de nghi khong the bo sung thu ma Ke toan vua doi. 30/08.
+       Neo `#payr-resubmit` chi ton tai o che do sua (main_section.html, nhanh `editing`). */
+    #ec-payr-root .payr-formwrap:has(#payr-resubmit)
+      .fld:has([data-upload="request_attachment"]){display:flex !important}
 .ec-docsign .ecd-card, .ecd-drawer-ov .ecd-card{background:#fff;border:1px solid var(--ecd-line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
 .ec-docsign h3, .ecd-drawer-ov h3{font-size:14px;font-weight:700;color:var(--ecd-ink);margin:0 0 4px;display:flex;align-items:center;gap:8px}
 .ecd-box{position:absolute;touch-action:none;user-select:none;border:2px solid #2C3DA6;background:rgba(44,61,166,.12);border-radius:4px;cursor:move;font-size:10px;color:#2C3DA6;font-weight:700;overflow:hidden}
