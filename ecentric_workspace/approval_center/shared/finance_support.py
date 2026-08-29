@@ -121,8 +121,20 @@ class Resubmitter:
                                       actor=actor or frappe.session.user) or {}
         finally:
             frappe.flags.mute_messages = previous
-        # Truyen ket qua cua lop ky so ra ngoai. Gui lai co the doi HANH VI (goi ky duoc tao
-        # phien ban moi; neu da co chu ky thi duyet lai tu cap 1), va man hinh phai noi ra
-        # duoc dieu do - doi hanh vi ma im lang thi nguoi dung tuong he thong loi.
-        return {"restarted": True, "esign": outcome.get("esign") or {}}
+        esign = outcome.get("esign") or {}
+        # Goi ky vua duoc tao PHIEN BAN MOI -> phai chuan bi + khoa + ky lai, ngay tai day.
+        #
+        # Lan gui dau, Submitter lam ba viec do (sign_on_submit) va panel cua nguoi de nghi
+        # da bo het nut bam vi chung la trang thai noi bo cua may. Duong GUI LAI khong lam,
+        # nen sau khi bi tra lai va goi ky duoc lam moi thi: goi moi o trang thai Draft,
+        # requester_signature_status ve "Pending", va KHONG CO NUT NAO de di tiep. Yeu cau
+        # ket o do - khong bao gio ky duoc, cung khong bao gio duyet xong.
+        #
+        # Nem loi khi thieu vi tri ky la co y: chung tu vua dinh kem them cung la tep CAN KY
+        # (xem requester._add_requester_pdf_files), nen no can o ky moi. Bao ngay con hon de
+        # yeu cau di tiep voi mot goi ky khong dung duoc.
+        if esign.get("revised"):
+            from ecentric_workspace.platform.esign import requester as esign_requester
+            esign_requester.sign_on_submit(self.doctype, name)
+        return {"restarted": True, "esign": esign}
 

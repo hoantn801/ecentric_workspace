@@ -221,13 +221,24 @@ class TestTheRefusalHappensBeforeAnythingIsWritten(unittest.TestCase):
             if calls:
                 found.append((node.test, [c.func.attr for c in calls]))
         self.assertTrue(found, "khong nhanh nao goi hai ham nay")
+        # Hai dieu kien HOP LE, khong hon:
+        #   Submitter  -> `if signature_required:`      (lan gui dau)
+        #   Resubmitter-> `if esign.get("revised"):`    (goi ky vua duoc tao ban moi, 29/08)
+        # Dieu con lai la thu duy nhat test nay sinh ra de chan: mot HANG (`if False:`) van de
+        # lai day du chuoi trong source nen phep grep khong thay gi bat thuong.
         for test, names in found:
-            self.assertIsInstance(
-                test, ast.Name,
-                "dieu kien bao ngoai %s phai la mot bien, khong phai hang: %s"
-                % (names, ast.dump(test)))
-            self.assertEqual(test.id, "signature_required",
-                             "%s phai chay khi va chi khi signature_required" % names)
+            if isinstance(test, ast.Constant):
+                self.fail("dieu kien bao ngoai %s la mot HANG (%r) - nhanh nay khong bao gio "
+                          "chay ma source van doc nhu binh thuong" % (names, test.value))
+            if isinstance(test, ast.Name):
+                self.assertEqual(test.id, "signature_required",
+                                 "%s phai chay khi va chi khi signature_required" % names)
+                continue
+            self.assertIsInstance(test, ast.Call,
+                                  "dieu kien la cua %s: %s" % (names, ast.dump(test)))
+            self.assertEqual(getattr(test.func, "attr", None), "get")
+            self.assertEqual([a.value for a in test.args], ["revised"],
+                             "duong gui lai chi duoc ky lai khi goi THAT SU co ban moi")
 
     def test_the_check_runs_before_save_and_before_engine_submit(self):
         gate = self.sub.index("assert_ready_to_submit")
