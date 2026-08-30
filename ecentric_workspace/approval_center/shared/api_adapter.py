@@ -43,6 +43,11 @@ def bind(approval_code):
         return facade.submit(definition, name)
 
     @frappe.whitelist(methods=["POST"])
+    def clone_request(name):
+        """Tao phieu NHAP moi tu mot yeu cau da bi tu choi / da huy (xem command_service)."""
+        return facade.clone_request(definition, name)
+
+    @frappe.whitelist(methods=["POST"])
     def approve(name, comment=None):
         return facade.approve(definition, name, comment)
 
@@ -120,6 +125,7 @@ def bind(approval_code):
         "get_request_detail": get_detail,
         "save_draft": save_draft,
         "submit_request": submit_request,
+        "clone_request": clone_request,
         "approve": approve,
         "reject": reject,
         "request_information": request_information,

@@ -172,6 +172,35 @@ def _assert_can_classify(bd, bn):
         frappe.throw(_("Chỉ người đề nghị mới được phân loại tài liệu."), frappe.PermissionError)
 
 
+def _can_add_supporting(bd, bn, is_requester):
+    """Duoc phep dinh kem THEM BANG CHUNG (khong ky) hay khong.
+
+    Tach hoan toan khoi `_setup_editable`. Cong kia hoi "co duoc sua THIET LAP KY khong" -
+    phan loai tai lieu, dat o ky - va cau tra loi sau khi da khoa goi luon la khong. Cau hoi
+    o day khac han: "co duoc them mot to hoa don vao ho so khong". Gop hai cau vao mot cong
+    la ly do man hinh "Chinh sua & gui lai" tung khong co CHO NAO de dinh kem, trong khi ly
+    do bi tra lai thuong gap nhat lai chinh la thieu chung tu (30/08).
+
+    Chi mo khi yeu cau dang o "Information Required" - tuc mot cap duyet vua bam "Yeu cau bo
+    sung" va dang cho. Ngoai khoang do thi ho so khong duoc dong them gi.
+
+    Quy uoc da chot 30/08: tep them o giai doan nay LUON la BO CHUNG TU - bang chung, khong
+    ai ky len no, khong vao goi ky, khong day sang SCTS. Muon doi TAI LIEU CAN KY thi khong
+    di duong nay: cap duyet Tu choi, nguoi de nghi lam phieu moi. Ly do rat cung: SCTS chi
+    nhan danh sach tep LUC TAO tai lieu, khong co duong them trang vao tai lieu da tao - nen
+    "vua giu chu ky cu vua them tep vao ho so ben SCTS" la dieu khong ton tai.
+    """
+    if not is_requester:
+        return False
+    ar = perms.business_approval_request(bd, bn)
+    if not ar:
+        return False                    # chua gui -> da co duong tai len binh thuong
+    try:
+        return frappe.db.get_value(AR, ar, "approval_status") == "Information Required"
+    except Exception:
+        return False                    # doc hong -> dong cua
+
+
 def _setup_editable(bd, bn):
     """SINGLE governed predicate: may document setup (classification + placement) be MUTATED?
     Editable ONLY during the pre-submit document-setup stage - the business request has NOT been
@@ -246,8 +275,9 @@ def get_document_setup_state(business_doctype, business_name):
     # package (Locked/Active/Provider*/Completed) closes the window; ambiguity needs review.
     # This is stage-based, NOT business docstatus (EC Payment Request is not submittable).
     editable, editable_reason = _setup_editable(business_doctype, business_name)
-    can_classify = editable and (frappe.session.user == _requester_of(business_doctype,
-                                                                      business_name))
+    is_requester = frappe.session.user == _requester_of(business_doctype, business_name)
+    can_classify = editable and is_requester
+    can_add_supporting = _can_add_supporting(business_doctype, business_name, is_requester)
     plan = sp.resolve_signer_plan(business_doctype, business_name)
     required_slots = (plan.get("summary") or {}).get("required_slots", 0) if plan.get("resolved") else 0
     _req_keys = {sl["slot_key"] for sl in (plan.get("slots") or []) if sl.get("required")} \
@@ -279,8 +309,17 @@ def get_document_setup_state(business_doctype, business_name):
             legacy_unmapped = len([r for r in _rows
                                    if not r.signer_slot_key or r.signer_slot_key not in _req_keys])
         else:
-            req_sig = True                          # implicit default; NO DSF created to store it
-            classification_source = "default"
+            # Tep KHONG nam trong goi ky.
+            #
+            # Truoc khi khoa goi: mac dinh CAN KY (nguoi de nghi con phan loai lai duoc).
+            # Sau khi da khoa: tep nay khong con duong nao vao goi nua, nen no la BO CHUNG TU
+            # - bang chung dinh kem, khong ai ky len. Bao "can ky" o day la noi doi: man hinh
+            # se doi mot chu ky khong bao gio dat duoc va bo dem "x/y nguoi ky da thiet lap"
+            # khong bao gio day. Dung voi quy uoc 30/08: tep bo sung sau khi bi tra lai la
+            # bang chung, khong phai to trinh.
+            req_sig = bool(is_draft) if cur_name else True
+            classification_source = "default" if (is_draft or not cur_name) \
+                else "supporting_after_lock"
             signature_file = None
         docs.append({
             "document_ref": rep["name"],            # deterministic representative File.name
@@ -303,6 +342,9 @@ def get_document_setup_state(business_doctype, business_name):
     return {
         "business_doctype": business_doctype, "business_name": business_name,
         "editable": editable, "can_classify": can_classify, "setup_editable_reason": editable_reason, "needs_review": needs_review,
+        # Rieng biet voi `editable`: dinh kem THEM BANG CHUNG khi dang bi tra lai. Xem
+        # _can_add_supporting - gop hai quyen nay lam mot la nguon goc cua be tac 30/08.
+        "can_add_supporting": can_add_supporting,
         "current_package_status": cur_status,
         "signer_plan": {"resolved": plan.get("resolved"),
                         "slot_key_version": plan.get("slot_key_version"),

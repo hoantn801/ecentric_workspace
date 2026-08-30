@@ -24,16 +24,12 @@
        bound to state.draft.request_attachment) so the data contract + submit validation +
        representative-pointer logic are all preserved. */
     #ec-payr-root .fld:has([data-upload="request_attachment"]){display:none !important}
-/* ...TRU man hinh "Chinh sua & gui lai".
-       "Mot be mat tai len duy nhat" chi dung khi be mat con lai MO. Sau khi bi tra lai,
-       khoi "TAI LIEU & KY SO" dang khoa (goi ky con Locked; ban moi chi duoc tao BEN TRONG
-       thao tac Gui lai), nen nut "+ Tai tai lieu" bi vo hieu. Cong voi luat an o tren,
-       man hinh do co DUNG KHONG be mat nao de dinh kem - trong khi ly do bi tra lai
-       thuong xuyen nhat lai chinh la "thieu chung tu".
-       Nguoi de nghi khong the bo sung thu ma Ke toan vua doi. 30/08.
-       Neo `#payr-resubmit` chi ton tai o che do sua (main_section.html, nhanh `editing`). */
-    #ec-payr-root .payr-formwrap:has(#payr-resubmit)
-      .fld:has([data-upload="request_attachment"]){display:flex !important}
+/* Luat tren dung o MOI che do, ke ca "Chinh sua & gui lai".
+       30/08 co mot ban va mo lai o cu o che do sua, vi luc bi tra lai thi ca hai be mat tai
+       len deu dong. Ban va do da bi GO: no dung lai dung cai be mat thu hai ma thiet ke nay
+       co y bo, va no dat o tai lieu ra ngoai khoi "TAI LIEU & KY SO" - noi nguoi dung tim.
+       Cach dung: mo nut "+ Tai tai lieu" o trang thai Can bo sung (can_add_supporting),
+       tep len theo dien BO CHUNG TU - khong ky, khong vao goi, khong day sang SCTS. */
 .ec-docsign .ecd-card, .ecd-drawer-ov .ecd-card{background:#fff;border:1px solid var(--ecd-line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
 .ec-docsign h3, .ecd-drawer-ov h3{font-size:14px;font-weight:700;color:var(--ecd-ink);margin:0 0 4px;display:flex;align-items:center;gap:8px}
 .ecd-box{position:absolute;touch-action:none;user-select:none;border:2px solid #2C3DA6;background:rgba(44,61,166,.12);border-radius:4px;cursor:move;font-size:10px;color:#2C3DA6;font-weight:700;overflow:hidden}
@@ -257,7 +253,19 @@
     document.getElementById("ecdRows").innerHTML =
       (STATE.documents || []).map(rowHtml).join("") || '<div class="ecd-meta">Chưa có tài liệu.</div>';
     var upBtn = document.getElementById("ecdUploadBtn");
-    upBtn.disabled = !(STATE.editable && STATE.can_classify);
+    // Hai duong mo nut, hai y nghia khac han:
+    //   editable + can_classify -> giai doan lap ho so, tep len co the la to trinh CAN KY;
+    //   can_add_supporting      -> dang bi tra lai, tep len chi la BANG CHUNG (khong ky).
+    // Truoc 30/08 chi co duong tren, nen khi bi tra lai thi khong con be mat tai len nao -
+    // dung luc nguoi de nghi can bo sung chung tu nhat.
+    var supportOnly = !(STATE.editable && STATE.can_classify) && !!STATE.can_add_supporting;
+    upBtn.disabled = !(STATE.editable && STATE.can_classify) && !supportOnly;
+    var upHint = document.getElementById("ecdUploadHint");
+    if (upHint && !upHint.textContent) {
+      upHint.textContent = supportOnly
+        ? "Tệp thêm ở bước này là bộ chứng từ — không cần ký, không ảnh hưởng chữ ký đã có."
+        : "";
+    }
     wire();
   }
 

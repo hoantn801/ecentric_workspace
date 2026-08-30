@@ -32,6 +32,9 @@ class ApprovalFacade:
     def submit(self, definition, name):
         return command_service.submit(definition, name)
 
+    def clone_request(self, definition, name):
+        return command_service.clone_request(definition, name)
+
     def approve(self, definition, name, comment=None):
         return command_service.approve(definition, name, comment)
 

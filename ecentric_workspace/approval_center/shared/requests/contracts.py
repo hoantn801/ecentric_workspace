@@ -43,6 +43,13 @@ class ApprovalDefinition:
     approval_projection: str = "standard"
     draft_preparer: Optional[Callable] = None
     feature: str = ""
+    #: Truong KHONG duoc chep khi "Tao phieu moi tu phieu nay".
+    #:
+    #: Danh cho cac o mang tinh CAM KET CA NHAN - nguoi dung tich vao de xac nhan mot dieu
+    #: gi do. Chep nguyen mot lo cam ket sang phieu moi la ky thay ho: man hinh se noi ho
+    #: "da xac nhan thong tin va tep dinh kem la chinh xac" cho mot bo ho so ho chua doc lai.
+    #: De trong la mac dinh; module nao co o nhu vay thi tu khai ra.
+    clone_exclude_fields: Tuple[str, ...] = ()
 
     @property
     def status_label_map(self) -> Mapping[str, str]:
