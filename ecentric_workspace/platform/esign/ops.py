@@ -149,6 +149,37 @@ def hash_mismatch_reviews(limit=50):
     return out
 
 
+def signature_debts(limit=100):
+    """Cap duyet da hoan tat MA CHUA CO chu ky so - ghi khi cong ky so dang tat.
+
+    Da chot 31/08: phieu van di tiep va hoan tat duoc du con no. Doi lai, mon no phai HIEN
+    RA - mot mon no khong ai nhin thay la mot mon no khong bao gio duoc tra.
+    """
+    rows = frappe.get_all(
+        "EC Approval Request Level",
+        filters={"signature_deferred": 1, "signature_settled_at": ["is", "not set"]},
+        fields=["name", "approval_request", "level_no", "level_name",
+                "signature_deferred_by", "signature_deferred_at"],
+        order_by="signature_deferred_at asc", limit_page_length=limit)
+    out = []
+    for r in rows:
+        req = frappe.db.get_value(AR, r.approval_request,
+                                  ["reference_doctype", "reference_name", "approval_status"],
+                                  as_dict=True) if r.approval_request else None
+        out.append({
+            "name": r.name, "approval_request": r.approval_request,
+            "level_no": r.level_no, "level_name": r.level_name,
+            "who": r.signature_deferred_by,
+            "since": str(r.signature_deferred_at or ""),
+            "business_doctype": req.reference_doctype if req else None,
+            "business_name": req.reference_name if req else None,
+            # Phieu da duyet xong ma van no = mon no de bi bo quen nhat.
+            "request_status": req.approval_status if req else None,
+            "actions": [],
+        })
+    return out
+
+
 def summary():
     """Con so cho the dau trang. Dem rieng cai DA CHET voi cai dang cho."""
     legs = stuck_legs(limit=500)
@@ -160,6 +191,7 @@ def summary():
         "stalled_retrievals": len([x for x in bundles if x["stalled"]]),
         "waiting_on_provider": len([x for x in bundles if x["waiting_on_provider"]]),
         "hash_mismatch": len(hash_mismatch_reviews(limit=500)),
+        "signature_debts": len(signature_debts(limit=500)),
     }
 
 
@@ -167,4 +199,5 @@ def inbox():
     """Tat ca trong mot lan goi - trang nay mo ra la thay het, khong bam tung tab."""
     return {"summary": summary(), "stuck_legs": stuck_legs(),
             "unretrieved": unretrieved_bundles(), "hash_mismatch": hash_mismatch_reviews(),
+            "signature_debts": signature_debts(),
             "retrieval_alert_after": RETRIEVAL_ALERT_AFTER}

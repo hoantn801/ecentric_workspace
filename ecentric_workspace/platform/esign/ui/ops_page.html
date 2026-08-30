@@ -102,7 +102,8 @@
     ["dead_end_legs", "Trong đó: không còn đường ra", "bad"],
     ["unretrieved", "Gói chưa tải được PDF đã ký", ""],
     ["stalled_retrievals", "Trong đó: thử quá nhiều lần", "warn"],
-    ["hash_mismatch", "Mã băm lệch, chờ đối chiếu", "warn"]
+    ["hash_mismatch", "Mã băm lệch, chờ đối chiếu", "warn"],
+    ["signature_debts", "Cấp duyệt còn nợ chữ ký", "bad"]
   ];
 
   function renderCards() {
@@ -182,6 +183,19 @@
       + '<td><div class="ops-note">Mở phiếu để đối chiếu hai bản.</div></td></tr>';
   }
 
+  function debtRow(r) {
+    var done = r.request_status === "Approved";
+    return "<tr><td>" + docLink(r.business_doctype, r.business_name)
+      + '<div class="ops-note">' + esc(r.approval_request || "") + "</div></td>"
+      + "<td>" + esc(r.level_name || ("Cấp " + r.level_no)) + "</td>"
+      + "<td>" + esc(r.who || "—") + "</td><td>" + when(r.since) + "</td>"
+      + '<td><span class="ops-pill ' + (done ? "bad" : "warn") + '">'
+      + (done ? "Phiếu đã duyệt xong" : "Phiếu còn đang chạy") + "</span>"
+      + (done ? '<div class="ops-note">Phiếu đã hoàn tất nên món nợ này dễ bị bỏ quên nhất.'
+                + '</div>' : "")
+      + "</td></tr>";
+  }
+
   function section(title, note, headers, rows, rowFn, emptyText) {
     if (!rows || !rows.length) {
       return "<h2>" + esc(title) + "</h2><p class=\"ops-note\">" + esc(note) + "</p>"
@@ -216,7 +230,14 @@
               + "giữ nguyên cho tới khi có người đối chiếu.",
               ["Phiếu", "Tệp", "Cập nhật", ""],
               STATE.hash_mismatch, mismatchRow,
-              "Không có tệp nào lệch mã băm.");
+              "Không có tệp nào lệch mã băm.")
+      + section("Cấp duyệt còn nợ chữ ký",
+              "Những cấp đã hoàn tất trong lúc cổng ký số đang tắt. Phiếu vẫn đi tiếp — "
+              + "đó là quyết định vận hành — nhưng chữ ký thì vẫn còn nợ, và chỉ chính "
+              + "người duyệt đó ký được. Không ai ký thay được.",
+              ["Phiếu", "Cấp", "Người duyệt", "Ghi nợ lúc", "Tình trạng phiếu"],
+              STATE.signature_debts, debtRow,
+              "Không có cấp duyệt nào còn nợ chữ ký.");
     wire();
   }
 

@@ -31,7 +31,11 @@
   "is_overdue",
   "sla_calendar",
   "sla_holiday_list",
-  "allows_amount_adjustment"
+  "allows_amount_adjustment",
+  "signature_deferred",
+  "signature_deferred_at",
+  "signature_deferred_by",
+  "signature_settled_at"
  ],
  "fields": [
   {
@@ -137,6 +141,36 @@
    "label": "Allows Amount Adjustment",
    "default": "0",
    "description": "Frozen snapshot of the level's amount-adjustment flag."
+  },
+  {
+   "fieldname": "signature_deferred",
+   "fieldtype": "Check",
+   "label": "Nợ chữ ký số",
+   "default": "0",
+   "read_only": 1,
+   "description": "Cấp này hoàn tất khi cổng ký số đang tắt, nên chưa có chữ ký số. Chữ ký vẫn còn nợ cho tới khi người duyệt ký lại."
+  },
+  {
+   "fieldname": "signature_deferred_at",
+   "fieldtype": "Datetime",
+   "label": "Ghi nợ lúc",
+   "read_only": 1,
+   "depends_on": "eval:doc.signature_deferred"
+  },
+  {
+   "fieldname": "signature_deferred_by",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Người duyệt còn nợ chữ ký",
+   "read_only": 1,
+   "depends_on": "eval:doc.signature_deferred"
+  },
+  {
+   "fieldname": "signature_settled_at",
+   "fieldtype": "Datetime",
+   "label": "Đã trả nợ chữ ký lúc",
+   "read_only": 1,
+   "depends_on": "eval:doc.signature_deferred"
   }
  ],
  "permissions": [

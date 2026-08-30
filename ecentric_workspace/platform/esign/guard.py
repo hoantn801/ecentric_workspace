@@ -19,6 +19,9 @@ Types without an enabled signing profile: one indexed query, behavior unchanged.
 """
 import frappe
 from frappe import _
+from frappe.utils import now_datetime
+
+from ecentric_workspace.platform.esign import events
 
 FLAG_KEY = "ec_esign_completion_dsr"
 
@@ -133,7 +136,8 @@ def derive_role_title(profile, level_no=None, is_requester=False, process_role_t
     return ("Cap duyet %s" % level_no) if level_no is not None else None
 
 
-def level_requires_signature(reference_doctype, approval_type, level_no, final_level=None):
+def level_requires_signature(reference_doctype, approval_type, level_no, final_level=None,
+                             ignore_gates=False):
     """True when the active profile's Approver Signature Policy makes THIS Approval Engine
     level require a digital signature. Policy-driven so admins need not recreate every level:
       * None                     -> no level requires signing;
@@ -144,7 +148,12 @@ def level_requires_signature(reference_doctype, approval_type, level_no, final_l
                                     (the OLD behavior; also the backward-compat default).
     The Approval Engine still owns approvers/order/completion; this only decides WHICH levels
     are signable."""
-    profile = get_active_profile(reference_doctype, approval_type)
+    # `ignore_gates=True` hoi CHINH SACH thay vi hoi "co gui duoc ngay khong": duong ghi no
+    # chu ky can biet cap nay LE RA co phai ky khong, ke ca khi cong dang tat. Dung chung mot
+    # than de hai cau tra loi khong the troi khoi nhau - ban dau viet thanh mot ham song song
+    # va do dung la cach hai luat bat dau lech nhau.
+    profile = (get_enabled_profile(reference_doctype, approval_type) if ignore_gates
+               else get_active_profile(reference_doctype, approval_type))
     if not profile:
         return False
     policy = _approver_signature_policy(profile)
@@ -252,6 +261,56 @@ def assert_level_completable(req, level_no, actor):
     # Cung ho voi allow_production_signing: cong nhin chat nhung khong kiem duoc gi.
     if not level_requires_signature(req.reference_doctype, req.approval_type, level_no,
                                     final_level=request_final_level(req.name)):
+        # Cong DONG nhung CHINH SACH van doi chu ky o cap nay -> khong chan, nhung GHI NO.
+        #
+        # Truoc 31/08 nhanh nay im hoan toan: tat `allow_signing` la nut "Duyet" thuong hoan
+        # tat mot cap le ra bat buoc ky so, khong chu ky, khong canh bao, khong mot dong nao
+        # trong lich su noi rang cap do duoc duyet trong luc ky so dang tat. Nhin lai sau vai
+        # thang thi phieu do trong y het mot phieu da ky day du.
+        #
+        # Chu y su bat doi xung: `requester_signature_required` dung duong tra cuu KHONG phu
+        # thuoc cong, con duong cap duyet thi phu thuoc. Nen nguoi de nghi van bi bat ky trong
+        # khi cap duyet thi khong.
+        _record_signature_debt(req, level_no, actor)
         return
     dsr_name = getattr(frappe.flags, FLAG_KEY, None)  # call marker ONLY (see module docstring)
     validate_completion(dsr_name, req, level_no, actor)
+
+
+def _record_signature_debt(req, level_no, actor):
+    """Danh dau mot cap duyet hoan tat MA CHUA CO chu ky so, khi cong ky so dang tat.
+
+    Chi ghi khi CHINH SACH that su doi chu ky o cap nay (`get_enabled_profile` - doc lap voi
+    cong). Cac loai yeu cau khong dung ky so thi khong co gi de no.
+
+    Ghi hong KHONG duoc lam gay viec duyet: mot cap duyet khong hoan tat duoc vi so ke toan
+    ghi loi thi te hon la mot mon no khong ghi lai duoc. Nhung cung khong nuot im lang -
+    Error Log giu lai de con lan ra.
+    """
+    try:
+        profile = get_enabled_profile(req.reference_doctype, req.approval_type)
+        if not profile:
+            return                                    # loai nay khong dung ky so
+        if not level_requires_signature(req.reference_doctype, req.approval_type, level_no,
+                                        final_level=request_final_level(req.name),
+                                        ignore_gates=True):
+            return                                    # chinh sach khong doi ky o cap nay
+        rl = frappe.db.get_value("EC Approval Request Level",
+                                 {"approval_request": req.name, "level_no": level_no}, "name")
+        if not rl:
+            return
+        frappe.db.set_value("EC Approval Request Level", rl,
+                            {"signature_deferred": 1,
+                             "signature_deferred_at": now_datetime(),
+                             "signature_deferred_by": actor or frappe.session.user})
+        from ecentric_workspace.approval_center.shared.workflow import transitions as engine
+        engine.log_action(req.name, "Commented", actor,
+                          level_no=level_no,
+                          comment=_("Cấp này hoàn tất khi cổng ký số đang tắt — còn nợ chữ ký "
+                                    "số. Chữ ký sẽ được yêu cầu lại khi cổng mở."))
+        events.emit("SignatureDeferred", request_meta={
+            "approval_request": req.name, "level_no": level_no,
+            "actor": actor or frappe.session.user,
+            "reference_doctype": req.reference_doctype, "reference_name": req.reference_name})
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign.guard._record_signature_debt")
