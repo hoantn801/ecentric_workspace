@@ -127,6 +127,20 @@ def reject_and_transition(business_doctype, business_name, comment=None):
 
 
 # ------------------------------ ops (System Manager) ------------------------------ #
+@frappe.whitelist()
+def ops_inbox():
+    """Nhung viec ky so dang cho nguoi can thiep. CHI DOC.
+
+    Cac ham cuu ho ben duoi da ton tai va chay dung tu lau, nhung khong giao dien nao goi
+    chung - nen `Permanent Failure` va `Cancelled` la ngo cut tren thuc te du may trang thai
+    co du duong ra. Endpoint nay la danh sach; hanh dong van di qua tung endpoint rieng, moi
+    cai tu kiem quyen lay.
+    """
+    perms.assert_system_manager()
+    from ecentric_workspace.platform.esign import ops
+    return ops.inbox()
+
+
 @frappe.whitelist(methods=["POST"])
 def retry_signature_request(dsr_name):
     return svc.retry_signature_request(dsr_name)
