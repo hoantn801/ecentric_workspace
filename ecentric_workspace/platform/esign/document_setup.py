@@ -201,6 +201,58 @@ def _can_add_supporting(bd, bn, is_requester):
         return False                    # doc hong -> dong cua
 
 
+def remove_supporting_attachment(bd, bn, document_ref):
+    """Go mot tep BO CHUNG TU vua dinh kem nham ra khoi phieu.
+
+    Tai nham tep la chuyen binh thuong. Khong go duoc thi nguoi de nghi phai tai them ban
+    dung va de ca hai nam do, cap duyet tu doan cai nao that - roi ho so di tiep voi mot tep
+    la trong danh sach.
+
+    BA dieu kien, thieu mot la tu choi:
+      1. dung nguoi de nghi, va phieu dang o "Cần bổ sung" - cung cua so voi luc them vao;
+      2. tep KHONG thuoc bat ky goi ky nao cua phieu, KE CA goi da Superseded. Mot tep tung
+         nam trong goi la thu da/dang duoc ky len; go no di la sua bang chung;
+      3. tep phai dang dinh vao dung phieu nay.
+
+    Go het ca NHOM tep trung noi dung: man hinh gop chung lai thanh mot dong, nen go mot ban
+    ghi ma de lai ban sao thi nguoi dung thay tep "khong chiu bien mat".
+
+    Co ghi vet vao lich su phieu - khong co thay doi im lang nao tren mot ho so duyet chi.
+    """
+    perms.assert_can_view_business(bd, bn)
+    actor = frappe.session.user
+    if not _can_add_supporting(bd, bn, actor == _requester_of(bd, bn)):
+        frappe.throw(_("Chỉ gỡ được tệp khi yêu cầu đang ở trạng thái Cần bổ sung, "
+                       "và chỉ người đề nghị mới gỡ được."), frappe.PermissionError)
+
+    groups = _dedupe(_current_files(bd, bn))
+    group = next((g for g in groups if g["rep"]["name"] == document_ref), None)
+    if not group:
+        frappe.throw(_("Không tìm thấy tệp này trên yêu cầu."))
+
+    sha = _rep_sha(group["rep"])
+    in_any_package = frappe.db.get_value(DSF, {"sha256": sha}, "package")
+    if in_any_package:
+        owner = frappe.db.get_value(PKG, in_any_package, ["business_doctype", "business_name"],
+                                    as_dict=True)
+        if owner and owner.business_doctype == bd and owner.business_name == bn:
+            frappe.throw(_("Tệp này nằm trong gói ký nên không gỡ được. "
+                           "Chỉ gỡ được chứng từ vừa bổ sung."))
+
+    names = [f["name"] for f in group["members"]]
+    for file_name in names:
+        frappe.delete_doc("File", file_name, ignore_permissions=True, delete_permanently=False)
+
+    ar = perms.business_approval_request(bd, bn)
+    if ar:
+        from ecentric_workspace.approval_center.shared.workflow import transitions as engine
+        engine.log_action(ar, "Commented", actor,
+                          comment=_("Đã gỡ chứng từ bổ sung: {0}").format(
+                              group["rep"].get("file_name") or document_ref))
+    return {"ok": True, "removed": len(names),
+            "state": get_document_setup_state(bd, bn)}
+
+
 def _setup_editable(bd, bn):
     """SINGLE governed predicate: may document setup (classification + placement) be MUTATED?
     Editable ONLY during the pre-submit document-setup stage - the business request has NOT been

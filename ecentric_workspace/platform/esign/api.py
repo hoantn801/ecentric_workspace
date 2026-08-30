@@ -639,6 +639,19 @@ def set_document_requires_signature(payment_request_name, document_ref, requires
 
 
 @frappe.whitelist(methods=["POST"])
+def remove_supporting_attachment(payment_request_name, document_ref):
+    """Go mot chung tu BO SUNG vua dinh kem nham, khi phieu dang o "Cần bổ sung".
+
+    Tu choi neu tep nam trong bat ky goi ky nao cua phieu - tep do da/dang duoc ky len.
+    Chi nguoi de nghi. Co ghi vet vao lich su phieu. Xem document_setup de biet luat day du.
+    """
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.platform.esign import document_setup as ds
+    return ds.remove_supporting_attachment("EC Payment Request", payment_request_name,
+                                           document_ref)
+
+
+@frappe.whitelist(methods=["POST"])
 def set_representative_attachment(payment_request_name, file_url):
     """Phase A2: set the backward-compatible request_attachment pointer to an uploaded File only
     when currently empty (requester-scoped; never overwrites; no other field touched)."""

@@ -219,6 +219,12 @@
       act = '<button class="ecd-btn" data-open="' + esc(d.file_url || '') + '">Mở file</button>';
     }
     var dup = (d.duplicate_count > 1) ? ' · ' + d.duplicate_count + ' bản trùng (gộp)' : '';
+    // Go tep vua bo sung nham. CHI cho tep bo chung tu, va chi trong cua so "Cần bổ sung"
+    // + dang o form sua. Tep da vao goi ky khong bao gio go duoc - backend chan lan nua,
+    // vi mot nut khong hien khong phai la mot phep kiem.
+    if (supporting && STATE && STATE._can_remove_supporting) {
+      act = '<button class="ecd-btn" data-remove="' + esc(d.document_ref) + '">Gỡ</button> ' + act;
+    }
     return '<div class="ecd-row">'
       + '<div class="ecd-main"><div class="ecd-name" title="' + esc(d.display_name) + '">'
         + esc(d.display_name) + '</div>'
@@ -250,22 +256,35 @@
     } else if (plan.resolved === false) {
       banner.innerHTML = '<div class="ecd-banner b-info">Chưa xác định được người ký. Hoàn tất thông tin yêu cầu để hệ thống xác định quy trình ký.</div>';
     } else { banner.innerHTML = ""; }
-    document.getElementById("ecdRows").innerHTML =
-      (STATE.documents || []).map(rowHtml).join("") || '<div class="ecd-meta">Chưa có tài liệu.</div>';
+    // Tinh quyen TRUOC khi dung cac dong: rowHtml doc `STATE._can_remove_supporting` de quyet
+    // dinh co ve nut "Go" hay khong. Dat co sau khi da dung xong thi lan ve dau tien khong co
+    // nut, phai doi mot lan ve lai moi thay - kieu loi chi lo ra khi bam thu.
     var upBtn = document.getElementById("ecdUploadBtn");
     // Hai duong mo nut, hai y nghia khac han:
     //   editable + can_classify -> giai doan lap ho so, tep len co the la to trinh CAN KY;
     //   can_add_supporting      -> dang bi tra lai, tep len chi la BANG CHUNG (khong ky).
     // Truoc 30/08 chi co duong tren, nen khi bi tra lai thi khong con be mat tai len nao -
     // dung luc nguoi de nghi can bo sung chung tu nhat.
-    var supportOnly = !(STATE.editable && STATE.can_classify) && !!STATE.can_add_supporting;
+    // Bo sung chung tu chi thao tac duoc TRONG form "Chinh sua & gui lai".
+    //
+    // 31/08: khoi nay hien o ca trang chi tiet lan trong form sua, nen tren cung mot man hinh
+    // co HAI cho tai tai lieu. Ngoai kia van hien - cap duyet can mo ra xem chu ky - nhung
+    // chi de XEM. Co `payr-editing` do main_section dat len <html>.
+    var editingNow = _editing();
+    var supportOnly = !(STATE.editable && STATE.can_classify)
+                      && !!STATE.can_add_supporting && editingNow;
     upBtn.disabled = !(STATE.editable && STATE.can_classify) && !supportOnly;
     var upHint = document.getElementById("ecdUploadHint");
     if (upHint && !upHint.textContent) {
       upHint.textContent = supportOnly
         ? "Tệp thêm ở bước này là bộ chứng từ — không cần ký, không ảnh hưởng chữ ký đã có."
-        : "";
+        : (STATE.can_add_supporting && !editingNow
+           ? "Bấm “Chỉnh sửa & gửi lại” để bổ sung chứng từ."
+           : "");
     }
+    STATE._can_remove_supporting = supportOnly;   // dong nao duoc phep go - xem rowHtml
+    document.getElementById("ecdRows").innerHTML =
+      (STATE.documents || []).map(rowHtml).join("") || '<div class="ecd-meta">Chưa có tài liệu.</div>';
     wire();
   }
 
@@ -279,6 +298,39 @@
     root.querySelectorAll("[data-open]").forEach(function (b) {
       b.onclick = function () { var u = b.getAttribute("data-open"); if (u) window.open(u, "_blank"); };
     });
+    root.querySelectorAll("[data-remove]").forEach(function (b) {
+      b.onclick = function () { removeSupporting(b.getAttribute("data-remove"), b); };
+    });
+  }
+
+  // Dang o form "Chinh sua & gui lai"? Co do main_section dat len <html> khi vao che do sua.
+  // Doc CO thay vi hoi trang: khoi nay duoc nhung vao nhieu trang, khong duoc phu thuoc vao
+  // cau truc DOM cua rieng mot trang nao.
+  function _editing() {
+    try { return document.documentElement.classList.contains("payr-editing"); }
+    catch (e) { return false; }
+  }
+  try {
+    window.addEventListener("payr:editing", function () { if (STATE) render(); });
+  } catch (e) {}
+
+  // Go mot chung tu bo sung vua tai nham. Hoi truoc - go la thao tac khong hoan tac duoc.
+  function removeSupporting(ref, btn) {
+    var name = pr(); if (!name || !ref) return;
+    if (!window.confirm("Gỡ tệp này khỏi yêu cầu?")) return;
+    btn.disabled = true;
+    // "POST": endpoint nay GHI (xoa ban ghi File + ghi vet lich su). Mac dinh cua `call` la
+    // GET, ma Frappe tu choi ghi qua GET - quen tham so nay la loi 417 kho doan.
+    call("remove_supporting_attachment", { payment_request_name: name, document_ref: ref }, "POST")
+      .then(function (o) {
+        if (o && o.state) { STATE = o.state; render(); }
+        else load();
+      })
+      .catch(function (e) {
+        btn.disabled = false;
+        var hint = document.getElementById("ecdUploadHint");
+        if (hint) hint.textContent = (e && e.message) || "Không gỡ được tệp.";
+      });
   }
 
   // classify: requires_signature = !supporting. Handle confirmation + unsupported + no-op.

@@ -86,6 +86,7 @@ class TestEachTemplateLandmarkHasAPatchThatMentionsIt(unittest.TestCase):
         ("document_signing_section.html", "overflow:auto;min-width:0", "viewer_pages"),
         ("document_signing_section.html", "function _fitSig", "signature_fit"),
         ("document_signing_section.html", "STATE.can_add_supporting", "supporting_upload"),
+        ("document_signing_section.html", "data-remove=", "remove_supporting"),
         ("requester_signing_panel.html", "requester_signature_processing", "processing_state"),
     ]
 
