@@ -23,6 +23,7 @@ from ecentric_workspace.platform.esign.providers.base import (
 from ecentric_workspace.platform.esign.sanitize import safe_error
 
 DSR = "EC Digital Signature Request"
+EVT = "EC Digital Signature Event"
 
 # Server-derived provider action for bulk-process. The DSR.action -> provider
 # transitionType mapping is authoritative here (never from frontend, never the numeric
@@ -663,10 +664,44 @@ def retrieve_signed_bundles():
         if not done:
             continue
         try:
-            signed_files.retrieve_and_store_for_package(r.name)
+            out = signed_files.retrieve_and_store_for_package(r.name)
         except Exception:
             frappe.log_error(frappe.get_traceback(),
                              "esign.tasks.retrieve_signed_bundles %s" % r.name)
+            out = None
+        if not (out or {}).get("ok"):
+            _flag_stalled_retrieval(r.name)
+
+
+#: Cron chay moi 30 phut. 10 lan ~ 5 tieng khong lay duoc PDF thi khong con la "cham" nua.
+RETRIEVAL_ALERT_AFTER = 10
+
+
+def _flag_stalled_retrieval(package_name):
+    """Bao dong MOT LAN khi mot goi thu lai qua nhieu ma van chua co PDF da ky.
+
+    Vong lap tren khong dem gi ca: no thu lai VO HAN, khong leo thang, khong tao nhac viec.
+    Chu thich trong hooks.py viet "bounded retry" nhung trong code khong co gioi han nao.
+    Nen mot goi hong quay mai trong im lang, va tren man hinh no trong y het mot goi dang
+    cho binh thuong. 29/08: hai goi da quay hon ba muoi lan voi loi 404 ma khong ai biet.
+
+    Bao dong DUNG MOT LAN cho moi goi (su kien tu no la co chan trung): keu moi 30 phut thi
+    chi ba ngay la khong ai doc nua.
+    """
+    try:
+        tries = frappe.db.count(EVT, {"package": package_name,
+                                      "event_type": "SignedFileRetrievalStarted"})
+        if tries < RETRIEVAL_ALERT_AFTER:
+            return
+        if frappe.db.exists(EVT, {"package": package_name,
+                                  "event_type": "SignedRetrievalStalled"}):
+            return
+        events.emit("SignedRetrievalStalled", package=package_name,
+                    request_meta={"attempts": tries, "threshold": RETRIEVAL_ALERT_AFTER})
+    except Exception:
+        # Bao dong hong thi KHONG duoc lam gay vong lap tai file - viec chinh quan trong hon.
+        frappe.log_error(frappe.get_traceback(),
+                         "esign.tasks._flag_stalled_retrieval %s" % package_name)
 
 
 def orphan_file_scan():

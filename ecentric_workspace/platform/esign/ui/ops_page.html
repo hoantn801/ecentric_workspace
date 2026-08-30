@@ -1,0 +1,314 @@
+<div id="ec-esign-ops">
+  <style>
+    /* Tu chua hoan toan: moi kich thuoc/mau dat trong pham vi #ec-esign-ops va khong dua
+       vao bat ky luat nao cua trang chu. Ba lan trong hai ngay he thong hong vi mot thanh
+       phan phu thuoc vao viec no nam trong dung to tien nao. */
+    #ec-esign-ops{--ops-ink:#1f2328;--ops-muted:#57606a;--ops-line:#d9dee3;--ops-navy:#2C3DA6;
+      --ops-red:#b42318;--ops-amber:#9a6700;--ops-green:#1a7f37;
+      font-size:13.5px;color:var(--ops-ink);max-width:1200px;margin:0 auto;padding:18px}
+    #ec-esign-ops h1{font-size:19px;margin:0 0 4px}
+    #ec-esign-ops .ops-sub{color:var(--ops-muted);margin:0 0 18px;font-size:13px;line-height:1.55}
+    #ec-esign-ops .ops-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+      gap:10px;margin-bottom:20px}
+    #ec-esign-ops .ops-card{border:1px solid var(--ops-line);border-radius:10px;padding:12px 14px;background:#fff}
+    #ec-esign-ops .ops-card b{display:block;font-size:24px;line-height:1.2}
+    #ec-esign-ops .ops-card span{color:var(--ops-muted);font-size:12px}
+    #ec-esign-ops .ops-card.bad b{color:var(--ops-red)}
+    #ec-esign-ops .ops-card.warn b{color:var(--ops-amber)}
+    #ec-esign-ops .ops-card.ok b{color:var(--ops-green)}
+    #ec-esign-ops h2{font-size:15px;margin:22px 0 4px}
+    #ec-esign-ops .ops-note{color:var(--ops-muted);font-size:12.5px;margin:0 0 10px;line-height:1.5}
+    #ec-esign-ops table{width:100%;border-collapse:collapse;background:#fff;
+      border:1px solid var(--ops-line);border-radius:10px;overflow:hidden}
+    #ec-esign-ops th{text-align:left;font-size:12px;color:var(--ops-muted);font-weight:600;
+      padding:9px 12px;background:#f6f8fa;border-bottom:1px solid var(--ops-line)}
+    #ec-esign-ops td{padding:10px 12px;border-bottom:1px solid #eef1f4;vertical-align:top}
+    #ec-esign-ops tr:last-child td{border-bottom:none}
+    #ec-esign-ops .ops-empty{padding:16px;color:var(--ops-muted);background:#fff;
+      border:1px solid var(--ops-line);border-radius:10px}
+    #ec-esign-ops .ops-pill{display:inline-block;padding:1px 8px;border-radius:10px;
+      font-size:11px;font-weight:600;background:#eaeef2;color:var(--ops-muted)}
+    #ec-esign-ops .ops-pill.bad{background:#ffebe9;color:var(--ops-red)}
+    #ec-esign-ops .ops-pill.warn{background:#fff8c5;color:var(--ops-amber)}
+    #ec-esign-ops .ops-err{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;
+      color:var(--ops-red);word-break:break-word}
+    #ec-esign-ops .ops-btn{border:1px solid var(--ops-line);background:#fff;border-radius:7px;
+      padding:5px 11px;font-size:12.5px;cursor:pointer;margin-right:5px;color:var(--ops-ink)}
+    #ec-esign-ops .ops-btn:hover{background:#f6f8fa}
+    #ec-esign-ops .ops-btn.primary{background:var(--ops-navy);color:#fff;border-color:var(--ops-navy)}
+    #ec-esign-ops .ops-btn[disabled]{opacity:.5;cursor:default}
+    #ec-esign-ops .ops-dead{color:var(--ops-red);font-size:12.5px}
+    #ec-esign-ops .ops-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    #ec-esign-ops .ops-msg{font-size:12.5px;min-height:18px}
+    #ec-esign-ops .ops-msg.err{color:var(--ops-red)}
+    #ec-esign-ops .ops-msg.ok{color:var(--ops-green)}
+    #ec-esign-ops a{color:var(--ops-navy)}
+  </style>
+
+  <h1>Chân ký cần can thiệp</h1>
+  <p class="ops-sub">
+    Những việc ký số hệ thống không tự xử lý được. Mỗi dòng kèm đúng những hành động
+    máy trạng thái cho phép — không có nút nào ở đây gửi lại lệnh ký, nên không bao giờ
+    tạo ra chữ ký thứ hai.
+  </p>
+
+  <div class="ops-bar">
+    <button class="ops-btn" id="opsReload" type="button">Tải lại</button>
+    <div class="ops-msg" id="opsMsg"></div>
+  </div>
+
+  <div class="ops-cards" id="opsCards"></div>
+  <div id="opsBody"></div>
+</div>
+
+<script id="ec-esign-ops-script">
+(function () {
+  "use strict";
+  var API = "ecentric_workspace.platform.esign.api.";
+  var STATE = null;
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c];
+    });
+  }
+  function call(method, args, type) {
+    var fr = window.frappe;
+    if (!fr || !fr.call) return Promise.reject(new Error("frappe chưa sẵn sàng"));
+    return fr.call({ method: API + method, args: args || {}, type: type || "GET" })
+      .then(function (r) { return r && r.message; });
+  }
+  function msg(text, kind) {
+    var el = document.getElementById("opsMsg");
+    if (!el) return;
+    el.className = "ops-msg" + (kind ? " " + kind : "");
+    el.textContent = text || "";
+  }
+  function when(s) { return s ? String(s).replace("T", " ").slice(0, 16) : "—"; }
+
+  // Phieu nghiep vu mo o trang duyet, khong phai o Desk. Nhac viec / lien ket tro vao /app/
+  // la thu nguoi dung thuong khong co quyen xem va cung khong phai noi ho lam viec.
+  function docLink(dt, dn) {
+    if (!dn) return "—";
+    if (dt === "EC Payment Request") {
+      return '<a href="/approvals/payment-request?id=' + encodeURIComponent(dn)
+             + '" target="_blank">' + esc(dn) + "</a>";
+    }
+    return esc(dn);
+  }
+
+  var CARDS = [
+    ["stuck_legs", "Chân ký đang chờ xử lý", ""],
+    ["dead_end_legs", "Trong đó: không còn đường ra", "bad"],
+    ["unretrieved", "Gói chưa tải được PDF đã ký", ""],
+    ["stalled_retrievals", "Trong đó: thử quá nhiều lần", "warn"],
+    ["hash_mismatch", "Mã băm lệch, chờ đối chiếu", "warn"],
+    ["signature_debts", "Cấp duyệt còn nợ chữ ký", "bad"]
+  ];
+
+  function renderCards() {
+    var s = (STATE && STATE.summary) || {};
+    document.getElementById("opsCards").innerHTML = CARDS.map(function (c) {
+      var n = Number(s[c[0]] || 0);
+      var cls = n === 0 ? "ok" : (c[2] || "");
+      return '<div class="ops-card ' + cls + '"><b>' + n + "</b><span>" + esc(c[1]) + "</span></div>";
+    }).join("");
+  }
+
+  var ACTION_LABEL = {
+    reconcile: "Đối soát",
+    retry: "Thử lại",
+    cancel: "Hủy chân ký",
+    retrieve: "Tải PDF đã ký",
+    resolve_review: "Xem đối chiếu"
+  };
+  // Cau giai thich hien trong hop xac nhan. Mot nut khong noi ro no lam gi tren mot ho so
+  // chi tien la thu khong nen ton tai.
+  var ACTION_WHY = {
+    reconcile: "Đọc lại trạng thái bên SCTS và xác minh. KHÔNG gửi lại lệnh ký — nếu người "
+             + "đó đã tự ký trên cổng SCTS thì chân ký này sẽ được ghi nhận hoàn tất.",
+    retry: "Xếp lại chân ký này vào hàng đợi để gửi lệnh ký một lần nữa.",
+    cancel: "Đóng chân ký này lại. Không hoàn tác được.",
+    retrieve: "Tải bản PDF đã ký từ SCTS về đính vào phiếu. Chỉ đọc phía SCTS, chạy lại "
+            + "nhiều lần vẫn an toàn."
+  };
+
+  function actionsHtml(row, kind) {
+    return (row.actions || []).map(function (a) {
+      return '<button class="ops-btn' + (a === "reconcile" ? " primary" : "") + '" '
+           + 'data-act="' + a + '" data-kind="' + kind + '" '
+           + 'data-name="' + esc(row.name) + '" '
+           + 'data-doc="' + esc(row.business_name || "") + '" '
+           + 'data-dt="' + esc(row.business_doctype || "") + '" type="button">'
+           + esc(ACTION_LABEL[a] || a) + "</button>";
+    }).join("");
+  }
+
+  function legRow(r) {
+    var err = r.last_error
+      ? '<div class="ops-err">' + esc(r.last_error.error) + "</div>" : "";
+    var act = r.dead_end
+      ? '<div class="ops-dead">Không còn đường ra. Trạng thái này không có bước tiếp theo '
+        + 'nào trong máy trạng thái — phải tạo phiếu mới.</div>'
+      : actionsHtml(r, "leg");
+    return "<tr><td>" + docLink(r.business_doctype, r.business_name)
+      + '<div class="ops-note">' + esc(r.name) + "</div></td>"
+      + '<td><span class="ops-pill ' + (r.dead_end ? "bad" : "warn") + '">' + esc(r.status)
+      + "</span></td><td>" + esc(r.who) + "</td>"
+      + "<td>lần " + esc(r.attempt) + "<div class=\"ops-note\">" + when(r.since) + "</div>"
+      + err + "</td><td>" + act + "</td></tr>";
+  }
+
+  function bundleRow(r) {
+    var pill = r.waiting_on_provider
+      ? '<span class="ops-pill">Đang chờ SCTS ký xong</span>'
+      : (r.stalled ? '<span class="ops-pill bad">Thử ' + r.attempts + ' lần</span>'
+                   : '<span class="ops-pill warn">Thử ' + r.attempts + ' lần</span>');
+    var err = r.last_error ? '<div class="ops-err">' + esc(r.last_error) + "</div>" : "";
+    var note = r.waiting_on_provider
+      ? '<div class="ops-note">Chưa thử lần nào và không có lỗi — tài liệu bên SCTS chưa '
+        + 'ký xong. Đây là CHỜ, không phải hỏng.</div>' : "";
+    return "<tr><td>" + docLink(r.business_doctype, r.business_name)
+      + '<div class="ops-note">' + esc(r.name) + "</div></td>"
+      + "<td>" + pill + note + err + "</td>"
+      + "<td>" + (r.has_provider_document ? "có" : "KHÔNG có") + "</td>"
+      + "<td>" + when(r.since) + "</td>"
+      + "<td>" + actionsHtml(r, "bundle") + "</td></tr>";
+  }
+
+  function mismatchRow(r) {
+    return "<tr><td>" + docLink(r.business_doctype, r.business_name)
+      + '<div class="ops-note">' + esc(r.name) + "</div></td>"
+      + "<td>" + esc(r.file || "—") + "</td><td>" + when(r.since) + "</td>"
+      + '<td><div class="ops-note">Mở phiếu để đối chiếu hai bản.</div></td></tr>';
+  }
+
+  function debtRow(r) {
+    var done = r.request_status === "Approved";
+    return "<tr><td>" + docLink(r.business_doctype, r.business_name)
+      + '<div class="ops-note">' + esc(r.approval_request || "") + "</div></td>"
+      + "<td>" + esc(r.level_name || ("Cấp " + r.level_no)) + "</td>"
+      + "<td>" + esc(r.who || "—") + "</td><td>" + when(r.since) + "</td>"
+      + '<td><span class="ops-pill ' + (done ? "bad" : "warn") + '">'
+      + (done ? "Phiếu đã duyệt xong" : "Phiếu còn đang chạy") + "</span>"
+      + (done ? '<div class="ops-note">Phiếu đã hoàn tất nên món nợ này dễ bị bỏ quên nhất.'
+                + '</div>' : "")
+      + "</td></tr>";
+  }
+
+  function section(title, note, headers, rows, rowFn, emptyText) {
+    if (!rows || !rows.length) {
+      return "<h2>" + esc(title) + "</h2><p class=\"ops-note\">" + esc(note) + "</p>"
+           + '<div class="ops-empty">' + esc(emptyText) + "</div>";
+    }
+    return "<h2>" + esc(title) + " (" + rows.length + ")</h2>"
+      + '<p class="ops-note">' + esc(note) + "</p><table><thead><tr>"
+      + headers.map(function (h) { return "<th>" + esc(h) + "</th>"; }).join("")
+      + "</tr></thead><tbody>" + rows.map(rowFn).join("") + "</tbody></table>";
+  }
+
+  function render() {
+    if (!STATE) return;
+    renderCards();
+    var after = STATE.retrieval_alert_after || 10;
+    document.getElementById("opsBody").innerHTML =
+      section("Chân ký đang chờ xử lý",
+              "Hệ thống đã dừng và chờ người quyết định. Đối soát chỉ ĐỌC lại phía SCTS — "
+              + "không gửi lệnh ký, nên không tạo ra chữ ký thứ hai.",
+              ["Phiếu", "Trạng thái", "Chân ký", "Lần thử / lỗi gần nhất", ""],
+              STATE.stuck_legs, legRow,
+              "Không có chân ký nào đang kẹt.")
+      + section("Gói chưa tải được PDF đã ký",
+              "Cron chạy 30 phút một lần và thử lại không giới hạn. Cột số lần thử là thứ "
+              + "phân biệt một gói đang chờ bình thường với một gói đã hỏng — quá "
+              + after + " lần thì không còn là chậm nữa.",
+              ["Phiếu", "Số lần thử", "Mã tài liệu SCTS", "Cập nhật", ""],
+              STATE.unretrieved, bundleRow,
+              "Mọi gói đã ký đều đã tải PDF về.")
+      + section("Mã băm lệch, chờ đối chiếu",
+              "PDF đã ký về tới nơi nhưng mã băm khác bản đã chấp nhận. Bản đã chấp nhận "
+              + "giữ nguyên cho tới khi có người đối chiếu.",
+              ["Phiếu", "Tệp", "Cập nhật", ""],
+              STATE.hash_mismatch, mismatchRow,
+              "Không có tệp nào lệch mã băm.")
+      + section("Cấp duyệt còn nợ chữ ký",
+              "Những cấp đã hoàn tất trong lúc cổng ký số đang tắt. Phiếu vẫn đi tiếp — "
+              + "đó là quyết định vận hành — nhưng chữ ký thì vẫn còn nợ, và chỉ chính "
+              + "người duyệt đó ký được. Không ai ký thay được.",
+              ["Phiếu", "Cấp", "Người duyệt", "Ghi nợ lúc", "Tình trạng phiếu"],
+              STATE.signature_debts, debtRow,
+              "Không có cấp duyệt nào còn nợ chữ ký.");
+    wire();
+  }
+
+  function run(btn) {
+    var act = btn.getAttribute("data-act");
+    var name = btn.getAttribute("data-name");
+    var doc = btn.getAttribute("data-doc");
+    var dt = btn.getAttribute("data-dt");
+    var why = ACTION_WHY[act] || "";
+    if (!window.confirm((ACTION_LABEL[act] || act) + "?\n\n" + why)) return;
+
+    var p;
+    if (act === "reconcile") p = call("reconcile_signature_request", { dsr_name: name }, "POST");
+    else if (act === "retry") p = call("retry_signature_request", { dsr_name: name }, "POST");
+    else if (act === "cancel") {
+      var reason = window.prompt("Lý do hủy chân ký này (bắt buộc):", "");
+      if (!reason || !reason.trim()) { msg("Phải nêu lý do.", "err"); return; }
+      p = call("cancel_signature_request", { dsr_name: name, reason: reason.trim() }, "POST");
+    } else if (act === "retrieve") {
+      if (dt !== "EC Payment Request") {
+        msg("Chỉ tải được cho Đề nghị thanh toán.", "err"); return;
+      }
+      p = call("retrieve_signed_files", { payment_request_name: doc }, "POST");
+    } else if (act === "resolve_review") {
+      msg("Mở phiếu để đối chiếu hai bản tệp.", ""); return;
+    } else { return; }
+
+    btn.disabled = true;
+    msg("Đang xử lý…", "");
+    p.then(function (o) {
+      // Ket qua PHAI noi that. Nhieu endpoint tra ve mot dict trang thai chu khong nem loi
+      // khi khong lam gi duoc - bao "xong" cho moi truong hop la dung cai loi im lang ma
+      // trang nay sinh ra de xoa bo.
+      var done = o && (o.completed || o.ok || o.retried || o.cancelled || o.reconciled);
+      var detail = (o && (o.reason || o.note || o.status)) || "";
+      msg(done ? ("Xong." + (detail ? " " + detail : ""))
+               : ("Chưa xử lý được" + (detail ? ": " + detail : ". Xem lại phiếu.")),
+          done ? "ok" : "err");
+      return load();
+    }).catch(function (e) {
+      btn.disabled = false;
+      msg((e && e.message) || "Lỗi không rõ.", "err");
+    });
+  }
+
+  function wire() {
+    var root = document.getElementById("ec-esign-ops");
+    if (!root) return;
+    root.querySelectorAll("[data-act]").forEach(function (b) {
+      b.onclick = function () { run(b); };
+    });
+  }
+
+  function load() {
+    msg("Đang tải…", "");
+    return call("ops_inbox").then(function (o) {
+      STATE = o || {};
+      msg("", "");
+      render();
+    }).catch(function (e) {
+      msg((e && e.message) || "Không tải được danh sách. Cần quyền System Manager.", "err");
+    });
+  }
+
+  function boot() {
+    var btn = document.getElementById("opsReload");
+    if (btn) btn.onclick = function () { load(); };
+    load();
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else { boot(); }
+})();
+</script>
