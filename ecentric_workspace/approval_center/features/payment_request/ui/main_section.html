@@ -192,7 +192,17 @@
     return renderCreate(b); }
 
   // ======================= CREATE =======================
-  function infoRequiredBannerHTML(){ var i=state._infoCtx||{}; return '<div class="banner warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div><b>Cần bổ sung thông tin.</b> Cấp: '+esc(i.level||"—")+(i.approver?(' · '+esc(i.approver)):'')+(i.comment?('<br>“'+esc(i.comment)+'”'):'')+'</div></div>'; }
+  // SVG mang kich thuoc NGAY TREN THE, khong doi luat CSS.
+  //
+  // Luat `#ec-payr-root .icon{width:18px}` chi voi toi khi bieu tuong nam trong dung to
+  // tien do. Banner "Can bo sung thong tin" hien ra ngoai pham vi ay, nen SVG khong co
+  // kich thuoc va trinh duyet cho no mac dinh 300x150px: net ve nam giua khoi 300px con
+  // chu bi day sang phai - dung cai lech Hoan bao 31/08.
+  //
+  // Mot thanh phan khong nen phu thuoc vao viec no duoc dat o dau trong cay DOM. Cung ho
+  // voi bai hoc `.fld:has(...)` an o dinh kem va `ec_formkit` chong dropzone: luat CSS
+  // co pham vi + markup di chuyen duoc = loi chi lo ra o mot man hinh.
+  function infoRequiredBannerHTML(){ var i=state._infoCtx||{}; return '<div class="banner warn"><svg class="icon" width="18" height="18" style="flex:none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div><b>Cần bổ sung thông tin.</b> Cấp: '+esc(i.level||"—")+(i.approver?(' · '+esc(i.approver)):'')+(i.comment?('<br>“'+esc(i.comment)+'”'):'')+'</div></div>'; }
 
   // --- Nguon chi phi (funding source) ---------------------------------------
   // Chon LOAI nguon (DNMH / PO so EC) roi chon chung tu. Chon xong tu dien nguoi nhan +
@@ -750,7 +760,7 @@
     return call("request_information",{name:name,comment:c}).then(function(){ toast("Đã gửi yêu cầu bổ sung."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
   function doCancel(name){ modal("Hủy yêu cầu", '<div class="banner warn">Hủy yêu cầu sẽ kết thúc luồng phê duyệt.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="2"></textarea></div>', {okLabel:"Xác nhận hủy", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
     return call("cancel",{name:name,reason:c}).then(function(res){ toast("Đã hủy yêu cầu."); if(res&&res.deleted) window.location.href=hubHref(); else { refreshDetail(); refreshApprovals(); } }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
-  function doAdminApprove(name){ modal("Duyệt thay bước hiện tại", '<div class="banner warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div>Bạn đang duyệt thay cho bước phê duyệt hiện tại bằng quyền System Manager. Hành động này sẽ được ghi nhận trong lịch sử và không giả lập người duyệt gốc.</div></div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Xác nhận duyệt thay", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
+  function doAdminApprove(name){ modal("Duyệt thay bước hiện tại", '<div class="banner warn"><svg class="icon" width="18" height="18" style="flex:none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div>Bạn đang duyệt thay cho bước phê duyệt hiện tại bằng quyền System Manager. Hành động này sẽ được ghi nhận trong lịch sử và không giả lập người duyệt gốc.</div></div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Xác nhận duyệt thay", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
     return call("admin_approve_current_level",{name:name,reason:c}).then(function(){ toast("Đã duyệt thay bước hiện tại. Yêu cầu đã được chuyển sang bước tiếp theo."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
 
   function startEditDraft(det){ state.draft=Object.assign({}, det.business||{}); state.id=(det.business||{}).name; state.mode="create"; if(state.draft.has_purchase_request==="Yes"){ promoteLegacySource(state.draft); ensurePROptions(function(){ renderCreate($("payr-body")); }); } else { renderCreate($("payr-body")); } }
