@@ -607,7 +607,18 @@
     if(cap.can_reject) btns.push('<button type="button" class="btn" data-act="reject">Từ chối</button>');
     if(cap.can_admin_approve_current_level) btns.push('<button type="button" class="btn warn" data-act="adminapprove">Duyệt thay bước hiện tại</button>');
     if(cap.can_cancel) btns.push('<button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button>');
+    // Phieu da ket thuc thi khong sua duoc nua - dung. Nhung truoc day nguoi de nghi phai go
+    // lai TU DAU: so tien, so tai khoan, ly do, roi tai lai tung tep. Voi mot phieu bi tu
+    // choi chi vi sai mot con so thi do la toan bo cong nhap lieu bi vut di. Va duong nay
+    // vua thanh duong chinh: doi tai lieu CAN KY thi cap duyet Tu choi chu khong "Yeu cau
+    // bo sung". Phieu cu giu nguyen, khong sua khong xoa - ban sao la mot phieu nhap moi.
+    if(isMine(det)&&(ap.approval_status==="Rejected"||ap.approval_status==="Cancelled"))
+      btns.push('<button type="button" class="btn primary" data-act="clone">Tạo phiếu mới từ phiếu này</button>');
     return btns.length? '<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
+  // "Cua minh" theo NGUOI DE NGHI cua phieu, khong theo quyen xem: cap duyet cung xem duoc
+  // phieu nay, nhung tao lai la viec cua nguoi de nghi. Backend chan lan nua.
+  function isMine(det){ var b=(det&&det.business)||{}; var u=(state.boot&&state.boot.context||{}).user;
+    return !!u && (b.requested_by===u || b.owner===u); }
   function handleActionClick(e){ var el=e.target&&e.target.closest?e.target.closest("[data-act]"):null; if(!el) return;
     var a=el.getAttribute("data-act"); if(!a||el.disabled) return; if(document.querySelector(".ec-payr-overlay")) return; e.preventDefault();
     var det=state.detail||{}; var name=(det.business||{}).name||state.id;
@@ -615,7 +626,33 @@
     if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det);
     if(a==="approvesign") return doApproveAndSign(name,det);
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
-    if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name); }
+    if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name);
+    if(a==="clone") return doClone(name); }
+  // Tao phieu moi tu phieu da ket thuc. Hoi truoc khi lam: no dieu huong sang mot phieu khac,
+  // va noi ro hai dieu de khong ai bat ngo - o xac nhan phai tich lai, phieu cu giu nguyen.
+  function doClone(name){ if(state.busy) return;
+    modal("Tạo phiếu mới từ phiếu này",
+      '<div class="banner info">Nội dung và tệp đính kèm sẽ được chép sang một phiếu nháp mới. '
+      + 'Phiếu hiện tại giữ nguyên, không bị sửa hay xóa.<br>'
+      + 'Bạn cần tích lại ô xác nhận và gửi lại như một yêu cầu mới.</div>',
+      {okLabel:"Tạo phiếu mới", onConfirm:function(){
+        return call("clone_request",{name:name}).then(function(res){
+          var n=res&&res.name; if(!n) throw new Error("Không tạo được phiếu mới.");
+          var miss=(res.attachments_failed||[]);
+          // Tep khong chep duoc phai BAO RA. Truoc day duong dinh kem nuot loi bang
+          // logger().warning - thu khong hien tren giao dien - nen nguoi dung tuong ho so
+          // day du trong khi thieu tep.
+          toast(miss.length
+            ? ("Đã tạo phiếu mới. " + miss.length + " tệp không chép được: " + miss.join(", ")
+               + " — vui lòng tải lại thủ công.")
+            : "Đã tạo phiếu mới từ phiếu này.", miss.length ? true : false);
+          go({id:n, tab:"detail"});
+        }).catch(function(e){
+          if(window.console&&console.error) console.error("Payment Request clone error:",e);
+          toast(friendlyErr(e),true);
+          return Promise.reject(e);      // giu modal mo de bam lai duoc
+        });
+      }}); }
   function ensureActionHandlers(){ if(document.__payrActBound) return; document.__payrActBound=true; document.addEventListener("click", handleActionClick, true); }
 
   function modal(title, bodyHTML, opts){ opts=opts||{}; var prevFocus=document.activeElement;

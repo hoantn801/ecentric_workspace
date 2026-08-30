@@ -13,7 +13,11 @@ def _make(code, doctype, editable, mine, approvals, options, title, validator,
         status_labels=STANDARD_STATUS_LABELS, options_provider=options,
         title_builder=title, filter_builder=ExactAndDateFilters(),
         submitter=Submitter(doctype, code, validator, title, manager, esign),
-        resubmitter=Resubmitter(doctype, title), draft_preparer=draft_preparer)
+        resubmitter=Resubmitter(doctype, title), draft_preparer=draft_preparer,
+        # O tich "Toi xac nhan thong tin va tep dinh kem la chinh xac" la mot CAM KET CA
+        # NHAN. Chep no sang phieu moi la ky thay nguoi dung cho mot bo ho so ho chua doc
+        # lai - nguoi de nghi phai tu tich lai.
+        clone_exclude_fields=("details_and_attachments_correct",))
 
 PAYMENT_REQUEST_DEFINITION = _make(
     "PAYMENT_REQUEST", "EC Payment Request",

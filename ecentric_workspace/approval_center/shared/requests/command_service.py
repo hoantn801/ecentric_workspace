@@ -130,6 +130,94 @@ def submit(definition, name):
             "detail": query_service.detail(definition, name)}
 
 
+#: Trang thai ma tu do duoc phep tao mot phieu moi. Deu la trang thai DA KET THUC: khong
+#: con duong nao di tiep tren phieu cu, nen ban sao khong the tao ra hai ho so cung song.
+_CLONEABLE = ("Rejected", "Cancelled")
+
+
+def clone_request(definition, name):
+    """Tao mot yeu cau NHAP moi, chep noi dung + dinh kem tu mot yeu cau da ket thuc.
+
+    Vi sao can: mot phieu bi tu choi la ngo cut vinh vien - `resubmit` chi nhan trang thai
+    "Information Required", va giao dien cung noi thang voi cap duyet la "sau khi tu choi,
+    yeu cau se ket thuc". Dung nhu the. Nhung hau qua la nguoi de nghi phai go lai tu dau:
+    so tien, so tai khoan, ly do, roi tai lai tung tep. Voi mot phieu bi tu choi chi vi sai
+    mot con so, do la toan bo cong nhap lieu bi vut di.
+
+    Chuyen nay vua thanh chuyen thuong xuyen: da chot rang muon doi TAI LIEU CAN KY thi cap
+    duyet Tu choi chu khong "Yeu cau bo sung" (SCTS khong cho them tep vao tai lieu da tao).
+    Nen duong "tu choi -> lam lai" gio la duong chinh, khong con la ngoai le.
+
+    Ban sao la mot phieu NHAP hoan toan doc lap: khong co approval_request, khong co goi ky,
+    khong co chu ky nao. Phieu cu giu nguyen - khong sua, khong xoa, vet kiem toan con day.
+    """
+    user = frappe.session.user
+    source = frappe.get_doc(definition.business_doctype, name)
+    request = capabilities.approval_request_for(definition, name)
+
+    if source.requested_by != user and not capabilities.is_system_manager(user):
+        frappe.throw(_("Bạn chỉ có thể tạo lại yêu cầu của chính mình."), frappe.PermissionError)
+    status = getattr(request, "approval_status", None) if request else None
+    if status not in _CLONEABLE:
+        frappe.throw(_("Chỉ tạo được phiếu mới từ yêu cầu đã bị từ chối hoặc đã hủy. "
+                       "Yêu cầu này đang ở trạng thái “{0}”.").format(
+                           definition.status_label_map.get(status or "", status or "Nháp")))
+
+    document = frappe.new_doc(definition.business_doctype)
+    document.requested_by = user
+    skip = set(definition.clone_exclude_fields or ())
+    for fieldname in definition.editable_fields:
+        if fieldname in skip:
+            continue
+        document.set(fieldname, source.get(fieldname))
+    context = query_service.employee_context(user)
+    document.employee = context["employee"]
+    document.department = document.department or context["department"]
+    document.company = document.company or context["company"]
+    if definition.draft_preparer:
+        definition.draft_preparer(document)
+    if definition.title_builder:
+        document.request_title = definition.title_builder(document)
+    document.insert(ignore_permissions=True)
+
+    copied, failed = _copy_attachments(source, document)
+    return {"name": document.name, "attachments_copied": copied,
+            "attachments_failed": failed,
+            "capabilities": capabilities.derive(user, document, None)}
+
+
+def _copy_attachments(source, target):
+    """Gan cac tep cua phieu cu sang phieu moi. Tra ve (so tep chep duoc, danh sach loi).
+
+    Dung chung mot tep vat ly (cung `file_url`) - khong nhan doi du lieu tren dia.
+
+    KHONG nuot loi. `attach_extra_files` ghi loi bang `logger().warning`, thu khong hien
+    tren giao dien, nen mot tep khong gan duoc se bien mat trong im lang va nguoi dung tuong
+    ho so da day du. O day tra danh sach ve cho man hinh noi ra.
+    """
+    rows = frappe.get_all("File",
+                          filters={"attached_to_doctype": source.doctype,
+                                   "attached_to_name": source.name},
+                          fields=["file_url", "file_name", "is_private"],
+                          limit_page_length=0)
+    seen, copied, failed = set(), 0, []
+    for r in rows:
+        url = (r.get("file_url") or "").strip()
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        try:
+            frappe.get_doc({"doctype": "File", "file_url": url,
+                            "file_name": r.get("file_name") or url.rsplit("/", 1)[-1],
+                            "is_private": r.get("is_private") or 0,
+                            "attached_to_doctype": target.doctype,
+                            "attached_to_name": target.name}).insert(ignore_permissions=True)
+            copied += 1
+        except Exception:
+            failed.append(r.get("file_name") or url)
+    return copied, failed
+
+
 def resolve_request(definition, name):
     document = frappe.get_doc(definition.business_doctype, name)
     if not document.approval_request:
