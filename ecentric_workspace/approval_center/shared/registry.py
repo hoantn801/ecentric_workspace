@@ -24,6 +24,7 @@ from ecentric_workspace.approval_center.features.hiring_request.domain.definitio
 from ecentric_workspace.approval_center.features.promotion.domain.definition import PROMOTION_DEFINITION
 from ecentric_workspace.approval_center.features.special_bonus.domain.definition import SPECIAL_BONUS_DEFINITION
 from ecentric_workspace.approval_center.features.daily_target.domain.definition import DAILY_TARGET_DEFINITION
+from ecentric_workspace.approval_center.features.contract_review.domain.definition import CONTRACT_REVIEW_DEFINITION
 from ecentric_workspace.approval_center.features.lateral_move.domain.definition import LATERAL_MOVE_DEFINITION
 from ecentric_workspace.approval_center.features.livestream_supplies.domain.definition import LIVESTREAM_SUPPLIES_DEFINITION
 from ecentric_workspace.approval_center.features.outside_work.domain.definition import OUTSIDE_WORK_DEFINITION
@@ -50,6 +51,7 @@ _DEFINITIONS = (
     ASSET_DAMAGE_LOSS_DEFINITION,
     AI_TOPUP_DEFINITION,
     DAILY_TARGET_DEFINITION,
+    CONTRACT_REVIEW_DEFINITION,
     LATERAL_MOVE_DEFINITION,
     LIVESTREAM_SUPPLIES_DEFINITION,
     OUTSIDE_WORK_DEFINITION,

@@ -852,11 +852,29 @@ def is_active_process_fulfiller(approval_type, user=None):
 
 
 def submit(reference_doctype, reference_name, approval_type, requester, process_code=None,
-           activate_first_level=True):
+           activate_first_level=True, skip_level_nos=None, skip_reason=None):
+    """skip_level_nos: level_no bị loại khỏi snapshot của RIÊNG request này (tuỳ điều kiện
+    nghiệp vụ do service của form quyết định — engine giữ trung tính, chỉ nhận danh sách).
+    Chỉ được bỏ cấp KHÔNG mandatory; việc bỏ được ghi audit kèm skip_reason."""
     process = resolve_process(approval_type, process_code)
     levels = resolve_levels(process.name)
     if not levels:
         frappe.throw(_("Process {0} has no levels.").format(process.name))
+    skipped = []
+    if skip_level_nos:
+        wanted = {int(n) for n in skip_level_nos}
+        keep = []
+        for lvl in levels:
+            if lvl.level_no in wanted:
+                if lvl.mandatory:
+                    frappe.throw(_("Level {0} ({1}) is mandatory and cannot be skipped.")
+                                 .format(lvl.level_no, lvl.level_name))
+                skipped.append(lvl)
+            else:
+                keep.append(lvl)
+        levels = keep
+        if not levels:
+            frappe.throw(_("Process {0} has no levels left after skipping.").format(process.name))
     req = frappe.get_doc({
         "doctype": "EC Approval Request", "approval_type": approval_type,
         "reference_doctype": reference_doctype, "reference_name": reference_name,
@@ -867,6 +885,10 @@ def submit(reference_doctype, reference_name, approval_type, requester, process_
     }).insert(ignore_permissions=True)
     build_snapshot(req, process, levels, requester)
     log_action(req.name, "Submitted", requester, new_status="Pending")
+    for lvl in skipped:
+        log_action(req.name, "Skipped", requester,
+                   comment=(skip_reason or "Level skipped by business condition")
+                           + " (level %s - %s)" % (lvl.level_no, lvl.level_name))
     # Deferred activation (Option B): a governed pre-approval step (e.g. requester signing)
     # may need to complete first. When activate_first_level is False the request + frozen
     # snapshot exist but Level 1 is NOT activated (no ToDo, no approver notification) until
