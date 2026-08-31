@@ -102,6 +102,7 @@
     ["dead_end_legs", "Trong đó: không còn đường ra", "bad"],
     ["unretrieved", "Gói chưa tải được PDF đã ký", ""],
     ["stalled_retrievals", "Trong đó: thử quá nhiều lần", "warn"],
+    ["abandoned_retrievals", "Trong đó: đã ngừng thử lại", ""],
     ["hash_mismatch", "Mã băm lệch, chờ đối chiếu", "warn"],
     ["signature_debts", "Cấp duyệt còn nợ chữ ký", "bad"]
   ];
@@ -122,7 +123,9 @@
     retrieve: "Tải PDF đã ký",
     resolve_review: "Xem đối chiếu",
     debt_signed: "Đã ký bù",
-    debt_waived: "Miễn nợ"
+    debt_waived: "Miễn nợ",
+    abandon: "Ngừng thử lại",
+    resume: "Thử lại tiếp"
   };
   // Cau giai thich hien trong hop xac nhan. Mot nut khong noi ro no lam gi tren mot ho so
   // chi tien la thu khong nen ton tai.
@@ -136,7 +139,11 @@
     debt_signed: "Xác nhận rằng người duyệt đó ĐÃ tự ký lại trên cổng SCTS. Hệ thống không "
                + "ký thay ai — đây chỉ là ghi nhận việc đã xảy ra.",
     debt_waived: "Miễn món nợ này vì không còn ký được nữa (tài liệu bên SCTS đã đóng, "
-               + "người duyệt đã nghỉ việc…). Lý do sẽ nằm lại vĩnh viễn trong lịch sử phiếu."
+               + "người duyệt đã nghỉ việc…). Lý do sẽ nằm lại vĩnh viễn trong lịch sử phiếu.",
+    abandon: "Ngừng vòng lặp tải PDF cho gói này. KHÔNG xoá gì, không đổi trạng thái phiếu — "
+           + "chỉ để cron thôi gọi SCTS mỗi 30 phút cho một tài liệu không còn lấy về được. "
+           + "Mở lại được bất cứ lúc nào.",
+    resume: "Cho cron thử tải lại gói này, khi tài liệu bên SCTS đã sống lại."
   };
 
   function actionsHtml(row, kind) {
@@ -166,14 +173,22 @@
   }
 
   function bundleRow(r) {
-    var pill = r.waiting_on_provider
-      ? '<span class="ops-pill">Đang chờ SCTS ký xong</span>'
-      : (r.stalled ? '<span class="ops-pill bad">Đã thử ' + r.attempts + ' lượt</span>'
-                   : '<span class="ops-pill warn">Đã thử ' + r.attempts + ' lượt</span>');
+    // Goi da ngung phai trong KHAC HAN goi dang treo. Truoc day moi thu trong y het nhau va
+    // do chinh la loi ma trang nay sinh ra de xoa bo - dung lap lai no o dang khac.
+    var pill = r.abandoned
+      ? '<span class="ops-pill">Đã ngừng thử lại</span>'
+      : (r.waiting_on_provider
+        ? '<span class="ops-pill">Đang chờ SCTS ký xong</span>'
+        : (r.stalled ? '<span class="ops-pill bad">Đã thử ' + r.attempts + ' lượt</span>'
+                     : '<span class="ops-pill warn">Đã thử ' + r.attempts + ' lượt</span>'));
     var err = r.last_error ? '<div class="ops-err">' + esc(r.last_error) + "</div>" : "";
-    var note = r.waiting_on_provider
+    var note = r.abandoned
+      ? '<div class="ops-note">Ngừng bởi ' + esc(r.abandoned_by || "?") + " — "
+        + esc(r.abandoned_reason || "(không ghi lý do)")
+        + ". Cron không còn gọi SCTS cho gói này.</div>"
+      : (r.waiting_on_provider
       ? '<div class="ops-note">Chưa thử lần nào và không có lỗi — tài liệu bên SCTS chưa '
-        + 'ký xong. Đây là CHỜ, không phải hỏng.</div>' : "";
+        + 'ký xong. Đây là CHỜ, không phải hỏng.</div>' : "");
     return "<tr><td>" + docLink(r.business_doctype, r.business_name)
       + '<div class="ops-note">' + esc(r.name) + "</div></td>"
       + "<td>" + pill + note + err + "</td>"
@@ -279,6 +294,15 @@
       p = call("settle_signature_debt",
                { level_name: name, resolution: act === "debt_signed" ? "signed" : "waived",
                  reason: why.trim() }, "POST");
+    } else if (act === "abandon") {
+      // BAT BUOC ly do: day la mot chung tu DA KY ma minh tuyen bo thoi khong lay ve nua.
+      var lydo = window.prompt(
+        "Nêu rõ lý do ngừng tải bản PDF đã ký (ví dụ: tài liệu bên SCTS đã bị xoá, lỗi 404 "
+        + "liên tục từ ngày…):", "");
+      if (!lydo || !lydo.trim()) { msg("Bắt buộc nêu lý do.", "err"); return; }
+      p = call("abandon_signed_retrieval", { package_name: name, reason: lydo.trim() }, "POST");
+    } else if (act === "resume") {
+      p = call("resume_signed_retrieval", { package_name: name }, "POST");
     } else if (act === "resolve_review") {
       msg("Mở phiếu để đối chiếu hai bản tệp.", ""); return;
     } else { return; }

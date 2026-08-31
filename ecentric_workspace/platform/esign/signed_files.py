@@ -154,6 +154,71 @@ def retrieval_rounds(package_name):
     return len({str(r.creation)[:16] for r in rows if r.creation})
 
 
+def abandon_retrieval(package_name, reason):
+    """Ngung thu tai PDF da ky cho mot goi - bang GHI NHAN, khong bang xoa gi.
+
+    Vi sao can. Vong lap tai lai VO HAN. Khi tai lieu ben nha cung cap khong con ton tai
+    (404), thu lai lan thu mot nghin cung khong khac lan thu nhat - nhung cron van goi mang
+    moi 30 phut, mai mai. Ngay 31/08 co hai goi da quay nhu vay tu 23/08.
+
+    Ai dong: System Manager, BAT BUOC neu ly do. He thong khong tu quyet dinh bo mot chung tu
+    da ky - no chi ghi lai quyet dinh cua nguoi, kem ten nguoi va thoi diem. Cung nguyen tac
+    voi guard.settle_signature_debt.
+
+    KHONG xoa, KHONG doi trang thai goi, KHONG dung toi tep nao. Chi bat mot co de cron bo
+    qua. Mo lai duoc bat cu luc nao neu tai lieu ben SCTS song lai - xem resume_retrieval.
+    """
+    from ecentric_workspace.platform.esign import perms
+    from frappe import _
+
+    perms.assert_system_manager()
+    if not (reason or "").strip():
+        frappe.throw(_("Bắt buộc nêu lý do: đây là hồ sơ đã ký, và việc ngừng tải bản PDF "
+                       "đã ký chỉ dừng lại được kèm giải trình."), frappe.ValidationError)
+
+    row = frappe.db.get_value(PKG, package_name,
+                              ["name", "approval_request", "retrieval_abandoned",
+                               "signed_bundle_complete"], as_dict=True)
+    if not row:
+        frappe.throw(_("Không tìm thấy gói ký này."))
+    if row.signed_bundle_complete:
+        frappe.throw(_("Gói này đã lấy đủ PDF đã ký — không có gì để ngừng."))
+    if row.retrieval_abandoned:
+        return {"ok": True, "already": True}          # idempotent
+
+    frappe.db.set_value(PKG, row.name, {
+        "retrieval_abandoned": 1,
+        "retrieval_abandoned_at": now_datetime(),
+        "retrieval_abandoned_by": frappe.session.user,
+        "retrieval_abandoned_reason": reason.strip()[:500]})
+    events.emit("SignedRetrievalAbandoned", package=row.name, request_meta={
+        "abandoned_by": frappe.session.user, "reason": reason.strip()[:500]})
+    if row.approval_request:
+        from ecentric_workspace.approval_center.shared.workflow import transitions as engine
+        engine.log_action(row.approval_request, "Commented", frappe.session.user,
+                          comment=_("Ngừng tải bản PDF đã ký của gói {0}. Lý do: {1}"
+                                    ).format(row.name, reason.strip()))
+    return {"ok": True}
+
+
+def resume_retrieval(package_name):
+    """Mo lai mot goi da ngung - de quyet dinh ngung khong phai la mot canh cua mot chieu.
+
+    Tai lieu ben SCTS co the song lai (khoi phuc du lieu, sua cau hinh, doi moi truong).
+    Neu ngung la vinh vien thi khong ai dam bam nut ngung, va vong lap vo han cu chay tiep.
+    """
+    from ecentric_workspace.platform.esign import perms
+    from frappe import _
+
+    perms.assert_system_manager()
+    if not frappe.db.exists(PKG, package_name):
+        frappe.throw(_("Không tìm thấy gói ký này."))
+    frappe.db.set_value(PKG, package_name, "retrieval_abandoned", 0)
+    events.emit("SignedRetrievalResumed", package=package_name,
+                request_meta={"resumed_by": frappe.session.user})
+    return {"ok": True}
+
+
 def retrieve_and_store_for_package(package_name, force=False):
     """Retrieve + store the signed PDF for every signable file. Gated fail-closed
     (Approval Completed + terminal-signed provider)."""
