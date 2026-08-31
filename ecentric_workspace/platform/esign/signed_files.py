@@ -168,7 +168,11 @@ def abandon_retrieval(package_name, reason):
     KHONG xoa, KHONG doi trang thai goi, KHONG dung toi tep nao. Chi bat mot co de cron bo
     qua. Mo lai duoc bat cu luc nao neu tai lieu ben SCTS song lai - xem resume_retrieval.
     """
-    from ecentric_workspace.platform.esign import perms
+    # Ten module la `permissions`, KHONG phai `perms`. Ban dau viet `import perms` theo
+    # thoi quen tu guard.py - nhung guard.py viet `import permissions as perms`. Loi nay
+    # lam ca hai nut chet bang ModuleNotFoundError ngay truoc dong kiem quyen, va toan bo
+    # test tinh (grep/AST) deu xanh vi khong test nao THUC SU nap module nay len chay.
+    from ecentric_workspace.platform.esign import permissions as perms
     from frappe import _
 
     perms.assert_system_manager()
@@ -207,7 +211,11 @@ def resume_retrieval(package_name):
     Tai lieu ben SCTS co the song lai (khoi phuc du lieu, sua cau hinh, doi moi truong).
     Neu ngung la vinh vien thi khong ai dam bam nut ngung, va vong lap vo han cu chay tiep.
     """
-    from ecentric_workspace.platform.esign import perms
+    # Ten module la `permissions`, KHONG phai `perms`. Ban dau viet `import perms` theo
+    # thoi quen tu guard.py - nhung guard.py viet `import permissions as perms`. Loi nay
+    # lam ca hai nut chet bang ModuleNotFoundError ngay truoc dong kiem quyen, va toan bo
+    # test tinh (grep/AST) deu xanh vi khong test nao THUC SU nap module nay len chay.
+    from ecentric_workspace.platform.esign import permissions as perms
     from frappe import _
 
     perms.assert_system_manager()
