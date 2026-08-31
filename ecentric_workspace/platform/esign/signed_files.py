@@ -126,6 +126,34 @@ def _terminal_signed_ok(adapter, pkg):
     return True, "all_expected_signers_signed"
 
 
+#: Moi su kien mot LUOT cron tai PDF co the de lai. Dem luot phai nhin ca hai.
+_RETRIEVAL_EVENTS = ("SignedFileRetrievalStarted", "SignedFileRetrievalFailed")
+
+
+def retrieval_rounds(package_name):
+    """So LUOT cron da cham vao goi nay - dem bang MOC THOI GIAN, khong bang so su kien.
+
+    Dem `SignedFileRetrievalStarted` la sai, va sai theo huong nguy hiem nhat: su kien do chi
+    phat ra khi da qua duoc buoc do trang thai ben nha cung cap (`_retrieve_one`). Goi nao
+    hong NGAY O BUOC DO - dung kieu hong pho bien nhat, vi du 404 tai lieu khong ton tai -
+    thi chi de lai `SignedFileRetrievalFailed` va khong bao gio co mot `Started` nao.
+
+    Hau qua that (phat hien 31/08 khi mo trang tren du lieu that): EC-DSP-2026-00016 that bai
+    moi 30 phut lien tuc tu 23/08, hon 50 su kien loi, va ca trang lan bao dong deu ghi "da
+    thu 0 luot". Bao dong `SignedRetrievalStalled` khong the keu duoc, vi nguong dat tren mot
+    con so vinh vien bang 0.
+
+    Dem so MOC PHUT rieng biet co su kien tai: mot luot cron de lai nhieu su kien nhung cung
+    mot thoi diem, nen so moc phut xap xi so luot - va khong phu thuoc vao viec luot do di
+    duoc toi dau truoc khi hong.
+    """
+    rows = frappe.get_all("EC Digital Signature Event",
+                          filters={"package": package_name,
+                                   "event_type": ["in", _RETRIEVAL_EVENTS]},
+                          fields=["creation"], limit_page_length=0)
+    return len({str(r.creation)[:16] for r in rows if r.creation})
+
+
 def retrieve_and_store_for_package(package_name, force=False):
     """Retrieve + store the signed PDF for every signable file. Gated fail-closed
     (Approval Completed + terminal-signed provider)."""

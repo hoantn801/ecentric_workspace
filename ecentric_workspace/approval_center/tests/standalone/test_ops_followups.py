@@ -240,14 +240,17 @@ class TestTheCounterCountsRounds(unittest.TestCase):
         names = [n.name for n in ast.parse(_OPS).body if isinstance(n, ast.FunctionDef)]
         self.assertIn("_retrieval_rounds", names)
 
-    def test_chia_cho_so_tep_can_ky(self):
-        body = _fn(_OPS, "_retrieval_rounds")
-        self.assertIn("_signable_file_count", body)
-        self.assertIn("//", body, "chia lay phan nguyen - so luot la mot con dem")
+    def test_uy_thac_cho_noi_PHAT_su_kien(self):
+        """Cach chia cho so tep da bi thay ngay 31/08.
 
-    def test_mau_so_khong_bao_gio_bang_khong(self):
-        body = _fn(_OPS, "_signable_file_count")
-        self.assertIn("or 1", body, "chia cho 0 lam gay ca trang")
+        No dem `SignedFileRetrievalStarted`, ma su kien do chi phat ra khi da qua duoc buoc
+        do trang thai - nen goi hong ngay o buoc do luon hien "0 luot". Gio ca man hinh lan
+        bao dong deu goi signed_files.retrieval_rounds, xem
+        test_retrieval_rounds_counts_failures.py.
+        """
+        body = _fn(_OPS, "_retrieval_rounds")
+        self.assertIn("signed_files.retrieval_rounds", body,
+                      "man hinh va bao dong phai dem chung mot cach")
 
     def test_bang_dung_ham_do_chu_khong_dem_tho(self):
         body = _fn(_OPS, "unretrieved_bundles")
