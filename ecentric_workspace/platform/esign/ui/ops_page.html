@@ -316,7 +316,21 @@
       msg("", "");
       render();
     }).catch(function (e) {
-      msg((e && e.message) || "Không tải được danh sách. Cần quyền System Manager.", "err");
+      // KHÔNG đoán nguyên nhân.
+      //
+      // Câu cũ khẳng định thẳng "Cần quyền System Manager" cho MỌI thất bại. Ngày 31/08 lỗi
+      // thật là một truy vấn hỏi sai tên cột (HTTP 500), và trang bảo người dùng đi xin
+      // quyền — một câu vừa sai vừa dẫn người ta đi sửa nhầm chỗ. Chỉ nói thiếu quyền khi
+      // máy chủ thật sự trả 403.
+      var code = (e && (e.httpStatus || e.status)) || 0;
+      if (code === 403) {
+        msg("Bạn cần quyền System Manager để xem trang này.", "err");
+      } else {
+        msg("Không tải được danh sách"
+            + (code ? " (máy chủ trả lỗi " + code + ")" : "")
+            + ". Đây là lỗi hệ thống, không phải do thiếu quyền — báo đội kỹ thuật kèm mã lỗi.",
+            "err");
+      }
     });
   }
 
