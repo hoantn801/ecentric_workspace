@@ -2193,7 +2193,7 @@
         '<div class="rcf-grid nt-fields">'+
           pmFieldInput("Dự án",'<select class="pm-sel" id="nt-project" style="width:100%">'+popts+'</select>')+
           '<div id="nt-parent-wrap">'+pmFieldInput("Nhiệm vụ cha",'<select class="pm-sel" id="nt-parent" style="width:100%"><option value="">— Không —</option></select>')+'</div>'+
-          pmFieldInput('<span id="nt-asg-lbl">Người phụ trách</span>','<div class="pm-combo" id="nt-asg-combo"><div class="pm-combo-field"><input class="pm-combo-input" id="nt-asg-in" placeholder="Tìm nhân viên (tên/email)…" autocomplete="off"></div><div class="pm-combo-menu" style="display:none"></div></div><div id="nt-assignee" class="pm-chipbox"></div><div id="nt-asg-help" class="pm-asg-help" style="display:none">Yêu cầu xác nhận hiện chỉ hỗ trợ 1 người nhận. Chọn Phân công ngay để giao cho nhiều người.</div>')+ /* searchable employee combobox -> adds chips to nt-assignee */
+          pmFieldInput('<span id="nt-asg-lbl">Người phụ trách</span>','<div class="pm-combo" id="nt-asg-combo"><div class="pm-combo-field"><input class="pm-combo-input" id="nt-asg-in" placeholder="Tìm nhân viên (tên/email)…" autocomplete="off"></div><div class="pm-combo-menu" style="display:none"></div></div><div id="nt-assignee" class="pm-chipbox"></div><div id="nt-asg-help" class="pm-asg-help" style="display:none">Yêu cầu xác nhận hiện chỉ hỗ trợ 1 người nhận. Chọn Phân công ngay để giao cho nhiều người.</div><div id="nt-cmode-wrap" style="display:none;margin-top:8px"><div class="seg" id="nt-cmode"><button type="button" data-cmode="any">Một người xong là xong</button><button type="button" data-cmode="all">Mọi người đều phải xong</button></div><div id="nt-cmode-help" style="font-size:11.5px;color:var(--gray-500);margin-top:5px"></div></div>')+ /* searchable employee combobox -> adds chips to nt-assignee */
           pmFieldInput("Ưu tiên",'<select class="pm-sel" id="nt-priority" style="width:100%">'+pri+'</select>')+
         '</div>'+
         '<div id="nt-sched-d" class="rcf-grid nt-fields">'+pmFieldInput("Bắt đầu",'<input class="pm-input ni" id="nt-start" data-ec-dp-range="ntd" data-ec-dp-role="start" type="date">')+pmFieldInput("Hạn",'<input class="pm-input ni" id="nt-end" data-ec-dp-range="ntd" data-ec-dp-role="end" type="date">')+'</div>'+
@@ -2249,8 +2249,32 @@
         window.addEventListener("beforeunload",draftSave);
         setTimeout(draftRestore,0);
       })();
+      /* Completion mode. A Task is one record, so with N assignees the first "Xong" closes it
+         for everyone. "Mọi người đều phải xong" instead creates one sub-task per person and
+         leans on the existing parent gate (a parent cannot close while a child is open). */
+      var _cmode="any";
+      function updateCmode(){
+        var wrap=el("nt-cmode-wrap"); if(!wrap) return;
+        var n=pmEmailChipsGet(el("nt-assignee")).length;
+        var show=(_m.v!=="request") && n>1;
+        wrap.style.display=show?"":"none";
+        if(!show){ _cmode="any"; }
+        Array.prototype.forEach.call(wrap.querySelectorAll("[data-cmode]"),function(b){
+          b.classList.toggle("active", b.getAttribute("data-cmode")===_cmode);  /* .seg uses .active */
+        });
+        var hp=el("nt-cmode-help");
+        if(hp) hp.textContent = _cmode==="all"
+          ? ("Sẽ tạo "+n+" nhiệm vụ con, mỗi người một việc. Nhiệm vụ chính chỉ Xong khi cả "+n+" người xong.")
+          : "Ai hoàn thành trước thì nhiệm vụ đóng cho cả nhóm.";
+      }
+      (function wireCmode(){
+        var wrap=el("nt-cmode-wrap"); if(!wrap) return;
+        Array.prototype.forEach.call(wrap.querySelectorAll("[data-cmode]"),function(b){
+          b.onclick=function(){ _cmode=b.getAttribute("data-cmode"); updateCmode(); };
+        });
+      })();
       var _submitting=false; /* G5.2 fix: double-submit guard */
-      function updateAsgState(){ var rm=_m.v==="request"; var n=pmEmailChipsGet(el("nt-assignee")).length; /* G5.2 UX guard: Request mode <= 1 recipient */
+      function updateAsgState(){ updateCmode(); var rm=_m.v==="request"; var n=pmEmailChipsGet(el("nt-assignee")).length; /* G5.2 UX guard: Request mode <= 1 recipient */
         var help=el("nt-asg-help"); if(help)help.style.display=rm?"":"none";
         var cb=el("nt-create"); if(cb&&!_submitting)cb.disabled=(rm&&n>1); }
       var _m={v:(opts.mode==="request"&&!parentTask)?"request":"direct"};
@@ -2284,7 +2308,7 @@
         }
         var sd=el("nt-start").value,ed=el("nt-end").value;if(sd&&ed&&ed<sd){toast("Hạn không được trước ngày bắt đầu",true);return;}
         _submitting=true;btn.disabled=true;btn.textContent="Đang tạo...";
-        Promise.resolve(api(PM+"tasks.create",{project:el("nt-project").value,subject:s,parent_task:el("nt-parent").value||null,assignees:asg.length?JSON.stringify(asg):null,priority:el("nt-priority").value,exp_start_date:sd||null,exp_end_date:ed||null,description:el("nt-desc").value||null}))
+        Promise.resolve(api(PM+"tasks.create",{project:el("nt-project").value,subject:s,parent_task:el("nt-parent").value||null,assignees:asg.length?JSON.stringify(asg):null,split_per_assignee:(_cmode==="all"&&asg.length>1)?1:null,priority:el("nt-priority").value,exp_start_date:sd||null,exp_end_date:ed||null,description:el("nt-desc").value||null}))
           .then(function(r){
             function done(){toast("Đã tạo "+r.name);draftClear();if(onCreated){closeD();try{onCreated();}catch(_){}}else if(parentTask){openTask(parentTask);}else{closeD();go("board");}}
             if(lbls.length){return Promise.resolve(api(PM+"labels.set_task_labels",{task:r.name,labels:JSON.stringify(lbls)})).then(done).catch(done);}
