@@ -89,6 +89,12 @@ _LABEL_VI = {
     "Reason for no purchase request": "Lý do không có đề nghị mua hàng",
     "Expected Resolution Date": "Ngày mong muốn xong",
     "Operation Expected Completion Date": "Ngày Operation dự kiến xong",
+    # Contract Review (thấy trên production khi test E2E 2026-09-01)
+    "Request Kind": "Loại yêu cầu", "Previous Request": "Hợp đồng gốc",
+    "Contract Value": "Giá trị hợp đồng", "Contract Start Date": "Ngày bắt đầu HĐ",
+    "Contract End Date": "Ngày kết thúc HĐ", "Expected Response Date": "Hạn phản hồi",
+    "Request Details": "Yêu cầu chi tiết", "Legal Entity / Brand": "Legal entity / Brand",
+    "Request Title": "Tiêu đề",
 }
 # Cặp "chọn Other rồi nhập tay": gộp thành một dòng để bớt nhiễu.
 _OTHER_SUFFIX = (" (Other)", " (other)", " Other")
