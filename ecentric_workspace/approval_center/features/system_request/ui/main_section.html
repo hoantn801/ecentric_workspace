@@ -458,18 +458,19 @@
   function buildStepper(det){ var ap=det.approval||{}; if(!ap.name) return buildDraftStepper(det);
     var levels=det.levels||[], approvers=det.approvers||[], ff=det.fulfillment||{};
     var steps=[{name:"Đã gửi",state:"done",meta:""}];
+    // esc() ten nguoi + comment trong meta - va XSS dong loat 31/08 (xem payment_request lam mau)
     levels.forEach(function(l){ var rows=approvers.filter(function(a){return a.level_no===l.level_no;}); var st="upcoming", meta="";
-      if(l.level_status==="Approved"){ st="done"; var who=rows.filter(function(r){return r.status==="Approved";}).map(function(r){return r.approver;}); meta=(who.length?("Duyệt bởi "+who.join(", ")):"")+(l.completed_at?(" · "+fmt(l.completed_at)):""); }
-      else if(l.level_status==="Rejected"){ st="rejected"; var rj=rows.filter(function(r){return r.status==="Rejected";}); meta="Từ chối"+(rj[0]&&rj[0].comment?(": "+rj[0].comment):""); }
+      if(l.level_status==="Approved"){ st="done"; var who=rows.filter(function(r){return r.status==="Approved";}).map(function(r){return esc(r.approver);}); meta=(who.length?("Duyệt bởi "+who.join(", ")):"")+(l.completed_at?(" · "+fmt(l.completed_at)):""); }
+      else if(l.level_status==="Rejected"){ st="rejected"; var rj=rows.filter(function(r){return r.status==="Rejected";}); meta="Từ chối"+(rj[0]&&rj[0].comment?(": "+esc(rj[0].comment)):""); }
       else if(l.level_status==="Information Requested"||(ap.approval_status==="Information Required"&&ap.current_level===l.level_no)){ st="info"; meta="Cần bổ sung thông tin"; }
       else if(l.level_status==="Skipped"){ st="skipped"; meta="Bỏ qua"; }
-      else if(l.level_status==="In Progress"||ap.current_level===l.level_no){ st="current"; var elig=rows.filter(function(r){return r.status==="Pending";}).map(function(r){return r.approver;}); meta=(elig.length?(l.approval_mode==="Any One"?elig.join(" hoặc "):elig.join(", ")):"Đang chờ"); }
+      else if(l.level_status==="In Progress"||ap.current_level===l.level_no){ st="current"; var elig=rows.filter(function(r){return r.status==="Pending";}).map(function(r){return esc(r.approver);}); meta=(elig.length?(l.approval_mode==="Any One"?elig.join(" hoặc "):elig.join(", ")):"Đang chờ"); }
       if(l.due_at&&st==="current"&&new Date(l.due_at)<new Date()){ meta+=' · <span class="ov">Quá hạn</span>'; } else if(l.due_at&&st==="current"){ meta+=" · Hạn: "+fmt(l.due_at); }
       steps.push({name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
     // fulfillment step (Operation xử lý)
     var fst="upcoming", fmeta=""; var allApproved=ap.approval_status==="Approved";
-    if(ff.status==="Completed"){ fst="done"; fmeta="Hoàn tất"+(ff.completed_by?(" bởi "+ff.completed_by):"")+(ff.completed_at?(" · "+fmt(ff.completed_at)):""); }
-    else if(ff.status==="In Progress"){ fst="current"; fmeta="Đang xử lý"+(ff.owner?(" · "+ff.owner):""); }
+    if(ff.status==="Completed"){ fst="done"; fmeta="Hoàn tất"+(ff.completed_by?(" bởi "+esc(ff.completed_by)):"")+(ff.completed_at?(" · "+fmt(ff.completed_at)):""); }
+    else if(ff.status==="In Progress"){ fst="current"; fmeta="Đang xử lý"+(ff.owner?(" · "+esc(ff.owner)):""); }
     else if(allApproved){ fst="current"; fmeta="Chờ Operation nhận xử lý"; }
     steps.push({name:"Operation xử lý",state:fst,meta:fmeta});
     steps.push({name:"Hoàn tất",state:(ff.status==="Completed"?"done":"upcoming"),meta:""});

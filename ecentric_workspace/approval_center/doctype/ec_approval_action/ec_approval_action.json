@@ -24,7 +24,10 @@
   "action_time",
   "cb1",
   "previous_status",
-  "new_status"
+  "new_status",
+  "level_no",
+  "level_name",
+  "related_user"
  ],
  "fields": [
   {
@@ -90,6 +93,25 @@
    "fieldname": "new_status",
    "fieldtype": "Data",
    "label": "New Status"
+  },
+  {
+   "fieldname": "level_no",
+   "fieldtype": "Int",
+   "label": "Cap so",
+   "read_only": 1
+  },
+  {
+   "fieldname": "level_name",
+   "fieldtype": "Data",
+   "label": "Ten cap",
+   "read_only": 1
+  },
+  {
+   "fieldname": "related_user",
+   "fieldtype": "Link",
+   "label": "Nguoi lien quan",
+   "read_only": 1,
+   "options": "User"
   }
  ],
  "permissions": [
