@@ -45,6 +45,7 @@ class TestRequestTypeRegistry(unittest.TestCase):
             "HIRING_REQUEST": "EC Hiring Request",
             "PROMOTION_REQUEST": "EC Promotion Request",
             "SPECIAL_BONUS": "EC Special Bonus Request",
+            "CONTRACT_REVIEW": "EC Contract Review Request",
         }
         self.assertEqual(set(APPROVAL_DEFINITIONS), set(expected))
         for code, doctype in expected.items():
@@ -158,6 +159,7 @@ class TestStandardRequestPublicApiContract(unittest.TestCase):
             "budget_setting": "BUDGET_SETTING",
             "payment_request": "PAYMENT_REQUEST",
             "purchase_request": "PURCHASE_REQUEST",
+            "contract_review": "CONTRACT_REVIEW",
         }
         module_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         for module, code in expected.items():
@@ -173,19 +175,19 @@ class TestStandardRequestPublicApiContract(unittest.TestCase):
             source = handle.read()
         self.assertIn("approval_center.features.ai_topup.controllers.api import *", source)
 
-    def test_all_26_business_apis_are_registry_backed(self):
+    def test_all_27_business_apis_are_registry_backed(self):
         module_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         compatibility_root = os.path.join(module_root, "api")
         modules = [
             "affiliate_bonus", "ai_topup", "asset_damage_loss", "asset_request",
-            "budget_setting", "compensation_leave", "daily_target", "data_request",
+            "budget_setting", "compensation_leave", "contract_review", "daily_target", "data_request",
             "document_request", "employee_info_update", "employee_referral", "hiring_request",
             "hr_activity", "late_early_out", "lateral_move", "leave", "livestream_sample",
             "livestream_supplies", "outside_work", "payment_request", "promotion",
             "purchase_request", "resignation", "service_referral", "special_bonus",
             "system_request",
         ]
-        self.assertEqual(len(modules), 26)
+        self.assertEqual(len(modules), 27)
         markers = ("get_definition(", "bind(", "bind_fulfillment(")
         for module in modules:
             with open(os.path.join(module_root, "features", module, "controllers", "api.py"),

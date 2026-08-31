@@ -1,0 +1,252 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "EC-CTR-.YYYY.-.#####.",
+ "creation": "2026-09-01 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "approval_type",
+  "approval_request",
+  "request_title",
+  "requested_by",
+  "employee",
+  "department",
+  "company",
+  "cb0",
+  "submitted_at",
+  "completed_at",
+  "material_signature",
+  "sb_kind",
+  "request_kind",
+  "previous_request",
+  "changed_fields",
+  "sb_form",
+  "contract_type",
+  "request_type",
+  "brand",
+  "justification",
+  "cb1",
+  "contract_value",
+  "contract_start_date",
+  "contract_end_date",
+  "expected_response_date",
+  "sb_detail",
+  "request_details",
+  "cc_to",
+  "request_attachment"
+ ],
+ "fields": [
+  {
+   "fieldname": "approval_type",
+   "fieldtype": "Link",
+   "label": "Approval Type",
+   "options": "EC Approval Type",
+   "read_only": 1,
+   "default": "CONTRACT_REVIEW"
+  },
+  {
+   "fieldname": "approval_request",
+   "fieldtype": "Link",
+   "label": "Approval Request",
+   "options": "EC Approval Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_title",
+   "fieldtype": "Data",
+   "label": "Request Title",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Requested By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee",
+   "read_only": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department",
+   "options": "Department"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "Submitted At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Completed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "material_signature",
+   "fieldtype": "Data",
+   "label": "Material Signature",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "sb_kind",
+   "fieldtype": "Section Break",
+   "label": "Loại yêu cầu"
+  },
+  {
+   "fieldname": "request_kind",
+   "fieldtype": "Select",
+   "label": "Request Kind",
+   "options": "Existing\nNew",
+   "reqd": 1,
+   "default": "New",
+   "description": "Existing = hợp đồng/phụ lục sẵn có (chỉ điều chỉnh); New = hợp đồng hoặc phụ lục mới"
+  },
+  {
+   "fieldname": "previous_request",
+   "fieldtype": "Link",
+   "label": "Previous Request",
+   "options": "EC Contract Review Request",
+   "depends_on": "eval:doc.request_kind=='Existing'"
+  },
+  {
+   "fieldname": "changed_fields",
+   "fieldtype": "Small Text",
+   "label": "Changed Fields",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "sb_form",
+   "fieldtype": "Section Break",
+   "label": "Thông tin hợp đồng"
+  },
+  {
+   "fieldname": "contract_type",
+   "fieldtype": "Select",
+   "label": "Contract Type",
+   "reqd": 1,
+   "options": "Purchase / Mua vào (EC)\nSales / Bán ra (EC)\nService / Dịch vụ (GBSxBrand)"
+  },
+  {
+   "fieldname": "request_type",
+   "fieldtype": "Select",
+   "label": "Request Type",
+   "reqd": 1,
+   "options": "Template from EC / Mẫu theo khung EC\nTemplate from partner / Mẫu theo khung đối tác\nNew contract template / Hợp đồng mới"
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Data",
+   "label": "Legal Entity / Brand",
+   "reqd": 1,
+   "description": "Hợp đồng của team backoffice chọn eCentric"
+  },
+  {
+   "fieldname": "justification",
+   "fieldtype": "Data",
+   "label": "Justification",
+   "reqd": 1,
+   "description": "Mục đích (Booking KOL/KOC, Mua tài sản, Phụ lục dịch vụ...)"
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "contract_value",
+   "fieldtype": "Currency",
+   "label": "Contract Value",
+   "reqd": 1,
+   "description": "Nếu không có giá trị cụ thể, ước tính ngân sách trong thời hạn hợp đồng"
+  },
+  {
+   "fieldname": "contract_start_date",
+   "fieldtype": "Date",
+   "label": "Contract Start Date"
+  },
+  {
+   "fieldname": "contract_end_date",
+   "fieldtype": "Date",
+   "label": "Contract End Date"
+  },
+  {
+   "fieldname": "expected_response_date",
+   "fieldtype": "Date",
+   "label": "Expected Response Date",
+   "read_only": 1,
+   "description": "Tự tính: hợp đồng sẵn có 1 ngày làm việc, hợp đồng mới 3 ngày làm việc"
+  },
+  {
+   "fieldname": "sb_detail",
+   "fieldtype": "Section Break",
+   "label": "Chi tiết"
+  },
+  {
+   "fieldname": "request_details",
+   "fieldtype": "Small Text",
+   "label": "Request Details",
+   "reqd": 1,
+   "description": "Thông tin Finance cần kiểm tra: phạm vi công việc, điều khoản thanh toán, bảng giá, thời hạn..."
+  },
+  {
+   "fieldname": "cc_to",
+   "fieldtype": "Small Text",
+   "label": "CC To",
+   "description": "Email nhận thông báo, cách nhau dấu phẩy"
+  },
+  {
+   "fieldname": "request_attachment",
+   "fieldtype": "Attach",
+   "label": "Attachment"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-01 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC Contract Review Request",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
