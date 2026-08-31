@@ -963,6 +963,16 @@ def set_status(name, action):
     if cur != target:
         frappe.db.set_value("Task", name,
                             {"workflow_state": target, "status": _STATE_STATUS.get(target, "Open")})
+        if target in ("Done", "Cancelled"):
+            # Closing the task should clear it from everyone's Nhắc việc: the native ToDos
+            # created by assign_to stay Open otherwise and Việc-của-tôi keeps counting it.
+            try:
+                for _t in frappe.get_all("ToDo", filters={"reference_type": "Task",
+                                                          "reference_name": name,
+                                                          "status": "Open"}, pluck="name"):
+                    frappe.db.set_value("ToDo", _t, "status", "Closed")
+            except Exception:
+                frappe.log_error(frappe.get_traceback(), "PM set_status close todos")
         try:
             d2 = frappe.get_doc("Task", name).as_dict()
             pmnotif.notify_users(pmnotif._task_recipients(d2, exclude=user),
@@ -994,8 +1004,15 @@ def delete(name, cascade=None):
         # assignee, parents with children are now routine, and the old message left people
         # stuck. The caller asks the user first (see delete_info) and re-calls with cascade.
         frappe.throw(_("Nhiệm vụ có {0} nhiệm vụ con. Xoá cả nhiệm vụ con để tiếp tục.").format(len(kids)))
-    for _n in ([name] + kids):
-        _assert_deletable(_n)
+    cluster = [name] + kids
+    for _n in cluster:
+        _assert_deletable(_n, cluster)
+    # E2E found the real dead-end: ERPNext auto-fills the parent's `depends_on` child table
+    # with its sub-tasks, so deleting a child raises LinkExistsError (the parent still
+    # references it) while the parent cannot go first because it still has children.
+    # References BETWEEN cluster members are about to die with the cluster -- drop them.
+    # References from OUTSIDE the cluster are real blockers, rejected just above.
+    frappe.db.delete("Task Depends On", {"parent": ["in", cluster]})
     for _k in kids:
         # A child cannot be deleted while it still points at the parent (NestedSet link
         # check), so unlink then delete -- same order that works by hand.
@@ -1009,14 +1026,22 @@ def _truthy(v):
     return str(v or "").lower() not in ("", "0", "false", "none")
 
 
-def _assert_deletable(name):
+def _assert_deletable(name, cluster=None):
     """Blockers that make a hard delete wrong (kept per-row so a cascade fails BEFORE
-    deleting anything, instead of half-way through)."""
+    deleting anything, instead of half-way through). `cluster` = every task being deleted
+    in this call: depends_on references between them do not block (they die together);
+    a reference from any OTHER task does."""
     if frappe.db.count("PM Timer", {"task": name, "status": ["in", ["Running", "Paused"]]}):
         frappe.throw(_("Nhiệm vụ {0} đang có timer và không thể xoá.").format(name))
     if frappe.db.count("Timesheet Detail", {"task": name}):
         frappe.throw(_("Nhiệm vụ {0} đã có log giờ và không thể xoá. "
                        "Hãy huỷ nhiệm vụ thay vì xoá.").format(name))
+    outside = frappe.get_all(
+        "Task Depends On", filters={"task": name, "parent": ["not in", list(cluster or [name])]},
+        pluck="parent", limit_page_length=5)
+    if outside:
+        frappe.throw(_("Nhiệm vụ {0} đang được nhiệm vụ khác phụ thuộc ({1}) và không thể xoá.")
+                     .format(name, ", ".join(outside)))
 
 
 def _delete_one(name):
@@ -1036,16 +1061,17 @@ def delete_info(name):
         frappe.throw(_("Only PM leaders can delete tasks."), frappe.PermissionError)
     kids = frappe.get_all("Task", filters={"parent_task": name},
                           fields=["name", "subject"], limit_page_length=0) or []
+    cluster = [name] + [k["name"] for k in kids]
     blockers = []
     for row in ([{"name": name, "subject": frappe.db.get_value("Task", name, "subject")}] + kids):
-        why = []
-        if frappe.db.count("PM Timer", {"task": row["name"], "status": ["in", ["Running", "Paused"]]}):
-            why.append("đang chạy timer")
-        if frappe.db.count("Timesheet Detail", {"task": row["name"]}):
-            why.append("đã có log giờ")
-        if why:
+        # SAME predicate as the real delete (_assert_deletable) -- the first version
+        # re-implemented a subset, reported blockers:[] and the delete then failed on a
+        # depends_on link the preview never looked at.
+        try:
+            _assert_deletable(row["name"], cluster)
+        except frappe.exceptions.ValidationError as e:
             blockers.append({"name": row["name"], "subject": row.get("subject") or row["name"],
-                             "reason": ", ".join(why)})
+                             "reason": str(e)})
     return {"name": name, "children": kids, "blockers": blockers}
 
 
