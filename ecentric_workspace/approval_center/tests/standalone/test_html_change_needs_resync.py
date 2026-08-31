@@ -14,8 +14,11 @@ every patch file is declared, nothing is declared twice, the page has a resync p
 and each landmark that only exists in a NEW template version is matched by a patch that
 mentions it. The last one is what would have caught the clamp release.
 """
+import ast
 import glob
+import hashlib
 import io
+import json
 import os
 import unittest
 
@@ -100,6 +103,95 @@ class TestEachTemplateLandmarkHasAPatchThatMentionsIt(unittest.TestCase):
                 self.assertIn(keyword, blob,
                               "sua %s (%s) ma khong patch nao nhac toi '%s' -> trinh duyet "
                               "van chay ma cu" % (fname, landmark, keyword))
+
+
+# ---------------------------------------------------------------------------------------
+# Ban ke ma bam - thay cho viec nho tay
+#
+# Danh sach dau moc o tren phai co NGUOI them vao moi lan sua HTML, nen no chi bat duoc thu
+# ai do nho ghi. Ngay 31/08 no de lot mot ban sua that: `isMine` trong main_section.html bo
+# nhanh `owner`, deploy sach, test xanh, va trang live van chay ma cu - vi main_section.html
+# CHUA TUNG nam trong danh sach dau moc.
+#
+# Ban ke duoi day khong can nho: no giu ma bam noi dung cua TUNG template duoc bom vao trang.
+# Sua mot ky tu trong template -> ma bam lech -> test do, kem loi nhac phai them patch resync
+# roi cap nhat ban ke. Va danh sach template thi TU DO ra tu chinh cac module page_sync, nen
+# them mot template moi cung khong lot duoc.
+# ---------------------------------------------------------------------------------------
+
+_SYNC_MODULES = [
+    "approval_center/features/payment_request/infrastructure/page_sync.py",
+    "platform/esign/ops_page_sync.py",
+]
+_TEMPLATE_DIRS = [
+    "approval_center/features/payment_request/ui",
+    "platform/esign/ui",
+]
+
+
+def _manifest():
+    path = os.path.join(_ROOT, "approval_center", "patches", "resync_manifest.json")
+    return json.loads(io.open(path, encoding="utf-8").read())
+
+
+def _injected_templates():
+    """Template nao that su duoc bom vao trang - doc tu chinh page_sync, khong liet ke tay."""
+    out = set()
+    for mod in _SYNC_MODULES:
+        src = io.open(os.path.join(_ROOT, mod), encoding="utf-8").read()
+        for node in ast.walk(ast.parse(src)):
+            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+                continue
+            if not node.value.endswith(".html"):
+                continue
+            for d in _TEMPLATE_DIRS:
+                if os.path.exists(os.path.join(_ROOT, d, node.value)):
+                    out.add(d + "/" + node.value)
+    return out
+
+
+def _sha(rel):
+    raw = io.open(os.path.join(_ROOT, rel), "rb").read().replace(b"\r\n", b"\n")
+    return hashlib.sha256(raw).hexdigest()
+
+
+class TestManifestCoversEveryInjectedTemplate(unittest.TestCase):
+    def setUp(self):
+        self.man = _manifest()
+        self.found = _injected_templates()
+        self.assertTrue(self.found,
+                        "khong doc duoc template nao tu page_sync - phep kiem nay dang mu")
+
+    def test_khong_template_nao_dung_ngoai_ban_ke(self):
+        missing = sorted(self.found - set(self.man))
+        self.assertEqual(missing, [],
+                         "template duoc bom vao trang nhung khong ai canh: %s" % missing)
+
+    def test_ban_ke_khong_tro_vao_hu_khong(self):
+        stale = sorted(set(self.man) - self.found)
+        self.assertEqual(stale, [],
+                         "ban ke con giu template khong con duoc bom vao dau ca: %s" % stale)
+
+    def test_ma_bam_khop_hoac_phai_co_patch_moi(self):
+        for rel, rec in sorted(self.man.items()):
+            with self.subTest(template=rel):
+                self.assertEqual(
+                    _sha(rel), rec["sha256"],
+                    "%s da doi noi dung. Sua template thoi thi KHONG AI THAY - phai them mot "
+                    "patch goi page_sync.sync(), khai vao patches.txt, roi cap nhat sha256 o "
+                    "resync_manifest.json." % rel)
+
+    def test_patch_duoc_khai_va_ton_tai(self):
+        patches = _patches()
+        listed = io.open(os.path.join(_ROOT, "patches.txt"), encoding="utf-8").read()
+        for rel, rec in sorted(self.man.items()):
+            with self.subTest(template=rel):
+                name = rec["last_resync_patch"]
+                self.assertIn(name + ".py", patches,
+                              "ban ke tro toi patch khong ton tai: %s" % name)
+                self.assertIn(name, listed,
+                              "patch %s chua khai trong patches.txt -> migrate khong chay"
+                              % name)
 
 
 if __name__ == "__main__":
