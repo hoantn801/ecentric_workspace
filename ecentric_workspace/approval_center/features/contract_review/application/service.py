@@ -69,6 +69,17 @@ def business_deadline(kind, start=None):
     return d
 
 
+def _require_approved_previous(previous_request):
+    """Hợp đồng gốc phải là bản ĐÃ DUYỆT — chốt ở server (BUG-4, E2E 01/09).
+
+    Ô tìm kiếm trên form chỉ trả bản Approved, nhưng API nhận chuỗi bất kỳ: trỏ vào
+    bản nháp tự tạo là ghép được luồng 3 cấp không CEO cho nội dung chưa ai duyệt."""
+    req = frappe.db.get_value(BUSINESS_DT, previous_request, "approval_request")
+    status = req and frappe.db.get_value("EC Approval Request", req, "approval_status")
+    if status != "Approved":
+        frappe.throw(_("Hợp đồng gốc phải là yêu cầu đã được duyệt xong."))
+
+
 @frappe.whitelist(methods=["POST"])
 def submit(name):
     doc = frappe.get_doc(BUSINESS_DT, name)
@@ -98,6 +109,7 @@ def submit(name):
         prev = frappe.db.get_value(BUSINESS_DT, doc.previous_request, DIFF_FIELDS, as_dict=True)
         if not prev:
             frappe.throw(_("Không tìm thấy hợp đồng gốc đã chọn."))
+        _require_approved_previous(doc.previous_request)
         changed = changed_vs_previous(doc, prev)
     doc.changed_fields = json.dumps(changed)
     doc.expected_response_date = business_deadline(doc.request_kind)
@@ -156,8 +168,37 @@ def resubmit(name, actor=None):
     doc = frappe.get_doc(BUSINESS_DT, name)
     if not doc.approval_request:
         frappe.throw(_("Yêu cầu chưa được gửi."))
+    _guard_resubmit_needs_ceo(doc)
     new_sig = _signature(doc)
     material_changed = new_sig != (doc.material_signature or "")
     engine.resubmit(doc.approval_request, actor=actor or frappe.session.user, restart=material_changed)
     frappe.db.set_value(BUSINESS_DT, doc.name, "material_signature", new_sig)
     return {"restarted": material_changed}
+
+
+def _guard_resubmit_needs_ceo(doc):
+    """Chặn lách CEO qua resubmit (BUG-3, E2E 01/09 — đã tái hiện được trên prod).
+
+    Snapshot cấp duyệt chốt LÚC GỬI; engine.resubmit chỉ reset các cấp có sẵn, không dựng
+    lại. Hồ sơ gửi dạng 'chỉ điều chỉnh' (3 cấp) mà lúc bổ sung lại đổi NỘI DUNG (brand,
+    loại HĐ, mục đích...) thì bây giờ CẦN CEO nhưng snapshot không có cấp 4 -> nếu cho qua,
+    hồ sơ đổi nội dung sẽ được duyệt xong không bao giờ tới CEO.
+    Chiều ngược (snapshot có CEO nhưng giờ hết cần) vô hại — CEO duyệt thừa còn hơn thiếu."""
+    changed = []
+    if doc.previous_request:
+        prev = frappe.db.get_value(BUSINESS_DT, doc.previous_request, DIFF_FIELDS, as_dict=True)
+        if prev:
+            changed = changed_vs_previous(doc, prev)
+        frappe.db.set_value(BUSINESS_DT, doc.name, "changed_fields", json.dumps(changed))
+        doc.changed_fields = json.dumps(changed)
+    needs_ceo = not skip_ceo(doc, changed)
+    if not needs_ceo:
+        return
+    has_ceo_level = bool(frappe.db.exists(
+        "EC Approval Request Level",
+        {"approval_request": doc.approval_request, "level_no": CEO_LEVEL_NO}))
+    if not has_ceo_level:
+        frappe.throw(_(
+            "Thay đổi này đụng đến nội dung hợp đồng (loại hợp đồng / brand / mục đích) nên "
+            "cần CEO duyệt, nhưng yêu cầu này đã gửi theo luồng điều chỉnh không có cấp CEO. "
+            "Vui lòng hủy yêu cầu này và tạo yêu cầu mới."))
