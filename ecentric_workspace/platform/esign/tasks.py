@@ -653,7 +653,11 @@ def retrieve_signed_bundles():
         return
     rows = frappe.get_all(
         "EC Digital Signature Package",
-        filters={"scts_document_id": ["is", "set"], "signed_bundle_complete": 0},
+        # `retrieval_abandoned` la co NGUOI bat, sau khi ket luan tai lieu ben nha cung cap
+        # khong con lay ve duoc nua. Khong loc no o day thi nut "Ngung thu lai" chi la trang
+        # tri: cron van goi mang moi 30 phut cho mot goi da co nguoi tuyen bo la bo.
+        filters={"scts_document_id": ["is", "set"], "signed_bundle_complete": 0,
+                 "retrieval_abandoned": 0},
         fields=["name", "provider", "environment"], limit_page_length=200)
     from ecentric_workspace.platform.esign import signed_files
     for r in rows:

@@ -152,6 +152,21 @@ def _load_ops(dsr_rows=(), pkg_rows=(), event_counts=None, events=(), rounds=0):
                 sys.modules[k] = v
 
 
+def _brace_body(src, marker):
+    """Than mot ham JS, cat bang cach dem ngoac nhon - khong phu thuoc do dai."""
+    i = src.index(marker)
+    start = src.index("{", i)
+    depth = 0
+    for j in range(start, len(src)):
+        if src[j] == "{":
+            depth += 1
+        elif src[j] == "}":
+            depth -= 1
+            if depth == 0:
+                return src[start:j + 1]
+    raise AssertionError("khong tim thay ngoac dong cho %r" % marker)
+
+
 def _leg(status, **kw):
     base = {"name": "DSR-1", "status": status, "actor_type": "Approval Level",
             "actor_user": "a@x.vn", "approver": None, "package": "PKG-1",
@@ -212,6 +227,12 @@ class TestWaitingIsNotBroken(unittest.TestCase):
                 # `Completed` ma chua tai xong PDF. Gia lap thieu truong nay tung lam
                 # ba test o day no AttributeError chu khong phai loi cua nguon.
                 "status": "Active",
+                # Them 31/08 cung nut "Ngung thu lai": ban chieu cua unretrieved_bundles doc
+                # ba truong nay, thieu chung thi ban gia nem AttributeError o cho ma nguon
+                # hoan toan dung.
+                "retrieval_abandoned": 0,
+                "retrieval_abandoned_reason": None,
+                "retrieval_abandoned_by": None,
                 "modified": "2026-08-31 10:00:00"}
         base.update(kw)
         return base
@@ -289,7 +310,12 @@ class TestTheScreenNeverResendsASigningCommand(unittest.TestCase):
                       "hop xac nhan phai noi ro no lam gi tren mot ho so chi tien")
 
     def test_ket_qua_khong_bao_xong_bua(self):
-        body = _UI.split("function run(")[1][:2500]
+        # Cat than ham theo DAU NGOAC, khong theo do dai co dinh.
+        #
+        # Ban dau cat 2500 ky tu dau. Them mot nhanh `abandon` vao la doan can kiem bi day ra
+        # ngoai cua so, test do trong khi ma nguon van dung y nguyen - mot phep kiem hong vi
+        # do dai cua thu no dang do la mot phep kiem se do vao luc khong ai ngo.
+        body = _brace_body(_UI, "function run(")
         self.assertIn("Chưa xử lý được", body,
                       "nhieu endpoint tra ve dict trang thai chu khong nem loi - bao 'xong' "
                       "cho moi truong hop la dung cai loi im lang ma trang nay sinh ra de xoa")

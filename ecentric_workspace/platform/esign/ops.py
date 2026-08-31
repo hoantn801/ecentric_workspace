@@ -137,7 +137,8 @@ def unretrieved_bundles(limit=100):
         PKG, filters={"scts_document_id": ["is", "set"], "signed_bundle_complete": 0,
                       "status": ["not in", ("Cancelled", "Superseded")]},
         fields=["name", "status", "business_doctype", "business_name", "scts_document_id",
-                "modified"],
+                "modified", "retrieval_abandoned", "retrieval_abandoned_reason",
+                "retrieval_abandoned_by"],
         order_by="modified desc", limit_page_length=limit)
     out = []
     for r in rows:
@@ -157,7 +158,12 @@ def unretrieved_bundles(limit=100):
             # Chua thu lan nao + khong co loi = tai lieu ben nha cung cap chua o trang thai
             # da ky hoan tat. Do la CHO, khong phai HONG - noi ro de khong ai di sua nham.
             "waiting_on_provider": tries == 0 and not fails,
-            "actions": ["retrieve"],
+            # Goi da ngung van HIEN, khong bien mat. An di thi khong ai kiem lai duoc quyet
+            # dinh do, va khong ai mo lai duoc khi tai lieu ben SCTS song lai.
+            "abandoned": bool(r.retrieval_abandoned),
+            "abandoned_reason": r.retrieval_abandoned_reason or None,
+            "abandoned_by": r.retrieval_abandoned_by or None,
+            "actions": (["resume"] if r.retrieval_abandoned else ["retrieve", "abandon"]),
         })
     return out
 
@@ -232,8 +238,13 @@ def summary(legs=None, bundles=None, mismatches=None, debts=None):
         "stuck_legs": len(legs),
         "dead_end_legs": len([x for x in legs if x["dead_end"]]),
         "unretrieved": len(bundles),
-        "stalled_retrievals": len([x for x in bundles if x["stalled"]]),
+        # Goi da ngung KHONG con la viec dang treo: da co nguoi ket luan va ky ten. Dem no
+        # vao "quay mai khong duoc" thi con so bao dong khong bao gio ve 0, va mot con so
+        # khong bao gio ve 0 thi khong ai nhin nua.
+        "stalled_retrievals": len([x for x in bundles
+                                   if x["stalled"] and not x["abandoned"]]),
         "waiting_on_provider": len([x for x in bundles if x["waiting_on_provider"]]),
+        "abandoned_retrievals": len([x for x in bundles if x["abandoned"]]),
         "hash_mismatch": len(mismatches),
         "signature_debts": len(debts),
     }

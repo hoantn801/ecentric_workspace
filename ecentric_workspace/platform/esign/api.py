@@ -151,6 +151,23 @@ def settle_signature_debt(level_name, resolution, reason):
 
 
 @frappe.whitelist(methods=["POST"])
+def abandon_signed_retrieval(package_name, reason):
+    """Ngung thu tai PDF da ky cho mot goi khong con lay ve duoc. BAT BUOC ly do.
+
+    Chi bat mot co de cron bo qua - khong xoa tep nao, khong doi trang thai goi, va mo lai
+    duoc. System Manager. Xem signed_files.abandon_retrieval."""
+    from ecentric_workspace.platform.esign import signed_files
+    return signed_files.abandon_retrieval(package_name, reason)
+
+
+@frappe.whitelist(methods=["POST"])
+def resume_signed_retrieval(package_name):
+    """Mo lai mot goi da ngung, khi tai lieu ben nha cung cap song lai."""
+    from ecentric_workspace.platform.esign import signed_files
+    return signed_files.resume_retrieval(package_name)
+
+
+@frappe.whitelist(methods=["POST"])
 def retry_signature_request(dsr_name):
     return svc.retry_signature_request(dsr_name)
 

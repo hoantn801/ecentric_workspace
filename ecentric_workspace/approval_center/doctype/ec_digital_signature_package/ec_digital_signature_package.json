@@ -50,7 +50,11 @@
   "error_code",
   "error_message",
   "signed_bundle_complete",
-  "superseded_by"
+  "superseded_by",
+  "retrieval_abandoned",
+  "retrieval_abandoned_at",
+  "retrieval_abandoned_by",
+  "retrieval_abandoned_reason"
  ],
  "fields": [
   {
@@ -182,6 +186,32 @@
    "fieldtype": "Link",
    "label": "Superseded By",
    "options": "EC Digital Signature Package",
+   "read_only": 1
+  },
+  {
+   "fieldname": "retrieval_abandoned",
+   "fieldtype": "Check",
+   "label": "Ngung thu lai PDF da ky",
+   "read_only": 1,
+   "default": "0"
+  },
+  {
+   "fieldname": "retrieval_abandoned_at",
+   "fieldtype": "Datetime",
+   "label": "Ngung luc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "retrieval_abandoned_by",
+   "fieldtype": "Link",
+   "label": "Nguoi ngung",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "retrieval_abandoned_reason",
+   "fieldtype": "Small Text",
+   "label": "Ly do ngung",
    "read_only": 1
   }
  ]
