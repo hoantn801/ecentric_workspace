@@ -475,8 +475,22 @@ def poll_pending():
             continue  # gate OFF -> no adapter, no SCTS network call
         try:
             if r.status == "Signed":
-                out = svc.verify_and_complete(r.name)
-                _enqueue_signed_retrieval(frappe.db.get_value(DSR, r.name, "package"), out)
+                # Re nhanh theo actor_type qua _complete_dsr, KHONG goi thang
+                # svc.verify_and_complete. Duong verify_and_complete la duong APPROVER: no
+                # goi engine.approve, ma nguoi de nghi khong phai approver nen engine tu
+                # choi -> chan ky bi dong dau Manual Review. Nut "Doi soat" tren trang ops
+                # (reconcile_signature_request) truoc day cung goi y het, nen bam cuu ho
+                # chi lap lai dung loi do: ket vinh vien, requester_signature_status ket
+                # 'Processing', Cap 1 khong bao gio kich hoat. 31/08: 4 chan "Manual Review
+                # Requester" tren trang ops la dung lop loi nay.
+                #
+                # Doc actor_type/package tu DB chu khong tu hang get_all: hang do la ban
+                # chieu hep, va mot ban chieu thieu truong thi dict.get tra None - tuc la
+                # lai re nham sang duong approver trong IM LANG, dung loi vua sua.
+                full = frappe.db.get_value(DSR, r.name, ["name", "actor_type", "package"],
+                                           as_dict=True) or {}
+                out = _complete_dsr(r.name, full)
+                _enqueue_signed_retrieval(full.get("package"), out)
                 continue
             if r.status == "Retryable Failure":
                 cap = frappe.db.get_value("EC Digital Signature Provider Settings",

@@ -906,6 +906,14 @@
           DRW.pdf = pdf; DRW.page = 1; renderPdf();
         }).catch(function () { document.getElementById("ecdViewerMsg").textContent =
           "Không tải được nội dung PDF (kiểm tra quyền)."; });
+      })
+      .catch(function (e) {
+        // Nhanh placement_state/loadPdfjs hong (500, mat mang) truoc day khong co catch:
+        // drawer mo ra trong rong, khong loi, khong huong dan - nguoi dat vi tri ky tuong
+        // minh lam sai (BOT 3, 31/08).
+        drawerErr("Không tải được dữ liệu đặt vị trí ký"
+          + ((e && e.message) ? " — " + e.message : "") + ". Đóng rồi mở lại; còn lỗi thì báo kỹ thuật.");
+        if (window.console) console.error("[ec-docsign] openDrawer failed", e);
       });
     // click on the placement layer -> place a box for the selected signer
     document.getElementById("ecdLayer").onclick = function (e) {
@@ -950,7 +958,15 @@
         if (apw) apw.style.display = ck.active_approver ? "" : "none";
         render();
       })
-      .catch(function () {});
+      .catch(function (e) {
+        // KHONG nuot loi. catch rong o day tung de khoi "Dang tai..." treo vinh vien khi
+        // endpoint 500 - nguoi dung khong co mot chu nao de bao ky thuat, va ky thuat khong
+        // co gi de tim (BOT 3, 31/08). Loi that thi noi that.
+        var m = document.getElementById("ecdMsg") || document.getElementById("ecdViewerMsg");
+        if (m) m.textContent = "Không tải được trạng thái ký số"
+          + ((e && e.message) ? " — " + e.message : "") + ". Tải lại trang; còn lỗi thì báo kỹ thuật.";
+        if (window.console) console.error("[ec-docsign] setup_state failed", e);
+      });
   }
 
   // one-time wiring (idempotent across re-sync/navigation)

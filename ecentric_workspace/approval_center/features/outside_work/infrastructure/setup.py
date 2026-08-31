@@ -9,8 +9,18 @@ APPROVAL_TYPE = "OUTSIDE_WORK"
 PROCESS_CODE = "OUTSIDE_WORK-V1"
 
 
+def _require_sm():
+    # 25/26 feature setup deu chot System Manager - rieng file nay bo sot (audit bao mat
+    # 31/08). Endpoint nay GHI process/level khi chua ton tai, nen mot user thuong goi
+    # trung luc chua setup se tu dinh nghia duoc luong duyet cua chinh minh.
+    if "System Manager" not in frappe.get_roles(frappe.session.user):
+        frappe.throw(_("Only System Manager may run Outside Work setup."),
+                     frappe.PermissionError)
+
+
 @frappe.whitelist()
 def setup_outside_work_v1(dry_run=1, apply=0):
+    _require_sm()
     # apply=1 is the authoritative "go" switch; dry_run kept for backward-compat.
     # Applies when apply=1 (with any dry_run) OR the legacy dry_run=0+apply=1; otherwise dry-run.
     dry = int(apply or 0) != 1

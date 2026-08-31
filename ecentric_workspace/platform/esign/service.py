@@ -323,7 +323,16 @@ def reconcile_manual_review(dsr_name):
         return {"ok": False, "reason": vr.reason}
     events.set_dsr_status(dsr_name, "Signed", event_type="Verified",
                           verification_result=vr.reason)
-    verify_and_complete(dsr_name)
+    # Re nhanh theo actor_type - CUNG loi voi poll_pending (tasks.py). verify_and_complete
+    # la duong approver (engine.approve); chan NGUOI DE NGHI phai hoan tat qua duong
+    # requester. Truoc day nut "Doi soat" goi thang duong approver, engine tu choi vi
+    # requester khong phai pending approver, va chan ky quay lai Manual Review - tuc nut
+    # cuu ho lap lai dung cai loi da day no vao do.
+    if dsr.actor_type == "Requester":
+        from ecentric_workspace.platform.esign import requester
+        requester.reconcile_and_complete_requester(dsr_name)
+    else:
+        verify_and_complete(dsr_name)
     final = frappe.db.get_value(DSR, dsr_name, "status")
     if final == "Approval Completed":
         return {"ok": True, "reason": vr.reason, "status": final}

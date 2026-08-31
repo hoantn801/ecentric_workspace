@@ -194,6 +194,14 @@
         } else {
           msg("");
         }
+      })
+      .catch(function (e) {
+        // refresh khong catch tung lam panel dung im khi endpoint hong - ke ca luc dang
+        // poll cho SCTS xac nhan, tuc nguoi dung tuong van "dang cho" trong khi thuc ra
+        // he thong da ngung hoi tu lau (BOT 3, 31/08).
+        if (elMsg) { msg("Không tải được trạng thái ký của bạn"
+          + ((e && e.message) ? " — " + e.message : "") + ". Tải lại trang; còn lỗi thì báo kỹ thuật."); }
+        if (window.console) console.error("[ec-req-sign] readiness failed", e);
       });
   }
 
