@@ -150,6 +150,12 @@ def clone_request(definition, name):
 
     Ban sao la mot phieu NHAP hoan toan doc lap: khong co approval_request, khong co goi ky,
     khong co chu ky nao. Phieu cu giu nguyen - khong sua, khong xoa, vet kiem toan con day.
+
+    CO Y KHONG chay `definition.validator`. Ban sao la mot phieu NHAP, va nhap thi duoc phep
+    chua day du - dung nhu khi nguoi dung tu bam "Luu nhap". Chay kiem tra hop le o day se
+    lam mot phieu bi tu choi vi thieu truong KHONG TAO LAI DUOC, tuc dung cai be tac ma nut
+    nay sinh ra de xoa bo. Kiem tra van chay day du o `Submitter` luc gui - va do la noi
+    dung, vi do la luc phieu roi khoi tay nguoi de nghi.
     """
     user = frappe.session.user
     source = frappe.get_doc(definition.business_doctype, name)
@@ -186,6 +192,24 @@ def clone_request(definition, name):
             "capabilities": capabilities.derive(user, document, None)}
 
 
+#: Tep do CHINH HE THONG sinh ra tren phieu cu - khong duoc chep sang phieu moi.
+#:
+#: `SIGNED-<ten>.pdf`  : ban PDF DA KY tai tu SCTS ve (signed_files._store_signed).
+#: `REVIEW-<sha>-<ten>`: ban ung vien khi ma bam lech, giu de doi chieu.
+#:
+#: Vi sao quan trong: `requester._add_requester_pdf_files` nap MOI PDF private dinh kem vao
+#: goi ky voi requires_signature=1. Chep mot ban DA KY sang phieu moi nghia la phieu moi doi
+#: nguoi ta dat o ky len mot tai lieu da co chu ky so cua phieu truoc - hoac preflight chan
+#: (khong gui duoc), hoac day sang SCTS mot bo ho so sai. Gia dinh cua ham nap la "PDF private
+#: dinh kem = tai lieu nguoi de nghi chuan bi", va gia dinh do chi dung khi khong ai chep
+#: hang loat File vao phieu.
+_SYSTEM_FILE_PREFIXES = ("SIGNED-", "REVIEW-")
+
+
+def _is_system_artefact(file_name):
+    return str(file_name or "").startswith(_SYSTEM_FILE_PREFIXES)
+
+
 def _copy_attachments(source, target):
     """Gan cac tep cua phieu cu sang phieu moi. Tra ve (so tep chep duoc, danh sach loi).
 
@@ -200,6 +224,7 @@ def _copy_attachments(source, target):
                                    "attached_to_name": source.name},
                           fields=["file_url", "file_name", "is_private"],
                           limit_page_length=0)
+    rows = [r for r in rows if not _is_system_artefact(r.get("file_name"))]
     seen, copied, failed = set(), 0, []
     for r in rows:
         url = (r.get("file_url") or "").strip()

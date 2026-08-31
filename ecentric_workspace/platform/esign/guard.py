@@ -22,6 +22,7 @@ from frappe import _
 from frappe.utils import now_datetime
 
 from ecentric_workspace.platform.esign import events
+from ecentric_workspace.platform.esign import permissions as perms
 
 FLAG_KEY = "ec_esign_completion_dsr"
 
@@ -286,6 +287,12 @@ def _record_signature_debt(req, level_no, actor):
     Ghi hong KHONG duoc lam gay viec duyet: mot cap duyet khong hoan tat duoc vi so ke toan
     ghi loi thi te hon la mot mon no khong ghi lai duoc. Nhung cung khong nuot im lang -
     Error Log giu lai de con lan ra.
+
+    Duong tra no la `settle_signature_debt` o duoi: mot NGUOI doc danh sach roi danh dau `da
+    ky bu` hoac `mien`, kem ly do. KHONG co duong tu dong ky bu - cap da Approved khong co
+    canh quay lai trong may trang thai, va tai lieu ben SCTS co the da dong, nen khong phai
+    luc nao cung ky duoc nua. Dong lich su o duoi ban dau hua "chu ky se duoc yeu cau lai khi
+    cong mo" - mot loi hua khong co gi dang sau; da sua cho dung su that.
     """
     try:
         profile = get_enabled_profile(req.reference_doctype, req.approval_type)
@@ -306,11 +313,62 @@ def _record_signature_debt(req, level_no, actor):
         from ecentric_workspace.approval_center.shared.workflow import transitions as engine
         engine.log_action(req.name, "Commented", actor,
                           level_no=level_no,
-                          comment=_("Cấp này hoàn tất khi cổng ký số đang tắt — còn nợ chữ ký "
-                                    "số. Chữ ký sẽ được yêu cầu lại khi cổng mở."))
+                          comment=_("Cấp này hoàn tất khi cổng ký số đang tắt — CÒN NỢ chữ ký "
+                                    "số. Món nợ được liệt kê tại trang “Chân ký cần can "
+                                    "thiệp”; chỉ chính người duyệt này ký bù được."))
         events.emit("SignatureDeferred", request_meta={
             "approval_request": req.name, "level_no": level_no,
             "actor": actor or frappe.session.user,
             "reference_doctype": req.reference_doctype, "reference_name": req.reference_name})
     except Exception:
         frappe.log_error(frappe.get_traceback(), "esign.guard._record_signature_debt")
+
+
+def settle_signature_debt(level_name, resolution, reason):
+    """Dong mot mon no chu ky - bang GHI NHAN, khong bang ky ho.
+
+    Vi sao khong co nut "ky bu tu dong": chu ky so la hanh dong cua nguoi giu chung thu tren
+    he thong cua nha cung cap. He thong nay khong ky thay ai duoc, va mot co che "tu ky khi
+    cong mo lai" chinh la lop loi da gay ra su co UAT 27/08. Nen o day chi co hai ket cuc
+    trung thuc:
+
+      * `signed`  - nguoi duyet do DA tu ky lai tren cong SCTS, va quan tri xac nhan dieu do;
+      * `waived`  - khong ky duoc nua (tai lieu ben nha cung cap da dong, nguoi do da nghi
+                    viec...), nen mon no duoc mien VOI LY DO, va ly do do nam lai vinh vien.
+
+    Ca hai deu BAT BUOC ly do, deu ghi vao lich su phieu, va deu la viec cua System Manager.
+    Khong co duong nao dong mot mon no ma khong de lai ai dong, luc nao, vi sao - mot danh
+    sach no tu no rong di la mot danh sach vo nghia.
+    """
+    perms.assert_system_manager()
+    if resolution not in ("signed", "waived"):
+        frappe.throw(_("Cách xử lý không hợp lệ."), frappe.ValidationError)
+    if not (reason or "").strip():
+        frappe.throw(_("Bắt buộc nêu lý do: đây là hồ sơ duyệt chi, và món nợ chữ ký chỉ "
+                       "đóng lại được kèm giải trình."), frappe.ValidationError)
+
+    row = frappe.db.get_value("EC Approval Request Level", level_name,
+                              ["name", "approval_request", "level_no",
+                               "signature_deferred", "signature_settled_at",
+                               "signature_deferred_by"], as_dict=True)
+    if not row:
+        frappe.throw(_("Không tìm thấy cấp duyệt này."))
+    if not row.signature_deferred:
+        frappe.throw(_("Cấp duyệt này không có nợ chữ ký."))
+    if row.signature_settled_at:
+        return {"ok": True, "already": True}          # idempotent
+
+    frappe.db.set_value("EC Approval Request Level", row.name,
+                        "signature_settled_at", now_datetime())
+    label = _("đã ký bù") if resolution == "signed" else _("được miễn")
+    from ecentric_workspace.approval_center.shared.workflow import transitions as engine
+    engine.log_action(row.approval_request, "Commented", frappe.session.user,
+                      level_no=row.level_no,
+                      comment=_("Nợ chữ ký số của cấp này {0}. Người nợ: {1}. Lý do: {2}"
+                                ).format(label, row.signature_deferred_by or "?",
+                                         reason.strip()))
+    events.emit("SignatureDebtSettled", request_meta={
+        "approval_request": row.approval_request, "level_no": row.level_no,
+        "resolution": resolution, "owed_by": row.signature_deferred_by,
+        "settled_by": frappe.session.user, "reason": reason.strip()[:500]})
+    return {"ok": True, "resolution": resolution}

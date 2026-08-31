@@ -231,13 +231,19 @@ def remove_supporting_attachment(bd, bn, document_ref):
         frappe.throw(_("Không tìm thấy tệp này trên yêu cầu."))
 
     sha = _rep_sha(group["rep"])
-    in_any_package = frappe.db.get_value(DSF, {"sha256": sha}, "package")
-    if in_any_package:
-        owner = frappe.db.get_value(PKG, in_any_package, ["business_doctype", "business_name"],
-                                    as_dict=True)
-        if owner and owner.business_doctype == bd and owner.business_name == bn:
-            frappe.throw(_("Tệp này nằm trong gói ký nên không gỡ được. "
-                           "Chỉ gỡ được chứng từ vừa bổ sung."))
+    # Loc theo PHIEU NAY, khong hoi "sha nay co o goi nao khong".
+    #
+    # Ban dau viet `get_value(DSF, {"sha256": sha}, "package")` roi doi chieu chu so huu cua
+    # goi do. `get_value` tra MOT dong tuy y: hai phieu dinh cung mot noi dung PDF (mau bieu
+    # trong, hoa don dung lai, ban scan giong het) thi no co the tra ve goi cua PHIEU KIA,
+    # doi chieu khong khop, va tep bi XOA du no cung dang nam trong goi da khoa cua phieu
+    # nay. Phai xet MOI goi cua chinh phieu nay.
+    own_packages = frappe.get_all(PKG, filters={"business_doctype": bd, "business_name": bn},
+                                  pluck="name")
+    if own_packages and frappe.db.exists(DSF, {"sha256": sha,
+                                               "package": ["in", own_packages]}):
+        frappe.throw(_("Tệp này nằm trong gói ký nên không gỡ được. "
+                       "Chỉ gỡ được chứng từ vừa bổ sung."))
 
     names = [f["name"] for f in group["members"]]
     for file_name in names:

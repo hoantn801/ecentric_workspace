@@ -29,7 +29,8 @@ AR = "EC Approval Request"
 _NEEDS_HUMAN = ("Manual Review", "Verification Mismatch", "Permanent Failure")
 
 #: Qua nguong nay ma van chua tai duoc PDF da ky thi khong con la "cham" nua.
-#: cron chay moi 30 phut -> 10 lan ~ 5 tieng.
+#: Dem theo LUOT CRON (xem _retrieval_rounds), khong theo so tep - cron chay moi 30 phut
+#: nen 10 luot ~ 5 tieng. Nham hai thu nay thi nguong that su ngan hon nhan ghi nhieu lan.
 RETRIEVAL_ALERT_AFTER = 10
 
 
@@ -53,6 +54,26 @@ def _last_error(dsr_name):
 
 def _attempts(package_name, event_type):
     return frappe.db.count(EVT, {"package": package_name, "event_type": event_type})
+
+
+def _signable_file_count(package_name):
+    """So tep CAN KY cua goi - mau so de doi so lan tai TEP thanh so LUOT cron."""
+    return frappe.db.count(DSF, {"package": package_name, "requires_signature": 1}) or 1
+
+
+def _retrieval_rounds(package_name):
+    """So LUOT cron da cham vao goi nay, xap xi.
+
+    `SignedFileRetrievalStarted` duoc phat ra MOT LAN CHO MOI TEP (signed_files._retrieve_one),
+    khong phai mot lan cho moi luot cron. Nen voi goi 3 tep, "10 lan thu" that ra la ~3,3
+    luot ~ 1,7 tieng chu khong phai 5 tieng nhu nhan ghi. Chia cho so tep can ky de con so
+    tren man hinh dung voi cai nguoi doc tuong.
+
+    Xap xi chu khong chinh xac: tep da lay duoc se di vao nhanh `SignedFileDuplicateSkipped`
+    va khong phat `Started` nua, nen mau so tut dan khi mot phan goi da xong. Chap nhan
+    duoc - viec can biet la "dang cho" hay "quay mai", khong phai con so tuyet doi.
+    """
+    return _attempts(package_name, "SignedFileRetrievalStarted") // _signable_file_count(package_name)
 
 
 def stuck_legs(limit=100):
@@ -100,20 +121,26 @@ def unretrieved_bundles(limit=100):
     trong y het mot goi dang cho binh thuong. Cot `attempts` chinh la thu phan biet hai cai
     do - 29/08 co hai goi da quay hon 30 lan voi loi 404 ma khong ai biet.
     """
+    # Loc KHOP VOI CRON, khong chat hon. Cron quet `scts_document_id da co` + `chua tai
+    # xong`, khong xet trang thai goi. Truoc day trang nay chi liet ke goi `Active`, nen mot
+    # goi da `Completed` ma chua tai xong PDF van bi cron thu lai moi 30 phut trong khi
+    # KHONG hien o dau ca - dung loai an so ma trang nay sinh ra de xoa bo.
     rows = frappe.get_all(
-        PKG, filters={"status": "Active", "signed_bundle_complete": 0},
-        fields=["name", "business_doctype", "business_name", "scts_document_id", "modified"],
+        PKG, filters={"scts_document_id": ["is", "set"], "signed_bundle_complete": 0,
+                      "status": ["not in", ("Cancelled", "Superseded")]},
+        fields=["name", "status", "business_doctype", "business_name", "scts_document_id",
+                "modified"],
         order_by="modified desc", limit_page_length=limit)
     out = []
     for r in rows:
-        tries = _attempts(r.name, "SignedFileRetrievalStarted")
+        tries = _retrieval_rounds(r.name)
         fails = frappe.get_all(EVT, filters={"package": r.name,
                                              "event_type": "SignedFileRetrievalFailed"},
                                fields=["error_summary", "creation"],
                                order_by="creation desc", limit_page_length=1)
         out.append({
             "name": r.name, "business_doctype": r.business_doctype,
-            "business_name": r.business_name,
+            "business_name": r.business_name, "package_status": r.status,
             "has_provider_document": bool(r.scts_document_id),
             "attempts": tries,
             "stalled": tries >= RETRIEVAL_ALERT_AFTER,
@@ -175,29 +202,45 @@ def signature_debts(limit=100):
             "business_name": req.reference_name if req else None,
             # Phieu da duyet xong ma van no = mon no de bi bo quen nhat.
             "request_status": req.approval_status if req else None,
-            "actions": [],
+            # Dong mon no = GHI NHAN, khong phai ky ho. Hai ket cuc trung thuc, ca hai deu
+            # bat buoc ly do - xem guard.settle_signature_debt.
+            "actions": ["debt_signed", "debt_waived"],
         })
     return out
 
 
-def summary():
-    """Con so cho the dau trang. Dem rieng cai DA CHET voi cai dang cho."""
-    legs = stuck_legs(limit=500)
-    bundles = unretrieved_bundles(limit=500)
+def summary(legs=None, bundles=None, mismatches=None, debts=None):
+    """Con so cho the dau trang. Dem rieng cai DA CHET voi cai dang cho.
+
+    Nhan san danh sach de KHONG truy van lai. Ban dau `inbox()` goi `summary()` roi goi LAI
+    ca bon ham - moi thu chay hai lan, va ba trong bon ham co N+1 ben trong (moi dong mot
+    truy van phu). Voi 50 goi dang cho la hon 200 truy van cho MOT lan mo trang.
+    """
+    legs = stuck_legs(limit=500) if legs is None else legs
+    bundles = unretrieved_bundles(limit=500) if bundles is None else bundles
+    mismatches = hash_mismatch_reviews(limit=500) if mismatches is None else mismatches
+    debts = signature_debts(limit=500) if debts is None else debts
     return {
         "stuck_legs": len(legs),
         "dead_end_legs": len([x for x in legs if x["dead_end"]]),
         "unretrieved": len(bundles),
         "stalled_retrievals": len([x for x in bundles if x["stalled"]]),
         "waiting_on_provider": len([x for x in bundles if x["waiting_on_provider"]]),
-        "hash_mismatch": len(hash_mismatch_reviews(limit=500)),
-        "signature_debts": len(signature_debts(limit=500)),
+        "hash_mismatch": len(mismatches),
+        "signature_debts": len(debts),
     }
 
 
 def inbox():
-    """Tat ca trong mot lan goi - trang nay mo ra la thay het, khong bam tung tab."""
-    return {"summary": summary(), "stuck_legs": stuck_legs(),
-            "unretrieved": unretrieved_bundles(), "hash_mismatch": hash_mismatch_reviews(),
-            "signature_debts": signature_debts(),
+    """Tat ca trong MOT lan goi - trang nay mo ra la thay het, khong bam tung tab.
+
+    Moi ham chay dung mot lan; `summary` dem tren chinh ket qua do.
+    """
+    legs = stuck_legs()
+    bundles = unretrieved_bundles()
+    mismatches = hash_mismatch_reviews()
+    debts = signature_debts()
+    return {"summary": summary(legs, bundles, mismatches, debts),
+            "stuck_legs": legs, "unretrieved": bundles, "hash_mismatch": mismatches,
+            "signature_debts": debts,
             "retrieval_alert_after": RETRIEVAL_ALERT_AFTER}

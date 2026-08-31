@@ -152,7 +152,14 @@ class TestTheDebtIsVisible(unittest.TestCase):
                       "da tra roi ma van hien thi thi danh sach nhanh chong vo nghia")
 
     def test_dem_vao_the_dau_trang(self):
-        self.assertIn('"signature_debts": len(signature_debts', _OPS)
+        # `summary` nhan san danh sach de khong truy van lai (31/08, bo N+1), nen phep kiem
+        # doc THAM SO cua ham chu khong doc mot chuoi goi cu the.
+        import ast as _ast
+        fn = [n for n in _ast.parse(_OPS).body
+              if isinstance(n, _ast.FunctionDef) and n.name == "summary"][0]
+        self.assertIn("debts", [a.arg for a in fn.args.args],
+                      "summary phai nhan san danh sach no, khong truy van lai")
+        self.assertIn('"signature_debts": len(debts)', _ast.get_source_segment(_OPS, fn))
 
     def test_giao_dien_co_bang_rieng(self):
         self.assertIn("signature_debts", _UI)

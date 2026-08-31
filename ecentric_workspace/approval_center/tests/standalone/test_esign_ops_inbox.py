@@ -182,6 +182,10 @@ class TestWaitingIsNotBroken(unittest.TestCase):
     def _pkg(self, **kw):
         base = {"name": "PKG-1", "business_doctype": "EC Payment Request",
                 "business_name": "PR-1", "scts_document_id": "doc-1",
+                # `status` co trong ban chieu tu 31/08: trang ops liet ke ca goi da
+                # `Completed` ma chua tai xong PDF. Gia lap thieu truong nay tung lam
+                # ba test o day no AttributeError chu khong phai loi cua nguon.
+                "status": "Active",
                 "modified": "2026-08-31 10:00:00"}
         base.update(kw)
         return base

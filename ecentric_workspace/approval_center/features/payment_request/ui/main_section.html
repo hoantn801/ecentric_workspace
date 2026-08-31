@@ -637,8 +637,11 @@
     return btns.length? '<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
   // "Cua minh" theo NGUOI DE NGHI cua phieu, khong theo quyen xem: cap duyet cung xem duoc
   // phieu nay, nhung tao lai la viec cua nguoi de nghi. Backend chan lan nua.
+  // Khop DUNG luat cua backend: `command_service.clone_request` chi nhan `requested_by`
+  // (hoac System Manager). Truoc day cho phep ca `owner`, nen nguoi tao ban ghi ma khong
+  // phai nguoi de nghi THAY nut roi bam vao va bi tu choi - mot nut chi de gay that vong.
   function isMine(det){ var b=(det&&det.business)||{}; var u=(state.boot&&state.boot.context||{}).user;
-    return !!u && (b.requested_by===u || b.owner===u); }
+    return !!u && b.requested_by===u; }
   function handleActionClick(e){ var el=e.target&&e.target.closest?e.target.closest("[data-act]"):null; if(!el) return;
     var a=el.getAttribute("data-act"); if(!a||el.disabled) return; if(document.querySelector(".ec-payr-overlay")) return; e.preventDefault();
     var det=state.detail||{}; var name=(det.business||{}).name||state.id;

@@ -58,28 +58,31 @@ def has_collected_signatures(package_name):
                                 {"package": package_name, "status": ["in", _SIGNED]}))
 
 
-def _signable_content_changed(pkg):
-    """Noi dung CAN KY co khac so voi luc khoa goi khong?
+def _signable_content_verdict(pkg):
+    """`unchanged` | `changed` | `unreadable` - BA ket qua, khong phai hai.
 
-    So sanh theo ma bam noi dung (sha256) cua cac tep CAN KY - khong so theo ten tep, va
-    khong dem cac tep dinh kem chi de lam bang chung.
+    Truoc day ham nay tra bool va gop "khong doc duoc" vao "da doi", voi ly le: lam lai goi
+    ky la phien toai, con bo qua mot thay doi that su thi de nguyen chu ky cu tren mot to
+    trinh da khac. Ly le do dung KHI "da doi" chi ton mot vong ky lai.
 
-    Doc hong thi tra True: lam lai goi ky la phien toai, con bo qua mot thay doi that su
-    la de nguyen chu ky cu tren mot to trinh da khac.
+    Tu 31/08 "da doi" nghia la TU CHOI HAN duong gui lai. Luc do gop hai thu vao mot nghia
+    la: mot tep khong doc duoc tren dia (bi don, mount loi, sai quyen) se chan vinh vien moi
+    lan gui lai cua phieu do - va thong bao con noi sai su that ("tai lieu da thay doi").
+    Van fail-closed, nhung noi dung cai minh biet.
     """
     try:
         signable = [f for f in pkgsvc.package_files(pkg.name) if f.get("requires_signature")]
     except Exception:
-        return True
+        return "unreadable"
     locked = {f.get("sha256") for f in signable if f.get("sha256")}
     if not locked or len(locked) != len(signable):
-        return True                     # thieu ma bam -> khong so duoc -> lam lai cho chac
+        return "unreadable"             # thieu ma bam -> khong so duoc, va do la mot su co
 
     present = _attached_signable_shas(pkg)
     if present is None:
-        return True
+        return "unreadable"
     # Con nguyen ven tung tep da ky -> chi la dinh kem THEM, khong dung toi noi dung da ky.
-    return not locked.issubset(present)
+    return "unchanged" if locked.issubset(present) else "changed"
 
 
 def _attached_signable_shas(pkg):
@@ -108,12 +111,20 @@ def _attached_signable_shas(pkg):
                               fields=["name", "file_name", "file_url"], limit_page_length=0)
     except Exception:
         return None
-    out = set()
+    out, seen_url = set(), set()
     for r in rows:
         name_l = (r.get("file_name") or "").lower()
         url_l = (r.get("file_url") or "").lower()
         if not (name_l.endswith(".pdf") or url_l.endswith(".pdf")):
             continue
+        # Mot tep vat ly co the co NHIEU dong File tro vao (Frappe tao dong thu hai cho
+        # truong Attach; package.add_file luu them mot ban sao). Doc lai cung mot duong dan
+        # nhieu lan la I/O thua ngay tren duong nguoi dung dang cho: tran cau hinh la 20 tep
+        # x 25 MB, va ham nay chay dong bo trong request "Gui lai".
+        if r.get("file_url"):
+            if r["file_url"] in seen_url:
+                continue
+            seen_url.add(r["file_url"])
         try:
             content = frappe.get_doc("File", r["name"]).get_content()
         except Exception:
@@ -145,40 +156,46 @@ def on_request_reopened(approval_request):
     # theo, khong phai to trinh; khong ai ky len no, va viec them no khong lam sai mot chu
     # ky nao da co.
     #
-    # Nguoc lai, sua chinh to trinh (so tien, noi dung) thi BAT BUOC ky lai. Chu ky so ky
-    # len mot noi dung cu the; giu chu ky cu tren to trinh da sua la nguy tao bang chung -
-    # cap duyet se "da ky" mot to trinh ho chua tung doc.
-    if not _signable_content_changed(pkg):
+    # Nguoc lai, sua chinh to trinh (so tien, noi dung) thi duong nay DUNG HAN - xem doan
+    # duoi. Chu ky so ky len mot noi dung cu the; giu chu ky cu tren to trinh da sua la
+    # nguy tao bang chung - cap duyet se "da ky" mot to trinh ho chua tung doc.
+    verdict = _signable_content_verdict(pkg)
+    if verdict == "unchanged":
         out["unchanged"] = True
         return out
 
-    signed = has_collected_signatures(pkg.name)
-    new = pkgsvc.create_revision(pkg.name)          # raises on its own guards - let it
-    out["revised"] = True
-    out["new_package"] = new.name
-    out["force_restart"] = signed
-
-    # The requester must prepare and lock again; without this the gate in requester.py
-    # refuses (it only accepts _START_STATES + Processing) and the flow dead-ends.
+    # Doi TAI LIEU CAN KY thi duong nay KHONG di duoc - tu choi ngay, chua ghi gi.
     #
-    # `requester_signature_status` lives on EC APPROVAL REQUEST, not on the business document.
-    # The first version wrote it to pkg.business_doctype ("EC Payment Request"), which has no
-    # such column - and the write was wrapped in `except Exception`, so it failed into a log
-    # line while the flow carried on believing it had reset. The requester would then be told
-    # "đã ký cho yêu cầu này" and the new package could never be signed. Writing to the wrong
-    # place and swallowing the error is worse than not trying: it looks like it worked.
-    frappe.db.set_value("EC Approval Request", approval_request,
-                        "requester_signature_status", "Pending")
-
-    events.emit("RequesterPackageReset", package=new.name,
-                request_meta={"previous_package": pkg.name,
-                              "had_collected_signatures": signed,
-                              "approval_restarts_from_level_1": signed})
-    return out
+    # Truoc 31/08 nhanh nay tao mot goi ky moi roi de `sign_on_submit` chay tiep. Chuoi do
+    # KHONG BAO GIO ket thuc duoc: create_revision chep tep + o ky cua goi cu, prepare them
+    # to trinh MOI voi requires_signature=1 va khong co o ky nao, preflight tu choi va nem
+    # loi -> Frappe rollback ca giao dich -> goi Draft vua tao BIEN MAT. Nen cua so dat o ky
+    # (document_setup._setup_editable, mo khi goi la Draft va dang cho nguoi de nghi ky)
+    # khong bao gio ton tai du mot phan nghin giay ngoai giao dich vua bi huy. Nguoi dung
+    # bam "Gui lai" va chi nhan mot thong bao thieu vi tri ky, lan nao cung vay.
+    #
+    # Quy uoc da chot 31/08: doi tai lieu can ky thi cap duyet TU CHOI, nguoi de nghi bam
+    # "Tao phieu moi tu phieu nay". Ly do cung: SCTS chi nhan danh sach tep LUC TAO tai lieu.
+    # Nen o day noi thang dieu do thay vi dan nguoi dung vao mot vong lap khong loi ra.
+    if verdict == "unreadable":
+        frappe.throw(_("Không đọc được nội dung tài liệu đã ký của yêu cầu này, nên không thể "
+                       "kiểm tra tài liệu có thay đổi hay không. Vui lòng báo quản trị hệ "
+                       "thống trước khi gửi lại."))
+    frappe.throw(_("Tài liệu cần ký đã thay đổi so với bộ đã ký. Đường “Gửi lại” không xử lý "
+                   "được trường hợp này: chữ ký số ký lên một nội dung cụ thể, và nhà cung "
+                   "cấp chỉ nhận danh sách tệp lúc tạo tài liệu.\n\n"
+                   "Hãy đề nghị cấp duyệt bấm “Từ chối”, rồi dùng “Tạo phiếu mới từ phiếu "
+                   "này” — nội dung và tệp đính kèm sẽ được chép sang phiếu mới."))
 
 
 def reopen_notice(result):
-    """One sentence for the person who pressed the button - never a silent change."""
+    """One sentence for the person who pressed the button - never a silent change.
+
+    Tu 31/08 `revised` khong bao gio con True (on_request_reopened tu choi thay vi tao ban
+    moi), nen ham nay luon tra chuoi rong. Giu lai co chu dich: neu duong tao ban moi duoc
+    mo lai thi cau thong bao da san, khong phai viet lai tu dau. KHONG phai code chet bi bo
+    quen - do la thu da lam panel nguoi de nghi bien mat may ngay hoi 28/08.
+    """
     if not result.get("revised"):
         return ""
     if result.get("force_restart"):
