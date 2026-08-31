@@ -28,6 +28,9 @@ FEATURES = [
     "asset_request",
     "budget_setting",
     "compensation_leave",
+    # contract_review: form thu 27, len main NGAY TRONG dot va (PR #409, 01/09) va copy dung
+    # ban stepper chua va - bat duoc vi guard quet tu dong chu khong liet ke tay.
+    "contract_review",
     "daily_target",
     "data_request",
     "document_request",

@@ -632,11 +632,19 @@ def _expand_project_dates(project, child_start, child_end, user):
 @retry_on_deadlock
 def create(project, subject, parent_task=None, priority=None,
            exp_start_date=None, exp_end_date=None, description=None, assignee=None,
-           pm_start_time=None, pm_end_time=None, assignees=None):
+           pm_start_time=None, pm_end_time=None, assignees=None, split_per_assignee=None):
     """Create a Task (or sub-task via parent_task) under a project the user may see.
 
     G5.2: supports multiple assignees via `assignees` (list / JSON-array string / separated
-    string); the legacy singular `assignee` remains accepted and back-compatible."""
+    string); the legacy singular `assignee` remains accepted and back-compatible.
+
+    COMPLETION MODE. A Task is ONE record, so with several assignees whoever presses "Xong"
+    first closes it for everybody -- fine for shared work, wrong for "each of you owes me a
+    report". `split_per_assignee` covers the second case: the task becomes a coordination
+    parent (assigned to the creator) with ONE sub-task per assignee. No new completion logic
+    is needed -- set_status already refuses to close a parent while any child is open, so the
+    parent turns Done only after every person is finished. Ignored for a sub-task (the
+    hierarchy is capped at 2 levels) or when there are fewer than 2 assignees."""
     pmperm.require_pm_access()
     user = frappe.session.user
     if not subject:
@@ -699,6 +707,42 @@ def create(project, subject, parent_task=None, priority=None,
         "description": description,
     })
     doc.insert()  # honors DocPerm 'create'; sets owner/creation (audit)
+
+    _split = str(split_per_assignee or "").lower() not in ("", "0", "false", "none")
+    if _split and len(_asg_emails) > 1 and not parent_task:
+        # Parent = coordination row owned by the creator; one sub-task per person. Assigning
+        # the parent to everyone as well would make each of them see both rows in "Việc của
+        # tôi", which is exactly the noise this mode is meant to remove.
+        doc.is_group = 1
+        doc.save()
+        _assign_add({"doctype": "Task", "name": doc.name, "assign_to": [user]})
+        made = []
+        for _em in _asg_emails:
+            _who = frappe.db.get_value("User", _em, "full_name") or _em.split("@")[0]
+            child = frappe.get_doc({
+                "doctype": "Task",
+                "subject": (subject or "")[:120] + " — " + _who,
+                "project": project,
+                "parent_task": doc.name,
+                "priority": priority,
+                "exp_start_date": exp_start_date,
+                "exp_end_date": exp_end_date,
+                "pm_start_time": pm_start_time,
+                "pm_end_time": pm_end_time,
+                "description": description,
+            })
+            child.insert()
+            _assign_add({"doctype": "Task", "name": child.name, "assign_to": [_em]})
+            made.append(child.name)
+        try:
+            pmnotif.notify_task_assignment(_asg_emails, doc.name,
+                                           "Ban duoc giao nhiem vu: " + (doc.subject or doc.name),
+                                           actor=user)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "PM create split notify")
+        return {"name": doc.name, "subject": doc.subject, "project": doc.project,
+                "parent_task": doc.parent_task, "children": made, "split": 1}
+
     if _asg_emails:
         # all assignees validated above -> ONE native assignment call for the whole list (creates
         # one ToDo per user + _assign reflects all). No manual _assign edit, no raw ToDo insert.
@@ -919,6 +963,16 @@ def set_status(name, action):
     if cur != target:
         frappe.db.set_value("Task", name,
                             {"workflow_state": target, "status": _STATE_STATUS.get(target, "Open")})
+        if target in ("Done", "Cancelled"):
+            # Closing the task should clear it from everyone's Nhắc việc: the native ToDos
+            # created by assign_to stay Open otherwise and Việc-của-tôi keeps counting it.
+            try:
+                for _t in frappe.get_all("ToDo", filters={"reference_type": "Task",
+                                                          "reference_name": name,
+                                                          "status": "Open"}, pluck="name"):
+                    frappe.db.set_value("ToDo", _t, "status", "Closed")
+            except Exception:
+                frappe.log_error(frappe.get_traceback(), "PM set_status close todos")
         try:
             d2 = frappe.get_doc("Task", name).as_dict()
             pmnotif.notify_users(pmnotif._task_recipients(d2, exclude=user),
@@ -930,12 +984,13 @@ def set_status(name, action):
 
 
 @frappe.whitelist()
-def delete(name):
-    """Controlled hard-delete of a Task. LEADER-ONLY (can_see_all_pm_data). Allowed only
-    when the task has NO dependents (authoritative server-side checks; never trusts the
-    frontend): no child task, no Running/Paused PM Timer, no Timesheet Detail log. Uses
-    the standard frappe.delete_doc (no SQL, no force, no manual cascade) so Frappe's own
-    link checks still run; if any other document links the task, a clear error is returned.
+def delete(name, cascade=None):
+    """Controlled hard-delete of a Task. LEADER-ONLY (can_see_all_pm_data). Blockers are
+    checked server-side, never trusted from the frontend: a Running/Paused PM Timer or any
+    Timesheet Detail stops the delete (huỷ the task instead). Sub-tasks are allowed only with
+    `cascade`, and then every row -- parent and children -- is checked BEFORE the first
+    delete, so a blocked child cannot leave the tree half-deleted. Uses standard
+    frappe.delete_doc (no SQL, no force) so Frappe's own link checks still apply.
     """
     pmperm.require_pm_access()
     user = frappe.session.user
@@ -943,18 +998,81 @@ def delete(name):
         frappe.throw(_("Only PM leaders can delete tasks."), frappe.PermissionError)
     if not frappe.db.exists("Task", name):
         frappe.throw(_("Task not found."))
-    if frappe.db.count("Task", {"parent_task": name}):
-        frappe.throw(_("Nhiệm vụ có công việc con và không thể xoá."))
+    kids = frappe.get_all("Task", filters={"parent_task": name}, pluck="name") or []
+    if kids and not _truthy(cascade):
+        # Historically a hard stop. Since "Mọi người đều phải xong" creates one sub-task per
+        # assignee, parents with children are now routine, and the old message left people
+        # stuck. The caller asks the user first (see delete_info) and re-calls with cascade.
+        frappe.throw(_("Nhiệm vụ có {0} nhiệm vụ con. Xoá cả nhiệm vụ con để tiếp tục.").format(len(kids)))
+    cluster = [name] + kids
+    for _n in cluster:
+        _assert_deletable(_n, cluster)
+    # E2E found the real dead-end: ERPNext auto-fills the parent's `depends_on` child table
+    # with its sub-tasks, so deleting a child raises LinkExistsError (the parent still
+    # references it) while the parent cannot go first because it still has children.
+    # References BETWEEN cluster members are about to die with the cluster -- drop them.
+    # References from OUTSIDE the cluster are real blockers, rejected just above.
+    frappe.db.delete("Task Depends On", {"parent": ["in", cluster]})
+    for _k in kids:
+        # A child cannot be deleted while it still points at the parent (NestedSet link
+        # check), so unlink then delete -- same order that works by hand.
+        frappe.db.set_value("Task", _k, "parent_task", "")
+        _delete_one(_k)
+    _delete_one(name)
+    return {"deleted": name, "children_deleted": kids}
+
+
+def _truthy(v):
+    return str(v or "").lower() not in ("", "0", "false", "none")
+
+
+def _assert_deletable(name, cluster=None):
+    """Blockers that make a hard delete wrong (kept per-row so a cascade fails BEFORE
+    deleting anything, instead of half-way through). `cluster` = every task being deleted
+    in this call: depends_on references between them do not block (they die together);
+    a reference from any OTHER task does."""
     if frappe.db.count("PM Timer", {"task": name, "status": ["in", ["Running", "Paused"]]}):
-        frappe.throw(_("Nhiệm vụ đang có timer và không thể xoá."))
+        frappe.throw(_("Nhiệm vụ {0} đang có timer và không thể xoá.").format(name))
     if frappe.db.count("Timesheet Detail", {"task": name}):
-        frappe.throw(_("Nhiệm vụ đã có log giờ và không thể xoá. Hãy huỷ nhiệm vụ thay vì xoá."))
+        frappe.throw(_("Nhiệm vụ {0} đã có log giờ và không thể xoá. "
+                       "Hãy huỷ nhiệm vụ thay vì xoá.").format(name))
+    outside = frappe.get_all(
+        "Task Depends On", filters={"task": name, "parent": ["not in", list(cluster or [name])]},
+        pluck="parent", limit_page_length=5)
+    if outside:
+        frappe.throw(_("Nhiệm vụ {0} đang được nhiệm vụ khác phụ thuộc ({1}) và không thể xoá.")
+                     .format(name, ", ".join(outside)))
+
+
+def _delete_one(name):
     try:
         frappe.delete_doc("Task", name, ignore_permissions=True)  # service layer is the gate; no force -> link checks apply
     except frappe.LinkExistsError:
-        frappe.throw(_("Không thể xoá: nhiệm vụ còn liên kết với dữ liệu khác. "
-                       "Hãy gỡ liên kết hoặc huỷ nhiệm vụ."))
-    return {"deleted": name}
+        frappe.throw(_("Không thể xoá {0}: nhiệm vụ còn liên kết với dữ liệu khác. "
+                       "Hãy gỡ liên kết hoặc huỷ nhiệm vụ.").format(name))
+
+
+@frappe.whitelist()
+def delete_info(name):
+    """What would deleting `name` take? Lets the UI ask "xoá luôn N nhiệm vụ con?" instead of
+    dead-ending on an error. Read-only; same leader gate as delete()."""
+    pmperm.require_pm_access()
+    if not pmperm.can_see_all_pm_data(frappe.session.user):
+        frappe.throw(_("Only PM leaders can delete tasks."), frappe.PermissionError)
+    kids = frappe.get_all("Task", filters={"parent_task": name},
+                          fields=["name", "subject"], limit_page_length=0) or []
+    cluster = [name] + [k["name"] for k in kids]
+    blockers = []
+    for row in ([{"name": name, "subject": frappe.db.get_value("Task", name, "subject")}] + kids):
+        # SAME predicate as the real delete (_assert_deletable) -- the first version
+        # re-implemented a subset, reported blockers:[] and the delete then failed on a
+        # depends_on link the preview never looked at.
+        try:
+            _assert_deletable(row["name"], cluster)
+        except frappe.exceptions.ValidationError as e:
+            blockers.append({"name": row["name"], "subject": row.get("subject") or row["name"],
+                             "reason": str(e)})
+    return {"name": name, "children": kids, "blockers": blockers}
 
 
 @frappe.whitelist()

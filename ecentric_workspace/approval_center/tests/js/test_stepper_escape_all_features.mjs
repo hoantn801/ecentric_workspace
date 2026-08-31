@@ -6,23 +6,28 @@
 // test_stepper_escape.mjs: cat than ham theo dem ngoac roi CHAY THAT voi payload doc.
 // Khong grep nguon - grep mu sau refactor.
 //
-// Moi feature dung 3 phep: comment Rejected, approver Approved, approver In Progress
-// (26 x 3 = 78). Feature nao cau truc khac lam khong trich duoc ham thi BAO LOI TO
-// (fail du 3 phep cua feature do), khong bo qua im lang.
-import { readFileSync } from "node:fs";
+// Moi feature dung 3 phep: comment Rejected, approver Approved, approver In Progress.
+// Feature nao cau truc khac lam khong trich duoc ham thi BAO LOI TO (fail du 3 phep cua
+// feature do), khong bo qua im lang.
+//
+// TU QUET, khong liet ke tay. Ban dau danh sach go tay 26 cai - va ngay trong dem do,
+// PR #409 them form thu 27 (contract_review) copy dung stepper chua va, va bo test nay
+// KHONG HE HAY BIET. Mot danh sach go tay chi canh duoc qua khu; thu muc features/ moi
+// la hien tai.
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const FEATURES = [
-  "affiliate_bonus", "ai_topup", "asset_damage_loss", "asset_request", "budget_setting",
-  "compensation_leave", "daily_target", "data_request", "document_request",
-  "employee_info_update", "employee_referral", "hiring_request", "hr_activity",
-  "late_early_out", "lateral_move", "leave", "livestream_sample", "livestream_supplies",
-  "outside_work", "payment_request", "promotion", "purchase_request", "resignation",
-  "service_referral", "special_bonus", "system_request",
-];
-if (FEATURES.length !== 26) { console.error("HONG: danh sach feature phai du 26"); process.exit(1); }
+const FEAT_DIR = join(here, "..", "..", "features");
+const FEATURES = readdirSync(FEAT_DIR, { withFileTypes: true })
+  .filter(d => d.isDirectory() && existsSync(join(FEAT_DIR, d.name, "ui", "main_section.html")))
+  .map(d => d.name).sort();
+// Chan mu: it hon 27 nghia la cach quet hong (01/09 co 27 form), khong phai he thong gon lai.
+if (FEATURES.length < 27) {
+  console.error("HONG: chi quet duoc " + FEATURES.length + " feature (<27) - cach quet da mu");
+  process.exit(1);
+}
 
 const EVIL = '<img src=x onerror=alert(1)>';
 let pass = 0, fail = 0;
@@ -95,5 +100,5 @@ for (const feat of FEATURES) {
   ok(!cur.includes("<img"), "[" + feat + "] ten approver (In Progress) khong duoc esc");
 }
 
-console.log(pass + " dat, " + fail + " hong (ky vong 78 phep / 26 feature)");
+console.log(pass + " dat, " + fail + " hong (" + FEATURES.length + " feature x 3 phep)");
 process.exit(fail || pass !== 78 ? 1 : 0);

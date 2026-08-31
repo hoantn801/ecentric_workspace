@@ -57,6 +57,21 @@ class BrandOptions:
 
 
 @dataclass(frozen=True, slots=True)
+class BrandAndDepartmentOptions:
+    """Compose BrandOptions + DepartmentOptions cho form cần cả hai (Contract Review:
+    brand để chọn legal entity, department để Sale admin tạo giúp phòng ban khác)."""
+    entries: tuple = ()
+
+    def __call__(self):
+        out = BrandOptions(self.entries)()
+        try:
+            out.update(DepartmentOptions()())
+        except Exception:
+            out.setdefault("departments", [])
+        return out
+
+
+@dataclass(frozen=True, slots=True)
 class StaticOptions:
     entries: tuple = ()
 
