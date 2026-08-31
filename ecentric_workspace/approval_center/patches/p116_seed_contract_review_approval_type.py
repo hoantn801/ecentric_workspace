@@ -8,8 +8,10 @@ import frappe
 
 DOCTYPE = "EC Approval Type"
 CODE = "CONTRACT_REVIEW"
+# legacy_source là Select "MS Teams/ERP/Other" — nguồn SharePoint ghi "Other",
+# chi tiết thật nằm ở legacy_template_name ("Contract approval (SharePoint Finance)").
 DEFAULTS = {"card_status": "Coming Soon", "process_status": "Building",
-            "visibility_mode": "All Internal Users", "legacy_source": "SharePoint", "route": ""}
+            "visibility_mode": "All Internal Users", "legacy_source": "Other", "route": ""}
 
 
 def _seed_row():
