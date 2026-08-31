@@ -73,7 +73,31 @@ def _fn(src, name):
     raise AssertionError("khong tim thay ham %s" % name)
 
 
-def _load_ops(dsr_rows=(), pkg_rows=(), event_counts=None, events=()):
+#: So luot cron ma ban gia signed_files se tra ve. Dat trong mot o thay vi truyen thang, vi
+#: ops.py nhap signed_files LUC CHAY HAM - tuc la sau khi _load_ops da tra ve va da khoi phuc
+#: sys.modules. Cai ban gia ben trong _load_ops thi den luc test goi ham no khong con o do
+#: nua, va Python di nhap module that -> ModuleNotFoundError: frappe.
+_ROUNDS = {"value": 0}
+_SAVED_SF = {}
+
+
+def setUpModule():
+    import sys
+    _SAVED_SF["mod"] = sys.modules.get("ecentric_workspace.platform.esign.signed_files")
+    sf = types.ModuleType("ecentric_workspace.platform.esign.signed_files")
+    sf.retrieval_rounds = lambda package_name: _ROUNDS["value"]
+    sys.modules["ecentric_workspace.platform.esign.signed_files"] = sf
+
+
+def tearDownModule():
+    import sys
+    if _SAVED_SF.get("mod") is None:
+        sys.modules.pop("ecentric_workspace.platform.esign.signed_files", None)
+    else:
+        sys.modules["ecentric_workspace.platform.esign.signed_files"] = _SAVED_SF["mod"]
+
+
+def _load_ops(dsr_rows=(), pkg_rows=(), event_counts=None, events=(), rounds=0):
     """Chay stuck_legs / unretrieved_bundles THAT voi may trang thai THAT."""
     state_mod = types.ModuleType("state")
     exec(compile(_STATE, "state.py", "exec"), state_mod.__dict__)
@@ -109,6 +133,8 @@ def _load_ops(dsr_rows=(), pkg_rows=(), event_counts=None, events=()):
 
     # ops.py co `import frappe` o dau file - dat vao globals thoi KHONG du, phai co trong
     # sys.modules luc exec.
+    _ROUNDS["value"] = rounds        # xem setUpModule - ban gia song ngoai pham vi ham nay
+
     frappe_mod = types.ModuleType("frappe")
     frappe_mod.db = _Frappe.db
     frappe_mod.get_all = _Frappe.get_all
@@ -191,14 +217,13 @@ class TestWaitingIsNotBroken(unittest.TestCase):
         return base
 
     def test_chua_thu_lan_nao_va_khong_loi_la_DANG_CHO(self):
-        env = _load_ops(pkg_rows=[self._pkg()], event_counts={"SignedFileRetrievalStarted": 0})
+        env = _load_ops(pkg_rows=[self._pkg()], rounds=0)
         row = env["unretrieved_bundles"]()[0]
         self.assertTrue(row["waiting_on_provider"])
         self.assertFalse(row["stalled"])
 
     def test_thu_qua_nguong_la_DA_HONG(self):
-        env = _load_ops(pkg_rows=[self._pkg()],
-                        event_counts={"SignedFileRetrievalStarted": 30},
+        env = _load_ops(pkg_rows=[self._pkg()], rounds=30,
                         events=[{"error_summary": "SCTS document not found (HTTP 404)",
                                  "creation": "2026-08-31 09:00:00"}])
         row = env["unretrieved_bundles"]()[0]
@@ -207,8 +232,7 @@ class TestWaitingIsNotBroken(unittest.TestCase):
         self.assertIn("404", row["last_error"])
 
     def test_co_loi_thi_khong_con_la_dang_cho(self):
-        env = _load_ops(pkg_rows=[self._pkg()],
-                        event_counts={"SignedFileRetrievalStarted": 0},
+        env = _load_ops(pkg_rows=[self._pkg()], rounds=0,
                         events=[{"error_summary": "settings_missing",
                                  "creation": "2026-08-31 09:00:00"}])
         self.assertFalse(env["unretrieved_bundles"]()[0]["waiting_on_provider"])

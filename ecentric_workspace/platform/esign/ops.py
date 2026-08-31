@@ -62,18 +62,19 @@ def _signable_file_count(package_name):
 
 
 def _retrieval_rounds(package_name):
-    """So LUOT cron da cham vao goi nay, xap xi.
+    """So LUOT cron - dung CHUNG mot cach dem voi bao dong trong tasks.py.
 
-    `SignedFileRetrievalStarted` duoc phat ra MOT LAN CHO MOI TEP (signed_files._retrieve_one),
-    khong phai mot lan cho moi luot cron. Nen voi goi 3 tep, "10 lan thu" that ra la ~3,3
-    luot ~ 1,7 tieng chu khong phai 5 tieng nhu nhan ghi. Chia cho so tep can ky de con so
-    tren man hinh dung voi cai nguoi doc tuong.
+    Ban dau ham nay chia so `SignedFileRetrievalStarted` cho so tep can ky. Cach do sai o cho
+    khong ai thay duoc tren du lieu gia lap: `Started` chi phat ra khi da qua duoc buoc do
+    trang thai ben nha cung cap, nen goi hong ngay o buoc do khong bao gio co mot `Started`
+    nao. Mo trang tren du lieu that ngay 31/08 thi thay mot goi that bai lien tuc tu 23/08
+    hien "da thu 0 luot", canh mot dong loi 404 - hai thu do canh nhau la vo ly.
 
-    Xap xi chu khong chinh xac: tep da lay duoc se di vao nhanh `SignedFileDuplicateSkipped`
-    va khong phat `Started` nua, nen mau so tut dan khi mot phan goi da xong. Chap nhan
-    duoc - viec can biet la "dang cho" hay "quay mai", khong phai con so tuyet doi.
+    Dat cach dem canh cho PHAT su kien (signed_files) de mot ngay nao do no doi thi ca man
+    hinh lan bao dong doi theo, khong con chuyen hai ben dem hai kieu.
     """
-    return _attempts(package_name, "SignedFileRetrievalStarted") // _signable_file_count(package_name)
+    from ecentric_workspace.platform.esign import signed_files
+    return signed_files.retrieval_rounds(package_name)
 
 
 def stuck_legs(limit=100):

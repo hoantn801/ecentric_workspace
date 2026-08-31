@@ -689,8 +689,11 @@ def _flag_stalled_retrieval(package_name):
     chi ba ngay la khong ai doc nua.
     """
     try:
-        tries = frappe.db.count(EVT, {"package": package_name,
-                                      "event_type": "SignedFileRetrievalStarted"})
+        # Dem qua signed_files.retrieval_rounds, KHONG dem `SignedFileRetrievalStarted`.
+        # Su kien do chi ton tai tren duong di thuan loi, nen bao dong nay tung khong the keu
+        # cho dung loai goi ma no sinh ra de canh - xem chu thich o retrieval_rounds.
+        from ecentric_workspace.platform.esign import signed_files
+        tries = signed_files.retrieval_rounds(package_name)
         if tries < RETRIEVAL_ALERT_AFTER:
             return
         if frappe.db.exists(EVT, {"package": package_name,
