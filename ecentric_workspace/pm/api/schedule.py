@@ -368,9 +368,9 @@ def rsvp(event_id, response, comment=None):
             # Refresh the [RSVPHOP] reminder straight away instead of waiting for the
             # scheduler, so answering here clears (or decrements) Nhắc việc immediately.
             try:
-                left = _unanswered_invites(caller)
+                left = _unanswered_invites(caller, want_times=True)
                 if left:
-                    _ensure_rsvp_todo(caller, left)
+                    _ensure_rsvp_todo(caller, len(left), left)
                 else:
                     for n in frappe.get_all(
                             "ToDo", filters={"allocated_to": caller, "status": "Open",
@@ -711,33 +711,36 @@ def _ensure_nudge_todo(user, count):
         return None
 
 
-def _unanswered_invites(email, days=7):
-    """How many meeting invites `email` has NOT answered in the next `days` (excluding
-    ones they organise and all-day/free blocks). Fail-safe: 0 on any Graph problem, so a
-    calendar outage never spams or blocks the scheduler. Counts only -- no content is
-    stored anywhere."""
+def _unanswered_invites(email, days=7, want_times=False):
+    """Meeting invites `email` has NOT answered in the next `days` (excluding ones they
+    organise and all-day/free blocks). Returns the count, or a list of 'dd/mm HH:MM'
+    start times when `want_times` -- times only, never subjects, because the reminder text
+    they end up in is visible to anyone who can read that ToDo. Fail-safe: 0 / [] on any
+    Graph problem, so a calendar outage never spams or blocks the scheduler."""
     try:
+        empty = [] if want_times else 0
         conf = frappe.get_conf() if hasattr(frappe, "get_conf") else {}
         if not conf.get("ec_pm_calendar_sync"):
-            return 0
+            return empty
         from ecentric_workspace.notification_center.providers import graph as msgraph
         if not msgraph.is_configured():
-            return 0
+            return empty
         ok, token = msgraph.get_app_token()
         if not ok:
-            return 0
+            return empty
         import requests
         day = nowdate()
         # NB: concatenate -- "%2B" is a Python format specifier, see _ms_today_events.
         url = ("https://graph.microsoft.com/v1.0/users/" + email + "/calendarView"
                "?startDateTime=" + str(day) + "T00:00:00%2B07:00"
                "&endDateTime=" + str(add_days(day, days)) + "T00:00:00%2B07:00"
-               "&$select=responseStatus,isOrganizer,isAllDay,showAs&$top=100")
+               "&$select=start,responseStatus,isOrganizer,isAllDay,showAs"
+               "&$top=100&$orderby=start/dateTime")
         r = requests.get(url, headers={"Authorization": "Bearer " + token,
                          "Prefer": 'outlook.timezone="Asia/Ho_Chi_Minh"'}, timeout=12)
         if r.status_code != 200:
-            return 0
-        n = 0
+            return empty
+        times = []
         for ev in (r.json().get("value") or []):
             if ev.get("isOrganizer") or ev.get("isAllDay"):
                 continue
@@ -745,15 +748,26 @@ def _unanswered_invites(email, days=7):
                 continue
             if ((ev.get("responseStatus") or {}) or {}).get("response") in (
                     "notResponded", "none", None):
-                n += 1
-        return n
+                st = ((ev.get("start") or {}).get("dateTime") or "")[:16]
+                # 'YYYY-MM-DDTHH:MM' -> 'dd/mm HH:MM'
+                times.append((st[8:10] + "/" + st[5:7] + " " + st[11:16]) if len(st) >= 16 else "")
+        return times if want_times else len(times)
     except Exception:
-        return 0
+        return [] if want_times else 0
 
 
-def _ensure_rsvp_todo(user, count):
-    """Upsert ONE open [RSVPHOP] reminder for `user` (same shape as _ensure_nudge_todo)."""
-    desc = "%s Phản hồi lời mời họp (%d lời mời) — mở Lịch làm việc" % (RSVP_TAG, count)
+def _ensure_rsvp_todo(user, count, times=None):
+    """Upsert ONE open [RSVPHOP] reminder for `user` (same shape as _ensure_nudge_todo).
+
+    `times` = 'dd/mm HH:MM' starts. They go in the text because a bare count sent people
+    hunting: with 13 meetings on the week grid, "1 lời mời" gave no clue WHICH one still
+    needed an answer. Times only -- never subjects (see _unanswered_invites)."""
+    when = ""
+    if times:
+        shown = [t for t in times if t][:3]
+        if shown:
+            when = ": " + ", ".join(shown) + (" …" if len(times) > len(shown) else "")
+    desc = "%s Phản hồi lời mời họp (%d lời mời)%s — mở Lịch làm việc" % (RSVP_TAG, count, when)
     existing = frappe.get_all(
         "ToDo", filters={"allocated_to": user, "status": "Open",
                          "description": ["like", "%" + RSVP_TAG + "%"]},
@@ -793,10 +807,10 @@ def nudge_unanswered_invites():
         seen.add(u)
         if not frappe.db.get_value("User", u, "enabled"):
             continue
-        n = _unanswered_invites(u)
-        if n:
-            counts[u] = n
-            _ensure_rsvp_todo(u, n)
+        times = _unanswered_invites(u, want_times=True)
+        if times:
+            counts[u] = len(times)
+            _ensure_rsvp_todo(u, len(times), times)
     for t in frappe.get_all(
             "ToDo", filters={"status": "Open", "description": ["like", "%" + RSVP_TAG + "%"]},
             fields=["name", "allocated_to"], ignore_permissions=True) or []:

@@ -201,6 +201,9 @@
   .sch-mtg .tr{ font-size:9px; opacity:.8; }
   .sch-mtg.act{ cursor:pointer; }
   .sch-mtg.act:hover{ background:#E2E0FB; }
+  .sch-mtg.need{ background:#FAEEDA; color:#633806; border-left:3px solid #BA7517; border-top:1px dashed #BA7517; border-right:1px dashed #BA7517; border-bottom:1px dashed #BA7517; }
+  .sch-mtg.need:hover{ background:#F7E4C4; }
+  .sch-mtg.need .nd{ position:absolute; top:3px; right:3px; width:7px; height:7px; border-radius:50%; background:#BA7517; }
   .mtgpop{ position:fixed; z-index:1200; width:288px; background:#fff; border:1px solid var(--gray-200); border-radius:12px; box-shadow:0 12px 32px rgba(16,24,40,.16); padding:13px 14px; font-size:12px; }
   .mtgpop h4{ margin:0 0 3px; font-size:13.5px; font-weight:600; color:var(--navy); line-height:1.35; }
   .mtgpop .mp-sub{ color:var(--gray-500); margin-bottom:10px; }
@@ -3303,7 +3306,11 @@
         var top=minToY(mg._s), ht=Math.max(14,minToY(mg._e)-minToY(mg._s)); var subj2=mg.subject||"Họp";
         var tr=pad(Math.floor(mg._s/60))+":"+pad(mg._s%60)+"–"+pad(Math.floor(mg._e/60))+":"+pad(mg._e%60);
         var own=!!mg.id, tipx=own?"\n(bấm để phản hồi / đổi giờ)":"";
-        body+='<div class="sch-mtg'+(own?' act':'')+'" data-mtg="'+mg._i+'" title="'+esc(subj2+"\n"+tr+" · Lịch họp (Outlook/Teams)"+tipx)+'" style="left:calc('+left+'% + 1px);top:'+top+'px;width:calc('+colw+'% - 2px);height:'+ht+'px"><b>'+esc(subj2)+'</b><div class="tr">'+tr+(mg.is_organizer?' · chủ trì':'')+'</div></div>';
+        // Invites still waiting for an answer get a dashed outline + a dot, so the
+        // "Phản hồi lời mời họp" reminder can actually be acted on: without a marker you
+        // had to open every meeting one by one to find which needed an answer.
+        var needs=own && !mg.is_organizer && (mg.response==="notResponded" || mg.response==="none" || !mg.response);
+        body+='<div class="sch-mtg'+(own?' act':'')+(needs?' need':'')+'" data-mtg="'+mg._i+'" title="'+esc(subj2+"\n"+tr+" · Lịch họp (Outlook/Teams)"+(needs?"\nChưa phản hồi lời mời":"")+tipx)+'" style="left:calc('+left+'% + 1px);top:'+top+'px;width:calc('+colw+'% - 2px);height:'+ht+'px">'+(needs?'<span class="nd" title="Chưa phản hồi"></span>':'')+'<b>'+esc(subj2)+'</b><div class="tr">'+tr+(mg.is_organizer?' · chủ trì':(needs?' · cần phản hồi':''))+'</div></div>';
       });
       blocks.forEach(function(b){ if(b._di===undefined)return; var di=b._di, mc=b._mc||1, colw=(100/7)/mc; var leftp=di*100/7+(b._col||0)*colw; var top=minToY(b._s), ht=Math.max(15,minToY(b._e)-minToY(b._s));
         var e0=parseDT(b.end), past=e0&&e0<now, conf=b.state==="Đã xác nhận"; var col=colorFor(b.task); var subjt=subj[b.task]||b.task;
