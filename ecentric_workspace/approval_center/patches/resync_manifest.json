@@ -8,8 +8,8 @@
     "sha256": "cfbd0e52314db7d79d4030b49f303c1026d7b5032d4e091e23f712e85916b798"
   },
   "platform/esign/ui/ops_page.html": {
-    "last_resync_patch": "p111_resync_esign_ops_debt_wording",
-    "sha256": "7aa0759c7c60f02d34666fdb53e2251714e7baf9d79d96e57cce345c9057510f"
+    "last_resync_patch": "p113_resync_esign_ops_honest_error",
+    "sha256": "b29808b9917f49e311633122c552289069996328db53f6b22e5f8e222e0686fa"
   },
   "platform/esign/ui/payment_request_signing.html": {
     "last_resync_patch": "p112_resync_payment_request_clone_owner",

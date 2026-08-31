@@ -83,13 +83,19 @@ def stuck_legs(limit=100):
     chu khong go tay, de khi may trang thai doi thi danh sach nut doi theo.
     """
     from ecentric_workspace.platform.esign import state as sm
+    # `business_doctype`/`business_name` nam tren GOI, khong nam tren chan ky. Hoi thang DSR
+    # hai truong do lam MySQL nem 1054 Unknown column -> ca inbox() 500 -> trang chi hien mot
+    # dong "Can quyen System Manager" hoan toan sai su that. Test khong bat duoc vi chung gia
+    # lap frappe.get_all, ma ban gia lap thi tra ve bat cu truong nao minh hoi.
     rows = frappe.get_all(
         DSR, filters={"status": ["in", _NEEDS_HUMAN]},
         fields=["name", "status", "actor_type", "actor_user", "approver", "package",
-                "business_doctype", "business_name", "request_attempt", "modified"],
+                "request_attempt", "modified"],
         order_by="modified desc", limit_page_length=limit)
     out = []
     for r in rows:
+        pkg = frappe.db.get_value(PKG, r.package, ["business_doctype", "business_name"],
+                                  as_dict=True) if r.package else None
         exits = sm.DSR_TRANSITIONS.get(r.status, ())
         actions = []
         # Doi soat = DOC LAI trang thai ben nha cung cap roi xac minh. Khong bao gio gui lai
@@ -102,7 +108,8 @@ def stuck_legs(limit=100):
             actions.append("cancel")
         out.append({
             "name": r.name, "status": r.status, "who": _label(r),
-            "business_doctype": r.business_doctype, "business_name": r.business_name,
+            "business_doctype": pkg.business_doctype if pkg else None,
+            "business_name": pkg.business_name if pkg else None,
             "package": r.package, "attempt": r.request_attempt or 1,
             "since": str(r.modified or ""), "actions": actions,
             "last_error": _last_error(r.name),
