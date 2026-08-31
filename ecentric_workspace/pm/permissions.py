@@ -312,3 +312,79 @@ def has_open_children(parent_name):
         fields=["name", "workflow_state", "status"], limit_page_length=0,
     )
     return any(not is_task_terminal(k) for k in kids)
+
+
+# --------------------------------------------------------------------------
+# Desk-surface hardening (2026-09-01, after the E2E security audit)
+#
+# The service layer (pm.api.*) scopes every query, but Task/Task and Project
+# carry plain read DocPerm with NO permission_query_conditions, so a user who
+# is not a leader could call the native REST list (frappe.client.get_list) or
+# open the Desk list and see EVERY task/project company-wide -- names +
+# assignees, cross-department. These two hooks close that surface. They only
+# affect Desk-native lists, the ec_pm_time_block.task Link dropdown, and native
+# ERPNext reports; the app's own Python is all frappe.get_all (ignore_permissions)
+# and is unaffected (verified by codebase audit).
+#
+# Privileged callers get NO restriction (return ""/True), reusing the same
+# predicate as the rest of PM so Desk and the SPA never diverge:
+#   Administrator / System Manager / Management dept  -> can_see_all_pm_data
+#   PM Manager                                        -> may act on any task
+# Frappe does NOT auto-exempt System Manager from permission_query_conditions,
+# so it must be covered explicitly (can_see_all_pm_data already does).
+# --------------------------------------------------------------------------
+def _pm_privileged(user):
+    return can_see_all_pm_data(user) or "PM Manager" in _roles(user)
+
+
+def project_query_conditions(user=None):
+    """WHERE clause limiting Project lists to the ones a non-privileged user may see."""
+    user = user or frappe.session.user
+    if _pm_privileged(user):
+        return ""
+    names = get_visible_project_names(user) or []
+    if not names:
+        return "`tabProject`.name = '__ec_none__'"  # valid SQL that matches nothing
+    joined = ", ".join(frappe.db.escape(n) for n in names)
+    return "`tabProject`.name in ({0})".format(joined)
+
+
+def task_query_conditions(user=None):
+    """WHERE clause limiting Task lists: own / assigned / in a visible project. Mirrors
+    task_scope_or_filters so Desk lists match what the SPA shows."""
+    user = user or frappe.session.user
+    if _pm_privileged(user):
+        return ""
+    conds = ["`tabTask`.owner = {0}".format(frappe.db.escape(user)),
+             "`tabTask`._assign like {0}".format(frappe.db.escape('%"' + user + '"%'))]
+    visible = get_visible_project_names(user) or []
+    if visible:
+        joined = ", ".join(frappe.db.escape(n) for n in visible)
+        conds.append("`tabTask`.project in ({0})".format(joined))
+    return "(" + " or ".join(conds) + ")"
+
+
+def project_has_permission(doc, ptype=None, user=None):
+    """Single-doc guard (REST /api/resource, Desk form). Only tightens READ; every other
+    ptype defers to DocPerm so creates/writes/reports are untouched. Non-read -> True."""
+    if ptype not in ("read", None):
+        return True
+    user = user or frappe.session.user
+    if _pm_privileged(user):
+        return True
+    name = doc if isinstance(doc, str) else getattr(doc, "name", None)
+    return can_open_project(name, user) if name else True
+
+
+def task_has_permission(doc, ptype=None, user=None):
+    """Single-doc guard for Task; READ only, like project_has_permission."""
+    if ptype not in ("read", None):
+        return True
+    user = user or frappe.session.user
+    if _pm_privileged(user):
+        return True
+    d = doc if isinstance(doc, dict) else (
+        doc.as_dict() if hasattr(doc, "as_dict") else {"name": doc})
+    if isinstance(doc, str):
+        d = {"name": doc}
+    return can_view_task(d, user)
