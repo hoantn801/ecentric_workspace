@@ -632,11 +632,19 @@ def _expand_project_dates(project, child_start, child_end, user):
 @retry_on_deadlock
 def create(project, subject, parent_task=None, priority=None,
            exp_start_date=None, exp_end_date=None, description=None, assignee=None,
-           pm_start_time=None, pm_end_time=None, assignees=None):
+           pm_start_time=None, pm_end_time=None, assignees=None, split_per_assignee=None):
     """Create a Task (or sub-task via parent_task) under a project the user may see.
 
     G5.2: supports multiple assignees via `assignees` (list / JSON-array string / separated
-    string); the legacy singular `assignee` remains accepted and back-compatible."""
+    string); the legacy singular `assignee` remains accepted and back-compatible.
+
+    COMPLETION MODE. A Task is ONE record, so with several assignees whoever presses "Xong"
+    first closes it for everybody -- fine for shared work, wrong for "each of you owes me a
+    report". `split_per_assignee` covers the second case: the task becomes a coordination
+    parent (assigned to the creator) with ONE sub-task per assignee. No new completion logic
+    is needed -- set_status already refuses to close a parent while any child is open, so the
+    parent turns Done only after every person is finished. Ignored for a sub-task (the
+    hierarchy is capped at 2 levels) or when there are fewer than 2 assignees."""
     pmperm.require_pm_access()
     user = frappe.session.user
     if not subject:
@@ -699,6 +707,42 @@ def create(project, subject, parent_task=None, priority=None,
         "description": description,
     })
     doc.insert()  # honors DocPerm 'create'; sets owner/creation (audit)
+
+    _split = str(split_per_assignee or "").lower() not in ("", "0", "false", "none")
+    if _split and len(_asg_emails) > 1 and not parent_task:
+        # Parent = coordination row owned by the creator; one sub-task per person. Assigning
+        # the parent to everyone as well would make each of them see both rows in "Việc của
+        # tôi", which is exactly the noise this mode is meant to remove.
+        doc.is_group = 1
+        doc.save()
+        _assign_add({"doctype": "Task", "name": doc.name, "assign_to": [user]})
+        made = []
+        for _em in _asg_emails:
+            _who = frappe.db.get_value("User", _em, "full_name") or _em.split("@")[0]
+            child = frappe.get_doc({
+                "doctype": "Task",
+                "subject": (subject or "")[:120] + " — " + _who,
+                "project": project,
+                "parent_task": doc.name,
+                "priority": priority,
+                "exp_start_date": exp_start_date,
+                "exp_end_date": exp_end_date,
+                "pm_start_time": pm_start_time,
+                "pm_end_time": pm_end_time,
+                "description": description,
+            })
+            child.insert()
+            _assign_add({"doctype": "Task", "name": child.name, "assign_to": [_em]})
+            made.append(child.name)
+        try:
+            pmnotif.notify_task_assignment(_asg_emails, doc.name,
+                                           "Ban duoc giao nhiem vu: " + (doc.subject or doc.name),
+                                           actor=user)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "PM create split notify")
+        return {"name": doc.name, "subject": doc.subject, "project": doc.project,
+                "parent_task": doc.parent_task, "children": made, "split": 1}
+
     if _asg_emails:
         # all assignees validated above -> ONE native assignment call for the whole list (creates
         # one ToDo per user + _assign reflects all). No manual _assign edit, no raw ToDo insert.
