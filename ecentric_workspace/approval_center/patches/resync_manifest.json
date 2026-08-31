@@ -1,0 +1,22 @@
+{
+  "approval_center/features/payment_request/ui/main_section.html": {
+    "last_resync_patch": "p112_resync_payment_request_clone_owner",
+    "sha256": "4a9f98e076c563cb721e5ee30c27a4f74b6424602192ace2b2e037c650040420"
+  },
+  "platform/esign/ui/document_signing_section.html": {
+    "last_resync_patch": "p112_resync_payment_request_clone_owner",
+    "sha256": "cfbd0e52314db7d79d4030b49f303c1026d7b5032d4e091e23f712e85916b798"
+  },
+  "platform/esign/ui/ops_page.html": {
+    "last_resync_patch": "p111_resync_esign_ops_debt_wording",
+    "sha256": "7aa0759c7c60f02d34666fdb53e2251714e7baf9d79d96e57cce345c9057510f"
+  },
+  "platform/esign/ui/payment_request_signing.html": {
+    "last_resync_patch": "p112_resync_payment_request_clone_owner",
+    "sha256": "a8bf13ca5af66694e1eebefe8ce7e733be37daf11c4d8da3aeecb8b4c6c7d23a"
+  },
+  "platform/esign/ui/requester_signing_panel.html": {
+    "last_resync_patch": "p112_resync_payment_request_clone_owner",
+    "sha256": "37558227069a78b46bc6552ac003adb2ce238130ce0eaedcbb50ed1ef27d9a5f"
+  }
+}
