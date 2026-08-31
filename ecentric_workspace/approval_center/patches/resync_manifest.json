@@ -6,98 +6,98 @@
   },
   "approval_center/features/affiliate_bonus/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "e0450f42ece48ea27e43e18a13563897989efd3c255e93da07cb6b28d25cdf14"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "9141033e78c6ae31a522f261d814040a9019f767555012c59c5b2e25720d5a7e"
   },
   "approval_center/features/ai_topup/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "09a35128a6d985bc2c475dade99778b52d09278478c0ccc96982c51e58bd5777"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "cd5600568c5bddd42ff3a5bc62d175d321f482b2e780aea77b35003eaa2ef625"
   },
   "approval_center/features/asset_damage_loss/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "1ed2d3b5b958597f412fdd134d716ade0b5abdb9c10d6659214ce3fcb77bfba3"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "7e538e8742bdf6ab4bd0eda0dce012a71a4dbf25a6c1ced117b2ed21dd65932f"
   },
   "approval_center/features/asset_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "9b09ae3a22603d31744418622086a68477727d35c047f9acc98507de90064c13"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "c900f962f547544d743929a0fb7f38d62fa058049aa521ef21d636594daef527"
   },
   "approval_center/features/budget_setting/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "5bafa8b2f21dbd4d780e4920818afe7ac660154f8907773f66441d80d2d25104"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "af278600e011a305ed9f6fad226fe15f916bb9005d89422a616b6dc21b5bb41b"
   },
   "approval_center/features/compensation_leave/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "0602ce3dd782f43ebef4b926b3d2cd28b7b8ee64706cd8ec0892819bba940522"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "bb8209b482c0a92862edf72e8f52592b203dba0dd819f06e5cfe492759bd997d"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "cc4d48a897c47f7a9ff11d98be80dbefef89c2e4d957307e5b0e9b6f72cbcc65"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "8d0bd0e5c2c29647bee592536e39a7b7001c144134ae462209572dc724c610d5"
   },
   "approval_center/features/data_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "7e0db93c75a5676f8479be6626946677905ea6fd4de09eb5565203f1459e0e71"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "3954076f720c3a1ef65ea3de1175df9e38ce4fd28a940fd97b04b8aa061be094"
   },
   "approval_center/features/document_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "ca1260d46cb2d5346716a740648defa64e560ee87561ff20af6703a10818f422"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "043f7b438de929a25e08cf2ab880a031a623cc662cf59fb7158c03c554b0858d"
   },
   "approval_center/features/employee_info_update/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "0482044fb1a11a28d65c6bd48311841bfec27179adf82291945e647f81f9c3d3"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "7e309e7d7a592f8eb014c00332d9ed086fc5cb5e8f66e54b69cd67370b520bd0"
   },
   "approval_center/features/employee_referral/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "0154d48b6e6837768d77c2334fe10c88d2f040342910f811a629d9fe7e951707"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "dd1018507ccecef48180b4342de0e7bb4fb2e9cef65df549bbf4aa533a740c59"
   },
   "approval_center/features/hiring_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "226f09edf7b42a68a12d9dc1207b992256622210b1e0ecc25872f65a121664d9"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "2f178787d99aa87fdda714e3811bfd2dc256565898c2b8ca3615e8326d32a90b"
   },
   "approval_center/features/hr_activity/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "bf6f9a1d6398a7797523c5b28ef8737db5b2cedc075b42615c5239c6b342d970"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "b6b72272331339edccc4117c86741d7d8b9f0b552ad85966fd2b5e1da372c8f7"
   },
   "approval_center/features/late_early_out/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "41b3f9b6d624358a18f12ade40dc7d8053033e075e7b9d484660aa402fc2569b"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "09d662b1617caa18fec9b0040142155cfc61add5d61d8d62c1d589a5e8b7c731"
   },
   "approval_center/features/lateral_move/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "83207a188e153f69dbd8a948aaec521a78f7c4c9aa878e754e1df50e7ed9ddc8"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "52d952b872c1409a0436cf26f46aa9e67cdb5c818702913b94fafc641a422535"
   },
   "approval_center/features/leave/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "47a045a75334cf375c8af2ae5f9510b0093bdd16bab08665d99f505c0fb0a58f"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "b15a764d72539e2278ab8d2019c7a72176a5df1c0ccf91c7987c0d54c99199f6"
   },
   "approval_center/features/livestream_sample/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "8a45a8dfef100e4e3c9f7c1db0739f0f0e54f371c2366a2815e852a4d0b7809a"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "caa0b3b3cbf1cdb71c1120300442ac64192e467d1177d0ec2263652822ea69fe"
   },
   "approval_center/features/livestream_supplies/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "783a88e1116be51fddd34ee5370bb97791fa5810c1e32d054cee74b7fa0763e0"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "d053d320b1ec05fdf66d361608801a880619fb04d24898af90af1d09c0c8c555"
   },
   "approval_center/features/outside_work/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "88935a97b1e10f156f0c70760929cf7b676e8286a8ae729f5b3b2de80af3b3f1"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "9e7e091060760821a3cf80fd7d2d300825b7bce65013a26c20f9d19b8ed5a264"
   },
   "approval_center/features/payment_request/ui/main_section.html": {
     "last_resync_patch": "p115_resync_payment_request_e2e_fixes",
@@ -105,33 +105,33 @@
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "bc2b84280564ab69d981eadc0c4837c025ccc9e052a9283492b192bfb47eb950"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "e1a733fdd1de55e8105e20183d6c622234acfa729a7b3a02390c6e5a726880f7"
   },
   "approval_center/features/purchase_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "c00e840cc526b25c3e034a46eba4a0ec6c079489fe18fbe5336d1e57bc60d845"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "43e235658284163bd953af20e9d19f503c860cf061350ccf3e77613a67e13e0f"
   },
   "approval_center/features/resignation/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "e2f4510870dfb9292f69d4f138f9d5c7102f5d11c486f846d1360c48904ad9a1"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "3839f1e86b742ebd95095c322b160a0e9701bd5596e8fa3cbdbb3283edd52c27"
   },
   "approval_center/features/service_referral/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "0d1b9d918a4292c61f0b6d48cc8f330de4efcdbfb7cb67e330379bb371407375"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "4de94b6ad7cddd8f8c22b82f1d04e4a2547022e63e77f90fbbeaa281a1eaa499"
   },
   "approval_center/features/special_bonus/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "d39afb2cf9dca0d98638b462df953953b0c25298fcc50401be904215aa87fe88"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "01bc124b3917b45181a0663cfb22a09a4af2e067a54a25415131ab94d92c64d9"
   },
   "approval_center/features/system_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "166dcd175f7b4d59a9863d511c79a2809684f6582ff0a9f4d0d2cad913afb2b8"
+    "last_resync_patch": "p116_resync_all_feature_steppers_xss",
+    "sha256": "aacf66868454b874e2487f3401b126ff87b0a2c4fc9a21907025b3d4170e82c6"
   },
   "approval_center/ui/all_requests/main_section.html": {
     "baseline": "2026-08-31",

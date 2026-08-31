@@ -314,6 +314,19 @@ def process_signing_request(dsr_name):
             # Binding was asserted at the top of this run (before any write); the DSR is
             # locked for_update so state cannot drift within this transaction.
             # Submit exactly once from Queued; acceptance != success (async).
+            #
+            # CHOT MOT CHIEU: neu chan ky nay DA TUNG gui bulk-process (co
+            # bulk_job_transaction_id) thi KHONG gui lai. Duong nguy hiem: Provider Accepted
+            # -> loi poll -> Retryable Failure -> quay ve Queued -> nhanh nay gui LAN HAI.
+            # Lenh ky khong idempotent - lan hai co the tao chu ky thu hai tren cung tai
+            # lieu. POLL-FIRST o tren chi cuu duoc khi chu ky da kip xuat hien; cua so con
+            # lai phai co nguoi nhin (BOT C, 31/08). Fail-closed: day sang Manual Review de
+            # "Doi soat" (chi DOC) quyet dinh, khong bao gio doan.
+            if dsr.bulk_job_transaction_id:
+                events.set_dsr_status(dsr_name, "Manual Review", event_type="ManualReview",
+                                      extra_fields={"manual_review_reason":
+                                                    "prior_bulk_submit_uncertain"})
+                return
             tt = _PROVIDER_TRANSITION.get(dsr.action)
             if not tt:
                 raise ProviderError("scts_no_provider_transition",

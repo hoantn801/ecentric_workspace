@@ -43,7 +43,13 @@ DSR_TRANSITIONS = {
     "Draft": ("Prepared", "Cancelled"),
     "Prepared": ("Queued", "Mapping Required", "Placement Required", "Cancelled", "Superseded"),
     "Queued": ("Provider Accepted", "Verifying", "Retryable Failure", "Permanent Failure",
-               "Mapping Required", "Cancelled", "Superseded", "Signed"),
+               "Mapping Required", "Cancelled", "Superseded", "Signed",
+               # Queued -> Verification Mismatch / Manual Review: hai canh nay THIEU tu dau,
+               # nen mot chan ky ket o Queued la BAT TU: process_signing_request gap signer
+               # da rejected thi nem InvalidTransition, sweep_stale don rac moi gio cung nem
+               # not - va Queued khong nam trong _NEEDS_HUMAN nen trang ops khong hien no.
+               # Ket + tang hinh + khong don duoc (BOT C, 31/08).
+               "Verification Mismatch", "Manual Review"),
     # Queued -> Signed: poll-first found the signer already signed by a previous
     # uncertain attempt - never blind-resubmit.
     "Provider Accepted": ("Verifying", "Signed", "Retryable Failure", "Permanent Failure",
@@ -63,7 +69,11 @@ DSR_TRANSITIONS = {
     # do chu ky THAT xuat hien (nguoi ky tu lam tren portal). Doi soat CHI doc lai trang thai
     # ben nha cung cap va xac minh - khong bao gio gui lai lenh ky, vi lam vay se tao chu ky
     # thu hai. Xem api.reconcile_signature_request.
-    "Manual Review": ("Queued", "Cancelled", "Approval Completed", "Signed"),
+    "Manual Review": ("Queued", "Cancelled", "Approval Completed", "Signed",
+                      # Manual Review -> Superseded: thieu canh nay thi create_revision
+                      # (tra lai -> gui lai) NEM dung luc mot chan ky dang cho nguoi xu ly -
+                      # tuc chu trinh sendback chet dung luc hay can no nhat (BOT C, 31/08).
+                      "Superseded"),
     # Manual Review -> Approval Completed is the WINNER-REPAIR edge only (R2,
     # 2026-07-12): if a losing racer stamped Manual Review between the winner's
     # engine.approve and its final write, the winner upgrades the label to the

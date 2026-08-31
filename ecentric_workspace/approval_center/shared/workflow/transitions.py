@@ -978,6 +978,23 @@ def approve(request_name, actor=None, comment=None):
     req = frappe.get_doc("EC Approval Request", request_name)
     _guard_open(req)
     frappe.db.get_value("EC Approval Request", request_name, "name", for_update=True)  # row lock
+    # DOC LAI sau khi co khoa - guard truoc khoa chi la mang chan bui.
+    #
+    # Cua so that (BOT D tai hien duoc, 31/08): A bam Tu choi, B bam Duyet cung giay. B doc
+    # trang thai Pending, dung cho khoa hang; A commit Rejected va nha khoa; B di tiep voi
+    # ban doc CU va ghi mot dong "Approved" SAU dong "Rejected" tren cung phieu - ho so tu
+    # mau thuan. Trang thai doc truoc khoa la tin don; sau khoa moi la su that.
+    req.approval_status = frappe.db.get_value("EC Approval Request", request_name,
+                                              "approval_status")
+    _guard_open(req)
+    # "Information Required" khong terminal nen _guard_open cho qua - nhung phieu dang bi
+    # tra lai thi nguoi duyet KHONG duoc dong cap. Truoc day duyet-va-ky (verify_and_complete)
+    # chay xong van engine.approve thanh cong va DE len lenh "Yeu cau bo sung" cua dong cap:
+    # phieu bi tra lai lang le thanh Approved. admin_override da chan bang == "Pending" tu
+    # lau; approve() bo sot.
+    if req.approval_status == "Information Required":
+        frappe.throw(_("Phiếu đang chờ người đề nghị bổ sung thông tin — cấp duyệt không "
+                       "thể hoàn tất lúc này. Chờ người đề nghị gửi lại rồi mới duyệt."))
     if req.current_level:
         _lk = _rl_for(request_name, req.current_level)
         _lk and frappe.db.get_value("EC Approval Request Level", _lk.name, "name", for_update=True)
@@ -998,6 +1015,10 @@ def reject(request_name, actor=None, comment=None):
     req = frappe.get_doc("EC Approval Request", request_name)
     _guard_open(req)
     frappe.db.get_value("EC Approval Request", request_name, "name", for_update=True)
+    # Cung ly do voi approve(): trang thai doc truoc khoa co the da cu.
+    req.approval_status = frappe.db.get_value("EC Approval Request", request_name,
+                                              "approval_status")
+    _guard_open(req)
     if req.current_level:
         _lk = _rl_for(request_name, req.current_level)
         _lk and frappe.db.get_value("EC Approval Request Level", _lk.name, "name", for_update=True)
@@ -1092,6 +1113,12 @@ def cancel(request_name, actor=None, reason=None):
     if not (reason or "").strip():
         frappe.throw(_("A cancellation reason is mandatory."))
     req = frappe.get_doc("EC Approval Request", request_name)
+    _guard_open(req)
+    # cancel() truoc day KHONG khoa gi: mot phieu vua Approved xong van bi ghi de thanh
+    # Cancelled neu hai request cham nhau (BOT D, 31/08). Khoa roi doc lai nhu approve().
+    frappe.db.get_value("EC Approval Request", request_name, "name", for_update=True)
+    req.approval_status = frappe.db.get_value("EC Approval Request", request_name,
+                                              "approval_status")
     _guard_open(req)
     frappe.db.set_value("EC Approval Request", request_name,
                         {"approval_status": "Cancelled", "completed_at": now_datetime()})
