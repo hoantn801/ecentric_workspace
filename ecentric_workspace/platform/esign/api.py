@@ -142,6 +142,15 @@ def ops_inbox():
 
 
 @frappe.whitelist(methods=["POST"])
+def settle_signature_debt(level_name, resolution, reason):
+    """Dong mot mon no chu ky: `signed` (nguoi do da tu ky lai) hoac `waived` (khong ky duoc
+    nua, mien voi ly do). BAT BUOC ly do; ghi vao lich su phieu. System Manager. Xem
+    guard.settle_signature_debt - KHONG co duong nao ky ho ai."""
+    from ecentric_workspace.platform.esign import guard as esign_guard
+    return esign_guard.settle_signature_debt(level_name, resolution, reason)
+
+
+@frappe.whitelist(methods=["POST"])
 def retry_signature_request(dsr_name):
     return svc.retry_signature_request(dsr_name)
 

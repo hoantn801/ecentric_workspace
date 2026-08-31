@@ -133,7 +133,7 @@ class TestContentComparisonUsesOneYardstick(unittest.TestCase):
         mod, hashing = _lifecycle(stub)
         mod.pkgsvc = types.SimpleNamespace(package_files=lambda n: [
             {"requires_signature": 1, "sha256": hashing.sha256_bytes(c)} for c in locked_from])
-        return mod._signable_content_changed(self.pkg), hashing
+        return mod._signable_content_verdict(self.pkg), hashing
 
     def test_khong_doi_gi_thi_bao_khong_doi(self):
         pdf = b"%PDF-1.4 to trinh"
@@ -141,8 +141,8 @@ class TestContentComparisonUsesOneYardstick(unittest.TestCase):
             files=[{"name": "F1", "file_name": "to-trinh.pdf", "file_url": "/private/a.pdf",
                     "is_private": 1}],
             contents={"F1": pdf}, locked_from=[pdf])
-        self.assertFalse(changed,
-                         "khong doi gi ma bao doi -> lan gui lai nao cung bat ky lai")
+        self.assertEqual(changed, "unchanged",
+                         "khong doi gi ma bao doi -> lan gui lai nao cung bi chan")
 
     def test_dinh_kem_them_bang_chung_khong_tinh_la_doi(self):
         pdf, hoadon = b"%PDF-1.4 to trinh", b"%PDF-1.4 hoa don"
@@ -150,32 +150,35 @@ class TestContentComparisonUsesOneYardstick(unittest.TestCase):
             files=[{"name": "F1", "file_name": "to-trinh.pdf", "is_private": 1},
                    {"name": "F2", "file_name": "hoa-don.pdf", "is_private": 1}],
             contents={"F1": pdf, "F2": hoadon}, locked_from=[pdf])
-        self.assertFalse(changed, "KICH BAN 1: bo sung chung tu -> di tiep, khong ky lai")
+        self.assertEqual(changed, "unchanged",
+                         "KICH BAN 1: bo sung chung tu -> di tiep, khong ky lai")
 
     def test_thay_noi_dung_to_trinh_thi_PHAI_bao_doi(self):
         cu, moi = b"%PDF-1.4 so tien 10", b"%PDF-1.4 so tien 999"
         changed, _h = self._run(
             files=[{"name": "F1", "file_name": "to-trinh.pdf", "is_private": 1}],
             contents={"F1": moi}, locked_from=[cu])
-        self.assertTrue(changed, "KICH BAN 2: sua to trinh da ky -> BAT BUOC tao ban moi")
+        self.assertEqual(changed, "changed",
+                         "KICH BAN 2: sua to trinh da ky -> duong gui lai phai DUNG HAN")
 
     def test_go_mat_tep_da_ky_thi_bao_doi(self):
         pdf = b"%PDF-1.4 to trinh"
         changed, _h = self._run(files=[], contents={}, locked_from=[pdf])
-        self.assertTrue(changed)
+        self.assertEqual(changed, "changed")
 
     def test_doc_hong_thi_coi_nhu_da_doi(self):
         pdf = b"%PDF-1.4 to trinh"
         changed, _h = self._run(
             files=[{"name": "F1", "file_name": "to-trinh.pdf", "is_private": 1}],
             contents={}, locked_from=[pdf])       # get_doc nem loi
-        self.assertTrue(changed, "khong doc duoc thi phai chon ben an toan")
+        self.assertEqual(changed, "unreadable",
+                         "khong doc duoc phai noi dung la khong doc duoc, khong noi 'da doi'")
 
     def test_khong_con_doc_content_hash_cua_frappe(self):
         # Bang chung truc tiep cho lo hong 1: truong do la cua framework, khong bao dam sha256.
         src = io.open(os.path.join(_ROOT, "platform", "esign", "lifecycle.py"),
                       encoding="utf-8").read()
-        body = src.split("def _signable_content_changed")[1].split("\ndef ")[0]
+        body = src.split("def _signable_content_verdict")[1].split("\ndef ")[0]
         self.assertNotIn('"content_hash"', body,
                          "so sha256 voi content_hash = do hai dai luong bang hai thuoc do")
 

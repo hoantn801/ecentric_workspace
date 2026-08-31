@@ -96,14 +96,24 @@ def _load(status="Information Required", is_requester=True, in_package_of=None,
         class db(object):
             @staticmethod
             def get_value(dt, filters, field=None, **kw):
-                if dt == "EC Digital Signature File":
-                    return "PKG-1" if in_package_of else None
-                if dt == "EC Digital Signature Package":
-                    if not in_package_of:
-                        return None
-                    return types.SimpleNamespace(business_doctype=in_package_of[0],
-                                                 business_name=in_package_of[1])
                 return None
+
+            @staticmethod
+            def exists(dt, filters=None):
+                # Chi bao "co" khi sha nay nam trong mot goi CUA PHIEU NAY.
+                if dt != "EC Digital Signature File":
+                    return None
+                pkgs = (filters or {}).get("package")
+                allowed = pkgs[1] if isinstance(pkgs, (list, tuple)) else []
+                return "DSF-1" if allowed else None
+
+        @staticmethod
+        def get_all(dt, filters=None, pluck=None, **kw):
+            # Cac goi ky CUA CHINH PHIEU NAY. Ban sua 31/08 doi tu "sha nay co o goi nao
+            # khong" sang "co o goi nao CUA PHIEU NAY khong" - xem test ben duoi.
+            if dt == "EC Digital Signature Package":
+                return ["PKG-1"] if (in_package_of and in_package_of[1] == "PR-1") else []
+            return []
 
         @staticmethod
         def delete_doc(dt, name, **kw):

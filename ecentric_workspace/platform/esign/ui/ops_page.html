@@ -120,7 +120,9 @@
     retry: "Thử lại",
     cancel: "Hủy chân ký",
     retrieve: "Tải PDF đã ký",
-    resolve_review: "Xem đối chiếu"
+    resolve_review: "Xem đối chiếu",
+    debt_signed: "Đã ký bù",
+    debt_waived: "Miễn nợ"
   };
   // Cau giai thich hien trong hop xac nhan. Mot nut khong noi ro no lam gi tren mot ho so
   // chi tien la thu khong nen ton tai.
@@ -130,7 +132,11 @@
     retry: "Xếp lại chân ký này vào hàng đợi để gửi lệnh ký một lần nữa.",
     cancel: "Đóng chân ký này lại. Không hoàn tác được.",
     retrieve: "Tải bản PDF đã ký từ SCTS về đính vào phiếu. Chỉ đọc phía SCTS, chạy lại "
-            + "nhiều lần vẫn an toàn."
+            + "nhiều lần vẫn an toàn.",
+    debt_signed: "Xác nhận rằng người duyệt đó ĐÃ tự ký lại trên cổng SCTS. Hệ thống không "
+               + "ký thay ai — đây chỉ là ghi nhận việc đã xảy ra.",
+    debt_waived: "Miễn món nợ này vì không còn ký được nữa (tài liệu bên SCTS đã đóng, "
+               + "người duyệt đã nghỉ việc…). Lý do sẽ nằm lại vĩnh viễn trong lịch sử phiếu."
   };
 
   function actionsHtml(row, kind) {
@@ -162,8 +168,8 @@
   function bundleRow(r) {
     var pill = r.waiting_on_provider
       ? '<span class="ops-pill">Đang chờ SCTS ký xong</span>'
-      : (r.stalled ? '<span class="ops-pill bad">Thử ' + r.attempts + ' lần</span>'
-                   : '<span class="ops-pill warn">Thử ' + r.attempts + ' lần</span>');
+      : (r.stalled ? '<span class="ops-pill bad">Đã thử ' + r.attempts + ' lượt</span>'
+                   : '<span class="ops-pill warn">Đã thử ' + r.attempts + ' lượt</span>');
     var err = r.last_error ? '<div class="ops-err">' + esc(r.last_error) + "</div>" : "";
     var note = r.waiting_on_provider
       ? '<div class="ops-note">Chưa thử lần nào và không có lỗi — tài liệu bên SCTS chưa '
@@ -193,7 +199,7 @@
       + (done ? "Phiếu đã duyệt xong" : "Phiếu còn đang chạy") + "</span>"
       + (done ? '<div class="ops-note">Phiếu đã hoàn tất nên món nợ này dễ bị bỏ quên nhất.'
                 + '</div>' : "")
-      + "</td></tr>";
+      + "</td><td>" + actionsHtml(r, "debt") + "</td></tr>";
   }
 
   function section(title, note, headers, rows, rowFn, emptyText) {
@@ -219,10 +225,10 @@
               STATE.stuck_legs, legRow,
               "Không có chân ký nào đang kẹt.")
       + section("Gói chưa tải được PDF đã ký",
-              "Cron chạy 30 phút một lần và thử lại không giới hạn. Cột số lần thử là thứ "
+              "Cron chạy 30 phút một lần và thử lại không giới hạn. Cột số lượt là thứ "
               + "phân biệt một gói đang chờ bình thường với một gói đã hỏng — quá "
-              + after + " lần thì không còn là chậm nữa.",
-              ["Phiếu", "Số lần thử", "Mã tài liệu SCTS", "Cập nhật", ""],
+              + after + " lượt (~" + Math.round(after / 2) + " tiếng) thì không còn là chậm nữa.",
+              ["Phiếu", "Số lượt cron đã thử", "Mã tài liệu SCTS", "Cập nhật", ""],
               STATE.unretrieved, bundleRow,
               "Mọi gói đã ký đều đã tải PDF về.")
       + section("Mã băm lệch, chờ đối chiếu",
@@ -234,8 +240,10 @@
       + section("Cấp duyệt còn nợ chữ ký",
               "Những cấp đã hoàn tất trong lúc cổng ký số đang tắt. Phiếu vẫn đi tiếp — "
               + "đó là quyết định vận hành — nhưng chữ ký thì vẫn còn nợ, và chỉ chính "
-              + "người duyệt đó ký được. Không ai ký thay được.",
-              ["Phiếu", "Cấp", "Người duyệt", "Ghi nợ lúc", "Tình trạng phiếu"],
+              + "người duyệt đó ký được. Không ai ký thay được — hai nút dưới đây chỉ GHI "
+              + "NHẬN kết quả: người đó đã tự ký lại, hoặc món nợ được miễn vì không còn ký "
+              + "được nữa. Cả hai đều bắt buộc nêu lý do và ghi vào lịch sử phiếu.",
+              ["Phiếu", "Cấp", "Người duyệt", "Ghi nợ lúc", "Tình trạng phiếu", ""],
               STATE.signature_debts, debtRow,
               "Không có cấp duyệt nào còn nợ chữ ký.");
     wire();
@@ -261,6 +269,16 @@
         msg("Chỉ tải được cho Đề nghị thanh toán.", "err"); return;
       }
       p = call("retrieve_signed_files", { payment_request_name: doc }, "POST");
+    } else if (act === "debt_signed" || act === "debt_waived") {
+      // BAT BUOC ly do. Mot mon no chu ky dong lai ma khong ai biet vi sao thi danh sach
+      // no chi la mot cho de bam cho sach mat.
+      var why = window.prompt(act === "debt_signed"
+        ? "Nêu rõ căn cứ xác nhận đã ký bù (mã tài liệu SCTS, thời điểm…):"
+        : "Nêu rõ lý do miễn nợ chữ ký này:", "");
+      if (!why || !why.trim()) { msg("Bắt buộc nêu lý do.", "err"); return; }
+      p = call("settle_signature_debt",
+               { level_name: name, resolution: act === "debt_signed" ? "signed" : "waived",
+                 reason: why.trim() }, "POST");
     } else if (act === "resolve_review") {
       msg("Mở phiếu để đối chiếu hai bản tệp.", ""); return;
     } else { return; }

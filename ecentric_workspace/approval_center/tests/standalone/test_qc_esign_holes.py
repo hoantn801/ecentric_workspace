@@ -159,18 +159,41 @@ class TestSignatureGateActuallyRuns(unittest.TestCase):
 
 
 class TestRequesterResetTargetsTheRightDoctype(unittest.TestCase):
+    """Bai hoc 28/08 - giu lai du hanh vi da doi.
+
+    Ban dau `on_request_reopened` reset `requester_signature_status` khi tao goi phien ban
+    moi, va no ghi NHAM vao pkg.business_doctype ("EC Payment Request") - mot DocType khong
+    co cot do. Lenh ghi lai duoc boc trong `except Exception`, nen no that bai thanh mot dong
+    log trong khi luong tin la da reset xong. Nguoi de nghi bi bao "da ky cho yeu cau nay" va
+    goi moi khong bao gio ky duoc. Ghi sai cho + nuot loi con te hon khong lam gi: no TRONG
+    NHU da chay.
+
+    Tu 31/08 khong con tao goi phien ban moi (xem test_reopen_revises_package), nen khong con
+    lenh reset nao ca. Phep kiem con lai la phep quan trong nhat va van dung nguyen: ham nay
+    khong duoc nuot loi, va khong duoc ghi vao chung tu nghiep vu.
+    """
+
     def setUp(self):
         self.src = _src("platform", "esign", "lifecycle.py")
         self.body = _fn(self.src, "on_request_reopened")
 
-    def test_it_writes_to_the_approval_request(self):
-        self.assertIn('frappe.db.set_value("EC Approval Request", approval_request,\n'
-                      '                        "requester_signature_status", "Pending")',
-                      self.body)
+    def test_khong_con_reset_vi_khong_con_tao_goi_moi(self):
+        code = re.sub(r'"""[\s\S]*?"""', "", self.body)
+        code = re.sub(r"(?m)^\s*#.*$", "", code)
+        self.assertNotIn("requester_signature_status", code,
+                         "khong con goi phien ban moi thi khong co gi de reset")
 
     def test_it_never_writes_to_the_business_doctype(self):
         self.assertNotIn("pkg.business_doctype, pkg.business_name,", self.body,
                          "truong nay khong ton tai tren chung tu nghiep vu")
+
+    def test_ham_nay_khong_ghi_gi_ca(self):
+        # Gio no chi doc roi quyet dinh cho qua hay dung han.
+        code = re.sub(r'"""[\s\S]*?"""', "", self.body)
+        code = re.sub(r"(?m)^\s*#.*$", "", code)
+        for write in ("set_value", "insert(", "events.emit"):
+            self.assertNotIn(write, code,
+                             "tu choi thi khong duoc de lai dau vet ghi nao")
 
     def test_the_failure_is_not_swallowed(self):
         # Soi CODE, khong soi chu thich: chu thich o day GIAI THICH vi sao khong duoc nuot

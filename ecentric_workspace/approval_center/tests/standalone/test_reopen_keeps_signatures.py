@@ -61,7 +61,7 @@ def _load(pkg_files, attached, raise_pkg=False, raise_files=False, unreadable=Fa
     de ma nguon that tu tinh ma bam; sai thuat toan la do ngay.
     """
     body = "\n\n".join(re.search(r"(?m)^def %s\(.*?(?=\ndef |\Z)" % n, _LC, re.S).group(0)
-                       for n in ("_signable_content_changed", "_attached_signable_shas"))
+                       for n in ("_signable_content_verdict", "_attached_signable_shas"))
 
     class _Pkgsvc(object):
         @staticmethod
@@ -101,7 +101,7 @@ def _load(pkg_files, attached, raise_pkg=False, raise_files=False, unreadable=Fa
          hashing.__dict__)
     g = {"pkgsvc": _Pkgsvc(), "frappe": _Frappe(), "hashing": hashing}
     exec(compile(body, "sc", "exec"), g)
-    return g["_signable_content_changed"]
+    return g["_signable_content_verdict"]
 
 
 #: TO_TRINH / HOA_DON... la NOI DUNG that cua tep, khong phai ten ma bam. Ma bam do chinh
@@ -120,54 +120,61 @@ def _f(content, signable=True):
 class TestAddingEvidenceKeepsSignatures(unittest.TestCase):
     def test_adding_a_receipt_changes_nothing(self):
         fn = _load([_f(TO_TRINH)], [TO_TRINH, HOA_DON])
-        self.assertFalse(fn(_Pkg()), "them bang chung ma bat ky lai het = sai")
+        self.assertEqual(fn(_Pkg()), "unchanged", "them bang chung ma bat ky lai het = sai")
 
     def test_several_extra_attachments_still_change_nothing(self):
         fn = _load([_f(TO_TRINH), _f(PHU_LUC)], [TO_TRINH, PHU_LUC, HOA_DON])
-        self.assertFalse(fn(_Pkg()))
+        self.assertEqual(fn(_Pkg()), "unchanged")
 
     def test_supporting_files_in_the_package_are_not_counted(self):
         # tep phu nam trong goi nhung khong can ky -> khong tinh la noi dung da ky
         fn = _load([_f(TO_TRINH), _f(PHU_LUC, signable=False)], [TO_TRINH])
-        self.assertFalse(fn(_Pkg()))
+        self.assertEqual(fn(_Pkg()), "unchanged")
 
 
 class TestChangingTheRequestForcesResigning(unittest.TestCase):
     def test_a_replaced_signed_file_is_a_change(self):
         fn = _load([_f(TO_TRINH)], [TO_TRINH_DA_SUA, HOA_DON])
-        self.assertTrue(fn(_Pkg()), "to trinh da khac ma giu chu ky cu = nguy tao bang chung")
+        self.assertEqual(fn(_Pkg()), "changed",
+                         "to trinh da khac ma giu chu ky cu = nguy tao bang chung")
 
     def test_a_removed_signed_file_is_a_change(self):
         fn = _load([_f(TO_TRINH), _f(PHU_LUC)], [TO_TRINH])
-        self.assertTrue(fn(_Pkg()))
+        self.assertEqual(fn(_Pkg()), "changed")
 
 
 class TestUncertaintyMeansResign(unittest.TestCase):
     """Khong doc duoc thi phai lam lai - phien toai con hon giu chu ky cu tren noi dung la."""
 
     def test_unreadable_package_forces_a_new_version(self):
-        self.assertTrue(_load([_f(TO_TRINH)], [TO_TRINH], raise_pkg=True)(_Pkg()))
+        self.assertEqual(_load([_f(TO_TRINH)], [TO_TRINH], raise_pkg=True)(_Pkg()), "unreadable")
 
     def test_unreadable_attachments_force_a_new_version(self):
-        self.assertTrue(_load([_f(TO_TRINH)], [TO_TRINH], raise_files=True)(_Pkg()))
+        self.assertEqual(_load([_f(TO_TRINH)], [TO_TRINH], raise_files=True)(_Pkg()), "unreadable")
 
     def test_a_signed_file_without_a_hash_forces_a_new_version(self):
         fn = _load([_f(TO_TRINH), _f(None)], [TO_TRINH])
-        self.assertTrue(fn(_Pkg()), "thieu ma bam thi khong so duoc -> khong duoc doan la giong")
+        self.assertEqual(fn(_Pkg()), "unreadable",
+                         "thieu ma bam thi khong so duoc - do la su co, khong phai 'da doi'")
 
     def test_no_signable_file_at_all_forces_a_new_version(self):
-        self.assertTrue(_load([], [])(_Pkg()))
+        self.assertEqual(_load([], [])(_Pkg()), "unreadable")
 
 
-class TestItIsWiredBeforeTheRevision(unittest.TestCase):
-    def test_the_check_runs_before_create_revision(self):
+class TestTheVerdictDecidesEverything(unittest.TestCase):
+    """31/08: khong con tao ban moi. `changed` gio la TU CHOI, nen ket qua cua ham nay la
+    thu duy nhat quyet dinh phieu di tiep hay dung."""
+
+    def test_chi_unchanged_moi_di_tiep(self):
         body = re.search(r"(?m)^def on_request_reopened\(.*?(?=\ndef |\Z)", _LC, re.S).group(0)
-        self.assertLess(body.index("_signable_content_changed(pkg)"),
-                        body.index("pkgsvc.create_revision"),
-                        "phai kiem TRUOC khi tao phien ban moi")
-        m = re.search(r"if not _signable_content_changed\(pkg\):(.*?)\n\n", body, re.S)
-        self.assertIsNotNone(m, "phep chan phai that su chan, khong chi co mat")
-        self.assertIn("return out", m.group(1))
+        self.assertIn('verdict == "unchanged"', body)
+        self.assertLess(body.index('verdict == "unchanged"'), body.index("frappe.throw"),
+                        "phai cho duong thong di truoc khi tu choi")
+
+    def test_hai_ket_qua_con_lai_deu_dung_han(self):
+        body = re.search(r"(?m)^def on_request_reopened\(.*?(?=\ndef |\Z)", _LC, re.S).group(0)
+        self.assertEqual(body.count("frappe.throw"), 2,
+                         "mot thong bao cho 'da doi', mot cho 'khong doc duoc'")
 
 
 if __name__ == "__main__":

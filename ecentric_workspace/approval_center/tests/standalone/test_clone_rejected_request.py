@@ -98,8 +98,10 @@ class _Doc(dict):
 def _load(source_fields, status, actor="a@x.vn", requested_by="a@x.vn",
           files=None, fail_urls=()):
     """Chay clone_request THAT voi frappe gia."""
-    src = "_CLONEABLE = (\"Rejected\", \"Cancelled\")\n" + _fn_src("clone_request") \
-        + "\n" + _fn_src("_copy_attachments")
+    src = ("_CLONEABLE = (\"Rejected\", \"Cancelled\")\n"
+           "_SYSTEM_FILE_PREFIXES = (\"SIGNED-\", \"REVIEW-\")\n"
+           + _fn_src("clone_request") + "\n" + _fn_src("_is_system_artefact")
+           + "\n" + _fn_src("_copy_attachments"))
 
     inserted_files = []
     created = []                      # phieu MOI - de test soi vao ket qua, khong doan
@@ -245,6 +247,36 @@ class TestAttachmentFailuresAreReported(unittest.TestCase):
         self.assertEqual(out["attachments_copied"], 1)
         self.assertEqual(out["attachments_failed"], ["hong.pdf"],
                          "nuot loi o day = nguoi dung tuong ho so day du trong khi thieu tep")
+
+
+class TestSystemArtefactsAreNotCopied(unittest.TestCase):
+    """PDF DA KY cua phieu cu khong duoc di theo sang phieu moi.
+
+    `requester._add_requester_pdf_files` nap MOI PDF private dinh kem vao goi ky voi
+    requires_signature=1. Chep mot ban da ky sang phieu moi nghia la phieu moi doi nguoi ta
+    dat o ky len mot tai lieu da co chu ky so cua phieu truoc.
+    """
+
+    def _files(self):
+        return [{"file_url": "/private/to-trinh.pdf", "file_name": "to-trinh.pdf",
+                 "is_private": 1},
+                {"file_url": "/private/SIGNED-to-trinh.pdf",
+                 "file_name": "SIGNED-to-trinh.pdf", "is_private": 1},
+                {"file_url": "/private/REVIEW-abc12345-to-trinh.pdf",
+                 "file_name": "REVIEW-abc12345-to-trinh.pdf", "is_private": 1}]
+
+    def test_chi_chep_tep_nguoi_dung_dinh_kem(self):
+        fn, ins, _new = _load({"payment_amount": 10}, "Rejected", files=self._files())
+        out = fn(_definition(), "PR-1")
+        names = sorted(f["file_name"] for f in ins)
+        self.assertEqual(names, ["to-trinh.pdf"],
+                         "PDF da ky / ban doi chieu la tep HE THONG sinh ra, khong phai ho so")
+        self.assertEqual(out["attachments_copied"], 1)
+
+    def test_khong_bao_loi_cho_tep_bi_bo_qua(self):
+        # Bo qua co chu dich khac han voi chep hong - khong duoc bao vao danh sach loi.
+        fn, _i, _new = _load({"payment_amount": 10}, "Rejected", files=self._files())
+        self.assertEqual(fn(_definition(), "PR-1")["attachments_failed"], [])
 
 
 class TestTheOldRequestIsUntouched(unittest.TestCase):
