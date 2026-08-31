@@ -1304,8 +1304,37 @@
       c.innerHTML='<div style="padding:2px 0 14px;font-size:13.5px;color:var(--gray-700);line-height:1.5">Bạn sắp xoá vĩnh viễn nhiệm vụ <b>'+esc(subj)+'</b> (<code>'+esc(name)+'</code>).<br><span style="color:#c0392b;font-weight:600">Hành động này không thể hoàn tác.</span></div>'+
         '<div style="display:flex;gap:8px"><button class="pm-btn danger" id="td-del">Xoá vĩnh viễn</button><button class="pm-btn" id="td-cancel">Huỷ</button></div>';
       el("td-cancel").onclick=closeD;
-      el("td-del").onclick=function(){var btn=this;btn.disabled=true;btn.textContent="Đang xoá...";
-        api(PM+"tasks.delete",{name:name}).then(function(){toast("Đã xoá nhiệm vụ");closeD();refreshTaskContext();}).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent="Xoá vĩnh viễn";});};
+      /* Ask about sub-tasks up front. "Mọi người đều phải xong" makes parents-with-children
+         normal, and the old flow just dead-ended on "Nhiệm vụ có công việc con và không thể
+         xoá" with no way forward. delete_info also surfaces rows that genuinely cannot be
+         deleted (running timer / logged hours) BEFORE anything is removed. */
+      var _delInfo=null;
+      api(PM+"tasks.delete_info",{name:name}).then(function(inf){ _delInfo=inf||{};
+        var kids=(_delInfo.children||[]), blk=(_delInfo.blockers||[]);
+        var box=document.createElement("div"); box.style.cssText="margin:0 0 12px";
+        var h2="";
+        if(blk.length){
+          h2+='<div style="background:#FCEBEB;color:#A32D2D;border-radius:8px;padding:9px 11px;font-size:12.5px">'+
+              '<b>Không thể xoá</b><ul style="margin:5px 0 0 16px;padding:0">'+
+              blk.map(function(b){return '<li>'+esc(b.subject)+' — '+esc(b.reason)+'</li>';}).join("")+
+              '</ul><div style="margin-top:6px">Hãy huỷ nhiệm vụ thay vì xoá.</div></div>';
+          var db=el("td-del"); if(db){db.disabled=true;db.style.opacity=".5";}
+        } else if(kids.length){
+          h2+='<div style="background:#FAEEDA;color:#633806;border-radius:8px;padding:9px 11px;font-size:12.5px">'+
+              'Nhiệm vụ này có <b>'+kids.length+' nhiệm vụ con</b>. Xoá nhiệm vụ chính sẽ xoá luôn tất cả:'+
+              '<ul style="margin:5px 0 0 16px;padding:0">'+kids.slice(0,6).map(function(k){return '<li>'+esc(k.subject||k.name)+'</li>';}).join("")+
+              (kids.length>6?'<li>… và '+(kids.length-6)+' nhiệm vụ nữa</li>':'')+'</ul></div>';
+          var db2=el("td-del"); if(db2)db2.textContent="Xoá cả "+(kids.length+1)+" nhiệm vụ";
+        }
+        if(h2){ box.innerHTML=h2; c.insertBefore(box, c.firstChild); }
+      }).catch(function(){});
+      el("td-del").onclick=function(){var btn=this;btn.disabled=true;var _ot=btn.textContent;btn.textContent="Đang xoá...";
+        var kids=((_delInfo&&_delInfo.children)||[]);
+        api(PM+"tasks.delete",{name:name,cascade:kids.length?1:null}).then(function(r){
+          var n=((r&&r.children_deleted)||[]).length;
+          toast(n?("Đã xoá nhiệm vụ và "+n+" nhiệm vụ con"):"Đã xoá nhiệm vụ");
+          closeD();refreshTaskContext();
+        }).catch(function(e){toast("Lỗi: "+errOf(e),true);btn.disabled=false;btn.textContent=_ot;});};
     }).catch(function(e){c.innerHTML='<div class="pm-err">'+esc(errOf(e))+'</div>';});}
   function renderProjectCards(c){var rows=pmFilterProjects(); if(!rows.length){return emptyBox(c,"Không có dự án phù hợp.");}
     c.innerHTML='<div class="pm-pcards">'+rows.map(function(p){var prog=(p.progress!=null?p.progress:(p.percent_complete||0));

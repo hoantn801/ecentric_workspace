@@ -974,12 +974,13 @@ def set_status(name, action):
 
 
 @frappe.whitelist()
-def delete(name):
-    """Controlled hard-delete of a Task. LEADER-ONLY (can_see_all_pm_data). Allowed only
-    when the task has NO dependents (authoritative server-side checks; never trusts the
-    frontend): no child task, no Running/Paused PM Timer, no Timesheet Detail log. Uses
-    the standard frappe.delete_doc (no SQL, no force, no manual cascade) so Frappe's own
-    link checks still run; if any other document links the task, a clear error is returned.
+def delete(name, cascade=None):
+    """Controlled hard-delete of a Task. LEADER-ONLY (can_see_all_pm_data). Blockers are
+    checked server-side, never trusted from the frontend: a Running/Paused PM Timer or any
+    Timesheet Detail stops the delete (huỷ the task instead). Sub-tasks are allowed only with
+    `cascade`, and then every row -- parent and children -- is checked BEFORE the first
+    delete, so a blocked child cannot leave the tree half-deleted. Uses standard
+    frappe.delete_doc (no SQL, no force) so Frappe's own link checks still apply.
     """
     pmperm.require_pm_access()
     user = frappe.session.user
@@ -987,18 +988,65 @@ def delete(name):
         frappe.throw(_("Only PM leaders can delete tasks."), frappe.PermissionError)
     if not frappe.db.exists("Task", name):
         frappe.throw(_("Task not found."))
-    if frappe.db.count("Task", {"parent_task": name}):
-        frappe.throw(_("Nhiệm vụ có công việc con và không thể xoá."))
+    kids = frappe.get_all("Task", filters={"parent_task": name}, pluck="name") or []
+    if kids and not _truthy(cascade):
+        # Historically a hard stop. Since "Mọi người đều phải xong" creates one sub-task per
+        # assignee, parents with children are now routine, and the old message left people
+        # stuck. The caller asks the user first (see delete_info) and re-calls with cascade.
+        frappe.throw(_("Nhiệm vụ có {0} nhiệm vụ con. Xoá cả nhiệm vụ con để tiếp tục.").format(len(kids)))
+    for _n in ([name] + kids):
+        _assert_deletable(_n)
+    for _k in kids:
+        # A child cannot be deleted while it still points at the parent (NestedSet link
+        # check), so unlink then delete -- same order that works by hand.
+        frappe.db.set_value("Task", _k, "parent_task", "")
+        _delete_one(_k)
+    _delete_one(name)
+    return {"deleted": name, "children_deleted": kids}
+
+
+def _truthy(v):
+    return str(v or "").lower() not in ("", "0", "false", "none")
+
+
+def _assert_deletable(name):
+    """Blockers that make a hard delete wrong (kept per-row so a cascade fails BEFORE
+    deleting anything, instead of half-way through)."""
     if frappe.db.count("PM Timer", {"task": name, "status": ["in", ["Running", "Paused"]]}):
-        frappe.throw(_("Nhiệm vụ đang có timer và không thể xoá."))
+        frappe.throw(_("Nhiệm vụ {0} đang có timer và không thể xoá.").format(name))
     if frappe.db.count("Timesheet Detail", {"task": name}):
-        frappe.throw(_("Nhiệm vụ đã có log giờ và không thể xoá. Hãy huỷ nhiệm vụ thay vì xoá."))
+        frappe.throw(_("Nhiệm vụ {0} đã có log giờ và không thể xoá. "
+                       "Hãy huỷ nhiệm vụ thay vì xoá.").format(name))
+
+
+def _delete_one(name):
     try:
         frappe.delete_doc("Task", name, ignore_permissions=True)  # service layer is the gate; no force -> link checks apply
     except frappe.LinkExistsError:
-        frappe.throw(_("Không thể xoá: nhiệm vụ còn liên kết với dữ liệu khác. "
-                       "Hãy gỡ liên kết hoặc huỷ nhiệm vụ."))
-    return {"deleted": name}
+        frappe.throw(_("Không thể xoá {0}: nhiệm vụ còn liên kết với dữ liệu khác. "
+                       "Hãy gỡ liên kết hoặc huỷ nhiệm vụ.").format(name))
+
+
+@frappe.whitelist()
+def delete_info(name):
+    """What would deleting `name` take? Lets the UI ask "xoá luôn N nhiệm vụ con?" instead of
+    dead-ending on an error. Read-only; same leader gate as delete()."""
+    pmperm.require_pm_access()
+    if not pmperm.can_see_all_pm_data(frappe.session.user):
+        frappe.throw(_("Only PM leaders can delete tasks."), frappe.PermissionError)
+    kids = frappe.get_all("Task", filters={"parent_task": name},
+                          fields=["name", "subject"], limit_page_length=0) or []
+    blockers = []
+    for row in ([{"name": name, "subject": frappe.db.get_value("Task", name, "subject")}] + kids):
+        why = []
+        if frappe.db.count("PM Timer", {"task": row["name"], "status": ["in", ["Running", "Paused"]]}):
+            why.append("đang chạy timer")
+        if frappe.db.count("Timesheet Detail", {"task": row["name"]}):
+            why.append("đã có log giờ")
+        if why:
+            blockers.append({"name": row["name"], "subject": row.get("subject") or row["name"],
+                             "reason": ", ".join(why)})
+    return {"name": name, "children": kids, "blockers": blockers}
 
 
 @frappe.whitelist()
