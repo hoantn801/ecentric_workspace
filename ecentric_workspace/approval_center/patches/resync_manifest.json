@@ -193,8 +193,8 @@
     "sha256": "266607e3c3f31f89dd2eed2f25c3414cecd1be8578e4f77592da983a98af37d3"
   },
   "platform/esign/ui/document_signing_section.html": {
-    "last_resync_patch": "p119_resync_v3_ux_fixes",
-    "sha256": "0be747307dcbf6a0b16b7df70b3ad05dedd1b91134c7e070fc2d90b97675bca1"
+    "last_resync_patch": "p124_resync_doc_signing_progress_shadow",
+    "sha256": "ede9588f608e777207661c87dafffbc43e3d4def41cbd234c380300a783dbf67"
   },
   "platform/esign/ui/ops_page.html": {
     "last_resync_patch": "p122_resync_esign_ops_honest_retry_label",

@@ -248,7 +248,27 @@ class TestUnchangedChecks(unittest.TestCase):
         res = SignatureProviderAdapter.verify_signed_result(
             _state([_signer(email="ai.do@ecentric.vn")]), _expected())
         self.assertFalse(res.ok)
-        self.assertEqual(res.reason, "expected_signer_absent")
+        self.assertTrue(res.reason.startswith("expected_signer_absent:"), res.reason)
+
+    def test_signer_absent_NOI_RO_THIEU_AI_VA_TAI_LIEU_CO_MAY_NGUOI(self):
+        """Mot chuoi tran khong du de chan doan tren tai lieu nhieu nguoi ky.
+
+        02/09: mot chan ky quay bay lan `expected_signer_absent` tren tai lieu co nam nguoi
+        ky. Doc nhat ky xong van khong biet thieu ai, va khong phan biet duoc "SCTS chua kip
+        them dong" (cho la xong) voi "dinh danh khong khop" (cho mai cung khong xong).
+        """
+        res = SignatureProviderAdapter.verify_signed_result(
+            _state([_signer(email="ai.do@ecentric.vn"),
+                    _signer(email="ai.khac@ecentric.vn")]), _expected())
+        self.assertIn(str(_expected().get("user_id")), res.reason,
+                      "phai noi ro DANG TIM AI: %s" % res.reason)
+        self.assertIn("of2", res.reason,
+                      "phai noi tai lieu dang co MAY chan ky - 0 nghia la SCTS chua them ai, "
+                      "khac han voi 'co nguoi khac ma khong co nguoi nay': %s" % res.reason)
+
+    def test_tai_lieu_rong_thi_bao_of0(self):
+        res = SignatureProviderAdapter.verify_signed_result(_state([]), _expected())
+        self.assertIn("of0", res.reason, res.reason)
 
     def test_signer_not_signed(self):
         res = SignatureProviderAdapter.verify_signed_result(
