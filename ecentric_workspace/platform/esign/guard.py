@@ -320,6 +320,20 @@ def _record_signature_debt(req, level_no, actor):
             "approval_request": req.name, "level_no": level_no,
             "actor": actor or frappe.session.user,
             "reference_doctype": req.reference_doctype, "reference_name": req.reference_name})
+        # Bao cho CHINH NGUOI DUYET DO. Dong lich su o tren viet "chi chinh nguoi duyet
+        # nay ky bu duoc" ma khong he bao cho ho: mon no chi hien o /ec-esign/ops -
+        # trang cua nguoi truc van hanh, khong phai cua nguoi duyet. Nguoi DUY NHAT tra
+        # duoc no lai la nguoi duy nhat khong biet minh dang no; nhin tu ngoai, mot phieu
+        # no chu ky trong y het mot phieu da ky day du.
+        # Dat SAU phan ghi so va boc try RIENG: ghi no + dong lich su + su kien la bat
+        # buoc, thong bao la kenh phu. Gop chung mot try thi mot loi khi gui thong bao
+        # se nuot luon ca mon no - dung cai ma ban va nay sinh ra de tranh.
+        try:
+            engine.notify([actor or frappe.session.user],
+                          _("Còn nợ chữ ký số ở cấp {0}").format(level_no),
+                          req.reference_doctype, req.reference_name)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "esign.guard debt notify")
     except Exception:
         frappe.log_error(frappe.get_traceback(), "esign.guard._record_signature_debt")
 

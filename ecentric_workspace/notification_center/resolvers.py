@@ -37,20 +37,46 @@ _SOURCE = {
 
 
 def _action_url(document_type, document_name):
-    """Canonical click target, delegated to the Action Center builders (all of which
-    URL-encode their params). An item with no source reference yields '' (the frontend
-    renders it as non-clickable)."""
+    """Canonical click target = CHINH cai ma Action Center tra cho cung chung tu.
+
+    VI SAO uy quyen tron cho `ac.resolve_item` thay vi tu re nhanh: ham nay tung la
+    bo dung URL THU HAI cua he thong. No chi biet ba nhanh (Weekly Update / Task /
+    APPROVAL_DOCTYPES) roi rot xuong `build_desk_fallback_url`, nen no KHONG co
+    nhanh `has_engine_approval_link` va KHONG doc `PORTAL_FALLBACK` - hai thu ma
+    duong ToDo da co tu lau. Hau qua that: cung MOT cong viec, chuong tra
+    `/app/task/X` con the Action Center tra `/pm#task/X`; `EC Payment Request`,
+    `Attendance Request`, `Leave Application`, `EC Alert` tren chuong deu la link
+    Desk - ma ~44% tai khoan la Website User, bam vao la 403. Cong QC
+    `action_center/tests/test_no_desk_urls.py` chi soi `resolve_item`, nen nua he
+    thong nay chua tung co ai canh.
+
+    Uy quyen thi luat "DocType nao -> route nao" chi con MOT cho: them mot nhanh o
+    Action Center la chuong huong theo, khong the lech nua.
+
+    Luu y thu tu: `resolve_notification` uu tien `link` da luu (nhanh PRECEDENCE
+    2026-08-10) - deep link theo TUNG BAN GHI (`/approvals/<route>?id=<name>`, route
+    doc tu `EC Approval Type`) do `transitions.notify()` tinh va nay da duoc ghi lai
+    (xem `events.publish_notification_event`). Ham nay chi chay cho nhung dong khong
+    co `link`: thong bao cua Frappe/app khac, va cac dong cu truoc ban va do.
+    """
     dt = (document_type or "").strip()
     dn = (document_name or "").strip()
     if not dt or not dn:
         return ""
-    if dt == WTU:
-        wl = frappe.db.get_value(WTU, dn, "week_label") or ""
-        return ac.build_wtu_url(wl)
-    if dt == TASK:
-        return ac.build_task_url(dn)
-    if dt in ac.APPROVAL_DOCTYPES:
-        return ac.build_approval_url(dt, dn)
+    try:
+        item = ac.resolve_item({"name": "", "description": "",
+                                "reference_type": dt, "reference_name": dn})
+        url = (item or {}).get("action_url") or ""
+    except Exception:
+        # MOT dong hong khong duoc lam chet CA hop thu: `api.get_notifications` map
+        # ham nay qua moi dong, ma `resolve_item` co the nem that (vd `resolve_title`
+        # SELECT vao mot DocType da bi xoa/doi ten). Ghi lai roi ha canh mem.
+        frappe.log_error(frappe.get_traceback(), "notification_center action_url")
+        url = ""
+    if url:
+        return url
+    # Chi la luoi cuoi cung cho dong hong o tren - giu dung hanh vi truoc day cho
+    # RIENG dong do thay vi tra the khong bam duoc.
     return ac.build_desk_fallback_url(dt, dn)
 
 

@@ -293,6 +293,30 @@ def reconcile_and_complete_requester(dsr_name):
                               as_dict=True)
     if not dsr or dsr.actor_type != "Requester":
         return {"completed": False, "reason": "not_requester_dsr"}
+
+    def _alert_requester(subject, todo_text):
+        """Cham toi NGUOI DE NGHI khi chan ky cua chinh ho ket o mot trang thai khong tu
+        thoat ra duoc. Long trong ham cha co chu dich: day la ket cuc cua CHINH luong
+        doi soat nay, khong phai mot tien ich chung - tach ra module thi lan sau doc
+        `reconcile_and_complete_requester` khong con thay duong nao cham toi nguoi that.
+
+        Thong bao + mot viec tren chinh chung tu: chi thong bao thi phieu van vang mat
+        khoi Action Center (feed doc `tabToDo`, ma duong Option B chua tao ToDo nao).
+        Nuot loi va ghi Error Log: mot thong bao hong khong duoc lam roll back buoc doi
+        soat da ghi trang thai o tren."""
+        try:
+            from ecentric_workspace.approval_center.shared.workflow import transitions as engine
+            ref = frappe.db.get_value(AR, dsr.approval_request,
+                                      ["reference_doctype", "reference_name", "requested_by"],
+                                      as_dict=True) or {}
+            who = ref.get("requested_by") or dsr.actor_user
+            if not (who and ref.get("reference_doctype") and ref.get("reference_name")):
+                return
+            engine.notify([who], subject, ref.get("reference_doctype"), ref.get("reference_name"))
+            engine.assign(ref.get("reference_doctype"), ref.get("reference_name"), [who], todo_text)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "esign.requester alert requester")
+
     if dsr.status == "Signed":
         # promote to terminal + activate
         events.set_dsr_status(dsr_name, "Approval Completed",
@@ -302,9 +326,23 @@ def reconcile_and_complete_requester(dsr_name):
     if dsr.status == "Approval Completed":
         return activate_level_one_after_requester_signature(dsr.approval_request, dsr_name)
     if dsr.status == "Permanent Failure":
-        _set_req_status(dsr.approval_request, "Failed")
+        newly_failed = _set_req_status(dsr.approval_request, "Failed")
         events.emit("RequesterSignatureFailed", signature_request=dsr_name,
                     request_meta={"reason": "permanent_failure"})
+        # NGO CUT IM LANG NHAT cua duong "Gui & Ky" (Option B), truoc ban va nay:
+        # dat mot truong + emit mot event, het. Level 1 chua kich hoat nen KHONG co
+        # ToDo nao ton tai cho BAT KY AI, cap duyet khong biet co phieu, va
+        # `get_my_requests_summary` van dem phieu nay la "Pending" - trong y het mot
+        # phieu dang cho duyet binh thuong. Nguoi de nghi bam "Gui & Ky", man hinh
+        # dong, va khong bao gio duoc bao la hong.
+        # Bao + giao lai viec cho chinh nguoi de nghi de phieu thoi tang hinh. Chi bao
+        # o LAN CHUYEN TRANG THAI (`_set_req_status` tra True): ham nay idempotent va
+        # duoc worker/poll goi lai nhieu lan tren cung mot DSR da hong, ma `notify()`
+        # cua engine co dedupe_key kem dau thoi gian micro-giay nen KHONG bao gio khu
+        # trung - khong chan o day thi moi vong doi soat la mot DM Teams nua.
+        if newly_failed:
+            _alert_requester(_("Ký số thất bại — yêu cầu chưa được gửi duyệt"),
+                             _("Ký số thất bại: cần gửi & ký lại"))
         return {"completed": False, "reason": "failed"}
     if dsr.status in ("Verifying", "Retryable Failure", "Verification Mismatch", "Manual Review"):
         _set_req_status(dsr.approval_request, "Reconciliation Required")
@@ -313,9 +351,14 @@ def reconcile_and_complete_requester(dsr_name):
 
 
 def _set_req_status(ar, status):
+    """Tra True khi VUA THAT SU doi trang thai. Nguoi goi dung gia tri do lam chot mot
+    lan cho thong bao: ham doi soat la idempotent va bi goi lai nhieu vong tren cung mot
+    DSR, nen "co ghi khong" la tin hieu duy nhat phan biet lan dau voi lan lap."""
     cur = frappe.db.get_value(AR, ar, "requester_signature_status")
     if cur != "Signed" and cur != status:  # never downgrade a completed requester signature
         frappe.db.set_value(AR, ar, "requester_signature_status", status)
+        return True
+    return False
 
 
 def activate_level_one_after_requester_signature(request_name, dsr_name):

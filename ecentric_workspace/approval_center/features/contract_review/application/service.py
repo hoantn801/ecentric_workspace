@@ -123,6 +123,16 @@ def _notify_ceo_cc(req_name, doc):
     try:
         ceo = _process_level_users(doc, CEO_LEVEL_NO)
         if ceo:
+            # Cap quyen doc TRUOC khi gui link, neu khong thi thong bao co ma quyen
+            # khong co: cap CEO bi loai khoi snapshot (`skip_level_nos`) nen KHONG co
+            # dong `EC Approval Request Approver` nao, ma `permissions.can_view_request`
+            # chi cong nhan bon tu cach - System Manager / nguoi de nghi / approver CO
+            # DONG / fulfiller. "Participant cua Approval Process" khong tinh. Ket qua:
+            # CEO bam vao deep link trong DM la 403.
+            # `_engine_grant_read` la dung ham dung cho viec nay: chia se doc CHI mot
+            # chung tu nay, khong dung ToDo (CEO khong phai lam gi - day la ban CC).
+            for u in ceo:
+                engine._engine_grant_read(BUSINESS_DT, doc.name, u)
             engine.notify(ceo, _("[CC] Điều chỉnh hợp đồng: {0}").format(doc.request_title),
                           BUSINESS_DT, doc.name)
     except Exception:

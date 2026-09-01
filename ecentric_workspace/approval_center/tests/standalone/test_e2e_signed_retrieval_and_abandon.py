@@ -407,14 +407,33 @@ class TestPartialSigningNeverDownloads(unittest.TestCase):
             self.assertIn("non_signed_signer_present", reason)
 
     def test_du_het_thi_moi_dat(self):
+        """Chan ky phai co DANH TINH thi moi doi chieu duoc.
+
+        Tu 01/09, `status` terminal khong con la duong tat bo qua doi chieu danh tinh, nen
+        ban gia phai khai `action="Sign"` + nguoi ky nhu that. Ban gia thieu hai truong do
+        se bi tu choi voi "no_expected_signers" - dung, va do la fail-closed.
+        """
+        doc = types.SimpleNamespace(status="Signed", signers=[
+            {"status": "signed", "user_id": "u1", "email": "a@ec.vn"}])
+        adapter = _Adapter(doc_state=doc)
+        rows = [{"name": "DSR-1", "status": "Approval Completed", "package": "PKG-1",
+                 "action": "Sign", "effective_scts_user_id": "u1",
+                 "actor_user": "a@ec.vn", "approver": "a@ec.vn"}]
+        with _Ctx(_pkg_tables(), dsr_rows=rows, adapter=adapter) as c:
+            ok, reason = c.env["_terminal_signed_ok"](adapter, self._pkg(c))
+            self.assertTrue(ok)
+            self.assertEqual(reason, "terminal_and_all_expected_signers_signed")
+
+    def test_KHONG_co_danh_tinh_ky_vong_thi_tu_choi(self):
+        """Fail-closed: khong biet ai duoc ky thi khong the ket luan la da ky dung."""
         doc = types.SimpleNamespace(status="Signed", signers=[
             {"status": "signed", "user_id": "u1", "email": "a@ec.vn"}])
         adapter = _Adapter(doc_state=doc)
         rows = [{"name": "DSR-1", "status": "Approval Completed", "package": "PKG-1"}]
         with _Ctx(_pkg_tables(), dsr_rows=rows, adapter=adapter) as c:
             ok, reason = c.env["_terminal_signed_ok"](adapter, self._pkg(c))
-            self.assertTrue(ok)
-            self.assertEqual(reason, "terminal_status")
+            self.assertFalse(ok)
+            self.assertEqual(reason, "no_expected_signers")
 
 
 class TestHashMismatchKeepsAcceptedFile(unittest.TestCase):

@@ -101,4 +101,10 @@ for (const feat of FEATURES) {
 }
 
 console.log(pass + " dat, " + fail + " hong (" + FEATURES.length + " feature x 3 phep)");
-process.exit(fail || pass !== 78 ? 1 : 0);
+// Nguong PHAI theo so feature quet duoc, khong phai hang so. Hang 78 la cua thoi 26
+// feature; sang 27 feature thanh 81 phep -> in "0 hong" ma van exit 1, va xoa bot mot
+// feature lai lam no XANH (BOT 10, 01/09). Runner cua minh doc DONG CUOI chu khong doc
+// ma thoat nen khong ai thay - hai loi do luong chong nhau.
+const want = FEATURES.length * 3;
+if (pass !== want) console.error("HONG: chay " + pass + " phep, ky vong " + want);
+process.exit(fail || pass !== want ? 1 : 0);

@@ -315,10 +315,14 @@
       // trang nay sinh ra de xoa bo.
       var done = o && (o.completed || o.ok || o.retried || o.cancelled || o.reconciled);
       var detail = (o && (o.reason || o.note || o.status)) || "";
-      msg(done ? ("Xong." + (detail ? " " + detail : ""))
-               : ("Chưa xử lý được" + (detail ? ": " + detail : ". Xem lại phiếu.")),
-          done ? "ok" : "err");
-      return load();
+      var say = done ? ("Xong." + (detail ? " " + detail : ""))
+                     : ("Chưa xử lý được" + (detail ? ": " + detail : ". Xem lại phiếu."));
+      msg(say, done ? "ok" : "err");
+      // load() mo dau bang msg("Dang tai...") nen no XOA NGAY ket qua vua bao. Cac hanh dong
+      // o day khong hoan tac duoc (huy chan ky, mien no chu ky, ngung thu lai) ma nguoi bam
+      // khong kip doc ket qua - dung cai loi im lang ma trang nay sinh ra de xoa bo
+      // (BOT 12, 01/09). Nap lai xong thi noi lai.
+      return load().then(function () { msg(say, done ? "ok" : "err"); });
     }).catch(function (e) {
       btn.disabled = false;
       msg((e && e.message) || "Lỗi không rõ.", "err");

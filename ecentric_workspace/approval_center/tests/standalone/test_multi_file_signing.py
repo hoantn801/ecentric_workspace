@@ -26,7 +26,18 @@ from datetime import datetime
 # phai mo phong CUNG mot rang buoc, neu khong no chi la mot nguon su that thu hai.
 from datetime import timedelta  # noqa: E402
 
-if "frappe" not in sys.modules:
+# `frappe` co san trong sys.modules KHONG co nghia la no du dung.
+#
+# Dieu kien cu chi hoi "co chua"; mot module test khac chay truoc co the de lai mot stub
+# HEP HON (chi vai thuoc tinh no can) va khong don di. Khi do file nay bo qua buoc dung
+# stub roi vo o dong import - `discover` do trong khi chay rieng thi xanh, tuc mot lo hong
+# phu thuoc THU TU CHAY (BOT 10 lam lo ra ngay 01/09 khi them file test moi).
+#
+# Gio hoi thang thu minh CAN: khong du thi tu dung lai cho minh.
+_fr = sys.modules.get("frappe")
+if not (_fr and getattr(_fr, "utils", None)
+        and getattr(_fr.utils, "now_datetime", None)
+        and getattr(_fr, "get_doc", None)):
     fr = types.ModuleType("frappe")
     fr._ = lambda x: x
     fr.conf = {}

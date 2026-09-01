@@ -306,7 +306,21 @@
   function clearFieldError(id){ setFieldError(id,null); }
   var FIELD_IDS=["reason","payment_amount","payment_date","payee_full_name","account_bank","bank_account_number","has_purchase_request","purchase_request","no_purchase_request_reason","is_cost_valid","details_and_attachments_correct","request_attachment"];
   function showFieldErrors(errs){ FIELD_IDS.forEach(function(id){ setFieldError(id,(errs&&errs[id])||null); });
-    var first=errs&&Object.keys(errs)[0]; if(first){ var el=document.querySelector('[data-fld="'+first+'"] input,[data-fld="'+first+'"] select,[data-fld="'+first+'"] textarea'); if(el&&el.focus){ try{el.focus();}catch(e){} } } }
+    var first=errs&&Object.keys(errs)[0];
+    if(first){
+      var wrap=document.querySelector('[data-fld="'+first+'"]');
+      var el=wrap&&(wrap.querySelector("input")||wrap.querySelector("select")||wrap.querySelector("textarea"));
+      // O bi AN thi khong focus duoc, va nguoi dung chi thay mot loi tro vao hu khong.
+      // `request_attachment` la ca dien hinh: truong bat buoc, nhung o cua no bi mot luat
+      // CSS cua khoi ky so an di (be mat tai len that nam trong "TAI LIEU & KY SO").
+      // Truoc day focus roi vao khoang khong -> ngo cut (BOT 12, 01/09). Gio: dua nguoi
+      // dung toi dung cho ho phai thao tac.
+      var hidden=!el||!el.offsetParent;
+      if(hidden){
+        var doc=document.getElementById("ec-docsign")||document.getElementById("ec-esign-panel");
+        if(doc){ try{ doc.scrollIntoView({behavior:"smooth",block:"start"}); }catch(e){ try{doc.scrollIntoView();}catch(_e){} } }
+      } else if(el.focus){ try{el.focus();}catch(e){} }
+    } }
   function validateSubmit(){ var d=state.draft||{}; var errs={};
     if(!((d.reason||"").toString().trim())) errs.reason="Vui lòng nhập lý do / nội dung thanh toán.";
     if(d.payment_amount==null||d.payment_amount==="") errs.payment_amount="Vui lòng nhập số tiền.";
@@ -319,7 +333,7 @@
     if(!((d.has_purchase_request||"").toString().trim())) errs.has_purchase_request="Vui lòng chọn có/không Purchase Request.";
     if(!((d.is_cost_valid||"").toString().trim())) errs.is_cost_valid="Vui lòng chọn chi phí hợp lệ.";
     if(d.details_and_attachments_correct!=="Yes") errs.details_and_attachments_correct="Vui lòng tích xác nhận thông tin và tệp đính kèm là chính xác.";
-    if(!((d.request_attachment||"").toString().trim())) errs.request_attachment="Vui lòng đính kèm tệp (bắt buộc).";
+    if(!((d.request_attachment||"").toString().trim())) errs.request_attachment="Vui lòng tải tài liệu ở mục “TÀI LIỆU & KÝ SỐ” bên dưới (bắt buộc). Nếu chưa thấy nút tải, hãy Lưu nháp trước.";
     if(d.has_purchase_request==="Yes"){
       if(!((d.funding_source_doctype||"").toString().trim())) errs.funding_source_doctype="Vui lòng chọn loại nguồn chi phí.";
       if(!((d.funding_source_name||"").toString().trim())) errs.funding_source_name="Vui lòng chọn chứng từ nguồn.";
