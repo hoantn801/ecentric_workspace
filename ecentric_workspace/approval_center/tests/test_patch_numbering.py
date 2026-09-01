@@ -52,7 +52,10 @@ def main():
             print("PASS - p%s khong con trung (co the go khoi KNOWN_DUPLICATES)" % num)
 
     highest = max(int(n) for n in by_number) if by_number else 0
-    print("PASS - so patch cao nhat dang dung: p%03d (patch moi phai lon hon)" % highest)
+    print("PASS - so patch cao nhat trong nhanh nay: p%03d" % highest)
+    print("       LUU Y: so nay chi tinh trong NHANH DANG LAM. Nhanh khac co the da dung")
+    print("       so cao hon. Truoc khi dat so patch moi: git fetch origin && "
+          "git ls-tree --name-only origin/main -- <patches>/ | tail")
 
     # patches.txt phải khai đúng những patch có trên đĩa (không thừa, không thiếu dòng)
     with open(os.path.join(root, "..", "patches.txt"), encoding="utf-8") as fh:
