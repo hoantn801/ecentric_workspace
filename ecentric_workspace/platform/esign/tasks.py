@@ -315,14 +315,18 @@ def process_signing_request(dsr_name):
             # locked for_update so state cannot drift within this transaction.
             # Submit exactly once from Queued; acceptance != success (async).
             #
-            # CHOT MOT CHIEU: neu chan ky nay DA TUNG gui bulk-process (co
-            # bulk_job_transaction_id) thi KHONG gui lai. Duong nguy hiem: Provider Accepted
-            # -> loi poll -> Retryable Failure -> quay ve Queued -> nhanh nay gui LAN HAI.
-            # Lenh ky khong idempotent - lan hai co the tao chu ky thu hai tren cung tai
-            # lieu. POLL-FIRST o tren chi cuu duoc khi chu ky da kip xuat hien; cua so con
-            # lai phai co nguoi nhin (BOT C, 31/08). Fail-closed: day sang Manual Review de
+            # CHOT MOT CHIEU: neu chan ky nay CO THE DA TUNG gui thi KHONG gui lai. Duong
+            # nguy hiem: Provider Accepted -> loi poll -> Retryable Failure -> quay ve Queued
+            # -> nhanh nay gui LAN HAI. Lenh ky khong idempotent - lan hai co the tao chu ky
+            # thu hai tren cung tai lieu. POLL-FIRST o tren chi cuu duoc khi chu ky da kip
+            # xuat hien; cua so con lai phai co nguoi nhin.
+            #
+            # Dung CHINH tin hieu `may_have_sent` (accepted_at HOAC txn HOAC request_attempt>1),
+            # KHONG chi `bulk_job_transaction_id`. Ban dau chi nhin txn, nhung mot HTTP 200
+            # KHONG kem txn (portal khong tra transaction id) van dat accepted_at - nen chi
+            # nhin txn thi cua so nay lot (BOT vong 3, 01/09). Fail-closed: Manual Review de
             # "Doi soat" (chi DOC) quyet dinh, khong bao gio doan.
-            if dsr.bulk_job_transaction_id:
+            if may_have_sent:
                 events.set_dsr_status(dsr_name, "Manual Review", event_type="ManualReview",
                                       extra_fields={"manual_review_reason":
                                                     "prior_bulk_submit_uncertain"})
@@ -639,14 +643,20 @@ def sweep_stale():
 
 def _dead_letter_todo(dsr_name):
     """Exactly one Open ToDo per Manual Review DSR, assigned to a System Manager
-    (Administrator fallback)."""
+    (Administrator fallback), plus a notification to that owner AND to the person whose
+    signature is stuck."""
     if frappe.db.exists("ToDo", {"reference_type": DSR, "reference_name": dsr_name,
                                  "status": "Open"}):
         return
     owner = None
+    # `order_by` KHONG phai trang tri: khong co no thi nguoi nhan viec phu thuoc thu tu
+    # tra ve cua DB - cung mot loai su co, hai lan chay co the roi vao hai nguoi khac
+    # nhau, va khong ai la nguoi chiu trach nhiem co dinh. Sap theo `parent` cho ket qua
+    # on dinh va tai lap duoc khi di truy nguyen mot su co.
     for u in frappe.get_all("Has Role", filters={"role": "System Manager",
                                                  "parenttype": "User"},
-                            fields=["parent"], distinct=True, limit_page_length=20):
+                            fields=["parent"], distinct=True, order_by="parent asc",
+                            limit_page_length=20):
         r = frappe.db.get_value("User", u.parent, ["enabled", "user_type"], as_dict=True)
         if r and r.enabled and r.user_type == "System User" and u.parent != "Administrator":
             owner = u.parent
@@ -655,6 +665,21 @@ def _dead_letter_todo(dsr_name):
                     "reference_type": DSR, "reference_name": dsr_name,
                     "description": "esign: signing request needs manual review",
                     "assigned_by": "Administrator"}).insert(ignore_permissions=True)
+    # Mot dong trong `tabToDo` khong phai mot lan cham toi nguoi that: nguoi truc chi
+    # thay no neu tu mo Action Center, con NGUOI DANG CHO KY (nguoi duyet / nguoi de
+    # nghi) thi khong co gi bao ca - phieu cua ho dung im o mot trang thai khong tu
+    # thoat ra duoc. Thong bao di qua dung pipeline chung nen the chuong tro ve
+    # /ec-esign/ops (nhanh esign trong action_center.resolvers), noi sua duoc chan ky.
+    # Nuot loi: mot thong bao hong khong duoc lam mat viec dead-letter vua tao.
+    try:
+        from ecentric_workspace.approval_center.shared.workflow import transitions as engine
+        d = frappe.db.get_value(DSR, dsr_name, ["actor_user", "requested_by"],
+                                as_dict=True) or {}
+        who = [owner or "Administrator", d.get("actor_user"), d.get("requested_by")]
+        engine.notify([w for w in who if w],
+                      "Chữ ký số cần can thiệp thủ công: %s" % dsr_name, DSR, dsr_name)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign.tasks._dead_letter_todo notify")
 
 
 def _enqueue_signed_retrieval(package_name, complete_result):

@@ -959,12 +959,29 @@
         render();
       })
       .catch(function (e) {
-        // KHONG nuot loi. catch rong o day tung de khoi "Dang tai..." treo vinh vien khi
-        // endpoint 500 - nguoi dung khong co mot chu nao de bao ky thuat, va ky thuat khong
-        // co gi de tim (BOT 3, 31/08). Loi that thi noi that.
-        var m = document.getElementById("ecdMsg") || document.getElementById("ecdViewerMsg");
-        if (m) m.textContent = "Không tải được trạng thái ký số"
-          + ((e && e.message) ? " — " + e.message : "") + ". Tải lại trang; còn lỗi thì báo kỹ thuật.";
+        // KHONG nuot loi, VA phai noi o cho NHIN THAY DUOC.
+        //
+        // Ban va 31/08 dat cau loi vao #ecdMsg - mot phan tu KHONG TON TAI - va fallback
+        // #ecdViewerMsg thi nam trong drawer dang dong. Khoi nay mac dinh display:none va
+        // chi hien trong nhanh .then, nen khi endpoint hong no bien mat im lang y nhu truoc:
+        // "khong nuot loi" tren giay, van nuot loi tren man hinh (BOT 12, 01/09).
+        //
+        // Gio: HIEN khoi ra, dung mot o thong bao co that (tao neu chua co) ngay trong root
+        // cua chinh minh - khong voi ra ngoai, khong phu thuoc drawer.
+        relocate(); root.style.display = "block";
+        var m = document.getElementById("ecdLoadErr");
+        if (!m) {
+          m = document.createElement("div");
+          m.id = "ecdLoadErr";
+          m.setAttribute("role", "alert");
+          m.style.cssText = "margin:10px 0;padding:10px 12px;border:1px solid #ffcdc9;"
+                          + "background:#fff5f4;border-radius:8px;color:#b42318;font-size:13px";
+          root.insertBefore(m, root.firstChild);
+        }
+        m.textContent = "Không tải được phần Tài liệu & ký số"
+          + ((e && e.message) ? " — " + e.message : "")
+          + ". Hãy tải lại trang; nếu vẫn lỗi thì báo kỹ thuật (đây là lỗi hệ thống, "
+          + "không phải do bạn thiếu quyền).";
         if (window.console) console.error("[ec-docsign] setup_state failed", e);
       });
   }

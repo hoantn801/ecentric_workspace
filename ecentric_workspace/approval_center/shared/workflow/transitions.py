@@ -1066,6 +1066,13 @@ def request_information(request_name, actor=None, comment=None):
         frappe.throw(_("A comment is mandatory when requesting information."))
     req = frappe.get_doc("EC Approval Request", request_name)
     _guard_open(req)
+    frappe.db.get_value("EC Approval Request", request_name, "name", for_update=True)  # row lock
+    # Cung lop loi da va o approve/reject/cancel (BOT vong 2): doc lai trang thai SAU khoa.
+    # request_information truoc day bi bo sot - dua voi reject/cancel/approve-ve-terminal thi
+    # no ghi de, hoi sinh mot phieu da Rejected/Cancelled/Approved ve "Information Required".
+    req.approval_status = frappe.db.get_value("EC Approval Request", request_name,
+                                              "approval_status")
+    _guard_open(req)
     row = _actor_pending_row(request_name, req.current_level, actor)
     if not row:
         frappe.throw(_("You are not a pending approver for the current level."))
@@ -1097,9 +1104,23 @@ def _esign_on_reopen(request_name):
 
 
 def resubmit(request_name, actor=None, restart=False):
+    # Khoa hang TRUOC khi doc chung tu - ham cuoi cung trong nhom quyet dinh con thieu
+    # khoa (approve/reject/cancel vao vong 2, request_information vong 3). Doc truoc khi
+    # khoa thi trang thai doc duoc chi la tin don: mot phieu vua bi Tu choi/Huy o request
+    # ben canh van duoc gui lai va song day.
+    frappe.db.get_value("EC Approval Request", request_name, "name", for_update=True)  # row lock
     req = frappe.get_doc("EC Approval Request", request_name)
     if req.approval_status not in ("Information Required",) and not restart:
         frappe.throw(_("Only an Information Required request can be resubmitted."))
+    # Cua `restart` KHONG phai mot cong trang thai: moi service form truyen
+    # restart=material_changed, tuc dieu kien den tu SO SANH CHU KY NOI DUNG chu khong
+    # tu may trang thai. Nen phai dung CHUNG _guard_open voi ba ham quyet dinh kia:
+    # phieu terminal (Approved/Rejected/Cancelled) khong duoc hoi sinh, ke ca qua duong
+    # restart=True. Hoi sinh mot phieu da Approved dang o giai doan thuc hien thi
+    # _activate_level goi close_todos KHONG pham vi -> huy luon viec cua nguoi dang xu ly
+    # trong khi fulfillment_status van "In Progress": cong viec mo coi, the bien mat khoi
+    # Action Center cua chinh nguoi do.
+    _guard_open(req)
     # Revise the signing package BEFORE the levels are reset: whether the approval resumes
     # mid-chain or starts over depends on whether signatures were already collected.
     esign = _esign_on_reopen(request_name)
@@ -1195,6 +1216,16 @@ def complete_approval(req):
     frappe.db.set_value("EC Approval Request", req.name,
                         {"approval_status": "Approved", "current_level": 0, "completed_at": now_datetime()})
     log_action(req.name, "Approved", "Administrator", comment=_("All levels approved"), new_status="Approved")
+    # Ket thuc CO HAU cung phai bao - truoc day day la transition DUY NHAT khong bao ai.
+    # reject/cancel/request_information deu bao nguoi de nghi; rieng "da duyet xong" thi
+    # im. Voi 6 loai co _FULFILLMENT_HANDLERS thi handler bao ho, con ~21 loai con lai
+    # (trong do co EC Payment Request, EC Purchase Request, EC Contract Review Request,
+    # toan bo nhom HR) thi: ToDo bi dong het, phieu roi khoi Action Center, va nguoi de
+    # nghi chi biet bang cach tu mo lai trang. Bao TRUOC khi dong ToDo/goi handler nen
+    # thu tu nay khong phu thuoc vao viec loai do co handler hay khong.
+    notify([req.requested_by], _("Yêu cầu đã được duyệt: {0}").format(
+        request_label(req.reference_doctype, req.reference_name, req.approval_type)),
+        req.reference_doctype, req.reference_name)
     close_todos(req.reference_doctype, req.reference_name)
     handler = _FULFILLMENT_HANDLERS.get(req.reference_doctype)
     if handler:

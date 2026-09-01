@@ -26,6 +26,27 @@ TASK = "Task"
 #: whose per-record route cannot be resolved.
 APPROVAL_HUB_ROUTE = "/approvals"
 
+#: Trang "Chan ky can can thiep" -- noi DUY NHAT sua duoc mot chan ky hong.
+#: Gia tri phai khop `platform/esign/ops_page_sync.py:ROUTE` (o do khong co dau `/`
+#: dau vi Frappe Web Page luu route khong dau gach); khong import cheo de module nay
+#: khong keo theo ca chuoi phu thuoc cua esign chi de biet mot chuoi.
+ESIGN_OPS_ROUTE = "/ec-esign/ops"
+
+#: Hai DocType cua esign co ToDo ngo-cut (dead-letter): Manual Review
+#: (`esign/tasks.py:_dead_letter_todo`) va sai hash file da ky
+#: (`esign/signed_files.py:_dead_letter_review`).
+#:
+#: VI SAO phai co nhanh RIENG, dat TRUOC nhanh `has_engine_approval_link`: ca hai
+#: DocType nay deu khai Link `approval_request`, nen nhanh engine nuot truoc va tra
+#: `/approvals` - hub phe duyet cua chinh nguoi truc van hanh, noi KHONG co nut nao sua duoc
+#: mot chan ky dang hong. Nhac viec mo duoc ma van la ngo cut. Them vao
+#: PORTAL_FALLBACK la KHONG du vi thu tu nhanh (xem test
+#: `test_esign_ops_route_needs_a_branch_before_the_engine_link_arm`).
+ESIGN_OPS_DOCTYPES = frozenset({
+    "EC Digital Signature Request",
+    "EC Digital Signature Package",
+})
+
 #: reference_type -> PORTAL destination for sources that own a portal page but
 #: have no per-record deep link. Without this the resolver fell through to the
 #: Desk fallback (/app/<doctype>/<name>), a permission-denied dead end for
@@ -490,6 +511,16 @@ def resolve_item(todo_row):
         title = resolve_title(ref_type, ref_name)
         subtitle = ref_type + " · " + ref_name
         action_url = build_approval_url(ref_type, ref_name)
+    elif ref_type in ESIGN_OPS_DOCTYPES and ref_name:
+        # Ngo cut cua esign (Manual Review / sai hash file da ky) -> trang van hanh
+        # chan ky, KHONG phai hub phe duyet. Nhanh nay phai dung TRUOC nhanh
+        # has_engine_approval_link ngay duoi: ca hai DocType deu khai Link
+        # `approval_request` nen nhanh do se nuot chung va gui nguoi xu ly ve
+        # `/approvals`, noi khong co hanh dong nao cuu duoc chan ky dang hong.
+        src = _GENERIC_SRC
+        title = ref_name
+        subtitle = ref_type
+        action_url = ESIGN_OPS_ROUTE
     elif ref_type and ref_name and has_engine_approval_link(ref_type):
         # Engine-governed business document. Its canonical per-record URL is
         # applied later by the feed (apply_approval_normalization). If that

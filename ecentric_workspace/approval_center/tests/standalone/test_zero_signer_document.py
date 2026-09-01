@@ -42,14 +42,26 @@ class _Doc(object):
 def _load_checker():
     """Chay THAT doan quyet dinh, khong grep - `if not signers` co the bi vo hieu ma
     chuoi van con trong source."""
+    # Chay TRON ven doan quyet dinh - tu poll_status toi het ham. Ban dau cat toi moc
+    # `exp_ids`, nhung 01/09 khoi doi chieu danh tinh duoc dua LEN truoc terminal-status
+    # (va lo hong UAT VOID 5 nga khac), nen cat theo moc do la bo mat chinh phan vua sua.
     src = _src("platform", "esign", "signed_files.py")
-    m = re.search(r"(?m)^    doc = adapter\.poll_status.*?(?=\n    exp_ids)", src, re.S)
-    assert m, "khong tim thay doan quyet dinh trong _all_signed"
+    m = re.search(r"(?m)^    doc = adapter\.poll_status.*?\n    return True, \"all_expected_signers_signed\"",
+                  src, re.S)
+    assert m, "khong tim thay doan quyet dinh trong _terminal_signed_ok"
     body = m.group(0)
     fn = "def decide(adapter, pkg):\n" + body + "\n    return None, 'fell_through'\n"
-    g = {"_TERMINAL_SIGNED": ("signed", "completed", "complete", "done", "finished", "success")}
+    g = {"_TERMINAL_SIGNED": ("signed", "completed", "complete", "done", "finished", "success"),
+         # Nguoi ky ky vong: test khai qua pkg.expected_pairs = [(id, email), ...].
+         # Nguon doi tu `_expected_signers` (hai tap hop) sang `_expected_signer_pairs`
+         # (giu ghep doi) ngay 01/09 - ban gia phai theo, khong thi no goi ham that va no.
+         "_expected_signer_pairs":
+             lambda name: list(getattr(_CUR_PKG[0], "expected_pairs", []))}
     exec(compile(fn, "decide", "exec"), g)
     return g["decide"]
+
+
+_CUR_PKG = [None]
 
 
 class _Adapter(object):
@@ -63,11 +75,15 @@ class _Adapter(object):
 class _Pkg(object):
     scts_document_id = "DOC-1"
     name = "PKG-1"
+    #: [(provider_user_id, email)] nguoi ky KY VONG. Tu 01/09 danh tinh duoc xet KE CA
+    #: khi tai lieu terminal, nen moi ca "ky that" phai khai ai la nguoi duoc ky.
+    expected_pairs = [("u1", None)]
 
 
 class TestZeroSignersIsNeverProof(unittest.TestCase):
     def setUp(self):
         self.decide = _load_checker()
+        _CUR_PKG[0] = _Pkg()
 
     def test_completed_with_no_signers_is_refused(self):
         ok, why = self.decide(_Adapter(_Doc("Hoàn thành", [])), _Pkg())
@@ -81,10 +97,29 @@ class TestZeroSignersIsNeverProof(unittest.TestCase):
             self.assertFalse(ok, "status=%r + 0 nguoi ky -> van bao da ky" % status)
 
     def test_a_real_signed_signer_still_passes(self):
+        pkg = _Pkg()
+        _CUR_PKG[0] = pkg
         ok, why = self.decide(
-            _Adapter(_Doc("completed", [{"status": "signed"}])), _Pkg())
+            _Adapter(_Doc("completed", [{"status": "signed", "user_id": "u1"}])), pkg)
         self.assertTrue(ok, "chan qua tay: chung tu ky that bi tu choi")
-        self.assertEqual(why, "terminal_status")
+        self.assertEqual(why, "terminal_and_all_expected_signers_signed")
+
+    def test_terminal_KHONG_con_bo_qua_doi_chieu_danh_tinh(self):
+        """01/09: `status=completed` tung lam khoi doi chieu danh tinh thanh ma chet.
+
+        Nguoi NGOAI ky thay, hoac thieu nguoi ky ky vong, ma provider dan nhan "completed"
+        thi truoc day van qua cong. Terminal la dieu kien CAN, khong phai DU.
+        """
+        pkg = _Pkg()
+        _CUR_PKG[0] = pkg
+        ok, why = self.decide(
+            _Adapter(_Doc("completed", [{"status": "signed", "user_id": "NGUOI-LA"}])), pkg)
+        self.assertFalse(ok, "nguoi ky la van qua cong khi tai lieu terminal")
+        # Hai ly do deu dung: nguoi ky vong VANG MAT, va nguoi co mat la NGUOI LA. Phep
+        # kiem nay quan tam "co bi chan khong", khong ap dat thu tu phat hien.
+        self.assertTrue(
+            any(k in str(why) for k in ("expected_signer_absent", "unexpected_signer_identity")),
+            "phai chan vi danh tinh, ly do nhan duoc: %r" % (why,))
 
     def test_a_pending_signer_still_blocks(self):
         ok, why = self.decide(

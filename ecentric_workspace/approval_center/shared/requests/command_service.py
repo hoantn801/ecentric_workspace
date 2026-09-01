@@ -296,6 +296,15 @@ def request_information(definition, name, comment=None):
 
 
 def resubmit(definition, name, payload=None):
+    # Chot quyen o CUA VAO, giong cancel(). `can_resubmit` da co san trong capabilities tu
+    # lau nhung facade khong he goi - nen chi co may trang thai o tang duoi chan, con "ai
+    # duoc gui lai" thi khong ai hoi (BOT 8, 01/09). Kiem TRUOC save_draft: sai nguoi thi
+    # khong duoc ghi de ban nhap cua nguoi khac.
+    user = frappe.session.user
+    document = frappe.get_doc(definition.business_doctype, name)
+    request = capabilities.approval_request_for(definition, name)
+    if not capabilities.derive(user, document, request)["can_resubmit"]:
+        frappe.throw(_("Bạn không được phép gửi lại yêu cầu này."), frappe.PermissionError)
     if payload:
         save_draft(definition, name=name, payload=payload)
     result = definition.resubmitter(name, frappe.session.user) or {}

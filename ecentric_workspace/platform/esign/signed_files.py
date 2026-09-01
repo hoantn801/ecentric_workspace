@@ -43,12 +43,37 @@ def _expected_signers(package_name):
     """The internal signer identities ERP submitted for this package (one per Sign DSR):
     provider user ids AND the bound ERP users' emails (eContract's Document detail exposes
     internal signers by email only). Used in the signer-based fallback."""
+    ids, emails = set(), set()
+    for iden, mail in _expected_signer_pairs(package_name):
+        if iden:
+            ids.add(iden)
+        if mail:
+            emails.add(mail)
+    return ids, emails
+
+
+def _expected_signer_pairs(package_name):
+    """MOT CAP (provider_user_id, email) cho MOI chan ky - giu nguyen su ghep doi.
+
+    Vi sao can cap thay vi hai tap hop roi. Phep kiem cu duyet tung id ky vong roi tha neu
+    `exp_emails & present_emails` khac rong - tuc chi can MOT nguoi bat ky khop email la moi
+    id vang mat deu duoc bo qua. Voi goi 2 nguoi ky: A ky (khop email cua A), B khong ky ->
+    id cua B vang nhung giao email van khac rong -> qua cong. Mot chung tu duyet chi thieu
+    han chu ky cua mot cap ma he van bao "da ky day du" (BOT vong 3, 01/09).
+
+    Danh tinh cua MOT nguoi co the den bang id HOAC email - do la ly do co hai truong. Nhung
+    su thay the do chi hop le TRONG PHAM VI mot nguoi, khong phai giua nhung nguoi khac nhau.
+    """
     rows = frappe.get_all(DSR, filters={"package": package_name, "action": "Sign"},
                           fields=["effective_scts_user_id", "actor_user", "approver"])
-    ids = {str(r.effective_scts_user_id) for r in rows if r.effective_scts_user_id}
-    emails = {str(r.actor_user or r.approver).strip().lower()
-              for r in rows if (r.actor_user or r.approver)}
-    return ids, emails
+    out = []
+    for r in rows:
+        iden = str(r.effective_scts_user_id) if r.effective_scts_user_id else None
+        who = r.actor_user or r.approver
+        mail = str(who).strip().lower() if who else None
+        if iden or mail:
+            out.append((iden, mail))
+    return out
 
 
 def _terminal_signed_ok(adapter, pkg):
@@ -100,29 +125,39 @@ def _terminal_signed_ok(adapter, pkg):
         if st != "signed":
             return False, "non_signed_signer_present:%s" % (st or "unknown")
 
-    if status in _TERMINAL_SIGNED:
-        return True, "terminal_status"
-
-    # signer-based fallback: EVERY expected signer present + signed; identities match.
-    exp_ids, exp_emails = _expected_signers(pkg.name)
-    if not (exp_ids or exp_emails):
+    # DANH TINH + DAY DU NGUOI KY phai xet BAT KE trang thai dinh cua tai lieu.
+    #
+    # Truoc day: `if status in _TERMINAL_SIGNED: return True` chay TRUOC khoi doi chieu duoi,
+    # nen khi nha cung cap tra `status='completed'` thi toan bo phan xac minh "du nguoi ky ky
+    # vong + dung danh tinh" thanh MA CHET. Hau qua: mot tai lieu co 1 nguoi ky (trong khi ky
+    # vong 3), hoac mot nguoi NGOAI ky thay, ma provider dan nhan "completed" van qua cong va
+    # bi tai ve dong dau hoan tat (dung lop loi UAT VOID 5, chi khac nga vao). BOT vong 3 phat
+    # hien 01/09. Trang thai terminal la DIEU KIEN CAN, khong phai DU: van phai co du nguoi ky
+    # ky vong, khong nguoi la nao.
+    pairs = _expected_signer_pairs(pkg.name)
+    if not pairs:
         return False, "no_expected_signers"
-    if not signers:
-        return False, "no_signers"
+    exp_ids = {i for i, _m in pairs if i}
+    exp_emails = {m for _i, m in pairs if m}
     def _known(s):
         return (str(s.get("user_id")) in exp_ids
                 or str(s.get("email") or "").strip().lower() in exp_emails)
     present_ids = {str(s.get("user_id")) for s in signers if s.get("user_id")}
     present_emails = {str(s.get("email") or "").strip().lower() for s in signers}
-    for e in exp_ids:
-        if e not in present_ids and not exp_emails & present_emails:
-            return False, "expected_signer_absent:%s" % e
-    for e in exp_emails:
-        if e not in present_emails and not exp_ids & present_ids:
-            return False, "expected_signer_absent:%s" % e
+    # TUNG NGUOI ky vong phai co mat - bang id CUA CHINH HO hoac email CUA CHINH HO. Su thay
+    # the id<->email chi hop le trong pham vi mot nguoi; truoc day dung phep giao tap hop
+    # toan cuc nen mot nguoi khop email la tha ca nhung nguoi khac vang mat.
+    for iden, mail in pairs:
+        if (iden and iden in present_ids) or (mail and mail in present_emails):
+            continue
+        return False, "expected_signer_absent:%s" % (iden or mail)
     for s in signers:
         if not _known(s):
             return False, "unexpected_signer_identity"
+    # Den day: moi nguoi ky ky vong deu co mat va da ky, khong ai la. Trang thai terminal
+    # cua tai lieu chi la lop tin cay them.
+    if status in _TERMINAL_SIGNED:
+        return True, "terminal_and_all_expected_signers_signed"
     return True, "all_expected_signers_signed"
 
 

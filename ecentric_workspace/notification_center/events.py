@@ -225,6 +225,34 @@ def route_delivery(event_id, recipient, routing, event_type, severity, dedupe_ke
     return teams_jobs
 
 
+def _same_origin_link(action_url):
+    """Dang duoc phep luu vao `Notification Log.link`: duong dan TUONG DOI cung goc.
+
+    VI SAO khong luu nguyen `action_url`: cung mot chuoi phuc vu hai kenh co rang buoc
+    khac nhau. The Teams can URL TUYET DOI (`transitions._approval_link` dung
+    `frappe.utils.get_url()` cho dung muc dich do), con chuong trong trinh duyet chay
+    qua `safeActionUrl` o `public/js/notification_center.js`, ham nay CHI nhan chuoi
+    bat dau bang mot dau `/` - luu URL tuyet doi vao day thi the thong bao thanh
+    KHONG BAM DUOC, te hon ca link Desk cu.
+
+    Khac goc (hoac khong ro goc) -> tra "" de bo doc rot ve `_action_url`, thay vi
+    ghi mot gia tri se bi frontend vut di."""
+    u = (action_url or "").strip()
+    if not u:
+        return ""
+    if u.startswith("//"):
+        return ""                       # protocol-relative = co the sang goc khac
+    if u.startswith("/"):
+        return u
+    try:
+        base = (frappe.utils.get_url() or "").rstrip("/")
+    except Exception:
+        base = ""
+    if base and u.startswith(base + "/"):
+        return u[len(base):]
+    return ""
+
+
 def publish_notification_event(event_type, recipient, title, message="",
                                severity=None, action_url=None, reference_doctype=None,
                                reference_name=None, actor=None, dedupe_key=None,
@@ -249,9 +277,19 @@ def publish_notification_event(event_type, recipient, title, message="",
         pass
 
     # 1) inbox = Notification Log (this path OWNS the log)
+    #
+    # `link` PHAI duoc ghi. Nguoi phat (vd `transitions.notify()`) da tinh dung deep
+    # link theo TUNG BAN GHI - `/approvals/<route>?id=<name>`, route doc tu
+    # `EC Approval Type` - roi truyen vao day. Truoc ban va nay dong Notification Log
+    # khong mang truong do, nen link dung chi song vai mili-giay trong RAM (chi the
+    # Teams + realtime dung duoc); hop thu chuong doc lai TU DB, thay `link` rong va
+    # phai TU DUNG LAI URL tu (document_type, document_name) - tuc la nem di cai dung
+    # de dung lai mot cai kem chinh xac hon (hub thay vi ban ghi). Bo doc uu tien
+    # `link` (nhanh PRECEDENCE 2026-08-10) da co san tu lau; chi thieu ben ghi.
     log = frappe.get_doc({
         "doctype": "Notification Log", "for_user": recipient, "from_user": from_user,
         "subject": title or "", "email_content": message or "", "type": "Alert",
+        "link": _same_origin_link(action_url),
         "document_type": reference_doctype or "", "document_name": reference_name or "",
     }).insert(ignore_permissions=True)
 
