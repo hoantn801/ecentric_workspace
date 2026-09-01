@@ -248,7 +248,25 @@ class SignatureProviderAdapter(object):
             return VerificationResult(False, "file_count_mismatch")
         candidates = doc_state.signers_for(expected.get("user_id"), expected.get("email"))
         if not candidates:
-            return VerificationResult(False, "expected_signer_absent")
+            # NOI RO DANG TIM AI, VA TAI LIEU DANG CO MAY CHAN KY.
+            #
+            # 02/09/2026: mot chan ky quay `PollTick -> expected_signer_absent` bay lan lien
+            # tiep tren mot tai lieu co NAM nguoi ky. Cau do dung, nhung no khong tra loi
+            # duoc cau hoi duy nhat dang can: thieu AI, va SCTS co dang liet ke ho khong.
+            # Voi nam nguoi thi doc nhat ky xong van phai di doan.
+            #
+            # Hai tinh huong nay trong y het nhau neu chi in mot chuoi tran:
+            #   * SCTS chua kip them dong chan ky (cho them chut la xong);
+            #   * dinh danh minh tra khong khop cai SCTS bao (cho mai cung khong xong) -
+            #     da tung xay ra khi mot nguoi co NHIEU mau chu ky ben SCTS.
+            # `of<N>` tach duoc hai cai do: N=0 la tai lieu chua co ai, N>0 la co nguoi khac
+            # ma khong co nguoi nay.
+            #
+            # CHI ghi dinh danh dung de doi chieu (user id noi bo cua nha cung cap, hoac email
+            # cong viec) - khong ten, khong so tien, khong noi dung tai lieu.
+            who = expected.get("user_id") or expected.get("email") or "?"
+            return VerificationResult(
+                False, "expected_signer_absent:%s/of%d" % (who, len(doc_state.signers)))
         # ANY row that satisfies every condition proves this leg. Rejecting because some OTHER
         # row of the same person is older would refuse a perfectly good signature - which is
         # exactly what happened on 2026-08-27 once the same person held two signing areas.

@@ -119,10 +119,19 @@ class TestEcontractAdapter(unittest.TestCase):
         self.assertEqual(sig["title"], "Người trình"); self.assertEqual(sig["role"], "thamgia")
         self.assertEqual(sig["signatureType"], "position")
         self.assertEqual(sig["pageIndex"], 1)
-        # canonical top-left y=200.25 h=40 on 792pt page -> PDF bottom-left 551.75
-        self.assertEqual((sig["x"], sig["y"]), (100.5, 551.75))
-        self.assertEqual((sig["Llx"], sig["Lly"]), (100.5, 551.75))
-        self.assertEqual((sig["Width"], sig["Height"]), (120, 40))
+        # Hai buoc, khong mot:
+        #   1. lat truc doc: top-left y=200.25 h=40 tren trang 792pt -> PDF bottom-left 551.75
+        #   2. doi don vi: SCTS doc con so minh gui nhu PIXEL 96 DPI roi nhan 0.75 (do dac
+        #      02/09 tren tai lieu that). Nen phai gui truoc cai da bu:
+        #         x = (100.5  - 19.95) / 0.75 = 107.40
+        #         y = (551.75 - 47.74) / 0.75 = 672.01
+        #         w = 120 / 0.75 = 160      h = 40 / 0.75 = 53
+        #   Con so cuoi cung o day CO Y viet thanh so, khong tinh lai bang cong thuc: mot
+        #   test lap lai cong thuc cua ma nguon thi no tu tra loi lay minh, doi cong thuc sai
+        #   kieu gi cung xanh. Xem test_scts_coordinate_calibration cho phep do goc.
+        self.assertEqual((sig["x"], sig["y"]), (107.4, 672.01))
+        self.assertEqual((sig["Llx"], sig["Lly"]), (107.4, 672.01))
+        self.assertEqual((sig["Width"], sig["Height"]), (160, 53))
         self.assertTrue(sig["isPlaced"]); self.assertEqual(sig["added"], 1)
         # response: data la STRING DocumentId
         self.assertEqual(out["document_id"], "7a90f618-5f90-4d8b-9f6a-a7a43364f596")

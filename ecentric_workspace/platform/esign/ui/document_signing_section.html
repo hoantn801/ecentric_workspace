@@ -201,7 +201,12 @@
     if (s === "in_progress") return ['p-doing', 'Đang thiết lập'];
     return ['p-none', 'Chưa thiết lập'];
   }
-  function progressText(d) {
+  // TEN RIENG, khong dung "progressText": ngan dat chu ky khai MOT ham progressText() khac
+  // o cuoi CUNG mot IIFE (dong ~479). Khai bao ham duoc hoisted, nen ban sau DE ban truoc va
+  // moi loi goi o day thuc chat chay ham cua ngan - doc DRW.st thay vi doc tai lieu. Ket qua:
+  // dong tai lieu tren trang chinh luon hien tien do cua NGAN (0/0 khi moi tai trang), nen
+  // mot cap duyet nhin vao tuong chua ai thiet lap chu ky nao. Tim thay 02/09 khi chay E2E.
+  function docProgressText(d) {
     if (!d.requires_signature) return 'Không yêu cầu chữ ký';
     if (d.setup_state === 'unsupported') return 'Không thể ký trực tiếp định dạng này';
     // REAL progress (Phase C): covered signer slots / required slots.
@@ -229,7 +234,7 @@
       + '<div class="ecd-main"><div class="ecd-name" title="' + esc(d.display_name) + '">'
         + esc(d.display_name) + '</div>'
       + '<div class="ecd-meta"><span class="ec-docsign ecd-pill ' + pill[0] + '">' + pill[1] + '</span> · '
-        + esc(progressText(d)) + dup + '</div></div>'
+        + esc(docProgressText(d)) + dup + '</div></div>'
       + '<label class="ecd-chk"><input type="checkbox" data-support="' + esc(d.document_ref) + '"'
         + (supporting ? ' checked' : '') + (canEdit ? '' : ' disabled') + '> Bộ chứng từ</label>'
       + act + '</div>';

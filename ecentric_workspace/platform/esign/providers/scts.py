@@ -39,6 +39,75 @@ _TOKEN_SKEW_MIN = 5
 _MAX_SIGNED_PDF_BYTES = 50 * 1024 * 1024
 
 
+# --------------------------------------------------------------------------- #
+# he don vi toa do chu ky cua SCTS (HIEU CHINH TU DO DAC, khong phai tu dac ta)
+# --------------------------------------------------------------------------- #
+#
+# DO DAC 02/09/2026 tren tai lieu that (EC-DSP-2026-00028, A4 595x842, 2 chu ky):
+#
+#     chan ky          ERP GUI (llx, lly, w, h)   SCTS DAT THUC (llx, lly, w, h)
+#     Nguoi de nghi    355.0  721.0  240  120     286.2  588.8  180   90
+#     Direct Manager   263.0  606.0  240  120     217.2  502.5  180   90
+#
+# Bon phep do DOC LAP deu ra dung mot ty le:
+#     theo vi tri : (286.2-217.2)/(355-263) = 0.7500 ; (588.8-502.5)/(721-606) = 0.7504
+#     theo kich co: 180/240 = 0.7500          ; 90/120 = 0.7500
+#
+# 0.75 = 72/96 - dung ty le point / pixel o 96 DPI. Tuc SCTS doc con so minh gui nhu PIXEL,
+# roi quy ra point. Minh dang gui POINT.
+#
+# Phan du sau khi bo ty le la HANG SO, giong nhau den hai chu so thap phan tren ca hai chu
+# ky - va hai chu ky co x lech nhau 92 diem, y lech 115 diem:
+#     dx = 19.95 va 19.95      dy = 47.74 va 47.74
+#
+# Da loai tru kha nang "SCTS bo qua toa do minh gui, dat theo vung cua sign-template": neu
+# vay phan du da khac nhau giua hai chu ky, chu khong trung khit. Cung da loai tru "SCTS co
+# ca trang lai": doc lai PDF da ky thi dong chu tieu de van nam nguyen o (60, 760) voi co
+# chu 14 va MediaBox van 595x842 - trang khong bi dung toi, chi rieng toa do chu ky.
+#
+# [TEMP-WORKAROUND 2026-09-02 — hieu chinh tu do dac, chua co xac nhan cua SCTS]
+# Rui ro: neu SCTS sua phia ho thi phep bu nay lam lech NGUOC LAI. Vi vay con so nam o mot
+# cho duy nhat, co ten, va co test ghim lai phep do - doi lai chi la sua ba con so.
+# Viec dung: hoi SCTS API nhan don vi nao (point hay pixel 96 DPI) roi bo hang so nay di.
+# Xem BACKLOG_ESIGN.md muc "Toa do chu ky".
+#
+#: Ty le SCTS ap len moi con so toa do minh gui (do duoc, = 72/96).
+SCTS_SCALE = 0.75
+#: Do lech hang so con lai sau khi bo ty le, tinh bang POINT tren trang PDF.
+SCTS_OFFSET_X = 19.95
+SCTS_OFFSET_Y = 47.74
+
+
+def to_provider_box(x_pt, y_pt, w_pt, h_pt):
+    """Doi mot o ky tu POINT-tren-trang sang he don vi SCTS thuc su dung.
+
+    Nghich dao cua phep bien doi do duoc o tren:  ket qua = SCTS_SCALE * gui + offset
+    nen                                            gui    = (mong muon - offset) / SCTS_SCALE
+
+    Kich co khong co offset (do dac: 180/240 va 90/120 deu dung 0.75), nen chi chia ty le.
+    """
+    return {
+        "x": round((float(x_pt) - SCTS_OFFSET_X) / SCTS_SCALE, 2),
+        "y": round((float(y_pt) - SCTS_OFFSET_Y) / SCTS_SCALE, 2),
+        "w": int(round(float(w_pt) / SCTS_SCALE)),
+        "h": int(round(float(h_pt) / SCTS_SCALE)),
+    }
+
+
+def from_provider_box(x, y, w, h):
+    """Phep bien doi SCTS ap len con so minh gui - dung de KIEM, khong dung khi gui.
+
+    Co mat de test co the hoi "gui cai nay thi no ra dau" bang chinh phep do, thay vi lap
+    lai cong thuc trong test (test lap lai cong thuc thi no tu tra loi lay minh).
+    """
+    return {
+        "x": SCTS_SCALE * float(x) + SCTS_OFFSET_X,
+        "y": SCTS_SCALE * float(y) + SCTS_OFFSET_Y,
+        "w": SCTS_SCALE * float(w),
+        "h": SCTS_SCALE * float(h),
+    }
+
+
 def _sval(settings, key, default=None):
     if isinstance(settings, dict):
         return settings.get(key, default)
@@ -110,20 +179,42 @@ class SctsAdapter(SignatureProviderAdapter):
         return self._password("token_cache")
 
     def _store_token(self, token, expires_in_minutes):
-        """Persist through the ORM so the Password field is encrypted (controller rule)."""
+        """Persist through the ORM so the Password field is encrypted (controller rule).
+
+        HAI LOP BAO VE, vi day chi la CACHE va no da tung lam hong mot lan duyet that.
+
+        02/09/2026, 03:25:50 va 03:25:56 - Provider Settings la MOT ban ghi dung chung cho
+        moi chan ky. Hai cong viec ky chay cach nhau sau giay cung lam moi token, ca hai cung
+        `get_doc` roi cung `save`, va Frappe nem
+
+            EC-DSPS-00001 has been modified after you have opened it. Please refresh.
+
+        Nguoi duyet nhan dung cau do giua man hinh phe duyet chi tien, va phai tai lai trang.
+        Mot lan ghi bo nho dem hong KHONG duoc phep lam hong viec ky.
+
+        1. Khoa hang truoc khi doc: hai tien trinh nhu tren se noi duoi nhau thay vi dam nhau,
+           nen truong hop kia gan nhu khong con xay ra.
+        2. Neu van hong: ghi log roi DI TIEP. Token da nam trong bo nho cho lan goi nay, viec
+           ky van chay binh thuong; lan sau chi phai dang nhap lai mot lan nua. Danh doi dung
+           chieu: cham hon mot chut > chan mot chu ky.
+        """
         if not self._name:
             return
         try:
             mins = int(expires_in_minutes or 0)
         except (TypeError, ValueError):
             mins = 0
-        doc = frappe.get_doc(SETTINGS_DT, self._name)
-        doc.token_cache = token
-        doc.token_expires_at = add_to_date(now_datetime(), minutes=mins) if mins else None
-        doc.save(ignore_permissions=True)
-        # keep the in-memory settings snapshot coherent for the rest of this call
-        if isinstance(self.settings, dict):
-            self.settings["token_expires_at"] = doc.token_expires_at
+        try:
+            frappe.db.get_value(SETTINGS_DT, self._name, "name", for_update=True)
+            doc = frappe.get_doc(SETTINGS_DT, self._name)
+            doc.token_cache = token
+            doc.token_expires_at = add_to_date(now_datetime(), minutes=mins) if mins else None
+            doc.save(ignore_permissions=True)
+            # keep the in-memory settings snapshot coherent for the rest of this call
+            if isinstance(self.settings, dict):
+                self.settings["token_expires_at"] = doc.token_expires_at
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "esign scts token cache write")
 
     # -- session --------------------------------------------------------------
     def authenticate(self):
@@ -589,6 +680,8 @@ class SctsAdapter(SignatureProviderAdapter):
                 x = float(pl.get("x") or 0)
                 h = float(pl.get("height") or 0)
                 y_pdf = max(0.0, page_h - float(pl.get("y") or 0) - h)
+                # Doi sang he don vi ma SCTS THUC SU dung - xem `to_provider_box`.
+                bx = to_provider_box(x, y_pdf, float(pl.get("width") or 0), h)
                 sigs.append({
                     "signatureId": d.get("signatureId"),
                     "title": d.get("title"),
@@ -600,10 +693,10 @@ class SctsAdapter(SignatureProviderAdapter):
                     "added": 1,
                     "isPlaced": True,
                     "pageIndex": int(pl.get("page_index") or 1),
-                    "x": x, "y": y_pdf,
-                    "Llx": x, "Lly": y_pdf,
-                    "Width": int(round(float(pl.get("width") or 0))),
-                    "Height": int(round(h)),
+                    "x": bx["x"], "y": bx["y"],
+                    "Llx": bx["x"], "Lly": bx["y"],
+                    "Width": bx["w"],
+                    "Height": bx["h"],
                 })
             documents.append({
                 "FileName": f.get("name"),
