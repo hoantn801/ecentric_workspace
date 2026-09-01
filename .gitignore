@@ -19,3 +19,4 @@ dist/
 # 11 of them had been committed (~2.4 MB) and caused checkout conflicts with the local
 # copies of the same name. Keep them out of the repo.
 *.bundle
+_pmrec_build/
