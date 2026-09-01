@@ -166,10 +166,22 @@ scheduler_events["cron"].setdefault("0 9 * * *", []).append(
 
 # Permissions
 # -----------
-# PM v2 uses SERVICE-LAYER permission (ecentric_workspace.pm.api.*), NOT global
-# permission_query_conditions, to avoid affecting other modules (GBS / Approval /
-# Project dropdowns / reports). Revisit global hooks after UAT (PM1-T03 revised).
-# permission_query_conditions = {}
+# PM v2 scopes every query in the SERVICE LAYER (ecentric_workspace.pm.api.*). That covers
+# the SPA, but NOT the native Desk list, the ec_pm_time_block.task Link dropdown, or the
+# native REST list (frappe.client.get_list) -- the E2E security audit (2026-09-01) showed a
+# non-leader could list EVERY Task/Project company-wide through those. These hooks close that
+# surface. Codebase audit: the app's own Python is all frappe.get_all (ignore_permissions),
+# so GBS / Approval / notification / reporting are unaffected; the condition functions return
+# "" (no restriction) for Administrator / System Manager / Management dept / PM Manager, so
+# leaders and Desk power users are untouched.
+permission_query_conditions = {
+    "Task": "ecentric_workspace.pm.permissions.task_query_conditions",
+    "Project": "ecentric_workspace.pm.permissions.project_query_conditions",
+}
+has_permission = {
+    "Task": "ecentric_workspace.pm.permissions.task_has_permission",
+    "Project": "ecentric_workspace.pm.permissions.project_has_permission",
+}
 
 # Override standard whitelisted methods
 # -------------------------------------

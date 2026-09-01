@@ -1012,7 +1012,11 @@ def delete(name, cascade=None):
     # references it) while the parent cannot go first because it still has children.
     # References BETWEEN cluster members are about to die with the cluster -- drop them.
     # References from OUTSIDE the cluster are real blockers, rejected just above.
-    frappe.db.delete("Task Depends On", {"parent": ["in", cluster]})
+    # NB: plain equality per row -- frappe.db.delete does NOT parse the ["in", ...] operator
+    # syntax get_all uses; it double-unpacks the list and raised ValueError (this was the
+    # 500 QA hit on every delete). Deleting per-parent is cheap (a cluster is tiny).
+    for _p in cluster:
+        frappe.db.delete("Task Depends On", {"parent": _p})
     for _k in kids:
         # A child cannot be deleted while it still points at the parent (NestedSet link
         # check), so unlink then delete -- same order that works by hand.
@@ -1036,12 +1040,13 @@ def _assert_deletable(name, cluster=None):
     if frappe.db.count("Timesheet Detail", {"task": name}):
         frappe.throw(_("Nhiệm vụ {0} đã có log giờ và không thể xoá. "
                        "Hãy huỷ nhiệm vụ thay vì xoá.").format(name))
-    outside = frappe.get_all(
-        "Task Depends On", filters={"task": name, "parent": ["not in", list(cluster or [name])]},
-        pluck="parent", limit_page_length=5)
+    inside = set(cluster or [name])
+    refs = frappe.get_all("Task Depends On", filters={"task": name},
+                          pluck="parent", limit_page_length=0) or []
+    outside = [p for p in refs if p not in inside]
     if outside:
         frappe.throw(_("Nhiệm vụ {0} đang được nhiệm vụ khác phụ thuộc ({1}) và không thể xoá.")
-                     .format(name, ", ".join(outside)))
+                     .format(name, ", ".join(outside[:5])))
 
 
 def _delete_one(name):
