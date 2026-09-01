@@ -136,7 +136,7 @@ def _current_package(bd, bn):
 
 
 def _rep_sha(rep):
-    return hashing.sha256_bytes(frappe.get_doc("File", rep["name"]).get_content())
+    return hashing.sha256_bytes(pkgsvc.raw_file_bytes(rep["name"]))
 
 
 def _dsf_by_sha(pkg_name, sha):
@@ -461,7 +461,7 @@ def set_document_requires_signature(business_doctype, business_name, document_re
     if cur_name and not is_draft:
         return {"ok": False, "reason": "package_locked"}
 
-    content = frappe.get_doc("File", f.name).get_content()
+    content = pkgsvc.raw_file_bytes(f.name)
     sha = hashing.sha256_bytes(content)
 
     # 3) current EFFECTIVE classification WITHOUT materializing anything (default = signable).

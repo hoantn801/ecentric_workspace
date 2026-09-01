@@ -126,7 +126,7 @@ def _attached_signable_shas(pkg):
                 continue
             seen_url.add(r["file_url"])
         try:
-            content = frappe.get_doc("File", r["name"]).get_content()
+            content = pkgsvc.raw_file_bytes(r["name"])
         except Exception:
             return None                 # mot tep khong doc duoc -> khong ket luan gi
         if content:

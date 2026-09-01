@@ -422,7 +422,7 @@ def _add_requester_pdf_files(pkg_name, business_doctype, business_name):
         # then by content SHA - so the same file is added exactly once per package.
         if f.file_url and f.file_url in seen_url:
             continue
-        content = frappe.get_doc("File", f.name).get_content()
+        content = pkgsvc.raw_file_bytes(f.name)
         sha = hashing.sha256_bytes(content)
         if sha in have_sha:
             if f.file_url:

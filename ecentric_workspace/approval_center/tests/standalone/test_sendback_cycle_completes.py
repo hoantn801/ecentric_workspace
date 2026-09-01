@@ -95,7 +95,10 @@ def _lifecycle(frappe_stub):
     esign_pkg = types.ModuleType("ecentric_workspace.platform.esign")
     esign_pkg.hashing = hashing
     esign_pkg.events = types.SimpleNamespace(emit=lambda *a, **k: None)
-    esign_pkg.package = types.SimpleNamespace(package_files=lambda n: [])
+    esign_pkg.package = types.SimpleNamespace(
+        package_files=lambda n: [],
+        # xem chu thich o test_reopen_keeps_signatures: byte tep di qua raw_file_bytes
+        raw_file_bytes=lambda n: frappe_stub.get_doc("File", n).get_content())
     saved = {k: sys.modules.get(k) for k in
              ("frappe", "ecentric_workspace.platform.esign",
               "ecentric_workspace.platform.esign.hashing",
@@ -131,8 +134,14 @@ class TestContentComparisonUsesOneYardstick(unittest.TestCase):
     def _run(self, files, contents, locked_from):
         stub = _Frappe(files=files, contents=contents)
         mod, hashing = _lifecycle(stub)
-        mod.pkgsvc = types.SimpleNamespace(package_files=lambda n: [
-            {"requires_signature": 1, "sha256": hashing.sha256_bytes(c)} for c in locked_from])
+        mod.pkgsvc = types.SimpleNamespace(
+            package_files=lambda n: [
+                {"requires_signature": 1, "sha256": hashing.sha256_bytes(c)}
+                for c in locked_from],
+            # Ban de len nay CHE MAT `raw_file_bytes` cua ban gia o tren. Thieu no thi ma
+            # nguon nem AttributeError va verdict ra "unreadable" - trong y het mot tep hong
+            # tren dia, nen loi ban gia doi lot thanh loi nghiep vu.
+            raw_file_bytes=lambda n: stub.get_doc("File", n).get_content())
         return mod._signable_content_verdict(self.pkg), hashing
 
     def test_khong_doi_gi_thi_bao_khong_doi(self):
