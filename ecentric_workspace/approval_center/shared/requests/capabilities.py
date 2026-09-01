@@ -39,6 +39,8 @@ def can_view(user, business_doc, approval_request):
         requested_by=getattr(business_doc, "requested_by", None),
         fulfillment_owner=getattr(business_doc, "fulfillment_owner", None),
         approval_type=(approval_request.get("approval_type") if approval_request else None),
+        # Ten phieu: bat buoc de duong "dang giu viec" chi mo dung phieu duoc giao.
+        business_name=business_doc.name,
     )
 
 

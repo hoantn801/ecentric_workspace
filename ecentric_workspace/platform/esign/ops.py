@@ -147,6 +147,13 @@ def unretrieved_bundles(limit=100):
                                              "event_type": "SignedFileRetrievalFailed"},
                                fields=["error_summary", "creation"],
                                order_by="creation desc", limit_page_length=1)
+        # LY DO THAT khi cron cham vao ma chua tai duoc. Truoc day nhanh nay im lang tuyet
+        # doi nen trang phai DOAN ("chua thu lan nao + khong loi = chac la SCTS chua ky
+        # xong") - va 01/09 loi doan do sai: 5 goi da ky xong het van hien la "dang cho".
+        notready = frappe.get_all(EVT, filters={"package": r.name,
+                                                "event_type": "SignedRetrievalNotReady"},
+                                  fields=["verification_result", "creation"],
+                                  order_by="creation desc", limit_page_length=1)
         out.append({
             "name": r.name, "business_doctype": r.business_doctype,
             "business_name": r.business_name, "package_status": r.status,
@@ -157,7 +164,13 @@ def unretrieved_bundles(limit=100):
             "since": str(r.modified or ""),
             # Chua thu lan nao + khong co loi = tai lieu ben nha cung cap chua o trang thai
             # da ky hoan tat. Do la CHO, khong phai HONG - noi ro de khong ai di sua nham.
-            "waiting_on_provider": tries == 0 and not fails,
+            # Ly do may tra ve, khong phai suy doan cua trang.
+            "not_ready_reason": (notready[0].get("verification_result")
+                                 if notready else None),
+            "last_touch": str((notready[0].get("creation") if notready else None) or ""),
+            # "Dang cho" chi dung khi CHUA AI cham vao va khong co ly do nao duoc ghi.
+            # Co ly do roi thi doc ly do, dung goi la dang cho nua.
+            "waiting_on_provider": tries == 0 and not fails and not notready,
             # Goi da ngung van HIEN, khong bien mat. An di thi khong ai kiem lai duoc quyet
             # dinh do, va khong ai mo lai duoc khi tai lieu ben SCTS song lai.
             "abandoned": bool(r.retrieval_abandoned),

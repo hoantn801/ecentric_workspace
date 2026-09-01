@@ -40,20 +40,41 @@ def _is_configured_fulfiller(user, approval_type):
     return False
 
 
-def is_eligible_fulfiller(user, approval_type=None, business_doctype=None):
-    """Matches the approval APIs' ``_is_fulfiller``: a System Manager, a
-    configured Fulfiller participant on an Active process of ``approval_type``,
-    or a user holding an Open ToDo on ``business_doctype``.
+def is_eligible_fulfiller(user, approval_type=None, business_doctype=None,
+                          business_name=None):
+    """System Manager, Fulfiller duoc cau hinh cua `approval_type`, hoac nguoi dang giu mot
+    viec mo TREN CHINH PHIEU NAY.
 
-    UNCHANGED behavior -- kept as-is for the form APIs and can_fulfill."""
+    DUONG TODO PHAI GAN VOI MOT PHIEU CU THE (siet 01/09).
+    ----------------------------------------------------------------------------------
+    Truoc day dieu kien chi la "co mot ToDo mo tren LOAI phieu nay" - khong hoi la phieu
+    nao. Hau qua: mot truong bo phan dang co DUNG MOT phieu cua nhan vien minh cho duyet
+    thi trong ca khoang thoi gian do doc duoc MOI De nghi thanh toan cua toan cong ty:
+    so tien, nguoi nhan, so tai khoan ngan hang cua phong khac. Chi can mot viec bat ky
+    la mo ca loai.
+
+    Hoan chot 01/09: khong chap nhan. Nhung phai siet DUNG CHO - hai duong con lai giu
+    nguyen:
+      * System Manager: nguyen ven;
+      * Fulfiller duoc CAU HINH trong quy trinh (Ke toan...): nguyen ven theo LOAI, vi ho
+        that su xu ly moi phieu loai do - do la vai tro, khong phai lo hong.
+    Chi rieng duong "dang giu viec" moi bi buoc vao dung phieu.
+
+    `business_name=None` giu nguyen hanh vi cu MOT CACH CO Y: mot so cho hoi cau "nguoi
+    nay co the la nguoi xu ly loai phieu nay khong" khi chua co phieu cu the trong tay
+    (vi du dung de quyet dinh co hien menu/bao cao hay khong). Nhung cho DOC MOT PHIEU thi
+    luon truyen ten phieu vao - xem can_view_request.
+    """
     if is_system_manager(user):
         return True
     if _is_configured_fulfiller(user, approval_type):
         return True
-    if business_doctype and frappe.db.exists(
-            "ToDo", {"reference_type": business_doctype,
-                     "allocated_to": user, "status": "Open"}):
-        return True
+    if business_doctype:
+        todo = {"reference_type": business_doctype, "allocated_to": user, "status": "Open"}
+        if business_name:
+            todo["reference_name"] = business_name
+        if frappe.db.exists("ToDo", todo):
+            return True
     return False
 
 
@@ -76,7 +97,8 @@ def is_eligible_fulfiller_without_todo(user=None, approval_type=None, fulfillmen
 
 
 def can_view_request(request_name, user=None, business_doctype=None,
-                     requested_by=None, fulfillment_owner=None, approval_type=None):
+                     requested_by=None, fulfillment_owner=None, approval_type=None,
+                     business_name=None):
     """THE canonical Approval Engine visibility check.
 
     A user may view a governed request if they are a System Manager, the
@@ -96,7 +118,9 @@ def can_view_request(request_name, user=None, business_doctype=None,
         return True
     if fulfillment_owner and fulfillment_owner == user:
         return True
-    return is_eligible_fulfiller(user, approval_type, business_doctype)
+    # Truyen ten phieu xuong: doc MOT phieu thi duong "dang giu viec" phai la viec TREN
+    # CHINH PHIEU DO, khong phai mot viec bat ky cung loai.
+    return is_eligible_fulfiller(user, approval_type, business_doctype, business_name)
 
 
 def can_fulfill(user=None, business_doctype=None, fulfillment_owner=None, approval_type=None):

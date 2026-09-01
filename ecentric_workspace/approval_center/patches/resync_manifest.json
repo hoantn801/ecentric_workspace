@@ -198,7 +198,7 @@
   },
   "platform/esign/ui/ops_page.html": {
     "last_resync_patch": "p119_resync_v3_ux_fixes",
-    "sha256": "c7e41a3b0d54b13137abf6c1d2d0667448d32bdf6b2ade2d35b2420c65d717cb"
+    "sha256": "6888121d5fb0c08761fb3cf1139929eaa3e2d8b1dfa353d36dff2fcc657ec958"
   },
   "platform/esign/ui/payment_request_signing.html": {
     "last_resync_patch": "p112_resync_payment_request_clone_owner",

@@ -286,6 +286,20 @@ def retrieve_and_store_for_package(package_name, force=False):
         events.emit("SignedFileRetrievalFailed", package=package_name, error_summary=safe_error(e))
         return {"ok": False, "reason": "poll_failed", "retryable": e.retryable}
     if not ok:
+        # NOI RA VI SAO. Day tung la nhanh IM LANG nhat cua ca he: cron cham vao goi moi 30
+        # phut, quyet dinh "chua tai duoc", roi tra ve ma KHONG ghi lai mot dau vet nao.
+        #
+        # Hau qua that (do tren du lieu that 01/09): 5 goi da ky xong het moi chan ky nhung
+        # signed_bundle_complete=0 va KHONG CO su kien tai nao - trang ops doan bua thanh
+        # "chua thu lan nao, tai lieu ben SCTS chua ky xong", con bao dong thi khong the keu
+        # vi no dem su kien ma o day khong co su kien nao. Khong ai biet ly do that:
+        # tai lieu ben nha cung cap chua du chu ky? thieu nguoi ky ky vong? danh tinh lech?
+        # Ba nguyen nhan rat khac nhau, can ba cach xu ly khac nhau.
+        #
+        # Ghi mot su kien mang DUNG ly do may tra ve. Khong xep vao loai "that bai" - chua
+        # san sang khong phai la hong - nhung phai NHIN THAY DUOC.
+        events.emit("SignedRetrievalNotReady", package=package_name,
+                    verification_result=str(reason)[:140])
         return {"ok": False, "reason": "not_terminal_signed", "detail": reason}
 
     files = frappe.get_all(DSF, filters={"package": package_name, "requires_signature": 1},
