@@ -57,7 +57,6 @@
    "fieldname": "request_title",
    "fieldtype": "Data",
    "label": "Request Title",
-   "reqd": 1,
    "in_list_view": 1
   },
   {
@@ -120,7 +119,6 @@
    "fieldtype": "Select",
    "label": "Request Kind",
    "options": "Existing\nNew",
-   "reqd": 1,
    "default": "New",
    "description": "Existing = hợp đồng/phụ lục sẵn có (chỉ điều chỉnh); New = hợp đồng hoặc phụ lục mới"
   },
@@ -147,28 +145,24 @@
    "fieldname": "contract_type",
    "fieldtype": "Select",
    "label": "Contract Type",
-   "reqd": 1,
    "options": "Purchase / Mua vào (EC)\nSales / Bán ra (EC)\nService / Dịch vụ (GBSxBrand)"
   },
   {
    "fieldname": "request_type",
    "fieldtype": "Select",
    "label": "Request Type",
-   "reqd": 1,
    "options": "Template from EC / Mẫu theo khung EC\nTemplate from partner / Mẫu theo khung đối tác\nNew contract template / Hợp đồng mới"
   },
   {
    "fieldname": "brand",
    "fieldtype": "Data",
    "label": "Legal Entity / Brand",
-   "reqd": 1,
    "description": "Hợp đồng của team backoffice chọn eCentric"
   },
   {
    "fieldname": "justification",
    "fieldtype": "Data",
    "label": "Justification",
-   "reqd": 1,
    "description": "Mục đích (Booking KOL/KOC, Mua tài sản, Phụ lục dịch vụ...)"
   },
   {
@@ -179,7 +173,6 @@
    "fieldname": "contract_value",
    "fieldtype": "Currency",
    "label": "Contract Value",
-   "reqd": 1,
    "description": "Nếu không có giá trị cụ thể, ước tính ngân sách trong thời hạn hợp đồng"
   },
   {
@@ -208,7 +201,6 @@
    "fieldname": "request_details",
    "fieldtype": "Small Text",
    "label": "Request Details",
-   "reqd": 1,
    "description": "Thông tin Finance cần kiểm tra: phạm vi công việc, điều khoản thanh toán, bảng giá, thời hạn..."
   },
   {

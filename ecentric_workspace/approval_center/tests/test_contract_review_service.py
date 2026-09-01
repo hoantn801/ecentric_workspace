@@ -111,6 +111,19 @@ def main():
     ui_diff = [x.strip().strip('"') for x in m2.group(1).split(",")] if m2 else []
     chk("DIFF_FIELDS cua UI khop server", ui_diff == list(svc.DIFF_FIELDS))
 
+    # (d) BUG-3/BUG-4 từ E2E prod 01/09 — hai chốt server-side phải TỒN TẠI và ĐÚNG CHỖ
+    src = open(os.path.join(os.path.dirname(__file__), "..", "features", "contract_review",
+                            "application", "service.py"), encoding="utf-8").read()
+    chk("BUG-4: submit doi hop dong goc DA DUYET (server-side)",
+        "_require_approved_previous(doc.previous_request)" in src
+        and '"Approved"' in src.split("def _require_approved_previous")[1].split("def ")[0])
+    chk("BUG-3: resubmit co guard chan lach CEO",
+        "_guard_resubmit_needs_ceo(doc)" in src.split("def resubmit")[1].split("def _guard")[0])
+    guard = src.split("def _guard_resubmit_needs_ceo")[1]
+    chk("BUG-3: guard xet snapshot co cap CEO khong",
+        "EC Approval Request Level" in guard and "CEO_LEVEL_NO" in guard)
+    chk("BUG-3: chieu nguoc (het can CEO) van cho qua", "if not needs_ceo:" in guard and "return" in guard)
+
     # (c) engine: skip chỉ với cấp không mandatory + có audit
     eng_src = open(os.path.join(os.path.dirname(__file__), "..", "shared", "workflow",
                                 "transitions.py"), encoding="utf-8").read()

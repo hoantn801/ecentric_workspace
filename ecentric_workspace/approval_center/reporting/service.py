@@ -15,6 +15,7 @@ from ecentric_workspace.approval_center.reporting import status as _status
 from ecentric_workspace.approval_center.reporting import time_metrics as _tm
 from ecentric_workspace.approval_center.reporting import series as _series
 from ecentric_workspace.approval_center.reporting import insights as _insights
+from ecentric_workspace.approval_center.shared import vi_display as _vi
 
 RECENT_REJECTED_DAYS = 7
 NEAR_SLA_MINUTES = 240      # 'near SLA' window for card accenting
@@ -461,7 +462,9 @@ def _row_view(r, sla_by_name, now):
         "detail_route": _detail_route(r), "requester": r.get("requested_by"),
         "department": r.get("requester_department"), "status": r["approval_status"],
         "status_label": _status.normalize(r["approval_status"]),
-        "current_level": r.get("current_level"), "current_level_name": r.get("current_level_name"),
+        "current_level": r.get("current_level"),
+        # Việt hoá ở tầng hiển thị; giá trị gốc trong DB giữ nguyên (xem shared/vi_display).
+        "current_level_name": _vi.level_name(r.get("current_level_name")),
         "submitted_at": str(r.get("submitted_at") or ""),
         "pending_age_seconds": _tm.pending_age_seconds(r, ref_now=now) if _is_open(r) else None,
         "sla_source": st.get("source"), "sla_due_at": str(st.get("due_at") or "") if st else "",
