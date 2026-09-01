@@ -20,3 +20,4 @@ dist/
 # copies of the same name. Keep them out of the repo.
 *.bundle
 _pmrec_build/
+_to_delete/
