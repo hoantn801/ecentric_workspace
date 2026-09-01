@@ -57,5 +57,21 @@ def identifiers_of(value, prefix="", out=None, depth=0):
             elif ID_KEY.search(k) and isinstance(v, str) and GUIDISH.match(v):
                 out[path] = v
     elif isinstance(value, list) and value:
-        identifiers_of(value[0], prefix + "[0]", out, depth + 1)
+        # MOI phan tu, khong chi phan tu dau.
+        #
+        # Ban cu chi lay `value[0]`, nen `signers[0].id` la tat ca nhung gi ham nay ke ra
+        # tren mot tai lieu co NAM nguoi ky. Dung cai can nhat - bon dinh danh con lai - bi
+        # cat mat, va cong cu chan doan tro thanh vo dung dung luc can no nhat: 02/09 mot chan
+        # ky ket voi `expected_signer_absent:<id>/of5`, cau hoi duy nhat la "vay nam nguoi do
+        # la ai", va endpoint nay tra ve mot nguoi.
+        #
+        # Cung lop bay da ghi trong so: mot endpoint chan doan RUT GON khien thu can tim
+        # "luon khong thay", roi nguoi ta di doan thay vi di doc.
+        #
+        # Tran MAX_IDENTIFIERS o dau vong lap van giu nguyen, nen mot mang dai khong the lam
+        # phinh ket qua; chi la gio no dung tran that thay vi dung so 1.
+        for i, item in enumerate(value):
+            if len(out) >= MAX_IDENTIFIERS:
+                break
+            identifiers_of(item, "%s[%d]" % (prefix, i), out, depth + 1)
     return out
