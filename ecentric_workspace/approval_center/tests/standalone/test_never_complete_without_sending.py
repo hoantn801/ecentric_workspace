@@ -48,6 +48,21 @@ def _src(*parts):
 
 _TASKS = _src("platform", "esign", "tasks.py")
 _SVC = _src("platform", "esign", "service.py")
+_STATE_SRC = _src("platform", "esign", "state.py")
+
+
+def _state():
+    """Nap `state.py` that su.
+
+    `exec(compile(...))` chu khong phai loader theo duong dan: loader dung lai
+    `__pycache__`, va bo nho dem do chi bi coi la cu khi mtime HOAC kich thuoc doi - nen mot
+    phep dot bien di chuyen khoi lenh se duoc cham tren ban .pyc cu va bao xanh gia.
+    `state.py` khong import frappe nen nap truc tiep duoc.
+    """
+    import types
+    mod = types.ModuleType("esign_state_under_test")
+    exec(compile(_STATE_SRC, "state.py", "exec"), mod.__dict__)   # noqa: S102
+    return mod
 
 
 class _D(dict):
@@ -71,14 +86,18 @@ class TestPollFirstOnlyAfterSending(unittest.TestCase):
                               _TASKS, re.S).group(0)
 
     def _load_gate(self, dsr):
-        # Bat TRON bieu thuc: regex khong tham dung o dau `)` dau tien, ma dau do nam
-        # giua bieu thuc (`dsr.get("accepted_at"))`) -> cat cut, SyntaxError.
-        m = re.search(r"may_have_sent = \((.*?)\)\n        doc_state", self.body, re.S)
-        self.assertIsNotNone(m, "khong tim thay phep chan may_have_sent")
-        # Bieu thuc trai dai nhieu dong, moi dong deu thut le -> eval() se nem
-        # IndentationError. Goi lai thanh mot dong truoc khi chay.
-        expr = " ".join(x.strip() for x in m.group(1).splitlines() if x.strip())
-        return eval(expr, {"dsr": dsr, "int": int, "bool": bool})   # noqa: S307
+        """Chay CHINH phep chan that, khong doc chuoi trong tasks.py.
+
+        Truoc 02/09 ham nay cat bieu thuc `may_have_sent = (...)` ra khoi `tasks.py` bang
+        regex roi `eval`. Khi phep chan duoc dua ve `state.may_have_sent` - de trang ops
+        dung chung MOT dinh nghia voi worker - thi regex khong khop nua va ca sau phep kiem
+        do vi "khong tim thay", chu khong phai vi hanh vi doi. Do la lop test-grep-nguon bi
+        mu sau refactor.
+
+        Doi lai: goi thang ham. Kem mot phep kiem rieng ben duoi rang worker THAT SU dung
+        ham nay, de "goi thang ham" khong tro thanh kiem mot thu khong ai xai.
+        """
+        return _state().may_have_sent(dsr)
 
     def test_a_brand_new_leg_is_not_allowed_to_finish_by_looking(self):
         dsr = {"status": "Queued", "request_attempt": 1}
@@ -108,8 +127,18 @@ class TestPollFirstOnlyAfterSending(unittest.TestCase):
                       "khong duoc im lang bo qua - phai noi ro vi sao chua verify")
 
     def test_the_gate_is_evaluated_before_the_verify(self):
-        self.assertLess(self.body.index("may_have_sent = ("),
+        self.assertLess(self.body.index("may_have_sent = "),
                         self.body.index("verify_signed_result(doc_state, expected)"))
+
+    def test_the_worker_uses_THIS_function(self):
+        """Chan cach cho phep kiem o tren.
+
+        Cac phep kiem kia goi thang `state.may_have_sent`. Neu worker mot ngay nao do tu
+        tinh lai phep chan bang tay thi ca sau van xanh trong khi worker chay theo mot luat
+        khac - dung kieu lech ma ban sua nay sinh ra de cham dut.
+        """
+        self.assertIn("sm.may_have_sent(dsr)", self.body,
+                      "worker phai dung CHUNG dinh nghia voi trang ops, khong tu tinh lai")
 
 
 class TestFreshnessBeatsThePreviousLeg(unittest.TestCase):

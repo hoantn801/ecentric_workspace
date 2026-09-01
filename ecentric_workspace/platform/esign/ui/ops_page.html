@@ -118,7 +118,8 @@
 
   var ACTION_LABEL = {
     reconcile: "Đối soát",
-    retry: "Thử lại",
+    retry: "Gửi lại",
+    retry_sent: "Đối soát & chuyển xem tay",
     cancel: "Hủy chân ký",
     retrieve: "Tải PDF đã ký",
     resolve_review: "Xem đối chiếu",
@@ -133,6 +134,12 @@
     reconcile: "Đọc lại trạng thái bên SCTS và xác minh. KHÔNG gửi lại lệnh ký — nếu người "
              + "đó đã tự ký trên cổng SCTS thì chân ký này sẽ được ghi nhận hoàn tất.",
     retry: "Xếp lại chân ký này vào hàng đợi để gửi lệnh ký một lần nữa.",
+    // Cùng một nút, hai việc khác hẳn nhau — tuỳ chân ký đã từng gửi đi hay chưa. Máy chủ
+    // quyết định nhãn nào, bằng chính hàm mà worker dùng, nên nhãn không thể hứa suông.
+    retry_sent: "Chân ký này CÓ THỂ đã gửi sang SCTS rồi, nên hệ thống sẽ KHÔNG gửi lại — "
+              + "lệnh ký gửi hai lần có thể tạo chữ ký thứ hai trên cùng tài liệu. Nó đọc "
+              + "lại tài liệu: nếu đã ký thì ghi nhận hoàn tất, nếu chưa thì chuyển sang "
+              + "Cần người xem để có người quyết định.",
     cancel: "Đóng chân ký này lại. Không hoàn tác được.",
     retrieve: "Tải bản PDF đã ký từ SCTS về đính vào phiếu. Chỉ đọc phía SCTS, chạy lại "
             + "nhiều lần vẫn an toàn.",
@@ -146,14 +153,26 @@
     resume: "Cho cron thử tải lại gói này, khi tài liệu bên SCTS đã sống lại."
   };
 
+  // Nhãn của nút "retry" phụ thuộc TỪNG chân ký, không phải một chữ cố định. Chân ký có thể
+  // đã gửi rồi thì chốt một chiều ở worker sẽ chặn, nên nhãn "Gửi lại" là một lời hứa suông —
+  // đó chính là chỗ sai được sửa 02/09. `may_have_sent` do máy chủ tính, cùng một hàm với
+  // worker, nên nhãn không thể lệch khỏi việc thật sự xảy ra.
+  //
+  // `data-act` GIỮ NGUYÊN là "retry": chỉ nhãn và câu giải thích đổi, endpoint không đổi.
+  function labelKey(action, row) {
+    return (action === "retry" && row && !row.retry_will_resend) ? "retry_sent" : action;
+  }
+
   function actionsHtml(row, kind) {
     return (row.actions || []).map(function (a) {
+      var k = labelKey(a, row);
       return '<button class="ops-btn' + (a === "reconcile" ? " primary" : "") + '" '
            + 'data-act="' + a + '" data-kind="' + kind + '" '
+           + 'data-label="' + esc(k) + '" '
            + 'data-name="' + esc(row.name) + '" '
            + 'data-doc="' + esc(row.business_name || "") + '" '
            + 'data-dt="' + esc(row.business_doctype || "") + '" type="button">'
-           + esc(ACTION_LABEL[a] || a) + "</button>";
+           + esc(ACTION_LABEL[k] || k) + "</button>";
     }).join("");
   }
 
@@ -294,8 +313,11 @@
     var name = btn.getAttribute("data-name");
     var doc = btn.getAttribute("data-doc");
     var dt = btn.getAttribute("data-dt");
-    var why = ACTION_WHY[act] || "";
-    if (!window.confirm((ACTION_LABEL[act] || act) + "?\n\n" + why)) return;
+    // Hộp xác nhận phải nói ĐÚNG việc sắp xảy ra với chính chân ký này, không phải câu chung
+    // cho cả loại hành động — xem `labelKey`.
+    var lk = btn.getAttribute("data-label") || act;
+    var why = ACTION_WHY[lk] || ACTION_WHY[act] || "";
+    if (!window.confirm((ACTION_LABEL[lk] || ACTION_LABEL[act] || act) + "?\n\n" + why)) return;
 
     var p;
     if (act === "reconcile") p = call("reconcile_signature_request", { dsr_name: name }, "POST");

@@ -38,8 +38,25 @@ def _root():
     raise AssertionError("khong tim thay goc ecentric_workspace")
 
 
-_SRC = io.open(os.path.join(_root(), "platform", "esign", "tasks.py"),
+_ROOT = _root()
+_SRC = io.open(os.path.join(_ROOT, "platform", "esign", "tasks.py"),
                encoding="utf-8").read()
+
+
+def _state_module():
+    """Nap `state.py` that su (khong import frappe nen nap thang duoc).
+
+    `exec(compile(...))` chu khong phai `spec_from_file_location`: loader theo duong dan
+    dung lai `__pycache__`, va bo nho dem do chi bi coi la cu khi mtime HOAC kich thuoc doi -
+    nen mot phep dot bien DI CHUYEN khoi lenh se duoc cham tren ban .pyc cu va bao xanh gia.
+    Da mat mot vong chan doan vi dung cai bay nay hom 01/09.
+    """
+    import types
+    path = os.path.join(_ROOT, "platform", "esign", "state.py")
+    mod = types.ModuleType("esign_state_under_test")
+    exec(compile(io.open(path, encoding="utf-8").read(), path, "exec"),  # noqa: S102
+         mod.__dict__)
+    return mod
 _TREE = ast.parse(_SRC)
 
 
@@ -115,22 +132,68 @@ class TestSecondSubmitIsLatched(unittest.TestCase):
                       "khong kem txn van lot -> co the dat chu ky THU HAI.")
 
     def test_may_have_sent_van_gom_du_ba_dau_hieu(self):
-        """Neu ai do lam nghe `may_have_sent` thi chot o tren rong ruot ma van 'dung ten'."""
-        fn = _func("process_signing_request")
-        assign = None
-        for node in ast.walk(fn):
-            if (isinstance(node, ast.Assign) and len(node.targets) == 1
-                    and isinstance(node.targets[0], ast.Name)
-                    and node.targets[0].id == "may_have_sent"):
-                assign = node
-        self.assertIsNotNone(assign, "khong tim thay noi gan `may_have_sent`")
-        # Ten truong o day di qua `dsr.get("...")` nen la HANG CHUOI, khong phai thuoc tinh -
-        # gom ca hai, neu khong phep kiem se do trong khi nguon hoan toan dung.
-        used = _names(assign.value) | {c.value for c in ast.walk(assign.value)
-                                       if isinstance(c, ast.Constant)
-                                       and isinstance(c.value, str)}
-        for f in ("accepted_at", "bulk_job_transaction_id", "request_attempt"):
-            self.assertIn(f, used, "may_have_sent phai xet %s" % f)
+        """Neu ai do lam nghe `may_have_sent` thi chot o tren rong ruot ma van 'dung ten'.
+
+        Phep chan da chuyen ve `state.may_have_sent` (02/09) de trang ops dung CHUNG mot
+        dinh nghia voi worker - hai ban sao se lech, va lech o day nghia la mot cai nut hua
+        gui lai roi lang le khong gui. Nen kiem HANH VI cua ham do, khong kiem chuoi.
+        """
+        mod = _state_module()
+        self.assertFalse(mod.may_have_sent({"status": "Queued", "request_attempt": 1}),
+                         "chan ky chua gui gi ma da bi coi la co the da gui")
+        for dau_hieu in ({"accepted_at": "2026-08-28 23:54:00"},
+                         {"bulk_job_transaction_id": "abc"},
+                         {"request_attempt": 2}):
+            row = {"status": "Queued", "request_attempt": 1}
+            row.update(dau_hieu)
+            self.assertTrue(mod.may_have_sent(row),
+                            "may_have_sent phai xet %s - bo qua no thi mot lan gui thanh "
+                            "cong van lot va co the dat chu ky THU HAI" % list(dau_hieu))
+
+    def test_du_doan_phai_tinh_ca_buoc_tang_ma_retry_gay_ra(self):
+        """Nhan nut phai noi dung viec SE xay ra, khong phai viec dang thay.
+
+        `retry_signature_request` tang `request_attempt` ROI moi xep job. Nen mot chan ky
+        dang o attempt 1 va sach tron - nhin vao thi tuong "chua gui gi, bam la gui" - thuc
+        te khi worker chay se thay attempt 2, chot dong, va no chuyen sang Manual Review chu
+        khong gui. Neu du doan quen mo phong cai +1 do thi trang lai in "Gui lai" va lai hua
+        dieu ma chot tu choi: dung cai sai dang duoc sua, chi doi cho.
+        """
+        mod = _state_module()
+        sach = {"status": "Queued", "request_attempt": 1}
+        self.assertTrue(mod.may_have_sent(dict(sach, request_attempt=2)),
+                        "tien de: attempt 2 la co the da gui")
+        self.assertFalse(
+            mod.retry_will_resend(sach),
+            "chan ky nay nhin thi sach, nhung bam retry se thanh attempt 2 -> chot dong -> "
+            "Manual Review. Du doan phai tra False de nhan la 'Doi soat', khong phai 'Gui lai'")
+
+    def test_du_doan_va_chot_khong_bao_gio_mau_thuan(self):
+        """Quet moi to hop dau hieu: da hua gui lai thi chot phai that su cho gui."""
+        mod = _state_module()
+        for status in ("Queued", "Provider Accepted", "Verifying", "Manual Review"):
+            for attempt in (1, 2, 5):
+                for extra in ({}, {"accepted_at": "2026-08-28 23:54:00"},
+                              {"bulk_job_transaction_id": "abc"}):
+                    row = dict({"status": status, "request_attempt": attempt}, **extra)
+                    if mod.retry_will_resend(row):
+                        sau = dict(row, request_attempt=attempt + 1)
+                        self.assertFalse(
+                            mod.may_have_sent(sau),
+                            "hua 'Gui lai' cho %s nhung chot se chan lai" % row)
+
+    def test_worker_va_trang_ops_dung_CHUNG_dinh_nghia(self):
+        """Hai ban sao cua luat nay se lech, va lech = nut hua mot dang lam mot neo."""
+        import io as _io
+        import os as _os
+        tasks = _io.open(_os.path.join(_ROOT, "platform", "esign", "tasks.py"),
+                         encoding="utf-8").read()
+        ops = _io.open(_os.path.join(_ROOT, "platform", "esign", "ops.py"),
+                       encoding="utf-8").read()
+        self.assertIn("sm.may_have_sent(dsr)", tasks, "worker tu tinh lai phep chan")
+        self.assertIn("sm.retry_will_resend(r)", ops,
+                      "trang ops phai hoi cung mot module, va phai hoi ban DU DOAN "
+                      "(retry lam tang request_attempt truoc khi job chay)")
 
     def test_chot_KHONG_gui_ma_day_sang_nguoi(self):
         """Fail-closed: gap truong hop mo ho thi dung lai cho NGUOI doi soat, khong doan."""
