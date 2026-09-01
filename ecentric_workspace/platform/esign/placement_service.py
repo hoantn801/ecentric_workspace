@@ -146,7 +146,7 @@ def _assert_write_ok(business_doctype, business_name):
 def _ensure_signable_dsf(business_doctype, business_name, f, cur_name):
     """Resolve/materialize the local Draft package + one signable DSF for this physical PDF
     (governed, purely local - no provider/DSR/SCTS/lock). Returns (draft_name, dsf_name)."""
-    content = frappe.get_doc("File", f["name"]).get_content()
+    content = pkgsvc.raw_file_bytes(f["name"])
     sha = pkgsvc.hashing.sha256_bytes(content)
     draft = cur_name
     if not draft:

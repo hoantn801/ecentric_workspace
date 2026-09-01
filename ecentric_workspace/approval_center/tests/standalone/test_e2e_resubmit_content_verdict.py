@@ -190,6 +190,11 @@ def _load_lifecycle(attachments, pkg_files, frozen_pkg=True, signed_count=0):
         return [_D(r) for r in pkg_files]
 
     package_mod.package_files = package_files
+    # Ma nguon doc byte tep qua `pkgsvc.raw_file_bytes` (02/09) chu khong goi thang
+    # `File.get_content()`, vi ham do tra `str` cho tep giai ma duoc. Ban gia van di qua
+    # CUNG mot `_FileDoc`, nen bo dem `recorder['reads']` - thu bo test nay that su do -
+    # van dem dung so lan doc tep.
+    package_mod.raw_file_bytes = lambda name: get_doc("File", name).get_content()
 
     esign_pkg = types.ModuleType("ecentric_workspace.platform.esign")
     esign_pkg.events = events_mod

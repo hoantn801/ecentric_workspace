@@ -448,7 +448,39 @@ def file_bytes(dsf_name):
     file_id = frappe.db.get_value("EC Digital Signature File", dsf_name, "file")
     if not file_id:
         frappe.throw(_("Không tìm thấy tệp đính kèm."))
-    return frappe.get_doc("File", file_id).get_content()
+    return raw_file_bytes(file_id)
+
+
+def raw_file_bytes(file_id):
+    """Bytes of a `File` record - ALWAYS bytes, whatever Frappe hands back.
+
+    `File.get_content()` does NOT reliably return bytes. It reads the file in binary and
+    then tries `.decode()`, returning a `str` whenever the bytes happen to be valid UTF-8:
+
+        with open(file_path, mode="rb") as f:
+            self._content = f.read()
+            try:
+                self._content = self._content.decode()   # <- plain text wins here
+            except UnicodeDecodeError:
+                pass                                     # <- .png/.jpg/most PDFs stay bytes
+
+    Most real PDFs carry compressed streams, so they fail to decode and arrive as bytes -
+    which is why every caller could pass the result straight into `sha256_bytes` and nothing
+    broke for months. But an attachment that IS decodable - a plain-ASCII PDF, a .txt or .csv
+    receipt, an .svg - comes back as `str`, `sha256_bytes` raises TypeError, and the person
+    placing signature boxes gets "Không thể lưu vị trí chữ ký — thử lại" with no way forward.
+    Found 02/09 by uploading a minimal ASCII PDF while running the E2E by hand.
+
+    Re-encoding is exact, not a guess: Frappe decoded these very bytes with strict UTF-8, so
+    `.encode("utf-8")` returns the identical bytes and the sha256 still describes the file on
+    disk. Anything else that is not bytes is a real fault and must not be hashed silently.
+    """
+    content = frappe.get_doc("File", file_id).get_content()
+    if isinstance(content, str):
+        return content.encode("utf-8")
+    if isinstance(content, (bytes, bytearray)):
+        return bytes(content)
+    frappe.throw(_("Không đọc được nội dung tệp đính kèm."))
 
 
 def _page_sizes(content):

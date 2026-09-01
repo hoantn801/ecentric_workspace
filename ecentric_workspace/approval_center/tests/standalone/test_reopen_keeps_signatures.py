@@ -70,6 +70,14 @@ def _load(pkg_files, attached, raise_pkg=False, raise_files=False, unreadable=Fa
                 raise RuntimeError("db down")
             return pkg_files
 
+        # Ma nguon doc byte tep qua `pkgsvc.raw_file_bytes` chu khong goi thang
+        # `File.get_content()` nua (02/09): `get_content()` tra `str` cho tep giai ma duoc
+        # va lam sap buoc dat o chu ky. Ban gia van di qua CUNG mot tep gia, nen bo test nay
+        # tiep tuc do dung thu no von do - viec so sanh noi dung.
+        @staticmethod
+        def raw_file_bytes(name):
+            return _Doc(name).get_content()
+
     store = {"F%d" % i: c for i, c in enumerate(attached)}
 
     class _Doc(object):
