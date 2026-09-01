@@ -188,11 +188,20 @@ def _load_tasks(dsr_rows, pkg_rows=(), dsr_table=None, completed_exists=None):
     sanitize_mod = types.ModuleType("sanitize")
     sanitize_mod.safe_error = lambda e: str(e)[:200]
 
+    # `state` la module THAT, khong phai ban gia: no thuan (khong import frappe) va no giu
+    # phep chan `may_have_sent` - chinh cai quyet dinh worker co gui lai lenh ky hay khong.
+    # Gia lap no o day thi bo test se xac nhan mot luat do chinh no bia ra, dung lop sai ma
+    # "stub tu tra loi chinh minh" da vap ba lan truoc do.
+    state_mod = types.ModuleType("ecentric_workspace.platform.esign.state")
+    exec(compile(_read("platform", "esign", "state.py"), "state.py", "exec"),  # noqa: S102
+         state_mod.__dict__)
+
     esign_pkg = types.ModuleType("ecentric_workspace.platform.esign")
     for attr, m in (("binding", binding_mod), ("events", events_mod),
                     ("package", pkgsvc_mod), ("service", svc_mod),
                     ("providers", providers_mod), ("sanitize", sanitize_mod),
-                    ("requester", requester_mod), ("signed_files", signed_files_mod)):
+                    ("requester", requester_mod), ("signed_files", signed_files_mod),
+                    ("state", state_mod)):
         setattr(esign_pkg, attr, m)
 
     mods = {
@@ -205,6 +214,7 @@ def _load_tasks(dsr_rows, pkg_rows=(), dsr_table=None, completed_exists=None):
         "ecentric_workspace.platform.esign.service": svc_mod,
         "ecentric_workspace.platform.esign.requester": requester_mod,
         "ecentric_workspace.platform.esign.signed_files": signed_files_mod,
+        "ecentric_workspace.platform.esign.state": state_mod,
         "ecentric_workspace.platform.esign.providers": providers_mod,
         "ecentric_workspace.platform.esign.providers.base": base_mod,
         "ecentric_workspace.platform.esign.sanitize": sanitize_mod,

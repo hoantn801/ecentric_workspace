@@ -103,6 +103,70 @@ def is_terminal(kind, status):
     return status in (PACKAGE_TERMINAL if kind == PACKAGE else DSR_TERMINAL)
 
 
+def may_have_sent(dsr):
+    """Could a signing command for this leg already have reached the provider?
+
+    ONE definition, used by both the worker (which refuses to re-send when it is true) and
+    the ops page (which must label the button with what will actually happen). Two copies of
+    this rule would drift, and the drift would show up as a button that promises to re-send
+    and then quietly does not.
+
+    `dsr` is any mapping with `status`, `accepted_at`, `bulk_job_transaction_id`.
+
+    WHAT COUNTS, AND WHY EACH ONE:
+      * status Provider Accepted / Verifying - the provider took the call.
+      * `accepted_at` - set the moment a 200 comes back. This is the load-bearing signal:
+        the portal does not always return a transaction id, so a successful send can leave
+        `bulk_job_transaction_id` empty while `accepted_at` is set.
+      * `bulk_job_transaction_id` - kept for legs written before `accepted_at` existed.
+
+      * `request_attempt > 1` - a previous run was driven and left NO trace. That happens
+        when the worker dies between the provider call returning and the status write: both
+        live in one transaction, so the write rolls back and the leg looks untouched even
+        though a signature command went out. `retry_signature_request` bumps this counter in
+        its OWN request, which does commit, so it is the only signal that survives that
+        crash. Narrow, but it is guarding a double-signature, so it stays.
+
+    THE CONSEQUENCE, STATED PLAINLY (02/09).
+    The ops retry action increments `request_attempt` and THEN queues the job, so by the time
+    the worker evaluates this rule the counter is already 2 and the answer is always yes.
+    Today, therefore, "retry" on a stuck leg CANNOT re-send: it re-polls, and if the document
+    is not signed it moves the leg to Manual Review. That may well be the right behaviour -
+    it is certainly the safe one - but the button used to be labelled "gửi lệnh ký một lần
+    nữa", which was a promise the code could not keep. The page now reads this same function
+    and labels each leg with what will really happen, instead of the label and the code
+    disagreeing where nobody could see it.
+
+    Making retry genuinely re-send a never-sent leg is a separate, larger change: it needs a
+    send-intent marker on its own commit plus a state the worker refuses to re-enter, so that
+    dropping `request_attempt` does not reopen the crash window. Written up in
+    BACKLOG_ESIGN.md rather than smuggled in behind a label fix.
+    """
+    def field(name):
+        return dsr.get(name) if hasattr(dsr, "get") else getattr(dsr, name, None)
+
+    if field("status") in ("Provider Accepted", "Verifying"):
+        return True
+    if field("accepted_at") or field("bulk_job_transaction_id"):
+        return True
+    return int(field("request_attempt") or 1) > 1
+
+
+def retry_will_resend(dsr):
+    """Will pressing "retry" on this leg actually put a signing command on the wire?
+
+    Answers the question the way the WORKER will see it, not the way the row looks now:
+    `retry_signature_request` increments `request_attempt` before the job runs, so the
+    prediction has to include that increment. Otherwise the page promises a send that the
+    latch then refuses - which is exactly the mismatch being fixed.
+    """
+    after_retry = dict(dsr) if isinstance(dsr, dict) else {
+        k: getattr(dsr, k, None)
+        for k in ("status", "accepted_at", "bulk_job_transaction_id", "request_attempt")}
+    after_retry["request_attempt"] = int(after_retry.get("request_attempt") or 1) + 1
+    return not may_have_sent(after_retry)
+
+
 def assert_transition(kind, from_status, to_status):
     """Raise InvalidTransition unless from->to is an allowed edge."""
     states, table = _table(kind)

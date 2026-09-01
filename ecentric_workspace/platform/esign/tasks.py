@@ -16,6 +16,7 @@ from ecentric_workspace.platform.esign import binding
 from ecentric_workspace.platform.esign import events
 from ecentric_workspace.platform.esign import package as pkgsvc
 from ecentric_workspace.platform.esign import service as svc
+from ecentric_workspace.platform.esign import state as sm
 from ecentric_workspace.platform.esign.providers import get_adapter
 from ecentric_workspace.platform.esign.providers.base import (
     ProviderError, SignatureProviderAdapter, VerificationResult,
@@ -283,10 +284,7 @@ def process_signing_request(dsr_name):
         # Cau hoi ma POLL-FIRST tra loi ("lan gui truoc co thanh cong khong?") chi co nghia
         # khi DA TUNG GUI. Chan ky chua gui bao gio thi khong the hoan tat bang cach nhin -
         # no phai gui truoc da.
-        may_have_sent = (dsr.status in ("Provider Accepted", "Verifying")
-                         or bool(dsr.get("accepted_at"))
-                         or bool(dsr.get("bulk_job_transaction_id"))
-                         or int(dsr.get("request_attempt") or 1) > 1)
+        may_have_sent = sm.may_have_sent(dsr)
         doc_state = adapter.poll_status(doc_id)
         expected = svc._expected_for(dsr)
         expected["document_id"] = doc_id
@@ -321,11 +319,9 @@ def process_signing_request(dsr_name):
             # thu hai tren cung tai lieu. POLL-FIRST o tren chi cuu duoc khi chu ky da kip
             # xuat hien; cua so con lai phai co nguoi nhin.
             #
-            # Dung CHINH tin hieu `may_have_sent` (accepted_at HOAC txn HOAC request_attempt>1),
-            # KHONG chi `bulk_job_transaction_id`. Ban dau chi nhin txn, nhung mot HTTP 200
-            # KHONG kem txn (portal khong tra transaction id) van dat accepted_at - nen chi
-            # nhin txn thi cua so nay lot (BOT vong 3, 01/09). Fail-closed: Manual Review de
-            # "Doi soat" (chi DOC) quyet dinh, khong bao gio doan.
+            # Dinh nghia cua `may_have_sent` nam o `state.may_have_sent` - MOT cho duy nhat,
+            # dung chung voi trang ops de nhan nut noi dung viec se xay ra.
+            # Fail-closed: Manual Review de "Doi soat" (chi DOC) quyet dinh, khong bao gio doan.
             if may_have_sent:
                 events.set_dsr_status(dsr_name, "Manual Review", event_type="ManualReview",
                                       extra_fields={"manual_review_reason":

@@ -91,7 +91,7 @@ def stuck_legs(limit=100):
     rows = frappe.get_all(
         DSR, filters={"status": ["in", _NEEDS_HUMAN]},
         fields=["name", "status", "actor_type", "actor_user", "approver", "package",
-                "request_attempt", "modified"],
+                "request_attempt", "accepted_at", "bulk_job_transaction_id", "modified"],
         order_by="modified desc", limit_page_length=limit)
     out = []
     for r in rows:
@@ -113,6 +113,15 @@ def stuck_legs(limit=100):
             "business_name": pkg.business_name if pkg else None,
             "package": r.package, "attempt": r.request_attempt or 1,
             "since": str(r.modified or ""), "actions": actions,
+            # Nut "retry" lam HAI viec khac han nhau tuy chan ky, va nguoi bam phai biet la
+            # cai nao TRUOC khi bam. Chua tung gui -> gui that. Co the da gui roi -> chot mot
+            # chieu chan lai va day sang Manual Review, vi lenh ky khong idempotent nen gui
+            # lan hai co the tao chu ky thu hai tren cung tai lieu.
+            #
+            # CUNG MOT HAM voi worker, va ham do da tinh ca viec `retry` se tang
+            # request_attempt truoc khi job chay - neu khong thi trang lai hua mot dieu ma
+            # chot se tu choi, dung cai sai dang duoc sua.
+            "retry_will_resend": sm.retry_will_resend(r),
             "last_error": _last_error(r.name),
             # Khong co canh ra nao = ngo cut that su. Giao dien phai noi thang thay vi ve mot
             # hang nut khong bam duoc.
