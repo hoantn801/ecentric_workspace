@@ -13,6 +13,7 @@ from frappe import _
 
 from ecentric_workspace.approval_center.shared.facade import APPROVAL_FACADE
 from ecentric_workspace.approval_center.shared.registry import get_definition
+from ecentric_workspace.approval_center.shared import vi_display
 
 
 def _resolve(request_name):
@@ -123,6 +124,8 @@ def _display_fields(definition, business):
             continue
         if df.fieldtype == "Check":
             value = "Có" if value else "Không"
+        elif df.fieldtype == "Select":
+            value = vi_display.value(value, df.fieldname)
         if df.fieldtype in ("Link", "Dynamic Link"):
             value = _pretty_link(_link_title(df, business, value), value)
         elif df.fieldname in _CODE_FIELDS and df.fieldtype in ("Data", "Select"):
@@ -231,6 +234,9 @@ def get_request_detail(request_name):
     definition, name = _resolve(request_name)
     data = APPROVAL_FACADE.detail(definition, name) or {}
     data["display_fields"] = _display_fields(definition, data.get("business") or {})
+    for level in (data.get("levels") or []):
+        if isinstance(level, dict) and level.get("level_name"):
+            level["level_name"] = vi_display.level_name(level["level_name"])
     data["business_name"] = name
     data["type_title"] = frappe.db.get_value("EC Approval Type", definition.code, "approval_title") \
         or definition.code
