@@ -326,7 +326,9 @@ def _engine_link_state(rows, user):
             visible = acperm.can_view_request(
                 reqname, user, business_doctype=biz_dt,
                 requested_by=req.get("requested_by"),
-                fulfillment_owner=ful.get("owner", ""), approval_type=atype)
+                fulfillment_owner=ful.get("owner", ""), approval_type=atype,
+                # Ten phieu: duong "dang giu viec" chi mo dung phieu duoc giao (siet 01/09).
+                business_name=biz)
             out[key] = {"found": True, "stage": "approval", "terminal": False,
                         "active": (ls == "In Progress"),
                         "due": lvl_due if ls == "In Progress" else "",

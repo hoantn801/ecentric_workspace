@@ -68,7 +68,9 @@ def _can_view(user, biz, req):
     return _perm.can_view_request(
         req.name if req else None, user, business_doctype=BIZ,
         requested_by=biz.requested_by, fulfillment_owner=biz.fulfillment_owner,
-        approval_type=APPROVAL_TYPE)
+        approval_type=APPROVAL_TYPE,
+        # Ten phieu: duong "dang giu viec" chi mo dung phieu duoc giao (siet 01/09).
+        business_name=biz.name)
 
 
 def _pending_row(req, user):

@@ -13,7 +13,15 @@ round-3 audit.
    so the user got an error pointing at nothing. The error now names the document section and
    the page scrolls there instead.
 
-3. On the ops page, the result of an irreversible action (cancel a signing leg, waive a
+3. The ops page could not say WHY a signed PDF had not arrived. The retrieval path had a
+   silent branch: the cron touched a package every 30 minutes, decided "not ready", and
+   returned without recording anything. On live data (01/09) five packages whose signing was
+   fully complete sat with zero retrieval events, so the page guessed "nobody has tried yet -
+   SCTS has not finished signing" - a guess that turned out to be wrong, and the stall alarm
+   could not fire because it counts events that were never written. The reason the machine
+   actually returned is now recorded and shown in plain Vietnamese.
+
+4. On the ops page, the result of an irreversible action (cancel a signing leg, waive a
    signature debt, stop retrying) was overwritten a moment later by the reload's own
    "Đang tải…". The person who pressed the button never got to read what happened - on the
    page built to end exactly that kind of silence. The message is now restored after reload.

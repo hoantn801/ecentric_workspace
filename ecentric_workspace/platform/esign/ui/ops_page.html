@@ -182,13 +182,38 @@
         : (r.stalled ? '<span class="ops-pill bad">Đã thử ' + r.attempts + ' lượt</span>'
                      : '<span class="ops-pill warn">Đã thử ' + r.attempts + ' lượt</span>'));
     var err = r.last_error ? '<div class="ops-err">' + esc(r.last_error) + "</div>" : "";
+    // Ly do may tra ve - dich sang tieng nguoi. Khong co trong bang thi hien nguyen van
+    // (tha kho hieu con hon giau di).
+    var WHY = {
+      "no_signers_on_document": "Tài liệu bên SCTS chưa có chữ ký nào.",
+      "no_expected_signers": "Không xác định được ai là người ký — thiếu dữ liệu chân ký bên ERP.",
+      "no_document_state": "SCTS không trả về trạng thái tài liệu.",
+      "no_signature_request": "Gói không có chân ký nào."
+    };
+    function whyText(code) {
+      if (!code) return "";
+      if (WHY[code]) return WHY[code];
+      if (code.indexOf("non_signed_signer_present") === 0)
+        return "Còn người chưa ký bên SCTS (" + code.split(":")[1] + ") — tài liệu chưa đủ chữ ký.";
+      if (code.indexOf("expected_signer_absent") === 0)
+        return "Thiếu chữ ký của một người bắt buộc: " + code.split(":")[1] + ".";
+      if (code.indexOf("signing_still_in_flight") === 0)
+        return "Bên ERP còn chân ký đang chạy (" + code.split(":")[1] + ").";
+      if (code === "unexpected_signer_identity")
+        return "Có người ký KHÔNG nằm trong danh sách được ký — cần đối chiếu ngay.";
+      return code;
+    }
     var note = r.abandoned
       ? '<div class="ops-note">Ngừng bởi ' + esc(r.abandoned_by || "?") + " — "
         + esc(r.abandoned_reason || "(không ghi lý do)")
         + ". Cron không còn gọi SCTS cho gói này.</div>"
+      : (r.not_ready_reason
+      ? '<div class="ops-note"><b>Chưa tải được vì:</b> ' + esc(whyText(r.not_ready_reason))
+        + '<br><span style="opacity:.75">Lần kiểm gần nhất: ' + when(r.last_touch)
+        + ' · mã máy: ' + esc(r.not_ready_reason) + "</span></div>"
       : (r.waiting_on_provider
-      ? '<div class="ops-note">Chưa thử lần nào và không có lỗi — tài liệu bên SCTS chưa '
-        + 'ký xong. Đây là CHỜ, không phải hỏng.</div>' : "");
+      ? '<div class="ops-note">Chưa lần nào chạm tới gói này và không có lỗi — nhiều khả năng '
+        + 'cron chưa quét tới. Nếu kéo dài, báo kỹ thuật.</div>' : ""));
     return "<tr><td>" + docLink(r.business_doctype, r.business_name)
       + '<div class="ops-note">' + esc(r.name) + "</div></td>"
       + "<td>" + pill + note + err + "</td>"

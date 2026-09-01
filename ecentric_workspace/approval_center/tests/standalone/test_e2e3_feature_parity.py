@@ -528,8 +528,10 @@ class TestPinnedGaps(_Base):
             _department_unlocked_features(),
             ["affiliate_bonus", "asset_damage_loss", "asset_request", "budget_setting",
              "compensation_leave", "employee_referral", "hiring_request", "hr_activity",
-             "late_early_out", "leave", "livestream_sample", "payment_request", "promotion",
+             "late_early_out", "leave", "livestream_sample", "promotion",
              "purchase_request", "resignation", "special_bonus", "system_request"],
+            # payment_request DA GO khoi ghim 01/09: Hoan chot chi khoa form chi tien nay,
+            # 16 form con lai giu nguyen co y (khong phai quen).
             "PHONG BAN DOI DUOC SAU KHI GUI: command_service.save_draft ghi moi truong trong "
             "editable_fields va CHO PHEP chay o trang thai 'Information Required'; 8 form khac "
             "chan bang _department_snapshot_lock trong controller DocType, 17 form nay thi khong. "

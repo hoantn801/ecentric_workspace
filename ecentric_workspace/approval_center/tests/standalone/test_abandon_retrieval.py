@@ -59,6 +59,21 @@ def _fn(src, name):
     raise AssertionError("khong tim thay ham %s" % name)
 
 
+def _brace_body(src, marker):
+    """Than mot ham JS, cat bang cach dem ngoac nhon - khong phu thuoc do dai."""
+    i = src.index(marker)
+    start = src.index("{", i)
+    depth = 0
+    for j in range(start, len(src)):
+        if src[j] == "{":
+            depth += 1
+        elif src[j] == "}":
+            depth -= 1
+            if depth == 0:
+                return src[start:j + 1]
+    raise AssertionError("khong tim thay ngoac dong cho %r" % marker)
+
+
 def _calls(src, name):
     """Ten cac ham duoc GOI ben trong mot ham - de khong khop nham chu trong chu thich."""
     tree = ast.parse(src)
@@ -162,8 +177,10 @@ class TestScreenWiring(unittest.TestCase):
         self.assertIn("Bắt buộc nêu lý do", seg)
 
     def test_goi_da_ngung_trong_KHAC_goi_dang_treo(self):
-        i = _UI.index("function bundleRow")
-        seg = _UI[i:i + 1400]
+        # Cat than ham theo DAU NGOAC, khong theo do dai co dinh: them mot khoi vao dau ham
+        # la doan can kiem bi day ra ngoai cua so va test do trong khi nguon van dung. Lop
+        # loi nay da gap 3 lan - lan nay o test_abandon_retrieval (01/09).
+        seg = _brace_body(_UI, "function bundleRow")
         self.assertIn("r.abandoned", seg,
                       "truoc day moi thu trong y het nhau - do chinh la loi trang nay sinh "
                       "ra de xoa bo")
