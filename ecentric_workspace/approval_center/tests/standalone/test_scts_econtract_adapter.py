@@ -185,6 +185,22 @@ class TestEcontractAdapter(unittest.TestCase):
         n = SctsAdapter._norm_signature(sample)
         self.assertTrue(n["active"])                       # presence in list = usable
         self.assertEqual(n["id"], sample["id"]); self.assertEqual(n["signerId"], sample["signerId"])
+        # 03/09: hai co de biet chu ky ky duoc tu may chu hay phai ky tay. Bool + so, khong
+        # phai id chung thu.
+        self.assertTrue(n["has_hsm"])
+        self.assertIsNone(n["sign_token"])                 # mau nay khong co signToken
+        self.assertNotIn("hsmCertId", n, "khong duoc mang id chung thu ra ngoai")
+
+    def test_sign_token_va_hsm_null(self):
+        """Mau that 02/09 cua chu ky ky-chinh: hsmId null, signToken 1 -> ky tay."""
+        n = SctsAdapter._norm_signature({"id": "x", "signerId": "u", "type": "ky-chinh",
+                                         "hsmId": None, "signToken": 1})
+        self.assertFalse(n["has_hsm"])
+        self.assertEqual(n["sign_token"], 1)
+        n2 = SctsAdapter._norm_signature({"id": "y", "signerId": "u", "type": "ky-tham-gia",
+                                          "hsmId": "07524427", "signToken": "0"})
+        self.assertTrue(n2["has_hsm"])
+        self.assertEqual(n2["sign_token"], 0)
 
     def test_explicit_negative_still_fails_closed(self):
         self.assertFalse(SctsAdapter._resolve_active({"isActive": False}))

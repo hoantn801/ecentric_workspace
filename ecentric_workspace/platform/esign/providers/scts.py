@@ -309,13 +309,27 @@ class SctsAdapter(SignatureProviderAdapter):
     @staticmethod
     def _norm_signature(x):
         if not isinstance(x, dict):
-            return {"id": None, "signerId": None, "type": None, "company": None, "active": False}
+            return {"id": None, "signerId": None, "type": None, "company": None, "active": False,
+                    "has_hsm": False, "sign_token": None}
         sig_id = x.get("id") or x.get("signatureId") or x.get("signerSignatureId")
         signer = x.get("signerId") or x.get("userId") or x.get("signerUserId")
+        # `has_hsm` / `sign_token` (03/09): CO chung thu HSM khong, va ky o dau. Khong phai
+        # chung thu, khong phai id chung thu - chi la co/khong va mot so. Can vi mot nguoi co
+        # the co NHIEU mau chu ky cung loai: anh Lam co hai `ky-chinh`, mapping dang tro vao
+        # mot cai, va cau hoi "cai nao ky duoc tu may chu" khong tra loi duoc neu khong lo hai
+        # co nay. `signToken=1` = ky bang token tai may qua OfficeSignTool -> ERP KHONG ky
+        # thay duoc; `0` + co HSM = ky duoc tu may chu nhu 4 chan tham gia.
+        st = x.get("signToken")
+        try:
+            st = int(st) if st is not None and str(st).strip() != "" else None
+        except (TypeError, ValueError):
+            st = None
         return {"id": sig_id, "signerId": signer,
                 "type": x.get("type") or x.get("signatureType"),
                 "company": x.get("company") or x.get("companyName"),
-                "active": SctsAdapter._resolve_active(x)}
+                "active": SctsAdapter._resolve_active(x),
+                "has_hsm": bool(x.get("hsmCertId") or x.get("hsmId")),
+                "sign_token": st}
 
     def signature_image(self, provider_user_id, signature_id):
         """Base64 PNG of ONE owned signature (size preview in the placement drawer).
