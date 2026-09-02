@@ -311,7 +311,8 @@ _MAX_PROBED_TRANSITIONS = 10
 
 
 @frappe.whitelist()
-def provider_workflow_view(dsr_name, transition_id=None, provider_user_id=None):
+def provider_workflow_view(dsr_name, transition_id=None, provider_user_id=None,
+                           instance_id=None):
     """READ-ONLY, System Manager only: eContract NGHI GI ve mot chan ky.
 
     Viet cho su co 02/09, EC-PAYR-2026-00041 / EC-DSP-2026-00028, chan ky EC-DSR-2026-00027:
@@ -362,10 +363,24 @@ def provider_workflow_view(dsr_name, transition_id=None, provider_user_id=None):
                     "transition_id", "request_attempt")},
            "package": dsr.get("package"), "document_id": doc_id,
            "environment": dsr.get("environment"), "provider_user_id": pid,
+           "instance_id_used": None, "instance_id_source": None,
            "document": None, "transitions": None, "recipients": []}
     if not doc_id:
         out["ok"], out["reason"] = False, "no_provider_document"
         return out
+
+    # `/api/Workflow/...` nhan INSTANCE id, khong phai DOCUMENT id. Tham so `instance_id` cho
+    # phep THU mot ma truoc khi ghi no vao bat cu dau: 02/09 phai lay ma nay bang tay tu cong
+    # eContract, va viec ghi mot ma doan vao goi roi doi vong ky sau moi biet dung hay sai la
+    # cach dat cau hoi dat nhat co the.
+    from ecentric_workspace.platform.esign.package import workflow_instance_id
+    if instance_id:
+        inst_id, out["instance_id_source"] = str(instance_id).strip(), "tham_so"
+    else:
+        stored = workflow_instance_id(dsr.get("package"), fallback_to_document=False)
+        inst_id = stored or doc_id
+        out["instance_id_source"] = "goi" if stored else "document_id (CO THE SAI)"
+    out["instance_id_used"] = inst_id
     if not pid:
         out["ok"], out["reason"] = False, "no_provider_user_id"
         return out
@@ -395,7 +410,7 @@ def provider_workflow_view(dsr_name, transition_id=None, provider_user_id=None):
 
     # 2. Voi nguoi nay, hien co nhung canh chuyen nao.
     try:
-        items = adapter.available_transitions(doc_id, pid) or []
+        items = adapter.available_transitions(inst_id, pid) or []
         out["transitions"] = {"asked": True, "ok": True, "error": None,
                               "count": len(items), "items": items}
     except Exception as exc:
@@ -418,7 +433,7 @@ def provider_workflow_view(dsr_name, transition_id=None, provider_user_id=None):
         # ly do that bai cua canh TRUOC do - mot cau tra loi sai trong tin hon la khong co.
         adapter._last_eligible_error = None
         try:
-            eligible = adapter.eligible_recipients(doc_id, tid, pid)
+            eligible = adapter.eligible_recipients(inst_id, tid, pid)
         except Exception as exc:
             row["error"] = safe_error(exc)
             out["recipients"].append(row)
@@ -1086,3 +1101,32 @@ def _pdf_signature_geometry(content):
     return {"page_size": {"width": round(float(mb.width), 2),
                           "height": round(float(mb.height), 2)},
             "signature_rects": rects}
+
+
+@frappe.whitelist(methods=["POST"])
+def set_workflow_instance_id(package, instance_id):
+    """Dat ma WORKFLOW INSTANCE cho mot goi. System Manager.
+
+    Ma nay KHAC ma document va hien chua co duong lay tu dong: `AddDocument` khong tra ve no
+    va `GET /api/Document/{id}` khong chua no. 02/09 phai lay bang tay tu cong eContract
+    (`view-tasks.html?id=...`). Cho nao chua co ma, moi lenh `/api/Workflow/...` deu 404 -
+    da do voi ca ba nguoi tren cung mot tai lieu, ke ca nguoi da ky that - nen kham pha canh
+    chuyen khong chay, va moi luot ky roi ve pool.
+
+    Khong doan, khong suy ra: chi nhan ma do nguoi van hanh dua vao, ghi lai ai dat va dat gi.
+    De trong thi he quay ve hanh vi cu (dung document id) chu khong hong them.
+    """
+    perms.assert_system_manager()
+    iid = (instance_id or "").strip()
+    if not iid:
+        frappe.throw(_("Thiếu mã workflow instance."))
+    if not frappe.db.exists("EC Digital Signature Package", package):
+        frappe.throw(_("Không tìm thấy gói ký."))
+    truoc = frappe.db.get_value("EC Digital Signature Package", package,
+                                "scts_workflow_instance_id")
+    frappe.db.set_value("EC Digital Signature Package", package,
+                        "scts_workflow_instance_id", iid)
+    events.emit("WorkflowInstanceIdSet", package=package,
+                request_meta={"truoc": truoc or None, "sau": iid,
+                              "boi": frappe.session.user})
+    return {"ok": True, "package": package, "truoc": truoc or None, "sau": iid}

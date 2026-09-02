@@ -219,6 +219,15 @@ def setUpModule():
     stub = types.ModuleType(_PROVIDERS)
     stub.get_adapter = lambda settings: _ADAPTER_BOX["adapter"]
     sys.modules[_PROVIDERS] = stub
+    # `package` phai thay bang ban gia: no `import frappe` o dau file, va tu 02/09
+    # `provider_workflow_view` goi `workflow_instance_id` de biet nen hoi SCTS bang ma nao.
+    # Ban gia tra None = "goi chua co ma instance", tuc nhanh lui ve document id - dung
+    # trang thai cua moi goi hien co, nen day la mac dinh dung de kiem.
+    _PKG = "ecentric_workspace.platform.esign.package"
+    _SAVED.update(_saved_modules(_PKG))
+    pkg_stub = types.ModuleType(_PKG)
+    pkg_stub.workflow_instance_id = lambda pkg, fallback_to_document=True: None
+    sys.modules[_PKG] = pkg_stub
 
 
 def tearDownModule():
