@@ -267,6 +267,28 @@ class SignatureProviderAdapter(object):
             who = expected.get("user_id") or expected.get("email") or "?"
             return VerificationResult(
                 False, "expected_signer_absent:%s/of%d" % (who, len(doc_state.signers)))
+        # THU TU, KHONG PHAI THOI GIAN (02/09/2026).
+        #
+        # Cau hoi that cua chan ky thu N cua mot nguoi la: "nguoi nay da co it nhat N+1 chu
+        # ky tren tai lieu chua, va cai thu N+1 co moi hon luc minh hoi khong". Truoc day
+        # tra loi bang mot SAN thoi gian - chu ky phai moi hon luc chan truoc cua cung nguoi
+        # do hoan tat. San do dung y nhung hong voi du lieu that: eContract tra `signed_at`
+        # chi toi PHUT. Toi 02/09 23:06, mot nguoi vua trinh ky vua duyet cap 1 trong cung
+        # mot phut: ca hai chu ky doc thanh 23:06:00, deu "cu hon" san 23:06:2x, chan duyet
+        # quay `signature_predates_request` mai mai roi vao Manual Review.
+        #
+        # Dem thi khong can phan biet hai chu ky cung phut: xep chu ky cua nguoi do theo thoi
+        # gian tang dan, N chu ky dau la cua N chan truoc, cai thu N+1 la cua chan nay. Loi
+        # 28/08 (cap duyet dong bang chu ky trinh ky cua chinh nguoi do) van bi chan: khi do
+        # chi co MOT chu ky ma chan nay doi cai thu HAI.
+        #
+        # `prior_signatures` = None nghia la nguoi goi khong dem duoc (khong phai 0!). Luc do
+        # giu duong cu - "bat ky dong nao dat moi dieu kien" - vi duong cu van co dung sai
+        # thoi gian bao ve, chi thieu san. Khong duoc coi None la 0: coi la 0 se cho chu ky
+        # cua chan TRUOC dong chan nay, dung lop loi UAT VOID 5.
+        prior = expected.get("prior_signatures")
+        if prior is not None:
+            return SignatureProviderAdapter._check_by_ordinal(candidates, int(prior), expected)
         # ANY row that satisfies every condition proves this leg. Rejecting because some OTHER
         # row of the same person is older would refuse a perfectly good signature - which is
         # exactly what happened on 2026-08-27 once the same person held two signing areas.
@@ -277,6 +299,35 @@ class SignatureProviderAdapter(object):
                 return res
             first_failure = first_failure or res
         return first_failure
+
+    @staticmethod
+    def _check_by_ordinal(candidates, prior, expected):
+        """Chu ky thu `prior`+1 (0-based: thu `prior`) cua nguoi nay, theo thoi gian tang dan.
+
+        Chi dem dong DA KY. Dong co `signed_at` khong doc duoc lam hong phep xep -> that bai
+        dong (fail closed) va noi ro, nhu `_check_one_signer` van lam.
+        """
+        signed = [s for s in candidates if s.get("status") == "signed"]
+        if len(signed) <= prior:
+            # Chua du chu ky: hoac SCTS chua kip ghi, hoac chan nay chua duoc ky that.
+            # `have/need` de doc nhat ky la biet dang thieu bao nhieu, khong phai doan.
+            return VerificationResult(
+                False, "not_enough_signatures:have=%d/need=%d" % (len(signed), prior + 1))
+        after = expected.get("signed_after")
+        keyed = []
+        for s in signed:
+            t = SignatureProviderAdapter._parse_provider_time(s.get("signed_at"),
+                                                              reference=after)
+            if not t:
+                return VerificationResult(
+                    False, "signed_at_unreadable:%s" % (s.get("signed_at") or "none"))
+            keyed.append((t, s))
+        # Sap xep on dinh: cung phut thi giu thu tu SCTS liet ke. Chinh xac cai nao la cua
+        # chan nao khong quan trong - chi can DU SO LUONG va cai cuoi cung khong cu hon luc
+        # hoi. Neu ca hai cung 23:06:00 thi cai nao cung thoa nhu nhau.
+        keyed.sort(key=lambda kv: kv[0])
+        target = keyed[prior][1]
+        return SignatureProviderAdapter._check_one_signer(target, expected)
 
     @staticmethod
     def _check_one_signer(signer, expected):

@@ -141,82 +141,78 @@ class TestPollFirstOnlyAfterSending(unittest.TestCase):
                       "worker phai dung CHUNG dinh nghia voi trang ops, khong tu tinh lai")
 
 
-class TestFreshnessBeatsThePreviousLeg(unittest.TestCase):
-    def _load(self, rows):
-        body = re.search(r"(?m)^def _last_completed_leg_time\(.*?(?=\ndef )", _SVC, re.S)
-        self.assertIsNotNone(body)
+class TestOrdinalBeatsThePreviousLeg(unittest.TestCase):
+    """Chan thu N cua mot nguoi doi chu ky thu N+1 cua nguoi do - dem, khong so gio.
+
+    Truoc 02/09 cho nay la mot SAN THOI GIAN (`_last_completed_leg_time`): chu ky phai moi
+    hon luc chan truoc cua cung nguoi hoan tat. Dung y, hong voi du lieu that: eContract tra
+    `signed_at` chi toi PHUT. 02/09 23:06 mot nguoi trinh ky roi duyet cap 1 trong cung mot
+    phut, ca hai chu ky doc thanh 23:06:00, deu "cu hon" san 23:06:2x, chan duyet quay
+    `signature_predates_request` toi Manual Review. Dem thi khong can phan biet hai chu ky
+    cung phut, ma loi 28/08 (cap duyet dong bang chu ky trinh ky) van bi chan: khi do chi co
+    MOT chu ky, chan doi cai thu HAI.
+    """
+
+    def _load(self, count):
+        body = re.search(r"(?m)^def _completed_legs_of_same_signer\(.*?(?=\ndef )", _SVC, re.S)
+        self.assertIsNotNone(body, "ham dem chan da hoan tat cua cung nguoi khong con")
+
+        class _DB(object):
+            @staticmethod
+            def count(dt, filters):
+                if isinstance(count, Exception):
+                    raise count
+                _DB.last_filters = filters
+                return count
 
         class _Frappe(object):
-            @staticmethod
-            def get_all(dt, **kw):
-                if isinstance(rows, Exception):
-                    raise rows
-                return rows
+            db = _DB()
 
-        class _Adapter(object):
-            @staticmethod
-            def _parse_provider_time(v, reference=None):
-                if not v:
-                    return None
-                return v if isinstance(v, datetime) else datetime.fromisoformat(str(v))
-
-        # `_last_completed_leg_time` import providers.base BEN TRONG ham, nen phai thay
-        # tam module do. PHAI TRA LAI: ban dau minh cam module gia vao sys.modules va bo
-        # luon - no lam 5 phep kiem cua bo test khac gay, vi ly do cua chinh stub chu khong
-        # phai cua code. Dung stub lam nguon su that thu hai.
-        import sys
-        import types as _t
-        key = "ecentric_workspace.platform.esign.providers.base"
-        self._saved_mod = sys.modules.get(key)
-        self._mod_key = key
-        mod = _t.ModuleType(key)
-        mod.SignatureProviderAdapter = _Adapter
-        sys.modules[key] = mod
-        self.addCleanup(self._restore_module)
         g = {"frappe": _Frappe()}
         exec(compile(body.group(0), "lc", "exec"), g)
-        return g["_last_completed_leg_time"]
-
-    def _restore_module(self):
-        import sys
-        if self._saved_mod is not None:
-            sys.modules[self._mod_key] = self._saved_mod
-        else:
-            sys.modules.pop(self._mod_key, None)
+        self._db = _DB
+        return g["_completed_legs_of_same_signer"]
 
     _DSR = {"package": "PKG-1", "effective_scts_user_id": "U1", "name": "DSR-2"}
 
-    def test_it_finds_the_latest_prior_leg(self):
-        fn = self._load([{"verified_at": "2026-08-28 23:53:30", "modified": None},
-                         {"verified_at": "2026-08-28 23:40:00", "modified": None}])
-        self.assertEqual(fn(_D(self._DSR)), datetime(2026, 8, 28, 23, 53, 30))
+    def test_it_counts_prior_legs(self):
+        self.assertEqual(self._load(2)(_D(self._DSR)), 2)
 
-    def test_no_prior_leg_means_no_floor(self):
-        self.assertIsNone(self._load([])(_D(self._DSR)))
+    def test_no_prior_leg_is_ZERO_not_None(self):
+        """0 va None khac han nhau: 0 = 'chu ky dau tien cua nguoi nay la du'."""
+        self.assertEqual(self._load(0)(_D(self._DSR)), 0)
 
-    def test_a_read_failure_does_not_lower_the_bar(self):
+    def test_a_read_failure_is_None_not_zero(self):
+        """None = 'khong biet' -> giu duong cu. Tra 0 thi chan thu hai chap nhan chu ky
+        cua chan thu nhat - dung lop loi UAT VOID 5."""
         self.assertIsNone(self._load(RuntimeError("db"))(_D(self._DSR)))
 
     def test_it_never_looks_at_a_different_signer_or_package(self):
-        body = re.search(r"(?m)^def _last_completed_leg_time\(.*?(?=\ndef )", _SVC, re.S).group(0)
-        self.assertIn('"package": dsr.get("package")', body)
-        self.assertIn('"effective_scts_user_id": dsr.get("effective_scts_user_id")', body)
-        self.assertIn('"name": ["!=", dsr.get("name")]', body,
-                      "phai loai chinh no ra, khong thi tu chan chinh minh")
+        self._load(0)(_D(self._DSR))
+        f = self._db.last_filters
+        self.assertEqual(f.get("package"), "PKG-1")
+        self.assertEqual(f.get("effective_scts_user_id"), "U1")
+        self.assertEqual(f.get("name"), ["!=", "DSR-2"], "phai loai chinh no ra")
+        self.assertIn("Approval Completed", tuple(f.get("status")[1]))
 
 
-class TestTheFloorIsAppliedToTheWindow(unittest.TestCase):
-    def test_the_floor_raises_signed_after(self):
+class TestOrdinalIsPassedToTheVerifier(unittest.TestCase):
+    def test_expected_carries_prior_signatures(self):
         body = re.search(r"(?m)^def _expected_for\(.*?(?=\ndef )", _SVC, re.S).group(0)
-        self.assertIn("floor = _last_completed_leg_time(dsr)", body)
-        m = re.search(r"if floor and \(signed_after is None or floor > signed_after\):\s*\n"
-                      r"\s*signed_after = floor", body)
-        self.assertIsNotNone(m, "san phai NANG moc len, va chi nang chu khong ha")
+        self.assertIn('"prior_signatures": _completed_legs_of_same_signer(dsr)', body,
+                      "khong truyen thu tu xuong thi verifier quay ve 'bat ky dong nao', "
+                      "tuc lai cho chu ky cua chan truoc dong chan nay")
 
-    def test_it_runs_after_the_tolerance_is_computed(self):
+    def test_the_time_floor_is_gone(self):
         body = re.search(r"(?m)^def _expected_for\(.*?(?=\ndef )", _SVC, re.S).group(0)
-        self.assertLess(body.index("SIGN_TIME_TOLERANCE_SECONDS"), body.index("floor ="),
-                        "san phai de len TREN dung sai, khong bi dung sai ghi de")
+        self.assertNotIn("_last_completed_leg_time", body,
+                         "san thoi gian quay lai = chan cung phut lai ket mai mai")
+
+    def test_tolerance_window_still_exists(self):
+        """Thu tu thay SAN, khong thay CUA SO. Cua so 120s van chan chu ky lam TRUOC khi
+        minh hoi - do la lop bao ve khac, cho truong hop khac."""
+        body = re.search(r"(?m)^def _expected_for\(.*?(?=\ndef )", _SVC, re.S).group(0)
+        self.assertIn("SIGN_TIME_TOLERANCE_SECONDS", body)
 
 
 if __name__ == "__main__":
