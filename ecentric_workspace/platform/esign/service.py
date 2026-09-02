@@ -17,6 +17,7 @@ from frappe.utils import now_datetime
 from ecentric_workspace.platform.esign import binding, events, guard, hashing
 from ecentric_workspace.platform.esign import package as pkgsvc
 from ecentric_workspace.platform.esign import permissions as perms
+from ecentric_workspace.platform.esign import state as sm
 from ecentric_workspace.platform.esign.providers import get_adapter
 from ecentric_workspace.platform.esign.sanitize import safe_error
 
@@ -185,7 +186,7 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
                               extra_fields={"queued_at": now_datetime()}, erp_actor=actor)
         frappe.enqueue(
             "ecentric_workspace.platform.esign.tasks.process_signing_request",
-            dsr_name=dsr_name, queue="default", timeout=600,
+            dsr_name=dsr_name, queue=sm.SIGNING_QUEUE, timeout=sm.SIGNING_JOB_TIMEOUT,
             job_name="esign_dsr_%s" % dsr_name, enqueue_after_commit=True)
         return {"signature_request": dsr_name, "status": "Queued", "duplicate": False}
     finally:
@@ -477,7 +478,7 @@ def retry_signature_request(dsr_name):
                           extra_fields={"queued_at": now_datetime()})
     frappe.enqueue(
         "ecentric_workspace.platform.esign.tasks.process_signing_request",
-        dsr_name=dsr_name, queue="default", timeout=600,
+        dsr_name=dsr_name, queue=sm.SIGNING_QUEUE, timeout=sm.SIGNING_JOB_TIMEOUT,
         job_name="esign_dsr_%s" % dsr_name, enqueue_after_commit=True)
     return {"queued": True}
 
@@ -667,7 +668,7 @@ def _continue_after_reconcile(package_name):
                                   extra_fields={"queued_at": now_datetime()})
         frappe.enqueue(
             "ecentric_workspace.platform.esign.tasks.process_signing_request",
-            dsr_name=r.name, queue="default", timeout=600,
+            dsr_name=r.name, queue=sm.SIGNING_QUEUE, timeout=sm.SIGNING_JOB_TIMEOUT,
             job_name="esign_dsr_%s" % r.name, enqueue_after_commit=True)
         out.append({"dsr": r.name, "action": "requeued"})
     return out
