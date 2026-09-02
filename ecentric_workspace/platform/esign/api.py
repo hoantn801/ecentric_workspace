@@ -997,11 +997,37 @@ def signature_geometry_check(package):
 
     out = {"ok": True, "package": pkg.name, "document_id": pkg.scts_document_id,
            "package_status": pkg.status, "files": []}
+
+    # CHUA KY XONG thi khong the co ban PDF da ky de doc - va cai can noi ra la "chua ky
+    # xong", KHONG phai "SCTS tu choi HTTP 400".
+    #
+    # 02/09 chinh lenh nay tra ve `SCTS refused get_pdf (HTTP 400)` tren mot tai lieu moi ky
+    # 2/5 chan. Toi doc thanh mot loi cua nha cung cap, roi di truy tiep sang `scts_document_
+    # file_id` dang trong va suyt ket luan do la nguyen nhan goc - trong khi truong do von
+    # duoc backfill o `signed_files` va khong lien quan gi. Mot lenh chan doan bao sai ly do
+    # con hai hon mot lenh khong bao gi, vi no dieu nguoi doc di duong khac.
+    #
+    # Dung CHUNG cong voi duong tai that (`signed_files._terminal_signed_ok`) de khong bao
+    # gio ton tai hai dinh nghia "da ky xong" lech nhau giua chan doan va san xuat.
+    from ecentric_workspace.platform.esign.signed_files import _terminal_signed_ok
+    try:
+        da_ky, ly_do = _terminal_signed_ok(adapter, pkg)
+    except Exception as exc:
+        da_ky, ly_do = False, "khong hoi duoc nha cung cap: %s" % safe_error(exc)
+    out["signed_check"] = {"asked": True, "signed": bool(da_ky), "reason": ly_do}
+
     for f in frappe.get_all("EC Digital Signature File",
                             filters={"package": pkg.name, "requires_signature": 1},
                             fields=["name", "scts_document_file_id"], order_by="creation asc"):
         row = {"file": f.name, "asked": True, "ok": False, "error": None,
                "page_size": None, "signature_rects": None, "placements": [], "diff": None}
+        if not da_ky:
+            # `asked=False`: khong hoi ban PDF that, va phai noi ro la KHONG hoi - de nguoi
+            # doc khong tuong day la cau tra loi cua nha cung cap.
+            row["asked"] = False
+            row["error"] = "chua ky xong nen chua co ban PDF da ky (%s)" % ly_do
+            out["files"].append(row)
+            continue
         try:
             res = adapter.get_signed_document(pkg.scts_document_id, f.scts_document_file_id)
         except Exception as exc:
