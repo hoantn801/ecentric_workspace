@@ -105,6 +105,12 @@ def stuck_legs(limit=100):
             actions.append("reconcile")
         if "Queued" in exits:
             actions.append("retry")
+            # GUI LAI CO KIEM (03/09): chi hien khi "retry" KHONG gui lai duoc (chan da tung
+            # gui) va dang Manual Review - dung cai chan ma Thu lai chi quay ve Manual Review
+            # mai mai (00042/DSR-00027). Endpoint authorize_resend tu hoi nha cung cap va tu
+            # choi neu nguoi do da co chu ky; nut chi la loi vao.
+            if r.status == "Manual Review" and not sm.retry_will_resend(r):
+                actions.append("resend")
         if "Cancelled" in exits:
             actions.append("cancel")
         out.append({
