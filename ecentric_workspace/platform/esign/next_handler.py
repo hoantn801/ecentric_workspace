@@ -28,12 +28,25 @@ APPROVER = "EC Approval Request Approver"
 LEVEL = "EC Approval Request Level"
 
 
-def resolve_transition_config(profile_name, action, stage=None):
+def resolve_transition_config(profile_name, action, stage=None, step_index=None):
     """Provider transition metadata for (action, stage) from the profile, or None.
 
     `stage` lets one profile describe several steps of the same action - e.g. the requester
     submission and an approval level are both "Sign" but carry different provider ids.
     An exact stage match wins; a row with no stage acts as the default.
+
+    `step_index` = SO CHU KY DA CO tren tai lieu truoc buoc sap gui, va no thang `stage`.
+
+    Do tay tren cong 02/09, mot tai lieu, bam tuan tu: Trinh ky `-2`, duyet 1 `-9`, duyet 2
+    `-10`, duyet 3 `-11`. transitionId chay theo THU TU BUOC trong quy trinh - khong theo
+    nguoi, va khong theo cap duyet cua ERP (cung mot nguoi dung buoc 2 o tai lieu nay, cap 4
+    o tai lieu khac).
+
+    Cau hinh cu gan DUNG MOT id `-9` cho moi buoc duyet, nen:
+      buoc 1 (`-2`) dung, buoc 2 (`-9`) dung, buoc 3 can `-10` -> 400, buoc 4 can `-11` -> 400.
+    Sau 400 he lui ve pool, va pool chi ky duoc khi nguoi minh gui TINH CO dung la nguoi
+    eContract dang cho - chi Lien trung nen ky duoc, chi Phuong trat nen 2xx roi im 20 phut.
+    Hai buoc dau chay tot suot bao lau nay khong phai may: chung dung that.
     """
     if not profile_name:
         return None
@@ -47,10 +60,23 @@ def resolve_transition_config(profile_name, action, stage=None):
         return None
     rows = [{"transition_id": r.transition_id, "transition_name": r.transition_name,
              "process_action": r.process_action, "sign_type": r.sign_type,
-             "stage": r.stage, "terminal": r.terminal}
+             "stage": r.stage, "step_index": r.get("step_index"),
+             "terminal": r.terminal}
             for r in (profile.get("transitions") or []) if r.action == action]
     if not rows:
         return None
+    # Vi tri buoc THANG stage. Chi dung khi biet chac vi tri: `step_index=None` nghia la
+    # khong dem duoc so chu ky tren tai lieu, va luc do doan mot vi tri con te hon dung
+    # duong cu - doan sai thi 400 roi lui ve pool, tuc quay ve dung canh xo so da lam chi
+    # Phuong ket 20 phut.
+    if step_index is not None:
+        theo_buoc = [r for r in rows if r.get("step_index") is not None
+                     and int(r["step_index"]) == int(step_index)]
+        if theo_buoc:
+            row = theo_buoc[0]
+            if row.get("transition_id") is None or not row.get("process_action"):
+                return None
+            return row
     exact = [r for r in rows if (r.get("stage") or "") == (stage or "")]
     default = [r for r in rows if not (r.get("stage") or "")]
     row = (exact or default or [None])[0]
@@ -232,6 +258,31 @@ def targeted_handover_enabled():
         return str(v).strip().lower() not in ("0", "false", "no", "off")
 
 
+def provider_step_index(adapter, instance_id):
+    """So chu ky DA hoan tat tren tai lieu = vi tri cua buoc sap gui. (index, ly do).
+
+    Dem tu NHA CUNG CAP, khong tu dem ben ERP. ERP dem se lech ngay khi co nguoi ky thang
+    tren cong eContract - ma dieu do xay ra that: chan Ky chinh bat buoc phai ky tay bang
+    OfficeSignTool, nen moi ho so deu co it nhat mot buoc khong di qua ERP.
+
+    Tra `None` khi khong dem duoc - nguoi goi PHAI hieu la "khong biet", khong duoc coi la 0.
+    Coi la 0 se gui `-2` (Trinh ky) cho mot tai lieu dang o giua chung.
+    """
+    if adapter is None or not instance_id or not hasattr(adapter, "poll_status"):
+        return None, "khong co adapter hoac ma tai lieu"
+    try:
+        doc = adapter.poll_status(instance_id)
+    except Exception as exc:
+        from ecentric_workspace.platform.esign.sanitize import safe_error
+        return None, "khong hoi duoc nha cung cap: %s" % safe_error(exc)
+    signers = (getattr(doc, "signers", None) or []) if doc is not None else []
+    if not signers:
+        # KHONG tra 0. Danh sach rong nghia la khong doc duoc chan ky, khong phai "chua ai ky".
+        return None, "tai lieu khong tra ve chan ky nao"
+    return len([s for s in signers
+                if str(s.get("status") or "").strip().lower() == "signed"]), None
+
+
 def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, instance_id=None):
     """What to send for this leg: {mode, ...}.
 
@@ -261,12 +312,22 @@ def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, inst
         if cfg.get("requires_signature") and not signature_type_matches(want, have):
             return {"mode": "pool",
                     "reason": "signature_type_mismatch:need=%s have=%s" % (want, have or "?")}
+    buoc = None
     if cfg is None:
-        cfg = resolve_transition_config(profile_name, dsr.get("action") or "Sign", stage=stage)
+        buoc, vi_sao_buoc = provider_step_index(adapter, instance_id)
+        if buoc is None and vi_sao_buoc:
+            discovery_note = "%s; vi tri buoc: %s" % (discovery_note or "-", vi_sao_buoc)
+        cfg = resolve_transition_config(profile_name, dsr.get("action") or "Sign",
+                                        stage=stage, step_index=buoc)
     if not cfg:
+        # Biet vi tri buoc ma khong co dong cau hinh => day la buoc NGOAI day da chup duoc.
+        # Voi mau "5 chu ky" thi buoc do la KY CHINH: `signToken=1`, `hsmId=null`, tuc ky
+        # bang OfficeSignTool tren may nguoi ky. Gui pool o day la hua mot viec khong the
+        # lam - dung cai da de chan HOF treo 20 phut roi vao Manual Review.
         return {"mode": "pool",
-                "reason": "no_transition_config:%s%s" % (
+                "reason": "no_transition_config:%s%s%s" % (
                     stage or "default",
+                    (" buoc=%s" % buoc) if buoc is not None else "",
                     (" after " + discovery_note) if discovery_note else "")}
 
     ar = dsr.get("approval_request")
