@@ -91,7 +91,9 @@ _LABEL_VI = {
     "Expected Resolution Date": "Ngày mong muốn xong",
     "Operation Expected Completion Date": "Ngày Operation dự kiến xong",
     # Contract Review (thấy trên production khi test E2E 2026-09-01)
-    "Request Kind": "Loại yêu cầu", "Previous Request": "Hợp đồng gốc",
+    # "Request Kind" và "Request Type" cùng dịch thành "Loại yêu cầu" thì popup hiện HAI dòng
+    # trùng tên. Dùng đúng nhãn của form: hình thức hợp đồng vs loại mẫu.
+    "Request Kind": "Hợp đồng", "Previous Request": "Hợp đồng gốc",
     "Contract Value": "Giá trị hợp đồng", "Contract Start Date": "Ngày bắt đầu HĐ",
     "Contract End Date": "Ngày kết thúc HĐ", "Expected Response Date": "Hạn phản hồi",
     "Request Details": "Yêu cầu chi tiết", "Legal Entity / Brand": "Legal entity / Brand",
@@ -99,6 +101,12 @@ _LABEL_VI = {
 }
 # Cặp "chọn Other rồi nhập tay": gộp thành một dòng để bớt nhiễu.
 _OTHER_SUFFIX = (" (Other)", " (other)", " Other")
+
+
+# Vài form dùng chung tên trường nhưng nghĩa khác nhau -> nhãn theo (code, label).
+_LABEL_VI_BY_TYPE = {
+    ("CONTRACT_REVIEW", "Request Type"): "Loại mẫu hợp đồng",
+}
 
 
 def _display_fields(definition, business):
@@ -131,7 +139,8 @@ def _display_fields(definition, business):
         elif df.fieldname in _CODE_FIELDS and df.fieldtype in ("Data", "Select"):
             value = _pretty_link(_code_title(_CODE_FIELDS[df.fieldname], value), value)
         label = df.label or df.fieldname
-        out.append({"label": _LABEL_VI.get(label, label), "value": value,
+        vi = _LABEL_VI_BY_TYPE.get((definition.code, label)) or _LABEL_VI.get(label, label)
+        out.append({"label": vi, "value": value,
                     "fieldtype": df.fieldtype, "raw_label": label})
     return _merge_other_pairs(out)
 
