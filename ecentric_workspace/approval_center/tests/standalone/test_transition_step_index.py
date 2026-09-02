@@ -192,6 +192,31 @@ class TestPatchKhongSeedCanhTuChoi(unittest.TestCase):
                          "vi tri buoc phai lien tuc tu 0; thung lo mot so la mot buoc khong "
                          "bao gio khop va lai roi ve pool")
 
+    def test_tra_ho_so_bang_TEN_TRUONG_CO_THAT(self):
+        """`code` khong ton tai tren DocType nay - truong that la `profile_code`.
+
+        Frappe loc theo mot truong khong ton tai thi NEM DataError chu khong tra None, nen
+        `get_value(dt, {"code": ...}) or get_value(dt, PROFILE_CODE)` khong he la "thu cach
+        hai" - ve dau da lam chet ca patch. Bat duoc bang mot lenh do tren site that truoc
+        khi deploy; doc code khong thay, vi nhin thi rat giong mot duong lui hop le.
+
+        Va phep kiem nay phai doc CAU TRUC: ban dau no grep chuoi '{"code"' va do ngay - vi
+        trung dung CHU THICH giai thich loi cu trong chinh patch. Boc chu thich truoc khi
+        grep, hoac dung AST; day la lan thu tu bay do bat trong hai ngay.
+        """
+        khoa = set()
+        for n in ast.walk(ast.parse(self.src)):
+            if isinstance(n, ast.Call) and getattr(n.func, "attr", None) == "get_value":
+                for a in n.args:
+                    if isinstance(a, ast.Dict):
+                        khoa |= {getattr(k, "value", None) for k in a.keys}
+        self.assertNotIn("code", khoa,
+                         "loc theo truong `code` khong ton tai -> DataError, patch chet ngay "
+                         "dong dau va khong canh chuyen nao duoc ghi")
+        self.assertIn("profile_code", khoa,
+                      "mat duong tra theo ma ho so - chi con tra theo `name`, hong ngay khi "
+                      "ai do doi ten ban ghi")
+
     def test_patch_co_verify_doc_lai_tu_DB(self):
         self.assertIn("frappe.get_doc", self.src.split("# VERIFY")[-1],
                       "khong doc lai tu DB thi khong biet ghi co an khong - da bi lua vi "

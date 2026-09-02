@@ -47,8 +47,13 @@ BUOC = [
 
 
 def execute():
-    name = frappe.db.get_value("EC Digital Signature Profile", {"code": PROFILE_CODE}, "name") \
-        or frappe.db.get_value("EC Digital Signature Profile", PROFILE_CODE, "name")
+    # Truong la `profile_code`, KHONG phai `code`. Ban dau viet {"code": ...} - Frappe loc
+    # theo mot truong khong ton tai thi NEM DataError chu khong tra None, nen patch se chet
+    # ngay tu dong dau chu khong "bo qua em dep" nhu chu thich cu tuong. Bat duoc trong lan
+    # do thu tren site that truoc khi deploy, khong phai bang doc code.
+    name = frappe.db.get_value("EC Digital Signature Profile", PROFILE_CODE, "name") \
+        or frappe.db.get_value("EC Digital Signature Profile",
+                               {"profile_code": PROFILE_CODE}, "name")
     if not name:
         print("[WARN] khong tim thay ho so %s - bo qua" % PROFILE_CODE)
         return
