@@ -291,6 +291,152 @@ def provider_document_shape(payment_request_name):
             "shape": shapes.shape_of(raw), "identifiers": shapes.identifiers_of(raw)}
 
 
+#: Cac truong DUY NHAT duoc phep roi khoi endpoint chan doan cho moi chan ky.
+#:
+#: Payload nguoi ky cua eContract do duoc 02/09 gom: id, role, roleText, user, email, mobile,
+#: cccd, status, date, time, isExternal, icon, rejectReason, identityPlace, identityDate, dob.
+#: Tuc la HO TEN, SO CCCD, SO DIEN THOAI va NGAY SINH nam ngay canh cai minh can doc. Day la
+#: bo loc TRANG (chi cai co ten o day di ra), khong phai bo loc DEN: nha cung cap them truong
+#: moi thi no KHONG tu chay ra ngoai theo.
+#:
+#: `user_id` giu lai co chu dich - payload KHONG he co userId/signerId/signatureId, nen
+#: `_norm_signer` luon cho user_id=None. Nhin thay ca cot None chinh la bang chung rang moi
+#: viec doi soat chan ky deu phai dua vao EMAIL, khong con duong nao khac.
+_SAFE_SIGNER_KEYS = ("status", "email", "role", "role_text", "sign_type",
+                     "signed_at", "is_external", "user_id", "signature_id")
+
+#: Tran so canh chuyen se hoi tiep "ai duoc nhan". Mot lan goi chan doan khong duoc bien
+#: thanh mot tran request len nha cung cap.
+_MAX_PROBED_TRANSITIONS = 10
+
+
+@frappe.whitelist()
+def provider_workflow_view(dsr_name, transition_id=None, provider_user_id=None):
+    """READ-ONLY, System Manager only: eContract NGHI GI ve mot chan ky.
+
+    Viet cho su co 02/09, EC-PAYR-2026-00041 / EC-DSP-2026-00028, chan ky EC-DSR-2026-00027:
+    `transition_with_recipients` bi tra 400 "Duong chuyen khong hop le hoac khong khop trang
+    thai", code lui ve `approve_and_sign` pool-wide, nha cung cap tra 2xx kem ma giao dich -
+    va roi khong co chu ky nao, lich su workflow ben ho cung khong ghi nhan hanh dong nao.
+    Hai dau deu bao "on", cai sai nam O GIUA. Khong co cach nao doc duoc phia ho nghi gi ma
+    khong ban mot lenh ghi len ho so tien - nen co endpoint nay.
+
+    Tra loi ba cau, moi cau mot khoi rieng:
+      1. `document`   - tai lieu dang o trang thai nao, va tung O KY dang o trang thai nao;
+      2. `transitions`- voi `provider_user_id` nay thi hien co NHUNG canh chuyen nao;
+      3. `recipients` - voi tung canh chuyen, AI duoc phep nhan buoc do
+                        (`includes_provider_user` la cau tra loi cho su co tren).
+
+    CHI DOC. Khong gui lenh ky, khong doi trang thai, khong ghi gi vao DB. Tham so
+    `provider_user_id` de doi soat mot nguoi KHAC voi nguoi ghi tren chan ky - hoi ho nghi gi
+    ve ai la mot cau hoi, khong phai mot hanh dong.
+
+    Du lieu tra ve: dinh danh (GUID), ma trang thai, ten canh chuyen, email cong viec. KHONG
+    co so tien, KHONG co noi dung tai lieu, KHONG co ho ten / CCCD / dien thoai / ngay sinh -
+    xem `_SAFE_SIGNER_KEYS`. Email PHAI co: payload cua eContract khong mang userId nen day
+    la khoa doi soat duy nhat con lai.
+
+    Moi khoi mang bo ba `asked` / `ok` / `error`. "Hoi duoc va danh sach RONG" va "khong hoi
+    duoc" la HAI KET LUAN KHAC HAN nhau - gop chung lai la dung cai loi im lang da lam mat
+    hai dem cua thang 8.
+    """
+    perms.assert_system_manager()
+    from ecentric_workspace.platform.esign.providers import get_adapter
+    from ecentric_workspace.platform.esign.sanitize import safe_error
+
+    dsr = frappe.db.get_value(
+        "EC Digital Signature Request", dsr_name,
+        ["name", "status", "action", "actor_type", "actor_user", "approver", "package",
+         "provider", "environment", "transition_id", "request_attempt",
+         "effective_scts_user_id"], as_dict=True)
+    if not dsr:
+        frappe.throw(_("Không tìm thấy yêu cầu ký."))
+    pid = provider_user_id or dsr.get("effective_scts_user_id")
+    doc_id = (frappe.db.get_value("EC Digital Signature Package", dsr.get("package"),
+                                  "scts_document_id") if dsr.get("package") else None)
+    out = {"ok": True, "reason": None,
+           # actor_user / approver la email cong viec (User cua Frappe dinh danh bang email),
+           # can de doi chieu voi cot email ben duoi.
+           "dsr": {k: dsr.get(k) for k in
+                   ("name", "status", "action", "actor_type", "actor_user", "approver",
+                    "transition_id", "request_attempt")},
+           "package": dsr.get("package"), "document_id": doc_id,
+           "environment": dsr.get("environment"), "provider_user_id": pid,
+           "document": None, "transitions": None, "recipients": []}
+    if not doc_id:
+        out["ok"], out["reason"] = False, "no_provider_document"
+        return out
+    if not pid:
+        out["ok"], out["reason"] = False, "no_provider_user_id"
+        return out
+    settings = frappe.db.get_value("EC Digital Signature Provider Settings",
+                                   {"provider": dsr.get("provider"),
+                                    "environment": dsr.get("environment")}, "*", as_dict=True)
+    if not settings:
+        out["ok"], out["reason"] = False, "no_provider_settings"
+        return out
+    adapter = get_adapter(settings)
+
+    # 1. Tai lieu dang o trang thai nao, va moi o ky dang o trang thai nao.
+    try:
+        state = adapter.poll_status(doc_id)
+        rows = [s for s in (getattr(state, "signers", None) or []) if isinstance(s, dict)]
+        signers = [{k: s.get(k) for k in _SAFE_SIGNER_KEYS} for s in rows]
+        out["document"] = {"asked": True, "ok": True, "error": None,
+                           "status": getattr(state, "status", None),
+                           "identity": getattr(state, "identity", None) or {},
+                           "signer_count": len(signers), "signers": signers}
+    except Exception as exc:
+        # Khong doc duoc tai lieu thi NOI RA. Mot khoi rong khong kem ly do se bi doc thanh
+        # "tai lieu khong co nguoi ky nao" - dung ket luan sai da tung dong mot cap duyet.
+        out["document"] = {"asked": True, "ok": False, "error": safe_error(exc),
+                           "status": None, "identity": {}, "signer_count": None,
+                           "signers": []}
+
+    # 2. Voi nguoi nay, hien co nhung canh chuyen nao.
+    try:
+        items = adapter.available_transitions(doc_id, pid) or []
+        out["transitions"] = {"asked": True, "ok": True, "error": None,
+                              "count": len(items), "items": items}
+    except Exception as exc:
+        items = []
+        out["transitions"] = {"asked": True, "ok": False, "error": safe_error(exc),
+                              "count": None, "items": []}
+
+    # 3. Voi tung canh chuyen, ai duoc phep nhan.
+    names = {}
+    for t in items:
+        if isinstance(t, dict) and t.get("transition_id") is not None:
+            names[str(t.get("transition_id"))] = t.get("transition_name")
+    wanted = [str(transition_id)] if transition_id else sorted(names)
+    for tid in wanted[:_MAX_PROBED_TRANSITIONS]:
+        row = {"transition_id": tid, "transition_name": names.get(tid), "asked": True,
+               "ok": False, "error": None, "count": None, "eligible": [],
+               "includes_provider_user": None}
+        # `_last_eligible_error` chi duoc GHI luc that bai va khong bao gio duoc xoa. Khong
+        # dat lai truoc moi luot thi mot canh hoi duoc nhung tra ve None (payload la) se doi
+        # ly do that bai cua canh TRUOC do - mot cau tra loi sai trong tin hon la khong co.
+        adapter._last_eligible_error = None
+        try:
+            eligible = adapter.eligible_recipients(doc_id, tid, pid)
+        except Exception as exc:
+            row["error"] = safe_error(exc)
+            out["recipients"].append(row)
+            continue
+        if eligible is None:
+            row["error"] = (getattr(adapter, "_last_eligible_error", None)
+                            or "khong hoi duoc: nha cung cap tra ve du lieu khong doc duoc")
+            out["recipients"].append(row)
+            continue
+        ids = sorted(str(x) for x in eligible)
+        row.update({"ok": True, "count": len(ids), "eligible": ids,
+                    # Cau tra loi cho su co: eContract nhan 2xx nhung khong lam gi, vi nguoi
+                    # nay khong nam trong danh sach duoc nhan buoc do.
+                    "includes_provider_user": str(pid) in ids})
+        out["recipients"].append(row)
+    return out
+
+
 # camelCase la quy uoc cua eContract ("workflowInstanceId", "fileId"), nen KHONG the doi hoi
 # mot ranh gioi truoc "Id" - lan dau viet the va tuot mat dung cai field dang di tim.
 @frappe.whitelist(methods=["POST"])
@@ -811,3 +957,106 @@ def requester_reset_invalid_package(payment_request_name):
     _business_args("EC Payment Request", payment_request_name)
     from ecentric_workspace.platform.esign import requester
     return requester.requester_reset_invalid_package("EC Payment Request", payment_request_name)
+
+
+@frappe.whitelist()
+def signature_geometry_check(package):
+    """CHI DOC, chi System Manager: chu ky co roi DUNG cho nguoi dat o hay khong.
+
+    VI SAO CAN.
+    02/09 do tay tren mot tai lieu that: o ky ERP dat 240x120 point, chu ky SCTS dat thuc te
+    180x90 va lech ~238 point. Bon phep do doc lap deu ra ty le 0.75 = 72/96 - SCTS doc con
+    so minh gui nhu PIXEL 96 DPI trong khi minh gui POINT. Da bu nghich dao trong
+    `providers/scts.py` (`to_provider_box`), nhung do la HIEU CHINH TU DO DAC, chua co xac
+    nhan cua nha cung cap. Neu ho sua phia ho thi phep bu lam lech NGUOC LAI - va khong ai
+    biet, vi chu ky sai vi tri khong lam hong gi ca, no chi nam sai cho tren chung tu.
+
+    Nen viec doi chieu phai LAM LAI DUOC BAT CU LUC NAO, khong phai mot lan roi thoi: moi lan
+    doi hang so, moi lan SCTS len phien ban moi, chay lai mot lenh la biet.
+
+    TRA VE CON SO, KHONG TRA NOI DUNG.
+    Ham nay CO tai ban PDF tu nha cung cap, nhung chi de doc hinh hoc cua o chu ky roi vut di.
+    No khong tra ve file, khong tra ve chu, khong tra ve ten nguoi, khong tra ve so tien -
+    mot lenh chan doan khong duoc phep bien thanh mot duong rut du lieu.
+    """
+    perms.assert_system_manager()
+    pkg = frappe.db.get_value("EC Digital Signature Package", package,
+                              ["name", "scts_document_id", "status"], as_dict=True)
+    if not pkg:
+        frappe.throw(_("Không tìm thấy gói ký."))
+    if not pkg.scts_document_id:
+        return {"ok": False, "reason": "no_provider_document", "package": pkg.name}
+
+    settings = frappe.db.get_value("EC Digital Signature Provider Settings",
+                                   {"integration_enabled": 1}, "*", as_dict=True)
+    if not settings:
+        frappe.throw(_("Không có Provider Settings đang bật."))
+    from ecentric_workspace.platform.esign.providers import get_adapter
+    from ecentric_workspace.platform.esign.sanitize import safe_error
+    adapter = get_adapter(settings)
+
+    out = {"ok": True, "package": pkg.name, "document_id": pkg.scts_document_id,
+           "package_status": pkg.status, "files": []}
+    for f in frappe.get_all("EC Digital Signature File",
+                            filters={"package": pkg.name, "requires_signature": 1},
+                            fields=["name", "scts_document_file_id"], order_by="creation asc"):
+        row = {"file": f.name, "asked": True, "ok": False, "error": None,
+               "page_size": None, "signature_rects": None, "placements": [], "diff": None}
+        try:
+            res = adapter.get_signed_document(pkg.scts_document_id, f.scts_document_file_id)
+        except Exception as exc:
+            # Khong hoi duoc thi PHAI noi ro - mot khoi rong im lang tung lam mat nua buoi.
+            row["error"] = safe_error(exc)
+            out["files"].append(row)
+            continue
+        try:
+            row.update(_pdf_signature_geometry(res["content"]))
+            row["ok"] = True
+        except Exception as exc:
+            row["error"] = "khong doc duoc hinh hoc PDF: %s" % safe_error(exc)
+        row["placements"] = [
+            {"slot": p.signer_slot_key, "page": p.page_index,
+             "x": p.x, "y_top": p.y, "w": p.width, "h": p.height,
+             # `lly` la con so ERP THAT SU gui di sau khi lat truc doc - day moi la cai
+             # dem so voi PDF, khong phai `y_top`.
+             "lly_sent": round(float(_page_height_or(row, 842.0))
+                               - float(p.y or 0) - float(p.height or 0), 2)}
+            for p in frappe.get_all(
+                "EC Digital Signature Placement",
+                filters={"package": pkg.name, "signature_file": f.name,
+                         "status": ["!=", "Invalid"]},
+                fields=["signer_slot_key", "page_index", "x", "y", "width", "height"],
+                order_by="creation asc")]
+        out["files"].append(row)
+    return out
+
+
+def _page_height_or(row, mac_dinh):
+    ps = (row or {}).get("page_size") or {}
+    return ps.get("height") or mac_dinh
+
+
+def _pdf_signature_geometry(content):
+    """{page_size, signature_rects[]} doc tu annotation chu ky cua PDF. KHONG tra noi dung."""
+    try:
+        from pypdf import PdfReader
+    except Exception:
+        from PyPDF2 import PdfReader  # bench cu
+    import io as _io
+    reader = PdfReader(_io.BytesIO(content))
+    page = reader.pages[0]
+    mb = page.mediabox
+    rects = []
+    for a in (page.get("/Annots") or []):
+        o = a.get_object()
+        if str(o.get("/FT") or "") != "/Sig":
+            continue
+        r = [round(float(v), 2) for v in (o.get("/Rect") or [])]
+        if len(r) != 4:
+            continue
+        llx, lly, urx, ury = r
+        rects.append({"llx": llx, "lly": lly,
+                      "w": round(urx - llx, 2), "h": round(ury - lly, 2)})
+    return {"page_size": {"width": round(float(mb.width), 2),
+                          "height": round(float(mb.height), 2)},
+            "signature_rects": rects}
