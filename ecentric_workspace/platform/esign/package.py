@@ -321,14 +321,49 @@ def save_placements(pkg_name, placements):
 # --------------------------------------------------------------------------- #
 # hash / preflight / lock / revision
 # --------------------------------------------------------------------------- #
+def profile_structure_key(profile_name):
+    """Khoa CAU TRUC cua ho so ky so - thu duy nhat cua ho so duoc tron vao ma bam goi.
+
+    Truoc 03/09 cho nay la `modified` cua ho so. Hau qua: BAT KY lan luu ho so nao - ke ca
+    seed them mot dong duong chuyen eContract (p127, p128) hay sua ghi chu - deu lam MOI goi
+    dang ky lech bam, va nguoi duyet ke tiep bi chan "Goi tai lieu da thay doi". 03/09 00:26
+    p128 len -> chan Ky chinh cua goi 00030 (khoa 23:06) hong ngay; p127 len truoc 23:05 nen
+    Lien/Phuong qua duoc - cung mot co che, mot lan may mot lan khong.
+
+    Ma bam goi ton tai de phat hien goi bi SUA sau khi khoa: tep, o ky, va cau truc ho so ma
+    goi duoc dung theo (cap nao phai ky, moi tep bao nhieu o). Duong chuyen eContract, ghi
+    chu, nhan - khong doi hinh dang goi, khong duoc lam goi lech.
+
+    CHI doc nhung truong anh huong toi goi. Them truong vao day = doi khoa cua moi goi da
+    khoa - phai kem patch dong dau lai (xem p129).
+    """
+    prof = frappe.db.get_value(
+        "EC Digital Signature Profile", profile_name,
+        ["requester_signature_required", "approver_signature_policy", "max_files",
+         "require_signable_pdf"], as_dict=True) or {}
+    levels = frappe.get_all(
+        "EC Digital Signature Profile Level", filters={"parent": profile_name},
+        fields=["level_no", "requires_signature", "mandatory_placements_per_file"],
+        order_by="level_no asc", limit_page_length=0)
+    return hashing.profile_structure_key(
+        profile_name,
+        {"requester_signature_required": int(prof.get("requester_signature_required") or 0),
+         "approver_signature_policy": str(prof.get("approver_signature_policy") or ""),
+         "max_files": int(prof.get("max_files") or 0),
+         "require_signable_pdf": int(prof.get("require_signable_pdf") or 0)},
+        [{"level_no": int(l.level_no or 0),
+          "requires_signature": int(l.requires_signature or 0),
+          "mandatory_placements_per_file": int(l.mandatory_placements_per_file or 0)}
+         for l in levels])
+
+
 def compute_hash(pkg_name):
     pkg = frappe.db.get_value("EC Digital Signature Package", pkg_name,
                               ["package_version", "profile"], as_dict=True)
-    prof_mod = frappe.db.get_value("EC Digital Signature Profile", pkg.profile, "modified")
     files = package_files(pkg_name)
     order_of = {f.name: i for i, f in enumerate(files)}
     return hashing.package_hash(
-        pkg.package_version, "%s@%s" % (pkg.profile, prof_mod),
+        pkg.package_version, profile_structure_key(pkg.profile),
         [{"order": i, "sha256": f.sha256, "requires_signature": f.requires_signature,
           "is_supporting_document": f.is_supporting_document,
           "share_with_partner": f.share_with_partner} for i, f in enumerate(files)],

@@ -29,6 +29,25 @@ def sha256_text(text):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def profile_structure_key(profile_name, fields, levels):
+    """Khoa cau truc ho so: ten + cac truong quyet dinh hinh dang goi + tung cap.
+
+    Thuan tuy (khong frappe) de test duoc. Hai ho so cung ten, cung cau hinh cap va chinh
+    sach -> cung khoa, DU `modified` khac nhau. Do la muc dich: luu ho so vi ly do khong lien
+    quan (them duong chuyen eContract, sua ghi chu) khong duoc lam goi da khoa lech bam.
+    """
+    payload = {
+        "name": str(profile_name),
+        "f": {str(k): fields[k] for k in sorted(fields)},
+        "lv": sorted(
+            [{"n": int(l.get("level_no") or 0),
+              "s": 1 if l.get("requires_signature") else 0,
+              "m": int(l.get("mandatory_placements_per_file") or 0)} for l in levels],
+            key=lambda r: r["n"]),
+    }
+    return "%s@s:%s" % (profile_name, sha256_text(canonical(payload))[:16])
+
+
 def package_hash(package_version, profile_key, files, placements):
     """files: ordered list of dicts {order, sha256, requires_signature,
     is_supporting_document, share_with_partner}; placements: list of dicts
