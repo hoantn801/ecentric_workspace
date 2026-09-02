@@ -249,9 +249,13 @@ def list_scts_signatures(scts_user_id, environment=None):
     return {
         "environment": s.get("environment"),
         "scts_user_id": scts_user_id,
+        # `has_hsm` / `sign_token`: co/khong va mot so, KHONG phai chung thu. Can de biet
+        # mot chu ky ky duoc tu may chu (ERP ky thay) hay phai ky tay bang OfficeSignTool.
         "signatures": [{"id": r.get("id"), "signerId": r.get("signerId"),
                         "type": r.get("type"), "company": r.get("company"),
-                        "active": bool(r.get("active"))} for r in rows],
+                        "active": bool(r.get("active")),
+                        "has_hsm": bool(r.get("has_hsm")),
+                        "sign_token": r.get("sign_token")} for r in rows],
     }
 
 

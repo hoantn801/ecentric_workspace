@@ -59,18 +59,45 @@ class TestListSctsSignatures(unittest.TestCase):
         self.assertIn("perms.assert_system_manager()", _body(self.src, "list_scts_signatures"))
 
     def test_returns_only_safe_identifier_fields(self):
+        """Danh sach truong duoc phep - moi lan them phai ghi ly do NGAY TAI DAY.
+
+        03/09 them `has_hsm` (bool) va `sign_token` (so). Ly do: anh Lam co HAI chu ky
+        `ky-chinh`, mapping tro vao mot; chu ky `signToken=1` ky bang token tai may qua
+        OfficeSignTool nen ERP khong ky thay duoc, `0` + co HSM thi ky duoc tu may chu. Khong
+        co hai co nay thi khong tra loi noi "cai nao dung duoc" ma khong dang nhap cong bang
+        tai khoan nguoi khac. Hai co la CO/KHONG va MOT SO - khong phai id chung thu, khong
+        phai vat lieu.
+        """
         body = _body(self.src, "list_scts_signatures")
+        # Regex nay bat `"k": r.get(` - truong boc trong bool() (`active`, `has_hsm`) khong
+        # khop, va do la co y: bool() la lop bao dam khong lo gia tri tho. `has_hsm` co phep
+        # kiem rieng ben duoi.
         returned = set(re.findall(r'"(\w+)":\s*r\.get\(', body))
-        self.assertEqual(returned, {"id", "signerId", "type", "company"},
-                         "chi duoc tra ve dinh danh + nhan an toan, khong them truong nao khac")
+        self.assertEqual(returned, {"id", "signerId", "type", "company", "sign_token"},
+                         "chi duoc tra ve dinh danh + nhan an toan + sign_token, khong them "
+                         "truong nao khac")
+        boc_bool = set(re.findall(r'"(\w+)":\s*bool\(r\.get\(', body))
+        self.assertEqual(boc_bool, {"active", "has_hsm"},
+                         "truong bool chi co active va has_hsm")
 
     def test_never_returns_signature_material(self):
-        # Bo docstring truoc khi soi: cau "no images, no certificate" nam trong loi giai thich
-        # chinh la thu ta muon giu, khong phai vi pham.
-        body = re.sub(r'"""[\s\S]*?"""', "", _body(self.src, "list_scts_signatures")).lower()
-        for banned in ("image", "base64", "certificate", "cert_", "hsm", "private", "pfx", "p12"):
+        # Bo docstring VA chu thich truoc khi soi: cau "no images, no certificate" nam trong
+        # loi giai thich chinh la thu ta muon giu, khong phai vi pham.
+        #
+        # `hsm` -> `hsmid`/`hsmcertid`/`hsm_id`: cam ID cua chung thu HSM, khong cam chu
+        # `has_hsm` (bool). Ban dau cam ca chuoi `hsm`, dung, cho toi khi can mot co co/khong.
+        body = _code_only(_body(self.src, "list_scts_signatures")).lower()
+        for banned in ("image", "base64", "certificate", "cert_", "hsmid", "hsmcertid",
+                       "hsm_id", "private", "pfx", "p12"):
             self.assertNotIn(banned, body,
                              "endpoint nay khong duoc cham vao vat lieu chu ky: %s" % banned)
+
+    def test_has_hsm_la_bool_khong_phai_id(self):
+        """Neu ai do doi `bool(r.get("has_hsm"))` thanh `r.get("hsmCertId")` thi test tren
+        van xanh (khong co chuoi cam trong api.py - id nam o adapter). Chan ngay tai day."""
+        body = _code_only(_body(self.src, "list_scts_signatures"))
+        self.assertIn('"has_hsm": bool(r.get("has_hsm"))', body,
+                      "has_hsm phai di qua bool() - tra thang gia tri la tra id chung thu")
 
     def test_does_not_write_anything(self):
         body = _body(self.src, "list_scts_signatures")
