@@ -469,7 +469,24 @@ class SctsAdapter(SignatureProviderAdapter):
         try:
             raw = self._with_auth(lambda t: self._client.users_for_transition(
                 instance_id, transition_id, provider_user_id, t))
-        except Exception:
+        except Exception as exc:
+            # NOI RO vi sao khong hoi duoc, dung nuot.
+            #
+            # Day la lop bao ve chan viec gui mot lenh ma eContract chac chan bo qua. Khi no
+            # tra None, tang tren ghi `recipients_unverified: true` va GUI DAI theo chuoi cua
+            # ERP. 02/09, chan ky HOF: recipients_unverified=true -> gui -> eContract nhan
+            # 2xx kem ma giao dich -> 20 phut sau khong co chu ky nao -> Manual Review.
+            #
+            # Khong ai biet vi sao lop bao ve khong chay, vi cho nay nuot sach loi. Cung lop
+            # sai da phai sua hai lan trong cung mot ngay: mot nhanh im lang, va mot cau bao
+            # loi khong noi thieu ai. Mot cong cu de nhin ma tu bit mat o dong cuoi thi khong
+            # phai cong cu.
+            from ecentric_workspace.platform.esign.sanitize import safe_error
+            self._last_eligible_error = safe_error(exc)
+            frappe.log_error(
+                "users_for_transition that bai (instance=%s transition=%s): %s"
+                % (instance_id, transition_id, safe_error(exc)),
+                "esign scts eligible_recipients")
             return None
         rows = raw
         if isinstance(raw, dict):

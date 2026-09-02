@@ -123,11 +123,26 @@ class TestTheAdapterSeparatesUnknownFromEmpty(unittest.TestCase):
                               self.src, re.S).group(0)
 
     def test_a_failed_call_returns_none_not_an_empty_set(self):
-        self.assertIn("return None", self.body)
-        m = re.search(r"except Exception:\s*\n\s*return (\S+)", self.body)
-        self.assertIsNotNone(m)
+        # `as exc` la tuy chon - bat ca hai dang, neu khong test do vi mot thay doi khong lien
+        # quan (da xay ra 02/09 khi them ghi log vao dung nhanh nay).
+        m = re.search(r"except Exception(?: as \w+)?:\s*\n(?:.*\n)*?\s*return (\S+)",
+                      self.body)
+        self.assertIsNotNone(m, "khong tim thay nhanh xu ly loi trong eligible_recipients")
         self.assertEqual(m.group(1), "None",
                          "loi goi ma tra set() rong = bao 'khong ai duoc nhan' - sai han")
+
+    def test_khong_hoi_duoc_thi_phai_GHI_LAI_vi_sao(self):
+        """Tra None am tham = lop bao ve tat ma khong ai biet.
+
+        Lop nay chan viec gui mot lenh ma eContract chac chan bo qua. Khi no tra None, tang
+        tren gui dai theo chuoi cua ERP. 02/09 chan ky HOF di dung duong do: 2xx kem ma giao
+        dich, 20 phut sau khong co chu ky nao. Khong ai lan ra duoc vi sao lop bao ve khong
+        chay, vi cho nay nuot sach loi.
+        """
+        self.assertIn("log_error", self.body,
+                      "phai ghi log khi khong hoi duoc - nguoi chan doan can biet VI SAO")
+        self.assertIn("safe_error", self.body,
+                      "ghi noi dung loi da lam sach, khong chi ten loai loi")
 
     def test_it_reads_the_id_under_any_of_the_shapes_seen(self):
         for key in ('"id"', '"userId"'):
