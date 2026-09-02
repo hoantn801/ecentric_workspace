@@ -344,10 +344,16 @@ def process_signing_request(dsr_name):
             # table query and killed the whole leg, leaving the DSR stuck at Queued with no
             # provider call at all. Any failure here degrades to the previous behaviour and
             # is recorded - never propagated.
+            # INSTANCE id, khong phai DOCUMENT id. Truyen document id vao
+            # `/api/Workflow/{instanceId}` tra 404 voi moi nguoi - do bang tay 02/09, ke ca
+            # nguoi da ky that tren chinh tai lieu do - nen kham pha canh chuyen chua bao gio
+            # chay duoc va moi lenh ky deu roi ve pool.
+            from ecentric_workspace.platform.esign.package import workflow_instance_id
+            inst_id = workflow_instance_id(dsr.package) or doc_id
             try:
                 plan = next_handler.plan_handover(dsr, _profile_of(dsr),
                                                   settings.get("environment"), stage=stage,
-                                                  adapter=adapter, instance_id=doc_id)
+                                                  adapter=adapter, instance_id=inst_id)
             except Exception as exc:
                 plan = {"mode": "pool", "reason": "handover_planning_failed:%s"
                                                   % type(exc).__name__}
@@ -368,7 +374,7 @@ def process_signing_request(dsr_name):
                                           "stage": stage})
                 try:
                     res = adapter.transition_with_recipients(
-                        doc_id, dsr.effective_scts_user_id, plan["to_users"], plan["config"],
+                        inst_id, dsr.effective_scts_user_id, plan["to_users"], plan["config"],
                         dsr.effective_signature_id)
                 except ProviderError as exc:
                     # A DEFINITE rejection (4xx) means the provider did NOT act, so re-sending
@@ -388,7 +394,11 @@ def process_signing_request(dsr_name):
                                 package=dsr.package,
                                 error_summary="next handler not named: %s" % plan.get("reason"),
                                 request_meta={"stage": stage, "reason": plan.get("reason")})
-                res = adapter.approve_and_sign([doc_id], dsr.effective_scts_user_id,
+                # `bulk-process` nhan `instanceIds`. Gui document id vao day chinh la hinh
+                # dang that bai kho chan doan nhat cua ca vu: SCTS tra 2xx kem
+                # bulkJobTransactionId roi khong ky gi ca, vi cong viec khong tro vao instance
+                # nao. Loi 400 cua duong `transition` con bao ngay; duong nay im lang.
+                res = adapter.approve_and_sign([inst_id], dsr.effective_scts_user_id,
                                                dsr.effective_signature_id,
                                                transition_type=tt)  # 'approve' (never numeric)
             events.set_dsr_status(

@@ -565,3 +565,29 @@ def validate_placement_geometry(pkg_name, placements, valid_files=None, tol=1.0)
         if x + w > pw + tol or y + h > ph + tol:
             frappe.throw(_("Vị trí ký nằm ngoài khổ trang PDF."))
     return True
+
+
+def workflow_instance_id(pkg, fallback_to_document=True):
+    """Ma WORKFLOW INSTANCE cua goi - KHAC ma DOCUMENT, va day la cho da lam hong viec ky.
+
+    `GET /api/Workflow/{instanceId}` va `POST /api/Workflow/transition` deu nhan INSTANCE id.
+    Toan he dang truyen `scts_document_id` vao do. Do bang tay 02/09 tren tai lieu
+    f3a2c0f7-...: goi bang document id tra 404 voi CA BA nguoi - ke ca nguoi da ky that tren
+    chinh tai lieu do - nen day khong phai chuyen quyen, ma la sai ma.
+
+    Hau qua day chuyen: `discover_transition` khong bao gio chay duoc -> khong biet
+    transitionId dung cua canh hien tai -> gui id cau hinh cu -> SCTS tra 400 "Duong chuyen
+    khong hop le" -> roi ve pool -> pool tra 2xx kem ma giao dich roi khong co gi xay ra.
+
+    Tra `None` khi khong co va `fallback_to_document=False`: nguoi goi phai tu quyet dinh co
+    dam gui bang document id nua khong, thay vi bi lang le tra ve dung cai gia tri sai cu.
+    """
+    if isinstance(pkg, str):
+        pkg = frappe.db.get_value("EC Digital Signature Package", pkg,
+                                  ["scts_workflow_instance_id", "scts_document_id"],
+                                  as_dict=True) or {}
+    get = pkg.get if hasattr(pkg, "get") else (lambda k: getattr(pkg, k, None))
+    iid = (get("scts_workflow_instance_id") or "").strip() if get("scts_workflow_instance_id") else None
+    if iid:
+        return iid
+    return (get("scts_document_id") or None) if fallback_to_document else None

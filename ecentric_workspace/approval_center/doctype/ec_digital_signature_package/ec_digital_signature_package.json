@@ -41,6 +41,7 @@
   "package_hash",
   "status",
   "scts_document_id",
+  "scts_workflow_instance_id",
   "doc_code_sent",
   "doc_title_sent",
   "doc_amount_sent",
@@ -128,6 +129,13 @@
    "fieldname": "scts_document_id",
    "fieldtype": "Data",
    "label": "SCTS Document ID"
+  },
+  {
+   "fieldname": "scts_workflow_instance_id",
+   "fieldtype": "Data",
+   "label": "SCTS Workflow Instance ID",
+   "read_only": 1,
+   "description": "KHAC scts_document_id. /api/Workflow/{instanceId} tra 404 neu truyen document id - do la ly do khong tim duoc transitionId dung va moi lenh ky deu roi ve pool."
   },
   {
    "fieldname": "doc_code_sent",
