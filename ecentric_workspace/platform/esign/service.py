@@ -229,7 +229,17 @@ def _expected_for(dsr):
     # than the moment the leg was queued. Email-only matching used to accept a signature
     # the same person had made for a DIFFERENT leg earlier (see verify_signed_result).
     from ecentric_workspace.platform.esign.providers.base import SignatureProviderAdapter
-    asked_at = dsr.get("queued_at") or dsr.get("creation")
+    # MOC LA LUC NHA CUNG CAP NHAN LENH (`accepted_at`), KHONG PHAI LUC XEP HANG GAN NHAT.
+    #
+    # 02/09 23:40: "Thu lai" mot chan da duoc ky that luc 23:06. Thu lai dat `queued_at` =
+    # 23:40:40, cua so thanh 23:38:40, va chu ky 23:06 - chu ky DUNG cua chan nay - bi coi
+    # la "truoc khi hoi". Tuc tu truoc toi nay Thu lai chua bao gio xac nhan noi mot chu ky
+    # da ton tai; no chi co the quay ve Manual Review.
+    #
+    # `accepted_at` la luc lenh ky thuc su den nha cung cap, khong doi qua cac lan thu lai.
+    # Chan chua gui bao gio thi khong co no - khi do `queued_at` la moc dung, vi chua co lenh
+    # nao de chu ky "moi hon".
+    asked_at = dsr.get("accepted_at") or dsr.get("queued_at") or dsr.get("creation")
     signed_after = None
     if asked_at:
         parsed = SignatureProviderAdapter._parse_provider_time(asked_at)

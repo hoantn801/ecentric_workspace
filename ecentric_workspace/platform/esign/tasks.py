@@ -323,7 +323,12 @@ def process_signing_request(dsr_name):
             # dung chung voi trang ops de nhan nut noi dung viec se xay ra.
             # Fail-closed: Manual Review de "Doi soat" (chi DOC) quyet dinh, khong bao gio doan.
             if may_have_sent:
+                # GHI LY DO VERIFY TU CHOI. Truoc day `vr.reason` bi vut o day, nen su kien
+                # ManualReview trong ron: 02/09 23:40 phai suy luan ra "cua so thoi gian bi
+                # Thu lai day len sau chu ky" thay vi doc mot dong. Mot cho roi vao Manual
+                # Review ma khong noi vi sao la mot cho nguoi truc phai doan.
                 events.set_dsr_status(dsr_name, "Manual Review", event_type="ManualReview",
+                                      verification_result=vr.reason,
                                       extra_fields={"manual_review_reason":
                                                     "prior_bulk_submit_uncertain"})
                 return
