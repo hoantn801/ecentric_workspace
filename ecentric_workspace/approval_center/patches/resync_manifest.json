@@ -6,7 +6,7 @@
   },
   "approval_center/features/affiliate_bonus/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p125_resync_six_forms_server_error_message",
+    "last_resync_patch": "p126_resync_six_forms_server_error_message",
     "sha256": "8bc188f9317b83bca01dfd7bfe6b9914715c2825ef9b214f4fc54e778cbd3497"
   },
   "approval_center/features/ai_topup/ui/main_section.html": {
@@ -26,7 +26,7 @@
   },
   "approval_center/features/budget_setting/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p125_resync_six_forms_server_error_message",
+    "last_resync_patch": "p126_resync_six_forms_server_error_message",
     "sha256": "eafece48106dfd6b5e11083039de010bc9f9e7de11976685d88caea658baa62c"
   },
   "approval_center/features/compensation_leave/ui/main_section.html": {
@@ -55,7 +55,7 @@
   },
   "approval_center/features/employee_info_update/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p125_resync_six_forms_server_error_message",
+    "last_resync_patch": "p126_resync_six_forms_server_error_message",
     "sha256": "d5bcf0ca2ef04c097c42fedd49a8c94db89c4fd42da4fa1c0137ec954e3eebfa"
   },
   "approval_center/features/employee_referral/ui/main_section.html": {
@@ -95,7 +95,7 @@
   },
   "approval_center/features/livestream_supplies/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p125_resync_six_forms_server_error_message",
+    "last_resync_patch": "p126_resync_six_forms_server_error_message",
     "sha256": "a34e540717dca4f977b193552d0b1e548ca799c93c2be12e81a876f2818c95de"
   },
   "approval_center/features/outside_work/ui/main_section.html": {
@@ -114,7 +114,7 @@
   },
   "approval_center/features/purchase_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p125_resync_six_forms_server_error_message",
+    "last_resync_patch": "p126_resync_six_forms_server_error_message",
     "sha256": "adbb01136006ccafa98e4a6765b5c02110fd5ed6c9ec7b9a2945a5147792cf63"
   },
   "approval_center/features/resignation/ui/main_section.html": {
@@ -124,7 +124,7 @@
   },
   "approval_center/features/service_referral/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p125_resync_six_forms_server_error_message",
+    "last_resync_patch": "p126_resync_six_forms_server_error_message",
     "sha256": "30d3ba48ec2693a36dae8d9e57ea09636dd94d1b89084ddde234d2206acc8ed5"
   },
   "approval_center/features/special_bonus/ui/main_section.html": {
