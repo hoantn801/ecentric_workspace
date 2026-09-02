@@ -141,6 +141,22 @@ class TestPollFirstOnlyAfterSending(unittest.TestCase):
                       "worker phai dung CHUNG dinh nghia voi trang ops, khong tu tinh lai")
 
 
+class TestManualReviewNoiRoViSao(unittest.TestCase):
+    """Roi Manual Review sau POLL-FIRST ma khong ghi ly do verify = nguoi truc phai doan.
+
+    02/09 23:40 su kien ManualReview trong ron, phai suy luan ra cua so thoi gian bi Thu lai
+    day len sau chu ky. `vr.reason` co san ngay do, chi la khong ai ghi no lai.
+    """
+
+    def test_nhanh_may_have_sent_ghi_verification_result(self):
+        src = _src("platform", "esign", "tasks.py")
+        i = src.find('"prior_bulk_submit_uncertain"')
+        self.assertNotEqual(i, -1, "nhanh Manual Review sau poll-first khong con")
+        doan = src[max(0, i - 400):i]
+        self.assertIn("verification_result=vr.reason", doan,
+                      "ly do verify tu choi bi vut - su kien ManualReview se trong ron")
+
+
 class TestOrdinalBeatsThePreviousLeg(unittest.TestCase):
     """Chan thu N cua mot nguoi doi chu ky thu N+1 cua nguoi do - dem, khong so gio.
 
@@ -207,6 +223,18 @@ class TestOrdinalIsPassedToTheVerifier(unittest.TestCase):
         body = re.search(r"(?m)^def _expected_for\(.*?(?=\ndef )", _SVC, re.S).group(0)
         self.assertNotIn("_last_completed_leg_time", body,
                          "san thoi gian quay lai = chan cung phut lai ket mai mai")
+
+    def test_moc_thoi_gian_la_accepted_at_khong_phai_queued_at(self):
+        """Thu lai dat lai queued_at = bay gio; lay no lam moc thi chu ky that (da co tu
+        truoc) luon bi coi la "truoc khi hoi". 02/09 23:40: chan ky luc 23:06, thu lai luc
+        23:40, cua so 23:38:40 -> tu choi mai. `accepted_at` khong doi qua cac lan thu lai."""
+        body = re.search(r"(?m)^def _expected_for\(.*?(?=\ndef )", _SVC, re.S).group(0)
+        m = re.search(r'asked_at = (.+)', body)
+        self.assertIsNotNone(m)
+        thu_tu = m.group(1)
+        self.assertLess(thu_tu.find('"accepted_at"'), thu_tu.find('"queued_at"'),
+                        "accepted_at phai duoc uu tien TRUOC queued_at")
+        self.assertNotEqual(thu_tu.find('"accepted_at"'), -1)
 
     def test_tolerance_window_still_exists(self):
         """Thu tu thay SAN, khong thay CUA SO. Cua so 120s van chan chu ky lam TRUOC khi
