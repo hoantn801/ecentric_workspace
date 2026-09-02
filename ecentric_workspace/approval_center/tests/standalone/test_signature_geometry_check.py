@@ -109,28 +109,26 @@ class TestKhongHoiDuocThiNoiRoViSao(unittest.TestCase):
 
         Ban dau phep kiem nay chi tim chuoi `safe_error` trong than ham. Mot phep dot bien
         lam rong MOT nhanh except van xanh, vi nhanh con lai giu nguyen chuoi do - test do
-        cho mot ham da bi bit mat mot mat. Gio duyet tung `except` va doi moi nhanh phai gan
-        `row["error"]` bang mot bieu thuc THAT SU, khong phai None hay chuoi rong.
+        cho mot ham da bi bit mat mot mat. Nen no duyet TUNG `except`.
+
+        Lan hai (02/09): no lai qua chat theo huong nguoc lai - doi dung mot dia chi
+        `row["error"]`, nen khi them mot nhanh bat loi o CAP GOI (ghi ly do vao
+        `signed_check`) thi test do do, du nhanh do co ghi ly do day du. Phep kiem phai bam
+        vao Y DINH "moi nhanh deu ghi lai ly do da lam sach", khong bam vao CHINH TA cua bien
+        nhan ly do.
         """
         fn = _fn("signature_geometry_check")
         handlers = [h for h in ast.walk(fn) if isinstance(h, ast.ExceptHandler)]
         self.assertTrue(handlers, "ham khong bat loi nha cung cap -> mot loi mang lam do ca "
                                   "lenh chan doan")
         for h in handlers:
-            gans = [n for n in ast.walk(h) if isinstance(n, ast.Assign)]
-            ghi = []
-            for a in gans:
-                for t in a.targets:
-                    if (isinstance(t, ast.Subscript)
-                            and getattr(t.value, "id", None) == "row"
-                            and getattr(getattr(t, "slice", None), "value", None) == "error"):
-                        ghi.append(a.value)
-            self.assertTrue(ghi, "co nhanh except khong ghi row['error'] - loi bi nuot")
+            ghi = [a.value for a in ast.walk(h) if isinstance(a, ast.Assign)]
+            self.assertTrue(ghi, "co nhanh except khong gan gi ca - loi bi nuot tron")
             for v in ghi:
                 self.assertFalse(
                     isinstance(v, ast.Constant) and not v.value,
-                    "nhanh except gan row['error'] bang hang rong/None = nuot loi co ve "
-                    "lich su hon nhung van la nuot")
+                    "nhanh except gan hang rong/None = nuot loi co ve lich su hon nhung van "
+                    "la nuot")
             self.assertIn("safe_error",
                           {getattr(c.func, "attr", None) or getattr(c.func, "id", None)
                            for n in ghi for c in ast.walk(n) if isinstance(c, ast.Call)},
@@ -154,6 +152,70 @@ class TestSoSanhDungConSo(unittest.TestCase):
                       "lech 842 - y - h va nguoi doc se tuong bu sai")
         self.assertIn("_page_height_or", than,
                       "phai lat theo chieu cao trang THAT doc tu PDF, khong doan 842")
+
+
+class TestChuaKyXongPhaiNoiDungLyDo(unittest.TestCase):
+    """Bao sai ly do con hai hon khong bao gi - no dieu nguoi doc di duong khac.
+
+    02/09 lenh nay tra ve `SCTS refused get_pdf (HTTP 400)` tren mot tai lieu moi ky 2/5 chan.
+    Toi doc thanh loi cua nha cung cap, truy sang `scts_document_file_id` dang trong, va suyt
+    ket luan do la nguyen nhan goc - trong khi truong do von duoc backfill cho san. Su that chi
+    la: chua ky xong thi lam gi co ban da ky ma tai.
+    """
+
+    def _fn_src(self):
+        return ast.get_source_segment(_SRC, _fn("signature_geometry_check")) or ""
+
+    def test_hoi_da_ky_xong_chua_TRUOC_khi_tai(self):
+        """Cong phai chan TRUOC, khong phai doan lai tu thong bao loi cua nha cung cap."""
+        fn = _fn("signature_geometry_check")
+        vong = [n for n in ast.walk(fn) if isinstance(n, ast.For)]
+        self.assertTrue(vong, "khong con vong lap qua tung tep")
+        for v in vong:
+            tai = [i for i, st in enumerate(v.body)
+                   if "get_signed_document" in (ast.get_source_segment(_SRC, st) or "")]
+            if not tai:
+                continue
+            # Cong phai xet DUNG BIEN. Phien ban dau chi doi "co mot `if` nao do chua
+            # `continue`", nen dot bien `if not da_ky:` -> `if False:` van xanh: cong con do
+            # nhung khong bao gio dong. Mot cong luon mo trong khong khac gi mot cong that.
+            chan = [i for i, st in enumerate(v.body)
+                    if isinstance(st, ast.If)
+                    and any(isinstance(c, ast.Continue) for c in ast.walk(st))
+                    and "da_ky" in {getattr(n, "id", None) for n in ast.walk(st.test)}
+                    # ...va dung CHIEU. `if da_ky: continue` cung nhac `da_ky`, cung co
+                    # `continue`, nhung bo qua dung luc DA ky xong - tuc dao nguoc y nghia
+                    # ma van qua moi phep kiem cu.
+                    and isinstance(st.test, ast.UnaryOp)
+                    and isinstance(st.test.op, ast.Not)]
+            self.assertTrue(chan, "khong co cong xet `da_ky` roi bo qua -> van goi get_pdf "
+                                  "roi bao 'nha cung cap tu choi'")
+            self.assertLess(min(chan), min(tai),
+                            "cong dat SAU lenh tai = vo nghia, PDF da duoc doi ve roi")
+
+    def test_dung_CHUNG_cong_voi_duong_tai_that(self):
+        """Phai GOI, khong phai chi `import`.
+
+        Phien ban dau chi tim chuoi `_terminal_signed_ok` trong than ham, nen dot bien thay
+        loi goi bang hang `(True, "x")` van xanh: dong `import` con nguyen nen chuoi van con.
+        Dung dung mot lop nham lan da phai sua ba lan hom nay - grep chu thay vi doc cau truc.
+        """
+        self.assertIn("_terminal_signed_ok", _calls(_fn("signature_geometry_check")),
+                      "phai GOI cong cua signed_files - hai dinh nghia 'da ky xong' lech nhau "
+                      "thi chan doan noi mot dang, san xuat lam mot dang")
+
+    def test_khong_tu_dinh_nghia_lai_the_nao_la_ky_xong(self):
+        than = self._fn_src()
+        for cam in ("_TERMINAL_SIGNED", '"completed"', '"finished"', '"success"'):
+            self.assertNotIn(cam, than,
+                             "chep lai danh sach trang thai terminal (%s) = tao ban sao thu "
+                             "hai se troi khoi ban goc" % cam)
+
+    def test_noi_ro_la_KHONG_hoi_chu_khong_phai_hoi_roi_rong(self):
+        than = self._fn_src()
+        self.assertIn('row["asked"] = False', than,
+                      "de asked=True tren nhanh khong-hoi = nguoi doc tuong day la cau tra loi "
+                      "cua nha cung cap; day dung la lop nham lan da lam mat buoi chieu 02/09")
 
 
 if __name__ == "__main__":
