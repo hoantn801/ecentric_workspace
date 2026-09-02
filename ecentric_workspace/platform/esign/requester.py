@@ -278,8 +278,9 @@ def requester_submit_and_sign(business_doctype, business_name, comment=None):
                           erp_actor=requester)
     frappe.db.set_value(AR, ar, {"requester_signature_status": "Processing",
                                  "requester_signature_request": dsr.name})
+    from ecentric_workspace.platform.esign import state as sm
     frappe.enqueue("ecentric_workspace.platform.esign.tasks.process_signing_request",
-                   dsr_name=dsr.name, queue="default", timeout=600,
+                   dsr_name=dsr.name, queue=sm.SIGNING_QUEUE, timeout=sm.SIGNING_JOB_TIMEOUT,
                    job_name="esign_requester_%s" % dsr.name, enqueue_after_commit=True)
     return {"signature_request": dsr.name, "status": "Queued", "duplicate": False}
 

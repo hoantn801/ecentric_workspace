@@ -37,6 +37,21 @@ DSR_STATES = (
     "Manual Review", "Cancelled", "Rejected", "Superseded",
 )
 DSR_TERMINAL = ("Approval Completed", "Permanent Failure", "Cancelled", "Rejected", "Superseded")
+
+#: Hang doi cho LENH KY - "short", KHONG PHAI "default".
+#:
+#: 03/09 00:00, EC-DSR-2026-00033: nguoi duyet bam xong, chan ky nam trong hang 49,7 giay
+#: truoc khi worker cham toi - vi worker `default` dang ban chay cron lay PDF
+#: (SignedRetrievalNotReady 00:00:05). Sau do gui + ky + xac nhan chi mat 12 giay. Chan lien
+#: truoc (00032) khong vuong cron thi 0,7 giay. Lenh ky la thu nguoi dung ngoi nhin man hinh
+#: doi; cron lay PDF thi khong ai doi. Hai viec khong duoc xep chung mot hang.
+#:
+#: MOT cho dinh nghia. Bon noi enqueue process_signing_request (service x3, requester x1)
+#: deu doc tu day; test kiem khong con `queue="default"` nao cho lenh ky.
+SIGNING_QUEUE = "short"
+#: Do thuc te 02-03/09: gui 3-5s, SCTS ky 2-5s, xac nhan 1-9s. 600 la thua; 180 van du de
+#: chiu mot lan SCTS cham ma khong giu worker ca ngay.
+SIGNING_JOB_TIMEOUT = 180
 DSR_LIVE = ("Prepared", "Queued", "Provider Accepted", "Verifying", "Signed")
 
 DSR_TRANSITIONS = {

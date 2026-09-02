@@ -541,9 +541,17 @@ def poll_pending():
 
 
 #: Doi soat nhanh ngay sau khi nha cung cap nhan lenh. Cac moc do bang giay ke tu luc bam.
-#: Chu ky that do duoc tren he nay xuat hien sau 20-40 giay; cron moi phut cong voi do tre
-#: hang doi day con so nguoi dung cam nhan len 2-5 phut.
-FAST_VERIFY_DELAYS = (8, 12, 15, 20, 25)
+#:
+#: "20-40 giay" la so do thoi con di duong pool (eContract tu gan nguoi roi moi ky). Tu 02/09
+#: chan duyet di targeted, do lai tren ba chan that: chu ky xuat hien sau 2-5 giay ke tu
+#: ProviderAccepted (00032: 8,7s ke ca cho; 00033: 4,3s; 00031 thu lai: 2s). Voi nhip cu, lan
+#: hoi dau +0,8s luon truot (SCTS chua kip ghi) roi phai doi 8s nua - tuc nguoi dung nhin man
+#: hinh them ~5 giay vi mot con so cu.
+#:
+#: Nhip moi: 2, 3, 4, 6, 10 (tong 25s giu worker, thay vi 80s). Van chi la tang tang toc -
+#: vong cron la luoi an toan. `short` worker giu toi da 25s nen lenh ky ke tiep (cung hang
+#: `short` tu 03/09) khong bao gio phai doi qua lau.
+FAST_VERIFY_DELAYS = (2, 3, 4, 6, 10)
 #: Cac trang thai con dang bay - ra khoi tap nay thi dung ngay, khong doi tiep.
 _FAST_VERIFY_LIVE = ("Provider Accepted", "Verifying")
 
