@@ -173,6 +173,72 @@ def retry_signature_request(dsr_name):
 
 
 @frappe.whitelist(methods=["POST"])
+def authorize_resend(dsr_name, reason):
+    """GUI LAI CO KIEM mot chan ky dang Manual Review. System Manager. BAT BUOC ly do.
+
+    Vi sao can. "Thu lai" KHONG gui lai - dung y, vi lenh ky khong idempotent: mot chan da
+    tung gui ma gui lan hai co the tao chu ky thu hai. Nhung co mot lop that bai ma chan
+    khong the tu thoat: nha cung cap nhan lenh (2xx, co ma giao dich) roi khong lam gi -
+    00042/DSR-00027 ngay 02/09 03:25, lenh pool trat nguoi. Voi chan do, Thu lai chi quay
+    ve Manual Review mai mai, va cach duy nhat la sua tay trong DB.
+
+    Dieu kien de gui lai la AN TOAN, kiem TAI DAY, ngay truoc khi cho phep: hoi nha cung cap
+    va nha cung cap phai xac nhan nguoi ky nay CHUA co chu ky nao thoa man chan nay
+    (`expected_signer_absent` / `not_enough_signatures`). Khi do khong ton tai chu ky de ky
+    dup. Bat ky ket qua nao khac - da ky (thi Thu lai la du), khong hoi duoc, khong doc duoc
+    - deu tu choi. Khong doan.
+
+    Co `resend_authorized` dung MOT LAN: worker xoa no truoc khi gui. Su kien
+    ResendAuthorized ghi ai, vi sao, va nha cung cap noi gi luc do.
+    """
+    perms.assert_system_manager()
+    ly_do = (reason or "").strip()
+    if not ly_do:
+        frappe.throw(_("Bắt buộc nhập lý do gửi lại."))
+    dsr = frappe.db.get_value("EC Digital Signature Request", dsr_name, "*", as_dict=True)
+    if not dsr:
+        frappe.throw(_("Không tìm thấy chân ký."))
+    if dsr.status != "Manual Review":
+        frappe.throw(_("Chỉ gửi lại được chân ký đang ở Manual Review (hiện: {0}).")
+                     .format(dsr.status))
+    pkg = frappe.db.get_value("EC Digital Signature Package", dsr.package,
+                              ["scts_document_id", "status"], as_dict=True)
+    if not pkg or not pkg.scts_document_id:
+        frappe.throw(_("Gói chưa có tài liệu bên nhà cung cấp - không có gì để gửi lại."))
+
+    settings = frappe.db.get_value("EC Digital Signature Provider Settings",
+                                   {"integration_enabled": 1}, "*", as_dict=True)
+    if not settings:
+        frappe.throw(_("Không có Provider Settings đang bật."))
+    from ecentric_workspace.platform.esign.providers import get_adapter
+    from ecentric_workspace.platform.esign.providers.base import SignatureProviderAdapter
+    from ecentric_workspace.platform.esign.sanitize import safe_error
+    adapter = get_adapter(settings)
+    try:
+        doc_state = adapter.poll_status(pkg.scts_document_id)
+    except Exception as exc:
+        frappe.throw(_("Không hỏi được nhà cung cấp, không cho gửi lại: {0}")
+                     .format(safe_error(exc)))
+    expected = svc._expected_for(dsr)
+    expected["document_id"] = pkg.scts_document_id
+    vr = SignatureProviderAdapter.verify_signed_result(doc_state, expected)
+    if vr.ok:
+        frappe.throw(_("Nhà cung cấp đã có chữ ký cho chân này - dùng Thử lại, không gửi lại."))
+    ly_do_nha_cung_cap = str(vr.reason or "")
+    if not (ly_do_nha_cung_cap.startswith("expected_signer_absent")
+            or ly_do_nha_cung_cap.startswith("not_enough_signatures")):
+        frappe.throw(_("Nhà cung cấp không xác nhận là chưa ký ({0}) - không gửi lại để "
+                       "tránh ký đúp.").format(ly_do_nha_cung_cap))
+
+    frappe.db.set_value("EC Digital Signature Request", dsr_name, "resend_authorized", 1)
+    events.emit("ResendAuthorized", signature_request=dsr_name, package=dsr.package,
+                request_meta={"boi": frappe.session.user, "ly_do": ly_do,
+                              "nha_cung_cap_noi": ly_do_nha_cung_cap,
+                              "attempt_truoc": int(dsr.request_attempt or 1)})
+    return svc.retry_signature_request(dsr_name)
+
+
+@frappe.whitelist(methods=["POST"])
 def cancel_signature_request(dsr_name, reason=None):
     return svc.cancel_signature_request(dsr_name, reason)
 

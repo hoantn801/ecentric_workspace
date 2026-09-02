@@ -48,7 +48,8 @@
   <h1>Chân ký cần can thiệp</h1>
   <p class="ops-sub">
     Những việc ký số hệ thống không tự xử lý được. Mỗi dòng kèm đúng những hành động
-    máy trạng thái cho phép — không có nút nào ở đây gửi lại lệnh ký, nên không bao giờ
+    máy trạng thái cho phép. Nút duy nhất gửi lại lệnh ký là "Gửi lại có kiểm": máy chủ
+    hỏi SCTS ngay lúc bấm và chỉ gửi khi người đó chưa có chữ ký — nên không bao giờ
     tạo ra chữ ký thứ hai.
   </p>
 
@@ -120,6 +121,7 @@
     reconcile: "Đối soát",
     retry: "Gửi lại",
     retry_sent: "Đối soát & chuyển xem tay",
+    resend: "Gửi lại có kiểm",
     cancel: "Hủy chân ký",
     retrieve: "Tải PDF đã ký",
     resolve_review: "Xem đối chiếu",
@@ -140,6 +142,10 @@
               + "lệnh ký gửi hai lần có thể tạo chữ ký thứ hai trên cùng tài liệu. Nó đọc "
               + "lại tài liệu: nếu đã ký thì ghi nhận hoàn tất, nếu chưa thì chuyển sang "
               + "Cần người xem để có người quyết định.",
+    resend: "Chân ký này đã từng gửi sang SCTS nhưng SCTS không tạo chữ ký (lệnh trượt "
+          + "người). Máy chủ sẽ hỏi lại SCTS NGAY LÚC NÀY: chỉ khi SCTS xác nhận người đó "
+          + "CHƯA có chữ ký thì mới gửi lại một lần — nên không thể tạo chữ ký thứ hai. "
+          + "Đã ký rồi thì bị từ chối (dùng Đối soát). Cần lý do, có ghi vết.",
     cancel: "Đóng chân ký này lại. Không hoàn tác được.",
     retrieve: "Tải bản PDF đã ký từ SCTS về đính vào phiếu. Chỉ đọc phía SCTS, chạy lại "
             + "nhiều lần vẫn an toàn.",
@@ -322,6 +328,15 @@
     var p;
     if (act === "reconcile") p = call("reconcile_signature_request", { dsr_name: name }, "POST");
     else if (act === "retry") p = call("retry_signature_request", { dsr_name: name }, "POST");
+    else if (act === "resend") {
+      // BAT BUOC ly do. May chu se hoi SCTS ngay luc do va TU CHOI neu nguoi ky da co chu ky
+      // - nut nay khong the ky dup, nhung nguoi bam van phai noi vi sao minh lam.
+      var vs = window.prompt(
+        "Gửi lại lệnh ký cho chân này (máy chủ sẽ hỏi SCTS và chỉ gửi nếu người đó CHƯA có "
+        + "chữ ký). Nêu lý do:", "");
+      if (!vs || !vs.trim()) { msg("Bắt buộc nêu lý do.", "err"); return; }
+      p = call("authorize_resend", { dsr_name: name, reason: vs.trim() }, "POST");
+    }
     else if (act === "cancel") {
       var reason = window.prompt("Lý do hủy chân ký này (bắt buộc):", "");
       if (!reason || !reason.trim()) { msg("Phải nêu lý do.", "err"); return; }

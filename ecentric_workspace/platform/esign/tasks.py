@@ -322,7 +322,7 @@ def process_signing_request(dsr_name):
             # Dinh nghia cua `may_have_sent` nam o `state.may_have_sent` - MOT cho duy nhat,
             # dung chung voi trang ops de nhan nut noi dung viec se xay ra.
             # Fail-closed: Manual Review de "Doi soat" (chi DOC) quyet dinh, khong bao gio doan.
-            if may_have_sent:
+            if may_have_sent and not int(dsr.get("resend_authorized") or 0):
                 # GHI LY DO VERIFY TU CHOI. Truoc day `vr.reason` bi vut o day, nen su kien
                 # ManualReview trong ron: 02/09 23:40 phai suy luan ra "cua so thoi gian bi
                 # Thu lai day len sau chu ky" thay vi doc mot dong. Mot cho roi vao Manual
@@ -332,6 +332,20 @@ def process_signing_request(dsr_name):
                                       extra_fields={"manual_review_reason":
                                                     "prior_bulk_submit_uncertain"})
                 return
+            if may_have_sent:
+                # GUI LAI CO KIEM (03/09). Chot mot chieu o tren ton tai vi lenh ky khong
+                # idempotent. Nhung 00042/DSR-00027: lenh pool 02/09 03:25 tra 2xx roi khong
+                # lam gi, SCTS xac nhan nguoi ky CHUA co chu ky (expected_signer_absent), va
+                # chan nay khong the tu thoat Manual Review. Ops da xac nhan qua
+                # api.authorize_resend (SM, POST, co ly do, co su kien ResendAuthorized) SAU
+                # khi hoi lai nha cung cap. POLL-FIRST o tren vua chay lai lan nua trong chinh
+                # transaction nay: neu chu ky da xuat hien thi da hoan tat o `vr.ok`, khong toi
+                # day. Co dung MOT LAN: xoa TRUOC khi gui - gui hong thi ve Manual Review va
+                # ops phai xac nhan lai, chu khong bao gio de mot co cu cho phep gui lan ba.
+                frappe.db.set_value(DSR, dsr_name, "resend_authorized", 0)
+                events.emit("ResendExecuted", signature_request=dsr_name, package=dsr.package,
+                            request_meta={"attempt": int(dsr.get("request_attempt") or 1),
+                                          "last_verify": vr.reason})
             tt = _PROVIDER_TRANSITION.get(dsr.action)
             if not tt:
                 raise ProviderError("scts_no_provider_transition",

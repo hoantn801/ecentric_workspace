@@ -153,7 +153,7 @@
 (function(){
   "use strict";
   var NS="ecentric_workspace.approval_center.api.payment_request.";
-  var state={ boot:null, tab:"create", id:null, mode:"create", draft:null, dirty:false, busy:false, page:0, PAGE:20, listFilters:{}, detail:null, _editDet:null, _prOptions:[], _prLoaded:false };
+  var state={ boot:null, tab:"create", id:null, mode:"create", draft:null, dirty:false, busy:false, page:0, PAGE:20, listFilters:{}, detail:null, _detailSeq:0, _editDet:null, _prOptions:[], _prLoaded:false };
   function $(id){ return document.getElementById(id); }
   function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];}); }
   function toast(m,err){ var t=$("payr-toast"); if(!t)return; t.textContent=m; t.className="toast show"+(err?" err":""); clearTimeout(t._t); t._t=setTimeout(function(){t.className="toast";},3000); }
@@ -386,7 +386,10 @@
                                   : "Đã gửi lại — tiếp tục ở cấp yêu cầu.";
   }
 
-  function resubmitErr(e){ var m=(e&&e.message)||"";
+  // p123 noi mapErr/friendlyErr/applyBackendError sang extractServerMsg nhung bo sot ham nay:
+  // "Chinh sua & gui lai" van doc e.message (luon rong) -> moi loi nghiep vu deu thanh cau
+  // chung chung "Khong the gui lai yeu cau", ke ca khi may chu da noi dung thieu gi.
+  function resubmitErr(e){ var m=extractServerMsg(e);
     if(/no further action|is Approved|is Rejected|is Cancelled|moved|next level|vừa được cập nhật/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Vui lòng tải lại.";
     if(/Information Required|is mandatory|is required|bắt buộc|Vui lòng|permission|quyền|Purchase Request/i.test(m)) return m;
     return "Không thể gửi lại yêu cầu. Vui lòng thử lại hoặc liên hệ quản trị viên."; }
@@ -476,7 +479,7 @@
         renderFileList(field, labelId); })
       .catch(function(e){ renderFileList(field, labelId);
         if(lbl){ var d=document.createElement("div"); d.style.color="#dc2626"; d.style.fontSize="12.5px";
-          d.textContent=(e&&e.message)||"Lỗi tải tệp."; lbl.appendChild(d); } });
+          d.textContent=extractServerMsg(e)||"Lỗi tải tệp."; lbl.appendChild(d); } });
     fileInput.value=""; }
   function renderFileList(field, labelId){
     var lbl=$(labelId); if(!lbl) return;
@@ -533,7 +536,9 @@
   function skeleton(n){ var s=""; for(var i=0;i<n;i++) s+='<div style="height:44px;border-bottom:1px solid var(--gray-100);background:var(--gray-50)"></div>'; return '<div class="card" style="padding:0;overflow:hidden">'+s+'</div>'; }
   function loadList(){ var host=$("payr-list"); if(!host)return; host.innerHTML=skeleton(5);
     var f={ q:$("f-q")?$("f-q").value:"" }; state.listFilters=f;
-    call("list_my_requests",{filters:JSON.stringify(f),start:state.page*state.PAGE,page_length:state.PAGE}).then(renderList).catch(function(){ host.innerHTML='<div class="card"><div class="state"><h4>Không tải được danh sách</h4><button type="button" class="btn" id="payr-retry">Thử lại</button></div></div>'; var r=$("payr-retry"); if(r)r.onclick=loadList; }); }
+    // Loi o NGOAI form (tab danh sach) truoc day chi hien "Khong tai duoc" - khong co cau cua
+    // may chu, nguoi dung khong biet vi sao. Moi nhanh loi deu di qua mapErr nhu trong form.
+    call("list_my_requests",{filters:JSON.stringify(f),start:state.page*state.PAGE,page_length:state.PAGE}).then(renderList).catch(function(e){ host.innerHTML='<div class="card"><div class="state"><h4>Không tải được danh sách</h4><div class="hint">'+esc(mapErr(e))+'</div><button type="button" class="btn" id="payr-retry">Thử lại</button></div></div>'; var r=$("payr-retry"); if(r)r.onclick=loadList; }); }
   function renderList(res){ var host=$("payr-list"); var rows=res&&res.rows||[];
     if(!rows.length){ host.innerHTML='<div class="card"><div class="state"><h4>Chưa có yêu cầu</h4><p>Bấm “Tạo mới” để bắt đầu.</p></div></div>'; $("payr-pager").innerHTML=""; return; }
     var q=(state.listFilters.q||"").toLowerCase();
@@ -569,12 +574,18 @@
       h.querySelectorAll("[data-open]").forEach(function(el){ el.onclick=function(){ go({id:el.getAttribute("data-open")}); }; });
       h.querySelectorAll("[data-quick]").forEach(function(el){ el.onclick=function(){ var n=el.getAttribute("data-n"), q=el.getAttribute("data-quick");
         call("get_detail",{name:n}).then(function(det){ if(q==="approve")doApprove(n,det); else if(q==="reqinfo")doRequestInfo(n); else doReject(n); }).catch(function(e){ toast(mapErr(e),true); }); }; });
-    }).catch(function(){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không tải được</h4></div></div>'; }); }
+    }).catch(function(e){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không tải được</h4><div class="hint">'+esc(mapErr(e))+'</div></div></div>'; }); }
 
   // ======================= DETAIL =======================
-  function renderDetail(b){ b.innerHTML=skeleton(4);
-    call("get_detail",{name:state.id}).then(function(det){ drawDetail(b,det); })
-    .catch(function(e){ var perm=/quyền|access|permission/i.test((e&&e.message)||""); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4><button type="button" class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ window.location.href=hubHref(); }; }); }
+  // Moi lan nap chi tiet mang mot so thu tu (state._detailSeq). Chi tiet LUON doc lai tu API,
+  // khong dung state.detail; nhung nhieu lan nap co the bay cung luc - readiness xong goi
+  // refreshDetail(), vong poll SIGNWAIT goi moi 5 giay, va refreshDetail() ngay sau khi Duyet.
+  // Phan hoi nao ve SAU thi ve len man hinh, bat ke no duoc gui truoc hay sau: mot get_detail
+  // cu ve muon la trang thai cu de len trang thai moi, va nguoi dung phai F5. Phan hoi cua lan
+  // nap khong phai lan moi nhat thi bo.
+  function renderDetail(b){ b.innerHTML=skeleton(4); var seq=++state._detailSeq;
+    call("get_detail",{name:state.id}).then(function(det){ if(seq!==state._detailSeq) return; drawDetail(b,det); })
+    .catch(function(e){ if(seq!==state._detailSeq) return; var m=extractServerMsg(e); var perm=/quyền|access|permission/i.test(m); b.innerHTML='<div class="card"><div class="state"><h4>'+(perm?"Bạn không có quyền xem yêu cầu này":"Không tải được yêu cầu")+'</h4>'+(perm?'':'<div class="hint">'+esc(mapErr(e))+'</div>')+'<button type="button" class="btn" id="d-back">Quay lại</button></div></div>'; var bk=$("d-back"); if(bk)bk.onclick=function(){ window.location.href=hubHref(); }; }); }
   function kv(k,v){ return '<div class="fld"><label>'+esc(k)+'</label><input class="ro" readonly value="'+esc(v==null||v===""?"—":v)+'"></div>'; }
   function drawDetail(b,det){ state.detail=det; var biz=det.business||{}, ap=det.approval||{};
     // Chi hoi trang thai ky khi nguoi dung THUC SU la nguoi duyet dang cho - tranh goi thua.
@@ -786,13 +797,20 @@
                     type:(/^(get_|list_|my_|signing_|requester_signing_)/.test(method)?"GET":"POST")})
       .then(function(r){ return r&&r.message; }); }
 
-  // Nap mot lan cho moi ban ghi: cap hien tai co bat buoc ky khong.
-  function loadSignReady(force){ var id=state.id; if(!id) return;
-    if(!force && state._signReadyFor===id) return;
-    state._signReadyFor=id;
+  // Readiness (cap hien tai co bat buoc ky khong, minh co dang la nguoi duyet khong) duoc may
+  // chu tinh cho CAP HIEN TAI. Truoc day chi nap MOT LAN theo id ho so: bam Duyet xong, cap
+  // chuyen sang N+1, refreshDetail() doc lai chi tiet moi, nhung drawDetail goi loadSignReady()
+  // khong force -> `_signReadyFor===id` -> bo qua, va khu Hanh dong van dung readiness cua cap
+  // N (nut "Duyet"/"Duyet & Ky" sai) cho nguoi cung duyet cap ke tiep. F5 xoa state nen moi
+  // dung. Khoa theo (id, trang thai, cap) thay vi id: cap doi thi nap lai, cung cap thi khong.
+  function signReadyKey(){ var ap=(state.detail&&state.detail.approval)||{}; return String(state.id)+"|"+String(ap.approval_status||"")+"|"+String(ap.current_level||""); }
+  function loadSignReady(force){ var id=state.id; if(!id) return; var key=signReadyKey();
+    if(!force && state._signReadyFor===key) return;
+    state._signReadyFor=key; state._signReady=null;        // chua biet thi actionPanelHTML hien CA HAI nut
     callEsign("signing_readiness",{payment_request_name:id}).then(function(res){
+      if(state._signReadyFor!==key) return;                // readiness cua cap cu ve muon: bo
       state._signReady=res||null; refreshDetail();
-    }).catch(function(){ state._signReady=null; }); }
+    }).catch(function(){ if(state._signReadyFor===key) state._signReady=null; }); }
 
   function doReject(name){ modal("Từ chối yêu cầu", '<div class="banner err">Sau khi từ chối, yêu cầu sẽ kết thúc.</div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Từ chối", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
     return call("reject",{name:name,comment:c}).then(function(){ toast("Đã từ chối."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
@@ -815,7 +833,7 @@
 
   function boot(){ ensureActionHandlers(); var t=$("payr-tabs"); if(t){ t.addEventListener("click",function(e){ var b=e.target.closest("[data-tab]"); if(b&&!b.disabled){ state.page=0; go({tab:b.getAttribute("data-tab")}); } }); }
     call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); })
-    .catch(function(){ var bd=$("payr-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
+    .catch(function(e){ var bd=$("payr-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><div class="hint">'+esc(mapErr(e))+'</div><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
   window.PaymentRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate, doApproveAndSign:doApproveAndSign, loadSignReady:loadSignReady, callEsign:callEsign, handleHPRChange:handleHPRChange, handleSrcTypeChange:handleSrcTypeChange, handleSrcPick:handleSrcPick, promoteLegacySource:promoteLegacySource, fmtVnd:fmtVnd, startSignWait:startSignWait, stopSignWait:stopSignWait, signWaitActive:signWaitActive };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();

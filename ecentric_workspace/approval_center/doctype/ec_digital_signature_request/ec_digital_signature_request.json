@@ -50,6 +50,7 @@
   "package_version",
   "package_hash",
   "request_attempt",
+  "resend_authorized",
   "queued_at",
   "accepted_at",
   "verified_at",
@@ -205,6 +206,14 @@
    "fieldtype": "Int",
    "label": "Request Attempt",
    "default": "1"
+  },
+  {
+   "fieldname": "resend_authorized",
+   "fieldtype": "Check",
+   "label": "Resend Authorized",
+   "read_only": 1,
+   "default": "0",
+   "description": "Co MOT LAN do ops dat qua authorize_resend: cho phep worker gui lai lenh ky du chan nay da tung gui, sau khi nha cung cap xac nhan nguoi ky CHUA co chu ky. Worker xoa co ngay truoc khi gui."
   },
   {
    "fieldname": "queued_at",
