@@ -3111,20 +3111,24 @@
 
   function tsSum(rows,pred){var s=0;rows.forEach(function(r){if(pred(r))s+=(r.hours||0);});return Math.round(s*100)/100;}
   function showTimesheet(){var c=el("pm-view");spin(c);
-    api(PM+"timesheet.report",window._tsF||{}).then(function(d){renderTimesheet(c,d);}).catch(function(e){errBox(c,e);});}
+    // projects.list fetched alongside so charts/filters can show real project names (report rows only carry codes)
+    Promise.all([api(PM+"timesheet.report",window._tsF||{}),api(PM+"projects.list",{page_length:500}).catch(function(){return {rows:[]};})]).then(function(res){
+      var pn={};((res[1]||{}).rows||[]).forEach(function(p){pn[p.name]=p.project_name||p.name;});window._tsPN=pn;
+      renderTimesheet(c,res[0]);}).catch(function(e){errBox(c,e);});}
+  function tsPName(p){return p?((window._tsPN&&window._tsPN[p])||p):p;}
   function renderTimesheet(c,d){var rows=d.rows||[];var F=window._tsF||{};
     var projs=uniq(rows.map(function(r){return r.project;}));var users=uniq(rows.map(function(r){return r.owner;}));
-    var mon=new Date().toISOString().slice(0,7);
+    var mon=pmLocalYmd().slice(0,7);
     var dd=new Date();var dow=(dd.getDay()+6)%7;var m0=new Date(dd);m0.setDate(dd.getDate()-dow);var ws=pmLocalYmd(m0);var we=new Date(m0);we.setDate(m0.getDate()+6);var weStr=pmLocalYmd(we);
     c.innerHTML=head("Timesheet","Tổng hợp worktime từ native Timesheet")+
       '<div class="pm-filters">'+
         '<select class="pm-sel" id="ts-user"><option value="">Mọi người</option>'+users.map(function(u){return opt(u,u,F.user);}).join("")+'</select>'+
-        '<select class="pm-sel" id="ts-proj"><option value="">Mọi dự án</option>'+projs.map(function(p){return opt(p,p,F.project);}).join("")+'</select>'+
+        '<select class="pm-sel" id="ts-proj"><option value="">Mọi dự án</option>'+projs.map(function(p){return opt(p,tsPName(p),F.project);}).join("")+'</select>'+
         '<input class="pm-input" id="ts-task" placeholder="Task..." value="'+esc(F.task||"")+'" style="background-image:none;padding-left:11px;min-width:140px">'+
         '<input class="pm-input" id="ts-from" data-ec-dp-range="tsf" data-ec-dp-role="start" type="date" value="'+esc(F.from_date||"")+'" style="background-image:none;padding-left:11px" title="Từ">'+
         '<input class="pm-input" id="ts-to" data-ec-dp-range="tsf" data-ec-dp-role="end" type="date" value="'+esc(F.to_date||"")+'" style="background-image:none;padding-left:11px" title="Đến">'+
         '<button class="pm-btn primary" id="ts-apply">Lọc</button><button class="pm-btn" id="ts-clear">Xoá lọc</button></div>'+
-      '<div class="stats-strip ts-strip">'+sc("s-navy","Tổng giờ",Math.round((d.total_hours||0)*100)/100)+sc("s-navy","TB giờ/ngày",Math.round((d.total_hours||0)/Math.max(Object.keys(d.by_day||{}).length,1)*100)/100)+sc("s-yellow","Tuần này",tsSum(rows,function(r){var x=(r.from_time||"").slice(0,10);return x>=ws&&x<=weStr;}))+sc("s-pink","Tháng này",tsSum(rows,function(r){return (r.from_time||"").slice(0,7)===mon;}))+sc("s-green","Số log",rows.length)+'</div>'+
+      '<div class="stats-strip ts-strip">'+sc("s-navy","Tổng giờ",Math.round((d.total_hours||0)*100)/100)+sc("s-navy","TB giờ/ngày có log",Math.round((d.total_hours||0)/Math.max(Object.keys(d.by_day||{}).length,1)*100)/100)+sc("s-yellow","Tuần này",tsSum(rows,function(r){var x=(r.from_time||"").slice(0,10);return x>=ws&&x<=weStr;}))+sc("s-pink","Tháng này",tsSum(rows,function(r){return (r.from_time||"").slice(0,7)===mon;}))+sc("s-green","Số log",rows.length)+'</div>'+
       '<div class="panel"><div class="panel-header"><div class="panel-title">Biểu đồ</div></div>'+
         '<div class="ts-charts">'+
           '<div class="ts-cc"><div class="ts-cc-t">Giờ mỗi ngày</div><div id="ts-c-hours" class="ts-chart"></div></div>'+
@@ -3147,7 +3151,7 @@
     var tb=el("ts-tbl");
     if(!rows.length){return emptyBox(tb,"Không có log worktime.");}
     tb.innerHTML='<table class="pm-tbl"><thead><tr><th>Ngày</th><th>Task</th><th>Dự án</th><th>Giờ</th><th>Mô tả</th><th>Người</th></tr></thead><tbody>'+
-      rows.map(function(r){return '<tr><td>'+esc((r.from_time||"").slice(0,10))+'</td><td class="t-main" data-task="'+esc(r.task||"")+'" style="cursor:pointer">'+esc(r.task||"-")+'</td><td>'+esc(r.project||"-")+'</td><td>'+esc(r.hours)+'h</td><td>'+esc(r.description||"")+'</td><td>'+esc(r.owner||"")+'</td></tr>';}).join("")+'</tbody></table>';
+      rows.map(function(r){return '<tr><td>'+esc((r.from_time||"").slice(0,10))+'</td><td class="t-main" data-task="'+esc(r.task||"")+'" style="cursor:pointer">'+esc(r.task||"-")+'</td><td title="'+esc(r.project||"")+'">'+esc(tsPName(r.project)||"-")+'</td><td>'+esc(r.hours)+'h</td><td>'+esc(r.description||"")+'</td><td>'+esc(r.owner||"")+'</td></tr>';}).join("")+'</tbody></table>';
     Array.prototype.forEach.call(tb.querySelectorAll("[data-task]"),function(x){x.onclick=function(){var t=x.getAttribute("data-task");if(t)openTask(t);};});}
   function renderSum(d,key){renderSumInto(el("ts-sum"),d[key]||{});}
   function tsRenderCharts(d,rows){
@@ -3160,7 +3164,8 @@
     // hours by project
     var byP={};(rows||[]).forEach(function(r){var p=r.project||"—";byP[p]=(byP[p]||0)+(r.hours||0);});
     var pal=["#1f2d80","#2563eb","#0a7a4f","#b8860b","#b3541e","#c0392b","#7c3aed","#0891b2","#be185d"];
-    var segs=Object.keys(byP).map(function(p,i){return [p,Math.round(byP[p]*100)/100,pal[i%pal.length]];});
+    var _pn=window._tsPN||{};
+    var segs=Object.keys(byP).map(function(p,i){return [(_pn[p]||p),Math.round(byP[p]*100)/100,pal[i%pal.length]];});
     if(!haveE){ // graceful fallback: hide chart boxes, keep the (still-present) summary + table
       ["ts-c-hours","ts-c-tasks","ts-c-proj"].forEach(function(id){var e=el(id);if(e)e.innerHTML='<div style="font-size:12px;color:var(--gray-400);padding:18px 4px">Biểu đồ cần thư viện chart (chưa tải được).</div>';});
       return; }
