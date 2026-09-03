@@ -201,6 +201,59 @@ def _can_add_supporting(bd, bn, is_requester):
         return False                    # doc hong -> dong cua
 
 
+def attach_uploaded_file(bd, bn, file_url):
+    """Gan mot tep VUA TAI LEN vao phieu, sau khi tu kiem quyen.
+
+    VI SAO PHAI CO. Khoi ky so tai tep bang `/api/method/upload_file` KEM `doctype`+`docname`.
+    Endpoint do la cua Frappe va kiem quyen bang DocPerm CHUAN tren DocType - ma ca he nay co
+    y KHONG cap DocPerm chuan cho cac DocType yeu cau (chi System Manager co), moi duong ghi
+    deu di qua app method co guard. Ket qua: 03/09 chi Hien bam "+ Tai tai lieu" -> 403
+    "does not have doctype access via role permission". Hoan khong thay vi System Manager bo
+    qua moi kiem tra. Tuc: KHONG nhan vien nao thiet lap duoc tai lieu ky so.
+
+    Loi giai da co san trong repo va 13 form khac deu lam dung: tai len KHONG kem
+    doctype/docname (tep rieng tu, khong thuoc ho so nao), roi goi mot app method co guard de
+    gan vao phieu. Khoi ky so viet sau nen bo sot - va khong ai thu bang tai khoan thuong.
+
+    Hai cong, dung LAI cong da co, khong dinh nghia lai:
+      * dang lap ho so (chua gui duyet)  -> `_assert_setup_editable` + `_assert_can_classify`
+      * dang bi tra lai de bo sung       -> `_can_add_supporting`
+    Ngoai hai cua so do thi khong ai them tep vao ho so duoc, ke ca nguoi de nghi.
+
+    Chi gan tep DA TON TAI va dang mo coi (chua thuoc ho so nao). Khong nhan `file_url` tro
+    vao tep cua ho so KHAC - nguoi goi truyen url tuy y thi khong duoc keo tep cua phieu
+    nguoi khac sang phieu minh.
+    """
+    perms.assert_can_view_business(bd, bn)
+    url = (file_url or "").strip()
+    if not url.startswith(("/files/", "/private/files/")):
+        frappe.throw(_("Đường dẫn tệp không hợp lệ."))
+
+    actor = frappe.session.user
+    is_requester = actor == _requester_of(bd, bn)
+    if _can_add_supporting(bd, bn, is_requester):
+        pass                                    # cua so bo sung sau khi bi tra lai
+    else:
+        _assert_setup_editable(bd, bn)          # giai doan lap ho so
+        _assert_can_classify(bd, bn)            # ...va dung nguoi de nghi
+
+    existing = frappe.db.get_value("File", {"file_url": url},
+                                   ["name", "attached_to_doctype", "attached_to_name"],
+                                   as_dict=True)
+    if not existing:
+        frappe.throw(_("Không tìm thấy tệp vừa tải lên."))
+    if existing.attached_to_name:
+        if (existing.attached_to_doctype == bd and existing.attached_to_name == bn):
+            return {"ok": True, "file": existing.name, "no_op": True}
+        # Tep dang thuoc ho so KHAC: khong keo sang. Mot url tuy y khong duoc thanh duong
+        # dan tep tu phieu nguoi khac ve phieu minh.
+        frappe.throw(_("Tệp này đã thuộc một yêu cầu khác."), frappe.PermissionError)
+
+    frappe.db.set_value("File", existing.name,
+                        {"attached_to_doctype": bd, "attached_to_name": bn})
+    return {"ok": True, "file": existing.name, "no_op": False}
+
+
 def remove_supporting_attachment(bd, bn, document_ref):
     """Go mot tep BO CHUNG TU vua dinh kem nham ra khoi phieu.
 

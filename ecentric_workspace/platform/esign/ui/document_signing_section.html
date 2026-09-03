@@ -377,14 +377,26 @@
       var fd = new FormData();
       fd.append("file", file, file.name);
       fd.append("is_private", 1);
-      fd.append("doctype", "EC Payment Request");
-      fd.append("docname", name);
+      // KHÔNG gửi doctype/docname. `upload_file` là endpoint gốc của Frappe và kiểm quyền
+      // bằng DocPerm CHUẨN trên DocType — mà hệ này cố ý không cấp DocPerm chuẩn cho các
+      // DocType yêu cầu (chỉ System Manager có), mọi đường ghi đi qua app method có guard.
+      // Gửi kèm doctype/docname ⇒ 403 "does not have doctype access via role permission"
+      // với MỌI nhân viên thường; người có System Manager không thấy vì được bỏ qua kiểm
+      // tra. 03/09 chị Hiền bấm "+ Tải tài liệu" và thấy "1 tệp lỗi" — tức không nhân viên
+      // nào thiết lập được tài liệu ký số. 13 form khác đã làm đúng từ lâu; khối dùng chung
+      // này viết sau nên bỏ sót, và chỉ lộ ra khi có người thật thử.
+      // Tải lên như tệp riêng tư (chưa thuộc hồ sơ nào), rồi gắn vào phiếu bằng app method
+      // TỰ KIỂM QUYỀN: esign.api.attach_uploaded_file.
       fetch("/api/method/upload_file", { method: "POST",
         headers: { "X-Frappe-CSRF-Token": (window.frappe && frappe.csrf_token) || "" }, body: fd })
         .then(function (r) { return r.json(); })
         .then(function (j) {
-          if (j && j.message && j.message.file_url) { if (!firstUrl) firstUrl = j.message.file_url; }
-          else failed++; })
+          var url = j && j.message && j.message.file_url;
+          if (!url) { failed++; return; }
+          return call("attach_uploaded_file", { payment_request_name: name, file_url: url }, "POST")
+            .then(function () { if (!firstUrl) firstUrl = url; })
+            .catch(function () { failed++; });
+        })
         .catch(function () { failed++; })
         .then(function () {
           done++; hint.textContent = "Đang tải " + done + "/" + total + "…";
