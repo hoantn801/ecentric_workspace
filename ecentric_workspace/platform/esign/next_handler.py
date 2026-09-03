@@ -258,6 +258,57 @@ def targeted_handover_enabled():
         return str(v).strip().lower() not in ("0", "false", "no", "off")
 
 
+def requester_actor_split_enabled():
+    """ON mac dinh tu 04/09/2026. Tat khan cap: `bench set-config ec_esign_requester_actor_split 0`.
+
+    Vi sao co: eContract giao buoc "Khoi tao hop dong" cho tai khoan TAO tai lieu - la tai
+    khoan tich hop - nen nguoi trinh (chi Hien, 00046/00047/00048) khong bao gio giu task
+    va moi lenh ky cua chi ay bi tu choi ("khong co quyen... task da duoc xu ly"). Gan vai
+    tro cho node cung khong doi duoc (thu 02:21 04/09). Nhung SCTS tach token khoi nguoi
+    thuc hien: 12 chan duyet ky bang token tich hop + userId cua nguoi khac, chung thu HSM
+    len PDF la cua ho. Nen o RIENG chan nguoi trinh: `userId` = tai khoan tich hop (nguoi
+    giu task), `signatureInfo` = chu ky + chung thu cua nguoi trinh.
+    """
+    v = frappe.conf.get("ec_esign_requester_actor_split")
+    if v is None or v == "":
+        return True
+    try:
+        return bool(int(v))
+    except Exception:
+        return str(v).strip().lower() not in ("0", "false", "no", "off")
+
+
+def api_account_provider_user_id(settings):
+    """SCTS userId cua TAI KHOAN TICH HOP (Provider Settings.username), qua mapping Active +
+    Verified cua chinh moi truong do. None khi khong co - nguoi goi giu nguyen hanh vi cu,
+    KHONG bia."""
+    from ecentric_workspace.platform.esign.permissions import verified_mapping
+    if isinstance(settings, dict):
+        user = settings.get("username")
+        env = settings.get("environment")
+    else:
+        user = getattr(settings, "username", None)
+        env = getattr(settings, "environment", None)
+    if not user or not env:
+        return None
+    m = verified_mapping(user, env)
+    return (m or {}).get("scts_user_id") or None
+
+
+def requester_actor(dsr, settings, stage):
+    """Ai gui lenh ky cho chan nay thay cho nguoi ky, hoac None (= chinh nguoi ky).
+
+    Chi ap dung cho stage 'requester'. Cung mot nguoi (nguoi trinh chinh la tai khoan tich
+    hop - 10 goi dau cua Hoan) thi tra None, de payload y het truoc va khong doi duong da
+    chay duoc."""
+    if stage != "requester" or not requester_actor_split_enabled():
+        return None
+    actor = api_account_provider_user_id(settings)
+    if not actor or str(actor) == str(dsr.get("effective_scts_user_id") or ""):
+        return None
+    return actor
+
+
 def provider_step_index(adapter, instance_id):
     """So chu ky DA hoan tat tren tai lieu = vi tri cua buoc sap gui. (index, ly do).
 

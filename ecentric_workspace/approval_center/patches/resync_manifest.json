@@ -105,7 +105,7 @@
   },
   "approval_center/features/payment_request/ui/main_section.html": {
     "last_resync_patch": "p130_resync_payment_request_list_errors_and_stale_detail",
-    "sha256": "19be7292c09c108e810e41c1aa24682f97bf8d5725834e584593f0f08109503b"
+    "sha256": "67c1189f441a299f83608a9e0413c8ffb3043dbb4dcc373d069e0eafd49d2874"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",

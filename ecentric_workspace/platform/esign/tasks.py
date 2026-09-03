@@ -378,10 +378,21 @@ def process_signing_request(dsr_name):
                                                   % type(exc).__name__}
                 frappe.log_error(frappe.get_traceback(), "esign handover planning failed")
             res = None
+            # TACH NGUOI GIU TASK / NGUOI KY (04/09). Chi chan nguoi trinh, chi khi nguoi
+            # trinh KHONG phai tai khoan tich hop. Ly do o next_handler.requester_actor.
+            # Ghi vao su kien de dsr_trace thay ngay lenh nay gui voi userId cua ai.
+            actor_uid = None
+            try:
+                actor_uid = next_handler.requester_actor(dsr, settings, stage)
+            except Exception:
+                actor_uid = None
+                frappe.log_error(frappe.get_traceback(), "esign requester actor lookup failed")
             if plan["mode"] == "transition" and hasattr(adapter, "transition_with_recipients"):
                 events.emit("HandoverTargeted", signature_request=dsr_name, package=dsr.package,
                             request_meta={"to_users": plan.get("to_users"),
                                           "erp_users": plan.get("erp_users"),
+                                          "actor_user_id": actor_uid,
+                                          "signer_user_id": dsr.effective_scts_user_id,
                                           # Ai bi eContract tu choi nhan, va co hoi duoc
                                           # khong. Thieu hai truong nay thi dsr_trace chi
                                           # thay danh sach cuoi cung, khong thay vi sao no
@@ -394,7 +405,7 @@ def process_signing_request(dsr_name):
                 try:
                     res = adapter.transition_with_recipients(
                         inst_id, dsr.effective_scts_user_id, plan["to_users"], plan["config"],
-                        dsr.effective_signature_id)
+                        dsr.effective_signature_id, actor_user_id=actor_uid)
                 except ProviderError as exc:
                     # A DEFINITE rejection (4xx) means the provider did NOT act, so re-sending
                     # through the older proven path is safe and is not a double-sign. An

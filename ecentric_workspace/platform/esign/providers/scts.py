@@ -391,12 +391,23 @@ class SctsAdapter(SignatureProviderAdapter):
         return {"bulk_job_transaction_id": self._extract_txn_id(raw)}
 
     def transition_with_recipients(self, instance_id, provider_user_id, to_users, config,
-                                   signature_id, signature_name=None, comment=None):
+                                   signature_id, signature_name=None, comment=None,
+                                   actor_user_id=None):
         """POST /api/Workflow/transition - the governed path: names WHO acts next.
 
         `config` comes from the profile (transition id/name/action code/sign type); this
         adapter never invents those values. Same async ACCEPTED semantics as
         approve_and_sign: a 2xx means queued, not signed.
+
+        `actor_user_id` (04/09): TACH NGUOI GIU TASK KHOI NGUOI KY. eContract giao buoc dau
+        tien ("Khoi tao hop dong") cho tai khoan TAO tai lieu - tuc tai khoan tich hop - bat
+        ke vai tro cau hinh tren node (thu 3 lan: 00046/00047/00048, ca transition 400 lan
+        bulk-process 2xx-roi-im). Nhung 12 chan duyet da ky bang token tich hop voi `userId`
+        cua nguoi khac, va chung thu HSM len PDF la cua HO - SCTS tach token khoi nguoi
+        thuc hien. Nen thu: `userId` = nguoi dang giu task (tai khoan tich hop), con
+        `signatureInfo` (id, signerId, hsmId) VAN la cua nguoi trinh. Chu ky dong len PDF -
+        neu SCTS nhan - la chung thu cua nguoi trinh, khong phai cua tai khoan tich hop.
+        Tra cuu chu ky luon theo `provider_user_id` (chu chu ky), khong theo actor.
         """
         # Anh chu ky la truong BAT BUOC cua eContract o buoc nay. Lay hong thi van gui di
         # va de provider tu tu choi, chu khong tu suy ra ket luan thay no.
@@ -420,8 +431,9 @@ class SctsAdapter(SignatureProviderAdapter):
             "signType": config.get("sign_type") or "",
             "signToken": 0,
         }
+        acting_user = actor_user_id or provider_user_id
         raw = self._with_auth(lambda t: self._client.transition(
-            instance_id, provider_user_id, to_users,
+            instance_id, acting_user, to_users,
             config.get("transition_id"), config.get("transition_name"),
             config.get("process_action"), config.get("sign_type"),
             signature_id,
