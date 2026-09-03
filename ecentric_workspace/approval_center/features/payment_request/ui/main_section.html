@@ -366,7 +366,22 @@
     if(/pending approver|not a pending|không còn quyền/i.test(m)) return "Bạn không còn quyền thực hiện hành động này.";
     if(/no further action|is Approved|is Rejected|is Cancelled|vừa được cập nhật/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Dữ liệu đã được làm mới.";
     if(/mandatory|required|bắt buộc|Vui lòng|Quản lý trực tiếp|đầy đủ|Purchase Request/i.test(m)) return m;
-    if(/access|permission|allowed|quyền/i.test(m)) return "Bạn không còn quyền thực hiện hành động này.";
+    // Luat nay sinh ra de che thong diep KY THUAT tieng Anh ("access denied", "not
+    // permitted") - thu nguoi dung khong doc duoc gi tu do. Nhung no bat luon MOI cau
+    // tieng Viet co chu "quyen", ke ca nhung cau da duoc viet cho nguoi dung doc.
+    //
+    // 03/09: chi Hien bam "Gui yeu cau" -> may chu tra ve dung cau can biet:
+    //   "Bạn chưa được cấp quyền ký số (UAT allowlist)."
+    // Man hinh hien "Bạn không còn quyền thực hiện hành động này." - chi vi cau kia co chu
+    // "quyen". Hai cau nay dan toi hai hanh dong khac han: mot cai la "nho quan tri them
+    // ban vao danh sach ky so", cai kia la "ban vua bi mat quyen, chiu". Mat 20 phut truy
+    // nguoc moi biet, va nguoi dung binh thuong thi khong truy duoc.
+    //
+    // Nen chi che khi thong diep KHONG phai tieng Viet. Cau tieng Viet la cau minh tu viet
+    // cho nguoi dung - hien nguyen van.
+    var coTiengViet=/[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/i.test(m);
+    if(!coTiengViet && /access|permission|allowed|denied|not permitted/i.test(m))
+      return "Bạn không còn quyền thực hiện hành động này.";
     return m || "Đã có lỗi. Vui lòng thử lại."; }
   // Gui lai co the doi HANH VI, khong chi doi trang thai: neu goi ky da khoa thi no duoc tao
   // phien ban moi de chung tu bo sung duoc dua vao, va neu da co chu ky so thu thap tren bo
