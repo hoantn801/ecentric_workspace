@@ -9,8 +9,16 @@ Contract (Phase 1B): each nav item is a dict with
     group           group label; "" = ungrouped top section      (required)
     order           int, sort inside group                       (required)
     active_patterns list of absolute paths; "<base>/*" allowed   (required)
-    visible_when    capability string; v1 supports only
-                    "internal" (any logged-in internal user)     (required)
+    visible_when    capability string                           (required)
+                    "internal"      any logged-in internal user
+                    "role:<Role>"   only users holding that Frappe role
+                                    (03/09: for ops/admin pages). NEVER in
+                                    the static fallback nav - only the
+                                    session-aware boot endpoint can prove
+                                    a role, so compose(roles=None) drops
+                                    these and get_shell_boot passes roles.
+                                    UX only: the page/API stays gated by
+                                    its own permission check.
     badge_source    optional name of a whitelisted count
                     endpoint; NEVER inline business data         (optional)
     keywords        optional list of plain search synonyms for the
@@ -250,6 +258,35 @@ CHILD_FIELDS = ("key", "label", "route", "icon", "order",
                 "active_patterns", "visible_when", "owner")
 
 
+ROLE_PREFIX = "role:"
+
+
+def _visible_when_ok(v):
+    if v == "internal":
+        return True
+    return isinstance(v, str) and v.startswith(ROLE_PREFIX) and bool(v[len(ROLE_PREFIX):].strip())
+
+
+def required_role(it):
+    """Role name a `role:<Role>` item demands, else None."""
+    v = it.get("visible_when") or ""
+    return v[len(ROLE_PREFIX):].strip() if v.startswith(ROLE_PREFIX) else None
+
+
+def visible_to(it, roles):
+    """UX visibility for one item given the session user's roles.
+
+    roles=None means "no session to prove anything" (static fallback nav,
+    build-time rendering): role-gated items are DROPPED. Never the other way
+    round - a role-gated link baked into public HTML would advertise an admin
+    page to everyone, even though the page itself still refuses them.
+    """
+    need = required_role(it)
+    if need is None:
+        return True
+    return roles is not None and need in set(roles)
+
+
 def _validate_entry(it, seen_keys, seen_routes, is_child=False):
     fields = CHILD_FIELDS if is_child else REQUIRED_FIELDS
     for f in fields:
@@ -270,8 +307,9 @@ def _validate_entry(it, seen_keys, seen_routes, is_child=False):
     for pat in pats:
         if not isinstance(pat, str) or not pat.startswith("/"):
             raise ValueError("nav item %r: bad active pattern %r" % (it["key"], pat))
-    if it["visible_when"] != "internal":
-        raise ValueError("nav item %r: v1 supports visible_when='internal' only" % it["key"])
+    if not _visible_when_ok(it["visible_when"]):
+        raise ValueError("nav item %r: visible_when must be 'internal' or 'role:<Role>'"
+                         % it["key"])
     kws = it.get("keywords", [])
     if not isinstance(kws, list) or any(not isinstance(k, str) or not k.strip() for k in kws):
         raise ValueError("nav item %r: keywords must be a list of non-empty strings" % it["key"])
@@ -301,7 +339,7 @@ def _group_rank(group):
         return (len(GROUP_ORDER), group)
 
 
-def _compose_owners(owners=None, keep=None, group_order=None):
+def _compose_owners(owners=None, keep=None, group_order=None, roles=None):
     items = []
     for owner, provider in _providers():
         if owners is not None and owner not in owners:
@@ -309,6 +347,8 @@ def _compose_owners(owners=None, keep=None, group_order=None):
         for it in provider():
             it = dict(it)
             it.setdefault("owner", owner)
+            if not visible_to(it, roles):
+                continue
             if keep is not None and not keep(it):
                 continue
             if it.get("children"):
@@ -325,7 +365,7 @@ def _compose_owners(owners=None, keep=None, group_order=None):
     return items
 
 
-def compose(context=None, include_hidden=False):
+def compose(context=None, include_hidden=False, roles=None):
     """Deterministic, validated nav list for ONE context (sidebar scope).
 
     context=None keeps the historical signature and returns DEFAULT_CONTEXT
@@ -345,10 +385,10 @@ def compose(context=None, include_hidden=False):
     # page would paint a sidebar from a module it has nothing to do with.
     keep = None if include_hidden else (lambda it: not it.get("sidebar_hidden"))
     return _compose_owners(ctx["providers"], group_order=ctx.get("group_order"),
-                           keep=keep)
+                           keep=keep, roles=roles)
 
 
-def compose_all():
+def compose_all(roles=None):
     """ALL canonically registered, GOVERNED-LIVE items across every context
     (global discovery: Quick Access + shell search + warm allow-lists).
     Excluded by design:
@@ -362,7 +402,8 @@ def compose_all():
         owners=None,
         keep=lambda it: (not it.get("alias")
                          and not it.get("view")
-                         and it.get("discoverable", True) is not False))
+                         and it.get("discoverable", True) is not False),
+        roles=roles)
 
 
 def resolve_context(path):

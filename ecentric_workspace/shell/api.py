@@ -44,9 +44,13 @@ def get_shell_boot():
     # context from location.pathname with the same canonical logic as the
     # server-side fallback (shell_nav.resolve_context port). The legacy `nav`
     # key stays = DEFAULT context so pre-context cached JS keeps working.
+    # Role-gated items (`visible_when: "role:<Role>"`) exist ONLY here, where the
+    # session can prove a role. The static fallback nav never carries them.
+    # UX only - the page/API behind the link still enforces its own permission.
+    roles = set(frappe.get_roles(user))
     contexts = {
         name: {
-            "items": [_ser(it) for it in shell_nav.compose(name)],
+            "items": [_ser(it) for it in shell_nav.compose(name, roles=roles)],
             "entry": (shell_nav.CONTEXTS[name].get("entry") or None),
         }
         for name in shell_nav.CONTEXTS
@@ -61,7 +65,7 @@ def get_shell_boot():
         "contexts": contexts,
         "context_order": list(shell_nav.CONTEXT_ORDER),
         "default_context": shell_nav.DEFAULT_CONTEXT,
-        "all_items": [_ser(it) for it in shell_nav.compose_all()],
+        "all_items": [_ser(it) for it in shell_nav.compose_all(roles=roles)],
         "user": {
             "name": user,
             "full_name": info.get("full_name") or user,

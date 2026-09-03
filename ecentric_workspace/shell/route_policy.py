@@ -17,6 +17,7 @@ server-side.
 #: whole subtree of that path.
 NO_WARM_ROUTES = frozenset({
     "/ec-hr/salary",     # salary: session-scoped personal data (HR commit 7fef8fa)
+    "/ec-esign/ops",     # esign ops: System Manager only; never warm an admin page
 })
 
 

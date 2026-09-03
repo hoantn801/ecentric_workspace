@@ -48,6 +48,59 @@ class TestRegistryCompose(unittest.TestCase):
         with self.assertRaises(ValueError):
             nav.validate([bad])
 
+
+class TestRoleGatedItems(unittest.TestCase):
+    """`visible_when: "role:<Role>"` (03/09) - the esign ops page for System Manager.
+
+    The static fallback nav is public HTML. A role-gated link baked into it would
+    advertise an admin page to every employee, even though the page itself refuses
+    them. So compose(roles=None) MUST drop such items, and only the session-aware
+    boot endpoint (which can prove roles) may include them.
+    """
+    OPS = "/ec-esign/ops"
+
+    def test_registry_declares_the_ops_item_as_role_gated(self):
+        all_items = nav.compose(roles={"System Manager"})
+        ops = [it for it in all_items if it["route"] == self.OPS]
+        self.assertEqual(len(ops), 1, "esign ops item missing from approval context")
+        self.assertEqual(ops[0]["visible_when"], "role:System Manager")
+        self.assertEqual(nav.required_role(ops[0]), "System Manager")
+
+    def test_static_fallback_never_shows_it(self):
+        self.assertNotIn(self.OPS, [it["route"] for it in nav.compose()])
+        self.assertNotIn(self.OPS, [it["route"] for it in nav.compose_all()])
+
+    def test_hidden_from_users_without_the_role(self):
+        self.assertNotIn(self.OPS, [it["route"] for it in nav.compose(roles={"Employee"})])
+        self.assertNotIn(self.OPS, [it["route"] for it in nav.compose(roles=set())])
+
+    def test_shown_to_users_with_the_role(self):
+        self.assertIn(self.OPS, [it["route"] for it in nav.compose(roles={"Employee", "System Manager"})])
+        self.assertIn(self.OPS, [it["route"] for it in nav.compose_all(roles={"System Manager"})])
+
+    def test_internal_items_unaffected_by_roles(self):
+        base = [it["route"] for it in nav.compose()]
+        with_role = [it["route"] for it in nav.compose(roles={"System Manager"})]
+        self.assertEqual([r for r in with_role if r != self.OPS], base)
+
+    def test_malformed_role_string_rejected(self):
+        for bad in ("role:", "role: ", "roles:System Manager", "admin"):
+            it = dict(nav.CORE_ITEMS[0], key="x.r", route="/x-r", visible_when=bad)
+            with self.assertRaises(ValueError, msg=bad):
+                nav.validate([it])
+
+    def test_no_email_hardcoded_anywhere_in_nav_providers(self):
+        """Visibility is by ROLE. A user email in a nav provider is the hardcoded
+        user-specific branch the project rules forbid."""
+        import io, os, re
+        root = os.path.dirname(os.path.dirname(os.path.abspath(nav.__file__)))
+        srcs = [os.path.join(root, "shell", "nav.py"),
+                os.path.join(root, "approval_center", "shared", "navigation.py")]
+        for p in srcs:
+            body = io.open(p, encoding="utf-8").read()
+            self.assertIsNone(re.search(r"[\w.]+@ecentric\.vn", body),
+                              "email hardcoded in %s" % p)
+
     def test_hr_nav_present_and_salary_no_prerender(self):
         """HR provider: employee-facing entries + salary marked no_prerender.
         Context split: HR items live in compose("hr") (and compose_all), NOT
@@ -81,11 +134,13 @@ class _FakeConf(dict):
         return dict.get(self, k, d)
 
 
-def _fake_frappe(conf=None, user="someone@ecentric.vn", user_type="System User"):
+def _fake_frappe(conf=None, user="someone@ecentric.vn", user_type="System User",
+                 roles=("Employee",)):
     f = types.ModuleType("frappe")
     f.conf = _FakeConf(conf or {})
     f.session = types.SimpleNamespace(user=user)
     f._ = lambda s: s
+    f.get_roles = lambda u=None: list(roles)
     class PermissionError_(Exception):
         pass
     f.PermissionError = PermissionError_
@@ -141,6 +196,18 @@ class TestBootApiGating(unittest.TestCase):
                  "keywords", "no_prerender", "soon", "alias", "badge_source", "children"},
                 "boot nav must not leak extra fields")
         self.assertEqual(set(out["user"]), {"name", "full_name", "image"})
+
+    def test_role_gated_item_only_for_role_holders(self):
+        """Boot is the ONLY place a role-gated item may appear - and only for the
+        session user holding that role. Both directions checked."""
+        ops = "/ec-esign/ops"
+        emp = self._api(roles=("Employee",)).get_shell_boot()
+        self.assertNotIn(ops, [it["route"] for it in emp["nav"]])
+        self.assertNotIn(ops, [it["route"] for it in emp["all_items"]])
+        self.tearDown()
+        sm = self._api(roles=("Employee", "System Manager")).get_shell_boot()
+        self.assertIn(ops, [it["route"] for it in sm["nav"]])
+        self.assertIn(ops, [it["route"] for it in sm["all_items"]])
 
 
 class TestSidebarIA(unittest.TestCase):
