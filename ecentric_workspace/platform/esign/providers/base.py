@@ -133,10 +133,13 @@ class SignatureProviderAdapter(object):
         raise NotImplementedError
 
     def transition_with_recipients(self, instance_id, provider_user_id, to_users, config,
-                                   signature_id, signature_name=None, comment=None):
+                                   signature_id, signature_name=None, comment=None,
+                                   actor_user_id=None):
         """Sign AND name the next handler(s). Providers whose workflow would otherwise
         broadcast to a role pool must implement this; the orchestrator prefers it and only
-        falls back to `approve_and_sign` when the next handler cannot be determined."""
+        falls back to `approve_and_sign` when the next handler cannot be determined.
+        `actor_user_id`: who HOLDS the task (sent as the acting user) when that differs
+        from `provider_user_id`, who OWNS the signature. None = same person."""
         raise NotImplementedError
 
     # --- status ---------------------------------------------------------------
