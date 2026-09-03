@@ -4,10 +4,12 @@ import json
 import frappe
 
 from ecentric_workspace.approval_center.shared.api_adapter import bind
+from ecentric_workspace.approval_center.shared.workflow.permissions import can_view_request
 
 globals().update(bind("CONTRACT_REVIEW"))
 
 _DT = "EC Contract Review Request"
+_CODE = "CONTRACT_REVIEW"
 _FILL_FIELDS = ["name", "request_title", "contract_type", "request_type", "brand",
                 "justification", "contract_value", "contract_start_date",
                 "contract_end_date", "request_details"]
@@ -42,8 +44,22 @@ def search_previous_contracts(query=None):
 
 @frappe.whitelist()
 def get_previous_contract(name):
-    """Dữ liệu hợp đồng gốc để tự điền + đối chiếu highlight phía form."""
-    row = frappe.db.get_value(_DT, name, _FILL_FIELDS, as_dict=True)
+    """Dữ liệu hợp đồng gốc để tự điền + đối chiếu highlight phía form.
+
+    PHẢI kiểm quyền THỦ CÔNG. frappe.db.get_value bỏ qua toàn bộ permission, mà mã hồ sơ
+    chạy TUẦN TỰ (EC-CTR-2026-00001, 00002...) — không kiểm thì bất kỳ nhân viên nào đã
+    đăng nhập cũng đổi số trên URL để đọc hết giá trị + điều khoản hợp đồng của mọi phòng.
+    Đúng lớp lỗi đã siết cho Đề nghị thanh toán 01/09 (xem chú thích dài trong
+    workflow/permissions.py). Dùng hàm kiểm quyền CHUẨN của engine, không tự chế luật thứ hai."""
+    row = frappe.db.get_value(
+        _DT, name, _FILL_FIELDS + ["requested_by", "approval_request"], as_dict=True)
     if not row:
         frappe.throw(frappe._("Không tìm thấy hợp đồng gốc."))
+    if not can_view_request(row.get("approval_request"), business_doctype=_DT,
+                            requested_by=row.get("requested_by"),
+                            approval_type=_CODE, business_name=name):
+        frappe.throw(frappe._("Bạn không có quyền xem hợp đồng này."), frappe.PermissionError)
+    # Hai trường này chỉ dùng để kiểm quyền, không đưa ra ngoài.
+    row.pop("requested_by", None)
+    row.pop("approval_request", None)
     return row
