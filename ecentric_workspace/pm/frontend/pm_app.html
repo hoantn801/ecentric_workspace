@@ -3250,7 +3250,7 @@
       return '<div class="g-step" id="'+anchor+'"><div class="g-num">'+n+'</div>'+
         '<div class="g-grid">'+body+(shot||'')+'</div></div>';
     }
-    function jump(a){return "document.getElementById('"+a+"').scrollIntoView({behavior:'smooth',block:'start'})";}
+    function jump(a){return "document.getElementById('"+a+"').scrollIntoView({behavior:'auto',block:'start'})";} /* smooth was silently swallowed after SPA hash-nav (QA: scrollY stayed 0); auto scrolls reliably */
     var h=head("Hướng dẫn sử dụng","Làm quen với Quản lý dự án chỉ trong vài phút — theo đúng thứ tự bạn sẽ dùng hằng ngày.");
     var body='<div class="pm-guide">';
     body+='<div class="g-hero"><h2>Chào mừng đến với Quản lý dự án 👋</h2><p>Nơi bạn tạo dự án, giao việc cho đồng đội, theo dõi tiến độ và chấm giờ làm — tất cả trong một chỗ. Cứ đi lần lượt các bước bên dưới là dùng được ngay.</p></div>';
