@@ -38,6 +38,15 @@ def _html():
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
 BASELINE_SHA256 = "226f09edf7b42a68a12d9dc1207b992256622210b1e0ecc25872f65a121664d9"
 SUPERSEDES_SHA256 = (
+    # 03/09: sha THAT SU cua ban live, do bang cach bam `main_section_html` tren production.
+    # p118 (XSS steppers) da ghi trang nay nhung KHONG cap nhat hai hang so o day, nen ban
+    # live troi khoi moi gia tri duoc chap nhan, va p134 tra ve `sync=refused` - patch chay,
+    # Patch Log ghi la da chay, ma trang khong doi mot chu. May la p134 co ghi ket qua ra
+    # Error Log; khong co dong log do thi chi thay "patch da chay" va di truy nham cho.
+    #
+    # KHONG dung force=1: force go BO HAN khoa chong troi, tuc lan sau ai sua tay tren site
+    # cung bi ghi de im lang. Them dung mot gia tri da DO duoc thi khoa van lam viec cua no.
+    "2f178787d99aa87fdda714e3811bfd2dc256565898c2b8ca3615e8326d32a90b",  # live 03/09 (sau p118), duoc thay boi ban sua upload_file
     "46472858ecbf6ea3ade0fe21a4603ca83e72cf259d5f6c64f7fc68fb7f51bab2",  # superseded by 226f09edf7b4 (upload errors + brand list + layout)
     "ea9cb9755d82bdad29331643f547c402de1425bebc5f0dd210922bcd4a434634",  # superseded by 46472858ecbf (upload UX + tick)
     "78c67342e6a92fa429ba27f2f050dd2c1d77319d980b328996f700cef406fd5e",  # superseded by ea9cb9755d82 (nhớ tab khi quay lại hub)
