@@ -51,6 +51,22 @@ def items():
             "owner": "approval_center",
         },
         {
+            # 03/09: trang van hanh ky so - chan ky can nguoi can thiep, Thu lai / Ngung
+            # thu lai, no chu ky. Chi System Manager thay (role, KHONG hardcode email:
+            # muon thu hep hon thi tao role rieng, khong sua code). Trang va moi API dang
+            # sau tu goi assert_system_manager - menu chi la loi tat.
+            "key": "apc.esign_ops",
+            "label": "Vận hành ký số",
+            "route": "/ec-esign/ops",
+            "icon": "gear",
+            "group": "Phê duyệt",
+            "order": 30,
+            "active_patterns": ["/ec-esign/ops"],
+            "visible_when": "role:System Manager",
+            "keywords": ["ky so", "esign", "ops", "van hanh", "chan ky", "scts"],
+            "owner": "approval_center",
+        },
+        {
             # renamed from apc.legacy_tickets in Phase 2B.1 (PO naming); the
             # registry forbids duplicate routes, so this IS the /approval entry.
             "key": "approval.inbox",
