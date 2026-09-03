@@ -311,8 +311,17 @@
   // ---- attachment upload (optional) ----
   function uploadAttachment(file){ var fr=window.frappe;
     var fd=new FormData(); fd.append("file", file, file.name);
-    fd.append("is_private", "1"); fd.append("doctype", "EC Hiring Request");
-    if(state.id) fd.append("docname", state.id);
+    fd.append("is_private", "1");
+    // KHÔNG gửi doctype/docname: `upload_file` là endpoint gốc của Frappe và kiểm quyền
+    // bằng DocPerm CHUẨN trên DocType — mà hệ này cố ý không cấp DocPerm chuẩn cho các
+    // DocType yêu cầu (chỉ System Manager có), mọi đường ghi đi qua app method có guard.
+    // Gửi kèm ⇒ 403 "does not have doctype access via role permission" với MỌI nhân viên
+    // thường; người có System Manager không thấy vì được bỏ qua kiểm tra. Đây là đường
+    // đính kèm của NGƯỜI ĐỀ NGHỊ, nên trước bản này không nhân viên nào đính kèm được
+    // trên form Tuyển dụng — khớp với dữ liệu: chưa từng có tệp nào trên EC Hiring Request.
+    // Cùng lớp lỗi phát hiện 03/09 ở khối ký số. 13 form khác đã làm đúng từ lâu.
+    // Tải lên như tệp riêng tư (chưa thuộc hồ sơ nào); URL được gán vào trường
+    // `request_attachment` và backend gắn tệp vào phiếu khi lưu.
     return fetch("/api/method/upload_file", { method:"POST", headers:{ "X-Frappe-CSRF-Token": (fr&&fr.csrf_token)||"" }, body:fd })
       .then(function(r){ return r.json(); })
       .then(function(j){ var msg=j&&j.message; return msg&&(msg.file_url||msg.file_name)||null; }); }

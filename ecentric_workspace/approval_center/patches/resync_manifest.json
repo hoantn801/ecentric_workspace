@@ -65,8 +65,8 @@
   },
   "approval_center/features/hiring_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p118_resync_all_feature_steppers_xss",
-    "sha256": "2f178787d99aa87fdda714e3811bfd2dc256565898c2b8ca3615e8326d32a90b"
+    "last_resync_patch": "p134_resync_hiring_request_upload_permission",
+    "sha256": "0db46f034c3955141ee960d9719e5f30eb65ef171c7f3325f6f279a29f57b229"
   },
   "approval_center/features/hr_activity/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -193,8 +193,8 @@
     "sha256": "266607e3c3f31f89dd2eed2f25c3414cecd1be8578e4f77592da983a98af37d3"
   },
   "platform/esign/ui/document_signing_section.html": {
-    "last_resync_patch": "p124_resync_doc_signing_progress_shadow",
-    "sha256": "ede9588f608e777207661c87dafffbc43e3d4def41cbd234c380300a783dbf67"
+    "last_resync_patch": "p133_resync_upload_permission_for_ordinary_users",
+    "sha256": "762c3fa520bb007930a52c6cd495661aad966a9da7ebeab8dc1ff4e77e78bfbb"
   },
   "platform/esign/ui/ops_page.html": {
     "last_resync_patch": "p132_resync_esign_ops_resend",

@@ -910,6 +910,19 @@ def set_document_requires_signature(payment_request_name, document_ref, requires
 
 
 @frappe.whitelist(methods=["POST"])
+def attach_uploaded_file(payment_request_name, file_url):
+    """Gan tep vua tai len vao phieu (khoi Tai lieu & Ky so).
+
+    Trang tai len bang `upload_file` KHONG kem doctype/docname - vi endpoint do cua Frappe
+    kiem quyen bang DocPerm chuan, ma he nay khong cap DocPerm chuan cho DocType yeu cau.
+    Roi goi day de gan, va CHINH DAY tu kiem quyen. Xem document_setup.attach_uploaded_file.
+    """
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.platform.esign import document_setup as ds
+    return ds.attach_uploaded_file("EC Payment Request", payment_request_name, file_url)
+
+
+@frappe.whitelist(methods=["POST"])
 def remove_supporting_attachment(payment_request_name, document_ref):
     """Go mot chung tu BO SUNG vua dinh kem nham, khi phieu dang o "Cần bổ sung".
 
