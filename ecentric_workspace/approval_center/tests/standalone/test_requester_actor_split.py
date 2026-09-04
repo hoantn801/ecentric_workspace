@@ -144,6 +144,9 @@ class TestAdapterTachActorKhoiNguoiKy(unittest.TestCase):
 
 
 # ------------------------------------------------------------------- lop 2: next_handler
+ON = {"ec_esign_requester_actor_split": "1"}
+
+
 def _next_handler(conf=None, mapping=None):
     fk, mods = _fake_frappe(conf)
     perms = types.ModuleType("ecentric_workspace.platform.esign.permissions")
@@ -170,8 +173,16 @@ SETTINGS = {"username": "hoan.tran@ecentric.vn", "environment": "UAT"}
 
 
 class TestRequesterActor(unittest.TestCase):
+    def test_MAC_DINH_TAT_vi_SCTS_ky_bang_chung_thu_cua_userId(self):
+        """03:28 04/09: bat len -> chu ky cua tai khoan tich hop dong vao o nguoi de nghi
+        cua chi Hien va tu di tiep. Khong co cau hinh thi PHAI None."""
+        nh = _next_handler(conf=None, mapping={"scts_user_id": HOAN})
+        self.assertIsNone(_call(nh, nh.requester_actor, {"effective_scts_user_id": HIEN},
+                                SETTINGS, "requester"))
+        self.assertEqual(nh._perms.calls, [], "tat thi khong duoc dong toi mapping")
+
     def test_stage_requester_khac_nguoi_tra_tai_khoan_tich_hop(self):
-        nh = _next_handler(mapping={"scts_user_id": HOAN})
+        nh = _next_handler(conf=ON, mapping={"scts_user_id": HOAN})
         got = _call(nh, nh.requester_actor, {"effective_scts_user_id": HIEN}, SETTINGS,
                     "requester")
         self.assertEqual(got, HOAN)
@@ -179,12 +190,12 @@ class TestRequesterActor(unittest.TestCase):
                          "mapping phai tra theo username + environment cua Provider Settings")
 
     def test_cung_mot_nguoi_thi_None_de_payload_y_het_cu(self):
-        nh = _next_handler(mapping={"scts_user_id": HOAN})
+        nh = _next_handler(conf=ON, mapping={"scts_user_id": HOAN})
         self.assertIsNone(_call(nh, nh.requester_actor, {"effective_scts_user_id": HOAN},
                                 SETTINGS, "requester"))
 
     def test_stage_approval_khong_bao_gio_tach(self):
-        nh = _next_handler(mapping={"scts_user_id": HOAN})
+        nh = _next_handler(conf=ON, mapping={"scts_user_id": HOAN})
         self.assertIsNone(_call(nh, nh.requester_actor, {"effective_scts_user_id": HIEN},
                                 SETTINGS, "approval"))
         self.assertEqual(nh._perms.calls, [], "khong duoc dong toi mapping o stage duyet")
@@ -196,12 +207,12 @@ class TestRequesterActor(unittest.TestCase):
                                 SETTINGS, "requester"))
 
     def test_khong_co_mapping_thi_None_khong_bia(self):
-        nh = _next_handler(mapping=None)
+        nh = _next_handler(conf=ON, mapping=None)
         self.assertIsNone(_call(nh, nh.requester_actor, {"effective_scts_user_id": HIEN},
                                 SETTINGS, "requester"))
 
     def test_thieu_username_thi_None(self):
-        nh = _next_handler(mapping={"scts_user_id": HOAN})
+        nh = _next_handler(conf=ON, mapping={"scts_user_id": HOAN})
         self.assertIsNone(_call(nh, nh.requester_actor, {"effective_scts_user_id": HIEN},
                                 {"environment": "UAT"}, "requester"))
         self.assertEqual(nh._perms.calls, [])
