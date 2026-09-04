@@ -233,4 +233,18 @@ fixtures = [
         "dt": "Role",
         "filters": [["name", "in", ["PM Manager", "PM Member"]]],
     },
+    # HR MVP (2026-09): cac Server Script `ec_hr_*` va cac trang `/ec-hr/*` truoc
+    # day chi song trong DB, khong co ban trong git -- rebuild site la mat sach
+    # logic cham cong / nghi phep / luong. Ship duoi dang fixtures de version-control
+    # va deploy lai duoc. Filter theo prefix nen chi cham vao cac record cua app nay.
+    # LUU Y: sau khi vao fixtures, `bench migrate` dong bo DB TU FILE -- moi thay doi
+    # logic sau nay nen sua trong repo roi migrate (hoac sua live xong export lai).
+    {
+        "dt": "Server Script",
+        "filters": [["name", "like", "ec_hr_%"]],
+    },
+    {
+        "dt": "Web Page",
+        "filters": [["route", "like", "ec-hr/%"]],
+    },
 ]
