@@ -24,6 +24,22 @@ LONGEST_PENDING_LIMIT = 10
 BOTTLENECK_LIMIT = 10
 
 
+def _requires_signature(reference_doctype, approval_type, level_no, final_level, memo):
+    """Chinh sach ky so cho (loai yeu cau, cap) - hoi esign.guard, nho ket qua. Hoi hong thi
+    False: nut nhanh chi la goi y, duong ghi (approve/approve_and_sign) tu kiem lai."""
+    if not (reference_doctype and approval_type and level_no):
+        return False
+    key = (reference_doctype, approval_type, level_no, final_level)
+    if key not in memo:
+        try:
+            from ecentric_workspace.platform.esign import guard
+            memo[key] = bool(guard.level_requires_signature(
+                reference_doctype, approval_type, level_no, final_level=final_level))
+        except Exception:
+            memo[key] = False
+    return memo[key]
+
+
 def _in_period(row, df, dt):
     if not (df and dt):
         return True
@@ -568,6 +584,7 @@ def _enrich_list_rows(views):
                 "status": status}
 
     me = frappe.session.user
+    _sig_memo = {}
     # Per-row quick-action capability for the hub. Advisory only -- the write path
     # (reporting.actions -> facade -> engine) revalidates authority on every call.
     mine_pending = set()
@@ -580,6 +597,12 @@ def _enrich_list_rows(views):
         # A cancelled/rejected/closed request keeps its approver rows as Pending, so the
         # membership check alone would still offer Duyệt/Từ chối on a huỷ/hoàn tất row.
         v["can_approve"] = bool(is_open and (v["name"], v.get("current_level")) in mine_pending)
+        # Cap nay co phai KY SO khong (04/09): nut nhanh tren dong doi "Duyet" -> "Duyet & Ky".
+        # final_level tinh tu approver rows DA tai (khong them truy van); nho theo khoa chinh
+        # sach de N dong cung loai yeu cau chi hoi guard mot lan.
+        v["requires_signature"] = bool(v["can_approve"] and _requires_signature(
+            v.get("reference_doctype"), v.get("approval_type"), v.get("current_level"),
+            max([a.get("level_no") or 0 for a in by_req.get(v["name"], [])] or [0]), _sig_memo))
         ff = ff_status.get(v["name"]) or (None, None)
         v["fulfillment_status"], v["fulfillment_owner"] = ff[0], ff[1]
         v["can_claim"] = bool(v.get("status") not in ("Cancelled", "Rejected") and ff[0] == "Assigned"
