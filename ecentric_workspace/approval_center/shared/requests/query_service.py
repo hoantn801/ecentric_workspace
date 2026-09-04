@@ -268,6 +268,7 @@ def detail(definition, name):
     status = request.approval_status if request else "Draft"
     return {
         "business": business.as_dict(),
+        "business_doctype": definition.business_doctype,   # hub can no de goi Duyet & Ky
         "approval": {
             "name": request.name if request else None,
             "approval_status": status,

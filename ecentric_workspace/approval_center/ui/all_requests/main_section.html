@@ -474,7 +474,8 @@
       .then(function(r){
         settled=true; clearTimeout(timer);
         if(state.openReq!==reqName) return;
-        drawDetail(box, reqName, (r&&r.message)||{});
+        state.detail=(r&&r.message)||{};          // Duyet & Ky can business_doctype + business_name
+        drawDetail(box, reqName, state.detail);
         revealOverlay(ov, box);
       })
       .catch(function(e){
@@ -562,7 +563,10 @@
   // ban sao thu 8 cua extractServerMsg. Sua goc = mot helper dung chung trong
   // public/js va 8 trang goi no; ghi o 03_BUGS_AND_NEXT_STEPS.
   function extractServerMsg(e){ if(!e) return "";
-    function _strip(s){ return String(s==null?"":s).replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim(); }
+    function _strip(s){ var t=String(s==null?"":s).replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim();
+      // frappe.throw da HTML-escape thong diep; hien nguyen thi thay "Duyệt &amp; Ký" (04/09).
+      try{ var ta=document.createElement("textarea"); ta.innerHTML=t; t=ta.value; }catch(_e){}
+      return t; }
     var sm=e._server_messages||(e.responseJSON&&e.responseJSON._server_messages);
     if(sm){ try{ var arr=(typeof sm==="string")?JSON.parse(sm):sm; for(var i=0;i<arr.length;i++){ var f=arr[i], o=f; if(typeof f==="string"){ try{ o=JSON.parse(f); }catch(_a){ o={message:f}; } } var mm=o&&(o.message||o.title); if(mm) return _strip(mm); } }catch(_b){} }
     var rj=e.responseJSON||{};
@@ -648,7 +652,12 @@
 
 
     var acts=[];
-    if(cap.can_approve) acts.push('<button type="button" class="btn approve" data-a="approve">Duyệt</button>');
+    // Cap ky so: nut phai la "Duyet & Ky" -> esign.approve_and_sign. Bam "Duyet" thuong thi
+    // engine tu choi ("Cap duyet nay yeu cau ky so...") va nguoi duyet khong biet phai lam gi
+    // (Vinh, 04/09 tren 00053).
+    if(cap.can_approve) acts.push(cap.requires_signature
+      ? '<button type="button" class="btn approve" data-a="approve_sign">Duyệt &amp; Ký</button>'
+      : '<button type="button" class="btn approve" data-a="approve">Duyệt</button>');
     if(cap.can_reject) acts.push('<button type="button" class="btn reject" data-a="reject">Từ chối</button>');
     if(cap.can_request_information) acts.push('<button type="button" class="btn" data-a="info">Yêu cầu bổ sung</button>');
     if(cap.can_claim) acts.push('<button type="button" class="btn claim" data-a="claim">Nhận xử lý</button>');
@@ -703,12 +712,16 @@
   }
   function quickActions(r){
     var b=[];
-    if(r.can_approve) b.push('<button type="button" class="btn ok" data-qa="approve" data-req="'+esc(r.name)+'">Duyệt</button>'
+    if(r.can_approve) b.push((r.requires_signature
+                              ? '<button type="button" class="btn ok" data-qa="open" data-req="'+esc(r.name)+'">Duyệt &amp; Ký</button>'
+                              : '<button type="button" class="btn ok" data-qa="approve" data-req="'+esc(r.name)+'">Duyệt</button>')
                             +'<button type="button" class="btn warn" data-qa="reject" data-req="'+esc(r.name)+'">Từ chối</button>');
     if(r.can_claim) b.push('<button type="button" class="btn ok" data-qa="claim" data-req="'+esc(r.name)+'">Nhận xử lý</button>');
     return b.length?('<div class="qa">'+b.join("")+'</div>'):'';
   }
   function runAction(kind,reqName,btn,fromModal,comment){
+    if(kind==="open"){ openDetail(reqName); return; }       // dong ky so: vao popup, o do co Duyet & Ky
+    if(kind==="approve_sign"){ runApproveSign(reqName, btn, fromModal, comment); return; }
     var API2="ecentric_workspace.approval_center.reporting.actions.";
     var method={approve:"approve",reject:"reject",info:"request_information",claim:"claim_fulfillment"}[kind];
     if(!method) return;
@@ -732,6 +745,25 @@
       .catch(function(e){
         if(btn){ btn.disabled=false; if(btn.dataset.lbl) btn.textContent=btn.dataset.lbl; }
         toast(extractServerMsg(e)||"Không thực hiện được.","err");
+      });
+  }
+  // Duyet & Ky tu popup: goi dung endpoint ky so (chinh dieu form Payment Request lam), server
+  // tu resolve cap/goi ky/vi tri/chuyen tiep. Ket qua la "da GUI lenh ky" - chu ky duoc xac
+  // nhan bat dong bo trong vai giay toi vai phut; khong hua "da duyet".
+  function runApproveSign(reqName, btn, fromModal, comment){
+    var d=state.detail||{};
+    if(!d.business_doctype||!d.business_name||d.business_name!==reqName){ toast("Không xác định được phiếu để ký. Mở lại phiếu rồi thử.","err"); return; }
+    if(btn){ btn.disabled=true; btn.dataset.lbl=btn.textContent; btn.textContent="Đang gửi ký…"; }
+    var args={business_doctype:d.business_doctype, business_name:d.business_name}; if(comment) args.comment=comment;
+    frappe.call({method:"ecentric_workspace.platform.esign.api.approve_and_sign",args:args,type:"POST"})
+      .then(function(){
+        toast("Đã gửi lệnh ký cho "+reqName+". Chữ ký sẽ được xác nhận trong ít phút.","ok");
+        if(fromModal){ closeDetail(); }
+        load();
+      })
+      .catch(function(e){
+        if(btn){ btn.disabled=false; if(btn.dataset.lbl) btn.textContent=btn.dataset.lbl; }
+        toast(extractServerMsg(e)||"Không gửi được lệnh ký.","err");
       });
   }
   function wire(){

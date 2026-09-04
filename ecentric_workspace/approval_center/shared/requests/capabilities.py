@@ -88,6 +88,23 @@ def _can_complete(user, business_doc):
     return bool(getattr(business_doc, "fulfillment_owner", None) == user or is_system_manager(user))
 
 
+def _requires_signature(can_act, business_doc, approval_request):
+    """Cap hien tai cua nguoi nay co phai KY SO khong (04/09). Hub "Tat ca yeu cau" dung de
+    hien "Duyet & Ky" thay vi "Duyet" - bam "Duyet" tren cap ky so thi engine tu choi
+    ("Cap duyet nay yeu cau ky so..."), nguoi dung khong biet phai lam gi. Chi hoi khi nguoi
+    nay dang duoc duyet; hoi hong thi False, khong bao gio lam vo popup."""
+    if not can_act or not approval_request or not approval_request.current_level:
+        return False
+    try:
+        from ecentric_workspace.platform.esign import guard
+        return bool(guard.level_requires_signature(
+            business_doc.doctype, approval_request.approval_type, approval_request.current_level,
+            final_level=guard.request_final_level(approval_request.name)))
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "capabilities.requires_signature")
+        return False
+
+
 def derive(user, business_doc, approval_request):
     """Return advisory UI capabilities; write paths still revalidate authority."""
     requester = business_doc.requested_by == user
@@ -107,6 +124,7 @@ def derive(user, business_doc, approval_request):
              "level_no": approval_request.current_level}, "level_status")
         admin_approve = level_status == "In Progress"
     return {
+        "requires_signature": _requires_signature(can_act, business_doc, approval_request),
         "can_edit": requester and (
             approval_request is None
             or approval_request.approval_status == "Information Required"),
