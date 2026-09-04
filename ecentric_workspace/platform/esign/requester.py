@@ -194,6 +194,9 @@ def _preflight_vi(code):
         return "thiếu vị trí ký của cấp %s trên tệp %s" % (lvl.lstrip("L"), fname)
     if head == "signable_not_pdf":
         return "tệp %s không phải PDF nên không ký trực tiếp được" % code.split(":", 1)[-1]
+    if head == "supporting_not_renderable":
+        return ("tệp đính kèm %s phải là PDF hoặc ảnh PNG/JPG (hãy chuyển sang PDF rồi đính lại)"
+                % code.split(":", 1)[-1])
     if head == "missing_hash":
         return "tệp %s chưa tính được mã kiểm tra" % code.split(":", 1)[-1]
     return code
@@ -485,7 +488,8 @@ def _add_requester_pdf_files(pkg_name, business_doctype, business_name):
                 seen_url.add(f.file_url)
             continue
         display_name = f.file_name or (f.file_url or "").rsplit("/", 1)[-1] or "document.pdf"
-        pkgsvc.add_file(pkg_name, display_name, content, requires_signature=1)
+        pkgsvc.add_file(pkg_name, display_name, content, requires_signature=1,
+                        source_file=f.name)      # lien ket, khong sao chep (05/09)
         have_sha.add(sha)          # update in-loop: identical twins are added once
         if f.file_url:
             seen_url.add(f.file_url)

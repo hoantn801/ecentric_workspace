@@ -295,3 +295,24 @@ def distinct_filter_values(scope):
         "WHERE " + sp + " AND r.requester_department IS NOT NULL ORDER BY r.requester_department",
         params, as_dict=True)
     return {"types": types, "categories": [c["v"] for c in cats], "departments": [d["v"] for d in depts]}
+
+
+def fetch_my_drafts(me):
+    """Ban nhap CUA TOI o moi loai yeu cau da dang ky (05/09, Hoan): phieu "Luu nhap" xong bien
+    mat - khong co EC Approval Request nen khong nam trong bat ky tab nao. Ban nhap = ban ghi
+    nghiep vu docstatus 0, owner = toi, CHUA co approval_request. Doctype khong co cot
+    approval_request thi bo qua (khong doan)."""
+    from ecentric_workspace.approval_center.shared.registry import BUSINESS_DOCTYPE_DEFINITIONS
+    out = []
+    for dt, definition in BUSINESS_DOCTYPE_DEFINITIONS.items():
+        if not frappe.db.table_exists(dt) or not frappe.db.has_column(dt, "approval_request"):
+            continue
+        filters = {"owner": me, "docstatus": 0, "approval_request": ["is", "not set"]}
+        if frappe.db.has_column(dt, "status"):
+            filters["status"] = ["not in", ["Cancelled", "Rejected"]]
+        for r in frappe.get_all(dt, filters=filters, fields=["name", "modified", "creation"],
+                                order_by="modified desc", limit_page_length=50):
+            out.append({"doctype": dt, "name": r.name, "approval_type": definition.code,
+                        "modified": r.modified, "creation": r.creation})
+    out.sort(key=lambda r: r["modified"] or "", reverse=True)
+    return out

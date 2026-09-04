@@ -127,4 +127,8 @@ def list_requests(filters=None, start=0, page_length=50, search=None, box=None):
     out = _service.list_requests(scope, f, start=start, page_length=page_length,
                                  search=(search or None))
     out["scope_mode"] = scope.get("mode")
+    # Tab "Cho toi xu ly": kem ban nhap cua toi (05/09). Chi trang dau, chi tab do - ban nhap
+    # khong phan trang va khong thuoc bo loc.
+    if box == "fulfil" and start == 0:
+        out["drafts"] = _service.my_drafts()
     return out

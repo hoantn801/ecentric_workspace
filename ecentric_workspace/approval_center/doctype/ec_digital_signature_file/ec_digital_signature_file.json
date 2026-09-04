@@ -1,38 +1,14 @@
 {
- "doctype": "DocType",
- "name": "EC Digital Signature File",
- "module": "Approval Center",
+ "allow_rename": 0,
+ "autoname": "EC-DSF-.YYYY.-.#####.",
  "custom": 0,
- "istable": 0,
- "issingle": 0,
- "is_virtual": 0,
+ "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
- "track_changes": 1,
- "allow_rename": 0,
- "sort_field": "modified",
- "sort_order": "DESC",
- "links": [],
- "index_web_pages_for_search": 0,
- "autoname": "EC-DSF-.YYYY.-.#####.",
- "naming_rule": "Expression",
- "permissions": [
-  {
-   "role": "System Manager",
-   "read": 1,
-   "write": 1,
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "report": 1,
-   "share": 1
-  }
- ],
  "field_order": [
   "package",
   "file",
+  "file_is_linked",
   "file_name",
   "idx_order",
   "file_kind",
@@ -53,10 +29,10 @@
   {
    "fieldname": "package",
    "fieldtype": "Link",
+   "in_standard_filter": 1,
    "label": "Package",
    "options": "EC Digital Signature Package",
-   "reqd": 1,
-   "in_standard_filter": 1
+   "reqd": 1
   },
   {
    "fieldname": "file",
@@ -66,52 +42,60 @@
    "reqd": 1
   },
   {
+   "default": "0",
+   "description": "1 = `file` la CHINH tep dinh kem cua phieu (khong sao chep). Go dong nay KHONG duoc xoa File do.",
+   "fieldname": "file_is_linked",
+   "fieldtype": "Check",
+   "label": "File Is Linked (not a package copy)",
+   "read_only": 1
+  },
+  {
    "fieldname": "file_name",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "File Name",
-   "reqd": 1,
-   "in_list_view": 1
+   "reqd": 1
   },
   {
+   "default": "0",
    "fieldname": "idx_order",
    "fieldtype": "Int",
-   "label": "Order",
-   "default": "0",
-   "in_list_view": 1
+   "in_list_view": 1,
+   "label": "Order"
   },
   {
+   "default": "Other",
    "fieldname": "file_kind",
    "fieldtype": "Select",
    "label": "File Kind",
-   "options": "Contract\nInvoice\nReport\nSupporting\nOther",
-   "default": "Other"
+   "options": "Contract\nInvoice\nReport\nSupporting\nOther"
   },
   {
+   "default": "0",
    "fieldname": "requires_signature",
    "fieldtype": "Check",
-   "label": "Requires Signature",
-   "default": "0",
-   "in_list_view": 1
+   "in_list_view": 1,
+   "label": "Requires Signature"
   },
   {
+   "default": "0",
    "fieldname": "is_supporting_document",
    "fieldtype": "Check",
-   "label": "Is Supporting Document",
-   "default": "0"
+   "label": "Is Supporting Document"
   },
   {
+   "default": "0",
    "fieldname": "share_with_partner",
    "fieldtype": "Check",
-   "label": "Share With Partner",
-   "default": "0"
+   "label": "Share With Partner"
   },
   {
    "fieldname": "sha256",
    "fieldtype": "Data",
    "label": "Sha256",
-   "reqd": 1,
+   "length": 64,
    "read_only": 1,
-   "length": 64
+   "reqd": 1
   },
   {
    "fieldname": "size_bytes",
@@ -159,12 +143,12 @@
    "label": "Signed Retrieved At"
   },
   {
+   "description": "Private candidate signed file awaiting manual review after a signed-hash mismatch. The accepted signed_file is never overwritten.",
    "fieldname": "signed_review_candidate",
    "fieldtype": "Link",
-   "options": "File",
    "label": "Signed Review Candidate",
-   "read_only": 1,
-   "description": "Private candidate signed file awaiting manual review after a signed-hash mismatch. The accepted signed_file is never overwritten."
+   "options": "File",
+   "read_only": 1
   },
   {
    "fieldname": "signed_review_sha256",
@@ -172,5 +156,30 @@
    "label": "Signed Review SHA256",
    "read_only": 1
   }
- ]
+ ],
+ "index_web_pages_for_search": 0,
+ "is_virtual": 0,
+ "issingle": 0,
+ "istable": 0,
+ "links": [],
+ "module": "Approval Center",
+ "name": "EC Digital Signature File",
+ "naming_rule": "Expression",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
 }

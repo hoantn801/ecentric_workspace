@@ -57,6 +57,33 @@ def _settings_and_adapter(dsr):
     return s, get_adapter(s)
 
 
+def _provider_file(pkg, order, f):
+    """Mot dong Documents[] cho nha cung cap: LUON la PDF that.
+
+    05/09, 00042: phu luc `p-mob.png` di thang sang eContract duoi nhan "pdf" -> AddDocument
+    va Trinh ky deu 2xx roi eContract im lang (khong chu ky, task ket "Cho gui di"). Anh thi
+    ve thanh PDF mot trang (ban goc van la File cua phieu, van trong package_hash); tep
+    khong ve duoc thi tu choi ngay o day - truoc khi co bat ky lenh nao sang nha cung cap -
+    voi ma loi doc duoc, thay vi Manual Review 20 phut sau khong ly do.
+    """
+    from ecentric_workspace.platform.esign import render
+    content = pkgsvc.file_bytes(f.name)                      # private bytes; never logged
+    name = f.file_name
+    try:
+        content, converted = render.to_pdf(content, name)
+    except render.UnrenderableFile as exc:
+        raise ProviderError("unrenderable_package_file", str(exc), retryable=False)
+    if converted:
+        name = render.pdf_file_name(name)
+        events.emit("SupportingFileRendered", package=pkg.name,
+                    request_meta={"file": f.file_name, "sent_as": name, "order": order})
+    return {"order": order, "name": name, "file_dsf": f.name,
+            "can_be_signed": f.requires_signature,
+            "is_supporting_document": f.is_supporting_document,
+            "share_with_partner": f.share_with_partner,
+            "content": content}
+
+
 def _ensure_provider_document(dsr, settings, adapter):
     """Creation trigger support: create the provider document lazily when the package
     has no scts_document_id yet ('Before First Signing Level' mode, and the reconciler
@@ -107,12 +134,7 @@ def _ensure_provider_document(dsr, settings, adapter):
         "company_id": prof.get("company_id"),
         "department_id": prof.get("department_id"),
         "document_template_id": prof.get("document_template_id"),
-        "files": [{"order": i, "name": f.file_name, "file_dsf": f.name,
-                   "can_be_signed": f.requires_signature,
-                   "is_supporting_document": f.is_supporting_document,
-                   "share_with_partner": f.share_with_partner,
-                   "content": pkgsvc.file_bytes(f.name)}  # private bytes; never logged
-                  for i, f in enumerate(files)],
+        "files": [_provider_file(pkg, i, f) for i, f in enumerate(files)],
         "placements": _with_page_heights(pkg.name,
                                          [dict(p) for p in pkgsvc.package_placements(pkg.name)]),
     }

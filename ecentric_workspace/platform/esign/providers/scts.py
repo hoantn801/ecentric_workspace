@@ -743,6 +743,14 @@ class SctsAdapter(SignatureProviderAdapter):
             return d
         documents = []
         for f in files:
+            # CHOT CUOI: moi dong Documents[] khai "FileType: pdf" - byte phai la PDF that.
+            # 05/09 (00042): byte PNG duoi nhan pdf -> eContract nhan 2xx roi im lang o
+            # buoc ky. Tang tren (tasks._provider_file) da ve anh thanh PDF; day la lop
+            # bao dam adapter khong bao gio tu noi doi ve dinh dang nua.
+            if not bytes(f.get("content") or b"")[:4] == b"%PDF":
+                raise ProviderError("scts_non_pdf_payload",
+                                    "tep %r khong phai PDF - khong gui duoi nhan pdf"
+                                    % f.get("name"), retryable=False)
             b64 = self._b64(f.get("content"))
             sigs = []
             for pl in by_dsf.get(f.get("file_dsf"), []):

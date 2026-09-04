@@ -283,8 +283,8 @@
   .stat-card.s-navy::before{ background:var(--navy);} .stat-card.s-yellow::before{ background:var(--yellow);}
   .stat-card.s-pink::before{ background:var(--pink);} .stat-card.s-green::before{ background:var(--green);}
   .stats-strip.rec-strip{ grid-template-columns:repeat(auto-fit,minmax(158px,1fr)); }
-  .stats-strip.ts-strip{ grid-template-columns:repeat(5,1fr); }
-  @media (max-width:1100px){ .stats-strip.ts-strip{ grid-template-columns:repeat(3,1fr); } }
+  .stats-strip.ts-strip{ grid-template-columns:repeat(7,1fr); }
+  @media (max-width:1100px){ .stats-strip.ts-strip{ grid-template-columns:repeat(4,1fr); } }
   @media (max-width:640px){ .stats-strip.ts-strip{ grid-template-columns:1fr 1fr; } }
   .stat-label{ font-size:10.5px; font-weight:500; color:var(--gray-500); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; }
   .stat-value{ font-size:20px; font-weight:700; color:var(--gray-900); line-height:1.1; letter-spacing:-0.5px; }
@@ -1457,8 +1457,14 @@
       if(inp)inp.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();mk();}else if(e.key==="Escape"){e.preventDefault();rerender();}});
     };}
     pmWireTaskMenus(host);}
-  function renderSumInto(host,m){if(!host)return;var ks=Object.keys(m||{}).sort().reverse();if(!ks.length){return emptyBox(host,"Không có dữ liệu.");}
-    host.innerHTML='<table class="pm-tbl"><tbody>'+ks.map(function(k){return '<tr><td class="t-main">'+esc(k)+'</td><td style="text-align:right">'+(Math.round(m[k]*100)/100)+'h</td></tr>';}).join("")+'</tbody></table>';}
+  function renderSumInto(host,m,byDay){if(!host)return;var ks=Object.keys(m||{}).sort().reverse();if(!ks.length){return emptyBox(host,"Không có dữ liệu.");}
+    if(!byDay){host.innerHTML='<table class="pm-tbl"><tbody>'+ks.map(function(k){return '<tr><td class="t-main">'+esc(k)+'</td><td style="text-align:right">'+(Math.round(m[k]*100)/100)+'h</td></tr>';}).join("")+'</tbody></table>';return;}
+    var dk=Object.keys(byDay);
+    function periodDays(k){if(k.length===10)return dk.filter(function(x){return x===k;});if(k.indexOf("-W")>=0)return dk.filter(function(x){return tsIsoWeek(x)===k;});return dk.filter(function(x){return x.slice(0,7)===k;});}
+    function f2(x){return Math.round(x*100)/100;}
+    host.innerHTML='<table class="pm-tbl"><thead><tr><th></th><th style="text-align:right">Giờ</th><th style="text-align:right">TB/ngày có log</th><th style="text-align:right">TB/ngày làm việc</th></tr></thead><tbody>'+ks.map(function(k){
+      var days=periodDays(k).sort();var nl=days.length;var wd=nl?tsWorkDays(days[0],days[nl-1]):0;var h=m[k]||0;
+      return '<tr><td class="t-main">'+esc(k)+'</td><td style="text-align:right">'+f2(h)+'h</td><td style="text-align:right">'+f2(h/Math.max(nl,1))+'h</td><td style="text-align:right">'+f2(h/Math.max(wd,1))+'h</td></tr>';}).join("")+'</tbody></table>';}
   function pdTimesheet(b,d){var rows=d.rows||[];var total=Math.round((d.total_hours||0)*100)/100;
     b.innerHTML='<div class="stats-strip" style="grid-template-columns:repeat(3,1fr)">'+sc("s-navy","Tổng giờ",total)+sc("s-green","Số log",rows.length)+sc("s-yellow","Người",uniq(rows.map(function(r){return r.owner;})).length)+'</div>'+
       '<div class="panel"><div class="panel-header"><div class="panel-title">Theo tháng</div></div><div id="pd-ts-sum"></div></div>'+
@@ -3110,21 +3116,27 @@
       api(PM+"recurrence.create",{subject:subj, frequency:el("re-freq").value, interval:col.interval, weekly_days:JSON.stringify(col.wd), monthly_day:col.monthlyDay||null, description:el("re-desc").value||null, priority:el("re-priority").value||null, assignees:JSON.stringify(col.asg), project:el("re-project").value.trim()||null, template_start_time:null, template_end_time:null, duration_days:(col.durMonthly!=null?col.durMonthly:((el("re-dur")&&el("re-dur").value)||0)), checklist_items:JSON.stringify(col.chk), subtasks:JSON.stringify(col.subs), start_date:el("re-start").value||null, end_date:el("re-end").value||null, max_occurrences:0}).then(function(){toast("Đã tạo việc định kỳ");closeD();showRecurring();}).catch(function(e){toast("Lỗi: "+errOf(e),true);_busy(false);});};}
 
   function tsSum(rows,pred){var s=0;rows.forEach(function(r){if(pred(r))s+=(r.hours||0);});return Math.round(s*100)/100;}
+  function tsIsoWeek(ymd){var d=new Date(ymd+"T00:00:00");var t=new Date(d);t.setDate(d.getDate()+3-((d.getDay()+6)%7));var w1=new Date(t.getFullYear(),0,4);var wn=1+Math.round(((t-w1)/864e5-3+((w1.getDay()+6)%7))/7);return t.getFullYear()+"-W"+(wn<10?"0":"")+wn;}
+  function tsWorkDays(a,b){if(!a||!b)return 0;var s=new Date(a+"T00:00:00"),e=new Date(b+"T00:00:00"),n=0;for(var t=new Date(s);t<=e;t.setDate(t.getDate()+1)){var w=t.getDay();if(w!==0&&w!==6)n++;}return n;}
   function showTimesheet(){var c=el("pm-view");spin(c);
-    api(PM+"timesheet.report",window._tsF||{}).then(function(d){renderTimesheet(c,d);}).catch(function(e){errBox(c,e);});}
+    // projects.list fetched alongside so charts/filters can show real project names (report rows only carry codes)
+    Promise.all([api(PM+"timesheet.report",window._tsF||{}),api(PM+"projects.list",{page_length:500}).catch(function(){return {rows:[]};})]).then(function(res){
+      var pn={};((res[1]||{}).rows||[]).forEach(function(p){pn[p.name]=p.project_name||p.name;});window._tsPN=pn;
+      renderTimesheet(c,res[0]);}).catch(function(e){errBox(c,e);});}
+  function tsPName(p){return p?((window._tsPN&&window._tsPN[p])||p):p;}
   function renderTimesheet(c,d){var rows=d.rows||[];var F=window._tsF||{};
     var projs=uniq(rows.map(function(r){return r.project;}));var users=uniq(rows.map(function(r){return r.owner;}));
-    var mon=new Date().toISOString().slice(0,7);
+    var mon=pmLocalYmd().slice(0,7);
     var dd=new Date();var dow=(dd.getDay()+6)%7;var m0=new Date(dd);m0.setDate(dd.getDate()-dow);var ws=pmLocalYmd(m0);var we=new Date(m0);we.setDate(m0.getDate()+6);var weStr=pmLocalYmd(we);
     c.innerHTML=head("Timesheet","Tổng hợp worktime từ native Timesheet")+
       '<div class="pm-filters">'+
         '<select class="pm-sel" id="ts-user"><option value="">Mọi người</option>'+users.map(function(u){return opt(u,u,F.user);}).join("")+'</select>'+
-        '<select class="pm-sel" id="ts-proj"><option value="">Mọi dự án</option>'+projs.map(function(p){return opt(p,p,F.project);}).join("")+'</select>'+
+        '<select class="pm-sel" id="ts-proj"><option value="">Mọi dự án</option>'+projs.map(function(p){return opt(p,tsPName(p),F.project);}).join("")+'</select>'+
         '<input class="pm-input" id="ts-task" placeholder="Task..." value="'+esc(F.task||"")+'" style="background-image:none;padding-left:11px;min-width:140px">'+
         '<input class="pm-input" id="ts-from" data-ec-dp-range="tsf" data-ec-dp-role="start" type="date" value="'+esc(F.from_date||"")+'" style="background-image:none;padding-left:11px" title="Từ">'+
         '<input class="pm-input" id="ts-to" data-ec-dp-range="tsf" data-ec-dp-role="end" type="date" value="'+esc(F.to_date||"")+'" style="background-image:none;padding-left:11px" title="Đến">'+
         '<button class="pm-btn primary" id="ts-apply">Lọc</button><button class="pm-btn" id="ts-clear">Xoá lọc</button></div>'+
-      '<div class="stats-strip ts-strip">'+sc("s-navy","Tổng giờ",Math.round((d.total_hours||0)*100)/100)+sc("s-navy","TB giờ/ngày",Math.round((d.total_hours||0)/Math.max(Object.keys(d.by_day||{}).length,1)*100)/100)+sc("s-yellow","Tuần này",tsSum(rows,function(r){var x=(r.from_time||"").slice(0,10);return x>=ws&&x<=weStr;}))+sc("s-pink","Tháng này",tsSum(rows,function(r){return (r.from_time||"").slice(0,7)===mon;}))+sc("s-green","Số log",rows.length)+'</div>'+
+      '<div class="stats-strip ts-strip">'+sc("s-navy","Tổng giờ",Math.round((d.total_hours||0)*100)/100)+sc("s-navy","TB giờ/ngày có log",Math.round((d.total_hours||0)/Math.max(Object.keys(d.by_day||{}).length,1)*100)/100)+sc("s-navy","TB giờ/ngày làm việc",(function(){var k=Object.keys(d.by_day||{}).sort();var w=tsWorkDays(k[0],k[k.length-1]);return Math.round((d.total_hours||0)/Math.max(w,1)*100)/100;})())+sc("s-yellow","Tuần này",tsSum(rows,function(r){var x=(r.from_time||"").slice(0,10);return x>=ws&&x<=weStr;}))+sc("s-pink","Tháng này",tsSum(rows,function(r){return (r.from_time||"").slice(0,7)===mon;}))+sc("s-green","Số log",rows.length)+'</div>'+
       '<div class="panel"><div class="panel-header"><div class="panel-title">Biểu đồ</div></div>'+
         '<div class="ts-charts">'+
           '<div class="ts-cc"><div class="ts-cc-t">Giờ mỗi ngày</div><div id="ts-c-hours" class="ts-chart"></div></div>'+
@@ -3147,9 +3159,9 @@
     var tb=el("ts-tbl");
     if(!rows.length){return emptyBox(tb,"Không có log worktime.");}
     tb.innerHTML='<table class="pm-tbl"><thead><tr><th>Ngày</th><th>Task</th><th>Dự án</th><th>Giờ</th><th>Mô tả</th><th>Người</th></tr></thead><tbody>'+
-      rows.map(function(r){return '<tr><td>'+esc((r.from_time||"").slice(0,10))+'</td><td class="t-main" data-task="'+esc(r.task||"")+'" style="cursor:pointer">'+esc(r.task||"-")+'</td><td>'+esc(r.project||"-")+'</td><td>'+esc(r.hours)+'h</td><td>'+esc(r.description||"")+'</td><td>'+esc(r.owner||"")+'</td></tr>';}).join("")+'</tbody></table>';
+      rows.map(function(r){return '<tr><td>'+esc((r.from_time||"").slice(0,10))+'</td><td class="t-main" data-task="'+esc(r.task||"")+'" style="cursor:pointer">'+esc(r.task||"-")+'</td><td title="'+esc(r.project||"")+'">'+esc(tsPName(r.project)||"-")+'</td><td>'+esc(r.hours)+'h</td><td>'+esc(r.description||"")+'</td><td>'+esc(r.owner||"")+'</td></tr>';}).join("")+'</tbody></table>';
     Array.prototype.forEach.call(tb.querySelectorAll("[data-task]"),function(x){x.onclick=function(){var t=x.getAttribute("data-task");if(t)openTask(t);};});}
-  function renderSum(d,key){renderSumInto(el("ts-sum"),d[key]||{});}
+  function renderSum(d,key){renderSumInto(el("ts-sum"),d[key]||{},d.by_day||{});}
   function tsRenderCharts(d,rows){
     var C=window.ECCharts;var haveE=!!(C&&C.ok&&C.ok());
     var byDay=d.by_day||{};var days=Object.keys(byDay).sort();if(days.length>45)days=days.slice(days.length-45);
@@ -3160,7 +3172,8 @@
     // hours by project
     var byP={};(rows||[]).forEach(function(r){var p=r.project||"—";byP[p]=(byP[p]||0)+(r.hours||0);});
     var pal=["#1f2d80","#2563eb","#0a7a4f","#b8860b","#b3541e","#c0392b","#7c3aed","#0891b2","#be185d"];
-    var segs=Object.keys(byP).map(function(p,i){return [p,Math.round(byP[p]*100)/100,pal[i%pal.length]];});
+    var _pn=window._tsPN||{};
+    var segs=Object.keys(byP).map(function(p,i){return [(_pn[p]||p),Math.round(byP[p]*100)/100,pal[i%pal.length]];});
     if(!haveE){ // graceful fallback: hide chart boxes, keep the (still-present) summary + table
       ["ts-c-hours","ts-c-tasks","ts-c-proj"].forEach(function(id){var e=el(id);if(e)e.innerHTML='<div style="font-size:12px;color:var(--gray-400);padding:18px 4px">Biểu đồ cần thư viện chart (chưa tải được).</div>';});
       return; }

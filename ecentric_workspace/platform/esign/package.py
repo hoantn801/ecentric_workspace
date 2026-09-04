@@ -145,22 +145,39 @@ def _guess_mime(file_name, is_pdf):
 
 
 def add_file(pkg_name, file_name, content, requires_signature=0, is_supporting_document=0,
-             share_with_partner=0, file_kind="Other"):
-    """Validated upload. File doc + DSF row in ONE transaction (rollback together)."""
+             share_with_partner=0, file_kind="Other", source_file=None):
+    """Validated upload. File doc + DSF row in ONE transaction (rollback together).
+
+    `source_file` (05/09): ten mot File DA dinh vao chinh phieu nay -> LIEN KET, khong sao
+    chep. Truoc day moi lan dua tep vao goi la insert mot File moi cung noi dung, dinh vao
+    cung phieu -> phieu hien HAI ban PDF ("..._004.pdf" va "..._004eefe52.pdf"), chi Hien bao
+    05/09 01:57. Ban sao khong mang them gia tri nao: noi dung bam sha256 o DSF, con File thi
+    van la cua phieu. Goi tu upload (khong co File san) van di duong cu."""
     pkg = get_package(pkg_name)
     perms.assert_requester_draft_package(pkg)
     profile = frappe.db.get_value("EC Digital Signature Profile", pkg.profile,
                                   ["max_files", "max_file_mb", "require_signable_pdf"],
                                   as_dict=True)
     is_pdf = _validate_content(pkg, profile, file_name, content, requires_signature)
-    fdoc = frappe.get_doc({
-        "doctype": "File", "file_name": file_name, "is_private": 1,
-        "attached_to_doctype": pkg.business_doctype, "attached_to_name": pkg.business_name,
-        "content": content,
-    }).insert(ignore_permissions=True)  # attach to the caller-owned business draft only
+    linked = 0
+    if source_file:
+        src = frappe.db.get_value("File", source_file,
+                                  ["name", "attached_to_doctype", "attached_to_name"], as_dict=True)
+        if not src or src.attached_to_doctype != pkg.business_doctype \
+                or src.attached_to_name != pkg.business_name:
+            frappe.throw(_("Tệp nguồn không thuộc phiếu này."), frappe.PermissionError)
+        file_ref, linked = src.name, 1
+    else:
+        fdoc = frappe.get_doc({
+            "doctype": "File", "file_name": file_name, "is_private": 1,
+            "attached_to_doctype": pkg.business_doctype, "attached_to_name": pkg.business_name,
+            "content": content,
+        }).insert(ignore_permissions=True)  # attach to the caller-owned business draft only
+        file_ref = fdoc.name
     nxt = frappe.db.count("EC Digital Signature File", {"package": pkg.name})
     row = frappe.get_doc({
-        "doctype": "EC Digital Signature File", "package": pkg.name, "file": fdoc.name,
+        "doctype": "EC Digital Signature File", "package": pkg.name, "file": file_ref,
+        "file_is_linked": linked,
         "file_name": file_name, "idx_order": nxt, "file_kind": file_kind or "Other",
         "requires_signature": 1 if requires_signature else 0,
         "is_supporting_document": 1 if is_supporting_document else 0,
@@ -215,8 +232,10 @@ def remove_file(dsf_name):
                              filters={"signature_file": dsf_name}, pluck="name"):
         frappe.delete_doc("EC Digital Signature Placement", pl, ignore_permissions=True)
     fdoc = row.file
+    linked = int(row.get("file_is_linked") or 0)
     frappe.delete_doc("EC Digital Signature File", dsf_name, ignore_permissions=True)
-    if fdoc and frappe.db.exists("File", fdoc):
+    # File LIEN KET la tep dinh kem cua chinh phieu - go dong khoi goi thi tep van o lai.
+    if fdoc and not linked and frappe.db.exists("File", fdoc):
         frappe.delete_doc("File", fdoc, ignore_permissions=True)
 
 
@@ -388,6 +407,14 @@ def preflight_for_lock(pkg_name):
             errs.append("signable_not_pdf:%s" % f.file_name)
         if not f.sha256:
             errs.append("missing_hash:%s" % f.file_name)
+    # Phu luc cung sang nha cung cap, va nha cung cap chi chay voi PDF that (05/09, 00042:
+    # mot PNG duoi nhan pdf -> eContract 2xx roi im lang, khong chu ky). Anh PNG/JPEG thi
+    # tasks._provider_file ve thanh PDF; loai khac tu choi ngay o day cho nguoi de nghi
+    # biet phai doi tep, thay vi doi 20 phut roi Manual Review.
+    from ecentric_workspace.platform.esign import render
+    for f in files:
+        if not f.requires_signature and not f.is_pdf and not render.is_renderable_mime(f.mime_type):
+            errs.append("supporting_not_renderable:%s" % f.file_name)
     if any(not f.sha256 or not (f.size_bytes or 0) for f in files):
         errs.append("incomplete_upload")
     levels = frappe.get_all("EC Digital Signature Profile Level",
