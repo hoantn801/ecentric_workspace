@@ -259,19 +259,26 @@ def targeted_handover_enabled():
 
 
 def requester_actor_split_enabled():
-    """ON mac dinh tu 04/09/2026. Tat khan cap: `bench set-config ec_esign_requester_actor_split 0`.
+    """OFF mac dinh. Bat: `bench set-config ec_esign_requester_actor_split 1` - va DUNG bat.
 
-    Vi sao co: eContract giao buoc "Khoi tao hop dong" cho tai khoan TAO tai lieu - la tai
-    khoan tich hop - nen nguoi trinh (chi Hien, 00046/00047/00048) khong bao gio giu task
-    va moi lenh ky cua chi ay bi tu choi ("khong co quyen... task da duoc xu ly"). Gan vai
-    tro cho node cung khong doi duoc (thu 02:21 04/09). Nhung SCTS tach token khoi nguoi
-    thuc hien: 12 chan duyet ky bang token tich hop + userId cua nguoi khac, chung thu HSM
-    len PDF la cua ho. Nen o RIENG chan nguoi trinh: `userId` = tai khoan tich hop (nguoi
-    giu task), `signatureInfo` = chu ky + chung thu cua nguoi trinh.
+    Thu nghiem 04/09 03:28 tren EC-PAYR-2026-00050 (chung tu 97a98c9d): gui userId = tai
+    khoan tich hop, signatureInfo (id, signerId, hsmId) = cua chi Hien. SCTS NHAN (2xx, khong
+    fallback, task chuyen sang L1) - nhung chu ky dong len PDF la cua TAI KHOAN TICH HOP:
+
+        Tham gia/signed @04/09/2026 03:28 hoan.tran@ecentric.vn
+
+    Ket luan cung: SCTS ky bang chung thu cua `userId`; `signatureInfo` KHONG doi duoc chu
+    chu ky. Bat co nay len = moi phieu cua nguoi de nghi khac deu mang chu ky cua tai khoan
+    tich hop o o "Nguoi de nghi" va TU DONG di tiep sang cap duyet. Nguy hiem hon that bai
+    cu (400, dung lai an toan). Giu code de bang chung tai hien duoc; mac dinh OFF.
+
+    Boi canh: eContract giao buoc "Khoi tao hop dong" cho tai khoan TAO tai lieu bat ke vai
+    tro tren node (thu 02:21). Nguoi trinh khong giu task -> userId cua ho bi 400. Chan
+    duyet chay duoc vi toUsers cua buoc truoc da giao task cho DUNG nguoi ky.
     """
     v = frappe.conf.get("ec_esign_requester_actor_split")
     if v is None or v == "":
-        return True
+        return False
     try:
         return bool(int(v))
     except Exception:

@@ -1,35 +1,10 @@
 {
- "doctype": "DocType",
- "name": "EC SCTS User Mapping",
- "module": "Approval Center",
+ "allow_rename": 0,
+ "autoname": "EC-DSM-.#####.",
  "custom": 0,
- "istable": 0,
- "issingle": 0,
- "is_virtual": 0,
+ "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
- "track_changes": 1,
- "allow_rename": 0,
- "sort_field": "modified",
- "sort_order": "DESC",
- "links": [],
- "index_web_pages_for_search": 0,
- "autoname": "EC-DSM-.#####.",
- "naming_rule": "Expression",
- "permissions": [
-  {
-   "role": "System Manager",
-   "read": 1,
-   "write": 1,
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "report": 1,
-   "share": 1
-  }
- ],
  "field_order": [
   "frappe_user",
   "environment",
@@ -42,25 +17,31 @@
   "verified_at",
   "verified_by",
   "signature_meta_summary",
+  "sec_api_token",
+  "api_token",
+  "api_token_username",
+  "cb_api_token",
+  "api_token_linked_at",
+  "api_token_expires_at",
   "notes"
  ],
  "fields": [
   {
    "fieldname": "frappe_user",
    "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "ERP User",
    "options": "User",
-   "reqd": 1,
-   "in_list_view": 1,
-   "in_standard_filter": 1
+   "reqd": 1
   },
   {
    "fieldname": "environment",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Environment",
    "options": "UAT\nProduction",
-   "reqd": 1,
-   "in_list_view": 1
+   "reqd": 1
   },
   {
    "fieldname": "scts_user_id",
@@ -85,21 +66,21 @@
    "label": "SCTS Company ID"
   },
   {
+   "default": "1",
    "fieldname": "active",
    "fieldtype": "Check",
-   "label": "Active",
-   "default": "1",
-   "in_list_view": 1
+   "in_list_view": 1,
+   "label": "Active"
   },
   {
+   "default": "Draft",
    "fieldname": "mapping_status",
    "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Mapping Status",
    "options": "Draft\nVerified\nSuspended",
-   "default": "Draft",
-   "reqd": 1,
-   "in_list_view": 1,
-   "in_standard_filter": 1
+   "reqd": 1
   },
   {
    "fieldname": "verified_at",
@@ -115,16 +96,75 @@
    "read_only": 1
   },
   {
+   "description": "Safe metadata only (type/company). Never signature images, never HSM IDs.",
    "fieldname": "signature_meta_summary",
    "fieldtype": "Data",
    "label": "Signature Meta Summary",
-   "read_only": 1,
-   "description": "Safe metadata only (type/company). Never signature images, never HSM IDs."
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_api_token",
+   "fieldtype": "Section Break",
+   "label": "Kết nối API theo người dùng (tự kết nối, không lưu mật khẩu)"
+  },
+  {
+   "description": "Token 1 năm do SCTS cấp khi người dùng tự đăng nhập qua ERP. Mật khẩu KHÔNG được lưu. ERP dùng token này để tạo chứng từ + Trình ký dưới danh nghĩa người đó.",
+   "fieldname": "api_token",
+   "fieldtype": "Password",
+   "label": "API Token (SCTS, do chính người dùng kết nối)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "api_token_username",
+   "fieldtype": "Data",
+   "label": "Tên đăng nhập SCTS đã kết nối",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_api_token",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "api_token_linked_at",
+   "fieldtype": "Datetime",
+   "label": "Kết nối lúc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "api_token_expires_at",
+   "fieldtype": "Datetime",
+   "label": "Token hết hạn",
+   "read_only": 1
   },
   {
    "fieldname": "notes",
    "fieldtype": "Small Text",
    "label": "Notes"
   }
- ]
+ ],
+ "index_web_pages_for_search": 0,
+ "is_virtual": 0,
+ "issingle": 0,
+ "istable": 0,
+ "links": [],
+ "module": "Approval Center",
+ "name": "EC SCTS User Mapping",
+ "naming_rule": "Expression",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
 }

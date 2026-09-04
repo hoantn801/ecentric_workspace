@@ -32,6 +32,35 @@
        nhung khong mot man hinh nao goi no: ca hai lan chay thu (27 va 28/08) deu phai goi
        API bang tay. Chuan bi va khoa gia xong ma khong gui di duoc thi luong dung tai day. -->
   <button id="ecReqSign" class="btn btn-sm btn-primary ec-sub" style="display:none">Trình ký</button>
+  <!-- KET NOI TAI KHOAN KY SO (04/09). eContract giao buoc Trinh ky cho tai khoan TAO chung
+       tu; ERP phai tao bang token cua chinh nguoi de nghi. Nguoi dung nhap mat khau SCTS MOT
+       LAN, ERP giu token (1 nam), khong luu mat khau. Khoi nay chi hien cho nguoi de nghi
+       khi backend bao scts_link_required && !scts_linked. -->
+  <div id="ecReqLink" class="ec-link" style="display:none">
+    <style>
+      .ec-req-sign .ec-link{margin-top:8px;padding:10px;border:1px solid #f0c36d;border-radius:6px;background:#fff8e6}
+      .ec-req-sign .ec-link-title{font-weight:600;margin-bottom:4px}
+      .ec-req-sign .ec-link-help{color:#57606a;margin-bottom:8px}
+      .ec-req-sign .ec-link-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+      .ec-req-sign .ec-link-row label{margin:0;font-weight:500}
+      .ec-req-sign .ec-link-row input{flex:1 1 180px;min-width:0;padding:5px 8px;border:1px solid #d0d7de;border-radius:6px}
+      .ec-req-sign .ec-link-err{color:#a40e26;background:#ffebe9;padding:6px 8px;border-radius:6px;margin-top:6px}
+      .ec-req-sign .ec-link-ok{color:#1a7f37;margin-top:6px}
+    </style>
+    <div class="ec-link-title">Kết nối tài khoản ký số SCTS</div>
+    <div class="ec-link-help">Để chữ ký người đề nghị là của chính bạn, ERP cần tạo chứng từ
+      bằng tài khoản SCTS của bạn. Nhập mật khẩu SCTS <b>một lần</b>; ERP chỉ giữ mã kết nối
+      (1 năm), <b>không lưu mật khẩu</b>.</div>
+    <form id="ecReqLinkForm" class="ec-link-row" autocomplete="off">
+      <label for="ecReqLinkUser">Tài khoản</label>
+      <input id="ecReqLinkUser" type="text" autocomplete="username" placeholder="email SCTS (mặc định = email ERP)">
+      <label for="ecReqLinkPass">Mật khẩu SCTS</label>
+      <input id="ecReqLinkPass" type="password" autocomplete="current-password" required>
+      <button id="ecReqLinkBtn" type="submit" class="btn btn-sm btn-primary">Kết nối</button>
+    </form>
+    <div id="ecReqLinkErr" class="ec-link-err" style="display:none"></div>
+  </div>
+  <div id="ecReqLinked" class="ec-link-ok" style="display:none"></div>
 </div>
 <script id="ec-req-sign-script">
 (function () {
@@ -50,6 +79,49 @@
   var btnLock = document.getElementById("ecReqLock");
   var btnFix = document.getElementById("ecReqFix");
   var btnSign = document.getElementById("ecReqSign");
+  var elLink = document.getElementById("ecReqLink");
+  var elLinked = document.getElementById("ecReqLinked");
+  var elLinkErr = document.getElementById("ecReqLinkErr");
+  var frmLink = document.getElementById("ecReqLinkForm");
+  var inLinkUser = document.getElementById("ecReqLinkUser");
+  var inLinkPass = document.getElementById("ecReqLinkPass");
+  var btnLink = document.getElementById("ecReqLinkBtn");
+
+  // Khoi ket noi tai khoan SCTS: hien khi backend noi can ket noi ma chua ket noi. Trang
+  // thai la cua backend (readiness); trinh duyet khong tu suy ra. Da ket noi thi chi bao
+  // con bao nhieu ngay.
+  function renderLink(c) {
+    if (!elLink) return;
+    var need = b(c, "scts_link_required");
+    var linked = b(c, "scts_linked");
+    var days = (c && typeof c.scts_link_days_left === "number") ? c.scts_link_days_left : null;
+    elLink.style.display = (need && !linked) ? "block" : "none";
+    if (need && linked) {
+      elLinked.textContent = "Đã kết nối tài khoản ký số SCTS"
+        + (days !== null ? " (còn " + days + " ngày)" : "") + ".";
+      elLinked.style.display = "block";
+    } else {
+      elLinked.style.display = "none";
+    }
+  }
+  function linkErr(t) {
+    if (!elLinkErr) return;
+    elLinkErr.textContent = t || "";
+    elLinkErr.style.display = t ? "block" : "none";
+  }
+  // TEMP-WORKAROUND (2026-09-04, chua co helper dung chung): rut cau frappe.throw ra khoi
+  // xhr de nguoi dung doc duoc "Dang nhap SCTS khong thanh cong" thay vi cau chung chung.
+  // Cung mot doan nay dang chep o 8 form khac (extractServerMsg) - gom lai la viec rieng.
+  function serverMsg(e) {
+    try {
+      if (e && e.message && typeof e.message === "string") return e.message;
+      var raw = e && e.responseJSON && e.responseJSON._server_messages;
+      if (!raw) return "";
+      var arr = JSON.parse(raw);
+      var first = arr.length ? JSON.parse(arr[0]) : null;
+      return (first && first.message) ? String(first.message).replace(/<[^>]+>/g, "") : "";
+    } catch (x) { return ""; }
+  }
 
   // Cho nha cung cap xac nhan. Bam "Trinh ky" xong thi khong co gi thay doi trong 3-4 phut:
   // SCTS xu ly bat dong bo. Man hinh khong noi gi thi khong phan biet duoc voi mot nut khong
@@ -128,6 +200,7 @@
           btnPrep.style.display = "none"; btnLock.style.display = "none";
           btnFix.style.display = "none"; elGate.style.display = "none";
           msg("Yêu cầu chưa gửi duyệt. Sau khi gửi, bạn sẽ chuẩn bị và ký gói tài liệu tại đây.");
+          renderLink(c);         // ket noi duoc NGAY tu truoc khi gui, khoi bi chan quay lai
           return;
         }
         if (!visible) { stopWait(); }
@@ -191,9 +264,12 @@
           msg("Đã khoá gói ký và gửi chữ ký của bạn tới nhà cung cấp.");
         } else if (!b(c, "verified_mapping")) {
           msg("Người đề nghị chưa có ánh xạ chữ ký đã xác minh.", true);
+        } else if (b(c, "scts_link_required") && !b(c, "scts_linked")) {
+          msg("Cần kết nối tài khoản ký số SCTS của bạn trước khi gửi.", true);
         } else {
           msg("");
         }
+        renderLink(c);
       })
       .catch(function (e) {
         // refresh khong catch tung lam panel dung im khi endpoint hong - ke ca luc dang
@@ -274,6 +350,34 @@
       .catch(function (e) {
         msg("Không gửi được yêu cầu ký: " + ((e && e.message) || "lỗi không rõ"), true);
       });
+  };
+
+  // Ket noi tai khoan SCTS: mat khau di thang len backend (POST), khong luu o dau trong
+  // trinh duyet, xoa o nhap ngay sau khi gui. Thanh cong thi doc lai readiness tu server.
+  if (frmLink) frmLink.onsubmit = function (ev) {
+    ev.preventDefault();
+    var name = pr();
+    if (!name || !callReady()) return;
+    var pw = inLinkPass.value;
+    var user = (inLinkUser.value || "").trim();
+    if (!pw) { linkErr("Nhập mật khẩu SCTS."); return; }
+    linkErr("");
+    btnLink.disabled = true; btnLink.textContent = "Đang kết nối…";
+    inLinkPass.value = "";
+    window.frappe.call({ method: "ecentric_workspace.platform.esign.api.link_scts_account",
+      type: "POST", args: { payment_request_name: name, password: pw, username: user || null } })
+      .then(function (r) {
+        pw = null;
+        var m = (r && r.message) || {};
+        if (!m.linked) { linkErr("Chưa kết nối được. Thử lại."); return; }
+        frappe.show_alert({ message: "Đã kết nối tài khoản ký số SCTS.", indicator: "green" });
+        refresh();
+      })
+      .catch(function (e) {
+        pw = null;
+        linkErr(serverMsg(e) || "Không kết nối được. Kiểm tra tài khoản/mật khẩu.");
+      })
+      .then(function () { btnLink.disabled = false; btnLink.textContent = "Kết nối"; });
   };
 
   // Recovery: cancel an INVALID locked package (governed, requester/SM) so a fresh Draft can

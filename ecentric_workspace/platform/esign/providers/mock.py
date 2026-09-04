@@ -23,6 +23,11 @@ class MockAdapter(SignatureProviderAdapter):
     def reset(cls):
         cls.STORE.clear()
 
+    def use_user_token(self, token):
+        """Mock has no identities; remember the token so tests can assert it was routed."""
+        self.user_token = token
+        return self
+
     # -- helpers -------------------------------------------------------------
     def _mode(self):
         site = (self.settings.get("site") if isinstance(self.settings, dict)

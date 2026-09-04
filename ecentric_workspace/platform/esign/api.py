@@ -1029,6 +1029,38 @@ def requester_submit_and_sign(payment_request_name, comment=None):
                                                comment=comment)
 
 
+# --- ket noi tai khoan SCTS cua CHINH nguoi dang dang nhap (04/09) -----------------------
+# Khong co tham so `user`: chi thao tac tren mapping cua frappe.session.user. Mat khau chi
+# di qua link_scts_account -> user_link.link -> client.login, khong luu, khong log.
+
+@frappe.whitelist()
+def scts_link_status(payment_request_name):
+    """Trang thai ket noi (khong co token) cua nguoi dang dang nhap, theo moi truong cua phieu."""
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.platform.esign import requester, user_link
+    st, env = requester.link_context("EC Payment Request", payment_request_name)
+    return user_link.link_status(frappe.session.user, st, env)
+
+
+@frappe.whitelist(methods=["POST"])
+def link_scts_account(payment_request_name, password, username=None):
+    """Nguoi dung tu dang nhap SCTS mot lan; ERP giu TOKEN, bo mat khau ngay."""
+    _business_args("EC Payment Request", payment_request_name)
+    frappe.local.form_dict.pop("password", None)      # khong de mat khau nam trong request data
+    from ecentric_workspace.platform.esign import requester, user_link
+    st, env = requester.link_context("EC Payment Request", payment_request_name)
+    return user_link.link(frappe.session.user, st, env, password, username=username)
+
+
+@frappe.whitelist(methods=["POST"])
+def unlink_scts_account(payment_request_name):
+    """Go token cua chinh minh."""
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.platform.esign import requester, user_link
+    st, env = requester.link_context("EC Payment Request", payment_request_name)
+    return user_link.unlink(frappe.session.user, st, env)
+
+
 @frappe.whitelist(methods=["POST"])
 def prepare_requester_signing_package(payment_request_name):
     """Requester 'Prepare Signing Package': create/reuse the package + add eligible PDFs +
