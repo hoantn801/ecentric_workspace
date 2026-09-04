@@ -143,7 +143,8 @@ class TestHubHtml(unittest.TestCase):
         self.assertIn('type:"POST"', body)
         self.assertIn("business_doctype:d.business_doctype", body)
         self.assertIn("business_name:d.business_name", body)
-        self.assertIn('d.business_name!==reqName', body, "phai ky dung phieu dang mo")
+        self.assertIn('ap.name!==reqName', body, "phai ky dung phieu dang mo - so MA PHE DUYET, khong phai ma phieu")
+        self.assertNotIn('d.business_name!==reqName', body, "so ma phieu voi ma phe duyet = luon truot (loi p141)")
         self.assertIn('kind==="approve_sign"', self.h)
 
     def test_dong_danh_sach_cap_ky_so_mo_popup(self):

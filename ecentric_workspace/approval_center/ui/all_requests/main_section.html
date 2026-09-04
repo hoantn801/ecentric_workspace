@@ -751,8 +751,10 @@
   // tu resolve cap/goi ky/vi tri/chuyen tiep. Ket qua la "da GUI lenh ky" - chu ky duoc xac
   // nhan bat dong bo trong vai giay toi vai phut; khong hua "da duyet".
   function runApproveSign(reqName, btn, fromModal, comment){
-    var d=state.detail||{};
-    if(!d.business_doctype||!d.business_name||d.business_name!==reqName){ toast("Không xác định được phiếu để ký. Mở lại phiếu rồi thử.","err"); return; }
+    var d=state.detail||{}, ap=d.approval||{};
+    // reqName tren hub la MA PHE DUYET (EC-APR-...), con business_name la ma phieu (EC-PAYR-...).
+    // Lan dau (p141) so nham hai ma -> chot luon truot -> "Khong xac dinh duoc phieu de ky" (Lien, 04/09).
+    if(!d.business_doctype||!d.business_name||ap.name!==reqName){ toast("Không xác định được phiếu để ký. Mở lại phiếu rồi thử.","err"); return; }
     if(btn){ btn.disabled=true; btn.dataset.lbl=btn.textContent; btn.textContent="Đang gửi ký…"; }
     var args={business_doctype:d.business_doctype, business_name:d.business_name}; if(comment) args.comment=comment;
     frappe.call({method:"ecentric_workspace.platform.esign.api.approve_and_sign",args:args,type:"POST"})
