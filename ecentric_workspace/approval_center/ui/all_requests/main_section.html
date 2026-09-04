@@ -212,6 +212,16 @@
   #ec-apl-root .chips{ display:flex; align-items:center; } #ec-apl-root .chips .av{ margin-left:-8px; } #ec-apl-root .chips .av:first-child{ margin-left:0; } #ec-apl-root .chips .more{ margin-left:6px; font-size:12px; color:var(--gray-500); font-weight:600; }
   #ec-apl-root .pager{ display:flex; align-items:center; justify-content:space-between; padding:12px 14px; }
   #ec-apl-root .pager .info{ font-size:12.5px; color:var(--gray-500); }
+  /* Nhap cua toi (05/09): dai tren bang o tab "Cho toi xu ly" */
+  #ec-apl-root .apl-drafts{ margin:0 0 12px; padding:10px 14px; border:1px dashed var(--gray-300,#d0d7de); border-radius:10px; background:#fffdf5; }
+  #ec-apl-root .apl-drafts h4{ margin:0 0 6px; font-size:13px; color:var(--gray-700); }
+  #ec-apl-root .apl-drafts h4 .n{ display:inline-block; min-width:18px; padding:0 6px; border-radius:9px; background:#fff3bf; color:#7a5a00; font-size:11.5px; text-align:center; margin-left:6px; }
+  #ec-apl-root .apl-draft{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:6px 0; border-top:1px solid #f1ecd8; font-size:13px; }
+  #ec-apl-root .apl-draft:first-of-type{ border-top:0; }
+  #ec-apl-root .apl-draft .pill{ padding:1px 8px; border-radius:10px; background:#fff3bf; color:#7a5a00; font-size:11.5px; font-weight:600; }
+  #ec-apl-root .apl-draft .t{ font-weight:600; }
+  #ec-apl-root .apl-draft .m{ color:var(--gray-500); font-size:12px; }
+  #ec-apl-root .apl-draft a{ margin-left:auto; }
   #ec-apl-root .state{ padding:44px; text-align:center; color:var(--gray-500); } #ec-apl-root .state h4{ margin:0 0 6px; color:var(--gray-700); }
   #ec-apl-root .skel{ height:44px; border-bottom:1px solid var(--gray-100); background:var(--gray-50); }
   @media (max-width:900px){ #ec-apl-root{ grid-template-columns:1fr; } #ec-apl-root .ec-sidebar{ position:fixed; left:0; top:0; width:248px; z-index:50; transform:translateX(-100%); transition:transform .22s; } #ec-apl-root.sb-open .ec-sidebar{ transform:translateX(0); } #ec-apl-root .topbar .hamburger{ display:block; } #ec-apl-root .card{ overflow-x:auto; } }
@@ -289,11 +299,24 @@
 
   function load(){ $("apl-body").innerHTML='<div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>';
     return call("list_requests",{ box:state.box, filters:JSON.stringify(filters()), start:state.start, page_length:state.page_length, search:$("f-search").value||"" })
-      .then(function(res){ state.total=(res&&res.total)||0; render((res&&res.rows)||[]); }).catch(function(){ renderError(); }); }
+      .then(function(res){ state.total=(res&&res.total)||0; state.drafts=(res&&res.drafts)||[]; render((res&&res.rows)||[]); }).catch(function(){ renderError(); }); }
+  // Ban nhap cua toi: chi tab "Cho toi xu ly", trang dau. Luu nhap xong ma khong thay phieu
+  // dau (Hoan 05/09) - vi khong co Approval Request nen khong o tab nao. Hien rieng mot dai,
+  // gan nhan "Nhap", bam vao mo lai form de sua/gui.
+  function draftsHtml(){
+    var ds=state.drafts||[]; if(state.box!=="fulfil"||state.start>0||!ds.length) return "";
+    return '<div class="apl-drafts"><h4>Nháp của tôi — chưa gửi duyệt<span class="n">'+ds.length+'</span></h4>'
+      + ds.map(function(d){ return '<div class="apl-draft"><span class="pill">Lưu nháp</span>'
+          +'<span class="t">'+esc(d.type_title||d.approval_type||"")+'</span><span>'+esc(d.name)+'</span>'
+          +'<span class="m">sửa lần cuối '+fmtDT(d.modified)+'</span>'
+          +(d.detail_route?'<a class="btn ok" href="'+esc(d.detail_route)+'">Tiếp tục</a>':'')+'</div>'; }).join("")
+      + '</div>';
+  }
   function renderError(){ $("apl-body").innerHTML='<div class="state"><h4>Không tải được dữ liệu</h4><p>Vui lòng thử lại.</p><button type="button" class="btn primary" id="apl-retry">Thử lại</button></div>'; var r=$("apl-retry"); if(r) r.onclick=load; }
 
   function render(rows){
-    if(!rows.length){ $("apl-body").innerHTML='<div class="state"><h4>Không có yêu cầu</h4><p>Không có yêu cầu nào khớp bộ lọc trong phạm vi của bạn.</p></div>'; return; }
+    var drafts=draftsHtml();
+    if(!rows.length){ $("apl-body").innerHTML=drafts+'<div class="state"><h4>Không có yêu cầu</h4><p>Không có yêu cầu nào khớp bộ lọc trong phạm vi của bạn.</p></div>'; return; }
     var ws=colWidths();
     var head='<table style="min-width:'+ws.reduce(function(a,b){return a+b;},0)+'px">'
       +'<colgroup>'+ws.map(function(w){ return '<col style="width:'+w+'px">'; }).join("")+'</colgroup>'
@@ -314,7 +337,7 @@
     state.rowById={}; rows.forEach(function(r){ state.rowById[r.name]=r; });
     var from=state.total?state.start+1:0, to=Math.min(state.start+rows.length,state.total);
     var pager='<div class="pager"><div class="info">'+from+'–'+to+' / '+state.total+'</div><div><button type="button" class="btn" id="apl-prev"'+(state.start<=0?" disabled":"")+'>‹ Trước</button> <button type="button" class="btn" id="apl-next"'+(state.start+state.page_length>=state.total?" disabled":"")+'>Sau ›</button></div></div>';
-    $("apl-body").innerHTML='<div style="overflow-x:auto">'+head+body+'</tbody></table></div>'+pager;
+    $("apl-body").innerHTML=drafts+'<div style="overflow-x:auto">'+head+body+'</tbody></table></div>'+pager;
     wireResize($("apl-body").querySelector("table"));
     wire();
   }

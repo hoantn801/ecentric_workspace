@@ -630,3 +630,21 @@ def drilldown(scope, filters, limit=200):
     sla_by = {r["name"]: _sla.sla_state(r, ref_now=now) for r in rows}
     rows = rows[:limit]
     return [_row_view(r, sla_by, now) for r in rows]
+
+
+def my_drafts():
+    """Ban nhap cua nguoi dang dang nhap, kem tieu de loai + duong dan mo lai (05/09)."""
+    import frappe
+    rows = _q.fetch_my_drafts(frappe.session.user)
+    types = {}
+    for r in rows:
+        at = r["approval_type"]
+        if at not in types:
+            t = frappe.db.get_value("EC Approval Type", at, ["approval_title", "route"], as_dict=True) or {}
+            types[at] = t
+        t = types[at]
+        route = (t.get("route") or "").strip()
+        r["type_title"] = t.get("approval_title") or at
+        r["detail_route"] = ("/" + route.lstrip("/") + "?id=" + r["name"]) if route else None
+        r["status_label"] = "Nháp"
+    return rows

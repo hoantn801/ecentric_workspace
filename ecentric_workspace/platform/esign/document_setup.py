@@ -544,7 +544,8 @@ def set_document_requires_signature(business_doctype, business_name, document_re
             display = f.file_name or (f.file_url or "").rsplit("/", 1)[-1] or "document"
             row = pkgsvc.add_file(draft, display, content,
                                   requires_signature=1 if requested else 0,
-                                  is_supporting_document=0 if requested else 1)
+                                  is_supporting_document=0 if requested else 1,
+                                  source_file=f.name)      # lien ket, khong sao chep (05/09)
             dsf_name = row.name
         else:
             draft = cur_name
