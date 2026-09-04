@@ -148,9 +148,8 @@
     "sha256": "347f7ad43edc901cbd42da98f89580c64d86d4d403e2f981408abf9a9163c740"
   },
   "approval_center/ui/hub/main_section.html": {
-    "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "0a0283916444d73cbebb401f89146a9235e0a89268ba34dda68235120b055a81"
+    "last_resync_patch": "p140_resync_hub_scts_link_button",
+    "sha256": "8535d4deb3377399724dd855077f6ce9c359fadf1bbbecfa98c37d7fae0fdd2e"
   },
   "hr/pages/install_guide/main_section.html": {
     "baseline": "2026-08-31",
@@ -193,8 +192,8 @@
     "sha256": "266607e3c3f31f89dd2eed2f25c3414cecd1be8578e4f77592da983a98af37d3"
   },
   "platform/esign/ui/document_signing_section.html": {
-    "last_resync_patch": "p133_resync_upload_permission_for_ordinary_users",
-    "sha256": "762c3fa520bb007930a52c6cd495661aad966a9da7ebeab8dc1ff4e77e78bfbb"
+    "last_resync_patch": "p139_resync_payment_request_drawer_stage_and_draft_link",
+    "sha256": "40f6785ba79b8bd88747b4b3628b5c92a74486eb1629eb503faa969cbaecca4d"
   },
   "platform/esign/ui/ops_page.html": {
     "last_resync_patch": "p132_resync_esign_ops_resend",

@@ -50,6 +50,24 @@
   #ec-apc-root .apc-search input{ width:280px; max-width:60vw; padding:9px 12px 9px 34px; border:1px solid var(--gray-200); border-radius:9px; font-size:13.5px; background:#fff; font-family:inherit; }
   #ec-apc-root .apc-search input:focus{ outline:none; border-color:var(--navy); box-shadow:0 0 0 3px var(--navy-50); }
   #ec-apc-root .apc-search .s-ic{ position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--gray-400); }
+  /* Nut "Ket noi SCTS" (04/09): xanh la khi CHUA ket noi, xam nhat khi da ket noi, an khi khong lien quan */
+  #ec-apc-root .apc-scts{ position:relative; }
+  #ec-apc-root .apc-scts-btn{ display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:9px; border:1px solid #1a7f37; background:#1f883d; color:#fff; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; white-space:nowrap; }
+  #ec-apc-root .apc-scts-btn:hover{ background:#1a7f37; }
+  #ec-apc-root .apc-scts-btn.is-linked{ background:#f6f8fa; color:#1a7f37; border-color:#d0d7de; font-weight:500; }
+  #ec-apc-root .apc-scts[hidden]{ display:none; }
+  #ec-apc-root .apc-scts-pop{ position:absolute; right:0; top:calc(100% + 8px); z-index:30; width:320px; max-width:92vw; background:#fff; border:1px solid var(--gray-200); border-radius:12px; box-shadow:0 12px 32px rgba(16,24,40,.14); padding:14px; text-align:left; }
+  #ec-apc-root .apc-scts-pop[hidden]{ display:none; }
+  #ec-apc-root .apc-scts-pop h4{ margin:0 0 4px; font-size:14px; }
+  #ec-apc-root .apc-scts-pop p{ margin:0 0 10px; font-size:12.5px; color:#57606a; line-height:1.45; }
+  #ec-apc-root .apc-scts-pop label{ display:block; font-size:12px; font-weight:600; margin:8px 0 4px; }
+  #ec-apc-root .apc-scts-pop input{ width:100%; padding:8px 10px; border:1px solid var(--gray-200); border-radius:8px; font-size:13px; font-family:inherit; box-sizing:border-box; }
+  #ec-apc-root .apc-scts-pop .row{ display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+  #ec-apc-root .apc-scts-pop .btn-x{ padding:7px 12px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; cursor:pointer; font-family:inherit; font-size:13px; }
+  #ec-apc-root .apc-scts-pop .btn-go{ padding:7px 14px; border-radius:8px; border:1px solid #1a7f37; background:#1f883d; color:#fff; cursor:pointer; font-family:inherit; font-size:13px; font-weight:600; }
+  #ec-apc-root .apc-scts-pop .btn-go[disabled]{ opacity:.6; cursor:default; }
+  #ec-apc-root .apc-scts-err{ color:#a40e26; background:#ffebe9; padding:6px 8px; border-radius:6px; font-size:12.5px; margin-top:8px; }
+  #ec-apc-root .apc-scts-err[hidden]{ display:none; }
   /* category chips */
   #ec-apc-root .apc-cats{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
   #ec-apc-root .chip{ padding:7px 14px; border-radius:999px; border:1px solid var(--gray-200); background:#fff; color:var(--gray-600); font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
@@ -122,6 +140,24 @@
           <p class="apc-desc">Gửi và theo dõi các yêu cầu nội bộ của công ty — nghỉ việc, tuyển dụng, mua sắm, tài sản, ngân sách, dữ liệu và nhiều loại khác. Chọn loại yêu cầu bên dưới để bắt đầu.</p>
         </div>
         <div class="h-actions">
+          <div class="apc-scts" id="apc-scts" hidden>
+            <button type="button" id="apc-scts-btn" class="apc-scts-btn" aria-haspopup="dialog" aria-expanded="false">Kết nối SCTS</button>
+            <div id="apc-scts-pop" class="apc-scts-pop" role="dialog" aria-label="Kết nối tài khoản ký số SCTS" hidden>
+              <h4>Kết nối tài khoản ký số SCTS</h4>
+              <p>Để chữ ký người đề nghị là của chính bạn, ERP tạo chứng từ bằng tài khoản SCTS của bạn. Nhập mật khẩu SCTS <b>một lần</b>; ERP chỉ giữ mã kết nối (1 năm), <b>không lưu mật khẩu</b>.</p>
+              <form id="apc-scts-form" autocomplete="off">
+                <label for="apc-scts-user">Tài khoản SCTS</label>
+                <input id="apc-scts-user" type="text" autocomplete="username" placeholder="mặc định = email ERP của bạn">
+                <label for="apc-scts-pass">Mật khẩu SCTS</label>
+                <input id="apc-scts-pass" type="password" autocomplete="current-password" required>
+                <div id="apc-scts-err" class="apc-scts-err" hidden></div>
+                <div class="row">
+                  <button type="button" class="btn-x" id="apc-scts-cancel">Đóng</button>
+                  <button type="submit" class="btn-go" id="apc-scts-go">Kết nối</button>
+                </div>
+              </form>
+            </div>
+          </div>
           <div class="apc-search">
             <svg class="icon s-ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
             <input id="apc-q" type="text" placeholder="Tìm phê duyệt..." autocomplete="off" aria-label="Tìm phê duyệt">
@@ -278,6 +314,75 @@
     var root=$("ec-apc-root");
     if(root) root.addEventListener("click", onClick);
     fetchCatalog();
+    sctsInit();
+  }
+
+  // ---- Ket noi tai khoan SCTS (04/09, y Hoan: mot nut xanh o ngay hub cho tien) -----------
+  // Trang thai la cua backend (scts_link_status_me): an khi khong can (tai khoan tich hop /
+  // chua co mapping / cong ky so chua cau hinh), xanh la khi chua ket noi, xam khi da ket
+  // noi. Mat khau di thang len POST, xoa o nhap ngay khi gui, khong luu o dau.
+  var SCTS = { st:null, open:false };
+  function sctsRender(){
+    var wrap=$("apc-scts"), btn=$("apc-scts-btn"); if(!wrap||!btn) return;
+    var st=SCTS.st;
+    var show = !!(st && st.needs_link && st.has_mapping);
+    wrap.hidden = !show;
+    if(!show) return;
+    if(st.linked){
+      btn.className="apc-scts-btn is-linked";
+      btn.textContent="SCTS đã kết nối"+(typeof st.days_left==="number"?" · còn "+st.days_left+" ngày":"");
+      btn.title="Bấm để kết nối lại bằng mật khẩu mới";
+    } else {
+      btn.className="apc-scts-btn";
+      btn.textContent="Kết nối SCTS";
+      btn.title="Kết nối tài khoản ký số SCTS của bạn (một lần)";
+    }
+  }
+  function sctsErr(t){ var e=$("apc-scts-err"); if(!e) return; e.textContent=t||""; e.hidden=!t; }
+  function sctsToggle(open){
+    var pop=$("apc-scts-pop"), btn=$("apc-scts-btn"); if(!pop||!btn) return;
+    SCTS.open = open; pop.hidden = !open; btn.setAttribute("aria-expanded", open?"true":"false");
+    if(open){ sctsErr(""); var p=$("apc-scts-pass"); if(p){ p.value=""; p.focus(); } }
+  }
+  function sctsMsg(e){
+    try{
+      if(e && typeof e.message==="string" && e.message) return e.message;
+      var raw=e && e.responseJSON && e.responseJSON._server_messages; if(!raw) return "";
+      var arr=JSON.parse(raw), first=arr.length?JSON.parse(arr[0]):null;
+      return (first&&first.message)?String(first.message).replace(/<[^>]+>/g,""):"";
+    }catch(x){ return ""; }
+  }
+  function sctsLoad(){
+    if(!(window.frappe && typeof frappe.call==="function")) return;
+    frappe.call({ method:"ecentric_workspace.platform.esign.api.scts_link_status_me" })
+      .then(function(r){ SCTS.st = (r && r.message) || null; sctsRender(); })
+      .catch(function(){ SCTS.st = null; sctsRender(); });   // chua cau hinh ky so -> an nut, khong bao loi
+  }
+  function sctsInit(){
+    var btn=$("apc-scts-btn"), form=$("apc-scts-form"), cancel=$("apc-scts-cancel");
+    if(!btn||!form||btn.getAttribute("data-bound")==="1") return;
+    btn.setAttribute("data-bound","1");
+    btn.onclick=function(){ sctsToggle(!SCTS.open); };
+    cancel.onclick=function(){ sctsToggle(false); };
+    document.addEventListener("keydown", function(ev){ if(ev.key==="Escape" && SCTS.open) sctsToggle(false); });
+    form.onsubmit=function(ev){
+      ev.preventDefault();
+      var pw=$("apc-scts-pass").value, user=($("apc-scts-user").value||"").trim(), go=$("apc-scts-go");
+      if(!pw){ sctsErr("Nhập mật khẩu SCTS."); return; }
+      sctsErr(""); go.disabled=true; go.textContent="Đang kết nối…";
+      $("apc-scts-pass").value="";
+      frappe.call({ method:"ecentric_workspace.platform.esign.api.link_scts_account_me", type:"POST",
+                    args:{ password:pw, username:user||null } })
+        .then(function(r){
+          pw=null; var m=(r&&r.message)||{};
+          if(!m.linked){ sctsErr("Chưa kết nối được. Thử lại."); return; }
+          SCTS.st=m; sctsRender(); sctsToggle(false);
+          toast("Đã kết nối tài khoản ký số SCTS.");
+        })
+        .catch(function(e){ pw=null; sctsErr(sctsMsg(e)||"Không kết nối được. Kiểm tra tài khoản/mật khẩu."); })
+        .then(function(){ go.disabled=false; go.textContent="Kết nối"; });
+    };
+    sctsLoad();
   }
 
   // expose for headless tests (no security logic here; visibility is server-side)

@@ -40,8 +40,15 @@ def _html():
 # Deliberate update = edit frontend/approvals.main_section.html, bump
 # BASELINE_SHA256, move the value it replaced into SUPERSEDES_SHA256 -- all in
 # the same commit.
-BASELINE_SHA256 = "167633893d650b0d186e9eb4f638a8dc10478119d10610fb4e166d6088f0a191"
-SUPERSEDES_SHA256 = ("243836867f03377a37c3542a52a10a9b287475c3574019b7d34d1ac3447eb392",)
+BASELINE_SHA256 = "8535d4deb3377399724dd855077f6ce9c359fadf1bbbecfa98c37d7fae0fdd2e"
+SUPERSEDES_SHA256 = (
+    "243836867f03377a37c3542a52a10a9b287475c3574019b7d34d1ac3447eb392",
+    "167633893d650b0d186e9eb4f638a8dc10478119d10610fb4e166d6088f0a191",   # baseline truoc p140
+    # DO tren prod 04/09 14:40 (Web Page approval-center, modified 25/08 14:59): live khong bang
+    # baseline cu -> khong them thi p140 bi khoa chong troi tu choi y het p134. Them gia tri DO
+    # duoc, KHONG force=1 (bai hoc p135).
+    "0a0283916444d73cbebb401f89146a9235e0a89268ba34dda68235120b055a81",
+)
 
 
 def sync(html=None, force=0):
