@@ -41,3 +41,12 @@ def funding_source_summary(source_doctype, source_name, exclude_request=None):
     if not frappe.has_permission(source_doctype, "read", doc=source_name):
         frappe.throw(frappe._("Bạn không có quyền xem chứng từ nguồn này."))
     return funding.describe_source(source_doctype, source_name, exclude_request or None)
+
+
+# [TEMP-WORKAROUND 2026-09-04] xoa du lieu test truoc go-live - SM, POST, dry_run mac dinh,
+# cau xac nhan, chi owner test, het han 30/09. Xem infrastructure/purge_test_data.py.
+@frappe.whitelist(methods=["POST"])
+def purge_test_data(confirm=None, dry_run=1, owners=None):
+    from ecentric_workspace.approval_center.features.payment_request.infrastructure import (
+        purge_test_data as purge)
+    return purge.purge(confirm, dry_run=int(dry_run or 0), owners=owners or purge.DEFAULT_OWNERS)
