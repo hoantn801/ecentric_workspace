@@ -257,12 +257,36 @@ def _profile_of(dsr):
 
 def process_signing_request(dsr_name):
     """State-aware worker. Safe to re-run at any time (reconciler re-entry)."""
-    frappe.db.get_value(DSR, dsr_name, "name", for_update=True)
-    dsr = frappe.db.get_value(DSR, dsr_name, "*", as_dict=True)
+    # MOT lenh doc co khoa, tra ve DU LIEU. Truoc day: khoa `name` FOR UPDATE roi doc `*`
+    # bang lenh thuong. Duoi REPEATABLE READ cua MariaDB, lenh thuong doc tu snapshot lap
+    # o lan doc DAU TIEN cua transaction - ma cron poll_pending da get_all TRUOC khi goi vao
+    # day. Ket qua (00035 03/09 02:24, 00041 04/09 03:28): worker A gui lenh ky -> Provider
+    # Accepted -> commit; cron B dang doi khoa thuc day, doc `*` van thay Queued (snapshot
+    # cu) -> may_have_sent=False -> GUI LAN HAI trong vong 1 giay. Lenh ky khong idempotent.
+    # Doc co khoa (locking read) luon tra ban moi nhat da commit, khong phu thuoc snapshot.
+    dsr = frappe.db.get_value(DSR, dsr_name, "*", as_dict=True, for_update=True)
     if not dsr or dsr.status not in ("Queued", "Provider Accepted", "Verifying"):
         return
     try:
         settings, adapter = _settings_and_adapter(dsr)
+        # CHAN NGUOI DE NGHI DI BANG TOKEN CUA CHINH HO (04/09). eContract giao task Trinh ky
+        # cho tai khoan TAO chung tu va chi ky bang chung thu cua nguoi giu task - nen chung
+        # tu phai do nguoi de nghi tao. Chua ket noi thi CHAN truoc moi lenh ghi, khong bao
+        # gio roi ve tai khoan tich hop trong im lang (do la loi dang sua). Poll (doc) thi
+        # token nao cung duoc - khong giet mot chan da ky chi vi token bi go sau do.
+        from ecentric_workspace.platform.esign import user_link
+        if dsr.actor_type == "Requester" and user_link.needs_own_token(dsr.actor_user, settings):
+            user_tok = user_link.token_for(dsr.actor_user, dsr.environment)
+            if user_tok:
+                adapter.use_user_token(user_tok)
+                if dsr.status == "Queued":
+                    events.emit("ProviderAuthAsRequester", signature_request=dsr_name,
+                                package=dsr.package, erp_actor=dsr.actor_user)
+            elif dsr.status == "Queued":
+                raise ProviderError("requester_not_linked",
+                                    "nguoi de nghi chua ket noi tai khoan SCTS (hoac token "
+                                    "het han) - khong tao chung tu bang tai khoan tich hop",
+                                    retryable=False)
         if dsr.status == "Queued":
             # PRE-WRITE GATE (S2B-A): the FULL ERP-side signer binding must hold BEFORE
             # any SCTS write on this run - document assembly (AddDocument) AND bulk-process.

@@ -236,7 +236,7 @@ class SctsAdapter(SignatureProviderAdapter):
         if not token:
             raise ProviderError("scts_login_no_token",
                                 "SCTS login returned no token", retryable=False)
-        mins = raw.get("expiresInMinutes") if isinstance(raw, dict) else None
+        mins = self._extract_expiry(raw)
         self._store_token(token, mins)
         return {"authenticated": True, "expires_in_minutes": mins}
 
@@ -247,6 +247,22 @@ class SctsAdapter(SignatureProviderAdapter):
             return tok
         self.authenticate()
         return self._password("token_cache")
+
+    @staticmethod
+    def _extract_expiry(raw):
+        """expiresInMinutes - eContract boc trong `data` ({success, data:{token,
+        expiresInMinutes}}). Truoc 04/09 chi doc o cap ngoai -> luon None -> token_expires_at
+        rong -> _cached_token khong bao gio dung -> DANG NHAP LAI TRUOC MOI LENH suot 7 tuan.
+        Khong doc duoc thi None (khong cache), khong doan."""
+        if not isinstance(raw, dict):
+            return None
+        v = raw.get("expiresInMinutes")
+        if v is None and isinstance(raw.get("data"), dict):
+            v = raw["data"].get("expiresInMinutes")
+        try:
+            return int(v) if v is not None and str(v).strip() != "" else None
+        except (TypeError, ValueError):
+            return None
 
     @staticmethod
     def _extract_token(raw):
@@ -262,9 +278,35 @@ class SctsAdapter(SignatureProviderAdapter):
                     return data[k]
         return None
 
+    # -- token cua NGUOI DUNG (04/09) ------------------------------------------
+    #: Khi dat, MOI lenh cua adapter nay di bang token cua nguoi do - khong phai tai khoan
+    #: tich hop. Dung cho chan nguoi de nghi: chung tu phai do CHINH HO tao thi ho moi giu
+    #: task Trinh ky (xem user_link.py). Token nay khong bao gio duoc ghi ra dau.
+    _user_token = None
+
+    def use_user_token(self, token):
+        if not token:
+            raise ProviderError("scts_user_token_missing",
+                                "user token required but empty", retryable=False)
+        self._user_token = token
+        return self
+
     def _with_auth(self, fn):
         """Run fn(token); on a provider AUTH error refresh ONCE and retry (single
-        safe re-login). Any other error propagates as-is."""
+        safe re-login). Any other error propagates as-is.
+
+        Voi token nguoi dung: KHONG dang nhap lai bang tai khoan tich hop khi bi tu choi.
+        Roi ve tai khoan tich hop trong im lang = tao chung tu duoi ten sai nguoi - dung
+        loi dang sua. Tu choi thi bao ro de nguoi dung ket noi lai."""
+        if self._user_token:
+            try:
+                return fn(self._user_token)
+            except ProviderError as e:
+                if str(e.code or "").startswith("scts_auth_error"):
+                    raise ProviderError("scts_user_token_rejected",
+                                        "SCTS tu choi token cua nguoi de nghi - can ket noi "
+                                        "lai tai khoan ky so", retryable=False)
+                raise
         token = self.refresh_or_get_token()
         try:
             return fn(token)

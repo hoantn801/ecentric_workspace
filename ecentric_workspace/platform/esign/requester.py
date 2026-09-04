@@ -42,6 +42,22 @@ def _profile_and_settings(business_doctype, approval_type):
     return pname, prof, st
 
 
+def link_context(business_doctype, business_name):
+    """(settings, environment) de ket noi tai khoan SCTS cho phieu nay - truoc hay sau khi
+    gui deu duoc. Nguoi goi phai xem duoc phieu; khong co cau hinh ky so thi bao ro."""
+    perms.assert_can_view_business(business_doctype, business_name)
+    ar = perms.business_approval_request(business_doctype, business_name)
+    if ar:
+        at = frappe.db.get_value(AR, ar, "approval_type")
+    else:
+        at = frappe.db.get_value(business_doctype, business_name, "approval_type") \
+            if frappe.db.has_column(business_doctype, "approval_type") else None
+    _p, prof, st = _profile_and_settings(business_doctype, at) if at else (None, None, None)
+    if not prof or not st:
+        frappe.throw(_("Loại yêu cầu này chưa cấu hình ký số."))
+    return st, prof.environment
+
+
 def requester_signing_readiness(business_doctype, business_name):
     """Read-only, fail-closed readiness for the requester Submit & Sign action."""
     perms.assert_can_view_business(business_doctype, business_name)
@@ -59,6 +75,16 @@ def requester_signing_readiness(business_doctype, business_name):
         checks["is_owner"] = (frappe.session.user == owner)
         checks["requester_signature_required"] = bool(
             at and guard.requester_signature_required(business_doctype, at))
+        # Cho chu phieu ket noi tai khoan SCTS NGAY TU TRUOC KHI GUI - de luc bam Gui khong
+        # bi chan quay lai. Chi tinh khi da biet loai yeu cau (co profile/settings).
+        if checks["is_owner"] and checks["requester_signature_required"]:
+            _p, prof0, st0 = _profile_and_settings(business_doctype, at)
+            if prof0 and st0:
+                from ecentric_workspace.platform.esign import user_link
+                ls = user_link.link_status(owner, st0, prof0.environment)
+                checks["scts_link_required"] = bool(ls["needs_link"])
+                checks["scts_linked"] = bool(not ls["needs_link"] or ls["linked"])
+                checks["scts_link_days_left"] = ls["days_left"]
         return {"ready": False, "reasons": ["not_submitted"], "checks": checks,
                 "stage": "Not Submitted"}
     req = frappe.db.get_value(AR, ar, ["approval_type", "current_level", "approval_status",
@@ -76,6 +102,14 @@ def requester_signing_readiness(business_doctype, business_name):
     checks["requester_signature_processing"] = req.requester_signature_status == "Processing"
     mapping = perms.verified_mapping(req.requested_by, prof.environment) if prof else None
     checks["verified_mapping"] = bool(mapping)
+    # Ket noi tai khoan SCTS cua CHINH nguoi de nghi (04/09). Chi doc cho nguoi dang xem la
+    # nguoi de nghi - trang thai ket noi cua nguoi khac khong phai viec cua ai.
+    from ecentric_workspace.platform.esign import user_link
+    if prof and st and checks["is_requester"]:
+        ls = user_link.link_status(req.requested_by, st, prof.environment)
+        checks["scts_link_required"] = bool(ls["needs_link"])
+        checks["scts_linked"] = bool(not ls["needs_link"] or ls["linked"])
+        checks["scts_link_days_left"] = ls["days_left"]
     checks["provider_uat"] = bool(prof and prof.environment == "UAT")
     # execution gates (fail-closed for the ACTION; deferral already happened at submit).
     checks["gates_enabled"] = bool(st and st.get("integration_enabled")
@@ -244,6 +278,10 @@ def requester_submit_and_sign(business_doctype, business_name, comment=None):
         events.emit("MappingRequired", erp_actor=requester,
                     request_meta={"business": business_name})
         frappe.throw(_("Người đề nghị chưa có ánh xạ chữ ký SCTS được xác minh."))
+    # Chung tu phai do CHINH nguoi de nghi tao (token cua ho) thi ho moi giu task Trinh ky.
+    # Chan o day, TRUOC khi tao DSR - khong de lai chung tu rac ben SCTS (00046/47/48/50).
+    from ecentric_workspace.platform.esign import user_link
+    user_link.assert_requester_linked(requester, st, prof.environment)
     pkg_name = pkgsvc.signable_package_for_request(ar)   # Locked OR Active (see flow docs)
     if not pkg_name:
         frappe.throw(_("Không có gói tài liệu sẵn sàng ký."))

@@ -205,8 +205,8 @@
     "sha256": "a8bf13ca5af66694e1eebefe8ce7e733be37daf11c4d8da3aeecb8b4c6c7d23a"
   },
   "platform/esign/ui/requester_signing_panel.html": {
-    "last_resync_patch": "p115_resync_payment_request_e2e_fixes",
-    "sha256": "fc8b127b098383b844542059ee0a6526237b5ea42252944557168c4c0ea317e0"
+    "last_resync_patch": "p137_resync_payment_request_scts_user_link",
+    "sha256": "c03f16c48878f34d83346335c1840da5a52c04b7ebc981fe1cec7bf4a8022e18"
   },
   "reporting/frontend/pnl_dashboard.main_section.html": {
     "baseline": "2026-08-31",

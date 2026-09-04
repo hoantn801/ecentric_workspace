@@ -123,6 +123,13 @@ class SignatureProviderAdapter(object):
     def list_user_signatures(self, provider_user_id):
         raise NotImplementedError
 
+    # --- auth as a specific user -------------------------------------------------
+    def use_user_token(self, token):
+        """Route EVERY subsequent call of this adapter through `token` (a specific user's
+        credential) instead of the integration account. Providers must implement it
+        explicitly: silently ignoring it would create documents under the wrong identity."""
+        raise NotImplementedError
+
     # --- actions ---------------------------------------------------------------
     def approve_and_sign(self, instance_ids, provider_user_id, signature_id, transition_type=None):
         """Async accepted semantics: returns {bulk_job_transaction_id}. Acceptance is
