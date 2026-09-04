@@ -108,7 +108,7 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
     profile = _profile_doc(business_doctype, req.approval_type)
     settings = _settings_for(profile)
 
-    binding.assert_provider_uat(settings)  # S2B-A: fail fast; Production blocked at submit
+    binding.assert_provider_environment(settings)  # fail fast: nhan la + Production chua bat
     perms.assert_allowed_signer(settings, actor)
     perms.assert_pending_approver(req, actor)
     approver_row = perms.pending_approver_row(req.name, req.current_level, actor)
@@ -713,16 +713,18 @@ def signing_readiness(business_doctype, business_name):
     checks["mandatory_placements_complete"] = bool(
         pkg_name and not pkgsvc.preflight_for_lock(pkg_name))
     checks["verified_mapping"] = bool(perms.verified_mapping(user, profile.environment))
-    checks["provider_uat"] = (profile.environment == "UAT")
+    checks["provider_environment_ok"] = bool(
+        profile.environment in binding.ALLOWED_ENVIRONMENTS
+        and (profile.environment != "Production" or settings.get("allow_production_signing")))
     raw = (settings.get("allowed_signing_users") or "").replace(",", "\n")
     allowed = {u.strip().lower() for u in raw.splitlines() if u.strip()}
     checks["allowlisted"] = user.lower() in allowed
     checks["gates_enabled"] = bool(settings.get("integration_enabled")
                                    and settings.get("allow_document_creation")
                                    and settings.get("allow_signing"))
-    checks["production_signing_off"] = not bool(settings.get("allow_production_signing"))
+    checks["production_signing_on"] = bool(settings.get("allow_production_signing"))
     required = ["active_approver", "level_requires_signature", "package_active_hash_valid",
-                "mandatory_placements_complete", "verified_mapping", "provider_uat",
+                "mandatory_placements_complete", "verified_mapping", "provider_environment_ok",
                 "allowlisted", "gates_enabled"]
     ready = all(checks.get(k) for k in required)
     reasons = [k for k in required if not checks.get(k)]

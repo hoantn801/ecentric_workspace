@@ -116,11 +116,18 @@ class TestSctsBindingSecurity(FrappeTestCase):
             binding.assert_outbound_binding(dsr, _StubAdapter())
 
     # ---- provider environment ----
-    def test_production_provider_blocked(self):
+    def test_production_needs_explicit_switch(self):
+        # Production khong bat allow_production_signing -> chan
         with self.assertRaises(frappe.PermissionError):
-            binding.assert_provider_uat({"environment": "Production"})
-        # UAT passes the environment gate
-        self.assertIsNone(binding.assert_provider_uat({"environment": "UAT"}))
+            binding.assert_provider_environment({"environment": "Production",
+                                                 "allow_production_signing": 0})
+        # nhan la -> chan
+        with self.assertRaises(frappe.PermissionError):
+            binding.assert_provider_environment({"environment": "Staging"})
+        # Production da bat, va UAT, deu qua cong moi truong
+        self.assertIsNone(binding.assert_provider_environment(
+            {"environment": "Production", "allow_production_signing": 1}))
+        self.assertIsNone(binding.assert_provider_environment({"environment": "UAT"}))
 
     # ---- no role bypass ----
     def test_administrator_has_no_bypass(self):

@@ -42,6 +42,22 @@ def _profile_and_settings(business_doctype, approval_type):
     return pname, prof, st
 
 
+def _draft_approval_type(business_doctype, business_name):
+    """Loai yeu cau cua mot phieu CHUA GUI. Truong `approval_type` thuong trong o ban nhap
+    (Payment Request 00052: undefined), nen truoc day panel nguoi de nghi khong hien gi truoc
+    khi gui - ke ca o ket noi tai khoan SCTS, dung luc nguoi dung can no nhat (Hoan 04/09).
+    Khi loai doctype nay chi co DUNG MOT profile ky so dang bat thi dung loai yeu cau cua
+    profile do; nhieu hon mot thi khong doan."""
+    at = frappe.db.get_value(business_doctype, business_name, "approval_type") \
+        if frappe.db.has_column(business_doctype, "approval_type") else None
+    if at:
+        return at
+    rows = frappe.get_all("EC Digital Signature Profile",
+                          filters={"business_doctype": business_doctype, "enabled": 1},
+                          pluck="approval_type", limit_page_length=2)
+    return rows[0] if len(rows) == 1 else None
+
+
 def link_context(business_doctype, business_name):
     """(settings, environment) de ket noi tai khoan SCTS cho phieu nay - truoc hay sau khi
     gui deu duoc. Nguoi goi phai xem duoc phieu; khong co cau hinh ky so thi bao ro."""
@@ -50,8 +66,7 @@ def link_context(business_doctype, business_name):
     if ar:
         at = frappe.db.get_value(AR, ar, "approval_type")
     else:
-        at = frappe.db.get_value(business_doctype, business_name, "approval_type") \
-            if frappe.db.has_column(business_doctype, "approval_type") else None
+        at = _draft_approval_type(business_doctype, business_name)
     _p, prof, st = _profile_and_settings(business_doctype, at) if at else (None, None, None)
     if not prof or not st:
         frappe.throw(_("Loại yêu cầu này chưa cấu hình ký số."))
@@ -69,8 +84,7 @@ def requester_signing_readiness(business_doctype, business_name):
         # of nothing. approval_type is often blank on the un-submitted business doc; when it is,
         # requester_signature_required stays False (we do not guess).
         owner = frappe.db.get_value(business_doctype, business_name, "owner")
-        at = frappe.db.get_value(business_doctype, business_name, "approval_type") \
-            if frappe.db.has_column(business_doctype, "approval_type") else None
+        at = _draft_approval_type(business_doctype, business_name)
         checks["not_submitted"] = True
         checks["is_owner"] = (frappe.session.user == owner)
         checks["requester_signature_required"] = bool(
@@ -110,7 +124,10 @@ def requester_signing_readiness(business_doctype, business_name):
         checks["scts_link_required"] = bool(ls["needs_link"])
         checks["scts_linked"] = bool(not ls["needs_link"] or ls["linked"])
         checks["scts_link_days_left"] = ls["days_left"]
-    checks["provider_uat"] = bool(prof and prof.environment == "UAT")
+    from ecentric_workspace.platform.esign import binding
+    checks["provider_environment_ok"] = bool(
+        prof and prof.environment in binding.ALLOWED_ENVIRONMENTS
+        and (prof.environment != "Production" or (st and st.get("allow_production_signing"))))
     # execution gates (fail-closed for the ACTION; deferral already happened at submit).
     checks["gates_enabled"] = bool(st and st.get("integration_enabled")
                                    and st.get("allow_document_creation")
@@ -148,7 +165,7 @@ def requester_signing_readiness(business_doctype, business_name):
     checks["placements_ready"] = bool(cur_name and cur and cur.status == "Draft"
                                       and _req_complete)
     required = ["signing_enabled", "requester_signature_required", "is_requester",
-                "pending_requester_signature", "verified_mapping", "provider_uat",
+                "pending_requester_signature", "verified_mapping", "provider_environment_ok",
                 "gates_enabled", "package_active_hash_valid", "placements_complete"]
     ready = all(checks.get(k) for k in required)
     return {"ready": ready, "reasons": [k for k in required if not checks.get(k)],
@@ -263,7 +280,7 @@ def requester_submit_and_sign(business_doctype, business_name, comment=None):
     if req.requester_signature_status not in _START_STATES + ("Processing",):
         frappe.throw(_("Yêu cầu không ở trạng thái chờ ký của người đề nghị."))
     from ecentric_workspace.platform.esign import binding
-    binding.assert_provider_uat(st)
+    binding.assert_provider_environment(st)
     # Execution gates are fail-closed here: with Integration / Document Creation / Signing OFF
     # NO SCTS write is made and no requester DSR is created - the request stays Pending
     # Requester Signature and Level 1 stays inactive.

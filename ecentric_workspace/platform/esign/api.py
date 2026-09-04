@@ -1061,6 +1061,32 @@ def unlink_scts_account(payment_request_name):
     return user_link.unlink(frappe.session.user, st, env)
 
 
+# --- ban KHONG gan phieu: nut "Ket noi SCTS" o Approval Center (04/09, y Hoan) ---------
+# Cung user_link, cung rang buoc (chi frappe.session.user); moi truong lay tu dong Provider
+# Settings SCTS dang bat. Guest bi chan boi whitelist mac dinh (allow_guest=False).
+
+@frappe.whitelist()
+def scts_link_status_me():
+    from ecentric_workspace.platform.esign import user_link
+    st, env = user_link.default_context()
+    return user_link.link_status(frappe.session.user, st, env)
+
+
+@frappe.whitelist(methods=["POST"])
+def link_scts_account_me(password, username=None):
+    frappe.local.form_dict.pop("password", None)
+    from ecentric_workspace.platform.esign import user_link
+    st, env = user_link.default_context()
+    return user_link.link(frappe.session.user, st, env, password, username=username)
+
+
+@frappe.whitelist(methods=["POST"])
+def unlink_scts_account_me():
+    from ecentric_workspace.platform.esign import user_link
+    st, env = user_link.default_context()
+    return user_link.unlink(frappe.session.user, st, env)
+
+
 @frappe.whitelist(methods=["POST"])
 def prepare_requester_signing_package(payment_request_name):
     """Requester 'Prepare Signing Package': create/reuse the package + add eligible PDFs +

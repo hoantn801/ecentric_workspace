@@ -908,7 +908,13 @@
           (DRW.st.required_slot_count || 0) + " người ký cần thiết lập · " + progressText();
         renderCards();
         var canPdf = ok && DRW.st.is_pdf && DRW.st.file_url;
-        document.getElementById("ecdStage").style.display = canPdf ? "" : "none";
+        // PHAI la "inline-block", KHONG phai "". Gan "" la XOA style inline `display:inline-block`
+        // cua #ecdStage -> div ve mac dinh `block` -> rong bang ca khung xem (727px) trong khi
+        // canvas 612px bi `text-align:center` day sang phai 58px; #ecdLayer (inset:0, width
+        // 612px do JS dat) thi van bam mep trai. Ket qua: dai 58px ben phai cua trang KHONG co
+        // lop overlay - khong bam dat o duoc, o keo toi do thi "khong vao" (Hoan bao 28/08 va
+        // 04/09). Do tren prod 04/09: stage x=676 w=727, canvas x=734 w=612, layer x=676 w=612.
+        document.getElementById("ecdStage").style.display = canPdf ? "inline-block" : "none";
         if (!ok) { document.getElementById("ecdViewerMsg").textContent =
           "Không tải được trình xem PDF. Hãy tải lại trang."; return; }
         if (!DRW.st.is_pdf) { document.getElementById("ecdViewerMsg").textContent =

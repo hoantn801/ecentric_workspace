@@ -52,13 +52,27 @@ def _emit(dsr_name, actor, event_type, verification_result=None):
         frappe.log_error(frappe.get_traceback(), "esign.binding._emit")
 
 
-def assert_provider_uat(settings):
-    """This phase (S2B-A) signs against UAT only. Production is blocked outright - the
-    write gate must never reach a Production provider regardless of other gates."""
+ALLOWED_ENVIRONMENTS = ("UAT", "Production")
+
+
+def assert_provider_environment(settings):
+    """Moi truong phai la mot trong hai nhan da biet, va Production phai duoc BAT tuong minh
+    bang `allow_production_signing`.
+
+    Truoc 04/09/2026 ham nay ten `assert_provider_uat` va chan thang moi thu khong phai UAT.
+    Nhan "UAT" khi do la sai su that: base_url tro vao he eContract THAT, chu ky HSM la that,
+    chung tu la that (xem reference_scts_uat_label_is_production). Cong tac
+    `allow_production_signing` vi the ngu suot 7 tuan. Doi nhan sang Production de cong tac
+    do thuc day - va de nguoi doc cau hinh khong bi lua.
+    """
     env = settings.get("environment") if isinstance(settings, dict) else getattr(
         settings, "environment", None)
-    if env != "UAT":
-        _block("provider_not_uat:%s" % env)
+    if env not in ALLOWED_ENVIRONMENTS:
+        _block("provider_env_unknown:%s" % env)
+    if env == "Production":
+        on = settings.get("allow_production_signing") if isinstance(settings, dict)             else getattr(settings, "allow_production_signing", None)
+        if not int(on or 0):
+            _block("production_signing_off")
 
 
 def assert_outbound_binding(dsr_name, adapter, live=True):
@@ -109,7 +123,7 @@ def _run_requester_binding_checks(dsr, adapter, live):
          "allow_production_signing", "allowed_signing_users"], as_dict=True)
     if not settings:
         _block("settings_missing")
-    assert_provider_uat(settings)
+    assert_provider_environment(settings)
     if not settings.integration_enabled or not settings.allow_signing:
         _block("gates_closed")
     if settings.environment == "Production" and not settings.allow_production_signing:
@@ -150,18 +164,18 @@ def _run_binding_checks(dsr, adapter, live):
     if not dsr.effective_scts_user_id or not dsr.effective_signature_id:
         _block("dsr_missing_effective_identity")
 
-    # Provider settings + gates + environment (UAT-only this phase).
+    # Provider settings + gates + environment (Production can allow_production_signing).
     settings = frappe.db.get_value(
         SETTINGS_DT, {"provider": dsr.provider, "environment": dsr.environment},
         ["name", "environment", "integration_enabled", "allow_signing",
          "allow_production_signing", "allowed_signing_users"], as_dict=True)
     if not settings:
         _block("settings_missing")
-    assert_provider_uat(settings)
+    assert_provider_environment(settings)
     if not settings.integration_enabled or not settings.allow_signing:
         _block("gates_closed")
     if settings.environment == "Production" and not settings.allow_production_signing:
-        _block("production_signing_off")  # defense in depth (UAT-only already enforced)
+        _block("production_signing_off")  # defense in depth (assert_provider_environment)
 
     # Allowlist (fail-closed; empty = nobody). Bound to the PERSISTED approver.
     perms.assert_allowed_signer(settings, dsr.approver)

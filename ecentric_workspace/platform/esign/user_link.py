@@ -47,6 +47,18 @@ def _settings_value(settings, key):
     return getattr(settings, key, None)
 
 
+def default_context():
+    """(settings, environment) cho nut "Ket noi SCTS" o Approval Center - khong gan voi phieu
+    nao. Lay dong Provider Settings SCTS dang bat tich hop; co DUNG MOT dong thi dung, khong
+    co hoac nhieu hon thi bao ro (khong doan moi truong)."""
+    rows = frappe.get_all(SETTINGS_DT, filters={"provider": "SCTS", "integration_enabled": 1},
+                          pluck="name", limit_page_length=2)
+    if len(rows) != 1:
+        frappe.throw(_("Cổng ký số SCTS chưa cấu hình (hoặc cấu hình nhiều môi trường)."))
+    st = frappe.db.get_value(SETTINGS_DT, rows[0], "*", as_dict=True)
+    return st, st.get("environment")
+
+
 def needs_own_token(user, settings):
     """Nguoi nay co can token rieng khong. Trung tai khoan tich hop thi khong."""
     api_user = (_settings_value(settings, "username") or "").strip().lower()
