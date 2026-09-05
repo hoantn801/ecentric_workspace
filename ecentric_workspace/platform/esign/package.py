@@ -407,14 +407,6 @@ def preflight_for_lock(pkg_name):
             errs.append("signable_not_pdf:%s" % f.file_name)
         if not f.sha256:
             errs.append("missing_hash:%s" % f.file_name)
-    # Phu luc cung sang nha cung cap, va nha cung cap chi chay voi PDF that (05/09, 00042:
-    # mot PNG duoi nhan pdf -> eContract 2xx roi im lang, khong chu ky). Anh PNG/JPEG thi
-    # tasks._provider_file ve thanh PDF; loai khac tu choi ngay o day cho nguoi de nghi
-    # biet phai doi tep, thay vi doi 20 phut roi Manual Review.
-    from ecentric_workspace.platform.esign import render
-    for f in files:
-        if not f.requires_signature and not f.is_pdf and not render.is_renderable_mime(f.mime_type):
-            errs.append("supporting_not_renderable:%s" % f.file_name)
     if any(not f.sha256 or not (f.size_bytes or 0) for f in files):
         errs.append("incomplete_upload")
     levels = frappe.get_all("EC Digital Signature Profile Level",

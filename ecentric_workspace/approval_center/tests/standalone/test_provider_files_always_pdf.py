@@ -7,10 +7,13 @@ byte PNG. AddDocument 2xx, Trinh ky 2xx, roi eContract im lang: khong chu ky, ta
 truoc (chi mot PDF, cung nguoi/token/nguoi nhan) ky trong 3 giay.
 
   1. render.to_pdf: PDF giu nguyen; PNG/JPEG -> PDF that (Pillow THAT); khac -> tu choi.
-  2. package.preflight_for_lock (code THAT): phu luc khong phai PDF/anh -> ma loi doc duoc.
+     delivery_for_name: PDF as_is / anh rendered_pdf / con lai erp_only.
+  2. package.preflight_for_lock (code THAT): phu luc Excel KHONG bi chan (giu tren ERP);
+     to trinh khong PDF van bi chan (signable_not_pdf).
   3. scts.create_document (AST): chot byte %PDF truoc khi dung payload.
-  4. tasks._provider_file (AST): ve anh, doi ten .pdf, ghi su kien; loi -> ProviderError.
-  5. requester._preflight_vi co cau tieng Viet cho ma moi; DocType Event co gia tri moi.
+  4. tasks._provider_file (AST): ve anh, doi ten .pdf, ghi su kien; phu luc khong ve duoc
+     -> None + SupportingFileKeptInErp; to trinh khong ve duoc -> ProviderError.
+  5. DocType Event co hai gia tri moi; document_setup tra provider_delivery.
 """
 import ast
 import io
@@ -94,6 +97,13 @@ class TestRender(unittest.TestCase):
         self.assertFalse(self.r.is_renderable_mime("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
         self.assertFalse(self.r.is_renderable_mime(None))
 
+    def test_delivery_theo_ten(self):
+        self.assertEqual(self.r.delivery_for_name("a.PDF"), "as_is")
+        self.assertEqual(self.r.delivery_for_name("p-mob.png"), "rendered_pdf")
+        self.assertEqual(self.r.delivery_for_name("hd.JPG"), "rendered_pdf")
+        self.assertEqual(self.r.delivery_for_name("thong_ke_item_GBS.xlsx"), "erp_only")
+        self.assertEqual(self.r.delivery_for_name(None), "erp_only")
+
 
 def _package_module(files, levels=()):
     fk = types.ModuleType("frappe"); fk._ = lambda s: s
@@ -145,10 +155,10 @@ class TestPreflight(unittest.TestCase):
                                 _row("hd.jpg", "image/jpeg", 0, 0)])
         self.assertEqual(errs, [])
 
-    def test_phu_luc_docx_bi_tu_choi_voi_ma_doc_duoc(self):
+    def test_phu_luc_excel_khong_bi_chan_vi_giu_tren_erp(self):
         errs = _package_module([_row("a.pdf", "application/pdf", 1, 1),
-                                _row("bang.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 0, 0)])
-        self.assertEqual(errs, ["supporting_not_renderable:bang.docx"])
+                                _row("bang.xlsx", "application/vnd.ms-excel", 0, 0)])
+        self.assertEqual(errs, [])
 
     def test_tep_ky_khong_pdf_van_bao_ma_cu(self):
         errs = _package_module([_row("a.png", "image/png", 0, 1)])
@@ -177,23 +187,26 @@ class TestAdapterAndTasks(unittest.TestCase):
         self.assertIn("render.pdf_file_name(name)", body)
         self.assertIn("events.emit('SupportingFileRendered'", body)
         self.assertIn("except render.UnrenderableFile", body)
+        self.assertIn("if f.requires_signature:", body)
         self.assertIn("ProviderError('unrenderable_package_file'", body)
         self.assertIn("retryable=False", body)
+        self.assertIn("events.emit('SupportingFileKeptInErp'", body)
+        self.assertIn("return None", body)
         # ctx.files phai di qua helper nay - khong con dict tay noi khac
         whole = ast.unparse(tree)
-        self.assertIn("'files': [_provider_file(pkg, i, f) for (i, f) in enumerate(files)]", whole)
+        self.assertIn("'files': [x for x in (_provider_file(pkg, i, f) for (i, f) in enumerate(files)) if x]", whole)
         self.assertEqual(whole.count("'can_be_signed': f.requires_signature"), 1)
 
-    def test_thong_diep_viet_va_doctype_event(self):
-        src = _read("requester.py")
-        self.assertIn("supporting_not_renderable", src)
-        self.assertIn("PDF hoặc ảnh PNG/JPG", src)
+    def test_doctype_event_va_read_model(self):
         p = os.path.join(_APP, "ecentric_workspace", "approval_center", "doctype",
                          "ec_digital_signature_event", "ec_digital_signature_event.json")
         with io.open(p, encoding="utf-8") as fh:
             d = json.load(fh)
         opts = [x for x in d["fields"] if x["fieldname"] == "event_type"][0]["options"].split("\n")
         self.assertIn("SupportingFileRendered", opts)
+        self.assertIn("SupportingFileKeptInErp", opts)
+        self.assertIn("'provider_delivery': render.delivery_for_name(rep.get('file_name'), req_sig)",
+                      ast.unparse(ast.parse(_read("document_setup.py"))))
 
 
 if __name__ == "__main__":

@@ -325,8 +325,23 @@ def cancel(definition, name, reason=None):
     if request:
         engine.cancel(request.name, reason=reason)
         return {"detail": query_service.detail(definition, name)}
+    # Ban nhap chua gui = xoa. Goi ky nhap (neu da "Thiet lap chu ky") tro vao phieu nen
+    # phai don truoc, khong thi Frappe chan "linked with EC Digital Signature Package"
+    # (05/09, 00043). Goi da khoa/da sang nha cung cap thi hook tu choi - fail-closed.
+    _esign_on_draft_discarded(definition.business_doctype, name)
     frappe.delete_doc(definition.business_doctype, name, ignore_permissions=True)
     return {"deleted": True}
+
+
+def _esign_on_draft_discarded(business_doctype, name):
+    """Loi goi xuyen module da khai bao vao platform.esign (cung kieu transitions._esign_on_reopen).
+    Chi dung thu khi THIEU module; loi that phai noi len - xoa phieu ma de goi ky mo coi thi
+    la dung thu sai."""
+    try:
+        from ecentric_workspace.platform.esign import lifecycle as esign_lifecycle
+    except ImportError:
+        return {"discarded": []}
+    return esign_lifecycle.on_draft_discarded(business_doctype, name)
 
 
 def admin_approve_current_level(definition, name, reason=None):

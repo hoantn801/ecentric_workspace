@@ -923,6 +923,15 @@ def attach_uploaded_file(payment_request_name, file_url):
 
 
 @frappe.whitelist(methods=["POST"])
+def remove_attachment(payment_request_name, document_ref):
+    """Go mot tep khoi phieu DANG LAP (chua gui): to trinh hay bo chung tu. Chi nguoi de
+    nghi, chi khi thiet lap tai lieu con sua duoc. Xem document_setup.remove_attachment."""
+    _business_args("EC Payment Request", payment_request_name)
+    from ecentric_workspace.platform.esign import document_setup as ds
+    return ds.remove_attachment("EC Payment Request", payment_request_name, document_ref)
+
+
+@frappe.whitelist(methods=["POST"])
 def remove_supporting_attachment(payment_request_name, document_ref):
     """Go mot chung tu BO SUNG vua dinh kem nham, khi phieu dang o "Cần bổ sung".
 

@@ -23,6 +23,7 @@ from ecentric_workspace.platform.esign import events
 from ecentric_workspace.platform.esign import guard
 from ecentric_workspace.platform.esign import hashing
 from ecentric_workspace.platform.esign import package as pkgsvc
+from ecentric_workspace.platform.esign import render
 from ecentric_workspace.platform.esign import permissions as perms
 from ecentric_workspace.platform.esign import signer_plan as sp
 
@@ -254,6 +255,58 @@ def attach_uploaded_file(bd, bn, file_url):
     return {"ok": True, "file": existing.name, "no_op": False}
 
 
+def remove_attachment(bd, bn, document_ref):
+    """Go mot tep khoi phieu DANG LAP (chua gui) - to trinh hay bo chung tu deu duoc.
+
+    Hoan 05/09: "them cho de xoa nua chu, khong co cho xoa thi sao xoa duoc file khong
+    dung?". Truoc do chi go duoc o cua so "Can bo sung" (remove_supporting_attachment); luc
+    dang soan phieu - luc tai nham nhieu nhat - khong co nut nao.
+
+    Cung cong voi moi thao tac thiet lap tai lieu: `_assert_setup_editable` (chua gui, hoac
+    goi vua duoc mo lai sau tra ve, dang Draft) + dung nguoi de nghi. Ngoai cua so do thi
+    di `remove_supporting_attachment`.
+
+    Tep da nam trong goi ky Draft thi go luon dong goi + vi tri ky (package.remove_file - tep
+    sao chep xoa theo, tep lien ket o lai roi xoa cung nhom ben duoi). Tep tung nam trong
+    goi da khoa/da ky cua phieu (goi Superseded sau tra ve) thi KHONG go - do la bang chung
+    da ky. Xoa File `delete_permanently=False` -> Deleted Document, khoi phuc duoc.
+    """
+    _assert_setup_editable(bd, bn)              # nem neu da gui / goi da khoa / mo ho
+    groups = _dedupe(_current_files(bd, bn))
+    group = next((g for g in groups if g["rep"]["name"] == document_ref), None)
+    if not group:
+        frappe.throw(_("Không tìm thấy tệp này trên yêu cầu."))
+    sha = _rep_sha(group["rep"])
+    frozen = frappe.get_all(PKG, filters={"business_doctype": bd, "business_name": bn,
+                                          "status": ["!=", "Draft"]}, pluck="name")
+    if frozen and frappe.db.exists(DSF, {"sha256": sha, "package": ["in", frozen]}):
+        frappe.throw(_("Tệp này đã nằm trong gói ký đã chốt nên không gỡ được."))
+    cur_name, _st, is_draft, _nr = _current_package(bd, bn)
+    removed_rows = 0
+    if cur_name and is_draft:
+        for row in frappe.get_all(DSF, filters={"package": cur_name, "sha256": sha}, pluck="name"):
+            pkgsvc.remove_file(row)             # vi tri ky + dong goi (+ ban sao neu co)
+            removed_rows += 1
+    names = [f["name"] for f in group["members"]]
+    urls = {f.get("file_url") for f in group["members"] if f.get("file_url")}
+    for file_name in names:
+        if frappe.db.exists("File", file_name):
+            frappe.delete_doc("File", file_name, ignore_permissions=True, delete_permanently=False)
+    # Con tro dai dien (request_attachment) tro vao tep vua go thi xoa - de no khong tro
+    # vao mot duong dan khong con ton tai.
+    if frappe.db.has_column(bd, "request_attachment") \
+            and frappe.db.get_value(bd, bn, "request_attachment") in urls:
+        frappe.db.set_value(bd, bn, "request_attachment", None)
+    ar = perms.business_approval_request(bd, bn)
+    if ar:
+        from ecentric_workspace.approval_center.shared.workflow import transitions as engine
+        engine.log_action(ar, "Commented", frappe.session.user,
+                          comment=_("Đã gỡ tệp: {0}").format(
+                              group["rep"].get("file_name") or document_ref))
+    return {"ok": True, "removed": len(names), "removed_signing_rows": removed_rows,
+            "state": get_document_setup_state(bd, bn)}
+
+
 def remove_supporting_attachment(bd, bn, document_ref):
     """Go mot tep BO CHUNG TU vua dinh kem nham ra khoi phieu.
 
@@ -446,6 +499,9 @@ def get_document_setup_state(business_doctype, business_name):
             "setup_state": _setup_state(req_sig, is_pdf_like, covered,
                                         required_slots if req_sig else 0, legacy_unmapped),
             "legacy_placement_count": legacy_unmapped,
+            # Tep se sang nha cung cap the nao (05/09): PDF di nguyen, anh ve thanh PDF,
+            # Excel/Word chi luu tren ERP. Nguoi de nghi phai biet truoc khi gui.
+            "provider_delivery": render.delivery_for_name(rep.get("file_name"), req_sig),
         })
         n_sign += 1 if req_sig else 0
         n_support += 0 if req_sig else 1

@@ -277,6 +277,10 @@
     try { document.documentElement.classList[on ? "add" : "remove"]("payr-editing"); } catch(e){}
     try { window.dispatchEvent(new CustomEvent("payr:editing", {detail:{editing:!!on}})); } catch(e){}
   }
+  // Khoi "Tai lieu & Ky so" vua go mot tep: khung "Dinh kem" o tren phai ve lai, khong de
+  // mot dong tep khong con ton tai (05/09). Chi ve lai khi dang xem chi tiet, khong dang sua.
+  try { window.addEventListener("payr:attachments-changed", function(){
+    if(state.tab==="detail"&&state.id&&!state._editDet){ var b=$("payr-body"); if(b) renderDetail(b); } }); } catch(e){}
   function renderCreate(b){
     var fo=state.boot&&state.boot.form_options||{}; var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
     var editing=state.mode==="edit";

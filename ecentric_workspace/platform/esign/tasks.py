@@ -58,13 +58,14 @@ def _settings_and_adapter(dsr):
 
 
 def _provider_file(pkg, order, f):
-    """Mot dong Documents[] cho nha cung cap: LUON la PDF that.
+    """Mot dong Documents[] cho nha cung cap: LUON la PDF that; None = khong gui tep nay.
 
     05/09, 00042: phu luc `p-mob.png` di thang sang eContract duoi nhan "pdf" -> AddDocument
     va Trinh ky deu 2xx roi eContract im lang (khong chu ky, task ket "Cho gui di"). Anh thi
-    ve thanh PDF mot trang (ban goc van la File cua phieu, van trong package_hash); tep
-    khong ve duoc thi tu choi ngay o day - truoc khi co bat ky lenh nao sang nha cung cap -
-    voi ma loi doc duoc, thay vi Manual Review 20 phut sau khong ly do.
+    ve thanh PDF mot trang (ban goc van la File cua phieu, van trong package_hash); bo chung
+    tu khong ve duoc (Excel, Word) thi GIU TREN ERP, khong gui; to trinh khong ve duoc thi
+    tu choi ngay o day - truoc khi co bat ky lenh nao sang nha cung cap - voi ma loi doc
+    duoc, thay vi Manual Review 20 phut sau khong ly do.
     """
     from ecentric_workspace.platform.esign import render
     content = pkgsvc.file_bytes(f.name)                      # private bytes; never logged
@@ -72,7 +73,14 @@ def _provider_file(pkg, order, f):
     try:
         content, converted = render.to_pdf(content, name)
     except render.UnrenderableFile as exc:
-        raise ProviderError("unrenderable_package_file", str(exc), retryable=False)
+        if f.requires_signature:
+            # preflight da chan (signable_not_pdf); toi day la du lieu lech - dung lai ro.
+            raise ProviderError("unrenderable_package_file", str(exc), retryable=False)
+        # Bo chung tu khong ve duoc (Excel, Word...): GIU TREN ERP, khong gui. Bang chung
+        # van o phieu, cap duyet xem tren ERP. Ghi su kien de dsr_trace thay tep nao vang.
+        events.emit("SupportingFileKeptInErp", package=pkg.name,
+                    request_meta={"file": f.file_name, "order": order, "reason": str(exc)})
+        return None
     if converted:
         name = render.pdf_file_name(name)
         events.emit("SupportingFileRendered", package=pkg.name,
@@ -134,7 +142,8 @@ def _ensure_provider_document(dsr, settings, adapter):
         "company_id": prof.get("company_id"),
         "department_id": prof.get("department_id"),
         "document_template_id": prof.get("document_template_id"),
-        "files": [_provider_file(pkg, i, f) for i, f in enumerate(files)],
+        # order = chi so ERP (khop by_order ben duoi) ke ca khi mot phu luc bi giu lai.
+        "files": [x for x in (_provider_file(pkg, i, f) for i, f in enumerate(files)) if x],
         "placements": _with_page_heights(pkg.name,
                                          [dict(p) for p in pkgsvc.package_placements(pkg.name)]),
     }
