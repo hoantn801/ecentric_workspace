@@ -225,7 +225,9 @@ def _completed_legs_of_same_signer(dsr):
 def _expected_for(dsr):
     pkg = frappe.db.get_value("EC Digital Signature Package", dsr.package,
                               ["scts_document_id"], as_dict=True)
-    file_count = frappe.db.count("EC Digital Signature File", {"package": dsr.package})
+    # Chi dem tep DA SANG nha cung cap (phu luc Excel giu tren ERP khong tinh) - xem
+    # package.provider_file_count. Dem ca goi la nguon cua file_count_mismatch 05/09.
+    file_count = pkgsvc.provider_file_count(dsr.package)
     # FRESHNESS bound (2026-08-27): the signature that satisfies THIS leg must be newer
     # than the moment the leg was queued. Email-only matching used to accept a signature
     # the same person had made for a DIFFERENT leg earlier (see verify_signed_result).
@@ -577,7 +579,7 @@ def reconcile_document_creation(package_name, scts_document_id):
     pkg_files = frappe.get_all("EC Digital Signature File", filters={"package": package_name},
                                fields=["name", "file_name"],
                                order_by="idx_order asc, creation asc")
-    expected_files = len(pkg_files)
+    expected_files = pkgsvc.provider_file_count(package_name)   # tru phu luc giu tren ERP
     if len(doc_state.files) != expected_files:
         events.emit("CreateReconcileRejected", package=package_name,
                     verification_result="file_count_mismatch:%s!=%s"

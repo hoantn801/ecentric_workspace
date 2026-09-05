@@ -70,6 +70,30 @@ def package_files(pkg_name):
                           order_by="idx_order asc, creation asc")
 
 
+def provider_file_count(pkg_name):
+    """So tep THUC SU da sang nha cung cap = so dong goi TRU nhung phu luc giu lai tren ERP.
+
+    05/09 (00043): Excel giu tren ERP (SupportingFileKeptInErp), goi 3 dong nhung chung tu
+    SCTS chi co 2 tep -> verify_signed_result tra `file_count_mismatch` mai, chu ky cua chi
+    Hien khong bao gio duoc xac nhan du SCTS da chuyen sang Vinh. Dem theo SU KIEN (ten tep,
+    tap hop de lan tao lai khong dem doi) chu khong doan lai theo mime: su kien la cai da
+    xay ra, mime la cai co the da xay ra. Goi cu khong co su kien -> dem du (code cu gui het).
+    """
+    total = frappe.db.count("EC Digital Signature File", {"package": pkg_name})
+    kept = set()
+    for meta in frappe.get_all("EC Digital Signature Event",
+                               filters={"package": pkg_name,
+                                        "event_type": "SupportingFileKeptInErp"},
+                               pluck="request_meta"):
+        try:
+            name = (frappe.parse_json(meta) or {}).get("file")
+        except Exception:
+            name = None
+        if name:
+            kept.add(name)
+    return max(0, total - len(kept))
+
+
 def package_placements(pkg_name):
     return frappe.get_all("EC Digital Signature Placement", filters={"package": pkg_name},
                           fields=["name", "signature_file", "page_index", "x", "y", "llx", "lly",
