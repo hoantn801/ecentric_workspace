@@ -166,6 +166,54 @@ class TestPreflight(unittest.TestCase):
         self.assertNotIn("supporting_not_renderable:a.png", errs)
 
 
+def _package_for_count(total, kept_metas):
+    fk = types.ModuleType("frappe"); fk._ = lambda s: s
+    fk.PermissionError = type("PermissionError", (Exception,), {})
+    fk.throw = lambda msg, exc=None: (_ for _ in ()).throw((exc or Exception)(msg))
+    fk.db = types.SimpleNamespace(count=lambda dt, flt=None: total)
+    fk.get_all = lambda dt, filters=None, pluck=None, **k: list(kept_metas) \
+        if (dt == "EC Digital Signature Event" and (filters or {}).get("event_type") == "SupportingFileKeptInErp") else []
+    fk.parse_json = json.loads
+    mods = {"frappe": fk, "frappe.utils": types.ModuleType("frappe.utils"),
+            "ecentric_workspace.platform.esign.events": types.ModuleType("e"),
+            "ecentric_workspace.platform.esign.hashing": types.ModuleType("h"),
+            "ecentric_workspace.platform.esign.permissions": types.ModuleType("p")}
+    mods["frappe.utils"].now_datetime = lambda: None
+    saved = {k: sys.modules.get(k) for k in mods}
+    sys.modules.update(mods)
+    try:
+        m = types.ModuleType("_package_under_test2")
+        exec(compile(_read("package.py"), "package.py", "exec"), m.__dict__)
+        return m.provider_file_count("PKG-1")
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                sys.modules.pop(k, None)
+            else:
+                sys.modules[k] = v
+
+
+class TestProviderFileCount(unittest.TestCase):
+    """00043 (06/09 00:34): goi 3 dong, Excel giu tren ERP, SCTS co 2 tep -> verify tra
+    file_count_mismatch mai; chu ky that cua Hien khong bao gio duoc xac nhan."""
+
+    def test_tru_phu_luc_giu_tren_erp(self):
+        self.assertEqual(_package_for_count(3, ['{"file": "thong_ke_item_GBS.xlsx", "order": 0}']), 2)
+
+    def test_tao_lai_nhieu_lan_khong_tru_doi(self):
+        metas = ['{"file": "a.xlsx"}', '{"file": "a.xlsx"}', '{"file": "b.docx"}', 'not json']
+        self.assertEqual(_package_for_count(5, metas), 3)
+
+    def test_goi_cu_khong_su_kien_thi_dem_du(self):
+        self.assertEqual(_package_for_count(3, []), 3)
+
+    def test_service_dung_ham_nay_o_ca_hai_cho(self):
+        src = ast.unparse(ast.parse(_read("service.py")))
+        self.assertIn("file_count = pkgsvc.provider_file_count(dsr.package)", src)
+        self.assertIn("expected_files = pkgsvc.provider_file_count(package_name)", src)
+        self.assertNotIn("frappe.db.count('EC Digital Signature File', {'package': dsr.package})", src)
+
+
 class TestAdapterAndTasks(unittest.TestCase):
     def test_adapter_chot_byte_pdf_truoc_khi_dung_payload(self):
         src = _read(os.path.join("providers", "scts.py"))
