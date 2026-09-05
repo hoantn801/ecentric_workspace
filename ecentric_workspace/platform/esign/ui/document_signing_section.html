@@ -224,17 +224,24 @@
       act = '<button class="ecd-btn" data-open="' + esc(d.file_url || '') + '">Mở file</button>';
     }
     var dup = (d.duplicate_count > 1) ? ' · ' + d.duplicate_count + ' bản trùng (gộp)' : '';
-    // Go tep vua bo sung nham. CHI cho tep bo chung tu, va chi trong cua so "Cần bổ sung"
-    // + dang o form sua. Tep da vao goi ky khong bao gio go duoc - backend chan lan nua,
-    // vi mot nut khong hien khong phai la mot phep kiem.
-    if (supporting && STATE && STATE._can_remove_supporting) {
+    // Bo chung tu sang SCTS the nao (05/09): Excel/Word chi nam tren ERP, anh di dang PDF.
+    // Noi truoc de nguoi de nghi khong tuong tep do co tren cong ky.
+    var deliv = '';
+    if (supporting && d.provider_delivery === 'erp_only') deliv = ' · chỉ lưu trên ERP, không gửi SCTS';
+    else if (supporting && d.provider_delivery === 'rendered_pdf') deliv = ' · gửi SCTS dạng PDF';
+    // Go tep. Hai cua so, hai luat (backend chan lan nua - nut an khong phai phep kiem):
+    //   dang lap phieu (editable + can_classify): go bat ky tep nao -> remove_attachment;
+    //   dang "Can bo sung" o form sua: chi bo chung tu -> remove_supporting_attachment.
+    if (STATE && STATE._can_remove_any) {
+      act = '<button class="ecd-btn" data-remove="' + esc(d.document_ref) + '" data-remove-any="1">Gỡ</button> ' + act;
+    } else if (supporting && STATE && STATE._can_remove_supporting) {
       act = '<button class="ecd-btn" data-remove="' + esc(d.document_ref) + '">Gỡ</button> ' + act;
     }
     return '<div class="ecd-row">'
       + '<div class="ecd-main"><div class="ecd-name" title="' + esc(d.display_name) + '">'
         + esc(d.display_name) + '</div>'
       + '<div class="ecd-meta"><span class="ec-docsign ecd-pill ' + pill[0] + '">' + pill[1] + '</span> · '
-        + esc(docProgressText(d)) + dup + '</div></div>'
+        + esc(docProgressText(d)) + dup + deliv + '</div></div>'
       + '<label class="ecd-chk"><input type="checkbox" data-support="' + esc(d.document_ref) + '"'
         + (supporting ? ' checked' : '') + (canEdit ? '' : ' disabled') + '> Bộ chứng từ</label>'
       + act + '</div>';
@@ -288,6 +295,7 @@
            : "");
     }
     STATE._can_remove_supporting = supportOnly;   // dong nao duoc phep go - xem rowHtml
+    STATE._can_remove_any = !!(STATE.editable && STATE.can_classify);   // dang lap phieu
     document.getElementById("ecdRows").innerHTML =
       (STATE.documents || []).map(rowHtml).join("") || '<div class="ecd-meta">Chưa có tài liệu.</div>';
     wire();
@@ -304,7 +312,10 @@
       b.onclick = function () { var u = b.getAttribute("data-open"); if (u) window.open(u, "_blank"); };
     });
     root.querySelectorAll("[data-remove]").forEach(function (b) {
-      b.onclick = function () { removeSupporting(b.getAttribute("data-remove"), b); };
+      b.onclick = function () {
+        if (b.getAttribute("data-remove-any")) removeAny(b.getAttribute("data-remove"), b);
+        else removeSupporting(b.getAttribute("data-remove"), b);
+      };
     });
   }
 
@@ -318,6 +329,28 @@
   try {
     window.addEventListener("payr:editing", function () { if (STATE) render(); });
   } catch (e) {}
+
+  // Go tep khi DANG LAP phieu (chua gui). To trinh da dat o ky thi mat luon cac o do - noi ro.
+  function removeAny(ref, btn) {
+    var name = pr(); if (!name || !ref) return;
+    var d = (STATE.documents || []).filter(function (x) { return x.document_ref === ref; })[0] || {};
+    var msg = "Gỡ tệp \"" + (d.display_name || ref) + "\" khỏi yêu cầu?";
+    if (d.requires_signature && (d.covered_slot_count || 0) > 0)
+      msg += "\nCác vị trí ký đã đặt trên tệp này sẽ bị xoá.";
+    if (!window.confirm(msg)) return;
+    btn.disabled = true;
+    call("remove_attachment", { payment_request_name: name, document_ref: ref }, "POST")
+      .then(function (o) {
+        if (o && o.state) { STATE = o.state; render(); }
+        else load();
+        try { window.dispatchEvent(new CustomEvent("payr:attachments-changed")); } catch (e) {}
+      })
+      .catch(function (e) {
+        btn.disabled = false;
+        var hint = document.getElementById("ecdUploadHint");
+        if (hint) hint.textContent = (e && e.message) || "Không gỡ được tệp.";
+      });
+  }
 
   // Go mot chung tu bo sung vua tai nham. Hoi truoc - go la thao tac khong hoan tac duoc.
   function removeSupporting(ref, btn) {

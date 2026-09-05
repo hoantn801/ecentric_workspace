@@ -203,9 +203,11 @@ class TestTheButtonIsScopedToTheEditForm(unittest.TestCase):
     """Cai Hoan bao 31/08: mot man hinh co hai cho tai tai lieu."""
 
     def test_nut_go_chi_ve_cho_bo_chung_tu(self):
-        body = _UI.split("function rowHtml")[1][:1400]
-        self.assertIn("supporting && STATE && STATE._can_remove_supporting", body,
-                      "chi bo chung tu moi co nut Go")
+        body = _UI.split("function rowHtml")[1][:2400]
+        # 05/09: them nhanh "dang lap phieu" (go bat ky tep nao) TRUOC nhanh nay; nhanh
+        # "Can bo sung" van chi cho bo chung tu.
+        self.assertIn("else if (supporting && STATE && STATE._can_remove_supporting)", body,
+                      "chi bo chung tu moi co nut Go o cua so Can bo sung")
 
     def test_quyen_go_tinh_TRUOC_khi_dung_cac_dong(self):
         # Dat co sau khi da dung dong thi lan ve dau tien khong co nut.

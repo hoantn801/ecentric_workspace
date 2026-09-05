@@ -204,3 +204,58 @@ def reopen_notice(result):
                  "ký lại.")
     return _("Tài liệu ký đã được tạo phiên bản mới. Hãy chuẩn bị và khoá lại gói ký để "
              "chứng từ bổ sung được đưa vào.")
+
+
+#: Goi ky cua mot ban nhap CHUA GUI: khong co lenh nao sang nha cung cap, khong co chu ky.
+_DISCARDABLE = ("Draft",)
+
+
+def on_draft_discarded(business_doctype, business_name):
+    """Phieu CHUA GUI bi huy (= xoa): don goi ky nhap cua no truoc, de xoa duoc phieu.
+
+    05/09, EC-PAYR-2026-00043: chi Hien bam "Huy yeu cau" tren ban nhap -> "Cannot delete or
+    cancel because EC Payment Request ... is linked with EC Digital Signature Package
+    EC-DSP-2026-00031". Tu khi co "Thiet lap chu ky", moi ban nhap deu co goi ky Draft tro
+    vao phieu, nen duong xoa ban nhap (command_service.cancel -> delete_doc) chet.
+
+    Chi don khi MOI goi cua phieu deu la Draft, chua co ma chung tu SCTS va chua co chan ky
+    nao. Goi da khoa / da sang nha cung cap thi tu choi - phieu do khong con la "nhap" ve
+    mat chung cu, phai di duong huy sau khi gui (engine.cancel). Fail-closed.
+
+    Thu tu: vi tri ky -> dong tep (tep SAO CHEP xoa theo; tep LIEN KET la dinh kem cua phieu,
+    Frappe xoa cung phieu) -> su kien -> goi. Tat ca `delete_permanently=False`: vao Deleted
+    Document, khoi phuc duoc. Su kien la bang append-only (on_trash nem loi) - o day co y bo
+    qua on_trash (`ignore_on_trash`) vi CHU THE cua vet la ban nhap chua tung ton tai voi ai
+    ngoai nguoi soan; khong con phieu thi vet "da tai tep X" khong con noi ve cai gi.
+    Tra {"discarded": [ten goi]} de nguoi goi ghi vet neu can.
+    """
+    pkgs = frappe.get_all("EC Digital Signature Package",
+                          filters={"business_doctype": business_doctype,
+                                   "business_name": business_name},
+                          fields=["name", "status", "scts_document_id"])
+    for p in pkgs:
+        legs = frappe.db.count("EC Digital Signature Request", {"package": p.name})
+        if p.status not in _DISCARDABLE or p.scts_document_id or legs:
+            frappe.throw(_("Phiếu này đã có gói ký {0} ({1}) - không xoá bản nháp được. "
+                           "Hãy huỷ yêu cầu theo luồng phê duyệt.").format(p.name, p.status))
+    discarded = []
+    for p in pkgs:
+        for pl in frappe.get_all("EC Digital Signature Placement", filters={"package": p.name},
+                                 pluck="name"):
+            frappe.delete_doc("EC Digital Signature Placement", pl, ignore_permissions=True,
+                              delete_permanently=False)
+        for row in frappe.get_all("EC Digital Signature File", filters={"package": p.name},
+                                  fields=["name", "file", "file_is_linked"]):
+            frappe.delete_doc("EC Digital Signature File", row.name, ignore_permissions=True,
+                              delete_permanently=False)
+            if row.file and not int(row.file_is_linked or 0) and frappe.db.exists("File", row.file):
+                frappe.delete_doc("File", row.file, ignore_permissions=True,
+                                  delete_permanently=False)
+        for ev in frappe.get_all("EC Digital Signature Event", filters={"package": p.name},
+                                 pluck="name"):
+            frappe.delete_doc("EC Digital Signature Event", ev, ignore_permissions=True,
+                              ignore_on_trash=True, delete_permanently=False)
+        frappe.delete_doc("EC Digital Signature Package", p.name, ignore_permissions=True,
+                          delete_permanently=False)
+        discarded.append(p.name)
+    return {"discarded": discarded}

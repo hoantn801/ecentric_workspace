@@ -14,8 +14,11 @@ eContract chi tung duoc chung minh la chay voi PDF that (12 chan duyet + 00053).
   - PDF that  -> giu nguyen.
   - Anh PNG/JPEG -> ve thanh mot PDF mot trang (Pillow, co san trong Frappe). Ban goc VAN
     la File cua phieu va van bam vao package_hash; chi ban gui di la ban ve lai.
-  - Con lai (docx, xlsx, ...) -> tu choi RO RANG (`UnrenderableFile`) - tot hon la mot lenh
-    2xx roi im lang.
+  - Con lai (docx, xlsx, ...) -> `UnrenderableFile`. Tep CAN KY thi preflight da chan tu
+    truoc (signable_not_pdf). Tep BO CHUNG TU thi tasks._provider_file GIU LAI TREN ERP,
+    khong gui (su kien SupportingFileKeptInErp) - bang chung van o phieu, cap duyet xem tren
+    ERP; chi ban PDF ky moi can sang nha cung cap. Tot hon ca hai: bat nguoi de nghi doi
+    Excel sang PDF, hay mot lenh 2xx roi im lang.
 
 Adapter SCTS con mot chot cuoi: byte khong bat dau bang %PDF- thi KHONG gui (xem
 scts.create_document). Hai lop, vi lop sau la lop ma nguoi doc payload nhin thay.
@@ -47,8 +50,24 @@ def kind_of(content):
 
 
 def is_renderable_mime(mime_type):
-    """Cho preflight (chi co dong DSF, khong co byte): loai tep goi ky chap nhan."""
+    """Loai tep ve duoc thanh PDF (theo mime da luu tren DSF, khi khong co byte)."""
     return str(mime_type or "").lower() in ("application/pdf", "image/png", "image/jpeg")
+
+
+#: Tep se sang nha cung cap duoi dang nao. "erp_only" = chi luu tren ERP, KHONG gui.
+DELIVERY_AS_IS, DELIVERY_RENDERED, DELIVERY_ERP_ONLY = "as_is", "rendered_pdf", "erp_only"
+
+
+def delivery_for_name(file_name, requires_signature=False):
+    """Doan theo ten (cho man hinh, truoc khi co byte). Byte moi la quyet dinh cuoi
+    (`to_pdf`), nhung nguoi de nghi can biet TRUOC khi gui: to trinh di nguyen, anh di dang
+    PDF ve lai, con bang tinh/word chi nam tren ERP."""
+    ext = os.path.splitext(str(file_name or ""))[1].lower()
+    if ext == ".pdf":
+        return DELIVERY_AS_IS
+    if ext in (".png", ".jpg", ".jpeg"):
+        return DELIVERY_RENDERED
+    return DELIVERY_ERP_ONLY
 
 
 def pdf_file_name(file_name):
