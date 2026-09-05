@@ -631,7 +631,8 @@
     steps.push({name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:""});
     return renderStepsHTML(steps); }
   function markSignWait(steps, det){
-    if (!signWaitActive(det)) return steps;
+    var infl = state._signReady && state._signReady.in_flight;
+    if (!signWaitActive(det) && !(infl && infl.status !== "Manual Review")) return steps;
     steps.forEach(function(st){
       if (st.state === "current") {
         st.statusLabel = "Đang chờ nhà cung cấp xác nhận…";
@@ -674,6 +675,17 @@
     // doi trang thai nhung khu "Hanh dong" van nguyen nut "Duyet & Ky" - nen no doc ra la
     // "chua an gi, bam lai di", trong khi lenh da di roi. Bam lai lan hai la ky lan hai.
     // Hoan bao 28/08: "bam duyet va ky roi nhung no van con nut nay".
+    // 06/09: SIGNWAIT chi song trong JS - tai lai trang la mat, nut hien lai nhu chua bam
+    // (chi Lien). Nguon that la chan ky dang bay tren server (signing_readiness.in_flight).
+    var infl = state._signReady && state._signReady.in_flight;
+    if (infl && cap.can_approve) {
+      if (infl.status === "Manual Review")
+        return '<div class="hint">Chữ ký của bạn đã gửi nhà cung cấp nhưng chưa xác nhận được — '
+          + 'hệ thống đã báo quản trị đối soát. Không cần bấm lại.</div>';
+      startSignWait(state.id, ap.current_level);             // tiep tuc doi sau khi tai lai
+      return '<div class="hint">Đã gửi chữ ký tới nhà cung cấp, đang chờ xác nhận. '
+        + 'Màn hình tự cập nhật, không cần tải lại trang.</div>';
+    }
     if (signWaitActive(det)) {
       return '<div class="hint">Đã gửi chữ ký tới nhà cung cấp. Việc này thường mất '
         + '20–60 giây. Màn hình tự cập nhật, không cần tải lại trang.</div>';
@@ -780,13 +792,15 @@
   }
 
   function startSignWait(name, level){
+    if (SIGNWAIT.timer && String(SIGNWAIT.name) === String(name) && String(SIGNWAIT.level) === String(level)
+        && Date.now() < SIGNWAIT.until) return;               // dang doi roi - khong reset dong ho
     stopSignWait();
     SIGNWAIT.name = name; SIGNWAIT.level = level;
     SIGNWAIT.until = Date.now() + 6 * 60 * 1000;                // co diem dung, khong quay mai
     SIGNWAIT.timer = setInterval(function(){
       if (Date.now() > SIGNWAIT.until) { stopSignWait(); refreshDetail(); return; }
       if (state.tab !== "detail" || String(state.id) !== String(name)) { stopSignWait(); return; }
-      refreshDetail();
+      loadSignReady(true);                                     // in_flight tu server + ve lai
     }, 5000);
   }
 

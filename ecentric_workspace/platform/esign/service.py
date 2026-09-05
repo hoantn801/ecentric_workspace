@@ -730,4 +730,36 @@ def signing_readiness(business_doctype, business_name):
                 "allowlisted", "gates_enabled"]
     ready = all(checks.get(k) for k in required)
     reasons = [k for k in required if not checks.get(k)]
-    return {"ready": ready, "reasons": reasons, "checks": checks}
+    return {"ready": ready, "reasons": reasons, "checks": checks,
+            "in_flight": in_flight_leg(ar, req.current_level, user)}
+
+
+#: Chan ky cua CHINH nguoi nay o CAP nay dang bay hoac dang cho doi soat.
+_IN_FLIGHT = ("Queued", "Provider Accepted", "Verifying", "Signed", "Manual Review",
+              "Retryable Failure")
+
+
+def in_flight_leg(approval_request, level_no, user):
+    """Chan ky dang bay cua `user` o cap `level_no` -> {name, status, accepted_at} hoac None.
+
+    06/09, chi Lien bam "Duyet & Ky" roi Ctrl+Shift+R: nut "Duyet & Ky / Yeu cau bo sung /
+    Tu choi" hien lai nhu chua bam. Trang thai "dang cho nha cung cap" truoc do chi nam trong
+    bien JS (SIGNWAIT) - tai lai trang la mat, va bam lan hai la ky lan hai. Nguon that la
+    DSR: co chan ky dang bay thi man hinh KHONG duoc moi bam nua, bat ke ai tai lai gi.
+    """
+    if not (approval_request and level_no and user):
+        return None
+    rows = frappe.get_all("EC Digital Signature Request",
+                          filters={"approval_request": approval_request, "approver": user,
+                                   "actor_type": ["!=", "Requester"],
+                                   "status": ["in", _IN_FLIGHT]},
+                          fields=["name", "status", "accepted_at", "request_level",
+                                  "manual_review_reason"],
+                          order_by="creation desc", limit_page_length=5)
+    for r in rows:
+        lvl = frappe.db.get_value("EC Approval Request Level", r.request_level, "level_no") \
+            if r.request_level else None
+        if lvl is None or int(lvl) == int(level_no):
+            return {"name": r.name, "status": r.status, "accepted_at": str(r.accepted_at or ""),
+                    "manual_review_reason": r.manual_review_reason}
+    return None
