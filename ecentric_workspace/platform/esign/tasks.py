@@ -268,6 +268,47 @@ def _enrich_signer_context(placements, dsr):
     return placements
 
 
+#: Trang thai chung tu ben nha cung cap ma KHONG con ky duoc len nua.
+_DEAD_DOC_STATUSES = ("cancelled", "rejected")
+_DEAD_DOC_PREFIX = "provider_document_"
+
+
+def _poll_or_stop(dsr_name, dsr, adapter, doc_id):
+    """Chung tu ben SCTS da bi HUY / XOA (nguoi tao co nut "Huy chung tu" va "Xoa" tren
+    cong o moi buoc - Hoan 06/09) -> dung chan ky NGAY va noi ro, thay vi quay poll 20 phut
+    roi Manual Review "provider_accepted_but_silent" - cau do sai: nha cung cap khong im, no
+    khong con gi de ky. Ghi error_code len GOI de Duyet & Ky cua cap sau tu choi ngay (xem
+    service.approve_and_sign). Tra doc_state khi chung tu con song (nguoi goi dung tiep,
+    khong poll lan hai); None khi da dung.
+
+    404 (scts_document_not_found) cung bat o day."""
+    try:
+        doc_state = adapter.poll_status(doc_id)
+    except ProviderError as exc:
+        if exc.code == "scts_document_not_found":
+            _mark_document_dead(dsr_name, dsr, "deleted", safe_error(exc))
+            return None
+        raise
+    status = str(getattr(doc_state, "status", "") or "").lower()
+    if status in _DEAD_DOC_STATUSES:
+        _mark_document_dead(dsr_name, dsr, status, "chung tu %s ben nha cung cap: %s"
+                            % (doc_id, status))
+        return None
+    return doc_state
+
+
+def _mark_document_dead(dsr_name, dsr, how, detail):
+    code = _DEAD_DOC_PREFIX + how
+    msg = ("Chứng từ trên SCTS đã bị %s (thao tác trên cổng eContract). Không thể ký tiếp; "
+           "cần tạo phiếu mới." % ("xoá" if how == "deleted" else "huỷ"))
+    frappe.db.set_value("EC Digital Signature Package", dsr.package,
+                        {"error_code": code, "error_message": msg})
+    events.set_dsr_status(dsr_name, "Permanent Failure", event_type="Failed",
+                          extra_fields={"error_code": code, "error_message": msg, "retryable": 0},
+                          error_summary=detail)
+    _dead_letter_todo(dsr_name)
+
+
 def _complete_dsr(dsr_name, dsr):
     """Route completion by actor_type. Requester DSRs complete through the requester path
     (activation, never engine.approve()); Approval-Level DSRs use the unchanged approver
@@ -327,6 +368,9 @@ def process_signing_request(dsr_name):
             # reads only and are not gated here.
             binding.assert_outbound_binding(dsr_name, adapter)
         doc_id = _ensure_provider_document(dsr, settings, adapter)
+        doc_state = _poll_or_stop(dsr_name, dsr, adapter, doc_id)
+        if doc_state is None:
+            return                              # chung tu ben SCTS da bi huy/xoa - da ghi
 
         # POLL-FIRST chi danh cho chan ky CO THE da gui roi.
         #
@@ -340,7 +384,7 @@ def process_signing_request(dsr_name):
         # khi DA TUNG GUI. Chan ky chua gui bao gio thi khong the hoan tat bang cach nhin -
         # no phai gui truoc da.
         may_have_sent = sm.may_have_sent(dsr)
-        doc_state = adapter.poll_status(doc_id)
+        # doc_state: vua poll o _poll_or_stop (chung tu con song).
         expected = svc._expected_for(dsr)
         expected["document_id"] = doc_id
         vr = (SignatureProviderAdapter.verify_signed_result(doc_state, expected)

@@ -129,8 +129,13 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
     if not pkg_name:
         frappe.throw(_("Không có gói tài liệu sẵn sàng ký cho yêu cầu này."))
     pkg = frappe.db.get_value("EC Digital Signature Package", pkg_name,
-                              ["name", "package_version", "package_hash", "scts_document_id"],
+                              ["name", "package_version", "package_hash", "scts_document_id",
+                               "error_code", "error_message"],
                               as_dict=True)
+    if str(pkg.error_code or "").startswith("provider_document_"):
+        # Chung tu ben SCTS da bi huy/xoa (tasks._mark_document_dead). Khong xep hang mot
+        # lenh ky vao mot chung tu khong con ton tai.
+        frappe.throw(pkg.error_message or _("Chứng từ trên SCTS không còn ký được."))
     recomputed = pkgsvc.compute_hash(pkg_name)
     if recomputed != pkg.package_hash:
         events.emit("VerificationMismatch", package=pkg_name, erp_actor=actor,
@@ -708,10 +713,12 @@ def signing_readiness(business_doctype, business_name):
             final_level=guard.request_final_level(ar)))
     pkg_name = pkgsvc.active_package_for_request(ar)
     pkg = frappe.db.get_value("EC Digital Signature Package", pkg_name,
-                              ["status", "package_hash"], as_dict=True) if pkg_name else None
+                              ["status", "package_hash", "error_code"], as_dict=True) if pkg_name else None
     checks["package_active_hash_valid"] = bool(
         pkg and pkg.status == "Active" and pkg.package_hash
         and pkgsvc.compute_hash(pkg_name) == pkg.package_hash)
+    dead = str((pkg or {}).get("error_code") or "").startswith("provider_document_")
+    checks["provider_document_alive"] = bool(pkg) and not dead
     checks["mandatory_placements_complete"] = bool(
         pkg_name and not pkgsvc.preflight_for_lock(pkg_name))
     checks["verified_mapping"] = bool(perms.verified_mapping(user, profile.environment))
@@ -726,6 +733,7 @@ def signing_readiness(business_doctype, business_name):
                                    and settings.get("allow_signing"))
     checks["production_signing_on"] = bool(settings.get("allow_production_signing"))
     required = ["active_approver", "level_requires_signature", "package_active_hash_valid",
+                "provider_document_alive",
                 "mandatory_placements_complete", "verified_mapping", "provider_environment_ok",
                 "allowlisted", "gates_enabled"]
     ready = all(checks.get(k) for k in required)
