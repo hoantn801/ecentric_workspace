@@ -74,7 +74,9 @@ function mk(opts){ opts=opts||{};
   vm.createContext(sb); sb.window=sb; sb.frappe=frappe; sb.contentHost=contentHost;
   return {sb,els,contentHost,ivals}; }
 
-const tick=async()=>{for(let i=0;i<8;i++)await Promise.resolve();};
+// p133 (03/09) chen them mot buoc attach_uploaded_file giua upload_file va con tro dai dien:
+// chuoi promise dai hon 8 nhip -> 2 phep kiem "sau upload" do gia. 32 nhip du cho ca chuoi.
+const tick=async()=>{for(let i=0;i<32;i++)await Promise.resolve();};
 let pass=0,fail=0; const ok=(c,m)=>{console.log((c?"  ok - ":"  FAIL - ")+m);pass+=c;fail+=!c;};
 
 async function main(){

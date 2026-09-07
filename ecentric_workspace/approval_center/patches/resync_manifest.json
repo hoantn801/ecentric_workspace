@@ -138,8 +138,8 @@
     "sha256": "aacf66868454b874e2487f3401b126ff87b0a2c4fc9a21907025b3d4170e82c6"
   },
   "approval_center/ui/all_requests/main_section.html": {
-    "last_resync_patch": "p143_resync_all_requests_my_drafts",
-    "sha256": "2bfa855c9eb3a4243bf87446ac79b7d0b1544d7e3453d8688719383920776c32"
+    "last_resync_patch": "p148_resync_all_requests_note_reset",
+    "sha256": "bc1f5eb0dba7ef8086b4fcd0387e977c8a9fd7cf9b3498c9dc1d8f7101627a88"
   },
   "approval_center/ui/dashboard/main_section.html": {
     "baseline": "2026-08-31",
