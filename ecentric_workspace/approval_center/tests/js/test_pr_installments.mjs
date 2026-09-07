@@ -53,13 +53,16 @@ const C = PR.state.boot.context, FO = PR.state.boot.form_options;
 
 // --- 1. form tạo mới ---
 let h = PR.formCardsHTML({ payment_mode: "Full" }, C, FO);
-ok(/data-model="payment_mode"/.test(h) && /Chia đợt/.test(h), "form có chọn hình thức thanh toán");
+ok(/data-model="payment_mode"/.test(h) && /Chia nhiều đợt/.test(h), "form có chọn hình thức thanh toán");
 ok(!/data-model="total_amount"/.test(h) && !/data-model="next_installment_date"/.test(h), "100%: không hiện tổng / đợt kế");
 h = PR.formCardsHTML({ payment_mode: "Installment", total_amount: 10000, payment_amount: 4000 }, C, FO);
 ok(/data-model="total_amount"/.test(h), "chia đợt: hiện tổng giá trị");
 ok(/Số tiền đợt 1/.test(h), "chia đợt: nhãn số tiền đợt 1");
 ok(/data-model="next_installment_amount" value="6000"/.test(h), "đợt kế tự tính 10000−4000=6000");
 ok(/data-model="next_installment_date"/.test(h), "chia đợt: hỏi ngày dự kiến đợt kế");
+ok(/id="payr-inst-plan"/.test(h) && h.indexOf('id="payr-inst-plan"') > h.indexOf('data-model="reason"'), "kế hoạch chia đợt là khối riêng, nằm sau Lý do (không xen ô trống vào lưới)");
+ok(!/<div><\/div>/.test(h.split("Nguồn chi phí")[0]), "thẻ Thông tin thanh toán không còn ô trống rỗng trong lưới");
+ok(/Số tiền đợt 2 \(VND\)/.test(h) && /đợt 2 trước ngày này 7 ngày/.test(h), "nhãn đợt kế ghi rõ số đợt");
 h = PR.formCardsHTML({ payment_mode: "Installment", total_amount: 10000, payment_amount: 10000 }, C, FO);
 ok(/đợt cuối/.test(h) && !/data-model="next_installment_date"/.test(h), "đợt này = hết tổng → đợt cuối, không hỏi đợt kế");
 h = PR.formCardsHTML({ payment_mode: "Installment", total_amount: 10000, payment_amount: 5000, installment_no: 2, installment_of: "EC-PAYR-2026-00001", _paid_before: 5000 }, C, FO);
@@ -129,5 +132,5 @@ ok(PR.instChainHTML(d).indexOf("<img") < 0, "chuỗi esc mã phiếu (hiện t�
 ok(PR.instChainHTML(det(null)) === "" && PR.instCardHTML(det(null)) === "", "phiếu 100%: không có chuỗi/thẻ");
 
 console.log(`${pass} đạt, ${fail} hỏng`);
-if (pass < 32) { console.log("HONG: so phep kiem thap bat thuong (" + pass + ")"); process.exit(1); }
+if (pass < 35) { console.log("HONG: so phep kiem thap bat thuong (" + pass + ")"); process.exit(1); }
 process.exit(fail ? 1 : 0);
