@@ -27,10 +27,22 @@ def bind_fulfillment(code, queue_fields, order_by, operation_fields=False):
         facade.complete_fulfillment(definition, name, payload)
         return {"completed": True, "detail": endpoints["get_detail"](name)}
 
+    @frappe.whitelist()
+    def list_reassign_targets(name):
+        return facade.list_reassign_targets(definition, name)
+
+    @frappe.whitelist(methods=["POST"])
+    def reassign_fulfillment(name, new_user):
+        result = facade.reassign_fulfillment(definition, name, new_user)
+        return {"reassigned": True, "owner": result.get("owner"),
+                "detail": endpoints["get_detail"](name)}
+
     endpoints.update({
         "list_fulfillment_queue": list_fulfillment_queue,
         "claim_fulfillment": claim_fulfillment,
         "complete_fulfillment": complete_fulfillment,
+        "list_reassign_targets": list_reassign_targets,
+        "reassign_fulfillment": reassign_fulfillment,
     })
     if operation_fields:
         @frappe.whitelist(methods=["POST"])

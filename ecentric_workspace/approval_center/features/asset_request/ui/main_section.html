@@ -461,6 +461,7 @@
     var info='<div class="hint">Trạng thái xử lý: '+esc({Assigned:"Chờ Operation nhận xử lý","In Progress":"Đang xử lý"}[ff.status]||ff.status||"—")+(ff.owner?(" · Người xử lý: "+esc(ff.owner)):"")+'</div>';
     var btns=[]; if(cap.can_claim) btns.push('<button type="button" class="btn primary" data-act="claim">Nhận xử lý</button>');
     if(cap.can_complete) btns.push('<button type="button" class="btn primary" data-act="complete">Hoàn tất xử lý</button>');
+    if(cap.can_reassign) btns.push('<button type="button" class="btn" data-act="reassign">Chuy\u1ec3n ng\u01b0\u1eddi x\u1eed l\u00fd</button>');
     return info+(btns.length?'<div class="actions" style="margin-top:8px">'+btns.join("")+'</div>':''); }
 
   // ---- stepper ----
@@ -519,7 +520,7 @@
     if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det);
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
     if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name);
-    if(a==="claim") return doClaim(name); if(a==="complete") return doComplete(name,det);
+    if(a==="claim") return doClaim(name); if(a==="reassign") return doReassign(name); if(a==="complete") return doComplete(name,det);
 }
   function ensureActionHandlers(){ if(document.__assrActBound) return; document.__assrActBound=true; document.addEventListener("click", handleActionClick, true); }
 
@@ -552,7 +553,30 @@
   function doAdminApprove(name){ modal("Duyệt thay bước hiện tại", '<div class="banner warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div>Bạn đang duyệt thay cho bước phê duyệt hiện tại bằng quyền System Manager. Hành động này sẽ được ghi nhận trong lịch sử và không giả lập người duyệt gốc.</div></div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Xác nhận duyệt thay", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
     return call("admin_approve_current_level",{name:name,reason:c}).then(function(){ toast("Đã duyệt thay bước hiện tại."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
 
-  function doClaim(name){ call("claim_fulfillment",{name:name}).then(function(){ toast("Đã nhận xử lý."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); }); }
+  // Chuyen nguoi xu ly. Danh sach nguoi nhan lay tu server (Fulfiller cau hinh cua quy trinh),
+  // KHONG cho go email tu do: engine se tu choi nguoi khong du dieu kien, go tay chi tao cai bay.
+  function doReassign(name){
+    return call("list_reassign_targets",{name:name}).then(function(res){
+      var rows=(res&&res.targets)||[], cur=(res&&res.current_owner)||"";
+      if(!rows.length){ toast("Kh\u00f4ng c\u00f3 ai kh\u00e1c \u0111\u1ee7 \u0111i\u1ec1u ki\u1ec7n nh\u1eadn x\u1eed l\u00fd y\u00eau c\u1ea7u n\u00e0y.",true); return; }
+      var opts=rows.map(function(u){ return '<option value="'+esc(u.name)+'">'+esc((u.full_name||u.name)+" \u00b7 "+u.name)+'</option>'; }).join("");
+      modal("Chuy\u1ec3n ng\u01b0\u1eddi x\u1eed l\u00fd",
+        '<div class="summary-row"><span>\u0110ang x\u1eed l\u00fd</span><b>'+esc(cur||"\u2014")+'</b></div>'
+        +'<div class="fld"><label>Chuy\u1ec3n cho <span class="req">*</span></label><select id="m-newowner">'+opts+'</select></div>'
+        +'<div class="hint">Ng\u01b0\u1eddi nh\u1eadn s\u1ebd \u0111\u01b0\u1ee3c giao vi\u1ec7c v\u00e0 nh\u1eadn th\u00f4ng b\u00e1o. Vi\u1ec7c \u0111ang giao cho b\u1ea1n s\u1ebd \u0111\u01b0\u1ee3c \u0111\u00f3ng l\u1ea1i.</div>',
+        {okLabel:"Chuy\u1ec3n", onConfirm:function(ov){
+          var nu=(ov.querySelector("#m-newowner").value||"");
+          if(!nu){ toast("Ch\u01b0a ch\u1ecdn ng\u01b0\u1eddi nh\u1eadn.",true); return Promise.reject(); }
+          return call("reassign_fulfillment",{name:name,new_user:nu}).then(function(r){
+            toast("\u0110\u00e3 chuy\u1ec3n cho "+nu+"."); applyDetail(r);
+          }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }});
+    }).catch(function(e){ toast(mapErr(e),true); });
+  }
+  function doClaim(name){
+    var cap=(state.detail&&state.detail.capabilities)||{};
+    if(cap.claim_is_admin_override) return modal("Nh\u1eadn x\u1eed l\u00fd b\u1eb1ng quy\u1ec1n qu\u1ea3n tr\u1ecb",'<div class="banner warn">B\u1ea1n kh\u00f4ng thu\u1ed9c nh\u00f3m x\u1eed l\u00fd m\u1eb7c \u0111\u1ecbnh c\u1ee7a lo\u1ea1i y\u00eau c\u1ea7u n\u00e0y. Nh\u1eadn xong, vi\u1ec7c s\u1ebd \u0111\u1ee9ng t\u00ean b\u1ea1n cho \u0111\u1ebfn khi b\u1ea1n ho\u00e0n t\u1ea5t ho\u1eb7c chuy\u1ec3n cho ng\u01b0\u1eddi kh\u00e1c.</div>', {okLabel:"V\u1eabn nh\u1eadn", onConfirm:function(){ return _claim(name); }});
+    return _claim(name); }
+  function _claim(name){ call("claim_fulfillment",{name:name}).then(function(){ toast("Đã nhận xử lý."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); }); }
   function completionErrors(c){ c=c||state.comp||{}; var errs={}; if(!((c.fulfillment_summary||"").toString().trim())) errs.fulfillment_summary="Vui lòng nhập tóm tắt kết quả xử lý."; return Object.keys(errs).length?errs:null; }
   function doComplete(name,det){ var b0=det.business||{}; state.comp={ fulfillment_summary:"", output_link:"", completed_attachment:"", operation_note:(b0.operation_note||""), asset_handover_note:"" };
     var body='<div class="fld"><label>Tóm tắt kết quả xử lý <span class="req">*</span></label><textarea id="c-summary" rows="3"></textarea></div>'
@@ -581,7 +605,7 @@
     call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(){ var bd=$("assr-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.AssetRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, renderFulfillment:renderFulfillment, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, doComplete:doComplete, doClaim:doClaim };
+  window.AssetRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, renderFulfillment:renderFulfillment, fulfillmentSectionHTML:fulfillmentSectionHTML, completionErrors:completionErrors, doComplete:doComplete, doClaim:doClaim, doReassign:doReassign };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>

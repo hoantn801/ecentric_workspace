@@ -88,6 +88,36 @@ def _can_complete(user, business_doc):
     return bool(getattr(business_doc, "fulfillment_owner", None) == user or is_system_manager(user))
 
 
+def _can_reassign(user, business_doc):
+    """Chuyen viec cho nguoi khac: cung quyen voi hoan tat - chu viec hoac quan tri."""
+    return _can_complete(user, business_doc)
+
+
+def _claim_is_admin_override(user, business_doc, approval_request=None):
+    """True khi nguoi nay chi nhan duoc viec NHO quyen System Manager.
+
+    `is_eligible_fulfiller` cho System Manager di qua vo dieu kien, nen nut "Nhan xu ly"
+    hien tren ca 6 form co fulfillment du nguoi do khong thuoc nhom xu ly loai nay - rat
+    de bam nham (07/09: Hoan nhan nham mot ho so nghi viec cua HR). Co nay de man hinh
+    hoi lai truoc khi nhan, chu KHONG an nut: duong quan tri van can that khi nguoi xu ly
+    mac dinh nghi hoac di vang.
+    """
+    if not is_system_manager(user):
+        return False
+    try:
+        from ecentric_workspace.approval_center.shared.workflow import permissions as _perm
+        atype = getattr(business_doc, "approval_type", None) or (
+            approval_request.get("approval_type") if approval_request else None)
+        if _perm._is_configured_fulfiller(user, atype):
+            return False
+        # Viec duoc giao dich danh cho nguoi nay TREN CHINH PHIEU NAY -> khong phai override.
+        return not frappe.db.exists("ToDo", {
+            "reference_type": business_doc.doctype, "reference_name": business_doc.name,
+            "allocated_to": user, "status": "Open"})
+    except Exception:
+        return False
+
+
 def _requires_signature(can_act, business_doc, approval_request):
     """Cap hien tai cua nguoi nay co phai KY SO khong (04/09). Hub "Tat ca yeu cau" dung de
     hien "Duyet & Ky" thay vi "Duyet" - bam "Duyet" tren cap ky so thi engine tu choi
@@ -137,7 +167,9 @@ def derive(user, business_doc, approval_request):
         "can_request_information": can_act,
         "can_admin_approve_current_level": admin_approve,
         "can_claim": _can_claim(user, business_doc, approval_request),
+        "claim_is_admin_override": _claim_is_admin_override(user, business_doc, approval_request),
         "can_complete": _can_complete(user, business_doc),
+        "can_reassign": _can_reassign(user, business_doc),
         "can_view_fulfillment": bool(requester or admin or _is_fulfiller(user, business_doc, approval_request)),
     }
 
