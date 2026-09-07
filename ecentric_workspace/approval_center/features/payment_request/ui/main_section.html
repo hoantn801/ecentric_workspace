@@ -251,7 +251,10 @@
     var body='<div class="grid2">'
       + fld("total_amount","Tổng giá trị hợp đồng / khoản chi (VND)",'<input type="number" min="0" step="1" data-model="total_amount"'+(d.installment_of?' readonly class="ro"':'')+' value="'+esc(d.total_amount!=null?d.total_amount:"")+'">',true)
       + fld("_inst_sum","Đã đề nghị các đợt trước / còn lại sau đợt này",'<input class="ro" readonly value="'+esc((tot>0?(fmtVnd(paid)+'đ / '+fmtVnd(rem)+'đ'):'—'))+'">');
+    var over=tot>0 && (Number(d.payment_amount)||0) > tot-paid+0.5;
     if(!(tot>0)) body+='<div class="fld full"><div class="hint">Nhập Tổng giá trị; phần còn lại sau đợt '+k+' sẽ là đợt kế.</div></div>';
+    // Dot nay > phan con lai cua tong: noi thang, khong duoc doc nham thanh "dot cuoi".
+    else if(over) body+='<div class="fld full"><div class="hint err" style="color:var(--red)">Số tiền đợt '+k+' ('+fmtVnd(d.payment_amount)+'đ) vượt phần còn lại của tổng giá trị ('+fmtVnd(tot-paid)+'đ). Giảm số tiền đợt này hoặc tăng tổng.</div></div>';
     else if(rem<=0) body+='<div class="fld full"><div class="hint">Đợt '+k+' thanh toán hết phần còn lại — đây là đợt cuối, không có đợt kế.</div></div>';
     else body+=fld("next_installment_amount","Số tiền đợt "+(k+1)+" (VND)",'<input type="number" min="0" step="1" data-model="next_installment_amount" value="'+esc(nxt)+'"><div class="hint">Mặc định = còn lại ('+fmtVnd(rem)+'đ)'+(nxt<rem-0.5?'; sẽ còn '+fmtVnd(rem-nxt)+'đ cho các đợt sau':'')+'</div>')
       + fld("next_installment_date","Ngày dự kiến thanh toán đợt "+(k+1),'<input type="date" data-model="next_installment_date" value="'+esc(d.next_installment_date||"")+'"><div class="hint">Hệ thống nhắc bạn tạo đề nghị đợt '+(k+1)+' trước ngày này 7 ngày.</div>',true);
@@ -475,11 +478,17 @@
     if(k==="total_amount"||k==="payment_amount"){ if((state.draft||{}).payment_mode==="Installment"){ refreshInstallmentHints(); } }
     renderSummary(); clearFieldError(k); }
   // Doi tong / so tien dot nay -> cap nhat goi y dot ke tai cho (khong ve lai ca form de khong mat focus).
+  // Ve lai RIENG khoi ke hoach khi tong / so tien dot nay doi. O "Tong gia tri" nam TRONG khoi
+  // nay: thay khoi la mat o dang go -> moi phim phai bam lai o (Hoan 08/09). Nen: nho o dang
+  // co focus (data-model + vi tri con tro), thay khoi xong tra focus + con tro ve o cung ten.
   function refreshInstallmentHints(){ var d=state.draft||{}; var box=document.getElementById("payr-inst-plan"); if(!box){ renderCreate($("payr-body")); return; }
     var rem=installmentRemaining(d); if(d.next_installment_amount!=null&&d.next_installment_amount!==""&&Number(d.next_installment_amount)>rem) setModel("next_installment_amount",rem);
-    // ve lai RIENG khoi ke hoach (o dang go van giu focus), roi noi lai model cho o moi
-    var wrap=box.parentNode; var tmp=document.createElement("div"); tmp.innerHTML=installmentPlanHTML(d); var fresh=tmp.querySelector("#payr-inst-plan");
-    if(fresh){ box.replaceWith(fresh); wireModels(fresh); } }
+    var ae=document.activeElement, focusKey=(ae&&box.contains(ae))?ae.getAttribute("data-model"):null, caret=null;
+    if(focusKey){ try{ caret=ae.selectionStart; }catch(e){ caret=null; } }
+    var tmp=document.createElement("div"); tmp.innerHTML=installmentPlanHTML(d); var fresh=tmp.querySelector("#payr-inst-plan");
+    if(!fresh) return;
+    box.replaceWith(fresh); wireModels(fresh);
+    if(focusKey){ var el=fresh.querySelector('[data-model="'+focusKey+'"]'); if(el){ try{ el.focus({preventScroll:true}); if(caret!=null&&el.type!=="number") el.setSelectionRange(caret,caret); }catch(e){} } } }
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
     if(el.type==="checkbox"||el.type==="radio"){ el.addEventListener("change",function(){ onModelInput(el); }); el.addEventListener("input",function(){ onModelInput(el); }); return; }
     var evt=(el.tagName==="SELECT")?"change":"input";
