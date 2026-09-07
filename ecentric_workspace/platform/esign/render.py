@@ -98,13 +98,21 @@ def to_pdf(content, file_name=None):
         return content, False
     if kind is None:
         raise UnrenderableFile("tep %r khong phai PDF hay anh PNG/JPEG" % (file_name or "?"))
-    from PIL import Image                      # Frappe phu thuoc Pillow; khong them dependency
-    with Image.open(io.BytesIO(content)) as im:
-        im.load()
-        rgb = flatten_to_rgb(im)
-    buf = io.BytesIO()
-    # 96 dpi: anh chup man hinh 1080px ~ 28 cm, vua mot trang; SCTS chi can mo duoc.
-    rgb.save(buf, format="PDF", resolution=96.0)
+    from PIL import Image, ImageOps            # Frappe phu thuoc Pillow; khong them dependency
+    try:
+        with Image.open(io.BytesIO(content)) as im:
+            im.load()
+            # Anh chup dien thoai mang huong xoay trong EXIF; khong ap thi PDF bi xoay 90/180.
+            im = ImageOps.exif_transpose(im) or im
+            rgb = flatten_to_rgb(im)
+        buf = io.BytesIO()
+        # 96 dpi: anh chup man hinh 1080px ~ 28 cm, vua mot trang; SCTS chi can mo duoc.
+        rgb.save(buf, format="PDF", resolution=96.0)
+    except Exception as exc:
+        # Anh cut, hong, qua lon (DecompressionBomb)... deu la "khong ve duoc" - cung mot cua
+        # ra, de tang tren quyet dinh (to trinh: tu choi ro; phu luc: giu tren ERP). Khong de
+        # OSError lot len process_signing_request roi chan ky ket Queued vo han.
+        raise UnrenderableFile("khong ve duoc %r thanh PDF: %s" % (file_name or "?", exc))
     out = buf.getvalue()
     if not out.startswith(PDF_MAGIC):
         raise UnrenderableFile("ve %r thanh PDF that bai" % (file_name or "?"))

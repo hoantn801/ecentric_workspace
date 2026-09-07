@@ -106,6 +106,11 @@ class TestInFlight(unittest.TestCase):
         m = _service(rows, {"LVL-2": 2})
         self.assertIsNone(m.in_flight_leg("AR-1", 2, "lien.vu@ecentric.vn"))
 
+    def test_dong_khong_co_request_level_thi_bo_qua(self):
+        rows = [dict(ROWS[0], request_level=None)]
+        m = _service(rows, {})
+        self.assertIsNone(m.in_flight_leg("AR-1", 2, "lien.vu@ecentric.vn"))
+
     def test_thieu_tham_so_thi_None(self):
         m = _service(ROWS, {"LVL-2": 2})
         self.assertIsNone(m.in_flight_leg(None, 2, "lien.vu@ecentric.vn"))
@@ -128,6 +133,10 @@ class TestWiring(unittest.TestCase):
         self.assertIn("startSignWait(state.id, ap.current_level);", body)
         j = h.index("function startSignWait")
         self.assertIn("Date.now() < SIGNWAIT.until) return;", h[j:j + 400])
+        # het gio: nap readiness co ep, KHONG tu khoi dong vong moi tu duong ve
+        self.assertIn("SIGNWAIT.expiredFor = String(name)", h[j:j + 900])
+        self.assertIn("stopSignWait(); loadSignReady(true); return;", h[j:j + 900])
+        self.assertIn('if (SIGNWAIT.expiredFor === String(state.id) + "|" + String(ap.current_level))', body)
         self.assertIn("loadSignReady(true);                                     // in_flight tu server", h)
         k = h.index("function markSignWait")
         self.assertIn('!(infl && infl.status !== "Manual Review")', h[k:k + 400])

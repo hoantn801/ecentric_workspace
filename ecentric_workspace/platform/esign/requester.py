@@ -194,6 +194,10 @@ def _preflight_vi(code):
         return "thiếu vị trí ký của cấp %s trên tệp %s" % (lvl.lstrip("L"), fname)
     if head == "signable_not_pdf":
         return "tệp %s không phải PDF nên không ký trực tiếp được" % code.split(":", 1)[-1]
+    if head == "signable_too_large":
+        from ecentric_workspace.platform.esign import limits
+        return ("tổng tệp cần ký %s vượt mức cổng ký nhận (~%s) - hãy nén PDF hoặc tách bớt"
+                % (code.split(":", 1)[-1], limits.raw_budget_mb(2)))
     if head == "missing_hash":
         return "tệp %s chưa tính được mã kiểm tra" % code.split(":", 1)[-1]
     return code

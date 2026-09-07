@@ -682,6 +682,9 @@
       if (infl.status === "Manual Review")
         return '<div class="hint">Chữ ký của bạn đã gửi nhà cung cấp nhưng chưa xác nhận được — '
           + 'hệ thống đã báo quản trị đối soát. Không cần bấm lại.</div>';
+      if (SIGNWAIT.expiredFor === String(state.id) + "|" + String(ap.current_level))
+        return '<div class="hint">Chữ ký đã gửi nhà cung cấp nhưng chưa được xác nhận sau 6 phút. '
+          + 'Hệ thống vẫn tự đối soát mỗi phút; tải lại trang để xem trạng thái mới.</div>';
       startSignWait(state.id, ap.current_level);             // tiep tuc doi sau khi tai lai
       return '<div class="hint">Đã gửi chữ ký tới nhà cung cấp, đang chờ xác nhận. '
         + 'Màn hình tự cập nhật, không cần tải lại trang.</div>';
@@ -773,7 +776,7 @@
   // bat dong bo, con thanh tien trinh chi doi khi da xac minh xong. Nguoi dung khong biet
   // he thong da nhan lenh hay chua, nen bam lai - Hoan bao 27/08.
   // Ghi ro dang cho, va TU hoi lai thay vi bat nguoi dung F5.
-  var SIGNWAIT = { name: null, level: null, timer: null, until: 0 };
+  var SIGNWAIT = { name: null, level: null, timer: null, until: 0, expiredFor: null };
 
   function signWaitActive(det){
     // actionPanelHTML goi ham nay va duoc dinh nghia TRUOC no trong file. Khai bao ham thi
@@ -798,7 +801,11 @@
     SIGNWAIT.name = name; SIGNWAIT.level = level;
     SIGNWAIT.until = Date.now() + 6 * 60 * 1000;                // co diem dung, khong quay mai
     SIGNWAIT.timer = setInterval(function(){
-      if (Date.now() > SIGNWAIT.until) { stopSignWait(); refreshDetail(); return; }
+      if (Date.now() > SIGNWAIT.until) {
+        // Het gio: nap lai readiness co ep (in_flight moi) roi ve; KHONG tu khoi dong vong
+        // moi tu duong ve (review 06/09: vong 5s chay vo han khi chan ky ket).
+        SIGNWAIT.expiredFor = String(name) + "|" + String(level);
+        stopSignWait(); loadSignReady(true); return; }
       if (state.tab !== "detail" || String(state.id) !== String(name)) { stopSignWait(); return; }
       loadSignReady(true);                                     // in_flight tu server + ve lai
     }, 5000);

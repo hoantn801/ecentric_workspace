@@ -92,6 +92,44 @@ def _provider_file(pkg, order, f):
             "content": content}
 
 
+def _fit_payload_budget(pkg, sent, copies=2):
+    """Giu payload AddDocument duoi gioi han body cua eContract (limits.py; 413 ngay 07/09).
+
+    Bo PHU LUC lon nhat truoc (giu tren ERP, su kien SupportingFileKeptInErp ly do
+    payload_budget - cung su kien nhu Excel, nen provider_file_count van dung). To trinh
+    khong bao gio bo: van vuot thi tu choi ro (scts_payload_too_large, khong retry) - preflight
+    luc Gui da chan truong hop nay, toi day la du lieu lech.
+    """
+    from ecentric_workspace.platform.esign import limits
+    sent = list(sent)
+    while not limits.fits((len(f["content"]) for f in sent), copies):
+        supporting = [f for f in sent if not f.get("can_be_signed")]
+        if not supporting:
+            raise ProviderError(
+                "scts_payload_too_large",
+                "to trinh %s vuot gioi han eContract nhan (%s)" % (
+                    limits.mb(sum(len(f["content"]) for f in sent)),
+                    limits.raw_budget_mb(copies)),
+                retryable=False)
+        biggest = max(supporting, key=lambda f: len(f["content"]))
+        sent.remove(biggest)
+        events.emit("SupportingFileKeptInErp", package=pkg.name,
+                    request_meta={"file": _erp_file_name(biggest), "order": biggest["order"],
+                                  "reason": "payload_budget: %s" % limits.mb(len(biggest["content"]))})
+    return sent
+
+
+def _payload_copies(settings):
+    from ecentric_workspace.platform.esign import limits
+    return limits.payload_copies(settings or {})
+
+
+def _erp_file_name(sent_file):
+    """Ten tep GOC tren ERP cua mot dong da gui (ten gui co the la .pdf ve lai)."""
+    return frappe.db.get_value("EC Digital Signature File", sent_file.get("file_dsf"),
+                               "file_name") or sent_file.get("name")
+
+
 def _ensure_provider_document(dsr, settings, adapter):
     """Creation trigger support: create the provider document lazily when the package
     has no scts_document_id yet ('Before First Signing Level' mode, and the reconciler
@@ -143,7 +181,9 @@ def _ensure_provider_document(dsr, settings, adapter):
         "department_id": prof.get("department_id"),
         "document_template_id": prof.get("document_template_id"),
         # order = chi so ERP (khop by_order ben duoi) ke ca khi mot phu luc bi giu lai.
-        "files": [x for x in (_provider_file(pkg, i, f) for i, f in enumerate(files)) if x],
+        "files": _fit_payload_budget(
+            pkg, [x for x in (_provider_file(pkg, i, f) for i, f in enumerate(files)) if x],
+            copies=_payload_copies(settings)),
         "placements": _with_page_heights(pkg.name,
                                          [dict(p) for p in pkgsvc.package_placements(pkg.name)]),
     }
@@ -268,8 +308,10 @@ def _enrich_signer_context(placements, dsr):
     return placements
 
 
-#: Trang thai chung tu ben nha cung cap ma KHONG con ky duoc len nua.
-_DEAD_DOC_STATUSES = ("cancelled", "rejected")
+#: Trang thai chung tu ben nha cung cap ma KHONG con ky duoc len nua. "rejected" KHONG o
+#: day: mot cap tu choi tren cong la chuyen cua luong duyet (signer_rejected_at_provider ->
+#: Manual Review o duoi), khong phai chung tu chet.
+_DEAD_DOC_STATUSES = ("cancelled",)
 _DEAD_DOC_PREFIX = "provider_document_"
 
 
@@ -281,12 +323,19 @@ def _poll_or_stop(dsr_name, dsr, adapter, doc_id):
     service.approve_and_sign). Tra doc_state khi chung tu con song (nguoi goi dung tiep,
     khong poll lan hai); None khi da dung.
 
-    404 (scts_document_not_found) cung bat o day."""
+    404 (scts_document_not_found): co the la XOA, cung co the la token nay khong con quyen
+    xem (eContract tra 404 theo pham vi token - da thay voi Workflow GET). Khong doan: dua ve
+    Manual Review `provider_document_not_found` (nguoi truc doi chieu, reconcile duoc), KHONG
+    danh dau goi chet."""
     try:
         doc_state = adapter.poll_status(doc_id)
     except ProviderError as exc:
         if exc.code == "scts_document_not_found":
-            _mark_document_dead(dsr_name, dsr, "deleted", safe_error(exc))
+            events.set_dsr_status(dsr_name, "Manual Review", event_type="ManualReview",
+                                  verification_result="document_not_found",
+                                  extra_fields={"manual_review_reason": "provider_document_not_found"},
+                                  error_summary=safe_error(exc))
+            _dead_letter_todo(dsr_name)
             return None
         raise
     status = str(getattr(doc_state, "status", "") or "").lower()
@@ -299,8 +348,8 @@ def _poll_or_stop(dsr_name, dsr, adapter, doc_id):
 
 def _mark_document_dead(dsr_name, dsr, how, detail):
     code = _DEAD_DOC_PREFIX + how
-    msg = ("Chứng từ trên SCTS đã bị %s (thao tác trên cổng eContract). Không thể ký tiếp; "
-           "cần tạo phiếu mới." % ("xoá" if how == "deleted" else "huỷ"))
+    msg = ("Chứng từ trên SCTS đã bị huỷ (thao tác trên cổng eContract). Không thể ký tiếp; "
+           "cần tạo phiếu mới.")
     frappe.db.set_value("EC Digital Signature Package", dsr.package,
                         {"error_code": code, "error_message": msg})
     events.set_dsr_status(dsr_name, "Permanent Failure", event_type="Failed",

@@ -765,9 +765,10 @@ def in_flight_leg(approval_request, level_no, user):
                                   "manual_review_reason"],
                           order_by="creation desc", limit_page_length=5)
     for r in rows:
-        lvl = frappe.db.get_value("EC Approval Request Level", r.request_level, "level_no") \
-            if r.request_level else None
-        if lvl is None or int(lvl) == int(level_no):
+        if not r.request_level:
+            continue                          # khong biet cap nao -> khong duoc an nut cua cap nay
+        lvl = frappe.db.get_value("EC Approval Request Level", r.request_level, "level_no")
+        if lvl is not None and int(lvl) == int(level_no):
             return {"name": r.name, "status": r.status, "accepted_at": str(r.accepted_at or ""),
                     "manual_review_reason": r.manual_review_reason}
     return None

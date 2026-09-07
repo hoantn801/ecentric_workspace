@@ -47,6 +47,7 @@
   "allow_external_signer",
   "allow_callback",
   "allow_production_signing",
+  "omit_original_base64",
   "allowed_signing_users",
   "request_timeout",
   "polling_interval_s",
@@ -165,6 +166,13 @@
    "fieldtype": "Check",
    "label": "Allow Production Signing",
    "default": "0"
+  },
+  {
+   "fieldname": "omit_original_base64",
+   "fieldtype": "Check",
+   "label": "Omit OriginalBase64 (thu nghiem)",
+   "default": "0",
+   "description": "AddDocument gui OriginalBase64 rong (giam mot nua payload). TAT mac dinh. Bat de THU tren phieu test; SCTS tra 400 thi adapter tu gui lai ban day du."
   },
   {
    "fieldname": "allowed_signing_users",

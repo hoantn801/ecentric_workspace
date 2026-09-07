@@ -71,7 +71,10 @@ class TestWaitingState(unittest.TestCase):
                          "thanh tien trinh chi tiet dang goi ban KHONG co trang thai cho")
 
     def test_the_page_refreshes_itself(self):
-        self.assertRegex(self.page, r"setInterval\([\s\S]{0,400}refreshDetail\(\)")
+        # p145/p146: moi nhip nap lai readiness (in_flight) co ep; loadSignReady goi refreshDetail
+        # khi co ket qua - van la tu lam moi, nhung theo trang thai SERVER.
+        self.assertRegex(self.page, r"setInterval\([\s\S]{0,700}loadSignReady\(true\)")
+        self.assertRegex(self.page, r"state\._signReady=res\|\|null; refreshDetail\(\);")
 
     def test_waiting_has_a_deadline(self):
         self.assertIn("SIGNWAIT.until", self.page)

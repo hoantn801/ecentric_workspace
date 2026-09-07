@@ -89,6 +89,26 @@ class TestRender(unittest.TestCase):
         with self.assertRaises(self.r.UnrenderableFile):
             self.r.to_pdf(b"PK\x03\x04 not an image", "bang.docx")
 
+    def test_anh_hong_cung_la_khong_ve_duoc_khong_lot_OSError(self):
+        # magic PNG dung nhung than cut -> Pillow nem OSError/UnidentifiedImageError; phai thanh
+        # UnrenderableFile de tang tren xu ly, khong ket chan ky Queued vo han (review 06/09)
+        with self.assertRaises(self.r.UnrenderableFile):
+            self.r.to_pdf(_png()[:40], "cut.png")
+
+    def test_exif_xoay_duoc_ap(self):
+        from PIL import Image
+        im = Image.new("RGB", (30, 10), (1, 2, 3))
+        exif = im.getexif(); exif[0x0112] = 6                 # Orientation = 6 (xoay 90)
+        buf = io.BytesIO(); im.save(buf, format="JPEG", exif=exif.tobytes())
+        out, conv = self.r.to_pdf(buf.getvalue(), "phone.jpg")
+        self.assertTrue(conv)
+        # trang PDF phai la 10x30 (doc), khong phai 30x10: doc MediaBox
+        import re
+        mb = re.search(rb"/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)", out)
+        self.assertIsNotNone(mb)
+        w, h = float(mb.group(1)), float(mb.group(2))
+        self.assertLess(w, h, "phai xoay theo EXIF: cao > rong")
+
     def test_doi_ten_va_mime(self):
         self.assertEqual(self.r.pdf_file_name("p-mob.png"), "p-mob.pdf")
         self.assertEqual(self.r.pdf_file_name("hoa don.JPEG"), "hoa don.pdf")
@@ -201,7 +221,11 @@ class TestProviderFileCount(unittest.TestCase):
         self.assertEqual(_package_for_count(3, ['{"file": "thong_ke_item_GBS.xlsx", "order": 0}']), 2)
 
     def test_tao_lai_nhieu_lan_khong_tru_doi(self):
-        metas = ['{"file": "a.xlsx"}', '{"file": "a.xlsx"}', '{"file": "b.docx"}', 'not json']
+        metas = ['{"file": "a.xlsx", "order": 1}', '{"file": "a.xlsx", "order": 1}', '{"file": "b.docx", "order": 2}', 'not json']
+        self.assertEqual(_package_for_count(5, metas), 3)
+
+    def test_hai_phu_luc_trung_ten_la_hai(self):
+        metas = ['{"file": "a.xlsx", "order": 1}', '{"file": "a.xlsx", "order": 3}']
         self.assertEqual(_package_for_count(5, metas), 3)
 
     def test_goi_cu_khong_su_kien_thi_dem_du(self):
@@ -212,6 +236,33 @@ class TestProviderFileCount(unittest.TestCase):
         self.assertIn("file_count = pkgsvc.provider_file_count(dsr.package)", src)
         self.assertIn("expected_files = pkgsvc.provider_file_count(package_name)", src)
         self.assertNotIn("frappe.db.count('EC Digital Signature File', {'package': dsr.package})", src)
+
+
+class TestNormalizeCreateOrder(unittest.TestCase):
+    """Provider tra danh sach tep KHONG co order -> dong thu k la tep thu k DA GUI, ma tep da
+    gui mang order = chi so ERP (nhay so khi mot phu luc giu tren ERP). Review 06/09."""
+
+    def _norm(self):
+        import re
+        src = _read(os.path.join("providers", "scts.py"))
+        fn = [n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.FunctionDef) and n.name == "_normalize_create"][0]
+        ns = {"ProviderError": Exception}
+        exec(compile(ast.Module(body=[fn], type_ignores=[]), "n.py", "exec"), ns)
+        return ns["_normalize_create"]
+
+    def test_vi_tri_theo_danh_sach_da_gui(self):
+        norm = self._norm()
+        sent = [{"order": 0, "file_dsf": "A"}, {"order": 2, "file_dsf": "C"}]     # ERP 1 giu lai
+        raw = {"data": "doc-1", "files": [{"id": "f-a"}, {"id": "f-c"}]}
+        out = norm(raw, sent)
+        self.assertEqual([(f["order"], f["file_id"]) for f in out["files"]], [(0, "f-a"), (2, "f-c")])
+
+    def test_provider_co_order_thi_theo_order(self):
+        norm = self._norm()
+        sent = [{"order": 0}, {"order": 2}]
+        raw = {"data": "doc-1", "files": [{"order": 2, "id": "f-c"}, {"order": 0, "id": "f-a"}]}
+        out = norm(raw, sent)
+        self.assertEqual([(f["order"], f["file_id"]) for f in out["files"]], [(0, "f-a"), (2, "f-c")])
 
 
 class TestAdapterAndTasks(unittest.TestCase):
@@ -242,7 +293,7 @@ class TestAdapterAndTasks(unittest.TestCase):
         self.assertIn("return None", body)
         # ctx.files phai di qua helper nay - khong con dict tay noi khac
         whole = ast.unparse(tree)
-        self.assertIn("'files': [x for x in (_provider_file(pkg, i, f) for (i, f) in enumerate(files)) if x]", whole)
+        self.assertIn("'files': _fit_payload_budget(pkg, [x for x in (_provider_file(pkg, i, f) for (i, f) in enumerate(files)) if x], copies=_payload_copies(settings))", whole)
         self.assertEqual(whole.count("'can_be_signed': f.requires_signature"), 1)
 
     def test_doctype_event_va_read_model(self):

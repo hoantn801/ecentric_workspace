@@ -741,6 +741,7 @@ class SctsAdapter(SignatureProviderAdapter):
                        ", ".join(sorted(a.get("title") or "?" for a in areas.values()))),
                     retryable=False)
             return d
+        omit = bool(int(_sval(getattr(self, "settings", None) or {}, "omit_original_base64", 0) or 0))
         documents = []
         for f in files:
             # CHOT CUOI: moi dong Documents[] khai "FileType: pdf" - byte phai la PDF that.
@@ -799,7 +800,11 @@ class SctsAdapter(SignatureProviderAdapter):
                 "uploadBct": False,
                 "IsSharedWithPartner": bool(f.get("share_with_partner")),
                 "PdfBase64": b64,
-                "OriginalBase64": b64,
+                # THU NGHIEM 07/09 (Provider Settings.omit_original_base64, TAT mac dinh):
+                # dac ta noi OriginalBase64 "Co" nhung voi PDF no trung PdfBase64 - gui hai
+                # lan la ly do 11,4 MB tep thanh 30,6 MB body (413 tren 00044). Bat co thi gui
+                # rong; SCTS tu choi (4xx) thi gui lai ban day du ngay ben duoi.
+                "OriginalBase64": "" if omit else b64,
                 "Signatures": sigs,
             })
         payload = {
@@ -819,7 +824,18 @@ class SctsAdapter(SignatureProviderAdapter):
             "ExternalHandlers": [],  # external signer handlers disabled this phase
             "DocumentRefIds": [],
         }
-        raw = self._with_auth(lambda t: self._client.add_document(payload, t))
+        try:
+            raw = self._with_auth(lambda t: self._client.add_document(payload, t))
+        except ProviderError as exc:
+            if not (omit and not getattr(exc, "ambiguous", False)
+                    and str(exc.code).startswith("scts_create_rejected_4")):
+                raise
+            # SCTS khong nhan OriginalBase64 rong: ghi lai (de tat co) roi gui ban day du.
+            frappe.log_error("omit_original_base64: SCTS tu choi (%s) - gui lai ban day du"
+                             % exc.code, "esign scts omit_original_base64")
+            for d in payload["Documents"]:
+                d["OriginalBase64"] = d["PdfBase64"]
+            raw = self._with_auth(lambda t: self._client.add_document(payload, t))
         return self._normalize_create(raw, files)
 
     @staticmethod
@@ -851,11 +867,16 @@ class SctsAdapter(SignatureProviderAdapter):
             raise ProviderError("scts_create_no_document_id",
                                 "AddDocument returned no documentId", retryable=False)
         by_order = {}
-        for rf in rawfiles:
+        for k, rf in enumerate(rawfiles):
             if isinstance(rf, dict):
                 o = rf.get("order")
                 if o is None:
                     o = rf.get("index")
+                if o is None and k < len(files):
+                    # Provider khong ghi order: dong thu k ung voi tep thu k DA GUI - ma
+                    # tep DA GUI mang `order` = chi so ERP (co the nhay so khi mot phu luc
+                    # duoc giu tren ERP). Dung vi tri trong danh sach gui, khong dung k tho.
+                    o = files[k].get("order")
                 by_order[o] = rf.get("documentFileId") or rf.get("fileId") or rf.get("id")
         out = [{"order": f.get("order"), "file_id": by_order.get(f.get("order"))}
                for f in files]
