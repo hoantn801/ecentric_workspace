@@ -39,6 +39,7 @@ def _html():
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
 BASELINE_SHA256 = "44effd3a1990cc2c8635469961d0981d9eff2b73e1b09f138978b66f7df1ce2b"
 SUPERSEDES_SHA256 = (
+    "043f7b438de929a25e08cf2ab880a031a623cc662cf59fb7158c03c554b0858d",  # ban THAT dang chay tren production truoc dot nay (07/09)
     "ca1260d46cb2d5346716a740648defa64e560ee87561ff20af6703a10818f422",  # superseded by 44effd3a1990 (nut Chuyen nguoi xu ly + hoi lai khi quan tri nhan viec)
     "9edab6d743c95a8fa61a6970d20a724bbd4543d7130d5c672f1d73758362d1f3",  # superseded by ca1260d46cb2 (upload permission fix)
     "6716c3a63bcdf8f82edadc1205f442c292eb9937c31c321a37fe7db176becf27",  # superseded by 9edab6d743c9 (upload errors + brand list + layout)
@@ -62,11 +63,18 @@ def sync(html=None, force=0):
 
     Returns {action: created|updated|unchanged|skipped|refused, route, name}."""
     html = html if html is not None else _html()
-    return page_sync_util.upsert_web_page(
+    res = page_sync_util.upsert_web_page(
         ROUTE, NAME, TITLE, html,
         publish="preserve",
         expect_sha=None if force else ((BASELINE_SHA256,) + SUPERSEDES_SHA256),
     )
+    if res.get("action") != "refused" and res.get("name") \
+            and frappe.db.exists("Web Page", res["name"]):
+        # Ghi lai sha SAU khi may chu xu ly (sanitize + strip shim) de lan sync sau nhan ra
+        # chinh ban ghi cua minh. Khong co dong nay thi moi lan sua giao dien deu phai chep
+        # tay sha live vao SUPERSEDES - dung cai da lam p152 refused ca 5 trang (07/09).
+        res["recorded_sha"] = page_sync_util.record_live_sha(ROUTE, res["name"])
+    return res
 
 
 @frappe.whitelist(methods=["POST"])
