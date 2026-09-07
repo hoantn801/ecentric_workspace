@@ -427,3 +427,65 @@ def _dead_letter_review(pkg, reason):
                     "reference_type": PKG, "reference_name": pkg.name,
                     "description": "%s esign signed-file review: %s" % (REVIEW_TODO_MARKER, reason),
                     "assigned_by": "Administrator"}).insert(ignore_permissions=True)
+
+
+# --------------------------------------------------------------------------- #
+# Phuc hoi file ky da MAT TREN DIA (08/09, 00046: ban ghi File SIGNED-...DNTT.pdf con, file
+# tren dia khong con -> "Mo file" 404, khoi Tai lieu & ky so 500). Khong tao ban ghi moi,
+# khong doi con tro: tai lai tu SCTS, doi chieu SHA voi signed_file_sha256 da luu, ghi
+# DUNG duong dan cu. SHA lech -> khong ghi (khong duoc thay bang chung bang mot ban khac).
+# --------------------------------------------------------------------------- #
+def missing_signed_files(package_name):
+    """DSF co signed_file nhung file tren dia khong ton tai. Chi doc."""
+    import os
+    out = []
+    for d in frappe.get_all(DSF, filters={"package": package_name, "signed_file": ["is", "set"]},
+                            fields=["name", "file_name", "signed_file", "signed_file_sha256",
+                                    "scts_document_file_id"]):
+        if not frappe.db.exists("File", d.signed_file):
+            out.append({"dsf": d.name, "file": d.signed_file, "reason": "file_doc_missing"})
+            continue
+        fdoc = frappe.get_doc("File", d.signed_file)
+        try:
+            path = fdoc.get_full_path()
+        except Exception as exc:
+            out.append({"dsf": d.name, "file": d.signed_file, "reason": "path_error: %s" % exc})
+            continue
+        if not os.path.exists(path):
+            out.append({"dsf": d.name, "file": d.signed_file, "file_url": fdoc.file_url,
+                        "reason": "missing_on_disk"})
+    return out
+
+
+def restore_missing_signed_files(package_name, dry_run=True):
+    """Tai lai tu SCTS va ghi vao dung duong dan cu. dry_run=True chi bao. Tra ve bao cao."""
+    import os
+    pkg = frappe.get_doc(PKG, package_name)
+    missing = [m for m in missing_signed_files(package_name) if m["reason"] == "missing_on_disk"]
+    report = {"package": package_name, "missing": missing, "restored": [], "skipped": [], "dry_run": bool(dry_run)}
+    if not missing or dry_run:
+        return report
+    settings, adapter = _settings_and_adapter(pkg)
+    for m in missing:
+        d = frappe.db.get_value(DSF, m["dsf"], ["scts_document_file_id", "signed_file_sha256", "file_name"], as_dict=True)
+        try:
+            res = adapter.get_signed_document(pkg.scts_document_id, d.scts_document_file_id)
+        except ProviderError as e:
+            report["skipped"].append({"dsf": m["dsf"], "reason": "provider: %s" % e.code})
+            continue
+        if d.signed_file_sha256 and res["sha256"] != d.signed_file_sha256:
+            # Khong ghi: file tren SCTS khong con la ban da xac nhan luc luu -> can nguoi xem.
+            report["skipped"].append({"dsf": m["dsf"], "reason": "sha_mismatch", "stored": d.signed_file_sha256,
+                                      "provider": res["sha256"]})
+            events.emit("SignedFileRestoreRefused", package=package_name,
+                        request_meta={"file": d.file_name, "stored": d.signed_file_sha256, "provider": res["sha256"]})
+            continue
+        fdoc = frappe.get_doc("File", m["file"])
+        path = fdoc.get_full_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as fh:
+            fh.write(res["content"])
+        events.emit("SignedFileRestored", package=package_name,
+                    request_meta={"file": d.file_name, "sha256": res["sha256"], "size": res["size"]})
+        report["restored"].append({"dsf": m["dsf"], "file": m["file"], "sha256": res["sha256"]})
+    return report

@@ -229,6 +229,8 @@
     var deliv = '';
     if (supporting && d.provider_delivery === 'erp_only') deliv = ' · chỉ lưu trên ERP, không gửi SCTS';
     else if (supporting && d.provider_delivery === 'rendered_pdf') deliv = ' · gửi SCTS dạng PDF';
+    // Ban ghi File con nhung file tren dia MAT (08/09, 00046): noi ro thay vi "Mo file" ra 404.
+    if (d.file_missing) deliv += ' · <span style="color:var(--red,#dc2626);font-weight:600">tệp không còn trên máy chủ — báo kỹ thuật</span>';
     // Go tep. Hai cua so, hai luat (backend chan lan nua - nut an khong phai phep kiem):
     //   dang lap phieu (editable + can_classify): go bat ky tep nao -> remove_attachment;
     //   dang "Can bo sung" o form sua: chi bo chung tu -> remove_supporting_attachment.

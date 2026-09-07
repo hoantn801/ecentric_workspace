@@ -140,6 +140,18 @@ def _rep_sha(rep):
     return hashing.sha256_bytes(pkgsvc.raw_file_bytes(rep["name"]))
 
 
+def _rep_sha_or_none(rep):
+    """SHA cua tep dai dien, hoac None neu tep KHONG CON TREN DIA (08/09, 00046: ban ghi File
+    cua SIGNED-...DNTT.pdf con, file tren dia mat -> FileNotFoundError -> ca khoi "Tai lieu &
+    ky so" 500, moi tep khac cung bien mat theo). Mot tep hong khong duoc keo ca man hinh;
+    tep do duoc bao rieng (file_missing) de ky thuat xu ly."""
+    try:
+        return _rep_sha(rep)
+    except (IOError, OSError) as exc:
+        frappe.log_error("%s: %s" % (rep.get("file_url"), exc), "esign file missing on disk")
+        return None
+
+
 def _dsf_by_sha(pkg_name, sha):
     if not pkg_name:
         return None
@@ -454,10 +466,13 @@ def get_document_setup_state(business_doctype, business_name):
         rep = g["rep"]
         is_pdf_like = _is_pdf_name(rep.get("file_name"), rep.get("file_url"))
         dsf = None
+        file_missing = False
         # DSF linkage needs SHA-256 (DSF.file is a copy, not the original attachment) - only
         # compute when a package with files could exist, keeping fresh requests read-cheap.
         if pkg_for_dsf and frappe.db.count(DSF, {"package": pkg_for_dsf}):
-            dsf = _dsf_by_sha(pkg_for_dsf, _rep_sha(rep))
+            sha = _rep_sha_or_none(rep)
+            file_missing = sha is None
+            dsf = _dsf_by_sha(pkg_for_dsf, sha) if sha else None
         covered = 0
         legacy_unmapped = 0
         if dsf:
@@ -502,6 +517,8 @@ def get_document_setup_state(business_doctype, business_name):
             # Tep se sang nha cung cap the nao (05/09): PDF di nguyen, anh ve thanh PDF,
             # Excel/Word chi luu tren ERP. Nguoi de nghi phai biet truoc khi gui.
             "provider_delivery": render.delivery_for_name(rep.get("file_name"), req_sig),
+            # Ban ghi File con nhung file tren dia mat: bao rieng dong nay, khong giet ca khoi.
+            "file_missing": file_missing,
         })
         n_sign += 1 if req_sig else 0
         n_support += 0 if req_sig else 1

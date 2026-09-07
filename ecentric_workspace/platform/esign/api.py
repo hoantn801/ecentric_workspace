@@ -816,6 +816,20 @@ def retrieve_signed_files(payment_request_name):
     return signed_files.retrieve_and_store_for_package(pkg)
 
 
+@frappe.whitelist(methods=["POST"])
+def restore_missing_signed_files(payment_request_name, dry_run=1):
+    """SM-gated: file ky da luu nhung MAT TREN DIA -> tai lai tu SCTS, doi chieu SHA da luu, ghi
+    lai dung duong dan cu (08/09, 00046). dry_run=1 chi bao cao."""
+    perms.assert_system_manager()
+    _business_args("EC Payment Request", payment_request_name)
+    ar = perms.business_approval_request("EC Payment Request", payment_request_name)
+    pkg = pkgsvc.active_package_for_request(ar) if ar else None
+    if not pkg:
+        frappe.throw(_("Không có gói tài liệu đang hoạt động."))
+    from ecentric_workspace.platform.esign import signed_files
+    return signed_files.restore_missing_signed_files(pkg, dry_run=int(dry_run or 0) == 1)
+
+
 # --------------------- signing UX / inbox / multi-select / review (overnight) --------------- #
 @frappe.whitelist()
 def signing_ui_state(business_doctype, business_name):
