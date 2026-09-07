@@ -85,6 +85,15 @@ def claim_uploaded_files(document):
                 "claim_uploaded_files: could not adopt file for %s.%s" % (document.doctype, fieldname))
 
 
+def _blank_attach_would_wipe(document, fieldname, incoming):
+    if incoming not in (None, ""):
+        return False
+    if not document.get(fieldname):
+        return False
+    df = document.meta.get_field(fieldname) if getattr(document, "meta", None) else None
+    return bool(df and df.fieldtype in ("Attach", "Attach Image"))
+
+
 def save_draft(definition, name=None, payload=None):
     user = frappe.session.user
     data = frappe.parse_json(payload) if isinstance(payload, str) else (payload or {})
@@ -99,8 +108,15 @@ def save_draft(definition, name=None, payload=None):
         document = frappe.new_doc(definition.business_doctype)
         document.requested_by = user
     for fieldname in definition.editable_fields:
-        if fieldname in data:
-            document.set(fieldname, data.get(fieldname))
+        if fieldname not in data:
+            continue
+        if _blank_attach_would_wipe(document, fieldname, data.get(fieldname)):
+            # Con tro tep (Attach) do KHOI TAI LIEU dat len server (set_representative_attachment)
+            # sau khi form da nap; form gui lai gia tri rong cu -> truoc day XOA con tro, roi
+            # validate_payment bao "thieu tep dinh kem" du tep van o do (Hoan 07/09: "phai them
+            # 1 chung tu nua moi cho gui"). Rong tu form = "khong doi", khong phai "xoa".
+            continue
+        document.set(fieldname, data.get(fieldname))
     context = query_service.employee_context(document.requested_by)
     document.employee = context["employee"]
     document.department = document.department or context["department"]

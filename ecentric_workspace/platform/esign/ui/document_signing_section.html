@@ -330,6 +330,9 @@
     window.addEventListener("payr:editing", function () { if (STATE) render(); });
   } catch (e) {}
 
+  // Bao cho trang chu (form/ban chi tiet) rang danh sach tep tren server vua doi.
+  function _announce() { try { window.dispatchEvent(new CustomEvent("payr:attachments-changed")); } catch (e) {} }
+
   // Go tep khi DANG LAP phieu (chua gui). To trinh da dat o ky thi mat luon cac o do - noi ro.
   function removeAny(ref, btn) {
     var name = pr(); if (!name || !ref) return;
@@ -447,9 +450,9 @@
                 + "bạn có thể tải lại hoặc thử lại.", indicator: "orange" }); }
             window.frappe.call({ method: API + "set_representative_attachment", type: "POST",
               args: { payment_request_name: name, file_url: firstUrl } })
-              .then(function (r) { if (((r && r.message) || {}).ok === false) _ptrWarn(); load(); })
-              .catch(function () { _ptrWarn(); load(); });
-          } else { load(); }
+              .then(function (r) { if (((r && r.message) || {}).ok === false) _ptrWarn(); load(); _announce(); })
+              .catch(function () { _ptrWarn(); load(); _announce(); });
+          } else { load(); _announce(); }
         });
     });
   }
