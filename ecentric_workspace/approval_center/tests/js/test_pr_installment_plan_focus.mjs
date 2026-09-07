@@ -26,10 +26,16 @@ let pass=0,fail=0; const ok=(c,m)=>{ if(c)pass++; else {fail++; console.log("FAI
 type('[data-model="total_amount"]',"2");
 ok(w.document.activeElement && w.document.activeElement.getAttribute("data-model")==="total_amount","gõ tổng: focus vẫn ở ô tổng sau khi khối vẽ lại");
 type('[data-model="total_amount"]',"2000000");
-ok(q('[data-model="total_amount"]').value==="2000000","giá trị tổng giữ nguyên");
+ok(q('[data-model="total_amount"]').value==="2.000.000","tổng hiện có dấu chấm ngăn cách");
+ok(PR.state.draft.total_amount===2000000,"model giữ SỐ 2000000 (không phải chuỗi có dấu chấm)");
+// go tiep vao chuoi da dinh dang: chi lay chu so
+type('[data-model="total_amount"]',"2.000.0005");
+ok(PR.state.draft.total_amount===20000005 && q('[data-model="total_amount"]').value==="20.000.005","gõ thêm vào chuỗi đã định dạng: parse chữ số, định dạng lại");
+type('[data-model="total_amount"]',"2000000");
 type('[data-model="payment_amount"]',"1200000");
 ok(w.document.activeElement.getAttribute("data-model")==="payment_amount","gõ số tiền đợt 1 (ngoài khối): focus giữ");
-ok(q('[data-model="next_installment_amount"]').value==="800000","đợt kế = 800000");
+ok(q('[data-model="next_installment_amount"]').value==="800.000","đợt kế = 800.000 (có dấu chấm)");
+ok(PR.state.draft.payment_amount===1200000,"model số tiền đợt 1 = 1200000");
 type('[data-model="payment_amount"]',"5000000");
 ok(/vượt phần còn lại/.test(q("#payr-inst-plan").textContent) && !/đợt cuối/.test(q("#payr-inst-plan").textContent),"đợt 1 > tổng: báo vượt, không nói 'đợt cuối'");
 ok(!q('[data-model="next_installment_amount"]'),"vượt tổng: không hiện ô đợt kế");
@@ -41,5 +47,5 @@ ok(w.document.activeElement.getAttribute("data-model")==="next_installment_amoun
 type('[data-model="total_amount"]',"3000000");
 ok(w.document.activeElement.getAttribute("data-model")==="total_amount","đổi tổng lần nữa: focus vẫn ở tổng");
 console.log(pass+" đạt, "+fail+" hỏng");
-if (pass < 9) { console.log("HONG: so phep kiem thap bat thuong (" + pass + ")"); process.exit(1); }
+if (pass < 12) { console.log("HONG: so phep kiem thap bat thuong (" + pass + ")"); process.exit(1); }
 process.exit(fail?1:0);
