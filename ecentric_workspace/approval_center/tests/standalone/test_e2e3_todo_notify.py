@@ -516,8 +516,10 @@ class TestEveryTerminalTransitionNotifiesSomeone(unittest.TestCase):
                       "khong co _FULFILLMENT_HANDLERS (vd EC Payment Request) thi "
                       "'da duyet xong' la mot su kien HOAN TOAN im lang.")
 
-    def test_fulfillment_handlers_do_not_cover_payment_request(self):
-        """Ghi lại vì sao lỗ trên là thật chứ không phải do handler gánh."""
+    def test_fulfillment_handlers_cover_payment_request(self):
+        """07/09: Payment Request co buoc 6 Finance xu ly UNC -> PHAI co handler. Test tren van
+        giu (complete_approval tu bao nguoi de nghi), test nay doi chieu: handler cua PR tro
+        dung service."""
         node = None
         for n in ast.parse(self.SRC).body:
             if isinstance(n, ast.Assign) and any(
@@ -527,7 +529,12 @@ class TestEveryTerminalTransitionNotifiesSomeone(unittest.TestCase):
         self.assertIsNotNone(node, "khong tim thay _FULFILLMENT_HANDLERS")
         covered = {k.value for k in node.keys
                    if isinstance(k, ast.Constant) and isinstance(k.value, str)}
-        self.assertNotIn("EC Payment Request", covered)   # tiền đề của test trên
+        self.assertIn("EC Payment Request", covered)
+        target = [v.value for k, v in zip(node.keys, node.values)
+                  if isinstance(k, ast.Constant) and k.value == "EC Payment Request"][0]
+        self.assertEqual(
+            target,
+            "ecentric_workspace.approval_center.features.payment_request.application.service.on_final_approval")
 
 
 # --------------------------------------------------------------------------- #

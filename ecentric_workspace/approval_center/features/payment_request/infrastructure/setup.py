@@ -2,7 +2,8 @@
 """Idempotent, System-Manager-only setup for PAYMENT_REQUEST-V1 (Draft): sequential
 L1 Direct Manager Review (Requester Manager) -> L2 Finance Review -> L3 HOF Review -> L4 CEO Review
 (each Any One / one approver, so ordered). Finance/HOF/CEO identities are config seed args (emails
-allowed here only); L1 is dynamic. No fulfillment; no SLA. dry-run default; apply=1 required."""
+allowed here only); L1 is dynamic. No SLA. dry-run default; apply=1 required.
+07/09: them Fulfiller = Role EC Finance (buoc 6 "Finance xu ly UNC", ca phong, ai ranh nhan)."""
 import json
 
 import frappe
@@ -15,6 +16,7 @@ APPROVAL_TYPE = "PAYMENT_REQUEST"
 DEFAULT_FINANCE = ["lien.vu@ecentric.vn"]
 DEFAULT_HOF = ["phuong.nguyen1@ecentric.vn"]
 DEFAULT_CEO = ["lam.nguyen@ecentric.vn"]
+FULFILLER_ROLE = "EC Finance"
 
 
 def _require_sm():
@@ -66,6 +68,7 @@ def setup_payment_request_v1(finance=None, hof=None, ceo=None, dry_run=1, apply=
         "process %s (Draft), no SLA (v1)" % PROCESS_CODE,
         "L1 Direct Manager Review (Requester Manager)",
         "L2 Finance Review=%s" % users[2], "L3 HOF Review=%s" % users[3], "L4 CEO Review=%s" % users[4],
+        "Fulfiller (buoc 6 UNC) = Role %s" % FULFILLER_ROLE,
     ]
     rep["blockers"] = rep["errors"]
     if rep["errors"]:
@@ -90,6 +93,8 @@ def _upsert(users):
     proc.version_no = proc.version_no or 1
     proc.status = "Draft"
     proc.set("participants", [])
+    proc.append("participants", {"participant_purpose": "Fulfiller", "source_type": "Role",
+                                 "role": FULFILLER_ROLE, "sort_order": 0})
     proc.save(ignore_permissions=True)
 
     def _upsert_level(no, name, source, ulist):

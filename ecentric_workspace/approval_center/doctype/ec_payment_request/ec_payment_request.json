@@ -35,7 +35,18 @@
   "sb_chk",
   "is_cost_valid",
   "details_and_attachments_correct",
-  "request_attachment"
+  "request_attachment",
+  "sb_fulfill",
+  "fulfillment_status",
+  "fulfillment_owner",
+  "fulfillment_due_at",
+  "fulfillment_sla_calendar",
+  "fulfillment_sla_holiday_list",
+  "cb_fulfill",
+  "completed_attachment",
+  "fulfillment_summary",
+  "completed_by",
+  "unc_reminded_on"
  ],
  "fields": [
   {
@@ -214,6 +225,76 @@
    "fieldname": "request_attachment",
    "fieldtype": "Attach",
    "label": "Attachment"
+  },
+  {
+   "fieldname": "sb_fulfill",
+   "fieldtype": "Section Break",
+   "label": "UNC (Finance, after final approval)"
+  },
+  {
+   "fieldname": "fulfillment_status",
+   "fieldtype": "Select",
+   "label": "Fulfillment Status",
+   "options": "Not Started\nAssigned\nIn Progress\nCompleted\nCancelled",
+   "default": "Not Started",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fulfillment_owner",
+   "fieldtype": "Link",
+   "label": "Fulfillment Owner",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fulfillment_due_at",
+   "fieldtype": "Datetime",
+   "label": "Fulfillment Due At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fulfillment_sla_calendar",
+   "fieldtype": "Data",
+   "label": "Fulfillment SLA Calendar",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "fulfillment_sla_holiday_list",
+   "fieldtype": "Data",
+   "label": "Fulfillment SLA Holiday List",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "cb_fulfill",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "completed_attachment",
+   "fieldtype": "Attach",
+   "label": "UNC File",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fulfillment_summary",
+   "fieldtype": "Small Text",
+   "label": "UNC Note (số UNC / ghi chú)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_by",
+   "fieldtype": "Link",
+   "label": "Completed By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "unc_reminded_on",
+   "fieldtype": "Date",
+   "label": "UNC Reminded On",
+   "read_only": 1,
+   "hidden": 1
   }
  ],
  "index_web_pages_for_search": 1,

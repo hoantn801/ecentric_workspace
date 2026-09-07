@@ -573,9 +573,10 @@ def close_todos(doctype, name, keep_user=None):
 # --------------------------------------------------------------------------- #
 _FULFILLMENT_ACTIVE = ("Assigned", "In Progress")
 _FULFILLMENT_TERMINAL = ("Completed", "Cancelled")
-#: the six governed fulfillment-capable business DocTypes.
+#: the governed fulfillment-capable business DocTypes.
 FULFILLMENT_DOCTYPES = ("EC AI Topup Request", "EC Asset Request", "EC Data Request",
-                        "EC Document Request", "EC Resignation Request", "EC System Request")
+                        "EC Document Request", "EC Resignation Request", "EC System Request",
+                        "EC Payment Request")     # buoc 6 Finance xu ly UNC (07/09)
 
 
 def _fulfillment_snapshot(business_doctype, name):
@@ -841,14 +842,11 @@ def is_active_process_fulfiller(approval_type, user=None):
     queue right away - keeps claim permission consistent with queue visibility. Read-only; no
     workflow/state change."""
     user = user or frappe.session.user
-    for name in frappe.get_all("EC Approval Process",
-                               filters={"approval_type": approval_type, "status": ["in", ["Active", "Draft"]]},
-                               pluck="name"):
-        if frappe.db.exists("EC Approval Participant",
-                            {"parent": name, "parenttype": "EC Approval Process",
-                             "participant_purpose": "Fulfiller", "user": user}):
-            return True
-    return False
+    from ecentric_workspace.approval_center.shared.workflow.permissions import is_fulfiller_participant
+    procs = frappe.get_all("EC Approval Process",
+                           filters={"approval_type": approval_type, "status": ["in", ["Active", "Draft"]]},
+                           pluck="name")
+    return is_fulfiller_participant(procs, user)     # dong User hoac Role (07/09)
 
 
 def submit(reference_doctype, reference_name, approval_type, requester, process_code=None,
@@ -1209,6 +1207,8 @@ _FULFILLMENT_HANDLERS = {
     "EC System Request": "ecentric_workspace.approval_center.features.system_request.application.service.on_final_approval",
     "EC Asset Request": "ecentric_workspace.approval_center.features.asset_request.application.service.on_final_approval",
     "EC Resignation Request": "ecentric_workspace.approval_center.features.resignation.application.service.on_final_approval",
+    # 07/09: sau CEO duyet, phieu sang Finance xu ly UNC (Fulfiller = Role EC Finance).
+    "EC Payment Request": "ecentric_workspace.approval_center.features.payment_request.application.service.on_final_approval",
 }
 
 

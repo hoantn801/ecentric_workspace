@@ -24,20 +24,38 @@ def is_system_manager(user=None):
     return "System Manager" in frappe.get_roles(user or frappe.session.user)
 
 
+def is_fulfiller_participant(process_names, user):
+    """`user` co phai Fulfiller cua mot trong cac process nay khong - theo dong User HOAC dong
+    Role (user mang role do). Truoc 07/09 chi xet dong User, nen Fulfiller cau hinh theo Role
+    (Payment Request: ca phong Finance = Role EC Finance) khong bao gio duoc coi la du dieu
+    kien: khong thay hang cho, Nhac viec khong xep, chi nhan viec duoc nho ToDo. Cung mot
+    ham cho permissions va transitions de hai cho khong lech nhau."""
+    names = [n for n in (process_names or []) if n]
+    if not names or not user:
+        return False
+    if frappe.db.exists("EC Approval Participant",
+                        {"parent": ["in", names], "parenttype": "EC Approval Process",
+                         "participant_purpose": "Fulfiller", "source_type": "User", "user": user}):
+        return True
+    roles = [r.role for r in frappe.get_all(
+        "EC Approval Participant", fields=["role"],
+        filters={"parent": ["in", names], "parenttype": "EC Approval Process",
+                 "participant_purpose": "Fulfiller", "source_type": "Role",
+                 "role": ["is", "set"]})]
+    if not roles:
+        return False
+    return bool(set(roles) & set(frappe.get_roles(user)))
+
+
 def _is_configured_fulfiller(user, approval_type):
-    """A configured Fulfiller participant on an Active process of approval_type."""
+    """A configured Fulfiller participant (User or Role) on an Active process of approval_type."""
     if not approval_type:
         return False
     procs = frappe.get_all(
         "EC Approval Process",
         filters={"approval_type": approval_type, "status": "Active"},
         pluck="name") or []
-    for p in procs:
-        if frappe.db.exists("EC Approval Participant",
-                            {"parent": p, "parenttype": "EC Approval Process",
-                             "participant_purpose": "Fulfiller", "user": user}):
-            return True
-    return False
+    return is_fulfiller_participant(procs, user)
 
 
 def is_eligible_fulfiller(user, approval_type=None, business_doctype=None,

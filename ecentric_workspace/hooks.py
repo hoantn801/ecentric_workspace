@@ -145,6 +145,10 @@ scheduler_events["hourly"].append(
     "ecentric_workspace.platform.esign.tasks.sweep_stale")
 scheduler_events["daily"].append(
     "ecentric_workspace.platform.esign.tasks.orphan_file_scan")
+# Payment Request buoc 6: nhac Finance xu ly UNC tu D-3 truoc ngay thanh toan (07/09).
+# Moi phieu mot lan/ngay; tat bang site_config ec_payment_unc_reminder_disabled.
+scheduler_events["daily"].append(
+    "ecentric_workspace.approval_center.features.payment_request.application.reminders.remind_unc_due")
 # esign S2B-C1: bounded retry (*/30) of signed-PDF retrieval for terminal-completed
 # packages whose signed bundle is not yet complete. Safe GET/download only; never resends
 # AddDocument/bulk-process. Same kill switch (ec_esign_scheduler_disabled) + per-provider

@@ -3,7 +3,8 @@
   Reuses the eCentric shell (.ec-sidebar/.ec-main + tokens). Follows Approval Rollout Template v1
   (Promotion/AI Topup pattern): create/draft/submit, My Requests, Need My Approval, runtime/preview
   stepper, timeline, namespaced modal, delegated actions, resubmit banner+stepper, friendly VN errors.
-  Multi-level (4 approval levels: Direct Manager -> Finance -> HOF -> CEO), no fulfillment.
+  Multi-level (4 approval levels: Direct Manager -> Finance -> HOF -> CEO) + step 6 Finance UNC
+  fulfillment (07/09: engine fulfillment, Fulfiller = Role EC Finance, due = payment_date).
   Comments OPTIONAL on approve. Attachment REQUIRED. has_purchase_request toggles purchase_request
   (Approved PRs of requester) vs no_purchase_request_reason via model-change re-render.
   All data via ecentric_workspace.approval_center.api.payment_request.*. Marker: ec-payr-root.
@@ -264,7 +265,8 @@
       {name:"Direct Manager review",state:"upcoming",statusLabel:"Chờ",meta:"Quản lý trực tiếp xem xét."},
       {name:"Finance review",state:"upcoming",statusLabel:"Chờ",meta:"Bộ phận Tài chính xem xét."},
       {name:"HOF review",state:"upcoming",statusLabel:"Chờ",meta:"Head of Function xem xét."},
-      {name:"CEO review",state:"upcoming",statusLabel:"Chờ",meta:"CEO phê duyệt."}];
+      {name:"CEO review",state:"upcoming",statusLabel:"Chờ",meta:"CEO phê duyệt."},
+      {name:"Finance xử lý UNC",state:"upcoming",statusLabel:"Chờ",meta:"Finance chuyển khoản theo ngày thanh toán, đính kèm UNC."}];
     return '<div class="card" id="payr-process-preview"><h3>Quy trình xử lý yêu cầu</h3><div class="stepper">'+renderStepsHTML(steps)+'</div></div>';
   }
   // Cau noi sang khoi "TAI LIEU & KY SO" - khoi do la mot thanh phan rieng, khong doc duoc
@@ -574,11 +576,12 @@
     $("payr-pager").innerHTML='Trang '+(state.page+1)+'/'+Math.max(1,pages)+' &nbsp; <button type="button" class="btn" aria-label="Trang trước" '+(state.page<=0?"disabled":"")+' id="pg-prev">‹</button> <button type="button" class="btn" aria-label="Trang sau" '+(state.page+1>=pages?"disabled":"")+' id="pg-next">›</button>';
     var pv=$("pg-prev"),nx=$("pg-next"); if(pv)pv.onclick=function(){ if(state.page>0){state.page--;loadList();} }; if(nx)nx.onclick=function(){ state.page++; loadList(); };
   }
-  function stepLabel(r){ var L=Number(r.total_levels||0); var N=L?(L+2):0; var st=r.approval_status||"Draft";
+  // N = tao yeu cau + cac cap duyet + Finance xu ly UNC + hoan tat (07/09: them buoc UNC).
+  function stepLabel(r){ var L=Number(r.total_levels||0); var N=L?(L+3):0; var st=r.approval_status||"Draft";
     if(!N){ if(st==="Pending") return "Đang phê duyệt"; if(st==="Draft") return "Nháp"; if(st==="Rejected") return "Đã từ chối"; if(st==="Cancelled") return "Đã hủy"; if(st==="Information Required") return "Cần bổ sung"; return "—"; }
     if(st==="Draft") return "Bước 1/"+N+" · Tạo yêu cầu";
     if(st==="Rejected") return "Đã từ chối"; if(st==="Cancelled") return "Đã hủy"; if(st==="Information Required") return "Cần bổ sung";
-    if(st==="Approved") return "Bước "+N+"/"+N+" · Hoàn tất";
+    if(st==="Approved"){ var fs=r.fulfillment_status||""; if(fs==="Assigned"||fs==="In Progress") return "Bước "+(N-1)+"/"+N+" · "+UNC_STEP_NAME; return "Bước "+N+"/"+N+" · Hoàn tất"; }
     if(st==="Pending"&&r.current_level){ return "Bước "+(1+Number(r.current_level))+"/"+N+" · "+(r.current_level_name||("Cấp "+r.current_level)); }
     return "Đang phê duyệt"; }
   function badge(st){ var map={ "Draft":["b-gray","Nháp"],"Pending":["b-navy","Đang phê duyệt"],"Information Required":["b-amber","Cần bổ sung"],"Approved":["b-green","Đã duyệt"],"Rejected":["b-red","Bị từ chối"],"Cancelled":["b-gray","Đã hủy"] };
@@ -619,12 +622,59 @@
       +'<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper" id="d-stepper"></div></div>'
       +'<div class="card"><h3>Thông tin thanh toán</h3><div class="grid2">'+kv("Người nhận",biz.payee_full_name)+kv("Số tiền (VND)",biz.payment_amount!=null?fmtMoney(biz.payment_amount):"")+kv("Ngày thanh toán",biz.payment_date)+kv("Ngân hàng",biz.account_bank)+kv("Số tài khoản",biz.bank_account_number)+kv("Có Purchase Request?",biz.has_purchase_request)+kv("Purchase Request",biz.purchase_request)+kv("Chi phí hợp lệ?",biz.is_cost_valid)+kv("Xác nhận thông tin & tệp",biz.details_and_attachments_correct==="Yes"?"Đã xác nhận":"Chưa xác nhận")+'</div><div class="fld" style="margin-top:10px"><label>Lý do / nội dung thanh toán</label><textarea class="ro" readonly rows="3">'+esc(biz.reason||"")+'</textarea></div>'+(biz.has_purchase_request==="No"?'<div class="fld" style="margin-top:10px"><label>Lý do không có Purchase Request</label><textarea class="ro" readonly rows="2">'+esc(biz.no_purchase_request_reason||"")+'</textarea></div>':'')+'</div>'
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
+      +(uncCardVisible(det)?('<div class="card" id="d-unc"><h3>Xử lý UNC (Finance)</h3>'+uncSectionHTML(det)+'</div>'):'')
       +'<div class="card"><h3>Hành động</h3>'+actionPanelHTML(det)+'</div>'
       +'<div class="card"><h3>Lịch sử</h3>'+timelineHTML(det.timeline)+'</div>';
     $("d-back").onclick=function(){ window.location.href=hubHref(); };
     $("d-stepper").innerHTML=buildStepper(det);
     ensureActionHandlers();
+    wireUnc();
   }
+  // ---- the "Xu ly UNC (Finance)" ----
+  // Chi hien khi buoc 6 da ton tai cho phieu nay (da duyet xong va co trang thai xu ly).
+  function uncCardVisible(det){ var ap=det.approval||{}, ff=det.fulfillment||{}; return ap.approval_status==="Approved" && !!UNC_ACTIVE[ff.status||""]; }
+  function uncDueLine(ff){ if(!ff.due_at) return ""; var ov=new Date(ff.due_at)<new Date();
+    return '<div class="hint">Hạn xử lý (ngày thanh toán): '+(ov?'<span style="color:var(--red);font-weight:600">Quá hạn — '+esc(fmt(ff.due_at))+'</span>':esc(fmt(ff.due_at)))+'</div>'; }
+  function uncSectionHTML(det){ var ff=det.fulfillment||{}, cap=det.capabilities||{}; var u=state.unc||{};
+    if(ff.status==="Completed"){
+      return '<div class="grid2">'+kv("Xử lý bởi",ff.completed_by)+kv("Thời điểm",fmt(ff.completed_at))+'</div>'
+        +'<div class="fld" style="margin-top:10px"><label>File UNC</label>'+(ff.completed_attachment?('<a href="'+esc(ff.completed_attachment)+'" target="_blank" rel="noopener">Mở file UNC</a>'):'<span class="hint">—</span>')+'</div>'
+        +(ff.summary?('<div class="fld" style="margin-top:10px"><label>Số UNC / ghi chú</label><textarea class="ro" readonly rows="2">'+esc(ff.summary)+'</textarea></div>'):''); }
+    if(ff.status==="Cancelled") return '<div class="hint">Đã huỷ xử lý.</div>';
+    var head = ff.status==="In Progress"
+      ? '<div>Người đang xử lý: <b>'+esc(ff.owner||"—")+'</b></div>'
+      : '<div>Chờ Finance nhận xử lý'+((ff.eligible_fulfillers||[]).length?(': <b>'+(ff.eligible_fulfillers||[]).map(esc).join(" hoặc ")+'</b>'):'')+'</div>';
+    var body="";
+    if(ff.status==="Assigned"&&cap.can_claim) body+='<div class="actions"><button type="button" class="btn primary" data-act="unc-claim">Nhận xử lý</button></div>';
+    if(cap.can_complete){
+      body+='<div class="sect-h" style="margin-top:10px">Hoàn tất — đính kèm UNC</div><div class="grid2">'
+        +'<div class="fld full"><label>File UNC <span class="req">*</span></label><input type="file" accept=".pdf,.png,.jpg,.jpeg" data-upload="unc"><div class="hint" id="payr-unc-name">'+esc(u.url?("Đã tải: "+(u.name||"")):"Bắt buộc")+'</div></div>'
+        +'<div class="fld full"><label>Số UNC / ghi chú (không bắt buộc)</label><input data-unc="summary" value="'+esc(u.summary||"")+'"></div>'
+        +'</div><div class="actions"><button type="button" class="btn primary" data-act="unc-complete">Hoàn tất xử lý UNC</button></div>'; }
+    else if(ff.status==="In Progress") body+='<div class="hint">Chỉ người đã nhận xử lý (hoặc System Manager) mới hoàn tất được.</div>';
+    else if(ff.status==="Assigned"&&!cap.can_claim) body+='<div class="hint">Bạn không thuộc nhóm Finance xử lý UNC.</div>';
+    return head+uncDueLine(ff)+body; }
+  function wireUnc(){ var inp=document.querySelector('#d-unc [data-upload="unc"]'); if(inp) inp.onchange=function(){ uploadUnc(inp); };
+    var s=document.querySelector('#d-unc [data-unc="summary"]'); if(s) s.oninput=function(){ state.unc=state.unc||{}; state.unc.summary=s.value; }; }
+  // Tai file UNC: KHONG kem doctype/docname (nhu uploadFile o tren - nguoi dung thuong khong co
+  // DocPerm chuan); backend gan vao phieu luc hoan tat.
+  function uploadUnc(inp){ var f=inp.files&&inp.files[0]; if(!f) return; var lbl=$("payr-unc-name"); if(lbl) lbl.textContent="Đang tải...";
+    var fd=new FormData(); fd.append("file",f); fd.append("is_private","1");
+    fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd})
+      .then(function(r){ if(r.status===413) throw new Error("Tệp quá lớn (giới hạn ~25MB)."); return r.json(); })
+      .then(function(j){ var m=j&&j.message, url=m&&m.file_url; if(!url) throw new Error("Không tải được tệp.");
+        state.unc=state.unc||{}; state.unc.url=url; state.unc.name=(m&&m.file_name)||f.name; if(lbl) lbl.textContent="Đã tải: "+state.unc.name; })
+      .catch(function(e){ if(lbl) lbl.textContent=extractServerMsg(e)||"Lỗi tải tệp."; toast(extractServerMsg(e)||"Lỗi tải tệp.",true); });
+    inp.value=""; }
+  function doUncClaim(name){ if(state.busy) return; state.busy=true;
+    call("claim_fulfillment",{name:name}).then(function(){ toast("Đã nhận xử lý UNC."); refreshDetail(); })
+      .catch(function(e){ toast(mapErr(e),true); refreshDetail(); }).then(function(){ state.busy=false; }); }
+  function doUncComplete(name){ var u=state.unc||{}; if(!u.url){ toast("Vui lòng đính kèm file UNC trước khi hoàn tất.",true); return; }
+    modal("Hoàn tất xử lý UNC", '<div class="summary-row"><span>File UNC</span><b>'+esc(u.name||u.url)+'</b></div>'+(u.summary?('<div class="summary-row"><span>Số UNC / ghi chú</span><b>'+esc(u.summary)+'</b></div>'):'')+'<div class="hint" style="margin-top:8px">Phiếu sẽ chuyển sang Hoàn tất; người đề nghị được thông báo.</div>',
+      {okLabel:"Hoàn tất", onConfirm:function(){
+        return call("complete_fulfillment",{name:name,payload:JSON.stringify({completed_attachment:u.url, fulfillment_summary:u.summary||""})})
+          .then(function(){ toast("Đã hoàn tất xử lý UNC."); state.unc={}; refreshDetail(); })
+          .catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
   function renderAttachments(list){ if(!list||!list.length) return '<div class="hint">Chưa có tệp đính kèm.</div>';
     return '<table class="tbl"><tbody>'+list.map(function(f){ return '<tr><td>'+esc(f.file_name)+'</td><td>'+esc(f.owner)+'</td><td>'+esc(fmt(f.creation))+'</td><td><a href="'+esc(f.file_url)+'" target="_blank">Mở</a></td></tr>'; }).join("")+'</tbody></table>'; }
 
@@ -633,8 +683,27 @@
     var steps=[{name:"Tạo yêu cầu",state:"current",statusLabel:"Đang thực hiện",meta:""}];
     if(prev.length){ prev.forEach(function(l){ steps.push({name:l.level_name||("Cấp "+l.level_no),state:"upcoming",statusLabel:"Chờ",meta:""}); }); }
     else { steps.push({name:"Direct Manager",state:"upcoming",statusLabel:"Chờ",meta:""}); }
+    steps.push({name:UNC_STEP_NAME,state:"upcoming",statusLabel:"Chờ",meta:""});
     steps.push({name:"Hoàn tất",state:"upcoming",statusLabel:"Chờ",meta:""});
     return renderStepsHTML(steps); }
+  // ---- buoc 6: Finance xu ly UNC (07/09) ----
+  // Trang thai buoc 6 doc tu det.fulfillment (engine fulfillment dung chung). Phieu da duyet
+  // TRUOC khi co buoc nay khong co trang thai xu ly -> coi la "khong ap dung", khong bia
+  // "dang cho Finance" cho mot khoan da chi tu lau.
+  var UNC_STEP_NAME="Finance xử lý UNC";
+  var UNC_ACTIVE={Assigned:1,"In Progress":1,Completed:1,Cancelled:1};
+  function uncStep(det){ var ap=det.approval||{}, ff=det.fulfillment||{}; var st="upcoming", meta="";
+    if(ap.approval_status==="Approved"){
+      if(ff.status==="Completed"){ st="done"; meta="UNC bởi "+esc(ff.completed_by||"—")+(ff.completed_at?(" · "+fmt(ff.completed_at)):""); }
+      else if(ff.status==="In Progress"){ st="current"; meta="Đang xử lý: "+esc(ff.owner||"—"); }
+      else if(ff.status==="Assigned"){ st="current"; var el=(ff.eligible_fulfillers||[]).map(esc); meta=el.length?("Chờ nhận: "+el.join(" hoặc ")):"Chờ Finance nhận xử lý"; }
+      else if(ff.status==="Cancelled"){ st="skipped"; meta="Đã huỷ xử lý"; }
+      else { st="skipped"; meta="Không áp dụng (phiếu trước khi có bước UNC)"; }
+      if(st==="current"&&ff.due_at){ meta+=(new Date(ff.due_at)<new Date())?' · <span class="ov">Quá hạn</span>':(" · Hạn: "+fmt(ff.due_at)); }
+    }
+    return {name:UNC_STEP_NAME,state:st,meta:meta}; }
+  function uncDone(det){ var ap=det.approval||{}, ff=det.fulfillment||{};
+    return ap.approval_status==="Approved" && (ff.status==="Completed" || !UNC_ACTIVE[ff.status||""]); }
   function markSignWait(steps, det){
     var infl = state._signReady && state._signReady.in_flight;
     if (!signWaitActive(det) && !(infl && infl.status !== "Manual Review")) return steps;
@@ -662,7 +731,8 @@
       else if(l.level_status==="In Progress"||ap.current_level===l.level_no){ st="current"; var elig=rows.filter(function(r){return r.status==="Pending";}).map(function(r){return esc(r.approver);}); meta=(elig.length?(l.approval_mode==="Any One"?elig.join(" hoặc "):elig.join(", ")):"Đang chờ"); }
       if(l.due_at&&st==="current"&&new Date(l.due_at)<new Date()){ meta+=' · <span class="ov">Quá hạn</span>'; } else if(l.due_at&&st==="current"){ meta+=" · Hạn: "+fmt(l.due_at); }
       steps.push({name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
-    steps.push({name:"Hoàn tất",state:(ap.approval_status==="Approved"?"done":"upcoming"),meta:""});
+    steps.push(uncStep(det));
+    steps.push({name:"Hoàn tất",state:(uncDone(det)?"done":"upcoming"),meta:""});
     return renderStepsHTML(markSignWait(steps, det)); }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
   function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
@@ -737,7 +807,8 @@
     if(a==="approvesign") return doApproveAndSign(name,det);
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
     if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name);
-    if(a==="clone") return doClone(name); }
+    if(a==="clone") return doClone(name);
+    if(a==="unc-claim") return doUncClaim(name); if(a==="unc-complete") return doUncComplete(name); }
   // Tao phieu moi tu phieu da ket thuc. Hoi truoc khi lam: no dieu huong sang mot phieu khac,
   // va noi ro hai dieu de khong ai bat ngo - o xac nhan phai tich lai, phieu cu giu nguyen.
   function doClone(name){ if(state.busy) return;
@@ -885,7 +956,7 @@
     call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(e){ var bd=$("payr-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><div class="hint">'+esc(mapErr(e))+'</div><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.PaymentRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate, doApproveAndSign:doApproveAndSign, loadSignReady:loadSignReady, callEsign:callEsign, handleHPRChange:handleHPRChange, handleSrcTypeChange:handleSrcTypeChange, handleSrcPick:handleSrcPick, promoteLegacySource:promoteLegacySource, fmtVnd:fmtVnd, startSignWait:startSignWait, stopSignWait:stopSignWait, signWaitActive:signWaitActive };
+  window.PaymentRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate, doApproveAndSign:doApproveAndSign, loadSignReady:loadSignReady, callEsign:callEsign, handleHPRChange:handleHPRChange, handleSrcTypeChange:handleSrcTypeChange, handleSrcPick:handleSrcPick, promoteLegacySource:promoteLegacySource, fmtVnd:fmtVnd, startSignWait:startSignWait, stopSignWait:stopSignWait, signWaitActive:signWaitActive, uncStep:uncStep, uncSectionHTML:uncSectionHTML, uncCardVisible:uncCardVisible, doUncComplete:doUncComplete };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>
