@@ -104,12 +104,17 @@ class TestScope(unittest.TestCase):
 
     def test_terminal_states_still_have_no_exit(self):
         state = _src("platform", "esign", "state.py")
-        for term in ("Approval Completed", "Permanent Failure", "Cancelled"):
+        for term in ("Approval Completed", "Cancelled"):
             m = re.search(r'"%s": \(([^)]*)\)' % term, state)
             self.assertIsNotNone(m, term)
             self.assertEqual(m.group(1).strip(), "",
                              "%s khong duoc co loi ra - doi soat khong duoc ha cap trang thai"
                              % term)
+        # 07/09: Permanent Failure chi co DUY NHAT canh Queued (retry khi chua gui gi) -
+        # khong co Signed/Approval Completed, tuc doi soat van khong ha cap/nang cap no.
+        m = re.search(r'"Permanent Failure": \(([^)]*)\)', state)
+        self.assertIsNotNone(m)
+        self.assertEqual([x.strip().strip('"') for x in m.group(1).split(",") if x.strip()], ["Queued"])
 
 
 class TestItDoesNotClaimSuccessItDidNotHave(unittest.TestCase):

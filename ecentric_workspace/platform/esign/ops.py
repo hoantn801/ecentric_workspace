@@ -103,7 +103,9 @@ def stuck_legs(limit=100):
         # lenh ky (se tao chu ky thu hai) - xem api.reconcile_signature_request.
         if "Approval Completed" in exits or "Signed" in exits:
             actions.append("reconcile")
-        if "Queued" in exits:
+        # Permanent Failure -> Queued (07/09) CHI khi chua co gi toi nha cung cap (hong luc tao
+        # chung tu, vd 413). Da gui roi thi van la ngo cut: retry = nguy co chu ky thu hai.
+        if "Queued" in exits and not (r.status == "Permanent Failure" and sm.may_have_sent(r)):
             actions.append("retry")
             # GUI LAI CO KIEM (03/09): chi hien khi "retry" KHONG gui lai duoc (chan da tung
             # gui) va dang Manual Review - dung cai chan ma Thu lai chi quay ve Manual Review

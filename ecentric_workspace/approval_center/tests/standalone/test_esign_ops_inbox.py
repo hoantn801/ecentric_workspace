@@ -184,12 +184,18 @@ class TestActionsComeFromTheStateMachine(unittest.TestCase):
                       "Manual Review co canh sang Approval Completed - phai doi soat duoc")
         self.assertFalse(row["dead_end"])
 
-    def test_permanent_failure_la_NGO_CUT(self):
-        env = _load_ops(dsr_rows=[_leg("Permanent Failure")])
+    def test_permanent_failure_DA_GUI_la_NGO_CUT(self):
+        env = _load_ops(dsr_rows=[_leg("Permanent Failure", accepted_at="2026-08-31 10:00:00")])
         row = env["stuck_legs"]()[0]
         self.assertEqual(row["actions"], [],
-                         "trang thai nay khong co canh ra - khong duoc ve nut nao")
-        self.assertTrue(row["dead_end"], "phai goi thang la ngo cut")
+                         "da co lenh toi nha cung cap - retry = nguy co chu ky thu hai")
+
+    def test_permanent_failure_CHUA_GUI_thi_retry_duoc(self):
+        # 07/09, 00044: hong o AddDocument (413) - chua co gi ben nha cung cap
+        env = _load_ops(dsr_rows=[_leg("Permanent Failure", accepted_at=None, bulk_job_transaction_id=None)])
+        row = env["stuck_legs"]()[0]
+        self.assertEqual(row["actions"], ["retry"])
+        self.assertFalse(row["dead_end"])
 
     def test_verification_mismatch_chi_sang_duoc_manual_review(self):
         env = _load_ops(dsr_rows=[_leg("Verification Mismatch")])
