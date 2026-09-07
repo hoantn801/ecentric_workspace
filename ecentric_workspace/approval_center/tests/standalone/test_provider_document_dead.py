@@ -107,16 +107,21 @@ class TestPollOrStop(unittest.TestCase):
         self.assertEqual(st[3]["extra_fields"]["retryable"], 0)
         self.assertEqual(m._fk.todos, ["DSR-1"])
 
-    def test_bi_tu_choi_tren_cong_cung_dung(self):
+    def test_tu_choi_tren_cong_KHONG_phai_chung_tu_chet(self):
+        # mot cap tu choi = chuyen cua luong duyet (signer_rejected_at_provider), khong poison goi
         m = _tasks()
-        self.assertIsNone(m._poll_or_stop("DSR-1", DSR, _adapter("REJECTED"), "doc-1"))
-        self.assertEqual(m._fk.set_values[0][2]["error_code"], "provider_document_rejected")
+        ds = m._poll_or_stop("DSR-1", DSR, _adapter("REJECTED"), "doc-1")
+        self.assertIsNotNone(ds); self.assertEqual(m._fk.set_values, [])
 
-    def test_404_thi_la_xoa(self):
+    def test_404_thi_manual_review_khong_poison_goi(self):
+        # 404 co the la xoa, cung co the la token khong con quyen xem -> nguoi truc doi chieu
         m = _tasks()
         self.assertIsNone(m._poll_or_stop("DSR-1", DSR, _adapter(raise_code="scts_document_not_found"), "doc-1"))
-        self.assertEqual(m._fk.set_values[0][2]["error_code"], "provider_document_deleted")
-        self.assertIn("xoá", m._fk.set_values[0][2]["error_message"])
+        self.assertEqual(m._fk.set_values, [], "khong ghi provider_document_* len goi")
+        st = [c for c in m._ev.calls if c[0] == "set"][0]
+        self.assertEqual(st[2], "Manual Review")
+        self.assertEqual(st[3]["extra_fields"]["manual_review_reason"], "provider_document_not_found")
+        self.assertEqual(m._fk.todos, ["DSR-1"])
 
     def test_loi_khac_thi_nem_len_nhu_cu(self):
         m = _tasks()

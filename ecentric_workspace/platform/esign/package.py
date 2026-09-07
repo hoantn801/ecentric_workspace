@@ -86,11 +86,12 @@ def provider_file_count(pkg_name):
                                         "event_type": "SupportingFileKeptInErp"},
                                pluck="request_meta"):
         try:
-            name = (frappe.parse_json(meta) or {}).get("file")
+            d = frappe.parse_json(meta) or {}
+            key = (d.get("file"), d.get("order"))
         except Exception:
-            name = None
-        if name:
-            kept.add(name)
+            key = (None, None)
+        if key[0]:
+            kept.add(key)             # (ten, vi tri): hai phu luc trung ten van la hai
     return max(0, total - len(kept))
 
 
@@ -259,7 +260,10 @@ def remove_file(dsf_name):
     linked = int(row.get("file_is_linked") or 0)
     frappe.delete_doc("EC Digital Signature File", dsf_name, ignore_permissions=True)
     # File LIEN KET la tep dinh kem cua chinh phieu - go dong khoi goi thi tep van o lai.
-    if fdoc and not linked and frappe.db.exists("File", fdoc):
+    # Va KHONG BAO GIO xoa mot File ma dong goi khac (goi da ky / Superseded) con tro vao:
+    # do la bang chung cua chu ky da co (review 06/09).
+    if fdoc and not linked and frappe.db.exists("File", fdoc) \
+            and not frappe.db.exists("EC Digital Signature File", {"file": fdoc}):
         frappe.delete_doc("File", fdoc, ignore_permissions=True)
 
 
@@ -416,6 +420,21 @@ def compute_hash(pkg_name):
          for p in package_placements(pkg_name) if p.status != "Invalid"])
 
 
+def _payload_copies_for_profile(profile_name):
+    """2 hay 1 lan base64 moi tep - theo Provider Settings cua profile (omit_original_base64).
+    Khong doc duoc thi lay 2 (an toan hon: chan som hon)."""
+    from ecentric_workspace.platform.esign import limits
+    try:
+        prof = frappe.db.get_value("EC Digital Signature Profile", profile_name,
+                                   ["provider", "environment"], as_dict=True)
+        st = frappe.db.get_value("EC Digital Signature Provider Settings",
+                                 {"provider": prof.provider, "environment": prof.environment},
+                                 ["omit_original_base64"], as_dict=True) if prof else None
+        return limits.payload_copies(st or {})
+    except Exception:
+        return 2
+
+
 def preflight_for_lock(pkg_name):
     """Blocking checks before lock/provider creation (§18 preflight, S2A backend part).
     Returns list of error strings (empty = OK)."""
@@ -433,6 +452,11 @@ def preflight_for_lock(pkg_name):
             errs.append("missing_hash:%s" % f.file_name)
     if any(not f.sha256 or not (f.size_bytes or 0) for f in files):
         errs.append("incomplete_upload")
+    # Rieng TO TRINH da vuot gioi han body cua eContract (413 ngay 07/09) thi khong gui duoc
+    # bang cach bo phu luc nua - chan ngay luc Gui, noi ro con so.
+    from ecentric_workspace.platform.esign import limits
+    if not limits.fits((f.size_bytes for f in signable), _payload_copies_for_profile(pkg.profile)):
+        errs.append("signable_too_large:%s" % limits.mb(sum((f.size_bytes or 0) for f in signable)))
     levels = frappe.get_all("EC Digital Signature Profile Level",
                             filters={"parent": pkg.profile, "requires_signature": 1},
                             fields=["level_no", "mandatory_placements_per_file"])
@@ -486,6 +510,9 @@ def create_revision(old_pkg_name):
             "is_supporting_document": f.is_supporting_document,
             "share_with_partner": f.share_with_partner, "sha256": f.sha256,
             "size_bytes": f.size_bytes, "mime_type": f.mime_type, "is_pdf": f.is_pdf,
+            # Ban sua (revision) dung CHUNG File voi ban truoc -> voi dong moi, File do la
+            # "lien ket" bat ke ban goc the nao: xoa no la xoa bang chung cua goi da ky.
+            "file_is_linked": 1,
         }).insert(ignore_permissions=True)
     old_files = {f.name: f for f in package_files(old_pkg_name)}
     new_by_file = {f.file: f.name for f in package_files(new.name)}

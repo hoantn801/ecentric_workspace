@@ -35,7 +35,7 @@ class _Doc(dict):
         return self
 
 
-def _package(files_by_name, dsf_row=None):
+def _package(files_by_name, dsf_row=None, other_refs=()):
     fk = types.ModuleType("frappe"); fk._ = lambda s: s
     fk.PermissionError = type("PermissionError", (Exception,), {})
     fk.thrown = []; fk.inserted = []; fk.deleted = []
@@ -61,6 +61,8 @@ def _package(files_by_name, dsf_row=None):
             return 0
 
         def exists(self, dt, name):
+            if dt == "EC Digital Signature File" and isinstance(name, dict):
+                return bool(other_refs and name.get("file") in other_refs)
             return True
     fk.db = _DB()
     fk.get_all = lambda *a, **k: []
@@ -148,6 +150,21 @@ class TestLinkNotCopy(unittest.TestCase):
                                      "file_is_linked": 0, "get": lambda k, d=None: 0})
         _run(m, lambda: m.remove_file("DSF-2"))
         self.assertIn(("File", "F-copy"), m._fk.deleted)
+
+    def test_remove_file_khong_xoa_File_ma_goi_khac_con_tro(self):
+        # ban sua sau tra ve dung chung File voi goi da ky (review 06/09)
+        m = _package(FILES, dsf_row={"name": "DSF-3", "package": "PKG-1", "file": "F-shared",
+                                     "file_is_linked": 0, "get": lambda k, d=None: 0},
+                     other_refs=("F-shared",))
+        _run(m, lambda: m.remove_file("DSF-3"))
+        self.assertIn(("EC Digital Signature File", "DSF-3"), m._fk.deleted)
+        self.assertNotIn(("File", "F-shared"), m._fk.deleted)
+
+    def test_create_revision_danh_dau_lien_ket(self):
+        import ast
+        fn = [n for n in ast.walk(ast.parse(_read("package.py"))) if isinstance(n, ast.FunctionDef)
+              and n.name == "create_revision"][0]
+        self.assertIn("'file_is_linked': 1", ast.unparse(fn))
 
 
 class TestCallersLink(unittest.TestCase):
