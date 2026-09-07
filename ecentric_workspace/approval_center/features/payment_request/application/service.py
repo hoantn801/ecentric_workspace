@@ -7,12 +7,34 @@ def payment_title(doc):
     """User-entered title wins; auto-generated 'Payment Request - payee - amount' only when
     the title is left blank (2026-08-23: the form now has an explicit title field, which also
     feeds eContract docTitle via the profile's title_source)."""
-    manual = (doc.get("request_title") or "").strip()
+    manual = _strip_installment_suffix((doc.get("request_title") or "").strip())
     if manual:
-        return manual[:180]
+        return _with_installment_suffix(doc, manual)
     amount = doc.get("payment_amount")
     amount = "%.0f" % float(amount) if amount not in (None, "") else "?"
-    return ("Payment Request - %s - %s" % (doc.get("payee_full_name") or "?", amount))[:180]
+    return _with_installment_suffix(
+        doc, "Payment Request - %s - %s" % (doc.get("payee_full_name") or "?", amount))
+
+
+_INST_SUFFIX_RE = None
+
+
+def _strip_installment_suffix(title):
+    """Bo hau to " — Đợt k" (chep tu phieu dot truoc) de khong thanh "Đợt 1 — Đợt 2"."""
+    import re
+    global _INST_SUFFIX_RE
+    if _INST_SUFFIX_RE is None:
+        _INST_SUFFIX_RE = re.compile(r"\s*[—-]\s*Đợt\s+\d+\s*$")
+    return _INST_SUFFIX_RE.sub("", title or "").strip()
+
+
+def _with_installment_suffix(doc, title):
+    """Phieu chia dot: tieu de mang so dot de 5 nguoi ky va ke toan nhin ra ngay day la khoan
+    nao trong chuoi (tieu de cung la docTitle tren eContract)."""
+    if (doc.get("payment_mode") or "Full") == "Installment" and int(doc.get("installment_no") or 0) > 0:
+        suffix = " — Đợt %d" % int(doc.get("installment_no"))
+        return (title[:180 - len(suffix)] + suffix)
+    return title[:180]
 
 def normalize_payment(doc):
     doc.details_and_attachments_correct = ("Yes" if doc.details_and_attachments_correct is True
@@ -59,6 +81,193 @@ def validate_payment(doc):
         doc.purchase_request = None
     # Single guard for every source type: exists + approved + does not exceed the remainder.
     funding.validate_funding(doc)
+    validate_installment(doc)
+
+
+# --------------------------------------------------------------------------- #
+# Thanh toan chia dot (07/09, Hoan): MOI DOT = MOT PHIEU rieng (duyet + 5 chu ky rieng, vi ke
+# toan can ban de nghi ky dung so tien chi). Chuoi noi bang installment_of = phieu dot 1;
+# installment_no = so dot. Khong ep 50/50: tong, so tien dot nay, so tien dot ke (mac dinh =
+# con lai). "Khoi nhap lai" = create_next_installment: clone phieu dot truoc sau khi dot do
+# da chi UNC (fulfillment Completed).
+# --------------------------------------------------------------------------- #
+INSTALLMENT = "Installment"
+
+
+def _money(v):
+    try:
+        return float(v or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def installment_root(doc):
+    return doc.get("installment_of") or doc.get("name")
+
+
+def installment_chain(root):
+    """Cac phieu trong chuoi (ke ca phieu goc), theo so dot. Chi doc cot can cho man hinh."""
+    if not root:
+        return []
+    rows = frappe.get_all(BUSINESS_DT,
+                          filters=[["name", "=", root]],
+                          fields=["name", "installment_no", "payment_amount", "payment_date",
+                                  "approval_request", "fulfillment_status", "completed_at",
+                                  "next_installment_amount", "next_installment_date", "docstatus"])
+    rows += frappe.get_all(BUSINESS_DT,
+                           filters=[["installment_of", "=", root]],
+                           fields=["name", "installment_no", "payment_amount", "payment_date",
+                                   "approval_request", "fulfillment_status", "completed_at",
+                                   "next_installment_amount", "next_installment_date", "docstatus"])
+    seen, out = set(), []
+    for r in rows:
+        if r.name in seen:
+            continue
+        seen.add(r.name)
+        out.append(r)
+    for r in out:
+        r["approval_status"] = (frappe.db.get_value("EC Approval Request", r.approval_request, "approval_status")
+                                if r.approval_request else "Draft")
+    out.sort(key=lambda r: (int(r.installment_no or 0), r.name))
+    return out
+
+
+def _live(r):
+    """Phieu con hieu luc trong chuoi: khong bi tu choi/huy."""
+    return r.get("approval_status") not in ("Rejected", "Cancelled")
+
+
+def paid_before(doc):
+    """Tong so tien cac dot TRUOC dot nay (phieu con hieu luc). Dot 1 -> 0."""
+    no = int(doc.get("installment_no") or 1)
+    if no <= 1:
+        return 0.0
+    return sum(_money(r.payment_amount) for r in installment_chain(installment_root(doc))
+               if _live(r) and int(r.installment_no or 0) < no and r.name != doc.get("name"))
+
+
+def validate_installment(doc):
+    """Chay luc GUI (Submitter). Dot 1 (chua co installment_of) tu nhan so 1."""
+    if (doc.get("payment_mode") or "Full") != INSTALLMENT:
+        doc.payment_mode = "Full"
+        doc.total_amount = None
+        doc.installment_no = None
+        doc.installment_of = None
+        doc.next_installment_amount = None
+        doc.next_installment_date = None
+        return
+    if not doc.get("installment_of"):
+        doc.installment_no = 1
+    total, this = _money(doc.get("total_amount")), _money(doc.get("payment_amount"))
+    if total <= 0:
+        frappe.throw(_("Thanh toán chia đợt: vui lòng nhập Tổng giá trị."))
+    before = paid_before(doc)
+    remaining = round(total - before - this, 2)
+    if this <= 0 or remaining < 0:
+        frappe.throw(_("Số tiền đợt này ({0}) vượt phần còn lại của tổng giá trị ({1}).").format(
+            "%.0f" % this, "%.0f" % max(total - before, 0)))
+    if remaining == 0:
+        # Dot cuoi: khong con dot ke.
+        doc.next_installment_amount = None
+        doc.next_installment_date = None
+        return
+    nxt = _money(doc.get("next_installment_amount")) or remaining
+    if nxt > remaining + 0.005:
+        frappe.throw(_("Số tiền đợt kế ({0}) vượt phần còn lại ({1}).").format("%.0f" % nxt, "%.0f" % remaining))
+    doc.next_installment_amount = nxt
+    if not doc.get("next_installment_date"):
+        frappe.throw(_("Vui lòng nhập Ngày dự kiến thanh toán đợt kế."))
+    if getdate(doc.next_installment_date) <= getdate(doc.payment_date):
+        frappe.throw(_("Ngày dự kiến đợt kế phải sau ngày thanh toán đợt này."))
+
+
+def installments_block(business, request):
+    """detail["extra"]["installments"] cho form + hub: chuoi cac dot, con lai, dot ke, co tao
+    duoc dot ke khong. Phieu 100% -> None."""
+    if (business.get("payment_mode") or "Full") != INSTALLMENT:
+        return {"installments": None}
+    root = installment_root(business)
+    chain = installment_chain(root)
+    me = business.get("name")
+    total = _money(business.get("total_amount"))
+    paid = sum(_money(r.payment_amount) for r in chain if _live(r) and r.fulfillment_status == "Completed")
+    approved_or_pending = sum(_money(r.payment_amount) for r in chain if _live(r))
+    next_req = next((r for r in chain if int(r.installment_no or 0) == int(business.get("installment_no") or 0) + 1
+                     and _live(r)), None)
+    remaining_after_me = round(total - sum(_money(r.payment_amount) for r in chain
+                                           if _live(r) and int(r.installment_no or 0) <= int(business.get("installment_no") or 0)), 2)
+    user = frappe.session.user
+    can_create = bool(
+        (business.get("requested_by") == user or "System Manager" in frappe.get_roles(user))
+        and business.get("fulfillment_status") == "Completed"
+        and remaining_after_me > 0 and not next_req)
+    return {"installments": {
+        "root": root, "installment_no": int(business.get("installment_no") or 1),
+        "total_amount": total, "paid_amount": paid, "committed_amount": approved_or_pending,
+        "remaining_after_this": remaining_after_me,
+        "next_expected": {"amount": _money(business.get("next_installment_amount")) or None,
+                          "date": business.get("next_installment_date")} if remaining_after_me > 0 else None,
+        "next_request": next_req.name if next_req else None,
+        "can_create_next": can_create,
+        "chain": [{"name": r.name, "installment_no": int(r.installment_no or 0),
+                   "payment_amount": _money(r.payment_amount), "payment_date": r.payment_date,
+                   "approval_status": r.approval_status, "fulfillment_status": r.fulfillment_status,
+                   "completed_at": r.completed_at, "is_current": r.name == me} for r in chain],
+    }}
+
+
+def create_next_installment(name):
+    """Tao phieu NHAP dot ke tu phieu dot truoc. Dieu kien: chu phieu (hoac SM); phieu dot
+    truoc da chi UNC (fulfillment Completed); con phan chua chi; chua co phieu dot ke con hieu
+    luc (co roi thi tra ve phieu do - idempotent)."""
+    from ecentric_workspace.approval_center.shared.requests import command_service
+    from ecentric_workspace.approval_center.shared.registry import get_definition
+    user = frappe.session.user
+    src = frappe.get_doc(BUSINESS_DT, name)
+    if src.requested_by != user and "System Manager" not in frappe.get_roles(user):
+        frappe.throw(_("Bạn chỉ có thể tạo đợt tiếp theo cho yêu cầu của chính mình."), frappe.PermissionError)
+    if (src.payment_mode or "Full") != INSTALLMENT:
+        frappe.throw(_("Phiếu này thanh toán 100%, không có đợt tiếp theo."))
+    if src.fulfillment_status != "Completed":
+        frappe.throw(_("Đợt {0} chưa được Finance xử lý UNC xong. Tạo đợt kế sau khi đợt này đã chi.").format(
+            src.installment_no or 1))
+    block = installments_block(src, None)["installments"]
+    if block["next_request"]:
+        return {"name": block["next_request"], "existing": True}
+    if block["remaining_after_this"] <= 0:
+        frappe.throw(_("Tổng giá trị đã thanh toán đủ, không còn đợt tiếp theo."))
+    remaining = block["remaining_after_this"]
+    nxt_amount = min(_money(src.next_installment_amount) or remaining, remaining)
+    nxt_no = int(src.installment_no or 1) + 1
+    root = installment_root(src)
+
+    def prepare(target, source):
+        target.payment_mode = INSTALLMENT
+        target.total_amount = source.total_amount
+        target.installment_of = root
+        target.installment_no = nxt_no
+        target.payment_amount = nxt_amount
+        target.payment_date = source.next_installment_date
+        target.next_installment_amount = None
+        target.next_installment_date = None
+        target.request_title = source.request_title      # title_builder tu doi hau to " — Đợt k"
+        # Ngu canh cho 5 nguoi ky: dong dau ly do noi ro dot may / tong / dot truoc da chi.
+        head = _("[Đợt {0} — tổng {1} VND; đợt {2} ({3}) đã thanh toán UNC ngày {4}]").format(
+            nxt_no, "{:,.0f}".format(_money(source.total_amount)), source.installment_no or 1,
+            source.name, frappe.utils.formatdate(source.completed_at) if source.completed_at else "—")
+        body = _strip_installment_head(source.reason or "")
+        target.reason = (head + "\n" + body).strip()
+    out = command_service.clone_followup(get_definition(APPROVAL_TYPE), name, prepare)
+    out["installment_no"] = nxt_no
+    return out
+
+
+def _strip_installment_head(reason):
+    """Bo dong ngu canh "[Đợt k — ...]" cua dot truoc de khong chong nhieu dong."""
+    lines = (reason or "").splitlines()
+    while lines and lines[0].startswith("[Đợt "):
+        lines = lines[1:]
+    return "\n".join(lines).strip()
 
 
 # --------------------------------------------------------------------------- #

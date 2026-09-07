@@ -50,6 +50,10 @@ class ApprovalDefinition:
     #: "da xac nhan thong tin va tep dinh kem la chinh xac" cho mot bo ho so ho chua doc lai.
     #: De trong la mac dinh; module nao co o nhu vay thi tu khai ra.
     clone_exclude_fields: Tuple[str, ...] = ()
+    #: Khoi doc them cho man hinh chi tiet, do module so huu: (business_doc, approval_request)
+    #: -> dict, gan vao detail["extra"]. Dung khi form can ngu canh ngoai phieu (Payment Request:
+    #: chuoi cac dot thanh toan). Chi DOC; khong ghi, khong giu tham chieu.
+    detail_extender: Optional[Callable] = None
 
     @property
     def status_label_map(self) -> Mapping[str, str]:
@@ -77,5 +81,7 @@ def validate_definition(definition: ApprovalDefinition) -> None:
         raise ValueError("definition callback is not callable: title_builder")
     if definition.draft_preparer is not None and not callable(definition.draft_preparer):
         raise ValueError("definition callback is not callable: draft_preparer")
+    if definition.detail_extender is not None and not callable(definition.detail_extender):
+        raise ValueError("definition callback is not callable: detail_extender")
 
 

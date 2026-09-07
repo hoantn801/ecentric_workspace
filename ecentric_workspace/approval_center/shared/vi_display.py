@@ -41,6 +41,7 @@ BY_FIELD = {
     "account_mode": {"New Account": "Tài khoản mới", "Existing Account": "Tài khoản sẵn có"},
     "supplier_mode": {"New supplier": "Nhà cung cấp mới", "Existing supplier": "Nhà cung cấp sẵn có"},
     "request_scope": {"Project level": "Theo dự án", "Consolidated / Total": "Tổng hợp"},
+    "payment_mode": {"Full": "Thanh toán 100%", "Installment": "Chia đợt"},
 }
 
 GLOBAL = {

@@ -185,6 +185,25 @@ def clone_request(definition, name):
                        "Yêu cầu này đang ở trạng thái “{0}”.").format(
                            definition.status_label_map.get(status or "", status or "Nháp")))
 
+    return _copy_to_new_draft(definition, source, user)
+
+
+def clone_followup(definition, name, prepare):
+    """Tao phieu NHAP ke tiep tu mot phieu DA DUYET XONG - cung co che chep nhu clone_request
+    (truong sua duoc + link tep, loc SIGNED-/REVIEW-, khong chay validator), nhung KHONG doi
+    trang thai tu choi/huy. Dung cho thanh toan chia dot (07/09): dot 2 la mot phieu rieng,
+    duyet + ky rieng, nhung nguoi de nghi khong phai go lai. Luat nghiep vu (dot truoc da chi,
+    con lai bao nhieu, so dot...) do module goi kiem TRUOC; `prepare(target, source)` dien
+    cac truong rieng cua dot ke truoc khi insert."""
+    user = frappe.session.user
+    source = frappe.get_doc(definition.business_doctype, name)
+    if source.requested_by != user and not capabilities.is_system_manager(user):
+        frappe.throw(_("Bạn chỉ có thể tạo phiếu tiếp theo từ yêu cầu của chính mình."),
+                     frappe.PermissionError)
+    return _copy_to_new_draft(definition, source, user, prepare=prepare)
+
+
+def _copy_to_new_draft(definition, source, user, prepare=None):
     document = frappe.new_doc(definition.business_doctype)
     document.requested_by = user
     skip = set(definition.clone_exclude_fields or ())
@@ -196,6 +215,8 @@ def clone_request(definition, name):
     document.employee = context["employee"]
     document.department = document.department or context["department"]
     document.company = document.company or context["company"]
+    if prepare:
+        prepare(document, source)
     if definition.draft_preparer:
         definition.draft_preparer(document)
     if definition.title_builder:

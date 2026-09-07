@@ -17,9 +17,11 @@ from frappe import _
 from frappe.utils import add_days, formatdate, getdate
 
 from ecentric_workspace.approval_center.features.payment_request.application.service import (
-    BUSINESS_DT, _engine)
+    BUSINESS_DT, INSTALLMENT, _engine, installments_block)
 
 REMIND_DAYS_BEFORE = 3
+#: Dot ke: nhac NGUOI DE NGHI som hon (phieu dot ke con phai qua 5 cap duyet + ky).
+NEXT_INSTALLMENT_DAYS_BEFORE = 7
 _ACTIVE = ("Assigned", "In Progress")
 
 
@@ -74,4 +76,49 @@ def remind_unc_due(today=None):
             sent += 1
         except Exception:
             frappe.log_error(frappe.get_traceback(), "payment_request.remind_unc_due %s" % name)
+    return sent
+
+
+# --------------------------------------------------------------------------- #
+# Thanh toan chia dot: nhac nguoi de nghi TAO PHIEU DOT KE tu D-7 truoc ngay du kien (07/09).
+# Chi phieu chia dot da chi UNC (Completed), con phan chua chi, co ngay du kien, chua co
+# phieu dot ke con hieu luc. Moi phieu mot lan/ngay (next_installment_reminded_on).
+# --------------------------------------------------------------------------- #
+def next_installment_candidates(today=None):
+    today = getdate(today)
+    rows = frappe.get_all(BUSINESS_DT,
+                          filters={"payment_mode": INSTALLMENT, "fulfillment_status": "Completed",
+                                   "next_installment_date": ["<=", add_days(today, NEXT_INSTALLMENT_DAYS_BEFORE)],
+                                   "next_installment_amount": [">", 0]},
+                          fields=["name", "next_installment_reminded_on"], limit_page_length=500)
+    return [r.name for r in rows
+            if not r.next_installment_reminded_on or getdate(r.next_installment_reminded_on) != today]
+
+
+def remind_next_installment(today=None):
+    """Scheduler daily. Tra ve so phieu da nhac."""
+    if frappe.conf.get("ec_payment_unc_reminder_disabled"):
+        return 0
+    engine = _engine()
+    today = getdate(today)
+    sent = 0
+    for name in next_installment_candidates(today):
+        try:
+            doc = frappe.get_doc(BUSINESS_DT, name)
+            block = installments_block(doc, None)["installments"] or {}
+            if block.get("next_request") or (block.get("remaining_after_this") or 0) <= 0:
+                # da tao dot ke (hoac da du) -> khong nhac, khong can nhac lai nua
+                frappe.db.set_value(BUSINESS_DT, name, "next_installment_reminded_on", today, update_modified=False)
+                continue
+            days = (getdate(doc.next_installment_date) - today).days
+            when = _("còn {0} ngày").format(days) if days > 0 else (_("HÔM NAY") if days == 0 else _("QUÁ HẠN {0} ngày").format(-days))
+            engine.notify([doc.requested_by],
+                          _("Sắp tới đợt {0} ({1}, dự kiến {2}) — tạo đề nghị thanh toán đợt kế để kịp duyệt & ký: {3}").format(
+                              int(doc.installment_no or 1) + 1, when, formatdate(doc.next_installment_date),
+                              engine.request_label(BUSINESS_DT, name)),
+                          BUSINESS_DT, name)
+            frappe.db.set_value(BUSINESS_DT, name, "next_installment_reminded_on", today, update_modified=False)
+            sent += 1
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "payment_request.remind_next_installment %s" % name)
     return sent
