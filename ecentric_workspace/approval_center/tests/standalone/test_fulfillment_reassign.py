@@ -79,9 +79,16 @@ class TestDriftLock(unittest.TestCase):
 
 
 class TestPatchLandmarks(unittest.TestCase):
-    def test_landmark_p152_co_that_trong_nguon(self):
-        patch = _read(os.path.join(_ROOT, "approval_center", "patches",
-                                   "p152_resync_five_forms_reassign.py"))
+    #: (ten file patch, co bat buoc landmark phai co trong nguon khong)
+    RESYNC_PATCHES = ("p152_resync_five_forms_reassign.py",
+                      "p155_resync_five_forms_reassign_refresh.py")
+
+    def test_landmark_moi_patch_resync_deu_co_that_trong_nguon(self):
+        for fname in self.RESYNC_PATCHES:
+            self._check_landmarks(fname)
+
+    def _check_landmarks(self, fname):
+        patch = _read(os.path.join(_ROOT, "approval_center", "patches", fname))
         # Doc bang CAY CU PHAP, khong regex: landmark chua dau ngoac ("doReassign(name)")
         # nen moi regex cat theo ")" deu cat nham va cho ra danh sach RONG -> test xanh gia.
         landmarks = None
@@ -89,15 +96,18 @@ class TestPatchLandmarks(unittest.TestCase):
             if (isinstance(node, ast.Assign) and node.targets
                     and getattr(node.targets[0], "id", None) == "_LANDMARKS"):
                 landmarks = list(ast.literal_eval(node.value))
-        self.assertTrue(landmarks, "khong doc duoc _LANDMARKS tu p152")
+        self.assertTrue(landmarks, "khong doc duoc _LANDMARKS tu %s" % fname)
         for f in FORMS:
             src = _read(_html_path(f))
             for L in landmarks:
-                self.assertIn(L, src, "%s: nguon thieu landmark %r ma p152 se kiem" % (f, L))
+                self.assertIn(L, src, "%s: nguon thieu landmark %r ma %s se kiem"
+                              % (f, L, fname))
 
-    def test_p152_da_dang_ky(self):
+    def test_moi_patch_resync_da_dang_ky(self):
         txt = _read(os.path.join(_ROOT, "patches.txt"))
-        self.assertIn("patches.p152_resync_five_forms_reassign", txt)
+        for fname in self.RESYNC_PATCHES:
+            self.assertIn("patches." + fname[:-3], txt,
+                          "%s khong nam trong patches.txt thi khong bao gio chay" % fname)
 
 
 class TestUiWiring(unittest.TestCase):
@@ -225,6 +235,60 @@ class TestSelfMaintainingDriftLock(unittest.TestCase):
         self.assertLessEqual(
             len(thieu), self.MAX_CHUA_SUA,
             "co them trang co khoa chong troi ma khong tu ghi sha: %s" % thieu)
+
+
+class TestKhongGoiHamKhongTonTai(unittest.TestCase):
+    """Bug 08/09: `doReassign` goi `applyDetail(r)`, nhung asset/data/document_request KHONG
+    co ham do - chung dung `refreshDetail`. Loi nem ra SAU KHI server da chuyen viec thanh
+    cong, roi bi `.catch` cua chinh chuoi promise nuot lai thanh mot toast BAO LOI. Nguoi
+    dung thay "that bai" trong khi viec da chuyen roi, va se bam lai.
+
+    Bai hoc: 5 form nay GIONG NHAU 90%%, khong phai 100%%. Sao chep mot doan JS sang ca nam
+    ma khong kiem tung ten ham co ton tai trong tung file la du de sinh loi kieu nay. Test
+    doc than ham va doi chieu TUNG lenh goi voi cac ham that su duoc dinh nghia trong file.
+    """
+
+    #: Ten toan cuc / builtin duoc phep xuat hien ma khong can dinh nghia trong file.
+    _ALLOWED = {"function", "if", "for", "while", "return", "typeof", "catch", "switch",
+                "Promise", "JSON", "String", "Number", "Boolean", "Array", "Object", "Math",
+                "Date", "parseInt", "parseFloat", "encodeURIComponent", "decodeURIComponent",
+                "setTimeout", "clearTimeout", "fetch", "console", "window", "document", "new"}
+
+    def _defined(self, src):
+        names = set(re.findall(r"function\s+([A-Za-z_$][\w$]*)\s*\(", src))
+        names |= set(re.findall(r"var\s+([A-Za-z_$][\w$]*)\s*=", src))
+        return names
+
+    def _slice(self, src, start, end):
+        i = src.index(start)
+        return src[i:src.index(end, i)]
+
+    @staticmethod
+    def _strip_strings(js):
+        """Bo CHU THICH truoc, roi bo CHUOI KY TU. Ca hai deu sinh ten gia: mot doan HTML
+        trong dau nhay ('<div ...(form...'), va mot cau chu thich ('Ba form (asset/...)')
+        deu khop mau "ten(" du khong he co loi goi nao. Xem
+        [[feedback_test_asserting_call_exists_proves_nothing]]: boc chu thich TRUOC khi grep."""
+        js = re.sub(r"/\*.*?\*/", " ", js, flags=re.S)
+        js = re.sub(r"(?m)^\s*//.*$", " ", js)
+        return re.sub(r"'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"", "''", js)
+
+    def test_moi_ham_goi_trong_doReassign_va_doClaim_deu_ton_tai(self):
+        for f in FORMS:
+            src = _read(_html_path(f))
+            defined = self._defined(src)
+            body = (self._slice(src, "function doReassign(name)", "function _claim(")
+                    + self._slice(src, "function doClaim(name)", "function _claim("))
+            body = self._strip_strings(body)
+            # `typeof X === "function"` la co Y THUC kiem ton tai truoc khi goi -> chap nhan.
+            guarded = set(re.findall(r"typeof\s+([A-Za-z_$][\w$]*)\s*===?\s*''", body))
+            called = set(re.findall(r"(?<![.\w$])([A-Za-z_$][\w$]*)\s*\(", body))
+            missing = sorted(c for c in called
+                             if c not in defined and c not in self._ALLOWED and c not in guarded)
+            self.assertEqual(
+                missing, [],
+                "%s: goi ham khong co trong file: %s. Ba form asset/data/document dung "
+                "refreshDetail chu khong co applyDetail." % (f, missing))
 
 
 if __name__ == "__main__":

@@ -648,7 +648,9 @@ def reassign_fulfillment(business_doctype, name, new_user, actor=None, descripti
         log_action(snap["approval_request"], "Assigned", actor,
                    comment=_("Fulfillment reassigned to {0}").format(new_user),
                    new_status="In Progress", related_user=new_user)
-    notify([snap.get("requested_by"), new_user],
+    # Bao ca CHU CU: viec bi lay khoi tay ai do (thuong la quan tri chuyen di) thi nguoi do
+    # phai biet, khong thi ho van tuong minh dang giu. notify tu bo trung/None.
+    notify([snap.get("requested_by"), new_user, snap.get("fulfillment_owner")],
            _("Fulfillment reassigned to {0}: {1}").format(new_user, name), business_doctype, name)
     return {"owner": new_user, "reassigned": True}
 
