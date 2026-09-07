@@ -305,7 +305,7 @@ class TestCloneDeliberatelySkipsValidation(unittest.TestCase):
     """Ban sao la mot phieu NHAP. Nhap thi duoc phep chua day du."""
 
     def test_khong_goi_validator(self):
-        body = _fn(_CS, "clone_request")
+        body = _fn(_CS, "clone_request") + "\n" + _fn(_CS, "_copy_to_new_draft")
         code = body.split('"""')[2] if body.count('"""') >= 2 else body
         self.assertNotIn("definition.validator", code,
                          "chay kiem tra o day = phieu thieu truong khong tao lai duoc, "
@@ -317,7 +317,7 @@ class TestCloneDeliberatelySkipsValidation(unittest.TestCase):
                       "bo qua mot buoc ma khong ghi ly do thi lan sau co nguoi them vao")
 
     def test_van_chuan_bi_du_lieu_nhu_mot_phieu_nhap(self):
-        body = _fn(_CS, "clone_request")
+        body = _fn(_CS, "_copy_to_new_draft")     # 07/09: than chep dung chung (clone_request + clone_followup)
         self.assertIn("draft_preparer", body, "chuan hoa du lieu thi van phai chay")
 
 

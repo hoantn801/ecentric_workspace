@@ -149,6 +149,9 @@ scheduler_events["daily"].append(
 # Moi phieu mot lan/ngay; tat bang site_config ec_payment_unc_reminder_disabled.
 scheduler_events["daily"].append(
     "ecentric_workspace.approval_center.features.payment_request.application.reminders.remind_unc_due")
+# Chia dot: nhac nguoi de nghi tao phieu dot ke tu D-7 truoc ngay du kien.
+scheduler_events["daily"].append(
+    "ecentric_workspace.approval_center.features.payment_request.application.reminders.remind_next_installment")
 # esign S2B-C1: bounded retry (*/30) of signed-PDF retrieval for terminal-completed
 # packages whose signed bundle is not yet complete. Safe GET/download only; never resends
 # AddDocument/bulk-process. Same kill switch (ec_esign_scheduler_disabled) + per-provider

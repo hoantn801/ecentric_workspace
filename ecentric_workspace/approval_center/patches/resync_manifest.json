@@ -21,8 +21,8 @@
   },
   "approval_center/features/asset_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p118_resync_all_feature_steppers_xss",
-    "sha256": "c900f962f547544d743929a0fb7f38d62fa058049aa521ef21d636594daef527"
+    "last_resync_patch": "p152_resync_five_forms_reassign",
+    "sha256": "0eca2c49fcf858d2b1b1b9554d9578fb06bf7057a0c6d9cbfd2c6d31b14a5a64"
   },
   "approval_center/features/budget_setting/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -45,13 +45,13 @@
   },
   "approval_center/features/data_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p118_resync_all_feature_steppers_xss",
-    "sha256": "3954076f720c3a1ef65ea3de1175df9e38ce4fd28a940fd97b04b8aa061be094"
+    "last_resync_patch": "p152_resync_five_forms_reassign",
+    "sha256": "89f481a6365899e0fa0464640556a3f39a606be6c1877d702afa2a45a73a788a"
   },
   "approval_center/features/document_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p118_resync_all_feature_steppers_xss",
-    "sha256": "043f7b438de929a25e08cf2ab880a031a623cc662cf59fb7158c03c554b0858d"
+    "last_resync_patch": "p152_resync_five_forms_reassign",
+    "sha256": "44effd3a1990cc2c8635469961d0981d9eff2b73e1b09f138978b66f7df1ce2b"
   },
   "approval_center/features/employee_info_update/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -104,8 +104,8 @@
     "sha256": "9e7e091060760821a3cf80fd7d2d300825b7bce65013a26c20f9d19b8ed5a264"
   },
   "approval_center/features/payment_request/ui/main_section.html": {
-    "last_resync_patch": "p150_resync_payment_request_unc_step",
-    "sha256": "bd79a71ca339cfc6c1f911bdbd3af023f5ad12f96f43df46ac652c4ff943e54f"
+    "last_resync_patch": "p153_resync_payment_request_installments",
+    "sha256": "d99a6dbf4891245248c50b630f2f99153eb700a3841f11649439ce780b255572"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -119,8 +119,8 @@
   },
   "approval_center/features/resignation/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p118_resync_all_feature_steppers_xss",
-    "sha256": "3839f1e86b742ebd95095c322b160a0e9701bd5596e8fa3cbdbb3283edd52c27"
+    "last_resync_patch": "p152_resync_five_forms_reassign",
+    "sha256": "6ddde3c1cb6de7017e896eb19189e2de8c8c95ed6a482b1543329781d72a78e0"
   },
   "approval_center/features/service_referral/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -134,8 +134,8 @@
   },
   "approval_center/features/system_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p118_resync_all_feature_steppers_xss",
-    "sha256": "aacf66868454b874e2487f3401b126ff87b0a2c4fc9a21907025b3d4170e82c6"
+    "last_resync_patch": "p152_resync_five_forms_reassign",
+    "sha256": "6974adb061847407d0b2702fa92778b0965772c13246ac98f476a95ad8b9615e"
   },
   "approval_center/ui/all_requests/main_section.html": {
     "last_resync_patch": "p148_resync_all_requests_note_reset",

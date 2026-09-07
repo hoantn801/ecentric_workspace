@@ -100,7 +100,8 @@ def _load(source_fields, status, actor="a@x.vn", requested_by="a@x.vn",
     """Chay clone_request THAT voi frappe gia."""
     src = ("_CLONEABLE = (\"Rejected\", \"Cancelled\")\n"
            "_SYSTEM_FILE_PREFIXES = (\"SIGNED-\", \"REVIEW-\")\n"
-           + _fn_src("clone_request") + "\n" + _fn_src("_is_system_artefact")
+           + _fn_src("clone_request") + "\n" + _fn_src("_copy_to_new_draft")   # 07/09: than chep tach ra dung chung voi clone_followup
+           + "\n" + _fn_src("_is_system_artefact")
            + "\n" + _fn_src("_copy_attachments"))
 
     inserted_files = []
@@ -281,7 +282,7 @@ class TestSystemArtefactsAreNotCopied(unittest.TestCase):
 
 class TestTheOldRequestIsUntouched(unittest.TestCase):
     def test_khong_ghi_gi_len_phieu_cu(self):
-        tree = ast.parse(_fn_src("clone_request"))
+        tree = ast.parse(_fn_src("clone_request") + "\n" + _fn_src("_copy_to_new_draft"))
         writes = [n for n in ast.walk(tree) if isinstance(n, ast.Call)
                   and getattr(n.func, "attr", "") in ("set_value", "delete_doc", "save")]
         self.assertEqual(writes, [], "ban sao khong duoc dung vao phieu cu")

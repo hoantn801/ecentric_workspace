@@ -101,6 +101,14 @@
   #ec-payr-root .pager{ display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px;font-size:13px;color:var(--gray-600); }
   #ec-payr-root .state{ padding:44px 20px;text-align:center;color:var(--gray-500); } #ec-payr-root .state h4{ color:var(--gray-700);margin:0 0 6px; }
   #ec-payr-root .stepper{ position:relative;overflow-x:auto;padding:6px 2px 12px; }
+  #ec-payr-root .inst-chain{ display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin:0 0 10px; }
+  #ec-payr-root .inst-chip{ flex:1 1 180px;border:1px solid var(--gray-200);border-radius:10px;padding:8px 12px;font-size:12.5px;background:#fff; }
+  #ec-payr-root .inst-chip.cur{ border-color:var(--navy);box-shadow:0 0 0 2px var(--navy-50,#e8ebf8); }
+  #ec-payr-root .inst-chip.done{ background:#f3fbf6;border-color:#bfe6cc; }
+  #ec-payr-root .inst-chip.plan{ border-style:dashed;color:var(--gray-500); }
+  #ec-payr-root .inst-chip b{ display:block;font-size:13px;margin-bottom:2px; }
+  #ec-payr-root .inst-chip a{ color:var(--navy);text-decoration:none; }
+  #ec-payr-root details.inst-fold summary{ cursor:pointer;color:var(--gray-600);font-size:13px;padding:6px 0; }
   #ec-payr-root .stepline{ position:relative;display:flex;gap:0;min-width:100%; }
   #ec-payr-root .stepline::before{ content:"";position:absolute;top:16px;left:calc(50% / var(--n));width:calc(100% - 100% / var(--n));height:2px;background:var(--gray-200);z-index:0; }
   #ec-payr-root .stepline::after{ content:"";position:absolute;top:16px;left:calc(50% / var(--n));width:calc(100% / var(--n) * var(--k));height:2px;background:var(--navy);z-index:0;transition:width .3s ease; }
@@ -229,8 +237,15 @@
     var over=(Number((state.draft||{}).payment_amount)||0) > (Number(f.remaining)||0)+0.5;
     return '<div class="hint'+(over?' err':'')+'" id="payr-fund-hint">Tổng: <b>'+fmtVnd(f.total)+'đ</b> · đã thanh toán: <b>'+fmtVnd(f.used)+'đ</b> · còn lại: <b>'+fmtVnd(f.remaining)+'đ</b>'+(over?' — số tiền đang vượt phần còn lại.':'')+'</div>'; }
 
+  // ---- chia dot (07/09): moi dot = mot phieu; dot ke tu tinh = tong - dot nay ----
+  function installmentRemaining(d){ var t=Number(d.total_amount)||0, a=Number(d.payment_amount)||0; var paid=Number(d._paid_before)||0; return Math.max(0, t-paid-a); }
+  function installmentNextHTML(d){ var rem=installmentRemaining(d); var nxt=(d.next_installment_amount!=null&&d.next_installment_amount!=="")?Number(d.next_installment_amount):rem;
+    if(!(Number(d.total_amount)>0)) return '<div class="fld full"><div class="hint">Nhập Tổng giá trị và số tiền đợt này; phần còn lại sẽ là đợt kế.</div></div>';
+    if(rem<=0) return '<div class="fld full"><div class="hint">Đợt này thanh toán hết phần còn lại — đây là đợt cuối.</div></div>';
+    return fld("next_installment_amount","Số tiền đợt kế (VND)",'<input type="number" min="0" step="1" data-model="next_installment_amount" value="'+esc(nxt)+'"><div class="hint">Còn lại sau đợt này: <b>'+fmtVnd(rem)+'đ</b>'+(nxt<rem-0.5?' · sẽ còn '+fmtVnd(rem-nxt)+'đ cho các đợt sau':'')+'</div>')
+      + fld("next_installment_date","Ngày dự kiến thanh toán đợt kế",'<input type="date" data-model="next_installment_date" value="'+esc(d.next_installment_date||"")+'"><div class="hint">Đợt kế là một đề nghị riêng (duyệt &amp; ký lại); hệ thống nhắc bạn tạo trước 7 ngày.</div>',true); }
   function formCardsHTML(d,c,fo){
-    var yn=fo.yes_no||["Yes","No"]; var hpr=d.has_purchase_request||"";
+    var yn=fo.yes_no||["Yes","No"]; var hpr=d.has_purchase_request||""; var inst=(d.payment_mode==="Installment");
     var prField=(hpr==="Yes")?(
         fld("funding_source_doctype","Loại nguồn chi phí",srcTypeSelectHTML(d),true)
       + fld("funding_source_name","Chứng từ nguồn",srcNameSelectHTML(d)+fundingHintHTML(),true).replace('class="fld','class="fld full')
@@ -242,8 +257,11 @@
       + '</div></div><div class="card"><h3>Thông tin thanh toán</h3><div class="grid2">'
       + fld("request_title","Tiêu đề yêu cầu",'<input data-model="request_title" placeholder="Bỏ trống sẽ tự sinh: Payment Request - Người nhận - Số tiền" value="'+esc(d.request_title||"")+'">').replace('class="fld','class="fld full')
       + fld("payee_full_name","Người nhận (Payee)",'<input data-model="payee_full_name" value="'+esc(d.payee_full_name||"")+'">',true)
-      + fld("payment_amount","Số tiền (VND)",'<input type="number" min="0" step="1" data-model="payment_amount" value="'+esc(d.payment_amount!=null?d.payment_amount:"")+'">',true)
-      + fld("payment_date","Ngày thanh toán",'<input type="date" data-model="payment_date" value="'+esc(d.payment_date||"")+'">',true)
+      + fld("payment_mode","Hình thức thanh toán",'<select data-model="payment_mode"'+(inst&&d.installment_of?' disabled':'')+'><option value="Full"'+(inst?'':' selected')+'>Thanh toán 100%</option><option value="Installment"'+(inst?' selected':'')+'>Chia đợt (nhiều đề nghị)</option></select>'+(inst&&d.installment_of?'<div class="hint">Đợt '+esc(d.installment_no||"")+' của phiếu '+esc(d.installment_of)+' — không đổi hình thức.</div>':''),true)
+      + (inst?fld("total_amount","Tổng giá trị (VND)",'<input type="number" min="0" step="1" data-model="total_amount"'+(d.installment_of?' readonly class="ro"':'')+' value="'+esc(d.total_amount!=null?d.total_amount:"")+'">',true):'<div></div>')
+      + fld("payment_amount",inst?("Số tiền đợt "+(d.installment_no||1)+" (VND)"):"Số tiền (VND)",'<input type="number" min="0" step="1" data-model="payment_amount" value="'+esc(d.payment_amount!=null?d.payment_amount:"")+'">',true)
+      + fld("payment_date",inst?("Ngày thanh toán đợt "+(d.installment_no||1)):"Ngày thanh toán",'<input type="date" data-model="payment_date" value="'+esc(d.payment_date||"")+'">',true)
+      + (inst?installmentNextHTML(d):'')
       + fld("account_bank","Ngân hàng",'<input data-model="account_bank" value="'+esc(d.account_bank||"")+'">',true)
       + fld("bank_account_number","Số tài khoản",'<input data-model="bank_account_number" value="'+esc(d.bank_account_number||"")+'">',true)
       + '<div></div>'
@@ -302,20 +320,24 @@
   }
   function suggestTitle(d){ d=d||{}; return ("Payment Request - "+(d.payee_full_name||"?")+" - "+(d.payment_amount||"?")); }
   function renderSummary(){ var h=$("payr-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
+    var inst=d.payment_mode==="Installment";
     var rows=[["Tiêu đề",suggestTitle(d)],
       ["Người nhận",d.payee_full_name||""],
-      ["Số tiền",d.payment_amount!=null&&d.payment_amount!==""?(fmtMoney(d.payment_amount)+" VND"):""],
+      [inst?("Số tiền đợt "+(d.installment_no||1)):"Số tiền",d.payment_amount!=null&&d.payment_amount!==""?(fmtMoney(d.payment_amount)+" VND"):""]];
+    if(inst){ rows.push(["Hình thức","Chia đợt — tổng "+(d.total_amount?fmtMoney(d.total_amount)+" VND":"—")]);
+      var rem=installmentRemaining(d); if(rem>0) rows.push(["Đợt kế",(fmtMoney(d.next_installment_amount!=null&&d.next_installment_amount!==""?d.next_installment_amount:rem))+" VND"+(d.next_installment_date?(" · dự kiến "+d.next_installment_date):"")]); }
+    rows=rows.concat([
       ["Ngày thanh toán",d.payment_date||""],
       ["Có Purchase Request?",d.has_purchase_request||""],
       ["Người yêu cầu",c.employee_name||c.user||""],
-      ["Luồng duyệt","Direct Manager → Finance → HOF → CEO"]];
+      ["Luồng duyệt","Direct Manager → Finance → HOF → CEO → Finance UNC"]]);
     h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
 
   function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; state.dirty=true; }
   function setFieldError(id,msg){ var f=document.querySelector('[data-fld="'+id+'"]'); if(!f)return; f.classList.toggle("invalid",!!msg);
     var e=f.querySelector(".err"); if(msg){ if(!e){ e=document.createElement("div"); e.className="err"; f.appendChild(e);} e.textContent=msg; } else if(e){ e.textContent=""; } }
   function clearFieldError(id){ setFieldError(id,null); }
-  var FIELD_IDS=["reason","payment_amount","payment_date","payee_full_name","account_bank","bank_account_number","has_purchase_request","purchase_request","no_purchase_request_reason","is_cost_valid","details_and_attachments_correct","request_attachment"];
+  var FIELD_IDS=["reason","payment_amount","payment_date","payee_full_name","account_bank","bank_account_number","has_purchase_request","purchase_request","no_purchase_request_reason","is_cost_valid","details_and_attachments_correct","request_attachment","payment_mode","total_amount","next_installment_amount","next_installment_date"];
   function showFieldErrors(errs){ FIELD_IDS.forEach(function(id){ setFieldError(id,(errs&&errs[id])||null); });
     var first=errs&&Object.keys(errs)[0];
     if(first){
@@ -352,6 +374,15 @@
       if(f && Number(d.payment_amount)>Number(f.remaining)+0.5) errs.payment_amount="Số tiền vượt phần còn lại của chứng từ nguồn (còn "+fmtVnd(f.remaining)+"đ).";
     }
     else if(d.has_purchase_request==="No"){ if(!((d.no_purchase_request_reason||"").toString().trim())) errs.no_purchase_request_reason="Vui lòng nhập lý do không có Purchase Request."; }
+    if(d.payment_mode==="Installment"){
+      var tot=Number(d.total_amount)||0, amt=Number(d.payment_amount)||0, paid=Number(d._paid_before)||0;
+      if(tot<=0) errs.total_amount="Vui lòng nhập tổng giá trị.";
+      else if(amt>tot-paid+0.5) errs.payment_amount="Số tiền đợt này vượt phần còn lại của tổng giá trị ("+fmtVnd(tot-paid)+"đ).";
+      else { var rem=tot-paid-amt;
+        if(rem>0){ var nx=(d.next_installment_amount!=null&&d.next_installment_amount!=="")?Number(d.next_installment_amount):rem;
+          if(nx<=0||nx>rem+0.5) errs.next_installment_amount="Số tiền đợt kế phải > 0 và không vượt "+fmtVnd(rem)+"đ.";
+          if(!d.next_installment_date) errs.next_installment_date="Vui lòng nhập ngày dự kiến đợt kế.";
+          else if(d.payment_date&&d.next_installment_date<=d.payment_date) errs.next_installment_date="Ngày dự kiến đợt kế phải sau ngày thanh toán đợt này."; } } }
     return Object.keys(errs).length?errs:null; }
   // Frappe KHONG dat cau bao loi cua `frappe.throw` vao `e.message`. No nam trong
   // `_server_messages` (mot chuoi JSON long nhau), doi khi trong `responseJSON.message` hoac
@@ -376,7 +407,7 @@
     if(/IntegrityError|pymysql|Duplicate entry|must be unique|OperationalError|ProgrammingError|Traceback|1062|1048/i.test(m)) return "Không thể thực hiện do dữ liệu không hợp lệ. Vui lòng kiểm tra lại hoặc liên hệ quản trị viên.";
     if(/pending approver|not a pending|không còn quyền/i.test(m)) return "Bạn không còn quyền thực hiện hành động này.";
     if(/no further action|is Approved|is Rejected|is Cancelled|vừa được cập nhật/i.test(m)) return "Yêu cầu vừa được cập nhật bởi người khác. Dữ liệu đã được làm mới.";
-    if(/mandatory|required|bắt buộc|Vui lòng|Quản lý trực tiếp|đầy đủ|Purchase Request/i.test(m)) return m;
+    if(/mandatory|required|bắt buộc|Vui lòng|Quản lý trực tiếp|đầy đủ|Purchase Request|đợt|Tổng giá trị|UNC/i.test(m)) return m;
     // Luat nay sinh ra de che thong diep KY THUAT tieng Anh ("access denied", "not
     // permitted") - thu nguoi dung khong doc duoc gi tu do. Nhung no bat luon MOI cau
     // tieng Viet co chu "quyen", ke ca nhung cau da duoc viet cho nguoi dung doc.
@@ -430,7 +461,15 @@
     if(k==="has_purchase_request"){ handleHPRChange(v); return; }
     if(k==="funding_source_doctype"){ handleSrcTypeChange(v); return; }
     if(k==="funding_source_name"){ handleSrcPick(v); return; }
+    if(k==="payment_mode"){ if(v!=="Installment"){ setModel("total_amount",null); setModel("next_installment_amount",null); setModel("next_installment_date",""); } renderCreate($("payr-body")); return; }
+    if(k==="total_amount"||k==="payment_amount"){ if((state.draft||{}).payment_mode==="Installment"){ refreshInstallmentHints(); } }
     renderSummary(); clearFieldError(k); }
+  // Doi tong / so tien dot nay -> cap nhat goi y dot ke tai cho (khong ve lai ca form de khong mat focus).
+  function refreshInstallmentHints(){ var d=state.draft||{}; var el=document.querySelector('[data-fld="next_installment_amount"]');
+    var rem=installmentRemaining(d); var h=el&&el.querySelector(".hint"); var inp=el&&el.querySelector("input");
+    if(inp&&(d.next_installment_amount==null||d.next_installment_amount===""||Number(d.next_installment_amount)>rem)){ inp.value=rem; }
+    if(h) h.innerHTML='Còn lại sau đợt này: <b>'+fmtVnd(rem)+'đ</b>';
+    if(!el||rem<=0||!(Number(d.total_amount)>0)) renderCreate($("payr-body")); }
   function attachModel(el){ if(el.__ecw) return; el.__ecw=true;
     if(el.type==="checkbox"||el.type==="radio"){ el.addEventListener("change",function(){ onModelInput(el); }); el.addEventListener("input",function(){ onModelInput(el); }); return; }
     var evt=(el.tagName==="SELECT")?"change":"input";
@@ -619,8 +658,9 @@
     if((det.capabilities||{}).can_approve) loadSignReady();
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.payee_full_name||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+badge(ap.approval_status||"Draft")+'</div></div></div>'
-      +'<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper" id="d-stepper"></div></div>'
+      +'<div class="card"><h3>Tiến trình phê duyệt</h3>'+instChainHTML(det)+instStepperWrapOpen(det)+'<div class="stepper" id="d-stepper"></div>'+instStepperWrapClose(det)+'</div>'
       +'<div class="card"><h3>Thông tin thanh toán</h3><div class="grid2">'+kv("Người nhận",biz.payee_full_name)+kv("Số tiền (VND)",biz.payment_amount!=null?fmtMoney(biz.payment_amount):"")+kv("Ngày thanh toán",biz.payment_date)+kv("Ngân hàng",biz.account_bank)+kv("Số tài khoản",biz.bank_account_number)+kv("Có Purchase Request?",biz.has_purchase_request)+kv("Purchase Request",biz.purchase_request)+kv("Chi phí hợp lệ?",biz.is_cost_valid)+kv("Xác nhận thông tin & tệp",biz.details_and_attachments_correct==="Yes"?"Đã xác nhận":"Chưa xác nhận")+'</div><div class="fld" style="margin-top:10px"><label>Lý do / nội dung thanh toán</label><textarea class="ro" readonly rows="3">'+esc(biz.reason||"")+'</textarea></div>'+(biz.has_purchase_request==="No"?'<div class="fld" style="margin-top:10px"><label>Lý do không có Purchase Request</label><textarea class="ro" readonly rows="2">'+esc(biz.no_purchase_request_reason||"")+'</textarea></div>':'')+'</div>'
+      +instCardHTML(det)
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
       +(uncCardVisible(det)?('<div class="card" id="d-unc"><h3>Xử lý UNC (Finance)</h3>'+uncSectionHTML(det)+'</div>'):'')
       +'<div class="card"><h3>Hành động</h3>'+actionPanelHTML(det)+'</div>'
@@ -630,6 +670,44 @@
     ensureActionHandlers();
     wireUnc();
   }
+  // ---- thanh toan chia dot (07/09): chuoi cac dot tren dau tien trinh + the chi tiet ----
+  function instBlock(det){ return ((det||{}).extra||{}).installments||null; }
+  function instStatusLabel(r){ if(r.fulfillment_status==="Completed") return "Đã UNC"+(r.completed_at?(" "+fmt(r.completed_at).slice(0,10)):"");
+    if(r.approval_status==="Approved") return "Chờ Finance UNC"; if(r.approval_status==="Pending") return "Đang duyệt";
+    if(r.approval_status==="Draft") return "Nháp"; if(r.approval_status==="Rejected") return "Bị từ chối"; if(r.approval_status==="Cancelled") return "Đã hủy";
+    if(r.approval_status==="Information Required") return "Cần bổ sung"; return r.approval_status||"—"; }
+  function instChainHTML(det){ var ib=instBlock(det); if(!ib) return "";
+    var chips=(ib.chain||[]).filter(function(r){ return r.approval_status!=="Rejected"&&r.approval_status!=="Cancelled"; }).map(function(r){
+      var cls=r.is_current?"cur":(r.fulfillment_status==="Completed"?"done":"");
+      var nm=r.is_current?esc(r.name):('<a href="?id='+esc(r.name)+'&tab=detail">'+esc(r.name)+'</a>');
+      return '<div class="inst-chip '+cls+'"><b>Đợt '+esc(r.installment_no)+(r.fulfillment_status==="Completed"?" ✓":"")+'</b>'+nm+'<div>'+esc(fmtMoney(r.payment_amount))+' VND · '+esc(r.payment_date||"—")+'</div><div class="hint">'+esc(instStatusLabel(r))+'</div></div>'; });
+    if(ib.next_expected&&!ib.next_request) chips.push('<div class="inst-chip plan"><b>Đợt '+esc((ib.installment_no||1)+1)+' (dự kiến)</b>'+esc(fmtMoney(ib.next_expected.amount||ib.remaining_after_this))+' VND · '+esc(ib.next_expected.date||"chưa có ngày")+'<div class="hint">Chưa tạo đề nghị</div></div>');
+    return '<div class="inst-chain">'+chips.join("")+'</div>'; }
+  // Dot nay da chi xong va da co dot ke: gap 6 buoc lai, chuoi o tren da noi du.
+  function instFolded(det){ var ib=instBlock(det); return !!(ib && ib.next_request && uncDone(det)); }
+  function instStepperWrapOpen(det){ return instFolded(det)?'<details class="inst-fold"><summary>Đợt '+esc(instBlock(det).installment_no)+' đã hoàn tất — xem 6 bước</summary>':''; }
+  function instStepperWrapClose(det){ return instFolded(det)?'</details>':''; }
+  function instCardHTML(det){ var ib=instBlock(det); if(!ib) return "";
+    var paid=Number(ib.paid_amount)||0, tot=Number(ib.total_amount)||0;
+    var body='<div class="grid2">'+kv("Tổng giá trị",fmtMoney(tot)+" VND")+kv("Đã thanh toán (có UNC)",fmtMoney(paid)+" VND")+kv("Đợt này","Đợt "+ib.installment_no+" · "+fmtMoney(((det.business||{}).payment_amount)||0)+" VND")+kv("Còn lại sau đợt này",fmtMoney(ib.remaining_after_this)+" VND")+'</div>';
+    if(ib.next_request){ body+='<div class="hint" style="margin-top:8px">Đợt '+esc(ib.installment_no+1)+': <a href="?id='+esc(ib.next_request)+'&tab=detail">'+esc(ib.next_request)+'</a></div>'; }
+    else if(ib.next_expected){ body+='<div class="hint" style="margin-top:8px">Đợt kế dự kiến: <b>'+esc(fmtMoney(ib.next_expected.amount||ib.remaining_after_this))+' VND</b>'+(ib.next_expected.date?(' · ngày '+esc(ib.next_expected.date)):'')+'.'
+        +(ib.can_create_next?'':((det.fulfillment||{}).status==="Completed"?'':' Tạo được sau khi Finance xử lý UNC đợt này.'))+'</div>';
+      if(ib.can_create_next) body+='<div class="actions" style="margin-top:8px"><button type="button" class="btn primary" data-act="next-installment">Tạo đề nghị đợt '+esc(ib.installment_no+1)+'</button></div>'; }
+    else if(ib.remaining_after_this<=0) body+='<div class="hint" style="margin-top:8px">Đợt cuối — tổng giá trị đã đề nghị đủ.</div>';
+    return '<div class="card" id="d-inst"><h3>Thanh toán chia đợt</h3>'+body+'</div>'; }
+  function doNextInstallment(name){ if(state.busy) return; var ib=instBlock(state.detail||{})||{};
+    modal("Tạo đề nghị đợt "+((ib.installment_no||1)+1),
+      '<div class="banner info">Tạo một phiếu NHÁP mới cho đợt kế, điền sẵn người nhận, ngân hàng, lý do, chứng từ (liên kết tệp) và số tiền còn lại. '
+      +'Phiếu mới đi duyệt &amp; ký 5 chữ ký như một đề nghị riêng. Phiếu hiện tại giữ nguyên.</div>'
+      +'<div class="summary-row"><span>Số tiền đợt kế</span><b>'+esc(fmtMoney((ib.next_expected||{}).amount||ib.remaining_after_this))+' VND</b></div>'
+      +'<div class="summary-row"><span>Ngày dự kiến</span><b>'+esc((ib.next_expected||{}).date||"—")+'</b></div>',
+      {okLabel:"Tạo phiếu đợt kế", onConfirm:function(){
+        return call("create_next_installment",{name:name}).then(function(res){ var n=res&&res.name; if(!n) throw new Error("Không tạo được phiếu đợt kế.");
+          var miss=(res.attachments_failed||[]);
+          toast(res.existing?("Đợt kế đã có: "+n):(miss.length?("Đã tạo phiếu đợt kế. "+miss.length+" tệp không chép được: "+miss.join(", ")):"Đã tạo phiếu đợt kế. Kiểm tra lại rồi gửi duyệt."), miss.length?true:false);
+          go({id:n, tab:"detail"});
+        }).catch(function(e){ toast(friendlyErr(e),true); return Promise.reject(e); }); }}); }
   // ---- the "Xu ly UNC (Finance)" ----
   // Chi hien khi buoc 6 da ton tai cho phieu nay (da duyet xong va co trang thai xu ly).
   function uncCardVisible(det){ var ap=det.approval||{}, ff=det.fulfillment||{}; return ap.approval_status==="Approved" && !!UNC_ACTIVE[ff.status||""]; }
@@ -808,7 +886,8 @@
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
     if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name);
     if(a==="clone") return doClone(name);
-    if(a==="unc-claim") return doUncClaim(name); if(a==="unc-complete") return doUncComplete(name); }
+    if(a==="unc-claim") return doUncClaim(name); if(a==="unc-complete") return doUncComplete(name);
+    if(a==="next-installment") return doNextInstallment(name); }
   // Tao phieu moi tu phieu da ket thuc. Hoi truoc khi lam: no dieu huong sang mot phieu khac,
   // va noi ro hai dieu de khong ai bat ngo - o xac nhan phai tich lai, phieu cu giu nguyen.
   function doClone(name){ if(state.busy) return;
@@ -942,7 +1021,9 @@
   // -> "Gui" bao thieu tep du da tai (Hoan 07/09).
   function startEditDraft(det){ var name=((det&&det.business)||{}).name; if(!name){ return _startEditDraftWith(det); }
     call("get_detail",{name:name}).then(function(fresh){ _startEditDraftWith(fresh||det); }).catch(function(e){ toast("Không tải được bản mới nhất: "+mapErr(e)+" — mở bản đang có.",true); _startEditDraftWith(det); }); }
-  function _startEditDraftWith(det){ state.draft=Object.assign({}, det.business||{}); state.id=(det.business||{}).name; state.mode="create"; if(state.draft.has_purchase_request==="Yes"){ promoteLegacySource(state.draft); ensurePROptions(function(){ renderCreate($("payr-body")); }); } else { renderCreate($("payr-body")); } }
+  function _startEditDraftWith(det){ state.draft=Object.assign({}, det.business||{}); state.id=(det.business||{}).name; state.mode="create";
+    // dot ke: phan da de nghi o cac dot truoc do server tinh (extra.installments) -> form biet "con lai"
+    var ib=instBlock(det); if(ib){ var me=Number(ib.installment_no)||1; state.draft._paid_before=(ib.chain||[]).filter(function(r){ return !r.is_current && Number(r.installment_no)<me && r.approval_status!=="Rejected" && r.approval_status!=="Cancelled"; }).reduce(function(a,r){ return a+(Number(r.payment_amount)||0); },0); } if(state.draft.has_purchase_request==="Yes"){ promoteLegacySource(state.draft); ensurePROptions(function(){ renderCreate($("payr-body")); }); } else { renderCreate($("payr-body")); } }
   function doSubmitDraft(name){ if(state.busy)return; state.busy=true; var btns=Array.prototype.slice.call(document.querySelectorAll('[data-act="submitdraft"],[data-act="editdraft"]')); btns.forEach(function(b){ b.disabled=true; });
     call("submit_request",{name:name}).then(function(){ toast("Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến Quản lý trực tiếp phê duyệt."); refreshDetail(); }).catch(function(e){ if(!applyBackendError(e)){ if(window.console&&console.error) console.error("Payment Request submit error:",e); toast(friendlyErr(e),true); } btns.forEach(function(b){ b.disabled=false; }); }).then(function(){ state.busy=false; }); }
   function startEditResubmit(det){ var ap=det.approval||{}; var lvl=(det.levels||[]).find(function(l){return l.level_no===ap.information_requested_from_level;});
@@ -956,7 +1037,7 @@
     call("get_bootstrap").then(function(bd){ state.boot=bd||{tabs:{},context:{},form_options:{}}; route(); })
     .catch(function(e){ var bd=$("payr-body"); if(bd) bd.innerHTML='<div class="card"><div class="state"><h4>Không tải được trang</h4><div class="hint">'+esc(mapErr(e))+'</div><button type="button" class="btn" id="b-retry">Thử lại</button></div></div>'; var r=$("b-retry"); if(r)r.onclick=boot; }); }
 
-  window.PaymentRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate, doApproveAndSign:doApproveAndSign, loadSignReady:loadSignReady, callEsign:callEsign, handleHPRChange:handleHPRChange, handleSrcTypeChange:handleSrcTypeChange, handleSrcPick:handleSrcPick, promoteLegacySource:promoteLegacySource, fmtVnd:fmtVnd, startSignWait:startSignWait, stopSignWait:stopSignWait, signWaitActive:signWaitActive, uncStep:uncStep, uncSectionHTML:uncSectionHTML, uncCardVisible:uncCardVisible, doUncComplete:doUncComplete };
+  window.PaymentRequest={ state:state, render:render, route:route, _boot:boot, _call:call, badge:badge, buildStepper:buildStepper, timelineHTML:timelineHTML, actionPanelHTML:actionPanelHTML, mapErr:mapErr, resubmitErr:resubmitErr, modal:modal, validateSubmit:validateSubmit, suggestTitle:suggestTitle, stepLabel:stepLabel, nextLevelName:nextLevelName, doApprove:doApprove, doAdminApprove:doAdminApprove, startEditResubmit:startEditResubmit, startEditDraft:startEditDraft, ensurePROptions:ensurePROptions, renderCreate:renderCreate, doApproveAndSign:doApproveAndSign, loadSignReady:loadSignReady, callEsign:callEsign, handleHPRChange:handleHPRChange, handleSrcTypeChange:handleSrcTypeChange, handleSrcPick:handleSrcPick, promoteLegacySource:promoteLegacySource, fmtVnd:fmtVnd, startSignWait:startSignWait, stopSignWait:stopSignWait, signWaitActive:signWaitActive, uncStep:uncStep, uncSectionHTML:uncSectionHTML, uncCardVisible:uncCardVisible, doUncComplete:doUncComplete, instChainHTML:instChainHTML, instCardHTML:instCardHTML, instFolded:instFolded, installmentRemaining:installmentRemaining, formCardsHTML:formCardsHTML };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
 </script>

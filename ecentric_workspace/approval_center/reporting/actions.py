@@ -122,6 +122,9 @@ _LABEL_VI = {
     "Contract End Date": "Ngày kết thúc HĐ", "Expected Response Date": "Hạn phản hồi",
     "Request Details": "Yêu cầu chi tiết", "Legal Entity / Brand": "Legal entity / Brand",
     "Request Title": "Tiêu đề",
+    # Payment Request chia dot (07/09)
+    "Payment Mode": "Hình thức thanh toán", "Installment No": "Đợt", "Installment Of": "Phiếu đợt 1",
+    "Next Installment Amount": "Số tiền đợt kế", "Next Installment Date": "Ngày dự kiến đợt kế",
 }
 # Cặp "chọn Other rồi nhập tay": gộp thành một dòng để bớt nhiễu.
 _OTHER_SUFFIX = (" (Other)", " (other)", " Other")

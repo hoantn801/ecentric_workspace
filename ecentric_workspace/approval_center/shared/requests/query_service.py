@@ -266,7 +266,16 @@ def detail(definition, name):
         fields=["file_name", "file_url", "is_private", "owner", "creation"],
         order_by="creation asc"))
     status = request.approval_status if request else "Draft"
+    extra = {}
+    if getattr(definition, "detail_extender", None):
+        try:
+            extra = definition.detail_extender(business, request) or {}
+        except Exception:
+            # Khoi phu khong duoc lam hong man hinh chi tiet; ghi log de sua.
+            frappe.log_error(frappe.get_traceback(), "detail_extender %s" % definition.code)
+            extra = {"error": True}
     return {
+        "extra": extra,
         "business": business.as_dict(),
         "business_doctype": definition.business_doctype,   # hub can no de goi Duyet & Ky
         "approval": {

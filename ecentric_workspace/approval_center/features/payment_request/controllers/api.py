@@ -12,6 +12,13 @@ globals().update(bind_fulfillment("PAYMENT_REQUEST",
     "payment_date asc, fulfillment_due_at asc"))
 
 
+@frappe.whitelist(methods=["POST"])
+def create_next_installment(name):
+    """Thanh toan chia dot: tao phieu NHAP dot ke tu phieu dot truoc (da chi UNC)."""
+    from ecentric_workspace.approval_center.features.payment_request.application import service
+    return service.create_next_installment(name)
+
+
 @frappe.whitelist()
 def list_approved_purchase_requests():
     """Legacy shape kept for older clients: approved ĐNMH as {value,label} only.
