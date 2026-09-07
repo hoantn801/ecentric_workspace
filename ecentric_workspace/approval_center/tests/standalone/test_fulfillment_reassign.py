@@ -162,5 +162,53 @@ class TestBackendWiring(unittest.TestCase):
         self.assertIn('"claim_is_admin_override":', src)
 
 
+class TestSelfMaintainingDriftLock(unittest.TestCase):
+    """p152 refused ca 5 trang trong lan deploy dau (07/09).
+
+    Ly do KHONG phai live bi sua tay: live khop TUNG BYTE voi nguon tren main. Ly do la
+    hang `BASELINE_SHA256` trong page_sync.py da lac hau so voi chinh file main_section.html
+    cua no tu truoc - nen khi bump, thu bi day xuong SUPERSEDES la mot HANG DA CU, khong
+    phai sha cua noi dung file truoc do. Ket qua: live khong khop bat ky gia tri nao ->
+    upsert tu choi ghi -> patch raise -> chet ca lan migrate.
+
+    Cach chua goc: `record_live_sha` - ghi lai sha live SAU khi may chu xu ly, de lan sau
+    upsert nhan ra chinh ban ghi cua minh va khong can ai chep sha bang tay nua.
+    payment_request da lam tu p056; nam form con lai thi khong. Test nay bat buoc MOI trang
+    co drift lock deu phai tu bao tri.
+    """
+
+    def _feature_sync_files(self):
+        base = os.path.join(_ROOT, "approval_center", "features")
+        out = []
+        for feat in sorted(os.listdir(base)):
+            p = os.path.join(base, feat, "infrastructure", "page_sync.py")
+            if os.path.isfile(p):
+                out.append((feat, p))
+        return out
+
+    #: Trang DA tu bao tri. Danh sach nay chi duoc PHEP DAI RA.
+    SELF_MAINTAINING = ("asset_request", "data_request", "document_request",
+                        "payment_request", "resignation", "system_request")
+    #: So trang CON LAI chua tu bao tri, tai thoi diem 07/09. Chot lai lam tran de khong ai
+    #: them trang moi thieu record_live_sha. Sua dan cho het thi ha so nay xuong.
+    MAX_CHUA_SUA = 20
+
+    def test_sau_trang_da_sua_phai_giu_record_live_sha(self):
+        have = dict(self._feature_sync_files())
+        for feat in self.SELF_MAINTAINING:
+            self.assertIn(feat, have, "khong thay page_sync cua %s" % feat)
+            self.assertIn("record_live_sha", _read(have[feat]),
+                          "%s: mat record_live_sha -> lan sua giao dien sau se refused" % feat)
+
+    def test_khong_them_trang_moi_thieu_record_live_sha(self):
+        """Tran chi duoc DI XUONG. Trang moi ma thieu record_live_sha se lam vo tran nay
+        truoc khi no kip lam chet mot lan deploy."""
+        thieu = [feat for feat, path in self._feature_sync_files()
+                 if "expect_sha" in _read(path) and "record_live_sha" not in _read(path)]
+        self.assertLessEqual(
+            len(thieu), self.MAX_CHUA_SUA,
+            "co them trang co khoa chong troi ma khong tu ghi sha: %s" % thieu)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

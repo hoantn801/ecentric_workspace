@@ -43,6 +43,7 @@ def _html():
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
 BASELINE_SHA256 = "6ddde3c1cb6de7017e896eb19189e2de8c8c95ed6a482b1543329781d72a78e0"
 SUPERSEDES_SHA256 = (
+    "3839f1e86b742ebd95095c322b160a0e9701bd5596e8fa3cbdbb3283edd52c27",  # ban THAT dang chay tren production truoc dot nay (07/09)
     "e2f4510870dfb9292f69d4f138f9d5c7102f5d11c486f846d1360c48904ad9a1",  # superseded by 6ddde3c1cb6d (nut Chuyen nguoi xu ly + hoi lai khi quan tri nhan viec)
     "8bdab20ff0c250528390da2b3ea37e6a3a99bce6998a840abe1a2dd0028884ba",  # superseded by e2f4510870df (upload errors + brand list + layout)
     "6006d54760f0348ce0e1e0c27a1a34c3472bf2e41a94a5a541809a7da7845d25",  # superseded by 8bdab20ff0c2 (upload UX + tick)
@@ -72,6 +73,10 @@ def sync(html=None, force=0):
     if res.get("action") != "refused" and res.get("name") \
             and frappe.db.exists("Web Page", res["name"]):
         res.update(page_sync_util.strip_legacy_shims(res["name"]))
+        # Ghi lai sha SAU khi may chu xu ly (sanitize + strip shim) de lan sync sau nhan ra
+        # chinh ban ghi cua minh. Khong co dong nay thi moi lan sua giao dien deu phai chep
+        # tay sha live vao SUPERSEDES - dung cai da lam p152 refused ca 5 trang (07/09).
+        res["recorded_sha"] = page_sync_util.record_live_sha(ROUTE, res["name"])
     else:
         res.update({"inspected_fields": [], "shim_fields_stripped": [], "has_legacy_shim": False})
     return res
