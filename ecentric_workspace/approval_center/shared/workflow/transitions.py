@@ -615,6 +615,13 @@ def _resolve_fulfillers(approval_request, requested_by):
     return {u for u, _lbl in resolve_participants(parts, requested_by)}
 
 
+def resolve_fulfillers(approval_request, requested_by):
+    """Ten cong khai cua `_resolve_fulfillers`. Man hinh "Chuyen nguoi xu ly" can dung
+    CHINH danh sach ma reassign_fulfillment se kiem, neu khong UI se chao mot nguoi ma
+    engine tu choi ngay sau do."""
+    return _resolve_fulfillers(approval_request, requested_by)
+
+
 def reassign_fulfillment(business_doctype, name, new_user, actor=None, description=None):
     """Governed fulfillment REASSIGNMENT (engine-internal). Reconciles ToDos: closes
     the OLD owner's fulfillment task and ensures the NEW owner has exactly one
