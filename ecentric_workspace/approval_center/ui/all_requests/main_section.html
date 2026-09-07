@@ -221,7 +221,10 @@
   #ec-apl-root .apl-draft .pill{ padding:1px 8px; border-radius:10px; background:#fff3bf; color:#7a5a00; font-size:11.5px; font-weight:600; }
   #ec-apl-root .apl-draft .t{ font-weight:600; }
   #ec-apl-root .apl-draft .m{ color:var(--gray-500); font-size:12px; }
-  #ec-apl-root .apl-draft a{ margin-left:auto; }
+  #ec-apl-root .apl-draft .act{ margin-left:auto; display:flex; gap:6px; }
+  #ec-apl-root .apl-draft .act .btn{ padding:4px 10px; font-size:12px; border-radius:7px; white-space:nowrap; }
+  #ec-apl-root .apl-draft .act .btn.ok{ background:var(--navy); border-color:var(--navy); color:#fff; }
+  #ec-apl-root .apl-draft .act .btn.warn{ background:#fff; border-color:var(--gray-200); color:var(--gray-700); }
   #ec-apl-root .state{ padding:44px; text-align:center; color:var(--gray-500); } #ec-apl-root .state h4{ margin:0 0 6px; color:var(--gray-700); }
   #ec-apl-root .skel{ height:44px; border-bottom:1px solid var(--gray-100); background:var(--gray-50); }
   @media (max-width:900px){ #ec-apl-root{ grid-template-columns:1fr; } #ec-apl-root .ec-sidebar{ position:fixed; left:0; top:0; width:248px; z-index:50; transform:translateX(-100%); transition:transform .22s; } #ec-apl-root.sb-open .ec-sidebar{ transform:translateX(0); } #ec-apl-root .topbar .hamburger{ display:block; } #ec-apl-root .card{ overflow-x:auto; } }
@@ -309,14 +312,29 @@
       + ds.map(function(d){ return '<div class="apl-draft"><span class="pill">Lưu nháp</span>'
           +'<span class="t">'+esc(d.type_title||d.approval_type||"")+'</span><span>'+esc(d.name)+'</span>'
           +'<span class="m">sửa lần cuối '+fmtDT(d.modified)+'</span>'
-          +(d.detail_route?'<a class="btn ok" href="'+esc(d.detail_route)+'">Tiếp tục</a>':'')+'</div>'; }).join("")
+          +'<span class="act">'
+          +(d.detail_route?'<a class="btn ok" href="'+esc(d.detail_route)+'">Tiếp tục</a>':'')
+          // Nháp không dùng nữa thì thành rác (Hoàn 07/09): huỷ ngay tại dải, cùng đường
+          // với "Huỷ yêu cầu" trên form (dọn gói ký nháp + xoá mềm), có hỏi lại trước.
+          +'<button type="button" class="btn warn" data-discard="'+esc(d.name)+'" data-type="'+esc(d.approval_type||"")+'">Huỷ</button>'
+          +'</span></div>'; }).join("")
       + '</div>';
+  }
+  function discardDraft(btn){
+    var name=btn.getAttribute("data-discard"), type=btn.getAttribute("data-type");
+    if(!name||!type) return;
+    if(!window.confirm("Huỷ bản nháp "+name+"? Nội dung đã nhập sẽ không giữ lại.")) return;
+    btn.disabled=true; btn.textContent="Đang huỷ…";
+    frappe.call({method:"ecentric_workspace.approval_center.reporting.actions.discard_draft",
+                 args:{approval_type:type, name:name}, type:"POST"})
+      .then(function(){ toast("Đã huỷ bản nháp "+name, "warn"); load(); })
+      .catch(function(e){ btn.disabled=false; btn.textContent="Huỷ"; toast(extractServerMsg(e)||"Không huỷ được bản nháp.","err"); });
   }
   function renderError(){ $("apl-body").innerHTML='<div class="state"><h4>Không tải được dữ liệu</h4><p>Vui lòng thử lại.</p><button type="button" class="btn primary" id="apl-retry">Thử lại</button></div>'; var r=$("apl-retry"); if(r) r.onclick=load; }
 
   function render(rows){
     var drafts=draftsHtml();
-    if(!rows.length){ $("apl-body").innerHTML=drafts+'<div class="state"><h4>Không có yêu cầu</h4><p>Không có yêu cầu nào khớp bộ lọc trong phạm vi của bạn.</p></div>'; return; }
+    if(!rows.length){ $("apl-body").innerHTML=drafts+'<div class="state"><h4>Không có yêu cầu</h4><p>Không có yêu cầu nào khớp bộ lọc trong phạm vi của bạn.</p></div>'; wire(); return; }
     var ws=colWidths();
     var head='<table style="min-width:'+ws.reduce(function(a,b){return a+b;},0)+'px">'
       +'<colgroup>'+ws.map(function(w){ return '<col style="width:'+w+'px">'; }).join("")+'</colgroup>'
@@ -455,6 +473,15 @@
       +'<div class="ec-apl-mf" id="apl-foot" data-h="foot"></div></div>';
     return box.querySelector(".ec-apl-modal");
   }
+  // Khung giữ nguyên qua các lần mở hồ sơ (xem ensureShell), nên ô lý do từ chối / bổ sung
+  // cũng GIỮ NGUYÊN: gõ lý do cho hồ sơ A, bấm ‹ › sang B thì B vẫn hiện ô đó với đúng chữ
+  // của A, còn nút "Xác nhận" vẫn trỏ về A (Hoàn, 07/09). Mỗi lần đổ hồ sơ mới -> đóng ô,
+  // xoá chữ, trả lại hàng nút; ai muốn từ chối B thì bấm lại từ đầu.
+  function resetNote(box){
+    var note=box.querySelector("#apl-note"), foot=box.querySelector("#apl-foot");
+    if(note){ note.innerHTML=""; note.hidden=true; }
+    if(foot) foot.hidden=false;
+  }
   function navHtml(reqName){
     var list=state.rowNames||[], k=list.indexOf(reqName);
     var nav = list.length>1
@@ -506,6 +533,7 @@
         if(state.openReq!==reqName) return;
         setAside(box, "");
         ensureShell(box);
+        resetNote(box);
         fillHeader(box, reqName, { title:"Không mở được yêu cầu", type_title:"", who:"" });
         box.querySelector('[data-h="body"]').classList.remove("loading");
         box.querySelector('[data-h="body"]').innerHTML=
@@ -527,6 +555,7 @@
     var send=r.requester_info||{};
     box.classList.remove("solo");
     ensureShell(box);
+    resetNote(box);
     setAside(box, '<li class="ec-apl-skel-li"><span class="ec-apl-skel" style="width:70%"></span></li>'
                  +'<li class="ec-apl-skel-li"><span class="ec-apl-skel" style="width:50%"></span></li>');
     fillHeader(box, reqName, { title:"", type_title:r.type||r.approval_type,
@@ -687,6 +716,7 @@
 
     box.classList.toggle("solo", !tl);
     ensureShell(box);
+    resetNote(box);
     fillHeader(box, reqName, { title:title, type_title:d.type_title, who:who,
       department:biz.department, sent:sent, status:overall, extra:ffText });
     var bodyEl=box.querySelector('[data-h="body"]');
@@ -794,6 +824,9 @@
   function wire(){
     Array.prototype.forEach.call(document.querySelectorAll('#apl-body [data-qa]'),function(btn){
       btn.onclick=function(e){ e.stopPropagation(); runAction(btn.getAttribute("data-qa"), btn.getAttribute("data-req"), btn); };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('#apl-body [data-discard]'),function(btn){
+      btn.onclick=function(e){ e.stopPropagation(); discardDraft(btn); };
     });
 
     Array.prototype.forEach.call(document.querySelectorAll('#apl-body tbody tr[data-req]'),function(tr){

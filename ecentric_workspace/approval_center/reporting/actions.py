@@ -14,6 +14,7 @@ from frappe import _
 from ecentric_workspace.approval_center.shared.facade import APPROVAL_FACADE
 from ecentric_workspace.approval_center.shared.registry import get_definition
 from ecentric_workspace.approval_center.shared import vi_display
+from ecentric_workspace.approval_center.shared.requests import capabilities
 
 
 def _resolve(request_name):
@@ -51,6 +52,29 @@ def request_information(request_name, comment=None):
 def claim_fulfillment(request_name):
     definition, name = _resolve(request_name)
     return APPROVAL_FACADE.claim_fulfillment(definition, name)
+
+
+@frappe.whitelist(methods=["POST"])
+def discard_draft(approval_type, name):
+    """Huỷ một bản nháp từ dải "Nháp của tôi" trên hub (07/09, Hoàn: nháp không dùng thì
+    thành rác). Bản nháp CHƯA có EC Approval Request nên không đi qua _resolve; nhận thẳng
+    mã loại + mã phiếu như my_drafts trả ra. Chỉ chấp nhận đúng bản nháp (docstatus 0,
+    chưa gắn approval_request); phiếu đã gửi duyệt thì từ chối - huỷ phiếu đã gửi là việc
+    của trang phiếu, có lý do và lịch sử. Quyền chủ phiếu + dọn gói ký nháp + xoá mềm đều
+    do facade.cancel (cùng đường với nút "Huỷ yêu cầu" trên form) - đây chỉ là bộ định tuyến."""
+    try:
+        definition = get_definition(approval_type)
+    except KeyError:
+        frappe.throw(_("Loại yêu cầu {0} chưa được đăng ký.").format(approval_type))
+    # Chủ phiếu (hoặc System Manager) mới được biết gì thêm về phiếu này: `name` do client
+    # gửi, mã tuần tự đoán được - kiểm quyền TRƯỚC khi trả bất kỳ thông điệp nào về trạng thái.
+    row = frappe.db.get_value(definition.business_doctype, name,
+                              ["docstatus", "approval_request", "requested_by"], as_dict=True)
+    if not row or not (row.requested_by == frappe.session.user or capabilities.is_system_manager()):
+        frappe.throw(_("Không tìm thấy bản nháp."), frappe.DoesNotExistError)
+    if int(row.docstatus or 0) != 0 or row.approval_request:
+        frappe.throw(_("Phiếu {0} đã gửi duyệt, không còn là bản nháp. Mở phiếu để huỷ.").format(name))
+    return APPROVAL_FACADE.cancel(definition, name, None)
 
 # --- chi tiết xuyên form cho popup của hub -----------------------------------------
 _SKIP_FIELDS = {"name", "owner", "creation", "modified", "modified_by", "docstatus", "idx",
