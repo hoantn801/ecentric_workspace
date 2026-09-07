@@ -280,7 +280,12 @@
   // Khoi "Tai lieu & Ky so" vua go mot tep: khung "Dinh kem" o tren phai ve lai, khong de
   // mot dong tep khong con ton tai (05/09). Chi ve lai khi dang xem chi tiet, khong dang sua.
   try { window.addEventListener("payr:attachments-changed", function(){
-    if(state.tab==="detail"&&state.id&&!state._editDet){ var b=$("payr-body"); if(b) renderDetail(b); } }); } catch(e){}
+    if(state.tab==="detail"&&state.id&&!state._editDet){ var b=$("payr-body"); if(b) renderDetail(b); return; }
+    // Dang o form (che do create, da co id): con tro tep vua duoc khoi ky so dat/go tren server.
+    // Cap nhat state.draft de validateSubmit khong bat "thieu tep" nua, va khong gui gia tri cu.
+    if(state.mode==="create"&&state.id&&state.draft){ call("get_detail",{name:state.id}).then(function(det){
+      var v=((det&&det.business)||{}).request_attachment||""; state.draft.request_attachment=v;
+      var h=$("payr-att-name"); if(h) h.textContent=v?"Đã tải":"Bắt buộc"; }).catch(function(e){ toast(mapErr(e),true); }); } }); } catch(e){}
   function renderCreate(b){
     var fo=state.boot&&state.boot.form_options||{}; var c=state.boot&&state.boot.context||{}; var d=state.draft||{};
     var editing=state.mode==="edit";
@@ -861,7 +866,12 @@
   function doAdminApprove(name){ modal("Duyệt thay bước hiện tại", '<div class="banner warn"><svg class="icon" width="18" height="18" style="flex:none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 9v4M12 17h.01"/></svg><div>Bạn đang duyệt thay cho bước phê duyệt hiện tại bằng quyền System Manager. Hành động này sẽ được ghi nhận trong lịch sử và không giả lập người duyệt gốc.</div></div><div class="fld"><label>Lý do <span class="req">*</span></label><textarea id="m-cmt" rows="3"></textarea></div>', {okLabel:"Xác nhận duyệt thay", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Bắt buộc nhập lý do.",true); return Promise.reject(); }
     return call("admin_approve_current_level",{name:name,reason:c}).then(function(){ toast("Đã duyệt thay bước hiện tại. Yêu cầu đã được chuyển sang bước tiếp theo."); refreshDetail(); refreshApprovals(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); refreshApprovals(); return Promise.reject(e); }); }}); }
 
-  function startEditDraft(det){ state.draft=Object.assign({}, det.business||{}); state.id=(det.business||{}).name; state.mode="create"; if(state.draft.has_purchase_request==="Yes"){ promoteLegacySource(state.draft); ensurePROptions(function(){ renderCreate($("payr-body")); }); } else { renderCreate($("payr-body")); } }
+  // Vao form sua tu ban chi tiet MOI NHAT: khoi "Tai lieu & Ky so" ghi request_attachment len
+  // server SAU khi det nay duoc nap, nen det trong tay co the cu -> form mo ra voi con tro rong
+  // -> "Gui" bao thieu tep du da tai (Hoan 07/09).
+  function startEditDraft(det){ var name=((det&&det.business)||{}).name; if(!name){ return _startEditDraftWith(det); }
+    call("get_detail",{name:name}).then(function(fresh){ _startEditDraftWith(fresh||det); }).catch(function(e){ toast("Không tải được bản mới nhất: "+mapErr(e)+" — mở bản đang có.",true); _startEditDraftWith(det); }); }
+  function _startEditDraftWith(det){ state.draft=Object.assign({}, det.business||{}); state.id=(det.business||{}).name; state.mode="create"; if(state.draft.has_purchase_request==="Yes"){ promoteLegacySource(state.draft); ensurePROptions(function(){ renderCreate($("payr-body")); }); } else { renderCreate($("payr-body")); } }
   function doSubmitDraft(name){ if(state.busy)return; state.busy=true; var btns=Array.prototype.slice.call(document.querySelectorAll('[data-act="submitdraft"],[data-act="editdraft"]')); btns.forEach(function(b){ b.disabled=true; });
     call("submit_request",{name:name}).then(function(){ toast("Gửi yêu cầu thành công. Yêu cầu đã được chuyển đến Quản lý trực tiếp phê duyệt."); refreshDetail(); }).catch(function(e){ if(!applyBackendError(e)){ if(window.console&&console.error) console.error("Payment Request submit error:",e); toast(friendlyErr(e),true); } btns.forEach(function(b){ b.disabled=false; }); }).then(function(){ state.busy=false; }); }
   function startEditResubmit(det){ var ap=det.approval||{}; var lvl=(det.levels||[]).find(function(l){return l.level_no===ap.information_requested_from_level;});

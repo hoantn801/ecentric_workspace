@@ -105,7 +105,7 @@
   },
   "approval_center/features/payment_request/ui/main_section.html": {
     "last_resync_patch": "p146_resync_payment_request_sign_wait_expiry",
-    "sha256": "db900c66193f31f82ac51f5cd7643d3a3729f6a615fc172f2dd677a861b48dd5"
+    "sha256": "5e3c74aae34d5d20e25abd4ba3d67b64387fc54646fded1615eaea4b8684b4bc"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -191,8 +191,8 @@
     "sha256": "266607e3c3f31f89dd2eed2f25c3414cecd1be8578e4f77592da983a98af37d3"
   },
   "platform/esign/ui/document_signing_section.html": {
-    "last_resync_patch": "p144_resync_payment_request_remove_attachment",
-    "sha256": "3e4891a2b711779ea927f2ed7d4d151e3167d147d071ebb64e6824e327c0ec4a"
+    "last_resync_patch": "p146_resync_payment_request_sign_wait_expiry",
+    "sha256": "b9e0c843bb662562ba83fd47d6584c19a7cb1eeaa5059e66d2d4edd6750170ee"
   },
   "platform/esign/ui/ops_page.html": {
     "last_resync_patch": "p132_resync_esign_ops_resend",
