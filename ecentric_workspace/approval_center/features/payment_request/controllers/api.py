@@ -1,10 +1,15 @@
 """Stable compatibility API for Payment Request."""
 import frappe
 
-from ecentric_workspace.approval_center.shared.api_adapter import bind
+from ecentric_workspace.approval_center.shared.fulfillment_api_adapter import bind_fulfillment
 from ecentric_workspace.approval_center.features.payment_request.application import funding
 
-globals().update(bind("PAYMENT_REQUEST"))
+# bind_fulfillment = bind(...) + list_fulfillment_queue / claim_fulfillment / complete_fulfillment
+# cho buoc 6 "Finance xu ly UNC" (07/09). Hang cho xep theo ngay thanh toan gan nhat truoc.
+globals().update(bind_fulfillment("PAYMENT_REQUEST",
+    ("name", "request_title", "requested_by", "payee_full_name", "payment_amount", "payment_date",
+     "fulfillment_status", "fulfillment_owner", "fulfillment_due_at"),
+    "payment_date asc, fulfillment_due_at asc"))
 
 
 @frappe.whitelist()

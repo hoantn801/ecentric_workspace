@@ -111,6 +111,7 @@ class _FrappeStub(object):
 
     def __init__(self):
         self.store = {AR: {}, RL: {}, AP: {}, ACT: {}, "ToDo": {}}
+        self.dispatched = []      # handler fulfillment duoc goi sau cap cuoi (07/09: PR co handler)
         self.db = self
         self.session = types.SimpleNamespace(user="Administrator")
         self.flags = types.SimpleNamespace(mute_messages=False)
@@ -121,6 +122,10 @@ class _FrappeStub(object):
         #: chay MOT LAN ngay khi approve() lay for_update tren EC Approval Request -
         #: mo phong "giao dich khac commit xong trong luc minh cho khoa hang".
         self.on_request_lock = None
+
+    def get_attr(self, path):
+        self.dispatched.append(path)
+        return lambda name: None
 
     # --- helpers ---------------------------------------------------------- #
     def _match(self, row, filters):
