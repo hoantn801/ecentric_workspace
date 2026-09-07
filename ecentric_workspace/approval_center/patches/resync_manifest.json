@@ -104,8 +104,8 @@
     "sha256": "9e7e091060760821a3cf80fd7d2d300825b7bce65013a26c20f9d19b8ed5a264"
   },
   "approval_center/features/payment_request/ui/main_section.html": {
-    "last_resync_patch": "p156_resync_payment_request_plan_focus",
-    "sha256": "6ec4947558150a441ba7e0f2ed3ea8365de3babab03b05e1121642bae9288367"
+    "last_resync_patch": "p157_resync_payment_request_money_format",
+    "sha256": "9a815a781c33ae1e310ce3fd8e5d31b75751185a6a0f4e8ea7ac9fe749e0d0f4"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",

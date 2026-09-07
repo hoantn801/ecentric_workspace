@@ -240,6 +240,17 @@
     var over=(Number((state.draft||{}).payment_amount)||0) > (Number(f.remaining)||0)+0.5;
     return '<div class="hint'+(over?' err':'')+'" id="payr-fund-hint">Tổng: <b>'+fmtVnd(f.total)+'đ</b> · đã thanh toán: <b>'+fmtVnd(f.used)+'đ</b> · còn lại: <b>'+fmtVnd(f.remaining)+'đ</b>'+(over?' — số tiền đang vượt phần còn lại.':'')+'</div>'; }
 
+  // ---- o tien: hien co dau cham ngan cach (Hoan 08/09: "khong co dau cham kho doc qua") ----
+  // <input type=number> khong cho dau phan cach, nen o tien la type=text inputmode=numeric:
+  // hien "323.001.802", model giu SO (chi lay chu so - khong parseFloat chuoi vi-VN).
+  function moneyDigits(v){ return String(v==null?"":v).replace(/\D/g,""); }
+  function fmtMoneyInput(v){ var d=moneyDigits(v); return d?Number(d).toLocaleString("vi-VN"):""; }
+  function moneyInputHTML(model, value, extra){ return '<input type="text" inputmode="numeric" autocomplete="off" data-money="1" data-model="'+model+'"'+(extra||'')+' value="'+esc(fmtMoneyInput(value))+'">'; }
+  // Dinh dang lai luc go ma giu con tro: dem so chu so truoc con tro, dat lai sau chu so thu n.
+  function reformatMoneyInput(el){ var raw=el.value, pos=el.selectionStart!=null?el.selectionStart:raw.length;
+    var digitsBefore=moneyDigits(raw.slice(0,pos)).length; var out=fmtMoneyInput(raw); if(out===raw) return;
+    el.value=out; var i=0,n=0; while(i<out.length&&n<digitsBefore){ if(/\d/.test(out[i])) n++; i++; }
+    try{ el.setSelectionRange(i,i); }catch(e){} }
   // ---- chia dot (07/09): moi dot = mot phieu; dot ke tu tinh = tong - dot nay ----
   function installmentRemaining(d){ var t=Number(d.total_amount)||0, a=Number(d.payment_amount)||0; var paid=Number(d._paid_before)||0; return Math.max(0, t-paid-a); }
   // Khoi "Ke hoach chia dot" nam DUOI cac o thanh toan, full-width, co khung rieng: cac o
@@ -249,14 +260,14 @@
     var k=Number(d.installment_no)||1, paid=Number(d._paid_before)||0, tot=Number(d.total_amount)||0;
     var head='<div class="inst-plan-h"><b>Kế hoạch chia đợt</b><span class="hint">Mỗi đợt là một đề nghị riêng (duyệt &amp; ký lại). Số đợt không giới hạn: đợt kế được tạo từ phiếu đợt trước sau khi Finance đã chi.</span></div>';
     var body='<div class="grid2">'
-      + fld("total_amount","Tổng giá trị hợp đồng / khoản chi (VND)",'<input type="number" min="0" step="1" data-model="total_amount"'+(d.installment_of?' readonly class="ro"':'')+' value="'+esc(d.total_amount!=null?d.total_amount:"")+'">',true)
+      + fld("total_amount","Tổng giá trị hợp đồng / khoản chi (VND)",moneyInputHTML("total_amount",d.total_amount,(d.installment_of?' readonly class="ro"':'')),true)
       + fld("_inst_sum","Đã đề nghị các đợt trước / còn lại sau đợt này",'<input class="ro" readonly value="'+esc((tot>0?(fmtVnd(paid)+'đ / '+fmtVnd(rem)+'đ'):'—'))+'">');
     var over=tot>0 && (Number(d.payment_amount)||0) > tot-paid+0.5;
     if(!(tot>0)) body+='<div class="fld full"><div class="hint">Nhập Tổng giá trị; phần còn lại sau đợt '+k+' sẽ là đợt kế.</div></div>';
     // Dot nay > phan con lai cua tong: noi thang, khong duoc doc nham thanh "dot cuoi".
     else if(over) body+='<div class="fld full"><div class="hint err" style="color:var(--red)">Số tiền đợt '+k+' ('+fmtVnd(d.payment_amount)+'đ) vượt phần còn lại của tổng giá trị ('+fmtVnd(tot-paid)+'đ). Giảm số tiền đợt này hoặc tăng tổng.</div></div>';
     else if(rem<=0) body+='<div class="fld full"><div class="hint">Đợt '+k+' thanh toán hết phần còn lại — đây là đợt cuối, không có đợt kế.</div></div>';
-    else body+=fld("next_installment_amount","Số tiền đợt "+(k+1)+" (VND)",'<input type="number" min="0" step="1" data-model="next_installment_amount" value="'+esc(nxt)+'"><div class="hint">Mặc định = còn lại ('+fmtVnd(rem)+'đ)'+(nxt<rem-0.5?'; sẽ còn '+fmtVnd(rem-nxt)+'đ cho các đợt sau':'')+'</div>')
+    else body+=fld("next_installment_amount","Số tiền đợt "+(k+1)+" (VND)",moneyInputHTML("next_installment_amount",nxt)+'<div class="hint">Mặc định = còn lại ('+fmtVnd(rem)+'đ)'+(nxt<rem-0.5?'; sẽ còn '+fmtVnd(rem-nxt)+'đ cho các đợt sau':'')+'</div>')
       + fld("next_installment_date","Ngày dự kiến thanh toán đợt "+(k+1),'<input type="date" data-model="next_installment_date" value="'+esc(d.next_installment_date||"")+'"><div class="hint">Hệ thống nhắc bạn tạo đề nghị đợt '+(k+1)+' trước ngày này 7 ngày.</div>',true);
     return '<div class="fld full"><div class="inst-plan" id="payr-inst-plan">'+head+body+'</div></div></div>'; }
   function formCardsHTML(d,c,fo){
@@ -273,7 +284,7 @@
       + fld("request_title","Tiêu đề yêu cầu",'<input data-model="request_title" placeholder="Bỏ trống sẽ tự sinh: Payment Request - Người nhận - Số tiền" value="'+esc(d.request_title||"")+'">').replace('class="fld','class="fld full')
       + fld("payee_full_name","Người nhận (Payee)",'<input data-model="payee_full_name" value="'+esc(d.payee_full_name||"")+'">',true)
       + fld("payment_mode","Hình thức thanh toán",'<select data-model="payment_mode"'+(inst&&d.installment_of?' disabled':'')+'><option value="Full"'+(inst?'':' selected')+'>Thanh toán 100% (một đề nghị)</option><option value="Installment"'+(inst?' selected':'')+'>Chia nhiều đợt (mỗi đợt một đề nghị)</option></select>'+(inst&&d.installment_of?'<div class="hint">Đợt '+esc(d.installment_no||"")+' của phiếu '+esc(d.installment_of)+' — không đổi hình thức.</div>':''),true)
-      + fld("payment_amount",inst?("Số tiền đợt "+(d.installment_no||1)+" (VND)"):"Số tiền (VND)",'<input type="number" min="0" step="1" data-model="payment_amount" value="'+esc(d.payment_amount!=null?d.payment_amount:"")+'">',true)
+      + fld("payment_amount",inst?("Số tiền đợt "+(d.installment_no||1)+" (VND)"):"Số tiền (VND)",moneyInputHTML("payment_amount",d.payment_amount),true)
       + fld("payment_date",inst?("Ngày thanh toán đợt "+(d.installment_no||1)):"Ngày thanh toán",'<input type="date" data-model="payment_date" value="'+esc(d.payment_date||"")+'">',true)
       + fld("account_bank","Ngân hàng",'<input data-model="account_bank" value="'+esc(d.account_bank||"")+'">',true)
       + fld("bank_account_number","Số tài khoản",'<input data-model="bank_account_number" value="'+esc(d.bank_account_number||"")+'">',true)
@@ -469,8 +480,10 @@
     if(/đầy đủ các trường bắt buộc|Số tiền|Purchase Request|tệp đính kèm/i.test(m)){ showFieldErrors(validateSubmit()||{}); toast(m,true); return true; }
     return false; }
 
-  function onModelInput(el){ var k=el.getAttribute("data-model");
-    var v=el.type==="checkbox"?(el.checked?"Yes":"No"):(el.type==="number"?(el.value===""?null:Number(el.value)):el.value); setModel(k,v);
+  function onModelInput(el){ var k=el.getAttribute("data-model"); var v;
+    if(el.hasAttribute("data-money")){ var dg=moneyDigits(el.value); v=dg===""?null:Number(dg); reformatMoneyInput(el); }
+    else v=el.type==="checkbox"?(el.checked?"Yes":"No"):(el.type==="number"?(el.value===""?null:Number(el.value)):el.value);
+    setModel(k,v);
     if(k==="has_purchase_request"){ handleHPRChange(v); return; }
     if(k==="funding_source_doctype"){ handleSrcTypeChange(v); return; }
     if(k==="funding_source_name"){ handleSrcPick(v); return; }

@@ -58,7 +58,9 @@ ok(!/data-model="total_amount"/.test(h) && !/data-model="next_installment_date"/
 h = PR.formCardsHTML({ payment_mode: "Installment", total_amount: 10000, payment_amount: 4000 }, C, FO);
 ok(/data-model="total_amount"/.test(h), "chia đợt: hiện tổng giá trị");
 ok(/Số tiền đợt 1/.test(h), "chia đợt: nhãn số tiền đợt 1");
-ok(/data-model="next_installment_amount" value="6000"/.test(h), "đợt kế tự tính 10000−4000=6000");
+ok(/data-model="next_installment_amount"[^>]*value="6.000"/.test(h), "đợt kế tự tính 10000−4000=6000, hiện có dấu chấm ngăn cách");
+ok(/data-money="1" data-model="payment_amount"[^>]*value="4.000"/.test(h) && /data-money="1" data-model="total_amount"[^>]*value="10.000"/.test(h), "ô tiền là ô text có dấu chấm (data-money), không phải type=number");
+ok(!/type="number"[^>]*data-model="(payment_amount|total_amount|next_installment_amount)"/.test(h), "không còn type=number cho ô tiền");
 ok(/data-model="next_installment_date"/.test(h), "chia đợt: hỏi ngày dự kiến đợt kế");
 ok(/id="payr-inst-plan"/.test(h) && h.indexOf('id="payr-inst-plan"') > h.indexOf('data-model="reason"'), "kế hoạch chia đợt là khối riêng, nằm sau Lý do (không xen ô trống vào lưới)");
 ok(!/<div><\/div>/.test(h.split("Nguồn chi phí")[0]), "thẻ Thông tin thanh toán không còn ô trống rỗng trong lưới");
@@ -132,5 +134,5 @@ ok(PR.instChainHTML(d).indexOf("<img") < 0, "chuỗi esc mã phiếu (hiện t�
 ok(PR.instChainHTML(det(null)) === "" && PR.instCardHTML(det(null)) === "", "phiếu 100%: không có chuỗi/thẻ");
 
 console.log(`${pass} đạt, ${fail} hỏng`);
-if (pass < 35) { console.log("HONG: so phep kiem thap bat thuong (" + pass + ")"); process.exit(1); }
+if (pass < 37) { console.log("HONG: so phep kiem thap bat thuong (" + pass + ")"); process.exit(1); }
 process.exit(fail ? 1 : 0);
