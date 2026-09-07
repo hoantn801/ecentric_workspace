@@ -65,6 +65,9 @@ def sync(html=None, force=0):
     if res.get("action") != "refused" and res.get("name") \
             and frappe.db.exists("Web Page", res["name"]):
         res.update(page_sync_util.strip_legacy_shims(res["name"]))
+        # Ghi lai sha SAU khi may chu xu ly (sanitize + strip shim) de lan sync sau nhan ra
+        # chinh ban ghi cua minh, khong phai chep tay sha live vao SUPERSEDES nua (07/09).
+        res["recorded_sha"] = page_sync_util.record_live_sha(ROUTE, res["name"])
     return res
 
 
