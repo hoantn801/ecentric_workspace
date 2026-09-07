@@ -50,6 +50,11 @@ doc_events = {
     "ToDo": {
         "validate": "ecentric_workspace.weekly_report.events.validate_weekly_report_todo",
     },
+    "File": {
+        # 08/09 (Hoan): tep da ky so KHONG BAO GIO duoc xoa - moi duong, ke ca Administrator.
+        # Cong cu quan tri co ly do that bat frappe.flags.ec_allow_signed_file_delete.
+        "on_trash": "ecentric_workspace.platform.esign.file_guard.forbid_signed_file_delete",
+    },
     "Task": {
         # G4.10: enforce PM transition rules on EVERY save path (API + generic apply_workflow).
         "before_save": "ecentric_workspace.pm.api.tasks.pm_task_transition_guard",

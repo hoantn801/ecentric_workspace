@@ -77,6 +77,9 @@ def purge(confirm, dry_run=1, owners=DEFAULT_OWNERS):
     if (confirm or "").strip() != CONFIRM_PHRASE:
         frappe.throw(_("Sai câu xác nhận. Phải gõ đúng: %s") % CONFIRM_PHRASE)
     deleted = {}
+    # 08/09: hook File.on_trash cam xoa ban ky (file_guard). Cong cu nay xoa PHIEU TEST co xac
+    # nhan tuong minh + het han 30/09 -> bat co override, co log OVERRIDE kem nguoi bam.
+    frappe.flags.ec_allow_signed_file_delete = True
     for dt, names in plan.items():          # dict giu thu tu khai bao: con truoc, cha sau
         if not names:
             deleted[dt] = 0
