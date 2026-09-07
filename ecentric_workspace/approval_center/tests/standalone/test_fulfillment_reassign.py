@@ -186,19 +186,36 @@ class TestSelfMaintainingDriftLock(unittest.TestCase):
                 out.append((feat, p))
         return out
 
-    #: Trang DA tu bao tri. Danh sach nay chi duoc PHEP DAI RA.
-    SELF_MAINTAINING = ("asset_request", "data_request", "document_request",
-                        "payment_request", "resignation", "system_request")
-    #: So trang CON LAI chua tu bao tri, tai thoi diem 07/09. Chot lai lam tran de khong ai
-    #: them trang moi thieu record_live_sha. Sua dan cho het thi ha so nay xuong.
-    MAX_CHUA_SUA = 20
+    #: Tran so trang CO khoa chong troi ma KHONG tu ghi lai sha. Da dua ve 0 (07/09):
+    #: moi trang deu tu bao tri. Tran nay chi duoc PHEP GIU 0.
+    MAX_CHUA_SUA = 0
 
-    def test_sau_trang_da_sua_phai_giu_record_live_sha(self):
-        have = dict(self._feature_sync_files())
-        for feat in self.SELF_MAINTAINING:
-            self.assertIn(feat, have, "khong thay page_sync cua %s" % feat)
-            self.assertIn("record_live_sha", _read(have[feat]),
-                          "%s: mat record_live_sha -> lan sua giao dien sau se refused" % feat)
+    def test_p154_gieo_sha_da_dang_ky(self):
+        txt = _read(os.path.join(_ROOT, "patches.txt"))
+        self.assertIn("patches.p154_seed_page_sync_sha", txt)
+
+    def test_p154_khong_bao_gio_nem_loi(self):
+        """Patch chay trong migrate; mot exception thoat ra la chet ca lan deploy (p116)."""
+        src = _read(os.path.join(_ROOT, "approval_center", "patches",
+                                 "p154_seed_page_sync_sha.py"))
+        tree = ast.parse(src)
+        fn = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "execute"]
+        self.assertTrue(fn, "khong thay execute()")
+        self.assertFalse([n for n in ast.walk(fn[0]) if isinstance(n, ast.Raise)],
+                         "p154 khong duoc raise")
+        self.assertTrue([n for n in ast.walk(fn[0]) if isinstance(n, ast.Try)],
+                        "vong lap phai boc try/except de mot trang loi khong chan trang khac")
+
+    def test_p154_chi_ghi_van_tay_khong_ghi_noi_dung(self):
+        """Gieo sha la thao tac AN TOAN vi no khong dong vao noi dung trang. Neu ai do them
+        upsert_web_page vao day thi patch bien thanh mot lan ghi de 26 trang."""
+        src = _read(os.path.join(_ROOT, "approval_center", "patches",
+                                 "p154_seed_page_sync_sha.py"))
+        called = {n.func.attr for n in ast.walk(ast.parse(src))
+                  if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)}
+        self.assertIn("record_live_sha", called)
+        self.assertNotIn("upsert_web_page", called)
+        self.assertNotIn("sync", called)
 
     def test_khong_them_trang_moi_thieu_record_live_sha(self):
         """Tran chi duoc DI XUONG. Trang moi ma thieu record_live_sha se lam vo tran nay

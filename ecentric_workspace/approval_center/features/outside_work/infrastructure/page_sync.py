@@ -62,11 +62,17 @@ def sync(html=None, force=0):
 
     Returns {action: created|updated|unchanged|skipped|refused, route, name}."""
     html = html if html is not None else _html()
-    return page_sync_util.upsert_web_page(
+    res = page_sync_util.upsert_web_page(
         ROUTE, NAME, TITLE, html,
         publish="preserve",
         expect_sha=None if force else ((BASELINE_SHA256,) + SUPERSEDES_SHA256),
     )
+    if res.get("action") != "refused" and res.get("name") \
+            and frappe.db.exists("Web Page", res["name"]):
+        # Ghi lai sha SAU khi may chu xu ly (sanitize + strip shim) de lan sync sau nhan ra
+        # chinh ban ghi cua minh, khong phai chep tay sha live vao SUPERSEDES nua (07/09).
+        res["recorded_sha"] = page_sync_util.record_live_sha(ROUTE, res["name"])
+    return res
 
 
 @frappe.whitelist(methods=["POST"])
