@@ -66,6 +66,12 @@ class ApprovalFacade:
     def complete_fulfillment(self, definition, name, payload=None):
         return fulfillment_service.complete(definition, name, payload)
 
+    def list_reassign_targets(self, definition, name):
+        return fulfillment_service.reassign_targets(definition, name)
+
+    def reassign_fulfillment(self, definition, name, new_user):
+        return fulfillment_service.reassign(definition, name, new_user)
+
     def resolve_request(self, definition, name):
         return command_service.resolve_request(definition, name)
 
