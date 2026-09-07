@@ -476,8 +476,15 @@ def retry_signature_request(dsr_name):
     """Ops action (SM): re-drive from Manual Review / Retryable Failure. POLL-FIRST is
     enforced in the worker - a retry never blind-resubmits."""
     perms.assert_system_manager()
-    cur = frappe.db.get_value(DSR, dsr_name, "status")
-    if cur not in ("Manual Review", "Retryable Failure"):
+    row = frappe.db.get_value(DSR, dsr_name, ["status", "accepted_at", "bulk_job_transaction_id"],
+                              as_dict=True) or {}
+    cur = row.get("status")
+    if cur == "Permanent Failure":
+        # Chi khi CHUA co lenh nao toi nha cung cap (hong luc tao chung tu, vd 413). Da co
+        # thi retry = nguy co chu ky thu hai; duong do la Manual Review + doi soat.
+        if sm.may_have_sent(row):
+            frappe.throw(_("Chân ký này đã từng gửi tới nhà cung cấp - không retry được, dùng Đối soát."))
+    elif cur not in ("Manual Review", "Retryable Failure"):
         frappe.throw(_("Chỉ retry được yêu cầu ở trạng thái Manual Review / Retryable Failure."))
     frappe.db.set_value(DSR, dsr_name, "request_attempt",
                         (frappe.db.get_value(DSR, dsr_name, "request_attempt") or 0) + 1)

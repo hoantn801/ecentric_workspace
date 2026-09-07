@@ -653,8 +653,15 @@ def process_signing_request(dsr_name):
                                                 "error_message": safe_error(e),
                                                 "retryable": 1 if e.retryable else 0},
                                   error_summary=safe_error(e))
-            if not e.retryable:
-                pass  # Permanent Failure is terminal; sweep_stale raises the ops ToDo
+            if not e.retryable and (dsr or {}).get("actor_type") == "Requester":
+                # Chan NGUOI DE NGHI hong vinh vien (413 luc tao chung tu, 00044 07/09):
+                # truoc day khong ai goi reconcile -> requester_signature_status ket
+                # "Processing", nguoi de nghi khong duoc bao, cap 1 khong biet co phieu.
+                # reconcile_and_complete_requester dat "Failed" + thong bao + giao viec.
+                try:
+                    _complete_dsr(dsr_name, dsr)
+                except Exception:
+                    frappe.log_error(frappe.get_traceback(), "esign.tasks.requester_failed_notify")
         except Exception:
             frappe.log_error(frappe.get_traceback(), "esign.tasks.process_signing_request.state")
     except Exception:

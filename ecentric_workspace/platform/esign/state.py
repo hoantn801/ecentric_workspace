@@ -78,7 +78,11 @@ DSR_TRANSITIONS = {
     "Mapping Required": ("Prepared", "Cancelled", "Superseded"),
     "Placement Required": ("Prepared", "Cancelled", "Superseded"),
     "Retryable Failure": ("Queued", "Manual Review", "Permanent Failure", "Cancelled", "Superseded"),
-    "Permanent Failure": (),
+    # Permanent Failure -> Queued: CHI qua retry_signature_request va CHI khi chua co gi toi
+    # nha cung cap (may_have_sent False - hong o buoc tao chung tu: 413 07/09, 00044). Truoc
+    # day terminal tuyet doi -> phieu cua nguoi de nghi ket "Processing" vinh vien, khong ai
+    # lam gi duoc ngoai tao phieu moi.
+    "Permanent Failure": ("Queued",),
     "Verification Mismatch": ("Manual Review",),
     # Manual Review -> Signed: doi soat. Chan ky bi day sang day vi nha cung cap im lang; sau
     # do chu ky THAT xuat hien (nguoi ky tu lam tren portal). Doi soat CHI doc lai trang thai
