@@ -79,8 +79,8 @@ class TestHtml(unittest.TestCase):
         d = _read("platform", "esign", "ui", "document_signing_section.html")
         self.assertIn("function _announce()", d)
         self.assertEqual(d.count("_announce();"), 3, "ca 3 nhanh sau khi tai xong deu bao")
-        self.assertIn("p146_resync_payment_request_sign_wait_expiry", _read("patches.txt"))
-        self.assertIn('"function _announce()"', _read("approval_center", "patches", "p146_resync_payment_request_sign_wait_expiry.py"))
+        self.assertIn("p147_resync_payment_request_edit_fresh_detail", _read("patches.txt"))
+        self.assertIn('"function _announce()"', _read("approval_center", "patches", "p147_resync_payment_request_edit_fresh_detail.py"))
 
 
 if __name__ == "__main__":
