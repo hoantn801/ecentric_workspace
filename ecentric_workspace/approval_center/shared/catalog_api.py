@@ -9,6 +9,7 @@ import frappe
 from frappe.utils import getdate, nowdate
 
 from ecentric_workspace.approval_center.shared import catalog_permissions as perms
+from ecentric_workspace.guides import registry as guides_registry
 
 CATEGORY_FIELDS = ["name", "category_name", "icon", "sort_order", "is_active"]
 TYPE_FIELDS = ["name", "approval_title", "description", "icon", "category",
@@ -29,7 +30,14 @@ def _child_map(child_doctype, value_field):
 
 def _shape(t, cat):
     route = t.route if (t.card_status == "Active" and t.route) else None
+    # Huong dan su dung cua loai yeu cau nay (None neu chua co bai). Server tra
+    # ve, trang KHONG tu doan: danh sach bai nam o guides.registry, mot cho duy
+    # nhat, va the o Approval Center chi ve icon "?" khi that su co bai. Chi tra
+    # route + ten ngan - trang khong can gi hon.
+    guide = guides_registry.guide_for_approval_type(t.name)
     return {
+        "guide_route": guide["route"] if guide else None,
+        "guide_title": guide["short"] if guide else None,
         "approval_code": t.name,
         "approval_title": t.approval_title,
         "description": t.description,

@@ -201,7 +201,13 @@ def _crumb_target(route):
     """Resolve route -> (registry item, group label) via the SAME matcher the
     shell uses. Children resolve to themselves; their crumb group falls back
     to the parent's group (registry stays the single source of truth)."""
-    items = shell_nav.compose(shell_nav.resolve_context(route))
+    # include_hidden=True: `sidebar_hidden` tra loi cau hoi "co ve dong nay vao
+    # thanh ben khong", KHONG phai "route nay co ton tai khong". Khong co no thi
+    # mot trang co route hop le nhung an khoi menu (vi du /viec-cua-toi, hay muc
+    # luc /huong-dan) rot ra khoi ban do va o breadcrumb tro thanh TRONG - dung
+    # cai cam giac "bo vo" ma breadcrumb sinh ra de tranh. Cung ly le da viet o
+    # shell/nav.py compose().
+    items = shell_nav.compose(shell_nav.resolve_context(route), include_hidden=True)
     key = match_active(items, route)
     parent_group = {}
     flat = []
@@ -381,7 +387,7 @@ def page_route_map(repo):
     # bytes predate the repo are NOT here on purpose: those are governed by a
     # server-side transform (e.g. hr/pages/shell_boundary.py) that regenerates
     # the same two zones under a byte-preservation proof.
-    for mod in ("hr", "action_center"):
+    for mod in ("hr", "action_center", "guides"):
         mp = os.path.join(repo, "ecentric_workspace", mod, "pages")
         if not os.path.isdir(mp):
             continue

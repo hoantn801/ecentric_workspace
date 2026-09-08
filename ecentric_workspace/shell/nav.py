@@ -194,6 +194,7 @@ def _providers():
     from ecentric_workspace.alerts import nav as alerts_nav
     from ecentric_workspace.reporting import nav as reporting_nav
     from ecentric_workspace.pm import nav as pm_nav
+    from ecentric_workspace.guides import nav as guides_nav
     return [
         ("core", lambda: list(CORE_ITEMS)),
         ("approval_center", approval_nav.items),
@@ -202,6 +203,9 @@ def _providers():
         ("alerts", alerts_nav.items),
         ("reporting", reporting_nav.items),
         ("pm", pm_nav.items),
+        # Huong dan su dung: MOT muc duy nhat (trang muc luc), co mat o moi ngu canh
+        # co "core" - huong dan khong thuoc rieng phong nao.
+        ("guides", guides_nav.items),
         ("home_portal", lambda: list(HOME_PORTAL_ITEMS)),
     ]
 
@@ -225,12 +229,12 @@ CONTEXTS = {
         "group_order": ["Workspace", "Nhân sự", "Báo cáo & Phân tích", "Tài nguyên"],
     },
     "approval_document": {
-        "providers": ["core", "approval_center", "legacy_pages"],
+        "providers": ["core", "approval_center", "legacy_pages", "guides"],
         "entry": {"key": "ctx.approval_document", "label": "Phê duyệt & Chứng từ",
                   "route": "/approvals", "icon": "check"},
     },
     "hr": {
-        "providers": ["core", "hr"],
+        "providers": ["core", "hr", "guides"],
         "entry": {"key": "ctx.hr", "label": "Nhân sự",
                   "route": "/ec-hr/attendance", "icon": "doc"},
     },

@@ -84,14 +84,19 @@ class TestBreadcrumbRegistryParity(unittest.TestCase):
     """Crumb labels are the registry's labels -- no second route map."""
 
     def test_crumb_matches_registry_entry(self):
-        items = shell_nav.compose()
-        flat, pgroup = [], {}
-        for it in items:
-            flat.append(it)
-            for ch in it.get("children") or []:
-                flat.append(ch)
-                pgroup[ch["key"]] = it.get("group") or ""
         for path, route in _pages():
+            # Ban do route cua CHINH ngu canh trang do, KEM muc an (08/09). Truoc
+            # day dung compose() mac dinh: mot muc `sidebar_hidden` (route co that,
+            # chi khong ve dong menu) khong nam trong danh sach, nen test tuong
+            # trang do "da roi khoi registry" va doi breadcrumb TRONG - dung cai
+            # ma no le ra phai chan. Xem shell/tests/test_crumbs_hidden_routes.py.
+            items = shell_nav.compose(shell_nav.resolve_context(route), include_hidden=True)
+            flat, pgroup = [], {}
+            for it in items:
+                flat.append(it)
+                for ch in it.get("children") or []:
+                    flat.append(ch)
+                    pgroup[ch["key"]] = it.get("group") or ""
             src = _read(path)
             inner = fb.CRUMBS_RE.search(src).group(2)
             key = fb.match_active(items, route)

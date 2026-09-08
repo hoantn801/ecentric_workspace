@@ -1,8 +1,7 @@
 {
   "action_center/pages/my_work/main_section.html": {
-    "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "8996d855b84dccd9f4158e326e8463970af5c93ca93d3ede335f55d4dd9df40f"
+    "last_resync_patch": "p161_publish_guides_and_shell_drift",
+    "sha256": "aa73073efe2d0432a2d7c8f0daf5daa4b0618f073c8d8ca7f8d9f6bf640f487b"
   },
   "approval_center/features/affiliate_bonus/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -21,8 +20,8 @@
   },
   "approval_center/features/asset_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p152_resync_five_forms_reassign",
-    "sha256": "0eca2c49fcf858d2b1b1b9554d9578fb06bf7057a0c6d9cbfd2c6d31b14a5a64"
+    "last_resync_patch": "p160_resync_five_forms_reassign_refresh",
+    "sha256": "79e24a76096283a77e47889804cad049b67e177d2a8166eb7ed80c72b4167efa"
   },
   "approval_center/features/budget_setting/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -45,13 +44,13 @@
   },
   "approval_center/features/data_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p152_resync_five_forms_reassign",
-    "sha256": "89f481a6365899e0fa0464640556a3f39a606be6c1877d702afa2a45a73a788a"
+    "last_resync_patch": "p160_resync_five_forms_reassign_refresh",
+    "sha256": "40d742426045baa36bbe542172372d1d439a64235294e3f76ac24cdf4b6d31cd"
   },
   "approval_center/features/document_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p152_resync_five_forms_reassign",
-    "sha256": "44effd3a1990cc2c8635469961d0981d9eff2b73e1b09f138978b66f7df1ce2b"
+    "last_resync_patch": "p160_resync_five_forms_reassign_refresh",
+    "sha256": "589e1e9a38cd1941fea31c93c2c175e02efe9d63bb46e088f02ea8c940166cb4"
   },
   "approval_center/features/employee_info_update/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -104,8 +103,8 @@
     "sha256": "9e7e091060760821a3cf80fd7d2d300825b7bce65013a26c20f9d19b8ed5a264"
   },
   "approval_center/features/payment_request/ui/main_section.html": {
-    "last_resync_patch": "p159_resync_esign_review_stopped_leg_drawer_token",
-    "sha256": "be1a1d517ad8b7c6d060c8e99b587b7d273310bd9e273075bfafbdf31091fbcb"
+    "last_resync_patch": "p161_publish_guides_and_shell_drift",
+    "sha256": "74d10a85d20203ee214212072d944f8fb37599457be4f2fb3e963fd323d6cdda"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -119,8 +118,8 @@
   },
   "approval_center/features/resignation/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p152_resync_five_forms_reassign",
-    "sha256": "6ddde3c1cb6de7017e896eb19189e2de8c8c95ed6a482b1543329781d72a78e0"
+    "last_resync_patch": "p160_resync_five_forms_reassign_refresh",
+    "sha256": "73c6d6ae481261147220f032ec545a195410c825a0fd45c0683d1696d5513b12"
   },
   "approval_center/features/service_referral/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -134,8 +133,8 @@
   },
   "approval_center/features/system_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p152_resync_five_forms_reassign",
-    "sha256": "6974adb061847407d0b2702fa92778b0965772c13246ac98f476a95ad8b9615e"
+    "last_resync_patch": "p160_resync_five_forms_reassign_refresh",
+    "sha256": "c24cacf942d76c4560be683afaa953b09bb035ff0d99a5e59d1bdb5cf1e9c39b"
   },
   "approval_center/ui/all_requests/main_section.html": {
     "last_resync_patch": "p148_resync_all_requests_note_reset",
@@ -147,8 +146,16 @@
     "sha256": "347f7ad43edc901cbd42da98f89580c64d86d4d403e2f981408abf9a9163c740"
   },
   "approval_center/ui/hub/main_section.html": {
-    "last_resync_patch": "p140_resync_hub_scts_link_button",
-    "sha256": "8535d4deb3377399724dd855077f6ce9c359fadf1bbbecfa98c37d7fae0fdd2e"
+    "last_resync_patch": "p161_publish_guides_and_shell_drift",
+    "sha256": "7152df6588aa2449d047608b495da579cbd013bc77a8205f90ac0a9294c991f7"
+  },
+  "guides/pages/dnmh_dntt/main_section.html": {
+    "last_resync_patch": "p161_publish_guides_and_shell_drift",
+    "sha256": "cdfbf179d8dd9a0e2482b41ebde6481c05ea5eba54ab35a0373dcaabc98f8e28"
+  },
+  "guides/pages/index/main_section.html": {
+    "last_resync_patch": "p161_publish_guides_and_shell_drift",
+    "sha256": "f0779e4bc55d3adf0297a4d01c846e666815a559fb07ebdea4cc6df4b2dd6d8c"
   },
   "hr/pages/install_guide/main_section.html": {
     "baseline": "2026-08-31",

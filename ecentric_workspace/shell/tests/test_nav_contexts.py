@@ -165,7 +165,11 @@ class TestSalaryNeverWarmable(unittest.TestCase):
 class TestStaticHydratedContextParity(unittest.TestCase):
     def test_fallback_uses_resolve_context(self):
         src = _read(APP, "shell", "fallback.py")
-        self.assertEqual(src.count("shell_nav.compose(shell_nav.resolve_context(route))"), 2,
+        # Khong chot dau ngoac dong: tu 08/09 nhanh breadcrumb truyen them
+        # include_hidden=True (muc an van co route, van phai co breadcrumb - xem
+        # test_crumbs_hidden_routes.py). Dieu can giu la CA HAI cho deu hoi
+        # registry theo NGU CANH cua route, khong phai chu ky y het nhau.
+        self.assertEqual(src.count("shell_nav.compose(shell_nav.resolve_context(route)"), 2,
                          "mount + crumbs must both be context-scoped")
 
     def test_js_ports_resolution(self):
