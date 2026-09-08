@@ -146,8 +146,8 @@
     "sha256": "347f7ad43edc901cbd42da98f89580c64d86d4d403e2f981408abf9a9163c740"
   },
   "approval_center/ui/hub/main_section.html": {
-    "last_resync_patch": "p161_publish_guides_and_shell_drift",
-    "sha256": "7152df6588aa2449d047608b495da579cbd013bc77a8205f90ac0a9294c991f7"
+    "last_resync_patch": "p162_hub_guide_link_to_card_foot",
+    "sha256": "9725820a47b9e9cff1b5fb9eaea5c393f78570a8f5133296951c2718c0b920d9"
   },
   "guides/pages/dnmh_dntt/main_section.html": {
     "last_resync_patch": "p161_publish_guides_and_shell_drift",
