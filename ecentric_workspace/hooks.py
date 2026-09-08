@@ -239,6 +239,18 @@ fixtures = [
             "MSO-ec_revision_reason", "MSO-ec_revision_count",
             "Sales Order-ec_revision_reason", "Sales Order-ec_revision_count",
             "Purchase Order-ec_revision_reason", "Purchase Order-ec_revision_count",
+            # HR MVP (2026-09): custom field cua module cham cong / nghi phep.
+            # Truoc day CHUA nam trong fixtures -> rebuild site la mat sach, hong
+            # ca luong 2 buoc (ec_approval_stage), appeal (ec_appeal_status) va
+            # tracking di muon (ec_late_*). Ship cung ec_hr_* Server Script + trang.
+            "Leave Application-ec_approval_stage", "Leave Application-ec_source_request",
+            "Attendance-ec_late_reason", "Attendance-ec_late_status",
+            "Attendance-ec_late_comment", "Attendance-ec_late_decided_by",
+            "Attendance Request-ec_decided_by", "Attendance Request-ec_appeal_status",
+            "Attendance Request-ec_decision_comment",
+            # LUU Y (CnB xac nhan truoc khi them): cac field luong tren Employee cung
+            # chua versioned -- ec_pit_10, ec_pit_luytien, ec_dong_bhxh, ec_mst_ca_nhan,
+            # ec_so_nguoi_phu_thuoc, ec_allow_lunch/coffee/computer, ec_late_early_bank.
         ]]],
     },
     {
