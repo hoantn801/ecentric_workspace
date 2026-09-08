@@ -843,6 +843,36 @@ def build_snapshot(req, process, levels, requester):
                 "request_level": rl.name, "level_no": lvl.level_no, "approver": user,
                 "source": label, "status": "Pending",
             }).insert(ignore_permissions=True)
+    grant_read_to_snapshot_approvers(req)
+
+
+def grant_read_to_snapshot_approvers(req):
+    """Cap quyen DOC (DocShare) cho MOI nguoi duyet trong luong, ngay khi luong duoc dung.
+
+    Truoc day quyen doc chi duoc cap luc _activate_level, tuc "toi luot moi duoc doc". Nhung
+    luat cua app (`permissions.can_view_request`) da cho BAT KY ai co dong approver tren phieu
+    xem toan bo noi dung, khong phan biet cap. Hai cong ap hai luat khac nhau tren cung mot ho
+    so: nguoi duyet cap sau mo phieu thi thay du noi dung, gia tri, dieu khoan - nhung bam vao
+    TEP DINH KEM thi web server tra 403 tran, vi cong file cua Frappe doc DocShare/DocPerm chu
+    khong doc luat cua app. 08/09: CEO khong mo duoc hop dong cua EC-CTR-2026-00012 dung vi vay.
+
+    Day KHONG phai noi rong quyen: nhom duoc cap dung bang nhom ma can_view_request da cho xem.
+    Chi la lam cho cong file theo kip luat cua app. ToDo/thong bao van giu nguyen o
+    _activate_level - duoc doc khong co nghia la den luot lam.
+
+    Loi o day khong duoc lam hong viec gui phieu: quyen doc thieu thi nguoi dung van mo duoc
+    ho so trong app, chi vuong tep dinh kem - khong dang de danh doi ca lan gui.
+    """
+    users = frappe.get_all("EC Approval Request Approver",
+                           filters={"approval_request": req.name}, pluck="approver") or []
+    for u in dict.fromkeys(users):
+        if not u or u == "Guest":
+            continue
+        try:
+            _engine_grant_read(req.reference_doctype, req.reference_name, u)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(),
+                             "grant_read_to_snapshot_approvers %s" % req.name)
 
 
 def is_active_process_fulfiller(approval_type, user=None):
