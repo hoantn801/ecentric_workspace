@@ -191,8 +191,8 @@
     "sha256": "266607e3c3f31f89dd2eed2f25c3414cecd1be8578e4f77592da983a98af37d3"
   },
   "platform/esign/ui/document_signing_section.html": {
-    "last_resync_patch": "p159_resync_esign_review_stopped_leg_drawer_token",
-    "sha256": "20e2933d07a395736dd8c7c829be66f311aab2f6bc54c064617503f0b6f7ea21"
+    "last_resync_patch": "p160_resync_pdf_render_cancel",
+    "sha256": "7011abc816c9dd96a7e4d42096a26399399d578658d154ff2bded1691a53eab9"
   },
   "platform/esign/ui/ops_page.html": {
     "last_resync_patch": "p159_resync_esign_review_stopped_leg_drawer_token",

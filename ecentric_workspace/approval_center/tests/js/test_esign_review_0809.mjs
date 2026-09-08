@@ -169,6 +169,33 @@ const ok = (c, m) => { if (c) pass++; else { fail++; console.log("  FAIL: " + m)
   ok(/if \(UP\.notice\) \{ upHint\.textContent = UP\.notice; UP\.notice = ""; \}/.test(src), "render: dòng lỗi hiện một lần rồi trả lại gợi ý");
 }
 
+// ------------------------------------------------- 5. pdf.js: một lượt vẽ một lúc (08/09 live)
+{
+  const src = script(path.join(ESIGN_UI, "document_signing_section.html"));
+  console.log("Drawer: huỷ lượt vẽ cũ trước khi vẽ lượt mới");
+  const rp = src.slice(src.indexOf("function renderPdf()"), src.indexOf("function _two(n)"));
+  ok(/if \(DRW\.task\) \{ try \{ DRW\.task\.cancel\(\); \} catch \(e\) \{\} DRW\.task = null; \}[\s\S]{0,200}var task = pg\.render/.test(rp),
+     "huỷ lượt cũ NGAY TRƯỚC khi gọi render mới");
+  ok(/task\.promise\.then\(/.test(rp) && /\.catch\(function \(e\)/.test(rp), "bắt cả then lẫn catch của lượt vẽ");
+  ok(/RenderingCancelled/.test(rp), "huỷ lượt cũ là bình thường — không báo lỗi");
+  ok(/drawerErr\("Không vẽ được trang tài liệu/.test(rp), "lỗi vẽ THẬT thì phải nói ra (trước đây im lặng)");
+  ok(/myTok !== DRW\.docToken \|\| myRef !== DRW\.ref \|\| myPage !== DRW\.page/.test(rp),
+     "chỉ hydrate khi vẫn đúng tài liệu + đúng trang");
+  // hydrateBoxes phải nằm TRONG then của lượt vẽ (nếu tuột ra ngoài thì ô vẽ trước khi có trang)
+  ok(rp.indexOf("hydrateBoxes();") > rp.indexOf("task.promise.then("), "hydrateBoxes gọi trong then của lượt vẽ");
+  const cd = src.slice(src.indexOf("function closeDrawer()"), src.indexOf("function _renderUnsaved()"));
+  ok(/DRW\.task\.cancel\(\)/.test(cd), "đóng drawer thì huỷ lượt vẽ đang chạy");
+  const od = src.slice(src.indexOf("function openDrawer(ref)"), src.indexOf("function _roText(st)"));
+  ok(/DRW\.task\.cancel\(\)/.test(od), "mở tài liệu khác cũng huỷ lượt vẽ cũ");
+  ok(/task: null,/.test(src), "DRW.task khai báo trong trạng thái drawer");
+  // Canvas mới mỗi lượt vẽ: không còn trạng thái cũ nào để kẹt (kể cả lượt cũ bị rò rỉ)
+  ok(/document\.createElement\("canvas"\)/.test(rp) && /replaceChild\(cv, old\)/.test(rp),
+     "mỗi lượt vẽ dựng canvas mới, thay thẳng vào DOM");
+  ok(/cv\.id = "ecdCanvas"/.test(rp) && /cv\.style\.cssText = old\.style\.cssText/.test(rp),
+     "canvas mới giữ nguyên id + style (các hàm khác tìm bằng id)");
+  ok(rp.indexOf('replaceChild(cv, old)') < rp.indexOf('pg.render('), "thay canvas TRƯỚC khi vẽ");
+}
+
 console.log("----");
 console.log(pass + " đạt, " + fail + " hỏng");
 process.exit(fail ? 1 : 0);
