@@ -57,7 +57,13 @@ const noGuide = { approval_code: "LEAVE", approval_title: "Nghỉ phép",
 
 const h1 = AC._cardHtml(withGuide);
 const h2 = AC._cardHtml(noGuide);
-ok(h1.includes('class="card-help"'), "the co bai phai co icon ?");
+ok(h1.includes('class="card-help"'), "the co bai phai co loi vao huong dan");
+// Vi tri (y Hoan 08/09): o HANG CHAN, SAU nut "Tao yeu cau" - khong phai goc tren
+// phai canh nhan trang thai. Chot lai de no khong lang le troi nguoc len.
+ok(/<div class="card-foot">[\s\S]*card-cta[\s\S]*card-help[\s\S]*<\/div>/.test(h1),
+   "loi vao huong dan phai nam trong .card-foot, sau nut CTA");
+ok(!/card-top[\s\S]*card-help[\s\S]*<\/div>\s*<div>/.test(h1),
+   "khong duoc quay lai goc tren phai");
 ok(h1.includes('href="/huong-dan/dnmh-dntt"'), "icon ? phai tro dung route cua bai");
 ok(h1.includes("DNMH → DNTT"), "tooltip phai mang ten ngan cua bai");
 ok(!h2.includes('class="card-help"'), "the KHONG co bai thi khong duoc ve icon ?");
