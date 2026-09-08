@@ -153,6 +153,14 @@ def complete_fulfillment(name, user=None):
     if not doc.actual_tax_fee_basis:
         doc.actual_tax_fee_basis = doc.tax_fee_basis or "Included"   # safe default; no VAT calculation
     doc.fulfillment_status = "Completed"
+    from ecentric_workspace.approval_center.shared.requests.command_service import (
+        attach_extra_files)
+    # Tep duoc tai len KHONG kem doctype/docname: `upload_file` co hai truong do se kiem quyen
+    # GHI tren chinh DocType ho so, ma cac DocType nay chi cho System Manager ghi - nguoi xu ly
+    # that (Dong, Linh Vuong, Thuong, Tuan) deu khong co, nen ho khong tai duoc file (08/09).
+    # Doi lai, file sinh ra la File mo coi; gan vao ho so o day - TRUOC khi save - de hook
+    # attach_files_to_document cua Frappe nhan ra va khong tao dong thu hai.
+    attach_extra_files(doc, [u for u in (doc.payment_proof, doc.invoice_receipt) if u])
     doc.save(ignore_permissions=True)
     _upsert_account(doc)
     engine.close_fulfillment_todos(BUSINESS_DT, name)   # close the owner's fulfillment ToDo on completion
