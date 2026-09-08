@@ -92,11 +92,15 @@
      goc tren phai da co nhan trang thai, nhet them mot dau ? vao do thi chat va
      xau; o hang chan no doc duoc thanh "tao yeu cau ... hay xem huong dan truoc". */
   #ec-apc-root .card-foot{ display:flex; align-items:center; gap:10px; }
-  #ec-apc-root .card-help{ margin-left:auto; display:inline-flex; align-items:center; gap:5px;
-    text-decoration:none; flex-shrink:0; color:var(--gray-400); font-size:12.5px; font-weight:600;
-    padding:6px 9px; border-radius:8px; }
-  #ec-apc-root .card-help svg{ width:15px; height:15px; }
-  #ec-apc-root .card-help:hover{ color:var(--navy); background:var(--navy-50); }
+  /* O vuong bo goc, ben trong dung mot dau "?" (y Hoan 09/09 - bo chu "Huong dan"
+     cho gon). Chu giai nam o title/aria-label, vi mot dau ? tran khong tu noi duoc
+     no dan di dau. KHONG dung SVG o day: ban SVG viet tay dau tien quen class="icon"
+     (noi trang khai fill:none/stroke) nen tren prod no ra mot cham tron DEN DAC. */
+  #ec-apc-root .card-help{ margin-left:auto; width:30px; height:30px; border-radius:9px;
+    display:inline-flex; align-items:center; justify-content:center; text-decoration:none;
+    flex-shrink:0; border:1px solid var(--gray-200); background:#fff; color:var(--gray-400);
+    font-size:14px; font-weight:700; line-height:1; }
+  #ec-apc-root .card-help:hover{ border-color:var(--navy); color:var(--navy); background:var(--navy-50); }
   #ec-apc-root .card-title{ font-size:15.5px; font-weight:700; color:var(--gray-900); line-height:1.3; }
   #ec-apc-root .card-cat{ font-size:11.5px; font-weight:600; color:var(--gray-400); text-transform:uppercase; letter-spacing:.4px; }
   #ec-apc-root .card-desc{ font-size:13px; color:var(--gray-600); flex:1; }
@@ -256,10 +260,7 @@
     // thi cu nhap vao "?" se bi the nuot va nhay sang trang tao yeu cau.
     var help = c.guide_route
       ? '<a class="card-help" data-go="1" href="'+esc(c.guide_route)+'" title="Hướng dẫn: '
-        + esc(c.guide_title||c.approval_title||"")+'" aria-label="Xem hướng dẫn">'
-        + '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/>'
-        + '<path d="M9.2 9a2.8 2.8 0 1 1 3.8 2.6c-.7.3-1 .9-1 1.6v.3"/>'
-        + '<path d="M12 17h.01"/></svg>Hướng dẫn</a>'
+        + esc(c.guide_title||c.approval_title||"")+'" aria-label="Xem hướng dẫn">?</a>'
       : '';
     return '<div class="card'+clickable+dim+'" data-code="'+esc(c.approval_code)+'" data-status="'+esc(c.card_status)+'"'
       + (isActive?(' data-route="'+esc(c.route)+'"'):'')+'>'

@@ -66,6 +66,19 @@ ok(!/card-top[\s\S]*card-help[\s\S]*<\/div>\s*<div>/.test(h1),
    "khong duoc quay lai goc tren phai");
 ok(h1.includes('href="/huong-dan/dnmh-dntt"'), "icon ? phai tro dung route cua bai");
 ok(h1.includes("DNMH → DNTT"), "tooltip phai mang ten ngan cua bai");
+// Ben trong o vuong CHI co dau "?" (y Hoan 09/09 - bo chu "Huong dan" cho gon).
+// Chot ca hai chieu: dung mot ky tu "?", va KHONG con SVG viet tay - ban SVG dau
+// tien quen class="icon" nen tren prod no ra mot cham tron DEN DAC, va mot phep
+// kiem headless khong nhin duoc mau thi phai chot bang CAU TRUC.
+// Soi RIENG trong the <a class="card-help">: the icon o goc tren cung la <svg>,
+// nen kiem tren ca chuoi h1 la mot phep kiem GIA (da tu thu dot bien: song sot).
+const helpBlock = (h1.match(/<a class="card-help"[\s\S]*?<\/a>/) || [""])[0];
+ok(/>\?<\/a>$/.test(helpBlock), 'trong o vuong chi duoc co dau "?"');
+ok(!/<svg/.test(helpBlock), "khong dung SVG viet tay o day nua");
+ok(!/Hướng dẫn</.test(helpBlock), 'khong con chu "Huong dan" trong o vuong');
+// ...nhung chu giai VAN phai con: mot dau ? tran khong tu noi duoc no dan di dau.
+ok(/title="Hướng dẫn: /.test(helpBlock) && /aria-label="/.test(helpBlock),
+   "phai giu title + aria-label de nguoi dung (va trinh doc man hinh) hieu");
 ok(!h2.includes('class="card-help"'), "the KHONG co bai thi khong duoc ve icon ?");
 ok(!h2.includes("undefined") && !h2.includes("null"),
    "the khong co bai khong duoc lo chu undefined/null ra man hinh");

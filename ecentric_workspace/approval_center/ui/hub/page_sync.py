@@ -40,8 +40,10 @@ def _html():
 # Deliberate update = edit frontend/approvals.main_section.html, bump
 # BASELINE_SHA256, move the value it replaced into SUPERSEDES_SHA256 -- all in
 # the same commit.
-BASELINE_SHA256 = "9725820a47b9e9cff1b5fb9eaea5c393f78570a8f5133296951c2718c0b920d9"
+BASELINE_SHA256 = "33d085101f325df205d1b8fd973f8e3e77b9a0d214cf6b86021e3450258ff9c0"
 SUPERSEDES_SHA256 = (
+    # baseline truoc p164 (o vuong bo goc chi co dau "?", bo chu "Huong dan").
+    "9725820a47b9e9cff1b5fb9eaea5c393f78570a8f5133296951c2718c0b920d9",
     # baseline truoc p162 (loi vao huong dan chuyen xuong hang chan the).
     "7152df6588aa2449d047608b495da579cbd013bc77a8205f90ac0a9294c991f7",
     # baseline truoc p161 (icon "?" dan toi bai huong dan cua tung loai yeu cau).
