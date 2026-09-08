@@ -55,7 +55,13 @@ w.ECEsignPanel.boot().then(function () {
   assert(p.innerHTML.indexOf("xo\u00e1") === -1, "khong lo link xoa placement");
   assert(p.innerHTML.indexOf("Duy\u1ec7t") === -1, "khong ve nut Duyet & Ky trung lap");
   assert(w.ECEsignPanel.state.pr === "PR-1", "PR resolved from window.PaymentRequest.state.id");
-  assert(calls.some(c => c.method === "signing_readiness"), "boot used backend signing_readiness");
+  // 08/09: khong ve gi thi khong hoi gi - boot KHONG goi get_signing_status/signing_readiness
+  // (readiness tinh lai compute_hash moi lan; khoi hop nhat + main_section da hoi roi).
+  assert(!calls.some(c => c.method === "signing_readiness" || c.method === "get_signing_status"),
+         "boot khong goi API khi bang cu khong duoc ve");
+  // Duong goi bang code van song: nap goi roi luu (boot khong nap nua).
+  return w.ECEsignPanel.loadStatus();
+}).then(function () {
   w.ECEsignPanel.addPlacement({ signature_file: "DSF-1", page_index: 1, x: 50, y: 50,
                                 width: 120, height: 40, level_no: 1, signature_type: "scts" });
   return w.ECEsignPanel.save();

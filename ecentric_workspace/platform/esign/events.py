@@ -41,19 +41,32 @@ def emit(event_type, signature_request=None, package=None, erp_actor=None,
         frappe.flags.ec_esign_event_append = prev
 
 
+def current_status(doctype, name):
+    """Trang thai HIEN TAI DA COMMIT cua mot dong, doc CO KHOA - mot lenh duy nhat.
+
+    Truoc day (08/09): khoa `name` FOR UPDATE roi doc `status` bang lenh THUONG. Duoi
+    REPEATABLE READ cua MariaDB, lenh thuong doc tu snapshot lap o lan doc DAU cua transaction
+    - ma cron (poll_pending / flag_silent_legs / sweep_stale) da get_all TRUOC khi toi day.
+    Ket qua: assert_transition kiem canh tren trang thai CU, roi UPDATE de len trang thai MOI
+    ma worker khac vua commit (vd cron thay Retryable Failure, SM vua Retry -> Provider
+    Accepted; cron ghi Queued de len -> chan ky vao Manual Review "prior_bulk_submit_uncertain"
+    hoac te hon, ha cap mot trang thai terminal). Cung lop loi da giet 00035/00041 o
+    tasks.process_signing_request; day la cho CHUNG cua moi transition nen sua o day mot lan.
+    Locking read luon tra ban moi nhat da commit, khong phu thuoc snapshot."""
+    return frappe.db.get_value(doctype, name, "status", for_update=True)
+
+
 def set_package_status(pkg_name, to_status, **event_kw):
-    """Guarded package transition: row lock -> assert legal edge -> write -> event."""
-    frappe.db.get_value("EC Digital Signature Package", pkg_name, "name", for_update=True)
-    cur = frappe.db.get_value("EC Digital Signature Package", pkg_name, "status")
+    """Guarded package transition: locking read -> assert legal edge -> write -> event."""
+    cur = current_status("EC Digital Signature Package", pkg_name)
     sm.assert_transition(sm.PACKAGE, cur, to_status)
     frappe.db.set_value("EC Digital Signature Package", pkg_name, "status", to_status)
     emit(event_kw.pop("event_type", to_status.replace(" ", "")), package=pkg_name, **event_kw)
 
 
 def set_dsr_status(dsr_name, to_status, extra_fields=None, **event_kw):
-    """Guarded DSR transition: row lock -> assert legal edge -> write -> event."""
-    frappe.db.get_value("EC Digital Signature Request", dsr_name, "name", for_update=True)
-    cur = frappe.db.get_value("EC Digital Signature Request", dsr_name, "status")
+    """Guarded DSR transition: locking read -> assert legal edge -> write -> event."""
+    cur = current_status("EC Digital Signature Request", dsr_name)
     sm.assert_transition(sm.DSR, cur, to_status)
     vals = {"status": to_status}
     vals.update(extra_fields or {})

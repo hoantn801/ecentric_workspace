@@ -375,7 +375,9 @@
       // Ket qua PHAI noi that. Nhieu endpoint tra ve mot dict trang thai chu khong nem loi
       // khi khong lam gi duoc - bao "xong" cho moi truong hop la dung cai loi im lang ma
       // trang nay sinh ra de xoa bo.
-      var done = o && (o.completed || o.ok || o.retried || o.cancelled || o.reconciled);
+      // `queued`: Thu lai / Gui lai co kiem tra ve {queued: true} - truoc day bi bao do
+      // "Chua xu ly duoc" du chan ky DA vao hang (08/09).
+      var done = o && (o.completed || o.ok || o.retried || o.cancelled || o.reconciled || o.queued);
       var detail = (o && (o.reason || o.note || o.status)) || "";
       var say = done ? ("Xong." + (detail ? " " + detail : ""))
                      : ("Chưa xử lý được" + (detail ? ": " + detail : ". Xem lại phiếu."));

@@ -18,13 +18,14 @@ SIGNED_PREFIX = "SIGNED-"
 
 
 def is_signed_file(doc):
-    """Ban ky = DSF.signed_file tro vao, hoac ban duyet dang cho xem xet (review_file), hoac ten
-    bat dau bang SIGNED- (ban ghi tao boi signed_files._retrieve_one)."""
+    """Ban ky = DSF.signed_file tro vao, hoac ban dang cho doi chieu (signed_review_candidate,
+    REVIEW-*), hoac ten bat dau bang SIGNED- (ban ghi tao boi signed_files._retrieve_one)."""
     if not doc or not getattr(doc, "name", None):
         return False
     if frappe.db.exists(DSF, {"signed_file": doc.name}):
         return True
-    if frappe.db.has_column(DSF, "review_file") and frappe.db.exists(DSF, {"review_file": doc.name}):
+    if frappe.db.has_column(DSF, "signed_review_candidate") \
+            and frappe.db.exists(DSF, {"signed_review_candidate": doc.name}):
         return True
     return str(doc.get("file_name") or "").startswith(SIGNED_PREFIX)
 

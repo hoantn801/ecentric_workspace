@@ -91,8 +91,14 @@ class TestRequesterNotified(unittest.TestCase):
         body = ast.unparse(fn)
         i = body.index("target = 'Retryable Failure' if e.retryable else 'Permanent Failure'")
         tail = body[i:i + 1400]
-        self.assertIn("if not e.retryable and (dsr or {}).get('actor_type') == 'Requester':", tail)
-        self.assertIn("_complete_dsr(dsr_name, dsr)", tail)
+        # 08/09: moi duong DUNG (ke ca Permanent Failure) di qua _leg_stopped -> requester
+        # reconcile khi la chan nguoi de nghi (khong con dieu kien actor_type inline).
+        self.assertIn("if not e.retryable:", tail)
+        self.assertIn("_leg_stopped(dsr_name, dsr)", tail)
+        # _leg_stopped phai thuc su re sang reconcile cua nguoi de nghi
+        ls = [n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.FunctionDef) and n.name == "_leg_stopped"][0]
+        self.assertIn("_complete_dsr(dsr_name, dsr)", ast.unparse(ls))
+        self.assertIn("== 'Requester'", ast.unparse(ls))
 
 
 if __name__ == "__main__":

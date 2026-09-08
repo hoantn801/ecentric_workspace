@@ -48,6 +48,20 @@ def _integration_open(provider, environment):
         {"provider": provider, "environment": environment}, "integration_enabled"))
 
 
+def _commit_step():
+    """Chot MOI chan ky mot lan trong cac vong cron / fast_verify.
+
+    process_signing_request doc DSR bang FOR UPDATE; khoa hang chi nha khi transaction commit.
+    Mot job cron la MOT transaction: poll_pending duyet toi 200 chan, moi chan mot vong HTTP
+    toi nha cung cap, ma khoa cua chan thu nhat van giu toi khi chan cuoi xong - nguoi bam
+    "Duyet & Ky" / trang ops / job fast_verify cua chinh chan do phai doi ca vong. fast_verify
+    con te hon: 5 lan doc co khoa xen 25 giay sleep trong cung mot transaction, va moi lenh
+    doc thuong sau lan dau deu la snapshot cu. Commit sau moi chan: khoa nha ngay, chan sau
+    doc du lieu moi. Moi chan da la mot don vi trang thai nhat quan (process_signing_request
+    tu ghi ket cuc trong except), nen chot tung chan khong de lai nua chung."""
+    frappe.db.commit()
+
+
 def _settings_and_adapter(dsr):
     s = frappe.db.get_value("EC Digital Signature Provider Settings",
                             {"provider": dsr.provider, "environment": dsr.environment},
@@ -336,6 +350,7 @@ def _poll_or_stop(dsr_name, dsr, adapter, doc_id):
                                   extra_fields={"manual_review_reason": "provider_document_not_found"},
                                   error_summary=safe_error(exc))
             _dead_letter_todo(dsr_name)
+            _leg_stopped(dsr_name, dsr)
             return None
         raise
     status = str(getattr(doc_state, "status", "") or "").lower()
@@ -356,6 +371,7 @@ def _mark_document_dead(dsr_name, dsr, how, detail):
                           extra_fields={"error_code": code, "error_message": msg, "retryable": 0},
                           error_summary=detail)
     _dead_letter_todo(dsr_name)
+    _leg_stopped(dsr_name, dsr)
 
 
 def _complete_dsr(dsr_name, dsr):
@@ -366,6 +382,27 @@ def _complete_dsr(dsr_name, dsr):
         from ecentric_workspace.platform.esign import requester
         return requester.reconcile_and_complete_requester(dsr_name)
     return svc.verify_and_complete(dsr_name)
+
+
+def _leg_stopped(dsr_name, dsr=None):
+    """Chan ky vua roi vao mot trang thai KHONG TU THOAT (Manual Review / Permanent Failure).
+
+    Chan cua NGUOI DE NGHI: phai chieu ngay sang requester_signature_status ("Failed" /
+    "Reconciliation Required") + bao nguoi de nghi. Truoc 08/09 chi nhanh ProviderError goi
+    reconcile; 8 duong dung khac (chung tu 404/huy, signer rejected, prior_bulk_submit_uncertain,
+    binding_refused, max_poll_attempts, flag_silent_legs, sweep_stale) de phieu ket "Processing"
+    - dung lop loi 31/08 (4 chan "Manual Review Requester" tren trang ops, cap 1 khong bao gio
+    kich hoat, nguoi de nghi khong duoc bao). Chan cua cap duyet: khong co gi de chieu.
+    Nuot loi: viec chinh (ghi trang thai chan ky) da xong, thong bao hong khong duoc lam mat.
+    """
+    try:
+        if dsr is None or "actor_type" not in dsr:
+            dsr = frappe.db.get_value(DSR, dsr_name, ["name", "actor_type", "package"],
+                                      as_dict=True) or {}
+        if (dsr or {}).get("actor_type") == "Requester":
+            _complete_dsr(dsr_name, dsr)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign.tasks._leg_stopped %s" % dsr_name)
 
 
 def _profile_of(dsr):
@@ -388,6 +425,7 @@ def process_signing_request(dsr_name):
     dsr = frappe.db.get_value(DSR, dsr_name, "*", as_dict=True, for_update=True)
     if not dsr or dsr.status not in ("Queued", "Provider Accepted", "Verifying"):
         return
+    sent_attempted = False                      # da GOI lenh ky trong lan chay nay chua
     try:
         settings, adapter = _settings_and_adapter(dsr)
         # CHAN NGUOI DE NGHI DI BANG TOKEN CUA CHINH HO (04/09). eContract giao task Trinh ky
@@ -454,6 +492,8 @@ def process_signing_request(dsr_name):
                                   event_type="VerificationMismatch",
                                   verification_result="signer_rejected_at_provider")
             events.set_dsr_status(dsr_name, "Manual Review", event_type="ManualReview")
+            _dead_letter_todo(dsr_name)
+            _leg_stopped(dsr_name, dsr)
             return
 
         if dsr.status == "Queued":
@@ -479,6 +519,8 @@ def process_signing_request(dsr_name):
                                       verification_result=vr.reason,
                                       extra_fields={"manual_review_reason":
                                                     "prior_bulk_submit_uncertain"})
+                _dead_letter_todo(dsr_name)
+                _leg_stopped(dsr_name, dsr)
                 return
             if may_have_sent:
                 # GUI LAI CO KIEM (03/09). Chot mot chieu o tren ton tai vi lenh ky khong
@@ -520,7 +562,8 @@ def process_signing_request(dsr_name):
             try:
                 plan = next_handler.plan_handover(dsr, _profile_of(dsr),
                                                   settings.get("environment"), stage=stage,
-                                                  adapter=adapter, instance_id=inst_id)
+                                                  adapter=adapter, instance_id=inst_id,
+                                                  document_id=doc_id)
             except Exception as exc:
                 plan = {"mode": "pool", "reason": "handover_planning_failed:%s"
                                                   % type(exc).__name__}
@@ -550,6 +593,7 @@ def process_signing_request(dsr_name):
                                           "recipients_unverified":
                                               plan.get("recipients_unverified"),
                                           "stage": stage})
+                sent_attempted = True
                 try:
                     res = adapter.transition_with_recipients(
                         inst_id, dsr.effective_scts_user_id, plan["to_users"], plan["config"],
@@ -576,6 +620,7 @@ def process_signing_request(dsr_name):
                 # dang that bai kho chan doan nhat cua ca vu: SCTS tra 2xx kem
                 # bulkJobTransactionId roi khong ky gi ca, vi cong viec khong tro vao instance
                 # nao. Loi 400 cua duong `transition` con bao ngay; duong nay im lang.
+                sent_attempted = True
                 res = adapter.approve_and_sign([inst_id], dsr.effective_scts_user_id,
                                                dsr.effective_signature_id,
                                                transition_type=tt)  # 'approve' (never numeric)
@@ -587,6 +632,7 @@ def process_signing_request(dsr_name):
                 provider_txn_id=res.get("bulk_job_transaction_id"),
                 scts_effective_user=dsr.effective_scts_user_id)
             dsr.status = "Provider Accepted"
+            dsr.accepted_at = now_datetime()
 
         # Single immediate re-poll; further ticks belong to the reconciler.
         doc_state = adapter.poll_status(doc_id)
@@ -630,6 +676,7 @@ def process_signing_request(dsr_name):
                                                 "error_message": safe_error(e), "retryable": 0},
                                   error_summary=safe_error(e))
             _dead_letter_todo(dsr_name)
+            _leg_stopped(dsr_name, dsr)
         except Exception:
             frappe.log_error(frappe.get_traceback(), "esign.tasks.binding_refused")
         return
@@ -638,13 +685,41 @@ def process_signing_request(dsr_name):
             # NON-IDEMPOTENT write outcome unknown (bulk-process lost/timeout/5xx): the
             # provider may already have accepted, so NEVER resend. Move to Verifying and
             # let the reconciler poll Document/{id}; append a sanitized immutable event.
+            #
+            # CHOT BEN (08/09). Truoc day dau vet "co the da gui" CHI la status Verifying.
+            # Lan poll ke tiep gap loi mang tam thoi -> nhanh duoi day ghi Retryable Failure
+            # (de len error_code) -> poll_pending dua ve Queued KHONG tang request_attempt ->
+            # may_have_sent: Queued + accepted_at trong + attempt 1 = False -> GUI LAN HAI.
+            # Dung lop loi 00035/00041 di duong khac. `accepted_at` la chot mot chieu ma
+            # state.may_have_sent doc o MOI trang thai sau nay (RF/PF/MR) - dong ngay khi
+            # lenh ky da RA KHOI ERP (ke ca ket qua khong ro). Ket qua khong ro cua
+            # AddDocument (chua goi lenh ky) thi KHONG dong: `sent_attempted` phan biet.
+            extra = {"error_code": e.code}
+            if sent_attempted and not dsr.get("accepted_at"):
+                extra["accepted_at"] = now_datetime()
             try:
                 events.set_dsr_status(dsr_name, "Verifying", event_type="BulkOutcomeUnknown",
-                                      extra_fields={"error_code": e.code},
+                                      extra_fields=extra,
                                       verification_result="scts_bulk_outcome_unknown",
                                       error_summary=safe_error(e))
             except Exception:
                 frappe.log_error(frappe.get_traceback(), "esign.tasks.bulk_outcome_unknown")
+            return
+        if e.retryable and dsr.get("accepted_at") \
+                and dsr.status in ("Provider Accepted", "Verifying"):
+            # POLL tam thoi hong tren mot chan DA GUI: khong doi trang thai. Truoc day ->
+            # Retryable Failure -> Queued -> may_have_sent True -> Manual Review
+            # "prior_bulk_submit_uncertain" chi vi MOT lan GET truot 1 giay sau khi gui, trong
+            # khi chu ky thuong xuat hien sau 2-5 giay. Giu nguyen; vong cron / fast_verify hoi
+            # lai; im lang qua 20 phut da co flag_silent_legs. Van ghi vet (PollTick).
+            try:
+                events.emit("PollTick", signature_request=dsr_name, package=dsr.package,
+                            verification_result="poll_error:%s" % e.code,
+                            error_summary=safe_error(e))
+                if dsr.status == "Provider Accepted":
+                    _enqueue_fast_verify(dsr_name)
+            except Exception:
+                frappe.log_error(frappe.get_traceback(), "esign.tasks.poll_transient")
             return
         target = "Retryable Failure" if e.retryable else "Permanent Failure"
         try:
@@ -653,15 +728,13 @@ def process_signing_request(dsr_name):
                                                 "error_message": safe_error(e),
                                                 "retryable": 1 if e.retryable else 0},
                                   error_summary=safe_error(e))
-            if not e.retryable and (dsr or {}).get("actor_type") == "Requester":
+            if not e.retryable:
                 # Chan NGUOI DE NGHI hong vinh vien (413 luc tao chung tu, 00044 07/09):
                 # truoc day khong ai goi reconcile -> requester_signature_status ket
                 # "Processing", nguoi de nghi khong duoc bao, cap 1 khong biet co phieu.
                 # reconcile_and_complete_requester dat "Failed" + thong bao + giao viec.
-                try:
-                    _complete_dsr(dsr_name, dsr)
-                except Exception:
-                    frappe.log_error(frappe.get_traceback(), "esign.tasks.requester_failed_notify")
+                _dead_letter_todo(dsr_name)
+                _leg_stopped(dsr_name, dsr)
         except Exception:
             frappe.log_error(frappe.get_traceback(), "esign.tasks.process_signing_request.state")
     except Exception:
@@ -712,12 +785,15 @@ def poll_pending():
                     events.set_dsr_status(r.name, "Manual Review", event_type="ManualReview",
                                           extra_fields={"manual_review_reason":
                                                         "max_poll_attempts_exceeded"})
+                    _dead_letter_todo(r.name)
+                    _leg_stopped(r.name)
                     continue
                 events.set_dsr_status(r.name, "Queued", event_type="RetryScheduled",
                                       retry_no=polls + 1)
             process_signing_request(r.name)
         except Exception:
             frappe.log_error(frappe.get_traceback(), "esign.tasks.poll_pending %s" % r.name)
+        _commit_step()
 
 
 #: Doi soat nhanh ngay sau khi nha cung cap nhan lenh. Cac moc do bang giay ke tu luc bam.
@@ -767,6 +843,7 @@ def fast_verify(dsr_name):
         except Exception:
             frappe.log_error(frappe.get_traceback(), "esign.tasks.fast_verify %s" % dsr_name)
             return
+        _commit_step()                  # nha khoa hang truoc khi ngu; lan doc sau thay ban moi
         if frappe.db.get_value(DSR, dsr_name, "status") not in _FAST_VERIFY_LIVE:
             return
 
@@ -809,8 +886,10 @@ def flag_silent_legs():
                 error_summary=("nha cung cap da nhan lenh luc %s nhung khong tao chu ky sau %s phut"
                                % (since, PROVIDER_SILENCE_MINUTES)))
             _dead_letter_todo(r.name)
+            _leg_stopped(r.name)
         except Exception:
             frappe.log_error(frappe.get_traceback(), "esign.tasks.flag_silent_legs %s" % r.name)
+        _commit_step()
 
 
 def sweep_stale():
@@ -834,10 +913,12 @@ def sweep_stale():
             events.set_dsr_status(r.name, "Manual Review", event_type="ManualReview",
                                   extra_fields={"manual_review_reason": "stale_request"})
             _dead_letter_todo(r.name)
+            _leg_stopped(r.name)
             frappe.log_error("esign stale request -> Manual Review: %s (was %s)"
                              % (r.name, r.status), "esign.tasks.sweep_stale")
         except Exception:
             frappe.log_error(frappe.get_traceback(), "esign.tasks.sweep_stale %s" % r.name)
+        _commit_step()
 
 
 def _dead_letter_todo(dsr_name):
@@ -909,7 +990,7 @@ def retrieve_signed_bundles():
         # tri: cron van goi mang moi 30 phut cho mot goi da co nguoi tuyen bo la bo.
         filters={"scts_document_id": ["is", "set"], "signed_bundle_complete": 0,
                  "retrieval_abandoned": 0},
-        fields=["name", "provider", "environment"], limit_page_length=200)
+        fields=["name", "provider", "environment", "approval_request"], limit_page_length=200)
     from ecentric_workspace.platform.esign import signed_files
     for r in rows:
         if not _integration_open(r.provider, r.environment):
@@ -917,6 +998,13 @@ def retrieve_signed_bundles():
         # only retry for packages with a terminal-completed approval DSR
         done = frappe.db.exists(DSR, {"package": r.name, "status": "Approval Completed"})
         if not done:
+            continue
+        # Phieu da TU CHOI / HUY thi khong bao gio du chu ky: nha cung cap con mot nguoi ky
+        # "rejected"/"pending" -> _terminal_signed_ok tra non_signed_signer_present MAI MAI,
+        # moi 30 phut mot su kien SignedRetrievalNotReady + mot lenh GET, khong ai dung lai
+        # (khong co gi dua goi ve Completed/Cancelled khi phieu ket thuc). Bo qua, khong goi mang.
+        if r.approval_request and frappe.db.get_value(
+                "EC Approval Request", r.approval_request, "approval_status") in _AR_CLOSED:
             continue
         try:
             out = signed_files.retrieve_and_store_for_package(r.name)
@@ -926,7 +1014,11 @@ def retrieve_signed_bundles():
             out = None
         if not (out or {}).get("ok"):
             _flag_stalled_retrieval(r.name)
+        _commit_step()
 
+
+#: Trang thai phieu ma chu ky KHONG BAO GIO con du duoc - khong tai PDF ky cho nhung goi nay.
+_AR_CLOSED = ("Rejected", "Cancelled")
 
 #: Cron chay moi 30 phut. 10 lan ~ 5 tieng khong lay duoc PDF thi khong con la "cham" nua.
 RETRIEVAL_ALERT_AFTER = 10

@@ -61,8 +61,8 @@ def _service(dsr_rows, level_of):
         # chi can ham in_flight_leg + hang so: cat phan sau de khong keo theo import lac
         tree = ast.parse(src)
         keep = [n for n in tree.body if isinstance(n, (ast.Import, ast.ImportFrom))
-                or (isinstance(n, ast.Assign) and any(getattr(t, "id", "") == "_IN_FLIGHT" for t in n.targets))
-                or (isinstance(n, ast.FunctionDef) and n.name == "in_flight_leg")]
+                or (isinstance(n, ast.Assign) and any(getattr(t, "id", "") in ("_IN_FLIGHT", "_STOPPED") for t in n.targets))
+                or (isinstance(n, ast.FunctionDef) and n.name in ("in_flight_leg", "_own_leg_at_level", "stopped_leg"))]
         exec(compile(ast.Module(body=keep, type_ignores=[]), "service.py", "exec"), m.__dict__)
     finally:
         for k, v in saved.items():

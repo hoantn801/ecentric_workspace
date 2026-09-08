@@ -58,7 +58,8 @@ class TestLenhKyDiHangRieng(unittest.TestCase):
                               "%s: lenh ky enqueue khong qua sm.SIGNING_QUEUE -> lai chung "
                               "hang voi cron, lai cho 50 giay" % f)
                 self.assertNotIn('queue="default"', args, f)
-        self.assertEqual(tong, 4, "mong 4 noi enqueue lenh ky (service x3, requester x1); "
+        self.assertEqual(tong, 5, "mong 5 noi enqueue lenh ky (service x3, requester x2 - "
+                                  "duong dung lai dong chua xep hang them 08/09); "
                                   "thay %d - co noi nao doi ten/bo qua?" % tong)
 
     def test_SIGNING_QUEUE_khong_phai_default(self):

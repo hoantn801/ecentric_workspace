@@ -181,13 +181,13 @@ def validate_completion(dsr_name, req, level_no, actor):
     if not dsr_name:
         _deny("no_completion_marker")
 
-    # Freshness + concurrency: lock the DSR row for this transaction, then read.
-    frappe.db.get_value("EC Digital Signature Request", dsr_name, "name", for_update=True)
+    # Freshness + concurrency: locking read in ONE statement (lock-then-plain-read returns
+    # the transaction's stale snapshot under REPEATABLE READ - see events.current_status).
     dsr = frappe.db.get_value(
         "EC Digital Signature Request", dsr_name,
         ["name", "approval_request", "request_level", "approver_row", "approver", "action",
          "status", "package", "package_version", "package_hash", "verified_at"],
-        as_dict=True)
+        as_dict=True, for_update=True)
     if not dsr:
         _deny("dsr_missing")
     if dsr.action != "Sign":

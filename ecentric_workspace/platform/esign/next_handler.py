@@ -341,11 +341,20 @@ def provider_step_index(adapter, instance_id):
                 if str(s.get("status") or "").strip().lower() == "signed"]), None
 
 
-def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, instance_id=None):
+def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, instance_id=None,
+                  document_id=None):
     """What to send for this leg: {mode, ...}.
 
     mode == "transition" -> name the next handler explicitly (the governed path).
     mode == "pool"       -> provider decides the recipients; `reason` says why we had to.
+
+    `instance_id` = ma WORKFLOW INSTANCE (Workflow GET / transition / users-for-transition);
+    `document_id` = ma DOCUMENT (Document GET, de dem chu ky da co). Hai ma KHAC nhau tren
+    eContract (package.workflow_instance_id). Truoc 08/09 provider_step_index nhan instance id
+    -> GET /api/Document/{instanceId} 404 moi khi goi da co scts_workflow_instance_id -> khong
+    dem duoc -> roi ve cau hinh ho so khong co vi tri buoc (lop loi "-9 cho moi buoc"). Khong
+    truyen document_id thi dung instance_id nhu cu (goi cu chua co instance id thi hai ma bang
+    nhau).
     """
     if not targeted_handover_enabled():
         return {"mode": "pool", "reason": "targeted_handover_disabled"}
@@ -372,7 +381,7 @@ def plan_handover(dsr, profile_name, environment, stage=None, adapter=None, inst
                     "reason": "signature_type_mismatch:need=%s have=%s" % (want, have or "?")}
     buoc = None
     if cfg is None:
-        buoc, vi_sao_buoc = provider_step_index(adapter, instance_id)
+        buoc, vi_sao_buoc = provider_step_index(adapter, document_id or instance_id)
         if buoc is None and vi_sao_buoc:
             discovery_note = "%s; vi tri buoc: %s" % (discovery_note or "-", vi_sao_buoc)
         cfg = resolve_transition_config(profile_name, dsr.get("action") or "Sign",

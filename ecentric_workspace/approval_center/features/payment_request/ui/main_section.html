@@ -179,7 +179,10 @@
     return '<option value="'+esc(v)+'"'+(String(val)===String(v)?" selected":"")+'>'+esc(l)+'</option>'; }).join(""); }
 
   // ---- routing ----
-  function readRoute(){ state.mode="create"; var q=new URLSearchParams(window.location.search); state.id=q.get("id")||null;
+  function readRoute(){ state.mode="create"; var q=new URLSearchParams(window.location.search); var prev=state.id; state.id=q.get("id")||null;
+    // Doi phieu (popstate / go()) thi tep UNC vua chon cua phieu TRUOC khong duoc di theo:
+    // "Hoan tat" tren phieu B se gan UNC cua A (08/09, ra soat).
+    if(prev!==state.id) state.unc={};
     var t=q.get("tab"); state.tab = state.id?"detail":"create"; }
   function hubHref(){
     // Quay lại đúng tab đã đứng ở /approvals/all-requests (hub gắn ?from=<tab> khi mở chi tiết).
@@ -880,6 +883,18 @@
       return '<div class="hint">Đã gửi chữ ký tới nhà cung cấp. Việc này thường mất '
         + '20–60 giây. Màn hình tự cập nhật, không cần tải lại trang.</div>';
     }
+    // Chan ky truoc cua CHINH nguoi nay o cap nay DA DUNG (Permanent Failure / bi huy). Chua
+    // tung gui thi "Duyet & Ky" tao chan moi (server: retire_dead_leg); co the da gui thi
+    // KHONG moi bam - truoc day bam la 500 (08/09).
+    var stp = state._signReady && state._signReady.stopped, stopNote = "";
+    if (stp && cap.can_approve) {
+      var why = esc(stp.status) + (stp.error_code ? " · " + esc(stp.error_code) : "");
+      if (!stp.can_resign)
+        return '<div class="hint">Lượt ký trước của bạn ở cấp này đã dừng (' + why + ') nhưng lệnh ký '
+          + 'có thể đã tới nhà cung cấp — quản trị đang đối soát để tránh ký đúp. Chưa ký lại được.</div>';
+      stopNote = '<div class="hint" style="margin-bottom:8px">Lượt ký trước của bạn ở cấp này đã dừng ('
+        + why + ') và chưa gửi gì tới nhà cung cấp — bấm “Duyệt &amp; Ký” để gửi lại.</div>';
+    }
     if(cap.can_submit){ return '<div class="actions"><button type="button" class="btn primary" data-act="submitdraft">Gửi yêu cầu</button><button type="button" class="btn" data-act="editdraft">Tiếp tục chỉnh sửa</button><button type="button" class="btn" data-act="cancel">Hủy yêu cầu</button></div><div class="hint" style="margin-top:8px">Yêu cầu đang ở trạng thái nháp — chưa gửi phê duyệt.</div>'; }
     if(cap.can_edit&&ap.approval_status==="Information Required") btns.push('<button type="button" class="btn primary" data-act="edit">Chỉnh sửa & gửi lại</button>');
     else if(cap.can_edit) btns.push('<button type="button" class="btn" data-act="edit">Chỉnh sửa</button>');
@@ -903,7 +918,7 @@
     // bo sung". Phieu cu giu nguyen, khong sua khong xoa - ban sao la mot phieu nhap moi.
     if(isMine(det)&&(ap.approval_status==="Rejected"||ap.approval_status==="Cancelled"))
       btns.push('<button type="button" class="btn primary" data-act="clone">Tạo phiếu mới từ phiếu này</button>');
-    return btns.length? '<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
+    return btns.length? stopNote+'<div class="actions">'+btns.join("")+'</div>' : '<div class="hint">Không có hành động khả dụng cho bạn ở trạng thái hiện tại.</div>'; }
   // "Cua minh" theo NGUOI DE NGHI cua phieu, khong theo quyen xem: cap duyet cung xem duoc
   // phieu nay, nhung tao lai la viec cua nguoi de nghi. Backend chan lan nua.
   // Khop DUNG luat cua backend: `command_service.clone_request` chi nhan `requested_by`

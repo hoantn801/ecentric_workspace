@@ -314,11 +314,33 @@ def requester_submit_and_sign(business_doctype, business_name, comment=None):
                                    requester, "RequesterSign", pkg.package_hash,
                                    "%s@%s" % (mapping.name, mapping.modified))
     frappe.db.get_value(AR, ar, "name", for_update=True)  # lock the request row
-    existing = frappe.db.get_value(DSR, {"idempotency_key": idem}, ["name", "status"], as_dict=True)
+    # Locking read: snapshot cua transaction nay lap tu truoc khi khoa (events.current_status).
+    existing = frappe.db.get_value(DSR, {"idempotency_key": idem}, ["name", "status"],
+                                   as_dict=True, for_update=True)
     if existing and existing.status in _LIVE_OR_DONE:  # reuse - never duplicate a job/document
         frappe.db.set_value(AR, ar, {"requester_signature_status": "Processing",
                                      "requester_signature_request": existing.name})
         return {"signature_request": existing.name, "status": existing.status, "duplicate": True}
+    from ecentric_workspace.platform.esign import state as sm
+    if existing:
+        # Chan cu da chet (Permanent Failure / Cancelled) va CHUA TUNG gui -> nhuong khoa
+        # (LegRetired) roi tao dong moi ben duoi. Dang doi soat / co the da gui -> loi than
+        # thien thay vi insert trung khoa unique -> 500 (08/09). Xem service.retire_dead_leg.
+        from ecentric_workspace.platform.esign import service as _svc
+        if not _svc.retire_dead_leg(existing, requester, who_vi="Lượt ký trước của người đề nghị"):
+            # Dong chua bao gio xep hang (Mapping/Placement Required): dung lai, xep hang lai.
+            events.set_dsr_status(existing.name, "Prepared", erp_actor=requester,
+                                  event_type="RetryScheduled")
+            events.set_dsr_status(existing.name, "Queued",
+                                  extra_fields={"queued_at": now_datetime()}, erp_actor=requester)
+            frappe.db.set_value(AR, ar, {"requester_signature_status": "Processing",
+                                         "requester_signature_request": existing.name})
+            frappe.enqueue("ecentric_workspace.platform.esign.tasks.process_signing_request",
+                           dsr_name=existing.name, queue=sm.SIGNING_QUEUE,
+                           timeout=sm.SIGNING_JOB_TIMEOUT,
+                           job_name="esign_requester_%s" % existing.name,
+                           enqueue_after_commit=True)
+            return {"signature_request": existing.name, "status": "Queued", "duplicate": False}
 
     dsr = frappe.get_doc({
         "doctype": DSR, "provider": prof.provider, "environment": prof.environment,
@@ -337,7 +359,6 @@ def requester_submit_and_sign(business_doctype, business_name, comment=None):
                           erp_actor=requester)
     frappe.db.set_value(AR, ar, {"requester_signature_status": "Processing",
                                  "requester_signature_request": dsr.name})
-    from ecentric_workspace.platform.esign import state as sm
     frappe.enqueue("ecentric_workspace.platform.esign.tasks.process_signing_request",
                    dsr_name=dsr.name, queue=sm.SIGNING_QUEUE, timeout=sm.SIGNING_JOB_TIMEOUT,
                    job_name="esign_requester_%s" % dsr.name, enqueue_after_commit=True)

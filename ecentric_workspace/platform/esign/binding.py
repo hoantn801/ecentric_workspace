@@ -85,14 +85,14 @@ def assert_outbound_binding(dsr_name, adapter, live=True):
     if not dsr_name:
         _block("no_dsr")
 
-    # Lock + read the persisted request (freshness + concurrency).
-    frappe.db.get_value(DSR, dsr_name, "name", for_update=True)
+    # Locking read (freshness + concurrency) - MOT lenh. Khoa `name` roi doc thuong = doc
+    # snapshot cu duoi REPEATABLE READ (xem events.current_status).
     dsr = frappe.db.get_value(
         DSR, dsr_name,
         ["name", "provider", "environment", "action", "status", "approval_request",
          "request_level", "approver_row", "approver", "package", "package_version",
          "package_hash", "effective_scts_user_id", "effective_signature_id",
-         "actor_type", "actor_user"], as_dict=True)
+         "actor_type", "actor_user"], as_dict=True, for_update=True)
     if not dsr:
         _block("dsr_missing")
 

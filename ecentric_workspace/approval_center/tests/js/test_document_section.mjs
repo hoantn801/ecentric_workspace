@@ -68,7 +68,8 @@ function mk(opts){ opts=opts||{};
     location:{ search: opts.search!==undefined?opts.search:"?id=EC-PAYR-2026-00012" },
     URLSearchParams,Promise,String,Array,Object,setInterval:(f)=>{ivals.push(f);return ivals.length;},clearInterval:()=>{},
     FormData:function(){this._d={};this.append=(k,v)=>{this._d[k]=v;};},
-    fetch:(url,o)=>{uploads.push({url,o});return Promise.resolve({json:()=>Promise.resolve({message:{file_url:"/private/files/up.pdf"}})});},
+    // 08/09: uploadFiles doc r.text() roi tu parse (413 tra HTML cua nginx) - stub cung cap ca hai
+    fetch:(url,o)=>{uploads.push({url,o});const body={message:{file_url:"/private/files/up.pdf"}};return Promise.resolve({status:200,json:()=>Promise.resolve(body),text:()=>Promise.resolve(JSON.stringify(body))});},
     confirm:()=>true,open:()=>{},console };
   sb.__import=()=>Promise.resolve({GlobalWorkerOptions:{},getDocument:()=>({promise:Promise.resolve({getPage:()=>Promise.resolve({getViewport:({scale})=>({width:612*(scale||1),height:792*(scale||1)}),render:()=>({promise:Promise.resolve()})})})})});
   vm.createContext(sb); sb.window=sb; sb.frappe=frappe; sb.contentHost=contentHost;
@@ -158,7 +159,7 @@ async function main(){
     let posted=0;
     const sbx={document:{getElementById:id=>e[id]||null,querySelector:()=>ch,addEventListener(){},createElement:t=>({style:{},appendChild(){},querySelector:()=>({}),addEventListener(){}}),documentElement:{classList:{add(){},remove(){}}}},location:{search:""},
       URLSearchParams,Promise,String,Array,Object,setInterval:()=>1,clearInterval:()=>{},
-      FormData:function(){this.append=()=>{};},fetch:()=>{posted++;return Promise.resolve({json:()=>Promise.resolve({message:{}})});},
+      FormData:function(){this.append=()=>{};},fetch:()=>{posted++;return Promise.resolve({status:200,json:()=>Promise.resolve({message:{}}),text:()=>Promise.resolve("{\"message\":{}}")});},
       confirm:()=>true,open:()=>{},console};
     vm.createContext(sbx); sbx.window=sbx; sbx.frappe={call:()=>Promise.resolve({message:{}}),utils:{escape_html:x=>x},show_alert(){},csrf_token:"t",boot:{}};
     vm.runInContext(SRC.replace(/import\(/g,"__import("),sbx);
