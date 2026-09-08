@@ -37,7 +37,7 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "09a35128a6d985bc2c475dade99778b52d09278478c0ccc96982c51e58bd5777"
+BASELINE_SHA256 = "cbb5d7eb7308b85348af9583ed78cf738b7aff0468b7b65f573ce0d30b7ea069"
 
 # Giá trị live mà snapshot này được phép ghi đè.
 #
@@ -51,6 +51,8 @@ BASELINE_SHA256 = "09a35128a6d985bc2c475dade99778b52d09278478c0ccc96982c51e58bd5
 # d6d412c thì sync tiến lên, môi trường đã nhận bytes #241 thì trả về "unchanged".
 # Bỏ entry này khi đã xác nhận deploy trên mọi môi trường.
 SUPERSEDES_SHA256 = (
+    "cd5600568c5bddd42ff3a5bc62d175d321f482b2e780aea77b35003eaa2ef625",  # ban dang chay tren main truoc dot nay (bo doctype/docname khi upload)
+    "09a35128a6d985bc2c475dade99778b52d09278478c0ccc96982c51e58bd5777",  # hang cu ghi trong page_sync.py, giu lai cho chac
     "fb8d7ee657fc288436113eeab5ddbb23bdfd20d21696929bbb4fc56976e14b3d",  # superseded by 09a35128a6d9 (upload errors + brand list + layout)
     "d48a62f1226b2b8a9ac0c886235d978c0164817e1f688995e3ec97e1253f2a97",  # superseded by fb8d7ee657fc (upload UX + tick)
     "6106ed84d949c5349c811a504457b45b809df27a6b909e6fe783bfcf11e4b534",  # superseded by d48a62f1226b (nhớ tab khi quay lại hub)

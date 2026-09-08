@@ -290,7 +290,6 @@
   function wireModels(scope){ (scope||document).querySelectorAll("[data-model]").forEach(attachModel); }
   function uploadFile(fileInput,field,labelId){ var files=fileInput.files?Array.prototype.slice.call(fileInput.files):[]; if(!files.length) return;
     var lbl=$(labelId); if(lbl) lbl.textContent="Đang tải...";
-    var DT="EC Data Request";
     state.draft=state.draft||{}; state.draft._attachments=state.draft._attachments||[];
     function put(f){ var fd=new FormData(); fd.append("file",f); fd.append("is_private","1");
       // KHÔNG gửi doctype/docname: upload_file kiểm quyền role trên DocType đó, mà người dùng
@@ -568,8 +567,8 @@
       var errs=completionErrors(state.comp); if(errs){ toast(errs.fulfillment_summary,true); return Promise.reject(); }
       return call("complete_fulfillment",{name:name,payload:JSON.stringify(state.comp)}).then(function(){ toast("Đã hoàn tất xử lý."); state.comp={}; refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }});
     var fi=m.ov.querySelector("#c-file"); if(fi) fi.addEventListener("change",function(){ var file=fi.files&&fi.files[0]; if(!file)return; var lbl=m.ov.querySelector("#c-file-name"); if(lbl)lbl.textContent="Đang tải...";
-      var fd=new FormData(); fd.append("file",file); fd.append("is_private","1"); fd.append("doctype","EC Data Request"); fd.append("docname",name);
-      fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd}).then(function(r){return r.json();}).then(function(j){ state.comp.completed_attachment=(j&&j.message&&j.message.file_url)||""; if(lbl)lbl.textContent=state.comp.completed_attachment?("Đã tải: "+file.name):"Lỗi tải"; }).catch(function(){ if(lbl)lbl.textContent="Lỗi tải"; }); }); }
+      var fd=new FormData(); fd.append("file",file); fd.append("is_private","1");
+      fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd}).then(function(r){ return r.json().catch(function(){return {};}).then(function(j){ return {ok:r.ok,status:r.status,j:j}; }); }).then(function(res){ var url=res.j&&res.j.message&&res.j.message.file_url; if(url){ state.comp.completed_attachment=url; if(lbl)lbl.textContent="Đã tải: "+file.name; return; } var m=(res.status===413)?"Tệp quá lớn (giới hạn ~25MB).":(mapErr(res.j)||("Lỗi tải ("+res.status+")")); if(lbl)lbl.textContent=m; toast(m,true); }).catch(function(e){ var m=mapErr(e)||"Lỗi tải."; if(lbl)lbl.textContent=m; toast(m,true); }); }); }
 
   function startEditDraft(det){ state.draft=Object.assign({}, det.business||{}); state.id=(det.business||{}).name; state.mode="create"; renderCreate($("docr-body")); }
   function doSubmitDraft(name){ if(state.busy)return; state.busy=true; var btns=Array.prototype.slice.call(document.querySelectorAll('[data-act="submitdraft"],[data-act="editdraft"]')); btns.forEach(function(b){ b.disabled=true; });
