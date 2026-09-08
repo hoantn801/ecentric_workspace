@@ -64,7 +64,12 @@ def _expected_signer_pairs(package_name):
     Danh tinh cua MOT nguoi co the den bang id HOAC email - do la ly do co hai truong. Nhung
     su thay the do chi hop le TRONG PHAM VI mot nguoi, khong phai giua nhung nguoi khac nhau.
     """
-    rows = frappe.get_all(DSR, filters={"package": package_name, "action": "Sign"},
+    # CHI chan da ky (Signed / Approval Completed). Chan Permanent Failure / Cancelled (racer
+    # thua binding, SM huy) truoc day van bi dem la "ky vong" -> expected_signer_absent moi
+    # vong cron, tep ky khong bao gio duoc luu, ma _terminal_signed_ok lai coi cac chan do la
+    # "xong" (khong in-flight) - hai dieu kien tu mau thuan (08/09, ra soat).
+    rows = frappe.get_all(DSR, filters={"package": package_name, "action": "Sign",
+                                        "status": ["in", ("Signed", "Approval Completed")]},
                           fields=["effective_scts_user_id", "actor_user", "approver"])
     out = []
     for r in rows:
@@ -358,9 +363,9 @@ def _retrieve_one(pkg, adapter, f, force=False):
     events.emit("SignedFileRetrieved", package=pkg.name,
                 request_meta={"file": f.file_name, "sha256": sha, "size": res["size"]})
 
-    # concurrency-safe commit: lock the row, reload under the lock.
-    frappe.db.get_value(DSF, f.name, "name", for_update=True)
-    cur = frappe.db.get_value(DSF, f.name, ["signed_file", "signed_file_sha256"], as_dict=True)
+    # concurrency-safe commit: locking read in ONE statement (see events.current_status).
+    cur = frappe.db.get_value(DSF, f.name, ["signed_file", "signed_file_sha256"], as_dict=True,
+                              for_update=True)
 
     if cur.signed_file and cur.signed_file_sha256 and cur.signed_file_sha256 == sha:
         events.emit("SignedFileDuplicateSkipped", package=pkg.name,

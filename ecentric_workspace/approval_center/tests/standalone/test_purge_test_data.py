@@ -26,6 +26,7 @@ def _mod(today="2026-09-10", pr_rows=None, sm=True):
     fk.deleted_doc = []
     fk.logs = []
     fk.session = types.SimpleNamespace(user="hoan.tran@ecentric.vn")
+    fk.flags = types.SimpleNamespace()        # purge bat co ec_allow_signed_file_delete (08/09)
 
     def throw(msg, exc=None):
         fk.thrown.append(msg)
@@ -132,6 +133,8 @@ class TestPurge(unittest.TestCase):
         m = _mod()
         r = _run(m, lambda: m.purge(m.CONFIRM_PHRASE, dry_run=0))
         self.assertFalse(r["dry_run"])
+        self.assertTrue(getattr(m._fk.flags, "ec_allow_signed_file_delete", False),
+                        "purge phai bat co ec_allow_signed_file_delete truoc khi xoa (hook File.on_trash)")
         raw = [d for d, _ in m._fk.deleted_raw]
         self.assertEqual(raw, ["EC Digital Signature Event", "EC Approval Action"],
                          "chi hai bang append-only di qua db.delete")

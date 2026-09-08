@@ -104,8 +104,8 @@
     "sha256": "9e7e091060760821a3cf80fd7d2d300825b7bce65013a26c20f9d19b8ed5a264"
   },
   "approval_center/features/payment_request/ui/main_section.html": {
-    "last_resync_patch": "p158_resync_payment_request_file_missing",
-    "sha256": "c1871c2bef35532224253e35d1661f31a9abf663e8a7b71262fedbfab1c4e0d2"
+    "last_resync_patch": "p159_resync_esign_review_stopped_leg_drawer_token",
+    "sha256": "be1a1d517ad8b7c6d060c8e99b587b7d273310bd9e273075bfafbdf31091fbcb"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -191,20 +191,20 @@
     "sha256": "266607e3c3f31f89dd2eed2f25c3414cecd1be8578e4f77592da983a98af37d3"
   },
   "platform/esign/ui/document_signing_section.html": {
-    "last_resync_patch": "p158_resync_payment_request_file_missing",
-    "sha256": "0817732abfbf3995ab0dfc027bf0331bfbeb9203eca4cd0f87194a091f88b26d"
+    "last_resync_patch": "p159_resync_esign_review_stopped_leg_drawer_token",
+    "sha256": "20e2933d07a395736dd8c7c829be66f311aab2f6bc54c064617503f0b6f7ea21"
   },
   "platform/esign/ui/ops_page.html": {
-    "last_resync_patch": "p132_resync_esign_ops_resend",
-    "sha256": "d99a4b70ce68aa9fcf5532f5ae13c072d0122b35c4c8aaf0f15ef489a78d55e4"
+    "last_resync_patch": "p159_resync_esign_review_stopped_leg_drawer_token",
+    "sha256": "3d62b12cce85af8111baece7039d987632a23c6a679a8cb69033bfa7f391aa69"
   },
   "platform/esign/ui/payment_request_signing.html": {
-    "last_resync_patch": "p112_resync_payment_request_clone_owner",
-    "sha256": "a8bf13ca5af66694e1eebefe8ce7e733be37daf11c4d8da3aeecb8b4c6c7d23a"
+    "last_resync_patch": "p159_resync_esign_review_stopped_leg_drawer_token",
+    "sha256": "bd93a055184fb6918f8392740aee9e5ec67bb5fa97fe469a5a2d839e1380d3a6"
   },
   "platform/esign/ui/requester_signing_panel.html": {
-    "last_resync_patch": "p137_resync_payment_request_scts_user_link",
-    "sha256": "c03f16c48878f34d83346335c1840da5a52c04b7ebc981fe1cec7bf4a8022e18"
+    "last_resync_patch": "p159_resync_esign_review_stopped_leg_drawer_token",
+    "sha256": "4aa7b29bac83023432ed92af04d9393efb7c74d157acec9473008df4aa86aecd"
   },
   "reporting/frontend/pnl_dashboard.main_section.html": {
     "baseline": "2026-08-31",

@@ -456,7 +456,9 @@ class TestPanelHtml(unittest.TestCase):
     def test_hien_khoi_theo_backend_khong_tu_suy(self):
         self.assertIn('b(c, "scts_link_required")', self.h)
         self.assertIn('b(c, "scts_linked")', self.h)
-        self.assertEqual(self.h.count("renderLink(c);"), 2, "ca truoc va sau khi gui")
+        # 4 tu 08/09: truoc khi gui, sau khi gui, va hai nhanh chan ky da dung (Failed /
+        # Reconciliation Required) - o dau cung phai dua khoi ket noi theo backend.
+        self.assertEqual(self.h.count("renderLink(c);"), 4, "truoc/sau khi gui + Failed + Reconciliation")
 
 
 if __name__ == "__main__":

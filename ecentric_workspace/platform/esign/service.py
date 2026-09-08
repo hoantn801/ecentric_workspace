@@ -24,6 +24,58 @@ from ecentric_workspace.platform.esign.sanitize import safe_error
 DSR = "EC Digital Signature Request"
 LIVE_OR_DONE = ("Prepared", "Queued", "Provider Accepted", "Verifying", "Signed",
                 "Approval Completed")
+#: Chan ky CHUA BAO GIO xep hang: dung lai dong, di tiep Prepared (canh hop le tu state.py).
+_REUSABLE_PRE_QUEUE = ("Draft", "Mapping Required", "Placement Required")
+#: Chan ky da CHET HAN (khong con vong doi soat nao cham toi). Chua tung gui thi cho di lai
+#: bang mot dong MOI; da tung gui thi chi con Doi soat cua quan tri.
+_DEAD = ("Permanent Failure", "Cancelled")
+#: Chan ky dang doi mot vong tu dong / mot nguoi truc - KHONG duoc chen mot chan thu hai.
+_WAITING_HUMAN_VI = {
+    "Retryable Failure": "hệ thống đang tự thử lại",
+    "Manual Review": "quản trị đang đối soát với nhà cung cấp",
+    "Verification Mismatch": "quản trị đang đối soát với nhà cung cấp",
+}
+
+
+def retire_dead_leg(existing, actor, who_vi="Lượt ký trước của bạn"):
+    """Mot khoa idempotency = MOT chan ky, vinh vien. Vay chan ky chet (Permanent Failure /
+    Cancelled) chan luon moi lan bam sau: `approve_and_sign` tung "dung lai dong" bang canh
+    X -> Prepared khong ton tai trong state.py -> InvalidTransition -> 500 cho nguoi duyet;
+    `requester_submit_and_sign` thi insert trung khoa unique -> 500 cho nguoi de nghi. Sau khi
+    SM "Huy chan ky" hay mot lan 413 luc tao chung tu, khong ai ky lai duoc o cap do nua
+    (08/09, ra soat).
+
+    CHI khi chan cu CHUA TUNG GUI lenh ky (state.may_have_sent False): doi khoa cua dong cu
+    sang sha256(khoa|retired|ten) - dong cu giu nguyen trang thai + toan bo su kien, ghi su kien
+    LegRetired co khoa goc - de nguoi goi tao dong MOI voi khoa goc. Da tung gui (accepted_at /
+    bulk id / attempt > 1) thi mot lenh nua la nguy co CHU KY THU HAI -> tu choi, chi dan sang
+    Doi soat. Tra ve True khi da nhuong cho; nem loi than thien khi khong duoc.
+    """
+    row = frappe.db.get_value(DSR, existing.name,
+                              ["name", "status", "accepted_at", "bulk_job_transaction_id",
+                               "request_attempt", "idempotency_key", "package"],
+                              as_dict=True, for_update=True)
+    if not row:
+        return True
+    if row.status in LIVE_OR_DONE or row.status in _REUSABLE_PRE_QUEUE:
+        return False                                        # nguoi goi xu ly nhu cu
+    if row.status in _WAITING_HUMAN_VI:
+        frappe.throw(_("{0} ở cấp này chưa kết thúc ({1}) — chưa thể ký lại. Không cần bấm lại.")
+                     .format(who_vi, _WAITING_HUMAN_VI[row.status]))
+    if row.status not in _DEAD:
+        frappe.throw(_("{0} ở cấp này đã kết thúc ({1}) — không thể tự ký lại. Quản trị cần xử "
+                       "lý trên trang vận hành ký số.").format(who_vi, row.status))
+    if sm.may_have_sent(row):
+        frappe.throw(_("{0} ở cấp này đã dừng ({1}) nhưng lệnh ký có thể đã tới nhà cung cấp — "
+                       "không thể tự ký lại để tránh ký đúp. Quản trị cần đối soát trên trang "
+                       "vận hành ký số.").format(who_vi, row.status))
+    from ecentric_workspace.platform.esign import hashing
+    retired = hashing.sha256_text("%s|retired|%s" % (row.idempotency_key, row.name))
+    frappe.db.set_value(DSR, row.name, "idempotency_key", retired)
+    events.emit("LegRetired", signature_request=row.name, package=row.package, erp_actor=actor,
+                request_meta={"prior_status": row.status, "original_key": row.idempotency_key,
+                              "retired_key": retired, "reason": "never_sent_new_attempt"})
+    return True
 
 
 # --------------------------------------------------------------------------- #
@@ -156,20 +208,26 @@ def approve_and_sign(business_doctype, business_name, comment=None, bulk_batch_k
     lock = _lock_key(req.name, req.current_level)
     _acquire_lock(lock)
     try:
-        # Backstop re-check inside the lock window.
+        # Backstop re-check inside the lock window - CO KHOA (locking read), vi snapshot cua
+        # transaction nay da lap tu truoc khi vao lock (events.current_status).
         existing = frappe.db.get_value(DSR, {"idempotency_key": idem},
-                                       ["name", "status"], as_dict=True)
+                                       ["name", "status"], as_dict=True, for_update=True)
         if existing and existing.status in LIVE_OR_DONE:
             return {"signature_request": existing.name, "status": existing.status,
                     "duplicate": True}
-        if existing:  # prior terminal-failed attempt: reuse row, bump attempt
+        if existing and existing.status in _REUSABLE_PRE_QUEUE:
+            # Dong chua bao gio xep hang (chet giua Draft va Queued): dung lai. KHONG tang
+            # request_attempt - chua co gi di, ma attempt > 1 lam may_have_sent True va worker
+            # se dua thang vao Manual Review thay vi gui.
             dsr_name = existing.name
-            frappe.db.set_value(DSR, dsr_name, {
-                "request_attempt": (frappe.db.get_value(DSR, dsr_name, "request_attempt") or 0) + 1,
-                "requested_by": actor})
+            frappe.db.set_value(DSR, dsr_name, {"requested_by": actor})
             events.set_dsr_status(dsr_name, "Prepared", event_type="RetryScheduled",
                                   erp_actor=actor)
         else:
+            if existing:
+                # Chan cu da chet & chua tung gui -> nhuong khoa (LegRetired), tao dong moi.
+                # Dang doi soat / co the da gui -> retire_dead_leg nem loi than thien.
+                retire_dead_leg(existing, actor)
             dsr = frappe.get_doc({
                 "doctype": DSR, "provider": profile.provider,
                 "environment": profile.environment, "package": pkg_name,
@@ -371,10 +429,10 @@ def verify_and_complete(dsr_name):
     alone). On engine refusal (state drift) -> Manual Review ONLY if this attempt
     still owns the Signed state (R2: losers of a completion race exit as idempotent
     no-ops; terminal states are never downgraded)."""
-    frappe.db.get_value(DSR, dsr_name, "name", for_update=True)
+    # Locking read in ONE statement (see events.current_status).
     dsr = frappe.db.get_value(DSR, dsr_name,
                               ["name", "status", "approval_request", "approver", "package"],
-                              as_dict=True)
+                              as_dict=True, for_update=True)
     if not dsr or dsr.status != "Signed":
         return {"completed": False, "reason": "not_in_signed_state"}
     prev = getattr(frappe.flags, guard.FLAG_KEY, None)
@@ -527,9 +585,14 @@ def get_signing_status(business_doctype, business_name):
         # Draft (which has neither, since approval_request is set only at lock) so the placement
         # editor / signing UI can resolve it pre-lock. For the approver flow a locked/active
         # package always exists, so the Draft fallback never fires.
+        # Goi KHONG terminal, MOI nhat: sau "tra lai -> gui lai" (create_revision) hai goi cung
+        # tro vao mot approval_request; lay bua theo thu tu DB tung tra goi Superseded ->
+        # trang thai/khoa sai cho ui_state va placement_editor_config (08/09, ra soat).
         pkg_name = pkgsvc.active_package_for_request(ar) \
             or frappe.db.get_value("EC Digital Signature Package",
-                                   {"approval_request": ar}, "name") \
+                                   {"approval_request": ar,
+                                    "status": ["not in", sm.PACKAGE_TERMINAL]}, "name",
+                                   order_by="creation desc") \
             or pkgsvc.draft_package_for_business(business_doctype, business_name)
     else:
         pkg_name = pkgsvc.draft_package_for_business(business_doctype, business_name)
@@ -656,12 +719,19 @@ def _continue_after_reconcile(package_name):
         DSR, filters={"package": package_name,
                       "status": ["in", ["Queued", "Provider Accepted", "Verifying",
                                         "Retryable Failure", "Manual Review"]]},
-        fields=["name", "status", "bulk_job_transaction_id"])
+        fields=["name", "status", "bulk_job_transaction_id", "accepted_at"])
     out = []
     for r in rows:
-        frappe.db.get_value(DSR, r.name, "name", for_update=True)
-        if r.bulk_job_transaction_id:
-            # bulk-process may already have occurred -> poll only, never resubmit.
+        # Doc lai CO KHOA: hang get_all o tren la snapshot, co the da cu (events.current_status).
+        live = frappe.db.get_value(DSR, r.name, ["status", "bulk_job_transaction_id",
+                                                 "accepted_at"], as_dict=True, for_update=True)
+        if not live:
+            continue
+        r.status, r.bulk_job_transaction_id = live.status, live.bulk_job_transaction_id
+        r.accepted_at = live.accepted_at
+        if r.bulk_job_transaction_id or r.accepted_at:
+            # bulk-process may already have occurred (txn id, hoac `accepted_at` - ke ca lenh
+            # ky ket qua KHONG RO, xem tasks BulkOutcomeUnknown) -> poll only, never resubmit.
             if r.status != "Verifying" and r.status in ("Retryable Failure",):
                 events.set_dsr_status(r.name, "Queued", event_type="RetryScheduled",
                                       extra_fields={"queued_at": now_datetime()})
@@ -669,7 +739,7 @@ def _continue_after_reconcile(package_name):
             continue
         # no bulk submitted -> requeue to Queued via a legal path; the worker poll-first
         # completes if already signed, otherwise submits bulk-process exactly once.
-        cur = frappe.db.get_value(DSR, r.name, "status")
+        cur = r.status
         if cur == "Verifying":
             events.set_dsr_status(r.name, "Retryable Failure", event_type="RetryScheduled",
                                   extra_fields={"retryable": 1})
@@ -746,12 +816,48 @@ def signing_readiness(business_doctype, business_name):
     ready = all(checks.get(k) for k in required)
     reasons = [k for k in required if not checks.get(k)]
     return {"ready": ready, "reasons": reasons, "checks": checks,
-            "in_flight": in_flight_leg(ar, req.current_level, user)}
+            "in_flight": in_flight_leg(ar, req.current_level, user),
+            "stopped": stopped_leg(ar, req.current_level, user)}
 
 
 #: Chan ky cua CHINH nguoi nay o CAP nay dang bay hoac dang cho doi soat.
 _IN_FLIGHT = ("Queued", "Provider Accepted", "Verifying", "Signed", "Manual Review",
-              "Retryable Failure")
+              "Retryable Failure", "Verification Mismatch")
+#: Chan ky da DUNG HAN o cap nay (khong vong tu dong nao cham toi nua).
+_STOPPED = ("Permanent Failure", "Cancelled")
+
+
+def _own_leg_at_level(approval_request, level_no, user, statuses):
+    if not (approval_request and level_no and user):
+        return None
+    rows = frappe.get_all("EC Digital Signature Request",
+                          filters={"approval_request": approval_request, "approver": user,
+                                   "actor_type": ["!=", "Requester"],
+                                   "status": ["in", statuses]},
+                          fields=["name", "status", "accepted_at", "request_level",
+                                  "manual_review_reason", "bulk_job_transaction_id",
+                                  "request_attempt", "error_code"],
+                          order_by="creation desc", limit_page_length=5)
+    for r in rows:
+        if not r.request_level:
+            continue                          # khong biet cap nao -> khong duoc an nut cua cap nay
+        lvl = frappe.db.get_value("EC Approval Request Level", r.request_level, "level_no")
+        if lvl is not None and int(lvl) == int(level_no):
+            return r
+    return None
+
+
+def stopped_leg(approval_request, level_no, user):
+    """Chan ky DA DUNG cua `user` o cap nay -> {name, status, error_code, can_resign} hoac None.
+
+    `can_resign` = chua tung gui lenh ky (state.may_have_sent False): bam "Duyet & Ky" se tao
+    chan moi (service.retire_dead_leg). Nguoc lai man hinh phai noi ro la can quan tri doi
+    soat, thay vi moi bam roi tra loi bang mot dong loi (08/09)."""
+    r = _own_leg_at_level(approval_request, level_no, user, _STOPPED)
+    if not r:
+        return None
+    return {"name": r.name, "status": r.status, "error_code": r.error_code,
+            "can_resign": not sm.may_have_sent(r)}
 
 
 def in_flight_leg(approval_request, level_no, user):
@@ -762,20 +868,8 @@ def in_flight_leg(approval_request, level_no, user):
     bien JS (SIGNWAIT) - tai lai trang la mat, va bam lan hai la ky lan hai. Nguon that la
     DSR: co chan ky dang bay thi man hinh KHONG duoc moi bam nua, bat ke ai tai lai gi.
     """
-    if not (approval_request and level_no and user):
+    r = _own_leg_at_level(approval_request, level_no, user, _IN_FLIGHT)
+    if not r:
         return None
-    rows = frappe.get_all("EC Digital Signature Request",
-                          filters={"approval_request": approval_request, "approver": user,
-                                   "actor_type": ["!=", "Requester"],
-                                   "status": ["in", _IN_FLIGHT]},
-                          fields=["name", "status", "accepted_at", "request_level",
-                                  "manual_review_reason"],
-                          order_by="creation desc", limit_page_length=5)
-    for r in rows:
-        if not r.request_level:
-            continue                          # khong biet cap nao -> khong duoc an nut cua cap nay
-        lvl = frappe.db.get_value("EC Approval Request Level", r.request_level, "level_no")
-        if lvl is not None and int(lvl) == int(level_no):
-            return {"name": r.name, "status": r.status, "accepted_at": str(r.accepted_at or ""),
-                    "manual_review_reason": r.manual_review_reason}
-    return None
+    return {"name": r.name, "status": r.status, "accepted_at": str(r.accepted_at or ""),
+            "manual_review_reason": r.manual_review_reason}

@@ -161,7 +161,8 @@ def _ensure_signable_dsf(business_doctype, business_name, f, cur_name):
     if not dsf:
         display = f.get("file_name") or (f.get("file_url") or "").rsplit("/", 1)[-1] or "document.pdf"
         dsf_name = pkgsvc.add_file(draft, display, content, requires_signature=1,
-                                   is_supporting_document=0).name
+                                   is_supporting_document=0,
+                                   source_file=f["name"]).name   # lien ket, khong sao chep (05/09)
     else:
         dsf_name = dsf["name"]
     return draft, dsf_name

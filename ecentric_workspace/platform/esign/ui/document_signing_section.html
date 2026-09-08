@@ -249,6 +249,7 @@
       + act + '</div>';
   }
 
+  var UP = { busy: false, notice: "" };                       // tai tep: dang tai / dong bao sau khi tai
   function render() {
     if (!STATE) return;
     var sm = STATE.summary || {}, plan = STATE.signer_plan || {};
@@ -287,10 +288,14 @@
     var editingNow = _editing();
     var supportOnly = !(STATE.editable && STATE.can_classify)
                       && !!STATE.can_add_supporting && editingNow;
-    upBtn.disabled = !(STATE.editable && STATE.can_classify) && !supportOnly;
+    upBtn.disabled = (!(STATE.editable && STATE.can_classify) && !supportOnly) || UP.busy;
     var upHint = document.getElementById("ecdUploadHint");
-    if (upHint && !upHint.textContent) {
-      upHint.textContent = supportOnly
+    // Goi y viet lai MOI lan ve (truoc day chi khi o trong): sau khi bam "Chinh sua & gui lai"
+    // nut da mo nhung dong chu van bao "bam Chinh sua & gui lai" (08/09). Dang tai thi giu
+    // dong tien do; vua tai xong co loi thi giu dong loi cho toi lan ve ke tiep.
+    if (upHint && !UP.busy) {
+      if (UP.notice) { upHint.textContent = UP.notice; UP.notice = ""; }
+      else upHint.textContent = supportOnly
         ? "Tệp thêm ở bước này là bộ chứng từ — không cần ký, không ảnh hưởng chữ ký đã có."
         : (STATE.can_add_supporting && !editingNow
            ? "Bấm “Chỉnh sửa & gửi lại” để bổ sung chứng từ."
@@ -406,10 +411,23 @@
   }
 
   // native multi-file upload -> normal File rows attached to the request (no schema change)
+  function _uploadReason(status, body) {
+    // Ly do doc duoc thay vi "N tep loi" (08/09): 413 = nginx chan ~25 MB (khong phai loi app),
+    // 403 = quyen, con lai lay message may chu neu co.
+    if (status === 413) return "tệp quá lớn (giới hạn ~25 MB)";
+    if (status === 403) return "không có quyền tải lên";
+    var m = body && body._server_messages;
+    try { var arr = JSON.parse(m); var f = arr.length ? JSON.parse(arr[0]) : null;
+      if (f && f.message) return String(f.message).replace(/<[^>]+>/g, ""); } catch (e) {}
+    return (body && body.exception ? String(body.exception).split(":").pop().trim() : "") || ("lỗi " + status);
+  }
   function uploadFiles(files) {
     var name = pr(); if (!name || !files || !files.length) return;   // no persisted name -> no POST
+    if (UP.busy) return;                                      // mot dot mot luc - khong chong so dem
     var hint = document.getElementById("ecdUploadHint");
-    var done = 0, total = files.length, failed = 0, firstUrl = null;
+    var done = 0, total = files.length, failed = 0, firstUrl = null, reasons = [];
+    UP.busy = true; UP.notice = "";
+    var _btn = document.getElementById("ecdUploadBtn"); if (_btn) _btn.disabled = true;
     hint.textContent = "Đang tải 0/" + total + "…";
     Array.prototype.forEach.call(files, function (file) {
       var fd = new FormData();
@@ -427,19 +445,26 @@
       // TỰ KIỂM QUYỀN: esign.api.attach_uploaded_file.
       fetch("/api/method/upload_file", { method: "POST",
         headers: { "X-Frappe-CSRF-Token": (window.frappe && frappe.csrf_token) || "" }, body: fd })
-        .then(function (r) { return r.json(); })
-        .then(function (j) {
-          var url = j && j.message && j.message.file_url;
-          if (!url) { failed++; return; }
+        .then(function (r) {
+          // 413 tra HTML cua nginx: r.json() nem -> truoc day thanh "1 tep loi" khong ly do.
+          return r.text().then(function (t) { var j = null; try { j = JSON.parse(t); } catch (e) {}
+            return { status: r.status, body: j }; });
+        })
+        .then(function (res) {
+          var j = res.body, url = j && j.message && j.message.file_url;
+          if (!url) { failed++; reasons.push(file.name + ": " + _uploadReason(res.status, j)); return; }
           return call("attach_uploaded_file", { payment_request_name: name, file_url: url }, "POST")
             .then(function () { if (!firstUrl) firstUrl = url; })
-            .catch(function () { failed++; });
+            .catch(function (e) { failed++; reasons.push(file.name + ": không gắn được vào phiếu"
+              + ((e && e.message) ? " (" + e.message + ")" : "")); });
         })
-        .catch(function () { failed++; })
+        .catch(function () { failed++; reasons.push(file.name + ": mất kết nối"); })
         .then(function () {
           done++; hint.textContent = "Đang tải " + done + "/" + total + "…";
           if (done !== total) return;
-          hint.textContent = failed ? (failed + " tệp lỗi") : "";
+          UP.busy = false;
+          UP.notice = failed ? (failed + " tệp lỗi — " + reasons.join("; ")) : "";
+          hint.textContent = UP.notice;
           // set the backward-compatible representative pointer ONLY if empty (server-guarded);
           // never overwrites an existing pointer, never touches other fields, then refresh.
           if (firstUrl) {
@@ -726,7 +751,7 @@
   function exitPlacementMode() { DRW.slot = null; renderCards(); }   // ISSUE 3
   function placeAt(px, py) {
     if (DRW.st && DRW.st.editable === false) {                // ISSUE 4: no placing after submit
-      drawerErr("Yêu cầu đã được gửi — không thể thêm vị trí ký."); return; }
+      drawerErr(_roText(DRW.st) + " Không thể thêm vị trí ký."); return; }
     if (!DRW.slot) { drawerErr("Hãy chọn một người ký, rồi bấm lên tài liệu để đặt vị trí."); return; }
     var s = _px(), sx = s[0], sy = s[1];
     var box = _clampBox({ x: px / sx, y: py / sy, width: 240, height: 120 });  // chuẩn vùng ký SCTS
@@ -925,23 +950,40 @@
 
   function openDrawer(ref) {
     _cancelPending(); _setDrawerOpen(true); _portalOverlay();                         // switching document cancels prior timers
-    DRW.ref = ref; DRW.slot = null;
+    DRW.ref = ref; DRW.slot = null; DRW.st = null; DRW.pdf = null;
+    // Ma phien cua LAN MO nay. Moi phan hoi ve sau (placement_state, PDF, overlay) phai
+    // khop ma nay - mo tep X (PDF lon, cham), dong, mo tep Y: truoc day phan hoi cua X ve
+    // sau de len DRW.pdf/DRW.st trong khi DRW.ref = Y -> o ky dat len trang cua X, luu vao Y.
+    var myTok = DRW.docToken, myPr = pr();
     var doc = (STATE.documents || []).filter(function (d) { return d.document_ref === ref; })[0];
     document.getElementById("ecdDrawerName").textContent = "Thiết lập chữ ký — " + (doc ? doc.display_name : "");
     document.getElementById("ecdDrawerOv").style.display = "block";
     document.getElementById("ecdViewerMsg").textContent = "Đang tải tài liệu…";
+    // Xoa trang/o cua tep truoc NGAY - khong de tep cu hien duoi ten tep moi trong luc tai.
+    var _ly = document.getElementById("ecdLayer"); if (_ly) _ly.innerHTML = "";
+    document.getElementById("ecdStage").style.display = "none";
+    document.getElementById("ecdDrawerSummary").textContent = "";
     saveState("");
+    function stale() { return myTok !== DRW.docToken || DRW.ref !== ref || pr() !== myPr; }
     // Trang thai ky THAT tu SCTS. Truot thi bo qua - chu ky da ky la thong tin them, khong
-    // duoc phep lam hong viec mo drawer.
-    call("document_signature_overlay", { payment_request_name: pr() })
-      .then(function (o) { DRW.signed = (o && o.signed) || []; _applySigned(); })
-      .catch(function () { DRW.signed = []; });
-    Promise.all([call("placement_state", { payment_request_name: pr(), document_ref: ref }), loadPdfjs()])
+    // duoc phep lam hong viec mo drawer. Ve muon / cua phieu khac thi bo.
+    call("document_signature_overlay", { payment_request_name: myPr })
+      .then(function (o) { if (stale()) return; DRW.signed = (o && o.signed) || []; _applySigned(); })
+      .catch(function () { if (stale()) return; DRW.signed = []; _applySigned(); });
+    Promise.all([call("placement_state", { payment_request_name: myPr, document_ref: ref }), loadPdfjs()])
       .then(function (res) {
+        if (stale()) return;                                  // da dong / mo tep khac / doi phieu
         DRW.st = res[0] || {}; var ok = res[1];
         drawerErr("");
-        document.getElementById("ecdRoBanner").style.display =
-          DRW.st.editable === false ? "block" : "none";     // ISSUE 4: view-only after submit
+        if (DRW.st.ok === false) {
+          // Tep khong con thuoc phieu (da go / thay the) - KHONG phai "dinh dang chua ho tro".
+          document.getElementById("ecdViewerMsg").textContent =
+            "Tệp này không còn thuộc phiếu (đã gỡ hoặc thay đổi). Đóng cửa sổ và tải lại trang.";
+          return;
+        }
+        var _ro = document.getElementById("ecdRoBanner");
+        _ro.style.display = DRW.st.editable === false ? "block" : "none";   // ISSUE 4: view-only after submit
+        _ro.textContent = _roText(DRW.st);
         document.getElementById("ecdDrawerSummary").textContent =
           (DRW.st.required_slot_count || 0) + " người ký cần thiết lập · " + progressText();
         renderCards();
@@ -964,11 +1006,13 @@
         if (DRW.pdfDocs[_fu]) { DRW.pdf = DRW.pdfDocs[_fu]; DRW.page = 1; renderPdf(); }
         else pdfjsLib.getDocument({ url: _fu, isEvalSupported: false }).promise.then(function (pdf) {
           DRW.pdfDocs[_fu] = pdf;                             // cache: mở lại drawer là hiện ngay
+          if (stale()) return;                                // PDF cua tep truoc ve muon
           DRW.pdf = pdf; DRW.page = 1; renderPdf();
-        }).catch(function () { document.getElementById("ecdViewerMsg").textContent =
+        }).catch(function () { if (stale()) return; document.getElementById("ecdViewerMsg").textContent =
           "Không tải được nội dung PDF (kiểm tra quyền)."; });
       })
       .catch(function (e) {
+        if (stale()) return;
         // Nhanh placement_state/loadPdfjs hong (500, mat mang) truoc day khong co catch:
         // drawer mo ra trong rong, khong loi, khong huong dan - nguoi dat vi tri ky tuong
         // minh lam sai (BOT 3, 31/08).
@@ -981,6 +1025,15 @@
       if (e.target !== this) return;                          // ignore clicks on existing boxes
       var r = this.getBoundingClientRect(); placeAt(e.clientX - r.left, e.clientY - r.top);
     };
+  }
+  // Vi sao chi xem - noi dung su that. Truoc day moi nguoi khong phai nguoi de nghi (ke ca
+  // quan tri mo mot ban nhap CHUA gui) deu doc "Yeu cau da duoc gui" (08/09).
+  function _roText(st) {
+    var r = st && st.setup_editable_reason;
+    if (r === "already_submitted") return "Yêu cầu đã được gửi — chỉ xem, không thể chỉnh sửa vị trí ký.";
+    if (r === "package_locked") return "Gói ký đã khoá — chỉ xem, không thể chỉnh sửa vị trí ký.";
+    if (r === "needs_review") return "Cấu hình gói ký đang mơ hồ — chỉ xem; cần quản trị rà soát.";
+    return "Chỉ người đề nghị mới đặt vị trí ký — bạn đang xem.";
   }
   function refreshRow() { DRW.rowsStale = true; }             // rows are behind the overlay: refresh ONCE on close (no 3-call reload per save)
   function closeDrawer() { _cancelPending(); _setDrawerOpen(false); DRW.pdf = null;
@@ -1009,6 +1062,8 @@
         STATE = res[0] || {}; PLAN = res[1] || {};
         var rd = res[2] || {}, ck = rd.checks || {};
         relocate(); root.style.display = "block";
+        var _le = document.getElementById("ecdLoadErr");     // lan truoc loi, lan nay duoc: go bang do
+        if (_le && _le.parentNode) _le.parentNode.removeChild(_le);
         // Approver panel visibility uses the AUTHORITATIVE existing governed signal: the current
         // user is the active pending approver at the current level
         // (service.signing_readiness.checks.active_approver, i.e. perms.pending_approver_row on
@@ -1076,6 +1131,7 @@
     _cancelPending(); closeDrawer();                          // cancel autosave timers + close drawer
     DRW.st = null; DRW.ref = null; DRW.slot = null; DRW.geom = {}; DRW.drag = null;
     DRW.pdfDocs = {}; DRW.rowsStale = false; DRW.sigPreview = null; DRW.showSig = false;
+    DRW.signed = [];                                          // chu ky THAT cua phieu truoc khong duoc mang sang
     STATE = null; PLAN = null;
     var r = document.getElementById("ecdRows"); if (r) r.innerHTML = "";
     var sm = document.getElementById("ecdSummary"); if (sm) sm.textContent = "";

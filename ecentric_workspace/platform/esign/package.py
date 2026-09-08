@@ -55,10 +55,13 @@ def signable_package_for_request(approval_request):
                                "name")
 
 
-def draft_package_for_business(business_doctype, business_name):
+def draft_package_for_business(business_doctype, business_name, for_update=False):
+    """`for_update=True` = locking read: thay ca Draft vua duoc transaction khac commit (lenh
+    doc thuong tra snapshot cu duoi REPEATABLE READ - xem events.current_status)."""
     return frappe.db.get_value("EC Digital Signature Package",
                                {"business_doctype": business_doctype,
-                                "business_name": business_name, "status": "Draft"}, "name")
+                                "business_name": business_name, "status": "Draft"}, "name",
+                               for_update=for_update)
 
 
 def package_files(pkg_name):
@@ -124,9 +127,13 @@ def get_or_create_draft(business_doctype, business_name, profile_name, allow_sub
     by the caller (orphan prevention). Normally the doc must not be submitted yet; the
     REQUESTER pre-approval prep path passes allow_submitted=True to prepare the package during
     the governed Pending Requester Signature stage (the caller is still authorized upstream)."""
-    if not frappe.db.exists(business_doctype, business_name):
+    # KHOA phieu roi moi tim Draft: hai lan dat o ky dau tien trong cua so debounce 500ms (hoac
+    # hai tab) cung khong thay Draft -> insert HAI goi Draft -> _current_package bao needs_review
+    # va moi lenh ghi bi tu choi, khong duong tu cuu (08/09, ra soat). Khoa hang phieu la
+    # khoa tu nhien cua "mot Draft moi phieu"; goi thu hai doi khoa roi thay Draft vua tao.
+    if not frappe.db.get_value(business_doctype, business_name, "name", for_update=True):
         frappe.throw(_("Vui lòng lưu nháp yêu cầu trước khi tải tệp."))
-    existing = draft_package_for_business(business_doctype, business_name)
+    existing = draft_package_for_business(business_doctype, business_name, for_update=True)
     if existing:
         return get_package(existing)
     if not allow_submitted and perms.business_approval_request(business_doctype, business_name):

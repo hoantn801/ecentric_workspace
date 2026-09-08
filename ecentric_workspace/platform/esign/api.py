@@ -27,6 +27,25 @@ def _business_args(business_doctype, business_name):
     return business_doctype, business_name
 
 
+def _settings_of(pkg_or_dsr):
+    """Provider Settings DUNG CAP provider/environment cua goi/chan ky nay.
+
+    Ba diem chan doan/van hanh tung chon `{"integration_enabled": 1}` - hang DAU TIEN dang
+    bat, bat ke moi truong. Bat ca UAT lan Production thi authorize_resend hoi NHAM tenant:
+    tai lieu khong ton tai ben do -> "chua ky" -> cho gui lai (08/09, ra soat). Khoa theo
+    cap nhu moi noi khac (tasks/signed_files._settings_and_adapter)."""
+    s = frappe.db.get_value("EC Digital Signature Provider Settings",
+                            {"provider": pkg_or_dsr.get("provider"),
+                             "environment": pkg_or_dsr.get("environment")}, "*", as_dict=True)
+    if not s:
+        frappe.throw(_("Chưa cấu hình Provider Settings cho {0}/{1}.").format(
+            pkg_or_dsr.get("provider"), pkg_or_dsr.get("environment")))
+    if not s.get("integration_enabled"):
+        frappe.throw(_("Cổng tích hợp {0}/{1} đang tắt.").format(
+            pkg_or_dsr.get("provider"), pkg_or_dsr.get("environment")))
+    return s
+
+
 def _file_bytes():
     """Multipart file (preferred) or base64 `filedata` fallback. Content is validated
     downstream (magic bytes / denylist / size)."""
@@ -206,10 +225,7 @@ def authorize_resend(dsr_name, reason):
     if not pkg or not pkg.scts_document_id:
         frappe.throw(_("Gói chưa có tài liệu bên nhà cung cấp - không có gì để gửi lại."))
 
-    settings = frappe.db.get_value("EC Digital Signature Provider Settings",
-                                   {"integration_enabled": 1}, "*", as_dict=True)
-    if not settings:
-        frappe.throw(_("Không có Provider Settings đang bật."))
+    settings = _settings_of(dsr)
     from ecentric_workspace.platform.esign.providers import get_adapter
     from ecentric_workspace.platform.esign.providers.base import SignatureProviderAdapter
     from ecentric_workspace.platform.esign.sanitize import safe_error
@@ -348,13 +364,12 @@ def provider_document_shape(payment_request_name):
         "name", order_by="creation desc")
     if not pkg_name:
         return {"ok": False, "reason": "no_package"}
-    doc_id = frappe.db.get_value("EC Digital Signature Package", pkg_name, "scts_document_id")
+    pkg_row = frappe.db.get_value("EC Digital Signature Package", pkg_name,
+                                  ["scts_document_id", "provider", "environment"], as_dict=True)
+    doc_id = pkg_row.scts_document_id
     if not doc_id:
         return {"ok": False, "reason": "no_provider_document", "package": pkg_name}
-    settings = frappe.db.get_value("EC Digital Signature Provider Settings",
-                                   {"integration_enabled": 1}, "*", as_dict=True)
-    if not settings:
-        frappe.throw(_("Không có Provider Settings đang bật."))
+    settings = _settings_of(pkg_row)
     from ecentric_workspace.platform.esign.providers import get_adapter
     raw = get_adapter(settings).get_document(doc_id)
     return {"ok": True, "package": pkg_name, "document_id": doc_id,
@@ -1160,16 +1175,14 @@ def signature_geometry_check(package):
     """
     perms.assert_system_manager()
     pkg = frappe.db.get_value("EC Digital Signature Package", package,
-                              ["name", "scts_document_id", "status"], as_dict=True)
+                              ["name", "scts_document_id", "status", "provider", "environment"],
+                              as_dict=True)
     if not pkg:
         frappe.throw(_("Không tìm thấy gói ký."))
     if not pkg.scts_document_id:
         return {"ok": False, "reason": "no_provider_document", "package": pkg.name}
 
-    settings = frappe.db.get_value("EC Digital Signature Provider Settings",
-                                   {"integration_enabled": 1}, "*", as_dict=True)
-    if not settings:
-        frappe.throw(_("Không có Provider Settings đang bật."))
+    settings = _settings_of(pkg)
     from ecentric_workspace.platform.esign.providers import get_adapter
     from ecentric_workspace.platform.esign.sanitize import safe_error
     adapter = get_adapter(settings)

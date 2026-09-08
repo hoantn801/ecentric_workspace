@@ -87,8 +87,7 @@ class _FakeDB(object):
 
     def get_value(self, dt, name, fields=None, as_dict=False, for_update=False, **kw):
         if for_update:
-            self.locked.append((dt, name))
-            return name
+            self.locked.append((dt, name))     # locking READ (08/09): khoa + tra du lieu
         if dt == DSF:
             if fields == "name":
                 return name

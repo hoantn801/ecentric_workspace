@@ -36,6 +36,10 @@
       var panel = el("ec-esign-panel");
       if(!panel) return Promise.resolve();
       if(!pr){ panel.innerHTML = ""; return Promise.resolve(); }
+      // Khong ve gi thi cung khong hoi gi: truoc day moi lan mo phieu (va moi popstate) van
+      // goi get_signing_status + signing_readiness roi vut - signing_readiness tinh lai
+      // compute_hash (doc bytes moi tep), tuc 3 lan/luot xem phieu cong voi hai khoi kia (08/09).
+      if(!this.RENDER_LEGACY_UI){ panel.innerHTML = ""; return Promise.resolve(); }
       var self = this;
       return Promise.all([ self.loadStatus(), self.loadReadiness() ])
         .then(function(){ self.render(); })

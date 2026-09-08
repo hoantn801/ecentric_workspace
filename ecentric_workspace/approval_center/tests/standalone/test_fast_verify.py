@@ -56,9 +56,11 @@ class _Db(object):
 
 def _load_fast_verify(states, on_process):
     src = _src("platform", "esign", "tasks.py")
+    g_commits = []
     g = {"time": type("T", (), {"sleep": staticmethod(lambda s: None)}),
          "DSR": "EC Digital Signature Request",
          "_disabled": lambda: False,
+         "_commit_step": lambda: g_commits.append(1),     # 08/09: chot moi vong, nha khoa hang
          "process_signing_request": on_process,
          "frappe": type("F", (), {"db": _Db(states),
                                   "get_traceback": staticmethod(lambda: ""),

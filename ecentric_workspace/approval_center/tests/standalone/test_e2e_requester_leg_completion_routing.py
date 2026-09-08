@@ -74,6 +74,8 @@ def _load_tasks(dsr_rows, pkg_rows=(), dsr_table=None, completed_exists=None):
                       **kw):
             if dt == "EC Digital Signature Provider Settings":
                 return 1                                    # integration_enabled
+            if dt == "EC Approval Request":
+                return {"AR-REJ": "Rejected", "AR-CAN": "Cancelled"}.get(name_or_filters, "Approved")
             if dt == "EC Digital Signature Request":
                 row = (dsr_table or {}).get(name_or_filters, {})
                 if isinstance(fields, str):
@@ -90,6 +92,10 @@ def _load_tasks(dsr_rows, pkg_rows=(), dsr_table=None, completed_exists=None):
         @staticmethod
         def count(dt, filters=None):
             return 0
+
+        @staticmethod
+        def commit():
+            calls["logs"].append(("commit",))       # 08/09: chot moi chan trong vong cron
 
         @staticmethod
         def set_value(*a, **kw):
@@ -293,9 +299,9 @@ class TestBugPollPendingRoutesRequesterLegWrong(unittest.TestCase):
 class TestRetrieveCronSkipsAbandonedAndUnfinished(unittest.TestCase):
     def test_cron_loc_goi_da_ngung_ngay_trong_truy_van(self):
         pkg_rows = [{"name": "PKG-LIVE", "provider": "SCTS", "environment": "UAT",
-                     "retrieval_abandoned": 0},
+                     "retrieval_abandoned": 0, "approval_request": "AR-OK"},
                     {"name": "PKG-DEAD", "provider": "SCTS", "environment": "UAT",
-                     "retrieval_abandoned": 1}]
+                     "retrieval_abandoned": 1, "approval_request": "AR-OK"}]
         with _Ctx([], pkg_rows=pkg_rows, completed_exists="DSR-DONE") as c:
             c.env["retrieve_signed_bundles"]()
             pkg_filters = [f for (dt, f) in c.calls["get_all_filters"]
@@ -307,9 +313,25 @@ class TestRetrieveCronSkipsAbandonedAndUnfinished(unittest.TestCase):
             self.assertEqual(c.calls["retrieve_pkg"], ["PKG-LIVE"],
                              "goi da ngung khong duoc cham toi")
 
+    def test_phieu_tu_choi_hoac_huy_thi_cron_khong_tai_khong_goi_mang(self):
+        """08/09: phieu Rejected/Cancelled co mot chan Approval Completed (nguoi de nghi da ky)
+        -> truoc day cron goi SCTS moi 30 phut MAI MAI (non_signed_signer_present) vi khong gi
+        dua goi ve Completed/Cancelled. Bo qua ngay trong vong lap, khong cham toi nha cung cap."""
+        pkg_rows = [{"name": "PKG-REJ", "provider": "SCTS", "environment": "UAT",
+                     "retrieval_abandoned": 0, "approval_request": "AR-REJ"},
+                    {"name": "PKG-CAN", "provider": "SCTS", "environment": "UAT",
+                     "retrieval_abandoned": 0, "approval_request": "AR-CAN"},
+                    {"name": "PKG-OK", "provider": "SCTS", "environment": "UAT",
+                     "retrieval_abandoned": 0, "approval_request": "AR-OK"},
+                    {"name": "PKG-NOAR", "provider": "SCTS", "environment": "UAT",
+                     "retrieval_abandoned": 0, "approval_request": None}]
+        with _Ctx([], pkg_rows=pkg_rows, completed_exists="DSR-DONE") as c:
+            c.env["retrieve_signed_bundles"]()
+            self.assertEqual(c.calls["retrieve_pkg"], ["PKG-OK", "PKG-NOAR"])
+
     def test_goi_chua_co_chan_ky_hoan_tat_thi_cron_chua_tai(self):
         pkg_rows = [{"name": "PKG-EARLY", "provider": "SCTS", "environment": "UAT",
-                     "retrieval_abandoned": 0}]
+                     "retrieval_abandoned": 0, "approval_request": "AR-OK"}]
         with _Ctx([], pkg_rows=pkg_rows, completed_exists=None) as c:
             c.env["retrieve_signed_bundles"]()
             self.assertEqual(c.calls["retrieve_pkg"], [],

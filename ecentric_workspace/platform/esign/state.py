@@ -134,9 +134,13 @@ def may_have_sent(dsr):
 
     WHAT COUNTS, AND WHY EACH ONE:
       * status Provider Accepted / Verifying - the provider took the call.
-      * `accepted_at` - set the moment a 200 comes back. This is the load-bearing signal:
-        the portal does not always return a transaction id, so a successful send can leave
-        `bulk_job_transaction_id` empty while `accepted_at` is set.
+      * `accepted_at` - set the moment a 200 comes back, AND (08/09) the moment a signing
+        call ends with an UNKNOWN outcome (timeout / 5xx / lost - BulkOutcomeUnknown): the
+        command left ERP either way. This is the load-bearing signal: the portal does not
+        always return a transaction id, so a successful send can leave
+        `bulk_job_transaction_id` empty while `accepted_at` is set. It is a one-way latch
+        that survives every later status (Retryable Failure / Permanent Failure / Manual
+        Review), which `status` alone did not - see tasks.process_signing_request.
       * `bulk_job_transaction_id` - kept for legs written before `accepted_at` existed.
 
       * `request_attempt > 1` - a previous run was driven and left NO trace. That happens
