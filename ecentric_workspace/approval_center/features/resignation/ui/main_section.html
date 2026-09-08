@@ -530,7 +530,11 @@
           var nu=(ov.querySelector("#m-newowner").value||"");
           if(!nu){ toast("Ch\u01b0a ch\u1ecdn ng\u01b0\u1eddi nh\u1eadn.",true); return Promise.reject(); }
           return call("reassign_fulfillment",{name:name,new_user:nu}).then(function(r){
-            toast("\u0110\u00e3 chuy\u1ec3n cho "+nu+"."); applyDetail(r);
+            toast("\u0110\u00e3 chuy\u1ec3n cho "+nu+".");
+            // Ba form (asset/data/document) khong co applyDetail, chi co refreshDetail. Goi thang
+            // applyDetail o day tung nem ReferenceError SAU KHI server da chuyen viec thanh cong,
+            // roi bi .catch nuot thanh mot toast bao loi -> nguoi dung tuong that bai va bam lai.
+            if(typeof applyDetail==="function") applyDetail(r); else refreshDetail();
           }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }});
     }).catch(function(e){ toast(mapErr(e),true); });
   }
