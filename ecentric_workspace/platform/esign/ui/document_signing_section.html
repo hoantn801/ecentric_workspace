@@ -493,7 +493,7 @@
   }
   // -------- functional placement workspace (Phase C) --------
   var DRW = { ref: null, st: null, slot: null, pdf: null, page: 1, scale: 1.0, pagePt: [612, 792],
-              pending: {}, appliedRev: {}, rev: 0, docToken: 0, geom: {}, drag: null,
+              pending: {}, appliedRev: {}, rev: 0, docToken: 0, geom: {}, drag: null, task: null,
               pdfDocs: {}, rowsStale: false };
   function _cancelPending() {   // close / switch document / open: cancel in-flight autosaves
     for (var k in DRW.pending) { if (DRW.pending[k] && DRW.pending[k].timer) clearTimeout(DRW.pending[k].timer); }
@@ -786,15 +786,52 @@
     DRW.page = n;
     renderPdf();
   }
+  // MOT LUOT VE MOT LUC tren cung mot canvas. pdf.js nem
+  //   "Cannot use the same canvas during multiple render() operations"
+  // khi luot ve thu hai bat dau luc luot dau chua xong - va vi `hydrateBoxes()` treo o
+  // `.promise.then(...)`, luot bi nem KHONG BAO GIO ve o ky: nguoi dung thay tai lieu nhung
+  // KHONG thay o chu ky nao, khong loi, khong bao gi. Do that tren production 08/09: dong
+  // drawer roi mo lai trong ~1 giay (hoac bam chuyen trang nhanh) la dinh.
+  // Huy luot cu truoc khi bat dau luot moi; huy la chuyen BINH THUONG nen nuot rieng no,
+  // con loi that thi phai noi ra. Kem chot phien: luot ve cua tai lieu CU khong duoc dung o
+  // cua tai lieu MOI.
   function renderPdf() {
     if (!DRW.pdf) return;
     _syncPager();
+    var myTok = DRW.docToken, myRef = DRW.ref, myPage = DRW.page;
     DRW.pdf.getPage(DRW.page).then(function (pg) {
+      if (myTok !== DRW.docToken || myRef !== DRW.ref) return;
       var vp = pg.getViewport({ scale: DRW.scale });
       var mb = pg.getViewport({ scale: 1 }); DRW.pagePt = [mb.width, mb.height];
-      var cv = document.getElementById("ecdCanvas"); cv.width = vp.width; cv.height = vp.height;
+      // CANVAS MOI cho MOI luot ve. pdf.js danh dau canvas "dang duoc dung" cho toi khi luot ve
+      // xong hoac bi huy; mot luot bi bo lai (dong drawer, doi tai lieu, doi trang giua chung)
+      // lam canvas do KET vinh vien - moi luot sau deu bi nem, va vi `hydrateBoxes()` treo o
+      // `.promise.then(...)` nen O KY KHONG BAO GIO DUOC VE: nguoi dung thay tai lieu, khong
+      // thay o chu ky nao, khong loi, khong bao gi (do that tren prod 08/09, EC-PAYR-2026-00046
+      // - phai bat bang unhandledrejection moi thay). Thay ca the canvas thi khong con trang
+      // thai cu nao de ket, ke ca khi mot luot cu bi ro ri o dau do.
+      var old = document.getElementById("ecdCanvas");
+      var cv = document.createElement("canvas");
+      cv.id = "ecdCanvas"; cv.style.cssText = old.style.cssText;
+      old.parentNode.replaceChild(cv, old);
+      cv.width = vp.width; cv.height = vp.height;
       var layer = document.getElementById("ecdLayer"); layer.style.width = vp.width + "px"; layer.style.height = vp.height + "px";
-      pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise.then(function () { hydrateBoxes(); });
+      if (DRW.task) { try { DRW.task.cancel(); } catch (e) {} DRW.task = null; }
+      var task = pg.render({ canvasContext: cv.getContext("2d"), viewport: vp });
+      DRW.task = task;
+      task.promise.then(function () {
+        if (DRW.task === task) DRW.task = null;
+        if (myTok !== DRW.docToken || myRef !== DRW.ref || myPage !== DRW.page) return;
+        hydrateBoxes();
+      }).catch(function (e) {
+        if (DRW.task === task) DRW.task = null;
+        var nm = (e && (e.name || e.constructor && e.constructor.name)) || "";
+        if (nm.indexOf("RenderingCancelled") >= 0) return;          // luot cu bi huy - binh thuong
+        if (myTok !== DRW.docToken || myRef !== DRW.ref) return;     // da doi tai lieu
+        drawerErr("Không vẽ được trang tài liệu"
+          + ((e && e.message) ? " — " + e.message : "") + ". Đóng rồi mở lại.");
+        if (window.console) console.error("[ec-docsign] renderPdf failed", e);
+      });
     });
   }
   function _two(n) { return (n < 10 ? "0" : "") + n; }
@@ -951,6 +988,7 @@
   function openDrawer(ref) {
     _cancelPending(); _setDrawerOpen(true); _portalOverlay();                         // switching document cancels prior timers
     DRW.ref = ref; DRW.slot = null; DRW.st = null; DRW.pdf = null;
+    if (DRW.task) { try { DRW.task.cancel(); } catch (e) {} DRW.task = null; }
     // Ma phien cua LAN MO nay. Moi phan hoi ve sau (placement_state, PDF, overlay) phai
     // khop ma nay - mo tep X (PDF lon, cham), dong, mo tep Y: truoc day phan hoi cua X ve
     // sau de len DRW.pdf/DRW.st trong khi DRW.ref = Y -> o ky dat len trang cua X, luu vao Y.
@@ -1037,6 +1075,7 @@
   }
   function refreshRow() { DRW.rowsStale = true; }             // rows are behind the overlay: refresh ONCE on close (no 3-call reload per save)
   function closeDrawer() { _cancelPending(); _setDrawerOpen(false); DRW.pdf = null;
+    if (DRW.task) { try { DRW.task.cancel(); } catch (e) {} DRW.task = null; }   // huy luot ve dang chay
     document.getElementById("ecdDrawerOv").style.display = "none";
     if (DRW.rowsStale) { DRW.rowsStale = false; load(); } }   // one refresh when returning to the list
 

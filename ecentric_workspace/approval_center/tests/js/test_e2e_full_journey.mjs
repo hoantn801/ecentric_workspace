@@ -26,6 +26,10 @@ function mkEl(id) {
     setAttribute(k, v) { this._attrs[k] = String(v); },
     appendChild(c) { c.parentNode = this; this._kids.push(c); return c; },
     removeChild(c) { const i = this._kids.indexOf(c); if (i >= 0) this._kids.splice(i, 1); c.parentNode = null; return c; },
+    // renderPdf dung canvas MOI moi luot ve (p160): stub phai thay duoc nut VA cho
+    // getElementById tra ve nut moi - khong thi test chay tren mot canvas mo coi.
+    replaceChild(nw, old) { const i = this._kids.indexOf(old); if (i >= 0) this._kids[i] = nw; else this._kids.push(nw);
+      nw.parentNode = this; old.parentNode = null; if (nw.id) els[nw.id] = nw; return old; },
     addEventListener(t, f) { (this._ls[t] = this._ls[t] || []).push(f); },
     getBoundingClientRect() { return { left: 0, top: 0, width: this.width, height: this.height }; },
     getContext() { return {}; },
@@ -61,6 +65,7 @@ function qsa(sel) {
  "ecdCanvas","ecdLayer","ecdSignerCards","ecdProg","ecdSaveState","ecdDrawerFoot","ecdRoBanner",
  "ecdDrawerErr","ecdPlaceHint","ecdTrySign","ec-approver-wrap","payr-body"].forEach(id => els[id] = mkEl(id));
 const contentHost = { appendChild() {} }; els["payr-body"].parentNode = contentHost;
+els["ecdCanvas"].parentNode = els["ecdStage"]; els["ecdStage"]._kids.push(els["ecdCanvas"]);
 
 const doc = { _ls: {},
   getElementById: id => els[id] || null,
