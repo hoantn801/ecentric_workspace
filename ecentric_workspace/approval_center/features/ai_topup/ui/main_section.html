@@ -833,11 +833,15 @@
   function uploadFile(fileInput, field, labelId, evidenceType, det){ var file=fileInput.files&&fileInput.files[0]; if(!file) return;
     state.fileSeq=state.fileSeq||{}; state.fileSeq[evidenceType]=(state.fileSeq[evidenceType]||0)+1;
     var newName=normalizeEvidenceName(det||state.detail||{}, evidenceType, file.name, state.fileSeq[evidenceType]);
-    var fd=new FormData(); fd.append("file",file,newName); fd.append("file_name",newName); fd.append("is_private","1"); fd.append("doctype","EC AI Topup Request"); fd.append("docname",state.id);
+    var fd=new FormData(); fd.append("file",file,newName); fd.append("file_name",newName); fd.append("is_private","1");
     var lbl=$(labelId); if(lbl) lbl.textContent="Đang tải...";
     fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd})
-      .then(function(r){return r.json();}).then(function(j){ var m=j&&j.message; var url=m&&m.file_url; state.comp=state.comp||{}; state.comp[field]=url; state.comp[field+"_name"]=(m&&m.file_name)||newName; if(lbl) lbl.textContent=url?("Đã tải: "+((m&&m.file_name)||newName)):"Lỗi tải"; })
-      .catch(function(){ if(lbl) lbl.textContent="Lỗi tải"; }); }
+      .then(function(r){ return r.json().catch(function(){return {};}).then(function(j){ return {ok:r.ok,status:r.status,j:j}; }); })
+      .then(function(res){ var m=res.j&&res.j.message; var url=m&&m.file_url;
+        if(url){ state.comp=state.comp||{}; state.comp[field]=url; state.comp[field+"_name"]=(m&&m.file_name)||newName; if(lbl) lbl.textContent="Đã tải: "+((m&&m.file_name)||newName); return; }
+        var msg=(res.status===413)?"Tệp quá lớn (giới hạn ~25MB).":(mapErr(res.j)||("Lỗi tải ("+res.status+")"));
+        if(lbl) lbl.textContent=msg; toast(msg,true); })
+      .catch(function(e){ var msg=mapErr(e)||"Lỗi tải."; if(lbl) lbl.textContent=msg; toast(msg,true); }); }
   function wireFulfillment(det){ var name=(det.business||{}).name;
     var cl=$("ait-claim"); if(cl){ cl.onclick=function(){ cl.disabled=true; call("claim_fulfillment",{name:name}).then(function(){ toast("Đã nhận xử lý."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); }); }; }
     state.comp=state.comp||{};

@@ -139,6 +139,14 @@ def complete_fulfillment(name, user=None, payload=None):
     doc.fulfillment_status = "Completed"
     doc.completed_by = user
     doc.completed_at = now_datetime()
+    from ecentric_workspace.approval_center.shared.requests.command_service import (
+        attach_extra_files)
+    # Tep duoc tai len KHONG kem doctype/docname: `upload_file` co hai truong do se kiem quyen
+    # GHI tren chinh DocType ho so, ma cac DocType nay chi cho System Manager ghi - nguoi xu ly
+    # that (Dong, Linh Vuong, Thuong, Tuan) deu khong co, nen ho khong tai duoc file (08/09).
+    # Doi lai, file sinh ra la File mo coi; gan vao ho so o day - TRUOC khi save - de hook
+    # attach_files_to_document cua Frappe nhan ra va khong tao dong thu hai.
+    attach_extra_files(doc, [u for u in (doc.output_attachment,) if u])
     doc.save(ignore_permissions=True)
     engine.close_fulfillment_todos(BUSINESS_DT, name)
     engine.notify([doc.requested_by, doc.fulfillment_owner],
