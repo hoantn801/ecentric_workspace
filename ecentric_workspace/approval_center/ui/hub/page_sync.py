@@ -40,8 +40,12 @@ def _html():
 # Deliberate update = edit frontend/approvals.main_section.html, bump
 # BASELINE_SHA256, move the value it replaced into SUPERSEDES_SHA256 -- all in
 # the same commit.
-BASELINE_SHA256 = "8535d4deb3377399724dd855077f6ce9c359fadf1bbbecfa98c37d7fae0fdd2e"
+BASELINE_SHA256 = "7152df6588aa2449d047608b495da579cbd013bc77a8205f90ac0a9294c991f7"
 SUPERSEDES_SHA256 = (
+    # baseline truoc p161 (icon "?" dan toi bai huong dan cua tung loai yeu cau).
+    # Luc deploy, live VAN dang giu dung ban nay - khong khai o day thi khoa
+    # chong troi tu choi ghi va patch chet, y het p134/p135.
+    "8535d4deb3377399724dd855077f6ce9c359fadf1bbbecfa98c37d7fae0fdd2e",
     "243836867f03377a37c3542a52a10a9b287475c3574019b7d34d1ac3447eb392",
     "167633893d650b0d186e9eb4f638a8dc10478119d10610fb4e166d6088f0a191",   # baseline truoc p140
     # DO tren prod 04/09 14:40 (Web Page approval-center, modified 25/08 14:59): live khong bang

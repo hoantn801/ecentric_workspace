@@ -1,0 +1,265 @@
+<style id="ec-guide-css">
+/* Frappe's default website chrome is replaced by the shared ERP shell. */
+body > header, body > footer, body > nav.navbar, header.navbar,
+.web-page-header, #navbarSupportedContent, .navbar-collapse { display:none; }
+body { padding:0; margin:0; }
+body main { padding-top:0; }
+body .main-section, body main.container, body main.fluid { margin:0; padding:0; max-width:100%; }
+.ec-guide-wrap { display:flex; min-height:100vh; max-width:none; width:100%; }
+.ec-guide-wrap > main.ec-guide-main { flex:1; min-width:0; padding:0; overflow-x:hidden; }
+
+.ecg{
+  --navy:#1E2A5A; --ink:#141A2E; --ink-2:#4C5372; --ink-3:#7E859E;
+  --bg:#F6F7FB; --card:#fff; --line:#E4E7F0; --blue:#1a73e8; --blue-soft:#E8F0FE;
+  --red:#D93025; --red-soft:#FDECEA; --green:#137333; --green-soft:#E6F4EA;
+  --amber-soft:#FEF7E0; --amber-line:#F0D48A;
+  --shadow:0 1px 2px rgba(20,26,46,.05), 0 12px 32px -20px rgba(20,26,46,.30);
+  background:var(--bg); color:var(--ink); font-size:16px; line-height:1.6;
+  font-family:'Segoe UI', Inter, system-ui, -apple-system, Roboto, sans-serif;
+}
+.ecg *{box-sizing:border-box}
+.ecg .wrap{max-width:860px; margin:0 auto; padding:28px 20px 72px}
+.ecg .backbar{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px}
+.ecg .backbtn{
+  display:inline-flex; align-items:center; gap:6px; text-decoration:none;
+  background:var(--card); border:1px solid var(--line); color:var(--ink-2);
+  padding:7px 13px; border-radius:999px; font-size:13.5px; font-weight:600; cursor:pointer;
+}
+.ecg .backbtn:hover{border-color:var(--blue); color:var(--blue)}
+.ecg h1{font-size:clamp(24px,3vw,32px); margin:6px 0 4px; line-height:1.25}
+.ecg .sub{color:var(--ink-3); font-size:14px; margin-bottom:26px}
+.ecg h2{font-size:20px; margin:36px 0 10px; color:var(--navy)}
+.ecg h3{font-size:16px; margin:24px 0 8px}
+.ecg p{margin:10px 0}
+.ecg .lead{background:var(--blue-soft); border-left:4px solid var(--blue); padding:12px 16px; border-radius:0 8px 8px 0}
+.ecg table{border-collapse:collapse; width:100%; margin:14px 0; font-size:14.5px; background:var(--card)}
+.ecg th,.ecg td{border:1px solid var(--line); padding:9px 11px; text-align:left; vertical-align:top}
+.ecg th{background:#F3F6FA; font-weight:600}
+.ecg figure{margin:14px 0}
+.ecg img{max-width:100%; border:1px solid var(--line); border-radius:8px; box-shadow:var(--shadow); display:block}
+.ecg figcaption{color:var(--ink-3); font-size:13px; margin-top:6px}
+.ecg .note{background:var(--amber-soft); border:1px solid var(--amber-line); border-radius:8px; padding:11px 14px; margin:14px 0; font-size:14.5px}
+.ecg code{background:#EEF1F6; padding:2px 6px; border-radius:4px; font-size:13.5px}
+.ecg hr{border:0; border-top:1px solid var(--line); margin:30px 0}
+.ecg footer{color:var(--ink-3); font-size:13px; margin-top:36px}
+
+/* --- so do buoc: ve bang HTML/CSS, khong dung thu vien --- */
+.ecg .flow{display:grid; gap:22px; grid-template-columns:1fr 1fr; margin:16px 0 6px}
+@media (max-width:760px){ .ecg .flow{grid-template-columns:1fr} }
+.ecg .col{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px}
+.ecg .col h4{margin:0 0 12px; font-size:15px; letter-spacing:.02em; text-transform:uppercase; color:var(--ink-3)}
+.ecg .col.old h4{color:var(--red)}
+.ecg .col.new h4{color:var(--green)}
+.ecg .stp{display:flex; gap:10px; align-items:flex-start; padding:9px 11px; border-radius:9px;
+  border:1px solid var(--line); background:#FBFCFE; font-size:14px}
+.ecg .stp + .arw{display:block; text-align:center; color:var(--ink-3); font-size:13px; line-height:1; margin:5px 0}
+.ecg .stp b{display:block; font-size:14px}
+.ecg .stp small{color:var(--ink-3)}
+.ecg .stp .n{flex:0 0 22px; height:22px; border-radius:50%; background:var(--ink-3); color:#fff;
+  font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center}
+.ecg .stp.bad{background:var(--red-soft); border-color:#F3B6B0}
+.ecg .stp.bad .n{background:var(--red)}
+.ecg .stp.key{background:var(--blue-soft); border-color:#B7D0F7}
+.ecg .stp.key .n{background:var(--blue)}
+.ecg .stp.done{background:var(--green-soft); border-color:#A8D5B5}
+.ecg .stp.done .n{background:var(--green)}
+.ecg .cnt{margin-top:12px; font-weight:700; font-size:14px}
+.ecg .cnt.old{color:var(--red)} .ecg .cnt.new{color:var(--green)}
+</style>
+<div class="ec-guide-wrap">
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><a class="ec-shell-item" href="/home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><div class="ec-shell-grouplabel">Phê duyệt</div><a class="ec-shell-item" href="/approvals"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Approval Center</span></a><a class="ec-shell-item" href="/approvals/all-requests"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Tất cả yêu cầu</span></a><a class="ec-shell-item" href="/approvals/dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Dashboard</span></a><div class="ec-shell-grouplabel">Chứng từ</div><a class="ec-shell-item" href="/all-ticket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Dashboard</span></a><a class="ec-shell-item" href="/approval"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>All Tickets</span></a><div class="ec-shell-grouplabel">Tạo mới</div><a class="ec-shell-item" href="/mso-plan-form"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>MSO Request</span></a><a class="ec-shell-item" href="/gbs-so-form-v2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>SO Request</span></a><a class="ec-shell-item" href="/gbs-po-form-v2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>PO Request</span></a><button type="button" class="ec-shell-item ec-shell-subtoggle" data-ec-shell-subtoggle="docs.guides" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Hướng dẫn</span><svg class="ec-shell-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="ec-shell-children" hidden data-ec-shell-children="docs.guides"><a class="ec-shell-item ec-shell-child" href="/docs/architecture"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Docs / Architecture</span></a><a class="ec-shell-item ec-shell-child" href="/docs/gbs-flow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>GBS Flow &amp; Definitions</span></a></div></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
+  <main class="ec-guide-main"><div class="ec-shell-topbar" data-ec-shell-topbar="1"><div class="ec-shell-crumbs" data-ec-shell-crumbs="1"><span class="ec-shell-crumb-group">Hướng dẫn</span><span class="sep ec-shell-crumb-sep">/</span><a class="ec-shell-crumblink" href="/huong-dan">Hướng dẫn sử dụng</a><span class="sep ec-shell-crumb-sep">/</span><strong class="ec-shell-crumb-current" data-ec-shell-crumb-detail="1">DNMH → DNTT</strong></div><div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div></div>
+<div class="ecg">
+<div class="wrap">
+
+  <div class="backbar">
+    <a class="backbtn" href="/huong-dan">← Tất cả hướng dẫn</a>
+    <button type="button" class="backbtn" data-ec-guide-back="1">← Quay lại trang trước</button>
+    <a class="backbtn" href="/approvals">Approval Center</a>
+  </div>
+
+  <h1>Đề nghị mua hàng → Đề nghị thanh toán</h1>
+  <div class="sub">Cập nhật 08/09/2026 · dành cho người đề nghị, cấp duyệt và Finance</div>
+
+  <p class="lead"><b>Thay đổi lớn nhất:</b> duyệt và ký giờ là <b>một việc</b>. Cấp trên bấm
+  “Duyệt &amp; Ký” một lần; chữ ký trên DNTT <b>ký gộp cả DNTT và DNMH</b>. Không ai phải mở
+  cổng SCTS nữa.</p>
+
+  <h2>1. Từ 4 vòng còn 2 vòng</h2>
+
+  <div class="flow">
+    <div class="col old">
+      <h4>Trước đây</h4>
+      <div class="stp"><span class="n">1</span><span><b>Lập DNMH</b></span></div>
+      <div class="arw">↓</div>
+      <div class="stp"><span class="n">2</span><span><b>Vòng 1 — Duyệt DNMH</b><small>QLTT → Finance → HOF → CEO</small></span></div>
+      <div class="arw">↓</div>
+      <div class="stp bad"><span class="n">3</span><span><b>Tải DNMH lên SCTS</b><small>làm tay</small></span></div>
+      <div class="arw">↓</div>
+      <div class="stp bad"><span class="n">4</span><span><b>Vòng 2 — Ký DNMH</b><small>chờ đủ 5 chữ ký</small></span></div>
+      <div class="arw">↓</div>
+      <div class="stp"><span class="n">5</span><span><b>Lập DNTT</b></span></div>
+      <div class="arw">↓</div>
+      <div class="stp"><span class="n">6</span><span><b>Vòng 3 — Duyệt DNTT</b><small>QLTT → Finance → HOF → CEO</small></span></div>
+      <div class="arw">↓</div>
+      <div class="stp bad"><span class="n">7</span><span><b>Tải DNTT lên SCTS</b><small>làm tay</small></span></div>
+      <div class="arw">↓</div>
+      <div class="stp bad"><span class="n">8</span><span><b>Vòng 4 — Ký DNTT</b><small>chờ đủ 5 chữ ký</small></span></div>
+      <div class="arw">↓</div>
+      <div class="stp"><span class="n">9</span><span><b>Chuyển tiền</b><small>báo nhau qua chat</small></span></div>
+      <div class="cnt old">4 vòng chờ · 2 lần rời ERP</div>
+    </div>
+
+    <div class="col new">
+      <h4>Bây giờ</h4>
+      <div class="stp"><span class="n">1</span><span><b>Lập DNMH</b></span></div>
+      <div class="arw">↓</div>
+      <div class="stp"><span class="n">2</span><span><b>Vòng 1 — Duyệt DNMH</b><small>4 cấp, không cần ký</small></span></div>
+      <div class="arw">↓</div>
+      <div class="stp"><span class="n">3</span><span><b>Lập DNTT</b><small>kèm DNMH + bộ chứng từ</small></span></div>
+      <div class="arw">↓</div>
+      <div class="stp key"><span class="n">4</span><span><b>Vòng 2 — Duyệt &amp; Ký</b><small>4 cấp, mỗi cấp một nút — ký gộp DNTT + DNMH</small></span></div>
+      <div class="arw">↓</div>
+      <div class="stp done"><span class="n">5</span><span><b>Finance xử lý UNC</b><small>chuyển tiền, đính kèm uỷ nhiệm chi</small></span></div>
+      <div class="arw">↓</div>
+      <div class="stp done"><span class="n">6</span><span><b>Hoàn tất</b><small>hồ sơ đủ 5 chữ ký số</small></span></div>
+      <div class="cnt new">2 vòng chờ · làm trọn trên ERP</div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th></th><th>Trước</th><th>Nay</th></tr>
+    <tr><td>Vòng chờ</td><td>4</td><td><b>2</b></td></tr>
+    <tr><td>Nơi làm</td><td>ERP + cổng SCTS</td><td><b>Chỉ ERP</b></td></tr>
+    <tr><td>Đưa tài liệu lên SCTS</td><td>Làm tay</td><td><b>Hệ thống tự làm</b></td></tr>
+    <tr><td>DNMH</td><td>Duyệt rồi ký riêng</td><td><b>Chỉ duyệt</b></td></tr>
+    <tr><td>Chữ ký</td><td>Ký 2 lần, mỗi lần 5 chữ ký</td><td><b>1 lần, 5 chữ ký, gộp DNTT + DNMH</b></td></tr>
+    <tr><td>Sau khi duyệt</td><td>Nhắc nhau chuyển tiền</td><td><b>Bước 6: Finance xử lý UNC</b></td></tr>
+  </table>
+
+  <hr>
+
+  <h2>2. Người đề nghị</h2>
+
+  <h3>Lần đầu — kết nối tài khoản ký số</h3>
+  <p>Làm <b>một lần</b>, dùng được 1 năm. Mở phiếu DNTT của mình, khối “Ký của người đề nghị” →
+  nhập mật khẩu SCTS → <b>Kết nối</b>. ERP chỉ giữ mã kết nối, <b>không lưu mật khẩu</b>.</p>
+  <figure>
+    <img src="{{img:04-ket-noi-scts.jpg}}" alt="Khối kết nối tài khoản ký số SCTS">
+    <figcaption>Khối này chỉ hiện khi bạn chưa kết nối. Ô “Tài khoản” để trống = lấy email ERP.</figcaption>
+  </figure>
+
+  <h3>Bước 1 — Lập DNMH <code>/approvals/purchase-request</code></h3>
+  <p>Lý do, nội dung mua, số tiền, nhà cung cấp, ngày dự kiến, đính kèm báo giá →
+  <b>Gửi yêu cầu</b> → chờ 4 cấp duyệt.</p>
+  <figure><img src="{{img:01-dnmh-form.jpg}}" alt="Form Đề nghị mua hàng"></figure>
+
+  <h3>Bước 2 — Lập DNTT <code>/approvals/payment-request</code></h3>
+  <p>Người nhận tiền, số tiền, ngày thanh toán, ngân hàng + số tài khoản, chọn DNMH liên quan;
+  đính kèm <b>tờ trình + DNMH + bộ chứng từ</b>.</p>
+  <figure><img src="{{img:02-dntt-form.jpg}}" alt="Form Đề nghị thanh toán"></figure>
+
+  <h3>Bước 3 — Phân loại tài liệu &amp; đặt ô ký</h3>
+  <p>Tệp không cần ký thì tích <b>“Bộ chứng từ”</b>; tệp cần ký bấm <b>Thiết lập chữ ký</b> rồi
+  đặt ô cho từng người.</p>
+  <figure>
+    <img src="{{img:05-tai-lieu-ky-so.jpg}}" alt="Khối Tài liệu và ký số">
+    <figcaption>Hai dòng đầu là DNTT và DNMH — ký cùng một lần. Các dòng “Bộ chứng từ” không cần ký.</figcaption>
+  </figure>
+  <figure>
+    <img src="{{img:06-dat-o-ky.jpg}}" alt="Cửa sổ đặt ô ký">
+    <figcaption>Chọn người ký ở cột phải rồi bấm lên tài liệu để đặt ô. Đủ 5/5 là gửi được.</figcaption>
+  </figure>
+
+  <h3>Bước 4 — Gửi và ký</h3>
+  <p>Bấm <b>Gửi yêu cầu</b> → <b>ký chữ ký đầu tiên</b> → theo dõi thanh tiến trình trên phiếu.</p>
+
+  <h3>Trả nhiều đợt</h3>
+  <p>Chọn hình thức <b>Chia đợt</b>, nhập tổng giá trị hợp đồng và số tiền đợt này. Mỗi đợt là
+  <b>một phiếu riêng</b> (vẫn cần đủ 5 chữ ký): đợt trước hoàn tất → mở phiếu đó bấm
+  <b>“Tạo đề nghị đợt kế tiếp”</b>, hệ chép sẵn thông tin. Hệ nhắc trước ngày dự kiến 7 ngày.</p>
+  <figure><img src="{{img:03-chia-dot.jpg}}" alt="Kế hoạch chia đợt"></figure>
+
+  <hr>
+
+  <h2>3. Cấp duyệt</h2>
+  <ul>
+    <li>Đọc phiếu → bấm <b>Duyệt &amp; Ký</b>: vừa duyệt vừa ký số, không vào SCTS.</li>
+    <li>Bấm xong chờ <b>20–60 giây</b>, màn hình tự cập nhật. <b>Đừng bấm lại.</b></li>
+    <li>Không đồng ý: <b>Từ chối</b> (kèm lý do) hoặc <b>Yêu cầu bổ sung</b> (trả về người đề nghị sửa).</li>
+    <li>Lần đầu ký cũng cần kết nối SCTS như trên. Với DNMH chỉ có nút <b>Duyệt</b>.</li>
+  </ul>
+  <figure>
+    <img src="{{img:07-tien-trinh.jpg}}" alt="Thanh tiến trình phê duyệt">
+    <figcaption>Thanh tiến trình cho biết phiếu đang ở đâu, ai đã duyệt, lúc nào.</figcaption>
+  </figure>
+
+  <hr>
+
+  <h2>4. Finance — bước 6 “Xử lý UNC”</h2>
+  <ul>
+    <li>Phiếu duyệt xong hiện ở phần việc của <b>cả phòng Finance</b>, ai rảnh bấm <b>Nhận xử lý</b>.</li>
+    <li>Chuyển tiền xong → <b>đính kèm file UNC</b> (bắt buộc) → bấm <b>Hoàn tất</b>. Số UNC và ghi chú là tuỳ chọn.</li>
+    <li>Hạn xử lý: <b>ngày thanh toán trên phiếu, 17:00</b>. Hệ nhắc trước 3 ngày và khi quá hạn.</li>
+  </ul>
+
+  <hr>
+
+  <h2>5. Quy ước tệp</h2>
+  <table>
+    <tr><th>Loại tệp</th><th>Hệ thống xử lý</th></tr>
+    <tr><td>PDF</td><td>Giữ nguyên, ký trực tiếp lên đó</td></tr>
+    <tr><td>Ảnh (JPG/PNG)</td><td>Tự chuyển thành PDF rồi gửi SCTS</td></tr>
+    <tr><td>Excel / Word</td><td>Chỉ lưu trên ERP, không gửi SCTS</td></tr>
+    <tr><td>Lớn hơn ~25 MB</td><td>Bị chặn — nén hoặc tách nhỏ</td></tr>
+  </table>
+  <div class="note">Tệp đã ký số <b>không xoá được</b> — kể cả quản trị. Đó là bằng chứng pháp lý của 5 chữ ký.</div>
+
+  <hr>
+
+  <h2>6. Hay gặp</h2>
+  <table>
+    <tr><th>Tình huống</th><th>Làm gì</th></tr>
+    <tr><td>“Chưa kết nối tài khoản SCTS”</td><td>Nhập mật khẩu SCTS ở khối ký trên phiếu; 1 năm mới phải làm lại</td></tr>
+    <tr><td>Bấm Duyệt &amp; Ký chưa thấy gì</td><td>Chờ 20–60 giây, màn hình tự cập nhật, đừng bấm lại</td></tr>
+    <tr><td>“Chưa xác nhận sau 6 phút”</td><td>Hệ đã báo quản trị đối soát, bạn không cần làm gì</td></tr>
+    <tr><td>Tải tệp báo lỗi</td><td>Đọc dòng chữ cạnh nút: quá 25 MB / thiếu quyền / lý do cụ thể</td></tr>
+    <tr><td>“Tệp không còn trên máy chủ”</td><td>Báo kỹ thuật — có công cụ tải lại bản đã ký từ SCTS</td></tr>
+    <tr><td>Phiếu bị từ chối, muốn làm lại</td><td>Mở phiếu cũ → <b>“Tạo phiếu mới từ phiếu này”</b>, nội dung và tệp được chép sang</td></tr>
+  </table>
+
+  <hr>
+
+  <h2>7. Đường dẫn nhanh</h2>
+  <table>
+    <tr><th>Việc</th><th>Chỗ vào</th></tr>
+    <tr><td>Đề nghị mua hàng</td><td><a href="/approvals/purchase-request">/approvals/purchase-request</a></td></tr>
+    <tr><td>Đề nghị thanh toán</td><td><a href="/approvals/payment-request">/approvals/payment-request</a></td></tr>
+    <tr><td>Phiếu của tôi / chờ tôi duyệt</td><td><a href="/approvals/all-requests">/approvals/all-requests</a></td></tr>
+  </table>
+
+  <div class="backbar" style="margin-top:26px">
+    <a class="backbtn" href="/huong-dan">← Tất cả hướng dẫn</a>
+    <a class="backbtn" href="/approvals">Approval Center</a>
+  </div>
+
+  <footer>eCentric · Hướng dẫn nội bộ — cập nhật 08/09/2026</footer>
+</div>
+</div>
+<script id="ec-guide-back">
+(function () {
+  // Nut "Quay lai trang truoc": chi hien khi THAT SU co trang truoc trong cung site.
+  // Khong co referrer noi bo (mo tu chat, tu bookmark) thi history.back() se nem nguoi
+  // dung ra khoi ERP - te hon la khong co nut. Luc do an nut di, hai nut kia van dua ve
+  // dung cho.
+  var b = document.querySelector('[data-ec-guide-back="1"]');
+  if (!b) return;
+  var ref = document.referrer || "";
+  var same = false;
+  try { same = !!ref && new URL(ref).origin === window.location.origin
+                     && new URL(ref).pathname !== window.location.pathname; } catch (e) {}
+  if (!same || history.length <= 1) { b.remove(); return; }
+  b.addEventListener("click", function () { history.back(); });
+})();
+</script>
+</main></div>

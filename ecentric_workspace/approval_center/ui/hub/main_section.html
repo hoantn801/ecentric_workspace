@@ -87,6 +87,15 @@
   #ec-apc-root .badge.migrating{ background:var(--yellow-50); color:#b45309; }
   #ec-apc-root .badge.coming{ background:var(--navy-50); color:var(--navy); }
   #ec-apc-root .badge.disabled{ background:var(--gray-100); color:var(--gray-500); }
+  /* Icon "?" -> bai huong dan cua chinh loai yeu cau nay. Chi hien khi server
+     bao co bai (guide_route). Dat canh nhan trang thai vi do la goc mat nguoi
+     ta nhin khi dang can cua "toi lam cai nay the nao". */
+  #ec-apc-root .card-top-r{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  #ec-apc-root .card-help{ width:24px; height:24px; border-radius:50%; display:inline-flex;
+    align-items:center; justify-content:center; text-decoration:none; flex-shrink:0;
+    border:1px solid var(--gray-200); background:#fff; color:var(--gray-500);
+    font-size:13px; font-weight:700; line-height:1; }
+  #ec-apc-root .card-help:hover{ border-color:var(--navy); color:var(--navy); background:var(--navy-50); }
   #ec-apc-root .card-title{ font-size:15.5px; font-weight:700; color:var(--gray-900); line-height:1.3; }
   #ec-apc-root .card-cat{ font-size:11.5px; font-weight:600; color:var(--gray-400); text-transform:uppercase; letter-spacing:.4px; }
   #ec-apc-root .card-desc{ font-size:13px; color:var(--gray-600); flex:1; }
@@ -241,10 +250,17 @@
     else if(c.card_status==="Disabled"){ cta = '<span class="card-cta disabled">Đã tắt</span>'; }
     else { cta = '<span class="card-cta disabled">Chưa khả dụng</span>'; }
     var icon = c.icon || c.category_icon || "file-check";
+    // data-go="1": onClick() da co san quy uoc "de the link tu di" cho nut CTA.
+    // Dung lai chinh no o day thay vi them mot nhanh chan noi bot - khong co no
+    // thi cu nhap vao "?" se bi the nuot va nhay sang trang tao yeu cau.
+    var help = c.guide_route
+      ? '<a class="card-help" data-go="1" href="'+esc(c.guide_route)+'" title="Hướng dẫn: '
+        + esc(c.guide_title||c.approval_title||"")+'" aria-label="Xem hướng dẫn">?</a>'
+      : '';
     return '<div class="card'+clickable+dim+'" data-code="'+esc(c.approval_code)+'" data-status="'+esc(c.card_status)+'"'
       + (isActive?(' data-route="'+esc(c.route)+'"'):'')+'>'
       + '<div class="card-top"><span class="card-ic">'+iconSvg(icon)+'</span>'
-      + '<span class="badge '+b[0]+'">'+esc(b[1])+'</span></div>'
+      + '<span class="card-top-r">'+help+'<span class="badge '+b[0]+'">'+esc(b[1])+'</span></span></div>'
       + '<div><div class="card-cat">'+esc(c.category_name||"")+'</div>'
       + '<div class="card-title">'+esc(c.approval_title||"")+'</div></div>'
       + '<div class="card-desc">'+esc(c.description||"")+'</div>'
@@ -387,7 +403,7 @@
 
   // expose for headless tests (no security logic here; visibility is server-side)
   window.ApprovalCenter = { state:state, fetchCatalog:fetchCatalog, render:render,
-    filtered:filtered, _esc:esc, _init:init };
+    filtered:filtered, _esc:esc, _init:init, _cardHtml:cardHtml, _onClick:onClick };
 
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", init);
   else init();
