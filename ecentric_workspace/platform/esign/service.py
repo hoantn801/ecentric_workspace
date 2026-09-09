@@ -467,7 +467,7 @@ def reconcile_manual_review(dsr_name, accept_predating=False, reason=None):
             "verification": vr.reason, "engine": why, "status": final}
 
 
-def verify_and_complete(dsr_name):
+def verify_and_complete(dsr_name, comment=None):
     """The governed completion path. Requires DSR already 'Signed' (verified). Sets the
     in-process call marker, then lets the ENGINE complete the level; the engine-side
     guard re-validates the persisted DSR under lock (frappe.flags is never trusted
@@ -493,8 +493,11 @@ def verify_and_complete(dsr_name):
     frappe.db.savepoint("esign_verify_complete")
     try:
         from ecentric_workspace.approval_center.shared.workflow import transitions as engine
+        # `comment` do nguoi goi dat khi ban chat viec khac di (vi du dong bo chu ky da co
+        # tren cong, khong phai mot lan bam "Duyet & Ky"). Binh luan nay nam trong LICH SU
+        # PHIEU - cho nguoi dung doc - nen no phai noi dung chuyen da xay ra.
         engine.approve(dsr.approval_request, actor=dsr.approver,
-                       comment=_("Duyệt & Ký (ký số đã xác minh: {0})").format(dsr.name))
+                       comment=comment or _("Duyệt & Ký (ký số đã xác minh: {0})").format(dsr.name))
     except Exception as e:
         # R2 (2026-07-12): rollback the savepoint FIRST, then let the CURRENT
         # persisted DB state decide. Manual Review is stamped only when this
@@ -811,6 +814,138 @@ def _continue_after_reconcile(package_name):
 #: Do dai toi thieu cua ly do go co. Khong phai thu tuc hanh chinh: no buoc nguoi bam
 #: phai VIET RA minh da nhin thay gi ben nha cung cap. "ok" khong phai mot bang chung.
 MIN_CLEAR_REASON_LEN = 10
+
+
+def sync_signatures_from_provider(business_doctype, business_name, reason):
+    """Cap duyet hien tai DA duoc ky tren cong SCTS ma ERP chua biet -> cong nhan va di tiep.
+
+    VAN DE THAT (09/09/2026, EC-PAYR-2026-00051). HOF ky tren cong luc 08:20, CEO luc 13:08;
+    tai lieu ben SCTS "Da ket thuc" - ca 5 chu ky. Nhung ho khong bam gi tren ERP, nen ERP
+    KHONG co chan ky nao cho hai cap do va van treo o "HOF Review".
+
+    Loai su co nay VO HINH: trang van hanh chi liet ke CHAN KY bi ket, ma o day chua bao gio
+    co chan ky nao duoc tao. Khong mot canh bao nao noi cho ai biet.
+
+    Duong cu la bao HOF/CEO vao ERP bam "Duyet & Ky" mot lan nua de sinh ra chan ky roi doi
+    soat. Hoan bac (dung): bat nguoi duyet ky hai lan la bat nguoi dung ganh cai sai cua he
+    thong. SCTS da ky roi thi ERP nghe theo va dong bo ve.
+
+    HAM NAY KHONG KY GI, KHONG GUI GI. No doc trang thai tai lieu, va voi TUNG nguoi duyet
+    dang cho o CAP HIEN TAI, hoi: nha cung cap co chu ky that cua chinh nguoi nay khong?
+    Co thi tao chan ky, danh dau da xac minh, roi cho ENGINE hoan tat cap duyet qua dung
+    duong `verify_and_complete` (guard van doc lai DB duoi khoa). Khong co thi bao ly do.
+
+    NHUNG PHEP CHAN GIU NGUYEN:
+      * Danh tinh: chi chap nhan chu ky khop `scts_user_id` trong ANH XA DA XAC MINH cua
+        chinh nguoi duyet do. Khong co anh xa -> khong dong bo (khong doan theo email).
+      * Thu tu (`prior_signatures`): chan thu N cua mot nguoi phai la chu ky thu N cua ho.
+        Day la thu chan viec dong mot cap bang chu ky cua chan KHAC (loi 28/08).
+      * CHI cap dang In Progress, va CHI nguoi duyet dang Pending o cap do. Khong nhay cap.
+      * Da co chan ky dang song cho dong duyet do -> KHONG tao them (idempotency_key).
+    Cai DUY NHAT duoc bo la moc thoi gian `signed_after` - vi dinh nghia cua tinh huong nay
+    la ho ky TRUOC khi ERP hoi.
+
+    Ket qua mang ly do RIENG (`verified_from_provider_sync:<gio ky>`) va binh luan duyet noi
+    ro la dong bo tu cong, de nguoi doc lich su phieu thay ngay - khong lan voi mot lan bam
+    "Duyet & Ky" that.
+    """
+    perms.assert_system_manager()
+    ly_do = (reason or "").strip()
+    if len(ly_do) < MIN_CLEAR_REASON_LEN:
+        frappe.throw(_("Bắt buộc nêu rõ căn cứ đồng bộ (đã xem gì trên cổng SCTS) - "
+                       "tối thiểu {0} ký tự.").format(MIN_CLEAR_REASON_LEN))
+
+    req = _req_for_business(business_doctype, business_name)
+    if req.approval_status != "Pending" or not req.current_level:
+        return {"synced": [], "skipped": [], "reason": "not_pending:%s" % req.approval_status}
+    profile = _profile_doc(business_doctype, req.approval_type)
+    settings = _settings_for(profile)
+    pkg_name = pkgsvc.active_package_for_request(req.name)
+    doc_id = frappe.db.get_value("EC Digital Signature Package", pkg_name,
+                                 "scts_document_id") if pkg_name else None
+    if not doc_id:
+        return {"synced": [], "skipped": [], "reason": "no_provider_document"}
+
+    from ecentric_workspace.platform.esign.providers.base import SignatureProviderAdapter
+    doc_state = get_adapter(settings).poll_status(doc_id)
+
+    rows = frappe.get_all("EC Approval Request Approver",
+                          filters={"approval_request": req.name,
+                                   "level_no": req.current_level, "status": "Pending"},
+                          fields=["name", "approver"])
+    synced, skipped = [], []
+    for row in rows:
+        who = row.approver
+        mapping = perms.verified_mapping(who, profile.environment)
+        if not mapping:
+            skipped.append({"approver": who, "reason": "no_verified_mapping"})
+            continue
+        expected = {
+            "document_id": doc_id,
+            "user_id": mapping.scts_user_id,
+            "email": who,
+            "signature_id": mapping.signature_id,
+            # KHONG co `signed_after`: dinh nghia cua tinh huong nay la ky TRUOC khi ERP hoi.
+            "prior_signatures": frappe.db.count(
+                DSR, {"package": pkg_name, "effective_scts_user_id": mapping.scts_user_id,
+                      "status": ["in", ("Signed", "Approval Completed")]}),
+        }
+        vr = SignatureProviderAdapter.verify_signed_result(doc_state, expected)
+        if not vr.ok:
+            skipped.append({"approver": who, "reason": vr.reason})
+            continue
+        res = _adopt_provider_signature(req, profile, pkg_name, row, who, mapping, vr, ly_do)
+        (synced if res.get("completed") else skipped).append(dict(res, approver=who))
+    return {"synced": synced, "skipped": skipped, "document": doc_id,
+            "level": req.current_level}
+
+
+def _adopt_provider_signature(req, profile, pkg_name, row, who, mapping, vr, ly_do):
+    """Tao chan ky cho mot chu ky DA CO ben nha cung cap, roi de engine hoan tat cap duyet.
+
+    Dung DUNG bo truong ma `approve_and_sign` dung (ke ca `idempotency_key`) de mot chan
+    dong bo va mot chan bam tay khong bao gio ton tai song song cho cung mot dong duyet.
+    """
+    pkg = frappe.db.get_value("EC Digital Signature Package", pkg_name,
+                              ["package_version", "package_hash"], as_dict=True) or {}
+    request_level = _level_row(req)
+    idem = hashing.idempotency_key(
+        profile.provider, profile.environment, req.name, request_level, row.name,
+        "Sign", pkg.get("package_hash"), "%s@%s" % (mapping.name, mapping.modified))
+    existing = frappe.db.get_value(DSR, {"idempotency_key": idem},
+                                   ["name", "status"], as_dict=True)
+    if existing and existing.status in LIVE_OR_DONE:
+        return {"completed": False, "reason": "leg_exists:%s" % existing.status,
+                "signature_request": existing.name}
+    dsr = frappe.get_doc({
+        "doctype": DSR, "provider": profile.provider, "environment": profile.environment,
+        "package": pkg_name, "approval_request": req.name, "request_level": request_level,
+        "approver_row": row.name, "action": "Sign",
+        "requested_by": frappe.session.user, "approver": who,
+        "effective_scts_user_id": mapping.scts_user_id,
+        "effective_signature_id": mapping.signature_id,
+        "idempotency_key": idem, "status": "Draft",
+        "package_version": pkg.get("package_version"), "package_hash": pkg.get("package_hash"),
+    }).insert(ignore_permissions=True)      # post-authorization system row
+    events.emit("Created", signature_request=dsr.name, package=pkg_name,
+                erp_actor=frappe.session.user, scts_effective_user=mapping.scts_user_id,
+                request_meta={"source": "provider_sync", "ly_do": ly_do, "thay_cho": who})
+    events.set_dsr_status(dsr.name, "Prepared", erp_actor=frappe.session.user,
+                          event_type="Prepared")
+    # Di qua Queued vi `Prepared -> Signed` KHONG phai canh hop le, va canh `Queued -> Signed`
+    # ton tai dung cho tinh huong nay: "poll-first thay nguoi ta da ky roi - khong gui nua".
+    # Dung lai canh co san thay vi them mot canh moi vao may trang thai chi de tien.
+    # KHONG enqueue gi: khong co lenh nao duoc gui di.
+    events.set_dsr_status(dsr.name, "Queued", extra_fields={"queued_at": now_datetime()},
+                          erp_actor=frappe.session.user, event_type="RetryScheduled")
+    mark_verified(dsr.name, vr.reason)
+    out = verify_and_complete(
+        dsr.name,
+        # Binh luan nay di vao LICH SU PHIEU - cho ma nguoi dung thuc su doc. Phai noi ro
+        # day khong phai mot lan bam "Duyet & Ky", ma la cong nhan chu ky da co tren cong.
+        comment=_("Đồng bộ chữ ký từ cổng SCTS: {0} đã ký trên cổng ({1}). "
+                  "Căn cứ: {2}").format(who, vr.reason, ly_do))
+    return dict(out, signature_request=dsr.name, verification=vr.reason)
 
 
 def clear_create_ambiguity(package_name, reason):

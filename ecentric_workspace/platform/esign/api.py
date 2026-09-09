@@ -743,6 +743,18 @@ def reconcile_document_creation(package, scts_document_id=None):
 
 
 @frappe.whitelist(methods=["POST"])
+def sync_signatures_from_provider(business_doctype, business_name, reason):
+    """SM-gated: cap duyet hien tai DA duoc ky tren cong SCTS ma ERP chua biet -> cong nhan.
+
+    KHONG ky gi, KHONG gui gi: chi doc trang thai tai lieu, va chi chap nhan chu ky khop
+    ANH XA DA XAC MINH cua chinh nguoi duyet dang cho, dung thu tu. Xem
+    svc.sync_signatures_from_provider - o do ghi day du cac phep chan duoc giu.
+    """
+    perms.assert_system_manager()
+    return svc.sync_signatures_from_provider(business_doctype, business_name, reason)
+
+
+@frappe.whitelist(methods=["POST"])
 def clear_create_ambiguity(package, reason):
     """SM-gated: go co 'create_outcome_unknown' khi ops DA XAC MINH nha cung cap khong he
     tao tai lieu. KHONG tao tai lieu, KHONG tu thu lai - chi mo duong cho DUNG mot lan tao
