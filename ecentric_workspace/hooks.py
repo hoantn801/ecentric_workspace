@@ -248,6 +248,10 @@ fixtures = [
             "Attendance-ec_late_comment", "Attendance-ec_late_decided_by",
             "Attendance Request-ec_decided_by", "Attendance Request-ec_appeal_status",
             "Attendance Request-ec_decision_comment",
+            # Phong ban SCTS (09/09/2026): ma phong ban ben cong ky so, dat tren chinh
+            # ban ghi Department. Thieu field nay thi resolver luon lui ve gia tri co
+            # dinh cua Profile va MOI tai lieu lai hien sai phong nhu truoc.
+            "Department-custom_scts_department_id",
             # LUU Y (CnB xac nhan truoc khi them): cac field luong tren Employee cung
             # chua versioned -- ec_pit_10, ec_pit_luytien, ec_dong_bhxh, ec_mst_ca_nhan,
             # ec_so_nguoi_phu_thuoc, ec_allow_lunch/coffee/computer, ec_late_early_bank.
