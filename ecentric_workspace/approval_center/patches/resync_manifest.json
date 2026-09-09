@@ -131,8 +131,8 @@
     "sha256": "74873c3c192d9dec5899e8de5f4ba07b35cd0e4dc1a0378d78728f0f6413f47e"
   },
   "approval_center/ui/all_requests/main_section.html": {
-    "last_resync_patch": "p168_resync_hub_chat_namespace",
-    "sha256": "7fbd2c32f4acea36a09d9719f4aed4a9c3ac39bc53c65c135f3a2416ad72255d"
+    "last_resync_patch": "p171_resync_hub_aside_height",
+    "sha256": "7cebb142ceb1c1c95ffee1d757b040a220fdeec8d50f6fa318caadedefabc278"
   },
   "approval_center/ui/dashboard/main_section.html": {
     "baseline": "2026-08-31",
