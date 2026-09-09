@@ -540,7 +540,7 @@ def provider_workflow_view(dsr_name, transition_id=None, provider_user_id=None,
 # camelCase la quy uoc cua eContract ("workflowInstanceId", "fileId"), nen KHONG the doi hoi
 # mot ranh gioi truoc "Id" - lan dau viet the va tuot mat dung cai field dang di tim.
 @frappe.whitelist(methods=["POST"])
-def reconcile_signature_request(dsr_name):
+def reconcile_signature_request(dsr_name, accept_predating=0):
     """System Manager: re-verify a leg parked in Manual Review against what the provider says
     NOW. Completes it when the signature really is there. NEVER sends anything.
 
@@ -553,6 +553,21 @@ def reconcile_signature_request(dsr_name):
 
     So this reads, verifies, and completes. It cannot create a signature; the worst it can do
     is refuse.
+
+    `accept_predating=1` (09/09/2026) mo them dung MOT truong hop: chu ky co TRUOC luc ERP
+    gui lenh. Kich ban that: nguoi trinh ky gui luc 23:25, SCTS gui mail, nguoi duyet vao
+    thang cong ky tay luc 23:48; sang hom sau ho bam Duyet tren ERP, ERP gui lenh luc 11:19,
+    SCTS khong con gi de ky nen im lang, chan ky nam Manual Review voi
+    `signature_predates_request`. Chu ky LA THAT, dung nguoi, dung tai lieu.
+
+    Ba rang buoc khien co nay khong phai mot cai cong sau:
+      1. CHI o day. Duong tu dong (poll, thu lai) khong bao gio bat no.
+      2. CHI khi phep DEM chay duoc (`prior_signatures` khac None) - tuc lop bao ve chinh
+         "khong dong cap duyet bang chu ky cua chan khac" van nguyen ven. Khong dem duoc thi
+         moc thoi gian la lop DUY NHAT con lai va khong ai duoc bo no.
+      3. Nguoi bam la System Manager, va da nhin thay chu ky do tren cong truoc khi bam.
+    Ket qua ghi lai bang mot ly do RIENG (`verified_predating_manual:<gio ky>`), khong lan
+    voi "verified" thuong - de sau nay con dem duoc bao nhieu chan da di duong nay.
     """
     perms.assert_system_manager()
     dsr = frappe.db.get_value("EC Digital Signature Request", dsr_name, "*", as_dict=True)
@@ -560,7 +575,8 @@ def reconcile_signature_request(dsr_name):
         frappe.throw(_("Không tìm thấy yêu cầu ký."))
     if dsr.status != "Manual Review":
         return {"ok": False, "reason": "not_in_manual_review:%s" % dsr.status}
-    out = svc.reconcile_manual_review(dsr_name)
+    out = svc.reconcile_manual_review(dsr_name,
+                                      accept_predating=bool(int(accept_predating or 0)))
     return out
 
 
