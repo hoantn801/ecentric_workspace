@@ -722,11 +722,24 @@ def pdf_page_geometry(dsf_name):
 
 @frappe.whitelist(methods=["POST"])
 def reconcile_document_creation(package, scts_document_id=None):
-    """SM-gated reconciliation of an AMBIGUOUS AddDocument outcome. Either records the
-    provider document id that ops found in SCTS, or clears the unknown marker to permit
-    exactly one clean recreate. NEVER runs automatically; never creates a document itself."""
+    """SM-gated reconciliation of an AMBIGUOUS AddDocument outcome: records the provider
+    document id that ops FOUND in SCTS, after verifying it belongs to this package.
+    NEVER runs automatically; never creates a document itself.
+
+    Khi nha cung cap KHONG co tai lieu nao (khong co ma de nhap) thi dung
+    `clear_create_ambiguity` ben duoi. Docstring cu cua ham nay tung noi no lam ca hai
+    viec - khong dung, no van luon `throw` khi thieu ma tai lieu (sua 09/09/2026)."""
     perms.assert_system_manager()
     return svc.reconcile_document_creation(package, scts_document_id)
+
+
+@frappe.whitelist(methods=["POST"])
+def clear_create_ambiguity(package, reason):
+    """SM-gated: go co 'create_outcome_unknown' khi ops DA XAC MINH nha cung cap khong he
+    tao tai lieu. KHONG tao tai lieu, KHONG tu thu lai - chi mo duong cho DUNG mot lan tao
+    lai qua retry tuong minh. Doi mot ly do co noi dung; xem svc.clear_create_ambiguity."""
+    perms.assert_system_manager()
+    return svc.clear_create_ambiguity(package, reason)
 
 
 @frappe.whitelist()

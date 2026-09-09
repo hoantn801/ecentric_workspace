@@ -791,6 +791,61 @@ def _continue_after_reconcile(package_name):
     return out
 
 
+#: Do dai toi thieu cua ly do go co. Khong phai thu tuc hanh chinh: no buoc nguoi bam
+#: phai VIET RA minh da nhin thay gi ben nha cung cap. "ok" khong phai mot bang chung.
+MIN_CLEAR_REASON_LEN = 10
+
+
+def clear_create_ambiguity(package_name, reason):
+    """Go co `create_outcome_unknown` khi ops DA XAC MINH nha cung cap KHONG co tai lieu.
+
+    VI SAO CAN (su co 09/09/2026). AddDocument tra HTTP 500 -> khong biet SCTS da tao tai
+    lieu hay chua -> `tasks._ensure_provider_document` cam moi lan chay sau tao lai
+    (`scts_awaiting_create_reconciliation`). Do la ve an toan DUNG: tao lai mot tai lieu da
+    ton tai la nhan doi ho so ky ben nha cung cap.
+
+    Nhung the thi chi co MOT loi ra: `reconcile_document_creation` - va no doi BANG DUOC ma
+    tai lieu. Khi nha cung cap that su khong tao gi (truong hop cua ba goi DSP-00058/59/60,
+    Hoan da mo cong kiem), khong co ma nao de nhap, va goi ket vinh vien. Docstring cua API
+    tung hua co duong "clears the unknown marker to permit exactly one clean recreate" nhung
+    duong do CHUA HE ton tai trong code - day la ban vien no.
+
+    HAM NAY KHONG TAO TAI LIEU, va cung KHONG tu thu lai. No chi:
+      1. doi hoi mot ly do co noi dung (nguoi bam ghi lai da kiem the nao),
+      2. tu choi neu goi da co `scts_document_id` (luc do phai doi soat, khong duoc go co),
+      3. xoa co, dua goi ve `Provider Create Failed` - canh HOP LE cua may trang thai va la
+         trang thai dung nghia: lan tao truoc DA HONG,
+      4. ghi mot su kien bat bien kem ly do.
+    Sau do ops phai bam retry MOT CACH TUONG MINH. Hai buoc, khong gop: buoc mot la loi
+    khai cua con nguoi ("toi da nhin, khong co gi"), buoc hai moi la hanh dong.
+    """
+    perms.assert_system_manager()
+    reason = (reason or "").strip()
+    if len(reason) < MIN_CLEAR_REASON_LEN:
+        frappe.throw(_("Cần ghi rõ đã kiểm tra thế nào trên cổng nhà cung cấp "
+                       "(tối thiểu {0} ký tự).").format(MIN_CLEAR_REASON_LEN))
+    pkg = frappe.db.get_value(
+        "EC Digital Signature Package", package_name,
+        ["name", "status", "error_code", "scts_document_id"], as_dict=True, for_update=True)
+    if not pkg:
+        frappe.throw(_("Không tìm thấy gói tài liệu."))
+    if pkg.error_code != "create_outcome_unknown":
+        frappe.throw(_("Gói này không ở trạng thái cần đối soát tạo tài liệu."))
+    if (pkg.scts_document_id or "").strip():
+        # Da co tai lieu that -> go co nghia la cho phep tao them mot tai lieu nua.
+        frappe.throw(_("Gói đã có mã tài liệu SCTS - không được gỡ cờ."))
+    frappe.db.set_value("EC Digital Signature Package", package_name,
+                        {"error_code": None, "error_message": None})
+    if pkg.status == "Provider Creating":
+        events.set_package_status(package_name, "Provider Create Failed",
+                                  event_type="CreateAmbiguityCleared",
+                                  request_meta={"reason": reason})
+    else:
+        events.emit("CreateAmbiguityCleared", package=package_name,
+                    request_meta={"reason": reason, "package_status": pkg.status})
+    return {"cleared": True, "package": package_name, "retry_required": True}
+
+
 # --------------------------------------------------------------------------- #
 # backend-computed signing readiness (S2B-B PR#146 - UI gate; backend authoritative)
 # --------------------------------------------------------------------------- #
