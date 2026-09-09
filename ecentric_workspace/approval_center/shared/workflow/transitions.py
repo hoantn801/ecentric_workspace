@@ -861,8 +861,12 @@ def _skip_earlier_duplicate_levels(req):
         it nhat mot cap song, khong the bo sach ca luong;
       * cap co BAT KY nguoi duyet nao khong xuat hien lai o cap sau (Any-One/All deu an toan:
         nguoi do van phai bam);
-      * cap `mandatory` - co ghi ro trong cau hinh la khong duoc bo (giong duong skip thu cong
-        o `submit`).
+    `mandatory` KHONG chan luat nay (do 10/09 tren HIRING_REQUEST-V1: ca ba cap deu mandatory,
+    chot cu lam luat thanh vo dung). Hai chuyen khac nhau: `mandatory` o `submit(skip_level_nos)`
+    chan viec BO HAN mot cap theo dieu kien nghiep vu - bo that, khong ai xem. Con o day khong ai
+    mat quyen xem xet: van dung nguoi do duyet, chi gop lai mot lan o cap cuoi cua ho. Va
+    `_auto_skip_duplicate_level` (luat bo-cap-SAU von co) cung chua bao gio kiem `mandatory` -
+    giu chot o day thi hai luat trung-nguoi tu mau thuan nhau.
     """
     rows = frappe.get_all(
         "EC Approval Request Level", filters={"approval_request": req.name},
@@ -882,7 +886,7 @@ def _skip_earlier_duplicate_levels(req):
     now = now_datetime()
     for rl in rows:
         mine = by_level.get(rl["level_no"]) or []
-        if not mine or rl.get("mandatory"):
+        if not mine:
             continue
         if not all(last_of.get(a["approver"], rl["level_no"]) > rl["level_no"] for a in mine):
             continue
