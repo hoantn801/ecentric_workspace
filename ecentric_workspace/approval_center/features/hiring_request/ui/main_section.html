@@ -212,7 +212,7 @@
       + fld("education","Education",'<input data-model="education" value="'+esc(d.education||"")+'"><div class="hint">E.g: From Bachelor Degree</div>',true)
       + fld("line_manager","Line manager",'<input type="email" data-model="line_manager" placeholder="manager@company.com" value="'+esc(d.line_manager||"")+'"><div class="hint">Email of the future line manager — must be an active user</div>',true)
       + fld("suggested_salary","Suggested salary (VND)",'<input type="number" min="1" step="1" data-model="suggested_salary" value="'+esc(d.suggested_salary!=null?d.suggested_salary:"")+'">',true)
-      + fld("request_attachment","Tệp đính kèm (JD, mô tả...)",'<input type="file" id="hire-file-input"><div class="hint">Không bắt buộc</div>'+(d.request_attachment?('<div class="hint">Đã đính kèm: <a href="'+esc(d.request_attachment)+'" target="_blank">'+esc(d.request_attachment)+'</a></div>'):'')).replace('class="fld','class="fld full')
+      + fld("request_attachment","Tệp đính kèm (JD, mô tả...)",'<input type="file" id="hire-file-input"><div class="hint">Không bắt buộc</div>'+'<div class="hint" id="hire-file-name">'+(d.request_attachment?('Đã đính kèm: <a href="'+esc(d.request_attachment)+'" target="_blank">'+esc(fileLabel(d.request_attachment))+'</a>'):'')+'</div>' ).replace('class="fld','class="fld full')
       + '</div></div><div class="card"><h3>Tóm tắt</h3><div id="hire-summary"></div></div>';
   }
   var MATERIAL=["position","number_of_vacancy","reason","employment_type","department","education","line_manager","suggested_salary","request_attachment"];
@@ -240,12 +240,21 @@
     state.titleTouched = !!((d.request_title||"").toString().trim());
     maybeAutoTitle(); renderSummary(); wireCreate();
   }
+  // Tep da tai len phai NHIN THAY duoc. Truoc day tai xong chi hien mot toast roi tat: du lieu
+  // co luu that va van gui kem phieu, nhung man hinh khong con dau vet nao nen nguoi dung tuong
+  // la tai hong (09/09, Hoan bao). O nhap khong duoc ve lai sau khi tai, con Tom tat thi khong
+  // he co dong nao cho tep.
+  function fileLabel(url){ var u=String(url||""); var i=u.lastIndexOf("/");
+    try{ return decodeURIComponent(i>=0?u.slice(i+1):u); }catch(e){ return i>=0?u.slice(i+1):u; } }
+  function showFileName(url){ var el=$("hire-file-name"); if(!el) return;
+    el.innerHTML = url ? ('Đã đính kèm: <a href="'+esc(url)+'" target="_blank">'+esc(fileLabel(url))+'</a>') : ""; }
   function renderSummary(){ var h=$("hire-summary"); if(!h)return; var d=state.draft||{}; var c=state.boot.context||{};
     var rows=[["Tiêu đề",d.request_title||""],["Vị trí",d.position||""],
       ["Số lượng",d.number_of_vacancy!=null&&d.number_of_vacancy!==""?d.number_of_vacancy:""],
       ["Loại hình",d.employment_type||""],["Phòng ban",d.department||""],["Line manager",d.line_manager||""],
       ["Lương đề xuất",d.suggested_salary!=null&&d.suggested_salary!==""?(d.suggested_salary+" VND"):""],
       ["Người yêu cầu",c.employee_name||c.user||""],
+      ["Tệp đính kèm",d.request_attachment?fileLabel(d.request_attachment):""],
       ["Luồng duyệt","Direct Manager → HR → CEO"]];
     h.innerHTML=rows.map(function(r){ return '<div class="summary-row"><span>'+esc(r[0])+'</span><b>'+esc(r[1]||"—")+'</b></div>'; }).join(""); }
   function suggestTitle(d){ d=d||{}; var parts=[d.position, d.department].filter(function(x){return x&&String(x).trim();});
@@ -336,7 +345,7 @@
   function wireModels(scope){ (scope||document).querySelectorAll("[data-model]").forEach(attachModel); }
   function wireFile(){ var fi=$("hire-file-input"); if(!fi||fi.__ecw)return; fi.__ecw=true;
     fi.addEventListener("change",function(){ var f=fi.files&&fi.files[0]; if(!f)return; fi.disabled=true;
-      uploadAttachment(f).then(function(url){ if(url){ setModel("request_attachment", url); renderSummary(); toast("Đã tải tệp đính kèm."); } else { toast("Không tải được tệp. Vui lòng thử lại.",true); } })
+      uploadAttachment(f).then(function(url){ if(url){ setModel("request_attachment", url); showFileName(url); renderSummary(); toast("Đã tải tệp đính kèm."); } else { toast("Không tải được tệp. Vui lòng thử lại.",true); } })
       .catch(function(){ toast("Không tải được tệp. Vui lòng thử lại.",true); }).then(function(){ fi.disabled=false; }); }); }
   function wireCreate(){ var b=$("hire-body"); var editing=state.mode==="edit"; wireModels(b); wireFile();
     if(editing){
