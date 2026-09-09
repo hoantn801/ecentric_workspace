@@ -126,10 +126,23 @@ def fetch_levels_for_bottleneck(scope, filters, completed_from=None, completed_t
 
 
 def _search_clause(search, params):
+    """O tim kiem cua trang "Tat ca yeu cau".
+
+    `r.reference_name` (09/09/2026): nguoi dung cam MA PHIEU tren tay - tu thong bao
+    Teams, tu email, tu cong ky so - roi go vao day va khong ra gi. Bang chi HIEN ma ho
+    so duyet (EC-APR-...), con ma phieu (EC-PAYR-..., EC-PURR-...) thi khong o dau ca,
+    nen Ctrl+F cua trinh duyet cung chiu. Hoan vap dung cai nay khi tra EC-PAYR-2026-00053
+    (= EC-APR-2026-00166) va ket luan "khong tim thay phieu" trong khi no dang nam ngay
+    truoc mat.
+
+    Them mot ve OR, khong dung toi pham vi xem: dieu kien nay van duoc AND voi
+    scope_predicate o `_list_where`, nen khong ai vi the ma thay them phieu cua nguoi khac.
+    """
     if not search:
         return None
     params["search"] = "%" + str(search).strip() + "%"
-    return ("(r.name LIKE %(search)s OR t.approval_title LIKE %(search)s "
+    return ("(r.name LIKE %(search)s OR r.reference_name LIKE %(search)s "
+            "OR t.approval_title LIKE %(search)s "
             "OR r.requested_by LIKE %(search)s OR r.requester_department LIKE %(search)s)")
 
 
