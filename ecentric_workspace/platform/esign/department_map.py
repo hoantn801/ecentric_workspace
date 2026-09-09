@@ -12,6 +12,16 @@ CACH LAM. Phong ban cua phieu (`department` tren chinh business doc - la BAN CHU
 luc gui duyet, khong doi duoc sau do) -> tra ma phong ban SCTS o Custom Field
 `custom_scts_department_id` tren DocType `Department`.
 
+!! GIA TRI DIEN VAO CUSTOM FIELD LA TRUONG `id` CUA CAY PHONG BAN eCONTRACT,
+   KHONG PHAI TRUONG `code`. Hai cai KHAC NHAU: phong "Data & System" co
+   id='cntt' nhung code='CNTT 1'. Ngay 09/09/2026 dien nham cot `code` (SER,
+   FINANCE, HR...) -> AddDocument tra HTTP 500 -> ba goi ket o 'Provider
+   Creating'. Vi 'cntt' - gia tri duy nhat dang chay dung luc do - trong giong
+   mot "ma" viet thuong nen khong ai nghi no la mot id. Dau hieu nhan biet:
+   id cua cac phong khac deu la GUID. Neu gia tri dien vao trong nhu mot ma
+   viet hoa ngan gon thi gan nhu chac chan la dang lay nham cot.
+   Lay bang cach GET cay phong ban cua eContract va doc cot `id`.
+
 BA QUYET DINH DANG CHU Y:
 
 1. **Ma nam tren chinh ban ghi Department, khong phai mot bang anh xa rieng.**
