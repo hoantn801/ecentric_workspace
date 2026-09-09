@@ -65,7 +65,10 @@ def _file_bytes():
 def upload_package_file(business_doctype, business_name, requires_signature=0,
                         is_supporting_document=0, share_with_partner=0, file_kind=None):
     _business_args(business_doctype, business_name)
-    perms.assert_can_view_business(business_doctype, business_name)
+    # GHI, khong phai doc: giu dung luat cu (nguoi tao / SM / nguoi duyet). Khong dung
+    # assert_can_view_business - tu 09/09 cau do da noi rong cho nguoi XU LY, ma nguoi xu ly
+    # khong co ly do gi de dung goi tai lieu ky so.
+    perms.assert_can_setup_package(business_doctype, business_name)
     at = frappe.db.get_value(business_doctype, business_name, "approval_type")
     profile = guard.get_active_profile(business_doctype, at)
     if not profile:

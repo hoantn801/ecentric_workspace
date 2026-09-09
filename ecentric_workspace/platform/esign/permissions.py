@@ -27,8 +27,14 @@ def business_approval_request(business_doctype, business_name):
     return frappe.db.get_value(business_doctype, business_name, "approval_request")
 
 
-def can_view_business(business_doctype, business_name, user=None):
-    """Mirrors the per-form _can_view convention: requester OR SM OR snapshot approver."""
+def can_setup_package(business_doctype, business_name, user=None):
+    """Ai duoc DUNG/SUA goi tai lieu ky so: nguoi tao yeu cau, SM, hoac nguoi duyet trong luong.
+
+    Day la luat CU cua `can_view_business`, giu nguyen KHONG DOI. No o lai vi
+    `api.upload_package_file` (POST, ghi that) chi gac bang dung mot cau nay - neu de no
+    dung chung voi luat XEM da noi rong o duoi thi ban va quyen-xem se lang le bien thanh
+    cap quyen-GHI cho moi nguoi xu ly. Tach ra de khong ai duoc them, khong ai mat di.
+    """
     user = user or frappe.session.user
     requested_by = business_requested_by(business_doctype, business_name)
     if requested_by == user or is_system_manager(user):
@@ -36,6 +42,53 @@ def can_view_business(business_doctype, business_name, user=None):
     ar = business_approval_request(business_doctype, business_name)
     return bool(ar and frappe.db.exists("EC Approval Request Approver",
                                         {"approval_request": ar, "approver": user}))
+
+
+def can_view_business(business_doctype, business_name, user=None):
+    """AI DUOC XEM - uy quyen cho luat chinh thuc cua Approval Center, khong tu che ban sao.
+
+    Vi sao doi (09/09, chi Dan bao loi). Ham nay tung ghi "Mirrors the per-form _can_view
+    convention" va chep lai ba chan: nguoi tao / SM / nguoi duyet. Quy uoc do DA DOI tu lau:
+    `shared.workflow.permissions.can_view_request` con cho fulfillment_owner va Fulfiller
+    duoc CAU HINH xem. Ban chep o day bi bo lai phia sau, va khong ai biet cho toi khi no
+    lam hong mot man hinh that.
+
+    Trieu chung: chi Dan (Ke toan, Fulfiller cua PAYMENT_REQUEST) mo EC-PAYR-2026-00073 -
+    than phieu ve binh thuong (`query_service.detail` da cho qua) nhung MOI endpoint ky so
+    deu nem "Ban khong co quyen xem yeu cau nay", bung ra bon cap thong bao loi chong len
+    trang. Day la lan THU BA trong mot ngay cung mot lop loi: mot he thong con giu ban sao
+    rieng cua luat quyen xem roi lech khoi ban goc (truoc do: trang /all-requests, roi cong
+    tep dinh kem).
+
+    Nen tu nay hoi THANG ban goc. Fail-closed: nhap module khong duoc thi lui ve dung luat
+    cu (`can_setup_package`) - hep hon, khong bao gio rong hon.
+    """
+    user = user or frappe.session.user
+    if can_setup_package(business_doctype, business_name, user):
+        return True
+    try:
+        from ecentric_workspace.approval_center.shared.workflow.permissions import (
+            can_view_request)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign can_view_business: khong nap duoc luat goc")
+        return False
+    ar = business_approval_request(business_doctype, business_name)
+    row = frappe.db.get_value(business_doctype, business_name,
+                              ["requested_by", "fulfillment_owner", "approval_type"],
+                              as_dict=True) or {}
+    return bool(can_view_request(
+        ar, user,
+        business_doctype=business_doctype,
+        requested_by=row.get("requested_by"),
+        fulfillment_owner=row.get("fulfillment_owner"),
+        approval_type=row.get("approval_type"),
+        business_name=business_name))
+
+
+def assert_can_setup_package(business_doctype, business_name, user=None):
+    if not can_setup_package(business_doctype, business_name, user):
+        frappe.throw(_("Chỉ người tạo yêu cầu hoặc người duyệt mới được sửa gói tài liệu."),
+                     frappe.PermissionError)
 
 
 def assert_can_view_business(business_doctype, business_name, user=None):
