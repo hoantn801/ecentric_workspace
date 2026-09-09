@@ -89,9 +89,13 @@ def _run(signers, legs, pending=("hof@ec.vn",), level=3, doc_id="doc-1", poll_ra
     saved = {k: sys.modules.get(k) for k in (_BASE, _SAN)}
     sys.modules[_BASE], sys.modules[_SAN] = fake_base, fake_san
     try:
-        exec(compile(ast.Module(body=[_fn("audit_provider_signature_drift")], type_ignores=[]),
+        # Tu 09/09 loi cua phep soi lech nam o `_audit_drift`; `audit_provider_signature_drift`
+        # chi con la vo: `assert_system_manager()` roi goi xuong. Tach ra de cong viec dinh ky
+        # (chay duoi Administrator, khong co nguoi nao bam) khong phai di qua hang rao quyen.
+        # Nap DUNG cai vo thi bo test nay chay tren hai dong va khong kiem gi ca.
+        exec(compile(ast.Module(body=[_fn("_audit_drift")], type_ignores=[]),
                      "service.py", "exec"), ns)
-        return ns["audit_provider_signature_drift"]()
+        return ns["_audit_drift"]()
     finally:
         for k, v in saved.items():
             if v is None:
@@ -181,13 +185,17 @@ class TestPhamVi(unittest.TestCase):
         self.assertEqual(out["unreadable"], [], "khong co tai lieu != khong hoi duoc")
 
     def test_chi_xet_phieu_DANG_CHO(self):
-        src = ast.unparse(_fn("audit_provider_signature_drift"))
+        src = ast.unparse(_fn("_audit_drift"))
         self.assertIn("Pending", src)
         self.assertIn("Information Required", src)
 
     def test_KHONG_GHI_GI(self):
-        """Day la duong chan doan. Mot dong ghi o day la mot tac dung phu khong ai ngo."""
-        src = ast.unparse(_fn("audit_provider_signature_drift"))
+        """Day la duong chan doan. Mot dong ghi o day la mot tac dung phu khong ai ngo.
+
+        Kiem CA HAI: cai vo co hang rao quyen VA cai loi. Chi kiem mot cai thi lan sau ai do
+        them mot dong ghi vao nua kia ma khong bi chan."""
+        src = "\n".join(ast.unparse(_fn(n))
+                        for n in ("audit_provider_signature_drift", "_audit_drift"))
         for cam in ("set_value", "insert(", "db_set", "save(", "enqueue", "set_dsr_status",
                     "mark_verified", "engine.approve"):
             self.assertNotIn(cam, src, cam)

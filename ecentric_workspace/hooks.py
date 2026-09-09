@@ -276,3 +276,13 @@ fixtures = [
         "filters": [["route", "like", "ec-hr/%"]],
     },
 ]
+
+# esign: soi lech chu ky 2 LUOT/NGAY (Hoan chot 09/09) - 08:30 va 14:30.
+# Gio dia phuong: System Settings.time_zone = Asia/Ho_Chi_Minh, Frappe chay cron theo do
+# (da doi chieu tren prod 09/09), nen KHONG phai quy ra UTC.
+# CHI DOC + bao cho System Manager; khong bao gio tu dong dong bo chu ky. Dung chung kill
+# switch ec_esign_scheduler_disabled voi cac task esign khac.
+for _gio_soi_lech in ("30 8 * * *", "30 14 * * *"):
+    scheduler_events["cron"].setdefault(_gio_soi_lech, []).append(
+        "ecentric_workspace.platform.esign.tasks.sweep_provider_signature_drift")
+del _gio_soi_lech
