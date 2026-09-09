@@ -67,10 +67,10 @@
   /* Hai THẺ RỜI: thẻ lớn bên trái là nội dung yêu cầu, thẻ nhỏ bên phải là lịch sử xử lý. */
   /* margin:auto căn giữa cả hai chiều mà vẫn cuộn được khi thẻ cao hơn màn hình
      (align-items:center sẽ cắt mất phần đầu khi tràn). */
-  .ec-apl-wrap{ display:flex; align-items:flex-start; gap:16px; width:100%; max-width:1140px; margin:auto; }
+  .ec-apl-wrap{ display:flex; align-items:flex-start; gap:16px; width:100%; max-width:1220px; margin:auto; }
   .ec-apl-wrap.solo{ max-width:860px; }
   .ec-apl-wrap:focus{ outline:none; }
-  .ec-apl-aside{ width:322px; flex:0 0 322px; background:#fff; border-radius:16px; overflow:hidden;
+  .ec-apl-aside{ width:400px; flex:0 0 400px; background:#fff; border-radius:16px; overflow:hidden;
     box-shadow:0 24px 64px rgba(15,23,42,.28); font-family:'Inter',-apple-system,sans-serif; color:#1f2937; }
   .ec-apl-aside .hd{ padding:14px 18px 10px; border-bottom:1px solid #eef0f4; font-size:10.5px; font-weight:700;
     text-transform:uppercase; letter-spacing:.05em; color:#9ca3af; }
@@ -632,15 +632,18 @@
     if(!aside){
       aside=document.createElement("aside"); aside.className="ec-apl-aside";
       aside.innerHTML='<div class="tabs">'
-        +'<button type="button" data-tab="tl" class="on">Lịch sử</button>'
-        +'<button type="button" data-tab="cm">Trao đổi<span class="cnt" hidden></span></button></div>'
-        +'<div class="bd" data-pane="tl"></div>'
-        +'<div class="bd ec-apl-cm" data-pane="cm" hidden></div>'
-        +'<div class="ec-apl-cbox" data-pane="cm" hidden>'
+        +'<button type="button" data-tab="tl">Lịch sử</button>'
+        +'<button type="button" data-tab="cm" class="on">Trao đổi<span class="cnt" hidden></span></button></div>'
+        +'<div class="bd" data-pane="tl" hidden></div>'
+        +'<div class="bd ec-apl-cm" data-pane="cm"></div>'
+        +'<div class="ec-apl-cbox" data-pane="cm">'
         +'<textarea placeholder="Nhắn cho người trong luồng duyệt…" aria-label="Nội dung trao đổi"></textarea>'
         +'<div class="row"><button type="button" class="btn approve" data-send>Gửi</button></div></div>';
       box.appendChild(aside);
       bindAside(aside);
+      // Tab mac dinh la Trao doi (Hoan chot 09/09) -> nap binh luan ngay khi dung khung,
+      // khong doi nguoi dung bam tab. Chi nap o day de khong goi lai moi lan ve timeline.
+      loadComments();
     }
     var bd=aside.querySelector('[data-pane="tl"]');
     bd.classList.toggle("loading", tl.indexOf("ec-apl-skel-li")>=0);
@@ -678,7 +681,10 @@
   }
   function loadComments(){
     var req=state.openReq; if(!req) return;
-    call("list_comments",{request_name:req}).then(function(res){
+    // ACT chu khong phai call(): call() tro toi reporting.api, con hai ham trao doi nam o
+    // reporting.actions - cung cho voi get_request_detail. Goi nham -> "has no attribute".
+    frappe.call({method:ACT+"list_comments", args:{request_name:req}, type:"GET"})
+      .then(function(r){ return r&&r.message; }).then(function(res){
       if(state.openReq!==req) return;            // nguoi dung da chuyen sang ho so khac
       renderComments((res&&res.comments)||[], res&&res.me);
     }).catch(function(e){ toast(mapErr(e),true); });
@@ -688,7 +694,8 @@
     if(!req) return;
     if(!tx){ toast("Chưa nhập nội dung trao đổi.",true); ta&&ta.focus(); return; }
     btn.disabled=true;
-    call("add_comment",{request_name:req, content:tx}).then(function(res){
+    frappe.call({method:ACT+"add_comment", args:{request_name:req, content:tx}})
+      .then(function(r){ return r&&r.message; }).then(function(res){
       ta.value=""; renderComments((res&&res.comments)||[], res&&res.me);
     }).catch(function(e){ toast(mapErr(e),true); })
       .then(function(){ btn.disabled=false; });
