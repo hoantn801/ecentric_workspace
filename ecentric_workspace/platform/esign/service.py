@@ -21,6 +21,30 @@ from ecentric_workspace.platform.esign import state as sm
 from ecentric_workspace.platform.esign.providers import get_adapter
 from ecentric_workspace.platform.esign.sanitize import safe_error
 
+
+#: Cac dinh danh SCTS phai khop giua ho so va tai lieu that.
+IDENTITY_KEYS = ("workflow_definition_id", "document_type_id", "company_id", "department_id")
+
+
+def expected_identity(prof, pkg):
+    """Dinh danh MONG DOI cua mot goi khi doi soat voi tai lieu ben SCTS.
+
+    Vi sao khong dung thang `prof`. `department_id` KHONG con la hang so cua Profile -
+    tu 09/09/2026 no duoc chon theo phong ban cua chinh phieu (department_map.py). Neu
+    van so voi Profile thi MOI goi cua phong khac deu bi tu choi doi soat
+    ("identity_mismatch:department_id"), tuc la mot ban sua nhan hien thi lai lam chet
+    ca luong ky. Phai so voi cai DA GUI.
+
+    Goi cu (tao truoc khi co `department_id_sent`) khong co gia tri da gui -> van so voi
+    Profile nhu truoc. Do la ly do o day dung `or`, khong phai `if key in`.
+    """
+    expected = dict(prof or {})
+    sent = (pkg or {}).get("department_id_sent") if hasattr(pkg, "get") else None
+    if sent:
+        expected["department_id"] = sent
+    return expected
+
+
 DSR = "EC Digital Signature Request"
 LIVE_OR_DONE = ("Prepared", "Queued", "Provider Accepted", "Verifying", "Signed",
                 "Approval Completed")
@@ -633,7 +657,11 @@ def reconcile_document_creation(package_name, scts_document_id):
     pkg = frappe.db.get_value(
         "EC Digital Signature Package", package_name,
         ["name", "error_code", "scts_document_id", "provider", "environment",
-         "doc_code_sent", "business_name", "business_doctype", "profile"], as_dict=True)
+         "doc_code_sent", "business_name", "business_doctype", "profile",
+         # PHAI nap: expected_identity() so `department_id` voi gia tri DA GUI. Thieu
+         # cot nay thi no am tham lui ve Profile va buoc doi soat lai tu choi moi goi
+         # cua phong khac - dung cai loi ma ban sua nay sinh ra de tranh.
+         "department_id_sent"], as_dict=True)
     if not pkg:
         frappe.throw(_("Không tìm thấy gói tài liệu."))
     if pkg.error_code != "create_outcome_unknown":
@@ -689,8 +717,9 @@ def reconcile_document_creation(package_name, scts_document_id):
         "EC Digital Signature Profile", pkg.profile,
         ["workflow_definition_id", "document_type_id", "company_id", "department_id"],
         as_dict=True) or {}
-    for key in ("workflow_definition_id", "document_type_id", "company_id", "department_id"):
-        pv, ev = ident.get(key), prof.get(key)
+    expected = expected_identity(prof, pkg)
+    for key in IDENTITY_KEYS:
+        pv, ev = ident.get(key), expected.get(key)
         if pv not in (None, "") and ev and str(pv) != str(ev):
             events.emit("CreateReconcileRejected", package=package_name,
                         verification_result="identity_mismatch:%s" % key)

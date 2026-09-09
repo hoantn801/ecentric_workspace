@@ -45,6 +45,7 @@
   "doc_code_sent",
   "doc_title_sent",
   "doc_amount_sent",
+  "department_id_sent",
   "locked_at",
   "created_at_provider",
   "completed_at",
@@ -154,6 +155,14 @@
    "fieldtype": "Currency",
    "label": "Doc Amount Sent",
    "read_only": 1
+  },
+  {
+   "fieldname": "department_id_sent",
+   "fieldtype": "Data",
+   "label": "Department Id Sent",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "Ma phong ban THAT SU da gui sang nha cung cap cho goi nay. Buoc doi soat so voi truong nay, khong so voi Profile."
   },
   {
    "fieldname": "locked_at",

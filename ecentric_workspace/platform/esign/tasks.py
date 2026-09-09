@@ -13,6 +13,7 @@ import frappe
 from frappe.utils import add_to_date, now_datetime
 
 from ecentric_workspace.platform.esign import binding
+from ecentric_workspace.platform.esign import department_map
 from ecentric_workspace.platform.esign import events
 from ecentric_workspace.platform.esign import package as pkgsvc
 from ecentric_workspace.platform.esign import service as svc
@@ -185,6 +186,14 @@ def _ensure_provider_document(dsr, settings, adapter):
          "document_template_id", "doc_code_source", "title_source", "amount_source"],
         as_dict=True) or {}
     _resolve_doc_meta(pkg, prof)                              # fills doc_*_sent once (audited)
+    # Phong ban: theo PHIEU, khong phai hang so cua Profile (xem department_map.py).
+    # Ghi lai gia tri DA GUI len goi de buoc doi soat sau nay so dung cai da gui.
+    dept_id, dept_first_time = department_map.resolve_for_package(
+        pkg, prof.get("department_id"))
+    if dept_first_time:
+        frappe.db.set_value("EC Digital Signature Package", pkg.name,
+                            {"department_id_sent": dept_id})
+        pkg.department_id_sent = dept_id
     ctx = {
         "doc_code": pkg.doc_code_sent or pkg.business_name,
         "title": pkg.doc_title_sent or pkg.business_name,
@@ -192,7 +201,7 @@ def _ensure_provider_document(dsr, settings, adapter):
         "workflow_definition_id": prof.get("workflow_definition_id"),
         "document_type_id": prof.get("document_type_id"),
         "company_id": prof.get("company_id"),
-        "department_id": prof.get("department_id"),
+        "department_id": dept_id,
         "document_template_id": prof.get("document_template_id"),
         # order = chi so ERP (khop by_order ben duoi) ke ca khi mot phu luc bi giu lai.
         "files": _fit_payload_budget(
