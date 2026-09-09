@@ -140,8 +140,8 @@
     "sha256": "347f7ad43edc901cbd42da98f89580c64d86d4d403e2f981408abf9a9163c740"
   },
   "approval_center/ui/hub/main_section.html": {
-    "last_resync_patch": "p164_hub_guide_help_button",
-    "sha256": "33d085101f325df205d1b8fd973f8e3e77b9a0d214cf6b86021e3450258ff9c0"
+    "last_resync_patch": "p169_resync_hub_scts_button_no_mapping",
+    "sha256": "4f5699d2eeeddbcc0346a7325ad395bd08c0cb69832534bde4a174e747767622"
   },
   "guides/pages/dnmh_dntt/main_section.html": {
     "last_resync_patch": "p161_publish_guides_and_shell_drift",

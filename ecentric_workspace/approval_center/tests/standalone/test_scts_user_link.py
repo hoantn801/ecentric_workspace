@@ -178,12 +178,26 @@ class TestUserLink(unittest.TestCase):
                           .token_for(HIEN, "UAT"))
         self.assertIsNone(_user_link(token=TOKEN, expires_at=None).token_for(HIEN, "UAT"))
 
-    def test_khong_mapping_thi_None_va_link_bi_chan(self):
+    def test_khong_mapping_thi_khong_co_token(self):
+        self.assertIsNone(_user_link(with_mapping=False).token_for(HIEN, "UAT"))
+
+    def test_khong_mapping_thi_VAN_dang_nhap_truoc_roi_moi_tu_dung_anh_xa(self):
+        """DOI 09/09. Truoc day `link` tu choi NGAY khi chua co anh xa ("Nho quan tri tao
+        truoc") va bo test nay khang dinh "khong mapping thi KHONG goi login" - tuc no dang
+        khoa lai dung cai hanh vi chan nguoi moi: nut "Ket noi SCTS" tren hub cung an vi dieu
+        kien `has_mapping`, nen Tam tao tai khoan SCTS xong khong co duong nao vao.
+
+        Hop dong moi: DANG NHAP TRUOC (chinh SCTS xac minh nguoi do), roi tu dung anh xa tu
+        phan hoi. Nen phep kiem doi chieu: phai CO goi login. Viec tao anh xa dung/sai the
+        nao thuoc test_scts_auto_mapping.
+        """
         ul = _user_link(with_mapping=False)
-        self.assertIsNone(ul.token_for(HIEN, "UAT"))
-        with self.assertRaises(Exception):
+        try:
             ul.link(HIEN, SETTINGS, "UAT", PASSWORD)
-        self.assertEqual(ul._providers.calls, [], "khong mapping thi KHONG goi login")
+        except Exception:
+            pass          # cai gia khong dung duoc buoc tao anh xa - khong phai dieu dang kiem
+        self.assertTrue(ul._providers.calls, "phai dang nhap TRUOC khi lo chuyen anh xa")
+        self.assertEqual(ul._providers.calls[0]["username"], HIEN)
 
     def test_link_luu_TOKEN_khong_luu_mat_khau(self):
         ul = _user_link()

@@ -347,7 +347,11 @@
   function sctsRender(){
     var wrap=$("apc-scts"), btn=$("apc-scts-btn"); if(!wrap||!btn) return;
     var st=SCTS.st;
-    var show = !!(st && st.needs_link && st.has_mapping);
+    // KHONG con doi `has_mapping` (09/09). Dieu kien cu an nut voi dung nhom can no nhat:
+    // nguoi CHUA TUNG ket noi thi chua co dong anh xa nao, nen khong thay nut - va khong co
+    // mot dong chu nao noi vi sao. Chi Tam bao "khong co nut ket noi" dung vi vay. Tu nay
+    // ERP tu dung anh xa tu chinh phan hoi dang nhap cua SCTS, nen khong con gi de doi.
+    var show = !!(st && st.needs_link);
     wrap.hidden = !show;
     if(!show) return;
     if(st.linked){
