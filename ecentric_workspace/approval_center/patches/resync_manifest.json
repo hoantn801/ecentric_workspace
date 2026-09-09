@@ -60,8 +60,8 @@
   },
   "approval_center/features/hiring_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p135_resync_hiring_request_after_drift_unlock",
-    "sha256": "0db46f034c3955141ee960d9719e5f30eb65ef171c7f3325f6f279a29f57b229"
+    "last_resync_patch": "p167_resync_hiring_attachment_visible",
+    "sha256": "70e517188e2bcfcd32ebddc37fb2f8a8ef3798f90d2fed76da3e4807beac57e5"
   },
   "approval_center/features/hr_activity/ui/main_section.html": {
     "baseline": "2026-08-31",
