@@ -75,6 +75,31 @@
   .ec-apl-aside .hd{ padding:14px 18px 10px; border-bottom:1px solid #eef0f4; font-size:10.5px; font-weight:700;
     text-transform:uppercase; letter-spacing:.05em; color:#9ca3af; }
   .ec-apl-aside .bd{ padding:14px 18px; max-height:calc(100vh - 190px); overflow-y:auto; }
+  /* Cot phai co HAI TAB: Lich su va Trao doi. Chon kieu tab (khong xep chong) de popup giu
+     nguyen chieu cao - ho so nhieu cap ma xep chong them khung chat thi phai cuon hai lan. */
+  .ec-apl-aside .tabs{ display:flex; padding:0; border-bottom:1px solid #eef0f4; }
+  .ec-apl-aside .tabs button{ flex:1; background:none; border:0; padding:11px 8px; cursor:pointer;
+    font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#9ca3af;
+    border-bottom:2px solid transparent; font-family:inherit; }
+  .ec-apl-aside .tabs button.on{ color:var(--navy); border-bottom-color:var(--navy); }
+  .ec-apl-aside .tabs .cnt{ background:var(--navy-50); color:var(--navy); border-radius:9px;
+    padding:0 5px; margin-left:4px; font-size:10px; }
+  .ec-apl-cm .msg{ margin-bottom:12px; }
+  .ec-apl-cm .msg .who{ font-size:11.5px; font-weight:600; color:#374151; }
+  .ec-apl-cm .msg .at{ font-size:10.5px; color:#9ca3af; margin-left:6px; }
+  .ec-apl-cm .msg .tx{ font-size:12.5px; color:#374151; line-height:1.55; white-space:pre-wrap;
+    word-break:break-word; margin-top:2px; }
+  .ec-apl-cm .empty{ font-size:12px; color:#9ca3af; padding:8px 0; }
+  .ec-apl-cbox{ border-top:1px solid #eef0f4; padding:10px 18px 12px; }
+  .ec-apl-cbox textarea{ width:100%; box-sizing:border-box; border:1px solid #e5e7eb; border-radius:8px;
+    padding:7px 9px; font-size:12.5px; font-family:inherit; resize:vertical; min-height:52px; color:#1f2937; }
+  .ec-apl-cbox textarea:focus{ outline:none; border-color:var(--navy); }
+  .ec-apl-cbox .row{ display:flex; justify-content:flex-end; gap:8px; margin-top:7px; }
+  /* Nut hanh dong cua popup duoc dinh nghia trong .ec-apl-mf, khong voi toi day - khai rieng. */
+  .ec-apl-cbox .btn{ background:var(--navy); border:1px solid var(--navy); color:#fff; cursor:pointer;
+    border-radius:8px; padding:6px 16px; font-size:12.5px; font-weight:600; font-family:inherit; }
+  .ec-apl-cbox .btn:hover:not(:disabled){ filter:brightness(1.08); }
+  .ec-apl-cbox .btn:disabled{ opacity:.55; cursor:default; }
   @media (max-width:1040px){
     .ec-apl-wrap{ flex-direction:column; max-width:760px; }
     .ec-apl-aside{ width:100%; flex:none; }
@@ -360,7 +385,7 @@
         +cell(fmtDT(r.submitted_at))+cell(r.name)+cell(r.title||r.type)+cell(r.type)
         +cell(fmtMoney(r.amount, r.currency))
         +cell(who, sender)+cell(to, chips(r.sent_to))+cell(r.department)
-        +cell(r.current_level_name||r.current_level)
+        +cell(levelCell(r))
         +cell(statusLabel(r.status_label||r.status), breach+statusCell(r))
         +'</tr>'; }).join("");
     state.rowNames=rows.map(function(r){ return r.name; });
@@ -407,11 +432,21 @@
     var t=(text==null||text==="")?"—":String(text);
     return '<td title="'+esc(t)+'">'+(html!=null?html:esc(t))+'</td>';
   }
+  // Phieu da duyet xong nhung con dang xu ly thi KHONG phai "Hoan tat". Truoc day chi tab
+  // "Cho toi xu ly" moi ghep buoc xu ly vao, cac tab khac hien "Hoan tat" tu luc duyet xong -
+  // sai voi thuc te (09/09: phieu dang o buoc Operation van bao Hoan tat).
+  function ffActive(r){ return r.fulfillment_status==="Assigned" || r.fulfillment_status==="In Progress"; }
+  function ffLabel(r){ return r.fulfillment_status==="Assigned" ? "Chờ nhận xử lý" : "Đang xử lý"; }
+  // Duyet xong thi current_level ve 0; in thang ra thanh so "0" vo nghia. Con dang xu ly thi
+  // buoc hien tai chinh la buoc xu ly, khong phai mot cap duyet.
+  function levelCell(r){
+    if(ffActive(r)) return ffLabel(r);
+    return r.current_level_name || (r.current_level ? ("Cấp "+r.current_level) : "—"); }
+
   function statusCell(r){
-    if(state.box==="fulfil" && r.fulfillment_status){
-      var lbl = r.fulfillment_status==="Assigned" ? "Chờ nhận xử lý" : "Đang xử lý";
+    if(ffActive(r)){
       var who = (r.fulfillment_status!=="Assigned" && r.fulfillment_owner) ? ('<div class="t-sub">'+esc(r.fulfillment_owner)+'</div>') : '';
-      return '<span class="pill ff">'+esc(lbl)+'</span>'+who;
+      return '<span class="pill ff">'+esc(ffLabel(r))+'</span>'+who;
     }
     return '<span class="pill '+pillCls(r.status)+'">'+esc(statusLabel(r.status_label||r.status))+'</span>';
   }
@@ -440,7 +475,11 @@
       ov=document.createElement("div"); ov.id="ec-apl-ov"; ov.hidden=true;
       ov.innerHTML='<div class="ec-apl-wrap solo" role="dialog" aria-modal="true" aria-label="Chi tiết yêu cầu"></div>';
       document.body.appendChild(ov);
-      ov.addEventListener("click",function(e){ if(e.target===ov) closeDetail(); });
+      // Dong khi bam ra ngoai. Phai tinh ca `.ec-apl-wrap`: no la khung bao hai the, nen
+      // khoang trong giua/duoi hai the la CHINH no chu khong phai lop phu - bam vao do
+      // truoc day khong dong duoc, nguoi dung tuong card bi ket.
+      ov.addEventListener("click",function(e){
+        if(e.target===ov || (e.target.classList&&e.target.classList.contains("ec-apl-wrap"))) closeDetail(); });
       document.addEventListener("keydown",function(e){
         var open=!document.getElementById("ec-apl-ov").hidden;
         if(!open) return;
@@ -592,12 +631,67 @@
     if(!tl){ if(aside) aside.remove(); return; }
     if(!aside){
       aside=document.createElement("aside"); aside.className="ec-apl-aside";
-      aside.innerHTML='<div class="hd">Lịch sử xử lý</div><div class="bd"></div>';
+      aside.innerHTML='<div class="tabs">'
+        +'<button type="button" data-tab="tl" class="on">Lịch sử</button>'
+        +'<button type="button" data-tab="cm">Trao đổi<span class="cnt" hidden></span></button></div>'
+        +'<div class="bd" data-pane="tl"></div>'
+        +'<div class="bd ec-apl-cm" data-pane="cm" hidden></div>'
+        +'<div class="ec-apl-cbox" data-pane="cm" hidden>'
+        +'<textarea placeholder="Nhắn cho người trong luồng duyệt…" aria-label="Nội dung trao đổi"></textarea>'
+        +'<div class="row"><button type="button" class="btn approve" data-send>Gửi</button></div></div>';
       box.appendChild(aside);
+      bindAside(aside);
     }
-    var bd=aside.querySelector(".bd");
+    var bd=aside.querySelector('[data-pane="tl"]');
     bd.classList.toggle("loading", tl.indexOf("ec-apl-skel-li")>=0);
     bd.innerHTML='<ul class="ec-apl-tl">'+tl+'</ul>';
+  }
+  function bindAside(aside){
+    Array.prototype.forEach.call(aside.querySelectorAll("[data-tab]"),function(b){
+      b.onclick=function(){
+        var t=b.getAttribute("data-tab");
+        Array.prototype.forEach.call(aside.querySelectorAll("[data-tab]"),function(x){
+          x.classList.toggle("on", x===b); });
+        Array.prototype.forEach.call(aside.querySelectorAll("[data-pane]"),function(x){
+          x.hidden = x.getAttribute("data-pane")!==t; });
+        if(t==="cm") loadComments(); };
+    });
+    var send=aside.querySelector("[data-send]"), ta=aside.querySelector("textarea");
+    if(send) send.onclick=function(){ sendComment(aside, ta, send); };
+    if(ta) ta.addEventListener("keydown",function(e){
+      // Ctrl/Cmd+Enter de gui: Enter tran de xuong dong, tin nhan cong viec hay nhieu dong.
+      if((e.ctrlKey||e.metaKey) && e.key==="Enter"){ e.preventDefault(); send&&send.click(); } });
+  }
+  function asideEl(){ var ov=document.getElementById("ec-apl-ov");
+    return ov?ov.querySelector(".ec-apl-aside"):null; }
+  function renderComments(list, me){
+    var a=asideEl(); if(!a) return;
+    var pane=a.querySelector('.ec-apl-cm'), cnt=a.querySelector(".cnt");
+    if(cnt){ cnt.hidden=!list.length; cnt.textContent=String(list.length); }
+    if(!pane) return;
+    pane.innerHTML = list.length ? list.map(function(c){
+      return '<div class="msg"><div><span class="who">'+esc(c.user_name||c.user)+'</span>'
+        +'<span class="at">'+esc(fmtDT(c.at))+'</span></div>'
+        +'<div class="tx">'+esc(c.content)+'</div></div>'; }).join("")
+      : '<div class="empty">Chưa có trao đổi nào. Nhắn một câu để bắt đầu.</div>';
+    pane.scrollTop=pane.scrollHeight;
+  }
+  function loadComments(){
+    var req=state.openReq; if(!req) return;
+    call("list_comments",{request_name:req}).then(function(res){
+      if(state.openReq!==req) return;            // nguoi dung da chuyen sang ho so khac
+      renderComments((res&&res.comments)||[], res&&res.me);
+    }).catch(function(e){ toast(mapErr(e),true); });
+  }
+  function sendComment(aside, ta, btn){
+    var req=state.openReq, tx=(ta&&ta.value||"").trim();
+    if(!req) return;
+    if(!tx){ toast("Chưa nhập nội dung trao đổi.",true); ta&&ta.focus(); return; }
+    btn.disabled=true;
+    call("add_comment",{request_name:req, content:tx}).then(function(res){
+      ta.value=""; renderComments((res&&res.comments)||[], res&&res.me);
+    }).catch(function(e){ toast(mapErr(e),true); })
+      .then(function(){ btn.disabled=false; });
   }
   // Khoá cuộn nền kèm bù bề rộng thanh cuộn: không bù thì trang co lại đúng lúc popup hiện ra,
   // mắt thấy như cả màn hình giật một cái.
@@ -649,16 +743,37 @@
     t.className=kind||"ok"; t.textContent=msg; t.hidden=false;
     clearTimeout(t._h); t._h=setTimeout(function(){ t.hidden=true; }, 2600);
   }
-  function stepperHtml(levels, cur, overall){
+  // Tien trinh trong popup phai KHOP voi trang day du: "Da gui" -> cac cap duyet -> buoc xu ly
+  // (neu form co) -> "Hoan tat".
+  //
+  // Chot cu danh dau "da xong" la `l.level_status==="Completed"` - ma level_status KHONG HE co
+  // gia tri do (options that: Pending / In Progress / Approved / Rejected / Skipped /
+  // Information Requested). Ve dau luon sai, chi con ve `level_no < cur` do duoc; ma phieu duyet
+  // xong thi cur = 0 nen ve do cung tat -> MOI cap hien nhu chua ai xu ly. Popup chua bao gio ve
+  // dung cho phieu da duyet (09/09).
+  function stepperHtml(levels, cur, overall, ff){
     if(!levels.length) return "";
     var rejected = /Rejected|Cancelled/i.test(overall||"");
-    return '<div class="ec-apl-steps">'+levels.map(function(l,idx){
-      var done = l.level_status==="Completed" || (l.level_no && cur && l.level_no<cur);
-      var isCur = l.level_no===cur;
-      var cls = rejected && isCur ? "rej" : (done ? "done" : (isCur ? "cur" : ""));
-      var mark = cls==="done" ? "&#10003;" : (cls==="rej" ? "&times;" : String(l.level_no||idx+1));
-      return '<div class="ec-apl-step '+cls+'"><div class="bul">'+mark+'</div>'
-           + '<div class="lb">'+esc(l.level_name||("Cấp "+(l.level_no||idx+1)))+'</div></div>';
+    var approved = /^Approved$/i.test(overall||"");
+    var steps=[{lb:"Đã gửi", st:"done"}];
+    levels.forEach(function(l,idx){
+      var s=String(l.level_status||"");
+      var done = s==="Approved" || s==="Skipped" || approved || (l.level_no && cur && l.level_no<cur);
+      var isCur = !approved && l.level_no===cur;
+      steps.push({lb:l.level_name||("Cấp "+(l.level_no||idx+1)),
+                  st: (rejected&&isCur)?"rej":(done?"done":(isCur?"cur":"")),
+                  skipped: s==="Skipped"});
+    });
+    var ffst=(ff&&ff.status)||"";
+    if(ffst && ffst!=="Not Started"){
+      steps.push({lb:"Xử lý",
+                  st: ffst==="Completed" ? "done" : (ffst==="Cancelled" ? "rej" : "cur")});
+    }
+    steps.push({lb:"Hoàn tất", st:(approved && (!ffst || ffst==="Completed" || ffst==="Not Started"))?"done":""});
+    return '<div class="ec-apl-steps">'+steps.map(function(x,i){
+      var mark = x.st==="done" ? "&#10003;" : (x.st==="rej" ? "&times;" : String(i+1));
+      return '<div class="ec-apl-step '+x.st+'"><div class="bul">'+mark+'</div>'
+           + '<div class="lb">'+esc(x.lb)+(x.skipped?' <span class="t-sub">(bỏ qua)</span>':'')+'</div></div>';
     }).join("")+'</div>';
   }
   function isLong(f){
@@ -737,7 +852,7 @@
     bodyEl.classList.remove("loading");
     bodyEl.innerHTML =
       hl
-      +(levels.length?('<div class="ec-apl-sec"><h4>Tiến trình duyệt</h4>'+stepperHtml(levels,cur,overall)+'</div>'):'')
+      +(levels.length?('<div class="ec-apl-sec"><h4>Tiến trình duyệt</h4>'+stepperHtml(levels,cur,overall,ff)+'</div>'):'')
       +(fields?('<div class="ec-apl-sec"><h4>Nội dung yêu cầu</h4><div class="ec-apl-kv">'+fields+'</div></div>'):'')
       +(files?('<div class="ec-apl-sec"><h4>Đính kèm</h4><div class="ec-apl-files">'+files+'</div></div>'):'');
 
