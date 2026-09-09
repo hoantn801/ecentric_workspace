@@ -124,6 +124,30 @@ class TestTraoDoi(unittest.TestCase):
                       if isinstance(c, ast.Call) and isinstance(c.func, ast.Name)}
             self.assertIn("_assert_can_view", called, "%s khong kiem quyen" % fn)
 
+    def test_goi_dung_khong_gian_ten_reporting_actions(self):
+        """09/09: goi bang call() -> tro toi reporting.api, ma hai ham nay nam o
+        reporting.actions -> "module has no attribute 'list_comments'" ngay tren production."""
+        src = _read(_HUB)
+        for fn in ("list_comments", "add_comment"):
+            self.assertIn('ACT+"%s"' % fn, src,
+                          "%s phai goi qua ACT (reporting.actions), khong phai call()" % fn)
+            self.assertNotIn('call("%s"' % fn, src)
+
+    def test_tab_mac_dinh_la_trao_doi(self):
+        src = _read(_HUB)
+        blk = src[src.index("aside.innerHTML="):]
+        blk = blk[:blk.index("box.appendChild(aside)")]
+        self.assertIn('data-tab="cm" class="on"', blk, "tab mac dinh phai la Trao doi")
+        self.assertNotIn('data-tab="tl" class="on"', blk)
+        self.assertIn('data-pane="tl" hidden', blk, "Lich su phai an luc dau")
+
+    def test_nap_binh_luan_ngay_khi_mo(self):
+        """Tab mac dinh la Trao doi thi phai nap san, khong doi nguoi dung bam tab."""
+        src = _read(_HUB)
+        blk = src[src.index("function setAside("):]
+        blk = blk[:blk.index("function bindAside(")]
+        self.assertIn("loadComments();", blk)
+
     def test_luu_van_ban_thuan_khong_luu_HTML_tho(self):
         """Comment cua Frappe la truong HTML; do lai HTML tho tu client la mo duong cho script."""
         src = _read(_ACTIONS)
