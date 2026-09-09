@@ -745,6 +745,18 @@ def reconcile_document_creation(package, scts_document_id=None):
     return svc.reconcile_document_creation(package, scts_document_id)
 
 
+@frappe.whitelist()
+def audit_provider_signature_drift(limit=200):
+    """CHI DOC, System Manager: phieu nao co chu ky ben SCTS ma ERP chua dung?
+
+    GET (khong ghi gi). Tra `drift` (co chu ky chua dung) TACH RIENG voi `unreadable`
+    (khong hoi duoc nha cung cap) - hai ket luan khac han nhau. Xem
+    svc.audit_provider_signature_drift.
+    """
+    perms.assert_system_manager()
+    return svc.audit_provider_signature_drift(limit=limit)
+
+
 @frappe.whitelist(methods=["POST"])
 def sync_signatures_from_provider(business_doctype, business_name, reason):
     """SM-gated: cap duyet hien tai DA duoc ky tren cong SCTS ma ERP chua biet -> cong nhan.

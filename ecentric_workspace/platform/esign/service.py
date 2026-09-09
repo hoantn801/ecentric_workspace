@@ -816,6 +816,92 @@ def _continue_after_reconcile(package_name):
 MIN_CLEAR_REASON_LEN = 10
 
 
+def audit_provider_signature_drift(limit=200):
+    """CHI DOC: phieu nao co chu ky ben SCTS ma ERP chua dung?
+
+    Vi sao can (09/09/2026). EC-PAYR-2026-00051 treo o "HOF Review" trong khi tai lieu ben
+    SCTS da "Da ket thuc" - HOF va CEO ky thang tren cong, khong bam gi tren ERP. Loai su co
+    nay VO HINH: trang van hanh chi liet ke CHAN KY bi ket, ma o day chua bao gio co chan ky
+    nao duoc tao. Chinh toi da quet "con phieu nao ket khong" va bao "chi con 00053" - cau do
+    chi dung voi nhung phieu CO chan ky, va phieu 00051 nam ngoai tam nhin cua phep do do.
+
+    PHEP DO O DAY: voi tung goi cua phieu DANG CHO DUYET, so
+        so CHU KY cua mot nguoi tren tai lieu   <->   so CHAN KY da hoan tat cua chinh ho
+    Du ra chu ky nao = co chu ky chua duoc dung. Dem chu khong khop theo email: mot nguoi vua
+    trinh ky vua duyet cap 1 thi email ho xuat hien du ERP da dung chu ky do roi - do dung la
+    cach mot phep quet ngay tho bao dong gia (da dinh 09/09 voi 00045/00049/00050).
+
+    "HOI DUOC VA SACH" khac "KHONG HOI DUOC": tra ve hai danh sach rieng. Gop lam mot la lap
+    lai dung cai loi im lang da lam mat hai dem cua thang 8.
+
+    KHONG GHI GI. Moi phieu tra loi mot lan hoi len nha cung cap, nen co `limit`.
+    """
+    perms.assert_system_manager()
+    profiles = frappe.get_all("EC Digital Signature Profile", filters={"enabled": 1},
+                              fields=["business_doctype", "approval_type"]) or []
+    dts = sorted({p["business_doctype"] for p in profiles if p.get("business_doctype")})
+    if not dts:
+        return {"checked": 0, "drift": [], "unreadable": [], "reason": "no_enabled_profile"}
+    reqs = frappe.get_all(
+        "EC Approval Request",
+        filters={"reference_doctype": ["in", dts],
+                 "approval_status": ["in", ("Pending", "Information Required")]},
+        fields=["name", "reference_doctype", "reference_name", "current_level"],
+        limit_page_length=int(limit or 200)) or []
+
+    from ecentric_workspace.platform.esign.providers.base import SignatureProviderAdapter  # noqa
+    from ecentric_workspace.platform.esign.sanitize import safe_error
+    drift, unreadable, checked = [], [], 0
+    for r in reqs:
+        pkg_name = pkgsvc.active_package_for_request(r["name"])
+        doc_id = frappe.db.get_value("EC Digital Signature Package", pkg_name,
+                                     "scts_document_id") if pkg_name else None
+        if not doc_id:
+            continue          # chua co tai lieu ben nha cung cap -> khong co gi de lech
+        try:
+            prof = _profile_doc(r["reference_doctype"],
+                                frappe.db.get_value("EC Approval Request", r["name"],
+                                                    "approval_type"))
+            state = get_adapter(_settings_for(prof)).poll_status(doc_id)
+        except Exception as exc:
+            unreadable.append({"business_name": r["reference_name"],
+                               "error": safe_error(exc)})
+            continue
+        checked += 1
+        ky = {}
+        for s in (getattr(state, "signers", None) or []):
+            if isinstance(s, dict) and str(s.get("status") or "").lower() == "signed" \
+                    and s.get("email"):
+                ky[s["email"]] = ky.get(s["email"], 0) + 1
+        if not ky:
+            continue
+        xong = {}
+        for leg in frappe.get_all(DSR, filters={"package": pkg_name,
+                                                "status": ["in", ("Signed",
+                                                                  "Approval Completed")]},
+                                  fields=["approver"]) or []:
+            xong[leg["approver"]] = xong.get(leg["approver"], 0) + 1
+        dang_cho = set(frappe.get_all(
+            "EC Approval Request Approver",
+            filters={"approval_request": r["name"], "level_no": r["current_level"],
+                     "status": "Pending"}, pluck="approver") or [])
+        for email, n in ky.items():
+            du = n - xong.get(email, 0)
+            if du > 0:
+                drift.append({
+                    "business_doctype": r["reference_doctype"],
+                    "business_name": r["reference_name"],
+                    "approval_request": r["name"], "current_level": r["current_level"],
+                    "approver": email, "signatures": n, "completed_legs": xong.get(email, 0),
+                    "surplus": du,
+                    # Dang cho o CAP HIEN TAI -> dong bo duoc ngay. Khong -> ho ky truoc cho
+                    # mot cap chua toi luot; de yen, no se dung khi toi luot.
+                    "actionable_now": email in dang_cho,
+                })
+    return {"checked": checked, "requests_seen": len(reqs),
+            "drift": drift, "unreadable": unreadable}
+
+
 def sync_signatures_from_provider(business_doctype, business_name, reason):
     """Cap duyet hien tai DA duoc ky tren cong SCTS ma ERP chua biet -> cong nhan va di tiep.
 
