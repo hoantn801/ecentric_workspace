@@ -99,8 +99,8 @@
     "sha256": "9e7e091060760821a3cf80fd7d2d300825b7bce65013a26c20f9d19b8ed5a264"
   },
   "approval_center/features/payment_request/ui/main_section.html": {
-    "last_resync_patch": "p170_resync_payment_request_unc_claim_dates",
-    "sha256": "1ab3de200328c8bb9bea8c934c5ed78580a59fe3eb7bffa5843efe528504434f"
+    "last_resync_patch": "p172_payment_request_expense_category",
+    "sha256": "36cc57b6fb667f052bc37bcd84cc9062597a2b931fa77db77adf0b9f1e26d027"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",

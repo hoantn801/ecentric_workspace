@@ -54,6 +54,12 @@ def _sync_funding_aliases(doc):
     legacy = (doc.get("purchase_request") or "").strip()
     if src_dt and src_name:
         doc.purchase_request = src_name if src_dt == "EC Purchase Request" else None
+    # Brand chi co nghia voi loai chi phi gan brand. Doi loai xong ma con gia tri cu thi bao
+    # cao theo brand nhan mot khoan khong thuoc ve no - cung kieu bay voi funding_source khi
+    # doi has_purchase_request sang "No".
+    category = (doc.get("ec_loai_chi_phi") or "").strip()
+    if not category or not frappe.db.get_value("EC Loai Chi Phi", category, "can_brand"):
+        doc.ec_brand = None
     elif legacy:
         # Older client (or historical draft) only set the legacy field -> promote it.
         doc.funding_source_doctype = "EC Purchase Request"
@@ -61,7 +67,10 @@ def _sync_funding_aliases(doc):
 
 def validate_payment(doc):
     required = ("reason", "payment_date", "payee_full_name", "account_bank", "bank_account_number",
-                "has_purchase_request", "is_cost_valid", "request_attachment")
+                "has_purchase_request", "is_cost_valid", "request_attachment",
+                # 09/09: bat buoc phan loai. Khong bat buoc thi khong ai chon, va PnL mu tro
+                # lai nhu truoc - mot con so "Payment Request" khong noi len duoc dieu gi.
+                "ec_loai_chi_phi")
     if any(not str(doc.get(f) or "").strip() for f in required) or doc.payment_amount is None:
         frappe.throw(_("Vui lòng nhập đầy đủ các trường bắt buộc (bao gồm tệp đính kèm) trước khi gửi."))
     try:

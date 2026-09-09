@@ -252,10 +252,28 @@ fixtures = [
             # ban ghi Department. Thieu field nay thi resolver luon lui ve gia tri co
             # dinh cua Profile va MOI tai lieu lai hien sai phong nhu truoc.
             "Department-custom_scts_department_id",
+            # Phan loai chi phi tren de nghi thanh toan (09/09/2026, Hoan) - PnL doc de gom
+            # nhom va chong dem trung luong. `ec_loai_chi_phi` la Link toi DocType
+            # `EC Loai Chi Phi` (ship o fixture DocType ngay duoi) va la truong BAT BUOC khi
+            # gui phieu: bench moi thieu no thi form DNTT chan gui va PnL mu tro lai. Ba
+            # truong PHAI di cung nhau - ec_can_brand fetch tu danh muc va la dieu kien
+            # an/hien cua ec_brand.
+            "EC Payment Request-ec_loai_chi_phi", "EC Payment Request-ec_can_brand",
+            "EC Payment Request-ec_brand",
             # LUU Y (CnB xac nhan truoc khi them): cac field luong tren Employee cung
             # chua versioned -- ec_pit_10, ec_pit_luytien, ec_dong_bhxh, ec_mst_ca_nhan,
             # ec_so_nguoi_phu_thuoc, ec_allow_lunch/coffee/computer, ec_late_early_bank.
         ]]],
+    },
+    # Hai DocType custom cua PnL dashboard (09/09/2026). Truoc day chi ton tai tren
+    # production -> bench moi hoac site dung lai la mat sach: `EC Loai Chi Phi` mat thi
+    # form DNTT chan gui (truong bat buoc tro toi mot DocType khong ton tai), va PnL het
+    # gom nhom duoc. Schema di theo repo; RIENG 27 dong danh muc thi do patch
+    # p173_seed_loai_chi_phi gieo va chi gieo dong CON THIEU, nen Finance sua tren site
+    # khong bao gio bi migrate ghi de.
+    {
+        "dt": "DocType",
+        "filters": [["name", "in", ["EC Loai Chi Phi", "EC Nhan Su Brand"]]],
     },
     {
         "dt": "Role",
