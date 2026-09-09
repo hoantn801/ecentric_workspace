@@ -337,7 +337,42 @@ class SignatureProviderAdapter(object):
         # hoi. Neu ca hai cung 23:06:00 thi cai nao cung thoa nhu nhau.
         keyed.sort(key=lambda kv: kv[0])
         target = keyed[prior][1]
-        return SignatureProviderAdapter._check_one_signer(target, expected)
+        res = SignatureProviderAdapter._check_one_signer(target, expected)
+        if res.ok or not expected.get("allow_predating"):
+            return res
+        # Chay LAI voi DUNG mot dieu kien duoc go ra (moc thoi gian), cac dieu kien con lai
+        # giu nguyen. Ban dau viet la "neu ly do la predating thi cho qua" - va mot chan vua
+        # ky-truoc VUA sai mau chu ky se lot, vi phep kiem thoi gian chay TRUOC phep kiem mau
+        # nen loi mau chua kip lo ra. Test `..._SAI_MAU_CHU_KY_va_ky_truoc` bat dung cai do.
+        #
+        # Khong can hoi "ly do co phai predating khong" nua: chay lai voi dung mot dieu kien
+        # bi go CHINH LA dinh nghia cua "chi bo qua moc thoi gian". Ly do khac thi no tai
+        # xuat hien o `again` va van bi tu choi. (Da thu dot bien: them cau hoi do vao khong
+        # lam doi ket qua o bat ky ca nao - mot nhanh khong kiem duoc la mot nhanh khong nen co.)
+        relaxed = dict(expected)
+        relaxed.pop("signed_after", None)
+        again = SignatureProviderAdapter._check_one_signer(target, relaxed)
+        if not again.ok:
+            return again
+        # KY TRUOC KHI ERP HOI - chi chap nhan qua DOI SOAT THU CONG (09/09/2026).
+        #
+        # Kich ban that: nguoi trinh ky gui luc 23:25, nha cung cap gui mail, nguoi duyet vao
+        # thang cong ky tay luc 23:48. Sang hom sau ho bam Duyet tren ERP; ERP gui lenh ky
+        # luc 11:19, SCTS khong con gi de ky nen im lang, va chan ky nam Manual Review. Chu ky
+        # LA THAT, dung nguoi, dung tai lieu - chi la no co TRUOC luc ERP hoi.
+        #
+        # Vi sao mo o DAY va chi o day: den duoc dong nay nghia la phep DEM da chay va da chon
+        # dung chu ky thu `prior`+1 cua nguoi do. Tuc lop bao ve chinh - "khong dong cap duyet
+        # bang chu ky cua chan khac" - VAN nguyen ven; cai duy nhat bi bo qua la moc thoi gian,
+        # von chi la lop cu cua chinh y do (xem chu thich 27/08 va 02/09 o tren).
+        #
+        # `allow_predating` KHONG BAO GIO duoc bat o duong tu dong. No di tu
+        # api.reconcile_signature_request(accept_predating=1) - mot nguoi System Manager bam,
+        # sau khi da nhin thay chu ky do tren cong. Va vi no chi song trong nhanh co `prior`,
+        # neu khong dem duoc (prior=None) thi khong co duong nao toi day ca: luc do moc thoi
+        # gian la lop bao ve DUY NHAT con lai, bo no di la bo het.
+        return VerificationResult(True, "verified_predating_manual:%s"
+                                  % target.get("signed_at"))
 
     @staticmethod
     def _check_one_signer(signer, expected):

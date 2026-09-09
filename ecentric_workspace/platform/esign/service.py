@@ -309,7 +309,7 @@ def _completed_legs_of_same_signer(dsr):
         return None
 
 
-def _expected_for(dsr):
+def _expected_for(dsr, allow_predating=False):
     pkg = frappe.db.get_value("EC Digital Signature Package", dsr.package,
                               ["scts_document_id"], as_dict=True)
     # Chi dem tep DA SANG nha cung cap (phu luc Excel giu tren ERP khong tinh) - xem
@@ -354,7 +354,9 @@ def _expected_for(dsr):
             # the ERP user id IS the company email of the bound signer.
             "email": dsr.actor_user or dsr.approver,
             "signed_after": signed_after,
-            "prior_signatures": _completed_legs_of_same_signer(dsr)}
+            "prior_signatures": _completed_legs_of_same_signer(dsr),
+            # Chi doi soat THU CONG moi bat - xem _check_by_ordinal trong providers/base.py.
+            "allow_predating": bool(allow_predating)}
 
 
 def mark_verified(dsr_name, doc_state):
@@ -388,7 +390,7 @@ def _guarded_dsr_transition(dsr_name, from_status, to_status, extra=None,
     return changed
 
 
-def reconcile_manual_review(dsr_name):
+def reconcile_manual_review(dsr_name, accept_predating=False):
     """Re-verify a leg parked in Manual Review against the provider's CURRENT state.
 
     Reads only. If the signature the leg was waiting for is now really there - the signer
@@ -413,10 +415,12 @@ def reconcile_manual_review(dsr_name):
     from ecentric_workspace.platform.esign.providers.base import SignatureProviderAdapter
     adapter = get_adapter(settings)
     doc_state = adapter.poll_status(doc_id)
-    vr = SignatureProviderAdapter.verify_signed_result(doc_state, _expected_for(dsr))
+    vr = SignatureProviderAdapter.verify_signed_result(
+        doc_state, _expected_for(dsr, allow_predating=accept_predating))
     events.emit("PollTick", signature_request=dsr_name, package=dsr.package,
                 verification_result=vr.reason,
-                request_meta={"source": "manual_reconcile"})
+                request_meta={"source": "manual_reconcile",
+                              "accept_predating": bool(accept_predating)})
     if not vr.ok:
         return {"ok": False, "reason": vr.reason}
     events.set_dsr_status(dsr_name, "Signed", event_type="Verified",
