@@ -131,11 +131,16 @@ class TestKhongDuocBoNham(unittest.TestCase):
                            [_ap(1, "req@x"), _ap(2, "lam@x"), _ap(2, "hr@x"), _ap(4, "lam@x")])
         self.assertEqual(_status(db)[2], "Pending")
 
-    def test_cap_mandatory_khong_duoc_bo(self):
-        db, _l = _run_skip([_lv(1), _lv(2, mandatory=1), _lv(4)],
-                           [_ap(1, "req@x"), _ap(2, "lam@x"), _ap(4, "lam@x")])
-        self.assertEqual(_status(db)[2], "Pending",
-                         "mandatory da ghi ro trong cau hinh la khong duoc bo")
+    def test_cap_mandatory_VAN_bo_khi_trung_nguoi(self):
+        """10/09: HIRING_REQUEST-V1 co CA BA cap mandatory=1 -> chot mandatory lam luat thanh
+        vo dung. `mandatory` chan viec BO HAN mot cap theo dieu kien nghiep vu (bo that, khong
+        ai xem); o day khong ai mat quyen xem xet - van dung nguoi do duyet, chi gop mot lan.
+        `_auto_skip_duplicate_level` cung chua bao gio kiem mandatory."""
+        db, _l = _run_skip([_lv(1, mandatory=1), _lv(2, mandatory=1), _lv(3, mandatory=1)],
+                           [_ap(1, "lam@x"), _ap(2, "tuan@x"), _ap(3, "lam@x")])
+        self.assertEqual(_status(db)[1], "Skipped", "cap 1 trung anh Lam -> phai bo")
+        self.assertEqual(_status(db)[2], "Pending", "cap HR nguoi khac -> giu")
+        self.assertEqual(_status(db)[3], "Pending", "cap CEO la lan cuoi -> giu")
 
     def test_khong_trung_ai_thi_khong_dong_gi(self):
         db, logs = _run_skip([_lv(1), _lv(2)], [_ap(1, "a@x"), _ap(2, "b@x")])
