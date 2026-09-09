@@ -109,8 +109,24 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "6cd06565ca958bd89a0e33e5c2a6a63484b45d7417d0bee748112d76566e9c59"
+BASELINE_SHA256 = "1ab3de200328c8bb9bea8c934c5ed78580a59fe3eb7bffa5843efe528504434f"
 SUPERSEDES_SHA256 = (
+    # Gia tri CUNG DOT p170, chua tung len production: p170 gop ca ba thay doi (2 ngay luc
+    # nhan viec, chan khoi hoan tat, thay file UNC) vao mot lan deploy. De o day de mot ban
+    # bench da chay nua chung khong bi tu choi ghi.
+    "0ef4429bb0bd3321fd62f4ed282d7dbf16aa79f48f0731860deff98fb7d18e9f",
+    # baseline truoc p170 (buoc 6: khai 2 ngay luc nhan viec, chan khoi hoan tat).
+    #
+    # !! DAY LA MOT KHOA DA LECH SAN, KHONG PHAI CUA DOT NAY. Truoc 09/09 BASELINE ghi
+    # 6cd06565... trong khi file trong repo la 74d10a85... - hai con so PHAI bang nhau. Nghia
+    # la tu lan sua HTML gan nhat (quanh p161), moi patch resync cho trang nay deu bi khoa
+    # chong troi TU CHOI GHI, ma patch chi log chu khong nem loi -> trang khong cap nhat va
+    # khong ai biet. Them 74d10a85 vao day de lan sync toi khong bi tu choi du live dang giu
+    # ban nao trong hai.
+    "74d10a85d20203ee214212072d944f8fb37599457be4f2fb3e963fd323d6cdda",
+    # BASELINE cu (da lech khoi file repo). Live co the van dang giu chinh ban nay - neu no
+    # la ban duy nhat tung ghi thanh cong. Bo ra la tu tay dung mot cai cong tu choi.
+    "6cd06565ca958bd89a0e33e5c2a6a63484b45d7417d0bee748112d76566e9c59",
     "646f34e40465561a57696bd0ce35144b6322867461f46a37ac941d3e9ab490bf",  # superseded by 6cd06565ca95 (upload permission fix)
     "5efd4e12a520398032f1cdd633ae623b80b54ea51aebd1da98777bb74cb87eee",  # superseded by 646f34e40465 (upload errors + brand list + layout)
     "b9409557e52b3fe95caa08d9a25939110a87a8017d0be5af3d3e1c01ae8280d0",  # superseded by 5efd4e12a520 (upload UX + tick)

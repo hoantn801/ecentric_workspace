@@ -2,7 +2,7 @@
 from ecentric_workspace.approval_center.shared.requests.contracts import ApprovalDefinition, STANDARD_STATUS_LABELS
 from ecentric_workspace.approval_center.shared.finance_support import Resubmitter, Submitter
 from ecentric_workspace.approval_center.features.payment_request.application.service import (
-    installments_block, normalize_payment, payment_title, validate_payment)
+    detail_extra, normalize_payment, payment_title, validate_payment)
 from ecentric_workspace.approval_center.shared.definition_support import DepartmentOptions, ExactAndDateFilters, StaticOptions
 
 
@@ -39,6 +39,9 @@ PAYMENT_REQUEST_DEFINITION = _make(
     ("name", "request_title", "payee_full_name", "payment_amount", "payment_date", "creation"),
     StaticOptions((("yes_no", ("Yes", "No")),)), payment_title, validate_payment,
     manager=True, esign=True, draft_preparer=normalize_payment,
-    detail_extender=installments_block)
+    # `detail_extra` = installments_block + unc_fix_block. Truoc day tro THANG vao
+    # `installments_block`; doi sang ham gop de them khoi "thay file UNC" ma khong phai nhet
+    # mot khai niem rieng cua phieu thanh toan vao `capabilities.derive` dung chung 8 form.
+    detail_extender=detail_extra)
 
 

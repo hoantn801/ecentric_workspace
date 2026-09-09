@@ -296,6 +296,23 @@ def unc_due_at(payment_date):
     return datetime.combine(getdate(payment_date), time(UNC_DUE_HOUR, 0))
 
 
+def _claim_dates(payment_date, unc_date):
+    """Hai ngay Finance khai luc nhan viec. Ca hai BAT BUOC, phai doc duoc thanh ngay.
+
+    KHONG ep `unc_date >= payment_date`: nghe thi hop ly, nhung chua ai xac nhan la khong
+    bao gio co ca nguoc lai, va dat mot rang buoc SAI vao cho chan nguoi dung thi phien hon
+    la thieu no. Khi nao co ca thuc te thi them.
+    """
+    thieu = [nhan for nhan, gt in ((_("ngày thanh toán"), payment_date),
+                                   (_("ngày có UNC"), unc_date)) if not gt]
+    if thieu:
+        frappe.throw(_("Nhận xử lý UNC cần khai đủ: {0}.").format(", ".join(thieu)))
+    try:
+        return getdate(payment_date), getdate(unc_date)
+    except Exception:
+        frappe.throw(_("Ngày không hợp lệ - dùng định dạng ngày của hệ thống."))
+
+
 def on_final_approval(name):
     engine = _engine()
     doc = frappe.get_doc(BUSINESS_DT, name)
@@ -325,7 +342,22 @@ def on_final_approval(name):
                   BUSINESS_DT, name)
 
 
-def claim_fulfillment(name, user=None):
+def claim_fulfillment(name, user=None, payment_date=None, unc_date=None):
+    """Finance NHAN xu ly UNC, kem HAI ngay cam ket.
+
+    Y Hoan 09/09: bam "Nhan xu ly" xong moi hien phan hoan tat, va luc nhan thi phai khai
+    hai ngay KHAC NHAU:
+      * `payment_date` - ngay tien thuc su ra khoi tai khoan -> dung de NHAC VIEC;
+      * `unc_date`     - ngay co chung tu UNC -> dung de tinh QUA HAN, vi buoc nay hoan tat
+                         bang viec dinh kem UNC chu khong phai bang viec chuyen tien.
+
+    HAI NGAY NAY LA TRUONG RIENG, KHONG ghi de `payment_date` cua nguoi de nghi: ngay do da
+    di qua ca bon cap duyet, ghi de la xoa mat thu moi nguoi da dong y ma khong ai biet no
+    tung la gi. Giu ca hai thi con so duoc cam ket voi thuc te.
+
+    Ca hai BAT BUOC. Khong khai thi khong nhan viec duoc - mot han xu ly khong co can cu thi
+    khong phai mot han.
+    """
     engine = _engine()
     user = user or frappe.session.user
     if not frappe.db.exists("ToDo", {"reference_type": BUSINESS_DT, "reference_name": name,
@@ -333,16 +365,21 @@ def claim_fulfillment(name, user=None):
             and not engine.is_active_process_fulfiller(APPROVAL_TYPE, user) \
             and "System Manager" not in frappe.get_roles(user):
         frappe.throw(_("Bạn không thuộc nhóm Finance xử lý UNC."), frappe.PermissionError)
-    # UPDATE co dieu kien: hai nguoi bam cung luc thi chi mot nguoi thang.
+    ngay_tt, ngay_unc = _claim_dates(payment_date, unc_date)
+    # UPDATE co dieu kien: hai nguoi bam cung luc thi chi mot nguoi thang. Hai ngay ghi
+    # TRONG CUNG lenh do - khong bao gio co trang thai "da nhan ma chua co han".
     frappe.db.sql(
-        """update `tabEC Payment Request` set fulfillment_owner=%s, fulfillment_status='In Progress'
-           where name=%s and fulfillment_status='Assigned'""", (user, name))
+        """update `tabEC Payment Request`
+              set fulfillment_owner=%s, fulfillment_status='In Progress',
+                  fulfillment_payment_date=%s, fulfillment_unc_date=%s, fulfillment_due_at=%s
+            where name=%s and fulfillment_status='Assigned'""",
+        (user, ngay_tt, ngay_unc, unc_due_at(ngay_unc), name))
     if not frappe.db.sql("select 1 from `tabEC Payment Request` where name=%s and fulfillment_owner=%s",
                          (name, user)):
         frappe.throw(_("Phiếu này đã có người khác nhận xử lý."))
     doc = frappe.get_doc(BUSINESS_DT, name)
-    engine.ensure_sole_todo(BUSINESS_DT, name, user, _("Finance xử lý UNC"),
-                            date=getdate(doc.payment_date) if doc.payment_date else None)
+    # ToDo.date = ngay THANH TOAN (moc nhac viec), khong phai moc qua han.
+    engine.ensure_sole_todo(BUSINESS_DT, name, user, _("Finance xử lý UNC"), date=ngay_tt)
     engine.log_action(doc.approval_request, "Started", user, comment=_("Finance nhận xử lý UNC"),
                       new_status="In Progress")
     engine.notify([doc.requested_by],
@@ -384,4 +421,105 @@ def complete_fulfillment(name, user=None, payload=None):
                   _("Đã thanh toán (UNC): {0}").format(engine.request_label(BUSINESS_DT, name)),
                   BUSINESS_DT, name)
     return {"completed": True}
+
+
+#: Ly do thay UNC phai la mot cau, khong phai mot chu. Cung nguong voi cac duong sua tay khac.
+MIN_UNC_FIX_REASON = 10
+
+
+def superseded_unc_files(business):
+    """Danh sach URL cac file UNC tung duoc gan roi bi thay. Doc duoc ca doc lan dong get_all."""
+    raw = business.get("unc_superseded_files") if hasattr(business, "get") \
+        else getattr(business, "unc_superseded_files", None)
+    return [u.strip() for u in str(raw or "").splitlines() if u.strip()]
+
+
+def can_replace_unc(business, user=None):
+    """Ai duoc thay file UNC: nguoi da nhan xu ly, hoac System Manager. Dung quyen voi nut
+    "Hoan tat" - ai lam nham thi nguoi do sua."""
+    user = user or frappe.session.user
+    if (business.get("fulfillment_status") if hasattr(business, "get")
+            else getattr(business, "fulfillment_status", None)) != "Completed":
+        return False
+    owner = business.get("fulfillment_owner") if hasattr(business, "get") \
+        else getattr(business, "fulfillment_owner", None)
+    return bool(owner == user or "System Manager" in frappe.get_roles(user))
+
+
+def replace_unc_attachment(name, url, reason, summary=None, user=None):
+    """Ke toan dinh NHAM file UNC roi da bam Hoan tat -> cho thay file, phieu VAN Hoan tat.
+
+    Vi sao khong mo lai phieu ve "Dang xu ly": `fulfillment_status == "Completed"` la dieu
+    kien de TAO PHIEU DOT KE. Mot phieu chia dot da hoan tat co the da sinh ra phieu dot 2
+    dang chay; keo trang thai nguoc lai chi vi mot cai file la lam chuoi dot mat can cu, va
+    con so "da chi" trong installments_block tut xuong trong khi tien thi da ra khoi tai
+    khoan that. Buoc 6 hoan tat bang viec CO chung tu UNC - thay dung chung tu khong lam
+    viec do chua xong.
+
+    File cu KHONG bi xoa va KHONG bi go khoi phieu (nguyen tac: khong xoa gi tren
+    production). No chuyen vao `unc_superseded_files` de man hinh danh dau "da thay", va
+    con nguyen trong danh sach dinh kem de doi chieu ve sau.
+
+    Ly do BAT BUOC: day la duong sua mot ban ghi da chot va da bao cho nguoi de nghi. Khong
+    co ly do thi ba thang sau khong ai biet vi sao phieu nay co hai file UNC.
+    """
+    engine = _engine()
+    from ecentric_workspace.approval_center.shared.requests.command_service import attach_extra_files
+    user = user or frappe.session.user
+    doc = frappe.get_doc(BUSINESS_DT, name)
+    if doc.fulfillment_status != "Completed":
+        frappe.throw(_("Chỉ thay được file UNC trên phiếu đã hoàn tất. "
+                       "Phiếu đang ở bước '{0}'.").format(doc.fulfillment_status or "—"))
+    if not can_replace_unc(doc, user):
+        frappe.throw(_("Chỉ người đã xử lý phiếu này (hoặc System Manager) mới được thay file UNC."),
+                     frappe.PermissionError)
+    url = str(url or "").strip()
+    if not url.startswith(("/files", "/private/files")):
+        frappe.throw(_("Vui lòng tải lên file UNC đúng trước khi thay."))
+    cu = str(doc.completed_attachment or "").strip()
+    if url == cu:
+        frappe.throw(_("File mới trùng với file đang gắn — không có gì để thay."))
+    reason = str(reason or "").strip()
+    if len(reason) < MIN_UNC_FIX_REASON:
+        frappe.throw(_("Ghi rõ lý do thay file UNC (ít nhất {0} ký tự) — lý do này vào lịch sử phiếu.")
+                     .format(MIN_UNC_FIX_REASON))
+    da_thay = superseded_unc_files(doc)
+    if cu and cu not in da_thay:
+        da_thay.append(cu)
+    doc.unc_superseded_files = "\n".join(da_thay)
+    doc.completed_attachment = url
+    if summary is not None:
+        doc.fulfillment_summary = str(summary).strip()[:500] or None
+    # Nhu luc hoan tat: file duoc tai len KHONG kem doctype/docname, la File mo coi -> gan
+    # vao phieu TRUOC khi save de hook attach_files cua Frappe khong tao dong thu hai.
+    attach_extra_files(doc, [url])
+    doc.save(ignore_permissions=True)
+    # `completed_by` / `completed_at` GIU NGUYEN: viec hoan tat da xay ra that vao luc do.
+    # Ai thay va thay luc nao nam o lich su phe duyet ngay duoi day.
+    engine.log_action(doc.approval_request, "Commented", user,
+                      comment=_("Thay file UNC (đính nhầm) — lý do: {0}").format(reason))
+    engine.notify([doc.requested_by, doc.fulfillment_owner],
+                  _("Đã thay file UNC ({0}): {1}").format(reason, engine.request_label(BUSINESS_DT, name)),
+                  BUSINESS_DT, name)
+    return {"replaced": True, "completed_attachment": url,
+            "superseded": superseded_unc_files(doc)}
+
+
+def unc_fix_block(business, request=None):
+    """detail["extra"]["unc_fix"] — RIENG cua phieu thanh toan.
+
+    Khong nhet vao `capabilities.derive`: ham do dung chung cho 8 form, them mot khoa chi
+    mot form can vao do la keo khai niem cua rieng minh vao code chung."""
+    return {"unc_fix": {
+        "can_replace": can_replace_unc(business),
+        "superseded": superseded_unc_files(business),
+        "min_reason_len": MIN_UNC_FIX_REASON,
+    }}
+
+
+def detail_extra(business, request):
+    """detail_extender cua phieu thanh toan: chuoi chia dot + duong thay file UNC."""
+    out = dict(installments_block(business, request))
+    out.update(unc_fix_block(business, request))
+    return out
 

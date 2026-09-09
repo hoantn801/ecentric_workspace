@@ -99,8 +99,8 @@
     "sha256": "9e7e091060760821a3cf80fd7d2d300825b7bce65013a26c20f9d19b8ed5a264"
   },
   "approval_center/features/payment_request/ui/main_section.html": {
-    "last_resync_patch": "p161_publish_guides_and_shell_drift",
-    "sha256": "74d10a85d20203ee214212072d944f8fb37599457be4f2fb3e963fd323d6cdda"
+    "last_resync_patch": "p170_resync_payment_request_unc_claim_dates",
+    "sha256": "1ab3de200328c8bb9bea8c934c5ed78580a59fe3eb7bffa5843efe528504434f"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",

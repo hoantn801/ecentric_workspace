@@ -13,6 +13,38 @@ globals().update(bind_fulfillment("PAYMENT_REQUEST",
 
 
 @frappe.whitelist(methods=["POST"])
+def claim_fulfillment_unc(name, payment_date, unc_date):
+    """Nhan xu ly UNC kem HAI ngay cam ket (09/09, y Hoan).
+
+    `bind_fulfillment` sinh ra mot `claim_fulfillment(name)` dung chung cho 8 form. De nghi
+    thanh toan la form DUY NHAT can khai them ngay, nen them mot diem vao RIENG o day thay vi
+    luon mot tham so qua bon tang dung chung cho ca bay form kia.
+
+    Duong dung chung khong bi bo lai: `service.claim_fulfillment` nem loi khi thieu ngay, nen
+    bam qua endpoint cu chi nhan mot cau bao ro rang chu khong lang le nhan viec ma khong co
+    han xu ly.
+    """
+    from ecentric_workspace.approval_center.features.payment_request.application import service
+    res = service.claim_fulfillment(name, payment_date=payment_date, unc_date=unc_date)
+    # Tra ve DUNG hinh dang ma `claim_fulfillment` chung tra ve, de giao dien khong phai
+    # biet minh vua goi duong nao: {claimed, owner, detail}.
+    return {"claimed": True, "owner": res.get("owner"), "detail": get_detail(name)}
+
+
+@frappe.whitelist(methods=["POST"])
+def replace_unc_attachment(name, url, reason, summary=None):
+    """Thay file UNC tren phieu DA HOAN TAT (dinh nham) — phieu van Hoan tat.
+
+    POST, khong phai GET: day la duong GHI (doi con tro file, ghi lich su, bao nguoi de
+    nghi). Tra ve `detail` da tuoi de man hinh khong phai goi them mot vong nua roi hien
+    file cu trong khi da thay xong.
+    """
+    from ecentric_workspace.approval_center.features.payment_request.application import service
+    res = service.replace_unc_attachment(name, url, reason, summary=summary)
+    return {"replaced": True, "superseded": res.get("superseded"), "detail": get_detail(name)}
+
+
+@frappe.whitelist(methods=["POST"])
 def create_next_installment(name):
     """Thanh toan chia dot: tao phieu NHAP dot ke tu phieu dot truoc (da chi UNC)."""
     from ecentric_workspace.approval_center.features.payment_request.application import service

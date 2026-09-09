@@ -749,19 +749,52 @@
   // Chi hien khi buoc 6 da ton tai cho phieu nay (da duyet xong va co trang thai xu ly).
   function uncCardVisible(det){ var ap=det.approval||{}, ff=det.fulfillment||{}; return ap.approval_status==="Approved" && !!UNC_ACTIVE[ff.status||""]; }
   function uncDueLine(ff){ if(!ff.due_at) return ""; var ov=new Date(ff.due_at)<new Date();
-    return '<div class="hint">Hạn xử lý (ngày thanh toán): '+(ov?'<span style="color:var(--red);font-weight:600">Quá hạn — '+esc(fmt(ff.due_at))+'</span>':esc(fmt(ff.due_at)))+'</div>'; }
+    // CHUA co ai nhan viec thi chua co cam ket nao: `due_at` luc do van la moc TAM tinh tu
+    // ngay thanh toan nguoi de nghi khai (dat o on_final_approval). Goi no la "han xu ly" o
+    // trang thai do la noi qua - khong ai o Finance hua con so ay ca.
+    if(ff.status==="Assigned")
+      return '<div class="hint">Hạn tạm tính (theo ngày thanh toán người đề nghị khai): '+esc(fmt(ff.due_at))+' — Finance khai hạn thật khi nhận xử lý.</div>';
+    // Nhan doi tu 09/09: `due_at` gio la moc theo NGAY CO UNC (Finance cam ket luc nhan
+    // viec), khong con la ngay thanh toan. Goi dung ten thi nguoi doc moi biet minh dang
+    // nhin han gi - truoc day no ghi "(ngay thanh toan)" trong khi hai moc da tach ra.
+    return '<div class="hint">Hạn xử lý (ngày có UNC): '+(ov?'<span style="color:var(--red);font-weight:600">Quá hạn — '+esc(fmt(ff.due_at))+'</span>':esc(fmt(ff.due_at)))+'</div>'; }
+  function uncFix(det){ return ((det||{}).extra||{}).unc_fix||{}; }
   function uncSectionHTML(det){ var ff=det.fulfillment||{}, cap=det.capabilities||{}; var u=state.unc||{};
     if(ff.status==="Completed"){
+      // Dinh NHAM file UNC roi da bam Hoan tat thi truoc day khong co duong nao sua tren man
+      // hinh - phai nho quan tri chay lenh. Nut nay cho chinh nguoi da xu ly thay file, phieu
+      // VAN Hoan tat (trang thai do la dieu kien tao phieu dot ke; keo nguoc lai se lam hong
+      // chuoi chia dot). File cu KHONG bi xoa: no o ngay duoi, danh dau "da thay".
+      var fx=uncFix(det), cu=(fx.superseded||[]);
       return '<div class="grid2">'+kv("Xử lý bởi",ff.completed_by)+kv("Thời điểm",fmt(ff.completed_at))+'</div>'
         +'<div class="fld" style="margin-top:10px"><label>File UNC</label>'+(ff.completed_attachment?('<a href="'+esc(ff.completed_attachment)+'" target="_blank" rel="noopener">Mở file UNC</a>'):'<span class="hint">—</span>')+'</div>'
-        +(ff.summary?('<div class="fld" style="margin-top:10px"><label>Số UNC / ghi chú</label><textarea class="ro" readonly rows="2">'+esc(ff.summary)+'</textarea></div>'):''); }
+        +(ff.summary?('<div class="fld" style="margin-top:10px"><label>Số UNC / ghi chú</label><textarea class="ro" readonly rows="2">'+esc(ff.summary)+'</textarea></div>'):'')
+        +(cu.length?('<div class="fld" style="margin-top:10px"><label>File UNC đã bị thay</label>'
+            +'<div class="hint">Giữ lại để đối chiếu — không dùng nữa. Lý do thay nằm ở lịch sử phiếu bên dưới.</div>'
+            +cu.map(function(x,i){ return '<div><a href="'+esc(x)+'" target="_blank" rel="noopener">Bản '+(i+1)+' (đã thay)</a></div>'; }).join("")
+            +'</div>'):'')
+        +(fx.can_replace?('<div class="actions" style="margin-top:10px"><button type="button" class="btn" data-act="unc-fix">Thay file UNC (đính nhầm)</button></div>'):''); }
     if(ff.status==="Cancelled") return '<div class="hint">Đã huỷ xử lý.</div>';
+    // Hai ngay Finance cam ket luc nhan viec. Doc thang tu `business` (detail tra ve
+    // `business.as_dict()`) - khong phai them khoa vao khoi fulfillment DUNG CHUNG cho 8 form
+    // chi vi mot form can.
+    var biz=det.business||{};
+    var cam = (biz.fulfillment_payment_date||biz.fulfillment_unc_date)
+      ? '<div class="grid2" style="margin-top:8px">'
+        +kv("Ngày thanh toán (Finance cam kết)", biz.fulfillment_payment_date||"—")
+        +kv("Ngày có UNC (Finance cam kết)", biz.fulfillment_unc_date||"—")+'</div>'
+      : '';
     var head = ff.status==="In Progress"
-      ? '<div>Người đang xử lý: <b>'+esc(ff.owner||"—")+'</b></div>'
+      ? '<div>Người đang xử lý: <b>'+esc(ff.owner||"—")+'</b></div>'+cam
       : '<div>Chờ Finance nhận xử lý'+((ff.eligible_fulfillers||[]).length?(': <b>'+(ff.eligible_fulfillers||[]).map(esc).join(" hoặc ")+'</b>'):'')+'</div>';
     var body="";
     if(ff.status==="Assigned"&&cap.can_claim) body+='<div class="actions"><button type="button" class="btn primary" data-act="unc-claim">Nhận xử lý</button></div>';
-    if(cap.can_complete){
+    // Khoi hoan tat chi hien khi DA CO NGUOI NHAN. Truoc 09/09 no chi gac bang QUYEN
+    // (`cap.can_complete`), ma Finance/SM thi luon co quyen - nen phan "Hoan tat - dinh kem
+    // UNC" bay ra ngay ca khi phieu con dang "Cho Finance nhan xu ly", tuc moi nguoi co the
+    // nhay thang qua buoc nhan viec. Ma nhan viec moi la luc khai hai ngay cam ket, nen bo
+    // qua no = phieu khong co han xu ly nao.
+    if(cap.can_complete && ff.status==="In Progress"){
       body+='<div class="sect-h" style="margin-top:10px">Hoàn tất — đính kèm UNC</div><div class="grid2">'
         +'<div class="fld full"><label>File UNC <span class="req">*</span></label><input type="file" accept=".pdf,.png,.jpg,.jpeg" data-upload="unc"><div class="hint" id="payr-unc-name">'+esc(u.url?("Đã tải: "+(u.name||"")):"Bắt buộc")+'</div></div>'
         +'<div class="fld full"><label>Số UNC / ghi chú (không bắt buộc)</label><input data-unc="summary" value="'+esc(u.summary||"")+'"></div>'
@@ -781,15 +814,76 @@
         state.unc=state.unc||{}; state.unc.url=url; state.unc.name=(m&&m.file_name)||f.name; if(lbl) lbl.textContent="Đã tải: "+state.unc.name; })
       .catch(function(e){ if(lbl) lbl.textContent=extractServerMsg(e)||"Lỗi tải tệp."; toast(extractServerMsg(e)||"Lỗi tải tệp.",true); });
     inp.value=""; }
-  function doUncClaim(name){ if(state.busy) return; state.busy=true;
-    call("claim_fulfillment",{name:name}).then(function(){ toast("Đã nhận xử lý UNC."); refreshDetail(); })
-      .catch(function(e){ toast(mapErr(e),true); refreshDetail(); }).then(function(){ state.busy=false; }); }
+  // Nhan xu ly UNC = KHAI HAI NGAY, roi moi nhan. Truoc 09/09 nut nay nhan viec ngay va han
+  // xu ly lay theo ngay thanh toan nguoi de nghi khai - tuc mot con so khong ai o Finance cam
+  // ket. Gio Finance tu khai: ngay thanh toan (de NHAC) va ngay co UNC (de tinh QUA HAN) -
+  // hai moc khac nhau vi buoc nay hoan tat bang viec dinh kem UNC, khong phai bang viec
+  // chuyen tien. May chu cung bat buoc ca hai; hoi o day chi de khoi phai gui di roi bi tra ve.
+  function doUncClaim(name, det){
+    if(state.busy) return;
+    var goiY=((det||{}).business||{}).payment_date||"";
+    modal("Nhận xử lý UNC",
+      '<div class="hint" style="margin-bottom:10px">Khai hạn xử lý trước khi nhận việc. Hai mốc này là cam kết của Finance — ngày người đề nghị khai vẫn được giữ nguyên để đối chiếu.</div>'
+      +'<div class="fld"><label>Ngày thanh toán <span class="req">*</span></label>'
+      +'<input type="date" data-claim="pay" value="'+esc(goiY)+'">'
+      +'<div class="hint">Dùng để nhắc việc.</div></div>'
+      +'<div class="fld" style="margin-top:10px"><label>Ngày có UNC <span class="req">*</span></label>'
+      +'<input type="date" data-claim="unc">'
+      +'<div class="hint">Dùng để tính quá hạn — bước này hoàn tất khi đính kèm được UNC.</div></div>'
+      +'<div class="hint" id="payr-claim-err" style="color:var(--red);margin-top:8px;display:none"></div>',
+      {okLabel:"Nhận xử lý", onConfirm:function(ov){
+        var p=ov.querySelector('[data-claim="pay"]').value, u=ov.querySelector('[data-claim="unc"]').value;
+        var er=ov.querySelector("#payr-claim-err");
+        if(!p||!u){ er.textContent="Phải khai cả hai ngày."; er.style.display="block"; return Promise.reject(new Error("thieu ngay")); }
+        state.busy=true;
+        return call("claim_fulfillment_unc",{name:name,payment_date:p,unc_date:u})
+          .then(function(){ toast("Đã nhận xử lý UNC."); refreshDetail(); })
+          .catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); })
+          .then(function(){ state.busy=false; }, function(e){ state.busy=false; return Promise.reject(e); }); }}); }
   function doUncComplete(name){ var u=state.unc||{}; if(!u.url){ toast("Vui lòng đính kèm file UNC trước khi hoàn tất.",true); return; }
     modal("Hoàn tất xử lý UNC", '<div class="summary-row"><span>File UNC</span><b>'+esc(u.name||u.url)+'</b></div>'+(u.summary?('<div class="summary-row"><span>Số UNC / ghi chú</span><b>'+esc(u.summary)+'</b></div>'):'')+'<div class="hint" style="margin-top:8px">Phiếu sẽ chuyển sang Hoàn tất; người đề nghị được thông báo.</div>',
       {okLabel:"Hoàn tất", onConfirm:function(){
         return call("complete_fulfillment",{name:name,payload:JSON.stringify({completed_attachment:u.url, fulfillment_summary:u.summary||""})})
           .then(function(){ toast("Đã hoàn tất xử lý UNC."); state.unc={}; refreshDetail(); })
           .catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
+  // Thay file UNC sau khi da hoan tat (dinh nham). Tai file trong CHINH modal nay, khong dung
+  // `state.unc` cua khoi hoan tat: hai luong do khac nhau, dung chung mot cho nho thi bam
+  // huy o day van de lai file "da tai" cho luong kia.
+  function doUncFix(name, det){
+    if(state.busy) return;
+    var minLen=(uncFix(det).min_reason_len)||10, up={};
+    var m=modal("Thay file UNC",
+      '<div class="hint" style="margin-bottom:10px">Phiếu vẫn giữ trạng thái <b>Hoàn tất</b>. File cũ không bị xoá — nó được đánh dấu “đã thay” và vẫn xem lại được. Người đề nghị sẽ nhận thông báo.</div>'
+      +'<div class="fld"><label>File UNC đúng <span class="req">*</span></label>'
+      +'<input type="file" accept=".pdf,.png,.jpg,.jpeg" data-fix="file">'
+      +'<div class="hint" data-fix="name">Chưa chọn tệp</div></div>'
+      +'<div class="fld" style="margin-top:10px"><label>Lý do thay <span class="req">*</span></label>'
+      +'<textarea data-fix="reason" rows="2" placeholder="Ví dụ: đính nhầm UNC của phiếu khác"></textarea>'
+      +'<div class="hint">Ít nhất '+minLen+' ký tự — lý do này được ghi vào lịch sử phiếu.</div></div>'
+      +'<div class="fld" style="margin-top:10px"><label>Số UNC / ghi chú (không bắt buộc)</label>'
+      +'<input data-fix="summary"></div>'
+      +'<div class="hint" data-fix="err" style="color:var(--red);margin-top:8px;display:none"></div>',
+      {okLabel:"Thay file", onConfirm:function(ov){
+        var er=ov.querySelector('[data-fix="err"]');
+        var ly=(ov.querySelector('[data-fix="reason"]').value||"").trim();
+        function chan(msg){ er.textContent=msg; er.style.display="block"; return Promise.reject(new Error(msg)); }
+        if(!up.url) return chan("Chọn file UNC đúng trước đã.");
+        if(ly.length<minLen) return chan("Ghi rõ lý do thay (ít nhất "+minLen+" ký tự).");
+        state.busy=true;
+        return call("replace_unc_attachment",{name:name,url:up.url,reason:ly,
+                                              summary:(ov.querySelector('[data-fix="summary"]').value||"")})
+          .then(function(){ toast("Đã thay file UNC."); refreshDetail(); })
+          .catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); })
+          .then(function(){ state.busy=false; }, function(e){ state.busy=false; return Promise.reject(e); }); }});
+    var inp=m.ov.querySelector('[data-fix="file"]'), lbl=m.ov.querySelector('[data-fix="name"]');
+    if(inp) inp.onchange=function(){ var f=inp.files&&inp.files[0]; if(!f) return; lbl.textContent="Đang tải...";
+      var fd=new FormData(); fd.append("file",f); fd.append("is_private","1");
+      fetch("/api/method/upload_file",{method:"POST",headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd})
+        .then(function(r){ if(r.status===413) throw new Error("Tệp quá lớn (giới hạn ~25MB)."); return r.json(); })
+        .then(function(j){ var mm=j&&j.message, url=mm&&mm.file_url; if(!url) throw new Error("Không tải được tệp.");
+          up.url=url; lbl.textContent="Đã tải: "+((mm&&mm.file_name)||f.name); })
+        .catch(function(e){ up.url=null; lbl.textContent=extractServerMsg(e)||"Lỗi tải tệp."; });
+      inp.value=""; }; }
   function renderAttachments(list){ if(!list||!list.length) return '<div class="hint">Chưa có tệp đính kèm.</div>';
     return '<table class="tbl"><tbody>'+list.map(function(f){ return '<tr><td>'+esc(f.file_name)+'</td><td>'+esc(f.owner)+'</td><td>'+esc(fmt(f.creation))+'</td><td><a href="'+esc(f.file_url)+'" target="_blank">Mở</a></td></tr>'; }).join("")+'</tbody></table>'; }
 
@@ -935,7 +1029,8 @@
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
     if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name);
     if(a==="clone") return doClone(name);
-    if(a==="unc-claim") return doUncClaim(name); if(a==="unc-complete") return doUncComplete(name);
+    if(a==="unc-claim") return doUncClaim(name,det); if(a==="unc-complete") return doUncComplete(name);
+    if(a==="unc-fix") return doUncFix(name,det);
     if(a==="next-installment") return doNextInstallment(name); }
   // Tao phieu moi tu phieu da ket thuc. Hoi truoc khi lam: no dieu huong sang mot phieu khac,
   // va noi ro hai dieu de khong ai bat ngo - o xac nhan phai tich lai, phieu cu giu nguyen.
