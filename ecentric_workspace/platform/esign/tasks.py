@@ -10,6 +10,7 @@ expected signer is provably unsigned.
 import time
 
 import frappe
+from frappe import _
 from frappe.utils import add_to_date, now_datetime
 
 from ecentric_workspace.platform.esign import binding
@@ -1084,3 +1085,87 @@ def orphan_file_scan():
                                  "esign.tasks.orphan_file_scan")
         except Exception:
             frappe.log_error(frappe.get_traceback(), "esign.tasks.orphan_file_scan %s" % dt)
+
+
+# --------------------------------------------------------------------------- #
+# Soi lech chu ky: 2 luot/ngay (08:30 va 14:30 gio VN - System Settings.time_zone la
+# Asia/Ho_Chi_Minh nen cron chay dung gio dia phuong, khong phai UTC).
+# --------------------------------------------------------------------------- #
+def _system_managers():
+    """System Manager DANG BAT, tru Administrator/Guest.
+
+    Doc qua `Has Role` chu khong `frappe.get_roles`: o day can DANH SACH nguoi, khong phai
+    cau hoi "nguoi nay co role khong". Administrator bi loai vi no khong phai mot nguoi -
+    thong bao gui vao do khong ai doc.
+    """
+    users = frappe.get_all("Has Role", filters={"role": "System Manager",
+                                                "parenttype": "User"}, pluck="parent") or []
+    users = [u for u in set(users) if u not in ("Administrator", "Guest")]
+    if not users:
+        return []
+    return frappe.get_all("User", filters={"name": ["in", users], "enabled": 1},
+                          pluck="name") or []
+
+
+def sweep_provider_signature_drift():
+    """Hoi cong SCTS: co phieu nao da duoc ky ma ERP chua biet? CHI DOC, KHONG tu dong sync.
+
+    Vi sao khong tu dong sync (y Hoan 09/09): dong bo la mot hanh dong CONG NHAN mot chu ky -
+    no dong mot cap duyet va day phieu di tiep. Mot cong viec chay nen khong duoc tu quyet
+    dieu do; no chi noi cho nguoi biet, con nguoi bam `sync_signatures_from_provider`.
+
+    CHI bao dong `actionable_now` - tuc chu ky du dung o CAP DANG CHO. Chu ky cua mot cap
+    CHUA toi luot khong phai viec gi ca: no se duoc dung khi toi luot. Bao ca hai thi lan sau
+    khong ai doc nua.
+
+    Nhac LAI moi luot chung nao chua xu ly - do la co y, giong `remind_unc_due`: viec chua
+    xong thi phai con nhac. Tra ve so dong da bao (de test/verify).
+    """
+    if _disabled():
+        return 0
+    try:
+        from ecentric_workspace.platform.esign import service as svc
+        # `_audit_drift` chu khong `audit_provider_signature_drift`: ban co hang rao quyen
+        # doi mot nguoi that dang bam, con o day khong co ai ca.
+        res = svc._audit_drift() or {}
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "esign.tasks.sweep_provider_signature_drift")
+        return 0
+
+    can_xu_ly = [d for d in (res.get("drift") or []) if d.get("actionable_now")]
+    doc_khong_duoc = res.get("unreadable") or []
+    # "Hoi duoc va sach" KHAC "khong hoi duoc". Im lang khi khong doc duoc la dung cai loi da
+    # lam mat hai dem cua thang 8 - nen van bao, bang mot cau NOI RO la khong doc duoc.
+    if not can_xu_ly and not doc_khong_duoc:
+        return 0
+
+    nguoi = _system_managers()
+    if not nguoi:
+        frappe.log_error(
+            "Soi lech thay %s phieu can xu ly, %s phieu khong doc duoc - nhung KHONG co "
+            "System Manager nao dang bat de bao." % (len(can_xu_ly), len(doc_khong_duoc)),
+            "esign.tasks.sweep_provider_signature_drift")
+        return 0
+
+    from ecentric_workspace.approval_center.shared.workflow import transitions as engine
+    da_bao = 0
+    for d in can_xu_ly:
+        try:
+            engine.notify(
+                nguoi,
+                _("Chữ ký đã có bên SCTS mà ERP chưa dùng — {0} đã ký {1} chữ ký, "
+                  "phiếu vẫn chờ ở cấp {2}. Mở phiếu rồi đồng bộ chữ ký về.").format(
+                      d.get("approver") or "?", d.get("surplus") or 0,
+                      d.get("current_level") or "?"),
+                d.get("business_doctype"), d.get("business_name"))
+            da_bao += 1
+        except Exception:
+            frappe.log_error(frappe.get_traceback(),
+                             "esign.tasks.sweep drift %s" % d.get("business_name"))
+    if doc_khong_duoc:
+        frappe.log_error(
+            "Soi lech: %s phieu KHONG hoi duoc trang thai ben nha cung cap: %s"
+            % (len(doc_khong_duoc),
+               ", ".join(str(u.get("business_name")) for u in doc_khong_duoc[:20])),
+            "esign.tasks.sweep_provider_signature_drift")
+    return da_bao

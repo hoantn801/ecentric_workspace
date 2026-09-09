@@ -823,6 +823,85 @@ def _no_approver_message(lvl, requester):
              ).format(lvl.level_no, lvl.level_name, detail)
 
 
+def _is_level_skipped(req_name, level_no):
+    return frappe.db.get_value("EC Approval Request Level",
+                               {"approval_request": req_name, "level_no": level_no},
+                               "level_status") == "Skipped"
+
+
+def _advance_past_level(req, level_no):
+    """Di qua mot cap KHONG kich hoat no: sang cap sau, hoac ket thuc neu het cap."""
+    frappe.db.set_value("EC Approval Request", req.name, "current_level", level_no)
+    nxt = [l for l in _request_levels(req.name) if l.level_no > level_no]
+    if nxt:
+        _activate_level(frappe.get_doc("EC Approval Request", req.name), nxt[0].level_no)
+    else:
+        complete_approval(frappe.get_doc("EC Approval Request", req.name))
+
+
+def _skip_earlier_duplicate_levels(req):
+    """Mot nguoi dung o NHIEU cap -> bo cac cap TRUOC, giu cap CUOI CUNG cua ho (Hoan chot 09/09).
+
+    Vi du that: EC-HIRE-2026-00003 - nguoi de nghi la hoan.tran, quan ly truc tiep la anh Lam,
+    ma anh Lam cung chinh la CEO. Luong co ca "Direct Manager Review" (cap 2) lan "CEO Review"
+    (cap 4), deu tro ve mot nguoi.
+
+    Vi sao bo cap TRUOC chu khong phai cap SAU. Engine da co `_auto_skip_duplicate_level` bo cap
+    SAU khi nguoi do da duyet o cap truoc - tuc anh Lam bam o cap 2 va cap 4 tu bo qua. Nhung nhu
+    vay CEO chot TRUOC khi HR review, bien "HR Review" thanh thu tuc chay sau khi sep da dong y;
+    va so sach ghi CEO duyet o o "Direct Manager Review" chu khong phai o "CEO Review". Cau hoi
+    "quan ly truc tiep co dong y khong" vo nghia khi quan ly truc tiep chinh la CEO - bo no di
+    khong mat thong tin nao. Giu cap sau thi tham quyen cao nhat van nam o cuoi, dung thu tu.
+
+    Chay MOT LAN luc dung luong, nen thanh tien trinh hien dung ngay tu luc gui - nguoi dung
+    khong con thay mot cap "Cho" ma that ra chac chan se bi bo qua.
+
+    Khong bao gio bo:
+      * cap CUOI cua moi nguoi (theo dinh nghia: chi bo khi con lan xuat hien SAU) -> luon con
+        it nhat mot cap song, khong the bo sach ca luong;
+      * cap co BAT KY nguoi duyet nao khong xuat hien lai o cap sau (Any-One/All deu an toan:
+        nguoi do van phai bam);
+    `mandatory` KHONG chan luat nay (do 10/09 tren HIRING_REQUEST-V1: ca ba cap deu mandatory,
+    chot cu lam luat thanh vo dung). Hai chuyen khac nhau: `mandatory` o `submit(skip_level_nos)`
+    chan viec BO HAN mot cap theo dieu kien nghiep vu - bo that, khong ai xem. Con o day khong ai
+    mat quyen xem xet: van dung nguoi do duyet, chi gop lai mot lan o cap cuoi cua ho. Va
+    `_auto_skip_duplicate_level` (luat bo-cap-SAU von co) cung chua bao gio kiem `mandatory` -
+    giu chot o day thi hai luat trung-nguoi tu mau thuan nhau.
+    """
+    rows = frappe.get_all(
+        "EC Approval Request Level", filters={"approval_request": req.name},
+        fields=["name", "level_no", "level_name", "mandatory"], order_by="level_no asc") or []
+    if len(rows) < 2:
+        return
+    aps = frappe.get_all(
+        "EC Approval Request Approver", filters={"approval_request": req.name},
+        fields=["name", "level_no", "approver"]) or []
+    by_level = {}
+    last_of = {}
+    for a in aps:
+        by_level.setdefault(a["level_no"], []).append(a)
+        u = a["approver"]
+        if u and (u not in last_of or a["level_no"] > last_of[u]):
+            last_of[u] = a["level_no"]
+    now = now_datetime()
+    for rl in rows:
+        mine = by_level.get(rl["level_no"]) or []
+        if not mine:
+            continue
+        if not all(last_of.get(a["approver"], rl["level_no"]) > rl["level_no"] for a in mine):
+            continue
+        for a in mine:
+            frappe.db.set_value("EC Approval Request Approver", a["name"],
+                                {"status": "Skipped", "decided_at": now})
+            log_action(req.name, "Skipped", "Administrator", rl["level_no"],
+                       level_name=rl["level_name"],
+                       comment=_("Skipped: this approver also approves at a later level"),
+                       related_user=a["approver"], previous_status="Pending",
+                       new_status="Skipped")
+        frappe.db.set_value("EC Approval Request Level", rl["name"],
+                            {"level_status": "Skipped", "activated_at": now, "completed_at": now})
+
+
 def build_snapshot(req, process, levels, requester):
     for lvl in levels:
         rl = frappe.get_doc({
@@ -843,6 +922,7 @@ def build_snapshot(req, process, levels, requester):
                 "request_level": rl.name, "level_no": lvl.level_no, "approver": user,
                 "source": label, "status": "Pending",
             }).insert(ignore_permissions=True)
+    _skip_earlier_duplicate_levels(req)
     grant_read_to_snapshot_approvers(req)
 
 
@@ -1005,15 +1085,16 @@ def _auto_skip_duplicate_level(req, level_no):
     # renders it gracefully; the per-approver Skipped rows + audit action record the duplicate skip.
     frappe.db.set_value("EC Approval Request Level", rl.name,
                         {"level_status": "Approved", "activated_at": now, "completed_at": now})
-    frappe.db.set_value("EC Approval Request", req.name, "current_level", level_no)
-    nxt = [l for l in _request_levels(req.name) if l.level_no > level_no]
-    if nxt:
-        _activate_level(frappe.get_doc("EC Approval Request", req.name), nxt[0].level_no)
-    else:
-        complete_approval(frappe.get_doc("EC Approval Request", req.name))
+    _advance_past_level(req, level_no)
 
 
 def _activate_level(req, level_no):
+    # Cap da bi danh Skipped luc dung luong (trung nguoi duyet - xem
+    # _skip_earlier_duplicate_levels) thi KHONG kich hoat: khong ToDo, khong thong bao,
+    # khong SLA. Dat o day vi day la choke point duy nhat cua moi duong kich hoat cap.
+    if _is_level_skipped(req.name, level_no):
+        _advance_past_level(req, level_no)
+        return
     # Governance: duplicate-approver auto-skip. When a level becomes active, if EVERY pending approver has
     # already approved an earlier level in this same request, skip it (audited) and advance instead of
     # asking the same person to approve twice. Runs only at activation/advance (never before), never skips

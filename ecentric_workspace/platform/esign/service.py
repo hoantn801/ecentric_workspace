@@ -837,6 +837,18 @@ def audit_provider_signature_drift(limit=200):
     KHONG GHI GI. Moi phieu tra loi mot lan hoi len nha cung cap, nen co `limit`.
     """
     perms.assert_system_manager()
+    return _audit_drift(limit)
+
+
+def _audit_drift(limit=200):
+    """Loi cua phep soi lech, KHONG co hang rao quyen. Xem `audit_provider_signature_drift`.
+
+    Tach ra vi hang rao quyen thuoc ve RANH GIOI API - cho co mot nguoi that dang bam. Cong
+    viec dinh ky thi khong co nguoi nao: `frappe.session.user` luc do la Administrator, va
+    de no di qua duoc `assert_system_manager` la dang dua vao viec "Administrator tinh co
+    duoc cap moi role" - mot su that co the doi ma khong ai bao truoc, va khi doi thi cong
+    viec dinh ky chet IM LANG (no bat Exception va ghi log, khong ai doc).
+    """
     profiles = frappe.get_all("EC Digital Signature Profile", filters={"enabled": 1},
                               fields=["business_doctype", "approval_type"]) or []
     dts = sorted({p["business_doctype"] for p in profiles if p.get("business_doctype")})
