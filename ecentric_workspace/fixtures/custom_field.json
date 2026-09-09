@@ -414,5 +414,45 @@
   "allow_in_quick_entry": 0,
   "translatable": 0,
   "description": "Ma phong ban tuong ung ben cong ky so SCTS. De TRONG thi tai lieu cua phong nay van gui duoc - no lui ve gia tri mac dinh tren EC Digital Signature Profile. Xem platform/esign/department_map.py."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "EC Payment Request-ec_loai_chi_phi",
+  "dt": "EC Payment Request",
+  "module": "Ecentric Workspace",
+  "fieldname": "ec_loai_chi_phi",
+  "label": "Loại chi phí",
+  "fieldtype": "Link",
+  "options": "EC Loai Chi Phi",
+  "insert_after": "payment_amount",
+  "in_standard_filter": 1,
+  "description": "Khoản chi này thuộc mục nào — PnL gom nhóm theo đây."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "EC Payment Request-ec_can_brand",
+  "dt": "EC Payment Request",
+  "module": "Ecentric Workspace",
+  "fieldname": "ec_can_brand",
+  "label": "(nội bộ) cần brand",
+  "fieldtype": "Check",
+  "insert_after": "ec_loai_chi_phi",
+  "hidden": 1,
+  "read_only": 1,
+  "fetch_from": "ec_loai_chi_phi.can_brand"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "EC Payment Request-ec_brand",
+  "dt": "EC Payment Request",
+  "module": "Ecentric Workspace",
+  "fieldname": "ec_brand",
+  "label": "Brand liên quan",
+  "fieldtype": "Link",
+  "options": "Brand",
+  "insert_after": "ec_can_brand",
+  "in_standard_filter": 1,
+  "description": "Chi phí gắn trực tiếp với brand nào — để tính lãi lỗ theo brand.",
+  "depends_on": "eval:doc.ec_can_brand"
  }
 ]

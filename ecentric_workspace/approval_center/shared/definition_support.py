@@ -72,6 +72,35 @@ class BrandAndDepartmentOptions:
 
 
 @dataclass(frozen=True, slots=True)
+class ExpenseCategoryOptions:
+    """BrandOptions + danh muc loai chi phi (`EC Loai Chi Phi`) cho form de nghi thanh toan.
+
+    PnL phai biet moi khoan chi thuoc muc nao; khong co truong nay thi tien thue van phong va
+    mot cai laptop trong y het nhau tren bao cao. Doc danh muc SONG nen Finance them mot muc
+    moi la form co ngay, khong phai deploy. Lookup hong thi tra danh sach rong chu khong lam
+    chet form (cung quy tac voi BrandOptions)."""
+    entries: tuple = ()
+
+    def __call__(self):
+        out = BrandOptions(self.entries)()
+        try:
+            import frappe
+            rows = frappe.get_all("EC Loai Chi Phi",
+                                  fields=["name", "ten", "nhom", "can_brand", "goi_y"],
+                                  filters={"disabled": 0},
+                                  order_by="thu_tu asc, ten asc", limit_page_length=0)
+            out["expense_categories"] = [
+                {"value": r["name"], "label": r.get("ten") or r["name"],
+                 "group": r.get("nhom") or "Khac",
+                 "need_brand": 1 if r.get("can_brand") else 0,
+                 "hint": r.get("goi_y") or ""}
+                for r in rows]
+        except Exception:
+            out.setdefault("expense_categories", [])
+        return out
+
+
+@dataclass(frozen=True, slots=True)
 class StaticOptions:
     entries: tuple = ()
 

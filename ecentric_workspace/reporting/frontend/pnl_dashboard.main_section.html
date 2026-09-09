@@ -1,9 +1,14 @@
 <!--
-  /pnl-dashboard - Dashboard PnL eCentric (giai doan 1: DOANH THU)
+  /pnl-dashboard - Dashboard PnL eCentric (giai doan 2: DOANH THU + CHI PHI UOC TINH)
 
-  Nguon du lieu duy nhat: Server Script API `ec_pnl_data` (chi doc, phan quyen
-  o server). Frontend KHONG phai bien gioi bao mat - moi rang buoc quyen nam o
-  server, trang chi hien thi cai server tra ve.
+  Hai nguon du lieu, hai API doc-only, hai bo quyen doc lap:
+    - `ec_pnl_data`    : doanh thu (Sales Order). Quyen: Management / EC Viewer Permission.
+    - `ec_pnl_chi_phi` : quy luong UOC TINH tu ho so nhan su (khong doc phieu luong),
+                         headcount, tuyen dung, chi phi Approval Center, kich ban brand.
+                         Quyen hep hon: CEO / HOF / C&B / quan ly phong ban (chi phong minh).
+  Frontend KHONG phai bien gioi bao mat - moi rang buoc quyen nam o server, trang chi
+  hien thi cai server tra ve. Mot nguoi co the thay doanh thu ma khong thay chi phi
+  (va nguoc lai); tung khoi tu an di khi API tuong ung tra no_permission.
 
   Bieu do dung ECharts self-host chung cua ERP (window.ECCharts / ECChartTheme).
   KHONG Chart.js, KHONG CDN.
@@ -151,6 +156,44 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
   animation:pnlspin .7s linear infinite; vertical-align:-2px; }
 @keyframes pnlspin{ to{ transform:rotate(360deg); } }
 
+/* ---- Khoi chi phi & loi nhuan (uoc tinh) ---- */
+/* O luoi 2 cot: the chua bang rong (co .pnl-scroll) khong duoc keo cot luoi rong ra
+   qua man hinh - min-width:0 de bang cuon trong the thay vi tran ca trang. */
+#ec-pnl-root .pnl-grid2 > .pnl-card{ min-width:0; }
+#ec-pnl-root .pnl-sep{ display:flex; align-items:center; gap:12px; margin:28px 0 12px; }
+#ec-pnl-root .pnl-sep h2{ font-size:18px; font-weight:700; margin:0; }
+#ec-pnl-root .pnl-sep .pnl-sep-l{ flex:1; height:1px; background:var(--line); }
+#ec-pnl-root .pnl-kpi.k-cost{ border-top-color:#eb6834; }
+#ec-pnl-root .pnl-kpi.k-other{ border-top-color:#1baf7a; }
+#ec-pnl-root .pnl-kpi.k-profit{ border-top-color:#0f172a; }
+#ec-pnl-root .pnl-kpi.k-ratio{ border-top-color:#94a3b8; }
+#ec-pnl-root .pnl-kpi-v.neg{ color:#b42318; }
+#ec-pnl-root .pnl-check{ display:inline-flex; align-items:center; gap:6px; font-size:12px;
+  color:var(--muted); cursor:pointer; user-select:none; }
+#ec-pnl-root .pnl-check input{ margin:0; }
+#ec-pnl-root .pnl-delta-up{ color:#b42318; font-weight:600; }
+#ec-pnl-root .pnl-delta-down{ color:#1a8754; font-weight:600; }
+#ec-pnl-root .pnl-delta-flat{ color:var(--muted); }
+#ec-pnl-root td.dim{ color:var(--muted); }
+#ec-pnl-root .pnl-tag.ok{ background:#e7f6ee; color:#166534; }
+#ec-pnl-root .pnl-tag.wait{ background:#fff7e6; color:#92400e; }
+#ec-pnl-root .pnl-tag.future{ background:#f1f5f9; color:#475569; }
+#ec-pnl-root .pnl-people{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+#ec-pnl-root .pnl-person{ font-size:12px; padding:4px 9px; border-radius:999px;
+  background:#f1f5f9; border:1px solid var(--line); }
+#ec-pnl-root .pnl-person b{ color:#1f3a5f; }
+#ec-pnl-root .pnl-mini{ display:grid; gap:10px; grid-template-columns:repeat(3,minmax(0,1fr)); margin:10px 0; }
+#ec-pnl-root .pnl-mini > div{ background:#f8fafc; border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+#ec-pnl-root .pnl-mini .l{ font-size:11px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.03em; }
+#ec-pnl-root .pnl-mini .v{ font-size:20px; font-weight:700; margin-top:3px; }
+#ec-pnl-root .pnl-mini .s{ font-size:12px; color:var(--muted); }
+#ec-pnl-root .pnl-warnbox{ background:#fffbeb; border:1px solid #fde68a; color:#92400e;
+  border-radius:8px; padding:10px 12px; font-size:12px; line-height:1.6; margin-top:10px; }
+#ec-pnl-root .pnl-chip.sel{ background:#1f3a5f; border-color:#1f3a5f; color:#fff; font-weight:600; }
+@media (max-width:900px){
+  #ec-pnl-root .pnl-mini{ grid-template-columns:1fr; }
+}
+
 @media (max-width:900px){
   /* shell tu an .ec-shell-mount va chuyen sang drawer o breakpoint nay */
   #ec-pnl-root{ grid-template-columns:1fr; }
@@ -174,7 +217,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
   <div class="pnl-topbar">
     <div class="pnl-topbar-in">
       <button type="button" class="pnl-burger" data-ec-shell-open="1" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h18M3 18h18"/></svg></button>
-      <div class="pnl-crumb ec-shell-crumbs" data-ec-shell-crumbs="1"></div>
+      <div class="pnl-crumb ec-shell-crumbs" data-ec-shell-crumbs="1"><strong class="ec-shell-crumb-current ec-shell-crumb-detail" data-ec-shell-crumb-detail="1">PnL — Doanh thu &amp; Chi phí</strong></div>
       <div class="pnl-spacer"></div>
       <div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div>
     </div>
@@ -182,11 +225,12 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
   <main class="pnl-main">
   <div class="pnl-head">
     <div>
-      <h1 class="pnl-h1">Doanh thu eCentric</h1>
+      <h1 class="pnl-h1">PnL eCentric</h1>
       <p class="pnl-sub" id="pnl-sub">Đang tải dữ liệu…</p>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <span class="pnl-badge" id="pnl-scope">—</span>
+      <span class="pnl-badge" id="cp-scope">—</span>
       <button class="pnl-btn" id="pnl-reload" type="button">Tải lại</button>
     </div>
   </div>
@@ -245,6 +289,8 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     </div>
   </section>
 
+  <div class="pnl-msg info pnl-hidden" id="pnl-rev-denied"></div>
+  <div id="pnl-rev-wrap">
   <section class="pnl-kpis">
     <div class="pnl-kpi k-total">
       <div class="pnl-kpi-l">Tổng doanh thu</div>
@@ -349,6 +395,161 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     </table></div>
   </section>
 
+  </div><!-- /pnl-rev-wrap -->
+
+  <div class="pnl-sep"><h2>Chi phí &amp; lợi nhuận (ước tính)</h2><div class="pnl-sep-l"></div></div>
+  <div class="pnl-msg info pnl-hidden" id="cp-denied"></div>
+  <div id="cp-wrap" class="pnl-hidden">
+
+  <section class="pnl-card">
+    <div class="pnl-filters">
+      <div class="pnl-f">
+        <label for="cp-dept">Phạm vi chi phí</label>
+        <select id="cp-dept"><option value="">Toàn công ty</option></select>
+      </div>
+      <div class="pnl-f">
+        <label>Dự phóng</label>
+        <div class="pnl-seg" id="cp-fc">
+          <button type="button" data-f="0" class="on">Theo khoảng đã chọn</button>
+          <button type="button" data-f="3">+3 tháng tới</button>
+        </div>
+      </div>
+      <div class="pnl-f" style="justify-content:flex-end">
+        <label class="pnl-check" for="cp-hidetest"><input type="checkbox" id="cp-hidetest" checked> Ẩn yêu cầu có chữ TEST / UAT / DUMMY trong tiêu đề</label>
+      </div>
+    </div>
+    <p class="pnl-card-n" id="cp-sub" style="margin-top:10px">—</p>
+  </section>
+
+  <section class="pnl-kpis">
+    <div class="pnl-kpi k-cost">
+      <div class="pnl-kpi-l">Quỹ lương ước tính</div>
+      <div class="pnl-kpi-v" id="cp-k-pay">—</div>
+      <div class="pnl-kpi-x" id="cp-k-pay-x">—</div>
+      <div class="pnl-kpi-s" id="cp-k-pay-s">—</div>
+    </div>
+    <div class="pnl-kpi k-other">
+      <div class="pnl-kpi-l">Chi phí khác đã duyệt</div>
+      <div class="pnl-kpi-v" id="cp-k-other">—</div>
+      <div class="pnl-kpi-x" id="cp-k-other-x">—</div>
+      <div class="pnl-kpi-s" id="cp-k-other-s">—</div>
+    </div>
+    <div class="pnl-kpi k-profit">
+      <div class="pnl-kpi-l">Lợi nhuận ước tính</div>
+      <div class="pnl-kpi-v" id="cp-k-profit">—</div>
+      <div class="pnl-kpi-x" id="cp-k-profit-x">—</div>
+      <div class="pnl-kpi-s" id="cp-k-profit-s">—</div>
+    </div>
+    <div class="pnl-kpi k-ratio">
+      <div class="pnl-kpi-l">Lương / doanh thu</div>
+      <div class="pnl-kpi-v" id="cp-k-ratio">—</div>
+      <div class="pnl-kpi-x" id="cp-k-ratio-x">—</div>
+      <div class="pnl-kpi-s" id="cp-k-ratio-s">—</div>
+    </div>
+  </section>
+
+  <section class="pnl-card">
+    <div class="pnl-card-h">
+      <div>
+        <h2 class="pnl-card-t">Doanh thu và chi phí theo tháng</h2>
+        <p class="pnl-card-n" id="cp-time-n">Cột: doanh thu (cùng mốc thời gian với phần trên), quỹ lương ước tính, chi phí khác đã duyệt. Đường: lợi nhuận ước tính. Tháng dự phóng tô nhạt.</p>
+      </div>
+    </div>
+    <div class="pnl-chart tall" id="ch-cp-time"></div>
+    <div class="pnl-fb pnl-hidden" id="fb-cp-time"></div>
+  </section>
+
+  <div class="pnl-grid2">
+    <section class="pnl-card">
+      <div class="pnl-card-h">
+        <div>
+          <h2 class="pnl-card-t" id="cp-dept-t">Quỹ lương theo phòng ban</h2>
+          <p class="pnl-card-n" id="cp-dept-n">Tháng cuối kỳ · năm lớp: lương cơ bản, phụ cấp, bảo hiểm phần công ty, lương dự án, thưởng &amp; khác. Bấm vào một phòng ban để xem riêng.</p>
+        </div>
+      </div>
+      <div class="pnl-chart" id="ch-cp-dept"></div>
+      <div class="pnl-fb pnl-hidden" id="fb-cp-dept"></div>
+    </section>
+    <section class="pnl-card">
+      <div class="pnl-card-h">
+        <div>
+          <h2 class="pnl-card-t">Tăng / giảm quỹ lương</h2>
+          <p class="pnl-card-n">So tháng cuối kỳ với tháng đầu kỳ và với tháng liền trước. Số dương là quỹ lương tăng.</p>
+        </div>
+      </div>
+      <div class="pnl-scroll"><table>
+        <thead><tr><th>Phòng ban</th><th class="num">Đầu kỳ</th><th class="num">Cuối kỳ</th><th class="num">Chênh lệch</th><th class="num">%</th><th class="num">So tháng trước</th></tr></thead>
+        <tbody id="cp-delta-b"></tbody>
+      </table></div>
+    </section>
+  </div>
+
+  <section class="pnl-card">
+    <div class="pnl-card-h">
+      <div>
+        <h2 class="pnl-card-t">Nhân sự theo phòng ban</h2>
+        <p class="pnl-card-n" id="cp-hc-n">Số người đang Active tính đến hôm nay, tỷ lệ intern, biến động trong kỳ và những gì đã có trên Approval Center.</p>
+      </div>
+    </div>
+    <div class="pnl-scroll"><table>
+      <thead><tr><th>Phòng ban</th><th class="num">Nhân sự</th><th class="num">Chính thức</th><th class="num">Thử việc</th><th class="num">Intern</th><th class="num">% intern</th><th class="num">Vào / nghỉ trong kỳ</th><th class="num">Đang xin tuyển</th><th class="num">Sắp nghỉ</th><th class="num">Chưa có mức lương</th></tr></thead>
+      <tbody id="cp-hc-b"></tbody>
+    </table></div>
+    <div class="pnl-warnbox pnl-hidden" id="cp-hc-warn"></div>
+  </section>
+
+  <section class="pnl-card">
+    <div class="pnl-card-h">
+      <div>
+        <h2 class="pnl-card-t">Kế hoạch tuyển dụng &amp; biến động sắp tới</h2>
+        <p class="pnl-card-n">Đọc từ Approval Center (Hiring / Resignation / Promotion / Lateral Move) và HRMS (Staffing Plan, Job Opening, ứng viên). Chỉ tính yêu cầu đã duyệt hoặc đang chờ.</p>
+      </div>
+    </div>
+    <div class="pnl-scroll"><table>
+      <thead><tr><th>Loại</th><th>Phòng ban</th><th>Nội dung</th><th class="num">Số lượng</th><th>Tháng</th><th>Trạng thái</th></tr></thead>
+      <tbody id="cp-hire-b"></tbody>
+    </table></div>
+    <p class="pnl-note" id="cp-hire-note" style="margin-top:10px"></p>
+  </section>
+
+  <section class="pnl-card">
+    <div class="pnl-card-h">
+      <div>
+        <h2 class="pnl-card-t">Chi phí khác từ Approval Center</h2>
+        <p class="pnl-card-n" id="cp-oc-n">Payment Request, AI Topup, Purchase Request, Special Bonus, Affiliate Bonus — đã duyệt tính vào chi phí, đang chờ chỉ để tham khảo.</p>
+      </div>
+      <div class="pnl-seg" id="cp-oc-tabs">
+        <button type="button" data-t="group" class="on">Theo loại chi phí</button>
+        <button type="button" data-t="month">Theo tháng</button>
+        <button type="button" data-t="items">Từng yêu cầu</button>
+      </div>
+    </div>
+    <div class="pnl-warnbox pnl-hidden" id="cp-oc-warn"></div>
+    <p class="pnl-note pnl-hidden" id="cp-oc-excl" style="margin:8px 0 0"></p>
+    <div class="pnl-scroll"><table>
+      <thead id="cp-oc-h"></thead>
+      <tbody id="cp-oc-b"></tbody>
+    </table></div>
+  </section>
+
+  <section class="pnl-card">
+    <div class="pnl-card-h">
+      <div>
+        <h2 class="pnl-card-t">Kịch bản: nếu ngừng brand…</h2>
+        <p class="pnl-card-n">Chọn một hoặc nhiều brand rồi bấm “Chạy kịch bản”. Doanh thu mất lấy từ phần doanh thu ở trên (cùng khoảng ngày, cùng bộ lọc); người ảnh hưởng và chi phí lương liên quan lấy từ tỷ trọng brand của từng nhân sự.</p>
+      </div>
+    </div>
+    <div class="pnl-presets" id="cp-sc-brands"></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">
+      <button class="pnl-btn" type="button" id="cp-sc-run">Chạy kịch bản</button>
+      <button class="pnl-btn" type="button" id="cp-sc-clear">Bỏ chọn</button>
+      <span class="pnl-card-n" id="cp-sc-cov">—</span>
+    </div>
+    <div id="cp-sc-out" class="pnl-hidden" style="margin-top:12px"></div>
+  </section>
+
+  </div><!-- /cp-wrap -->
+
   <section class="pnl-card">
     <h2 class="pnl-card-t" style="margin-bottom:8px">Cách đọc số này</h2>
     <p class="pnl-note" id="pnl-foot">—</p>
@@ -409,11 +610,11 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
   }
 
   // ---------------------------------------------------------------- transport
-  function call(args) {
+  function call(args, method) {
     if (!(window.frappe && frappe.call)) {
       return Promise.reject(new Error("Không tải được frappe. Hãy tải lại trang."));
     }
-    return frappe.call({ method: "ec_pnl_data", args: args || {}, type: "GET" })
+    return frappe.call({ method: method || "ec_pnl_data", args: args || {}, type: "GET" })
       .then(function (r) { return r && r.message; });
   }
 
@@ -690,8 +891,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
        + " · dữ liệu hệ thống có từ " + esc(m.data_from) + " đến " + esc(m.data_to)
        + " · cập nhật " + esc(m.generated_at) + ".";
     if (m.notes && m.notes.length) h += "<br><b>Ghi chú:</b> " + esc(m.notes.join(" | "));
-    h += "<br><b>Chưa có trong bản này:</b> chi phí và lương — sẽ cắm vào ở vòng sau, "
-       + "lúc đó trang mới hiện được lợi nhuận thật.";
+    h += costFootNotes();
     $("pnl-foot").innerHTML = h;
   }
 
@@ -759,8 +959,24 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
   }
   function hideErr() { $("pnl-err").className = "pnl-msg err pnl-hidden"; }
 
+  // E2E 2026-09-07 - FE1: doi bo loc trong luc dang tai tung bi nuot mat. Gio ghi
+  // nho "co yeu cau moi" va tai lai ngay khi luot truoc xong.
+  var pendingReload = false;
+  var revDenied = false;
+
+  function revenueDenied(msg) {
+    revDenied = true;
+    DATA = null;
+    $("pnl-rev-wrap").className = "pnl-hidden";
+    var d = $("pnl-rev-denied");
+    d.className = "pnl-msg info";
+    d.textContent = msg;
+    $("pnl-scope").textContent = "Doanh thu: không có quyền";
+    $("pnl-sub").textContent = "Doanh thu trên Sales Order sổ eCentric";
+  }
+
   function load() {
-    if (busy) return;
+    if (busy) { pendingReload = true; return; }
     setBusy(true);
     hideErr();
     $("pnl-drill").className = "pnl-hidden";
@@ -770,25 +986,35 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     if (state.to) args.date_to = state.to;
     if (state.brand) args.brand = state.brand;
     if (state.team) args.team = state.team;
+    loadCost();
     call(args).then(function (res) {
       setBusy(false);
       if (!res) { showErr("Máy chủ không trả về dữ liệu. Hãy thử tải lại."); return; }
       if (!res.ok) {
-        $("pnl-filter-card").className = "pnl-card pnl-hidden";
         if (res.error === "no_permission") {
-          showErr("Bạn không có quyền xem báo cáo doanh thu này. Trang chỉ mở cho ban điều hành "
+          // FE3: khong an bo loc nua (bo loc con dung cho phan chi phi); chi an khoi doanh thu
+          revenueDenied("Bạn không có quyền xem doanh thu. Phần doanh thu chỉ mở cho ban điều hành "
                 + "(phòng Management). Nếu bạn cho rằng đây là nhầm lẫn, báo phòng Operation, "
                 + "System & Data để kiểm tra lại hồ sơ nhân sự của bạn.");
+          renderCost();
         } else {
           showErr(res.message || "Không tải được báo cáo. Hãy thử lại sau ít phút.");
         }
         return;
       }
+      revDenied = false;
+      $("pnl-rev-wrap").className = "";
+      $("pnl-rev-denied").className = "pnl-msg info pnl-hidden";
       DATA = res;
       renderAll();
+      // preset "Toan bo du lieu" khong co ngay cu the: khi da biet khoang ngay that cua
+      // doanh thu thi keo phan chi phi ve cung khoang do
+      if (JSON.stringify(costArgs()) !== costArgsUsed) loadCost(); else renderCost();
     }).catch(function (err) {
       setBusy(false);
       showErr("Không tải được số liệu: " + ((err && err.message) || err));
+    }).then(function () {
+      if (pendingReload) { pendingReload = false; load(); }
     });
   }
 
@@ -839,6 +1065,10 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     $("pnl-presets").addEventListener("click", function (e) {
       var p = e.target && e.target.getAttribute("data-p");
       if (!p) return;
+      // FE2: doc luon gia tri dang chon o cac o loc, de nhan preset khong lam lech nhan
+      state.channel = $("pnl-channel").value;
+      state.brand = $("pnl-brand").value;
+      state.team = $("pnl-team").value;
       applyPreset(p);
       var bs = $("pnl-presets").getElementsByTagName("button"), i;
       for (i = 0; i < bs.length; i++) {
@@ -863,7 +1093,681 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     });
   }
 
-  function boot() { bind(); load(); }
+
+  // ================================================================ CHI PHI & LOI NHUAN (uoc tinh)
+  // Nguon: API ec_pnl_chi_phi (doc-only, quyen hep hon doanh thu). Khong co luong tung nguoi
+  // o bat ky dau trong payload; kich ban brand chi co ten + % phan bo.
+  var CC = { rev: "#2a78d6", pay: "#eb6834", other: "#1baf7a", profit: "#0f172a",
+             base: "#1f3a5f", allow: "#2f6db0", bh: "#5b9bd5", proj: "#86b6ef", bonus: "#eb6834" };
+  var COST = null;
+  var costBusy = false;
+  var costPending = false;
+  var cp = { dept: "", fc: "0", hideTest: true, ocTab: "group", sel: [] };
+  var SC = null;
+
+  function cpDeptShort(k) {
+    var ds = (COST && COST.depts) || [], i;
+    for (i = 0; i < ds.length; i++) if (ds[i].key === k) return ds[i].short;
+    return k;
+  }
+  function normName(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); }
+  function isTestTitle(t) { return /test|uat|dummy/i.test(String(t || "")); }
+  function monthLabel(m) { return m ? (m.slice(5, 7) + "/" + m.slice(0, 4)) : ""; }
+  function signed(v) { return (v > 0 ? "+" : "") + money(v); }
+  function deltaCell(diff, base) {
+    if (!base && !diff) return '<td class="num dim">—</td>';
+    var cls = diff > 0 ? "pnl-delta-up" : (diff < 0 ? "pnl-delta-down" : "pnl-delta-flat");
+    var p = base ? Math.round((diff * 1000) / base) / 10 : 0;
+    return '<td class="num"><span class="' + cls + '">' + signed(diff) + (base ? " (" + (p > 0 ? "+" : "") + p + "%)" : "") + "</span></td>";
+  }
+
+  // doanh thu theo thang tu phan tren (chi khi xem theo Thang), theo cung bo loc
+  function revenueByMonth() {
+    var out = {}, i;
+    if (!DATA || state.gran !== "month") return null;
+    var rows = DATA.series || [];
+    for (i = 0; i < rows.length; i++) out[rows[i].key] = rows[i];
+    return out;
+  }
+  function revenueTotal() {
+    if (!DATA) return null;
+    if (!cp.dept) return (DATA.totals || {}).total || 0;
+    var want = normName(cpDeptShort(cp.dept)), rows = DATA.by_team || [], i;
+    for (i = 0; i < rows.length; i++) if (normName(rows[i].key) === want) return rows[i].total || 0;
+    return 0;
+  }
+
+  function payrollRows() {
+    if (!COST) return [];
+    if (cp.dept) return (COST.payroll.by_dept || {})[cp.dept] || [];
+    if (COST.scope.mode === "all") return COST.payroll.company || [];
+    // pham vi phong ban: "toan bo" = cong cac phong minh duoc xem
+    var ds = COST.depts || [], acc = {}, i, j, keys = COST.params.months || [];
+    for (j = 0; j < keys.length; j++) acc[keys[j]] = { month: keys[j], kind: COST.params.month_kind[keys[j]], headcount: 0, fte: 0, ft: 0, intern: 0, prob: 0, other: 0, no_ctc: 0, joiners: 0, leavers: 0, base: 0, allow: 0, bh: 0, fixed: 0, proj: 0, proj_est: 0, n_proj: 0, bonus: 0, total: 0 };
+    for (i = 0; i < ds.length; i++) {
+      var rows = (COST.payroll.by_dept || {})[ds[i].key] || [];
+      for (j = 0; j < rows.length; j++) {
+        var a = acc[rows[j].month]; if (!a) continue;
+        var f = ["headcount", "fte", "ft", "intern", "prob", "other", "no_ctc", "joiners", "leavers", "base", "allow", "bh", "fixed", "proj", "proj_est", "n_proj", "bonus", "total"], k;
+        for (k = 0; k < f.length; k++) a[f[k]] += rows[j][f[k]] || 0;
+      }
+    }
+    var out = [];
+    for (j = 0; j < keys.length; j++) out.push(acc[keys[j]]);
+    return out;
+  }
+
+  // chi phi khac: tinh lai tu danh sach yeu cau (de nut "an test" co tac dung)
+  function otherItems() {
+    var items = (COST && COST.other_costs && COST.other_costs.items) || [], out = [], i;
+    for (i = 0; i < items.length; i++) {
+      if (cp.hideTest && isTestTitle(items[i].title)) continue;
+      if (cp.dept && items[i].dept !== cp.dept) continue;
+      out.push(items[i]);
+    }
+    return out;
+  }
+  // Gom theo NHOM roi den khoan muc. Tinh lai tu `items` chu khong dung san `by_group` cua
+  // API, de nut "an yeu cau test" va bo loc phong ban van doi so ngay tren man hinh.
+  var OC_GROUP_ORDER = ["Trực tiếp khách hàng", "Vận hành công ty", "Lương & nhân sự",
+                        "Không tính vào chi phí", "(Chua phan loai)"];
+  function groupLabel(g) { return g === "(Chua phan loai)" ? "Chưa phân loại" : g; }
+  function otherByGroup() {
+    var items = otherItems(), acc = {}, order = [], i;
+    for (i = 0; i < items.length; i++) {
+      var it = items[i], g = it.group || "(Chua phan loai)", c = it.category || "(Chua phan loai)";
+      if (!acc[g]) { acc[g] = { group: g, approved: 0, pending: 0, n: 0, counts: it.counts, cats: {}, order: [] }; order.push(g); }
+      var a = acc[g], b = it.status === "Approved" ? "approved" : "pending";
+      a[b] += it.amount || 0; a.n += 1;
+      if (!a.cats[c]) { a.cats[c] = { category: c, approved: 0, pending: 0, n: 0 }; a.order.push(c); }
+      a.cats[c][b] += it.amount || 0; a.cats[c].n += 1;
+    }
+    var out = [], k;
+    for (i = 0; i < OC_GROUP_ORDER.length; i++) if (acc[OC_GROUP_ORDER[i]]) out.push(acc[OC_GROUP_ORDER[i]]);
+    for (k = 0; k < order.length; k++) if (OC_GROUP_ORDER.indexOf(order[k]) < 0) out.push(acc[order[k]]);
+    return out;
+  }
+  function otherByMonth() {
+    var items = otherItems(), acc = {}, i;
+    for (i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (it.counts === 0) continue;
+      var a = acc[it.month];
+      if (!a) a = acc[it.month] = { month: it.month, approved: 0, pending: 0, n_approved: 0, n_pending: 0, types: {} };
+      var b = it.status === "Approved" ? "approved" : "pending";
+      a[b] += it.amount || 0; a["n_" + b] += 1;
+      if (!a.types[it.type]) a.types[it.type] = { approved: 0, pending: 0 };
+      a.types[it.type][b] += it.amount || 0;
+    }
+    return acc;
+  }
+
+  function renderCostKpis(rows) {
+    var months = COST.params.months || [], i;
+    var pay = 0, hc = 0, last = rows.length ? rows[rows.length - 1] : null;
+    var nPast = 0, fixed = 0, proj = 0, projEst = 0, bonus = 0;
+    for (i = 0; i < rows.length; i++) {
+      pay += rows[i].total || 0; fixed += rows[i].fixed || 0; proj += rows[i].proj || 0;
+      projEst += rows[i].proj_est || 0; bonus += rows[i].bonus || 0;
+      if (rows[i].kind !== "future") nPast++;
+    }
+    if (last) hc = last.headcount;
+    var ocm = otherByMonth(), other = 0, otherPend = 0, k;
+    for (k in ocm) if (ocm.hasOwnProperty(k)) { other += ocm[k].approved; otherPend += ocm[k].pending; }
+    $("cp-k-pay").textContent = money(pay);
+    $("cp-k-pay-x").textContent = num(pay) + " đ";
+    var pm = monthLabel((COST.payroll && COST.payroll.proj_latest_month) || "");
+    $("cp-k-pay-s").textContent = months.length + " tháng · " + hc + " người ở tháng cuối · lương cơ bản + phụ cấp + BH " + money(fixed)
+      + " · lương dự án " + money(proj) + (projEst > 0 ? " (trong đó " + money(projEst) + " ước theo " + (pm || "tháng gần nhất") + ")" : "")
+      + " · thưởng & khác " + money(bonus)
+      + (last && last.no_ctc ? " · " + last.no_ctc + " người chưa có mức lương" : "");
+    $("cp-k-other").textContent = money(other);
+    $("cp-k-other-x").textContent = num(other) + " đ";
+    $("cp-k-other-s").textContent = "đang chờ duyệt thêm " + money(otherPend) + (cp.hideTest ? " · đã ẩn yêu cầu test" : "");
+    var rev = revenueTotal();
+    var pv = $("cp-k-profit");
+    if (rev === null) {
+      pv.textContent = "—"; pv.className = "pnl-kpi-v";
+      $("cp-k-profit-x").textContent = "cần quyền xem doanh thu";
+      $("cp-k-profit-s").textContent = "doanh thu − quỹ lương − chi phí khác";
+      $("cp-k-ratio").textContent = "—"; $("cp-k-ratio-x").textContent = "—"; $("cp-k-ratio-s").textContent = "";
+      return;
+    }
+    var profit = rev - pay - other;
+    pv.textContent = (profit < 0 ? "−" : "") + money(Math.abs(profit));
+    pv.className = "pnl-kpi-v" + (profit < 0 ? " neg" : "");
+    $("cp-k-profit-x").textContent = num(profit) + " đ";
+    var curRow = null;
+    for (i = 0; i < rows.length; i++) if (rows[i].kind === "current") curRow = rows[i];
+    $("cp-k-profit-s").textContent = "doanh thu " + money(rev) + " − lương " + money(pay) + " − chi phí khác " + money(other)
+      + (cp.dept ? " (riêng " + cpDeptShort(cp.dept) + ")" : "")
+      + (curRow ? " · tháng " + monthLabel(curRow.month) + " đang chạy: lương tính đủ tháng (" + money(curRow.total) + "), doanh thu mới tới hôm nay" : "");
+    $("cp-k-ratio").textContent = rev ? pct(pay, rev) : "—";
+    $("cp-k-ratio-x").textContent = rev ? "lợi nhuận / doanh thu: " + pct(profit, rev) : "không có doanh thu trong kỳ";
+    $("cp-k-ratio-s").textContent = (state.gran === "month") ? "cùng khoảng ngày, cùng bộ lọc với phần doanh thu"
+      : "doanh thu lấy tổng cả kỳ (đang xem theo " + (state.gran === "day" ? "ngày" : "tuần") + ")";
+  }
+
+  function renderCostTime(rows) {
+    if (!rows.length) { emptyBox("ch-cp-time", "fb-cp-time", "Không có tháng nào trong khoảng đã chọn."); return; }
+    var t = tokens(), cats = [], rev = [], pay = [], oth = [], prof = [], i;
+    var rbm = revenueByMonth(), ocm = otherByMonth();
+    var hasRev = !!rbm && !cp.dept;
+    for (i = 0; i < rows.length; i++) {
+      var r = rows[i], m = r.month, fut = (r.kind === "future"), cur = (r.kind === "current");
+      cats.push(monthLabel(m) + (fut ? " (dự phóng)" : (cur ? " (đang chạy)" : "")));
+      var o = ocm[m] ? ocm[m].approved : 0;
+      var rv = hasRev && rbm[m] ? (rbm[m].total || 0) : 0;
+      var st = fut ? { opacity: 0.45 } : {};
+      pay.push({ value: r.total || 0, itemStyle: st });
+      oth.push({ value: o, itemStyle: st });
+      if (hasRev) {
+        rev.push({ value: rv, itemStyle: st });
+        prof.push((fut || cur) ? null : rv - (r.total || 0) - o);
+      }
+    }
+    var o = baseOption(false);
+    o.color = [CC.rev, CC.pay, CC.other, CC.profit];
+    o.tooltip.formatter = function (ps) {
+      if (!ps || !ps.length) return "";
+      var out = '<div style="font-weight:700;margin-bottom:6px">' + esc(ps[0].axisValueLabel) + "</div>", j;
+      for (j = 0; j < ps.length; j++) {
+        var v = ps[j].value; if (v === null || typeof v === "undefined") continue;
+        out += '<div style="display:flex;gap:10px;justify-content:space-between"><span>' + ps[j].marker + esc(ps[j].seriesName)
+             + '</span><b style="font-variant-numeric:tabular-nums">' + num(v) + " đ</b></div>";
+      }
+      return out;
+    };
+    o.xAxis = { type: "category", data: cats, axisLine: { lineStyle: { color: t.border } }, axisTick: { show: false },
+                axisLabel: { color: t.muted, fontSize: 11, hideOverlap: true } };
+    o.yAxis = { type: "value", splitLine: { lineStyle: { color: t.grid } },
+                axisLabel: { color: t.muted, fontSize: 11, formatter: function (v) { return money(v); } } };
+    o.series = [];
+    if (hasRev) o.series.push({ name: "Doanh thu", type: "bar", barMaxWidth: 22, data: rev, itemStyle: { color: CC.rev, borderRadius: [3, 3, 0, 0] } });
+    o.series.push({ name: "Quỹ lương ước tính", type: "bar", barMaxWidth: 22, data: pay, itemStyle: { color: CC.pay, borderRadius: [3, 3, 0, 0] } });
+    o.series.push({ name: "Chi phí khác đã duyệt", type: "bar", barMaxWidth: 22, data: oth, itemStyle: { color: CC.other, borderRadius: [3, 3, 0, 0] } });
+    if (hasRev) o.series.push({ name: "Lợi nhuận ước tính", type: "line", data: prof, symbol: "circle", symbolSize: 7,
+                                lineStyle: { color: CC.profit, width: 2 }, itemStyle: { color: CC.profit }, connectNulls: false, z: 5 });
+    // 4 muc chu giai: tren man hinh hep chu giai xuong 2 dong, chua cho de khoi de len nhan truc
+    var bw = $("ch-cp-time") ? $("ch-cp-time").clientWidth : 800;
+    o.grid.bottom = bw < 640 ? 48 : 26;
+    draw("ch-cp-time", "fb-cp-time", o, null);
+    $("cp-time-n").textContent = hasRev
+      ? "Cột: doanh thu (cùng mốc " + (state.basis === "delivery" ? "ngày giao" : "ngày chứng từ") + " và bộ lọc như phần trên), quỹ lương ước tính, chi phí khác đã duyệt. Đường: lợi nhuận ước tính, chỉ vẽ cho tháng đã khép — tháng đang chạy có đủ lương cả tháng nhưng doanh thu mới ghi tới hôm nay. Tháng dự phóng tô nhạt."
+      : (cp.dept ? "Đang xem riêng " + cpDeptShort(cp.dept) + ": chỉ có quỹ lương và chi phí khác của phòng này (doanh thu theo tháng của từng phòng chưa tách được)."
+                 : (DATA ? "Chuyển “Xem theo” ở phần doanh thu sang Tháng để đặt doanh thu cạnh chi phí." : "Không có quyền xem doanh thu, biểu đồ chỉ hiện chi phí."));
+  }
+
+  function renderCostDept(rows) {
+    var last = rows.length ? rows[rows.length - 1] : null;
+    var ds = COST.depts || [], use = [], i;
+    var m = last ? last.month : "";
+    $("cp-dept-t").textContent = "Quỹ lương theo phòng ban · " + monthLabel(m);
+    for (i = 0; i < ds.length; i++) {
+      var dr = (COST.payroll.by_dept || {})[ds[i].key] || [], j, hit = null;
+      for (j = 0; j < dr.length; j++) if (dr[j].month === m) hit = dr[j];
+      if (!hit) continue;
+      use.push({ key: ds[i].key, label: ds[i].short, base: hit.base, allow: hit.allow, bh: hit.bh, proj: hit.proj, bonus: hit.bonus, total: hit.total, headcount: hit.headcount });
+    }
+    use.sort(function (a, b) { return b.total - a.total; });
+    if (!use.length) { emptyBox("ch-cp-dept", "fb-cp-dept", "Không có phòng ban nào trong phạm vi."); return; }
+    var t = tokens();
+    var boxEl = $("ch-cp-dept"), boxW = (boxEl && boxEl.clientWidth) ? boxEl.clientWidth : 600;
+    var lw = Math.max(64, Math.min(160, Math.round(boxW * 0.34)));
+    var rev = use.slice().reverse(), cats = [];
+    for (i = 0; i < rev.length; i++) cats.push(rev[i].label);
+    var o = baseOption(true);
+    o.color = [CC.base, CC.allow, CC.bh, CC.proj, CC.bonus];
+    o.grid = { left: 14, right: 40, top: 12, bottom: 44, containLabel: true };
+    o.xAxis = { type: "value", splitLine: { lineStyle: { color: t.grid } },
+                axisLabel: { color: t.muted, fontSize: 11, hideOverlap: true, formatter: function (v) { return money(v); } } };
+    o.yAxis = { type: "category", data: cats, axisLine: { lineStyle: { color: t.border } }, axisTick: { show: false },
+                axisLabel: { color: t.ink, fontSize: 11, margin: 10, width: lw, overflow: "truncate", ellipsis: "…" } };
+    var LC = [{ k: "base", t: "Lương cơ bản", c: CC.base }, { k: "allow", t: "Phụ cấp", c: CC.allow }, { k: "bh", t: "BH phần công ty", c: CC.bh },
+              { k: "proj", t: "Lương dự án", c: CC.proj }, { k: "bonus", t: "Thưởng & khác", c: CC.bonus }];
+    o.series = [];
+    for (i = 0; i < LC.length; i++) {
+      var vals = [], j;
+      for (j = 0; j < rev.length; j++) vals.push([rev[j][LC[i].k] || 0, rev[j].label]);
+      o.series.push({ name: LC[i].t, type: "bar", stack: "s", barMaxWidth: 16,
+        itemStyle: { color: LC[i].c, borderColor: "#fff", borderWidth: 2, borderRadius: (i === LC.length - 1) ? [0, 4, 4, 0] : 0 },
+        emphasis: { focus: "series" }, data: vals });
+    }
+    o.series[o.series.length - 1].label = { show: true, position: "right", color: t.muted, fontSize: 10,
+      formatter: function (p) { var r = rev[p.dataIndex]; return r ? money(r.total) + " · " + r.headcount + " ng" : ""; } };
+    draw("ch-cp-dept", "fb-cp-dept", o, function (p) {
+      var r = rev[p.dataIndex]; if (!r) return;
+      cp.dept = (cp.dept === r.key) ? "" : r.key;
+      $("cp-dept").value = cp.dept;
+      renderCost();
+    });
+  }
+
+  function renderCostDelta() {
+    var ds = COST.depts || [], h = "", i, months = COST.params.months || [];
+    function rowHtml(label, rows, bold) {
+      if (!rows || !rows.length) return "";
+      var first = rows[0], last = rows[rows.length - 1], prev = rows.length > 1 ? rows[rows.length - 2] : null;
+      var d = (last.total || 0) - (first.total || 0);
+      var p = first.total ? Math.round((d * 1000) / first.total) / 10 : 0;
+      var cls = d > 0 ? "pnl-delta-up" : (d < 0 ? "pnl-delta-down" : "pnl-delta-flat");
+      return "<tr><td>" + (bold ? "<b>" : "") + esc(label) + (bold ? "</b>" : "") + '</td><td class="num" title="' + num(first.total) + ' đ">' + money(first.total)
+        + '</td><td class="num" title="' + num(last.total) + ' đ"><b>' + money(last.total) + '</b></td><td class="num"><span class="' + cls + '">' + signed(d)
+        + '</span></td><td class="num"><span class="' + cls + '">' + (p > 0 ? "+" : "") + p + "%</span></td>"
+        + (prev ? deltaCell((last.total || 0) - (prev.total || 0), prev.total || 0) : '<td class="num dim">—</td>') + "</tr>";
+    }
+    for (i = 0; i < ds.length; i++) {
+      if (cp.dept && ds[i].key !== cp.dept) continue;
+      h += rowHtml(ds[i].short, (COST.payroll.by_dept || {})[ds[i].key], false);
+    }
+    if (!cp.dept && COST.scope.mode === "all") h += rowHtml("Toàn công ty", COST.payroll.company, true);
+    if (!h) h = '<tr><td colspan="6">Không có số liệu.</td></tr>';
+    else h += '<tr><td colspan="6" class="dim">Đầu kỳ = ' + monthLabel(months[0]) + ", cuối kỳ = " + monthLabel(months[months.length - 1])
+       + ". Quỹ lương = lương cơ bản + phụ cấp + bảo hiểm phần công ty (từ hồ sơ nhân sự, tính theo số ngày làm việc) + lương dự án (tháng HR đã nhập lấy đúng số, tháng khác lấy theo tháng gần nhất có dữ liệu) + thưởng &amp; khác (chỉ tháng đã nhập).</td></tr>";
+    $("cp-delta-b").innerHTML = h;
+  }
+
+  function renderHeadcount() {
+    var hc = COST.headcount || {}, rows = hc.by_dept || [], h = "", i, months = COST.params.months || [];
+    var hire = {}, resign = {}, j;
+    var hb = (COST.hiring && COST.hiring.by_dept) || [];
+    for (j = 0; j < hb.length; j++) hire[hb[j].dept] = hb[j];
+    var rs = (COST.hiring && COST.hiring.resignations) || [];
+    for (j = 0; j < rs.length; j++) {
+      if (!resign[rs[j].dept]) resign[rs[j].dept] = { n: 0, months: [] };
+      resign[rs[j].dept].n += (rs[j].n || 0) + (rs[j].n_pending || 0);
+      if (rs[j].month) resign[rs[j].dept].months.push(monthLabel(rs[j].month));
+    }
+    function joinLeave(dept) {
+      var pr = dept ? ((COST.payroll.by_dept || {})[dept] || []) : (COST.payroll.company || []), jn = 0, lv = 0, k;
+      for (k = 0; k < pr.length; k++) { if (pr[k].kind === "future") continue; jn += pr[k].joiners || 0; lv += pr[k].leavers || 0; }
+      return "+" + jn + " / −" + lv;
+    }
+    var noCtc = 0, noCtcDepts = [];
+    for (i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (cp.dept && r.dept !== cp.dept) continue;
+      var hr = hire[r.dept], rg = resign[r.dept];
+      h += "<tr><td>" + esc(r.short) + '</td><td class="num"><b>' + r.total + '</b></td><td class="num">' + r.ft
+        + '</td><td class="num">' + r.prob + '</td><td class="num">' + r.intern + '</td><td class="num">' + r.intern_pct + "%"
+        + '</td><td class="num">' + joinLeave(r.dept) + '</td><td class="num">'
+        + (hr ? (hr.n_approved + hr.n_pending) + (hr.n_pending ? " (" + hr.n_pending + " chờ duyệt)" : "") : '<span class="dim">0</span>')
+        + '</td><td class="num">' + (rg ? rg.n + (rg.months.length ? " (" + rg.months.join(", ") + ")" : "") : '<span class="dim">0</span>')
+        + '</td><td class="num">' + (r.no_ctc ? '<span class="pnl-delta-up">' + r.no_ctc + "</span>" : '<span class="dim">0</span>') + "</td></tr>";
+      if (r.no_ctc) { noCtc += r.no_ctc; noCtcDepts.push(r.short + " " + r.no_ctc); }
+    }
+    var c = hc.company;
+    if (c && !cp.dept) {
+      h += "<tr><td><b>Toàn công ty</b></td><td class=\"num\"><b>" + c.total + '</b></td><td class="num">' + c.ft + '</td><td class="num">' + c.prob
+        + '</td><td class="num">' + c.intern + '</td><td class="num"><b>' + c.intern_pct + "%</b></td><td class=\"num\">" + joinLeave("")
+        + '</td><td class="num"></td><td class="num"></td><td class="num">' + (c.no_ctc ? '<span class="pnl-delta-up">' + c.no_ctc + "</span>" : "0") + "</td></tr>";
+    }
+    if (!h) h = '<tr><td colspan="10">Không có số liệu.</td></tr>';
+    $("cp-hc-b").innerHTML = h;
+    $("cp-hc-n").textContent = "Số người đang Active tính đến " + esc(hc.as_of || "") + ". “Vào / nghỉ trong kỳ” đếm ngày vào làm và ngày nghỉ việc trong "
+      + months.length + " tháng đã chọn (không tính tháng dự phóng). “Đang xin tuyển” và “Sắp nghỉ” đọc từ Approval Center.";
+    var w = $("cp-hc-warn");
+    if (noCtc) {
+      w.className = "pnl-warnbox";
+      w.innerHTML = "<b>" + noCtc + " người đang Active chưa có mức lương trong hồ sơ nhân sự</b> (" + esc(noCtcDepts.join(", "))
+        + ") — phần lớn là intern / thử việc mới vào. Quỹ lương ước tính đang <b>thiếu</b> phần của họ. HR bổ sung trường “Cost to Company (CTC)” trên Employee là số tự đúng, không cần deploy.";
+    } else w.className = "pnl-warnbox pnl-hidden";
+  }
+
+  function renderHiring() {
+    var H = COST.hiring || {}, h = "", i;
+    function inDept(d) { return !cp.dept || d === cp.dept; }
+    function tag(st) {
+      var cls = st === "Approved" ? "ok" : (st ? "wait" : "future");
+      var t = st === "Approved" ? "Đã duyệt" : (st === "Pending" ? "Chờ duyệt" : (st === "Information Required" ? "Cần bổ sung" : (st || "")));
+      return '<span class="pnl-tag ' + cls + '">' + esc(t) + "</span>";
+    }
+    var rq = H.requests || [];
+    for (i = 0; i < rq.length; i++) {
+      if (!inDept(rq[i].dept)) continue;
+      h += "<tr><td>Xin tuyển</td><td>" + esc(rq[i].short) + "</td><td>" + esc(rq[i].position || rq[i].title) + (rq[i].type ? ' <span class="dim">· ' + esc(rq[i].type) + "</span>" : "")
+        + '</td><td class="num">' + rq[i].n + "</td><td>" + monthLabel(rq[i].month) + "</td><td>" + tag(rq[i].status) + "</td></tr>";
+    }
+    var jo = H.job_openings || [];
+    for (i = 0; i < jo.length; i++) {
+      if (!inDept(jo[i].dept)) continue;
+      h += "<tr><td>Tin tuyển dụng (HRMS)</td><td>" + esc(jo[i].short) + "</td><td>" + esc(jo[i].title) + ' <span class="dim">· ' + jo[i].n_applicants + " ứng viên"
+        + (jo[i].n_applicants ? ", nhận " + jo[i].accepted + " (" + jo[i].conv_pct + "%)" : "") + '</span></td><td class="num">' + (jo[i].vacancies || jo[i].planned || 0)
+        + "</td><td>" + (jo[i].closes_on ? esc(jo[i].closes_on) : "") + "</td><td>" + tag(jo[i].status === "Open" ? "Approved" : jo[i].status) + "</td></tr>";
+    }
+    var rs = H.resignations || [];
+    for (i = 0; i < rs.length; i++) {
+      if (!inDept(rs[i].dept)) continue;
+      h += "<tr><td>Nghỉ việc</td><td>" + esc(rs[i].short || "(chưa gắn phòng)") + "</td><td>"
+        + (rs[i].amount_hidden ? '<span class="dim">quỹ lương giảm: ẩn (dưới ' + COST.scope.k_min + " người)</span>" : (rs[i].ctc_sum ? "quỹ lương giảm khoảng " + money(rs[i].ctc_sum) + "/tháng" : ""))
+        + '</td><td class="num">' + ((rs[i].n || 0) + (rs[i].n_pending || 0)) + "</td><td>" + monthLabel(rs[i].month) + "</td><td>" + tag(rs[i].n ? "Approved" : "Pending") + "</td></tr>";
+    }
+    var pm = H.promotions || [];
+    for (i = 0; i < pm.length; i++) {
+      if (!inDept(pm[i].dept)) continue;
+      h += "<tr><td>Tăng lương / thăng chức</td><td>" + esc(pm[i].short) + "</td><td>"
+        + (pm[i].amount_hidden ? '<span class="dim">mức tăng: ẩn (dưới ' + COST.scope.k_min + " người)</span>" : "quỹ lương tăng " + money(pm[i].delta_month || 0) + "/tháng")
+        + '</td><td class="num">' + ((pm[i].n || 0) + (pm[i].n_pending || 0)) + "</td><td>" + monthLabel(pm[i].month) + "</td><td>" + tag(pm[i].n ? "Approved" : "Pending") + "</td></tr>";
+    }
+    var mv = H.moves || [];
+    for (i = 0; i < mv.length; i++) {
+      if (!(inDept(mv[i].from) || inDept(mv[i].to))) continue;
+      h += "<tr><td>Chuyển phòng</td><td>" + esc(mv[i].from_short) + " → " + esc(mv[i].to_short) + "</td><td></td><td class=\"num\">" + mv[i].n + "</td><td>" + monthLabel(mv[i].month) + "</td><td>" + tag(mv[i].status) + "</td></tr>";
+    }
+    var sp = H.staffing_plan || [];
+    for (i = 0; i < sp.length; i++) {
+      if (!inDept(sp[i].dept)) continue;
+      h += "<tr><td>Staffing Plan</td><td>" + esc(sp[i].short) + "</td><td>" + esc(sp[i].designation) + '</td><td class="num">' + sp[i].vacancies + "</td><td>" + esc(sp[i].from) + " → " + esc(sp[i].to) + "</td><td>" + tag("Approved") + "</td></tr>";
+    }
+    if (!h) h = '<tr><td colspan="6">Chưa có yêu cầu tuyển dụng / nghỉ việc / thăng chức nào trong phạm vi và cửa sổ thời gian này.</td></tr>';
+    $("cp-hire-b").innerHTML = h;
+    var hb = H.by_dept || [], cost = 0, n = 0;
+    for (i = 0; i < hb.length; i++) { if (!inDept(hb[i].dept)) continue; cost += (hb[i].cost_approved || 0) + (hb[i].cost_pending || 0); n += (hb[i].n_approved || 0) + (hb[i].n_pending || 0); }
+    $("cp-hire-note").innerHTML = "<b>Headcount plan:</b> hệ thống chưa có Staffing Plan nào (" + sp.length + " bản ghi). Khi HR lập kế hoạch theo quý bằng Staffing Plan của HRMS (phòng ban × vị trí × số lượng × chi phí dự kiến), bảng này tự hiện, không cần deploy. "
+      + "Hiện có <b>" + n + " vị trí</b> đang xin tuyển qua Approval Center" + (cost ? ", tương đương khoảng <b>" + money(cost) + "/tháng</b> quỹ lương thêm nếu tuyển đủ (mức lương đề xuất × số lượng)" : "") + ". "
+      + "<b>Tỷ lệ chuyển đổi tuyển dụng:</b> ứng viên → nhận việc, tính trên Job Applicant của HRMS (mới có 1 tin tuyển). "
+      + "<b>Chuyển đổi intern → chính thức:</b> chưa tính được vì hồ sơ chỉ giữ loại hình hiện tại, không giữ lịch sử; cần HR ghi Employee Promotion / EC Promotion Request khi chuyển loại hình.";
+  }
+
+  function renderOther() {
+    var h = "", head = "", i;
+    var items = otherItems();
+    if (cp.ocTab === "group") {
+      var gs = otherByGroup(), g, j;
+      head = "<tr><th>Nhóm / khoản mục</th><th class='num'>Đã duyệt</th><th class='num'>Đang chờ</th><th class='num'>Số yêu cầu</th><th>Vào chi phí</th></tr>";
+      for (i = 0; i < gs.length; i++) {
+        g = gs[i];
+        h += '<tr><td><b>' + esc(groupLabel(g.group)) + '</b></td><td class="num"><b>' + num(g.approved)
+           + '</b></td><td class="num dim">' + num(g.pending) + '</td><td class="num">' + g.n + '</td><td>'
+           + (g.counts ? '<span class="pnl-tag ok">Có</span>' : '<span class="pnl-tag future">Không</span>') + "</td></tr>";
+        for (j = 0; j < g.order.length; j++) {
+          var c = g.cats[g.order[j]];
+          h += '<tr><td style="padding-left:26px" class="dim">' + esc(c.category === "(Chua phan loai)" ? "Chưa phân loại" : c.category)
+             + '</td><td class="num">' + num(c.approved) + '</td><td class="num dim">' + num(c.pending)
+             + '</td><td class="num">' + c.n + "</td><td></td></tr>";
+        }
+      }
+    } else if (cp.ocTab === "items") {
+      head = "<tr><th>Tháng</th><th>Loại chi phí</th><th>Yêu cầu</th><th>Phòng ban</th><th>Brand</th><th>Trạng thái</th><th class='num'>Số tiền</th></tr>";
+      for (i = 0; i < items.length; i++) {
+        var it = items[i];
+        var catTxt = (it.category && it.category !== "(Chua phan loai)")
+          ? esc(it.category) : '<span class="pnl-delta-up">Chưa phân loại</span>';
+        h += "<tr><td>" + monthLabel(it.month) + "</td><td>" + catTxt + '</td><td><a href="/app/' + esc(String(it.doctype).toLowerCase().replace(/ /g, "-")) + "/" + encodeURIComponent(it.name) + '" target="_blank" rel="noopener">' + esc(it.title) + "</a></td><td>" + esc(it.short)
+          + "</td><td>" + (it.brand ? esc(it.brand) : '<span class="dim">—</span>')
+          + '</td><td><span class="pnl-tag ' + (it.status === "Approved" ? "ok" : "wait") + '">' + esc(it.status === "Approved" ? "Đã duyệt" : (it.status === "Pending" ? "Chờ duyệt" : "Cần bổ sung")) + '</span>'
+          + (it.counts === 0 ? ' <span class="pnl-tag future">không vào chi phí</span>' : '')
+          + '</td><td class="num">' + num(it.amount) + "</td></tr>";
+      }
+    } else {
+      var types = (COST.other_costs && COST.other_costs.types) || [], ocm = otherByMonth(), keys = [], k;
+      for (k in ocm) if (ocm.hasOwnProperty(k)) keys.push(k);
+      keys.sort();
+      head = "<tr><th>Tháng</th>";
+      for (i = 0; i < types.length; i++) head += "<th class='num'>" + esc(types[i]) + "</th>";
+      head += "<th class='num'>Đã duyệt</th><th class='num'>Đang chờ</th></tr>";
+      for (i = 0; i < keys.length; i++) {
+        var a = ocm[keys[i]], j;
+        h += "<tr><td>" + monthLabel(keys[i]) + "</td>";
+        for (j = 0; j < types.length; j++) h += '<td class="num">' + (a.types[types[j]] ? num(a.types[types[j]].approved) : '<span class="dim">0</span>') + "</td>";
+        h += '<td class="num"><b>' + num(a.approved) + '</b></td><td class="num dim">' + num(a.pending) + "</td></tr>";
+      }
+    }
+    if (!h) h = '<tr><td colspan="8">Không có yêu cầu chi phí nào trong khoảng đã chọn' + (cp.hideTest ? " (đang ẩn yêu cầu test)" : "") + ".</td></tr>";
+    $("cp-oc-h").innerHTML = head;
+    $("cp-oc-b").innerHTML = h;
+    var cap = (COST.other_costs && COST.other_costs.items && COST.other_costs.items.length >= 200);
+    $("cp-oc-n").textContent = "Chỉ gồm yêu cầu Đã duyệt (tính vào chi phí) hoặc Đang chờ / Cần bổ sung (tham khảo); Rejected và Cancelled bị loại. Tháng quy kỳ: Payment Request theo ngày thanh toán, AI Topup theo ngày bắt đầu gói, Purchase theo ngày mua dự kiến, Affiliate theo tháng dịch vụ, Special Bonus theo ngày tạo."
+      + (cap ? " Đang hiện 200 yêu cầu gần nhất." : "");
+    // Canh bao: dem tren DUNG tap dang hien (da loc phong ban / an test)
+    var nUn = 0, amtUn = 0;
+    for (i = 0; i < items.length; i++) {
+      if (items[i].category && items[i].category !== "(Chua phan loai)") continue;
+      nUn += 1; if (items[i].status === "Approved") amtUn += items[i].amount || 0;
+    }
+    var w = $("cp-oc-warn");
+    if (nUn) {
+      w.className = "pnl-warnbox";
+      w.innerHTML = "<b>" + nUn + " yêu cầu chưa gắn loại chi phí</b>" + (amtUn ? " (đã duyệt " + money(amtUn) + ")" : "")
+        + " — đang gộp vào “Chưa phân loại”. Finance mở <a href=\"/app/ec-payment-request\" target=\"_blank\" rel=\"noopener\">danh sách đề nghị thanh toán</a> gắn loại là bảng này tự tách ra, không cần deploy. "
+        + "Phiếu tạo mới trên form sẽ bắt buộc chọn loại nên số này chỉ giảm dần.";
+    } else w.className = "pnl-warnbox pnl-hidden";
+    // Dong "da loai khoi chi phi": cho thay tien CO ra nhung khong tinh, de khong ai nghi thieu
+    var exP = 0, exN = 0;
+    for (i = 0; i < items.length; i++) {
+      if (items[i].counts !== 0 || items[i].status !== "Approved") continue;
+      if (items[i].group === "Lương & nhân sự") exP += items[i].amount || 0; else exN += items[i].amount || 0;
+    }
+    var ex = $("cp-oc-excl");
+    if (exP || exN) {
+      ex.className = "pnl-note";
+      ex.innerHTML = "<b>Có tiền ra nhưng không tính vào chi phí kỳ này:</b> "
+        + (exP ? "lương / thưởng đã tính ở khối lương <b>" + money(exP) + "</b>" : "")
+        + (exP && exN ? " · " : "")
+        + (exN ? "tạm ứng, chi hộ brand, ký quỹ, trả nợ gốc <b>" + money(exN) + "</b>" : "")
+        + ". Cộng vào nữa là đếm trùng.";
+    } else ex.className = "pnl-note pnl-hidden";
+  }
+
+  // ---------------------------------------------------------------- kich ban brand
+  function scenarioBrands() {
+    var seen = {}, out = [], i;
+    var rows = (DATA && DATA.by_brand) || [];
+    for (i = 0; i < rows.length; i++) { if (!rows[i].key || seen[rows[i].key] || rows[i].key.charAt(0) === "(") continue; seen[rows[i].key] = 1; out.push({ key: rows[i].key, total: rows[i].total || 0 }); }
+    var opts = (COST && COST.brands && COST.brands.options) || [];
+    for (i = 0; i < opts.length; i++) { if (seen[opts[i]]) continue; seen[opts[i]] = 1; out.push({ key: opts[i], total: 0 }); }
+    return out;
+  }
+  function renderScenarioChips() {
+    var bs = scenarioBrands(), h = "", i;
+    var bl = (COST.brands && COST.brands.list) || [], fte = {};
+    for (i = 0; i < bl.length; i++) fte[bl[i].brand] = bl[i];
+    for (i = 0; i < bs.length; i++) {
+      var on = cp.sel.indexOf(bs[i].key) >= 0, f = fte[bs[i].key];
+      h += '<button class="pnl-chip' + (on ? " sel" : "") + '" type="button" data-b="' + esc(bs[i].key) + '">' + esc(bs[i].key)
+         + (bs[i].total ? " · " + money(bs[i].total) : "") + (f ? " · " + f.n + " ng" : "") + "</button>";
+    }
+    if (!h) h = '<span class="pnl-card-n">Chưa có brand nào (không có doanh thu trong kỳ và chưa khai tỷ trọng).</span>';
+    $("cp-sc-brands").innerHTML = h;
+    var cov = (COST.brands && COST.brands.coverage) || { allocated: 0, active: 0 };
+    $("cp-sc-cov").innerHTML = "Tỷ trọng brand đã khai cho <b>" + cov.allocated + "/" + cov.active + "</b> nhân sự"
+      + (COST.brands && COST.brands.has_table ? ' — nhập ở <a href="/app/ec-nhan-su-brand" target="_blank" rel="noopener">EC Nhan Su Brand</a> (HR / C&B).' : " — chưa có bảng tỷ trọng.");
+  }
+  function renderScenario() {
+    var box = $("cp-sc-out");
+    if (!SC) { box.className = "pnl-hidden"; box.innerHTML = ""; return; }
+    var rows = (DATA && DATA.by_brand) || [], revLost = 0, revApproved = 0, i;
+    for (i = 0; i < rows.length; i++) if (SC.brands.indexOf(rows[i].key) >= 0) { revLost += rows[i].total || 0; revApproved += rows[i].approved || 0; }
+    var nM = (COST.params.months || []).length || 1, nPast = 0;
+    var pr = COST.payroll.company || payrollRows();
+    for (i = 0; i < pr.length; i++) if (pr[i].kind !== "future") nPast++;
+    if (!nPast) nPast = nM;
+    var h = '<div class="pnl-mini">';
+    h += '<div><div class="l">Doanh thu mất (kỳ đã chọn)</div><div class="v">' + (DATA ? money(revLost) : "—") + '</div><div class="s">'
+       + (DATA ? "trong đó đã duyệt " + money(revApproved) + " · trung bình " + money(revLost / nPast) + "/tháng" : "cần quyền xem doanh thu") + "</div></div>";
+    h += '<div><div class="l">Người ảnh hưởng</div><div class="v">' + SC.n + ' người</div><div class="s">tương đương ' + SC.fte + " FTE đang dành cho " + esc(SC.brands.join(", ")) + "</div></div>";
+    h += '<div><div class="l">Chi phí lương liên quan / tháng</div><div class="v">' + (SC.amount_hidden ? "ẩn" : money(SC.cost_month || 0)) + '</div><div class="s">'
+       + (SC.amount_hidden ? "dưới " + COST.scope.k_min + " người — không hiện để tránh suy ra lương cá nhân" : "phần quỹ lương ước tính gắn với brand này (chi phí tháng × tỷ trọng)") + "</div></div>";
+    h += "</div>";
+    if (DATA && SC.cost_month !== null && !SC.amount_hidden) {
+      var net = revLost / nPast - (SC.cost_month || 0);
+      h += '<p class="pnl-note"><b>Đọc nhanh:</b> mỗi tháng mất khoảng ' + money(revLost / nPast) + " doanh thu, trong khi phần lương gắn với brand khoảng " + money(SC.cost_month || 0)
+         + " → chênh lệch " + (net < 0 ? "−" : "") + money(Math.abs(net)) + "/tháng" + (net >= 0 ? " (brand đang đóng góp dương so với lương gắn theo tỷ trọng)." : " (chi phí lương gắn theo tỷ trọng đang cao hơn doanh thu trung bình tháng).") + " Đây là ước tính thô: chưa gồm chi phí khác, chưa tính việc điều chuyển người sang brand khác.</p>";
+    }
+    var dcost = 0, obr = (COST.other_costs && COST.other_costs.by_brand) || [], bi;
+    for (bi = 0; bi < obr.length; bi++) if (SC.brands.indexOf(obr[bi].brand) >= 0) dcost += obr[bi].approved || 0;
+    if (dcost) {
+      h += '<p class="pnl-note" style="margin-top:8px"><b>Chi phí trực tiếp đã gắn brand này:</b> ' + money(dcost)
+         + " trong kỳ (booking KOL, ads, livestream… trên các đề nghị thanh toán đã duyệt). Ngừng brand thì khoản này mất theo.</p>";
+    }
+    if (SC.by_dept && SC.by_dept.length) {
+      h += '<div class="pnl-scroll" style="margin-top:8px"><table><thead><tr><th>Phòng ban</th><th class="num">Người</th><th class="num">FTE</th><th class="num">Lương liên quan / tháng</th></tr></thead><tbody>';
+      for (i = 0; i < SC.by_dept.length; i++) {
+        var d = SC.by_dept[i];
+        h += "<tr><td>" + esc(d.short) + '</td><td class="num">' + d.n + '</td><td class="num">' + d.fte + '</td><td class="num">' + (d.amount_hidden ? '<span class="dim">ẩn</span>' : num(d.cost_month || 0)) + "</td></tr>";
+      }
+      h += "</tbody></table></div>";
+    }
+    if (SC.people && SC.people.length) {
+      h += '<div class="pnl-people">';
+      for (i = 0; i < SC.people.length; i++) {
+        var p = SC.people[i];
+        h += '<span class="pnl-person"><b>' + esc(p.employee_name) + "</b> · " + esc(p.short) + " · " + p.pct_selected + "%"
+           + (p.pct_other ? ' <span class="dim">(còn ' + p.pct_other + "% brand khác)</span>" : "") + "</span>";
+      }
+      h += "</div>";
+    } else {
+      h += '<p class="pnl-note" style="margin-top:8px">Chưa có nhân sự nào khai tỷ trọng cho brand này — chỉ mới thấy phần doanh thu. HR nhập tỷ trọng ở EC Nhan Su Brand thì mục này tự đầy đủ.</p>';
+    }
+    box.className = "";
+    box.innerHTML = h;
+  }
+  function runScenario() {
+    if (!COST || !cp.sel.length) { SC = null; renderScenario(); return; }
+    var b = $("cp-sc-run"); b.disabled = true; b.innerHTML = '<span class="pnl-spin"></span> Đang tính';
+    var args = costArgs(); args.action = "scenario"; args.brands = cp.sel.join(",");
+    call(args, "ec_pnl_chi_phi").then(function (res) {
+      b.disabled = false; b.textContent = "Chạy kịch bản";
+      if (!res || !res.ok || !res.scenario) { SC = null; renderScenario(); return; }
+      SC = res.scenario; renderScenario();
+    }).catch(function () { b.disabled = false; b.textContent = "Chạy kịch bản"; });
+  }
+
+  // ---------------------------------------------------------------- tong hop
+  function renderCostScope() {
+    var sc = COST.scope || {};
+    var t = (sc.mode === "all") ? "Chi phí: toàn công ty" : "Chi phí: " + (COST.depts || []).map(function (d) { return d.short; }).join(", ");
+    $("cp-scope").textContent = t;
+    var sel = $("cp-dept"), h = "", i, ds = COST.depts || [];
+    if (sc.mode === "all" || ds.length > 1) h += '<option value="">' + (sc.mode === "all" ? "Toàn công ty" : "Các phòng tôi được xem") + "</option>";
+    for (i = 0; i < ds.length; i++) h += '<option value="' + esc(ds[i].key) + '"' + (cp.dept === ds[i].key ? " selected" : "") + ">" + esc(ds[i].short) + "</option>";
+    sel.innerHTML = h;
+    if (sc.mode !== "all" && ds.length === 1) cp.dept = ds[0].key;
+    sel.value = cp.dept;
+    var months = COST.params.months || [];
+    $("cp-sub").textContent = "Kỳ: " + monthLabel(months[0]) + " → " + monthLabel(months[months.length - 1]) + " · quỹ lương ước tính từ hồ sơ nhân sự (không đọc phiếu lương) · cập nhật " + (COST.meta.generated_at || "");
+  }
+
+  function renderCost() {
+    if (!COST) return;
+    renderCostScope();
+    var rows = payrollRows();
+    renderCostKpis(rows);
+    renderCostTime(rows);
+    renderCostDept(rows);
+    renderCostDelta();
+    renderHeadcount();
+    renderHiring();
+    renderOther();
+    renderScenarioChips();
+    renderScenario();
+    if (DATA) renderFoot();
+    if (window.ECCharts && ECCharts.attachResize) ECCharts.attachResize(140);
+  }
+
+  function costFootNotes() {
+    if (!COST) return "";
+    var m = COST.meta || {}, h = "";
+    var pmx = monthLabel((COST.payroll && COST.payroll.proj_latest_month) || "");
+    h += "<br><b>Quỹ lương (ước tính):</b> mỗi người mỗi tháng = lương cơ bản trên hồ sơ (CTC) + phụ cấp cơm, cà phê, máy tính + bảo hiểm phần công ty "
+       + "[min(lương, 46,8tr) × 20,5% (BHXH 17,5% + BHYT 3%) + min(lương, 106,2tr) × 1% (BHTN), chỉ với người đang đóng BHXH] "
+       + "+ <b>lương dự án</b> của chính người đó (Additional Salary: tháng HR đã nhập lấy đúng số, tháng chưa nhập lấy theo tháng gần nhất có dữ liệu" + (pmx ? " — hiện là " + pmx : "") + ") "
+       + "+ thưởng &amp; khác (KPI, incentive, hỗ trợ — chỉ tháng HR đã nhập, không kéo sang tháng khác); vào hoặc nghỉ giữa tháng thì nhân theo số ngày. "
+       + "Không đọc phiếu lương; không có số của từng người ở bất kỳ đâu trên trang này. "
+       + "Chưa gồm kinh phí công đoàn và chưa có chi phí cố định (văn phòng, phần mềm, khấu hao) — nên “lợi nhuận ước tính” là lãi gộp sau lương, không phải lợi nhuận ròng.";
+    var v = (COST.variable && COST.variable.company) || [];
+    if (v.length) {
+      var parts = [], i;
+      for (i = 0; i < v.length; i++) parts.push(monthLabel(v[i].month) + ": " + money(v[i].total));
+      h += " Khoản biến động HR đã ghi nhận (Additional Salary, toàn công ty): " + esc(parts.join(" · ")) + ".";
+    }
+    var a = (COST.actual && COST.actual.company) || [];
+    if (a.length) {
+      var ps = [], j;
+      for (j = 0; j < a.length; j++) ps.push(monthLabel(a[j].month) + ": " + money(a[j].gross) + " (" + a[j].n + " phiếu)");
+      h += " Tổng gross theo phiếu lương đã có, chỉ để đối chiếu (gross không gồm bảo hiểm phần công ty): " + esc(ps.join(" · ")) + ".";
+    }
+    h += "<br><b>Chi phí khác:</b> chỉ gồm yêu cầu đã duyệt trên Approval Center (Payment Request, AI Topup, Purchase Request, Special Bonus, Affiliate Bonus); yêu cầu đang chờ chỉ để tham khảo; yêu cầu có chữ TEST / UAT / DUMMY trong tiêu đề bị ẩn khi bật ô tương ứng.";
+    h += "<br><b>Quyền xem chi phí:</b> hẹp hơn quyền xem doanh thu — CEO / HOF / C&B thấy toàn công ty; quản lý phòng ban chỉ thấy phòng mình, và không bao giờ thấy phòng Management. Số tổng hợp của nhóm dưới " + COST.scope.k_min + " người bị ẩn với người xem theo phòng.";
+    if (m.notes && m.notes.length) h += "<br><b>Ghi chú chi phí:</b> " + esc(m.notes.join(" | "));
+    return h;
+  }
+
+  function costArgs() {
+    var args = {};
+    var from = state.from || ((DATA && DATA.meta && DATA.meta.date_from) ? DATA.meta.date_from : "");
+    var to = state.to || ((DATA && DATA.meta && DATA.meta.date_to) ? DATA.meta.date_to : "");
+    if (!from) from = iso(new Date(new Date().getFullYear(), 0, 1));
+    if (!to) to = iso(new Date());
+    if (cp.fc === "3") {
+      var d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + 4); d.setDate(0);
+      var t3 = iso(d);
+      if (t3 > to) to = t3;
+    }
+    args.date_from = from; args.date_to = to;
+    return args;
+  }
+
+  function costDenied(msg) {
+    COST = null;
+    $("cp-wrap").className = "pnl-hidden";
+    var d = $("cp-denied"); d.className = "pnl-msg info"; d.textContent = msg;
+    $("cp-scope").textContent = "Chi phí: không có quyền";
+  }
+
+  var costArgsUsed = "";
+  function loadCost() {
+    if (costBusy) { costPending = true; return; }
+    costBusy = true;
+    var a = costArgs();
+    costArgsUsed = JSON.stringify(a);
+    call(a, "ec_pnl_chi_phi").then(function (res) {
+      costBusy = false;
+      if (!res) { costDenied("Không tải được phần chi phí. Hãy thử tải lại."); return; }
+      if (!res.ok) {
+        if (res.error === "no_permission") {
+          costDenied("Phần chi phí & quỹ lương chỉ mở cho CEO, HOF, C&B và quản lý phòng ban (chỉ thấy phòng mình). Bạn hiện không thuộc nhóm này.");
+        } else costDenied(res.message || "Không tải được phần chi phí.");
+        return;
+      }
+      COST = res;
+      $("cp-denied").className = "pnl-msg info pnl-hidden";
+      $("cp-wrap").className = "";
+      SC = null;
+      renderCost();
+    }).catch(function (err) {
+      costBusy = false;
+      costDenied("Không tải được phần chi phí: " + ((err && err.message) || err));
+    }).then(function () {
+      if (costPending) { costPending = false; loadCost(); }
+    });
+  }
+
+  function bindCost() {
+    $("cp-dept").addEventListener("change", function () { cp.dept = $("cp-dept").value; renderCost(); });
+    $("cp-fc").addEventListener("click", function (e) {
+      var f = e.target && e.target.getAttribute("data-f");
+      if (f === null || typeof f === "undefined") return;
+      cp.fc = f; markSeg("cp-fc", "data-f", f); loadCost();
+    });
+    $("cp-hidetest").addEventListener("change", function () { cp.hideTest = !!$("cp-hidetest").checked; renderCost(); });
+    $("cp-oc-tabs").addEventListener("click", function (e) {
+      var t = e.target && e.target.getAttribute("data-t");
+      if (!t) return;
+      cp.ocTab = t; markSeg("cp-oc-tabs", "data-t", t); renderOther();
+    });
+    $("cp-sc-brands").addEventListener("click", function (e) {
+      var b = e.target && e.target.getAttribute("data-b");
+      if (!b) return;
+      var i = cp.sel.indexOf(b);
+      if (i >= 0) cp.sel.splice(i, 1); else cp.sel.push(b);
+      renderScenarioChips();
+    });
+    $("cp-sc-run").addEventListener("click", runScenario);
+    $("cp-sc-clear").addEventListener("click", function () { cp.sel = []; SC = null; renderScenarioChips(); renderScenario(); });
+  }
+
+  function boot() { bind(); bindCost(); load(); }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot);
   } else { boot(); }

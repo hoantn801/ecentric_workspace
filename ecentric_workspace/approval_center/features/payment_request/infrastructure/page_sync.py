@@ -109,8 +109,18 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "1ab3de200328c8bb9bea8c934c5ed78580a59fe3eb7bffa5843efe528504434f"
+BASELINE_SHA256 = "73b2d2c327853f240f7b8572177c8532cf484f6d1b93e5f6a2c928774cebc1ac"
 SUPERSEDES_SHA256 = (
+    # 09/09: sha live HIEN TAI (= compose sau p170; da kiem truc tiep tren team.ecentric.vn).
+    # Duong ghi nhan THAT su dang do viec la `ec_page_sync_sha:approvals/payment-request` do
+    # record_live_sha ghi sau moi lan sync thanh cong - upsert_web_page chap nhan ca gia tri
+    # do, nen p170 van ghi duoc binh thuong. Them hai gia tri duoi day chi de LUOI DU PHONG
+    # dung khi cai default bi mat (site dung lai, doi bench, xoa DefaultValue).
+    "950c56c3d385132623b12f5dc6e61554bf910ea2a6243df06f4109816c5b6d68",
+    # BASELINE truoc dot nay ghi sha cua RIENG ui/main_section.html, trong khi trang duoc ghi
+    # bang _html() = main + 3 panel esign - hai gia tri khong bao gio bang nhau, nen o vai tro
+    # "luoi du phong" no vo dung. Tu dot nay BASELINE = sha CUA _html() da compose.
+    "1ab3de200328c8bb9bea8c934c5ed78580a59fe3eb7bffa5843efe528504434f",  # BASELINE cu (sha main-only)
     # Gia tri CUNG DOT p170, chua tung len production: p170 gop ca ba thay doi (2 ngay luc
     # nhan viec, chan khoi hoan tat, thay file UNC) vao mot lan deploy. De o day de mot ban
     # bench da chay nua chung khong bi tu choi ghi.
