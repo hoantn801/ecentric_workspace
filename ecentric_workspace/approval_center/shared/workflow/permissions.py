@@ -47,6 +47,40 @@ def is_fulfiller_participant(process_names, user):
     return bool(set(roles) & set(frappe.get_roles(user)))
 
 
+def fulfilled_approval_types(user):
+    """LOAI phieu ma `user` la Fulfiller DUOC CAU HINH (dong User hoac dong Role) tren
+    mot quy trinh dang Active. Tra list ma loai, da sap xep.
+
+    Vi sao ham nay ton tai. `is_fulfiller_participant` tra loi "co/khong" cho mot tap
+    quy trinh; trang bao cao lai can cau nguoc: "nguoi nay xu ly NHUNG LOAI nao" - de
+    dua vao dieu kien loc. Hoi tung loai mot thi la 2 truy van x 27 loai cho moi lan mo
+    trang. Nen dat o day, canh `is_fulfiller_participant`, dung DUNG bo loc do: hai cau
+    hoi ve cung mot su that phai doc cung mot cho, neu khong thi mot ngay nao do chung
+    lech nhau va khong ai biet (dung kieu lech 09/09: trang form coi chi Dan la nguoi
+    xu ly, trang bao cao thi khong).
+    """
+    if not user or user == "Guest":
+        return []
+    procs = frappe.get_all("EC Approval Process", filters={"status": "Active"},
+                           fields=["name", "approval_type"]) or []
+    type_of = {p["name"]: p.get("approval_type") for p in procs}
+    if not type_of:
+        return []
+    names = list(type_of)
+    base = {"parent": ["in", names], "parenttype": "EC Approval Process",
+            "participant_purpose": "Fulfiller"}
+    hit = set()
+    for r in frappe.get_all("EC Approval Participant", fields=["parent"],
+                            filters=dict(base, source_type="User", user=user)):
+        hit.add(type_of.get(r["parent"]))
+    roles = set(frappe.get_roles(user))
+    for r in frappe.get_all("EC Approval Participant", fields=["parent", "role"],
+                            filters=dict(base, source_type="Role", role=["is", "set"])):
+        if r.get("role") in roles:
+            hit.add(type_of.get(r["parent"]))
+    return sorted(t for t in hit if t)
+
+
 def _is_configured_fulfiller(user, approval_type):
     """A configured Fulfiller participant (User or Role) on an Active process of approval_type."""
     if not approval_type:
