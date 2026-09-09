@@ -202,12 +202,19 @@ def _load_tasks(dsr_rows, pkg_rows=(), dsr_table=None, completed_exists=None):
     exec(compile(_read("platform", "esign", "state.py"), "state.py", "exec"),  # noqa: S102
          state_mod.__dict__)
 
+    # department_map: nap MODULE THAT (khong stub) - no thuan, chi doc frappe.db va
+    # frappe.log_error, ca hai da co trong frappe gia. Stub lai chi de "co cho ma
+    # import" la mo duong cho stub tu tra loi chinh minh - cai da vap ba lan.
+    # PHAI nap SAU khi frappe gia vao sys.modules (no co `import frappe` o dau file),
+    # nen o day mo cho trong, dien o duoi.
+    department_map_mod = types.ModuleType("ecentric_workspace.platform.esign.department_map")
+
     esign_pkg = types.ModuleType("ecentric_workspace.platform.esign")
     for attr, m in (("binding", binding_mod), ("events", events_mod),
                     ("package", pkgsvc_mod), ("service", svc_mod),
                     ("providers", providers_mod), ("sanitize", sanitize_mod),
                     ("requester", requester_mod), ("signed_files", signed_files_mod),
-                    ("state", state_mod)):
+                    ("state", state_mod), ("department_map", department_map_mod)):
         setattr(esign_pkg, attr, m)
 
     mods = {
@@ -221,6 +228,7 @@ def _load_tasks(dsr_rows, pkg_rows=(), dsr_table=None, completed_exists=None):
         "ecentric_workspace.platform.esign.requester": requester_mod,
         "ecentric_workspace.platform.esign.signed_files": signed_files_mod,
         "ecentric_workspace.platform.esign.state": state_mod,
+        "ecentric_workspace.platform.esign.department_map": department_map_mod,
         "ecentric_workspace.platform.esign.providers": providers_mod,
         "ecentric_workspace.platform.esign.providers.base": base_mod,
         "ecentric_workspace.platform.esign.sanitize": sanitize_mod,
@@ -230,6 +238,8 @@ def _load_tasks(dsr_rows, pkg_rows=(), dsr_table=None, completed_exists=None):
         sys.modules[k] = v
     env = {}
     try:
+        exec(compile(_read("platform", "esign", "department_map.py"),  # noqa: S102
+                     "department_map.py", "exec"), department_map_mod.__dict__)
         exec(compile(_read("platform", "esign", "tasks.py"), "tasks.py", "exec"), env)
         return env, calls, (saved, sys)
     except Exception:

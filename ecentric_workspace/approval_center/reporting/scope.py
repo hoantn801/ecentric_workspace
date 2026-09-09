@@ -15,6 +15,27 @@ Tiers (broadest wins for classification; department/approver also see own + assi
 Governance role names (Finance/HR/Operations) do NOT grant org-wide access on their
 own; broader access must come from an explicit admin role (or a future governed
 'Approval Dashboard Access' config - deferred to D3).
+
+NGUOI XU LY (09/09/2026) - mot chieu CONG THEM, khong phai mot tang moi.
+-----------------------------------------------------------------------
+Ai la Fulfiller DUOC CAU HINH cua mot loai phieu thi thay MOI phieu CUA DUNG LOAI DO
+(`fulfil_types`). Khong doi `mode`, khong dung toi `can_export` - chi noi them mot ve
+OR vao dieu kien loc.
+
+Vi sao phai co. Bo may duyet DA coi ho la nguoi xu ly hop le tu truoc: trang form mo
+tab xu ly cho ho (`shared/workflow/permissions.is_eligible_fulfiller`). Nhung trang
+bao cao hoi mot cau khac han va khong biet gi ve Fulfiller, nen chi Dan (Ke toan,
+Fulfiller cua De nghi thanh toan) khong thay MOT phieu nao can xu ly. Trang do VAN
+kiem "duoc xu ly khong" - nhung chi de HIEN NUT tren nhung dong da lot qua bo loc;
+dong khong hien thi nut khong bao gio xuat hien.
+
+Va cho nay moi dang so: chi Lien thay het KHONG phai vi duoc cap quyen xem, ma vi chi
+la NGUOI DUYET cap 2 cua moi phieu -> co dong approver tren tung phieu -> roi vao tang
+`approver`. Quyen xem dang phu thuoc vao mot chuyen khong lien quan; doi nguoi duyet
+cap 2 la chi mat luon tam nhin do.
+
+CO Y KHONG lam: khong cap 'Approval Admin' cho mot vai tro xu ly. Role do mo TOAN BO
+phieu cong ty (nghi viec, tuyen dung, thuong) - qua rong cho nguoi chi can xu ly phieu chi.
 """
 import frappe
 
@@ -67,17 +88,29 @@ def _managed_departments(user):
     return out
 
 
+def _fulfil_types(user):
+    """Loai phieu user xu ly. Hoi DUNG mot cho canh bo may duyet, khong tu tra lai -
+    xem `shared/workflow/permissions.fulfilled_approval_types`. Fail-closed: loi gi
+    cung tra [] (mat mot ve OR, khong bao gio mo rong nham)."""
+    try:
+        from ecentric_workspace.approval_center.shared.workflow import permissions as _perm
+        return _perm.fulfilled_approval_types(user) or []
+    except Exception:
+        return []
+
+
 def resolve_scope(user=None):
     user = user or frappe.session.user
     roles = set(frappe.get_roles(user))
     if roles.intersection(ADMIN_ROLES):
-        return {"mode": "admin", "user": user, "departments": []}
+        return {"mode": "admin", "user": user, "departments": [], "fulfil_types": []}
+    ft = _fulfil_types(user)
     depts = _managed_departments(user)
     if depts:
-        return {"mode": "department", "user": user, "departments": depts}
+        return {"mode": "department", "user": user, "departments": depts, "fulfil_types": ft}
     if frappe.db.exists("EC Approval Request Approver", {"approver": user}):
-        return {"mode": "approver", "user": user, "departments": []}
-    return {"mode": "requester", "user": user, "departments": []}
+        return {"mode": "approver", "user": user, "departments": [], "fulfil_types": ft}
+    return {"mode": "requester", "user": user, "departments": [], "fulfil_types": ft}
 
 
 def scope_predicate(scope):
@@ -90,10 +123,22 @@ def scope_predicate(scope):
     own = "r.requested_by = %(scope_user)s"
     assigned = ("EXISTS (SELECT 1 FROM `tabEC Approval Request Approver` ra "
                 "WHERE ra.approval_request = r.name AND ra.approver = %(scope_user)s)")
+    # Nguoi xu ly: thay MOI phieu cua dung nhung LOAI minh xu ly. Danh sach loai duoc
+    # chot server-side o resolve_scope; o day chi dung THAM SO, khong noi chuoi.
+    ft_parts = []
+    for i, t in enumerate(scope.get("fulfil_types") or []):
+        k = "scope_ft_%d" % i
+        params[k] = t
+        ft_parts.append("r.approval_type = %%(%s)s" % k)
+    fulfil = " OR ".join(ft_parts) if ft_parts else None
+
+    def _with_fulfil(base):
+        return ("(%s OR %s)" % (base, fulfil)) if fulfil else base
+
     if mode == "requester":
-        return (own, params)
+        return (_with_fulfil(own), params)
     if mode == "approver":
-        return ("(%s OR %s)" % (own, assigned), params)
+        return (_with_fulfil("(%s OR %s)" % (own, assigned)), params)
     if mode == "department":
         depts = scope.get("departments") or []
         if depts:
@@ -105,9 +150,10 @@ def scope_predicate(scope):
             deptpred = "r.requester_department IN (%s)" % ", ".join(keys)
         else:
             deptpred = "0=1"
-        return ("(%s OR %s OR %s)" % (deptpred, own, assigned), params)
-    # unknown -> safest (own only)
-    return (own, params)
+        return (_with_fulfil("(%s OR %s OR %s)" % (deptpred, own, assigned)), params)
+    # unknown -> safest (own only; van cong ve nguoi xu ly vi do la quyen da duoc
+    # cau hinh tuong minh, khong phai suy dien tu tang)
+    return (_with_fulfil(own), params)
 
 
 def can_export(scope):
