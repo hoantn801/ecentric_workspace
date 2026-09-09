@@ -73,12 +73,30 @@ def assert_pending_approver(req, user=None):
 
 
 def assert_allowed_signer(settings, user=None):
-    """UAT tester allowlist on the settings row. EMPTY LIST = NOBODY (fail-closed)."""
+    """Duoc phep ky = CO ANH XA CHU KY DA XAC MINH cho moi truong nay.
+
+    TRUOC 09/09/2026 day la mot danh sach go tay tren Provider Settings
+    (`allowed_signing_users`), rong = khong ai ky duoc. No sinh ra de gioi han vong UAT, roi
+    o lai sau khi he chay that: moi nguoi moi deu phai duoc mot quan tri them tay vao do, va
+    KHONG CO CHO NAO NHAC. Tam (09/09) ket noi SCTS xong, co anh xa da xac minh, van khong ky
+    duoc va cau bao loi noi ve mot "UAT allowlist" ma nguoi dung khong biet la gi.
+
+    Vi sao thay bang anh xa THI AN TOAN KHONG GIAM:
+      * Anh xa `Verified` nghia la may chu da hoi SCTS va xac nhan chu ky do thuoc dung
+        `scts_user_id` cua nguoi nay (`api.verify_mapping`) - chat hon mot dong email go tay.
+      * Danh sach nay CHUA BAO GIO la thu chan nguoi khong phai nguoi duyet: viec do do
+        `assert_pending_approver` lam, va no khong doi. Ai khong den luot van khong ky duoc.
+      * Khong co chung thu ky duoc thi khong tao noi anh xa Verified (xem
+        `user_link._usable_signatures`), nen cai chan that su nam o SCTS - dung cho no nen nam.
+
+    Truong `allowed_signing_users` giu lai lam GHI CHU vong UAT; khong con hieu luc.
+    """
     user = user or frappe.session.user
-    raw = (settings.get("allowed_signing_users") or "").replace(",", "\n")
-    allowed = {u.strip().lower() for u in raw.splitlines() if u.strip()}
-    if user.lower() not in allowed:
-        frappe.throw(_("Bạn chưa được cấp quyền ký số (UAT allowlist)."), frappe.PermissionError)
+    env = settings.get("environment") if hasattr(settings, "get") else getattr(settings, "environment", None)
+    if not verified_mapping(user, env):
+        frappe.throw(_("Bạn chưa kết nối tài khoản ký số SCTS (hoặc ánh xạ chữ ký chưa được "
+                       "xác minh). Mở Approval Center và bấm \"Kết nối SCTS\"."),
+                     frappe.PermissionError)
 
 
 def verified_mapping(user, environment):
