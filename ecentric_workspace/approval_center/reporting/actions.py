@@ -280,3 +280,98 @@ def get_request_detail(request_name):
     if route:
         data["detail_route"] = ("/" + route.lstrip("/")) + "?id=" + name
     return data
+
+
+# --------------------------------------------------------------------------- #
+# Trao doi tren phieu (09/09, Hoan). Dung Frappe `Comment` gan vao chinh ho so
+# nghiep vu - khong dung DocType moi: da co san luu tru, phan trang, va di qua
+# dung luat quyen cua he (`can_view_request`). Ai xem duoc phieu thi doc/gui duoc,
+# khong ai khac.
+# --------------------------------------------------------------------------- #
+_COMMENT_LIMIT = 200
+_COMMENT_MAX_LEN = 2000
+
+
+def _assert_can_view(definition, business_name, request_name):
+    """Cong quyen DUY NHAT cho phan trao doi. Dung ham chuan cua engine, khong tu che
+    luat thu hai - xem feedback_db_get_value_bypasses_permissions."""
+    from ecentric_workspace.approval_center.shared.workflow.permissions import can_view_request
+    row = frappe.db.get_value(definition.business_doctype, business_name,
+                              ["requested_by", "fulfillment_owner"], as_dict=True) or {}
+    if not can_view_request(request_name, business_doctype=definition.business_doctype,
+                            requested_by=row.get("requested_by"),
+                            fulfillment_owner=row.get("fulfillment_owner"),
+                            approval_type=definition.code, business_name=business_name):
+        frappe.throw(_("Bạn không có quyền xem yêu cầu này."), frappe.PermissionError)
+    return row
+
+
+def _strip_html(text):
+    """Luu VAN BAN THUAN. Comment cua Frappe la truong HTML; nhan HTML tho tu client roi
+    do lai nguyen xi la mo duong cho script chen vao man hinh nguoi khac."""
+    import re
+    text = re.sub(r"<[^>]*>", " ", str(text or ""))
+    text = text.replace("&nbsp;", " ")
+    return " ".join(text.split())
+
+
+@frappe.whitelist()
+def list_comments(request_name):
+    definition, name = _resolve(request_name)
+    _assert_can_view(definition, name, request_name)
+    rows = frappe.get_all(
+        "Comment",
+        filters={"reference_doctype": definition.business_doctype, "reference_name": name,
+                 "comment_type": "Comment"},
+        fields=["name", "content", "comment_email", "creation"],
+        order_by="creation asc", limit_page_length=_COMMENT_LIMIT) or []
+    users = list({r.get("comment_email") for r in rows if r.get("comment_email")})
+    umap = {}
+    if users:
+        for u in frappe.get_all("User", filters={"name": ["in", users]},
+                                fields=["name", "full_name", "user_image"]):
+            umap[u["name"]] = u
+    out = []
+    for r in rows:
+        u = umap.get(r.get("comment_email")) or {}
+        out.append({"name": r["name"], "content": r.get("content") or "",
+                    "user": r.get("comment_email"),
+                    "user_name": u.get("full_name") or r.get("comment_email") or "",
+                    "user_image": u.get("user_image"),
+                    "at": str(r.get("creation") or "")})
+    return {"comments": out, "me": frappe.session.user}
+
+
+@frappe.whitelist(methods=["POST"])
+def add_comment(request_name, content):
+    definition, name = _resolve(request_name)
+    biz = _assert_can_view(definition, name, request_name)
+    text = _strip_html(content)[:_COMMENT_MAX_LEN]
+    if not text:
+        frappe.throw(_("Vui lòng nhập nội dung trao đổi."))
+    me = frappe.session.user
+    frappe.get_doc({
+        "doctype": "Comment", "comment_type": "Comment",
+        "reference_doctype": definition.business_doctype, "reference_name": name,
+        "content": text, "comment_email": me,
+        "comment_by": frappe.db.get_value("User", me, "full_name") or me,
+    }).insert(ignore_permissions=True)
+    _notify_participants(definition, name, request_name, biz, text, me)
+    return list_comments(request_name)
+
+
+def _notify_participants(definition, name, request_name, biz, text, me):
+    """Bao cho nhung nguoi dang o trong luong - nguoi de nghi, nguoi duyet dang cho, nguoi
+    dang xu ly - tru chinh minh. Loi bao KHONG duoc lam hong viec gui tin nhan."""
+    try:
+        from ecentric_workspace.approval_center.shared.workflow import transitions
+        users = [biz.get("requested_by"), biz.get("fulfillment_owner")]
+        users += frappe.get_all("EC Approval Request Approver",
+                                filters={"approval_request": request_name, "status": "Pending"},
+                                pluck="approver") or []
+        users = [u for u in dict.fromkeys(users) if u and u != me]
+        if users:
+            transitions.notify(users, _("Trao đổi mới: {0}").format(text[:120]),
+                               definition.business_doctype, name)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "add_comment notify %s" % request_name)

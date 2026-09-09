@@ -10,6 +10,7 @@ from collections import defaultdict
 from frappe.utils import get_datetime, now_datetime
 
 from ecentric_workspace.approval_center.reporting import queries as _q
+from ecentric_workspace.approval_center.reporting import business_summary as _bsum
 from ecentric_workspace.approval_center.reporting import sla as _sla
 from ecentric_workspace.approval_center.reporting import status as _status
 from ecentric_workspace.approval_center.reporting import time_metrics as _tm
@@ -518,6 +519,8 @@ def list_requests(scope, filters, start=0, page_length=50, search=None):
     sla_by = {r["name"]: _sla.sla_state(r, ref_now=now) for r in rows}
     views = [_row_view(r, sla_by, now) for r in rows]
     _enrich_list_rows(views)
+    # Tieu de that + so tien nam o DocType nghiep vu, khong o EC Approval Request -> doc theo lo.
+    _bsum.apply(views)
     return {"rows": views, "total": total, "start": int(start), "page_length": int(page_length)}
 
 
