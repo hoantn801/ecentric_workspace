@@ -36,8 +36,9 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "70e517188e2bcfcd32ebddc37fb2f8a8ef3798f90d2fed76da3e4807beac57e5"
+BASELINE_SHA256 = "5ef25e3b6b6cabbec0d75fd0ce2293184d178467b54616d59f2c0675302c748b"
 SUPERSEDES_SHA256 = (
+    "70e517188e2bcfcd32ebddc37fb2f8a8ef3798f90d2fed76da3e4807beac57e5",  # ban dang chay tren main truoc dot nay (cap Bo qua hien ten nguoi duyet)
     "0db46f034c3955141ee960d9719e5f30eb65ef171c7f3325f6f279a29f57b229",  # ban dang chay truoc dot nay (hien ten tep sau khi tai)
     "226f09edf7b42a68a12d9dc1207b992256622210b1e0ecc25872f65a121664d9",  # hang cu ghi trong page_sync.py, giu lai cho chac
     # 03/09: sha THAT SU cua ban live, do bang cach bam `main_section_html` tren production.
