@@ -8,6 +8,20 @@
 #
 # Dung: bash ecentric_workspace/approval_center/tests/run_js.sh
 set -u
+
+# KHONG CO node = KHONG CHAY DUOC, khac han voi TEST HONG. Truoc chot nay, may nao
+# thieu node se in "23 test hong" kem 23 dong `node: command not found` - doc thoang
+# qua tuong bo test vo, thuc te la chua chay duoc dong nao. Mot bao cao khong phan biet
+# duoc "hong" voi "khong chay" thi te hon khong bao cao: no day nguoi ta bo qua ket qua.
+# Ma thoat 2 = khong chay duoc (khac 1 = co test hong).
+if ! command -v node >/dev/null 2>&1; then
+  echo "KHONG CHAY DUOC: khong tim thay 'node' tren PATH."
+  echo "  Day KHONG phai test hong - chua co test nao chay ca."
+  echo "  Windows: cai Node LTS (https://nodejs.org) roi mo lai terminal, hoac them"
+  echo "  thu muc chua node.exe vao PATH. Kiem lai bang: node --version"
+  exit 2
+fi
+
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 pass=0; fail=0; failed=()
 shopt -s nullglob
