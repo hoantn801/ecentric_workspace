@@ -49,11 +49,14 @@
   "fulfillment_status",
   "fulfillment_owner",
   "fulfillment_due_at",
+  "fulfillment_payment_date",
+  "fulfillment_unc_date",
   "fulfillment_sla_calendar",
   "fulfillment_sla_holiday_list",
   "cb_fulfill",
   "completed_attachment",
   "fulfillment_summary",
+  "unc_superseded_files",
   "completed_by",
   "unc_reminded_on"
  ],
@@ -320,6 +323,20 @@
    "read_only": 1
   },
   {
+   "fieldname": "fulfillment_payment_date",
+   "fieldtype": "Date",
+   "label": "Ngày thanh toán (Finance cam kết)",
+   "read_only": 1,
+   "description": "Finance nhập khi NHẬN xử lý. KHÔNG ghi đè `payment_date` của người đề nghị - ngày đó đã đi qua các cấp duyệt, giữ lại để so cam kết với thực tế."
+  },
+  {
+   "fieldname": "fulfillment_unc_date",
+   "fieldtype": "Date",
+   "label": "Ngày có UNC (Finance cam kết)",
+   "read_only": 1,
+   "description": "Finance nhập khi NHẬN xử lý. Quá hạn xử lý UNC tính theo ngày này; nhắc việc thì theo ngày thanh toán."
+  },
+  {
    "fieldname": "fulfillment_sla_calendar",
    "fieldtype": "Data",
    "label": "Fulfillment SLA Calendar",
@@ -348,6 +365,13 @@
    "fieldtype": "Small Text",
    "label": "UNC Note (số UNC / ghi chú)",
    "read_only": 1
+  },
+  {
+   "fieldname": "unc_superseded_files",
+   "fieldtype": "Small Text",
+   "label": "File UNC đã bị thay (lịch sử)",
+   "read_only": 1,
+   "description": "Mỗi dòng một đường dẫn tệp UNC từng được gắn rồi bị thay vì đính nhầm. KHÔNG xoá tệp: tệp vẫn nằm trong danh sách đính kèm của phiếu. Lý do thay + ai thay + lúc nào nằm ở lịch sử phê duyệt."
   },
   {
    "fieldname": "completed_by",
