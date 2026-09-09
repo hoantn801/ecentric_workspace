@@ -135,18 +135,146 @@ def link_status(user, settings, environment):
     }
 
 
+#: Cac khoa co the mang `userId` trong phan hoi dang nhap cua eContract, va trong claim cua
+#: JWT. KHONG doan mot khoa duy nhat: chua ai nhin thay payload that (muon thay phai co mat
+#: khau cua mot nguoi thuc, thu khong duoc dung cham). Do nhieu kha nang roi BAO RA khi khong
+#: thay, con hon chot mot khoa roi hong im lang.
+_UID_KEYS = ("userId", "userID", "user_id", "id", "guid", "signerId", "signerUserId")
+#: Claim tuong ung trong JWT (token cua eContract la JWT; phan giua la base64 KHONG ma hoa,
+#: doc duoc ma khong can bi mat gi).
+_UID_CLAIMS = _UID_KEYS + ("sub", "nameid", "nameId",
+                           "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")
+
+
+def _dig(obj, keys):
+    if not isinstance(obj, dict):
+        return None
+    for k in keys:
+        v = obj.get(k)
+        if v not in (None, "", []):
+            return str(v)
+    return None
+
+
+def _uid_from_jwt(token):
+    """userId trong claim cua JWT. Chi doc phan payload (base64url), khong xac thuc chu ky -
+    khong can: token nay VUA duoc chinh SCTS cap cho phien dang nhap nay."""
+    try:
+        import base64
+        import json as _json
+        parts = str(token or "").split(".")
+        if len(parts) < 2:
+            return None
+        seg = parts[1]
+        seg += "=" * (-len(seg) % 4)
+        return _dig(_json.loads(base64.urlsafe_b64decode(seg).decode("utf-8", "ignore")),
+                    _UID_CLAIMS)
+    except Exception:
+        return None
+
+
+def _provider_user_id(raw, token):
+    """`userId` cua nguoi vua dang nhap. None neu khong tim thay o dau."""
+    for src in (raw, (raw or {}).get("data") if isinstance(raw, dict) else None,
+                (raw or {}).get("user") if isinstance(raw, dict) else None):
+        uid = _dig(src, _UID_KEYS)
+        if uid:
+            return uid
+    return _uid_from_jwt(token)
+
+
+def _usable_signatures(sigs):
+    """Nhung mau chu ky ERP KY DUOC TU MAY CHU.
+
+    `signToken == 1` = ky bang token cam tai may qua OfficeSignTool -> ERP khong ky thay
+    duoc; khong co HSM cung vay. Tao mot anh xa tro vao mau nhu the thi no van `Verified`
+    nhung den luc ky se "nhan 2xx roi im" - dung cai loi da ton hai dem cua thang 8. Nen
+    chan ngay o day, kem cau noi ro phai lam gi.
+    """
+    return [s for s in (sigs or [])
+            if s.get("id") and s.get("active") and s.get("has_hsm") and s.get("sign_token") != 1]
+
+
+def _auto_create_mapping(user, environment, adapter, raw, token, login_name):
+    """Tao anh xa tu chinh phan hoi cua SCTS, sau khi da dang nhap THANH CONG.
+
+    Ban chat cua thay doi nay (09/09/2026, Hoan chot): bo buoc quan tri go tay `scts_user_id`
+    + `signature_id`. Cai bi bo KHONG phai phep xac minh danh tinh - dang nhap thanh cong da
+    chung minh nguoi do nam tai khoan SCTS do, chat hon la mot quan tri go GUID bang tay.
+    Cai bi bo la chot "quan tri quyet dinh ai duoc ky".
+
+    De bu lai, moi gia tri deu lay tu SCTS chu khong tu nguoi dung khai, va anh xa chi thanh
+    `Verified` khi SCTS xac nhan dung MOT mau chu ky ky duoc. Khong ro thi tao ban nhap va
+    noi ro phai lam gi - khong bao gio doan.
+    """
+    uid = _provider_user_id(raw, token)
+    if not uid:
+        # NOI RA payload co nhung KHOA gi (chi ten khoa, khong bao gio gia tri - trong do co
+        # token). Lan chay that dau tien se cho biet eContract dat userId o dau.
+        co = sorted(raw.keys())[:12] if isinstance(raw, dict) else []
+        events.emit("UserMappingAutoCreateFailed", erp_actor=user,
+                    request_meta={"environment": environment, "ly_do": "khong_thay_user_id",
+                                  "cac_khoa": co})
+        frappe.throw(_("Đăng nhập SCTS thành công nhưng không đọc được mã người dùng từ phản "
+                       "hồi (các khoá nhận được: {0}). Nhờ quản trị tạo ánh xạ thủ công và "
+                       "báo lại thông tin này.").format(", ".join(co) or "không có"))
+    try:
+        sigs = adapter.list_user_signatures(uid)
+    except Exception:
+        frappe.throw(_("Không đọc được danh sách chữ ký của bạn từ SCTS. Thử lại sau."))
+    usable = _usable_signatures(sigs)
+    doc = frappe.get_doc({
+        "doctype": MAPPING_DT, "frappe_user": user, "environment": environment,
+        "scts_user_id": uid,
+        # `signature_id` la truong BAT BUOC cua doctype: khi chua chon duoc thi van phai co
+        # gia tri. Dung mau dau tien lam cho giu, nhung KHONG danh dau Verified.
+        "signature_id": (usable[0]["id"] if len(usable) == 1
+                         else ((sigs or [{}])[0].get("id") or "CHUA-XAC-DINH")),
+        "active": 1, "mapping_status": "Draft",
+        "notes": "Tu tao khi nguoi dung ket noi SCTS (%s)." % login_name,
+    })
+    doc.insert(ignore_permissions=True)     # SM-only DocType; nguoi dung tao anh xa CUA MINH
+    if len(usable) != 1:
+        events.emit("UserMappingAutoCreateFailed", erp_actor=user, scts_effective_user=uid,
+                    request_meta={"environment": environment,
+                                  "ly_do": "khong_chon_duoc_chu_ky",
+                                  "so_mau": len(sigs or []), "so_mau_ky_duoc": len(usable)})
+        if not usable:
+            frappe.throw(_("Tài khoản SCTS của bạn chưa có mẫu chữ ký ký được từ hệ thống "
+                           "(chưa gán chứng thư, hoặc chỉ ký bằng token cắm tại máy). "
+                           "Liên hệ SCTS để cấp chứng thư, rồi kết nối lại."))
+        frappe.throw(_("Tài khoản SCTS của bạn có {0} mẫu chữ ký ký được — hệ thống không tự "
+                       "chọn hộ. Nhờ quản trị chọn mẫu đúng trong ánh xạ {1}.")
+                     .format(len(usable), doc.name))
+    meta = usable[0]
+    doc.db_set({"mapping_status": "Verified", "verified_at": now_datetime(),
+                "verified_by": user,
+                "signature_meta_summary": ("%s / %s" % (meta.get("type") or "?",
+                                                        meta.get("company") or "?"))[:130]})
+    events.emit("UserMappingAutoCreated", erp_actor=user, scts_effective_user=uid,
+                request_meta={"environment": environment, "mapping": doc.name,
+                              "username": login_name,
+                              "signature_type": meta.get("type")})
+    return _token_row(user, environment)
+
+
 def link(user, settings, environment, password, username=None):
     """Dang nhap SCTS bang mat khau nguoi dung nhap, luu TOKEN, bo mat khau.
 
     `password` chi song trong pham vi ham nay: di thang vao client.login va khong duoc gan
-    vao doc, event, log hay thong diep loi. Username mac dinh la email ERP (SCTS dang nhap
-    bang email - kiem chung tren tai khoan tich hop), cho phep khai khac khi email SCTS lech.
+    vao doc, event, log hay thong diep loi. Username mac dinh la email ERP, cho phep khai
+    khac khi ten dang nhap SCTS lech - va no LECH THAT: 4 nguoi dang nhap bang email nhung
+    Uyen phai dung `nv00109`, Tam la `nv00129`. Dung gia dinh ten dang nhap la email.
+
+    THU TU (doi 09/09): DANG NHAP TRUOC, roi moi lo chuyen anh xa. Truoc day ham nay tu choi
+    ngay tu dau neu chua co anh xa ("Nho quan tri tao truoc") - nghia la nguoi moi bi chan
+    truoc ca khi ERP kip biet ho la ai ben SCTS, va nut "Ket noi SCTS" tren hub cung bi AN
+    voi dung nhom can no nhat (`has_mapping` la dieu kien hien nut). Dang nhap truoc thi
+    chinh SCTS cho ta moi thu can de tu dung anh xa.
     """
     if not password:
         frappe.throw(_("Vui lòng nhập mật khẩu SCTS."))
     row = _token_row(user, environment)
-    if not row:
-        frappe.throw(_("Bạn chưa có ánh xạ chữ ký SCTS được xác minh. Nhờ quản trị tạo trước."))
     login_name = (username or user or "").strip()
     site = _settings_value(settings, "site")
     adapter = get_adapter(settings)
@@ -159,6 +287,12 @@ def link(user, settings, environment, password, username=None):
     token = adapter._extract_token(raw)
     if not token:
         frappe.throw(_("SCTS không trả về token. Thử lại sau hoặc báo quản trị."))
+    if not row:
+        # Chua co anh xa -> dung chinh phan hoi cua SCTS de tao. Nem loi co noi dung neu
+        # khong chac chan; khong bao gio tao mot anh xa "Verified" ma chua chac ky duoc.
+        row = _auto_create_mapping(user, environment, adapter, raw, token, login_name)
+        if not row:
+            frappe.throw(_("Không tạo được ánh xạ chữ ký. Nhờ quản trị kiểm tra."))
     mins = _expires_in_minutes(raw)
     expires_at = add_to_date(now_datetime(), minutes=mins)
     doc = frappe.get_doc(MAPPING_DT, row["name"])

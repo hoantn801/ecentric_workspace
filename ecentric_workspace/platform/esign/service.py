@@ -359,11 +359,25 @@ def _expected_for(dsr, allow_predating=False):
             "allow_predating": bool(allow_predating)}
 
 
-def mark_verified(dsr_name, doc_state):
-    """Provider state passed verify_signed_result -> DSR Signed + verified_at."""
+def mark_verified(dsr_name, reason="verified"):
+    """Provider state passed verify_signed_result -> DSR Signed + verified_at.
+
+    MOT cho duy nhat biet rang "Signed" phai di kem `verified_at`. Truoc 09/09 ham nay ton
+    tai nhung KHONG AI GOI: ba cho tu viet lai chuyen doi do bang tay, hai cho dat
+    `verified_at`, cho thu ba - `reconcile_manual_review` (28/08, c6a2ecce) - quen.
+
+    Hau qua: duong doi soat THU CONG chua bao gio hoan tat duoc mot cap duyet nao. No dua
+    duoc chan ky len "Signed" roi engine tu choi ngay sau do voi `dsr_not_verified`, vi
+    `guard.validate_completion` doc DUNG truong `verified_at`. Loi nam im tu 28/08 den
+    09/09 vi lan chay dau tien roi vao mot yeu cau da huy, nen ai cung tuong that bai la
+    do yeu cau huy.
+
+    Bai hoc, va la ly do ham nay gio duoc goi that: mot helper khong ai goi khong bao ve
+    duoc gi. Ba ban sao thi som muon mot ban se thieu mot dong.
+    """
     events.set_dsr_status(dsr_name, "Signed",
                           extra_fields={"verified_at": now_datetime()},
-                          event_type="Verified", verification_result="verified")
+                          event_type="Verified", verification_result=reason)
 
 
 
@@ -390,7 +404,7 @@ def _guarded_dsr_transition(dsr_name, from_status, to_status, extra=None,
     return changed
 
 
-def reconcile_manual_review(dsr_name, accept_predating=False):
+def reconcile_manual_review(dsr_name, accept_predating=False, reason=None):
     """Re-verify a leg parked in Manual Review against the provider's CURRENT state.
 
     Reads only. If the signature the leg was waiting for is now really there - the signer
@@ -420,11 +434,14 @@ def reconcile_manual_review(dsr_name, accept_predating=False):
     events.emit("PollTick", signature_request=dsr_name, package=dsr.package,
                 verification_result=vr.reason,
                 request_meta={"source": "manual_reconcile",
-                              "accept_predating": bool(accept_predating)})
+                              "accept_predating": bool(accept_predating),
+                              # Loi khai cua nguoi bam - thu duy nhat thay the lop bao ve
+                              # vua duoc go ra. Phai nam trong su kien bat bien.
+                              "boi": frappe.session.user,
+                              "ly_do": (reason or "") if accept_predating else None})
     if not vr.ok:
         return {"ok": False, "reason": vr.reason}
-    events.set_dsr_status(dsr_name, "Signed", event_type="Verified",
-                          verification_result=vr.reason)
+    mark_verified(dsr_name, vr.reason)
     # Re nhanh theo actor_type - CUNG loi voi poll_pending (tasks.py). verify_and_complete
     # la duong approver (engine.approve); chan NGUOI DE NGHI phai hoan tat qua duong
     # requester. Truoc day nut "Doi soat" goi thang duong approver, engine tu choi vi

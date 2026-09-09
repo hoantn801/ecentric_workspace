@@ -103,6 +103,13 @@ def stuck_legs(limit=100):
         # lenh ky (se tao chu ky thu hai) - xem api.reconcile_signature_request.
         if "Approval Completed" in exits or "Signed" in exits:
             actions.append("reconcile")
+            # DOI SOAT CHAP NHAN CHU KY CO TRUOC LENH (09/09). Chi hien o Manual Review -
+            # do la cho duy nhat chan ky bi ket vi moc thoi gian. Nut nay KHONG rong hon
+            # "Doi soat" o bat ky chieu nao khac: co `allow_predating` chi go DUNG phep
+            # kiem thoi gian, va chi trong nhanh dem duoc chu ky. Sai nguoi / sai tai lieu /
+            # chua ky / khong du chu ky van bi tu choi y nguyen.
+            if r.status == "Manual Review":
+                actions.append("reconcile_predating")
         # Permanent Failure -> Queued (07/09) CHI khi chua co gi toi nha cung cap (hong luc tao
         # chung tu, vd 413). Da gui roi thi van la ngo cut: retry = nguy co chu ky thu hai.
         if "Queued" in exits and not (r.status == "Permanent Failure" and sm.may_have_sent(r)):

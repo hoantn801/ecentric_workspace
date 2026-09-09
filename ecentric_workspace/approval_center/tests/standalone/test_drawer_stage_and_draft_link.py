@@ -111,7 +111,16 @@ class TestHubSctsButton(unittest.TestCase):
         self.assertIn("api.scts_link_status_me", self.h)
 
     def test_hien_theo_backend_khong_tu_suy(self):
-        self.assertIn("st.needs_link && st.has_mapping", self.h)
+        """Y DINH giu nguyen: trang thai nut do MAY CHU quyet dinh (`scts_link_status_me`),
+        khong phai frontend tu suy.
+
+        DOI 09/09: bo ve `has_mapping`. Dieu kien cu (`needs_link && has_mapping`) an nut voi
+        dung nhom can no nhat - nguoi CHUA TUNG ket noi thi chua co dong anh xa nao. Tam bao
+        "khong co nut ket noi SCTS" chinh vi the. Tu nay ERP tu dung anh xa tu phan hoi dang
+        nhap cua SCTS nen khong con gi de doi.
+        """
+        self.assertIn("st && st.needs_link)", self.h)
+        self.assertNotIn("st.has_mapping", self.h, "ve nay da bo - dung de no quay lai")
         self.assertIn("sctsInit();", self.h)
 
     def test_api_me_chi_session_user_va_POST(self):

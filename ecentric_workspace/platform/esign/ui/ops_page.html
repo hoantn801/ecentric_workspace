@@ -119,6 +119,7 @@
 
   var ACTION_LABEL = {
     reconcile: "Đối soát",
+    reconcile_predating: "Đối soát — chấp nhận chữ ký ký trước lệnh",
     retry: "Gửi lại",
     retry_sent: "Đối soát & chuyển xem tay",
     resend: "Gửi lại có kiểm",
@@ -135,6 +136,16 @@
   var ACTION_WHY = {
     reconcile: "Đọc lại trạng thái bên SCTS và xác minh. KHÔNG gửi lại lệnh ký — nếu người "
              + "đó đã tự ký trên cổng SCTS thì chân ký này sẽ được ghi nhận hoàn tất.",
+    // Nút này BỎ một lớp bảo vệ, nên câu giải thích phải nói thẳng bỏ cái gì và giữ lại
+    // cái gì — người bấm cần biết mình đang đánh đổi điều gì, không phải chỉ "bấm cho xong".
+    reconcile_predating: "Dùng khi người duyệt đã tự ký trên cổng SCTS TRƯỚC lúc ERP gửi "
+              + "lệnh (mở mail của SCTS rồi ký luôn tối hôm trước). Chữ ký đó là thật, "
+              + "nhưng mốc thời gian của ERP đang từ chối nó.\n\n"
+              + "Nút này BỎ ĐÚNG phép kiểm thời gian, và chỉ bỏ khi vẫn đếm được chữ ký. "
+              + "Sai người, sai tài liệu, chưa ký, không đủ chữ ký — vẫn bị từ chối nguyên "
+              + "vẹn. Không thể tạo chữ ký mới.\n\n"
+              + "CHỈ bấm sau khi đã tự mở cổng SCTS và nhìn thấy chữ ký đó. Bắt buộc nêu "
+              + "lý do; lý do nằm lại vĩnh viễn trong lịch sử phiếu.",
     retry: "Xếp lại chân ký này vào hàng đợi để gửi lệnh ký một lần nữa.",
     // Cùng một nút, hai việc khác hẳn nhau — tuỳ chân ký đã từng gửi đi hay chưa. Máy chủ
     // quyết định nhãn nào, bằng chính hàm mà worker dùng, nên nhãn không thể hứa suông.
@@ -327,6 +338,17 @@
 
     var p;
     if (act === "reconcile") p = call("reconcile_signature_request", { dsr_name: name }, "POST");
+    else if (act === "reconcile_predating") {
+      // BẮT BUỘC lý do — máy chủ cũng bắt, nhưng hỏi ở đây để người bấm không mất công
+      // gửi đi rồi mới bị trả về. Máy chủ mới là chỗ quyết định.
+      var lyDo = window.prompt(
+        "Nêu rõ đã kiểm tra thế nào trên cổng SCTS (ai ký, lúc mấy giờ):", "");
+      if (!lyDo || lyDo.trim().length < 10) {
+        msg("Bắt buộc nêu lý do (tối thiểu 10 ký tự).", "err"); return;
+      }
+      p = call("reconcile_signature_request",
+               { dsr_name: name, accept_predating: 1, reason: lyDo.trim() }, "POST");
+    }
     else if (act === "retry") p = call("retry_signature_request", { dsr_name: name }, "POST");
     else if (act === "resend") {
       // BAT BUOC ly do. May chu se hoi SCTS ngay luc do va TU CHOI neu nguoi ky da co chu ky

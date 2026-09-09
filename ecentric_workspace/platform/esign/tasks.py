@@ -487,9 +487,10 @@ def process_signing_request(dsr_name):
               if may_have_sent else VerificationResult(False, "not_sent_yet"))
         if vr.ok:
             if dsr.status != "Signed":
-                events.set_dsr_status(dsr_name, "Signed",
-                                      extra_fields={"verified_at": now_datetime()},
-                                      event_type="Verified", verification_result=vr.reason)
+                # svc.mark_verified la cho DUY NHAT biet "Signed" phai kem `verified_at`.
+                # Truoc 09/09 ba cho tu viet lai chuyen doi nay va mot cho quen -> duong
+                # doi soat thu cong khong bao gio hoan tat duoc. Dung chung mot ham.
+                svc.mark_verified(dsr_name, vr.reason)
             out = _complete_dsr(dsr_name, dsr)
             _enqueue_signed_retrieval(dsr.package, out)
             return
@@ -647,9 +648,7 @@ def process_signing_request(dsr_name):
         doc_state = adapter.poll_status(doc_id)
         vr = SignatureProviderAdapter.verify_signed_result(doc_state, expected)
         if vr.ok:
-            events.set_dsr_status(dsr_name, "Signed",
-                                  extra_fields={"verified_at": now_datetime()},
-                                  event_type="Verified", verification_result=vr.reason)
+            svc.mark_verified(dsr_name, vr.reason)
             out = _complete_dsr(dsr_name, dsr)
             _enqueue_signed_retrieval(dsr.package, out)
             return

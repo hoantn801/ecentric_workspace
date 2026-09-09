@@ -140,8 +140,8 @@
     "sha256": "347f7ad43edc901cbd42da98f89580c64d86d4d403e2f981408abf9a9163c740"
   },
   "approval_center/ui/hub/main_section.html": {
-    "last_resync_patch": "p164_hub_guide_help_button",
-    "sha256": "33d085101f325df205d1b8fd973f8e3e77b9a0d214cf6b86021e3450258ff9c0"
+    "last_resync_patch": "p169_resync_hub_scts_button_no_mapping",
+    "sha256": "4f5699d2eeeddbcc0346a7325ad395bd08c0cb69832534bde4a174e747767622"
   },
   "guides/pages/dnmh_dntt/main_section.html": {
     "last_resync_patch": "p161_publish_guides_and_shell_drift",
@@ -196,8 +196,8 @@
     "sha256": "7011abc816c9dd96a7e4d42096a26399399d578658d154ff2bded1691a53eab9"
   },
   "platform/esign/ui/ops_page.html": {
-    "last_resync_patch": "p159_resync_esign_review_stopped_leg_drawer_token",
-    "sha256": "3d62b12cce85af8111baece7039d987632a23c6a679a8cb69033bfa7f391aa69"
+    "last_resync_patch": "p168_resync_esign_ops_reconcile_predating",
+    "sha256": "0bec5d7cb2a0cb21663842e872c054616586e0e41fb02ba8b99c33f15657c86e"
   },
   "platform/esign/ui/payment_request_signing.html": {
     "last_resync_patch": "p159_resync_esign_review_stopped_leg_drawer_token",
