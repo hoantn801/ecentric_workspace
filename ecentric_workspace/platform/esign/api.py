@@ -540,7 +540,7 @@ def provider_workflow_view(dsr_name, transition_id=None, provider_user_id=None,
 # camelCase la quy uoc cua eContract ("workflowInstanceId", "fileId"), nen KHONG the doi hoi
 # mot ranh gioi truoc "Id" - lan dau viet the va tuot mat dung cai field dang di tim.
 @frappe.whitelist(methods=["POST"])
-def reconcile_signature_request(dsr_name, accept_predating=0):
+def reconcile_signature_request(dsr_name, accept_predating=0, reason=None):
     """System Manager: re-verify a leg parked in Manual Review against what the provider says
     NOW. Completes it when the signature really is there. NEVER sends anything.
 
@@ -566,18 +566,27 @@ def reconcile_signature_request(dsr_name, accept_predating=0):
          "khong dong cap duyet bang chu ky cua chan khac" van nguyen ven. Khong dem duoc thi
          moc thoi gian la lop DUY NHAT con lai va khong ai duoc bo no.
       3. Nguoi bam la System Manager, va da nhin thay chu ky do tren cong truoc khi bam.
+      4. BAT BUOC ly do khi bat co (09/09, luc dua nut nay len trang van hanh). Doi soat
+         thuong la doc lai - khong can khai gi. Bat co la BO mot lop bao ve, va cai duy
+         nhat thay the no la loi khai cua nguoi bam ("toi da mo cong, thay chu ky luc
+         23:48"). Khong ghi lai loi khai do thi sau nay khong ai doi chieu duoc.
     Ket qua ghi lai bang mot ly do RIENG (`verified_predating_manual:<gio ky>`), khong lan
     voi "verified" thuong - de sau nay con dem duoc bao nhieu chan da di duong nay.
     """
     perms.assert_system_manager()
+    bat_co = bool(int(accept_predating or 0))
+    ly_do = (reason or "").strip()
+    if bat_co and len(ly_do) < svc.MIN_CLEAR_REASON_LEN:
+        frappe.throw(_("Chấp nhận chữ ký có trước lệnh thì bắt buộc nêu rõ đã kiểm tra thế "
+                       "nào trên cổng nhà cung cấp (tối thiểu {0} ký tự).")
+                     .format(svc.MIN_CLEAR_REASON_LEN))
     dsr = frappe.db.get_value("EC Digital Signature Request", dsr_name, "*", as_dict=True)
     if not dsr:
         frappe.throw(_("Không tìm thấy yêu cầu ký."))
     if dsr.status != "Manual Review":
         return {"ok": False, "reason": "not_in_manual_review:%s" % dsr.status}
-    out = svc.reconcile_manual_review(dsr_name,
-                                      accept_predating=bool(int(accept_predating or 0)))
-    return out
+    return svc.reconcile_manual_review(dsr_name, accept_predating=bat_co,
+                                       reason=ly_do or None)
 
 
 

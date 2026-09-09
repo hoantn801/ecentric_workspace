@@ -860,11 +860,39 @@ def grant_read_to_snapshot_approvers(req):
     Chi la lam cho cong file theo kip luat cua app. ToDo/thong bao van giu nguyen o
     _activate_level - duoc doc khong co nghia la den luot lam.
 
+    NGUOI XU LY, khong chi nguoi duyet (09/09, chi Dan hoi).
+    ----------------------------------------------------------------------------------
+    Cau tren ("nhom duoc cap dung bang nhom ma can_view_request da cho xem") TUNG dung, roi
+    thanh sai ma khong ai sua: `can_view_request` con cho Fulfiller DUOC CAU HINH xem - chi
+    Dan (Role EC Finance, Fulfiller cua PAYMENT_REQUEST) - nhung ho khong duoc cap gi ca
+    cho toi khi buoc xu ly kich hoat (luc do `_engine_grant_read` chay kem ToDo).
+    Truoc buoc do: `query_service.detail` goi `frappe.get_doc` TRUOC khi hoi luat cua app,
+    nen Frappe nem "Not permitted" ngay; va tep dinh kem tra 403. Dung nguyen lop loi 08/09,
+    chi khac vai dien.
+
+    Nen cap luon o day, cung thoi diem voi nguoi duyet. Nguoi xu ly xu ly MOI phieu cua loai
+    do - do la vai tro, khong phai lo hong; va no khop dung voi cai ma trang "Tat ca yeu cau"
+    da bay ra cho ho tu 09/09.
+
+    LUU Y BAO TRI: DocShare la theo tung NGUOI, nen ai duoc them vao Role Fulfiller SAU khi
+    phieu da gui thi khong co dong chia se cua phieu do. Cap bu bang patch (p167) hoac chay
+    lai ham nay cho cac phieu con mo.
+
     Loi o day khong duoc lam hong viec gui phieu: quyen doc thieu thi nguoi dung van mo duoc
     ho so trong app, chi vuong tep dinh kem - khong dang de danh doi ca lan gui.
     """
     users = frappe.get_all("EC Approval Request Approver",
                            filters={"approval_request": req.name}, pluck="approver") or []
+    try:
+        # Import cuc bo: `permissions` va `transitions` la hai nua cua cung mot engine,
+        # import o dau file de vong nhau khi thu tu nap doi.
+        from ecentric_workspace.approval_center.shared.workflow import permissions as _perm
+        users = list(users) + _perm.configured_fulfiller_users(req.get("approval_type"))
+    except Exception:
+        # Khong doc duoc cau hinh nguoi xu ly thi VAN cap cho nguoi duyet. Mat mot phan
+        # con hon hong ca lan gui phieu.
+        frappe.log_error(frappe.get_traceback(),
+                         "grant_read: nguoi xu ly %s" % req.name)
     for u in dict.fromkeys(users):
         if not u or u == "Guest":
             continue

@@ -207,7 +207,7 @@ class TestDuongGoiTuTrenXuong(unittest.TestCase):
 
     def test_mac_dinh_la_TAT(self):
         src = _read("platform", "esign", "service.py")
-        self.assertIn("def reconcile_manual_review(dsr_name, accept_predating=False)", src)
+        self.assertIn("def reconcile_manual_review(dsr_name, accept_predating=False, reason=None)", src)
         self.assertIn("def _expected_for(dsr, allow_predating=False)", src)
 
     def test_expected_lay_co_TU_THAM_SO_chu_khong_phai_hang_so(self):
@@ -227,6 +227,108 @@ class TestDuongGoiTuTrenXuong(unittest.TestCase):
         self.assertIn("allow_predating", found,
                       "gia tri phai lay tu THAM SO, khong duoc la hang so: %s" % found)
         self.assertNotIn("True", found)
+
+
+class _AttrDict(dict):
+    def __getattr__(self, k):
+        try:
+            return self[k]
+        except KeyError:
+            raise AttributeError(k)
+
+
+class TestBatCoThiBAT_BUOC_LY_DO(unittest.TestCase):
+    """09/09, luc dua nut nay len trang van hanh. Doi soat THUONG la doc lai - khong can khai
+    gi. Bat co la BO mot lop bao ve, va cai duy nhat thay the no la loi khai cua nguoi bam.
+    Chay THAT ham cua api.py, khong doc suong."""
+
+    def _fn(self, sent=None):
+        src = _read("platform", "esign", "api.py")
+        node = next(n for n in ast.parse(src).body
+                    if isinstance(n, ast.FunctionDef) and n.name == "reconcile_signature_request")
+        seen = {}
+
+        class _Throw(Exception):
+            pass
+
+        class _FK(object):
+            # Node cua ham MANG THEO decorator `@frappe.whitelist(...)`, nen cai gia phai
+            # co no - neu khong thi test do vi ly do SAI (AttributeError), khong phai logic.
+            @staticmethod
+            def whitelist(*a, **kw):
+                return lambda f: f
+
+            @staticmethod
+            def throw(msg, *a, **kw):
+                raise _Throw(msg)
+
+            class db(object):
+                @staticmethod
+                def get_value(dt, name, fields, as_dict=False):
+                    # `as_dict=True` cua Frappe tra frappe._dict (truy cap bang thuoc tinh).
+                    return _AttrDict(status="Manual Review") if name else None
+
+        class _Perms(object):
+            @staticmethod
+            def assert_system_manager():
+                seen["sm"] = True
+
+        class _Svc(object):
+            MIN_CLEAR_REASON_LEN = 10
+
+            @staticmethod
+            def reconcile_manual_review(dsr_name, accept_predating=False, reason=None):
+                seen.update({"dsr": dsr_name, "co": accept_predating, "ly_do": reason})
+                return {"ok": True}
+
+        ns = {"frappe": _FK, "_": lambda s: s, "perms": _Perms, "svc": _Svc}
+        exec(compile(ast.Module(body=[node], type_ignores=[]), "api.py", "exec"), ns)
+        return ns["reconcile_signature_request"], seen, _Throw
+
+    def test_bat_co_ma_KHONG_co_ly_do_thi_TU_CHOI(self):
+        fn, seen, Throw = self._fn()
+        for bad in (None, "", "   ", "ok", "ngan qua"):
+            with self.assertRaises(Throw, msg=repr(bad)):
+                fn("EC-DSR-2026-00080", 1, bad)
+            self.assertNotIn("co", seen, "tu choi thi khong duoc goi xuong service")
+
+    def test_bat_co_kem_ly_do_thi_di_qua_va_ly_do_ĐI_NGUYEN_VAN(self):
+        fn, seen, _T = self._fn()
+        fn("EC-DSR-2026-00080", 1, "  Da mo cong, Vinh ky 23:48  ")
+        self.assertTrue(seen["co"])
+        self.assertEqual(seen["ly_do"], "Da mo cong, Vinh ky 23:48", "phai cat khoang trang")
+
+    def test_doi_soat_THUONG_khong_doi_ly_do(self):
+        """Duong cu phai y het truoc: khong ai bong dung bi bat khai them."""
+        fn, seen, _T = self._fn()
+        fn("EC-DSR-2026-00080")
+        self.assertFalse(seen["co"])
+        self.assertIsNone(seen["ly_do"])
+
+    def test_kiem_quyen_chay_TRUOC(self):
+        fn, seen, Throw = self._fn()
+        with self.assertRaises(Throw):
+            fn("EC-DSR-2026-00080", 1, "")
+        self.assertTrue(seen.get("sm"), "phai kiem System Manager truoc moi thu")
+
+    def test_nguong_lay_TU_service_chu_khong_go_lai_so(self):
+        """Hai noi cung mot con so thi som muon lech nhau."""
+        src = _read("platform", "esign", "api.py")
+        fn = next(ast.unparse(n) for n in ast.walk(ast.parse(src))
+                  if isinstance(n, ast.FunctionDef) and n.name == "reconcile_signature_request")
+        self.assertIn("svc.MIN_CLEAR_REASON_LEN", fn)
+
+
+class TestNutTrenTrangVanHanh(unittest.TestCase):
+    def test_ops_chi_hien_nut_o_Manual_Review(self):
+        src = _read("platform", "esign", "ops.py")
+        fn = next(ast.unparse(n) for n in ast.walk(ast.parse(src))
+                  if isinstance(n, ast.FunctionDef) and n.name == "stuck_legs")
+        self.assertIn("reconcile_predating", fn)
+        i = fn.index("reconcile_predating")
+        truoc = fn[max(0, i - 200):i]
+        self.assertIn("Manual Review", truoc,
+                      "nut nay chi duoc hien cho chan ky dang Manual Review")
 
 
 if __name__ == "__main__":

@@ -148,6 +148,50 @@ def is_eligible_fulfiller_without_todo(user=None, approval_type=None, fulfillmen
     return _is_configured_fulfiller(user, approval_type)
 
 
+def configured_fulfiller_users(approval_type):
+    """NHUNG AI la Fulfiller duoc cau hinh cua `approval_type` - da bung dong Role ra
+    thanh nguoi that. Tra list email, da sap xep, chi nguoi con hoat dong.
+
+    Vi sao ham nay ton tai. `is_fulfiller_participant` hoi "nguoi nay co phai khong";
+    `fulfilled_approval_types` hoi "nguoi nay xu ly loai nao". Cho cap quyen DOC lai can
+    cau thu ba: "loai nay do NHUNG AI xu ly" - vi DocShare la theo tung NGUOI, khong nhan
+    role. Ca ba cau deu hoi ve mot su that, nen dat canh nhau va dung DUNG mot bo loc.
+    Neu khong, mot ngay nao do chung lech nhau va khong ai biet - dung kieu lech 09/09
+    (trang form coi chi Dan la nguoi xu ly, trang bao cao thi khong).
+    """
+    if not approval_type:
+        return []
+    procs = frappe.get_all(
+        "EC Approval Process",
+        filters={"approval_type": approval_type, "status": "Active"}, pluck="name") or []
+    if not procs:
+        return []
+    base = {"parent": ["in", procs], "parenttype": "EC Approval Process",
+            "participant_purpose": "Fulfiller"}
+    # `["is", "set"]` chi la THU HEP o tang DB (do dong phai keo ve), khong phai lop bao
+    # dam: hanh vi cua no doi theo phien ban Frappe. Dong `user` bo trong lot qua duoc thi
+    # cung bi bo loc `enabled` ben duoi chan (khong co User nao ten rong), nen o day KHONG
+    # them mot phep loc thu ba - da thu bo no va khong test nao chet, tuc no la code thua.
+    # Dong `role` bo trong thi KHAC: no se khop voi cac dong `Has Role` co role rong, nen
+    # phep loc `if r` ben duoi la that su can (da dot bien, test chet ngay).
+    users = set(frappe.get_all("EC Approval Participant", pluck="user",
+                               filters=dict(base, source_type="User", user=["is", "set"])) or [])
+    roles = [r for r in (frappe.get_all("EC Approval Participant", pluck="role",
+                                        filters=dict(base, source_type="Role",
+                                                     role=["is", "set"])) or []) if r]
+    if roles:
+        users.update(frappe.get_all("Has Role", pluck="parent",
+                                    filters={"role": ["in", roles], "parenttype": "User"}) or [])
+    users.discard("Guest")
+    users.discard(None)
+    if not users:
+        return []
+    # Nguoi da nghi viec (disabled) khong duoc cap quyen doc ho so tien.
+    live = frappe.get_all("User", pluck="name",
+                          filters={"name": ["in", list(users)], "enabled": 1}) or []
+    return sorted(live)
+
+
 def can_view_request(request_name, user=None, business_doctype=None,
                      requested_by=None, fulfillment_owner=None, approval_type=None,
                      business_name=None):
