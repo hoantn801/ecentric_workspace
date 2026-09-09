@@ -332,6 +332,17 @@
   }
   function renderError(){ $("apl-body").innerHTML='<div class="state"><h4>Không tải được dữ liệu</h4><p>Vui lòng thử lại.</p><button type="button" class="btn primary" id="apl-retry">Thử lại</button></div>'; var r=$("apl-retry"); if(r) r.onclick=load; }
 
+  // So tien cua phieu. Trong va 0 la HAI chuyen khac nhau: form khong co truong tien thi de
+  // trong, con 0 la mot con so that. Hien ma tien te khi khac VND - AI Topup co phieu tra bang
+  // USD, de canh mot so VND ma khong ghi don vi thi doc nham ngay.
+  function fmtMoney(v, cur){
+    if(v===null||v===undefined||v==="") return "";
+    var n=Number(v); if(!isFinite(n)) return "";
+    var s;
+    try{ s=n.toLocaleString("vi-VN",{maximumFractionDigits:0}); }catch(e){ s=String(n); }
+    cur=(cur||"").toUpperCase();
+    return (cur&&cur!=="VND")?(s+" "+cur):s; }
+
   function render(rows){
     var drafts=draftsHtml();
     if(!rows.length){ $("apl-body").innerHTML=drafts+'<div class="state"><h4>Không có yêu cầu</h4><p>Không có yêu cầu nào khớp bộ lọc trong phạm vi của bạn.</p></div>'; wire(); return; }
@@ -346,7 +357,8 @@
       var sender='<div class="sender">'+avatar(send,24)+'<span class="nm">'+esc(who||"—")+'</span></div>';
       var to=(r.sent_to||[]).map(function(p){ return p.name||p.user||""; }).filter(Boolean).join(", ");
       return '<tr data-req="'+esc(r.name)+'"'+(r.detail_route?' data-route="'+esc(withFrom(r.detail_route))+'"':'')+'>'
-        +cell(fmtDT(r.submitted_at))+cell(r.name)+cell(r.type)+cell(r.approval_type)
+        +cell(fmtDT(r.submitted_at))+cell(r.name)+cell(r.title||r.type)+cell(r.type)
+        +cell(fmtMoney(r.amount, r.currency))
         +cell(who, sender)+cell(to, chips(r.sent_to))+cell(r.department)
         +cell(r.current_level_name||r.current_level)
         +cell(statusLabel(r.status_label||r.status), breach+statusCell(r))
@@ -360,9 +372,11 @@
     wire();
   }
   // Bề rộng cột: mặc định vừa nội dung hay gặp, người dùng kéo lại thì nhớ cho lần sau.
-  var COLS=[["Ngày gửi",104],["Mã",158],["Tiêu đề",150],["Loại",148],["Người gửi",168],
+  var COLS=[["Ngày gửi",104],["Mã",158],["Tiêu đề",220],["Loại",148],["Chi phí",120],["Người gửi",168],
             ["Người nhận",112],["Phòng ban",162],["Cấp hiện tại",140],["Trạng thái",104]];
-  var COLW_KEY="ec_apl_colw";
+  // Doi khoa khi THEM/BOT cot: be rong luu trong localStorage danh theo VI TRI cot, giu khoa cu
+  // thi cot moi lam lech het be rong nguoi dung da keo.
+  var COLW_KEY="ec_apl_colw_v2";
   function colWidths(){
     var saved=null;
     try{ saved=JSON.parse(window.localStorage.getItem(COLW_KEY)||"null"); }catch(e){}
