@@ -77,9 +77,15 @@ RATE_BHTN = 0.01
 MAX_MONTHS = 24
 LIVE_STATUS = ("Approved", "Pending", "Information Required")
 PROJ_COMP = "Luong du an"
-# Cac form chua co truong loai chi phi thi suy ra tu ban chat form. Chi dat cho hai loai
+# NGUON CHI PHI KHAC = 3 loai phieu (10/09/2026):
+#   EC Payment Request (DNTT) . EC Special Bonus Request . EC Affiliate Bonus Request
+# DA BO EC Purchase Request va EC AI Topup Request: mua sam va nap AI cuoi cung deu
+# duoc chi qua mot DNTT, gom them chung la dem hai lan cung mot dong tien. Ngoai ra
+# EC AI Topup Request.approved_amount tron ca USD lan VND trong cung mot cot nen tong
+# cua no vo nghia. Chi phi mua sam / AI van vao bao cao, nhung qua DNTT.
+# Cac form chua co truong loai chi phi thi suy ra tu ban chat form. Chi dat cho loai
 # CHAC CHAN; con lai de "Chua phan loai" cho Finance gan tay, khong doan bua.
-DEFAULT_CAT = {"EC AI Topup Request": "VH_SOFTWARE", "EC Affiliate Bonus Request": "TT_AFF"}
+DEFAULT_CAT = {"EC Affiliate Bonus Request": "TT_AFF"}
 UNCLASSIFIED = "(Chua phan loai)"
 GROUP_ORDER = ("Truc tiep khach hang", "Van hanh cong ty", "Luong & nhan su",
                "Khong tinh vao chi phi", UNCLASSIFIED)
@@ -530,9 +536,6 @@ else:
     # Moi loai: (doctype, cot tien, cot ngay quy ky, nhan)
     cost_specs = [
         ("EC Payment Request", "ifnull(d.payment_amount, 0)", "ifnull(d.payment_date, d.creation)", "Payment Request", "ifnull(d.request_title, d.name)"),
-        ("EC AI Topup Request", "CASE WHEN ifnull(d.approved_amount, 0) > 0 THEN d.approved_amount ELSE ifnull(d.requested_amount, 0) END",
-         "ifnull(d.subscription_start_date, d.creation)", "AI Topup", "ifnull(d.request_title, d.name)"),
-        ("EC Purchase Request", "ifnull(d.payment_amount, 0)", "ifnull(d.estimated_purchase_date, d.creation)", "Purchase Request", "ifnull(d.request_title, d.name)"),
         ("EC Special Bonus Request", "ifnull(d.total_bonus, 0)", "d.creation", "Special Bonus", "ifnull(d.request_title, d.name)"),
         ("EC Affiliate Bonus Request", "CASE WHEN ifnull(d.total_amount, 0) > 0 THEN d.total_amount ELSE ifnull(d.budget, 0) END",
          "ifnull(d.service_month, d.creation)", "Affiliate Bonus", "ifnull(d.request_title, d.name)"),
@@ -677,7 +680,7 @@ else:
                          "has_field": True if has_cat_field else False,
                          "n_categories": len(cat_map)},
         "excluded": {"payroll": amt_skip_payroll, "noncost": amt_skip_noncost},
-        "note": "Chi gom yeu cau co trang thai Approved (da duyet) hoac Pending / Information Required (dang cho). Rejected / Cancelled bi loai. Thang quy ky: Payment Request = payment_date, AI Topup = subscription_start_date, Purchase = estimated_purchase_date, Affiliate = service_month, Special Bonus = ngay tao. Khoan thuoc nhom 'Luong & nhan su' da co trong khoi luong va nhom 'Khong tinh vao chi phi' (tam ung, chi ho brand, ky quy, tra no goc) KHONG duoc cong vao tong - chung nam rieng o `excluded`.",
+        "note": "Chi gom yeu cau co trang thai Approved (da duyet) hoac Pending / Information Required (dang cho). Rejected / Cancelled bi loai. Thang quy ky: Payment Request = payment_date, Affiliate = service_month, Special Bonus = ngay tao. KHONG gom EC Purchase Request va EC AI Topup Request: hai loai nay cuoi cung deu duoc chi qua mot DNTT, gom ca hai la dem hai lan (Hoan chot 10/09/2026). Khoan thuoc nhom 'Luong & nhan su' da co trong khoi luong va nhom 'Khong tinh vao chi phi' (tam ung, chi ho brand, ky quy, tra no goc) KHONG duoc cong vao tong - chung nam rieng o `excluded`.",
     }
 
     # ------------------------------------------------------------ tuyen dung / bien dong nhan su sap toi (Approval Center + HRMS)
