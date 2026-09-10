@@ -26,7 +26,11 @@ from ecentric_workspace.legacy_pages import serving
 
 ROUTE = "pnl-dashboard"
 NAME = "doanh-thu-ecentric"
-TITLE = "Doanh thu eCentric"
+# 10/09/2026: doi tu "Doanh thu eCentric" sang "PnL eCentric" theo Hoan. Trang gio co ca
+# chi phi va loi nhuan chu khong con rieng doanh thu. Tren site da doi truc tiep cung
+# ngay, nen KHONG can patch rieng: p175 (da chay) goi sync() va se dat dung ten nay tren
+# bat ky site nao dung lai tu dau.
+TITLE = "PnL eCentric"
 
 
 def _html():
