@@ -3,7 +3,8 @@ from ecentric_workspace.approval_center.shared.requests.contracts import Approva
 from ecentric_workspace.approval_center.shared.finance_support import Resubmitter, Submitter
 from ecentric_workspace.approval_center.features.payment_request.application.service import (
     detail_extra, normalize_payment, payment_title, validate_payment)
-from ecentric_workspace.approval_center.shared.definition_support import DepartmentOptions, ExactAndDateFilters, StaticOptions
+from ecentric_workspace.approval_center.shared.definition_support import (
+    DepartmentOptions, ExactAndDateFilters, ExpenseCategoryOptions, StaticOptions)
 
 
 def _make(code, doctype, editable, mine, approvals, options, title, validator,
@@ -32,12 +33,16 @@ PAYMENT_REQUEST_DEFINITION = _make(
      "no_purchase_request_reason", "is_cost_valid", "details_and_attachments_correct",
      "request_attachment", "department", "company",
      # chia dot (07/09): installment_no / installment_of do SERVER dat, KHONG cho client sua
-     "payment_mode", "total_amount", "next_installment_amount", "next_installment_date"),
+     "payment_mode", "total_amount", "next_installment_amount", "next_installment_date",
+     # phan loai chi phi (09/09, Hoan) - PnL doc de gom nhom va chong dem trung luong.
+     # `ec_can_brand` KHONG nam day: no fetch tu danh muc, client sua duoc thi lop an/hien
+     # brand tu no lai thanh khai bao tu do.
+     "ec_loai_chi_phi", "ec_brand"),
     ("name", "request_title", "payee_full_name", "payment_amount", "payment_date",
      "approval_request", "fulfillment_status", "payment_mode", "installment_no", "installment_of",
      "creation", "modified"),
     ("name", "request_title", "payee_full_name", "payment_amount", "payment_date", "creation"),
-    StaticOptions((("yes_no", ("Yes", "No")),)), payment_title, validate_payment,
+    ExpenseCategoryOptions((("yes_no", ("Yes", "No")),)), payment_title, validate_payment,
     manager=True, esign=True, draft_preparer=normalize_payment,
     # `detail_extra` = installments_block + unc_fix_block. Truoc day tro THANG vao
     # `installments_block`; doi sang ham gop de them khoi "thay file UNC" ma khong phai nhet

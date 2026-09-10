@@ -109,12 +109,35 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "1ab3de200328c8bb9bea8c934c5ed78580a59fe3eb7bffa5843efe528504434f"
+# !! DINH CHINH 10/09 - BASELINE phai la sha cua _html() DA COMPOSE, khong phai sha cua
+# rieng ui/main_section.html. Trang nay duoc ghi bang main + 3 panel esign, nen hai con so do
+# khong bao gio bang nhau. Truoc dot nay ca BASELINE lan resync_manifest deu ghi CUNG mot gia
+# tri - tuc it nhat mot trong hai dang sai; manifest bam FILE moi dung, BASELINE bam COMPOSE.
+#
+# Sai nay KHONG lam chet patch nao: `upsert_web_page` con chap nhan `ec_page_sync_sha:<route>`
+# do `record_live_sha` ghi sau moi lan sync thanh cong - DO moi la thu cho phep ghi trong thuc
+# te. BASELINE chi la luoi du phong; nhung mot luoi du phong sai thi luc can toi no cung khong
+# do duoc. Muon biet co bi tu choi ghi that khong thi doc `action` trong Error Log cua patch.
+#
+# GOP CONFLICT 10/09: hai dot cung sua main_section.html - PnL "loai chi phi" (da vao main) va
+# ba viec giao dien (badge huy do + co chu hub). File sau merge mang CA HAI, nen compose cua no
+# khac ca hai gia tri dang choi nhau. So duoi day duoc TINH LAI tu file da gop, khong lay cua
+# ben nao; ca hai gia tri cu deu xuong SUPERSEDES vi ban nao cung co the dang nam o live.
+BASELINE_SHA256 = "1d54deb33c819ba4de2cd509a16e5dc490c8108e38d44a49a654f0d1deebf029"
 SUPERSEDES_SHA256 = (
+    # Compose dang o LIVE tren team.ecentric.vn sau khi p170 chay (do 09/09 luc 20:0x).
+    "950c56c3d385132623b12f5dc6e61554bf910ea2a6243df06f4109816c5b6d68",
+    # Compose cua ban PnL "loai chi phi" (origin/main) - co the da hoac chua deploy.
+    "73b2d2c327853f240f7b8572177c8532cf484f6d1b93e5f6a2c928774cebc1ac",
+    # Compose cua ba viec giao dien TRUOC khi gop voi PnL.
+    "66190bc75a2c419f2fd3206cdc16174b89091fb511e29eaf29a6e8f52bb250b8",
     # Gia tri CUNG DOT p170, chua tung len production: p170 gop ca ba thay doi (2 ngay luc
     # nhan viec, chan khoi hoan tat, thay file UNC) vao mot lan deploy. De o day de mot ban
     # bench da chay nua chung khong bi tu choi ghi.
     "0ef4429bb0bd3321fd62f4ed282d7dbf16aa79f48f0731860deff98fb7d18e9f",
+    # BASELINE cu (sha cua RIENG main_section.html - chua bao gio la sha cua live). Giu lai
+    # cho mot bench nao do lo ghi bang gia tri do.
+    "1ab3de200328c8bb9bea8c934c5ed78580a59fe3eb7bffa5843efe528504434f",
     # baseline truoc p170 (buoc 6: khai 2 ngay luc nhan viec, chan khoi hoan tat).
     #
     # !! DAY LA MOT KHOA DA LECH SAN, KHONG PHAI CUA DOT NAY. Truoc 09/09 BASELINE ghi

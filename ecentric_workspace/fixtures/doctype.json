@@ -1,0 +1,352 @@
+[
+ {
+  "doctype": "DocType",
+  "name": "EC Loai Chi Phi",
+  "module": "Custom",
+  "custom": 1,
+  "autoname": "field:ma",
+  "naming_rule": "By fieldname",
+  "title_field": "ten",
+  "show_title_field_in_link": 1,
+  "search_fields": "ten,nhom",
+  "sort_field": "thu_tu",
+  "sort_order": "ASC",
+  "allow_import": 1,
+  "allow_rename": 1,
+  "track_changes": 1,
+  "description": "Danh mục loại chi phí cho đề nghị thanh toán — PnL dashboard đọc trường `nhom` và `tinh_vao_chi_phi` để gom nhóm và chống đếm trùng lương. Tạo 2026-09-09 (chat PnL).",
+  "editable_grid": 1,
+  "engine": "InnoDB",
+  "index_web_pages_for_search": 1,
+  "fields": [
+   {
+    "doctype": "DocField",
+    "idx": 1,
+    "fieldname": "ma",
+    "fieldtype": "Data",
+    "label": "Mã",
+    "reqd": 1,
+    "unique": 1,
+    "description": "Mã ngắn, không dấu. Đổi mã = tạo dòng mới, đừng sửa mã đã dùng.",
+    "in_list_view": 1
+   },
+   {
+    "doctype": "DocField",
+    "idx": 2,
+    "fieldname": "ten",
+    "fieldtype": "Data",
+    "label": "Tên hiển thị",
+    "reqd": 1,
+    "description": "Tên người dùng nhìn thấy trên form đề nghị thanh toán.",
+    "in_list_view": 1
+   },
+   {
+    "doctype": "DocField",
+    "idx": 3,
+    "fieldname": "cb1",
+    "fieldtype": "Column Break"
+   },
+   {
+    "doctype": "DocField",
+    "idx": 4,
+    "fieldname": "nhom",
+    "fieldtype": "Select",
+    "label": "Nhóm",
+    "options": "Trực tiếp khách hàng\nVận hành công ty\nLương & nhân sự\nKhông tính vào chi phí",
+    "reqd": 1,
+    "description": "Nhóm quyết định cách PnL đọc khoản này.",
+    "in_list_view": 1,
+    "in_standard_filter": 1
+   },
+   {
+    "doctype": "DocField",
+    "idx": 5,
+    "fieldname": "thu_tu",
+    "fieldtype": "Int",
+    "label": "Thứ tự",
+    "description": "Số nhỏ hiện trước trong danh sách."
+   },
+   {
+    "doctype": "DocField",
+    "idx": 6,
+    "fieldname": "sb1",
+    "fieldtype": "Section Break",
+    "label": "Cách PnL xử lý"
+   },
+   {
+    "doctype": "DocField",
+    "idx": 7,
+    "fieldname": "tinh_vao_chi_phi",
+    "fieldtype": "Check",
+    "label": "Cộng vào chi phí PnL",
+    "default": "1",
+    "description": "Bỏ tick khi khoản này KHÔNG phải chi phí của kỳ: lương đã tính ở khối lương, tạm ứng, chi hộ brand, ký quỹ, trả nợ gốc.",
+    "in_list_view": 1
+   },
+   {
+    "doctype": "DocField",
+    "idx": 8,
+    "fieldname": "can_brand",
+    "fieldtype": "Check",
+    "label": "Cần chọn brand",
+    "default": "0",
+    "description": "Bật thì form đề nghị thanh toán hiện thêm ô Brand — dùng cho chi phí gắn trực tiếp với một brand."
+   },
+   {
+    "doctype": "DocField",
+    "idx": 9,
+    "fieldname": "cb2",
+    "fieldtype": "Column Break"
+   },
+   {
+    "doctype": "DocField",
+    "idx": 10,
+    "fieldname": "disabled",
+    "fieldtype": "Check",
+    "label": "Ngừng dùng",
+    "default": "0",
+    "description": "Ngừng dùng thay vì xoá, để phiếu cũ vẫn tra được."
+   },
+   {
+    "doctype": "DocField",
+    "idx": 11,
+    "fieldname": "sb2",
+    "fieldtype": "Section Break"
+   },
+   {
+    "doctype": "DocField",
+    "idx": 12,
+    "fieldname": "goi_y",
+    "fieldtype": "Small Text",
+    "label": "Gợi ý cho người tạo phiếu",
+    "description": "Hiện dưới ô chọn để người dùng biết khoản nào thuộc mục này."
+   }
+  ],
+  "permissions": [
+   {
+    "doctype": "DocPerm",
+    "role": "System Manager",
+    "read": 1,
+    "write": 1,
+    "create": 1,
+    "delete": 1,
+    "report": 1,
+    "export": 1,
+    "print": 1,
+    "email": 1,
+    "share": 1,
+    "import": 1
+   },
+   {
+    "doctype": "DocPerm",
+    "role": "EC Finance",
+    "read": 1,
+    "write": 1,
+    "create": 1,
+    "delete": 1,
+    "report": 1,
+    "export": 1,
+    "print": 1,
+    "email": 1,
+    "share": 1,
+    "import": 1
+   },
+   {
+    "doctype": "DocPerm",
+    "role": "EC CnB",
+    "read": 1,
+    "write": 1,
+    "create": 1,
+    "delete": 1,
+    "report": 1,
+    "export": 1,
+    "print": 1,
+    "email": 1,
+    "share": 1,
+    "import": 1
+   },
+   {
+    "doctype": "DocPerm",
+    "role": "All",
+    "read": 1,
+    "report": 1,
+    "export": 1
+   }
+  ]
+ },
+ {
+  "doctype": "DocType",
+  "name": "EC Nhan Su Brand",
+  "module": "Custom",
+  "custom": 1,
+  "autoname": "hash",
+  "naming_rule": "Random",
+  "title_field": "employee_name",
+  "search_fields": "employee_name,brand",
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "allow_import": 1,
+  "allow_rename": 1,
+  "track_changes": 1,
+  "description": "Tỷ trọng phân bổ của từng nhân sự theo brand — dùng cho PnL dashboard (kịch bản ngừng brand, chi phí lương theo brand). Chỉ lưu phần trăm, không lưu tiền. Tạo 2026-09-08 (chat PnL).",
+  "editable_grid": 1,
+  "engine": "InnoDB",
+  "index_web_pages_for_search": 1,
+  "fields": [
+   {
+    "doctype": "DocField",
+    "idx": 1,
+    "fieldname": "employee",
+    "fieldtype": "Link",
+    "label": "Nhân sự",
+    "options": "Employee",
+    "reqd": 1,
+    "in_list_view": 1,
+    "in_standard_filter": 1
+   },
+   {
+    "doctype": "DocField",
+    "idx": 2,
+    "fieldname": "employee_name",
+    "fieldtype": "Data",
+    "label": "Họ tên",
+    "read_only": 1,
+    "fetch_from": "employee.employee_name",
+    "in_list_view": 1
+   },
+   {
+    "doctype": "DocField",
+    "idx": 3,
+    "fieldname": "department",
+    "fieldtype": "Link",
+    "label": "Phòng ban",
+    "options": "Department",
+    "read_only": 1,
+    "fetch_from": "employee.department",
+    "in_list_view": 1,
+    "in_standard_filter": 1
+   },
+   {
+    "doctype": "DocField",
+    "idx": 4,
+    "fieldname": "cb1",
+    "fieldtype": "Column Break"
+   },
+   {
+    "doctype": "DocField",
+    "idx": 5,
+    "fieldname": "brand",
+    "fieldtype": "Link",
+    "label": "Brand",
+    "options": "Brand",
+    "reqd": 1,
+    "description": "Đúng mã brand dùng trên Sales Order (VTD-VN, FRI-VN, LOF-VN, FES-VN…)",
+    "in_list_view": 1,
+    "in_standard_filter": 1
+   },
+   {
+    "doctype": "DocField",
+    "idx": 6,
+    "fieldname": "ty_trong",
+    "fieldtype": "Percent",
+    "label": "Tỷ trọng (%)",
+    "reqd": 1,
+    "description": "Phần trăm thời gian / công sức của người này dành cho brand. Tổng các dòng của một người không quá 100%.",
+    "in_list_view": 1
+   },
+   {
+    "doctype": "DocField",
+    "idx": 7,
+    "fieldname": "sb1",
+    "fieldtype": "Section Break",
+    "label": "Hiệu lực (tuỳ chọn)"
+   },
+   {
+    "doctype": "DocField",
+    "idx": 8,
+    "fieldname": "tu_thang",
+    "fieldtype": "Data",
+    "label": "Từ tháng (YYYY-MM)",
+    "description": "Bỏ trống = áp dụng từ trước tới nay"
+   },
+   {
+    "doctype": "DocField",
+    "idx": 9,
+    "fieldname": "cb2",
+    "fieldtype": "Column Break"
+   },
+   {
+    "doctype": "DocField",
+    "idx": 10,
+    "fieldname": "den_thang",
+    "fieldtype": "Data",
+    "label": "Đến tháng (YYYY-MM)",
+    "description": "Bỏ trống = còn hiệu lực"
+   },
+   {
+    "doctype": "DocField",
+    "idx": 11,
+    "fieldname": "sb2",
+    "fieldtype": "Section Break"
+   },
+   {
+    "doctype": "DocField",
+    "idx": 12,
+    "fieldname": "ghi_chu",
+    "fieldtype": "Small Text",
+    "label": "Ghi chú"
+   }
+  ],
+  "permissions": [
+   {
+    "doctype": "DocPerm",
+    "role": "System Manager",
+    "read": 1,
+    "write": 1,
+    "create": 1,
+    "delete": 1,
+    "report": 1,
+    "export": 1,
+    "print": 1,
+    "email": 1,
+    "share": 1,
+    "import": 1
+   },
+   {
+    "doctype": "DocPerm",
+    "role": "EC CnB",
+    "read": 1,
+    "write": 1,
+    "create": 1,
+    "delete": 1,
+    "report": 1,
+    "export": 1,
+    "print": 1,
+    "email": 1,
+    "share": 1,
+    "import": 1
+   },
+   {
+    "doctype": "DocPerm",
+    "role": "EC CEO",
+    "read": 1,
+    "report": 1,
+    "export": 1
+   },
+   {
+    "doctype": "DocPerm",
+    "role": "EC HOF",
+    "read": 1,
+    "report": 1,
+    "export": 1
+   },
+   {
+    "doctype": "DocPerm",
+    "role": "EC Payroll Viewer All",
+    "read": 1,
+    "report": 1,
+    "export": 1
+   }
+  ]
+ }
+]
