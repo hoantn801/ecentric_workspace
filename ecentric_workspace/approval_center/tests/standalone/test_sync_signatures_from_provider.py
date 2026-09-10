@@ -64,7 +64,10 @@ _UID = "uid-hof"
 
 
 def _run(pending=(_HOF,), mapping=True, vr_ok=True, vr_reason="verified", status="Pending",
-         level=3, doc_id=_DOC, reason="Da mo cong SCTS: HOF ky luc 09/09 08:20."):
+         level=3, doc_id=_DOC, reason="Da mo cong SCTS: HOF ky luc 09/09 08:20.",
+         mapping_aliases=(), uid=_UID):
+    """`mapping_aliases`: cac email KHAC cung tro toi mot `scts_user_id` (tai khoan SCTS
+    dung chung). Mac dinh rong = moi nguoi dung tai khoan cua rieng minh."""
     seen = {"adopt": [], "expected": None, "polled": None}
 
     class _FK(object):
@@ -76,6 +79,17 @@ def _run(pending=(_HOF,), mapping=True, vr_ok=True, vr_reason="verified", status
 
         @staticmethod
         def get_all(dt, filters=None, fields=None, **kw):
+            # PHAN BIET THEO DocType. Ban dau ban gia nay tra ve danh sach nguoi duyet cho
+            # MOI lan goi va ghi de `rows_filter` - nen khi `_emails_cua_cung_danh_tinh`
+            # them mot lan goi (bang "EC SCTS User Mapping"), bo loc ghi lai thanh cua lan
+            # goi SAU, va test "chi cap hien tai" do vi mot ly do khong lien quan gi den
+            # cai no dinh kiem.
+            if dt == "EC SCTS User Mapping":
+                # `pluck` tra ve DANH SACH GIA TRI, khong phai danh sach dong. Ban gia
+                # khong ho tro `pluck` thi lot ra mot dict giua danh sach email.
+                seen["mapping_filter"] = dict(filters or {})
+                cung = [u for u in mapping_aliases]
+                return cung if kw.get("pluck") else [_D({"frappe_user": u}) for u in cung]
             seen["rows_filter"] = dict(filters or {})
             return [_D({"name": "row-%s" % u, "approver": u}) for u in pending]
 
@@ -96,7 +110,7 @@ def _run(pending=(_HOF,), mapping=True, vr_ok=True, vr_reason="verified", status
 
         @staticmethod
         def verified_mapping(user, env):
-            return _D({"name": "EC-DSM-1", "modified": "m", "scts_user_id": _UID,
+            return _D({"name": "EC-DSM-1", "modified": "m", "scts_user_id": uid,
                        "signature_id": "sig-1"}) if mapping else None
 
     class _Adapter(object):
@@ -131,7 +145,11 @@ def _run(pending=(_HOF,), mapping=True, vr_ok=True, vr_reason="verified", status
     saved = sys.modules.get(_BASE_MOD)
     sys.modules[_BASE_MOD] = fake_base
     try:
-        exec(compile(ast.Module(body=[_fn_src("sync_signatures_from_provider")],
+        # Nap KEM `_emails_cua_cung_danh_tinh`: `sync_signatures_from_provider` goi no de
+        # dung danh sach email cua CUNG mot danh tinh SCTS. Nap thieu thi test do vi
+        # NameError - mot ly do thuoc ve phep do, khong phai ve code.
+        exec(compile(ast.Module(body=[_fn_src("_emails_cua_cung_danh_tinh"),
+                                      _fn_src("sync_signatures_from_provider")],
                                 type_ignores=[]), "service.py", "exec"), ns)
         try:
             out = ns["sync_signatures_from_provider"]("EC Payment Request",
@@ -172,9 +190,52 @@ class TestBoQUA_MOC_THOI_GIAN_va_chi_the_thoi(unittest.TestCase):
         e = seen["expected"]
         self.assertEqual(e["document_id"], _DOC)
         self.assertEqual(e["user_id"], _UID, "phai khop scts_user_id cua ANH XA")
-        self.assertEqual(e["email"], _HOF)
+        self.assertEqual(e["email"], [_HOF],
+                         "email la DANH SACH: mot nguoi co the ky bang tai khoan dung chung")
         self.assertEqual(e["signature_id"], "sig-1")
         self.assertIn("prior_signatures", e, "thieu phep dem = dong cap bang chu ky chan khac")
+
+    def test_TAI_KHOAN_DUNG_CHUNG_van_nhan_ra_chu_ky(self):
+        """EC-PAYR-2026-00087 (10/09): chi Huong gui phieu, nhung tai lieu duoc ky bang tai
+        khoan CnB dung chung. eContract chi dinh danh nguoi ky bang EMAIL, nen so voi mot
+        email duy nhat cua ERP thi truot - `poll_pending` quay
+        `expected_signer_absent:.../of5` 9 lan lien tiep va phieu dung im o current_level=0.
+
+        Email cua tai khoan dung chung phai co trong danh sach doi soat, VA no chi duoc vao
+        do khi ANH XA tro cung mot `scts_user_id`."""
+        seen, _o, _e = _run(mapping_aliases=(_HOF, "cnb.ecentric@ec.vn"))
+        self.assertEqual(seen["expected"]["email"], [_HOF, "cnb.ecentric@ec.vn"])
+        self.assertEqual(seen["mapping_filter"].get("scts_user_id"), _UID,
+                         "chi lay email cua CUNG mot danh tinh SCTS")
+        self.assertEqual(seen["mapping_filter"].get("active"), 1)
+        self.assertEqual(seen["mapping_filter"].get("mapping_status"), "Verified",
+                         "ban nhap / ban da go KHONG duoc tinh")
+
+    def test_KHONG_nhet_email_la_vao_danh_sach(self):
+        """Danh sach nay la cho noi long DUY NHAT cua phep doi soat, nen no phai chat: chi
+        email cua anh xa cung danh tinh, khong phai email nao khac trong he thong."""
+        seen, _o, _e = _run(mapping_aliases=())
+        self.assertEqual(seen["expected"]["email"], [_HOF])
+
+    def test_MOI_email_trong_danh_sach_deu_duoc_thu(self):
+        """Dung con dot bien "chi lay phan tu dau": neu chi thu email dau tien thi ca tinh
+        nang nay vo dung - email cua tai khoan dung chung LUON dung sau email nguoi dung
+        ERP, tuc chinh cai can khop lai la cai bi bo qua."""
+        from ecentric_workspace.platform.esign.providers.base import NormalizedDocState
+        st = NormalizedDocState("doc-1", "processing", signers=[
+            {"user_id": None, "email": "cnb.ecentric@ec.vn", "status": "signed"}])
+        self.assertEqual(len(st.signers_for("uid-khong-khop",
+                                            [_HOF, "cnb.ecentric@ec.vn"])), 1,
+                         "phai thu HET danh sach, khong dung o email dau")
+        self.assertEqual(st.signers_for("uid-khong-khop", [_HOF]), [])
+
+    def test_khong_co_uid_thi_KHONG_tra_cuu_anh_xa(self):
+        """Chan ky chua co `effective_scts_user_id` thi khong co danh tinh nao de gom quanh.
+        Van di tra cuu voi uid rong la hoi "anh xa nao co scts_user_id = ''" - mot cau hoi
+        vo nghia, va neu du lieu co dong rong thi no keo email la vao danh sach doi soat."""
+        seen, _o, _e = _run(uid="", mapping_aliases=("ai.do@ec.vn",))
+        self.assertEqual(seen.get("mapping_filter"), None,
+                         "khong duoc goi anh xa khi chua co danh tinh SCTS")
 
     def test_phep_dem_dem_dung_nguoi_dung_goi(self):
         seen, _o, _e = _run()

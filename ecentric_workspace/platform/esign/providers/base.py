@@ -54,15 +54,23 @@ class NormalizedDocState(object):
         nothing at all ("expected_signer_absent"), and with one it locked onto whichever came
         first, so an approver leg was judged against the requester's own older signature.
         Callers must therefore consider all rows and pick the one that satisfies them.
+
+        `email` nhan CHUOI hoac DANH SACH (10/09/2026). Mot nguoi co the ky bang tai khoan
+        SCTS DUNG CHUNG - EC-PAYR-2026-00087: chi Huong gui phieu, nhung tai lieu duoc ky
+        bang tai khoan `cnb.ecentric@`. eContract chi dinh danh nguoi ky bang EMAIL, nen so
+        voi mot email duy nhat cua ERP thi truot, va `poll_pending` quay
+        `expected_signer_absent` mai mai. Danh sach o day KHONG phai noi long tuy tien: nguoi
+        goi chi duoc dua vao cac email cua ANH XA CUNG MOT `scts_user_id` da xac minh.
         """
         by_id = [s for s in self.signers
                  if s.get("user_id") is not None and str(s.get("user_id")) == str(user_id)]
         if by_id:
             return by_id
-        if email:
-            em = str(email).strip().lower()
+        ems = {str(e).strip().lower() for e in
+               ([email] if isinstance(email, str) else list(email or [])) if e}
+        if ems:
             return [s for s in self.signers
-                    if str(s.get("email") or "").strip().lower() == em]
+                    if str(s.get("email") or "").strip().lower() in ems]
         return []
 
 
@@ -274,7 +282,9 @@ class SignatureProviderAdapter(object):
             #
             # CHI ghi dinh danh dung de doi chieu (user id noi bo cua nha cung cap, hoac email
             # cong viec) - khong ten, khong so tien, khong noi dung tai lieu.
-            who = expected.get("user_id") or expected.get("email") or "?"
+            _em = expected.get("email")
+            _em = ",".join(str(e) for e in _em) if isinstance(_em, (list, tuple, set)) else _em
+            who = expected.get("user_id") or _em or "?"
             return VerificationResult(
                 False, "expected_signer_absent:%s/of%d" % (who, len(doc_state.signers)))
         # THU TU, KHONG PHAI THOI GIAN (02/09/2026).
