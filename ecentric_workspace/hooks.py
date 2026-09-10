@@ -309,7 +309,12 @@ fixtures = [
 # (da doi chieu tren prod 09/09), nen KHONG phai quy ra UTC.
 # CHI DOC + bao cho System Manager; khong bao gio tu dong dong bo chu ky. Dung chung kill
 # switch ec_esign_scheduler_disabled voi cac task esign khac.
-for _gio_soi_lech in ("30 8 * * *", "30 14 * * *"):
-    scheduler_events["cron"].setdefault(_gio_soi_lech, []).append(
-        "ecentric_workspace.platform.esign.tasks.sweep_provider_signature_drift")
-del _gio_soi_lech
+# HAI HAM KHAC NHAU, KHONG PHAI MOT HAM O HAI CRON: Frappe khoa Scheduled Job Type theo
+# `method`, nen khai cung mot ham o hai bieu thuc chi giu lai MOT - luot 08:30 se bien mat
+# khong bao gi. Do tren prod 10/09 dung nhu vay. Xem ghi chu day du o
+# `platform/esign/tasks.py` ngay tren hai vo mong nay; test:
+# `tests/standalone/test_hooks_cron_mot_method_mot_slot.py`.
+scheduler_events["cron"].setdefault("30 8 * * *", []).append(
+    "ecentric_workspace.platform.esign.tasks.sweep_provider_signature_drift_0830")
+scheduler_events["cron"].setdefault("30 14 * * *", []).append(
+    "ecentric_workspace.platform.esign.tasks.sweep_provider_signature_drift_1430")

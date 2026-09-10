@@ -75,9 +75,28 @@ class NormalizedDocState(object):
 
 
 class VerificationResult(object):
-    def __init__(self, ok, reason=""):
+    """Ket qua doi soat mot chan ky voi trang thai that ben nha cung cap.
+
+    `signer` (10/09/2026) = DONG nguoi ky da CHUNG MINH chan nay, khi ok. Truoc day ket qua
+    chi noi "verified" - dung nhung khong dung duoc: cho goi muon ghi vao so "chu ky nao,
+    ky luc may gio" thi khong co gi de ghi, va docstring cua `sync_signatures_from_provider`
+    da hua mot ly do rieng kem gio ky ma khong the thuc hien. Mot phep doi soat nen tra ve
+    CAI GI da khop, khong chi la co/khong.
+    """
+
+    def __init__(self, ok, reason="", signer=None):
         self.ok = bool(ok)
         self.reason = reason
+        self.signer = signer or None
+
+    @property
+    def signed_at(self):
+        """Gio ky cua dong da chung minh chan nay - CHUOI THO cua nha cung cap.
+
+        Khong tu chuan hoa: gia tri nay di vao nhat ky de nguoi doi chieu voi man hinh cong
+        SCTS, nen no phai giong HET cai ho nhin thay o do.
+        """
+        return (self.signer or {}).get("signed_at") or None
 
     def __bool__(self):
         return self.ok
@@ -382,7 +401,7 @@ class SignatureProviderAdapter(object):
         # neu khong dem duoc (prior=None) thi khong co duong nao toi day ca: luc do moc thoi
         # gian la lop bao ve DUY NHAT con lai, bo no di la bo het.
         return VerificationResult(True, "verified_predating_manual:%s"
-                                  % target.get("signed_at"))
+                                  % target.get("signed_at"), signer=target)
 
     @staticmethod
     def _check_one_signer(signer, expected):
@@ -410,4 +429,4 @@ class SignatureProviderAdapter(object):
         exp_sig = expected.get("signature_id")
         if exp_sig and signer.get("signature_id") and str(signer["signature_id"]) != str(exp_sig):
             return VerificationResult(False, "signature_id_mismatch")
-        return VerificationResult(True, "verified")
+        return VerificationResult(True, "verified", signer=signer)

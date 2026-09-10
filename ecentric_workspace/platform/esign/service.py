@@ -1038,6 +1038,26 @@ def sync_signatures_from_provider(business_doctype, business_name, reason):
             "level": req.current_level}
 
 
+LY_DO_DONG_BO_TU_CONG = "verified_from_provider_sync"
+
+
+def ghi_chu_dong_bo_tu_cong(vr):
+    """Ly do xac minh cho chan ky DONG BO TU CONG - phan biet voi chan ky ERP tu gui lenh.
+
+    Vi sao khong dung chung "verified": hai duong nay khac nhau ve ban chat (mot ben ERP ra
+    lenh ky, mot ben ERP cong nhan chu ky co san tren cong), va khi doc lai so su kien de
+    dieu tra thi cai can biet dau tien la "chu ky nay tu dau ra". Mot nhan chung cho ca hai
+    bat nguoi doc phai suy ra tu cac su kien xung quanh - va suy ra thi co luc suy sai.
+
+    Kem GIO KY tho cua nha cung cap de doi chieu thang voi man hinh cong SCTS. Khong co gio
+    (nha cung cap khong tra) thi noi ro la khong co, khong bia mot moc thoi gian nao.
+
+    Cat con 130 ky tu: `verification_result` la truong Data (140).
+    """
+    gio = getattr(vr, "signed_at", None)
+    return ("%s:%s" % (LY_DO_DONG_BO_TU_CONG, gio or "khong_ro_gio"))[:130]
+
+
 def _adopt_provider_signature(req, profile, pkg_name, row, who, mapping, vr, ly_do):
     """Tao chan ky cho mot chu ky DA CO ben nha cung cap, roi de engine hoan tat cap duyet.
 
@@ -1076,14 +1096,23 @@ def _adopt_provider_signature(req, profile, pkg_name, row, who, mapping, vr, ly_
     # KHONG enqueue gi: khong co lenh nao duoc gui di.
     events.set_dsr_status(dsr.name, "Queued", extra_fields={"queued_at": now_datetime()},
                           erp_actor=frappe.session.user, event_type="RetryScheduled")
-    mark_verified(dsr.name, vr.reason)
+    # LY DO RIENG cho chan ky dong bo. Truoc 10/09 cho nay ghi thang `vr.reason` = "verified"
+    # - giong het mot chan ky do ERP tu gui lenh roi poll ve. Nhin vao so su kien khong tach
+    # duoc hai duong, ma hai duong nay khac nhau ve BAN CHAT: mot ben ERP ra lenh, mot ben
+    # ERP cong nhan chu ky nguoi ta da ky san tren cong. Docstring cua
+    # `sync_signatures_from_provider` hua san `verified_from_provider_sync:<gio ky>` tu 09/09;
+    # day la cho tra no do.
+    ly_do_xac_minh = ghi_chu_dong_bo_tu_cong(vr)
+    mark_verified(dsr.name, ly_do_xac_minh)
     out = verify_and_complete(
         dsr.name,
         # Binh luan nay di vao LICH SU PHIEU - cho ma nguoi dung thuc su doc. Phai noi ro
         # day khong phai mot lan bam "Duyet & Ky", ma la cong nhan chu ky da co tren cong.
-        comment=_("Đồng bộ chữ ký từ cổng SCTS: {0} đã ký trên cổng ({1}). "
-                  "Căn cứ: {2}").format(who, vr.reason, ly_do))
-    return dict(out, signature_request=dsr.name, verification=vr.reason)
+        # Ghi GIO KY chu khong ghi ma may ("verified"): nguoi doc so can doi chieu voi man
+        # hinh cong SCTS, ma tren do chi co gio.
+        comment=_("Đồng bộ chữ ký từ cổng SCTS: {0} đã ký trên cổng lúc {1}. "
+                  "Căn cứ: {2}").format(who, vr.signed_at or _("không rõ giờ"), ly_do))
+    return dict(out, signature_request=dsr.name, verification=ly_do_xac_minh)
 
 
 def clear_create_ambiguity(package_name, reason):

@@ -48,7 +48,12 @@ catch (e) { console.log("BOOT ERROR: " + e.message); process.exit(1); }
 const PR = win.PaymentRequest;
 if (!PR || typeof PR.formCardsHTML !== "function" || typeof PR.instCardHTML !== "function") {
   console.log("FAIL: PaymentRequest.formCardsHTML/instCardHTML not exported"); process.exit(1); }
-PR.state.boot = { tabs: {}, context: { user: "req@ec.vn", employee_name: "Hoàn" }, form_options: { yes_no: ["Yes", "No"] } };
+// `expense_categories`: "Loại chi phí" là trường BẮT BUỘC từ đợt danh mục chi phí (10/09).
+// Fixture "phiếu hợp lệ" bên dưới viết TRƯỚC trường đó, nên ba phép kiểm "hợp lệ" đỏ vì một
+// lý do KHÔNG liên quan gì đến chia đợt. Hình dạng bản ghi theo
+// `definition_support.ExpenseCategoryOptions`. Luật bắt buộc được đo tường minh ở cuối mục 2.
+const CATS = [{ value: "VANPHONG", label: "Chi phí văn phòng", group: "Vận hành", need_brand: 0 }];
+PR.state.boot = { tabs: {}, context: { user: "req@ec.vn", employee_name: "Hoàn" }, form_options: { yes_no: ["Yes", "No"], expense_categories: CATS } };
 const C = PR.state.boot.context, FO = PR.state.boot.form_options;
 
 // --- 1. form tạo mới ---
@@ -74,7 +79,8 @@ ok(PR.installmentRemaining({ total_amount: 10000, payment_amount: 5000, _paid_be
 
 // --- 2. validateSubmit ---
 const base = { reason: "x", payment_amount: 4000, payment_date: "2026-09-10", payee_full_name: "A", account_bank: "B", bank_account_number: "1",
-  has_purchase_request: "No", no_purchase_request_reason: "r", is_cost_valid: "Yes", details_and_attachments_correct: "Yes", request_attachment: "/private/files/a.pdf" };
+  has_purchase_request: "No", no_purchase_request_reason: "r", is_cost_valid: "Yes", ec_loai_chi_phi: "VANPHONG",
+  details_and_attachments_correct: "Yes", request_attachment: "/private/files/a.pdf" };
 PR.state.draft = Object.assign({}, base, { payment_mode: "Full" });
 ok(PR.validateSubmit() === null, "100% hợp lệ");
 PR.state.draft = Object.assign({}, base, { payment_mode: "Installment" });
@@ -91,6 +97,11 @@ PR.state.draft = Object.assign({}, base, { payment_mode: "Installment", total_am
 ok(PR.validateSubmit() === null, "chia 3 đợt hợp lệ");
 PR.state.draft = Object.assign({}, base, { payment_mode: "Installment", total_amount: 10000, payment_amount: 5000, _paid_before: 5000 });
 ok(PR.validateSubmit() === null, "đợt cuối (đã có 5000 trước) hợp lệ, không đòi đợt kế");
+// Loại chi phí bắt buộc — luật vừa làm bộ test này đỏ. Đo tường minh, vì fixture ở trên chỉ
+// ĐI QUA luật chứ không chứng minh luật còn sống: gỡ dòng kiểm trong validateSubmit ra mà
+// không có phép kiểm này thì cả bộ test vẫn xanh.
+PR.state.draft = Object.assign({}, base, { payment_mode: "Full", ec_loai_chi_phi: "" });
+e = PR.validateSubmit(); ok(e && e.ec_loai_chi_phi, "thiếu loại chi phí → bị từ chối, kể cả khi mọi thứ khác hợp lệ");
 PR.state.draft = Object.assign({}, base, { payment_mode: "Installment", total_amount: 10000, payment_amount: 6000, _paid_before: 5000 });
 e = PR.validateSubmit(); ok(e && /vượt/.test(e.payment_amount || ""), "đợt 2 vượt phần còn lại (đã trả 5000) → lỗi");
 
