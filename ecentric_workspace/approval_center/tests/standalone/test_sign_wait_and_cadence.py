@@ -64,8 +64,19 @@ class TestWaitingState(unittest.TestCase):
         # Phai bat vao cho GOI, khong phai cho DINH NGHIA: "markSignWait(steps, det)" cung
         # xuat hien o dong "function markSignWait(steps, det){", nen mot phep kiem ngay tho
         # van xanh khi ham da bi bo khong goi nua. Da vap dung loi nay khi nghiem thu.
-        self.assertIn("renderStepsHTML(markSignWait(steps, det))", self.page,
+        #
+        # 10/09: phep kiem cu bat CUNG chuoi "renderStepsHTML(markSignWait(steps, det))".
+        # Khi them `markCancelled` boc ben ngoai - `renderStepsHTML(markCancelled(
+        # markSignWait(steps, det), det), det)` - test do trong khi hanh vi khong he doi:
+        # markSignWait VAN duoc goi va ket qua VAN di vao renderStepsHTML. Bat cung hinh dang
+        # loi goi la buoc mai mai khong duoc bo them mot lop nao. Gio kiem dung dieu can giu:
+        # trong CHINH cau return cua buildStepper phai co ca hai ten.
+        i = self.page.index("return renderStepsHTML(")
+        cau = self.page[i:self.page.index("\n", i)]
+        self.assertIn("markSignWait(steps, det)", cau,
                       "co ham nhung khong goi thi thanh tien trinh van cam nhu cu")
+        self.assertNotIn("renderStepsHTML(steps)", cau,
+                         "dang goi ban KHONG co trang thai cho")
         tail = self.page[self.page.index("Hoàn tất"):][:400]
         self.assertNotIn("renderStepsHTML(steps)", tail,
                          "thanh tien trinh chi tiet dang goi ban KHONG co trang thai cho")

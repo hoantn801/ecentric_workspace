@@ -30,14 +30,28 @@
   #ec-apl-root .topbar .crumb{ font-size:13px; color:var(--gray-500); } #ec-apl-root .topbar .crumb strong{ color:var(--gray-900); }
   #ec-apl-root .topbar .spacer{ flex:1; } #ec-apl-root .scope-badge{ font-size:12px; font-weight:600; padding:5px 10px; border-radius:999px; background:var(--navy-50); color:var(--navy); }
   #ec-apl-root .content{ padding:20px 24px; max-width:1600px; width:100%; margin-inline:auto;}
-  #ec-apl-root .apl-title{ font-size:17px; font-weight:700; color:var(--gray-900); letter-spacing:-0.2px; margin:0; }
-  #ec-apl-root .apl-desc{ font-size:12px; color:var(--gray-500); margin:1px 0 10px; }
-  #ec-apl-root .filters{ background:#fff; border:1px solid var(--gray-200); border-radius:10px; padding:9px 12px; margin-bottom:12px; }
-  #ec-apl-root .fgrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr)); gap:7px 8px; align-items:end; }
-  #ec-apl-root .fgrid label{ display:block; font-size:10.5px; font-weight:600; color:var(--gray-500); margin-bottom:2px; }
-  #ec-apl-root .fgrid select, #ec-apl-root .fgrid input{ width:100%; padding:5px 8px; border:1px solid var(--gray-200); border-radius:7px; font-size:12.5px; font-family:inherit; background:#fff; height:30px; }
-  #ec-apl-root .fend{ display:flex; align-items:flex-end; }
-  #ec-apl-root .fend .btn{ padding:5px 12px; font-size:12.5px; height:30px; border-radius:7px; }
+  #ec-apl-root .apl-title{ font-size:15.5px; font-weight:700; color:var(--gray-900); letter-spacing:-0.2px; margin:0; }
+  #ec-apl-root .apl-desc{ font-size:11.5px; color:var(--gray-500); margin:1px 0 9px; }
+  #ec-apl-root .filters{ background:#fff; border:1px solid var(--gray-200); border-radius:10px; padding:8px 12px; margin-bottom:12px; }
+  /* Moi o filter la mot COT tu xep: nhan tren, o nhap duoi, day cot dinh o day hang.
+     Truoc day dung `align-items:end` trên grid roi de moi o cao bao nhieu tuy no - ma hai
+     thanh phan DUNG CHUNG cua site khong cao 30px nhu input thuong: `.ec-dp-wrap` (o lich)
+     cao 40, `.ec-cb` (o Trang thai) cao 39. Can day thi o nao cao hon se day NHAN cua no
+     len tren 10px, thanh ra hang nhan gap ghenh - nhin nhu vo thanh hai dong (Hoan 10/09).
+     Chua bang cach ep chieu cao O NHAP ve bang nhau, PHAM VI chi trong .fgrid: `.ec-dp-*`
+     va `.ec-cb` la asset dung chung toan site, sua trong bundle la doi luat cho ca cac
+     trang khac. */
+  #ec-apl-root .fgrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:6px 10px; align-items:start; }
+  #ec-apl-root .fgrid > *{ display:flex; flex-direction:column; min-width:0; }
+  #ec-apl-root .fgrid label{ display:block; font-size:10px; font-weight:600; color:var(--gray-500); margin-bottom:2px; line-height:14px; height:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #ec-apl-root .fgrid select, #ec-apl-root .fgrid input{ width:100%; padding:4px 8px; border:1px solid var(--gray-200); border-radius:7px; font-size:12px; font-family:inherit; background:#fff; height:28px; }
+  /* Hai thanh phan dung chung: ep ve dung 28px nhu o nhap thuong. */
+  #ec-apl-root .fgrid .ec-dp-wrap, #ec-apl-root .fgrid .ec-cb{ height:28px; }
+  #ec-apl-root .fgrid .ec-dp-field, #ec-apl-root .fgrid .ec-cb > *:first-child{ height:28px; min-height:28px; font-size:12px; }
+  #ec-apl-root .fend{ display:flex; flex-direction:column; justify-content:flex-end; }
+  /* Nut "Xoa loc" khong co nhan phia tren, nen phai tu chua khoang trong bang dung chieu cao
+     cua nhan (14px + 2px margin) thi day nut moi thang hang voi cac o nhap ben canh. */
+  #ec-apl-root .fend .btn{ padding:4px 12px; font-size:12px; height:28px; border-radius:7px; margin-top:16px; }
   #ec-apl-root .btn{ padding:8px 16px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; font-size:13px; font-weight:600; cursor:pointer; color:var(--gray-700); }
   #ec-apl-root .btn.primary{ background:var(--navy); border-color:var(--navy); color:#fff; }
   #ec-apl-root .btn:disabled{ opacity:.5; cursor:not-allowed; }
@@ -239,8 +253,11 @@
   #ec-apl-root .pill.Pending{ background:var(--navy-50); color:var(--navy); } #ec-apl-root .pill.Information{ background:var(--amber-50); color:var(--amber); }
   #ec-apl-root .pill.Completed{ background:#ecfdf5; color:var(--green); } #ec-apl-root .pill.Rejected{ background:var(--red-50); color:var(--red); } #ec-apl-root .pill.Cancelled{ background:var(--gray-100); color:var(--gray-500); }
   #ec-apl-root .pill.breach{ background:var(--red-50); color:var(--red); }
-  #ec-apl-root .tabs{ display:flex; gap:6px; border-bottom:1px solid var(--gray-200); margin-bottom:16px; }
-  #ec-apl-root .tab{ padding:9px 16px; font-size:14px; font-weight:600; color:var(--gray-500); cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; margin-bottom:-1px; font-family:inherit; }
+  #ec-apl-root .tabs{ display:flex; gap:6px; border-bottom:1px solid var(--gray-200); margin-bottom:12px; }
+  /* 10/09: ca trang bi keu la "to qua". Giam 1-2 cо chu o nhung cho chiem nhieu dien tich
+     nhat (tab, tieu de, o nhap filter, dong bang) thay vi dat `zoom` len ca trang - `zoom`
+     lam lech moi phep do toa do va keo theo ca vo shell dung chung. */
+  #ec-apl-root .tab{ padding:8px 14px; font-size:12.5px; font-weight:600; color:var(--gray-500); cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; margin-bottom:-1px; font-family:inherit; }
   #ec-apl-root .tab.active{ color:var(--navy); border-bottom-color:var(--navy); }
   #ec-apl-root .av{ display:inline-flex; align-items:center; justify-content:center; border-radius:50%; color:#fff; font-weight:700; overflow:hidden; flex-shrink:0; border:2px solid #fff; }
   #ec-apl-root .av img{ width:100%; height:100%; object-fit:cover; }

@@ -99,8 +99,8 @@
     "sha256": "9e7e091060760821a3cf80fd7d2d300825b7bce65013a26c20f9d19b8ed5a264"
   },
   "approval_center/features/payment_request/ui/main_section.html": {
-    "last_resync_patch": "p172_payment_request_expense_category",
-    "sha256": "36cc57b6fb667f052bc37bcd84cc9062597a2b931fa77db77adf0b9f1e26d027"
+    "last_resync_patch": "p173_resync_cancelled_badge_and_hub_filters",
+    "sha256": "5bd675bb54607e7bec22af3954813cc65c16cc485054eb45f4faeab2b74c8f55"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -131,8 +131,8 @@
     "sha256": "74873c3c192d9dec5899e8de5f4ba07b35cd0e4dc1a0378d78728f0f6413f47e"
   },
   "approval_center/ui/all_requests/main_section.html": {
-    "last_resync_patch": "p171_resync_hub_aside_height",
-    "sha256": "7cebb142ceb1c1c95ffee1d757b040a220fdeec8d50f6fa318caadedefabc278"
+    "last_resync_patch": "p173_resync_cancelled_badge_and_hub_filters",
+    "sha256": "de0d8e656c78ea4ced8504277cafe5d968eca9fd44db38cb33d219e8c2735eab"
   },
   "approval_center/ui/dashboard/main_section.html": {
     "baseline": "2026-08-31",

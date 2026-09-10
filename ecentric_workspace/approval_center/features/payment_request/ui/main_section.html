@@ -123,6 +123,10 @@
   #ec-payr-root .step.rejected .step-dot{ background:var(--red);border-color:var(--red);color:#fff; }
   #ec-payr-root .step.info .step-dot{ background:var(--yellow);border-color:var(--yellow);color:#fff; }
   #ec-payr-root .step.skipped .step-dot{ border-style:dashed; }
+  /* Phieu DA HUY: truoc day badge mau xam va cap dang cho van hien "Dang xu ly" mau xanh -
+     nhin y het mot phieu dang chay, trong khi no da dung han. Do dam de doc mot cai la thay. */
+  #ec-payr-root .step.cancelled .step-dot{ background:var(--red);border-color:var(--red);color:#fff; }
+  #ec-payr-root .stepline.is-cancelled::after{ background:var(--red); }
   #ec-payr-root .step-name{ font-size:12.5px;font-weight:700;color:var(--gray-800);text-align:center; }
   #ec-payr-root .step-state{ font-size:11px;font-weight:600; }
   #ec-payr-root .step-meta{ font-size:11px;color:var(--gray-500);text-align:center;margin-top:2px;line-height:1.4;overflow-wrap:anywhere; }
@@ -687,7 +691,7 @@
     if(st==="Approved"){ var fs=r.fulfillment_status||""; if(fs==="Assigned"||fs==="In Progress") return "Bước "+(N-1)+"/"+N+" · "+UNC_STEP_NAME; return "Bước "+N+"/"+N+" · Hoàn tất"; }
     if(st==="Pending"&&r.current_level){ return "Bước "+(1+Number(r.current_level))+"/"+N+" · "+(r.current_level_name||("Cấp "+r.current_level)); }
     return "Đang phê duyệt"; }
-  function badge(st){ var map={ "Draft":["b-gray","Nháp"],"Pending":["b-navy","Đang phê duyệt"],"Information Required":["b-amber","Cần bổ sung"],"Approved":["b-green","Đã duyệt"],"Rejected":["b-red","Bị từ chối"],"Cancelled":["b-gray","Đã hủy"] };
+  function badge(st){ var map={ "Draft":["b-gray","Nháp"],"Pending":["b-navy","Đang phê duyệt"],"Information Required":["b-amber","Cần bổ sung"],"Approved":["b-green","Đã duyệt"],"Rejected":["b-red","Bị từ chối"],"Cancelled":["b-red","Đã hủy"] };
     var m=map[st]||["b-gray",st]; return '<span class="badge '+m[0]+'"><span class="dot"></span>'+esc(m[1])+'</span>'; }
 
   // ======================= NEED MY APPROVAL =======================
@@ -969,12 +973,30 @@
       steps.push({name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
     steps.push(uncStep(det));
     steps.push({name:"Hoàn tất",state:(uncDone(det)?"done":"upcoming"),meta:""});
-    return renderStepsHTML(markSignWait(steps, det)); }
-  var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
-  function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)"}[s]||"var(--gray-400)"; }
-  function renderStepsHTML(steps){ var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
-    var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":(s.state==="rejected"?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
-    return '<div class="stepline" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
+    return renderStepsHTML(markCancelled(markSignWait(steps, det), det), det); }
+  // Phieu da HUY thi tien trinh phai DUNG HAN. Truoc day `buildStepper` khong he doc
+  // `approval_status`: no chi nhin `level_status` / `current_level`, ma huy KHONG doi hai thu
+  // do - nen cap dang cho van ra "Dang xu ly" mau xanh navy y het mot phieu dang chay
+  // (EC-PAYR-2026-00047, Hoan bao 10/09). Cai dang doc o day la trang thai CUA PHIEU, khong
+  // phai trang thai cua tung cap.
+  function markCancelled(steps, det){
+    if(((det||{}).approval||{}).approval_status!=="Cancelled") return steps;
+    var da_dung=false;
+    return steps.map(function(s){
+      if(s.state==="done"||s.state==="rejected") return s;
+      if(!da_dung && (s.state==="current"||s.state==="info")){
+        da_dung=true;
+        return {name:s.name,state:"cancelled",statusLabel:"Đã hủy",meta:s.meta||""}; }
+      // Cac buoc phia sau khong bao gio toi luot nua: goi la "Cho" thi sai su that.
+      if(s.state==="upcoming") return {name:s.name,state:"skipped",statusLabel:"Không thực hiện",meta:""};
+      return s; });
+  }
+  var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua",cancelled:"Đã hủy"};
+  function stColor(s){ return {done:"var(--green)",current:"var(--navy)",rejected:"var(--red)",info:"var(--amber)",skipped:"var(--gray-400)",upcoming:"var(--gray-400)",cancelled:"var(--red)"}[s]||"var(--gray-400)"; }
+  function renderStepsHTML(steps, det){ var n=steps.length, k=0; steps.forEach(function(s,i){ if(s.state!=="upcoming") k=i; });
+    var huy=((det||{}).approval||{}).approval_status==="Cancelled";
+    var inner=steps.map(function(s,i){ return '<div class="step '+s.state+'"><div class="step-top"><div class="step-dot">'+(s.state==="done"?"✓":((s.state==="rejected"||s.state==="cancelled")?"✕":(i+1)))+'</div><div class="step-name">'+esc(s.name)+'</div><div class="step-state" style="color:'+stColor(s.state)+'">'+esc(s.statusLabel||_STEP_LBL[s.state]||s.state)+'</div></div><div class="step-meta">'+(s.meta||"")+'</div></div>'; }).join("");
+    return '<div class="stepline'+(huy?" is-cancelled":"")+'" style="--n:'+n+';--k:'+k+'">'+inner+'</div>'; }
 
   function timelineHTML(items){ if(!items||!items.length) return '<div class="hint">Chưa có hoạt động.</div>';
     var LBL={Submitted:"Đã gửi",Approved:"Đã duyệt","Information Requested":"Yêu cầu bổ sung",Rejected:"Từ chối",Resubmitted:"Gửi lại",Restarted:"Duyệt lại từ đầu",Skipped:"Bỏ qua",Cancelled:"Đã hủy",Commented:"Ghi chú"};
