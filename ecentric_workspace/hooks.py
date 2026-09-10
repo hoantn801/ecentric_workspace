@@ -260,20 +260,29 @@ fixtures = [
             # an/hien cua ec_brand.
             "EC Payment Request-ec_loai_chi_phi", "EC Payment Request-ec_can_brand",
             "EC Payment Request-ec_brand",
+            # % phi quan ly gian hang tren Brand (10/09/2026, Hoan). PnL nhan voi NMV
+            # theo ngay (`EC NMV Ngay`) de DOI CHIEU voi so thuc thu o ma REV_QL_TT.
+            # Mat field nay thi phep doi chieu im lang tra ve 0 cho moi brand, trong y
+            # het "khong lech" - nguy hiem hon la bao loi.
+            "Brand-ec_phi_ql_pct",
             # LUU Y (CnB xac nhan truoc khi them): cac field luong tren Employee cung
             # chua versioned -- ec_pit_10, ec_pit_luytien, ec_dong_bhxh, ec_mst_ca_nhan,
             # ec_so_nguoi_phu_thuoc, ec_allow_lunch/coffee/computer, ec_late_early_bank.
         ]]],
     },
-    # Hai DocType custom cua PnL dashboard (09/09/2026). Truoc day chi ton tai tren
+    # Ba DocType custom cua PnL dashboard (09-10/09/2026). Truoc day chi ton tai tren
     # production -> bench moi hoac site dung lai la mat sach: `EC Loai Chi Phi` mat thi
     # form DNTT chan gui (truong bat buoc tro toi mot DocType khong ton tai), va PnL het
     # gom nhom duoc. Schema di theo repo; RIENG 27 dong danh muc thi do patch
     # p173_seed_loai_chi_phi gieo va chi gieo dong CON THIEU, nen Finance sua tren site
     # khong bao gio bi migrate ghi de.
+    # `EC NMV Ngay` (10/09/2026) giu doanh so thuan theo brand x SAN x NGAY, nap tu PowerBI
+    # qua API `ec_nmv_upsert` hoac Data Import. Chi SCHEMA di theo repo - du lieu ngay thi
+    # khong, vi no la so nghiep vu chay hang ngay.
     {
         "dt": "DocType",
-        "filters": [["name", "in", ["EC Loai Chi Phi", "EC Nhan Su Brand"]]],
+        "filters": [["name", "in", ["EC Loai Chi Phi", "EC Nhan Su Brand",
+                                    "EC NMV Ngay"]]],
     },
     {
         "dt": "Role",

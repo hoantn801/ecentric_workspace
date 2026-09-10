@@ -350,13 +350,48 @@ def _expected_for(dsr, allow_predating=False):
     # 28/08 van bi chan (khi do chi co MOT chu ky, chan doi cai thu HAI).
     return {"document_id": pkg.scts_document_id, "user_id": dsr.effective_scts_user_id,
             "signature_id": dsr.effective_signature_id, "file_count": file_count,
-            # eContract detail identifies internal signers by EMAIL only (no userIds);
-            # the ERP user id IS the company email of the bound signer.
-            "email": dsr.actor_user or dsr.approver,
+            # eContract detail identifies internal signers by EMAIL only (no userIds).
+            # Truoc 10/09 o day chi co MOT email - cua nguoi dung ERP - kem gia dinh "ERP
+            # user id CHINH LA email cong ty cua nguoi ky". Gia dinh do dung khi ai cung
+            # dung tai khoan SCTS cua rieng minh, va VO ngay khi co tai khoan DUNG CHUNG:
+            # EC-PAYR-2026-00087 do chi Huong gui, nhung tai lieu duoc ky bang tai khoan
+            # `cnb.ecentric@` (CnB dung chung, chi Huong la nguoi su dung). ERP hoi
+            # "huong.pham@ dau?", cong tra "cnb.ecentric@ da ky" -> truot, va poll_pending
+            # quay `expected_signer_absent:.../of5` 9 lan lien tiep, phieu dung im o
+            # current_level=0 vi cap 1 chi mo SAU khi chan ky nguoi de nghi xong.
+            "email": _emails_cua_cung_danh_tinh(dsr),
             "signed_after": signed_after,
             "prior_signatures": _completed_legs_of_same_signer(dsr),
             # Chi doi soat THU CONG moi bat - xem _check_by_ordinal trong providers/base.py.
             "allow_predating": bool(allow_predating)}
+
+
+def _emails_cua_cung_danh_tinh(dsr):
+    """Cac email co the DAI DIEN cho chan ky nay tren cong SCTS.
+
+    Luon co email nguoi dung ERP. Them vao do email cua NHUNG ANH XA KHAC tro toi CUNG MOT
+    `scts_user_id` - tuc cung mot danh tinh ben nha cung cap. Vi du that: EC-DSM-00036
+    (huong.pham@) va EC-DSM-00009 (cnb.ecentric@) cung mang `f438bc01-...`, vi tai khoan CnB
+    do chi Huong su dung.
+
+    RANG BUOC CHAT, khong phai noi long tuy tien:
+      * chi ANH XA - khong doc email tu bat cu dau khac;
+      * chi anh xa `active=1` VA `mapping_status="Verified"` - ban nhap hay ban bi go khong
+        duoc tinh;
+      * chi khi chan ky co `effective_scts_user_id`; khong co thi giu dung mot email nhu cu.
+    Nhung dieu kien khac cua `verify_signed_result` (dung tai lieu, dung so tep, dung thu tu
+    chu ky, moc thoi gian) KHONG he bi nong: cai duy nhat rong ra la "goi ten ai".
+    """
+    email_erp = dsr.get("actor_user") or dsr.get("approver")
+    uid = (dsr.get("effective_scts_user_id") or "").strip()
+    if not uid:
+        return email_erp
+    khac = frappe.get_all("EC SCTS User Mapping",
+                          filters={"scts_user_id": uid, "active": 1,
+                                   "mapping_status": "Verified"},
+                          pluck="frappe_user") or []
+    ds = [email_erp] + [e for e in khac if e and e != email_erp]
+    return [e for e in ds if e]
 
 
 def mark_verified(dsr_name, reason="verified"):
@@ -981,7 +1016,12 @@ def sync_signatures_from_provider(business_doctype, business_name, reason):
         expected = {
             "document_id": doc_id,
             "user_id": mapping.scts_user_id,
-            "email": who,
+            # Cung ly do voi `_expected_for`: cong dinh danh nguoi ky bang EMAIL, ma mot
+            # nguoi co the ky bang tai khoan SCTS dung chung. Hai duong nay PHAI goi ten
+            # nguoi ky giong nhau, khong thi doi soat tay va poll tu dong lai ra hai ket
+            # qua khac nhau tren cung mot chu ky.
+            "email": _emails_cua_cung_danh_tinh(
+                {"actor_user": who, "effective_scts_user_id": mapping.scts_user_id}),
             "signature_id": mapping.signature_id,
             # KHONG co `signed_after`: dinh nghia cua tinh huong nay la ky TRUOC khi ERP hoi.
             "prior_signatures": frappe.db.count(
