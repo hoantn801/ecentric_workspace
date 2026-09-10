@@ -208,9 +208,8 @@
     "sha256": "4aa7b29bac83023432ed92af04d9393efb7c74d157acec9473008df4aa86aecd"
   },
   "reporting/frontend/pnl_dashboard.main_section.html": {
-    "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "f0e175a1d66111e7ea2f27e81f581e11b13c24d6ede97995fb15ad5004296a45"
+    "last_resync_patch": "p175_resync_pnl_dashboard_chi_phi",
+    "sha256": "2c8ebf6531240e3ea75fc4b3c02a5633f076183a512b101edd744ed6ec235339"
   },
   "reporting/frontend/reports.main_section.html": {
     "baseline": "2026-08-31",
