@@ -247,15 +247,56 @@ class TestGiaoDien(unittest.TestCase):
         self.assertIn("fx.superseded", self.h)
 
 
+def _compose_dang_ship():
+    """Dung lai DUNG thu ma `page_sync._html()` tra ve: main + 3 panel esign.
+
+    Chep thu tu ghep tu `page_sync._html()`. Neu ai do doi thu tu / them panel ben do ma
+    khong sua o day thi test se do - dung y: hai cho phai di cung nhau.
+    """
+    def doc(*p):
+        return io.open(os.path.join(_APP, *p), encoding="utf-8").read()
+
+    def panel(f):
+        p = os.path.join(_APP, "platform", "esign", "ui", f)
+        return doc("platform", "esign", "ui", f) if os.path.exists(p) else ""
+    return (doc(*_UI) + "\n"
+            + panel("requester_signing_panel.html") + "\n"
+            + '<div id="ec-approver-wrap" style="display:none">\n'
+            + panel("payment_request_signing.html")
+            + '\n</div>\n'
+            + panel("document_signing_section.html"))
+
+
 class TestKhoaChongTroiVaPatch(unittest.TestCase):
-    def test_BASELINE_bang_sha_cua_HTML_dang_ship(self):
+    def test_BASELINE_bang_sha_cua_COMPOSE_chu_khong_phai_cua_FILE(self):
+        """BASELINE duoc so voi `main_section_html` cua trang SONG, ma trang do duoc ghi bang
+        `_html()` = main + 3 panel esign - KHONG phai rieng ui/main_section.html.
+
+        Ban dau test nay bam rieng file main (10/09 phat hien): mot cai cong canh sai thu.
+        Hai gia tri lech nhau that (128 591 vs 237 816 ky tu), nen BASELINE khong bao gio
+        khop live - va vi `upsert_web_page` con chap nhan `ec_page_sync_sha` do
+        `record_live_sha` ghi lai nen KHONG co gi hong, chi la luoi du phong vo dung. Mot
+        luoi du phong sai thi lan nao can toi no cung khong do duoc.
+        """
         import hashlib
-        raw = io.open(os.path.join(_APP, *_UI), "rb").read().replace(b"\r\n", b"\n")
-        h = hashlib.sha256(raw).hexdigest()
+        h = hashlib.sha256(_compose_dang_ship().encode("utf-8")).hexdigest()
         ps = _read("approval_center", "features", "payment_request", "infrastructure",
                    "page_sync.py")
         self.assertIn('BASELINE_SHA256 = "%s"' % h, ps,
-                      "lech thi upsert TU CHOI GHI va patch hong IM LANG")
+                      "BASELINE phai la sha cua _html() da compose")
+
+    def test_manifest_bam_FILE_chu_khong_phai_compose(self):
+        """Doi lai, `resync_manifest.json` bam DUNG FILE template - do la ban ke "file nao
+        da doi ma chua co patch resync". Nham hai thu nay la sua mai khong xanh."""
+        import hashlib
+        import json
+        raw = io.open(os.path.join(_APP, *_UI), "rb").read().replace(b"\r\n", b"\n")
+        h = hashlib.sha256(raw).hexdigest()
+        man = json.loads(_read("approval_center", "patches", "resync_manifest.json"))
+        self.assertEqual(
+            man["approval_center/features/payment_request/ui/main_section.html"]["sha256"], h)
+        self.assertNotEqual(h, hashlib.sha256(_compose_dang_ship().encode("utf-8")).hexdigest(),
+                            "hai gia tri nay PHAI khac nhau - bang nhau la mot cai dang sai")
 
     def test_ban_cu_nam_trong_SUPERSEDES(self):
         ps = _read("approval_center", "features", "payment_request", "infrastructure",
@@ -264,6 +305,14 @@ class TestKhoaChongTroiVaPatch(unittest.TestCase):
         self.assertIn("74d10a85d20203ee214212072d944f8fb37599457be4f2fb3e963fd323d6cdda", ps)
         # baseline cu (da lech san)
         self.assertIn("6cd06565ca958bd89a0e33e5c2a6a63484b45d7417d0bee748112d76566e9c59", ps)
+
+    def test_compose_ma_LIVE_dang_giu_phai_duoc_chap_nhan(self):
+        """Da do truc tiep 09/09: live tren team.ecentric.vn dang bam ra dung gia tri nay
+        (compose sau p170). Bo no khoi SUPERSEDES la tu tay dung mot cai cong tu choi cho
+        lan sync toi, neu `ec_page_sync_sha` vi ly do nao do khong con."""
+        ps = _read("approval_center", "features", "payment_request", "infrastructure",
+                   "page_sync.py")
+        self.assertIn("950c56c3d385132623b12f5dc6e61554bf910ea2a6243df06f4109816c5b6d68", ps)
 
     def test_patch_da_khai_va_KIEM_ket_qua(self):
         self.assertIn("p170_resync_payment_request_unc_claim_dates", _read("patches.txt"))
