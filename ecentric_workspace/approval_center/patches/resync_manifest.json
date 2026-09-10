@@ -131,7 +131,7 @@
     "sha256": "50196bc31f7bfbd98d6d8ebcbad42fd15edcf5edbe47bceaf157d3015034ffa2"
   },
   "approval_center/ui/all_requests/main_section.html": {
-    "last_resync_patch": "p175_resync_hub_filter_box_height",
+    "last_resync_patch": "p176_resync_hub_filter_box_height",
     "sha256": "5fd5fdf1f38267e3d4c5e269c2ac3b4bffbadaded2fc68cbdf7d1b9ffa0e2bbf"
   },
   "approval_center/ui/dashboard/main_section.html": {
@@ -208,9 +208,8 @@
     "sha256": "4aa7b29bac83023432ed92af04d9393efb7c74d157acec9473008df4aa86aecd"
   },
   "reporting/frontend/pnl_dashboard.main_section.html": {
-    "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "f0e175a1d66111e7ea2f27e81f581e11b13c24d6ede97995fb15ad5004296a45"
+    "last_resync_patch": "p175_resync_pnl_dashboard_chi_phi",
+    "sha256": "2c8ebf6531240e3ea75fc4b3c02a5633f076183a512b101edd744ed6ec235339"
   },
   "reporting/frontend/reports.main_section.html": {
     "baseline": "2026-08-31",

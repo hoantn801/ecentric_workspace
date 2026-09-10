@@ -28,13 +28,13 @@ _FORBID = (".ec-cb > *:first-child",)
 def execute():
     res = page_sync.sync()
     action = (res or {}).get("action")
-    frappe.log_error("p175 all_requests sync=%s" % action, "p175 resync")
+    frappe.log_error("p176 all_requests sync=%s" % action, "p176 resync")
     if action == "refused":
-        frappe.log_error("p175: upsert TU CHOI GHI - trang KHONG duoc cap nhat.", "p175 REFUSED")
+        frappe.log_error("p176: upsert TU CHOI GHI - trang KHONG duoc cap nhat.", "p176 REFUSED")
         return
     html = frappe.db.get_value("Web Page", {"route": "approvals/all-requests"},
                                "main_section_html") or ""
     thieu = [m for m in _LANDMARKS if m not in html]
     con = [m for m in _FORBID if m in html]
     if thieu or con:
-        frappe.log_error("p175: thieu=%s con_ban_cu=%s" % (thieu, con), "p175 KHONG toi noi")
+        frappe.log_error("p176: thieu=%s con_ban_cu=%s" % (thieu, con), "p176 KHONG toi noi")
