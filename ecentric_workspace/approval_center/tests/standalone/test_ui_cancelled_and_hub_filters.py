@@ -118,6 +118,22 @@ class TestHubFilterThangHang(unittest.TestCase):
                                   "luat CSS cham vao asset dung chung phai gioi han trong "
                                   ".fgrid: " + dong.strip())
 
+    def test_ep_chieu_cao_nham_vao_CHINH_CAI_NUT(self):
+        """p173 viet `.ec-cb > *:first-child` - ma con dau tien cua .ec-cb la the <select> AN
+        (display:none, cao 0), khong phai nut. Do tren production 10/09: wrap 28px nhung
+        BUTTON.ec-cb-display van 38.9px, wrap overflow:visible -> nut tran 11px xuong duoi
+        the .filters. Ba o ngay khong dinh vi dung `.ec-dp-field` - trung dich tu dau.
+
+        Bai hoc: selector con-thu-nhat la mot phep DOAN ve cau truc DOM cua thanh phan dung
+        chung; thanh phan do co the chen bao nhieu con tuy no. Goi thang TEN LOP."""
+        # BOC CHU THICH: chinh cau chu thich giai thich cai bay nay co chua chuoi
+        # `.ec-cb > *:first-child` - khong boc thi test do vi loi giai thich cua minh.
+        # Lan thu tu trong ngay 10/09 dinh dung mot lop loi nay.
+        css = "\n".join(_bo_chu_thich(k) for k in _khoi_style(self.h))
+        self.assertIn(".ec-cb .ec-cb-display", css, "phai nham thang vao nut")
+        self.assertNotIn(".ec-cb > *:first-child", css,
+                         "selector con-thu-nhat trung vao <select> an, khong phai nut")
+
     def test_khong_con_can_day(self):
         i = self.h.index("#ec-apl-root .fgrid{")
         dong = self.h[i:self.h.index("\n", i)]

@@ -47,7 +47,14 @@
   #ec-apl-root .fgrid select, #ec-apl-root .fgrid input{ width:100%; padding:4px 8px; border:1px solid var(--gray-200); border-radius:7px; font-size:12px; font-family:inherit; background:#fff; height:28px; }
   /* Hai thanh phan dung chung: ep ve dung 28px nhu o nhap thuong. */
   #ec-apl-root .fgrid .ec-dp-wrap, #ec-apl-root .fgrid .ec-cb{ height:28px; }
-  #ec-apl-root .fgrid .ec-dp-field, #ec-apl-root .fgrid .ec-cb > *:first-child{ height:28px; min-height:28px; font-size:12px; }
+  #ec-apl-root .fgrid .ec-dp-field{ height:28px; min-height:28px; font-size:12px; }
+  /* Nham vao CHINH cai nut, khong phai "con dau tien". p173 viet `.ec-cb > *:first-child`
+     - ma con dau tien cua .ec-cb la the <select> AN (display:none, cao 0), khong phai nut.
+     Nen luat khong trung dich: khung ep con 28px nhung nut van 38.9px, va vi wrap de
+     overflow:visible nen nut TRAN 11px xuong duoi the trang (do tren production 10/09).
+     Mui ten va panel deu bam theo WRAP (arrow top 6.5px = giua cua 28px; panel
+     top:calc(100% + 4px)) nen khong phai chinh gi them. */
+  #ec-apl-root .fgrid .ec-cb .ec-cb-display{ height:28px; min-height:28px; padding:4px 28px 4px 9px; font-size:12px; }
   #ec-apl-root .fend{ display:flex; flex-direction:column; justify-content:flex-end; }
   /* Nut "Xoa loc" khong co nhan phia tren, nen phai tu chua khoang trong bang dung chieu cao
      cua nhan (14px + 2px margin) thi day nut moi thang hang voi cac o nhap ben canh. */
