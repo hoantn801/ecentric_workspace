@@ -23,6 +23,14 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _CHU_THICH = re.compile(r"<!--.*?-->|/\*.*?\*/", re.S)
 
 
+_STYLE = re.compile(r"<style[^>]*>(.*?)</style>", re.S | re.I)
+
+
+def _khoi_style(s):
+    """Chi lay phan trong <style>. Luat CSS nam o day; moi thu khac la markup hoac JS."""
+    return _STYLE.findall(s)
+
+
 def _bo_chu_thich(s):
     """Boc chu thich TRUOC khi quet nguon.
 
@@ -95,13 +103,20 @@ class TestHubFilterThangHang(unittest.TestCase):
         self.assertIn("#ec-apl-root .fgrid .ec-cb", self.h)
 
     def test_ghi_de_CO_GIOI_HAN_trong_fgrid(self):
-        """`ec-dp-*` va `ec-cb` la asset dung chung TOAN SITE. Mot luat khong gioi han pham vi
-        se doi giao dien cua nhung trang khac ma khong ai ngo - dung bai hoc
-        'asset toan site: TRANG tu khai quyen so huu'."""
-        for dong in _bo_chu_thich(self.h).splitlines():
-            if ".ec-dp-" in dong or ".ec-cb" in dong:
-                self.assertIn("#ec-apl-root .fgrid", dong,
-                              "luat cham vao asset dung chung phai gioi han trong .fgrid: " + dong.strip())
+        """`ec-dp-*` va `ec-cb` la asset dung chung TOAN SITE. Mot LUAT CSS khong gioi han
+        pham vi se doi giao dien cua nhung trang khac ma khong ai ngo - bai hoc
+        'asset toan site: TRANG tu khai quyen so huu'.
+
+        CHI quet trong <style>. Ban dau quet ca file, nen mot dong JAVASCRIPT hop le -
+        `t.closest(".ec-cb-display")` - cung bi doi hoi mang selector CSS. Chon nhieu cham
+        thu hai trong mot ngay: phep do phai cat dung loai dong minh muon kiem.
+        """
+        for khoi in _khoi_style(self.h):
+            for dong in _bo_chu_thich(khoi).splitlines():
+                if ".ec-dp-" in dong or ".ec-cb" in dong:
+                    self.assertIn("#ec-apl-root .fgrid", dong,
+                                  "luat CSS cham vao asset dung chung phai gioi han trong "
+                                  ".fgrid: " + dong.strip())
 
     def test_khong_con_can_day(self):
         i = self.h.index("#ec-apl-root .fgrid{")
@@ -119,6 +134,50 @@ class TestHubFilterThangHang(unittest.TestCase):
                       (self.h.index("#ec-apl-root .apl-title{"), "font-size:17px")):
             self.assertNotIn(cu, self.h[i:self.h.index("\n", i)], cu + " la co cu")
         self.assertIn("font-size:12.5px", self.h[self.h.index("#ec-apl-root .tab{"):][:200])
+
+    def test_mo_mot_o_loc_thi_dong_cac_o_kia(self):
+        """DO TREN PRODUCTION 10/09: bam lan luot 4 o loc -> CA BON panel cung mo, chong len
+        bang ben duoi. Goc o `ec_formkit.bundle.js`: nut goi `e.stopPropagation()` nen cu bam
+        khong toi duoc bo dong-khi-bam-ra-ngoai o tang document cua ba o kia."""
+        self.assertIn("function dongOLocKhac", self.h)
+        i = self.h.index("function dongOLocKhac")
+        than = self.h[i:i + 900]
+        self.assertIn(".ec-cb-panel", than)
+        self.assertIn("hidden=true", than.replace(" ", ""))
+
+    def test_nghe_o_PHA_BAT_va_trong_pham_vi_fgrid(self):
+        """Hai dieu kien SONG HANH, thieu mot la vo dung:
+          * pha BAT (capture=true) - pha noi bot bi stopPropagation cua nut chan mat;
+          * gioi han trong `#ec-apl-root .fgrid` - `ec-cb` la asset dung chung toan site,
+            nghe o tang document la doi hanh vi cua nhung trang khac ma khong ai ngo."""
+        i = self.h.index("function dongOLocKhac")
+        than = self.h[i:i + 900]
+        self.assertIn("#ec-apl-root .fgrid", than)
+        self.assertIn("}, true)", than.replace(" ", "").replace("\n", "")
+                      .replace("},true)", "}, true)"))
+
+    def test_boot_CO_goi_dongOLocKhac(self):
+        """Viet ham ma khong noi vao boot thi la code chet."""
+        i = self.h.index("function boot()")
+        self.assertIn("dongOLocKhac();", self.h[i:i + 1200])
+
+    def test_KHONG_sua_bundle_dung_chung(self):
+        """Ban va phai nam TRONG trang nay. Neu ai do chuyen sang sua `ec_formkit.bundle.js`
+        thi 27 form + cac trang legacy dung chung deu doi hanh vi.
+
+        Kiem CHINH FILE bundle, khong kiem chuoi trong trang hub. Ban dau viet
+        `assertNotIn("ec_formkit.bundle", self.h)` - va no do vi chinh CAU CHU THICH trong
+        trang giai thich goc loi da nhac ten file do. Lan thu ba trong ngay mot phep do bi
+        chinh chu thich cua minh lam do; nen quet vao THU CAN KIEM, dung quet quanh no.
+        """
+        p = os.path.join(_APP, "public", "js", "ec_formkit.bundle.js")
+        if not os.path.exists(p):
+            self.skipTest("khong thay ec_formkit.bundle.js")
+        src = _read("public", "js", "ec_formkit.bundle.js")
+        self.assertNotIn("dongOLocKhac", src,
+                         "ban va phai nam trong trang hub, KHONG duoc do vao bundle dung chung")
+        self.assertNotIn("ec-apl-root", src,
+                         "bundle dung chung khong duoc biet gi ve trang hub")
 
     def test_KHONG_dung_zoom_cho_ca_trang(self):
         """`zoom` lam lech moi phep do toa do (screenshot, getBoundingClientRect) va keo theo
@@ -143,15 +202,28 @@ class TestPatchVaBanKe(unittest.TestCase):
         self.assertIn("frappe.log_error(frappe.get_traceback()", src[i:])
 
     def test_ban_ke_ma_bam_cap_nhat_cho_CA_HAI_trang(self):
+        """Ba buoc sua HTML: ma bam khop FILE, patch duoc tro toi CO THAT, va da khai trong
+        patches.txt.
+
+        KHONG bat cung TEN patch. Ban dau chot "p173_resync_cancelled_badge_and_hub_filters",
+        nen dot sau (p174) lam test do trong khi khong co gi sai - buoc moi dot sua trang nay
+        deu phai sua test. Dieu can giu la ba buoc DAY DU, khong phai mot cai ten.
+        """
         import hashlib
         import json
         man = json.loads(_read("approval_center", "patches", "resync_manifest.json"))
+        khai = _read("patches.txt")
         for khoa, duong in (("approval_center/features/payment_request/ui/main_section.html", _PR_UI),
                             ("approval_center/ui/all_requests/main_section.html", _HUB_UI)):
             raw = io.open(os.path.join(_APP, *duong), "rb").read().replace(b"\r\n", b"\n")
-            self.assertEqual(man[khoa]["sha256"], hashlib.sha256(raw).hexdigest(), khoa)
-            self.assertEqual(man[khoa]["last_resync_patch"],
-                             "p173_resync_cancelled_badge_and_hub_filters", khoa)
+            self.assertEqual(man[khoa]["sha256"], hashlib.sha256(raw).hexdigest(),
+                             khoa + ": ma bam khong khop FILE")
+            patch = man[khoa].get("last_resync_patch") or ""
+            self.assertTrue(patch, khoa + ": thieu last_resync_patch")
+            self.assertTrue(
+                os.path.exists(os.path.join(_APP, "approval_center", "patches", patch + ".py")),
+                khoa + ": ban ke tro toi patch KHONG TON TAI: " + patch)
+            self.assertIn(patch, khai, khoa + ": patch chua khai trong patches.txt: " + patch)
 
 
 if __name__ == "__main__":

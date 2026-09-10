@@ -1019,7 +1019,37 @@
     $("apl-reset").onclick=function(){ FILTER_IDS.forEach(function(id){ $(id).value=""; }); autoApply(); };
     $("f-search").addEventListener("keydown",function(e){ if(e.key==="Enter"){ clearTimeout($("f-search")._t); autoApply(); } });
     var ham=$("apl-ham"); if(ham) ham.onclick=function(){ document.getElementById("ec-apl-root").classList.toggle("sb-open"); };
+    dongOLocKhac();
     loadOptions().then(load);
+  }
+
+  // Mo mot o loc thi ba o kia phai DONG. Do duoc tren production 10/09: bam lan luot bon o
+  // "Nhom / Loai yeu cau / Phong ban / Trang thai" thi ca BON panel cung mo, chong len bang
+  // ben duoi - nhin nhu giao dien vo.
+  //
+  // Goc o `ec_formkit.bundle.js` (asset dung chung toan site):
+  //     btn.onclick = function(e){ e.stopPropagation(); panel.hidden ? open() : close(); };
+  //     document.addEventListener("click", function(e){ if(!wrap.contains(e.target)) close(); });
+  // Moi o CO san bo dong-khi-bam-ra-ngoai o tang document. Nhung nut cua no goi
+  // stopPropagation(), nen cu bam KHONG BAO GIO toi duoc document -> bo dong cua ba o kia
+  // khong chay. Bam ra ngoai (khong trung nut nao) thi dong het - dung nhu do duoc.
+  //
+  // KHONG sua bundle: no dung chung toan site, sua o do la doi hanh vi cua nhung trang khac
+  // ma khong ai ngo (bai hoc "asset toan site: TRANG tu khai quyen so huu"). Nghe o PHA BAT
+  // (capture) - chay tu tren xuong TRUOC khi handler cua nut kip chan - va gioi han pham vi
+  // trong .fgrid cua chinh trang nay.
+  function dongOLocKhac(){
+    var g=document.querySelector("#ec-apl-root .fgrid"); if(!g) return;
+    if(g.__aplCbOnce) return; g.__aplCbOnce=true;
+    g.addEventListener("click", function(e){
+      var t=e.target; if(!t||!t.closest) return;
+      var btn=t.closest(".ec-cb-display"); if(!btn) return;
+      var cua_toi=btn.closest(".ec-cb");
+      Array.prototype.forEach.call(g.querySelectorAll(".ec-cb"), function(cb){
+        if(cb===cua_toi) return;
+        var p=cb.querySelector(".ec-cb-panel"); if(p) p.hidden=true;
+      });
+    }, true);
   }
   window.ApprovalAll={ state:state, openDetail:openDetail, toast:toast, closeDetail:closeDetail, drawDetail:drawDetail, withFrom:withFrom, syncUrl:syncUrl, quickActions:quickActions, runAction:runAction, boot:boot, load:load, autoApply:autoApply, anyFilter:anyFilter, render:render, filters:filters, setBox:setBox, avatar:avatar, initials:initials, _call:call };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
