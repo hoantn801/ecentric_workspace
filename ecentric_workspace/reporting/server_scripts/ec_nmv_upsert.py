@@ -347,6 +347,11 @@ else:
                             n_giu_thuc = n_giu_thuc + 1
                             continue
                         # ---- chot chan ghi de trong cung mot dot ----
+                        # Dung toan tu % chu KHONG dung "{}".format():
+                        # RestrictedPython chan .format ("format is an unsafe
+                        # attribute"), va loi do se NUOT MAT cau thong bao -
+                        # dung cai ma chot chan sinh ra de giai thich. Da dinh
+                        # mot lan 11/09, kiem tren site that moi lo ra.
                         if not cho_phep_ghi_de:
                             nmv_cu = frappe.utils.flt(cu.get("nmv"))
                             giay = 999999.0
@@ -362,11 +367,12 @@ else:
                                 n_chan = n_chan + 1
                                 errs = errs + [
                                     "%s: CHAN GHI DE - ban ghi vua duoc ghi %d giay truoc "
-                                    "voi %s, lan goi nay gui %s. Rat co the mot ngay bi cat "
+                                    "voi %d dong, lan goi nay gui %d dong. Rat co the mot ngay "
+                                    "bi cat "
                                     "doi giua hai lo. Hay chia lo theo NGAY roi chay lai; "
                                     "neu that su muon ghi de thi gui cho_phep_ghi_de=1."
-                                    % (key, int(giay), "{:,.0f}".format(nmv_cu),
-                                       "{:,.0f}".format(frappe.utils.flt(it["nmv"])))]
+                                    % (key, int(giay), nmv_cu,
+                                       frappe.utils.flt(it["nmv"]))]
                                 continue
                         frappe.db.set_value("EC NMV Ngay", key,
                                             {"nmv": it["nmv"], "nguon": it["nguon"],
