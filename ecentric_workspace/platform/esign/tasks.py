@@ -1169,3 +1169,23 @@ def sweep_provider_signature_drift():
                ", ".join(str(u.get("business_name")) for u in doc_khong_duoc[:20])),
             "esign.tasks.sweep_provider_signature_drift")
     return da_bao
+
+
+# --- hai vo mong cho hai khung gio -------------------------------------------------------
+# VI SAO PHAI CO. Frappe dinh danh Scheduled Job Type bang `method`, khong phai bang
+# (method, cron). Khai CUNG MOT ham o hai bieu thuc cron chi tao ra MOT ban ghi - lan khai
+# sau ghi de lan truoc - nen luot 08:30 bien mat khong mot tieng dong nao. Da do tren prod
+# 10/09: `sweep_provider_signature_drift` khai o "30 8" + "30 14" -> chi con "30 14" ton tai;
+# `pm.api.schedule.nudge_unconfirmed` khai o "0 9" + "0 18" -> chi con "0 18" (loi cung loai,
+# im lang tu truoc, thuoc module PM).
+#
+# Hai ham rieng = hai `method` rieng = hai ban ghi rieng. Chung KHONG duoc mang them logic
+# nao: moi quyet dinh van nam trong `sweep_provider_signature_drift`, o day chi la cai ten.
+def sweep_provider_signature_drift_0830():
+    """Luot soi lech buoi sang (08:30 gio Viet Nam). Xem ghi chu ngay tren."""
+    return sweep_provider_signature_drift()
+
+
+def sweep_provider_signature_drift_1430():
+    """Luot soi lech buoi chieu (14:30 gio Viet Nam). Xem ghi chu ngay tren."""
+    return sweep_provider_signature_drift()

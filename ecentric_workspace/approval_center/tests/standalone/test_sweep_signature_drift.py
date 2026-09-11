@@ -244,20 +244,16 @@ class TestGoiDungCuaVaoVaLichChay(unittest.TestCase):
         # `coalesce`.)
         self.assertNotIn("assert_system_manager", _than_ham("_audit_drift", _SVC))
 
-    def test_hooks_dat_dung_hai_moc_gio_dia_phuong(self):
-        """System Settings.time_zone = Asia/Ho_Chi_Minh (da doi chieu tren prod 09/09) nen
-        Frappe chay cron theo gio VN - KHONG duoc quy ra UTC."""
-        src = _read("hooks.py")
-        ns = {"__name__": "hooks"}
-        body = "".join(l for l in src.splitlines(True)
-                       if not l.lstrip().startswith(("from .", "import .")))
-        exec(compile(body, "hooks.py", "exec"), ns)
-        cron = ns["scheduler_events"]["cron"]
-        M = "ecentric_workspace.platform.esign.tasks.sweep_provider_signature_drift"
-        for moc in ("30 8 * * *", "30 14 * * *"):
-            self.assertIn(M, cron.get(moc, []), moc)
-        chay = [k for k, v in cron.items() if M in v]
-        self.assertEqual(len(chay), 2, "dung HAI luot/ngay, khong hon: %s" % chay)
+    # LICH CHAY da chuyen sang `test_hooks_cron_mot_method_mot_slot.py` (10/09).
+    #
+    # Phep kiem cu o day khang dinh CUNG MOT ham nam o ca hai bieu thuc cron - va no xanh,
+    # trong khi thuc te tren prod chi co MOT ban ghi Scheduled Job Type ton tai: Frappe khoa
+    # theo `method`, nen luot 08:30 chua bao gio chay. Mot phep kiem xanh trong khi su that
+    # do te hon khong co phep kiem nao, vi no dap tat dung cai cau hoi can hoi.
+    #
+    # File moi kiem dieu bat bien dung: MOI `method` chi duoc khai o MOT slot cron, va hai
+    # luot soi lech phai la hai ham vo mong rieng (_0830 / _1430). Khong lap lai o day de
+    # khoi co hai ban sao lech nhau.
 
 
 if __name__ == "__main__":
