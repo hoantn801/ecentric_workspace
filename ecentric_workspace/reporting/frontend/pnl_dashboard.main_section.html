@@ -376,6 +376,39 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <p class="pnl-card-n" id="tq-brand-note" style="margin-top:10px"></p>
   </section>
 
+  <section class="pnl-card" data-tab="doanh-thu">
+    <div class="pnl-card-h">
+      <div>
+        <h2 class="pnl-card-t">Cơ cấu nguồn thu</h2>
+        <p class="pnl-card-n" id="ct-dt-n">Gồm cả phần phí quản lý tính từ NMV — đó là lát cắt lớn nhất và cũng là lát duy nhất chưa có chứng từ.</p>
+      </div>
+    </div>
+    <div class="pnl-chart" id="ch-ct-dt"></div>
+    <div class="pnl-fb pnl-hidden" id="fb-ct-dt"></div>
+  </section>
+
+  <section class="pnl-card" data-tab="chi-phi">
+    <div class="pnl-card-h">
+      <div>
+        <h2 class="pnl-card-t">Cơ cấu chi phí</h2>
+        <p class="pnl-card-n" id="ct-cp-n">Quỹ lương tách thành bốn phần, chi phí khác gom theo nhóm khoản mục.</p>
+      </div>
+    </div>
+    <div class="pnl-chart" id="ch-ct-cp"></div>
+    <div class="pnl-fb pnl-hidden" id="fb-ct-cp"></div>
+  </section>
+
+  <section class="pnl-card" data-tab="opex">
+    <div class="pnl-card-h">
+      <div>
+        <h2 class="pnl-card-t">OPEX theo tháng</h2>
+        <p class="pnl-card-n" id="ct-ox-n">Cột đặc là đã duyệt (tính vào chi phí), cột nhạt là đang chờ (chỉ tham khảo). Tháng trống nghĩa là chưa có phiếu nào, không phải không chi.</p>
+      </div>
+    </div>
+    <div class="pnl-chart" id="ch-ct-ox"></div>
+    <div class="pnl-fb pnl-hidden" id="fb-ct-ox"></div>
+  </section>
+
   <div class="pnl-msg info pnl-hidden" id="pnl-rev-denied"></div>
   <div id="pnl-rev-wrap">
   <section data-tab="doanh-thu" class="pnl-kpis">
@@ -2109,7 +2142,124 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     veThacNuoc(x);
     veCanhBao(x);
     veBrandPnl(x);
+    veCoCauDoanhThu(x);
+    veCoCauChiPhi(x);
+    veOpexThang();
   }
+
+  var MAU_TRON = ["#2563eb", "#0ea5e9", "#14b8a6", "#84cc16", "#f59e0b",
+                  "#f97316", "#ef4444", "#a855f7", "#6366f1", "#64748b"];
+
+  function veTron(elId, fbId, rows, ghiChu) {
+    var tong = 0, i;
+    for (i = 0; i < rows.length; i++) tong += rows[i].value || 0;
+    if (!tong) { emptyBox(elId, fbId, ghiChu || "Không có số liệu trong kỳ đã chọn."); return; }
+    if (!chartsOk()) { emptyBox(elId, fbId, "Không tải được thư viện biểu đồ."); return; }
+    var t = tokens(), data = [];
+    for (i = 0; i < rows.length; i++) {
+      if (!rows[i].value) continue;
+      data.push({
+        name: rows[i].name, value: rows[i].value,
+        itemStyle: { color: rows[i].color || MAU_TRON[i % MAU_TRON.length] }
+      });
+    }
+    var o = {
+      backgroundColor: "transparent",
+      tooltip: {
+        trigger: "item",
+        formatter: function (p) {
+          return '<div style="font-weight:600;margin-bottom:4px">' + esc(p.name) + "</div><b>"
+               + num(p.value) + " đ</b> · " + p.percent + "%";
+        }
+      },
+      legend: { type: "scroll", orient: "vertical", right: 8, top: "middle",
+                textStyle: { color: t.muted, fontSize: 11 }, itemWidth: 10, itemHeight: 10 },
+      series: [{
+        type: "pie", radius: ["46%", "72%"], center: ["32%", "50%"],
+        avoidLabelOverlap: true, itemStyle: { borderColor: "#ffffff", borderWidth: 2 },
+        label: { show: false }, labelLine: { show: false },
+        emphasis: { label: { show: true, fontSize: 13, fontWeight: 600,
+                    formatter: function (p) { return p.percent + "%"; } } },
+        data: data
+      }]
+    };
+    draw(elId, fbId, o);
+  }
+
+  function veCoCauDoanhThu(x) {
+    var rows = [], sv = (DATA && DATA.by_service) || [], i;
+    for (i = 0; i < sv.length; i++) rows.push({ name: sv[i].label, value: sv[i].total || 0 });
+    if (x.phi) rows.push({ name: "Phí QL gian hàng (ước tính)", value: x.phi, color: "#f59e0b" });
+    rows.sort(function (a, b) { return b.value - a.value; });
+    veTron("ch-ct-dt", "fb-ct-dt", rows, "Chưa có doanh thu nào trong kỳ đã chọn.");
+    $("ct-dt-n").textContent = x.phi
+      ? ("Tổng " + money(x.thu) + ", trong đó phí quản lý ước tính " + money(x.phi)
+         + " (" + pct(x.phi, x.thu) + ") là phần DUY NHẤT chưa có chứng từ.")
+      : "Chưa gộp được phí quản lý vào đây vì phần phí đang đọc kỳ khác với phần doanh thu.";
+  }
+
+  function veCoCauChiPhi(x) {
+    if (!COST || !COST.ok) { emptyBox("ch-ct-cp", "fb-ct-cp", "Chưa tải được phần chi phí."); return; }
+    var pc = (COST.payroll && COST.payroll.company) || [], i;
+    var base = 0, allow = 0, bh = 0, proj = 0, bonus = 0;
+    for (i = 0; i < pc.length; i++) {
+      base += pc[i].base || 0; allow += pc[i].allow || 0; bh += pc[i].bh || 0;
+      proj += pc[i].proj || 0; bonus += pc[i].bonus || 0;
+    }
+    var rows = [
+      { name: "Lương cơ bản", value: base, color: "#ef4444" },
+      { name: "Phụ cấp", value: allow, color: "#f97316" },
+      { name: "Bảo hiểm công ty đóng", value: bh, color: "#fb923c" },
+      { name: "Lương dự án", value: proj, color: "#fdba74" },
+      { name: "Thưởng & khác", value: bonus, color: "#fed7aa" }
+    ];
+    var bg = (COST.other_costs && COST.other_costs.by_group) || [];
+    for (i = 0; i < bg.length; i++) {
+      rows.push({ name: "Chi phí khác · " + (bg[i].group || "(không rõ)"), value: bg[i].approved || 0 });
+    }
+    veTron("ch-ct-cp", "fb-ct-cp", rows, "Chưa có chi phí nào trong kỳ đã chọn.");
+    $("ct-cp-n").textContent = "Tổng " + money(x.cp) + " — quỹ lương " + money(x.luong)
+      + " (" + (x.cp ? pct(x.luong, x.cp) : "—") + ") và chi phí khác " + money(x.khac) + ".";
+  }
+
+  function veOpexThang() {
+    if (!COST || !COST.ok) { emptyBox("ch-ct-ox", "fb-ct-ox", "Chưa tải được phần chi phí."); return; }
+    var dsThang = (COST.params && COST.params.months) || [];
+    var bm = (COST.other_costs && COST.other_costs.by_month) || [];
+    if (!dsThang.length) { emptyBox("ch-ct-ox", "fb-ct-ox", "Không xác định được các tháng trong kỳ."); return; }
+    var theo = {}, i;
+    for (i = 0; i < bm.length; i++) theo[bm[i].month] = bm[i];
+    var cats = [], ap = [], pd = [], trong = 0;
+    for (i = 0; i < dsThang.length; i++) {
+      var m = theo[dsThang[i]] || {};
+      cats.push(dsThang[i]);
+      ap.push(m.approved || 0);
+      pd.push(m.pending || 0);
+      if (!(m.approved || 0)) trong++;
+    }
+    // Ghi chu dat TRUOC phep kiem thu vien: no la phan quan trong nhat cua khoi
+    // nay, khong duoc mat chi vi bieu do khong ve duoc.
+    $("ct-ox-n").textContent = trong
+      ? (trong + " trên " + dsThang.length + " tháng không có phiếu chi nào đã duyệt. "
+         + "Cột trống là chưa lập phiếu, không phải không chi — đừng đọc đó là tiết kiệm.")
+      : "Cột đặc là đã duyệt (tính vào chi phí), cột nhạt là đang chờ (chỉ tham khảo).";
+    if (!chartsOk()) { emptyBox("ch-ct-ox", "fb-ct-ox", "Không tải được thư viện biểu đồ."); return; }
+    var t = tokens(), o = baseOption(false);
+    o.xAxis = { type: "category", data: cats,
+      axisLine: { lineStyle: { color: t.border } }, axisTick: { show: false },
+      axisLabel: { color: t.muted, fontSize: 11, hideOverlap: true } };
+    o.yAxis = { type: "value", axisLabel: { color: t.muted, fontSize: 11,
+      formatter: function (v) { return money(v); } },
+      splitLine: { lineStyle: { color: t.border, type: "dashed" } } };
+    o.series = [
+      { name: "Đã duyệt", type: "bar", barMaxWidth: 34,
+        itemStyle: { color: "#ef4444", borderRadius: [4, 4, 0, 0] }, data: ap },
+      { name: "Đang chờ", type: "bar", barMaxWidth: 34,
+        itemStyle: { color: "#fecaca", borderRadius: [4, 4, 0, 0] }, data: pd }
+    ];
+    draw("ch-ct-ox", "fb-ct-ox", o);
+  }
+
 
   function veThacNuoc(x) {
     if (!chartsOk()) { emptyBox("ch-tq-wf", "fb-tq-wf", "Không tải được thư viện biểu đồ."); return; }
