@@ -160,6 +160,19 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
 /* O luoi 2 cot: the chua bang rong (co .pnl-scroll) khong duoc keo cot luoi rong ra
    qua man hinh - min-width:0 de bang cuon trong the thay vi tran ca trang. */
 #ec-pnl-root .pnl-grid2 > .pnl-card{ min-width:0; }
+#ec-pnl-root .pnl-tabbar{ display:flex; gap:6px; flex-wrap:wrap; margin:18px 0 4px;
+  border-bottom:2px solid var(--line); padding-bottom:0; }
+#ec-pnl-root .pnl-tabbar button{ appearance:none; background:transparent; border:0;
+  border-bottom:3px solid transparent; margin-bottom:-2px; padding:10px 16px;
+  font-size:14px; font-weight:600; color:var(--muted); cursor:pointer; border-radius:6px 6px 0 0; }
+#ec-pnl-root .pnl-tabbar button:hover{ background:var(--soft); color:var(--ink); }
+#ec-pnl-root .pnl-tabbar button.on{ color:var(--ink); border-bottom-color:#2563eb; background:var(--soft); }
+#ec-pnl-root .pnl-alert{ display:flex; gap:10px; align-items:flex-start; padding:12px 14px;
+  border-radius:10px; border:1px solid var(--line); background:var(--soft); margin-bottom:8px; font-size:13px; }
+#ec-pnl-root .pnl-alert .pnl-alert-i{ font-weight:700; flex:0 0 auto; }
+#ec-pnl-root .pnl-alert.danger{ background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+#ec-pnl-root .pnl-alert.warn{ background:#fffbeb; border-color:#fde68a; color:#92400e; }
+#ec-pnl-root .pnl-alert.ok{ background:#f0fdf4; border-color:#bbf7d0; color:#166534; }
 #ec-pnl-root .pnl-sep{ display:flex; align-items:center; gap:12px; margin:28px 0 12px; }
 #ec-pnl-root .pnl-sep h2{ font-size:18px; font-weight:700; margin:0; }
 #ec-pnl-root .pnl-sep .pnl-sep-l{ flex:1; height:1px; background:var(--line); }
@@ -289,9 +302,83 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     </div>
   </section>
 
+  <div class="pnl-tabbar" id="pnl-tabbar">
+    <button type="button" data-tb="tong-quan" class="on">Tổng quan</button>
+    <button type="button" data-tb="brand">Theo brand</button>
+    <button type="button" data-tb="doanh-thu">Cấu trúc doanh thu</button>
+    <button type="button" data-tb="chi-phi">Cấu trúc chi phí</button>
+    <button type="button" data-tb="opex">OPEX</button>
+  </div>
+
+  <section class="pnl-kpis" data-tab="tong-quan">
+    <div class="pnl-kpi">
+      <div class="pnl-kpi-l">Tổng doanh thu (gồm phí ước tính)</div>
+      <div class="pnl-kpi-v" id="tq-k-dt">—</div>
+      <div class="pnl-kpi-x" id="tq-k-dt-x">—</div>
+      <div class="pnl-kpi-s" id="tq-k-dt-s">—</div>
+    </div>
+    <div class="pnl-kpi k-cost">
+      <div class="pnl-kpi-l">Tổng chi phí</div>
+      <div class="pnl-kpi-v" id="tq-k-cp">—</div>
+      <div class="pnl-kpi-x" id="tq-k-cp-x">—</div>
+      <div class="pnl-kpi-s" id="tq-k-cp-s">—</div>
+    </div>
+    <div class="pnl-kpi k-profit">
+      <div class="pnl-kpi-l">Lợi nhuận ước tính</div>
+      <div class="pnl-kpi-v" id="tq-k-ln">—</div>
+      <div class="pnl-kpi-x" id="tq-k-ln-x">—</div>
+      <div class="pnl-kpi-s" id="tq-k-ln-s">—</div>
+    </div>
+    <div class="pnl-kpi k-ratio">
+      <div class="pnl-kpi-l">Biên lợi nhuận</div>
+      <div class="pnl-kpi-v" id="tq-k-bien">—</div>
+      <div class="pnl-kpi-x" id="tq-k-bien-x">—</div>
+      <div class="pnl-kpi-s" id="tq-k-bien-s">—</div>
+    </div>
+  </section>
+
+  <section class="pnl-card" data-tab="tong-quan">
+    <div class="pnl-card-h">
+      <div>
+        <h2 class="pnl-card-t">Từ doanh thu tới lợi nhuận</h2>
+        <p class="pnl-card-n" id="tq-wf-n">Cộng dồn từ trái sang phải. Cột phí quản lý là số tính từ NMV, chưa có chứng từ.</p>
+      </div>
+    </div>
+    <div class="pnl-chart" id="ch-tq-wf"></div>
+    <div class="pnl-fb pnl-hidden" id="fb-tq-wf"></div>
+  </section>
+
+  <section class="pnl-card" data-tab="tong-quan">
+    <div class="pnl-card-h">
+      <div>
+        <h2 class="pnl-card-t">Cần để ý</h2>
+        <p class="pnl-card-n">Những gì số liệu đang nói ra, kể cả khi nó bất lợi. Trống nghĩa là không có gì đáng ngại trong kỳ này.</p>
+      </div>
+    </div>
+    <div id="tq-alerts"></div>
+  </section>
+
+  <section class="pnl-card" data-tab="brand">
+    <div class="pnl-card-h">
+      <div>
+        <h2 class="pnl-card-t">Lãi lỗ theo brand</h2>
+        <p class="pnl-card-n">Doanh thu chứng từ cộng phí quản lý ước tính, trừ chi phí gắn brand. <b>Chưa trừ lương</b> — xem ghi chú dưới bảng.</p>
+      </div>
+    </div>
+    <div class="pnl-scroll"><table>
+      <thead><tr>
+        <th>Brand</th><th class="num">DT chứng từ</th><th class="num">Phí QL (ước tính)</th>
+        <th class="num">TỔNG THU</th><th class="num">Chi phí gắn brand</th>
+        <th class="num">CÒN LẠI</th><th class="num">Tỷ trọng thu</th>
+      </tr></thead>
+      <tbody id="tq-brand-b"></tbody>
+    </table></div>
+    <p class="pnl-card-n" id="tq-brand-note" style="margin-top:10px"></p>
+  </section>
+
   <div class="pnl-msg info pnl-hidden" id="pnl-rev-denied"></div>
   <div id="pnl-rev-wrap">
-  <section class="pnl-kpis">
+  <section data-tab="doanh-thu" class="pnl-kpis">
     <div class="pnl-kpi k-total">
       <div class="pnl-kpi-l">Tổng doanh thu</div>
       <div class="pnl-kpi-v" id="k-total">—</div>
@@ -318,7 +405,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     </div>
   </section>
 
-  <section class="pnl-card">
+  <section data-tab="doanh-thu" class="pnl-card">
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Doanh thu theo thời gian</h2>
@@ -330,7 +417,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
   </section>
 
   <div class="pnl-grid2">
-    <section class="pnl-card">
+    <section data-tab="brand" class="pnl-card">
       <div class="pnl-card-h">
         <div>
           <h2 class="pnl-card-t">Theo brand</h2>
@@ -341,7 +428,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
       <div class="pnl-fb pnl-hidden" id="fb-brand"></div>
     </section>
 
-    <section class="pnl-card">
+    <section data-tab="doanh-thu" class="pnl-card">
       <div class="pnl-card-h">
         <div>
           <h2 class="pnl-card-t">Theo phòng ban</h2>
@@ -353,7 +440,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     </section>
   </div>
 
-  <section class="pnl-card">
+  <section data-tab="doanh-thu" class="pnl-card">
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Theo dịch vụ</h2>
@@ -375,7 +462,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     </div>
   </section>
 
-  <section class="pnl-card">
+  <section data-tab="doanh-thu" class="pnl-card">
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Bảng số liệu</h2>
@@ -397,11 +484,11 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
 
   </div><!-- /pnl-rev-wrap -->
 
-  <div class="pnl-sep"><h2>Phí quản lý gian hàng (tính từ NMV)</h2><div class="pnl-sep-l"></div></div>
+  <div data-tab="doanh-thu brand" class="pnl-sep"><h2>Phí quản lý gian hàng (tính từ NMV)</h2><div class="pnl-sep-l"></div></div>
   <div class="pnl-msg info pnl-hidden" id="ql-denied"></div>
   <div id="ql-wrap" class="pnl-hidden">
 
-  <div class="pnl-msg err" id="ql-warn">
+  <div class="pnl-msg err" data-tab="doanh-thu brand" id="ql-warn">
     <b>Đây là số tính ra, không phải doanh thu có chứng từ.</b>
     Kế toán xác nhận khoản phí quản lý gian hàng hiện <b>chưa được ghi ở bất kỳ Sales Order nào</b> —
     mã <b>REV_QL_TT</b> là phí quản lý cộng trên từng gói dịch vụ (booking 10%, affiliate 9%,
@@ -409,7 +496,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     trong <b>EC Phi Quan Ly Brand</b>. Đừng cộng nó vào phần doanh thu ở trên.
   </div>
 
-  <section class="pnl-kpis">
+  <section data-tab="doanh-thu" class="pnl-kpis">
     <div class="pnl-kpi k-cost">
       <div class="pnl-kpi-l">Phí từ NMV thực tế</div>
       <div class="pnl-kpi-v" id="ql-k-thuc">—</div>
@@ -436,7 +523,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     </div>
   </section>
 
-  <section class="pnl-card">
+  <section data-tab="brand" class="pnl-card">
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Theo brand</h2>
@@ -456,11 +543,11 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
 
   </div><!-- /ql-wrap -->
 
-  <div class="pnl-sep"><h2>Chi phí &amp; lợi nhuận (ước tính)</h2><div class="pnl-sep-l"></div></div>
+  <div data-tab="chi-phi" class="pnl-sep"><h2>Chi phí &amp; lợi nhuận (ước tính)</h2><div class="pnl-sep-l"></div></div>
   <div class="pnl-msg info pnl-hidden" id="cp-denied"></div>
   <div id="cp-wrap" class="pnl-hidden">
 
-  <section class="pnl-card">
+  <section data-tab="chi-phi opex" class="pnl-card">
     <div class="pnl-filters">
       <div class="pnl-f">
         <label for="cp-dept">Phạm vi chi phí</label>
@@ -480,7 +567,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <p class="pnl-card-n" id="cp-sub" style="margin-top:10px">—</p>
   </section>
 
-  <section class="pnl-kpis">
+  <section data-tab="chi-phi" class="pnl-kpis">
     <div class="pnl-kpi k-cost">
       <div class="pnl-kpi-l">Quỹ lương ước tính</div>
       <div class="pnl-kpi-v" id="cp-k-pay">—</div>
@@ -507,7 +594,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     </div>
   </section>
 
-  <section class="pnl-card">
+  <section data-tab="tong-quan" class="pnl-card">
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Doanh thu và chi phí theo tháng</h2>
@@ -519,7 +606,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
   </section>
 
   <div class="pnl-grid2">
-    <section class="pnl-card">
+    <section data-tab="chi-phi" class="pnl-card">
       <div class="pnl-card-h">
         <div>
           <h2 class="pnl-card-t" id="cp-dept-t">Quỹ lương theo phòng ban</h2>
@@ -529,7 +616,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
       <div class="pnl-chart" id="ch-cp-dept"></div>
       <div class="pnl-fb pnl-hidden" id="fb-cp-dept"></div>
     </section>
-    <section class="pnl-card">
+    <section data-tab="chi-phi" class="pnl-card">
       <div class="pnl-card-h">
         <div>
           <h2 class="pnl-card-t">Tăng / giảm quỹ lương</h2>
@@ -543,7 +630,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     </section>
   </div>
 
-  <section class="pnl-card">
+  <section data-tab="chi-phi" class="pnl-card">
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Nhân sự theo phòng ban</h2>
@@ -557,7 +644,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <div class="pnl-warnbox pnl-hidden" id="cp-hc-warn"></div>
   </section>
 
-  <section class="pnl-card">
+  <section data-tab="chi-phi" class="pnl-card">
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Kế hoạch tuyển dụng &amp; biến động sắp tới</h2>
@@ -571,7 +658,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     <p class="pnl-note" id="cp-hire-note" style="margin-top:10px"></p>
   </section>
 
-  <section class="pnl-card">
+  <section data-tab="opex" class="pnl-card">
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Chi phí khác từ Approval Center</h2>
@@ -591,7 +678,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     </table></div>
   </section>
 
-  <section class="pnl-card">
+  <section data-tab="brand" class="pnl-card">
     <div class="pnl-card-h">
       <div>
         <h2 class="pnl-card-t">Kịch bản: nếu ngừng brand…</h2>
@@ -1072,6 +1159,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
       // chon thi o "so voi doanh thu" dem 1 thang phi chia cho 5 thang doanh thu
       // -> ra 17,7% trong khi su that khong phai vay. Goi SAU va truyen ky xuong.
       loadQl((res.meta || {}).date_from, (res.meta || {}).date_to);
+      renderTongQuan();
       // preset "Toan bo du lieu" khong co ngay cu the: khi da biet khoang ngay that cua
       // doanh thu thi keo phan chi phi ve cung khoang do
       if (JSON.stringify(costArgs()) !== costArgsUsed) loadCost(); else renderCost();
@@ -1800,6 +1888,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
       $("cp-wrap").className = "";
       SC = null;
       renderCost();
+      renderTongQuan();
     }).catch(function (err) {
       costBusy = false;
       costDenied("Không tải được phần chi phí: " + ((err && err.message) || err));
@@ -1942,6 +2031,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
       $("ql-denied").className = "pnl-msg info pnl-hidden";
       $("ql-wrap").className = "";
       renderQl();
+      renderTongQuan();
     }).catch(function (err) {
       qlBusy = false;
       qlDenied("Không tải được phần phí quản lý gian hàng: " + ((err && err.message) || err));
@@ -1953,7 +2043,240 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     });
   }
 
-  function boot() { bind(); bindCost(); load(); }
+  // ================================================================ TABS
+  // Trang gom 5 dashboard. Moi khoi mang thuoc tinh data-tab liet ke nhung tab
+  // no thuoc ve (cach nhau bang dau cach). Chuyen tab chi an/hien chu KHONG goi
+  // lai API - du lieu dung chung mot lan tai.
+  var TAB = "tong-quan";
+
+  function applyTab() {
+    var els = document.querySelectorAll("#ec-pnl-root [data-tab]"), i;
+    for (i = 0; i < els.length; i++) {
+      var ds = (els[i].getAttribute("data-tab") || "").split(" ");
+      var hien = false, j;
+      for (j = 0; j < ds.length; j++) { if (ds[j] === TAB) hien = true; }
+      els[i].style.display = hien ? "" : "none";
+    }
+    var bs = document.querySelectorAll("#pnl-tabbar button");
+    for (i = 0; i < bs.length; i++) {
+      bs[i].className = (bs[i].getAttribute("data-tb") === TAB) ? "on" : "";
+    }
+    // ECharts do kich thuoc luc ve; khoi vua hien ra tu display:none se ra 0px
+    // neu khong bao no do lai.
+    setTimeout(function () {
+      try { window.dispatchEvent(new Event("resize")); } catch (e) {}
+    }, 30);
+  }
+
+  // ================================================================ TONG QUAN
+  function soLieuChung() {
+    var dt = (DATA && DATA.totals && DATA.totals.total) || 0;
+    var phi = 0, cungKy = false;
+    if (QL && QL.ok) {
+      var dm = (DATA && DATA.meta) || {}, qm = QL.meta || {};
+      cungKy = !!(dm.date_from && qm.date_from
+        && String(dm.date_from) === String(qm.date_from)
+        && String(dm.date_to) === String(qm.date_to));
+      if (cungKy) phi = QL.tong.tong_ca_ky || 0;
+    }
+    var luong = 0, khac = 0, i;
+    if (COST && COST.ok) {
+      var pc = (COST.payroll && COST.payroll.company) || [];
+      for (i = 0; i < pc.length; i++) luong += pc[i].total || 0;
+      var bm = (COST.other_costs && COST.other_costs.by_month) || [];
+      for (i = 0; i < bm.length; i++) khac += bm[i].approved || 0;
+    }
+    return { dt: dt, phi: phi, phiCungKy: cungKy, luong: luong, khac: khac,
+             thu: dt + phi, cp: luong + khac, ln: dt + phi - luong - khac };
+  }
+
+  function renderTongQuan() {
+    if (!DATA) return;
+    var x = soLieuChung();
+    $("tq-k-dt").textContent = money(x.thu);
+    $("tq-k-dt-x").textContent = num(x.thu) + " đ";
+    $("tq-k-dt-s").textContent = "chứng từ " + money(x.dt)
+      + (x.phiCungKy ? (" · phí ước tính " + money(x.phi)) : " · chưa gộp được phí");
+    $("tq-k-cp").textContent = money(x.cp);
+    $("tq-k-cp-x").textContent = num(x.cp) + " đ";
+    $("tq-k-cp-s").textContent = "lương " + money(x.luong) + " · chi phí khác " + money(x.khac);
+    $("tq-k-ln").textContent = money(x.ln);
+    $("tq-k-ln-x").textContent = num(x.ln) + " đ";
+    $("tq-k-ln-s").textContent = x.ln < 0 ? "đang âm trong kỳ này" : "sau khi trừ lương và chi phí khác";
+    $("tq-k-bien").textContent = x.thu ? pct(x.ln, x.thu) : "—";
+    $("tq-k-bien-x").textContent = x.thu ? ("trên tổng thu " + money(x.thu)) : "chưa có doanh thu";
+    $("tq-k-bien-s").textContent = "chưa trừ khấu hao, chi phí trả trước, kinh phí công đoàn";
+    veThacNuoc(x);
+    veCanhBao(x);
+    veBrandPnl(x);
+  }
+
+  function veThacNuoc(x) {
+    if (!chartsOk()) { emptyBox("ch-tq-wf", "fb-tq-wf", "Không tải được thư viện biểu đồ."); return; }
+    var t = tokens();
+    var cot = [
+      { ten: "DT chứng từ", v: x.dt, mau: "#2563eb" },
+      { ten: "Phí QL (ước tính)", v: x.phi, mau: "#f59e0b" },
+      { ten: "Quỹ lương", v: -x.luong, mau: "#ef4444" },
+      { ten: "Chi phí khác", v: -x.khac, mau: "#fb923c" }
+    ];
+    var cats = [], nen = [], than = [], mau = [], run = 0, i;
+    for (i = 0; i < cot.length; i++) {
+      cats.push(cot[i].ten);
+      var v = cot[i].v;
+      nen.push(v >= 0 ? run : run + v);
+      than.push(Math.abs(v));
+      mau.push({ value: Math.abs(v), itemStyle: { color: cot[i].mau, borderRadius: [4, 4, 0, 0] } });
+      run += v;
+    }
+    cats.push("Lợi nhuận");
+    nen.push(run >= 0 ? 0 : run);
+    mau.push({ value: Math.abs(run), itemStyle: { color: run >= 0 ? "#16a34a" : "#991b1b", borderRadius: [4, 4, 0, 0] } });
+
+    var o = baseOption(false);
+    o.xAxis = { type: "category", data: cats,
+      axisLine: { lineStyle: { color: t.border } }, axisTick: { show: false },
+      axisLabel: { color: t.muted, fontSize: 11, hideOverlap: true } };
+    o.yAxis = { type: "value", axisLabel: { color: t.muted, fontSize: 11,
+      formatter: function (v) { return money(v); } },
+      splitLine: { lineStyle: { color: t.border, type: "dashed" } } };
+    o.legend = { show: false };
+    o.tooltip = { trigger: "axis", axisPointer: { type: "shadow" },
+      formatter: function (ps) {
+        var k = ps && ps.length ? ps[0].dataIndex : 0;
+        var goc = (k < cot.length) ? cot[k].v : run;
+        return '<div style="font-weight:600;margin-bottom:4px">' + esc(cats[k]) + "</div>"
+             + "<b>" + num(goc) + " đ</b>";
+      } };
+    o.series = [
+      { name: "nen", type: "bar", stack: "w", silent: true, itemStyle: { color: "transparent" }, data: nen },
+      { name: "gia tri", type: "bar", stack: "w", barMaxWidth: 54, data: mau,
+        label: { show: true, position: "top", color: t.muted, fontSize: 11,
+                 formatter: function (p) { return money((p.dataIndex < cot.length) ? cot[p.dataIndex].v : run); } } }
+    ];
+    draw("ch-tq-wf", "fb-tq-wf", o);
+    $("tq-wf-n").textContent = x.phiCungKy
+      ? "Cộng dồn từ trái sang phải. Cột phí quản lý là số tính từ NMV, chưa có chứng từ."
+      : "Chưa gộp được phí quản lý vì phần phí đang đọc kỳ khác với phần doanh thu.";
+  }
+
+  function canhBao(loai, tieu, noi) {
+    return '<div class="pnl-alert ' + loai + '"><span class="pnl-alert-i">'
+      + (loai === "danger" ? "!" : (loai === "warn" ? "?" : "OK"))
+      + '</span><span><b>' + esc(tieu) + "</b> — " + noi + "</span></div>";
+  }
+
+  function veCanhBao(x) {
+    var ra = [], i;
+    if (x.ln < 0) {
+      ra.push(canhBao("danger", "Lợi nhuận đang âm",
+        "Kỳ này thu " + money(x.thu) + " nhưng chi " + money(x.cp)
+        + ". Trước khi kết luận lỗ, hãy xem hai cảnh báo về chứng từ bên dưới."));
+    }
+    if (x.phi > x.dt && x.dt >= 0) {
+      ra.push(canhBao("danger", "Phần lớn doanh thu chưa có chứng từ",
+        "Phí quản lý ước tính " + money(x.phi) + " đang lớn hơn toàn bộ doanh thu có Sales Order ("
+        + money(x.dt) + "). Hoá đơn phí quản lý chưa được nhập vào ERP."));
+    }
+    if (x.thu && x.luong / x.thu > 0.6) {
+      ra.push(canhBao("warn", "Quỹ lương chiếm " + pct(x.luong, x.thu) + " tổng thu",
+        "Bốn tháng có đủ chứng từ (05–08/2026) ở mức khoảng 55%. Cao hơn nhiều thường là dấu hiệu kỳ này thiếu doanh thu chứ không phải lương tăng."));
+    }
+    if (COST && COST.ok && !x.khac) {
+      ra.push(canhBao("warn", "Chưa ghi nhận đồng chi phí khác nào",
+        "Không có phiếu chi nào đã duyệt trong kỳ. Nếu kỳ này dài hơn một tuần thì nhiều khả năng phiếu chưa được lập, và lợi nhuận đang cao hơn sự thật."));
+    }
+    if (QL && QL.ok && (QL.thieu_muc_phi || []).length) {
+      var ds = [];
+      for (i = 0; i < QL.thieu_muc_phi.length; i++) {
+        ds.push(QL.thieu_muc_phi[i].brand + "/" + QL.thieu_muc_phi[i].platform
+          + " (" + money(QL.thieu_muc_phi[i].nmv) + " NMV)");
+      }
+      ra.push(canhBao("warn", QL.thieu_muc_phi.length + " cặp brand/sàn chưa có mức phí",
+        "Có NMV nhưng không sinh đồng phí nào: " + esc(ds.join(", "))
+        + ". Thêm dòng trong EC Phi Quan Ly Brand."));
+    }
+    if (COST && COST.ok && COST.brands && COST.brands.coverage
+        && !COST.brands.coverage.allocated && COST.brands.coverage.active) {
+      ra.push(canhBao("warn", "Chưa ai được phân bổ theo brand",
+        "0 trên " + COST.brands.coverage.active + " nhân sự có khai tỷ trọng brand, nên bảng lãi lỗ theo brand chưa trừ được lương — mà lương là khoản lớn nhất. HR khai vào EC Nhan Su Brand thì bảng đó mới đủ."));
+    }
+    var sr = (DATA && DATA.series) || [];
+    if (sr.length >= 3) {
+      var cuoi = sr[sr.length - 1], tong = 0;
+      for (i = 0; i < sr.length - 1; i++) tong += sr[i].total || 0;
+      var tb = tong / (sr.length - 1);
+      if (tb > 0 && (cuoi.total || 0) < tb * 0.2) {
+        ra.push(canhBao("danger", "Kỳ cuối (" + esc(cuoi.label) + ") gần như không có chứng từ",
+          "Chỉ " + money(cuoi.total) + " so với trung bình " + money(tb)
+          + " của các kỳ trước. Đây là dấu hiệu phiếu chưa được lập, không phải doanh thu sụt."));
+      }
+    }
+    if (!ra.length) {
+      ra.push(canhBao("ok", "Không có gì bất thường", "Các phép kiểm tra đều qua trong kỳ đang xem."));
+    }
+    $("tq-alerts").innerHTML = ra.join("");
+  }
+
+  // ================================================================ THEO BRAND
+  function veBrandPnl(x) {
+    var map = {}, i;
+    function o(b) {
+      if (!map[b]) map[b] = { brand: b, dt: 0, phi: 0, cp: 0 };
+      return map[b];
+    }
+    var bb = (DATA && DATA.by_brand) || [];
+    for (i = 0; i < bb.length; i++) o(bb[i].key).dt += bb[i].total || 0;
+    if (QL && QL.ok && x.phiCungKy) {
+      var qb = QL.theo_brand || [];
+      for (i = 0; i < qb.length; i++) o(qb[i].brand).phi += qb[i].tong || 0;
+    }
+    if (COST && COST.ok) {
+      var cb = (COST.other_costs && COST.other_costs.by_brand) || [];
+      for (i = 0; i < cb.length; i++) { if (cb[i].brand) o(cb[i].brand).cp += cb[i].approved || 0; }
+    }
+    var rows = [], k;
+    for (k in map) rows.push(map[k]);
+    for (i = 0; i < rows.length; i++) rows[i].thu = rows[i].dt + rows[i].phi;
+    rows.sort(function (a, b) { return b.thu - a.thu; });
+    var tongThu = 0;
+    for (i = 0; i < rows.length; i++) tongThu += rows[i].thu;
+
+    var body = "";
+    for (i = 0; i < rows.length; i++) {
+      var r = rows[i], con = r.thu - r.cp;
+      body += "<tr><td>" + esc(r.brand) + "</td>"
+        + '<td class="num">' + num(r.dt) + "</td>"
+        + '<td class="num">' + num(r.phi) + "</td>"
+        + '<td class="num"><b>' + num(r.thu) + "</b></td>"
+        + '<td class="num">' + num(r.cp) + "</td>"
+        + '<td class="num"><b>' + num(con) + "</b></td>"
+        + '<td class="num">' + (tongThu ? pct(r.thu, tongThu) : "—") + "</td></tr>";
+    }
+    $("tq-brand-b").innerHTML = body
+      || '<tr><td colspan="7">Chưa có dữ liệu brand nào trong kỳ này.</td></tr>';
+
+    var nt = "Cột CÒN LẠI chưa trừ quỹ lương. ";
+    if (COST && COST.ok && COST.brands && COST.brands.coverage && !COST.brands.coverage.allocated) {
+      nt += "Hiện 0 trên " + (COST.brands.coverage.active || 0)
+          + " nhân sự có khai tỷ trọng brand trong EC Nhan Su Brand, nên không thể chia lương về brand. "
+          + "Khai xong thì cột này mới là lãi lỗ thật.";
+    } else {
+      nt += "Lương theo brand sẽ được nối vào ở bước sau.";
+    }
+    if (!x.phiCungKy) nt += " Cột phí quản lý đang trống vì phần phí đọc kỳ khác với phần doanh thu.";
+    $("tq-brand-note").textContent = nt;
+  }
+
+  function bindTabs() {
+    $("pnl-tabbar").addEventListener("click", function (e) {
+      var t = e.target && e.target.getAttribute("data-tb");
+      if (!t) return;
+      TAB = t; applyTab();
+    });
+  }
+
+  function boot() { bind(); bindCost(); bindTabs(); applyTab(); load(); }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot);
   } else { boot(); }
