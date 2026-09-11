@@ -2121,6 +2121,19 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
   }
 
   // ================================================================ TONG QUAN
+  // "YYYY-MM" co nam trong ky doanh thu dang xem khong. Lay moc tu meta cua API
+  // doanh thu chu KHONG tu state, vi state co the de trong (nguoi dung chua chon
+  // ngay) va luc do API tu suy ra khoang.
+  function trongKy(thang) {
+    if (!thang) return true;
+    var dm = (DATA && DATA.meta) || {};
+    var lo = String(dm.date_from || "").slice(0, 7);
+    var hi = String(dm.date_to || "").slice(0, 7);
+    if (!lo || !hi) return true;
+    var m = String(thang).slice(0, 7);
+    return m >= lo && m <= hi;
+  }
+
   function soLieuChung() {
     var dt = (DATA && DATA.totals && DATA.totals.total) || 0;
     var phi = 0, cungKy = false;
@@ -2133,10 +2146,23 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     }
     var luong = 0, khac = 0, i;
     if (COST && COST.ok) {
+      // CHI cong nhung thang NAM TRONG KY DANG XEM cua phan doanh thu.
+      // 11/09: nut "Du phong +3 thang toi" o tab OPEX keo dai date_to cua RIENG
+      // API chi phi, doanh thu thi khong. Truoc day khoi nay cong het moi thang
+      // API tra ve, nen thanh: doanh thu 1 thang tru chi phi 4 thang. Thang 8 ra
+      // quy luong 5,56 ty (that ra 1,39 ty x 4 thang) va loi nhuan -2,26 ty voi
+      // bien -58,9% - mot con so hoan toan bia, tren dung dashboard CEO xem. Nut
+      // do lai nam o tab khac nen dung o Tong quan khong ai thay gi.
+      // Loc theo thang la cach chan tan goc: du API co tra ve rong hon vi bat cu
+      // ly do gi, KPI van chi cong dung ky.
       var pc = (COST.payroll && COST.payroll.company) || [];
-      for (i = 0; i < pc.length; i++) luong += pc[i].total || 0;
+      for (i = 0; i < pc.length; i++) {
+        if (trongKy(pc[i].month)) luong += pc[i].total || 0;
+      }
       var bm = (COST.other_costs && COST.other_costs.by_month) || [];
-      for (i = 0; i < bm.length; i++) khac += bm[i].approved || 0;
+      for (i = 0; i < bm.length; i++) {
+        if (trongKy(bm[i].month)) khac += bm[i].approved || 0;
+      }
     }
     return { dt: dt, phi: phi, phiCungKy: cungKy, luong: luong, khac: khac,
              thu: dt + phi, cp: luong + khac, ln: dt + phi - luong - khac };
@@ -2222,6 +2248,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     var pc = (COST.payroll && COST.payroll.company) || [], i;
     var base = 0, allow = 0, bh = 0, proj = 0, bonus = 0;
     for (i = 0; i < pc.length; i++) {
+      if (!trongKy(pc[i].month)) continue;   // xem ghi chu o soLieuChung
       base += pc[i].base || 0; allow += pc[i].allow || 0; bh += pc[i].bh || 0;
       proj += pc[i].proj || 0; bonus += pc[i].bonus || 0;
     }

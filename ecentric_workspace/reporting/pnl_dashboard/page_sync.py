@@ -52,7 +52,7 @@ def _html():
 #
 # Sua co chu dich = sua file frontend, bump BASELINE_SHA256 sang sha moi, va day
 # gia tri cu xuong SUPERSEDES_SHA256 -- tat ca trong CUNG mot commit.
-BASELINE_SHA256 = "03c4588e53e4d732df1e72f79bd0338134e648131ec6fb6282d1f26d860de99b"
+BASELINE_SHA256 = "b3d51542acfd09934530e7dacd3182ef34ed943b9c97d6d071d9a613691210ea"
 SUPERSEDES_SHA256 = (
     "d7803811ea6df96756f58a090178e04ca3110f839d5dfb12cff029ab8a7acca9",   # ban dau 2026-08-10
     "1936ee8870e35ae3b31eb4b7bbf2de2338f560754d44b0e6de9a49fb1cd8c812",   # sau khi Viet hoa thong bao tu choi quyen
@@ -73,6 +73,7 @@ SUPERSEDES_SHA256 = (
     "a7dfd01ccfe7a80411cc797fc86cf3571eb5c4f29085ffe77c87b3c6915067c2",   # 11/09: truoc khi them 3 bieu do co cau
     "c55d0de1f8991c83d3321bc46f823b972a03474d272817e8c8d04bdea7cc91f5",   # 11/09: truoc khi hoan ve bieu do an + tu dong ap dung bo loc
     "4221252402f668363b4aef1db2c6f76f9a93e8ab4b1b412efb19fb821a6c5cbc",   # 11/09: truoc khi gan tab vao hash (sidebar phu cua trang)
+    "03c4588e53e4d732df1e72f79bd0338134e648131ec6fb6282d1f26d860de99b",   # 11/09: truoc khi KPI Tong quan chi cong thang trong ky (loi nut Du phong)
 )
 
 
