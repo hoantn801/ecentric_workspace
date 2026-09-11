@@ -16,7 +16,7 @@
 # va `ec_fabric_code` (Data) - ma brand ben Fabric, dung lam bang anh xa.
 # ============================================================================
 
-# ec_nmv_upsert - API nap NMV theo brand theo NGAY (nguon PowerBI / Omisell).
+# ec_nmv_upsert - API nap NMV theo brand x SAN x NGAY (nguon PowerBI / Fabric).
 # Server Script, script_type = API, api_method = 'ec_nmv_upsert'
 #
 # Vao:  form_dict['rows'] = chuoi JSON, danh sach {brand, platform, ngay, nmv, nguon, ghi_chu}
@@ -24,29 +24,31 @@
 #                  Brand.ec_fabric_code / Brand.ec_brand_code - xem ANH XA ben duoi.
 #         platform bat buoc: Shopee | Lazada | TikTok | Other | Tat ca san.
 #                  Khong phan biet hoa thuong, va nhan vai bi danh quen thuoc
-#                  ('TikTok Shop', 'khac', 'all').
+#                  ('TikTok Shop', 'Tiktok', 'khac', 'all').
 #         ngay     bat buoc, dang YYYY-MM-DD
 #         nmv      bat buoc, so tien VND trong ngay CUA RIENG SAN DO
 #         nguon    tuy chon, mac dinh PowerBI
-# Ra:   {ok, tao_moi, cap_nhat, bo_qua, loi[...]}
+# Ra:   {ok, tao_moi, cap_nhat, bo_qua, gop_dong, qua_anh_xa, loi[...]}
 #
-# Idempotent: ten ban ghi la NMV-<brand>-<platform>-<ngay> nen chay lai cung mot file chi
-# ghi de, khong bao gio de ra hai dong cho cung mot brand + san + ngay.
+# Hoac goi voi danh_muc=1 (khong kem rows) de LAY VE danh sach ma dang chap nhan -
+# dung de ben Fabric tu doi chieu truoc khi day, khong ghi gi.
 #
-# CHONG CONG DOI: mot brand trong mot ngay hoac khai theo TUNG SAN, hoac khai mot dong
-# 'Tat ca san' - KHONG duoc ca hai. Tron lai thi tong NMV cua ngay do gap doi ma khong ai
-# nhin ra. API tu choi dong thu hai va noi ro dang vuong dong nao.
-#
-# ANH XA MA BRAND (11/09/2026): ma brand ben Fabric/PowerBI khong trung ten brand o day,
-# va bang anh xa KHONG duoc nam trong notebook - them mot brand la phai sua code, khong ai
-# nho. Bang anh xa song tren chinh ban ghi Brand:
+# ANH XA MA BRAND: ma brand ben Fabric khong trung ten brand o day (Fabric goi la
+# 'vitadairy', o day la 'VTD-VN'), va bang anh xa KHONG duoc nam trong notebook -
+# them mot brand la phai sua code, khong ai nho. Bang anh xa song tren ban ghi Brand:
 #     Brand.ec_fabric_code   ma ben Fabric, nhieu ma thi ngan cach bang dau phay
 #     Brand.ec_brand_code    ma cu cua eCentric, dung luon lam alias cho tien
 # Thu tu tra: ten brand (khong phan biet hoa thuong) -> ec_fabric_code -> ec_brand_code.
 # Khong tra duoc thi BAO LOI kem ma da gui, KHONG doan bua.
 #
-# Goi voi danh_muc=1 (khong kem rows) de LAY VE danh sach ma dang chap nhan - dung de ben
-# Fabric tu doi chieu truoc khi day, khong ghi gi.
+# GOP DONG (11/09/2026): NHIEU ma Fabric co the tro ve CUNG mot brand ERP - vi du
+# bongbachtuyethn / bongbachtuyethg / bongbachtuyetdn deu la BBT-VN, va vitadairy /
+# vitadairy-sddby / vitadairy-suachuyenbiet deu la VTD-VN. Ba dong do cung tro ve mot
+# ten ban ghi, neu ghi lan luot thi dong sau DE dong truoc va hai dong kia mat khong
+# mot loi bao. Nen API GOM TRUOC KHI GHI: cac dong trong CUNG mot lan gui ma ra cung
+# (brand, san, ngay) thi CONG lai roi ghi mot lan. So lan gop tra ve o `gop_dong`.
+# Giua CAC LAN GOI khac nhau thi van la ghi de - day la upsert, day lai cung mot ky
+# khong duoc phep cong don.
 #
 # QUYEN: Administrator / System Manager / EC Finance. Nguoi khac bi tu choi.
 # KHONG dung cho doanh thu: so nay chi de DOI CHIEU phi quan ly gian hang
@@ -54,6 +56,7 @@
 # Cong ca hai vao doanh thu la dem hai lan.
 
 MAX_ROWS = 2000
+WRITE_ROLES = ("System Manager", "EC Finance")
 PLATFORMS = ("Shopee", "Lazada", "TikTok", "Other", "Tat ca san")
 PLAT_ALL = "Tat ca san"
 PLAT_ALIAS = {"shopee": "Shopee", "lazada": "Lazada",
@@ -62,7 +65,6 @@ PLAT_ALIAS = {"shopee": "Shopee", "lazada": "Lazada",
               "other": "Other", "khac": "Other", "orther": "Other",
               "tat ca san": PLAT_ALL, "tatcasan": PLAT_ALL, "all": PLAT_ALL,
               "tat ca": PLAT_ALL, "total": PLAT_ALL}
-WRITE_ROLES = ("System Manager", "EC Finance")
 
 user = frappe.session.user or ""
 allowed = 0
@@ -125,14 +127,12 @@ else:
             # ten chuan -> chinh no ; ten thuong hoa va moi ma la -> ten chuan
             ten_chuan = {}
             alias = {}
-            for b in frappe.get_all("Brand", limit_page_length=0,
-                                    fields=["name", "ec_brand_code", "ec_fabric_code"]):
-                ten = b["name"]
-                ten_chuan[ten] = 1
-                alias[ten.strip().lower()] = ten
-            for b in frappe.get_all("Brand", limit_page_length=0,
-                                    fields=["name", "ec_brand_code", "ec_fabric_code"]):
-                ten = b["name"]
+            brand_rows = frappe.get_all("Brand", limit_page_length=0,
+                                        fields=["name", "ec_brand_code", "ec_fabric_code"])
+            for b in brand_rows:
+                ten_chuan[b["name"]] = 1
+                alias[b["name"].strip().lower()] = b["name"]
+            for b in brand_rows:
                 ma_la = []
                 if b.get("ec_fabric_code"):
                     for k in (b["ec_fabric_code"] or "").split(","):
@@ -143,13 +143,13 @@ else:
                     kk = (k or "").strip().lower()
                     # ten chuan luon thang: khong cho mot ma la che ten cua brand khac
                     if kk and kk not in alias:
-                        alias[kk] = ten
+                        alias[kk] = b["name"]
 
-            seen_all = {}
-            seen_plat = {}
+            # ---------- PHA 1: kiem tra tung dong, gop dong cung khoa ----------
+            agg = {}
+            thu_tu = []
             n_map = 0
-            n_new = 0
-            n_upd = 0
+            n_gop = 0
             n_skip = 0
             errs = []
             idx = 0
@@ -169,9 +169,10 @@ else:
                     brand = alias.get(brand.strip().lower()) or ""
                     if not brand:
                         n_skip = n_skip + 1
-                        errs = errs + ["dong %d: khong tra duoc brand '%s'. Mo ban ghi Brand tuong "
-                                       "ung tren ERP va dien ma nay vao o 'Ma brand ben Fabric / "
-                                       "PowerBI' (ec_fabric_code), roi day lai." % (idx, goc)]
+                        errs = errs + ["dong %d: khong tra duoc brand '%s'. Mo ban ghi Brand "
+                                       "tuong ung tren ERP va dien ma nay vao o 'Ma brand ben "
+                                       "Fabric / PowerBI' (ec_fabric_code), roi day lai."
+                                       % (idx, goc)]
                         continue
                     n_map = n_map + 1
                 if plat not in PLATFORMS:
@@ -210,53 +211,86 @@ else:
                     errs = errs + ["dong %d: ngay '%s' phai dung dang YYYY-MM-DD (vd 2026-07-01)"
                                    % (idx, ngay)]
                     continue
-                # Chong cong doi: khong cho vua 'Tat ca san' vua tung san cho cung brand+ngay.
-                bd = brand + "|" + ngay
+                key = "NMV-" + brand + "-" + plat + "-" + ngay
+                if key in agg:
+                    agg[key]["nmv"] = agg[key]["nmv"] + nmv
+                    agg[key]["n_nguon"] = agg[key]["n_nguon"] + 1
+                    n_gop = n_gop + 1
+                else:
+                    agg[key] = {"brand": brand, "plat": plat, "ngay": ngay, "nmv": nmv,
+                                "nguon": nguon, "ghi_chu": ghi_chu, "n_nguon": 1}
+                    thu_tu = thu_tu + [key]
+
+            # ---------- PHA 2: chong cong doi 'Tat ca san' vs tung san ----------
+            co_all = {}
+            co_san = {}
+            for key in thu_tu:
+                it = agg[key]
+                bd = it["brand"] + "|" + it["ngay"]
+                if it["plat"] == PLAT_ALL:
+                    co_all[bd] = 1
+                else:
+                    co_san[bd] = 1
+            bo_khoa = {}
+            for key in thu_tu:
+                it = agg[key]
+                bd = it["brand"] + "|" + it["ngay"]
                 clash = ""
-                if plat == PLAT_ALL:
-                    if bd in seen_plat:
+                if it["plat"] == PLAT_ALL:
+                    if bd in co_san:
                         clash = "trong chinh lan gui nay"
                     elif frappe.get_all("EC NMV Ngay", limit_page_length=1, fields=["name"],
-                                        filters={"brand": brand, "ngay": ngay,
+                                        filters={"brand": it["brand"], "ngay": it["ngay"],
                                                  "platform": ["!=", PLAT_ALL]}):
                         clash = "da co tren he thong"
                     if clash:
-                        n_skip = n_skip + 1
-                        errs = errs + ["dong %d: %s %s da khai theo TUNG SAN (%s), khong nhan them "
-                                       "dong 'Tat ca san' - se cong doi"
-                                       % (idx, brand, ngay, clash)]
-                        continue
-                    seen_all[bd] = 1
+                        errs = errs + ["%s %s da khai theo TUNG SAN (%s), khong nhan them dong "
+                                       "'Tat ca san' - se cong doi"
+                                       % (it["brand"], it["ngay"], clash)]
                 else:
-                    if bd in seen_all:
+                    if bd in co_all:
                         clash = "trong chinh lan gui nay"
                     elif frappe.get_all("EC NMV Ngay", limit_page_length=1, fields=["name"],
-                                        filters={"brand": brand, "ngay": ngay,
+                                        filters={"brand": it["brand"], "ngay": it["ngay"],
                                                  "platform": PLAT_ALL}):
                         clash = "da co tren he thong"
                     if clash:
-                        n_skip = n_skip + 1
-                        errs = errs + ["dong %d: %s %s da co dong 'Tat ca san' (%s), khong nhan "
-                                       "them dong theo san - se cong doi"
-                                       % (idx, brand, ngay, clash)]
-                        continue
-                    seen_plat[bd] = 1
-                key = "NMV-" + brand + "-" + plat + "-" + ngay
+                        errs = errs + ["%s %s da co dong 'Tat ca san' (%s), khong nhan them dong "
+                                       "theo san - se cong doi" % (it["brand"], it["ngay"], clash)]
+                if clash:
+                    bo_khoa[key] = 1
+                    n_skip = n_skip + 1
+
+            # ---------- PHA 3: ghi ----------
+            n_new = 0
+            n_upd = 0
+            for key in thu_tu:
+                if key in bo_khoa:
+                    continue
+                it = agg[key]
+                ghi_chu = it["ghi_chu"]
+                if it["n_nguon"] > 1:
+                    them = "gop tu %d dong gui len (nhieu ma Fabric cung tro ve brand nay)" \
+                           % it["n_nguon"]
+                    ghi_chu = (ghi_chu + " | " + them) if ghi_chu else them
                 try:
                     if frappe.db.exists("EC NMV Ngay", key):
-                        frappe.db.set_value("EC NMV Ngay", key, {"nmv": nmv, "nguon": nguon,
-                                                                 "ghi_chu": ghi_chu})
+                        frappe.db.set_value("EC NMV Ngay", key,
+                                            {"nmv": it["nmv"], "nguon": it["nguon"],
+                                             "ghi_chu": ghi_chu})
                         n_upd = n_upd + 1
                     else:
-                        doc = frappe.get_doc({"doctype": "EC NMV Ngay", "brand": brand,
-                                              "platform": plat, "ngay": ngay, "nmv": nmv,
-                                              "nguon": nguon, "ghi_chu": ghi_chu})
+                        doc = frappe.get_doc({"doctype": "EC NMV Ngay", "brand": it["brand"],
+                                              "platform": it["plat"], "ngay": it["ngay"],
+                                              "nmv": it["nmv"], "nguon": it["nguon"],
+                                              "ghi_chu": ghi_chu})
                         doc.insert()
                         n_new = n_new + 1
                 except Exception as exc2:
                     n_skip = n_skip + 1
-                    errs = errs + ["dong %d (%s): %s" % (idx, key, str(exc2)[:120])]
+                    errs = errs + ["%s: %s" % (key, str(exc2)[:120])]
 
             frappe.response["message"] = {"ok": True, "tao_moi": n_new, "cap_nhat": n_upd,
-                                          "bo_qua": n_skip, "loi": errs[:20],
-                                          "qua_anh_xa": n_map, "tong_gui": len(data)}
+                                          "bo_qua": n_skip, "gop_dong": n_gop,
+                                          "qua_anh_xa": n_map, "loi": errs[:20],
+                                          "tong_gui": len(data)}
