@@ -315,8 +315,11 @@
       + fld("payment_mode","Hình thức thanh toán",'<select data-model="payment_mode"'+(inst&&d.installment_of?' disabled':'')+'><option value="Full"'+(inst?'':' selected')+'>Thanh toán 100% (một đề nghị)</option><option value="Installment"'+(inst?' selected':'')+'>Chia nhiều đợt (mỗi đợt một đề nghị)</option></select>'+(inst&&d.installment_of?'<div class="hint">Đợt '+esc(d.installment_no||"")+' của phiếu '+esc(d.installment_of)+' — không đổi hình thức.</div>':''),true)
       + fld("payment_amount",inst?("Số tiền đợt "+(d.installment_no||1)+" (VND)"):"Số tiền (VND)",moneyInputHTML('data-model="payment_amount"',d.payment_amount),true)
       + fld("ec_loai_chi_phi","Loại chi phí",expenseCatSelectHTML(fo,d),true)
-      + (needBrand(fo,d)?fld("ec_brand","Brand liên quan",'<select data-model="ec_brand"><option value="">— Chọn brand —</option>'+opt(fo.brands||[],d.ec_brand||"")+'</select>',true):'')
+      + (needBrand(fo,d)?fld("ec_brand","Brand liên quan",'<select data-model="ec_brand"'+(d.ec_brand_moi?' disabled':'')+'><option value="">— Chọn brand —</option>'+opt(fo.brands||[],d.ec_brand||"")+'</select>'+'<label class="chkline"><input type="checkbox" data-model="ec_brand_moi"'+(d.ec_brand_moi?' checked':'')+'> Brand chưa có trong danh mục</label>',!d.ec_brand_moi):'')
+      + (needBrand(fo,d)&&d.ec_brand_moi?fld("ec_brand_ten","Tên brand mới",'<input data-model="ec_brand_ten" placeholder="Gõ đúng tên brand" value="'+esc(d.ec_brand_ten||"")+'"><div class="hint">Gửi đi sẽ tạo brand mới nguồn External. Tên gõ sao lưu vậy — admin sẽ rà lại chính tả và gộp trùng.</div>',true):'')
       + fld("payment_date",inst?("Ngày thanh toán đợt "+(d.installment_no||1)):"Ngày thanh toán",'<input type="date" data-model="payment_date" value="'+esc(d.payment_date||"")+'">',true)
+      + fld("ec_ky_chi_phi","Kỳ ghi nhận chi phí",'<input type="date" data-model="ec_ky_chi_phi" value="'+esc(d.ec_ky_chi_phi||"")+'"><div class="hint">Tháng HOẠT ĐỘNG phát sinh khoản chi, không phải tháng trả tiền. Chi phí KOL cho chiến dịch tháng 8 trả tháng 9 thì chọn tháng 8. Tự điền theo ngày thanh toán, sửa được.</div>',true)
+      + fld("ec_vat_pct","Thuế VAT trong số tiền",'<select data-model="ec_vat_pct"><option value="0"'+(String(d.ec_vat_pct||"0")==="0"?" selected":"")+'>Không có VAT</option><option value="8"'+(String(d.ec_vat_pct||"")==="8"?" selected":"")+'>8%</option><option value="10"'+(String(d.ec_vat_pct||"")==="10"?" selected":"")+'>10%</option></select><div class="hint">Số tiền ở trên là số thực trả. Chọn thuế suất để báo cáo tách phần thuế ra khỏi chi phí.</div>')
       + fld("account_bank","Ngân hàng",'<input data-model="account_bank" value="'+esc(d.account_bank||"")+'">',true)
       + fld("bank_account_number","Số tài khoản",'<input data-model="bank_account_number" value="'+esc(d.bank_account_number||"")+'">',true)
       + fld("reason","Lý do / nội dung thanh toán",'<textarea data-model="reason" rows="3" placeholder="Mô tả lý do / nội dung khoản thanh toán.">'+esc(d.reason||"")+'</textarea>',true).replace('class="fld','class="fld full')
@@ -421,7 +424,9 @@
     if(!((d.has_purchase_request||"").toString().trim())) errs.has_purchase_request="Vui lòng chọn có/không Purchase Request.";
     if(!((d.is_cost_valid||"").toString().trim())) errs.is_cost_valid="Vui lòng chọn chi phí hợp lệ.";
     if(!((d.ec_loai_chi_phi||"").toString().trim())) errs.ec_loai_chi_phi="Vui lòng chọn loại chi phí.";
-    else if(needBrand((state.boot&&state.boot.form_options)||{},d) && !((d.ec_brand||"").toString().trim())) errs.ec_brand="Loại chi phí này gắn với một brand — vui lòng chọn brand.";
+    else if(needBrand((state.boot&&state.boot.form_options)||{},d) && !d.ec_brand_moi && !((d.ec_brand||"").toString().trim())) errs.ec_brand="Loại chi phí này gắn với một brand — vui lòng chọn brand, hoặc tích “Brand chưa có trong danh mục”.";
+    if(needBrand((state.boot&&state.boot.form_options)||{},d) && d.ec_brand_moi && !((d.ec_brand_ten||"").toString().trim())) errs.ec_brand_ten="Vui lòng nhập tên brand mới.";
+    if(!(d.ec_ky_chi_phi)) errs.ec_ky_chi_phi="Vui lòng chọn kỳ ghi nhận chi phí (tháng hoạt động).";
     if(d.details_and_attachments_correct!=="Yes") errs.details_and_attachments_correct="Vui lòng tích xác nhận thông tin và tệp đính kèm là chính xác.";
     if(!((d.request_attachment||"").toString().trim())) errs.request_attachment="Vui lòng tải tài liệu ở mục “TÀI LIỆU & KÝ SỐ” bên dưới (bắt buộc). Nếu chưa thấy nút tải, hãy Lưu nháp trước.";
     if(d.has_purchase_request==="Yes"){
@@ -520,8 +525,21 @@
     if(k==="has_purchase_request"){ handleHPRChange(v); return; }
     if(k==="funding_source_doctype"){ handleSrcTypeChange(v); return; }
     if(k==="funding_source_name"){ handleSrcPick(v); return; }
+    if(k==="ec_brand_moi"){ setModel("ec_brand_moi",el.checked?1:0);
+      if(el.checked) setModel("ec_brand",""); else setModel("ec_brand_ten","");
+      renderCreate($("payr-body")); return; }
+    if(k==="payment_date"){ // ky ghi nhan mac dinh = thang tra tien, nguoi lap sua lai neu khac
+      if(v && !((state.draft||{}).ec_ky_chi_phi||"")){
+        setModel("ec_ky_chi_phi",v);
+        // Ghi thang vao o luon: ve lai ca form se cuop focus cua nguoi dang nhap ngay, con
+        // chi dat model thoi thi o van trong va nguoi dung tuong no khong tu dien.
+        var oKy=document.querySelector('#ec-payr-root [data-model="ec_ky_chi_phi"]');
+        if(oKy) oKy.value=v;
+        clearFieldError("ec_ky_chi_phi");
+      }
+      renderSummary(); clearFieldError(k); return; }
     if(k==="ec_loai_chi_phi"){ var fo0=(state.boot&&state.boot.form_options)||{};
-      if(!needBrand(fo0,state.draft||{})) setModel("ec_brand","");
+      if(!needBrand(fo0,state.draft||{})){ setModel("ec_brand",""); setModel("ec_brand_moi",0); setModel("ec_brand_ten",""); }
       renderCreate($("payr-body")); return; }
     if(k==="payment_mode"){ if(v!=="Installment"){ setModel("total_amount",null); setModel("next_installment_amount",null); setModel("next_installment_date",""); } renderCreate($("payr-body")); return; }
     if(k==="total_amount"||k==="payment_amount"){ if((state.draft||{}).payment_mode==="Installment"){ refreshInstallmentHints(); } }
@@ -727,7 +745,7 @@
     b.innerHTML='<div style="margin-bottom:12px"><button type="button" class="btn" id="d-back">‹ Danh sách</button></div>'
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.payee_full_name||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+badge(ap.approval_status||"Draft")+'</div></div></div>'
       +'<div class="card"><h3>Tiến trình phê duyệt</h3>'+instChainHTML(det)+instStepperWrapOpen(det)+'<div class="stepper" id="d-stepper"></div>'+instStepperWrapClose(det)+'</div>'
-      +'<div class="card"><h3>Thông tin thanh toán</h3><div class="grid2">'+kv("Người nhận",biz.payee_full_name)+kv("Số tiền (VND)",biz.payment_amount!=null?fmtMoney(biz.payment_amount):"")+kv("Ngày thanh toán",biz.payment_date)+kv("Ngân hàng",biz.account_bank)+kv("Số tài khoản",biz.bank_account_number)+kv("Loại chi phí",catLabel((state.boot&&state.boot.form_options)||{},biz.ec_loai_chi_phi))+(biz.ec_brand?kv("Brand liên quan",biz.ec_brand):"")+kv("Có Purchase Request?",biz.has_purchase_request)+kv("Purchase Request",biz.purchase_request)+kv("Chi phí hợp lệ?",biz.is_cost_valid)+kv("Xác nhận thông tin & tệp",biz.details_and_attachments_correct==="Yes"?"Đã xác nhận":"Chưa xác nhận")+'</div><div class="fld" style="margin-top:10px"><label>Lý do / nội dung thanh toán</label><textarea class="ro" readonly rows="3">'+esc(biz.reason||"")+'</textarea></div>'+(biz.has_purchase_request==="No"?'<div class="fld" style="margin-top:10px"><label>Lý do không có Purchase Request</label><textarea class="ro" readonly rows="2">'+esc(biz.no_purchase_request_reason||"")+'</textarea></div>':'')+'</div>'
+      +'<div class="card"><h3>Thông tin thanh toán</h3><div class="grid2">'+kv("Người nhận",biz.payee_full_name)+kv("Số tiền (VND)",biz.payment_amount!=null?fmtMoney(biz.payment_amount):"")+kv("Ngày thanh toán",biz.payment_date)+kv("Ngân hàng",biz.account_bank)+kv("Số tài khoản",biz.bank_account_number)+kv("Loại chi phí",catLabel((state.boot&&state.boot.form_options)||{},biz.ec_loai_chi_phi))+(biz.ec_brand?kv("Brand liên quan",biz.ec_brand):"")+kv("Kỳ ghi nhận chi phí",biz.ec_ky_chi_phi)+kv("Thuế VAT",(String(biz.ec_vat_pct||"0")==="0"?"Không có VAT":String(biz.ec_vat_pct)+"%"))+kv("Có Purchase Request?",biz.has_purchase_request)+kv("Purchase Request",biz.purchase_request)+kv("Chi phí hợp lệ?",biz.is_cost_valid)+kv("Xác nhận thông tin & tệp",biz.details_and_attachments_correct==="Yes"?"Đã xác nhận":"Chưa xác nhận")+'</div><div class="fld" style="margin-top:10px"><label>Lý do / nội dung thanh toán</label><textarea class="ro" readonly rows="3">'+esc(biz.reason||"")+'</textarea></div>'+(biz.has_purchase_request==="No"?'<div class="fld" style="margin-top:10px"><label>Lý do không có Purchase Request</label><textarea class="ro" readonly rows="2">'+esc(biz.no_purchase_request_reason||"")+'</textarea></div>':'')+'</div>'
       +instCardHTML(det)
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
       +(uncCardVisible(det)?('<div class="card" id="d-unc"><h3>Xử lý UNC (Finance)</h3>'+uncSectionHTML(det)+'</div>'):'')

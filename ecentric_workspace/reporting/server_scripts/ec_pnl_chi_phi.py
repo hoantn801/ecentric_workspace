@@ -533,9 +533,34 @@ else:
     actual_company = store_to_list(act_company) if scope_mode == "all" else []
 
     # ------------------------------------------------------------ chi phi khac tu Approval Center (da duyet / dang cho)
+    # 12/09: hai truong moi. Hoi rieng vi site chua sync fixture thi cot chua ton tai va
+    # truy van thang vao no la vo ca API - khong the de bao cao chet vi mot dot deploy le pha.
+    cf2 = frappe.db.sql("""
+        SELECT fieldname FROM `tabCustom Field`
+        WHERE dt = 'EC Payment Request' AND fieldname IN ('ec_ky_chi_phi', 'ec_vat_pct')
+    """)
+    co = {}
+    for r in cf2:
+        co[r[0]] = 1
+    has_ky_field = True if co.get("ec_ky_chi_phi") else False
+    has_vat_field = True if co.get("ec_vat_pct") else False
+    pr_date_sql = "ifnull(d.payment_date, d.creation)"
+    if has_ky_field:
+        pr_date_sql = "ifnull(d.ec_ky_chi_phi, ifnull(d.payment_date, d.creation))"
+    pr_amt_sql = "ifnull(d.payment_amount, 0)"
+    if has_vat_field:
+        pr_amt_sql = ("ifnull(d.payment_amount, 0) / (1 + "
+                      "ifnull(nullif(d.ec_vat_pct, ''), 0) / 100)")
     # Moi loai: (doctype, cot tien, cot ngay quy ky, nhan)
     cost_specs = [
-        ("EC Payment Request", "ifnull(d.payment_amount, 0)", "ifnull(d.payment_date, d.creation)", "Payment Request", "ifnull(d.request_title, d.name)"),
+        # KY QUY DOI (12/09, Hoan): thang HOAT DONG phat sinh khoan chi, khong phai thang tra
+        # tien. Truoc do quy theo payment_date nen chi phi luon lech pha mot thang so voi doanh
+        # thu - 49/49 phieu dau tien deu roi vao thang 9 du nhieu khoan la cua thang 8, va thang
+        # 7-8 khong co dong chi phi nha cung cap nao.
+        # SO TIEN: payment_amount la so THUC TRA (gom VAT). Chia cho (1 + thue suat) de ra chi
+        # phi truoc thue, vi so ke toan ghi chi phi thuan. Chua chon thue thi thue = 0 -> giu
+        # nguyen so cu, khong lam doi bat ky phieu nao da co.
+        ("EC Payment Request", pr_amt_sql, pr_date_sql, "Payment Request", "ifnull(d.request_title, d.name)"),
         ("EC Special Bonus Request", "ifnull(d.total_bonus, 0)", "d.creation", "Special Bonus", "ifnull(d.request_title, d.name)"),
         ("EC Affiliate Bonus Request", "CASE WHEN ifnull(d.total_amount, 0) > 0 THEN d.total_amount ELSE ifnull(d.budget, 0) END",
          "ifnull(d.service_month, d.creation)", "Affiliate Bonus", "ifnull(d.request_title, d.name)"),
