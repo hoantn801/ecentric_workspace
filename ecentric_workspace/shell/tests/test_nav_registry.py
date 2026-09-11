@@ -287,3 +287,34 @@ class TestSidebarIA(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestPnlSubSidebar(unittest.TestCase):
+    """11/09: /pnl-dashboard co ngu canh nav RIENG - 5 dashboard cua trang la
+    sidebar phu cua chinh no, khong phai 5 dong them vao sidebar Bao cao."""
+
+    def test_route_resolves_to_its_own_context(self):
+        self.assertEqual(nav.resolve_context("/pnl-dashboard"), "pnl")
+        # khong duoc cuop route cua ngu canh Bao cao
+        self.assertEqual(nav.resolve_context("/reports"), "reporting")
+
+    def test_sidebar_lists_the_five_dashboards(self):
+        items = nav.compose("pnl", roles=set())
+        routes = [it["route"] for it in items]
+        for r in ("/pnl-dashboard#tong-quan", "/pnl-dashboard#brand",
+                  "/pnl-dashboard#doanh-thu", "/pnl-dashboard#chi-phi",
+                  "/pnl-dashboard#opex"):
+            self.assertIn(r, routes)
+        # muc canonical /pnl-dashboard la sidebar_hidden -> khong phai mot dong
+        self.assertNotIn("/pnl-dashboard", routes)
+
+    def test_reporting_sidebar_unchanged(self):
+        routes = [it["route"] for it in nav.compose("reporting", roles=set())]
+        self.assertIn("/reports", routes)
+        self.assertFalse([r for r in routes if r.startswith("/pnl-dashboard#")],
+                         "5 view PnL khong duoc ro ri sang sidebar Bao cao")
+
+    def test_hash_views_never_enter_global_discovery(self):
+        routes = [it["route"] for it in nav.compose_all(roles=set())]
+        self.assertIn("/pnl-dashboard", routes)      # trang van tim kiem duoc
+        self.assertFalse([r for r in routes if "#" in r],
+                         "route co hash la view trong trang, khong phai diem den")
