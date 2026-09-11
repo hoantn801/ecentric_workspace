@@ -66,6 +66,16 @@
 #      Khong co chot nay thi mot lan chay sai gio la so that bi thay bang so ke hoach.
 # PnL doc `loai_so` de tach hai loai - KHONG duoc cong chung vao mot tong ma khong noi ro.
 #
+# GIAN HANG CO CHU DICH KHONG KHAI O DAY (11/09/2026, Hoan chot):
+#   `pawtifulpetfood` va `masanmeatlife` co doanh so tren Fabric nhung CO Y
+#   khong duoc khai vao Brand.ec_fabric_code. Hai gian hang nay chi lam dich
+#   vu, khong phai brand minh quan gian hang, nen NMV cua chung KHONG duoc
+#   tinh vao tong NMV cong ty tren PnL. Moi lan keo du lieu chung se hien o
+#   `bo qua (brand khong quan ly)` - day la DUNG Y DO, khong phai thieu sot,
+#   dung "sua" bang cach them ma cho chung.
+#   Khac voi iDocean / HNW-VN / OGG-VN / CLB-VN / VSN-VN: nhung brand do CO
+#   khai ma, co dong phi 0, nen NMV van hien tren dashboard ma khong sinh phi.
+#
 # QUYEN: Administrator / System Manager / EC Finance. Nguoi khac bi tu choi.
 # KHONG dung cho doanh thu: so nay chi de DOI CHIEU phi quan ly gian hang
 # (NMV x Brand.ec_phi_ql_pct) voi so thuc thu o ma REV_QL_TT tren Sales Order.
