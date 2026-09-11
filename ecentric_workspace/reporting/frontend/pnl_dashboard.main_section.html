@@ -1067,6 +1067,9 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
       $("pnl-rev-denied").className = "pnl-msg info pnl-hidden";
       DATA = res;
       renderAll();
+      // Khoi phi quan ly ve TRUOC doanh thu (query nho hon) nen o "so voi doanh
+      // thu co chung tu" ve ra "—". Ve lai khi doanh thu da co.
+      if (QL && QL.ok) renderQl();
       // preset "Toan bo du lieu" khong co ngay cu the: khi da biet khoang ngay that cua
       // doanh thu thi keo phan chi phi ve cung khoang do
       if (JSON.stringify(costArgs()) !== costArgsUsed) loadCost(); else renderCost();

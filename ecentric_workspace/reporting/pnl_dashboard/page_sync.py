@@ -52,7 +52,7 @@ def _html():
 #
 # Sua co chu dich = sua file frontend, bump BASELINE_SHA256 sang sha moi, va day
 # gia tri cu xuong SUPERSEDES_SHA256 -- tat ca trong CUNG mot commit.
-BASELINE_SHA256 = "0350560847337792dc3508e6b997e2bfbe9e823543c89ddfcc50b5eb158a9558"
+BASELINE_SHA256 = "193f5d22e6ad9b2dbfb963dca3a5e983a5d78b530e5f7802a320dea0a3e4fd5b"
 SUPERSEDES_SHA256 = (
     "d7803811ea6df96756f58a090178e04ca3110f839d5dfb12cff029ab8a7acca9",   # ban dau 2026-08-10
     "1936ee8870e35ae3b31eb4b7bbf2de2338f560754d44b0e6de9a49fb1cd8c812",   # sau khi Viet hoa thong bao tu choi quyen
@@ -66,6 +66,7 @@ SUPERSEDES_SHA256 = (
     # 09/09: chi phi khac gom theo NHOM / khoan muc tu `EC Loai Chi Phi`, canh bao phieu
     # chua phan loai, va khong cong khoan da tinh o khoi luong (chong dem trung).
     "2c8ebf6531240e3ea75fc4b3c02a5633f076183a512b101edd744ed6ec235339",   # 11/09: them khoi Phi quan ly gian hang (tinh tu NMV)
+    "0350560847337792dc3508e6b997e2bfbe9e823543c89ddfcc50b5eb158a9558",   # 11/09: ban dau cua khoi phi QL, thieu ve lai sau khi doanh thu ve
 )
 
 
