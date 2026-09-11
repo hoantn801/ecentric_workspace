@@ -21,6 +21,11 @@
     "last_resync_patch": "p172_resync_skipped_step_shows_approver",
     "sha256": "2979a9aca8992ea9795a9d8a15c4a5105ffbb1354e29c489e6d9aa9ff056b97a"
   },
+  "approval_center/features/booking_request/ui/main_section.html": {
+    "baseline": "2026-09-11",
+    "last_resync_patch": "p179_create_booking_request_page",
+    "sha256": "54fdbf8458bf19f2cae98d35468af1f71bfb7f9e9932e30545f05559ef62ca67"
+  },
   "approval_center/features/budget_setting/ui/main_section.html": {
     "baseline": "2026-08-31",
     "last_resync_patch": "p172_resync_skipped_step_shows_approver",
@@ -208,17 +213,12 @@
     "sha256": "4aa7b29bac83023432ed92af04d9393efb7c74d157acec9473008df4aa86aecd"
   },
   "reporting/frontend/pnl_dashboard.main_section.html": {
-    "last_resync_patch": "p175_resync_pnl_dashboard_chi_phi",
-    "sha256": "2c8ebf6531240e3ea75fc4b3c02a5633f076183a512b101edd744ed6ec235339"
+    "last_resync_patch": "p180_resync_pnl_dashboard_sidebar",
+    "sha256": "03c4588e53e4d732df1e72f79bd0338134e648131ec6fb6282d1f26d860de99b"
   },
   "reporting/frontend/reports.main_section.html": {
     "baseline": "2026-08-31",
     "last_resync_patch": null,
     "sha256": "d7ba9b5ce4ddc0ac0d25981b1d4ef63f9c69f296b5366fbebe0010c8e0a79153"
-  },
-  "approval_center/features/booking_request/ui/main_section.html": {
-    "baseline": "2026-09-11",
-    "last_resync_patch": "p179_create_booking_request_page",
-    "sha256": "54fdbf8458bf19f2cae98d35468af1f71bfb7f9e9932e30545f05559ef62ca67"
   }
 }
