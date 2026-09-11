@@ -9,8 +9,8 @@
     "sha256": "5959cb21f900e349e49e1e28d0ee40cf07fe424ce00fc6d1b290569107ee1af8"
   },
   "approval_center/features/ai_topup/ui/main_section.html": {
-    "last_resync_patch": "p172_resync_skipped_step_shows_approver",
-    "sha256": "bbe34d432dea49364b2035d446557a245e55a7a2914a49aa7c3c732ec0a5bcb7"
+    "last_resync_patch": "p180_resync_ai_topup_duplicate_account_msg",
+    "sha256": "665dd2bb41655ca179c309c30cf2e186592766217571dfa5d1cda343ccc75c10"
   },
   "approval_center/features/asset_damage_loss/ui/main_section.html": {
     "baseline": "2026-08-31",
