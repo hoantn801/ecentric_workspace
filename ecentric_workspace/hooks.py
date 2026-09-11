@@ -166,9 +166,11 @@ scheduler_events["cron"].setdefault("*/30 * * * *", []).append(
 
 # PM time-blocking: remind users to confirm elapsed unconfirmed hours TWICE a day
 # (site timezone Asia/Ho_Chi_Minh = Vietnam): 09:00 + 18:00.
-scheduler_events["cron"].setdefault("0 9 * * *", []).append(
-    "ecentric_workspace.pm.api.schedule.nudge_unconfirmed")
-scheduler_events["cron"].setdefault("0 18 * * *", []).append(
+# NOTE (2026-09-10): one method = ONE Scheduled Job Type (frappe sync_jobs keys by
+# dotted method path), so two cron keys for the same method silently keep only the
+# LAST one - measured live: a single record '0 18 * * *', the 09:00 run never
+# existed. A comma cron list keeps both runs in a single registration.
+scheduler_events["cron"].setdefault("0 9,18 * * *", []).append(
     "ecentric_workspace.pm.api.schedule.nudge_unconfirmed")
 
 # Unanswered meeting invites: one nudge in the morning (one Graph call per active
