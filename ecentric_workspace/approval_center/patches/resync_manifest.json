@@ -104,8 +104,8 @@
     "sha256": "4784a7e008a5cf181930ed3827800d8dd77e3bd87c3d7413b05889d3d9dcb6a4"
   },
   "approval_center/features/payment_request/ui/main_section.html": {
-    "last_resync_patch": "p173_resync_cancelled_badge_and_hub_filters",
-    "sha256": "5bd675bb54607e7bec22af3954813cc65c16cc485054eb45f4faeab2b74c8f55"
+    "last_resync_patch": "p182_payment_request_ky_chi_phi_vat_brand",
+    "sha256": "f5e9373cfc5bcaf8e3518568c8ffaa71d605e72c8cdd811602aa0db178ae60e6"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
