@@ -1046,7 +1046,6 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     if (state.brand) args.brand = state.brand;
     if (state.team) args.team = state.team;
     loadCost();
-    loadQl();
     call(args).then(function (res) {
       setBusy(false);
       if (!res) { showErr("Máy chủ không trả về dữ liệu. Hãy thử tải lại."); return; }
@@ -1067,9 +1066,12 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
       $("pnl-rev-denied").className = "pnl-msg info pnl-hidden";
       DATA = res;
       renderAll();
-      // Khoi phi quan ly ve TRUOC doanh thu (query nho hon) nen o "so voi doanh
-      // thu co chung tu" ve ra "—". Ve lai khi doanh thu da co.
-      if (QL && QL.ok) renderQl();
+      // Phi quan ly phai doc DUNG khoang ky ma doanh thu vua tra ve. Hai API co
+      // mac dinh KHAC NHAU khi chua chon ngay: `ec_pnl_data` lay tron khoang co
+      // du lieu (04 -> 09), `ec_pnl_phi_ql` lay thang hien tai. De moi ben tu
+      // chon thi o "so voi doanh thu" dem 1 thang phi chia cho 5 thang doanh thu
+      // -> ra 17,7% trong khi su that khong phai vay. Goi SAU va truyen ky xuong.
+      loadQl((res.meta || {}).date_from, (res.meta || {}).date_to);
       // preset "Toan bo du lieu" khong co ngay cu the: khi da biet khoang ngay that cua
       // doanh thu thi keo phan chi phi ve cung khoang do
       if (JSON.stringify(costArgs()) !== costArgsUsed) loadCost(); else renderCost();
@@ -1838,6 +1840,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
   // vao `DATA.totals`. Ai go bo canh bao do thi doc lai commit nay truoc.
   var QL = null;
   var qlBusy = false, qlPending = false;
+  var qlRange = ["", ""], qlPendingRange = ["", ""];
 
   function qlDenied(msg) {
     $("ql-wrap").className = "pnl-hidden";
@@ -1859,10 +1862,28 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     $("ql-k-tong-x").textContent = num(t.tong_ca_ky) + " đ";
     $("ql-k-tong-s").textContent = "cố định " + money(t.co_dinh) + " · bù mức sàn " + money(t.bu_san);
 
+    // Chan so sanh lech ky: neu khoang ngay cua hai API khong trung thi KHONG
+    // duoc chia cho nhau. Tha hien dau gach con hon hien mot ty le sai.
+    var dm = (DATA && DATA.meta) || {};
+    var qm = QL.meta || {};
+    var cungKy = dm.date_from && qm.date_from
+      && String(dm.date_from) === String(qm.date_from)
+      && String(dm.date_to) === String(qm.date_to);
     var dt = (DATA && DATA.totals && DATA.totals.total) || 0;
-    $("ql-k-vs").textContent = dt ? pct(t.tong_ca_ky || 0, dt) : "—";
-    $("ql-k-vs-x").textContent = dt ? ("doanh thu " + money(dt)) : "chưa có số doanh thu";
-    $("ql-k-vs-s").textContent = "hai con số này KHÔNG được cộng với nhau";
+    if (!cungKy) {
+      $("ql-k-vs").textContent = "—";
+      $("ql-k-vs-x").textContent = "hai phần đang xem hai kỳ khác nhau";
+      $("ql-k-vs-s").textContent = "phí " + (qm.date_from || "?") + " → " + (qm.date_to || "?")
+        + " · doanh thu " + (dm.date_from || "?") + " → " + (dm.date_to || "?");
+    } else if (!dt) {
+      $("ql-k-vs").textContent = "—";
+      $("ql-k-vs-x").textContent = "chưa có số doanh thu trong kỳ";
+      $("ql-k-vs-s").textContent = "hai con số này KHÔNG được cộng với nhau";
+    } else {
+      $("ql-k-vs").textContent = pct(t.tong_ca_ky || 0, dt);
+      $("ql-k-vs-x").textContent = "doanh thu " + money(dt);
+      $("ql-k-vs-s").textContent = "hai con số này KHÔNG được cộng với nhau";
+    }
 
     var rows = QL.theo_brand || [], i, j, b, mo, body = "";
     for (i = 0; i < rows.length; i++) {
@@ -1900,12 +1921,13 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     $("ql-thieu").textContent = tx;
   }
 
-  function loadQl() {
-    if (qlBusy) { qlPending = true; return; }
+  function loadQl(tuNgay, denNgay) {
+    if (qlBusy) { qlPending = true; qlPendingRange = [tuNgay, denNgay]; return; }
     qlBusy = true;
+    qlRange = [tuNgay || "", denNgay || ""];
     var a = {};
-    if (state.from) a.date_from = state.from;
-    if (state.to) a.date_to = state.to;
+    if (tuNgay) a.date_from = tuNgay;
+    if (denNgay) a.date_to = denNgay;
     if (state.brand) a.brand = state.brand;
     call(a, "ec_pnl_phi_ql").then(function (res) {
       qlBusy = false;
@@ -1924,7 +1946,10 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
       qlBusy = false;
       qlDenied("Không tải được phần phí quản lý gian hàng: " + ((err && err.message) || err));
     }).then(function () {
-      if (qlPending) { qlPending = false; loadQl(); }
+      if (qlPending) {
+        qlPending = false;
+        loadQl(qlPendingRange[0], qlPendingRange[1]);
+      }
     });
   }
 
