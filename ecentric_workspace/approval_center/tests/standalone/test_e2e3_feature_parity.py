@@ -540,7 +540,7 @@ class TestPinnedGaps(_Base):
     def test_pinned_page_sync_without_drift_lock(self):
         self._assert_pinned(
             _no_drift_lock_features(),
-            ["contract_review"],
+            ["booking_request", "contract_review"],
             "THIEU KHOA DRIFT: page_sync khong truyen expect_sha, nen mot lan goi sync se GHI DE "
             "ban live ke ca khi co nguoi da sua truc tiep tren site. 26 page_sync khac deu co.")
 

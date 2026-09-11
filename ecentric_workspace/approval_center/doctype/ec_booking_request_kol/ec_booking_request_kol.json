@@ -1,0 +1,74 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-09-11 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "index_web_pages_for_search": 0,
+ "is_child_table": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-11 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC Booking Request KOL",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0,
+ "field_order": [
+  "kol_name",
+  "kol_channel",
+  "kol_link",
+  "cb0",
+  "kol_followers",
+  "kol_budget",
+  "kol_note"
+ ],
+ "fields": [
+  {
+   "fieldname": "kol_name",
+   "fieldtype": "Data",
+   "label": "Tên KOL/KOC",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "kol_channel",
+   "fieldtype": "Select",
+   "label": "Kênh",
+   "options": "\nTikTok\nFacebook\nInstagram\nYouTube\nThreads\nKhác",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "kol_link",
+   "fieldtype": "Data",
+   "label": "Link kênh",
+   "in_list_view": 1,
+   "description": "Dán link trang/kênh của KOL nếu có."
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "kol_followers",
+   "fieldtype": "Int",
+   "label": "Follower (ước tính)"
+  },
+  {
+   "fieldname": "kol_budget",
+   "fieldtype": "Currency",
+   "label": "Ngân sách dự kiến",
+   "precision": "2"
+  },
+  {
+   "fieldname": "kol_note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  }
+ ],
+ "permissions": []
+}

@@ -182,5 +182,12 @@
   "category": "FINANCE_BUDGET",
   "legacy_template_name": "Contract approval (SharePoint Finance)",
   "sort_order": 85
+ },
+ {
+  "approval_code": "BOOKING_REQUEST",
+  "approval_title": "Booking Request",
+  "category": "OPERATIONS_PERFORMANCE",
+  "legacy_template_name": "Booking KOL/KOC (Account nhan tin cho Booking)",
+  "sort_order": 86
  }
 ]

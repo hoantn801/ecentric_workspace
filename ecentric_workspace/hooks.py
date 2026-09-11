@@ -157,6 +157,10 @@ scheduler_events["daily"].append(
 # Chia dot: nhac nguoi de nghi tao phieu dot ke tu D-7 truoc ngay du kien.
 scheduler_events["daily"].append(
     "ecentric_workspace.approval_center.features.payment_request.application.reminders.remind_next_installment")
+# Booking Request: nhac Booking tu D-3 truoc NGAY DU KIEN XONG ma chinh ho cam ket luc
+# nhan viec (11/09). Moi phieu mot lan/ngay; tat bang site_config ec_booking_reminder_disabled.
+scheduler_events["daily"].append(
+    "ecentric_workspace.approval_center.features.booking_request.application.reminders.remind_booking_due")
 # esign S2B-C1: bounded retry (*/30) of signed-PDF retrieval for terminal-completed
 # packages whose signed bundle is not yet complete. Safe GET/download only; never resends
 # AddDocument/bulk-process. Same kill switch (ec_esign_scheduler_disabled) + per-provider
@@ -228,6 +232,13 @@ fixtures = [
             "Brand-ec_leader_email", "Brand-ec_finance_email",
             "Brand-ec_sect2", "Brand-ec_approval_recipe", "Brand-ec_gbs_recipe",
             "Brand-ec_cb2", "Brand-ec_boxme_customer",
+            # Booking Request (2026-09-11): moi brand co MOT ban Booking va MOT ban
+            # Account phu trach, nen phieu booking giao duoc cho dung nguoi ma khong
+            # can bang anh xa rieng. Brand ngoai do Account tu go tren form thi chinh
+            # ho khai luon nguoi Booking ngay luc do va ta luu lai (y Hoan 11/09), nen
+            # o binh thuong khong bao gio trong; Role EC Booking chi la luoi do cuoi.
+            "Brand-ec_booking_owner", "Brand-ec_account_owner",
+            "Brand-ec_brand_source", "Brand-ec_can_chuan_hoa",
             # C4b B7 (2026-08-03): buoc "Gui lai / Can sua" cho MSO / Sales Order /
             # Purchase Order. ec_revision_reason giu ly do nguoi duyet yeu cau sua,
             # ec_revision_count dem so lan. CHUNG KHONG PHAI TRANG THAI -- trang thai

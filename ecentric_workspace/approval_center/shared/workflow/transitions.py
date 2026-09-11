@@ -576,7 +576,8 @@ _FULFILLMENT_TERMINAL = ("Completed", "Cancelled")
 #: the governed fulfillment-capable business DocTypes.
 FULFILLMENT_DOCTYPES = ("EC AI Topup Request", "EC Asset Request", "EC Data Request",
                         "EC Document Request", "EC Resignation Request", "EC System Request",
-                        "EC Payment Request")     # buoc 6 Finance xu ly UNC (07/09)
+                        "EC Payment Request",    # buoc 6 Finance xu ly UNC (07/09)
+                        "EC Booking Request")    # Booking xu ly yeu cau (11/09)
 
 
 def _fulfillment_snapshot(business_doctype, name):
@@ -1357,6 +1358,9 @@ _FULFILLMENT_HANDLERS = {
     "EC Resignation Request": "ecentric_workspace.approval_center.features.resignation.application.service.on_final_approval",
     # 07/09: sau CEO duyet, phieu sang Finance xu ly UNC (Fulfiller = Role EC Finance).
     "EC Payment Request": "ecentric_workspace.approval_center.features.payment_request.application.service.on_final_approval",
+    # 11/09: duyet xong thi giao Booking xu ly. Viec di DICH DANH toi ban Booking phu
+    # trach brand (xem service.on_final_approval); Role EC Booking chi la luoi do.
+    "EC Booking Request": "ecentric_workspace.approval_center.features.booking_request.application.service.on_final_approval",
 }
 
 
