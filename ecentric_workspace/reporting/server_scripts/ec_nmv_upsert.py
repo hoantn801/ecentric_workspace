@@ -9,7 +9,8 @@
 # DocType di kem `EC NMV Ngay` co trong fixtures (hooks.py), schema theo repo.
 # Du lieu NMV thi KHONG phai fixture - do PowerBI day vao hang ngay.
 #   brand Link Brand (reqd) | platform Select (reqd) | ngay Date (reqd)
-#   nmv Currency (reqd) | nguon Select | ghi_chu Small Text
+#   nmv Currency (reqd) | nguon Select | loai_so Select (Thuc te / Ke hoach)
+#   | ghi_chu Small Text
 #   autoname format:NMV-{brand}-{platform}-{ngay}
 #   Quyen: System Manager + EC Finance ghi; EC CEO/HOF/CnB doc.
 # Truong di kem tren Brand: `ec_phi_ql_pct` (Percent) - muc % thu tren NMV,
@@ -28,6 +29,9 @@
 #         ngay     bat buoc, dang YYYY-MM-DD
 #         nmv      bat buoc, so tien VND trong ngay CUA RIENG SAN DO
 #         nguon    tuy chon, mac dinh PowerBI
+#         loai_so  tuy chon: 'Thuc te' (mac dinh) hoac 'Ke hoach'. Ke hoach = target cua
+#                  ngay CHUA TOI, de dashboard ve duoc ca thang. Nhan them vai bi danh:
+#                  actual / thuc te / ke hoach / plan / target.
 # Ra:   {ok, tao_moi, cap_nhat, bo_qua, gop_dong, qua_anh_xa, loi[...]}
 #
 # Hoac goi voi danh_muc=1 (khong kem rows) de LAY VE danh sach ma dang chap nhan -
@@ -50,6 +54,17 @@
 # Giua CAC LAN GOI khac nhau thi van la ghi de - day la upsert, day lai cung mot ky
 # khong duoc phep cong don.
 #
+# THUC TE vs KE HOACH (11/09/2026, Hoan): ngay nao co so that thi lay so that, ngay
+# chua toi thi lay target. Hai loai dung CHUNG mot khoa (brand + san + ngay) nen khi so
+# that ve, no tu ghi de dong ke hoach - khong can don dep. Hai chot bao ve:
+#   1. Trong cung mot lan gui, neu mot khoa co ca dong Thuc te lan Ke hoach thi
+#      THUC TE THANG, khong cong lai. Cong hai thu do la vua dem so that vua dem so du
+#      kien cho cung mot ngay.
+#   2. KHONG cho dong Ke hoach ghi de len ban ghi da la Thuc te. Neu ben goi lo gui
+#      target cho mot ngay da co so that, dong do bi bo qua va bao o `giu_thuc_te`.
+#      Khong co chot nay thi mot lan chay sai gio la so that bi thay bang so ke hoach.
+# PnL doc `loai_so` de tach hai loai - KHONG duoc cong chung vao mot tong ma khong noi ro.
+#
 # QUYEN: Administrator / System Manager / EC Finance. Nguoi khac bi tu choi.
 # KHONG dung cho doanh thu: so nay chi de DOI CHIEU phi quan ly gian hang
 # (NMV x Brand.ec_phi_ql_pct) voi so thuc thu o ma REV_QL_TT tren Sales Order.
@@ -59,6 +74,12 @@ MAX_ROWS = 2000
 WRITE_ROLES = ("System Manager", "EC Finance")
 PLATFORMS = ("Shopee", "Lazada", "TikTok", "Other", "Tat ca san")
 PLAT_ALL = "Tat ca san"
+LOAI_THUC = "Thuc te"
+LOAI_KH = "Ke hoach"
+LOAI_ALIAS = {"thuc te": LOAI_THUC, "thucte": LOAI_THUC, "actual": LOAI_THUC,
+              "that": LOAI_THUC, "real": LOAI_THUC,
+              "ke hoach": LOAI_KH, "kehoach": LOAI_KH, "plan": LOAI_KH,
+              "target": LOAI_KH, "du kien": LOAI_KH}
 PLAT_ALIAS = {"shopee": "Shopee", "lazada": "Lazada",
               "tiktok": "TikTok", "tiktok shop": "TikTok", "tiktokshop": "TikTok",
               "tiktok-shop": "TikTok", "tik tok": "TikTok",
@@ -150,6 +171,8 @@ else:
             thu_tu = []
             n_map = 0
             n_gop = 0
+            n_kh_bo = 0
+            n_giu_thuc = 0
             n_skip = 0
             errs = []
             idx = 0
@@ -160,6 +183,14 @@ else:
                 ngay = (r.get("ngay") or "").strip()[:10]
                 nguon = (r.get("nguon") or "PowerBI").strip()
                 ghi_chu = (r.get("ghi_chu") or "").strip()
+                loai = (r.get("loai_so") or LOAI_THUC).strip()
+                if loai not in (LOAI_THUC, LOAI_KH):
+                    loai = LOAI_ALIAS.get(loai.lower()) or ""
+                if not loai:
+                    n_skip = n_skip + 1
+                    errs = errs + ["dong %d: loai_so '%s' khong hop le, phai la '%s' hoac '%s'"
+                                   % (idx, (r.get("loai_so") or ""), LOAI_THUC, LOAI_KH)]
+                    continue
                 if not brand or not ngay:
                     n_skip = n_skip + 1
                     errs = errs + ["dong %d: thieu brand hoac ngay" % idx]
@@ -213,12 +244,23 @@ else:
                     continue
                 key = "NMV-" + brand + "-" + plat + "-" + ngay
                 if key in agg:
-                    agg[key]["nmv"] = agg[key]["nmv"] + nmv
-                    agg[key]["n_nguon"] = agg[key]["n_nguon"] + 1
-                    n_gop = n_gop + 1
+                    cu = agg[key]
+                    if cu["loai"] == loai:
+                        cu["nmv"] = cu["nmv"] + nmv
+                        cu["n_nguon"] = cu["n_nguon"] + 1
+                        n_gop = n_gop + 1
+                    elif loai == LOAI_THUC:
+                        # so that thay so ke hoach, KHONG cong lai
+                        agg[key] = {"brand": brand, "plat": plat, "ngay": ngay, "nmv": nmv,
+                                    "nguon": nguon, "ghi_chu": ghi_chu, "loai": loai,
+                                    "n_nguon": 1}
+                        n_kh_bo = n_kh_bo + 1
+                    else:
+                        n_kh_bo = n_kh_bo + 1
                 else:
                     agg[key] = {"brand": brand, "plat": plat, "ngay": ngay, "nmv": nmv,
-                                "nguon": nguon, "ghi_chu": ghi_chu, "n_nguon": 1}
+                                "nguon": nguon, "ghi_chu": ghi_chu, "loai": loai,
+                                "n_nguon": 1}
                     thu_tu = thu_tu + [key]
 
             # ---------- PHA 2: chong cong doi 'Tat ca san' vs tung san ----------
@@ -275,15 +317,20 @@ else:
                     ghi_chu = (ghi_chu + " | " + them) if ghi_chu else them
                 try:
                     if frappe.db.exists("EC NMV Ngay", key):
+                        loai_cu = frappe.db.get_value("EC NMV Ngay", key, "loai_so") or LOAI_THUC
+                        if loai_cu == LOAI_THUC and it["loai"] == LOAI_KH:
+                            # khong cho so ke hoach de len so that
+                            n_giu_thuc = n_giu_thuc + 1
+                            continue
                         frappe.db.set_value("EC NMV Ngay", key,
                                             {"nmv": it["nmv"], "nguon": it["nguon"],
-                                             "ghi_chu": ghi_chu})
+                                             "loai_so": it["loai"], "ghi_chu": ghi_chu})
                         n_upd = n_upd + 1
                     else:
                         doc = frappe.get_doc({"doctype": "EC NMV Ngay", "brand": it["brand"],
                                               "platform": it["plat"], "ngay": it["ngay"],
                                               "nmv": it["nmv"], "nguon": it["nguon"],
-                                              "ghi_chu": ghi_chu})
+                                              "loai_so": it["loai"], "ghi_chu": ghi_chu})
                         doc.insert()
                         n_new = n_new + 1
                 except Exception as exc2:
@@ -292,5 +339,7 @@ else:
 
             frappe.response["message"] = {"ok": True, "tao_moi": n_new, "cap_nhat": n_upd,
                                           "bo_qua": n_skip, "gop_dong": n_gop,
+                                          "ke_hoach_bi_thay": n_kh_bo,
+                                          "giu_thuc_te": n_giu_thuc,
                                           "qua_anh_xa": n_map, "loi": errs[:20],
                                           "tong_gui": len(data)}
