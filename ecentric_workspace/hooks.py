@@ -265,6 +265,10 @@ fixtures = [
             # Mat field nay thi phep doi chieu im lang tra ve 0 cho moi brand, trong y
             # het "khong lech" - nguy hiem hon la bao loi.
             "Brand-ec_phi_ql_pct",
+            # Ma brand ben Fabric/PowerBI (11/09/2026). Bang anh xa phai o DAY chu khong
+            # o trong notebook - de trong code thi them mot brand la phai sua code va
+            # khong ai nho. ec_nmv_upsert tra: ten brand -> o nay -> ec_brand_code.
+            "Brand-ec_fabric_code",
             # LUU Y (CnB xac nhan truoc khi them): cac field luong tren Employee cung
             # chua versioned -- ec_pit_10, ec_pit_luytien, ec_dong_bhxh, ec_mst_ca_nhan,
             # ec_so_nguoi_phu_thuoc, ec_allow_lunch/coffee/computer, ec_late_early_bank.
