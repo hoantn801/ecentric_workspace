@@ -456,26 +456,6 @@
   "depends_on": "eval:doc.ec_can_brand"
  },
  {
-  "fieldtype": "Percent",
-  "name": "Brand-ec_phi_ql_pct",
-  "no_copy": 0,
-  "in_standard_filter": 0,
-  "hidden": 0,
-  "dt": "Brand",
-  "allow_in_quick_entry": 0,
-  "doctype": "Custom Field",
-  "in_list_view": 0,
-  "description": "Tỷ lệ eCentric thu trên NMV của brand. PnL dashboard nhân với NMV theo ngày (DocType 'EC NMV Ngay') để đối chiếu với số thực thu ở mã REV_QL_TT. Để trống = brand này không tính theo %.",
-  "unique": 0,
-  "fieldname": "ec_phi_ql_pct",
-  "insert_after": "ec_kam_owner",
-  "translatable": 0,
-  "read_only": 0,
-  "label": "% phí quản lý gian hàng",
-  "allow_on_submit": 0,
-  "reqd": 0
- },
- {
   "doctype": "Custom Field",
   "name": "Brand-ec_booking_owner",
   "dt": "Brand",
