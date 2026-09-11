@@ -291,7 +291,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
         <label for="pnl-team">Phòng ban</label>
         <select id="pnl-team"><option value="">Tất cả phòng ban</option></select>
       </div>
-      <button class="pnl-btn" id="pnl-apply" type="button">Áp dụng</button>
+      <button class="pnl-btn pnl-hidden" id="pnl-apply" type="button">Áp dụng</button>
     </div>
     <div class="pnl-presets" id="pnl-presets">
       <button class="pnl-chip" type="button" data-p="30">30 ngày qua</button>
@@ -857,9 +857,27 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     return out;
   }
 
+  // Bieu do o tab dang AN van duoc ECharts tinh toan day du du khong ai thay.
+  // Do bang bo dem 50ms: moi lan doi bo loc, luong chinh nghen ~0,8 giay - trong
+  // khi ba API chi mat 0,19-0,24 giay. Nen hoan lai, doi tab nao hien thi ve tab do.
+  var HOAN_VE = {};
+
+  function veLaiTabDangXem() {
+    var ds = [], k;
+    for (k in HOAN_VE) ds.push(HOAN_VE[k]);
+    for (var i = 0; i < ds.length; i++) {
+      draw(ds[i][0], ds[i][1], ds[i][2], ds[i][3]);
+    }
+  }
+
   function draw(elId, fbId, option, onClick) {
     var el = $(elId), fb = $(fbId);
     if (!el) return;
+    if (el.offsetParent === null) {   // dang bi display:none
+      HOAN_VE[elId] = [elId, fbId, option, onClick];
+      return;
+    }
+    delete HOAN_VE[elId];
     if (!chartsOk()) {
       el.style.display = "none";
       fb.className = "pnl-fb";
@@ -2097,6 +2115,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     // ECharts do kich thuoc luc ve; khoi vua hien ra tu display:none se ra 0px
     // neu khong bao no do lai.
     setTimeout(function () {
+      veLaiTabDangXem();
       try { window.dispatchEvent(new Event("resize")); } catch (e) {}
     }, 30);
   }
@@ -2432,6 +2451,29 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     $("tq-brand-note").textContent = nt;
   }
 
+  // Doi bo loc la chay luon, khong phai bam "Ap dung" (Hoan 11/09). Cho 700ms
+  // sau thay doi CUOI CUNG roi moi goi, de chon xong ca hai o ngay chi tai mot lan.
+  function bindTuDong() {
+    var ids = ["pnl-from", "pnl-to", "pnl-channel", "pnl-brand", "pnl-team"];
+    var hen = null, i;
+    function doi() {
+      if (hen) clearTimeout(hen);
+      hen = setTimeout(function () {
+        hen = null;
+        state.from = $("pnl-from").value;
+        state.to = $("pnl-to").value;
+        state.channel = $("pnl-channel").value;
+        state.brand = $("pnl-brand").value;
+        state.team = $("pnl-team").value;
+        load();
+      }, 700);
+    }
+    for (i = 0; i < ids.length; i++) {
+      var el = $(ids[i]);
+      if (el) el.addEventListener("change", doi);
+    }
+  }
+
   function bindTabs() {
     $("pnl-tabbar").addEventListener("click", function (e) {
       var t = e.target && e.target.getAttribute("data-tb");
@@ -2440,7 +2482,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     });
   }
 
-  function boot() { bind(); bindCost(); bindTabs(); applyTab(); load(); }
+  function boot() { bind(); bindCost(); bindTabs(); bindTuDong(); applyTab(); load(); }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot);
   } else { boot(); }
