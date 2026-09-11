@@ -12,6 +12,12 @@ live, moi API mot bo quyen rieng (ban sao doi chieu o ../server_scripts/):
   - `ec_pnl_data`    doanh thu (Sales Order)                    -> ec_pnl_data.py
   - `ec_pnl_chi_phi` quy luong UOC TINH tu ho so nhan su, headcount, tuyen dung, chi phi
                      Approval Center theo loai, kich ban brand  -> ec_pnl_chi_phi.py
+  - `ec_pnl_phi_ql`  phi quan ly gian hang UOC TINH = NMV x bang phi -> ec_pnl_phi_ql.py
+                     (11/09/2026) KHONG phai doanh thu co chung tu: ke toan xac nhan
+                     REV_QL_TT la phi quan ly cong tren tung goi dich vu, va ra soat
+                     toan bo Sales Order thi khong ma item nao la phi theo % NMV. Khoi
+                     nay nam RIENG tren trang, co canh bao do, va KHONG duoc cong vao
+                     tong doanh thu.
 Hai DocType custom di kem (tao tren live qua REST, dinh nghia trong header cua
 ec_pnl_chi_phi.py): `EC Nhan Su Brand` (ty trong nhan su x brand) va `EC Loai Chi Phi`
 (danh muc loai chi phi cho de nghi thanh toan).
@@ -46,7 +52,7 @@ def _html():
 #
 # Sua co chu dich = sua file frontend, bump BASELINE_SHA256 sang sha moi, va day
 # gia tri cu xuong SUPERSEDES_SHA256 -- tat ca trong CUNG mot commit.
-BASELINE_SHA256 = "2c8ebf6531240e3ea75fc4b3c02a5633f076183a512b101edd744ed6ec235339"
+BASELINE_SHA256 = "0350560847337792dc3508e6b997e2bfbe9e823543c89ddfcc50b5eb158a9558"
 SUPERSEDES_SHA256 = (
     "d7803811ea6df96756f58a090178e04ca3110f839d5dfb12cff029ab8a7acca9",   # ban dau 2026-08-10
     "1936ee8870e35ae3b31eb4b7bbf2de2338f560754d44b0e6de9a49fb1cd8c812",   # sau khi Viet hoa thong bao tu choi quyen
@@ -59,6 +65,7 @@ SUPERSEDES_SHA256 = (
     "cdebf00ba1849f05dff69b6b4295ed945aca2af92647134a73940e32f3826165",   # 08/09: quy luong gom them luong du an
     # 09/09: chi phi khac gom theo NHOM / khoan muc tu `EC Loai Chi Phi`, canh bao phieu
     # chua phan loai, va khong cong khoan da tinh o khoi luong (chong dem trung).
+    "2c8ebf6531240e3ea75fc4b3c02a5633f076183a512b101edd744ed6ec235339",   # 11/09: them khoi Phi quan ly gian hang (tinh tu NMV)
 )
 
 

@@ -397,6 +397,65 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
 
   </div><!-- /pnl-rev-wrap -->
 
+  <div class="pnl-sep"><h2>Phí quản lý gian hàng (tính từ NMV)</h2><div class="pnl-sep-l"></div></div>
+  <div class="pnl-msg info pnl-hidden" id="ql-denied"></div>
+  <div id="ql-wrap" class="pnl-hidden">
+
+  <div class="pnl-msg err" id="ql-warn">
+    <b>Đây là số tính ra, không phải doanh thu có chứng từ.</b>
+    Kế toán xác nhận khoản phí quản lý gian hàng hiện <b>chưa được ghi ở bất kỳ Sales Order nào</b> —
+    mã <b>REV_QL_TT</b> là phí quản lý cộng trên từng gói dịch vụ (booking 10%, affiliate 9%,
+    livestream 72%), không phải phần trăm trên NMV. Con số dưới đây bằng NMV nhân với bảng phí
+    trong <b>EC Phi Quan Ly Brand</b>. Đừng cộng nó vào phần doanh thu ở trên.
+  </div>
+
+  <section class="pnl-kpis">
+    <div class="pnl-kpi k-cost">
+      <div class="pnl-kpi-l">Phí từ NMV thực tế</div>
+      <div class="pnl-kpi-v" id="ql-k-thuc">—</div>
+      <div class="pnl-kpi-x" id="ql-k-thuc-x">—</div>
+      <div class="pnl-kpi-s" id="ql-k-thuc-s">—</div>
+    </div>
+    <div class="pnl-kpi k-other">
+      <div class="pnl-kpi-l">Phí từ NMV target</div>
+      <div class="pnl-kpi-v" id="ql-k-kh">—</div>
+      <div class="pnl-kpi-x" id="ql-k-kh-x">—</div>
+      <div class="pnl-kpi-s" id="ql-k-kh-s">—</div>
+    </div>
+    <div class="pnl-kpi k-profit">
+      <div class="pnl-kpi-l">Tổng cả kỳ</div>
+      <div class="pnl-kpi-v" id="ql-k-tong">—</div>
+      <div class="pnl-kpi-x" id="ql-k-tong-x">—</div>
+      <div class="pnl-kpi-s" id="ql-k-tong-s">—</div>
+    </div>
+    <div class="pnl-kpi k-ratio">
+      <div class="pnl-kpi-l">So với doanh thu có chứng từ</div>
+      <div class="pnl-kpi-v" id="ql-k-vs">—</div>
+      <div class="pnl-kpi-x" id="ql-k-vs-x">—</div>
+      <div class="pnl-kpi-s" id="ql-k-vs-s">—</div>
+    </div>
+  </section>
+
+  <section class="pnl-card">
+    <div class="pnl-card-h">
+      <div>
+        <h2 class="pnl-card-t">Theo brand</h2>
+        <p class="pnl-card-n" id="ql-brand-n">Dòng phí ghi rõ sàn thắng dòng “Tất cả sàn”. Phí cố định chia đều theo số ngày trong tháng.</p>
+      </div>
+    </div>
+    <div class="pnl-scroll"><table>
+      <thead><tr>
+        <th>Brand</th><th class="num">NMV thực tế</th><th class="num">NMV target</th>
+        <th class="num">Phí biến đổi</th><th class="num">Phí cố định</th>
+        <th class="num">Bù mức sàn</th><th class="num">Tổng</th><th>Mức phí</th>
+      </tr></thead>
+      <tbody id="ql-tb"></tbody>
+    </table></div>
+    <p class="pnl-card-n" id="ql-thieu" style="margin-top:10px"></p>
+  </section>
+
+  </div><!-- /ql-wrap -->
+
   <div class="pnl-sep"><h2>Chi phí &amp; lợi nhuận (ước tính)</h2><div class="pnl-sep-l"></div></div>
   <div class="pnl-msg info pnl-hidden" id="cp-denied"></div>
   <div id="cp-wrap" class="pnl-hidden">
@@ -987,6 +1046,7 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     if (state.brand) args.brand = state.brand;
     if (state.team) args.team = state.team;
     loadCost();
+    loadQl();
     call(args).then(function (res) {
       setBusy(false);
       if (!res) { showErr("Máy chủ không trả về dữ liệu. Hãy thử tải lại."); return; }
@@ -1765,6 +1825,104 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     });
     $("cp-sc-run").addEventListener("click", runScenario);
     $("cp-sc-clear").addEventListener("click", function () { cp.sel = []; SC = null; renderScenarioChips(); renderScenario(); });
+  }
+
+  // ------------------------------------------------------------ phi quan ly
+  // Nguon: API `ec_pnl_phi_ql` (doc-only) = EC NMV Ngay x EC Phi Quan Ly Brand.
+  // KHONG phai doanh thu co chung tu. Ke toan da xac nhan REV_QL_TT khong chua
+  // khoan nay, va ra soat toan bo Sales Order thi khong ma item nao la phi theo
+  // % NMV. Vi vay khoi nay nam RIENG, co canh bao do, va KHONG BAO GIO duoc cong
+  // vao `DATA.totals`. Ai go bo canh bao do thi doc lai commit nay truoc.
+  var QL = null;
+  var qlBusy = false, qlPending = false;
+
+  function qlDenied(msg) {
+    $("ql-wrap").className = "pnl-hidden";
+    var el = $("ql-denied");
+    el.textContent = msg;
+    el.className = "pnl-msg info";
+  }
+
+  function renderQl() {
+    if (!QL || !QL.ok) return;
+    var t = QL.tong || {};
+    $("ql-k-thuc").textContent = money(t.tong_thuc);
+    $("ql-k-thuc-x").textContent = num(t.tong_thuc) + " đ";
+    $("ql-k-thuc-s").textContent = "NMV thực tế " + money(t.nmv_thuc);
+    $("ql-k-kh").textContent = money(t.tong_kh);
+    $("ql-k-kh-x").textContent = num(t.tong_kh) + " đ";
+    $("ql-k-kh-s").textContent = "NMV target " + money(t.nmv_kh);
+    $("ql-k-tong").textContent = money(t.tong_ca_ky);
+    $("ql-k-tong-x").textContent = num(t.tong_ca_ky) + " đ";
+    $("ql-k-tong-s").textContent = "cố định " + money(t.co_dinh) + " · bù mức sàn " + money(t.bu_san);
+
+    var dt = (DATA && DATA.totals && DATA.totals.total) || 0;
+    $("ql-k-vs").textContent = dt ? pct(t.tong_ca_ky || 0, dt) : "—";
+    $("ql-k-vs-x").textContent = dt ? ("doanh thu " + money(dt)) : "chưa có số doanh thu";
+    $("ql-k-vs-s").textContent = "hai con số này KHÔNG được cộng với nhau";
+
+    var rows = QL.theo_brand || [], i, j, b, mo, body = "";
+    for (i = 0; i < rows.length; i++) {
+      b = rows[i];
+      mo = [];
+      for (j = 0; j < (b.dong || []).length; j++) {
+        var d = b.dong[j];
+        var ph = d.platform === "Tat ca san" ? "mọi sàn" : d.platform;
+        var bit = ph + " " + (Number(d.pct) || 0) + "%";
+        if (d.fix_thang) bit += " + " + money(d.fix_thang) + "/tháng";
+        if (d.min_thang) bit += " · sàn " + money(d.min_thang) + "/tháng";
+        mo.push(bit);
+      }
+      body += "<tr><td>" + esc(b.brand) + "</td>"
+        + "<td class=\"num\">" + num(b.nmv_thuc) + "</td>"
+        + "<td class=\"num\">" + num(b.nmv_kh) + "</td>"
+        + "<td class=\"num\">" + num((b.bien_thuc || 0) + (b.bien_kh || 0)) + "</td>"
+        + "<td class=\"num\">" + num(b.co_dinh) + "</td>"
+        + "<td class=\"num\">" + num(b.bu_san) + "</td>"
+        + "<td class=\"num\"><b>" + num(b.tong) + "</b></td>"
+        + "<td>" + esc(mo.join(" · ")) + "</td></tr>";
+    }
+    $("ql-tb").innerHTML = body || "<tr><td colspan=\"8\">Chưa có dữ liệu NMV trong kỳ này.</td></tr>";
+
+    var thieu = QL.thieu_muc_phi || [], tx = "";
+    if (thieu.length) {
+      tx = "Có " + thieu.length + " cặp brand/sàn có NMV nhưng CHƯA có mức phí, "
+         + "phần NMV đó không sinh đồng phí nào: ";
+      var parts = [];
+      for (i = 0; i < thieu.length; i++) {
+        parts.push(thieu[i].brand + " / " + thieu[i].platform + " (" + money(thieu[i].nmv) + ")");
+      }
+      tx += parts.join(", ") + ". Thêm dòng trong EC Phi Quan Ly Brand để tính đủ.";
+    }
+    $("ql-thieu").textContent = tx;
+  }
+
+  function loadQl() {
+    if (qlBusy) { qlPending = true; return; }
+    qlBusy = true;
+    var a = {};
+    if (state.from) a.date_from = state.from;
+    if (state.to) a.date_to = state.to;
+    if (state.brand) a.brand = state.brand;
+    call(a, "ec_pnl_phi_ql").then(function (res) {
+      qlBusy = false;
+      if (!res) { qlDenied("Không tải được phần phí quản lý gian hàng."); return; }
+      if (!res.ok) {
+        if (res.error === "no_permission") {
+          qlDenied("Phần phí quản lý gian hàng chỉ mở cho CEO, HOF và quản lý phòng Management.");
+        } else qlDenied(res.message || "Không tải được phần phí quản lý gian hàng.");
+        return;
+      }
+      QL = res;
+      $("ql-denied").className = "pnl-msg info pnl-hidden";
+      $("ql-wrap").className = "";
+      renderQl();
+    }).catch(function (err) {
+      qlBusy = false;
+      qlDenied("Không tải được phần phí quản lý gian hàng: " + ((err && err.message) || err));
+    }).then(function () {
+      if (qlPending) { qlPending = false; loadQl(); }
+    });
   }
 
   function boot() { bind(); bindCost(); load(); }
