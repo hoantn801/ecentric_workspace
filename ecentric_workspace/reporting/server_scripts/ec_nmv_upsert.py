@@ -32,7 +32,8 @@
 #         loai_so  tuy chon: 'Thuc te' (mac dinh) hoac 'Ke hoach'. Ke hoach = target cua
 #                  ngay CHUA TOI, de dashboard ve duoc ca thang. Nhan them vai bi danh:
 #                  actual / thuc te / ke hoach / plan / target.
-# Ra:   {ok, tao_moi, cap_nhat, bo_qua, gop_dong, qua_anh_xa, loi[...]}
+# Ra:   {ok, tao_moi, cap_nhat, bo_qua, gop_dong, chan_ghi_de, qua_anh_xa, loi[...]}
+#       ok = False khi co dong bi CHAN GHI DE - xem muc CHOT CHAN GHI DE ben duoi.
 #
 # Hoac goi voi danh_muc=1 (khong kem rows) de LAY VE danh sach ma dang chap nhan -
 # dung de ben Fabric tu doi chieu truoc khi day, khong ghi gi.
@@ -71,6 +72,15 @@
 # Cong ca hai vao doanh thu la dem hai lan.
 
 MAX_ROWS = 2000
+# CHOT CHAN GHI DE (them 11/09/2026 sau su co mat so VTD-VN TikTok 08/08):
+#   Mot lan keo du lieu bi chia thanh nhieu lan goi HTTP. Neu cung mot khoa
+#   (brand + san + ngay) xuat hien o hai lan goi khac nhau, lan sau GHI DE lan
+#   truoc thay vi cong - va API van tra ve ok voi bo_qua = 0. Mat so trong im lang.
+#   Chot: neu ban ghi vua duoc sua trong vong CUA_SO_PHUT phut ma lan nay gui mot
+#   so KHAC han, thi KHONG ghi, dem vao `chan_ghi_de` va tra ve ok = False.
+#   Ben goi muon ghi de that (sua so co chu y) thi gui them cho_phep_ghi_de=1.
+CUA_SO_PHUT = 30
+NGUONG_LECH = 0.01
 WRITE_ROLES = ("System Manager", "EC Finance")
 PLATFORMS = ("Shopee", "Lazada", "TikTok", "Other", "Tat ca san")
 PLAT_ALL = "Tat ca san"
@@ -127,6 +137,7 @@ else:
                                                   "ma_chap_nhan. Thieu ma thi dien vao o 'Ma "
                                                   "brand ben Fabric / PowerBI' cua ban ghi Brand.")}
     else:
+        cho_phep_ghi_de = 1 if fd.get("cho_phep_ghi_de") else 0
         raw = fd.get("rows")
         data = []
         parse_err = ""
@@ -173,6 +184,7 @@ else:
             n_gop = 0
             n_kh_bo = 0
             n_giu_thuc = 0
+            n_chan = 0
             n_skip = 0
             errs = []
             idx = 0
@@ -316,12 +328,36 @@ else:
                            % it["n_nguon"]
                     ghi_chu = (ghi_chu + " | " + them) if ghi_chu else them
                 try:
-                    if frappe.db.exists("EC NMV Ngay", key):
-                        loai_cu = frappe.db.get_value("EC NMV Ngay", key, "loai_so") or LOAI_THUC
+                    cu = frappe.db.get_value("EC NMV Ngay", key,
+                                             ["loai_so", "nmv", "modified"], as_dict=True)
+                    if cu:
+                        loai_cu = cu.get("loai_so") or LOAI_THUC
                         if loai_cu == LOAI_THUC and it["loai"] == LOAI_KH:
                             # khong cho so ke hoach de len so that
                             n_giu_thuc = n_giu_thuc + 1
                             continue
+                        # ---- chot chan ghi de trong cung mot dot ----
+                        if not cho_phep_ghi_de:
+                            nmv_cu = frappe.utils.flt(cu.get("nmv"))
+                            giay = 999999.0
+                            if cu.get("modified"):
+                                giay = frappe.utils.time_diff_in_seconds(
+                                    frappe.utils.now_datetime(), cu.get("modified"))
+                                giay = frappe.utils.flt(giay)
+                            moc = nmv_cu
+                            if moc < 1:
+                                moc = 1.0
+                            lech = abs(frappe.utils.flt(it["nmv"]) - nmv_cu) / moc
+                            if giay < CUA_SO_PHUT * 60 and lech > NGUONG_LECH:
+                                n_chan = n_chan + 1
+                                errs = errs + [
+                                    "%s: CHAN GHI DE - ban ghi vua duoc ghi %d giay truoc "
+                                    "voi %s, lan goi nay gui %s. Rat co the mot ngay bi cat "
+                                    "doi giua hai lo. Hay chia lo theo NGAY roi chay lai; "
+                                    "neu that su muon ghi de thi gui cho_phep_ghi_de=1."
+                                    % (key, int(giay), "{:,.0f}".format(nmv_cu),
+                                       "{:,.0f}".format(frappe.utils.flt(it["nmv"])))]
+                                continue
                         frappe.db.set_value("EC NMV Ngay", key,
                                             {"nmv": it["nmv"], "nguon": it["nguon"],
                                              "loai_so": it["loai"], "ghi_chu": ghi_chu})
@@ -337,9 +373,11 @@ else:
                     n_skip = n_skip + 1
                     errs = errs + ["%s: %s" % (key, str(exc2)[:120])]
 
-            frappe.response["message"] = {"ok": True, "tao_moi": n_new, "cap_nhat": n_upd,
+            frappe.response["message"] = {"ok": (n_chan == 0), "tao_moi": n_new,
+                                          "cap_nhat": n_upd,
                                           "bo_qua": n_skip, "gop_dong": n_gop,
                                           "ke_hoach_bi_thay": n_kh_bo,
                                           "giu_thuc_te": n_giu_thuc,
+                                          "chan_ghi_de": n_chan,
                                           "qua_anh_xa": n_map, "loi": errs[:20],
                                           "tong_gui": len(data)}
