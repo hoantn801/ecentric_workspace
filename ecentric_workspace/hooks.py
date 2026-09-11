@@ -273,11 +273,10 @@ fixtures = [
             # an/hien cua ec_brand.
             "EC Payment Request-ec_loai_chi_phi", "EC Payment Request-ec_can_brand",
             "EC Payment Request-ec_brand",
-            # % phi quan ly gian hang tren Brand (10/09/2026, Hoan). PnL nhan voi NMV
-            # theo ngay (`EC NMV Ngay`) de DOI CHIEU voi so thuc thu o ma REV_QL_TT.
-            # Mat field nay thi phep doi chieu im lang tra ve 0 cho moi brand, trong y
-            # het "khong lech" - nguy hiem hon la bao loi.
-            "Brand-ec_phi_ql_pct",
+            # GO 11/09/2026: `Brand-ec_phi_ql_pct` da bi xoa. No chi chua duoc MOT con so
+            # cho ca brand, ma bang phi that cua Hoan co BBT-VN Shopee 2% va TikTok 18%,
+            # cong them fix fee va muc thu toi thieu. Thay bang DocType
+            # `EC Phi Quan Ly Brand` (fixture DocType ngay duoi).
             # Ma brand ben Fabric/PowerBI (11/09/2026). Bang anh xa phai o DAY chu khong
             # o trong notebook - de trong code thi them mot brand la phai sua code va
             # khong ai nho. ec_nmv_upsert tra: ten brand -> o nay -> ec_brand_code.
@@ -296,10 +295,15 @@ fixtures = [
     # `EC NMV Ngay` (10/09/2026) giu doanh so thuan theo brand x SAN x NGAY, nap tu PowerBI
     # qua API `ec_nmv_upsert` hoac Data Import. Chi SCHEMA di theo repo - du lieu ngay thi
     # khong, vi no la so nghiep vu chay hang ngay.
+    # `EC Phi Quan Ly Brand` (11/09/2026) giu MUC PHI: % tren NMV, fix fee moi thang, muc
+    # thu toi thieu, co hieu luc tu-den. Dong ghi ro SAN thang dong "Tat ca san" - do la
+    # cach duy nhat dien ta duoc BBT-VN (Shopee 2% + 20tr co dinh, TikTok 18%). Doi gia
+    # thi THEM dong moi chu khong sua de len dong cu, neu khong so cua thang truoc sai
+    # theo. Chi SCHEMA di theo repo; 12 dong muc phi la du lieu nghiep vu, Finance tu sua.
     {
         "dt": "DocType",
         "filters": [["name", "in", ["EC Loai Chi Phi", "EC Nhan Su Brand",
-                                    "EC NMV Ngay"]]],
+                                    "EC NMV Ngay", "EC Phi Quan Ly Brand"]]],
     },
     {
         "dt": "Role",
