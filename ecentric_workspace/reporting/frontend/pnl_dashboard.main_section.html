@@ -2474,15 +2474,47 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
     }
   }
 
+  // Tab <-> hash. Tu 11/09 nam dashboard nay con nam trong SIDEBAR PHU cua
+  // trang (shell context `pnl`, xem reporting/nav_pnl.py). Cac muc sidebar la
+  // link /pnl-dashboard#<tab>, nen HASH LA NGUON SU THAT DUY NHAT cho tab dang
+  // xem:
+  //   - bam muc sidebar  -> doi hash -> hashchange -> doiTab()
+  //   - bam tab tren dau -> ghi hash -> hashchange -> doiTab()  (khong goi
+  //     applyTab() thang, de hai loi vao khong bao gio lech nhau)
+  //   - F5 hoac gui link -> doc hash luc boot, mo dung dashboard
+  // ec_shell.js tu to sang muc sidebar dang xem qua hashActiveKey(), khong can
+  // them code o day.
+  var TAB_HOP_LE = { "tong-quan": 1, "brand": 1, "doanh-thu": 1, "chi-phi": 1, "opex": 1 };
+
+  function tabTuHash() {
+    var h = (window.location.hash || "").replace(/^#/, "").split("/")[0];
+    return TAB_HOP_LE[h] ? h : "tong-quan";
+  }
+
+  function doiTab() {
+    var t = tabTuHash();
+    if (t === TAB) return;
+    TAB = t;
+    applyTab();
+  }
+
   function bindTabs() {
     $("pnl-tabbar").addEventListener("click", function (e) {
       var t = e.target && e.target.getAttribute("data-tb");
       if (!t) return;
-      TAB = t; applyTab();
+      // hash chua doi (vd dang o #brand ma bam lai Theo brand) thi hashchange
+      // se KHONG ban -> ve thang, neu khong nut se khong an gi ca.
+      if (tabTuHash() === t) { TAB = t; applyTab(); return; }
+      window.location.hash = t;
     });
+    window.addEventListener("hashchange", doiTab);
   }
 
-  function boot() { bind(); bindCost(); bindTabs(); bindTuDong(); applyTab(); load(); }
+  function boot() {
+    bind(); bindCost(); bindTabs(); bindTuDong();
+    TAB = tabTuHash();
+    applyTab(); load();
+  }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot);
   } else { boot(); }
