@@ -2183,8 +2183,22 @@ body{ background:#f7f8fb !important; margin:0 !important; padding:0 !important; 
         "Bốn tháng có đủ chứng từ (05–08/2026) ở mức khoảng 55%. Cao hơn nhiều thường là dấu hiệu kỳ này thiếu doanh thu chứ không phải lương tăng."));
     }
     if (COST && COST.ok && !x.khac) {
-      ra.push(canhBao("warn", "Chưa ghi nhận đồng chi phí khác nào",
+      ra.push(canhBao("danger", "Chưa ghi nhận đồng chi phí khác nào",
         "Không có phiếu chi nào đã duyệt trong kỳ. Nếu kỳ này dài hơn một tuần thì nhiều khả năng phiếu chưa được lập, và lợi nhuận đang cao hơn sự thật."));
+    } else if (COST && COST.ok) {
+      // Tong chi phi khac khac 0 KHONG co nghia la thang nao cung co. Ky 04->09
+      // co 861tr nhung bon trong sau thang bang 0 -> loi nhuan va bien loi nhuan
+      // cao hon su that ma khong co gi tren trang noi ra. Doi chieu tung thang.
+      var thangCo = {}, bm = (COST.other_costs && COST.other_costs.by_month) || [], j;
+      for (j = 0; j < bm.length; j++) { if (bm[j].approved) thangCo[bm[j].month] = 1; }
+      var dsThang = (COST.params && COST.params.months) || [], trong = [];
+      for (j = 0; j < dsThang.length; j++) { if (!thangCo[dsThang[j]]) trong.push(dsThang[j]); }
+      if (dsThang.length > 1 && trong.length) {
+        ra.push(canhBao("danger", trong.length + " trên " + dsThang.length + " tháng không có chi phí khác nào",
+          "Các tháng " + esc(trong.join(", ")) + " chưa ghi nhận đồng chi phí nào qua Approval Center. "
+          + "Nghĩa là lợi nhuận " + money(x.ln) + " và biên " + (x.thu ? pct(x.ln, x.thu) : "—")
+          + " đang CAO HƠN sự thật, và không biết cao hơn bao nhiêu. Đừng mang biên này đi so sánh."));
+      }
     }
     if (QL && QL.ok && (QL.thieu_muc_phi || []).length) {
       var ds = [];
