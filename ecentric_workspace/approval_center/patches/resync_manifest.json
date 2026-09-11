@@ -215,5 +215,10 @@
     "baseline": "2026-08-31",
     "last_resync_patch": null,
     "sha256": "d7ba9b5ce4ddc0ac0d25981b1d4ef63f9c69f296b5366fbebe0010c8e0a79153"
+  },
+  "approval_center/features/booking_request/ui/main_section.html": {
+    "baseline": "2026-09-11",
+    "last_resync_patch": "p179_create_booking_request_page",
+    "sha256": "54fdbf8458bf19f2cae98d35468af1f71bfb7f9e9932e30545f05559ef62ca67"
   }
 }
