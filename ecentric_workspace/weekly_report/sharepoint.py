@@ -45,6 +45,16 @@ class GraphError(Exception):
     """Raised when Microsoft Graph rejects a deck operation."""
 
 
+def _check(resp, what):
+    """raise_for_status() hides Graph's body, which is where the real reason is
+    ("invalidRequest", "itemNotFound", "nameAlreadyExists"...). Keep it."""
+    if resp.status_code >= 400:
+        raise GraphError(
+            "{0} failed: HTTP {1} {2}".format(what, resp.status_code, (resp.text or "")[:400])
+        )
+    return resp
+
+
 def get_app_token():
     sso = frappe.get_doc("Social Login Key", "microsoft")
     tenant = (sso.base_url or "").rstrip("/").split("/")[-1]
@@ -58,7 +68,7 @@ def get_app_token():
         },
         timeout=TIMEOUT,
     )
-    resp.raise_for_status()
+    _check(resp, "token")
     token = (resp.json() or {}).get("access_token")
     if not token:
         raise GraphError("Graph did not return an access token")
@@ -78,14 +88,16 @@ def _item_url(rel_path):
     return GRAPH + "/sites/" + SITE_ID + "/drive/root:/" + quote(rel_path, safe="/")
 
 
-def create_deck_upload_session(rel_path, filename, token):
+def create_deck_upload_session(rel_path, token):
+    # Do NOT send item.name: rel_path already ends with the final (prefixed)
+    # filename, and a differing item.name makes Graph answer 400 invalidRequest.
     resp = requests.post(
         _item_url(rel_path) + ":/createUploadSession",
         headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
-        json={"item": {"@microsoft.graph.conflictBehavior": "replace", "name": filename}},
+        json={"item": {"@microsoft.graph.conflictBehavior": "replace"}},
         timeout=TIMEOUT,
     )
-    resp.raise_for_status()
+    _check(resp, "createUploadSession " + rel_path)
     url = (resp.json() or {}).get("uploadUrl")
     if not url:
         raise GraphError("Graph did not return an uploadUrl")

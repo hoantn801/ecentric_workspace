@@ -110,7 +110,7 @@ def create_deck_upload_session(filename=None, week_label=None, employee=None, de
     token = sharepoint.get_app_token()
     return {
         "success": True,
-        "upload_url": sharepoint.create_deck_upload_session(rel_path, filename, token),
+        "upload_url": sharepoint.create_deck_upload_session(rel_path, token),
     }
 
 
