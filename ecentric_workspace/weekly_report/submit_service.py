@@ -35,11 +35,6 @@ class SubmitError(Exception):
     """Payload is unusable -- the API layer maps this to a friendly message."""
 
 
-def _dept_clean(department):
-    dept = department or "Unknown"
-    return dept.rsplit(" - ", 1)[0] if " - " in dept else dept
-
-
 def _get_or_create(payload, employee, week_label):
     # Existence MUST be keyed by (employee, week) because the docname is built
     # from employee -- keying it on submitter caused the 1062 duplicate
@@ -56,7 +51,7 @@ def _get_or_create(payload, employee, week_label):
     emp_code = frappe.db.get_value("Employee", employee, "employee_number")
     if emp_code:
         doc.name = "WTU-{0}-{1}-{2}".format(
-            week_label, emp_code, _dept_clean(payload.get("department"))
+            week_label, emp_code, sharepoint.dept_clean(payload.get("department"))
         )
         doc.flags.name_set = True
     return doc
@@ -83,7 +78,10 @@ def _current_urls(doc):
     return urls
 
 
-def _delete_removed(removed, errors):
+def _delete_removed(removed, errors, department):
+    # department is required for Office decks: their webUrl is the _layouts
+    # viewer form, which carries no folder. Without it the path cannot be
+    # rebuilt and the file would silently survive removal.
     try:
         token = sharepoint.get_app_token()
     except Exception as exc:
@@ -91,7 +89,7 @@ def _delete_removed(removed, errors):
         return
     for url in removed:
         try:
-            if not sharepoint.delete_by_web_url(url, token):
+            if not sharepoint.delete_by_web_url(url, token, department):
                 errors.append("delete skipped: " + str(url)[:80])
         except Exception as exc:
             errors.append("delete: " + str(exc)[:100])
@@ -115,7 +113,7 @@ def _reconcile_decks(doc, payload, errors):
         kept = [u for u in current if u in keep_set]
         removed = [u for u in current if u not in keep_set]
         if removed:
-            _delete_removed(removed, errors)
+            _delete_removed(removed, errors, payload.get("department"))
 
     doc.slide_deck = "\n".join(kept + added)
     # Any change to the deck set invalidates the cached Gemini URIs; clearing

@@ -32,7 +32,7 @@ import json
 import frappe
 from frappe import _
 
-from ecentric_workspace.weekly_report import sharepoint, submit_service
+from ecentric_workspace.weekly_report import deck_sharing, sharepoint, submit_service
 from ecentric_workspace.weekly_report.scheduler import generate_weekly_obligations
 
 
@@ -112,6 +112,19 @@ def create_deck_upload_session(filename=None, week_label=None, employee=None, de
         "success": True,
         "upload_url": sharepoint.create_deck_upload_session(rel_path, token),
     }
+
+
+@frappe.whitelist(methods=["POST"])
+def convert_decks_to_org_links(weeks=None, limit=25):
+    """Share decks org-wide. Bulk write across employees -> System Manager only.
+
+    weeks omitted -> rolling recent window (scheduler). weeks=["2026-W34",...]
+    -> backfill those weeks only.
+    """
+    frappe.only_for("System Manager")
+    if isinstance(weeks, str):
+        weeks = json.loads(weeks) if weeks.strip().startswith("[") else [weeks]
+    return deck_sharing.convert_pending(weeks=weeks, limit=int(limit or 25))
 
 
 @frappe.whitelist(methods=["POST"])

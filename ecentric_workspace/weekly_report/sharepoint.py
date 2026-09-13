@@ -21,6 +21,7 @@ Public API:
 
 import frappe
 import requests
+from frappe.utils import add_days, nowdate
 from urllib.parse import quote, unquote
 
 
@@ -104,27 +105,71 @@ def create_deck_upload_session(rel_path, token):
     return url
 
 
-def rel_path_from_web_url(web_url):
-    """Direct-path webUrl -> library-relative path, or "" when not parseable.
+def dept_clean(department):
+    """"Media - EC" -> "Media". Folder names on SharePoint drop the abbr."""
+    dept = department or "Unknown"
+    return dept.rsplit(" - ", 1)[0] if " - " in dept else dept
 
-    NOTE: gemini_api._extract_rel_path solves the same problem for the Gemini
-    path (and also handles _layouts viewer URLs). Second user of this rule --
-    per the promote rule it should move to a shared util next time either side
-    is touched.
+
+def rel_path_from_web_url(web_url, department=""):
+    """webUrl -> library-relative path, or "" when it cannot be trusted.
+
+    Two shapes reach us, and which one you get depends on the FILE TYPE:
+      - PDF    -> direct path  .../Shared Documents/Weekly Reports/<dept>/<f>
+      - Office -> viewer URL   .../_layouts/15/Doc.aspx?sourcedoc={G}&file=<f>
+    The viewer URL carries no folder, so the department must be supplied to
+    rebuild the path. Without it we return "" rather than guess -- a wrong path
+    would make callers delete or re-share the wrong item.
+
+    NOTE: gemini_api._extract_rel_path implements the same two cases. Third user
+    of this rule; consolidate into a shared util next time either is touched.
     """
+    url = web_url or ""
     for prefix in _DIRECT_PREFIXES:
-        idx = (web_url or "").find(prefix)
+        idx = url.find(prefix)
         if idx >= 0:
-            tail = web_url[idx + len(prefix):]
+            tail = url[idx + len(prefix):]
             for sep in ("?", "#"):
                 if sep in tail:
                     tail = tail.split(sep, 1)[0]
             return unquote(tail)
+
+    if "_layouts/" in url and "file=" in url:
+        folder = dept_clean(department) if department else ""
+        if not folder:
+            return ""
+        tail = url[url.find("file=") + 5:]
+        if "&" in tail:
+            tail = tail.split("&", 1)[0]
+        fname = unquote(tail)
+        if fname:
+            return "{0}/{1}/{2}".format(DECK_ROOT, folder, fname)
     return ""
 
 
-def delete_by_web_url(web_url, token):
-    rel_path = rel_path_from_web_url(web_url)
+def create_org_link(rel_path, token, days=365):
+    """Organisation-scope view link: any signed-in tenant account can open it,
+    regardless of permissions on the `operation` site. Not public."""
+    resp = requests.post(
+        _item_url(rel_path) + ":/createLink",
+        headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+        json={
+            "type": "view",
+            "scope": "organization",
+            "expirationDateTime": add_days(nowdate(), days) + "T23:59:59Z",
+        },
+        timeout=TIMEOUT,
+    )
+    _check(resp, "createLink " + rel_path)
+    link = (resp.json() or {}).get("link") or {}
+    url = link.get("webUrl")
+    if not url:
+        raise GraphError("createLink returned no webUrl for " + rel_path)
+    return url
+
+
+def delete_by_web_url(web_url, token, department=""):
+    rel_path = rel_path_from_web_url(web_url, department)
     if not rel_path:
         return False
     resp = requests.delete(

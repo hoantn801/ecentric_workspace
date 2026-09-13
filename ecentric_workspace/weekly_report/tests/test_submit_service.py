@@ -9,7 +9,7 @@ is tracked separately -- see the note at the bottom of this file.
 
 import unittest
 
-from ecentric_workspace.weekly_report import sharepoint, submit_service
+from ecentric_workspace.weekly_report import deck_sharing, sharepoint, submit_service
 
 
 class _FakeDoc(object):
@@ -61,6 +61,26 @@ class TestDeckPath(unittest.TestCase):
             "",
         )
 
+    def test_rel_path_from_office_layouts_url(self):
+        # Office decks come back as the viewer URL, which has no folder in it.
+        url = (
+            "https://boxmeglobal.sharepoint.com/sites/operation/_layouts/15/"
+            "Doc.aspx?sourcedoc=%7BC5461EB7%7D&file=2026-W37_NV00107_Road%20Map.pptx"
+            "&action=edit&mobileredirect=true"
+        )
+        self.assertEqual(
+            sharepoint.rel_path_from_web_url(url, "Operation & Data & System - EC"),
+            "Weekly Reports/Operation & Data & System/2026-W37_NV00107_Road Map.pptx",
+        )
+
+    def test_layouts_url_without_department_refuses_to_guess(self):
+        # Guessing the folder would make callers delete/re-share the wrong item.
+        url = (
+            "https://boxmeglobal.sharepoint.com/sites/operation/_layouts/15/"
+            "Doc.aspx?sourcedoc=%7BC5461EB7%7D&file=a.pptx&action=edit"
+        )
+        self.assertEqual(sharepoint.rel_path_from_web_url(url), "")
+
 
 class TestSubmitValidation(unittest.TestCase):
     def test_missing_week_label_raises(self):
@@ -93,9 +113,47 @@ class TestDeckListParsing(unittest.TestCase):
         self.assertEqual(submit_service._current_urls(_FakeDoc("")), [])
 
     def test_dept_clean_strips_abbr(self):
-        self.assertEqual(submit_service._dept_clean("Management - EC"), "Management")
-        self.assertEqual(submit_service._dept_clean("Media"), "Media")
-        self.assertEqual(submit_service._dept_clean(""), "Unknown")
+        self.assertEqual(sharepoint.dept_clean("Management - EC"), "Management")
+        self.assertEqual(sharepoint.dept_clean("Media"), "Media")
+        self.assertEqual(sharepoint.dept_clean(""), "Unknown")
+        # A department containing " - " keeps everything before the last one.
+        self.assertEqual(
+            sharepoint.dept_clean("Merchandise, Content & Design - EC"),
+            "Merchandise, Content & Design",
+        )
+
+
+class TestDeckSharing(unittest.TestCase):
+    def test_org_link_detected(self):
+        self.assertTrue(
+            deck_sharing._is_org_link(
+                "https://boxmeglobal.sharepoint.com/:b:/s/operation/IQAX1#a.pdf"
+            )
+        )
+
+    def test_direct_and_layouts_are_not_org_links(self):
+        # Both still need converting -- this is the bug that left 43 .pptx
+        # decks unshared: the old filter only looked for the direct shape.
+        self.assertFalse(
+            deck_sharing._is_org_link(
+                "https://x/sites/operation/Shared%20Documents/Weekly%20Reports/M/a.pdf"
+            )
+        )
+        self.assertFalse(
+            deck_sharing._is_org_link(
+                "https://x/sites/operation/_layouts/15/Doc.aspx?sourcedoc=%7BG%7D&file=a.pptx"
+            )
+        )
+
+    def test_display_name_escapes(self):
+        self.assertEqual(
+            deck_sharing._display_name("Weekly Reports/Media/2026-W37_NV1_a.pdf"),
+            "2026-W37_NV1_a.pdf",
+        )
+        self.assertEqual(
+            deck_sharing._display_name("Weekly Reports/Media/100%25 done#x.pdf"),
+            "100%2525 done%23x.pdf",
+        )
 
 
 # OWED: a FrappeTestCase happy path asserting submit() creates the WTU with
