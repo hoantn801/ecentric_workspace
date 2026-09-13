@@ -39,6 +39,13 @@ def _is_org_link(url):
 
 
 def _candidates(weeks, limit):
+    """Only rows that still hold at least one UNCONVERTED url.
+
+    Without this the query just returns the newest N rows -- which are usually
+    already converted -- so a limited batch does nothing and older stuck decks
+    are never reached. That is precisely how 43 .pptx decks stayed unshared.
+    An org link contains neither marker below, so this selects exactly the work.
+    """
     filters = {"status": ["in", TERMINAL_STATES], "slide_deck": ["!=", ""]}
     if weeks:
         filters["week_label"] = ["in", weeks]
@@ -47,6 +54,10 @@ def _candidates(weeks, limit):
     return frappe.get_all(
         WTU,
         filters=filters,
+        or_filters=[
+            ["slide_deck", "like", "%Shared%Documents%"],
+            ["slide_deck", "like", "%layouts%"],
+        ],
         fields=["name", "department", "slide_deck"],
         order_by="submitted_at desc",
         limit_page_length=limit,
