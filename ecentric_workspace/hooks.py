@@ -22,7 +22,7 @@ app_license = "MIT"
 # must never do). The asset itself bails out on /app/* and on pages with no eCentric
 # bell, and is single-install guarded so the homepage (which also still carries the
 # legacy per-page loader) never double-installs.
-web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_datepicker.bundle.js", "ec_formkit.bundle.js"]
+web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_datepicker.bundle.js", "ec_formkit.bundle.js", "ec_webpush.bundle.js"]
 
 # ERP Shell v1 (Phase 1B pilot). Both assets are loaded site-wide via the same
 # proven content-hashed-bundle mechanism as the Notification Center, but
@@ -123,6 +123,8 @@ scheduler_events = {
         # next_retry_at is due and attempt_count < MAX_ATTEMPTS.
         "*/5 * * * *": [
             "ecentric_workspace.notification_center.providers.teams.process_teams_retries",
+            # Cung co che cho web push: chi nhat lai dong Failed da den han thu lai.
+            "ecentric_workspace.notification_center.providers.webpush.process_webpush_retries",
             # esign (2026-08-27): a leg the provider ACCEPTED but never acted on. Until now
             # the only backstop was sweep_stale at 24h - far too long on a live system that
             # signs real payment approvals, and indistinguishable from "provider is slow".
@@ -339,3 +341,19 @@ scheduler_events["cron"].setdefault("30 8 * * *", []).append(
     "ecentric_workspace.platform.esign.tasks.sweep_provider_signature_drift_0830")
 scheduler_events["cron"].setdefault("30 14 * * *", []).append(
     "ecentric_workspace.platform.esign.tasks.sweep_provider_signature_drift_1430")
+
+
+# Nhac cham cong (2026-09-14). Han cham cong la 10:00; hai moc nhac 08:30 + 09:30.
+# Gio cron o site nay la GIO DIA PHUONG (Asia/Ho_Chi_Minh) - da doi chieu tren prod,
+# giong cac cron esign ben tren; KHONG quy ra UTC.
+#
+# HAI HAM RIENG, KHONG PHAI MOT HAM O HAI CRON: Frappe khoa Scheduled Job Type theo
+# dotted path cua `method`, nen khai cung mot ham o hai bieu thuc cron chi giu lai MOT.
+#
+# Thay cho Server Script `ec_hr_checkin_reminder` (nay da disabled trong fixtures):
+# ban Server Script chi tao duoc Notification Log trong app, khong goi duoc
+# Notification Center nen khong bao gio ra duoc Teams / web push.
+scheduler_events["cron"].setdefault("30 8 * * *", []).append(
+    "ecentric_workspace.hr.checkin_reminder.remind_0830")
+scheduler_events["cron"].setdefault("30 9 * * *", []).append(
+    "ecentric_workspace.hr.checkin_reminder.remind_0930")
