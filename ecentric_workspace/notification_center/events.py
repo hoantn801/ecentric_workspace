@@ -53,11 +53,19 @@ ROUTING_MATRIX = {
     # app len dien thoai); 9h30 chi con trong app + web push, khong ban Teams nua.
     "attendance_missing":      {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": True,  "webpush": True},
     "attendance_missing_final":{"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": False, "webpush": True},
-    # Thong bao chung toan cong ty. teams/webpush = False CO CHU Y va khoa CUNG o day
-    # chu khong de nguoi goi truyen tham so: mot loi thong bao gui cho 73 nguoi ma lo
-    # tay ban ra Teams la 73 tin nhan rieng khong rut lai duoc. Muon thong bao khan
-    # co ca Teams thi them mot event type RIENG, dung noi long dong nay.
-    "announcement":            {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": False, "webpush": False},
+    # Thong bao chung toan cong ty.
+    #   teams = False, KHOA CUNG: mot loi thong bao gui cho 73 nguoi ma lo tay ban ra
+    #   Teams la 73 tin nhan RIENG khong rut lai duoc. Muon thong bao khan co ca Teams
+    #   thi them mot event type RIENG, dung noi long dong nay.
+    #   webpush = True: thong bao chung PHAI ra duoc ngoai app, neu khong thi nguoi ta
+    #   chi thay khi tinh co mo ERP - dung bang khong. Day khong phai rui ro giong
+    #   Teams: web push la nguoi dung TU cap quyen tren tung may va tu tat duoc bat cu
+    #   luc nao; ai chua cap quyen thi provider bo qua, khong lam phien ai.
+    #   PHAI la True chu KHONG duoc la "pref": trong resolve_channels, o "pref" nghia la
+    #   TAT mac dinh cho nguoi CHUA luu tuy chon - tuc la gan het cong ty, ke ca nguoi
+    #   vua bam Bat tren trinh duyet. True moi cho mac dinh BAT, va nguoi da luu tuy chon
+    #   thi `webpush_enabled` cua ho van quyet dinh (mac dinh 1, tat di thi duoc ton trong).
+    "announcement":            {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": False, "webpush": True},
 }
 # severities that bypass quiet hours / minimum-severity / disabled-event suppression
 _BYPASS_SEVERITY = ("urgent",)
