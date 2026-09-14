@@ -125,7 +125,26 @@ def submit(name):
     frappe.db.set_value(BUSINESS_DT, doc.name, "approval_request", req_name)
     if skip:
         _notify_ceo_cc(req_name, doc)
+    _soi_guong_sharepoint(doc.name)
     return req_name
+
+
+def _soi_guong_sharepoint(name):
+    """Dua dinh kem len SharePoint de nguoi duyet mo bang Word Online.
+
+    CHAY NEN, va nuot moi loi: Microsoft co su co thi phieu VAN phai gui duoc. Nguoi dung da
+    bam gui va da thay ket qua - khong co ly do gi de mot lan goi mang ra ngoai bien cong ty
+    lam hong giao dich do. Hong thi tep van con nguyen trong Frappe, va chay lai `dong_bo_phieu`
+    la khoi phuc duoc (ham do idempotent).
+
+    Cung la ly do dung `enqueue` chu khong goi thang: tai mot tep .docx vai MB len Graph co the
+    mat vai giay, nhan len so tep thi man hinh gui phieu treo bang do."""
+    try:
+        frappe.enqueue(
+            "ecentric_workspace.approval_center.shared.integrations.sharepoint_mirror.dong_bo_nen",
+            queue="long", business_doctype=BUSINESS_DT, business_name=name)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "enqueue soi guong SharePoint %s" % name)
 
 
 def _notify_ceo_cc(req_name, doc):
@@ -173,6 +192,9 @@ def resubmit(name, actor=None):
     material_changed = new_sig != (doc.material_signature or "")
     engine.resubmit(doc.approval_request, actor=actor or frappe.session.user, restart=material_changed)
     frappe.db.set_value(BUSINESS_DT, doc.name, "material_signature", new_sig)
+    # Gui lai thuong di kem THAY tep dinh kem - phai soi guong lai, neu khong nguoi duyet se
+    # mo ra ban cu tren SharePoint trong khi ERP da co ban moi.
+    _soi_guong_sharepoint(doc.name)
     return {"restarted": material_changed}
 
 
@@ -202,22 +224,3 @@ def _guard_resubmit_needs_ceo(doc):
             "Thay đổi này đụng đến nội dung hợp đồng (loại hợp đồng / brand / mục đích) nên "
             "cần CEO duyệt, nhưng yêu cầu này đã gửi theo luồng điều chỉnh không có cấp CEO. "
             "Vui lòng hủy yêu cầu này và tạo yêu cầu mới."))
-
-
-def nguoi_duoc_xem(name, row=None):
-    """Nguoi gui + cac cap duyet cua phieu + CC. KHONG mo cho ca cong ty.
-
-    Doc tu `EC Approval Request Approver` - dung bang ma engine that su dung de quyet dinh ai
-    duoc duyet, khong tu dung mot danh sach thu hai."""
-    row = row or frappe.db.get_value(BUSINESS_DT, name, ["requested_by", "approval_request", "cc_to"],
-                                     as_dict=True) or {}
-    ra = [row.get("requested_by")]
-    if row.get("approval_request"):
-        ra += frappe.get_all("EC Approval Request Approver",
-                             filters={"approval_request": row["approval_request"]},
-                             pluck="approver")
-    for e in (frappe.db.get_value(BUSINESS_DT, name, "cc_to") or "").replace(";", ",").split(","):
-        e = e.strip()
-        if e:
-            ra.append(e)
-    return [e for e in dict.fromkeys(ra) if e and "@" in e]

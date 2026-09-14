@@ -534,7 +534,27 @@
     ensureActionHandlers();
   }
   function renderAttachments(list){ if(!list||!list.length) return '<div class="hint">Chưa có tệp đính kèm.</div>';
-    return '<table class="tbl"><tbody>'+list.map(function(f){ return '<tr><td>'+esc(f.file_name)+'</td><td>'+esc(f.owner)+'</td><td>'+esc(fmt(f.creation))+'</td><td><a href="'+esc(f.file_url)+'" target="_blank">Mở</a></td></tr>'; }).join("")+'</tbody></table>'; }
+    return '<table class="tbl"><tbody>'+list.map(function(f){
+      // Co ban tren SharePoint thi tro sang do: Word Online CHI mo duoc tep nam tren
+      // SharePoint/OneDrive. Tro vao file_url cua Frappe thi trinh duyet luon TAI .docx ve.
+      var online=!!f.sp_web_url;
+      return '<tr><td>'+esc(f.file_name)+'</td><td>'+esc(f.owner)+'</td><td>'+esc(fmt(f.creation))+'</td>'
+           +'<td><a href="'+esc(online?f.sp_web_url:f.file_url)+'" target="_blank" rel="noopener">'
+           +(online?'Mở online':'Mở')+'</a></td></tr>'
+           + canhBaoSuaSauDuyet(f);
+    }).join("")+'</tbody></table>'; }
+
+  // Ban tren SharePoint la ban SONG - Hoan chot cho sua/comment truc tiep. Nen "tep da doi"
+  // KHONG phai loi, va khong duoc chan: nguoi duyet sua mot cau chu cung lam moc thoi gian
+  // nhay, chan lai thi ca tinh nang review online thanh vo dung. Viec can noi ro la CAP NAO da
+  // duyet TRUOC luc tep doi lan cuoi - tuc ho da duyet tren mot ban khong con y nguyen.
+  function canhBaoSuaSauDuyet(f){
+    var ds=f.sp_sua_sau_duyet||[]; if(!ds.length) return "";
+    var ai=ds.map(function(x){ return esc(x.approver)+' (cấp '+esc(String(x.level_no))+')'; }).join(", ");
+    return '<tr><td colspan="4"><div class="banner warn" style="margin:6px 0 2px">'
+         +'Tệp được sửa lúc '+esc(fmt(f.sp_last_modified))+' — SAU khi '+ai+' đã duyệt. '
+         +'Những cấp đó duyệt trên bản trước khi sửa.</div></td></tr>';
+  }
 
   // ---- stepper ----
   function buildDraftStepper(det){ return renderStepsHTML(previewSteps()); }
