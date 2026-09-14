@@ -94,6 +94,7 @@ def mark_all_read():
 
 # --------------------------------------------------------------------------- preferences
 from ecentric_workspace.notification_center import events as _events
+from ecentric_workspace.notification_center.events import publish_notification_event
 
 _PREF_DT = "EC Notification Preference"
 _PREF_BOOL = ("sound_enabled", "desktop_enabled", "teams_enabled", "webpush_enabled",
@@ -281,3 +282,90 @@ def webpush_unsubscribe(endpoint=None):
         frappe.db.set_value("EC Web Push Subscription", nm, "active", 0)
     frappe.db.commit()
     return {"success": True, "deactivated": len(names)}
+
+
+# --------------------------------------------------------------- thong bao chung
+@frappe.whitelist(methods=["POST"])
+def announce(title=None, message=None, action_url=None, tag=None, users=None, dry_run=1):
+    """Gui MOT thong bao vao chuong ERP cua nhieu nguoi cung luc.
+
+    VI SAO PHAI CO DIEM VAO NAY: `Notification Log` chi co dung mot quyen la
+    "All: read". KHONG AI tao duoc no qua REST, ke ca System Manager - no chi sinh ra
+    tu code chay phia server. Nen khong co ham nay thi khong co cach nao gui thong
+    bao hang loat ma khong co shell (site chay tren Frappe Cloud).
+
+    BA CHOT AN TOAN, vi mot lan gui la 73 nguoi va KHONG RUT LAI DUOC:
+      1. dry_run MAC DINH BAT. Phai truyen dry_run=0 moi that su gui.
+      2. event_type "announcement" co teams=False, webpush=False KHOA CUNG trong
+         ROUTING_MATRIX - khong co tham so nao bat duoc chung, nen khong the lo tay
+         ban 73 tin nhan rieng ra Teams.
+      3. Idempotent theo `tag`: goi lai cung tag khong tao thong bao thu hai (dedupe
+         cua publish_notification_event). Mac dinh tag = ngay hom nay.
+
+    users: bo trong = moi Employee dang Active co user_id. Hoac truyen danh sach
+    email (JSON array hoac chuoi ngan cach dau phay) de gui cho mot nhom nho.
+    """
+    caller = _current_user()
+    if not caller:
+        return {"success": False, "error": "Unauthorized"}
+    if "System Manager" not in frappe.get_roles(caller):
+        frappe.response["http_status_code"] = 403
+        return {"success": False, "error": "Chi System Manager."}
+    title = (title or "").strip()
+    if not title:
+        return {"success": False, "error": "Thieu tieu de."}
+
+    # --- ai nhan ---
+    recipients = []
+    if users:
+        if isinstance(users, str):
+            raw = users.strip()
+            if raw.startswith("["):
+                import json as _json
+                try:
+                    recipients = [str(x).strip() for x in _json.loads(raw)]
+                except Exception:
+                    return {"success": False, "error": "users khong phai JSON hop le."}
+            else:
+                recipients = [x.strip() for x in raw.split(",")]
+        elif isinstance(users, (list, tuple)):
+            recipients = [str(x).strip() for x in users]
+        recipients = [u for u in recipients if u and u != "Guest"]
+        # Chi cho phep email co that, tranh tao thong bao mo coi khong ai doc duoc.
+        recipients = [u for u in recipients if frappe.db.exists("User", u)]
+    else:
+        rows = frappe.get_all("Employee", filters={"status": "Active"},
+                              fields=["user_id"], limit_page_length=0)
+        seen = {}
+        for r in rows:
+            u = (r.get("user_id") or "").strip()
+            if u and u != "Guest" and u not in seen:
+                seen[u] = 1
+                recipients.append(u)
+
+    tag = (tag or frappe.utils.nowdate())
+    if str(dry_run) not in ("0", "false", "False", "no"):
+        return {"success": True, "dry_run": True, "count": len(recipients),
+                "tag": tag, "sample": recipients[:10],
+                "note": "Chua gui gi. Truyen dry_run=0 de gui that."}
+
+    sent = failed = 0
+    errors = []
+    for u in recipients:
+        try:
+            publish_notification_event(
+                event_type="announcement", recipient=u,
+                title=title, message=message or "",
+                action_url=action_url or None,
+                actor="Administrator", from_user="Administrator",
+                dedupe_key="|".join(["announcement", u, str(tag)]),
+            )
+            sent += 1
+        except Exception:
+            failed += 1
+            if len(errors) < 5:
+                errors.append(u)
+            frappe.log_error(frappe.get_traceback(), "notification_center.announce")
+    frappe.db.commit()
+    return {"success": True, "dry_run": False, "sent": sent, "failed": failed,
+            "tag": tag, "failed_sample": errors}
