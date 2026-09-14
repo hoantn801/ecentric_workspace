@@ -286,7 +286,8 @@ def webpush_unsubscribe(endpoint=None):
 
 # --------------------------------------------------------------- thong bao chung
 @frappe.whitelist(methods=["POST"])
-def announce(title=None, message=None, action_url=None, tag=None, users=None, dry_run=1):
+def announce(title=None, message=None, action_url=None, tag=None, users=None, dry_run=1,
+             teams=0):
     """Gui MOT thong bao vao chuong ERP cua nhieu nguoi cung luc.
 
     VI SAO PHAI CO DIEM VAO NAY: `Notification Log` chi co dung mot quyen la
@@ -304,6 +305,10 @@ def announce(title=None, message=None, action_url=None, tag=None, users=None, dr
 
     users: bo trong = moi Employee dang Active co user_id. Hoac truyen danh sach
     email (JSON array hoac chuoi ngan cach dau phay) de gui cho mot nhom nho.
+
+    teams: mac dinh 0. Dat 1 de tin ra ca Teams (event type "announcement_urgent").
+    PHAI GOI TEN moi co - khong bao gio xay ra do quen. Voi 73 nguoi thi day la 73
+    tin nhan RIENG khong rut lai duoc, nen hay gui cho vai nguoi truoc.
     """
     caller = _current_user()
     if not caller:
@@ -344,9 +349,12 @@ def announce(title=None, message=None, action_url=None, tag=None, users=None, dr
                 recipients.append(u)
 
     tag = (tag or frappe.utils.nowdate())
+    want_teams = str(teams) in ("1", "true", "True", "yes", "on")
+    event_type = "announcement_urgent" if want_teams else "announcement"
     if str(dry_run) not in ("0", "false", "False", "no"):
         return {"success": True, "dry_run": True, "count": len(recipients),
-                "tag": tag, "sample": recipients[:10],
+                "tag": tag, "teams": want_teams, "event_type": event_type,
+                "sample": recipients[:10],
                 "note": "Chua gui gi. Truyen dry_run=0 de gui that."}
 
     sent = failed = 0
@@ -354,11 +362,11 @@ def announce(title=None, message=None, action_url=None, tag=None, users=None, dr
     for u in recipients:
         try:
             publish_notification_event(
-                event_type="announcement", recipient=u,
+                event_type=event_type, recipient=u,
                 title=title, message=message or "",
                 action_url=action_url or None,
                 actor="Administrator", from_user="Administrator",
-                dedupe_key="|".join(["announcement", u, str(tag)]),
+                dedupe_key="|".join([event_type, u, str(tag)]),
             )
             sent += 1
         except Exception:
@@ -368,4 +376,5 @@ def announce(title=None, message=None, action_url=None, tag=None, users=None, dr
             frappe.log_error(frappe.get_traceback(), "notification_center.announce")
     frappe.db.commit()
     return {"success": True, "dry_run": False, "sent": sent, "failed": failed,
-            "tag": tag, "failed_sample": errors}
+            "tag": tag, "teams": want_teams, "event_type": event_type,
+            "failed_sample": errors}

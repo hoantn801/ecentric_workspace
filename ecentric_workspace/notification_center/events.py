@@ -26,7 +26,7 @@ CHANNELS = ("erp", "toast", "sound", "desktop", "teams", "webpush")
 EVENT_TYPES = ("task_assigned", "task_due_soon", "task_overdue",
                "approval_required", "mention", "system_critical",
                "attendance_missing", "attendance_missing_final",
-               "announcement")
+               "announcement", "announcement_urgent")
 SEVERITIES = ("info", "action_required", "urgent")
 _SEV_RANK = {"info": 0, "action_required": 1, "urgent": 2}
 _DEFAULT_SEVERITY = {
@@ -39,7 +39,7 @@ _DEFAULT_SEVERITY = {
     # cuoi truoc han 10:00 nen nang len action_required, nhung KHONG ban Teams
     # lan hai (tranh hai DM mot buoi sang cho cung mot nguoi).
     "attendance_missing": "info", "attendance_missing_final": "action_required",
-    "announcement": "info",
+    "announcement": "info", "announcement_urgent": "action_required",
 }
 # matrix cell: True (always) | "pref" (depends on user preference) | False (never)
 ROUTING_MATRIX = {
@@ -66,6 +66,12 @@ ROUTING_MATRIX = {
     #   vua bam Bat tren trinh duyet. True moi cho mac dinh BAT, va nguoi da luu tuy chon
     #   thi `webpush_enabled` cua ho van quyet dinh (mac dinh 1, tat di thi duoc ton trong).
     "announcement":            {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": False, "webpush": True},
+    # Thong bao chung CO ban Teams. Day la event type RIENG chu khong phai mot tham so
+    # noi long "announcement" - dung nhu ghi chu ben tren da hen. Ly do: mot loi thong
+    # bao gui cho 73 nguoi ma ra Teams la 73 tin nhan RIENG khong rut lai duoc, nen no
+    # phai la mot lua chon PHAI GOI TEN, khong bao gio la mac dinh, va khong bao gio
+    # xay ra do quen truyen tham so.
+    "announcement_urgent":     {"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True,  "webpush": True},
 }
 # severities that bypass quiet hours / minimum-severity / disabled-event suppression
 _BYPASS_SEVERITY = ("urgent",)
