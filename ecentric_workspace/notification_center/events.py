@@ -269,6 +269,30 @@ def route_delivery(event_id, recipient, routing, event_type, severity, dedupe_ke
     return teams_jobs + webpush_jobs
 
 
+def _abs_action_url(action_url):
+    """Bien duong dan tuong doi thanh URL TUYET DOI truoc khi luu vao Delivery Log.
+
+    VI SAO: the Teams (providers/power_automate.build_payload) lay thang `action_url`
+    tu Delivery Log lam nut "Mo trong ERP". Teams chay ngoai trinh duyet nen mot
+    duong dan kieu "/ec-hr/attendance" khong tro ve dau ca - nut hoac hong hoac bi
+    bo. Moi ban ghi teams=Sent dang chay tren prod deu mang URL tuyet doi (da doi
+    chieu 14/09), nhung dieu do phu thuoc vao viec TUNG nguoi goi nho tu dung
+    frappe.utils.get_url() - va mot nguoi goi quen thi loi im lang: tin van gui,
+    delivery log van ghi Sent, chi cai nut la khong bam duoc.
+
+    Chuan hoa o day mot lan cho tat ca. URL tuyet doi di qua nguyen ven; hop thu
+    chuong van nhan duong dan tuong doi vi `_same_origin_link` cat goc tro lai."""
+    u = (action_url or "").strip()
+    if not u or u.startswith("http://") or u.startswith("https://") or u.startswith("//"):
+        return u
+    if not u.startswith("/"):
+        return u
+    try:
+        return (frappe.utils.get_url() or "").rstrip("/") + u
+    except Exception:
+        return u
+
+
 def _same_origin_link(action_url):
     """Dang duoc phep luu vao `Notification Log.link`: duong dan TUONG DOI cung goc.
 
@@ -312,6 +336,8 @@ def publish_notification_event(event_type, recipient, title, message="",
     if not dedupe_key:
         dedupe_key = "|".join([event_type, recipient, str(reference_doctype or ""), str(reference_name or "")])
     event_id = _event_id(dedupe_key)
+    # Teams doc thang action_url tu Delivery Log; duong dan tuong doi lam nut chet.
+    action_url = _abs_action_url(action_url)
 
     # event-level idempotency: same dedupe_key already published -> no-op
     try:
