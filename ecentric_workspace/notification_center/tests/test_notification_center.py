@@ -2518,3 +2518,49 @@ class TestAbsoluteActionUrlForTeams(unittest.TestCase):
         # Mot chuoi, hai rang buoc: Teams can tuyet doi, chuong trong app can tuong doi.
         absu = ev._abs_action_url("/ec-hr/attendance")
         self.assertEqual(ev._same_origin_link(absu), "/ec-hr/attendance")
+
+
+class TestAnnouncementTeamsOptIn(unittest.TestCase):
+    """Teams cho thong bao chung phai la lua chon PHAI GOI TEN.
+
+    Voi 73 nguoi thi mot loi thong bao ra Teams la 73 tin nhan RIENG khong rut lai
+    duoc. Nen no khong bao gio duoc la mac dinh, va khong bao gio duoc xay ra chi vi
+    ai do quen truyen tham so."""
+
+    def setUp(self):
+        _reset("admin@x.com"); FR.session.user = "admin@x.com"
+        FR._roles[:] = ["System Manager"]
+
+    def test_default_stays_off_teams(self):
+        r = api.announce(title="Thu")
+        self.assertEqual(r.get("event_type"), "announcement")
+        self.assertFalse(r.get("teams"))
+
+    def test_opt_in_switches_event_type(self):
+        r = api.announce(title="Thu", teams=1)
+        self.assertEqual(r.get("event_type"), "announcement_urgent")
+        self.assertTrue(r.get("teams"))
+
+    def test_urgent_row_has_teams_on_plain_row_does_not(self):
+        self.assertIs(ev.ROUTING_MATRIX["announcement"]["teams"], False)
+        self.assertIs(ev.ROUTING_MATRIX["announcement_urgent"]["teams"], True)
+
+    def test_urgent_delivers_teams_for_user_without_prefs(self):
+        pref = ev.get_preference("u@x.com")
+        out = ev.resolve_channels("announcement_urgent", "action_required", pref)
+        self.assertEqual(out["teams"], "deliver")
+
+    def test_teams_opt_out_still_respected_on_urgent(self):
+        pref = ev.get_preference("u@x.com")
+        pref["_exists"] = True
+        pref["teams_enabled"] = 0
+        out = ev.resolve_channels("announcement_urgent", "action_required", pref)
+        self.assertEqual(out["teams"], "skip")
+
+    def test_dedupe_key_differs_between_the_two(self):
+        # Cung mot `tag` di hai duong phai la HAI su kien, neu khong ban gui co Teams
+        # se bi coi la trung voi ban khong Teams va im lang khong gui gi.
+        a = api.announce(title="T", tag="x", dry_run=0)
+        b = api.announce(title="T", tag="x", dry_run=0, teams=1)
+        self.assertNotEqual(a.get("event_type"), b.get("event_type"))
+        self.assertEqual(a.get("sent"), b.get("sent"))
