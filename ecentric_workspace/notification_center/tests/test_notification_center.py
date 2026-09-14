@@ -2428,3 +2428,62 @@ class TestWebPushOperability(unittest.TestCase):
         i = src.index("def generate_vapid_keys(")
         body = src[i:i + 900]
         self.assertIn("khong ghi de", body.lower().replace("-", " "))
+
+
+class TestAnnouncementBroadcast(unittest.TestCase):
+    """Mot lan goi la 73 nguoi va khong rut lai duoc, nen ba chot an toan phai co
+    test giu, khong duoc de phu thuoc vao tri nho nguoi goi."""
+
+    def setUp(self):
+        _reset("admin@x.com"); FR.session.user = "admin@x.com"
+        FR._roles[:] = ["System Manager"]
+
+    def _src(self):
+        path = os.path.join(_pkg_root(), "notification_center", "api.py")
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_teams_is_locked_off_in_the_matrix(self):
+        # Chot quan trong nhat: khong tham so nao bat duoc Teams cho thong bao chung.
+        # webpush thi NGUOC LAI phai mo - thong bao chung ma khong ra duoc ngoai app
+        # thi nguoi ta chi thay khi tinh co mo ERP.
+        row = ev.ROUTING_MATRIX["announcement"]
+        self.assertIs(row["teams"], False)
+        self.assertIsNot(row["webpush"], False)
+        self.assertIs(row["erp"], True)
+
+    def test_webpush_delivers_for_announcement_by_default(self):
+        pref = ev.get_preference("u@x.com")          # chua luu tuy chon
+        out = ev.resolve_channels("announcement", "info", pref)
+        self.assertEqual(out["webpush"], "deliver")
+
+    def test_webpush_opt_out_is_respected(self):
+        pref = ev.get_preference("u@x.com")
+        pref["_exists"] = True
+        pref["webpush_enabled"] = 0
+        out = ev.resolve_channels("announcement", "info", pref)
+        self.assertEqual(out["webpush"], "skip")
+
+    def test_teams_stays_off_even_if_user_turned_teams_on(self):
+        pref = ev.get_preference("u@x.com")
+        pref["_exists"] = True
+        pref["teams_enabled"] = 1
+        out = ev.resolve_channels("announcement", "info", pref)
+        self.assertEqual(out["teams"], "skip")
+        self.assertEqual(out["erp"], "deliver")
+
+    def test_dry_run_is_the_default(self):
+        r = api.announce(title="Thu", message="x")
+        self.assertTrue(r.get("dry_run"))
+        self.assertEqual(len(FR._nl), 0, "dry run KHONG duoc tao Notification Log nao")
+
+    def test_requires_system_manager(self):
+        FR._roles[:] = ["Employee"]
+        r = api.announce(title="Thu", dry_run=0)
+        self.assertFalse(r.get("success"))
+        self.assertEqual(len(FR._nl), 0)
+
+    def test_title_is_required(self):
+        r = api.announce(title="   ", dry_run=0)
+        self.assertFalse(r.get("success"))
+        self.assertEqual(len(FR._nl), 0)

@@ -25,7 +25,8 @@ REALTIME_EVENT = "ec_notification"
 CHANNELS = ("erp", "toast", "sound", "desktop", "teams", "webpush")
 EVENT_TYPES = ("task_assigned", "task_due_soon", "task_overdue",
                "approval_required", "mention", "system_critical",
-               "attendance_missing", "attendance_missing_final")
+               "attendance_missing", "attendance_missing_final",
+               "announcement")
 SEVERITIES = ("info", "action_required", "urgent")
 _SEV_RANK = {"info": 0, "action_required": 1, "urgent": 2}
 _DEFAULT_SEVERITY = {
@@ -38,6 +39,7 @@ _DEFAULT_SEVERITY = {
     # cuoi truoc han 10:00 nen nang len action_required, nhung KHONG ban Teams
     # lan hai (tranh hai DM mot buoi sang cho cung mot nguoi).
     "attendance_missing": "info", "attendance_missing_final": "action_required",
+    "announcement": "info",
 }
 # matrix cell: True (always) | "pref" (depends on user preference) | False (never)
 ROUTING_MATRIX = {
@@ -51,6 +53,19 @@ ROUTING_MATRIX = {
     # app len dien thoai); 9h30 chi con trong app + web push, khong ban Teams nua.
     "attendance_missing":      {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": True,  "webpush": True},
     "attendance_missing_final":{"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": False, "webpush": True},
+    # Thong bao chung toan cong ty.
+    #   teams = False, KHOA CUNG: mot loi thong bao gui cho 73 nguoi ma lo tay ban ra
+    #   Teams la 73 tin nhan RIENG khong rut lai duoc. Muon thong bao khan co ca Teams
+    #   thi them mot event type RIENG, dung noi long dong nay.
+    #   webpush = True: thong bao chung PHAI ra duoc ngoai app, neu khong thi nguoi ta
+    #   chi thay khi tinh co mo ERP - dung bang khong. Day khong phai rui ro giong
+    #   Teams: web push la nguoi dung TU cap quyen tren tung may va tu tat duoc bat cu
+    #   luc nao; ai chua cap quyen thi provider bo qua, khong lam phien ai.
+    #   PHAI la True chu KHONG duoc la "pref": trong resolve_channels, o "pref" nghia la
+    #   TAT mac dinh cho nguoi CHUA luu tuy chon - tuc la gan het cong ty, ke ca nguoi
+    #   vua bam Bat tren trinh duyet. True moi cho mac dinh BAT, va nguoi da luu tuy chon
+    #   thi `webpush_enabled` cua ho van quyet dinh (mac dinh 1, tat di thi duoc ton trong).
+    "announcement":            {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": False, "webpush": True},
 }
 # severities that bypass quiet hours / minimum-severity / disabled-event suppression
 _BYPASS_SEVERITY = ("urgent",)
