@@ -68,13 +68,71 @@ def _import_pywebpush():
 
 
 # --------------------------------------------------------------------- sinh khoa
+@frappe.whitelist(methods=["POST"])
+def generate_vapid_keys_api():
+    """Nut "Sinh khoa VAPID" tren EC Web Push Settings.
+
+    VI SAO CAN DIEM VAO NAY: site chay tren Frappe Cloud, khong co ai co shell de go
+    `bench execute`. Neu khong co nut nay thi cach duy nhat con lai la sinh khoa o mot
+    may khac roi DAN KHOA BI MAT qua chat/email - tuc la bi mat di qua mot kenh khong
+    kiem soat duoc. Khoa sinh o day khong bao gio roi khoi server.
+
+    Chi System Manager. Khong ghi de khoa da co."""
+    if "System Manager" not in frappe.get_roles(frappe.session.user):
+        frappe.throw(frappe._("Chi System Manager moi duoc sinh khoa VAPID."))
+    return generate_vapid_keys()
+
+
+@frappe.whitelist(methods=["POST"])
+def send_test_push():
+    """Nut "Gui thu" - day mot thong bao push den chinh nguoi dang bam.
+
+    Di THANG qua provider (khong qua Notification Center) de test dung mot thu: cap
+    khoa + thu vien + dang ky trinh duyet. Khong dinh den ma tran kenh, khong tao
+    Notification Log rac trong hop thu."""
+    user = frappe.session.user
+    if not user or user == "Guest":
+        frappe.throw(frappe._("Can dang nhap."))
+    cfg = get_settings()
+    if not is_configured(cfg):
+        return {"ok": False, "reason": "NOT_CONFIGURED",
+                "detail": "Chua bat hoac chua co khoa VAPID."}
+    webpush, _exc = _import_pywebpush()
+    if webpush is None:
+        return {"ok": False, "reason": "NO_LIBRARY",
+                "detail": "Chua cai pywebpush tren bench. Kiem tra pyproject.toml roi deploy lai."}
+    subs = frappe.get_all(SUB_DT, filters={"user": user, "active": 1},
+                          fields=["name", "endpoint", "p256dh", "auth"], limit=20)
+    if not subs:
+        return {"ok": False, "reason": "NO_SUBSCRIPTION",
+                "detail": "Trinh duyet nay chua cap quyen thong bao. Mo mot trang ERP, bam Bat o dai thong bao roi thu lai."}
+    import json as _json
+    body = _json.dumps({"title": "eCentric ERP", "body": "Day la thong bao thu. Neu ban thay dong nay thi web push da chay.",
+                        "url": "/ec-hr/attendance", "tag": "ec-test"}, ensure_ascii=False)
+    ok = 0
+    errs = []
+    for s in subs:
+        try:
+            webpush(subscription_info={"endpoint": s.endpoint,
+                                       "keys": {"p256dh": s.p256dh or "", "auth": s.auth or ""}},
+                    data=body, vapid_private_key=cfg["private_key"],
+                    vapid_claims={"sub": cfg["subject"]}, ttl=TTL, timeout=TIMEOUT)
+            ok += 1
+        except Exception as e:
+            code = getattr(getattr(e, "response", None), "status_code", None)
+            errs.append(str(code or e.__class__.__name__))
+            if code in _DEAD_CODES:
+                _deactivate(s.name, "HTTP %s (gui thu)" % code)
+    frappe.db.commit()
+    return {"ok": ok > 0, "sent": ok, "devices": len(subs), "errors": errs}
+
+
 def generate_vapid_keys():
-    """Chay MOT LAN tren server:
+    """Sinh cap khoa EC P-256 theo chuan VAPID, ghi thang vao EC Web Push Settings.
 
-        bench --site team.ecentric.vn execute \\
+    Goi tu nut tren man hinh Settings (generate_vapid_keys_api), hoac tu shell:
+        bench --site <site> execute
             ecentric_workspace.notification_center.providers.webpush.generate_vapid_keys
-
-    Sinh cap khoa EC P-256 theo chuan VAPID, ghi thang vao EC Web Push Settings.
     KHONG ghi de khoa da co - doi khoa khi da co nguoi dang ky se lam chet toan bo
     dang ky cu. Muon doi that thi xoa tay hai o trong Settings roi chay lai.
     """

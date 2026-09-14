@@ -2393,3 +2393,38 @@ class TestCheckinReminderModule(unittest.TestCase):
         self.assertEqual(len(hit), 1)
         self.assertEqual(hit[0].get("disabled"), 1,
                          "Server Script cu PHAI tat, neu khong moi nguoi bi nhac hai lan luc 8h30")
+
+
+class TestWebPushOperability(unittest.TestCase):
+    """Site chay tren Frappe Cloud: KHONG co shell. Moi thao tac van hanh web push
+    phai bam duoc tu man hinh Settings, neu khong thi cach duy nhat con lai la dan
+    khoa bi mat qua chat - dung thu can tranh nhat."""
+
+    def _src(self, *parts):
+        path = os.path.join(_pkg_root(), "notification_center", *parts)
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_key_generation_has_a_ui_entry_point(self):
+        src = self._src("providers", "webpush.py")
+        self.assertIn("def generate_vapid_keys_api", src)
+        self.assertIn('@frappe.whitelist(methods=["POST"])', src)
+
+    def test_key_generation_is_system_manager_only(self):
+        src = self._src("providers", "webpush.py")
+        i = src.index("def generate_vapid_keys_api")
+        body = src[i:i + 700]
+        self.assertIn("System Manager", body)
+        self.assertIn("frappe.get_roles", body)
+
+    def test_settings_form_script_exists_and_wires_both_buttons(self):
+        js = self._src("doctype", "ec_web_push_settings", "ec_web_push_settings.js")
+        self.assertIn("generate_vapid_keys_api", js)
+        self.assertIn("send_test_push", js)
+
+    def test_key_generation_refuses_to_overwrite(self):
+        # Doi khoa khi da co nguoi dang ky = chet toan bo dang ky cu, im lang.
+        src = self._src("providers", "webpush.py")
+        i = src.index("def generate_vapid_keys(")
+        body = src[i:i + 900]
+        self.assertIn("khong ghi de", body.lower().replace("-", " "))
