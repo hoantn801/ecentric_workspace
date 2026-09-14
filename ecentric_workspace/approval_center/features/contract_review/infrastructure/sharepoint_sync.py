@@ -92,27 +92,88 @@ def tai_len(file_url, file_name, business_name, token=None):
             "last_modified": item.get("lastModifiedDateTime")}
 
 
-def cap_quyen(item_id, emails, token=None, cho_sua=True):
-    """Cap quyen cho DUNG nhung email duoc liet ke, khong tao link pham vi rong.
+#: Tai khoan dich vu - co trong luong duyet nhung khong phai NGUOI review. Khong cap quyen
+#: vao hop dong cho chung: quyen thua la quyen rui ro, va mot dia chi khong phai hom thu that
+#: con co the lam Graph tu choi ca lo. Danh sach nay khop theo phan truoc dau @.
+TAI_KHOAN_DICH_VU = ("fabric.bot",)
 
-    `sendInvitation=False`: he thong tu dieu phoi thong bao qua kenh san co, khong de Microsoft
-    ban them mot email ma khong ai ngo. `requireSignIn=True`: phai dang nhap tai khoan cong ty.
+
+def loc_nguoi_that(emails):
+    """Tra ve (giu, bo). Bo tai khoan dich vu. KHONG im lang: ben goi in ra phan bi bo."""
+    giu, bo = [], []
+    for e in dict.fromkeys(emails or []):
+        if not e or "@" not in e:
+            continue
+        if e.split("@")[0].lower() in TAI_KHOAN_DICH_VU:
+            bo.append(e)
+        else:
+            giu.append(e)
+    return giu, bo
+
+
+def doc_quyen(item_id, token=None):
+    """Liet ke quyen HIEN CO tren mot tep. Chi doc.
+
+    Dung de tra loi mot cau hoi quyet dinh ca thiet ke: nguoi trong cong ty da co quyen vao
+    thu vien nay san chua? Neu roi thi buoc cap quyen la thua; neu chua thi phai cap that.
+    Doan bang cam tinh thi khong biet duoc."""
+    requests = _requests()
+    token = token or wr_sp.get_app_token()
+    resp = requests.get(
+        "%s/sites/%s/drive/items/%s/permissions" % (_graph(), wr_sp.SITE_ID, item_id),
+        headers={"Authorization": "Bearer " + token}, timeout=TIMEOUT)
+    if resp.status_code != 200:
+        raise SharePointChuaSan("Doc quyen that bai (%s): %s" % (resp.status_code, resp.text[:300]))
+    ra = []
+    for p in (resp.json() or {}).get("value", []):
+        ai = []
+        for gi in (p.get("grantedToIdentitiesV2") or ([p["grantedToV2"]] if p.get("grantedToV2") else [])):
+            u = (gi or {}).get("user") or (gi or {}).get("siteGroup") or (gi or {}).get("group") or {}
+            ai.append(u.get("email") or u.get("displayName") or "?")
+        ra.append({"vai_tro": ",".join(p.get("roles") or []),
+                   "thua_ke": bool(p.get("inheritedFrom")),
+                   "cho": ", ".join(ai) or (p.get("link") or {}).get("scope") or "?"})
+    return ra
+
+
+def cap_quyen(item_id, emails, token=None, cho_sua=True, pha_thua_ke=False):
+    """Cap quyen cho DUNG nhung email duoc liet ke. Tra ve dict(da_cap, bo_qua, link).
+
+    DUONG DI: `createLink` voi scope="users" - KHONG phai `/invite`.
+
+    Vi sao doi: 14/09 do tren tenant that, `/invite` tra ve `noResolvedUsers` - va khong MOT
+    ai trong 10 dia chi resolve duoc. Zero nguoi resolve nghia la loi o ngu canh app-only
+    (token khong dai dien cho nguoi dung nao nen Graph khong co "nguoi moi" de phan giai danh
+    sach), chu khong phai mot dia chi hong lam hong ca lo. Trong khi do `createLink` chay that
+    moi tuan qua `weekly_report.create_org_link` voi cung loai token - nen day la duong da co
+    bang chung, khong phai phong doan thu hai.
+
+    KHONG BAO GIO tu dong lui ve scope="organization" khi that bai. Cap nham cho ca cong ty
+    quyen SUA hop dong con te hon nhieu so voi bao loi va de nguoi that quyet dinh.
+
+    `pha_thua_ke=False` la mac dinh co chu y: dat True se GO quyen thua ke tu thu vien, tuc
+    thu hoi quyen cua nhung nguoi dang co. Do la mot thay doi tru tren du lieu song, phai do
+    `doc_quyen` truoc va co nguoi chot, khong lam kem theo mot lan tai tep.
     """
     requests = _requests()
     token = token or wr_sp.get_app_token()
-    nguoi = [e for e in dict.fromkeys(emails or []) if e and "@" in e]
+    nguoi, bo = loc_nguoi_that(emails)
     if not nguoi:
-        return []
+        return {"da_cap": [], "bo_qua": bo, "link": None}
+    than = {"type": "edit" if cho_sua else "view",
+            "scope": "users",
+            "recipients": [{"email": e} for e in nguoi],
+            "sendInvitation": False}
+    if pha_thua_ke:
+        than["retainInheritedPermissions"] = False
     resp = requests.post(
-        "%s/sites/%s/drive/items/%s/invite" % (_graph(), wr_sp.SITE_ID, item_id),
+        "%s/sites/%s/drive/items/%s/createLink" % (_graph(), wr_sp.SITE_ID, item_id),
         headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
-        json={"recipients": [{"email": e} for e in nguoi],
-              "requireSignIn": True, "sendInvitation": False,
-              "roles": ["write" if cho_sua else "read"]},
-        timeout=TIMEOUT)
+        json=than, timeout=TIMEOUT)
     if resp.status_code not in (200, 201):
         raise SharePointChuaSan("Cap quyen that bai (%s): %s" % (resp.status_code, resp.text[:300]))
-    return nguoi
+    link = ((resp.json() or {}).get("link") or {}).get("webUrl")
+    return {"da_cap": nguoi, "bo_qua": bo, "link": link}
 
 
 def doc_moc_sua(item_id, token=None):

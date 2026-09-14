@@ -202,3 +202,22 @@ def _guard_resubmit_needs_ceo(doc):
             "Thay đổi này đụng đến nội dung hợp đồng (loại hợp đồng / brand / mục đích) nên "
             "cần CEO duyệt, nhưng yêu cầu này đã gửi theo luồng điều chỉnh không có cấp CEO. "
             "Vui lòng hủy yêu cầu này và tạo yêu cầu mới."))
+
+
+def nguoi_duoc_xem(name, row=None):
+    """Nguoi gui + cac cap duyet cua phieu + CC. KHONG mo cho ca cong ty.
+
+    Doc tu `EC Approval Request Approver` - dung bang ma engine that su dung de quyet dinh ai
+    duoc duyet, khong tu dung mot danh sach thu hai."""
+    row = row or frappe.db.get_value(BUSINESS_DT, name, ["requested_by", "approval_request", "cc_to"],
+                                     as_dict=True) or {}
+    ra = [row.get("requested_by")]
+    if row.get("approval_request"):
+        ra += frappe.get_all("EC Approval Request Approver",
+                             filters={"approval_request": row["approval_request"]},
+                             pluck="approver")
+    for e in (frappe.db.get_value(BUSINESS_DT, name, "cc_to") or "").replace(";", ",").split(","):
+        e = e.strip()
+        if e:
+            ra.append(e)
+    return [e for e in dict.fromkeys(ra) if e and "@" in e]
