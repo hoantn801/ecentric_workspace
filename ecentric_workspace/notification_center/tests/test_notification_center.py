@@ -2590,3 +2590,24 @@ class TestNoAmountProbeOnEmployee(unittest.TestCase):
         with open(path, encoding="utf-8") as fh:
             src = fh.read()
         self.assertIn('reference_doctype="Employee"', src)
+
+
+class TestTeamsCardMarkup(unittest.TestCase):
+    """The Copilot render <b>/<i>/<br> nhung NUOT ky tu newline - da do tren the that
+    ngay 14/09. Nen khoi chi tiet phai noi bang <br>, khong duoc dung "\n" hay " · "."""
+
+    def _src(self, *parts):
+        with open(os.path.join(_pkg_root(), *parts), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_approval_details_joined_with_br(self):
+        src = self._src("approval_center", "shared", "workflow", "transitions.py")
+        self.assertIn('"<br>".join(parts)', src)
+        self.assertNotIn('" · ".join(parts)', src)
+
+    def test_reminder_body_uses_br_not_newline(self):
+        src = self._src("hr", "checkin_reminder.py")
+        i = src.index('"Nhắc chấm công hôm nay"')
+        body = src[i:i + 400]
+        self.assertIn("<br>", body)
+        self.assertNotIn("\\n", body)

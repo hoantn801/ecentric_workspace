@@ -39,14 +39,14 @@ def remind_0830():
     """Cron 30 8 * * * (gio site = Asia/Ho_Chi_Minh)."""
     return _run("attendance_missing",
                 "Nhắc chấm công hôm nay",
-                "Bạn chưa chấm công hôm nay. Mở app eCentric ERP để chấm công trước 10:00.")
+                "Bạn <b>chưa chấm công</b> hôm nay.<br>Mở app eCentric ERP để chấm công trước <b>10:00</b>.")
 
 
 def remind_0930():
     """Cron 30 9 * * * - loi nhac cuoi truoc han 10:00."""
     return _run("attendance_missing_final",
                 "Sắp hết giờ chấm công",
-                "Bạn vẫn chưa chấm công hôm nay. Còn khoảng 30 phút trước 10:00 — chấm công ngay để không bị thiếu công.")
+                "Bạn <b>vẫn chưa chấm công</b> hôm nay.<br>Còn khoảng 30 phút trước <b>10:00</b> — chấm công ngay để không bị thiếu công.")
 
 
 def _run(event_type, title, message):
