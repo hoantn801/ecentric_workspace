@@ -228,5 +228,79 @@ class ChonTep(unittest.TestCase):
         self.assertEqual(self.chon([self._t("a.pdf"), self._t("B.DOCX")]).file_name, "B.DOCX")
 
 
+class GioUTC(unittest.TestCase):
+    """Graph tra ve gio UTC; ERP so voi moc duyet la gio he thong (UTC+7).
+
+    Do that 14/09 nem (1292, "Incorrect datetime value: '2026-09-14T08:58:18Z'") - MariaDB
+    khong nhan chu T/Z. Nhung loi de thay do chi la be noi: cai dat tien la neu luu nguyen
+    gio UTC thi moi phep so "tep bi sua sau khi duyet chua" lech BAY TIENG, va lech theo
+    huong co loi cho ke sua. Bo test nay canh CA HAI.
+    """
+
+    def setUp(self):
+        ns = {}
+        exec(compile(_doan(_SYNC, "gio_he_thong"), "<sync>", "exec"), ns)
+        # frappe.utils gia: doi UTC -> UTC+7, dung nhu convert_utc_to_system_timezone that.
+        import datetime as _dt
+
+        def _get_datetime(txt):
+            return _dt.datetime.strptime(txt, "%Y-%m-%d %H:%M:%S")
+
+        def _convert(d):
+            # Ham THAT cua Frappe tra ve datetime CO tzinfo. Ban gia luc dau tra ve gio tran
+            # nen phep kiem "da bo tzinfo chua" khong the do duoc gi - dot bien xoa
+            # .replace(tzinfo=None) song sot. Ban gia phai giong that o dung diem ma bai test
+            # dang khang dinh, neu khong thi bai test chi dang tu trang tri.
+            return (d + _dt.timedelta(hours=7)).replace(
+                tzinfo=_dt.timezone(_dt.timedelta(hours=7)))
+
+        mod = types.ModuleType("frappe.utils")
+        mod.get_datetime = _get_datetime
+        mod.convert_utc_to_system_timezone = _convert
+        frappe_mod = types.ModuleType("frappe")
+        frappe_mod.utils = mod
+        self._cu = (sys.modules.get("frappe"), sys.modules.get("frappe.utils"))
+        sys.modules["frappe"] = frappe_mod
+        sys.modules["frappe.utils"] = mod
+        self.gio = ns["gio_he_thong"]
+
+    def tearDown(self):
+        for ten, cu in zip(("frappe", "frappe.utils"), self._cu):
+            if cu is None:
+                sys.modules.pop(ten, None)
+            else:
+                sys.modules[ten] = cu
+
+    def test_doi_sang_gio_he_thong_chu_khong_giu_utc(self):
+        d = self.gio("2026-09-14T08:58:18Z")
+        self.assertEqual(d.hour, 15, "08:58 UTC phai thanh 15:58 gio Viet Nam")
+        self.assertEqual(d.day, 14)
+
+    def test_bo_chu_T_va_Z(self):
+        d = self.gio("2026-09-14T08:58:18Z")
+        self.assertNotIn("T", str(d))
+        self.assertNotIn("Z", str(d))
+
+    def test_khong_con_tzinfo(self):
+        self.assertIsNone(self.gio("2026-09-14T08:58:18Z").tzinfo,
+                          "Frappe luu gio tran theo mui he thong")
+
+    def test_nhan_ca_dang_offset_00_00(self):
+        self.assertEqual(self.gio("2026-09-14T08:58:18+00:00"),
+                         self.gio("2026-09-14T08:58:18Z"))
+
+    def test_bo_phan_le_giay(self):
+        self.assertEqual(self.gio("2026-09-14T08:58:18.1234567Z"),
+                         self.gio("2026-09-14T08:58:18Z"))
+
+    def test_rong_thi_tra_None(self):
+        self.assertIsNone(self.gio(None))
+        self.assertIsNone(self.gio(""))
+
+    def test_qua_nua_dem_thi_sang_ngay_hom_sau(self):
+        d = self.gio("2026-09-14T18:30:00Z")
+        self.assertEqual((d.day, d.hour), (15, 1), "18:30 UTC ngay 14 = 01:30 ngay 15 gio VN")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
