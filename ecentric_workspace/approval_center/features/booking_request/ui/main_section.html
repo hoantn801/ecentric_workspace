@@ -207,7 +207,11 @@
   // ======================= BRAND =======================
   // Brand noi bo: chon tu danh muc. Brand ngoai: go ten moi -> hien them o chon ban Booking
   // phu trach, va ta LUU LAI vao danh muc (y Hoan 11/09) de lan sau chon thang.
-  function brandRows(){ return (state.boot&&state.boot.options&&state.boot.options.brands)||[]; }
+  // `get_bootstrap` tra khoa `form_options`, KHONG phai `options` - doc nham thi danh sach
+  // brand rong va man hinh noi "Danh muc brand dang trong" trong khi he thong co 28 brand.
+  // Do tren production 14/09; goi thang API thi ra 28, nen loi nam o day chu khong o server.
+  function ttChung(){ return (state.boot && (state.boot.form_options || state.boot.options)) || {}; }
+  function brandRows(){ return ttChung().brands || []; }
   function brandExists(v){ var k=String(v||"").trim().toLowerCase();
     return brandRows().some(function(r){ return String(r.value||r).trim().toLowerCase()===k; }); }
 
@@ -323,7 +327,7 @@
   }
 
   function formCardsHTML(d,errs){
-    var types=(state.boot&&state.boot.options&&state.boot.options.booking_types)||[CHI_DINH,MIDDLE,MASSIVE];
+    var types=ttChung().booking_types||[CHI_DINH,MIDDLE,MASSIVE];
     var h='';
     h+='<div class="card"><h3>Brand</h3><div class="grid2">'
       + brandFieldHTML(d,errs) + ownerFieldsHTML(d,errs) + '</div></div>';
