@@ -745,8 +745,12 @@ class TestGlobalShellLoader(unittest.TestCase):
     def test_web_include_js_registers_asset_globally(self):
         # Loaded as a CONTENT-HASHED bundle so deploys bust the immutable /assets cache
         # uniformly (raw un-versioned /assets path caused stale-asset on some routes).
-        self.assertIn('web_include_js = ["notification_center.bundle.js"]', self.hooks,
-                      "asset must load via the content-hashed bundle (cache-bust)")
+        # Khong so khop CA DONG: danh sach nay da dai them (ec_shell, ec_datepicker,
+        # ec_formkit, ec_webpush) va mot phep so sanh nguyen van bien test thanh
+        # false-failure moi lan them bundle - dung nhu no da hong tu truoc ban nay.
+        # Dieu can bao ve la: nap qua BUNDLE co hash noi dung, khong phai duong /assets tho.
+        self.assertRegex(self.hooks, r'web_include_js = \[[^\]]*"notification_center\.bundle\.js"',
+                         "asset must load via the content-hashed bundle (cache-bust)")
         self.assertNotIn('web_include_js = ["/assets/ecentric_workspace/js/notification_center.js"]',
                          self.hooks, "must NOT use the raw un-versioned /assets path (immutable cache -> stale)")
         bundle = os.path.join(_pkg_root(), "public", "js", "notification_center.bundle.js")
@@ -2286,3 +2290,106 @@ class TestPowerAutomateCopilot(unittest.TestCase):
         byc2 = {d["channel"]: d["status"] for d in FR._delivery if d["recipient"] == "u@x.com"}
         self.assertEqual(byc2["erp"], "Sent")                # ERP unaffected by Teams failure
         self.assertEqual(byc2["teams"], "Failed")
+
+
+# --------------------------------------------------------------------------- #
+# Web push channel + nhac cham cong (2026-09-14)
+# --------------------------------------------------------------------------- #
+class TestChannelMatrixCompleteness(unittest.TestCase):
+    """Moi kenh trong CHANNELS phai co mat o MOI dong cua ROUTING_MATRIX, va moi
+    kenh khong-baseline phai co mot cong tac trong resolve_channels.
+
+    Vi sao co test nay: `resolve_channels` tra cuu `switch[ch]` cho moi kenh khong
+    phai erp/toast. Them mot kenh vao CHANNELS ma quen them vao `switch` se nem
+    KeyError - va chi nem cho nhung nguoi DA luu preference, tuc la mot phan nguoi
+    dung im lang khong nhan duoc thong bao nao trong khi phan con lai van binh
+    thuong. Kieu hong do rat kho phat hien tren prod."""
+
+    def test_every_event_type_covers_every_channel(self):
+        for et in ev.EVENT_TYPES:
+            row = ev.ROUTING_MATRIX.get(et)
+            self.assertIsNotNone(row, et + " thieu dong trong ROUTING_MATRIX")
+            for ch in ev.CHANNELS:
+                self.assertIn(ch, row, "ROUTING_MATRIX[" + et + "] thieu kenh " + ch)
+
+    def test_every_event_type_has_default_severity(self):
+        for et in ev.EVENT_TYPES:
+            self.assertIn(et, ev._DEFAULT_SEVERITY, et + " thieu severity mac dinh")
+
+    def test_resolve_channels_never_raises_for_saved_pref(self):
+        pref = ev.get_preference("u@x.com")
+        pref["_exists"] = True
+        for et in ev.EVENT_TYPES:
+            out = ev.resolve_channels(et, ev._DEFAULT_SEVERITY[et], pref)
+            self.assertEqual(set(out.keys()), set(ev.CHANNELS))
+
+
+class TestAttendanceReminderRouting(unittest.TestCase):
+    """Hop dong cua hai moc nhac cham cong.
+
+    8h30 duoc ban Teams vi do la MUC DICH cua tinh nang: thong bao phai ra khoi app.
+    9h30 CO CHU Y khong ban Teams - neu ca hai moc deu ban thi mot nguoi quen cham
+    cong nhan hai DM Teams moi sang, va ket cuc la ho tat thong bao Teams, mat luon
+    ca thong bao duyet don."""
+
+    def setUp(self):
+        _reset("u@x.com"); FR.session.user = "u@x.com"
+
+    def test_0830_reaches_teams_by_default(self):
+        pref = ev.get_preference("u@x.com")       # chua luu preference
+        out = ev.resolve_channels("attendance_missing", "info", pref)
+        self.assertEqual(out["teams"], "deliver")
+        self.assertEqual(out["erp"], "deliver")
+
+    def test_0930_never_reaches_teams(self):
+        pref = ev.get_preference("u@x.com")
+        out = ev.resolve_channels("attendance_missing_final", "action_required", pref)
+        self.assertEqual(out["teams"], "skip")
+        self.assertEqual(out["erp"], "deliver")
+
+    def test_webpush_on_for_both_slots(self):
+        pref = ev.get_preference("u@x.com")
+        for et in ("attendance_missing", "attendance_missing_final"):
+            out = ev.resolve_channels(et, ev._DEFAULT_SEVERITY[et], pref)
+            self.assertEqual(out["webpush"], "deliver", et)
+
+    def test_teams_opt_out_is_respected(self):
+        pref = ev.get_preference("u@x.com")
+        pref["_exists"] = True
+        pref["teams_enabled"] = 0
+        out = ev.resolve_channels("attendance_missing", "info", pref)
+        self.assertEqual(out["teams"], "skip")
+
+
+class TestCheckinReminderModule(unittest.TestCase):
+    """Kiem tra tinh chat cua chinh module nhac cham cong, khong can site."""
+
+    def setUp(self):
+        import importlib
+        self.mod = importlib.import_module("ecentric_workspace.hr.checkin_reminder")
+
+    def test_two_distinct_methods_for_two_cron_slots(self):
+        # Frappe khoa Scheduled Job Type theo dotted path cua `method`: mot ham khai o
+        # hai bieu thuc cron chi giu lai MOT. Da do that tren prod 10/09 voi esign.
+        self.assertTrue(callable(self.mod.remind_0830))
+        self.assertTrue(callable(self.mod.remind_0930))
+        self.assertIsNot(self.mod.remind_0830, self.mod.remind_0930)
+
+    def test_hooks_registers_both_slots(self):
+        path = os.path.join(_pkg_root(), "hooks.py")
+        with open(path, encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn('"30 8 * * *"', src)
+        self.assertIn('"30 9 * * *"', src)
+        self.assertIn("hr.checkin_reminder.remind_0830", src)
+        self.assertIn("hr.checkin_reminder.remind_0930", src)
+
+    def test_old_server_script_is_disabled_in_fixtures(self):
+        import json
+        path = os.path.join(_pkg_root(), "fixtures", "server_script.json")
+        with open(path, encoding="utf-8") as fh:
+            rows = json.load(fh)
+        hit = [r for r in rows if r.get("name") == "ec_hr_checkin_reminder"]
+        self.assertEqual(len(hit), 1)
+        self.assertEqual(hit[0].get("disabled"), 1,
+                         "Server Script cu PHAI tat, neu khong moi nguoi bi nhac hai lan luc 8h30")
