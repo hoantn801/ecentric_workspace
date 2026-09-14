@@ -37,7 +37,11 @@ PAYMENT_REQUEST_DEFINITION = _make(
      # phan loai chi phi (09/09, Hoan) - PnL doc de gom nhom va chong dem trung luong.
      # `ec_can_brand` KHONG nam day: no fetch tu danh muc, client sua duoc thi lop an/hien
      # brand tu no lai thanh khai bao tu do.
-     "ec_loai_chi_phi", "ec_brand"),
+     "ec_loai_chi_phi", "ec_brand",
+     # 12/09, Hoan: brand ngoai danh muc (theo dung khuon Booking Request), ky ghi nhan chi
+     # phi = thang HOAT DONG, va thue suat VAT nam trong so tien. Thieu o day thi form gui
+     # len bao nhieu cung bi bo im lang - client sua duoc dung nhung gi liet ke trong nay.
+     "ec_brand_moi", "ec_brand_ten", "ec_ky_chi_phi", "ec_vat_pct"),
     ("name", "request_title", "payee_full_name", "payment_amount", "payment_date",
      "approval_request", "fulfillment_status", "payment_mode", "installment_no", "installment_of",
      "creation", "modified"),

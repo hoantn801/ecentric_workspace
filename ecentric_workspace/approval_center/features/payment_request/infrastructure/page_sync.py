@@ -123,8 +123,10 @@ def _html():
 # ba viec giao dien (badge huy do + co chu hub). File sau merge mang CA HAI, nen compose cua no
 # khac ca hai gia tri dang choi nhau. So duoi day duoc TINH LAI tu file da gop, khong lay cua
 # ben nao; ca hai gia tri cu deu xuong SUPERSEDES vi ban nao cung co the dang nam o live.
-BASELINE_SHA256 = "1d54deb33c819ba4de2cd509a16e5dc490c8108e38d44a49a654f0d1deebf029"
+BASELINE_SHA256 = "a0c882780afd34bab5bff3e0b3f680fe82e241b6d993c80f3ab13d1ee682e9c6"
 SUPERSEDES_SHA256 = (
+    # Compose TRUOC dot 12/09 (ky ghi nhan chi phi + VAT + brand ngoai danh muc).
+    "1d54deb33c819ba4de2cd509a16e5dc490c8108e38d44a49a654f0d1deebf029",
     # Compose dang o LIVE tren team.ecentric.vn sau khi p170 chay (do 09/09 luc 20:0x).
     "950c56c3d385132623b12f5dc6e61554bf910ea2a6243df06f4109816c5b6d68",
     # Compose cua ban PnL "loai chi phi" (origin/main) - co the da hoac chua deploy.

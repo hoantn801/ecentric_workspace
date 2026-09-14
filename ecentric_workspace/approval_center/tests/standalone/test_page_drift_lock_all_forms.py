@@ -48,6 +48,40 @@ def _read(p):
     return io.open(p, encoding="utf-8").read()
 
 
+def _esign_ui(ten):
+    p = os.path.join(_ROOT, "platform", "esign", "ui", ten)
+    try:
+        return _read(p)
+    except OSError:
+        return ""
+
+
+def _html_that(feature, sync_src):
+    """HTML THAT duoc ghi len Web Page cua form nay.
+
+    Hau het form ghi nguyen main_section.html. Payment Request thi KHONG: `_html()` cua no
+    ghep main + 3 panel ky so (xem chu thich 10/09 trong page_sync.py cua form do), nen sha
+    cua rieng main_section.html khong bao gio bang sha cua trang. Truoc dot 12/09 phep kiem
+    nay so BASELINE voi sha file va bao lech - no bao DUNG mot su that, nhung su that do la
+    "test dang do sai thu", chu khong phai "ai do quen bump". Test do lien tuc nen khong ai
+    doc nua, va mot lan quen bump that se lan trong do.
+
+    Nhan dien bang `_PLATFORM_ESIGN_UI`: form nao co tham chieu do la form co ghep panel.
+    Form moi ghep kieu khac se lam test nay do - dung huong, vi nguoi them form se phai khai
+    cach ghep o day thay vi de no truot qua.
+    """
+    main = _read(os.path.join(_ROOT, "approval_center", "features", feature, "ui",
+                              "main_section.html"))
+    if "_PLATFORM_ESIGN_UI" not in sync_src:
+        return main
+    return (main + "\n"
+            + _esign_ui("requester_signing_panel.html") + "\n"
+            + '<div id="ec-approver-wrap" style="display:none">\n'
+            + _esign_ui("payment_request_signing.html")
+            + '\n</div>\n'
+            + _esign_ui("document_signing_section.html"))
+
+
 class TestKhoaChongTroiMoiForm(unittest.TestCase):
     def test_co_du_form_de_quet(self):
         """Neu glob hong thi ca bo test thanh vo dung ma van xanh - chan trong luong truoc."""
@@ -63,9 +97,7 @@ class TestKhoaChongTroiMoiForm(unittest.TestCase):
             if not m:
                 continue          # form chua co khoa chong troi - hop le, khong ep
             co_khoa += 1
-            html = os.path.join(_ROOT, "approval_center", "features", f, "ui",
-                                "main_section.html")
-            real = hashlib.sha256(_read(html).encode("utf-8")).hexdigest()
+            real = hashlib.sha256(_html_that(f, _read(sync)).encode("utf-8")).hexdigest()
             if m.group(1) != real:
                 lech.append("%s (khoa %s... nguon %s...)" % (f, m.group(1)[:12], real[:12]))
         self.assertGreaterEqual(co_khoa, 20, "chi thay %d form co khoa - nghi phep do" % co_khoa)

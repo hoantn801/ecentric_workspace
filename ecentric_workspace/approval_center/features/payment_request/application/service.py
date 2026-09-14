@@ -60,23 +60,73 @@ def _sync_funding_aliases(doc):
     category = (doc.get("ec_loai_chi_phi") or "").strip()
     if not category or not frappe.db.get_value("EC Loai Chi Phi", category, "can_brand"):
         doc.ec_brand = None
+        # Doi sang loai khong gan brand thi bo luon phan "brand moi", neu khong mot phieu
+        # thue van phong van co the tao ra mot ban ghi Brand rac luc gui di.
+        doc.ec_brand_moi = 0
+        doc.ec_brand_ten = None
     elif legacy:
         # Older client (or historical draft) only set the legacy field -> promote it.
         doc.funding_source_doctype = "EC Purchase Request"
         doc.funding_source_name = legacy
+
+BRAND_DT = "Brand"
+
+
+def chot_brand_ngoai(doc):
+    """Brand ngoai do nguoi lap tu go -> tao ban ghi Brand roi gan vao phieu.
+
+    Hoan chot 12/09: "brand external thi theo booking request". Lam dung khuon
+    booking_request.tao_brand_moi, ke ca co `ec_can_chuan_hoa = 1` de admin ra lai chinh ta
+    va gop trung - ten la do nguoi dung go nen khong tu y sua o day.
+
+    KHAC booking o mot diem co chu dich: KHONG bat chon nguoi phu trach. De nghi thanh toan
+    khong biet ai phu trach brand, bat them chi khien nguoi ta chon bua. Doi lai brand tao tu
+    day se thieu ma Fabric va dong phi - giong het VNS-VN va FCV-VN dang nam im trong danh
+    muc - nen co `ec_can_chuan_hoa` de con loc ra ma don.
+
+    Trung ten thi dung lai ban da co, khong tao ban thu hai.
+    """
+    if not frappe.utils.cint(doc.get("ec_brand_moi")):
+        return
+    ten = (doc.get("ec_brand_ten") or "").strip()
+    if not ten:
+        frappe.throw(_("Brand chưa có trong danh mục: vui lòng nhập tên brand."))
+    if frappe.db.exists(BRAND_DT, ten):
+        doc.ec_brand = ten
+        return
+    b = frappe.new_doc(BRAND_DT)
+    b.brand = ten
+    for truong, gia_tri in (("ec_brand_name", ten), ("ec_status", "Active"),
+                            ("ec_brand_source", "External"), ("ec_can_chuan_hoa", 1)):
+        if b.meta.has_field(truong):
+            b.set(truong, gia_tri)
+    b.insert(ignore_permissions=True)
+    doc.ec_brand = b.name
+
 
 def validate_payment(doc):
     required = ("reason", "payment_date", "payee_full_name", "account_bank", "bank_account_number",
                 "has_purchase_request", "is_cost_valid", "request_attachment",
                 # 09/09: bat buoc phan loai. Khong bat buoc thi khong ai chon, va PnL mu tro
                 # lai nhu truoc - mot con so "Payment Request" khong noi len duoc dieu gi.
-                "ec_loai_chi_phi")
+                "ec_loai_chi_phi",
+                # 12/09: ky ghi nhan chi phi = THANG HOAT DONG, khong phai thang tra tien.
+                # Truoc do PnL quy ky theo payment_date nen chi phi luon lech pha mot thang so
+                # voi doanh thu: 49/49 phieu dau tien deu roi vao thang 9 du nhieu khoan la cua
+                # thang 8. Form tu dien san theo ngay thanh toan nen bat buoc khong ton them thao tac.
+                "ec_ky_chi_phi")
     if any(not str(doc.get(f) or "").strip() for f in required) or doc.payment_amount is None:
         frappe.throw(_("Vui lòng nhập đầy đủ các trường bắt buộc (bao gồm tệp đính kèm) trước khi gửi."))
     try:
         if float(doc.payment_amount) <= 0: frappe.throw(_("Số tiền thanh toán phải lớn hơn 0."))
     except (TypeError, ValueError): frappe.throw(_("Số tiền thanh toán phải là số."))
     normalize_payment(doc)
+    chot_brand_ngoai(doc)
+    category = (doc.get("ec_loai_chi_phi") or "").strip()
+    if category and frappe.db.get_value("EC Loai Chi Phi", category, "can_brand") \
+            and not (doc.get("ec_brand") or "").strip():
+        frappe.throw(_("Loại chi phí này gắn với một brand — vui lòng chọn brand, "
+                       "hoặc tích “Brand chưa có trong danh mục” và nhập tên."))
     if doc.details_and_attachments_correct != "Yes": frappe.throw(_("Vui lòng tích xác nhận thông tin và tệp đính kèm là chính xác trước khi gửi."))
     if doc.has_purchase_request == "Yes":
         if not (doc.get("funding_source_doctype") or "").strip() or not (doc.get("funding_source_name") or "").strip():

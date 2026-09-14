@@ -9,7 +9,7 @@
     "sha256": "5959cb21f900e349e49e1e28d0ee40cf07fe424ce00fc6d1b290569107ee1af8"
   },
   "approval_center/features/ai_topup/ui/main_section.html": {
-    "last_resync_patch": "p180_resync_ai_topup_duplicate_account_msg",
+    "last_resync_patch": "p183_resync_ai_topup_duplicate_account_msg",
     "sha256": "665dd2bb41655ca179c309c30cf2e186592766217571dfa5d1cda343ccc75c10"
   },
   "approval_center/features/asset_damage_loss/ui/main_section.html": {
@@ -20,6 +20,11 @@
   "approval_center/features/asset_request/ui/main_section.html": {
     "last_resync_patch": "p172_resync_skipped_step_shows_approver",
     "sha256": "2979a9aca8992ea9795a9d8a15c4a5105ffbb1354e29c489e6d9aa9ff056b97a"
+  },
+  "approval_center/features/booking_request/ui/main_section.html": {
+    "baseline": "2026-09-11",
+    "last_resync_patch": "p179_create_booking_request_page",
+    "sha256": "54fdbf8458bf19f2cae98d35468af1f71bfb7f9e9932e30545f05559ef62ca67"
   },
   "approval_center/features/budget_setting/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -99,8 +104,8 @@
     "sha256": "4784a7e008a5cf181930ed3827800d8dd77e3bd87c3d7413b05889d3d9dcb6a4"
   },
   "approval_center/features/payment_request/ui/main_section.html": {
-    "last_resync_patch": "p173_resync_cancelled_badge_and_hub_filters",
-    "sha256": "5bd675bb54607e7bec22af3954813cc65c16cc485054eb45f4faeab2b74c8f55"
+    "last_resync_patch": "p182_payment_request_ky_chi_phi_vat_brand",
+    "sha256": "f5e9373cfc5bcaf8e3518568c8ffaa71d605e72c8cdd811602aa0db178ae60e6"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -208,17 +213,12 @@
     "sha256": "4aa7b29bac83023432ed92af04d9393efb7c74d157acec9473008df4aa86aecd"
   },
   "reporting/frontend/pnl_dashboard.main_section.html": {
-    "last_resync_patch": "p175_resync_pnl_dashboard_chi_phi",
-    "sha256": "2c8ebf6531240e3ea75fc4b3c02a5633f076183a512b101edd744ed6ec235339"
+    "last_resync_patch": "p181_resync_pnl_kpi_du_phong",
+    "sha256": "b3d51542acfd09934530e7dacd3182ef34ed943b9c97d6d071d9a613691210ea"
   },
   "reporting/frontend/reports.main_section.html": {
     "baseline": "2026-08-31",
     "last_resync_patch": null,
     "sha256": "d7ba9b5ce4ddc0ac0d25981b1d4ef63f9c69f296b5366fbebe0010c8e0a79153"
-  },
-  "approval_center/features/booking_request/ui/main_section.html": {
-    "baseline": "2026-09-11",
-    "last_resync_patch": "p179_create_booking_request_page",
-    "sha256": "54fdbf8458bf19f2cae98d35468af1f71bfb7f9e9932e30545f05559ef62ca67"
   }
 }

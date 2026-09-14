@@ -25,15 +25,15 @@ _LANDMARKS = ('"account_mode"', "already exists")
 def execute():
     res = page_sync.sync()
     action = (res or {}).get("action")
-    frappe.log_error("p180 ai_topup sync=%s" % action, "p180 resync")
+    frappe.log_error("p183 ai_topup sync=%s" % action, "p183 resync")
     if action == "refused":
         frappe.log_error(
-            "p180: upsert TU CHOI GHI (khoa chong troi). Trang KHONG duoc cap nhat - doc "
-            "live_sha trong ket qua roi them vao SUPERSEDES_SHA256.", "p180 REFUSED")
+            "p183: upsert TU CHOI GHI (khoa chong troi). Trang KHONG duoc cap nhat - doc "
+            "live_sha trong ket qua roi them vao SUPERSEDES_SHA256.", "p183 REFUSED")
         return
     html = frappe.db.get_value("Web Page", {"route": "approvals/ai-topup"},
                                "main_section_html") or ""
     thieu = [m for m in _LANDMARKS if m not in html]
     if thieu:
         # Khong nem loi: mot exception o day lam chet CA LAN MIGRATE (bai hoc p116).
-        frappe.log_error("p180: trang ai-topup thieu dau moc %s" % thieu, "p180 KHONG toi noi")
+        frappe.log_error("p183: trang ai-topup thieu dau moc %s" % thieu, "p183 KHONG toi noi")

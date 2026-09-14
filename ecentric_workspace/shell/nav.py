@@ -193,6 +193,7 @@ def _providers():
     from ecentric_workspace.hr import nav as hr_nav
     from ecentric_workspace.alerts import nav as alerts_nav
     from ecentric_workspace.reporting import nav as reporting_nav
+    from ecentric_workspace.reporting import nav_pnl as reporting_pnl_nav
     from ecentric_workspace.pm import nav as pm_nav
     from ecentric_workspace.guides import nav as guides_nav
     return [
@@ -202,6 +203,9 @@ def _providers():
         ("hr", hr_nav.items),
         ("alerts", alerts_nav.items),
         ("reporting", reporting_nav.items),
+        # PnL co ngu canh RIENG: 5 dashboard cua /pnl-dashboard la sidebar phu
+        # cua chinh trang do, khong phai 5 dong them vao sidebar Bao cao.
+        ("reporting_pnl", reporting_pnl_nav.items),
         ("pm", pm_nav.items),
         # Huong dan su dung: MOT muc duy nhat (trang muc luc), co mat o moi ngu canh
         # co "core" - huong dan khong thuoc rieng phong nao.
@@ -253,10 +257,17 @@ CONTEXTS = {
         "entry": {"key": "ctx.pm", "label": "Công việc",
                   "route": "/pm", "icon": "briefcase"},
     },
+    "pnl": {
+        "providers": ["core", "reporting_pnl"],
+        "entry": {"key": "ctx.pnl", "label": "Doanh thu (PnL)",
+                  "route": "/pnl-dashboard", "icon": "wallet"},
+    },
 }
 #: order in which specialized contexts are probed for route resolution and in
 #: which launcher entries render.
-CONTEXT_ORDER = ["approval_document", "hr", "alert_center", "reporting", "pm"]
+CONTEXT_ORDER = ["approval_document", "hr", "alert_center", "reporting", "pnl", "pm"]
+#: `pnl` dung TRUOC `reporting`? Khong can: /pnl-dashboard khong khop mau nao
+#: cua reporting (/reports, /reports/*), nen hai ngu canh khong tranh nhau.
 DEFAULT_CONTEXT = "approval_document"
 CHILD_FIELDS = ("key", "label", "route", "icon", "order",
                 "active_patterns", "visible_when", "owner")
