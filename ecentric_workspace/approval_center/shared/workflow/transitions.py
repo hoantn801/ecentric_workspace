@@ -293,16 +293,22 @@ def request_summary(reference_doctype, reference_name):
     parts = []
     sender = row.get("requested_by")
     if sender:
-        parts.append("Người gửi: " + (frappe.db.get_value("User", sender, "full_name") or sender))
+        parts.append("<b>Người gửi:</b> " + (frappe.db.get_value("User", sender, "full_name") or sender))
     dept = row.get("department") or row.get("requester_department")
     if dept:
-        parts.append("Phòng ban: " + str(dept))
+        parts.append("<b>Phòng ban:</b> " + str(dept))
     if amount_field and row.get(amount_field):
         try:
-            parts.append("Số tiền: " + "{:,.0f} VND".format(float(row.get(amount_field))))
+            parts.append("<b>Số tiền:</b> " + "{:,.0f} VND".format(float(row.get(amount_field))))
         except (TypeError, ValueError):
             pass
-    return " · ".join(parts)
+    # Noi bang <br> chu KHONG bang " · " hay ky tu xuong dong that.
+    # Da do tren the Teams that (14/09): the Copilot render <b>, <i>, <br> va dau
+    # cham dau dong, nhung NUOT ky tu newline - ba dong bi dinh lien thanh mot.
+    # Cac kenh khac khong bi anh huong: chuong trong app va web push deu loc sach
+    # the HTML truoc khi hien (toPlainText o notification_center.js, _plain o
+    # providers/webpush.py), nen <br> chi thanh mot khoang trang.
+    return "<br>".join(parts)
 
 
 def notify(users, subject, doctype, name):

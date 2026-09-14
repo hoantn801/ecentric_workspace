@@ -287,7 +287,7 @@ def webpush_unsubscribe(endpoint=None):
 # --------------------------------------------------------------- thong bao chung
 @frappe.whitelist(methods=["POST"])
 def announce(title=None, message=None, action_url=None, tag=None, users=None, dry_run=1,
-             teams=0):
+             teams=0, reference_doctype=None, reference_name=None):
     """Gui MOT thong bao vao chuong ERP cua nhieu nguoi cung luc.
 
     VI SAO PHAI CO DIEM VAO NAY: `Notification Log` chi co dung mot quyen la
@@ -365,6 +365,8 @@ def announce(title=None, message=None, action_url=None, tag=None, users=None, dr
                 event_type=event_type, recipient=u,
                 title=title, message=message or "",
                 action_url=action_url or None,
+                reference_doctype=reference_doctype or None,
+                reference_name=reference_name or None,
                 actor="Administrator", from_user="Administrator",
                 dedupe_key="|".join([event_type, u, str(tag)]),
             )
