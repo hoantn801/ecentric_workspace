@@ -354,7 +354,7 @@
     f.classList.toggle("invalid",!!msg); var e=f.querySelector(".err");
     if(msg){ if(!e){ e=document.createElement("div"); e.className="err"; f.appendChild(e);} e.textContent=msg; } else if(e){ e.textContent=""; } }
   function clearFieldError(id){ setFieldError(id,null); }
-  function showFieldErrors(errs){ ["request_title","requested_amount","ai_tool","proposed_account_email","proposed_account_manager","ai_account"].forEach(function(id){ setFieldError(id,(errs&&errs[id])||null); });
+  function showFieldErrors(errs){ ["request_title","requested_amount","ai_tool","proposed_account_email","proposed_account_manager","ai_account","account_mode"].forEach(function(id){ setFieldError(id,(errs&&errs[id])||null); });
     var first=errs&&Object.keys(errs)[0]; if(first){ var el=document.querySelector('[data-fld="'+first+'"] input,[data-fld="'+first+'"] select'); if(el&&el.focus){ try{el.focus();}catch(e){} } } }
   function validateSubmit(){ var d=state.draft||{}; var errs={};
     if(!((d.request_title||"").toString().trim())) errs.request_title="Vui lòng nhập tiêu đề yêu cầu.";
@@ -366,6 +366,14 @@
     } else { if(!((d.ai_account||"").toString().trim())) errs.ai_account="Vui lòng chọn account."; }
     return Object.keys(errs).length?errs:null; }
   function applyBackendError(e){ var m=extractServerMsg(e);
+    // Server chan khi chon "Tai khoan moi" ma cap (AI tool, email) DA co trong EC AI Account.
+    // Truoc 11/09 cau nay khong khop nhanh nao nen roi xuong friendlyErr -> man hinh bao
+    // "Da co loi khi luu/gui yeu cau. Vui long thu lai". Nguoi dung thu lai bao nhieu lan
+    // cung khong qua duoc, vi thu lai khong phai cach sua: phai doi sang "Tai khoan hien co".
+    // (Do that: hai phieu nhap cua hon.nguyen treo tu 16:51 den 17:11 ngay 11/09.)
+    if(/AI Account .*t\u1ed3n t\u1ea1i|account .*already exists/i.test(m)){
+      showFieldErrors({account_mode:"T\u00e0i kho\u1ea3n n\u00e0y \u0111\u00e3 c\u00f3 tr\u00ean h\u1ec7 th\u1ed1ng \u2014 h\u00e3y ch\u1ecdn \u201cT\u00e0i kho\u1ea3n hi\u1ec7n c\u00f3\u201d."});
+      toast(m, true); return true; }
     if(/New Account requests require/i.test(m)){ var errs={};
       if(/ai_tool/.test(m)) errs.ai_tool="Vui lòng chọn AI Tool.";
       if(/proposed_account_email/.test(m)) errs.proposed_account_email="Vui lòng nhập email account dự kiến.";
