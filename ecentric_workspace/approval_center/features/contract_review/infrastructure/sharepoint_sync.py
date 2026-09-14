@@ -177,7 +177,11 @@ def cap_quyen(item_id, emails, token=None, cho_sua=True, pha_thua_ke=False):
 
 
 def doc_moc_sua(item_id, token=None):
-    """lastModifiedDateTime hien tai cua tep tren SharePoint (chuoi ISO), hoac None."""
+    """Moc sua gan nhat cua tep tren SharePoint, DA doi ve gio he thong, hoac None.
+
+    Tra ve datetime chu khong phai chuoi ISO: ben goi se dem no di so voi moc duyet trong ERP,
+    ma moc duyet la gio he thong. Tra ve chuoi UTC o day thi moi cho goi deu phai nho tu doi -
+    va cho nao quen thi lech bay tieng mot cach im lang."""
     requests = _requests()
     token = token or wr_sp.get_app_token()
     resp = requests.get(
@@ -186,7 +190,35 @@ def doc_moc_sua(item_id, token=None):
         headers={"Authorization": "Bearer " + token}, timeout=TIMEOUT)
     if resp.status_code != 200:
         return None
-    return (resp.json() or {}).get("lastModifiedDateTime")
+    return gio_he_thong((resp.json() or {}).get("lastModifiedDateTime"))
+
+
+def gio_he_thong(iso):
+    """Doi moc thoi gian ISO-8601 UTC cua Graph ("2026-09-14T08:58:18Z") sang gio he thong.
+
+    HAI ly do, ly do thu hai moi la ly do that:
+      1. MariaDB khong nhan chu "T" va "Z" trong cot Datetime - do that 14/09 nem
+         (1292, "Incorrect datetime value: '2026-09-14T08:58:18Z'").
+      2. Quan trong hon: Graph tra ve gio UTC, con moc duyet trong ERP la gio he thong
+         (UTC+7). Luu nguyen chuoi UTC thi moi phep so "tep co bi sua sau khi duyet khong"
+         deu lech BAY TIENG theo huong co loi cho ke sua - mot ban hop dong bi sua ngay sau
+         khi duyet xong van trong nhu duoc sua tu truoc. Do dung la thu ma bang canh bao
+         sinh ra de bat, nen sai o day thi tinh nang coi nhu khong ton tai.
+
+    Tra ve datetime KHONG mang tzinfo (Frappe luu gio tran theo mui he thong).
+    """
+    if not iso:
+        return None
+    from frappe.utils import convert_utc_to_system_timezone, get_datetime
+    txt = str(iso).strip()
+    for bo in ("Z", "+00:00"):
+        if txt.endswith(bo):
+            txt = txt[: -len(bo)]
+            break
+    txt = txt.replace("T", " ")
+    if "." in txt:
+        txt = txt.split(".", 1)[0]
+    return convert_utc_to_system_timezone(get_datetime(txt)).replace(tzinfo=None)
 
 
 def ghi_lien_ket(file_url, business_name, ket_qua, da_cap):
@@ -198,7 +230,7 @@ def ghi_lien_ket(file_url, business_name, ket_qua, da_cap):
     doc.business_name = business_name
     doc.sp_item_id = ket_qua.get("item_id")
     doc.sp_web_url = ket_qua.get("web_url")
-    doc.sp_last_modified = ket_qua.get("last_modified")
+    doc.sp_last_modified = gio_he_thong(ket_qua.get("last_modified"))
     doc.sp_synced_at = now_datetime()
     doc.sp_granted_to = ", ".join(da_cap or [])
     doc.save(ignore_permissions=True)
