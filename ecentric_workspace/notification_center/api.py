@@ -96,7 +96,8 @@ def mark_all_read():
 from ecentric_workspace.notification_center import events as _events
 
 _PREF_DT = "EC Notification Preference"
-_PREF_BOOL = ("sound_enabled", "desktop_enabled", "teams_enabled", "quiet_hours_enabled")
+_PREF_BOOL = ("sound_enabled", "desktop_enabled", "teams_enabled", "webpush_enabled",
+               "quiet_hours_enabled")
 _PREF_OTHER = ("quiet_hours_start", "quiet_hours_end", "timezone",
                "minimum_severity", "enabled_event_types")
 
@@ -112,6 +113,7 @@ def get_preferences():
 
 @frappe.whitelist(methods=["POST"])
 def set_preferences(sound_enabled=None, desktop_enabled=None, teams_enabled=None,
+                    webpush_enabled=None,
                     quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
                     timezone=None, minimum_severity=None, enabled_event_types=None):
     """Upsert the CURRENT user's preferences. Scoped strictly to frappe.session.user --
@@ -121,7 +123,8 @@ def set_preferences(sound_enabled=None, desktop_enabled=None, teams_enabled=None
         return {"success": False, "error": "Unauthorized"}
     incoming = {
         "sound_enabled": sound_enabled, "desktop_enabled": desktop_enabled,
-        "teams_enabled": teams_enabled, "quiet_hours_enabled": quiet_hours_enabled,
+        "teams_enabled": teams_enabled, "webpush_enabled": webpush_enabled,
+        "quiet_hours_enabled": quiet_hours_enabled,
         "quiet_hours_start": quiet_hours_start, "quiet_hours_end": quiet_hours_end,
         "timezone": timezone, "minimum_severity": minimum_severity,
         "enabled_event_types": enabled_event_types,
@@ -217,3 +220,64 @@ def _capture_conversation_from_activity(activity):
            "conversation": {"id": conv.get("id"), "tenantId": tenant},
            "bot": {"id": (activity.get("recipient") or {}).get("id")}}
     teams_bot.save_conversation_reference(email, ref, aad_object_id=aad, installed=1)
+
+
+# ------------------------------------------------------------------ web push (PWA)
+# Ba diem vao duy nhat cho trinh duyet. TAT CA deu ep `user = frappe.session.user`:
+# client khong bao gio duoc phep noi no la ai, va khong bao gio doc duoc dang ky cua
+# nguoi khac (doctype EC Web Push Subscription khong cap quyen cho role "All").
+
+@frappe.whitelist(methods=["GET"], allow_guest=True)
+def webpush_public_key():
+    """Khoa cong khai VAPID + trang thai bat/tat. Khoa nay KHONG phai bi mat - trinh
+    duyet bat buoc phai co no de tao dang ky."""
+    from ecentric_workspace.notification_center.providers import webpush as _wp
+    cfg = _wp.get_settings()
+    return {"success": True, "enabled": bool(cfg["enabled"] and cfg["public_key"]),
+            "public_key": cfg["public_key"]}
+
+
+@frappe.whitelist(methods=["POST"])
+def webpush_subscribe(endpoint=None, p256dh=None, auth=None, user_agent=None, platform=None):
+    """Luu (hoac lam song lai) dang ky push cua TRINH DUYET hien tai.
+
+    Khoa dinh danh la `endpoint` chu khong phai user: mot nguoi co nhieu thiet bi, va
+    trinh duyet co the cap lai dung endpoint cu sau khi nguoi dung tat/bat quyen. Vi
+    the day la UPSERT theo endpoint, khong phai INSERT."""
+    user = _current_user()
+    if not user:
+        return {"success": False, "error": "Unauthorized"}
+    endpoint = (endpoint or "").strip()
+    if not endpoint.startswith("https://"):
+        return {"success": False, "error": "Endpoint khong hop le"}
+    existing = frappe.get_all("EC Web Push Subscription",
+                              filters={"endpoint": endpoint}, pluck="name", limit=1)
+    payload = {"user": user, "endpoint": endpoint, "p256dh": p256dh or "",
+               "auth": auth or "", "user_agent": (user_agent or "")[:500],
+               "platform": (platform or "")[:140], "active": 1,
+               "failure_count": 0, "last_error": ""}
+    if existing:
+        doc = frappe.get_doc("EC Web Push Subscription", existing[0])
+        doc.update(payload)
+    else:
+        payload["doctype"] = "EC Web Push Subscription"
+        doc = frappe.get_doc(payload)
+    doc.save(ignore_permissions=True)   # an toan: `user` bi ep = session user o tren
+    frappe.db.commit()
+    return {"success": True, "name": doc.name}
+
+
+@frappe.whitelist(methods=["POST"])
+def webpush_unsubscribe(endpoint=None):
+    """Nguoi dung tat thong bao tren thiet bi nay -> bo tich active (KHONG xoa ban ghi,
+    de con dau vet chan doan). Chi tac dong len dang ky CUA CHINH ho."""
+    user = _current_user()
+    if not user:
+        return {"success": False, "error": "Unauthorized"}
+    names = frappe.get_all("EC Web Push Subscription",
+                           filters={"endpoint": (endpoint or "").strip(), "user": user},
+                           pluck="name", limit=5)
+    for nm in names:
+        frappe.db.set_value("EC Web Push Subscription", nm, "active", 0)
+    frappe.db.commit()
+    return {"success": True, "deactivated": len(names)}

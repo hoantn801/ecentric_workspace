@@ -9,6 +9,9 @@ readme = "README.md"
 dynamic = ["version"]
 dependencies = [
     # "frappe~=15.0.0" # Installed and managed by bench
+    # Web push (VAPID) cho kenh "webpush" cua Notification Center. Thieu thu vien nay
+    # thi provider tra ve Skipped/NO_LIBRARY chu khong lam hong cac kenh khac.
+    "pywebpush>=2.0.0,<3",
 ]
 
 [build-system]

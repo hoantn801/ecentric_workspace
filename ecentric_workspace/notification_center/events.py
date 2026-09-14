@@ -22,24 +22,35 @@ import frappe
 from ecentric_workspace.notification_center.resolvers import resolve_notification
 
 REALTIME_EVENT = "ec_notification"
-CHANNELS = ("erp", "toast", "sound", "desktop", "teams")
+CHANNELS = ("erp", "toast", "sound", "desktop", "teams", "webpush")
 EVENT_TYPES = ("task_assigned", "task_due_soon", "task_overdue",
-               "approval_required", "mention", "system_critical")
+               "approval_required", "mention", "system_critical",
+               "attendance_missing", "attendance_missing_final")
 SEVERITIES = ("info", "action_required", "urgent")
 _SEV_RANK = {"info": 0, "action_required": 1, "urgent": 2}
 _DEFAULT_SEVERITY = {
     "task_assigned": "action_required", "task_due_soon": "info",
     "task_overdue": "urgent", "approval_required": "action_required",
     "mention": "info", "system_critical": "urgent",
+    # Nhac cham cong: moc 8h30 la loi nhac lich su (info) nhung VAN duoc bat
+    # Teams theo ma tran ben duoi - do la ly do duy nhat cua tinh nang nay:
+    # thong bao phai NAY RA NGOAI app tren dien thoai. Moc 9h30 la loi nhac
+    # cuoi truoc han 10:00 nen nang len action_required, nhung KHONG ban Teams
+    # lan hai (tranh hai DM mot buoi sang cho cung mot nguoi).
+    "attendance_missing": "info", "attendance_missing_final": "action_required",
 }
 # matrix cell: True (always) | "pref" (depends on user preference) | False (never)
 ROUTING_MATRIX = {
-    "task_assigned":    {"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True},
-    "task_due_soon":    {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": "pref"},
-    "task_overdue":     {"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True},
-    "approval_required":{"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True},
-    "mention":          {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": "pref"},
-    "system_critical":  {"erp": True, "toast": True, "sound": True,   "desktop": True,   "teams": True},
+    "task_assigned":    {"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True,   "webpush": True},
+    "task_due_soon":    {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": "pref", "webpush": "pref"},
+    "task_overdue":     {"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True,   "webpush": True},
+    "approval_required":{"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True,   "webpush": True},
+    "mention":          {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": "pref", "webpush": "pref"},
+    "system_critical":  {"erp": True, "toast": True, "sound": True,   "desktop": True,   "teams": True,   "webpush": True},
+    # Cham cong: 8h30 ban Teams (kenh DUY NHAT hien co day duoc thong bao ra ngoai
+    # app len dien thoai); 9h30 chi con trong app + web push, khong ban Teams nua.
+    "attendance_missing":      {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": True,  "webpush": True},
+    "attendance_missing_final":{"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": False, "webpush": True},
 }
 # severities that bypass quiet hours / minimum-severity / disabled-event suppression
 _BYPASS_SEVERITY = ("urgent",)
@@ -51,6 +62,7 @@ DELIVERY_DT = "EC Notification Delivery Log"
 def get_preference(user):
     """Return a plain dict of the user's preferences with safe defaults (no write)."""
     d = {"user": user, "sound_enabled": 1, "desktop_enabled": 0, "teams_enabled": 0,
+         "webpush_enabled": 1,
          "quiet_hours_enabled": 0, "quiet_hours_start": None, "quiet_hours_end": None,
          "timezone": None, "minimum_severity": "info", "enabled_event_types": "",
          "_exists": False}
@@ -142,9 +154,12 @@ def resolve_channels(event_type, severity, pref, now_min=None):
     enabled = _enabled_event_set(pref)
     event_disabled = (not bypass) and (enabled is not None) and (event_type not in enabled)
     has_pref = bool(pref.get("_exists"))
+    # LUU Y: moi kenh trong CHANNELS (tru erp/toast) PHAI co mat o day, neu khong
+    # `switch[ch]` nem KeyError cho moi nguoi dung DA luu preference.
     switch = {"sound": bool(pref.get("sound_enabled")),
               "desktop": bool(pref.get("desktop_enabled")),
-              "teams": bool(pref.get("teams_enabled"))}
+              "teams": bool(pref.get("teams_enabled")),
+              "webpush": bool(pref.get("webpush_enabled"))}
     out = {}
     for ch in CHANNELS:
         cell = matrix.get(ch, False)
@@ -198,6 +213,7 @@ def route_delivery(event_id, recipient, routing, event_type, severity, dedupe_ke
     on the background queue (enqueue_after_commit -- never inline). Shared by
     publish_notification_event and the legacy emit() path."""
     teams_jobs = []
+    webpush_jobs = []
     common = {"event_type": event_type, "severity": severity, "dedupe_key": dedupe_key,
               "notification_log": notification_log or "", "action_url": action_url or "",
               "reference_doctype": reference_doctype or "", "reference_name": reference_name or "",
@@ -208,6 +224,12 @@ def route_delivery(event_id, recipient, routing, event_type, severity, dedupe_ke
                 nm = _delivery(event_id, recipient, ch, "Pending", provider="", **common)
                 if nm:
                     teams_jobs.append(nm)
+            elif ch == "webpush":
+                # Giong Teams: ghi Pending roi day sang hang doi nen. Khong bao gio
+                # gui inline - mot endpoint push cham se keo dai ca vong lap 70 nguoi.
+                nm = _delivery(event_id, recipient, ch, "Pending", provider="", **common)
+                if nm:
+                    webpush_jobs.append(nm)
             else:
                 _delivery(event_id, recipient, ch, "Sent",
                           sent_at=frappe.utils.now_datetime(), **common)
@@ -222,7 +244,14 @@ def route_delivery(event_id, recipient, routing, event_type, severity, dedupe_ke
                 queue="default", enqueue_after_commit=True, delivery_log=nm)
         except Exception:
             frappe.log_error(frappe.get_traceback(), "route_delivery enqueue teams")
-    return teams_jobs
+    for nm in webpush_jobs:
+        try:
+            frappe.enqueue(
+                "ecentric_workspace.notification_center.providers.webpush.deliver",
+                queue="default", enqueue_after_commit=True, delivery_log=nm)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "route_delivery enqueue webpush")
+    return teams_jobs + webpush_jobs
 
 
 def _same_origin_link(action_url):
