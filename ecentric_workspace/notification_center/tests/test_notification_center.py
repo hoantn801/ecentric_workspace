@@ -2564,3 +2564,29 @@ class TestAnnouncementTeamsOptIn(unittest.TestCase):
         b = api.announce(title="T", tag="x", dry_run=0, teams=1)
         self.assertNotEqual(a.get("event_type"), b.get("event_type"))
         self.assertEqual(a.get("sent"), b.get("sent"))
+
+
+class TestNoAmountProbeOnEmployee(unittest.TestCase):
+    """The Teams duoc bom them dong "So tien" bang cach DO TEN TRUONG tren doctype duoc
+    tham chieu. Loi nhac cham cong tham chieu Employee - noi chua du lieu phu cap. Chan
+    han o phia provider, de khong phu thuoc vao viec tuong lai khong ai them mot truong
+    ten `amount` hay `budget` vao ho so nhan su."""
+
+    def test_employee_is_on_the_no_amount_list(self):
+        from ecentric_workspace.notification_center.providers import power_automate as pa
+        self.assertIn("Employee", pa._NO_AMOUNT_DOCTYPES)
+
+    def test_amount_probe_is_guarded_by_that_list(self):
+        import os as _os
+        path = _os.path.join(_pkg_root(), "notification_center", "providers", "power_automate.py")
+        with open(path, encoding="utf-8") as fh:
+            src = fh.read()
+        i = src.index("amount_field = None")
+        self.assertIn("_NO_AMOUNT_DOCTYPES", src[i:i + 200])
+
+    def test_reminder_still_carries_the_employee_reference(self):
+        # Bo tham chieu = flow tra PA_400 = Teams im lang. Da do tren prod 14/09.
+        path = os.path.join(_pkg_root(), "hr", "checkin_reminder.py")
+        with open(path, encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn('reference_doctype="Employee"', src)

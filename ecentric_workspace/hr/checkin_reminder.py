@@ -79,14 +79,17 @@ def _run(event_type, title, message):
                 title=title,
                 message=message,
                 action_url=ACTION_URL,
-                # CO CHU Y KHONG dinh kem reference_doctype="Employee".
-                # providers/power_automate._request_fields() do TEN TRUONG tren doctype
-                # duoc tham chieu de bom them "Phong ban" va "So tien" vao the Teams.
-                # Hom nay Employee khong co truong nao trung danh sach tien (da kiem
-                # tra tren prod 14/09: ca truong chuan lan 26 custom field), nhung ho so
-                # nhan su la noi CO du lieu phu cap - chi can ai do them mot truong ten
-                # `amount`/`budget` la con so do tu dong chay ra the Teams cua mot loi
-                # nhac cham cong. Loi nhac nay khong can tham chieu gi: action_url da du.
+                # CO tham chieu Employee. Ban dau minh bo di vi so rui ro ro du lieu
+                # phu cap (power_automate._request_fields do TEN TRUONG de bom "So tien"
+                # vao the Teams). Nhung do 300 tin Teams gui thanh cong gan nhat tren
+                # prod: KHONG MOT TIN NAO co reference_doctype rong. Ban thu gui khong
+                # tham chieu bi flow tra ve PA_400. Nen bo tham chieu la tu lam hong
+                # kenh Teams - dung cai kenh quan trong nhat.
+                # Rui ro tien da duoc chan tan goc o phia provider thay vi o day:
+                # _NO_AMOUNT_DOCTYPES chan han Employee khoi phep do tien, nen khong
+                # phu thuoc vao viec tuong lai khong ai them truong ten `amount`.
+                reference_doctype="Employee",
+                reference_name=r["name"],
                 actor="Administrator",
                 from_user="Administrator",
                 dedupe_key="|".join([event_type, usr, str(today)]),
