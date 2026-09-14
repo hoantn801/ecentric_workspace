@@ -18,13 +18,13 @@ _LANDMARKS = ("sp_web_url", "canhBaoSuaSauDuyet")
 def execute():
     res = page_sync.sync()
     action = (res or {}).get("action")
-    frappe.log_error("p186 contract-review sync=%s" % action, "p186 resync")
+    frappe.log_error("p188 contract-review sync=%s" % action, "p188 resync")
     if action == "refused":
-        frappe.log_error("p186: upsert TU CHOI GHI - trang KHONG duoc cap nhat.", "p186 REFUSED")
+        frappe.log_error("p188: upsert TU CHOI GHI - trang KHONG duoc cap nhat.", "p188 REFUSED")
         return
     html = frappe.db.get_value("Web Page", {"route": "approvals/contract-review"},
                                "main_section_html") or ""
     thieu = [m for m in _LANDMARKS if m not in html]
     if thieu:
-        frappe.log_error("p186: trang contract-review thieu dau moc %s" % thieu,
-                         "p186 KHONG toi noi")
+        frappe.log_error("p188: trang contract-review thieu dau moc %s" % thieu,
+                         "p188 KHONG toi noi")

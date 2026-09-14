@@ -37,7 +37,7 @@
     "sha256": "cbfe6715e37318bbc235d908eb435aaded215cb8245d88cc5068a108bdc1c542"
   },
   "approval_center/features/contract_review/ui/main_section.html": {
-    "last_resync_patch": "p186_resync_contract_review_sharepoint_open",
+    "last_resync_patch": "p188_resync_contract_review_sharepoint_open",
     "sha256": "3d734075be4a9e8bfeb6d6c3c50e5c29300b03cf6acb169a200a6d5696d13995"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
@@ -136,7 +136,7 @@
     "sha256": "50196bc31f7bfbd98d6d8ebcbad42fd15edcf5edbe47bceaf157d3015034ffa2"
   },
   "approval_center/ui/all_requests/main_section.html": {
-    "last_resync_patch": "p185_resync_hub_sharepoint_open",
+    "last_resync_patch": "p187_resync_hub_sharepoint_open",
     "sha256": "38625b8df6031b2c9133f7e53c0e401a6d27b7e8bb3c945b30dd3e0364eb2ee8"
   },
   "approval_center/ui/dashboard/main_section.html": {

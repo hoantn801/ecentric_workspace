@@ -25,13 +25,13 @@ _LANDMARKS = ("sp_web_url", "ec-apl-stale")
 def execute():
     res = page_sync.sync()
     action = (res or {}).get("action")
-    frappe.log_error("p185 all-requests sync=%s" % action, "p185 resync")
+    frappe.log_error("p187 all-requests sync=%s" % action, "p187 resync")
     if action == "refused":
-        frappe.log_error("p185: upsert TU CHOI GHI - trang KHONG duoc cap nhat.", "p185 REFUSED")
+        frappe.log_error("p187: upsert TU CHOI GHI - trang KHONG duoc cap nhat.", "p187 REFUSED")
         return
     html = frappe.db.get_value("Web Page", {"route": "approvals/all-requests"},
                                "main_section_html") or ""
     thieu = [m for m in _LANDMARKS if m not in html]
     if thieu:
-        frappe.log_error("p185: trang all-requests thieu dau moc %s" % thieu,
-                         "p185 KHONG toi noi")
+        frappe.log_error("p187: trang all-requests thieu dau moc %s" % thieu,
+                         "p187 KHONG toi noi")
