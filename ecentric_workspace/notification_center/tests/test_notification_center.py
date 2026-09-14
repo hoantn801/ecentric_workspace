@@ -2487,3 +2487,34 @@ class TestAnnouncementBroadcast(unittest.TestCase):
         r = api.announce(title="   ", dry_run=0)
         self.assertFalse(r.get("success"))
         self.assertEqual(len(FR._nl), 0)
+
+
+class TestAbsoluteActionUrlForTeams(unittest.TestCase):
+    """The Teams lay thang action_url tu Delivery Log lam nut "Mo trong ERP". Teams
+    chay ngoai trinh duyet nen duong dan tuong doi khong tro ve dau - nut chet, ma
+    khong co dau hieu gi: tin van gui, delivery log van ghi Sent."""
+
+    def setUp(self):
+        _reset("admin@x.com"); FR.session.user = "admin@x.com"
+
+    def test_relative_path_becomes_absolute(self):
+        u = ev._abs_action_url("/ec-hr/attendance")
+        self.assertTrue(u.startswith("http"), u)
+        self.assertTrue(u.endswith("/ec-hr/attendance"), u)
+
+    def test_absolute_url_passes_through_unchanged(self):
+        u = "https://team.ecentric.vn/approvals/payment-request?id=X"
+        self.assertEqual(ev._abs_action_url(u), u)
+
+    def test_empty_stays_empty(self):
+        self.assertEqual(ev._abs_action_url(None), "")
+        self.assertEqual(ev._abs_action_url(""), "")
+
+    def test_protocol_relative_is_not_touched(self):
+        # "//host/x" co the tro sang goc khac; _same_origin_link da tu choi no.
+        self.assertEqual(ev._abs_action_url("//evil.example/x"), "//evil.example/x")
+
+    def test_inbox_link_stays_relative(self):
+        # Mot chuoi, hai rang buoc: Teams can tuyet doi, chuong trong app can tuong doi.
+        absu = ev._abs_action_url("/ec-hr/attendance")
+        self.assertEqual(ev._same_origin_link(absu), "/ec-hr/attendance")
