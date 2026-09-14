@@ -105,6 +105,40 @@ def _run(event_type, title, message):
     return {"event_type": event_type, "sent": sent, "skipped": skipped, "failed": failed}
 
 
+@frappe.whitelist(methods=["GET"])
+def preview():
+    """CHAY KHO: tra ve danh sach nhung ai SE bi nhac, KHONG gui gi ca.
+
+    VI SAO CAN: site chay tren Frappe Cloud, khong co shell de chay thu. Ke tu khi
+    Server Script cu bi tat, loi nhac chi con chay bang duong nay - khong con luoi
+    do. Neu no loi luc 8h30 thi khong ai duoc nhac va ta chi biet sau khi da lo.
+    Ham nay di het dung mot duong ma `_run` di (cung truy van, cung logic bo qua),
+    chi khac la khong goi publish_notification_event - nen chay no truoc la du de
+    biet ngay hom sau co chay duoc khong.
+
+    Chi System Manager: day la danh sach ai chua cham cong hom nay."""
+    if "System Manager" not in frappe.get_roles(frappe.session.user):
+        frappe.throw(frappe._("Chi System Manager."))
+    today = frappe.utils.nowdate()
+    rows = frappe.get_all(
+        "Employee", filters={"status": "Active"},
+        fields=["name", "employee_name", "user_id", "holiday_list", "date_of_joining"],
+        limit_page_length=0,
+    )
+    would, skipped, no_user = [], 0, 0
+    for r in rows:
+        if not (r.get("user_id") or "").strip():
+            no_user += 1
+            continue
+        if _should_skip(r, today):
+            skipped += 1
+            continue
+        would.append({"employee": r["name"], "name": r.get("employee_name"),
+                      "user": r["user_id"]})
+    return {"date": today, "active": len(rows), "no_user_id": no_user,
+            "skipped": skipped, "would_notify": len(would), "people": would}
+
+
 def _should_skip(emp, today):
     """True khi khong duoc phep nhac nguoi nay hom nay."""
     # 1) Chua den ngay vao lam -> khong ton tai nghia vu cham cong.
