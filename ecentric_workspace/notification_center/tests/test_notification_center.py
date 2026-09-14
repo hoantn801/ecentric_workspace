@@ -2443,12 +2443,26 @@ class TestAnnouncementBroadcast(unittest.TestCase):
         with open(path, encoding="utf-8") as fh:
             return fh.read()
 
-    def test_teams_and_webpush_are_locked_off_in_the_matrix(self):
+    def test_teams_is_locked_off_in_the_matrix(self):
         # Chot quan trong nhat: khong tham so nao bat duoc Teams cho thong bao chung.
+        # webpush thi NGUOC LAI phai mo - thong bao chung ma khong ra duoc ngoai app
+        # thi nguoi ta chi thay khi tinh co mo ERP.
         row = ev.ROUTING_MATRIX["announcement"]
         self.assertIs(row["teams"], False)
-        self.assertIs(row["webpush"], False)
+        self.assertIsNot(row["webpush"], False)
         self.assertIs(row["erp"], True)
+
+    def test_webpush_delivers_for_announcement_by_default(self):
+        pref = ev.get_preference("u@x.com")          # chua luu tuy chon
+        out = ev.resolve_channels("announcement", "info", pref)
+        self.assertEqual(out["webpush"], "deliver")
+
+    def test_webpush_opt_out_is_respected(self):
+        pref = ev.get_preference("u@x.com")
+        pref["_exists"] = True
+        pref["webpush_enabled"] = 0
+        out = ev.resolve_channels("announcement", "info", pref)
+        self.assertEqual(out["webpush"], "skip")
 
     def test_teams_stays_off_even_if_user_turned_teams_on(self):
         pref = ev.get_preference("u@x.com")
