@@ -986,3 +986,44 @@ def _create_supplier_from_vrq(vrq):
 # then calls PATCH /api/resource/<DocType>/<name> with attachment_url field.
 
 # When ready: implement here using `requests` + Graph API token caching.
+
+
+# =============================================================================
+# CSRF - replacement core for the get_csrf Server Script
+# =============================================================================
+# The Server Script cannot mint a token any more: frappe.generate_hash was
+# removed from the sandbox by the python3.14 upgrade, so its "generate if
+# missing" branch raised, the bare except swallowed it, and callers received an
+# EMPTY token. Every POST from such a page is then rejected by Frappe -- and
+# nothing lands in Error Log, because CSRF failures are not logged. Observed
+# live on 2026-09-14 firing roughly ten times an hour.
+#
+# Here, outside the sandbox, the framework mints and persists the token itself.
+# get_csrf stays at the same api_method and becomes a one-line frappe.call, so
+# no page needs changing.
+
+
+def _mint_csrf_token():
+    """Returns (token, source). Framework first; fall back to the stored value."""
+    try:
+        from frappe.sessions import get_csrf_token as _framework_csrf
+        token = _framework_csrf() or ""
+        if token:
+            return token, "frappe.sessions"
+    except Exception:
+        pass
+    try:
+        data = frappe.local.session.data or {}
+        return (data.get("csrf_token") or ""), "session.data"
+    except Exception:
+        return "", "none"
+
+
+@frappe.whitelist()
+def get_csrf_token():
+    """CSRF token for the current session. `source` is for diagnostics only."""
+    user = frappe.session.user
+    if not user or user == "Guest":
+        return {"csrf_token": "", "user": user, "is_guest": True, "source": "guest"}
+    token, source = _mint_csrf_token()
+    return {"csrf_token": token, "user": user, "is_guest": False, "source": source}

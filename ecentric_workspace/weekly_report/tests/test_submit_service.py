@@ -116,6 +116,45 @@ class TestSubmitValidation(unittest.TestCase):
             submit_service.submit({"week_label": "  ", "employee": "  "})
 
 
+class TestDeckRequired(unittest.TestCase):
+    """submit() must refuse a report with no deck.
+
+    The Server Script this replaces saved anyway when the upload failed, which
+    left two reports (W36, W37) marked Submitted with nothing attached. These
+    cover the reconcile step that feeds that guard; it runs without bench
+    because no removals means no SharePoint call.
+    """
+
+    def test_nothing_kept_and_nothing_added_leaves_deck_empty(self):
+        # Start empty so no removal happens -- a removal would reach out to
+        # SharePoint, which a unit test must never do.
+        doc = _FakeDoc("")
+        errors = []
+        added = submit_service._reconcile_decks(
+            doc, {"keep_slide_urls": [], "deck_urls": []}, errors
+        )
+        self.assertEqual(added, 0)
+        self.assertEqual(doc.slide_deck, "")
+        self.assertEqual(errors, [])
+
+    def test_kept_url_survives(self):
+        doc = _FakeDoc("http://a/old.pdf")
+        errors = []
+        submit_service._reconcile_decks(
+            doc, {"keep_slide_urls": ["http://a/old.pdf"], "deck_urls": []}, errors
+        )
+        self.assertEqual(doc.slide_deck, "http://a/old.pdf")
+
+    def test_new_upload_is_appended(self):
+        doc = _FakeDoc("")
+        errors = []
+        added = submit_service._reconcile_decks(
+            doc, {"deck_urls": [{"name": "a.pdf", "web_url": "http://a/new.pdf"}]}, errors
+        )
+        self.assertEqual(added, 1)
+        self.assertEqual(doc.slide_deck, "http://a/new.pdf")
+
+
 class TestDeckListParsing(unittest.TestCase):
     def test_plain_newline_list(self):
         doc = _FakeDoc("http://a/1.pdf\nhttp://a/2.pdf")

@@ -134,6 +134,17 @@ def submit(payload):
     doc = _get_or_create(payload, employee, week_label)
     _apply_fields(doc, payload)
     deck_count = _reconcile_decks(doc, payload, errors)
+
+    # A report with no document cannot be reviewed or scored. The Server Script
+    # this replaces collected upload failures into a list and saved anyway, so
+    # two reports (W36, W37) sat marked Submitted with nothing attached and
+    # nobody noticed until someone opened one. Refuse rather than persist a
+    # hollow record -- and refuse BEFORE save, so nothing is written.
+    if not (doc.slide_deck or "").strip():
+        raise SubmitError(
+            "Báo cáo phải có ít nhất một file slide. Vui lòng đính kèm rồi gửi lại."
+        )
+
     doc.save(ignore_permissions=True)
 
     return {
