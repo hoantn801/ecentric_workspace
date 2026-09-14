@@ -26,7 +26,7 @@ CHANNELS = ("erp", "toast", "sound", "desktop", "teams", "webpush")
 EVENT_TYPES = ("task_assigned", "task_due_soon", "task_overdue",
                "approval_required", "mention", "system_critical",
                "attendance_missing", "attendance_missing_final",
-               "announcement", "announcement_urgent")
+               "announcement", "announcement_urgent", "hr_data_issue")
 SEVERITIES = ("info", "action_required", "urgent")
 _SEV_RANK = {"info": 0, "action_required": 1, "urgent": 2}
 _DEFAULT_SEVERITY = {
@@ -40,6 +40,7 @@ _DEFAULT_SEVERITY = {
     # lan hai (tranh hai DM mot buoi sang cho cung mot nguoi).
     "attendance_missing": "info", "attendance_missing_final": "action_required",
     "announcement": "info", "announcement_urgent": "action_required",
+    "hr_data_issue": "action_required",
 }
 # matrix cell: True (always) | "pref" (depends on user preference) | False (never)
 ROUTING_MATRIX = {
@@ -72,6 +73,13 @@ ROUTING_MATRIX = {
     # phai la mot lua chon PHAI GOI TEN, khong bao gio la mac dinh, va khong bao gio
     # xay ra do quen truyen tham so.
     "announcement_urgent":     {"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True,  "webpush": True},
+    # Ho so nhan su hong (vd Active ma thieu user_id) -> bao cho nguoi giu HR Manager.
+    #   teams = False, CO Y: luong Power Automate chan event_type hai lop (JSON schema
+    #   enum o trigger + node Condition). Mot event type chua khai bao ben do se bi tra
+    #   PA_400, tuc la moi tin deu ROT chu khong phai "khong co Teams" - te hon la de
+    #   False. Muon bat: them chuoi "hr_data_issue" vao CA HAI cho ben Power Automate
+    #   truoc, roi moi doi o day.
+    "hr_data_issue":           {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": False, "webpush": True},
 }
 # severities that bypass quiet hours / minimum-severity / disabled-event suppression
 _BYPASS_SEVERITY = ("urgent",)

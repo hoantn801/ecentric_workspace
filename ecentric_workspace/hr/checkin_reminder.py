@@ -79,15 +79,22 @@ def _run(event_type, title, message):
                 title=title,
                 message=message,
                 action_url=ACTION_URL,
-                # CO tham chieu Employee. Ban dau minh bo di vi so rui ro ro du lieu
-                # phu cap (power_automate._request_fields do TEN TRUONG de bom "So tien"
-                # vao the Teams). Nhung do 300 tin Teams gui thanh cong gan nhat tren
-                # prod: KHONG MOT TIN NAO co reference_doctype rong. Ban thu gui khong
-                # tham chieu bi flow tra ve PA_400. Nen bo tham chieu la tu lam hong
-                # kenh Teams - dung cai kenh quan trong nhat.
-                # Rui ro tien da duoc chan tan goc o phia provider thay vi o day:
-                # _NO_AMOUNT_DOCTYPES chan han Employee khoi phep do tien, nen khong
-                # phu thuoc vao viec tuong lai khong ai them truong ten `amount`.
+                # CO tham chieu Employee.
+                #
+                # DINH CHINH (14/09): ly do ghi o ban truoc la SAI. Minh doc thay 300
+                # tin Teams thanh cong gan nhat deu co reference_doctype, roi ket luan
+                # luong Power Automate BAT BUOC co tham chieu - tuong quan doc thanh
+                # nhan qua. JSON schema cua trigger cho thay `reference_doctype` KHONG
+                # nam trong `required`; thu pham that su la `event_type` kieu enum,
+                # chua khai `attendance_missing`. Sua bang cach them ten su kien vao
+                # CA HAI cong: enum o trigger va node Condition.
+                # Giu tham chieu o day khong phai vi flow doi, ma vi no lam cho
+                # Delivery Log / Notification Log tro ve dung ho so nguoi nhan.
+                #
+                # Rui ro lo du lieu phu cap (power_automate._request_fields do TEN
+                # TRUONG de bom "So tien" vao the Teams) da duoc chan tan goc o phia
+                # provider: _NO_AMOUNT_DOCTYPES chan han Employee khoi phep do tien,
+                # nen khong phu thuoc vao viec tuong lai khong ai them truong `amount`.
                 reference_doctype="Employee",
                 reference_name=r["name"],
                 actor="Administrator",

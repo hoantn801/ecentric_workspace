@@ -66,6 +66,15 @@ doc_events = {
         # G4.9: block hard-delete of an in-use label on EVERY delete path (incl. Administrator).
         "on_trash": "ecentric_workspace.pm.api.labels.pm_label_before_delete",
     },
+    "Employee": {
+        # 14/09: ba lan trong hai tuan mot ho so Active duoc tao ma thieu `user_id`,
+        # va ca ba lan nhan vien bao "loi phan mem cham cong". Hook nay tu dien
+        # `user_id` tu email cong ty khi co the, khong thi hien canh bao - KHONG chan
+        # luu (xem ly do trong hr/employee_guard.py).
+        # PHAI la `before_validate`: hook doc_events chay SAU controller validate cua
+        # Employee, ma chinh doan do moi dung `user_id` de tao User Permission.
+        "before_validate": "ecentric_workspace.hr.employee_guard.autofill_user_id",
+    },
     "PM Assignment Request": {
         # G5.0 B2: service-only mutation guard (rejects generic insert/update, incl. Administrator;
         # enforces append-only events) + hard-delete guard for decided audit history.
@@ -357,3 +366,9 @@ scheduler_events["cron"].setdefault("30 8 * * *", []).append(
     "ecentric_workspace.hr.checkin_reminder.remind_0830")
 scheduler_events["cron"].setdefault("30 9 * * *", []).append(
     "ecentric_workspace.hr.checkin_reminder.remind_0930")
+
+# Ra soat ho so Active thieu tai khoan dang nhap, bao cho HR Manager.
+# 08:00 la co y: SOM HON moc nhac cham cong 08:30, de mot nguoi vao lam hom nay
+# con kip duoc noi vao he thong truoc khi ho lo lan nhac dau tien.
+scheduler_events["cron"].setdefault("0 8 * * *", []).append(
+    "ecentric_workspace.hr.employee_guard.sweep_missing_user_id")
