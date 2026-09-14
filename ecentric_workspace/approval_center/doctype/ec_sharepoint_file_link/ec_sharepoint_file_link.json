@@ -8,7 +8,7 @@
  "engine": "InnoDB",
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-14 09:00:00.000000",
+ "modified": "2026-09-14 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC SharePoint File Link",
@@ -61,10 +61,10 @@
   },
   {
    "fieldname": "sp_web_url",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "label": "SharePoint URL",
    "read_only": 1,
-   "description": "Duong dan mo tren Word Online."
+   "description": "Duong dan mo tren Word Online. PHAI la Small Text chu khong phai Data: Graph tra ve URL da URL-encode ten tep, ma moi ky tu tieng Viet co dau no ra 9 ky tu (o-moc-nang -> %E1%BB%A3). Mot ten tep tieng Viet binh thuong da vuot nguong 140 cua Data - do that 14/09 la 190 ky tu."
   },
   {
    "fieldname": "sp_last_modified",
