@@ -35,6 +35,9 @@ GRAPH = "https://graph.microsoft.com/v1.0"
 DECK_ROOT = "Weekly Reports"
 TIMEOUT = 30
 
+# SharePoint's illegal set, plus # and % which break URL path addressing.
+ILLEGAL_NAME_CHARS = '"*:<>?/\\|#%'
+
 # webUrl prefixes that mark a direct document-library path.
 _DIRECT_PREFIXES = (
     "/sites/operation/Shared%20Documents/",
@@ -76,10 +79,30 @@ def get_app_token():
     return token
 
 
+def safe_filename(filename):
+    """Strip everything SharePoint refuses in a file name.
+
+    Beyond the documented illegal set, a colon is especially damaging here:
+    Graph addresses items as root:/{path}:/{action}, so a ':' inside the path
+    breaks the delimiters and the call fails with a 500. A real upload named
+    "Bao cao tuan 11:9.pdf" did exactly that. SharePoint also silently rejects
+    trailing spaces and dots.
+    """
+    name = filename or "deck.pdf"
+    cleaned = []
+    for ch in name:
+        cleaned.append("_" if ch in ILLEGAL_NAME_CHARS else ch)
+    name = "".join(cleaned).strip().strip(".").strip()
+    return name or "deck.pdf"
+
+
 def build_deck_path(week_label, emp_code, dept_clean, filename):
-    safe = (filename or "deck.pdf").replace("/", "_").replace("\\", "_").lstrip(".")
     return "{0}/{1}/{2}_{3}_{4}".format(
-        DECK_ROOT, dept_clean or "Unknown", week_label, emp_code or "unknown", safe
+        DECK_ROOT,
+        dept_clean or "Unknown",
+        week_label,
+        emp_code or "unknown",
+        safe_filename(filename),
     )
 
 

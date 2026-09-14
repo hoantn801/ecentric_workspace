@@ -26,8 +26,28 @@ class TestDeckPath(unittest.TestCase):
 
     def test_build_deck_path_strips_separators(self):
         got = sharepoint.build_deck_path("2026-W38", "NV1", "Media", "../../evil.pdf")
-        self.assertNotIn("..", got.rsplit("/", 1)[-1].replace("evil", ""))
+        self.assertNotIn("/", got.rsplit("/", 1)[-1])
         self.assertTrue(got.startswith("Weekly Reports/Media/"))
+
+    def test_colon_in_filename_is_removed(self):
+        # "Bao cao tuan 11:9.pdf" broke Graph's root:/{path}:/{action} syntax
+        # and returned 500 for one submitter.
+        got = sharepoint.build_deck_path(
+            "2026-W37", "NV1", "Production", "Bao cao tuan 11:9.pdf"
+        )
+        self.assertNotIn(":", got)
+        self.assertEqual(got, "Weekly Reports/Production/2026-W37_NV1_Bao cao tuan 11_9.pdf")
+
+    def test_safe_filename_covers_sharepoint_illegal_set(self):
+        self.assertEqual(sharepoint.safe_filename('a"*:<>?|b.pdf'), "a_______b.pdf")
+        self.assertEqual(sharepoint.safe_filename("a#b%c.pdf"), "a_b_c.pdf")
+
+    def test_safe_filename_strips_trailing_space_and_dot(self):
+        # SharePoint silently rejects these -- the GBS _pending 403 had a name
+        # ending in a space.
+        self.assertEqual(sharepoint.safe_filename("BAO GIA VOT MUOI .pdf"), "BAO GIA VOT MUOI .pdf")
+        self.assertEqual(sharepoint.safe_filename("report.  "), "report")
+        self.assertEqual(sharepoint.safe_filename("   "), "deck.pdf")
 
     def test_build_deck_path_defaults_department(self):
         got = sharepoint.build_deck_path("2026-W38", "NV1", "", "a.pdf")
