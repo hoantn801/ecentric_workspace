@@ -28,8 +28,11 @@ def _html():
 # upsert_web_page REFUSES to write when live no longer hashes to this, so a repo
 # snapshot can never silently revert a live edit. Deliberate update = re-snapshot
 # live into main_section.html, then bump this constant in the same commit.
-BASELINE_SHA256 = "955e4ea6a3cf947af20e338916f68a12bacaf6ac8b703d83ba46ce6ab7f49659"
+BASELINE_SHA256 = "9b6f8d1f15e73111677a1b8bcc5860be22c85a31ea3cc3647a36348d4e6cc481"
 SUPERSEDES_SHA256 = (
+    # 2026-09-15: wrapper CSRF v2 - bo fallback gui chuoi literal token (gay
+    # CSRFTokenError khi chua co token that). Va TAI CHO, giu nguyen vo shell.
+    "955e4ea6a3cf947af20e338916f68a12bacaf6ac8b703d83ba46ce6ab7f49659",  # truoc wrapper v2
     "1abf28fa26882727eecae687d3a0b7350183e8266d75674a5b2bc67b8e798e33",
     "6fc49bd561adac70fe1e02b1120fb51f8db69100b10cf8a8ca8ed6df49bedf0f",
 )

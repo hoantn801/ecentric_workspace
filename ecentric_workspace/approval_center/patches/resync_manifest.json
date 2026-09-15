@@ -163,18 +163,18 @@
   },
   "legacy_pages/all_ticket/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "064ef276a9c0e9dd86b0534455fb84e9c5bead33d4e420faa79de1559fa66386"
+    "last_resync_patch": "p185_resync_csrf_wrapper_v2",
+    "sha256": "5bc11a898f69cff204e7485ffbfae90581c5796d09aab781af84927b66b9f463"
   },
   "legacy_pages/approval_page/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "abf342c27a42f32b5f41a31d4292aaec9a0194311a3ef4e06473a647e9fd392d"
+    "last_resync_patch": "p185_resync_csrf_wrapper_v2",
+    "sha256": "1088ae9648678180f09bd6f5301b6d80cc43bc37b5a0ce7fd925032e92877eb7"
   },
   "legacy_pages/docs_architecture/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "ddaf552d8eea8339ea12dd305e9996d748a1bf0d32532bb99eea46eb87ec1838"
+    "last_resync_patch": "p185_resync_csrf_wrapper_v2",
+    "sha256": "9b6f8d1f15e73111677a1b8bcc5860be22c85a31ea3cc3647a36348d4e6cc481"
   },
   "legacy_pages/docs_gbsflow/main_section.html": {
     "baseline": "2026-08-31",
@@ -183,18 +183,18 @@
   },
   "legacy_pages/gbs_po_form_v2/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "7a19a463b43bbd1936f0ca88a742f42097ec13da6099f94b8eaef351343778ed"
+    "last_resync_patch": "p185_resync_csrf_wrapper_v2",
+    "sha256": "00aa084115c667ff42b47ed8057ed45c74e97523bc4d1226638b4833775677c5"
   },
   "legacy_pages/gbs_so_form_v2/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "4b498207ba2d184af451906eac1204d741b0ebd6383ba976ff6aea6b44fc057f"
+    "last_resync_patch": "p185_resync_csrf_wrapper_v2",
+    "sha256": "39c6d299eafd181bf41094381a4147feba1001deab70d5462f152d281f447be6"
   },
   "legacy_pages/mso_plan_form/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": null,
-    "sha256": "266607e3c3f31f89dd2eed2f25c3414cecd1be8578e4f77592da983a98af37d3"
+    "last_resync_patch": "p185_resync_csrf_wrapper_v2",
+    "sha256": "60df026a79048ebbef516cedc0462c386733159882b74f4bc2b80e60f6104424"
   },
   "platform/esign/ui/document_signing_section.html": {
     "last_resync_patch": "p160_resync_pdf_render_cancel",
