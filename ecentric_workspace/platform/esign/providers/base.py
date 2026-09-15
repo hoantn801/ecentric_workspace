@@ -54,22 +54,49 @@ class NormalizedDocState(object):
         nothing at all ("expected_signer_absent"), and with one it locked onto whichever came
         first, so an approver leg was judged against the requester's own older signature.
         Callers must therefore consider all rows and pick the one that satisfies them.
+
+        `email` nhan CHUOI hoac DANH SACH (10/09/2026). Mot nguoi co the ky bang tai khoan
+        SCTS DUNG CHUNG - EC-PAYR-2026-00087: chi Huong gui phieu, nhung tai lieu duoc ky
+        bang tai khoan `cnb.ecentric@`. eContract chi dinh danh nguoi ky bang EMAIL, nen so
+        voi mot email duy nhat cua ERP thi truot, va `poll_pending` quay
+        `expected_signer_absent` mai mai. Danh sach o day KHONG phai noi long tuy tien: nguoi
+        goi chi duoc dua vao cac email cua ANH XA CUNG MOT `scts_user_id` da xac minh.
         """
         by_id = [s for s in self.signers
                  if s.get("user_id") is not None and str(s.get("user_id")) == str(user_id)]
         if by_id:
             return by_id
-        if email:
-            em = str(email).strip().lower()
+        ems = {str(e).strip().lower() for e in
+               ([email] if isinstance(email, str) else list(email or [])) if e}
+        if ems:
             return [s for s in self.signers
-                    if str(s.get("email") or "").strip().lower() == em]
+                    if str(s.get("email") or "").strip().lower() in ems]
         return []
 
 
 class VerificationResult(object):
-    def __init__(self, ok, reason=""):
+    """Ket qua doi soat mot chan ky voi trang thai that ben nha cung cap.
+
+    `signer` (10/09/2026) = DONG nguoi ky da CHUNG MINH chan nay, khi ok. Truoc day ket qua
+    chi noi "verified" - dung nhung khong dung duoc: cho goi muon ghi vao so "chu ky nao,
+    ky luc may gio" thi khong co gi de ghi, va docstring cua `sync_signatures_from_provider`
+    da hua mot ly do rieng kem gio ky ma khong the thuc hien. Mot phep doi soat nen tra ve
+    CAI GI da khop, khong chi la co/khong.
+    """
+
+    def __init__(self, ok, reason="", signer=None):
         self.ok = bool(ok)
         self.reason = reason
+        self.signer = signer or None
+
+    @property
+    def signed_at(self):
+        """Gio ky cua dong da chung minh chan nay - CHUOI THO cua nha cung cap.
+
+        Khong tu chuan hoa: gia tri nay di vao nhat ky de nguoi doi chieu voi man hinh cong
+        SCTS, nen no phai giong HET cai ho nhin thay o do.
+        """
+        return (self.signer or {}).get("signed_at") or None
 
     def __bool__(self):
         return self.ok
@@ -274,7 +301,9 @@ class SignatureProviderAdapter(object):
             #
             # CHI ghi dinh danh dung de doi chieu (user id noi bo cua nha cung cap, hoac email
             # cong viec) - khong ten, khong so tien, khong noi dung tai lieu.
-            who = expected.get("user_id") or expected.get("email") or "?"
+            _em = expected.get("email")
+            _em = ",".join(str(e) for e in _em) if isinstance(_em, (list, tuple, set)) else _em
+            who = expected.get("user_id") or _em or "?"
             return VerificationResult(
                 False, "expected_signer_absent:%s/of%d" % (who, len(doc_state.signers)))
         # THU TU, KHONG PHAI THOI GIAN (02/09/2026).
@@ -372,7 +401,7 @@ class SignatureProviderAdapter(object):
         # neu khong dem duoc (prior=None) thi khong co duong nao toi day ca: luc do moc thoi
         # gian la lop bao ve DUY NHAT con lai, bo no di la bo het.
         return VerificationResult(True, "verified_predating_manual:%s"
-                                  % target.get("signed_at"))
+                                  % target.get("signed_at"), signer=target)
 
     @staticmethod
     def _check_one_signer(signer, expected):
@@ -400,4 +429,4 @@ class SignatureProviderAdapter(object):
         exp_sig = expected.get("signature_id")
         if exp_sig and signer.get("signature_id") and str(signer["signature_id"]) != str(exp_sig):
             return VerificationResult(False, "signature_id_mismatch")
-        return VerificationResult(True, "verified")
+        return VerificationResult(True, "verified", signer=signer)

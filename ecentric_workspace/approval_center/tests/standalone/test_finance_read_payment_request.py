@@ -42,7 +42,7 @@ def _root():
 
 _ROOT = _root()
 _PATCH = os.path.join(_ROOT, "approval_center", "patches",
-                      "p170_ec_finance_role_read_payment_request.py")
+                      "p190_ec_finance_role_read_payment_request.py")
 _PATCHES_TXT = os.path.join(_ROOT, "patches.txt")
 
 # Quyen KHONG duoc phep cap o patch nay - la mot phan cua hop dong, khong phai goi y.
@@ -152,7 +152,7 @@ class TestDangKyPatch(unittest.TestCase):
     def test_co_dong_trong_patches_txt_va_o_CUOI_file(self):
         lines = [l.strip() for l in io.open(_PATCHES_TXT, encoding="utf-8").read().splitlines()
                  if l.strip()]
-        dong = "ecentric_workspace.approval_center.patches.p170_ec_finance_role_read_payment_request"
+        dong = "ecentric_workspace.approval_center.patches.p190_ec_finance_role_read_payment_request"
         self.assertIn(dong, lines, "patch khong chay neu khong khai bao trong patches.txt")
         self.assertEqual(lines[-1], dong,
                          "QUY_TAC_TRANH_CONFLICT: dong moi chi duoc NOI O CUOI file")

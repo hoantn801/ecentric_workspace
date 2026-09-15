@@ -262,9 +262,14 @@ def link(user, settings, environment, password, username=None):
     """Dang nhap SCTS bang mat khau nguoi dung nhap, luu TOKEN, bo mat khau.
 
     `password` chi song trong pham vi ham nay: di thang vao client.login va khong duoc gan
-    vao doc, event, log hay thong diep loi. Username mac dinh la email ERP, cho phep khai
-    khac khi ten dang nhap SCTS lech - va no LECH THAT: 4 nguoi dang nhap bang email nhung
-    Uyen phai dung `nv00109`, Tam la `nv00129`. Dung gia dinh ten dang nhap la email.
+    vao doc, event, log hay thong diep loi. Username mac dinh la email ERP; o nhap cho phep
+    khai khac.
+
+    SCTS chap nhan CA HAI: email cong viec va ten dang nhap noi bo (`nvxxxxx`) - Hoan xac
+    nhan 09/09. Trong so nguoi da ket noi, `api_token_username` cua Uyen la `nv00109` con
+    bon nguoi kia la email; do la LUA CHON luc go, khong phai rang buoc. (Toi tung doc mot
+    dong du lieu do thanh "Uyen PHAI dung nv00109" va viet nham vao day - suy tu mot diem
+    du lieu ra mot rang buoc la cach de nhat de mot chu thich sai song lau trong repo.)
 
     THU TU (doi 09/09): DANG NHAP TRUOC, roi moi lo chuyen anh xa. Truoc day ham nay tu choi
     ngay tu dau neu chua co anh xa ("Nho quan tri tao truoc") - nghia la nguoi moi bi chan

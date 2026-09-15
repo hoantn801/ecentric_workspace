@@ -30,14 +30,35 @@
   #ec-apl-root .topbar .crumb{ font-size:13px; color:var(--gray-500); } #ec-apl-root .topbar .crumb strong{ color:var(--gray-900); }
   #ec-apl-root .topbar .spacer{ flex:1; } #ec-apl-root .scope-badge{ font-size:12px; font-weight:600; padding:5px 10px; border-radius:999px; background:var(--navy-50); color:var(--navy); }
   #ec-apl-root .content{ padding:20px 24px; max-width:1600px; width:100%; margin-inline:auto;}
-  #ec-apl-root .apl-title{ font-size:17px; font-weight:700; color:var(--gray-900); letter-spacing:-0.2px; margin:0; }
-  #ec-apl-root .apl-desc{ font-size:12px; color:var(--gray-500); margin:1px 0 10px; }
-  #ec-apl-root .filters{ background:#fff; border:1px solid var(--gray-200); border-radius:10px; padding:9px 12px; margin-bottom:12px; }
-  #ec-apl-root .fgrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr)); gap:7px 8px; align-items:end; }
-  #ec-apl-root .fgrid label{ display:block; font-size:10.5px; font-weight:600; color:var(--gray-500); margin-bottom:2px; }
-  #ec-apl-root .fgrid select, #ec-apl-root .fgrid input{ width:100%; padding:5px 8px; border:1px solid var(--gray-200); border-radius:7px; font-size:12.5px; font-family:inherit; background:#fff; height:30px; }
-  #ec-apl-root .fend{ display:flex; align-items:flex-end; }
-  #ec-apl-root .fend .btn{ padding:5px 12px; font-size:12.5px; height:30px; border-radius:7px; }
+  #ec-apl-root .apl-title{ font-size:15.5px; font-weight:700; color:var(--gray-900); letter-spacing:-0.2px; margin:0; }
+  #ec-apl-root .apl-desc{ font-size:11.5px; color:var(--gray-500); margin:1px 0 9px; }
+  #ec-apl-root .filters{ background:#fff; border:1px solid var(--gray-200); border-radius:10px; padding:8px 12px; margin-bottom:12px; }
+  /* Moi o filter la mot COT tu xep: nhan tren, o nhap duoi, day cot dinh o day hang.
+     Truoc day dung `align-items:end` trên grid roi de moi o cao bao nhieu tuy no - ma hai
+     thanh phan DUNG CHUNG cua site khong cao 30px nhu input thuong: `.ec-dp-wrap` (o lich)
+     cao 40, `.ec-cb` (o Trang thai) cao 39. Can day thi o nao cao hon se day NHAN cua no
+     len tren 10px, thanh ra hang nhan gap ghenh - nhin nhu vo thanh hai dong (Hoan 10/09).
+     Chua bang cach ep chieu cao O NHAP ve bang nhau, PHAM VI chi trong .fgrid: `.ec-dp-*`
+     va `.ec-cb` la asset dung chung toan site, sua trong bundle la doi luat cho ca cac
+     trang khac. */
+  #ec-apl-root .fgrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:6px 10px; align-items:start; }
+  #ec-apl-root .fgrid > *{ display:flex; flex-direction:column; min-width:0; }
+  #ec-apl-root .fgrid label{ display:block; font-size:10px; font-weight:600; color:var(--gray-500); margin-bottom:2px; line-height:14px; height:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #ec-apl-root .fgrid select, #ec-apl-root .fgrid input{ width:100%; padding:4px 8px; border:1px solid var(--gray-200); border-radius:7px; font-size:12px; font-family:inherit; background:#fff; height:28px; }
+  /* Hai thanh phan dung chung: ep ve dung 28px nhu o nhap thuong. */
+  #ec-apl-root .fgrid .ec-dp-wrap, #ec-apl-root .fgrid .ec-cb{ height:28px; }
+  #ec-apl-root .fgrid .ec-dp-field{ height:28px; min-height:28px; font-size:12px; }
+  /* Nham vao CHINH cai nut, khong phai "con dau tien". p173 viet `.ec-cb > *:first-child`
+     - ma con dau tien cua .ec-cb la the <select> AN (display:none, cao 0), khong phai nut.
+     Nen luat khong trung dich: khung ep con 28px nhung nut van 38.9px, va vi wrap de
+     overflow:visible nen nut TRAN 11px xuong duoi the trang (do tren production 10/09).
+     Mui ten va panel deu bam theo WRAP (arrow top 6.5px = giua cua 28px; panel
+     top:calc(100% + 4px)) nen khong phai chinh gi them. */
+  #ec-apl-root .fgrid .ec-cb .ec-cb-display{ height:28px; min-height:28px; padding:4px 28px 4px 9px; font-size:12px; }
+  #ec-apl-root .fend{ display:flex; flex-direction:column; justify-content:flex-end; }
+  /* Nut "Xoa loc" khong co nhan phia tren, nen phai tu chua khoang trong bang dung chieu cao
+     cua nhan (14px + 2px margin) thi day nut moi thang hang voi cac o nhap ben canh. */
+  #ec-apl-root .fend .btn{ padding:4px 12px; font-size:12px; height:28px; border-radius:7px; margin-top:16px; }
   #ec-apl-root .btn{ padding:8px 16px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; font-size:13px; font-weight:600; cursor:pointer; color:var(--gray-700); }
   #ec-apl-root .btn.primary{ background:var(--navy); border-color:var(--navy); color:#fff; }
   #ec-apl-root .btn:disabled{ opacity:.5; cursor:not-allowed; }
@@ -67,17 +88,25 @@
   /* Hai THẺ RỜI: thẻ lớn bên trái là nội dung yêu cầu, thẻ nhỏ bên phải là lịch sử xử lý. */
   /* margin:auto căn giữa cả hai chiều mà vẫn cuộn được khi thẻ cao hơn màn hình
      (align-items:center sẽ cắt mất phần đầu khi tràn). */
-  .ec-apl-wrap{ display:flex; align-items:flex-start; gap:16px; width:100%; max-width:1220px; margin:auto; }
+  /* stretch: hai the cao BANG NHAU (Hoan chot 09/09). KHONG dung center - center se cat
+     mat phan dau khi the cao hon man hinh. */
+  .ec-apl-wrap{ display:flex; align-items:stretch; gap:16px; width:100%; max-width:1220px; margin:auto; }
   .ec-apl-wrap.solo{ max-width:860px; }
   .ec-apl-wrap:focus{ outline:none; }
+  /* cot flex: khi the bi keo cao bang the trai thi phan than (.bd) an het cho thua,
+     o nhap tin nhan luon dinh day - khong de mot khoang trang lo lung o giua. */
   .ec-apl-aside{ width:400px; flex:0 0 400px; background:#fff; border-radius:16px; overflow:hidden;
+    display:flex; flex-direction:column;
     box-shadow:0 24px 64px rgba(15,23,42,.28); font-family:'Inter',-apple-system,sans-serif; color:#1f2937; }
   .ec-apl-aside .hd{ padding:14px 18px 10px; border-bottom:1px solid #eef0f4; font-size:10.5px; font-weight:700;
     text-transform:uppercase; letter-spacing:.05em; color:#9ca3af; }
-  .ec-apl-aside .bd{ padding:14px 18px; max-height:calc(100vh - 190px); overflow-y:auto; }
+  /* flex:1 + min-height:0 -> than cuon duoc BEN TRONG the, thay vi tu keo the dai ra.
+     max-height giu lai lam tran an toan cho truong hop the phai cao hon the trai. */
+  .ec-apl-aside .bd{ padding:14px 18px; flex:1 1 auto; min-height:0;
+    max-height:calc(100vh - 190px); overflow-y:auto; }
   /* Cot phai co HAI TAB: Lich su va Trao doi. Chon kieu tab (khong xep chong) de popup giu
      nguyen chieu cao - ho so nhieu cap ma xep chong them khung chat thi phai cuon hai lan. */
-  .ec-apl-aside .tabs{ display:flex; padding:0; border-bottom:1px solid #eef0f4; }
+  .ec-apl-aside .tabs{ display:flex; padding:0; border-bottom:1px solid #eef0f4; flex:0 0 auto; }
   .ec-apl-aside .tabs button{ flex:1; background:none; border:0; padding:11px 8px; cursor:pointer;
     font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#9ca3af;
     border-bottom:2px solid transparent; font-family:inherit; }
@@ -90,14 +119,17 @@
   .ec-apl-cm .msg .tx{ font-size:12.5px; color:#374151; line-height:1.55; white-space:pre-wrap;
     word-break:break-word; margin-top:2px; }
   .ec-apl-cm .empty{ font-size:12px; color:#9ca3af; padding:8px 0; }
-  .ec-apl-cbox{ border-top:1px solid #eef0f4; padding:10px 18px 12px; }
+  .ec-apl-cbox{ border-top:1px solid #eef0f4; padding:10px 18px 12px; flex:0 0 auto; }
   .ec-apl-cbox textarea{ width:100%; box-sizing:border-box; border:1px solid #e5e7eb; border-radius:8px;
     padding:7px 9px; font-size:12.5px; font-family:inherit; resize:vertical; min-height:52px; color:#1f2937; }
   .ec-apl-cbox textarea:focus{ outline:none; border-color:var(--navy); }
   .ec-apl-cbox .row{ display:flex; justify-content:flex-end; gap:8px; margin-top:7px; }
   /* Nut hanh dong cua popup duoc dinh nghia trong .ec-apl-mf, khong voi toi day - khai rieng. */
+  /* inline-flex + line-height:1: chu "Gui" co dau nen duong co so bi day lech khi de
+     line-height mac dinh cua trinh duyet. Can giua tuong minh ca hai chieu. */
   .ec-apl-cbox .btn{ background:var(--navy); border:1px solid var(--navy); color:#fff; cursor:pointer;
-    border-radius:8px; padding:6px 16px; font-size:12.5px; font-weight:600; font-family:inherit; }
+    border-radius:8px; padding:7px 18px; font-size:12.5px; font-weight:600; font-family:inherit;
+    display:inline-flex; align-items:center; justify-content:center; line-height:1; min-width:68px; }
   .ec-apl-cbox .btn:hover:not(:disabled){ filter:brightness(1.08); }
   .ec-apl-cbox .btn:disabled{ opacity:.55; cursor:default; }
   @media (max-width:1040px){
@@ -172,6 +204,10 @@
     transition:border-color .12s, background .12s; }
   .ec-apl-file:hover{ border-color:var(--navy); background:var(--navy-50); color:var(--navy); }
   .ec-apl-file .nm{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+  .ec-apl-online{ font-size:10px; font-weight:600; letter-spacing:.02em; text-transform:uppercase;
+    color:#047857; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:5px; padding:1px 5px; }
+  .ec-apl-stale{ margin-top:7px; font-size:12px; line-height:1.45; color:#b45309;
+    background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:7px 10px; }
   .ec-apl-tl{ list-style:none; margin:0; padding:0 0 0 14px; border-left:2px solid #eef0f4; }
   .ec-apl-tl li{ font-size:12.5px; color:#4b5563; padding:0 0 11px; position:relative; }
   .ec-apl-tl li:last-child{ padding-bottom:0; }
@@ -228,8 +264,11 @@
   #ec-apl-root .pill.Pending{ background:var(--navy-50); color:var(--navy); } #ec-apl-root .pill.Information{ background:var(--amber-50); color:var(--amber); }
   #ec-apl-root .pill.Completed{ background:#ecfdf5; color:var(--green); } #ec-apl-root .pill.Rejected{ background:var(--red-50); color:var(--red); } #ec-apl-root .pill.Cancelled{ background:var(--gray-100); color:var(--gray-500); }
   #ec-apl-root .pill.breach{ background:var(--red-50); color:var(--red); }
-  #ec-apl-root .tabs{ display:flex; gap:6px; border-bottom:1px solid var(--gray-200); margin-bottom:16px; }
-  #ec-apl-root .tab{ padding:9px 16px; font-size:14px; font-weight:600; color:var(--gray-500); cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; margin-bottom:-1px; font-family:inherit; }
+  #ec-apl-root .tabs{ display:flex; gap:6px; border-bottom:1px solid var(--gray-200); margin-bottom:12px; }
+  /* 10/09: ca trang bi keu la "to qua". Giam 1-2 cо chu o nhung cho chiem nhieu dien tich
+     nhat (tab, tieu de, o nhap filter, dong bang) thay vi dat `zoom` len ca trang - `zoom`
+     lam lech moi phep do toa do va keo theo ca vo shell dung chung. */
+  #ec-apl-root .tab{ padding:8px 14px; font-size:12.5px; font-weight:600; color:var(--gray-500); cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; margin-bottom:-1px; font-family:inherit; }
   #ec-apl-root .tab.active{ color:var(--navy); border-bottom-color:var(--navy); }
   #ec-apl-root .av{ display:inline-flex; align-items:center; justify-content:center; border-radius:50%; color:#fff; font-weight:700; overflow:hidden; flex-shrink:0; border:2px solid #fff; }
   #ec-apl-root .av img{ width:100%; height:100%; object-fit:cover; }
@@ -638,7 +677,7 @@
         +'<div class="bd ec-apl-cm" data-pane="cm"></div>'
         +'<div class="ec-apl-cbox" data-pane="cm">'
         +'<textarea placeholder="Nhắn cho người trong luồng duyệt…" aria-label="Nội dung trao đổi"></textarea>'
-        +'<div class="row"><button type="button" class="btn approve" data-send>Gửi</button></div></div>';
+        +'<div class="row"><button type="button" class="btn" data-send>Gửi</button></div></div>';
       box.appendChild(aside);
       bindAside(aside);
       // Tab mac dinh la Trao doi (Hoan chot 09/09) -> nap binh luan ngay khi dung khung,
@@ -818,10 +857,21 @@
       return '<div'+(isLong(f)?' class="wide"':'')+'><div class="k">'+esc(f.label)+'</div>'
            + '<div class="v">'+esc(fmtVal(f))+'</div></div>'; }).join("");
 
+    // Co ban tren SharePoint thi tro sang do (Word Online chi mo duoc tep nam tren
+    // SharePoint/OneDrive; tro vao file_url cua Frappe thi trinh duyet luon TAI ve).
     var files=(d.attachments||[]).map(function(a){
-      return '<a class="ec-apl-file" href="'+esc(a.file_url)+'" target="_blank" rel="noopener">'
+      var online=!!a.sp_web_url;
+      return '<a class="ec-apl-file" href="'+esc(online?a.sp_web_url:a.file_url)+'" target="_blank" rel="noopener">'
            +'<svg class="icon" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>'
-           +'<span class="nm">'+esc(a.file_name||a.file_url)+'</span></a>'; }).join("");
+           +'<span class="nm">'+esc(a.file_name||a.file_url)+'</span>'
+           +(online?'<span class="ec-apl-online">online</span>':'')+'</a>'; }).join("");
+    // Canh bao, KHONG chan: ban tren SharePoint la ban song, sua la binh thuong. Dieu can noi
+    // la cap nao da duyet TRUOC luc tep doi lan cuoi.
+    var caub=(d.attachments||[]).filter(function(a){ return (a.sp_sua_sau_duyet||[]).length; })
+      .map(function(a){
+        var ai=a.sp_sua_sau_duyet.map(function(x){ return esc(x.approver)+' (cấp '+esc(String(x.level_no))+')'; }).join(", ");
+        return '<div class="ec-apl-stale">'+esc(a.file_name)+': sửa lúc '+esc(fmtDT(a.sp_last_modified))
+             +' — SAU khi '+ai+' đã duyệt.</div>'; }).join("");
 
     var tl=(d.timeline||[]).slice(0,8).map(function(t){
       var raw=t.action||t.event||"", cls=/Approve|Duyệt|Complete/i.test(raw)?"ok":(/Reject|Từ chối/i.test(raw)?"no":"");
@@ -861,7 +911,7 @@
       hl
       +(levels.length?('<div class="ec-apl-sec"><h4>Tiến trình duyệt</h4>'+stepperHtml(levels,cur,overall,ff)+'</div>'):'')
       +(fields?('<div class="ec-apl-sec"><h4>Nội dung yêu cầu</h4><div class="ec-apl-kv">'+fields+'</div></div>'):'')
-      +(files?('<div class="ec-apl-sec"><h4>Đính kèm</h4><div class="ec-apl-files">'+files+'</div></div>'):'');
+      +(files?('<div class="ec-apl-sec"><h4>Đính kèm</h4><div class="ec-apl-files">'+files+'</div>'+caub+'</div>'):'');
 
     box.querySelector('[data-h="foot"]').innerHTML =
       (d.detail_route?('<a class="link" href="'+esc(withFrom(d.detail_route))+'">Mở trang đầy đủ</a>'):'')
@@ -991,7 +1041,37 @@
     $("apl-reset").onclick=function(){ FILTER_IDS.forEach(function(id){ $(id).value=""; }); autoApply(); };
     $("f-search").addEventListener("keydown",function(e){ if(e.key==="Enter"){ clearTimeout($("f-search")._t); autoApply(); } });
     var ham=$("apl-ham"); if(ham) ham.onclick=function(){ document.getElementById("ec-apl-root").classList.toggle("sb-open"); };
+    dongOLocKhac();
     loadOptions().then(load);
+  }
+
+  // Mo mot o loc thi ba o kia phai DONG. Do duoc tren production 10/09: bam lan luot bon o
+  // "Nhom / Loai yeu cau / Phong ban / Trang thai" thi ca BON panel cung mo, chong len bang
+  // ben duoi - nhin nhu giao dien vo.
+  //
+  // Goc o `ec_formkit.bundle.js` (asset dung chung toan site):
+  //     btn.onclick = function(e){ e.stopPropagation(); panel.hidden ? open() : close(); };
+  //     document.addEventListener("click", function(e){ if(!wrap.contains(e.target)) close(); });
+  // Moi o CO san bo dong-khi-bam-ra-ngoai o tang document. Nhung nut cua no goi
+  // stopPropagation(), nen cu bam KHONG BAO GIO toi duoc document -> bo dong cua ba o kia
+  // khong chay. Bam ra ngoai (khong trung nut nao) thi dong het - dung nhu do duoc.
+  //
+  // KHONG sua bundle: no dung chung toan site, sua o do la doi hanh vi cua nhung trang khac
+  // ma khong ai ngo (bai hoc "asset toan site: TRANG tu khai quyen so huu"). Nghe o PHA BAT
+  // (capture) - chay tu tren xuong TRUOC khi handler cua nut kip chan - va gioi han pham vi
+  // trong .fgrid cua chinh trang nay.
+  function dongOLocKhac(){
+    var g=document.querySelector("#ec-apl-root .fgrid"); if(!g) return;
+    if(g.__aplCbOnce) return; g.__aplCbOnce=true;
+    g.addEventListener("click", function(e){
+      var t=e.target; if(!t||!t.closest) return;
+      var btn=t.closest(".ec-cb-display"); if(!btn) return;
+      var cua_toi=btn.closest(".ec-cb");
+      Array.prototype.forEach.call(g.querySelectorAll(".ec-cb"), function(cb){
+        if(cb===cua_toi) return;
+        var p=cb.querySelector(".ec-cb-panel"); if(p) p.hidden=true;
+      });
+    }, true);
   }
   window.ApprovalAll={ state:state, openDetail:openDetail, toast:toast, closeDetail:closeDetail, drawDetail:drawDetail, withFrom:withFrom, syncUrl:syncUrl, quickActions:quickActions, runAction:runAction, boot:boot, load:load, autoApply:autoApply, anyFilter:anyFilter, render:render, filters:filters, setBox:setBox, avatar:avatar, initials:initials, _call:call };
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();

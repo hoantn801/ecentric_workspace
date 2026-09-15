@@ -56,6 +56,19 @@ const SOURCES = {
       total: 200, used: 0, remaining: 200 },
   ],
 };
+// "Loại chi phí" là trường BẮT BUỘC của form từ đợt danh mục chi phí (10/09). Cả hai bộ
+// test giao diện Đề nghị thanh toán đỏ vì fixture "phiếu hợp lệ" của chúng viết TRƯỚC
+// trường đó và không ai cập nhật — `validateSubmit()` trả lỗi `ec_loai_chi_phi`, nên mọi
+// khẳng định "phiếu này hợp lệ" đều sai.
+//
+// Không cấy giá trị một cách thầm lặng: bên dưới có phần kiểm CHÍNH hai luật đó (thiếu
+// loại chi phí → từ chối; loại chi phí gắn brand → đòi brand). Trước hôm nay KHÔNG một bộ
+// test JS nào đo chúng — vá fixture mà không thêm phép đo thì lần sau luật bị gỡ vẫn không
+// ai biết. Hình dạng bản ghi lấy theo `definition_support.ExpenseCategoryOptions`.
+const CATS = [
+  { value: "VANPHONG", label: "Chi phí văn phòng", group: "Vận hành", need_brand: 0 },
+  { value: "MKT_BRAND", label: "Marketing theo brand", group: "Marketing", need_brand: 1 },
+];
 const TYPES = [
   { value: "EC Purchase Request", label: "Đề nghị mua hàng (ĐNMH)" },
   { value: "Purchase Order", label: "PO mua ngoài (sổ EC)" },
@@ -71,8 +84,13 @@ function fakeCall(fullMethod, args) {
     return Promise.resolve({ types: TYPES, rows: dt ? (SOURCES[dt] || []) : [] });
   }
   if (method === "get_bootstrap") {
+    // `expense_categories` phải có ở ĐÂY nữa, không chỉ ở st.boot gán sẵn: trang tự nạp lại
+    // bootstrap trong luồng, và bản giả thiếu trường thì nó ghi đè cấu hình của test bằng
+    // một hợp đồng không giống thật. `definition_support.ExpenseCategoryOptions` trả về
+    // đúng hình dạng {value,label,group,need_brand,hint} này.
     return Promise.resolve({ tabs: {}, context: { user: "nv@ec", employee_name: "NV" },
-                             form_options: { yes_no: ["Yes", "No"] } });
+                             form_options: { yes_no: ["Yes", "No"],
+                                             expense_categories: CATS } });
   }
   if (method === "funding_source_summary") {
     const rows = SOURCES[args.source_doctype] || [];
@@ -109,7 +127,7 @@ if (!PR) { console.log("FAIL: window.PaymentRequest not exported"); process.exit
 // (the shipped code calls its own internal renderCreate, not the exported reference).
 const st = PR.state;
 st.boot = { tabs: {}, context: { user: "nv@ec", employee_name: "NV", department: "Ops - EC" },
-            form_options: { yes_no: ["Yes", "No"] } };
+            form_options: { yes_no: ["Yes", "No"], expense_categories: CATS } };
 st.draft = {};
 
 // A macrotask flush: the page chains several promises per action, and microtask-only
@@ -193,7 +211,8 @@ const tick = () => new Promise(r => setTimeout(r, 5));
   // -- client guard uses the SAME epsilon as the server (0.5) --------------
   st.draft = { reason: "x", payment_date: "2026-08-26", payee_full_name: "A",
     account_bank: "B", bank_account_number: "1", has_purchase_request: "Yes",
-    is_cost_valid: "Yes", details_and_attachments_correct: "Yes", request_attachment: "f.pdf",
+    is_cost_valid: "Yes", ec_loai_chi_phi: "VANPHONG",
+    details_and_attachments_correct: "Yes", request_attachment: "f.pdf",
     funding_source_doctype: "EC Purchase Request", funding_source_name: "PURR-1",
     payment_amount: 70 };
   st._fundSummary = { total: 100, used: 30, remaining: 70 };
@@ -205,6 +224,29 @@ const tick = () => new Promise(r => setTimeout(r, 5));
 
   st.draft.payment_amount = 70.4;
   ok(!PR.validateSubmit(), "float noise below 0.5 tolerated (matches server epsilon)");
+
+  // -- LOẠI CHI PHÍ là trường bắt buộc (10/09) -----------------------------
+  // Đây là luật đã làm hai bộ test này đỏ. Đo nó tường minh: fixture ở trên chỉ ĐI QUA
+  // luật, không chứng minh luật còn sống. Gỡ dòng kiểm trong validateSubmit ra mà không có
+  // hai phép kiểm này thì cả bộ test vẫn xanh — và phiếu chi thiếu loại chi phí lọt xuống
+  // Finance, đúng thứ danh mục sinh ra để chặn.
+  st.draft.payment_amount = 70;
+  const _cat = st.draft.ec_loai_chi_phi;
+  st.draft.ec_loai_chi_phi = "";
+  errs = PR.validateSubmit() || {};
+  ok(!!errs.ec_loai_chi_phi, "thiếu loại chi phí thì bị từ chối");
+  ok(!errs.ec_brand, "chưa chọn loại chi phí thì chưa đòi brand");
+
+  // Loại chi phí gắn brand thì phải có brand — luật thứ hai, đi kèm và cũng chưa từng được đo.
+  st.draft.ec_loai_chi_phi = "MKT_BRAND";
+  errs = PR.validateSubmit() || {};
+  ok(!!errs.ec_brand, "loại chi phí gắn brand mà thiếu brand thì bị từ chối");
+  st.draft.ec_brand = "Brand X";
+  ok(!PR.validateSubmit(), "có brand rồi thì hợp lệ");
+  ok(!errs.ec_loai_chi_phi, "đã chọn loại chi phí thì không còn báo thiếu");
+
+  st.draft.ec_loai_chi_phi = _cat; delete st.draft.ec_brand;
+  ok(!PR.validateSubmit(), "loại chi phí không gắn brand thì không đòi brand");
 
   // -- missing source when 'Yes' ------------------------------------------
   st.draft.payment_amount = 10;

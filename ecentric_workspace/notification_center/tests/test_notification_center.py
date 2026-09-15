@@ -51,6 +51,7 @@ def _install_frappe():
     fr._prefs = {}        # user -> EC Notification Preference doc object
     fr._enqueued = []     # captured frappe.enqueue calls
     fr._conf = {}         # site_config stub (frappe.get_conf)
+    fr.conf = fr._conf    # frappe.conf: cac kill switch doc thang tu day
     fr._tasks = {}        # Task store (name -> dict)
     fr._wtus = {}         # Weekly Team Update store (name -> dict)
     fr._roles = []        # frappe.get_roles()
@@ -59,6 +60,9 @@ def _install_frappe():
     fr._pending_nl = []   # Notification Logs committed by a SEPARATE txn (not yet visible)
     fr._txn_events = []   # ordered timeline of "rollback"/"write" for ordering guards
     fr._errors = []       # captured frappe.log_error(message, title)
+    fr._employees = {}    # Employee store (name -> dict)
+    fr._has_role = []     # tabHas Role rows ({parent, role, parenttype})
+    fr._msgprints = []    # captured frappe.msgprint
 
     def _nl_by_name(name):
         for r in fr._nl:
@@ -143,6 +147,19 @@ def _install_frappe():
             if fields:
                 return [{f: r.get(f) for f in fields} for r in rows]
             return [dict(r) for r in rows]
+        if doctype == "Employee":
+            rows = [dict(r, name=nm) for nm, r in fr._employees.items()
+                    if all(r.get(kk) == vv for kk, vv in filters.items())]
+            rows.sort(key=lambda r: str(r.get("date_of_joining") or ""))
+            if fields:
+                rows = [{f: r.get(f) for f in fields} for r in rows]
+            return rows
+        if doctype == "Has Role":
+            rows = [r for r in fr._has_role
+                    if all(r.get(kk) == vv for kk, vv in filters.items())]
+            if k.get("pluck"):
+                return [r.get(k["pluck"]) for r in rows]
+            return [dict(r) for r in rows]
         return []
 
     def count(doctype, filters=None):
@@ -152,6 +169,20 @@ def _install_frappe():
         return 0
 
     def get_value(doctype, name, field=None, as_dict=False):
+        if isinstance(name, dict):
+            store = fr._employees if doctype == "Employee" else {}
+            for nm, rec in store.items():
+                ok = True
+                for kk, vv in name.items():
+                    rv = nm if kk == "name" else rec.get(kk)
+                    if isinstance(vv, (list, tuple)) and len(vv) == 2 and vv[0] == "!=":
+                        if rv == vv[1]:
+                            ok = False
+                    elif rv != vv:
+                        ok = False
+                if ok:
+                    return nm if field == "name" else rec.get(field)
+            return None
         if doctype == "Notification Log":
             row = _nl_by_name(name) or {}
             if isinstance(field, (list, tuple)):
@@ -356,9 +387,21 @@ def _install_frappe():
         today=lambda: str(_now().date()),
         add_days=lambda d, n: _getdate(d) + _dt.timedelta(days=int(n)),
         get_url=lambda *a, **k: "https://test.ecentric.vn",
+        escape_html=lambda x: str(x or ""),
+        formatdate=lambda d, fmt=None: str(d),
         cint=lambda x=0: int(x) if str(x).lstrip("-").isdigit() else 0)
+    fr.msgprint = lambda msg=None, title=None, indicator=None, **k: fr._msgprints.append(
+        {"msg": msg, "title": title, "indicator": indicator})
+    # frappe.utils.user.get_users_with_role: duong CHINH ma employee_guard dung de
+    # tim HR Manager (tranh truy van bang con `tabHas Role` truc tiep).
+    _fu = types.ModuleType("frappe.utils.user")
+    _fu.get_users_with_role = lambda role: sorted(set(
+        r["parent"] for r in fr._has_role
+        if r.get("role") == role and r.get("parenttype") == "User"))
+    fr.utils.user = _fu
     sys.modules["frappe"] = fr
     sys.modules["frappe.utils"] = fr.utils
+    sys.modules["frappe.utils.user"] = _fu
     return fr
 
 
@@ -745,8 +788,12 @@ class TestGlobalShellLoader(unittest.TestCase):
     def test_web_include_js_registers_asset_globally(self):
         # Loaded as a CONTENT-HASHED bundle so deploys bust the immutable /assets cache
         # uniformly (raw un-versioned /assets path caused stale-asset on some routes).
-        self.assertIn('web_include_js = ["notification_center.bundle.js"]', self.hooks,
-                      "asset must load via the content-hashed bundle (cache-bust)")
+        # Khong so khop CA DONG: danh sach nay da dai them (ec_shell, ec_datepicker,
+        # ec_formkit, ec_webpush) va mot phep so sanh nguyen van bien test thanh
+        # false-failure moi lan them bundle - dung nhu no da hong tu truoc ban nay.
+        # Dieu can bao ve la: nap qua BUNDLE co hash noi dung, khong phai duong /assets tho.
+        self.assertRegex(self.hooks, r'web_include_js = \[[^\]]*"notification_center\.bundle\.js"',
+                         "asset must load via the content-hashed bundle (cache-bust)")
         self.assertNotIn('web_include_js = ["/assets/ecentric_workspace/js/notification_center.js"]',
                          self.hooks, "must NOT use the raw un-versioned /assets path (immutable cache -> stale)")
         bundle = os.path.join(_pkg_root(), "public", "js", "notification_center.bundle.js")
@@ -2286,3 +2333,566 @@ class TestPowerAutomateCopilot(unittest.TestCase):
         byc2 = {d["channel"]: d["status"] for d in FR._delivery if d["recipient"] == "u@x.com"}
         self.assertEqual(byc2["erp"], "Sent")                # ERP unaffected by Teams failure
         self.assertEqual(byc2["teams"], "Failed")
+
+
+# --------------------------------------------------------------------------- #
+# Web push channel + nhac cham cong (2026-09-14)
+# --------------------------------------------------------------------------- #
+class TestChannelMatrixCompleteness(unittest.TestCase):
+    """Moi kenh trong CHANNELS phai co mat o MOI dong cua ROUTING_MATRIX, va moi
+    kenh khong-baseline phai co mot cong tac trong resolve_channels.
+
+    Vi sao co test nay: `resolve_channels` tra cuu `switch[ch]` cho moi kenh khong
+    phai erp/toast. Them mot kenh vao CHANNELS ma quen them vao `switch` se nem
+    KeyError - va chi nem cho nhung nguoi DA luu preference, tuc la mot phan nguoi
+    dung im lang khong nhan duoc thong bao nao trong khi phan con lai van binh
+    thuong. Kieu hong do rat kho phat hien tren prod."""
+
+    def test_every_event_type_covers_every_channel(self):
+        for et in ev.EVENT_TYPES:
+            row = ev.ROUTING_MATRIX.get(et)
+            self.assertIsNotNone(row, et + " thieu dong trong ROUTING_MATRIX")
+            for ch in ev.CHANNELS:
+                self.assertIn(ch, row, "ROUTING_MATRIX[" + et + "] thieu kenh " + ch)
+
+    def test_every_event_type_has_default_severity(self):
+        for et in ev.EVENT_TYPES:
+            self.assertIn(et, ev._DEFAULT_SEVERITY, et + " thieu severity mac dinh")
+
+    def test_resolve_channels_never_raises_for_saved_pref(self):
+        pref = ev.get_preference("u@x.com")
+        pref["_exists"] = True
+        for et in ev.EVENT_TYPES:
+            out = ev.resolve_channels(et, ev._DEFAULT_SEVERITY[et], pref)
+            self.assertEqual(set(out.keys()), set(ev.CHANNELS))
+
+
+class TestAttendanceReminderRouting(unittest.TestCase):
+    """Hop dong cua hai moc nhac cham cong.
+
+    8h30 duoc ban Teams vi do la MUC DICH cua tinh nang: thong bao phai ra khoi app.
+    9h30 CO CHU Y khong ban Teams - neu ca hai moc deu ban thi mot nguoi quen cham
+    cong nhan hai DM Teams moi sang, va ket cuc la ho tat thong bao Teams, mat luon
+    ca thong bao duyet don."""
+
+    def setUp(self):
+        _reset("u@x.com"); FR.session.user = "u@x.com"
+
+    def test_0830_reaches_teams_by_default(self):
+        pref = ev.get_preference("u@x.com")       # chua luu preference
+        out = ev.resolve_channels("attendance_missing", "info", pref)
+        self.assertEqual(out["teams"], "deliver")
+        self.assertEqual(out["erp"], "deliver")
+
+    def test_0930_never_reaches_teams(self):
+        pref = ev.get_preference("u@x.com")
+        out = ev.resolve_channels("attendance_missing_final", "action_required", pref)
+        self.assertEqual(out["teams"], "skip")
+        self.assertEqual(out["erp"], "deliver")
+
+    def test_webpush_on_for_both_slots(self):
+        pref = ev.get_preference("u@x.com")
+        for et in ("attendance_missing", "attendance_missing_final"):
+            out = ev.resolve_channels(et, ev._DEFAULT_SEVERITY[et], pref)
+            self.assertEqual(out["webpush"], "deliver", et)
+
+    def test_teams_opt_out_is_respected(self):
+        pref = ev.get_preference("u@x.com")
+        pref["_exists"] = True
+        pref["teams_enabled"] = 0
+        out = ev.resolve_channels("attendance_missing", "info", pref)
+        self.assertEqual(out["teams"], "skip")
+
+
+class TestCheckinReminderModule(unittest.TestCase):
+    """Kiem tra tinh chat cua chinh module nhac cham cong, khong can site."""
+
+    def setUp(self):
+        import importlib
+        self.mod = importlib.import_module("ecentric_workspace.hr.checkin_reminder")
+
+    def test_two_distinct_methods_for_two_cron_slots(self):
+        # Frappe khoa Scheduled Job Type theo dotted path cua `method`: mot ham khai o
+        # hai bieu thuc cron chi giu lai MOT. Da do that tren prod 10/09 voi esign.
+        self.assertTrue(callable(self.mod.remind_0830))
+        self.assertTrue(callable(self.mod.remind_0930))
+        self.assertIsNot(self.mod.remind_0830, self.mod.remind_0930)
+
+    def test_hooks_registers_both_slots(self):
+        path = os.path.join(_pkg_root(), "hooks.py")
+        with open(path, encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn('"30 8 * * *"', src)
+        self.assertIn('"30 9 * * *"', src)
+        self.assertIn("hr.checkin_reminder.remind_0830", src)
+        self.assertIn("hr.checkin_reminder.remind_0930", src)
+
+    def test_old_server_script_is_disabled_in_fixtures(self):
+        import json
+        path = os.path.join(_pkg_root(), "fixtures", "server_script.json")
+        with open(path, encoding="utf-8") as fh:
+            rows = json.load(fh)
+        hit = [r for r in rows if r.get("name") == "ec_hr_checkin_reminder"]
+        self.assertEqual(len(hit), 1)
+        self.assertEqual(hit[0].get("disabled"), 1,
+                         "Server Script cu PHAI tat, neu khong moi nguoi bi nhac hai lan luc 8h30")
+
+
+class TestWebPushOperability(unittest.TestCase):
+    """Site chay tren Frappe Cloud: KHONG co shell. Moi thao tac van hanh web push
+    phai bam duoc tu man hinh Settings, neu khong thi cach duy nhat con lai la dan
+    khoa bi mat qua chat - dung thu can tranh nhat."""
+
+    def _src(self, *parts):
+        path = os.path.join(_pkg_root(), "notification_center", *parts)
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_key_generation_has_a_ui_entry_point(self):
+        src = self._src("providers", "webpush.py")
+        self.assertIn("def generate_vapid_keys_api", src)
+        self.assertIn('@frappe.whitelist(methods=["POST"])', src)
+
+    def test_key_generation_is_system_manager_only(self):
+        src = self._src("providers", "webpush.py")
+        i = src.index("def generate_vapid_keys_api")
+        body = src[i:i + 700]
+        self.assertIn("System Manager", body)
+        self.assertIn("frappe.get_roles", body)
+
+    def test_settings_form_script_exists_and_wires_both_buttons(self):
+        js = self._src("doctype", "ec_web_push_settings", "ec_web_push_settings.js")
+        self.assertIn("generate_vapid_keys_api", js)
+        self.assertIn("send_test_push", js)
+
+    def test_key_generation_refuses_to_overwrite(self):
+        # Doi khoa khi da co nguoi dang ky = chet toan bo dang ky cu, im lang.
+        src = self._src("providers", "webpush.py")
+        i = src.index("def generate_vapid_keys(")
+        body = src[i:i + 900]
+        self.assertIn("khong ghi de", body.lower().replace("-", " "))
+
+
+class TestAnnouncementBroadcast(unittest.TestCase):
+    """Mot lan goi la 73 nguoi va khong rut lai duoc, nen ba chot an toan phai co
+    test giu, khong duoc de phu thuoc vao tri nho nguoi goi."""
+
+    def setUp(self):
+        _reset("admin@x.com"); FR.session.user = "admin@x.com"
+        FR._roles[:] = ["System Manager"]
+
+    def _src(self):
+        path = os.path.join(_pkg_root(), "notification_center", "api.py")
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_teams_is_locked_off_in_the_matrix(self):
+        # Chot quan trong nhat: khong tham so nao bat duoc Teams cho thong bao chung.
+        # webpush thi NGUOC LAI phai mo - thong bao chung ma khong ra duoc ngoai app
+        # thi nguoi ta chi thay khi tinh co mo ERP.
+        row = ev.ROUTING_MATRIX["announcement"]
+        self.assertIs(row["teams"], False)
+        self.assertIsNot(row["webpush"], False)
+        self.assertIs(row["erp"], True)
+
+    def test_webpush_delivers_for_announcement_by_default(self):
+        pref = ev.get_preference("u@x.com")          # chua luu tuy chon
+        out = ev.resolve_channels("announcement", "info", pref)
+        self.assertEqual(out["webpush"], "deliver")
+
+    def test_webpush_opt_out_is_respected(self):
+        pref = ev.get_preference("u@x.com")
+        pref["_exists"] = True
+        pref["webpush_enabled"] = 0
+        out = ev.resolve_channels("announcement", "info", pref)
+        self.assertEqual(out["webpush"], "skip")
+
+    def test_teams_stays_off_even_if_user_turned_teams_on(self):
+        pref = ev.get_preference("u@x.com")
+        pref["_exists"] = True
+        pref["teams_enabled"] = 1
+        out = ev.resolve_channels("announcement", "info", pref)
+        self.assertEqual(out["teams"], "skip")
+        self.assertEqual(out["erp"], "deliver")
+
+    def test_dry_run_is_the_default(self):
+        r = api.announce(title="Thu", message="x")
+        self.assertTrue(r.get("dry_run"))
+        self.assertEqual(len(FR._nl), 0, "dry run KHONG duoc tao Notification Log nao")
+
+    def test_requires_system_manager(self):
+        FR._roles[:] = ["Employee"]
+        r = api.announce(title="Thu", dry_run=0)
+        self.assertFalse(r.get("success"))
+        self.assertEqual(len(FR._nl), 0)
+
+    def test_title_is_required(self):
+        r = api.announce(title="   ", dry_run=0)
+        self.assertFalse(r.get("success"))
+        self.assertEqual(len(FR._nl), 0)
+
+
+class TestAbsoluteActionUrlForTeams(unittest.TestCase):
+    """The Teams lay thang action_url tu Delivery Log lam nut "Mo trong ERP". Teams
+    chay ngoai trinh duyet nen duong dan tuong doi khong tro ve dau - nut chet, ma
+    khong co dau hieu gi: tin van gui, delivery log van ghi Sent."""
+
+    def setUp(self):
+        _reset("admin@x.com"); FR.session.user = "admin@x.com"
+
+    def test_relative_path_becomes_absolute(self):
+        u = ev._abs_action_url("/ec-hr/attendance")
+        self.assertTrue(u.startswith("http"), u)
+        self.assertTrue(u.endswith("/ec-hr/attendance"), u)
+
+    def test_absolute_url_passes_through_unchanged(self):
+        u = "https://team.ecentric.vn/approvals/payment-request?id=X"
+        self.assertEqual(ev._abs_action_url(u), u)
+
+    def test_empty_stays_empty(self):
+        self.assertEqual(ev._abs_action_url(None), "")
+        self.assertEqual(ev._abs_action_url(""), "")
+
+    def test_protocol_relative_is_not_touched(self):
+        # "//host/x" co the tro sang goc khac; _same_origin_link da tu choi no.
+        self.assertEqual(ev._abs_action_url("//evil.example/x"), "//evil.example/x")
+
+    def test_inbox_link_stays_relative(self):
+        # Mot chuoi, hai rang buoc: Teams can tuyet doi, chuong trong app can tuong doi.
+        absu = ev._abs_action_url("/ec-hr/attendance")
+        self.assertEqual(ev._same_origin_link(absu), "/ec-hr/attendance")
+
+
+class TestAnnouncementTeamsOptIn(unittest.TestCase):
+    """Teams cho thong bao chung phai la lua chon PHAI GOI TEN.
+
+    Voi 73 nguoi thi mot loi thong bao ra Teams la 73 tin nhan RIENG khong rut lai
+    duoc. Nen no khong bao gio duoc la mac dinh, va khong bao gio duoc xay ra chi vi
+    ai do quen truyen tham so."""
+
+    def setUp(self):
+        _reset("admin@x.com"); FR.session.user = "admin@x.com"
+        FR._roles[:] = ["System Manager"]
+
+    def test_default_stays_off_teams(self):
+        r = api.announce(title="Thu")
+        self.assertEqual(r.get("event_type"), "announcement")
+        self.assertFalse(r.get("teams"))
+
+    def test_opt_in_switches_event_type(self):
+        r = api.announce(title="Thu", teams=1)
+        self.assertEqual(r.get("event_type"), "announcement_urgent")
+        self.assertTrue(r.get("teams"))
+
+    def test_urgent_row_has_teams_on_plain_row_does_not(self):
+        self.assertIs(ev.ROUTING_MATRIX["announcement"]["teams"], False)
+        self.assertIs(ev.ROUTING_MATRIX["announcement_urgent"]["teams"], True)
+
+    def test_urgent_delivers_teams_for_user_without_prefs(self):
+        pref = ev.get_preference("u@x.com")
+        out = ev.resolve_channels("announcement_urgent", "action_required", pref)
+        self.assertEqual(out["teams"], "deliver")
+
+    def test_teams_opt_out_still_respected_on_urgent(self):
+        pref = ev.get_preference("u@x.com")
+        pref["_exists"] = True
+        pref["teams_enabled"] = 0
+        out = ev.resolve_channels("announcement_urgent", "action_required", pref)
+        self.assertEqual(out["teams"], "skip")
+
+    def test_dedupe_key_differs_between_the_two(self):
+        # Cung mot `tag` di hai duong phai la HAI su kien, neu khong ban gui co Teams
+        # se bi coi la trung voi ban khong Teams va im lang khong gui gi.
+        a = api.announce(title="T", tag="x", dry_run=0)
+        b = api.announce(title="T", tag="x", dry_run=0, teams=1)
+        self.assertNotEqual(a.get("event_type"), b.get("event_type"))
+        self.assertEqual(a.get("sent"), b.get("sent"))
+
+
+class TestNoAmountProbeOnEmployee(unittest.TestCase):
+    """The Teams duoc bom them dong "So tien" bang cach DO TEN TRUONG tren doctype duoc
+    tham chieu. Loi nhac cham cong tham chieu Employee - noi chua du lieu phu cap. Chan
+    han o phia provider, de khong phu thuoc vao viec tuong lai khong ai them mot truong
+    ten `amount` hay `budget` vao ho so nhan su."""
+
+    def test_employee_is_on_the_no_amount_list(self):
+        from ecentric_workspace.notification_center.providers import power_automate as pa
+        self.assertIn("Employee", pa._NO_AMOUNT_DOCTYPES)
+
+    def test_amount_probe_is_guarded_by_that_list(self):
+        import os as _os
+        path = _os.path.join(_pkg_root(), "notification_center", "providers", "power_automate.py")
+        with open(path, encoding="utf-8") as fh:
+            src = fh.read()
+        i = src.index("amount_field = None")
+        self.assertIn("_NO_AMOUNT_DOCTYPES", src[i:i + 200])
+
+    def test_reminder_still_carries_the_employee_reference(self):
+        # Bo tham chieu = flow tra PA_400 = Teams im lang. Da do tren prod 14/09.
+        path = os.path.join(_pkg_root(), "hr", "checkin_reminder.py")
+        with open(path, encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn('reference_doctype="Employee"', src)
+
+
+class TestTeamsCardMarkup(unittest.TestCase):
+    """The Copilot render <b>/<i>/<br> nhung NUOT ky tu newline - da do tren the that
+    ngay 14/09. Nen khoi chi tiet phai noi bang <br>, khong duoc dung "\n" hay " · "."""
+
+    def _src(self, *parts):
+        with open(os.path.join(_pkg_root(), *parts), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_approval_details_joined_with_br(self):
+        src = self._src("approval_center", "shared", "workflow", "transitions.py")
+        self.assertIn('"<br>".join(parts)', src)
+        self.assertNotIn('" · ".join(parts)', src)
+
+    def test_reminder_body_uses_br_not_newline(self):
+        src = self._src("hr", "checkin_reminder.py")
+        i = src.index('"Nhắc chấm công hôm nay"')
+        body = src[i:i + 400]
+        self.assertIn("<br>", body)
+        self.assertNotIn("\\n", body)
+
+
+# --------------------------------------------------------------------------- #
+# Ho so Active thieu tai khoan dang nhap (hr/employee_guard.py)
+# --------------------------------------------------------------------------- #
+class _EmployeeGuardBase(unittest.TestCase):
+    """Nen chung: dung frappe stub co san, do sach hai kho Employee / Has Role."""
+
+    def setUp(self):
+        import importlib
+        self.mod = importlib.import_module("ecentric_workspace.hr.employee_guard")
+        FR._employees.clear()
+        FR._has_role[:] = []
+        FR._msgprints[:] = []
+        FR._errors[:] = []
+        FR._delivery[:] = []
+        FR._nl[:] = []
+        FR._docs.clear()
+        FR._conf.clear()
+
+    def _user(self, email, enabled=1):
+        FR._docs[("User", email)] = {"enabled": enabled, "name": email}
+
+    def _emp(self, name, **kw):
+        row = {"employee_name": name, "employee_number": name, "user_id": None,
+               "company_email": None, "personal_email": None, "status": "Active",
+               "date_of_joining": str(FR.utils.nowdate()), "department": "Media - EC"}
+        row.update(kw)
+        FR._employees[name] = row
+        return row
+
+    def _hr(self, *emails):
+        for e in emails:
+            self._user(e)
+            FR._has_role.append({"parent": e, "role": "HR Manager", "parenttype": "User"})
+
+
+class _Doc(dict):
+    """Doc gia du dung cho hook: co .get(), gan thuoc tinh duoc, co .name."""
+
+    def __getattr__(self, k):
+        try:
+            return self[k]
+        except KeyError:
+            raise AttributeError(k)
+
+    def __setattr__(self, k, v):
+        self[k] = v
+
+
+class TestEmployeeAutofillUserId(_EmployeeGuardBase):
+    """Lop chan thu nhat: ngay luc CnB bam Luu.
+
+    Ba lan trong hai tuan (linh.hoang, hoang.truong, nguyen.le) mot ho so Active
+    duoc tao ma bo trong `user_id`, va ca ba lan nhan vien deu bao "loi phan mem
+    cham cong". Man hinh Employee khong bat buoc truong do, nen khong co gi chan."""
+
+    def test_fills_from_company_email_when_login_exists(self):
+        self._user("nguyen.le@ecentric.vn")
+        doc = _Doc(name="HR-EMP-00098", status="Active", user_id=None,
+                   company_email="nguyen.le@ecentric.vn", personal_email=None)
+        self.mod.autofill_user_id(doc)
+        self.assertEqual(doc.user_id, "nguyen.le@ecentric.vn")
+        self.assertTrue(FR._msgprints, "phai NOI ra da dien gi, khong duoc sua lang le")
+        self.assertEqual(FR._msgprints[-1]["indicator"], "green")
+
+    def test_warns_but_never_blocks_when_no_login_yet(self):
+        # Thuc tap sinh / nguoi onboard som chua co mail cong ty la tinh huong HOP LE.
+        # Chan cung o day se bien mot phien lam viec cua CnB thanh be tac ma ho khong
+        # tu go duoc - nen hook chi duoc canh bao, tuyet doi khong frappe.throw.
+        doc = _Doc(name="HR-EMP-00099", status="Active", user_id=None,
+                   company_email="chua.co@ecentric.vn", personal_email=None)
+        self.mod.autofill_user_id(doc)   # khong duoc nem gi
+        self.assertIsNone(doc.user_id)
+        self.assertEqual(FR._msgprints[-1]["indicator"], "orange")
+
+    def test_never_steals_a_login_another_employee_already_uses(self):
+        # Neu go nham email cua dong nghiep, tu dong gan se cho nguoi nay cham cong
+        # BANG DANH TINH nguoi khac - hong du lieu cong nang hon la thieu mot o.
+        self._user("linh.hoang@ecentric.vn")
+        self._emp("HR-EMP-00095", user_id="linh.hoang@ecentric.vn")
+        doc = _Doc(name="HR-EMP-00100", status="Active", user_id=None,
+                   company_email="linh.hoang@ecentric.vn", personal_email=None)
+        self.mod.autofill_user_id(doc)
+        self.assertIsNone(doc.user_id)
+        self.assertEqual(FR._msgprints[-1]["indicator"], "orange")
+
+    def test_ignores_disabled_login(self):
+        self._user("nghi.viec@ecentric.vn", enabled=0)
+        doc = _Doc(name="HR-EMP-00101", status="Active", user_id=None,
+                   company_email="nghi.viec@ecentric.vn", personal_email=None)
+        self.mod.autofill_user_id(doc)
+        self.assertIsNone(doc.user_id)
+
+    def test_leaves_alone_when_already_linked_or_not_active(self):
+        self._user("co.roi@ecentric.vn")
+        doc = _Doc(name="HR-EMP-00102", status="Active", user_id="co.roi@ecentric.vn",
+                   company_email="khac@ecentric.vn", personal_email=None)
+        self.mod.autofill_user_id(doc)
+        self.assertEqual(doc.user_id, "co.roi@ecentric.vn")
+        self.assertFalse(FR._msgprints)
+
+        left = _Doc(name="HR-EMP-00103", status="Left", user_id=None,
+                    company_email="nguoi.cu@ecentric.vn", personal_email=None)
+        self.mod.autofill_user_id(left)
+        self.assertIsNone(left.user_id)
+        self.assertFalse(FR._msgprints)
+
+    def test_registered_as_before_validate_in_hooks(self):
+        # doc_events "validate" chay SAU controller validate cua Employee, tuc la sau
+        # doan Frappe dung user_id de tao User Permission: dien o do thi truong co gia
+        # tri nhung quyen khong duoc tao cho tan lan luu sau.
+        path = os.path.join(_pkg_root(), "hooks.py")
+        with open(path, encoding="utf-8") as fh:
+            src = fh.read()
+        i = src.index('"Employee": {')
+        block = src[i:i + 700]
+        self.assertIn('"before_validate"', block)
+        self.assertIn("hr.employee_guard.autofill_user_id", block)
+
+
+class TestEmployeeMissingUserIdSweep(_EmployeeGuardBase):
+    """Lop chan thu hai: ban ra soat moi sang.
+
+    Lop mot chi cuu duoc ho so tao TU HOM NAY tro di. Ban quet la thu don duoc no
+    cu - ly do chinh chon no thay vi chi canh bao luc luu."""
+
+    def test_notifies_hr_managers_about_offenders(self):
+        self._hr("cnb.ecentric@ecentric.vn", "huong.pham@ecentric.vn")
+        self._emp("HR-EMP-00098", employee_name="Nguyen Le Ngoc Thao",
+                  company_email="nguyen.le@ecentric.vn")
+        out = self.mod.sweep_missing_user_id()
+        self.assertEqual(out["offenders"], 1)
+        self.assertEqual(out["notified"], 2)
+        got = sorted(r.get("recipient") for r in FR._delivery if r.get("channel") == "erp")
+        self.assertEqual(got, ["cnb.ecentric@ecentric.vn", "huong.pham@ecentric.vn"])
+
+    def test_silent_when_there_is_nothing_to_report(self):
+        # Mot tin "khong co van de gi" moi sang la cach nhanh nhat de nguoi ta hoc
+        # cach phot lo kenh nay - roi bo qua luon ngay that su co van de.
+        self._hr("cnb.ecentric@ecentric.vn")
+        self._emp("HR-EMP-00001", user_id="ai.do@ecentric.vn")
+        out = self.mod.sweep_missing_user_id()
+        self.assertEqual(out, {"offenders": 0, "notified": 0})
+        self.assertFalse(FR._delivery)
+
+    def test_does_not_nag_about_people_who_have_not_joined_yet(self):
+        self._hr("cnb.ecentric@ecentric.vn")
+        far = FR.utils.add_days(FR.utils.nowdate(), self.mod.LOOKAHEAD_DAYS + 5)
+        self._emp("HR-EMP-00200", date_of_joining=str(far))
+        self.assertEqual(self.mod.sweep_missing_user_id()["offenders"], 0)
+
+    def test_same_list_twice_in_a_day_sends_once(self):
+        self._hr("cnb.ecentric@ecentric.vn")
+        self._emp("HR-EMP-00098", company_email="nguyen.le@ecentric.vn")
+        self.mod.sweep_missing_user_id()
+        first = len([r for r in FR._delivery if r.get("channel") == "erp"])
+        self.mod.sweep_missing_user_id()
+        self.assertEqual(len([r for r in FR._delivery if r.get("channel") == "erp"]), first)
+
+    def test_a_new_offender_same_day_still_gets_reported(self):
+        # Dedupe theo VAN TAY CUA DANH SACH chu khong chi theo ngay: mot ho so hong
+        # luc 10h sang khong duoc doi den mai moi bao.
+        self._hr("cnb.ecentric@ecentric.vn")
+        self._emp("HR-EMP-00098", company_email="nguyen.le@ecentric.vn")
+        self.mod.sweep_missing_user_id()
+        before = len([r for r in FR._delivery if r.get("channel") == "erp"])
+        self._emp("HR-EMP-00099", company_email="trang.nguyen@ecentric.vn")
+        self.mod.sweep_missing_user_id()
+        self.assertGreater(len([r for r in FR._delivery if r.get("channel") == "erp"]), before)
+
+    def test_message_says_whether_the_login_exists(self):
+        # CnB can biet viec can lam la "dien mot o" hay "tao tai khoan truoc da".
+        self._user("nguyen.le@ecentric.vn")
+        self._emp("HR-EMP-00098", employee_name="Nguyen Le Ngoc Thao",
+                  company_email="nguyen.le@ecentric.vn")
+        self._emp("HR-EMP-00099", employee_name="Trang Nguyen Thuy",
+                  company_email="trang.nguyen@ecentric.vn")
+        msg = self.mod._message(self.mod._offenders())
+        self.assertIn("đã có tài khoản", msg)
+        self.assertIn("chưa có tài khoản", msg)
+        self.assertIn("<br>", msg)   # the Teams/inbox nuot ky tu newline
+
+    def test_kill_switch(self):
+        self._hr("cnb.ecentric@ecentric.vn")
+        self._emp("HR-EMP-00098")
+        FR._conf[self.mod.KILL_SWITCH] = 1
+        self.assertEqual(self.mod.sweep_missing_user_id(), {"skipped": "kill switch"})
+        self.assertFalse(FR._delivery)
+
+    def test_falls_back_when_the_frappe_helper_is_unavailable(self):
+        # Duong lui phai TU MINH chay duoc: neu no cung hong thi ban ra soat im lang.
+        import sys as _sys
+        saved = _sys.modules.pop("frappe.utils.user")
+        try:
+            self._hr("cnb.ecentric@ecentric.vn")
+            self.assertEqual(self.mod._hr_recipients(), ["cnb.ecentric@ecentric.vn"])
+        finally:
+            _sys.modules["frappe.utils.user"] = saved
+
+    def test_skips_disabled_accounts_and_system_users(self):
+        self._hr("cnb.ecentric@ecentric.vn")
+        self._user("nghi.viec@ecentric.vn", enabled=0)
+        FR._has_role.append({"parent": "nghi.viec@ecentric.vn", "role": "HR Manager",
+                             "parenttype": "User"})
+        FR._has_role.append({"parent": "Administrator", "role": "HR Manager",
+                             "parenttype": "User"})
+        self.assertEqual(self.mod._hr_recipients(), ["cnb.ecentric@ecentric.vn"])
+
+    def test_action_url_opens_the_filtered_list(self):
+        self.assertIn("/app/employee", self.mod.ACTION_URL)
+        self.assertIn("not%20set", self.mod.ACTION_URL)
+
+    def test_own_cron_slot_ahead_of_the_checkin_reminder(self):
+        # Frappe khoa Scheduled Job Type theo dotted path, nen ham nay phai co slot
+        # rieng. 08:00 < 08:30 la co y: nguoi vao lam hom nay con kip duoc noi vao
+        # he thong truoc loi nhac cham cong dau tien.
+        path = os.path.join(_pkg_root(), "hooks.py")
+        with open(path, encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn('"0 8 * * *"', src)
+        self.assertIn("hr.employee_guard.sweep_missing_user_id", src)
+
+
+class TestHrDataIssueRouting(unittest.TestCase):
+    """`hr_data_issue` KHONG duoc ban Teams cho toi khi luong Power Automate biet ten no.
+
+    Luong chan event_type hai lop (JSON schema enum o trigger + node Condition).
+    Mot event type la se bi tra PA_400 - moi tin deu ROT, chu khong phai "im lang
+    khong co Teams". De False la trang thai dung cho den khi ben kia duoc khai bao."""
+
+    def test_in_event_types_and_matrix(self):
+        self.assertIn("hr_data_issue", ev.EVENT_TYPES)
+        self.assertIn("hr_data_issue", ev.ROUTING_MATRIX)
+
+    def test_teams_off_until_the_flow_knows_the_name(self):
+        self.assertFalse(ev.ROUTING_MATRIX["hr_data_issue"]["teams"])
+
+    def test_reaches_the_inbox_and_web_push(self):
+        row = ev.ROUTING_MATRIX["hr_data_issue"]
+        self.assertTrue(row["erp"])
+        self.assertTrue(row["webpush"])

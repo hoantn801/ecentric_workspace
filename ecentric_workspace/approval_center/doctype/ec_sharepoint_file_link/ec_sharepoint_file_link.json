@@ -1,0 +1,104 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-09-14 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-14 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC SharePoint File Link",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "field_order": [
+  "file_url",
+  "business_doctype",
+  "business_name",
+  "cb0",
+  "sp_item_id",
+  "sp_web_url",
+  "sp_last_modified",
+  "sp_synced_at",
+  "sp_granted_to"
+ ],
+ "fields": [
+  {
+   "fieldname": "file_url",
+   "fieldtype": "Data",
+   "label": "File URL",
+   "reqd": 1,
+   "unique": 1,
+   "description": "URL cua tep trong Frappe - khoa noi ban ghi nay voi dong File."
+  },
+  {
+   "fieldname": "business_doctype",
+   "fieldtype": "Data",
+   "label": "Business DocType",
+   "read_only": 1
+  },
+  {
+   "fieldname": "business_name",
+   "fieldtype": "Data",
+   "label": "Business Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sp_item_id",
+   "fieldtype": "Data",
+   "label": "SharePoint Item ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sp_web_url",
+   "fieldtype": "Small Text",
+   "label": "SharePoint URL",
+   "read_only": 1,
+   "description": "Duong dan mo tren Word Online. PHAI la Small Text chu khong phai Data: Graph tra ve URL da URL-encode ten tep, ma moi ky tu tieng Viet co dau no ra 9 ky tu (o-moc-nang -> %E1%BB%A3). Mot ten tep tieng Viet binh thuong da vuot nguong 140 cua Data - do that 14/09 la 190 ky tu."
+  },
+  {
+   "fieldname": "sp_last_modified",
+   "fieldtype": "Datetime",
+   "label": "Lan sua gan nhat tren SharePoint",
+   "read_only": 1,
+   "description": "Doc tu Graph. So voi thoi diem tung cap duyet de biet tep co doi sau khi duyet khong."
+  },
+  {
+   "fieldname": "sp_synced_at",
+   "fieldtype": "Datetime",
+   "label": "Lan doi chieu gan nhat",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sp_granted_to",
+   "fieldtype": "Small Text",
+   "label": "Da cap quyen cho",
+   "read_only": 1,
+   "description": "Danh sach email da duoc cap quyen sua, cach nhau dau phay."
+  }
+ ],
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ]
+}

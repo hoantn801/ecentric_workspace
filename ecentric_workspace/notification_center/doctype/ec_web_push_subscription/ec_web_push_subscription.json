@@ -1,0 +1,127 @@
+{
+ "doctype": "DocType",
+ "name": "EC Web Push Subscription",
+ "module": "Notification Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "autoname": "hash",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "user",
+  "active",
+  "cb_1",
+  "platform",
+  "user_agent",
+  "sec_keys",
+  "endpoint",
+  "p256dh",
+  "auth",
+  "sec_health",
+  "last_success_at",
+  "failure_count",
+  "cb_2",
+  "last_error"
+ ],
+ "fields": [
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "User",
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active",
+   "default": "1",
+   "in_list_view": 1,
+   "description": "Bo tich khi endpoint tra ve 404/410 (nguoi dung go app hoac thu hoi quyen). Khong xoa ban ghi de con dau vet."
+  },
+  {
+   "fieldname": "cb_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Data",
+   "label": "Platform",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "user_agent",
+   "fieldtype": "Small Text",
+   "label": "User Agent"
+  },
+  {
+   "fieldname": "sec_keys",
+   "fieldtype": "Section Break",
+   "label": "Push Endpoint"
+  },
+  {
+   "fieldname": "endpoint",
+   "fieldtype": "Small Text",
+   "label": "Endpoint",
+   "reqd": 1,
+   "description": "URL push service cua trinh duyet. Duy nhat theo endpoint_hash."
+  },
+  {
+   "fieldname": "p256dh",
+   "fieldtype": "Data",
+   "label": "P256DH Key",
+   "length": 255
+  },
+  {
+   "fieldname": "auth",
+   "fieldtype": "Data",
+   "label": "Auth Secret",
+   "length": 255
+  },
+  {
+   "fieldname": "sec_health",
+   "fieldtype": "Section Break",
+   "label": "Health"
+  },
+  {
+   "fieldname": "last_success_at",
+   "fieldtype": "Datetime",
+   "label": "Last Success At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "failure_count",
+   "fieldtype": "Int",
+   "label": "Failure Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Small Text",
+   "label": "Last Error",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1
+  }
+ ]
+}

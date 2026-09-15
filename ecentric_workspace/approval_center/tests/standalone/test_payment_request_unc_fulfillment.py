@@ -60,7 +60,8 @@ def _load(docs, roles=("Employee",), user="fin@ec.vn", todos=None, participants=
     service.py import engine/command_service LUC GOI (lazy) nen stub phai o lai trong
     sys.modules toi het test: `case.addCleanup` tra lai."""
     world = {"set_value": [], "sql": [], "assign": [], "notify": [], "log": [], "ensure_sole": [],
-             "closed": [], "attached": [], "saved": [], "log_error": [], "docs": docs,
+             "closed": [], "attached": [], "saved": [], "log_error": [], "log_comment": [],
+             "docs": docs,
              "todos": set(todos or [])}
     fk = types.ModuleType("frappe")
     fk._ = lambda s: s
@@ -110,10 +111,16 @@ def _load(docs, roles=("Employee",), user="fin@ec.vn", todos=None, participants=
         world["sql"].append((" ".join(q.split()), params))
         if q.strip().lower().startswith("update"):
             # Stub KHONG tu tra loi: dieu kien 'Assigned' phai nam trong SQL that.
-            u, name = params
+            # Tu 09/09 lenh UPDATE mang them ba gia tri (hai ngay Finance cam ket + han xu ly)
+            # GHI TRONG CUNG lenh - de khong bao gio co khoanh khac "da nhan ma chua co han".
+            # Stub doc params theo dung thu tu do; sai thu tu la no vo ngay o day.
+            u, ngay_tt, ngay_unc, due, name = params
             cond = "fulfillment_status='Assigned'" in q
             if not cond or docs[name].get("fulfillment_status") == "Assigned":
-                docs[name]["fulfillment_status"] = "In Progress"; docs[name]["fulfillment_owner"] = u
+                docs[name].update({"fulfillment_status": "In Progress", "fulfillment_owner": u,
+                                   "fulfillment_payment_date": ngay_tt,
+                                   "fulfillment_unc_date": ngay_unc,
+                                   "fulfillment_due_at": due})
             return None
         name, u = params
         return [(1,)] if docs[name].get("fulfillment_owner") == u else []
@@ -124,14 +131,21 @@ def _load(docs, roles=("Employee",), user="fin@ec.vn", todos=None, participants=
         return False
 
     def get_all(dt, filters=None, fields=None, limit_page_length=None, **k):
+        """Tu 09/09 `due_candidates` KHONG con loc ngay o tang SQL: moc nhac la
+        `fulfillment_payment_date` neu co, khong thi `payment_date` - mot dieu kien COALESCE
+        ma Frappe 16 chan trong `filters`. Nen cai gia nay chi loc trang thai, va tra ve
+        DUNG cac truong duoc yeu cau (khong tra thua: thieu truong nao thi phai no o day,
+        chu khong phai lang le thanh None trong ham that)."""
         assert dt == "EC Payment Request"
+        assert "payment_date" not in (filters or {}), "loc ngay phai o Python, khong o SQL"
         out = []
         for n, d in docs.items():
             if d.get("fulfillment_status") not in filters["fulfillment_status"][1]:
                 continue
-            if _getdate(d["payment_date"]) > _getdate(filters["payment_date"][1]):
-                continue
-            out.append(types.SimpleNamespace(name=n, unc_reminded_on=d.get("unc_reminded_on")))
+            row = types.SimpleNamespace(name=n)
+            for f in (fields or []):
+                setattr(row, f, d.get(f) if f != "name" else n)
+            out.append(row)
         return out
     fk.get_all = get_all
     fk.db = types.SimpleNamespace(get_value=db_get_value, set_value=db_set_value, sql=db_sql, exists=db_exists)
@@ -153,7 +167,13 @@ def _load(docs, roles=("Employee",), user="fin@ec.vn", todos=None, participants=
     eng.request_label = lambda dt, name: "PR " + name
     eng.is_active_process_fulfiller = lambda at, u: u in ("fin1@ec.vn", "fin2@ec.vn")
     eng.ensure_sole_todo = lambda dt, name, u, desc=None, date=None: world["ensure_sole"].append((name, u, date))
-    eng.log_action = lambda ar, action, actor, **k: world["log"].append((action, actor, k.get("new_status")))
+    # `comment` ghi rieng (world["log_comment"]): `log` giu nguyen bo ba de cac phep kiem cu
+    # khong phai doi. Duong thay file UNC kiem NOI DUNG ghi chu, vi ly do thay chi ton tai o
+    # do - khong co truong nao khac giu no.
+    def _log_action(ar, action, actor, **k):
+        world["log"].append((action, actor, k.get("new_status")))
+        world["log_comment"].append((action, actor, k.get("comment")))
+    eng.log_action = _log_action
     eng.close_fulfillment_todos = lambda dt, name: world["closed"].append(name)
     cs = types.ModuleType("ecentric_workspace.approval_center.shared.requests.command_service")
     cs.attach_extra_files = lambda doc, urls: world["attached"].append((doc.name, list(urls), doc.get("completed_attachment"), len(world["saved"])))
@@ -230,7 +250,9 @@ class TestOnFinalApproval(unittest.TestCase):
 class TestClaim(unittest.TestCase):
     def test_finance_nhan_viec(self):
         svc, _r, w, _f = _load({"PR-1": _pr(fulfillment_status="Assigned")}, user="fin1@ec.vn", case=self)
-        self.assertEqual(svc.claim_fulfillment("PR-1"), {"owner": "fin1@ec.vn"})
+        self.assertEqual(svc.claim_fulfillment("PR-1", payment_date="2026-09-10",
+                                       unc_date="2026-09-12"),
+                         {"owner": "fin1@ec.vn"})
         self.assertEqual(w["docs"]["PR-1"]["fulfillment_status"], "In Progress")
         self.assertEqual(w["ensure_sole"], [("PR-1", "fin1@ec.vn", _dt.date(2026, 9, 10))])
         self.assertEqual(w["log"], [("Started", "fin1@ec.vn", "In Progress")])
@@ -245,14 +267,14 @@ class TestClaim(unittest.TestCase):
     def test_nguoi_co_todo_tren_phieu_duoc_nhan_du_khong_trong_nhom(self):
         svc, _r, w, _f = _load({"PR-1": _pr(fulfillment_status="Assigned")}, user="tam@ec.vn",
                                todos=[("PR-1", "tam@ec.vn")], case=self)
-        svc.claim_fulfillment("PR-1")
+        svc.claim_fulfillment("PR-1", payment_date="2026-09-10", unc_date="2026-09-12")
         self.assertEqual(w["docs"]["PR-1"]["fulfillment_owner"], "tam@ec.vn")
 
     def test_nguoi_thu_hai_bi_tu_choi(self):
         svc, _r, w, _f = _load({"PR-1": _pr(fulfillment_status="In Progress", fulfillment_owner="fin1@ec.vn")},
                                user="fin2@ec.vn", case=self)
         with self.assertRaises(_Throw) as cm:
-            svc.claim_fulfillment("PR-1")
+            svc.claim_fulfillment("PR-1", payment_date="2026-09-10", unc_date="2026-09-12")
         self.assertIn("người khác", str(cm.exception))
         self.assertEqual(w["docs"]["PR-1"]["fulfillment_owner"], "fin1@ec.vn")
         self.assertEqual(w["ensure_sole"], [])
@@ -303,6 +325,182 @@ class TestComplete(unittest.TestCase):
             svc.complete_fulfillment("PR-1", payload='{"completed_attachment": "/private/files/u.pdf"}')
 
 
+class TestThayFileUncSauKhiHoanTat(unittest.TestCase):
+    """Ke toan dinh NHAM UNC roi da bam Hoan tat (Hoan hoi 09/09).
+
+    Truoc dot nay khong co duong nao sua tren man hinh: `completed_fulfillment` chan phieu
+    da Completed, va khong co endpoint nao khac dung toi `completed_attachment`. Nghia la moi
+    lan dinh nham deu phai nho quan tri chay lenh tay tren production.
+    """
+
+    CU = "/private/files/unc_nham.pdf"
+    MOI = "/private/files/unc_dung.pdf"
+
+    def _done(self, **o):
+        base = dict(fulfillment_status="Completed", fulfillment_owner="fin1@ec.vn",
+                    completed_by="fin1@ec.vn", completed_at=_dt.datetime(2026, 9, 8, 9, 0),
+                    completed_attachment=self.CU, unc_superseded_files=None)
+        base.update(o)
+        return {"PR-1": _pr(**base)}
+
+    def test_thay_file_va_GIU_NGUYEN_trang_thai_Hoan_tat(self):
+        """KHONG keo phieu ve 'In Progress'. `fulfillment_status == "Completed"` la dieu kien
+        TAO PHIEU DOT KE: mot phieu chia dot da hoan tat co the da sinh phieu dot 2 dang chay,
+        va `installments_block` cong 'da chi' theo chinh trang thai nay. Keo nguoc lai vi mot
+        cai file thi con so 'da chi' tut xuong trong khi tien da ra khoi tai khoan that."""
+        svc, _r, w, _f = _load(self._done(), user="fin1@ec.vn", case=self)
+        out = svc.replace_unc_attachment("PR-1", self.MOI, "dinh nham UNC cua phieu khac")
+        d = w["docs"]["PR-1"]
+        self.assertEqual(d["fulfillment_status"], "Completed")
+        self.assertEqual(d["completed_attachment"], self.MOI)
+        self.assertTrue(out["replaced"])
+
+    def test_file_cu_KHONG_bi_xoa_ma_chuyen_sang_danh_sach_da_thay(self):
+        svc, _r, w, _f = _load(self._done(), user="fin1@ec.vn", case=self)
+        svc.replace_unc_attachment("PR-1", self.MOI, "dinh nham UNC cua phieu khac")
+        self.assertEqual(w["docs"]["PR-1"]["unc_superseded_files"], self.CU)
+        # va van duoc gan vao phieu -> con trong danh sach dinh kem de doi chieu
+        self.assertEqual(w["attached"], [("PR-1", [self.MOI], self.MOI, 0)])
+
+    def test_thay_NHIEU_LAN_thi_cong_don_chu_khong_ghi_de(self):
+        """Ghi de thi lan thay thu hai xoa mat dau vet lan thu nhat - dung cai ma ca tinh nang
+        nay sinh ra de tranh."""
+        svc, _r, w, _f = _load(self._done(), user="fin1@ec.vn", case=self)
+        svc.replace_unc_attachment("PR-1", self.MOI, "dinh nham lan mot roi")
+        svc.replace_unc_attachment("PR-1", "/private/files/unc_v3.pdf", "van con nham lan nua")
+        self.assertEqual(w["docs"]["PR-1"]["unc_superseded_files"].splitlines(),
+                         [self.CU, self.MOI])
+        self.assertEqual(w["docs"]["PR-1"]["completed_attachment"], "/private/files/unc_v3.pdf")
+
+    def test_completed_by_va_completed_at_GIU_NGUYEN(self):
+        """Viec hoan tat da xay ra THAT vao luc do. Ghi de nguoi/thoi diem hoan tat bang nguoi
+        vua sua file la khai man mot su kien de ghi mot su kien khac."""
+        svc, _r, w, _f = _load(self._done(), user="admin@ec.vn", roles=("System Manager",), case=self)
+        svc.replace_unc_attachment("PR-1", self.MOI, "ke toan bao dinh nham")
+        d = w["docs"]["PR-1"]
+        self.assertEqual(d["completed_by"], "fin1@ec.vn")
+        self.assertEqual(d["completed_at"], _dt.datetime(2026, 9, 8, 9, 0))
+
+    def test_ly_do_BAT_BUOC_va_di_vao_lich_su_phieu(self):
+        """Ly do khong co truong rieng - no CHI ton tai o lich su phe duyet. Neu khong ghi vao
+        do thi ba thang sau khong ai biet vi sao phieu nay co hai file UNC."""
+        svc, _r, w, _f = _load(self._done(), user="fin1@ec.vn", case=self)
+        for xau in (None, "", "   ", "nham"):
+            with self.assertRaises(_Throw, msg=repr(xau)):
+                svc.replace_unc_attachment("PR-1", self.MOI, xau)
+        self.assertEqual(w["saved"], [])           # tu choi thi khong ghi gi
+        svc.replace_unc_attachment("PR-1", self.MOI, "dinh nham UNC cua phieu khac")
+        act, actor, cmt = w["log_comment"][-1]
+        self.assertEqual((act, actor), ("Commented", "fin1@ec.vn"))
+        self.assertIn("dinh nham UNC cua phieu khac", cmt)
+
+    def test_chi_dung_action_CO_THAT_trong_DocType(self):
+        """`EC Approval Action.action` la mot Select co danh sach co dinh. Mot gia tri tu nghi
+        ra (vd 'Updated') se bi Frappe tu choi luc insert - nhung o day thi lang le troi qua
+        vi engine la gia. Nen kiem thang vao options THAT trong file DocType."""
+        import json
+        with io.open(os.path.join(_AC, "doctype", "ec_approval_action",
+                                  "ec_approval_action.json"), encoding="utf-8") as fh:
+            opts = next(f for f in json.load(fh)["fields"]
+                        if f["fieldname"] == "action")["options"].split("\n")
+        svc, _r, w, _f = _load(self._done(), user="fin1@ec.vn", case=self)
+        svc.replace_unc_attachment("PR-1", self.MOI, "dinh nham UNC cua phieu khac")
+        self.assertIn(w["log_comment"][-1][0], opts)
+
+    def test_chi_nguoi_da_xu_ly_hoac_SM(self):
+        svc, _r, w, _f = _load(self._done(), user="fin2@ec.vn", case=self)
+        with self.assertRaises(_Perm):
+            svc.replace_unc_attachment("PR-1", self.MOI, "toi thay no sai")
+        self.assertEqual(w["saved"], [])
+        svc, _r, w, _f = _load(self._done(), user="admin@ec.vn", roles=("System Manager",), case=self)
+        svc.replace_unc_attachment("PR-1", self.MOI, "ke toan bao dinh nham")
+        self.assertEqual(w["docs"]["PR-1"]["completed_attachment"], self.MOI)
+
+    def test_phieu_CHUA_hoan_tat_thi_bao_SAI_BUOC_chu_khong_bao_thieu_quyen(self):
+        """Dang xu ly thi cu bam Hoan tat nhu binh thuong.
+
+        Kiem NOI DUNG cau bao, khong chi kiem "co nem loi". `can_replace_unc` cung tra False
+        cho phieu chua Completed, nen bo hang chan trang thai di thi van co loi nem ra - va
+        mot phep kiem chi doi `assertRaises` se xanh nhu khong co gi. Nhung nguoi dung se
+        doc "Ban khong co quyen" trong khi ho co du quyen, chi la bam sai luc: mot cau bao
+        sai day ho di tim quyen han thay vi nhin lai trang thai phieu. Cho nen loi CU THE
+        moi la thu dang kiem o day.
+        """
+        for tt in ("Assigned", "In Progress", "Cancelled", "Not Started"):
+            svc, _r, w, _f = _load(self._done(fulfillment_status=tt), user="fin1@ec.vn", case=self)
+            with self.assertRaises(_Throw, msg=tt) as cm:
+                svc.replace_unc_attachment("PR-1", self.MOI, "ke toan bao dinh nham")
+            self.assertNotIsInstance(cm.exception, _Perm, tt)
+            self.assertIn("hoàn tất", str(cm.exception).lower(), tt)
+            self.assertEqual(w["saved"], [])
+
+    def test_url_phai_la_tep_da_tai_len(self):
+        svc, _r, w, _f = _load(self._done(), user="fin1@ec.vn", case=self)
+        for bad in ("", None, "http://ngoai/y.pdf", "files/u.pdf"):
+            with self.assertRaises(_Throw, msg=repr(bad)):
+                svc.replace_unc_attachment("PR-1", bad, "ke toan bao dinh nham")
+        self.assertEqual(w["saved"], [])
+
+    def test_trung_file_dang_gan_thi_tu_choi(self):
+        """Bam nham hai lan cung mot tep: neu cho qua thi file dung bi day vao danh sach 'da
+        thay' va phieu con lai mot lich su sai."""
+        svc, _r, w, _f = _load(self._done(), user="fin1@ec.vn", case=self)
+        with self.assertRaises(_Throw):
+            svc.replace_unc_attachment("PR-1", self.CU, "ke toan bao dinh nham")
+        self.assertEqual(w["saved"], [])
+
+    def test_bao_ca_nguoi_de_nghi_vi_ho_da_nhan_thong_bao_file_cu(self):
+        svc, _r, w, _f = _load(self._done(), user="fin1@ec.vn", case=self)
+        svc.replace_unc_attachment("PR-1", self.MOI, "dinh nham UNC cua phieu khac")
+        users, subject, _n = w["notify"][-1]
+        self.assertIn("req@ec.vn", users)
+        self.assertIn("UNC", subject)
+
+    def test_khoi_unc_fix_cho_man_hinh(self):
+        svc, _r, w, _f = _load(self._done(unc_superseded_files="/private/files/a.pdf"),
+                               user="fin1@ec.vn", case=self)
+        doc = _f.get_doc("EC Payment Request", "PR-1")
+        blk = svc.unc_fix_block(doc)["unc_fix"]
+        self.assertTrue(blk["can_replace"])
+        self.assertEqual(blk["superseded"], ["/private/files/a.pdf"])
+        self.assertEqual(blk["min_reason_len"], svc.MIN_UNC_FIX_REASON)
+        # nguoi ngoai: khong hien nut
+        svc2, _r2, _w2, f2 = _load(self._done(), user="fin2@ec.vn", case=self)
+        self.assertFalse(svc2.unc_fix_block(f2.get_doc("EC Payment Request", "PR-1"))["unc_fix"]["can_replace"])
+
+    def test_nut_KHONG_hien_khi_phieu_chua_hoan_tat(self):
+        """`can_replace_unc` la thu quyet dinh nut co hien hay khong. No phai tu kiem trang
+        thai, khong duoc dua vao hang chan trong `replace_unc_attachment`: hang chan do chi
+        chay SAU khi nguoi dung da bam. Bo dieu kien o day thi nut "Thay file UNC" bay ra
+        tren ca phieu dang xu ly - canh nut "Hoan tat" - va nguoi dung bam cai nao cung duoc
+        mot cau tu choi."""
+        for tt in ("Assigned", "In Progress", "Cancelled", "Not Started"):
+            svc, _r, _w, f = _load(self._done(fulfillment_status=tt), user="fin1@ec.vn", case=self)
+            doc = f.get_doc("EC Payment Request", "PR-1")
+            self.assertFalse(svc.can_replace_unc(doc), tt)
+            self.assertFalse(svc.unc_fix_block(doc)["unc_fix"]["can_replace"], tt)
+
+    def test_detail_extra_GIU_ca_khoi_chia_dot(self):
+        """`detail_extender` chi nhan MOT ham. Doi no sang `detail_extra` ma quen gop
+        `installments_block` thi toan bo khoi chia dot bien mat khoi man hinh - va khong test
+        nao khac bat duoc, vi khoi do do mot ham khac dung."""
+        svc, _r, _w, f = _load(self._done(payment_mode="Full"), user="fin1@ec.vn", case=self)
+        out = svc.detail_extra(f.get_doc("EC Payment Request", "PR-1"), None)
+        self.assertIn("installments", out)
+        self.assertIn("unc_fix", out)
+
+    def test_definition_tro_vao_detail_extra(self):
+        src = _read("features", "payment_request", "domain", "definition.py")
+        self.assertIn("detail_extender=detail_extra", src)
+        self.assertNotIn("detail_extender=installments_block", src)
+
+    def test_api_la_POST(self):
+        """GET tu dong rollback trong Frappe: duong GHI ma khai GET thi doi file xong lai mat."""
+        src = _read("features", "payment_request", "controllers", "api.py")
+        i = src.index("def replace_unc_attachment")
+        self.assertIn('methods=["POST"]', src[max(0, i - 200):i])
+
+
 class TestReminders(unittest.TestCase):
     TODAY = _dt.date(2026, 9, 7)
 
@@ -329,6 +527,22 @@ class TestReminders(unittest.TestCase):
         self.assertIsNone(w["docs"]["C"]["unc_reminded_on"])
         # chay lan hai cung ngay: khong nhac lai
         self.assertEqual(rem.remind_unc_due(self.TODAY), 0)
+
+    def test_nhac_theo_ngay_Finance_cam_ket_va_NOI_ca_han_co_UNC(self):
+        """Tu 09/09 Finance khai HAI ngay luc nhan viec. Neu thong bao chi noi ngay thanh
+        toan thi nguoi nhan khong biet han that (ngay co UNC) - hai ngay ma chi hien mot la
+        mat nua thong tin vua bat ho khai."""
+        docs = {"A": _pr(fulfillment_status="In Progress", fulfillment_owner="fin1@ec.vn",
+                         payment_date="2026-09-20",              # ngay da duyet: NGOAI cua so D-3
+                         fulfillment_payment_date="2026-09-08",  # Finance cam ket: TRONG cua so
+                         fulfillment_unc_date="2026-09-12")}
+        _s, rem, w, _f = _load(docs, case=self)
+        self.assertEqual(rem.due_candidates(self.TODAY), ["A"])   # loc theo ngay cam ket
+        rem.remind_unc_due(self.TODAY)
+        subj = w["notify"][0][1]
+        self.assertIn("08-09-2026", subj)          # moc nhac = ngay Finance cam ket
+        self.assertIn("còn 1 ngày", subj)
+        self.assertIn("hạn có UNC 12-09-2026", subj)
 
     def test_hom_nay_la_ngay_thanh_toan(self):
         _s, rem, w, _f = _load({"A": _pr(fulfillment_status="Assigned", payment_date="2026-09-07")}, case=self)

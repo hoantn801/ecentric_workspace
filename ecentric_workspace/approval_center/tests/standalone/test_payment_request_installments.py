@@ -463,7 +463,15 @@ class TestWiring(unittest.TestCase):
             self.assertIn('"%s"' % f, ed, f)
         for f in ("installment_no", "installment_of"):
             self.assertNotIn('"%s"' % f, ed, f + " do SERVER dat, khong duoc la editable")
-        self.assertIn("detail_extender=installments_block", d)
+        # Tu 09/09 `detail_extender` tro vao `detail_extra` = installments_block + unc_fix_block
+        # (`detail_extender` chi nhan MOT ham). Dieu can giu la khoi chia dot VAN toi duoc man
+        # hinh - nen kiem cai do, chu khong kiem ten ham: buoc moi lan them mot khoi phu la
+        # phai sua test nay thi test dang giu mot chi tiet, khong giu mot dam bao.
+        self.assertIn("detail_extender=detail_extra", d)
+        svc_src = _read("features", "payment_request", "application", "service.py")
+        i = svc_src.index("def detail_extra(")
+        self.assertIn("installments_block(business, request)", svc_src[i:i + 400],
+                      "detail_extra phai GOP khoi chia dot, khong duoc thay the no")
         a = _read("features", "payment_request", "controllers", "api.py")
         j = a.index("def create_next_installment(")
         self.assertIn('@frappe.whitelist(methods=["POST"])', a[:j].rstrip().splitlines()[-1])

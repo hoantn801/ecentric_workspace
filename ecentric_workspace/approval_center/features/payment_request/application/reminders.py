@@ -36,27 +36,71 @@ def _recipients(doc, engine):
         [p for p in proc.participants if p.participant_purpose == "Fulfiller"], doc.requested_by)]
 
 
+def moc_nhac(row):
+    """Ngay dung de NHAC: ngay thanh toan Finance cam ket, lui ve ngay nguoi de nghi khai.
+
+    Tu 09/09 Finance khai hai ngay luc nhan viec: ngay thanh toan (nhac) va ngay co UNC
+    (qua han). Truoc khi co nguoi nhan thi chua co cam ket nao, nen van nhac theo ngay da
+    duoc duyet. `get(...)` chu khong phai truy cap thang: ham nay nhan ca doc lan dong
+    `get_all`, va mot ban ghi cu co the chua co truong moi.
+    """
+    return _truong(row, "fulfillment_payment_date") or _truong(row, "payment_date")
+
+
+def _truong(row, key):
+    """Doc mot truong tu ban ghi, du no la dict, `frappe._dict` hay Document.
+
+    Ban dau ham nay viet `row.get(k) if hasattr(row, "get") else None` - va do la mot cai
+    bay: doi tuong khong co `.get` thi no tra None IM LANG, tuc "phieu nay khong co ngay
+    nao" thay vi "toi khong doc duoc". Mot phep loc dua tren cau tra loi do se bo qua ca
+    danh sach ma khong ai biet.
+    """
+    if isinstance(row, dict):        # ke ca frappe._dict
+        return row.get(key)
+    return getattr(row, key, None)
+
+
 def _subject(doc, today, engine):
-    days = (getdate(doc.payment_date) - today).days
+    moc = moc_nhac(doc)
+    days = (getdate(moc) - today).days
     if days > 0:
         when = _("còn {0} ngày").format(days)
     elif days == 0:
         when = _("HÔM NAY")
     else:
         when = _("QUÁ HẠN {0} ngày").format(-days)
-    return _("Nhắc xử lý UNC — hạn thanh toán {0} ({1}): {2}").format(
-        formatdate(doc.payment_date), when, engine.request_label(BUSINESS_DT, doc.name))
+    han_unc = _truong(doc, "fulfillment_unc_date")
+    return _("Nhắc xử lý UNC — hạn thanh toán {0} ({1}){2}: {3}").format(
+        formatdate(moc), when,
+        _(" · hạn có UNC {0}").format(formatdate(han_unc)) if han_unc else "",
+        engine.request_label(BUSINESS_DT, doc.name))
 
 
 def due_candidates(today=None):
-    """Phieu can nhac hom nay (chua nhac hom nay). Loc unc_reminded_on trong Python vi
-    `!= today` trong SQL bo qua NULL."""
+    """Phieu can nhac hom nay (chua nhac hom nay).
+
+    Loc MOC NHAC trong Python, khong trong SQL: tu 09/09 moc la
+    `fulfillment_payment_date` neu co, khong thi `payment_date` - mot dieu kien COALESCE
+    ma Frappe 16 khong cho dat trong `fields`/`filters`. Loc `unc_reminded_on` cung o
+    Python vi `!= today` trong SQL bo qua NULL.
+
+    Tap phai quet la cac phieu dang Assigned/In Progress - vai chuc dong, khong phai ca bang.
+    """
     today = getdate(today)
+    han = add_days(today, REMIND_DAYS_BEFORE)
     rows = frappe.get_all(BUSINESS_DT,
-                          filters={"fulfillment_status": ["in", list(_ACTIVE)],
-                                   "payment_date": ["<=", add_days(today, REMIND_DAYS_BEFORE)]},
-                          fields=["name", "unc_reminded_on"], limit_page_length=500)
-    return [r.name for r in rows if not r.unc_reminded_on or getdate(r.unc_reminded_on) != today]
+                          filters={"fulfillment_status": ["in", list(_ACTIVE)]},
+                          fields=["name", "unc_reminded_on", "payment_date",
+                                  "fulfillment_payment_date"], limit_page_length=500)
+    out = []
+    for r in rows:
+        moc = moc_nhac(r)
+        if not moc or getdate(moc) > getdate(han):
+            continue
+        if r.unc_reminded_on and getdate(r.unc_reminded_on) == today:
+            continue
+        out.append(r.name)
+    return out
 
 
 def remind_unc_due(today=None):

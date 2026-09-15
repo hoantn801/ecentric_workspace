@@ -71,6 +71,23 @@ KHONG con tac dung tren site nay. Muon doi quyen thi doi qua Custom DocPerm (hoa
 `reset_perms` roi lam lai). Day la cai gia da biet truoc cua viec cap role qua API duoc
 ho tro - giong het p045 da chap nhan cho Sales Order / Purchase Order.
 
+Doi so p170 -> p190 (15/09)
+---------------------------
+Nhanh nay dung tu 09/09 cho Hoan quyet dinh. Trong luc do `main` da chay them 133 commit va
+so p170 bi dot khac dung mat (`p170_resync_payment_request_unc_claim_dates`); p185..p189 cung
+da co chu. Doi so truoc khi merge de khong them mot cap patch trung so nua - trong repo dang
+co san sau cap trung (p160, p164, p167, p168, p172, p173) va `test_patch_numbering` do vi
+chung.
+
+Tinh hinh da DOI so voi luc viet patch - doc truoc khi danh gia lai
+------------------------------------------------------------------
+Do lai tren production 15/09: DocShare tren `EC Payment Request` da len 460 dong (09/09 chi
+co 1), 6/7 nguoi phong Finance da duoc chia se 53/59 phieu. Nghia la trieu chung 403 cua chi
+Dan KHONG con. Patch nay khong con de chua mot loi dang chay, ma de dong LO CAU TRUC: 53/59
+kia la ket qua cua nhung lan cap bu CHAY TAY, nen nguoi MOI vao phong Finance van se co 0
+phieu va lai phai nho ai do chay lai. Hoan chot 09/09 va giu nguyen quyet dinh 15/09: quyen
+phai di theo ROLE, khong phai theo tung lan chay tay.
+
 Rollback
 --------
     bench --site team.ecentric.vn execute frappe.permissions.reset_perms --args "['EC Payment Request']"
@@ -93,10 +110,10 @@ GRANTS = ("read",)
 def execute():
     try:
         if not frappe.db.exists("Role", ROLE):
-            frappe.log_error("Role %s chua co tren site -> bo qua" % ROLE, "p170 finance role read")
+            frappe.log_error("Role %s chua co tren site -> bo qua" % ROLE, "p190 finance role read")
             return
         if not frappe.db.exists("DocType", DOCTYPE):
-            frappe.log_error("DocType %s chua co -> bo qua" % DOCTYPE, "p170 finance role read")
+            frappe.log_error("DocType %s chua co -> bo qua" % DOCTYPE, "p190 finance role read")
             return
 
         add_permission(DOCTYPE, ROLE, 0)
@@ -104,8 +121,8 @@ def execute():
             update_permission_property(DOCTYPE, ROLE, 0, ptype, 1, validate=False)
         frappe.clear_cache(doctype=DOCTYPE)
         frappe.log_error("da cap %s tren %s cho Role '%s'" % ("/".join(GRANTS), DOCTYPE, ROLE),
-                         "p170 finance role read")
+                         "p190 finance role read")
     except Exception:
         # Thieu quyen doc thi nguoi dung van mo duoc ho so trong app, chi vuong tep dinh kem.
         # Khong dang de danh doi ca lan deploy.
-        frappe.log_error(frappe.get_traceback(), "p169 finance read THAT BAI")
+        frappe.log_error(frappe.get_traceback(), "p190 finance read THAT BAI")

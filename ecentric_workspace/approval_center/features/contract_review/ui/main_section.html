@@ -534,7 +534,27 @@
     ensureActionHandlers();
   }
   function renderAttachments(list){ if(!list||!list.length) return '<div class="hint">Chưa có tệp đính kèm.</div>';
-    return '<table class="tbl"><tbody>'+list.map(function(f){ return '<tr><td>'+esc(f.file_name)+'</td><td>'+esc(f.owner)+'</td><td>'+esc(fmt(f.creation))+'</td><td><a href="'+esc(f.file_url)+'" target="_blank">Mở</a></td></tr>'; }).join("")+'</tbody></table>'; }
+    return '<table class="tbl"><tbody>'+list.map(function(f){
+      // Co ban tren SharePoint thi tro sang do: Word Online CHI mo duoc tep nam tren
+      // SharePoint/OneDrive. Tro vao file_url cua Frappe thi trinh duyet luon TAI .docx ve.
+      var online=!!f.sp_web_url;
+      return '<tr><td>'+esc(f.file_name)+'</td><td>'+esc(f.owner)+'</td><td>'+esc(fmt(f.creation))+'</td>'
+           +'<td><a href="'+esc(online?f.sp_web_url:f.file_url)+'" target="_blank" rel="noopener">'
+           +(online?'Mở online':'Mở')+'</a></td></tr>'
+           + canhBaoSuaSauDuyet(f);
+    }).join("")+'</tbody></table>'; }
+
+  // Ban tren SharePoint la ban SONG - Hoan chot cho sua/comment truc tiep. Nen "tep da doi"
+  // KHONG phai loi, va khong duoc chan: nguoi duyet sua mot cau chu cung lam moc thoi gian
+  // nhay, chan lai thi ca tinh nang review online thanh vo dung. Viec can noi ro la CAP NAO da
+  // duyet TRUOC luc tep doi lan cuoi - tuc ho da duyet tren mot ban khong con y nguyen.
+  function canhBaoSuaSauDuyet(f){
+    var ds=f.sp_sua_sau_duyet||[]; if(!ds.length) return "";
+    var ai=ds.map(function(x){ return esc(x.approver)+' (cấp '+esc(String(x.level_no))+')'; }).join(", ");
+    return '<tr><td colspan="4"><div class="banner warn" style="margin:6px 0 2px">'
+         +'Tệp được sửa lúc '+esc(fmt(f.sp_last_modified))+' — SAU khi '+ai+' đã duyệt. '
+         +'Những cấp đó duyệt trên bản trước khi sửa.</div></td></tr>';
+  }
 
   // ---- stepper ----
   function buildDraftStepper(det){ return renderStepsHTML(previewSteps()); }
@@ -548,7 +568,7 @@
       if(l.level_status==="Approved"){ st="done"; var who=rows.filter(function(r){return r.status==="Approved";}).map(function(r){return esc(r.approver);}); meta=(who.length?("Duyệt bởi "+who.join(", ")):"")+(l.completed_at?(" · "+fmt(l.completed_at)):""); }
       else if(l.level_status==="Rejected"){ st="rejected"; var rj=rows.filter(function(r){return r.status==="Rejected";}); meta="Từ chối"+(rj[0]&&rj[0].comment?(": "+esc(rj[0].comment)):""); }
       else if(l.level_status==="Information Requested"||(ap.approval_status==="Information Required"&&ap.current_level===l.level_no)){ st="info"; meta="Cần bổ sung thông tin"; }
-      else if(l.level_status==="Skipped"){ st="skipped"; meta="Bỏ qua"; }
+      else if(l.level_status==="Skipped"){ st="skipped"; var skw=rows.map(function(r){return esc(r.approver);}); meta=skw.join(", "); }
       else if(l.level_status==="In Progress"||ap.current_level===l.level_no){ st="current"; var elig=rows.filter(function(r){return r.status==="Pending";}).map(function(r){return esc(r.approver);}); meta=(elig.length?(l.approval_mode==="Any One"?elig.join(" hoặc "):elig.join(", ")):"Đang chờ"); }
       steps.push({name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
     steps.push({name:"Hoàn tất",state:(ap.approval_status==="Approved"?"done":"upcoming"),meta:""});

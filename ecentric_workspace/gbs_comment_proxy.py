@@ -294,3 +294,151 @@ def upload_image_to_boxme(base64_data=None, filename=None, doctype=None, docname
         "filename": msg.get("file_name") or filename,
         "size_bytes": size,
     }
+# ─────────────────────────────────────────────────────────────────────────────
+# Boxme docinfo fetch (added 2026-09-15 — incident: site down 10:35–10:47)
+#
+# Why this exists:
+#   Server Script `gbs_fetch_comments` used frappe.make_get_request() to pull
+#   comments from boxme. That helper has NO `timeout` parameter (frappe v16
+#   integrations/utils.make_request -> session.request(...) without timeout), so
+#   when boxme stopped responding on 2026-09-15 each call held a gunicorn worker
+#   until the proxy killed it (~129s average, 516s in one 5-minute bucket).
+#   Four such calls saturated every worker and the whole site went down.
+#
+#   This module runs outside the sandbox, so it can pass a real timeout and keep
+#   a circuit breaker. Contract with the Server Script: return
+#   {"success": True, "boxme_name": str, "docinfo": {...}} or raise.
+# ─────────────────────────────────────────────────────────────────────────────
+
+GETDOC_CONNECT_TIMEOUT = 5    # seconds to establish the TCP/TLS connection to boxme
+GETDOC_READ_TIMEOUT = 20      # seconds to wait for boxme's response body
+BREAKER_KEY = "gbs_docinfo_breaker"
+BREAKER_THRESHOLD = 3         # consecutive failures before the breaker opens
+BREAKER_COOLDOWN = 60         # seconds the breaker stays open
+
+# Keys of frappe.desk.form.load.getdoc's docinfo that gbs_fetch_comments renders.
+DOCINFO_KEYS = ("comments", "workflow_logs", "info_logs")
+
+
+def _breaker_failures():
+    """Consecutive boxme failures recorded in the current cooldown window."""
+    try:
+        return int(frappe.cache().get_value(BREAKER_KEY) or 0)
+    except Exception:
+        return 0
+
+
+def _breaker_record_failure():
+    """Count one failure; the key expires on its own after BREAKER_COOLDOWN."""
+    fails = _breaker_failures() + 1
+    try:
+        frappe.cache().set_value(BREAKER_KEY, fails, expires_in_sec=BREAKER_COOLDOWN)
+    except Exception:
+        pass
+    return fails
+
+
+def _breaker_reset():
+    """Boxme answered — forget the failure streak."""
+    try:
+        frappe.cache().delete_value(BREAKER_KEY)
+    except Exception:
+        pass
+
+
+def _boxme_doc_name(doctype, name):
+    """Resolve the boxme-side docname for a local GBS record (falls back to `name`)."""
+    try:
+        local_doc = frappe.get_doc(doctype, name)
+        linked = (local_doc.get("gbs_doc_name")
+                  or local_doc.get("gbs_id")
+                  or local_doc.get("link_id") or "")
+    except Exception:
+        linked = ""
+    return linked or name
+
+
+@frappe.whitelist()
+def fetch_boxme_docinfo(doctype=None, name=None):
+    """Fetch a boxme document's docinfo (comments / workflow logs / info logs).
+
+    Replaces the untimed frappe.make_get_request() call inside the
+    `gbs_fetch_comments` Server Script. Two protections the sandbox cannot give:
+
+      1. Hard timeout — (connect 5s, read 20s). A hung boxme frees the worker in
+         at most ~25s instead of holding it until the proxy timeout.
+      2. Circuit breaker — after BREAKER_THRESHOLD consecutive failures every
+         further call fails instantly for BREAKER_COOLDOWN seconds, so a boxme
+         outage can no longer pile requests up on the workers.
+
+    Args:
+      doctype: local DocType, e.g. 'GBS Sales Order'.
+      name:    local docname.
+
+    Auth: requires an eCentric session (rejects Guest).
+
+    Returns:
+      {"success": True, "boxme_name": str, "boxme_dtype": str, "docinfo": {
+          "comments": [...], "workflow_logs": [...], "info_logs": [...]}}
+
+    Raises: frappe.ValidationError when boxme is unreachable, times out, or
+      answers with a non-2xx status. The caller's existing try/except turns that
+      into {"success": False, "error": ...}, which the timeline already handles.
+    """
+    if not frappe.session.user or frappe.session.user == "Guest":
+        frappe.throw("Unauthorized", frappe.PermissionError)
+    if not doctype or not name:
+        frappe.throw("Missing 'doctype'/'name' parameter")
+
+    boxme_name = _boxme_doc_name(doctype, name)
+    boxme_dtype = doctype[4:] if doctype.startswith("GBS ") else doctype
+
+    if _breaker_failures() >= BREAKER_THRESHOLD:
+        frappe.throw(
+            "boxme is not responding (circuit breaker open, retrying in up to "
+            + str(BREAKER_COOLDOWN) + "s)"
+        )
+
+    base, key, secret = _get_gbs_credentials()
+    url = base + "/api/method/frappe.desk.form.load.getdoc"
+    headers = {"Authorization": "token " + key + ":" + secret, "Accept": "application/json"}
+    params = {"doctype": boxme_dtype, "name": boxme_name}
+
+    try:
+        r = requests.get(url, params=params, headers=headers,
+                         timeout=(GETDOC_CONNECT_TIMEOUT, GETDOC_READ_TIMEOUT))
+        r.raise_for_status()
+        payload = r.json()
+    except requests.Timeout:
+        fails = _breaker_record_failure()
+        frappe.throw("boxme timed out after " + str(GETDOC_READ_TIMEOUT)
+                     + "s (failure " + str(fails) + ")")
+    except requests.HTTPError as e:
+        code = getattr(e.response, "status_code", 0) if e.response is not None else 0
+        fails = _breaker_record_failure()
+        frappe.throw("boxme getdoc HTTP " + str(code) + " (failure " + str(fails) + ")")
+    except Exception as e:
+        fails = _breaker_record_failure()
+        frappe.throw("boxme getdoc failed: " + str(e)[:200]
+                     + " (failure " + str(fails) + ")")
+
+    _breaker_reset()
+
+    message = payload.get("message") if isinstance(payload, dict) else None
+    container = message if isinstance(message, dict) else payload
+    raw = container.get("docinfo") if isinstance(container, dict) else {}
+    if not isinstance(raw, dict):
+        raw = {}
+
+    docinfo = {}
+    for docinfo_key in DOCINFO_KEYS:
+        value = raw.get(docinfo_key)
+        docinfo[docinfo_key] = value if isinstance(value, list) else []
+
+    return {
+        "success": True,
+        "boxme_name": boxme_name,
+        "boxme_dtype": boxme_dtype,
+        "docinfo": docinfo,
+    }
+

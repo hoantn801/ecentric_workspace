@@ -1,0 +1,357 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "EC-BOOK-.YYYY.-.#####.",
+ "creation": "2026-09-11 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-11 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC Booking Request",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "request_title",
+ "track_changes": 1,
+ "field_order": [
+  "approval_type",
+  "approval_request",
+  "request_title",
+  "requested_by",
+  "employee",
+  "department",
+  "company",
+  "cb0",
+  "submitted_at",
+  "completed_at",
+  "material_signature",
+  "sb_brand",
+  "brand",
+  "brand_is_new",
+  "brand_display_name",
+  "cb_brand",
+  "booking_owner",
+  "account_owner",
+  "sb_form",
+  "booking_type",
+  "kol_count",
+  "expected_budget",
+  "cb1",
+  "campaign_start_date",
+  "campaign_end_date",
+  "sb_kol",
+  "kol_list",
+  "sb_detail",
+  "brand_brief",
+  "request_attachment",
+  "cc_to",
+  "sb_fulfill",
+  "fulfillment_status",
+  "fulfillment_owner",
+  "fulfillment_due_at",
+  "fulfillment_expected_date",
+  "fulfillment_sla_calendar",
+  "fulfillment_sla_holiday_list",
+  "cb_fulfill",
+  "completed_attachment",
+  "fulfillment_summary",
+  "completed_by",
+  "booking_reminded_on"
+ ],
+ "fields": [
+  {
+   "fieldname": "approval_type",
+   "fieldtype": "Link",
+   "label": "Approval Type",
+   "options": "EC Approval Type",
+   "default": "BOOKING_REQUEST",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approval_request",
+   "fieldtype": "Link",
+   "label": "Approval Request",
+   "options": "EC Approval Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_title",
+   "fieldtype": "Data",
+   "label": "Request Title",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Requested By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee",
+   "read_only": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department",
+   "options": "Department"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "Submitted At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Completed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "material_signature",
+   "fieldtype": "Data",
+   "label": "Material Signature",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "sb_brand",
+   "fieldtype": "Section Break",
+   "label": "Brand"
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Data",
+   "label": "Brand",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Mã brand. Brand nội bộ chọn từ danh mục; brand ngoài thì gõ tên mới."
+  },
+  {
+   "fieldname": "brand_is_new",
+   "fieldtype": "Check",
+   "label": "Brand mới (chưa có trong danh mục)",
+   "default": "0",
+   "read_only": 1,
+   "description": "Do form đặt khi người gửi gõ một brand chưa có. Bản ghi Brand được tạo lúc gửi phiếu, gắn cờ 'Chưa chuẩn hoá' để admin rà lại tên."
+  },
+  {
+   "fieldname": "brand_display_name",
+   "fieldtype": "Data",
+   "label": "Tên brand (người gửi gõ)",
+   "read_only": 1,
+   "description": "Giữ nguyên chuỗi người gửi nhập, kể cả khi mã brand sau này được admin đổi."
+  },
+  {
+   "fieldname": "cb_brand",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "booking_owner",
+   "fieldtype": "Link",
+   "label": "Booking phụ trách",
+   "options": "User",
+   "read_only": 1,
+   "description": "Bản chụp lúc gửi, lấy từ Brand. Brand đổi người về sau thì phiếu cũ vẫn giữ đúng người chịu trách nhiệm lúc đó."
+  },
+  {
+   "fieldname": "account_owner",
+   "fieldtype": "Link",
+   "label": "Account phụ trách",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_form",
+   "fieldtype": "Section Break",
+   "label": "Nội dung yêu cầu"
+  },
+  {
+   "fieldname": "booking_type",
+   "fieldtype": "Select",
+   "label": "Loại booking",
+   "options": "\nKOL/KOC Chỉ định\nMiddle KOL/KOC\nMassive",
+   "default": "KOL/KOC Chỉ định",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Chỉ định = nêu đích danh KOL/KOC; Middle = một nhóm 3-5+; Massive = số lượng lớn."
+  },
+  {
+   "fieldname": "kol_count",
+   "fieldtype": "Int",
+   "label": "Số lượng KOL/KOC dự kiến",
+   "depends_on": "eval:doc.booking_type && doc.booking_type!='KOL/KOC Chỉ định'",
+   "mandatory_depends_on": "eval:doc.booking_type && doc.booking_type!='KOL/KOC Chỉ định'"
+  },
+  {
+   "fieldname": "expected_budget",
+   "fieldtype": "Currency",
+   "label": "Ngân sách dự kiến",
+   "reqd": 1,
+   "precision": "2"
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "campaign_start_date",
+   "fieldtype": "Date",
+   "label": "Hoạt động bắt đầu",
+   "reqd": 1,
+   "description": "Mốc brand cần. Hạn Booking cam kết phải trước mốc này ít nhất 3 ngày."
+  },
+  {
+   "fieldname": "campaign_end_date",
+   "fieldtype": "Date",
+   "label": "Hoạt động kết thúc"
+  },
+  {
+   "fieldname": "sb_kol",
+   "fieldtype": "Section Break",
+   "label": "Danh sách KOL/KOC",
+   "depends_on": "eval:doc.booking_type=='KOL/KOC Chỉ định'"
+  },
+  {
+   "fieldname": "kol_list",
+   "fieldtype": "Table",
+   "label": "KOL/KOC chỉ định",
+   "options": "EC Booking Request KOL"
+  },
+  {
+   "fieldname": "sb_detail",
+   "fieldtype": "Section Break",
+   "label": "Brief & tài liệu"
+  },
+  {
+   "fieldname": "brand_brief",
+   "fieldtype": "Small Text",
+   "label": "Brief từ Brand",
+   "reqd": 1,
+   "description": "Mục tiêu, thông điệp, yêu cầu về nội dung, ràng buộc..."
+  },
+  {
+   "fieldname": "request_attachment",
+   "fieldtype": "Attach",
+   "label": "File đính kèm"
+  },
+  {
+   "fieldname": "cc_to",
+   "fieldtype": "Small Text",
+   "label": "CC To",
+   "description": "Email nhận thông báo, cách nhau dấu phẩy"
+  },
+  {
+   "fieldname": "sb_fulfill",
+   "fieldtype": "Section Break",
+   "label": "Booking xử lý"
+  },
+  {
+   "fieldname": "fulfillment_status",
+   "fieldtype": "Select",
+   "label": "Fulfillment Status",
+   "options": "Not Started\nAssigned\nIn Progress\nCompleted\nCancelled",
+   "default": "Not Started",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fulfillment_owner",
+   "fieldtype": "Link",
+   "label": "Người xử lý",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fulfillment_due_at",
+   "fieldtype": "Datetime",
+   "label": "Fulfillment Due At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fulfillment_expected_date",
+   "fieldtype": "Date",
+   "label": "Ngày dự kiến xử lý xong (Booking cam kết)",
+   "read_only": 1,
+   "description": "Booking khai lúc nhận việc. Chỉ nhận giá trị từ hôm nhận đến trước ngày hoạt động bắt đầu 3 ngày."
+  },
+  {
+   "fieldname": "fulfillment_sla_calendar",
+   "fieldtype": "Data",
+   "label": "Fulfillment SLA Calendar",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "fulfillment_sla_holiday_list",
+   "fieldtype": "Data",
+   "label": "Fulfillment SLA Holiday List",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "cb_fulfill",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "completed_attachment",
+   "fieldtype": "Attach",
+   "label": "Kết quả booking (file)"
+  },
+  {
+   "fieldname": "fulfillment_summary",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú hoàn tất"
+  },
+  {
+   "fieldname": "completed_by",
+   "fieldtype": "Link",
+   "label": "Completed By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "booking_reminded_on",
+   "fieldtype": "Date",
+   "label": "Đã nhắc ngày",
+   "read_only": 1,
+   "hidden": 1,
+   "description": "Chặn nhắc trùng trong cùng một ngày."
+  }
+ ],
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ]
+}

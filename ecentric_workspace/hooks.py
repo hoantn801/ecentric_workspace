@@ -22,7 +22,7 @@ app_license = "MIT"
 # must never do). The asset itself bails out on /app/* and on pages with no eCentric
 # bell, and is single-install guarded so the homepage (which also still carries the
 # legacy per-page loader) never double-installs.
-web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_datepicker.bundle.js", "ec_formkit.bundle.js"]
+web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_datepicker.bundle.js", "ec_formkit.bundle.js", "ec_webpush.bundle.js"]
 
 # ERP Shell v1 (Phase 1B pilot). Both assets are loaded site-wide via the same
 # proven content-hashed-bundle mechanism as the Notification Center, but
@@ -65,6 +65,15 @@ doc_events = {
     "PM Task Label": {
         # G4.9: block hard-delete of an in-use label on EVERY delete path (incl. Administrator).
         "on_trash": "ecentric_workspace.pm.api.labels.pm_label_before_delete",
+    },
+    "Employee": {
+        # 14/09: ba lan trong hai tuan mot ho so Active duoc tao ma thieu `user_id`,
+        # va ca ba lan nhan vien bao "loi phan mem cham cong". Hook nay tu dien
+        # `user_id` tu email cong ty khi co the, khong thi hien canh bao - KHONG chan
+        # luu (xem ly do trong hr/employee_guard.py).
+        # PHAI la `before_validate`: hook doc_events chay SAU controller validate cua
+        # Employee, ma chinh doan do moi dung `user_id` de tao User Permission.
+        "before_validate": "ecentric_workspace.hr.employee_guard.autofill_user_id",
     },
     "PM Assignment Request": {
         # G5.0 B2: service-only mutation guard (rejects generic insert/update, incl. Administrator;
@@ -123,6 +132,8 @@ scheduler_events = {
         # next_retry_at is due and attempt_count < MAX_ATTEMPTS.
         "*/5 * * * *": [
             "ecentric_workspace.notification_center.providers.teams.process_teams_retries",
+            # Cung co che cho web push: chi nhat lai dong Failed da den han thu lai.
+            "ecentric_workspace.notification_center.providers.webpush.process_webpush_retries",
             # esign (2026-08-27): a leg the provider ACCEPTED but never acted on. Until now
             # the only backstop was sweep_stale at 24h - far too long on a live system that
             # signs real payment approvals, and indistinguishable from "provider is slow".
@@ -157,6 +168,10 @@ scheduler_events["daily"].append(
 # Chia dot: nhac nguoi de nghi tao phieu dot ke tu D-7 truoc ngay du kien.
 scheduler_events["daily"].append(
     "ecentric_workspace.approval_center.features.payment_request.application.reminders.remind_next_installment")
+# Booking Request: nhac Booking tu D-3 truoc NGAY DU KIEN XONG ma chinh ho cam ket luc
+# nhan viec (11/09). Moi phieu mot lan/ngay; tat bang site_config ec_booking_reminder_disabled.
+scheduler_events["daily"].append(
+    "ecentric_workspace.approval_center.features.booking_request.application.reminders.remind_booking_due")
 # esign S2B-C1: bounded retry (*/30) of signed-PDF retrieval for terminal-completed
 # packages whose signed bundle is not yet complete. Safe GET/download only; never resends
 # AddDocument/bulk-process. Same kill switch (ec_esign_scheduler_disabled) + per-provider
@@ -166,9 +181,11 @@ scheduler_events["cron"].setdefault("*/30 * * * *", []).append(
 
 # PM time-blocking: remind users to confirm elapsed unconfirmed hours TWICE a day
 # (site timezone Asia/Ho_Chi_Minh = Vietnam): 09:00 + 18:00.
-scheduler_events["cron"].setdefault("0 9 * * *", []).append(
-    "ecentric_workspace.pm.api.schedule.nudge_unconfirmed")
-scheduler_events["cron"].setdefault("0 18 * * *", []).append(
+# NOTE (2026-09-10): one method = ONE Scheduled Job Type (frappe sync_jobs keys by
+# dotted method path), so two cron keys for the same method silently keep only the
+# LAST one - measured live: a single record '0 18 * * *', the 09:00 run never
+# existed. A comma cron list keeps both runs in a single registration.
+scheduler_events["cron"].setdefault("0 9,18 * * *", []).append(
     "ecentric_workspace.pm.api.schedule.nudge_unconfirmed")
 
 # Unanswered meeting invites: one nudge in the morning (one Graph call per active
@@ -228,6 +245,13 @@ fixtures = [
             "Brand-ec_leader_email", "Brand-ec_finance_email",
             "Brand-ec_sect2", "Brand-ec_approval_recipe", "Brand-ec_gbs_recipe",
             "Brand-ec_cb2", "Brand-ec_boxme_customer",
+            # Booking Request (2026-09-11): moi brand co MOT ban Booking va MOT ban
+            # Account phu trach, nen phieu booking giao duoc cho dung nguoi ma khong
+            # can bang anh xa rieng. Brand ngoai do Account tu go tren form thi chinh
+            # ho khai luon nguoi Booking ngay luc do va ta luu lai (y Hoan 11/09), nen
+            # o binh thuong khong bao gio trong; Role EC Booking chi la luoi do cuoi.
+            "Brand-ec_booking_owner", "Brand-ec_account_owner",
+            "Brand-ec_brand_source", "Brand-ec_can_chuan_hoa",
             # C4b B7 (2026-08-03): buoc "Gui lai / Can sua" cho MSO / Sales Order /
             # Purchase Order. ec_revision_reason giu ly do nguoi duyet yeu cau sua,
             # ec_revision_count dem so lan. CHUNG KHONG PHAI TRANG THAI -- trang thai
@@ -252,10 +276,45 @@ fixtures = [
             # ban ghi Department. Thieu field nay thi resolver luon lui ve gia tri co
             # dinh cua Profile va MOI tai lieu lai hien sai phong nhu truoc.
             "Department-custom_scts_department_id",
+            # Phan loai chi phi tren de nghi thanh toan (09/09/2026, Hoan) - PnL doc de gom
+            # nhom va chong dem trung luong. `ec_loai_chi_phi` la Link toi DocType
+            # `EC Loai Chi Phi` (ship o fixture DocType ngay duoi) va la truong BAT BUOC khi
+            # gui phieu: bench moi thieu no thi form DNTT chan gui va PnL mu tro lai. Ba
+            # truong PHAI di cung nhau - ec_can_brand fetch tu danh muc va la dieu kien
+            # an/hien cua ec_brand.
+            "EC Payment Request-ec_loai_chi_phi", "EC Payment Request-ec_can_brand",
+            "EC Payment Request-ec_brand",
+            # GO 11/09/2026: `Brand-ec_phi_ql_pct` da bi xoa. No chi chua duoc MOT con so
+            # cho ca brand, ma bang phi that cua Hoan co BBT-VN Shopee 2% va TikTok 18%,
+            # cong them fix fee va muc thu toi thieu. Thay bang DocType
+            # `EC Phi Quan Ly Brand` (fixture DocType ngay duoi).
+            # Ma brand ben Fabric/PowerBI (11/09/2026). Bang anh xa phai o DAY chu khong
+            # o trong notebook - de trong code thi them mot brand la phai sua code va
+            # khong ai nho. ec_nmv_upsert tra: ten brand -> o nay -> ec_brand_code.
+            "Brand-ec_fabric_code",
             # LUU Y (CnB xac nhan truoc khi them): cac field luong tren Employee cung
             # chua versioned -- ec_pit_10, ec_pit_luytien, ec_dong_bhxh, ec_mst_ca_nhan,
             # ec_so_nguoi_phu_thuoc, ec_allow_lunch/coffee/computer, ec_late_early_bank.
         ]]],
+    },
+    # Ba DocType custom cua PnL dashboard (09-10/09/2026). Truoc day chi ton tai tren
+    # production -> bench moi hoac site dung lai la mat sach: `EC Loai Chi Phi` mat thi
+    # form DNTT chan gui (truong bat buoc tro toi mot DocType khong ton tai), va PnL het
+    # gom nhom duoc. Schema di theo repo; RIENG 27 dong danh muc thi do patch
+    # p173_seed_loai_chi_phi gieo va chi gieo dong CON THIEU, nen Finance sua tren site
+    # khong bao gio bi migrate ghi de.
+    # `EC NMV Ngay` (10/09/2026) giu doanh so thuan theo brand x SAN x NGAY, nap tu PowerBI
+    # qua API `ec_nmv_upsert` hoac Data Import. Chi SCHEMA di theo repo - du lieu ngay thi
+    # khong, vi no la so nghiep vu chay hang ngay.
+    # `EC Phi Quan Ly Brand` (11/09/2026) giu MUC PHI: % tren NMV, fix fee moi thang, muc
+    # thu toi thieu, co hieu luc tu-den. Dong ghi ro SAN thang dong "Tat ca san" - do la
+    # cach duy nhat dien ta duoc BBT-VN (Shopee 2% + 20tr co dinh, TikTok 18%). Doi gia
+    # thi THEM dong moi chu khong sua de len dong cu, neu khong so cua thang truoc sai
+    # theo. Chi SCHEMA di theo repo; 12 dong muc phi la du lieu nghiep vu, Finance tu sua.
+    {
+        "dt": "DocType",
+        "filters": [["name", "in", ["EC Loai Chi Phi", "EC Nhan Su Brand",
+                                    "EC NMV Ngay", "EC Phi Quan Ly Brand"]]],
     },
     {
         "dt": "Role",
@@ -276,3 +335,40 @@ fixtures = [
         "filters": [["route", "like", "ec-hr/%"]],
     },
 ]
+
+# esign: soi lech chu ky 2 LUOT/NGAY (Hoan chot 09/09) - 08:30 va 14:30.
+# Gio dia phuong: System Settings.time_zone = Asia/Ho_Chi_Minh, Frappe chay cron theo do
+# (da doi chieu tren prod 09/09), nen KHONG phai quy ra UTC.
+# CHI DOC + bao cho System Manager; khong bao gio tu dong dong bo chu ky. Dung chung kill
+# switch ec_esign_scheduler_disabled voi cac task esign khac.
+# HAI HAM KHAC NHAU, KHONG PHAI MOT HAM O HAI CRON: Frappe khoa Scheduled Job Type theo
+# `method`, nen khai cung mot ham o hai bieu thuc chi giu lai MOT - luot 08:30 se bien mat
+# khong bao gi. Do tren prod 10/09 dung nhu vay. Xem ghi chu day du o
+# `platform/esign/tasks.py` ngay tren hai vo mong nay; test:
+# `tests/standalone/test_hooks_cron_mot_method_mot_slot.py`.
+scheduler_events["cron"].setdefault("30 8 * * *", []).append(
+    "ecentric_workspace.platform.esign.tasks.sweep_provider_signature_drift_0830")
+scheduler_events["cron"].setdefault("30 14 * * *", []).append(
+    "ecentric_workspace.platform.esign.tasks.sweep_provider_signature_drift_1430")
+
+
+# Nhac cham cong (2026-09-14). Han cham cong la 10:00; hai moc nhac 08:30 + 09:30.
+# Gio cron o site nay la GIO DIA PHUONG (Asia/Ho_Chi_Minh) - da doi chieu tren prod,
+# giong cac cron esign ben tren; KHONG quy ra UTC.
+#
+# HAI HAM RIENG, KHONG PHAI MOT HAM O HAI CRON: Frappe khoa Scheduled Job Type theo
+# dotted path cua `method`, nen khai cung mot ham o hai bieu thuc cron chi giu lai MOT.
+#
+# Thay cho Server Script `ec_hr_checkin_reminder` (nay da disabled trong fixtures):
+# ban Server Script chi tao duoc Notification Log trong app, khong goi duoc
+# Notification Center nen khong bao gio ra duoc Teams / web push.
+scheduler_events["cron"].setdefault("30 8 * * *", []).append(
+    "ecentric_workspace.hr.checkin_reminder.remind_0830")
+scheduler_events["cron"].setdefault("30 9 * * *", []).append(
+    "ecentric_workspace.hr.checkin_reminder.remind_0930")
+
+# Ra soat ho so Active thieu tai khoan dang nhap, bao cho HR Manager.
+# 08:00 la co y: SOM HON moc nhac cham cong 08:30, de mot nguoi vao lam hom nay
+# con kip duoc noi vao he thong truoc khi ho lo lan nhac dau tien.
+scheduler_events["cron"].setdefault("0 8 * * *", []).append(
+    "ecentric_workspace.hr.employee_guard.sweep_missing_user_id")

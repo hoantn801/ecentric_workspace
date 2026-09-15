@@ -65,7 +65,10 @@ def _file_bytes():
 def upload_package_file(business_doctype, business_name, requires_signature=0,
                         is_supporting_document=0, share_with_partner=0, file_kind=None):
     _business_args(business_doctype, business_name)
-    perms.assert_can_view_business(business_doctype, business_name)
+    # GHI, khong phai doc: giu dung luat cu (nguoi tao / SM / nguoi duyet). Khong dung
+    # assert_can_view_business - tu 09/09 cau do da noi rong cho nguoi XU LY, ma nguoi xu ly
+    # khong co ly do gi de dung goi tai lieu ky so.
+    perms.assert_can_setup_package(business_doctype, business_name)
     at = frappe.db.get_value(business_doctype, business_name, "approval_type")
     profile = guard.get_active_profile(business_doctype, at)
     if not profile:
@@ -740,6 +743,30 @@ def reconcile_document_creation(package, scts_document_id=None):
     viec - khong dung, no van luon `throw` khi thieu ma tai lieu (sua 09/09/2026)."""
     perms.assert_system_manager()
     return svc.reconcile_document_creation(package, scts_document_id)
+
+
+@frappe.whitelist()
+def audit_provider_signature_drift(limit=200):
+    """CHI DOC, System Manager: phieu nao co chu ky ben SCTS ma ERP chua dung?
+
+    GET (khong ghi gi). Tra `drift` (co chu ky chua dung) TACH RIENG voi `unreadable`
+    (khong hoi duoc nha cung cap) - hai ket luan khac han nhau. Xem
+    svc.audit_provider_signature_drift.
+    """
+    perms.assert_system_manager()
+    return svc.audit_provider_signature_drift(limit=limit)
+
+
+@frappe.whitelist(methods=["POST"])
+def sync_signatures_from_provider(business_doctype, business_name, reason):
+    """SM-gated: cap duyet hien tai DA duoc ky tren cong SCTS ma ERP chua biet -> cong nhan.
+
+    KHONG ky gi, KHONG gui gi: chi doc trang thai tai lieu, va chi chap nhan chu ky khop
+    ANH XA DA XAC MINH cua chinh nguoi duyet dang cho, dung thu tu. Xem
+    svc.sync_signatures_from_provider - o do ghi day du cac phep chan duoc giu.
+    """
+    perms.assert_system_manager()
+    return svc.sync_signatures_from_provider(business_doctype, business_name, reason)
 
 
 @frappe.whitelist(methods=["POST"])

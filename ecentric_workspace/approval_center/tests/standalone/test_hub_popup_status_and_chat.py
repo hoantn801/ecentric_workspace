@@ -170,3 +170,51 @@ class TestTraoDoi(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestKhungPhaiCaoBangKhungTrai(unittest.TestCase):
+    """09/09, Hoan chi tren anh: the phai ngan hon the trai, va chu "Gui" bi lech.
+
+    Doc CSS that trong file, khong khang dinh "co goi ham" - xem
+    feedback_test_asserting_call_exists_proves_nothing.
+    """
+
+    def _css(self):
+        return io.open(_HUB, encoding="utf-8").read()
+
+    def test_hai_the_cao_bang_nhau(self):
+        css = self._css()
+        self.assertIn("align-items:stretch", css,
+                      "wrap phai stretch thi the phai moi cao bang the trai")
+        self.assertNotIn("display:flex; align-items:flex-start; gap:16px", css,
+                         "flex-start la nguyen nhan the phai bi ngan")
+
+    def test_khong_dung_center_vi_cat_mat_phan_dau(self):
+        """Ly do da ghi san trong file: center cat dau khi the cao hon man hinh."""
+        css = self._css()
+        self.assertNotIn(".ec-apl-wrap{ display:flex; align-items:center", css)
+
+    def test_aside_la_cot_flex_de_o_nhap_dinh_day(self):
+        css = self._css()
+        i = css.index(".ec-apl-aside{")
+        block = css[i:i + 400]
+        self.assertIn("flex-direction:column", block)
+        j = css.index(".ec-apl-aside .bd{")
+        self.assertIn("flex:1 1 auto", css[j:j + 260])
+        self.assertIn("min-height:0", css[j:j + 260])
+
+    def test_nut_gui_can_giua_tuong_minh(self):
+        css = self._css()
+        i = css.index(".ec-apl-cbox .btn{")
+        block = css[i:i + 400]
+        for want in ("display:inline-flex", "align-items:center",
+                     "justify-content:center", "line-height:1"):
+            self.assertIn(want, block, "nut Gui thieu %s -> chu co dau bi lech" % want)
+
+    def test_nut_gui_khong_con_class_approve_thua(self):
+        """Rule .btn.approve bi gioi han trong .ec-apl-mf nen khong voi toi khung chat;
+        de lai class do chi lam nguoi doc sau hieu nham. Hai nut Duyet THAT phai con."""
+        css = self._css()
+        self.assertNotIn('class="btn approve" data-send', css)
+        self.assertIn('class="btn approve" data-a="approve"', css,
+                      "nut Duyet that cua popup khong duoc dong cham")

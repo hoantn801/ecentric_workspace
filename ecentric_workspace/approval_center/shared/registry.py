@@ -29,6 +29,7 @@ from ecentric_workspace.approval_center.features.lateral_move.domain.definition 
 from ecentric_workspace.approval_center.features.livestream_supplies.domain.definition import LIVESTREAM_SUPPLIES_DEFINITION
 from ecentric_workspace.approval_center.features.outside_work.domain.definition import OUTSIDE_WORK_DEFINITION
 from ecentric_workspace.approval_center.features.service_referral.domain.definition import SERVICE_REFERRAL_DEFINITION
+from ecentric_workspace.approval_center.features.booking_request.domain.definition import BOOKING_REQUEST_DEFINITION
 
 
 _DEFINITIONS = (
@@ -59,6 +60,7 @@ _DEFINITIONS = (
     HIRING_REQUEST_DEFINITION,
     PROMOTION_DEFINITION,
     SPECIAL_BONUS_DEFINITION,
+    BOOKING_REQUEST_DEFINITION,
 )
 
 
