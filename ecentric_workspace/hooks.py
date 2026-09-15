@@ -109,6 +109,11 @@ scheduler_events = {
     # kill-switchable via site_config `ec_alerts_scheduler_disabled: 1`.
     "hourly": [
         "ecentric_workspace.alerts.tasks.expire_automation_pauses",
+        # Doc lai moc sua tren SharePoint cho cac phieu CON CHO DUYET. Khong co no thi bang
+        # canh bao "tep doi sau khi duyet" khong bao gio bat duoc mot lan sua that (15/09).
+        # Frappe khoa Scheduled Job Type theo `method`, nen ten nay chi duoc xuat hien MOT lan
+        # trong ca file - dat o hai cho thi chi con mot, khong log khong loi.
+        "ecentric_workspace.approval_center.shared.integrations.sharepoint_mirror.lam_tuoi_moc_sua",
     ],
     "cron": {
         "*/10 * * * *": [

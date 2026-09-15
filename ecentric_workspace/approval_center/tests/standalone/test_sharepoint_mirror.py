@@ -314,6 +314,23 @@ class MuiGioTaiCHO_GOI(unittest.TestCase):
                          "va moi phep so voi moc duyet lech 7 tieng")
         self.assertIsNone(getattr(doc.sp_last_modified, "tzinfo", None))
 
+    def test_ghi_lien_ket_ghi_luon_MOC_NEN(self):
+        """Khong ghi moc nen thi ban ghi moi khong co gi de so, va bang canh bao lai bao nham
+        y het truoc dot nay - chi khac la lan nay im lang hon vi ban ghi cu da duoc p199 gieo."""
+        class _Doc(object):
+            def save(self, **k):
+                pass
+            name = "X"
+
+        doc = _Doc()
+        ns = self._nap(doc=doc)
+        ns["ghi_lien_ket"]("DT", "/f/a.docx", "EC-CTR-1",
+                           {"item_id": "I", "web_url": "U",
+                            "last_modified": "2026-09-15T11:35:04Z"})
+        self.assertIsNotNone(getattr(doc, "sp_uploaded_at", None),
+                             "phai ghi moc nen ngay luc tai len")
+        self.assertEqual(doc.sp_uploaded_at, doc.sp_last_modified)
+
     def test_doc_moc_sua_tra_datetime_da_doi_chu_khong_phai_chuoi_ISO(self):
         resp = _Resp(200, {"lastModifiedDateTime": "2026-09-14T08:58:18Z"})
         ns = self._nap(requests_gia=types.SimpleNamespace(
@@ -379,6 +396,51 @@ class CapQuyenTroLai(unittest.TestCase):
         kq = ns["dong_bo_phieu"](DT, "EC-CTR-1")
         self.assertEqual(da_ghi, [])
         self.assertEqual(len(kq["hong"]), 2)
+
+
+class MocNenChongBaoNham(unittest.TestCase):
+    """15/09: 5/5 bang canh bao dang hien tren production deu SAI - vi `sp_last_modified` bi
+    chinh lan tai len cua he thong ghi de. Phai co MOC NEN rieng thi phep so moi co nghia."""
+
+    def setUp(self):
+        import datetime as _dt
+        self._dt = _dt
+        ns = {"frappe": _FrappeGia(), "timedelta": _dt.timedelta, "DUNG_SAI_GIAY": 5}
+
+        def _get_datetime(v):
+            if isinstance(v, _dt.datetime):
+                return v
+            return _dt.datetime.strptime(str(v), "%Y-%m-%d %H:%M:%S")
+
+        ns["get_datetime"] = _get_datetime
+        self.LIEN = []
+        ns["frappe"].get_all = lambda dt, **kw: [_Row(r) for r in self.LIEN]
+        exec(compile(_doan(_QUERY, "DUNG_SAI_GIAY", "gan_sharepoint"), "<q>", "exec"), ns)
+        self.gan = ns["gan_sharepoint"]
+
+    def _chay(self, moc_sua, moc_nen, duyet_luc="2026-09-15 10:00:00"):
+        self.LIEN = [{"file_url": "/f/a.docx", "sp_web_url": "https://sp/a",
+                      "sp_last_modified": moc_sua, "sp_uploaded_at": moc_nen}]
+        att = [{"file_name": "a.docx", "file_url": "/f/a.docx"}]
+        ap = [{"approver": "a@x.vn", "level_no": 1, "status": "Approved", "decided_at": duyet_luc}]
+        return self.gan(att, ap)[0].get("sp_sua_sau_duyet")
+
+    def test_he_thong_tu_tai_len_thi_KHONG_canh_bao(self):
+        """Ca cua production 15/09: tep 'sua' luc 18:35 chinh la luc ta chay lenh cap bu."""
+        self.assertEqual(self._chay("2026-09-15 18:35:04", "2026-09-15 18:35:04"), [])
+
+    def test_lech_vai_giay_quanh_moc_nen_van_la_CUA_TA(self):
+        """SharePoint lam tron ve giay, lan ghi cua ta mat vai tram mili giay."""
+        self.assertEqual(self._chay("2026-09-15 18:35:07", "2026-09-15 18:35:04"), [])
+
+    def test_NGUOI_sua_that_thi_VAN_canh_bao(self):
+        ra = self._chay("2026-09-15 19:10:00", "2026-09-15 18:35:04")
+        self.assertEqual([x["approver"] for x in ra], ["a@x.vn"])
+
+    def test_khong_co_moc_nen_thi_giu_hanh_vi_cu(self):
+        """Ban ghi cu chua gieo moc nen - p199 lo phan do; o day khong duoc IM LANG bo qua."""
+        ra = self._chay("2026-09-15 19:10:00", None)
+        self.assertEqual([x["approver"] for x in ra], ["a@x.vn"])
 
 
 if __name__ == "__main__":

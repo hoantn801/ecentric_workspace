@@ -1,6 +1,8 @@
 """Permission-safe generic queries and projections for approval request types."""
 import frappe
 from frappe import _
+from datetime import timedelta
+
 from frappe.utils import get_datetime
 
 from ecentric_workspace.approval_center.shared.requests import capabilities
@@ -172,6 +174,12 @@ def list_my_approvals(definition, section="pending"):
     return {"rows": output}
 
 
+#: SharePoint lam tron moc thoi gian ve GIAY, va lan ghi cua ta cung mat vai tram mili giay
+#: giua luc tai len va luc doc moc ve. Chenh vai giay quanh moc nen la CUA TA, khong phai
+#: nguoi sua. De 0 thi canh bao se nhay lung tung ngay sau moi lan dong bo.
+DUNG_SAI_GIAY = 5
+
+
 def gan_sharepoint(attachments, approvers):
     """Gan link SharePoint + canh bao "tep doi sau khi da co cap duyet" vao tung dinh kem.
 
@@ -194,7 +202,7 @@ def gan_sharepoint(attachments, approvers):
         return attachments
     rows = frappe.get_all(
         "EC SharePoint File Link", filters={"file_url": ["in", urls]},
-        fields=["file_url", "sp_web_url", "sp_last_modified"])
+        fields=["file_url", "sp_web_url", "sp_last_modified", "sp_uploaded_at"])
     if not rows:
         return attachments
     theo_url = {r.file_url: r for r in rows}
@@ -209,6 +217,15 @@ def gan_sharepoint(attachments, approvers):
         if not r.sp_last_modified:
             continue
         moc = get_datetime(r.sp_last_modified)
+        # PHAI so voi MOC NEN truoc. `sp_last_modified` bi chinh lan tai len cua he thong
+        # ghi de, nen neu chi so no voi moc duyet thi moi phieu dong bo SAU khi da co cap duyet
+        # deu bao nham - 15/09 do duoc 5/5 bang canh bao dang hien deu SAI, trong do co mot
+        # bang to bon nguoi duyet tren mot tep ma "moc sua" chinh la giay phut ta chay lenh cap
+        # bu. Mot canh bao keu oan se day nguoi ta bo qua mau vang, roi den lan that cung bo qua.
+        nen = get_datetime(r.sp_uploaded_at) if r.sp_uploaded_at else None
+        if nen and moc <= nen + timedelta(seconds=DUNG_SAI_GIAY):
+            a["sp_sua_sau_duyet"] = []
+            continue
         a["sp_sua_sau_duyet"] = [
             {"approver": x.get("approver"), "level_no": x.get("level_no"),
              "decided_at": x.get("decided_at")}
