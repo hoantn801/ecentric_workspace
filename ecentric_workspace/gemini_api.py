@@ -56,33 +56,24 @@ WAIT_ACTIVE_INTERVAL = 2  # poll interval
 def _extract_rel_path(sp_web_url, dept_clean):
     """Parse SP webUrl → 'Weekly Reports/<dept>/<filename>' relative path.
 
-    Handles 2 URL formats:
-      Direct path : https://...sharepoint.com/sites/operation/Shared Documents/Weekly Reports/<dept>/<file>
-      Office viewer: https://...sharepoint.com/sites/operation/_layouts/15/Doc.aspx?sourcedoc={GUID}&file=<file>...
+    Delegates to weekly_report.sharepoint, which is now the single place that
+    knows the URL shapes. This function used to carry its own copy handling two
+    of the three shapes, and missed the org share link that
+    auto_convert_slides_org rewrites every deck into within 30 minutes. Result:
+    re-uploading a deck to Gemini failed for every converted record, which on
+    15/09 was the entire AI re-score backlog. Two copies of one rule, one of
+    them a version behind.
 
-    Returns: relative path string (NOT URL-encoded — caller will encode), or "" if not parseable.
+    Note the deliberate behaviour change: the old copy fell back to a folder
+    literally named "Unknown" when dept_clean was empty, which produced a valid
+    path pointing at nothing and a 404 from Graph. Returning "" instead gives
+    the caller a real reason.
+
+    Returns: relative path (NOT URL-encoded — caller encodes), or "" if not parseable.
     """
-    # Case 1: legacy direct path /Shared Documents/...
-    for prefix in ("/sites/operation/Shared%20Documents/", "/sites/operation/Shared Documents/"):
-        idx = sp_web_url.find(prefix)
-        if idx >= 0:
-            tail = sp_web_url[idx + len(prefix):]
-            # Strip query/fragment if any
-            for sep in ("?", "#"):
-                if sep in tail:
-                    tail = tail.split(sep, 1)[0]
-            return unquote(tail)
+    from ecentric_workspace.weekly_report import sharepoint
 
-    # Case 2: _layouts/Doc.aspx?sourcedoc=...&file=<filename>...
-    if "_layouts/" in sp_web_url and "file=" in sp_web_url:
-        f_idx = sp_web_url.find("file=")
-        f_end = sp_web_url.find("&", f_idx + 5)
-        if f_end < 0:
-            f_end = len(sp_web_url)
-        fname = unquote(sp_web_url[f_idx + 5:f_end])
-        return "Weekly Reports/" + (dept_clean or "Unknown") + "/" + fname
-
-    return ""
+    return sharepoint.rel_path_from_web_url(sp_web_url or "", dept_clean or "")
 
 
 def _file_extension(filename):
