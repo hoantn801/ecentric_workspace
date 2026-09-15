@@ -35,7 +35,12 @@
   color: var(--ec-fk-text); text-align: left; }
 .ec-cb-display:hover { border-color: var(--ec-fk-border-hover); }
 .ec-cb-display:focus { outline: none; border-color: var(--ec-fk-accent); box-shadow: 0 0 0 3px var(--ec-fk-focus-ring); }
-.ec-cb-display.ec-cb-placeholder { color: var(--ec-fk-text-faint); }
+/* Placeholder dung text-muted (gray-500) chu khong phai text-faint (gray-400):
+   gray-400 tren nen trang chi duoc 2.54:1, duoi han nguong AA 4.5:1 cho chu
+   thuong. Day la chu ma nguoi dung PHAI doc de biet o nay chua chon gi.
+   gray-500 = 4.83:1. text-faint van con consumer la .ec-cb-arrow - mot glyph
+   trang tri, khong phai chu can doc. (F1, chot 15/09) */
+.ec-cb-display.ec-cb-placeholder { color: var(--ec-fk-text-muted); }
 .ec-cb-arrow { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); color: var(--ec-fk-text-faint);
   pointer-events: none; font-size: 10px; }
 .ec-cb-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--ec-fk-surface);
