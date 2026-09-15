@@ -537,10 +537,17 @@
     return '<table class="tbl"><tbody>'+list.map(function(f){
       // Co ban tren SharePoint thi tro sang do: Word Online CHI mo duoc tep nam tren
       // SharePoint/OneDrive. Tro vao file_url cua Frappe thi trinh duyet luon TAI .docx ve.
+      // BAY CA HAI DUONG. Ban dau chi doi lien ket sang SharePoint khi co - va do la mot loi
+      // nang: SharePoint chan mot nguoi (chi lien.vu, 15/09) thi ho khong phai "khong sua
+      // online duoc", ho la KHONG DOC DUOC HOP DONG NUA, du ban trong ERP ho co quyen van
+      // nam nguyen do. Mot tinh nang tien them khong duoc phep lam mat kha nang von co.
       var online=!!f.sp_web_url;
+      var mo = online
+        ? '<a href="'+esc(f.sp_web_url)+'" target="_blank" rel="noopener">Mở online</a>'
+          + ' <span class="hint">·</span> <a href="'+esc(f.file_url)+'" target="_blank" rel="noopener">Bản ERP</a>'
+        : '<a href="'+esc(f.file_url)+'" target="_blank" rel="noopener">Mở</a>';
       return '<tr><td>'+esc(f.file_name)+'</td><td>'+esc(f.owner)+'</td><td>'+esc(fmt(f.creation))+'</td>'
-           +'<td><a href="'+esc(online?f.sp_web_url:f.file_url)+'" target="_blank" rel="noopener">'
-           +(online?'Mở online':'Mở')+'</a></td></tr>'
+           +'<td style="white-space:nowrap">'+mo+'</td></tr>'
            + canhBaoSuaSauDuyet(f);
     }).join("")+'</tbody></table>'; }
 
