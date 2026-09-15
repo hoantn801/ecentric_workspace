@@ -424,13 +424,49 @@ class TestSoiLechTrenTrangVanHanh(unittest.TestCase):
         self.assertEqual(rows, [])
         self.assertTrue(logged, "phai ghi log chu khong im lang")
 
-    def test_KHONG_ve_nut_tren_bang_liet_ke(self):
-        """Dong bo chu ky la hanh dong CONG NHAN mot chu ky - no dong mot cap duyet va day
-        phieu di tiep. Nut phai nam o trang phieu, noi nguoi bam nhin thay ho so va phai
-        nhap can cu; mot nut o day bien quyet dinh do thanh mot cu bam nhanh."""
+    def test_CO_nut_dong_bo_ngay_tren_dong(self):
+        """DINH CHINH 15/09 - cung ngay.
+
+        Ban dau o day khang dinh dieu NGUOC LAI ("nut phai nam o trang phieu"), dua tren mot
+        gia dinh khong ai kiem: rang trang phieu CO nut do. No khong co.
+        `sync_signatures_from_provider` la API co that ma KHONG GIAO DIEN NAO GOI - dung lop
+        loi ma trang van hanh sinh ra de xoa. Hau qua: EC-PAYR-2026-00103 phai goi API bang
+        tay, con loi dan tren man hinh thi bao nguoi ta lam mot viec khong bam duoc o dau.
+        """
         rows, _ = _voi_moi_truong_soi_lech(lambda e: e["provider_drift"](),
                                           {"drift": [_drift_row("a@x")]})
-        self.assertEqual(rows[0]["actions"], [])
+        self.assertEqual(rows[0]["actions"], ["sync_drift"])
+
+    def test_giao_dien_co_ve_nut_va_goi_DUNG_endpoint(self):
+        self.assertIn("sync_drift", _UI)
+        self.assertIn('call("sync_signatures_from_provider"', _UI.replace("'", '"'))
+        # Truyen business_doctype/business_name - dong soi lech KHONG co chan ky nao, nen
+        # truyen `dsr_name` la truyen mot cai khong ton tai.
+        than = _brace_body(_UI, "function run(")
+        i = than.index("sync_drift")
+        doan = than[i:i + 700]
+        self.assertIn("business_doctype", doan)
+        self.assertIn("business_name", doan)
+        self.assertNotIn("dsr_name", doan)
+
+    def test_nut_BAT_BUOC_nhap_can_cu(self):
+        """May chu doi >= 10 ky tu; giao dien hoi truoc de nguoi bam khong gui di roi moi bi
+        tra ve. Bo phep hoi nay thi nut thanh mot cu bam nhanh cho mot quyet dinh."""
+        than = _brace_body(_UI, "function run(")
+        i = than.index("sync_drift")
+        doan = than[i:i + 700]
+        self.assertIn("prompt", doan)
+        self.assertIn("< 10", doan.replace("<10", "< 10"))
+
+    def test_dong_soi_lech_co_du_data_de_bam(self):
+        """`actionsHtml` doc `business_doctype`/`business_name` tu chinh dong - thieu mot
+        truong thi nut ve ra nhung bam vao goi API voi tham so rong."""
+        rows, _ = _voi_moi_truong_soi_lech(lambda e: e["provider_drift"](),
+                                          {"drift": [_drift_row("a@x")]})
+        self.assertTrue(rows[0]["business_doctype"])
+        self.assertTrue(rows[0]["business_name"])
+        self.assertIn("driftRow", _UI)
+        self.assertIn('actionsHtml(r, "drift")', _UI.replace("'", '"'))
 
     def test_con_so_vao_the_dau_trang(self):
         s, _ = _voi_moi_truong_soi_lech(

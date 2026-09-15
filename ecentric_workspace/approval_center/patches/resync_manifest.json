@@ -201,8 +201,8 @@
     "sha256": "7011abc816c9dd96a7e4d42096a26399399d578658d154ff2bded1691a53eab9"
   },
   "platform/esign/ui/ops_page.html": {
-    "last_resync_patch": "p193_resync_esign_ops_provider_drift",
-    "sha256": "42e2de9bef5cae248fbddb1d413a97fee8fa649c7adc415327ef3ec6ec91ca80"
+    "last_resync_patch": "p195_resync_esign_ops_sync_drift_button",
+    "sha256": "672eb85b5942ccc67a8cf4f2bde72d2968030106e24f6ec227a33ec86b4fcdd5"
   },
   "platform/esign/ui/payment_request_signing.html": {
     "last_resync_patch": "p159_resync_esign_review_stopped_leg_drawer_token",

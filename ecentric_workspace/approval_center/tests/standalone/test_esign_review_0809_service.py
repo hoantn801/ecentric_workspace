@@ -227,6 +227,18 @@ class TestExpectedSignersOnlySigned(unittest.TestCase):
         src = _read("platform", "esign", "signed_files.py")
         fk = types.ModuleType("frappe"); fk.filters = []
         fk.get_all = lambda dt, filters=None, fields=None, **k: fk.filters.append(filters) or []
+        # `_expected_signer_pairs` import `service._emails_cua_cung_danh_tinh` luc CHAY (mo
+        # rong mot email ra cac email cung danh tinh SCTS - tai khoan dung chung). Import
+        # THAT se keo ca `service.py` va `frappe` vao; dung module gia de phep kiem nay chi
+        # do dung cai no noi: bo loc trang thai.
+        import sys
+        svc = types.ModuleType("ecentric_workspace.platform.esign.service")
+        svc._emails_cua_cung_danh_tinh = lambda d: d.get("actor_user")
+        saved = sys.modules.get("ecentric_workspace.platform.esign.service")
+        sys.modules["ecentric_workspace.platform.esign.service"] = svc
+        self.addCleanup(lambda: sys.modules.__setitem__(
+            "ecentric_workspace.platform.esign.service", saved) if saved is not None
+            else sys.modules.pop("ecentric_workspace.platform.esign.service", None))
         g = {"frappe": fk, "DSR": "EC Digital Signature Request"}
         exec(compile(ast.Module(body=[_fn(src, "_expected_signer_pairs")], type_ignores=[]),
                      "sf.py", "exec"), g)
