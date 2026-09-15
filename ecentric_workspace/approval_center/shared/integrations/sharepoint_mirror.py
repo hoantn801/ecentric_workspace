@@ -27,6 +27,7 @@ Token: dung LAI `weekly_report.sharepoint.get_app_token` - app-only client_crede
 client_secret tu Social Login Key, khong hardcode. Khong dung MSAL phia trinh duyet.
 """
 import frappe
+from frappe.utils import now_datetime
 
 from ecentric_workspace.weekly_report import sharepoint as wr_sp
 

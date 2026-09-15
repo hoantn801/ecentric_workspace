@@ -285,6 +285,17 @@ class MuiGioTaiCHO_GOI(unittest.TestCase):
             else:
                 sys.modules[ten] = cu
 
+    def test_module_THAT_co_import_now_datetime(self):
+        """Ban gia trong `_nap` TU TIEM `now_datetime` vao khong gian ten - nen bo test nay
+        van xanh trong khi module that THIEU dong import, va production nem NameError o viec
+        chay nen (EC-CTR-2026-00014, 15/09). Mot phep kiem tu cap cho minh thu ma ban that
+        khong co thi no chi dang do chinh cai gia no dung len.
+
+        Cong tong quat cho ca lop loi nay la `tests/test_no_undefined_names.py` (pyflakes);
+        phep kiem o day la chot thu hai, ngay canh cho da dau."""
+        src = io.open(_MIRROR, encoding="utf-8").read()
+        self.assertIn("from frappe.utils import now_datetime", src)
+
     def test_ghi_lien_ket_luu_GIO_HE_THONG_chu_khong_phai_chuoi_UTC(self):
         class _Doc(object):
             def save(self, **k):
