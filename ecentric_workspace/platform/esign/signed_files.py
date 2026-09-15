@@ -44,11 +44,10 @@ def _expected_signers(package_name):
     provider user ids AND the bound ERP users' emails (eContract's Document detail exposes
     internal signers by email only). Used in the signer-based fallback."""
     ids, emails = set(), set()
-    for iden, mail in _expected_signer_pairs(package_name):
+    for iden, mails in _expected_signer_pairs(package_name):
         if iden:
             ids.add(iden)
-        if mail:
-            emails.add(mail)
+        emails.update(mails or ())
     return ids, emails
 
 
@@ -68,6 +67,9 @@ def _expected_signer_pairs(package_name):
     # thua binding, SM huy) truoc day van bi dem la "ky vong" -> expected_signer_absent moi
     # vong cron, tep ky khong bao gio duoc luu, ma _terminal_signed_ok lai coi cac chan do la
     # "xong" (khong in-flight) - hai dieu kien tu mau thuan (08/09, ra soat).
+    # Import CUC BO: `service` va file nay deu thuoc tang esign va nap lan nhau qua tasks;
+    # import o dau file de vong khi thu tu nap doi. Mot lan moi lan goi, khong phai moi dong.
+    from ecentric_workspace.platform.esign.service import _emails_cua_cung_danh_tinh
     rows = frappe.get_all(DSR, filters={"package": package_name, "action": "Sign",
                                         "status": ["in", ("Signed", "Approval Completed")]},
                           fields=["effective_scts_user_id", "actor_user", "approver"])
@@ -75,9 +77,28 @@ def _expected_signer_pairs(package_name):
     for r in rows:
         iden = str(r.effective_scts_user_id) if r.effective_scts_user_id else None
         who = r.actor_user or r.approver
-        mail = str(who).strip().lower() if who else None
-        if iden or mail:
-            out.append((iden, mail))
+        # TAI KHOAN SCTS DUNG CHUNG (15/09). Mot nguoi co the ky bang mot tai khoan dung
+        # chung - EC-PAYR-2026-00087: chi Huong ky bang `cnb.ecentric@`, con ERP ky vong
+        # `huong.pham@`. eContract tra `user_id` NULL o MOI dong, nen `iden` khong bao gio
+        # khop, va phep kiem email mot-doi-mot cung truot -> `expected_signer_absent:
+        # f438bc01...` moi vong cron tu 10/09, ban PDF da ky cua bang luong khong bao gio
+        # tai ve duoc.
+        #
+        # Ngay 10/09 da vá dung viec nay o `service.py` (`_emails_cua_cung_danh_tinh`) cho
+        # duong DUYET. File nay giu MOT BAN SAO RIENG cua luat danh tinh va khong duoc vá -
+        # dung lop loi "mot luat bi chep o N cho" (xem `feedback_dead_helper...`). Nen o day
+        # GOI LAI ham do chu khong viet ban thu ba.
+        #
+        # KHONG noi long phep kiem theo-tung-nguoi: mot chan ky van phai co mat bang danh
+        # tinh CUA CHINH NO. Cai duy nhat rong ra la "mot nguoi co the mang nhieu email" -
+        # va chi nhung email cua CUNG mot `scts_user_id` da xac minh (active=1,
+        # mapping_status="Verified"). Su thay the van nam trong pham vi mot nguoi.
+        ds = _emails_cua_cung_danh_tinh({"actor_user": who, "effective_scts_user_id": iden})
+        if isinstance(ds, str):
+            ds = [ds]
+        mails = frozenset(str(e).strip().lower() for e in (ds or []) if e)
+        if iden or mails:
+            out.append((iden, mails))
     return out
 
 
@@ -143,7 +164,9 @@ def _terminal_signed_ok(adapter, pkg):
     if not pairs:
         return False, "no_expected_signers"
     exp_ids = {i for i, _m in pairs if i}
-    exp_emails = {m for _i, m in pairs if m}
+    exp_emails = set()
+    for _i, _ms in pairs:
+        exp_emails.update(_ms or ())
     def _known(s):
         return (str(s.get("user_id")) in exp_ids
                 or str(s.get("email") or "").strip().lower() in exp_emails)
@@ -152,10 +175,10 @@ def _terminal_signed_ok(adapter, pkg):
     # TUNG NGUOI ky vong phai co mat - bang id CUA CHINH HO hoac email CUA CHINH HO. Su thay
     # the id<->email chi hop le trong pham vi mot nguoi; truoc day dung phep giao tap hop
     # toan cuc nen mot nguoi khop email la tha ca nhung nguoi khac vang mat.
-    for iden, mail in pairs:
-        if (iden and iden in present_ids) or (mail and mail in present_emails):
+    for iden, mails in pairs:
+        if (iden and iden in present_ids) or (mails and (mails & present_emails)):
             continue
-        return False, "expected_signer_absent:%s" % (iden or mail)
+        return False, "expected_signer_absent:%s" % (iden or next(iter(mails or ["?"])))
     for s in signers:
         if not _known(s):
             return False, "unexpected_signer_identity"

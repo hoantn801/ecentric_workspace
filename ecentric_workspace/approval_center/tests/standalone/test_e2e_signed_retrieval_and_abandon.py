@@ -191,7 +191,7 @@ class _Adapter(object):
         return self.signed_result
 
 
-def _load_sf(tables, dsr_rows=(), adapter=None, perms_stub=True):
+def _load_sf(tables, dsr_rows=(), adapter=None, perms_stub=True, alias_emails=None):
     """Exec signed_files.py that. dsr_rows phuc vu get_all tren DSR; adapter la provider gia."""
     import sys
 
@@ -297,7 +297,16 @@ def _load_sf(tables, dsr_rows=(), adapter=None, perms_stub=True):
         # Test BUG o duoi nap voi perms_stub=False.
         esign_pkg.perms = perms_mod
 
+    # `_expected_signer_pairs` goi `service._emails_cua_cung_danh_tinh` de mo rong mot email
+    # ra cac email CUNG mot danh tinh SCTS (tai khoan dung chung - EC-PAYR-2026-00087).
+    # Ban gia MAC DINH giu nguyen mot email: cac phep kiem cu o day khong noi ve tai khoan
+    # dung chung, va mot ban gia "tien tay" mo rong san se lam chung xanh vi ly do khac.
+    service_mod = types.ModuleType("ecentric_workspace.platform.esign.service")
+    service_mod._emails_cua_cung_danh_tinh = (
+        lambda d: (alias_emails or {}).get(d.get("actor_user"), d.get("actor_user")))
+
     mods = {
+        "ecentric_workspace.platform.esign.service": service_mod,
         "frappe": frappe_mod,
         "frappe.utils": utils_mod,
         "ecentric_workspace.platform.esign": esign_pkg,
@@ -423,6 +432,65 @@ class TestPartialSigningNeverDownloads(unittest.TestCase):
             ok, reason = c.env["_terminal_signed_ok"](adapter, self._pkg(c))
             self.assertTrue(ok)
             self.assertEqual(reason, "terminal_and_all_expected_signers_signed")
+
+    def test_TAI_KHOAN_DUNG_CHUNG_van_tai_duoc_ban_ky(self):
+        """EC-PAYR-2026-00087 (bang luong T08) - ket tu 10/09 den 15/09.
+
+        Chi Huong ky bang tai khoan SCTS DUNG CHUNG `cnb.ecentric@`, con ERP ky vong
+        `huong.pham@`. eContract tra `user_id` NULL o MOI dong nen `iden` khong bao gio khop,
+        va phep kiem email mot-doi-mot cung truot -> `expected_signer_absent:f438bc01...` moi
+        vong cron, ban PDF khong bao gio tai ve duoc.
+
+        Ngay 10/09 da vá dung viec nay o `service.py` cho duong DUYET. File nay giu MOT BAN
+        SAO RIENG cua luat danh tinh va khong duoc vá - nen phieu di het 4 cap roi van khong
+        lay duoc ban ky.
+        """
+        doc = types.SimpleNamespace(status="Signed", signers=[
+            {"status": "signed", "user_id": None, "email": "cnb.ecentric@ecentric.vn"}])
+        adapter = _Adapter(doc_state=doc)
+        rows = [{"name": "DSR-1", "status": "Approval Completed", "package": "PKG-1",
+                 "action": "Sign", "effective_scts_user_id": "f438bc01",
+                 "actor_user": "huong.pham@ecentric.vn",
+                 "approver": "huong.pham@ecentric.vn"}]
+        alias = {"huong.pham@ecentric.vn": ["huong.pham@ecentric.vn",
+                                            "cnb.ecentric@ecentric.vn"]}
+        with _Ctx(_pkg_tables(), dsr_rows=rows, adapter=adapter, alias_emails=alias) as c:
+            ok, reason = c.env["_terminal_signed_ok"](adapter, self._pkg(c))
+            self.assertTrue(ok, reason)
+
+    def test_KHONG_co_anh_xa_thi_VAN_tu_choi(self):
+        """Noi long chi ap cho email CUNG mot danh tinh da xac minh. Khong co anh xa thi
+        `cnb.ecentric@` van la mot nguoi LA - va mot nguoi la ky thay la dung ca UAT VOID 5."""
+        doc = types.SimpleNamespace(status="Signed", signers=[
+            {"status": "signed", "user_id": None, "email": "cnb.ecentric@ecentric.vn"}])
+        adapter = _Adapter(doc_state=doc)
+        rows = [{"name": "DSR-1", "status": "Approval Completed", "package": "PKG-1",
+                 "action": "Sign", "effective_scts_user_id": "f438bc01",
+                 "actor_user": "huong.pham@ecentric.vn",
+                 "approver": "huong.pham@ecentric.vn"}]
+        with _Ctx(_pkg_tables(), dsr_rows=rows, adapter=adapter) as c:   # khong alias
+            ok, reason = c.env["_terminal_signed_ok"](adapter, self._pkg(c))
+            self.assertFalse(ok)
+            self.assertTrue(reason.startswith("expected_signer_absent"), reason)
+
+    def test_moi_nguoi_van_phai_co_mat_RIENG(self):
+        """Noi long KHONG duoc pha phep kiem theo-tung-nguoi (loi BOT vong 3, 01/09): A ky
+        thay cho ca B van phai bi tu choi."""
+        doc = types.SimpleNamespace(status="Signed", signers=[
+            {"status": "signed", "user_id": None, "email": "cnb.ecentric@ecentric.vn"}])
+        adapter = _Adapter(doc_state=doc)
+        rows = [{"name": "DSR-1", "status": "Approval Completed", "package": "PKG-1",
+                 "action": "Sign", "effective_scts_user_id": "f438bc01",
+                 "actor_user": "huong.pham@ecentric.vn", "approver": "huong.pham@ecentric.vn"},
+                {"name": "DSR-2", "status": "Approval Completed", "package": "PKG-1",
+                 "action": "Sign", "effective_scts_user_id": "uid-tuan",
+                 "actor_user": "tuan.ly@ecentric.vn", "approver": "tuan.ly@ecentric.vn"}]
+        alias = {"huong.pham@ecentric.vn": ["huong.pham@ecentric.vn",
+                                            "cnb.ecentric@ecentric.vn"]}
+        with _Ctx(_pkg_tables(), dsr_rows=rows, adapter=adapter, alias_emails=alias) as c:
+            ok, reason = c.env["_terminal_signed_ok"](adapter, self._pkg(c))
+            self.assertFalse(ok, "thieu chu ky cua anh Tuan ma van cho tai la sai")
+            self.assertIn("uid-tuan", reason)
 
     def test_KHONG_co_danh_tinh_ky_vong_thi_tu_choi(self):
         """Fail-closed: khong biet ai duoc ky thi khong the ket luan la da ky dung."""

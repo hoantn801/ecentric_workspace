@@ -299,12 +299,20 @@ def provider_drift(limit=100):
             "who": d.get("approver"),
             "surplus": d.get("surplus"),
             "signatures": d.get("signatures"),
-            # Dong bo la hanh dong CONG NHAN mot chu ky - no dong mot cap duyet va day phieu
-            # di tiep. Nut nam o trang phieu, khong o day: nguoi bam phai nhin thay ho so va
-            # phai nhap can cu (`sync_signatures_from_provider` bat buoc ly do >= 10 ky tu).
-            # Mot nut "dong bo" ngay tren bang liet ke se bien mot quyet dinh thanh mot cu
-            # bam nhanh.
-            "actions": [],
+            # DINH CHINH 15/09 (cung ngay, sau khi Hoan hoi ve EC-PAYR-2026-00103).
+            #
+            # Ban dau o day de RONG, voi lap luan: "dong bo la hanh dong CONG NHAN mot chu ky,
+            # nut phai nam o trang phieu noi nguoi bam nhin thay ho so". Lap luan nghe hop ly
+            # va DUA TREN MOT GIA DINH SAI - toi khong kiem: trang phieu KHONG CO nut do.
+            # `sync_signatures_from_provider` la mot API co that ma KHONG GIAO DIEN NAO GOI -
+            # dung lop loi ma chinh trang nay sinh ra de xoa (xem docstring dau file).
+            #
+            # Hau qua: ca thong bao cua cron lan muc nay deu bao nguoi ta "mo phieu roi dong
+            # bo chu ky ve", mot viec khong bam duoc o dau ca. 00103 phai goi API bang tay.
+            #
+            # Nen nut nam o day. Trang nay von la noi chua cac loi thoat hiem, va no da co
+            # san le "bat nhap can cu" cho moi hanh dong khong hoan tac duoc.
+            "actions": ["sync_drift"],
         })
         if len(out) >= limit:
             break
