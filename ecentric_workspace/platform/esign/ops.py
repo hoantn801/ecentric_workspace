@@ -260,7 +260,58 @@ def signature_debts(limit=100):
     return out
 
 
-def summary(legs=None, bundles=None, mismatches=None, debts=None):
+def provider_drift(limit=100):
+    """Chu ky DA CO ben SCTS ma ERP chua dung - loai su co VO HINH tren trang nay (15/09).
+
+    VI SAO PHAI THEM. Bon muc o tren deu liet ke CHAN KY dang gap van de. Nhung o ca nay
+    chua bao gio co chan ky nao duoc tao: nguoi duyet ky thang tren cong SCTS thay vi bam
+    "Duyet & Ky" trong ERP. Khong co chan ky -> khong co dong nao de hien -> trang bao "0
+    chan ky dang cho xu ly", dung su that ma khong tra loi dung cau hoi.
+
+    Hau qua thuc te (Hoan bao 15/09): cron soi lech gui thong bao "Chu ky da co ben SCTS ma
+    ERP chua dung", nguoi ta mo trang van hanh ra thi thay trang tron. Mot thong bao tro toi
+    mot man hinh khong co gi trong trong nhu he thong noi doi - va lan sau khong ai doc no
+    nua. Cron da co tu 09/09; phan hien ra man hinh la mon no tu do den nay.
+
+    CHI DOC. Dung `_audit_drift` (ban khong hang rao) vi `audit_provider_signature_drift`
+    doi mot nguoi that dang bam, con `ops_inbox` da co hang rao quyen o tang API.
+
+    CHI tra ve dong `actionable_now` - tuc chu ky du dung o CAP DANG CHO, dong bo duoc ngay.
+    Chu ky cua mot cap CHUA toi luot khong phai viec gi ca; bay ca hai thi lan sau khong ai
+    doc nua. Cung quy tac voi cron.
+    """
+    try:
+        from ecentric_workspace.platform.esign import service as svc
+        res = svc._audit_drift() or {}
+    except Exception:
+        # Soi lech hong KHONG duoc lam trang trang. Bon muc kia van la viec that.
+        frappe.log_error(frappe.get_traceback(), "ops.provider_drift")
+        return []
+    out = []
+    for d in (res.get("drift") or []):
+        if not d.get("actionable_now"):
+            continue
+        out.append({
+            "business_doctype": d.get("business_doctype"),
+            "business_name": d.get("business_name"),
+            "approval_request": d.get("approval_request"),
+            "level_no": d.get("current_level"),
+            "who": d.get("approver"),
+            "surplus": d.get("surplus"),
+            "signatures": d.get("signatures"),
+            # Dong bo la hanh dong CONG NHAN mot chu ky - no dong mot cap duyet va day phieu
+            # di tiep. Nut nam o trang phieu, khong o day: nguoi bam phai nhin thay ho so va
+            # phai nhap can cu (`sync_signatures_from_provider` bat buoc ly do >= 10 ky tu).
+            # Mot nut "dong bo" ngay tren bang liet ke se bien mot quyet dinh thanh mot cu
+            # bam nhanh.
+            "actions": [],
+        })
+        if len(out) >= limit:
+            break
+    return out
+
+
+def summary(legs=None, bundles=None, mismatches=None, debts=None, drift=None):
     """Con so cho the dau trang. Dem rieng cai DA CHET voi cai dang cho.
 
     Nhan san danh sach de KHONG truy van lai. Ban dau `inbox()` goi `summary()` roi goi LAI
@@ -271,6 +322,7 @@ def summary(legs=None, bundles=None, mismatches=None, debts=None):
     bundles = unretrieved_bundles(limit=500) if bundles is None else bundles
     mismatches = hash_mismatch_reviews(limit=500) if mismatches is None else mismatches
     debts = signature_debts(limit=500) if debts is None else debts
+    drift = provider_drift(limit=500) if drift is None else drift
     return {
         "stuck_legs": len(legs),
         "dead_end_legs": len([x for x in legs if x["dead_end"]]),
@@ -284,6 +336,8 @@ def summary(legs=None, bundles=None, mismatches=None, debts=None):
         "abandoned_retrievals": len([x for x in bundles if x["abandoned"]]),
         "hash_mismatch": len(mismatches),
         "signature_debts": len(debts),
+        # Con so nay dem thu KHONG co chan ky nao - no la ly do muc soi lech ton tai.
+        "provider_drift": len(drift),
     }
 
 
@@ -296,7 +350,8 @@ def inbox():
     bundles = unretrieved_bundles()
     mismatches = hash_mismatch_reviews()
     debts = signature_debts()
-    return {"summary": summary(legs, bundles, mismatches, debts),
+    drift = provider_drift()
+    return {"summary": summary(legs, bundles, mismatches, debts, drift),
             "stuck_legs": legs, "unretrieved": bundles, "hash_mismatch": mismatches,
-            "signature_debts": debts,
+            "signature_debts": debts, "provider_drift": drift,
             "retrieval_alert_after": RETRIEVAL_ALERT_AFTER}

@@ -980,6 +980,29 @@ def grant_read_to_snapshot_approvers(req):
         # con hon hong ca lan gui phieu.
         frappe.log_error(frappe.get_traceback(),
                          "grant_read: nguoi xu ly %s" % req.name)
+    # NGUOI DE NGHI (15/09). Lan thu BA cung mot lop loi, va lan nay la nguoi hien nhien
+    # nhat: chinh chu cua ho so.
+    #
+    # `EC Payment Request` co Custom DocPerm cho System Manager + EC Finance, `if_owner=0`.
+    # Nguoi de nghi khong thuoc nhom nao trong hai nhom do va khong co DocShare -> ho MO
+    # DUOC phieu (duong cua app co luat rieng) nhung bam vao BAT KY tep nao cung 403, vi
+    # cong tep cua Frappe doc DocShare/DocPerm chu khong doc luat cua app.
+    #
+    # Do tren prod 15/09: 30/30 phieu De nghi thanh toan da co ban ky `SIGNED-*.pdf` deu
+    # thieu quyen cho nguoi de nghi; khong mot nguoi DUYET nao thieu. Tuc nguoi can ban ky
+    # nhat lai la nguoi duy nhat khong lay duoc no.
+    #
+    # KHONG phai noi rong quyen: `can_view_request` da cho nguoi de nghi xem toan bo ho so
+    # tu dau. Day chi la lam cho cong tep theo kip luat cua app - cung mot cau da viet cho
+    # nguoi duyet (08/09) va nguoi xu ly (09/09).
+    #
+    # `try` RIENG, khong gop voi khoi nguoi xu ly o tren: gop lai thi mot loi khi doc cau
+    # hinh nguoi xu ly se cuon theo ca nguoi de nghi, va nguoi de nghi bien mat vi mot ly do
+    # khong lien quan gi den ho.
+    try:
+        users = list(users) + [req.get("requested_by")]
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "grant_read: nguoi de nghi %s" % req.name)
     for u in dict.fromkeys(users):
         if not u or u == "Guest":
             continue
