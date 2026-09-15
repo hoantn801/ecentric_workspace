@@ -58,7 +58,28 @@ class _Rec(object):
         self.errors = []
 
 
-def _run_grant(approvers, grant_raises_for=None):
+class _Req(object):
+    """Gia mot Document cua Frappe: co THUOC TINH va co ca `.get()`.
+
+    Ban gia cu dung `SimpleNamespace`, ma no KHONG co `.get()` - nen moi lan ham that goi
+    `req.get(...)` la AttributeError, roi bi khoi `except` nuot mat. Phep do van xanh trong
+    khi nhanh dang do khong he chay. Dung hinh dang that thi phep do moi noi that.
+    """
+
+    def __init__(self, requested_by=None, approval_type=None):
+        self.name = "EC-APR-1"
+        self.reference_doctype = "EC Contract Review Request"
+        self.reference_name = "EC-CTR-2026-00012"
+        self._d = {"name": self.name, "requested_by": requested_by,
+                   "approval_type": approval_type,
+                   "reference_doctype": self.reference_doctype,
+                   "reference_name": self.reference_name}
+
+    def get(self, k, default=None):
+        return self._d.get(k, default)
+
+
+def _run_grant(approvers, grant_raises_for=None, requested_by=None):
     rec = _Rec()
     ns = {}
     frappe = types.ModuleType("frappe")
@@ -73,9 +94,7 @@ def _run_grant(approvers, grant_raises_for=None):
     ns["_engine_grant_read"] = _grant
     exec(compile(_func_source(_TRANS, "grant_read_to_snapshot_approvers"),
                  "<grant>", "exec"), ns)
-    req = types.SimpleNamespace(name="EC-APR-1", reference_doctype="EC Contract Review Request",
-                                reference_name="EC-CTR-2026-00012")
-    ns["grant_read_to_snapshot_approvers"](req)
+    ns["grant_read_to_snapshot_approvers"](_Req(requested_by=requested_by))
     return rec
 
 
@@ -95,6 +114,27 @@ class TestGrantOnSubmit(unittest.TestCase):
         self.assertEqual([u for _d, _n, u in rec.granted], ["b@x"],
                          "mot nguoi loi thi nhung nguoi con lai van phai duoc cap")
         self.assertTrue(rec.errors, "phai log loi thay vi nem ra ngoai")
+
+    def test_NGUOI_DE_NGHI_cung_duoc_cap(self):
+        """15/09. Do tren prod: 30/30 phieu da co ban ky `SIGNED-*.pdf` thieu quyen cho nguoi
+        de nghi, khong mot nguoi DUYET nao thieu. Chinh chu ho so la nguoi duy nhat khong mo
+        duoc ban ky cua chinh minh."""
+        rec = _run_grant(["kieu.nguyen@x"], requested_by="trong.vo@x")
+        self.assertIn("trong.vo@x", [u for _d, _n, u in rec.granted])
+
+    def test_nguoi_de_nghi_dong_thoi_la_nguoi_duyet_thi_chi_cap_MOT_lan(self):
+        rec = _run_grant(["trong.vo@x", "b@x"], requested_by="trong.vo@x")
+        self.assertEqual([u for _d, _n, u in rec.granted].count("trong.vo@x"), 1)
+
+    def test_khong_co_nguoi_de_nghi_thi_van_cap_cho_nguoi_duyet(self):
+        # Phieu cu / du lieu thieu truong khong duoc lam hong ca lan cap.
+        rec = _run_grant(["a@x"], requested_by=None)
+        self.assertEqual([u for _d, _n, u in rec.granted], ["a@x"])
+
+    def test_cap_cho_nguoi_de_nghi_dung_DUNG_ho_so_do(self):
+        rec = _run_grant([], requested_by="trong.vo@x")
+        self.assertEqual(rec.granted,
+                         [("EC Contract Review Request", "EC-CTR-2026-00012", "trong.vo@x")])
 
     def test_build_snapshot_co_goi_ham_nay(self):
         """Ham dung ma khong ai goi thi vo nghia."""
@@ -187,6 +227,115 @@ class TestBackfillPatch(unittest.TestCase):
     def test_da_dang_ky_trong_patches_txt(self):
         txt = io.open(os.path.join(_ROOT, "patches.txt"), encoding="utf-8").read()
         self.assertIn("patches.p163_backfill_approver_file_read", txt)
+
+
+_PATCH192 = os.path.join(_ROOT, "approval_center", "patches",
+                         "p192_backfill_requester_file_read.py")
+
+
+def _run_p192(reqs, existing_shares=()):
+    rec = _Rec()
+    shares = set(existing_shares)
+    frappe = types.ModuleType("frappe")
+    frappe.get_all = lambda dt, fields=None, **kw: [dict(r) for r in reqs]
+
+    class _DB(object):
+        def exists(self, dt, flt):
+            return (flt["share_doctype"], flt["share_name"], flt["user"]) in shares
+
+    frappe.db = _DB()
+    frappe.log_error = lambda msg, title=None: rec.errors.append((title, str(msg)[:120]))
+    frappe.get_traceback = lambda: "TB"
+    frappe.logger = lambda: types.SimpleNamespace(info=lambda m: rec.errors.append(("info", m)))
+
+    transitions = types.ModuleType("transitions")
+
+    def _grant(doctype, name, user):
+        rec.granted.append((doctype, name, user))
+        shares.add((doctype, name, user))
+
+    transitions._engine_grant_read = _grant
+    saved, mods = {}, {
+        "frappe": frappe,
+        "ecentric_workspace": types.ModuleType("e"),
+        "ecentric_workspace.approval_center": types.ModuleType("a"),
+        "ecentric_workspace.approval_center.shared": types.ModuleType("b"),
+        "ecentric_workspace.approval_center.shared.workflow": types.ModuleType("c"),
+    }
+    mods["ecentric_workspace.approval_center.shared.workflow"].transitions = transitions
+    mods["ecentric_workspace.approval_center.shared.workflow.transitions"] = transitions
+    for k, v in mods.items():
+        saved[k] = sys.modules.get(k)
+        sys.modules[k] = v
+    try:
+        ns = {"__name__": "p192"}
+        exec(compile(io.open(_PATCH192, encoding="utf-8").read(), _PATCH192, "exec"), ns)
+        ns["execute"]()
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                sys.modules.pop(k, None)
+            else:
+                sys.modules[k] = v
+    return rec
+
+
+class TestCapBuNguoiDeNghi(unittest.TestCase):
+    """p192 - cap bu cho NGUOI DE NGHI."""
+
+    def _req(self, name, requested_by, biz="EC-PAYR-2026-00056"):
+        return {"name": name, "reference_doctype": "EC Payment Request",
+                "reference_name": biz, "requested_by": requested_by}
+
+    def test_cap_cho_nguoi_de_nghi(self):
+        rec = _run_p192([self._req("R1", "trong.vo@x")])
+        self.assertEqual(rec.granted,
+                         [("EC Payment Request", "EC-PAYR-2026-00056", "trong.vo@x")])
+
+    def test_chay_lai_KHONG_cap_lai(self):
+        rec = _run_p192([self._req("R1", "trong.vo@x")],
+                        existing_shares=[("EC Payment Request", "EC-PAYR-2026-00056",
+                                          "trong.vo@x")])
+        self.assertEqual(rec.granted, [])
+
+    def test_bo_qua_Guest_va_truong_thieu(self):
+        rec = _run_p192([self._req("R1", "Guest"), self._req("R2", None),
+                         {"name": "R3", "requested_by": "a@x"}])   # thieu reference_*
+        self.assertEqual(rec.granted, [])
+
+    def test_KHONG_loc_theo_trang_thai_phieu(self):
+        """Phep kiem QUAN TRONG NHAT cua patch nay.
+
+        p163/p167 co y chi dung toi phieu CON MO. Cau do dung voi chung va SAI voi day: ban
+        PDF da ky chi sinh ra khi luong da XONG, nen loc theo trang thai se bo qua DUNG 30
+        phieu dang bi loi. Neu ai do "dong bo cho giong hai patch kia" bang cach them bo loc,
+        phep kiem nay phai do.
+        """
+        src = io.open(_PATCH192, encoding="utf-8").read()
+        tree = ast.parse(src)
+        fn = next(n for n in tree.body
+                  if isinstance(n, ast.FunctionDef) and n.name == "execute")
+        than = ast.unparse(fn)
+        self.assertNotIn("approval_status", than,
+                         "p192 KHONG duoc loc theo trang thai phieu - xem docstring")
+        # Va kiem bang HANH VI, khong chi bang chu: phieu da dong van phai duoc cap.
+        rec = _run_p192([dict(self._req("R1", "trong.vo@x"), approval_status="Approved")])
+        self.assertEqual(len(rec.granted), 1, "phieu da duyet xong VAN phai duoc cap bu")
+
+    def test_mot_phieu_hong_khong_lam_dung_ca_lan_chay(self):
+        rec = _run_p192([self._req("R1", "a@x", biz=None),        # thieu reference_name
+                         self._req("R2", "b@x")])
+        self.assertEqual([u for _d, _n, u in rec.granted], ["b@x"])
+
+    def test_KHONG_nem_loi_ra_ngoai_migrate(self):
+        tree = ast.parse(io.open(_PATCH192, encoding="utf-8").read())
+        fn = next(n for n in tree.body
+                  if isinstance(n, ast.FunctionDef) and n.name == "execute")
+        self.assertFalse([n for n in ast.walk(fn) if isinstance(n, ast.Raise)])
+
+    def test_da_dang_ky_trong_patches_txt(self):
+        txt = io.open(os.path.join(_ROOT, "patches.txt"), encoding="utf-8").read()
+        self.assertIn("patches.p192_backfill_requester_file_read", txt)
 
 
 if __name__ == "__main__":

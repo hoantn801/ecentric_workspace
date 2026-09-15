@@ -105,7 +105,8 @@
     ["stalled_retrievals", "Trong đó: thử quá nhiều lần", "warn"],
     ["abandoned_retrievals", "Trong đó: đã ngừng thử lại", ""],
     ["hash_mismatch", "Mã băm lệch, chờ đối chiếu", "warn"],
-    ["signature_debts", "Cấp duyệt còn nợ chữ ký", "bad"]
+    ["signature_debts", "Cấp duyệt còn nợ chữ ký", "bad"],
+    ["provider_drift", "Đã ký bên SCTS mà ERP chưa dùng", "warn"]
   ];
 
   function renderCards() {
@@ -265,6 +266,14 @@
       + '<td><div class="ops-note">Mở phiếu để đối chiếu hai bản.</div></td></tr>';
   }
 
+  function driftRow(r) {
+    return "<tr><td>" + docLink(r.business_doctype, r.business_name)
+      + "</td><td>" + esc(r.who || "—")
+      + "</td><td>" + esc(r.level_no == null ? "—" : r.level_no)
+      + "</td><td>" + esc(r.surplus || 0) + " / " + esc(r.signatures || 0)
+      + "</td></tr>";
+  }
+
   function debtRow(r) {
     var done = r.request_status === "Approved";
     return "<tr><td>" + docLink(r.business_doctype, r.business_name)
@@ -300,6 +309,15 @@
               ["Phiếu", "Trạng thái", "Chân ký", "Lần thử / lỗi gần nhất", ""],
               STATE.stuck_legs, legRow,
               "Không có chân ký nào đang kẹt.")
+      + section("Đã ký bên SCTS mà ERP chưa dùng",
+              "Người duyệt ký thẳng trên cổng SCTS thay vì bấm “Duyệt & Ký” trong ERP, nên "
+              + "ERP chưa hề tạo chân ký nào — không có dòng nào ở mục trên để nhìn thấy. "
+              + "Mở phiếu rồi đồng bộ chữ ký về: thao tác đó chỉ ĐỌC lại phía SCTS, không "
+              + "gửi lệnh ký, và bắt buộc nêu căn cứ. Chỉ liệt kê chữ ký ở cấp đang chờ — "
+              + "ký trước cho cấp chưa tới lượt thì để yên, nó sẽ dùng khi tới lượt.",
+              ["Phiếu", "Người đã ký", "Cấp đang chờ", "Chữ ký dư / tổng"],
+              STATE.provider_drift, driftRow,
+              "Không có chữ ký nào bên SCTS mà ERP bỏ sót.")
       + section("Gói chưa tải được PDF đã ký",
               "Cron chạy 30 phút một lần và thử lại không giới hạn. Cột số lượt là thứ "
               + "phân biệt một gói đang chờ bình thường với một gói đã hỏng — quá "
