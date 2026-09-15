@@ -116,9 +116,15 @@ def _reconcile_decks(doc, payload, errors):
             _delete_removed(removed, errors, payload.get("department"))
 
     doc.slide_deck = "\n".join(kept + added)
-    # Any change to the deck set invalidates the cached Gemini URIs; clearing
-    # them lets auto_retrigger_missing_ai regenerate cleanly instead of scoring
-    # a file that is no longer attached.
+    # Any change to the deck set invalidates the cached Gemini URIs: scoring a
+    # file that is no longer attached is worse than not scoring yet.
+    #
+    # CONTRACT: "[]" means "needs regeneration", and auto_retrigger_missing_ai
+    # is the thing that regenerates it. That cron used to EXCLUDE
+    # gemini_file_uris = '[]' from its WHERE clause, which meant every report
+    # submitted through here between 14/09 and 15/09 was silently unscorable --
+    # the comment that used to sit on this line asserted the opposite without
+    # anyone having read the cron's SQL. Do not narrow that filter again.
     if added or kept != current:
         doc.gemini_file_uris = "[]"
     return len(added)

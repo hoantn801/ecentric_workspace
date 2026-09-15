@@ -44,6 +44,20 @@ _DIRECT_PREFIXES = (
     "/sites/operation/Shared Documents/",
 )
 
+# A webUrl that points at a SHARE of the item rather than at the item itself.
+# Canonical definition: deck_sharing imports this instead of keeping its own
+# copy, because the two drifting apart is what let shape 3 go unhandled here
+# while deck_sharing recognised it perfectly well.
+SHARE_MARKERS = ("/:b:/", "/:x:/", "/:p:/", "/:w:/", ":/s/")
+
+
+def is_share_url(url):
+    """True when the url is an organisation/anonymous share link."""
+    for marker in SHARE_MARKERS:
+        if marker in (url or ""):
+            return True
+    return False
+
 
 class GraphError(Exception):
     """Raised when Microsoft Graph rejects a deck operation."""
@@ -137,15 +151,28 @@ def dept_clean(department):
 def rel_path_from_web_url(web_url, department=""):
     """webUrl -> library-relative path, or "" when it cannot be trusted.
 
-    Two shapes reach us, and which one you get depends on the FILE TYPE:
-      - PDF    -> direct path  .../Shared Documents/Weekly Reports/<dept>/<f>
-      - Office -> viewer URL   .../_layouts/15/Doc.aspx?sourcedoc={G}&file=<f>
-    The viewer URL carries no folder, so the department must be supplied to
+    THREE shapes reach us, and which one you get depends on the file type AND
+    on whether auto_convert_slides_org has run yet:
+      1. direct path  .../Shared Documents/Weekly Reports/<dept>/<f>   (PDF)
+      2. viewer URL   .../_layouts/15/Doc.aspx?sourcedoc={G}&file=<f>  (Office)
+      3. org share    .../:b:/s/operation/IQ...#<filename>             (after sharing)
+
+    Shapes 2 and 3 carry no folder, so the department must be supplied to
     rebuild the path. Without it we return "" rather than guess -- a wrong path
     would make callers delete or re-share the wrong item.
 
-    NOTE: gemini_api._extract_rel_path implements the same two cases. Third user
-    of this rule; consolidate into a shared util next time either is touched.
+    Shape 3 cost a live outage on 15/09: auto_convert_slides_org rewrites every
+    deck to an org share link within 30 minutes of submission, and neither this
+    function nor gemini_api._extract_rel_path knew that shape. Re-uploading a
+    deck to Gemini therefore failed for every record whose link had been
+    converted -- silently, because the caller only recorded thrown exceptions,
+    not a returned success=False. The whole AI re-score backlog was stuck on it.
+    The "#<filename>" fragment is appended by create_org_link(), which is why
+    shape 3 is parseable at all; if that ever stops, this returns "" and the
+    caller must resolve the share via Graph /shares/{u!...}/driveItem instead.
+
+    This is now the single implementation. gemini_api._extract_rel_path
+    delegates here -- do not reintroduce a parallel copy.
     """
     url = web_url or ""
     for prefix in _DIRECT_PREFIXES:
@@ -157,8 +184,9 @@ def rel_path_from_web_url(web_url, department=""):
                     tail = tail.split(sep, 1)[0]
             return unquote(tail)
 
+    folder = dept_clean(department) if department else ""
+
     if "_layouts/" in url and "file=" in url:
-        folder = dept_clean(department) if department else ""
         if not folder:
             return ""
         tail = url[url.find("file=") + 5:]
@@ -167,6 +195,14 @@ def rel_path_from_web_url(web_url, department=""):
         fname = unquote(tail)
         if fname:
             return "{0}/{1}/{2}".format(DECK_ROOT, folder, fname)
+
+    if is_share_url(url) and "#" in url:
+        if not folder:
+            return ""
+        fname = unquote(url.split("#", 1)[1]).strip()
+        if fname:
+            return "{0}/{1}/{2}".format(DECK_ROOT, folder, fname)
+
     return ""
 
 
