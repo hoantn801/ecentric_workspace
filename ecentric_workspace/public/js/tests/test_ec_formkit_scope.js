@@ -29,4 +29,8 @@ setTimeout(()=>{
   c["khong chong len dropzone san co"]= w4.document.querySelectorAll(".ec-dz").length===1;
   let ok=true;Object.keys(c).forEach(k=>{console.log((c[k]?"PASS":"FAIL")+" - "+k); if(!c[k])ok=false;});
   console.log(ok?"ALL_PASS":"SOME_FAIL");
+ // MA THOAT, khong chi dong chu. Thieu dong nay thi bai test in "SOME_FAIL" ma van
+ // thoat 0 - run_js.sh dem no la XANH, va 15/09 chinh no lam phep kiem dot bien cua
+ // Claude bao "dot bien song sot" trong khi that ra bai test da bat dung loi.
+ process.exit(ok?0:1);
 },200);

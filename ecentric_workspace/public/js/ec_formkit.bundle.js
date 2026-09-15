@@ -30,6 +30,11 @@
   /* ---------------------------------------------------------------- combobox */
   function enhanceSelect(sel) {
     if (!sel || sel.__ecCb || sel.multiple || sel.disabled) return;
+    // TRANG TU KHAI QUYEN SO HUU - cung mot luat da ap cho input[type=file] ben duoi.
+    // Mot <select> nam trong o cua bang chat khong dung duoc combobox: bang tim kiem bung ra
+    // de len hang ben duoi va bi vien bang cat mat (Booking Request, bang KOL/KOC, 15/09).
+    // Trang biet ngu canh do, asset toan site thi khong - nen de trang noi.
+    if (sel.hasAttribute("data-ec-no-formkit") || sel.closest("[data-ec-no-formkit]")) return;
     if (sel.closest(".ec-cb")) return;                 // trang đã có combobox của riêng nó
     if (sel.options.length < 6) return;            // danh sách ngắn: <select> gốc dễ dùng hơn
     sel.__ecCb = true;

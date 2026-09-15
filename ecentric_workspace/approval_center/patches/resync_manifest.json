@@ -23,8 +23,8 @@
   },
   "approval_center/features/booking_request/ui/main_section.html": {
     "baseline": "2026-09-11",
-    "last_resync_patch": "p184_resync_booking_form_options_key",
-    "sha256": "d7f1caf839e72b9123355a1a85e8908602a74f8b05c33dfdc9f19a51867cdc9a"
+    "last_resync_patch": "p191_resync_booking_form_ui",
+    "sha256": "2c6d79b62757be5ca6917d660658188e338d7cca9a9fc444829116664364dc7b"
   },
   "approval_center/features/budget_setting/ui/main_section.html": {
     "baseline": "2026-08-31",
