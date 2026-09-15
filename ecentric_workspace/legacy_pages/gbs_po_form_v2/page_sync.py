@@ -42,8 +42,11 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "4279755dd7cb69d82e4fb35d792c1de91c3fc16778b5ba77858fb9c750218a12"
+BASELINE_SHA256 = "00aa084115c667ff42b47ed8057ed45c74e97523bc4d1226638b4833775677c5"
 SUPERSEDES_SHA256 = (
+    # 2026-09-15: wrapper CSRF v2 - bo fallback gui chuoi literal token (gay
+    # CSRFTokenError khi chua co token that). Va TAI CHO, giu nguyen vo shell.
+    "4279755dd7cb69d82e4fb35d792c1de91c3fc16778b5ba77858fb9c750218a12",  # truoc wrapper v2
     "80edae80119586dc184512b81355eae2924cd486d065261b13bc03b2f96bd162",
     # bytes truoc khi sua link chet /mso-approval (2026-08-07): nut "Quay lai trang
     # chu" tro toi /mso-approval -- route nay KHONG ton tai tren site (chi co /home,
