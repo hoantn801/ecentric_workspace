@@ -8,7 +8,7 @@
  "engine": "InnoDB",
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-14 12:00:00.000000",
+ "modified": "2026-09-15 19:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC SharePoint File Link",
@@ -24,6 +24,7 @@
   "cb0",
   "sp_item_id",
   "sp_web_url",
+  "sp_uploaded_at",
   "sp_last_modified",
   "sp_synced_at",
   "sp_granted_to"
@@ -65,6 +66,13 @@
    "label": "SharePoint URL",
    "read_only": 1,
    "description": "Duong dan mo tren Word Online. PHAI la Small Text chu khong phai Data: Graph tra ve URL da URL-encode ten tep, ma moi ky tu tieng Viet co dau no ra 9 ky tu (o-moc-nang -> %E1%BB%A3). Mot ten tep tieng Viet binh thuong da vuot nguong 140 cua Data - do that 14/09 la 190 ky tu."
+  },
+  {
+   "fieldname": "sp_uploaded_at",
+   "fieldtype": "Datetime",
+   "label": "He thong tai len luc",
+   "read_only": 1,
+   "description": "Moc thoi gian cua LAN TA TU TAI LEN. Phai co truong RIENG nay: `sp_last_modified` la moc sua tren SharePoint, ma chinh lan tai len cua he thong cung ghi de no - nen neu lay mot minh no di so voi moc duyet thi moi phieu dong bo sau khi da co cap duyet deu bi bao nham (15/09: 5/5 bang canh bao dang hien deu SAI). Canh bao chi dung khi tep doi SAU moc nay, tuc do NGUOI sua chu khong phai ta."
   },
   {
    "fieldname": "sp_last_modified",

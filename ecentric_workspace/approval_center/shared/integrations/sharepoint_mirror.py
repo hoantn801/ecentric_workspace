@@ -267,6 +267,9 @@ def ghi_lien_ket(business_doctype, file_url, business_name, ket_qua, da_cap=None
     doc.sp_item_id = ket_qua.get("item_id")
     doc.sp_web_url = ket_qua.get("web_url")
     doc.sp_last_modified = gio_he_thong(ket_qua.get("last_modified"))
+    # MOC NEN: chinh lan tai len nay. Tu day tro di, `sp_last_modified` lon hon moc nay
+    # nghia la NGUOI sua tren SharePoint - do moi la dieu bang canh bao muon noi.
+    doc.sp_uploaded_at = doc.sp_last_modified
     doc.sp_synced_at = now_datetime()
     doc.sp_granted_to = ", ".join(da_cap or [])
     doc.save(ignore_permissions=True)
@@ -357,3 +360,50 @@ def dong_bo_nen(business_doctype, business_name):
     except Exception:
         frappe.log_error(frappe.get_traceback(), "SharePoint soi guong nen %s" % business_name)
         return None
+
+
+#: Chi quet phieu CON DANG CHO DUYET. Phieu da xong thi khong con ai duyet de ma canh bao,
+#: va quet ca bang moi gio chi de goi Graph cho nhung ho so khong ai doc nua la lang phi.
+TRANG_THAI_CON_CHO = ("Pending", "Information Required")
+
+
+def lam_tuoi_moc_sua():
+    """Doc lai `lastModifiedDateTime` tu SharePoint cho cac phieu CON CHO DUYET.
+
+    VI SAO CAN. Bang canh bao "tep doi sau khi duyet" doc `sp_last_modified`, ma truoc dot nay
+    KHONG CO GI cap nhat truong do sau luc tai len - `doc_moc_sua` duoc viet ra roi khong ai
+    goi. Nghia la tinh nang sai ca hai chieu: bao nham voi moi phieu dong bo sau khi da co cap
+    duyet, va KHONG BAO GIO bat duoc mot lan sua that tren Word Online.
+
+    Chi cap nhat `sp_last_modified`, TUYET DOI khong dung toi `sp_uploaded_at`: moc nen phai
+    giu nguyen thi phep so moi con y nghia.
+
+    Nuot loi tung ban ghi: mot tep bi xoa tay tren SharePoint khong duoc lam chet ca lan quet.
+    """
+    if not frappe.db.exists("DocType", LINK_DT):
+        return {"bo_qua": "chua co DocType lien ket"}
+    rows = frappe.get_all(
+        LINK_DT, filters={"sp_item_id": ["is", "set"]},
+        fields=["name", "business_doctype", "business_name", "sp_item_id"],
+        limit_page_length=0)
+    if not rows:
+        return {"so_ban_ghi": 0}
+    token, doi, loi = None, 0, 0
+    for r in rows:
+        try:
+            req = frappe.db.get_value(r.business_doctype, r.business_name, "approval_request")
+            if not req:
+                continue
+            tt = frappe.db.get_value("EC Approval Request", req, "approval_status")
+            if tt not in TRANG_THAI_CON_CHO:
+                continue
+            token = token or wr_sp.get_app_token()
+            moc = doc_moc_sua(r.sp_item_id, token=token)
+            if moc:
+                frappe.db.set_value(LINK_DT, r.name, "sp_last_modified", moc,
+                                    update_modified=False)
+                doi += 1
+        except Exception:
+            loi += 1
+            frappe.log_error(frappe.get_traceback(), "lam tuoi moc sua %s" % r.name)
+    return {"so_ban_ghi": len(rows), "da_cap_nhat": doi, "hong": loi}
