@@ -35,7 +35,14 @@
  *   navigation request, never an /api/** response, and bump EC_SW_VERSION.
  */
 
-var EC_SW_VERSION = "2026-09-14.1";
+var EC_SW_VERSION = "2026-09-15.1";
+
+/* Anh dai dien cua thong bao day (large icon, hien o BEN PHAI the tren Android).
+ * KHONG gui thi may tu ve mot vong tron chu cai suy ra tu TEN MIEN - dung la
+ * chu "T" cua team.ecentric.vn ma moi nguoi nhin thay tren the ngay 14/09.
+ * Dung file da co san cho PWA (cung anh manifest dung), da kiem: public, 512x512,
+ * tra ve 200 khi khong kem cookie - service worker tai duoc trong moi hoan canh. */
+var EC_PUSH_ICON = "/files/ec-erp-icon-512.png";
 
 /* Take over as soon as a new version is deployed instead of waiting for every
  * tab to close. Safe here because the worker holds no cached state. */
@@ -100,9 +107,15 @@ self.addEventListener("push", function (event) {
   var title = data.title || "eCentric ERP";
   var opts = {
     body: data.body || "",
+    icon: data.icon || EC_PUSH_ICON,
     tag: data.tag || "ec-notification",
     renotify: true,
     requireInteraction: false,
+    /* Gio cua SU KIEN, khong phai gio may nhan duoc. Push co the den muon vai phut
+     * (dien thoai ngu, mang chap chon); lay Date.now() se xep sai thu tu va hien
+     * "vua xong" cho mot loi nhac tu 20 phut truoc. */
+    timestamp: Number(data.ts) || Date.now(),
+    lang: "vi",
     data: { url: data.url || "/", event_id: data.event_id || "" }
   };
   event.waitUntil(self.registration.showNotification(title, opts));

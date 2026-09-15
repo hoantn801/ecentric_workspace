@@ -2896,3 +2896,46 @@ class TestHrDataIssueRouting(unittest.TestCase):
         row = ev.ROUTING_MATRIX["hr_data_issue"]
         self.assertTrue(row["erp"])
         self.assertTrue(row["webpush"])
+
+
+class TestPushNotificationCard(unittest.TestCase):
+    """Hinh thuc cua the thong bao day tren dien thoai.
+
+    14/09 the hien ra mot vong tron xam chu "T" ben phai. Do KHONG phai loi cua
+    minh sinh ra: khong gui `icon` thi Android tu ve mot avatar chu cai suy ra tu
+    ten mien - "T" cua team.ecentric.vn. Gui icon la het."""
+
+    def _sw(self):
+        with open(os.path.join(_pkg_root(), "www", "sw.js"), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_notification_carries_an_icon(self):
+        src = self._sw()
+        self.assertIn("EC_PUSH_ICON", src)
+        self.assertIn("icon: data.icon || EC_PUSH_ICON", src)
+
+    def test_icon_is_an_existing_public_asset(self):
+        # Service worker tai icon nay ngoai ngu canh trang; no PHAI cong khai va
+        # phai la file that. Dung dung anh chi ton tai trong repo nhung chua deploy.
+        src = self._sw()
+        self.assertIn('"/files/ec-erp-icon-512.png"', src,
+                      "icon phai tro toi anh PWA da co san tren site")
+
+    def test_event_time_not_arrival_time(self):
+        self.assertIn("timestamp: Number(data.ts) || Date.now()", self._sw())
+        with open(os.path.join(_pkg_root(), "notification_center", "providers",
+                               "webpush.py"), encoding="utf-8") as fh:
+            py = fh.read()
+        self.assertIn('"ts": _ts_ms(doc.get("creation"))', py)
+
+    def test_service_worker_version_bumped(self):
+        # Trinh duyet chi cai ban moi khi NOI DUNG file doi; quen bump thi khong ai
+        # doc duoc ghi chu version nua va chan doan tai cho thanh doan mo.
+        self.assertIn('EC_SW_VERSION = "2026-09-15.1"', self._sw())
+
+    def test_still_no_jinja_tokens(self):
+        # www/sw.js di qua Jinja truoc khi gui. Mot dau ngoac nhon doi lam hong
+        # CA service worker - mat push cho toan cong ty, im lang.
+        src = self._sw()
+        for tok in ("{{", "{%", "{#"):
+            self.assertNotIn(tok, src, "sw.js khong duoc chua token Jinja: " + tok)
