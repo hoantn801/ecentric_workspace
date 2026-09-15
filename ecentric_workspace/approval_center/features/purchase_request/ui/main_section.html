@@ -178,7 +178,12 @@
 
   function tabAllowed(t){ var tb=state.boot&&state.boot.tabs||{}; return t==="create"||t==="my-requests"||(t==="my-approvals"&&tb.my_approvals); }
   function renderTabs(){ var box=$("purr-tabs"); if(!box)return;
-    var defs=[["create","Tạo yêu cầu",true]];
+    // Thanh tab lay DUNG `state.boot.tabs` lam nguon - cung nguon voi `tabAllowed`.
+    // Truoc dot nay backend van tinh quyen cho 4 tab va gui xuong, con man hinh chi ve
+    // mot nut; cac tab kia song nhung khong co cua vao (chi toi duoc bang go URL).
+    var tb=(state.boot&&state.boot.tabs)||{};
+    var defs=[["create","Tạo yêu cầu",true],["my-requests","Yêu cầu của tôi",true]];
+    if(tb.my_approvals) defs.push(["my-approvals","Chờ tôi duyệt",true]);
     box.innerHTML=defs.map(function(d){ var act=(state.tab===d[0]||(state.tab==="detail"&&d[0]==="my-requests"))?" active":"";
       return '<button type="button" class="tab'+act+'"'+(d[2]?'':' disabled')+' data-tab="'+d[0]+'">'+esc(d[1])+'</button>'; }).join(""); }
 
