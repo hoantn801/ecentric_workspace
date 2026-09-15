@@ -114,20 +114,77 @@ def tai_len(business_doctype, file_url, file_name, business_name, token=None):
 
 
 # --------------------------------------------------------------------------- #
-# KHONG co buoc cap quyen o day - va do la mot QUYET DINH, khong phai thieu sot.
+# CAP QUYEN THEO NGUOI - da tung bi go 14/09 roi KHOI PHUC 15/09.
 #
-# 14/09 do tren tenant that: tep nam trong thu vien cua site `operation`, ma nhom
-# "Operation Members" DA co quyen `write` san. Nghia la buoc cap quyen cho tung nguoi trong
-# luong duyet khong he thu hep pham vi - no chi them mot lop ACL thu hai len tren mot lop da
-# mo san, roi bao cao "da cap quyen cho 9 nguoi" nhu the vua bao ve duoc cai gi do.
+# 14/09 do thay nhom "Operation Members" co quyen `write` san tren thu vien, nen ket luan
+# "moi nguoi da vao duoc roi" va go buoc nay di. Phep do do THIEU mot nua: no tra loi
+# "nhom nao co quyen", KHONG tra loi "ai nam trong nhom". 15/09 chi lien.vu - nguoi duyet
+# cap 2 cua Contract Review - bam "Mo online" va bi SharePoint chan. Mot phan vi du du de
+# bac mot ket luan rut ra tu phep do thieu.
 #
-# Hoan chot: quan quyen o MOT cho (thanh vien site SharePoint), khong dung he thu hai song
-# song. Neu ai do trong luong duyet mo khong duoc tep, cach sua la them ho vao site - khong
-# phai them mot vong cap quyen theo tung tep.
-#
-# Dung khoi phuc `cap_quyen` neu khong co quyet dinh moi. Lich su cai ham do (gom ca ly do
-# `/invite` khong dung duoc voi token app-only) nam o git log commit ee6243b.
+# Bai hoc giu lai o day vi no se con lap: mot quyet dinh chi vung chac bang phep do YEU NHAT
+# ma no dua vao. Luc do phai noi ro quyet dinh dang treo tren du kien nao, chu khong chi neu
+# no nhu mot lua chon.
 # --------------------------------------------------------------------------- #
+
+
+#: Tai khoan dich vu - co trong luong duyet nhung khong phai NGUOI review. Khong cap quyen
+#: vao hop dong cho chung: quyen thua la quyen rui ro, va mot dia chi khong phai hom thu that
+#: con co the lam Graph tu choi ca lo. Danh sach nay khop theo phan truoc dau @.
+TAI_KHOAN_DICH_VU = ("fabric.bot",)
+
+
+def loc_nguoi_that(emails):
+    """Tra ve (giu, bo). Bo tai khoan dich vu. KHONG im lang: ben goi in ra phan bi bo."""
+    giu, bo = [], []
+    for e in dict.fromkeys(emails or []):
+        if not e or "@" not in e:
+            continue
+        if e.split("@")[0].lower() in TAI_KHOAN_DICH_VU:
+            bo.append(e)
+        else:
+            giu.append(e)
+    return giu, bo
+
+
+def cap_quyen(item_id, emails, token=None, cho_sua=True, pha_thua_ke=False):
+    """Cap quyen cho DUNG nhung email duoc liet ke. Tra ve dict(da_cap, bo_qua, link).
+
+    DUONG DI: `createLink` voi scope="users" - KHONG phai `/invite`.
+
+    Vi sao doi: 14/09 do tren tenant that, `/invite` tra ve `noResolvedUsers` - va khong MOT
+    ai trong 10 dia chi resolve duoc. Zero nguoi resolve nghia la loi o ngu canh app-only
+    (token khong dai dien cho nguoi dung nao nen Graph khong co "nguoi moi" de phan giai danh
+    sach), chu khong phai mot dia chi hong lam hong ca lo. Trong khi do `createLink` chay that
+    moi tuan qua `weekly_report.create_org_link` voi cung loai token - nen day la duong da co
+    bang chung, khong phai phong doan thu hai.
+
+    KHONG BAO GIO tu dong lui ve scope="organization" khi that bai. Cap nham cho ca cong ty
+    quyen SUA hop dong con te hon nhieu so voi bao loi va de nguoi that quyet dinh.
+
+    `pha_thua_ke=False` la mac dinh co chu y: dat True se GO quyen thua ke tu thu vien, tuc
+    thu hoi quyen cua nhung nguoi dang co. Do la mot thay doi tru tren du lieu song, phai do
+    `doc_quyen` truoc va co nguoi chot, khong lam kem theo mot lan tai tep.
+    """
+    requests = _requests()
+    token = token or wr_sp.get_app_token()
+    nguoi, bo = loc_nguoi_that(emails)
+    if not nguoi:
+        return {"da_cap": [], "bo_qua": bo, "link": None}
+    than = {"type": "edit" if cho_sua else "view",
+            "scope": "users",
+            "recipients": [{"email": e} for e in nguoi],
+            "sendInvitation": False}
+    if pha_thua_ke:
+        than["retainInheritedPermissions"] = False
+    resp = requests.post(
+        "%s/sites/%s/drive/items/%s/createLink" % (_graph(), wr_sp.SITE_ID, item_id),
+        headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+        json=than, timeout=TIMEOUT)
+    if resp.status_code not in (200, 201):
+        raise SharePointChuaSan("Cap quyen that bai (%s): %s" % (resp.status_code, resp.text[:300]))
+    link = ((resp.json() or {}).get("link") or {}).get("webUrl")
+    return {"da_cap": nguoi, "bo_qua": bo, "link": link}
 
 
 def doc_quyen(item_id, token=None):
@@ -200,7 +257,7 @@ def gio_he_thong(iso):
     return convert_utc_to_system_timezone(get_datetime(txt)).replace(tzinfo=None)
 
 
-def ghi_lien_ket(business_doctype, file_url, business_name, ket_qua):
+def ghi_lien_ket(business_doctype, file_url, business_name, ket_qua, da_cap=None):
     """Luu/cap nhat ban ghi noi tep Frappe voi tep SharePoint. Idempotent theo file_url."""
     ten = frappe.db.get_value(LINK_DT, {"file_url": file_url}, "name")
     doc = frappe.get_doc(LINK_DT, ten) if ten else frappe.new_doc(LINK_DT)
@@ -211,8 +268,35 @@ def ghi_lien_ket(business_doctype, file_url, business_name, ket_qua):
     doc.sp_web_url = ket_qua.get("web_url")
     doc.sp_last_modified = gio_he_thong(ket_qua.get("last_modified"))
     doc.sp_synced_at = now_datetime()
+    doc.sp_granted_to = ", ".join(da_cap or [])
     doc.save(ignore_permissions=True)
     return doc.name
+
+
+def nguoi_trong_luong(business_doctype, business_name):
+    """Nguoi gui + moi cap duyet cua phieu + CC. KHONG mo cho ca cong ty.
+
+    Doc tu `EC Approval Request Approver` - dung bang ma engine THAT SU dung de quyet dinh ai
+    duoc duyet, khong tu dung mot danh sach thu hai roi hai ben troi nhau.
+
+    `cc_to` khong phai form nao cung co, nen hoi meta truoc thay vi doc bua roi nuot loi: mot
+    truong thieu la chuyen cau hinh, khong phai chuyen phai giau di.
+    """
+    fields = ["requested_by", "approval_request"]
+    co_cc = frappe.get_meta(business_doctype).has_field("cc_to")
+    if co_cc:
+        fields.append("cc_to")
+    row = frappe.db.get_value(business_doctype, business_name, fields, as_dict=True) or {}
+    ra = [row.get("requested_by")]
+    if row.get("approval_request"):
+        ra += frappe.get_all("EC Approval Request Approver",
+                             filters={"approval_request": row["approval_request"]},
+                             pluck="approver")
+    for e in (row.get("cc_to") or "").replace(";", ",").split(","):
+        e = e.strip()
+        if e:
+            ra.append(e)
+    return [e for e in dict.fromkeys(ra) if e and "@" in e]
 
 
 def _dinh_kem(business_doctype, business_name):
@@ -243,11 +327,16 @@ def dong_bo_phieu(business_doctype, business_name):
     if not tep:
         return {"xong": [], "hong": [], "so_tep": 0}
     token = wr_sp.get_app_token()
+    nguoi = nguoi_trong_luong(business_doctype, business_name)
     xong, hong = [], []
     for t in tep:
         try:
             kq = tai_len(business_doctype, t.file_url, t.file_name, business_name, token=token)
-            ghi_lien_ket(business_doctype, t.file_url, business_name, kq)
+            # Cap quyen TRUOC khi ghi lien ket: ghi lien ket la thu bao "tep nay mo online
+            # duoc", ma tep chua cap quyen thi nguoi bam vao se an 403 cua SharePoint. Tha
+            # chua co nut "Mo online" con hon co nut bam vao bi tu choi.
+            r = cap_quyen(kq["item_id"], nguoi, token=token)
+            ghi_lien_ket(business_doctype, t.file_url, business_name, kq, r["da_cap"])
             xong.append(t.file_name)
         except Exception:
             frappe.log_error(frappe.get_traceback(),

@@ -204,6 +204,8 @@
     transition:border-color .12s, background .12s; }
   .ec-apl-file:hover{ border-color:var(--navy); background:var(--navy-50); color:var(--navy); }
   .ec-apl-file .nm{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+  .ec-apl-alt{ font-size:11.5px; color:var(--gray-500); padding:6px 9px; }
+  .ec-apl-alt:hover{ color:var(--navy); }
   .ec-apl-online{ font-size:10px; font-weight:600; letter-spacing:.02em; text-transform:uppercase;
     color:#047857; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:5px; padding:1px 5px; }
   .ec-apl-stale{ margin-top:7px; font-size:12px; line-height:1.45; color:#b45309;
@@ -860,11 +862,17 @@
     // Co ban tren SharePoint thi tro sang do (Word Online chi mo duoc tep nam tren
     // SharePoint/OneDrive; tro vao file_url cua Frappe thi trinh duyet luon TAI ve).
     var files=(d.attachments||[]).map(function(a){
+      // The chinh tro sang SharePoint khi co, nhung LUON kem mot the nho ve ban ERP: SharePoint
+      // chan mot nguoi thi ho van phai doc duoc ho so (15/09, chi lien.vu).
       var online=!!a.sp_web_url;
-      return '<a class="ec-apl-file" href="'+esc(online?a.sp_web_url:a.file_url)+'" target="_blank" rel="noopener">'
+      var chinh='<a class="ec-apl-file" href="'+esc(online?a.sp_web_url:a.file_url)+'" target="_blank" rel="noopener">'
            +'<svg class="icon" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>'
            +'<span class="nm">'+esc(a.file_name||a.file_url)+'</span>'
-           +(online?'<span class="ec-apl-online">online</span>':'')+'</a>'; }).join("");
+           +(online?'<span class="ec-apl-online">online</span>':'')+'</a>';
+      var duphong = online
+        ? '<a class="ec-apl-file ec-apl-alt" href="'+esc(a.file_url)+'" target="_blank" rel="noopener" title="Bản lưu trong ERP">bản ERP</a>'
+        : '';
+      return chinh + duphong; }).join("");
     // Canh bao, KHONG chan: ban tren SharePoint la ban song, sua la binh thuong. Dieu can noi
     // la cap nao da duyet TRUOC luc tep doi lan cuoi.
     var caub=(d.attachments||[]).filter(function(a){ return (a.sp_sua_sau_duyet||[]).length; })

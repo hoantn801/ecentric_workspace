@@ -86,7 +86,7 @@ class _FrappeGia(object):
         self.enqueued.append((method, kw))
 
 
-def _nap_mirror(frappe_gia, tai_len=None, ghi=None):
+def _nap_mirror(frappe_gia, tai_len=None, ghi=None, cap=None, nguoi=None):
     ns = {"frappe": frappe_gia}
     ns["wr_sp"] = types.SimpleNamespace(get_app_token=lambda: "TOKEN")
 
@@ -96,6 +96,8 @@ def _nap_mirror(frappe_gia, tai_len=None, ghi=None):
     ns["SharePointChuaSan"] = SharePointChuaSan
     ns["tai_len"] = tai_len or (lambda *a, **k: {"item_id": "I", "web_url": "U"})
     ns["ghi_lien_ket"] = ghi or (lambda *a, **k: None)
+    ns["cap_quyen"] = cap or (lambda *a, **k: {"da_cap": ["a@x.vn"], "bo_qua": [], "link": "L"})
+    ns["nguoi_trong_luong"] = nguoi or (lambda *a, **k: ["a@x.vn"])
     exec(compile(_doan(_MIRROR, "THU_MUC_THEO_PHIEU", "duoc_soi_guong", "_dinh_kem",
                        "dong_bo_phieu", "dong_bo_nen"), "<m>", "exec"), ns)
     return ns
@@ -331,6 +333,52 @@ class _Resp(object):
 
     def json(self):
         return self._payload
+
+
+class CapQuyenTroLai(unittest.TestCase):
+    """14/09 go buoc cap quyen (vi do thay Operation Members co `write`), 15/09 khoi phuc:
+    chi lien.vu - nguoi duyet cap 2 - bi SharePoint chan khi bam "Mo online". Phep do cu tra
+    loi "nhom nao co quyen" chu khong tra loi "ai nam trong nhom"."""
+
+    def test_moi_tep_deu_duoc_cap_quyen_truoc_khi_ghi_lien_ket(self):
+        thu_tu = []
+        f = _FrappeGia(TEP)
+        ns = _nap_mirror(
+            f,
+            tai_len=lambda *a, **k: (thu_tu.append("tai_len"), {"item_id": "I", "web_url": "U"})[1],
+            cap=lambda *a, **k: (thu_tu.append("cap_quyen"), {"da_cap": ["a@x.vn"], "bo_qua": []})[1],
+            ghi=lambda *a, **k: thu_tu.append("ghi_lien_ket"))
+        ns["dong_bo_phieu"](DT, "EC-CTR-1")
+        # Ghi lien ket la thu bat man hinh hien nut "Mo online". Ghi truoc khi cap quyen =
+        # bay ra mot cai nut bam vao la an 403.
+        self.assertEqual(thu_tu, ["tai_len", "cap_quyen", "ghi_lien_ket"] * 2)
+
+    def test_danh_sach_nguoi_lay_tu_luong_duyet_that(self):
+        goi = {}
+        f = _FrappeGia(TEP)
+        def _nguoi(bdt, bn):
+            goi["args"] = (bdt, bn)
+            return ["x@y.vn"]
+
+        def _cap(item, emails, **k):
+            goi["emails"] = emails
+            return {"da_cap": emails, "bo_qua": []}
+
+        ns = _nap_mirror(f, nguoi=_nguoi, cap=_cap)
+        ns["dong_bo_phieu"](DT, "EC-CTR-9")
+        self.assertEqual(goi["args"], (DT, "EC-CTR-9"))
+        self.assertEqual(goi["emails"], ["x@y.vn"])
+
+    def test_cap_quyen_hong_thi_KHONG_ghi_lien_ket(self):
+        """Ghi lien ket bat chap = man hinh hien "Mo online" cho mot tep khong ai mo duoc."""
+        da_ghi = []
+        f = _FrappeGia(TEP)
+        def cap_hong(*a, **k):
+            raise RuntimeError("Graph 403")
+        ns = _nap_mirror(f, cap=cap_hong, ghi=lambda *a, **k: da_ghi.append(1))
+        kq = ns["dong_bo_phieu"](DT, "EC-CTR-1")
+        self.assertEqual(da_ghi, [])
+        self.assertEqual(len(kq["hong"]), 2)
 
 
 if __name__ == "__main__":
