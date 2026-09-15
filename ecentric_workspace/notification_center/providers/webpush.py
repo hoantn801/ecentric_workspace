@@ -107,8 +107,10 @@ def send_test_push():
         return {"ok": False, "reason": "NO_SUBSCRIPTION",
                 "detail": "Trinh duyet nay chua cap quyen thong bao. Mo mot trang ERP, bam Bat o dai thong bao roi thu lai."}
     import json as _json
-    body = _json.dumps({"title": "eCentric ERP", "body": "Day la thong bao thu. Neu ban thay dong nay thi web push da chay.",
-                        "url": "/ec-hr/attendance", "tag": "ec-test"}, ensure_ascii=False)
+    body = _json.dumps({"title": "eCentric ERP",
+                        "body": "Đây là thông báo thử. Nếu bạn thấy dòng này thì web push đã chạy.",
+                        "url": "/ec-hr/attendance", "tag": "ec-test",
+                        "ts": _ts_ms(frappe.utils.now_datetime())}, ensure_ascii=False)
     ok = 0
     errs = []
     for s in subs:
@@ -171,7 +173,22 @@ def _payload(doc):
         "url": doc.get("action_url") or "/",
         "tag": doc.get("event_type") or "ec",
         "event_id": doc.get("event_id") or "",
+        # Gio SU KIEN (ms). Push co the den muon vai phut - dien thoai ngu, mang
+        # chap chon - va neu khong gui moc nay thi the thong bao ghi "vua xong"
+        # cho mot loi nhac tu 20 phut truoc, va xep sai thu tu trong khay.
+        "ts": _ts_ms(doc.get("creation")),
     }, ensure_ascii=False)
+
+
+def _ts_ms(dt):
+    """Doi gio cua ban ghi sang epoch mili-giay. Hong thi tra 0 - service worker
+    tu lui ve Date.now(), te hon mot chut nhung khong bao gio lam mat thong bao."""
+    try:
+        import calendar
+        d = frappe.utils.get_datetime(dt)
+        return int(calendar.timegm(d.utctimetuple()) * 1000)
+    except Exception:
+        return 0
 
 
 def _plain(s):
