@@ -165,7 +165,11 @@
 
   // ---- routing ----
   function readRoute(){ state.mode="create"; var q=new URLSearchParams(window.location.search); state.id=q.get("id")||null;
-    var t=q.get("tab"); state.tab = state.id?"detail":"create"; }
+    // `t` doc tu URL PHAI duoc dung. Ban 15/09 gan cung state.tab = "create" roi bo roi
+    // `t`: thanh tab van ve ra, bam van doi URL (?tab=my-requests), nhung man hinh KHONG
+    // BAO GIO doi - do tren production 16/09, khong co loi console, khong co goi API nao.
+    // `tabAllowed` chan tab khong duoc phep thay vi tin URL nguoi dung go vao.
+    var t=q.get("tab"); state.tab = state.id?"detail":(tabAllowed(t)?t:"create"); }
   function hubHref(){
     // Quay lại đúng tab đã đứng ở /approvals/all-requests (hub gắn ?from=<tab> khi mở chi tiết).
     var f=null; try{ f=new URLSearchParams(window.location.search).get("from"); }catch(e){}

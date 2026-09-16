@@ -947,6 +947,13 @@
 
   // ======================= BOOT =======================
   function boot(){
+    // Gan lang nghe cho thanh tab. Ban 15/09 co `renderTabs` ve ra nut `data-tab` va co
+    // `readRoute` doc dung tham so, nhung KHONG file nao gan listener - 27 form kia deu
+    // co dong nay, rieng booking thieu. Nut ve ra tron: bam khong doi URL, khong doi man
+    // hinh, khong bao loi. Do tren production 16/09.
+    var tb=$("book-tabs");
+    if(tb){ tb.addEventListener("click", function(e){
+      var b2=e.target.closest("[data-tab]"); if(b2&&!b2.disabled){ state.page=0; go({tab:b2.getAttribute("data-tab")}); } }); }
     var b=$("book-body"); if(b) b.innerHTML='<div class="card"><div class="hint">Đang tải…</div></div>';
     call("get_bootstrap",{}).then(function(r){
       state.boot=r||{};

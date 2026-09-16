@@ -28,8 +28,14 @@ def _html():
 # upsert_web_page REFUSES to write when live no longer hashes to this, so a repo
 # snapshot can never silently revert a live edit. Deliberate update = re-snapshot
 # live into main_section.html, then bump this constant in the same commit.
-BASELINE_SHA256 = "f11e517ed18406e589454137842ccbbf8f93a47a62669ae3618a909922fbbedf"
-SUPERSEDES_SHA256 = ("0efc501dc5b74dc7fe41f52dae34fe610175501c2dfff1850a6950706c536a01",)
+BASELINE_SHA256 = "f32af94a6b26ad1a62f9f49c1110b6bb79591eb73f118f70af0b947a8fa60044"
+SUPERSEDES_SHA256 = (
+    # 16/09: BASELINE dang khai da lech san tren main tu truoc dot tab (HTML doi o
+    # d84734be ma khong bump). Bump de page_sync THOI TU CHOI GHI; gia tri cu giu lai
+    # vi live rat co the van dang mang dung bytes do.
+    "f11e517ed18406e589454137842ccbbf8f93a47a62669ae3618a909922fbbedf",
+    "0efc501dc5b74dc7fe41f52dae34fe610175501c2dfff1850a6950706c536a01",
+)
 
 
 def sync(html=None, force=0):
