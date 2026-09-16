@@ -24,6 +24,8 @@ Place file at:
   (i.e., inside the `api` subdirectory of the app, next to existing api modules)
 """
 
+import json
+
 import frappe
 import requests
 import time
@@ -106,6 +108,38 @@ def _ascii_safe_header(s):
         else:
             out_chars.append("_")
     return "".join(out_chars) or "file"
+
+
+def scrub(text, *secrets):
+    """Xoa khoa va URL mang khoa ra khoi mot thong diep loi.
+
+    MOT cho duy nhat cho luat redact. Bon Server Script Gemini tren site (`gemini_chat`,
+    `gemini_score_report`, `gemini_summarize_report`, `gemini_company_summary`) moi cai mang
+    mot ban `strip_secrets()` ~40 dong giong het nhau - sua luat o mot cho thi ba cho kia
+    van ho. Ham nay khong tro thanh ban thu nam: ca `upload_from_sp_url` lan `generate_json`
+    deu goi no.
+    """
+    out = str(text)
+    for secret in secrets:
+        if secret:
+            out = out.replace(str(secret), "***REDACTED***")
+    # Khoa Google AI Studio lo ra ngoai ngu canh URL (vi du trong body loi cua nha cung cap).
+    i = out.find("AIza")
+    while i >= 0:
+        j = i + 4
+        while j < len(out) and (out[j].isalnum() or out[j] in "-_"):
+            j += 1
+        out = out[:i] + "AIza***REDACTED***" + out[j:]
+        i = out.find("AIza", i + 4)
+    # ?key=... / &key=...
+    i = out.find("key=")
+    while i >= 0:
+        j = i + 4
+        while j < len(out) and out[j] not in " &'\"()[]{}\n\r\t,;":
+            j += 1
+        out = out[:i] + "key=***REDACTED***" + out[j:]
+        i = out.find("key=", i + 4)
+    return out
 
 
 def _wait_for_active(file_uri, gemini_api_key, max_wait=WAIT_ACTIVE_MAX):
@@ -222,10 +256,7 @@ def upload_from_sp_url(sp_web_url, graph_token, gemini_api_key,
         pdf_bytes = r.content
     except Exception as e:
         # Redact graph_token from error if present
-        err_msg = str(e)[:300]
-        if graph_token and graph_token in err_msg:
-            err_msg = err_msg.replace(graph_token, "[TOKEN REDACTED]")
-        result["error"] = "Graph download failed: " + err_msg
+        result["error"] = "Graph download failed: " + scrub(str(e), graph_token)[:300]
         return result
 
     if not pdf_bytes or len(pdf_bytes) < 100:
@@ -276,10 +307,7 @@ def upload_from_sp_url(sp_web_url, graph_token, gemini_api_key,
         result["mime_type"] = "application/pdf"
     except Exception as e:
         # Redact gemini_api_key from error
-        err_msg = str(e)[:300]
-        if gemini_api_key and gemini_api_key in err_msg:
-            err_msg = err_msg.replace(gemini_api_key, "[KEY REDACTED]")
-        result["error"] = "Gemini upload failed: " + err_msg
+        result["error"] = "Gemini upload failed: " + scrub(str(e), gemini_api_key)[:300]
         return result
 
     # Step 7: Wait for ACTIVE state (race condition fix)
@@ -329,3 +357,96 @@ def upload_batch(sp_web_urls, graph_token, gemini_api_key, dept_clean=""):
         "ok_count": sum(1 for r in results if r.get("success")),
         "fail_count": sum(1 for r in results if not r.get("success")),
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sinh JSON co rang buoc schema (AI dien ho - xem approval_center/shared/integrations)
+# ─────────────────────────────────────────────────────────────────────────────
+
+GENERATE_TIMEOUT = 30          # giay
+MODEL_SETTING = "ec_llm_model"
+DEFAULT_MODEL = "gemini-2.5-flash"
+GENERATE_URL = ("https://generativelanguage.googleapis.com/v1beta/models/"
+                "%s:generateContent")
+
+
+def _single(fieldname):
+    return frappe.db.get_single_value("System Settings", fieldname) or ""
+
+
+def current_model():
+    """DUNG CHUNG mot khoa model voi cac Server Script Gemini.
+
+    `gemini_score_report` doc dung dong nay. Neu duong nay khai mot khoa rieng thi hai
+    duong se chay tren hai model khac nhau - do la cach su co quota 429 ngay 20/07 bat dau:
+    mot duong am tham roi ve 2.5-pro trong khi duong kia van flash, va khong ai thay cho toi
+    luc het quota.
+    """
+    return _single(MODEL_SETTING) or DEFAULT_MODEL
+
+
+def generate_json(prompt, response_schema, system_instruction=None,
+                  timeout=GENERATE_TIMEOUT, model=None):
+    """Goi Gemini, ep tra ve JSON dung `response_schema`.
+
+    KHONG nhan api_key tu tham so. `upload_from_sp_url` (viet truoc, cho Server Script goi)
+    nhan `gemini_api_key` va `graph_token` tu CLIENT - bat ky nguoi dung da dang nhap nao
+    cung goi duoc voi token tuy y, bien server thanh proxy egress. Duong nay khong di theo
+    khuon do: khoa doc server-side tu System Settings.
+
+    `responseSchema` + `temperature: 0` la ly do buoc parse khong con la doan: model tra ve
+    dung hinh dang hoac bao loi.
+
+    -> {"ok": bool, "data": dict|None, "error": str|None, "model": str, "latency_ms": int}
+    """
+    api_key = _single("ec_gemini_api_key")
+    model = model or current_model()
+    out = {"ok": False, "data": None, "error": None, "model": model, "latency_ms": 0}
+    if not api_key:
+        out["error"] = "no_key"
+        return out
+
+    body = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": response_schema,
+            "temperature": 0,
+        },
+    }
+    if system_instruction:
+        body["systemInstruction"] = {"parts": [{"text": system_instruction}]}
+
+    started = time.time()
+    try:
+        resp = requests.post(
+            GENERATE_URL % model,
+            json=body,
+            headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+            timeout=timeout,
+        )
+        out["latency_ms"] = int((time.time() - started) * 1000)
+        resp.raise_for_status()
+        payload = resp.json()
+    except Exception as exc:
+        out["latency_ms"] = int((time.time() - started) * 1000)
+        out["error"] = scrub("%s: %s" % (type(exc).__name__, exc), api_key)[:400]
+        return out
+
+    try:
+        parts = payload["candidates"][0]["content"]["parts"]
+        text = "".join(p.get("text", "") for p in parts)
+        data = json.loads(text)
+    except Exception as exc:
+        # Hinh dang tra ve la thu DUY NHAT khong duoc doan. Bao ra thay vi tra dict rong -
+        # mot dict rong se di tiep qua cong loc va ra "AI khong dien duoc o nao", che mat
+        # nguyen nhan that.
+        out["error"] = scrub("khong doc duoc JSON tu model: %s" % exc, api_key)[:400]
+        return out
+
+    if not isinstance(data, dict):
+        out["error"] = "model tra ve %s, can mot doi tuong JSON" % type(data).__name__
+        return out
+    out["ok"] = True
+    out["data"] = data
+    return out

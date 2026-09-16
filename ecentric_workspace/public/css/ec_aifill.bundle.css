@@ -1,0 +1,115 @@
+/* ec_aifill — panel "AI điền hộ".
+ *
+ * Theo A59: khai một khối alias có namespace riêng ở :root, mỗi alias là
+ * var(--ec-<primitive>, <literal>). Literal là LƯỚI AN TOÀN nếu ec_shell.bundle.css không
+ * được nạp, KHÔNG phải nguồn sự thật. Đổi màu hệ thống thì sửa ec_shell.bundle.css.
+ */
+:root{
+  --ec-af-surface:var(--ec-surface,#ffffff);
+  --ec-af-line:var(--ec-gray-200,#e5e7eb);
+  --ec-af-line-soft:var(--ec-gray-100,#f3f4f6);
+  --ec-af-ground:var(--ec-gray-50,#fafbfc);
+  --ec-af-ink:var(--ec-gray-900,#111827);
+  --ec-af-ink-2:var(--ec-gray-600,#4b5563);
+  --ec-af-ink-3:var(--ec-gray-500,#6b7280);
+  --ec-af-navy:var(--ec-navy,#2C3DA6);
+  --ec-af-navy-wash:var(--ec-navy-50,#eef0fb);
+  --ec-af-navy-line:var(--ec-navy-line,#d9deef);
+  --ec-af-amber:var(--ec-amber,#b45309);
+  --ec-af-amber-wash:var(--ec-yellow-50,#fff8e1);
+  --ec-af-red:#b91c1c;
+  --ec-af-red-wash:var(--ec-red-50,#fef2f2);
+}
+
+.ec-aifill{
+  background:var(--ec-af-surface); border:1px solid var(--ec-af-line); border-radius:12px;
+  margin:0 0 18px; position:relative; overflow:hidden;
+  font-family:inherit; font-size:14px; line-height:1.5;
+}
+.ec-aifill-top{ display:flex; align-items:center; gap:10px; padding:13px 16px; }
+.ec-aifill-mark{ width:26px; height:26px; flex:none; }
+.ec-aifill-title{ font-size:13.5px; font-weight:700; color:var(--ec-af-ink); margin-right:auto; }
+.ec-aifill-quota{ font-size:12px; color:var(--ec-af-ink-3); white-space:nowrap; }
+.ec-aifill-body{ padding:0 16px 14px; }
+.ec-aifill-note{
+  width:100%; min-height:82px; resize:vertical; padding:8px 11px;
+  border:1px solid var(--ec-af-line); border-radius:8px;
+  font-size:13.5px; font-family:inherit; line-height:1.55; color:var(--ec-af-ink);
+  background:var(--ec-af-surface);
+}
+.ec-aifill-note:focus{
+  outline:none; border-color:var(--ec-af-navy); box-shadow:0 0 0 3px var(--ec-af-navy-wash);
+}
+.ec-aifill-note::placeholder{ color:var(--ec-af-ink-3); }
+.ec-aifill-foot{ display:flex; align-items:center; gap:10px; margin-top:11px; flex-wrap:wrap; }
+
+/* Biến thể WASH, không phải primary: form đã có "Gửi yêu cầu" là nút navy đặc duy nhất của
+ * khung nhìn (The One Voice Rule). Wash được thêm vào hệ 15/09 đúng cho tình huống này. */
+.ec-aifill-run,.ec-aifill-undo{
+  padding:9px 15px; border-radius:9px; font-size:13.5px; font-weight:600;
+  font-family:inherit; cursor:pointer;
+}
+.ec-aifill-run{ background:var(--ec-af-navy-wash); border:1px solid var(--ec-af-navy-line); color:var(--ec-af-navy); }
+.ec-aifill-run:hover:not([disabled]){ background:#e6eafa; }
+.ec-aifill-run[disabled]{ opacity:.55; cursor:not-allowed; }
+.ec-aifill-undo{ background:var(--ec-af-surface); border:1px solid var(--ec-af-line); color:var(--ec-af-ink-2); }
+.ec-aifill-undo:hover{ background:var(--ec-af-ground); }
+.ec-aifill-hint{ font-size:12px; color:var(--ec-af-ink-3); margin-left:auto; text-align:right; }
+.ec-aifill-run:focus-visible,.ec-aifill-undo:focus-visible,.ec-aifill-note:focus-visible{
+  outline:2px solid var(--ec-af-navy); outline-offset:2px;    /* A60 — không bao giờ triệt tiêu */
+}
+
+.ec-aifill-msg:empty{ display:none; }
+.ec-aifill-msg > div{
+  margin-top:11px; padding:11px 13px; border-radius:9px; font-size:13px; line-height:1.5;
+}
+.ec-aifill-note-ok{ background:var(--ec-af-ground); border:1px solid var(--ec-af-line); color:var(--ec-af-ink-2); }
+.ec-aifill-note-warn{ background:var(--ec-af-amber-wash); border:1px solid #fde68a; color:var(--ec-af-amber); }
+.ec-aifill-note-err{ background:var(--ec-af-red-wash); border:1px solid #fecaca; color:var(--ec-af-red); }
+.ec-aifill-probe{ display:inline-block; margin-top:4px; color:var(--ec-af-amber); }
+
+/* Tiến trình nằm TRONG viền dưới của panel — hệ này vẽ chiều sâu bằng hairline, nên trạng
+ * thái "đang chạy" cũng nói bằng hairline chứ không bằng một vòng xoay. */
+.ec-aifill-progress{
+  position:absolute; left:0; right:0; bottom:0; height:2px;
+  background:var(--ec-af-line-soft); overflow:hidden; display:none;
+}
+.ec-aifill.is-running .ec-aifill-progress{ display:block; }
+.ec-aifill-progress i{
+  position:absolute; top:0; bottom:0; left:0; width:38%;
+  background:var(--ec-af-navy); border-radius:2px;
+  animation:ec-aifill-slide 1.15s cubic-bezier(.4,0,.2,1) infinite;
+}
+@keyframes ec-aifill-slide{ 0%{left:-40%} 100%{left:100%} }
+@media (prefers-reduced-motion:reduce){
+  .ec-aifill-progress i{ animation:none; width:100%; opacity:.45; }
+}
+
+/* Dấu "AI điền" — HỌ XÁM, không phải wash navy.
+ * A58 (The Semantics-Are-Reserved Rule): cặp wash xanh/navy/đỏ là tài sản dành riêng cho thứ
+ * đã đi qua một workflow có thật; cấm mượn để nói về tình trạng công cụ. "AI điền" LÀ tình
+ * trạng công cụ — badge navy sẽ bị đọc thành "Chờ duyệt".
+ * Đo được: #4b5563 trên #f3f4f6 = 6.87:1, trên ngưỡng 4.5 của A58.
+ * Bo 4px chứ không phải pill — The Pill-Means-Status Rule.
+ * Linh vật vàng bên trong KHÔNG phạm A58: Brand-Is-Not-Semantic — vàng là màu nhận diện. */
+.ec-aifill-badge{
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:11px; font-weight:700; letter-spacing:.01em;
+  padding:2px 7px 2px 5px; border-radius:4px; margin-left:7px;
+  background:var(--ec-af-line-soft); color:var(--ec-af-ink-2);
+  vertical-align:middle;
+}
+.ec-aifill-badge svg{ width:12px; height:12px; flex:none; margin-top:-.5px; }
+
+/* Trích dẫn nguồn: thứ phải so sánh thì phải đứng cạnh nhau — ngay dưới ô, không phải tooltip. */
+.ec-aifill-src{
+  margin-top:6px; padding-left:10px; border-left:1px solid var(--ec-af-navy-line);
+  font-size:12px; line-height:1.5; color:var(--ec-af-ink-2);
+}
+.ec-aifill-src-lbl{
+  display:block; color:var(--ec-af-ink-2); font-size:11px; font-weight:600; margin-bottom:2px;
+}
+
+@media (max-width:760px){
+  .ec-aifill-hint{ margin-left:0; text-align:left; flex-basis:100%; }
+}

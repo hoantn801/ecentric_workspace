@@ -50,6 +50,19 @@ class ApprovalDefinition:
     #: "da xac nhan thong tin va tep dinh kem la chinh xac" cho mot bo ho so ho chua doc lai.
     #: De trong la mac dinh; module nao co o nhu vay thi tu khai ra.
     clone_exclude_fields: Tuple[str, ...] = ()
+    #: Truong KHONG duoc de AI dien ho (du no nam trong `editable_fields`).
+    #:
+    #: Ba luat loai tru chay song song, khai o `shared/integrations/ai_formfill.build_schema`:
+    #:   1. kieu truong  - tep dinh kem, bang con, chu ky, va MOI `Check` (o tick nao cung la
+    #:      mot khang dinh cua nguoi dung, khong phai du kien doc duoc tu ho so);
+    #:   2. `clone_exclude_fields` - dung lai NGUYEN SI. Tuple do da duoc dinh nghia dung la
+    #:      "o cam ket ca nhan, chep sang la ky thay nguoi dung". AI dien vao do cung la ky
+    #:      thay, cung mot ly do;
+    #:   3. tuple NAY - cho truong khong phai tep, khong phai cam ket, nhung van phai do
+    #:      nguoi lam: phan doan nghiep vu (`is_cost_valid`), o keo theo mot picker co phan
+    #:      quyen (`funding_source_*`), hay o ma gui di se TAO mot ban ghi danh muc moi
+    #:      (`ec_brand_ten`).
+    ai_exclude_fields: Tuple[str, ...] = ()
     #: Khoi doc them cho man hinh chi tiet, do module so huu: (business_doc, approval_request)
     #: -> dict, gan vao detail["extra"]. Dung khi form can ngu canh ngoai phieu (Payment Request:
     #: chuoi cac dot thanh toan). Chi DOC; khong ghi, khong giu tham chieu.
