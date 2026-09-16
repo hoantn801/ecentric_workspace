@@ -1,0 +1,173 @@
+{
+ "doctype": "DocType",
+ "name": "EC SLA Policy",
+ "module": "SLA",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "autoname": "field:policy_code",
+ "naming_rule": "By fieldname",
+ "title_field": "policy_name",
+ "field_order": [
+  "policy_code",
+  "policy_name",
+  "active",
+  "column_break_head",
+  "due_rule",
+  "grace_minutes",
+  "section_duration",
+  "duration_hours",
+  "column_break_duration",
+  "fixed_time",
+  "offset_days",
+  "section_calendar",
+  "business_calendar",
+  "column_break_calendar",
+  "holiday_list",
+  "section_note",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "policy_code",
+   "fieldtype": "Data",
+   "label": "Policy Code",
+   "reqd": 1,
+   "unique": 1,
+   "set_only_once": 1,
+   "in_list_view": 1,
+   "description": "Ma bat bien, vd SLA-ATT-CHECKIN. Duoc chup vao tung nghia vu nen khong doi duoc."
+  },
+  {
+   "fieldname": "policy_name",
+   "fieldtype": "Data",
+   "label": "Ten chinh sach",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Dang ap dung",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "due_rule",
+   "fieldtype": "Select",
+   "label": "Luat tinh han",
+   "options": "Business Hours\nCalendar Hours\nFixed Time Of Day\nExplicit",
+   "default": "Business Hours",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "grace_minutes",
+   "fieldtype": "Int",
+   "label": "An han (phut)",
+   "default": "0",
+   "description": "Cong vao sau cung, theo dong ho that. vd check-in: 5 phut."
+  },
+  {
+   "fieldname": "section_duration",
+   "fieldtype": "Section Break",
+   "label": "Tham so"
+  },
+  {
+   "fieldname": "duration_hours",
+   "fieldtype": "Float",
+   "label": "So gio",
+   "precision": "2",
+   "depends_on": "eval:['Business Hours','Calendar Hours'].includes(doc.due_rule)",
+   "description": "Bat buoc voi Business Hours / Calendar Hours."
+  },
+  {
+   "fieldname": "column_break_duration",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fixed_time",
+   "fieldtype": "Time",
+   "label": "Gio co dinh",
+   "depends_on": "eval:doc.due_rule=='Fixed Time Of Day'",
+   "description": "Bat buoc voi Fixed Time Of Day. vd 23:59:00 cho han check-out."
+  },
+  {
+   "fieldname": "offset_days",
+   "fieldtype": "Int",
+   "label": "Lech ngay",
+   "default": "0",
+   "depends_on": "eval:doc.due_rule=='Fixed Time Of Day'",
+   "description": "0 = cung ngay mo nghia vu; 1 = ngay hom sau."
+  },
+  {
+   "fieldname": "section_calendar",
+   "fieldtype": "Section Break",
+   "label": "Lich lam viec",
+   "depends_on": "eval:doc.due_rule=='Business Hours'"
+  },
+  {
+   "fieldname": "business_calendar",
+   "fieldtype": "Link",
+   "label": "Lich lam viec",
+   "options": "EC Approval Business Calendar",
+   "description": "Bat buoc voi Business Hours. Dung chung lich cua Approval Center - khong dung lich thu hai."
+  },
+  {
+   "fieldname": "column_break_calendar",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "holiday_list",
+   "fieldtype": "Link",
+   "label": "Danh sach nghi le (ghi de)",
+   "options": "Holiday List",
+   "description": "De trong -> lay theo Employee/Company."
+  },
+  {
+   "fieldname": "section_note",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Mo ta"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

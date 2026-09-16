@@ -1,0 +1,304 @@
+{
+ "doctype": "DocType",
+ "name": "EC SLA Obligation",
+ "module": "SLA",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "opened_at",
+ "sort_order": "DESC",
+ "autoname": "hash",
+ "title_field": "title",
+ "search_fields": "owner_user,period_month,status,title",
+ "field_order": [
+  "title",
+  "obligation_type",
+  "group_key",
+  "counts_toward_sla",
+  "column_break_head",
+  "owner_user",
+  "employee",
+  "department",
+  "period_month",
+  "section_timing",
+  "opened_at",
+  "due_at",
+  "closed_at",
+  "column_break_timing",
+  "status",
+  "is_breached",
+  "late_seconds",
+  "paused_seconds",
+  "section_source",
+  "source_doctype",
+  "source_name",
+  "source_detail",
+  "attempt",
+  "column_break_source",
+  "dedupe_key",
+  "policy",
+  "policy_snapshot",
+  "section_adjust",
+  "adjusted",
+  "excluded_reason",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Dau viec",
+   "in_list_view": 1,
+   "read_only": 1,
+   "length": 255
+  },
+  {
+   "fieldname": "obligation_type",
+   "fieldtype": "Link",
+   "label": "Loai nghia vu",
+   "options": "EC SLA Obligation Type",
+   "reqd": 1,
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "group_key",
+   "fieldtype": "Data",
+   "label": "Nhom",
+   "read_only": 1,
+   "in_standard_filter": 1,
+   "length": 32,
+   "description": "Chup tu loai nghia vu luc mo. Khong fetch_from: doi nhom cua mot loai KHONG duoc viet lai lich su da cham diem."
+  },
+  {
+   "fieldname": "counts_toward_sla",
+   "fieldtype": "Check",
+   "label": "Tinh vao %SLA",
+   "read_only": 1,
+   "default": "1"
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "owner_user",
+   "fieldtype": "Link",
+   "label": "Nguoi chiu trach nhiem",
+   "options": "User",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee",
+   "read_only": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Phong ban",
+   "options": "Department",
+   "read_only": 1,
+   "in_standard_filter": 1,
+   "description": "Chup luc mo. Nguoi chuyen phong khong lam thay doi diem cac thang truoc."
+  },
+  {
+   "fieldname": "period_month",
+   "fieldtype": "Data",
+   "label": "Ky",
+   "read_only": 1,
+   "length": 7,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "YYYY-MM, chot theo LUC MO. Viec mo 30/9 duyet 2/10 van thuoc ky thang 9."
+  },
+  {
+   "fieldname": "section_timing",
+   "fieldtype": "Section Break",
+   "label": "Thoi gian"
+  },
+  {
+   "fieldname": "opened_at",
+   "fieldtype": "Datetime",
+   "label": "Mo luc",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "due_at",
+   "fieldtype": "Datetime",
+   "label": "Han",
+   "read_only": 1
+  },
+  {
+   "fieldname": "closed_at",
+   "fieldtype": "Datetime",
+   "label": "Dong luc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_timing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trang thai",
+   "options": "Open\nMet\nLate\nMissed\nExcluded\nCancelled",
+   "default": "Open",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "is_breached",
+   "fieldtype": "Check",
+   "label": "Da qua han",
+   "default": "0",
+   "read_only": 1,
+   "description": "Con mo nhung da qua han. Van vao mau so - khong dong viec khong phai la cach dat 100%."
+  },
+  {
+   "fieldname": "late_seconds",
+   "fieldtype": "Int",
+   "label": "Tre (giay)",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "paused_seconds",
+   "fieldtype": "Int",
+   "label": "Tam dung (giay)",
+   "default": "0",
+   "read_only": 1,
+   "description": "Tong cac doan tam dung (nghi phep da duyet, cho bo sung thong tin). Day han lui ra."
+  },
+  {
+   "fieldname": "section_source",
+   "fieldtype": "Section Break",
+   "label": "Nguon"
+  },
+  {
+   "fieldname": "source_doctype",
+   "fieldtype": "Data",
+   "label": "Source DocType",
+   "read_only": 1,
+   "length": 140
+  },
+  {
+   "fieldname": "source_name",
+   "fieldtype": "Data",
+   "label": "Source Name",
+   "read_only": 1,
+   "length": 255
+  },
+  {
+   "fieldname": "source_detail",
+   "fieldtype": "Data",
+   "label": "Chi tiet nguon",
+   "read_only": 1,
+   "length": 140,
+   "description": "vd so cap duyet, ngay cong, ma tuan."
+  },
+  {
+   "fieldname": "attempt",
+   "fieldtype": "Int",
+   "label": "Lan thu",
+   "default": "1",
+   "read_only": 1,
+   "description": "Lan gui thu may. Ho so bi tra ve roi gui lai la mot dau viec MOI. Co cot rieng (thay vi doc tu duoi dedupe_key) de loc bang truy van that, khong bang LIKE."
+  },
+  {
+   "fieldname": "column_break_source",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dedupe_key",
+   "fieldtype": "Data",
+   "label": "Dedupe Key",
+   "unique": 1,
+   "reqd": 1,
+   "read_only": 1,
+   "length": 255,
+   "description": "Khoa chong trung. Co KEM so lan (attempt) - mot ho so bi tra ve roi gui lai la MOT dau viec moi, khong phai ghi de dau viec cu."
+  },
+  {
+   "fieldname": "policy",
+   "fieldtype": "Link",
+   "label": "Chinh sach ap dung",
+   "options": "EC SLA Policy",
+   "read_only": 1
+  },
+  {
+   "fieldname": "policy_snapshot",
+   "fieldtype": "Small Text",
+   "label": "Chinh sach (chup luc mo)",
+   "read_only": 1,
+   "description": "JSON. Sua chinh sach hom nay KHONG duoc viet lai han cua thang truoc."
+  },
+  {
+   "fieldname": "section_adjust",
+   "fieldtype": "Section Break",
+   "label": "Dieu chinh"
+  },
+  {
+   "fieldname": "adjusted",
+   "fieldtype": "Check",
+   "label": "Da dieu chinh tay",
+   "default": "0",
+   "read_only": 1,
+   "description": "Co dau vet trong EC SLA Adjustment. Moi lan doi diem deu phai co ly do va nguoi chiu trach nhiem."
+  },
+  {
+   "fieldname": "excluded_reason",
+   "fieldtype": "Small Text",
+   "label": "Ly do khong tinh diem",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Ghi chu",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1
+  },
+  {
+   "role": "Employee",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}
