@@ -79,7 +79,12 @@ def bootstrap(definition):
         "is_system_manager": admin,
         "tabs": {"create": True, "my_requests": True,
                  "my_approvals": capabilities.has_any_approver_row(user) or admin,
-                 "fulfillment": _can_fulfil(user, definition)},
+                 "fulfillment": _can_fulfil(user, definition),
+                 # Tab "Tat ca" bat cho MOI nguoi: pham vi do `reporting.scope` quyet dinh,
+                 # nen voi nhan vien thuong no gan trung "Yeu cau cua toi" - dung, khong phai
+                 # loi. An tab theo vai tro o day se dung mot luat quyen THU HAI canh
+                 # scope_predicate, va hai luat canh nhau thi som muon cung troi nhau.
+                 "all": True},
         "form_options": definition.options_provider(),
     }
 
