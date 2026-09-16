@@ -17,6 +17,7 @@
  "description": "Mot dong cho MOI luot goi AI dien ho. Vua la han muc theo ngay, vua la du lieu do ti le sua tay tung truong o giai doan 3, vua la cho ban giao cua linh vat (dung MOT LAN).",
  "field_order": [
   "approval_code", "request_user", "outcome", "cb1", "model", "latency_ms", "input_chars",
+  "files_count", "files_note",
   "sec_result", "fields_offered", "fields_dropped",
   "sec_probe", "probe_passed", "probe_message", "error",
   "sec_after", "business_doc", "handed_off_at", "fields_edited_after"
@@ -27,7 +28,7 @@
   {"fieldname": "request_user", "fieldtype": "Link", "label": "Nguoi goi", "options": "User",
    "reqd": 1, "in_list_view": 1, "in_standard_filter": 1, "read_only": 1},
   {"fieldname": "outcome", "fieldtype": "Select", "label": "Ket qua",
-   "options": "ok\nerror\nrefused_quota\nrefused_too_long\nrefused_no_key",
+   "options": "ok\nerror\nempty\nrefused_quota\nrefused_too_long\nrefused_no_key",
    "reqd": 1, "in_list_view": 1, "in_standard_filter": 1, "read_only": 1},
   {"fieldname": "cb1", "fieldtype": "Column Break"},
   {"fieldname": "model", "fieldtype": "Data", "label": "Model", "read_only": 1,
@@ -35,6 +36,10 @@
   {"fieldname": "latency_ms", "fieldtype": "Int", "label": "Do tre (ms)", "read_only": 1},
   {"fieldname": "input_chars", "fieldtype": "Int", "label": "So ky tu dau vao", "read_only": 1},
 
+  {"fieldname": "files_count", "fieldtype": "Int", "label": "So tep dinh kem da doc",
+   "read_only": 1},
+  {"fieldname": "files_note", "fieldtype": "Small Text", "label": "Tep bi bo qua (va vi sao)",
+   "read_only": 1},
   {"fieldname": "sec_result", "fieldtype": "Section Break", "label": "AI de xuat gi"},
   {"fieldname": "fields_offered", "fieldtype": "Long Text", "label": "Truong AI de xuat (JSON)",
    "read_only": 1,

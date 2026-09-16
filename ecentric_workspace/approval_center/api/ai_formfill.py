@@ -15,6 +15,7 @@ import time
 import frappe
 from frappe import _
 
+from ecentric_workspace.approval_center.shared.integrations import ai_attachments as att
 from ecentric_workspace.approval_center.shared.integrations import ai_formfill as svc
 from ecentric_workspace.approval_center.shared.registry import get_definition
 from ecentric_workspace import gemini_api
@@ -41,18 +42,24 @@ def bootstrap(approval_code):
     used = svc.used_today()
     cap = svc.daily_cap()
     return {"enabled": True, "remaining": max(0, cap - used), "cap": cap,
-            "max_chars": svc.MAX_NOTE_CHARS}
+            "max_chars": svc.MAX_NOTE_CHARS,
+            "max_files": att.MAX_FILES,
+            "file_exts": sorted(att.MIME_BY_EXT.keys())}
 
 
 @frappe.whitelist(methods=["POST"])
-def suggest(approval_code, note=None, current=None):
-    """Doc `note`, tra ve nhung o AI de xuat. KHONG ghi gi vao phieu.
+def suggest(approval_code, note=None, current=None, files=None):
+    """Doc `note` + tep dinh kem, tra ve nhung o AI de xuat. KHONG ghi gi vao phieu.
 
     THU TU KIEM - fail-closed, re truoc:
       1. cong tac site_config   -> nem (khong ai can do cai nay)
       2. role pilot             -> nem PermissionError
       3. ma form la that        -> nem (registry tu nem)
       4. tran ngay / do dai / khoa -> TRA VE, KHONG NEM
+      5. quyen doc TUNG tep     -> bo tep do, TRA VE ly do (`ai_attachments.collect`)
+
+    Tep dinh kem di vao sau buoc 4 va khong bao gio di truoc: moi tep la mot lan doc dia +
+    mot lan tai len Gemini.
 
     Vi sao 4 tra ve chu khong nem: `frappe.throw` rollback transaction, tuc dong log bi mat
     dung luc can nhat. Chi nem cho loi quyen that - nhung cai do khong can do.
@@ -65,35 +72,51 @@ def suggest(approval_code, note=None, current=None):
     definition = get_definition(approval_code)          # ma la -> nem, dung cho
     note = (note or "").strip()
     current = frappe.parse_json(current) if isinstance(current, str) else (current or {})
+    file_urls = frappe.parse_json(files) if isinstance(files, str) else (files or [])
+    parts, rejected, files_note = [], [], ""
 
     def _refuse(kind, **extra):
-        svc.write_log(approval_code=approval_code, input_chars=len(note), outcome=kind)
-        return dict({"refused": kind, "fields": {}, "dropped_count": 0}, **extra)
+        svc.write_log(approval_code=approval_code, input_chars=len(note), outcome=kind,
+                      files_count=len(parts), files_note=files_note)
+        return dict({"refused": kind, "fields": {}, "dropped_count": 0,
+                     "files_rejected": rejected}, **extra)
 
     used, cap = svc.used_today(), svc.daily_cap()
     if used >= cap:
         return _refuse("refused_quota", cap=cap)
-    if not note:
-        return {"refused": "empty", "fields": {}, "dropped_count": 0}
     if len(note) > svc.MAX_NOTE_CHARS:
         return _refuse("refused_too_long", max_chars=svc.MAX_NOTE_CHARS)
+
+    # Doc tep SAU cac phep kiem re. Moi tep la mot lan doc dia + mot lan tai len Gemini; lam
+    # viec do roi moi phat hien nguoi dung het luot la tra gia cho mot cau tra loi da biet.
+    # `collect` khong nem: mot tep hong chi lam mat tep do, khong lam mat ca luot.
+    if file_urls:
+        parts, rejected = att.collect(file_urls)
+        files_note = "; ".join("%s: %s" % (r["file"], r["message"]) for r in rejected)
+
+    if not note and not parts:
+        # Van ban trong va khong tep nao doc duoc -> khong co gi de doc.
+        return _refuse("empty")
 
     schema = svc.build_schema(definition)
     started = time.time()
     res = gemini_api.generate_json(
-        prompt=svc.build_prompt(schema, note, current),
+        prompt=svc.build_prompt(schema, note, current, att.prompt_block(parts)),
         response_schema=svc.response_schema(schema),
         system_instruction=svc.SYSTEM_INSTRUCTION,
+        files=parts,
     )
     if not res["ok"]:
         if res.get("error") == "no_key":
             return _refuse("refused_no_key")
         svc.write_log(approval_code=approval_code, input_chars=len(note), outcome="error",
                       model=res.get("model"), latency_ms=res.get("latency_ms"),
-                      error=res.get("error"))
+                      error=res.get("error"),
+                      files_count=len(parts), files_note=files_note)
         # Luot hong KHONG tinh vao tran: bat nguoi dung tra gia cho mot su co cua nha cung
         # cap la sai, va no khuyen khich ho bam lai lien tuc.
-        return {"error": res.get("error"), "fields": {}, "dropped_count": 0}
+        return {"error": res.get("error"), "fields": {}, "dropped_count": 0,
+                "files_rejected": rejected}
 
     values, sources = svc.split_sources(res["data"])
     accepted, dropped = svc.gate(schema, values)
@@ -107,6 +130,7 @@ def suggest(approval_code, note=None, current=None):
         approval_code=approval_code, input_chars=len(note), outcome="ok",
         model=res.get("model"), latency_ms=int((time.time() - started) * 1000),
         fields_offered=accepted, fields_dropped=dropped,
+        files_count=len(parts), files_note=files_note,
         probe_passed=probe.get("ok"), probe_message=probe.get("message"))
 
     return {
@@ -116,6 +140,8 @@ def suggest(approval_code, note=None, current=None):
         "dropped": dropped,
         "sources": {k: v for k, v in sources.items() if k in accepted},
         "probe": {"ok": probe.get("ok"), "message": probe.get("message")},
+        "files_read": [p["display_name"] for p in parts],
+        "files_rejected": rejected,
         "remaining": max(0, cap - used - 1),
         "log": log_name,
     }
