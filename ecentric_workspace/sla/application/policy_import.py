@@ -392,10 +392,13 @@ def verify(rows=None, path=None):
     # buoc xu ly, va dem ca chung se ra 24 dong canh bao trong khi chi 3 dong la
     # that - mot bang canh bao toan nhieu thi khong ai doc nua.
     try:
-        with_ful = {r["parent"] for r in frappe.get_all(
-            "EC Approval Participant", parent=AC_PROCESS, limit_page_length=0,
-            filters={"parenttype": AC_PROCESS, "participant_purpose": "Fulfiller"},
-            fields=["parent"])}
+        # KHONG truyen `parent=` lam tham so. Ca repo truy van bang con nay bang
+        # `filters` thuan (vd features/*/infrastructure/setup.py), va ban dau
+        # dot nay truyen `parent=` nen ham nem loi va bang do phu tra ve
+        # "(khong tra cuu duoc)" tren ban chay 16/09. Theo dung convention san.
+        with_ful = set(frappe.get_all(
+            "EC Approval Participant", limit_page_length=0, pluck="parent",
+            filters={"parenttype": AC_PROCESS, "participant_purpose": "Fulfiller"}))
         for name in sorted(with_ful):
             if not frappe.db.get_value(AC_PROCESS, name, "fulfillment_sla_policy"):
                 out["quy_trinh_thieu_buoc_xu_ly"].append(name.rsplit("-V", 1)[0])
