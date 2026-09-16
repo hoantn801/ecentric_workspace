@@ -176,6 +176,32 @@ def _fulfillment_refs(me=None):
     eligible fulfiller for, OR already claimed BY ME (In Progress + owner=me). Work claimed
     by someone else is deliberately excluded -- it is not mine to act on.
 
+    16/09 - "DUYET XONG PHIEU KHONG BIEN MAT" (anh Lam bao).
+    ---------------------------------------------------------------------------------
+    Do duoc: anh Lam duyet cap cuoi EC-APR-2026-00265 luc 16:57:03.526; 51ms sau, phieu
+    nghiep vu EC-PAYR-2026-00144 mang fulfillment_status='Assigned'. Tuc dong vua roi khoi
+    ve (a) "cho toi duyet" thi rot NGAY vao ve (b) "viec fulfilment cua toi" cua CUNG mot
+    hop - nguoi dung thay mot dong y nguyen va ket luan "bam duyet khong an gi".
+
+    Vi sao no rot vao ve (b): ham nay hoi `is_eligible_fulfiller(me, code, dt)` ma KHONG
+    truyen `business_name`. O dang do, ham con mot duong "co mot ToDo mo BAT KY tren LOAI
+    phieu nay" - ma nguoi duyet thi gan nhu luc nao cung co ToDo mo tren Payment Request,
+    vi do chinh la cach bo may giao viec duyet. Ket qua: MOI phieu chua ai nhan (23 phieu
+    luc do) nam trong hop cua anh, va cai vua duyet nhap vao cung. Khi cac ToDo cua anh
+    dong lai thi lan tai tiep theo chung bien mat - dung cai "refresh lai thi mat", va no
+    that thuong vi phu thuoc ToDo nao con mo.
+
+    Chinh docstring cua `is_eligible_fulfiller` da canh dung duong nay tu 01/09, va da siet
+    cho `can_view_request`; cho nay bi bo sot.
+
+    SUA: hoi `is_eligible_fulfiller_without_todo` - ham duoc viet ra dung de LOAI duong
+    ToDo long leo do. "Viec cua toi" = toi la nguoi dang giu, hoac System Manager, hoac
+    Fulfiller DUOC CAU HINH. Mot ToDo duyet khong bien mot nguoi thanh nguoi xu ly.
+
+    KHONG dung toi pham vi xem: ham nay chi chon dong nao vao HOP nao. Pham vi van do
+    `scope_predicate` AND vao cung truy van, va `scope._fulfil_types` dung mot duong khac
+    (`fulfilled_approval_types`, fail-closed) nen khong he mo rong theo duong ToDo.
+
     fulfillment_status lives on each business DocType (not on EC Approval Request) so it
     cannot be joined; open fulfillment work is small, so we collect names per registered form
     and the caller filters the list by reference_name."""
@@ -206,11 +232,15 @@ def _fulfillment_refs(me=None):
             names += _f.get_all(dt, filters={"fulfillment_status": "In Progress",
                                              "fulfillment_owner": me},
                                 pluck="name", limit_page_length=0)
-            # unclaimed, but only on forms I may actually fulfil
-            eligible = True
+            # unclaimed, but only on forms I may actually fulfil.
+            # FAIL-CLOSED: khong nap duoc module quyen thi KHONG cho gi vao hop. Truoc day
+            # mac dinh la True va chi bi ha xuong khi goi duoc ham - tuc mot loi import se
+            # do MOI phieu chua ai nhan vao hop cua MOI nguoi. Voi du lieu thanh toan thi
+            # mac dinh phai la dong, khong phai mo.
+            eligible = False
             if _perm is not None:
                 try:
-                    eligible = bool(_perm.is_eligible_fulfiller(me, code, dt))
+                    eligible = bool(_perm.is_eligible_fulfiller_without_todo(me, code))
                 except Exception:
                     eligible = False
             if eligible:
