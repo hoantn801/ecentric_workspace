@@ -291,3 +291,97 @@ def write_log(**kw):
     except Exception:
         frappe.log_error(frappe.get_traceback(), "EC AI Formfill: khong ghi duoc log")
         return None
+
+
+# ------------------------------------------------- prompt + responseSchema ---
+
+_JSON_TYPE = {
+    "Currency": "number", "Float": "number", "Percent": "number", "Int": "integer",
+}
+
+#: Truong duoc kem trich dan nguon. Hai o dat nhat khi sai - so tien va so tai khoan di qua
+#: 5 cap ky roi thanh mot lenh chuyen tien - va la dung loai sai ma cong loc KHONG do duoc
+#: (dung hinh dang, sai noi dung). Hien doan van ban goc canh o bien viec xem lai tu PHAN
+#: DOAN thanh DOI CHIEU HAI CHUOI.
+QUOTE_FIELDTYPES = frozenset(("Currency",))
+QUOTE_FIELDNAMES = frozenset(("bank_account_number", "payment_amount"))
+
+
+def wants_quote(spec):
+    return spec["fieldname"] in QUOTE_FIELDNAMES or spec["fieldtype"] in QUOTE_FIELDTYPES
+
+
+def response_schema(schema):
+    """Doi schema cua form thanh `responseSchema` cua Gemini.
+
+    MOI truong deu la `string` tru so - ke ca `Select` co options "0"/"8"/"10". Khai chung
+    la number thi model tra ve 10 va nhanh Select o `gate` (so khop chuoi chinh xac) se bo
+    truong do trong im lang. `gate` da ep `str()` de phong, day la lop thu hai.
+    """
+    props = {}
+    for spec in schema:
+        node = {"type": _JSON_TYPE.get(spec["fieldtype"], "string"),
+                "description": (spec["label"] + (" - " + spec["hint"] if spec["hint"] else ""))[:300],
+                "nullable": True}
+        if spec["fieldtype"] == "Select" and spec.get("options"):
+            node["type"] = "string"
+            node["enum"] = list(spec["options"])
+        props[spec["fieldname"]] = node
+        if wants_quote(spec):
+            props[spec["fieldname"] + "__source"] = {
+                "type": "string", "nullable": True,
+                "description": "Doan van ban goc (toi da 160 ky tu) chua gia tri cua "
+                               + spec["label"] + ". Chep nguyen van, khong dien giai.",
+            }
+    return {"type": "object", "properties": props}
+
+
+SYSTEM_INSTRUCTION = (
+    "Ban doc mot doan van ban tieng Viet (hop dong, email, mo ta khoan chi) va dien vao mot "
+    "bieu mau noi bo.\n"
+    "LUAT CUNG:\n"
+    "1. KHONG CHAC THI DE TRONG (null). Mot o trong re hon mot o sai trong nhu dung - nguoi "
+    "dung se phai tu tim so, con mot o da dien thi ho chi gat dau.\n"
+    "2. Chi dien nhung truong co trong schema. Khong bia them truong.\n"
+    "3. Truong Select chi duoc nhan DUNG mot gia tri trong danh sach cho phep.\n"
+    "4. Voi truong co khoa `<ten>__source`, chep NGUYEN VAN doan van ban ma ban lay gia tri "
+    "ra, khong dien giai, khong tom tat.\n"
+    "5. Khong suy dien ngay thang tu ngu canh mo ho. Van ban khong noi ro thi de trong."
+)
+
+
+def build_prompt(schema, note, current=None):
+    """Prompt: hop dong truong + nhung gi nguoi dung DA go + van ban nguon."""
+    lines = ["CAC TRUONG CAN DIEN:"]
+    for spec in schema:
+        bit = "- %s (%s)" % (spec["fieldname"], spec["label"])
+        if spec.get("options"):
+            bit += " | chi nhan: " + " / ".join(str(o) for o in spec["options"][:40])
+            if len(spec["options"]) > 40:
+                bit += " / ..."
+        if spec["hint"]:
+            bit += " | " + spec["hint"]
+        lines.append(bit)
+    filled = {k: v for k, v in (current or {}).items() if v not in (None, "", [])}
+    if filled:
+        lines.append("\nNGUOI DUNG DA TU DIEN (DE NGUYEN, dung ghi de):")
+        for k, v in sorted(filled.items()):
+            lines.append("- %s = %s" % (k, v))
+    lines.append("\nVAN BAN NGUON:\n" + (note or ""))
+    return "\n".join(lines)
+
+
+def split_sources(raw):
+    """Tach `<ten>__source` ra khoi gia tri truong. -> (values, sources).
+
+    Trich dan khong di qua `gate` (no khong phai gia tri cua truong nao), nhung cung khong
+    duoc vao thang form: no chi la chu de nguoi dung doi chieu.
+    """
+    values, sources = {}, {}
+    for key, value in (raw or {}).items():
+        if key.endswith("__source"):
+            if value:
+                sources[key[:-8]] = str(value)[:200]
+        else:
+            values[key] = value
+    return values, sources

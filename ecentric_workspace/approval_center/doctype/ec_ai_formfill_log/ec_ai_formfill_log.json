@@ -1,0 +1,66 @@
+{
+ "doctype": "DocType",
+ "name": "EC AI Formfill Log",
+ "module": "Approval Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "autoname": "format:AIF-{YYYY}-{#####}",
+ "naming_rule": "Expression",
+ "description": "Mot dong cho MOI luot goi AI dien ho. Vua la han muc theo ngay, vua la du lieu do ti le sua tay tung truong o giai doan 3, vua la cho ban giao cua linh vat (dung MOT LAN).",
+ "field_order": [
+  "approval_code", "request_user", "outcome", "cb1", "model", "latency_ms", "input_chars",
+  "sec_result", "fields_offered", "fields_dropped",
+  "sec_probe", "probe_passed", "probe_message", "error",
+  "sec_after", "business_doc", "handed_off_at", "fields_edited_after"
+ ],
+ "fields": [
+  {"fieldname": "approval_code", "fieldtype": "Data", "label": "Approval Code", "reqd": 1,
+   "in_list_view": 1, "in_standard_filter": 1, "read_only": 1},
+  {"fieldname": "request_user", "fieldtype": "Link", "label": "Nguoi goi", "options": "User",
+   "reqd": 1, "in_list_view": 1, "in_standard_filter": 1, "read_only": 1},
+  {"fieldname": "outcome", "fieldtype": "Select", "label": "Ket qua",
+   "options": "ok\nerror\nrefused_quota\nrefused_too_long\nrefused_no_key",
+   "reqd": 1, "in_list_view": 1, "in_standard_filter": 1, "read_only": 1},
+  {"fieldname": "cb1", "fieldtype": "Column Break"},
+  {"fieldname": "model", "fieldtype": "Data", "label": "Model", "read_only": 1,
+   "description": "Doc tu System Settings.ec_llm_model - CUNG mot khoa voi cac Server Script Gemini. Hai duong chay hai model khac nhau la cach su co quota 429 ngay 20/07 bat dau."},
+  {"fieldname": "latency_ms", "fieldtype": "Int", "label": "Do tre (ms)", "read_only": 1},
+  {"fieldname": "input_chars", "fieldtype": "Int", "label": "So ky tu dau vao", "read_only": 1},
+
+  {"fieldname": "sec_result", "fieldtype": "Section Break", "label": "AI de xuat gi"},
+  {"fieldname": "fields_offered", "fieldtype": "Long Text", "label": "Truong AI de xuat (JSON)",
+   "read_only": 1,
+   "description": "Luu GIA TRI, khong chi ten truong. Khong co gia tri thi giai doan 3 khong phan biet duoc 'nguoi dung sua vi AI sai' voi 'nguoi dung go them cho day du'."},
+  {"fieldname": "fields_dropped", "fieldtype": "Long Text", "label": "Truong bi cong loc bo (JSON)",
+   "read_only": 1,
+   "description": "[{field, reason}]. Ma ly do: sai_option / khong_co_ban_ghi / khong_co_quyen / khong_phai_so / so_khong_duong / ngay_khong_hop_le / ngay_ngoai_khoang / rong / qua_dai / khong_trong_schema."},
+
+  {"fieldname": "sec_probe", "fieldtype": "Section Break", "label": "Probe validator"},
+  {"fieldname": "probe_passed", "fieldtype": "Check", "label": "Probe dat", "read_only": 1,
+   "description": "Chay validator that cua form trong savepoint roi rollback. CHI de bao truoc, khong dung de bo truong."},
+  {"fieldname": "probe_message", "fieldtype": "Small Text", "label": "Probe noi gi", "read_only": 1},
+  {"fieldname": "error", "fieldtype": "Small Text", "label": "Loi", "read_only": 1},
+
+  {"fieldname": "sec_after", "fieldtype": "Section Break", "label": "Sau khi dien"},
+  {"fieldname": "business_doc", "fieldtype": "Data", "label": "Phieu da luu", "read_only": 1},
+  {"fieldname": "handed_off_at", "fieldtype": "Datetime", "label": "Da ban giao luc", "read_only": 1,
+   "description": "Linh vat ban giao sang form bang chinh dong nay, DUNG MOT LAN. Co gia tri = da dung roi."},
+  {"fieldname": "fields_edited_after", "fieldtype": "Long Text", "label": "Truong bi sua tay sau do (JSON)",
+   "read_only": 1,
+   "description": "Giai doan 3: truong nao bi sua nhieu thi go khoi schema. Quyet dinh bang so, khong bang cam tinh."}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "report": 1, "export": 1, "delete": 1,
+   "write": 0, "create": 0, "email": 0, "print": 0, "share": 0}
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

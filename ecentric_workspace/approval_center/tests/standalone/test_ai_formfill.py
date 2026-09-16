@@ -324,5 +324,66 @@ class TestKhongBietFormNao(unittest.TestCase):
             self.assertNotIn(cam, code, "ai_formfill khong duoc biet form nao ca")
 
 
+class TestResponseSchema(unittest.TestCase):
+    def _schema(self):
+        m, _ = _load(meta_fields=_DEF_FIELDS)
+        return m, _run(m, lambda: m.build_schema(_definition()))
+
+    def test_select_khai_string_chu_khong_phai_number(self):
+        """`ec_vat_pct` co options "0"/"8"/"10". Khai la number thi model tra ve 10 va nhanh
+        Select cua `gate` (so khop chuoi) se bo truong do trong im lang."""
+        m, schema = self._schema()
+        rs = _run(m, lambda: m.response_schema(schema))
+        vat = rs["properties"]["ec_vat_pct"]
+        self.assertEqual(vat["type"], "string")
+        self.assertEqual(vat["enum"], ["0", "8", "10"])
+
+    def test_so_tien_la_number_con_ten_la_string(self):
+        m, schema = self._schema()
+        rs = _run(m, lambda: m.response_schema(schema))
+        self.assertEqual(rs["properties"]["payment_amount"]["type"], "number")
+        self.assertEqual(rs["properties"]["payee_full_name"]["type"], "string")
+
+    def test_chi_hai_o_dat_nhat_moi_co_khoa_trich_dan(self):
+        m, schema = self._schema()
+        props = _run(m, lambda: m.response_schema(schema))["properties"]
+        self.assertIn("payment_amount__source", props)      # DAT: o tien
+        self.assertNotIn("payee_full_name__source", props)  # TRUOT: o thuong
+        self.assertNotIn("payment_date__source", props)
+
+    def test_moi_truong_deu_nullable(self):
+        """Luat "khong chac thi de trong" chi thuc thi duoc neu schema cho phep null."""
+        m, schema = self._schema()
+        props = _run(m, lambda: m.response_schema(schema))["properties"]
+        self.assertTrue(all(p.get("nullable") for p in props.values()))
+
+
+class TestPrompt(unittest.TestCase):
+    def test_prompt_mang_options_va_khong_ghi_de_o_da_go(self):
+        m, _ = _load(meta_fields=_DEF_FIELDS)
+        schema = _run(m, lambda: m.build_schema(_definition()))
+        p = _run(m, lambda: m.build_prompt(schema, "van ban nguon",
+                                           {"payee_full_name": "Ha", "payment_amount": ""}))
+        self.assertIn("chi nhan: 0 / 8 / 10", p)
+        self.assertIn("DE NGUYEN", p)
+        self.assertIn("payee_full_name = Ha", p)
+        # o rong KHONG duoc ke la "da dien"
+        self.assertNotIn("payment_amount =", p)
+        self.assertIn("van ban nguon", p)
+
+
+class TestSplitSources(unittest.TestCase):
+    def test_trich_dan_tach_khoi_gia_tri(self):
+        m, _ = _load()
+        v, s = _run(m, lambda: m.split_sources({
+            "payment_amount": 45000000,
+            "payment_amount__source": "...so tien 45.000.000d da gom VAT...",
+            "payee_full_name": "Ha"}))
+        self.assertEqual(v, {"payment_amount": 45000000, "payee_full_name": "Ha"})
+        self.assertEqual(list(s), ["payment_amount"])
+        # trich dan KHONG duoc lan vao gia tri truong
+        self.assertNotIn("payment_amount__source", v)
+
+
 if __name__ == "__main__":
     unittest.main()

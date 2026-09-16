@@ -592,5 +592,25 @@
   "label": "Mã brand bên Fabric / PowerBI",
   "allow_on_submit": 0,
   "reqd": 0
+ },
+ {
+  "fieldtype": "Password",
+  "name": "System Settings-ec_gemini_api_key",
+  "no_copy": 1,
+  "in_standard_filter": 0,
+  "hidden": 0,
+  "dt": "System Settings",
+  "allow_in_quick_entry": 0,
+  "doctype": "Custom Field",
+  "in_list_view": 0,
+  "description": "Khoa Google AI Studio dung cho moi tinh nang Gemini cua eCentric. DA TON TAI tren team.ecentric.vn tu truoc (tao tay); dua vao fixtures de site moi `bench migrate` cung co field nay thay vi thieu im lang.",
+  "unique": 0,
+  "fieldname": "ec_gemini_api_key",
+  "insert_after": "country",
+  "translatable": 0,
+  "read_only": 0,
+  "label": "Gemini API Key",
+  "allow_on_submit": 0,
+  "reqd": 0
  }
 ]
