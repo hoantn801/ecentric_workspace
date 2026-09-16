@@ -24,3 +24,7 @@ _to_delete/
 
 # symlink node_modules (khong co dau /) cung phai bo qua - 08/09 sandbox tao nham
 node_modules
+
+# Moi nhanh mot thu muc rieng (QUY_TAC_TRANH_CONFLICT.md §10). Thu muc nao cung mang mot
+# `_NHANH.md` o goc noi ro no la gi - ghi chu cho NGUOI, khong phai source, khong commit.
+_NHANH.md
