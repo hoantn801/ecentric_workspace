@@ -875,6 +875,43 @@ def _skip_earlier_duplicate_levels(req):
     `_auto_skip_duplicate_level` (luat bo-cap-SAU von co) cung chua bao gio kiem `mandatory` -
     giu chot o day thi hai luat trung-nguoi tu mau thuan nhau.
     """
+    # 🔴 KHONG AP LUAT NAY KHI LUONG CO KY SO (16/09/2026).
+    #
+    # SU CO EC-PAYR-2026-00149. Chi Lien (Finance) gui phieu; truong bo phan cua chi la chi
+    # Phuong, ma chi Phuong cung la HOF o cap 3. Luat duoi day bo cap 1 - dung y do cua no.
+    # Nhung to mau tren eContract co NAM o ky co dinh, trong do chi Phuong co HAI o rieng:
+    # "TRUONG BO PHAN (Xem xet)" va "KIEM SOAT (Xem xet)". Bo mot cap ben ERP lam chuoi duyet
+    # 4 buoc lech khoi chuoi chu ky 5 o cua eContract.
+    #
+    # Hau qua do duoc, nguyen van trong su kien cua EC-DSR-2026-00317:
+    #     next handler not named: no_eligible_recipient:1_de_xuat_0_duoc_nhan
+    # ERP de xuat chi Phuong cho buoc ke tiep; eContract tra loi khong ai nhan duoc, vi buoc
+    # ke tiep CUA NO van la "Truong bo phan" - cai o ma ERP vua bo qua. Khong chi dinh duoc
+    # ai -> lui ve pool mac dinh (7 truong phong, khong co chi Phuong) -> lenh ky truot nguoi
+    # -> `not_enough_signatures:have=1/need=2` lap 11 lan -> Manual Review sau 20 phut.
+    #
+    # Chinh `next_handler.py` da ghi canh bao nay tu 28/08: "chuoi duyet cua ERP KHONG bat
+    # buoc trung chuoi cua eContract, va khi lech thi eContract im lang bo ca lenh". Luat
+    # gop chinh la thu tao ra do lech do.
+    #
+    # Luat 09/09 van dung khi KHONG co ky so (ca EC-HIRE-2026-00003 o tren): luc do khong co
+    # to giay nao dong cung so o, gop lai chi tiet kiem mot cu bam.
+    #
+    # Dung `get_enabled_profile` chu KHONG phai `get_active_profile`: cau hoi o day la CAU
+    # HINH ("luong nay co ky so khong"), khong phai "cong ky so co dang mo khong". Dung ban
+    # theo cong thi tat/bat mot cai gate se am tham doi ca cau truc luong duyet - mot qua min.
+    try:
+        from ecentric_workspace.platform.esign import guard as _esign_guard
+        if _esign_guard.get_enabled_profile(req.reference_doctype, req.get("approval_type")):
+            return
+    except Exception:
+        # Khong doc duoc cau hinh -> KHONG GOP. Doan nham theo huong nay thi nguoi ta ky hai
+        # lan cho mot cau hoi: kho chiu, nhin thay ngay, sua duoc. Doan nham theo huong kia
+        # thi chuoi chu ky vo trong im lang - dung cai dang sua.
+        frappe.log_error(frappe.get_traceback(),
+                         "skip_duplicate_levels: khong doc duoc ho so ky so %s" % req.name)
+        return
+
     rows = frappe.get_all(
         "EC Approval Request Level", filters={"approval_request": req.name},
         fields=["name", "level_no", "level_name", "mandatory"], order_by="level_no asc") or []

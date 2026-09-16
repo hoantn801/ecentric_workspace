@@ -22,6 +22,17 @@ def _boot_frappe():
         f.get_doc = lambda *a, **k: None
         f.parse_json = lambda x: x
         u = types.ModuleType("frappe.utils"); u.now_datetime = lambda *a, **k: None
+        # `get_datetime`: `query_service.py` import no o CAP MODULE (dong 6). Ban gia thieu
+        # ham nay thi ca bo test chet ngay o `import`, voi mot cau bao lac huong:
+        #     ImportError: cannot import name 'get_datetime' from 'frappe.utils'
+        # KHONG phai loi cua dot 16/09 - do san tren origin/main, tu luc ai do them dong
+        # import do ma khong cap nhat ban gia. Va-de-cong-xanh-tro-lai, co khai bao trong
+        # commit message.
+        #
+        # BAI HOC CHUNG: ban gia `frappe` o day la mot DANH SACH GO TAY. Moi import moi o
+        # `query_service.py` deu co the lam no do, va cau bao se noi ve `frappe.utils` chu
+        # khong noi ve thu vua doi - nen nguoi doc di tim nham cho.
+        u.get_datetime = lambda *a, **k: None
         sys.modules["frappe"] = f; sys.modules["frappe.utils"] = u
 
 

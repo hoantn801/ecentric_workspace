@@ -65,10 +65,33 @@ class _DB(object):
                 row.update(values)
 
 
-def _run_skip(levels, approvers):
+class _Req(object):
+    """Gia mot Document cua Frappe: co THUOC TINH va co ca `.get()`.
+
+    Ban gia cu la `SimpleNamespace(name="REQ-1")` - khong co `.get()`, khong co
+    `reference_doctype`. Tu 16/09 ham that hoi hai thu do de biet luong co ky so khong, nen
+    ban gia thieu se nem AttributeError roi bi khoi `except` nuot mat -> ham tra ve som va
+    MOI phep kiem o duoi xanh gia (khong gop thi dung la "khong bo cap nao"). Dung hinh dang
+    that thi phep do moi noi that.
+    """
+
+    def __init__(self, approval_type="HIRING_REQUEST"):
+        self.name = "REQ-1"
+        self.reference_doctype = "EC Hiring Request"
+        self._d = {"name": self.name, "approval_type": approval_type,
+                   "reference_doctype": self.reference_doctype}
+
+    def get(self, k, default=None):
+        return self._d.get(k, default)
+
+
+def _run_skip(levels, approvers, co_ky_so=False, guard_loi=False):
+    import sys
     db = _DB(levels, approvers)
     frappe = types.ModuleType("frappe")
     frappe.db = db
+    frappe.log_error = lambda *a, **k: None
+    frappe.get_traceback = lambda: "TB"
 
     def get_all(dt, filters=None, fields=None, order_by=None, **kw):
         if dt.endswith("Level"):
@@ -83,8 +106,35 @@ def _run_skip(levels, approvers):
         "log_action": lambda *a, **k: logs.append((a, k)),
         "_": lambda s: s,
     }
-    exec(compile(_func_source("_skip_earlier_duplicate_levels"), "<skip>", "exec"), ns)
-    ns["_skip_earlier_duplicate_levels"](types.SimpleNamespace(name="REQ-1"))
+    # Ban gia cua tang ky so. `get_enabled_profile` tra ten ho so khi luong CO ky so.
+    guard_mod = types.ModuleType("ecentric_workspace.platform.esign.guard")
+
+    def _profile(ref_dt, atype):
+        if guard_loi:
+            raise RuntimeError("khong doc duoc cau hinh")
+        return "EC-DSPROF-1" if co_ky_so else None
+
+    guard_mod.get_enabled_profile = _profile
+    esign_pkg = types.ModuleType("ecentric_workspace.platform.esign")
+    esign_pkg.guard = guard_mod
+    root = types.ModuleType("ecentric_workspace")
+    plat = types.ModuleType("ecentric_workspace.platform")
+    root.platform = plat
+    plat.esign = esign_pkg
+    gia = {"ecentric_workspace": root, "ecentric_workspace.platform": plat,
+           "ecentric_workspace.platform.esign": esign_pkg,
+           "ecentric_workspace.platform.esign.guard": guard_mod}
+    saved = {k: sys.modules.get(k) for k in gia}
+    sys.modules.update(gia)
+    try:
+        exec(compile(_func_source("_skip_earlier_duplicate_levels"), "<skip>", "exec"), ns)
+        ns["_skip_earlier_duplicate_levels"](_Req())
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                sys.modules.pop(k, None)
+            else:
+                sys.modules[k] = v
     return db, logs
 
 
@@ -141,6 +191,54 @@ class TestKhongDuocBoNham(unittest.TestCase):
         self.assertEqual(_status(db)[1], "Skipped", "cap 1 trung anh Lam -> phai bo")
         self.assertEqual(_status(db)[2], "Pending", "cap HR nguoi khac -> giu")
         self.assertEqual(_status(db)[3], "Pending", "cap CEO la lan cuoi -> giu")
+
+    def test_LUONG_CO_KY_SO_thi_KHONG_GOP(self):
+        """SU CO EC-PAYR-2026-00149 (16/09).
+
+        Chi Lien (Finance) gui phieu; truong bo phan cua chi la chi Phuong, ma chi Phuong
+        cung la HOF o cap 3. Luat gop bo cap 1 - va lam chuoi duyet 4 buoc cua ERP lech khoi
+        chuoi 5 o ky cua eContract. Do duoc, nguyen van:
+
+            next handler not named: no_eligible_recipient:1_de_xuat_0_duoc_nhan
+
+        eContract tra loi khong ai nhan duoc buoc ke tiep, vi buoc ke tiep CUA NO van la
+        "Truong bo phan" - cai o ERP vua bo. Lenh ky roi ve pool 7 truong phong, truot nguoi,
+        `not_enough_signatures:have=1/need=2` lap 11 lan, roi Manual Review.
+        """
+        db, logs = _run_skip([_lv(1, "Direct Manager"), _lv(2, "Finance"), _lv(3, "HOF")],
+                             [_ap(1, "phuong@x"), _ap(2, "lien@x"), _ap(3, "phuong@x")],
+                             co_ky_so=True)
+        self.assertEqual(_status(db), {1: "Pending", 2: "Pending", 3: "Pending"},
+                         "luong co ky so thi KHONG duoc bo cap nao")
+        self.assertEqual(logs, [], "khong ghi so vi khong bo gi")
+
+    def test_KHONG_ky_so_thi_van_gop_nhu_cu(self):
+        """Luat 09/09 van dung khi khong co to giay nao dong cung so o ky."""
+        db, _logs = _run_skip([_lv(1, "Direct Manager"), _lv(2, "Finance"), _lv(3, "HOF")],
+                              [_ap(1, "phuong@x"), _ap(2, "lien@x"), _ap(3, "phuong@x")],
+                              co_ky_so=False)
+        self.assertEqual(_status(db)[1], "Skipped")
+        self.assertEqual(_status(db)[3], "Pending")
+
+    def test_khong_doc_duoc_cau_hinh_thi_KHONG_GOP(self):
+        """Doan nham huong nay: nguoi ta ky hai lan cho mot cau hoi - kho chiu, thay ngay,
+        sua duoc. Doan nham huong kia: chuoi chu ky vo trong im lang."""
+        db, _logs = _run_skip([_lv(1), _lv(2)], [_ap(1, "a@x"), _ap(2, "a@x")],
+                              guard_loi=True)
+        self.assertEqual(_status(db), {1: "Pending", 2: "Pending"})
+
+    def test_hoi_ho_so_theo_CAU_HINH_khong_theo_cong_dang_mo(self):
+        """`get_active_profile` phu thuoc cac cong thuc thi (integration/signing/bulk...).
+        Dung ban do thi tat mot cai gate se AM THAM doi ca cau truc luong duyet."""
+        # BO CHU THICH TRUOC KHI GREP. Chu thich cua chinh ban sua nay co nhac
+        # `get_active_profile` de giai thich VI SAO khong dung no - de nguyen thi phep kiem
+        # khop voi loi van cua chinh no, va cach "sua cho xanh" se la xoa mat loi giai thich.
+        # `ast.unparse` bo sach comment, chi con ma THUC THI.
+        ma = ast.unparse(ast.parse(_func_source("_skip_earlier_duplicate_levels")))
+        ma = ma.replace(ast.get_docstring(
+            ast.parse(_func_source("_skip_earlier_duplicate_levels")).body[0]) or "", "")
+        self.assertIn("get_enabled_profile", ma)
+        self.assertNotIn("get_active_profile", ma)
 
     def test_khong_trung_ai_thi_khong_dong_gi(self):
         db, logs = _run_skip([_lv(1), _lv(2)], [_ap(1, "a@x"), _ap(2, "b@x")])
