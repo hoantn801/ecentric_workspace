@@ -22,7 +22,7 @@ app_license = "MIT"
 # must never do). The asset itself bails out on /app/* and on pages with no eCentric
 # bell, and is single-install guarded so the homepage (which also still carries the
 # legacy per-page loader) never double-installs.
-web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_datepicker.bundle.js", "ec_formkit.bundle.js", "ec_webpush.bundle.js", "ec_aifill.bundle.js"]
+web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_datepicker.bundle.js", "ec_formkit.bundle.js", "ec_webpush.bundle.js", "ec_alltab.bundle.js", "ec_aifill.bundle.js"]
 
 # ERP Shell v1 (Phase 1B pilot). Both assets are loaded site-wide via the same
 # proven content-hashed-bundle mechanism as the Notification Center, but
@@ -30,7 +30,7 @@ web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_dat
 # `data-ec-shell="1"` marker node (Phase 1B: only the 4 approval pilot pages).
 # Kill switch: site_config `ec_shell_disabled: 1` (fail-closed for the shell
 # only; never affects Notification Center or any business logic).
-web_include_css = ["ec_shell.bundle.css", "ec_datepicker.bundle.css", "ec_formkit.bundle.css", "ec_aifill.bundle.css"]
+web_include_css = ["ec_shell.bundle.css", "ec_datepicker.bundle.css", "ec_formkit.bundle.css", "ec_alltab.bundle.css", "ec_aifill.bundle.css"]
 
 # Document Events
 # ---------------
@@ -108,6 +108,7 @@ scheduler_events = {
     # Alert Center Phase E (decision D2-E): both jobs are dry-run-safe and
     # kill-switchable via site_config `ec_alerts_scheduler_disabled: 1`.
     "hourly": [
+        "ecentric_workspace.sla.tasks.sweep_overdue",
         "ecentric_workspace.alerts.tasks.expire_automation_pauses",
         # Doc lai moc sua tren SharePoint cho cac phieu CON CHO DUYET. Khong co no thi bang
         # canh bao "tep doi sau khi duyet" khong bao gio bat duoc mot lan sua that (15/09).
@@ -209,6 +210,7 @@ scheduler_events["cron"].setdefault("0 9 * * *", []).append(
 # "" (no restriction) for Administrator / System Manager / Management dept / PM Manager, so
 # leaders and Desk power users are untouched.
 permission_query_conditions = {
+    "EC SLA Obligation": "ecentric_workspace.sla.permissions.obligation_query_conditions",
     "Task": "ecentric_workspace.pm.permissions.task_query_conditions",
     "Project": "ecentric_workspace.pm.permissions.project_query_conditions",
 }

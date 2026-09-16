@@ -846,6 +846,36 @@ def _advance_past_level(req, level_no):
         complete_approval(frappe.get_doc("EC Approval Request", req.name))
 
 
+def _luong_co_ky_so(req, boi_canh):
+    """CO ho so ky so dang BAT cho (reference_doctype, approval_type) khong?
+
+    DUNG CHUNG cho CA HAI luat trung-nguoi. Engine co HAI luat, khong phai mot:
+      * `_skip_earlier_duplicate_levels` - bo cap TRUOC, chay MOT LAN luc dung luong;
+      * `_auto_skip_duplicate_level`     - bo cap SAU,  chay MOI LAN kich hoat mot cap.
+    Ngay 16/09/2026 chot duoc dat o luat thu nhat va BO SOT luat thu hai, nen buoi chieu
+    cung ngay hai phieu cua chi Lien (EC-PAYR-2026-00161, 00164) van bi bo cap 3 - chi khac
+    la bo o thoi diem kich hoat chu khong phai luc nop. Gop dieu kien vao MOT ham de lan sau
+    them mot luat nua thi cho sua chi co mot.
+
+    DOC KHONG DUOC -> TRA True (coi nhu CO ky so -> KHONG GOP). Doan nham theo huong nay:
+    nguoi ta ky hai lan cho mot cau hoi - kho chiu, nhin thay ngay, sua duoc. Doan nham theo
+    huong kia: mot o ky tren to mau khong bao gio nhan duoc lenh, eContract dung im, va phieu
+    chet o buoc SAU do voi nhan `provider_accepted_but_silent` - khong ai doc ra nguyen nhan.
+
+    Dung `get_enabled_profile` chu KHONG phai `get_active_profile`: cau hoi o day la CAU HINH
+    ("luong nay co ky so khong"), khong phai "cong ky so co dang mo khong". Dung ban theo cong
+    thi tat/bat mot cai gate se am tham doi ca cau truc luong duyet - mot qua min.
+    """
+    try:
+        from ecentric_workspace.platform.esign import guard as _esign_guard
+        return bool(_esign_guard.get_enabled_profile(
+            req.reference_doctype, req.get("approval_type")))
+    except Exception:
+        frappe.log_error(frappe.get_traceback(),
+                         "%s: khong doc duoc ho so ky so %s" % (boi_canh, req.name))
+        return True
+
+
 def _skip_earlier_duplicate_levels(req):
     """Mot nguoi dung o NHIEU cap -> bo cac cap TRUOC, giu cap CUOI CUNG cua ho (Hoan chot 09/09).
 
@@ -897,19 +927,8 @@ def _skip_earlier_duplicate_levels(req):
     # Luat 09/09 van dung khi KHONG co ky so (ca EC-HIRE-2026-00003 o tren): luc do khong co
     # to giay nao dong cung so o, gop lai chi tiet kiem mot cu bam.
     #
-    # Dung `get_enabled_profile` chu KHONG phai `get_active_profile`: cau hoi o day la CAU
-    # HINH ("luong nay co ky so khong"), khong phai "cong ky so co dang mo khong". Dung ban
-    # theo cong thi tat/bat mot cai gate se am tham doi ca cau truc luong duyet - mot qua min.
-    try:
-        from ecentric_workspace.platform.esign import guard as _esign_guard
-        if _esign_guard.get_enabled_profile(req.reference_doctype, req.get("approval_type")):
-            return
-    except Exception:
-        # Khong doc duoc cau hinh -> KHONG GOP. Doan nham theo huong nay thi nguoi ta ky hai
-        # lan cho mot cau hoi: kho chiu, nhin thay ngay, sua duoc. Doan nham theo huong kia
-        # thi chuoi chu ky vo trong im lang - dung cai dang sua.
-        frappe.log_error(frappe.get_traceback(),
-                         "skip_duplicate_levels: khong doc duoc ho so ky so %s" % req.name)
+    # Dieu kien nam o `_luong_co_ky_so` - dung chung voi luat bo-cap-SAU, xem ghi chu o do.
+    if _luong_co_ky_so(req, "skip_duplicate_levels"):
         return
 
     rows = frappe.get_all(
@@ -1166,7 +1185,23 @@ def _activate_level(req, level_no):
     # already approved an earlier level in this same request, skip it (audited) and advance instead of
     # asking the same person to approve twice. Runs only at activation/advance (never before), never skips
     # L1 (no earlier level), and never fires while any non-duplicate approver is still pending (Any-One safe).
-    if _all_level_approvers_already_approved(req.name, level_no):
+    #
+    # 🔴 VA CUNG KHONG AP KHI LUONG CO KY SO (16/09/2026, chieu).
+    # EC-PAYR-2026-00164: chi Phuong duyet cap 1 luc 15:47:49, chi Lien duyet cap 2 luc
+    # 15:48:00, roi cap 3 (HOF - CUNG chi Phuong) vua kich hoat la luat nay tu bo:
+    #     activated_at == completed_at == 15:48:00.697624, khong ai bam gi.
+    # O "Kiem soat" tren to mau eContract khong bao gio nhan duoc lenh ky, nen tai lieu dung
+    # o chi Phuong; ERP thi di tiep va ban lenh ky cho CEO luc 16:56 - eContract nuot lenh,
+    # chan ky CEO chet voi nhan `provider_accepted_but_silent`.
+    #
+    # Dung mot thu voi su co EC-PAYR-2026-00149 sang cung ngay, chi khac THOI DIEM bo cap.
+    # Sang 16/09 chot chi duoc dat o `_skip_earlier_duplicate_levels` (bo cap TRUOC, luc
+    # nop) - chinh docstring cua ham do co nhac ten `_auto_skip_duplicate_level` ma van de
+    # nguyen no. Bit mot dau cua cung mot lo.
+    #
+    # Khong ap cho luong khong ky so: luat 09/09 giu nguyen (EC-HIRE-2026-00003 van dung).
+    if (_all_level_approvers_already_approved(req.name, level_no)
+            and not _luong_co_ky_so(req, "auto_skip_duplicate_level")):
         _auto_skip_duplicate_level(req, level_no)
         return
     rl = _rl_for(req.name, level_no)

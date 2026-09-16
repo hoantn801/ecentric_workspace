@@ -178,7 +178,7 @@
   function route(){ readRoute(); render(); }
   window.addEventListener("popstate", route);
 
-  function tabAllowed(t){ var tb=state.boot&&state.boot.tabs||{}; return t==="create"||t==="my-requests"||(t==="my-approvals"&&tb.my_approvals)||(t==="fulfillment"&&tb.fulfillment); }
+  function tabAllowed(t){ var tb=state.boot&&state.boot.tabs||{}; return t==="all"||t==="create"||t==="my-requests"||(t==="my-approvals"&&tb.my_approvals)||(t==="fulfillment"&&tb.fulfillment); }
   function renderTabs(){ var box=$("dreq-tabs"); if(!box)return;
     // Thanh tab lay DUNG `state.boot.tabs` lam nguon - cung nguon voi `tabAllowed`.
     // Truoc dot nay backend van tinh quyen cho 4 tab va gui xuong, con man hinh chi ve
@@ -186,14 +186,24 @@
     var tb=(state.boot&&state.boot.tabs)||{};
     var defs=[["create","Tạo yêu cầu",true],["my-requests","Yêu cầu của tôi",true]];
     if(tb.my_approvals) defs.push(["my-approvals","Chờ tôi duyệt",true]);
+    if(tb.all) defs.push(["all","Tất cả",true]);
     if(tb.fulfillment) defs.push(["fulfillment","Tôi xử lý",true]);
     box.innerHTML=defs.map(function(d){ var act=(state.tab===d[0]||(state.tab==="detail"&&d[0]==="my-requests"))?" active":"";
       return '<button class="tab'+act+'"'+(d[2]?'':' disabled')+' data-tab="'+d[0]+'">'+esc(d[1])+'</button>'; }).join(""); }
+
+  // Tab "Tat ca" dung chung cho ca 28 form: bo loc + bang + export nam TRON trong
+  // ec_alltab.bundle.js. O day chi dua vao ham `call` va duong dan module cua trang -
+  // chep ngan dong UI nay vao 28 file la cach tu tao ra dot sua 28 cho lan sau.
+  function renderAll(b){
+    if(!window.EcAllTab){ b.innerHTML='<div class="card"><div class="state"><h4>Chưa tải được thành phần danh sách</h4><div class="hint">Tải lại trang bằng Ctrl+Shift+R. Nếu vẫn lỗi, báo quản trị viên: thiếu ec_alltab.bundle.js.</div></div></div>'; return; }
+    window.EcAllTab.render(b,{ call:call, ns:NS, open:function(n){ go({id:n}); } });
+  }
 
   function render(){ renderTabs(); var b=$("dreq-body"); if(!b)return;
     if(state.tab==="detail"&&state.id) return renderDetail(b);
     if(state.tab==="my-requests") return renderMyRequests(b);
     if(state.tab==="my-approvals") return renderMyApprovals(b);
+    if(state.tab==="all") return renderAll(b);
     if(state.tab==="fulfillment") return renderFulfillment(b);
     return renderCreate(b); }
 

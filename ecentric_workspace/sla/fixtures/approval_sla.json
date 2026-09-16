@@ -1,0 +1,667 @@
+{
+ "_doc": [
+  "Cau hinh SLA cho tung buoc duyet - chu so huu dien ngay 16/09/2026,",
+  "nguon: SLA_60_buoc_duyet_20260916.xlsx (68 dong, 65 dong co so).",
+  "",
+  "CAP NHAT SAU NAY: sua so trong tep nay roi them MOT patch moi goi",
+  "policy_import.apply(). Khong sua patch cu - patch da chay khong chay lai.",
+  "policy_import.apply() idempotent nen chay lai bao nhieu lan cung ra mot ket qua.",
+  "",
+  "3 dong con thieu (chu so huu chua chot nguoi chiu trach nhiem):",
+  "  DATA_REQUEST#FUL, ASSET_REQUEST#FUL, BOOKING_REQUEST#FUL"
+ ],
+ "source": "SLA_60_buoc_duyet_20260916.xlsx",
+ "filled_at": "2026-09-16",
+ "rows": [
+  {
+   "key": "AFFILIATE_BONUS_REQUEST#1",
+   "process_code": "AFFILIATE_BONUS_REQUEST",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Vinh Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "AFFILIATE_BONUS_REQUEST#2",
+   "process_code": "AFFILIATE_BONUS_REQUEST",
+   "level_no": 2,
+   "fulfillment": false,
+   "label": "CEO Review",
+   "hours": 16,
+   "unit": "giờ làm việc",
+   "reminder_hours": 8
+  },
+  {
+   "key": "AI_TOPUP#1",
+   "process_code": "AI_TOPUP",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Direct Manager",
+   "hours": 3,
+   "unit": "giờ làm việc",
+   "reminder_hours": 1
+  },
+  {
+   "key": "AI_TOPUP#2",
+   "process_code": "AI_TOPUP",
+   "level_no": 2,
+   "fulfillment": false,
+   "label": "Operation Review",
+   "hours": 3,
+   "unit": "giờ làm việc",
+   "reminder_hours": 1
+  },
+  {
+   "key": "AI_TOPUP#3",
+   "process_code": "AI_TOPUP",
+   "level_no": 3,
+   "fulfillment": false,
+   "label": "Finance Review",
+   "hours": 3,
+   "unit": "giờ làm việc",
+   "reminder_hours": 1
+  },
+  {
+   "key": "AI_TOPUP#FUL",
+   "process_code": "AI_TOPUP",
+   "level_no": null,
+   "fulfillment": true,
+   "label": "Vận hành thực hiện",
+   "hours": 3,
+   "unit": "giờ làm việc",
+   "reminder_hours": 1
+  },
+  {
+   "key": "ASSET_DAMAGE_LOSS#1",
+   "process_code": "ASSET_DAMAGE_LOSS",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Operation Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "ASSET_DAMAGE_LOSS#2",
+   "process_code": "ASSET_DAMAGE_LOSS",
+   "level_no": 2,
+   "fulfillment": false,
+   "label": "CEO Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "ASSET_REQUEST#1",
+   "process_code": "ASSET_REQUEST",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Direct Manager Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "ASSET_REQUEST#2",
+   "process_code": "ASSET_REQUEST",
+   "level_no": 2,
+   "fulfillment": false,
+   "label": "Operation Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "BOOKING_REQUEST#1",
+   "process_code": "BOOKING_REQUEST",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Account Lead Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "BUDGET_SETTING#1",
+   "process_code": "BUDGET_SETTING",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "HOF Review",
+   "hours": 16,
+   "unit": "giờ làm việc",
+   "reminder_hours": 8
+  },
+  {
+   "key": "BUDGET_SETTING#2",
+   "process_code": "BUDGET_SETTING",
+   "level_no": 2,
+   "fulfillment": false,
+   "label": "CEO Review",
+   "hours": 16,
+   "unit": "giờ làm việc",
+   "reminder_hours": 8
+  },
+  {
+   "key": "COMPENSATION_LEAVE#1",
+   "process_code": "COMPENSATION_LEAVE",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Direct Manager Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "CONTRACT_REVIEW#1",
+   "process_code": "CONTRACT_REVIEW",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Department Manager Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "CONTRACT_REVIEW#2",
+   "process_code": "CONTRACT_REVIEW",
+   "level_no": 2,
+   "fulfillment": false,
+   "label": "Finance Team Review",
+   "hours": 16,
+   "unit": "giờ làm việc",
+   "reminder_hours": 8
+  },
+  {
+   "key": "CONTRACT_REVIEW#3",
+   "process_code": "CONTRACT_REVIEW",
+   "level_no": 3,
+   "fulfillment": false,
+   "label": "Head of Finance Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "CONTRACT_REVIEW#4",
+   "process_code": "CONTRACT_REVIEW",
+   "level_no": 4,
+   "fulfillment": false,
+   "label": "CEO Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "DAILY_TARGET_CONSOLIDATED#1",
+   "process_code": "DAILY_TARGET_CONSOLIDATED",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "CEO Review",
+   "hours": 24,
+   "unit": "giờ làm việc",
+   "reminder_hours": 12
+  },
+  {
+   "key": "DAILY_TARGET_PROJECT#1",
+   "process_code": "DAILY_TARGET_PROJECT",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Commercial Manager Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "DATA_REQUEST#1",
+   "process_code": "DATA_REQUEST",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Data Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "DOCUMENT_REQUEST#1",
+   "process_code": "DOCUMENT_REQUEST",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Department Owner Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "DOCUMENT_REQUEST#2",
+   "process_code": "DOCUMENT_REQUEST",
+   "level_no": 2,
+   "fulfillment": false,
+   "label": "Operation Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "DOCUMENT_REQUEST#3",
+   "process_code": "DOCUMENT_REQUEST",
+   "level_no": 3,
+   "fulfillment": false,
+   "label": "CEO Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "DOCUMENT_REQUEST#FUL",
+   "process_code": "DOCUMENT_REQUEST",
+   "level_no": null,
+   "fulfillment": true,
+   "label": "Vận hành cấp tài liệu",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "EMPLOYEE_INFO_UPDATE#1",
+   "process_code": "EMPLOYEE_INFO_UPDATE",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "HR Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "EMPLOYEE_REFERRAL#1",
+   "process_code": "EMPLOYEE_REFERRAL",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Careers Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "EMPLOYEE_REFERRAL#2",
+   "process_code": "EMPLOYEE_REFERRAL",
+   "level_no": 2,
+   "fulfillment": false,
+   "label": "CEO Review",
+   "hours": 16,
+   "unit": "giờ làm việc",
+   "reminder_hours": 8
+  },
+  {
+   "key": "HIRING_REQUEST#1",
+   "process_code": "HIRING_REQUEST",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Direct Manager Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "HIRING_REQUEST#2",
+   "process_code": "HIRING_REQUEST",
+   "level_no": 2,
+   "fulfillment": false,
+   "label": "HR Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "HIRING_REQUEST#3",
+   "process_code": "HIRING_REQUEST",
+   "level_no": 3,
+   "fulfillment": false,
+   "label": "CEO Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "HR_ACTIVITY#1",
+   "process_code": "HR_ACTIVITY",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "HR Manager Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "HR_ACTIVITY#2",
+   "process_code": "HR_ACTIVITY",
+   "level_no": 2,
+   "fulfillment": false,
+   "label": "HOF Review",
+   "hours": 16,
+   "unit": "giờ làm việc",
+   "reminder_hours": 8
+  },
+  {
+   "key": "HR_ACTIVITY#3",
+   "process_code": "HR_ACTIVITY",
+   "level_no": 3,
+   "fulfillment": false,
+   "label": "CEO Review",
+   "hours": 16,
+   "unit": "giờ làm việc",
+   "reminder_hours": 8
+  },
+  {
+   "key": "LATERAL_MOVE#1",
+   "process_code": "LATERAL_MOVE",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Current Direct Manager Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "LATERAL_MOVE#2",
+   "process_code": "LATERAL_MOVE",
+   "level_no": 2,
+   "fulfillment": false,
+   "label": "New Line Manager Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "LATERAL_MOVE#3",
+   "process_code": "LATERAL_MOVE",
+   "level_no": 3,
+   "fulfillment": false,
+   "label": "HR Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "LATERAL_MOVE#4",
+   "process_code": "LATERAL_MOVE",
+   "level_no": 4,
+   "fulfillment": false,
+   "label": "CEO Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "LATE_EARLY_OUT#1",
+   "process_code": "LATE_EARLY_OUT",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Direct Manager Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "LEAVE_REQUEST#1",
+   "process_code": "LEAVE_REQUEST",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Direct Manager Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "LIVESTREAM_SAMPLE#1",
+   "process_code": "LIVESTREAM_SAMPLE",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Sang Bui Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "LIVESTREAM_SUPPLIES#1",
+   "process_code": "LIVESTREAM_SUPPLIES",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Sang Bui Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "OUTSIDE_WORK#1",
+   "process_code": "OUTSIDE_WORK",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Direct Manager",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "PAYMENT_REQUEST#1",
+   "process_code": "PAYMENT_REQUEST",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Direct Manager Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "PAYMENT_REQUEST#2",
+   "process_code": "PAYMENT_REQUEST",
+   "level_no": 2,
+   "fulfillment": false,
+   "label": "Finance Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "PAYMENT_REQUEST#3",
+   "process_code": "PAYMENT_REQUEST",
+   "level_no": 3,
+   "fulfillment": false,
+   "label": "HOF Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "PAYMENT_REQUEST#4",
+   "process_code": "PAYMENT_REQUEST",
+   "level_no": 4,
+   "fulfillment": false,
+   "label": "CEO Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "PAYMENT_REQUEST#FUL",
+   "process_code": "PAYMENT_REQUEST",
+   "level_no": null,
+   "fulfillment": true,
+   "label": "Finance xử lý UNC",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "PROMOTION_REQUEST#1",
+   "process_code": "PROMOTION_REQUEST",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Direct Manager Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "PROMOTION_REQUEST#2",
+   "process_code": "PROMOTION_REQUEST",
+   "level_no": 2,
+   "fulfillment": false,
+   "label": "CnB Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "PROMOTION_REQUEST#3",
+   "process_code": "PROMOTION_REQUEST",
+   "level_no": 3,
+   "fulfillment": false,
+   "label": "HOF Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "PROMOTION_REQUEST#4",
+   "process_code": "PROMOTION_REQUEST",
+   "level_no": 4,
+   "fulfillment": false,
+   "label": "CEO Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "PURCHASE_REQUEST#1",
+   "process_code": "PURCHASE_REQUEST",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Direct Manager Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "PURCHASE_REQUEST#2",
+   "process_code": "PURCHASE_REQUEST",
+   "level_no": 2,
+   "fulfillment": false,
+   "label": "Finance Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "PURCHASE_REQUEST#3",
+   "process_code": "PURCHASE_REQUEST",
+   "level_no": 3,
+   "fulfillment": false,
+   "label": "HOF Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "PURCHASE_REQUEST#4",
+   "process_code": "PURCHASE_REQUEST",
+   "level_no": 4,
+   "fulfillment": false,
+   "label": "CEO Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "RESIGNATION#1",
+   "process_code": "RESIGNATION",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Direct Manager Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "RESIGNATION#FUL",
+   "process_code": "RESIGNATION",
+   "level_no": null,
+   "fulfillment": true,
+   "label": "Nhân sự xử lý",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "SERVICE_REFERRAL#1",
+   "process_code": "SERVICE_REFERRAL",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Referral Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "SPECIAL_BONUS#1",
+   "process_code": "SPECIAL_BONUS",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Direct Manager Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "SPECIAL_BONUS#2",
+   "process_code": "SPECIAL_BONUS",
+   "level_no": 2,
+   "fulfillment": false,
+   "label": "CnB Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "SPECIAL_BONUS#3",
+   "process_code": "SPECIAL_BONUS",
+   "level_no": 3,
+   "fulfillment": false,
+   "label": "HOF Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "SPECIAL_BONUS#4",
+   "process_code": "SPECIAL_BONUS",
+   "level_no": 4,
+   "fulfillment": false,
+   "label": "CEO Review",
+   "hours": 8,
+   "unit": "giờ làm việc",
+   "reminder_hours": 4
+  },
+  {
+   "key": "SYSTEM_REQUEST#1",
+   "process_code": "SYSTEM_REQUEST",
+   "level_no": 1,
+   "fulfillment": false,
+   "label": "Operation Review",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  },
+  {
+   "key": "SYSTEM_REQUEST#FUL",
+   "process_code": "SYSTEM_REQUEST",
+   "level_no": null,
+   "fulfillment": true,
+   "label": "System thực hiện",
+   "hours": 4,
+   "unit": "giờ làm việc",
+   "reminder_hours": 2
+  }
+ ]
+}
