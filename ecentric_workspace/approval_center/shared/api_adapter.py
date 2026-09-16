@@ -31,6 +31,25 @@ def bind(approval_code):
         return facade.list_my_approvals(definition, section)
 
     @frappe.whitelist()
+    def list_all(filters=None, start=0, page_length=50, search=None):
+        """Tab "Tat ca" - moi phieu CUA FORM NAY ma nguoi goi duoc phep xem.
+
+        `approval_type` do client gui bi GHI DE trong all_list._pinned_filters. Bo loc o
+        trinh duyet la tien nghi hien thi, khong phai ranh gioi bao mat."""
+        return facade.list_all(definition, filters, start, page_length, search)
+
+    @frappe.whitelist()
+    def get_all_filters():
+        return facade.all_filter_options(definition)
+
+    # POST, khong phai GET: ham nay GHI mot dong vet, ma Frappe hoan tac moi thao tac ghi
+    # trong request GET - tep van tai ve duoc con vet thi bien mat, khong ai biet.
+    @frappe.whitelist(methods=["POST"])
+    def export_all(filters=None, search=None, fmt="xlsx"):
+        """Xuat toan bo ket qua loc, trong dung pham vi cua nguoi goi. Co tran dong + ghi vet."""
+        return facade.export_all(definition, filters, search, fmt)
+
+    @frappe.whitelist()
     def get_detail(name):
         return facade.detail(definition, name)
 
@@ -120,6 +139,9 @@ def bind(approval_code):
         "get_form_options": get_form_options,
         "list_my_requests": list_my_requests,
         "list_need_my_approval": list_need_my_approval,
+        "list_all": list_all,
+        "get_all_filters": get_all_filters,
+        "export_all": export_all,
         "list_my_approvals": list_need_my_approval,
         "get_detail": get_detail,
         "get_request_detail": get_detail,
