@@ -20,6 +20,44 @@ import types
 import unittest
 
 
+_TEN_GIA = (
+    "frappe",
+    "ecentric_workspace.approval_center.shared.registry",
+    "ecentric_workspace.approval_center.shared.workflow.permissions",
+)
+
+
+def _luu():
+    """Anh chup sys.modules + thuoc tinh goi cha cho nhung ten bo test nay se thay."""
+    cu = {}
+    for ten in _TEN_GIA:
+        cu[ten] = sys.modules.get(ten, KeyError)
+        cha, _, la = ten.rpartition(".")
+        if cha:
+            goi = sys.modules.get(cha)
+            cu[(cha, la)] = getattr(goi, la, KeyError) if goi is not None else KeyError
+    return cu
+
+
+def _tra(cu):
+    for khoa, gt in cu.items():
+        if isinstance(khoa, tuple):
+            cha, la = khoa
+            goi = sys.modules.get(cha)
+            if goi is None:
+                continue
+            if gt is KeyError:
+                if hasattr(goi, la):
+                    delattr(goi, la)
+            else:
+                setattr(goi, la, gt)
+        else:
+            if gt is KeyError:
+                sys.modules.pop(khoa, None)
+            else:
+                sys.modules[khoa] = gt
+
+
 def _nap(quyen=None, todo_mo=True):
     """Nap queries voi frappe + permissions gia. `quyen` = module quyen (None = khong nap duoc)."""
     ghi = {"hoi": []}
@@ -74,9 +112,17 @@ def _nap(quyen=None, todo_mo=True):
     else:
         _dat(perm_name, quyen)
 
-    import importlib
-    from ecentric_workspace.approval_center.reporting import queries
-    importlib.reload(queries)
+    # Nap mot BAN SAO RIENG cua queries.py, khong reload ban dung chung: reload ghi de ca
+    # thuoc tinh `reporting.queries` cua goi cha, ma bo test khac dang cam mot ban gia cung
+    # ten o do. Ban sao rieng thi khong ai nhin thay - bo test khong con phu thuoc thu tu.
+    import importlib.util
+    import os
+    goc = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    duong = os.path.join(goc, "reporting", "queries.py")
+    _nap.dem = getattr(_nap, "dem", 0) + 1
+    spec = importlib.util.spec_from_file_location("_q_rieng_%d" % _nap.dem, duong)
+    queries = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(queries)
     return queries, ghi
 
 
@@ -96,7 +142,18 @@ def _quyen(co_todo_mo=True, la_SM=False, la_fulfiller_cau_hinh=False):
     return m
 
 
-class TestToDoDuyetKhongPhaiViecXuLy(unittest.TestCase):
+class _Nen(unittest.TestCase):
+    """Tra lai bang module CHUNG sau moi bai. Khong lam viec nay thi bo test nay lam do
+    cac bo test khac chay sau no trong cung mot phien - thu vo hinh va rat kho truy."""
+
+    def setUp(self):
+        self._cu = _luu()
+
+    def tearDown(self):
+        _tra(self._cu)
+
+
+class TestToDoDuyetKhongPhaiViecXuLy(_Nen):
     def test_nguoi_duyet_co_todo_mo_KHONG_thay_viec_chua_ai_nhan(self):
         q, _ = _nap(_quyen(co_todo_mo=True))
         refs = q._fulfillment_refs("lam@e.c")
