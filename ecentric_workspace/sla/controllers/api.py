@@ -138,3 +138,32 @@ def _apply_adjustment(obligation, action, reason, new_due_at,
                         update_modified=False)
     frappe.db.set_value(DT_OBLIGATION, obligation, {"adjusted": 1}, update_modified=False)
     return {"obligation": obligation, "from": prev, "to": after}
+
+
+# --------------------------------------------------------------------------- #
+# Cau hinh SLA cua cac buoc duyet
+#
+# Hai endpoint nay ton tai de viec CAP NHAT SLA khong phai viet patch moi moi
+# lan. Chu so huu doi so trong `fixtures/approval_sla.json`, deploy, goi
+# `reimport_approval_sla` mot lan la xong. Va vi patch nap lan dau la fail-safe
+# (luon ket thuc xanh, ke ca khi 65/65 dong hong), `verify_approval_sla` la
+# duong doc lai doc lap de phan biet "deploy xanh" voi "cau hinh dung" - hai
+# dieu khac nhau ma neu khong co cho doi chieu thi khong ai phan biet duoc.
+# --------------------------------------------------------------------------- #
+@frappe.whitelist()
+def verify_approval_sla():
+    """Doi chieu he thong voi tep cau hinh. CHI DOC."""
+    if "System Manager" not in frappe.get_roles() and frappe.session.user != "Administrator":
+        return _fail(_("Chi System Manager duoc xem doi chieu cau hinh SLA."))
+    from ecentric_workspace.sla.application import policy_import
+    return _ok(policy_import.verify())
+
+
+@frappe.whitelist()
+def reimport_approval_sla():
+    """Nap lai cau hinh SLA tu tep fixture. Chay lai duoc, khong nhan doi gi."""
+    if "System Manager" not in frappe.get_roles() and frappe.session.user != "Administrator":
+        return _fail(_("Chi System Manager duoc nap lai cau hinh SLA."))
+    from ecentric_workspace.sla.application import policy_import
+    report = policy_import.apply()
+    return _ok(report, policy_import.summarize(report) or _("Khong co gi thay doi."))
