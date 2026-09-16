@@ -86,38 +86,47 @@ def _is_ours(code):
 # --------------------------------------------------------------------------- #
 # Ghi chinh sach
 # --------------------------------------------------------------------------- #
-def _ac_fields(hours, reminder_hours, unit, owned):
+# Nhung truong duoc phep cham vao khi CAP NHAT mot chinh sach KHONG phai cua bo
+# nap (vd `AI_TOPUP_MANAGER_3H`). Chi con so - khong ten, khong trang thai.
+_AC_NUMBER_KEYS = ("duration_hours", "reminder_before_hours",
+                   "use_business_hours", "business_calendar")
+_SLA_NUMBER_KEYS = ("due_rule", "duration_hours", "business_calendar")
+
+
+def _ac_fields(hours, reminder_hours, unit):
+    """Bo truong DAY DU cho EC Approval SLA Policy.
+
+    Luon day du, ke ca voi ma cua tinh nang khac. Phan biet "chi sua con so" la
+    viec cua luc CAP NHAT (`_AC_NUMBER_KEYS`), khong phai luc TAO MOI: `policy_name`
+    la truong bat buoc, va tra ve mot bo thieu no se lam `insert` nem
+    MandatoryError - da xay ra that tren ban chay ngay 16/09 voi ca bon dong
+    AI Topup.
+    """
     business = unit == UNIT_BUSINESS
-    numbers = {
+    return {
         "duration_hours": int(hours),
         "reminder_before_hours": int(reminder_hours or 0),
         "use_business_hours": 1 if business else 0,
         "business_calendar": _calendar() if business else None,
-    }
-    if not owned:
-        # Chinh sach cua tinh nang khac: chi ba con so, khong dong ten/trang thai.
-        return numbers
-    numbers.update({
         "policy_name": "%s giờ %s (nhắc trước %s giờ)"
                        % (int(hours), "làm việc" if business else "đồng hồ",
                           int(reminder_hours or 0)),
         "active": 1,
         "holiday_list": None,
-    })
-    return numbers
+    }
 
 
-def _sla_fields(hours, reminder_hours, unit, owned):
+def _sla_fields(hours, reminder_hours, unit, name_hint=None):
     business = unit == UNIT_BUSINESS
-    numbers = {
+    return {
         "due_rule": DUE_BUSINESS_HOURS if business else DUE_CALENDAR_HOURS,
         "duration_hours": float(hours),
         "business_calendar": _calendar() if business else None,
-    }
-    if not owned:
-        return numbers
-    numbers.update({
-        "policy_name": "%s giờ %s" % (int(hours), "làm việc" if business else "đồng hồ"),
+        # Khi phai tao ban sao cho mot ma cua tinh nang khac, LAY LAI dung nhan
+        # cua ban goc thay vi tu dat ten. Hai ban ghi cung ma ma khac ten se lam
+        # nguoi doc tuong day la hai chinh sach.
+        "policy_name": name_hint or ("%s giờ %s" % (int(hours),
+                                     "làm việc" if business else "đồng hồ")),
         "active": 1,
         # Dinh nghia LAI day du moi truong anh huong toi phep tinh han. Bo trong
         # mot truong nghia la de nguyen gia tri cu - va mot `offset_days=2` ai do
@@ -129,16 +138,20 @@ def _sla_fields(hours, reminder_hours, unit, owned):
         "description": "Nạp từ fixtures/approval_sla.json. Dùng chung mã với "
                        "EC Approval SLA Policy để hạn trên phiếu và điểm SLA "
                        "luôn là một con số.",
-    })
-    return numbers
+    }
 
 
 def _differs(doc, want):
     return [k for k, v in want.items() if (doc.get(k) or None) != (v or None)]
 
 
-def _upsert(doctype, code, want, report, created_key, updated_key):
+def _upsert(doctype, code, fields, update_keys, report, created_key, updated_key):
     """Tao hoac cap nhat mot chinh sach. Tim bang `policy_code` o CA HAI bang.
+
+    `fields` luon DAY DU (de `insert` khong thieu truong bat buoc); `update_keys`
+    la tap con duoc phep ghi de khi ban ghi DA TON TAI. Tach hai viec nay ra la
+    co y: han che pham vi sua chi co nghia voi mot ban ghi da co chu, con voi mot
+    ban ghi moi thi han che pham vi chi tao ra mot ban ghi khong hop le.
 
     Khong dung `frappe.db.exists(doctype, code)`: do la tim theo DOCNAME. Voi
     ban ghi duoc tao truoc khi co `autoname: field:policy_code`, docname la hash
@@ -147,6 +160,7 @@ def _upsert(doctype, code, want, report, created_key, updated_key):
     """
     name = frappe.db.get_value(doctype, {"policy_code": code}, "name")
     if name:
+        want = {k: v for k, v in fields.items() if k in update_keys}
         doc = frappe.get_doc(doctype, name)
         changed = _differs(doc, want)
         if changed:
@@ -156,7 +170,7 @@ def _upsert(doctype, code, want, report, created_key, updated_key):
         return name
     doc = frappe.new_doc(doctype)
     doc.policy_code = code
-    doc.update(want)
+    doc.update(fields)
     doc.insert(ignore_permissions=True)
     report[created_key].append(code)
     return doc.name
@@ -164,9 +178,16 @@ def _upsert(doctype, code, want, report, created_key, updated_key):
 
 def _write_policy(code, hours, reminder_hours, unit, report):
     owned = _is_ours(code)
-    _upsert(AC_POLICY, code, _ac_fields(hours, reminder_hours, unit, owned),
+    ac = _ac_fields(hours, reminder_hours, unit)
+    _upsert(AC_POLICY, code, ac,
+            set(ac) if owned else set(_AC_NUMBER_KEYS),
             report, "ac_policy_created", "ac_policy_updated")
-    _upsert(DT_POLICY, code, _sla_fields(hours, reminder_hours, unit, owned),
+    # Ban sao ben SLA lay lai nhan cua ban goc khi ma khong phai cua bo nap.
+    hint = None if owned else frappe.db.get_value(AC_POLICY, {"policy_code": code},
+                                                  "policy_name")
+    sla = _sla_fields(hours, reminder_hours, unit, name_hint=hint)
+    _upsert(DT_POLICY, code, sla,
+            set(sla) if owned else set(_SLA_NUMBER_KEYS),
             report, "sla_policy_created", "sla_policy_updated")
 
 
@@ -362,18 +383,24 @@ def verify(rows=None, path=None):
         except Exception:
             out["khong_thay"].append("%s (lỗi tra cứu)" % key)
 
-    # Quy trinh nao co buoc xu ly nhung tep cau hinh khong nhac toi. `apply()`
-    # duyet theo DONG nen nhung quy trinh vang mat khong bao gio hien ra o do -
-    # va mot dong bi bo quen trong Excel se im lang mai mai.
-    in_fixture = {r["process_code"] for r in rows if r.get("fulfillment")}
+    # Quy trinh CO buoc xu ly that nhung chua co han. `apply()` duyet theo DONG
+    # nen mot quy trinh vang mat khoi tep cau hinh khong bao gio hien ra o do -
+    # mot dong bi bo quen trong Excel se im lang mai mai.
+    #
+    # "Co buoc xu ly" = co nguoi tham gia voi vai tro Fulfiller. Khong dung "quy
+    # trinh nao khong co fulfillment_sla_policy": phan lon quy trinh KHONG he co
+    # buoc xu ly, va dem ca chung se ra 24 dong canh bao trong khi chi 3 dong la
+    # that - mot bang canh bao toan nhieu thi khong ai doc nua.
     try:
-        for p in frappe.get_all(AC_PROCESS, fields=["name", "fulfillment_sla_policy"],
-                                limit_page_length=0):
-            code = p["name"].rsplit("-V", 1)[0]
-            if code not in in_fixture and not p.get("fulfillment_sla_policy"):
-                out["quy_trinh_thieu_buoc_xu_ly"].append(code)
+        with_ful = {r["parent"] for r in frappe.get_all(
+            "EC Approval Participant", parent=AC_PROCESS, limit_page_length=0,
+            filters={"parenttype": AC_PROCESS, "participant_purpose": "Fulfiller"},
+            fields=["parent"])}
+        for name in sorted(with_ful):
+            if not frappe.db.get_value(AC_PROCESS, name, "fulfillment_sla_policy"):
+                out["quy_trinh_thieu_buoc_xu_ly"].append(name.rsplit("-V", 1)[0])
     except Exception:
-        pass
+        out["quy_trinh_thieu_buoc_xu_ly"].append("(không tra cứu được)")
     return out
 
 
