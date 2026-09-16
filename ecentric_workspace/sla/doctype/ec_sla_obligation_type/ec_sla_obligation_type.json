@@ -1,0 +1,146 @@
+{
+ "doctype": "DocType",
+ "name": "EC SLA Obligation Type",
+ "module": "SLA",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "sort_order",
+ "sort_order": "ASC",
+ "autoname": "field:type_code",
+ "naming_rule": "By fieldname",
+ "title_field": "type_name",
+ "field_order": [
+  "type_code",
+  "type_name",
+  "active",
+  "column_break_head",
+  "group_key",
+  "counts_toward_sla",
+  "min_sample",
+  "section_policy",
+  "default_policy",
+  "unit_label",
+  "column_break_policy",
+  "sort_order",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "type_code",
+   "fieldtype": "Data",
+   "label": "Type Code",
+   "reqd": 1,
+   "unique": 1,
+   "set_only_once": 1,
+   "in_list_view": 1,
+   "description": "Ma bat bien, vd APPROVAL_STEP. Duoc ghi vao dedupe_key cua nghia vu nen khong doi duoc."
+  },
+  {
+   "fieldname": "type_name",
+   "fieldtype": "Data",
+   "label": "Ten hien thi",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Dang ap dung",
+   "default": "1",
+   "in_list_view": 1,
+   "description": "Tat -> ngung MO nghia vu moi. Nghia vu cu van duoc cham diem."
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "group_key",
+   "fieldtype": "Select",
+   "label": "Nhom",
+   "options": "approval\nattendance\nrsvp\nweekly\ntask",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Nhom hien tren trang /sla. Quyet dinh nghia vu nay nam o dong nao cua bang phan tich."
+  },
+  {
+   "fieldname": "counts_toward_sla",
+   "fieldtype": "Check",
+   "label": "Tinh vao %SLA",
+   "default": "1",
+   "in_list_view": 1,
+   "description": "Tat -> van do, van hien ti le nhom, nhung KHONG vao mau so cua %SLA thang (nhom Cong viec)."
+  },
+  {
+   "fieldname": "min_sample",
+   "fieldtype": "Int",
+   "label": "Mau toi thieu",
+   "default": "5",
+   "description": "Duoi nguong nay bang diem hien 'chua du mau' thay vi mot con so %."
+  },
+  {
+   "fieldname": "section_policy",
+   "fieldtype": "Section Break",
+   "label": "Chinh sach han"
+  },
+  {
+   "fieldname": "default_policy",
+   "fieldtype": "Link",
+   "label": "Chinh sach mac dinh",
+   "options": "EC SLA Policy",
+   "description": "Dung khi nguon khong chi dinh chinh sach rieng."
+  },
+  {
+   "fieldname": "unit_label",
+   "fieldtype": "Data",
+   "label": "Don vi dem",
+   "description": "vd 'ho so', 'ngay cong', 'loi moi'."
+  },
+  {
+   "fieldname": "column_break_policy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Thu tu hien thi",
+   "default": "100"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Mo ta"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

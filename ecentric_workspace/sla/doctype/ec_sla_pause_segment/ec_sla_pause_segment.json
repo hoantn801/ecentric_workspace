@@ -1,0 +1,136 @@
+{
+ "doctype": "DocType",
+ "name": "EC SLA Pause Segment",
+ "module": "SLA",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "track_changes": 0,
+ "allow_rename": 0,
+ "sort_field": "from_dt",
+ "sort_order": "ASC",
+ "autoname": "hash",
+ "field_order": [
+  "obligation",
+  "reason",
+  "column_break_head",
+  "from_dt",
+  "to_dt",
+  "seconds",
+  "section_source",
+  "source_doctype",
+  "source_name",
+  "column_break_source",
+  "dedupe_key",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "obligation",
+   "fieldtype": "Link",
+   "label": "Nghia vu",
+   "options": "EC SLA Obligation",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Select",
+   "label": "Ly do",
+   "options": "Absence\nWaiting Information\nHoliday\nManual",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "from_dt",
+   "fieldtype": "Datetime",
+   "label": "Tu",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "to_dt",
+   "fieldtype": "Datetime",
+   "label": "Den",
+   "read_only": 1,
+   "in_list_view": 1,
+   "description": "Trong = dang tam dung, chua ket thuc."
+  },
+  {
+   "fieldname": "seconds",
+   "fieldtype": "Int",
+   "label": "So giay",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_source",
+   "fieldtype": "Section Break",
+   "label": "Nguon"
+  },
+  {
+   "fieldname": "source_doctype",
+   "fieldtype": "Data",
+   "label": "Source DocType",
+   "read_only": 1,
+   "length": 140
+  },
+  {
+   "fieldname": "source_name",
+   "fieldtype": "Data",
+   "label": "Source Name",
+   "read_only": 1,
+   "length": 255
+  },
+  {
+   "fieldname": "column_break_source",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dedupe_key",
+   "fieldtype": "Data",
+   "label": "Dedupe Key",
+   "unique": 1,
+   "reqd": 1,
+   "read_only": 1,
+   "length": 255
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Ghi chu",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "export": 1,
+   "report": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}
