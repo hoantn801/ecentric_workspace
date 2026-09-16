@@ -125,7 +125,12 @@ def fetch_levels_for_bottleneck(scope, filters, completed_from=None, completed_t
     return frappe.db.sql(sql, params, as_dict=True)
 
 
-def _search_clause(search, params):
+#: Tran so ma phieu nhet vao menh de IN cua o tim kiem. Khong phai tiet kiem tai nguyen -
+#: mot menh de IN vai nghin phan tu la cach bien o tim kiem thanh don tan cong vao chinh DB.
+SEARCH_REF_MAX = 500
+
+
+def _search_clause(search, params, extra_refs=None):
     """O tim kiem cua trang "Tat ca yeu cau".
 
     `r.reference_name` (09/09/2026): nguoi dung cam MA PHIEU tren tay - tu thong bao
@@ -137,13 +142,31 @@ def _search_clause(search, params):
 
     Them mot ve OR, khong dung toi pham vi xem: dieu kien nay van duoc AND voi
     scope_predicate o `_list_where`, nen khong ai vi the ma thay them phieu cua nguoi khac.
+
+    `extra_refs` (16/09): TIEU DE that cua phieu nam o DocType nghiep vu, khong o
+    `EC Approval Request` - nen go dung ten phieu vao o tim kiem thi khong ra gi, trong khi
+    do la CHINH CAI cot "Tieu de" dang hien tren man hinh. Tab "Tat ca" cua tung form BIET
+    business_doctype cua no, nen tu tra ma phieu theo tieu de roi truyen vao day. Trang hub
+    lien-form khong truyen gi -> hanh vi khong doi (tra tieu de qua 28 DocType moi lan go
+    mot phim thi khong dang).
     """
-    if not search:
+    if not search and not extra_refs:
         return None
-    params["search"] = "%" + str(search).strip() + "%"
-    return ("(r.name LIKE %(search)s OR r.reference_name LIKE %(search)s "
-            "OR t.approval_title LIKE %(search)s "
-            "OR r.requested_by LIKE %(search)s OR r.requester_department LIKE %(search)s)")
+    ve = []
+    if search:
+        params["search"] = "%" + str(search).strip() + "%"
+        ve.append("r.name LIKE %(search)s OR r.reference_name LIKE %(search)s "
+                  "OR t.approval_title LIKE %(search)s "
+                  "OR r.requested_by LIKE %(search)s OR r.requester_department LIKE %(search)s")
+    if extra_refs:
+        khoa = []
+        for i, x in enumerate(list(extra_refs)[:SEARCH_REF_MAX]):
+            k = "sref_%d" % i
+            params[k] = x
+            khoa.append("%%(%s)s" % k)
+        if khoa:
+            ve.append("r.reference_name IN (%s)" % ", ".join(khoa))
+    return "(" + " OR ".join(ve) + ")"
 
 
 def _fulfillment_refs(me=None):
@@ -210,7 +233,7 @@ def _list_where(scope, filters, search, params):
         params["date_from"] = df
         params["date_to"] = dt
         where.append("COALESCE(r.submitted_at, r.creation) BETWEEN %(date_from)s AND %(date_to)s")
-    sc = _search_clause(search, params)
+    sc = _search_clause(search, params, (filters or {}).get("_search_refs"))
     if sc:
         where.append(sc)
     box = (filters or {}).get("box")
