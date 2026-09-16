@@ -5,135 +5,135 @@
   },
   "approval_center/features/affiliate_bonus/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "1f67157304829a8a22ee509a6b4803caadb86dd209f9730fb929c8782dc67c2f"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "75f4f16fc66ac6a337338d0d3d8c2b9694293f4f935968ac4ba03732043e245c"
   },
   "approval_center/features/ai_topup/ui/main_section.html": {
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "0dab8e1cab41820100cfb33c298e7c68af3aac1663e7fa84ac5e10590495e205"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "e5637ec2d868f67a3b48a8b4eb5e558341ddea754db8dfe92c21602e5ef33da7"
   },
   "approval_center/features/asset_damage_loss/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "66006b4eb12e692076964b2421e71c9e81cb2992b98c33fa2016bb8fce42e533"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "93cf49b90ada52f0bebe1fdc7f2cc3912937037c82b9f2ca86ccead3f6139e58"
   },
   "approval_center/features/asset_request/ui/main_section.html": {
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "87d20461423ffd70e3e25f007a0c8f12718ddd889f66f0d22db88e8cb253638c"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "f04e142fe7fa15ae29365a9fcf6fdfcee2514891857d5872ad1bd086a26ead43"
   },
   "approval_center/features/booking_request/ui/main_section.html": {
     "baseline": "2026-09-11",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "d723ca40db9c24acc02d5b7b1df3a4faa8f5346fe4fb42e52df3810698d1ce76"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "4231844bd4da47f59faddeed9954c05180d72a9b20b7e436ed8a4bccb1a3b177"
   },
   "approval_center/features/budget_setting/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "0900e3f2902a82a7ae3523aa27b4636d0498757bf3140be91ce3758bd4a66def"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "a2916803631274b85940f0b28cacac40ac896715094dcd7051c469d39d1fa706"
   },
   "approval_center/features/compensation_leave/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "d38e2cf8a07621a9beb9a098990933eaa3b5289dc188ea9535b37ccccd0c87af"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "a226f41a3e7866db7485deca5302f829944dba8a4b8382e659c8428f8a4dc7d2"
   },
   "approval_center/features/contract_review/ui/main_section.html": {
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "41daadcc67543277940ef55adeb863ee44b6337cbd3e3fd49418ff1d4d9f95ad"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "52d6cec69961d7daf18f5e6c5bbf42044dcda70df5b4950bb3177d5cd9c27c66"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "952a1714ebaca8c085869d8945140d41799abb32bf90bd59afc7cf4b27fad9e9"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "8bcc62ebed6118202a0c1d342a0b91d6a0559930e4aa0c8054455940f1350eeb"
   },
   "approval_center/features/data_request/ui/main_section.html": {
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "fa2856d4d7c3266ce3d1326446afe3e25bfe35de86cfe0d32b3a52397ff9f83f"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "1ac6aaa5917935f559e40174cac11b908cd6d8aff02041a9b0449a5efda75b25"
   },
   "approval_center/features/document_request/ui/main_section.html": {
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "73d98ab3d17b02892ed1bc4cf364fe1ce39862328ffe63daf7bff565cb6f2983"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "01be796fab1fdfaa7800a885e138a18738b54561f8b5571d0da2bf0ef6a21f3a"
   },
   "approval_center/features/employee_info_update/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "34a7effc9b9fec2cdf5f94a4e3a4fa7b09da5f659688581575d4367eb81c6423"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "47488d741082249c54100168f52f59666515219416bcaeefb6a26a8136d23852"
   },
   "approval_center/features/employee_referral/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "3db2648102ae4208439bbc15f718c5abe4f0594ee84b885b12e6d5d4528d653e"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "52118c28b670e7b3a8e7c138a8cef6d6c8578d5610a4e272120358dd8a712c36"
   },
   "approval_center/features/hiring_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "60a4a5b69afe7eac895d9cf5b29f8ea24c284493dfc30ae9c0a320f5de696391"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "91900c713d9e150fe86b57ce17949922c902ab2cf2f8fe359d0e5bb4d4cc2617"
   },
   "approval_center/features/hr_activity/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "813ea4ef9f3649852a807bc1e9754a0267fbe6b1bd16f2df3de0a9350778d074"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "a5475c6e390bbecf3041608f74084eb1ef34771b197040776b82f9974af691db"
   },
   "approval_center/features/late_early_out/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "ce0d5ed47fcbd6567589f09dbab8ae82b98135eb333f19d1934ab01c38f6ad13"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "6b80c3bf8008d00884e12a0c4eb93611fd2cd65939a248cfc8a8013f31cde7e5"
   },
   "approval_center/features/lateral_move/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "2791c183ae23ed0c98fe4004c171585ca0ea0754fa1bbade2d9b98dc852062cf"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "1bf690e71cf58fe2a3a218b05d7173c488297a38b4e211dadd7d6562bf5c9208"
   },
   "approval_center/features/leave/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "cf368717b4066a35fe6b3adb6203eb445bf86f273d74645becbf7d83e6a04ce1"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "de6b43159a83753f8e2dd285761496668a27ea44edd875051a33059b5fca7aa8"
   },
   "approval_center/features/livestream_sample/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "0d935669c2971f105228fb18cd57728f2315c8faef5459ef6ea61262a76449a9"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "a914ff2615e14bf3e2cfda17759cf51649764d7893f55e4e29d2d61386cba82f"
   },
   "approval_center/features/livestream_supplies/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "ff961f298b7d56119c5f1bd1a55c6f2e8435160623beb08f18933d2faf1a7b7b"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "6354fff2fe589023b56920726371ad3d761b18b350254ddaba32666bde805468"
   },
   "approval_center/features/outside_work/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "9914fecf6a78ba38c967ad0d74e32b079a263976c5a87ab300c1b46cf9a96653"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "8ffefce562714cbbb180626f011e7e7ff12bb6bd3aa1e87038286daa1c9d046e"
   },
   "approval_center/features/payment_request/ui/main_section.html": {
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "d39c681b622c5ea3a605ce25bf1083024ee2a235a2889e1ca78802b4d49ecf17"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "697e925cfc655901765a7eca838f3f482ed2cbce0783a797323b455fdcfaead3"
   },
   "approval_center/features/promotion/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "28205a6ae65d15124f762f2da7eb006e7b9f472a1a1948911c273aa5709cd538"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "bd7c4c5263237d236d0477f8890d71b2fde8852b4915887af1bd5fb3ace35666"
   },
   "approval_center/features/purchase_request/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "d8f12eb48f9ba1eebeadf9d4075283b77dac10fe08c38d117771b23ef760cb23"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "411c50c60af4309613e0a96c26a92ce000761ad95a23f79aae4b665d4099fa48"
   },
   "approval_center/features/resignation/ui/main_section.html": {
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "52e4a6584a8d34067e9a895df6453739d6cf3f6d7437f7c98d5af087e4a76603"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "ec3a5666e6907904680e5454c39d065fc2e08d08a3288e84c8260310c60f1736"
   },
   "approval_center/features/service_referral/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "9d901a2e64b368ab4c410ff8c4cebe01a81fd40df4475cd3543c33575f9aba0a"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "5ff50fe609d0d682f2d70709d6bb476b34ba6b07992be291d4bb1de7f7d60624"
   },
   "approval_center/features/special_bonus/ui/main_section.html": {
     "baseline": "2026-08-31",
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "624dd7234a8a8258c58f202d527182d792a227639d50430624c8745bbdc5e3b9"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "60fd08c01428119a473472dd4c70cc4f1fb518c8004cf7efc04260db2dade0cc"
   },
   "approval_center/features/system_request/ui/main_section.html": {
-    "last_resync_patch": "p200_resync_all_forms_tabs",
-    "sha256": "c7f69b8c76d9bbb17e28ebad1cdbc53075e68147031050d10a0bfad4fa867939"
+    "last_resync_patch": "p202_resync_all_forms_tab_route",
+    "sha256": "9129bb413b5c6c90e7fbab3c702543351b568781a42720114cfdc658bbf9f135"
   },
   "approval_center/ui/all_requests/main_section.html": {
     "last_resync_patch": "p197_resync_hub_dual_link",
