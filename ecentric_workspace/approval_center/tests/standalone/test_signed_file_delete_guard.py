@@ -76,13 +76,13 @@ class TestGuard(unittest.TestCase):
         m.forbid_signed_file_delete(_Doc(name="F-SIGNED", file_name="SIGNED-a.pdf"))
         self.assertEqual(m._logs, ["esign signed file delete OVERRIDE"])
 
-    def test_dang_ky_hook_va_purge_bat_co(self):
+    def test_dang_ky_hook(self):
+        """Hook on_trash con dang ky. Phan khang dinh ve purge_test_data da bo cung voi cong cu
+        do (16/09): no la TEMP-WORKAROUND cua dot don du lieu test truoc go-live, het han 30/09,
+        va la nguon lam `test_feature_architecture` do tu 04/09."""
         h = _read("hooks.py")
         i = h.index('"File": {')
         self.assertIn('"on_trash": "ecentric_workspace.platform.esign.file_guard.forbid_signed_file_delete"', h[i:i + 400])
-        p = _read("approval_center", "features", "payment_request", "infrastructure", "purge_test_data.py")
-        self.assertIn("frappe.flags.ec_allow_signed_file_delete = True", p)
-        self.assertLess(p.index("ec_allow_signed_file_delete"), p.index("for dt, names in plan.items()"))
 
 
 if __name__ == "__main__":

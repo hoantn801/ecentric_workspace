@@ -108,6 +108,7 @@ scheduler_events = {
     # Alert Center Phase E (decision D2-E): both jobs are dry-run-safe and
     # kill-switchable via site_config `ec_alerts_scheduler_disabled: 1`.
     "hourly": [
+        "ecentric_workspace.sla.tasks.sweep_overdue",
         "ecentric_workspace.alerts.tasks.expire_automation_pauses",
         # Doc lai moc sua tren SharePoint cho cac phieu CON CHO DUYET. Khong co no thi bang
         # canh bao "tep doi sau khi duyet" khong bao gio bat duoc mot lan sua that (15/09).
@@ -209,6 +210,7 @@ scheduler_events["cron"].setdefault("0 9 * * *", []).append(
 # "" (no restriction) for Administrator / System Manager / Management dept / PM Manager, so
 # leaders and Desk power users are untouched.
 permission_query_conditions = {
+    "EC SLA Obligation": "ecentric_workspace.sla.permissions.obligation_query_conditions",
     "Task": "ecentric_workspace.pm.permissions.task_query_conditions",
     "Project": "ecentric_workspace.pm.permissions.project_query_conditions",
 }
