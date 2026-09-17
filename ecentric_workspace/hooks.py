@@ -98,6 +98,7 @@ doc_events = {
 # ecentric_workspace.weekly_report.scheduler).
 scheduler_events = {
     "daily": [
+        "ecentric_workspace.sla.tasks.sync_attendance",
         "ecentric_workspace.pm.api.recurrence.run_due",
         "ecentric_workspace.pm.api.notifications.pm_overdue_scan",
         # Notification Delivery v1: new producers (distinct jobs, not duplicates).
