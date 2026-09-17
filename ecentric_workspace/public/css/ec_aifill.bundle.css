@@ -59,35 +59,55 @@
   outline:2px solid var(--ec-af-navy); outline-offset:2px;    /* A60 — không bao giờ triệt tiêu */
 }
 
-/* ---- G2: danh sách tệp AI sẽ đọc -------------------------------------------
- * Tệp là DANH SÁCH CHỌN, không phải thông báo: người dùng phải thấy ngay tệp nào sẽ được
- * đọc TRƯỚC khi bấm, chứ không phải biết sau khi đã tốn một lượt. Cả khối dùng họ xám
- * (A58 — chưa có gì đi qua workflow ở đây).
+/* ---- G2: ô thả tệp cho AI đọc ----------------------------------------------
+ * Ô thả tệp là ĐẦU VÀO, cùng hạng với ô dán văn bản ở trên — nên nó dùng viền đứt và họ xám
+ * (A58: chưa có gì đi qua workflow ở đây), không mượn wash navy của trạng thái phiếu.
+ * Dòng chú thích nhỏ nói thẳng "chỉ để AI đọc": nhầm nó với chứng từ của phiếu là nhầm đắt.
  */
-.ec-aifill-files:empty{ display:none; }
 .ec-aifill-files{ margin-top:10px; }
 .ec-aifill-files-lbl{
   font-size:11px; font-weight:600; letter-spacing:.01em;
   color:var(--ec-af-ink-2); margin-bottom:5px;
 }
+.ec-aifill-files-note{
+  font-weight:400; color:var(--ec-af-ink-3); margin-left:6px;
+}
+
 .ec-aifill-file{
-  display:flex; align-items:center; gap:8px; padding:5px 9px; margin-bottom:4px;
+  display:flex; align-items:center; gap:8px; padding:6px 8px 6px 10px; margin-bottom:4px;
   border:1px solid var(--ec-af-line); border-radius:7px;
   background:var(--ec-af-ground); font-size:13px; color:var(--ec-af-ink);
-  cursor:pointer;
 }
-.ec-aifill-file:hover{ border-color:var(--ec-af-navy-line); }
-.ec-aifill-file input{ flex:none; margin:0; accent-color:var(--ec-af-navy); }
 /* Tên tệp dài không được đẩy hộp ra ngoài panel. */
-.ec-aifill-file span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.ec-aifill-file.is-off{ opacity:.5; cursor:not-allowed; }
-.ec-aifill-file input:focus-visible{ outline:2px solid var(--ec-af-navy); outline-offset:2px; }
-
-.ec-aifill-nofile{
-  font-size:12px; line-height:1.55; color:var(--ec-af-ink-3);
-  padding:8px 10px; border:1px dashed var(--ec-af-line); border-radius:7px;
+.ec-aifill-file-nm{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 1 auto; }
+.ec-aifill-file-kb{ font-size:11.5px; color:var(--ec-af-ink-3); flex:none;
+                    font-variant-numeric:tabular-nums; }
+.ec-aifill-file-x{
+  flex:none; width:22px; height:22px; line-height:1; padding:0;
+  border:1px solid transparent; border-radius:5px; background:transparent;
+  color:var(--ec-af-ink-3); font-size:17px; cursor:pointer;
 }
-.ec-aifill-nofile b{ color:var(--ec-af-ink-2); font-weight:600; }
+.ec-aifill-file-x:hover{ background:var(--ec-af-line-soft); color:var(--ec-af-ink); }
+.ec-aifill-file-x:focus-visible{ outline:2px solid var(--ec-af-navy); outline-offset:1px; }
+
+.ec-aifill-drop{
+  display:flex; align-items:center; justify-content:center; text-align:center;
+  min-height:52px; padding:10px 12px; cursor:pointer;
+  border:1px dashed var(--ec-af-line); border-radius:8px;
+  font-size:12.5px; line-height:1.5; color:var(--ec-af-ink-3);
+  background:var(--ec-af-surface);
+  transition:border-color .12s ease, background .12s ease;
+}
+.ec-aifill-drop b{ color:var(--ec-af-ink-2); font-weight:600; }
+.ec-aifill-drop input[type=file]{
+  position:absolute; width:1px; height:1px; opacity:0; pointer-events:none;
+}
+.ec-aifill-drop:hover{ border-color:var(--ec-af-navy-line); }
+.ec-aifill-drop.is-over{ border-color:var(--ec-af-navy); background:var(--ec-af-navy-wash); }
+.ec-aifill-drop.is-full{ cursor:default; opacity:.7; }
+.ec-aifill-drop.is-full:hover{ border-color:var(--ec-af-line); }
+/* Ô file ẩn nên vòng focus phải vẽ lên CHÍNH ô thả, nếu không bàn phím đi qua mà không thấy gì. */
+.ec-aifill-drop:focus-within{ outline:2px solid var(--ec-af-navy); outline-offset:2px; }
 
 /* Tệp bị bỏ: amber, KHÔNG đỏ. Đỏ ở hệ này nghĩa là hỏng/từ chối; bỏ một tệp là chuyện phải
  * chú ý mà không phải hỏng — phần còn lại của lượt vẫn chạy. */
