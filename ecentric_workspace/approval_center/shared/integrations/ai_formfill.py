@@ -285,6 +285,8 @@ def write_log(**kw):
             "probe_passed": 1 if kw.get("probe_passed") else 0,
             "probe_message": (kw.get("probe_message") or "")[:500],
             "error": (kw.get("error") or "")[:500],
+            "files_count": int(kw.get("files_count") or 0),
+            "files_note": (kw.get("files_note") or "")[:500],
         })
         doc.insert(ignore_permissions=True)
         return doc.name
@@ -346,12 +348,19 @@ SYSTEM_INSTRUCTION = (
     "3. Truong Select chi duoc nhan DUNG mot gia tri trong danh sach cho phep.\n"
     "4. Voi truong co khoa `<ten>__source`, chep NGUYEN VAN doan van ban ma ban lay gia tri "
     "ra, khong dien giai, khong tom tat.\n"
-    "5. Khong suy dien ngay thang tu ngu canh mo ho. Van ban khong noi ro thi de trong."
+    "5. Khong suy dien ngay thang tu ngu canh mo ho. Van ban khong noi ro thi de trong.\n"
+    "6. Neu co tep dinh kem, doc NOI DUNG tep. Tep va van ban mau thuan nhau thi de TRONG o "
+    "do va ghi mau thuan vao `<ten>__source` - dung tu chon mot ben, nguoi dung moi la nguoi "
+    "biet ben nao dung."
 )
 
 
-def build_prompt(schema, note, current=None):
-    """Prompt: hop dong truong + nhung gi nguoi dung DA go + van ban nguon."""
+def build_prompt(schema, note, current=None, attach_block=""):
+    """Prompt: hop dong truong + nhung gi nguoi dung DA go + van ban nguon + ten cac tep.
+
+    `attach_block` chi la DANH SACH TEN tep (tu `ai_attachments.prompt_block`); noi dung
+    tep di rieng bang phan `fileData` cua request, khong nhet vao day.
+    """
     lines = ["CAC TRUONG CAN DIEN:"]
     for spec in schema:
         bit = "- %s (%s)" % (spec["fieldname"], spec["label"])
@@ -367,7 +376,9 @@ def build_prompt(schema, note, current=None):
         lines.append("\nNGUOI DUNG DA TU DIEN (DE NGUYEN, dung ghi de):")
         for k, v in sorted(filled.items()):
             lines.append("- %s = %s" % (k, v))
-    lines.append("\nVAN BAN NGUON:\n" + (note or ""))
+    if attach_block:
+        lines.append(attach_block)
+    lines.append("\nVAN BAN NGUON:\n" + (note or "(khong co - doc tu tep dinh kem)"))
     return "\n".join(lines)
 
 

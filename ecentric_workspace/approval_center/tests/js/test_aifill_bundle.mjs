@@ -91,5 +91,71 @@ function nap(pathname) {
   la(true, "bundle khong nem khi frappe chua san sang");
 }
 
+// ---- 5. G2 — đọc danh sách tệp từ DOM của trang -------------------------------
+// Asset KHÔNG đọc `state.draft._attachments` của trang: biến đó là nội bộ của trang và đổi
+// lúc nào không ai biết. DOM `.ec-file > a[href]` mới là hợp đồng giữa hai bên.
+function goc(hrefs) {
+  const nut = hrefs.map(([href, text]) => ({
+    getAttribute: (k) => (k === "href" ? href : null),
+    textContent: text,
+  }));
+  return { querySelectorAll: () => nut };
+}
+
+{
+  const { readAttachments, ATTACH_SEL } = nap("/approvals/payment-request");
+  la(!!ATTACH_SEL.PAYMENT_REQUEST, "G2 khai selector dinh kem cho payment-request");
+
+  const ra = readAttachments(goc([
+    ["/private/files/hoa-don.pdf", "hoa-don.pdf"],
+    ["/files/anh.png", "anh.png"],
+  ]));
+  la(ra.length === 2, "doc duoc ca tep rieng tu lan tep cong khai");
+  la(ra[0].url === "/private/files/hoa-don.pdf" && ra[0].name === "hoa-don.pdf",
+     "lay dung url va ten hien thi");
+
+  // Trùng url: trang có thể vẽ cùng một tệp ở hai chỗ (danh sách + ô Attach).
+  la(readAttachments(goc([
+       ["/private/files/a.pdf", "a.pdf"],
+       ["/private/files/a.pdf", "a.pdf"],
+     ])).length === 1, "khu trung theo url");
+
+  // Link KHÔNG phải tệp trong kho (link ngoài, link Desk) phải bị bỏ — nếu lọt thì server
+  // trả "not_found" và người dùng thấy một lỗi vô nghĩa cho thứ họ không hề chọn.
+  la(readAttachments(goc([
+       ["https://vidu.com/a.pdf", "ngoai"],
+       ["/app/file/FILE-1", "desk"],
+       ["/private/files/that.pdf", "that.pdf"],
+     ])).length === 1, "chi nhan duong dan trong kho tep cua Frappe");
+
+  la(readAttachments(null).length === 0, "khong co DOM -> khong no");
+}
+
+// ---- 6. G2 — tệp nào thực sự được gửi lên ------------------------------------
+{
+  const { pickedUrls } = nap("/approvals/payment-request");
+  const ds = ["a", "b", "c", "d", "e", "f"].map((x) => ({ url: "/private/files/" + x + ".pdf" }));
+
+  la(pickedUrls(ds, {}, 5).length === 5,
+     "quá tran thi CAT o client, khong gui thua roi de server bo");
+  la(JSON.stringify(pickedUrls(ds.slice(0, 2), {}, 5))
+       === JSON.stringify(["/private/files/a.pdf", "/private/files/b.pdf"]),
+     "mac dinh la BAT: dinh kem vao phieu thi gan nhu luon muon AI doc");
+
+  const bo = {};
+  bo[ds[0].url] = false;
+  la(pickedUrls(ds.slice(0, 3), bo, 5).length === 2, "bo tick thi khong gui tep do");
+  la(pickedUrls(ds.slice(0, 3), bo, 5).indexOf(ds[0].url) === -1,
+     "tep bi bo tick khong duoc lot vao danh sach");
+
+  // Cắt theo trần phải chạy SAU khi bỏ tick, nếu không thì bỏ một tệp ở đầu danh sách lại
+  // không kéo được tệp thứ 6 lên thay.
+  const bo2 = {};
+  bo2[ds[0].url] = false;
+  la(pickedUrls(ds, bo2, 5).length === 5, "bo mot tep thi tep ke tiep duoc lay bu");
+
+  la(pickedUrls(null, {}, 5).length === 0, "danh sach rong -> khong no");
+}
+
 console.log(`${dat} dat, ${hong} hong`);
 process.exit(hong ? 1 : 0);

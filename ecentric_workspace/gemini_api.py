@@ -278,22 +278,55 @@ def upload_from_sp_url(sp_web_url, graph_token, gemini_api_key,
     display_name = filename
     if needs_conversion and "." in display_name:
         display_name = display_name.rsplit(".", 1)[0] + ".pdf"
-    header_name = _ascii_safe_header(display_name)
-    result["name"] = header_name
-    result["display_name"] = display_name
 
-    # Step 6: Upload to Gemini Files API
+    # Step 6+7: Upload to Gemini Files API, wait for ACTIVE.
+    up = upload_bytes(pdf_bytes, display_name, "application/pdf", gemini_api_key,
+                      wait_active=wait_active)
+    # `name`/`display_name` duoc dat KE CA khi upload hong — nguoi goi dung chung de bao loi
+    # "tep X khong len duoc". Giu dung thu tu cu.
+    result["name"] = up.get("name")
+    result["display_name"] = up.get("display_name")
+    if not up.get("success"):
+        result["error"] = up.get("error")
+        return result
+
+    result["uri"] = up["uri"]
+    result["expires_at"] = up.get("expires_at", "")
+    result["mime_type"] = up.get("mime_type")
+    result["active"] = up.get("active")
+    result["success"] = True
+    return result
+
+
+def upload_bytes(data, filename, mime_type, gemini_api_key, wait_active=True,
+                 timeout=UPLOAD_TIMEOUT):
+    """Tai bytes len Gemini Files API. -> dict cung hinh dang voi `upload_from_sp_url`.
+
+    Rut nguyen van tu than `upload_from_sp_url` (Step 6 + Step 7) de duong AI-dien-ho dung
+    LAI dung buoc tai len do, thay vi chep lan thu hai. Duong SharePoint van goi vao day nen
+    mot cai sua o buoc tai len chay cho ca hai — do la ly do tach, khong phai cho gon.
+
+    KHONG whitelist: ham nay nhan `gemini_api_key` lam tham so (di san tu duong SharePoint,
+    xem §9.2 tai lieu thiet ke). Mo ra cho client goi = bien server thanh proxy egress.
+
+    `mime_type` di vao CA `Content-Type` cua lan POST LAN truong mime tra ve — Gemini doc
+    kieu tep tu header nay, gui sai la no nhan nhung doc ra rac.
+    """
+    result = {"success": False, "size_bytes": len(data or b"")}
+    header_name = _ascii_safe_header(filename)
+    result["name"] = header_name
+    result["display_name"] = filename
     try:
         gem_resp = requests.post(
             "https://generativelanguage.googleapis.com/upload/v1beta/files",
-            data=pdf_bytes,
+            data=data,
             headers={
                 "x-goog-api-key": gemini_api_key,
                 "X-Goog-Upload-Protocol": "raw",
                 "X-Goog-Upload-File-Name": header_name,
-                "Content-Type": "application/pdf",
+                "Content-Type": mime_type,
             },
-            timeout=UPLOAD_TIMEOUT,
+            timeout=timeout,
         )
         gem_resp.raise_for_status()
         gem_data = gem_resp.json()
@@ -304,13 +337,13 @@ def upload_from_sp_url(sp_web_url, graph_token, gemini_api_key,
             return result
         result["uri"] = uri
         result["expires_at"] = file_info.get("expirationTime", "")
-        result["mime_type"] = "application/pdf"
+        result["mime_type"] = mime_type
     except Exception as e:
         # Redact gemini_api_key from error
         result["error"] = "Gemini upload failed: " + scrub(str(e), gemini_api_key)[:300]
         return result
 
-    # Step 7: Wait for ACTIVE state (race condition fix)
+    # Wait for ACTIVE state (race condition fix)
     if wait_active:
         result["active"] = _wait_for_active(uri, gemini_api_key)
     else:
@@ -385,8 +418,23 @@ def current_model():
     return _single(MODEL_SETTING) or DEFAULT_MODEL
 
 
+def upload_file_bytes(data, filename, mime_type, wait_active=True, timeout=UPLOAD_TIMEOUT):
+    """`upload_bytes` nhung KHOA DOC SERVER-SIDE. Duong AI-dien-ho dung cai nay.
+
+    Ly do co hai cua: `upload_bytes` nhan key lam tham so vi duong SharePoint (viet truoc,
+    cho Server Script goi) van truyen key vao. Duong moi khong duoc hoc thoi quen do — no
+    khong bao gio thay key, nen khong the lam ro key.
+    """
+    key = _single("ec_gemini_api_key")
+    if not key:
+        return {"success": False, "error": "no_key", "name": _ascii_safe_header(filename),
+                "display_name": filename, "size_bytes": len(data or b"")}
+    return upload_bytes(data, filename, mime_type, key,
+                        wait_active=wait_active, timeout=timeout)
+
+
 def generate_json(prompt, response_schema, system_instruction=None,
-                  timeout=GENERATE_TIMEOUT, model=None):
+                  timeout=GENERATE_TIMEOUT, model=None, files=None):
     """Goi Gemini, ep tra ve JSON dung `response_schema`.
 
     KHONG nhan api_key tu tham so. `upload_from_sp_url` (viet truoc, cho Server Script goi)
@@ -397,6 +445,10 @@ def generate_json(prompt, response_schema, system_instruction=None,
     `responseSchema` + `temperature: 0` la ly do buoc parse khong con la doan: model tra ve
     dung hinh dang hoac bao loi.
 
+    `files` = [{"uri", "mime_type"}] tra ve tu `upload_bytes`. Chi nhan URI da tai len
+    truoc, KHONG nhan bytes: gui bytes inline lam than request phong to va Gemini van bat
+    phai tai len rieng voi tep qua 20MB — mot duong thay vi hai.
+
     -> {"ok": bool, "data": dict|None, "error": str|None, "model": str, "latency_ms": int}
     """
     api_key = _single("ec_gemini_api_key")
@@ -406,8 +458,20 @@ def generate_json(prompt, response_schema, system_instruction=None,
         out["error"] = "no_key"
         return out
 
+    # Tep TRUOC van ban: khuyen nghi cua Google cho prompt co tai lieu, va doc xuoi hon —
+    # model thay tai lieu roi moi thay hop dong truong va yeu cau.
+    parts = []
+    for item in (files or []):
+        uri = (item or {}).get("uri")
+        if not uri:
+            continue
+        parts.append({"fileData": {"fileUri": uri,
+                                   "mimeType": (item.get("mime_type")
+                                                or "application/octet-stream")}})
+    parts.append({"text": prompt})
+
     body = {
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {
             "responseMimeType": "application/json",
             "responseSchema": response_schema,
