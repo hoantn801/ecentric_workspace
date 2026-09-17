@@ -104,7 +104,7 @@ def close_approval_step_obligations(request_doctype, request_name, level_no, act
     if not rows:
         return {"closed": 0, "excluded": 0, "left_open": 0, "matched": False}
 
-    matched = any(r["owner_user"] == acted_by for r in rows) if acted_by else False
+    matched = _has_row_for(request_doctype, request_name, level_no, attempt, acted_by)
     done = {"closed": 0, "excluded": 0, "left_open": 0, "matched": matched}
     if not matched:
         frappe.log_error(
@@ -162,3 +162,135 @@ def end_pause(source_doctype, source_name, level_no, to_dt, attempt=1):
         except Exception:
             frappe.log_error(title="sla.end_pause", message=frappe.get_traceback())
     return n
+
+
+# --------------------------------------------------------------------------- #
+# Ket thuc KHONG do nguoi duyet bam: ep duyet, va lam lai ho so tu dau
+#
+# Hai viec nay giong nhau o dung mot diem quan trong: nguoi duyet MAT NUT BAM.
+# Sau lenh ep duyet, hoac sau khi ho so duoc lam lai tu cap 1, ho khong con cach
+# nao dap ung cai han cu nua. Nen cau hoi duy nhat con lai la: luc do ho DA tre
+# chua?
+#
+# Chu so huu chot 17/09 - THEO HAN:
+#   da qua han  -> van tinh la khong phan hoi. Mot lan ep duyet khong duoc phep
+#                  xoa mot vet tre da co, neu khong thi ai tre cung chi can nho
+#                  ep duyet mot cai la sach.
+#   chua toi han -> loai tru. Giu ho chiu mot cai han khong con cach nao dap ung
+#                  khong con la do hanh vi nua.
+# --------------------------------------------------------------------------- #
+def settle_open_due_aware(request_doctype, request_name, reason, level_no=None,
+                          attempt=1, at=None):
+    """Ket so nhung dau viec CON MO cua mot ho so theo han.
+
+    `level_no=None` nghia la moi cap cua lan chay do (dung cho "lam lai tu dau").
+    Tra ve {"missed": n, "excluded": n} de ben goi ghi log doi chieu duoc.
+    """
+    from ecentric_workspace.sla.constants import STATUS_MISSED, TYPE_APPROVAL_STEP
+    from ecentric_workspace.sla.domain import approval_rules as ar
+    from ecentric_workspace.sla.domain import scoring
+
+    at = at or now_datetime()
+    filters = {
+        # LOC DUNG NHOM. Khong co dong nay thi mot nghia vu nhom `task` gan vao
+        # cung mot chung tu se bi ket so theo luat cua nhom phe duyet - va no bi
+        # ghi `Missed` vi mot lenh ep duyet khong lien quan gi den no.
+        "obligation_type": TYPE_APPROVAL_STEP,
+        "source_doctype": request_doctype, "source_name": request_name,
+        "status": STATUS_OPEN,
+        # `<=` chu khong phai `=`: neu mot lan lam lai truoc do da truot hook thi
+        # nhung dong cua lan do con nam nguyen `Open` va se bi job quet thanh
+        # `Missed` cho mot vong duyet khong con ton tai. Mot lan ket so don sach
+        # moi vong cu chua duoc ket.
+        "attempt": ("<=", int(attempt or 1)),
+    }
+    if level_no is not None:
+        filters["source_detail"] = str(level_no)
+    try:
+        rows = frappe.get_all(DT_OBLIGATION, filters=filters,
+                              fields=["name", "due_at", "paused_seconds"],
+                              limit_page_length=0)
+    except Exception:
+        frappe.log_error(title="sla.settle_open_due_aware",
+                         message=frappe.get_traceback())
+        return {"missed": 0, "excluded": 0}
+
+    done = {"missed": 0, "excluded": 0}
+    for r in rows:
+        try:
+            # DONG DOAN TAM DUNG CON MO TRUOC KHI CAN DO.
+            #
+            # `paused_seconds` tren nghia vu chi duoc cong lai luc `end_pause`;
+            # trong suot thoi gian dang cho nguoi de nghi bo sung, no van la gia
+            # tri cu. Bo qua buoc nay thi: nguoi duyet bam "yeu cau bo sung" thu
+            # Hai, ho so quay lai thu Nam, va lenh ep duyet (hoac lan lam lai)
+            # se thay "da qua han" roi ghi `Missed` - cho quang thoi gian ma
+            # nguoi duyet KHONG CO nut nao de bam.
+            #
+            # Va day la trang thai CUOI: khac voi `Open`, no khong con duoc
+            # `scoring.effective_status` tinh lai o moi lan doc nua. Sai o day
+            # la sai vinh vien.
+            obl.end_pause(obligation=r["name"], reason=PAUSE_WAITING_INFO, to_dt=at)
+            paused = frappe.db.get_value(DT_OBLIGATION, r["name"], "paused_seconds")
+            # Dung CHINH `is_breached` ma bang diem dung, khong viet lai phep so
+            # sanh: no da tinh ca thoi gian tam dung (cho bo sung thong tin).
+            # Hai cong thuc "qua han" song song la hai cong thuc se troi ra khoi
+            # nhau, va lan troi do se hien ra duoi dang mot nguoi bi tru diem ma
+            # bang diem lai bao dung han.
+            def _late(due, when, _p=paused):
+                return scoring.is_breached(STATUS_OPEN, due, when, _p or 0)
+
+            action, why = ar.override_outcome(r.get("due_at"), at, cmp_fn=_late)
+            if action == ar.ACT_MISSED:
+                frappe.db.set_value(DT_OBLIGATION, r["name"],
+                                    {"status": STATUS_MISSED, "is_breached": 0},
+                                    update_modified=False)
+                done["missed"] += 1
+            else:
+                if obl.exclude_obligation(r["name"], why or reason, at):
+                    done["excluded"] += 1
+        except Exception:
+            frappe.log_error(title="sla.settle_open_due_aware",
+                             message=frappe.get_traceback())
+    return done
+
+
+def override_approval_step_obligations(request_doctype, request_name, level_no,
+                                       attempt=1, at=None):
+    """Ban Giam doc ep duyet MOT cap."""
+    from ecentric_workspace.sla.domain import approval_rules as ar
+    return settle_open_due_aware(request_doctype, request_name,
+                                 reason=ar.REASON_OVERRIDE, level_no=level_no,
+                                 attempt=attempt, at=at)
+
+
+def restart_approval_obligations(request_doctype, request_name, attempt=1, at=None):
+    """Ho so duoc lam lai tu cap 1 -> ket so CA LAN CHAY vua roi.
+
+    Lan chay moi se co `attempt` khac nen khoa chong trung khong dung nhau; neu
+    khong ket so lan cu thi nhung dong con mo cua no se nam lai mai va bi job
+    quet thanh `Missed` cho mot vong duyet khong con ton tai.
+    """
+    return settle_open_due_aware(request_doctype, request_name,
+                                 reason="Hồ sơ được làm lại từ đầu",
+                                 level_no=None, attempt=attempt, at=at)
+
+
+def _has_row_for(source_doctype, source_name, level_no, attempt, user):
+    """Nguoi nay CO mot dau viec o cap nay khong - o BAT KY trang thai nao.
+
+    Khac `_open_rows`: dong cua nguoi vua bam thuong da duoc dong boi
+    `on_approver_acted` truoc khi cap dong. Neu lan chan chi nhin nhung dong con
+    mo thi duong di binh thuong se bi bat nham la "lech dinh danh", va nhung
+    nguoi con lai cua cap Any-One se nam nguyen `Open` cho den khi thanh Missed.
+    """
+    if not user:
+        return False
+    try:
+        return bool(frappe.db.get_value(DT_OBLIGATION, {
+            "source_doctype": source_doctype, "source_name": source_name,
+            "source_detail": str(level_no), "attempt": int(attempt or 1),
+            "owner_user": user}, "name"))
+    except Exception:
+        frappe.log_error(title="sla._has_row_for", message=frappe.get_traceback())
+        return False

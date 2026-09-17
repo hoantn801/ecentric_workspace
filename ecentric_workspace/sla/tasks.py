@@ -64,3 +64,37 @@ def sync_attendance():
         frappe.log_error(title="sla.tasks.sync_attendance",
                          message=frappe.get_traceback())
         return None
+
+
+def sync_approvals():
+    """Luoi do cho nhom Phan hoi phe duyet. Chay MOT LAN moi dem, khong phai hang gio.
+
+    Duong CHINH la cac loi goi hook trong `transitions.py`. Job nay khong thay
+    the chung - no quet lai va va vao nhung cho hook da truot: may chu restart
+    giua giao dich, module SLA chua migrate tren mot bench, hoac mot loi bat ky
+    ma `sla_port` da nuot de khong chan nguoi dang duyet don.
+
+    VI SAO BAN DEM CHU KHONG PHAI HANG GIO. Job nay ghi vao `EC SLA Obligation`,
+    dung bang ma hook dong bo cung ghi - BEN TRONG giao dich duyet don cua nguoi
+    dung. Hai ben cham nhau thi khong chi mat mot dong SLA: MariaDB rollback CA
+    giao dich duyet, va nguoi dung thay "Da duyet" trong khi ho so khong doi
+    trang thai. Chay luc 02:00 dua xac suat do ve gan khong, va mot luoi do thi
+    khong can thoi gian thuc - cham nhat mot ngay la du.
+
+    Cua so 7 ngay, tran 1000 ho so: du de duoi kip mot su co ha tang keo vai
+    ngay, va khong bao gio dam vao tran doc.
+    """
+    try:
+        from ecentric_workspace.sla.infrastructure import approval_source
+        res = approval_source.sync(days=7, limit=1000)
+        if res.get("dong") or res.get("loai_tru") or res.get("loi") or res.get("khong_ro"):
+            frappe.logger("sla").info(
+                "sync_approvals: ho_so=%s dong=%s loai_tru=%s huy=%s khong_ro=%s loi=%s"
+                % (res.get("ho_so"), len(res.get("dong") or []),
+                   len(res.get("loai_tru") or []), len(res.get("huy") or []),
+                   len(res.get("khong_ro") or []), len(res.get("loi") or [])))
+        return res
+    except Exception:
+        frappe.log_error(title="sla.tasks.sync_approvals",
+                         message=frappe.get_traceback())
+        return None

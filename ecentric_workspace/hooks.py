@@ -184,6 +184,15 @@ scheduler_events["daily"].append(
 # packages whose signed bundle is not yet complete. Safe GET/download only; never resends
 # AddDocument/bulk-process. Same kill switch (ec_esign_scheduler_disabled) + per-provider
 # integration gate (exits with zero SCTS calls while OFF).
+# Luoi do nhom Phan hoi phe duyet - MOT LAN moi dem, khong phai hang gio:
+# job nay ghi vao `EC SLA Obligation`, dung bang ma hook dong bo ghi ben
+# trong giao dich duyet don cua nguoi dung. Hai ben cham nhau thi DB
+# rollback ca giao dich duyet, va nguoi dung thay "Da duyet" trong khi ho
+# so khong doi trang thai. 02:00 dua xac suat do ve gan khong.
+# Gio cron o site nay la GIO DIA PHUONG (Asia/Ho_Chi_Minh) - xem ghi chu
+# o cac cron esign phia duoi; KHONG quy ra UTC.
+scheduler_events["cron"].setdefault("0 2 * * *", []).append(
+    "ecentric_workspace.sla.tasks.sync_approvals")
 scheduler_events["cron"].setdefault("*/30 * * * *", []).append(
     "ecentric_workspace.platform.esign.tasks.retrieve_signed_bundles")
 

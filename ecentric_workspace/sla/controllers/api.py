@@ -315,3 +315,49 @@ def sync_sla_page(force=0):
     force = 1 if str(force or "").strip().lower() in ("1", "true", "yes", "on") else 0
     from ecentric_workspace.sla.pages.scoreboard import page_sync
     return _ok(page_sync.sync(force=force))
+
+
+# --------------------------------------------------------------------------- #
+# Nhom Phan hoi phe duyet
+#
+# Duong CHINH cua nhom nay la cac loi goi hook trong `transitions.py`, chay dong
+# bo ngay luc cap duyet mo va dong. Ba endpoint duoi day thuoc ve LUOI DO: chung
+# quet lai va va vao nhung cho hook da truot. Giu chung tach bach voi duong chinh
+# la co y - mot con so khac 0 o `approval_coverage` la dau hieu hook dang thung,
+# chu khong phai chuyen binh thuong.
+# --------------------------------------------------------------------------- #
+def _appr():
+    from ecentric_workspace.sla.infrastructure import approval_source
+    return approval_source
+
+
+@frappe.whitelist(methods=["POST"])
+def sync_approvals(days=14, limit=500):
+    """Doi chieu nguoc tu ho so duyet ve nghia vu SLA. Chay lai duoc."""
+    if not _require_admin():
+        return _fail(_("Chi System Manager duoc chay dong bo."))
+    r = _appr().sync(days=int(days or 14), limit=int(limit or 500))
+    return _ok(_counts(r), _("Quét {0} hồ sơ duyệt.").format(r.get("ho_so", 0)))
+
+
+@frappe.whitelist(methods=["POST"])
+def backfill_approvals(start="2026-09-21", limit=2000):
+    """Dung lai tu moc ap dung cua nhom nay (21/09)."""
+    if not _require_admin():
+        return _fail(_("Chi System Manager duoc chay bu du lieu."))
+    r = _appr().backfill(start=start, limit=int(limit or 2000))
+    return _ok(_counts(r), _("Quét {0} hồ sơ duyệt từ {1}.").format(r.get("ho_so", 0), start))
+
+
+@frappe.whitelist()
+def approval_coverage(days=14):
+    """Ho so nao co cap duyet DA KICH HOAT ma khong co mot nghia vu nao.
+
+    Day la phep kiem chinh HOOK, khong phai kiem nguoi duyet: khac 0 nghia la co
+    mot duong kich hoat cap nao do chua goi sang SLA.
+    """
+    if not _require_admin():
+        return _fail(_("Chi System Manager duoc xem do phu."))
+    r = _appr().coverage(days=int(days or 14))
+    return _ok({"ho_so": r["ho_so"], "cap": r["cap"], "tu_ngay": r["tu_ngay"],
+                "thieu": len(r["thieu"]), "danh_sach": r["thieu"][:50]})
