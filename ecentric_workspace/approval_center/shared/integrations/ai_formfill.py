@@ -245,6 +245,13 @@ def probe(definition, merged):
     validator = getattr(definition.submitter, "validator", None)
     if not callable(validator):
         return {"ok": None, "message": None, "skipped": "khong_co_validator"}
+    # `frappe.throw` khong chi NEM - no con XEP MOT DONG vao `message_log`, va Frappe goi
+    # nguyen dong do ve client trong `_server_messages` roi TU VE MOT MODAL. Nen probe bat
+    # duoc exception van chua du: nguoi dung thay hop thoai "Vui long nhap day du cac truong
+    # bat buoc" bat len ngay sau khi AI dien, y het nhu phieu vua bi tu choi gui.
+    # Chup lai roi tra nguyen trang thai cu - KHONG xoa trang, vi cho nay co the da co
+    # thong diep cua nguoi khac dat truoc.
+    dong_cu = list(getattr(frappe.local, "message_log", None) or [])
     frappe.db.savepoint(PROBE_SAVEPOINT)
     try:
         doc = frappe.new_doc(definition.business_doctype)
@@ -260,6 +267,10 @@ def probe(definition, merged):
         # ROLLBACK VO DIEU KIEN. `chot_brand_ngoai` co the da insert mot Brand truoc khi
         # validator nem loi; `finally` la cho duy nhat bat duoc ca hai duong.
         frappe.db.rollback(save_point=PROBE_SAVEPOINT)
+        try:
+            frappe.local.message_log = dong_cu
+        except Exception:
+            pass
 
 
 # ----------------------------------------------------------------- log ---

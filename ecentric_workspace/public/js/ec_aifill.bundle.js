@@ -30,15 +30,20 @@
    * PHÁN ĐOÁN sang ĐỐI CHIẾU HAI CHUỖI. */
   var QUOTE_FIELDS = ["payment_amount", "bank_account_number"];
 
-  /* G2 — tệp đính kèm. Danh sách tệp ĐÃ CÓ SẴN trong DOM của trang (`renderFileList` vẽ ra
-   * `.ec-file > a[href]`), nên asset chỉ việc ĐỌC nó. Không đụng `main_section.html`, không
-   * bump BASELINE_SHA256, không viết patch resync — đúng như G1.
-   * Đây cũng là lý do không đọc `state.draft._attachments` của trang: biến đó là nội bộ của
-   * trang, DOM mới là hợp đồng giữa hai bên. */
-  var ATTACH_SEL = {
-    "PAYMENT_REQUEST": "#payr-att-name .ec-file a[href]"
-  };
-  var FILE_URL_RE = /^\/(private\/)?files\//;
+  /* G2 — tệp cho AI đọc. Panel có Ô THẢ TỆP CỦA RIÊNG NÓ.
+   *
+   * Bản đầu (17/09) đi bòn danh sách tệp từ DOM của trang (`#payr-att-name .ec-file a`) —
+   * SAI, vì hai lý do:
+   *   1. Mục "TÀI LIỆU & KÝ SỐ" của form chỉ mở SAU KHI lưu nháp, nên lúc người ta cần AI
+   *      điền thì chưa có chỗ nào để thả tệp cả.
+   *   2. Mục đó phục vụ KÝ SỐ — tệp phải có phiếu rồi mới gắn được. Còn AI thì cần tệp
+   *      TRƯỚC để có cái mà đọc. Hai nhu cầu ngược chiều nhau, không dùng chung một ô được.
+   *
+   * Nên: tệp thả vào đây là ĐẦU VÀO CỦA AI, cùng hạng với đoạn văn bản dán ở trên — không
+   * phải chứng từ của phiếu. Chứng từ vẫn đính kèm ở bước "Tiếp tục: Thêm chứng từ" như cũ.
+   * Nói thẳng điều đó trên giao diện, đừng để người dùng tự đoán. */
+  var UPLOAD_URL = "/api/method/upload_file";
+  var MAX_BYTES = 10 * 1024 * 1024;
 
   /* Ô nào làm trang vẽ lại cả form → phải ghi TRƯỚC, nếu không lần vẽ lại xoá sạch những ô
    * điền sau nó. Danh sách này là dự phòng; cơ chế thật là truy vấn lại DOM trước mỗi lần ghi
@@ -79,34 +84,49 @@
 
   /* ------------------------------------------------------------------ state */
   var S = { filled: {}, sources: {}, before: {}, busy: false, remaining: null, cap: null,
-            maxChars: 8000, maxFiles: 5, picked: {}, _filesHtml: null, panel: null };
+            maxChars: 8000, maxFiles: 5, files: [], fileExts: [], uploading: false, ran: false,
+            _filesHtml: null, panel: null };
 
-  /* Danh sách tệp người dùng đã tải lên phiếu nháp. PURE theo `root` — test được.
-   * Khử trùng theo url: trang có thể vẽ cùng một tệp ở hai chỗ. */
-  function readAttachments(root) {
-    var sel = ATTACH_SEL[code];
-    if (!sel || !root) return [];
-    var out = [], seen = {};
-    Array.prototype.forEach.call(root.querySelectorAll(sel), function (a) {
-      var url = (a.getAttribute && a.getAttribute("href")) || "";
-      if (!FILE_URL_RE.test(url) || seen[url]) return;
-      seen[url] = 1;
-      out.push({ url: url, name: ((a.textContent || "").trim() || url.split("/").pop()) });
-    });
-    return out;
+  /* Tệp có nhận được không, và nếu không thì VÌ SAO. PURE.
+   * Chặn ở client cho người dùng biết ngay, nhưng server vẫn chặn lại lần nữa — cổng ở
+   * client là để nói cho nhanh, không phải để tin. */
+  function refuseReason(file, danhSach, maxFiles, exts) {
+    if (!file) return "tệp rỗng";
+    if (!file.size) return "tệp rỗng";
+    if (file.size > MAX_BYTES) return "tệp quá lớn (tối đa 10MB)";
+    var ext = (file.name || "").split(".").pop().toLowerCase();
+    if ((file.name || "").indexOf(".") < 0) return "không rõ loại tệp";
+    if (exts && exts.length && exts.indexOf(ext) < 0) {
+      return (["doc", "docx", "xls", "xlsx", "ppt", "pptx"].indexOf(ext) >= 0)
+        ? "tệp Office — hãy xuất ra PDF rồi thả lại"
+        : "AI không đọc được loại tệp này";
+    }
+    if ((danhSach || []).length >= maxFiles) return "một lượt tối đa " + maxFiles + " tệp";
+    for (var i = 0; i < (danhSach || []).length; i++) {
+      if (danhSach[i].name === file.name && danhSach[i].size === file.size) return "đã có rồi";
+    }
+    return null;
   }
 
-  /* Tệp nào thực sự gửi lên server. PURE. Tick mặc định là BẬT — người dùng đính kèm tệp
-   * vào phiếu thì gần như luôn muốn AI đọc nó; nhưng quá trần thì cắt từ đầu danh sách chứ
-   * không im lặng gửi thừa rồi để server bỏ. */
-  function pickedUrls(list, picked, maxFiles) {
-    var out = [];
-    (list || []).forEach(function (f) {
-      if (picked && picked[f.url] === false) return;
-      if (maxFiles && out.length >= maxFiles) return;
-      out.push(f.url);
+  /* Tải MỘT tệp lên kho tệp riêng tư của Frappe. Không gửi doctype/docname: lúc này phiếu
+   * chưa tồn tại, và `upload_file` kiểm quyền role trên DocType đó — bài học của chính
+   * trang này (xem chú thích trong main_section.html). */
+  function uploadOne(file) {
+    var fd = new FormData();
+    fd.append("file", file);
+    fd.append("is_private", "1");
+    return fetch(UPLOAD_URL, {
+      method: "POST",
+      headers: { "X-Frappe-CSRF-Token": (window.frappe && frappe.csrf_token) || "" },
+      body: fd
+    }).then(function (r) {
+      if (r.status === 413) throw new Error("tệp quá lớn so với giới hạn máy chủ");
+      return r.json();
+    }).then(function (j) {
+      var m = j && j.message, url = m && m.file_url;
+      if (!url) throw new Error("máy chủ không trả về đường dẫn tệp");
+      return { url: url, name: (m && m.file_name) || file.name, size: file.size };
     });
-    return out;
   }
 
   function fieldBox(name) {
@@ -160,7 +180,7 @@
       var el = control(name);
       if (el && Object.prototype.hasOwnProperty.call(S.before, name)) setValue(el, S.before[name]);
     });
-    S.filled = {}; S.sources = {}; S.before = {};
+    S.filled = {}; S.sources = {}; S.before = {}; S.ran = false;
     paint(); render();
   }
 
@@ -172,10 +192,53 @@
 
   /** Vẽ lại dấu sau MỖI lần trang đổi DOM. Dấu phải suy ra từ state của asset, không bám
    *  vào phần tử — `renderCreate` thay sạch innerHTML nên mọi thứ gắn vào DOM đều bay. */
+  /* Ô nào BẮT BUỘC mà còn trống. Đọc dấu `*` mà chính trang đã vẽ (`label > .req`) —
+   * không đoán theo danh sách cứng, vì danh sách cứng lệch khỏi form là lệch âm thầm.
+   * Chỉ tính ô ĐANG HIỆN: `request_attachment` là ô bắt buộc nhưng bị khối ký số ẩn đi,
+   * tô đỏ một ô không nhìn thấy là chỉ vào hư không. */
+  function missingRequired() {
+    var out = [];
+    document.querySelectorAll("[data-fld]").forEach(function (box) {
+      var lab = box.querySelector("label");
+      if (!lab || !lab.querySelector(".req")) return;
+      var el = box.querySelector("input, select, textarea");
+      if (!el || !el.offsetParent) return;
+      if (el.type === "checkbox") { if (!el.checked) out.push(box); return; }
+      if (!String(el.value || "").trim()) out.push(box);
+    });
+    return out;
+  }
+
   function paint() {
     document.querySelectorAll(".ec-aifill-badge, .ec-aifill-src").forEach(function (n) {
       if (!S.filled[n.getAttribute("data-for")]) n.remove();
     });
+
+    /* BẢN ĐỒ HOÀN THÀNH, không phải báo cáo lỗi.
+     *
+     * Vàng cho ô AI điền: vàng là màu NHẬN DIỆN của trợ lý (cùng con mặt vàng trên dấu),
+     * không phải màu ngữ nghĩa — nên nó không phạm A58. Xanh thì phạm: xanh ở hệ này nghĩa
+     * là "đã duyệt", tô xanh một ô chưa ai duyệt là dạy sai từ vựng trạng thái.
+     *
+     * Đỏ nhạt cho ô bắt buộc còn trống: đỏ ở hệ này CÓ phần dành cho validation
+     * (DESIGN.md §Colors: "Từ chối, lỗi validation, dấu *"). Nhưng chỉ bật SAU KHI AI chạy
+     * một lượt — một form trắng chưa ai đụng vào mà đỏ lòm là mắng người dùng trước khi họ
+     * làm gì. Và dùng WASH chứ không dùng viền đỏ: viền đỏ là ngôn ngữ riêng của validation
+     * sau khi bấm Gửi (`.fld.invalid`), mượn nó ở đây là hai thứ khác nhau trông giống nhau.
+     */
+    document.querySelectorAll(".ec-aifill-lit, .ec-aifill-gap").forEach(function (n) {
+      n.classList.remove("ec-aifill-lit", "ec-aifill-gap");
+    });
+    Object.keys(S.filled).forEach(function (name) {
+      var box = fieldBox(name);
+      if (box) box.classList.add("ec-aifill-lit");
+    });
+    if (S.ran) {
+      missingRequired().forEach(function (box) {
+        if (!box.classList.contains("ec-aifill-lit")) box.classList.add("ec-aifill-gap");
+      });
+    }
+
     Object.keys(S.filled).forEach(function (name) {
       var box = fieldBox(name);
       if (!box) return;
@@ -245,26 +308,36 @@
     renderFiles();
   }
 
+  function kb(n) {
+    if (!n) return "";
+    return n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
+  }
+
   /* HTML của khối tệp. PURE — và phải TẤT ĐỊNH: cùng đầu vào phải ra đúng cùng một chuỗi,
-   * vì `renderFiles` dựa vào việc so chuỗi để biết có cần ghi DOM hay không. */
-  function filesHtml(list, picked, maxFiles) {
-    if (!list || !list.length) {
-      return '<div class="ec-aifill-nofile">Chưa có tệp đính kèm. Tải hoá đơn / hợp đồng ở mục ' +
-        '<b>Tệp đính kèm</b> bên dưới rồi quay lại — AI đọc được PDF, ảnh và văn bản thuần ' +
-        '(tệp Word/Excel thì xuất ra PDF trước).</div>';
-    }
-    var over = list.length > maxFiles;
-    var rows = list.map(function (f, i) {
-      var beyond = i >= maxFiles;
-      var on = (picked || {})[f.url] !== false && !beyond;
-      return '<label class="ec-aifill-file' + (beyond ? " is-off" : "") + '">' +
-        '<input type="checkbox" data-file="' + esc(f.url) + '"' +
-        (on ? " checked" : "") + (beyond ? " disabled" : "") + '>' +
-        '<span>' + esc(f.name) + '</span></label>';
+   * vì `renderFiles` dựa vào việc so chuỗi để biết có cần ghi DOM hay không (nếu không thì
+   * chính nó nuôi MutationObserver của mình — sự cố 17/09). */
+  function filesHtml(list, maxFiles, busy) {
+    var rows = (list || []).map(function (f, i) {
+      return '<div class="ec-aifill-file">' +
+        '<span class="ec-aifill-file-nm">' + esc(f.name) + '</span>' +
+        '<span class="ec-aifill-file-kb">' + kb(f.size) + '</span>' +
+        '<button type="button" class="ec-aifill-file-x" data-rm="' + i + '" ' +
+        'title="Bỏ tệp này" aria-label="Bỏ tệp ' + esc(f.name) + '">&times;</button>' +
+        '</div>';
     }).join("");
-    return '<div class="ec-aifill-files-lbl">AI đọc các tệp này:</div>' + rows +
-      (over ? '<div class="ec-aifill-nofile">Một lượt đọc tối đa ' + maxFiles +
-              ' tệp — những tệp sau đã bị tắt. Vẫn đính kèm đủ vào phiếu như bình thường.</div>' : "");
+
+    var day = (list || []).length >= maxFiles;
+    var zone = '<label class="ec-aifill-drop' + (day ? " is-full" : "") + '">' +
+      '<input type="file" multiple' + (day ? " disabled" : "") + '>' +
+      '<span>' + (day
+        ? ("Đủ " + maxFiles + " tệp cho một lượt — bỏ bớt nếu muốn đổi tệp khác.")
+        : (busy ? "Đang tải tệp lên…"
+                : "<b>Thả tệp vào đây</b> hoặc bấm để chọn — PDF, ảnh, văn bản thuần.")) +
+      '</span></label>';
+
+    return '<div class="ec-aifill-files-lbl">Tệp cho AI đọc' +
+      '<span class="ec-aifill-files-note">chỉ để AI đọc — chứng từ của phiếu vẫn đính kèm ' +
+      'ở bước “Tiếp tục: Thêm chứng từ”</span></div>' + rows + zone;
   }
 
   /* Mutation nào do CHÍNH ASSET NÀY gây ra bên trong panel của nó. PURE.
@@ -288,18 +361,69 @@
   function renderFiles() {
     var box = S.panel && S.panel.querySelector(".ec-aifill-files");
     if (!box) return;
-    var html = ATTACH_SEL[code]
-      ? filesHtml(readAttachments(document), S.picked, S.maxFiles) : "";
+    var html = filesHtml(S.files, S.maxFiles, S.uploading);
     if (html === S._filesHtml) return;        // không có gì đổi -> KHÔNG đụng vào DOM
     S._filesHtml = html;
     box.innerHTML = html;
-    Array.prototype.forEach.call(box.querySelectorAll("[data-file]"), function (cb) {
-      cb.onchange = function () {
-        S.picked[cb.getAttribute("data-file")] = cb.checked;
-        // Ô tick là do người dùng bấm, DOM đã đúng rồi — chỉ bỏ nhớ đệm để lần vẽ sau
-        // không tưởng nhầm là không có gì đổi.
-        S._filesHtml = null;
+
+    Array.prototype.forEach.call(box.querySelectorAll("[data-rm]"), function (b) {
+      b.onclick = function () {
+        // Chỉ bỏ khỏi DANH SÁCH GỬI. Không xoá bản ghi File trên máy chủ: xoá là việc
+        // không lùi lại được, và tệp có thể đang được dùng ở chỗ khác.
+        S.files.splice(+b.getAttribute("data-rm"), 1);
+        S._filesHtml = null; renderFiles();
       };
+    });
+
+    var zone = box.querySelector(".ec-aifill-drop");
+    var input = zone && zone.querySelector("input[type=file]");
+    if (input) {
+      input.onchange = function () { nhanTep(input.files); input.value = ""; };
+    }
+    if (zone) {
+      ["dragenter", "dragover"].forEach(function (e) {
+        zone.addEventListener(e, function (ev) {
+          ev.preventDefault(); zone.classList.add("is-over");
+        });
+      });
+      ["dragleave", "drop"].forEach(function (e) {
+        zone.addEventListener(e, function (ev) {
+          ev.preventDefault(); zone.classList.remove("is-over");
+        });
+      });
+      zone.addEventListener("drop", function (ev) {
+        if (ev.dataTransfer && ev.dataTransfer.files) nhanTep(ev.dataTransfer.files);
+      });
+    }
+  }
+
+  /* Nhận một mẻ tệp: lọc trước, tải tuần tự, báo từng cái bị bỏ và VÌ SAO.
+   * Tuần tự chứ không song song: một mẻ 5 tệp 10MB bắn cùng lúc là cách làm nghẽn đúng cái
+   * máy chủ mà người dùng đang chờ. */
+  function nhanTep(fileList) {
+    var vao = Array.prototype.slice.call(fileList || []);
+    if (!vao.length) return;
+    var bo = [];
+    var nhan = [];
+    vao.forEach(function (f) {
+      var ly = refuseReason(f, S.files.concat(nhan), S.maxFiles, S.fileExts);
+      if (ly) bo.push(esc(f.name) + " (" + ly + ")"); else nhan.push(f);
+    });
+    if (bo.length) say("<b>Bỏ qua " + bo.length + " tệp:</b> " + bo.join("; "), "warn");
+    if (!nhan.length) { renderFiles(); return; }
+
+    S.uploading = true; S._filesHtml = null; renderFiles();
+    nhan.reduce(function (p, f) {
+      return p.then(function () {
+        return uploadOne(f).then(function (ok) { S.files.push(ok); })
+          .catch(function (e) {
+            bo.push(esc(f.name) + " (" + esc((e && e.message) || "không tải lên được") + ")");
+          });
+      });
+    }, Promise.resolve()).then(function () {
+      S.uploading = false; S._filesHtml = null; renderFiles();
+      if (bo.length) say("<b>Bỏ qua " + bo.length + " tệp:</b> " + bo.join("; "), "warn");
+      else say("");
     });
   }
 
@@ -333,9 +457,10 @@
     if (S.busy) return;
     var note = (S.panel.querySelector(".ec-aifill-note").value || "").trim();
     S._note = note;
-    var picked = pickedUrls(readAttachments(document), S.picked, S.maxFiles);
+    if (S.uploading) { say("Đợi tải tệp xong đã nhé.", "warn"); return; }
+    var picked = S.files.slice(0, S.maxFiles).map(function (f) { return f.url; });
     if (!note && !picked.length) {
-      say("Dán nội dung vào ô trên, hoặc đính kèm một tệp rồi tích chọn nó.", "warn"); return;
+      say("Dán nội dung vào ô trên, hoặc thả một tệp vào ô bên dưới.", "warn"); return;
     }
     S.busy = true; render(); say("");
     call("suggest", { approval_code: code, note: note, current: JSON.stringify(draft()),
@@ -364,6 +489,7 @@
           return;
         }
         S.sources = res.sources || {};
+        S.ran = true;
         var fields = res.fields || {};
         fillSequential(fields, function () {
           render();
@@ -407,6 +533,7 @@
     S.remaining = boot.remaining; S.cap = boot.cap;
     S.maxChars = boot.max_chars || S.maxChars;
     S.maxFiles = boot.max_files || S.maxFiles;
+    S.fileExts = boot.file_exts || [];
     if (!mount()) {
       var tries = 0, tm = setInterval(function () {
         if (mount() || ++tries > 25) clearInterval(tm);
@@ -442,6 +569,7 @@
 
   // Bề mặt cho test: HÀM THUẦN, không phải state.
   window.__ecAifill = { writeOrder: writeOrder, isUserEdit: isUserEdit, ROUTES: ROUTES,
-                       readAttachments: readAttachments, pickedUrls: pickedUrls,
-                       filesHtml: filesHtml, fromUs: fromUs, ATTACH_SEL: ATTACH_SEL };
+                       filesHtml: filesHtml, fromUs: fromUs,
+                       refuseReason: refuseReason, kb: kb,
+                       missingRequired: missingRequired };
 })();

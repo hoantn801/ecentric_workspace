@@ -37,6 +37,7 @@ def _load(*, exists=None, perm=True, conf=None, meta_fields=(), on_insert=None):
     fk.conf = dict(conf or {})
     fk.session = types.SimpleNamespace(user="hoan.tran@ecentric.vn")
     fk.savepoints, fk.rollbacks, fk.inserted = [], [], []
+    fk.local = types.SimpleNamespace(message_log=[])
     fk.logged = []
 
     _exists = set(exists or ())
@@ -383,6 +384,51 @@ class TestSplitSources(unittest.TestCase):
         self.assertEqual(list(s), ["payment_amount"])
         # trich dan KHONG duoc lan vao gia tri truong
         self.assertNotIn("payment_amount__source", v)
+
+
+class TestProbeKhongDeLotHopThoai(unittest.TestCase):
+    """`frappe.throw` khong chi NEM - no con XEP MOT DONG vao `message_log`, roi Frappe gui
+    nguyen dong do ve client trong `_server_messages` va TU VE MOT MODAL.
+
+    17/09 tren production: AI dien xong, nguoi dung thay hop thoai "Vui long nhap day du cac
+    truong bat buoc (bao gom tep dinh kem) truoc khi gui" bat len - y het nhu phieu vua bi
+    tu choi gui, trong khi ho chua bam Gui lan nao. Bat exception THOI LA CHUA DU."""
+
+    FIELDS = [{"fieldname": "payment_amount", "fieldtype": "Currency", "label": "So tien",
+               "reqd": 1, "options": None, "hidden": 0, "read_only": 0}]
+
+    def _dinh_nghia(self, m, nem=True):
+        def validator(doc):
+            # Mo phong dung `frappe.throw`: xep dong vao message_log ROI nem.
+            m._fk.local.message_log.append({"message": "Vui long nhap day du", "title": "Message"})
+            if nem:
+                raise _Validation("Vui long nhap day du cac truong bat buoc")
+        return types.SimpleNamespace(
+            business_doctype="EC Payment Request",
+            submitter=types.SimpleNamespace(validator=validator))
+
+    def test_dong_cua_validator_KHONG_con_lai_sau_probe(self):
+        m, fk = _load(meta_fields=self.FIELDS)
+        d = self._dinh_nghia(m)
+        res = _run(m, lambda: m.probe(d, {"payment_amount": 1}))
+        self.assertFalse(res["ok"])
+        self.assertEqual(fk.local.message_log, [],
+                         "dong cua validator lot ra client -> Frappe ve modal")
+
+    def test_thong_diep_dat_TRUOC_probe_van_con_nguyen(self):
+        # Khong duoc xoa trang: cho nay co the da co thong diep cua nguoi khac.
+        m, fk = _load(meta_fields=self.FIELDS)
+        fk.local.message_log.append({"message": "cua nguoi khac"})
+        d = self._dinh_nghia(m)
+        _run(m, lambda: m.probe(d, {"payment_amount": 1}))
+        self.assertEqual(fk.local.message_log, [{"message": "cua nguoi khac"}])
+
+    def test_validator_chay_lot_cung_khong_de_lai_dong(self):
+        m, fk = _load(meta_fields=self.FIELDS)
+        d = self._dinh_nghia(m, nem=False)
+        res = _run(m, lambda: m.probe(d, {"payment_amount": 1}))
+        self.assertTrue(res["ok"])
+        self.assertEqual(fk.local.message_log, [])
 
 
 if __name__ == "__main__":
