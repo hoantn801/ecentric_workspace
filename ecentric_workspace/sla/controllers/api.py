@@ -13,7 +13,8 @@ from ecentric_workspace.sla import permissions
 from ecentric_workspace.sla.application import obligation_service, scoreboard_service
 from ecentric_workspace.sla.constants import (
     ADJ_EXCLUDE, ADJ_EXTEND_DUE, ADJ_MARK_MET, ADJ_MARK_MISSED, ADJ_RESTORE,
-    ALL_ADJUSTMENTS, DT_ADJUSTMENT, DT_OBLIGATION, STATUS_MET, STATUS_MISSED,
+    ALL_ADJUSTMENTS, DT_ADJUSTMENT, DT_OBLIGATION, OVERALL_MIN_SAMPLE,
+    STATUS_MET, STATUS_MISSED,
     STATUS_OPEN,
 )
 
@@ -64,6 +65,7 @@ def scope():
     tab phong ban rong roi de nguoi ta tuong he thong hong."""
     s, depts = permissions.get_scope()
     return _ok({"scope": s, "departments": depts,
+                "overall_min_sample": OVERALL_MIN_SAMPLE,
                 "can_adjust": permissions.can_adjust(),
                 "period": scoreboard_service.current_period()})
 
@@ -275,3 +277,41 @@ def attendance_coverage(period=None):
     if not _require_admin():
         return _fail(_("Chi System Manager duoc xem do phu."))
     return _ok(_att().coverage(period))
+
+
+# --------------------------------------------------------------------------- #
+# Cau hinh dang chay cua cac buoc duyet (tab "Quy trinh duyet" tren /sla)
+# --------------------------------------------------------------------------- #
+@frappe.whitelist()
+def approval_config():
+    """Han SLA cua tung cap duyet / buoc xu ly. CHI DOC.
+
+    MO CHO MOI NHAN VIEN, khong gioi han System Manager nhu hai endpoint doi
+    chieu o tren. Hai thu khac nhau: `verify_approval_sla` doi chieu he thong
+    voi tep cau hinh (viec van hanh), con ham nay tra loi "toi co bao lau de
+    duyet" - cau hoi ma nguoi bi tru diem phai tra loi duoc TRUOC khi bi tru,
+    khong phai sau. Bang tra ve khong co du lieu ca nhan nao: ten quy trinh, so
+    cap, so gio - het.
+    """
+    from ecentric_workspace.sla.application import approval_config as cfg
+    return _ok(cfg.approval_steps())
+
+
+# --------------------------------------------------------------------------- #
+# Trang /sla
+# --------------------------------------------------------------------------- #
+@frappe.whitelist(methods=["POST"])
+def sync_sla_page(force=0):
+    """Nap lai HTML trang /sla tu ma nguon trong repo.
+
+    Ton tai de viec sua trang khong phai viet patch moi moi lan - patch p005
+    chi la lan chay dau. `force=1` chi bo khoa chong ghi de, khong bao gio ep
+    publish mot trang nguoi van hanh da tat.
+    """
+    if not _require_admin():
+        return _fail(_("Chi System Manager duoc dong bo trang /sla."))
+    # Tham so tu HTTP luon la chuoi. `int("yes")` nem ValueError tho kem
+    # traceback ra client; o day mot tham so go sai chi co nghia la "khong ep".
+    force = 1 if str(force or "").strip().lower() in ("1", "true", "yes", "on") else 0
+    from ecentric_workspace.sla.pages.scoreboard import page_sync
+    return _ok(page_sync.sync(force=force))
