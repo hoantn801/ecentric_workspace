@@ -339,8 +339,9 @@ def upload_bytes(data, filename, mime_type, gemini_api_key, wait_active=True,
         result["expires_at"] = file_info.get("expirationTime", "")
         result["mime_type"] = mime_type
     except Exception as e:
-        # Redact gemini_api_key from error
-        result["error"] = "Gemini upload failed: " + scrub(str(e), gemini_api_key)[:300]
+        # Redact gemini_api_key from error. Kem than phan hoi - cung ly do nhu `_why`.
+        result["error"] = "Gemini upload failed: " + scrub(
+            str(e) + _why(locals().get("gem_resp")), gemini_api_key)[:600]
         return result
 
     # Wait for ACTIVE state (race condition fix)
@@ -407,6 +408,35 @@ def _single(fieldname):
     return frappe.db.get_single_value("System Settings", fieldname) or ""
 
 
+def _looks_masked(value):
+    """PURE. Frappe de lai '*' x do-dai trong cot cua tai lieu cho truong Password."""
+    v = str(value or "")
+    return len(v) > 0 and set(v) == {"*"}
+
+
+def api_key():
+    """Khoa Gemini tu System Settings. ROT CUOC PHAI DOC BANG DUONG PASSWORD.
+
+    `ec_gemini_api_key` la truong kieu **Password**. Frappe cat bi mat sang bang `__Auth` va
+    de lai trong cot cua tai lieu dung mot chuoi dau sao CUNG DO DAI. Nen
+    `frappe.db.get_single_value()` tra ve 39 dau sao - dung kieu, dung do dai, va sai hoan
+    toan. Gui no di thi Google tra "API key not valid", con dong log cua ta chi thay 400.
+    Su co 17/09: ca duong AI-dien-ho chet tu G1 vi dung mot dong nay.
+
+    Neu vi ly do nao do van doc ra mat na thi COI NHU KHONG CO KHOA. Gui mat na di la doi
+    lay mot loi 400 vo nghia; noi thang "khoa doc ra la mat na" thi sua duoc trong 5 phut.
+    """
+    try:
+        from frappe.utils.password import get_decrypted_password
+        key = get_decrypted_password("System Settings", "System Settings",
+                                     "ec_gemini_api_key", raise_exception=False) or ""
+    except Exception:
+        key = ""
+    if not key:
+        key = _single("ec_gemini_api_key")
+    return "" if _looks_masked(key) else key
+
+
 def current_model():
     """DUNG CHUNG mot khoa model voi cac Server Script Gemini.
 
@@ -425,12 +455,36 @@ def upload_file_bytes(data, filename, mime_type, wait_active=True, timeout=UPLOA
     cho Server Script goi) van truyen key vao. Duong moi khong duoc hoc thoi quen do — no
     khong bao gio thay key, nen khong the lam ro key.
     """
-    key = _single("ec_gemini_api_key")
+    key = api_key()
     if not key:
         return {"success": False, "error": "no_key", "name": _ascii_safe_header(filename),
                 "display_name": filename, "size_bytes": len(data or b"")}
     return upload_bytes(data, filename, mime_type, key,
                         wait_active=wait_active, timeout=timeout)
+
+
+def _why(resp):
+    """Ly do that tu than phan hoi cua Gemini. -> " | <ly do>" hoac "" neu khong co gi.
+
+    Gemini tra {"error": {"message": "...", "status": "..."}} kem moi ma 4xx. Ham nay
+    khong bao gio nem: no chay TRONG mot `except`, hong o day la nuot mat ca loi goc.
+    """
+    if resp is None:
+        return ""
+    try:
+        data = resp.json()
+        err = (data or {}).get("error") or {}
+        msg = err.get("message") or ""
+        status = err.get("status") or ""
+        if msg or status:
+            return " | Gemini: %s%s" % (msg, (" [%s]" % status) if status else "")
+        return " | than: " + json.dumps(data)[:300]
+    except Exception:
+        pass
+    try:
+        return " | than: " + (resp.text or "")[:300]
+    except Exception:
+        return ""
 
 
 def generate_json(prompt, response_schema, system_instruction=None,
@@ -451,10 +505,10 @@ def generate_json(prompt, response_schema, system_instruction=None,
 
     -> {"ok": bool, "data": dict|None, "error": str|None, "model": str, "latency_ms": int}
     """
-    api_key = _single("ec_gemini_api_key")
+    key = api_key()
     model = model or current_model()
     out = {"ok": False, "data": None, "error": None, "model": model, "latency_ms": 0}
-    if not api_key:
+    if not key:
         out["error"] = "no_key"
         return out
 
@@ -482,11 +536,12 @@ def generate_json(prompt, response_schema, system_instruction=None,
         body["systemInstruction"] = {"parts": [{"text": system_instruction}]}
 
     started = time.time()
+    resp = None
     try:
         resp = requests.post(
             GENERATE_URL % model,
             json=body,
-            headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+            headers={"x-goog-api-key": key, "Content-Type": "application/json"},
             timeout=timeout,
         )
         out["latency_ms"] = int((time.time() - started) * 1000)
@@ -494,7 +549,12 @@ def generate_json(prompt, response_schema, system_instruction=None,
         payload = resp.json()
     except Exception as exc:
         out["latency_ms"] = int((time.time() - started) * 1000)
-        out["error"] = scrub("%s: %s" % (type(exc).__name__, exc), api_key)[:400]
+        # THAN PHAN HOI MOI LA CHO GEMINI NOI SAI O DAU. `HTTPError` chi in ra ma so va URL;
+        # 17/09 mot loi 400 that da lam ca tinh nang chet ma dong log chi noi duoc
+        # "400 Bad Request" - khong ai lan ra duoc nguyen nhan tu do. Bai hoc: khi mot dich
+        # vu ngoai tra loi CO CAU TRUC, dung vut no di.
+        out["error"] = scrub("%s: %s%s" % (type(exc).__name__, exc, _why(resp)),
+                             key)[:900]
         return out
 
     try:
@@ -505,7 +565,7 @@ def generate_json(prompt, response_schema, system_instruction=None,
         # Hinh dang tra ve la thu DUY NHAT khong duoc doan. Bao ra thay vi tra dict rong -
         # mot dict rong se di tiep qua cong loc va ra "AI khong dien duoc o nao", che mat
         # nguyen nhan that.
-        out["error"] = scrub("khong doc duoc JSON tu model: %s" % exc, api_key)[:400]
+        out["error"] = scrub("khong doc duoc JSON tu model: %s" % exc, key)[:400]
         return out
 
     if not isinstance(data, dict):
