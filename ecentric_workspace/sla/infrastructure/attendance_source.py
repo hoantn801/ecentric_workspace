@@ -24,7 +24,8 @@ from frappe.utils import get_datetime, getdate
 
 from ecentric_workspace.sla.application import obligation_service as obl
 from ecentric_workspace.sla.constants import (
-    DT_OBLIGATION, STATUS_EXCLUDED, STATUS_MISSED, STATUS_OPEN, TYPE_ATTENDANCE_DAY,
+    DT_OBLIGATION, STATUS_CANCELLED, STATUS_EXCLUDED, STATUS_MISSED, STATUS_OPEN,
+    TYPE_ATTENDANCE_DAY,
 )
 from ecentric_workspace.sla.domain import attendance_rules as ar
 
@@ -42,8 +43,29 @@ def _employees():
         limit_page_length=0)
 
 
+def _company_holiday_list(company, cache):
+    """Holiday List mac dinh cua cong ty."""
+    key = ("company", company or "")
+    if key not in cache:
+        try:
+            cache[key] = frappe.db.get_value("Company", company,
+                                             "default_holiday_list") if company else None
+        except Exception:
+            cache[key] = None
+    return cache[key]
+
+
 def _holidays_for(emp, cache):
-    hl = emp.get("holiday_list")
+    """Ngay nghi cua MOT nguoi. Khong co lich rieng thi lay lich mac dinh cua
+    cong ty.
+
+    Buoc du phong nay khong phai de cho chac. Do tren ban chay 17/09: 13/75 nhan
+    vien khong duoc gan `holiday_list` nao - gan het la nguoi moi vao lam. Khong
+    co buoc nay thi ho la nhom duy nhat bi cham diem vao ngay Quoc khanh 02/09,
+    va ho cung la nhom it co kha nang len tieng nhat. Mot lo hong du lieu cua HR
+    khong duoc phep tro thanh mot khoan tru diem.
+    """
+    hl = emp.get("holiday_list") or _company_holiday_list(emp.get("company"), cache)
     if not hl:
         return set()
     if hl not in cache:
@@ -104,11 +126,43 @@ def _checkins(employee, start, end):
 # --------------------------------------------------------------------------- #
 def _new_report():
     return {k: [] for k in ("mo", "dong", "loai_tru", "hoi_to_nghi_phep",
-                            "bo_qua", "truoc_ngay_ap_dung", "loi")}
+                            "go_ngay_nghi", "bo_qua", "truoc_ngay_ap_dung", "loi")}
+
+
+def _cancel_non_workdays(emp, start, end, days, report):
+    """Go nhung ngay DA tao nghia vu nhung bay gio khong con la ngay lam viec.
+
+    Duong sua chua, doi xung voi duong hoi to cua nghi phep. Khi HR gan lich
+    nghi cho mot nguoi vi phai - hoac sua mot ngay le khai thieu - thi nhung
+    nghia vu da tao cho ngay do phai bien mat, neu khong vet tru diem se nam lai
+    vinh vien va khong ai go duoc.
+
+    Dung `Cancelled` chu khong xoa: diem cua mot nguoi phai truy nguoc duoc.
+    """
+    want = {str(d) for d in days}
+    try:
+        rows = frappe.get_all(DT_OBLIGATION, filters={
+            "obligation_type": TYPE_ATTENDANCE_DAY, "owner_user": emp["user_id"],
+            "source_detail": ("between", [str(start), str(end)]),
+            "status": ("not in", [STATUS_CANCELLED]),
+        }, fields=["name", "source_detail"], limit_page_length=0)
+    except Exception:
+        frappe.log_error(title="sla.attendance._cancel_non_workdays",
+                         message=frappe.get_traceback())
+        return
+    for r in rows:
+        if r["source_detail"] in want:
+            continue
+        frappe.db.set_value(DT_OBLIGATION, r["name"], {
+            "status": STATUS_CANCELLED, "is_breached": 0,
+            "excluded_reason": "Ngày này không còn là ngày làm việc (lịch nghỉ đã cập nhật)",
+        }, update_modified=False)
+        report["go_ngay_nghi"].append("%s %s" % (emp["user_id"], r["source_detail"]))
 
 
 def _sync_employee(emp, start, end, hl_cache, report):
     days = ar.workdays_between(start, end, _holidays_for(emp, hl_cache))
+    _cancel_non_workdays(emp, start, end, days, report)
     if not days:
         return
     leave = _leave_days(emp["name"], start, end)
