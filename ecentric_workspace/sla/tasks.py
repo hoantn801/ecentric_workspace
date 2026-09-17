@@ -42,3 +42,25 @@ def sync_weekly_reports():
         frappe.log_error(title="sla.tasks.sync_weekly_reports",
                          message=frappe.get_traceback())
         return None
+
+
+def sync_attendance():
+    """Hang ngay: doc `Employee Checkin` -> mo/dong nghia vu ngay cong.
+
+    Cua so mac dinh 7 ngay, khong phai 1: no phai bat duoc ca nguoi cham bu hom
+    qua va phieu nghi vua duoc duyet hoi to trong tuan. Chay lai khong nhan doi
+    gi - khoa chong trung la (nguoi, ngay).
+    """
+    try:
+        from ecentric_workspace.sla.infrastructure import attendance_source
+        res = attendance_source.sync()
+        if res.get("hoi_to_nghi_phep") or res.get("loi"):
+            frappe.logger("sla").info(
+                "sync_attendance: mo=%s dong=%s hoi_to=%s loi=%s"
+                % (len(res.get("mo") or []), len(res.get("dong") or []),
+                   len(res.get("hoi_to_nghi_phep") or []), len(res.get("loi") or [])))
+        return res
+    except Exception:
+        frappe.log_error(title="sla.tasks.sync_attendance",
+                         message=frappe.get_traceback())
+        return None

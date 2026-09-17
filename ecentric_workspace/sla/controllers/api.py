@@ -239,3 +239,39 @@ def effective_dates():
                                            "counts_toward_sla", "min_sample", "active"],
                           order_by="sort_order asc", limit_page_length=0)
     return _ok(rows)
+
+
+# --------------------------------------------------------------------------- #
+# Nhom Cham cong
+# --------------------------------------------------------------------------- #
+def _att():
+    from ecentric_workspace.sla.infrastructure import attendance_source
+    return attendance_source
+
+
+def _counts(r):
+    return {k: (len(v) if isinstance(v, list) else v) for k, v in r.items()}
+
+
+@frappe.whitelist()
+def sync_attendance(start=None, end=None):
+    """Dong bo ngay cong, khong doi job hang ngay."""
+    if not _require_admin():
+        return _fail(_("Chi System Manager duoc chay dong bo."))
+    return _ok(_counts(_att().sync(start=start, end=end)))
+
+
+@frappe.whitelist()
+def backfill_attendance(start="2026-09-01", end=None):
+    """Dung lai ngay cong tu 01/09 - moc chu so huu chot cho nhom nay."""
+    if not _require_admin():
+        return _fail(_("Chi System Manager duoc chay bu du lieu."))
+    return _ok(_counts(_att().backfill(start=start, end=end)))
+
+
+@frappe.whitelist()
+def attendance_coverage(period=None):
+    """Ai KHONG co ngay cong nao trong ky - khong co nghia vu thi khong bi do."""
+    if not _require_admin():
+        return _fail(_("Chi System Manager duoc xem do phu."))
+    return _ok(_att().coverage(period))
