@@ -21,3 +21,24 @@ def sweep_overdue():
     except Exception:
         frappe.log_error(title="sla.tasks.sweep_overdue", message=frappe.get_traceback())
         return None
+
+
+def sync_weekly_reports():
+    """Hang gio: doc `Weekly Team Update` -> mo/dong nghia vu bao cao tuan.
+
+    CHI DOC ben bao cao tuan, khong sua mot dong nao ben do. Chay lai bao nhieu
+    lan cung ra mot ket qua (khoa chong trung la chinh ban bao cao).
+    """
+    try:
+        from ecentric_workspace.sla.infrastructure import weekly_source
+        res = weekly_source.sync()
+        if res.get("mo") or res.get("dong") or res.get("loi"):
+            frappe.logger("sla").info(
+                "sync_weekly: quet=%s mo=%s dong=%s khong_han=%s loi=%s"
+                % (res.get("quet"), len(res.get("mo") or []), len(res.get("dong") or []),
+                   len(res.get("khong_han") or []), len(res.get("loi") or [])))
+        return res
+    except Exception:
+        frappe.log_error(title="sla.tasks.sync_weekly_reports",
+                         message=frappe.get_traceback())
+        return None

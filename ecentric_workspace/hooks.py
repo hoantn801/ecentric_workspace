@@ -108,6 +108,7 @@ scheduler_events = {
     # Alert Center Phase E (decision D2-E): both jobs are dry-run-safe and
     # kill-switchable via site_config `ec_alerts_scheduler_disabled: 1`.
     "hourly": [
+        "ecentric_workspace.sla.tasks.sync_weekly_reports",
         "ecentric_workspace.sla.tasks.sweep_overdue",
         "ecentric_workspace.alerts.tasks.expire_automation_pauses",
         # Doc lai moc sua tren SharePoint cho cac phieu CON CHO DUYET. Khong co no thi bang

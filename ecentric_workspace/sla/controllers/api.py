@@ -167,3 +167,51 @@ def reimport_approval_sla():
     from ecentric_workspace.sla.application import policy_import
     report = policy_import.apply()
     return _ok(report, policy_import.summarize(report) or _("Khong co gi thay doi."))
+
+
+# --------------------------------------------------------------------------- #
+# Nhom Bao cao tuan
+# --------------------------------------------------------------------------- #
+def _require_admin():
+    return ("System Manager" in frappe.get_roles()
+            or frappe.session.user == "Administrator")
+
+
+@frappe.whitelist()
+def sync_weekly():
+    """Dong bo ngay cac ban bao cao gan day, khong doi job hang gio."""
+    if not _require_admin():
+        return _fail(_("Chi System Manager duoc chay dong bo."))
+    from ecentric_workspace.sla.infrastructure import weekly_source
+    r = weekly_source.sync()
+    return _ok({k: (len(v) if isinstance(v, list) else v) for k, v in r.items()},
+               _("Quét {0} bản báo cáo.").format(r.get("quet", 0)))
+
+
+@frappe.whitelist()
+def backfill_weekly(weeks=26):
+    """Dung lai nghia vu cho cac tuan DA QUA tu du lieu co san.
+
+    Duong ngan nhat de biet engine cham diem co dung khong: doi chieu ngay voi
+    nhung tuan da co nguoi nop dung han va nguoi nop muon, thay vi doi bon tuan.
+    """
+    if not _require_admin():
+        return _fail(_("Chi System Manager duoc chay bu du lieu."))
+    from ecentric_workspace.sla.infrastructure import weekly_source
+    r = weekly_source.backfill(weeks=int(weeks or 26))
+    return _ok({k: (len(v) if isinstance(v, list) else v) for k, v in r.items()},
+               _("Quét {0} bản báo cáo trong {1} tuần.").format(r.get("quet", 0), weeks))
+
+
+@frappe.whitelist()
+def weekly_coverage(period=None):
+    """Ai KHONG co nghia vu bao cao tuan nao trong ky - va thuoc phong nao.
+
+    Cau hoi nay quan trong ngang voi "ai tre": mot nguoi khong co nghia vu nao
+    thi khong bi do, va ly do gan nhu luon la phong ban do chua co
+    `Department Reporting Window` chu khong phai ho duoc mien.
+    """
+    from ecentric_workspace.sla.infrastructure import weekly_source
+    if not _require_admin():
+        return _fail(_("Chi System Manager duoc xem do phu."))
+    return _ok(weekly_source.coverage(period))
