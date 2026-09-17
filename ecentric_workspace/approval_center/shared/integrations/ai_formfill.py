@@ -128,6 +128,7 @@ def build_schema(definition):
     meta = frappe.get_meta(definition.business_doctype)
     blocked = set(definition.clone_exclude_fields or ()) | set(
         getattr(definition, "ai_exclude_fields", ()) or ())
+    hints = dict(getattr(definition, "ai_hints", None) or {})
     schema = []
     for fieldname in definition.editable_fields:
         if fieldname in blocked:
@@ -140,7 +141,9 @@ def build_schema(definition):
             "label": df.label or fieldname,
             "fieldtype": df.fieldtype,
             "reqd": bool(df.reqd),
-            "hint": (df.description or "")[:300],
+            # Chi dan rieng cho AI dung TRUOC mo ta hien tren man hinh: no la thu cu the
+            # hon, va khi hai cai mau thuan thi cai viet rieng cho AI phai thang.
+            "hint": "; ".join(x for x in (hints.get(fieldname), (df.description or "")) if x)[:400],
         }
         if df.fieldtype == "Select":
             item["options"] = [o.strip() for o in (df.options or "").split("\n") if o.strip()]
