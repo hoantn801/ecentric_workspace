@@ -254,3 +254,5 @@ ecentric_workspace.approval_center.patches.p202_resync_all_forms_tab_route
 ecentric_workspace.approval_center.patches.p203_resync_all_forms_alltab
 ecentric_workspace.sla.patches.p001_seed_sla_types
 ecentric_workspace.sla.patches.p002_import_approval_sla
+ecentric_workspace.sla.patches.p003_seed_weekly_policy
+ecentric_workspace.sla.patches.p004_sla_effective_dates

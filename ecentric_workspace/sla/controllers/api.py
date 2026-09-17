@@ -167,3 +167,75 @@ def reimport_approval_sla():
     from ecentric_workspace.sla.application import policy_import
     report = policy_import.apply()
     return _ok(report, policy_import.summarize(report) or _("Khong co gi thay doi."))
+
+
+# --------------------------------------------------------------------------- #
+# Nhom Bao cao tuan
+# --------------------------------------------------------------------------- #
+def _require_admin():
+    return ("System Manager" in frappe.get_roles()
+            or frappe.session.user == "Administrator")
+
+
+@frappe.whitelist()
+def sync_weekly():
+    """Dong bo ngay cac ban bao cao gan day, khong doi job hang gio."""
+    if not _require_admin():
+        return _fail(_("Chi System Manager duoc chay dong bo."))
+    from ecentric_workspace.sla.infrastructure import weekly_source
+    r = weekly_source.sync()
+    return _ok({k: (len(v) if isinstance(v, list) else v) for k, v in r.items()},
+               _("Quét {0} bản báo cáo.").format(r.get("quet", 0)))
+
+
+@frappe.whitelist()
+def backfill_weekly(weeks=26):
+    """Dung lai nghia vu cho cac tuan DA QUA tu du lieu co san.
+
+    Duong ngan nhat de biet engine cham diem co dung khong: doi chieu ngay voi
+    nhung tuan da co nguoi nop dung han va nguoi nop muon, thay vi doi bon tuan.
+    """
+    if not _require_admin():
+        return _fail(_("Chi System Manager duoc chay bu du lieu."))
+    from ecentric_workspace.sla.infrastructure import weekly_source
+    r = weekly_source.backfill(weeks=int(weeks or 26))
+    return _ok({k: (len(v) if isinstance(v, list) else v) for k, v in r.items()},
+               _("Quét {0} bản báo cáo trong {1} tuần.").format(r.get("quet", 0), weeks))
+
+
+@frappe.whitelist()
+def weekly_coverage(period=None):
+    """Ai KHONG co nghia vu bao cao tuan nao trong ky - va thuoc phong nao.
+
+    Cau hoi nay quan trong ngang voi "ai tre": mot nguoi khong co nghia vu nao
+    thi khong bi do, va ly do gan nhu luon la phong ban do chua co
+    `Department Reporting Window` chu khong phai ho duoc mien.
+    """
+    from ecentric_workspace.sla.infrastructure import weekly_source
+    if not _require_admin():
+        return _fail(_("Chi System Manager duoc xem do phu."))
+    return _ok(weekly_source.coverage(period))
+
+
+@frappe.whitelist()
+def weekly_preview(weeks=26):
+    """Engine SE cham diem the nao cho cac tuan da qua - CHI DOC, khong ghi gi.
+
+    Dung de kiem chung cong thuc bang du lieu that TRUOC khi no cham diem ai.
+    Khac `backfill_weekly`: ham do TAO nghia vu that va bi chan boi ngay bat dau
+    ap dung; ham nay khong bi chan vi no khong tao gi ca.
+    """
+    if not _require_admin():
+        return _fail(_("Chi System Manager duoc xem ban chay kho."))
+    from ecentric_workspace.sla.infrastructure import weekly_source
+    return _ok(weekly_source.preview(weeks=int(weeks or 26)))
+
+
+@frappe.whitelist()
+def effective_dates():
+    """Ngay bat dau cham diem cua tung nhom - de doi chieu sau khi deploy."""
+    from ecentric_workspace.sla.constants import DT_TYPE
+    rows = frappe.get_all(DT_TYPE, fields=["type_code", "group_key", "effective_from",
+                                           "counts_toward_sla", "min_sample", "active"],
+                          order_by="sort_order asc", limit_page_length=0)
+    return _ok(rows)
