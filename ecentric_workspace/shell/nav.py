@@ -143,6 +143,13 @@ HOME_PORTAL_ITEMS = [
      # someone reading about the phone app actually is), and the route stays
      # registered here so search finds it and links keep resolving.
      "keywords": ["huong dan", "cai app", "pwa", "iphone", "android"]},
+    # Alias: route /sla thuoc ngu canh `hr` (nav cua module SLA so huu no).
+    # Thieu `alias` thi _context_score cua ngu canh `home` cung cham diem route
+    # nay, va trang /sla se ve sidebar cong thay vi sidebar Nhan su.
+    {"key": "home.portal.sla", "label": "Điểm SLA", "route": "/sla",
+     "icon": "target", "group": "Nhân sự", "order": 35, "active_patterns": ["/sla"],
+     "visible_when": "internal", "owner": "home_portal", "alias": True,
+     "keywords": ["sla", "diem sla", "ti le sla", "dung han", "bang diem"]},
     {"key": "home.portal.kpi", "label": "Mục tiêu KPI", "route": "/coming-soon?tool=kpi",
      "icon": "target", "group": "Nhân sự", "order": 40, "active_patterns": ["/coming-soon?tool=kpi"],
      "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
@@ -191,6 +198,7 @@ def _providers():
     from ecentric_workspace.approval_center import nav as approval_nav
     from ecentric_workspace.legacy_pages import nav as legacy_nav
     from ecentric_workspace.hr import nav as hr_nav
+    from ecentric_workspace.sla import nav as sla_nav
     from ecentric_workspace.alerts import nav as alerts_nav
     from ecentric_workspace.reporting import nav as reporting_nav
     from ecentric_workspace.reporting import nav_pnl as reporting_pnl_nav
@@ -201,6 +209,8 @@ def _providers():
         ("approval_center", approval_nav.items),
         ("legacy_pages", legacy_nav.items),
         ("hr", hr_nav.items),
+        # Diem SLA: MOT muc, nam trong nhom "Nhan su" ngay sau Phieu luong.
+        ("sla", sla_nav.items),
         ("alerts", alerts_nav.items),
         ("reporting", reporting_nav.items),
         # PnL co ngu canh RIENG: 5 dashboard cua /pnl-dashboard la sidebar phu
@@ -238,7 +248,7 @@ CONTEXTS = {
                   "route": "/approvals", "icon": "check"},
     },
     "hr": {
-        "providers": ["core", "hr", "guides"],
+        "providers": ["core", "hr", "sla", "guides"],
         "entry": {"key": "ctx.hr", "label": "Nhân sự",
                   "route": "/ec-hr/attendance", "icon": "doc"},
     },

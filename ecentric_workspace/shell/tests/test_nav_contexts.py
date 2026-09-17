@@ -32,6 +32,7 @@ class TestRouteToContext(unittest.TestCase):
         "/docs/gbs-flow": "approval_document",
         "/ec-hr/attendance": "hr",
         "/ec-hr/salary": "hr",
+        "/sla": "hr",                          # Diem SLA (2026-09-17)
         "/": "home",
         "/home": "home",
         "/weekly-update": "reporting",           # module context (2026-07-22)
@@ -48,8 +49,13 @@ class TestRouteToContext(unittest.TestCase):
                          "Approval sidebar must contain ZERO HR entries")
         hr = nav.compose("hr")
         owners = {i["owner"] for i in hr}
-        self.assertEqual(owners, {"core", "hr"},
+        # 2026-09-17: the SLA module joined the hr context. The assertion still
+        # says what it always said -- no Approval/Document owner may appear in
+        # the HR sidebar -- it just names the owners that legitimately do.
+        self.assertEqual(owners, {"core", "hr", "sla"},
                          "HR sidebar must contain zero Approval/Document entries")
+        self.assertEqual([i["label"] for i in hr if i["owner"] == "sla"],
+                         ["Điểm SLA"])
         # 2026-08-21: leave + the install guide joined the hr provider so all
         # /ec-hr/* pages paint the SAME sidebar (before, /ec-hr/leave resolved
         # to `home` and painted the full portal sidebar).
@@ -65,13 +71,15 @@ class TestRouteToContext(unittest.TestCase):
             if i["group"] not in groups:
                 groups.append(i["group"])
         self.assertEqual(groups, ["Workspace", "Nhân sự", "Báo cáo & Phân tích", "Tài nguyên"])
-        # 16 restored-IA items + 1 approved addition: "Trung tâm Báo cáo"
-        # (/reports). Two more are registered but sidebar_hidden, so compose()
+        # 16 restored-IA items + 2 approved additions: "Trung tâm Báo cáo"
+        # (/reports) and "Điểm SLA" (/sla, 2026-09-17 -- an alias row; the
+        # route is canonically owned by the hr context). Two more are
+        # registered but sidebar_hidden, so compose()
         # must not show them: "Việc của tôi" (the desktop header inbox already
         # opens that feed -- a sidebar row would be a second door to the same
         # room) and "Cài app lên điện thoại" (a phone-install guide has no
         # business in the desktop portal menu; it still shows inside /ec-hr).
-        self.assertEqual(len(home), 17)
+        self.assertEqual(len(home), 18)
         self.assertFalse(any(i["route"] == "/viec-cua-toi" for i in home))
         self.assertFalse(any(i["route"] == "/ec-hr/huong-dan-cai-app" for i in home))
         labels = {i["label"]: i["route"] for i in home}
