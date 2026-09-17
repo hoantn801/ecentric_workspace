@@ -79,7 +79,7 @@
 
   /* ------------------------------------------------------------------ state */
   var S = { filled: {}, sources: {}, before: {}, busy: false, remaining: null, cap: null,
-            maxChars: 8000, maxFiles: 5, picked: {}, panel: null };
+            maxChars: 8000, maxFiles: 5, picked: {}, _filesHtml: null, panel: null };
 
   /* Danh sách tệp người dùng đã tải lên phiếu nháp. PURE theo `root` — test được.
    * Khử trùng theo url: trang có thể vẽ cùng một tệp ở hai chỗ. */
@@ -239,37 +239,67 @@
     S.panel.querySelector(".ec-aifill-run").onclick = run;
     var u = S.panel.querySelector(".ec-aifill-undo");
     if (u) u.onclick = undoAll;
+    // Panel vừa bị ghi đè innerHTML nên hộp tệp là hộp MỚI và RỖNG. Không xoá nhớ đệm thì
+    // `renderFiles` so chuỗi thấy "y như cũ" rồi bỏ qua, và khối tệp không bao giờ hiện lại.
+    S._filesHtml = null;
     renderFiles();
   }
 
-  /* Vẽ RIÊNG khối tệp, không vẽ lại cả panel: trang đổi DOM liên tục (mỗi lần tải xong một
-   * tệp là một lần `renderFileList`), mà vẽ lại cả panel thì con trỏ trong ô văn bản nhảy
-   * về đầu ngay giữa lúc người ta đang gõ. */
-  function renderFiles() {
-    var box = S.panel && S.panel.querySelector(".ec-aifill-files");
-    if (!box) return;
-    if (!ATTACH_SEL[code]) { box.innerHTML = ""; return; }
-    var list = readAttachments(document);
-    if (!list.length) {
-      box.innerHTML = '<div class="ec-aifill-nofile">Chưa có tệp đính kèm. Tải hoá đơn / hợp đồng ở mục ' +
+  /* HTML của khối tệp. PURE — và phải TẤT ĐỊNH: cùng đầu vào phải ra đúng cùng một chuỗi,
+   * vì `renderFiles` dựa vào việc so chuỗi để biết có cần ghi DOM hay không. */
+  function filesHtml(list, picked, maxFiles) {
+    if (!list || !list.length) {
+      return '<div class="ec-aifill-nofile">Chưa có tệp đính kèm. Tải hoá đơn / hợp đồng ở mục ' +
         '<b>Tệp đính kèm</b> bên dưới rồi quay lại — AI đọc được PDF, ảnh và văn bản thuần ' +
         '(tệp Word/Excel thì xuất ra PDF trước).</div>';
-      return;
     }
-    var over = list.length > S.maxFiles;
+    var over = list.length > maxFiles;
     var rows = list.map(function (f, i) {
-      var beyond = i >= S.maxFiles;
-      var on = S.picked[f.url] !== false && !beyond;
+      var beyond = i >= maxFiles;
+      var on = (picked || {})[f.url] !== false && !beyond;
       return '<label class="ec-aifill-file' + (beyond ? " is-off" : "") + '">' +
         '<input type="checkbox" data-file="' + esc(f.url) + '"' +
         (on ? " checked" : "") + (beyond ? " disabled" : "") + '>' +
         '<span>' + esc(f.name) + '</span></label>';
     }).join("");
-    box.innerHTML = '<div class="ec-aifill-files-lbl">AI đọc các tệp này:</div>' + rows +
-      (over ? '<div class="ec-aifill-nofile">Một lượt đọc tối đa ' + S.maxFiles +
+    return '<div class="ec-aifill-files-lbl">AI đọc các tệp này:</div>' + rows +
+      (over ? '<div class="ec-aifill-nofile">Một lượt đọc tối đa ' + maxFiles +
               ' tệp — những tệp sau đã bị tắt. Vẫn đính kèm đủ vào phiếu như bình thường.</div>' : "");
+  }
+
+  /* Mutation nào do CHÍNH ASSET NÀY gây ra bên trong panel của nó. PURE.
+   *
+   * Không có phép lọc này thì `renderFiles` ghi `innerHTML` → đó là một mutation trong
+   * `document.body` → observer chạy lại → ghi lại → TREO CẢ TRANG. Đã xảy ra thật ngày
+   * 17/09 trên production: trang payment-request chỉ còn mỗi panel, form biến mất. */
+  function fromUs(muts, panel) {
+    if (!panel || !muts || !muts.length) return false;
+    for (var i = 0; i < muts.length; i++) {
+      if (!panel.contains(muts[i].target)) return false;
+    }
+    return true;
+  }
+
+  /* Vẽ RIÊNG khối tệp, không vẽ lại cả panel: trang đổi DOM liên tục (mỗi lần tải xong một
+   * tệp là một lần `renderFileList`), mà vẽ lại cả panel thì con trỏ trong ô văn bản nhảy
+   * về đầu ngay giữa lúc người ta đang gõ.
+   *
+   * GHI CÓ ĐIỀU KIỆN. Ghi vô điều kiện = tự nuôi observer của chính mình (xem `fromUs`). */
+  function renderFiles() {
+    var box = S.panel && S.panel.querySelector(".ec-aifill-files");
+    if (!box) return;
+    var html = ATTACH_SEL[code]
+      ? filesHtml(readAttachments(document), S.picked, S.maxFiles) : "";
+    if (html === S._filesHtml) return;        // không có gì đổi -> KHÔNG đụng vào DOM
+    S._filesHtml = html;
+    box.innerHTML = html;
     Array.prototype.forEach.call(box.querySelectorAll("[data-file]"), function (cb) {
-      cb.onchange = function () { S.picked[cb.getAttribute("data-file")] = cb.checked; };
+      cb.onchange = function () {
+        S.picked[cb.getAttribute("data-file")] = cb.checked;
+        // Ô tick là do người dùng bấm, DOM đã đúng rồi — chỉ bỏ nhớ đệm để lần vẽ sau
+        // không tưởng nhầm là không có gì đổi.
+        S._filesHtml = null;
+      };
     });
   }
 
@@ -383,8 +413,10 @@
       }, 400);
     }
     // Trang vẽ lại liên tục → vẽ lại dấu + gắn lại panel sau mỗi lần DOM đổi.
-    new MutationObserver(function () { mount(); paint(); renderFiles(); })
-      .observe(document.body, { childList: true, subtree: true });
+    new MutationObserver(function (muts) {
+      if (fromUs(muts, S.panel)) return;     // đừng tự đuổi theo cái đuôi của mình
+      mount(); paint(); renderFiles();
+    }).observe(document.body, { childList: true, subtree: true });
 
     // Gõ tay vào một ô AI đã điền → dấu biến mất. `capture` để bắt trước handler của trang.
     ["input", "change"].forEach(function (evt) {
@@ -411,5 +443,5 @@
   // Bề mặt cho test: HÀM THUẦN, không phải state.
   window.__ecAifill = { writeOrder: writeOrder, isUserEdit: isUserEdit, ROUTES: ROUTES,
                        readAttachments: readAttachments, pickedUrls: pickedUrls,
-                       ATTACH_SEL: ATTACH_SEL };
+                       filesHtml: filesHtml, fromUs: fromUs, ATTACH_SEL: ATTACH_SEL };
 })();
