@@ -132,3 +132,38 @@ def on_resubmitted(request_doctype, request_name, level_no, to_dt, attempt=1):
     return _safe("end_pause",
                  source_doctype=request_doctype, source_name=request_name,
                  level_no=level_no, to_dt=to_dt, attempt=attempt)
+
+
+def on_approver_acted(request_doctype, request_name, level_no, acted_by,
+                      acted_at=None, attempt=1):
+    """MOT nguoi duyet vua bam (duyet / tu choi / yeu cau bo sung).
+
+    Tach khoi `on_level_closed` vi hai su kien nay KHONG trung nhau o cap dong
+    thuan: nguoi duyet thu nhat bam luc 9h va nguoi thu ba bam luc 17h hom sau
+    thi cap chi dong luc 17h hom sau - lay moc do cham cho ca ba se bien mot
+    nguoi dung han thanh nguoi tre vi dong nghiep cham. Moi nguoi mot dong ho.
+    """
+    return _safe("on_approver_acted",
+                 request_doctype=request_doctype, request_name=request_name,
+                 level_no=level_no, acted_by=acted_by, acted_at=acted_at,
+                 attempt=attempt)
+
+
+def on_level_overridden(request_doctype, request_name, level_no, attempt=1, at=None):
+    """Ban Giam doc ep duyet mot cap. Nguoi duyet cua cap do mat nut bam, nen
+    ho duoc cham THEO HAN: da qua han thi van tinh la khong phan hoi, chua toi
+    han thi loai tru (chu so huu chot 17/09)."""
+    return _safe("override_approval_step_obligations",
+                 request_doctype=request_doctype, request_name=request_name,
+                 level_no=level_no, attempt=attempt, at=at)
+
+
+def on_request_restarted(request_doctype, request_name, attempt=1, at=None):
+    """Ho so duoc lam lai tu cap 1 -> ket so lan chay vua roi (cung luat theo han).
+
+    `attempt` la lan chay CU, khong phai lan moi: goi ham nay TRUOC khi ghi nhat
+    ky `Restarted`, vi so lan duoc suy ra tu chinh nhat ky do.
+    """
+    return _safe("restart_approval_obligations",
+                 request_doctype=request_doctype, request_name=request_name,
+                 attempt=attempt, at=at)
