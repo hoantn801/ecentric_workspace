@@ -32,7 +32,12 @@ import json
 import frappe
 from frappe import _
 
-from ecentric_workspace.weekly_report import deck_sharing, sharepoint, submit_service
+from ecentric_workspace.weekly_report import (
+    deck_sharing,
+    due_backfill,
+    sharepoint,
+    submit_service,
+)
 from ecentric_workspace.weekly_report.scheduler import generate_weekly_obligations
 
 
@@ -125,6 +130,28 @@ def convert_decks_to_org_links(weeks=None, limit=25):
     if isinstance(weeks, str):
         weeks = json.loads(weeks) if weeks.strip().startswith("[") else [weeks]
     return deck_sharing.convert_pending(weeks=weeks, limit=int(limit or 25))
+
+
+@frappe.whitelist(methods=["POST"])
+def backfill_weekly_due_at(weeks=None, limit=500, dry_run=1, skip_if_late=0):
+    """Fill missing `due_at` on Weekly Team Update rows. Reports by default.
+
+    Writes across other people's records -> System Manager only.
+
+    dry_run defaults to 1 and must be passed 0 EXPLICITLY to write anything.
+    The report carries `would_be_late`: rows whose author becomes late once
+    given a deadline. Read that number before writing -- the missing deadline
+    was our bug, not theirs.
+    """
+    frappe.only_for("System Manager")
+    if isinstance(weeks, str):
+        weeks = json.loads(weeks) if weeks.strip().startswith("[") else [weeks]
+    return due_backfill.backfill(
+        weeks=weeks,
+        limit=int(limit or 500),
+        dry_run=bool(int(dry_run)),
+        skip_if_late=bool(int(skip_if_late)),
+    )
 
 
 @frappe.whitelist(methods=["POST"])

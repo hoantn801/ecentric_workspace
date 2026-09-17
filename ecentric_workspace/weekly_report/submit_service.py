@@ -17,7 +17,7 @@ import json
 import frappe
 from frappe.utils import now
 
-from ecentric_workspace.weekly_report import sharepoint
+from ecentric_workspace.weekly_report import sharepoint, week_calendar
 
 
 WTU = "Weekly Team Update"
@@ -35,6 +35,53 @@ class SubmitError(Exception):
     """Payload is unusable -- the API layer maps this to a friendly message."""
 
 
+def _apply_obligation_fields(doc, employee, week_label):
+    """Give a self-created row the same deadline the generator would have set.
+
+    THE BUG THIS FIXES (found 2026-09-17, 211 rows): there are two ways a
+    Weekly Team Update comes into existence --
+
+      service.ensure_weekly_obligation  daily 00:00 generator, always sets due_at
+      submit_service._get_or_create     this file, when the row does not exist yet
+
+    Anyone submitting BEFORE the generator has run for their week went down the
+    second path, and this function did not exist: the row was born with no
+    deadline, _apply_fields() set status = Submitted immediately, and from then
+    on the generator skipped it forever (`status in TERMINAL_STATES`). So the
+    deadline could never be filled in later. Weekly reports now feed SLA, and a
+    row with no deadline cannot be measured -- which meant submitting EARLY got
+    you left out of the numbers. Exactly backwards.
+
+    Department comes from the EMPLOYEE record, not the payload: compute_due_at()
+    needs the Department record name (DRW.name == Department.name), while
+    payload["department"] is a browser-supplied display string. The generator
+    reads Employee.department too -- same source, same answer.
+
+    obligation_key is set so the canonical lookup in service.py finds this row
+    instead of falling through to the legacy branch. generated_obligation stays
+    0 on purpose: the generator did NOT create this row, and setting the flag
+    would record something untrue.
+
+    A missing or disabled DRW must NOT block the person from submitting. It is a
+    configuration gap owned by HR, and turning it into "you cannot file your
+    report" would trade a measurement bug for an outage. Leave due_at empty and
+    log; sla/weekly_source already surfaces no-deadline rows in its `khong_han`
+    bucket (fix ea008665), and due_backfill.py can fill them once the DRW exists.
+    """
+    doc.obligation_key = str(employee) + "::" + str(week_label)
+    department = frappe.db.get_value("Employee", employee, "department")
+    try:
+        doc.due_at = week_calendar.due_at_for_label(week_label, department)
+    except (week_calendar.MissingReportingWindowError, ValueError) as exc:
+        frappe.log_error(
+            "wr.submit_no_due employee=" + str(employee)
+            + " week=" + str(week_label)
+            + " dept=" + str(department)
+            + " err=" + str(exc)[:200],
+            "wr.submit_no_due",
+        )
+
+
 def _get_or_create(payload, employee, week_label):
     # Existence MUST be keyed by (employee, week) because the docname is built
     # from employee -- keying it on submitter caused the 1062 duplicate
@@ -43,6 +90,11 @@ def _get_or_create(payload, employee, week_label):
         WTU, {"employee": employee, "week_label": week_label}, "name"
     )
     if name:
+        # Deliberately NOT repairing due_at on an existing row here. Re-opening
+        # and re-submitting an old report would otherwise hand it a deadline it
+        # never had, and could mark someone late for a week that is already
+        # closed. Historical rows are the backfill's job, where the decision is
+        # explicit and reviewable -- see due_backfill.py.
         return frappe.get_doc(WTU, name)
     doc = frappe.new_doc(WTU)
     doc.week_label = week_label
@@ -54,6 +106,7 @@ def _get_or_create(payload, employee, week_label):
             week_label, emp_code, sharepoint.dept_clean(payload.get("department"))
         )
         doc.flags.name_set = True
+    _apply_obligation_fields(doc, employee, week_label)
     return doc
 
 
