@@ -46,6 +46,42 @@ def _rows(filters, limit):
                           order_by="due_at asc", limit_page_length=limit)
 
 
+def _rows_no_due(since, limit):
+    """Ban bao cao KHONG CO HAN (`due_at` rong).
+
+    PHAI QUET RIENG. Bo loc `due_at >= since` khong bao gio khop NULL trong SQL,
+    nen nhung ban nay vo hinh voi ca vong quet - ke ca voi cai thung `khong_han`
+    duoc tao ra dung de phat hien chung. Bao cao tra ve `khong_han: 0` trong khi
+    tren ban chay 17/09 co 211 ban nhu vay. Mot he do luong bao "khong co van de
+    gi" vi no khong nhin thay van de la dung kieu hong nguy hiem nhat o day.
+
+    NGUON GOC (khao sat 17/09): `weekly_report/service.ensure_weekly_obligation`
+    - bo sinh hang ngay - LUON dat `due_at`. Nhung
+    `weekly_report/submit_service._get_or_create` thi khong: ai nop bao cao
+    TRUOC khi bo sinh chay se tu tao ban ghi cua minh, khong co han, roi ban do
+    thanh `Submitted` ngay - va tu do bo sinh bo qua no vinh vien
+    (`status in TERMINAL_STATES`). Do la module cua nhom khac; o day chi lo hien
+    chung ra cho dung.
+
+    Chan theo `creation` chu khong quet het lich su: cung mot cua so thoi gian
+    voi nhanh con lai.
+    """
+    return frappe.get_all(WTU, filters={"due_at": ("is", "not set"),
+                                        "creation": (">=", since)},
+                          fields=_FIELDS, order_by="creation asc",
+                          limit_page_length=limit)
+
+
+def _scan_rows(since, limit):
+    """Tat ca ban bao cao trong cua so - CA nhung ban khong co han."""
+    rows = _rows({"due_at": (">=", since)}, limit)
+    seen = {r["name"] for r in rows}
+    for r in _rows_no_due(since, limit):
+        if r["name"] not in seen:
+            rows.append(r)
+    return rows
+
+
 def sync_row(row, report):
     """Mot WTU -> mot nghia vu. Tra ve 'opened' | 'closed' | 'skipped'."""
     action, closed_at, reason = weekly_rules.decide(row)
@@ -106,7 +142,7 @@ def sync(since=None, limit=2000):
     since = since or frappe.utils.add_days(frappe.utils.nowdate(), -60)
     report = _new_report()
     try:
-        rows = _rows({"due_at": (">=", since)}, limit)
+        rows = _scan_rows(since, limit)
     except Exception:
         frappe.log_error(title="sla.weekly_source.sync", message=frappe.get_traceback())
         return report
@@ -204,7 +240,7 @@ def preview(weeks=26, limit=20000):
     out = {"tu_ngay": since, "quet": 0, "dung_han": 0, "tre": 0, "chua_nop": 0,
            "khong_cham_duoc": 0, "theo_nguoi": {}}
     try:
-        rows = _rows({"due_at": (">=", since)}, limit)
+        rows = _scan_rows(since, limit)
     except Exception:
         frappe.log_error(title="sla.weekly_source.preview",
                          message=frappe.get_traceback())
