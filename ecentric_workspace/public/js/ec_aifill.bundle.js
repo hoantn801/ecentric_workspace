@@ -84,7 +84,7 @@
 
   /* ------------------------------------------------------------------ state */
   var S = { filled: {}, sources: {}, before: {}, busy: false, remaining: null, cap: null,
-            maxChars: 8000, maxFiles: 5, files: [], fileExts: [], uploading: false,
+            maxChars: 8000, maxFiles: 5, files: [], fileExts: [], uploading: false, ran: false,
             _filesHtml: null, panel: null };
 
   /* Tệp có nhận được không, và nếu không thì VÌ SAO. PURE.
@@ -180,7 +180,7 @@
       var el = control(name);
       if (el && Object.prototype.hasOwnProperty.call(S.before, name)) setValue(el, S.before[name]);
     });
-    S.filled = {}; S.sources = {}; S.before = {};
+    S.filled = {}; S.sources = {}; S.before = {}; S.ran = false;
     paint(); render();
   }
 
@@ -192,10 +192,53 @@
 
   /** Vẽ lại dấu sau MỖI lần trang đổi DOM. Dấu phải suy ra từ state của asset, không bám
    *  vào phần tử — `renderCreate` thay sạch innerHTML nên mọi thứ gắn vào DOM đều bay. */
+  /* Ô nào BẮT BUỘC mà còn trống. Đọc dấu `*` mà chính trang đã vẽ (`label > .req`) —
+   * không đoán theo danh sách cứng, vì danh sách cứng lệch khỏi form là lệch âm thầm.
+   * Chỉ tính ô ĐANG HIỆN: `request_attachment` là ô bắt buộc nhưng bị khối ký số ẩn đi,
+   * tô đỏ một ô không nhìn thấy là chỉ vào hư không. */
+  function missingRequired() {
+    var out = [];
+    document.querySelectorAll("[data-fld]").forEach(function (box) {
+      var lab = box.querySelector("label");
+      if (!lab || !lab.querySelector(".req")) return;
+      var el = box.querySelector("input, select, textarea");
+      if (!el || !el.offsetParent) return;
+      if (el.type === "checkbox") { if (!el.checked) out.push(box); return; }
+      if (!String(el.value || "").trim()) out.push(box);
+    });
+    return out;
+  }
+
   function paint() {
     document.querySelectorAll(".ec-aifill-badge, .ec-aifill-src").forEach(function (n) {
       if (!S.filled[n.getAttribute("data-for")]) n.remove();
     });
+
+    /* BẢN ĐỒ HOÀN THÀNH, không phải báo cáo lỗi.
+     *
+     * Vàng cho ô AI điền: vàng là màu NHẬN DIỆN của trợ lý (cùng con mặt vàng trên dấu),
+     * không phải màu ngữ nghĩa — nên nó không phạm A58. Xanh thì phạm: xanh ở hệ này nghĩa
+     * là "đã duyệt", tô xanh một ô chưa ai duyệt là dạy sai từ vựng trạng thái.
+     *
+     * Đỏ nhạt cho ô bắt buộc còn trống: đỏ ở hệ này CÓ phần dành cho validation
+     * (DESIGN.md §Colors: "Từ chối, lỗi validation, dấu *"). Nhưng chỉ bật SAU KHI AI chạy
+     * một lượt — một form trắng chưa ai đụng vào mà đỏ lòm là mắng người dùng trước khi họ
+     * làm gì. Và dùng WASH chứ không dùng viền đỏ: viền đỏ là ngôn ngữ riêng của validation
+     * sau khi bấm Gửi (`.fld.invalid`), mượn nó ở đây là hai thứ khác nhau trông giống nhau.
+     */
+    document.querySelectorAll(".ec-aifill-lit, .ec-aifill-gap").forEach(function (n) {
+      n.classList.remove("ec-aifill-lit", "ec-aifill-gap");
+    });
+    Object.keys(S.filled).forEach(function (name) {
+      var box = fieldBox(name);
+      if (box) box.classList.add("ec-aifill-lit");
+    });
+    if (S.ran) {
+      missingRequired().forEach(function (box) {
+        if (!box.classList.contains("ec-aifill-lit")) box.classList.add("ec-aifill-gap");
+      });
+    }
+
     Object.keys(S.filled).forEach(function (name) {
       var box = fieldBox(name);
       if (!box) return;
@@ -446,6 +489,7 @@
           return;
         }
         S.sources = res.sources || {};
+        S.ran = true;
         var fields = res.fields || {};
         fillSequential(fields, function () {
           render();
@@ -526,5 +570,6 @@
   // Bề mặt cho test: HÀM THUẦN, không phải state.
   window.__ecAifill = { writeOrder: writeOrder, isUserEdit: isUserEdit, ROUTES: ROUTES,
                        filesHtml: filesHtml, fromUs: fromUs,
-                       refuseReason: refuseReason, kb: kb };
+                       refuseReason: refuseReason, kb: kb,
+                       missingRequired: missingRequired };
 })();

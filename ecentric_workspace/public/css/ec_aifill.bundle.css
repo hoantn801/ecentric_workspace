@@ -155,6 +155,52 @@
 }
 .ec-aifill-badge svg{ width:12px; height:12px; flex:none; margin-top:-.5px; }
 
+/* ---- Bản đồ hoàn thành trên chính form -------------------------------------
+ * Hai trạng thái, đọc được khi liếc dọc cả cột — đó là việc nó phải làm.
+ *
+ * VÀNG cho ô AI điền. Vàng là màu NHẬN DIỆN của trợ lý (cùng con mặt vàng trên dấu
+ * "AI điền"), không phải màu ngữ nghĩa, nên không phạm A58. Xanh thì phạm: xanh ở hệ này
+ * nghĩa là "đã duyệt" — tô xanh một ô chưa ai duyệt là dạy sai từ vựng trạng thái ngay tại
+ * nơi người dùng học nó.
+ *
+ * ĐỎ NHẠT cho ô bắt buộc còn trống, và chỉ SAU KHI AI chạy một lượt. Dùng WASH chứ không
+ * dùng viền đỏ: viền đỏ đã là ngôn ngữ của `.fld.invalid` sau khi bấm Gửi. Hai thứ khác
+ * nhau thì không được trông giống nhau.
+ *
+ * Tô vào Ô NHẬP chứ không tô cả khối: nhãn giữ nền trắng nên chữ nhỏ 12.5px không mất
+ * tương phản. ĐO THẬT: chữ #111827 trên #fffaf0 = 17.05:1, trên #fef6f6 = 16.66:1. Ca khó
+ * là PLACEHOLDER (#6b7280, "dd/mm/yyyy"): 4.65:1 và 4.54:1 — vừa đủ trên ngưỡng 4.5 của
+ * The Measured-Contrast Rule. Nền đậm hơn một nấc là placeholder rớt xuống dưới ngưỡng.
+ */
+.ec-aifill-lit > input,
+.ec-aifill-lit > select,
+.ec-aifill-lit > textarea,
+.ec-aifill-lit > .ec-cb,
+.ec-aifill-lit > div > input{
+  background:#fffaf0; border-color:#f0d9a6;
+}
+.ec-aifill-gap > input,
+.ec-aifill-gap > select,
+.ec-aifill-gap > textarea,
+.ec-aifill-gap > .ec-cb,
+.ec-aifill-gap > div > input{
+  background:#fef6f6; border-color:#f3c9c9;
+}
+/* Người dùng bấm vào ô nào thì ô đó trở lại trung tính — đang gõ mà nền vẫn kêu là ồn. */
+.ec-aifill-lit > :focus,
+.ec-aifill-gap > :focus{ background:var(--ec-af-surface); }
+
+/* Nhãn ô còn thiếu: chỉ dấu `*` đậm lên. Không thêm chữ "còn thiếu" — dấu sao đã nói rồi,
+ * và một dòng chữ nữa ở 12 ô cùng lúc là nhiễu, không phải thông tin. */
+.ec-aifill-gap > label .req{ font-weight:800; }
+
+@media (prefers-reduced-motion:no-preference){
+  .ec-aifill-lit > input,.ec-aifill-lit > select,.ec-aifill-lit > textarea,
+  .ec-aifill-gap > input,.ec-aifill-gap > select,.ec-aifill-gap > textarea{
+    transition:background .18s cubic-bezier(.4,0,.2,1), border-color .18s cubic-bezier(.4,0,.2,1);
+  }
+}
+
 /* Trích dẫn nguồn: thứ phải so sánh thì phải đứng cạnh nhau — ngay dưới ô, không phải tooltip. */
 .ec-aifill-src{
   margin-top:6px; padding-left:10px; border-left:1px solid var(--ec-af-navy-line);

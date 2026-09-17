@@ -178,5 +178,52 @@ function nap(pathname) {
   la(fromUs([{ target: "x" }], null) === false, "chua co panel -> khong no");
 }
 
+// ---- 8. G2 — bản đồ hoàn thành: ô bắt buộc nào còn trống ----------------------
+// Đọc dấu `*` mà CHÍNH TRANG đã vẽ, không theo danh sách cứng: danh sách cứng lệch khỏi
+// form là lệch âm thầm. Và chỉ tính ô ĐANG HIỆN — `request_attachment` là ô bắt buộc bị
+// khối ký số ẩn đi, tô đỏ nó là chỉ vào hư không (đúng cái ngõ cụt BOT 12 của trang).
+{
+  function o({ req = true, value = "", hien = true, type = "text", checked = false }) {
+    const el = { value, type, checked, offsetParent: hien ? {} : null };
+    const lab = { querySelector: (s) => (s === ".req" && req ? {} : null) };
+    return {
+      querySelector: (s) => (s === "label" ? lab : el),
+      classList: { _v: [], contains(c) { return this._v.includes(c); },
+                   add(c) { this._v.push(c); } },
+    };
+  }
+  function nap2(boxes) {
+    const tai = { location: { pathname: "/approvals/payment-request" },
+      requestAnimationFrame: (f) => f(), MutationObserver: class { observe() {} },
+      Event: class { constructor(t) { this.type = t; } } };
+    const doc = { readyState: "complete", body: { contains: () => true },
+      addEventListener() {}, querySelector: () => null,
+      querySelectorAll: (s) => (s === "[data-fld]" ? boxes : []),
+      createElement: () => ({ style: {}, classList: { add() {}, toggle() {} },
+                              setAttribute() {}, appendChild() {}, querySelector: () => null }) };
+    const src = readFileSync(SRC, "utf8");
+    new Function("window", "document", "frappe", src)(tai, doc, undefined);
+    return tai.__ecAifill;
+  }
+
+  const trong = o({});
+  const dayDu = o({ value: "Trần Hoàn" });
+  const khongBatBuoc = o({ req: false });
+  const an = o({ hien: false });
+  const tick = o({ type: "checkbox", checked: false });
+
+  const ra = nap2([trong, dayDu, khongBatBuoc, an, tick]).missingRequired();
+  la(ra.includes(trong), "o bat buoc va trong -> con thieu");
+  la(!ra.includes(dayDu), "o da co gia tri -> khong con thieu");
+  la(!ra.includes(khongBatBuoc), "o KHONG bat buoc va trong -> khong tinh la thieu");
+  la(!ra.includes(an), "o bat buoc nhung DANG AN -> khong to do, khong chi vao hu khong");
+  la(ra.includes(tick), "o tick bat buoc chua tick -> con thieu");
+  la(ra.length === 2, "dung hai o, khong nhieu hon");
+
+  // Khoảng trắng không phải là đã điền.
+  la(nap2([o({ value: "   " })]).missingRequired().length === 1,
+     "chi co khoang trang -> van la con thieu");
+}
+
 console.log(`${dat} dat, ${hong} hong`);
 process.exit(hong ? 1 : 0);
