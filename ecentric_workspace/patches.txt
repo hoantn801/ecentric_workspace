@@ -259,3 +259,4 @@ ecentric_workspace.sla.patches.p004_sla_effective_dates
 ecentric_workspace.sla.patches.p005_sync_sla_page
 ecentric_workspace.sla.patches.p006_home_sla_card
 ecentric_workspace.sla.patches.p007_resync_sla_page
+ecentric_workspace.sla.patches.p008_weekly_start_w38

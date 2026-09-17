@@ -57,7 +57,9 @@ def sync_row(row, report):
         return "skipped"
 
     if obl.before_start(TYPE_WEEKLY_REPORT, row.get("creation")):
-        # Truoc ngay bat dau ap dung (chot 17/09: nhom nay tinh tu 21/09).
+        # Truoc ngay bat dau ap dung. Chot 17/09 la 21/09, doi ngay chieu hom
+        # do sang tuan 2026-W38 (moc ghi 12/09 vi day doi chieu voi `creation`
+        # cua ban bao cao, khong phai han nop - xem patch p008).
         # Dem RIENG, khong gop vao "khong mo duoc": mot bang bao cao binh thuong
         # khong duoc trong giong nhu mot dong loi.
         report["truoc_ngay_ap_dung"].append(row.get("name"))
