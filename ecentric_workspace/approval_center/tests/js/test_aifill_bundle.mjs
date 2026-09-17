@@ -157,5 +157,35 @@ function goc(hrefs) {
   la(pickedUrls(null, {}, 5).length === 0, "danh sach rong -> khong no");
 }
 
+// ---- 7. Asset KHÔNG được tự nuôi MutationObserver của chính nó -----------------
+// SỰ CỐ 17/09/2026 trên production: `renderFiles` ghi `innerHTML` mỗi lần observer chạy;
+// cái ghi đó LÀ một mutation trong `document.body` → observer chạy lại → treo cả trang.
+// Trang /approvals/payment-request chỉ còn mỗi panel, form biến mất.
+// Hai cơ chế chặn, mỗi cái đủ một mình, và cả hai đều phải có test.
+{
+  const { filesHtml, fromUs } = nap("/approvals/payment-request");
+
+  // (a) HTML phải TẤT ĐỊNH — đó là thứ cho phép so chuỗi để khỏi ghi lại.
+  const ds = [{ url: "/private/files/a.pdf", name: "a.pdf" }];
+  la(filesHtml(ds, {}, 5) === filesHtml(ds, {}, 5),
+     "cung dau vao -> cung mot chuoi HTML (so chuoi moi dung duoc)");
+  la(filesHtml([], {}, 5) === filesHtml([], {}, 5), "truong hop rong cung tat dinh");
+  la(filesHtml(ds, {}, 5) !== filesHtml([], {}, 5), "co tep va khong co tep phai KHAC nhau");
+  const bo = {}; bo["/private/files/a.pdf"] = false;
+  la(filesHtml(ds, bo, 5) !== filesHtml(ds, {}, 5),
+     "bo tick lam doi HTML -> lan ve sau khong bi nho dem nuot mat");
+
+  // (b) Mutation do chính panel này gây ra thì bỏ qua.
+  const panel = { contains: (n) => n === "trong-panel" };
+  la(fromUs([{ target: "trong-panel" }], panel) === true,
+     "mutation trong panel -> BO QUA (khong chay lai vong ve)");
+  la(fromUs([{ target: "ngoai-panel" }], panel) === false,
+     "mutation ngoai panel -> phai xu ly");
+  la(fromUs([{ target: "trong-panel" }, { target: "ngoai-panel" }], panel) === false,
+     "lan lon thi van phai xu ly - bo sot mot lan ve cua trang la hong dau AI dien");
+  la(fromUs([], panel) === false, "danh sach rong -> khong coi la cua minh");
+  la(fromUs([{ target: "x" }], null) === false, "chua co panel -> khong no");
+}
+
 console.log(`${dat} dat, ${hong} hong`);
 process.exit(hong ? 1 : 0);
