@@ -215,3 +215,27 @@ def weekly_coverage(period=None):
     if not _require_admin():
         return _fail(_("Chi System Manager duoc xem do phu."))
     return _ok(weekly_source.coverage(period))
+
+
+@frappe.whitelist()
+def weekly_preview(weeks=26):
+    """Engine SE cham diem the nao cho cac tuan da qua - CHI DOC, khong ghi gi.
+
+    Dung de kiem chung cong thuc bang du lieu that TRUOC khi no cham diem ai.
+    Khac `backfill_weekly`: ham do TAO nghia vu that va bi chan boi ngay bat dau
+    ap dung; ham nay khong bi chan vi no khong tao gi ca.
+    """
+    if not _require_admin():
+        return _fail(_("Chi System Manager duoc xem ban chay kho."))
+    from ecentric_workspace.sla.infrastructure import weekly_source
+    return _ok(weekly_source.preview(weeks=int(weeks or 26)))
+
+
+@frappe.whitelist()
+def effective_dates():
+    """Ngay bat dau cham diem cua tung nhom - de doi chieu sau khi deploy."""
+    from ecentric_workspace.sla.constants import DT_TYPE
+    rows = frappe.get_all(DT_TYPE, fields=["type_code", "group_key", "effective_from",
+                                           "counts_toward_sla", "min_sample", "active"],
+                          order_by="sort_order asc", limit_page_length=0)
+    return _ok(rows)

@@ -27,7 +27,8 @@ def get_type(type_code):
     return frappe.db.get_value(
         DT_TYPE, {"type_code": type_code},
         ["name", "type_code", "type_name", "group_key", "counts_toward_sla",
-         "min_sample", "default_policy", "unit_label", "active"], as_dict=True)
+         "min_sample", "default_policy", "unit_label", "active",
+         "effective_from"], as_dict=True)
 
 
 def get_policy(policy_code):

@@ -56,6 +56,13 @@ def sync_row(row, report):
         report["khong_han"].append("%s (%s)" % (row.get("name"), reason))
         return "skipped"
 
+    if obl.before_start(TYPE_WEEKLY_REPORT, row.get("creation")):
+        # Truoc ngay bat dau ap dung (chot 17/09: nhom nay tinh tu 21/09).
+        # Dem RIENG, khong gop vao "khong mo duoc": mot bang bao cao binh thuong
+        # khong duoc trong giong nhu mot dong loi.
+        report["truoc_ngay_ap_dung"].append(row.get("name"))
+        return "skipped"
+
     name = obl.open_obligation(
         type_code=TYPE_WEEKLY_REPORT,
         owner_user=row["submitter"],
@@ -85,7 +92,7 @@ def sync_row(row, report):
 
 def _new_report():
     return {k: [] for k in ("mo", "dong", "da_dong_tu_truoc", "khong_han",
-                            "khong_mo_duoc", "loi")}
+                            "truoc_ngay_ap_dung", "khong_mo_duoc", "loi")}
 
 
 def sync(since=None, limit=2000):
@@ -170,3 +177,51 @@ def coverage(period=None):
 def open_count():
     return frappe.db.count(DT_OBLIGATION, {"obligation_type": TYPE_WEEKLY_REPORT,
                                            "status": STATUS_OPEN})
+
+
+# --------------------------------------------------------------------------- #
+# Chay kho
+# --------------------------------------------------------------------------- #
+def preview(weeks=26, limit=20000):
+    """Engine SE cham diem the nao cho cac tuan da qua - KHONG GHI GI CA.
+
+    Ton tai vi hai dieu dung nhau: chu so huu chot nhom bao cao tuan chi tinh tu
+    21/09, nhung engine cham diem thi can duoc kiem chung bang du lieu THAT chu
+    khong phai bang test. Neu bu nguoc that thi se tao ra nghia vu cho nhung tuan
+    khong duoc phep cham diem; neu khong bu thi phai doi bon tuan moi biet engine
+    dung hay sai.
+
+    Ham nay go nut do: tinh tren chinh du lieu `Weekly Team Update` co san, tra
+    ve con so, khong cham vao DB. Doi chieu ket qua voi thuc te la cach re nhat
+    de biet cong thuc co dung khong TRUOC khi no cham diem ai.
+    """
+    from frappe.utils import get_datetime
+    from ecentric_workspace.sla.domain import scoring
+
+    since = frappe.utils.add_days(frappe.utils.nowdate(), -7 * int(weeks or 1))
+    out = {"tu_ngay": since, "quet": 0, "dung_han": 0, "tre": 0, "chua_nop": 0,
+           "khong_cham_duoc": 0, "theo_nguoi": {}}
+    try:
+        rows = _rows({"due_at": (">=", since)}, limit)
+    except Exception:
+        frappe.log_error(title="sla.weekly_source.preview",
+                         message=frappe.get_traceback())
+        return out
+
+    now = frappe.utils.now_datetime()
+    out["quet"] = len(rows)
+    for row in rows:
+        action, closed_at, _reason = weekly_rules.decide(row)
+        who = row.get("submitter") or "(không rõ)"
+        bucket = out["theo_nguoi"].setdefault(
+            who, {"dung_han": 0, "tre": 0, "chua_nop": 0, "khong_cham_duoc": 0})
+        if action == weekly_rules.ACT_SKIP:
+            key = "khong_cham_duoc"
+        elif action == weekly_rules.ACT_CLOSE:
+            st, _late = scoring.classify_close(row["due_at"], get_datetime(closed_at))
+            key = "dung_han" if st == "Met" else "tre"
+        else:
+            key = "chua_nop" if get_datetime(row["due_at"]) < now else "khong_cham_duoc"
+        out[key] += 1
+        bucket[key] += 1
+    return out

@@ -23,6 +23,7 @@
   "group_key",
   "counts_toward_sla",
   "min_sample",
+  "effective_from",
   "section_policy",
   "default_policy",
   "unit_label",
@@ -83,6 +84,13 @@
    "label": "Mau toi thieu",
    "default": "5",
    "description": "Duoi nguong nay bang diem hien 'chua du mau' thay vi mot con so %."
+  },
+  {
+   "fieldname": "effective_from",
+   "fieldtype": "Date",
+   "label": "Bat dau ap dung tu",
+   "in_list_view": 1,
+   "description": "Nghia vu MO TRUOC ngay nay khong duoc tao va khong duoc cham diem. Ngay nay duoc TINH. De trong = do tat ca."
   },
   {
    "fieldname": "section_policy",
