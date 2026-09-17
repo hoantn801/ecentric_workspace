@@ -22,7 +22,7 @@ from ecentric_workspace.sla.constants import (
     DEDUPE_SEPARATOR, DT_OBLIGATION, DT_PAUSE, DUE_BUSINESS_HOURS, EXCL_NO_POLICY,
     STATUS_CANCELLED, STATUS_EXCLUDED, STATUS_OPEN,
 )
-from ecentric_workspace.sla.domain import due_rules, scoring
+from ecentric_workspace.sla.domain import due_rules, effective_dates, scoring
 
 _KEY_MAX = 255
 # Cac trang thai KHONG the dung tay dua ve Excluded nua. Ngan hon
@@ -48,6 +48,19 @@ def make_dedupe_key(type_code, owner_user, source_doctype, source_name,
     digest = hashlib.sha1(key.encode("utf-8")).hexdigest()
     head = DEDUPE_SEPARATOR.join(parts[:1] + parts[4:])          # type:detail:attempt
     return (head[:_KEY_MAX - 41] + DEDUPE_SEPARATOR + digest)[:_KEY_MAX]
+
+
+def before_start(type_code, opened_at):
+    """Nghia vu nay co som hon ngay bat dau ap dung cua nhom khong?
+
+    Ben goi dung ham nay de DEM cho dung - "truoc ngay ap dung" khac han
+    "khong mo duoc". Gop hai thu vao mot bucket se lam mot bang bao cao binh
+    thuong trong nhu mot dong loi.
+    """
+    t = policy_service.get_type(type_code)
+    if not t:
+        return False
+    return effective_dates.is_before_start(opened_at, t.get("effective_from"))
 
 
 def _log(label):
@@ -91,6 +104,11 @@ def open_obligation(type_code, owner_user, source_doctype, source_name,
         return None
 
     opened_at = opened_at or now_datetime()
+    # Chan cuoi cung cho ngay bat dau ap dung. Ben goi nen hoi `before_start()`
+    # truoc de dem cho dung bucket, nhung chan o day nua de KHONG duong nao tao
+    # duoc nghia vu som hon moc da chot - ke ca mot lan chay bu go tay.
+    if effective_dates.is_before_start(opened_at, t.get("effective_from")):
+        return None
     employee, department, company = _employee_of(owner_user)
     try:
         due_at = policy_service.compute_due(pol, opened_at, explicit_due=explicit_due,
