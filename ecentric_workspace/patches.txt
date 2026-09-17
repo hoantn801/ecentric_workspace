@@ -257,3 +257,5 @@ ecentric_workspace.sla.patches.p002_import_approval_sla
 ecentric_workspace.sla.patches.p003_seed_weekly_policy
 ecentric_workspace.sla.patches.p004_sla_effective_dates
 ecentric_workspace.sla.patches.p005_sync_sla_page
+ecentric_workspace.sla.patches.p006_home_sla_card
+ecentric_workspace.sla.patches.p007_resync_sla_page
