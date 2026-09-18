@@ -175,32 +175,61 @@
  * Dùng HẬU DUỆ chứ không dùng con trực tiếp: ô ngày có thể bị `ec_datepicker` bọc thêm một
  * lớp. Trừ checkbox ra — ô "Brand chưa có trong danh mục" nằm chung khối với Brand.
  *
- * ĐO THẬT:
- *   Ô AI điền LUÔN CÓ CHỮ nên placeholder không tính -> nền đậm hơn được: #111827 trên
- *   #fff1d2 = 15.85:1.
- *   Ô còn thiếu LUÔN TRỐNG nên placeholder LÀ thứ phải đọc được. Xám #6b7280 trên #fdeeee
- *   chỉ 4.29:1 — RỚT. Nên tô placeholder theo chính sắc đỏ đó (craft-floor: trên nền có màu
- *   thì lấy màu phụ từ chính sắc ấy, đừng dùng xám): #7d4747 trên #fdeeee = 6.51:1.
+ * SẮC ĐỘ — bản 18/09 nhạt hơn bản đầu. Dùng rgba chứ không dùng hex đặc: nền hoà với mặt
+ * nào nó nằm trên, và con số alpha nói thẳng ra "đây là một lớp phủ mỏng" — Hoàn xem bản
+ * #fff1d2/#fdeeee trên máy thật và bảo đậm quá. Vàng lấy từ chính màu linh vật (#F7C948)
+ * nên nó là màu NHẬN DIỆN, không phải màu ngữ nghĩa (A58).
+ *
+ * ĐO THẬT (đã trộn trên nền trắng của form):
+ *   Ô AI điền LUÔN CÓ CHỮ nên placeholder không tính: #111827 trên #fef5de = 16.33:1.
+ *   Ô còn thiếu LUÔN TRỐNG nên chữ mờ LÀ thứ phải đọc được. Xám #6b7280 trên #f9eded
+ *   chỉ 4.23:1 — RỚT. Nên tô theo chính sắc đỏ đó (craft-floor: trên nền có màu thì lấy
+ *   màu phụ từ chính sắc ấy, đừng dùng xám): #7d4747 trên #f9eded = 6.41:1.
+ */
+/* 18/09 — HAI LAN SAI CUNG MOT KIEU: to mau len PHAN TU KHONG AI NHIN THAY.
+ *
+ * `ec_formkit` nang <select> co tu 6 lua chon tro len thanh combobox: no bo <select> vao
+ * trong `.ec-cb` roi `display:none` cai <select>, va ve mot `button.ec-cb-display` de thay.
+ * `ec_datepicker` lam y het voi <input type=date>: input bi clip (`.ec-dp-native`), phan
+ * nhin thay la `button.ec-dp-field`.
+ *
+ * Nen ban dau to `input`/`select`/`.ec-cb` la to vao ba thu vo hinh: "Brand lien quan",
+ * "Loai chi phi", "Ngay thanh toan", "Ky ghi nhan chi phi" — dung bon o ma nguoi dung hay
+ * bo sot nhat — khong doi mau gi ca, trong y het tinh nang chua chay.
+ *
+ * LUAT RUT RA: mot asset dung chung to mau len form thi phai to len BE MAT HIEN HUU, va
+ * be mat do co the la mot <button> do asset KHAC dung ra. Danh sach duoi day la hop dong
+ * giua ba asset; them mot loai o moi thi them vao day.
  */
 .ec-aifill-lit input:not([type=checkbox]),
 .ec-aifill-lit select,
 .ec-aifill-lit textarea,
-.ec-aifill-lit .ec-cb{
-  background:#fff1d2 !important; border-color:#e8c583 !important;
+.ec-aifill-lit .ec-cb-display,
+.ec-aifill-lit .ec-dp-field{
+  background:rgba(247,201,72,.18) !important; border-color:rgba(224,174,34,.45) !important;
 }
 .ec-aifill-gap input:not([type=checkbox]),
 .ec-aifill-gap select,
 .ec-aifill-gap textarea,
-.ec-aifill-gap .ec-cb{
-  background:#fdeeee !important; border-color:#f0bcbc !important;
+.ec-aifill-gap .ec-cb-display,
+.ec-aifill-gap .ec-dp-field{
+  background:rgba(185,28,28,.08) !important; border-color:rgba(185,28,28,.28) !important;
 }
+/* Chu mo trong o CON TRONG la thu PHAI doc duoc — no la ca noi dung cua o. Xam mac dinh
+ * #6b7280 tren nen do nhat chi 4.23:1, RỚT nguong 4.5. Lay mau phu tu chinh sac do:
+ * #7d4747 tren nen da tron = 6.41:1. Ba dong duoi la BA CACH mot o rong noi "toi rong":
+ * placeholder that, combobox chua chon, va o ngay chua co gia tri. */
 .ec-aifill-gap input::placeholder,
 .ec-aifill-gap textarea::placeholder{ color:#7d4747 !important; }
-.ec-aifill-gap select{ color:#7d4747 !important; }
+.ec-aifill-gap select,
+.ec-aifill-gap .ec-cb-display.ec-cb-placeholder,
+.ec-aifill-gap .ec-dp-field.ec-dp-empty .ec-dp-val{ color:#7d4747 !important; }
 
 /* Đang gõ vào ô nào thì ô đó trở lại trung tính — nền vẫn kêu trong lúc gõ là ồn. */
 .ec-aifill-lit input:focus,.ec-aifill-lit select:focus,.ec-aifill-lit textarea:focus,
-.ec-aifill-gap input:focus,.ec-aifill-gap select:focus,.ec-aifill-gap textarea:focus{
+.ec-aifill-lit .ec-cb-display:focus,.ec-aifill-lit .ec-dp-field:focus,
+.ec-aifill-gap input:focus,.ec-aifill-gap select:focus,.ec-aifill-gap textarea:focus,
+.ec-aifill-gap .ec-cb-display:focus,.ec-aifill-gap .ec-dp-field:focus{
   background:var(--ec-af-surface) !important;
 }
 
