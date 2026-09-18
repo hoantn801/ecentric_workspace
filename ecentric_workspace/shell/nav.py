@@ -204,6 +204,7 @@ def _providers():
     from ecentric_workspace.reporting import nav_pnl as reporting_pnl_nav
     from ecentric_workspace.pm import nav as pm_nav
     from ecentric_workspace.guides import nav as guides_nav
+    from ecentric_workspace.ai_tools import nav as ai_tools_nav
     return [
         ("core", lambda: list(CORE_ITEMS)),
         ("approval_center", approval_nav.items),
@@ -220,6 +221,8 @@ def _providers():
         # Huong dan su dung: MOT muc duy nhat (trang muc luc), co mat o moi ngu canh
         # co "core" - huong dan khong thuoc rieng phong nao.
         ("guides", guides_nav.items),
+        # AI Tool: mot muc cha (/ai-tool) + children la tung cong cu.
+        ("ai_tools", ai_tools_nav.items),
         ("home_portal", lambda: list(HOME_PORTAL_ITEMS)),
     ]
 
@@ -267,6 +270,11 @@ CONTEXTS = {
         "entry": {"key": "ctx.pm", "label": "Công việc",
                   "route": "/pm", "icon": "briefcase"},
     },
+    "ai_tools": {
+        "providers": ["core", "ai_tools"],
+        "entry": {"key": "ctx.ai_tools", "label": "AI Tool",
+                  "route": "/ai-tool", "icon": "grid"},
+    },
     "pnl": {
         "providers": ["core", "reporting_pnl"],
         "entry": {"key": "ctx.pnl", "label": "Doanh thu (PnL)",
@@ -275,7 +283,8 @@ CONTEXTS = {
 }
 #: order in which specialized contexts are probed for route resolution and in
 #: which launcher entries render.
-CONTEXT_ORDER = ["approval_document", "hr", "alert_center", "reporting", "pnl", "pm"]
+CONTEXT_ORDER = ["approval_document", "hr", "alert_center", "reporting", "pnl", "pm",
+                 "ai_tools"]
 #: `pnl` dung TRUOC `reporting`? Khong can: /pnl-dashboard khong khop mau nao
 #: cua reporting (/reports, /reports/*), nen hai ngu canh khong tranh nhau.
 DEFAULT_CONTEXT = "approval_document"
