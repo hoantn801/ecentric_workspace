@@ -440,7 +440,89 @@ def check_pagesync():
     return problems, summary
 
 
+#: Tệp được phép chứa dấu xung đột ở đầu dòng — ví dụ một trang tài liệu hướng
+#: dẫn xử lý xung đột git. Hôm nay để trống. Thêm đường dẫn tương đối vào đây
+#: (kèm một dòng giải thích trong PR) thay vì gỡ cả phép kiểm.
+CONFLICT_ALLOW = ()
+
+#: Dấu MỞ và ĐÓNG của một xung đột git.
+#:
+#: CỐ Ý KHÔNG bắt `=======`. Bảy dấu bằng đứng một mình là cú pháp hợp lệ của
+#: reStructuredText và của Markdown kiểu Setext (gạch dưới tiêu đề), nên bắt nó
+#: sẽ báo nhầm ở mọi file tài liệu — và một phép kiểm hay báo nhầm là một phép
+#: kiểm sẽ bị tắt. Một xung đột thật LUÔN có cả `<<<<<<<` lẫn `>>>>>>>`, nên hai
+#: dấu này đủ để không bao giờ lọt.
+CONFLICT_MARKERS = (b"<<<<<<<", b"|||||||", b">>>>>>>")
+
+
+def _conflict_lines(data):
+    """Số hiệu các dòng mở đầu bằng một dấu xung đột."""
+    hits = []
+    for no, line in enumerate(data.split(b"\n"), 1):
+        line = line.rstrip(b"\r")
+        for mark in CONFLICT_MARKERS:
+            if not line.startswith(mark):
+                continue
+            # Đúng dạng git sinh ra: hoặc bảy ký tự đứng một mình, hoặc theo sau
+            # là một khoảng trắng rồi tên nhánh. Chuỗi `<<<<<<<<` tám dấu trong
+            # một khối ASCII art thì không tính.
+            if len(line) == len(mark) or line[len(mark):len(mark) + 1] == b" ":
+                hits.append((no, line[:60].decode("utf-8", "replace")))
+            break
+    return hits
+
+
+def check_conflict():
+    """Không được commit dấu xung đột merge.
+
+    Chuyện đã xảy ra thật ngày 18/09: `patches.txt` đi qua `git add` sau một lần
+    merge mà chưa gỡ dấu. `git add` chỉ đánh dấu ĐÃ GIẢI QUYẾT — nó không sửa nội
+    dung file. `bench migrate` đọc `patches.txt` theo từng dòng, nên `<<<<<<< HEAD`
+    trở thành tên một patch không tồn tại và nó chặn CẢ lần deploy, chứ không chỉ
+    làm hỏng một tính năng.
+
+    Kiểm MỌI file git đang theo dõi, không riêng `.py`: lần đó nạn nhân là một
+    file `.txt`, và `check_syntax` không hề nhìn tới nó. Đó chính là lý do phép
+    kiểm này tồn tại tách khỏi `check_syntax`.
+
+    Đọc theo bytes: một file có thể là bất cứ kiểu mã hoá nào, và ta chỉ đi tìm
+    ASCII. File nhị phân bị bỏ qua bằng cách dò byte NUL.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "ls-files", "-z"],
+            cwd=ROOT, capture_output=True, check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError) as exc:
+        return ["không chạy được git ls-files: %s" % exc], "bỏ qua"
+
+    names = [n.decode("utf-8", "replace") for n in out.split(b"\0") if n]
+    problems, scanned = [], 0
+    for name in names:
+        if name in CONFLICT_ALLOW:
+            continue
+        path = os.path.join(ROOT, name.replace("/", os.sep))
+        try:
+            with open(path, "rb") as fh:
+                data = fh.read()
+        except OSError:
+            # File đã bị xoá trong cây làm việc nhưng git còn theo dõi. Không
+            # phải việc của phép kiểm này.
+            continue
+        if b"\0" in data[:8192]:
+            continue                      # nhị phân
+        scanned += 1
+        for no, text in _conflict_lines(data):
+            problems.append("%s:%d  %s" % (name, no, text))
+
+    return problems, "%d file văn bản" % scanned
+
+
 CHECKS = (
+    # PHAI dung dau: mot dau xung dot con sot lam file .py khong parse
+    # duoc, nen `syntax` cung do theo. Chay truoc thi bao cao chi ra
+    # nguyen nhan chu khong phai trieu chung.
+    ("conflict", check_conflict),
     ("syntax", check_syntax),
     ("json", check_json),
     ("jinja", check_jinja),
