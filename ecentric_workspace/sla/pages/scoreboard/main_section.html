@@ -10,6 +10,17 @@
 
   MẪU SỐ LUÔN ĐI KÈM TỈ LỆ. Không có chỗ nào trên trang này hiện "85%" trơ trọi:
   luôn là "85% — 17/20 đầu việc". Một tỉ lệ không kèm mẫu số là một ý kiến.
+
+  THANH THÀNH PHẦN LÀ Ý CHÍNH CỦA GIAO DIỆN. Con số lớn không bao giờ đứng một
+  mình: ngay cạnh nó là thanh tách 85% đó thành đúng hạn / trễ / chưa làm /
+  không tính, kèm dấu ngoặc chỉ ra phần nào là mẫu số. Người ta cãi được một
+  con số chỉ khi nhìn thấy nó được ghép từ cái gì.
+
+  KHÔNG PHÉP TÍNH TRONG JS — kể cả bề rộng thanh. Các đoạn của thanh dùng
+  `flex-grow` đúng bằng SỐ ĐẾM của backend, để trình duyệt chia tỉ lệ. Không có
+  phép chia phần trăm nào trong JS. Chỗ duy nhất JS đụng tới số học là đổi
+  `late_seconds` sang "6h45" — đổi đơn vị của một giá trị backend đã tính, không
+  phải tính lại một phán quyết.
 -->
 <style>
   body > header, body > footer, body > nav.navbar, header.navbar, .navbar.navbar-light,
@@ -19,123 +30,480 @@
   .main-section, main.container, main.fluid { padding:0 !important; margin:0 !important; max-width:none !important; }
 </style>
 <style>
+  /* ====================================================================== */
+  /* Token. Bám theo bản dựng thử đã chốt: nền #f7f8fb, mặt trắng, chỉ 1px, */
+  /* nhấn navy #2C3DA6. Bốn màu trạng thái là BỐN NGHĨA, không phải trang    */
+  /* trí — xanh/vàng/đỏ/gạch chéo xuất hiện ở đúng một bộ nghĩa trên cả trang*/
+  /* ====================================================================== */
   #ec-sla-root{
-    --navy:#1e3a5f; --blue:#2563eb; --blue-50:#eff4ff; --blue-100:#dbeafe;
-    --green:#15803d; --green-50:#ecfdf3; --amber:#b45309; --amber-50:#fffbeb;
-    --red:#b91c1c; --red-50:#fef2f2;
-    --gray-50:#f9fafb; --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-300:#d1d5db;
-    --gray-400:#9ca3af; --gray-500:#6b7280; --gray-700:#374151; --gray-800:#1f2933;
-    --gray-900:#111827; --bg:#f7f8fb;
-    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --navy:#2C3DA6; --navy-50:#eef0fb; --navy-100:#d9deef; --navy-700:#1f2d80;
+    --yellow:#FFC000;
+    --green:#0f9d6e; --green-50:#ecfdf5; --green-700:#0a7a55;
+    --amber:#c2740a; --amber-50:#fffbeb; --amber-200:#f6d68a; --amber-700:#9a5b05;
+    --red:#d33b3b; --red-50:#fef2f2; --red-200:#f5b9b9; --red-700:#b32626;
+    --gray-50:#fafbfc; --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-300:#d1d5db;
+    --gray-400:#9ca3af; --gray-500:#6b7280; --gray-600:#4b5563; --gray-700:#374151;
+    --gray-800:#1f2937; --gray-900:#111827;
+    --bg:#f7f8fb; --surface:#fff; --hair:#e5e7eb;
+    --r-sm:8px; --r-md:10px; --r-lg:12px; --r-pill:999px;
+    --shadow-card:0 1px 2px rgba(17,24,39,.04);
+    --shadow-pop:0 12px 32px -8px rgba(17,24,39,.18), 0 3px 8px rgba(17,24,39,.06);
+    --ease:cubic-bezier(.16,1,.3,1);
+
+    font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
     color:var(--gray-800); font-size:14px; line-height:1.5; background:var(--bg);
     display:grid; grid-template-columns:248px 1fr; min-height:100vh;
+    -webkit-font-smoothing:antialiased;
   }
   #ec-sla-root, #ec-sla-root *{ box-sizing:border-box; }
-  #ec-sla-root .ec-shell-mount{ background:#fff; border-right:1px solid var(--gray-200);
+
+  /* Bề mặt của trình duyệt cũng là bề mặt của thiết kế. Bôi đen, con trỏ,
+     thanh cuộn và vòng focus mặc định không thuộc hệ màu nào cả. */
+  #ec-sla-root ::selection{ background:var(--navy-100); color:var(--navy-700); }
+  #ec-sla-root :focus-visible{ outline:2px solid var(--navy); outline-offset:2px; border-radius:4px; }
+  #ec-sla-root *{ scrollbar-width:thin; scrollbar-color:var(--gray-300) transparent; }
+  #ec-sla-root *::-webkit-scrollbar{ width:10px; height:10px; }
+  #ec-sla-root *::-webkit-scrollbar-track{ background:transparent; }
+  #ec-sla-root *::-webkit-scrollbar-thumb{ background:var(--gray-300); border-radius:99px;
+    border:3px solid var(--bg); }
+  #ec-sla-root *::-webkit-scrollbar-thumb:hover{ background:var(--gray-400); }
+
+  /* Chữ số xếp thẳng cột. Một bảng điểm mà các chữ số nhảy bề rộng thì mắt
+     không so hàng dọc được, và so hàng dọc là việc duy nhất người ta làm ở đây. */
+  #ec-sla-root .tnum{ font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1; }
+  #ec-sla-root .ic{ width:18px; height:18px; flex:0 0 auto; fill:none; stroke:currentColor;
+    stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
+  #ec-sla-root .ic-sm{ width:15px; height:15px; }
+
+  /* ---------------------------------------------------------------- khung -- */
+  #ec-sla-root .ec-shell-mount{ background:var(--surface); border-right:1px solid var(--hair);
     position:sticky; top:0; height:100vh; overflow:auto; }
   #ec-sla-root .sla-main{ min-width:0; display:flex; flex-direction:column; }
-  #ec-sla-root .sla-topbar{ background:#fff; border-bottom:1px solid var(--gray-200);
-    min-height:60px; padding:0 24px; display:flex; align-items:center; gap:12px;
+  /* Chiều cao vẫn 60px như mọi trang khác của ERP; đệm dọc chỉ để nội dung
+     không chạm đường kẻ khi thanh phải cao lên vì một nút mới. */
+  #ec-sla-root .sla-topbar{ background:var(--surface); border-bottom:1px solid var(--hair);
+    min-height:60px; padding:12px 24px; display:flex; align-items:center; gap:12px;
     position:sticky; top:0; z-index:20; }
-  #ec-sla-root .sla-content{ padding:24px; max-width:1320px; width:100%; }
+  #ec-sla-root .sla-content{ padding:24px 24px 56px; max-width:1320px; width:100%;
+    margin-inline:auto; }
   #ec-sla-root .sla-title{ font-size:24px; font-weight:800; color:var(--gray-900);
-    letter-spacing:-.4px; margin:0 0 4px; }
-  #ec-sla-root .sla-desc{ font-size:13.5px; color:var(--gray-500); margin:0 0 18px; max-width:720px; }
+    letter-spacing:-.45px; margin:0 0 4px; }
+  #ec-sla-root .sla-desc{ font-size:13.5px; color:var(--gray-500); margin:0 0 18px; max-width:68ch; }
 
-  /* tabs */
-  #ec-sla-root .sla-tabs{ display:flex; gap:4px; border-bottom:1px solid var(--gray-200);
-    margin-bottom:22px; overflow-x:auto; }
-  #ec-sla-root .sla-tab{ appearance:none; background:none; border:0; border-bottom:2px solid transparent;
-    padding:10px 14px; font:inherit; font-weight:600; color:var(--gray-500); cursor:pointer;
-    white-space:nowrap; }
+  /* ----------------------------------------------------------------- tab -- */
+  #ec-sla-root .sla-tabs{ display:flex; gap:6px; border-bottom:1px solid var(--hair);
+    margin-bottom:20px; overflow-x:auto; scrollbar-width:none; }
+  #ec-sla-root .sla-tabs::-webkit-scrollbar{ display:none; }
+  #ec-sla-root .sla-tab{ appearance:none; background:none; border:0;
+    border-bottom:2px solid transparent; margin-bottom:-1px;
+    padding:9px 14px 11px; font:inherit; font-size:13.5px; font-weight:600;
+    color:var(--gray-500); cursor:pointer; white-space:nowrap;
+    display:inline-flex; align-items:center; gap:8px; }
   #ec-sla-root .sla-tab:hover{ color:var(--gray-800); }
-  #ec-sla-root .sla-tab[aria-selected="true"]{ color:var(--blue); border-bottom-color:var(--blue); }
+  #ec-sla-root .sla-tab[aria-selected="true"]{ color:var(--navy); border-bottom-color:var(--navy); }
   #ec-sla-root .sla-panel[hidden]{ display:none; }
 
-  /* hero */
-  #ec-sla-root .sla-hero{ background:#fff; border:1px solid var(--gray-200); border-radius:16px;
-    padding:22px 24px; display:flex; flex-wrap:wrap; gap:26px; align-items:center; margin-bottom:18px; }
-  #ec-sla-root .sla-score{ font-size:46px; font-weight:800; letter-spacing:-1.5px; line-height:1;
-    color:var(--gray-900); }
-  #ec-sla-root .sla-score.is-good{ color:var(--green); }
-  #ec-sla-root .sla-score.is-warn{ color:var(--amber); }
-  #ec-sla-root .sla-score.is-bad{ color:var(--red); }
-  #ec-sla-root .sla-score.is-none{ font-size:24px; color:var(--gray-500); letter-spacing:-.4px; }
-  #ec-sla-root .sla-hero-lab{ font-size:12px; font-weight:700; letter-spacing:.5px;
-    text-transform:uppercase; color:var(--gray-500); margin-bottom:6px; }
-  #ec-sla-root .sla-hero-sub{ font-size:13px; color:var(--gray-500); margin-top:8px; }
-  #ec-sla-root .sla-hero-why{ flex:1; min-width:260px; }
-  #ec-sla-root .sla-why-row{ display:flex; align-items:center; gap:10px; font-size:13px; margin-bottom:6px; }
-  #ec-sla-root .sla-why-bar{ flex:1; max-width:240px; height:7px; border-radius:99px;
-    background:var(--gray-100); overflow:hidden; }
-  #ec-sla-root .sla-why-bar i{ display:block; height:100%; background:var(--amber); opacity:.85; }
-  #ec-sla-root .sla-why-n{ font-variant-numeric:tabular-nums; color:var(--gray-700); font-weight:600; min-width:72px; text-align:right; }
+  /* ---------------------------------------------------------------- card -- */
+  #ec-sla-root .card{ background:var(--surface); border:1px solid var(--hair);
+    border-radius:var(--r-lg); box-shadow:var(--shadow-card); }
+  #ec-sla-root .card + .card{ margin-top:16px; }
+  #ec-sla-root .card-pad{ padding:20px; }
+  #ec-sla-root .card-h{ display:flex; align-items:baseline; justify-content:space-between;
+    gap:14px; flex-wrap:wrap; margin-bottom:16px; }
+  #ec-sla-root .card-t{ font-size:15px; font-weight:700; color:var(--gray-900); margin:0;
+    letter-spacing:-.1px; }
+  #ec-sla-root .card-s{ font-size:12.5px; color:var(--gray-500); margin:3px 0 0; }
+  #ec-sla-root .seclb{ font-size:12.5px; font-weight:700; color:var(--gray-500);
+    text-transform:uppercase; letter-spacing:.05em; margin:22px 0 10px; }
 
-  /* card + table */
-  #ec-sla-root .sla-card{ background:#fff; border:1px solid var(--gray-200); border-radius:14px;
-    overflow:hidden; margin-bottom:18px; }
-  #ec-sla-root .sla-card-head{ padding:14px 18px; border-bottom:1px solid var(--gray-200);
-    display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-  #ec-sla-root .sla-card-title{ font-size:15px; font-weight:700; color:var(--gray-900); margin:0; }
-  #ec-sla-root .sla-card-note{ font-size:12.5px; color:var(--gray-500); margin:0; }
-  #ec-sla-root .sla-card-body{ padding:16px 18px; }
-  #ec-sla-root .sla-scroll{ overflow-x:auto; }
-  #ec-sla-root table.sla-tb{ width:100%; border-collapse:collapse; font-size:13.5px; }
-  #ec-sla-root .sla-tb th{ text-align:left; font-size:11.5px; font-weight:700; letter-spacing:.4px;
-    text-transform:uppercase; color:var(--gray-500); padding:10px 14px; border-bottom:1px solid var(--gray-200);
-    background:var(--gray-50); white-space:nowrap; }
-  #ec-sla-root .sla-tb td{ padding:11px 14px; border-bottom:1px solid var(--gray-100); vertical-align:top; }
-  #ec-sla-root .sla-tb tr:last-child td{ border-bottom:0; }
-  #ec-sla-root .sla-tb .num{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  #ec-sla-root .sla-tb tbody tr:hover{ background:var(--gray-50); }
-  #ec-sla-root .sla-muted{ color:var(--gray-400); }
-  #ec-sla-root .sla-strong{ font-weight:700; color:var(--gray-900); }
+  /* ---------------------------------------------------------------- hero -- */
+  #ec-sla-root .hero{ display:grid; grid-template-columns:minmax(200px,auto) 1fr;
+    gap:26px; align-items:center; padding:22px 24px; margin-bottom:18px; }
+  #ec-sla-root .hero-lb{ font-size:12.5px; font-weight:700; color:var(--gray-500);
+    text-transform:uppercase; letter-spacing:.05em; }
+  #ec-sla-root .hero-v{ display:flex; align-items:baseline; gap:3px; margin-top:6px; }
+  #ec-sla-root .hero-n{ font-size:60px; font-weight:800; letter-spacing:-3px;
+    color:var(--gray-900); line-height:.9; }
+  #ec-sla-root .hero-n.is-good{ color:var(--green-700); }
+  #ec-sla-root .hero-n.is-warn{ color:var(--amber-700); }
+  #ec-sla-root .hero-n.is-bad{ color:var(--red-700); }
+  #ec-sla-root .hero-p{ font-size:24px; font-weight:700; color:var(--gray-500); }
+  #ec-sla-root .hero-none{ font-size:26px; font-weight:800; letter-spacing:-.6px;
+    color:var(--gray-500); margin-top:8px; }
+  #ec-sla-root .hero-s{ font-size:13px; color:var(--gray-600); margin-top:9px; max-width:34ch; }
+  #ec-sla-root .hero-s b{ color:var(--gray-900); font-weight:700; }
 
-  /* pills */
-  #ec-sla-root .pill{ display:inline-block; font-size:11.5px; font-weight:600; padding:2px 9px;
-    border-radius:999px; white-space:nowrap; }
-  #ec-sla-root .pill-ok{ background:var(--green-50); color:var(--green); }
-  #ec-sla-root .pill-late{ background:var(--amber-50); color:var(--amber); }
-  #ec-sla-root .pill-bad{ background:var(--red-50); color:var(--red); }
-  #ec-sla-root .pill-off{ background:var(--gray-100); color:var(--gray-500); }
-  #ec-sla-root .pill-info{ background:var(--blue-50); color:var(--blue); }
+  /* Thanh thành phần. Bề rộng do flex-grow = SỐ ĐẾM của backend quyết định. */
+  #ec-sla-root .comp-bar{ display:flex; height:40px; border-radius:var(--r-sm);
+    overflow:hidden; gap:2px; background:var(--gray-100);
+    clip-path:inset(0 100% 0 0); }
+  #ec-sla-root .comp.ready .comp-bar{ clip-path:inset(0 0 0 0);
+    transition:clip-path .75s var(--ease); }
+  #ec-sla-root .seg{ flex-basis:0; flex-shrink:1; min-width:4px; min-height:0;
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
+    color:#fff; font-size:12.5px; font-weight:700; }
+  #ec-sla-root .seg:first-child{ border-radius:var(--r-sm) 0 0 var(--r-sm); }
+  #ec-sla-root .seg:last-child{ border-radius:0 var(--r-sm) var(--r-sm) 0; }
+  #ec-sla-root .seg.ontime{ background:var(--green-700); }
+  #ec-sla-root .seg.late{ background:var(--amber-700); }
+  #ec-sla-root .seg.missed{ background:var(--red-700); }
+  #ec-sla-root .seg.excl{ color:var(--gray-700);
+    background:repeating-linear-gradient(135deg,var(--gray-300) 0 5px,var(--gray-200) 5px 10px); }
 
-  /* misc */
-  #ec-sla-root .sla-state{ padding:40px 16px; text-align:center; color:var(--gray-500); font-size:14px; }
-  #ec-sla-root .sla-err{ background:var(--red-50); border:1px solid #fecaca; color:var(--red);
-    border-radius:12px; padding:14px 16px; font-size:13.5px; margin-bottom:16px; }
-  #ec-sla-root .sla-in{ font:inherit; font-size:13px; padding:7px 11px; border:1px solid var(--gray-300);
-    border-radius:9px; background:#fff; color:var(--gray-800); min-width:200px; }
-  #ec-sla-root .sla-in:focus{ outline:2px solid var(--blue-100); border-color:var(--blue); }
-  #ec-sla-root .sla-btn{ font:inherit; font-size:13px; font-weight:600; padding:7px 13px; cursor:pointer;
-    border:1px solid var(--gray-300); border-radius:9px; background:#fff; color:var(--gray-700); }
-  #ec-sla-root .sla-btn:hover{ border-color:var(--blue); color:var(--blue); }
-  #ec-sla-root .sla-btn[disabled]{ opacity:.55; cursor:default; }
-  #ec-sla-root .sla-link{ background:none; border:0; padding:0; font:inherit; color:var(--blue);
-    font-weight:600; cursor:pointer; text-align:left; }
-  #ec-sla-root .sla-link:hover{ text-decoration:underline; }
-  #ec-sla-root .sla-spacer{ flex:1; }
+  /* Dấu ngoặc mẫu số: ôm đúng phần ĐƯỢC CHẤM, chừa phần không tính ra ngoài. */
+  #ec-sla-root .bracket{ display:flex; margin-top:7px; height:28px; }
+  #ec-sla-root .bracket-span{ flex-basis:0; min-width:0; position:relative;
+    border-left:2px solid var(--gray-300); border-right:2px solid var(--gray-300);
+    border-bottom:2px solid var(--gray-300); border-radius:0 0 4px 4px; height:8px; }
+  #ec-sla-root .bracket-rest{ flex-basis:0; min-width:0; }
+  #ec-sla-root .bracket-txt{ position:absolute; top:11px; left:50%; transform:translateX(-50%);
+    font-size:12px; color:var(--gray-500); white-space:nowrap; }
+  #ec-sla-root .bracket-txt b{ color:var(--gray-700); font-weight:700; }
+  #ec-sla-root .comp{ opacity:0; }
+  #ec-sla-root .comp.ready{ opacity:1; transition:opacity .3s ease; }
 
-  /* tab Cách tính */
-  #ec-sla-root .sla-prose{ max-width:760px; }
-  #ec-sla-root .sla-prose h3{ font-size:16px; font-weight:700; color:var(--gray-900); margin:26px 0 8px; }
-  #ec-sla-root .sla-prose h3:first-child{ margin-top:0; }
-  #ec-sla-root .sla-prose p{ margin:0 0 10px; color:var(--gray-700); }
-  #ec-sla-root .sla-prose ul{ margin:0 0 10px; padding-left:20px; color:var(--gray-700); }
-  #ec-sla-root .sla-prose li{ margin-bottom:5px; }
-  #ec-sla-root .sla-formula{ background:var(--blue-50); border:1px solid var(--blue-100); border-radius:12px;
-    padding:16px 18px; font-size:15px; font-weight:600; color:var(--navy); margin:0 0 14px; }
-  #ec-sla-root .sla-note{ background:var(--amber-50); border:1px solid #fde68a; border-radius:12px;
-    padding:14px 16px; font-size:13.5px; color:#78350f; margin:0 0 14px; }
-  #ec-sla-root .sla-ex{ background:var(--gray-50); border:1px solid var(--gray-200); border-radius:12px;
-    padding:14px 16px; font-size:13.5px; color:var(--gray-700); margin:0 0 14px; }
+  #ec-sla-root .legend{ display:flex; flex-wrap:wrap; gap:6px; margin-top:22px; }
+  #ec-sla-root .lg{ display:inline-flex; align-items:center; gap:8px; padding:7px 12px;
+    border-radius:var(--r-sm); border:1px solid var(--hair); background:var(--surface);
+    font-size:12.5px; color:var(--gray-600); }
+  #ec-sla-root .dot{ width:9px; height:9px; border-radius:3px; flex:0 0 auto; }
+  #ec-sla-root .dot.ontime{ background:var(--green-700); }
+  #ec-sla-root .dot.late{ background:var(--amber-700); }
+  #ec-sla-root .dot.missed{ background:var(--red-700); }
+  #ec-sla-root .dot.excl{
+    background:repeating-linear-gradient(135deg,var(--gray-300) 0 3px,var(--gray-200) 3px 6px); }
+  #ec-sla-root .lg b{ font-weight:700; color:var(--gray-900); }
 
-  @media (max-width:900px){
+  /* ------------------------------------------------------- thẻ từng nhóm -- */
+  #ec-sla-root .gsel{ display:grid; grid-template-columns:repeat(auto-fit,minmax(224px,1fr));
+    gap:12px; }
+  #ec-sla-root .gcard{ text-align:left; background:var(--surface); border:1px solid var(--hair);
+    border-radius:var(--r-lg); padding:15px 16px; cursor:pointer; font:inherit;
+    box-shadow:var(--shadow-card); display:block; width:100%;
+    transition:border-color .18s ease, background .18s ease; }
+  #ec-sla-root .gcard:hover{ border-color:var(--gray-300); }
+  #ec-sla-root .gcard[aria-pressed="true"]{ border-color:var(--navy); background:var(--navy-50);
+    box-shadow:inset 0 0 0 1px var(--navy); }
+  #ec-sla-root .gcard.off{ border-style:dashed; background:var(--gray-50); }
+  #ec-sla-root .gcard.off[aria-pressed="true"]{ border-style:solid; background:var(--navy-50); }
+  /* Nhãn được phép xuống dòng: ở khổ hẹp, huy hiệu "ngoài %SLA" mà ép nằm cùng
+     hàng sẽ bóp tên nhóm thành hai dòng lởm chởm. */
+  #ec-sla-root .gcard .gl{ font-size:13px; font-weight:600; color:var(--gray-600);
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap; row-gap:5px; }
+  #ec-sla-root .gcard[aria-pressed="true"] .gl{ color:var(--navy-700); }
+  #ec-sla-root .gcard .gv{ display:flex; align-items:baseline; gap:2px; margin-top:9px;
+    flex-wrap:wrap; }
+  #ec-sla-root .gcard .gn{ font-size:34px; font-weight:800; letter-spacing:-1.4px;
+    color:var(--gray-900); line-height:1; }
+  #ec-sla-root .gcard .gn.is-good{ color:var(--green-700); }
+  #ec-sla-root .gcard .gn.is-warn{ color:var(--amber-700); }
+  #ec-sla-root .gcard .gn.is-bad{ color:var(--red-700); }
+  #ec-sla-root .gcard .gn.is-none{ font-size:17px; font-weight:700; letter-spacing:-.2px;
+    color:var(--gray-500); }
+  #ec-sla-root .gcard .gp{ font-size:16px; font-weight:700; color:var(--gray-500); }
+  #ec-sla-root .gcard .gs{ font-size:12px; color:var(--gray-500); margin-top:7px; display:block; }
+  #ec-sla-root .gcard .gd{ font-size:12px; color:var(--gray-400); margin-top:2px; display:block; }
+  #ec-sla-root .gbadge{ display:inline-block; font-size:10.5px; font-weight:700;
+    padding:1px 7px; border-radius:var(--r-pill); background:var(--gray-200);
+    color:var(--gray-600); }
+
+  /* --------------------------------------------------------- nguyên nhân -- */
+  #ec-sla-root .cause{ border:1px solid var(--hair); border-radius:var(--r-md);
+    overflow:hidden; background:var(--surface); }
+  #ec-sla-root .cause + .cause{ margin-top:8px; }
+  #ec-sla-root .cause-btn{ width:100%; display:flex; align-items:center; gap:12px;
+    padding:13px 14px; background:none; border:none; font:inherit; text-align:left;
+    cursor:pointer; }
+  #ec-sla-root .cause-btn:hover{ background:var(--gray-50); }
+  #ec-sla-root .cause-ico{ width:30px; height:30px; border-radius:var(--r-sm);
+    display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+    background:var(--amber-50); color:var(--amber-700); }
+  #ec-sla-root .cause-main{ flex:1; min-width:0; }
+  #ec-sla-root .cause-t{ display:block; font-size:13.5px; font-weight:600; color:var(--gray-900); }
+  #ec-sla-root .cause-m{ display:block; font-size:12px; color:var(--gray-500); margin-top:3px; }
+  #ec-sla-root .cause-share{ width:74px; height:6px; border-radius:99px;
+    background:var(--gray-200); overflow:hidden; flex:0 0 auto; }
+  #ec-sla-root .cause-share i{ display:block; height:100%; min-width:5px;
+    background:var(--amber-700); border-radius:99px; }
+  #ec-sla-root .cause-n{ font-size:13px; font-weight:700; color:var(--gray-700);
+    white-space:nowrap; }
+  #ec-sla-root .cause-chev{ color:var(--gray-500); transition:transform .25s var(--ease); }
+  #ec-sla-root .cause-btn[aria-expanded="true"] .cause-chev{ transform:rotate(90deg); }
+  #ec-sla-root .cause-body{ border-top:1px solid var(--hair); background:var(--gray-50);
+    padding:2px 14px; }
+  #ec-sla-root .cause-body[hidden]{ display:none; }
+
+  /* ------------------------------------------------------------- dòng việc -- */
+  #ec-sla-root .items{ list-style:none; margin:0; padding:0; }
+  #ec-sla-root .item{ display:flex; align-items:center; gap:12px; padding:10px 0; }
+  #ec-sla-root .item + .item{ border-top:1px solid var(--gray-200); }
+  #ec-sla-root .item-main{ flex:1; min-width:0; }
+  #ec-sla-root .item-code{ font-size:12px; font-weight:700; color:var(--gray-500);
+    letter-spacing:.02em; }
+  #ec-sla-root .item-t{ font-size:13px; font-weight:500; color:var(--gray-800); margin-top:1px; }
+  #ec-sla-root .item-when{ font-size:12px; color:var(--gray-500); margin-top:2px; }
+  #ec-sla-root .item-right{ display:flex; align-items:center; gap:10px; flex:0 0 auto; }
+  #ec-sla-root .pill{ display:inline-flex; align-items:center; gap:5px; padding:3px 10px;
+    border-radius:var(--r-pill); font-size:12px; font-weight:700; white-space:nowrap; }
+  #ec-sla-root .pill.ontime{ background:var(--green-50); color:var(--green-700); }
+  #ec-sla-root .pill.late{ background:var(--amber-50); color:var(--amber-700); }
+  #ec-sla-root .pill.missed{ background:var(--red-50); color:var(--red-700); }
+  #ec-sla-root .pill.excl{ background:var(--gray-100); color:var(--gray-600); }
+  #ec-sla-root .pill.open{ background:var(--navy-50); color:var(--navy-700); }
+  #ec-sla-root .olink{ color:var(--navy); font-weight:600; text-decoration:none;
+    font-size:12px; display:inline-flex; align-items:center; gap:4px; }
+  #ec-sla-root .olink:hover{ text-decoration:underline; }
+
+  /* ----------------------------------------------------------- bảng người -- */
+  #ec-sla-root .tblwrap{ overflow-x:auto; }
+  #ec-sla-root table.tb{ width:100%; border-collapse:collapse; }
+  #ec-sla-root .tb thead th{ text-align:left; font-size:10.5px; text-transform:uppercase;
+    letter-spacing:.04em; color:var(--gray-500); font-weight:700; padding:9px 12px;
+    border-bottom:1px solid var(--hair); white-space:nowrap; }
+  #ec-sla-root .tb th.n, #ec-sla-root .tb td.n{ text-align:right; }
+  #ec-sla-root .tb tbody td{ padding:11px 12px; border-bottom:1px solid var(--gray-100);
+    font-size:13px; color:var(--gray-700); vertical-align:middle; }
+  #ec-sla-root .tb tbody tr:last-child td{ border-bottom:none; }
+  #ec-sla-root .tb thead th .sub{ display:block; font-size:10px; font-weight:600;
+    color:var(--gray-500); text-transform:none; letter-spacing:0; margin-top:2px; }
+  #ec-sla-root .ppl tbody tr{ cursor:pointer; }
+  #ec-sla-root .ppl tbody tr:hover{ background:var(--gray-50); }
+  #ec-sla-root .ppl tbody tr.me{ background:var(--navy-50); }
+  #ec-sla-root .ppl tbody tr.me:hover{ background:var(--navy-100); }
+  /* Ảnh đại diện trên dòng của chính mình: nền navy-50 trùng với nền dòng nên
+     vòng tròn biến mất, chỉ còn hai chữ cái trôi nổi. Đổi sang nền trắng. */
+  #ec-sla-root .ppl tbody tr.me .avatar{ background:var(--surface);
+    box-shadow:inset 0 0 0 1px var(--navy-100); }
+  #ec-sla-root .person{ display:flex; align-items:center; gap:10px; }
+  #ec-sla-root .avatar{ width:30px; height:30px; border-radius:var(--r-pill);
+    background:var(--navy-50); color:var(--navy); display:flex; align-items:center;
+    justify-content:center; font-size:11.5px; font-weight:700; flex:0 0 auto;
+    text-transform:uppercase; letter-spacing:.02em; }
+  #ec-sla-root .person .nm{ font-weight:600; color:var(--gray-900); }
+  #ec-sla-root .person .dp{ display:block; font-size:12px; font-weight:400;
+    color:var(--gray-500); margin-top:2px; }
+  #ec-sla-root .tag-me{ font-size:11px; font-weight:700; padding:1px 6px;
+    border-radius:var(--r-pill); background:var(--navy); color:#fff; margin-left:6px; }
+  #ec-sla-root .rate{ display:flex; align-items:center; gap:10px; min-width:150px; }
+  #ec-sla-root .rate-bar{ flex:1; height:6px; border-radius:99px; background:var(--gray-200);
+    overflow:hidden; }
+  #ec-sla-root .rate-fill{ display:block; height:100%; border-radius:99px; }
+  #ec-sla-root .rate-fill.is-good{ background:var(--green-700); }
+  #ec-sla-root .rate-fill.is-warn{ background:var(--amber-700); }
+  #ec-sla-root .rate-fill.is-bad{ background:var(--red-700); }
+  #ec-sla-root .rate-v{ font-size:13px; font-weight:700; color:var(--gray-900);
+    width:44px; text-align:right; }
+  #ec-sla-root .rate-v .sc{ display:block; font-size:11.5px; font-weight:400;
+    color:var(--gray-500); }
+  #ec-sla-root .pct{ font-size:13.5px; font-weight:700; }
+  #ec-sla-root .pct.is-good{ color:var(--green-700); }
+  #ec-sla-root .pct.is-warn{ color:var(--amber-700); }
+  #ec-sla-root .pct.is-bad{ color:var(--red-700); }
+  #ec-sla-root .pct.is-none{ color:var(--gray-400); font-weight:600; font-size:12.5px; }
+  #ec-sla-root .muted{ color:var(--gray-500); }
+  #ec-sla-root .deptsum{ display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    padding:12px 16px; background:var(--gray-50); border:1px solid var(--hair);
+    border-radius:var(--r-md); margin-bottom:16px; font-size:13px; color:var(--gray-600); }
+  #ec-sla-root .deptsum b{ color:var(--gray-900); font-weight:700; }
+  #ec-sla-root .deptsum .lead b{ font-size:19px; letter-spacing:-.4px; }
+  #ec-sla-root .bull{ width:3px; height:3px; border-radius:50%; background:var(--gray-300);
+    display:inline-block; }
+
+  /* ------------------------------------------------------ bảng quy trình -- */
+  #ec-sla-root .ftab tbody td{ vertical-align:top; }
+  #ec-sla-root .f-proc{ display:block; font-weight:700; color:var(--gray-900);
+    font-size:13px; line-height:1.4; }
+  #ec-sla-root .f-cat{ display:block; font-size:12px; color:var(--gray-500); margin-top:3px; }
+  #ec-sla-root .f-proc.rep, #ec-sla-root .f-cat.rep{ display:none; }
+  #ec-sla-root .ftab tbody tr.grp td{ border-top:1px solid var(--gray-200); }
+  #ec-sla-root .ftab tbody tr:hover{ background:var(--gray-50); }
+  #ec-sla-root .f-step{ display:flex; align-items:baseline; gap:8px; }
+  #ec-sla-root .f-no{ width:20px; height:20px; border-radius:var(--r-pill);
+    background:var(--gray-100); color:var(--gray-600); font-size:11.5px; font-weight:700;
+    display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  #ec-sla-root .f-sname{ font-size:13px; font-weight:600; color:var(--gray-900); line-height:1.4; }
+  #ec-sla-root .f-lim{ font-size:13px; color:var(--gray-800); }
+  #ec-sla-root .f-lim b{ font-weight:700; color:var(--gray-900); font-size:14px; }
+  #ec-sla-root .f-note{ display:block; font-size:12px; color:var(--gray-500); margin-top:3px; }
+  #ec-sla-root .f-note.warn{ color:var(--amber-700); }
+  #ec-sla-root .f-code{ font-size:12.5px; color:var(--gray-400); white-space:nowrap; }
+  #ec-sla-root .chip{ display:inline-flex; align-items:center; gap:5px; padding:3px 10px;
+    border-radius:var(--r-pill); font-size:12px; font-weight:600;
+    background:var(--gray-100); color:var(--gray-600); }
+  #ec-sla-root .chip.biz{ background:var(--navy-50); color:var(--navy); }
+  #ec-sla-root .chip.warn{ background:var(--amber-50); color:var(--amber-700); }
+  #ec-sla-root .chip.bad{ background:var(--red-50); color:var(--red-700); }
+
+  /* ------------------------------------------------------- tab cách tính -- */
+  #ec-sla-root .formula{ display:inline-flex; flex-direction:column; align-items:center;
+    gap:7px; padding:16px 26px; background:var(--gray-50); border:1px solid var(--hair);
+    border-radius:var(--r-md); }
+  #ec-sla-root .f-num, #ec-sla-root .f-den{ font-size:14px; font-weight:600; color:var(--gray-800); }
+  #ec-sla-root .f-bar{ display:block; width:100%; height:2px; background:var(--gray-400);
+    border-radius:2px; }
+  #ec-sla-root .how{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  #ec-sla-root .rulebox{ border:1px solid var(--hair); border-radius:var(--r-md);
+    padding:14px 16px; background:var(--surface); }
+  #ec-sla-root .rulebox h3{ margin:0 0 6px; font-size:13px; font-weight:700;
+    color:var(--gray-900); display:flex; align-items:center; gap:8px; }
+  #ec-sla-root .rulebox p{ margin:0; font-size:12.5px; color:var(--gray-600); line-height:1.55; }
+  #ec-sla-root .rulebox p + p{ margin-top:7px; }
+  #ec-sla-root .prose p{ font-size:13px; color:var(--gray-600); line-height:1.6;
+    margin:0 0 10px; max-width:72ch; }
+  #ec-sla-root .prose p b{ color:var(--gray-900); }
+  #ec-sla-root .prose ul{ margin:0; padding-left:0; list-style:none; }
+  #ec-sla-root .prose ul li{ font-size:13px; color:var(--gray-600); line-height:1.6;
+    padding:8px 0 8px 22px; position:relative; max-width:72ch; }
+  #ec-sla-root .prose ul li + li{ border-top:1px solid var(--gray-100); }
+  #ec-sla-root .prose ul li b{ color:var(--gray-900); }
+  #ec-sla-root .prose ul li .ic{ position:absolute; left:0; top:11px;
+    width:14px; height:14px; color:var(--gray-400); }
+
+  /* đồng hồ giờ làm việc */
+  #ec-sla-root .cd-case{ font-size:12.5px; color:var(--gray-600); margin:0 0 14px; }
+  #ec-sla-root .cd-case b{ color:var(--gray-900); font-weight:700; }
+  #ec-sla-root .cd-track{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  #ec-sla-root .cd-day{ border:1px solid var(--hair); border-radius:var(--r-sm);
+    overflow:hidden; background:var(--surface); }
+  #ec-sla-root .cd-day.off{ background:var(--gray-50); border-style:dashed; }
+  #ec-sla-root .cd-dl{ font-size:12px; font-weight:700; color:var(--gray-500);
+    padding:7px 9px 5px; text-transform:uppercase; letter-spacing:.04em; }
+  #ec-sla-root .cd-blocks{ display:flex; gap:3px; padding:0 9px 9px; height:44px;
+    align-items:flex-end; }
+  #ec-sla-root .cd-blk{ flex:1; border-radius:3px; background:var(--gray-200); height:60%; }
+  #ec-sla-root .cd-blk.rest{ height:20%; }
+  #ec-sla-root .cd-blk.used{ background:var(--navy); height:100%; }
+  #ec-sla-root .cd-blk.due{ background:var(--yellow); height:100%; }
+  #ec-sla-root .cd-foot{ font-size:12px; color:var(--gray-500); padding:0 9px 9px; }
+  #ec-sla-root .cd-result{ margin-top:12px; display:inline-flex; align-items:center;
+    gap:8px; padding:8px 13px; border-radius:var(--r-sm); background:var(--navy-50);
+    color:var(--navy-700); font-size:13px; font-weight:600; }
+  #ec-sla-root .cd-legend{ display:flex; gap:14px; flex-wrap:wrap; margin-top:12px;
+    font-size:12px; color:var(--gray-500); }
+  #ec-sla-root .cd-legend span{ display:inline-flex; align-items:center; gap:6px; }
+  #ec-sla-root .cd-key{ width:10px; height:10px; border-radius:3px; }
+
+  /* ---------------------------------------------------------- ngăn kéo -- */
+  #ec-sla-root .ov{ position:fixed; inset:0; background:rgba(17,24,39,.42); z-index:90;
+    display:flex; justify-content:flex-end; opacity:0; transition:opacity .25s ease; }
+  #ec-sla-root .ov.show{ opacity:1; }
+  #ec-sla-root .ov[hidden]{ display:none; }
+  #ec-sla-root .drawer{ width:560px; max-width:94vw; background:var(--surface);
+    height:100%; overflow-y:auto; box-shadow:var(--shadow-pop);
+    transform:translateX(24px); opacity:.6;
+    transition:transform .35s var(--ease), opacity .35s var(--ease); }
+  #ec-sla-root .ov.show .drawer{ transform:none; opacity:1; }
+  #ec-sla-root .dr-head{ position:sticky; top:0; background:var(--surface);
+    border-bottom:1px solid var(--hair); padding:16px 20px; display:flex;
+    align-items:flex-start; gap:12px; z-index:1; }
+  #ec-sla-root .dr-head .avatar{ width:38px; height:38px; font-size:13px; }
+  #ec-sla-root .dr-title{ flex:1; min-width:0; }
+  #ec-sla-root .dr-title h3{ margin:0; font-size:16px; font-weight:700; color:var(--gray-900); }
+  #ec-sla-root .dr-title .sub{ font-size:12.5px; color:var(--gray-500); margin-top:2px; }
+  #ec-sla-root .xbtn{ background:none; border:none; cursor:pointer; color:var(--gray-500);
+    padding:6px; border-radius:var(--r-sm); }
+  #ec-sla-root .xbtn:hover{ background:var(--gray-100); color:var(--gray-800); }
+  #ec-sla-root .dr-body{ padding:20px; }
+  #ec-sla-root .dr-group{ padding:16px 0; border-bottom:1px solid var(--gray-100); }
+  #ec-sla-root .dr-group:first-child{ padding-top:0; }
+  #ec-sla-root .dr-group:last-child{ border-bottom:none; }
+  #ec-sla-root .dr-ghead{ display:flex; align-items:baseline; justify-content:space-between;
+    gap:12px; flex-wrap:wrap; margin-bottom:11px; }
+  #ec-sla-root .dr-ghead h4{ margin:0; font-size:13.5px; font-weight:700; color:var(--gray-900); }
+  #ec-sla-root .dr-gval{ display:flex; align-items:baseline; gap:9px; }
+  #ec-sla-root .dr-rate{ font-size:20px; font-weight:800; letter-spacing:-.5px; }
+  #ec-sla-root .dr-rate.is-good{ color:var(--green-700); }
+  #ec-sla-root .dr-rate.is-warn{ color:var(--amber-700); }
+  #ec-sla-root .dr-rate.is-bad{ color:var(--red-700); }
+  #ec-sla-root .dr-rate.is-none{ font-size:14px; font-weight:700; letter-spacing:0;
+    color:var(--gray-500); }
+  #ec-sla-root .dr-unit{ font-size:12px; color:var(--gray-500); }
+  #ec-sla-root .dr-group .comp-bar{ height:26px; }
+  #ec-sla-root .dr-group .seg{ font-size:11.5px; }
+
+  /* ------------------------------------------------------------- trạng thái -- */
+  #ec-sla-root .state{ padding:44px 16px; text-align:center; color:var(--gray-500);
+    font-size:13.5px; }
+  #ec-sla-root .empty{ padding:30px 16px; text-align:center; color:var(--gray-500);
+    font-size:13px; }
+  #ec-sla-root .err{ background:var(--red-50); border:1px solid var(--red-200);
+    color:var(--red-700); border-radius:var(--r-md); padding:13px 15px; font-size:13px;
+    margin-bottom:16px; }
+  #ec-sla-root .note{ background:var(--amber-50); border:1px solid var(--amber-200);
+    color:#7a4a05; border-radius:var(--r-md); padding:13px 15px; font-size:13px;
+    margin-bottom:16px; }
+  #ec-sla-root .note b, #ec-sla-root .err b{ font-weight:700; }
+  #ec-sla-root .in{ font:inherit; font-size:13px; padding:8px 12px;
+    border:1px solid var(--gray-300); border-radius:var(--r-sm); background:var(--surface);
+    color:var(--gray-800); min-width:230px; }
+  #ec-sla-root .in::placeholder{ color:var(--gray-500); }
+  #ec-sla-root .in:focus{ outline:2px solid var(--navy); outline-offset:1px;
+    border-color:var(--navy); }
+  #ec-sla-root .btn{ font:inherit; font-size:13px; font-weight:600; padding:8px 14px;
+    cursor:pointer; border:1px solid var(--gray-300); border-radius:var(--r-sm);
+    background:var(--surface); color:var(--gray-700); }
+  #ec-sla-root .btn:hover{ border-color:var(--navy); color:var(--navy); }
+  #ec-sla-root .spacer{ flex:1; }
+
+  /* ------------------------------------------------------------ đáp ứng -- */
+  @media (max-width:1024px){
     #ec-sla-root{ grid-template-columns:1fr; }
     #ec-sla-root .ec-shell-mount{ display:none; }
-    #ec-sla-root .sla-content{ padding:16px; }
-    #ec-sla-root .sla-hero{ padding:18px; gap:16px; }
-    #ec-sla-root .sla-score{ font-size:38px; }
+    #ec-sla-root .how{ grid-template-columns:1fr; }
+  }
+  @media (max-width:640px){
+    #ec-sla-root .sla-content{ padding:16px 16px 48px; }
+    #ec-sla-root .sla-topbar{ padding:0 14px; }
+    #ec-sla-root .hero{ grid-template-columns:1fr; gap:18px; padding:18px; }
+    #ec-sla-root .hero-n{ font-size:46px; letter-spacing:-2px; }
+    #ec-sla-root .card-pad{ padding:16px; }
+    #ec-sla-root .gsel{ grid-template-columns:1fr 1fr; gap:10px; }
+    #ec-sla-root .gcard{ padding:12px 13px; }
+    #ec-sla-root .gcard .gn{ font-size:26px; }
+    #ec-sla-root .gcard .gl{ font-size:12px; }
+    #ec-sla-root .item{ align-items:flex-start; flex-wrap:wrap; }
+    /* Huy hieu + nut "Mo" xuong hang rieng: nhet chung hang voi tieu de o khổ
+       390px thi tieu de bi bop con hai tu roi xuong bon dong. */
+    #ec-sla-root .item-right{ order:2; width:100%; padding-top:8px;
+      justify-content:flex-start; }
+    #ec-sla-root .cause-share{ display:none; }
+    #ec-sla-root .cd-track{ grid-template-columns:repeat(2,1fr); }
+
+    /* bảng người -> thẻ xếp chồng */
+    #ec-sla-root .ppl thead{ display:none; }
+    #ec-sla-root .ppl tbody tr{ display:block; border:1px solid var(--hair);
+      border-radius:var(--r-md); padding:12px; margin-bottom:10px; background:var(--surface); }
+    #ec-sla-root .ppl tbody tr.me{ border-color:var(--navy); }
+    #ec-sla-root .ppl tbody td{ display:flex; justify-content:space-between;
+      align-items:center; gap:12px; padding:5px 0; border:none; }
+    #ec-sla-root .ppl tbody td::before{ content:attr(data-l); font-size:11px;
+      font-weight:700; color:var(--gray-500); text-transform:uppercase; letter-spacing:.04em; }
+    #ec-sla-root .ppl tbody td.person-cell{ padding-bottom:9px; margin-bottom:5px;
+      border-bottom:1px solid var(--gray-100); }
+    #ec-sla-root .ppl tbody td.person-cell::before{ display:none; }
+    #ec-sla-root .ppl tbody td.n{ text-align:right; }
+    #ec-sla-root .rate{ min-width:0; flex:1; max-width:200px; }
+    /* Nam cot ti le nhom BIEN MAT tren dien thoai - khong phai vi chung khong
+       quan trong, ma vi tren mot man hinh 390px chung bien moi nguoi thanh mot
+       the cao bay dong, va cau hoi nguoi ta mo dien thoai de hoi chi la "minh
+       dang o dau". Bam vao dong se mo ngan keo co day du nam nhom. */
+    #ec-sla-root .ppl tbody td.gcol{ display:none; }
+
+    /* bảng quy trình -> thẻ xếp chồng */
+    #ec-sla-root .ftab thead{ display:none; }
+    #ec-sla-root .ftab tbody tr{ display:block; border:1px solid var(--hair);
+      border-radius:var(--r-md); padding:12px; margin-bottom:10px; background:var(--surface); }
+    #ec-sla-root .ftab tbody td{ display:block; padding:3px 0; border:none; }
+    #ec-sla-root .ftab tbody tr.grp td{ border-top:none; }
+    #ec-sla-root .ftab tbody td[data-l]::before{ content:attr(data-l) " ";
+      font-size:11px; font-weight:700; color:var(--gray-500); text-transform:uppercase;
+      letter-spacing:.04em; }
+    #ec-sla-root .ftab .f-proc.rep, #ec-sla-root .ftab .f-cat.rep{ display:block; }
+    #ec-sla-root .ftab .f-proc.rep{ color:var(--gray-500); font-weight:600; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    #ec-sla-root *{ transition-duration:.01ms !important; animation-duration:.01ms !important; }
+    #ec-sla-root .comp-bar{ clip-path:none; }
   }
 </style>
 
@@ -152,31 +520,35 @@
       <h1 class="sla-title">Điểm SLA</h1>
       <p class="sla-desc">Tỉ lệ hoàn thành đúng hạn của bạn trong tháng, và cách nó được tính. Mọi con số đều mở ra được thành từng đầu việc để bạn tự kiểm.</p>
 
-      <div id="sla-err" class="sla-err" hidden role="alert"></div>
+      <div id="sla-err" class="err" hidden role="alert"></div>
 
       <div class="sla-tabs" role="tablist" aria-label="Các cách xem điểm SLA">
-        <button type="button" class="sla-tab" role="tab" id="sla-tab-me" aria-controls="sla-panel-me" aria-selected="true" data-tab="me">Của tôi</button>
-        <button type="button" class="sla-tab" role="tab" id="sla-tab-dept" aria-controls="sla-panel-dept" aria-selected="false" data-tab="dept">Phòng ban</button>
-        <button type="button" class="sla-tab" role="tab" id="sla-tab-steps" aria-controls="sla-panel-steps" aria-selected="false" data-tab="steps">Quy trình duyệt</button>
-        <button type="button" class="sla-tab" role="tab" id="sla-tab-rules" aria-controls="sla-panel-rules" aria-selected="false" data-tab="rules">Cách tính SLA</button>
+        <button type="button" class="sla-tab" role="tab" id="sla-tab-me" aria-controls="sla-panel-me" aria-selected="true" data-tab="me"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5.2 20a6.8 6.8 0 0 1 13.6 0"/></svg>Của tôi</button>
+        <button type="button" class="sla-tab" role="tab" id="sla-tab-dept" aria-controls="sla-panel-dept" aria-selected="false" data-tab="dept"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.2" cy="8" r="3.3"/><path d="M2.8 19.5a6.4 6.4 0 0 1 12.8 0"/><path d="M16.2 5.3a3.2 3.2 0 0 1 0 5.4"/><path d="M17.6 14.1a6.4 6.4 0 0 1 3.6 5.4"/></svg>Phòng ban</button>
+        <button type="button" class="sla-tab" role="tab" id="sla-tab-steps" aria-controls="sla-panel-steps" aria-selected="false" data-tab="steps"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13h4l1.3 2.4h6.4L16.5 13h4"/><path d="M5.6 4.6h12.8l2.1 8.4V18a1.6 1.6 0 0 1-1.6 1.6H5.1A1.6 1.6 0 0 1 3.5 18v-5Z"/></svg>Quy trình duyệt</button>
+        <button type="button" class="sla-tab" role="tab" id="sla-tab-rules" aria-controls="sla-panel-rules" aria-selected="false" data-tab="rules"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg>Cách tính SLA</button>
       </div>
 
       <section class="sla-panel" id="sla-panel-me" role="tabpanel" aria-labelledby="sla-tab-me">
-        <div class="sla-state">Đang tải…</div>
+        <div class="state">Đang tải…</div>
       </section>
 
       <section class="sla-panel" id="sla-panel-dept" role="tabpanel" aria-labelledby="sla-tab-dept" hidden>
-        <div class="sla-state">Đang tải…</div>
+        <div class="state">Đang tải…</div>
       </section>
 
       <section class="sla-panel" id="sla-panel-steps" role="tabpanel" aria-labelledby="sla-tab-steps" hidden>
-        <div class="sla-state">Đang tải…</div>
+        <div class="state">Đang tải…</div>
       </section>
 
       <section class="sla-panel" id="sla-panel-rules" role="tabpanel" aria-labelledby="sla-tab-rules" hidden>
-        <div class="sla-state">Đang tải…</div>
+        <div class="state">Đang tải…</div>
       </section>
     </div>
+  </div>
+
+  <div class="ov" id="sla-ov" hidden role="dialog" aria-modal="true" aria-label="Điểm SLA của một người">
+    <div class="drawer" id="sla-drawer"></div>
   </div>
 </div>
 
@@ -194,7 +566,7 @@
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function $(id){ return document.getElementById(id); }
   function panel(t){ return $('sla-panel-' + t); }
-  function state(t, msg){ panel(t).innerHTML = '<div class="sla-state">' + esc(msg) + '</div>'; }
+  function state(t, msg){ panel(t).innerHTML = '<div class="state">' + esc(msg) + '</div>'; }
 
   /**
    * Trang thai LOI cua mot tab, kem nut thu lai.
@@ -203,18 +575,34 @@
    * F5. Ho se ket luan "he thong hong", khong phai "mang vua chap".
    */
   function stateErr(t, msg){
-    panel(t).innerHTML = '<div class="sla-state">' + esc(msg)
-      + '<div style="margin-top:12px"><button type="button" class="sla-btn" data-retry="' + t + '">Thử lại</button></div></div>';
+    panel(t).innerHTML = '<div class="state">' + esc(msg)
+      + '<div style="margin-top:14px"><button type="button" class="btn" data-retry="' + t + '">Thử lại</button></div></div>';
   }
   function num(v){ return v == null ? 0 : v; }
   function pct(v){ return v == null ? '—' : (v + '%'); }
+
+  /**
+   * Bac mau cua mot ti le. NGUONG 90/70 - dung mot bo voi the %SLA tren trang
+   * chu. Hai nguong khac nhau tren hai trang cua cung mot he thong nghia la mot
+   * nguoi 72% thay mau cam o trang chu va mau do o /sla, roi khong biet tin cai
+   * nao; do la mot loi ve niem tin chu khong phai ve mau sac.
+   */
   function rateClass(v){
     if (v == null) return 'is-none';
     if (v >= 90) return 'is-good';
-    if (v >= 75) return 'is-warn';
+    if (v >= 70) return 'is-warn';
     return 'is-bad';
   }
   function shortUser(u){ return String(u || '').split('@')[0]; }
+
+  /** Chu cai dau cho anh dai dien. Thuan chuoi, khong suy dien gi ve con nguoi. */
+  function initials(u){
+    var parts = shortUser(u).split(/[._-]+/).filter(function(p){ return p.length; });
+    if (!parts.length) return '?';
+    if (parts.length === 1) return parts[0].slice(0, 2);
+    return parts[0].charAt(0) + parts[parts.length - 1].charAt(0);
+  }
+
   function dt(v){
     // Co NAM. Tab "Cach tinh SLA" bao nguoi ta chup man hinh lam bang chung
     // khieu nai; mot moc thieu nam thi khong doi chieu duoc voi gi.
@@ -233,17 +621,69 @@
     var m = String(p || '').match(/^(\d{4})-(\d{2})$/);
     return m ? ('tháng ' + m[2] + '/' + m[1]) : String(p || '');
   }
-  var STATUS_PILL = {
-    'Met':      ['pill-ok',   'Đúng hạn'],
-    'Late':     ['pill-late', 'Trễ hạn'],
-    'Missed':   ['pill-bad',  'Chưa làm'],
-    'Open':     ['pill-info', 'Chưa tới hạn'],
-    'Excluded': ['pill-off',  'Không tính điểm'],
-    'Cancelled':['pill-off',  'Đã hủy']
+
+  /**
+   * `late_seconds` -> "6h45".
+   *
+   * Day la cho DUY NHAT trong tep nay co phep chia, va no la doi DON VI cua mot
+   * gia tri backend da tinh xong, khong phai tinh lai mot phan quyet. Neu mot
+   * ngay nao do can "tre bao lau" theo gio lam viec chu khong phai gio dong ho,
+   * thi con so do phai di ra tu backend chu khong phai sua o day.
+   */
+  function dur(sec){
+    if (sec == null) return '';
+    var s = Math.round(Math.abs(Number(sec)));
+    if (!isFinite(s) || s <= 0) return '';
+    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    if (h >= 24){ var d = Math.floor(h / 24); return d + ' ngày' + (h % 24 ? ' ' + (h % 24) + 'h' : ''); }
+    if (h) return h + 'h' + (m < 10 ? '0' : '') + m;
+    return m + ' phút';
+  }
+
+  var ICONS = {
+    check: '<circle cx="12" cy="12" r="9"/><path d="m8.4 12.1 2.5 2.5 4.7-5.2"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 1.9"/>',
+    alert: '<path d="M10.3 4.3 2.7 17.8A2 2 0 0 0 4.4 21h15.2a2 2 0 0 0 1.7-3.2L13.7 4.3a2 2 0 0 0-3.4 0Z"/><path d="M12 10v3.6"/><path d="M12 17h.01"/>',
+    minus: '<circle cx="12" cy="12" r="9"/><path d="M8.4 12h7.2"/>',
+    pause: '<circle cx="12" cy="12" r="9"/><path d="M10.2 9.2v5.6M13.8 9.2v5.6"/>',
+    chev:  '<path d="m9 6 6 6-6 6"/>',
+    user:  '<circle cx="12" cy="8" r="3.6"/><path d="M5.2 20a6.8 6.8 0 0 1 13.6 0"/>',
+    users: '<circle cx="9.2" cy="8" r="3.3"/><path d="M2.8 19.5a6.4 6.4 0 0 1 12.8 0"/><path d="M16.2 5.3a3.2 3.2 0 0 1 0 5.4"/><path d="M17.6 14.1a6.4 6.4 0 0 1 3.6 5.4"/>',
+    list:  '<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>',
+    cal:   '<rect x="3.2" y="5" width="17.6" height="16" rx="2.6"/><path d="M8 3v4M16 3v4M3.2 10h17.6"/>',
+    inbox: '<path d="M3.5 13h4l1.3 2.4h6.4L16.5 13h4"/><path d="M5.6 4.6h12.8l2.1 8.4V18a1.6 1.6 0 0 1-1.6 1.6H5.1A1.6 1.6 0 0 1 3.5 18v-5Z"/>',
+    gauge: '<path d="M4.2 17.5a9 9 0 1 1 15.6 0"/><path d="M12 13.8 15.6 10"/><circle cx="12" cy="15.2" r="1.4"/>',
+    ext:   '<path d="M14.5 4H20v5.5"/><path d="M20 4 12 12"/><path d="M18 14.2v3.9A1.9 1.9 0 0 1 16.1 20H5.9A1.9 1.9 0 0 1 4 18.1V7.9A1.9 1.9 0 0 1 5.9 6h3.9"/>',
+    x:     '<path d="m6.5 6.5 11 11M17.5 6.5l-11 11"/>',
+    info:  '<circle cx="12" cy="12" r="9"/><path d="M12 11.2v5"/><path d="M12 8h.01"/>'
   };
-  function statusPill(st){
-    var p = STATUS_PILL[st] || ['pill-off', st || '—'];
-    return '<span class="pill ' + p[0] + '">' + esc(p[1]) + '</span>';
+  //: Mot bo icon, mot do day net. Khong ky tu Unicode dong the icon - "⚠" va
+  //: "✓" cua he thong khong cung ho voi nhau va doi hinh theo tung may.
+  function ico(name, cls){
+    return '<svg class="ic' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" aria-hidden="true"'
+      + ' fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"'
+      + ' stroke-linejoin="round">' + (ICONS[name] || '') + '</svg>';
+  }
+
+  var GROUP_ICON = { approval: 'inbox', attendance: 'clock', rsvp: 'cal',
+                     weekly: 'list', task: 'gauge' };
+
+  var STATUS_PILL = {
+    'Met':      ['ontime', 'Đúng hạn'],
+    'Late':     ['late',   'Trễ hạn'],
+    'Missed':   ['missed', 'Chưa làm'],
+    'Open':     ['open',   'Chưa tới hạn'],
+    'Excluded': ['excl',   'Không tính điểm'],
+    'Cancelled':['excl',   'Đã hủy']
+  };
+  function statusPill(st, it){
+    var p = STATUS_PILL[st] || ['excl', st || '—'];
+    var extra = '';
+    if (st === 'Late' && it && it.late_seconds){
+      var d = dur(it.late_seconds);
+      if (d) extra = ' ' + d;
+    }
+    return '<span class="pill ' + p[0] + '">' + esc(p[1] + extra) + '</span>';
   }
 
   /**
@@ -264,6 +704,62 @@
     if (g.unknown) bits.push(g.unknown + ' không rõ');
     if (g.no_policy) bits.push('trong đó ' + g.no_policy + ' chưa có hạn');
     return bits.join(' · ');
+  }
+
+  /**
+   * Thanh thành phần + dấu ngoặc mẫu số.
+   *
+   * KHÔNG CÓ PHÉP TÍNH NÀO Ở ĐÂY. `flex-grow` nhận đúng số đếm của backend và
+   * để trình duyệt chia tỉ lệ; `min-width:4px` trong CSS bảo đảm một đoạn khác
+   * 0 không bao giờ biến mất hoàn toàn - một đoạn tàng hình đọc ra thành "không
+   * có việc nào trễ", tức là một lời nói dối im lặng.
+   */
+  function compBar(o, unit){
+    var segs = [
+      ['ontime', num(o.ontime), 'Đúng hạn'],
+      ['late',   num(o.late),   'Trễ'],
+      ['missed', num(o.missed), 'Chưa làm'],
+      ['excl',   outside(o),    'Không tính điểm']
+    ];
+    var bar = segs.filter(function(s){ return s[1] > 0; }).map(function(s){
+      return '<span class="seg ' + s[0] + '" style="flex-grow:' + s[1] + '"'
+        + ' title="' + esc(s[2] + ': ' + s[1]) + '">'
+        + '<span class="tnum">' + s[1] + '</span></span>';
+    }).join('');
+    if (!bar) bar = '<span class="seg excl" style="flex-grow:1"></span>';
+
+    var scored = num(o.scored), off = outside(o);
+    var bracket = '<div class="bracket" aria-hidden="true">'
+      + '<div class="bracket-span" style="flex-grow:' + (scored || 1) + '">'
+      + '<span class="bracket-txt"><b class="tnum">' + scored + ' ' + esc(unit || 'đầu việc')
+      + '</b> được tính điểm</span></div>'
+      + (off ? '<div class="bracket-rest" style="flex-grow:' + off + '"></div>' : '')
+      + '</div>';
+
+    var legend = '<div class="legend">'
+      + segs.map(function(s){
+          return '<span class="lg"><span class="dot ' + s[0] + '"></span>'
+            + esc(s[2]) + ' <b class="tnum">' + s[1] + '</b></span>';
+        }).join('')
+      + '</div>';
+
+    return '<div class="comp"><div class="comp-bar" role="img" aria-label="'
+      + esc(segs.map(function(s){ return s[2] + ' ' + s[1]; }).join(', '))
+      + '">' + bar + '</div>' + bracket + '</div>' + legend;
+  }
+
+  /** Bật hoạt ảnh lộ thanh. MỘT khoảnh khắc, chạy một lần sau khi đã vẽ xong. */
+  function armComps(host){
+    var list = (host || document).querySelectorAll('#ec-sla-root .comp:not(.ready)');
+    if (!list.length) return;
+    // requestAnimationFrame kep: nhip dau de trinh duyet nhan layout, nhip sau
+    // moi doi class - doi ngay trong cung mot nhip thi khong co transition nao.
+    var go = function(){
+      for (var i = 0; i < list.length; i++) list[i].className += ' ready';
+    };
+    if (window.requestAnimationFrame){
+      requestAnimationFrame(function(){ requestAnimationFrame(go); });
+    } else { setTimeout(go, 30); }
   }
 
   /**
@@ -318,7 +814,7 @@
   }
   function datesBanner(){
     return _datesFailed
-      ? '<div class="sla-err">Không đọc được ngày bắt đầu tính của các nhóm. '
+      ? '<div class="err">Không đọc được ngày bắt đầu tính của các nhóm. '
         + 'Những chỗ ghi “không đọc được” bên dưới là do lỗi này, không phải do chưa cấu hình.</div>'
       : '';
   }
@@ -327,112 +823,208 @@
   var _labels = {};
   function GROUP_LABEL(k){ return _labels[k] || k; }
 
-  function heroWhy(contrib){
-    if (!contrib || !contrib.length){
-      return '<div class="sla-hero-why"><div class="sla-hero-lab">Vì sao</div>'
-           + '<p class="sla-card-note" style="margin:0">Chưa có đầu việc nào trễ hoặc chưa làm trong kỳ này.</p></div>';
-    }
-    // Thanh tỉ trọng CHỈ có nghĩa khi có từ hai nhóm trở lên. Với một nhóm duy
-    // nhất thì share luôn là 100%, và một thanh đầy chạy hết chiều ngang đọc ra
-    // thành "hỏng hết" trong khi sự thật có thể là 2 việc trên 11. Một nhóm thì
-    // con số tự nói đủ.
-    var many = contrib.length > 1;
-    var rows = contrib.map(function(c){
-      return '<div class="sla-why-row">'
-           + '<span style="min-width:132px">' + esc(GROUP_LABEL(c.group_key)) + '</span>'
-           + (many
-              ? '<span class="sla-why-bar"><i style="width:' + Math.max(4, Math.round(c.share)) + '%"></i></span>'
-              : '<span class="sla-why-bar" style="visibility:hidden"></span>')
-           + '<span class="sla-why-n">' + c.fails + ' việc</span>'
-           + '</div>';
-    }).join('');
-    var lab = many ? 'Vì sao — đếm theo số đầu việc hỏng' : 'Vì sao';
-    return '<div class="sla-hero-why"><div class="sla-hero-lab">' + lab + '</div>' + rows + '</div>';
+  function groupCards(groups, dates, sel){
+    return '<div class="gsel" role="group" aria-label="Tỉ lệ từng nhóm">'
+      + groups.map(function(g){
+          var d = (dates || {})[g.group_key] || {};
+          var startTxt = _datesFailed ? 'không đọc được ngày áp dụng'
+                       : (d.from ? 'tính từ ' + dmy(d.from) : 'chưa đặt ngày áp dụng');
+          var body = g.rate == null
+            ? '<span class="gn is-none">chưa đủ mẫu</span>'
+            : '<span class="gn ' + rateClass(g.rate) + ' tnum">' + g.rate + '</span><span class="gp">%</span>';
+          return '<button type="button" class="gcard' + (g.counts_toward_sla ? '' : ' off') + '"'
+            + ' data-group="' + esc(g.group_key) + '"'
+            + ' aria-pressed="' + (sel === g.group_key ? 'true' : 'false') + '">'
+            + '<span class="gl">' + ico(GROUP_ICON[g.group_key] || 'list', 'ic-sm')
+            + esc(g.label)
+            + (g.counts_toward_sla ? '' : '<span class="gbadge">ngoài %SLA</span>') + '</span>'
+            + '<span class="gv">' + body + '</span>'
+            + '<span class="gs tnum">' + num(g.scored) + ' ' + esc(g.unit) + ' được chấm</span>'
+            + '<span class="gd">' + esc(startTxt) + '</span>'
+            + '</button>';
+        }).join('')
+      + '</div>';
   }
 
-  function groupTable(groups, dates){
-    var body = groups.map(function(g){
-      var d = (dates || {})[g.group_key];
-      var startTxt = _datesFailed ? 'không đọc được ngày áp dụng'
-                   : (d && d.from ? 'tính từ ' + dmy(d.from) : 'chưa đặt ngày áp dụng');
-      var rate = g.rate == null
-        ? '<span class="sla-muted">chưa đủ mẫu</span>'
-        : '<span class="sla-strong">' + pct(g.rate) + '</span>';
-      var offNote = g.counts_toward_sla ? '' : ' <span class="pill pill-off">ngoài %SLA</span>';
-      var note = outsideNote(g);
-      return '<tr>'
-        + '<td><span class="sla-strong">' + esc(g.label) + '</span>' + offNote
-        + '<div class="sla-card-note">' + esc(startTxt) + '</div></td>'
-        + '<td class="num">' + num(g.ontime) + '</td>'
-        + '<td class="num">' + num(g.late) + '</td>'
-        + '<td class="num">' + num(g.missed) + '</td>'
-        + '<td class="num"><span class="sla-strong">' + num(g.scored) + '</span> ' + esc(g.unit) + '</td>'
-        + '<td class="num">' + outside(g)
-        + (note ? '<div class="sla-card-note">' + esc(note) + '</div>' : '') + '</td>'
-        + '<td class="num">' + rate + '</td>'
-        + '</tr>';
-    }).join('');
-    return '<div class="sla-card"><div class="sla-card-head">'
-      + '<h2 class="sla-card-title">Chi tiết theo nhóm</h2>'
-      + '<p class="sla-card-note">Tỉ lệ = Đúng hạn ÷ Được chấm. Cột “Ngoài mẫu số” không giúp và cũng không hại.</p>'
-      + '</div><div class="sla-scroll"><table class="sla-tb"><thead><tr>'
-      + '<th>Nhóm</th><th class="num">Đúng hạn</th><th class="num">Trễ</th>'
-      + '<th class="num">Chưa làm</th><th class="num">Được chấm</th>'
-      + '<th class="num">Ngoài mẫu số</th><th class="num">Tỉ lệ</th>'
-      + '</tr></thead><tbody>' + body + '</tbody></table></div></div>';
+  /** Khối chi tiết của MỘT nhóm đang chọn: thanh thành phần riêng + phần dư. */
+  function groupDetail(g){
+    var note = outsideNote(g);
+    return '<div class="card card-pad" style="margin-top:16px">'
+      + '<div class="card-h"><div>'
+      + '<h2 class="card-t">' + esc(g.label) + ' — chi tiết</h2>'
+      + '<p class="card-s">'
+      + (g.rate == null
+          ? 'Chưa đủ mẫu để ra tỉ lệ, nhưng các đầu việc vẫn được ghi lại đầy đủ.'
+          : 'Tỉ lệ ' + pct(g.rate) + ' = ' + num(g.ontime) + ' đúng hạn ÷ ' + num(g.scored)
+            + ' ' + esc(g.unit) + ' được chấm.')
+      + (note ? ' Ngoài mẫu số: ' + esc(note) + '.' : '')
+      + '</p></div></div>'
+      + compBar(g, g.unit)
+      + '</div>';
   }
 
-  function itemsTable(items){
-    if (items && items._err){
-      return '<div class="sla-card"><div class="sla-card-head">'
-        + '<h2 class="sla-card-title">Đầu việc trễ hoặc chưa làm</h2></div>'
-        + '<div class="sla-card-body"><div class="sla-err" style="margin:0">'
-        + 'Không tải được danh sách đầu việc: ' + esc(items._err)
-        + '. Tỉ lệ phía trên vẫn đúng — chỉ phần liệt kê chi tiết bị lỗi.</div></div></div>';
+  /**
+   * "Điều gì đang kéo điểm xuống".
+   *
+   * SỐ ĐẾM LÀ CỦA BACKEND (`contribution[].fails` và `.share`), không phải đếm
+   * lại từ danh sách. Danh sách chỉ dùng để MỞ RA xem là những dòng nào - nếu
+   * hai con số lệch nhau thì đó là lỗi backend cần lộ ra, không phải chỗ để
+   * giao diện tự sửa cho khớp.
+   */
+  function causes(contrib, items, sel){
+    var list = (contrib || []).filter(function(c){
+      return !sel || c.group_key === sel;
+    });
+    if (!list.length){
+      return '<div class="card card-pad"><div class="card-h"><div>'
+        + '<h2 class="card-t">Điều gì đang kéo điểm xuống</h2></div></div>'
+        + '<div class="empty">' + (sel ? 'Nhóm này không có đầu việc nào trễ hoặc chưa làm.'
+                                       : 'Không có đầu việc nào trễ hoặc chưa làm trong kỳ này.')
+        + '</div></div>';
     }
-    if (!items.length){
-      return '<div class="sla-card"><div class="sla-card-head">'
-        + '<h2 class="sla-card-title">Đầu việc trễ hoặc chưa làm</h2></div>'
-        + '<div class="sla-card-body sla-card-note">Không có đầu việc nào trễ trong kỳ này.</div></div>';
-    }
-    var body = items.map(function(it){
-      return '<tr>'
-        + '<td>' + statusPill(it.effective_status) + '</td>'
-        + '<td><span class="sla-strong">' + esc(it.title || it.source_name || '—') + '</span>'
-        + '<div class="sla-card-note">' + esc(it.group_label || '') + '</div></td>'
-        + '<td class="num">' + dt(it.due_at) + '</td>'
-        + '<td class="num">' + dt(it.closed_at) + '</td>'
-        + '</tr>';
+    // LOC LAI THEO TRANG THAI HONG. `person_items` duoc goi voi `only_failed:0`
+    // (khoi "Dang cho ban" can ca nhung dong con han), nen neu khong loc o day
+    // thi mot dong CHUA TOI HAN se nam trong danh sach "dieu gi dang keo diem
+    // xuong" - va so dong se khong khop voi con so backend ghi ben canh.
+    var failed = (items && items.length && !items._err)
+      ? items.filter(function(it){
+          return it.effective_status === 'Late' || it.effective_status === 'Missed';
+        })
+      : [];
+    var blocks = list.map(function(c, i){
+      var id = 'sla-cz-' + i;
+      var rows = failed.filter(function(it){ return it.group_key === c.group_key; });
+      return '<div class="cause">'
+        + '<button type="button" class="cause-btn" data-cause="' + id + '" aria-expanded="false" aria-controls="' + id + '">'
+        + '<span class="cause-ico">' + ico('clock') + '</span>'
+        + '<span class="cause-main">'
+        + '<span class="cause-t">' + esc(GROUP_LABEL(c.group_key)) + '</span>'
+        + '<span class="cause-m tnum">' + num(c.fails) + ' đầu việc trễ hoặc chưa làm'
+        + (rows.length ? ' · bấm để xem từng dòng' : ' · chi tiết không tải được') + '</span>'
+        + '</span>'
+        + (c.share != null
+            ? '<span class="cause-share" title="' + esc('Chiếm ' + c.share + '% số việc hỏng')
+              + '"><i style="width:' + c.share + '%"></i></span>'
+            : '')
+        + '<span class="cause-n tnum">' + num(c.fails) + '</span>'
+        + ico('chev', 'cause-chev')
+        + '</button>'
+        + '<div class="cause-body" id="' + id + '" hidden>'
+        + (rows.length ? itemList(rows) : '<div class="empty">Không tải được danh sách chi tiết của nhóm này.</div>')
+        + '</div></div>';
     }).join('');
-    return '<div class="sla-card"><div class="sla-card-head">'
-      + '<h2 class="sla-card-title">Đầu việc trễ hoặc chưa làm (' + items.length + ')</h2>'
-      + '<p class="sla-card-note">Thấy sai? Xem mục “Khiếu nại” trong tab Cách tính SLA.</p>'
-      + '</div><div class="sla-scroll"><table class="sla-tb"><thead><tr>'
-      + '<th>Trạng thái</th><th>Đầu việc</th><th class="num">Hạn</th><th class="num">Đã xong lúc</th>'
-      + '</tr></thead><tbody>' + body + '</tbody></table></div></div>';
+    return '<div class="card card-pad"><div class="card-h"><div>'
+      + '<h2 class="card-t">Điều gì đang kéo điểm xuống</h2>'
+      + '<p class="card-s">'
+      + (sel ? 'Đang chỉ hiện nhóm <b>' + esc(GROUP_LABEL(sel))
+               + '</b> — bấm lại thẻ nhóm phía trên để xem tất cả. '
+             : '')
+      + 'Bấm từng dòng để xem đúng những đầu việc nào. Thấy sai? Xem mục “Khiếu nại” ở tab Cách tính SLA.</p>'
+      + '</div></div>' + blocks + '</div>';
   }
 
-  function renderMe(board, items, dates){
-    // Điền nhãn nhóm TRƯỚC khi dựng khối "Vì sao": khối đó đọc `_labels`, và
-    // JS nối chuỗi từ trái sang phải nên nó chạy trước groupTable.
-    (board.groups || []).forEach(function(g){ _labels[g.group_key] = g.label; });
+  /** Đường mở bản ghi gốc trên Desk. Không có nguồn thì không vẽ nút chết. */
+  function openHref(it){
+    if (!it.source_doctype || !it.source_name) return '';
+    return '/app/' + encodeURIComponent(String(it.source_doctype).toLowerCase().replace(/ /g, '-'))
+      + '/' + encodeURIComponent(it.source_name);
+  }
+
+  /**
+   * `mode = "pending"` bo huy hieu trang thai.
+   *
+   * Ca khoi da ten la "Dang cho ban", nen mot huy hieu "Chua toi han" tren tung
+   * dong chi lap lai cai tieu de vua noi - va no chiem dung cho ma con mat dang
+   * tim cai han.
+   */
+  function itemList(rows, mode){
+    var pend = mode === 'pending';
+    return '<ul class="items">' + rows.map(function(it){
+      var href = openHref(it);
+      var when = pend
+        ? 'Hạn ' + dt(it.due_at)
+        : 'Hạn ' + dt(it.due_at) + (it.closed_at ? ' · Xong ' + dt(it.closed_at) : ' · chưa đóng');
+      return '<li class="item">'
+        + '<div class="item-main">'
+        + (it.source_name ? '<div class="item-code">' + esc(it.source_name) + '</div>' : '')
+        + '<div class="item-t">' + esc(it.title || it.source_name || '—') + '</div>'
+        + '<div class="item-when tnum">' + esc(when) + '</div>'
+        + '</div>'
+        + '<div class="item-right">' + (pend ? '' : statusPill(it.effective_status, it))
+        + (href ? '<a class="olink" href="' + esc(href) + '">Mở' + ico('ext', 'ic-sm') + '</a>' : '')
+        + '</div></li>';
+    }).join('') + '</ul>';
+  }
+
+  /**
+   * "Đang chờ bạn" - những việc CÒN HẠN.
+   *
+   * Day la ly do trang nay duoc mo hang ngay chu khong chi cuoi thang: mot dong
+   * o day la mot lan con tranh duoc, con mot dong o khoi tren la mot lan da
+   * mat roi.
+   */
+  function pending(items, sel){
+    if (!items || items._err || !items.length) return '';
+    var rows = items.filter(function(it){
+      return it.effective_status === 'Open' && (!sel || it.group_key === sel);
+    });
+    if (!rows.length) return '';
+    return '<div class="card card-pad" style="margin-top:16px">'
+      + '<div class="card-h"><div>'
+      + '<h2 class="card-t">Đang chờ bạn <span class="tnum">(' + rows.length + ')</span></h2>'
+      + '<p class="card-s">Còn hạn. Xử lý trước khi chúng thành điểm trừ.</p>'
+      + '</div></div>' + itemList(rows, 'pending') + '</div>';
+  }
+
+  var _me = null;   //: board + items + dates cua tab "Cua toi", de loc lai khong goi API
+  var _meSel = null;
+
+  function paintMe(){
+    var board = _me.board, items = _me.items, dates = _me.dates;
     var o = board.overall;
     var off = outside(o);
     var head;
     if (o.rate == null){
-      head = '<div><div class="sla-hero-lab">%SLA ' + esc(periodLabel(board.period)) + '</div>'
-           + '<div class="sla-score is-none">Chưa đủ mẫu</div>'
-           + '<div class="sla-hero-sub">Mới có <strong>' + num(o.scored) + '</strong> đầu việc được chấm. '
-           + 'Cần tối thiểu ' + S.overallMin + ' đầu việc trong tháng thì tỉ lệ mới có nghĩa.</div></div>';
+      head = '<div>'
+        + '<div class="hero-lb">%SLA ' + esc(periodLabel(board.period)) + '</div>'
+        + '<div class="hero-none">Chưa đủ mẫu</div>'
+        + '<div class="hero-s">Mới có <b class="tnum">' + num(o.scored) + '</b> đầu việc được chấm. '
+        + 'Cần tối thiểu <b class="tnum">' + S.overallMin + '</b> đầu việc trong tháng thì tỉ lệ mới có nghĩa.</div>'
+        + '</div>';
     } else {
-      head = '<div><div class="sla-hero-lab">%SLA ' + esc(periodLabel(board.period)) + '</div>'
-           + '<div class="sla-score ' + rateClass(o.rate) + '">' + pct(o.rate) + '</div>'
-           + '<div class="sla-hero-sub"><strong>' + num(o.ontime) + '</strong> đúng hạn / <strong>'
-           + num(o.scored) + '</strong> đầu việc được chấm'
-           + (off ? ' · ' + off + ' ngoài mẫu số' : '') + '</div></div>';
+      head = '<div>'
+        + '<div class="hero-lb">%SLA ' + esc(periodLabel(board.period)) + '</div>'
+        + '<div class="hero-v"><span class="hero-n ' + rateClass(o.rate) + ' tnum">' + o.rate
+        + '</span><span class="hero-p">%</span></div>'
+        + '<div class="hero-s"><b class="tnum">' + num(o.ontime) + '</b> đúng hạn trên <b class="tnum">'
+        + num(o.scored) + '</b> đầu việc được chấm'
+        + (off ? ', <b class="tnum">' + off + '</b> không tính điểm' : '') + '.</div>'
+        + '</div>';
     }
-    panel('me').innerHTML = datesBanner() + '<div class="sla-hero">' + head + heroWhy(board.contribution) + '</div>'
-      + groupTable(board.groups, dates) + itemsTable(items);
+
+    var selGroup = null;
+    (board.groups || []).forEach(function(g){ if (g.group_key === _meSel) selGroup = g; });
+
+    panel('me').innerHTML = datesBanner()
+      + '<div class="card hero">' + head + '<div>' + compBar(o, 'đầu việc') + '</div></div>'
+      + '<div class="seclb">Tỉ lệ từng nhóm</div>'
+      + groupCards(board.groups || [], dates, _meSel)
+      + (selGroup ? groupDetail(selGroup) : '')
+      // KHONG co nhan phu tren tieu de o day. Mot dong chu nho phia tren mot
+      // tieu de khong them thong tin nao - bo loc dang bat da duoc noi ro ngay
+      // trong cau mo ta cua the, dung cho mat dang doc.
+      + '<div style="height:16px"></div>'
+      + causes(board.contribution, items, _meSel)
+      + pending(items, _meSel);
+    armComps(panel('me'));
+  }
+
+  function renderMe(board, items, dates){
+    // Điền nhãn nhóm TRƯỚC khi dựng khối "Điều gì đang kéo điểm xuống": khối đó
+    // đọc `_labels` để đặt tên cho từng dòng contribution.
+    (board.groups || []).forEach(function(g){ _labels[g.group_key] = g.label; });
+    _me = { board: board, items: items, dates: dates };
+    paintMe();
   }
 
   function loadMe(){
@@ -440,9 +1032,12 @@
     // `person_items` tự chịu lỗi của nó. Gộp vào Promise.all không có catch
     // riêng thì một lỗi ở phần LIỆT KÊ sẽ xoá luôn bảng điểm - tức là người ta
     // mất quyền xem điểm của chính mình vì một sự cố ở phần phụ.
+    //
+    // `only_failed: 0` vi khoi "Dang cho ban" can ca nhung dong CON HAN; loc
+    // trang thai lam o duoi, khong tinh toan gi.
     return Promise.all([
       call('my_board', {}),
-      call('person_items', { only_failed: 1 }).catch(function(e){ return { _err: e.message, length: 0 }; }),
+      call('person_items', { only_failed: 0 }).catch(function(e){ return { _err: e.message, length: 0 }; }),
       loadDates()
     ]).then(function(res){ renderMe(res[0], res[1] || [], res[2]); });
   }
@@ -481,90 +1076,87 @@
     return rows;
   }
 
-  function deptRows(rows, q, showRank){
+  function deptRows(rows, q, showRank, me){
     var list = rows.filter(function(r){
       if (!q) return true;
       var hay = (r.user + ' ' + (r.department || '')).toLowerCase();
       return hay.indexOf(q) !== -1;
     });
     if (!list.length){
-      return '<tr><td colspan="' + (3 + GROUP_COLS.length) + '" class="sla-state">'
+      return '<tr><td colspan="' + (3 + GROUP_COLS.length) + '"><div class="empty">'
         + (q ? 'Không có ai khớp.' : 'Chưa có ai trong phạm vi xem của bạn có dữ liệu kỳ này.')
-        + '</td></tr>';
+        + '</div></td></tr>';
     }
     return list.map(function(r){
       var cells = GROUP_COLS.map(function(c){
         var v = r.groups && r.groups[c[0]];
-        return '<td class="num">' + (v == null ? '<span class="sla-muted">—</span>' : pct(v)) + '</td>';
+        return '<td class="n gcol" data-l="' + esc(c[1]) + '">'
+          + (v == null ? '<span class="pct is-none">—</span>'
+                       : '<span class="pct ' + rateClass(v) + ' tnum">' + v + '%</span>')
+          + '</td>';
       }).join('');
-      var rate = r.overall.rate == null
-        ? '<span class="sla-muted">chưa đủ mẫu</span>'
-        : '<span class="sla-strong">' + pct(r.overall.rate) + '</span>';
-      return '<tr>'
+      var rt = r.overall.rate;
+      var rate = rt == null
+        ? '<span class="pct is-none">chưa đủ mẫu</span>'
+        : '<div class="rate"><span class="rate-bar"><i class="rate-fill ' + rateClass(rt)
+          + '" style="width:' + rt + '%"></i></span>'
+          + '<span class="rate-v tnum">' + rt + '%<span class="sc">'
+          + num(r.overall.scored) + ' việc</span></span></div>';
+      var isMe = (me && r.user === me);
+      return '<tr' + (isMe ? ' class="me"' : '') + ' data-user="' + esc(r.user) + '" tabindex="0">'
         // Hạng được gán TRƯỚC khi lọc. Đánh số lại theo danh sách đã lọc thì
         // ai lọc tên mình cũng thành hạng 1 - và ảnh chụp màn hình đó trông
         // hoàn toàn chính đáng.
-        + '<td class="num sla-muted">'
+        + '<td class="n muted tnum" data-l="Hạng">'
         + (showRank && r._rank != null ? r._rank : '—') + '</td>'
-        + '<td><button type="button" class="sla-link" data-user="' + esc(r.user) + '">' + esc(shortUser(r.user)) + '</button>'
-        + '<div class="sla-card-note">' + esc(r.department || 'không phòng ban') + '</div></td>'
-        + '<td class="num">' + rate + '<div class="sla-card-note">' + num(r.overall.scored) + ' việc</div></td>'
+        + '<td class="person-cell"><span class="person">'
+        + '<span class="avatar" aria-hidden="true">' + esc(initials(r.user)) + '</span>'
+        + '<span><span class="nm">' + esc(shortUser(r.user)) + '</span>'
+        + (isMe ? '<span class="tag-me">bạn</span>' : '')
+        + '<span class="dp">' + esc(r.department || 'không phòng ban') + '</span></span>'
+        + '</span></td>'
+        + '<td data-l="%SLA">' + rate + '</td>'
         + cells + '</tr>';
     }).join('');
   }
 
   function renderDept(data){
     if (data.scope === 'self'){
-      panel('dept').innerHTML = '<div class="sla-card"><div class="sla-card-body sla-card-note">'
-        + 'Tài khoản của bạn chưa gắn với phòng ban nào nên chỉ xem được điểm của chính mình. '
-        + 'Nhờ HR gắn nhân viên vào phòng ban để thấy bảng này.</div></div>';
+      panel('dept').innerHTML = '<div class="card card-pad">'
+        + '<div class="card-h"><div><h2 class="card-t">Chưa có bảng xếp hạng cho bạn</h2></div></div>'
+        + '<p class="card-s" style="margin:0">Tài khoản của bạn chưa gắn với phòng ban nào nên chỉ xem được '
+        + 'điểm của chính mình. Nhờ HR gắn nhân viên vào phòng ban để thấy bảng này.</p></div>';
       return;
     }
     var rows = data.rows || [];
     assignRanks(rows);
+    var me = (window.frappe && frappe.session && frappe.session.user) || null;
     // Bảng bị cắt thì KHÔNG có hạng nào đúng - ẩn cột thay vì in số sai.
     var showRank = !data.truncated;
     var head = (data.truncated
-        ? '<div class="sla-err">Danh sách bị cắt vì quá lớn nên cột hạng đã được ẩn — '
+        ? '<div class="err">Danh sách bị cắt vì quá lớn nên cột hạng đã được ẩn — '
           + 'các con số bên dưới có thể thiếu người. Đã ghi log để xử lý.</div>' : '')
-      + '<div class="sla-card"><div class="sla-card-head">'
-      + '<h2 class="sla-card-title">Xếp hạng ' + esc(periodLabel(data.period)) + '</h2>'
-      + '<p class="sla-card-note">' + (data.scope === 'all' ? 'Toàn công ty' : 'Phòng ban của bạn')
+      + '<div class="card"><div class="card-pad" style="padding-bottom:4px">'
+      + '<div class="card-h" style="margin-bottom:8px"><div>'
+      + '<h2 class="card-t">Xếp hạng ' + esc(periodLabel(data.period)) + '</h2>'
+      + '<p class="card-s">' + (data.scope === 'all' ? 'Toàn công ty' : 'Phòng ban của bạn')
       + ' · cùng tỉ lệ thì cùng hạng · người chưa đủ mẫu xếp cuối và không có hạng '
-      + '· các cột nhóm chỉ có tỉ lệ, bấm vào tên để xem mẫu số.</p>'
-      + '<span class="sla-spacer"></span>'
-      + '<input type="text" class="sla-in" id="sla-dept-q" placeholder="Lọc theo tên hoặc phòng ban…" aria-label="Lọc danh sách">'
-      + '</div><div class="sla-scroll"><table class="sla-tb"><thead><tr>'
-      + '<th class="num">#</th><th>Người</th><th class="num">%SLA</th>'
+      + '· bấm một dòng để xem mẫu số của người đó.</p></div>'
+      + '<input type="text" class="in" id="sla-dept-q" placeholder="Lọc theo tên hoặc phòng ban…" aria-label="Lọc danh sách">'
+      + '</div></div>'
+      + '<div class="tblwrap"><table class="tb ppl"><thead><tr>'
+      + '<th class="n">#</th><th>Người</th><th>%SLA</th>'
       + GROUP_COLS.map(function(c){
-          return '<th class="num">' + esc(c[1]) + (c[0] === 'task' ? '<br>(ngoài %SLA)' : '') + '</th>';
+          return '<th class="n">' + esc(c[1])
+            + (c[0] === 'task' ? '<span class="sub">ngoài %SLA</span>' : '') + '</th>';
         }).join('')
-      + '</tr></thead><tbody id="sla-dept-body">' + deptRows(rows, '', showRank) + '</tbody></table></div></div>'
-      + '<div id="sla-dept-detail"></div>';
+      + '</tr></thead><tbody id="sla-dept-body">' + deptRows(rows, '', showRank, me)
+      + '</tbody></table></div></div>';
     panel('dept').innerHTML = head;
 
     var q = $('sla-dept-q');
     q.addEventListener('input', function(){
-      $('sla-dept-body').innerHTML = deptRows(rows, q.value.trim().toLowerCase(), showRank);
-    });
-  }
-
-  function openPerson(user){
-    var host = $('sla-dept-detail');
-    if (!host) return;
-    host.innerHTML = '<div class="sla-state">Đang tải điểm của ' + esc(shortUser(user)) + '…</div>';
-    Promise.all([ call('person_board', { user: user }), loadDates() ]).then(function(r){
-      var b = r[0];
-      (b.groups || []).forEach(function(g){ _labels[g.group_key] = g.label; });
-      host.innerHTML = '<div class="sla-card"><div class="sla-card-head">'
-        + '<h2 class="sla-card-title">' + esc(shortUser(user)) + ' — '
-        + (b.overall.rate == null ? 'chưa đủ mẫu' : pct(b.overall.rate)) + '</h2>'
-        + '<p class="sla-card-note">' + num(b.overall.ontime) + ' đúng hạn / '
-        + num(b.overall.scored) + ' được chấm</p>'
-        + '</div></div>' + groupTable(b.groups, r[1]);
-      host.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }).catch(function(e){
-      host.innerHTML = '<div class="sla-err">Không xem được điểm của người này: ' + esc(e.message) + '</div>';
+      $('sla-dept-body').innerHTML = deptRows(rows, q.value.trim().toLowerCase(), showRank, me);
     });
   }
 
@@ -573,37 +1165,104 @@
     return call('department_board', {}).then(renderDept);
   }
 
+  // ------------------------------------------------------------- ngăn kéo --
+  var _lastFocus = null;
+
+  function closeDrawer(){
+    var ov = $('sla-ov');
+    ov.className = 'ov';
+    ov.hidden = true;
+    $('sla-drawer').innerHTML = '';
+    if (_lastFocus && _lastFocus.focus) { try { _lastFocus.focus(); } catch (e) {} }
+    _lastFocus = null;
+  }
+
+  function drawerShell(user, inner){
+    return '<div class="dr-head">'
+      + '<span class="avatar" aria-hidden="true">' + esc(initials(user)) + '</span>'
+      + '<div class="dr-title"><h3>' + esc(shortUser(user)) + '</h3>'
+      + '<div class="sub" id="sla-dr-sub">Điểm SLA ' + esc(periodLabel(S.period)) + '</div></div>'
+      + '<button type="button" class="xbtn" id="sla-dr-x" aria-label="Đóng">' + ico('x') + '</button>'
+      + '</div><div class="dr-body" id="sla-dr-body">' + inner + '</div>';
+  }
+
+  function openPerson(user){
+    var ov = $('sla-ov');
+    _lastFocus = document.activeElement;
+    ov.hidden = false;
+    $('sla-drawer').innerHTML = drawerShell(user, '<div class="state">Đang tải…</div>');
+    // Nhip sau moi bat class de transition chay; bat ngay thi no nhay thang.
+    setTimeout(function(){ ov.className = 'ov show'; }, 10);
+    var x = $('sla-dr-x');
+    if (x) x.focus();
+
+    Promise.all([ call('person_board', { user: user }), loadDates() ]).then(function(r){
+      var b = r[0], dates = r[1];
+      (b.groups || []).forEach(function(g){ _labels[g.group_key] = g.label; });
+      var o = b.overall;
+      var top = '<div class="dr-group">'
+        + '<div class="dr-ghead"><h4>Tổng ' + esc(periodLabel(b.period)) + '</h4>'
+        + '<div class="dr-gval"><span class="dr-rate ' + rateClass(o.rate) + ' tnum">'
+        + (o.rate == null ? 'chưa đủ mẫu' : o.rate + '%') + '</span>'
+        + '<span class="dr-unit tnum">' + num(o.ontime) + '/' + num(o.scored) + ' đầu việc</span>'
+        + '</div></div>' + compBar(o, 'đầu việc') + '</div>';
+      var body = (b.groups || []).map(function(g){
+        var d = (dates || {})[g.group_key] || {};
+        var startTxt = _datesFailed ? 'không đọc được ngày áp dụng'
+                     : (d.from ? 'tính từ ' + dmy(d.from) : 'chưa đặt ngày áp dụng');
+        return '<div class="dr-group">'
+          + '<div class="dr-ghead"><h4>' + esc(g.label)
+          + (g.counts_toward_sla ? '' : ' <span class="gbadge">ngoài %SLA</span>') + '</h4>'
+          + '<div class="dr-gval"><span class="dr-rate ' + rateClass(g.rate) + ' tnum">'
+          + (g.rate == null ? 'chưa đủ mẫu' : g.rate + '%') + '</span>'
+          + '<span class="dr-unit tnum">' + num(g.scored) + ' ' + esc(g.unit) + '</span></div></div>'
+          + compBar(g, g.unit)
+          + '<p class="card-s" style="margin-top:10px">' + esc(startTxt)
+          + (outsideNote(g) ? ' · ' + esc(outsideNote(g)) : '') + '</p>'
+          + '</div>';
+      }).join('');
+      $('sla-dr-body').innerHTML = top + body;
+      armComps($('sla-drawer'));
+    }).catch(function(e){
+      var h = $('sla-dr-body');
+      if (h) h.innerHTML = '<div class="err" style="margin:0">Không xem được điểm của người này: '
+        + esc(e.message) + '</div>';
+    });
+  }
+
   // ------------------------------------------------------ tab: quy trình --
   function stepRows(rows, q){
     var list = rows.filter(function(r){
       if (!q) return true;
       return (r.title + ' ' + r.process_code + ' ' + r.step).toLowerCase().indexOf(q) !== -1;
     });
-    if (!list.length) return '<tr><td colspan="4" class="sla-state">Không có bước nào khớp.</td></tr>';
+    if (!list.length) return '<tr><td colspan="4"><div class="empty">Không có bước nào khớp.</div></td></tr>';
     // Gộp theo `process_code`, KHÔNG theo `title`: hai quy trình khác nhau có
     // thể trùng tên, và gộp theo tên sẽ làm quy trình thứ hai trông như một
     // cấp duyệt tiếp theo của quy trình thứ nhất.
-    var lastCode = null;
+    var lastCode = null, stepNo = 0;
     return list.map(function(r){
-      var showTitle = r.process_code !== lastCode;
+      var isNew = r.process_code !== lastCode;
+      if (isNew) stepNo = 0;
       lastCode = r.process_code;
-      var limit, note;
+      stepNo += 1;
+      var limit, note, noteCls = '';
       if (!r.configured){
-        limit = '<span class="pill pill-bad">chưa cấu hình</span>';
-        note = 'bước này đang được loại trừ khỏi điểm, không bị chấm trễ';
+        limit = '<span class="chip bad">chưa cấu hình</span>';
+        note = 'đang được loại trừ khỏi điểm, không ai bị chấm trễ vì bước này';
+        noteCls = ' warn';
       } else {
-        limit = '<span class="sla-strong">' + esc(r.hours) + '</span> ' + esc(r.unit || '');
-        if (r.active === false) limit += ' <span class="pill pill-late">chính sách đang tắt</span>';
+        limit = '<span class="f-lim"><b class="tnum">' + esc(r.hours) + '</b> ' + esc(r.unit || '') + '</span>';
+        if (r.active === false) limit += ' <span class="chip warn">chính sách đang tắt</span>';
         note = r.reminder_hours ? 'nhắc trước ' + esc(r.reminder_hours) + ' giờ' : 'không nhắc trước';
       }
-      return '<tr>'
-        + '<td>' + (showTitle
-            ? '<span class="sla-strong">' + esc(r.title) + '</span>'
-              + '<div class="sla-card-note">' + esc(r.process_code) + '</div>'
-            : '<span class="sla-muted">↳</span>') + '</td>'
-        + '<td>' + esc(r.step) + '</td>'
-        + '<td>' + limit + '<div class="sla-card-note">' + esc(note) + '</div></td>'
-        + '<td><span class="sla-muted">' + esc(r.policy_code || '—') + '</span></td>'
+      return '<tr' + (isNew ? ' class="grp"' : '') + '>'
+        + '<td><span class="f-proc' + (isNew ? '' : ' rep') + '">' + esc(r.title) + '</span>'
+        + '<span class="f-cat' + (isNew ? '' : ' rep') + '">' + esc(r.process_code) + '</span></td>'
+        + '<td data-l="Bước"><span class="f-step"><span class="f-no tnum">' + stepNo + '</span>'
+        + '<span class="f-sname">' + esc(r.step) + '</span></span></td>'
+        + '<td data-l="Hạn">' + limit + '<span class="f-note' + noteCls + '">' + esc(note) + '</span></td>'
+        + '<td data-l="Mã chính sách"><span class="f-code">' + esc(r.policy_code || '—') + '</span></td>'
         + '</tr>';
     }).join('');
   }
@@ -613,27 +1272,30 @@
     if (d.fulfiller_loi){
       // Bảng THIẾU dòng chứ không phải đã đủ. Không nói ra thì chủ quy trình
       // đọc "57/57 đã có hạn" và yên tâm rằng mọi thứ đã chốt.
-      banner += '<div class="sla-err">Không đọc được danh sách bước xử lý sau duyệt — '
+      banner += '<div class="err">Không đọc được danh sách bước xử lý sau duyệt — '
         + 'bảng bên dưới đang THIẾU những dòng đó. Đã ghi Error Log.</div>';
     }
     if (d.chua_cau_hinh){
-      banner += '<div class="sla-note"><strong>' + d.chua_cau_hinh + '/' + d.tong + ' bước chưa có hạn.</strong> '
+      banner += '<div class="note"><b>' + d.chua_cau_hinh + '/' + d.tong + ' bước chưa có hạn.</b> '
         + 'Những bước đó đang được <em>loại trừ</em> khỏi điểm SLA — không ai bị chấm trễ vì chúng. '
         + 'Chúng vẫn hiện ở đây để chủ quy trình biết còn gì phải chốt.</div>';
     }
     if (d.da_tat){
-      banner += '<div class="sla-note"><strong>' + d.da_tat + ' bước đang trỏ tới chính sách đã tắt.</strong> '
+      banner += '<div class="note"><b>' + d.da_tat + ' bước đang trỏ tới chính sách đã tắt.</b> '
         + 'Con số hiện ra vẫn là con số được gán, nhưng chính sách ở trạng thái tắt — cần HR xác nhận lại.</div>';
     }
     panel('steps').innerHTML = banner
-      + '<div class="sla-card"><div class="sla-card-head">'
-      + '<h2 class="sla-card-title">Hạn của từng bước duyệt</h2>'
-      + '<p class="sla-card-note">' + d.da_cau_hinh + '/' + d.tong + ' bước đã có hạn · đọc thẳng từ cấu hình đang chạy.</p>'
-      + '<span class="sla-spacer"></span>'
-      + '<input type="text" class="sla-in" id="sla-steps-q" placeholder="Lọc theo tên quy trình…" aria-label="Lọc quy trình">'
-      + '</div><div class="sla-scroll"><table class="sla-tb"><thead><tr>'
+      + '<div class="card"><div class="card-pad" style="padding-bottom:4px">'
+      + '<div class="card-h" style="margin-bottom:8px"><div>'
+      + '<h2 class="card-t">Hạn của từng bước duyệt</h2>'
+      + '<p class="card-s"><b class="tnum">' + d.da_cau_hinh + '/' + d.tong
+      + '</b> bước đã có hạn · đọc thẳng từ cấu hình đang chạy, không phải bản chép lại.</p></div>'
+      + '<input type="text" class="in" id="sla-steps-q" placeholder="Lọc theo tên quy trình…" aria-label="Lọc quy trình">'
+      + '</div></div>'
+      + '<div class="tblwrap"><table class="tb ftab"><thead><tr>'
       + '<th>Quy trình</th><th>Bước</th><th>Hạn</th><th>Mã chính sách</th>'
-      + '</tr></thead><tbody id="sla-steps-body">' + stepRows(d.rows || [], '') + '</tbody></table></div></div>';
+      + '</tr></thead><tbody id="sla-steps-body">' + stepRows(d.rows || [], '')
+      + '</tbody></table></div></div>';
     var q = $('sla-steps-q');
     q.addEventListener('input', function(){
       $('sla-steps-body').innerHTML = stepRows(d.rows || [], q.value.trim().toLowerCase());
@@ -648,94 +1310,131 @@
   // --------------------------------------------------------- tab: cách tính --
   function renderRules(dates){
     var GROUPS = {
-      approval:   ['Phản hồi phê duyệt', 'hồ sơ', 5, 'Mỗi cấp duyệt bạn có tên là một đầu việc. Hạn của từng bước xem ở tab “Quy trình duyệt”.'],
-      attendance: ['Chấm công', 'ngày công', 5, 'Mỗi ngày làm việc là MỘT đầu việc. Chấm công trước 10:00 là đúng hạn.'],
-      rsvp:       ['RSVP lịch họp', 'lời mời', 5, 'Mỗi lời mời họp là một đầu việc — trả lời trong 24 giờ làm việc.'],
-      weekly:     ['Báo cáo tuần', 'tuần', 3, 'Mỗi tuần là một đầu việc, theo hạn phòng ban bạn đã đặt.'],
-      task:       ['Công việc', 'đầu việc', 5, 'Vẫn đo và vẫn hiện, nhưng KHÔNG cộng vào %SLA tháng.']
+      approval:   ['Phản hồi phê duyệt', 'hồ sơ', 'Mỗi cấp duyệt bạn có tên là một đầu việc. Hạn của từng bước xem ở tab “Quy trình duyệt”.'],
+      attendance: ['Chấm công', 'ngày công', 'Mỗi ngày làm việc là MỘT đầu việc. Chấm công trước 10:00 là đúng hạn.'],
+      rsvp:       ['RSVP lịch họp', 'lời mời', 'Mỗi lời mời họp là một đầu việc — trả lời trong 24 giờ làm việc.'],
+      weekly:     ['Báo cáo tuần', 'tuần', 'Mỗi tuần là một đầu việc, theo hạn phòng ban bạn đã đặt.'],
+      task:       ['Công việc', 'đầu việc', 'Vẫn đo và vẫn hiện, nhưng KHÔNG cộng vào %SLA tháng.']
     };
     var order = ['approval', 'attendance', 'rsvp', 'weekly', 'task'];
     var tb = order.map(function(k){
       var g = GROUPS[k], d = (dates || {})[k] || {};
       var counts = d.counts == null ? (k !== 'task') : !!d.counts;
-      var startTxt = _datesFailed ? '<span class="sla-muted">không đọc được</span>'
-                   : (d.from ? '<span class="sla-strong">' + dmy(d.from) + '</span>'
-                             : '<span class="sla-muted">chưa đặt</span>');
+      var startTxt = _datesFailed ? '<span class="muted">không đọc được</span>'
+                   : (d.from ? '<b class="tnum">' + dmy(d.from) + '</b>'
+                             : '<span class="muted">chưa đặt</span>');
       return '<tr>'
-        + '<td><span class="sla-strong">' + esc(g[0]) + '</span>'
-        + (counts ? '' : ' <span class="pill pill-off">ngoài %SLA</span>')
-        + '<div class="sla-card-note">' + esc(g[3]) + '</div></td>'
-        + '<td class="num">' + startTxt + '</td>'
-        + '<td class="num">' + (_datesFailed || d.min == null
-            ? '<span class="sla-muted">không đọc được</span>'
-            : d.min + ' ' + esc(g[1])) + '</td>'
+        + '<td><span class="f-proc">' + esc(g[0]) + '</span>'
+        + (counts ? '' : '<span class="gbadge" style="margin-left:6px">ngoài %SLA</span>')
+        + '<span class="f-cat">' + esc(g[2]) + '</span></td>'
+        + '<td class="n" data-l="Tính từ ngày">' + startTxt + '</td>'
+        + '<td class="n" data-l="Tối thiểu">' + (_datesFailed || d.min == null
+            ? '<span class="muted">không đọc được</span>'
+            : '<span class="tnum">' + d.min + ' ' + esc(g[1]) + '</span>') + '</td>'
         + '</tr>';
     }).join('');
 
     // Đoạn giải thích tháng 9 chỉ đúng CHO tháng 9. Để nguyên sang tháng 10 thì
     // nó thành một câu sai nằm trên trang giải thích cách chấm điểm.
     var sept = String(S.period || '') === '2026-09'
-      ? '<div class="sla-note"><strong>Tháng 9 lệch hẳn, và đây là lý do.</strong> Luật chấm công trước 10:00 đã chạy từ lâu, '
+      ? '<div class="note"><b>Tháng 9 lệch hẳn, và đây là lý do.</b> Luật chấm công trước 10:00 đã chạy từ lâu, '
         + 'có nhắc lúc 08:30 và 09:30 mỗi ngày — nên đo lại cả tháng 9 không bắt ai chịu một cái hạn họ chưa từng nghe. '
         + 'Còn hạn của các bước duyệt thì vừa được cấu hình ngày 16/09; áp ngược lại sẽ chấm trễ cho những bước mà lúc đó '
         + 'chưa hề có hạn nào. Vì vậy %SLA tháng 9 gần như là điểm chấm công. Từ tháng 10 mới cân bằng.</div>'
       : '';
 
+    function li(txt){ return '<li>' + ico('check') + txt + '</li>'; }
+
     panel('rules').innerHTML = datesBanner()
-      + '<div class="sla-prose">'
-      + '<h3>Công thức</h3>'
-      + '<div class="sla-formula">%SLA = số đầu việc làm ĐÚNG HẠN ÷ số đầu việc ĐƯỢC CHẤM × 100</div>'
-      + '<p>“Được chấm” gồm ba loại: <strong>đúng hạn</strong>, <strong>trễ hạn</strong>, và <strong>quá hạn mà chưa làm</strong>. '
+
+      + '<div class="card card-pad">'
+      + '<div class="card-h"><div><h2 class="card-t">Công thức</h2>'
+      + '<p class="card-s">Một công thức duy nhất, không có trọng số ẩn.</p></div></div>'
+      + '<div class="formula"><span class="f-num">số đầu việc làm ĐÚNG HẠN</span>'
+      + '<span class="f-bar"></span><span class="f-den">số đầu việc ĐƯỢC CHẤM</span></div>'
+      + '<div class="prose" style="margin-top:16px">'
+      + '<p>“Được chấm” gồm ba loại: <b>đúng hạn</b>, <b>trễ hạn</b>, và <b>quá hạn mà chưa làm</b>. '
       + 'Loại thứ ba là điểm quan trọng nhất của cả hệ này: một đầu việc quá hạn mà không ai đóng vẫn bị tính vào mẫu số ngay lập tức. '
       + 'Nếu không thì cách dễ nhất để đạt 100% sẽ là không bao giờ đóng việc.</p>'
-      + '<p>Những đầu việc <strong>ngoài mẫu số</strong> (nghỉ phép, bước chưa có hạn, người khác trong cùng cấp đã xử lý, '
+      + '<p>Những đầu việc <b>ngoài mẫu số</b> (nghỉ phép, bước chưa có hạn, người khác trong cùng cấp đã xử lý, '
       + 'và những việc chưa tới hạn) nằm ngoài cả tử số lẫn mẫu số — chúng không giúp và cũng không hại. '
-      + 'Bảng ở tab “Của tôi” có một cột riêng cho chúng, kèm phần tách chi tiết, để bạn kiểm được là chúng không biến mất.</p>'
+      + 'Thanh thành phần ở tab “Của tôi” vẽ chúng bằng ô gạch chéo nằm ngoài dấu ngoặc, để bạn kiểm được là chúng không biến mất.</p>'
+      + '</div></div>'
 
-      + '<h3>Năm nhóm và ngày bắt đầu tính</h3>'
-      + '<div class="sla-card" style="margin-top:10px"><div class="sla-scroll"><table class="sla-tb"><thead><tr>'
-      + '<th>Nhóm</th><th class="num">Tính từ ngày</th><th class="num">Tối thiểu để ra tỉ lệ</th>'
+      + '<div class="card"><div class="card-pad" style="padding-bottom:4px">'
+      + '<div class="card-h" style="margin-bottom:8px"><div>'
+      + '<h2 class="card-t">Năm nhóm và ngày bắt đầu tính</h2>'
+      + '<p class="card-s">Điểm nhóm này không bù cho nhóm kia.</p></div></div></div>'
+      + '<div class="tblwrap"><table class="tb ftab"><thead><tr>'
+      + '<th>Nhóm</th><th class="n">Tính từ ngày</th><th class="n">Tối thiểu để ra tỉ lệ</th>'
       + '</tr></thead><tbody>' + tb + '</tbody></table></div></div>'
       + sept
 
-      + '<h3>“Giờ làm việc” nghĩa là gì</h3>'
-      + '<p>Hạn tính theo <strong>giờ làm việc</strong> chỉ chạy trong giờ hành chính, không chạy vào buổi tối, cuối tuần và ngày lễ.</p>'
-      + '<div class="sla-ex"><strong>Ví dụ.</strong> Một hồ sơ có hạn “4 giờ làm việc” đến tay bạn lúc <strong>16:00 thứ Sáu</strong>. '
-      + 'Còn 2 giờ làm việc của thứ Sáu, hai giờ còn lại rơi vào sáng thứ Hai → hạn là <strong>11:00 thứ Hai</strong>, '
-      + 'không phải 20:00 tối thứ Sáu.</div>'
-      + '<p>Một số bước dùng <strong>giờ đồng hồ</strong> — loại này chạy liên tục kể cả ngoài giờ. '
-      + 'Tab “Quy trình duyệt” ghi rõ từng bước dùng loại nào.</p>'
+      + '<div class="card card-pad">'
+      + '<div class="card-h"><div><h2 class="card-t">“Giờ làm việc” nghĩa là gì</h2>'
+      + '<p class="card-s">Đồng hồ chỉ chạy trong giờ hành chính. Buổi tối, cuối tuần và ngày lễ đứng yên.</p></div></div>'
+      + '<p class="cd-case">Ví dụ: một hồ sơ có hạn <b>4 giờ làm việc</b> đến tay bạn lúc <b>16:00 thứ Sáu</b>.</p>'
+      + '<div class="cd-track">'
+      + '<div class="cd-day"><div class="cd-dl">Thứ 6</div><div class="cd-blocks">'
+      + '<span class="cd-blk"></span><span class="cd-blk"></span><span class="cd-blk"></span>'
+      + '<span class="cd-blk"></span><span class="cd-blk used"></span><span class="cd-blk used"></span>'
+      + '</div><div class="cd-foot tnum">16:00 → 18:00 · 2 giờ</div></div>'
+      + '<div class="cd-day off"><div class="cd-dl">Thứ 7</div><div class="cd-blocks">'
+      + '<span class="cd-blk rest"></span><span class="cd-blk rest"></span><span class="cd-blk rest"></span>'
+      + '<span class="cd-blk rest"></span><span class="cd-blk rest"></span><span class="cd-blk rest"></span>'
+      + '</div><div class="cd-foot">không tính</div></div>'
+      + '<div class="cd-day off"><div class="cd-dl">Chủ nhật</div><div class="cd-blocks">'
+      + '<span class="cd-blk rest"></span><span class="cd-blk rest"></span><span class="cd-blk rest"></span>'
+      + '<span class="cd-blk rest"></span><span class="cd-blk rest"></span><span class="cd-blk rest"></span>'
+      + '</div><div class="cd-foot">không tính</div></div>'
+      + '<div class="cd-day"><div class="cd-dl">Thứ 2</div><div class="cd-blocks">'
+      + '<span class="cd-blk used"></span><span class="cd-blk used"></span><span class="cd-blk due"></span>'
+      + '<span class="cd-blk"></span><span class="cd-blk"></span><span class="cd-blk"></span>'
+      + '</div><div class="cd-foot tnum">09:00 → 11:00 · 2 giờ</div></div>'
+      + '</div>'
+      + '<div class="cd-result">' + ico('check', 'ic-sm') + 'Hạn cuối: 11:00 thứ Hai — không phải 20:00 tối thứ Sáu.</div>'
+      + '<div class="cd-legend">'
+      + '<span><i class="cd-key" style="background:var(--navy)"></i>giờ đã dùng</span>'
+      + '<span><i class="cd-key" style="background:var(--yellow)"></i>tới hạn</span>'
+      + '<span><i class="cd-key" style="background:var(--gray-200)"></i>ngoài giờ làm</span>'
+      + '</div>'
+      + '<div class="prose" style="margin-top:16px"><p>Một số bước dùng <b>giờ đồng hồ</b> — loại này chạy liên tục '
+      + 'kể cả ngoài giờ. Tab “Quy trình duyệt” ghi rõ từng bước dùng loại nào.</p></div>'
+      + '</div>'
 
-      + '<h3>Khi nào bạn KHÔNG bị chấm</h3>'
-      + '<ul>'
-      + '<li><strong>Nghỉ phép đã duyệt</strong> — ngày đó vẫn hiện trên bảng nhưng không tính điểm. '
-      + 'Phiếu nghỉ duyệt muộn vẫn gỡ được vết trễ đã chấm hôm trước.</li>'
-      + '<li><strong>Cuối tuần và ngày lễ</strong> theo lịch nghỉ riêng của bạn — không phát sinh đầu việc nào.</li>'
-      + '<li><strong>Trước ngày vào làm</strong> — người mới không bị đo những ngày chưa đi làm.</li>'
-      + '<li><strong>Bước duyệt chưa có hạn</strong> — không có hạn thì không thể trễ. Không tính là đúng hạn, mà là không tính.</li>'
-      + '<li><strong>Người khác cùng cấp đã xử lý</strong> — cấp duyệt kiểu “một người bất kỳ” chỉ tính cho người bấm.</li>'
-      + '<li><strong>Trước ngày áp dụng</strong> của nhóm đó — xem bảng phía trên.</li>'
-      + '</ul>'
+      + '<div class="card card-pad">'
+      + '<div class="card-h"><div><h2 class="card-t">Khi nào bạn KHÔNG bị chấm</h2>'
+      + '<p class="card-s">Sáu trường hợp, tất cả đều tự động — không cần xin.</p></div></div>'
+      + '<div class="prose"><ul>'
+      + li('<b>Nghỉ phép đã duyệt</b> — ngày đó vẫn hiện trên bảng nhưng không tính điểm. Phiếu nghỉ duyệt muộn vẫn gỡ được vết trễ đã chấm hôm trước.')
+      + li('<b>Cuối tuần và ngày lễ</b> theo lịch nghỉ riêng của bạn — không phát sinh đầu việc nào.')
+      + li('<b>Trước ngày vào làm</b> — người mới không bị đo những ngày chưa đi làm.')
+      + li('<b>Bước duyệt chưa có hạn</b> — không có hạn thì không thể trễ. Không tính là đúng hạn, mà là không tính.')
+      + li('<b>Người khác cùng cấp đã xử lý</b> — cấp duyệt kiểu “một người bất kỳ” chỉ tính cho người bấm.')
+      + li('<b>Trước ngày áp dụng</b> của nhóm đó — xem bảng phía trên.')
+      + '</ul></div></div>'
 
-      + '<h3>Vì sao có mức “chưa đủ mẫu”</h3>'
+      + '<div class="card card-pad">'
+      + '<div class="card-h"><div><h2 class="card-t">Bốn câu hỏi còn lại</h2></div></div>'
+      + '<div class="how">'
+      + '<div class="rulebox"><h3>' + ico('info', 'ic-sm') + 'Vì sao có mức “chưa đủ mẫu”</h3>'
       + '<p>Một người có 2 đầu việc và làm đúng cả 2 không phải là người dẫn đầu — họ là người <em>chưa đo được</em>. '
-      + 'Dưới mức tối thiểu, bảng điểm ghi “chưa đủ mẫu” thay vì một con số 100% nhìn thì đẹp mà không có nghĩa. '
-      + 'Tổng %SLA tháng cần tối thiểu <strong>' + S.overallMin + ' đầu việc</strong>.</p>'
-
-      + '<h3>Ai xem được gì</h3>'
-      + '<ul>'
-      + '<li>Mọi người xem được điểm <strong>của mình</strong>.</li>'
-      + '<li>Xếp hạng: xem được <strong>cả phòng mình</strong>, kể cả điểm của trưởng phòng.</li>'
-      + '<li>Ban Giám đốc xem được toàn công ty.</li>'
-      + '<li>Sửa điểm bằng tay: chỉ HR Manager — trưởng phòng KHÔNG sửa được điểm của nhân viên mình. '
-      + 'Mọi lần sửa đều để lại lý do và tên người sửa.</li>'
-      + '</ul>'
-
-      + '<h3>Khiếu nại</h3>'
-      + '<p>Thấy một dòng bị chấm sai: mở tab <strong>Của tôi</strong>, tìm đúng dòng đó trong bảng “Đầu việc trễ hoặc chưa làm”, '
-      + 'chụp lại kèm ngày giờ, rồi báo HR. HR sẽ điều chỉnh kèm lý do — bản ghi cũ không bị xóa, '
-      + 'nên lúc nào cũng truy ngược được điểm đã đổi từ đâu sang đâu.</p>'
-      + '</div>';
+      + 'Dưới mức tối thiểu, bảng điểm ghi “chưa đủ mẫu” thay vì một con số 100% nhìn thì đẹp mà không có nghĩa.</p>'
+      + '<p>Tổng %SLA tháng cần tối thiểu <b class="tnum">' + S.overallMin + ' đầu việc</b>.</p></div>'
+      + '<div class="rulebox"><h3>' + ico('users', 'ic-sm') + 'Ai xem được gì</h3>'
+      + '<p>Mọi người xem được điểm <b>của mình</b>. Xếp hạng: xem được <b>cả phòng mình</b>, kể cả điểm của trưởng phòng. '
+      + 'Ban Giám đốc xem được toàn công ty.</p>'
+      + '<p>Sửa điểm bằng tay: chỉ HR Manager — trưởng phòng <b>không</b> sửa được điểm của nhân viên mình. '
+      + 'Mọi lần sửa đều để lại lý do và tên người sửa.</p></div>'
+      + '<div class="rulebox"><h3>' + ico('alert', 'ic-sm') + 'Khiếu nại</h3>'
+      + '<p>Thấy một dòng bị chấm sai: mở tab <b>Của tôi</b>, mở khối “Điều gì đang kéo điểm xuống”, tìm đúng dòng đó, '
+      + 'chụp lại kèm ngày giờ, rồi báo HR.</p>'
+      + '<p>HR sẽ điều chỉnh kèm lý do — bản ghi cũ không bị xóa, nên lúc nào cũng truy ngược được điểm đã đổi từ đâu sang đâu.</p></div>'
+      + '<div class="rulebox"><h3>' + ico('list', 'ic-sm') + 'Năm nhóm không cộng thành một điểm</h3>'
+      + '<p>Đi muộn 15 phút và ngâm hồ sơ ba ngày là hai hành vi khác nhau, hậu quả khác nhau, cách sửa khác nhau. '
+      + 'Gộp vào một tỉ lệ thì không ai biết phải sửa cái gì.</p>'
+      + '<p>Vì vậy %SLA tháng là một con số để nhìn tổng thể, còn thứ bạn sửa được nằm ở từng nhóm.</p></div>'
+      + '</div></div>';
   }
 
   function loadRules(){
@@ -777,12 +1476,46 @@
     root.addEventListener('click', function(ev){
       var t = ev.target;
       if (!t || !t.closest) return;
+
       var tab = t.closest('.sla-tab');
       if (tab){ selectTab(tab.getAttribute('data-tab')); return; }
+
       var retry = t.closest('button[data-retry]');
       if (retry){ runLoader(retry.getAttribute('data-retry')); return; }
-      var person = t.closest('button[data-user]');
-      if (person){ openPerson(person.getAttribute('data-user')); return; }
+
+      // Thẻ nhóm: bấm lần nữa thì bỏ chọn. Không có đường thoát thì người ta
+      // kẹt trong một bộ lọc mà chính họ không nhớ là đã bật.
+      var gc = t.closest('.gcard');
+      if (gc && _me){
+        var k = gc.getAttribute('data-group');
+        _meSel = (_meSel === k) ? null : k;
+        paintMe();
+        return;
+      }
+
+      var cz = t.closest('button[data-cause]');
+      if (cz){
+        var body = $(cz.getAttribute('data-cause'));
+        var open = cz.getAttribute('aria-expanded') === 'true';
+        cz.setAttribute('aria-expanded', open ? 'false' : 'true');
+        if (body) body.hidden = open;
+        return;
+      }
+
+      if (t.closest('#sla-dr-x')){ closeDrawer(); return; }
+      // Bấm ra ngoài ngăn kéo thì đóng - nhưng chỉ khi bấm đúng lớp phủ.
+      if (t.id === 'sla-ov'){ closeDrawer(); return; }
+
+      var row = t.closest('tr[data-user]');
+      if (row && !t.closest('a')){ openPerson(row.getAttribute('data-user')); return; }
+    });
+
+    // Bàn phím: Enter/Space mở một dòng người, Escape đóng ngăn kéo.
+    root.addEventListener('keydown', function(ev){
+      if (ev.key === 'Escape' && !$('sla-ov').hidden){ closeDrawer(); return; }
+      if (ev.key !== 'Enter' && ev.key !== ' ') return;
+      var row = ev.target && ev.target.closest && ev.target.closest('tr[data-user]');
+      if (row){ ev.preventDefault(); openPerson(row.getAttribute('data-user')); }
     });
   }
 
