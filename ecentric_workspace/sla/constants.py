@@ -59,13 +59,22 @@ GROUP_COUNTS_TOWARD_SLA = {
     GROUP_TASK: 0,
 }
 
-# Nguong cho TONG. Mot con so roi, khong phai tong cac nguong nhom.
+# Nguong cho TONG: KHONG CO. Chu so huu chot 18/09.
 #
-# Tong cac nguong (5+5+5+3=18) nghe co ly nhung sai theo huong nguy hiem: mot
-# nguoi co 12 dau viec that - du de do - se khong bao giờ ra ti le, va mot bang
-# diem trong hai thang lien se bi bo qua. Mot so roi thi giai thich duoc trong
-# mot cau truoc mat nhan vien: "dưới 10 đầu việc trong tháng thì chưa ra tỉ lệ".
-OVERALL_MIN_SAMPLE = 10
+# Lap luan cua ong ay, va no dung: mot dau viec du dung le van la MOT dau viec co
+# han, va no da tac dong toi ti le tong roi. Dat mot nguong o day khong lam con
+# so chinh xac hon - no chi lam con so BIEN MAT, va nguoi doc thi khong biet minh
+# dang o dau.
+#
+# Vi sao nguong cua TUNG NHOM van giu (xem GROUP_MIN_SAMPLE / DEFAULT_MIN_SAMPLE):
+# do la mot cau hoi khac. Ti le RIENG cua mot nhom la thu dem ra so giua nguoi
+# nay voi nguoi kia, va 1/1 = 100% hay 1/2 = 50% nhay qua manh de so. Con ti le
+# TONG thi khong dung de so - no la buc tranh cua chinh nguoi do, va no phai hien
+# ngay tu dau viec dau tien.
+#
+# `scoring._finalize` van co `if bucket["scored"]` truoc phep chia, nen 0 dau viec
+# van tra ve rate=None - "chua co dau viec nao", khong phai "chia cho khong".
+OVERALL_MIN_SAMPLE = 0
 
 # Nguong cho mot nhom KHONG nam trong danh muc tren (loai nghia vu them sau).
 # Mac dinh phai la mot so DUONG: mac dinh 0 nghia la mot nhom moi voi dung mot

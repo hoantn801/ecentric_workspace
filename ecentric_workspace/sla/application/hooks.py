@@ -294,3 +294,38 @@ def _has_row_for(source_doctype, source_name, level_no, attempt, user):
     except Exception:
         frappe.log_error(title="sla._has_row_for", message=frappe.get_traceback())
         return False
+# --------------------------------------------------------------------------- #
+# Cong VAO: `Employee Checkin` vua duoc tao
+#
+# Doi xung voi `sla_port` - o kia la cong ra, o day la cong vao - va chiu dung
+# mot rang buoc: DO LUONG KHONG DUOC PHEP LAM HONG CAI NO DO. Ham nay chay BEN
+# TRONG giao dich cham cong cua nguoi dung. Mot exception lot ra khoi day se
+# lam MariaDB rollback ca lan cham cong, va nguoi dung se dung truoc man hinh
+# bao loi khi ho vua lam dung viec cua ho.
+#
+# Vi vay: nuot moi Exception, khong tra ve gia tri nao ben goi phu thuoc vao,
+# va import muon de mot module SLA chua migrate tren mot bench nao do khong lam
+# vo trang cham cong.
+# --------------------------------------------------------------------------- #
+def on_employee_checkin(doc, method=None):
+    """Dong ngay cong ngay luc cham cong, thay vi cho job dem.
+
+    Job dem VAN CHAY va van can: hook co the truot (may chu restart giua giao
+    dich, module chua migrate, hoac chinh ham nay nuot mot loi). Luoi do ban dem
+    bat lai nhung ngay do. Hai duong, mot bo luat - ca hai deu goi
+    `attendance_source._sync_employee`.
+    """
+    try:
+        emp = getattr(doc, "employee", None)
+        if not emp:
+            return
+        when = getattr(doc, "time", None)
+        from ecentric_workspace.sla.infrastructure import attendance_source
+        attendance_source.sync_one(emp, when)
+    except Exception:
+        try:
+            frappe.log_error(title="sla.on_employee_checkin",
+                             message=frappe.get_traceback())
+        except Exception:
+            pass
+    return None

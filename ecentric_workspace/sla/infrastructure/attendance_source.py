@@ -288,3 +288,74 @@ def coverage(period=None):
 def open_count():
     return frappe.db.count(DT_OBLIGATION, {"obligation_type": TYPE_ATTENDANCE_DAY,
                                            "status": STATUS_OPEN})
+# --------------------------------------------------------------------------- #
+# Duong THOI GIAN THUC
+#
+# `sync()` o tren chay mot lan moi dem. Giua hai lan chay do co mot lo hong that:
+# han cham cong la 10:00, nen tu 10:00:01 den lan chay dem, mot nguoi DA cham
+# cong dung gio van bi `effective_status` doc ra thanh `Missed` - vi nghia vu con
+# `Open` va da qua han. Bang diem noi ho chua lam, trong khi ho lam roi.
+#
+# Do khong phai mot sai so nho: no dung voi CA CONG TY, MOI NGAY, trong khoang
+# 14 tieng. Va no chi sai theo mot huong - luon lam diem nguoi ta xau di.
+#
+# `sync_one` la duong dong ngay: `Employee Checkin` vua duoc tao -> dong nghia vu
+# cua dung nguoi do, dung ngay do. Da doi chieu tren ban song: `creation` cua
+# Employee Checkin trung `time` toi tung mili-giay, tuc la ban ghi duoc tao ngay
+# luc nguoi ta bam, khong phai may cham cong day ve theo lo. Nen "ngay" o day la
+# ngay that.
+#
+# KHONG VIET LAI MOT LUAT NAO. Ham nay goi dung `_sync_employee` ma job dem goi,
+# chi khac o cua so: mot nguoi, mot ngay. Hai duong vao, mot bo luat - neu khong
+# thi se co ngay duong thoi gian thuc va duong ban dem noi hai ket qua khac nhau
+# ve cung mot ngay cong.
+# --------------------------------------------------------------------------- #
+def _employee_one(employee):
+    """Mot nhan vien theo ten ban ghi. Cung bo truong voi `_employees()`."""
+    try:
+        rows = frappe.get_all(
+            "Employee", filters={"name": employee, "status": "Active",
+                                 "user_id": ("is", "set")},
+            fields=["name", "user_id", "employee_name", "department",
+                    "holiday_list", "date_of_joining", "company"],
+            limit_page_length=1)
+    except Exception:
+        frappe.log_error(title="sla.attendance._employee_one",
+                         message=frappe.get_traceback())
+        return None
+    return rows[0] if rows else None
+
+
+def sync_one(employee, day=None):
+    """Dong bo DUNG mot nhan vien, DUNG mot ngay. Chay lai duoc.
+
+    Tra ve `_new_report()` da dien, hoac `None` neu khong co gi de lam. Ben goi
+    (hook cham cong) khong duoc phu thuoc vao gia tri tra ve.
+    """
+    day = getdate(day or frappe.utils.nowdate())
+    emp = _employee_one(employee)
+    if not emp:
+        return None
+    report = _new_report()
+    report["nhan_vien"] = 1
+    report["tu_ngay"] = report["den_ngay"] = str(day)
+    # Savepoint rieng: neu mot ngay cong hong thi no khong duoc keo theo giao
+    # dich dang chay cua ben goi. Voi hook cham cong, giao dich dang chay CHINH
+    # LA lan cham cong cua nguoi dung.
+    sp = "sla_att_one"
+    try:
+        frappe.db.savepoint(sp)
+    except Exception:
+        sp = None
+    try:
+        _sync_employee(emp, day, day, {}, report)
+    except Exception:
+        if sp:
+            try:
+                frappe.db.rollback(save_point=sp)
+            except Exception:
+                pass
+        report["loi"].append(emp.get("user_id"))
+        frappe.log_error(title="sla.attendance.sync_one %s" % emp.get("user_id"),
+                         message=frappe.get_traceback())
+    return report
