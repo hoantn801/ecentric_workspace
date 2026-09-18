@@ -39,16 +39,66 @@ from ecentric_workspace.approval_center.reporting import scope as _scope
 from ecentric_workspace.approval_center.reporting import service as _service
 from ecentric_workspace.approval_center.reporting import status as _status
 
+# Tu dien trang thai LAY NGUYEN cua trang hub (/approvals/all-requests, statusLabel).
+# Tang bao cao tra ve nhan tieng Anh ("Pending", "Rejected"); moi man hinh khac cua
+# Approval Center hien tieng Viet. Dich o day - mot lan, ca bang lan TEP XUAT RA - thay vi
+# dich trong bundle: lam vay thi man hinh tieng Viet ma tep ke toan mo ra lai tieng Anh.
+# Che them mot tu dien thu ba la cach chac chan de vai thang nua ba ban troi nhau.
+TRANG_THAI_VI = {
+    "Draft": "Nháp",
+    "Pending": "Chờ duyệt",
+    "Information Required": "Cần bổ sung",
+    "Completed": "Hoàn tất",
+    "Approved": "Đã duyệt",
+    "Rejected": "Từ chối",
+    "Cancelled": "Đã hủy",
+    "In Progress": "Đang xử lý",
+}
+
+#: Tran so ma phieu tra duoc theo tieu de cho mot luot tim. Dong bo voi queries.SEARCH_REF_MAX.
+SEARCH_REF_MAX = 500
+
 EXPORT_MAX = 5000
 SUM_MAX = 2000
 PAGE_MAX = 100
 
 
-def _pinned_filters(definition, filters):
+def _pinned_filters(definition, filters, search=None):
     """Bo loc da chuan hoa, voi approval_type BI GHI DE ve form nay."""
     f = _rapi._parse_filters(filters, force_date=False)
     f["approval_type"] = definition.code          # ghi de, khong phai mac dinh
+    if search:
+        f["_search_refs"] = _ma_theo_tieu_de(definition, search)
     return f
+
+
+def _ma_theo_tieu_de(definition, search):
+    """Ma phieu co TIEU DE chua `search`.
+
+    Vi sao can. Tieu de that nam o DocType nghiep vu, khong o `EC Approval Request`, nen
+    menh de tim kiem cua tang bao cao khong voi toi. Ket qua: go "CMC" vao o tim kiem ra
+    KHONG PHIEU NAO trong khi cot "Tieu de" ngay tren man hinh dang hien hai phieu co chu
+    do (do tren production 16/09). Mot o tim kiem khong tim duoc thu dang hien ngay canh no
+    thi te hon khong co o tim kiem - nguoi dung ket luan "he thong khong co phieu".
+
+    KHONG NOI RONG QUYEN: danh sach ma nay chi la mot ve OR trong menh de tim, va menh de
+    do van duoc AND voi scope_predicate o `_list_where`.
+    """
+    meta = frappe.get_meta(definition.business_doctype)
+    if not meta.has_field("request_title"):
+        return []
+    rows = frappe.get_all(definition.business_doctype,
+                          filters={"request_title": ["like", "%" + str(search).strip() + "%"]},
+                          fields=["name"], limit_page_length=SEARCH_REF_MAX)
+    return [r["name"] for r in rows]
+
+
+def _viet_hoa(rows):
+    """Gan nhan tieng Viet vao tung dong. Giu nguyen `status` goc de bo loc van khop."""
+    for v in rows or []:
+        v["status_label"] = TRANG_THAI_VI.get(v.get("status_label") or v.get("status"),
+                                              v.get("status_label") or v.get("status") or "")
+    return rows
 
 
 def _tong_tien(definition, rows_total, scope, f, search):
@@ -76,7 +126,7 @@ def _tong_tien(definition, rows_total, scope, f, search):
 
 def list_all(definition, filters=None, start=0, page_length=50, search=None):
     scope = _scope.resolve_scope(frappe.session.user)
-    f = _pinned_filters(definition, filters)
+    f = _pinned_filters(definition, filters, search)
     try:
         start = max(0, int(start))
         page_length = min(PAGE_MAX, max(1, int(page_length)))
@@ -84,6 +134,7 @@ def list_all(definition, filters=None, start=0, page_length=50, search=None):
         start, page_length = 0, 50
     out = _service.list_requests(scope, f, start=start, page_length=page_length,
                                  search=(search or None))
+    _viet_hoa(out.get("rows"))
     out["scope_mode"] = scope.get("mode")
     out["total_amount"] = _tong_tien(definition, out.get("total") or 0, scope, f, search or None)
     out["sum_capped"] = bool((out.get("total") or 0) > SUM_MAX)
@@ -111,7 +162,10 @@ def filter_options(definition):
     return {
         "departments": [d["v"] for d in depts],
         "requesters": [{"value": r["v"], "label": r.get("label") or r["v"]} for r in reqs],
-        "statuses": _status.NORMALIZED_STATUSES,
+        # Gia tri gui len server giu nguyen tieng Anh (engine doc no); chi NHAN la tieng
+        # Viet. Dich ca gia tri thi bo loc im lang khong khop gi ca.
+        "statuses": [{"value": x, "label": TRANG_THAI_VI.get(x, x)}
+                     for x in _status.NORMALIZED_STATUSES],
         "scope_mode": scope.get("mode"),
     }
 
@@ -141,15 +195,15 @@ def _o_xuat(v):
 def export_all(definition, filters=None, search=None, fmt="xlsx"):
     """Xuat TOAN BO ket qua loc (khong phai trang dang xem), trong pham vi cua nguoi goi."""
     scope = _scope.resolve_scope(frappe.session.user)
-    f = _pinned_filters(definition, filters)
     search = search or None
+    f = _pinned_filters(definition, filters, search)
     tong = _q.count_requests(scope, f, search)
     if tong > EXPORT_MAX:
         frappe.throw(_("Bộ lọc đang khớp {0} phiếu, vượt mức {1} cho một lần xuất. "
                        "Hãy thu hẹp khoảng ngày hoặc thêm bộ lọc rồi thử lại.")
                      .format(tong, EXPORT_MAX))
     out = _service.list_requests(scope, f, start=0, page_length=EXPORT_MAX, search=search)
-    rows = out.get("rows") or []
+    rows = _viet_hoa(out.get("rows") or [])
 
     tieu_de = [lab for _k, lab in _COT]
     bang = [tieu_de] + [_o_xuat(v) for v in rows]
