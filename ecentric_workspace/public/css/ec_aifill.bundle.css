@@ -256,3 +256,110 @@
 @media (max-width:760px){
   .ec-aifill-hint{ margin-left:0; text-align:left; flex-basis:100%; }
 }
+
+/* ======================= G2b — "Tạo hàng loạt" ==============================
+ * ĐO TƯƠNG PHẢN, không đoán (ngưỡng 4.5:1 cho chữ nhỏ):
+ *   Sẵn sàng  #4b5563 / #f3f4f6 = 6.87   Thiếu N   #b45309 / #fff8e1 = 4.73
+ *   Lỗi       #b91c1c / #fef2f2 = 5.91   Đang đọc  #4b5563 / #f9fafb = 7.23
+ *   Cờ ngoại lệ #92400e / #fef3c7 = 6.37 Mã phiếu  #2C3DA6 / #fff   = 9.03
+ *
+ * A58 — TRẠNG THÁI DÒNG DÙNG HỌ XÁM/AMBER, KHÔNG DÙNG XANH. Một bản nháp chưa đi qua
+ * workflow nào cả: "Sẵn sàng" là xám, "Thiếu 2 ô" là amber. CHỈ "Đã gửi" được dùng wash
+ * xanh, vì lúc đó nó ĐÃ là một trạng thái workflow có thật — phiếu đã có mã, đã có cấp
+ * duyệt đang chờ. Đây là ngoại lệ duy nhất, và nó không phải lách luật mà chính là luật.
+ */
+.ec-aifill-modes{ display:flex; gap:4px; padding:0 16px 10px; }
+.ec-aifill-mode{
+  padding:5px 12px; border-radius:7px; font:inherit; font-size:12.5px; font-weight:600;
+  border:1px solid transparent; background:transparent; color:var(--ec-af-ink-3); cursor:pointer;
+}
+.ec-aifill-mode:hover{ background:var(--ec-af-line-soft); color:var(--ec-af-ink-2); }
+.ec-aifill-mode[aria-pressed=true]{
+  background:var(--ec-af-navy-wash); border-color:var(--ec-af-navy-line); color:var(--ec-af-navy);
+}
+.ec-aifill-mode:focus-visible{ outline:2px solid var(--ec-af-navy); outline-offset:2px; }
+
+.ec-aifill-cap{ margin-top:8px; font-size:12px; line-height:1.5; color:var(--ec-af-ink-3); }
+
+.ec-aifill-rows{ margin-top:10px; }
+.ec-aifill-row{
+  border:1px solid var(--ec-af-line); border-radius:9px; margin-bottom:6px;
+  background:var(--ec-af-surface); overflow:hidden;
+}
+.ec-aifill-row-top{ display:flex; align-items:center; gap:9px; padding:8px 10px; }
+.ec-aifill-row-x2,.ec-aifill-row-del{
+  flex:none; width:22px; height:22px; line-height:1; padding:0; cursor:pointer;
+  border:1px solid transparent; border-radius:5px; background:transparent;
+  color:var(--ec-af-ink-3); font-size:13px;
+}
+.ec-aifill-row-del{ font-size:17px; margin-left:2px; }
+.ec-aifill-row-x2:hover,.ec-aifill-row-del:hover{ background:var(--ec-af-line-soft); color:var(--ec-af-ink); }
+.ec-aifill-row-x2:focus-visible,.ec-aifill-row-del:focus-visible{
+  outline:2px solid var(--ec-af-navy); outline-offset:1px;
+}
+.ec-aifill-row-file{
+  flex:1 1 34%; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:12px; color:var(--ec-af-ink-3);
+}
+.ec-aifill-row-who{
+  flex:1 1 30%; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:13.5px; color:var(--ec-af-ink);
+}
+/* Cột tiền căn phải + tabular-nums. DESIGN.md ghi đây là nợ chưa trả; bảng này là bảng
+ * tiền đầu tiên dựng mới sau ghi chú đó nên làm đúng ngay — quét dọc cột là so được độ lớn. */
+.ec-aifill-row-amt{
+  flex:0 0 auto; min-width:96px; text-align:right;
+  font-variant-numeric:tabular-nums; font-size:13.5px; color:var(--ec-af-ink);
+}
+.ec-aifill-chip{
+  flex:none; font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px;
+  background:var(--ec-af-line-soft); color:var(--ec-af-ink-2); white-space:nowrap;
+}
+.ec-aifill-chip.is-warn{ background:#fff8e1; color:#b45309; }
+.ec-aifill-chip.is-bad{ background:#fef2f2; color:#b91c1c; }
+.ec-aifill-chip.is-wait{ background:#f9fafb; color:#4b5563; }
+.ec-aifill-chip.is-ok{ background:#f0fdf4; color:#166534; }
+
+.ec-aifill-row-flags{ display:flex; flex-wrap:wrap; gap:5px; padding:0 10px 8px 41px; }
+.ec-aifill-flag{
+  font-size:11px; font-weight:600; padding:2px 7px; border-radius:4px;
+  background:#fef3c7; color:#92400e; cursor:help;
+}
+.ec-aifill-row-link{
+  display:block; padding:0 10px 8px 41px; font-size:12.5px; color:var(--ec-af-navy);
+}
+.ec-aifill-row-err{ display:block; padding:0 10px 8px 41px; font-size:12.5px; color:#b91c1c; }
+
+.ec-aifill-row-body{
+  display:grid; grid-template-columns:1fr 1fr; gap:9px 12px;
+  padding:11px; border-top:1px solid var(--ec-af-line-soft); background:var(--ec-af-ground);
+}
+.ec-aifill-f{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+.ec-aifill-f.wide{ grid-column:1 / -1; }
+.ec-aifill-f > span{ font-size:11.5px; font-weight:600; color:var(--ec-af-ink-2); }
+.ec-aifill-f input,.ec-aifill-f textarea{
+  width:100%; padding:7px 10px; border:1px solid var(--ec-af-line); border-radius:7px;
+  font:inherit; font-size:13px; color:var(--ec-af-ink); background:var(--ec-af-surface);
+  resize:vertical;
+}
+.ec-aifill-f input:focus,.ec-aifill-f textarea:focus{
+  outline:none; border-color:var(--ec-af-navy); box-shadow:0 0 0 3px var(--ec-af-navy-wash);
+}
+
+/* Ô cam kết ghi RÕ SỐ PHIẾU (A61 §3) — con số đổi theo lô, không phải chữ chết. */
+.ec-aifill-cam{
+  display:flex; align-items:flex-start; gap:8px; margin-top:12px;
+  font-size:13px; line-height:1.5; color:var(--ec-af-ink); cursor:pointer;
+}
+.ec-aifill-cam input{ margin-top:2px; flex:none; width:15px; height:15px; cursor:pointer; }
+.ec-aifill-cam b{ font-weight:700; }
+.ec-aifill-sent{
+  margin-top:11px; padding:10px 12px; border-radius:8px;
+  background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; font-size:13px;
+}
+
+@media (max-width:760px){
+  .ec-aifill-row-body{ grid-template-columns:1fr; }
+  .ec-aifill-row-file{ display:none; }        /* tên tệp nhường chỗ cho người nhận + tiền */
+  .ec-aifill-row-flags,.ec-aifill-row-link,.ec-aifill-row-err{ padding-left:10px; }
+}

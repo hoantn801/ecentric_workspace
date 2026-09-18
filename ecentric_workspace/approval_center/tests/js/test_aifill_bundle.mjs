@@ -261,7 +261,8 @@ function nap(pathname) {
 // combobox/datepicker. `.ec-cb` là khung bọc KHÔNG có nền; nền nằm trên `.ec-cb-display`.
 {
   const css = readFileSync(
-    join(here, "..", "..", "..", "public", "css", "ec_aifill.bundle.css"), "utf8");
+    join(here, "..", "..", "..", "public", "css", "ec_aifill.bundle.css"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "");   // chú thích dính vào bộ chọn thì so sánh trượt
   // Có mặt trong file là chưa đủ: `.ec-cb-display:focus` cũng chứa đúng chuỗi đó mà lại
   // là luật TRUNG HOÀ màu. Phải hỏi: bộ chọn này có nằm trong luật ĐẶT NỀN không.
   const datNen = (bo) => css
@@ -282,6 +283,108 @@ function nap(pathname) {
      "o ngay con trong: chu mo lay sac do, khong de mac dinh xam");
   la(css.includes(".ec-cb-display.ec-cb-placeholder"),
      "combobox chua chon: chu mo lay sac do");
+}
+
+// ---- 10. G2b — "Tạo hàng loạt" -----------------------------------------------
+// Trần 10 là TRẦN QUYẾT ĐỊNH. Ô cam kết phải ghi RÕ SỐ PHIẾU (A61 §3) — con số đổi theo
+// lô, không phải chữ chết. Và không có nút duyệt-tất-cả ở bất kỳ đâu (A61 §1).
+{
+  function nap3() {
+    const tai = { location: { pathname: "/approvals/payment-request" },
+      requestAnimationFrame: (f) => f(), MutationObserver: class { observe() {} },
+      Event: class { constructor(t) { this.type = t; } } };
+    const doc = { readyState: "complete", body: { contains: () => true },
+      addEventListener() {}, querySelector: () => null, querySelectorAll: () => [],
+      createElement: () => ({ style: {}, classList: { add() {}, toggle() {} },
+                              setAttribute() {}, appendChild() {}, querySelector: () => null }) };
+    new Function("window", "document", "frappe", readFileSync(SRC, "utf8"))(tai, doc, undefined);
+    return tai.__ecAifill;
+  }
+  const A = nap3();
+  const day = { payee_full_name: "Nguyễn Thanh Phụng", payment_amount: 3000000,
+                account_bank: "Vietcombank", bank_account_number: "9857672398",
+                payment_date: "2026-09-20", reason: "Booking video" };
+  const dong = (f, x = {}) => Object.assign({ key: "r1", file: { name: "hd.pdf", size: 10 },
+                                              fields: f }, x);
+
+  la(A.money(3000000).replace(/\D/g, "") === "3000000", "tien giu nguyen chu so");
+  la(A.money("") === "" && A.money(0) === "", "khong co tien -> chuoi rong, khong phai 0");
+  la(A.money(3000000) !== "3000000", "tien co dau phan cach nhom");
+
+  la(A.rowState(dong(day))[0] === "Sẵn sàng", "du o -> San sang");
+  // A58: bản nháp chưa đi qua workflow nào -> KHÔNG được xanh.
+  la(A.rowState(dong(day))[1] === "gray", "San sang la XAM, khong phai xanh (A58)");
+  la(A.rowState(dong({ payee_full_name: "A" }))[0] === "Thiếu 5 ô", "dem dung so o con thieu");
+  la(A.rowState(dong(day, { busy: true }))[0] === "Đang đọc…", "dang doc tep");
+  la(A.rowState(dong(day, { err: "hong" }))[0] === "Lỗi", "loi thang tay, khong giau");
+  la(A.rowState(dong(day, { sent: "EC-PAYR-2026-00042" }))[1] === "ok",
+     "Da gui MOI duoc dung wash xanh - luc do no la trang thai workflow that");
+
+  // Trần: dòng thứ 11 bị từ chối, và lý do nói theo QUYẾT ĐỊNH.
+  A.S.maxDrafts = 10; A.S.fileExts = ["pdf"];
+  A.B.rows = [];
+  for (let i = 0; i < 10; i++) {
+    A.B.rows.push({ key: "k" + i, file: { name: "f" + i + ".pdf", size: 5 }, fields: {} });
+  }
+  la(/10/.test(A.batchRefuse({ name: "f99.pdf", size: 5 }) || ""),
+     "day 10 dong -> tu choi tep thu 11 va noi ro con so");
+  A.B.rows = A.B.rows.slice(0, 2);
+  la(A.batchRefuse({ name: "f1.pdf", size: 5 }) === "đã có rồi",
+     "cung ten cung kich thuoc -> da co roi");
+
+  A.B.rows = [dong(day)];
+  la(A.flagsHtml(A.B.rows[0]) === "", "khong co co -> khong ve gi");
+  A.B.rows[0].flags = { dup_in_batch: true, new_account: false, amount_off: true };
+  const co = A.flagsHtml(A.B.rows[0]);
+  la(/Trùng STK/.test(co) && /lệch xa/.test(co), "ve dung hai co dang bat");
+  la(!/Số tài khoản mới/.test(co), "co dang TAT thi khong ve");
+
+  A.B.cam = false; A.B.busy = false; A.B.mo = null;
+  const h1 = A.batchHtml();
+  la(/1 phiếu<\/b> trong lô này là chính xác/.test(h1),
+     "o cam ket ghi RO SO PHIEU cua lo (A61 §3)");
+  la(/Gửi 1 phiếu/.test(h1), "nut gui ghi ro so phieu");
+  la(/disabled/.test(h1), "chua tich cam ket -> nut gui khoa");
+  A.B.cam = true;
+  la(!/ec-aifill-send" disabled/.test(A.batchHtml()), "tich roi -> nut gui mo");
+  A.B.rows.push(dong(day, { key: "r2" }));
+  la(/2 phiếu<\/b>/.test(A.batchHtml()), "con so doi theo lo, khong phai chu chet");
+
+  // A61 §1: màn này chỉ TẠO. Gom để quyết định là thứ khác hẳn.
+  const moiHtml = A.batchHtml() + h1;
+  la(!/duyệt tất cả|Duyệt tất cả|duyet tat ca/.test(moiHtml),
+     "KHONG co nut duyet-tat-ca o bat ky dau (A61 §1)");
+
+  // Trần nói ra HỆ QUẢ, không chỉ nói "hết chỗ".
+  A.B.rows = [];
+  for (let i = 0; i < 10; i++) {
+    A.B.rows.push(dong(day, { key: "z" + i, file: { name: "z" + i + ".pdf", size: 5 } }));
+  }
+  la(/quyết định/.test(A.batchHtml()),
+     "tran giai thich HE QUA - tran khong giai thich thi nguoi ta di tim cach lach");
+}
+
+// ---- 11. A58 trên bảng trạng thái dòng ---------------------------------------
+{
+  const css = readFileSync(
+    join(here, "..", "..", "..", "public", "css", "ec_aifill.bundle.css"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
+  const lay = (bo) => {
+    for (const khoi of css.split("}")) {
+      const chon = (khoi.split("{")[0] || "").trim();
+      if (chon.split(",").some((x) => x.trim() === bo)) return khoi.split("{")[1] || "";
+    }
+    return "";
+  };
+  la(/#f3f4f6|--ec-af-line-soft/.test(lay(".ec-aifill-chip")), "San sang: nen xam");
+  la(/#fff8e1/.test(lay(".ec-aifill-chip.is-warn")), "Thieu N o: nen amber");
+  la(/#f0fdf4/.test(lay(".ec-aifill-chip.is-ok")), "Da gui: nen xanh (trang thai workflow that)");
+  for (const bo of [".ec-aifill-chip", ".ec-aifill-chip.is-warn", ".ec-aifill-chip.is-wait"]) {
+    la(!/#f0fdf4|#166534|#bbf7d0/.test(lay(bo)),
+       `${bo}: ban nhap KHONG duoc muon mau cua trang thai da duyet (A58)`);
+  }
+  la(/tabular-nums/.test(lay(".ec-aifill-row-amt")) && /text-align:\s*right/.test(lay(".ec-aifill-row-amt")),
+     "cot tien can phai + tabular-nums de quet doc cot la so duoc");
 }
 
 console.log(`${dat} dat, ${hong} hong`);

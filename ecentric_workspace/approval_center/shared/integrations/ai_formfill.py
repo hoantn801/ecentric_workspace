@@ -50,6 +50,17 @@ DEFAULT_DAILY_CAP = 50
 #: Do dai toi da cua doan text nguoi dung dan vao.
 MAX_NOTE_CHARS = 8000
 
+#: Tran ban nhap cua tab "Tao hang loat".
+#:
+#: DEM QUYET DINH CUA NGUOI DUYET, khong dem cong suat may. 10 phieu trong mot lo la 10
+#: lan mot nguoi khac phai doc va chiu trach nhiem; con so nay la mot phat bieu ve gioi
+#: han cua su chu y, nen no khong duoc phep noi ra chi vi server chay kip.
+#:
+#: KHAC HAN `ai_attachments.MAX_FILES = 5`: cai kia dem TEP CUA MOT quyet dinh (mot hop
+#: dong co the co 3 phu luc), cai nay dem SO QUYET DINH. Lan lon hai con so nay la lan lon
+#: hai thu khac nhau ve ban chat - da ghi o DESIGN §3.3.
+MAX_BATCH_DRAFTS = 10
+
 LOG_DOCTYPE = "EC AI Formfill Log"
 
 

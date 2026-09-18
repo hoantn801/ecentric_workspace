@@ -4,13 +4,14 @@ from ecentric_workspace.approval_center.shared.requests.contracts import Approva
 from ecentric_workspace.approval_center.shared.finance_support import Resubmitter, Submitter
 from ecentric_workspace.approval_center.features.payment_request.application.service import (
     detail_extra, normalize_payment, payment_title, validate_payment)
+from ecentric_workspace.approval_center.features.payment_request.application.batch_flags import flag_rows
 from ecentric_workspace.approval_center.shared.definition_support import (
     DepartmentOptions, ExactAndDateFilters, ExpenseCategoryOptions, StaticOptions)
 
 
 def _make(code, doctype, editable, mine, approvals, options, title, validator,
           manager=False, esign=False, draft_preparer=None, detail_extender=None,
-          ai_exclude=(), ai_hints=None):
+          ai_exclude=(), ai_hints=None, batch_flagger=None):
     return ApprovalDefinition(
         # `feature` la duong dan module ma fulfillment_service.claim/complete import
         # (features.<feature>.application.service). Thieu no thi buoc 6 "Finance xu ly UNC"
@@ -31,7 +32,8 @@ def _make(code, doctype, editable, mine, approvals, options, title, validator,
         # la bat bien, do la ADR. Truyen thang mot dict vao day lam CA REGISTRY khong nap
         # duoc: 17/09 no ha ca `list_all_requests` (hub "Tat ca yeu cau") chu khong rieng
         # duong AI, vi moi endpoint deu di qua registry.
-        ai_hints=MappingProxyType(dict(ai_hints or {})))
+        ai_hints=MappingProxyType(dict(ai_hints or {})),
+        batch_flagger=batch_flagger)
 
 PAYMENT_REQUEST_DEFINITION = _make(
     "PAYMENT_REQUEST", "EC Payment Request",
@@ -56,6 +58,8 @@ PAYMENT_REQUEST_DEFINITION = _make(
     ("name", "request_title", "payee_full_name", "payment_amount", "payment_date", "creation"),
     ExpenseCategoryOptions((("yes_no", ("Yes", "No")),)), payment_title, validate_payment,
     manager=True, esign=True, draft_preparer=normalize_payment,
+    # Tab "Tao hang loat": ba dau hieu ngoai le tren tung dong. Xem batch_flags.py.
+    batch_flagger=flag_rows,
     # Truong nguoi lap PHAI tu lam, du chung nam trong `editable_fields`. Xem
     # `ApprovalDefinition.ai_exclude_fields`. `details_and_attachments_correct` KHONG can ke
     # o day: no da nam trong `clone_exclude_fields` va bi chan boi luat so 2.
