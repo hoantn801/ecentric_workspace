@@ -19,9 +19,63 @@ import types
 import unittest
 
 
+_TEN_GIA = (
+    "frappe", "frappe.utils", "frappe.utils.xlsxutils",
+    "ecentric_workspace.approval_center.reporting.api",
+    "ecentric_workspace.approval_center.reporting.scope",
+    "ecentric_workspace.approval_center.reporting.queries",
+    "ecentric_workspace.approval_center.reporting.service",
+    "ecentric_workspace.approval_center.reporting.status",
+)
+
+
+def _dat(ten, mod):
+    """Cam module gia vao CA sys.modules LAN thuoc tinh cua goi cha.
+
+    `from goi import ten` doc THUOC TINH cua goi cha truoc, khong doc sys.modules. Chi cam
+    vao sys.modules thi ban gia bi bo qua ngay khi mot bo test khac da nap ban that - va bo
+    test thanh phu thuoc THU TU chay. Do dung 16/09: file nay xanh khi chay truoc
+    test_todo_box_after_approve, 20 bai do khi chay sau.
+    """
+    sys.modules[ten] = mod
+    cha, _, la = ten.rpartition(".")
+    if cha and cha in sys.modules and sys.modules[cha] is not None:
+        setattr(sys.modules[cha], la, mod)
+
+
+def _luu():
+    cu = {}
+    for ten in _TEN_GIA:
+        cu[ten] = sys.modules.get(ten, KeyError)
+        cha, _, la = ten.rpartition(".")
+        if cha:
+            goi = sys.modules.get(cha)
+            cu[(cha, la)] = getattr(goi, la, KeyError) if goi is not None else KeyError
+    return cu
+
+
+def _tra(cu):
+    for khoa, gt in cu.items():
+        if isinstance(khoa, tuple):
+            cha, la = khoa
+            goi = sys.modules.get(cha)
+            if goi is None:
+                continue
+            if gt is KeyError:
+                if hasattr(goi, la):
+                    delattr(goi, la)
+            else:
+                setattr(goi, la, gt)
+        elif gt is KeyError:
+            sys.modules.pop(khoa, None)
+        else:
+            sys.modules[khoa] = gt
+
+
 def _nap():
     """Nap all_list voi frappe + reporting gia. Tra ve (module, so ghi nhan)."""
-    ghi = {"service_calls": [], "count_calls": [], "vet": [], "tep": [], "throw": []}
+    ghi = {"service_calls": [], "count_calls": [], "vet": [], "tep": [], "throw": [],
+           "tim_tieu_de": [], "_bang": []}
 
     fr = types.ModuleType("frappe")
     fr.session = types.SimpleNamespace(user="u@e.c")
@@ -34,8 +88,16 @@ def _nap():
     fr.throw = _throw
     fr.log_error = lambda *a, **k: None
     fr.get_traceback = lambda: ""
-    fr.get_meta = lambda dt: types.SimpleNamespace(has_field=lambda f: f == "payment_amount")
-    fr.get_all = lambda dt, **k: [{"payment_amount": 100}, {"payment_amount": 50}]
+    fr.get_meta = lambda dt: types.SimpleNamespace(
+        has_field=lambda f: f in ("payment_amount", "request_title"))
+
+    def _get_all(dt, **k):
+        flt = k.get("filters") or {}
+        if "request_title" in flt:                     # tra ma phieu theo tieu de
+            ghi["tim_tieu_de"].append((flt["request_title"], k.get("limit_page_length")))
+            return [{"name": "R%d" % i} for i in range(ghi.get("_so_tieu_de", 2))]
+        return [{"payment_amount": 100}, {"payment_amount": 50}]
+    fr.get_all = _get_all
 
     class _Doc(dict):
         def insert(self, **k):
@@ -46,15 +108,16 @@ def _nap():
     fr.utils = types.SimpleNamespace(
         now_datetime=lambda: types.SimpleNamespace(strftime=lambda f: "20260916_1200"))
     fr.whitelist = lambda *a, **k: (lambda f: f)
-    sys.modules["frappe"] = fr
-    sys.modules["frappe.utils"] = fr.utils
+    _dat("frappe", fr)
+    _dat("frappe.utils", fr.utils)
     xl = types.ModuleType("frappe.utils.xlsxutils")
 
     def _mk(bang, ten):
         ghi["tep"].append(("xlsx", len(bang)))
+        ghi["_bang"] = bang
         return types.SimpleNamespace(getvalue=lambda: b"XLSXFAKE")
     xl.make_xlsx = _mk
-    sys.modules["frappe.utils.xlsxutils"] = xl
+    _dat("frappe.utils.xlsxutils", xl)
 
     base = "ecentric_workspace.approval_center.reporting."
     rapi = types.ModuleType(base + "api")
@@ -74,13 +137,15 @@ def _nap():
     def _list(sc, f, start=0, page_length=50, search=None):
         ghi["service_calls"].append({"scope": sc, "filters": dict(f), "start": start,
                                      "page_length": page_length, "search": search})
-        return {"rows": [{"name": "EC-1", "approvers": [], "requester_info": {"name": "A"}}],
+        return {"rows": [{"name": "EC-1", "approvers": [], "requester_info": {"name": "A"},
+                          "status": "Pending", "status_label": "Pending"}],
                 "total": ghi.get("_count", 3), "start": start, "page_length": page_length}
     svc.list_requests = _list
     st = types.ModuleType(base + "status")
-    st.NORMALIZED_STATUSES = ["Chờ duyệt", "Đã duyệt"]
+    st.NORMALIZED_STATUSES = ["Draft", "Pending", "Information Required",
+                              "Completed", "Rejected", "Cancelled"]
     for m in (rapi, scope, q, svc, st):
-        sys.modules[m.__name__] = m
+        _dat(m.__name__, m)
 
     # PHAI reload, khong the chi xoa khoi sys.modules roi `from ... import`: khi goi cha da
     # nam trong sys.modules va DA co thuoc tinh `all_list`, Python tra ve thuoc tinh cu chu
@@ -97,7 +162,18 @@ class _Def:
     business_doctype = "EC Payment Request"
 
 
-class TestGhimPhamVi(unittest.TestCase):
+class _Nen(unittest.TestCase):
+    """Tra lai bang module CHUNG sau moi bai - neu khong, file nay lam do cac bo test chay
+    sau no trong cung mot phien, va loi do khong he tro ve file gay ra no."""
+
+    def setUp(self):
+        self._cu = _luu()
+
+    def tearDown(self):
+        _tra(self._cu)
+
+
+class TestGhimPhamVi(_Nen):
     def test_approval_type_cua_client_bi_ghi_de(self):
         al, ghi = _nap()
         al.list_all(_Def(), filters={"approval_type": "BOOKING_REQUEST"})
@@ -128,7 +204,7 @@ class TestGhimPhamVi(unittest.TestCase):
         self.assertEqual(ghi["service_calls"][0]["start"], 0)
 
 
-class TestTongTien(unittest.TestCase):
+class TestTongTien(_Nen):
     def test_co_tong_khi_it_phieu(self):
         al, ghi = _nap()
         out = al.list_all(_Def())
@@ -143,7 +219,69 @@ class TestTongTien(unittest.TestCase):
         self.assertTrue(out["sum_capped"])
 
 
-class TestExport(unittest.TestCase):
+class TestTiengViet(_Nen):
+    """Nhan trang thai phai giong phan con lai cua Approval Center - va giong TRONG TEP XUAT."""
+
+    def test_nhan_duoc_dich_sang_tieng_viet(self):
+        al, ghi = _nap()
+        out = al.list_all(_Def())
+        self.assertEqual(out["rows"][0]["status_label"], "Chờ duyệt")
+
+    def test_giu_nguyen_status_goc_de_bo_loc_van_khop(self):
+        al, ghi = _nap()
+        out = al.list_all(_Def())
+        self.assertEqual(out["rows"][0]["status"], "Pending",
+                         "dich ca gia tri goc thi bo loc im lang khong khop gi")
+
+    def test_trang_thai_la_khong_lam_vo_man_hinh(self):
+        al, _ = _nap()
+        r = al._viet_hoa([{"status": "Thu La", "status_label": "Thu La"}])
+        self.assertEqual(r[0]["status_label"], "Thu La")
+
+    def test_bo_loc_tra_gia_tri_ANH_nhan_VIET(self):
+        al, _ = _nap()
+        st = al.filter_options(_Def())["statuses"]
+        m = {x["value"]: x["label"] for x in st}
+        self.assertEqual(m.get("Pending"), "Chờ duyệt")
+        self.assertIn("Rejected", m, "gia tri gui len server phai giu tieng Anh")
+
+    def test_tep_xuat_ra_cung_tieng_viet(self):
+        al, ghi = _nap()
+        al.export_all(_Def())
+        self.assertTrue(any("Chờ duyệt" in str(x) for x in ghi["_bang"]),
+                        "man hinh tieng Viet ma tep ke toan mo ra lai tieng Anh")
+
+
+class TestTimTheoTieuDe(_Nen):
+    """Tieu de that nam o DocType nghiep vu - menh de tim cua tang bao cao khong voi toi."""
+
+    def test_co_tim_thi_tra_ma_theo_tieu_de(self):
+        al, ghi = _nap()
+        al.list_all(_Def(), search="CMC")
+        self.assertEqual(len(ghi["tim_tieu_de"]), 1)
+        self.assertEqual(ghi["tim_tieu_de"][0][0], ["like", "%CMC%"])
+        self.assertIn("_search_refs", ghi["service_calls"][0]["filters"])
+
+    def test_khong_tim_thi_khong_chay_truy_van_thua(self):
+        al, ghi = _nap()
+        al.list_all(_Def())
+        self.assertEqual(ghi["tim_tieu_de"], [])
+        self.assertNotIn("_search_refs", ghi["service_calls"][0]["filters"])
+
+    def test_co_tran_so_ma_tra_ve(self):
+        al, ghi = _nap()
+        al.list_all(_Def(), search="a")
+        self.assertEqual(ghi["tim_tieu_de"][0][1], al.SEARCH_REF_MAX,
+                         "khong dat tran thi mot chu cai co the keo ve ca bang")
+
+    def test_export_cung_tim_theo_tieu_de(self):
+        al, ghi = _nap()
+        al.export_all(_Def(), search="CMC")
+        self.assertIn("_search_refs", ghi["service_calls"][-1]["filters"],
+                      "tep xuat ra phai khop dung cai nguoi dung dang nhin")
+
+
+class TestExport(_Nen):
     def test_vuot_tran_thi_nem_loi_chu_khong_cat_bot(self):
         al, ghi = _nap()
         ghi["_count"] = al.EXPORT_MAX + 1

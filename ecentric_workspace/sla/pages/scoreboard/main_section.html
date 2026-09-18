@@ -134,11 +134,20 @@
   #ec-sla-root .hero-s b{ color:var(--gray-900); font-weight:700; }
 
   /* Thanh thành phần. Bề rộng do flex-grow = SỐ ĐẾM của backend quyết định. */
+  /* HOAT ANH KHONG DUOC PHEP LA DIEU KIEN DE NHIN THAY.
+     Ban truoc dung `opacity:0` + mot class do JS gan trong requestAnimationFrame.
+     Tren ban song, thanh nay BIEN MAT: rAF bi trinh duyet hoan lai khi tab chua
+     duoc nhin, nen class khong bao gio duoc gan va thanh quan trong nhat trang
+     nam o opacity 0. Gio dung keyframes KHONG co fill-mode: truoc va sau hoat
+     anh, phan tu dung style binh thuong cua no - tuc la HIEN. Hoat anh hong,
+     tat, hay bi chan thi thanh van hien; khong con duong nao de no vo hinh. */
   #ec-sla-root .comp-bar{ display:flex; height:40px; border-radius:var(--r-sm);
     overflow:hidden; gap:2px; background:var(--gray-100);
-    clip-path:inset(0 100% 0 0); }
-  #ec-sla-root .comp.ready .comp-bar{ clip-path:inset(0 0 0 0);
-    transition:clip-path .75s var(--ease); }
+    animation:ec-sla-reveal .7s var(--ease); }
+  @keyframes ec-sla-reveal{
+    from{ clip-path:inset(0 100% 0 0); }
+    to{ clip-path:inset(0 0 0 0); }
+  }
   #ec-sla-root .seg{ flex-basis:0; flex-shrink:1; min-width:4px; min-height:0;
     display:flex; align-items:center; justify-content:center; overflow:hidden;
     color:#fff; font-size:12.5px; font-weight:700; }
@@ -159,8 +168,6 @@
   #ec-sla-root .bracket-txt{ position:absolute; top:11px; left:50%; transform:translateX(-50%);
     font-size:12px; color:var(--gray-500); white-space:nowrap; }
   #ec-sla-root .bracket-txt b{ color:var(--gray-700); font-weight:700; }
-  #ec-sla-root .comp{ opacity:0; }
-  #ec-sla-root .comp.ready{ opacity:1; transition:opacity .3s ease; }
 
   #ec-sla-root .legend{ display:flex; flex-wrap:wrap; gap:6px; margin-top:22px; }
   #ec-sla-root .lg{ display:inline-flex; align-items:center; gap:8px; padding:7px 12px;
@@ -308,6 +315,46 @@
   #ec-sla-root .deptsum .lead b{ font-size:19px; letter-spacing:-.4px; }
   #ec-sla-root .bull{ width:3px; height:3px; border-radius:50%; background:var(--gray-300);
     display:inline-block; }
+
+  /* -------------------------------------------------- khối quy trình duyệt --
+     28 quy trình / 67 bước. Dựng thành khối gập được, dùng LẠI đúng ngôn ngữ
+     "bấm để mở" của khối nguyên nhân ở tab Của tôi — một trang không nên có hai
+     kiểu đóng mở khác nhau.
+
+     MÀU Ở ĐÂY LÀ TÊN RIÊNG, KHÔNG PHẢI Ý NGHĨA. Ô vuông chữ cái đầu của mỗi quy
+     trình lấy màu từ chính mã quy trình, nên PAYMENT_REQUEST lần nào cũng một
+     màu và quy trình mới thêm vào tự có màu. Màu chỉ để nhận mặt. Bảng màu
+     xanh/vàng/đỏ vẫn dành riêng cho trạng thái SLA và không bị đụng vào — vì
+     vậy màu định danh nằm trong một ô vuông ở vị trí cố định, không bao giờ
+     nằm trên chữ hay trên viền. */
+  #ec-sla-root .proc{ border:1px solid var(--hair); border-radius:var(--r-md);
+    overflow:hidden; background:var(--surface); }
+  #ec-sla-root .proc + .proc{ margin-top:8px; }
+  #ec-sla-root .proc-h{ width:100%; display:flex; align-items:center; gap:12px;
+    padding:12px 14px; background:none; border:none; font:inherit; text-align:left;
+    cursor:pointer; }
+  #ec-sla-root .proc-h:hover{ background:var(--gray-50); }
+  #ec-sla-root .proc-ava{ width:32px; height:32px; border-radius:var(--r-sm);
+    display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+    font-size:12px; font-weight:800; letter-spacing:.02em; }
+  #ec-sla-root .proc-main{ flex:1; min-width:0; }
+  #ec-sla-root .proc-t{ display:block; font-size:13.5px; font-weight:700; color:var(--gray-900); }
+  #ec-sla-root .proc-m{ display:block; font-size:12px; color:var(--gray-500); margin-top:3px; }
+  #ec-sla-root .proc-sum{ font-size:12.5px; color:var(--gray-500); white-space:nowrap; }
+  #ec-sla-root .proc-h[aria-expanded="true"]{ background:var(--gray-50);
+    border-bottom:1px solid var(--hair); }
+  #ec-sla-root .proc-h[aria-expanded="true"] .cause-chev{ transform:rotate(90deg); }
+  #ec-sla-root .proc-b[hidden]{ display:none; }
+  #ec-sla-root .proc-b{ padding:2px 14px 6px; }
+  #ec-sla-root .proc-steps{ list-style:none; margin:0; padding:0; }
+  #ec-sla-root .pstep{ display:flex; align-items:baseline; gap:12px; padding:11px 0; }
+  #ec-sla-root .pstep + .pstep{ border-top:1px solid var(--gray-100); }
+  #ec-sla-root .pstep-main{ flex:1; min-width:0; }
+  #ec-sla-root .pstep-lim{ flex:0 0 auto; text-align:right; min-width:150px; }
+  #ec-sla-root .pstep-code{ flex:0 0 auto; width:230px; text-align:right; }
+  #ec-sla-root .toolbar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    margin-bottom:12px; }
+  #ec-sla-root .toolbar .in{ flex:1 1 260px; max-width:420px; }
 
   /* ------------------------------------------------------ bảng quy trình -- */
   #ec-sla-root .ftab tbody td{ vertical-align:top; }
@@ -500,10 +547,15 @@
       letter-spacing:.04em; }
     #ec-sla-root .ftab .f-proc.rep, #ec-sla-root .ftab .f-cat.rep{ display:block; }
     #ec-sla-root .ftab .f-proc.rep{ color:var(--gray-500); font-weight:600; }
+
+    /* Bước duyệt trên điện thoại: hạn và mã chính sách xuống dòng riêng. */
+    #ec-sla-root .pstep{ flex-wrap:wrap; gap:4px 12px; }
+    #ec-sla-root .pstep-lim{ text-align:left; min-width:0; }
+    #ec-sla-root .pstep-code{ width:100%; text-align:left; }
+    #ec-sla-root .proc-sum{ display:none; }
   }
   @media (prefers-reduced-motion:reduce){
     #ec-sla-root *{ transition-duration:.01ms !important; animation-duration:.01ms !important; }
-    #ec-sla-root .comp-bar{ clip-path:none; }
   }
 </style>
 
@@ -748,19 +800,10 @@
       + '">' + bar + '</div>' + bracket + '</div>' + legend;
   }
 
-  /** Bật hoạt ảnh lộ thanh. MỘT khoảnh khắc, chạy một lần sau khi đã vẽ xong. */
-  function armComps(host){
-    var list = (host || document).querySelectorAll('#ec-sla-root .comp:not(.ready)');
-    if (!list.length) return;
-    // requestAnimationFrame kep: nhip dau de trinh duyet nhan layout, nhip sau
-    // moi doi class - doi ngay trong cung mot nhip thi khong co transition nao.
-    var go = function(){
-      for (var i = 0; i < list.length; i++) list[i].className += ' ready';
-    };
-    if (window.requestAnimationFrame){
-      requestAnimationFrame(function(){ requestAnimationFrame(go); });
-    } else { setTimeout(go, 30); }
-  }
+  //: KHONG con `armComps`. Hoat anh lo thanh gio nam han trong CSS
+  //: (`@keyframes ec-sla-reveal`), khong co JS nao dieu khien no. Xem ghi chu o
+  //: khoi style: mot thanh chi hien khi JS kip gan class la mot thanh se co ngay
+  //: bien mat, va no da bien mat that mot lan tren ban song.
 
   /**
    * Gọi API. Trả về data, hoặc ném lỗi có message đọc được.
@@ -985,11 +1028,19 @@
     var off = outside(o);
     var head;
     if (o.rate == null){
+      // HAI LY DO khac nhau cho cung mot o trong. Neu nguong tong da duoc bo
+      // (overallMin <= 1) thi khong con "chua du mau" nua - chi con "chua co
+      // dau viec nao". Noi nham cau thu nhat luc do la noi ve mot luat khong
+      // con ton tai, va nguoi doc se di tim xem minh thieu bao nhieu.
       head = '<div>'
         + '<div class="hero-lb">%SLA ' + esc(periodLabel(board.period)) + '</div>'
-        + '<div class="hero-none">Chưa đủ mẫu</div>'
-        + '<div class="hero-s">Mới có <b class="tnum">' + num(o.scored) + '</b> đầu việc được chấm. '
-        + 'Cần tối thiểu <b class="tnum">' + S.overallMin + '</b> đầu việc trong tháng thì tỉ lệ mới có nghĩa.</div>'
+        + (num(o.scored) === 0 || S.overallMin <= 1
+            ? '<div class="hero-none">Chưa có đầu việc nào</div>'
+              + '<div class="hero-s">Tháng này chưa có đầu việc nào tới hạn để chấm. '
+              + 'Có đầu việc đầu tiên là có tỉ lệ ngay.</div>'
+            : '<div class="hero-none">Chưa đủ mẫu</div>'
+              + '<div class="hero-s">Mới có <b class="tnum">' + num(o.scored) + '</b> đầu việc được chấm. '
+              + 'Cần tối thiểu <b class="tnum">' + S.overallMin + '</b> đầu việc trong tháng thì tỉ lệ mới có nghĩa.</div>')
         + '</div>';
     } else {
       head = '<div>'
@@ -1016,7 +1067,6 @@
       + '<div style="height:16px"></div>'
       + causes(board.contribution, items, _meSel)
       + pending(items, _meSel);
-    armComps(panel('me'));
   }
 
   function renderMe(board, items, dates){
@@ -1222,7 +1272,6 @@
           + '</div>';
       }).join('');
       $('sla-dr-body').innerHTML = top + body;
-      armComps($('sla-drawer'));
     }).catch(function(e){
       var h = $('sla-dr-body');
       if (h) h.innerHTML = '<div class="err" style="margin:0">Không xem được điểm của người này: '
@@ -1231,39 +1280,118 @@
   }
 
   // ------------------------------------------------------ tab: quy trình --
-  function stepRows(rows, q){
-    var list = rows.filter(function(r){
-      if (!q) return true;
-      return (r.title + ' ' + r.process_code + ' ' + r.step).toLowerCase().indexOf(q) !== -1;
+  /**
+   * Mau dinh danh cua mot quy trinh, sinh tu chinh ma cua no.
+   *
+   * KHONG co bang anh xa cung nao trong tep nay: mot bang nhu vay se im lang
+   * bo sot moi quy trinh duoc them sau hom nay, va nguoi them no khong co cach
+   * nao biet la phai vao day sua. Ham nay thi khong bao giờ sai - quy trinh moi
+   * tu co mau, mau cua mot quy trinh khong bao gio doi giua hai lan tai trang.
+   *
+   * Bang mau duoc chon de KHONG trung voi bo mau trang thai (xanh dung han /
+   * vang tre / do chua lam): khong co mau nao o day la xanh la, vang cam hay do.
+   */
+  var LABEL_HUES = [174, 186, 198, 208, 218, 228, 238, 248,
+                    258, 268, 278, 290, 302, 314, 326];
+  function _hash(s){
+    var h = 0; s = String(s || '');
+    for (var i = 0; i < s.length; i++){ h = (h * 33 + s.charCodeAt(i)) % 1000003; }
+    return h;
+  }
+  function labelStyle(code){
+    var n = _hash(code);
+    var h = LABEL_HUES[n % LABEL_HUES.length];
+    // Hai muc dam nhat: 16 sac x 2 = 32 bien the, du cho 28 quy trinh hom nay
+    // va con cho cho nhung quy trinh them sau.
+    var deep = (n % 32) >= 16;
+    return 'background:hsl(' + h + ' ' + (deep ? 46 : 70) + '% ' + (deep ? 88 : 94) + '%);'
+         + 'color:hsl(' + h + ' ' + (deep ? 42 : 58) + '% ' + (deep ? 26 : 34) + '%)';
+  }
+
+  /** Hai chu cai dau cua ten quy trinh. Thuan chuoi. */
+  function procInitials(title, code){
+    var t = String(title || code || '').replace(/\bV\d+\b/g, '').trim();
+    var w = t.split(/\s+/).filter(function(x){ return x.length; });
+    if (!w.length) return '?';
+    if (w.length === 1) return w[0].slice(0, 2).toUpperCase();
+    return (w[0].charAt(0) + w[1].charAt(0)).toUpperCase();
+  }
+
+  /**
+   * Gom cac buoc theo `process_code`, KHONG theo `title`: hai quy trinh khac
+   * nhau co the trung ten, va gom theo ten se lam quy trinh thu hai trong nhu
+   * mot cap duyet tiep theo cua quy trinh thu nhat.
+   */
+  function groupSteps(rows){
+    var order = [], by = {};
+    (rows || []).forEach(function(r){
+      var k = r.process_code;
+      if (!by[k]){ by[k] = { code: k, title: r.title, steps: [] }; order.push(k); }
+      by[k].steps.push(r);
     });
-    if (!list.length) return '<tr><td colspan="4"><div class="empty">Không có bước nào khớp.</div></td></tr>';
-    // Gộp theo `process_code`, KHÔNG theo `title`: hai quy trình khác nhau có
-    // thể trùng tên, và gộp theo tên sẽ làm quy trình thứ hai trông như một
-    // cấp duyệt tiếp theo của quy trình thứ nhất.
-    var lastCode = null, stepNo = 0;
-    return list.map(function(r){
-      var isNew = r.process_code !== lastCode;
-      if (isNew) stepNo = 0;
-      lastCode = r.process_code;
-      stepNo += 1;
-      var limit, note, noteCls = '';
-      if (!r.configured){
-        limit = '<span class="chip bad">chưa cấu hình</span>';
-        note = 'đang được loại trừ khỏi điểm, không ai bị chấm trễ vì bước này';
-        noteCls = ' warn';
-      } else {
-        limit = '<span class="f-lim"><b class="tnum">' + esc(r.hours) + '</b> ' + esc(r.unit || '') + '</span>';
-        if (r.active === false) limit += ' <span class="chip warn">chính sách đang tắt</span>';
-        note = r.reminder_hours ? 'nhắc trước ' + esc(r.reminder_hours) + ' giờ' : 'không nhắc trước';
-      }
-      return '<tr' + (isNew ? ' class="grp"' : '') + '>'
-        + '<td><span class="f-proc' + (isNew ? '' : ' rep') + '">' + esc(r.title) + '</span>'
-        + '<span class="f-cat' + (isNew ? '' : ' rep') + '">' + esc(r.process_code) + '</span></td>'
-        + '<td data-l="Bước"><span class="f-step"><span class="f-no tnum">' + stepNo + '</span>'
-        + '<span class="f-sname">' + esc(r.step) + '</span></span></td>'
-        + '<td data-l="Hạn">' + limit + '<span class="f-note' + noteCls + '">' + esc(note) + '</span></td>'
-        + '<td data-l="Mã chính sách"><span class="f-code">' + esc(r.policy_code || '—') + '</span></td>'
-        + '</tr>';
+    return order.map(function(k){ return by[k]; });
+  }
+
+  function stepLine(r, no){
+    var lim, note, noteCls = '';
+    if (!r.configured){
+      lim = '<span class="chip bad">chưa cấu hình</span>';
+      note = 'đang được loại trừ khỏi điểm, không ai bị chấm trễ vì bước này';
+      noteCls = ' warn';
+    } else {
+      lim = '<span class="f-lim"><b class="tnum">' + esc(r.hours) + '</b> ' + esc(r.unit || '') + '</span>';
+      if (r.active === false) lim += ' <span class="chip warn">chính sách đang tắt</span>';
+      note = r.reminder_hours ? 'nhắc trước ' + esc(r.reminder_hours) + ' giờ' : 'không nhắc trước';
+    }
+    return '<li class="pstep">'
+      + '<span class="f-no tnum">' + no + '</span>'
+      + '<span class="pstep-main"><span class="f-sname">' + esc(r.step) + '</span></span>'
+      + '<span class="pstep-lim">' + lim
+      + '<span class="f-note' + noteCls + '">' + esc(note) + '</span></span>'
+      + '<span class="pstep-code"><span class="f-code">' + esc(r.policy_code || '—') + '</span></span>'
+      + '</li>';
+  }
+
+  /**
+   * `q` khac rong thi cac khoi khop deu MO SAN - loc ma van de nguoi ta phai
+   * bam them mot lan nua de thay ket qua thi cai o loc do khong giup duoc gi.
+   */
+  function procBlocks(rows, q){
+    var groups = groupSteps(rows).map(function(g){
+      if (!q) return g;
+      var hitProc = (g.title + ' ' + g.code).toLowerCase().indexOf(q) !== -1;
+      if (hitProc) return g;
+      var hits = g.steps.filter(function(r){
+        return String(r.step || '').toLowerCase().indexOf(q) !== -1;
+      });
+      return hits.length ? { code: g.code, title: g.title, steps: hits } : null;
+    }).filter(Boolean);
+
+    if (!groups.length) return '<div class="empty">Không có quy trình nào khớp.</div>';
+
+    return groups.map(function(g, gi){
+      var id = 'sla-proc-' + gi;
+      var thieu = g.steps.filter(function(r){ return !r.configured; }).length;
+      // MO SAN khi dang loc, hoac khi quy trinh nay con buoc chua co han. Cai
+      // thu hai la co y: dai bang phia tren dang bao "con n buoc phai chot",
+      // nen giau dung nhung buoc do sau mot cu bam la tu mau thuan.
+      var open = !!q || thieu > 0;
+      var sum = thieu
+        ? '<span class="chip bad">' + thieu + ' bước chưa có hạn</span>'
+        : '<span class="proc-sum tnum">' + g.steps.length + ' bước</span>';
+      return '<div class="proc">'
+        + '<button type="button" class="proc-h" data-proc="' + id + '"'
+        + ' aria-expanded="' + (open ? 'true' : 'false') + '" aria-controls="' + id + '">'
+        + '<span class="proc-ava" style="' + labelStyle(g.code) + '" aria-hidden="true">'
+        + esc(procInitials(g.title, g.code)) + '</span>'
+        + '<span class="proc-main"><span class="proc-t">' + esc(g.title) + '</span>'
+        + '<span class="proc-m tnum">' + esc(g.code) + ' · ' + g.steps.length + ' bước</span></span>'
+        + sum + ico('chev', 'cause-chev')
+        + '</button>'
+        + '<div class="proc-b" id="' + id + '"' + (open ? '' : ' hidden') + '>'
+        + '<ul class="proc-steps">'
+        + g.steps.map(function(r, i){ return stepLine(r, i + 1); }).join('')
+        + '</ul></div></div>';
     }).join('');
   }
 
@@ -1273,32 +1401,37 @@
       // Bảng THIẾU dòng chứ không phải đã đủ. Không nói ra thì chủ quy trình
       // đọc "57/57 đã có hạn" và yên tâm rằng mọi thứ đã chốt.
       banner += '<div class="err">Không đọc được danh sách bước xử lý sau duyệt — '
-        + 'bảng bên dưới đang THIẾU những dòng đó. Đã ghi Error Log.</div>';
+        + 'danh sách bên dưới đang THIẾU những dòng đó. Đã ghi Error Log.</div>';
     }
     if (d.chua_cau_hinh){
       banner += '<div class="note"><b>' + d.chua_cau_hinh + '/' + d.tong + ' bước chưa có hạn.</b> '
         + 'Những bước đó đang được <em>loại trừ</em> khỏi điểm SLA — không ai bị chấm trễ vì chúng. '
-        + 'Chúng vẫn hiện ở đây để chủ quy trình biết còn gì phải chốt.</div>';
+        + 'Quy trình nào còn thiếu thì đã được mở sẵn bên dưới.</div>';
     }
     if (d.da_tat){
       banner += '<div class="note"><b>' + d.da_tat + ' bước đang trỏ tới chính sách đã tắt.</b> '
         + 'Con số hiện ra vẫn là con số được gán, nhưng chính sách ở trạng thái tắt — cần HR xác nhận lại.</div>';
     }
+    var rows = d.rows || [];
+    var soQt = groupSteps(rows).length;
     panel('steps').innerHTML = banner
-      + '<div class="card"><div class="card-pad" style="padding-bottom:4px">'
-      + '<div class="card-h" style="margin-bottom:8px"><div>'
+      + '<div class="card card-pad">'
+      + '<div class="card-h"><div>'
       + '<h2 class="card-t">Hạn của từng bước duyệt</h2>'
       + '<p class="card-s"><b class="tnum">' + d.da_cau_hinh + '/' + d.tong
-      + '</b> bước đã có hạn · đọc thẳng từ cấu hình đang chạy, không phải bản chép lại.</p></div>'
-      + '<input type="text" class="in" id="sla-steps-q" placeholder="Lọc theo tên quy trình…" aria-label="Lọc quy trình">'
-      + '</div></div>'
-      + '<div class="tblwrap"><table class="tb ftab"><thead><tr>'
-      + '<th>Quy trình</th><th>Bước</th><th>Hạn</th><th>Mã chính sách</th>'
-      + '</tr></thead><tbody id="sla-steps-body">' + stepRows(d.rows || [], '')
-      + '</tbody></table></div></div>';
+      + '</b> bước đã có hạn trong <b class="tnum">' + soQt + '</b> quy trình '
+      + '· đọc thẳng từ cấu hình đang chạy, không phải bản chép lại.</p></div></div>'
+      + '<div class="toolbar">'
+      + '<input type="text" class="in" id="sla-steps-q" placeholder="Lọc theo tên quy trình hoặc tên bước…" aria-label="Lọc quy trình">'
+      + '<button type="button" class="btn" id="sla-steps-all" data-open="0">Mở tất cả</button>'
+      + '</div>'
+      + '<div id="sla-steps-body">' + procBlocks(rows, '') + '</div></div>';
+
     var q = $('sla-steps-q');
     q.addEventListener('input', function(){
-      $('sla-steps-body').innerHTML = stepRows(d.rows || [], q.value.trim().toLowerCase());
+      $('sla-steps-body').innerHTML = procBlocks(rows, q.value.trim().toLowerCase());
+      var b = $('sla-steps-all');
+      if (b){ b.setAttribute('data-open', '0'); b.textContent = 'Mở tất cả'; }
     });
   }
 
@@ -1364,9 +1497,17 @@
       + '<div class="card"><div class="card-pad" style="padding-bottom:4px">'
       + '<div class="card-h" style="margin-bottom:8px"><div>'
       + '<h2 class="card-t">Năm nhóm và ngày bắt đầu tính</h2>'
-      + '<p class="card-s">Điểm nhóm này không bù cho nhóm kia.</p></div></div></div>'
+      // Cot ben phai TUNG bi doc nham thanh "duoi muc nay thi khong tinh". Noi
+      // thang ra o day, vi hieu nham nay lam nguoi ta tuong he thong dang bo
+      // bot dau viec cua ho.
+      + '<p class="card-s">Điểm nhóm này không bù cho nhóm kia. '
+      + 'Mọi đầu việc đều cộng vào %SLA tháng ngay từ đầu việc đầu tiên — '
+      + 'cột bên phải chỉ quyết định khi nào <em>tỉ lệ riêng của nhóm</em> được hiện, '
+      + 'vì 1/1 = 100% và 1/2 = 50% là hai con số không đem so được với ai.</p></div></div></div>'
       + '<div class="tblwrap"><table class="tb ftab"><thead><tr>'
-      + '<th>Nhóm</th><th class="n">Tính từ ngày</th><th class="n">Tối thiểu để ra tỉ lệ</th>'
+      + '<th>Nhóm</th><th class="n">Tính từ ngày</th>'
+      + '<th class="n">Đủ bao nhiêu thì hiện tỉ lệ riêng'
+      + '<span class="sub">dưới mức này vẫn cộng vào tổng</span></th>'
       + '</tr></thead><tbody>' + tb + '</tbody></table></div></div>'
       + sept
 
@@ -1418,9 +1559,16 @@
       + '<div class="card-h"><div><h2 class="card-t">Bốn câu hỏi còn lại</h2></div></div>'
       + '<div class="how">'
       + '<div class="rulebox"><h3>' + ico('info', 'ic-sm') + 'Vì sao có mức “chưa đủ mẫu”</h3>'
-      + '<p>Một người có 2 đầu việc và làm đúng cả 2 không phải là người dẫn đầu — họ là người <em>chưa đo được</em>. '
-      + 'Dưới mức tối thiểu, bảng điểm ghi “chưa đủ mẫu” thay vì một con số 100% nhìn thì đẹp mà không có nghĩa.</p>'
-      + '<p>Tổng %SLA tháng cần tối thiểu <b class="tnum">' + S.overallMin + ' đầu việc</b>.</p></div>'
+      + '<p><b>Nó không bỏ đầu việc nào đi.</b> Mọi đầu việc đều vào %SLA tháng ngay lập tức. '
+      + 'Mức này chỉ quyết định khi nào <em>tỉ lệ riêng của một nhóm</em> được hiện thành con số.</p>'
+      + '<p>Lý do: một người có 2 đầu việc và làm đúng cả 2 không phải là người dẫn đầu — họ là người '
+      + '<em>chưa đo được</em>. 1/1 = 100%, 1/2 = 50%: hai con số nhảy quá mạnh để đem so giữa người này '
+      + 'với người kia, nên bảng ghi “chưa đủ mẫu” thay vì một con số nhìn thì đẹp mà không có nghĩa.</p>'
+      + (S.overallMin > 1
+          ? '<p>Riêng tổng %SLA tháng cần tối thiểu <b class="tnum">' + S.overallMin + ' đầu việc</b> thì mới hiện.</p>'
+          : '<p><b>Tổng %SLA tháng thì không có ngưỡng nào.</b> Một đầu việc cũng ra tỉ lệ — '
+            + 'vì dù chỉ có một, nó vẫn là một đầu việc có hạn và vẫn là việc của bạn.</p>')
+      + '</div>'
       + '<div class="rulebox"><h3>' + ico('users', 'ic-sm') + 'Ai xem được gì</h3>'
       + '<p>Mọi người xem được điểm <b>của mình</b>. Xếp hạng: xem được <b>cả phòng mình</b>, kể cả điểm của trưởng phòng. '
       + 'Ban Giám đốc xem được toàn công ty.</p>'
@@ -1493,12 +1641,30 @@
         return;
       }
 
-      var cz = t.closest('button[data-cause]');
+      // Mot ham dong mo cho CA HAI cho: khoi nguyen nhan o tab Cua toi va khoi
+      // quy trinh o tab Quy trinh duyet. Hai ban sao cua cung mot hanh vi la hai
+      // ban sao se troi ra khoi nhau.
+      var cz = t.closest('button[data-cause], button[data-proc]');
       if (cz){
-        var body = $(cz.getAttribute('data-cause'));
+        var key = cz.getAttribute('data-cause') || cz.getAttribute('data-proc');
+        var body = $(key);
         var open = cz.getAttribute('aria-expanded') === 'true';
         cz.setAttribute('aria-expanded', open ? 'false' : 'true');
         if (body) body.hidden = open;
+        return;
+      }
+
+      if (t.closest('#sla-steps-all')){
+        var btn = $('sla-steps-all');
+        var willOpen = btn.getAttribute('data-open') !== '1';
+        var heads = document.querySelectorAll('#ec-sla-root .proc-h');
+        for (var i = 0; i < heads.length; i++){
+          heads[i].setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+          var bd = $(heads[i].getAttribute('data-proc'));
+          if (bd) bd.hidden = !willOpen;
+        }
+        btn.setAttribute('data-open', willOpen ? '1' : '0');
+        btn.textContent = willOpen ? 'Thu gọn tất cả' : 'Mở tất cả';
         return;
       }
 

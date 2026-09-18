@@ -261,4 +261,8 @@ ecentric_workspace.sla.patches.p006_home_sla_card
 ecentric_workspace.sla.patches.p007_resync_sla_page
 ecentric_workspace.sla.patches.p008_weekly_start_w38
 ecentric_workspace.sla.patches.p009_resync_sla_page
+<<<<<<< HEAD
 ecentric_workspace.sla.patches.p011_resync_attendance
+=======
+ecentric_workspace.sla.patches.p010_resync_sla_page
+>>>>>>> origin/main

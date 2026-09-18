@@ -125,7 +125,12 @@ def fetch_levels_for_bottleneck(scope, filters, completed_from=None, completed_t
     return frappe.db.sql(sql, params, as_dict=True)
 
 
-def _search_clause(search, params):
+#: Tran so ma phieu nhet vao menh de IN cua o tim kiem. Khong phai tiet kiem tai nguyen -
+#: mot menh de IN vai nghin phan tu la cach bien o tim kiem thanh don tan cong vao chinh DB.
+SEARCH_REF_MAX = 500
+
+
+def _search_clause(search, params, extra_refs=None):
     """O tim kiem cua trang "Tat ca yeu cau".
 
     `r.reference_name` (09/09/2026): nguoi dung cam MA PHIEU tren tay - tu thong bao
@@ -137,13 +142,31 @@ def _search_clause(search, params):
 
     Them mot ve OR, khong dung toi pham vi xem: dieu kien nay van duoc AND voi
     scope_predicate o `_list_where`, nen khong ai vi the ma thay them phieu cua nguoi khac.
+
+    `extra_refs` (16/09): TIEU DE that cua phieu nam o DocType nghiep vu, khong o
+    `EC Approval Request` - nen go dung ten phieu vao o tim kiem thi khong ra gi, trong khi
+    do la CHINH CAI cot "Tieu de" dang hien tren man hinh. Tab "Tat ca" cua tung form BIET
+    business_doctype cua no, nen tu tra ma phieu theo tieu de roi truyen vao day. Trang hub
+    lien-form khong truyen gi -> hanh vi khong doi (tra tieu de qua 28 DocType moi lan go
+    mot phim thi khong dang).
     """
-    if not search:
+    if not search and not extra_refs:
         return None
-    params["search"] = "%" + str(search).strip() + "%"
-    return ("(r.name LIKE %(search)s OR r.reference_name LIKE %(search)s "
-            "OR t.approval_title LIKE %(search)s "
-            "OR r.requested_by LIKE %(search)s OR r.requester_department LIKE %(search)s)")
+    ve = []
+    if search:
+        params["search"] = "%" + str(search).strip() + "%"
+        ve.append("r.name LIKE %(search)s OR r.reference_name LIKE %(search)s "
+                  "OR t.approval_title LIKE %(search)s "
+                  "OR r.requested_by LIKE %(search)s OR r.requester_department LIKE %(search)s")
+    if extra_refs:
+        khoa = []
+        for i, x in enumerate(list(extra_refs)[:SEARCH_REF_MAX]):
+            k = "sref_%d" % i
+            params[k] = x
+            khoa.append("%%(%s)s" % k)
+        if khoa:
+            ve.append("r.reference_name IN (%s)" % ", ".join(khoa))
+    return "(" + " OR ".join(ve) + ")"
 
 
 def _fulfillment_refs(me=None):
@@ -152,6 +175,32 @@ def _fulfillment_refs(me=None):
     'Chờ tôi xử lý' means: still unclaimed (fulfillment_status=Assigned) on a form I am an
     eligible fulfiller for, OR already claimed BY ME (In Progress + owner=me). Work claimed
     by someone else is deliberately excluded -- it is not mine to act on.
+
+    16/09 - "DUYET XONG PHIEU KHONG BIEN MAT" (anh Lam bao).
+    ---------------------------------------------------------------------------------
+    Do duoc: anh Lam duyet cap cuoi EC-APR-2026-00265 luc 16:57:03.526; 51ms sau, phieu
+    nghiep vu EC-PAYR-2026-00144 mang fulfillment_status='Assigned'. Tuc dong vua roi khoi
+    ve (a) "cho toi duyet" thi rot NGAY vao ve (b) "viec fulfilment cua toi" cua CUNG mot
+    hop - nguoi dung thay mot dong y nguyen va ket luan "bam duyet khong an gi".
+
+    Vi sao no rot vao ve (b): ham nay hoi `is_eligible_fulfiller(me, code, dt)` ma KHONG
+    truyen `business_name`. O dang do, ham con mot duong "co mot ToDo mo BAT KY tren LOAI
+    phieu nay" - ma nguoi duyet thi gan nhu luc nao cung co ToDo mo tren Payment Request,
+    vi do chinh la cach bo may giao viec duyet. Ket qua: MOI phieu chua ai nhan (23 phieu
+    luc do) nam trong hop cua anh, va cai vua duyet nhap vao cung. Khi cac ToDo cua anh
+    dong lai thi lan tai tiep theo chung bien mat - dung cai "refresh lai thi mat", va no
+    that thuong vi phu thuoc ToDo nao con mo.
+
+    Chinh docstring cua `is_eligible_fulfiller` da canh dung duong nay tu 01/09, va da siet
+    cho `can_view_request`; cho nay bi bo sot.
+
+    SUA: hoi `is_eligible_fulfiller_without_todo` - ham duoc viet ra dung de LOAI duong
+    ToDo long leo do. "Viec cua toi" = toi la nguoi dang giu, hoac System Manager, hoac
+    Fulfiller DUOC CAU HINH. Mot ToDo duyet khong bien mot nguoi thanh nguoi xu ly.
+
+    KHONG dung toi pham vi xem: ham nay chi chon dong nao vao HOP nao. Pham vi van do
+    `scope_predicate` AND vao cung truy van, va `scope._fulfil_types` dung mot duong khac
+    (`fulfilled_approval_types`, fail-closed) nen khong he mo rong theo duong ToDo.
 
     fulfillment_status lives on each business DocType (not on EC Approval Request) so it
     cannot be joined; open fulfillment work is small, so we collect names per registered form
@@ -183,11 +232,15 @@ def _fulfillment_refs(me=None):
             names += _f.get_all(dt, filters={"fulfillment_status": "In Progress",
                                              "fulfillment_owner": me},
                                 pluck="name", limit_page_length=0)
-            # unclaimed, but only on forms I may actually fulfil
-            eligible = True
+            # unclaimed, but only on forms I may actually fulfil.
+            # FAIL-CLOSED: khong nap duoc module quyen thi KHONG cho gi vao hop. Truoc day
+            # mac dinh la True va chi bi ha xuong khi goi duoc ham - tuc mot loi import se
+            # do MOI phieu chua ai nhan vao hop cua MOI nguoi. Voi du lieu thanh toan thi
+            # mac dinh phai la dong, khong phai mo.
+            eligible = False
             if _perm is not None:
                 try:
-                    eligible = bool(_perm.is_eligible_fulfiller(me, code, dt))
+                    eligible = bool(_perm.is_eligible_fulfiller_without_todo(me, code))
                 except Exception:
                     eligible = False
             if eligible:
@@ -210,7 +263,7 @@ def _list_where(scope, filters, search, params):
         params["date_from"] = df
         params["date_to"] = dt
         where.append("COALESCE(r.submitted_at, r.creation) BETWEEN %(date_from)s AND %(date_to)s")
-    sc = _search_clause(search, params)
+    sc = _search_clause(search, params, (filters or {}).get("_search_refs"))
     if sc:
         where.append(sc)
     box = (filters or {}).get("box")
