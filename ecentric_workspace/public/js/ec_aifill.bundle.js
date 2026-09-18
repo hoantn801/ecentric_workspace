@@ -201,8 +201,21 @@
     document.querySelectorAll("[data-fld]").forEach(function (box) {
       var lab = box.querySelector("label");
       if (!lab || !lab.querySelector(".req")) return;
-      var el = box.querySelector("input, select, textarea");
-      if (!el || !el.offsetParent) return;
+      /* Hỏi KHỐI có đang hiện không, ĐỪNG hỏi ô điều khiển.
+       *
+       * Bản đầu hỏi `el.offsetParent` của chính ô — và trượt đúng những ô hay bị bỏ sót
+       * nhất: `ec_formkit` giấu <select> đi (`display:none`) để dựng combobox, `ec_datepicker`
+       * clip <input type=date> lại để dựng nút của nó. Cả hai ô ĐỀU đang hiện trên màn hình,
+       * chỉ là thứ hiện ra không phải cái ta vừa hỏi. Khối `[data-fld]` mới là thứ biến mất
+       * khi trang thật sự ẩn một ô đi (`request_attachment` lúc khối ký số đóng) — nên nó
+       * mới là thứ đáng hỏi. */
+      if (!box.offsetParent) return;
+      /* `[data-model]` là hợp đồng mà trang tự khai: ô nào giữ giá trị thật thì có nó.
+       * "Ô đầu tiên trong khối" là phỏng đoán, và phỏng đoán đó vỡ ngay khi một asset khác
+       * chèn thêm một <input> phụ trợ vào trước. */
+      var el = box.querySelector("[data-model]") ||
+               box.querySelector("input, select, textarea");
+      if (!el) return;
       if (el.type === "checkbox") { if (!el.checked) out.push(box); return; }
       if (!String(el.value || "").trim()) out.push(box);
     });

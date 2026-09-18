@@ -182,12 +182,32 @@ function nap(pathname) {
 // Đọc dấu `*` mà CHÍNH TRANG đã vẽ, không theo danh sách cứng: danh sách cứng lệch khỏi
 // form là lệch âm thầm. Và chỉ tính ô ĐANG HIỆN — `request_attachment` là ô bắt buộc bị
 // khối ký số ẩn đi, tô đỏ nó là chỉ vào hư không (đúng cái ngõ cụt BOT 12 của trang).
+//
+// 18/09 — mô hình giả ở đây PHẢI giữ đúng ba hình dạng có thật trên form, vì bản đầu chỉ
+// dựng được hình dạng thứ nhất và chính chỗ đó lọt lỗi:
+//   (a) ô thường: <input data-model> nhìn thấy được;
+//   (b) combobox `ec_formkit`: <select data-model> bị display:none, nút thay thế mới hiện;
+//   (c) ô ngày `ec_datepicker`: <input type=date data-model> bị clip, nút thay thế mới hiện.
+// (b) và (c) là "Brand liên quan", "Loại chi phí", "Ngày thanh toán", "Kỳ ghi nhận chi phí"
+// — bốn ô hay bị bỏ sót nhất, và là bốn ô bản đầu KHÔNG tô.
 {
-  function o({ req = true, value = "", hien = true, type = "text", checked = false }) {
-    const el = { value, type, checked, offsetParent: hien ? {} : null };
+  /** @param anCtrl  ô điều khiển bị giấu/clip (combobox + datepicker) nhưng KHỐI vẫn hiện.
+   *  @param anBox   cả khối bị trang ẩn đi (khối ký số đóng).
+   *  @param nhieu   có một <input> phụ trợ đứng TRƯỚC ô mang data-model. */
+  function o({ req = true, value = "", anBox = false, anCtrl = false,
+               type = "text", checked = false, nhieu = false }) {
+    const el = { value, type, checked, offsetParent: anCtrl ? null : {},
+                 getAttribute: (a) => (a === "data-model" ? "x" : null) };
+    const phu = { value: "", type: "text", offsetParent: {},
+                  getAttribute: () => null };
     const lab = { querySelector: (s) => (s === ".req" && req ? {} : null) };
     return {
-      querySelector: (s) => (s === "label" ? lab : el),
+      offsetParent: anBox ? null : {},
+      querySelector: (s) => {
+        if (s === "label") return lab;
+        if (s === "[data-model]") return el;
+        return nhieu ? phu : el;          // "ô đầu tiên trong khối" — phỏng đoán cũ
+      },
       classList: { _v: [], contains(c) { return this._v.includes(c); },
                    add(c) { this._v.push(c); } },
     };
@@ -209,20 +229,59 @@ function nap(pathname) {
   const trong = o({});
   const dayDu = o({ value: "Trần Hoàn" });
   const khongBatBuoc = o({ req: false });
-  const an = o({ hien: false });
+  const an = o({ anBox: true });
   const tick = o({ type: "checkbox", checked: false });
+  const combo = o({ anCtrl: true });                       // Brand liên quan chưa chọn
+  const ngay = o({ anCtrl: true, type: "date" });          // Ngày thanh toán chưa chọn
+  const comboDaChon = o({ anCtrl: true, value: "Abbott" });
 
-  const ra = nap2([trong, dayDu, khongBatBuoc, an, tick]).missingRequired();
+  const ra = nap2([trong, dayDu, khongBatBuoc, an, tick, combo, ngay, comboDaChon])
+    .missingRequired();
   la(ra.includes(trong), "o bat buoc va trong -> con thieu");
   la(!ra.includes(dayDu), "o da co gia tri -> khong con thieu");
   la(!ra.includes(khongBatBuoc), "o KHONG bat buoc va trong -> khong tinh la thieu");
-  la(!ra.includes(an), "o bat buoc nhung DANG AN -> khong to do, khong chi vao hu khong");
+  la(!ra.includes(an), "KHOI bi trang an di -> khong to do, khong chi vao hu khong");
   la(ra.includes(tick), "o tick bat buoc chua tick -> con thieu");
-  la(ra.length === 2, "dung hai o, khong nhieu hon");
+  la(ra.includes(combo), "combobox (select bi display:none) van bi bat khi con trong");
+  la(ra.includes(ngay), "o ngay (input bi clip) van bi bat khi con trong");
+  la(!ra.includes(comboDaChon), "combobox da chon -> khong con thieu");
+  la(ra.length === 4, "dung bon o, khong nhieu hon");
 
   // Khoảng trắng không phải là đã điền.
   la(nap2([o({ value: "   " })]).missingRequired().length === 1,
      "chi co khoang trang -> van la con thieu");
+
+  // Một asset khác chèn <input> phụ trợ vào trước thì "ô đầu tiên" trỏ nhầm chỗ.
+  la(nap2([o({ value: "Trần Hoàn", nhieu: true })]).missingRequired().length === 0,
+     "doc theo [data-model], khong doc theo o dau tien trong khoi");
+}
+
+// ---- 9. Bản đồ màu phải tô lên BỀ MẶT NGƯỜI DÙNG NHÌN THẤY ---------------------
+// Sự cố 18/09: CSS tô `input`/`select`/`.ec-cb` — cả ba đều là thứ vô hình ở bốn ô dùng
+// combobox/datepicker. `.ec-cb` là khung bọc KHÔNG có nền; nền nằm trên `.ec-cb-display`.
+{
+  const css = readFileSync(
+    join(here, "..", "..", "..", "public", "css", "ec_aifill.bundle.css"), "utf8");
+  // Có mặt trong file là chưa đủ: `.ec-cb-display:focus` cũng chứa đúng chuỗi đó mà lại
+  // là luật TRUNG HOÀ màu. Phải hỏi: bộ chọn này có nằm trong luật ĐẶT NỀN không.
+  const datNen = (bo) => css
+    .split("}")
+    .some((khoi) => {
+      const [chon, than] = [khoi.split("{")[0] || "", khoi.split("{")[1] || ""];
+      return chon.split(",").some((x) => x.trim() === bo) && /background:\s*rgba\(/.test(than);
+    });
+  for (const lop of ["lit", "gap"]) {
+    la(datNen(`.ec-aifill-${lop} .ec-cb-display`),
+       `${lop}: NEN to len nut combobox, khong to len khung bao`);
+    la(datNen(`.ec-aifill-${lop} .ec-dp-field`),
+       `${lop}: NEN to len nut chon ngay`);
+  }
+  la(!/\.ec-aifill-(lit|gap) \.ec-cb\{/.test(css),
+     "KHONG con to len .ec-cb (khung bao khong co nen - ban cu)");
+  la(css.includes("--ec-dp-muted") === false && css.includes(".ec-dp-empty .ec-dp-val"),
+     "o ngay con trong: chu mo lay sac do, khong de mac dinh xam");
+  la(css.includes(".ec-cb-display.ec-cb-placeholder"),
+     "combobox chua chon: chu mo lay sac do");
 }
 
 console.log(`${dat} dat, ${hong} hong`);
