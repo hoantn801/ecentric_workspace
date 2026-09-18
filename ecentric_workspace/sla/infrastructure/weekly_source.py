@@ -85,13 +85,23 @@ def _scan_rows(since, limit):
 def sync_row(row, report):
     """Mot WTU -> mot nghia vu. Tra ve 'opened' | 'closed' | 'skipped'."""
     action, closed_at, reason = weekly_rules.decide(row)
-    if action == weekly_rules.ACT_SKIP:
-        # Dem rieng thay vi bo qua im lang: day chinh la dau hieu phong ban do
-        # thieu `Department Reporting Window`, mot lo hong lam nguoi ta bien mat
-        # khoi bang diem.
-        report["khong_han"].append("%s (%s)" % (row.get("name"), reason))
-        return "skipped"
 
+    # NGOAI PHAM VI DO HOI TRUOC, THIEU HAN HOI SAU. Thu tu nay quan trong.
+    #
+    # Mot ban bao cao cua tuan truoc ngay ap dung thi KHONG DUOC DO - nen chuyen
+    # no co han hay khong la mot cau hoi khong lien quan. Hoi nguoc lai thi 210
+    # ban W31-W37 (sinh ra tu duong nop cu, truoc ban va f3937acd cua doi bao cao
+    # tuan) do het vao ro `khong_han` va nam do vinh vien.
+    #
+    # Ro `khong_han` ton tai de BAO DONG: moi dong trong do la mot phong ban
+    # thieu `Department Reporting Window`. Mot ro bao dong co 210 dong nhieu nen
+    # la mot ro khong con ai nhin - va dung luc co mot phong that su thieu cau
+    # hinh thi khong ai thay.
+    #
+    # KHONG bu han cho nhung tuan da dong de lam sach ro nay. Doi bao cao tuan da
+    # phan tich dung: `compute_due_at` doc DRW hien tai, nen bu han cho tuan cu la
+    # khang dinh deadline phong do chua tung doi, va no co the lam mot so nguoi bi
+    # danh TRE hoi to cho mot loi khong phai cua ho.
     if obl.before_start(TYPE_WEEKLY_REPORT, row.get("creation")):
         # Truoc ngay bat dau ap dung. Chot 17/09 la 21/09, doi ngay chieu hom
         # do sang tuan 2026-W38 (moc ghi 12/09 vi day doi chieu voi `creation`
@@ -99,6 +109,14 @@ def sync_row(row, report):
         # Dem RIENG, khong gop vao "khong mo duoc": mot bang bao cao binh thuong
         # khong duoc trong giong nhu mot dong loi.
         report["truoc_ngay_ap_dung"].append(row.get("name"))
+        return "skipped"
+
+    if action == weekly_rules.ACT_SKIP:
+        # Dem rieng thay vi bo qua im lang: day chinh la dau hieu phong ban do
+        # thieu `Department Reporting Window`, mot lo hong lam nguoi ta bien mat
+        # khoi bang diem. Tu sau f3937acd, day la NGUYEN NHAN DUY NHAT con lai
+        # cua mot ban bao cao khong co han.
+        report["khong_han"].append("%s (%s)" % (row.get("name"), reason))
         return "skipped"
 
     name = obl.open_obligation(

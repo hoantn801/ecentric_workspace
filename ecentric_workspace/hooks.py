@@ -390,3 +390,34 @@ scheduler_events["cron"].setdefault("30 9 * * *", []).append(
 # con kip duoc noi vao he thong truoc khi ho lo lan nhac dau tien.
 scheduler_events["cron"].setdefault("0 8 * * *", []).append(
     "ecentric_workspace.hr.employee_guard.sweep_missing_user_id")
+# --------------------------------------------------------------------------- #
+# SLA: dong nghia vu ngay cong NGAY LUC cham cong
+#
+# Han cham cong la 10:00. Truoc dot nay, nghia vu chi duoc dong boi job chay
+# moi dem, nen tu 10:00:01 den dem, mot nguoi da cham cong dung gio van bi bang
+# diem doc ra thanh "Chua lam". Sai voi ca cong ty, moi ngay, va chi sai theo
+# huong lam diem nguoi ta xau di.
+#
+# `sla.tasks.sync_attendance` (scheduler_events["daily"]) VAN GIU NGUYEN va van
+# can: no la luoi do cho nhung lan hook truot, va la duong hoi to cho phieu nghi
+# phep duyet muon. Hook nay khong thay the no.
+#
+# Ham duoc goi da nuot moi Exception (xem `sla.application.hooks`): no chay ben
+# trong giao dich cham cong cua nguoi dung, nen mot loi lot ra se lam rollback
+# CA lan cham cong.
+# --------------------------------------------------------------------------- #
+try:
+    doc_events
+except NameError:
+    doc_events = {}
+
+_SLA_CHECKIN_HOOK = "ecentric_workspace.sla.application.hooks.on_employee_checkin"
+_sla_ec = doc_events.setdefault("Employee Checkin", {})
+_sla_prev = _sla_ec.get("after_insert")
+if _sla_prev is None:
+    _sla_ec["after_insert"] = [_SLA_CHECKIN_HOOK]
+elif isinstance(_sla_prev, str):
+    if _sla_prev != _SLA_CHECKIN_HOOK:
+        _sla_ec["after_insert"] = [_sla_prev, _SLA_CHECKIN_HOOK]
+elif _SLA_CHECKIN_HOOK not in _sla_prev:
+    _sla_prev.append(_SLA_CHECKIN_HOOK)
