@@ -164,39 +164,53 @@
  * nơi người dùng học nó.
  *
  * ĐỎ NHẠT cho ô bắt buộc còn trống, và chỉ SAU KHI AI chạy một lượt. Dùng WASH chứ không
- * dùng viền đỏ: viền đỏ đã là ngôn ngữ của `.fld.invalid` sau khi bấm Gửi. Hai thứ khác
- * nhau thì không được trông giống nhau.
+ * dùng viền đỏ: viền đỏ đã là ngôn ngữ của `.fld.invalid` sau khi bấm Gửi.
  *
- * Tô vào Ô NHẬP chứ không tô cả khối: nhãn giữ nền trắng nên chữ nhỏ 12.5px không mất
- * tương phản. ĐO THẬT: chữ #111827 trên #fffaf0 = 17.05:1, trên #fef6f6 = 16.66:1. Ca khó
- * là PLACEHOLDER (#6b7280, "dd/mm/yyyy"): 4.65:1 và 4.54:1 — vừa đủ trên ngưỡng 4.5 của
- * The Measured-Contrast Rule. Nền đậm hơn một nấc là placeholder rớt xuống dưới ngưỡng.
+ * `!important` Ở ĐÂY LÀ BẮT BUỘC, KHÔNG PHẢI LƯỜI. Mỗi form tự khai CSS của nó dưới một
+ * gốc có ID: `#ec-payr-root .fld input{ background:#fff }` = độ đặc hiệu (1,1,1). Asset
+ * dùng chung không có ID nào để bám, mà ID thì thắng mọi số lượng class — nhân đôi class
+ * lên bao nhiêu lần cũng thua. Bản đầu (17/09) không có `!important` nên **CSS này chưa bao
+ * giờ được áp dụng**, và nhìn màn hình thì trông y như tính năng chưa chạy.
+ *
+ * Dùng HẬU DUỆ chứ không dùng con trực tiếp: ô ngày có thể bị `ec_datepicker` bọc thêm một
+ * lớp. Trừ checkbox ra — ô "Brand chưa có trong danh mục" nằm chung khối với Brand.
+ *
+ * ĐO THẬT:
+ *   Ô AI điền LUÔN CÓ CHỮ nên placeholder không tính -> nền đậm hơn được: #111827 trên
+ *   #fff1d2 = 15.85:1.
+ *   Ô còn thiếu LUÔN TRỐNG nên placeholder LÀ thứ phải đọc được. Xám #6b7280 trên #fdeeee
+ *   chỉ 4.29:1 — RỚT. Nên tô placeholder theo chính sắc đỏ đó (craft-floor: trên nền có màu
+ *   thì lấy màu phụ từ chính sắc ấy, đừng dùng xám): #7d4747 trên #fdeeee = 6.51:1.
  */
-.ec-aifill-lit > input,
-.ec-aifill-lit > select,
-.ec-aifill-lit > textarea,
-.ec-aifill-lit > .ec-cb,
-.ec-aifill-lit > div > input{
-  background:#fffaf0; border-color:#f0d9a6;
+.ec-aifill-lit input:not([type=checkbox]),
+.ec-aifill-lit select,
+.ec-aifill-lit textarea,
+.ec-aifill-lit .ec-cb{
+  background:#fff1d2 !important; border-color:#e8c583 !important;
 }
-.ec-aifill-gap > input,
-.ec-aifill-gap > select,
-.ec-aifill-gap > textarea,
-.ec-aifill-gap > .ec-cb,
-.ec-aifill-gap > div > input{
-  background:#fef6f6; border-color:#f3c9c9;
+.ec-aifill-gap input:not([type=checkbox]),
+.ec-aifill-gap select,
+.ec-aifill-gap textarea,
+.ec-aifill-gap .ec-cb{
+  background:#fdeeee !important; border-color:#f0bcbc !important;
 }
-/* Người dùng bấm vào ô nào thì ô đó trở lại trung tính — đang gõ mà nền vẫn kêu là ồn. */
-.ec-aifill-lit > :focus,
-.ec-aifill-gap > :focus{ background:var(--ec-af-surface); }
+.ec-aifill-gap input::placeholder,
+.ec-aifill-gap textarea::placeholder{ color:#7d4747 !important; }
+.ec-aifill-gap select{ color:#7d4747 !important; }
+
+/* Đang gõ vào ô nào thì ô đó trở lại trung tính — nền vẫn kêu trong lúc gõ là ồn. */
+.ec-aifill-lit input:focus,.ec-aifill-lit select:focus,.ec-aifill-lit textarea:focus,
+.ec-aifill-gap input:focus,.ec-aifill-gap select:focus,.ec-aifill-gap textarea:focus{
+  background:var(--ec-af-surface) !important;
+}
 
 /* Nhãn ô còn thiếu: chỉ dấu `*` đậm lên. Không thêm chữ "còn thiếu" — dấu sao đã nói rồi,
- * và một dòng chữ nữa ở 12 ô cùng lúc là nhiễu, không phải thông tin. */
+ * và một dòng chữ nữa ở chục ô cùng lúc là nhiễu, không phải thông tin. */
 .ec-aifill-gap > label .req{ font-weight:800; }
 
 @media (prefers-reduced-motion:no-preference){
-  .ec-aifill-lit > input,.ec-aifill-lit > select,.ec-aifill-lit > textarea,
-  .ec-aifill-gap > input,.ec-aifill-gap > select,.ec-aifill-gap > textarea{
+  .ec-aifill-lit input,.ec-aifill-lit select,.ec-aifill-lit textarea,
+  .ec-aifill-gap input,.ec-aifill-gap select,.ec-aifill-gap textarea{
     transition:background .18s cubic-bezier(.4,0,.2,1), border-color .18s cubic-bezier(.4,0,.2,1);
   }
 }

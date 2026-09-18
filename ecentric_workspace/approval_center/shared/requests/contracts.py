@@ -63,6 +63,18 @@ class ApprovalDefinition:
     #:      quyen (`funding_source_*`), hay o ma gui di se TAO mot ban ghi danh muc moi
     #:      (`ec_brand_ten`).
     ai_exclude_fields: Tuple[str, ...] = ()
+
+    #: Chi dan THEM cho AI o mot so truong, dang {fieldname: "cau chi dan"}.
+    #:
+    #: Vi sao khong nhet vao `description` cua truong: `description` la chu hien tren MAN
+    #: HINH cho nguoi dung doc. Chi dan cho AI la thu khac - no noi ve cach dien, doi khi
+    #: noi "de trong di", va khong ai muon doc cau do duoi o nhap.
+    #:
+    #: Day KHONG phai schema viet tay cho tung form: schema van tu sinh tu `editable_fields`.
+    #: Day chi la mot cau ghi chu cho MOT truong, tuy chon, mac dinh rong.
+    #: Mac dinh la MappingProxyType({}) chu khong phai {}: dataclass tu choi default kieu
+    #: dict, va lop nay `frozen` nen mot dict dung chung giua cac dinh nghia la bay.
+    ai_hints: Mapping[str, str] = MappingProxyType({})
     #: Khoi doc them cho man hinh chi tiet, do module so huu: (business_doc, approval_request)
     #: -> dict, gan vao detail["extra"]. Dung khi form can ngu canh ngoai phieu (Payment Request:
     #: chuoi cac dot thanh toan). Chi DOC; khong ghi, khong giu tham chieu.

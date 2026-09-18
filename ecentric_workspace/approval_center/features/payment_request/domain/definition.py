@@ -9,7 +9,7 @@ from ecentric_workspace.approval_center.shared.definition_support import (
 
 def _make(code, doctype, editable, mine, approvals, options, title, validator,
           manager=False, esign=False, draft_preparer=None, detail_extender=None,
-          ai_exclude=()):
+          ai_exclude=(), ai_hints=None):
     return ApprovalDefinition(
         # `feature` la duong dan module ma fulfillment_service.claim/complete import
         # (features.<feature>.application.service). Thieu no thi buoc 6 "Finance xu ly UNC"
@@ -25,7 +25,8 @@ def _make(code, doctype, editable, mine, approvals, options, title, validator,
         # NHAN. Chep no sang phieu moi la ky thay nguoi dung cho mot bo ho so ho chua doc
         # lai - nguoi de nghi phai tu tich lai.
         clone_exclude_fields=("details_and_attachments_correct",),
-        ai_exclude_fields=ai_exclude)
+        ai_exclude_fields=ai_exclude,
+        ai_hints=ai_hints or {})
 
 PAYMENT_REQUEST_DEFINITION = _make(
     "PAYMENT_REQUEST", "EC Payment Request",
@@ -53,6 +54,17 @@ PAYMENT_REQUEST_DEFINITION = _make(
     # Truong nguoi lap PHAI tu lam, du chung nam trong `editable_fields`. Xem
     # `ApprovalDefinition.ai_exclude_fields`. `details_and_attachments_correct` KHONG can ke
     # o day: no da nam trong `clone_exclude_fields` va bi chan boi luat so 2.
+    #
+    # TIEU DE: form da TU SINH mot tieu de tu te ("Bo trong se tu sinh: Payment Request -
+    # Nguoi nhan - So tien"), nen AI chep nguyen ten hop dong vao day la LAM TE HON - mat
+    # ca nguoi nhan lan so tien. Bao no ghep ca ba; khong co ten hop dong thi de trong cho
+    # form tu sinh. Mot cau chi dan cho MOT truong, khong phai schema viet tay cho form.
+    ai_hints={
+        "request_title":
+            "Dat theo mau: <ten hop dong hoac chung tu> - <nguoi nhan> - <so tien>. "
+            "Van ban KHONG neu ten hop dong/chung tu thi DE TRONG, he thong tu sinh tieu de. "
+            "Khong chep nguyen tieu de dai cua hop dong vao day.",
+    },
     ai_exclude=(
         # "Chi phi hop le?" la phan doan cua nguoi de nghi, khong phai du kien tren hop dong.
         "is_cost_valid",

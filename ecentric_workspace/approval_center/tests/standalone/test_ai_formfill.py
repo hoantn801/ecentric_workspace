@@ -431,5 +431,62 @@ class TestProbeKhongDeLotHopThoai(unittest.TestCase):
         self.assertEqual(fk.local.message_log, [])
 
 
+class TestChiDanRiengChoTungTruong(unittest.TestCase):
+    """`ai_hints` - mot cau chi dan cho MOT truong, khong phai schema viet tay cho form.
+
+    Sinh ra tu 17/09: AI chep nguyen tieu de dai cua hop dong vao `request_title`, trong khi
+    form da tu sinh mot tieu de tu te hon (co ca nguoi nhan va so tien). Cau tra loi khong
+    phai "bo truong do di" ma "noi cho no biet dat tieu de the nao"."""
+
+    FIELDS = [
+        {"fieldname": "request_title", "fieldtype": "Data", "label": "Tieu de",
+         "reqd": 0, "options": None, "description": "Mo ta hien tren man hinh",
+         "hidden": 0, "read_only": 0, "length": 140},
+        {"fieldname": "payee_full_name", "fieldtype": "Data", "label": "Nguoi nhan",
+         "reqd": 1, "options": None, "description": None, "hidden": 0, "read_only": 0,
+         "length": 140},
+    ]
+
+    def _dn(self, hints=None):
+        return types.SimpleNamespace(
+            business_doctype="EC Payment Request",
+            editable_fields=("request_title", "payee_full_name"),
+            clone_exclude_fields=(), ai_exclude_fields=(),
+            ai_hints=hints if hints is not None else {})
+
+    def _hint(self, schema, fieldname):
+        return [s for s in schema if s["fieldname"] == fieldname][0]["hint"]
+
+    def test_chi_dan_di_vao_schema(self):
+        m, _ = _load(meta_fields=self.FIELDS)
+        sch = _run(m, lambda: m.build_schema(self._dn({"request_title": "Dat theo mau X"})))
+        self.assertIn("Dat theo mau X", self._hint(sch, "request_title"))
+
+    def test_chi_dan_dung_TRUOC_mo_ta_tren_man_hinh(self):
+        # Hai cai mau thuan thi cai viet RIENG cho AI phai thang - `description` la chu cho
+        # NGUOI doc, no khong biet gi ve chuyen dien form ho.
+        m, _ = _load(meta_fields=self.FIELDS)
+        sch = _run(m, lambda: m.build_schema(self._dn({"request_title": "CHI DAN AI"})))
+        h = self._hint(sch, "request_title")
+        self.assertTrue(h.index("CHI DAN AI") < h.index("Mo ta hien tren man hinh"))
+
+    def test_truong_khong_co_chi_dan_van_giu_mo_ta(self):
+        m, _ = _load(meta_fields=self.FIELDS)
+        sch = _run(m, lambda: m.build_schema(self._dn({"request_title": "X"})))
+        self.assertEqual(self._hint(sch, "payee_full_name"), "")
+
+    def test_khong_khai_ai_hints_thi_khong_no(self):
+        m, _ = _load(meta_fields=self.FIELDS)
+        dn = self._dn(); del dn.ai_hints
+        sch = _run(m, lambda: m.build_schema(dn))
+        self.assertIn("Mo ta hien tren man hinh", self._hint(sch, "request_title"))
+
+    def test_chi_dan_di_tiep_vao_prompt(self):
+        # Vao schema ma khong vao prompt thi coi nhu khong co.
+        m, _ = _load(meta_fields=self.FIELDS)
+        sch = _run(m, lambda: m.build_schema(self._dn({"request_title": "CHI DAN AI"})))
+        self.assertIn("CHI DAN AI", m.build_prompt(sch, "van ban nguon"))
+
+
 if __name__ == "__main__":
     unittest.main()
