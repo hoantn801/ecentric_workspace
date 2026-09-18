@@ -1,4 +1,5 @@
 """Module-owned immutable approval definition."""
+from types import MappingProxyType
 from ecentric_workspace.approval_center.shared.requests.contracts import ApprovalDefinition, STANDARD_STATUS_LABELS
 from ecentric_workspace.approval_center.shared.finance_support import Resubmitter, Submitter
 from ecentric_workspace.approval_center.features.payment_request.application.service import (
@@ -26,7 +27,11 @@ def _make(code, doctype, editable, mine, approvals, options, title, validator,
         # lai - nguoi de nghi phai tu tich lai.
         clone_exclude_fields=("details_and_attachments_correct",),
         ai_exclude_fields=ai_exclude,
-        ai_hints=ai_hints or {})
+        # BOC LAI. `validate_definition` tu choi moi truong kieu list/dict/set - dinh nghia
+        # la bat bien, do la ADR. Truyen thang mot dict vao day lam CA REGISTRY khong nap
+        # duoc: 17/09 no ha ca `list_all_requests` (hub "Tat ca yeu cau") chu khong rieng
+        # duong AI, vi moi endpoint deu di qua registry.
+        ai_hints=MappingProxyType(dict(ai_hints or {})))
 
 PAYMENT_REQUEST_DEFINITION = _make(
     "PAYMENT_REQUEST", "EC Payment Request",
