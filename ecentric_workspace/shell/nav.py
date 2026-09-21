@@ -166,6 +166,14 @@ HOME_PORTAL_ITEMS = [
     {"key": "home.portal.alerts", "label": "Alert Center", "route": "/alerts",
      "icon": "bell", "group": "Báo cáo & Phân tích", "order": 30, "active_patterns": ["/alerts"],
      "visible_when": "internal", "owner": "home_portal", "alias": True},
+    # AI Tool: cong cu AI dung chung. `alias` vi route /ai-tool thuoc ve
+    # ai_tools.hub o ngu canh `ai_tools`; thieu co nay thi ngu canh `home`
+    # cung chap diem route va /ai-tool co the roi nham ve home.
+    {"key": "home.portal.ai_tools", "label": "AI Tool", "route": "/ai-tool",
+     "icon": "gear", "group": "Tài nguyên", "order": 5,
+     "active_patterns": ["/ai-tool"],
+     "keywords": ["ai", "cong cu ai", "ai tool", "script", "livestream"],
+     "visible_when": "internal", "owner": "home_portal", "alias": True},
     {"key": "home.portal.intranet", "label": "Intranet", "route": "/coming-soon?tool=intranet",
      "icon": "globe", "group": "Tài nguyên", "order": 10, "active_patterns": ["/coming-soon?tool=intranet"],
      "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
