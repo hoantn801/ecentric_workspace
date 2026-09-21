@@ -71,7 +71,9 @@ class TestRouteToContext(unittest.TestCase):
             if i["group"] not in groups:
                 groups.append(i["group"])
         self.assertEqual(groups, ["Workspace", "Nhân sự", "Báo cáo & Phân tích", "Tài nguyên"])
-        # 16 restored-IA items + 2 approved additions: "Trung tâm Báo cáo"
+        # 16 restored-IA items + 3 approved additions (AI Tool /ai-tool added
+        # 2026-09-21, approved by Vinh -- an alias row owned by ai_tools):
+        # "Trung tâm Báo cáo"
         # (/reports) and "Điểm SLA" (/sla, 2026-09-17 -- an alias row; the
         # route is canonically owned by the hr context). Two more are
         # registered but sidebar_hidden, so compose()
@@ -79,7 +81,7 @@ class TestRouteToContext(unittest.TestCase):
         # opens that feed -- a sidebar row would be a second door to the same
         # room) and "Cài app lên điện thoại" (a phone-install guide has no
         # business in the desktop portal menu; it still shows inside /ec-hr).
-        self.assertEqual(len(home), 18)
+        self.assertEqual(len(home), 19)
         self.assertFalse(any(i["route"] == "/viec-cua-toi" for i in home))
         self.assertFalse(any(i["route"] == "/ec-hr/huong-dan-cai-app" for i in home))
         labels = {i["label"]: i["route"] for i in home}
