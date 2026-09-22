@@ -27,6 +27,7 @@ Place file at:
 import json
 
 import frappe
+import base64
 import requests
 import time
 from urllib.parse import quote, unquote
@@ -487,43 +488,150 @@ def _why(resp):
         return ""
 
 
-def generate_json(prompt, response_schema, system_instruction=None,
-                  timeout=GENERATE_TIMEOUT, model=None, files=None):
-    """Goi Gemini, ep tra ve JSON dung `response_schema`.
+# ═════════════════════════════════════════════════════════════════════════════
+# Nha cung cap LLM: Kie.ai (chinh) + Google (du phong)
+# ═════════════════════════════════════════════════════════════════════════════
+# Kie ban lai Gemini re hon 30-50% va cho doi model chi bang cach doi ten trong
+# URL. Nhung chinh Kie ghi trong tai lieu "do on dinh co the thap hon nha cung
+# cap chinh thuc", va do tham do 22/09/2026 xac nhan: trong mot buoi chieu co
+# MOT CUA SO endpoint chat 500 toan bo + mot lan rot ket noi. Cham diem bao cao
+# tuan chay bang cron va do vao KPI, nen khong duoc phep phu thuoc mot duong.
+# => Kie chinh, Google du phong TU DONG trong cung lan chay.
+#
+# Do tham do (script C:\dev\probe_kie_gemini.ps1) da chung minh:
+#   - endpoint NATIVE cua Kie nhan nguyen `generationConfig.responseSchema` kieu
+#     Google => THAN REQUEST GIU NGUYEN, khong phai viet lai sang dang OpenAI.
+#   - tra ve la SSE: nhieu dong `data: {...}`, va VAN BAN BI CAT QUA NHIEU CHUNK.
+#     Vi du that: chunk1 = '{"diem": 7, "ly_do": "' , chunk2 = 'Cham diem 7.\"}'
+#     => lay chunk dau roi parse la nhan JSON CUT. Phai noi het roi moi parse.
+#   - LOI DUOC BAO BANG HTTP 200 + {"code":500,...} TRONG THAN.
+#     => raise_for_status() khong bao gio bat duoc. Phai doc `code`.
+#   - tep: URI cua Google KHONG dung duoc o Kie (URI tro ve googleapis.com).
+#     Phai gui inline base64. Kie khuyen nghi tran ~10MB.
 
-    KHONG nhan api_key tu tham so. `upload_from_sp_url` (viet truoc, cho Server Script goi)
-    nhan `gemini_api_key` va `graph_token` tu CLIENT - bat ky nguoi dung da dang nhap nao
-    cung goi duoc voi token tuy y, bien server thanh proxy egress. Duong nay khong di theo
-    khuon do: khoa doc server-side tu System Settings.
+KIE_PROVIDER = "kie"
+GOOGLE_PROVIDER = "google"
+PROVIDER_SETTING = "ec_llm_provider"
+KIE_MODEL_SETTING = "ec_llm_model_kie"
+KIE_DEFAULT_MODEL = "gemini-3-8-flash"
+KIE_URL = "https://api.kie.ai/gemini/v1/models/%s:streamGenerateContent"
+#: base64 phong ~33% so voi bytes; tru hao con lai cho prompt.
+KIE_INLINE_MAX_BYTES = 7 * 1024 * 1024
 
-    `responseSchema` + `temperature: 0` la ly do buoc parse khong con la doan: model tra ve
-    dung hinh dang hoac bao loi.
 
-    `files` = [{"uri", "mime_type"}] tra ve tu `upload_bytes`. Chi nhan URI da tai len
-    truoc, KHONG nhan bytes: gui bytes inline lam than request phong to va Gemini van bat
-    phai tai len rieng voi tep qua 20MB — mot duong thay vi hai.
+def provider():
+    """`google` (mac dinh) hoac `kie`. MAC DINH PHAI LA GOOGLE: cai dat moi
+    khong duoc am tham doi duong goi cua mot he dang chay."""
+    v = (_single(PROVIDER_SETTING) or "").strip().lower()
+    return KIE_PROVIDER if v == KIE_PROVIDER else GOOGLE_PROVIDER
 
-    -> {"ok": bool, "data": dict|None, "error": str|None, "model": str, "latency_ms": int}
-    """
-    key = api_key()
-    model = model or current_model()
-    out = {"ok": False, "data": None, "error": None, "model": model, "latency_ms": 0}
+
+def kie_api_key():
+    """Khoa Kie. Doc y het `api_key()`: truong Password nen `get_single_value`
+    tra ve mot chuoi toan dau sao dung do dai - gui di la doi lay 401 vo nghia."""
+    try:
+        from frappe.utils.password import get_decrypted_password
+        key = get_decrypted_password("System Settings", "System Settings",
+                                     "ec_kie_api_key", raise_exception=False) or ""
+    except Exception:
+        key = ""
     if not key:
-        out["error"] = "no_key"
-        return out
+        key = _single("ec_kie_api_key")
+    return "" if _looks_masked(key) else key
 
-    # Tep TRUOC van ban: khuyen nghi cua Google cho prompt co tai lieu, va doc xuoi hon —
-    # model thay tai lieu roi moi thay hop dong truong va yeu cau.
-    parts = []
-    for item in (files or []):
-        uri = (item or {}).get("uri")
-        if not uri:
+
+def kie_model():
+    return _single(KIE_MODEL_SETTING) or KIE_DEFAULT_MODEL
+
+
+def parse_sse_text(body):
+    """PURE. Noi van ban tu MOI chunk SSE cua Kie -> mot chuoi.
+
+    Khong dung json.loads len ca than: than la nhieu doi tuong JSON doc lap,
+    moi cai tren mot dong `data: `. Bo qua dong trong va cac chunk chi mang
+    `usageMetadata`.
+    """
+    if not body:
+        return ""
+    parts_out = []
+    for line in body.splitlines():
+        line = line.strip()
+        if not line or not line.startswith("data:"):
             continue
-        parts.append({"fileData": {"fileUri": uri,
-                                   "mimeType": (item.get("mime_type")
-                                                or "application/octet-stream")}})
-    parts.append({"text": prompt})
+        payload = line[5:].strip()
+        if not payload or payload == "[DONE]":
+            continue
+        try:
+            chunk = json.loads(payload)
+        except Exception:
+            continue
+        for cand in (chunk.get("candidates") or []):
+            content = cand.get("content") or {}
+            for part in (content.get("parts") or []):
+                txt = part.get("text")
+                if txt:
+                    parts_out.append(txt)
+    return "".join(parts_out)
 
+
+def kie_error(body):
+    """PURE. -> chuoi ly do neu than bao loi, "" neu khong.
+
+    Kie tra HTTP 200 kem {"code":500,"msg":...}. Mot than SSE hop le KHONG phai
+    JSON nen json.loads that bai - do la truong hop BINH THUONG, khong phai loi.
+    """
+    if not body:
+        return "than rong"
+    text = body.strip()
+    if text.startswith("data:"):
+        return ""
+    try:
+        obj = json.loads(text)
+    except Exception:
+        return ""
+    if isinstance(obj, dict) and "code" in obj:
+        try:
+            code = int(obj.get("code"))
+        except Exception:
+            code = 0
+        if code and code != 200:
+            return "Kie code=%s: %s" % (code, obj.get("msg") or "")
+    return ""
+
+
+def split_files_for_kie(files, max_bytes=KIE_INLINE_MAX_BYTES):
+    """PURE. -> (parts_inline, ly_do_khong_dung_duoc).
+
+    Kie chi nhan bytes inline. Tep nao khong mang theo `data`, hoac tong vuot
+    tran, thi CA LAN GOI phai di Google - gui thieu tep con te hon loi, vi model
+    van tra loi nhung tra loi tren du lieu khong day du.
+    """
+    if not files:
+        return [], ""
+    parts = []
+    total = 0
+    for item in files:
+        item = item or {}
+        data = item.get("data")
+        if not data:
+            return [], "tep khong mang bytes (chi co URI cua Google)"
+        total += len(data)
+        if total > max_bytes:
+            return [], "tep vuot tran inline %d byte" % max_bytes
+        parts.append({"inlineData": {
+            "mimeType": item.get("mime_type") or "application/octet-stream",
+            "data": base64.b64encode(data).decode("ascii"),
+        }})
+    return parts, ""
+
+
+def build_body(prompt, response_schema, system_instruction=None, file_parts=None):
+    """PURE. Than request - GIONG HET cho ca Google lan Kie (do tham do 22/09).
+
+    Tep dat TRUOC van ban: khuyen nghi cua Google cho prompt co tai lieu.
+    """
+    parts = list(file_parts or [])
+    parts.append({"text": prompt})
     body = {
         "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {
@@ -534,38 +642,132 @@ def generate_json(prompt, response_schema, system_instruction=None,
     }
     if system_instruction:
         body["systemInstruction"] = {"parts": [{"text": system_instruction}]}
+    return body
 
-    started = time.time()
+
+def _call_kie(body, timeout):
+    """-> (text, error). Khong nem."""
+    key = kie_api_key()
+    if not key:
+        return "", "no_kie_key"
+    url = KIE_URL % kie_model()
     resp = None
     try:
-        resp = requests.post(
-            GENERATE_URL % model,
-            json=body,
-            headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-            timeout=timeout,
-        )
-        out["latency_ms"] = int((time.time() - started) * 1000)
+        resp = requests.post(url, json=body, timeout=timeout,
+                             headers={"Authorization": "Bearer %s" % key,
+                                      "Content-Type": "application/json"})
+        resp.raise_for_status()
+    except Exception as exc:
+        return "", scrub("%s: %s%s" % (type(exc).__name__, exc, _why(resp)), key)[:900]
+    why = kie_error(resp.text)
+    if why:
+        return "", scrub(why, key)[:900]
+    text = parse_sse_text(resp.text)
+    if not text:
+        return "", "Kie tra ve rong (khong co text trong chunk nao)"
+    return text, ""
+
+
+def _call_google(body, model, timeout):
+    """-> (text, error). Khong nem."""
+    key = api_key()
+    if not key:
+        return "", "no_key"
+    resp = None
+    try:
+        resp = requests.post(GENERATE_URL % model, json=body, timeout=timeout,
+                             headers={"x-goog-api-key": key,
+                                      "Content-Type": "application/json"})
         resp.raise_for_status()
         payload = resp.json()
     except Exception as exc:
-        out["latency_ms"] = int((time.time() - started) * 1000)
-        # THAN PHAN HOI MOI LA CHO GEMINI NOI SAI O DAU. `HTTPError` chi in ra ma so va URL;
-        # 17/09 mot loi 400 that da lam ca tinh nang chet ma dong log chi noi duoc
-        # "400 Bad Request" - khong ai lan ra duoc nguyen nhan tu do. Bai hoc: khi mot dich
-        # vu ngoai tra loi CO CAU TRUC, dung vut no di.
-        out["error"] = scrub("%s: %s%s" % (type(exc).__name__, exc, _why(resp)),
-                             key)[:900]
-        return out
-
+        return "", scrub("%s: %s%s" % (type(exc).__name__, exc, _why(resp)), key)[:900]
     try:
         parts = payload["candidates"][0]["content"]["parts"]
-        text = "".join(p.get("text", "") for p in parts)
+        return "".join(p.get("text", "") for p in parts), ""
+    except Exception as exc:
+        return "", scrub("khong doc duoc phan hoi Google: %s" % exc, key)[:400]
+
+
+def _log_fallback(reason):
+    """Ghi lai MOI lan roi ve Google. Khong co so nay thi khong ai biet Kie hong
+    bao nhieu phan tram - va do la so duy nhat de quyet co giu Kie hay khong."""
+    try:
+        frappe.log_error(message=str(reason)[:1000], title="ec_llm_fallback_to_google")
+    except Exception:
+        pass
+
+
+def generate_json(prompt, response_schema, system_instruction=None,
+                  timeout=GENERATE_TIMEOUT, model=None, files=None):
+    """Goi LLM, ep tra ve JSON dung `response_schema`. Kie chinh, Google du phong.
+
+    KHONG nhan api_key tu tham so. `upload_from_sp_url` (viet truoc, cho Server Script
+    goi) nhan `gemini_api_key` va `graph_token` tu CLIENT - bat ky nguoi dung da dang
+    nhap nao cung goi duoc voi token tuy y, bien server thanh proxy egress. Duong nay
+    khong di theo khuon do: khoa doc server-side tu System Settings.
+
+    `responseSchema` + `temperature: 0` la ly do buoc parse khong con la doan.
+
+    `files` = [{"uri", "mime_type"}] (Google) va co the kem "data" = bytes (Kie).
+    Kie KHONG dung duoc URI cua Google, nen thieu `data` thi ca lan goi di Google.
+
+    -> {"ok", "data", "error", "model", "latency_ms", "provider", "fell_back"}
+    """
+    model = model or current_model()
+    out = {"ok": False, "data": None, "error": None, "model": model,
+           "latency_ms": 0, "provider": GOOGLE_PROVIDER, "fell_back": False}
+
+    started = time.time()
+    text, err = "", ""
+    want_kie = provider() == KIE_PROVIDER
+
+    if want_kie:
+        file_parts, why = split_files_for_kie(files)
+        if why:
+            # Khong im lang: dung tep ma gui thieu thi model van tra loi - tra loi
+            # tren du lieu khong day du, kieu sai kho phat hien nhat.
+            err = "khong dung Kie duoc: %s" % why
+        else:
+            body = build_body(prompt, response_schema, system_instruction, file_parts)
+            text, err = _call_kie(body, timeout)
+            if not err:
+                out["provider"] = KIE_PROVIDER
+                out["model"] = kie_model()
+        if err:
+            _log_fallback(err)
+            out["fell_back"] = True
+            text = ""
+
+    if not text:
+        google_parts = []
+        for item in (files or []):
+            uri = (item or {}).get("uri")
+            if not uri:
+                continue
+            google_parts.append({"fileData": {
+                "fileUri": uri,
+                "mimeType": (item.get("mime_type") or "application/octet-stream")}})
+        body = build_body(prompt, response_schema, system_instruction, google_parts)
+        text, gerr = _call_google(body, model, timeout)
+        out["provider"] = GOOGLE_PROVIDER
+        out["model"] = model
+        if gerr:
+            out["latency_ms"] = int((time.time() - started) * 1000)
+            # Giu ca hai ly do: neu Kie hong roi Google cung hong thi doc mot ly do
+            # la lac huong ngay.
+            out["error"] = ("%s | du phong Google: %s" % (err, gerr)) if err else gerr
+            return out
+
+    out["latency_ms"] = int((time.time() - started) * 1000)
+
+    try:
         data = json.loads(text)
     except Exception as exc:
-        # Hinh dang tra ve la thu DUY NHAT khong duoc doan. Bao ra thay vi tra dict rong -
-        # mot dict rong se di tiep qua cong loc va ra "AI khong dien duoc o nao", che mat
-        # nguyen nhan that.
-        out["error"] = scrub("khong doc duoc JSON tu model: %s" % exc, key)[:400]
+        # Hinh dang tra ve la thu DUY NHAT khong duoc doan. Bao ra thay vi tra dict
+        # rong - dict rong se di tiep qua cong loc va ra "AI khong dien duoc o nao",
+        # che mat nguyen nhan that.
+        out["error"] = "khong doc duoc JSON tu model: %s" % exc
         return out
 
     if not isinstance(data, dict):

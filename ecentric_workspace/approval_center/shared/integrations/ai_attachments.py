@@ -235,7 +235,12 @@ def collect(file_urls, user=None, uploader=None, now=None):
             continue
 
         total += len(data)
+        # `data` di kem de duong Kie dung duoc: Kie KHONG giai duoc URI cua
+        # Google (URI tro ve generativelanguage.googleapis.com), no chi nhan
+        # bytes inline. Bytes da co san o day roi nen khong phai tai lai lan hai;
+        # thieu truong nay thi moi lan goi co tep deu roi ve Google.
         parts.append({"uri": up["uri"], "mime_type": mime,
+                      "data": data,
                       "display_name": row.get("file_name") or label})
 
     return parts, rejected
