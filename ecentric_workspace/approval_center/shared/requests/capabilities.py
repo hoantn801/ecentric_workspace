@@ -140,7 +140,21 @@ def derive(user, business_doc, approval_request):
     requester = business_doc.requested_by == user
     open_request = bool(
         approval_request and approval_request.approval_status in OPEN_STATUSES)
-    can_act = bool(_pending_row(approval_request, user))
+    # `_pending_row` chi hoi "nguoi nay co dong duyet Pending o cap hien tai khong" va coi
+    # "Information Required" la trang thai MO - nen khi phieu da bi tra ve cho nguoi de nghi
+    # bo sung, ca cap duyet VAN thay Duyet / Tu choi / Yeu cau bo sung.
+    #
+    # Do tren production 22/09 (EC-CTR-2026-00017 / EC-APR-2026-00291): Finance tra ve luc
+    # 15:16, phieu o "Information Required", ma bay nguoi duyet cap 2 van con du ba nut.
+    # Bam Duyet thi engine chan - nhung mot nut bam vao chi de nhan loi la mot nut noi doi.
+    #
+    # `open_request` ngay duoi da tinh dung dieu can biet, chi la khong ai dung no o day -
+    # cung ho voi loi `readRoute` 15/09: gia tri tinh ra roi bo roi.
+    #
+    # Bong dang o san NGUOI DE NGHI. Ho bo sung va gui lai thi phieu ve "Pending", luc do
+    # ba nut nay hien lai.
+    pending_now = bool(approval_request and approval_request.approval_status == "Pending")
+    can_act = bool(pending_now and _pending_row(approval_request, user))
     requester_cancel = requester and (
         approval_request is None
         or (approval_request.approval_status == "Pending" and not _has_decision(approval_request)))
