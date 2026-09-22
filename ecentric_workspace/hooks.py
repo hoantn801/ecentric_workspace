@@ -313,7 +313,15 @@ fixtures = [
             # LUU Y (CnB xac nhan truoc khi them): cac field luong tren Employee cung
             # chua versioned -- ec_pit_10, ec_pit_luytien, ec_dong_bhxh, ec_mst_ca_nhan,
             # ec_so_nguoi_phu_thuoc, ec_allow_lunch/coffee/computer, ec_late_early_bank.
-        ]]],
+                    # LLM provider (2026-09-23). CHU Y: `ec_gemini_api_key` da nam trong
+            # fixtures/custom_field.json tu truoc NHUNG khong co trong bo loc nay ->
+            # mot lan `bench export-fixtures` se XOA no khoi file, va site moi se
+            # thieu field trong im lang. Khai ca bon de xuat/nhap doi xung.
+            "System Settings-ec_gemini_api_key",
+            "System Settings-ec_llm_provider",
+            "System Settings-ec_kie_api_key",
+            "System Settings-ec_llm_model_kie",
+]]],
     },
     # Ba DocType custom cua PnL dashboard (09-10/09/2026). Truoc day chi ton tai tren
     # production -> bench moi hoac site dung lai la mat sach: `EC Loai Chi Phi` mat thi
