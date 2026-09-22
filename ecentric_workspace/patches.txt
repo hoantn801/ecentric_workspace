@@ -265,3 +265,4 @@ ecentric_workspace.sla.patches.p010_resync_sla_page
 ecentric_workspace.sla.patches.p011_resync_attendance
 ecentric_workspace.sla.patches.p012_weekly_min_sample
 ecentric_workspace.sla.patches.p013_resync_sla_page
+ecentric_workspace.sla.patches.p014_leave_pause_backfill

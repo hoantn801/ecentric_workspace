@@ -193,6 +193,12 @@ scheduler_events["daily"].append(
 # o cac cron esign phia duoi; KHONG quy ra UTC.
 scheduler_events["cron"].setdefault("0 2 * * *", []).append(
     "ecentric_workspace.sla.tasks.sync_approvals")
+# Nghi phep dung dong ho cua nhom Phe duyet. 02:10 - SAU sync_approvals
+# (02:00), vi luoi do kia co the vua mo them dau viec va cam doan tam dung
+# cho chung ngay trong dem thi tot hon doi them 24 tieng.
+# Gio cron o site nay la GIO DIA PHUONG (Asia/Ho_Chi_Minh).
+scheduler_events["cron"].setdefault("10 2 * * *", []).append(
+    "ecentric_workspace.sla.tasks.sync_leave_pauses")
 scheduler_events["cron"].setdefault("*/30 * * * *", []).append(
     "ecentric_workspace.platform.esign.tasks.retrieve_signed_bundles")
 

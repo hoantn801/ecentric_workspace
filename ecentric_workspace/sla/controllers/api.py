@@ -361,3 +361,29 @@ def approval_coverage(days=14):
     r = _appr().coverage(days=int(days or 14))
     return _ok({"ho_so": r["ho_so"], "cap": r["cap"], "tu_ngay": r["tu_ngay"],
                 "thieu": len(r["thieu"]), "danh_sach": r["thieu"][:50]})
+# --------------------------------------------------------------------------- #
+# Nghi phep dung dong ho cua nhom Phan hoi phe duyet
+# --------------------------------------------------------------------------- #
+def _lv():
+    from ecentric_workspace.sla.infrastructure import leave_pause
+    return leave_pause
+
+
+@frappe.whitelist(methods=["POST"])
+def sync_leave_pauses(days=14, limit=5000):
+    """Cam doan tam dung cho ngay nghi phep. Chay lai duoc."""
+    if not _require_admin():
+        return _fail(_("Chỉ System Manager được chạy đồng bộ."))
+    r = _lv().sync(days=int(days or 14), limit=int(limit or 5000))
+    return _ok(_counts(r), _("Quét {0} đầu việc phê duyệt.").format(r.get("quet", 0)))
+
+
+@frappe.whitelist()
+def leave_pause_preview(days=14, limit=5000):
+    """Chay thu, KHONG ghi gi. Dung de xem truoc se cham vao nhung dong nao."""
+    if not _require_admin():
+        return _fail(_("Chỉ System Manager được xem."))
+    r = _lv().preview(days=int(days or 14), limit=int(limit or 5000))
+    return _ok({"quet": r["quet"], "nguoi": r["nguoi"],
+                "se_cam_doan": len(r["doan_moi"]), "danh_sach": r["doan_moi"][:50],
+                "khong_doc_duoc_nhan_su": r["khong_doc_duoc_nhan_su"][:20]})

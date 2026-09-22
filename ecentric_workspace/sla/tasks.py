@@ -98,3 +98,28 @@ def sync_approvals():
         frappe.log_error(title="sla.tasks.sync_approvals",
                          message=frappe.get_traceback())
         return None
+def sync_leave_pauses():
+    """Hang dem: cam doan tam dung cho nhung dau viec phe duyet roi vao ngay
+    nghi phep da duyet.
+
+    HOI TO LA LY DO CHINH NO CHAY MOI DEM, khong phai chi chay luc mo dau viec.
+    Phieu nghi thuong duoc duyet SAU khi nguoi ta da nghi - dung cai canh da lam
+    vo diem cua mot nguoi hom 21/09. Quet lai moi dem thi mot phieu duyet muon
+    ba ngay van go duoc vet tre da cham hom kia.
+
+    Cua so 14 ngay: du de duoi kip mot phieu nghi duyet muon ca tuan, va van nam
+    gon trong mot lan chay ngan.
+    """
+    try:
+        from ecentric_workspace.sla.infrastructure import leave_pause
+        res = leave_pause.sync(days=14, limit=5000)
+        if res.get("doan_moi") or res.get("doi_trang_thai") or res.get("loi"):
+            frappe.logger("sla").info(
+                "sync_leave_pauses: quet=%s doan_moi=%s doi_trang_thai=%s loi=%s"
+                % (res.get("quet"), len(res.get("doan_moi") or []),
+                   len(res.get("doi_trang_thai") or []), len(res.get("loi") or [])))
+        return res
+    except Exception:
+        frappe.log_error(title="sla.tasks.sync_leave_pauses",
+                         message=frappe.get_traceback())
+        return None
