@@ -1381,6 +1381,13 @@ def reject(request_name, actor=None, comment=None):
     req.approval_status = frappe.db.get_value("EC Approval Request", request_name,
                                               "approval_status")
     _guard_open(req)
+    # Cung ly do voi approve(): phieu dang cho nguoi de nghi bo sung thi cap duyet
+    # khong duoc dong cap. `_guard_open` cho "Information Required" di qua vi no khong
+    # terminal; chot nay moi la thu chan. Giao dien da an ba nut tu 22/09, nhung mot
+    # luat chi song o giao dien la mot luat khong ton tai.
+    if req.approval_status == "Information Required":
+        frappe.throw(_("Phiếu đang chờ người đề nghị bổ sung thông tin. "
+                       "Chờ họ gửi lại rồi mới thao tác."))
     if req.current_level:
         _lk = _rl_for(request_name, req.current_level)
         _lk and frappe.db.get_value("EC Approval Request Level", _lk.name, "name", for_update=True)
@@ -1425,6 +1432,13 @@ def request_information(request_name, actor=None, comment=None):
     req.approval_status = frappe.db.get_value("EC Approval Request", request_name,
                                               "approval_status")
     _guard_open(req)
+    # Cung ly do voi approve(): phieu dang cho nguoi de nghi bo sung thi cap duyet
+    # khong duoc dong cap. `_guard_open` cho "Information Required" di qua vi no khong
+    # terminal; chot nay moi la thu chan. Giao dien da an ba nut tu 22/09, nhung mot
+    # luat chi song o giao dien la mot luat khong ton tai.
+    if req.approval_status == "Information Required":
+        frappe.throw(_("Phiếu đang chờ người đề nghị bổ sung thông tin. "
+                       "Chờ họ gửi lại rồi mới thao tác."))
     row = _actor_pending_row(request_name, req.current_level, actor)
     if not row:
         frappe.throw(_("You are not a pending approver for the current level."))
