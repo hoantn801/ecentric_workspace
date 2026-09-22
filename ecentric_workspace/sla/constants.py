@@ -45,7 +45,18 @@ GROUP_MIN_SAMPLE = {
     GROUP_APPROVAL: 5,
     GROUP_ATTENDANCE: 5,
     GROUP_RSVP: 5,
-    GROUP_WEEKLY_REPORT: 3,
+    # 1, KHONG phai 3. Chu so huu chot 21/09 sau khi nhin du lieu that: mot
+    # thang chi co 4-5 tuan, nen doi du 3 tuan la de ca cong ty nhin mot cot
+    # TRONG trong hai phan ba dau thang - trong khi ho DA bi tinh diem roi.
+    # Nguong khong giau duoc hinh phat, no chi giau LY DO.
+    #
+    # Danh doi da biet truoc: voi 1 tuan, ti le nhom chi co 0% hoac 100%. Chap
+    # nhan, vi voi nhom nay mot con so nhay con hon mot o trong bi doc thanh
+    # "khong co du lieu".
+    #
+    # Ban ghi `EC SLA Obligation Type` phai doi theo (patch p012): day la con so
+    # de CHAM, ban ghi kia la con so de HIEN.
+    GROUP_WEEKLY_REPORT: 1,
     GROUP_TASK: 5,
 }
 

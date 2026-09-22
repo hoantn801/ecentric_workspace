@@ -1191,7 +1191,14 @@
       + '<h2 class="card-t">Xếp hạng ' + esc(periodLabel(data.period)) + '</h2>'
       + '<p class="card-s">' + (data.scope === 'all' ? 'Toàn công ty' : 'Phòng ban của bạn')
       + ' · cùng tỉ lệ thì cùng hạng · người chưa đủ mẫu xếp cuối và không có hạng '
-      + '· bấm một dòng để xem mẫu số của người đó.</p></div>'
+      + '· bấm một dòng để xem mẫu số của người đó.</p>'
+      // Dau "—" o cac cot nhom TUNG bi doc thanh "khong co du lieu". No khong
+      // phai vay: dau viec van duoc dem va van nam trong %SLA, chi la nhom do
+      // chua du mau de ra mot ti le RIENG. Noi ro ra, vi hieu nham nay lam
+      // nguoi ta tuong he thong dang bo bot dau viec cua ho.
+      + '<p class="card-s" style="margin-top:6px">Dấu <b>—</b> ở các cột nhóm nghĩa là '
+      + '<em>nhóm đó chưa đủ mẫu để ra tỉ lệ riêng</em>, không phải là không có dữ liệu. '
+      + 'Mọi đầu việc vẫn được đếm và vẫn nằm trong %SLA ở cột bên trái.</p></div>'
       + '<input type="text" class="in" id="sla-dept-q" placeholder="Lọc theo tên hoặc phòng ban…" aria-label="Lọc danh sách">'
       + '</div></div>'
       + '<div class="tblwrap"><table class="tb ppl"><thead><tr>'
@@ -1332,8 +1339,29 @@
     return order.map(function(k){ return by[k]; });
   }
 
+  /**
+   * MOT BUOC XU LY KHONG PHAI MOT CAP DUYET, VA NO CHUA DUOC CHAM DIEM.
+   *
+   * `sla_port` chi co hook cho cap duyet (`on_level_activated` / `on_level_closed`
+   * / `on_approver_acted`...). Khong co hook nao cho buoc xu ly, va trong bang
+   * `EC SLA Obligation` hom nay co DUNG 0 dong cho buoc xu ly. Nguoi xu ly khong
+   * bi tru diem vi buoc nay.
+   *
+   * Nhung con so gio o day VAN THAT: `EC Approval Process.fulfillment_sla_policy`
+   * duoc sau service cua Approval Center doc de dat han tren ToDo cua nguoi xu ly
+   * va de nhac han. Do la han VAN HANH, khong phai han cham diem.
+   *
+   * Hai thu do nam canh nhau trong cung mot bang, tren mot trang ten "Diem SLA",
+   * nen mac dinh nguoi doc se hieu la ca hai deu duoc cham. Cai nhan nay ton tai
+   * de cau do khong con dung.
+   */
+  function isFulfillment(r){
+    return String(r && r.step || '').indexOf('Bước xử lý') === 0;
+  }
+
   function stepLine(r, no){
     var lim, note, noteCls = '';
+    var ful = isFulfillment(r);
     if (!r.configured){
       lim = '<span class="chip bad">chưa cấu hình</span>';
       note = 'đang được loại trừ khỏi điểm, không ai bị chấm trễ vì bước này';
@@ -1342,10 +1370,13 @@
       lim = '<span class="f-lim"><b class="tnum">' + esc(r.hours) + '</b> ' + esc(r.unit || '') + '</span>';
       if (r.active === false) lim += ' <span class="chip warn">chính sách đang tắt</span>';
       note = r.reminder_hours ? 'nhắc trước ' + esc(r.reminder_hours) + ' giờ' : 'không nhắc trước';
+      if (ful) note = 'hạn vận hành · ' + note;
     }
-    return '<li class="pstep">'
+    return '<li class="pstep' + (ful ? ' pstep-ful' : '') + '">'
       + '<span class="f-no tnum">' + no + '</span>'
-      + '<span class="pstep-main"><span class="f-sname">' + esc(r.step) + '</span></span>'
+      + '<span class="pstep-main"><span class="f-sname">' + esc(r.step) + '</span>'
+      + (ful ? '<span class="gbadge" style="margin-left:8px">chưa tính vào %SLA</span>' : '')
+      + '</span>'
       + '<span class="pstep-lim">' + lim
       + '<span class="f-note' + noteCls + '">' + esc(note) + '</span></span>'
       + '<span class="pstep-code"><span class="f-code">' + esc(r.policy_code || '—') + '</span></span>'
@@ -1414,6 +1445,16 @@
     }
     var rows = d.rows || [];
     var soQt = groupSteps(rows).length;
+    var soFul = rows.filter(isFulfillment).length;
+    if (soFul){
+      // Dat NGAY DAU, truoc ca bang: cau nay sua mot hieu nham, va mot cau sua
+      // hieu nham dat duoi bang thi nguoi ta da hieu nham xong roi moi doc toi.
+      banner += '<div class="note"><b>' + soFul + ' bước xử lý (sau khi duyệt xong) '
+        + 'chưa tính vào %SLA của ai.</b> Con số giờ của chúng là <em>hạn vận hành</em> — '
+        + 'nó đặt hạn trên việc của người xử lý và điều khiển nhắc hạn trong Phê duyệt, '
+        + 'nhưng engine chấm điểm hiện chỉ cắm vào các <em>cấp duyệt</em>. '
+        + 'Không ai bị trừ điểm vì một bước xử lý.</div>';
+    }
     panel('steps').innerHTML = banner
       + '<div class="card card-pad">'
       + '<div class="card-h"><div>'
