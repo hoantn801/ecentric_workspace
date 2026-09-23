@@ -18,6 +18,7 @@ from frappe import _
 from ecentric_workspace.approval_center.shared.integrations import ai_attachments as att
 from ecentric_workspace.approval_center.shared.integrations import ai_formfill as svc
 from ecentric_workspace.approval_center.shared.registry import get_definition
+from ecentric_workspace.approval_center.shared.requests import command_service
 from ecentric_workspace import gemini_api
 
 PILOT_ROLE = "EC AI Formfill Pilot"
@@ -195,3 +196,96 @@ def batch_flags(approval_code, rows=None):
         # Dau hieu la thu TANG THEM. Hong o day khong duoc phep lam hong man hinh tao phieu.
         frappe.log_error(title="ai_formfill.batch_flags", message=frappe.get_traceback())
         return {}
+
+
+# --- G2b: lo chi TAO BAN NHAP ------------------------------------------------------
+#
+# CHOT VOI HOAN 23/09: che do hang loat chi DIEN + DINH TEP + TAO NHAP. Nguoi dung tu mo
+# tung phieu, tu dien not phan cua ho, tu bam Gui. Ban dau toi lam no gui luon; sai, va cai
+# sai do khong phai o giao dien ma o chinh de bai: hai trong so cac o bat buoc la PHAN DOAN
+# CUA CON NGUOI ("Chi phi hop le?", o tich xac nhan) - khong ai uy quyen cho may duoc.
+
+
+def _o_bat_buoc_may_tu_dien(definition):
+    """Cac o Select BAT BUOC ma AI KHONG duoc phep dien.
+
+    DAY LA CAI BAY DA XAY RA THAT, 23/09. `frappe.new_doc` lap mot Select bat buoc KHONG CO
+    default bang LUA CHON DAU TIEN cua no. Payload cua lo khong gui `is_cost_valid` va
+    `has_purchase_request`, nen ca hai thanh "Yes" - options la "Yes\nNo".
+
+    `is_cost_valid` la o "Chi phi hop le?". May vua tra loi "Co" thay nguoi dung tren mot
+    phieu chua ai doc. Do la mot khang dinh sai trong ho so tai chinh, va no IM LANG - khong
+    loi, khong canh bao, chi la mot chu "Yes" trong o ma le ra nguoi lap phai tu chon.
+
+    O tich xac nhan thoat duoc CHI NHO MAY: no tinh co co `default = "No"`. Xoa cai default
+    ay di la lo hang loat tu ky luon ca cam ket trach nhiem.
+
+    Nen danh sach nay SUY RA TU META, khong viet tay: form thu 29 them mot Select bat buoc
+    vao `ai_exclude_fields` thi no tu duoc bao ve, khong ai phai nho.
+    """
+    meta = frappe.get_meta(definition.business_doctype)
+    chan = set(definition.clone_exclude_fields or ()) | set(
+        getattr(definition, "ai_exclude_fields", ()) or ())
+    ra = []
+    for fieldname in chan:
+        df = meta.get_field(fieldname)
+        if df is not None and df.fieldtype == "Select" and df.reqd:
+            ra.append(fieldname)
+    return ra
+
+
+def _con_thieu(definition, name):
+    """O bat buoc nao con trong -> tra ve [{fieldname, label}] cho man hinh noi ra.
+
+    Doc META chu khong theo danh sach cung: mot danh sach cung lech khoi form la lech am tham.
+    """
+    meta = frappe.get_meta(definition.business_doctype)
+    doc = frappe.get_doc(definition.business_doctype, name)
+    ra = []
+    for df in meta.fields:
+        if not df.reqd or df.fieldname not in (definition.editable_fields or ()):
+            continue
+        if not str(doc.get(df.fieldname) or "").strip():
+            ra.append({"fieldname": df.fieldname, "label": frappe._(df.label or df.fieldname)})
+    return ra
+
+
+@frappe.whitelist(methods=["POST"])
+def create_draft(approval_code, fields=None):
+    """Tao MOT ban nhap tu ket qua AI. KHONG gui. Tra ve ma phieu + o nao con thieu."""
+    if svc.is_disabled():
+        frappe.throw(_("Tính năng AI điền hộ đang tắt."))
+    if not _pilot_allowed():
+        frappe.throw(_("Bạn chưa được bật tính năng AI điền hộ."), frappe.PermissionError)
+
+    definition = get_definition(approval_code)
+    data = frappe.parse_json(fields) if isinstance(fields, str) else (fields or {})
+    if not isinstance(data, dict):
+        frappe.throw(_("Dữ liệu không hợp lệ."))
+
+    # Chi nhan nhung o AI duoc phep dien. Client la thu khong tin duoc: khong loc o day thi
+    # mot request tu tay co the dat `is_cost_valid` hay o tich xac nhan qua duong nay.
+    chan = set(definition.clone_exclude_fields or ()) | set(
+        getattr(definition, "ai_exclude_fields", ()) or ())
+    sach = {k: v for k, v in data.items()
+            if k in (definition.editable_fields or ()) and k not in chan}
+
+    ket = command_service.save_draft(definition, name=None, payload=sach)
+    name = ket.get("name")
+
+    # TRA LAI TRANG THAI "CHUA TRA LOI" cho nhung o may vua tu dien ho.
+    #
+    # Dung `db.set_value` chu khong dung `doc.save()`: luu lai se vap chinh phep kiem bat buoc
+    # ma ta dang muon de NGO. Day la mot lan co tinh di vong qua validate, va no chinh dang:
+    # ta khong ghi mot gia tri moi nao ca, ta XOA mot cau tra loi ma khong ai dua ra.
+    for fieldname in _o_bat_buoc_may_tu_dien(definition):
+        if fieldname in sach:
+            continue
+        try:
+            frappe.db.set_value(definition.business_doctype, name, fieldname, "",
+                                update_modified=False)
+        except Exception:
+            frappe.log_error(title="ai_formfill.create_draft: khong xoa duoc %s" % fieldname,
+                             message=frappe.get_traceback())
+
+    return {"name": name, "missing": _con_thieu(definition, name)}

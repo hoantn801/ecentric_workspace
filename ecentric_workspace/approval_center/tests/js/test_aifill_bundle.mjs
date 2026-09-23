@@ -317,8 +317,8 @@ function nap(pathname) {
   la(A.rowState(dong({ payee_full_name: "A" }))[0] === "Thiếu 5 ô", "dem dung so o con thieu");
   la(A.rowState(dong(day, { busy: true }))[0] === "Đang đọc…", "dang doc tep");
   la(A.rowState(dong(day, { err: "hong" }))[0] === "Lỗi", "loi thang tay, khong giau");
-  la(A.rowState(dong(day, { sent: "EC-PAYR-2026-00042" }))[1] === "ok",
-     "Da gui MOI duoc dung wash xanh - luc do no la trang thai workflow that");
+  la(A.rowState(dong(day, { name: "EC-PAYR-2026-00042" }))[1] === "ok",
+     "Da tao nhap -> wash xanh: ban nhap CO THAT tren server, da xay ra roi");
 
   // Trần: dòng thứ 11 bị từ chối, và lý do nói theo QUYẾT ĐỊNH.
   A.S.maxDrafts = 10; A.S.fileExts = ["pdf"];
@@ -339,21 +339,38 @@ function nap(pathname) {
   la(/Trùng STK/.test(co) && /lệch xa/.test(co), "ve dung hai co dang bat");
   la(!/Số tài khoản mới/.test(co), "co dang TAT thi khong ve");
 
-  A.B.cam = false; A.B.busy = false; A.B.mo = null;
+  A.B.busy = false; A.B.mo = null;
   const h1 = A.batchHtml();
-  la(/1 phiếu<\/b> trong lô này là chính xác/.test(h1),
-     "o cam ket ghi RO SO PHIEU cua lo (A61 §3)");
-  la(/Gửi 1 phiếu/.test(h1), "nut gui ghi ro so phieu");
-  la(/disabled/.test(h1), "chua tich cam ket -> nut gui khoa");
-  A.B.cam = true;
-  la(!/ec-aifill-send" disabled/.test(A.batchHtml()), "tich roi -> nut gui mo");
+  // 23/09 — màn này KHÔNG gửi nữa. Chỉ tạo bản nháp; người dùng tự mở phiếu và bấm Gửi.
+  la(/Tạo 1 bản nháp/.test(h1), "nut ghi ro so BAN NHAP se tao");
+  la(!/Gửi \d+ phiếu/.test(h1), "KHONG con nut gui ca lo");
+  la(!/ec-aifill-cam/.test(h1),
+     "KHONG con o cam ket: no la chu ky cho viec GUI, ma man nay khong gui");
   A.B.rows.push(dong(day, { key: "r2" }));
-  la(/2 phiếu<\/b>/.test(A.batchHtml()), "con so doi theo lo, khong phai chu chet");
+  la(/Tạo 2 bản nháp/.test(A.batchHtml()), "con so doi theo lo, khong phai chu chet");
 
   // A61 §1: màn này chỉ TẠO. Gom để quyết định là thứ khác hẳn.
   const moiHtml = A.batchHtml() + h1;
   la(!/duyệt tất cả|Duyệt tất cả|duyet tat ca/.test(moiHtml),
      "KHONG co nut duyet-tat-ca o bat ky dau (A61 §1)");
+
+  // Dòng đã tạo nháp: hiện MÃ PHIẾU + đúng những ô còn thiếu.
+  A.B.rows = [dong(day, { key: "r9", name: "EC-PAYR-2026-00232",
+                          missing: [{ fieldname: "ec_brand", label: "Brand liên quan" },
+                                    { fieldname: "is_cost_valid", label: "Chi phí hợp lệ?" }] })];
+  const hRow = A.batchHtml();
+  la(/EC-PAYR-2026-00232/.test(hRow), "hien ma phieu vua tao");
+  la(/còn thiếu: Brand liên quan, Chi phí hợp lệ\?/.test(hRow),
+     "noi RO o nao con thieu, dung nhan cua form");
+  la(A.rowState(A.B.rows[0])[0] === "Đã tạo nháp", "trang thai dong = Da tao nhap");
+  la(/chưa gửi cái nào/.test(hRow), "noi thang la he thong CHUA gui gi");
+
+  // Câu lỗi thật của server, không phải "gửi không thành công".
+  const e = { _server_messages: JSON.stringify([
+    JSON.stringify({ message: "<div>Loại chi phí này gắn với một brand — vui lòng chọn brand.</div>" })]) };
+  la(A.loiThat(e, "mac dinh") === "Loại chi phí này gắn với một brand — vui lòng chọn brand.",
+     "boc duoc cau tieng Viet that tu _server_messages");
+  la(A.loiThat({}, "mac dinh") === "mac dinh", "khong co gi thi moi roi ve cau mac dinh");
 
   // Trần nói ra HỆ QUẢ, không chỉ nói "hết chỗ".
   A.B.rows = [];
@@ -378,7 +395,8 @@ function nap(pathname) {
   };
   la(/#f3f4f6|--ec-af-line-soft/.test(lay(".ec-aifill-chip")), "San sang: nen xam");
   la(/#fff8e1/.test(lay(".ec-aifill-chip.is-warn")), "Thieu N o: nen amber");
-  la(/#f0fdf4/.test(lay(".ec-aifill-chip.is-ok")), "Da gui: nen xanh (trang thai workflow that)");
+  la(/#f0fdf4/.test(lay(".ec-aifill-chip.is-ok")),
+     "Da tao nhap: nen xanh - ban nhap CO THAT tren server la mot trang thai da xay ra");
   for (const bo of [".ec-aifill-chip", ".ec-aifill-chip.is-warn", ".ec-aifill-chip.is-wait"]) {
     la(!/#f0fdf4|#166534|#bbf7d0/.test(lay(bo)),
        `${bo}: ban nhap KHONG duoc muon mau cua trang thai da duyet (A58)`);

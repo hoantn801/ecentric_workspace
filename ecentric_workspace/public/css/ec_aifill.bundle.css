@@ -346,13 +346,16 @@
   outline:none; border-color:var(--ec-af-navy); box-shadow:0 0 0 3px var(--ec-af-navy-wash);
 }
 
-/* Ô cam kết ghi RÕ SỐ PHIẾU (A61 §3) — con số đổi theo lô, không phải chữ chết. */
-.ec-aifill-cam{
-  display:flex; align-items:flex-start; gap:8px; margin-top:12px;
-  font-size:13px; line-height:1.5; color:var(--ec-af-ink); cursor:pointer;
-}
-.ec-aifill-cam input{ margin-top:2px; flex:none; width:15px; height:15px; cursor:pointer; }
-.ec-aifill-cam b{ font-weight:700; }
+/* Ô cam kết đã BỊ BỎ khỏi màn này 23/09, cùng với nút "Gửi N phiếu".
+ *
+ * Nó là chữ ký trách nhiệm cho việc GỬI; màn này không gửi nữa nên giữ lại là xin một chữ
+ * ký cho một hành động không xảy ra — và tệ hơn, nó tập cho người dùng thói tích vào những
+ * ô như thế mà không đọc. Chữ ký ấy vẫn nằm nguyên trên form, đúng chỗ người ta bấm Gửi. */
+
+/* Kết quả một dòng: mã phiếu + đúng những ô còn thiếu, không phải chữ "Lỗi" trơ trọi. */
+.ec-aifill-row-done{ display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px;
+                     padding:0 10px 8px 41px; }
+.ec-aifill-row-need{ font-size:12.5px; color:#6b7280; }   /* 4.83:1 tren nen trang */
 .ec-aifill-sent{
   margin-top:11px; padding:10px 12px; border-radius:8px;
   background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; font-size:13px;
@@ -361,5 +364,6 @@
 @media (max-width:760px){
   .ec-aifill-row-body{ grid-template-columns:1fr; }
   .ec-aifill-row-file{ display:none; }        /* tên tệp nhường chỗ cho người nhận + tiền */
-  .ec-aifill-row-flags,.ec-aifill-row-link,.ec-aifill-row-err{ padding-left:10px; }
+  .ec-aifill-row-flags,.ec-aifill-row-link,.ec-aifill-row-err,
+  .ec-aifill-row-done{ padding-left:10px; }
 }
