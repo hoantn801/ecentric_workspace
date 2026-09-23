@@ -161,11 +161,22 @@ def build_schema(definition):
 _DATE_WINDOW_DAYS = 366
 
 
+# Model tra ve CHU "none"/"null" thay vi null JSON - do 23/09/2026 tren Kie gemini-3-8-flash
+# (Google 2.5 Flash cung de bai thi tra null dung chuan). Khong chan o day thi truong chu nhan
+# nguyen chu "none" vao form: ten nguoi nhan "none", ngan hang "null". Chi so khop CA CHUOI -
+# "Nonestop Co" hay "null tru" van la gia tri that.
+_NULL_WORDS = frozenset(("none", "null", "nil", "n/a", "undefined", "-", "\u2014"))
+
+
+def _is_null_word(value):
+    return isinstance(value, str) and value.strip().lower() in _NULL_WORDS
+
+
 def _check(spec, value):
     """-> (ok, gia_tri_sach, ma_ly_do). Bo HAN khi truot; khong cat bot, khong sua cho vua."""
     fieldtype = spec["fieldtype"]
 
-    if value is None:
+    if value is None or _is_null_word(value):
         return False, None, "rong"
 
     if fieldtype == "Select":
@@ -405,8 +416,41 @@ def split_sources(raw):
     values, sources = {}, {}
     for key, value in (raw or {}).items():
         if key.endswith("__source"):
-            if value:
+            if value and not _is_null_word(value):
                 sources[key[:-8]] = str(value)[:200]
         else:
             values[key] = value
     return values, sources
+
+
+def _squash(text):
+    return " ".join(str(text or "").lower().split())
+
+
+def verify_sources(schema, values, sources, note, has_files):
+    """Truong BAT BUOC trich dan (so tai khoan, so tien) phai co trich dan NAM TRONG van ban.
+
+    -> (values_giu_lai, dropped). Do 23/09/2026: Kie gemini-3-8-flash nhan mot ghi chu KHONG he
+    co so tai khoan van tra ve `bank_account_number = "19034567890123"` KEM trich dan bia
+    "STK: 19034567890123 tai Techcombank". Trich dan bia qua duoc `gate` (gate khong biet van
+    ban nguon) - day la cho duy nhat doi chieu duoc.
+
+    Co tep dinh kem thi BO QUA: noi dung tep khong co o day duoi dang chu, doi chieu voi rieng
+    ghi chu se bo nham gia tri doc dung tu tep.
+    """
+    if has_files:
+        return dict(values or {}), []
+    haystack = _squash(note)
+    kept, dropped = dict(values or {}), []
+    for spec in schema:
+        name = spec["fieldname"]
+        if not wants_quote(spec) or name not in kept:
+            continue
+        value = kept[name]
+        if value is None or _is_null_word(value) or str(value).strip() == "":
+            continue
+        src = _squash(sources.get(name))
+        if not src or src not in haystack:
+            kept.pop(name)
+            dropped.append({"field": name, "reason": "trich_dan_khong_co_trong_van_ban"})
+    return kept, dropped

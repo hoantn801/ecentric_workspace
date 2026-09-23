@@ -119,7 +119,10 @@ def suggest(approval_code, note=None, current=None, files=None):
                 "files_rejected": rejected}
 
     values, sources = svc.split_sources(res["data"])
+    # Doi chieu trich dan TRUOC gate: so tai khoan bia kem trich dan bia van qua duoc gate.
+    values, dropped_src = svc.verify_sources(schema, values, sources, note, bool(parts))
     accepted, dropped = svc.gate(schema, values)
+    dropped = dropped_src + dropped
     # Nguoi dung da tu go thi giu nguyen - AI khong de len.
     accepted = {k: v for k, v in accepted.items()
                 if str(current.get(k) or "").strip() == ""}
