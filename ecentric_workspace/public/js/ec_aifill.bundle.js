@@ -85,7 +85,8 @@
   /* ------------------------------------------------------------------ state */
   var S = { filled: {}, sources: {}, before: {}, busy: false, remaining: null, cap: null,
             maxChars: 8000, maxFiles: 5, files: [], fileExts: [], uploading: false, ran: false,
-            _filesHtml: null, panel: null };
+            _filesHtml: null, panel: null,
+            maxDrafts: 10, hasFlags: false, ns: "" };
 
   /* Tệp có nhận được không, và nếu không thì VÌ SAO. PURE.
    * Chặn ở client cho người dùng biết ngay, nhưng server vẫn chặn lại lần nữa — cổng ở
@@ -283,14 +284,40 @@
     '<circle cx="26.2" cy="27.8" r="1.15" fill="#fff"/><circle cx="41" cy="27.8" r="1.15" fill="#fff"/>' +
     '<path d="M25.4 39.4c1.9 2.8 4 4.2 6.6 4.2s4.7-1.4 6.6-4.2" fill="none" stroke="#1E2A5A" stroke-width="2.6" stroke-linecap="round"/></svg>';
 
+  /* Cần gạt hai chế độ. Nằm ngay dưới tiêu đề panel, đúng chỗ tab thứ tư sẽ nằm nếu sau
+   * này trang mở tab thật. Dùng `aria-pressed` chứ không phải `role=tab`: nó KHÔNG phải
+   * tab của trang, và nói dối trình đọc màn hình về cấu trúc là tệ hơn im lặng. */
+  function modeHtml() {
+    return '<div class="ec-aifill-modes">' +
+      '<button type="button" class="ec-aifill-mode" data-mode="one" aria-pressed="' +
+        (B.on ? "false" : "true") + '">Một phiếu</button>' +
+      '<button type="button" class="ec-aifill-mode" data-mode="batch" aria-pressed="' +
+        (B.on ? "true" : "false") + '">Tạo hàng loạt</button></div>';
+  }
+
   function render() {
     if (!S.panel) return;
     var n = Object.keys(S.filled).length;
     var quota = S.remaining == null ? "" :
       '<span class="ec-aifill-quota">còn ' + S.remaining + ' lượt hôm nay</span>';
+    if (B.on) {
+      S.panel.innerHTML =
+        '<div class="ec-aifill-top">' + MARK +
+          '<span class="ec-aifill-title">AI điền hộ</span>' + quota + '</div>' +
+        modeHtml() +
+        '<div class="ec-aifill-body"><div class="ec-aifill-batch"></div>' +
+          '<div class="ec-aifill-msg"></div></div>' +
+        '<div class="ec-aifill-progress"><i></i></div>';
+      S.panel.classList.toggle("is-running", !!B.busy || !!B.rows.some(function (r) { return r.busy; }));
+      wireModes();
+      B._html = null;
+      renderBatch();
+      return;
+    }
     S.panel.innerHTML =
       '<div class="ec-aifill-top">' + MARK +
         '<span class="ec-aifill-title">AI điền hộ</span>' + quota + '</div>' +
+      modeHtml() +
       '<div class="ec-aifill-body">' +
         '<textarea class="ec-aifill-note" rows="3" maxlength="' + S.maxChars + '" ' +
           'placeholder="Dán nội dung hợp đồng, email, hay mô tả khoản chi vào đây — hoặc chỉ cần đính kèm tệp ở dưới. AI đọc và điền vào form, bạn xem lại rồi tự bấm Gửi."></textarea>' +
@@ -318,7 +345,15 @@
     // Panel vừa bị ghi đè innerHTML nên hộp tệp là hộp MỚI và RỖNG. Không xoá nhớ đệm thì
     // `renderFiles` so chuỗi thấy "y như cũ" rồi bỏ qua, và khối tệp không bao giờ hiện lại.
     S._filesHtml = null;
+    wireModes();
     renderFiles();
+  }
+
+  function wireModes() {
+    if (!S.panel) return;
+    S.panel.querySelectorAll(".ec-aifill-mode").forEach(function (b) {
+      b.onclick = function () { setMode(b.getAttribute("data-mode") === "batch"); };
+    });
   }
 
   function kb(n) {
@@ -372,6 +407,7 @@
    *
    * GHI CÓ ĐIỀU KIỆN. Ghi vô điều kiện = tự nuôi observer của chính mình (xem `fromUs`). */
   function renderFiles() {
+    if (B.on) return;                 // chế độ lô có khối tệp riêng (`renderBatch`)
     var box = S.panel && S.panel.querySelector(".ec-aifill-files");
     if (!box) return;
     var html = filesHtml(S.files, S.maxFiles, S.uploading);
@@ -526,6 +562,312 @@
   }
 
   /* ---------------------------------------------------------------- lắp đặt */
+
+  /* ============================ G2b — "Tạo hàng loạt" ============================
+   *
+   * VÌ SAO LÀ MỘT CHẾ ĐỘ TRONG PANEL, KHÔNG PHẢI TAB THỨ TƯ.
+   * Thiết kế §14.3 gọi đây là "tab thứ tư". Đọc code trang mới thấy không làm được mà
+   * không đụng vào trang: `renderTabs()` ghi `box.innerHTML` từ một danh sách CỨNG bốn
+   * dòng, nên mọi nút tab chèn thêm bị xoá ở lần vẽ lại kế tiếp; chèn lại trong
+   * MutationObserver chính là vòng lặp đã làm chết form hôm 17/09. Và `data-tab` lạ thì
+   * `go()` của trang không biết đường nào mà đi.
+   * Làm tab thật = sửa `main_section.html` = bump BASELINE_SHA256 + patch resync — đúng
+   * cái mà G1/G2a cố tình tránh. Nên: một cần gạt ngay trong panel. Nó nằm đúng chỗ tab
+   * thứ tư sẽ nằm, và nâng lên thành tab thật sau này là một thay đổi phía TRANG, làm có
+   * chủ đích, không phải một asset dùng chung lén sửa thanh tab của trang.
+   *
+   * MỘT LÔ CHỈ TẠO, KHÔNG QUYẾT ĐỊNH (A61 §1). Màn "sau khi gửi" liệt kê từng phiếu một —
+   * mã riêng, lỗi riêng — chứ không phải một dòng "đã gửi 8 phiếu": hình dạng giao diện
+   * phải nói đúng hình dạng hệ thống. Và không có nút duyệt-tất-cả ở bất kỳ đâu.
+   */
+  var B = { on: false, rows: [], busy: false, cam: false, uploading: false,
+            mo: null, _html: null, done: null };
+  var _rid = 0;
+
+  /* Ô nào hiện trên dòng. Ít thôi: dòng là để QUÉT, không phải để đọc kỹ. Muốn đọc kỹ thì
+   * mở dòng ra. Tiền căn phải + tabular-nums để quét dọc cột là so được độ lớn. */
+  var ROW_FIELDS = [
+    ["payee_full_name", "Người nhận"], ["payment_amount", "Số tiền"],
+    ["account_bank", "Ngân hàng"], ["bank_account_number", "Số tài khoản"],
+    ["payment_date", "Ngày thanh toán"], ["reason", "Lý do / nội dung"]
+  ];
+
+  function money(v) {
+    var n = Number(String(v == null ? "" : v).replace(/[^\d.-]/g, ""));
+    if (!isFinite(n) || !n) return "";
+    return n.toLocaleString("vi-VN");
+  }
+
+  function batchCall(method, args) {
+    if (!S.ns) return Promise.reject(new Error("form này chưa mở tạo hàng loạt"));
+    return frappe.call({ method: S.ns + method, args: args, type: "POST" })
+      .then(function (r) { return (r || {}).message || {}; });
+  }
+
+  /* Trần 10 là TRẦN QUYẾT ĐỊNH, không phải trần công suất — nên lý do từ chối cũng nói
+   * theo quyết định, không nói "hết chỗ". */
+  function batchRefuse(file) {
+    var da = B.rows.map(function (r) { return { name: r.file.name, size: r.file.size }; });
+    if (da.length >= S.maxDrafts) {
+      // `refuseReason` nói "một lượt tối đa N tệp" — đúng cho panel một phiếu, sai ở đây:
+      // con số này đếm PHIẾU, và lý do của nó không phải là máy chạy không kịp.
+      return "một lô tối đa " + S.maxDrafts + " phiếu — đây là số quyết định người duyệt " +
+             "phải đọc, không phải giới hạn của máy";
+    }
+    return refuseReason(file, da, S.maxDrafts, S.fileExts);
+  }
+
+  function rowState(r) {
+    if (r.sent) return ["Đã gửi", "ok"];
+    if (r.err) return ["Lỗi", "bad"];
+    if (r.busy) return ["Đang đọc…", "wait"];
+    var thieu = ROW_FIELDS.filter(function (f) {
+      return !String((r.fields || {})[f[0]] || "").trim();
+    }).length;
+    return thieu ? ["Thiếu " + thieu + " ô", "warn"] : ["Sẵn sàng", "gray"];
+  }
+
+  /* Ba dấu hiệu — rẻ để tra, đắt nếu bỏ sót. Cả ba đều là thứ mắt người bỏ sót ở phiếu
+   * thứ sáu, nên chúng phải nằm TRÊN dòng chứ không nằm sau một cú bấm. */
+  var FLAG_TEXT = {
+    dup_in_batch: ["Trùng STK trong lô", "Hai dòng trong lô này cùng một số tài khoản — có thể AI đọc một tệp thành hai, hoặc một khoản sắp bị trả hai lần."],
+    new_account: ["Số tài khoản mới", "Số tài khoản này chưa từng nằm trên phiếu nào đã gửi."],
+    amount_off: ["Số tiền lệch xa", "Lệch từ 3 lần trở lên so với những phiếu bạn từng gửi cho số tài khoản này."]
+  };
+
+  function flagsHtml(r) {
+    var f = r.flags || {}, out = [];
+    ["dup_in_batch", "new_account", "amount_off"].forEach(function (k) {
+      if (!f[k]) return;
+      out.push('<span class="ec-aifill-flag" title="' + esc(FLAG_TEXT[k][1]) + '">' +
+               esc(FLAG_TEXT[k][0]) + "</span>");
+    });
+    return out.join("");
+  }
+
+  function rowHtml(r) {
+    var st = rowState(r), fl = r.fields || {};
+    var mo = B.mo === r.key;
+    var than = "";
+    if (mo && !r.sent) {
+      than = '<div class="ec-aifill-row-body">' + ROW_FIELDS.map(function (f) {
+        var v = String(fl[f[0]] || "");
+        var dai = f[0] === "reason";
+        return '<label class="ec-aifill-f' + (dai ? " wide" : "") + '"><span>' + esc(f[1]) + "</span>" +
+          (dai ? '<textarea rows="2" data-k="' + f[0] + '">' + esc(v) + "</textarea>"
+               : '<input type="' + (f[0] === "payment_date" ? "date" : "text") +
+                 '" data-k="' + f[0] + '" value="' + esc(v) + '">') + "</label>";
+      }).join("") + "</div>";
+    }
+    var ket = r.sent
+      ? '<a class="ec-aifill-row-link" href="/approvals/payment-request?tab=detail&id=' +
+        encodeURIComponent(r.sent) + '">' + esc(r.sent) + "</a>"
+      : (r.err ? '<span class="ec-aifill-row-err">' + esc(r.err) + "</span>" : "");
+    return '<div class="ec-aifill-row" data-row="' + esc(r.key) + '">' +
+      '<div class="ec-aifill-row-top">' +
+        '<button type="button" class="ec-aifill-row-x2" data-act="mo" aria-expanded="' +
+          (mo ? "true" : "false") + '">' + (mo ? "▾" : "▸") + "</button>" +
+        '<span class="ec-aifill-row-file" title="' + esc(r.file.name) + '">' + esc(r.file.name) + "</span>" +
+        '<span class="ec-aifill-row-who">' + esc(fl.payee_full_name || "—") + "</span>" +
+        '<span class="ec-aifill-row-amt">' + esc(money(fl.payment_amount)) + "</span>" +
+        '<span class="ec-aifill-chip is-' + st[1] + '">' + esc(st[0]) + "</span>" +
+        (r.sent ? "" : '<button type="button" class="ec-aifill-row-del" data-act="xoa" ' +
+                       'aria-label="Bỏ dòng này">×</button>') +
+      "</div>" +
+      (flagsHtml(r) ? '<div class="ec-aifill-row-flags">' + flagsHtml(r) + "</div>" : "") +
+      ket + than + "</div>";
+  }
+
+  function batchHtml() {
+    var n = B.rows.length;
+    var sanSang = B.rows.filter(function (r) { return !r.sent && !r.busy && !r.err; }).length;
+    var daGui = B.rows.filter(function (r) { return r.sent; }).length;
+    var drop =
+      '<div class="ec-aifill-drop ec-aifill-bdrop' + (n >= S.maxDrafts ? " is-full" : "") +
+        '" tabindex="0" role="button">' +
+        (n >= S.maxDrafts
+          ? "<span>Đủ " + S.maxDrafts + " phiếu rồi. Bỏ bớt một dòng nếu muốn thêm tệp khác.</span>"
+          : "<span><b>Thả tối đa " + S.maxDrafts + " tệp</b> — mỗi tệp thành một phiếu, " +
+            "và chính tệp đó là chứng từ đính kèm của phiếu ấy.</span>") +
+        '<input type="file" multiple accept="' +
+        (S.fileExts || []).map(function (e) { return "." + e; }).join(",") + '"></div>';
+
+    var canhBao = n >= S.maxDrafts
+      ? '<div class="ec-aifill-cap">Tối đa ' + S.maxDrafts + ' phiếu một lô. Không phải vì máy chậm: ' +
+        S.maxDrafts + ' phiếu là ' + S.maxDrafts + ' quyết định mà người duyệt phải đọc.</div>'
+      : "";
+
+    var chan = "";
+    if (sanSang && !B.busy) {
+      chan =
+        '<label class="ec-aifill-cam"><input type="checkbox" class="ec-aifill-cam-x"' +
+          (B.cam ? " checked" : "") + "> Tôi xác nhận thông tin và tệp đính kèm của <b>" +
+          sanSang + " phiếu</b> trong lô này là chính xác.</label>" +
+        '<div class="ec-aifill-foot">' +
+          '<button type="button" class="ec-aifill-run ec-aifill-send"' +
+            (B.cam ? "" : " disabled") + ">Gửi " + sanSang + " phiếu</button>" +
+          '<span class="ec-aifill-hint">Mỗi phiếu đi một đường riêng — phiếu lỗi không kéo phiếu khác theo.</span>' +
+        "</div>";
+    } else if (B.busy) {
+      chan = '<div class="ec-aifill-foot"><span class="ec-aifill-hint">Đang gửi từng phiếu một…</span></div>';
+    }
+    if (daGui) {
+      chan = '<div class="ec-aifill-sent">Đã gửi ' + daGui + " phiếu. Mỗi phiếu ở trên có mã " +
+             "và cấp duyệt riêng của nó.</div>" + chan;
+    }
+
+    return drop + canhBao +
+      (n ? '<div class="ec-aifill-rows">' + B.rows.map(rowHtml).join("") + "</div>" : "") +
+      chan;
+  }
+
+  /* Ghi DOM CÓ ĐIỀU KIỆN, và không bao giờ ghi khi con trỏ đang nằm trong khối: người ta
+   * đang sửa một ô mà mình vẽ lại cả danh sách thì con trỏ nhảy về đầu. Cùng một luật đã
+   * áp cho `renderFiles`. */
+  function renderBatch() {
+    if (!B.on || !S.panel) return;
+    var host = S.panel.querySelector(".ec-aifill-batch");
+    if (!host) return;
+    var html = batchHtml();
+    if (html === B._html) return;
+    if (host.contains(document.activeElement) &&
+        /^(INPUT|TEXTAREA)$/.test((document.activeElement || {}).tagName || "")) return;
+    B._html = html;
+    host.innerHTML = html;
+    wireBatch(host);
+  }
+
+  function wireBatch(host) {
+    var drop = host.querySelector(".ec-aifill-bdrop");
+    var inp = drop && drop.querySelector("input[type=file]");
+    if (drop && inp) {
+      drop.onclick = function () { if (B.rows.length < S.maxDrafts) inp.click(); };
+      drop.onkeydown = function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); drop.click(); }
+      };
+      inp.onchange = function () { batchNhan(inp.files); inp.value = ""; };
+      ["dragenter", "dragover"].forEach(function (t) {
+        drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add("is-over"); });
+      });
+      ["dragleave", "drop"].forEach(function (t) {
+        drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.remove("is-over"); });
+      });
+      drop.addEventListener("drop", function (e) {
+        if (e.dataTransfer && e.dataTransfer.files) batchNhan(e.dataTransfer.files);
+      });
+    }
+    host.querySelectorAll("[data-row]").forEach(function (el) {
+      var key = el.getAttribute("data-row");
+      var r = B.rows.filter(function (x) { return x.key === key; })[0];
+      if (!r) return;
+      var mo = el.querySelector('[data-act="mo"]');
+      if (mo) mo.onclick = function () { B.mo = (B.mo === key ? null : key); B._html = null; renderBatch(); };
+      var xoa = el.querySelector('[data-act="xoa"]');
+      if (xoa) xoa.onclick = function () {
+        B.rows = B.rows.filter(function (x) { return x.key !== key; });
+        B.cam = false; B._html = null; renderBatch(); batchFlags();
+      };
+      el.querySelectorAll("[data-k]").forEach(function (f) {
+        f.oninput = function () {
+          r.fields = r.fields || {};
+          r.fields[f.getAttribute("data-k")] = f.value;
+          // Người dùng vừa sửa tay -> cờ cũ có thể sai. Xoá trước, tra lại sau.
+          B._html = null;
+        };
+        f.onchange = function () { batchFlags(); };
+      });
+    });
+    var cam = host.querySelector(".ec-aifill-cam-x");
+    if (cam) cam.onchange = function () { B.cam = cam.checked; B._html = null; renderBatch(); };
+    var send = host.querySelector(".ec-aifill-send");
+    if (send) send.onclick = batchSend;
+  }
+
+  /* Mỗi tệp một lượt gọi RIÊNG, tuần tự. Không gộp 10 tệp vào một request: một request
+   * 10 lượt Gemini là ~80 giây, quá cửa sổ timeout, và một tệp hỏng kéo cả lô xuống.
+   * Gọi riêng thì dòng nào xong vẽ dòng đó, và lỗi ở lượt 4 không đụng lượt 5. */
+  function batchNhan(fileList) {
+    var vao = Array.prototype.slice.call(fileList || []);
+    if (!vao.length) return;
+    var bo = [], nhan = [];
+    vao.forEach(function (f) {
+      var ly = batchRefuse(f);
+      if (ly) bo.push(esc(f.name) + " (" + ly + ")");
+      else { nhan.push(f); B.rows.push({ key: "r" + (++_rid), file: f, fields: {}, busy: true }); }
+    });
+    if (bo.length) say("<b>Bỏ qua " + bo.length + " tệp:</b> " + bo.join("; "), "warn");
+    B.cam = false; B._html = null; renderBatch();
+
+    nhan.reduce(function (p, f) {
+      return p.then(function () {
+        var r = B.rows.filter(function (x) { return x.file === f; })[0];
+        if (!r) return;
+        return uploadOne(f)
+          .then(function (up) {
+            r.url = up.url;
+            return call("suggest", { approval_code: code, files: JSON.stringify([up.url]) });
+          })
+          .then(function (res) {
+            if (res.refused || res.error) throw new Error(res.refused || res.error);
+            r.fields = res.fields || {};
+            // Tệp đọc được thì CHÍNH NÓ là chứng từ của phiếu — bỏ hẳn một bước đính kèm
+            // thủ công cho mỗi phiếu. Đây mới là chỗ "hàng loạt" tiết kiệm thật.
+            if (r.url) r.fields.request_attachment = r.url;
+            if (typeof res.remaining === "number") { S.remaining = res.remaining; }
+          })
+          .catch(function (e) { r.err = (e && e.message) || "không đọc được tệp này"; })
+          .then(function () { r.busy = false; B._html = null; renderBatch(); });
+      });
+    }, Promise.resolve()).then(function () { batchFlags(); });
+  }
+
+  function batchFlags() {
+    if (!S.hasFlags) return;
+    var rows = B.rows.filter(function (r) { return !r.sent && !r.err; }).map(function (r) {
+      return { key: r.key, bank_account_number: (r.fields || {}).bank_account_number || "",
+               payment_amount: (r.fields || {}).payment_amount || 0 };
+    });
+    if (!rows.length) return;
+    call("batch_flags", { approval_code: code, rows: JSON.stringify(rows) })
+      .then(function (res) {
+        B.rows.forEach(function (r) { r.flags = (res || {})[r.key] || null; });
+        B._html = null; renderBatch();
+      })
+      .catch(function () { /* cờ là thứ tăng thêm — hỏng thì im, đừng chặn việc gửi */ });
+  }
+
+  /* Gửi TỪNG phiếu một, tuần tự, mỗi phiếu một kết quả riêng. Người bấm là người dùng,
+   * sau khi tích ô cam kết có ghi rõ số phiếu — AI không bao giờ tự gửi. */
+  function batchSend() {
+    if (B.busy || !B.cam) return;
+    var chay = B.rows.filter(function (r) { return !r.sent && !r.busy && !r.err; });
+    if (!chay.length) return;
+    B.busy = true; B._html = null; renderBatch();
+    chay.reduce(function (p, r) {
+      return p.then(function () {
+        return batchCall("save_draft", { name: null, payload: JSON.stringify(r.fields || {}) })
+          .then(function (res) {
+            if (!res || !res.name) throw new Error("không lưu được bản nháp");
+            r.name = res.name;
+            return batchCall("submit_request", { name: res.name });
+          })
+          .then(function () { r.sent = r.name; r.err = null; })
+          .catch(function (e) {
+            r.err = (e && (e.message || e._server_messages)) || "gửi không thành công";
+          })
+          .then(function () { B._html = null; renderBatch(); });
+      });
+    }, Promise.resolve()).then(function () {
+      B.busy = false; B.cam = false; B.mo = null; B._html = null; renderBatch();
+    });
+  }
+
+  function setMode(on) {
+    B.on = !!on;
+    S._filesHtml = null; B._html = null;
+    render();
+  }
+
   function mount() {
     if (S.panel && document.body.contains(S.panel)) return true;
     /* Neo theo CLASS `.tabs`, không theo id: id mỗi form một kiểu (`payr-tabs`, `book-tabs`,
@@ -547,6 +889,10 @@
     S.maxChars = boot.max_chars || S.maxChars;
     S.maxFiles = boot.max_files || S.maxFiles;
     S.fileExts = boot.file_exts || [];
+    var bt = boot.batch || {};
+    S.maxDrafts = bt.max_drafts || S.maxDrafts;
+    S.hasFlags = !!bt.has_flags;
+    S.ns = bt.ns || "";
     if (!mount()) {
       var tries = 0, tm = setInterval(function () {
         if (mount() || ++tries > 25) clearInterval(tm);
@@ -555,7 +901,7 @@
     // Trang vẽ lại liên tục → vẽ lại dấu + gắn lại panel sau mỗi lần DOM đổi.
     new MutationObserver(function (muts) {
       if (fromUs(muts, S.panel)) return;     // đừng tự đuổi theo cái đuôi của mình
-      mount(); paint(); renderFiles();
+      mount(); paint(); renderFiles(); renderBatch();
     }).observe(document.body, { childList: true, subtree: true });
 
     // Gõ tay vào một ô AI đã điền → dấu biến mất. `capture` để bắt trước handler của trang.
@@ -584,5 +930,8 @@
   window.__ecAifill = { writeOrder: writeOrder, isUserEdit: isUserEdit, ROUTES: ROUTES,
                        filesHtml: filesHtml, fromUs: fromUs,
                        refuseReason: refuseReason, kb: kb,
-                       missingRequired: missingRequired };
+                       missingRequired: missingRequired,
+                       money: money, rowState: rowState, batchRefuse: batchRefuse,
+                       flagsHtml: flagsHtml, batchHtml: batchHtml, B: B, S: S,
+                       setMode: setMode };
 })();

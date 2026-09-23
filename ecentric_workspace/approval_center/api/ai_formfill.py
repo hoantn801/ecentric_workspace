@@ -41,10 +41,22 @@ def bootstrap(approval_code):
         return {"enabled": False}
     used = svc.used_today()
     cap = svc.daily_cap()
+    definition = get_definition(approval_code)
     return {"enabled": True, "remaining": max(0, cap - used), "cap": cap,
             "max_chars": svc.MAX_NOTE_CHARS,
             "max_files": att.MAX_FILES,
-            "file_exts": sorted(att.MIME_BY_EXT.keys())}
+            "file_exts": sorted(att.MIME_BY_EXT.keys()),
+            # Tab "Tao hang loat". `has_flags` de man hinh biet co ve cot dau hieu hay khong
+            # - form nao chua khai `batch_flagger` thi cot do khong ton tai, chu khong phai
+            # ve mot cot rong roi goi mot endpoint luon tra {}.
+            "batch": {"max_drafts": svc.MAX_BATCH_DRAFTS,
+                      "has_flags": definition.batch_flagger is not None,
+                      # Duong dan api CUA FORM, do SERVER dat - man hinh chi viec goi.
+                      # Bundle KHONG duoc tu ghep chuoi nay: no la asset dung chung, doan
+                      # ten module tu `approval_code` la dung lai dung cai anh xa 28 dong
+                      # ma registry sinh ra de xoa bo.
+                      "ns": ("ecentric_workspace.approval_center.api.%s."
+                             % (definition.feature or "")) if definition.feature else ""}}
 
 
 @frappe.whitelist(methods=["POST"])
@@ -148,3 +160,38 @@ def suggest(approval_code, note=None, current=None, files=None):
         "remaining": max(0, cap - used - 1),
         "log": log_name,
     }
+
+
+@frappe.whitelist(methods=["POST"])
+def batch_flags(approval_code, rows=None):
+    """Ba dau hieu ngoai le cho mot LO ban nhap. CHI DOC, va chi tra ve boolean.
+
+    Vi sao endpoint nay ton tai rieng thay vi tra co ngay trong `suggest`: hai dau hieu
+    trong ba chi co nghia KHI DA CO CA LO. `suggest` chay mot tep mot lan (de mot tep hong
+    khong keo ca lo xuong, va de man hinh ve duoc tung dong mot) nen luc do chua ai biet
+    dong ben canh la gi. "Trung so tai khoan trong cung lo" khong ton tai duoc o tang do.
+
+    KHONG tra so lan, KHONG tra so tien, KHONG tra ten ai tao phieu cu. Chi dung/sai. Gia
+    tri canh bao nam o chu "moi"; moi chi tiet them la mot cai oracle khong ai xin.
+    """
+    if svc.is_disabled():
+        frappe.throw(_("Tính năng AI điền hộ đang tắt."))
+    if not _pilot_allowed():
+        frappe.throw(_("Bạn chưa được bật tính năng AI điền hộ."), frappe.PermissionError)
+
+    definition = get_definition(approval_code)
+    flagger = definition.batch_flagger
+    if flagger is None:
+        return {}
+    rows = frappe.parse_json(rows) if isinstance(rows, str) else (rows or [])
+    if not isinstance(rows, list):
+        return {}
+    # Tran cung, ap o SERVER. Tran ben client la goi y giao dien; tran that phai o day,
+    # neu khong thi mot lo 500 dong la 1000 truy van chi bang cach sua mot bien trong console.
+    rows = rows[:svc.MAX_BATCH_DRAFTS]
+    try:
+        return flagger(rows, frappe.session.user) or {}
+    except Exception:
+        # Dau hieu la thu TANG THEM. Hong o day khong duoc phep lam hong man hinh tao phieu.
+        frappe.log_error(title="ai_formfill.batch_flags", message=frappe.get_traceback())
+        return {}

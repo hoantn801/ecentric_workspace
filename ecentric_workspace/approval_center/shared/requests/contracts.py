@@ -79,6 +79,15 @@ class ApprovalDefinition:
     #: -> dict, gan vao detail["extra"]. Dung khi form can ngu canh ngoai phieu (Payment Request:
     #: chuoi cac dot thanh toan). Chi DOC; khong ghi, khong giu tham chieu.
     detail_extender: Optional[Callable] = None
+    #: Ba dau hieu ngoai le cho tab "Tao hang loat", do module so huu:
+    #: (rows, user) -> {key: {ten_co: bool}}. Mac dinh None = form nay khong co dau hieu nao
+    #: va man hinh chi don gian khong ve cot do.
+    #:
+    #: Vi sao la mot callback tren dinh nghia chu khong phai mot nhanh `if approval_code ==`
+    #: trong endpoint dung chung: dau hieu la NGHIEP VU cua tung form (Payment Request dem
+    #: so tai khoan; mot form nghi phep se dem thu khac hoan toan), va endpoint dung chung
+    #: da co dung mot luat - hoi registry. Them form thu 29 khong duoc sua file nay.
+    batch_flagger: Optional[Callable] = None
 
     @property
     def status_label_map(self) -> Mapping[str, str]:
@@ -108,5 +117,7 @@ def validate_definition(definition: ApprovalDefinition) -> None:
         raise ValueError("definition callback is not callable: draft_preparer")
     if definition.detail_extender is not None and not callable(definition.detail_extender):
         raise ValueError("definition callback is not callable: detail_extender")
+    if definition.batch_flagger is not None and not callable(definition.batch_flagger):
+        raise ValueError("definition callback is not callable: batch_flagger")
 
 
