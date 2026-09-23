@@ -257,8 +257,17 @@ def gio_he_thong(iso):
     return convert_utc_to_system_timezone(get_datetime(txt)).replace(tzinfo=None)
 
 
-def ghi_lien_ket(business_doctype, file_url, business_name, ket_qua, da_cap=None):
-    """Luu/cap nhat ban ghi noi tep Frappe voi tep SharePoint. Idempotent theo file_url."""
+def ghi_lien_ket(business_doctype, file_url, business_name, ket_qua, da_cap=None, share_url=None):
+    """Luu/cap nhat ban ghi noi tep Frappe voi tep SharePoint. Idempotent theo file_url.
+
+    `share_url` (23/09): link ma `cap_quyen` tra ve. Truoc day ham goi chi chuyen `da_cap` xuong
+    va VUT link di, nen nut "Mo online" tro vao `sp_web_url` - URL goc cua tep trong thu vien.
+    Quyen cap bang createLink(scope=users) gan vao LINK, khong vao URL goc: ai co quyen san trong
+    thu vien (nguoi duyet) mo URL goc van duoc, con nguoi gui phieu thi bi SharePoint chan du ten
+    ho nam ngay trong `sp_granted_to` (do tren EC-CTR-2026-00019, huong.pham).
+
+    `None` nghia la "lan nay khong co link moi" - GIU link cu, khong xoa. Mot lan cap quyen hong
+    khong duoc phep lam mat link dang dung duoc."""
     ten = frappe.db.get_value(LINK_DT, {"file_url": file_url}, "name")
     doc = frappe.get_doc(LINK_DT, ten) if ten else frappe.new_doc(LINK_DT)
     doc.file_url = file_url
@@ -272,6 +281,8 @@ def ghi_lien_ket(business_doctype, file_url, business_name, ket_qua, da_cap=None
     doc.sp_uploaded_at = doc.sp_last_modified
     doc.sp_synced_at = now_datetime()
     doc.sp_granted_to = ", ".join(da_cap or [])
+    if share_url:
+        doc.sp_share_url = share_url
     doc.save(ignore_permissions=True)
     return doc.name
 
@@ -339,7 +350,8 @@ def dong_bo_phieu(business_doctype, business_name):
             # duoc", ma tep chua cap quyen thi nguoi bam vao se an 403 cua SharePoint. Tha
             # chua co nut "Mo online" con hon co nut bam vao bi tu choi.
             r = cap_quyen(kq["item_id"], nguoi, token=token)
-            ghi_lien_ket(business_doctype, t.file_url, business_name, kq, r["da_cap"])
+            ghi_lien_ket(business_doctype, t.file_url, business_name, kq, r["da_cap"],
+                         share_url=r.get("link"))
             xong.append(t.file_name)
         except Exception:
             frappe.log_error(frappe.get_traceback(),
@@ -407,3 +419,51 @@ def lam_tuoi_moc_sua():
             loi += 1
             frappe.log_error(frappe.get_traceback(), "lam tuoi moc sua %s" % r.name)
     return {"so_ban_ghi": len(rows), "da_cap_nhat": doi, "hong": loi}
+
+
+def cap_bu_link(ten_ban_ghi, token=None):
+    """Lay link chia se cho MOT ban ghi cu. CHI goi `cap_quyen`, TUYET DOI KHONG tai tep len lai.
+
+    Ban tren SharePoint la ban SONG: nguoi duyet sua va comment truc tiep tren do (Hoan chot).
+    `tai_len` ghi de bang ban cua Frappe, tuc xoa sach moi chinh sua cua ho - nen cap bu tuyet
+    doi khong duoc di qua `dong_bo_phieu`.
+
+    `createLink` voi cung type + scope tra ve link DA CO neu co, nen goi lai la an toan: cung
+    nhung nguoi do, cung mot link. Danh sach nguoi doc lai tu luong duyet HIEN TAI, nen ai moi
+    duoc them vao cap duyet sau lan dong bo dau cung duoc cap luon.
+    """
+    doc = frappe.get_doc(LINK_DT, ten_ban_ghi)
+    if not doc.sp_item_id:
+        return {"bo_qua": "khong co sp_item_id"}
+    nguoi = nguoi_trong_luong(doc.business_doctype, doc.business_name)
+    r = cap_quyen(doc.sp_item_id, nguoi, token=token)
+    if r.get("link"):
+        doc.sp_share_url = r["link"]
+    if r.get("da_cap"):
+        doc.sp_granted_to = ", ".join(r["da_cap"])
+    doc.save(ignore_permissions=True)
+    return {"link": bool(r.get("link")), "da_cap": len(r.get("da_cap") or [])}
+
+
+def cap_bu_link_nen():
+    """Diem vao cho `frappe.enqueue` tu patch p204. Moi ban ghi mot lan thu, hong thi ghi log va
+    di tiep - mot tep loi khong duoc keo ca lo dung lai. Commit sau MOI ban ghi: viec nay goi
+    Graph, cham; hong giua chung thi nhung ban da xong van phai con."""
+    ten = frappe.get_all(LINK_DT, filters={"sp_item_id": ["is", "set"]}, pluck="name") or []
+    xong, hong = 0, []
+    try:
+        token = wr_sp.get_app_token()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "cap bu link SharePoint: khong lay duoc token")
+        return
+    for t in ten:
+        try:
+            cap_bu_link(t, token=token)
+            frappe.db.commit()
+            xong += 1
+        except Exception:
+            frappe.db.rollback()
+            frappe.log_error(frappe.get_traceback(), "cap bu link SharePoint %s" % t)
+            hong.append(t)
+    frappe.log_error("cap bu link SharePoint: %d/%d xong, hong: %s" % (xong, len(ten), hong or "(khong)"),
+                     "cap bu link SharePoint - tong ket")

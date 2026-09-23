@@ -560,9 +560,14 @@
       // nang: SharePoint chan mot nguoi (chi lien.vu, 15/09) thi ho khong phai "khong sua
       // online duoc", ho la KHONG DOC DUOC HOP DONG NUA, du ban trong ERP ho co quyen van
       // nam nguyen do. Mot tinh nang tien them khong duoc phep lam mat kha nang von co.
-      var online=!!f.sp_web_url;
+      // Uu tien LINK CHIA SE (23/09). Quyen cap bang createLink(scope=users) gan vao link, khong
+      // vao URL goc cua tep: nguoi gui phieu (huong.pham, EC-CTR-2026-00019) co ten trong danh
+      // sach duoc cap ma bam URL goc van bi SharePoint chan. Ban ghi cu chua co link thi roi ve
+      // URL goc nhu truoc - khong lam mat duong nao dang dung duoc.
+      var linkMo=f.sp_share_url||f.sp_web_url;
+      var online=!!linkMo;
       var mo = online
-        ? '<a href="'+esc(f.sp_web_url)+'" target="_blank" rel="noopener">Mở online</a>'
+        ? '<a href="'+esc(linkMo)+'" target="_blank" rel="noopener">Mở online</a>'
           + ' <span class="hint">·</span> <a href="'+esc(f.file_url)+'" target="_blank" rel="noopener">Bản ERP</a>'
         : '<a href="'+esc(f.file_url)+'" target="_blank" rel="noopener">Mở</a>';
       return '<tr><td>'+esc(f.file_name)+'</td><td>'+esc(f.owner)+'</td><td>'+esc(fmt(f.creation))+'</td>'

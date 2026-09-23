@@ -37,8 +37,8 @@
     "sha256": "ab974a28a2d45a18383092fea390e29d9d42b8a61c3a82992ff9da2359de6529"
   },
   "approval_center/features/contract_review/ui/main_section.html": {
-    "last_resync_patch": "p203_resync_all_forms_alltab",
-    "sha256": "1276bc67bafebd407b1dde2c971ad1d000441e51b48304893208865ff68b02b8"
+    "last_resync_patch": "p205_resync_share_link_pages",
+    "sha256": "1fd6bcfd453eae1ab059a9e2b4feccaaf17db6fa30230bbfbcaa7bd683e817e1"
   },
   "approval_center/features/daily_target/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -136,8 +136,8 @@
     "sha256": "9b750d5223a88101bf5f3947fc5918845fd4320120f95e43926b49fc758bf636"
   },
   "approval_center/ui/all_requests/main_section.html": {
-    "last_resync_patch": "p197_resync_hub_dual_link",
-    "sha256": "cd841fd9e45b04d41e4da2aed78825eb5c968d95012ec0953cbe6408ea402fc2"
+    "last_resync_patch": "p205_resync_share_link_pages",
+    "sha256": "fb6816fe1e87562c17fd139be7b73f3f15d7bef62218bbe7c9c42abe36024196"
   },
   "approval_center/ui/dashboard/main_section.html": {
     "baseline": "2026-08-31",
