@@ -327,6 +327,14 @@ fixtures = [
             "System Settings-ec_llm_provider",
             "System Settings-ec_kie_api_key",
             "System Settings-ec_llm_model_kie",
+            # EC Payment Request (2026-09-23): 4 field nay DA nam trong
+            # fixtures/custom_field.json nhung THIEU o bo loc -> mot lan
+            # `bench export-fixtures` la xoa chung khoi file, site dung moi
+            # thieu field trong im lang. Cung loi voi nhom LLM da va hom nay.
+            "EC Payment Request-ec_brand_moi",
+            "EC Payment Request-ec_brand_ten",
+            "EC Payment Request-ec_ky_chi_phi",
+            "EC Payment Request-ec_vat_pct",
 ]]],
     },
     # Ba DocType custom cua PnL dashboard (09-10/09/2026). Truoc day chi ton tai tren
