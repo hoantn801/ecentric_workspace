@@ -50,7 +50,7 @@ AI_TOOL_ITEMS = [
         "children": [
             {
                 "key": "ai_tools.livestream.brand",
-                "label": "Ho so Brand",
+                "label": "Hồ sơ Brand",
                 "route": "/ai-content/ho-so-brand",
                 "icon": "doc",
                 "order": 10,
@@ -61,7 +61,7 @@ AI_TOOL_ITEMS = [
             },
             {
                 "key": "ai_tools.livestream.rules",
-                "label": "Bo luat",
+                "label": "Bộ luật",
                 "route": "/ai-content/bo-luat",
                 "icon": "gear",
                 "order": 20,
