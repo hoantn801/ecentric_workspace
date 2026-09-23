@@ -207,7 +207,7 @@ def gan_sharepoint(attachments, approvers):
         return attachments
     rows = frappe.get_all(
         "EC SharePoint File Link", filters={"file_url": ["in", urls]},
-        fields=["file_url", "sp_web_url", "sp_last_modified", "sp_uploaded_at"])
+        fields=["file_url", "sp_web_url", "sp_share_url", "sp_last_modified", "sp_uploaded_at"])
     if not rows:
         return attachments
     theo_url = {r.file_url: r for r in rows}
@@ -218,6 +218,8 @@ def gan_sharepoint(attachments, approvers):
         if not r or not r.sp_web_url:
             continue
         a["sp_web_url"] = r.sp_web_url
+        # Link chia se moi la cua ma quyen cap cho nguoi trong luong gan vao (xem ghi_lien_ket).
+        a["sp_share_url"] = r.sp_share_url or ""
         a["sp_last_modified"] = r.sp_last_modified
         if not r.sp_last_modified:
             continue

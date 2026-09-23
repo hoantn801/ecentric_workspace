@@ -8,7 +8,7 @@
  "engine": "InnoDB",
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-15 19:00:00.000000",
+ "modified": "2026-09-23 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC SharePoint File Link",
@@ -24,6 +24,7 @@
   "cb0",
   "sp_item_id",
   "sp_web_url",
+  "sp_share_url",
   "sp_uploaded_at",
   "sp_last_modified",
   "sp_synced_at",
@@ -66,6 +67,13 @@
    "label": "SharePoint URL",
    "read_only": 1,
    "description": "Duong dan mo tren Word Online. PHAI la Small Text chu khong phai Data: Graph tra ve URL da URL-encode ten tep, ma moi ky tu tieng Viet co dau no ra 9 ky tu (o-moc-nang -> %E1%BB%A3). Mot ten tep tieng Viet binh thuong da vuot nguong 140 cua Data - do that 14/09 la 190 ky tu."
+  },
+  {
+   "fieldname": "sp_share_url",
+   "fieldtype": "Small Text",
+   "label": "Link chia se",
+   "read_only": 1,
+   "description": "Link do createLink(scope=users) tra ve. Quyen cap cho nguoi trong luong GAN VAO LINK NAY, khong phai vao sp_web_url (URL goc cua tep trong thu vien). Nguoi khong co quyen san trong thu vien - vi du nguoi gui phieu - chi mo duoc tep qua link nay (do 23/09, EC-CTR-2026-00019)."
   },
   {
    "fieldname": "sp_uploaded_at",
