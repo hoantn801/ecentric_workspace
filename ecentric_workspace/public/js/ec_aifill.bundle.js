@@ -580,7 +580,7 @@
    * mã riêng, lỗi riêng — chứ không phải một dòng "đã gửi 8 phiếu": hình dạng giao diện
    * phải nói đúng hình dạng hệ thống. Và không có nút duyệt-tất-cả ở bất kỳ đâu.
    */
-  var B = { on: false, rows: [], busy: false, cam: false, uploading: false,
+  var B = { on: false, rows: [], busy: false, uploading: false,
             mo: null, _html: null, done: null };
   var _rid = 0;
 
@@ -618,7 +618,7 @@
   }
 
   function rowState(r) {
-    if (r.sent) return ["Đã gửi", "ok"];
+    if (r.name) return ["Đã tạo nháp", "ok"];
     if (r.err) return ["Lỗi", "bad"];
     if (r.busy) return ["Đang đọc…", "wait"];
     var thieu = ROW_FIELDS.filter(function (f) {
@@ -649,7 +649,7 @@
     var st = rowState(r), fl = r.fields || {};
     var mo = B.mo === r.key;
     var than = "";
-    if (mo && !r.sent) {
+    if (mo && !r.name) {
       than = '<div class="ec-aifill-row-body">' + ROW_FIELDS.map(function (f) {
         var v = String(fl[f[0]] || "");
         var dai = f[0] === "reason";
@@ -659,9 +659,17 @@
                  '" data-k="' + f[0] + '" value="' + esc(v) + '">') + "</label>";
       }).join("") + "</div>";
     }
-    var ket = r.sent
-      ? '<a class="ec-aifill-row-link" href="/approvals/payment-request?tab=detail&id=' +
-        encodeURIComponent(r.sent) + '">' + esc(r.sent) + "</a>"
+    /* Nói RÕ còn thiếu ô nào, kèm nhãn đúng như trên form. "Lỗi" một mình là thứ đẩy
+     * người dùng đi hỏi, và đẩy tôi đi điều tra trên prod. */
+    var thieu = (r.missing || []).map(function (x) { return x.label || x.fieldname; });
+    var ket = r.name
+      ? '<div class="ec-aifill-row-done">' +
+          '<a class="ec-aifill-row-link" href="/approvals/payment-request?tab=detail&id=' +
+          encodeURIComponent(r.name) + '">' + esc(r.name) + "</a>" +
+          (thieu.length
+            ? '<span class="ec-aifill-row-need">còn thiếu: ' + esc(thieu.join(", ")) + "</span>"
+            : '<span class="ec-aifill-row-need">đủ ô bắt buộc — mở ra xem lại rồi bấm Gửi</span>') +
+        "</div>"
       : (r.err ? '<span class="ec-aifill-row-err">' + esc(r.err) + "</span>" : "");
     return '<div class="ec-aifill-row" data-row="' + esc(r.key) + '">' +
       '<div class="ec-aifill-row-top">' +
@@ -671,7 +679,7 @@
         '<span class="ec-aifill-row-who">' + esc(fl.payee_full_name || "—") + "</span>" +
         '<span class="ec-aifill-row-amt">' + esc(money(fl.payment_amount)) + "</span>" +
         '<span class="ec-aifill-chip is-' + st[1] + '">' + esc(st[0]) + "</span>" +
-        (r.sent ? "" : '<button type="button" class="ec-aifill-row-del" data-act="xoa" ' +
+        (r.name ? "" : '<button type="button" class="ec-aifill-row-del" data-act="xoa" ' +
                        'aria-label="Bỏ dòng này">×</button>') +
       "</div>" +
       (flagsHtml(r) ? '<div class="ec-aifill-row-flags">' + flagsHtml(r) + "</div>" : "") +
@@ -680,8 +688,8 @@
 
   function batchHtml() {
     var n = B.rows.length;
-    var sanSang = B.rows.filter(function (r) { return !r.sent && !r.busy && !r.err; }).length;
-    var daGui = B.rows.filter(function (r) { return r.sent; }).length;
+    var sanSang = B.rows.filter(function (r) { return !r.name && !r.busy && !r.err; }).length;
+    var daGui = B.rows.filter(function (r) { return r.name; }).length;
     var drop =
       '<div class="ec-aifill-drop ec-aifill-bdrop' + (n >= S.maxDrafts ? " is-full" : "") +
         '" tabindex="0" role="button">' +
@@ -697,23 +705,26 @@
         S.maxDrafts + ' phiếu là ' + S.maxDrafts + ' quyết định mà người duyệt phải đọc.</div>'
       : "";
 
+    /* KHÔNG có ô cam kết ở đây nữa, và đó là điều cố ý.
+     *
+     * Ô cam kết là chữ ký trách nhiệm cho việc GỬI. Màn này không gửi, nên để nó lại là
+     * xin một chữ ký cho một hành động không xảy ra — và tệ hơn, nó dạy người dùng tích
+     * vào những ô như thế mà không đọc. Chữ ký ấy thuộc về form, nơi người ta thực sự bấm
+     * Gửi, và nó vẫn nằm nguyên ở đó. */
     var chan = "";
     if (sanSang && !B.busy) {
       chan =
-        '<label class="ec-aifill-cam"><input type="checkbox" class="ec-aifill-cam-x"' +
-          (B.cam ? " checked" : "") + "> Tôi xác nhận thông tin và tệp đính kèm của <b>" +
-          sanSang + " phiếu</b> trong lô này là chính xác.</label>" +
         '<div class="ec-aifill-foot">' +
-          '<button type="button" class="ec-aifill-run ec-aifill-send"' +
-            (B.cam ? "" : " disabled") + ">Gửi " + sanSang + " phiếu</button>" +
-          '<span class="ec-aifill-hint">Mỗi phiếu đi một đường riêng — phiếu lỗi không kéo phiếu khác theo.</span>' +
+          '<button type="button" class="ec-aifill-run ec-aifill-send">Tạo ' + sanSang +
+            " bản nháp</button>" +
+          '<span class="ec-aifill-hint">Tạo xong bạn mở từng phiếu, điền nốt phần của mình rồi tự bấm Gửi.</span>' +
         "</div>";
     } else if (B.busy) {
-      chan = '<div class="ec-aifill-foot"><span class="ec-aifill-hint">Đang gửi từng phiếu một…</span></div>';
+      chan = '<div class="ec-aifill-foot"><span class="ec-aifill-hint">Đang tạo từng bản nháp một…</span></div>';
     }
     if (daGui) {
-      chan = '<div class="ec-aifill-sent">Đã gửi ' + daGui + " phiếu. Mỗi phiếu ở trên có mã " +
-             "và cấp duyệt riêng của nó.</div>" + chan;
+      chan = '<div class="ec-aifill-sent">Đã tạo ' + daGui + " bản nháp. Mỗi phiếu ở trên " +
+             "còn chờ bạn điền nốt và tự bấm Gửi — hệ thống chưa gửi cái nào cả.</div>" + chan;
     }
 
     return drop + canhBao +
@@ -765,7 +776,7 @@
       var xoa = el.querySelector('[data-act="xoa"]');
       if (xoa) xoa.onclick = function () {
         B.rows = B.rows.filter(function (x) { return x.key !== key; });
-        B.cam = false; B._html = null; renderBatch(); batchFlags();
+        B._html = null; renderBatch(); batchFlags();
       };
       el.querySelectorAll("[data-k]").forEach(function (f) {
         f.oninput = function () {
@@ -777,10 +788,8 @@
         f.onchange = function () { batchFlags(); };
       });
     });
-    var cam = host.querySelector(".ec-aifill-cam-x");
-    if (cam) cam.onchange = function () { B.cam = cam.checked; B._html = null; renderBatch(); };
     var send = host.querySelector(".ec-aifill-send");
-    if (send) send.onclick = batchSend;
+    if (send) send.onclick = batchTaoNhap;
   }
 
   /* Mỗi tệp một lượt gọi RIÊNG, tuần tự. Không gộp 10 tệp vào một request: một request
@@ -796,7 +805,7 @@
       else { nhan.push(f); B.rows.push({ key: "r" + (++_rid), file: f, fields: {}, busy: true }); }
     });
     if (bo.length) say("<b>Bỏ qua " + bo.length + " tệp:</b> " + bo.join("; "), "warn");
-    B.cam = false; B._html = null; renderBatch();
+    B._html = null; renderBatch();
 
     nhan.reduce(function (p, f) {
       return p.then(function () {
@@ -823,7 +832,7 @@
 
   function batchFlags() {
     if (!S.hasFlags) return;
-    var rows = B.rows.filter(function (r) { return !r.sent && !r.err; }).map(function (r) {
+    var rows = B.rows.filter(function (r) { return !r.name && !r.err; }).map(function (r) {
       return { key: r.key, bank_account_number: (r.fields || {}).bank_account_number || "",
                payment_amount: (r.fields || {}).payment_amount || 0 };
     });
@@ -838,27 +847,59 @@
 
   /* Gửi TỪNG phiếu một, tuần tự, mỗi phiếu một kết quả riêng. Người bấm là người dùng,
    * sau khi tích ô cam kết có ghi rõ số phiếu — AI không bao giờ tự gửi. */
-  function batchSend() {
-    if (B.busy || !B.cam) return;
-    var chay = B.rows.filter(function (r) { return !r.sent && !r.busy && !r.err; });
+  /* CÂU TIẾNG VIỆT THẬT CỦA SERVER, không phải "gửi không thành công".
+   *
+   * Frappe không đặt lỗi nghiệp vụ vào `e.message`: `frappe.throw` xếp câu đó vào
+   * `_server_messages` — một chuỗi JSON chứa những chuỗi JSON khác, mỗi cái có khoá
+   * `message`, và nội dung là HTML. Bản đầu của tôi đọc `e.message` rồi rơi về một câu
+   * chết, nên "Loại chi phí này gắn với một brand — vui lòng chọn brand" biến thành
+   * "gửi không thành công", và mỗi lỗi sau đó thành một cuộc điều tra trên prod.
+   */
+  function loiThat(e, mac_dinh) {
+    var raw = (e && e._server_messages) ||
+              (window.frappe && frappe.last_response && frappe.last_response._server_messages);
+    try {
+      var cau = JSON.parse(raw).map(function (x) {
+        try { return JSON.parse(x).message || x; } catch (_) { return x; }
+      }).join(" · ");
+      cau = String(cau).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+      if (cau) return cau;
+    } catch (_) { /* không parse được thì rơi xuống dưới */ }
+    var m = e && (e.message || e.exc_type);
+    return (m && String(m).trim()) || mac_dinh;
+  }
+
+  /* CHỈ TẠO BẢN NHÁP. Không gửi.
+   *
+   * Chốt với Hoàn 23/09. Bản đầu của tôi gửi luôn cả lô, và cái sai không nằm ở giao diện
+   * mà ở chính đề bài: hai ô bắt buộc của phiếu là PHÁN ĐOÁN CỦA CON NGƯỜI — "Chi phí hợp
+   * lệ?" và ô tích xác nhận thông tin — còn Brand thì không nằm trên hoá đơn nên AI không
+   * thể biết. Một lô TT_KOL vì thế gần như không bao giờ gửi sạch được, và mỗi lần không
+   * sạch là một dòng "Lỗi" không giải thích gì.
+   *
+   * Nên lô dừng ở bản nháp: máy làm phần máy đọc được, người làm phần chỉ người mới trả
+   * lời được, và ranh giới đó hiện ra trên màn hình bằng danh sách "còn thiếu".
+   */
+  function batchTaoNhap() {
+    if (B.busy) return;
+    var chay = B.rows.filter(function (r) { return !r.name && !r.busy && !r.err; });
     if (!chay.length) return;
     B.busy = true; B._html = null; renderBatch();
     chay.reduce(function (p, r) {
       return p.then(function () {
-        return batchCall("save_draft", { name: null, payload: JSON.stringify(r.fields || {}) })
+        return call("create_draft", { approval_code: code,
+                                      fields: JSON.stringify(r.fields || {}) })
           .then(function (res) {
-            if (!res || !res.name) throw new Error("không lưu được bản nháp");
+            if (!res || !res.name) throw new Error("không tạo được bản nháp");
             r.name = res.name;
-            return batchCall("submit_request", { name: res.name });
+            r.missing = res.missing || [];
+            r.err = null;
           })
-          .then(function () { r.sent = r.name; r.err = null; })
-          .catch(function (e) {
-            r.err = (e && (e.message || e._server_messages)) || "gửi không thành công";
-          })
+          .catch(function (e) { r.err = loiThat(e, "không tạo được bản nháp"); })
           .then(function () { B._html = null; renderBatch(); });
       });
     }, Promise.resolve()).then(function () {
-      B.busy = false; B.cam = false; B.mo = null; B._html = null; renderBatch();
+      B.busy = false; B.mo = null; B._html = null; renderBatch();
     });
   }
 
@@ -933,5 +974,6 @@
                        missingRequired: missingRequired,
                        money: money, rowState: rowState, batchRefuse: batchRefuse,
                        flagsHtml: flagsHtml, batchHtml: batchHtml, B: B, S: S,
+                       loiThat: loiThat,
                        setMode: setMode };
 })();
