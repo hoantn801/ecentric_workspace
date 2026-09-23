@@ -370,7 +370,12 @@ a.ec-shell-crumblink:focus-visible{ outline:2px solid #2C3DA6; outline-offset:2p
 }
 
 /* ---- collapsible submenu (2B.1 nav patch, minimal) ------------------------ */
-.ec-shell-subtoggle{ width:100%; border:none; background:transparent; cursor:pointer; font:inherit; text-align:left; }
+/* `font:inherit` la SHORTHAND nen no reset ca font-size ve 16px cua <button>,
+ * de len `.ec-shell-item{font-size:13.5px}` o tren (cung do uu tien, nam sau).
+ * Hau qua: muc cha co menu con hien 16px va xuong 2 dong, lech han voi
+ * cac muc khac. Khai lai font-size ngay sau shorthand. Do 23/09 tren
+ * team.ecentric.vn: truoc 16px/66px, cac muc khac 13.5px/38px. */
+.ec-shell-subtoggle{ width:100%; border:none; background:transparent; cursor:pointer; font:inherit; font-size:13.5px; text-align:left; }
 .ec-shell-chev{ width:14px; height:14px; margin-left:auto; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; transition:transform .15s; }
 .ec-shell-subtoggle[aria-expanded="true"] .ec-shell-chev{ transform:rotate(180deg); }
 .ec-shell-children{ display:flex; flex-direction:column; gap:2px; }
