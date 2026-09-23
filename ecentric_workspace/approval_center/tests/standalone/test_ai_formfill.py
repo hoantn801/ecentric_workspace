@@ -488,5 +488,81 @@ class TestChiDanRiengChoTungTruong(unittest.TestCase):
         self.assertIn("CHI DAN AI", m.build_prompt(sch, "van ban nguon"))
 
 
+class TestChuNoneKhongPhaiGiaTri(unittest.TestCase):
+    """Do 23/09/2026 tren Kie gemini-3-8-flash: o khong co thong tin thi model tra ve CHU
+    "none"/"null" thay vi null JSON, va truong chu nhan nguyen chu do vao form."""
+    def _gate(self, raw):
+        m, _ = _load(meta_fields=_DEF_FIELDS)
+        schema = _run(m, lambda: m.build_schema(_definition()))
+        return _run(m, lambda: m.gate(schema, raw))
+
+    def test_chu_none_null_bi_bo_nhu_o_trong(self):
+        for word in ("none", "None", "null", " NULL ", "n/a", "-"):
+            accepted, dropped = self._gate({"payee_full_name": word})
+            with self.subTest(word=word):
+                self.assertEqual(accepted, {})
+                self.assertEqual(dropped, [{"field": "payee_full_name", "reason": "rong"}])
+
+    def test_ten_that_co_chua_chu_none_van_giu(self):
+        # chi so khop CA chuoi - mau DAT cua cung luat
+        accepted, dropped = self._gate({"payee_full_name": "Nonestop Co"})
+        self.assertEqual(accepted, {"payee_full_name": "Nonestop Co"})
+        self.assertEqual(dropped, [])
+
+    def test_trich_dan_la_chu_none_khong_len_man_hinh(self):
+        m, _ = _load()
+        v, s = _run(m, lambda: m.split_sources({
+            "payment_amount": 450000, "payment_amount__source": "450.000d",
+            "bank_account_number": "null", "bank_account_number__source": "null"}))
+        self.assertEqual(s, {"payment_amount": "450.000d"})
+
+
+class TestTrichDanPhaiNamTrongVanBan(unittest.TestCase):
+    """Do 23/09/2026: ghi chu KHONG co so tai khoan, Kie van tra ve so tai khoan KEM trich dan
+    bia "STK: 19034567890123 tai Techcombank". Gate khong biet van ban nguon nen de lot."""
+    SCHEMA = [{"fieldname": "bank_account_number", "fieldtype": "Data"},
+              {"fieldname": "payment_amount", "fieldtype": "Currency"},
+              {"fieldname": "payee_full_name", "fieldtype": "Data"}]
+    NOTE = ("De nghi thanh toan 450.000d tien mua but bi cho phong Dich vu, "
+            "nguoi nhan Nguyen Thi Huong.")
+
+    def _verify(self, values, sources, has_files=False):
+        m, _ = _load()
+        return _run(m, lambda: m.verify_sources(self.SCHEMA, values, sources, self.NOTE, has_files))
+
+    def test_so_tai_khoan_bia_kem_trich_dan_bia_bi_bo(self):
+        kept, dropped = self._verify(
+            {"bank_account_number": "19034567890123", "payment_amount": 450000},
+            {"bank_account_number": "STK: 19034567890123 tai Techcombank",
+             "payment_amount": "450.000d"})
+        self.assertNotIn("bank_account_number", kept)
+        self.assertEqual(kept["payment_amount"], 450000)
+        self.assertEqual(dropped, [{"field": "bank_account_number",
+                                    "reason": "trich_dan_khong_co_trong_van_ban"}])
+
+    def test_trich_dan_that_giu_nguyen_ke_ca_khac_hoa_thuong_va_khoang_trang(self):
+        kept, dropped = self._verify({"payment_amount": 450000},
+                                     {"payment_amount": "thanh  toan 450.000D"})
+        self.assertEqual(kept, {"payment_amount": 450000})
+        self.assertEqual(dropped, [])
+
+    def test_truong_bat_buoc_trich_dan_ma_khong_co_trich_dan_thi_bo(self):
+        kept, dropped = self._verify({"payment_amount": 999000}, {})
+        self.assertEqual(kept, {})
+        self.assertEqual(len(dropped), 1)
+
+    def test_truong_khong_can_trich_dan_khong_bi_dung_toi(self):
+        kept, dropped = self._verify({"payee_full_name": "Nguyen Thi Huong"}, {})
+        self.assertEqual(kept, {"payee_full_name": "Nguyen Thi Huong"})
+        self.assertEqual(dropped, [])
+
+    def test_co_tep_dinh_kem_thi_khong_doi_chieu_voi_rieng_ghi_chu(self):
+        kept, dropped = self._verify({"bank_account_number": "0071000123456"},
+                                     {"bank_account_number": "STK 0071000123456 (trong hop dong)"},
+                                     has_files=True)
+        self.assertEqual(kept, {"bank_account_number": "0071000123456"})
+        self.assertEqual(dropped, [])
+
+
 if __name__ == "__main__":
     unittest.main()
