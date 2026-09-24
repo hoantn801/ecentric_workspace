@@ -9,11 +9,14 @@ import json
 import frappe
 from frappe import _
 
-from ecentric_workspace.approval_center.shared.workflow.user_rules import require_active_system_user
+from ecentric_workspace.approval_center.shared.workflow.participants import (
+    CNB_ROLE, check_approver_parts, participant_rows, role_ref, validate_seed_entries)
 
 PROCESS_CODE = "PROMOTION_REQUEST-V1"
 APPROVAL_TYPE = "PROMOTION_REQUEST"
-DEFAULT_CNB = ["tuan.ly@ecentric.vn"]
+# Cap CnB/HR resolve theo ROLE (25/09/2026) - ai giu role `EC CnB` deu nhan phieu, Any One.
+# Truyen danh sach email vao setup thi van ep duoc nguoi cu the.
+DEFAULT_CNB = [role_ref(CNB_ROLE)]
 DEFAULT_HOF = ["phuong.nguyen1@ecentric.vn"]
 DEFAULT_CEO = ["lam.nguyen@ecentric.vn"]
 
@@ -32,13 +35,7 @@ def _parse(v, default):
 
 
 def _validate(label, users, rep):
-    if not users:
-        rep["errors"].append("No %s users supplied." % label)
-    for u in users:
-        try:
-            require_active_system_user(u, label)
-        except Exception as e:
-            rep["errors"].append("%s: %s" % (label, str(e)))
+    validate_seed_entries(label, users, rep)
 
 
 @frappe.whitelist()
@@ -112,9 +109,9 @@ def _upsert(users):
             lvl.append("participants", {"participant_purpose": "Approver",
                                         "source_type": "Requester Manager", "sort_order": 0})
         else:
-            for i, u in enumerate(ulist or []):
-                lvl.append("participants", {"participant_purpose": "Approver", "source_type": "User",
-                                            "user": u, "sort_order": i})
+            for i, row in enumerate(participant_rows(ulist)):
+                row.update({"participant_purpose": "Approver", "sort_order": i})
+                lvl.append("participants", row)
         lvl.save(ignore_permissions=True)
 
     _upsert_level(1, "Direct Manager Review", "manager", None)
@@ -144,20 +141,14 @@ def validate_promotion_v1():
         for l in levels:
             parts = frappe.get_all("EC Approval Participant",
                                    filters={"parent": l.name, "participant_purpose": "Approver"},
-                                   fields=["source_type", "user"])
+                                   fields=["source_type", "user", "role"])
             if l.level_no == 1:
                 c(any(p.source_type == "Requester Manager" for p in parts), "L1 Requester Manager source")
             else:
-                us = [p.user for p in parts if p.source_type == "User"]
-                c(bool(us) and len(us) == len(set(us)), "L%s approvers, no dup" % l.level_no)
-                for u in us:
-                    c(_active(u), "L%s approver %s active" % (l.level_no, u))
+                for ok, msg in check_approver_parts(parts, l.level_no):
+                    c(ok, msg)
         c(not frappe.get_all("EC Approval Process",
                              filters={"approval_type": APPROVAL_TYPE, "status": "Active",
                                       "process_code": ["!=", PROCESS_CODE]}), "no OTHER Active process")
     return {"ok": all(x["ok"] for x in checks), "checks": checks}
 
-
-def _active(u):
-    r = frappe.db.get_value("User", u, ["enabled", "user_type"], as_dict=True)
-    return bool(r and r.enabled and r.user_type == "System User")
