@@ -12,6 +12,7 @@ Loi do khong lam gi do; no chi lam mot cau khang dinh sai nam trong ho so tai ch
 co test nay thi mot lan refactor bat ky cung co the tra no ve.
 """
 import io
+import json
 import os
 import sys
 import types
@@ -69,8 +70,10 @@ class _Meta(object):
         return None
 
 
-def _load(disabled=False, roles=("System Manager",), saved=None):
-    """saved: dict gia lap ban ghi sau khi luu (mo phong new_doc lap Select bat buoc)."""
+def _load(disabled=False, roles=("System Manager",), saved=None,
+          log_row=None, doc_readable=True):
+    """saved: dict gia lap ban ghi sau khi luu (mo phong new_doc lap Select bat buoc).
+    log_row: dong `EC AI Formfill Log` gia; None = khong tim thay dong nao."""
     fk = types.ModuleType("frappe")
     fk._ = lambda s: s
     fk.session = types.SimpleNamespace(user=TOI)
@@ -104,10 +107,23 @@ def _load(disabled=False, roles=("System Manager",), saved=None):
                     "details_and_attachments_correct": "No"})
     ghi = []
 
-    def _set_value(dt, name, field, value, update_modified=True):
+    def _set_value(dt, name, field, value=None, update_modified=True):
+        if isinstance(field, dict):
+            for k, v in field.items():
+                ghi.append((k, v)); log_row[k] = v
+            return
         ghi.append((field, value))
         ban_ghi[field] = value
-    fk.db = types.SimpleNamespace(set_value=_set_value)
+
+    def _get_value(dt, filters, fieldname=None, as_dict=False, order_by=None):
+        if dt != "EC AI Formfill Log":
+            return None
+        if log_row is None:
+            return None
+        return dict(log_row) if as_dict else log_row
+    fk.db = types.SimpleNamespace(set_value=_set_value, get_value=_get_value)
+    fk.has_permission = lambda dt, doc=None, ptype=None, user=None: doc_readable
+    fk.utils = types.SimpleNamespace(now_datetime=lambda: "2026-09-24 10:00:00")
 
     class _Doc(object):
         def get(self, k):
@@ -133,8 +149,10 @@ def _load(disabled=False, roles=("System Manager",), saved=None):
     svc.daily_cap = lambda: 50
     svc.MAX_NOTE_CHARS = 8000
     svc.MAX_BATCH_DRAFTS = 10
+    svc.LOG_DOCTYPE = "EC AI Formfill Log"
 
     definition = types.SimpleNamespace(
+        code="PAYMENT_REQUEST",
         business_doctype="EC Payment Request", editable_fields=EDITABLE,
         ai_exclude_fields=AI_EXCLUDE, clone_exclude_fields=CLONE_EXCLUDE,
         batch_flagger=None, feature="payment_request")
@@ -170,6 +188,7 @@ def _load(disabled=False, roles=("System Manager",), saved=None):
         with io.open(_SRC, encoding="utf-8") as fh:
             exec(compile(fh.read(), "ai_formfill.py", "exec"), m.__dict__)
         m._ghi, m._ban_ghi, m._da_luu, m._dn = ghi, ban_ghi, da_luu, definition
+        m._log_row = log_row
         return m
     finally:
         for k, v in saved_mods.items():
@@ -264,6 +283,82 @@ class TestCong(unittest.TestCase):
         m = _load(roles=("Employee",))
         with self.assertRaises(Exception):
             m.create_draft("PAYMENT_REQUEST", {})
+
+
+class TestDongDauLog(unittest.TestCase):
+    """Noi dong log voi phieu -> lan mo sau con to duoc mau."""
+
+    def _row(self, **kw):
+        d = {"request_user": TOI, "business_doc": ""}
+        d.update(kw)
+        return d
+
+    def test_dong_dau_khi_dong_log_la_cua_chinh_minh(self):
+        m = _load(log_row=self._row())
+        m.create_draft("PAYMENT_REQUEST", {"payee_full_name": "A"}, log="AIF-1")
+        self.assertEqual(m._log_row.get("business_doc"), "EC-PAYR-2026-00232")
+        self.assertTrue(m._log_row.get("handed_off_at"))
+
+    def test_KHONG_dong_dau_len_luot_AI_cua_nguoi_khac(self):
+        # Ma dong log do CLIENT gui len. Khong kiem thi mot request tu tay gan duoc phieu
+        # cua minh vao luot cua nguoi khac.
+        m = _load(log_row=self._row(request_user="ai.do@ecentric.vn"))
+        m.create_draft("PAYMENT_REQUEST", {"payee_full_name": "A"}, log="AIF-1")
+        self.assertEqual(m._log_row.get("business_doc"), "")
+
+    def test_KHONG_ghi_de_dong_da_co_phieu(self):
+        m = _load(log_row=self._row(business_doc="EC-PAYR-2026-00111"))
+        m.create_draft("PAYMENT_REQUEST", {"payee_full_name": "A"}, log="AIF-1")
+        self.assertEqual(m._log_row.get("business_doc"), "EC-PAYR-2026-00111")
+
+    def test_khong_truyen_log_thi_khong_no(self):
+        m = _load(log_row=None)
+        ra = m.create_draft("PAYMENT_REQUEST", {"payee_full_name": "A"})
+        self.assertEqual(ra["name"], "EC-PAYR-2026-00232")
+
+
+class TestMarks(unittest.TestCase):
+    def _row(self, offered):
+        return {"name": "AIF-1", "request_user": TOI,
+                "business_doc": "EC-PAYR-2026-00232",
+                "fields_offered": json.dumps(offered, ensure_ascii=False),
+                "handed_off_at": "2026-09-24 10:00:00"}
+
+    def test_tra_ve_ten_o_va_NHAN_dung_nhu_tren_form(self):
+        m = _load(log_row=self._row({"payee_full_name": "Nguyễn Thanh Phụng",
+                                     "payment_amount": 3000000}))
+        ra = m.marks("PAYMENT_REQUEST", "EC-PAYR-2026-00232")
+        self.assertEqual(sorted(ra["fields"]), ["payee_full_name", "payment_amount"])
+        self.assertEqual(ra["labels"]["payee_full_name"], "Người nhận")
+        self.assertTrue(ra["at"])
+
+    def test_KHONG_tra_ve_gia_tri_AI_de_xuat(self):
+        # Gia tri hien tai da nam tren phieu; gia tri CU la du lieu do cua giai doan 3,
+        # khong phai thu man hinh can. Tra it nhat co the.
+        m = _load(log_row=self._row({"payee_full_name": "Nguyễn Thanh Phụng"}))
+        ra = m.marks("PAYMENT_REQUEST", "EC-PAYR-2026-00232")
+        self.assertEqual(set(ra.keys()), {"fields", "labels", "at"})
+        self.assertNotIn("Nguyễn Thanh Phụng", json.dumps(ra, ensure_ascii=False))
+
+    def test_o_da_bi_xoa_khoi_form_thi_bo_qua(self):
+        m = _load(log_row=self._row({"payee_full_name": "A", "truong_da_chet": "x"}))
+        self.assertEqual(m.marks("PAYMENT_REQUEST", "EC-PAYR-2026-00232")["fields"],
+                         ["payee_full_name"])
+
+    def test_khong_co_dong_log_thi_tra_rong(self):
+        m = _load(log_row=None)
+        self.assertEqual(m.marks("PAYMENT_REQUEST", "EC-PAYR-2026-00232")["fields"], [])
+
+    def test_khong_doc_duoc_phieu_thi_TU_CHOI(self):
+        # Hoi dung cau hoi "nguoi nay co doc duoc phieu khong" - luat da nam trong
+        # has_permission cua doctype; dung dat mot luat thu hai o day.
+        m = _load(log_row=self._row({"payee_full_name": "A"}), doc_readable=False)
+        with self.assertRaises(Exception):
+            m.marks("PAYMENT_REQUEST", "EC-PAYR-2026-00232")
+
+    def test_ten_phieu_rong_thi_khong_hoi_gi(self):
+        m = _load(log_row=None)
+        self.assertEqual(m.marks("PAYMENT_REQUEST", "")["fields"], [])
 
 
 if __name__ == "__main__":
