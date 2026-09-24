@@ -117,16 +117,33 @@ class TestLeavePendingVisibility(unittest.TestCase):
         self.assertEqual(_chay("huong.pham@ecentric.vn", True, don),
                          ["HR-LAP-2026-00041"])
 
+    def test_buoc_lead_do_cap_tren_ky_chu_khong_phai_nhan_su(self):
+        # Luong moi buoc mot la LEAD. Neu HR cung bam duoc buoc nay thi mot nguoi ky
+        # ca hai cua -> hai chu ky chi con la mot.
+        don = [_don("HR-LAP-2026-00041", "phuong.nguyen@ecentric.vn", "lead")]
+        self.assertEqual(_chay("linh.ngo@ecentric.vn", False, don),
+                         ["HR-LAP-2026-00041"])
+        self.assertEqual(_chay("huong.pham@ecentric.vn", True, don), [])
+
+    def test_cap_tren_gian_tiep_cung_ky_duoc_buoc_lead(self):
+        # Lead nghi/ban thi don khong duoc ket: cap cao hon van go duoc.
+        don = [_don("HR-LAP-2026-00041", "phuong.nguyen@ecentric.vn", "lead")]
+        self.assertEqual(_chay(CEO, True, don), ["HR-LAP-2026-00041"])
+
     def test_khong_co_vai_tro_hr_thi_khong_thay_don_buoc_nhan_su(self):
         # Quan ly truc tiep cua Phuong. Backend se nem 'Don nay cho Nhan su duyet
         # truoc', nen KHONG duoc hien nut -- nut bam vao bao loi con te hon khong nut.
         don = [_don("HR-LAP-2026-00041", "phuong.nguyen@ecentric.vn", "hr")]
         self.assertEqual(_chay("linh.ngo@ecentric.vn", False, don), [])
 
-    def test_buoc_ceo_chi_ceo_chot(self):
+    def test_buoc_ceo_la_di_san_van_co_duong_ve_dich(self):
+        # Tu 24/09 khong sinh them don nao o buoc nay. Nhung don lo nop truoc do
+        # phai ve duoc dich, nen mo cho CA CEO va Nhan su - khong de cho mot nguoi.
         don = [_don("HR-LAP-2026-00041", "phuong.nguyen@ecentric.vn", "ceo")]
         self.assertEqual(_chay(CEO, True, don), ["HR-LAP-2026-00041"])
-        self.assertEqual(_chay("huong.pham@ecentric.vn", True, don), [])
+        self.assertEqual(_chay("huong.pham@ecentric.vn", True, don),
+                         ["HR-LAP-2026-00041"])
+        self.assertEqual(_chay("linh.ngo@ecentric.vn", False, don), [])
 
     def test_don_cua_chinh_ceo_thi_nhan_su_chot_buoc_cuoi(self):
         # Neu khong co nhanh nay thi don hieu/hi cua CEO ket cung: buoc cuoi bat
@@ -199,11 +216,103 @@ class TestManNghiPhepNoiDungBuoc(unittest.TestCase):
         self.assertNotIn("m.status==='Approved'?'Đã duyệt ✓':'Đã từ chối'", src)
         self.assertIn("ec-lv-toast-v2", src)
 
-    def test_buoc_nhan_su_bao_dung_la_con_cho_CEO(self):
+    def test_duyet_buoc_mot_bao_dung_la_con_cho_nguoi_ke_tiep(self):
+        # Luong moi: lead ky xong thi con Nhan su. Trang phai noi ro con mot chu ky
+        # nua, neu khong nguoi duyet tuong xong roi va khong ai nhac buoc sau.
         src = self._trang()
-        self.assertIn("chuyển CEO ký bước cuối", src)
+        self.assertIn("chuyển Nhân sự ký bước cuối", src)
+        self.assertNotIn("chuyển CEO ký bước cuối", src)
 
     def test_hang_cho_duyet_noi_ro_buoc_may(self):
         src = self._trang()
         self.assertIn("Bước 1/2", src)
         self.assertIn("Bước 2/2", src)
+
+
+class TestLuongLeadRoiNhanSu(unittest.TestCase):
+    """Luong moi (24/09, Hoan chot): LEAD -> NHAN SU -> xong, CC cho CEO.
+
+    Truoc do la HR -> CEO, bo qua lead hoan toan: quan ly truc tiep khong he biet
+    nguoi cua minh nghi, con don thi doi chu ky cua nguoi ban nhat cong ty."""
+
+    def test_don_hieu_hi_sinh_ra_o_buoc_lead(self):
+        src = _script("ec_hr_leave_apply")
+        i = src.index("if lt in TWO_STEP:")
+        khoi = src[i:i + 500]
+        self.assertIn("stage = 'lead'", khoi)
+        self.assertIn("order by lft desc limit 1", khoi,
+                      "lead phai doc theo cay de tu nhay qua ca 'lead tu nop don'")
+
+    def test_nguoi_dung_dau_cong_ty_nop_don_thi_khong_ket(self):
+        # Khong con ai o tren -> giao thang Nhan su. Tha mot chu ky con hon mot don
+        # khong ai bam duoc (dung cai bay da lam 3 don nam im).
+        src = _script("ec_hr_leave_apply")
+        i = src.index("if lt in TWO_STEP:")
+        self.assertIn("if not appr:", src[i:i + 900])
+
+    def test_buoc_nhan_su_la_buoc_cuoi_khong_con_chuyen_CEO(self):
+        src = _script("ec_hr_leave_decide")
+        i = src.index("elif stage == 'hr':")
+        khoi = src[i:i + 420]
+        self.assertIn("la.submit()", khoi)
+        self.assertNotIn("'stage': 'ceo'", khoi)
+
+    def test_hr_khong_ky_duoc_buoc_lead(self):
+        src = _script("ec_hr_leave_decide")
+        i = src.index("if stage == 'lead':")
+        dieu_kien = src[i:i + 160]
+        self.assertIn("mgr_user", dieu_kien)
+        self.assertIn("is_ancestor_mgr", dieu_kien)
+        self.assertNotIn("is_hr", dieu_kien)
+
+    def test_CEO_duoc_CC_khi_don_xong(self):
+        src = _script("ec_hr_leave_decide")
+        self.assertIn("ec-lv-cc-ceo-v1", src)
+        i = src.index("ec-lv-cc-ceo-v1")
+        khoi = src[i:i + 900]
+        self.assertIn("'for_user': CEO_USER", khoi)
+        # Chi bao o chuong. Tao ToDo cho CEO la bien nguoi vua duoc go khoi duong
+        # duyet thanh nguoi co them mot hang cho trong danh sach viec.
+        self.assertNotIn("'doctype': 'ToDo'", khoi)
+
+    def test_nhac_viec_di_theo_nguoi_duyet_ke_tiep(self):
+        src = _script("ec_hr_leave_decide")
+        self.assertIn("'allocated_to': nxt_user", src)
+        self.assertNotIn("'allocated_to': CEO_USER", src)
+
+
+class TestPatchDuaDonVeBuocLead(unittest.TestCase):
+    """3 don lo nop theo luong cu dang dung o buoc 'hr'. De nguyen thi Nhan su ky
+    mot chu la xong - quan ly van khong duoc hoi lan nao."""
+
+    def _src(self):
+        path = os.path.join(_repo_root(), "hr", "patches",
+                            "p001_leave_two_step_back_to_lead.py")
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_da_dang_ky_trong_patches_txt(self):
+        with open(os.path.join(_repo_root(), "patches.txt"), encoding="utf-8") as fh:
+            self.assertIn("hr.patches.p001_leave_two_step_back_to_lead", fh.read())
+
+    def test_chi_dung_toi_don_chua_xu_ly(self):
+        src = self._src()
+        self.assertIn('"docstatus": 0', src)
+        self.assertIn('"status": "Open"', src)
+        self.assertIn('"ec_approval_stage": "hr"', src)
+
+    def test_doi_ca_nguoi_duyet_va_nhac_viec(self):
+        # Doi moi mot truong stage thi don im lang nam trong 'Viec can lam' cua
+        # nguoi khong con trach nhiem - dung kieu hong vua phai sua.
+        src = self._src()
+        self.assertIn('"leave_approver": lead', src)
+        self.assertIn("_chuyen_todo", src)
+
+    def test_khong_tim_duoc_lead_thi_de_nguyen(self):
+        src = self._src()
+        i = src.index("if not lead:")
+        self.assertIn("continue", src[i:i + 320])
+
+    def test_khong_bao_gio_nem_loi(self):
+        # Patch chay trong migrate: nem loi la chan ca lan deploy.
+        self.assertIn("except Exception:", self._src())
