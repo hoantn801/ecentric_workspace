@@ -296,8 +296,18 @@ def _assert_can_view(definition, business_name, request_name):
     """Cong quyen DUY NHAT cho phan trao doi. Dung ham chuan cua engine, khong tu che
     luat thu hai - xem feedback_db_get_value_bypasses_permissions."""
     from ecentric_workspace.approval_center.shared.workflow.permissions import can_view_request
+    # HOI META TRUOC KHI DOC COT (23/09). Chi 8/28 DocType nghiep vu co `fulfillment_owner`
+    # (nhung form co buoc xu ly). Doc cung ca hai cot thi 20 form con lai - HR Activity,
+    # Contract Review, Purchase Request, Leave... - nem OperationalError "Unknown column" va
+    # khung trao doi tra HTTP 500 moi lan co nguoi mo phieu. Song tren production tu 09/09
+    # (p166) toi 23/09; do duoc tren EC-APR-2026-00355, 00341, 00346, 00047.
+    # Cung khuon voi `sharepoint_mirror.nguoi_trong_luong`: truong thieu la chuyen cau hinh
+    # cua form, khong phai loi phai giau di - nen hoi truoc, khong doc bua roi nuot loi.
+    cot = ["requested_by"]
+    if frappe.get_meta(definition.business_doctype).has_field("fulfillment_owner"):
+        cot.append("fulfillment_owner")
     row = frappe.db.get_value(definition.business_doctype, business_name,
-                              ["requested_by", "fulfillment_owner"], as_dict=True) or {}
+                              cot, as_dict=True) or {}
     if not can_view_request(request_name, business_doctype=definition.business_doctype,
                             requested_by=row.get("requested_by"),
                             fulfillment_owner=row.get("fulfillment_owner"),
