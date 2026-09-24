@@ -268,4 +268,5 @@ ecentric_workspace.sla.patches.p013_resync_sla_page
 ecentric_workspace.approval_center.patches.p204_backfill_sp_share_url
 ecentric_workspace.approval_center.patches.p205_resync_share_link_pages
 ecentric_workspace.sla.patches.p014_leave_pause_backfill
+ecentric_workspace.approval_center.patches.p206_reassign_aitop_00029
 ecentric_workspace.hr.patches.p001_leave_two_step_back_to_lead
