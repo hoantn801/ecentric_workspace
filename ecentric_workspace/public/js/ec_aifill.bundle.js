@@ -86,7 +86,8 @@
   var S = { filled: {}, sources: {}, before: {}, busy: false, remaining: null, cap: null,
             maxChars: 8000, maxFiles: 5, files: [], fileExts: [], uploading: false, ran: false,
             _filesHtml: null, panel: null,
-            maxDrafts: 10, hasFlags: false, ns: "" };
+            maxDrafts: 10, hasFlags: false, ns: "",
+            marks: null, marksFor: null };
 
   /* Tệp có nhận được không, và nếu không thì VÌ SAO. PURE.
    * Chặn ở client cho người dùng biết ngay, nhưng server vẫn chặn lại lần nữa — cổng ở
@@ -295,8 +296,33 @@
         (B.on ? "true" : "false") + '">Tạo hàng loạt</button></div>';
   }
 
+  /* Man CHI TIET khong co o nhap nao de to, va cac dong `kv()` cua trang khong mang ten
+   * truong trong DOM - chi co nhan. Nen o day khong to tung o (bam theo chuoi nhan la mot
+   * cai bay: trang tu go nhan, doi mot chu la mat dau tich im lang). Thay vao do noi thang
+   * ra bang mot dong: phieu nay co bao nhieu o do may doc, va la nhung o nao. Voi nguoi
+   * duyet, do moi la thong tin ho can - biet cho nao dang soi. */
+  function detailHtml() {
+    var ds = (S.marks && S.marks.fields) || [];
+    var nhan = ds.map(function (f) {
+      return esc(((S.marks.labels || {})[f]) || f);
+    });
+    return '<div class="ec-aifill-top">' + MARK +
+        '<span class="ec-aifill-title">AI đã điền ' + ds.length + ' ô trên phiếu này</span></div>' +
+      '<div class="ec-aifill-body"><div class="ec-aifill-seen">' +
+        nhan.join(" · ") +
+        '<span class="ec-aifill-seen-note">Người lập đã xem lại và tự bấm Gửi. ' +
+        'Những ô này do máy đọc từ tệp đính kèm — soi kỹ số tiền và số tài khoản.</span>' +
+      "</div></div>";
+  }
+
   function render() {
     if (!S.panel) return;
+    // Man chi tiet: khong co o nhap nao -> ve dong tom tat, khong ve khoi dien.
+    if (!document.querySelector("[data-fld]")) {
+      S.panel.innerHTML = (S.marks ? detailHtml() : "");
+      S.panel.classList.toggle("is-running", false);
+      return;
+    }
     var n = Object.keys(S.filled).length;
     var quota = S.remaining == null ? "" :
       '<span class="ec-aifill-quota">còn ' + S.remaining + ' lượt hôm nay</span>';
@@ -819,6 +845,9 @@
           .then(function (res) {
             if (res.refused || res.error) throw new Error(res.refused || res.error);
             r.fields = res.fields || {};
+            // Ma dong log: server dung no de noi luot AI nay voi phieu sap tao, nho
+            // vay lan mo sau van to duoc mau. Ban dau toi vut di gia tri nay.
+            r.log = res.log || null;
             // Tệp đọc được thì CHÍNH NÓ là chứng từ của phiếu — bỏ hẳn một bước đính kèm
             // thủ công cho mỗi phiếu. Đây mới là chỗ "hàng loạt" tiết kiệm thật.
             if (r.url) r.fields.request_attachment = r.url;
@@ -888,7 +917,8 @@
     chay.reduce(function (p, r) {
       return p.then(function () {
         return call("create_draft", { approval_code: code,
-                                      fields: JSON.stringify(r.fields || {}) })
+                                      fields: JSON.stringify(r.fields || {}),
+                                      log: r.log || "" })
           .then(function (res) {
             if (!res || !res.name) throw new Error("không tạo được bản nháp");
             r.name = res.name;
@@ -907,6 +937,40 @@
     B.on = !!on;
     S._filesHtml = null; B._html = null;
     render();
+  }
+
+  /* ============ Mo lai mot phieu da co: to mau tu DAU TICH LUU TREN SERVER ============
+   *
+   * Ban do vang/do o tab "Tao moi" chay bang `S.filled` - bien trong bo nho cua dung phien
+   * da chay AI. Mo lai ban nhap hom sau, hay nguoi khac mo, thi khong con gi de to. Server
+   * giu dau tich do tren dong log (`business_doc`), va day la cho doc no ve.
+   *
+   * KHONG dung `state` cua trang de biet dang o man nao: bien noi bo cua trang doi luc nao
+   * khong ai bao. Hoi DOM - o `[data-fld]` chi ton tai o form nhap, khong co o man chi tiet.
+   */
+  function draftId() {
+    try {
+      return new URLSearchParams(window.location.search).get("id") || null;
+    } catch (e) { return null; }
+  }
+
+  function loadMarks() {
+    var id = draftId();
+    if (!id || id === S.marksFor) return;
+    S.marksFor = id;                         // danh dau TRUOC khi goi: dung hoi hai lan
+    call("marks", { approval_code: code, name: id })
+      .then(function (res) {
+        var ds = (res && res.fields) || [];
+        S.marks = ds.length ? res : null;
+        if (!ds.length) return;
+        // Chi nap nhung o CHUA bi nguoi dung go tay trong phien nay.
+        ds.forEach(function (f) {
+          if (!Object.prototype.hasOwnProperty.call(S.filled, f)) S.filled[f] = true;
+        });
+        S.ran = true;                        // mo luon o do cho o bat buoc con trong
+        paint(); render();
+      })
+      .catch(function () { /* khong co dau tich thi thoi, dung lam phien form */ });
   }
 
   function mount() {
@@ -939,10 +1003,11 @@
         if (mount() || ++tries > 25) clearInterval(tm);
       }, 400);
     }
+    loadMarks();
     // Trang vẽ lại liên tục → vẽ lại dấu + gắn lại panel sau mỗi lần DOM đổi.
     new MutationObserver(function (muts) {
       if (fromUs(muts, S.panel)) return;     // đừng tự đuổi theo cái đuôi của mình
-      mount(); paint(); renderFiles(); renderBatch();
+      mount(); loadMarks(); paint(); renderFiles(); renderBatch();
     }).observe(document.body, { childList: true, subtree: true });
 
     // Gõ tay vào một ô AI đã điền → dấu biến mất. `capture` để bắt trước handler của trang.
@@ -974,6 +1039,6 @@
                        missingRequired: missingRequired,
                        money: money, rowState: rowState, batchRefuse: batchRefuse,
                        flagsHtml: flagsHtml, batchHtml: batchHtml, B: B, S: S,
-                       loiThat: loiThat,
+                       loiThat: loiThat, draftId: draftId, detailHtml: detailHtml,
                        setMode: setMode };
 })();

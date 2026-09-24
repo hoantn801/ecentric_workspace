@@ -251,7 +251,7 @@ def _con_thieu(definition, name):
 
 
 @frappe.whitelist(methods=["POST"])
-def create_draft(approval_code, fields=None):
+def create_draft(approval_code, fields=None, log=None):
     """Tao MOT ban nhap tu ket qua AI. KHONG gui. Tra ve ma phieu + o nao con thieu."""
     if svc.is_disabled():
         frappe.throw(_("Tính năng AI điền hộ đang tắt."))
@@ -288,4 +288,81 @@ def create_draft(approval_code, fields=None):
             frappe.log_error(title="ai_formfill.create_draft: khong xoa duoc %s" % fieldname,
                              message=frappe.get_traceback())
 
+    _dong_dau_log(log, name)
     return {"name": name, "missing": _con_thieu(definition, name)}
+
+
+def _dong_dau_log(log_name, business_name):
+    """Noi dong log cua luot AI vao phieu vua tao.
+
+    De man hinh CON TO DUOC MAU O LAN MO SAU. Ban do vang/do hien nay chay bang `S.filled` -
+    mot bien trong bo nho trinh duyet cua dung phien da chay AI; mo lai ban nhap hom sau,
+    hoac nguoi khac mo, thi khong con gi de to. Cho luu la `business_doc` tren dong log:
+    DocType do da khai san truong nay tu dau (cung voi `handed_off_at`) va chua ai dung.
+    Nho vay KHONG phai them truong vao 28 doctype phieu, khong phai migrate.
+
+    `log_name` do CLIENT gui len nen phai kiem: chi dong dau len dong cua CHINH nguoi dang
+    goi, va chi khi dong do con trong. Khong kiem thi mot request tu tay co the gan phieu
+    cua minh vao luot AI cua nguoi khac.
+    """
+    if not log_name or not business_name:
+        return
+    try:
+        row = frappe.db.get_value(svc.LOG_DOCTYPE, log_name,
+                                  ["request_user", "business_doc"], as_dict=True)
+        if not row or row.get("request_user") != frappe.session.user:
+            return
+        if (row.get("business_doc") or "").strip():
+            return
+        frappe.db.set_value(svc.LOG_DOCTYPE, log_name, {
+            "business_doc": business_name,
+            "handed_off_at": frappe.utils.now_datetime(),
+        }, update_modified=False)
+    except Exception:
+        # Dau moc la thu tang them. Hong o day khong duoc lam hong viec tao phieu.
+        frappe.log_error(title="ai_formfill._dong_dau_log", message=frappe.get_traceback())
+
+
+@frappe.whitelist()
+def marks(approval_code, name):
+    """O nao tren phieu `name` la do AI dien. CHI DOC.
+
+    Tra ve {"fields": [fieldname], "labels": {fieldname: nhan}, "at": <luc ban giao>}.
+
+    KHONG tra ve GIA TRI ma AI de xuat - gia tri hien tai nam ngay tren phieu roi, va gia
+    tri CU (truoc khi nguoi dung sua) la du lieu do cua giai doan 3, khong phai thu man hinh
+    can. Tra it nhat co the.
+
+    Quyen: hoi dung cau hoi "nguoi nay co doc duoc phieu do khong". Khong tu dat luat rieng -
+    luat da nam trong `has_permission` cua chinh doctype phieu, va mot luat thu hai o day som
+    muon se lech khoi no.
+    """
+    definition = get_definition(approval_code)
+    name = (name or "").strip()
+    if not name:
+        return {"fields": [], "labels": {}, "at": None}
+    if not frappe.has_permission(definition.business_doctype, doc=name, ptype="read"):
+        raise frappe.PermissionError
+
+    row = frappe.db.get_value(
+        svc.LOG_DOCTYPE,
+        {"business_doc": name, "approval_code": definition.code},
+        ["name", "fields_offered", "handed_off_at"], as_dict=True, order_by="creation desc")
+    if not row:
+        return {"fields": [], "labels": {}, "at": None}
+    try:
+        offered = frappe.parse_json(row.get("fields_offered") or "{}") or {}
+    except Exception:
+        offered = {}
+    if not isinstance(offered, dict):
+        return {"fields": [], "labels": {}, "at": None}
+
+    meta = frappe.get_meta(definition.business_doctype)
+    fields, labels = [], {}
+    for fieldname in offered.keys():
+        df = meta.get_field(fieldname)
+        if df is None:
+            continue
+        fields.append(fieldname)
+        labels[fieldname] = _(df.label or fieldname)
+    return {"fields": fields, "labels": labels, "at": row.get("handed_off_at")}

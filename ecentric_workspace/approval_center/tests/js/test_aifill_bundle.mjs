@@ -405,5 +405,43 @@ function nap(pathname) {
      "cot tien can phai + tabular-nums de quet doc cot la so duoc");
 }
 
+// ---- 12. Mo lai phieu da co: dau tich lay tu SERVER -------------------------
+// Bản đồ vàng/đỏ cũ sống trong bộ nhớ trình duyệt của đúng phiên chạy AI. Mở lại hôm sau
+// là mất sạch. Hai hàm dưới là chỗ nối sang dấu tích server giữ trên dòng log.
+{
+  function nap4(search) {
+    const tai = { location: { pathname: "/approvals/payment-request", search: search || "" },
+      requestAnimationFrame: (f) => f(), MutationObserver: class { observe() {} },
+      Event: class { constructor(t) { this.type = t; } } };
+    const doc = { readyState: "complete", body: { contains: () => true },
+      addEventListener() {}, querySelector: () => null, querySelectorAll: () => [],
+      createElement: () => ({ style: {}, classList: { add() {}, toggle() {} },
+                              setAttribute() {}, appendChild() {}, querySelector: () => null }) };
+    new Function("window", "document", "frappe", readFileSync(SRC, "utf8"))(tai, doc, undefined);
+    return tai.__ecAifill;
+  }
+
+  la(nap4("?id=EC-PAYR-2026-00232").draftId() === "EC-PAYR-2026-00232",
+     "doc duoc ma phieu tren URL");
+  la(nap4("?tab=detail&id=EC-PAYR-2026-00232").draftId() === "EC-PAYR-2026-00232",
+     "doc duoc ma phieu khi con tham so khac");
+  la(nap4("").draftId() === null, "khong co id -> null, khong no");
+  la(nap4("?id=").draftId() === null, "id rong -> null");
+
+  const A = nap4("?id=EC-PAYR-2026-00232");
+  A.S.marks = { fields: ["payee_full_name", "payment_amount"],
+                labels: { payee_full_name: "Người nhận", payment_amount: "Số tiền" } };
+  const h = A.detailHtml();
+  la(/AI đã điền 2 ô/.test(h), "man chi tiet noi ro SO O may da dien");
+  la(/Người nhận/.test(h) && /Số tiền/.test(h), "liet ke dung nhan cua tung o");
+  la(/số tiền và số tài khoản/.test(h), "chi thang cho nguoi duyet nen soi ky cho nao");
+  // A58: "AI điền" là tình trạng công cụ, không phải trạng thái workflow.
+  la(!/ec-aifill-chip is-ok|#f0fdf4/.test(h), "KHONG muon mau trang thai workflow (A58)");
+
+  // Nhãn do server trả về -> phải escape, không nhét thẳng vào HTML.
+  A.S.marks = { fields: ["x"], labels: { x: '<img src=x onerror=alert(1)>' } };
+  la(!/<img/.test(A.detailHtml()), "nhan tu server duoc escape truoc khi ve");
+}
+
 console.log(`${dat} dat, ${hong} hong`);
 process.exit(hong ? 1 : 0);

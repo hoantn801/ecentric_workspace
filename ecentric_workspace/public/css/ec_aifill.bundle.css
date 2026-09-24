@@ -367,3 +367,22 @@
   .ec-aifill-row-flags,.ec-aifill-row-link,.ec-aifill-row-err,
   .ec-aifill-row-done{ padding-left:10px; }
 }
+
+/* Dòng tóm tắt ở màn CHI TIẾT (người duyệt đọc).
+ *
+ * Không tô từng ô ở đây, và đó là quyết định chứ không phải bỏ sót: các dòng `kv()` của
+ * trang chi tiết KHÔNG mang tên trường trong DOM, chỉ có nhãn. Bám theo chuỗi nhãn là một
+ * cái bẫy — trang tự gõ nhãn, đổi một chữ là dấu tích mất im lặng, và mất im lặng ở đúng
+ * chỗ người duyệt đang tin là tệ nhất. Nên nói thẳng bằng một dòng: bao nhiêu ô, ô nào.
+ *
+ * Họ XÁM, không phải wash navy/xanh (A58): "AI điền" là tình trạng công cụ, không phải một
+ * trạng thái workflow. #4b5563 trên #f3f4f6 = 6.87:1.
+ */
+.ec-aifill-seen{
+  padding:11px 13px; border-radius:9px;
+  background:var(--ec-af-line-soft); border:1px solid var(--ec-af-line);
+  font-size:13px; line-height:1.6; color:var(--ec-af-ink-2);
+}
+.ec-aifill-seen-note{
+  display:block; margin-top:6px; font-size:12px; color:var(--ec-af-ink-3);
+}
