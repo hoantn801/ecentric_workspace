@@ -178,6 +178,68 @@ def _wait_for_active(file_uri, gemini_api_key, max_wait=WAIT_ACTIVE_MAX):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @frappe.whitelist()
+def fetch_pdf_bytes(sp_web_url, graph_token, dept_clean=""):
+    """Tai tep tu SharePoint ve BYTES PDF. Office -> PDF bang Graph ?format=pdf.
+
+    Bóc ra tu `upload_from_sp_url` (2026-09-25) vi duong Kie CAN BYTES: Kie khong
+    giai duoc file URI cua Google (URI tro ve generativelanguage.googleapis.com),
+    no chi nhan inline base64. Truoc day bytes chi ton tai trong long ham upload
+    roi bi vut di ngay sau khi day len Google.
+
+    `upload_from_sp_url` goi chinh ham nay nen hanh vi duong cu KHONG doi.
+
+    -> {"ok", "data" (bytes), "display_name", "converted_from", "size_bytes", "error"}
+    """
+    out = {"ok": False, "data": None, "display_name": "", "converted_from": "",
+           "size_bytes": 0, "error": None}
+
+    rel_path = _extract_rel_path(sp_web_url, dept_clean)
+    if not rel_path:
+        out["error"] = "Cannot extract rel_path from SP webUrl"
+        return out
+
+    filename = rel_path.rsplit("/", 1)[-1]
+    ext = _file_extension(filename)
+    needs_conversion = ext in OFFICE_EXTS
+    out["converted_from"] = ext
+
+    encoded_path = quote(rel_path, safe="/")
+    base_url = ("https://graph.microsoft.com/v1.0/sites/" + SITE_ID
+                + "/drive/root:/" + encoded_path + ":/content")
+    dl_url = base_url + ("?format=pdf" if needs_conversion else "")
+
+    try:
+        r = requests.get(dl_url,
+                         headers={"Authorization": "Bearer " + graph_token},
+                         timeout=DOWNLOAD_TIMEOUT,
+                         allow_redirects=True)  # Graph format=pdf tra 302 sang CDN
+        r.raise_for_status()
+        pdf_bytes = r.content
+    except Exception as e:
+        out["error"] = "Graph download failed: " + scrub(str(e), graph_token)[:300]
+        return out
+
+    if not pdf_bytes or len(pdf_bytes) < 100:
+        out["error"] = "Downloaded content too small (" + str(len(pdf_bytes)) + " bytes)"
+        return out
+    # Ke ca ?format=pdf ket qua VAN phai la %PDF -- Graph co the "chuyen doi" hong
+    # ma van tra 200 kem mot trang HTML loi.
+    if not pdf_bytes.startswith(b"%PDF"):
+        out["error"] = ("Not a valid PDF (first 8 bytes: " + pdf_bytes[:8].hex()
+                        + ") -- Graph conversion may have failed silently")
+        return out
+
+    display_name = filename
+    if needs_conversion and "." in display_name:
+        display_name = display_name.rsplit(".", 1)[0] + ".pdf"
+
+    out["ok"] = True
+    out["data"] = pdf_bytes
+    out["display_name"] = display_name
+    out["size_bytes"] = len(pdf_bytes)
+    return out
+
+
 def upload_from_sp_url(sp_web_url, graph_token, gemini_api_key,
                        dept_clean="", wait_active=True):
     """Download file from SharePoint, convert Office→PDF if needed, upload to Gemini Files API.
@@ -224,61 +286,16 @@ def upload_from_sp_url(sp_web_url, graph_token, gemini_api_key,
     """
     result = {"success": False}
 
-    # Step 1: Extract rel_path from webUrl
-    rel_path = _extract_rel_path(sp_web_url, dept_clean)
-    if not rel_path:
-        result["error"] = "Cannot extract rel_path from SP webUrl"
-        result["sp_web_url_head"] = sp_web_url[:120]
+    got = fetch_pdf_bytes(sp_web_url, graph_token, dept_clean)
+    result["converted_from"] = got.get("converted_from") or ""
+    if not got.get("ok"):
+        result["error"] = got.get("error")
+        if "rel_path" in (got.get("error") or ""):
+            result["sp_web_url_head"] = sp_web_url[:120]
         return result
-
-    # Step 2: Detect extension
-    filename = rel_path.rsplit("/", 1)[-1]
-    ext = _file_extension(filename)
-    needs_conversion = ext in OFFICE_EXTS
-    result["converted_from"] = ext
-
-    # Step 3: Build Graph download URL
-    encoded_path = quote(rel_path, safe="/")
-    base_url = (
-        "https://graph.microsoft.com/v1.0/sites/" + SITE_ID
-        + "/drive/root:/" + encoded_path + ":/content"
-    )
-    dl_url = base_url + ("?format=pdf" if needs_conversion else "")
-
-    # Step 4: Download (raw bytes — Path A advantage)
-    try:
-        r = requests.get(
-            dl_url,
-            headers={"Authorization": "Bearer " + graph_token},
-            timeout=DOWNLOAD_TIMEOUT,
-            allow_redirects=True,  # Graph format=pdf returns 302 to CDN
-        )
-        r.raise_for_status()
-        pdf_bytes = r.content
-    except Exception as e:
-        # Redact graph_token from error if present
-        result["error"] = "Graph download failed: " + scrub(str(e), graph_token)[:300]
-        return result
-
-    if not pdf_bytes or len(pdf_bytes) < 100:
-        result["error"] = "Downloaded content too small (" + str(len(pdf_bytes)) + " bytes)"
-        return result
-
-    # Verify PDF magic — even for ?format=pdf the result must be %PDF
-    if not pdf_bytes.startswith(b"%PDF"):
-        result["error"] = (
-            "Not a valid PDF (first 8 bytes: "
-            + pdf_bytes[:8].hex()
-            + ") — Graph conversion may have failed silently"
-        )
-        return result
-
-    result["size_bytes"] = len(pdf_bytes)
-
-    # Step 5: Prepare Gemini filename — strip Office ext, append .pdf if converted
-    display_name = filename
-    if needs_conversion and "." in display_name:
-        display_name = display_name.rsplit(".", 1)[0] + ".pdf"
+    pdf_bytes = got["data"]
+    display_name = got["display_name"]
+    result["size_bytes"] = got["size_bytes"]
 
     # Step 6+7: Upload to Gemini Files API, wait for ACTIVE.
     up = upload_bytes(pdf_bytes, display_name, "application/pdf", gemini_api_key,
