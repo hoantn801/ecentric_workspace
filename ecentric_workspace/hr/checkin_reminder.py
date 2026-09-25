@@ -165,7 +165,23 @@ def _should_skip(emp, today):
         "from_date": ["<=", today], "to_date": [">=", today],
     }):
         return True
-    # 4) Da cham cong roi.
+    # 4) Da duoc duyet di lam viec BEN NGOAI hom nay.
+    #    Truoc 25/09 buoc nay khong ton tai: outside_work/service.py ghi thang trong
+    #    docstring "No fulfillment, no attendance update (v1)", va _should_skip chi
+    #    biet ngay le / nghi phep / da cham cong. Hau qua: cong ty duyet cho nguoi ta
+    #    di key live ba ngay, roi sang nao cung nhac ho chua cham cong, va cuoi thang
+    #    dem ca ba ngay do la thieu cong. Duyet cho di roi phat vi da di.
+    #    Doc trang thai tu ban ghi engine (EC Approval Request.approval_status) chu
+    #    khong tu ban ghi nghiep vu: STATE song o engine, ben kia chi la con tro.
+    if frappe.db.sql(
+        "select w.name from `tabEC Outside Work Request` w"
+        " inner join `tabEC Approval Request` a on a.name = w.approval_request"
+        " where w.employee=%s and a.approval_status='Approved'"
+        " and w.start_date <= %s and w.end_date >= %s limit 1",
+        (emp["name"], today, today),
+    ):
+        return True
+    # 5) Da cham cong roi.
     if frappe.db.sql(
         "select name from `tabEmployee Checkin` where employee=%s and date(time)=%s limit 1",
         (emp["name"], today),
