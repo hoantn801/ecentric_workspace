@@ -24,6 +24,16 @@ def _seed_row():
 
 
 def execute():
+    """Loi o day KHONG duoc chan migrate: seed/setup chay tay lai duoc qua
+    setup_brand_weight_v1(apply=1), con mot migrate hong thi rollback ca dot deploy."""
+    try:
+        _execute()
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error(title="p210_seed_brand_weight")
+
+
+def _execute():
     if not frappe.db.exists("DocType", DOCTYPE):
         return
     log = frappe.logger("approval_center")

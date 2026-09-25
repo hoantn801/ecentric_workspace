@@ -10,5 +10,9 @@ from ecentric_workspace.approval_center.features.brand_weight.infrastructure imp
 def execute():
     if not frappe.db.exists("DocType", "Web Page"):
         return
-    res = page_sync.sync()
-    frappe.logger("approval_center").info("p211_create_brand_weight_page: %s" % (res or {}))
+    try:
+        res = page_sync.sync()
+        frappe.logger("approval_center").info("p211_create_brand_weight_page: %s" % (res or {}))
+    except Exception:
+        # Trang tao lai duoc bang sync_brand_weight_page; khong de no rollback ca deploy.
+        frappe.log_error(title="p211_create_brand_weight_page")
