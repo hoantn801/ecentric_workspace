@@ -33,8 +33,10 @@ import frappe
 from frappe import _
 
 from ecentric_workspace.weekly_report import (
+    ai_retrigger,
     deck_sharing,
     due_backfill,
+    scoring,
     sharepoint,
     submit_service,
 )
@@ -130,6 +132,51 @@ def convert_decks_to_org_links(weeks=None, limit=25):
     if isinstance(weeks, str):
         weeks = json.loads(weeks) if weeks.strip().startswith("[") else [weeks]
     return deck_sharing.convert_pending(weeks=weeks, limit=int(limit or 25))
+
+
+@frappe.whitelist(methods=["POST"])
+def score_weekly_report(record_name=None):
+    """Cham diem mot bao cao tuan qua Kie (Google du phong).
+
+    Ghi vao ban ghi cua NGUOI KHAC (diem, tier, feedback) -> System Manager.
+    Thay Server Script `gemini_score_report`, von goi thang Google tu sandbox va
+    mat sach ly do loi khi Google tra 4xx.
+    """
+    frappe.only_for("System Manager")
+    if not record_name:
+        frappe.throw(_("record_name is required."))
+    return scoring.score_report(record_name)
+
+
+@frappe.whitelist(methods=["POST"])
+def summarize_weekly_report(record_name=None):
+    """Tom tat mot bao cao tuan. Cung ly do phan quyen nhu score_weekly_report."""
+    frappe.only_for("System Manager")
+    if not record_name:
+        frappe.throw(_("record_name is required."))
+    return scoring.summarize_report(record_name)
+
+
+@frappe.whitelist(methods=["POST"])
+def retrigger_missing_ai(window_days=None, limit=None):
+    """Cham bu diem/tom tat con thieu. Ruot cua cron auto_retrigger_missing_ai.
+
+    Mac dinh nho (4 ban/luot) vi rq worker giet job o 300 giay. Backlog thi dung
+    rescore_from_week.ps1, khong phai ha limit o day roi doi cron chay bu.
+
+    Administrator duoc mien kiem tra role: scheduler chay duoi danh nghia do, va
+    mot cron bi chinh cong phan quyen cua no chan lai thi khong chay, khong bao,
+    chi de lai mot con so 0 trong thong ke - dung kieu hong da mat ca tuan de
+    truy ra hoi 15/09.
+    """
+    if frappe.session.user != "Administrator":
+        frappe.only_for("System Manager")
+    kwargs = {}
+    if window_days:
+        kwargs["window_days"] = int(window_days)
+    if limit:
+        kwargs["limit"] = int(limit)
+    return ai_retrigger.run(**kwargs)
 
 
 @frappe.whitelist(methods=["POST"])

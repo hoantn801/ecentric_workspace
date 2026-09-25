@@ -50,10 +50,27 @@ def _bytes_for_kie(slide_urls, dept_clean):
         got = gemini_api.fetch_pdf_bytes(url, token, dept_clean or "")
         if not got.get("ok"):
             return [], "tai PDF hong: %s" % (got.get("error") or "?")
-        total += got.get("size_bytes") or 0
+        data = got["data"]
+        total += len(data)
         if total > MAX_INLINE_TOTAL:
-            return [], "tong PDF %d byte vuot tran inline %d" % (total, MAX_INLINE_TOTAL)
-        files.append({"data": got["data"], "mime_type": "application/pdf",
+            # THEM 25/09 (chat Weekly Report, Hoan chot): thu NEN truoc khi bo
+            # cuoc. Truoc day vuot tran la di thang Google -- ma Google dang tra
+            # 400 tu 17/09, nen "du phong" luc nay la luoi rach va deck lon se
+            # khong bao gio co diem.
+            #
+            # Ky luat tat-ca-hoac-khong-gi GIU NGUYEN: nen duoc thi di Kie voi DU
+            # tep; nen khong duoc thi van tra ([], ly_do) nhu cu. Nen co san chat
+            # luong (SHRINK_MIN_SCALE) -- qua san thi tu choi, vi slide mo qua thi
+            # model VAN cham, cham tren thu no khong doc noi.
+            total -= len(data)
+            shrunk, note = gemini_api.shrink_pdf_for_inline(
+                data, max_bytes=max(0, MAX_INLINE_TOTAL - total))
+            if not shrunk:
+                return [], "tong PDF vuot tran inline %d va khong nen duoc: %s" % (
+                    MAX_INLINE_TOTAL, note)
+            data = shrunk
+            total += len(data)
+        files.append({"data": data, "mime_type": "application/pdf",
                       "display_name": got.get("display_name") or ""})
     return files, ""
 
