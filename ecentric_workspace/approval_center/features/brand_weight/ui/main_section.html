@@ -1,0 +1,608 @@
+<!--
+  Nhan su > Phan bo cong viec. Route /ec-hr/phan-bo-cong-viec (Web Page "phan-bo-cong-viec").
+  Repo so huu toan bo byte cua trang (giong install_guide). Hai vung shell (aside + topbar)
+  do shell.fallback sinh lai tu shell/nav.py - KHONG sua tay hai vung do.
+  Moi du lieu qua ecentric_workspace.approval_center.api.brand_weight.*. Khong hien luong.
+  Jinja: web page duoc render qua Jinja - cam chuoi mo/dong the Jinja trong CSS/JS
+  (tests/test_brand_weight_page.py kiem).
+-->
+<style id="ec-hr-bw-css">
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* Frappe's default website chrome is replaced by the shared ERP shell. */
+body > header, body > footer, body > nav.navbar, header.navbar,
+.web-page-header, #navbarSupportedContent, .navbar-collapse { display:none; }
+body { padding:0; margin:0; background:#f7f8fb; }
+body main { padding-top:0; }
+body .main-section, body main.container, body main.fluid { margin:0; padding:0; max-width:100%; }
+.ec-hr-bw-wrap { display:flex; min-height:100vh; max-width:none; width:100%; }
+.ec-hr-bw-wrap > main.ec-hr-bw-main { flex:1; min-width:0; padding:0; overflow-x:hidden; background:#f7f8fb; }
+
+#ec-bw-root{
+  --navy:#2C3DA6;--navy-50:#eef0fb;--navy-100:#dfe3f7;--navy-700:#1f2d80;
+  --yellow:#FFC000;--yellow-50:#fff8e1;--yellow-200:#fde68a;
+  --green:#047857;--green-50:#ecfdf5;--red:#dc2626;--red-50:#fef2f2;--amber:#b45309;--amber-50:#fffbeb;
+  --gray-50:#fafbfc;--gray-100:#f3f4f6;--gray-200:#e5e7eb;--gray-300:#d1d5db;--gray-400:#9ca3af;
+  --gray-500:#6b7280;--gray-600:#4b5563;--gray-700:#374151;--gray-800:#1f2937;--gray-900:#111827;--bg:#f7f8fb;
+  --b0:#0ea5e9;--b1:#f59e0b;--b2:#ec4899;--b3:#8b5cf6;--b4:#14b8a6;--b5:#f97316;--b6:#65a30d;--b7:#64748b;--b8:#d946ef;--b9:#a16207;
+  --shadow:0 1px 2px rgba(17,24,39,.05),0 6px 20px rgba(17,24,39,.05);
+  --mono:ui-monospace,"SFMono-Regular","Cascadia Mono",Menlo,Consolas,monospace;
+  font-family:'Inter',-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.5;color:var(--gray-800);background:var(--bg);
+}
+#ec-bw-root *{box-sizing:border-box}
+#ec-bw-root button,#ec-bw-root input,#ec-bw-root select,#ec-bw-root textarea{font:inherit}
+#ec-bw-root input,#ec-bw-root select,#ec-bw-root textarea{color:var(--gray-800)}
+#ec-bw-root :focus-visible{outline:2px solid var(--navy);outline-offset:2px;border-radius:6px}
+#ec-bw-root .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.bw-wrap{max-width:1100px;margin:0 auto;padding-inline:20px;padding-block:24px 64px;display:flex;flex-direction:column;gap:18px}
+
+/* dau trang */
+.bw-eyebrow{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--gray-500)}
+.bw-title{font-size:24px;line-height:1.25;font-weight:800;color:var(--gray-900);margin:4px 0 6px;letter-spacing:-.01em;text-wrap:balance}
+.bw-lede{margin:0;max-width:70ch;color:var(--gray-600)}
+.bw-tabs-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px dashed var(--gray-300);background:#fff}
+.bw-tabs-bar .lbl{font-size:12.5px;font-weight:600;color:var(--gray-500)}
+.bw-seg{display:inline-flex;padding:3px;border-radius:10px;background:var(--gray-100);gap:2px;flex-wrap:wrap}
+.bw-seg button{all:unset;cursor:pointer;padding:6px 12px;border-radius:7px;font-size:13px;font-weight:600;color:var(--gray-600)}
+.bw-seg button[aria-pressed="true"]{background:#fff;color:var(--navy);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+/* khoi */
+.bw-card{background:#fff;border:1px solid var(--gray-200);border-radius:14px;box-shadow:var(--shadow)}
+.bw-card-pad{padding:18px}
+.bw-section{display:flex;flex-direction:column;gap:14px}
+.bw-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.bw-spread{justify-content:space-between}
+.bw-h2{font-size:16px;font-weight:700;color:var(--gray-900);margin:0}
+.bw-muted{color:var(--gray-500);font-size:13px;margin:0}
+.bw-hint{font-size:12.5px;color:var(--gray-500)}
+
+/* nut, pill */
+.bw-btn{all:unset;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;border-radius:9px;font-size:13.5px;font-weight:600;border:1px solid var(--gray-200);background:#fff;color:var(--gray-800);white-space:nowrap}
+.bw-btn:hover{border-color:var(--gray-400)}
+.bw-btn--primary{background:var(--navy);border-color:var(--navy);color:#fff}
+.bw-btn--primary:hover{background:var(--navy-700);border-color:var(--navy-700)}
+.bw-btn--ghost{border-color:transparent;background:transparent;color:var(--navy);padding-inline:8px}
+.bw-btn--ghost:hover{background:var(--navy-50);border-color:transparent}
+.bw-btn[disabled]{opacity:.45;cursor:not-allowed}
+.bw-btn[data-busy="1"]::before{content:"";width:13px;height:13px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:bw-spin .7s linear infinite}
+@keyframes bw-spin{to{transform:rotate(360deg)}}
+.bw-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.bw-pill--ok{background:var(--green-50);color:var(--green)}
+.bw-pill--warn{background:var(--amber-50);color:var(--amber)}
+.bw-pill--bad{background:var(--red-50);color:var(--red)}
+.bw-pill--wait{background:var(--navy-50);color:var(--navy)}
+.bw-pill--muted{background:var(--gray-100);color:var(--gray-600)}
+.bw-sw{width:10px;height:10px;border-radius:3px;flex:none;display:inline-block}
+.bw-field{border:1px solid var(--gray-200);border-radius:8px;background:#fff;padding:7px 10px;min-width:0}
+.bw-field:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px var(--navy-50)}
+.bw-pct{width:72px;text-align:right;font-variant-numeric:tabular-nums}
+.bw-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* ky + trang thai */
+.bw-period{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+.bw-period .p{font-size:13px;color:var(--gray-500)}
+.bw-period .p b{display:block;font-size:20px;color:var(--gray-900);font-weight:800;letter-spacing:-.01em}
+
+/* chep thang truoc */
+.bw-copy{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;border-radius:12px;background:var(--navy-50);border:1px solid var(--navy-100)}
+.bw-copy .t{font-weight:700;color:var(--navy-700);font-size:13.5px}
+.bw-copy .d{font-size:13px;color:var(--gray-600);display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:2px}
+.bw-copy .d span{display:inline-flex;align-items:center;gap:6px}
+
+/* con lai + thanh xep */
+.bw-remaining{display:flex;align-items:center;gap:14px}
+.bw-remaining .big{font-size:34px;font-weight:800;line-height:1;letter-spacing:-.02em}
+.bw-remaining .sub b{display:block;color:var(--gray-900)}
+.bw-stack-l{font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px}
+.bw-stack{display:flex;height:30px;border-radius:8px;overflow:hidden;background:var(--gray-100)}
+.bw-stack span{height:100%;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.35);overflow:hidden;white-space:nowrap;min-width:0;font-variant-numeric:tabular-nums}
+.bw-legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--gray-600);margin-top:6px}
+.bw-legend span{display:inline-flex;align-items:center;gap:6px}
+
+/* thanh truot */
+.bw-sliders{display:flex;flex-direction:column;gap:12px}
+.bw-srow{display:grid;grid-template-columns:170px 1fr 72px 30px;gap:12px;align-items:center}
+.bw-sname{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13.5px;min-width:0;color:var(--gray-800)}
+.bw-sname .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bw-srow input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:26px;margin:0;cursor:pointer;background:linear-gradient(to right,var(--c) 0,var(--c) var(--p),var(--gray-200) var(--p),var(--gray-200) 100%) center/100% 6px no-repeat;border-radius:99px}
+.bw-srow input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid var(--c);box-shadow:0 1px 3px rgba(17,24,39,.25)}
+.bw-srow input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--c);box-shadow:0 1px 3px rgba(17,24,39,.25)}
+.bw-srow input[type=range]::-moz-range-track{background:transparent}
+.bw-srow .bw-was{font-size:11.5px;color:var(--gray-400);font-weight:500;margin-left:auto;white-space:nowrap}
+.bw-x{all:unset;cursor:pointer;width:30px;height:30px;display:grid;place-items:center;border-radius:8px;color:var(--gray-400)}
+.bw-x:hover{background:var(--red-50);color:var(--red)}
+.bw-edited{background:var(--yellow-50);border-color:var(--yellow-200)}
+
+/* tong */
+.bw-meter{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bw-meter .big{font-size:20px;font-weight:800;color:var(--gray-900)}
+.bw-foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding-top:14px;border-top:1px solid var(--gray-100)}
+
+/* tong quan phong */
+.bw-kpis{display:flex;flex-wrap:wrap;gap:8px}
+.bw-kpi{display:inline-flex;align-items:baseline;gap:6px;padding:6px 12px;border-radius:10px;background:var(--gray-50);border:1px solid var(--gray-200);font-size:13px;color:var(--gray-600)}
+.bw-kpi b{font-size:16px;color:var(--gray-900);font-variant-numeric:tabular-nums}
+table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
+.bw-matrix th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--gray-500);font-weight:600;padding:9px 10px;border-bottom:1px solid var(--gray-200);text-align:right;white-space:nowrap;background:#fff}
+.bw-matrix td{padding:10px;border-bottom:1px solid var(--gray-100);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bw-matrix th:first-child,.bw-matrix td:first-child{text-align:left;position:sticky;left:0;background:#fff;z-index:1}
+.bw-matrix th.l,.bw-matrix td.l{text-align:left}
+.bw-matrix .mh{display:inline-flex;align-items:center;gap:6px}
+.bw-matrix tbody tr.pick{cursor:pointer}
+.bw-matrix tbody tr.pick:hover td{background:var(--gray-50)}
+.bw-matrix tbody tr[aria-selected="true"] td{background:var(--navy-50)}
+.bw-matrix .dot{color:var(--gray-300)}
+.bw-matrix .chg{background:var(--yellow-50);border-radius:5px;padding:1px 5px}
+.bw-matrix tr.dept td{background:var(--gray-50);font-weight:700;border-top:1px solid var(--gray-200);border-bottom:0;color:var(--gray-900)}
+.bw-matrix tr.dept td:first-child{background:var(--gray-50)}
+.bw-matrix tr.none td{color:var(--gray-400)}
+.bw-name{font-weight:600;color:var(--gray-900)}
+
+/* khung chinh mot nguoi */
+.bw-adjust-head{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;justify-content:space-between}
+.bw-steps{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px}
+.bw-steps .st{padding:3px 9px;border-radius:999px;border:1px solid var(--gray-200);color:var(--gray-500);font-weight:600}
+.bw-steps .st.done{color:var(--green);background:var(--green-50);border-color:transparent}
+.bw-steps .st.cur{color:var(--navy);background:var(--navy-50);border-color:var(--navy-100)}
+.bw-steps .sep{color:var(--gray-300)}
+.bw-return{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:10px;border:1px dashed var(--gray-300);background:var(--gray-50)}
+.bw-return textarea{width:100%;min-height:68px;resize:vertical}
+.bw-note{padding:12px 14px;border-radius:10px;background:var(--amber-50);border:1px solid #fde68a;color:var(--gray-700);font-size:13.5px}
+.bw-note b{color:var(--amber)}
+.bw-empty{padding:26px 18px;text-align:center;color:var(--gray-500)}
+.bw-foot-note{font-size:12px;color:var(--gray-400);margin:0}
+
+/* toast */
+.bw-toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);opacity:0;background:var(--gray-900);color:#fff;padding:11px 16px;border-radius:10px;font-size:13.5px;font-weight:500;transition:opacity .2s,transform .2s;pointer-events:none;max-width:calc(100% - 32px);z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.bw-toast.show{opacity:1;transform:translate(-50%,0)}
+.bw-toast.err{background:var(--red)}
+
+@media (max-width:640px){
+  .bw-wrap{padding-inline:16px}
+  .bw-srow{grid-template-columns:1fr 64px 30px;grid-template-areas:"n p x" "s s s";row-gap:2px}
+  .bw-srow .bw-sname{grid-area:n}.bw-srow input[type=range]{grid-area:s}.bw-srow .bw-pct{grid-area:p}.bw-srow .bw-x{grid-area:x}
+  .bw-remaining .big{font-size:28px}
+  .bw-title{font-size:21px}
+}
+@media (prefers-reduced-motion:reduce){ #ec-bw-root *{transition:none!important;animation:none!important}}
+
+.bw-tabs-bar{border-style:solid}
+.bw-tab-count{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;margin-left:6px;border-radius:99px;background:var(--navy);color:#fff;font-size:11px;font-weight:700}
+.bw-period-pick{display:inline-flex;align-items:center;gap:8px;margin-left:auto;font-size:13px;color:var(--gray-600)}
+.bw-skel{height:14px;border-radius:6px;background:linear-gradient(90deg,var(--gray-100),var(--gray-200),var(--gray-100));background-size:200% 100%;animation:bw-sh 1.2s linear infinite}
+@keyframes bw-sh{to{background-position:-200% 0}}
+</style>
+
+<div class="ec-hr-bw-wrap">
+  <aside class="ec-shell-mount" data-ec-shell="1" aria-label="Điều hướng eCentric"><div class="ec-shell-head"><a class="ec-shell-brand" href="/"><img class="ec-shell-logoimg" src="/files/eCentric%20logo%20-%20mini.png" alt="eCentric"><span class="ec-shell-logo" hidden>eC</span><span class="ec-shell-brandname">eCentric</span></a></div><div class="ec-shell-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="ec-shell-search-in" type="text" placeholder="Tìm chức năng…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Tìm chức năng" autocomplete="off" spellcheck="false"><button type="button" class="ec-shell-search-clear" data-ec-shell-search-clear="1" hidden aria-label="Xóa tìm kiếm">&times;</button></div><div class="ec-shell-search-results" role="listbox" hidden></div><nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính"><a class="ec-shell-item" href="/home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg><span>Trang chủ</span></a><div class="ec-shell-grouplabel">Nhân sự</div><a class="ec-shell-item" href="/ec-hr/attendance"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Chấm công</span></a><a class="ec-shell-item" href="/ec-hr/leave"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Nghỉ phép</span></a><a class="ec-shell-item ec-shell-active" href="/ec-hr/phan-bo-cong-viec" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Phân bổ công việc</span></a><a class="ec-shell-item" href="/ec-hr/salary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg><span>Phiếu lương</span></a><a class="ec-shell-item" href="/sla"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg><span>Điểm SLA</span></a><a class="ec-shell-item" href="/ec-hr/huong-dan-cai-app"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19a2 2 0 0 1 2-2h14V3H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 0 2 2h14v-4"/></svg><span>Cài app lên điện thoại</span></a></nav><div class="ec-shell-foot"><a class="ec-shell-usercard" href="/app/user"><span class="ec-shell-avatar">•</span><span class="ec-shell-username">Tài khoản</span></a></div></aside>
+<main class="ec-hr-bw-main"><div class="ec-shell-topbar" data-ec-shell-topbar="1"><div class="ec-shell-crumbs" data-ec-shell-crumbs="1"><span class="ec-shell-crumb-group">Nhân sự</span><span class="sep ec-shell-crumb-sep">/</span><strong class="ec-shell-crumb-current">Phân bổ công việc</strong></div><div class="ec-shell-tbright" data-ec-shell-header-right="1"><button type="button" class="ec-shell-iconbtn ec-shell-reminder" data-ec-shell-action-slot="1" aria-label="Việc của tôi" title="Việc của tôi" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg><span class="ec-shell-reminder-badge" data-ec-shell-reminder-badge="1" hidden></span></button><button type="button" class="ec-shell-iconbtn ec-shell-slot-disabled" data-ec-shell-settings-slot="1" disabled aria-disabled="true" title="Cài đặt (sắp ra mắt)" aria-label="Cài đặt (sắp ra mắt)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button></div></div>
+<div id="ec-bw-root">
+  <div class="bw-wrap">
+    <header>
+      <div class="bw-eyebrow">Nhân sự › Phân bổ công việc</div>
+      <h1 class="bw-title">Phân bổ tỷ trọng brand</h1>
+      <p class="bw-lede">Tháng trước bạn dành bao nhiêu % công sức cho từng brand? Chia đủ 100% rồi nộp. Lead chỉnh và duyệt, trưởng phòng chốt. PnL dùng số đã chốt để chia chi phí theo brand.</p>
+    </header>
+
+    <div class="bw-demo-bar bw-tabs-bar" id="bw-tabs" hidden>
+      <div class="bw-seg" role="tablist" aria-label="Chọn màn hình">
+        <button id="tab-mine" data-tab="mine" role="tab" aria-pressed="true">Phiếu của tôi</button>
+        <button id="tab-team" data-tab="team" role="tab" aria-pressed="false">Duyệt<span class="bw-tab-count" id="bw-team-count" hidden></span></button>
+      </div>
+      <label class="bw-period-pick" for="bw-period">Kỳ <select id="bw-period" class="bw-field" data-model="period"></select></label>
+    </div>
+
+    <div id="bw-view" aria-live="polite">
+      <section class="bw-card bw-card-pad bw-section" aria-busy="true">
+        <div class="bw-skel" style="width:40%"></div><div class="bw-skel" style="width:90%"></div><div class="bw-skel" style="width:70%"></div>
+      </section>
+    </div>
+
+    <p class="bw-foot-note">Trang không hiển thị lương. Dòng tổng của nhóm tính trung bình theo đầu người; PnL tự quy đổi sang chi phí ở phía sau.</p>
+  </div>
+  <div class="bw-toast" id="bw-toast" role="status" aria-live="polite"></div>
+</div>
+</main></div>
+
+<script>
+(() => {
+  "use strict";
+  const API = "/api/method/ecentric_workspace.approval_center.api.brand_weight.";
+  const HISTORY_MONTHS = 6;
+
+  /* ---------- goi API: envelope { success, message, data } ---------- */
+  const serverMsg = (body) => {
+    try { const arr = JSON.parse(body._server_messages || "[]"); if (arr.length) return JSON.parse(arr[0]).message || ""; } catch (e) { /* bo qua */ }
+    return body.exception ? String(body.exception).split(":").slice(1).join(":").trim() : "";
+  };
+  const call = async (method, args, http) => {
+    const url = API + method;
+    const opts = { credentials: "same-origin", headers: { Accept: "application/json" } };
+    let full = url;
+    if (http === "GET") {
+      const qs = new URLSearchParams(Object.entries(args || {}).filter(([, v]) => v != null)).toString();
+      full = url + (qs ? "?" + qs : "");
+    } else {
+      opts.method = "POST";
+      opts.headers["Content-Type"] = "application/json";
+      opts.headers["X-Frappe-CSRF-Token"] = (window.frappe && window.frappe.csrf_token) || "";
+      opts.body = JSON.stringify(args || {});
+    }
+    const res = await fetch(full, opts);
+    if (res.status === 401 || res.status === 403) return { success: false, message: "LOGIN", data: null };
+    let body = {};
+    try { body = await res.json(); } catch (e) { /* khong phai JSON */ }
+    if (!res.ok) return { success: false, message: serverMsg(body) || "Máy chủ báo lỗi (" + res.status + "). Thử lại sau ít phút.", data: null };
+    const m = body.message;
+    if (m && typeof m === "object" && typeof m.success === "boolean") return m;
+    return { success: true, message: "", data: m == null ? null : m };
+  };
+  const api = {
+    getMine: (period) => call("get_my_period", { period }, "GET"),
+    submit: (period, weights) => call("submit_weights", { period, weights: JSON.stringify(weights) }),
+    getTeam: (period) => call("get_team_period", { period }, "GET"),
+    cancel: (name) => call("cancel", { name, reason: "Nhân viên rút phiếu để sửa" }),
+    decide: (name, action, weights, note) => call("decide_weights", { name, action, weights: weights ? JSON.stringify(weights) : null, note: note || null }),
+  };
+
+  /* ---------- tien ich ---------- */
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const num = (v) => { const x = parseFloat(String(v).replace(",", ".")); return Number.isFinite(x) ? x : 0; };
+  const sum = (o) => Math.round(Object.values(o || {}).reduce((a, v) => a + num(v), 0) * 100) / 100;
+  const fmt = (x) => { const r = Math.round(num(x) * 100) / 100; return Number.isInteger(r) ? String(r) : String(r).replace(".", ","); };
+  const raw = (v) => (typeof v === "string" ? v : fmt(v));
+  const clone = (o) => JSON.parse(JSON.stringify(o || {}));
+  const hasAny = (o) => Object.keys(o || {}).length > 0;
+  const same = (a, b) => { const k = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]); for (const x of k) if (num((a || {})[x]) !== num((b || {})[x])) return false; return true; };
+  const label = (p) => (p ? p.slice(5) + "/" + p.slice(0, 4) : "");
+  const prevOf = (p) => { let [y, m] = p.split("-").map(Number); if (m === 1) { y -= 1; m = 12; } else { m -= 1; } return y + "-" + String(m).padStart(2, "0"); };
+
+  const UI = { tab: "mine", period: null, brands: [], me: null, draft: {}, team: [], sel: null, adj: {}, returning: false, cancelling: false, deep: null };
+  // brands: [{id, label}]. id la gia tri luu (vd FLD-VN), label la ten nguoi dung doc (France Lait).
+  const brandIds = () => UI.brands.map((x) => x.id);
+  const labelOf = (b) => { const hit = UI.brands.find((x) => x.id === b); return hit ? hit.label : b; };
+  const color = (b) => { const i = brandIds().indexOf(b); return i < 0 ? "var(--b7)" : "var(--b" + (i % 10) + ")"; };
+  const bid = (b) => "b" + Math.max(0, brandIds().indexOf(b)) + "-" + String(b).replace(/[^a-zA-Z0-9]/g, "");
+
+  const totalState = (t) => {
+    if (Math.abs(t - 100) <= 0.01) return { k: "ok", t: "Đủ 100%" };
+    if (t < 100) return { k: "warn", t: "Còn thiếu " + fmt(100 - t) + "%" };
+    return { k: "bad", t: "Vượt " + fmt(t - 100) + "%" };
+  };
+  let toastTimer;
+  const toast = (msg, isErr) => {
+    const el = $("bw-toast"); el.textContent = msg; el.classList.toggle("err", !!isErr); el.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 3200);
+  };
+  const busy = async (btn, fn) => {
+    if (!btn || btn.dataset.busy === "1") return null;
+    const text = btn.textContent;
+    const undo = () => { btn.disabled = false; btn.textContent = text; btn.dataset.busy = "0"; };
+    btn.dataset.busy = "1"; btn.disabled = true; btn.textContent = btn.dataset.busyLabel || "Đang xử lý…";
+    try {
+      const res = await fn();
+      if (!res || !res.success) { toast(res && res.message === "LOGIN" ? "Phiên đăng nhập đã hết. Tải lại trang để đăng nhập." : ((res && res.message) || "Không thực hiện được. Thử lại sau ít phút."), true); undo(); return null; }
+      return res;
+    } catch (e) {
+      toast("Mất kết nối tới máy chủ. Kiểm tra mạng rồi thử lại.", true); undo(); return null;
+    }
+  };
+
+  /* ---------- manh giao dien dung chung ---------- */
+  const stackBar = (obj, text) => {
+    const keys = Object.keys(obj || {}).filter((b) => num(obj[b]) > 0);
+    const segs = keys.map((b) => '<span style="width:' + Math.min(num(obj[b]), 100) + "%;background:" + color(b) + '" title="' + esc(labelOf(b)) + " " + fmt(obj[b]) + '%">' + (num(obj[b]) >= 12 ? fmt(obj[b]) + "%" : "") + "</span>").join("");
+    const leg = keys.map((b) => '<span><i class="bw-sw" style="background:' + color(b) + '"></i>' + esc(labelOf(b)) + " " + fmt(obj[b]) + "%</span>").join("");
+    return '<div><div class="bw-stack-l">' + esc(text) + '</div><div class="bw-stack" role="img" aria-label="' + esc(text) + '">' + segs + '</div><div class="bw-legend">' + (leg || "<span>Chưa có brand nào</span>") + "</div></div>";
+  };
+  const remaining = (obj) => {
+    const t = sum(obj), st = totalState(t), rem = Math.round((100 - t) * 100) / 100;
+    const col = st.k === "ok" ? "var(--green)" : st.k === "warn" ? "var(--amber)" : "var(--red)";
+    const title = st.k === "ok" ? "Đã chia hết 100%" : st.k === "warn" ? "Còn lại để chia" : "Đang vượt 100%";
+    const sub = st.k === "ok" ? "Sẵn sàng" : st.k === "warn" ? "Kéo thêm cho brand đã làm" : "Giảm bớt một brand";
+    return '<div class="bw-remaining"><span class="big num" style="color:' + col + '">' + fmt(Math.abs(rem)) + '%</span><span class="sub"><b>' + title + '</b><span class="bw-hint">' + sub + "</span></span></div>";
+  };
+  const PILL = {
+    none: ["muted", "Chưa nộp"], draft: ["muted", "Nháp"], rejected: ["muted", "Đã bị từ chối"],
+    wait_lead: ["wait", "Chờ lead duyệt"], wait_head: ["wait", "Chờ trưởng phòng chốt"],
+    returned: ["warn", "Bị trả lại"], final: ["ok", "Đã chốt"],
+  };
+  const statusPill = (s) => { const p = PILL[s] || PILL.none; return '<span class="bw-pill bw-pill--' + p[0] + '">' + p[1] + "</span>"; };
+  const STEP_OF = { wait_lead: 1, wait_head: 2, final: 3 };
+  const steps = (cur) => {
+    const names = ["Nhân viên nộp", "Lead duyệt", "Trưởng phòng chốt"];
+    return '<div class="bw-steps">' + names.map((x, i) => (i ? '<span class="sep">›</span>' : "") + '<span class="st ' + (i < cur ? "done" : i === cur ? "cur" : "") + '">' + (i < cur ? "✓ " : "") + x + "</span>").join("") + "</div>";
+  };
+  const copyBanner = (last, text, act, disabled) => {
+    const keys = Object.keys(last || {});
+    if (!keys.length) return "";
+    return '<div class="bw-copy"><div><div class="t">' + esc(text) + '</div><div class="d">' +
+      keys.map((b) => '<span><i class="bw-sw" style="background:' + color(b) + '"></i>' + esc(labelOf(b)) + " " + fmt(last[b]) + "%</span>").join("") +
+      '</div></div><button type="button" class="bw-btn" data-act="' + act + '"' + (disabled ? " disabled" : "") + ">" + (disabled ? "Đang giống tháng trước" : "Chép sang tháng này") + "</button></div>";
+  };
+  const sliderRows = (obj, prefix, base, baseWord) => Object.keys(obj).map((b) => {
+    const id = prefix + "-" + bid(b), changed = base && num(base[b]) !== num(obj[b]);
+    const was = base ? (b in base ? (baseWord || "đề xuất") + " " + fmt(base[b]) + "%" : "mới thêm") : "";
+    return '<div class="bw-srow"><label class="bw-sname" for="' + id + '"><i class="bw-sw" style="background:' + color(b) + '"></i><span class="t">' + esc(labelOf(b)) + "</span>" + (base ? '<span class="bw-was">' + was + "</span>" : "") + "</label>" +
+      '<input type="range" id="' + id + '" min="0" max="100" step="1" value="' + num(obj[b]) + '" data-slide="' + esc(b) + '" style="--c:' + color(b) + ";--p:" + Math.min(100, num(obj[b])) + '%">' +
+      '<input id="' + id + '-n" class="bw-field bw-pct' + (changed ? " bw-edited" : "") + '" data-type="' + esc(b) + '" inputmode="decimal" value="' + esc(raw(obj[b])) + '" aria-label="Tỷ trọng ' + esc(labelOf(b)) + ' (%)">' +
+      '<button type="button" class="bw-x" data-drop="' + esc(b) + '" aria-label="Bỏ ' + esc(labelOf(b)) + '">✕</button></div>';
+  }).join("");
+  const addSelect = (obj, id, text) => {
+    const free = UI.brands.filter((x) => !(x.id in obj));
+    if (!free.length) return "";
+    return '<label for="' + id + '" style="position:absolute;left:-9999px">' + esc(text) + '</label><select id="' + id + '" class="bw-field" data-add="1"><option value="">' + esc(text) + "</option>" + free.map((x) => '<option value="' + esc(x.id) + '">' + esc(x.label) + "</option>").join("") + "</select>";
+  };
+  const emptyCard = (html) => '<section class="bw-card bw-empty">' + html + "</section>";
+
+  /* ---------- phieu cua toi ---------- */
+  const LOCKED = ["wait_lead", "wait_head", "final"];
+  const mineView = () => {
+    const me = UI.me;
+    if (!me) return emptyCard("Không tải được phiếu của bạn.");
+    const P = label(UI.period), PREV = label(prevOf(UI.period));
+    // Engine quyet dinh sua/rut duoc hay khong (capabilities.derive), trang chi hien theo.
+    const cap = me.capabilities || {};
+    if (!cap.can_edit) {
+      const msg = { wait_lead: esc(me.lead_name || "Lead") + " đang duyệt. Nếu cần sửa, lead sẽ trả lại kèm ghi chú.", wait_head: "Lead đã duyệt. Trưởng phòng đang chốt.", final: "Đã chốt. Không cần làm gì thêm cho kỳ này." }[me.status];
+      return '<section class="bw-card bw-card-pad bw-section"><div class="bw-period"><div class="p">Kỳ<b>' + P + "</b></div>" + statusPill(me.status) + "</div>" +
+        steps(STEP_OF[me.status] || 1) + stackBar(me.weights, me.status === "final" ? "Số đã chốt" : "Số bạn đã nộp") + '<p class="bw-muted">' + (msg || "") + "</p>" +
+        (cap.can_cancel ? '<div id="cancel-box">' + cancelBox() + "</div>" : "") + "</section>";
+    }
+    const d = UI.draft, ok = totalState(sum(d)).k === "ok";
+    const note = me.status === "returned" ? '<div class="bw-note"><b>Bị trả lại:</b> ' + esc(me.note || "Không có ghi chú.") + " Sửa lại rồi nộp lại.</div>" :
+      me.closed_status === "cancelled" ? '<div class="bw-note"><b>Bạn đã rút phiếu.</b> Số cũ đã được điền sẵn, sửa rồi nộp lại.</div>' :
+      me.closed_status === "rejected" ? '<div class="bw-note"><b>Phiếu trước đã bị từ chối.</b> Số cũ đã được điền sẵn, sửa rồi nộp phiếu mới.</div>' : "";
+    return '<section class="bw-card bw-card-pad bw-section" aria-labelledby="mine-h">' +
+      '<div class="bw-period"><div class="p">Kỳ cần nhập<b id="mine-h">' + P + "</b></div>" + statusPill(me.status) + "</div>" + note +
+      '<div id="copy-box">' + mineCopy() + "</div>" +
+      '<div id="sum-box">' + mineSummary() + "</div>" +
+      '<div class="bw-sliders" data-model="details">' + (hasAny(d) ? sliderRows(d, "e", null) : '<p class="bw-muted">Chưa có brand nào. Chép từ tháng trước hoặc thêm brand bên dưới.</p>') + "</div>" +
+      '<div class="bw-row">' + addSelect(d, "mine-add", "+ Thêm brand bạn đã làm…") + '<button type="button" class="bw-btn" data-act="even"' + (hasAny(d) ? "" : " disabled") + ">Chia đều</button></div>" +
+      '<div class="bw-foot"><span class="bw-hint">' + (me.lead_name ? "Lead duyệt: " + esc(me.lead_name) : "Bạn không có lead trực tiếp, phiếu đi thẳng tới trưởng phòng.") + '</span><span id="submit-box">' + submitBtn(ok, me.status === "returned") + "</span></div></section>";
+  };
+  const cancelBox = () => (UI.cancelling
+    ? '<div class="bw-return"><span class="bw-hint">Rút phiếu thì lead không còn thấy phiếu này. Số của bạn được giữ lại để sửa và nộp lại.</span><div class="bw-row"><button type="button" class="bw-btn bw-btn--primary" data-act="cancel-send" data-busy-label="Đang rút…">Rút phiếu</button><button type="button" class="bw-btn bw-btn--ghost" data-act="cancel-no">Giữ nguyên</button></div></div>'
+    : '<div class="bw-row"><button type="button" class="bw-btn" data-act="cancel-ask">Rút phiếu để sửa</button><span class="bw-hint">Chỉ rút được khi lead chưa xem.</span></div>');
+  const mineCopy = () => copyBanner(UI.me.last, "Tháng " + label(prevOf(UI.period)) + (UI.me.last_status === "final" ? " bạn đã được chốt" : " bạn đã nộp"), "copy-mine", same(UI.me.last, UI.draft));
+  const mineSummary = () => '<div class="bw-section" style="gap:12px">' + remaining(UI.draft) + stackBar(UI.draft, "Phân bổ của bạn") + "</div>";
+  const submitBtn = (ok, again) => '<button type="button" class="bw-btn bw-btn--primary" data-act="submit" data-busy-label="Đang nộp…"' + (ok ? "" : " disabled") + ">" + (again ? "Nộp lại" : "Nộp cho lead") + "</button>";
+
+  /* ---------- duyet ---------- */
+  const baseOf = (m) => (m.stage === "head" ? (hasAny(m.lead) ? m.lead : m.current) : (hasAny(m.proposed) ? m.proposed : m.current));
+  const adjOf = (m) => { if (!UI.adj[m.id]) UI.adj[m.id] = clone(baseOf(m)); return UI.adj[m.id]; };
+  const shown = (m) => (m.actionable ? adjOf(m) : (m.current || {}));
+  const selected = () => UI.team.find((x) => x.id === UI.sel);
+
+  const teamView = () => {
+    const team = UI.team;
+    if (!team.length) return emptyCard("Bạn chưa có ai trong nhóm cần duyệt.");
+    const depts = [...new Set(team.map((m) => m.department).filter(Boolean))];
+    const counted = team.filter((m) => LOCKED.includes(m.status) || m.actionable);
+    const cols = [];
+    counted.forEach((m) => Object.keys(shown(m)).forEach((b) => { if (!cols.includes(b)) cols.push(b); }));
+    cols.sort((a, b) => labelOf(a).localeCompare(labelOf(b)));
+    const tot = Object.fromEntries(cols.map((b) => [b, 0]));
+    counted.forEach((m) => { const s = shown(m); cols.forEach((b) => { tot[b] += num(s[b]); }); });
+    const k = counted.length || 1;
+    const avg = Object.fromEntries(cols.map((b) => [b, Math.round((tot[b] / k) * 100) / 100]));
+    const ready = team.filter((m) => m.actionable);
+    const allOk = ready.length > 0 && ready.every((m) => totalState(sum(adjOf(m))).k === "ok");
+    const kpi = (n, t) => '<span class="bw-kpi"><b>' + n + "</b>" + t + "</span>";
+    const head = '<tr><th scope="col">Nhân viên</th>' + cols.map((b) => '<th scope="col"><span class="mh"><i class="bw-sw" style="background:' + color(b) + '"></i>' + esc(labelOf(b)) + "</span></th>").join("") + '<th scope="col">Tổng</th><th scope="col" class="l">Trạng thái</th></tr>';
+    const rows = team.map((m) => {
+      const s = shown(m), counts = LOCKED.includes(m.status) || m.actionable;
+      if (!counts) return '<tr class="none pick" data-pick="' + esc(m.id) + '" aria-selected="' + (m.id === UI.sel) + '" tabindex="0"><td class="bw-name">' + esc(m.name) + "</td>" + cols.map(() => '<td class="dot">·</td>').join("") + '<td>—</td><td class="l">' + statusPill(m.status) + "</td></tr>";
+      const base = baseOf(m);
+      const cells = cols.map((b) => { const v = s[b]; if (v === undefined || num(v) === 0) return '<td class="dot">·</td>'; const ch = m.actionable && num(base[b]) !== num(v); return "<td>" + (ch ? '<span class="chg">' + fmt(v) + "</span>" : fmt(v)) + "</td>"; }).join("");
+      const st = totalState(sum(s));
+      return '<tr class="pick" data-pick="' + esc(m.id) + '" aria-selected="' + (m.id === UI.sel) + '" tabindex="0"><td class="bw-name">' + esc(m.name) + "</td>" + cells + '<td><span class="bw-pill bw-pill--' + st.k + '">' + fmt(sum(s)) + '%</span></td><td class="l">' + (m.actionable ? '<span class="bw-pill bw-pill--wait">Chờ bạn ' + (m.stage === "head" ? "chốt" : "duyệt") + "</span>" : statusPill(m.status)) + "</td></tr>";
+    }).join("");
+    const title = depts.length === 1 ? esc(depts[0]) : "Nhóm của bạn";
+    const avgLabel = (depts.length === 1 ? "Tỷ trọng cả phòng" : "Tỷ trọng chung của nhóm") + ", tính trên " + counted.length + " phiếu đã nộp";
+    return '<section class="bw-card bw-card-pad bw-section" aria-labelledby="team-h">' +
+      '<div><h2 class="bw-h2" id="team-h">' + title + " · kỳ " + label(UI.period) + '</h2><p class="bw-muted">Chọn một dòng để xem và chỉnh phiếu của người đó. Ô tô vàng là số bạn đã chỉnh.' + (depts.length > 1 ? " Gồm: " + depts.map(esc).join(", ") + "." : "") + "</p></div>" +
+      '<div class="bw-kpis">' + kpi(ready.length, "chờ bạn") + kpi(team.filter((m) => ["none", "draft", "rejected"].includes(m.status)).length, "chưa nộp") + kpi(team.filter((m) => m.status === "returned").length, "đã trả lại") + kpi(team.filter((m) => m.status === "final").length, "đã chốt") + "</div>" +
+      (cols.length ? stackBar(avg, avgLabel) : "") +
+      '<div class="bw-scroll" style="border:1px solid var(--gray-200);border-radius:12px"><table class="bw-matrix"><thead>' + head + "</thead><tbody>" + rows +
+      (counted.length ? '<tr class="dept"><td>' + (depts.length === 1 ? "Cả phòng" : "Cả nhóm") + " · " + counted.length + " phiếu</td>" + cols.map((b) => "<td>" + fmt(avg[b]) + "%</td>").join("") + "<td>" + fmt(Object.values(tot).reduce((x, v) => x + v, 0) / k) + "%</td><td></td></tr>" : "") +
+      "</tbody></table></div>" +
+      '<div class="bw-row bw-spread"><span class="bw-hint">' + (ready.length ? (allOk ? "Tất cả phiếu đang chờ bạn đều đủ 100%." : "Còn phiếu chưa đủ 100%, chưa duyệt hàng loạt được.") : "Không còn phiếu nào chờ bạn.") + "</span>" +
+      '<button type="button" class="bw-btn" data-act="approve-all" data-busy-label="Đang duyệt…"' + (allOk ? "" : " disabled") + ">Duyệt tất cả " + ready.length + " phiếu</button></div></section>";
+  };
+
+  const adjustPanel = () => {
+    const m = selected();
+    if (!m) return emptyCard("Chọn một người trong bảng để xem phiếu.");
+    if (!m.actionable) {
+      const why = { none: "chưa nộp phiếu kỳ này.", draft: "đang để nháp, chưa nộp.", rejected: "có phiếu đã bị từ chối, chưa nộp lại.", returned: "đã bị trả lại, đang chờ nộp lại.", final: "đã được chốt.", wait_lead: "đang chờ lead duyệt.", wait_head: "đang chờ trưởng phòng chốt." }[m.status] || "";
+      return '<section class="bw-card bw-card-pad bw-section"><div class="bw-adjust-head"><h2 class="bw-h2">' + esc(m.name) + "</h2>" + statusPill(m.status) + '</div><p class="bw-muted">' + esc(m.name) + " " + why + "</p>" + (hasAny(m.current) ? stackBar(m.current, "Số hiện tại") : "") + "</section>";
+    }
+    const a = adjOf(m), base = baseOf(m), isHead = m.stage === "head", ok = totalState(sum(a)).k === "ok";
+    return '<section class="bw-card bw-card-pad bw-section" aria-labelledby="adj-h">' +
+      '<div class="bw-adjust-head"><div><h2 class="bw-h2" id="adj-h">' + esc(m.name) + " · kỳ " + label(UI.period) + '</h2><p class="bw-muted">' + (isHead ? "Lead đã duyệt. Chỉnh nếu cần rồi chốt." : "Chỉnh nếu cần rồi duyệt. Duyệt xong chuyển trưởng phòng chốt.") + "</p></div>" + steps(isHead ? 2 : 1) + "</div>" +
+      '<div id="copy-box">' + memberCopy(m) + "</div>" +
+      '<div id="sum-box">' + adjSummary(m) + "</div>" +
+      '<div class="bw-sliders">' + sliderRows(a, "a", base, isHead ? "lead" : "đề xuất") + "</div>" +
+      '<div class="bw-row">' + addSelect(a, "adj-add", "+ Thêm brand bạn ấy quên…") + '<span id="reset-box">' + resetBtn(m) + "</span></div>" +
+      '<div id="decide-box">' + decideBox(m, ok) + "</div></section>";
+  };
+  const memberCopy = (m) => copyBanner(m.last, "Tháng " + label(prevOf(UI.period)) + " của " + m.name, "copy-member", same(m.last, adjOf(m)));
+  const resetBtn = (m) => '<button type="button" class="bw-btn bw-btn--ghost" data-act="reset-member"' + (same(adjOf(m), baseOf(m)) ? " disabled" : "") + ">Bỏ chỉnh, về " + (m.stage === "head" ? "số lead đã duyệt" : "số nhân viên đề xuất") + "</button>";
+  const adjSummary = (m) => {
+    const a = adjOf(m), t = totalState(sum(a));
+    return '<div class="bw-section" style="gap:12px">' + stackBar(baseOf(m), m.stage === "head" ? "Lead đã duyệt" : "Nhân viên đề xuất") + stackBar(a, "Sau khi bạn chỉnh") +
+      '<div class="bw-meter"><span class="big num">' + fmt(sum(a)) + '%</span><span class="bw-pill bw-pill--' + t.k + '">' + t.t + "</span></div></div>";
+  };
+  const decideBox = (m, ok) => {
+    const isHead = m.stage === "head";
+    if (UI.returning) {
+      return '<div class="bw-return"><label for="ret-note" class="bw-hint">Lý do trả lại, bắt buộc. Người nộp sẽ đọc được.</label><textarea id="ret-note" class="bw-field" placeholder="Ví dụ: Tháng này bạn làm ABBOTT gần nửa tháng, thêm vào nhé."></textarea>' +
+        '<div class="bw-row"><button type="button" class="bw-btn bw-btn--primary" data-act="return-send" data-busy-label="Đang gửi…">Gửi trả lại</button><button type="button" class="bw-btn bw-btn--ghost" data-act="return-cancel">Huỷ</button></div></div>';
+    }
+    return '<div class="bw-foot"><span class="bw-hint">' + (ok ? (isHead ? "Chốt xong, PnL đọc được số này." : "Duyệt xong sẽ chuyển trưởng phòng chốt.") : "Tổng phải đủ 100% mới " + (isHead ? "chốt" : "duyệt") + " được.") + "</span>" +
+      '<div class="bw-row"><button type="button" class="bw-btn" data-act="return">Trả lại</button><button type="button" class="bw-btn bw-btn--primary" data-act="approve" data-busy-label="Đang xử lý…"' + (ok ? "" : " disabled") + ">" + (isHead ? "Chốt phiếu" : "Duyệt, chuyển trưởng phòng") + "</button></div></div>";
+  };
+
+  /* ---------- ve ---------- */
+  const render = () => {
+    const hasTeam = UI.team.length > 0;
+    $("bw-tabs").hidden = false;
+    $("tab-team").hidden = !hasTeam;
+    if (!hasTeam && UI.tab === "team") UI.tab = "mine";
+    $("tab-mine").setAttribute("aria-pressed", String(UI.tab === "mine"));
+    $("tab-team").setAttribute("aria-pressed", String(UI.tab === "team"));
+    const waiting = UI.team.filter((m) => m.actionable).length, badge = $("bw-team-count");
+    badge.hidden = !waiting; badge.textContent = waiting;
+    $("bw-view").innerHTML = UI.tab === "mine" ? mineView() : '<div class="bw-section">' + teamView() + '<div id="adjust">' + adjustPanel() + "</div></div>";
+  };
+  // Chi ve lai phan phu thuoc tong. Thay the o dang keo se lam dut thao tac keo.
+  const refreshTotals = () => {
+    const box = $("sum-box");
+    if (UI.tab === "mine") {
+      if (box) box.innerHTML = mineSummary();
+      const cb = $("copy-box"); if (cb) cb.innerHTML = mineCopy();
+      const sb = $("submit-box"); if (sb) sb.innerHTML = submitBtn(totalState(sum(UI.draft)).k === "ok", UI.me && UI.me.status === "returned");
+      return;
+    }
+    const m = selected(); if (!m) return;
+    if (box) box.innerHTML = adjSummary(m);
+    const cb = $("copy-box"); if (cb) cb.innerHTML = memberCopy(m);
+    const rb = $("reset-box"); if (rb) rb.innerHTML = resetBtn(m);
+    const db = $("decide-box"); if (db && !UI.returning) db.innerHTML = decideBox(m, totalState(sum(adjOf(m))).k === "ok");
+  };
+  const target = () => (UI.tab === "mine" ? UI.draft : (selected() ? adjOf(selected()) : {}));
+
+  const fillPeriods = (current) => {
+    const sel = $("bw-period"); let p = current; const opts = [];
+    for (let i = 0; i < HISTORY_MONTHS; i += 1) { opts.push(p); p = prevOf(p); }
+    sel.innerHTML = opts.map((x) => '<option value="' + x + '"' + (x === UI.period ? " selected" : "") + ">" + label(x) + "</option>").join("");
+  };
+  let newestPeriod = null;
+  const load = async () => {
+    try {
+      const [mine, team] = await Promise.all([api.getMine(UI.period), api.getTeam(UI.period)]);
+      if (mine.message === "LOGIN" || team.message === "LOGIN") {
+        $("bw-view").innerHTML = emptyCard('Bạn cần đăng nhập để xem trang này. <a href="/login?redirect-to=' + encodeURIComponent(location.pathname) + '">Đăng nhập</a>');
+        return;
+      }
+      if (!mine.success && !team.success) throw new Error(mine.message || team.message);
+      UI.me = mine.success ? mine.data : null;
+      UI.team = team.success ? (team.data.members || []) : [];
+      if (UI.me) {
+        UI.period = UI.me.period; UI.brands = UI.me.brands || [];
+        UI.draft = hasAny(UI.me.weights) ? clone(UI.me.weights) : clone(UI.me.closed_weights || {});
+      } else if (team.success) {
+        UI.period = team.data.period; UI.brands = team.data.brands || [];
+      }
+      if (!newestPeriod) { newestPeriod = UI.period; }
+      fillPeriods(newestPeriod);
+      UI.adj = {}; UI.returning = false; UI.cancelling = false;
+      if (UI.deep) {
+        const hit = UI.team.find((m) => m.doc === UI.deep);
+        if (hit) { UI.tab = "team"; UI.sel = hit.id; }
+        UI.deep = null;
+      }
+      if (!selected()) { const first = UI.team.find((m) => m.actionable) || UI.team[0]; UI.sel = first ? first.id : null; }
+      if (!mine.success && team.success && UI.tab === "mine") toast(mine.message, true);
+      render();
+    } catch (e) {
+      $("bw-view").innerHTML = emptyCard("Không tải được dữ liệu. " + esc(e.message || "") + " Tải lại trang để thử lại.");
+    }
+  };
+
+  /* ---------- su kien (uy quyen) ---------- */
+  document.addEventListener("click", async (e) => {
+    if (!e.target.closest("#ec-bw-root")) return;
+    const row = e.target.closest("tr[data-pick]");
+    if (row) { UI.sel = row.dataset.pick; UI.returning = false; render(); const a = $("adjust"); if (a) a.scrollIntoView({ behavior: "smooth", block: "nearest" }); return; }
+    const btn = e.target.closest("button"); if (!btn || btn.disabled) return;
+    if (btn.dataset.tab) { UI.tab = btn.dataset.tab; UI.returning = false; render(); return; }
+    if (btn.dataset.drop) { delete target()[btn.dataset.drop]; render(); return; }
+    const act = btn.dataset.act; if (!act) return;
+    const m = selected();
+
+    if (act === "copy-mine") { UI.draft = clone(UI.me.last); render(); toast("Đã chép số tháng " + label(prevOf(UI.period)) + ". Chỉnh lại nếu tháng này khác."); return; }
+    if (act === "copy-member" && m) { UI.adj[m.id] = clone(m.last); render(); toast("Đã chép số tháng " + label(prevOf(UI.period)) + " của " + m.name + "."); return; }
+    if (act === "reset-member" && m) { UI.adj[m.id] = clone(baseOf(m)); render(); return; }
+    if (act === "even") {
+      const o = target(), ks = Object.keys(o); if (!ks.length) return;
+      const base = Math.floor(100 / ks.length), extra = 100 - base * ks.length;
+      ks.forEach((k, i) => { o[k] = base + (i < extra ? 1 : 0); }); render(); return;
+    }
+    if (act === "return") { UI.returning = true; const db = $("decide-box"); if (db && m) db.innerHTML = decideBox(m, false); const t = $("ret-note"); if (t) t.focus(); return; }
+    if (act === "return-cancel") { UI.returning = false; render(); return; }
+    if (act === "cancel-ask" || act === "cancel-no") { UI.cancelling = act === "cancel-ask"; const cb = $("cancel-box"); if (cb) cb.innerHTML = cancelBox(); return; }
+    if (act === "cancel-send") {
+      const res = await busy(btn, () => api.cancel(UI.me.name));
+      if (res) { toast("Đã rút phiếu. Sửa rồi nộp lại khi sẵn sàng."); await load(); }
+      return;
+    }
+
+    if (act === "submit") {
+      const res = await busy(btn, () => api.submit(UI.period, UI.draft));
+      if (res) { toast(res.data && res.data.resubmitted ? "Đã nộp lại. Phiếu quay về người đã trả lại." : "Đã nộp. Lead sẽ nhận thông báo để duyệt."); await load(); }
+      return;
+    }
+    if (act === "return-send" && m) {
+      const note = ($("ret-note").value || "").trim();
+      if (!note) { toast("Ghi lý do để người nộp biết cần sửa gì.", true); $("ret-note").focus(); return; }
+      const res = await busy(btn, () => api.decide(m.doc, "return", null, note));
+      if (res) { toast("Đã trả lại cho " + m.name + " kèm ghi chú."); await load(); }
+      return;
+    }
+    if (act === "approve" && m) {
+      const res = await busy(btn, () => api.decide(m.doc, "approve", adjOf(m)));
+      if (res) { toast(m.stage === "head" ? "Đã chốt phiếu của " + m.name + "." : "Đã duyệt phiếu của " + m.name + ", chuyển trưởng phòng chốt."); UI.sel = null; await load(); }
+      return;
+    }
+    if (act === "approve-all") {
+      const list = UI.team.filter((x) => x.actionable);
+      const res = await busy(btn, async () => {
+        let n = 0;
+        for (const x of list) {
+          const r = await api.decide(x.doc, "approve", adjOf(x));
+          if (!r.success) return { success: false, message: "Đã duyệt " + n + " phiếu, dừng ở " + x.name + ": " + r.message };
+          n += 1;
+        }
+        return { success: true, data: n };
+      });
+      if (res) toast("Đã duyệt " + res.data + " phiếu.");
+      await load();
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    const row = e.target.closest && e.target.closest("#ec-bw-root tr[data-pick]");
+    if (row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); row.click(); }
+  });
+  document.addEventListener("input", (e) => {
+    const t = e.target;
+    if (!t.closest || !t.closest("#ec-bw-root")) return;
+    const o = target();
+    if (t.dataset.slide) {
+      const b = t.dataset.slide, others = sum(o) - num(o[b]);
+      const v = Math.min(num(t.value), Math.max(0, 100 - others));
+      o[b] = v; t.value = v; t.style.setProperty("--p", v + "%");
+      const nf = $(t.id + "-n");
+      if (nf) { nf.value = fmt(v); const m = selected(); if (UI.tab === "team" && m) nf.classList.toggle("bw-edited", num(baseOf(m)[b]) !== v); }
+      refreshTotals(); return;
+    }
+    if (t.dataset.type) {
+      const b = t.dataset.type; o[b] = t.value;
+      const sl = $(t.id.replace(/-n$/, "")); if (sl) { sl.value = num(t.value); sl.style.setProperty("--p", Math.min(100, num(t.value)) + "%"); }
+      const m = selected(); if (UI.tab === "team" && m) t.classList.toggle("bw-edited", num(baseOf(m)[b]) !== num(t.value));
+      refreshTotals();
+    }
+  });
+  document.addEventListener("change", (e) => {
+    const t = e.target;
+    if (!t.closest || !t.closest("#ec-bw-root")) return;
+    if (t.id === "bw-period") { UI.period = t.value; UI.sel = null; load(); return; }
+    if (t.dataset.add && t.value) { target()[t.value] = 0; render(); }
+  });
+
+  try { UI.deep = new URLSearchParams(location.search).get("id"); } catch (e) { UI.deep = null; }
+  load();
+})();
+</script>

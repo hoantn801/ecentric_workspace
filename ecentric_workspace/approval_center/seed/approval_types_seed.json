@@ -189,5 +189,12 @@
   "category": "OPERATIONS_PERFORMANCE",
   "legacy_template_name": "Booking KOL/KOC (Account nhan tin cho Booking)",
   "sort_order": 86
+ },
+ {
+  "approval_code": "BRAND_WEIGHT",
+  "approval_title": "Phân bổ tỷ trọng brand",
+  "category": "HR",
+  "legacy_template_name": "",
+  "sort_order": 90
  }
 ]

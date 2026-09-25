@@ -59,8 +59,10 @@ class TestRouteToContext(unittest.TestCase):
         # 2026-08-21: leave + the install guide joined the hr provider so all
         # /ec-hr/* pages paint the SAME sidebar (before, /ec-hr/leave resolved
         # to `home` and painted the full portal sidebar).
+        # 2026-09-25: "Phân bổ công việc" (tỷ trọng brand hàng tháng, order 18)
+        # nằm giữa Nghỉ phép và Phiếu lương.
         self.assertEqual([i["label"] for i in hr if i["owner"] == "hr"],
-                         ["Chấm công", "Nghỉ phép", "Phiếu lương",
+                         ["Chấm công", "Nghỉ phép", "Phân bổ công việc", "Phiếu lương",
                           "Cài app lên điện thoại"])
 
     def test_home_portal_preserves_restored_ia(self):

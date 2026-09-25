@@ -8,7 +8,9 @@
  "field_order": [
   "brand",
   "weight",
-  "remarks"
+  "remarks",
+  "proposed_weight",
+  "lead_weight"
  ],
  "fields": [
   {
@@ -34,6 +36,20 @@
    "label": "Ghi chu",
    "in_list_view": 1,
    "columns": 4
+  },
+  {
+   "fieldname": "proposed_weight",
+   "fieldtype": "Percent",
+   "label": "Nhan vien de xuat (%)",
+   "read_only": 1,
+   "description": "Ghi luc nhan vien nop. Khong doi khi lead/truong phong chinh."
+  },
+  {
+   "fieldname": "lead_weight",
+   "fieldtype": "Percent",
+   "label": "Lead duyet (%)",
+   "read_only": 1,
+   "description": "Ghi luc lead duyet. Truong phong so voi so nay."
   }
  ],
  "index_web_pages_for_search": 1,
