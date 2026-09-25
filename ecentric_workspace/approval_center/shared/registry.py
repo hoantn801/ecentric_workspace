@@ -28,6 +28,7 @@ from ecentric_workspace.approval_center.features.contract_review.domain.definiti
 from ecentric_workspace.approval_center.features.lateral_move.domain.definition import LATERAL_MOVE_DEFINITION
 from ecentric_workspace.approval_center.features.livestream_supplies.domain.definition import LIVESTREAM_SUPPLIES_DEFINITION
 from ecentric_workspace.approval_center.features.outside_work.domain.definition import OUTSIDE_WORK_DEFINITION
+from ecentric_workspace.approval_center.features.brand_weight.domain.definition import BRAND_WEIGHT_DEFINITION
 from ecentric_workspace.approval_center.features.service_referral.domain.definition import SERVICE_REFERRAL_DEFINITION
 from ecentric_workspace.approval_center.features.booking_request.domain.definition import BOOKING_REQUEST_DEFINITION
 
@@ -56,6 +57,7 @@ _DEFINITIONS = (
     LATERAL_MOVE_DEFINITION,
     LIVESTREAM_SUPPLIES_DEFINITION,
     OUTSIDE_WORK_DEFINITION,
+    BRAND_WEIGHT_DEFINITION,
     SERVICE_REFERRAL_DEFINITION,
     HIRING_REQUEST_DEFINITION,
     PROMOTION_DEFINITION,

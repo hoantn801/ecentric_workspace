@@ -1,0 +1,167 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "EC-BWGT-.YYYY.-.#####.",
+ "creation": "2026-09-25 06:30:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "approval_type",
+  "approval_request",
+  "request_title",
+  "requested_by",
+  "employee",
+  "department",
+  "company",
+  "direct_manager",
+  "cb0",
+  "period",
+  "submitted_at",
+  "completed_at",
+  "sb_detail",
+  "details",
+  "total_weight",
+  "sb_notes",
+  "remarks",
+  "material_signature"
+ ],
+ "fields": [
+  {
+   "fieldname": "approval_type",
+   "fieldtype": "Link",
+   "options": "EC Approval Type",
+   "label": "Approval Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approval_request",
+   "fieldtype": "Link",
+   "options": "EC Approval Request",
+   "label": "Approval Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_title",
+   "fieldtype": "Data",
+   "label": "Tieu de"
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Nguoi nop",
+   "read_only": 1
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "options": "Employee",
+   "label": "Nhan vien",
+   "read_only": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "options": "Department",
+   "label": "Phong ban"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "options": "Company",
+   "label": "Cong ty"
+  },
+  {
+   "fieldname": "direct_manager",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Quan ly truc tiep",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "period",
+   "fieldtype": "Data",
+   "label": "Ky (YYYY-MM)",
+   "reqd": 1,
+   "description": "Dinh dang bat buoc YYYY-MM, vd 2026-09."
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "Gui luc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Hoan tat luc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_detail",
+   "fieldtype": "Section Break",
+   "label": "Phan bo theo brand"
+  },
+  {
+   "fieldname": "details",
+   "fieldtype": "Table",
+   "options": "EC Brand Weight Request Detail",
+   "label": "Chi tiet",
+   "reqd": 1
+  },
+  {
+   "fieldname": "total_weight",
+   "fieldtype": "Percent",
+   "label": "Tong ty trong (%)",
+   "read_only": 1,
+   "description": "Tu dong tinh. Phai bang 100%."
+  },
+  {
+   "fieldname": "sb_notes",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Ghi chu"
+  },
+  {
+   "fieldname": "material_signature",
+   "fieldtype": "Data",
+   "label": "Material Signature",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-09-25 06:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC Brand Weight Request",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
