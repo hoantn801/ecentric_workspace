@@ -1,7 +1,7 @@
 {
   "action_center/pages/my_work/main_section.html": {
-    "last_resync_patch": "p161_publish_guides_and_shell_drift",
-    "sha256": "aa73073efe2d0432a2d7c8f0daf5daa4b0618f073c8d8ca7f8d9f6bf640f487b"
+    "last_resync_patch": "p213_resync_my_work_mascot",
+    "sha256": "b78401a8150d746a03526dc1f18e36b1f6f3e19d2008fb032eea3af5349bc343"
   },
   "approval_center/features/affiliate_bonus/ui/main_section.html": {
     "baseline": "2026-08-31",
