@@ -882,8 +882,14 @@ def generate_json(prompt, response_schema, system_instruction=None,
     -> {"ok", "data", "error", "model", "latency_ms", "provider", "fell_back"}
     """
     model = model or current_model()
+    # `files_in_request` = so phan tu tep THUC SU nam trong request da tao ra cau
+    # tra loi. KHAC voi so tep nguoi goi DINH gui: nhanh Google chi nhan phan tu
+    # co `uri`, nen bytes danh cho Kie bi bo qua o day. Nguoi goi phai kiem con
+    # so NAY, khong phai len(files) -- do dung la loi da de lot diem 17/100 cho
+    # WTU-2026-W39-NV00162 ngay 25/09.
     out = {"ok": False, "data": None, "error": None, "model": model,
-           "latency_ms": 0, "provider": GOOGLE_PROVIDER, "fell_back": False}
+           "latency_ms": 0, "provider": GOOGLE_PROVIDER, "fell_back": False,
+           "files_in_request": 0}
 
     started = time.time()
     text, err = "", ""
@@ -901,6 +907,7 @@ def generate_json(prompt, response_schema, system_instruction=None,
             if not err:
                 out["provider"] = KIE_PROVIDER
                 out["model"] = kie_model()
+                out["files_in_request"] = len(file_parts)
         if err:
             _log_fallback(err)
             out["fell_back"] = True
@@ -915,10 +922,30 @@ def generate_json(prompt, response_schema, system_instruction=None,
             google_parts.append({"fileData": {
                 "fileUri": uri,
                 "mimeType": (item.get("mime_type") or "application/octet-stream")}})
+
+        # Co tep CAN gui ma khong tep nao gui duoc => KHONG goi. Truoc day vong
+        # lap tren lang le bo qua moi phan tu thieu `uri` va van goi Google voi
+        # ZERO tep -- model van tra loi, tra loi tren mot bao cao khong co slide
+        # nao, va diem do duoc ghi vao ho so. Xay ra that 25/09:
+        # WTU-2026-W39-NV00162 nhan 17/100 theo dung duong nay (Kie tai duoc
+        # bytes nhung timeout, roi ve Google, ma bytes thi Google khong dung
+        # duoc va URI thi da het han sau 48h).
+        # Mot cau tra loi tren du lieu thieu con te hon mot loi.
+        if files and not google_parts:
+            out["latency_ms"] = int((time.time() - started) * 1000)
+            out["provider"] = GOOGLE_PROVIDER
+            out["files_in_request"] = 0
+            gerr = ("co %d tep can gui nhung khong tep nao dung duoc o Google"
+                    " (thieu `uri`, vi du bytes cho Kie hoac URI da het han)"
+                    % len(files))
+            out["error"] = ("%s | du phong Google: %s" % (err, gerr)) if err else gerr
+            return out
+
         body = build_body(prompt, response_schema, system_instruction, google_parts)
         text, gerr = _call_google(body, model, timeout)
         out["provider"] = GOOGLE_PROVIDER
         out["model"] = model
+        out["files_in_request"] = len(google_parts)
         if gerr:
             out["latency_ms"] = int((time.time() - started) * 1000)
             # Giu ca hai ly do: neu Kie hong roi Google cung hong thi doc mot ly do

@@ -247,6 +247,43 @@ def _apply_late_penalty(parsed, doc, tiers):
     return parsed
 
 
+def _assert_deck_reached_model(res, record_name):
+    """Chan viec cham diem tren bao cao KHONG co slide nao toi duoc model.
+
+    Chuoi hong that, phat hien 25/09 ngay sau khi tro cron vao duong nay:
+      1. Kie timeout (api.kie.ai chet) -> _bytes_for_kie tra rong;
+      2. ban ghi khong co `gemini_file_uris` con han -- dung tinh trang hai bao
+         cao W39, vi chung ket CHINH VI upload Google hong;
+      3. generate_json duoc goi voi files=None -> Google cham chi tren phan text
+         cua form, khong mot slide nao;
+      4. tra ok=True -> diem duoc ghi vao ho so.
+    `slide_deck_score` chiem 75/100 cua barem, nen day la mot con diem vo nghia
+    duoc dan nhan la co that, va no chay thang vao KPI.
+
+    Ban `collect_deck_files` truoc do co chot `if not files: return error`; luc
+    chuyen sang score_via_llm chot do bi bo ma khong thay bang gi. Day la cho thay.
+    """
+    # Doc `files_sent`, ma scoring_llm gan = so tep THUC SU nam trong request
+    # (generate_json.files_in_request), KHONG phai so tep chuan bi duoc.
+    # Ban dau chot nay doc len(files) -- tuc do "da tai duoc bao nhieu tep" chu
+    # khong do "model thuc su nhin thay bao nhieu tep". Chung cho qua dung ca
+    # 25/09 can chan: Kie tai duoc 1 tep roi timeout, Google khong dung duoc
+    # bytes, request di ra voi 0 tep, va 17/100 duoc ghi vao ho so.
+    # Cong phai do DUNG rui ro no tuyen bo.
+    if int(res.get("files_sent") or 0) > 0:
+        return None
+    why = res.get("kie_skipped") or res.get("error") or "khong ro"
+    prepared = int(res.get("files_prepared") or 0)
+    if prepared:
+        why = ("da tai duoc %d tep nhung KHONG tep nao vao duoc request cuoi"
+               " (%s)" % (prepared, why))
+    return {"success": False, "record": record_name,
+            "error": ("KHONG co tep slide nao toi duoc model -- tu choi cham de"
+                      " khong tao ra mot con diem vo nghia. Ly do: " + str(why))[:700],
+            "provider": res.get("provider"), "model": res.get("model"),
+            "files_sent": 0}
+
+
 def score_report(record_name):
     """Cham diem mot bao cao. -> dict {"success", ...}."""
     doc = frappe.get_doc(WTU, record_name)
@@ -272,6 +309,10 @@ def score_report(record_name):
         return {"success": False, "record": record_name,
                 "error": str(res.get("error"))[:700],
                 "provider": res.get("provider"), "model": res.get("model")}
+
+    refused = _assert_deck_reached_model(res, record_name)
+    if refused:
+        return refused
 
     parsed = _apply_late_penalty(res["data"], doc, tiers)
 
@@ -339,6 +380,10 @@ def summarize_report(record_name):
         return {"success": False, "record": record_name,
                 "error": str(res.get("error"))[:700],
                 "provider": res.get("provider"), "model": res.get("model")}
+
+    refused = _assert_deck_reached_model(res, record_name)
+    if refused:
+        return refused
 
     summary = (res["data"].get("summary") or "").strip()
     if not summary:

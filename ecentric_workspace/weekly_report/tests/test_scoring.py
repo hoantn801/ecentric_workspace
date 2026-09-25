@@ -146,3 +146,30 @@ class TestDeptClean(unittest.TestCase):
         self.assertEqual(scoring._dept_clean("Service - EC"), "Service")
         self.assertEqual(scoring._dept_clean("Management"), "Management")
         self.assertEqual(scoring._dept_clean(None), "")
+
+
+class TestRefuseWhenNoDeckReachedModel(unittest.TestCase):
+    """files_sent == 0 => TU CHOI cham, khong ghi diem.
+
+    Lo hong that, co trong ban dau tien cua file nay: khi Kie timeout VA ban ghi
+    khong con URI Google hop le, generate_json bi goi voi files=None va Google
+    cham tren MOI phan text cua form -- khong mot slide nao. `slide_deck_score`
+    la 75/100 cua barem, nen do la mot con diem vo nghia duoc dan nhan la co that.
+    """
+
+    def test_refuses_when_no_file_sent(self):
+        res = {"ok": True, "data": {"overall_score": 80}, "files_sent": 0,
+               "kie_skipped": "tai PDF hong: Graph 404"}
+        out = scoring._assert_deck_reached_model(res, "WTU-X")
+        self.assertIsNotNone(out, "files_sent=0 phai bi tu choi")
+        self.assertFalse(out["success"])
+        self.assertIn("Graph 404", out["error"])
+
+    def test_allows_when_files_were_sent(self):
+        res = {"ok": True, "data": {"overall_score": 80}, "files_sent": 2}
+        self.assertIsNone(scoring._assert_deck_reached_model(res, "WTU-X"))
+
+    def test_missing_files_sent_key_is_treated_as_zero(self):
+        """Thieu khoa != an toan. Khong suy doan co loi cho viec ghi diem."""
+        out = scoring._assert_deck_reached_model({"ok": True, "data": {}}, "WTU-X")
+        self.assertIsNotNone(out)
