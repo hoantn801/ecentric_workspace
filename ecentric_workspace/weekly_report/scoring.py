@@ -263,9 +263,20 @@ def _assert_deck_reached_model(res, record_name):
     Ban `collect_deck_files` truoc do co chot `if not files: return error`; luc
     chuyen sang score_via_llm chot do bi bo ma khong thay bang gi. Day la cho thay.
     """
+    # Doc `files_sent`, ma scoring_llm gan = so tep THUC SU nam trong request
+    # (generate_json.files_in_request), KHONG phai so tep chuan bi duoc.
+    # Ban dau chot nay doc len(files) -- tuc do "da tai duoc bao nhieu tep" chu
+    # khong do "model thuc su nhin thay bao nhieu tep". Chung cho qua dung ca
+    # 25/09 can chan: Kie tai duoc 1 tep roi timeout, Google khong dung duoc
+    # bytes, request di ra voi 0 tep, va 17/100 duoc ghi vao ho so.
+    # Cong phai do DUNG rui ro no tuyen bo.
     if int(res.get("files_sent") or 0) > 0:
         return None
-    why = res.get("kie_skipped") or "khong ro"
+    why = res.get("kie_skipped") or res.get("error") or "khong ro"
+    prepared = int(res.get("files_prepared") or 0)
+    if prepared:
+        why = ("da tai duoc %d tep nhung KHONG tep nao vao duoc request cuoi"
+               " (%s)" % (prepared, why))
     return {"success": False, "record": record_name,
             "error": ("KHONG co tep slide nao toi duoc model -- tu choi cham de"
                       " khong tao ra mot con diem vo nghia. Ly do: " + str(why))[:700],

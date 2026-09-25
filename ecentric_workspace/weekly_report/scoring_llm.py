@@ -122,7 +122,17 @@ def score_via_llm(prompt, response_schema, system_instruction=None,
         files=files or None,
     )
     out = dict(res)
-    out["files_sent"] = len(files)
+    # `files_prepared` = so tep CHUAN BI duoc. `files_in_request` (do
+    # generate_json dat) = so tep THUC SU nam trong request da tao ra cau tra
+    # loi. Hai so nay KHAC nhau khi Kie hong: bytes da tai ve nhung Google
+    # khong dung duoc bytes, nen request di ra voi ZERO tep.
+    #
+    # 25/09: `files_sent` cu tra len(files) va nguoi goi kiem con so do -- cong
+    # do dung dai luong, va WTU-2026-W39-NV00162 nhan 17/100 tren mot bao cao
+    # ma model khong thay slide nao. Giu `files_sent` la BI DANH so tep that su
+    # gui di, de khong ai vo tinh kiem nham lan nua.
+    out["files_prepared"] = len(files)
+    out["files_sent"] = int(res.get("files_in_request") or 0)
     if note:
         out["kie_skipped"] = note
     return out
