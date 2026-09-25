@@ -178,6 +178,68 @@ def _wait_for_active(file_uri, gemini_api_key, max_wait=WAIT_ACTIVE_MAX):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @frappe.whitelist()
+def fetch_pdf_bytes(sp_web_url, graph_token, dept_clean=""):
+    """Tai tep tu SharePoint ve BYTES PDF. Office -> PDF bang Graph ?format=pdf.
+
+    Bóc ra tu `upload_from_sp_url` (2026-09-25) vi duong Kie CAN BYTES: Kie khong
+    giai duoc file URI cua Google (URI tro ve generativelanguage.googleapis.com),
+    no chi nhan inline base64. Truoc day bytes chi ton tai trong long ham upload
+    roi bi vut di ngay sau khi day len Google.
+
+    `upload_from_sp_url` goi chinh ham nay nen hanh vi duong cu KHONG doi.
+
+    -> {"ok", "data" (bytes), "display_name", "converted_from", "size_bytes", "error"}
+    """
+    out = {"ok": False, "data": None, "display_name": "", "converted_from": "",
+           "size_bytes": 0, "error": None}
+
+    rel_path = _extract_rel_path(sp_web_url, dept_clean)
+    if not rel_path:
+        out["error"] = "Cannot extract rel_path from SP webUrl"
+        return out
+
+    filename = rel_path.rsplit("/", 1)[-1]
+    ext = _file_extension(filename)
+    needs_conversion = ext in OFFICE_EXTS
+    out["converted_from"] = ext
+
+    encoded_path = quote(rel_path, safe="/")
+    base_url = ("https://graph.microsoft.com/v1.0/sites/" + SITE_ID
+                + "/drive/root:/" + encoded_path + ":/content")
+    dl_url = base_url + ("?format=pdf" if needs_conversion else "")
+
+    try:
+        r = requests.get(dl_url,
+                         headers={"Authorization": "Bearer " + graph_token},
+                         timeout=DOWNLOAD_TIMEOUT,
+                         allow_redirects=True)  # Graph format=pdf tra 302 sang CDN
+        r.raise_for_status()
+        pdf_bytes = r.content
+    except Exception as e:
+        out["error"] = "Graph download failed: " + scrub(str(e), graph_token)[:300]
+        return out
+
+    if not pdf_bytes or len(pdf_bytes) < 100:
+        out["error"] = "Downloaded content too small (" + str(len(pdf_bytes)) + " bytes)"
+        return out
+    # Ke ca ?format=pdf ket qua VAN phai la %PDF -- Graph co the "chuyen doi" hong
+    # ma van tra 200 kem mot trang HTML loi.
+    if not pdf_bytes.startswith(b"%PDF"):
+        out["error"] = ("Not a valid PDF (first 8 bytes: " + pdf_bytes[:8].hex()
+                        + ") -- Graph conversion may have failed silently")
+        return out
+
+    display_name = filename
+    if needs_conversion and "." in display_name:
+        display_name = display_name.rsplit(".", 1)[0] + ".pdf"
+
+    out["ok"] = True
+    out["data"] = pdf_bytes
+    out["display_name"] = display_name
+    out["size_bytes"] = len(pdf_bytes)
+    return out
+
+
 def upload_from_sp_url(sp_web_url, graph_token, gemini_api_key,
                        dept_clean="", wait_active=True):
     """Download file from SharePoint, convert Office→PDF if needed, upload to Gemini Files API.
@@ -224,61 +286,16 @@ def upload_from_sp_url(sp_web_url, graph_token, gemini_api_key,
     """
     result = {"success": False}
 
-    # Step 1: Extract rel_path from webUrl
-    rel_path = _extract_rel_path(sp_web_url, dept_clean)
-    if not rel_path:
-        result["error"] = "Cannot extract rel_path from SP webUrl"
-        result["sp_web_url_head"] = sp_web_url[:120]
+    got = fetch_pdf_bytes(sp_web_url, graph_token, dept_clean)
+    result["converted_from"] = got.get("converted_from") or ""
+    if not got.get("ok"):
+        result["error"] = got.get("error")
+        if "rel_path" in (got.get("error") or ""):
+            result["sp_web_url_head"] = sp_web_url[:120]
         return result
-
-    # Step 2: Detect extension
-    filename = rel_path.rsplit("/", 1)[-1]
-    ext = _file_extension(filename)
-    needs_conversion = ext in OFFICE_EXTS
-    result["converted_from"] = ext
-
-    # Step 3: Build Graph download URL
-    encoded_path = quote(rel_path, safe="/")
-    base_url = (
-        "https://graph.microsoft.com/v1.0/sites/" + SITE_ID
-        + "/drive/root:/" + encoded_path + ":/content"
-    )
-    dl_url = base_url + ("?format=pdf" if needs_conversion else "")
-
-    # Step 4: Download (raw bytes — Path A advantage)
-    try:
-        r = requests.get(
-            dl_url,
-            headers={"Authorization": "Bearer " + graph_token},
-            timeout=DOWNLOAD_TIMEOUT,
-            allow_redirects=True,  # Graph format=pdf returns 302 to CDN
-        )
-        r.raise_for_status()
-        pdf_bytes = r.content
-    except Exception as e:
-        # Redact graph_token from error if present
-        result["error"] = "Graph download failed: " + scrub(str(e), graph_token)[:300]
-        return result
-
-    if not pdf_bytes or len(pdf_bytes) < 100:
-        result["error"] = "Downloaded content too small (" + str(len(pdf_bytes)) + " bytes)"
-        return result
-
-    # Verify PDF magic — even for ?format=pdf the result must be %PDF
-    if not pdf_bytes.startswith(b"%PDF"):
-        result["error"] = (
-            "Not a valid PDF (first 8 bytes: "
-            + pdf_bytes[:8].hex()
-            + ") — Graph conversion may have failed silently"
-        )
-        return result
-
-    result["size_bytes"] = len(pdf_bytes)
-
-    # Step 5: Prepare Gemini filename — strip Office ext, append .pdf if converted
-    display_name = filename
-    if needs_conversion and "." in display_name:
-        display_name = display_name.rsplit(".", 1)[0] + ".pdf"
+    pdf_bytes = got["data"]
+    display_name = got["display_name"]
+    result["size_bytes"] = got["size_bytes"]
 
     # Step 6+7: Upload to Gemini Files API, wait for ACTIVE.
     up = upload_bytes(pdf_bytes, display_name, "application/pdf", gemini_api_key,
@@ -623,6 +640,156 @@ def split_files_for_kie(files, max_bytes=KIE_INLINE_MAX_BYTES):
             "data": base64.b64encode(data).decode("ascii"),
         }})
     return parts, ""
+
+
+# Chat luong anh khi thu nen. Khong ha vo han: slide bi lam mo den muc doc sai
+# thi model VAN cham diem -- cham tren thu no khong doc noi, va khong ai biet.
+# Tha tu choi con hon. Moi buoc: (ty le canh, chat luong JPEG).
+SHRINK_STEPS = ((0.75, 75), (0.6, 65), (0.5, 55))
+SHRINK_MIN_SCALE = 0.5          # san cung: khong nho hon mot nua canh
+SHRINK_MAX_SECONDS = 25         # nen phai gon trong ngan sach 300s cua rq worker
+
+
+def shrink_pdf_for_inline(data, max_bytes=KIE_INLINE_MAX_BYTES):
+    """Ha do phan giai anh trong PDF cho lot tran inline. -> (bytes|None, ghi_chu).
+
+    Dung pypdf + Pillow, ca hai di kem Frappe -- KHONG them phu thuoc moi vao
+    Frappe Cloud (bench khong co PyMuPDF/pikepdf/ghostscript).
+
+    Deck bao cao tuan gan nhu toan anh chup slide, nen ha do phan giai anh la don
+    bay gan nhu duy nhat. Tra None khi het buoc, het gio, hoac thieu thu vien --
+    nguoi goi PHAI coi do la "khong dung duoc Kie" va di Google voi DU tep, chu
+    khong duoc gui mot phan.
+    """
+    if not data:
+        return None, "khong co du lieu"
+    if len(data) <= max_bytes:
+        return data, ""
+
+    try:
+        import io as _io
+        from pypdf import PdfReader, PdfWriter
+        from PIL import Image
+    except Exception as exc:
+        return None, "thieu thu vien de nen PDF: %s" % exc
+
+    started = time.time()
+    last_size = len(data)
+
+    for scale, quality in SHRINK_STEPS:
+        if scale < SHRINK_MIN_SCALE:
+            break
+        if time.time() - started > SHRINK_MAX_SECONDS:
+            return None, "het ngan sach thoi gian khi nen (da thu toi %.2f)" % scale
+        try:
+            reader = PdfReader(_io.BytesIO(data))
+            writer = PdfWriter()
+            for page in reader.pages:
+                for img in list(getattr(page, "images", []) or []):
+                    try:
+                        pil = Image.open(_io.BytesIO(img.data))
+                        w = max(1, int(pil.width * scale))
+                        h = max(1, int(pil.height * scale))
+                        pil = pil.convert("RGB").resize((w, h))
+                        img.replace(pil, quality=quality)
+                    except Exception:
+                        # Mot anh hong khong duoc lam hong ca tep.
+                        continue
+                writer.add_page(page)
+            out = _io.BytesIO()
+            writer.write(out)
+            shrunk = out.getvalue()
+        except Exception as exc:
+            return None, "nen PDF that bai: %s" % str(exc)[:200]
+
+        if not (shrunk and shrunk.startswith(b"%PDF")):
+            return None, "ket qua nen khong phai PDF hop le"
+        last_size = len(shrunk)
+        if last_size <= max_bytes:
+            return shrunk, "da nen %d -> %d byte (ty le %.2f, chat luong %d)" % (
+                len(data), last_size, scale, quality)
+        # Buoc sau nen lai tu BAN GOC voi ty le manh hon, khong chong len ban vua
+        # nen: nen hai lan sinh nhieu (artefact) ma khong nho hon bao nhieu.
+
+    return None, ("van vuot tran sau khi nen het cac buoc: %d byte > %d "
+                  "(san chat luong %.2f, ha them se lam AI doc sai slide)"
+                  % (last_size, max_bytes, SHRINK_MIN_SCALE))
+
+
+@frappe.whitelist(methods=["POST"])
+def probe_llm_health():
+    """Nha cung cap nao dang song, va key nay THUC SU thay nhung model nao.
+
+    Vi sao ton tai: tu 17-18/09 moi lan goi Google tra 400, nhung Server Script
+    goi qua frappe.integrations nen raise_for_status() chi de lai chuoi
+    "400 Bad Request" -- khong co cau giai thich cua Google. Ca tuan khong ai
+    biet key het han, project khoa billing, hay than request sai. Doan tu log cut
+    la cach dat nhat de tim mot loi mot dong.
+
+    Cung tra ve danh sach model THAT tu models.list. Gemini 2.5 ngung 16/10/2026,
+    ten model la thu re nhat de kiem va dat nhat khi doan sai -- doc tu API, dung
+    chep tu tai lieu.
+
+    KHONG BAO GIO tra ve key: chi do dai + 4 ky tu dau, du de phan biet "chua dat"
+    voi "dat nhung sai". Moi thong diep loi deu qua scrub().
+    """
+    frappe.only_for("System Manager")
+    out = {"provider_setting": provider(), "google": {}, "kie": {}}
+
+    gkey = api_key()
+    out["google"]["key_present"] = bool(gkey)
+    out["google"]["key_len"] = len(gkey or "")
+    out["google"]["key_head"] = (gkey or "")[:4]
+    if gkey:
+        resp = None
+        try:
+            resp = requests.get(
+                "https://generativelanguage.googleapis.com/v1beta/models",
+                headers={"x-goog-api-key": gkey}, timeout=GENERATE_TIMEOUT)
+            out["google"]["http"] = resp.status_code
+            resp.raise_for_status()
+            names = []
+            for m in (resp.json() or {}).get("models", []):
+                n = (m.get("name") or "").replace("models/", "")
+                if n:
+                    names.append(n)
+            out["google"]["ok"] = True
+            out["google"]["model_count"] = len(names)
+            out["google"]["models"] = sorted(names)
+        except Exception as exc:
+            out["google"]["ok"] = False
+            out["google"]["error"] = scrub("%s: %s%s" % (
+                type(exc).__name__, exc, _why(resp)), gkey)[:900]
+    else:
+        out["google"]["ok"] = False
+        out["google"]["error"] = "ec_gemini_api_key chua duoc dat"
+
+    kkey = kie_api_key()
+    out["kie"]["key_present"] = bool(kkey)
+    out["kie"]["key_len"] = len(kkey or "")
+    out["kie"]["model_setting"] = kie_model()
+    if kkey:
+        body = build_body(
+            "Tra ve dung {\"ping\": \"pong\"}",
+            {"type": "object", "properties": {"ping": {"type": "string"}},
+             "required": ["ping"]})
+        text, err = _call_kie(body, GENERATE_TIMEOUT)
+        out["kie"]["ok"] = not err
+        if err:
+            out["kie"]["error"] = err
+        else:
+            out["kie"]["reply_head"] = (text or "")[:80]
+    else:
+        out["kie"]["ok"] = False
+        out["kie"]["error"] = "khoa Kie chua duoc dat"
+
+    out["configured"] = {
+        "ec_llm_model": current_model(),
+        "ec_llm_model_kie": kie_model(),
+        "ec_llm_model_summarizer": _single("ec_llm_model_summarizer") or "",
+        "ec_llm_model_company_summary": _single("ec_llm_model_company_summary") or "",
+    }
+    return out
 
 
 def build_body(prompt, response_schema, system_instruction=None, file_parts=None):
