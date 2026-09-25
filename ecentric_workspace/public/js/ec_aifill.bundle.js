@@ -87,7 +87,7 @@
             maxChars: 8000, maxFiles: 5, files: [], fileExts: [], uploading: false, ran: false,
             _filesHtml: null, panel: null,
             maxDrafts: 10, hasFlags: false, ns: "",
-            marks: null, marksFor: null };
+            marks: null, marksFor: null, hadFields: null };
 
   /* Tệp có nhận được không, và nếu không thì VÌ SAO. PURE.
    * Chặn ở client cho người dùng biết ngay, nhưng server vẫn chặn lại lần nữa — cổng ở
@@ -315,10 +315,28 @@
       "</div></div>";
   }
 
+  /* SU CO 25/09 - PANEL RONG CHO CA 78 NGUOI.
+   *
+   * `render()` ve HAI hinh dang khac nhau tuy man hinh, nhung `mount()` chi goi no DUNG MOT
+   * LAN, ngay khi `.tabs` xuat hien - luc do than form CHUA ve xong nen khong co `[data-fld]`
+   * nao, va panel bi ghi rong. Form hien ra sau do thi observer goi mount/paint/renderFiles/
+   * renderBatch - KHONG cai nao goi lai `render()`. Panel nam do rong vinh vien.
+   *
+   * Bai hoc: mot ham ve HAI hinh dang theo dieu kien thi phai co ai do theo doi dieu kien
+   * ay DOI. Ve mot lan roi tin la xong chi dung khi ham chi co mot hinh dang.
+   */
+  function syncMode() {
+    if (!S.panel) return;
+    var co = !!document.querySelector("[data-fld]");
+    if (co === S.hadFields) return;      // hinh dang khong doi -> khong ve lai
+    render();                            // `render` tu cap nhat S.hadFields
+  }
+
   function render() {
     if (!S.panel) return;
+    S.hadFields = !!document.querySelector("[data-fld]");
     // Man chi tiet: khong co o nhap nao -> ve dong tom tat, khong ve khoi dien.
-    if (!document.querySelector("[data-fld]")) {
+    if (!S.hadFields) {
       S.panel.innerHTML = (S.marks ? detailHtml() : "");
       S.panel.classList.toggle("is-running", false);
       return;
@@ -1007,7 +1025,7 @@
     // Trang vẽ lại liên tục → vẽ lại dấu + gắn lại panel sau mỗi lần DOM đổi.
     new MutationObserver(function (muts) {
       if (fromUs(muts, S.panel)) return;     // đừng tự đuổi theo cái đuôi của mình
-      mount(); loadMarks(); paint(); renderFiles(); renderBatch();
+      mount(); syncMode(); loadMarks(); paint(); renderFiles(); renderBatch();
     }).observe(document.body, { childList: true, subtree: true });
 
     // Gõ tay vào một ô AI đã điền → dấu biến mất. `capture` để bắt trước handler của trang.
@@ -1040,5 +1058,6 @@
                        money: money, rowState: rowState, batchRefuse: batchRefuse,
                        flagsHtml: flagsHtml, batchHtml: batchHtml, B: B, S: S,
                        loiThat: loiThat, draftId: draftId, detailHtml: detailHtml,
+                       syncMode: syncMode, render: render,
                        setMode: setMode };
 })();
