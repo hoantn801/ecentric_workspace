@@ -7,7 +7,7 @@ from frappe import _
 
 from ecentric_workspace.approval_center.shared.activation_flags import is_dry_run
 from ecentric_workspace.approval_center.features.brand_weight.infrastructure.setup import (
-    PROCESS_CODE, validate_brand_weight_v1,
+    PROCESS_CODE, SELF_PROCESS_CODE, validate_brand_weight_v1,
 )
 
 TYPE = "BRAND_WEIGHT"
@@ -33,7 +33,8 @@ def enable_brand_weight(dry_run=1, apply=0, commit=0):
     if dry:
         report["result"] = "DRY_RUN_OK"
         return report
-    frappe.db.set_value("EC Approval Process", PROCESS_CODE, "status", "Active")
+    for code in (PROCESS_CODE, SELF_PROCESS_CODE):
+        frappe.db.set_value("EC Approval Process", code, "status", "Active")
     frappe.db.set_value("EC Approval Type", TYPE, "route", ROUTE)
     report["result"] = "ENABLED"
     return report

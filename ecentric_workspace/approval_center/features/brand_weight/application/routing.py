@@ -34,6 +34,18 @@ from ecentric_workspace.approval_center.features.brand_weight.infrastructure imp
 LEVEL_LEAD = 1
 LEVEL_DEPT_HEAD = 2
 
+# Chot voi Hoan 26/09: 8 nguoi phong nay (ban lanh dao) TU DIEN VA TU CHOT phieu cua
+# minh, khong qua duyet - "dung de anh Lam duyet". Hai truong phong nam NGOAI phong nay
+# (Merchandise, Service) van di luong thuong: lead cua ho duyet, cap truong phong tu bo.
+# Doi ten phong tren Department thi phai doi o day, neu khong nhom nay se quay ve luong
+# thuong va phieu cua ho lai nam cho anh Lam.
+MANAGEMENT_DEPT = "Management - EC"
+
+
+def is_self_final(department):
+    """Nguoi nop thuoc phong Management -> phieu tu chot, khong co nguoi duyet nao khac."""
+    return (department or "").strip() == MANAGEMENT_DEPT
+
 
 class ResolveBrandWeightSkipLevelsService:
     def __init__(self, reader=employee_reader, head_resolver=resolve_department_manager_user):
