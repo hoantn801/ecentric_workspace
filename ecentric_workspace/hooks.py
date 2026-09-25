@@ -443,3 +443,20 @@ elif isinstance(_sla_prev, str):
         _sla_ec["after_insert"] = [_sla_prev, _SLA_CHECKIN_HOOK]
 elif _SLA_CHECKIN_HOOK not in _sla_prev:
     _sla_prev.append(_SLA_CHECKIN_HOOK)
+
+# --------------------------------------------------------------------------- #
+# 25/09/2026 - Go role khoi mot nguoi thi cac dong duyet "Role: <role do>" con Pending
+# cua ho tren phieu dang mo chuyen Skipped ngay (dong ToDo, loai dau viec SLA). Truoc do
+# anh Lam van duyet duoc cap Finance cua EC-CTR-2026-00023 sau khi da bi go EC Finance.
+# Xem approval_center/shared/workflow/role_pool.py. Ham nuot moi loi.
+# --------------------------------------------------------------------------- #
+_ROLE_POOL_HOOK = "ecentric_workspace.approval_center.shared.workflow.role_pool.on_user_update"
+_rp_user = doc_events.setdefault("User", {})
+_rp_prev = _rp_user.get("on_update")
+if _rp_prev is None:
+    _rp_user["on_update"] = [_ROLE_POOL_HOOK]
+elif isinstance(_rp_prev, str):
+    if _rp_prev != _ROLE_POOL_HOOK:
+        _rp_user["on_update"] = [_rp_prev, _ROLE_POOL_HOOK]
+elif _ROLE_POOL_HOOK not in _rp_prev:
+    _rp_prev.append(_ROLE_POOL_HOOK)

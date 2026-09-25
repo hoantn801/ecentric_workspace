@@ -76,9 +76,13 @@ def _can_view(user, biz, req):
 def _pending_row(req, user):
     if not req or req.approval_status not in OPEN:
         return None
-    return frappe.db.exists("EC Approval Request Approver",
-                            {"approval_request": req.name, "level_no": req.current_level,
-                             "approver": user, "status": "Pending"})
+    row = frappe.db.exists("EC Approval Request Approver",
+                           {"approval_request": req.name, "level_no": req.current_level,
+                            "approver": user, "status": "Pending"})
+    if not row:
+        return None
+    from ecentric_workspace.approval_center.shared.requests.capabilities import still_holds_role
+    return row if still_holds_role(req.name, req.current_level, user) else None
 
 
 def _has_decision(req):
