@@ -90,20 +90,54 @@ class BytesForKieShrinkTest(unittest.TestCase):
         self.assertEqual(files, [])
         self.assertIn("404", why)
 
-    def test_shrink_budget_accounts_for_files_already_taken(self):
-        """Tran truyen cho shrink phai la phan CON LAI, khong phai tran tong."""
-        scoring_llm.MAX_INLINE_TOTAL = 1000
-        self._serve([700, 500])
-        seen = {}
+    def test_all_files_are_shrunk_not_just_the_one_that_overflowed(self):
+        """Vuot tran => nen DEU, khong don het len tep cuoi.
+
+        Ban dau chi nen tep lam tran nguong: may tep dau an gan het ngan sach,
+        tep cuoi du nen con 1MB van khong lot -> tu choi ca luot, trong khi nen
+        deu ca ba thi vua. Dinh that 25/09 o WTU-2026-W37-HR-EMP-00011.
+        """
+        scoring_llm.MAX_INLINE_TOTAL = 900
+        self._serve([600, 600])          # tong 1200 > 900
+        seen = []
 
         def fake_shrink(data, max_bytes=None):
-            seen["max_bytes"] = max_bytes
-            return b"%PDF" + b"z" * 96, "ok"
+            seen.append((len(data), max_bytes))
+            return b"%PDF" + b"z" * 396, "nen"
         self.G.shrink_pdf_for_inline = fake_shrink
+
         files, why = scoring_llm._bytes_for_kie(["u1", "u2"], "Svc")
         self.assertEqual(why, "")
-        self.assertEqual(seen["max_bytes"], 300,
-                         "con 300 byte sau khi tep dau chiem 700")
+        self.assertEqual(len(files), 2)
+        self.assertEqual(len(seen), 2, "CA HAI tep phai duoc nen, khong chi mot")
+        for _size, budget in seen:
+            self.assertEqual(budget, 450, "ngan sach chia theo ty le kich thuoc")
+
+    def test_final_total_check_catches_a_lying_shrinker(self):
+        """Nen bao "thanh cong" ma ket qua van qua to => VAN phai tu choi.
+
+        Luoi cuoi cung. Them sau khi dot bien "bo kiem lai tong sau khi nen"
+        SONG SOT: moi ca test truoc do dung stub nen tra ve tep vua van, nen cai
+        cong nay chua bao gio duoc thu. Mot cong khong ai do thi khong biet no
+        co chay khong.
+        """
+        scoring_llm.MAX_INLINE_TOTAL = 900
+        self._serve([600, 600])
+        # tra ve "da nen" nhung van 600 byte moi tep -> tong 1200 > 900
+        self.G.shrink_pdf_for_inline = lambda data, max_bytes=None: (
+            b"%PDF" + b"q" * 596, "noi la da nen")
+        files, why = scoring_llm._bytes_for_kie(["u1", "u2"], "Svc")
+        self.assertEqual(files, [], "tong van qua tran thi khong duoc gui")
+        self.assertIn("sau khi nen tat ca", why)
+
+    def test_refuses_when_even_shrinking_everything_is_not_enough(self):
+        scoring_llm.MAX_INLINE_TOTAL = 900
+        self._serve([600, 600])
+        self.G.shrink_pdf_for_inline = lambda data, max_bytes=None: (None, "qua san")
+        files, why = scoring_llm._bytes_for_kie(["u1", "u2"], "Svc")
+        self.assertEqual(files, [])
+        self.assertIn("qua san", why)
+
 
 
 class ShrinkGuardTest(unittest.TestCase):

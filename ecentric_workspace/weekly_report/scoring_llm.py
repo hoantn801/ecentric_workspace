@@ -45,33 +45,43 @@ def _bytes_for_kie(slide_urls, dept_clean):
     if not token:
         return [], "Graph token rong"
 
-    files, total = [], 0
+    # Tai HET truoc, roi moi quyet dinh nen -- khong nen ngay khi mot tep lam
+    # tran nguong.
+    #
+    # Ban dau viet kieu "tep nao lam tran thi nen tep do", va no sai: mot ban ghi
+    # co nhieu deck, may tep dau da an gan het 7MB, nen tep cuoi du nen con 1MB
+    # van khong lot vao phan con lai -> tu choi ca luot, trong khi nen DEU ca ba
+    # tep thi vua. Bat gap 25/09 o WTU-2026-W37-HR-EMP-00011 (1 trong 3 ban thu).
+    raw = []
     for url in slide_urls:
         got = gemini_api.fetch_pdf_bytes(url, token, dept_clean or "")
         if not got.get("ok"):
             return [], "tai PDF hong: %s" % (got.get("error") or "?")
-        data = got["data"]
-        total += len(data)
-        if total > MAX_INLINE_TOTAL:
-            # THEM 25/09 (chat Weekly Report, Hoan chot): thu NEN truoc khi bo
-            # cuoc. Truoc day vuot tran la di thang Google -- ma Google dang tra
-            # 400 tu 17/09, nen "du phong" luc nay la luoi rach va deck lon se
-            # khong bao gio co diem.
-            #
-            # Ky luat tat-ca-hoac-khong-gi GIU NGUYEN: nen duoc thi di Kie voi DU
-            # tep; nen khong duoc thi van tra ([], ly_do) nhu cu. Nen co san chat
-            # luong (SHRINK_MIN_SCALE) -- qua san thi tu choi, vi slide mo qua thi
-            # model VAN cham, cham tren thu no khong doc noi.
-            total -= len(data)
-            shrunk, note = gemini_api.shrink_pdf_for_inline(
-                data, max_bytes=max(0, MAX_INLINE_TOTAL - total))
+        raw.append({"data": got["data"], "name": got.get("display_name") or ""})
+
+    total = sum(len(r["data"]) for r in raw)
+    if total > MAX_INLINE_TOTAL:
+        # Chia ngan sach theo TY LE kich thuoc goc: tep to duoc nhieu cho hon,
+        # va moi tep deu bi ep xuong chu khong don het len mot tep.
+        notes = []
+        for r in raw:
+            share = int(MAX_INLINE_TOTAL * len(r["data"]) / float(total))
+            if len(r["data"]) <= share:
+                continue
+            shrunk, note = gemini_api.shrink_pdf_for_inline(r["data"], max_bytes=share)
             if not shrunk:
-                return [], "tong PDF vuot tran inline %d va khong nen duoc: %s" % (
-                    MAX_INLINE_TOTAL, note)
-            data = shrunk
-            total += len(data)
-        files.append({"data": data, "mime_type": "application/pdf",
-                      "display_name": got.get("display_name") or ""})
+                return [], ("tong PDF %d byte vuot tran inline %d va khong nen"
+                            " du: %s" % (total, MAX_INLINE_TOTAL, note))
+            r["data"] = shrunk
+            if note:
+                notes.append(note)
+        total = sum(len(r["data"]) for r in raw)
+        if total > MAX_INLINE_TOTAL:
+            return [], ("sau khi nen tat ca van con %d byte > tran %d"
+                        % (total, MAX_INLINE_TOTAL))
+
+    files = [{"data": r["data"], "mime_type": "application/pdf",
+              "display_name": r["name"]} for r in raw]
     return files, ""
 
 
