@@ -15,6 +15,83 @@ OPEN_STATUSES = ("Pending", "Information Required")
 TERMINAL = ("Approved", "Rejected", "Cancelled")
 
 
+class _SlaOff:
+    """Khong co cong noi SLA -> moi loi goi thanh mot ham rong.
+
+    Doi tuong rong nay de cho cac diem cam ben duoi viet duoc tu nhien
+    (`_sla().on_level_activated(...)`) ma khong phai kem mot cau `if` o tam
+    cho - tam cau `if` quanh mot thu chay tren moi lan duyet don la tam cho de
+    mot lan sua sau nay quen mot cau.
+    """
+
+    def __getattr__(self, name):
+        # `*a` chu khong chi `**kw`: mot lan sua sau nay viet loi goi kieu
+        # positional se nem TypeError giua giao dich duyet don, va chi hong
+        # tren bench khong co module SLA - dung loai loi khong ai tai hien duoc.
+        return lambda *a, **kw: None
+
+
+_SLA_OFF = _SlaOff()
+
+
+def _sla():
+    """Cong noi mot chieu sang module SLA. NAP TRE, co chu y.
+
+    Khong dat `import` o dau tep vi hai ly do, ly do thu hai quan trong hon:
+
+    1. `transitions.py` duoc mot so bo test nap bang cach `exec` ma nguon voi
+       mot `frappe` gia va KHONG co goc repo trong `sys.path`
+       (tests/standalone/test_e2e2_engine_guard_races.py). Mot import cap module
+       se lam ca bo test do do ngay.
+    2. Quan trong hon: mot import cap module bien su ton tai cua module SLA
+       thanh dieu kien de `transitions` NAP DUOC. Do dung la dieu ma `sla_port`
+       sinh ra de tranh - do luong khong duoc phep lam hong cai no do luong.
+
+    Khong nap duoc thi tra ve doi tuong rong: luong duyet chay tiep binh thuong,
+    chi la khong co ai cham diem. `sla_port` (khi co) da tu nuot moi loi ben
+    trong no.
+    """
+    try:
+        from ecentric_workspace.approval_center.shared.workflow import sla_port
+        return sla_port
+    except Exception:
+        return _SLA_OFF
+
+
+def _sla_attempt(request_name):
+    """Lan thu may ho so nay chay lai TU DAU - suy tu nhat ky, khong them cot.
+
+    Mot ho so bi `Restarted` se di lai tu cap 1 va nhung nguoi da duyet o vong
+    truoc phai duyet lai. Do la nghia vu MOI: dung chung khoa chong trung voi
+    vong cu thi ca vong duyet thu hai bien mat khoi bang diem.
+
+    CO Y chep lai ba dong nay thay vi import tu module SLA: `transitions` khong
+    duoc phu thuoc vao module SLA - do la toan bo ly do `sla_port` ton tai. Ban
+    goc (co test) la `sla.domain.approval_rules.attempt_no`.
+
+    Fail-safe tra 1: mot con so sai o day chi lam lech khoa chong trung cua SLA,
+    con nem loi thi chan nguoi dang duyet don.
+    """
+    cache = getattr(frappe.local, "_ec_sla_attempt", None)
+    if cache is None:
+        cache = frappe.local._ec_sla_attempt = {}
+    if request_name in cache:
+        return cache[request_name]
+    try:
+        n = frappe.db.count("EC Approval Action",
+                            {"approval_request": request_name, "action": "Restarted"})
+        # `int()` PHAI nam trong `try`. Mot adapter tra ve Decimal/str/None se lam
+        # `int()` nem ValueError - va o day khong co `sla_port._safe` nao boc, nen
+        # no roi thang vao giua `approve()`: nguoi dung khong duyet duoc don vi
+        # mot dong dem so lan lam lai. Ban goc co test la
+        # `sla.domain.approval_rules.attempt_no`, va ban do bat dung hai loi nay.
+        val = int(n or 0) + 1
+    except Exception:
+        val = 1
+    cache[request_name] = val
+    return val
+
+
 # --------------------------------------------------------------------------- #
 # PURE level-completion decision (no DB) - exhaustively unit-testable.
 # statuses: list of runtime approver statuses for the active level.
@@ -293,16 +370,22 @@ def request_summary(reference_doctype, reference_name):
     parts = []
     sender = row.get("requested_by")
     if sender:
-        parts.append("Người gửi: " + (frappe.db.get_value("User", sender, "full_name") or sender))
+        parts.append("<b>Người gửi:</b> " + (frappe.db.get_value("User", sender, "full_name") or sender))
     dept = row.get("department") or row.get("requester_department")
     if dept:
-        parts.append("Phòng ban: " + str(dept))
+        parts.append("<b>Phòng ban:</b> " + str(dept))
     if amount_field and row.get(amount_field):
         try:
-            parts.append("Số tiền: " + "{:,.0f} VND".format(float(row.get(amount_field))))
+            parts.append("<b>Số tiền:</b> " + "{:,.0f} VND".format(float(row.get(amount_field))))
         except (TypeError, ValueError):
             pass
-    return " · ".join(parts)
+    # Noi bang <br> chu KHONG bang " · " hay ky tu xuong dong that.
+    # Da do tren the Teams that (14/09): the Copilot render <b>, <i>, <br> va dau
+    # cham dau dong, nhung NUOT ky tu newline - ba dong bi dinh lien thanh mot.
+    # Cac kenh khac khong bi anh huong: chuong trong app va web push deu loc sach
+    # the HTML truoc khi hien (toPlainText o notification_center.js, _plain o
+    # providers/webpush.py), nen <br> chi thanh mot khoang trang.
+    return "<br>".join(parts)
 
 
 def notify(users, subject, doctype, name):
@@ -840,6 +923,36 @@ def _advance_past_level(req, level_no):
         complete_approval(frappe.get_doc("EC Approval Request", req.name))
 
 
+def _luong_co_ky_so(req, boi_canh):
+    """CO ho so ky so dang BAT cho (reference_doctype, approval_type) khong?
+
+    DUNG CHUNG cho CA HAI luat trung-nguoi. Engine co HAI luat, khong phai mot:
+      * `_skip_earlier_duplicate_levels` - bo cap TRUOC, chay MOT LAN luc dung luong;
+      * `_auto_skip_duplicate_level`     - bo cap SAU,  chay MOI LAN kich hoat mot cap.
+    Ngay 16/09/2026 chot duoc dat o luat thu nhat va BO SOT luat thu hai, nen buoi chieu
+    cung ngay hai phieu cua chi Lien (EC-PAYR-2026-00161, 00164) van bi bo cap 3 - chi khac
+    la bo o thoi diem kich hoat chu khong phai luc nop. Gop dieu kien vao MOT ham de lan sau
+    them mot luat nua thi cho sua chi co mot.
+
+    DOC KHONG DUOC -> TRA True (coi nhu CO ky so -> KHONG GOP). Doan nham theo huong nay:
+    nguoi ta ky hai lan cho mot cau hoi - kho chiu, nhin thay ngay, sua duoc. Doan nham theo
+    huong kia: mot o ky tren to mau khong bao gio nhan duoc lenh, eContract dung im, va phieu
+    chet o buoc SAU do voi nhan `provider_accepted_but_silent` - khong ai doc ra nguyen nhan.
+
+    Dung `get_enabled_profile` chu KHONG phai `get_active_profile`: cau hoi o day la CAU HINH
+    ("luong nay co ky so khong"), khong phai "cong ky so co dang mo khong". Dung ban theo cong
+    thi tat/bat mot cai gate se am tham doi ca cau truc luong duyet - mot qua min.
+    """
+    try:
+        from ecentric_workspace.platform.esign import guard as _esign_guard
+        return bool(_esign_guard.get_enabled_profile(
+            req.reference_doctype, req.get("approval_type")))
+    except Exception:
+        frappe.log_error(frappe.get_traceback(),
+                         "%s: khong doc duoc ho so ky so %s" % (boi_canh, req.name))
+        return True
+
+
 def _skip_earlier_duplicate_levels(req):
     """Mot nguoi dung o NHIEU cap -> bo cac cap TRUOC, giu cap CUOI CUNG cua ho (Hoan chot 09/09).
 
@@ -869,6 +982,32 @@ def _skip_earlier_duplicate_levels(req):
     `_auto_skip_duplicate_level` (luat bo-cap-SAU von co) cung chua bao gio kiem `mandatory` -
     giu chot o day thi hai luat trung-nguoi tu mau thuan nhau.
     """
+    # 🔴 KHONG AP LUAT NAY KHI LUONG CO KY SO (16/09/2026).
+    #
+    # SU CO EC-PAYR-2026-00149. Chi Lien (Finance) gui phieu; truong bo phan cua chi la chi
+    # Phuong, ma chi Phuong cung la HOF o cap 3. Luat duoi day bo cap 1 - dung y do cua no.
+    # Nhung to mau tren eContract co NAM o ky co dinh, trong do chi Phuong co HAI o rieng:
+    # "TRUONG BO PHAN (Xem xet)" va "KIEM SOAT (Xem xet)". Bo mot cap ben ERP lam chuoi duyet
+    # 4 buoc lech khoi chuoi chu ky 5 o cua eContract.
+    #
+    # Hau qua do duoc, nguyen van trong su kien cua EC-DSR-2026-00317:
+    #     next handler not named: no_eligible_recipient:1_de_xuat_0_duoc_nhan
+    # ERP de xuat chi Phuong cho buoc ke tiep; eContract tra loi khong ai nhan duoc, vi buoc
+    # ke tiep CUA NO van la "Truong bo phan" - cai o ma ERP vua bo qua. Khong chi dinh duoc
+    # ai -> lui ve pool mac dinh (7 truong phong, khong co chi Phuong) -> lenh ky truot nguoi
+    # -> `not_enough_signatures:have=1/need=2` lap 11 lan -> Manual Review sau 20 phut.
+    #
+    # Chinh `next_handler.py` da ghi canh bao nay tu 28/08: "chuoi duyet cua ERP KHONG bat
+    # buoc trung chuoi cua eContract, va khi lech thi eContract im lang bo ca lenh". Luat
+    # gop chinh la thu tao ra do lech do.
+    #
+    # Luat 09/09 van dung khi KHONG co ky so (ca EC-HIRE-2026-00003 o tren): luc do khong co
+    # to giay nao dong cung so o, gop lai chi tiet kiem mot cu bam.
+    #
+    # Dieu kien nam o `_luong_co_ky_so` - dung chung voi luat bo-cap-SAU, xem ghi chu o do.
+    if _luong_co_ky_so(req, "skip_duplicate_levels"):
+        return
+
     rows = frappe.get_all(
         "EC Approval Request Level", filters={"approval_request": req.name},
         fields=["name", "level_no", "level_name", "mandatory"], order_by="level_no asc") or []
@@ -974,6 +1113,29 @@ def grant_read_to_snapshot_approvers(req):
         # con hon hong ca lan gui phieu.
         frappe.log_error(frappe.get_traceback(),
                          "grant_read: nguoi xu ly %s" % req.name)
+    # NGUOI DE NGHI (15/09). Lan thu BA cung mot lop loi, va lan nay la nguoi hien nhien
+    # nhat: chinh chu cua ho so.
+    #
+    # `EC Payment Request` co Custom DocPerm cho System Manager + EC Finance, `if_owner=0`.
+    # Nguoi de nghi khong thuoc nhom nao trong hai nhom do va khong co DocShare -> ho MO
+    # DUOC phieu (duong cua app co luat rieng) nhung bam vao BAT KY tep nao cung 403, vi
+    # cong tep cua Frappe doc DocShare/DocPerm chu khong doc luat cua app.
+    #
+    # Do tren prod 15/09: 30/30 phieu De nghi thanh toan da co ban ky `SIGNED-*.pdf` deu
+    # thieu quyen cho nguoi de nghi; khong mot nguoi DUYET nao thieu. Tuc nguoi can ban ky
+    # nhat lai la nguoi duy nhat khong lay duoc no.
+    #
+    # KHONG phai noi rong quyen: `can_view_request` da cho nguoi de nghi xem toan bo ho so
+    # tu dau. Day chi la lam cho cong tep theo kip luat cua app - cung mot cau da viet cho
+    # nguoi duyet (08/09) va nguoi xu ly (09/09).
+    #
+    # `try` RIENG, khong gop voi khoi nguoi xu ly o tren: gop lai thi mot loi khi doc cau
+    # hinh nguoi xu ly se cuon theo ca nguoi de nghi, va nguoi de nghi bien mat vi mot ly do
+    # khong lien quan gi den ho.
+    try:
+        users = list(users) + [req.get("requested_by")]
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "grant_read: nguoi de nghi %s" % req.name)
     for u in dict.fromkeys(users):
         if not u or u == "Guest":
             continue
@@ -1100,7 +1262,23 @@ def _activate_level(req, level_no):
     # already approved an earlier level in this same request, skip it (audited) and advance instead of
     # asking the same person to approve twice. Runs only at activation/advance (never before), never skips
     # L1 (no earlier level), and never fires while any non-duplicate approver is still pending (Any-One safe).
-    if _all_level_approvers_already_approved(req.name, level_no):
+    #
+    # 🔴 VA CUNG KHONG AP KHI LUONG CO KY SO (16/09/2026, chieu).
+    # EC-PAYR-2026-00164: chi Phuong duyet cap 1 luc 15:47:49, chi Lien duyet cap 2 luc
+    # 15:48:00, roi cap 3 (HOF - CUNG chi Phuong) vua kich hoat la luat nay tu bo:
+    #     activated_at == completed_at == 15:48:00.697624, khong ai bam gi.
+    # O "Kiem soat" tren to mau eContract khong bao gio nhan duoc lenh ky, nen tai lieu dung
+    # o chi Phuong; ERP thi di tiep va ban lenh ky cho CEO luc 16:56 - eContract nuot lenh,
+    # chan ky CEO chet voi nhan `provider_accepted_but_silent`.
+    #
+    # Dung mot thu voi su co EC-PAYR-2026-00149 sang cung ngay, chi khac THOI DIEM bo cap.
+    # Sang 16/09 chot chi duoc dat o `_skip_earlier_duplicate_levels` (bo cap TRUOC, luc
+    # nop) - chinh docstring cua ham do co nhac ten `_auto_skip_duplicate_level` ma van de
+    # nguyen no. Bit mot dau cua cung mot lo.
+    #
+    # Khong ap cho luong khong ky so: luat 09/09 giu nguyen (EC-HIRE-2026-00003 van dung).
+    if (_all_level_approvers_already_approved(req.name, level_no)
+            and not _luong_co_ky_so(req, "auto_skip_duplicate_level")):
         _auto_skip_duplicate_level(req, level_no)
         return
     rl = _rl_for(req.name, level_no)
@@ -1120,6 +1298,14 @@ def _activate_level(req, level_no):
     close_todos(req.reference_doctype, req.reference_name)   # close prior-level ToDos before assigning the new level
     assign(req.reference_doctype, req.reference_name, approvers,
            _("Approval level {0}").format(level_no))
+    # SLA: mot dau viec cho MOI nguoi duyet cua cap nay. Dat o cuoi, sau khi
+    # cap da thuc su mo va da giao viec - de khong bao gio co nghia vu cho mot
+    # cap chua mo. `_activate_level` la choke point duy nhat cua moi duong kich
+    # hoat cap, nen mot loi goi o day phu het.
+    _sla().on_level_activated(
+        request_doctype=req.reference_doctype, request_name=req.reference_name,
+        level_no=level_no, approvers=approvers, opened_at=rl.activated_at,
+        sla_policy_code=rl.sla_policy, attempt=_sla_attempt(req.name))
 
 
 def _actor_pending_row(req_name, level_no, actor):
@@ -1174,7 +1360,14 @@ def approve(request_name, actor=None, comment=None):
     frappe.db.set_value("EC Approval Request Approver", row,
                         {"status": "Approved", "decided_at": now_datetime(), "comment": comment})
     log_action(request_name, "Approved", actor, req.current_level, comment=comment)
-    _evaluate(req, req.current_level)
+    # SLA: dong dong ho cua CHINH nguoi vua bam, ngay tai moc nay. Khong doi cap
+    # dong: o cap dong thuan, nguoi duyet dau tien bam luc 9h va nguoi thu ba bam
+    # luc 17h hom sau - lay moc cap dong se bien nguoi dung han thanh nguoi tre.
+    _sla().on_approver_acted(
+        request_doctype=req.reference_doctype, request_name=req.reference_name,
+        level_no=req.current_level, acted_by=actor, acted_at=now_datetime(),
+        attempt=_sla_attempt(request_name))
+    _evaluate(req, req.current_level, actor=actor)
 
 
 def reject(request_name, actor=None, comment=None):
@@ -1188,6 +1381,13 @@ def reject(request_name, actor=None, comment=None):
     req.approval_status = frappe.db.get_value("EC Approval Request", request_name,
                                               "approval_status")
     _guard_open(req)
+    # Cung ly do voi approve(): phieu dang cho nguoi de nghi bo sung thi cap duyet
+    # khong duoc dong cap. `_guard_open` cho "Information Required" di qua vi no khong
+    # terminal; chot nay moi la thu chan. Giao dien da an ba nut tu 22/09, nhung mot
+    # luat chi song o giao dien la mot luat khong ton tai.
+    if req.approval_status == "Information Required":
+        frappe.throw(_("Phiếu đang chờ người đề nghị bổ sung thông tin. "
+                       "Chờ họ gửi lại rồi mới thao tác."))
     if req.current_level:
         _lk = _rl_for(request_name, req.current_level)
         _lk and frappe.db.get_value("EC Approval Request Level", _lk.name, "name", for_update=True)
@@ -1200,6 +1400,18 @@ def reject(request_name, actor=None, comment=None):
                previous_status="Pending", new_status="Rejected")
     rl = _rl_for(request_name, req.current_level)
     rl.level_status = "Rejected"; rl.save(ignore_permissions=True)
+    # SLA: TU CHOI DUNG HAN LA DUNG HAN. Nghia vu do PHAN HOI, khong do DONG Y -
+    # cham theo ket qua duyet se bien SLA thanh ap luc phai duyet, va do la cach
+    # nhanh nhat de bien mot he do luong thanh mot he gay hai.
+    _sla_att = _sla_attempt(request_name)
+    _sla().on_approver_acted(
+        request_doctype=req.reference_doctype, request_name=req.reference_name,
+        level_no=req.current_level, acted_by=actor, acted_at=now_datetime(),
+        attempt=_sla_att)
+    _sla().on_level_closed(
+        request_doctype=req.reference_doctype, request_name=req.reference_name,
+        level_no=req.current_level, acted_by=actor, closed_at=now_datetime(),
+        attempt=_sla_att)
     frappe.db.set_value("EC Approval Request", request_name,
                         {"approval_status": "Rejected", "completed_at": now_datetime()})
     close_todos(req.reference_doctype, req.reference_name)
@@ -1220,6 +1432,13 @@ def request_information(request_name, actor=None, comment=None):
     req.approval_status = frappe.db.get_value("EC Approval Request", request_name,
                                               "approval_status")
     _guard_open(req)
+    # Cung ly do voi approve(): phieu dang cho nguoi de nghi bo sung thi cap duyet
+    # khong duoc dong cap. `_guard_open` cho "Information Required" di qua vi no khong
+    # terminal; chot nay moi la thu chan. Giao dien da an ba nut tu 22/09, nhung mot
+    # luat chi song o giao dien la mot luat khong ton tai.
+    if req.approval_status == "Information Required":
+        frappe.throw(_("Phiếu đang chờ người đề nghị bổ sung thông tin. "
+                       "Chờ họ gửi lại rồi mới thao tác."))
     row = _actor_pending_row(request_name, req.current_level, actor)
     if not row:
         frappe.throw(_("You are not a pending approver for the current level."))
@@ -1230,6 +1449,18 @@ def request_information(request_name, actor=None, comment=None):
     frappe.db.set_value("EC Approval Request", request_name,
                         {"approval_status": "Information Required",
                          "information_requested_from_level": req.current_level})
+    # SLA: TAM DUNG dong ho cua CA CAP, ke ca nguoi vua bam "yeu cau bo sung".
+    #
+    # KHONG dong dong ho cua nguoi do. Yeu cau bo sung chua phai mot phan hoi
+    # cuoi cung - bong quay ve phia nguoi de nghi roi se quay lai. Neu dong luon
+    # o day thi khoa chong trung da dung, va khi ho so duoc gui lai `_activate_level`
+    # se gap dong DA DONG va khong mo lai: nguoi do co the ngoi tren ho so them
+    # mot tuan o vong hai ma khong ai do duoc. Tam dung thi thoi gian cho nguoi
+    # de nghi khong tinh vao ho, con thoi gian ho thuc su cam ho so thi co.
+    _sla().on_information_requested(
+        request_doctype=req.reference_doctype, request_name=req.reference_name,
+        level_no=req.current_level, from_dt=now_datetime(),
+        attempt=_sla_attempt(request_name))
     close_todos(req.reference_doctype, req.reference_name)
     notify([req.requested_by], _("Information requested: {0}").format(request_name),
            req.reference_doctype, req.reference_name)
@@ -1293,6 +1524,21 @@ def resubmit(request_name, actor=None, restart=False):
         note = _("Đã tạo phiên bản mới của gói ký để nhận chứng từ bổ sung.")
     elif restart:
         note = _("Restarted from level 1 (material change)")
+    # SLA - PHAI GOI TRUOC `log_action`: so lan chay duoc suy ra tu chinh nhat ky
+    # do, nen sau dong duoi day `_sla_attempt` se tra ve mot so khac.
+    _sla_att = _sla_attempt(request_name)
+    if restart:
+        # Lam lai tu cap 1 = mot vong duyet MOI. Ket so vong vua roi theo han,
+        # neu khong nhung dong con mo cua no se nam lai mai va bi job quet thanh
+        # `Missed` cho mot vong duyet khong con ton tai.
+        _sla().on_request_restarted(
+            request_doctype=req.reference_doctype, request_name=req.reference_name,
+            attempt=_sla_att, at=now_datetime())
+    else:
+        # Gui lai, tiep tu cap dang do: dong ho chay tiep, khong tao vong moi.
+        _sla().on_resubmitted(
+            request_doctype=req.reference_doctype, request_name=req.reference_name,
+            level_no=resume, to_dt=now_datetime(), attempt=_sla_att)
     log_action(request_name, "Restarted" if restart else "Resubmitted", actor or req.requested_by,
                resume, comment=note, new_status="Pending")
     _activate_level(frappe.get_doc("EC Approval Request", request_name), resume)
@@ -1317,9 +1563,13 @@ def cancel(request_name, actor=None, reason=None):
     close_todos(req.reference_doctype, req.reference_name)
     notify([req.requested_by], _("Request cancelled: {0}").format(request_name),
            req.reference_doctype, req.reference_name)
+    # SLA: ho so bi huy -> moi dau viec con mo cua no bien khoi phep tinh. Khong
+    # ai duoc tru diem vi mot viec khong con ton tai.
+    _sla().on_request_cancelled(request_doctype=req.reference_doctype,
+                                  request_name=req.reference_name)
 
 
-def _evaluate(req, level_no):
+def _evaluate(req, level_no, actor=None):
     statuses = frappe.get_all("EC Approval Request Approver",
                               filters={"approval_request": req.name, "level_no": level_no}, pluck="status")
     rl = _rl_for(req.name, level_no)
@@ -1338,6 +1588,13 @@ def _evaluate(req, level_no):
                        comment=_("Level already approved"), related_user=ap.approver, new_status="Skipped")
     frappe.db.set_value("EC Approval Request Level", rl.name,
                         {"level_status": "Approved", "completed_at": now_datetime()})
+    # SLA: cap da xong. Nhung nguoi con lai cua cap Any-One duoc LOAI TRU chu
+    # khong phai Missed - ho khong lam sai gi, nguoi khac da xu ly. Dong ho cua
+    # nguoi vua bam da dong o `approve()` roi, nen loi goi nay chi don phan con lai.
+    _sla().on_level_closed(
+        request_doctype=req.reference_doctype, request_name=req.reference_name,
+        level_no=level_no, acted_by=actor or _last_decider(req.name, level_no),
+        closed_at=now_datetime(), attempt=_sla_attempt(req.name))
     nxt = [l for l in _request_levels(req.name) if l.level_no > level_no]
     if nxt:
         _activate_level(frappe.get_doc("EC Approval Request", req.name), nxt[0].level_no)
@@ -1420,6 +1677,13 @@ def admin_override_current_level(request_name, actor=None, reason=None):
                previous_status="Pending", new_status="Approved")
     frappe.db.set_value("EC Approval Request Level", rl.name,
                         {"level_status": "Approved", "completed_at": now_datetime()})
+    # SLA: nguoi duyet cua cap nay vua mat nut bam. Cham THEO HAN (chu so huu
+    # chot 17/09): da qua han thi van tinh la khong phan hoi - mot lenh ep duyet
+    # khong duoc phep xoa mot vet tre da co; chua toi han thi loai tru - giu ho
+    # chiu mot cai han khong con cach nao dap ung khong con la do hanh vi nua.
+    _sla().on_level_overridden(
+        request_doctype=req.reference_doctype, request_name=req.reference_name,
+        level_no=level_no, attempt=_sla_attempt(request_name), at=now_datetime())
     nxt = [l for l in _request_levels(request_name) if l.level_no > level_no]
     if nxt:
         _activate_level(frappe.get_doc("EC Approval Request", request_name), nxt[0].level_no)

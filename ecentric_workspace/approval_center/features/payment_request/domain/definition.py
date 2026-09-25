@@ -1,14 +1,17 @@
 """Module-owned immutable approval definition."""
+from types import MappingProxyType
 from ecentric_workspace.approval_center.shared.requests.contracts import ApprovalDefinition, STANDARD_STATUS_LABELS
 from ecentric_workspace.approval_center.shared.finance_support import Resubmitter, Submitter
 from ecentric_workspace.approval_center.features.payment_request.application.service import (
     detail_extra, normalize_payment, payment_title, validate_payment)
+from ecentric_workspace.approval_center.features.payment_request.application.batch_flags import flag_rows
 from ecentric_workspace.approval_center.shared.definition_support import (
     DepartmentOptions, ExactAndDateFilters, ExpenseCategoryOptions, StaticOptions)
 
 
 def _make(code, doctype, editable, mine, approvals, options, title, validator,
-          manager=False, esign=False, draft_preparer=None, detail_extender=None):
+          manager=False, esign=False, draft_preparer=None, detail_extender=None,
+          ai_exclude=(), ai_hints=None, batch_flagger=None):
     return ApprovalDefinition(
         # `feature` la duong dan module ma fulfillment_service.claim/complete import
         # (features.<feature>.application.service). Thieu no thi buoc 6 "Finance xu ly UNC"
@@ -23,7 +26,14 @@ def _make(code, doctype, editable, mine, approvals, options, title, validator,
         # O tich "Toi xac nhan thong tin va tep dinh kem la chinh xac" la mot CAM KET CA
         # NHAN. Chep no sang phieu moi la ky thay nguoi dung cho mot bo ho so ho chua doc
         # lai - nguoi de nghi phai tu tich lai.
-        clone_exclude_fields=("details_and_attachments_correct",))
+        clone_exclude_fields=("details_and_attachments_correct",),
+        ai_exclude_fields=ai_exclude,
+        # BOC LAI. `validate_definition` tu choi moi truong kieu list/dict/set - dinh nghia
+        # la bat bien, do la ADR. Truyen thang mot dict vao day lam CA REGISTRY khong nap
+        # duoc: 17/09 no ha ca `list_all_requests` (hub "Tat ca yeu cau") chu khong rieng
+        # duong AI, vi moi endpoint deu di qua registry.
+        ai_hints=MappingProxyType(dict(ai_hints or {})),
+        batch_flagger=batch_flagger)
 
 PAYMENT_REQUEST_DEFINITION = _make(
     "PAYMENT_REQUEST", "EC Payment Request",
@@ -48,6 +58,36 @@ PAYMENT_REQUEST_DEFINITION = _make(
     ("name", "request_title", "payee_full_name", "payment_amount", "payment_date", "creation"),
     ExpenseCategoryOptions((("yes_no", ("Yes", "No")),)), payment_title, validate_payment,
     manager=True, esign=True, draft_preparer=normalize_payment,
+    # Tab "Tao hang loat": ba dau hieu ngoai le tren tung dong. Xem batch_flags.py.
+    batch_flagger=flag_rows,
+    # Truong nguoi lap PHAI tu lam, du chung nam trong `editable_fields`. Xem
+    # `ApprovalDefinition.ai_exclude_fields`. `details_and_attachments_correct` KHONG can ke
+    # o day: no da nam trong `clone_exclude_fields` va bi chan boi luat so 2.
+    #
+    # TIEU DE: form da TU SINH mot tieu de tu te ("Bo trong se tu sinh: Payment Request -
+    # Nguoi nhan - So tien"), nen AI chep nguyen ten hop dong vao day la LAM TE HON - mat
+    # ca nguoi nhan lan so tien. Bao no ghep ca ba; khong co ten hop dong thi de trong cho
+    # form tu sinh. Mot cau chi dan cho MOT truong, khong phai schema viet tay cho form.
+    ai_hints={
+        "request_title":
+            "Dat theo mau: <ten hop dong hoac chung tu> - <nguoi nhan> - <so tien>. "
+            "Van ban KHONG neu ten hop dong/chung tu thi DE TRONG, he thong tu sinh tieu de. "
+            "Khong chep nguyen tieu de dai cua hop dong vao day.",
+    },
+    ai_exclude=(
+        # "Chi phi hop le?" la phan doan cua nguoi de nghi, khong phai du kien tren hop dong.
+        "is_cost_valid",
+        # Chon "Yes" la keo theo chung tu nguon; AI khong chon duoc nguon (co phan quyen,
+        # chi hien chung tu DA DUYET cua chinh nguoi do) nen phieu se khong gui duoc.
+        "has_purchase_request", "funding_source_doctype", "funding_source_name",
+        "purchase_request",
+        # Gui di la TAO mot ban ghi Brand moi (chot_brand_ngoai). Khong de AI dat ten danh muc.
+        "ec_brand_ten",
+        # Chia dot la quyet dinh ve dong tien, khong doc ra tu ho so.
+        "payment_mode", "total_amount", "next_installment_amount", "next_installment_date",
+        # Server tu dat tu ho so nhan su trong save_draft.
+        "department", "company",
+    ),
     # `detail_extra` = installments_block + unc_fix_block. Truoc day tro THANG vao
     # `installments_block`; doi sang ham gop de them khoi "thay file UNC" ma khong phai nhet
     # mot khai niem rieng cua phieu thanh toan vao `capabilities.derive` dung chung 8 form.

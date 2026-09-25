@@ -211,11 +211,22 @@ const tick = () => new Promise(r => setTimeout(r, 5));
   // -- client guard uses the SAME epsilon as the server (0.5) --------------
   st.draft = { reason: "x", payment_date: "2026-08-26", payee_full_name: "A",
     account_bank: "B", bank_account_number: "1", has_purchase_request: "Yes",
-    is_cost_valid: "Yes", ec_loai_chi_phi: "VANPHONG",
+    is_cost_valid: "Yes", ec_loai_chi_phi: "VANPHONG", ec_ky_chi_phi: "2026-08-01",
     details_and_attachments_correct: "Yes", request_attachment: "f.pdf",
     funding_source_doctype: "EC Purchase Request", funding_source_name: "PURR-1",
     payment_amount: 70 };
   st._fundSummary = { total: 100, used: 30, remaining: 70 };
+  // CHOT TU KHAI BAO (15/09). Fixture "phieu hop le" duoi day da lac hau HAI LAN vi co
+  // nguoi them mot truong bat buoc moi vao validateSubmit ma khong ai cap nhat test
+  // (`ec_loai_chi_phi` 10/09, `ec_ky_chi_phi` 15/09). Ca hai lan bo test do o nhung dong
+  // NOI VE CHUYEN KHAC - "exactly the remaining amount is accepted" - nen doc loi xong van
+  // khong biet chuyen gi. Phep kiem nay chay TRUOC va goi dung ten truong con thieu.
+  {
+    const e0 = PR.validateSubmit() || {};
+    ok(Object.keys(e0).length === 0,
+       "fixture 'phieu hop le' phai thuc su hop le — validateSubmit vua them truong bat buoc moi: "
+       + Object.keys(e0).join(", "));
+  }
   ok(!PR.validateSubmit(), "exactly the remaining amount is accepted");
 
   st.draft.payment_amount = 71;
@@ -244,6 +255,13 @@ const tick = () => new Promise(r => setTimeout(r, 5));
   st.draft.ec_brand = "Brand X";
   ok(!PR.validateSubmit(), "có brand rồi thì hợp lệ");
   ok(!errs.ec_loai_chi_phi, "đã chọn loại chi phí thì không còn báo thiếu");
+
+  // Ky ghi nhan chi phi la truong bat buoc (15/09) - do luat, khong chi di qua no.
+  const _ky = st.draft.ec_ky_chi_phi;
+  st.draft.ec_ky_chi_phi = "";
+  errs = PR.validateSubmit() || {};
+  ok(!!errs.ec_ky_chi_phi, "thieu ky ghi nhan chi phi thi bi tu choi");
+  st.draft.ec_ky_chi_phi = _ky;
 
   st.draft.ec_loai_chi_phi = _cat; delete st.draft.ec_brand;
   ok(!PR.validateSubmit(), "loại chi phí không gắn brand thì không đòi brand");

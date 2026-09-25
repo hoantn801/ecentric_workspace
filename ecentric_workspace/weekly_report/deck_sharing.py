@@ -27,15 +27,9 @@ WTU = "Weekly Team Update"
 TERMINAL_STATES = ("Submitted", "Reviewed")
 RECENT_DAYS = 12
 
-# A URL that already points at a share link rather than at the item itself.
-ORG_MARKERS = ("/:b:/", "/:x:/", "/:p:/", "/:w:/", ":/s/")
-
-
-def _is_org_link(url):
-    for marker in ORG_MARKERS:
-        if marker in url:
-            return True
-    return False
+# Kept as a name for readability; the rule itself lives in sharepoint so that
+# the parser and the converter can never disagree about what a share link is.
+_is_org_link = sharepoint.is_share_url
 
 
 def _candidates(weeks, limit):

@@ -50,10 +50,44 @@ class ApprovalDefinition:
     #: "da xac nhan thong tin va tep dinh kem la chinh xac" cho mot bo ho so ho chua doc lai.
     #: De trong la mac dinh; module nao co o nhu vay thi tu khai ra.
     clone_exclude_fields: Tuple[str, ...] = ()
+    #: Truong KHONG duoc de AI dien ho (du no nam trong `editable_fields`).
+    #:
+    #: Ba luat loai tru chay song song, khai o `shared/integrations/ai_formfill.build_schema`:
+    #:   1. kieu truong  - tep dinh kem, bang con, chu ky, va MOI `Check` (o tick nao cung la
+    #:      mot khang dinh cua nguoi dung, khong phai du kien doc duoc tu ho so);
+    #:   2. `clone_exclude_fields` - dung lai NGUYEN SI. Tuple do da duoc dinh nghia dung la
+    #:      "o cam ket ca nhan, chep sang la ky thay nguoi dung". AI dien vao do cung la ky
+    #:      thay, cung mot ly do;
+    #:   3. tuple NAY - cho truong khong phai tep, khong phai cam ket, nhung van phai do
+    #:      nguoi lam: phan doan nghiep vu (`is_cost_valid`), o keo theo mot picker co phan
+    #:      quyen (`funding_source_*`), hay o ma gui di se TAO mot ban ghi danh muc moi
+    #:      (`ec_brand_ten`).
+    ai_exclude_fields: Tuple[str, ...] = ()
+
+    #: Chi dan THEM cho AI o mot so truong, dang {fieldname: "cau chi dan"}.
+    #:
+    #: Vi sao khong nhet vao `description` cua truong: `description` la chu hien tren MAN
+    #: HINH cho nguoi dung doc. Chi dan cho AI la thu khac - no noi ve cach dien, doi khi
+    #: noi "de trong di", va khong ai muon doc cau do duoi o nhap.
+    #:
+    #: Day KHONG phai schema viet tay cho tung form: schema van tu sinh tu `editable_fields`.
+    #: Day chi la mot cau ghi chu cho MOT truong, tuy chon, mac dinh rong.
+    #: Mac dinh la MappingProxyType({}) chu khong phai {}: dataclass tu choi default kieu
+    #: dict, va lop nay `frozen` nen mot dict dung chung giua cac dinh nghia la bay.
+    ai_hints: Mapping[str, str] = MappingProxyType({})
     #: Khoi doc them cho man hinh chi tiet, do module so huu: (business_doc, approval_request)
     #: -> dict, gan vao detail["extra"]. Dung khi form can ngu canh ngoai phieu (Payment Request:
     #: chuoi cac dot thanh toan). Chi DOC; khong ghi, khong giu tham chieu.
     detail_extender: Optional[Callable] = None
+    #: Ba dau hieu ngoai le cho tab "Tao hang loat", do module so huu:
+    #: (rows, user) -> {key: {ten_co: bool}}. Mac dinh None = form nay khong co dau hieu nao
+    #: va man hinh chi don gian khong ve cot do.
+    #:
+    #: Vi sao la mot callback tren dinh nghia chu khong phai mot nhanh `if approval_code ==`
+    #: trong endpoint dung chung: dau hieu la NGHIEP VU cua tung form (Payment Request dem
+    #: so tai khoan; mot form nghi phep se dem thu khac hoan toan), va endpoint dung chung
+    #: da co dung mot luat - hoi registry. Them form thu 29 khong duoc sua file nay.
+    batch_flagger: Optional[Callable] = None
 
     @property
     def status_label_map(self) -> Mapping[str, str]:
@@ -83,5 +117,7 @@ def validate_definition(definition: ApprovalDefinition) -> None:
         raise ValueError("definition callback is not callable: draft_preparer")
     if definition.detail_extender is not None and not callable(definition.detail_extender):
         raise ValueError("definition callback is not callable: detail_extender")
+    if definition.batch_flagger is not None and not callable(definition.batch_flagger):
+        raise ValueError("definition callback is not callable: batch_flagger")
 
 

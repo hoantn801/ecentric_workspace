@@ -90,6 +90,54 @@ def compute_week_for(now=None):
     }
 
 
+def week_start_from_label(week_label):
+    """"YYYY-Www" -> the Monday of that week, as datetime.date.
+
+    The inverse of the week_label built by compute_week_for(). Safe because
+    both sides are ISO: compute_week_for() labels a Monday-based week by the
+    ISO week of its Thursday, and ISO weeks themselves start on Monday, so
+    fromisocalendar(y, w, 1) lands on exactly the same Monday.
+
+    Why this exists rather than trusting a caller-supplied date: submit_service
+    receives week_start_date from the BROWSER. Computing a deadline from a
+    client-supplied Monday would let a wrong (or edited) date move someone's
+    deadline. The label is what identifies the obligation, so derive from it.
+
+    Raises ValueError on anything that is not a well-formed label.
+    """
+    text = (week_label or "").strip()
+    if len(text) != 8 or text[4:6] != "-W":
+        raise ValueError("Bad week_label: " + repr(week_label))
+    try:
+        iso_year = int(text[0:4])
+        iso_week = int(text[6:8])
+    except ValueError:
+        raise ValueError("Bad week_label: " + repr(week_label))
+    if not 1 <= iso_week <= 53:
+        raise ValueError("Week out of range in label: " + repr(week_label))
+    try:
+        return date.fromisocalendar(iso_year, iso_week, 1)
+    except ValueError as exc:
+        # e.g. week 53 in a year that has only 52.
+        raise ValueError("Bad week_label: " + repr(week_label) + " (" + str(exc) + ")")
+
+
+def due_at_for_label(week_label, department):
+    """Deadline for a week identified by LABEL. Wraps compute_due_at().
+
+    Same MissingReportingWindowError contract as compute_due_at(), plus
+    ValueError for a malformed label.
+
+    NOTE for anyone using this to repair historical rows: the DRW is read as it
+    stands TODAY. There is no history of past reporting windows, so applying
+    this to a closed week asserts that the department's deadline never changed.
+    Say so wherever the result is written.
+    """
+    return compute_due_at(
+        {"week_start_date": week_start_from_label(week_label)}, department
+    )
+
+
 def compute_due_at(week, department):
     """Return deadline datetime for a given week + department, using DRW.
 

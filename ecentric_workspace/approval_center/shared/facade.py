@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from ecentric_workspace.approval_center.shared.requests import capabilities
 from ecentric_workspace.approval_center.shared.requests import command_service
 from ecentric_workspace.approval_center.shared.requests import fulfillment_service
+from ecentric_workspace.approval_center.shared.requests import all_list
 from ecentric_workspace.approval_center.shared.requests import query_service
 
 
@@ -22,6 +23,17 @@ class ApprovalFacade:
 
     def list_my_approvals(self, definition, section="pending"):
         return query_service.list_my_approvals(definition, section)
+
+    # Tab "Tat ca": dung lai bo may da kiem soat quyen cua /approvals/all-requests,
+    # ghim approval_type ve form nay. Xem all_list.py de biet vi sao khong viet truy van moi.
+    def list_all(self, definition, filters=None, start=0, page_length=50, search=None):
+        return all_list.list_all(definition, filters, start, page_length, search)
+
+    def all_filter_options(self, definition):
+        return all_list.filter_options(definition)
+
+    def export_all(self, definition, filters=None, search=None, fmt="xlsx"):
+        return all_list.export_all(definition, filters, search, fmt)
 
     def detail(self, definition, name):
         return query_service.detail(definition, name)

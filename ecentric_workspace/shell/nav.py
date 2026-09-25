@@ -143,6 +143,13 @@ HOME_PORTAL_ITEMS = [
      # someone reading about the phone app actually is), and the route stays
      # registered here so search finds it and links keep resolving.
      "keywords": ["huong dan", "cai app", "pwa", "iphone", "android"]},
+    # Alias: route /sla thuoc ngu canh `hr` (nav cua module SLA so huu no).
+    # Thieu `alias` thi _context_score cua ngu canh `home` cung cham diem route
+    # nay, va trang /sla se ve sidebar cong thay vi sidebar Nhan su.
+    {"key": "home.portal.sla", "label": "Điểm SLA", "route": "/sla",
+     "icon": "target", "group": "Nhân sự", "order": 35, "active_patterns": ["/sla"],
+     "visible_when": "internal", "owner": "home_portal", "alias": True,
+     "keywords": ["sla", "diem sla", "ti le sla", "dung han", "bang diem"]},
     {"key": "home.portal.kpi", "label": "Mục tiêu KPI", "route": "/coming-soon?tool=kpi",
      "icon": "target", "group": "Nhân sự", "order": 40, "active_patterns": ["/coming-soon?tool=kpi"],
      "visible_when": "internal", "owner": "home_portal", "discoverable": False, "soon": True},
@@ -158,6 +165,14 @@ HOME_PORTAL_ITEMS = [
      "visible_when": "internal", "owner": "home_portal", "alias": True},
     {"key": "home.portal.alerts", "label": "Alert Center", "route": "/alerts",
      "icon": "bell", "group": "Báo cáo & Phân tích", "order": 30, "active_patterns": ["/alerts"],
+     "visible_when": "internal", "owner": "home_portal", "alias": True},
+    # AI Tool: cong cu AI dung chung. `alias` vi route /ai-tool thuoc ve
+    # ai_tools.hub o ngu canh `ai_tools`; thieu co nay thi ngu canh `home`
+    # cung chap diem route va /ai-tool co the roi nham ve home.
+    {"key": "home.portal.ai_tools", "label": "AI Tool", "route": "/ai-tool",
+     "icon": "gear", "group": "Tài nguyên", "order": 5,
+     "active_patterns": ["/ai-tool"],
+     "keywords": ["ai", "cong cu ai", "ai tool", "script", "livestream"],
      "visible_when": "internal", "owner": "home_portal", "alias": True},
     {"key": "home.portal.intranet", "label": "Intranet", "route": "/coming-soon?tool=intranet",
      "icon": "globe", "group": "Tài nguyên", "order": 10, "active_patterns": ["/coming-soon?tool=intranet"],
@@ -191,16 +206,20 @@ def _providers():
     from ecentric_workspace.approval_center import nav as approval_nav
     from ecentric_workspace.legacy_pages import nav as legacy_nav
     from ecentric_workspace.hr import nav as hr_nav
+    from ecentric_workspace.sla import nav as sla_nav
     from ecentric_workspace.alerts import nav as alerts_nav
     from ecentric_workspace.reporting import nav as reporting_nav
     from ecentric_workspace.reporting import nav_pnl as reporting_pnl_nav
     from ecentric_workspace.pm import nav as pm_nav
     from ecentric_workspace.guides import nav as guides_nav
+    from ecentric_workspace.ai_tools import nav as ai_tools_nav
     return [
         ("core", lambda: list(CORE_ITEMS)),
         ("approval_center", approval_nav.items),
         ("legacy_pages", legacy_nav.items),
         ("hr", hr_nav.items),
+        # Diem SLA: MOT muc, nam trong nhom "Nhan su" ngay sau Phieu luong.
+        ("sla", sla_nav.items),
         ("alerts", alerts_nav.items),
         ("reporting", reporting_nav.items),
         # PnL co ngu canh RIENG: 5 dashboard cua /pnl-dashboard la sidebar phu
@@ -210,6 +229,8 @@ def _providers():
         # Huong dan su dung: MOT muc duy nhat (trang muc luc), co mat o moi ngu canh
         # co "core" - huong dan khong thuoc rieng phong nao.
         ("guides", guides_nav.items),
+        # AI Tool: mot muc cha (/ai-tool) + children la tung cong cu.
+        ("ai_tools", ai_tools_nav.items),
         ("home_portal", lambda: list(HOME_PORTAL_ITEMS)),
     ]
 
@@ -238,7 +259,7 @@ CONTEXTS = {
                   "route": "/approvals", "icon": "check"},
     },
     "hr": {
-        "providers": ["core", "hr", "guides"],
+        "providers": ["core", "hr", "sla", "guides"],
         "entry": {"key": "ctx.hr", "label": "Nhân sự",
                   "route": "/ec-hr/attendance", "icon": "doc"},
     },
@@ -257,6 +278,11 @@ CONTEXTS = {
         "entry": {"key": "ctx.pm", "label": "Công việc",
                   "route": "/pm", "icon": "briefcase"},
     },
+    "ai_tools": {
+        "providers": ["core", "ai_tools"],
+        "entry": {"key": "ctx.ai_tools", "label": "AI Tool",
+                  "route": "/ai-tool", "icon": "grid"},
+    },
     "pnl": {
         "providers": ["core", "reporting_pnl"],
         "entry": {"key": "ctx.pnl", "label": "Doanh thu (PnL)",
@@ -265,7 +291,8 @@ CONTEXTS = {
 }
 #: order in which specialized contexts are probed for route resolution and in
 #: which launcher entries render.
-CONTEXT_ORDER = ["approval_document", "hr", "alert_center", "reporting", "pnl", "pm"]
+CONTEXT_ORDER = ["approval_document", "hr", "alert_center", "reporting", "pnl", "pm",
+                 "ai_tools"]
 #: `pnl` dung TRUOC `reporting`? Khong can: /pnl-dashboard khong khop mau nao
 #: cua reporting (/reports, /reports/*), nen hai ngu canh khong tranh nhau.
 DEFAULT_CONTEXT = "approval_document"

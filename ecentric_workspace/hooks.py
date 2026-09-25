@@ -22,7 +22,7 @@ app_license = "MIT"
 # must never do). The asset itself bails out on /app/* and on pages with no eCentric
 # bell, and is single-install guarded so the homepage (which also still carries the
 # legacy per-page loader) never double-installs.
-web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_datepicker.bundle.js", "ec_formkit.bundle.js"]
+web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_datepicker.bundle.js", "ec_formkit.bundle.js", "ec_webpush.bundle.js", "ec_alltab.bundle.js", "ec_aifill.bundle.js"]
 
 # ERP Shell v1 (Phase 1B pilot). Both assets are loaded site-wide via the same
 # proven content-hashed-bundle mechanism as the Notification Center, but
@@ -30,7 +30,7 @@ web_include_js = ["notification_center.bundle.js", "ec_shell.bundle.js", "ec_dat
 # `data-ec-shell="1"` marker node (Phase 1B: only the 4 approval pilot pages).
 # Kill switch: site_config `ec_shell_disabled: 1` (fail-closed for the shell
 # only; never affects Notification Center or any business logic).
-web_include_css = ["ec_shell.bundle.css", "ec_datepicker.bundle.css", "ec_formkit.bundle.css"]
+web_include_css = ["ec_shell.bundle.css", "ec_datepicker.bundle.css", "ec_formkit.bundle.css", "ec_alltab.bundle.css", "ec_aifill.bundle.css"]
 
 # Document Events
 # ---------------
@@ -66,6 +66,15 @@ doc_events = {
         # G4.9: block hard-delete of an in-use label on EVERY delete path (incl. Administrator).
         "on_trash": "ecentric_workspace.pm.api.labels.pm_label_before_delete",
     },
+    "Employee": {
+        # 14/09: ba lan trong hai tuan mot ho so Active duoc tao ma thieu `user_id`,
+        # va ca ba lan nhan vien bao "loi phan mem cham cong". Hook nay tu dien
+        # `user_id` tu email cong ty khi co the, khong thi hien canh bao - KHONG chan
+        # luu (xem ly do trong hr/employee_guard.py).
+        # PHAI la `before_validate`: hook doc_events chay SAU controller validate cua
+        # Employee, ma chinh doan do moi dung `user_id` de tao User Permission.
+        "before_validate": "ecentric_workspace.hr.employee_guard.autofill_user_id",
+    },
     "PM Assignment Request": {
         # G5.0 B2: service-only mutation guard (rejects generic insert/update, incl. Administrator;
         # enforces append-only events) + hard-delete guard for decided audit history.
@@ -89,6 +98,7 @@ doc_events = {
 # ecentric_workspace.weekly_report.scheduler).
 scheduler_events = {
     "daily": [
+        "ecentric_workspace.sla.tasks.sync_attendance",
         "ecentric_workspace.pm.api.recurrence.run_due",
         "ecentric_workspace.pm.api.notifications.pm_overdue_scan",
         # Notification Delivery v1: new producers (distinct jobs, not duplicates).
@@ -99,7 +109,14 @@ scheduler_events = {
     # Alert Center Phase E (decision D2-E): both jobs are dry-run-safe and
     # kill-switchable via site_config `ec_alerts_scheduler_disabled: 1`.
     "hourly": [
+        "ecentric_workspace.sla.tasks.sync_weekly_reports",
+        "ecentric_workspace.sla.tasks.sweep_overdue",
         "ecentric_workspace.alerts.tasks.expire_automation_pauses",
+        # Doc lai moc sua tren SharePoint cho cac phieu CON CHO DUYET. Khong co no thi bang
+        # canh bao "tep doi sau khi duyet" khong bao gio bat duoc mot lan sua that (15/09).
+        # Frappe khoa Scheduled Job Type theo `method`, nen ten nay chi duoc xuat hien MOT lan
+        # trong ca file - dat o hai cho thi chi con mot, khong log khong loi.
+        "ecentric_workspace.approval_center.shared.integrations.sharepoint_mirror.lam_tuoi_moc_sua",
     ],
     "cron": {
         "*/10 * * * *": [
@@ -123,6 +140,8 @@ scheduler_events = {
         # next_retry_at is due and attempt_count < MAX_ATTEMPTS.
         "*/5 * * * *": [
             "ecentric_workspace.notification_center.providers.teams.process_teams_retries",
+            # Cung co che cho web push: chi nhat lai dong Failed da den han thu lai.
+            "ecentric_workspace.notification_center.providers.webpush.process_webpush_retries",
             # esign (2026-08-27): a leg the provider ACCEPTED but never acted on. Until now
             # the only backstop was sweep_stale at 24h - far too long on a live system that
             # signs real payment approvals, and indistinguishable from "provider is slow".
@@ -165,6 +184,21 @@ scheduler_events["daily"].append(
 # packages whose signed bundle is not yet complete. Safe GET/download only; never resends
 # AddDocument/bulk-process. Same kill switch (ec_esign_scheduler_disabled) + per-provider
 # integration gate (exits with zero SCTS calls while OFF).
+# Luoi do nhom Phan hoi phe duyet - MOT LAN moi dem, khong phai hang gio:
+# job nay ghi vao `EC SLA Obligation`, dung bang ma hook dong bo ghi ben
+# trong giao dich duyet don cua nguoi dung. Hai ben cham nhau thi DB
+# rollback ca giao dich duyet, va nguoi dung thay "Da duyet" trong khi ho
+# so khong doi trang thai. 02:00 dua xac suat do ve gan khong.
+# Gio cron o site nay la GIO DIA PHUONG (Asia/Ho_Chi_Minh) - xem ghi chu
+# o cac cron esign phia duoi; KHONG quy ra UTC.
+scheduler_events["cron"].setdefault("0 2 * * *", []).append(
+    "ecentric_workspace.sla.tasks.sync_approvals")
+# Nghi phep dung dong ho cua nhom Phe duyet. 02:10 - SAU sync_approvals
+# (02:00), vi luoi do kia co the vua mo them dau viec va cam doan tam dung
+# cho chung ngay trong dem thi tot hon doi them 24 tieng.
+# Gio cron o site nay la GIO DIA PHUONG (Asia/Ho_Chi_Minh).
+scheduler_events["cron"].setdefault("10 2 * * *", []).append(
+    "ecentric_workspace.sla.tasks.sync_leave_pauses")
 scheduler_events["cron"].setdefault("*/30 * * * *", []).append(
     "ecentric_workspace.platform.esign.tasks.retrieve_signed_bundles")
 
@@ -193,6 +227,7 @@ scheduler_events["cron"].setdefault("0 9 * * *", []).append(
 # "" (no restriction) for Administrator / System Manager / Management dept / PM Manager, so
 # leaders and Desk power users are untouched.
 permission_query_conditions = {
+    "EC SLA Obligation": "ecentric_workspace.sla.permissions.obligation_query_conditions",
     "Task": "ecentric_workspace.pm.permissions.task_query_conditions",
     "Project": "ecentric_workspace.pm.permissions.project_query_conditions",
 }
@@ -284,7 +319,23 @@ fixtures = [
             # LUU Y (CnB xac nhan truoc khi them): cac field luong tren Employee cung
             # chua versioned -- ec_pit_10, ec_pit_luytien, ec_dong_bhxh, ec_mst_ca_nhan,
             # ec_so_nguoi_phu_thuoc, ec_allow_lunch/coffee/computer, ec_late_early_bank.
-        ]]],
+                    # LLM provider (2026-09-23). CHU Y: `ec_gemini_api_key` da nam trong
+            # fixtures/custom_field.json tu truoc NHUNG khong co trong bo loc nay ->
+            # mot lan `bench export-fixtures` se XOA no khoi file, va site moi se
+            # thieu field trong im lang. Khai ca bon de xuat/nhap doi xung.
+            "System Settings-ec_gemini_api_key",
+            "System Settings-ec_llm_provider",
+            "System Settings-ec_kie_api_key",
+            "System Settings-ec_llm_model_kie",
+            # EC Payment Request (2026-09-23): 4 field nay DA nam trong
+            # fixtures/custom_field.json nhung THIEU o bo loc -> mot lan
+            # `bench export-fixtures` la xoa chung khoi file, site dung moi
+            # thieu field trong im lang. Cung loi voi nhom LLM da va hom nay.
+            "EC Payment Request-ec_brand_moi",
+            "EC Payment Request-ec_brand_ten",
+            "EC Payment Request-ec_ky_chi_phi",
+            "EC Payment Request-ec_vat_pct",
+]]],
     },
     # Ba DocType custom cua PnL dashboard (09-10/09/2026). Truoc day chi ton tai tren
     # production -> bench moi hoac site dung lai la mat sach: `EC Loai Chi Phi` mat thi
@@ -339,3 +390,56 @@ scheduler_events["cron"].setdefault("30 8 * * *", []).append(
     "ecentric_workspace.platform.esign.tasks.sweep_provider_signature_drift_0830")
 scheduler_events["cron"].setdefault("30 14 * * *", []).append(
     "ecentric_workspace.platform.esign.tasks.sweep_provider_signature_drift_1430")
+
+
+# Nhac cham cong (2026-09-14). Han cham cong la 10:00; hai moc nhac 08:30 + 09:30.
+# Gio cron o site nay la GIO DIA PHUONG (Asia/Ho_Chi_Minh) - da doi chieu tren prod,
+# giong cac cron esign ben tren; KHONG quy ra UTC.
+#
+# HAI HAM RIENG, KHONG PHAI MOT HAM O HAI CRON: Frappe khoa Scheduled Job Type theo
+# dotted path cua `method`, nen khai cung mot ham o hai bieu thuc cron chi giu lai MOT.
+#
+# Thay cho Server Script `ec_hr_checkin_reminder` (nay da disabled trong fixtures):
+# ban Server Script chi tao duoc Notification Log trong app, khong goi duoc
+# Notification Center nen khong bao gio ra duoc Teams / web push.
+scheduler_events["cron"].setdefault("30 8 * * *", []).append(
+    "ecentric_workspace.hr.checkin_reminder.remind_0830")
+scheduler_events["cron"].setdefault("30 9 * * *", []).append(
+    "ecentric_workspace.hr.checkin_reminder.remind_0930")
+
+# Ra soat ho so Active thieu tai khoan dang nhap, bao cho HR Manager.
+# 08:00 la co y: SOM HON moc nhac cham cong 08:30, de mot nguoi vao lam hom nay
+# con kip duoc noi vao he thong truoc khi ho lo lan nhac dau tien.
+scheduler_events["cron"].setdefault("0 8 * * *", []).append(
+    "ecentric_workspace.hr.employee_guard.sweep_missing_user_id")
+# --------------------------------------------------------------------------- #
+# SLA: dong nghia vu ngay cong NGAY LUC cham cong
+#
+# Han cham cong la 10:00. Truoc dot nay, nghia vu chi duoc dong boi job chay
+# moi dem, nen tu 10:00:01 den dem, mot nguoi da cham cong dung gio van bi bang
+# diem doc ra thanh "Chua lam". Sai voi ca cong ty, moi ngay, va chi sai theo
+# huong lam diem nguoi ta xau di.
+#
+# `sla.tasks.sync_attendance` (scheduler_events["daily"]) VAN GIU NGUYEN va van
+# can: no la luoi do cho nhung lan hook truot, va la duong hoi to cho phieu nghi
+# phep duyet muon. Hook nay khong thay the no.
+#
+# Ham duoc goi da nuot moi Exception (xem `sla.application.hooks`): no chay ben
+# trong giao dich cham cong cua nguoi dung, nen mot loi lot ra se lam rollback
+# CA lan cham cong.
+# --------------------------------------------------------------------------- #
+try:
+    doc_events
+except NameError:
+    doc_events = {}
+
+_SLA_CHECKIN_HOOK = "ecentric_workspace.sla.application.hooks.on_employee_checkin"
+_sla_ec = doc_events.setdefault("Employee Checkin", {})
+_sla_prev = _sla_ec.get("after_insert")
+if _sla_prev is None:
+    _sla_ec["after_insert"] = [_SLA_CHECKIN_HOOK]
+elif isinstance(_sla_prev, str):
+    if _sla_prev != _SLA_CHECKIN_HOOK:
+        _sla_ec["after_insert"] = [_sla_prev, _SLA_CHECKIN_HOOK]
+elif _SLA_CHECKIN_HOOK not in _sla_prev:
+    _sla_prev.append(_SLA_CHECKIN_HOOK)

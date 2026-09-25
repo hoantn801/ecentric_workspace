@@ -41,8 +41,11 @@ def _html():
 # commit. SUPERSEDES_SHA256 exists for repo-authored edits: at deploy time live
 # still holds the bytes being superseded, and after the first successful write
 # it holds the new snapshot; both are "not drifted", so both must be accepted.
-BASELINE_SHA256 = "4d4ce40f9e1d3643acf65516ed99cdd4c441542f3d5c467e4936e101bac120fc"
+BASELINE_SHA256 = "29fd4c4ca879f25f52a6e471e67960e1a15f2a3229f07b9482c9639dab1baa9f"
 SUPERSEDES_SHA256 = (
+    "ec3a5666e6907904680e5454c39d065fc2e08d08a3288e84c8260310c60f1736",  # DANG CHAY TREN LIVE truoc dot tab "Tat ca" 16/09
+    "52e4a6584a8d34067e9a895df6453739d6cf3f6d7437f7c98d5af087e4a76603",  # DANG CHAY TREN LIVE truoc dot 16/09 (p200 da ghi)
+    "4d4ce40f9e1d3643acf65516ed99cdd4c441542f3d5c467e4936e101bac120fc",  # BASELINE cu (p200 doi HTML ma quen bump - cong do san tren main)
     "a8abaa4cb766dc0ba892f157185849805c1db0403821aa97bf13477a61063f44",  # ban dang chay tren main truoc dot nay (cap Bo qua hien ten nguoi duyet)
     "73c6d6ae481261147220f032ec545a195410c825a0fd45c0683d1696d5513b12",  # ban dang chay tren main truoc dot nay (bo doctype/docname khi upload)
     "6ddde3c1cb6de7017e896eb19189e2de8c8c95ed6a482b1543329781d72a78e0",  # superseded by 73c6d6ae4812 (doReassign: refreshDetail khi form khong co applyDetail)

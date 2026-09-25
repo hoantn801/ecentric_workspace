@@ -1,0 +1,78 @@
+{
+ "doctype": "DocType",
+ "name": "EC Web Push Settings",
+ "module": "Notification Center",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 1,
+ "is_virtual": 0,
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "enabled",
+  "vapid_subject",
+  "sec_keys",
+  "vapid_public_key",
+  "vapid_private_key",
+  "sec_help",
+  "help_html"
+ ],
+ "fields": [
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "0",
+   "description": "Tat = khong gui web push, khong loi. Cac kenh khac (inbox/toast/Teams) khong bi anh huong."
+  },
+  {
+   "fieldname": "vapid_subject",
+   "fieldtype": "Data",
+   "label": "VAPID Subject",
+   "default": "mailto:it@ecentric.vn",
+   "description": "Bat buoc theo chuan VAPID: mailto: hoac https: de push service lien he khi co su co."
+  },
+  {
+   "fieldname": "sec_keys",
+   "fieldtype": "Section Break",
+   "label": "VAPID Keys"
+  },
+  {
+   "fieldname": "vapid_public_key",
+   "fieldtype": "Data",
+   "label": "VAPID Public Key",
+   "length": 255,
+   "description": "Khoa cong khai (base64url). Duoc tra ve trinh duyet - KHONG phai bi mat."
+  },
+  {
+   "fieldname": "vapid_private_key",
+   "fieldtype": "Password",
+   "label": "VAPID Private Key",
+   "description": "Khoa bi mat. Khong bao gio tra ve frontend, khong bao gio ghi vao log."
+  },
+  {
+   "fieldname": "sec_help",
+   "fieldtype": "Section Break",
+   "label": "Huong dan"
+  },
+  {
+   "fieldname": "help_html",
+   "fieldtype": "HTML",
+   "options": "<div class=\"text-muted small\"><p><b>Sinh cap khoa VAPID</b> (chay mot lan, tren server):</p><pre>bench --site team.ecentric.vn execute ecentric_workspace.notification_center.providers.webpush.generate_vapid_keys</pre><p>Lenh tren tu dien ca hai o khoa vao day va bat <b>Enabled</b>. Doi khoa sau khi da co nguoi dang ky = toan bo dang ky cu ngung hoat dong va phai dang ky lai.</p></div>"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1
+  }
+ ]
+}

@@ -1,0 +1,157 @@
+{
+ "doctype": "DocType",
+ "name": "EC SLA Adjustment",
+ "module": "SLA",
+ "custom": 0,
+ "istable": 0,
+ "issingle": 0,
+ "is_virtual": 0,
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "autoname": "hash",
+ "field_order": [
+  "obligation",
+  "action",
+  "column_break_head",
+  "previous_status",
+  "resulting_status",
+  "new_due_at",
+  "section_why",
+  "reason",
+  "section_who",
+  "adjusted_by",
+  "column_break_who",
+  "adjusted_at",
+  "section_source",
+  "source_doctype",
+  "column_break_source",
+  "source_name"
+ ],
+ "fields": [
+  {
+   "fieldname": "obligation",
+   "fieldtype": "Link",
+   "label": "Nghia vu",
+   "options": "EC SLA Obligation",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "action",
+   "fieldtype": "Select",
+   "label": "Hanh dong",
+   "options": "Exclude\nRestore\nMark Met\nMark Missed\nExtend Due",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "previous_status",
+   "fieldtype": "Data",
+   "label": "Trang thai truoc",
+   "read_only": 1,
+   "length": 32
+  },
+  {
+   "fieldname": "resulting_status",
+   "fieldtype": "Data",
+   "label": "Trang thai sau",
+   "read_only": 1,
+   "length": 32,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "new_due_at",
+   "fieldtype": "Datetime",
+   "label": "Han moi",
+   "depends_on": "eval:doc.action=='Extend Due'"
+  },
+  {
+   "fieldname": "section_why",
+   "fieldtype": "Section Break",
+   "label": "Ly do"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Ly do",
+   "reqd": 1,
+   "description": "Bat buoc. Moi lan doi diem cua mot nguoi deu phai giai thich duoc truoc mat nguoi do."
+  },
+  {
+   "fieldname": "section_who",
+   "fieldtype": "Section Break",
+   "label": "Nguoi thuc hien"
+  },
+  {
+   "fieldname": "adjusted_by",
+   "fieldtype": "Link",
+   "label": "Nguoi dieu chinh",
+   "options": "User",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_who",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "adjusted_at",
+   "fieldtype": "Datetime",
+   "label": "Luc",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_source",
+   "fieldtype": "Section Break",
+   "label": "Chung tu goc"
+  },
+  {
+   "fieldname": "source_doctype",
+   "fieldtype": "Data",
+   "label": "Source DocType",
+   "length": 140,
+   "description": "vd EC Leave Request duoc duyet hoi to, hoac phieu khieu nai cham cong."
+  },
+  {
+   "fieldname": "column_break_source",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "source_name",
+   "fieldtype": "Data",
+   "label": "Source Name",
+   "length": 255
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "create": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1
+  }
+ ],
+ "links": [],
+ "index_web_pages_for_search": 0
+}

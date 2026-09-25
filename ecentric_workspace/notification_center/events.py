@@ -22,24 +22,64 @@ import frappe
 from ecentric_workspace.notification_center.resolvers import resolve_notification
 
 REALTIME_EVENT = "ec_notification"
-CHANNELS = ("erp", "toast", "sound", "desktop", "teams")
+CHANNELS = ("erp", "toast", "sound", "desktop", "teams", "webpush")
 EVENT_TYPES = ("task_assigned", "task_due_soon", "task_overdue",
-               "approval_required", "mention", "system_critical")
+               "approval_required", "mention", "system_critical",
+               "attendance_missing", "attendance_missing_final",
+               "announcement", "announcement_urgent", "hr_data_issue")
 SEVERITIES = ("info", "action_required", "urgent")
 _SEV_RANK = {"info": 0, "action_required": 1, "urgent": 2}
 _DEFAULT_SEVERITY = {
     "task_assigned": "action_required", "task_due_soon": "info",
     "task_overdue": "urgent", "approval_required": "action_required",
     "mention": "info", "system_critical": "urgent",
+    # Nhac cham cong: moc 8h30 la loi nhac lich su (info) nhung VAN duoc bat
+    # Teams theo ma tran ben duoi - do la ly do duy nhat cua tinh nang nay:
+    # thong bao phai NAY RA NGOAI app tren dien thoai. Moc 9h30 la loi nhac
+    # cuoi truoc han 10:00 nen nang len action_required, nhung KHONG ban Teams
+    # lan hai (tranh hai DM mot buoi sang cho cung mot nguoi).
+    "attendance_missing": "info", "attendance_missing_final": "action_required",
+    "announcement": "info", "announcement_urgent": "action_required",
+    "hr_data_issue": "action_required",
 }
 # matrix cell: True (always) | "pref" (depends on user preference) | False (never)
 ROUTING_MATRIX = {
-    "task_assigned":    {"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True},
-    "task_due_soon":    {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": "pref"},
-    "task_overdue":     {"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True},
-    "approval_required":{"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True},
-    "mention":          {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": "pref"},
-    "system_critical":  {"erp": True, "toast": True, "sound": True,   "desktop": True,   "teams": True},
+    "task_assigned":    {"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True,   "webpush": True},
+    "task_due_soon":    {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": "pref", "webpush": "pref"},
+    "task_overdue":     {"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True,   "webpush": True},
+    "approval_required":{"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True,   "webpush": True},
+    "mention":          {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": "pref", "webpush": "pref"},
+    "system_critical":  {"erp": True, "toast": True, "sound": True,   "desktop": True,   "teams": True,   "webpush": True},
+    # Cham cong: 8h30 ban Teams (kenh DUY NHAT hien co day duoc thong bao ra ngoai
+    # app len dien thoai); 9h30 chi con trong app + web push, khong ban Teams nua.
+    "attendance_missing":      {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": True,  "webpush": True},
+    "attendance_missing_final":{"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": False, "webpush": True},
+    # Thong bao chung toan cong ty.
+    #   teams = False, KHOA CUNG: mot loi thong bao gui cho 73 nguoi ma lo tay ban ra
+    #   Teams la 73 tin nhan RIENG khong rut lai duoc. Muon thong bao khan co ca Teams
+    #   thi them mot event type RIENG, dung noi long dong nay.
+    #   webpush = True: thong bao chung PHAI ra duoc ngoai app, neu khong thi nguoi ta
+    #   chi thay khi tinh co mo ERP - dung bang khong. Day khong phai rui ro giong
+    #   Teams: web push la nguoi dung TU cap quyen tren tung may va tu tat duoc bat cu
+    #   luc nao; ai chua cap quyen thi provider bo qua, khong lam phien ai.
+    #   PHAI la True chu KHONG duoc la "pref": trong resolve_channels, o "pref" nghia la
+    #   TAT mac dinh cho nguoi CHUA luu tuy chon - tuc la gan het cong ty, ke ca nguoi
+    #   vua bam Bat tren trinh duyet. True moi cho mac dinh BAT, va nguoi da luu tuy chon
+    #   thi `webpush_enabled` cua ho van quyet dinh (mac dinh 1, tat di thi duoc ton trong).
+    "announcement":            {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": False, "webpush": True},
+    # Thong bao chung CO ban Teams. Day la event type RIENG chu khong phai mot tham so
+    # noi long "announcement" - dung nhu ghi chu ben tren da hen. Ly do: mot loi thong
+    # bao gui cho 73 nguoi ma ra Teams la 73 tin nhan RIENG khong rut lai duoc, nen no
+    # phai la mot lua chon PHAI GOI TEN, khong bao gio la mac dinh, va khong bao gio
+    # xay ra do quen truyen tham so.
+    "announcement_urgent":     {"erp": True, "toast": True, "sound": True,   "desktop": "pref", "teams": True,  "webpush": True},
+    # Ho so nhan su hong (vd Active ma thieu user_id) -> bao cho nguoi giu HR Manager.
+    #   teams = False, CO Y: luong Power Automate chan event_type hai lop (JSON schema
+    #   enum o trigger + node Condition). Mot event type chua khai bao ben do se bi tra
+    #   PA_400, tuc la moi tin deu ROT chu khong phai "khong co Teams" - te hon la de
+    #   False. Muon bat: them chuoi "hr_data_issue" vao CA HAI cho ben Power Automate
+    #   truoc, roi moi doi o day.
+    "hr_data_issue":           {"erp": True, "toast": True, "sound": "pref", "desktop": "pref", "teams": False, "webpush": True},
 }
 # severities that bypass quiet hours / minimum-severity / disabled-event suppression
 _BYPASS_SEVERITY = ("urgent",)
@@ -51,6 +91,7 @@ DELIVERY_DT = "EC Notification Delivery Log"
 def get_preference(user):
     """Return a plain dict of the user's preferences with safe defaults (no write)."""
     d = {"user": user, "sound_enabled": 1, "desktop_enabled": 0, "teams_enabled": 0,
+         "webpush_enabled": 1,
          "quiet_hours_enabled": 0, "quiet_hours_start": None, "quiet_hours_end": None,
          "timezone": None, "minimum_severity": "info", "enabled_event_types": "",
          "_exists": False}
@@ -142,9 +183,12 @@ def resolve_channels(event_type, severity, pref, now_min=None):
     enabled = _enabled_event_set(pref)
     event_disabled = (not bypass) and (enabled is not None) and (event_type not in enabled)
     has_pref = bool(pref.get("_exists"))
+    # LUU Y: moi kenh trong CHANNELS (tru erp/toast) PHAI co mat o day, neu khong
+    # `switch[ch]` nem KeyError cho moi nguoi dung DA luu preference.
     switch = {"sound": bool(pref.get("sound_enabled")),
               "desktop": bool(pref.get("desktop_enabled")),
-              "teams": bool(pref.get("teams_enabled"))}
+              "teams": bool(pref.get("teams_enabled")),
+              "webpush": bool(pref.get("webpush_enabled"))}
     out = {}
     for ch in CHANNELS:
         cell = matrix.get(ch, False)
@@ -198,6 +242,7 @@ def route_delivery(event_id, recipient, routing, event_type, severity, dedupe_ke
     on the background queue (enqueue_after_commit -- never inline). Shared by
     publish_notification_event and the legacy emit() path."""
     teams_jobs = []
+    webpush_jobs = []
     common = {"event_type": event_type, "severity": severity, "dedupe_key": dedupe_key,
               "notification_log": notification_log or "", "action_url": action_url or "",
               "reference_doctype": reference_doctype or "", "reference_name": reference_name or "",
@@ -208,6 +253,12 @@ def route_delivery(event_id, recipient, routing, event_type, severity, dedupe_ke
                 nm = _delivery(event_id, recipient, ch, "Pending", provider="", **common)
                 if nm:
                     teams_jobs.append(nm)
+            elif ch == "webpush":
+                # Giong Teams: ghi Pending roi day sang hang doi nen. Khong bao gio
+                # gui inline - mot endpoint push cham se keo dai ca vong lap 70 nguoi.
+                nm = _delivery(event_id, recipient, ch, "Pending", provider="", **common)
+                if nm:
+                    webpush_jobs.append(nm)
             else:
                 _delivery(event_id, recipient, ch, "Sent",
                           sent_at=frappe.utils.now_datetime(), **common)
@@ -222,7 +273,38 @@ def route_delivery(event_id, recipient, routing, event_type, severity, dedupe_ke
                 queue="default", enqueue_after_commit=True, delivery_log=nm)
         except Exception:
             frappe.log_error(frappe.get_traceback(), "route_delivery enqueue teams")
-    return teams_jobs
+    for nm in webpush_jobs:
+        try:
+            frappe.enqueue(
+                "ecentric_workspace.notification_center.providers.webpush.deliver",
+                queue="default", enqueue_after_commit=True, delivery_log=nm)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "route_delivery enqueue webpush")
+    return teams_jobs + webpush_jobs
+
+
+def _abs_action_url(action_url):
+    """Bien duong dan tuong doi thanh URL TUYET DOI truoc khi luu vao Delivery Log.
+
+    VI SAO: the Teams (providers/power_automate.build_payload) lay thang `action_url`
+    tu Delivery Log lam nut "Mo trong ERP". Teams chay ngoai trinh duyet nen mot
+    duong dan kieu "/ec-hr/attendance" khong tro ve dau ca - nut hoac hong hoac bi
+    bo. Moi ban ghi teams=Sent dang chay tren prod deu mang URL tuyet doi (da doi
+    chieu 14/09), nhung dieu do phu thuoc vao viec TUNG nguoi goi nho tu dung
+    frappe.utils.get_url() - va mot nguoi goi quen thi loi im lang: tin van gui,
+    delivery log van ghi Sent, chi cai nut la khong bam duoc.
+
+    Chuan hoa o day mot lan cho tat ca. URL tuyet doi di qua nguyen ven; hop thu
+    chuong van nhan duong dan tuong doi vi `_same_origin_link` cat goc tro lai."""
+    u = (action_url or "").strip()
+    if not u or u.startswith("http://") or u.startswith("https://") or u.startswith("//"):
+        return u
+    if not u.startswith("/"):
+        return u
+    try:
+        return (frappe.utils.get_url() or "").rstrip("/") + u
+    except Exception:
+        return u
 
 
 def _same_origin_link(action_url):
@@ -268,6 +350,8 @@ def publish_notification_event(event_type, recipient, title, message="",
     if not dedupe_key:
         dedupe_key = "|".join([event_type, recipient, str(reference_doctype or ""), str(reference_name or "")])
     event_id = _event_id(dedupe_key)
+    # Teams doc thang action_url tu Delivery Log; duong dan tuong doi lam nut chet.
+    action_url = _abs_action_url(action_url)
 
     # event-level idempotency: same dedupe_key already published -> no-op
     try:

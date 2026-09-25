@@ -204,6 +204,12 @@
     transition:border-color .12s, background .12s; }
   .ec-apl-file:hover{ border-color:var(--navy); background:var(--navy-50); color:var(--navy); }
   .ec-apl-file .nm{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+  .ec-apl-alt{ font-size:11.5px; color:var(--gray-500); padding:6px 9px; }
+  .ec-apl-alt:hover{ color:var(--navy); }
+  .ec-apl-online{ font-size:10px; font-weight:600; letter-spacing:.02em; text-transform:uppercase;
+    color:#047857; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:5px; padding:1px 5px; }
+  .ec-apl-stale{ margin-top:7px; font-size:12px; line-height:1.45; color:#b45309;
+    background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:7px 10px; }
   .ec-apl-tl{ list-style:none; margin:0; padding:0 0 0 14px; border-left:2px solid #eef0f4; }
   .ec-apl-tl li{ font-size:12.5px; color:#4b5563; padding:0 0 11px; position:relative; }
   .ec-apl-tl li:last-child{ padding-bottom:0; }
@@ -853,10 +859,30 @@
       return '<div'+(isLong(f)?' class="wide"':'')+'><div class="k">'+esc(f.label)+'</div>'
            + '<div class="v">'+esc(fmtVal(f))+'</div></div>'; }).join("");
 
+    // Co ban tren SharePoint thi tro sang do (Word Online chi mo duoc tep nam tren
+    // SharePoint/OneDrive; tro vao file_url cua Frappe thi trinh duyet luon TAI ve).
     var files=(d.attachments||[]).map(function(a){
-      return '<a class="ec-apl-file" href="'+esc(a.file_url)+'" target="_blank" rel="noopener">'
+      // The chinh tro sang SharePoint khi co, nhung LUON kem mot the nho ve ban ERP: SharePoint
+      // chan mot nguoi thi ho van phai doc duoc ho so (15/09, chi lien.vu).
+      // Uu tien LINK CHIA SE (23/09): quyen cap cho nguoi trong luong gan vao link, khong vao
+      // URL goc cua tep - nguoi gui phieu bam URL goc van bi chan (EC-CTR-2026-00019).
+      var linkMo=a.sp_share_url||a.sp_web_url;
+      var online=!!linkMo;
+      var chinh='<a class="ec-apl-file" href="'+esc(online?linkMo:a.file_url)+'" target="_blank" rel="noopener">'
            +'<svg class="icon" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>'
-           +'<span class="nm">'+esc(a.file_name||a.file_url)+'</span></a>'; }).join("");
+           +'<span class="nm">'+esc(a.file_name||a.file_url)+'</span>'
+           +(online?'<span class="ec-apl-online">online</span>':'')+'</a>';
+      var duphong = online
+        ? '<a class="ec-apl-file ec-apl-alt" href="'+esc(a.file_url)+'" target="_blank" rel="noopener" title="Bản lưu trong ERP">bản ERP</a>'
+        : '';
+      return chinh + duphong; }).join("");
+    // Canh bao, KHONG chan: ban tren SharePoint la ban song, sua la binh thuong. Dieu can noi
+    // la cap nao da duyet TRUOC luc tep doi lan cuoi.
+    var caub=(d.attachments||[]).filter(function(a){ return (a.sp_sua_sau_duyet||[]).length; })
+      .map(function(a){
+        var ai=a.sp_sua_sau_duyet.map(function(x){ return esc(x.approver)+' (cấp '+esc(String(x.level_no))+')'; }).join(", ");
+        return '<div class="ec-apl-stale">'+esc(a.file_name)+': sửa lúc '+esc(fmtDT(a.sp_last_modified))
+             +' — SAU khi '+ai+' đã duyệt.</div>'; }).join("");
 
     var tl=(d.timeline||[]).slice(0,8).map(function(t){
       var raw=t.action||t.event||"", cls=/Approve|Duyệt|Complete/i.test(raw)?"ok":(/Reject|Từ chối/i.test(raw)?"no":"");
@@ -896,7 +922,7 @@
       hl
       +(levels.length?('<div class="ec-apl-sec"><h4>Tiến trình duyệt</h4>'+stepperHtml(levels,cur,overall,ff)+'</div>'):'')
       +(fields?('<div class="ec-apl-sec"><h4>Nội dung yêu cầu</h4><div class="ec-apl-kv">'+fields+'</div></div>'):'')
-      +(files?('<div class="ec-apl-sec"><h4>Đính kèm</h4><div class="ec-apl-files">'+files+'</div></div>'):'');
+      +(files?('<div class="ec-apl-sec"><h4>Đính kèm</h4><div class="ec-apl-files">'+files+'</div>'+caub+'</div>'):'');
 
     box.querySelector('[data-h="foot"]').innerHTML =
       (d.detail_route?('<a class="link" href="'+esc(withFrom(d.detail_route))+'">Mở trang đầy đủ</a>'):'')

@@ -1,6 +1,9 @@
 """Permission-safe generic queries and projections for approval request types."""
 import frappe
 from frappe import _
+from datetime import timedelta
+
+from frappe.utils import get_datetime
 
 from ecentric_workspace.approval_center.shared.requests import capabilities
 
@@ -76,7 +79,12 @@ def bootstrap(definition):
         "is_system_manager": admin,
         "tabs": {"create": True, "my_requests": True,
                  "my_approvals": capabilities.has_any_approver_row(user) or admin,
-                 "fulfillment": _can_fulfil(user, definition)},
+                 "fulfillment": _can_fulfil(user, definition),
+                 # Tab "Tat ca" bat cho MOI nguoi: pham vi do `reporting.scope` quyet dinh,
+                 # nen voi nhan vien thuong no gan trung "Yeu cau cua toi" - dung, khong phai
+                 # loi. An tab theo vai tro o day se dung mot luat quyen THU HAI canh
+                 # scope_predicate, va hai luat canh nhau thi som muon cung troi nhau.
+                 "all": True},
         "form_options": definition.options_provider(),
     }
 
@@ -171,6 +179,67 @@ def list_my_approvals(definition, section="pending"):
     return {"rows": output}
 
 
+#: SharePoint lam tron moc thoi gian ve GIAY, va lan ghi cua ta cung mat vai tram mili giay
+#: giua luc tai len va luc doc moc ve. Chenh vai giay quanh moc nen la CUA TA, khong phai
+#: nguoi sua. De 0 thi canh bao se nhay lung tung ngay sau moi lan dong bo.
+DUNG_SAI_GIAY = 5
+
+
+def gan_sharepoint(attachments, approvers):
+    """Gan link SharePoint + canh bao "tep doi sau khi da co cap duyet" vao tung dinh kem.
+
+    LAM O DAY, MOT CHO. `renderAttachments` bi chep y het trong 26 file giao dien
+    (`features/*/ui/main_section.html`) - neu tinh canh bao nay o phia JS thi phai sua 26 cho
+    va lan sau ai them form thu 29 se quen. Tinh o server thi moi form co san.
+
+    CANH BAO, KHONG CHAN. Ban tren SharePoint la ban SONG (Hoan chot cho sua/comment truc
+    tiep), nen tep doi sau khi duyet la chuyen BINH THUONG - nguoi duyet sua cau chu cung lam
+    `lastModifiedDateTime` nhay. Chan lai thi tinh nang review online thanh vo dung. Viec cua
+    lop nay la noi ro: cap nao da duyet TRUOC thoi diem tep bi sua lan cuoi, tuc cap do duyet
+    tren mot ban khong con y nguyen.
+
+    Chi tinh cap da "Approved": cap dang "Pending" thi chua duyet gi de ma lo.
+    """
+    if not attachments:
+        return attachments
+    urls = [a.get("file_url") for a in attachments if a.get("file_url")]
+    if not urls:
+        return attachments
+    rows = frappe.get_all(
+        "EC SharePoint File Link", filters={"file_url": ["in", urls]},
+        fields=["file_url", "sp_web_url", "sp_share_url", "sp_last_modified", "sp_uploaded_at"])
+    if not rows:
+        return attachments
+    theo_url = {r.file_url: r for r in rows}
+    da_duyet = [a for a in (approvers or [])
+                if a.get("status") == "Approved" and a.get("decided_at")]
+    for a in attachments:
+        r = theo_url.get(a.get("file_url"))
+        if not r or not r.sp_web_url:
+            continue
+        a["sp_web_url"] = r.sp_web_url
+        # Link chia se moi la cua ma quyen cap cho nguoi trong luong gan vao (xem ghi_lien_ket).
+        a["sp_share_url"] = r.sp_share_url or ""
+        a["sp_last_modified"] = r.sp_last_modified
+        if not r.sp_last_modified:
+            continue
+        moc = get_datetime(r.sp_last_modified)
+        # PHAI so voi MOC NEN truoc. `sp_last_modified` bi chinh lan tai len cua he thong
+        # ghi de, nen neu chi so no voi moc duyet thi moi phieu dong bo SAU khi da co cap duyet
+        # deu bao nham - 15/09 do duoc 5/5 bang canh bao dang hien deu SAI, trong do co mot
+        # bang to bon nguoi duyet tren mot tep ma "moc sua" chinh la giay phut ta chay lenh cap
+        # bu. Mot canh bao keu oan se day nguoi ta bo qua mau vang, roi den lan that cung bo qua.
+        nen = get_datetime(r.sp_uploaded_at) if r.sp_uploaded_at else None
+        if nen and moc <= nen + timedelta(seconds=DUNG_SAI_GIAY):
+            a["sp_sua_sau_duyet"] = []
+            continue
+        a["sp_sua_sau_duyet"] = [
+            {"approver": x.get("approver"), "level_no": x.get("level_no"),
+             "decided_at": x.get("decided_at")}
+            for x in da_duyet if get_datetime(x["decided_at"]) < moc]
+    return attachments
+
+
 def dedupe_attachments(rows):
     """One row per physical file.
 
@@ -260,11 +329,11 @@ def detail(definition, name):
             if level:
                 action["level_no"] = level.level_no
                 action["level_name"] = level.level_name
-    attachments = dedupe_attachments(frappe.get_all(
+    attachments = gan_sharepoint(dedupe_attachments(frappe.get_all(
         "File", filters={"attached_to_doctype": definition.business_doctype,
                          "attached_to_name": name},
         fields=["file_name", "file_url", "is_private", "owner", "creation"],
-        order_by="creation asc"))
+        order_by="creation asc")), approvers)
     status = request.approval_status if request else "Draft"
     extra = {}
     if getattr(definition, "detail_extender", None):

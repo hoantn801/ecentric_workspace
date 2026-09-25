@@ -165,7 +165,11 @@
 
   // ---- routing ----
   function readRoute(){ state.mode="create"; var q=new URLSearchParams(window.location.search); state.id=q.get("id")||null;
-    var t=q.get("tab"); state.tab = state.id?"detail":"create"; }
+    // `t` doc tu URL PHAI duoc dung. Ban 15/09 gan cung state.tab = "create" roi bo roi
+    // `t`: thanh tab van ve ra, bam van doi URL (?tab=my-requests), nhung man hinh KHONG
+    // BAO GIO doi - do tren production 16/09, khong co loi console, khong co goi API nao.
+    // `tabAllowed` chan tab khong duoc phep thay vi tin URL nguoi dung go vao.
+    var t=q.get("tab"); state.tab = state.id?"detail":(tabAllowed(t)?t:"create"); }
   function hubHref(){
     // Quay lại đúng tab đã đứng ở /approvals/all-requests (hub gắn ?from=<tab> khi mở chi tiết).
     var f=null; try{ f=new URLSearchParams(window.location.search).get("from"); }catch(e){}
@@ -176,16 +180,31 @@
   function route(){ readRoute(); render(); }
   window.addEventListener("popstate", route);
 
-  function tabAllowed(t){ var tb=state.boot&&state.boot.tabs||{}; return t==="create"||t==="my-requests"||(t==="my-approvals"&&tb.my_approvals); }
+  function tabAllowed(t){ var tb=state.boot&&state.boot.tabs||{}; return t==="all"||t==="create"||t==="my-requests"||(t==="my-approvals"&&tb.my_approvals); }
   function renderTabs(){ var box=$("latm-tabs"); if(!box)return;
-    var defs=[["create","Tạo yêu cầu",true]];
+    // Thanh tab lay DUNG `state.boot.tabs` lam nguon - cung nguon voi `tabAllowed`.
+    // Truoc dot nay backend van tinh quyen cho 4 tab va gui xuong, con man hinh chi ve
+    // mot nut; cac tab kia song nhung khong co cua vao (chi toi duoc bang go URL).
+    var tb=(state.boot&&state.boot.tabs)||{};
+    var defs=[["create","Tạo yêu cầu",true],["my-requests","Yêu cầu của tôi",true]];
+    if(tb.my_approvals) defs.push(["my-approvals","Chờ tôi duyệt",true]);
+    if(tb.all) defs.push(["all","Tất cả",true]);
     box.innerHTML=defs.map(function(d){ var act=(state.tab===d[0]||(state.tab==="detail"&&d[0]==="my-requests"))?" active":"";
       return '<button type="button" class="tab'+act+'"'+(d[2]?'':' disabled')+' data-tab="'+d[0]+'">'+esc(d[1])+'</button>'; }).join(""); }
+
+  // Tab "Tat ca" dung chung cho ca 28 form: bo loc + bang + export nam TRON trong
+  // ec_alltab.bundle.js. O day chi dua vao ham `call` va duong dan module cua trang -
+  // chep ngan dong UI nay vao 28 file la cach tu tao ra dot sua 28 cho lan sau.
+  function renderAll(b){
+    if(!window.EcAllTab){ b.innerHTML='<div class="card"><div class="state"><h4>Chưa tải được thành phần danh sách</h4><div class="hint">Tải lại trang bằng Ctrl+Shift+R. Nếu vẫn lỗi, báo quản trị viên: thiếu ec_alltab.bundle.js.</div></div></div>'; return; }
+    window.EcAllTab.render(b,{ call:call, ns:NS, open:function(n){ go({id:n}); } });
+  }
 
   function render(){ renderTabs(); var b=$("latm-body"); if(!b)return;
     if(state.tab==="detail"&&state.id) return renderDetail(b);
     if(state.tab==="my-requests") return renderMyRequests(b);
     if(state.tab==="my-approvals") return renderMyApprovals(b);
+    if(state.tab==="all") return renderAll(b);
     return renderCreate(b); }
 
   // ======================= CREATE =======================

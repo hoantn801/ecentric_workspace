@@ -336,5 +336,158 @@ class TestTheScreenNeverResendsASigningCommand(unittest.TestCase):
         self.assertNotIn("/app/", code, "nhac viec/lien ket phai tro vao trang duyet")
 
 
+def _voi_moi_truong_soi_lech(viec, drift_result=None, raises=False):
+    """Chay `viec(env)` NGAY TRONG luc module gia con dung.
+
+    Ban dau ham nay tra ve `env` roi de test goi `env["provider_drift"]()` ben ngoai - va no
+    LUON tra ve danh sach rong. Ly do: `provider_drift` import `service` luc CHAY chu khong
+    luc nap, ma luc do khoi `finally` da go module gia ra khoi `sys.modules` roi. Import
+    that bai -> khoi `except` cua chinh ham do nuot loi -> "danh sach rong". Phep do xanh
+    theo huong nguoc lai: no bao "khong co gi" trong khi ma nguon hoan toan dung.
+
+    Nen viec phai chay BEN TRONG. Cac ham kia (`stuck_legs`...) khong dinh vi chung chi dung
+    `frappe` da duoc gan vao globals luc exec.
+    """
+    import sys
+    svc = types.ModuleType("ecentric_workspace.platform.esign.service")
+
+    def _audit():
+        if raises:
+            raise RuntimeError("SCTS im")
+        return drift_result
+
+    svc._audit_drift = _audit
+    esign_pkg = types.ModuleType("ecentric_workspace.platform.esign")
+    esign_pkg.service = svc
+    root = types.ModuleType("ecentric_workspace")
+    plat = types.ModuleType("ecentric_workspace.platform")
+    root.platform = plat
+    plat.esign = esign_pkg
+    # PHAI co ca module CHA: `from a.b.c import d` di lan tung cap, thieu mot cap la
+    # ImportError - va loi do lai bi nuot thanh "rong", y het cai bay o tren.
+    gia = {"ecentric_workspace": root, "ecentric_workspace.platform": plat,
+           "ecentric_workspace.platform.esign": esign_pkg,
+           "ecentric_workspace.platform.esign.service": svc}
+    logged = []
+    frappe_mod = types.ModuleType("frappe")
+    frappe_mod.get_all = lambda *a, **k: []
+    frappe_mod.db = types.SimpleNamespace(count=lambda *a, **k: 0,
+                                          get_value=lambda *a, **k: None)
+    frappe_mod.log_error = lambda msg, title=None: logged.append(title)
+    frappe_mod.get_traceback = lambda: "TB"
+    gia["frappe"] = frappe_mod
+    saved = {k: sys.modules.get(k) for k in gia}
+    sys.modules.update(gia)
+    env = {}
+    try:
+        exec(compile(_OPS, "ops.py", "exec"), env)
+        return viec(env), logged
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                sys.modules.pop(k, None)
+            else:
+                sys.modules[k] = v
+
+
+def _drift_row(email, actionable=True, biz="EC-PAYR-2026-00111"):
+    return {"business_doctype": "EC Payment Request", "business_name": biz,
+            "approval_request": "EC-APR-1", "current_level": 4, "approver": email,
+            "signatures": 1, "completed_legs": 0, "surplus": 1,
+            "actionable_now": actionable}
+
+
+class TestSoiLechTrenTrangVanHanh(unittest.TestCase):
+    """15/09. Cron bao "chu ky da co ben SCTS ma ERP chua dung", mo trang van hanh ra thi
+    khong thay gi - vi bon muc cu deu liet ke CHAN KY, ma o ca nay chua bao gio co chan ky
+    nao duoc tao. Thong bao tro toi mot man hinh trong thi lan sau khong ai doc no nua."""
+
+    def test_liet_ke_dong_dang_cho_o_cap_hien_tai(self):
+        rows, _ = _voi_moi_truong_soi_lech(lambda e: e["provider_drift"](),
+                                          {"drift": [_drift_row("lam.nguyen@x")]})
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["who"], "lam.nguyen@x")
+        self.assertEqual(rows[0]["business_name"], "EC-PAYR-2026-00111")
+        self.assertEqual(rows[0]["level_no"], 4)
+
+    def test_KHONG_bay_chu_ky_cua_cap_chua_toi_luot(self):
+        """Bay ca hai thi danh sach day nhung dong khong lam gi duoc, va lan sau khong ai
+        doc nua - cung quy tac voi cron."""
+        rows, _ = _voi_moi_truong_soi_lech(
+            lambda e: e["provider_drift"](),
+            {"drift": [_drift_row("a@x", actionable=False), _drift_row("b@x")]})
+        self.assertEqual([r["who"] for r in rows], ["b@x"])
+
+    def test_soi_lech_hong_KHONG_lam_trang_trang(self):
+        """Bon muc kia van la viec that. Hong thi ghi log roi tra danh sach rong."""
+        rows, logged = _voi_moi_truong_soi_lech(lambda e: e["provider_drift"](), raises=True)
+        self.assertEqual(rows, [])
+        self.assertTrue(logged, "phai ghi log chu khong im lang")
+
+    def test_CO_nut_dong_bo_ngay_tren_dong(self):
+        """DINH CHINH 15/09 - cung ngay.
+
+        Ban dau o day khang dinh dieu NGUOC LAI ("nut phai nam o trang phieu"), dua tren mot
+        gia dinh khong ai kiem: rang trang phieu CO nut do. No khong co.
+        `sync_signatures_from_provider` la API co that ma KHONG GIAO DIEN NAO GOI - dung lop
+        loi ma trang van hanh sinh ra de xoa. Hau qua: EC-PAYR-2026-00103 phai goi API bang
+        tay, con loi dan tren man hinh thi bao nguoi ta lam mot viec khong bam duoc o dau.
+        """
+        rows, _ = _voi_moi_truong_soi_lech(lambda e: e["provider_drift"](),
+                                          {"drift": [_drift_row("a@x")]})
+        self.assertEqual(rows[0]["actions"], ["sync_drift"])
+
+    def test_giao_dien_co_ve_nut_va_goi_DUNG_endpoint(self):
+        self.assertIn("sync_drift", _UI)
+        self.assertIn('call("sync_signatures_from_provider"', _UI.replace("'", '"'))
+        # Truyen business_doctype/business_name - dong soi lech KHONG co chan ky nao, nen
+        # truyen `dsr_name` la truyen mot cai khong ton tai.
+        than = _brace_body(_UI, "function run(")
+        i = than.index("sync_drift")
+        doan = than[i:i + 700]
+        self.assertIn("business_doctype", doan)
+        self.assertIn("business_name", doan)
+        self.assertNotIn("dsr_name", doan)
+
+    def test_nut_BAT_BUOC_nhap_can_cu(self):
+        """May chu doi >= 10 ky tu; giao dien hoi truoc de nguoi bam khong gui di roi moi bi
+        tra ve. Bo phep hoi nay thi nut thanh mot cu bam nhanh cho mot quyet dinh."""
+        than = _brace_body(_UI, "function run(")
+        i = than.index("sync_drift")
+        doan = than[i:i + 700]
+        self.assertIn("prompt", doan)
+        self.assertIn("< 10", doan.replace("<10", "< 10"))
+
+    def test_dong_soi_lech_co_du_data_de_bam(self):
+        """`actionsHtml` doc `business_doctype`/`business_name` tu chinh dong - thieu mot
+        truong thi nut ve ra nhung bam vao goi API voi tham so rong."""
+        rows, _ = _voi_moi_truong_soi_lech(lambda e: e["provider_drift"](),
+                                          {"drift": [_drift_row("a@x")]})
+        self.assertTrue(rows[0]["business_doctype"])
+        self.assertTrue(rows[0]["business_name"])
+        self.assertIn("driftRow", _UI)
+        self.assertIn('actionsHtml(r, "drift")', _UI.replace("'", '"'))
+
+    def test_con_so_vao_the_dau_trang(self):
+        s, _ = _voi_moi_truong_soi_lech(
+            lambda e: e["summary"](legs=[], bundles=[], mismatches=[], debts=[]),
+            {"drift": [_drift_row("a@x")]})
+        self.assertEqual(s["provider_drift"], 1)
+
+    def test_inbox_tra_ve_muc_nay(self):
+        out, _ = _voi_moi_truong_soi_lech(lambda e: e["inbox"](),
+                                         {"drift": [_drift_row("a@x")]})
+        self.assertIn("provider_drift", out)
+
+    def test_giao_dien_co_hien_muc_nay(self):
+        """Backend tra ve ma man hinh khong ve thi van la vo hinh - dung cai loi dang sua."""
+        self.assertIn("STATE.provider_drift", _UI)
+        # Cat DUNG mang CARDS, khong cat theo so ky tu: them mot the la cua so co dinh day
+        # doan can kiem ra ngoai, va test do trong khi ma nguon van dung - dung cai bay da
+        # ghi ngay trong file nay ("cat 2500 ky tu dau").
+        cards = _UI.split("var CARDS")[1].split("];")[0]
+        self.assertIn("provider_drift", cards, "phai co ca the dem o dau trang")
+
+
 if __name__ == "__main__":
     unittest.main()

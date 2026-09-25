@@ -43,8 +43,11 @@ def _html():
 #
 # Deliberate update = edit main_section.html, bump BASELINE_SHA256, and move the
 # value it replaced into SUPERSEDES_SHA256 -- all in the same commit.
-BASELINE_SHA256 = "4b498207ba2d184af451906eac1204d741b0ebd6383ba976ff6aea6b44fc057f"
+BASELINE_SHA256 = "39c6d299eafd181bf41094381a4147feba1001deab70d5462f152d281f447be6"
 SUPERSEDES_SHA256 = (
+    # 2026-09-15: wrapper CSRF v2 - bo fallback gui chuoi literal token (gay
+    # CSRFTokenError khi chua co token that). Va TAI CHO, giu nguyen vo shell.
+    "4b498207ba2d184af451906eac1204d741b0ebd6383ba976ff6aea6b44fc057f",  # truoc wrapper v2
     # 2026-08-24 (sua goc kien truc): createNativeSO khong con POST thang
     # /api/resource/Sales Order + apply_workflow (chay duoi quyen KAM -> Frappe
     # chan doctype Sales Order/Customer/Item/...). Nay goi Server Script API

@@ -673,6 +673,7 @@ def process_signing_request(dsr_name):
             # job. That cost real time to chase during the 2026-08-27 pilot.
             events.emit("PollTick", signature_request=dsr_name, package=dsr.package,
                         verification_result=vr.reason)
+            _thoat_som_neu_ky_truoc_lenh(dsr_name, dsr, vr)
     except binding.BindingError as e:
         # SECURITY/VALIDATION refusal (wrong approver, mapping/signature mismatch,
         # inactive signature, allowlist, package/hash, non-UAT provider). This is NOT a
@@ -748,6 +749,62 @@ def process_signing_request(dsr_name):
             frappe.log_error(frappe.get_traceback(), "esign.tasks.process_signing_request.state")
     except Exception:
         frappe.log_error(frappe.get_traceback(), "esign.tasks.process_signing_request")
+
+
+#: Bao nhieu luot poll bao "chu ky co TRUOC lenh" thi thoi cho va giao cho nguoi.
+#: Ba - khong phai mot: xem ghi chu trong `_thoat_som_neu_ky_truoc_lenh`.
+LAN_KY_TRUOC_LENH_TOI_DA = 3
+
+#: Tien to ly do cua phep kiem do tuoi (`_check_one_signer`). Doi chuoi nay o base.py ma quen
+#: o day thi ham duoi im lang khong chay nua - co mot phep kiem giu hai ben dinh nhau.
+LY_DO_KY_TRUOC_LENH = "signature_predates_request"
+
+
+def _thoat_som_neu_ky_truoc_lenh(dsr_name, dsr, vr):
+    """Chu ky CO SAN nhung co TRUOC lenh -> giao cho nguoi NGAY, dung poll cho het 24 tieng.
+
+    SU CO 15/09 (EC-PAYR-2026-00106, anh Lam). Anh ay mo mail SCTS ky luc 12:00, den 16:47
+    moi vao ERP bam "Duyet & Ky". Phep kiem do tuoi (`signed_after`, them 27/08) doi chu ky
+    phai MOI HON luc ERP ra lenh, nen tu choi mot chu ky co truoc gan 5 tieng. Hang rao lam
+    DUNG viec - no sinh ra de chan ca 27/08, mot cap duyet bi dong bang chinh chu ky trinh ky
+    cua nguoi do vai phut truoc.
+
+    Nhung sau do chan ky nam `Verifying` va KHONG CO DUONG RA:
+      * `poll_pending` chi ap `max_poll_attempts` cho trang thai `Retryable Failure`. Chan
+        `Verifying` khong dem vao dau ca - no poll mai, moi luot ghi dung mot dong PollTick
+        giong het nhau;
+      * duong cuu ho duy nhat la nut "Doi soat - chap nhan chu ky ky truoc lenh", ma nut do
+        CHI hien khi chan ky da o `Manual Review`;
+      * thu duy nhat dua no toi `Manual Review` la `sweep_stale`, va nguong la
+        `stale_after_hours` = 24.
+    Tuc nguoi ta phai cho MOT NGAY cho mot viec bam ba giay. Do 15/09: 10 luot PollTick trong
+    13 phut, tat ca cung mot dong chu.
+
+    Ly do nay KHAC HAN "chua ky": no noi rang chu ky CO ROI, chi sai moc thoi gian. Cho them
+    khong lam no dung len, tru khi nguoi do ky LAN NUA - ma o tren cong, o ky cua ho da ky
+    roi thi khong ky lai duoc.
+
+    VI SAO BA LUOT chu khong phai mot. `_check_one_signer` duyet qua cac dong ung vien va tra
+    ve THAT BAI DAU TIEN neu khong dong nao dat. Nguoi vua co mot chu ky CU tu goi truoc, vua
+    sap ky goi nay, se cho ra dung ly do nay o lan hoi dau - roi chu ky moi xuat hien va moi
+    thu binh thuong. Ba luot (~vai giay theo nhip doi soat nhanh) du de phan biet hai ca do,
+    va van nhanh hon 24 tieng rat nhieu.
+
+    KHONG mat gi khi doan sai: `Manual Review` khong phai ket cuc. Nut "Doi soat" DOC LAI
+    trang thai ben nha cung cap tu dau, nen neu chu ky moi da toi thi bam mot cai la xong.
+    """
+    if not str(getattr(vr, "reason", "") or "").startswith(LY_DO_KY_TRUOC_LENH):
+        return False
+    lan = frappe.db.count(EVT, {"signature_request": dsr_name, "event_type": "PollTick",
+                                "verification_result": ["like", LY_DO_KY_TRUOC_LENH + "%"]})
+    if lan < LAN_KY_TRUOC_LENH_TOI_DA:
+        return False
+    events.set_dsr_status(dsr_name, "Manual Review", event_type="ManualReview",
+                          extra_fields={"manual_review_reason": "signature_predates_request"},
+                          verification_result=vr.reason)
+    _dead_letter_todo(dsr_name)
+    _leg_stopped(dsr_name, dsr)
+    return True
 
 
 def poll_pending():

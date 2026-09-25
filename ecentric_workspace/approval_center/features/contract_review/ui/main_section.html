@@ -184,7 +184,11 @@
     return days+" ngày làm việc"+(kind==="Existing"?" (hợp đồng sẵn có)":" (hợp đồng mới)"); }
 
   function readRoute(){ state.mode="create"; var q=new URLSearchParams(window.location.search); state.id=q.get("id")||null;
-    var t=q.get("tab"); state.tab = state.id?"detail":"create"; }
+    // `t` doc tu URL PHAI duoc dung. Ban 15/09 gan cung state.tab = "create" roi bo roi
+    // `t`: thanh tab van ve ra, bam van doi URL (?tab=my-requests), nhung man hinh KHONG
+    // BAO GIO doi - do tren production 16/09, khong co loi console, khong co goi API nao.
+    // `tabAllowed` chan tab khong duoc phep thay vi tin URL nguoi dung go vao.
+    var t=q.get("tab"); state.tab = state.id?"detail":(tabAllowed(t)?t:"create"); }
   function hubHref(){
     // Quay lại đúng tab đã đứng ở /approvals/all-requests (hub gắn ?from=<tab> khi mở chi tiết).
     var f=null; try{ f=new URLSearchParams(window.location.search).get("from"); }catch(e){}
@@ -195,16 +199,31 @@
   function route(){ readRoute(); render(); }
   window.addEventListener("popstate", route);
 
-  function tabAllowed(t){ var tb=state.boot&&state.boot.tabs||{}; return t==="create"||t==="my-requests"||(t==="my-approvals"&&tb.my_approvals); }
+  function tabAllowed(t){ var tb=state.boot&&state.boot.tabs||{}; return t==="all"||t==="create"||t==="my-requests"||(t==="my-approvals"&&tb.my_approvals); }
   function renderTabs(){ var box=$("ctr-tabs"); if(!box)return;
-    var defs=[["create","Tạo yêu cầu",true]];
+    // Thanh tab lay DUNG `state.boot.tabs` lam nguon - cung nguon voi `tabAllowed`.
+    // Truoc dot nay backend van tinh quyen cho 4 tab va gui xuong, con man hinh chi ve
+    // mot nut; cac tab kia song nhung khong co cua vao (chi toi duoc bang go URL).
+    var tb=(state.boot&&state.boot.tabs)||{};
+    var defs=[["create","Tạo yêu cầu",true],["my-requests","Yêu cầu của tôi",true]];
+    if(tb.my_approvals) defs.push(["my-approvals","Chờ tôi duyệt",true]);
+    if(tb.all) defs.push(["all","Tất cả",true]);
     box.innerHTML=defs.map(function(d){ var act=(state.tab===d[0]||(state.tab==="detail"&&d[0]==="my-requests"))?" active":"";
       return '<button class="tab'+act+'"'+(d[2]?'':' disabled')+' data-tab="'+d[0]+'">'+esc(d[1])+'</button>'; }).join(""); }
+
+  // Tab "Tat ca" dung chung cho ca 28 form: bo loc + bang + export nam TRON trong
+  // ec_alltab.bundle.js. O day chi dua vao ham `call` va duong dan module cua trang -
+  // chep ngan dong UI nay vao 28 file la cach tu tao ra dot sua 28 cho lan sau.
+  function renderAll(b){
+    if(!window.EcAllTab){ b.innerHTML='<div class="card"><div class="state"><h4>Chưa tải được thành phần danh sách</h4><div class="hint">Tải lại trang bằng Ctrl+Shift+R. Nếu vẫn lỗi, báo quản trị viên: thiếu ec_alltab.bundle.js.</div></div></div>'; return; }
+    window.EcAllTab.render(b,{ call:call, ns:NS, open:function(n){ go({id:n}); } });
+  }
 
   function render(){ renderTabs(); var b=$("ctr-body"); if(!b)return;
     if(state.tab==="detail"&&state.id) return renderDetail(b);
     if(state.tab==="my-requests") return renderMyRequests(b);
     if(state.tab==="my-approvals") return renderMyApprovals(b);
+    if(state.tab==="all") return renderAll(b);
     return renderCreate(b); }
 
   // ======================= CREATE =======================
@@ -534,7 +553,39 @@
     ensureActionHandlers();
   }
   function renderAttachments(list){ if(!list||!list.length) return '<div class="hint">Chưa có tệp đính kèm.</div>';
-    return '<table class="tbl"><tbody>'+list.map(function(f){ return '<tr><td>'+esc(f.file_name)+'</td><td>'+esc(f.owner)+'</td><td>'+esc(fmt(f.creation))+'</td><td><a href="'+esc(f.file_url)+'" target="_blank">Mở</a></td></tr>'; }).join("")+'</tbody></table>'; }
+    return '<table class="tbl"><tbody>'+list.map(function(f){
+      // Co ban tren SharePoint thi tro sang do: Word Online CHI mo duoc tep nam tren
+      // SharePoint/OneDrive. Tro vao file_url cua Frappe thi trinh duyet luon TAI .docx ve.
+      // BAY CA HAI DUONG. Ban dau chi doi lien ket sang SharePoint khi co - va do la mot loi
+      // nang: SharePoint chan mot nguoi (chi lien.vu, 15/09) thi ho khong phai "khong sua
+      // online duoc", ho la KHONG DOC DUOC HOP DONG NUA, du ban trong ERP ho co quyen van
+      // nam nguyen do. Mot tinh nang tien them khong duoc phep lam mat kha nang von co.
+      // Uu tien LINK CHIA SE (23/09). Quyen cap bang createLink(scope=users) gan vao link, khong
+      // vao URL goc cua tep: nguoi gui phieu (huong.pham, EC-CTR-2026-00019) co ten trong danh
+      // sach duoc cap ma bam URL goc van bi SharePoint chan. Ban ghi cu chua co link thi roi ve
+      // URL goc nhu truoc - khong lam mat duong nao dang dung duoc.
+      var linkMo=f.sp_share_url||f.sp_web_url;
+      var online=!!linkMo;
+      var mo = online
+        ? '<a href="'+esc(linkMo)+'" target="_blank" rel="noopener">Mở online</a>'
+          + ' <span class="hint">·</span> <a href="'+esc(f.file_url)+'" target="_blank" rel="noopener">Bản ERP</a>'
+        : '<a href="'+esc(f.file_url)+'" target="_blank" rel="noopener">Mở</a>';
+      return '<tr><td>'+esc(f.file_name)+'</td><td>'+esc(f.owner)+'</td><td>'+esc(fmt(f.creation))+'</td>'
+           +'<td style="white-space:nowrap">'+mo+'</td></tr>'
+           + canhBaoSuaSauDuyet(f);
+    }).join("")+'</tbody></table>'; }
+
+  // Ban tren SharePoint la ban SONG - Hoan chot cho sua/comment truc tiep. Nen "tep da doi"
+  // KHONG phai loi, va khong duoc chan: nguoi duyet sua mot cau chu cung lam moc thoi gian
+  // nhay, chan lai thi ca tinh nang review online thanh vo dung. Viec can noi ro la CAP NAO da
+  // duyet TRUOC luc tep doi lan cuoi - tuc ho da duyet tren mot ban khong con y nguyen.
+  function canhBaoSuaSauDuyet(f){
+    var ds=f.sp_sua_sau_duyet||[]; if(!ds.length) return "";
+    var ai=ds.map(function(x){ return esc(x.approver)+' (cấp '+esc(String(x.level_no))+')'; }).join(", ");
+    return '<tr><td colspan="4"><div class="banner warn" style="margin:6px 0 2px">'
+         +'Tệp được sửa lúc '+esc(fmt(f.sp_last_modified))+' — SAU khi '+ai+' đã duyệt. '
+         +'Những cấp đó duyệt trên bản trước khi sửa.</div></td></tr>';
+  }
 
   // ---- stepper ----
   function buildDraftStepper(det){ return renderStepsHTML(previewSteps()); }

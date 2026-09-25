@@ -139,6 +139,13 @@ def send_event(payload, cfg=None):
 
 _AMOUNT_FIELDS = ("payment_amount", "requested_amount", "total_amount", "amount",
                   "approved_amount", "budget")
+# Doctype KHONG BAO GIO duoc do tien de bom vao the Teams.
+# `_request_fields` do theo TEN TRUONG, nen no se doc bat ky truong nao trung danh sach
+# tren - ke ca khi doctype do la ho so nhan su. Employee la noi chua du lieu phu cap;
+# hom nay (14/09) no khong co truong nao trung, nhung chi can ai do them mot truong ten
+# `amount` hay `budget` la con so do tu dong chay ra the Teams cua mot loi nhac cham cong.
+# Chan o day thi khong phu thuoc vao viec tuong lai khong ai them truong nhu vay.
+_NO_AMOUNT_DOCTYPES = ("Employee",)
 
 
 def _request_fields(reference_doctype, reference_name):
@@ -154,7 +161,9 @@ def _request_fields(reference_doctype, reference_name):
     except Exception:
         return out
     want = [f for f in ("requested_by", "department", "requester_department") if f in fnames]
-    amount_field = next((f for f in _AMOUNT_FIELDS if f in fnames), None)
+    amount_field = None
+    if reference_doctype not in _NO_AMOUNT_DOCTYPES:
+        amount_field = next((f for f in _AMOUNT_FIELDS if f in fnames), None)
     fields = want + ([amount_field] if amount_field else [])
     if not fields:
         return out

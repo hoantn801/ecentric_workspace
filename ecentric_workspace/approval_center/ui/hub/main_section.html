@@ -72,8 +72,15 @@
   #ec-apc-root .apc-cats{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
   #ec-apc-root .chip{ padding:7px 14px; border-radius:999px; border:1px solid var(--gray-200); background:#fff; color:var(--gray-600); font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
   #ec-apc-root .chip:hover{ border-color:var(--gray-300); color:var(--gray-800); }
-  #ec-apc-root .chip.active{ background:var(--navy); border-color:var(--navy); color:#fff; }
-  #ec-apc-root .chip .cnt{ font-size:11px; opacity:.8; }
+  #ec-apc-root .chip.active{ background:var(--navy-50); border-color:var(--navy-100); color:var(--navy); }
+  /* Chip dang chon dung navy WASH, giong het .ec-shell-item.ec-shell-active cua
+     shell (cach do 248px). Truoc day chip la navy DAC con nav la wash: cung mot
+     khai niem "dang chon", hai cach ve nguoc nhau tren cung mot khung nhin.
+     So dem dung mau tuong minh thay cho opacity: opacity tren chu 11px cho ra
+     tuong phan khong doan truoc duoc - ban cu la gray-600 x .8 tren nen trang,
+     do duoc ~4.5:1, tuc sat nguong AA. */
+  #ec-apc-root .chip .cnt{ font-size:11px; color:var(--gray-500); }
+  #ec-apc-root .chip.active .cnt{ color:var(--navy); }
   /* grid + cards */
   #ec-apc-root .apc-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(288px,1fr)); gap:16px; }
   #ec-apc-root .card{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:12px; min-height:172px; }
@@ -83,10 +90,22 @@
   #ec-apc-root .card-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
   #ec-apc-root .card-ic{ width:42px; height:42px; border-radius:11px; background:var(--navy-50); color:var(--navy); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   #ec-apc-root .badge{ font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap; }
-  #ec-apc-root .badge.active{ background:var(--green-50); color:var(--green); }
-  #ec-apc-root .badge.migrating{ background:var(--yellow-50); color:#b45309; }
-  #ec-apc-root .badge.coming{ background:var(--navy-50); color:var(--navy); }
-  #ec-apc-root .badge.disabled{ background:var(--gray-100); color:var(--gray-500); }
+  /* Nhan o day noi ve TINH TRANG CONG CU (da dung duoc chua), khong phai TRANG THAI
+     CHUNG TU. Truoc day .badge.active muon green-50/--green va .badge.coming muon
+     navy-50/--navy - dung dung hai cap mau ma ca he thong danh cho "Da duyet" va
+     "Cho duyet". Hau qua: mo Approval Center ra la thay mot luoi pill xanh "trong
+     nhu da duyet" TRUOC KHI gui bat cu thu gi. Day lai la trang day nguoi dung tu
+     vung trang thai, nen day sai o day lam hong cach doc moi man hinh phia sau.
+     Nay ca ba dung MOT xu ly trung tinh, khong phai mot thang xam ba bac: nhan chu
+     da noi ro "Dang chuyen doi" / "Sap ra mat" / "Da tat" roi, sac do khong cho
+     them thong tin nao. gray-600 tren gray-100 = 6.87:1; ban cu cho .badge.disabled
+     dung gray-500 chi duoc 4.39:1 - duoi nguong AA 4.5:1 cho chu nho, va the
+     Disabled con nhan them .card.dim{opacity:.72}.
+     .badge.active da bi go han: trang thai Active KHONG con render nhan (xem
+     cardHtml) - "dung duoc" la mac dinh, va da duoc bao bang CTA + con tro + hover. */
+  #ec-apc-root .badge.migrating,
+  #ec-apc-root .badge.coming,
+  #ec-apc-root .badge.disabled{ background:var(--gray-100); color:var(--gray-600); }
   /* Loi vao bai huong dan cua chinh loai yeu cau nay. Chi hien khi server bao co
      bai (guide_route). Nam o HANG CHAN, ben phai nut "Tao yeu cau" (y Hoan 08/09):
      goc tren phai da co nhan trang thai, nhet them mot dau ? vao do thi chat va
@@ -105,7 +124,12 @@
   #ec-apc-root .card-cat{ font-size:11.5px; font-weight:600; color:var(--gray-400); text-transform:uppercase; letter-spacing:.4px; }
   #ec-apc-root .card-desc{ font-size:13px; color:var(--gray-600); flex:1; }
   #ec-apc-root .card-cta{ display:inline-flex; align-items:center; gap:6px; padding:8px 13px; border-radius:8px; font-size:13px; font-weight:600; text-decoration:none; border:1px solid var(--gray-200); color:var(--gray-500); background:var(--gray-50); }
-  #ec-apc-root .card-cta.go{ background:var(--navy); border-color:var(--navy); color:#fff; }
+  /* CTA dung navy WASH, khong phai navy DAC. Ca the da bam duoc roi (onClick ->
+     data-route), nen nut nay la loi tat chu khong phai hanh dong chinh. Mot luoi
+     20 the tung co 12 vung navy dac cung het "toi la hanh dong chinh" - mat khong
+     con diem vao. Nut navy dac duy nhat con lai tren trang la .retry-btn o man loi,
+     va do moi dung la hanh dong chinh duy nhat cua khung nhin do. */
+  #ec-apc-root .card-cta.go{ background:var(--navy-50); border-color:var(--navy-100); color:var(--navy); }
   #ec-apc-root .card-cta.disabled{ cursor:not-allowed; }
   /* states */
   #ec-apc-root .state{ padding:56px 20px; text-align:center; color:var(--gray-500); }
@@ -265,7 +289,7 @@
     return '<div class="card'+clickable+dim+'" data-code="'+esc(c.approval_code)+'" data-status="'+esc(c.card_status)+'"'
       + (isActive?(' data-route="'+esc(c.route)+'"'):'')+'>'
       + '<div class="card-top"><span class="card-ic">'+iconSvg(icon)+'</span>'
-      + '<span class="badge '+b[0]+'">'+esc(b[1])+'</span></div>'
+      + (c.card_status==="Active" ? '' : '<span class="badge '+b[0]+'">'+esc(b[1])+'</span>') + '</div>'
       + '<div><div class="card-cat">'+esc(c.category_name||"")+'</div>'
       + '<div class="card-title">'+esc(c.approval_title||"")+'</div></div>'
       + '<div class="card-desc">'+esc(c.description||"")+'</div>'

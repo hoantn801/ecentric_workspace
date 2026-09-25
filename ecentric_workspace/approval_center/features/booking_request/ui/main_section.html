@@ -90,6 +90,27 @@
   #ec-book-root .tbl th{ text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--gray-500);padding:11px 14px;background:var(--gray-50);border-bottom:1px solid var(--gray-200); }
   #ec-book-root .tbl td{ padding:12px 14px;font-size:13px;border-bottom:1px solid var(--gray-100);vertical-align:top; }
   #ec-book-root .tbl tr.clickable{ cursor:pointer; } #ec-book-root .tbl tr.clickable:hover{ background:var(--navy-50); }
+  /* O NHAP TRONG BANG. Luat cu chi nham `.fld input`, ma o trong bang KHONG nam trong .fld
+     nen chung roi ve mac dinh cua trinh duyet - lech han phan con lai cua form (Hoan bao
+     15/09: "may o nhap cung xau"). Cung mot ngon ngu voi .fld, chi nen hon mot chut cho
+     hop mat do cua bang. */
+  #ec-book-root .tbl td input,#ec-book-root .tbl td select{ width:100%;padding:7px 10px;
+    border:1px solid var(--gray-200);border-radius:8px;font-size:13px;font-family:inherit;
+    background:#fff;color:var(--gray-900); }
+  #ec-book-root .tbl td input:focus,#ec-book-root .tbl td select:focus{ outline:none;
+    border-color:var(--navy);box-shadow:0 0 0 3px var(--navy-50); }
+  #ec-book-root .tbl td input::placeholder{ color:var(--gray-400); }
+  #ec-book-root .tbl td.num input{ text-align:right;font-variant-numeric:tabular-nums; }
+  #ec-book-root .tbl td.act{ text-align:right;vertical-align:middle; }
+  #ec-book-root .tbl td{ vertical-align:middle; }
+  #ec-book-root .sr-only{ position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+    overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0; }
+  #ec-book-root .kol-empty{ padding:22px 14px;text-align:center;color:var(--gray-500);font-size:13px; }
+  #ec-book-root .kol-foot{ display:flex;justify-content:space-between;align-items:center;gap:12px;
+    flex-wrap:wrap;margin-top:12px; }
+  #ec-book-root .kol-sum{ font-size:12.5px;color:var(--gray-500); }
+  #ec-book-root .kol-sum b{ color:var(--gray-800);font-variant-numeric:tabular-nums; }
+  #ec-book-root .kol-sum.over b{ color:var(--red); }
   #ec-book-root .badge{ display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px; }
   #ec-book-root .badge .dot{ width:7px;height:7px;border-radius:50%; }
   #ec-book-root .b-gray{ background:var(--gray-100);color:var(--gray-600); } #ec-book-root .b-gray .dot{ background:var(--gray-400); }
@@ -165,7 +186,8 @@
   var DEM_TRUOC=3;
 
   var state={ boot:null, tab:"create", id:null, mode:"create", draft:null, dirty:false,
-              busy:false, titleTouched:false, detail:null, _brandRows:null, _bookingUsers:null };
+              busy:false, titleTouched:false, detail:null, _brandRows:null, _bookingUsers:null,
+              page:0, PAGE:20, listFilters:{} };
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];}); }
@@ -190,7 +212,12 @@
     return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate()); }
 
   function readRoute(){ state.mode="create"; var q=new URLSearchParams(window.location.search); state.id=q.get("id")||null;
-    state.tab = state.id?"detail":"create"; }
+    // Tab tren URL: chia se duong dan cho nhau van ve dung cho, va bam Back khong nhay ve
+    // "Tao yeu cau". `tabAllowed` chan tab khong duoc phep thay vi tin URL.
+    var t=q.get("tab");
+    state.tab = state.id ? "detail" : (tabAllowed(t) ? t : "create"); }
+  function tabAllowed(t){ var tb=(state.boot&&state.boot.tabs)||{};
+    return t==="all"||t==="create"||t==="my-requests"||(t==="my-approvals"&&tb.my_approvals); }
   function hubHref(){ var f=null; try{ f=new URLSearchParams(window.location.search).get("from"); }catch(e){}
     return "/approvals/all-requests"+(f?("?box="+encodeURIComponent(f)):""); }
   function go(params,replace){ var q=new URLSearchParams(); Object.keys(params).forEach(function(k){ if(params[k])q.set(k,params[k]); });
@@ -199,9 +226,27 @@
   window.addEventListener("popstate", route);
 
   function renderTabs(){ var box=$("book-tabs"); if(!box)return;
-    box.innerHTML='<button class="tab'+(state.tab==="create"?" active":"")+'" data-tab="create">Tạo yêu cầu</button>'; }
+    // Cung nguon voi `tabAllowed`: `state.boot.tabs` do server tinh theo tung nguoi.
+    var tb=(state.boot&&state.boot.tabs)||{};
+    var defs=[["create","Tạo yêu cầu",true],["my-requests","Yêu cầu của tôi",true]];
+    if(tb.my_approvals) defs.push(["my-approvals","Chờ tôi duyệt",true]);
+    if(tb.all) defs.push(["all","Tất cả",true]);
+    box.innerHTML=defs.map(function(d){
+      var act=(state.tab===d[0]||(state.tab==="detail"&&d[0]==="my-requests"))?" active":"";
+      return '<button type="button" class="tab'+act+'" data-tab="'+d[0]+'">'+esc(d[1])+'</button>'; }).join(""); }
+  // Tab "Tat ca" dung chung cho ca 28 form: bo loc + bang + export nam TRON trong
+  // ec_alltab.bundle.js. O day chi dua vao ham `call` va duong dan module cua trang -
+  // chep ngan dong UI nay vao 28 file la cach tu tao ra dot sua 28 cho lan sau.
+  function renderAll(b){
+    if(!window.EcAllTab){ b.innerHTML='<div class="card"><div class="state"><h4>Chưa tải được thành phần danh sách</h4><div class="hint">Tải lại trang bằng Ctrl+Shift+R. Nếu vẫn lỗi, báo quản trị viên: thiếu ec_alltab.bundle.js.</div></div></div>'; return; }
+    window.EcAllTab.render(b,{ call:call, ns:NS, open:function(n){ go({id:n}); } });
+  }
+
   function render(){ renderTabs(); var b=$("book-body"); if(!b)return;
     if(state.tab==="detail"&&state.id) return renderDetail(b);
+    if(state.tab==="my-requests") return renderMyRequests(b);
+    if(state.tab==="my-approvals") return renderMyApprovals(b);
+    if(state.tab==="all") return renderAll(b);
     return renderCreate(b); }
 
   // ======================= BRAND =======================
@@ -215,16 +260,39 @@
   function brandExists(v){ var k=String(v||"").trim().toLowerCase();
     return brandRows().some(function(r){ return String(r.value||r).trim().toLowerCase()===k; }); }
 
+  // Brand: dung <select> THAT chu khong phai <input list=datalist>.
+  //
+  // `ec_formkit.bundle.js` la asset toan site, no nang moi <select> co tu 6 muc tro len thanh
+  // combobox co o tim - dung mot thu voi SO/PO va cac o loc tren hub. Ban cu dung datalist nen
+  // roi ra ngoai he thong do: trinh duyet tu ve mot cai dropdown khac han, khong tim duoc, va
+  // trong khong giong bat ky o nao con lai cua ERP (Hoan bao 15/09).
+  //
+  // Van giu duoc viec go brand MOI: mot muc "+ Them brand moi..." o cuoi danh sach mo ra o
+  // nhap ten. Ro rang hon datalist - voi datalist thi nguoi dung khong bao gio biet minh dang
+  // go mot ten moi hay chon mot ten co san.
+  var BRAND_MOI = "__NEW__";
+
   function brandFieldHTML(d,errs){
     var rows=brandRows();
-    var dsId="book-brand-list";
-    var ctrl='<input id="f-brand" data-model="brand" list="'+dsId+'" value="'+esc(d.brand||"")+'" placeholder="Chọn brand hoặc gõ tên brand mới" autocomplete="off">'
-      +'<datalist id="'+dsId+'">'+rows.map(function(r){ return '<option value="'+esc(r.value!=null?r.value:r)+'">'+esc(r.label!=null?r.label:"")+'</option>'; }).join("")+'</datalist>';
-    var hint = d.brand_is_new
-      ? '<b>Brand mới</b> — sẽ được thêm vào danh mục khi gửi, kèm người phụ trách bạn chọn bên cạnh.'
-      : (rows.length? 'Gõ để tìm. Brand chưa có trong danh sách thì cứ gõ tên mới.'
-                    : 'Danh mục brand đang trống — gõ tên brand.');
-    return fld("brand","Brand",ctrl,true,errs.brand,hint);
+    var cur = d.brand_is_new ? BRAND_MOI : (d.brand||"");
+    var opts = '<option value="">— Chọn brand —</option>'
+      + rows.map(function(r){
+          var v=(r.value!=null?r.value:r);
+          var lb=(r.label!=null&&r.label!=="")?r.label:v;
+          return '<option value="'+esc(v)+'"'+(String(v)===String(cur)?' selected':'')+'>'+esc(lb)+'</option>';
+        }).join("")
+      + '<option value="'+BRAND_MOI+'"'+(cur===BRAND_MOI?' selected':'')+'>+ Thêm brand mới…</option>';
+    var h = fld("brand","Brand",'<select id="f-brand" data-model="brand">'+opts+'</select>',
+      true, errs.brand,
+      rows.length? 'Không thấy brand? Chọn “+ Thêm brand mới…” ở cuối danh sách.'
+                 : 'Danh mục brand đang trống — chọn “+ Thêm brand mới…”.');
+    if(d.brand_is_new){
+      h += fld("brand_new","Tên brand mới",
+        '<input id="f-brand-new" data-model="brand" value="'+esc(d.brand||"")+'" placeholder="VD: Acme Việt Nam" autocomplete="off">',
+        true, errs.brand,
+        'Sẽ được thêm vào danh mục khi gửi, kèm người Booking phụ trách chọn bên dưới.');
+    }
+    return h;
   }
 
   function ownerFieldsHTML(d,errs){
@@ -290,23 +358,148 @@
     });
   }
 
+  // ======================= DANH SACH PHIEU =======================
+  // Form 28 dung sau nen ban dau chi co man "Tao yeu cau"; hai tab quan ly bi thieu han.
+  // 27 form con lai deu co san bo may nay - o day dung lai dung cach chung (`list_my_requests`
+  // va `list_need_my_approval` do `bind()` sinh ra cho MOI form), khong che mot kieu thu hai.
+  function skeleton(n){ var s=""; for(var i=0;i<n;i++) s+='<div style="height:44px;border-bottom:1px solid var(--gray-100);background:var(--gray-50)"></div>';
+    return '<div class="card" style="padding:0;overflow:hidden">'+s+'</div>'; }
+
+  function nhanTrangThai(r){
+    var tt=r.approval_status||r.status||"";
+    var mau={Approved:"b-green",Rejected:"b-red",Cancelled:"b-gray","Information Required":"b-amber"}[tt]||"b-navy";
+    var chu={Draft:"Nháp",Pending:"Đang phê duyệt","Information Required":"Cần bổ sung",
+             Approved:"Đã duyệt",Rejected:"Bị từ chối",Cancelled:"Đã hủy"}[tt]||tt||"—";
+    return '<span class="badge '+mau+'">'+esc(chu)+'</span>'; }
+
+  function renderMyRequests(b){
+    b.innerHTML='<div class="filters">'
+      +'<input id="f-q" placeholder="Tìm mã hoặc tiêu đề…" value="'+esc(state.listFilters.q||"")+'">'
+      +'<select id="f-loai"><option value="">Tất cả loại booking</option>'
+      + opt(["", CHI_DINH, MIDDLE, MASSIVE].slice(1), state.listFilters.booking_type||"")+'</select>'
+      +'<button type="button" class="btn" id="f-apply">Lọc</button>'
+      +'<button type="button" class="btn" id="f-refresh">Làm mới</button></div>'
+      +'<div id="book-list"></div><div class="pager" id="book-pager"></div>';
+    $("f-apply").onclick=function(){ state.page=0; loadList(); };
+    $("f-refresh").onclick=loadList;
+    loadList(); }
+
+  function loadList(){
+    var host=$("book-list"); if(!host)return; host.innerHTML=skeleton(5);
+    var f={ q:$("f-q")?$("f-q").value:"", booking_type:$("f-loai")?$("f-loai").value:"" };
+    state.listFilters=f;
+    call("list_my_requests",{filters:JSON.stringify(f),start:state.page*state.PAGE,page_length:state.PAGE})
+      .then(renderList)
+      .catch(function(e){
+        // KHONG nuot: danh sach rong vi LOI khac han danh sach rong vi CHUA CO PHIEU - hai
+        // thu do dan toi hai hanh dong khac nhau cua nguoi dung.
+        host.innerHTML='<div class="card"><div class="state"><h4>Không tải được danh sách</h4>'
+          +'<p>'+esc(serverMsg(e)||"")+'</p><button type="button" class="btn" id="book-retry">Thử lại</button></div></div>';
+        var r=$("book-retry"); if(r) r.onclick=loadList; }); }
+
+  function renderList(res){
+    var host=$("book-list"), pg=$("book-pager"); if(!host)return;
+    var rows=(res&&res.rows)||[];
+    if(!rows.length){
+      host.innerHTML='<div class="card"><div class="state"><h4>Chưa có yêu cầu nào</h4>'
+        +'<p>Bấm “Tạo yêu cầu” để gửi yêu cầu booking đầu tiên.</p></div></div>';
+      if(pg) pg.innerHTML=""; return; }
+    host.innerHTML='<div style="overflow-x:auto"><table class="tbl"><thead><tr>'
+      +'<th>Ngày gửi</th><th>Mã</th><th>Tiêu đề</th><th>Brand</th><th>Loại booking</th>'
+      +'<th style="text-align:right">Ngân sách</th><th>Bắt đầu</th><th>Trạng thái</th></tr></thead><tbody>'
+      + rows.map(function(r){
+          return '<tr class="clickable" data-id="'+esc(r.name)+'">'
+            +'<td>'+fmtDT(r.creation)+'</td><td>'+esc(r.name)+'</td>'
+            +'<td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.brand||"—")+'</td>'
+            +'<td>'+esc(r.booking_type||"—")+'</td>'
+            +'<td style="text-align:right">'+tienVN(r.expected_budget)+'</td>'
+            +'<td>'+fmtDate(r.campaign_start_date)+'</td>'
+            +'<td>'+nhanTrangThai(r)+'</td></tr>'; }).join("")
+      +'</tbody></table></div>';
+    host.querySelectorAll("[data-id]").forEach(function(tr){
+      tr.onclick=function(){ go({id:tr.getAttribute("data-id")}); }; });
+    if(pg){
+      var co_truoc=state.page>0, co_sau=rows.length>=state.PAGE;
+      pg.innerHTML='<span>Trang '+(state.page+1)+'</span>'
+        +'<button type="button" class="btn" id="pg-truoc"'+(co_truoc?'':' disabled')+'>‹ Trước</button>'
+        +'<button type="button" class="btn" id="pg-sau"'+(co_sau?'':' disabled')+'>Sau ›</button>';
+      var a=$("pg-truoc"), z=$("pg-sau");
+      if(a) a.onclick=function(){ if(state.page>0){ state.page--; loadList(); } };
+      if(z) z.onclick=function(){ state.page++; loadList(); }; } }
+
+  function renderMyApprovals(b){
+    b.innerHTML='<div id="ap-cho"></div><div id="ap-xong"></div>';
+    loadApprovals("pending","ap-cho","Cần tôi xử lý");
+    loadApprovals("history","ap-xong","Tôi đã xử lý"); }
+
+  function loadApprovals(section, host, title){
+    var h=$(host); if(!h)return;
+    h.innerHTML='<div class="sect-h">'+esc(title)+'</div>'+skeleton(2);
+    call("list_need_my_approval",{section:section}).then(function(res){
+      var rows=(res&&res.rows)||[];
+      if(!rows.length){
+        h.innerHTML='<div class="sect-h">'+esc(title)+'</div>'
+          +'<div class="card"><div class="state"><h4>Không có mục nào</h4></div></div>'; return; }
+      h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div style="overflow-x:auto"><table class="tbl"><thead><tr>'
+        +'<th>Ngày gửi</th><th>Mã</th><th>Tiêu đề</th><th>Brand</th><th>Loại booking</th>'
+        +'<th style="text-align:right">Ngân sách</th><th>Phòng ban</th><th></th></tr></thead><tbody>'
+        + rows.map(function(r){
+            return '<tr><td>'+fmtDT(r.creation)+'</td><td>'+esc(r.name)+'</td>'
+              +'<td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.brand||"—")+'</td>'
+              +'<td>'+esc(r.booking_type||"—")+'</td>'
+              +'<td style="text-align:right">'+tienVN(r.expected_budget)+'</td>'
+              +'<td>'+esc(r.department||"—")+'</td>'
+              +'<td><button type="button" class="btn" data-open="'+esc(r.name)+'">Chi tiết</button></td></tr>'; }).join("")
+        +'</tbody></table></div>';
+      h.querySelectorAll("[data-open]").forEach(function(btn){
+        btn.onclick=function(){ go({id:btn.getAttribute("data-open")}); }; });
+    }).catch(function(e){
+      h.innerHTML='<div class="sect-h">'+esc(title)+'</div>'
+        +'<div class="banner err"><div>Không tải được: '+esc(serverMsg(e)||"")+'</div></div>'; }); }
+
   // ======================= DANH SACH KOL (loai Chi dinh) =======================
   function kolRows(){ var d=state.draft||{}; if(!Array.isArray(d.kol_list)) d.kol_list=[]; return d.kol_list; }
-  function kolTableHTML(){
+  function tienVN(n){ try{ return Number(n||0).toLocaleString("vi-VN"); }catch(e){ return String(n||0); } }
+  function soTien(v){ return Number(String(v==null?"":v).replace(/[^\d]/g,""))||0; }
+
+  function kolTableHTML(d){
     var rows=kolRows();
-    var head='<tr><th style="width:26%">Tên KOL/KOC <span class="req">*</span></th><th style="width:16%">Kênh</th><th>Link kênh</th><th style="width:16%">Ngân sách</th><th style="width:38px"></th></tr>';
+    // CHANNEL: `data-ec-no-formkit`. Danh sach nay co 7 muc nen formkit se nang no thanh
+    // combobox co o tim - trong mot o bang rong 16% thi bang tim kiem bung ra de len ca hang
+    // ben duoi va bi vien bang cat mat (Hoan bao 15/09: "khong su dung duoc"). Sau lua chon
+    // co san thi <select> goc vua gon vua quen tay hon mot o tim.
+    var head='<tr>'
+      +'<th style="width:30%">Tên KOL/KOC <span class="req">*</span></th>'
+      +'<th style="width:15%">Kênh</th>'
+      +'<th>Link kênh</th>'
+      +'<th style="width:18%;text-align:right">Ngân sách (VND)</th>'
+      +'<th style="width:44px"><span class="sr-only">Xóa</span></th></tr>';
     var body=rows.map(function(r,i){
       return '<tr data-kol="'+i+'">'
-        +'<td><input data-k="kol_name" value="'+esc(r.kol_name||"")+'" placeholder="Tên"></td>'
-        +'<td><select data-k="kol_channel">'+opt(["","TikTok","Facebook","Instagram","YouTube","Threads","Khác"],r.kol_channel||"")+'</select></td>'
-        +'<td><input data-k="kol_link" value="'+esc(r.kol_link||"")+'" placeholder="https://…"></td>'
-        +'<td><input data-k="kol_budget" inputmode="numeric" value="'+esc(r.kol_budget||"")+'"></td>'
-        +'<td><button type="button" class="ec-file-x" data-kolx="'+i+'" aria-label="Xóa dòng">&times;</button></td></tr>';
+        +'<td><input data-k="kol_name" value="'+esc(r.kol_name||"")+'" placeholder="Tên hoặc nickname"></td>'
+        +'<td><select data-k="kol_channel" data-ec-no-formkit>'+opt(["","TikTok","Facebook","Instagram","YouTube","Threads","Khác"],r.kol_channel||"")+'</select></td>'
+        +'<td><input data-k="kol_link" value="'+esc(r.kol_link||"")+'" placeholder="https://…" inputmode="url"></td>'
+        +'<td class="num"><input data-k="kol_budget" inputmode="numeric" value="'+esc(r.kol_budget||"")+'" placeholder="0"></td>'
+        +'<td class="act"><button type="button" class="ec-file-x" data-kolx="'+i+'" aria-label="Xóa dòng '+(i+1)+'">&times;</button></td></tr>';
     }).join("");
-    if(!rows.length) body='<tr><td colspan="5" class="hint" style="padding:10px 0">Chưa có KOL/KOC nào — bấm “Thêm dòng”.</td></tr>';
+    if(!rows.length){
+      body='<tr><td colspan="5" class="kol-empty">Chưa có KOL/KOC nào.<br>'
+          +'Bấm <b>+ Thêm dòng</b> để nêu tên, kênh và ngân sách cho từng người.</td></tr>';
+    }
+    // Tong ngan sach cac dong vs ngan sach du kien: hai so nay LECH nhau la chuyen hay gap,
+    // va nguoi duyet se hoi ngay. Noi ra ngay luc nhap re hon nhieu so voi mot vong tra lai.
+    var tong=rows.reduce(function(a,r){ return a+soTien(r.kol_budget); },0);
+    var duKien=soTien((d||{}).expected_budget);
+    var vuot = duKien>0 && tong>duKien;
+    var sum = rows.length
+      ? '<div class="kol-sum'+(vuot?" over":"")+'">Tổng ngân sách các dòng: <b>'+tienVN(tong)+'</b>'
+        + (duKien>0? (' / dự kiến '+tienVN(duKien)) : '')
+        + (vuot? ' — đang vượt ngân sách dự kiến.' : '') + '</div>'
+      : '<span></span>';
     return '<div class="card"><h3>Danh sách KOL/KOC chỉ định</h3>'
       +'<table class="tbl" id="book-kol"><thead>'+head+'</thead><tbody>'+body+'</tbody></table>'
-      +'<div style="margin-top:10px"><button type="button" class="btn" id="book-kol-add">+ Thêm dòng</button></div></div>';
+      +'<div class="kol-foot">'+sum
+      +'<button type="button" class="btn" id="book-kol-add">+ Thêm dòng</button></div></div>';
   }
 
   // ======================= FORM =======================
@@ -339,19 +532,27 @@
       + fld("campaign_start_date","Hoạt động bắt đầu",'<input id="f-campaign_start_date" data-model="campaign_start_date" type="date" min="'+today()+'" value="'+esc(String(d.campaign_start_date||"").slice(0,10))+'">',true,errs.campaign_start_date)
       + fld("campaign_end_date","Hoạt động kết thúc",'<input id="f-campaign_end_date" data-model="campaign_end_date" type="date" value="'+esc(String(d.campaign_end_date||"").slice(0,10))+'">',false,errs.campaign_end_date)
       + '</div>' + timelineHintHTML(d) + '</div>';
-    if(d.booking_type===CHI_DINH) h+=kolTableHTML();
+    if(d.booking_type===CHI_DINH) h+=kolTableHTML(d);
     h+='<div class="card"><h3>Brief &amp; tài liệu</h3><div class="grid2">'
       + fld("brand_brief","Brief từ Brand",'<textarea id="f-brand_brief" data-model="brand_brief" rows="5" placeholder="Mục tiêu, thông điệp, yêu cầu nội dung, ràng buộc…">'+esc(d.brand_brief||"")+'</textarea>',true,errs.brand_brief,null).replace('class="fld','class="fld full')
+      + fld("request_attachment","Tệp đính kèm",
+          '<input type="file" multiple id="book-att-input"><div id="book-att" class="hint"></div>',
+          false,null,"Brief chi tiết, danh sách KOL, hình ảnh sản phẩm… Không bắt buộc.")
+          .replace('class="fld','class="fld full')
       + fld("cc_to","CC To",'<input id="f-cc_to" data-model="cc_to" value="'+esc(d.cc_to||"")+'" placeholder="email1@ecentric.vn, email2@…">',false,null,"Người nhận thông báo, cách nhau dấu phẩy.").replace('class="fld','class="fld full')
       + '</div></div>';
     return h;
   }
 
+  // Tien trinh phe duyet o DAU form, giong 27 form con lai. Ban cu la mot danh sach <ol>
+  // bang chu o CUOI trang - nguoi dung khong thay no truoc khi dien, ma cau hoi "gui xong thi
+  // ai duyet, bao lau" lai la cau ho hoi TRUOC khi dien. Dung dung `renderStepsHTML` +
+  // `previewSteps` co san cua trang (van dung cho man chi tiet) chu khong ve mot kieu thu hai.
   function processPreviewHTML(){
-    return '<div class="card"><h3>Luồng xử lý</h3><ol style="margin:0;padding-left:18px;font-size:13px;color:var(--gray-600)">'
-      + LEVELS_ALL.map(function(l){ return '<li>'+esc(l)+'</li>'; }).join("")
-      + '<li>Booking phụ trách brand nhận xử lý + cam kết ngày xong</li>'
-      + '<li>Booking hoàn tất, đính kèm kết quả</li></ol></div>';
+    return '<div class="card"><h3>Tiến trình phê duyệt</h3>'
+      + '<div class="stepper">'+renderStepsHTML(previewSteps())+'</div>'
+      + '<div class="hint" style="margin-top:2px">Gửi xong, yêu cầu đi theo đúng các bước trên. '
+      + 'Bạn Booking phụ trách brand sẽ nhận xử lý và cam kết ngày hoàn thành.</div></div>';
   }
 
 
@@ -378,7 +579,7 @@
   function renderCreate(b){
     if(!b) return;
     var d=state.draft||{}, errs=state._errs||{};
-    b.innerHTML = formCardsHTML(d,errs) + processPreviewHTML()
+    b.innerHTML = processPreviewHTML() + formCardsHTML(d,errs)
       + '<div style="display:flex;gap:10px;align-items:center">'
       + '<button type="button" class="btn primary" id="book-submit"'+(state.busy?" disabled":"")+'>'
       + (state.busy?"Đang gửi…":(state.editing?"Lưu & gửi lại":"Gửi yêu cầu"))+'</button>'
@@ -387,6 +588,58 @@
   }
 
   function setModel(k,v){ state.draft=state.draft||{}; state.draft[k]=v; state.dirty=true; }
+
+  // ---- Tai tep dinh kem ------------------------------------------------------------
+  // KHONG gui doctype/docname luc upload: `upload_file` kiem quyen role tren DocType do, ma
+  // nguoi dung thuong chi ghi duoc qua API co ignore_permissions -> 'does not have doctype
+  // access'. Tai len nhu tep rieng tu roi backend dinh vao ho so luc luu (payload
+  // `_attachments`, xu ly o shared/requests/command_service.py :: attach_extra_files).
+  function uploadFile(inp){
+    var files=inp.files?Array.prototype.slice.call(inp.files):[]; if(!files.length) return;
+    var lbl=$("book-att"); if(lbl) lbl.textContent="Đang tải…";
+    state.draft=state.draft||{}; state.draft._attachments=state.draft._attachments||[];
+    function put(f){
+      var fd=new FormData(); fd.append("file",f); fd.append("is_private","1");
+      return fetch("/api/method/upload_file",{method:"POST",
+          headers:{"X-Frappe-CSRF-Token":(window.frappe&&frappe.csrf_token)||""},body:fd})
+        .then(function(r){
+          if(r.status===413) throw new Error("Tệp quá lớn (giới hạn ~25MB): "+f.name);
+          return r.json().then(function(j){ return j; }); })
+        .then(function(j){
+          var m=j&&j.message, url=m&&m.file_url;
+          if(!url) throw new Error("Không tải được "+f.name);
+          state.draft._attachments.push({url:url,name:(m&&m.file_name)||f.name}); });
+    }
+    files.reduce(function(p,f){ return p.then(function(){ return put(f); }); }, Promise.resolve())
+      .then(function(){
+        var list=state.draft._attachments;
+        if(list.length) setModel("request_attachment", list[0].url);
+        renderFileList(); })
+      .catch(function(e){
+        renderFileList();
+        // Bao ngay tai cho, khong chi toast: nguoi dung vua keo tep vao va dang nhin vao day.
+        var l=$("book-att");
+        if(l){ var dv=document.createElement("div"); dv.style.color="var(--red)";
+               dv.style.fontSize="12.5px"; dv.style.marginTop="4px";
+               dv.textContent=(e&&e.message)||"Lỗi tải tệp."; l.appendChild(dv); } });
+    inp.value="";
+  }
+
+  function renderFileList(){
+    var lbl=$("book-att"); if(!lbl) return;
+    var list=((state.draft||{})._attachments)||[];
+    if(!list.length){ lbl.innerHTML='<span class="hint">Chưa có tệp nào.</span>'; return; }
+    lbl.innerHTML=list.map(function(f,i){
+      return '<div class="ec-file"><a href="'+esc(f.url)+'" target="_blank" rel="noopener">'+esc(f.name)+'</a>'
+           + '<button type="button" class="ec-file-x" data-rmfile="'+i+'" aria-label="Xóa tệp '+esc(f.name)+'">&times;</button></div>';
+    }).join("");
+    lbl.querySelectorAll("[data-rmfile]").forEach(function(btn){
+      btn.onclick=function(){
+        var i=+btn.getAttribute("data-rmfile");
+        state.draft._attachments.splice(i,1);
+        setModel("request_attachment",(state.draft._attachments[0]||{}).url||"");
+        renderFileList(); }; });
+  }
 
   function wireCreate(){
     var b=$("book-body"); if(!b) return;
@@ -417,6 +670,8 @@
         kolRows().splice(parseInt(x.getAttribute("data-kolx"),10),1); renderCreate($("book-body"));
       });
     }
+    var att=$("book-att-input");
+    if(att){ att.addEventListener("change", function(){ uploadFile(att); }); renderFileList(); }
     var sb=$("book-submit"); if(sb) sb.addEventListener("click", submitForm);
   }
 
@@ -426,9 +681,29 @@
     var el=e.target && e.target.closest && e.target.closest("[data-model]");
     if(!el) return;
     var k=el.getAttribute("data-model"), v=el.value;
-    if(k==="brand"){
-      if(e.type==="change"){ onBrandChanged(v); return; }
-      if(v && brandExists(v) && v!==(state.draft||{}).brand){ onBrandChanged(v); }
+    // Hai o cung mang data-model="brand": <select> chon brand co san (hoac "+ them moi"), va
+    // o nhap ten khi da chon "+ them moi". Phan biet bang ID chu khong bang ten khoa thu hai.
+    if(k==="brand" && el.id==="f-brand"){
+      if(e.type!=="change") return;
+      if(v===BRAND_MOI){
+        // Chuyen sang che do "brand moi": xoa ten cu de o nhap khong mang theo ten brand
+        // vua bo chon, va nap danh sach nguoi Booking de chon nguoi phu trach.
+        var d0=state.draft||{}; d0.brand=""; d0.brand_is_new=1; d0.brand_display_name="";
+        d0.booking_owner=""; d0.account_owner="";
+        if(state._bookingUsers===null||state._bookingUsers===undefined){ loadBookingUsers(); }
+        renderCreate($("book-body")); return;
+      }
+      onBrandChanged(v); return;
+    }
+    if(k==="brand" && el.id==="f-brand-new"){
+      // KHONG ve lai man hinh moi phim go - se mat con tro. Chi ghi vao model; luc roi o
+      // (change) moi ve lai de kiem xem ten vua go trung mot brand da co hay khong.
+      var d1=state.draft||{}; d1.brand=String(v||"").trim(); d1.brand_display_name=d1.brand;
+      d1.brand_is_new=1; state.dirty=true; clearErr("brand");
+      if(e.type==="change"){
+        if(d1.brand && brandExists(d1.brand)){ onBrandChanged(d1.brand); return; }
+        renderCreate($("book-body"));
+      }
       return;
     }
     setModel(k,v); clearErr(k);
@@ -479,6 +754,8 @@
       expected_budget:Number(String(d.expected_budget||"").replace(/[^\d.-]/g,""))||0,
       campaign_start_date:d.campaign_start_date, campaign_end_date:d.campaign_end_date||null,
       brand_brief:d.brand_brief, cc_to:d.cc_to||"",
+      request_attachment:d.request_attachment||"",
+      _attachments:(d._attachments||[]).map(function(f){ return f.url; }),
       kol_list:(d.booking_type===CHI_DINH? kolRows().filter(function(r){return String(r.kol_name||"").trim();}) : [])
     };
     state.busy=true; renderCreate($("book-body"));
@@ -680,6 +957,13 @@
 
   // ======================= BOOT =======================
   function boot(){
+    // Gan lang nghe cho thanh tab. Ban 15/09 co `renderTabs` ve ra nut `data-tab` va co
+    // `readRoute` doc dung tham so, nhung KHONG file nao gan listener - 27 form kia deu
+    // co dong nay, rieng booking thieu. Nut ve ra tron: bam khong doi URL, khong doi man
+    // hinh, khong bao loi. Do tren production 16/09.
+    var tb=$("book-tabs");
+    if(tb){ tb.addEventListener("click", function(e){
+      var b2=e.target.closest("[data-tab]"); if(b2&&!b2.disabled){ state.page=0; go({tab:b2.getAttribute("data-tab")}); } }); }
     var b=$("book-body"); if(b) b.innerHTML='<div class="card"><div class="hint">Đang tải…</div></div>';
     call("get_bootstrap",{}).then(function(r){
       state.boot=r||{};

@@ -1,5 +1,10 @@
 <script id="ec-csrf-fetch-patch">
 (function(){
+  // ec_csrf_nofallback_marker 2026-09-14: ban cu ket thuc chuoi fallback bang chuoi literal
+  // "token" -> khi chua co token that, no GUI DI chuoi rac do va server tra
+  // CSRFTokenError. Goc sau xa: nang cap python3.14 go frappe.generate_hash khoi
+  // sandbox -> get_csrf tung tra token RONG (da chua o app method 14/09).
+  // v2: khong bao gio gui chuoi rac; chua co token thi XIN roi moi gui.
   if (window.ecFetchPatched) return;
   window.ecFetchPatched = true;
   var origFetch = window.fetch;
@@ -8,33 +13,64 @@
            (window.CTX && window.CTX.csrfToken) ||
            window.csrf_token ||
            (document.cookie.match(/csrf_token=([^;]+)/) || [])[1] ||
-           'token';
+           '';
   }
+  function ensureCsrf(force) {
+    if (!force && window._ecCsrfReady) return window._ecCsrfReady;
+    window._ecCsrfReady = origFetch.call(window, '/api/method/get_csrf', { credentials: 'include' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        var m = (j && j.message) || {};
+        if (m.csrf_token && !m.is_guest) {
+          window.frappe = window.frappe || {};
+          window.frappe.csrf_token = m.csrf_token;
+        }
+        return m.csrf_token || '';
+      })
+      .catch(function(e){ console.error('[ec-csrf] xin token that bai:', e); return ''; });
+    return window._ecCsrfReady;
+  }
+  window.ecEnsureCsrfToken = ensureCsrf;
   window.fetch = function(url, opts) {
     opts = opts || {};
     var u = (typeof url === 'string') ? url : (url && url.url) || '';
     var method = (opts.method || 'GET').toUpperCase();
     var isApi = u.indexOf('/api/method/') >= 0 || u.indexOf('/api/resource/') >= 0;
-    if (isApi && method !== 'GET' && method !== 'HEAD') {
+    if (!(isApi && method !== 'GET' && method !== 'HEAD')) {
+      return origFetch.call(window, url, opts);
+    }
+    if (opts.credentials === undefined) opts.credentials = 'include';
+    // Header co san nhung RONG thi coi nhu CHUA co -> wrapper dien token that.
+    function headerVal() {
+      var h = opts.headers;
+      if (!h) return '';
+      if (h.get && typeof h.get === 'function') return h.get('X-Frappe-CSRF-Token') || '';
+      for (var k in h) {
+        if (k.toLowerCase() === 'x-frappe-csrf-token') return h[k] || '';
+      }
+      return '';
+    }
+    function send(tok) {
       opts.headers = opts.headers || {};
-      if (opts.headers.set && typeof opts.headers.set === 'function') {
-        if (!opts.headers.get('X-Frappe-CSRF-Token')) {
-          opts.headers.set('X-Frappe-CSRF-Token', getCsrf());
-        }
-      } else {
-        var hasToken = false;
-        for (var k in opts.headers) {
-          if (k.toLowerCase() === 'x-frappe-csrf-token') { hasToken = true; break; }
-        }
-        if (!hasToken) {
-          opts.headers['X-Frappe-CSRF-Token'] = getCsrf();
+      if (tok) {
+        if (opts.headers.set && typeof opts.headers.set === 'function') {
+          opts.headers.set('X-Frappe-CSRF-Token', tok);
+        } else {
+          var done = false;
+          for (var k in opts.headers) {
+            if (k.toLowerCase() === 'x-frappe-csrf-token') { opts.headers[k] = tok; done = true; break; }
+          }
+          if (!done) opts.headers['X-Frappe-CSRF-Token'] = tok;
         }
       }
-      if (opts.credentials === undefined) opts.credentials = 'include';
+      return origFetch.call(window, url, opts);
     }
-    return origFetch.call(window, url, opts);
+    if (headerVal()) return origFetch.call(window, url, opts);
+    var t = getCsrf();
+    if (t) return send(t);
+    return ensureCsrf(false).then(function(tok){ return send(tok); });
   };
-  console.log('[ec-csrf] fetch wrapper installed');
+  console.log('[ec-csrf] fetch wrapper v2 installed');
 })();
 </script><style>
   /* Hide Frappe default navbar + footer to give full-screen workspace */

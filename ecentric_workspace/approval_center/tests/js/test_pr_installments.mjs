@@ -79,7 +79,7 @@ ok(PR.installmentRemaining({ total_amount: 10000, payment_amount: 5000, _paid_be
 
 // --- 2. validateSubmit ---
 const base = { reason: "x", payment_amount: 4000, payment_date: "2026-09-10", payee_full_name: "A", account_bank: "B", bank_account_number: "1",
-  has_purchase_request: "No", no_purchase_request_reason: "r", is_cost_valid: "Yes", ec_loai_chi_phi: "VANPHONG",
+  has_purchase_request: "No", no_purchase_request_reason: "r", is_cost_valid: "Yes", ec_loai_chi_phi: "VANPHONG", ec_ky_chi_phi: "2026-09-01",
   details_and_attachments_correct: "Yes", request_attachment: "/private/files/a.pdf" };
 PR.state.draft = Object.assign({}, base, { payment_mode: "Full" });
 ok(PR.validateSubmit() === null, "100% hợp lệ");

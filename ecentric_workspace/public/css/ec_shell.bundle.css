@@ -17,6 +17,64 @@
  *   .ec-shell-drawer    900
  */
 
+/* ---- SHARED TOKEN SOURCE (2026-09-15) --------------------------------------
+ * Cac primitive duoi day duoc khai o :root, KHONG phai chi trong pham vi shell.
+ *
+ * Vi sao can: khoi token ben duoi chi ap cho .ec-shell-mount / -drawer / -tbright.
+ * Moi thu ngoai vo shell - noi dung trang, ec_formkit, ec_datepicker - deu nam
+ * NGOAI pham vi do, nen var(--ec-navy) o day khong phan giai duoc. Hau qua do
+ * duoc: ec_datepicker khai `--ec-dp-text: var(--ec-gray-800, #1f2933)` o :root
+ * voi y dinh ke thua token cua shell, nhung vi :root nam ngoai pham vi nen no
+ * LUON roi ve fallback - alias chua bao gio chay. Khai o :root lam y dinh do
+ * thanh su that.
+ *
+ * ADDITIVE va BACKWARD-COMPATIBLE:
+ *  - khoi scoped ben duoi GIU NGUYEN, cung gia tri, va van thang ben trong shell
+ *    (specificity cao hon) => khong mot pixel nao trong vo shell doi;
+ *  - moi `var(--ec-*)` tran (khong fallback) trong repo deu nam trong chinh
+ *    ec_shell.bundle.css, tuc trong pham vi => khong doi;
+ *  - chi 4 alias co fallback trong ec_datepicker chiu anh huong, 3 trong so do
+ *    fallback trung khit gia tri shell. Duy nhat --ec-dp-text doi
+ *    #1f2933 -> #1f2937 (gray-800 chinh chu). Khong nhin thay bang mat, va la
+ *    huong hoi tu ve canonical.
+ *
+ * KHONG doi ten, KHONG xoa token nao dang co consumer.
+ * Quyet dinh nguon su that: DESIGN.md "Nguon su that token"; A58.
+ */
+:root{
+  /* primitives - brand */
+  --ec-navy:#2C3DA6; --ec-navy-50:#eef0fb; --ec-navy-100:#d9deef; --ec-navy-700:#1f2d80;
+  --ec-yellow:#FFC000; --ec-pink:#EF7CAF;
+  /* primitives - neutral (gray-300 / gray-700 MOI: co consumer that trong ec_formkit) */
+  --ec-surface:#ffffff;
+  --ec-gray-50:#f9fafb; --ec-gray-100:#f3f4f6; --ec-gray-200:#e5e7eb; --ec-gray-300:#d1d5db;
+  --ec-gray-400:#9ca3af; --ec-gray-500:#6b7280; --ec-gray-600:#4b5563; --ec-gray-700:#374151;
+  --ec-gray-800:#1f2937; --ec-gray-900:#111827;
+  --ec-hair:rgba(17,24,39,.07);
+
+  /* --- semantic: chi nhung vai tro CO CONSUMER THAT trong repo hom nay ------
+   * Moi dong duoi day duoc it nhat mot component dung, va deu la vai tro ma
+   * DESIGN.md da goi ten. Khong them token "cho du bo" - he nay khong phai
+   * mot ban sao Tailwind. */
+  --ec-border-default:var(--ec-gray-200);   /* moi vien va duong chia 1px */
+  --ec-focus-ring:var(--ec-navy-50);        /* quang focus 0 0 0 3px; canonical cua DESIGN.md */
+  --ec-selected-bg:var(--ec-navy-50);       /* nen cua "dang chon": nav active, chip active, option da chon */
+  --ec-selected-text:var(--ec-navy);        /* chu cua "dang chon" */
+
+  /* --- z-index: CHUA phai mot thang hoan chinh --------------------------------
+   * He thong hien co 37 gia tri z-index tren 33+ file (9999 x37, 99999, 100000).
+   * Chuan hoa toan bo = sua rat nhieu trang = nguy co regression overlay, nen
+   * KHONG lam trong dot nay. Ba token duoi day chi dat TEN cho nhung tang da
+   * ton tai va dang chay dung, GIU NGUYEN gia tri:
+   *   - dropdown PHAI cao hon modal, vi combobox/datepicker mo BEN TRONG modal.
+   *     Day la ly do that su khien 10060 > 9999, khong phai leo thang bua bai.
+   * Ke hoach di cu day du: 03_BUGS_AND_NEXT_STEPS.md muc "Z-index governance". */
+  --ec-z-shell-burger:880;
+  --ec-z-shell-backdrop:890;
+  --ec-z-shell-drawer:900;
+  --ec-z-dropdown:10060;
+}
+
 /* ---- tokens (scoped to shell roots; values mirror the existing palette A) */
 /* .ec-shell-reminder-drawer is PORTALED to <body>, so it sits outside every
  * other shell root. It must be listed here or all --ec-* tokens resolve to
@@ -312,7 +370,12 @@ a.ec-shell-crumblink:focus-visible{ outline:2px solid #2C3DA6; outline-offset:2p
 }
 
 /* ---- collapsible submenu (2B.1 nav patch, minimal) ------------------------ */
-.ec-shell-subtoggle{ width:100%; border:none; background:transparent; cursor:pointer; font:inherit; text-align:left; }
+/* `font:inherit` la SHORTHAND nen no reset ca font-size ve 16px cua <button>,
+ * de len `.ec-shell-item{font-size:13.5px}` o tren (cung do uu tien, nam sau).
+ * Hau qua: muc cha co menu con hien 16px va xuong 2 dong, lech han voi
+ * cac muc khac. Khai lai font-size ngay sau shorthand. Do 23/09 tren
+ * team.ecentric.vn: truoc 16px/66px, cac muc khac 13.5px/38px. */
+.ec-shell-subtoggle{ width:100%; border:none; background:transparent; cursor:pointer; font:inherit; font-size:13.5px; text-align:left; }
 .ec-shell-chev{ width:14px; height:14px; margin-left:auto; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; transition:transform .15s; }
 .ec-shell-subtoggle[aria-expanded="true"] .ec-shell-chev{ transform:rotate(180deg); }
 .ec-shell-children{ display:flex; flex-direction:column; gap:2px; }

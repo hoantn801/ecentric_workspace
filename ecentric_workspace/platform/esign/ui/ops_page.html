@@ -105,7 +105,8 @@
     ["stalled_retrievals", "Trong đó: thử quá nhiều lần", "warn"],
     ["abandoned_retrievals", "Trong đó: đã ngừng thử lại", ""],
     ["hash_mismatch", "Mã băm lệch, chờ đối chiếu", "warn"],
-    ["signature_debts", "Cấp duyệt còn nợ chữ ký", "bad"]
+    ["signature_debts", "Cấp duyệt còn nợ chữ ký", "bad"],
+    ["provider_drift", "Đã ký bên SCTS mà ERP chưa dùng", "warn"]
   ];
 
   function renderCards() {
@@ -126,6 +127,7 @@
     cancel: "Hủy chân ký",
     retrieve: "Tải PDF đã ký",
     resolve_review: "Xem đối chiếu",
+    sync_drift: "Đồng bộ chữ ký từ cổng",
     debt_signed: "Đã ký bù",
     debt_waived: "Miễn nợ",
     abandon: "Ngừng thử lại",
@@ -146,6 +148,18 @@
               + "vẹn. Không thể tạo chữ ký mới.\n\n"
               + "CHỈ bấm sau khi đã tự mở cổng SCTS và nhìn thấy chữ ký đó. Bắt buộc nêu "
               + "lý do; lý do nằm lại vĩnh viễn trong lịch sử phiếu.",
+    // Nút này CÔNG NHẬN một chữ ký và đóng một cấp duyệt — nên câu giải thích phải nói rõ
+    // nó không tạo ra chữ ký nào, và những phép chặn nào vẫn còn nguyên.
+    sync_drift: "Người duyệt đã ký thẳng trên cổng SCTS mà chưa bấm “Duyệt & Ký” trong ERP, "
+              + "nên ERP chưa hề tạo chân ký nào cho cấp này.\n\n"
+              + "Nút này chỉ ĐỌC lại phía SCTS rồi CÔNG NHẬN chữ ký đã có: nó tạo chân ký, "
+              + "đánh dấu đã xác minh, rồi để engine đóng cấp duyệt. KHÔNG gửi lệnh ký nào, "
+              + "nên không thể tạo ra chữ ký thứ hai.\n\n"
+              + "Vẫn giữ nguyên: đúng người (theo ánh xạ đã xác minh), đúng thứ tự chữ ký, "
+              + "chỉ cấp đang chờ. Thứ duy nhất được bỏ là mốc thời gian — vì định nghĩa của "
+              + "tình huống này là họ ký TRƯỚC khi ERP hỏi.\n\n"
+              + "CHỈ bấm sau khi đã tự mở cổng SCTS và nhìn thấy chữ ký đó. Bắt buộc nêu căn "
+              + "cứ; căn cứ nằm lại vĩnh viễn trong lịch sử phiếu.",
     retry: "Xếp lại chân ký này vào hàng đợi để gửi lệnh ký một lần nữa.",
     // Cùng một nút, hai việc khác hẳn nhau — tuỳ chân ký đã từng gửi đi hay chưa. Máy chủ
     // quyết định nhãn nào, bằng chính hàm mà worker dùng, nên nhãn không thể hứa suông.
@@ -265,6 +279,14 @@
       + '<td><div class="ops-note">Mở phiếu để đối chiếu hai bản.</div></td></tr>';
   }
 
+  function driftRow(r) {
+    return "<tr><td>" + docLink(r.business_doctype, r.business_name)
+      + "</td><td>" + esc(r.who || "—")
+      + "</td><td>" + esc(r.level_no == null ? "—" : r.level_no)
+      + "</td><td>" + esc(r.surplus || 0) + " / " + esc(r.signatures || 0)
+      + "</td><td>" + actionsHtml(r, "drift") + "</td></tr>";
+  }
+
   function debtRow(r) {
     var done = r.request_status === "Approved";
     return "<tr><td>" + docLink(r.business_doctype, r.business_name)
@@ -300,6 +322,15 @@
               ["Phiếu", "Trạng thái", "Chân ký", "Lần thử / lỗi gần nhất", ""],
               STATE.stuck_legs, legRow,
               "Không có chân ký nào đang kẹt.")
+      + section("Đã ký bên SCTS mà ERP chưa dùng",
+              "Người duyệt ký thẳng trên cổng SCTS thay vì bấm “Duyệt & Ký” trong ERP, nên "
+              + "ERP chưa hề tạo chân ký nào — không có dòng nào ở mục trên để nhìn thấy. "
+              + "Bấm “Đồng bộ chữ ký từ cổng” ở cuối dòng: thao tác đó chỉ ĐỌC lại phía SCTS, không "
+              + "gửi lệnh ký, và bắt buộc nêu căn cứ. Chỉ liệt kê chữ ký ở cấp đang chờ — "
+              + "ký trước cho cấp chưa tới lượt thì để yên, nó sẽ dùng khi tới lượt.",
+              ["Phiếu", "Người đã ký", "Cấp đang chờ", "Chữ ký dư / tổng", ""],
+              STATE.provider_drift, driftRow,
+              "Không có chữ ký nào bên SCTS mà ERP bỏ sót.")
       + section("Gói chưa tải được PDF đã ký",
               "Cron chạy 30 phút một lần và thử lại không giới hạn. Cột số lượt là thứ "
               + "phân biệt một gói đang chờ bình thường với một gói đã hỏng — quá "
@@ -387,6 +418,16 @@
       p = call("abandon_signed_retrieval", { package_name: name, reason: lydo.trim() }, "POST");
     } else if (act === "resume") {
       p = call("resume_signed_retrieval", { package_name: name }, "POST");
+    } else if (act === "sync_drift") {
+      // BẮT BUỘC lý do — máy chủ cũng đòi tối thiểu 10 ký tự, hỏi ở đây để người bấm không
+      // gửi đi rồi mới bị trả về. Máy chủ mới là chỗ quyết định.
+      var cc = window.prompt(
+        "Nêu rõ đã kiểm gì trên cổng SCTS (ai ký, lúc mấy giờ, tài liệu đã kết thúc chưa):", "");
+      if (!cc || cc.trim().length < 10) {
+        msg("Bắt buộc nêu căn cứ (tối thiểu 10 ký tự).", "err"); return;
+      }
+      p = call("sync_signatures_from_provider",
+               { business_doctype: dt, business_name: doc, reason: cc.trim() }, "POST");
     } else if (act === "resolve_review") {
       msg("Mở phiếu để đối chiếu hai bản tệp.", ""); return;
     } else { return; }
