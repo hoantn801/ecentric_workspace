@@ -272,3 +272,4 @@ ecentric_workspace.approval_center.patches.p206_reassign_aitop_00029
 ecentric_workspace.hr.patches.p001_leave_two_step_back_to_lead
 ecentric_workspace.approval_center.patches.p207_cancel_ctr_00024
 ecentric_workspace.approval_center.patches.p208_cnb_levels_to_role
+ecentric_workspace.approval_center.patches.p209_tidy_role_rows

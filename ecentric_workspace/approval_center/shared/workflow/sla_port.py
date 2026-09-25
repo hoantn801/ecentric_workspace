@@ -149,6 +149,13 @@ def on_approver_acted(request_doctype, request_name, level_no, acted_by,
                  attempt=attempt)
 
 
+def on_approver_removed(request_doctype, request_name, level_no, user, reason=None):
+    """Mot nguoi bi rut khoi cap dang mo (role_pool). Dau viec cua rieng ho -> Excluded."""
+    return _safe("exclude_approver_obligation",
+                 request_doctype=request_doctype, request_name=request_name,
+                 level_no=level_no, user=user, reason=reason)
+
+
 def on_level_overridden(request_doctype, request_name, level_no, attempt=1, at=None):
     """Ban Giam doc ep duyet mot cap. Nguoi duyet cua cap do mat nut bam, nen
     ho duoc cham THEO HAN: da qua han thi van tinh la khong phan hoi, chua toi
