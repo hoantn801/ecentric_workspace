@@ -148,3 +148,41 @@ class TestMotCuaBaoVang(unittest.TestCase):
         s = _page("ec-hr/leave")
         self.assertNotIn("Outside Work Request", _script("ec_hr_leave_apply"))
         self.assertIn("/approvals/outside-work", s)
+
+
+class TestCuaSoLichCuaNhom(unittest.TestCase):
+    """Trang cham cong co HAI bo dung lich, khong dung chung code.
+
+    Lich chinh dung `classify()`. Cua so "Lịch công · <ten>" mo tu o chon nguoi
+    trong nhom (`ec-attm-*`) co chuoi if/else RIENG va chu thich RIENG.
+
+    Ban vá outside work dau tien chi sua lich chinh, nen trong cua so nay ngay
+    24/09 cua ban Bao van roi xuong nhanh cuoi: co check-in luc 11:09 -> "Trễ".
+    Hai bo dung song song la ly do mot sua khong bao gio du."""
+
+    def _src(self):
+        return _page("ec-hr/attendance")
+
+    def test_modal_biet_outside_work(self):
+        s = self._src()
+        self.assertIn("var outDays={}", s)
+        self.assertIn('cls="c-out";tag="Outside work"', s)
+
+    def test_outside_chan_duoc_nhan_Tre(self):
+        # Nguoi da duoc duyet lam viec ben ngoai thi moc 10:00 khong con y nghia.
+        s = self._src()
+        i_out = s.index('cls="c-out";tag="Outside work"')
+        i_late = s.index('tag="Trễ";tm=ciByDay[ds];')
+        self.assertLess(i_out, i_late, "nhanh outside phai dung TRUOC nhanh Thieu/Tre")
+
+    def test_modal_co_chu_thich_rieng(self):
+        s = self._src()
+        i = s.index("Thiếu/Vắng")
+        self.assertIn("Outside work", s[max(0, i - 400):i])
+
+    def test_ca_hai_lich_deu_co_nhan(self):
+        # Chot lai ca hai bo dung trong mot ca test, de lan sau ai them lich thu ba
+        # thi cung phai nghi toi cho nay.
+        s = self._src()
+        self.assertEqual(s.count("Outside work") >= 3, True,
+                         "lich chinh + cua so nhom + chu thich deu phai co nhan")
