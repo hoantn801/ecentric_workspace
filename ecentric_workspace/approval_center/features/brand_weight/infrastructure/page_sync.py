@@ -19,8 +19,10 @@ ROUTE = "ec-hr/phan-bo-cong-viec"
 NAME = "phan-bo-cong-viec"
 TITLE = "Phân bổ công việc"
 
-BASELINE_SHA256 = "1d01c501aa16b106e59fc86b5fa92d344facbb508771671479e15212c85ee684"
-SUPERSEDES_SHA256 = ()
+BASELINE_SHA256 = "5eafeeb20759329d869dba284339a34da5613ca583d5182cdd758596ec12b75f"
+SUPERSEDES_SHA256 = (
+    "1d01c501aa16b106e59fc86b5fa92d344facbb508771671479e15212c85ee684",  # ban live dau tien (p211, 26/09) - truoc khi them luong tu chot Management
+)
 
 
 def _html():

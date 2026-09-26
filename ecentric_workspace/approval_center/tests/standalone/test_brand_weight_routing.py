@@ -105,3 +105,30 @@ class TestLuatBoCap(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTuChotManagement(unittest.TestCase):
+    """Chot voi Hoan 26/09: phong Management tu chot, khong de anh Lam duyet."""
+
+    def test_phong_management_tu_chot(self):
+        self.assertTrue(routing.is_self_final("Management - EC"))
+        self.assertTrue(routing.is_self_final(" Management - EC "))
+
+    def test_truong_phong_ngoai_management_van_di_luong_thuong(self):
+        for dept in ("Service - EC", "Merchandise, Content & Design - EC", "", None):
+            self.assertFalse(routing.is_self_final(dept), dept)
+
+
+class TestLuonTruyenProcessCode(unittest.TestCase):
+    def test_moi_lan_goi_engine_submit_deu_co_process_code(self):
+        """BRAND_WEIGHT co HAI process Active. engine.resolve_process khong co process_code
+        lay dong dau tien bat ky - nhan vien thuong co the roi vao process tu chot."""
+        import ast
+        src = open(os.path.join(os.path.dirname(__file__), "..", "..", "features",
+                                "brand_weight", "application", "service.py"), encoding="utf-8").read()
+        calls = [n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.Call)
+                 and getattr(n.func, "attr", None) == "submit"
+                 and getattr(getattr(n.func, "value", None), "id", None) == "engine"]
+        self.assertEqual(len(calls), 2, "so lan goi engine.submit da doi - cap nhat test")
+        for c in calls:
+            self.assertIn("process_code", [k.arg for k in c.keywords])

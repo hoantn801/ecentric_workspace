@@ -360,14 +360,14 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
       '<div id="sum-box">' + mineSummary() + "</div>" +
       '<div class="bw-sliders" data-model="details">' + (hasAny(d) ? sliderRows(d, "e", null) : '<p class="bw-muted">Chưa có brand nào. Chép từ tháng trước hoặc thêm brand bên dưới.</p>') + "</div>" +
       '<div class="bw-row">' + addSelect(d, "mine-add", "+ Thêm brand bạn đã làm…") + '<button type="button" class="bw-btn" data-act="even"' + (hasAny(d) ? "" : " disabled") + ">Chia đều</button></div>" +
-      '<div class="bw-foot"><span class="bw-hint">' + (me.lead_name ? "Lead duyệt: " + esc(me.lead_name) : "Bạn không có lead trực tiếp, phiếu đi thẳng tới trưởng phòng.") + '</span><span id="submit-box">' + submitBtn(ok, me.status === "returned") + "</span></div></section>";
+      '<div class="bw-foot"><span class="bw-hint">' + (me.self_final ? "Phòng Management: phiếu của bạn tự chốt khi nộp, không qua duyệt." : me.lead_name ? "Lead duyệt: " + esc(me.lead_name) : "Bạn không có lead trực tiếp, phiếu đi thẳng tới trưởng phòng.") + '</span><span id="submit-box">' + submitBtn(ok, me.status === "returned", me.self_final) + "</span></div></section>";
   };
   const cancelBox = () => (UI.cancelling
     ? '<div class="bw-return"><span class="bw-hint">Rút phiếu thì lead không còn thấy phiếu này. Số của bạn được giữ lại để sửa và nộp lại.</span><div class="bw-row"><button type="button" class="bw-btn bw-btn--primary" data-act="cancel-send" data-busy-label="Đang rút…">Rút phiếu</button><button type="button" class="bw-btn bw-btn--ghost" data-act="cancel-no">Giữ nguyên</button></div></div>'
     : '<div class="bw-row"><button type="button" class="bw-btn" data-act="cancel-ask">Rút phiếu để sửa</button><span class="bw-hint">Chỉ rút được khi lead chưa xem.</span></div>');
   const mineCopy = () => copyBanner(UI.me.last, "Tháng " + label(prevOf(UI.period)) + (UI.me.last_status === "final" ? " bạn đã được chốt" : " bạn đã nộp"), "copy-mine", same(UI.me.last, UI.draft));
   const mineSummary = () => '<div class="bw-section" style="gap:12px">' + remaining(UI.draft) + stackBar(UI.draft, "Phân bổ của bạn") + "</div>";
-  const submitBtn = (ok, again) => '<button type="button" class="bw-btn bw-btn--primary" data-act="submit" data-busy-label="Đang nộp…"' + (ok ? "" : " disabled") + ">" + (again ? "Nộp lại" : "Nộp cho lead") + "</button>";
+  const submitBtn = (ok, again, selfFinal) => '<button type="button" class="bw-btn bw-btn--primary" data-act="submit" data-busy-label="Đang nộp…"' + (ok ? "" : " disabled") + ">" + (selfFinal ? "Nộp và chốt" : again ? "Nộp lại" : "Nộp cho lead") + "</button>";
 
   /* ---------- duyet ---------- */
   const baseOf = (m) => (m.stage === "head" ? (hasAny(m.lead) ? m.lead : m.current) : (hasAny(m.proposed) ? m.proposed : m.current));
@@ -463,7 +463,7 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
     if (UI.tab === "mine") {
       if (box) box.innerHTML = mineSummary();
       const cb = $("copy-box"); if (cb) cb.innerHTML = mineCopy();
-      const sb = $("submit-box"); if (sb) sb.innerHTML = submitBtn(totalState(sum(UI.draft)).k === "ok", UI.me && UI.me.status === "returned");
+      const sb = $("submit-box"); if (sb) sb.innerHTML = submitBtn(totalState(sum(UI.draft)).k === "ok", UI.me && UI.me.status === "returned", UI.me && UI.me.self_final);
       return;
     }
     const m = selected(); if (!m) return;
@@ -542,7 +542,7 @@ table.bw-matrix{border-collapse:collapse;width:100%;font-size:13.5px}
 
     if (act === "submit") {
       const res = await busy(btn, () => api.submit(UI.period, UI.draft));
-      if (res) { toast(res.data && res.data.resubmitted ? "Đã nộp lại. Phiếu quay về người đã trả lại." : "Đã nộp. Lead sẽ nhận thông báo để duyệt."); await load(); }
+      if (res) { toast(res.data && res.data.resubmitted ? "Đã nộp lại. Phiếu quay về người đã trả lại." : (UI.me && UI.me.self_final ? "Đã nộp và chốt." : "Đã nộp. Lead sẽ nhận thông báo để duyệt.")); await load(); }
       return;
     }
     if (act === "return-send" && m) {

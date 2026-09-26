@@ -8,6 +8,7 @@ from frappe import _
 from frappe.utils import nowdate
 
 from ecentric_workspace.approval_center.features.brand_weight.application import service
+from ecentric_workspace.approval_center.features.brand_weight.application.routing import is_self_final
 from ecentric_workspace.approval_center.features.brand_weight.application.validation import PERIOD_RE
 from ecentric_workspace.approval_center.features.brand_weight.application.weights import (
     parse_weights, prev_period,
@@ -57,6 +58,7 @@ class GetMyPeriodService:
             "last": last["weights"] if last else {}, "last_status": status_of(last),
             "lead_name": self.r.full_name(self.r.user_of_employee(emp.reports_to)) or "",
             "brands": self.r.active_brands(), "capabilities": caps,
+            "self_final": is_self_final(emp.department),
             "closed_status": status_of(closed) if closed else None,
             "closed_weights": closed["weights"] if closed else {},
         }

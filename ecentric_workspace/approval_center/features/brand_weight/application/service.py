@@ -13,13 +13,17 @@ from frappe.utils import now_datetime
 
 from ecentric_workspace.approval_center.shared.workflow import transitions as engine
 from ecentric_workspace.approval_center.features.brand_weight.application.routing import (
-    ResolveBrandWeightSkipLevelsService,
+    ResolveBrandWeightSkipLevelsService, is_self_final,
+)
+from ecentric_workspace.approval_center.features.brand_weight.infrastructure.setup import (
+    PROCESS_CODE, SELF_PROCESS_CODE,
 )
 from ecentric_workspace.approval_center.features.brand_weight.infrastructure import (
     brand_weight_repository as repo,
 )
 
 APPROVAL_TYPE = "BRAND_WEIGHT"
+SELF_FINAL_COMMENT = "Tự chốt: thành viên phòng Management, không qua duyệt."
 MSG_NO_EMPLOYEE = ("Tài khoản của bạn chưa gắn với hồ sơ nhân viên đang làm việc. "
                    "Nhờ HR kiểm tra trước khi nộp.")
 
@@ -40,8 +44,17 @@ def submit(name):
     doc.direct_manager = repo.user_of_employee(emp.reports_to)
     doc.submitted_at = now_datetime()
     repo.save_doc(doc)
+    # LUON truyen process_code: BRAND_WEIGHT co hai process Active (xem setup.py).
+    if is_self_final(doc.department):
+        req = engine.submit(repo.BUSINESS_DT, doc.name, APPROVAL_TYPE, user,
+                            process_code=SELF_PROCESS_CODE)
+        repo.link_request(doc.name, req)
+        # Cap duy nhat co nguoi duyet = chinh nguoi nop, nen engine cho approve that su,
+        # co dong nhat ky rieng. Khong gia chu ky cua ai khac.
+        engine.approve(req, actor=user, comment=SELF_FINAL_COMMENT)
+        return req
     skip, reason = ResolveBrandWeightSkipLevelsService().execute(emp.name, doc.department, user)
-    req = engine.submit(repo.BUSINESS_DT, doc.name, APPROVAL_TYPE, user,
+    req = engine.submit(repo.BUSINESS_DT, doc.name, APPROVAL_TYPE, user, process_code=PROCESS_CODE,
                         skip_level_nos=skip or None, skip_reason=reason or None)
     repo.link_request(doc.name, req)
     return req
