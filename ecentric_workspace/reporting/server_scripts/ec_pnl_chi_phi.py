@@ -23,6 +23,13 @@
 #    can_brand Check (bat = form DNTT hien them o Brand)
 #    Quyen: System Manager + EC Finance + EC CnB ghi; role All chi doc (form can doc de do danh muc).
 #    27 dong seed 09/09/2026 - Finance them/sua truc tiep, khong can deploy.
+#
+# 3) EC PnL Lich Su   (module Custom, autoname hash, title_field khoan_muc; tao 27/09/2026)
+#    PnL lich su 01/2025-08/2026 nap tu so Payment status 2026.xlsx, dot_nap SO_PS2026_V1, 3.544 dong.
+#    thang Date | loai Select Doanh thu / Gia von / Chi phi van hanh | nguon Select | brand, brand_so,
+#    nhom_brand, kenh, dich_vu, nhom, khoan_muc, ma_erp (BRAND_ALLOC = chi tham khao, ADJ = dieu chinh),
+#    so_tien Currency (truoc VAT) | so_hoa_don | dong_nguon | dot_nap | ghi_chu.
+#    Quyen: System Manager ghi; EC Finance doc. Script nap + doi chieu: C:\dev\pnl_export\hist\
 # ============================================================================
 
 # ec_pnl_chi_phi - API doc-only cho Dashboard PnL (giai doan 2: CHI PHI & LUONG UOC TINH)
@@ -49,15 +56,19 @@
 # CONG THUC UOC TINH 1 THANG cho 1 nhan su (ti le ngay lam viec trong thang neu vao/nghi giua thang):
 #   luong co ban   = Employee.ctc
 #   phu cap        = ec_allow_lunch + ec_allow_coffee + ec_allow_computer
-#   BH phan cong ty= [min(ctc, 46.800.000) x 20,5% (BHXH 17,5% + BHYT 3%) + min(ctc, 106.200.000) x 1% (BHTN)]
-#                    chi khi ec_dong_bhxh = 1. Tran 46,8tr = 20 x luong co so 2,34tr; tran 106,2tr = 20 x luong toi thieu vung I.
+#   BH phan cong ty= [min(ctc, TRAN_BHXH) x 20,5% (BHXH 17,5% + BHYT 3%) + min(ctc, 106.200.000) x 1% (BHTN)]
+#                    chi khi ec_dong_bhxh = 1. TRAN_BHXH = 20 x luong co so: 46,8tr (2,34tr) truoc 07/2026,
+#                    50,6tr (2,53tr, Nghi dinh 161/2026) tu 07/2026 (25/09/2026, Hoan duyet). Tran 106,2tr = 20 x luong toi thieu vung I.
+#   KPCD (25/09/2026, Hoan duyet) = min(ctc, TRAN_BHXH) x 2%, chi khi ec_dong_bhxh = 1 (Luat Cong doan 2024,
+#                    ND 105/2026: 2% quy luong lam can cu dong BHXH, doanh nghiep chiu). CONG CHUNG vao cot `bh` de
+#                    tong cac cot van bang `total` tren trang hien tai; tach rieng o khoa `kpcd` cho giao dien sau nay.
 #   luong du an    = Additional Salary component 'Luong du an' cua chinh nguoi do: thang HR da nhap thi lay dung so,
 #                    thang chua nhap thi lay theo THANG GAN NHAT co du lieu cua nguoi do (danh dau proj_est) -
 #                    day la khoan tra hang thang cho ~43/48 nhan su chinh thuc (07/2026: 279tr = 1/4 quy luong),
 #                    bo ra thi quy luong thap hon that ~25% (Hoan phat hien 08/09).
 #   thuong & khac  = cac Additional Salary Earning khac (KPI, incentive, ho tro...) - CHI thang da nhap, khong keo sang thang khac.
 #   tong           = luong co ban + phu cap + BH phan cong ty + luong du an + thuong & khac
-#   Chua gom: kinh phi cong doan 2%, chi phi tuyen dung, dao tao.
+#   Chua gom: chi phi tuyen dung, dao tao.
 #
 # Params (form_dict, tat ca optional):
 #   date_from, date_to : YYYY-MM-DD -> danh sach thang [tu, den]. Mac dinh: 01/01 nam nay -> cuoi thang nay.
@@ -71,11 +82,19 @@ MGMT_DEPT = "Management - EC"
 DEPT_SUFFIX = " - EC"
 K_MIN = 3
 BHXH_CAP = 46800000.0
+BHXH_CAP_2607 = 50600000.0
+CAP_CHANGE_MONTH = "2026-07"
+RATE_KPCD = 0.02
 BHTN_CAP = 106200000.0
 RATE_CAPPED = 0.205
 RATE_BHTN = 0.01
 MAX_MONTHS = 24
 LIVE_STATUS = ("Approved", "Pending", "Information Required")
+# 27/09/2026 (Hoan duyet): thang <= HIST_CUT lay chi phi tu so P&L (DocType EC PnL Lich Su:
+# gia von + chi phi van hanh theo dich vu, gom ca luong theo chuc danh) -> TAT luong uoc tinh
+# cua cac thang do de khong dem hai lan. DNTT cua cac thang do van cong (so da nap chi phan thieu).
+HIST_CUT = "2026-08"
+HIST_TYPE = "So lich su"
 PROJ_COMP = "Luong du an"
 # NGUON CHI PHI KHAC = 3 loai phieu (10/09/2026):
 #   EC Payment Request (DNTT) . EC Special Bonus Request . EC Affiliate Bonus Request
@@ -311,15 +330,20 @@ else:
         keys = sorted(d.keys())
         return frappe.utils.flt(d.get(keys[-1]))
 
-    def month_cost(e):
+    def month_cost(e, m=None):
         # chi phi 1 thang tron cua 1 nhan su theo cong thuc o dau file (luong du an = thang gan nhat co du lieu)
+        # m = thang YYYY-MM de chon tran BHXH dung ky; bo trong = thang hien tai.
         ctc = frappe.utils.flt(e.get("ctc"))
         allow = frappe.utils.flt(e.get("allow_sum"))
+        mm = m or str(frappe.utils.nowdate())[0:7]
+        cap = BHXH_CAP_2607 if mm >= CAP_CHANGE_MONTH else BHXH_CAP
         bh = 0.0
+        kpcd = 0.0
         if frappe.utils.cint(e.get("dong_bhxh")) and ctc > 0:
-            bh = min(ctc, BHXH_CAP) * RATE_CAPPED + min(ctc, BHTN_CAP) * RATE_BHTN
+            kpcd = min(ctc, cap) * RATE_KPCD
+            bh = min(ctc, cap) * RATE_CAPPED + min(ctc, BHTN_CAP) * RATE_BHTN + kpcd
         proj = latest_proj(e.get("name"))
-        return {"base": ctc, "allow": allow, "bh": bh, "proj": proj, "fixed": ctc + allow + bh,
+        return {"base": ctc, "allow": allow, "bh": bh, "kpcd": kpcd, "proj": proj, "fixed": ctc + allow + bh,
                 "total": ctc + allow + bh + proj}
 
     def type_key(t):
@@ -335,15 +359,16 @@ else:
         return {"month": m, "kind": month_kind.get(m) or "", "headcount": 0, "fte": 0.0,
                 "ft": 0, "intern": 0, "prob": 0, "other": 0, "no_ctc": 0,
                 "joiners": 0, "leavers": 0,
-                "base": 0.0, "allow": 0.0, "bh": 0.0, "fixed": 0.0,
+                "base": 0.0, "allow": 0.0, "bh": 0.0, "kpcd": 0.0, "fixed": 0.0,
                 "proj": 0.0, "proj_est": 0.0, "n_proj": 0, "bonus": 0.0, "total": 0.0}
 
     def add_month(acc, e, m, frac, at_end, is_join, is_leave):
-        mc = month_cost(e)
+        mc = month_cost(e, m)
         acc["fte"] = acc["fte"] + frac
         acc["base"] = acc["base"] + mc["base"] * frac
         acc["allow"] = acc["allow"] + mc["allow"] * frac
         acc["bh"] = acc["bh"] + mc["bh"] * frac
+        acc["kpcd"] = acc["kpcd"] + mc["kpcd"] * frac
         acc["fixed"] = acc["fixed"] + mc["fixed"] * frac
         pf = proj_for(e.get("name"), m)
         proj_amt = pf["amt"] if not pf["carried"] else pf["amt"] * frac
@@ -410,6 +435,18 @@ else:
     if n_unknown_dept:
         notes = notes + ["Co nhan su Active chua gan phong ban - chi nam trong tong cong ty"]
 
+    PAY_MONEY = ("base", "allow", "bh", "kpcd", "fixed", "proj", "proj_est", "bonus", "total")
+    for m in months:
+        if m <= HIST_CUT:
+            for fk in PAY_MONEY:
+                pay_company[m][fk] = 0.0
+            pay_company[m]["source"] = "so_lich_su"
+            for dk in dept_keys:
+                for fk in PAY_MONEY:
+                    pay_dept[dk][m][fk] = 0.0
+                pay_dept[dk][m]["source"] = "so_lich_su"
+    if months and months[0] <= HIST_CUT:
+        notes = notes + ["Thang <= 08/2026: luong va chi phi lay tu so P&L (nam trong Chi phi khac, loai 'So lich su'), khong dung luong uoc tinh."]
     payroll_by_dept = {}
     for dk in dept_keys:
         lst = []
@@ -533,34 +570,25 @@ else:
     actual_company = store_to_list(act_company) if scope_mode == "all" else []
 
     # ------------------------------------------------------------ chi phi khac tu Approval Center (da duyet / dang cho)
-    # 12/09: hai truong moi. Hoi rieng vi site chua sync fixture thi cot chua ton tai va
-    # truy van thang vao no la vo ca API - khong the de bao cao chet vi mot dot deploy le pha.
-    cf2 = frappe.db.sql("""
-        SELECT fieldname FROM `tabCustom Field`
-        WHERE dt = 'EC Payment Request' AND fieldname IN ('ec_ky_chi_phi', 'ec_vat_pct')
-    """)
-    co = {}
-    for r in cf2:
-        co[r[0]] = 1
-    has_ky_field = True if co.get("ec_ky_chi_phi") else False
-    has_vat_field = True if co.get("ec_vat_pct") else False
-    pr_date_sql = "ifnull(d.payment_date, d.creation)"
-    if has_ky_field:
-        pr_date_sql = "ifnull(d.ec_ky_chi_phi, ifnull(d.payment_date, d.creation))"
-    pr_amt_sql = "ifnull(d.payment_amount, 0)"
-    if has_vat_field:
-        pr_amt_sql = ("ifnull(d.payment_amount, 0) / (1 + "
-                      "ifnull(nullif(d.ec_vat_pct, ''), 0) / 100)")
     # Moi loai: (doctype, cot tien, cot ngay quy ky, nhan)
+    # 25/09/2026 (Hoan duyet): DNTT quy ky theo `ec_ky_chi_phi` = THANG HOAT DONG, trong thi moi lui ve
+    # payment_date. Truoc do theo payment_date nen chi phi thang 8 tra vao thang 9 hien het o thang 9.
+    # ec_ky_chi_phi la Custom Field -> hoi Custom Field truoc (frappe.db.has_column khong co trong sandbox).
+    ky_rows = frappe.db.sql("""
+        SELECT name FROM `tabCustom Field`
+        WHERE dt = 'EC Payment Request' AND fieldname = 'ec_ky_chi_phi' LIMIT 1
+    """)
+    pr_date = "ifnull(d.ec_ky_chi_phi, ifnull(d.payment_date, d.creation))" if ky_rows else "ifnull(d.payment_date, d.creation)"
+    # 27/09/2026: chi phi tinh TRUOC VAT (doanh thu cung dang tinh truoc thue) - DNTT co ec_vat_pct 0/8/10.
+    vat_rows = frappe.db.sql("""
+        SELECT name FROM `tabCustom Field`
+        WHERE dt = 'EC Payment Request' AND fieldname = 'ec_vat_pct' LIMIT 1
+    """)
+    pr_amt = "ifnull(d.payment_amount, 0)"
+    if vat_rows:
+        pr_amt = "ifnull(d.payment_amount, 0) / (1 + CAST(ifnull(nullif(d.ec_vat_pct, ''), '0') AS DECIMAL(10,4)) / 100)"
     cost_specs = [
-        # KY QUY DOI (12/09, Hoan): thang HOAT DONG phat sinh khoan chi, khong phai thang tra
-        # tien. Truoc do quy theo payment_date nen chi phi luon lech pha mot thang so voi doanh
-        # thu - 49/49 phieu dau tien deu roi vao thang 9 du nhieu khoan la cua thang 8, va thang
-        # 7-8 khong co dong chi phi nha cung cap nao.
-        # SO TIEN: payment_amount la so THUC TRA (gom VAT). Chia cho (1 + thue suat) de ra chi
-        # phi truoc thue, vi so ke toan ghi chi phi thuan. Chua chon thue thi thue = 0 -> giu
-        # nguyen so cu, khong lam doi bat ky phieu nao da co.
-        ("EC Payment Request", pr_amt_sql, pr_date_sql, "Payment Request", "ifnull(d.request_title, d.name)"),
+        ("EC Payment Request", pr_amt, pr_date, "Payment Request", "ifnull(d.request_title, d.name)"),
         ("EC Special Bonus Request", "ifnull(d.total_bonus, 0)", "d.creation", "Special Bonus", "ifnull(d.request_title, d.name)"),
         ("EC Affiliate Bonus Request", "CASE WHEN ifnull(d.total_amount, 0) > 0 THEN d.total_amount ELSE ifnull(d.budget, 0) END",
          "ifnull(d.service_month, d.creation)", "Affiliate Bonus", "ifnull(d.request_title, d.name)"),
@@ -686,6 +714,52 @@ else:
                                     "short": short_dept(dept), "month": m, "amount": amt,
                                     "status": st, "category": cat_ten, "group": cat_nhom,
                                     "brand": bname, "counts": 1}]
+    # ------------------------------------------------------------ so lich su (<= HIST_CUT)
+    if scope_mode == "all" and months and months[0] <= HIST_CUT and frappe.db.exists("DocType", "EC PnL Lich Su"):
+        hrows = frappe.db.sql("""
+            SELECT date_format(thang, '%Y-%m') AS ky, ifnull(nhom, '') AS nhom, loai,
+                   SUM(so_tien) AS amt, COUNT(*) AS n
+            FROM `tabEC PnL Lich Su`
+            WHERE loai IN ('Giá vốn', 'Chi phí vận hành') AND ifnull(ma_erp, '') <> 'BRAND_ALLOC'
+            GROUP BY date_format(thang, '%Y-%m'), ifnull(nhom, ''), loai
+        """, as_dict=True)
+        hist_used = 0
+        for r in hrows:
+            m = r.get("ky") or ""
+            if m not in month_kind or m > HIST_CUT:
+                continue
+            amt = frappe.utils.flt(r.get("amt"))
+            nhom = r.get("nhom") or "(khong ro)"
+            hist_used = hist_used + 1
+            if m not in oc_month:
+                oc_month[m] = {"month": m, "approved": 0.0, "pending": 0.0, "n_approved": 0, "n_pending": 0, "types": {}}
+            oc_month[m]["approved"] = oc_month[m]["approved"] + amt
+            oc_month[m]["n_approved"] = oc_month[m]["n_approved"] + 1
+            if HIST_TYPE not in oc_month[m]["types"]:
+                oc_month[m]["types"][HIST_TYPE] = {"approved": 0.0, "pending": 0.0}
+            oc_month[m]["types"][HIST_TYPE]["approved"] = oc_month[m]["types"][HIST_TYPE]["approved"] + amt
+            dkey = "(So lich su)"
+            if dkey not in oc_dept:
+                oc_dept[dkey] = {"dept": dkey, "short": "So lich su", "approved": 0.0, "pending": 0.0, "n": 0}
+            oc_dept[dkey]["approved"] = oc_dept[dkey]["approved"] + amt
+            oc_dept[dkey]["n"] = oc_dept[dkey]["n"] + 1
+            gkey = "So lich su · " + nhom
+            if gkey not in oc_group:
+                oc_group[gkey] = {"group": gkey, "approved": 0.0, "pending": 0.0, "n": 0, "counts": 1}
+            oc_group[gkey]["approved"] = oc_group[gkey]["approved"] + amt
+            oc_group[gkey]["n"] = oc_group[gkey]["n"] + 1
+            if gkey not in oc_cat:
+                oc_cat[gkey] = {"category": gkey, "code": "SO_LICH_SU", "group": "So lich su",
+                                "counts": 1, "approved": 0.0, "pending": 0.0, "n": 0}
+            oc_cat[gkey]["approved"] = oc_cat[gkey]["approved"] + amt
+            oc_cat[gkey]["n"] = oc_cat[gkey]["n"] + 1
+            oc_items = oc_items + [{"name": "LS-" + m + "-" + nhom, "doctype": "EC PnL Lich Su", "type": HIST_TYPE,
+                                    "title": "So P&L " + m + " · " + nhom + " (" + (r.get("loai") or "") + ")",
+                                    "dept": "", "short": "So lich su", "month": m, "amount": amt,
+                                    "status": "Approved", "category": gkey, "group": "So lich su",
+                                    "brand": "", "counts": 1}]
+        if hist_used:
+            oc_types = oc_types + [HIST_TYPE]
     group_list = []
     for g in GROUP_ORDER:
         if g in oc_group:
@@ -700,12 +774,12 @@ else:
         "by_group": group_list,
         "by_category": sorted(list(oc_cat.values()), key=lambda x: x["approved"], reverse=True),
         "by_brand": sorted(list(oc_brand.values()), key=lambda x: x["approved"], reverse=True),
-        "items": sorted(oc_items, key=lambda x: x["month"], reverse=True)[:200],
+        "items": sorted(oc_items, key=lambda x: x["month"], reverse=True)[:1000],
         "unclassified": {"n": n_unclassified, "amount": amt_unclassified,
                          "has_field": True if has_cat_field else False,
                          "n_categories": len(cat_map)},
         "excluded": {"payroll": amt_skip_payroll, "noncost": amt_skip_noncost},
-        "note": "Chi gom yeu cau co trang thai Approved (da duyet) hoac Pending / Information Required (dang cho). Rejected / Cancelled bi loai. Thang quy ky: Payment Request = payment_date, Affiliate = service_month, Special Bonus = ngay tao. KHONG gom EC Purchase Request va EC AI Topup Request: hai loai nay cuoi cung deu duoc chi qua mot DNTT, gom ca hai la dem hai lan (Hoan chot 10/09/2026). Khoan thuoc nhom 'Luong & nhan su' da co trong khoi luong va nhom 'Khong tinh vao chi phi' (tam ung, chi ho brand, ky quy, tra no goc) KHONG duoc cong vao tong - chung nam rieng o `excluded`.",
+        "note": "Chi gom yeu cau co trang thai Approved (da duyet) hoac Pending / Information Required (dang cho). Rejected / Cancelled bi loai. Thang quy ky: Payment Request = ky ghi nhan chi phi (ec_ky_chi_phi), trong thi payment_date, Affiliate = service_month, Special Bonus = ngay tao. KHONG gom EC Purchase Request va EC AI Topup Request: hai loai nay cuoi cung deu duoc chi qua mot DNTT, gom ca hai la dem hai lan (Hoan chot 10/09/2026). Khoan thuoc nhom 'Luong & nhan su' da co trong khoi luong va nhom 'Khong tinh vao chi phi' (tam ung, chi ho brand, ky quy, tra no goc) KHONG duoc cong vao tong - chung nam rieng o `excluded`.",
     }
 
     # ------------------------------------------------------------ tuyen dung / bien dong nhan su sap toi (Approval Center + HRMS)

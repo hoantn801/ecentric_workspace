@@ -42,6 +42,9 @@
 
 MGMT_DEPT = "Management - EC"
 MAX_NGAY = 400
+# 27/09/2026 (Hoan duyet): ngay <= HIST_END da co phi van hanh gian hang THAT trong so P&L
+# (EC PnL Lich Su) -> mo hinh khong tinh phi cho cac ngay do de khong dem hai lan.
+HIST_END = "2026-08-31"
 PLAT_ALL = "Tat ca san"
 
 notes = []
@@ -98,6 +101,8 @@ else:
         notes = notes + ["date_from lon hon date_to nen da doi cho hai gia tri."]
 
     so_ngay = frappe.utils.date_diff(date_to, date_from) + 1
+    if str(date_from) <= HIST_END:
+        notes = notes + ["Ngay <= 31/08/2026 khong tinh phi o day - phi that da nam trong so P&L (doanh thu)."]
     if so_ngay > MAX_NGAY:
         date_to = str(frappe.utils.add_days(date_from, MAX_NGAY - 1))
         so_ngay = MAX_NGAY
@@ -199,6 +204,8 @@ else:
         else:
             tong_nmv_kh = tong_nmv_kh + gia_tri
 
+        if ngay <= HIST_END:
+            continue
         dong = tim_dong(ten_brand, san, ngay)
         if not dong:
             khoa = ten_brand + " | " + san
@@ -225,6 +232,9 @@ else:
     i = 0
     while i < so_ngay:
         ngay_chay = str(frappe.utils.add_days(date_from, i))
+        if ngay_chay <= HIST_END:
+            i = i + 1
+            continue
         cuoi_thang = str(frappe.utils.get_last_day(ngay_chay))
         ngay_trong_thang = int(cuoi_thang[8:10])
         for d in phi:
