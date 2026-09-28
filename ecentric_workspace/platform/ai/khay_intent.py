@@ -17,10 +17,15 @@ import json
 import re
 
 LEAVE = "leave"
+#: Tao nhap MOT phieu Approval Center bat ky (29/09, Hoan: "tat ca form"). approval_code phai
+#: nam trong danh sach form NGUOI DO DUOC TAO - server dua danh sach vao prompt va kiem lai.
+APPROVAL = "approval"
+#: Ten cu (ban 1-3). Model/phien cu tra ve thi hieu la APPROVAL + PAYMENT_REQUEST.
 PAYMENT = "payment_request"
+PAYMENT_CODE = "PAYMENT_REQUEST"
 ANSWER = "answer"
 CLARIFY = "clarify"
-ACTIONS = (LEAVE, PAYMENT, ANSWER, CLARIFY)
+ACTIONS = (LEAVE, APPROVAL, ANSWER, CLARIFY)
 
 MAX_MESSAGE = 1500
 MAX_OPTIONS = 4
@@ -43,6 +48,7 @@ SCHEMA = {
         "half_day_part": {"type": "string", "enum": ["", "morning", "afternoon"]},
         "reason": {"type": "string"},
         "needs_data": {"type": "boolean"},
+        "approval_code": {"type": "string"},
     },
     "required": ["action", "reply"],
 }
@@ -54,8 +60,12 @@ SYSTEM = (
     "Dien leave_type bang DUNG MOT ten trong danh sach loai nghi; from_date/to_date dang "
     "YYYY-MM-DD tra theo LICH ben duoi; half_day=true neu nghi nua ngay (sang/chieu, ghi vao "
     "half_day_part). Chua ro ngay hoac loai thi chon clarify, KHONG doan.\n"
-    "- payment_request: nguoi dung muon tao DE NGHI THANH TOAN / thanh toan hoa don / chi tien "
-    "cho nha cung cap, hoac tha hoa don/bao gia vao va muon tao phieu.\n"
+    "- approval: nguoi dung muon TAO MOT PHIEU / YEU CAU PHE DUYET (de nghi thanh toan, mua "
+    "hang, cap tai san, yeu cau du lieu, booking, tuyen dung...) hoac tha hoa don/bao gia vao "
+    "va muon tao phieu. Dien approval_code bang DUNG MOT ma trong danh sach FORM PHE DUYET. "
+    "Khong form nao khop hoac phan van giua 2 form -> chon clarify, options la TEN cac form "
+    "gan nhat. Danh sach rong -> answer, noi ban chua tao phieu duoc. Xin nghi phep luon la "
+    "leave, khong phai approval.\n"
     "- answer: cau hoi hoac tro chuyen. needs_data=true neu can SO LIEU cong ty (bao cao tuan, "
     "diem so, cong viec cua team, tien do) - he thong se tra cuu roi tra loi, reply de trong. "
     "needs_data=false neu chi la chao hoi, cam on, hoi ban la ai, hoi cach dung ERP: tra loi "
@@ -109,9 +119,21 @@ def quick_reply(message, name, has_files=False):
     return {"action": ANSWER, "reply": reply, "options": [], "needs_data": False}
 
 
-def build_prompt(message, today, leave_types, page="", file_names=()):
+def form_lines(forms):
+    """PURE. [{code, title, description}] -> dong prompt 'MA | ten | mo ta'."""
+    out = []
+    for f in forms or []:
+        desc = " ".join(str(f.get("description") or "").split())[:140]
+        out.append("%s | %s%s" % (f["code"], f.get("title") or f["code"],
+                                  (" | " + desc) if desc else ""))
+    return out
+
+
+def build_prompt(message, today, leave_types, page="", file_names=(), forms=()):
     lines = ["LICH:"] + calendar(today)
     lines.append("LOAI NGHI (dung dung ten): " + (", ".join(leave_types) or "(khong co)"))
+    lines.append("FORM PHE DUYET NGUOI DUNG DUOC TAO (ma | ten | mo ta):")
+    lines += (form_lines(forms) or ["(khong co)"])
     if page:
         lines.append("NGUOI DUNG DANG O TRANG: " + str(page)[:120])
     if file_names:
@@ -137,13 +159,15 @@ def _clean_options(raw):
     return out[:MAX_OPTIONS]
 
 
-def normalize(raw, leave_types, today, has_files=False):
+def normalize(raw, leave_types, today, has_files=False, forms=()):
     """Kiem ket qua cua model. Sai hinh -> CLARIFY co cau hoi that, KHONG doan thay model.
 
     -> {action, reply, options, leave?: {leave_type, from_date, to_date, half_day,
         half_day_date, reason}}
     """
     raw = raw if isinstance(raw, dict) else {}
+    if raw.get("action") == PAYMENT:
+        raw = dict(raw, action=APPROVAL, approval_code=raw.get("approval_code") or PAYMENT_CODE)
     action = raw.get("action") if raw.get("action") in ACTIONS else CLARIFY
     reply = str(raw.get("reply") or "").strip()[:MAX_REPLY]
     out = {"action": action, "reply": reply, "options": _clean_options(raw.get("options"))}
@@ -173,9 +197,22 @@ def normalize(raw, leave_types, today, has_files=False):
                         "past": f < today}
         if not reply:
             out["reply"] = "Mình soạn sẵn đơn rồi, bạn xem lại nhé."
-    elif action == PAYMENT and not reply:
-        out["reply"] = ("Mình đọc tệp và điền sẵn phiếu cho bạn nhé." if has_files else
-                        "Bạn thả hoá đơn hoặc báo giá vào đây, mình điền phiếu giúp.")
+    elif action == APPROVAL:
+        code = str(raw.get("approval_code") or "").strip().upper()
+        form = next((f for f in forms or [] if f["code"] == code), None)
+        if not form:
+            # Ma bia / form nguoi nay khong duoc tao -> hoi lai, KHONG doan form gan nhat.
+            titles = [str(o) for o in out["options"]] or \
+                [f.get("title") or f["code"] for f in (forms or [])][:MAX_OPTIONS]
+            if not forms:
+                return {"action": CLARIFY, "options": [],
+                        "reply": "Hiện bạn chưa có loại phiếu nào tạo được qua mình."}
+            return {"action": CLARIFY, "reply": "Bạn muốn tạo loại phiếu nào?",
+                    "options": titles[:MAX_OPTIONS]}
+        out["approval_code"] = code
+        if not reply:
+            out["reply"] = ("Mình đọc tệp và điền sẵn phiếu %s cho bạn nhé." if has_files else
+                            "Mình điền sẵn phiếu %s từ câu của bạn nhé.") % (form.get("title") or code)
     elif action == ANSWER:
         # Chi tra loi thang khi model noi KHONG can so lieu VA da viet cau tra loi. Thieu mot
         # trong hai -> di duong tra cuu (gemini_chat), khong de nguoi dung nhan mot cau rong.

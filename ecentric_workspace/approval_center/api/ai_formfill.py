@@ -17,6 +17,7 @@ from frappe import _
 
 from ecentric_workspace.approval_center.shared.integrations import ai_attachments as att
 from ecentric_workspace.approval_center.shared.integrations import ai_formfill as svc
+from ecentric_workspace.approval_center.shared import catalog_api
 from ecentric_workspace.approval_center.shared.registry import get_definition
 from ecentric_workspace.approval_center.shared.requests import command_service
 from ecentric_workspace import gemini_api
@@ -32,6 +33,25 @@ def _pilot_allowed(user=None):
     """
     roles = frappe.get_roles(user or frappe.session.user)
     return PILOT_ROLE in roles or "System Manager" in roles
+
+
+def _form_open(approval_code, user=None):
+    """Nguoi nay co TAO duoc form nay khong - dung nhu trang Phe duyet cua ho cho thay.
+
+    29/09 mo AI dien ho cho moi form (eC Mate). Trang form mo duoc bang URL ke ca khi the
+    bi an, nen AI KHONG dua vao viec "nguoi do tu vao trang": the phai Active, co route, va
+    nguoi do thay duoc theo visibility (vai tro / phong ban) - chinh `list_catalog` chay duoi
+    quyen nguoi goi. Hoan chot: AI chi lam trong quyen han cua nguoi do.
+    """
+    for t in (catalog_api.list_catalog().get("types") or []):
+        if t.get("approval_code") == approval_code:
+            return t.get("card_status") == "Active" and bool(t.get("route"))
+    return False
+
+
+def _require_form_open(approval_code):
+    if not _form_open(approval_code):
+        frappe.throw(_("Bạn không tạo được loại phiếu này."), frappe.PermissionError)
 
 
 @frappe.whitelist()
@@ -67,6 +87,7 @@ def suggest(approval_code, note=None, current=None, files=None):
     THU TU KIEM - fail-closed, re truoc:
       1. cong tac site_config   -> nem (khong ai can do cai nay)
       2. role pilot             -> nem PermissionError
+      2b. form mo cho nguoi nay (the Active, thay duoc) -> nem PermissionError
       3. ma form la that        -> nem (registry tu nem)
       4. tran ngay / do dai / khoa -> TRA VE, KHONG NEM
       5. quyen doc TUNG tep     -> bo tep do, TRA VE ly do (`ai_attachments.collect`)
@@ -81,6 +102,7 @@ def suggest(approval_code, note=None, current=None, files=None):
         frappe.throw(_("Tính năng AI điền hộ đang tắt."))
     if not _pilot_allowed():
         frappe.throw(_("Bạn chưa được bật tính năng AI điền hộ."), frappe.PermissionError)
+    _require_form_open(approval_code)
 
     definition = get_definition(approval_code)          # ma la -> nem, dung cho
     note = (note or "").strip()
@@ -259,6 +281,7 @@ def create_draft(approval_code, fields=None, log=None):
         frappe.throw(_("Tính năng AI điền hộ đang tắt."))
     if not _pilot_allowed():
         frappe.throw(_("Bạn chưa được bật tính năng AI điền hộ."), frappe.PermissionError)
+    _require_form_open(approval_code)
 
     definition = get_definition(approval_code)
     data = frappe.parse_json(fields) if isinstance(fields, str) else (fields or {})
