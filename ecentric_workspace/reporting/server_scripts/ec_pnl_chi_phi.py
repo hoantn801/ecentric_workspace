@@ -154,13 +154,16 @@ if session_user == "Administrator":
 scope_mode = ""
 scope_depts = []
 viewer_dept = ""
+viewer_grade = ""
+MGR_GRADES = ("Trưởng phòng", "BOD")
 if session_user and session_user != "Guest":
     emp_rows = frappe.db.sql("""
-        SELECT name, department FROM `tabEmployee`
+        SELECT name, department, grade FROM `tabEmployee`
         WHERE user_id = %s AND status = 'Active' LIMIT 1
     """, (session_user,), as_dict=True)
     if emp_rows:
         viewer_dept = emp_rows[0].get("department") or ""
+        viewer_grade = emp_rows[0].get("grade") or ""
 
 if matched_roles:
     scope_mode = "all"
@@ -169,6 +172,11 @@ elif session_user and session_user != "Guest":
         SELECT name FROM `tabDepartment`
         WHERE manager_email = %s AND ifnull(disabled, 0) = 0 AND ifnull(is_group, 0) = 0
     """, (session_user,))
+    # 28/09/2026 (Hoan, chat phan quyen): manager_email con dung cho duyet cap 1, nen co the dang la
+    # nhan vien / truong nhom (vd Service chua co truong phong). Chi TRUONG PHONG / BOD moi duoc mo
+    # pham vi quy luong theo manager_email. Lead KHONG xem luong nguoi duoi.
+    if viewer_grade not in MGR_GRADES:
+        mg = []
     for r in mg:
         # Phong Management (luong CEO / HOF / cac manager) KHONG BAO GIO mo theo pham vi phong ban
         if r[0] not in scope_depts and r[0] != MGMT_DEPT:
