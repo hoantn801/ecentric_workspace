@@ -1,7 +1,7 @@
 {
   "action_center/pages/my_work/main_section.html": {
-    "last_resync_patch": "p213_resync_my_work_mascot",
-    "sha256": "b78401a8150d746a03526dc1f18e36b1f6f3e19d2008fb032eea3af5349bc343"
+    "last_resync_patch": "p216_create_tong_quan_page",
+    "sha256": "44de7d822b997b81ffd21779a70c64fdbc10fcaadd6b425604f8bacef9f66af3"
   },
   "approval_center/features/affiliate_bonus/ui/main_section.html": {
     "baseline": "2026-08-31",
@@ -160,6 +160,10 @@
     "baseline": "2026-08-31",
     "last_resync_patch": "p212_resync_hr_nav_pages",
     "sha256": "176f923979339da9140f34758e29671f90e33007e6c1c5b88bacdb42b979631d"
+  },
+  "hr/pages/tong_quan/main_section.html": {
+    "last_resync_patch": "p216_create_tong_quan_page",
+    "sha256": "370799db1c8dd172272dcd9427d58986792caeb6e7cba9e9fa27513cbc4ac71f"
   },
   "legacy_pages/all_ticket/main_section.html": {
     "baseline": "2026-08-31",
