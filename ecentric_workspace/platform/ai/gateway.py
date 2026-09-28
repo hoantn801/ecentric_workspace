@@ -12,6 +12,14 @@ BA LUAT KHONG DUOC NOI LONG:
   2. JSON sai hinh -> tinh la LOI cua lan thu do, thu model ke. Khong tra dict rong.
   3. Moi lan roi sang du phong + moi lan hong ca chuoi deu ghi Error Log. Khong co con
      so do thi khong ai biet model chinh hong bao nhieu.
+
+NHO MODEL VUA SAP (28/09): Kie treo ~34s roi moi tra 500, va cac ban Gemini sap CUNG LUC.
+Khong nho thi MOI lan goi deu phai cho 34s x tung ban Gemini moi toi duoc model con song.
+Model hong kieu SAP (5xx, 429, treo, mat ket noi) bi danh dau DOWN_SECONDS; trong thoi gian
+do cac lan goi khac bo qua no. Loi do NOI DUNG (JSON hong, thieu khoa) KHONG danh dau - do
+la loi cua cau hoi do, khong phai model sap. Neu MOI model dung duoc deu dang bi danh dau
+thi van thu het (khong bao gio tu choi chi vi bo nho). `models=` truyen tay (probe, AI
+Content chi dung model chinh) thi bo qua bo nho: nguoi goi muon chinh model do.
 """
 import time
 
@@ -28,6 +36,11 @@ DEFAULT_BUDGET = 100
 #: Con it hon chung nay thi khong bat dau lan thu moi - chac chan bi cat giua chung.
 MIN_ATTEMPT_SECONDS = 8
 CONNECT_TIMEOUT = 5
+#: giay. Du lau de khong dap vao Kie dang sap, du ngan de model song lai la dung ngay.
+DOWN_SECONDS = 300
+DOWN_KEY = "ec_ai_down::%s"
+_OUTAGE_EXC = ("Timeout", "ReadTimeout", "ConnectTimeout", "ConnectionError", "TimeoutError",
+               "ChunkedEncodingError", "ProtocolError", "RemoteDisconnected")
 
 
 def _post(url, body, key, read_timeout):
@@ -49,6 +62,44 @@ def _log(title, message):
         frappe.log_error(title=title, message=str(message)[:2000])
     except Exception:
         pass
+
+
+def is_outage(err):
+    """PURE. Loi nay la model/Kie SAP (thu lai sau) hay loi cua rieng cau hoi nay?"""
+    e = str(err or "")
+    for prefix in ("HTTP ", "Kie code="):
+        if e.startswith(prefix):
+            digits = ""
+            for ch in e[len(prefix):]:
+                if not ch.isdigit():
+                    break
+                digits += ch
+            code = int(digits) if digits else 0
+            return code >= 500 or code == 429
+    name = e.split(":", 1)[0].strip()
+    return name in _OUTAGE_EXC
+
+
+def _is_down(model):
+    try:
+        return bool(frappe.cache().get_value(DOWN_KEY % model))
+    except Exception:
+        return False
+
+
+def _set_down(model, down):
+    try:
+        if down:
+            frappe.cache().set_value(DOWN_KEY % model, 1, expires_in_sec=DOWN_SECONDS)
+        else:
+            frappe.cache().delete_value(DOWN_KEY % model)
+    except Exception:
+        pass
+
+
+def _usable(model, files):
+    d = dialects.dialect_of(model)
+    return bool(d) and (not files or bool(dialects.ACCEPTS_FILES.get(d)))
 
 
 def _try_one(model, key, request, timeout):
@@ -103,6 +154,11 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
     request = {"prompt": prompt, "system": system, "schema": schema, "files": files,
                "history": history, "json_mode": json_mode, "opts": opts}
     chain = list(models) if models else config.chain(allow_fallback)
+    down = set()
+    if not models:
+        down = {m for m in chain if _usable(m, files) and _is_down(m)}
+        if not any(_usable(m, files) and m not in down for m in chain):
+            down = set()          # moi model dung duoc deu dang nghi -> van thu het
     budget = float(budget or DEFAULT_BUDGET)
     per_try = float(attempt_timeout or DEFAULT_ATTEMPT_TIMEOUT)
     started = time.time()
@@ -117,6 +173,9 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
         if files and not dialects.ACCEPTS_FILES.get(dialect):
             attempt["error"] = "model khong nhan tep - bo qua, khong gui thieu tep"
             continue
+        if model in down:
+            attempt["error"] = "vua sap (<%d phut) - bo qua, thu model ke" % (DOWN_SECONDS // 60)
+            continue
         remaining = budget - (time.time() - started)
         if remaining < MIN_ATTEMPT_SECONDS:
             attempt["error"] = "het ngan sach thoi gian (%.0fs)" % budget
@@ -126,7 +185,11 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
         attempt["ms"] = int((time.time() - t0) * 1000)
         if err:
             attempt["error"] = scrub(err, key)[:600]
+            if is_outage(err):
+                _set_down(model, True)
             continue
+        if _is_down(model):
+            _set_down(model, False)       # song lai -> cac lan goi khac dung ngay
         attempt["ok"] = True
         out.update({"ok": True, "text": text, "data": data, "model": model,
                     "fell_back": index > 0, "usage": usage, "finish": finish,

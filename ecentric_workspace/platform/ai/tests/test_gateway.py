@@ -52,7 +52,7 @@ class Env(object):
         self.settings = {"ec_kie_api_key": KHOA, "ec_llm_model_kie": "gemini-3-8-flash",
                          "ec_llm_model_kie_fallback": "gpt-5-5"}
         self.settings.update(settings or {})
-        self.logs, self.calls, self.replies = [], [], {}
+        self.logs, self.calls, self.replies, self.models_called = [], [], {}, []
         fk = types.ModuleType("frappe")
         env = self
 
@@ -64,6 +64,19 @@ class Env(object):
         fk.log_error = lambda title=None, message=None, **k: env.logs.append((title, message))
         fk.whitelist = lambda *a, **k: (a[0] if a and callable(a[0]) else (lambda f: f))
         fk.session = types.SimpleNamespace(user="a@ecentric.vn")
+        self.cache = {}
+
+        class _Cache(object):
+            def get_value(self, k):
+                return env.cache.get(k)
+
+            def set_value(self, k, v, expires_in_sec=None):
+                env.cache[k] = v
+                env.ttl = expires_in_sec
+
+            def delete_value(self, k):
+                env.cache.pop(k, None)
+        fk.cache = lambda: _Cache()
         utils = types.ModuleType("frappe.utils")
         pw = types.ModuleType("frappe.utils.password")
         pw.get_decrypted_password = lambda *a, **k: env.settings.get("ec_kie_api_key", "")
@@ -93,7 +106,9 @@ class Env(object):
     def _post(self, url, json=None, timeout=None, headers=None):
         self.calls.append({"url": url, "body": json, "timeout": timeout, "headers": headers})
         key = "gpt" if "codex" in url else "gemini"
-        reply = self.replies.get(key)
+        model = json["model"] if key == "gpt" else url.split("/models/")[1].split(":")[0]
+        self.models_called.append(model)
+        reply = self.replies.get(model, self.replies.get(key))
         if callable(reply):
             reply = reply()
         if isinstance(reply, Exception):
@@ -266,7 +281,92 @@ class CauHinh(unittest.TestCase):
 
     def test_mac_dinh(self):
         c = Env(settings={"ec_llm_model_kie": "", "ec_llm_model_kie_fallback": ""}).mod["config"]
-        self.assertEqual(c.chain(), ["gemini-3-8-flash", "gpt-5-5"])
+        self.assertEqual(c.chain(), ["gemini-3-8-flash", "gemini-3-7-flash", "gemini-3-6-flash",
+                                     "gpt-6-luna"])
+        self.assertNotIn("gpt-5-5", c.chain(), "gpt-5-5 dat ~50 lan Luna - Hoan bo 28/09")
+
+    def test_mac_dinh_co_tep_chi_roi_sang_gemini(self):
+        e = Env(settings={"ec_llm_model_kie_fallback": ""})
+        e.replies["gemini-3-6-flash"] = (200, sse('{"diem": 4}'))
+        r = e.gw.generate("cham", schema=SCHEMA,
+                          files=[{"data": b"%PDF-1.4", "mime_type": "application/pdf"}])
+        self.assertTrue(r["ok"])
+        self.assertEqual(e.models_called, ["gemini-3-8-flash", "gemini-3-7-flash",
+                                           "gemini-3-6-flash"])
+        self.assertEqual(r["model"], "gemini-3-6-flash")
+
+    def test_mac_dinh_van_ban_toi_luna_khi_ca_ho_gemini_sap(self):
+        e = Env(settings={"ec_llm_model_kie_fallback": ""})
+        e.replies["gpt"] = (200, gpt_body("xin chao"))
+        r = e.gw.generate("chao")
+        self.assertEqual(r["model"], "gpt-6-luna")
+        self.assertEqual(e.calls[-1]["body"]["model"], "gpt-6-luna")
+
+
+class NhoModelSap(unittest.TestCase):
+    """28/09: Kie treo ~34s roi 500, cac ban Gemini sap cung luc. Khong nho thi moi lan goi
+    deu cho 34s x tung ban truoc khi toi model con song."""
+
+    def test_phan_loai_loi(self):
+        gw = Env().gw
+        for err in ("Kie code=500: Server exception", "HTTP 502", "HTTP 429: cham lai",
+                    "HTTP 500: Kie code=500: x", "ReadTimeout: read timed out",
+                    "TimeoutError: Read timed out", "ConnectionError: reset"):
+            self.assertTrue(gw.is_outage(err), err)
+        for err in ("khong doc duoc JSON (finish=STOP)", "JSON thieu khoa bat buoc: diem",
+                    "HTTP 400: bad", "HTTP 401", "model tra ve rong (finish=MAX_TOKENS)",
+                    "Kie loi: invalid model", "Kie code=422: sai tham so", ""):
+            self.assertFalse(gw.is_outage(err), err)
+
+    def test_model_sap_bi_bo_qua_o_lan_goi_sau(self):
+        e = Env()
+        e.replies["gemini"] = (200, KIE_500)
+        e.replies["gpt"] = (200, gpt_body("ok"))
+        e.gw.generate("lan 1")
+        self.assertEqual(e.ttl, e.gw.DOWN_SECONDS)
+        e.models_called[:] = []
+        r = e.gw.generate("lan 2")
+        self.assertTrue(r["ok"])
+        self.assertEqual(e.models_called, ["gpt-5-5"], "khong cho 34s lan nua o model dang sap")
+        self.assertIn("vua sap", r["attempts"][0]["error"])
+        self.assertTrue(r["fell_back"])
+
+    def test_loi_noi_dung_khong_danh_dau_sap(self):
+        e = Env()
+        e.replies["gemini"] = (200, sse('{"diem": 7, "ly_do": "'))
+        e.replies["gpt"] = (200, gpt_body('{"diem": 6}'))
+        e.gw.generate("cham", schema=SCHEMA)
+        self.assertEqual(e.cache, {}, "JSON hong la loi cua cau hoi nay, khong phai model sap")
+
+    def test_moi_model_dung_duoc_deu_nghi_thi_van_thu(self):
+        e = Env()
+        e.cache[e.gw.DOWN_KEY % "gemini-3-8-flash"] = 1
+        e.replies["gemini"] = (200, sse('{"diem": 8}'))
+        r = e.gw.generate("cham", schema=SCHEMA,
+                          files=[{"data": b"%PDF", "mime_type": "application/pdf"}])
+        self.assertTrue(r["ok"], "chi con gemini mang duoc tep - bo nho khong duoc chan het")
+        self.assertEqual(e.models_called, ["gemini-3-8-flash"])
+
+    def test_song_lai_thi_xoa_dau(self):
+        e = Env()
+        e.cache[e.gw.DOWN_KEY % "gemini-3-8-flash"] = 1
+        e.replies["gemini"] = (200, sse("chao"))
+        e.gw.generate("x", models=["gemini-3-8-flash"])
+        self.assertEqual(e.cache, {})
+
+    def test_models_truyen_tay_bo_qua_bo_nho(self):
+        e = Env()
+        e.cache[e.gw.DOWN_KEY % "gemini-3-8-flash"] = 1
+        e.replies["gpt"] = (200, gpt_body("ok"))
+        e.gw.generate("x", models=["gemini-3-8-flash", "gpt-5-5"])
+        self.assertEqual(e.models_called, ["gemini-3-8-flash", "gpt-5-5"],
+                         "probe / AI Content chi dinh model thi phai goi that")
+
+    def test_khong_co_cache_van_chay(self):
+        e = Env()
+        del sys.modules["frappe"].cache
+        e.replies["gemini"] = (200, sse("chao"))
+        self.assertTrue(e.gw.generate("x")["ok"])
 
 
 class Quyen(unittest.TestCase):

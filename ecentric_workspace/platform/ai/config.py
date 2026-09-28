@@ -4,7 +4,7 @@
 Ba o tren System Settings, het:
     ec_kie_api_key            khoa Kie (Password)
     ec_llm_model_kie          model chinh, vd gemini-3-8-flash
-    ec_llm_model_kie_fallback model du phong, cach nhau dau phay, vd gpt-5-5
+    ec_llm_model_kie_fallback model du phong, cach nhau dau phay, vd gemini-3-7-flash, gpt-6-luna
 
 Cong tac tat toan bo AI: site_config `ec_ai_disabled: 1` (khong can deploy).
 
@@ -20,9 +20,14 @@ FALLBACK_FIELD = "ec_llm_model_kie_fallback"
 DISABLED_FLAG = "ec_ai_disabled"
 
 DEFAULT_PRIMARY = "gemini-3-8-flash"
-#: Do 28/09 (C:\dev\probe_kie_fallback.ps1): luc Gemini ben Kie tra 500 ca 3.8 lan 3.7,
-#: gpt-5-5 van tra loi van ban trong 13.6s. Claude luc do 429. Nen du phong mac dinh la GPT.
-DEFAULT_FALLBACKS = ("gpt-5-5",)
+#: Hoan chot 28/09:
+#:  * Gemini truoc: cung gia 3.8 (~$0.75/$3.75 moi trieu token, gia goc) va MANG DUOC TEP -
+#:    cham slide / AI dien ho kem PDF van roi duoc sang du phong.
+#:  * gpt-6-luna cuoi: probe 28/09 thay cac ban Gemini ben Kie SAP CUNG LUC, nen can mot ho
+#:    khac de viec van ban con chay. Luna ~$0.10/$0.50, re hon gpt-5-5 ($5/$30) ~50 lan.
+#:    gpt-* chi nhan van ban -> viec co tep tu bo qua Luna.
+#:  * BO gpt-5-5: dat. Muon dung lai thi go vao o "AI - model du phong", khong can deploy.
+DEFAULT_FALLBACKS = ("gemini-3-7-flash", "gemini-3-6-flash", "gpt-6-luna")
 
 
 def _single(fieldname):
