@@ -243,9 +243,14 @@ has_permission = {
 # Override standard whitelisted methods
 # -------------------------------------
 # override_whitelisted_methods = {}
-# 28/09/2026 (VA_BAO_MAT muc 1): lich su thay doi (Version) tra ve form duoc LOC theo permlevel
-# cua nguoi xem. Ba ham goi ban goc cua Frappe y nguyen roi moi loc - xem hr/privacy/form_load.py.
+# Cong AI chung (28/09/2026). Trang chu, /weekly-update, /team-pulse goi hai ten nay; truoc
+# day la Server Script goi thang Google. Frappe xet override TRUOC khi tim Server Script
+# (frappe/handler.py execute_cmd), nen khong phai sua trang nao va script cu khong con chay.
+# 28/09/2026 (VA_BAO_MAT muc 1, chat HR): lich su thay doi (Version) tra ve form duoc LOC theo
+# permlevel cua nguoi xem. Ba ham goi ban goc cua Frappe y nguyen roi moi loc - hr/privacy/form_load.py.
 override_whitelisted_methods = {
+    "gemini_chat": "ecentric_workspace.platform.ai.chat.gemini_chat",
+    "gemini_company_summary": "ecentric_workspace.platform.ai.company_summary.gemini_company_summary",
     "frappe.desk.form.load.getdoc": "ecentric_workspace.hr.privacy.form_load.getdoc",
     "frappe.desk.form.load.get_docinfo": "ecentric_workspace.hr.privacy.form_load.get_docinfo",
     "frappe.desk.form.save.savedocs": "ecentric_workspace.hr.privacy.form_load.savedocs",
@@ -338,6 +343,8 @@ fixtures = [
             "System Settings-ec_llm_provider",
             "System Settings-ec_kie_api_key",
             "System Settings-ec_llm_model_kie",
+            # Cong AI chung (28/09): model du phong CUNG ben Kie.
+            "System Settings-ec_llm_model_kie_fallback",
             # EC Payment Request (2026-09-23): 4 field nay DA nam trong
             # fixtures/custom_field.json nhung THIEU o bo loc -> mot lan
             # `bench export-fixtures` la xoa chung khoi file, site dung moi
@@ -497,3 +504,11 @@ elif isinstance(_rp_prev, str):
         _rp_user["on_update"] = [_rp_prev, _ROLE_POOL_HOOK]
 elif _ROLE_POOL_HOOK not in _rp_prev:
     _rp_prev.append(_ROLE_POOL_HOOK)
+
+# --------------------------------------------------------------------------- #
+# 28/09/2026 - Tong hop cong ty hang tuan qua cong AI chung. Thay Server Script
+# `auto_company_summary_weekly` (12:00 thu Hai, goi thang Google 2.5) - patch p214 tat
+# script do. Chay 12:10 de khong chong gio voi cac job 12:00 khac.
+# --------------------------------------------------------------------------- #
+scheduler_events["cron"].setdefault("10 12 * * 1", []).append(
+    "ecentric_workspace.platform.ai.company_summary.weekly_job")

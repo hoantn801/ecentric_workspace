@@ -1,9 +1,13 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Doc tep dinh kem cua phieu roi dua len Gemini - G2 cua "AI dien ho".
+"""Doc tep dinh kem cua phieu roi dua cho cong AI - G2 cua "AI dien ho".
 
 Module nay lam DUNG mot viec: bien mot danh sach `file_url` ma trinh duyet gui len thanh
-danh sach phan `fileData` ma `gemini_api.generate_json` nhan duoc - va tu choi tat ca nhung
-gi khong qua duoc cong.
+danh sach tep {data, mime_type} ma cong AI (`platform/ai/gateway`) nhan - va tu choi tat ca
+nhung gi khong qua duoc cong.
+
+28/09: KHONG con tai len Google Files API. Cong AI gui bytes inline sang Kie, nen tep
+chi can doc tu dia; buoc tai len Google cu vua ton mot lan goi mang vua lam rot tep
+(`upload_failed`) moi khi khoa Google hong.
 
 CONG QUAN TRONG NHAT LA CONG QUYEN, khong phai cong mime.
 
@@ -24,8 +28,7 @@ HAI THU MODULE NAY CO TINH KHONG LAM:
   - KHONG chuyen doi Office -> PDF. Duong SharePoint lam duoc vi Graph chuyen ho; o day
     khong co ai chuyen. Gui .docx len Gemini thi no nhan roi doc ra rac, nen tu choi thang
     va noi ro phai xuat PDF - im lang nhan roi tra ket qua sai la te hon.
-  - KHONG cache URI cua Gemini. URI song 48h, nhung cache mot URI het han thi lan goi sau
-    hong ma khong ai hieu tai sao. Tai lai moi lan: cham hon vai giay, dung moi lan.
+  - KHONG giu tep qua lan goi. Doc lai tu dia moi lan: cham hon vai mili giay, dung moi lan.
 """
 import os
 import time
@@ -35,8 +38,10 @@ import frappe
 #: Tran cua PANEL trong form don. Khac han tran 10 PHIEU cua "Tao hang loat" (A61 §3):
 #: cai kia dem QUYET DINH cua nguoi duyet, cai nay dem tep cua mot quyet dinh.
 MAX_FILES = 5
-MAX_BYTES_PER_FILE = 10 * 1024 * 1024
-MAX_BYTES_TOTAL = 25 * 1024 * 1024
+#: Kie nhan tep INLINE (base64 trong than request), tran ~10MB ca request. Tran cu 25MB la
+#: cua Google Files API - gio vuot 7MB thi Kie tu choi ca lan goi, nen chan tu day va noi ro.
+MAX_BYTES_PER_FILE = 7 * 1024 * 1024
+MAX_BYTES_TOTAL = 7 * 1024 * 1024
 #: Ngan sach dong ho cho CA dot tai len. Mot request web khong duoc phep treo 5 x 60 giay.
 BUDGET_SEC = 45
 
@@ -159,19 +164,17 @@ def _content_bytes(file_name):
     return data or b""
 
 
-def collect(file_urls, user=None, uploader=None, now=None):
+def collect(file_urls, user=None, now=None):
     """-> (parts, rejected)
 
-    parts    = [{"uri", "mime_type", "display_name"}] dua thang vao `generate_json(files=)`
+    parts    = [{"data", "mime_type", "display_name"}] dua thang vao `generate_json(files=)`
     rejected = [{"file": <ten hien thi>, "reason": <ma>, "message": <cau tieng Viet>}]
 
     KHONG NEM. Mot tep hong khong duoc lam hong ca luot - nguoi dung van co ket qua tu
     nhung tep con lai va mot dong noi ro tep nao bi bo, vi sao.
 
-    `uploader`/`now` tiem vao de test - mac dinh la duong that.
+    `now` tiem vao de test - mac dinh la dong ho that.
     """
-    from ecentric_workspace import gemini_api
-    uploader = uploader or gemini_api.upload_file_bytes
     now = now or time.time
     started = now()
 
@@ -229,18 +232,8 @@ def collect(file_urls, user=None, uploader=None, now=None):
             _no(label, "total_too_big")
             continue
 
-        up = uploader(data, row.get("file_name") or label, mime)
-        if not up or not up.get("success"):
-            _no(label, "upload_failed")
-            continue
-
         total += len(data)
-        # `data` di kem de duong Kie dung duoc: Kie KHONG giai duoc URI cua
-        # Google (URI tro ve generativelanguage.googleapis.com), no chi nhan
-        # bytes inline. Bytes da co san o day roi nen khong phai tai lai lan hai;
-        # thieu truong nay thi moi lan goi co tep deu roi ve Google.
-        parts.append({"uri": up["uri"], "mime_type": mime,
-                      "data": data,
+        parts.append({"mime_type": mime, "data": data,
                       "display_name": row.get("file_name") or label})
 
     return parts, rejected
