@@ -227,7 +227,7 @@
   },
   "approval_center/features/brand_weight/ui/main_section.html": {
     "baseline": "2026-09-25",
-    "last_resync_patch": "p214_brand_weight_management_self",
-    "sha256": "5eafeeb20759329d869dba284339a34da5613ca583d5182cdd758596ec12b75f"
+    "last_resync_patch": "p217_brand_weight_formkit_copy",
+    "sha256": "2b14bf8fe70cfb058b97870431e2021bbed55c41d536d444e017732f7c7cb4d0"
   }
 }
