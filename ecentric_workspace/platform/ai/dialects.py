@@ -10,8 +10,11 @@ Kie ban nhieu ho model, MOI HO MOT DINH DANG. Do that ngay 22/09 va 28/09:
     gpt-*     POST /codex/v1/responses  (dinh dang OpenAI Responses)
               - 28/09: van ban OK (13.6s). input_file PDF -> 500, text.format
                 json_schema -> 500. Nen: KHONG gui tep, JSON ep bang loi dan.
+    grok-*    POST /grok/v1/responses   (CUNG dinh dang Responses nhu gpt-* -
+              docs.kie.ai/market/grok/grok-4-7). Tai lieu noi nhan tep nhung CHUA DO
+              -> tam coi nhu chi van ban, giong gpt-*.
 
-Ho khac (claude-*, grok-*...) chua do duoc -> khong ho tro, gateway bo qua va ghi ro.
+Ho khac (claude-*...) chua do duoc -> khong ho tro, gateway bo qua va ghi ro.
 File nay khong import frappe, khong goi mang: test chay khong can bench.
 """
 import base64
@@ -20,9 +23,12 @@ import json
 KIE_BASE = "https://api.kie.ai"
 GEMINI = "gemini"
 GPT = "gpt"
+GROK = "grok"
+#: Ho dung dinh dang OpenAI Responses (than + phan hoi giong nhau, chi khac URL).
+RESPONSES = (GPT, GROK)
 
 #: Ho nao mang duoc tep. Them ho moi vao day CHI SAU KHI da do that ho do doc duoc tep.
-ACCEPTS_FILES = {GEMINI: True, GPT: False}
+ACCEPTS_FILES = {GEMINI: True, GPT: False, GROK: False}
 
 
 def dialect_of(model):
@@ -31,6 +37,8 @@ def dialect_of(model):
         return GEMINI
     if m.startswith("gpt-"):
         return GPT
+    if m.startswith("grok-"):
+        return GROK
     return None
 
 
@@ -40,6 +48,8 @@ def url_for(model):
         return "%s/gemini/v1/models/%s:streamGenerateContent" % (KIE_BASE, model)
     if d == GPT:
         return "%s/codex/v1/responses" % KIE_BASE
+    if d == GROK:
+        return "%s/grok/v1/responses" % KIE_BASE
     return ""
 
 
@@ -66,7 +76,7 @@ def build(model, prompt, system=None, schema=None, files=None, history=None,
     """-> than request (dict). `files` = [{'data': bytes, 'mime_type': str}]."""
     opts = dict(opts or {})
     want_json = bool(schema) or bool(json_mode)
-    if dialect_of(model) == GPT:
+    if dialect_of(model) in RESPONSES:
         return _build_gpt(model, prompt, system, schema, history, want_json, opts)
     return _build_gemini(prompt, system, schema, files, history, want_json, opts)
 
@@ -184,7 +194,7 @@ def parse(model, status, body):
         return "", {}, "", "HTTP %s%s" % (status, (": " + why) if why else "")
     if why:
         return "", {}, "", why
-    if dialect_of(model) == GPT:
+    if dialect_of(model) in RESPONSES:
         text, usage, finish = _gpt_parse(body)
     else:
         text, usage, finish = _gemini_parse(body)

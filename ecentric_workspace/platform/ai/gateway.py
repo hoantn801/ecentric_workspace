@@ -172,7 +172,7 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
         out["attempts"].append(attempt)
         dialect = dialects.dialect_of(model)
         if not dialect:
-            attempt["error"] = "ho model nay chua ho tro (chi gemini-*, gpt-*)"
+            attempt["error"] = "ho model nay chua ho tro (chi gemini-*, gpt-*, grok-*)"
             continue
         if files and not dialects.ACCEPTS_FILES.get(dialect):
             attempt["error"] = "model khong nhan tep - bo qua, khong gui thieu tep"

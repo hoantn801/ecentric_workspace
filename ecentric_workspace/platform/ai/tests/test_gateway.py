@@ -105,8 +105,8 @@ class Env(object):
 
     def _post(self, url, json=None, timeout=None, headers=None):
         self.calls.append({"url": url, "body": json, "timeout": timeout, "headers": headers})
-        key = "gpt" if "codex" in url else "gemini"
-        model = json["model"] if key == "gpt" else url.split("/models/")[1].split(":")[0]
+        key = "gpt" if "codex" in url else ("grok" if "/grok/" in url else "gemini")
+        model = json["model"] if key != "gemini" else url.split("/models/")[1].split(":")[0]
         self.models_called.append(model)
         reply = self.replies.get(model, self.replies.get(key))
         if callable(reply):
@@ -261,6 +261,22 @@ class NganSachVaCongTac(unittest.TestCase):
         self.assertNotIn(KHOA, r["error"])
         self.assertNotIn(KHOA, json.dumps(e.logs))
         self.assertEqual(e.calls[0]["headers"]["Authorization"], "Bearer " + KHOA)
+
+    def test_grok_cung_dinh_dang_responses_cong_rieng(self):
+        # docs.kie.ai/market/grok/grok-4-7: POST /grok/v1/responses, than giong gpt
+        e = Env(settings={"ec_llm_model_kie_fallback": "grok-4-7"})
+        e.replies["grok"] = (200, gpt_body('{"diem": 3}'))
+        r = e.gw.generate("cham", schema=SCHEMA)
+        self.assertEqual((r["ok"], r["model"], r["data"]), (True, "grok-4-7", {"diem": 3}))
+        call = e.calls[-1]
+        self.assertEqual(call["url"], "https://api.kie.ai/grok/v1/responses")
+        self.assertEqual(call["body"]["model"], "grok-4-7")
+        self.assertIn("JSON", call["body"]["input"][-1]["content"][0]["text"])
+
+    def test_grok_chua_do_tep_nen_khong_nhan_tep(self):
+        e = Env(settings={"ec_llm_model_kie_fallback": "grok-4-7"})
+        e.gw.generate("cham", files=[{"data": b"%PDF", "mime_type": "application/pdf"}])
+        self.assertEqual(e.models_called, ["gemini-3-8-flash"])
 
     def test_ho_model_la_bi_bo_qua_co_ly_do(self):
         e = Env(settings={"ec_llm_model_kie_fallback": "claude-haiku-4-5"})
