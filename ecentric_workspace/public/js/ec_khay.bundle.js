@@ -92,6 +92,22 @@
       return { role: m.role === "user" ? "user" : "model", text: m.text };
     });
   }
+  /* "gemini-3-8-flash-openai" -> "Gemini 3.8 Flash", "gpt-6-luna" -> "GPT-6 Luna".
+   * Luồng OpenAI chỉ là đường gọi, cùng một model nên không hiện. */
+  function modelLabel(model) {
+    var m = String(model || "").trim().toLowerCase().replace(/-openai$/, "");
+    if (!m) return "";
+    var p = m.split("-"), brand = { gemini: "Gemini", gpt: "GPT", grok: "Grok", claude: "Claude" }[p[0]] ||
+      (p[0].charAt(0).toUpperCase() + p[0].slice(1));
+    var nums = [], words = [];
+    p.slice(1).forEach(function (x) {
+      if (/^\d+$/.test(x) && !words.length) nums.push(x);
+      else words.push(x.charAt(0).toUpperCase() + x.slice(1));
+    });
+    var ver = nums.join(".");
+    var head = ver ? brand + (brand === "GPT" ? "-" : " ") + ver : brand;
+    return [head].concat(words).join(" ");
+  }
   function mdLite(text) {
     return esc(text).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
   }
@@ -117,6 +133,7 @@
   var PURE = { viDate: viDate, leaveLabel: leaveLabel, leaveRange: leaveRange,
                fileRefuse: fileRefuse, fmtValue: fmtValue, serverError: serverError,
                historyOf: historyOf, mdLite: mdLite, shouldRun: shouldRun, esc: esc,
+               modelLabel: modelLabel,
                retireOldChat: retireOldChat };
   /* Cho test (jsdom) đọc các hàm PURE. KHÔNG dùng `module.exports`: esbuild thấy chữ
    * `module` sẽ gói file thành CommonJS, `module` có thật lúc chạy và widget tự thoát. */
@@ -211,7 +228,7 @@
   function save() {
     try {
       var keep = S.msgs.filter(function (m) { return m.role === "user" || m.role === "bot"; })
-        .slice(-MAX_KEEP).map(function (m) { return { role: m.role, text: m.text }; });
+        .slice(-MAX_KEEP).map(function (m) { return { role: m.role, text: m.text, by: m.by || "" }; });
       sessionStorage.setItem(STORE, JSON.stringify({ open: S.open, wide: S.wide, msgs: keep }));
     } catch (e) { /* trình duyệt chặn lưu trữ thì thôi */ }
   }
@@ -288,6 +305,7 @@
     ".b{background:var(--g100);color:var(--g900);border-bottom-left-radius:4px;max-width:100%}",
     ".b.err{background:var(--red-50);color:var(--red)}",
     ".chips{display:flex;flex-wrap:wrap;gap:6px;padding-left:33px}",
+    ".by{font-size:11px;line-height:1.3;color:var(--g500);padding-left:33px;margin-top:-6px}",
     ".chip{font-size:12.5px;font-weight:600;color:var(--navy);background:#fff;border:1px solid var(--navy-100);border-radius:999px;padding:5px 11px}",
     ".chip:hover{background:var(--navy-50)}",
     ".fl{align-self:flex-end;display:flex;flex-direction:column;gap:6px;max-width:86%}",
@@ -376,6 +394,7 @@
     if (m.role === "user") return '<div class="m u">' + esc(m.text) + "</div>";
     if (m.role === "bot") {
       var h = botHtml(mdLite(m.text), m.err ? "err" : "");
+      if (m.by && !m.err) h += '<div class="by">Trả lời bởi ' + esc(modelLabel(m.by)) + "</div>";
       if (m.options && m.options.length) {
         h += '<div class="chips">' + m.options.map(function (o) {
           return '<button type="button" class="chip" data-say="' + esc(o) + '">' + esc(o) + "</button>";
@@ -482,6 +501,7 @@
     }
     h += '<a class="btn s" href="' + esc(S.boot.payment_route || "/approvals/payment-request") +
       '">Tự điền</a></div></div>';
+    if (m.by) h += '<div class="by">Điền bởi ' + esc(modelLabel(m.by)) + "</div>";
     return h;
   }
 
@@ -532,10 +552,10 @@
         r = r || {};
         if (r.action === "leave") return onLeave(r);
         if (r.action === "payment_request") return onPay(r, text, urls);
-        if (r.action === "answer" && !r.needs_data && r.reply) return push({ role: "bot", text: r.reply });
+        if (r.action === "answer" && !r.needs_data && r.reply) return push({ role: "bot", text: r.reply, by: r.model });
         if (r.action === "answer") return onAnswer(text, hist);
         push({ role: "bot", text: r.reply || "Bạn nói rõ hơn giúp mình nhé.",
-               options: r.options || [], err: r.action === "error" });
+               options: r.options || [], err: r.action === "error", by: r.reply ? r.model : "" });
       })
       .catch(function (e) {
         dropTyping();
@@ -545,7 +565,7 @@
   }
 
   function onLeave(r) {
-    push({ role: "bot", text: r.reply || "Mình soạn sẵn đơn rồi, bạn xem lại nhé." });
+    push({ role: "bot", text: r.reply || "Mình soạn sẵn đơn rồi, bạn xem lại nhé.", by: r.model });
     var idx = push({ role: "leave", leave: r.leave, state: "draft" });
     if (!S.leaveData) {
       get(API.leaveData).then(function (d) { S.leaveData = d || {}; paint(); })
@@ -593,6 +613,7 @@
         }
         m.fields = res.fields || {}; m.sources = res.sources || {}; m.probe = res.probe || null;
         m.log = res.log || "";
+        m.by = m.error ? "" : (res.model || "");
         (res.files_rejected || []).forEach(function (x) {
           push({ role: "bot", text: "Không đọc được " + x.file + ": " + x.message, err: true });
         });
@@ -627,7 +648,7 @@
     return post(API.chat, { message: text, history: JSON.stringify(hist) })
       .then(function (r) {
         dropTyping();
-        if (r && r.success) push({ role: "bot", text: r.reply });
+        if (r && r.success) push({ role: "bot", text: r.reply, by: r.model });
         else push({ role: "bot", text: (r && r.error) || "AI đang bận, bạn thử lại sau nhé.", err: true });
       })
       .catch(function (e) { dropTyping(); push({ role: "bot", text: (e && e.message) || "Có lỗi.", err: true }); });

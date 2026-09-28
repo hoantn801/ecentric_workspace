@@ -161,6 +161,7 @@ def suggest(approval_code, note=None, current=None, files=None):
         "files_rejected": rejected,
         "remaining": max(0, cap - used - 1),
         "log": log_name,
+        "model": res.get("model") or "",
     }
 
 

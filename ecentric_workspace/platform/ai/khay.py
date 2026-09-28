@@ -29,8 +29,10 @@ PAYMENT_ROUTE = "/approvals/payment-request"
 ASSISTANT_NAME = "eC Mate"   # Hoan chot ten 28/09
 #: Hoi thoai thi phai nhanh: moi lan thu toi da 15s (Kie lan 28/09 treo 60s moi bao loi),
 #: tong 45s. Model treo bi danh dau sap 5 phut nen lan sau di thang toi model con song.
-BUDGET = 45
-ATTEMPT_TIMEOUT = 15
+#: Che do nhanh (gateway fast=True): 2 ban Gemini OpenAI + Grok goi song song, lay ben xong
+#: truoc. Do 28-29/09: Gemini OpenAI tat suy nghi 5-12s (treo 2/8), Grok 9-25s (song 8/8).
+BUDGET = 40
+ATTEMPT_TIMEOUT = 10
 BUSY = "AI đang quá tải, bạn thử lại sau ít phút nhé."
 
 
@@ -97,6 +99,11 @@ def intent(message=None, history=None, page=None, files=None):
     if not message and not names:
         return {"action": brain.CLARIFY, "reply": "Bạn cần mình giúp gì?", "options": []}
 
+    quick = brain.quick_reply(message, ASSISTANT_NAME, has_files=bool(names))
+    if quick:
+        quick["model"] = ""           # khong co AI nao tra loi -> khong hien "Tra loi boi"
+        return quick
+
     leave_types = [r.name for r in frappe.get_all("Leave Type", fields=["name"], order_by="name")]
     today = frappe.utils.getdate(frappe.utils.nowdate())
     res = gateway.generate(
@@ -104,11 +111,13 @@ def intent(message=None, history=None, page=None, files=None):
                            page=page or "", file_names=names),
         system=brain.system(ASSISTANT_NAME), schema=brain.SCHEMA,
         history=brain.parse_history(history), purpose="khay", budget=BUDGET,
-        attempt_timeout=ATTEMPT_TIMEOUT, opts={"temperature": 0})
+        attempt_timeout=ATTEMPT_TIMEOUT, fast=True, opts={"temperature": 0, "effort": "none"})
     if not res["ok"]:
         return {"action": "error", "reply": BUSY, "options": []}
     out = brain.normalize(res["data"], leave_types, today, has_files=bool(names))
-    return _enrich(out, user)
+    out = _enrich(out, user)
+    out["model"] = res["model"]      # dong "Tra loi boi ..." duoi cau tra loi (Hoan 28/09)
+    return out
 
 
 def _enrich(out, user):

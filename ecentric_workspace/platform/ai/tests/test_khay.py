@@ -25,6 +25,15 @@ def sse(obj):
     return "data: " + json.dumps({"candidates": [cand]}, ensure_ascii=False) + "\n\n"
 
 
+def as_chat(sse_text):
+    """SSE Gemini -> than THAT cua luong OpenAI ben Kie (probe 28/09)."""
+    first = json.loads(sse_text.split("data: ", 1)[1].split("\n", 1)[0])
+    text = first["candidates"][0]["content"]["parts"][0]["text"]
+    return json.dumps({"choices": [{"finish_reason": "stop", "index": 0,
+                                    "message": {"content": text, "role": "assistant"}}],
+                       "object": "chat.completion"})
+
+
 class Env(object):
     def __init__(self, roles=("EC Khay Pilot",), conf=None, employee=True, reply=None):
         self.calls, self.logs = [], []
@@ -71,6 +80,8 @@ class Env(object):
         def post(url, json=None, timeout=None, headers=None):
             env.calls.append({"url": url, "body": json, "timeout": timeout})
             status, body = env.reply if env.reply else (200, '{"code":500,"msg":"x"}')
+            if "/v1/chat/completions" in url and body.startswith("data:"):
+                body = as_chat(body)      # cung noi dung, hinh dang luong OpenAI cua Kie
             return types.SimpleNamespace(status_code=status, content=body.encode("utf-8"))
         rq.post = post
         sys.modules.update({"frappe": fk, "frappe.utils": utils, "frappe.utils.password": pw,
@@ -84,7 +95,7 @@ class Env(object):
             business_doctype="EC Payment Request", editable_fields=("payee", "payment_amount"))
         sys.modules["ecentric_workspace.approval_center.shared.registry"] = reg
         self.mod = {}
-        for name in ("config", "dialects", "gateway", "khay_intent", "khay"):
+        for name in ("config", "dialects", "health", "gateway", "khay_intent", "khay"):
             full = "ecentric_workspace.platform.ai." + name
             m = types.ModuleType(full)
             m.__file__ = os.path.join(AI, name + ".py")
@@ -213,13 +224,31 @@ class Endpoint(unittest.TestCase):
         r = e.k.intent(message="cho minh nghi mai", history='[{"role":"user","text":"chao"}]',
                        page="/viec-cua-toi")
         self.assertEqual((r["action"], r["leave"]["leave_type"]), ("leave", "Annual Leave"))
-        body = e.calls[0]["body"]
-        self.assertEqual(body["generationConfig"]["responseSchema"], e.b.SCHEMA)
-        self.assertEqual(body["generationConfig"]["temperature"], 0)
-        self.assertIn("2026-09-29 (Thứ Ba) - ngày mai", body["contents"][-1]["parts"][-1]["text"])
-        self.assertEqual(body["contents"][0]["parts"][0]["text"], "chao", "giu lich su")
-        self.assertIn("Ban la eC Mate", body["systemInstruction"]["parts"][0]["text"])
-        self.assertLessEqual(e.calls[0]["timeout"][1], 15, "hoi thoai: moi lan thu toi da 15s")
+        call = e.calls[0]
+        body = call["body"]
+        self.assertIn("/gemini-3-8-flash-openai/v1/chat/completions", call["url"],
+                      "tro chuyen di luong OpenAI: Gemini goc treo 30s o 5/6 lan (do 28/09)")
+        self.assertEqual(body["reasoning_effort"], "none", "tat suy nghi: 5-7s thay vi 25s")
+        self.assertEqual(body["temperature"], 0)
+        self.assertIn('"leave_type"', body["messages"][-1]["content"], "ep dung schema")
+        self.assertIn("2026-09-29 (Thứ Ba) - ngày mai", body["messages"][-1]["content"])
+        self.assertEqual(body["messages"][1]["content"], "chao", "giu lich su")
+        self.assertIn("Ban la eC Mate", body["messages"][0]["content"])
+        self.assertLessEqual(call["timeout"][1], 10, "hoi thoai: moi lan thu toi da 10s")
+        self.assertEqual(r["model"], "gemini-3-8-flash-openai", "tra ten model de hien 'Tra loi boi'")
+
+    def test_chao_cam_on_tra_loi_ngay_khong_goi_ai(self):
+        for msg in ("chào", "Chao ban!", "hello", "cảm ơn nhé", "ok", "Thanks"):
+            e = Env()
+            r = e.k.intent(message=msg)
+            self.assertEqual((r["action"], r["needs_data"], r["model"]), ("answer", False, ""), msg)
+            self.assertTrue(r["reply"], msg)
+            self.assertEqual(e.calls, [], msg)
+
+    def test_cau_co_viec_that_van_goi_ai(self):
+        for msg in ("chào, cho mình nghỉ mai", "ok tạo đề nghị thanh toán", "hi team tuần này sao"):
+            self.assertIsNone(B.quick_reply(msg, "eC Mate"), msg)
+        self.assertIsNone(B.quick_reply("chào", "eC Mate", has_files=True), "co tep la co viec")
 
     def test_khong_ho_so_nhan_vien_thi_bao(self):
         e = Env(employee=False, reply=(200, sse({"action": "leave", "reply": "x",

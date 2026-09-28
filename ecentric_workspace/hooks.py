@@ -128,6 +128,9 @@ scheduler_events = {
             # cron/dispatcher (no item stuck Processing while only queued).
             # Same kill switch ec_alerts_scheduler_disabled / ec_alerts_pull_disabled.
             "ecentric_workspace.alerts.tasks.dispatch_order_retries",
+            # Cong AI (28/09): ping moi model Kie mot cau ngan -> ti le thanh cong 60 phut.
+            # Duoi 30% thi cong AI bo qua model do (Kie co status 24h nhung doi dang nhap web).
+            "ecentric_workspace.platform.ai.health.ping_models",
         ],
         # Narrow Omisell pull scheduler (approved 2026-06-10): quadruple-gated
         # in tasks.scheduled_omisell_pull - runs nothing until site_config

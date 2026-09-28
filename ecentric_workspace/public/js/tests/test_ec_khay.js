@@ -35,6 +35,10 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
   const sm=JSON.stringify([JSON.stringify({message:"Ban da co don nghi trung khoang ngay nay: <b>HR-LAP-1</b>"})]);
   ok("loi that cua server", P.serverError({_server_messages:sm})==="Ban da co don nghi trung khoang ngay nay: HR-LAP-1");
   ok("lich su chi luot chu", JSON.stringify(P.historyOf([{role:"user",text:"a"},{role:"leave"},{role:"bot",text:"b"},{role:"typing"}]))===JSON.stringify([{role:"user",text:"a"},{role:"model",text:"b"}]));
+  ok("ten model: gemini luong openai", P.modelLabel("gemini-3-8-flash-openai")==="Gemini 3.8 Flash");
+  ok("ten model: gpt", P.modelLabel("gpt-6-luna")==="GPT-6 Luna");
+  ok("ten model: grok", P.modelLabel("grok-4-7")==="Grok 4.7");
+  ok("ten model: rong", P.modelLabel("")==="");
   ok("mdLite thoat HTML", P.mdLite("<i>x</i> **dam**")==="&lt;i&gt;x&lt;/i&gt; <b>dam</b>");
   ok("khong chay o /app", !P.shouldRun(new JSDOM(shell).window.document,"/app/todo"));
   ok("khong chay khi trang tu tu choi", !P.shouldRun(new JSDOM(shell+'<div data-ec-no-khay></div>').window.document,"/x"));
@@ -109,7 +113,7 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
   // ---- ten tro ly + tro chuyen tra loi thang (khong goi tra cuu)
   const r5=Object.assign({},routes,{
     "ecentric_workspace.platform.ai.khay.boot":()=>({status:200,j:{message:{enabled:true,name:"eC Mate",first_name:"Hoàn",can_leave:true,can_payment:false}}}),
-    "ecentric_workspace.platform.ai.khay.intent":()=>({status:200,j:{message:{action:"answer",needs_data:false,reply:"Chào bạn, mình đây!",options:[]}}}),
+    "ecentric_workspace.platform.ai.khay.intent":()=>({status:200,j:{message:{action:"answer",needs_data:false,reply:"Chào bạn, mình đây!",options:[],model:"gemini-3-8-flash-openai"}}}),
     "gemini_chat":()=>({status:200,j:{message:{success:true,reply:"TRA CUU"}}})});
   const e5=mk("https://x/viec-cua-toi",shell,r5); await tick(50);
   const R5=e5.w.document.getElementById("ec-khay-host").shadowRoot;
@@ -119,6 +123,7 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
   R5.querySelector("textarea").value="alo";
   R5.querySelector("form").dispatchEvent(new e5.w.Event("submit",{cancelable:true})); await tick(80);
   ok("tro chuyen: tra loi thang tu intent", /Chào bạn, mình đây!/.test(R5.querySelector(".ms").textContent));
+  ok("tro chuyen: co dong Tra loi boi", /Trả lời bởi Gemini 3\.8 Flash/.test(R5.querySelector(".ms").textContent));
   ok("tro chuyen: KHONG goi them gemini_chat", !e5.log.some(x=>x.m==="gemini_chat"));
   const r6=Object.assign({},r5,{"ecentric_workspace.platform.ai.khay.intent":()=>({status:200,j:{message:{action:"answer",needs_data:true,reply:"",options:[]}}})});
   const e6=mk("https://x/viec-cua-toi",shell,r6); await tick(50);

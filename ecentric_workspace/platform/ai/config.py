@@ -87,6 +87,26 @@ def chain(allow_fallback=True):
     return [first] + (fallback_models() if allow_fallback else [])
 
 
+def fast_chain():
+    """Chuoi cho tro chuyen: luong OpenAI truoc; Gemini goc bi bo khi da co ban OpenAI.
+
+    Do 28-29/09 (probe_mate_speed.ps1, 2 lan x 2 cau x 2 luot):
+      * Gemini goc: treo het tran 30s o 7/10 lan.
+      * Gemini qua luong OpenAI, tat suy nghi: 5-12s nhung treo 2/8 lan.
+      * Grok: 8/8 lan tra loi, 9-25s.
+    Nen Grok dung NGAY SAU cac ban OpenAI: vao dot goi song song lam luoi do - Gemini
+    nhanh thi dung Gemini, Gemini treo thi van co Grok. Thu tu con lai giu nhu System Settings.
+    """
+    full = chain(True)
+    oai = [m for m in full if m.endswith("-openai")]
+    if not oai:
+        return full
+    grok = [m for m in full if m.startswith("grok-")]
+    rest = [m for m in full if m not in oai and m not in grok
+            and (m + "-openai") not in oai]
+    return oai + grok + rest
+
+
 def disabled():
     try:
         return bool(int(frappe.conf.get(DISABLED_FLAG) or 0))
