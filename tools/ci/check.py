@@ -61,6 +61,7 @@ HOOK_KEYS_WITH_DOTTED_PATHS = (
     "website_route_rules",
     "boot_session",
     "notification_config",
+    "update_website_context",
 )
 
 #: Key trong hooks.py trỏ tới asset. Giá trị có hai dạng: tên bundle
@@ -293,6 +294,10 @@ def check_bundles():
     problems, count = [], 0
 
     values = _hook_literals(tree, tuple(HOOK_KEYS_WITH_ASSETS))
+    # Bundle them SAU khi gan (`web_include_js.append("x.bundle.js")` o cuoi hooks.py,
+    # theo luat chi-noi-them) cung phai co that -- doc giong check_hooks.
+    for key, strings in _hook_mutations(tree, tuple(HOOK_KEYS_WITH_ASSETS)).items():
+        values[key] = list(_collect_strings(values.get(key, []))) + strings
     asset_prefix = "/assets/%s/" % APP
     for key, value in sorted(values.items()):
         subdir = HOOK_KEYS_WITH_ASSETS[key]
