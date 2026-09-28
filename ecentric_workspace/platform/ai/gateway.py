@@ -27,10 +27,10 @@ cung bi bo qua nhu model vua sap. Cung luat: `models=` truyen tay thi khong xet.
 CHE DO NHANH `fast=True` cho tro chuyen (eC Mate, gemini_chat) - do 28/09: Gemini goc treo
 toi 30s o 5/6 lan, luong OpenAI tat suy nghi tra loi 5-7s, Grok luon song nhung 12-25s:
   * chuoi = config.fast_chain(): luong OpenAI truoc, bo Gemini goc khi da co ban OpenAI;
-  * GOI SONG SONG `race` model dau (mac dinh 2), lay ben nao tra loi DUNG truoc - khong ngoi
-    cho mot model treo het tran roi moi thu model ke;
-  * ca dot song song hong thi thu tiep tung model con lai voi tran rieng (TAIL_TIMEOUT)
-    vi Grok can 12-25s.
+  * GOI SONG SONG `race` model dau (mac dinh 3: hai ban Gemini OpenAI + Grok), lay ben nao
+    tra loi DUNG truoc - khong ngoi cho mot model treo het tran roi moi thu model ke;
+  * moi model trong dot duoc toi TAIL_TIMEOUT (Grok can 9-25s); dot hong ca thi thu tiep
+    tung model con lai.
 """
 import concurrent.futures as cf
 import time
@@ -204,7 +204,7 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
         chain = config.fast_chain()
     else:
         chain = config.chain(allow_fallback)
-    race = max(1, int(race if race is not None else (2 if fast else 1)))
+    race = max(1, int(race if race is not None else (3 if fast else 1)))
     down = set()
     if not models:
         down = {m for m in chain if _usable(m, files) and (_is_down(m) or health.unhealthy(m))}
@@ -257,15 +257,18 @@ def generate(prompt, system=None, schema=None, files=None, history=None, json_mo
     wave = live[:race] if race > 1 else []
     if len(wave) > 1:
         remaining = budget - (time.time() - started)
-        winner, done, pending = _race(wave, key, request, min(per_try, remaining))
+        # Dot song song co Grok (cham 9-25s nhung luon song) lam luoi: cho moi model den
+        # TAIL_TIMEOUT. Gemini xong truoc thi tra ngay, khong doi Grok.
+        wave_timeout = min(max(per_try, TAIL_TIMEOUT), remaining)
+        winner, done, pending = _race(wave, key, request, wave_timeout)
         for r in done:
             if r is not winner:
                 settle(r)
         for m in pending:
             attempts[m]["error"] = "huy - model khac tra loi truoc" if winner else \
-                "qua %.0fs chua tra loi" % min(per_try, remaining)
+                "qua %.0fs chua tra loi" % wave_timeout
             if not winner:
-                health.record(m, False, int(min(per_try, remaining) * 1000))
+                health.record(m, False, int(wave_timeout * 1000))
         if winner:
             settle(winner)
     else:

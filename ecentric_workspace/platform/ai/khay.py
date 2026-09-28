@@ -29,8 +29,8 @@ PAYMENT_ROUTE = "/approvals/payment-request"
 ASSISTANT_NAME = "eC Mate"   # Hoan chot ten 28/09
 #: Hoi thoai thi phai nhanh: moi lan thu toi da 15s (Kie lan 28/09 treo 60s moi bao loi),
 #: tong 45s. Model treo bi danh dau sap 5 phut nen lan sau di thang toi model con song.
-#: Che do nhanh (gateway fast=True): 2 model song song toi da 10s, roi Grok voi phan con lai.
-#: Do 28/09: luong OpenAI tat suy nghi tra loi 5-7s; Grok 12-25s.
+#: Che do nhanh (gateway fast=True): 2 ban Gemini OpenAI + Grok goi song song, lay ben xong
+#: truoc. Do 28-29/09: Gemini OpenAI tat suy nghi 5-12s (treo 2/8), Grok 9-25s (song 8/8).
 BUDGET = 40
 ATTEMPT_TIMEOUT = 10
 BUSY = "AI đang quá tải, bạn thử lại sau ít phút nhé."

@@ -585,6 +585,11 @@ class SucKhoeVaCheDoNhanh(unittest.TestCase):
         e = Env(settings=self.FAST)
         self.assertEqual(e.mod["config"].fast_chain(),
                          ["gemini-3-8-flash-openai", "gemini-3-6-flash-openai", "grok-4-7"])
+        e3 = Env(settings={"ec_llm_model_kie": "gemini-3-8-flash",
+                           "ec_llm_model_kie_fallback": "gemini-3-8-flash-openai, gpt-6-luna, grok-4-7"})
+        self.assertEqual(e3.mod["config"].fast_chain(),
+                         ["gemini-3-8-flash-openai", "grok-4-7", "gpt-6-luna"],
+                         "Grok (luon song) vao dot song song truoc GPT")
         e2 = Env(settings={"ec_llm_model_kie": "gemini-3-8-flash", "ec_llm_model_kie_fallback": "grok-4-7"})
         self.assertEqual(e2.mod["config"].fast_chain(), ["gemini-3-8-flash", "grok-4-7"],
                          "khong co ban OpenAI thi giu Gemini goc")
@@ -603,7 +608,8 @@ class SucKhoeVaCheDoNhanh(unittest.TestCase):
         self.assertLess(_t.time() - t0, 0.5, "khong cho model cham")
         self.assertEqual((r["ok"], r["text"], r["model"]), (True, "NHANH", "gemini-3-6-flash-openai"))
         self.assertIn("huy", r["attempts"][0]["error"])
-        self.assertNotIn("grok-4-7", e.models_called)
+        self.assertEqual(sorted(a["model"] for a in r["attempts"]), ["gemini-3-6-flash-openai",
+                         "gemini-3-8-flash-openai", "grok-4-7"], "ca 3 cung vao mot dot")
         body = [c["body"] for c in e.calls if "3-6" in c["url"]][0]
         self.assertEqual(body["reasoning_effort"], "none")
         self.assertEqual(e.logs, [], "model dau chi cham hon, khong phai su co: khong ghi log")
@@ -615,10 +621,9 @@ class SucKhoeVaCheDoNhanh(unittest.TestCase):
         r = e.gw.generate("chao", fast=True, attempt_timeout=10, budget=60, opts={"effort": "none"})
         self.assertEqual((r["ok"], r["text"], r["model"]), (True, "GROK", "grok-4-7"))
         grok = [c for c in e.calls if "/grok/" in c["url"]][0]
-        self.assertEqual(grok["timeout"][1], e.gw.TAIL_TIMEOUT, "Grok can 12-25s, khong cat o 10s")
+        self.assertEqual(grok["timeout"][1], e.gw.TAIL_TIMEOUT, "Grok can 9-25s, khong cat o 10s")
         self.assertEqual(grok["body"]["reasoning"]["effort"], "low", "grok khong nhan 'none'")
-        self.assertEqual(sorted(e.models_called[:2]),
-                         ["gemini-3-6-flash-openai", "gemini-3-8-flash-openai"])
+        self.assertEqual(len(e.calls), 3, "mot dot 3 model, khong goi lai")
 
     def test_gemini_goc_tat_suy_nghi_bang_budget_0(self):
         d = Env().mod["dialects"]
