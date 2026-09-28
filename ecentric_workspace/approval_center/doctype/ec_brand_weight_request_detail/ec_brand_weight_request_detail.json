@@ -1,0 +1,67 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-09-25 06:30:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "brand",
+  "weight",
+  "remarks",
+  "proposed_weight",
+  "lead_weight"
+ ],
+ "fields": [
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "options": "Brand",
+   "label": "Brand",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 4
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Percent",
+   "label": "Ty trong (%)",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 3
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Data",
+   "label": "Ghi chu",
+   "in_list_view": 1,
+   "columns": 4
+  },
+  {
+   "fieldname": "proposed_weight",
+   "fieldtype": "Percent",
+   "label": "Nhan vien de xuat (%)",
+   "read_only": 1,
+   "description": "Ghi luc nhan vien nop. Khong doi khi lead/truong phong chinh."
+  },
+  {
+   "fieldname": "lead_weight",
+   "fieldtype": "Percent",
+   "label": "Lead duyet (%)",
+   "read_only": 1,
+   "description": "Ghi luc lead duyet. Truong phong so voi so nay."
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-25 06:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC Brand Weight Request Detail",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

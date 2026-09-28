@@ -160,7 +160,7 @@ def explain_wtu_scope(user=None):
 
 @frappe.whitelist(methods=["POST"])
 def score_weekly_report(record_name=None):
-    """Cham diem mot bao cao tuan qua Kie (Google du phong).
+    """Cham diem mot bao cao tuan qua cong AI chung (Kie, du phong cung ben Kie).
 
     Ghi vao ban ghi cua NGUOI KHAC (diem, tier, feedback) -> System Manager.
     Thay Server Script `gemini_score_report`, von goi thang Google tu sandbox va
@@ -185,8 +185,9 @@ def summarize_weekly_report(record_name=None):
 def retrigger_missing_ai(window_days=None, limit=None):
     """Cham bu diem/tom tat con thieu. Ruot cua cron auto_retrigger_missing_ai.
 
-    Mac dinh nho (4 ban/luot) vi rq worker giet job o 300 giay. Backlog thi dung
-    rescore_from_week.ps1, khong phai ha limit o day roi doi cron chay bu.
+    28/09: cron CHI xep hang - moi ban ghi la mot job rieng tren queue `long` (xem
+    ai_retrigger.py), nen tran 300s cua worker khong con cat ngang. Backlog lon van dung
+    rescore_from_week.ps1.
 
     Administrator duoc mien kiem tra role: scheduler chay duoi danh nghia do, va
     mot cron bi chinh cong phan quyen cua no chan lai thi khong chay, khong bao,

@@ -108,6 +108,10 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
 .ecw .empty{text-align:center; padding:52px 20px; color:var(--ink-3)}
 .ecw .empty svg{width:84px; height:84px}
 .ecw .empty p{margin:16px 0 0; font-size:14.5px; line-height:1.6}
+/* Mat linh vat "Khay": .mc-look nhan translate tu JS (nhin theo con tro), .mc-lid nhan
+   scaleY tu CSS (chop). Hai transform o HAI tang nen khong de len nhau. */
+.ecw .empty svg .mc-lid{transform-box:fill-box; transform-origin:center; transition:transform .07s ease-in}
+.ecw .empty svg.is-blink .mc-lid{transform:scaleY(.12)}
 .ecw .err{
   background:var(--red-bg); border:1px solid #F2BDB7; border-radius:13px;
   padding:15px 17px; color:var(--ink); font-size:14px;
@@ -127,7 +131,7 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
 .ecw .sk i.a{width:36px; height:36px}
 .ecw .sk i.b{height:12px; width:58%}
 @keyframes ecw-sh{to{background-position:-200% 0}}
-@media (prefers-reduced-motion:reduce){ .ecw .sk i{animation:none} .ecw .mw-switch button{transition:none} }
+@media (prefers-reduced-motion:reduce){ .ecw .sk i{animation:none} .ecw .mw-switch button{transition:none} .ecw .empty svg .mc-lid{transition:none} }
 
 @media (max-width:420px){
   .ecw .wrap{padding:18px 13px 110px}
@@ -274,12 +278,28 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
       + "</span></a>";
   }
 
+  /* Linh vat "Khay" (chot 25/09): ngoi trong khay viec trong, chi lo mat len - dung cau
+   * chuyen "khong con viec nao cho ban". Cung ban ve voi /ec-hr va panel AI dien ho.
+   * Mat nhin theo con tro + chop: xem khoi "mat linh vat" o cuoi script. */
+  function mcEye(x, y) {
+    return '<g class="mc-look"><g class="mc-lid">'
+      + '<circle cx="' + x + '" cy="' + y + '" r="3.1" fill="#1E2A5A"/>'
+      + '<circle cx="' + (x + 1.05) + '" cy="' + (y - 1.12) + '" r=".93" fill="#fff" opacity=".9"/>'
+      + "</g></g>";
+  }
+
   function mascotHtml(line1, line2) {
     return '<div class="empty">'
-      + '<svg viewBox="0 0 64 64" aria-hidden="true">'
-      + '<rect x="6" y="10" width="52" height="44" rx="14" fill="#F7C948"/>'
-      + '<circle cx="24" cy="30" r="3.2" fill="#1E2A5A"/><circle cx="40" cy="30" r="3.2" fill="#1E2A5A"/>'
-      + '<path d="M24 39c3 3 13 3 16 0" stroke="#1E2A5A" stroke-width="2.6" fill="none" stroke-linecap="round"/>'
+      + '<svg class="mc" viewBox="0 0 64 64" aria-hidden="true">'
+      + '<ellipse cx="32" cy="60" rx="21" ry="2.6" fill="#1E2A5A" opacity=".08"/>'
+      + '<circle cx="32" cy="31" r="17" fill="#F7C948"/>'
+      + '<path d="M30.5 14.5c.5-4 3.5-5.5 6-4.5" stroke="#1E2A5A" stroke-width="2.2" fill="none" stroke-linecap="round"/>'
+      + mcEye(26, 29.5) + mcEye(38, 29.5)
+      + '<path d="M6 37h52l-4.6 18.3A3.2 3.2 0 0 1 50.3 58H13.7a3.2 3.2 0 0 1-3.1-2.7z" fill="#1E2A5A"/>'
+      + '<rect x="5" y="35.4" width="54" height="3.6" rx="1.8" fill="#34427A"/>'
+      + '<ellipse cx="17" cy="36.4" rx="3.6" ry="2.6" fill="#F7C948"/>'
+      + '<ellipse cx="47" cy="36.4" rx="3.6" ry="2.6" fill="#F7C948"/>'
+      + '<rect x="25.5" y="45" width="13" height="5.5" rx="1.6" fill="#FFF6DA"/>'
       + "</svg><p>" + esc(line1) + (line2 ? "<br>" + esc(line2) : "") + "</p></div>";
   }
 
@@ -332,6 +352,9 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     wn.textContent = W.loaded ? String(W.total) : "";
     var dot = el("mw-dot");
     dot.hidden = !(N.loaded && N.unread > 0);
+    // innerHTML vua thay linh vat bang ban moi -> dat lai huong mat ngay, khong doi chuot
+    // nhuc nhich (khong co dong nay thi moi lan ve lai mat giat ve giua).
+    mcTrack();
   }
 
   function setView(next) {
@@ -428,6 +451,61 @@ body .main-section, body main.container, body main.fluid { margin:0; padding:0; 
     var rt = ev.target.closest(".mw-retry");
     if (rt) { if (rt.dataset.retry === "noti") { N.loaded = false; loadNoti(); } else { loadWork(false); } }
   });
+
+  /* ---------- mat linh vat: nhin theo con tro + chop ----------
+   * Chi co linh vat o trang thai RONG, nen moi thu duoi day chi tim ".empty svg.mc".
+   * Nguoi dung bat "giam chuyen dong" trong he dieu hanh -> dung yen hoan toan.
+   * Mot bo hen gio chop DUY NHAT cho ca trang, khong phai mot vong cho moi linh vat:
+   * linh vat bi ve lai moi lan doi tab / tai lai, vong rieng se thanh hen gio mo coi. */
+  var MC_STILL = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  var MC_MAX = 2.1;                     // don vi SVG - con nguoi chi xe dich trong tron mat
+  var mcX = null, mcY = null, mcQueued = false;
+
+  function mcAll() { return document.querySelectorAll(".ecw .empty svg.mc"); }
+
+  function mcTrack() {
+    mcQueued = false;
+    if (mcX == null) return;            // == null: ca null lan undefined (goi truoc khi khai bao chay)
+    Array.prototype.forEach.call(mcAll(), function (svg) {
+      var r = svg.getBoundingClientRect();
+      if (!r.width) return;
+      var dx = mcX - (r.left + r.width / 2);
+      var dy = mcY - (r.top + r.height / 2);
+      var d = Math.sqrt(dx * dx + dy * dy) || 1;
+      var k = Math.min(d / (r.width * 1.6), 1) * MC_MAX;
+      var t = "translate(" + (dx / d * k).toFixed(2) + " " + (dy / d * k * 0.8).toFixed(2) + ")";
+      Array.prototype.forEach.call(svg.querySelectorAll(".mc-look"), function (g) {
+        g.setAttribute("transform", t);
+      });
+    });
+  }
+
+  function mcBlink(svg) {
+    svg.classList.add("is-blink");
+    setTimeout(function () { svg.classList.remove("is-blink"); }, 150);
+  }
+
+  function mcIdle() {
+    setTimeout(function () {
+      Array.prototype.forEach.call(mcAll(), function (svg) {
+        mcBlink(svg);
+        if (Math.random() < 0.2) setTimeout(function () { mcBlink(svg); }, 280);
+      });
+      mcIdle();
+    }, 3000 + Math.random() * 4000);
+  }
+
+  if (!MC_STILL) {
+    document.addEventListener("pointermove", function (ev) {
+      mcX = ev.clientX; mcY = ev.clientY;
+      if (!mcQueued) { mcQueued = true; requestAnimationFrame(mcTrack); }
+    }, { passive: true });
+    document.addEventListener("click", function (ev) {
+      var svg = ev.target.closest && ev.target.closest(".ecw .empty svg.mc");
+      if (svg) mcBlink(svg);
+    });
+    mcIdle();
+  }
 
   loadWork(false);
 })();

@@ -85,15 +85,16 @@ class TestManChamCongHieuOutsideWork(unittest.TestCase):
         self.assertIn("if dcur not in off_by_day:", khoi)
         self.assertIn("sum_outside = sum_outside + 1", khoi)
 
-    def test_khong_tu_quyet_la_du_cong(self):
-        # Ranh gioi voi C&B: dem rieng, KHONG cong vao `present`.
+    def test_ngay_di_ngoai_tinh_du_cong(self):
+        # 25/09, Hoan chot voi C&B. Truoc do ban dau chi dem rieng va khong cong vao
+        # `present` - vi chua ai tra loi duoc cau hoi do, va doan sai thi sai vao luong.
         s = _script("ec_hr_attendance_data")
         i = s.index("elif off_by_day[dcur] == 'outside':")
         j = s.index("dcur = frappe.utils.add_days(dcur, 1)", i)
         nhanh = s[i:j]
-        self.assertIn("sum_outside", nhanh)
-        self.assertNotIn("sum_present", nhanh,
-                         "ngay di ngoai KHONG duoc tu cong vao du cong - do la quyet dinh C&B")
+        self.assertIn("sum_present = sum_present + 1", nhanh)
+        # Van giu dem rieng de man hinh noi duoc "trong do bao nhieu ngay o ngoai".
+        self.assertIn("sum_outside = sum_outside + 1", nhanh)
         self.assertIn("'outside': sum_outside", s)
 
     def test_don_nghi_nhieu_ngay_khong_con_bi_dem_thieu_tu_ngay_thu_hai(self):

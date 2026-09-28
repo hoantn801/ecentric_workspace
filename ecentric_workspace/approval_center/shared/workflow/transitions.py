@@ -1043,6 +1043,8 @@ def _skip_earlier_duplicate_levels(req):
 
 
 def build_snapshot(req, process, levels, requester):
+    # Nguoi co ghe DICH DANH o cap sau khong nam trong nhom ROLE o cap truoc (role_pool, 25/09).
+    seats = named_seats_after(levels)
     for lvl in levels:
         rl = frappe.get_doc({
             "doctype": "EC Approval Request Level", "approval_request": req.name,
@@ -1054,6 +1056,7 @@ def build_snapshot(req, process, levels, requester):
         approvers = resolve_participants(
             [p for p in lvl.participants if p.participant_purpose == "Approver"], requester,
             context={"reference_doctype": req.reference_doctype, "reference_name": req.reference_name})
+        approvers = drop_own_seat(approvers, seats.get(lvl.level_no, set()))
         if not approvers:
             frappe.throw(_no_approver_message(lvl, requester))
         for user, label in approvers:
@@ -1309,10 +1312,61 @@ def _activate_level(req, level_no):
 
 
 def _actor_pending_row(req_name, level_no, actor):
-    n = frappe.get_all("EC Approval Request Approver",
-                       filters={"approval_request": req_name, "level_no": level_no,
-                                "approver": actor, "status": "Pending"}, pluck="name")
-    return n[0] if n else None
+    """Dong Pending CON HIEU LUC cua `actor` o cap nay, hoac None.
+
+    Dong kieu "Role: X" chi con hieu luc khi actor VAN giu role X (25/09: anh Lam bam duyet
+    cap Finance cua EC-CTR-2026-00023 sau khi da bi go EC Finance, vi dong duoc chot luc
+    nop). Moi duong bam - duyet, tu choi, yeu cau bo sung - va nut tren UI deu qua day."""
+    rows = frappe.get_all("EC Approval Request Approver",
+                          filters={"approval_request": req_name, "level_no": level_no,
+                                   "approver": actor, "status": "Pending"},
+                          fields=["name", "source"])
+    if not rows:
+        return None
+    roles = frappe.get_roles(actor)
+    for r in rows:
+        if row_still_eligible(r.source, actor, roles):
+            return r.name
+    return None
+
+
+# --------------------------------------------------------------------------- #
+# Nhom nguoi duyet theo ROLE (25/09/2026). Luat thuan, dat trong engine vi engine
+# dung chung; phan don dong tren phieu dang mo nam o role_pool.py. Ly do: xem
+# docstring role_pool.py.
+# --------------------------------------------------------------------------- #
+ROLE_LABEL = "Role: "
+
+
+def role_of(source):
+    s = source or ""
+    return s[len(ROLE_LABEL):].strip() if s.startswith(ROLE_LABEL) else None
+
+
+def row_still_eligible(source, user, roles=None):
+    """Dong duyet kieu Role chi con hieu luc khi nguoi do VAN giu role. Dong kieu khac: True."""
+    role = role_of(source)
+    if not role:
+        return True
+    return role in (roles if roles is not None else frappe.get_roles(user))
+
+
+def named_seats_after(levels):
+    """{level_no: set(user)} - nguoi duoc dat DICH DANH (source User) o mot cap SAU cap do."""
+    out, acc = {}, set()
+    for lvl in sorted(levels, key=lambda l: l.level_no, reverse=True):
+        out[lvl.level_no] = set(acc)
+        for p in (lvl.participants or []):
+            if p.participant_purpose == "Approver" and p.source_type == "User" and p.user:
+                acc.add(p.user)
+    return out
+
+
+def drop_own_seat(approvers, seats):
+    """[(user, label)] -> bo nguoi den tu ROLE ma co ghe dich danh o cap sau.
+    Bo xong khong con ai thi GIU NGUYEN: cap rong = phieu ket, te hon mot nguoi hoi du."""
+    keep = [(u, lab) for u, lab in approvers if not (role_of(lab) and u in seats)]
+    return keep or list(approvers)
 
 
 def _signature_guard(req, level_no, actor):

@@ -48,11 +48,28 @@ def _pending_row(approval_request, user):
     if (not approval_request or approval_request.approval_status not in OPEN_STATUSES
             or not approval_request.current_level):
         return None
-    return frappe.db.exists(
+    row = frappe.db.exists(
         "EC Approval Request Approver",
         {"approval_request": approval_request.name,
          "level_no": approval_request.current_level,
          "approver": user, "status": "Pending"})
+    return row if row and still_holds_role(approval_request.name,
+                                           approval_request.current_level, user) else None
+
+
+def still_holds_role(approval_request_name, level_no, user):
+    """Dong Pending kieu "Role: X" chi con cho bam khi `user` VAN giu role X (25/09/2026).
+
+    Cung luat voi `transitions.row_still_eligible` (engine chan o approve/reject/yeu cau bo
+    sung); o day de NUT tren giao dien khop voi engine - nut hien ra thi bam duoc. Khong
+    import transitions: file nay duoc nap rieng voi frappe gia trong nhieu bo test.
+    test_role_pool.py kiem hai ban cho cung ket qua."""
+    src = frappe.db.get_value("EC Approval Request Approver",
+                              {"approval_request": approval_request_name, "level_no": level_no,
+                               "approver": user, "status": "Pending"}, "source") or ""
+    if not src.startswith("Role: "):
+        return True
+    return src[len("Role: "):].strip() in frappe.get_roles(user)
 
 
 def _has_decision(approval_request):

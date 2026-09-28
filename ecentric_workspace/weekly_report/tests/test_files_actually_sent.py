@@ -23,44 +23,43 @@ from ecentric_workspace.weekly_report import scoring
 
 
 class GenerateJsonRefusesWhenNoFileUsable(unittest.TestCase):
-    """Co tep can gui ma khong tep nao dung duoc => KHONG goi nha cung cap."""
+    """Co tep can gui ma khong tep nao gui du duoc => KHONG goi AI.
+
+    28/09: cong AI chung (platform/ai) thay Kie+Google. Khong con URI Google - tep
+    phai mang bytes, va mot tep thieu bytes lam CA LAN GOI bi tu choi. Do thang vao
+    transport cua cong (`gateway._post`) de biet chac khong co request nao di ra.
+    """
 
     def setUp(self):
-        self._provider = gemini_api.provider
-        self._call_google = gemini_api._call_google
-        self._call_kie = gemini_api._call_kie
-        self.google_calls = []
+        from ecentric_workspace.platform.ai import config, gateway
+        self.gw, self.cfg = gateway, config
+        self._post, self._key = gateway._post, config.api_key
+        self.calls = []
 
-        def spy_google(body, model, timeout):
-            self.google_calls.append(body)
-            return '{"overall_score": 17}', ""
-        gemini_api._call_google = spy_google
-        gemini_api._call_kie = lambda body, timeout: ("", "ReadTimeout")
-        gemini_api.provider = lambda: gemini_api.KIE_PROVIDER
+        def spy(url, body, key, timeout):
+            self.calls.append(body)
+            return 200, "data: " + '{"candidates":[{"content":{"parts":[{"text":"{\\"overall_score\\": 17}"}]}}]}'
+        gateway._post = spy
+        config.api_key = lambda: "KHOA-GIA"
 
     def tearDown(self):
-        gemini_api.provider = self._provider
-        gemini_api._call_google = self._call_google
-        gemini_api._call_kie = self._call_kie
+        self.gw._post, self.cfg.api_key = self._post, self._key
 
-    def test_bytes_only_file_does_not_silently_call_google_without_it(self):
-        """Dung kich ban da xay ra that: bytes co, uri khong, Kie timeout."""
-        res = gemini_api.generate_json(
-            "prompt", {"type": "object"},
-            files=[{"data": b"%PDF123", "mime_type": "application/pdf"}])
-        self.assertFalse(res["ok"], "phai tu choi, khong duoc tra diem")
-        self.assertEqual(res["files_in_request"], 0)
-        self.assertEqual(self.google_calls, [],
-                         "KHONG duoc goi Google khi khong tep nao gui duoc")
-        self.assertIn("khong tep nao dung duoc", res["error"])
-
-    def test_file_with_uri_still_reaches_google(self):
+    def test_file_without_bytes_is_refused_before_any_call(self):
         res = gemini_api.generate_json(
             "prompt", {"type": "object"},
             files=[{"uri": "files/abc", "mime_type": "application/pdf"}])
-        self.assertTrue(res["ok"])
-        self.assertEqual(res["files_in_request"], 1)
-        self.assertEqual(len(self.google_calls), 1)
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["files_in_request"], 0)
+        self.assertEqual(self.calls, [], "KHONG duoc goi AI khi co tep thieu bytes")
+
+    def test_one_file_missing_bytes_refuses_all(self):
+        res = gemini_api.generate_json(
+            "prompt", {"type": "object"},
+            files=[{"data": b"%PDF123", "mime_type": "application/pdf"},
+                   {"uri": "files/abc", "mime_type": "application/pdf"}])
+        self.assertFalse(res["ok"])
+        self.assertEqual(self.calls, [], "khong duoc gui 1 tep khi nguoi goi co 2")
 
     def test_no_files_at_all_is_allowed(self):
         """Prompt thuan text (vi du AI dien ho) khong bi chan."""
@@ -68,25 +67,15 @@ class GenerateJsonRefusesWhenNoFileUsable(unittest.TestCase):
         self.assertTrue(res["ok"])
         self.assertEqual(res["files_in_request"], 0)
 
-    def test_counts_only_the_files_that_actually_went(self):
-        """Mot tep co uri, mot tep chi co bytes => DUNG 1 tep vao request.
-
-        Them sau khi dot bien M2 (`files_in_request = len(files)`) SONG SOT: bo
-        test cu khong co ca nao ma so tep chuan bi KHAC so tep gui duoc, nen hai
-        cach dem cho ket qua giong nhau va phep do khong phan biet duoc. Day dung
-        la kieu sai da gay ra su co 25/09, chi khac o cho no an mot tang sau.
-        """
+    def test_counts_the_files_that_actually_went(self):
         res = gemini_api.generate_json(
             "prompt", {"type": "object"},
-            files=[{"uri": "files/abc", "mime_type": "application/pdf"},
-                   {"data": b"%PDF123", "mime_type": "application/pdf"}])
+            files=[{"data": b"%PDF1", "mime_type": "application/pdf"},
+                   {"data": b"%PDF2", "mime_type": "application/pdf"}])
         self.assertTrue(res["ok"])
-        self.assertEqual(res["files_in_request"], 1,
-                         "chi 1 tep co uri nen chi 1 tep vao duoc request")
-        self.assertEqual(len(self.google_calls), 1)
-        parts = self.google_calls[0]["contents"][0]["parts"]
-        file_parts = [p for p in parts if "fileData" in p]
-        self.assertEqual(len(file_parts), 1)
+        self.assertEqual(res["files_in_request"], 2)
+        parts = self.calls[0]["contents"][-1]["parts"]
+        self.assertEqual(len([p for p in parts if "inlineData" in p]), 2)
 
 
 class ScoringRefusesOnZeroFilesInRequest(unittest.TestCase):

@@ -210,7 +210,7 @@ class TestCongChamDiem(unittest.TestCase):
             self.sent["prompt"] = prompt
             return {"ok": True, "data": {"diem": 8}, "error": None,
                     "provider": G.provider(), "fell_back": False,
-                    "model": "m", "latency_ms": 1}
+                    "model": "m", "latency_ms": 1, "files_in_request": len(files or [])}
         G.generate_json = fake_gen
         S.gemini_api = G
 
@@ -231,72 +231,71 @@ class TestCongChamDiem(unittest.TestCase):
         _wr.sharepoint = sp
         return sp
 
-    def test_provider_google_thi_dung_URI_khong_tai_bytes(self):
-        out = S.score_via_llm("P", {"type": "object"},
-                              file_uris=json.dumps([{"uri": "files/x", "mime_type": "application/pdf"}]),
-                              slide_deck="https://x/a.pptx")
-        self.assertTrue(out["ok"])
-        self.assertEqual(self.sent["files"][0]["uri"], "files/x")
-        self.assertNotIn("data", self.sent["files"][0], "Google khong can bytes")
+    # 28/09: cong AI chung, KHONG con Google. Moi slide phai di bang bytes, du ca bo hoac
+    # khong goi gi ca. Truoc day "tai hong thi di Google bang URI"; gio khong co duong do,
+    # nen luat duy nhat con lai la: thieu mot tep -> KHONG goi AI, tra loi co ly do.
 
-    def test_kie_tai_bytes_va_GIU_uri_de_du_phong(self):
-        GSTATE["settings"]["ec_llm_provider"] = "kie"
-        S.gemini_api.fetch_pdf_bytes = lambda u, t, d: {
-            "ok": True, "data": PDF, "display_name": "a.pdf", "size_bytes": len(PDF)}
-        self._dat_sharepoint_gia(lambda: "TK")
-        out = S.score_via_llm("P", {"type": "object"},
-                              file_uris=json.dumps([{"uri": "files/x", "mime_type": "application/pdf"}]),
-                              slide_deck="https://x/a.pptx")
-        self.assertTrue(out["ok"])
-        f0 = self.sent["files"][0]
-        self.assertEqual(f0["data"], PDF, "Kie phai nhan bytes")
-        self.assertEqual(f0["uri"], "files/x", "van giu URI de con roi ve Google duoc")
-
-    def test_tai_bytes_HONG_thi_di_Google_chu_KHONG_gui_thieu_tep(self):
-        GSTATE["settings"]["ec_llm_provider"] = "kie"
-        S.gemini_api.fetch_pdf_bytes = lambda u, t, d: {"ok": False, "error": "Graph 500"}
-        self._dat_sharepoint_gia(lambda: "TK")
-        out = S.score_via_llm("P", {"type": "object"},
-                              file_uris=json.dumps([{"uri": "files/x", "mime_type": "application/pdf"}]),
-                              slide_deck="https://x/a.pptx\nhttps://x/b.pptx")
-        self.assertEqual(self.sent["files"][0]["uri"], "files/x")
-        self.assertNotIn("data", self.sent["files"][0])
-        self.assertIn("Graph 500", out.get("kie_skipped", ""))
-
-    def test_MOT_tep_hong_thi_BO_CA_LUOT_khong_gui_mot_nua(self):
-        GSTATE["settings"]["ec_llm_provider"] = "kie"
-        seq = [{"ok": True, "data": PDF, "display_name": "a.pdf", "size_bytes": len(PDF)},
-               {"ok": False, "error": "tep 2 hong"}]
+    def _deck(self, *results):
+        seq = list(results)
         S.gemini_api.fetch_pdf_bytes = lambda u, t, d: seq.pop(0)
         self._dat_sharepoint_gia(lambda: "TK")
+
+    def test_tai_du_bytes_thi_gui_inline(self):
+        self._deck({"ok": True, "data": PDF, "display_name": "a.pdf", "size_bytes": len(PDF)})
+        out = S.score_via_llm("P", {"type": "object"}, slide_deck="https://x/a.pptx")
+        self.assertTrue(out["ok"])
+        self.assertEqual(self.sent["files"][0]["data"], PDF)
+        self.assertEqual(out["files_prepared"], 1)
+
+    def test_URI_Google_bi_bo_qua(self):
+        self._deck({"ok": True, "data": PDF, "display_name": "a.pdf", "size_bytes": len(PDF)})
+        S.score_via_llm("P", {"type": "object"}, slide_deck="https://x/a.pptx",
+                        file_uris=json.dumps([{"uri": "files/x", "mime_type": "application/pdf"}]))
+        self.assertNotIn("uri", self.sent["files"][0], "URI Google khong con duoc dung")
+
+    def test_tai_bytes_HONG_thi_KHONG_goi_AI(self):
+        self._deck({"ok": False, "error": "Graph 500"})
+        out = S.score_via_llm("P", {"type": "object"}, slide_deck="https://x/a.pptx")
+        self.assertFalse(out["ok"])
+        self.assertNotIn("files", self.sent, "khong duoc goi AI khi thieu slide")
+        self.assertIn("Graph 500", out["kie_skipped"])
+        self.assertEqual(out["files_sent"], 0)
+
+    def test_MOT_tep_hong_thi_BO_CA_LUOT_khong_gui_mot_nua(self):
+        self._deck({"ok": True, "data": PDF, "display_name": "a.pdf", "size_bytes": len(PDF)},
+                   {"ok": False, "error": "tep 2 hong"})
         out = S.score_via_llm("P", {"type": "object"},
-                              file_uris=json.dumps([{"uri": "u1"}, {"uri": "u2"}]),
                               slide_deck="https://x/a.pptx\nhttps://x/b.pptx")
-        self.assertEqual(len(self.sent["files"]), 2, "phai giu DU 2 URI cua Google")
-        self.assertNotIn("data", self.sent["files"][0], "khong duoc gui 1 bytes + 1 thieu")
+        self.assertFalse(out["ok"])
+        self.assertNotIn("files", self.sent, "khong duoc gui 1 tep khi deck co 2")
 
-    def test_vuot_tran_inline_thi_di_Google(self):
-        GSTATE["settings"]["ec_llm_provider"] = "kie"
+    def test_vuot_tran_inline_khong_nen_duoc_thi_KHONG_goi(self):
         big = b"%PDF" + b"x" * (S.MAX_INLINE_TOTAL + 10)
-        S.gemini_api.fetch_pdf_bytes = lambda u, t, d: {
-            "ok": True, "data": big, "display_name": "a.pdf", "size_bytes": len(big)}
-        self._dat_sharepoint_gia(lambda: "TK")
-        out = S.score_via_llm("P", {"type": "object"},
-                              file_uris=json.dumps([{"uri": "files/x"}]),
-                              slide_deck="https://x/a.pptx")
-        self.assertIn("vuot tran", out.get("kie_skipped", ""))
-        self.assertNotIn("data", self.sent["files"][0])
+        self._deck({"ok": True, "data": big, "display_name": "a.pdf", "size_bytes": len(big)})
+        out = S.score_via_llm("P", {"type": "object"}, slide_deck="https://x/a.pptx")
+        self.assertFalse(out["ok"])
+        self.assertIn("vuot tran", out["kie_skipped"])
+        self.assertNotIn("files", self.sent)
 
-    def test_khong_lay_duoc_token_thi_di_Google(self):
-        GSTATE["settings"]["ec_llm_provider"] = "kie"
+    def test_khong_lay_duoc_token_thi_KHONG_goi(self):
         def boom():
             raise Exception("SSO hong")
         self._dat_sharepoint_gia(boom)
-        out = S.score_via_llm("P", {"type": "object"},
-                              file_uris=json.dumps([{"uri": "files/x"}]),
-                              slide_deck="https://x/a.pptx")
-        self.assertIn("Graph token", out.get("kie_skipped", ""))
-        self.assertTrue(out["ok"])
+        out = S.score_via_llm("P", {"type": "object"}, slide_deck="https://x/a.pptx")
+        self.assertFalse(out["ok"])
+        self.assertIn("Graph token", out["kie_skipped"])
+
+    def test_ngan_sach_duoc_chuyen_xuong(self):
+        seen = {}
+        def fake_gen(prompt, response_schema, system_instruction=None, files=None, **kw):
+            seen.update(kw)
+            return {"ok": True, "data": {}, "error": None, "provider": "kie",
+                    "fell_back": False, "model": "m", "latency_ms": 1, "files_in_request": 0}
+        G.generate_json = fake_gen
+        S.score_via_llm("P", {"type": "object"}, budget=200, attempt_timeout=150)
+        self.assertEqual((seen["budget"], seen["timeout"]), (200, 150))
+        S.score_via_llm("P", {"type": "object"})
+        self.assertLess(seen["budget"], 120, "mac dinh phai vua request web 120s")
 
     def test_schema_dang_chuoi_van_parse_duoc(self):
         out = S.score_via_llm("P", json.dumps({"type": "object"}), file_uris="[]")

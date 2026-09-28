@@ -276,6 +276,23 @@ def restart_approval_obligations(request_doctype, request_name, attempt=1, at=No
                                  level_no=None, attempt=attempt, at=at)
 
 
+def exclude_approver_obligation(request_doctype, request_name, level_no, user, reason=None):
+    """MOT nguoi bi rut khoi cap duyet (mat role / co ghe rieng o cap sau - xem
+    approval_center/shared/workflow/role_pool.py). Ho khong con nut bam, nen dau viec
+    con mo cua ho la Excluded - khong de job quet thanh `Missed` roi tru diem."""
+    n = 0
+    for r in _open_rows(request_doctype, request_name, level_no):
+        if r["owner_user"] != user:
+            continue
+        try:
+            if obl.exclude_obligation(r["name"], reason or "Rut khoi cap duyet"):
+                n += 1
+        except Exception:
+            frappe.log_error(title="sla.exclude_approver_obligation",
+                             message=frappe.get_traceback())
+    return n
+
+
 def _has_row_for(source_doctype, source_name, level_no, attempt, user):
     """Nguoi nay CO mot dau viec o cap nay khong - o BAT KY trang thai nao.
 

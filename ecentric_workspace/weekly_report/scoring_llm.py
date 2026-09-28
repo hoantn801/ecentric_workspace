@@ -9,8 +9,8 @@ chay 290 giay va keo uptime xuong 90.2% (24/08), roi tai phat 15/09 lam uptime
 ve 0%. Khong lap lai.
 
 Thay vao do: Server Script chi goi mot app method. App chay Python that -- co
-base64, co timeout, co retry, va dung lai `gemini_api.generate_json` (Kie chinh,
-Google du phong) da chay tot cho duong AI dien ho.
+base64, co timeout, va di qua cong AI chung (`platform/ai/gateway`, chot 28/09):
+model chinh ben Kie, du phong cung ben Kie. Khong con Google.
 
 BAT BIEN: ham nay KHONG dung toi barem, prompt hay schema. No nhan nguyen tu
 Server Script va tra ve JSON. Diem so van do Server Script quyet dinh -- doi
@@ -24,7 +24,7 @@ from ecentric_workspace import gemini_api
 
 
 #: Kie khuyen nghi ~10MB cho inline; base64 phong ~33%. Tru hao con lai cho
-#: prompt + rubric. Vuot nguong -> khong thu Kie, di thang Google.
+#: prompt + rubric. Vuot nguong -> thu nen; nen khong duoc thi KHONG cham.
 MAX_INLINE_TOTAL = gemini_api.KIE_INLINE_MAX_BYTES
 
 
@@ -85,64 +85,58 @@ def _bytes_for_kie(slide_urls, dept_clean):
     return files, ""
 
 
+#: giay. Deck bao cao tuan la PDF nhieu trang: Kie 3.8 mat 15-30s cho MOT tep nho (log AI dien
+#: ho 23-24/09) va co luc treo ~33s roi moi tra 500 (probe 28/09). Tran cu 30s cat ngang
+#: dung khoang do -> 538 ReadTimeout 25-28/09. Cho request web (bam cham tay): 100s tong.
+WEB_BUDGET = 100
+#: Job nen tren queue `long` (ai_retrigger.process_one): du rong cho mot lan thu dai.
+JOB_ATTEMPT_TIMEOUT = 150
+JOB_BUDGET = 200
+
+
 @frappe.whitelist(methods=["POST"])
 def score_via_llm(prompt, response_schema, system_instruction=None,
-                  file_uris=None, slide_deck=None, dept_clean=None):
-    """Goi LLM cho duong cham diem. Kie chinh, Google du phong.
+                  file_uris=None, slide_deck=None, dept_clean=None,
+                  budget=None, attempt_timeout=None):
+    """Goi AI cho duong cham diem / tom tat, qua cong AI chung.
 
-    POST chu khong GET: Frappe ROLLBACK moi thao tac ghi trong request GET, nen
-    duong nay phai la POST de con ghi duoc log/diem sau do.
+    POST chu khong GET: Frappe ROLLBACK moi thao tac ghi trong request GET.
 
     Tham so:
-      prompt, response_schema, system_instruction : chuyen nguyen tu Server Script
-      file_uris  : JSON list [{"uri","mime_type"}] -- duong GOOGLE dung cai nay
-      slide_deck : chuoi URL SharePoint (nhieu dong) -- duong KIE tai bytes tu day
+      prompt, response_schema, system_instruction : chuyen nguyen tu nguoi goi
+      file_uris  : BO QUA tu 28/09 (URI Google Files) - giu tham so de nguoi goi cu khong vo
+      slide_deck : chuoi URL SharePoint (nhieu dong) -- tai bytes tu day, gui inline
       dept_clean : ten phong ban da bo hau to " - XX", de dung rel_path
 
-    -> {"ok","data","error","provider","fell_back","model","latency_ms","files_sent"}
+    -> {"ok","data","error","provider","fell_back","model","latency_ms","files_sent",
+        "files_prepared","attempts"}
     """
     if isinstance(response_schema, str):
         response_schema = json.loads(response_schema)
-    uris = file_uris
-    if isinstance(uris, str):
-        uris = json.loads(uris or "[]")
-    uris = uris or []
 
-    files = [dict(u) for u in uris if (u or {}).get("uri")]
-    note = ""
-
-    if gemini_api.provider() == gemini_api.KIE_PROVIDER:
-        urls = [u.strip() for u in (slide_deck or "").split("\n") if u.strip()]
-        data_files, why = _bytes_for_kie(urls, dept_clean)
-        if data_files:
-            # Giu ca `uri` cua Google trong cung phan tu: neu Kie hong,
-            # generate_json roi ve Google va van co URI de dung, khong phai
-            # tai lai lan hai.
-            for i, f in enumerate(data_files):
-                if i < len(files):
-                    f["uri"] = files[i].get("uri")
-            files = data_files
-        else:
-            note = why  # se di Google; generate_json tu ghi log fallback
+    urls = [u.strip() for u in (slide_deck or "").split("\n") if u.strip()]
+    files, why = _bytes_for_kie(urls, dept_clean) if urls else ([], "")
+    if urls and not files:
+        # Co slide ma khong tai duoc DU -> KHONG goi AI. Cham tren phan chu cua form thi
+        # ra mot con diem vo nghia (slide chiem 75/100 barem) - su co 25/09, 17/100.
+        return {"ok": False, "data": None, "error": "khong gui duoc slide: %s" % why,
+                "provider": gemini_api.KIE_PROVIDER, "fell_back": False, "model": "",
+                "latency_ms": 0, "files_sent": 0, "files_prepared": 0, "attempts": [],
+                "kie_skipped": why}
 
     res = gemini_api.generate_json(
         prompt=prompt,
         response_schema=response_schema,
         system_instruction=system_instruction,
         files=files or None,
+        budget=budget or WEB_BUDGET,
+        timeout=attempt_timeout,
+        purpose="weekly_report",
     )
     out = dict(res)
-    # `files_prepared` = so tep CHUAN BI duoc. `files_in_request` (do
-    # generate_json dat) = so tep THUC SU nam trong request da tao ra cau tra
-    # loi. Hai so nay KHAC nhau khi Kie hong: bytes da tai ve nhung Google
-    # khong dung duoc bytes, nen request di ra voi ZERO tep.
-    #
-    # 25/09: `files_sent` cu tra len(files) va nguoi goi kiem con so do -- cong
-    # do dung dai luong, va WTU-2026-W39-NV00162 nhan 17/100 tren mot bao cao
-    # ma model khong thay slide nao. Giu `files_sent` la BI DANH so tep that su
-    # gui di, de khong ai vo tinh kiem nham lan nua.
+    # `files_prepared` = so tep CHUAN BI duoc. `files_sent` = so tep THUC SU nam trong
+    # request da tao ra cau tra loi (su co 25/09: hai con so nay tung khac nhau va con so sai
+    # da cho mot diem 17/100 di qua). Nguoi goi phai kiem `files_sent`.
     out["files_prepared"] = len(files)
     out["files_sent"] = int(res.get("files_in_request") or 0)
-    if note:
-        out["kie_skipped"] = note
     return out

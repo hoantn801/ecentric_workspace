@@ -36,6 +36,18 @@ HR_ITEMS = [
         "owner": "hr",
     },
     {
+        "key": "hr.brand_weight",
+        "label": "Phân bổ công việc",
+        "route": "/ec-hr/phan-bo-cong-viec",
+        "icon": "chart",
+        "group": "Nhân sự",
+        "order": 18,
+        "active_patterns": ["/ec-hr/phan-bo-cong-viec"],
+        "visible_when": "internal",
+        "keywords": ["phan bo", "ty trong", "brand", "phan bo cong viec", "allocation", "pnl"],
+        "owner": "hr",
+    },
+    {
         "key": "hr.salary",
         "label": "Phiếu lương",
         "route": "/ec-hr/salary",

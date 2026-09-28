@@ -108,12 +108,17 @@ class TestKhoaChongTroiMoiForm(unittest.TestCase):
             "ban sua khong len production, va patch resync se lam chet migrate. Form lech: "
             + ", ".join(lech))
 
+    # Trang MOI, chua tung co ban live: khong co "bytes cu" nao de chap nhan, lan sync dau
+    # tao trang va khoa drift chua ap dung. Moi muc o day het han o lan sua HTML ke tiep:
+    # luc do day BASELINE hien tai xuong SUPERSEDES va GO ten khoi tap nay.
+    TRANG_MOI_CHUA_CO_LIVE = {"brand_weight"}  # 25/09/2026, p211_create_brand_weight_page
+
     def test_sha_cu_van_nam_trong_supersedes(self):
         """Luc deploy, live con giu bytes CU -> phai con trong danh sach chap nhan."""
         thieu = []
         for sync in _SYNCS:
             s = _read(sync)
-            if "BASELINE_SHA256" not in s:
+            if "BASELINE_SHA256" not in s or _feature(sync) in self.TRANG_MOI_CHUA_CO_LIVE:
                 continue
             block = re.search(r"SUPERSEDES_SHA256 = \((.*?)\n\)", s, re.S)
             if not block or not re.findall(r'"[0-9a-f]{64}"', block.group(1)):

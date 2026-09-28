@@ -312,6 +312,8 @@ _ROUTE_ALIASES = {
     "late_early_out": "/approvals/late-in-early-out",
     "affiliate_bonus": "/approvals/affiliate-bonus-request",
     "asset_damage_loss": "/approvals/asset-damage-loss",
+    # Nhan su > Phan bo cong viec: feature duyet nhung trang nam trong menu Nhan su.
+    "brand_weight": "/ec-hr/phan-bo-cong-viec",
 }
 
 

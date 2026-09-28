@@ -43,7 +43,9 @@
    * phải chứng từ của phiếu. Chứng từ vẫn đính kèm ở bước "Tiếp tục: Thêm chứng từ" như cũ.
    * Nói thẳng điều đó trên giao diện, đừng để người dùng tự đoán. */
   var UPLOAD_URL = "/api/method/upload_file";
-  var MAX_BYTES = 10 * 1024 * 1024;
+  /* 28/09: Kie nhan tep INLINE, tran ca request ~10MB -> server chan o 7MB. Chan tu day
+   * de nguoi dung biet ngay, khoi cho mot vong tai len roi moi bi tu choi. */
+  var MAX_BYTES = 7 * 1024 * 1024;
 
   /* Ô nào làm trang vẽ lại cả form → phải ghi TRƯỚC, nếu không lần vẽ lại xoá sạch những ô
    * điền sau nó. Danh sách này là dự phòng; cơ chế thật là truy vấn lại DOM trước mỗi lần ghi
@@ -87,7 +89,7 @@
             maxChars: 8000, maxFiles: 5, files: [], fileExts: [], uploading: false, ran: false,
             _filesHtml: null, panel: null,
             maxDrafts: 10, hasFlags: false, ns: "",
-            marks: null, marksFor: null };
+            marks: null, marksFor: null, hadFields: null };
 
   /* Tệp có nhận được không, và nếu không thì VÌ SAO. PURE.
    * Chặn ở client cho người dùng biết ngay, nhưng server vẫn chặn lại lần nữa — cổng ở
@@ -95,7 +97,7 @@
   function refuseReason(file, danhSach, maxFiles, exts) {
     if (!file) return "tệp rỗng";
     if (!file.size) return "tệp rỗng";
-    if (file.size > MAX_BYTES) return "tệp quá lớn (tối đa 10MB)";
+    if (file.size > MAX_BYTES) return "tệp quá lớn (tối đa 7MB)";
     var ext = (file.name || "").split(".").pop().toLowerCase();
     if ((file.name || "").indexOf(".") < 0) return "không rõ loại tệp";
     if (exts && exts.length && exts.indexOf(ext) < 0) {
@@ -187,10 +189,13 @@
   }
 
   /* ------------------------------------------------------- dấu + trích dẫn */
+  /* Linh vat "Khay" (chot 25/09) ban 12px: chi con dau + mat + khay. Tay, tui toc, nhan
+   * va bong deu bo - o 12px chung thanh vet ban, lam mo chinh cai dau can doc ra. */
   var BADGE_SVG =
     '<svg viewBox="0 0 64 64" aria-hidden="true">' +
-    '<rect x="7" y="7" width="50" height="50" rx="17" fill="#F7C948" stroke="#E0AE22" stroke-width="3"/>' +
-    '<circle cx="24" cy="31" r="5.6" fill="#1E2A5A"/><circle cx="40" cy="31" r="5.6" fill="#1E2A5A"/></svg>';
+    '<circle cx="32" cy="29" r="21" fill="#F7C948"/>' +
+    '<circle cx="24" cy="26" r="5.4" fill="#1E2A5A"/><circle cx="40" cy="26" r="5.4" fill="#1E2A5A"/>' +
+    '<path d="M3 37h58l-5 20.4A3.4 3.4 0 0 1 52.7 60H11.3A3.4 3.4 0 0 1 8 57.4z" fill="#1E2A5A"/></svg>';
 
   /** Vẽ lại dấu sau MỖI lần trang đổi DOM. Dấu phải suy ra từ state của asset, không bám
    *  vào phần tử — `renderCreate` thay sạch innerHTML nên mọi thứ gắn vào DOM đều bay. */
@@ -277,13 +282,16 @@
   }
 
   /* --------------------------------------------------------------- giao diện */
+  /* Linh vat "Khay" ban 26px: mat to hon, net toc day hon, bo nhan tren khay va bong - do
+   * tren man that 25/09, ban day du thu nho ve 26px thi mat chi con hai cham mo. */
   var MARK =
     '<svg class="ec-aifill-mark" viewBox="0 0 64 64" aria-hidden="true">' +
-    '<path d="M32 3.4v3" stroke="#E0AE22" stroke-width="2" stroke-linecap="round" fill="none"/>' +
-    '<rect x="9" y="9" width="46" height="46" rx="15.5" fill="#F7C948" stroke="#E0AE22" stroke-width="2.2"/>' +
-    '<circle cx="24.6" cy="29.4" r="4.3" fill="#1E2A5A"/><circle cx="39.4" cy="29.4" r="4.3" fill="#1E2A5A"/>' +
-    '<circle cx="26.2" cy="27.8" r="1.15" fill="#fff"/><circle cx="41" cy="27.8" r="1.15" fill="#fff"/>' +
-    '<path d="M25.4 39.4c1.9 2.8 4 4.2 6.6 4.2s4.7-1.4 6.6-4.2" fill="none" stroke="#1E2A5A" stroke-width="2.6" stroke-linecap="round"/></svg>';
+    '<circle cx="32" cy="30" r="19" fill="#F7C948"/>' +
+    '<path d="M30 11.5c.6-4.2 4-6 7-4.8" stroke="#1E2A5A" stroke-width="3.2" fill="none" stroke-linecap="round"/>' +
+    '<circle cx="25" cy="27.5" r="4.4" fill="#1E2A5A"/><circle cx="39" cy="27.5" r="4.4" fill="#1E2A5A"/>' +
+    '<circle cx="26.5" cy="25.9" r="1.3" fill="#fff"/><circle cx="40.5" cy="25.9" r="1.3" fill="#fff"/>' +
+    '<path d="M4 37h56l-4.8 19.2A3.4 3.4 0 0 1 51.9 59H12.1a3.4 3.4 0 0 1-3.3-2.8z" fill="#1E2A5A"/>' +
+    '<ellipse cx="16" cy="37" rx="4.4" ry="3.3" fill="#F7C948"/><ellipse cx="48" cy="37" rx="4.4" ry="3.3" fill="#F7C948"/></svg>';
 
   /* Cần gạt hai chế độ. Nằm ngay dưới tiêu đề panel, đúng chỗ tab thứ tư sẽ nằm nếu sau
    * này trang mở tab thật. Dùng `aria-pressed` chứ không phải `role=tab`: nó KHÔNG phải
@@ -315,10 +323,28 @@
       "</div></div>";
   }
 
+  /* SU CO 25/09 - PANEL RONG CHO CA 78 NGUOI.
+   *
+   * `render()` ve HAI hinh dang khac nhau tuy man hinh, nhung `mount()` chi goi no DUNG MOT
+   * LAN, ngay khi `.tabs` xuat hien - luc do than form CHUA ve xong nen khong co `[data-fld]`
+   * nao, va panel bi ghi rong. Form hien ra sau do thi observer goi mount/paint/renderFiles/
+   * renderBatch - KHONG cai nao goi lai `render()`. Panel nam do rong vinh vien.
+   *
+   * Bai hoc: mot ham ve HAI hinh dang theo dieu kien thi phai co ai do theo doi dieu kien
+   * ay DOI. Ve mot lan roi tin la xong chi dung khi ham chi co mot hinh dang.
+   */
+  function syncMode() {
+    if (!S.panel) return;
+    var co = !!document.querySelector("[data-fld]");
+    if (co === S.hadFields) return;      // hinh dang khong doi -> khong ve lai
+    render();                            // `render` tu cap nhat S.hadFields
+  }
+
   function render() {
     if (!S.panel) return;
+    S.hadFields = !!document.querySelector("[data-fld]");
     // Man chi tiet: khong co o nhap nao -> ve dong tom tat, khong ve khoi dien.
-    if (!document.querySelector("[data-fld]")) {
+    if (!S.hadFields) {
       S.panel.innerHTML = (S.marks ? detailHtml() : "");
       S.panel.classList.toggle("is-running", false);
       return;
@@ -1007,7 +1033,7 @@
     // Trang vẽ lại liên tục → vẽ lại dấu + gắn lại panel sau mỗi lần DOM đổi.
     new MutationObserver(function (muts) {
       if (fromUs(muts, S.panel)) return;     // đừng tự đuổi theo cái đuôi của mình
-      mount(); loadMarks(); paint(); renderFiles(); renderBatch();
+      mount(); syncMode(); loadMarks(); paint(); renderFiles(); renderBatch();
     }).observe(document.body, { childList: true, subtree: true });
 
     // Gõ tay vào một ô AI đã điền → dấu biến mất. `capture` để bắt trước handler của trang.
@@ -1040,5 +1066,6 @@
                        money: money, rowState: rowState, batchRefuse: batchRefuse,
                        flagsHtml: flagsHtml, batchHtml: batchHtml, B: B, S: S,
                        loiThat: loiThat, draftId: draftId, detailHtml: detailHtml,
+                       syncMode: syncMode, render: render,
                        setMode: setMode };
 })();

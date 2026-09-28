@@ -253,3 +253,78 @@ def preview(days=14, limit=5000):
                         and not _has_segment(r["name"], datetime.datetime(d.year, d.month, d.day)):
                     report["doan_moi"].append("%s %s (%s)" % (r["name"], d, r["status"]))
     return report
+# --------------------------------------------------------------------------- #
+# DUNG CHUNG - cho module khac doc ngay nghi ma khong phai viet lai luat
+# --------------------------------------------------------------------------- #
+#
+# Approval Center can biet "hom do nguoi duyet co nghi khong" de dan nhan cho
+# dung. Neu ho tu viet lai, se co HAI dinh nghia "ngay nghi" trong cung mot he
+# thong, va chung se troi ra xa nhau - cai nay sua, cai kia quen.
+#
+# CO Y KHONG LAM THANH ENDPOINT - khong dat decorator cong khai o day. Ben goi
+# (`query_service` cua Approval Center) chay o server; ho goi thang ham Python
+# nay duoc. Mo mot endpoint se day ngay nghi ca nhan cua moi nguoi ra truoc
+# trinh duyet, trong khi khong ai can den no o do.
+#
+# "NGAY LAM VIEC" LA PHAN QUAN TRONG. Ham nay chi tra ve nhung ngay nghi ma dong
+# ho VON DANG CHAY: cuoi tuan va ngay le bi loai ra. Nghi thu Bay thi han khong
+# he chay qua do, nen dan "nguoi duyet nghi phep" vao mot ho so qua han hom thu
+# Bay la giai thich sai nguyen nhan.
+
+
+def working_leave_days(users, start, end):
+    """Ngay nghi phep DA DUYET **va la ngay lam viec**, theo tung nguoi.
+
+    `users`: mot user_id hoac danh sach user_id (khong phai ma nhan vien).
+    Tra ve `{user_id: [datetime.date, ...]}` da sap xep, luon co du moi key
+    duoc hoi - nguoi khong co ho so nhan su hay khong nghi ngay nao thi la
+    danh sach rong.
+
+    KHONG NEM LOI. Ben goi la mot cai nhan tren man hinh; tra loi khong duoc
+    thi nhan hien nhu cu, chu khong duoc lam vo ca trang duyet don.
+    """
+    if isinstance(users, str):
+        users = [users]
+    users = [u for u in (users or []) if u]
+    out = {}
+    for u in users:
+        out[u] = []
+    if not users:
+        return out
+
+    lo, hi = getdate(start), getdate(end)
+    if hi < lo:
+        lo, hi = hi, lo
+
+    try:
+        emps = _employees_of(users)
+    except Exception:
+        frappe.log_error(title="sla.leave_pause.working_leave_days",
+                         message=frappe.get_traceback())
+        return out
+
+    hl_cache = {}
+    from ecentric_workspace.sla.infrastructure import attendance_source as att
+    for u in users:
+        emp = emps.get(u)
+        if not emp:
+            continue
+        try:
+            leave = att._leave_days(emp["name"], lo, hi)
+            if not leave:
+                continue
+            holidays = att._holidays_for(emp, hl_cache)
+            out[u] = sorted(d for d in leave
+                            if d.weekday() < 5 and d not in holidays)
+        except Exception:
+            frappe.log_error(title="sla.leave_pause.working_leave_days %s" % u,
+                             message=frappe.get_traceback())
+    return out
+
+
+def is_on_leave(user, day):
+    """Mot cau hoi, mot ngay. Tien cho cho chi can dan nhan mot dong."""
+    if not user or not day:
+        return False
+    d = getdate(day)
+    return d in set(working_leave_days(user, d, d).get(user) or ())

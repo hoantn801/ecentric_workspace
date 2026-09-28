@@ -443,5 +443,62 @@ function nap(pathname) {
   la(!/<img/.test(A.detailHtml()), "nhan tu server duoc escape truoc khi ve");
 }
 
+// ---- 13. SU CO 25/09: panel ve mot lan roi nam rong -------------------------
+// `render()` ve HAI hinh dang (form nhap / man chi tiet). `mount()` goi no dung mot lan,
+// ngay khi `.tabs` xuat hien - truoc khi than form ve xong. Khong ai theo doi dieu kien
+// do DOI, nen panel bi ghi rong va nam do vinh vien. Ca 78 nguoi mat panel.
+{
+  let coFld = false;                         // than form da ve chua
+  const ghi = [];
+  function nap5() {
+    // Panel gia: `render()` co gan handler vao vai nut, nen querySelector phai tra ve
+    // mot phan tu gia thay vi null - neu khong test chet vi ly do KHONG lien quan den
+    // dieu dang kiem.
+    const nut = () => ({ onclick: null, onchange: null, oninput: null, value: "",
+                         classList: { add() {}, remove() {}, toggle() {} },
+                         addEventListener() {}, querySelector: () => nut(),
+                         querySelectorAll: () => [], click() {} });
+    const panel = { classList: { toggle() {}, add() {}, remove() {} },
+                    querySelector: () => nut(), querySelectorAll: () => [],
+                    contains: () => false };
+    Object.defineProperty(panel, "innerHTML", {
+      get() { return this._h || ""; },
+      set(v) { this._h = v; ghi.push(v); },
+    });
+    const tai = { location: { pathname: "/approvals/payment-request", search: "" },
+      requestAnimationFrame: (f) => f(), MutationObserver: class { observe() {} },
+      Event: class { constructor(t) { this.type = t; } } };
+    const doc = { readyState: "complete",
+      body: { contains: () => true },
+      addEventListener() {},
+      querySelector: (sel) => (sel === "[data-fld]" ? (coFld ? {} : null) : null),
+      querySelectorAll: () => [],
+      createElement: () => panel };
+    new Function("window", "document", "frappe", readFileSync(SRC, "utf8"))(tai, doc, undefined);
+    const A = tai.__ecAifill;
+    A.S.panel = panel;
+    return A;
+  }
+
+  const A = nap5();
+  // Mount som: chua co o nhap nao -> panel rong. Day la trang thai da xay ra that.
+  coFld = false; A.render();
+  la(ghi[ghi.length - 1] === "", "mount som khi form chua ve -> panel rong (trang thai cu)");
+
+  // Than form ve xong. `syncMode` PHAI ve lai.
+  coFld = true; A.syncMode();
+  la(ghi[ghi.length - 1] !== "", "form ve xong -> syncMode ve lai panel, KHONG de rong");
+  la(/ec-aifill-run/.test(ghi[ghi.length - 1]), "ve dung khoi dien, co nut Dien vao form");
+
+  // Goi lai khi hinh dang KHONG doi -> khong ve lai (tranh tu dap DOM cua chinh minh).
+  const truoc = ghi.length;
+  A.syncMode();
+  la(ghi.length === truoc, "hinh dang khong doi -> KHONG ghi DOM lai");
+
+  // Quay ve man chi tiet -> lai ve lai.
+  coFld = false; A.syncMode();
+  la(ghi.length > truoc, "doi sang man chi tiet -> ve lai");
+}
+
 console.log(`${dat} dat, ${hong} hong`);
 process.exit(hong ? 1 : 0);

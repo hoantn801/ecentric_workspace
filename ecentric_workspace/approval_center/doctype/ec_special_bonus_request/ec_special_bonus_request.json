@@ -43,6 +43,7 @@
   {
    "fieldname": "request_title",
    "fieldtype": "Data",
+   "length": 255,
    "label": "Request Title",
    "reqd": 1,
    "in_list_view": 1
@@ -131,7 +132,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-07 00:00:00",
+ "modified": "2026-09-28 12:00:00.000000",
  "module": "Approval Center",
  "name": "EC Special Bonus Request",
  "naming_rule": "Expression",
