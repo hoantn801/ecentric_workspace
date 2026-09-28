@@ -92,6 +92,28 @@ const shell='<aside data-ec-shell="1"></aside><main>trang</main>';
   ok("loi trung ngay hien dung cau server", /trung khoang ngay nay: HR-LAP-1/.test(R4.querySelector(".note.bad")&&R4.querySelector(".note.bad").textContent));
   ok("con nut gui de thu lai", !!R4.querySelector('[data-act="leave-send"]'));
 
+  // ---- ten tro ly + tro chuyen tra loi thang (khong goi tra cuu)
+  const r5=Object.assign({},routes,{
+    "ecentric_workspace.platform.ai.khay.boot":()=>({status:200,j:{message:{enabled:true,name:"eCentric AI",first_name:"Hoàn",can_leave:true,can_payment:false}}}),
+    "ecentric_workspace.platform.ai.khay.intent":()=>({status:200,j:{message:{action:"answer",needs_data:false,reply:"Chào bạn, mình đây!",options:[]}}}),
+    "gemini_chat":()=>({status:200,j:{message:{success:true,reply:"TRA CUU"}}})});
+  const e5=mk("https://x/viec-cua-toi",shell,r5); await tick(50);
+  const R5=e5.w.document.getElementById("ec-khay-host").shadowRoot;
+  ok("ten hien tren dau khung", R5.querySelector(".hd b").textContent==="eCentric AI" && /eCentric AI/.test(R5.querySelector(".fab").getAttribute("aria-label")));
+  ok("khong con chu Khay tren giao dien", !/Khay/.test(R5.innerHTML.replace(/<style>[\s\S]*?<\/style>/,"")));
+  R5.querySelector(".fab").click(); await tick();
+  R5.querySelector("textarea").value="alo";
+  R5.querySelector("form").dispatchEvent(new e5.w.Event("submit",{cancelable:true})); await tick(80);
+  ok("tro chuyen: tra loi thang tu intent", /Chào bạn, mình đây!/.test(R5.querySelector(".ms").textContent));
+  ok("tro chuyen: KHONG goi them gemini_chat", !e5.log.some(x=>x.m==="gemini_chat"));
+  const r6=Object.assign({},r5,{"ecentric_workspace.platform.ai.khay.intent":()=>({status:200,j:{message:{action:"answer",needs_data:true,reply:"",options:[]}}})});
+  const e6=mk("https://x/viec-cua-toi",shell,r6); await tick(50);
+  const R6=e6.w.document.getElementById("ec-khay-host").shadowRoot;
+  R6.querySelector(".fab").click(); await tick();
+  R6.querySelector("textarea").value="team tuan nay the nao";
+  R6.querySelector("form").dispatchEvent(new e6.w.Event("submit",{cancelable:true})); await tick(120);
+  ok("can so lieu: goi gemini_chat va hien ket qua", e6.log.some(x=>x.m==="gemini_chat") && /TRA CUU/.test(R6.querySelector(".ms").textContent));
+
   let all=true; Object.keys(c).forEach(k=>{console.log((c[k]?"PASS":"FAIL")+" - "+k); if(!c[k]) all=false;});
   console.log(all?"ALL_PASS":"SOME_FAIL"); process.exit(all?0:1);
 })();

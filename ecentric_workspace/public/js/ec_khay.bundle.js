@@ -246,13 +246,14 @@
     ".i{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}",
     "button{font:inherit;cursor:pointer}",
     ":focus-visible{outline:2px solid var(--navy);outline-offset:2px}",
-    ".fab{position:fixed;right:20px;bottom:calc(var(--kb,20px) + env(safe-area-inset-bottom,0px));",
-    "width:60px;height:60px;border-radius:50%;background:#fff;border:1px solid var(--g200);",
-    "box-shadow:0 8px 22px -6px rgba(30,42,90,.35);display:grid;place-items:center;z-index:1045;padding:0}",
-    ".fab svg{width:46px;height:46px}.fab[aria-expanded=true]{box-shadow:0 0 0 4px var(--navy-50),0 8px 22px -6px rgba(30,42,90,.35)}",
+    ".fab{position:fixed;right:14px;bottom:calc(var(--kb,14px) + env(safe-area-inset-bottom,0px));",
+    "width:80px;height:80px;background:transparent;border:0;display:grid;place-items:center;z-index:1045;padding:0;",
+    "transition:transform .18s ease}",
+    ".fab svg{width:80px;height:80px;filter:drop-shadow(0 6px 10px rgba(30,42,90,.28))}",
+    ".fab:hover{transform:translateY(-3px)}.fab[aria-expanded=true] svg{filter:drop-shadow(0 6px 14px rgba(44,61,166,.45))}",
     ".lid{animation:blink 5.5s infinite;transform-box:fill-box;transform-origin:center}",
     "@keyframes blink{0%,96%,100%{transform:scaleY(1)}98%{transform:scaleY(.1)}}",
-    ".pan{position:fixed;right:20px;bottom:calc(var(--kb,20px) + 72px + env(safe-area-inset-bottom,0px));",
+    ".pan{position:fixed;right:20px;bottom:calc(var(--kb,14px) + 90px + env(safe-area-inset-bottom,0px));",
     "width:372px;height:min(580px,calc(100vh - 120px));background:#fff;border:1px solid var(--g200);",
     "border-radius:18px;box-shadow:0 18px 48px -12px rgba(30,42,90,.28),0 4px 12px -4px rgba(30,42,90,.12);",
     "display:flex;flex-direction:column;overflow:hidden;z-index:1046}",
@@ -295,17 +296,21 @@
     ".btn.p{background:var(--navy);color:#fff;flex:1}.btn.p:hover{background:var(--navy-700)}",
     ".btn.s{background:#fff;color:var(--g700);border-color:var(--g300)}",
     ".btn[disabled]{opacity:.6;cursor:progress}",
-    ".typing{display:inline-flex;gap:4px;padding:12px 14px}",
+    ".typing{display:inline-flex;gap:4px;padding:5px 2px}",
     ".typing i{width:6px;height:6px;border-radius:50%;background:var(--g500);animation:dot 1.2s infinite}",
     ".typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}",
     "@keyframes dot{0%,80%,100%{opacity:.3}40%{opacity:1}}",
-    ".in{display:flex;align-items:flex-end;gap:8px;border-top:1px solid var(--g200);padding:10px 12px;background:#fff}",
+    ".in{display:flex;align-items:center;gap:8px;border-top:1px solid var(--g200);padding:10px 12px 6px;background:#fff}",
     ".in textarea{flex:1;min-width:0;resize:none;border:1px solid var(--g200);background:var(--g50);border-radius:10px;",
-    "padding:8px 11px;font:inherit;font-size:13.5px;color:var(--g900);max-height:120px;min-height:38px;line-height:1.4}",
+    "padding:9px 12px;font:inherit;font-size:13.5px;color:var(--g900);height:40px;max-height:120px;line-height:20px;",
+    "overflow-y:hidden;display:block;margin:0;box-sizing:border-box}",
+    ".in textarea::placeholder{color:var(--g500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+    ".in .ib{flex:none;height:40px;width:40px}",
     ".in textarea:focus{outline:none;border-color:var(--navy);background:#fff}",
     ".ib.send{background:var(--navy);color:#fff}.ib.send[disabled]{opacity:.5}",
-    ".fine{font-size:11.5px;color:var(--g500);text-align:center;padding:0 12px 9px;background:#fff}",
-    ".drop{position:fixed;right:16px;bottom:calc(var(--kb,20px) + 72px);width:300px;height:190px;border:2px dashed var(--navy);",
+    ".fine{font-size:11.5px;color:var(--g500);text-align:center;padding:2px 12px 10px;background:#fff;margin:0}",
+    ".slow{display:block;font-size:12px;color:var(--g500);margin-top:4px}",
+    ".drop{position:fixed;right:16px;bottom:calc(var(--kb,14px) + 90px);width:300px;height:190px;border:2px dashed var(--navy);",
     "border-radius:16px;background:rgba(238,240,251,.96);display:grid;place-items:center;text-align:center;z-index:1047;padding:16px}",
     ".drop svg{width:56px;height:56px}.drop b{display:block;color:var(--navy-700);font-size:15px;margin-top:6px}",
     ".drop span{font-size:12.5px;color:var(--g600)}.drop.on{background:var(--navy-50);box-shadow:0 0 0 6px rgba(44,61,166,.12)}",
@@ -314,24 +319,27 @@
     "@media (prefers-reduced-motion:reduce){.lid,.typing i{animation:none}}"
   ].join("");
 
+  function NAME() { return (S.boot && S.boot.name) || "eCentric AI"; }
+
   function build(host) {
     var root = host.attachShadow({ mode: "open" });
+    var nm = esc(NAME());
     root.innerHTML = "<style>" + CSS + "</style>" +
       '<div class="w">' +
-      '<button class="fab" type="button" aria-label="Mở Khay, trợ lý ERP" aria-expanded="false">' + FACE + "</button>" +
-      '<section class="pan" role="dialog" aria-label="Khay, trợ lý ERP" hidden>' +
+      '<button class="fab" type="button" aria-label="Mở ' + nm + '" aria-expanded="false">' + FACE + "</button>" +
+      '<section class="pan" role="dialog" aria-label="' + nm + '" hidden>' +
       '<header class="hd"><span class="av">' + FACE + '</span>' +
-      '<div class="t"><b>Khay</b><span>Trợ lý ERP</span></div>' +
+      '<div class="t"><b>' + nm + '</b><span>Trợ lý của bạn trên ERP</span></div>' +
       '<button class="ib wide" type="button" aria-label="Mở rộng">' + I.wide + "</button>" +
       '<button class="ib close" type="button" aria-label="Đóng">' + I.x + "</button></header>" +
       '<div class="ms" aria-live="polite"></div>' +
       '<form class="in"><button class="ib attach" type="button" aria-label="Đính kèm tệp">' + I.clip + "</button>" +
       '<input type="file" class="file" multiple hidden accept=".pdf,.png,.jpg,.jpeg,.webp">' +
-      '<label hidden for="ec-khay-q">Nhắn cho Khay</label>' +
-      '<textarea id="ec-khay-q" rows="1" placeholder="Nhắn cho Khay, hoặc thả tệp vào đây…"></textarea>' +
+      '<label hidden for="ec-khay-q">Nhắn cho ' + nm + '</label>' +
+      '<textarea id="ec-khay-q" rows="1" placeholder="Nhắn cho ' + nm + '…"></textarea>' +
       '<button class="ib send" type="submit" aria-label="Gửi">' + I.send + "</button></form>" +
-      '<div class="fine">Khay chỉ soạn sẵn, bạn bấm thì mới gửi.</div></section>' +
-      '<div class="drop" hidden><div>' + FACE + "<b>Thả vào Khay</b>" +
+      '<div class="fine">AI chỉ soạn sẵn, bạn bấm mới gửi.</div></section>' +
+      '<div class="drop" hidden><div>' + FACE + "<b>Thả tệp vào đây</b>" +
       "<span>Hoá đơn, báo giá, giấy khám · PDF hoặc ảnh, tối đa 7MB</span></div></div></div>";
     R.root = root;
     R.fab = root.querySelector(".fab");
@@ -370,7 +378,9 @@
       }).join("") + "</div>";
     }
     if (m.role === "typing") {
-      return '<div class="bw"><span class="ava">' + FACE + '</span><div class="m b typing" aria-label="Khay đang nghĩ"><i></i><i></i><i></i></div></div>';
+      return '<div class="bw"><span class="ava">' + FACE + '</span><div class="m b"><span class="typing" aria-label="' +
+        esc(NAME()) + ' đang nghĩ"><i></i><i></i><i></i></span>' +
+        (m.slow ? '<span class="slow">AI đang chậm hơn thường lệ, bạn chờ mình chút nhé…</span>' : "") + "</div></div>";
     }
     if (m.role === "leave") return leaveCard(m, idx);
     if (m.role === "pay") return payCard(m, idx);
@@ -392,7 +402,7 @@
     if (b.can_leave) opts.push("Cho mình xin nghỉ ngày mai");
     if (b.can_payment) opts.push("Tạo đề nghị thanh toán từ hoá đơn");
     opts.push("Tuần này team mình thế nào?");
-    return botHtml("Chào " + esc(b.first_name || "bạn") + "! Mình là Khay. Bạn cần xin nghỉ, " +
+    return botHtml("Chào " + esc(b.first_name || "bạn") + "! Mình là " + esc(NAME()) + ". Bạn cần xin nghỉ, " +
       "tạo phiếu hay hỏi gì cứ nhắn nhé.") +
       '<div class="chips">' + opts.map(function (o) {
         return '<button type="button" class="chip" data-say="' + esc(o) + '">' + esc(o) + "</button>";
@@ -463,7 +473,17 @@
 
   /* ---------------------------------------------------------------- hành động */
   function push(m) { S.msgs.push(m); paint(); save(); return S.msgs.length - 1; }
+  var slowTimer = null;
+  function typing() {
+    clearTimeout(slowTimer);
+    var idx = push({ role: "typing" });
+    slowTimer = setTimeout(function () {
+      var m = S.msgs[idx];
+      if (m && m.role === "typing") { m.slow = true; paint(); }
+    }, 9000);
+  }
   function dropTyping() {
+    clearTimeout(slowTimer);
     S.msgs = S.msgs.filter(function (m) { return m.role !== "typing"; });
   }
   function firstUrl() {
@@ -490,7 +510,7 @@
     if ((!text && !urls.length) || S.busy) return;
     var hist = historyOf(S.msgs);
     if (text) push({ role: "user", text: text });
-    S.busy = true; push({ role: "typing" });
+    S.busy = true; typing();
     var names = S.files.filter(function (f) { return f.url; }).map(function (f) { return f.name; });
     post(API.intent, { message: text, history: hist, page: location.pathname, files: names })
       .then(function (r) {
@@ -498,13 +518,14 @@
         r = r || {};
         if (r.action === "leave") return onLeave(r);
         if (r.action === "payment_request") return onPay(r, text, urls);
+        if (r.action === "answer" && !r.needs_data && r.reply) return push({ role: "bot", text: r.reply });
         if (r.action === "answer") return onAnswer(text, hist);
         push({ role: "bot", text: r.reply || "Bạn nói rõ hơn giúp mình nhé.",
                options: r.options || [], err: r.action === "error" });
       })
       .catch(function (e) {
         dropTyping();
-        push({ role: "bot", text: (e && e.message) || "Khay đang bận, bạn thử lại sau nhé.", err: true });
+        push({ role: "bot", text: (e && e.message) || "AI đang bận, bạn thử lại sau nhé.", err: true });
       })
       .then(function () { S.busy = false; paint(); });
   }
@@ -588,12 +609,12 @@
   }
 
   function onAnswer(text, hist) {
-    S.busy = true; push({ role: "typing" });
+    S.busy = true; typing();
     return post(API.chat, { message: text, history: JSON.stringify(hist) })
       .then(function (r) {
         dropTyping();
         if (r && r.success) push({ role: "bot", text: r.reply });
-        else push({ role: "bot", text: (r && r.error) || "Khay đang bận, bạn thử lại sau nhé.", err: true });
+        else push({ role: "bot", text: (r && r.error) || "AI đang bận, bạn thử lại sau nhé.", err: true });
       })
       .catch(function (e) { dropTyping(); push({ role: "bot", text: (e && e.message) || "Có lỗi.", err: true }); });
   }
@@ -658,7 +679,7 @@
     R.wideBtn.addEventListener("click", function () { S.wide = !S.wide; paint(); save(); });
     R.form.addEventListener("submit", function (e) {
       e.preventDefault();
-      var t = R.q.value; R.q.value = ""; R.q.style.height = "";
+      var t = R.q.value; R.q.value = ""; R.q.style.height = ""; R.q.style.overflowY = "";
       ask(t);
     });
     R.q.addEventListener("keydown", function (e) {
@@ -667,7 +688,10 @@
       }
     });
     R.q.addEventListener("input", function () {
-      R.q.style.height = "auto"; R.q.style.height = Math.min(120, R.q.scrollHeight) + "px";
+      R.q.style.height = "40px";
+      var h = Math.min(120, Math.max(40, R.q.scrollHeight + 2));
+      R.q.style.height = h + "px";
+      R.q.style.overflowY = R.q.scrollHeight > 118 ? "auto" : "hidden";
     });
     R.root.querySelector(".attach").addEventListener("click", function () { R.file.click(); });
     R.file.addEventListener("change", function () { addFiles(R.file.files); R.file.value = ""; });
