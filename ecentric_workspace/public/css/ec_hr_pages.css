@@ -1,0 +1,26 @@
+/* ec_hr_pages.css - phan CSS DUNG CHUNG cua /ec-hr/attendance, /ec-hr/leave, /ec-hr/salary
+   (truoc 28/09 la hai khoi ec-tab-mywork-v1 va ec-hr-trim-v1 chep y nguyen vao tung trang).
+   Nap bang <link> o DAU noi dung trang: stylesheet nam trong body chan ve phan noi dung sau
+   no cho toi khi tai xong, nen khong co khung nao hien roi moi an. */
+
+/* Tab "Viec cua toi" tren thanh tab duoi cung + huy hieu so viec */
+.ec-tab-mywork{position:relative}
+.ec-tab-badge{position:absolute;top:3px;left:calc(50% + 5px);
+  min-width:17px;height:17px;padding:0 4px;border-radius:999px;
+  background:#D7263D;color:#fff;font-size:10px;font-weight:700;
+  line-height:17px;font-style:normal;text-align:center;
+  box-shadow:0 0 0 2px #fff;
+  font-variant-numeric:tabular-nums;pointer-events:none}
+.ec-tab-badge[hidden]{display:none}
+/* Tren dien thoai thanh tab da giu hop viec, nut o header la cua thu hai vao cung mot cho
+   (va de len dai tuan). May tinh van giu nut do. */
+@media (max-width:900px){
+  .ec-hr-main .ec-shell-topbar [data-ec-shell-action-slot="1"]{display:none}
+}
+
+/* Hai nut dieu huong o header va the QR "Cai app" o cuoi trang deu da co cho khac: sidebar
+   co du muc, va tren dien thoai thanh tab duoi cung cung co. */
+/* Tien to .ec-hr-main: file nay nap TRUOC <style> cua trang, ma trang co ".ha-nav{display:flex}"
+   cung do uu tien - khong co tien to thi luat cua trang thang va hai nut hien lai. */
+.ec-hr-main .ha-nav, .ec-hr-main .lv-nav, .ec-hr-main .sl-nav { display:none; }
+#ec-install-card { display:none; }
