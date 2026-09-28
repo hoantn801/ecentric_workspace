@@ -180,7 +180,7 @@
   function route(){ readRoute(); render(); }
   window.addEventListener("popstate", route);
 
-  function tabAllowed(t){ var tb=state.boot&&state.boot.tabs||{}; return t==="all"||t==="create"||t==="my-requests"||(t==="my-approvals"&&tb.my_approvals); }
+  function tabAllowed(t){ var tb=state.boot&&state.boot.tabs||{}; return t==="all"||t==="create"||t==="my-requests"||(t==="my-approvals"&&tb.my_approvals)||(t==="fulfillment"&&tb.fulfillment); }
   function renderTabs(){ var box=$("hire-tabs"); if(!box)return;
     // Thanh tab lay DUNG `state.boot.tabs` lam nguon - cung nguon voi `tabAllowed`.
     // Truoc dot nay backend van tinh quyen cho 4 tab va gui xuong, con man hinh chi ve
@@ -188,6 +188,8 @@
     var tb=(state.boot&&state.boot.tabs)||{};
     var defs=[["create","Tạo yêu cầu",true],["my-requests","Yêu cầu của tôi",true]];
     if(tb.my_approvals) defs.push(["my-approvals","Chờ tôi duyệt",true]);
+    // 28/09: buoc "HR tuyen dung" sau khi CEO duyet - tab cho Role EC Recruiter.
+    if(tb.fulfillment) defs.push(["fulfillment","Tôi xử lý",true]);
     if(tb.all) defs.push(["all","Tất cả",true]);
     box.innerHTML=defs.map(function(d){ var act=(state.tab===d[0]||(state.tab==="detail"&&d[0]==="my-requests"))?" active":"";
       return '<button type="button" class="tab'+act+'"'+(d[2]?'':' disabled')+' data-tab="'+d[0]+'">'+esc(d[1])+'</button>'; }).join(""); }
@@ -205,6 +207,7 @@
     if(state.tab==="my-requests") return renderMyRequests(b);
     if(state.tab==="my-approvals") return renderMyApprovals(b);
     if(state.tab==="all") return renderAll(b);
+    if(state.tab==="fulfillment") return renderFulfillment(b);
     return renderCreate(b); }
 
   // ======================= CREATE =======================
@@ -433,6 +436,44 @@
         call("get_detail",{name:n}).then(function(det){ if(q==="approve")doApprove(n,det); else if(q==="reqinfo")doRequestInfo(n); else doReject(n); }).catch(function(e){ toast(mapErr(e),true); }); }; });
     }).catch(function(){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không tải được</h4></div></div>'; }); }
 
+  // ======================= HR TUYEN DUNG (28/09) =======================
+  // Hiring duyet xong -> hang doi cua Role EC Recruiter. Nguoi tuyen dung nhan phieu, tao
+  // Offer cho tung ung vien (form Offer Request rieng), roi "Hoàn tất tuyển dụng" khi xong.
+  var FF_LBL={"Assigned":"Chờ HR nhận","In Progress":"Đang tuyển","Completed":"Đã hoàn tất","Not Started":"—"};
+  function renderFulfillment(b){ if(!(state.boot&&state.boot.tabs&&state.boot.tabs.fulfillment)){ b.innerHTML='<div class="card"><div class="state"><h4>Không khả dụng</h4><p>Bạn không thuộc nhóm tuyển dụng (EC Recruiter).</p></div></div>'; return; }
+    b.innerHTML='<div id="ff-unclaimed"></div><div id="ff-mine"></div>'; loadQueue("unclaimed","ff-unclaimed","Chờ nhận tuyển dụng"); loadQueue("mine","ff-mine","Tôi đang tuyển"); }
+  function loadQueue(section,host,title){ var h=$(host); if(!h)return; h.innerHTML='<div class="sect-h">'+esc(title)+'</div>'+skeleton(2);
+    call("list_fulfillment_queue",{section:section}).then(function(res){ var rows=res&&res.rows||[];
+      if(!rows.length){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không có mục nào</h4></div></div>'; return; }
+      h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Mã</th><th>Tiêu đề</th><th>Vị trí</th><th>Phòng ban</th><th>Số lượng</th><th>Loại hình</th><th>Trạng thái</th><th>Người tuyển</th><th></th></tr></thead><tbody>'
+        + rows.map(function(r){ var act='<button type="button" class="btn" data-open="'+esc(r.name)+'">Chi tiết</button>'+(r.fulfillment_status==="Assigned"?' <button type="button" class="btn primary" data-claimq="'+esc(r.name)+'">Nhận tuyển dụng</button>':'');
+            return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.request_title||"—")+'</td><td>'+esc(r.position||"—")+'</td><td>'+esc(r.department||"—")+'</td><td>'+esc(r.number_of_vacancy!=null?r.number_of_vacancy:"—")+'</td><td>'+esc(r.employment_type||"—")+'</td><td>'+esc(FF_LBL[r.fulfillment_status]||r.fulfillment_status||"—")+'</td><td>'+esc(r.fulfillment_owner||"—")+'</td><td>'+act+'</td></tr>'; }).join("")
+        +'</tbody></table></div>';
+      h.querySelectorAll("[data-open]").forEach(function(el){ el.onclick=function(){ go({id:el.getAttribute("data-open")}); }; });
+      h.querySelectorAll("[data-claimq]").forEach(function(el){ el.onclick=function(){ el.disabled=true; call("claim_fulfillment",{name:el.getAttribute("data-claimq")}).then(function(){ toast("Đã nhận tuyển dụng."); renderFulfillment($("hire-body")); }).catch(function(e){ toast(mapErr(e),true); renderFulfillment($("hire-body")); }); }; });
+    }).catch(function(){ h.innerHTML='<div class="sect-h">'+esc(title)+'</div><div class="card"><div class="state"><h4>Không tải được</h4></div></div>'; }); }
+  function recruitCardHTML(det){ var biz=det.business||{}, ap=det.approval||{}, x=det.extra||{}, cap=det.capabilities||{};
+    if(ap.approval_status!=="Approved"||!biz.fulfillment_status||biz.fulfillment_status==="Not Started") return "";
+    var offers=x.offers||[], btns=[];
+    if(cap.can_claim) btns.push('<button type="button" class="btn primary" data-act="claim">Nhận tuyển dụng</button>');
+    if(x.can_create_offer&&x.offer_route) btns.push('<a class="btn primary" href="'+esc(x.offer_route)+'">+ Tạo Offer</a>');
+    if(cap.can_complete) btns.push('<button type="button" class="btn" data-act="complete">Hoàn tất tuyển dụng</button>');
+    var st={"Pending":"Đang duyệt","Information Required":"Cần bổ sung","Approved":"Đã duyệt","Rejected":"Bị từ chối","Cancelled":"Đã hủy","Draft":"Nháp"};
+    var tbl=offers.length?('<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Mã Offer</th><th>Ứng viên</th><th>Ngày onboard</th><th>Trạng thái</th><th></th></tr></thead><tbody>'
+      +offers.map(function(o){ return '<tr><td>'+esc(o.name)+'</td><td>'+esc(o.candidate_name||"—")+'</td><td>'+esc(o.onboard_date||"—")+'</td><td>'+esc(st[o.approval_status]||o.approval_status||"—")+'</td><td><a class="btn" href="/approvals/offer-request?id='+encodeURIComponent(o.name)+'">Mở</a></td></tr>'; }).join("")
+      +'</tbody></table></div>'):'<div class="hint">Chưa có Offer nào.</div>';
+    return '<div class="card"><h3>HR tuyển dụng</h3>'
+      +'<div class="summary-row"><span>Trạng thái</span><b>'+esc(FF_LBL[biz.fulfillment_status]||biz.fulfillment_status)+'</b></div>'
+      +'<div class="summary-row"><span>Người tuyển</span><b>'+esc(biz.fulfillment_owner||"—")+'</b></div>'
+      +'<div class="summary-row"><span>Đã offer</span><b>'+esc((x.offered!=null?x.offered:0)+"/"+(x.vacancy!=null?x.vacancy:"—"))+' vị trí</b></div>'
+      +(biz.fulfillment_summary?('<div class="summary-row"><span>Ghi chú kết thúc</span><b>'+esc(biz.fulfillment_summary)+'</b></div>'):'')
+      +'<div class="sect-h" style="margin-top:12px">Offer của vị trí này</div>'+tbl
+      +(btns.length?('<div class="actions" style="margin-top:12px">'+btns.join("")+'</div>'):'')
+      +'</div>'; }
+  function doClaim(name){ call("claim_fulfillment",{name:name}).then(function(){ toast("Đã nhận tuyển dụng."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); }); }
+  function doComplete(name){ modal("Hoàn tất tuyển dụng", '<div class="banner info">Đóng tuyển dụng cho vị trí này (đã tuyển đủ hoặc dừng tuyển). Sau khi đóng sẽ không tạo thêm Offer.</div><div class="fld"><label>Ghi chú kết quả <span class="req">*</span></label><textarea id="m-cmt" rows="3" placeholder="VD: Đã tuyển đủ 2/2 - Offer EC-OFFR-..."></textarea></div>', {okLabel:"Hoàn tất", onConfirm:function(ov){ var c=(ov.querySelector("#m-cmt").value||"").trim(); if(!c){ toast("Vui lòng nhập ghi chú kết quả.",true); return Promise.reject(); }
+    return call("complete_fulfillment",{name:name,payload:JSON.stringify({fulfillment_summary:c})}).then(function(){ toast("Đã hoàn tất tuyển dụng."); refreshDetail(); }).catch(function(e){ toast(mapErr(e),true); refreshDetail(); return Promise.reject(e); }); }}); }
+
   // ======================= DETAIL =======================
   function renderDetail(b){ b.innerHTML=skeleton(4);
     call("get_detail",{name:state.id}).then(function(det){ drawDetail(b,det); })
@@ -443,6 +484,7 @@
       +'<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">'+esc(biz.request_title||biz.name||state.id)+'</h3><div class="hint">'+esc(biz.name||"")+' · '+esc(biz.position||"")+' · '+esc(biz.requested_by||"")+' · '+esc(biz.department||"")+'</div></div><div>'+badge(ap.approval_status||"Draft")+'</div></div></div>'
       +'<div class="card"><h3>Tiến trình phê duyệt</h3><div class="stepper" id="d-stepper"></div></div>'
       +'<div class="card"><h3>Thông tin tuyển dụng</h3><div class="grid2">'+kv("Vị trí",biz.position)+kv("Số lượng",biz.number_of_vacancy)+kv("Lý do",biz.reason)+kv("Loại hình",biz.employment_type)+kv("Phòng ban",biz.department)+kv("Học vấn",biz.education)+kv("Line manager",biz.line_manager)+kv("Lương đề xuất (VND)",biz.suggested_salary)+'</div></div>'
+      +recruitCardHTML(det)
       +'<div class="card"><h3>Đính kèm</h3>'+renderAttachments(det.attachments)+'</div>'
       +'<div class="card"><h3>Hành động</h3>'+actionPanelHTML(det)+'</div>'
       +'<div class="card"><h3>Lịch sử</h3>'+timelineHTML(det.timeline)+'</div>';
@@ -472,6 +514,13 @@
       else if(l.level_status==="In Progress"||ap.current_level===l.level_no){ st="current"; var elig=rows.filter(function(r){return r.status==="Pending";}).map(function(r){return esc(r.approver);}); meta=(elig.length?(l.approval_mode==="Any One"?elig.join(" hoặc "):elig.join(", ")):"Đang chờ"); }
       if(l.due_at&&st==="current"&&new Date(l.due_at)<new Date()){ meta+=' · <span class="ov">Quá hạn</span>'; } else if(l.due_at&&st==="current"){ meta+=" · Hạn: "+fmt(l.due_at); }
       steps.push({name:l.level_name||("Cấp "+l.level_no),state:st,meta:meta}); });
+    var biz0=det.business||{}, fs=biz0.fulfillment_status;
+    if(ap.approval_status==="Approved"&&fs&&fs!=="Not Started"){
+      var fst=fs==="Completed"?"done":"current";
+      var fm=fs==="Completed"?("Hoàn tất"+(biz0.completed_by?(" bởi "+esc(biz0.completed_by)):"")):(biz0.fulfillment_owner?("Đang tuyển: "+esc(biz0.fulfillment_owner)):"Chờ HR nhận");
+      steps.push({name:"HR tuyển dụng",state:fst,meta:fm});
+      steps.push({name:"Hoàn tất",state:(fs==="Completed"?"done":"upcoming"),meta:""});
+      return renderStepsHTML(steps); }
     steps.push({name:"Hoàn tất",state:(ap.approval_status==="Approved"?"done":"upcoming"),meta:""});
     return renderStepsHTML(steps); }
   var _STEP_LBL={done:"Hoàn thành",current:"Đang xử lý",upcoming:"Chờ",rejected:"Từ chối",info:"Cần bổ sung",skipped:"Bỏ qua"};
@@ -501,7 +550,8 @@
     if(a==="editdraft") return startEditDraft(det); if(a==="submitdraft") return doSubmitDraft(name);
     if(a==="edit") return startEditResubmit(det); if(a==="approve") return doApprove(name,det);
     if(a==="reject") return doReject(name); if(a==="reqinfo") return doRequestInfo(name);
-    if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name); }
+    if(a==="adminapprove") return doAdminApprove(name); if(a==="cancel") return doCancel(name);
+    if(a==="claim") return doClaim(name); if(a==="complete") return doComplete(name); }
   function ensureActionHandlers(){ if(document.__hireActBound) return; document.__hireActBound=true; document.addEventListener("click", handleActionClick, true); }
 
   function modal(title, bodyHTML, opts){ opts=opts||{}; var prevFocus=document.activeElement;

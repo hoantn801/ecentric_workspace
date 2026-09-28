@@ -2,8 +2,9 @@
 """Idempotent, System-Manager-only setup for HIRING_REQUEST-V1 (Draft):
 L1 Direct Manager Review (Requester Manager; no fallback - blocked at submit if unresolved),
 L2 HR Review, L3 CEO Review (each Any One). HR/CEO identities are config seed args (emails allowed
-here only); L1 is dynamic. No fulfillment; no SLA. dry-run default; apply=1 required. Never
-overwrites an Active process."""
+here only); L1 is dynamic. Fulfillment (28/09/2026): process Fulfiller = Role EC Recruiter
+(buoc "HR tuyen dung", tao Offer tu phieu). No SLA. dry-run default; apply=1 required. Never
+overwrites an Active process (process dang chay duoc them Fulfiller bang patch p218)."""
 import json
 
 import frappe
@@ -18,6 +19,8 @@ APPROVAL_TYPE = "HIRING_REQUEST"
 # Truyen danh sach email vao setup thi van ep duoc nguoi cu the.
 DEFAULT_HR = [role_ref(CNB_ROLE)]
 DEFAULT_CEO = ["lam.nguyen@ecentric.vn"]
+#: Nguoi nhan buoc "HR tuyen dung" sau khi CEO duyet (28/09/2026).
+RECRUITER_ROLE = "EC Recruiter"
 
 
 def _require_sm():
@@ -87,7 +90,8 @@ def _upsert(hrs, ceos):
     proc.approval_type = APPROVAL_TYPE
     proc.version_no = proc.version_no or 1
     proc.status = "Draft"
-    proc.set("participants", [])
+    proc.set("participants", [{"participant_purpose": "Fulfiller", "source_type": "Role",
+                               "role": RECRUITER_ROLE, "sort_order": 0}])
     proc.save(ignore_permissions=True)
 
     def _upsert_level(no, name, kind, ulist):
@@ -144,6 +148,9 @@ def validate_hiring_request_v1():
             else:
                 for ok, msg in check_approver_parts(parts, l.level_no):
                     c(ok, msg)
+        pdoc = frappe.get_doc("EC Approval Process", proc.name)
+        c(any(p.get("participant_purpose") == "Fulfiller" and p.get("role") == RECRUITER_ROLE
+              for p in (pdoc.get("participants") or [])), "Fulfiller = Role %s" % RECRUITER_ROLE)
         c(not frappe.get_all("EC Approval Process",
                              filters={"approval_type": APPROVAL_TYPE, "status": "Active",
                                       "process_code": ["!=", PROCESS_CODE]}), "no OTHER Active process")

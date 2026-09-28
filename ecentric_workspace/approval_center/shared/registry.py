@@ -31,6 +31,8 @@ from ecentric_workspace.approval_center.features.outside_work.domain.definition 
 from ecentric_workspace.approval_center.features.brand_weight.domain.definition import BRAND_WEIGHT_DEFINITION
 from ecentric_workspace.approval_center.features.service_referral.domain.definition import SERVICE_REFERRAL_DEFINITION
 from ecentric_workspace.approval_center.features.booking_request.domain.definition import BOOKING_REQUEST_DEFINITION
+from ecentric_workspace.approval_center.features.offer_request.domain.definition import OFFER_REQUEST_DEFINITION
+from ecentric_workspace.approval_center.features.new_staff_preparation.domain.definition import NEW_STAFF_PREPARATION_DEFINITION
 
 
 _DEFINITIONS = (
@@ -63,6 +65,8 @@ _DEFINITIONS = (
     PROMOTION_DEFINITION,
     SPECIAL_BONUS_DEFINITION,
     BOOKING_REQUEST_DEFINITION,
+    OFFER_REQUEST_DEFINITION,          # 28/09: Offer tu Hiring da duyet
+    NEW_STAFF_PREPARATION_DEFINITION,  # 28/09: tu tao khi Offer duyet xong
 )
 
 

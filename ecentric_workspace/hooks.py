@@ -542,3 +542,32 @@ elif _ROLE_POOL_HOOK not in _rp_prev:
 # --------------------------------------------------------------------------- #
 scheduler_events["cron"].setdefault("10 12 * * 1", []).append(
     "ecentric_workspace.platform.ai.company_summary.weekly_job")
+
+# --------------------------------------------------------------------------- #
+# 28/09/2026 (A65 / NHIEU_LOP giai doan 1.1) - Menu chung do SERVER dung luc render.
+# Truoc day menu du phong "nuong" vao HTML tung trang luc sync nen lech moi khi registry
+# doi (do 28/09: 7 kieu lech tren 59 trang). Hook nay dung lai DUNG vung .ec-shell-mount
+# tu registry hien hanh; khong sua file trang, khong can sync. Menu khong theo nguoi nen
+# cache trang giu nguyen. Kill switch: site_config `ec_shell_server_nav_disabled: 1`.
+# Xem shell/server_nav.py.
+# --------------------------------------------------------------------------- #
+update_website_context = ["ecentric_workspace.shell.server_nav.fill_shell_mount"]
+
+# --------------------------------------------------------------------------- #
+# 28/09/2026 (A65 / NHIEU_LOP giai doan 1.2 + 1.3) - ec_api.js: MOT client goi app method
+# cho moi trang web. GET giong nhau dang bay dung chung mot request (+ nho ngan khi nguoi
+# goi xin); POST xin CSRF tuoi, gap CSRFTokenError thi xin lai va thu DUNG mot lan.
+# KHONG boc window.fetch. Chi dinh nghia window.ecApi, khong tu chay gi.
+# --------------------------------------------------------------------------- #
+web_include_js.append("ec_api.bundle.js")
+
+# --------------------------------------------------------------------------- #
+# 28/09/2026 - Thiep "Chao mung thanh vien moi" len Teams luc 10:00 ngay onboard (Hoan chot
+# gio). Doc New Staff Preparation co onboard_date = hom nay; gui qua Workflow webhook
+# (site_config ec_onboard_welcome_webhook_url - webhook tao trong group chat NHOM CHUNG cua cong
+# ty, KHONG phai kenh thong bao approval); moi phieu mot lan. Chay lai 10:15/10:30/10:45
+# chi de gui bu phieu lan truoc loi (job idempotent). Popup trang chu (tu 08:30) khong can job;
+# no cho khe widget trang chu (A65 muc 6). Tat: site_config ec_onboard_welcome_disabled.
+# --------------------------------------------------------------------------- #
+scheduler_events["cron"].setdefault("*/15 10 * * *", []).append(
+    "ecentric_workspace.approval_center.features.new_staff_preparation.application.welcome.send_welcome_teams")

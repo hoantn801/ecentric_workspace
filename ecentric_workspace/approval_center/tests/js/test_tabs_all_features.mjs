@@ -62,7 +62,10 @@ for (const f of forms) {
   else dat++;
 
   for (const t of TAB) {
-    const bat = src.includes(`"${t.key}","${t.nhan}"`);
+    // Nhan nut co the khac theo form (28/09: New Staff Preparation goi "Chờ tôi xử lý" vi
+    // viec la xac nhan da chuan bi, khong phai duyet) - phep do la CO NUT cho key do.
+    const bat = src.includes(`"${t.key}","${t.nhan}"`) ||
+      new RegExp(`\\["${t.key}","[^"]+",true\\]`).test(src);
     const coHam = src.includes(`function ${t.ham}(`);
     const dieuHuong = src.includes(`state.tab==="${t.key}"`);
     // 2. bat tab ma khong co ham ve

@@ -66,7 +66,7 @@
    "fieldname": "approval_mode",
    "fieldtype": "Select",
    "label": "Approval Mode",
-   "options": "Any One\nAll Required\nMinimum Count",
+   "options": "Any One\nAll Required\nMinimum Count\nEach Group",
    "default": "Any One",
    "reqd": 1,
    "in_list_view": 1
@@ -77,7 +77,7 @@
    "label": "Minimum Approvals",
    "default": "0",
    "depends_on": "eval:doc.approval_mode=='Minimum Count'",
-   "description": "Required only when approval_mode = Minimum Count."
+   "description": "Required only when approval_mode = Minimum Count. Each Group: moi dong Approver la MOT nhom (group_label); cap xong khi MOI nhom co mot nguoi xac nhan - cac nhom lam song song."
   },
   {
    "fieldname": "sb_part",
