@@ -145,6 +145,13 @@ def explain_wtu_scope(user=None):
 
     Tra ve cau WHERE that su duoc chen vao truy van, chu khong phai ban dien
     giai cua no -- dien giai co the dung trong khi cau lenh sai.
+
+    `hooks_loaded` tra loi mot cau KHAC han: Frappe co THAT SU nap luat nay
+    khong. Moi thu con lai o day goi thang vao ham, nen chung xanh ngay ca khi
+    duong module trong hooks.py go sai mot chu -- ham van tinh dung, ma Frappe
+    thi khong tim thay hook nen khong chan gi. Truoc 29/09 muon biet dieu do
+    phai muon token cua mot nhan vien bi chan; hoi thang Frappe thi khong can
+    tai khoan cua ai, va lan nao kiem cung co san.
     """
     frappe.only_for("System Manager")
     user = user or frappe.session.user
@@ -156,7 +163,50 @@ def explain_wtu_scope(user=None):
         "departments": scope["departments"],
         "subordinates": scope["subordinates"],
         "where_clause": permissions.wtu_query_conditions(user) or "(khong han che)",
+        "hooks_loaded": _hooks_loaded(),
     }
+
+
+#: Duong module PHAI khop hooks.py. De o day de test bat duoc khi hai ben lech.
+WTU_QUERY_HOOK = "ecentric_workspace.weekly_report.permissions.wtu_query_conditions"
+WTU_PERM_HOOK = "ecentric_workspace.weekly_report.permissions.wtu_has_permission"
+WTU_JINJA_HOOK = "ecentric_workspace.weekly_report.permissions.can_view_weekly_record"
+
+
+def _hooks_loaded():
+    """Frappe dang nap nhung gi cho `Weekly Team Update`. -> dict.
+
+    Doc tu `frappe.get_hooks`, tuc tu cai Frappe THAT SU dung, khong phai tu
+    doc lai file hooks.py. Hai thu do co the khac nhau: file dung ma cache hook
+    chua dung lai sau deploy thi van khong chan.
+
+    Nuot moi loi: day la ham chan doan, no khong duoc phep lam hong chinh cai
+    endpoint dung de chan doan.
+    """
+    out = {"query_condition": None, "has_permission": None, "jinja_method": False,
+           "ok": False}
+    try:
+        qc = frappe.get_hooks("permission_query_conditions") or {}
+        hp = frappe.get_hooks("has_permission") or {}
+        jn = (frappe.get_hooks("jinja") or {}).get("methods") or []
+        # Frappe gom hook cua moi app thanh LIST cho mot khoa, ke ca khi chi co
+        # mot app khai. Lay phan tu cuoi -- do la ban co hieu luc.
+        def one(v):
+            if isinstance(v, (list, tuple)):
+                return v[-1] if v else None
+            return v
+        out["query_condition"] = one(qc.get(permissions.DOCTYPE))
+        out["has_permission"] = one(hp.get(permissions.DOCTYPE))
+        out["jinja_method"] = WTU_JINJA_HOOK in list(jn)
+        out["ok"] = (out["query_condition"] == WTU_QUERY_HOOK
+                     and out["has_permission"] == WTU_PERM_HOOK
+                     and out["jinja_method"])
+        if not out["ok"]:
+            out["hint"] = ("Frappe khong nap du 3 hook. Kiem hooks.py va chay lai"
+                           " bench migrate / restart de cache hook duoc dung lai.")
+    except Exception as exc:
+        out["error"] = str(exc)[:200]
+    return out
 
 
 @frappe.whitelist(methods=["POST"])
