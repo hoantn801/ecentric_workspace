@@ -70,6 +70,8 @@ class _Base(unittest.TestCase):
             return None
         frappe.db.get_value = get_value
 
+        self.tree = []             # [{name, reports_to, department}]
+
         def get_all(doctype, filters=None, **k):
             filters = filters or {}
             if doctype == "EC Viewer Permission":
@@ -78,6 +80,8 @@ class _Base(unittest.TestCase):
             if doctype == "Employee Department Membership":
                 got = self.memberships.get(filters.get("parent"), [])
                 return [{"name": "m1"}] if filters.get("department") in got else []
+            if doctype == "Employee":
+                return list(self.tree)
             return []
         frappe.get_all = get_all
         self.docs = {}
@@ -224,6 +228,115 @@ class SingleRecordTest(_Base):
         self.assertFalse(P.wtu_has_permission(doc, "read", "nv@x.vn"))
 
 
+class ManagerChainTest(_Base):
+    """Chuoi quan ly -- them 28/09 sau khi deploy lam lo ra khe ho.
+
+    `/team-pulse` cho quan ly xem cap duoi theo `reports_to` tu 20/07, con luat
+    port tu `ec_wtu_list_scope` thi khong biet den chuoi do. Bat luat len la 4
+    quan ly nhin thay tom tat cua 10 cap duoi nhung bam vao thi bi tu choi.
+    Do do o day lay hop cua hai ban.
+    """
+
+    def setUp(self):
+        _Base.setUp(self)
+        self.employees["sep@x.vn"] = {"name": "EMP-SEP", "department": "Service - EC"}
+        self.tree = [
+            {"name": "EMP-SEP", "reports_to": None, "department": "Service - EC"},
+            {"name": "EMP-A", "reports_to": "EMP-SEP", "department": "Service - EC"},
+            {"name": "EMP-B", "reports_to": "EMP-SEP", "department": "Media - EC"},
+            {"name": "EMP-C", "reports_to": "EMP-A", "department": "Service - EC"},
+            {"name": "EMP-NGOAI", "reports_to": None, "department": "HR - EC"},
+        ]
+
+    def test_direct_and_indirect_subordinates_are_visible(self):
+        sc = P.compute_scope("sep@x.vn")
+        self.assertEqual(sorted(sc["subordinates"]), ["EMP-A", "EMP-B", "EMP-C"],
+                         "phai lay ca cap duoi cua cap duoi")
+
+    def test_crosses_department_boundaries(self):
+        """EMP-B o phong khac nhung van duoi quyen -- /team-pulse van cho xem."""
+        self.assertIn("EMP-B", P.compute_scope("sep@x.vn")["subordinates"])
+
+    def test_people_outside_the_chain_stay_invisible(self):
+        self.assertNotIn("EMP-NGOAI", P.compute_scope("sep@x.vn")["subordinates"])
+
+    def test_self_is_not_listed_as_own_subordinate(self):
+        self.assertNotIn("EMP-SEP", P.compute_scope("sep@x.vn")["subordinates"])
+
+    def test_chain_never_passes_through_management(self):
+        """Neu `reports_to` tro vao Management thi nhom do van phai kin --
+        khong duoc lay ca nguoi nam DUOI nguoi Management do."""
+        self.tree = [
+            {"name": "EMP-SEP", "reports_to": None, "department": "Service - EC"},
+            {"name": "EMP-MGMT", "reports_to": "EMP-SEP", "department": MGMT},
+            {"name": "EMP-DUOI-MGMT", "reports_to": "EMP-MGMT",
+             "department": "Service - EC"},
+        ]
+        subs = P.compute_scope("sep@x.vn")["subordinates"]
+        self.assertNotIn("EMP-MGMT", subs)
+        self.assertNotIn("EMP-DUOI-MGMT", subs,
+                         "khong duoc di XUYEN qua nut Management")
+
+    def test_a_loop_in_reports_to_does_not_hang(self):
+        """`reports_to` la du lieu nguoi nhap. Mot vong tro nguoc khong duoc
+        lam treo request.
+
+        Cai chan vong o day la phep khu trung `c not in out`, KHONG phai bien
+        dem -- test nay xanh ngay ca khi bo bien dem. Bien dem duoc ghim rieng
+        o `test_depth_is_capped` ben duoi; hai luoi khac nhau, thu rieng.
+        """
+        self.tree = [
+            {"name": "EMP-SEP", "reports_to": "EMP-X", "department": "Service - EC"},
+            {"name": "EMP-X", "reports_to": "EMP-SEP", "department": "Service - EC"},
+        ]
+        subs = P.compute_scope("sep@x.vn")["subordinates"]
+        self.assertEqual(subs, ["EMP-X"])
+
+    def test_depth_is_capped(self):
+        """Chuoi dai hon gioi han thi bi cat, khong duyet vo han.
+
+        Con so 15 khong tu tien: `team_pulse_data` dung dung so do. Hai ben le
+        nhau thi lai sinh ra dung cai khe ho ma ban va nay sinh ra de vá.
+        """
+        self.assertEqual(P.CHAIN_MAX_DEPTH, 15)
+        chain = [{"name": "EMP-SEP", "reports_to": None, "department": "Service - EC"}]
+        for i in range(20):
+            chain.append({"name": "EMP-%02d" % i,
+                          "reports_to": "EMP-SEP" if i == 0 else "EMP-%02d" % (i - 1),
+                          "department": "Service - EC"})
+        self.tree = chain
+        subs = P.compute_scope("sep@x.vn")["subordinates"]
+        self.assertEqual(len(subs), P.CHAIN_MAX_DEPTH,
+                         "phai dung o dung %d tang" % P.CHAIN_MAX_DEPTH)
+
+    def test_where_clause_carries_the_chain(self):
+        cond = P.wtu_query_conditions("sep@x.vn")
+        self.assertIn("'EMP-A'", cond)
+        self.assertIn("'EMP-C'", cond)
+
+    def test_can_read_a_subordinate_record(self):
+        self.docs = {"WTU-CAP-DUOI": {"submitter": "a@x.vn", "employee": "EMP-C",
+                                      "department": "Service - EC"}}
+        self.assertTrue(P.can_read("WTU-CAP-DUOI", "sep@x.vn"))
+
+    def test_still_cannot_read_management_even_as_a_manager(self):
+        self.docs = {"WTU-CEO": {"submitter": "ceo@x.vn", "employee": "EMP-1",
+                                 "department": MGMT}}
+        self.assertFalse(P.can_read("WTU-CEO", "sep@x.vn"))
+
+    def test_someone_with_no_reports_gets_an_empty_chain(self):
+        self.employees["le@x.vn"] = {"name": "EMP-C", "department": "Service - EC"}
+        self.assertEqual(P.compute_scope("le@x.vn")["subordinates"], [])
+
+    def test_employee_lookup_failure_does_not_open_the_chain(self):
+        def boom(*a, **k):
+            raise RuntimeError("DB sap")
+        orig = frappe.get_all
+        frappe.get_all = lambda dt, **k: (boom() if dt == "Employee" else orig(dt, **k))
+        self._clear_cache()
+        self.assertEqual(P.compute_scope("sep@x.vn")["subordinates"], [])
+
+
 class JinjaGateTest(_Base):
     """Cua ma trang /weekly-update goi. Cua nay chua lo hong `?view=`."""
 
@@ -285,7 +398,8 @@ class ListAndRecordAgreeTest(_Base):
         for name, d in docs.items():
             if (d["submitter"] == user
                     or (scope["employee"] and d["employee"] == scope["employee"])
-                    or d["department"] in scope["departments"]):
+                    or d["department"] in scope["departments"]
+                    or d["employee"] in scope["subordinates"]):
                 out.add(name)
         return out
 
@@ -295,6 +409,14 @@ class ListAndRecordAgreeTest(_Base):
         self.employees["lead@x.vn"] = {"name": "EMP-4", "department": "Service - EC"}
         self.viewer["lead@x.vn"] = [("dept", "Service - EC"), ("dept", MGMT)]
         self.roles["sm@x.vn"] = ["System Manager"]
+        # Mot quan ly co cap duoi o phong KHAC: nhanh chuoi quan ly phai duoc
+        # hai duong doi xu giong nhau, khong chi nhanh phong ban.
+        self.employees["sep@x.vn"] = {"name": "EMP-SEP", "department": "Service - EC"}
+        self.tree = [
+            {"name": "EMP-SEP", "reports_to": None, "department": "Service - EC"},
+            {"name": "EMP-7", "reports_to": "EMP-SEP", "department": "HR - EC"},
+            {"name": "EMP-1", "reports_to": "EMP-SEP", "department": MGMT},
+        ]
 
         docs = {
             "A": {"submitter": "ceo@x.vn", "employee": "EMP-1", "department": MGMT},
@@ -306,7 +428,7 @@ class ListAndRecordAgreeTest(_Base):
         }
         self.docs = docs
 
-        for user in ("nv@x.vn", "ceo@x.vn", "lead@x.vn", "sm@x.vn", "la@x.vn"):
+        for user in ("nv@x.vn", "ceo@x.vn", "lead@x.vn", "sm@x.vn", "sep@x.vn", "la@x.vn"):
             self._clear_cache()
             by_list = self._rows_visible_by_condition(user, docs)
             self._clear_cache()
