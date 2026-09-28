@@ -41,3 +41,25 @@ def _all_fields(meta):
         if df.fieldtype in table_fields and df.options:
             fields += frappe.get_meta(df.options).fields or []
     return fields
+
+
+def child_doctypes(doctype):
+    """Cac DocType bang con cua `doctype`."""
+    meta = frappe.get_meta(doctype)
+    return {df.options for df in meta.fields if df.fieldtype in table_fields and df.options}
+
+
+def restricted_fields(doctype):
+    """Nguoc cua readable_fields, dung cho filter_guard:
+    ({doctype hoac DocType con: set field nguoi xem KHONG doc duoc}, {field bang: DocType con}).
+    Bang ma chinh field bang khong doc duoc -> moi cot cua bang con deu tinh la khong doc duoc."""
+    meta = frappe.get_meta(doctype)
+    readable, children = readable_fields(doctype)
+    restricted = {doctype: {df.fieldname for df in meta.fields} - readable}
+    table_to_child = {}
+    for df in meta.fields:
+        if df.fieldtype in table_fields and df.options:
+            table_to_child[df.fieldname] = df.options
+            cols = {c.fieldname for c in frappe.get_meta(df.options).fields}
+            restricted.setdefault(df.options, set()).update(cols - children.get(df.fieldname, set()))
+    return restricted, table_to_child
