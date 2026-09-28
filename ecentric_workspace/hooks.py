@@ -542,3 +542,14 @@ elif _ROLE_POOL_HOOK not in _rp_prev:
 # --------------------------------------------------------------------------- #
 scheduler_events["cron"].setdefault("10 12 * * 1", []).append(
     "ecentric_workspace.platform.ai.company_summary.weekly_job")
+
+# --------------------------------------------------------------------------- #
+# 28/09/2026 (A65 / NHIEU_LOP giai doan 1.1) - Menu chung do SERVER dung luc render.
+# Truoc day menu du phong "nuong" vao HTML tung trang luc sync nen lech moi khi registry
+# doi (do 28/09: 7 kieu lech tren 59 trang). Hook nay dung lai DUNG vung .ec-shell-mount
+# tu registry hien hanh; khong sua file trang, khong can sync. Menu khong theo nguoi nen
+# cache trang giu nguyen. Kill switch: site_config `ec_shell_server_nav_disabled: 1`.
+# Xem shell/server_nav.py.
+# --------------------------------------------------------------------------- #
+update_website_context = ["ecentric_workspace.shell.server_nav.fill_shell_mount"]
+

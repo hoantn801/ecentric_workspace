@@ -61,6 +61,7 @@ HOOK_KEYS_WITH_DOTTED_PATHS = (
     "website_route_rules",
     "boot_session",
     "notification_config",
+    "update_website_context",
 )
 
 #: Key trong hooks.py trỏ tới asset. Giá trị có hai dạng: tên bundle

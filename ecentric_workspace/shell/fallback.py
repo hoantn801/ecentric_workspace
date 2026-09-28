@@ -66,6 +66,13 @@ def _esc(s):
             .replace(">", "&gt;").replace('"', "&quot;"))
 
 
+def esc_live(s):
+    """Byte-identical to ec_shell.js esc() (it also escapes the apostrophe).
+    Used ONLY by the live server render (shell/server_nav.py), so the static
+    fallback that `regenerate` bakes into repo pages is unchanged."""
+    return _esc(s).replace("'", "&#39;")
+
+
 def _norm(p):
     p = (p or "/").split("?")[0].split("#")[0]
     if len(p) > 1 and p.endswith("/"):
@@ -99,15 +106,27 @@ def match_active(items, pathname):
     return best_key
 
 
-def _item_html(it, active_key, extra_cls=""):
+def _item_html(it, active_key, extra_cls="", live=False):
     act = " ec-shell-active" if it["key"] == active_key else ""
     cur = ' aria-current="page"' if act else ""
+    if live:
+        # Live server render (shell/server_nav.py): the SAME markup ec_shell.js
+        # itemHtml() emits (data-ec-shell-key + the hidden badge slot), so the
+        # client can keep this DOM as-is instead of repainting the menu.
+        badge = ('<span class="ec-shell-badge" data-ec-shell-badge="%s" hidden></span>'
+                 % esc_live(it["badge_source"])) if it.get("badge_source") else ""
+        return ('<a class="ec-shell-item%s%s" href="%s" data-ec-shell-key="%s"%s>%s<span>%s</span>%s</a>'
+                % (extra_cls + (" ec-shell-item-soon" if it.get("soon") else ""), act,
+                   esc_live(it["route"]), esc_live(it["key"]), cur, _svg(it["icon"]),
+                   esc_live(it["label"]), badge))
     return ('<a class="ec-shell-item%s%s" href="%s"%s>%s<span>%s</span></a>'
             % (extra_cls + (" ec-shell-item-soon" if it.get("soon") else ""), act, _esc(it["route"]), cur, _svg(it["icon"]), _esc(it["label"])))
 
 
-def render_nav(items, active_key):
-    """The static nav list -- IDENTICAL structure to ec_shell.js navHtml()."""
+def render_nav(items, active_key, live=False):
+    """The static nav list -- IDENTICAL structure to ec_shell.js navHtml().
+    live=True: byte-identical to navHtml() (see _item_html)."""
+    esc = esc_live if live else _esc
     groups, order = {}, []
     for it in items:
         g = it.get("group", "")
@@ -119,7 +138,7 @@ def render_nav(items, active_key):
     for g in order:
         lone_parent = len(groups[g]) == 1 and groups[g][0].get("children")
         if g and not lone_parent:
-            h.append('<div class="ec-shell-grouplabel">%s</div>' % _esc(g))
+            h.append('<div class="ec-shell-grouplabel">%s</div>' % esc(g))
         for it in groups[g]:
             kids = it.get("children") or []
             if kids:
@@ -130,22 +149,31 @@ def render_nav(items, active_key):
                          'data-ec-shell-subtoggle="%s" aria-expanded="%s">%s<span>%s</span>'
                          '<svg class="ec-shell-chev" viewBox="0 0 24 24" aria-hidden="true">'
                          '<path d="m6 9 6 6 6-6"/></svg></button>'
-                         % (_esc(it["key"]), exp, _svg(it["icon"]), _esc(it["label"])))
+                         % (esc(it["key"]), exp, _svg(it["icon"]), esc(it["label"])))
                 h.append('<div class="ec-shell-children"%s data-ec-shell-children="%s">%s</div>'
-                         % (hid, _esc(it["key"]),
-                            "".join(_item_html(c, active_key, " ec-shell-child") for c in kids)))
+                         % (hid, esc(it["key"]),
+                            "".join(_item_html(c, active_key, " ec-shell-child", live=live)
+                                    for c in kids)))
             else:
-                h.append(_item_html(it, active_key))
+                h.append(_item_html(it, active_key, live=live))
+    if live:
+        return '<nav class="ec-shell-nav" aria-label="Điều hướng chính">%s</nav>' % "".join(h)
     # ec-shell-fallback kept on the container for backward-compatible tests
     return ('<nav class="ec-shell-nav ec-shell-fallback" aria-label="Điều hướng chính">%s</nav>'
             % "".join(h))
 
 
-def render_mount_inner(route):
+def render_mount_inner(route, live=False):
     """Full static sidebar for a page at `route` (head + search + nav + foot).
     Same geometry as the hydrated shell; ec_shell.js replaces it in place."""
     items = shell_nav.compose(shell_nav.resolve_context(route))
-    active = match_active(items, route)
+    return mount_inner_html(items, match_active(items, route), live=live)
+
+
+def mount_inner_html(items, active, live=False):
+    """head + search + nav + generic foot for an already-composed item list.
+    The foot stays GENERIC even when live: the rendered page is cached and
+    shared by every user, so the user card is personalised client-side."""
     head = ('<div class="ec-shell-head">'
             '<a class="ec-shell-brand" href="/">'
             '<img class="ec-shell-logoimg" src="%s" alt="eCentric">'
@@ -165,7 +193,7 @@ def render_mount_inner(route):
             '<span class="ec-shell-avatar">•</span>'
             '<span class="ec-shell-username">Tài khoản</span></a>'
             '</div>')
-    return head + search + render_nav(items, active) + foot
+    return head + search + render_nav(items, active, live=live) + foot
 
 
 def render_tbright_inner():

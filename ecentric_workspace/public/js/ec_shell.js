@@ -18,7 +18,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'ec-shell v1.20.0 ("Việc của tôi" is a real page at /viec-cua-toi: on a phone the header inbox navigates there instead of opening the overlay drawer; the drawer stays on desktop and links to the page. Badge mirrors into every [data-ec-shell-reminder-badge] node so a page can render its own -- e.g. the mobile tab bar.) (v1.19.1 honest totals: one card per business document, bounded scan raised to 2000 with a "2000+" label when it overflows)';
+  var VERSION = 'ec-shell v1.21.0 (server-rendered menu: the page arrives with the sidebar already built from the live registry + data-ec-context/data-ec-nav-sig; the client keeps that DOM when the signature matches and only personalises the user card -- no menu repaint, no wrong-context flash) (v1.20.0 "Việc của tôi" is a real page at /viec-cua-toi: on a phone the header inbox navigates there instead of opening the overlay drawer; the drawer stays on desktop and links to the page. Badge mirrors into every [data-ec-shell-reminder-badge] node so a page can render its own -- e.g. the mobile tab bar.) (v1.19.1 honest totals: one card per business document, bounded scan raised to 2000 with a "2000+" label when it overflows)';
   // Boot cache (sessionStorage, stale-while-revalidate). NEVER authorization:
   // the cache only skips the paint delay; the backend stays the source of
   // truth and refreshes every page view. Keyed/invalidated by VERSION, TTL,
@@ -157,6 +157,29 @@
     });
     if (homeHit) return 'home';
     return boot.default_context || 'approval_document';
+  }
+  // Signature of the item list a sidebar shows: context | active key | keys in
+  // render order (children included). shell/server_nav.py nav_signature() uses the
+  // SAME formula for the menu it bakes into the page at render time; equal
+  // signatures mean the server DOM already shows exactly this user's menu.
+  // Keys only (no labels/routes): a stale per-tab boot cache must never repaint a
+  // fresher server-rendered menu back to an older one.
+  function navSig(ctx, items, activeKey) {
+    var keys = [];
+    (items || []).forEach(function (it) {
+      keys.push(it.key);
+      (it.children || []).forEach(function (ch) { keys.push(ch.key); });
+    });
+    return (ctx || '') + '|' + (activeKey || '') + '|' + keys.join(',');
+  }
+  // Context the SERVER resolved for this page (data-ec-context on the mount,
+  // shell/nav.py resolve_context -- which also counts sidebar_hidden items). The
+  // client-side resolveContext() only sees sidebar items, so a hidden-item page
+  // like /viec-cua-toi fell through to the default context and repainted the
+  // wrong menu. Trust the server's answer whenever the boot knows that context.
+  function declaredContext(boot, mount) {
+    var d = mount && mount.getAttribute ? mount.getAttribute('data-ec-context') : '';
+    return (d && boot && boot.contexts && boot.contexts[d]) ? d : null;
   }
   function knownNavRoutes() {
     if (!S.boot) return [];
@@ -466,10 +489,6 @@
   // toasts/sound/desktop -- its init() runs without a bell node and its
   // MutationObserver simply never finds one to badge.
   function shellHtml(boot, activeKey, opts) {
-    var u = boot.user || {};
-    var av = u.image
-      ? '<span class="ec-shell-avatar"><img src="' + esc(u.image) + '" alt=""></span>'
-      : '<span class="ec-shell-avatar">' + esc(initials(u.full_name || u.name)) + '</span>';
     return (
       '<div class="ec-shell-head">' +
         '<a class="ec-shell-brand" href="/">' +
@@ -491,14 +510,31 @@
       '</div>' +
       '<div class="ec-shell-search-results" role="listbox" hidden></div>' +
       navHtml((S.ctxNav || boot.nav), activeKey) +
-      '<div class="ec-shell-foot">' +
+      footHtml(boot)
+    );
+  }
+
+  function footHtml(boot) {
+    var u = (boot && boot.user) || {};
+    var av = u.image
+      ? '<span class="ec-shell-avatar"><img src="' + esc(u.image) + '" alt=""></span>'
+      : '<span class="ec-shell-avatar">' + esc(initials(u.full_name || u.name)) + '</span>';
+    return '<div class="ec-shell-foot">' +
         '<a class="ec-shell-usercard" href="/app/user" title="' + esc(u.name) + '">' + av +
           '<span class="ec-shell-username">' + esc(u.full_name || u.name) + '</span></a>' +
         // Same logout contract as pm_app.html -- do NOT invent a second flow.
         '<button type="button" class="ec-shell-iconbtn" data-ec-shell-logout="1" ' +
           'aria-label="Đăng xuất" title="Đăng xuất">' + svg('logout') + '</button>' +
-      '</div>'
-    );
+      '</div>';
+  }
+
+  // Server already painted exactly this menu: personalise ONLY the user card.
+  // Replacing the small foot node never moves the nav above it.
+  function patchFoot(boot) {
+    var foot = S.mount.querySelector('.ec-shell-foot');
+    var html = footHtml(boot);
+    if (!foot) { S.mount.insertAdjacentHTML('beforeend', html); return; }
+    if (foot.outerHTML !== html) foot.outerHTML = html;
   }
 
   // ---------------------------------------------------------------- state --
@@ -1287,7 +1323,7 @@
 
   function render() {
     if (!S.mount || !S.boot) return;
-    S.context = resolveContext(S.boot, window.location.pathname);
+    S.context = declaredContext(S.boot, S.mount) || resolveContext(S.boot, window.location.pathname);
     S.ctxNav = S.context ? ctxItems(S.boot, S.context) : S.boot.nav;
     S.activeKey = matchActive(S.ctxNav, window.location.pathname);
     if (hasHashItems(S.ctxNav)) {
@@ -1295,7 +1331,20 @@
       if (hk) S.activeKey = hk;                // hash view wins the highlight
     }
     var bellInHeader = renderHeaderRight();          // exactly ONE bell per page
-    S.mount.innerHTML = shellHtml(S.boot, S.activeKey, { bell: !bellInHeader });
+    // data-ec-nav-sig always describes the menu CURRENTLY in the DOM (server-set
+    // on first paint, re-stamped after every client repaint), so an equal
+    // signature means "already showing this menu" -- keep it, no repaint.
+    var want = navSig(S.context, S.ctxNav, S.activeKey);
+    var have = S.mount.getAttribute ? S.mount.getAttribute('data-ec-nav-sig') : null;
+    if (have && have === want && S.mount.querySelector && S.mount.querySelector('.ec-shell-nav')) {
+      patchFoot(S.boot);
+    } else {
+      S.mount.innerHTML = shellHtml(S.boot, S.activeKey, { bell: !bellInHeader });
+      if (S.mount.setAttribute) {
+        S.mount.setAttribute('data-ec-nav-sig', want);
+        if (S.context) S.mount.setAttribute('data-ec-context', S.context);
+      }
+    }
     bindLogoFallback();
     try { bindBadges(); } catch (e) { warn(e); }   // badges are cosmetic; never block
     try { bindReminder(); hydrateReminderBadge(); } catch (e) { warn(e); }
@@ -1374,6 +1423,9 @@
       catalogCacheValid: catalogCacheValid,
       prerenderUrls: prerenderUrls,
       resolveContext: resolveContext,
+      declaredContext: declaredContext,
+      navSig: navSig,
+      navHtml: navHtml,
       ctxItems: ctxItems,
       allItems: allItems,
       hashActiveKey: hashActiveKey,
