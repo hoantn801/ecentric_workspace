@@ -315,7 +315,10 @@ def detail(definition, name):
             order_by="level_no asc")
         approvers = frappe.get_all(
             "EC Approval Request Approver", filters={"approval_request": request.name},
-            fields=["level_no", "approver", "source", "status", "decided_at", "comment"],
+            # participant_group: chi co o cap "Each Group" (28/09) - man hinh ve checklist
+            # tung nhom (Lead HR / HOF / CnB / Operation) thay vi mot danh sach nguoi duyet.
+            fields=["level_no", "approver", "source", "status", "decided_at", "comment",
+                    "participant_group"],
             order_by="level_no asc")
         timeline = frappe.get_all(
             "EC Approval Action", filters={"approval_request": request.name},

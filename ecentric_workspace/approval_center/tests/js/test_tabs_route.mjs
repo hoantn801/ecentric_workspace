@@ -123,10 +123,14 @@ for (const f of forms) {
     hong.push(`${f}: co quyen my-approvals nhung van khong vao duoc (state.tab="${r3.tab}")`);
   else dat++;
 
-  // 4. Tab bia dat tren URL phai roi ve "create", khong duoc de state.tab thanh rac.
+  // 4. Tab bia dat tren URL phai roi ve tab MAC DINH, khong duoc de state.tab thanh rac.
+  //    Mac dinh la "create" - tru form KHONG co tab tao (28/09: New Staff Preparation tu tao
+  //    tu Offer) thi ve "my-approvals" (co quyen) hoac "my-requests".
+  const coTao = src.includes('["create","');
   const r4 = bam("khong-ton-tai", { my_approvals: true });
-  if (r4.tab !== "create")
-    hong.push(`${f}: tab bia dat cho ra state.tab = "${r4.tab}", phai la "create"`);
+  const macDinh = coTao ? ["create"] : ["my-approvals", "my-requests"];
+  if (!macDinh.includes(r4.tab))
+    hong.push(`${f}: tab bia dat cho ra state.tab = "${r4.tab}", phai la ${macDinh.join("/")}`);
   else dat++;
 }
 

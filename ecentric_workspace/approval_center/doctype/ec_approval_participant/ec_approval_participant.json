@@ -21,6 +21,7 @@
   "department_field",
   "reference_field",
   "fallback_user",
+  "group_label",
   "sort_order"
  ],
  "fields": [
@@ -86,6 +87,12 @@
    "label": "Fallback User",
    "options": "User",
    "description": "Optional. Config-seeded fallback approver used ONLY when this row's primary source resolves to nobody (e.g. no Employee.reports_to). Must be an active System User. Never a second always-on approver."
+  },
+  {
+   "fieldname": "group_label",
+   "fieldtype": "Data",
+   "label": "Group Label",
+   "description": "Chi dung khi cap chay che do Each Group: ten nhom hien tren phieu (vd Lead HR, HOF, CnB, Operation). De trong thi lay Nhom 1, Nhom 2..."
   },
   {
    "fieldname": "sort_order",

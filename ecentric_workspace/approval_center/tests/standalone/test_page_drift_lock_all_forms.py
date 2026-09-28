@@ -111,7 +111,9 @@ class TestKhoaChongTroiMoiForm(unittest.TestCase):
     # Trang MOI, chua tung co ban live: khong co "bytes cu" nao de chap nhan, lan sync dau
     # tao trang va khoa drift chua ap dung. Moi muc o day het han o lan sua HTML ke tiep:
     # luc do day BASELINE hien tai xuong SUPERSEDES va GO ten khoi tap nay.
-    TRANG_MOI_CHUA_CO_LIVE = {"brand_weight"}  # 25/09/2026, p211_create_brand_weight_page
+    TRANG_MOI_CHUA_CO_LIVE = {"brand_weight",           # 25/09/2026, p211_create_brand_weight_page
+                              "offer_request",          # 28/09/2026, p220_create_offer_nsp_pages
+                              "new_staff_preparation"}  # 28/09/2026, p220_create_offer_nsp_pages
 
     def test_sha_cu_van_nam_trong_supersedes(self):
         """Luc deploy, live con giu bytes CU -> phai con trong danh sach chap nhan."""

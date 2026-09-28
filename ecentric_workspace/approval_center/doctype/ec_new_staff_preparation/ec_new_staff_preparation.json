@@ -1,0 +1,247 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "EC-NSP-.YYYY.-.#####.",
+ "creation": "2026-09-28 20:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "approval_type",
+  "approval_request",
+  "request_title",
+  "requested_by",
+  "employee",
+  "department",
+  "company",
+  "cb0",
+  "submitted_at",
+  "completed_at",
+  "material_signature",
+  "sb_src",
+  "offer_request",
+  "hiring_request",
+  "sb_staff",
+  "candidate_name",
+  "position",
+  "line_manager",
+  "company_laptop",
+  "cb_s",
+  "onboard_date",
+  "probation_end_date",
+  "mobile_phone",
+  "note",
+  "sb_welcome",
+  "welcome_intro",
+  "cb_w",
+  "welcome_teams_sent_at",
+  "welcome_teams_result"
+ ],
+ "fields": [
+  {
+   "default": "NEW_STAFF_PREPARATION",
+   "fieldname": "approval_type",
+   "fieldtype": "Link",
+   "label": "Approval Type",
+   "options": "EC Approval Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approval_request",
+   "fieldtype": "Link",
+   "label": "Approval Request",
+   "options": "EC Approval Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Request Title",
+   "length": 255
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Requested By",
+   "options": "User"
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Department",
+   "options": "Department"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "Submitted At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Completed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "material_signature",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Material Signature",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_src",
+   "fieldtype": "Section Break",
+   "label": "Nguồn"
+  },
+  {
+   "fieldname": "offer_request",
+   "fieldtype": "Link",
+   "label": "Offer Request",
+   "options": "EC Offer Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hiring_request",
+   "fieldtype": "Link",
+   "label": "Hiring Request",
+   "options": "EC Hiring Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_staff",
+   "fieldtype": "Section Break",
+   "label": "Nhân viên mới"
+  },
+  {
+   "fieldname": "candidate_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Employee Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "position",
+   "fieldtype": "Data",
+   "label": "Position",
+   "read_only": 1
+  },
+  {
+   "fieldname": "line_manager",
+   "fieldtype": "Data",
+   "label": "Line Manager",
+   "options": "Email",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "company_laptop",
+   "fieldtype": "Check",
+   "label": "Company Laptop",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_s",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "onboard_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Onboard Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "probation_end_date",
+   "fieldtype": "Date",
+   "label": "Internship/Probation End Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "mobile_phone",
+   "fieldtype": "Data",
+   "label": "Mobile Phone",
+   "read_only": 1
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Note",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_welcome",
+   "fieldtype": "Section Break",
+   "label": "Chào mừng ngày onboard"
+  },
+  {
+   "description": "HR điền trước ngày onboard. Hiện trong thiệp Teams (10:00) và popup trang chủ (từ 08:30) ngày onboard.",
+   "fieldname": "welcome_intro",
+   "fieldtype": "Text",
+   "label": "Đôi lời giới thiệu"
+  },
+  {
+   "fieldname": "cb_w",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "welcome_teams_sent_at",
+   "fieldtype": "Datetime",
+   "label": "Welcome Teams Sent At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "welcome_teams_result",
+   "fieldtype": "Small Text",
+   "label": "Welcome Teams Result",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-28 20:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Approval Center",
+ "name": "EC New Staff Preparation",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "request_title",
+ "track_changes": 1
+}

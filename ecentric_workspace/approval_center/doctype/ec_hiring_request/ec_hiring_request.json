@@ -10,7 +10,10 @@
   "approval_type", "approval_request", "request_title", "requested_by", "employee",
   "department", "company", "cb0", "submitted_at", "completed_at", "material_signature",
   "sb_form", "position", "number_of_vacancy", "reason", "employment_type", "cb1",
-  "education", "line_manager", "suggested_salary", "request_attachment"
+  "education", "line_manager", "suggested_salary", "request_attachment",
+  "sb_fulfill", "fulfillment_status", "assigned_fulfiller", "fulfillment_owner",
+  "fulfillment_due_at", "fulfillment_sla_calendar", "fulfillment_sla_holiday_list", "cb2",
+  "fulfillment_summary", "completed_by"
  ],
  "fields": [
   {"fieldname": "approval_type", "fieldtype": "Link", "label": "Approval Type", "options": "EC Approval Type", "read_only": 1},
@@ -33,11 +36,21 @@
   {"fieldname": "education", "fieldtype": "Data", "label": "Education", "reqd": 1, "description": "E.g: From Bachelor Degree"},
   {"fieldname": "line_manager", "fieldtype": "Data", "label": "Line manager", "reqd": 1, "options": "Email", "description": "Email of the future line manager (business info; must be an active system user)."},
   {"fieldname": "suggested_salary", "fieldtype": "Currency", "label": "Suggested salary", "options": "VND", "reqd": 1},
-  {"fieldname": "request_attachment", "fieldtype": "Attach", "label": "Attachment"}
+  {"fieldname": "request_attachment", "fieldtype": "Attach", "label": "Attachment"},
+  {"fieldname": "sb_fulfill", "fieldtype": "Section Break", "label": "HR tuyển dụng"},
+  {"fieldname": "fulfillment_status", "fieldtype": "Select", "label": "Fulfillment Status", "options": "Not Started\nAssigned\nIn Progress\nCompleted", "default": "Not Started", "read_only": 1, "in_standard_filter": 1},
+  {"fieldname": "assigned_fulfiller", "fieldtype": "Link", "label": "Assigned Fulfiller", "options": "User", "read_only": 1},
+  {"fieldname": "fulfillment_owner", "fieldtype": "Link", "label": "Fulfillment Owner", "options": "User", "read_only": 1},
+  {"fieldname": "fulfillment_due_at", "fieldtype": "Datetime", "label": "Fulfillment Due At", "read_only": 1},
+  {"fieldname": "fulfillment_sla_calendar", "fieldtype": "Data", "label": "Fulfillment SLA Calendar", "read_only": 1},
+  {"fieldname": "fulfillment_sla_holiday_list", "fieldtype": "Data", "label": "Fulfillment SLA Holiday List", "read_only": 1},
+  {"fieldname": "cb2", "fieldtype": "Column Break"},
+  {"fieldname": "fulfillment_summary", "fieldtype": "Text", "label": "Ghi chú kết thúc tuyển dụng", "read_only": 1},
+  {"fieldname": "completed_by", "fieldtype": "Link", "label": "Completed By", "options": "User", "read_only": 1}
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-28 12:00:00.000000",
+ "modified": "2026-09-28 20:00:00.000000",
  "module": "Approval Center",
  "name": "EC Hiring Request",
  "naming_rule": "Expression",

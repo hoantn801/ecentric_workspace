@@ -196,5 +196,19 @@
   "category": "HR",
   "legacy_template_name": "",
   "sort_order": 90
+ },
+ {
+  "approval_code": "OFFER_REQUEST",
+  "approval_title": "Offer Request",
+  "category": "ADMINISTRATION",
+  "legacy_template_name": "Offer Request (Power Automate - Offer Management)",
+  "sort_order": 31
+ },
+ {
+  "approval_code": "NEW_STAFF_PREPARATION",
+  "approval_title": "New Staff Preparation",
+  "category": "ADMINISTRATION",
+  "legacy_template_name": "New Staff Preparation (Power Automate)",
+  "sort_order": 32
  }
 ]

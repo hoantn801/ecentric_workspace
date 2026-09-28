@@ -20,6 +20,7 @@
   "level_no",
   "approver",
   "source",
+  "participant_group",
   "cb1",
   "status",
   "decided_at",
@@ -62,6 +63,13 @@
    "fieldtype": "Data",
    "label": "Source",
    "description": "How resolved (Requester Manager / Configured User / Role expansion)."
+  },
+  {
+   "fieldname": "participant_group",
+   "fieldtype": "Data",
+   "label": "Participant Group",
+   "read_only": 1,
+   "description": "Chi co khi cap chay che do Each Group: nguoi nay dai dien nhom nao. Mot nguoi trong nhom xac nhan la ca nhom xong."
   },
   {
    "fieldname": "cb1",

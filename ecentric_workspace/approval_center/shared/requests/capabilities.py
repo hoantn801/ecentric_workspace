@@ -152,6 +152,16 @@ def _requires_signature(can_act, business_doc, approval_request):
         return False
 
 
+def _each_group_level(approval_request):
+    try:
+        return frappe.db.get_value(
+            "EC Approval Request Level",
+            {"approval_request": approval_request.name,
+             "level_no": approval_request.current_level}, "approval_mode") == "Each Group"
+    except Exception:
+        return False
+
+
 def derive(user, business_doc, approval_request):
     """Return advisory UI capabilities; write paths still revalidate authority."""
     requester = business_doc.requested_by == user
@@ -194,7 +204,9 @@ def derive(user, business_doc, approval_request):
         and approval_request.approval_status == "Information Required",
         "can_cancel": bool(requester_cancel or (admin and open_request)),
         "can_approve": can_act,
-        "can_reject": can_act,
+        # Cap "moi nhom mot nguoi" (xac nhan da chuan bi) khong co Tu choi - engine chan, nen
+        # nut cung phai an: mot nut bam vao chi de nhan loi la mot nut noi doi.
+        "can_reject": can_act and not _each_group_level(approval_request),
         "can_request_information": can_act,
         "can_admin_approve_current_level": admin_approve,
         "can_claim": _can_claim(user, business_doc, approval_request),

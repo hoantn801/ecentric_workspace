@@ -186,11 +186,22 @@ class _FrappeStub(object):
         return _Doc(self.store, doctype_or_dict, name)
 
     # --- frappe.db.* ------------------------------------------------------ #
+    def get_roles(self, user=None):
+        # 25/09 (role_pool): `_actor_pending_row` hoi role cua nguoi bam de chan dong
+        # "Role: X" khi ho da mat role. Kich ban o day chi co dong "Configured User" nen
+        # role rong la du - dong kieu khac khong hoi role.
+        return []
+
     def get_value(self, doctype, name, fieldname=None, as_dict=False,
                   for_update=False, order_by=None):
         if for_update and doctype == AR and self.on_request_lock:
             cb, self.on_request_lock = self.on_request_lock, None   # chong de quy
             cb()
+        if isinstance(name, dict):
+            # 28/09 (Each Group): engine hoi approval_mode cua cap bang bo loc
+            # {approval_request, level_no} - tra hang dau tien khop, nhu frappe.db.get_value.
+            hit = [r for r in self.store.get(doctype, {}).values() if self._match(r, name)]
+            name = hit[0]["name"] if hit else None
         row = self.store.get(doctype, {}).get(name)
         if row is None:
             return None
