@@ -62,6 +62,14 @@ class TestKhongNhieuLop(unittest.TestCase):
         self.assertIn('id="ha-ci-btn" style="display:none"', att)
         self.assertIn('id="ec-att-teambar-slot"', att)
 
+    def test_cham_cong_giu_cho_theo_du_lieu(self):
+        # Do live 28/09 luc CHUA check-in: nut Cham cong hien -> the hero cao them 52px, day dong
+        # thoi gian xuong; JS an 2 dong r2/r3 -> mat chu "Ra ca". Ca hai trang thai phai cung khung.
+        att = self.pages["ec-hr/attendance"]
+        self.assertIn("#ha-ci-card .ha-hero-main{min-height:", att)
+        self.assertNotRegex(att, r"ha-tl-r[23]'\)\.style\.display")
+        self.assertNotIn("tlLn.style.display", att)
+
     def test_today_state_chi_goi_mot_lan(self):
         for route, h in self.pages.items():
             self.assertNotIn("ec_hr_today_state", h, route)
