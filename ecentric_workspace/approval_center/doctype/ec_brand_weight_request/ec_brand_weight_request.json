@@ -44,6 +44,7 @@
   {
    "fieldname": "request_title",
    "fieldtype": "Data",
+   "length": 255,
    "label": "Tieu de"
   },
   {
@@ -140,7 +141,7 @@
  "index_web_pages_for_search": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-09-25 06:30:00.000000",
+ "modified": "2026-09-28 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Approval Center",
  "name": "EC Brand Weight Request",

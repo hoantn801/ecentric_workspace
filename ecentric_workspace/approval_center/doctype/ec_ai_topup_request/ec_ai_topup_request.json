@@ -88,7 +88,7 @@
    "fieldname": "request_title",
    "fieldtype": "Data",
    "label": "Request Title",
-   "length": 140,
+   "length": 255,
    "in_standard_filter": 1,
    "description": "User-facing title. Auto-suggested from request type + tool + account; editable. Required at submit."
   },

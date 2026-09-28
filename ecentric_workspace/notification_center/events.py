@@ -222,6 +222,11 @@ def _delivery(event_id, recipient, channel, status, **kw):
     # overflow the field (which would drop the whole delivery row + spam length warnings).
     if kw.get("dedupe_key"):
         kw["dedupe_key"] = str(kw["dedupe_key"])[:140]
+    # `title` cung la Data(140). Tieu de phieu nay dai toi 255 (28/09) va thong bao con
+    # them tien to "Cần duyệt: " - vuot 140 la insert hong, except ben duoi nuot mat, va
+    # Teams KHONG gui gi ca. Cat o day; ban day du van nam o Notification Log.
+    if kw.get("title") and len(str(kw["title"])) > 140:
+        kw["title"] = str(kw["title"])[:139] + "\u2026"
     try:
         doc = frappe.get_doc(dict({
             "doctype": DELIVERY_DT, "idempotency_key": idem, "event_id": event_id,
