@@ -43,7 +43,9 @@
    * phải chứng từ của phiếu. Chứng từ vẫn đính kèm ở bước "Tiếp tục: Thêm chứng từ" như cũ.
    * Nói thẳng điều đó trên giao diện, đừng để người dùng tự đoán. */
   var UPLOAD_URL = "/api/method/upload_file";
-  var MAX_BYTES = 10 * 1024 * 1024;
+  /* 28/09: Kie nhan tep INLINE, tran ca request ~10MB -> server chan o 7MB. Chan tu day
+   * de nguoi dung biet ngay, khoi cho mot vong tai len roi moi bi tu choi. */
+  var MAX_BYTES = 7 * 1024 * 1024;
 
   /* Ô nào làm trang vẽ lại cả form → phải ghi TRƯỚC, nếu không lần vẽ lại xoá sạch những ô
    * điền sau nó. Danh sách này là dự phòng; cơ chế thật là truy vấn lại DOM trước mỗi lần ghi
@@ -95,7 +97,7 @@
   function refuseReason(file, danhSach, maxFiles, exts) {
     if (!file) return "tệp rỗng";
     if (!file.size) return "tệp rỗng";
-    if (file.size > MAX_BYTES) return "tệp quá lớn (tối đa 10MB)";
+    if (file.size > MAX_BYTES) return "tệp quá lớn (tối đa 7MB)";
     var ext = (file.name || "").split(".").pop().toLowerCase();
     if ((file.name || "").indexOf(".") < 0) return "không rõ loại tệp";
     if (exts && exts.length && exts.indexOf(ext) < 0) {

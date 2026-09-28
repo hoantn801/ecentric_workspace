@@ -1,5 +1,5 @@
 # Copyright (c) 2026, eCentric and contributors
-"""Cham diem + tom tat bao cao tuan, qua Kie (chinh) / Google (du phong).
+"""Cham diem + tom tat bao cao tuan, qua cong AI chung (platform/ai, chot 28/09).
 
 Port cua hai Server Script `gemini_score_report` va `gemini_summarize_report`
 (ban goc 25/09 o erp-inspection/snapshots/weekly_ai_20260925_115127). Chung goi
@@ -198,25 +198,6 @@ def slide_filenames(doc):
     return out
 
 
-def _google_uris(doc):
-    """URI Google con han, de score_via_llm co duong du phong.
-
-    Kie khong dung duoc URI nay, nhung neu Kie hong thi generate_json roi ve
-    Google va can chung -- khong co thi lan du phong di tay khong.
-    """
-    now_str = frappe.utils.now()
-    out = []
-    try:
-        for fu in json.loads(doc.gemini_file_uris or "[]"):
-            exp = (fu or {}).get("expires_at", "")
-            if exp and exp > now_str and fu.get("uri"):
-                out.append({"uri": fu["uri"],
-                            "mime_type": fu.get("mime_type") or "application/pdf"})
-    except Exception:
-        return []
-    return out
-
-
 def _dept_clean(department):
     dept = department or ""
     return dept.rsplit(" - ", 1)[0] if " - " in dept else dept
@@ -284,7 +265,7 @@ def _assert_deck_reached_model(res, record_name):
             "files_sent": 0}
 
 
-def score_report(record_name):
+def score_report(record_name, budget=None, attempt_timeout=None):
     """Cham diem mot bao cao. -> dict {"success", ...}."""
     doc = frappe.get_doc(WTU, record_name)
     errors = []
@@ -301,9 +282,10 @@ def score_report(record_name):
     res = scoring_llm.score_via_llm(
         prompt=prompt,
         response_schema=schema,
-        file_uris=_google_uris(doc),
         slide_deck=doc.slide_deck or "",
         dept_clean=_dept_clean(doc.department),
+        budget=budget,
+        attempt_timeout=attempt_timeout,
     )
     if not res.get("ok"):
         return {"success": False, "record": record_name,
@@ -361,7 +343,7 @@ def build_summary_prompt(doc):
     )
 
 
-def summarize_report(record_name):
+def summarize_report(record_name, budget=None, attempt_timeout=None):
     """Tom tat mot bao cao. -> dict.
 
     Ban goc tra ve van ban thuan; o day di qua generate_json nen phai boc trong
@@ -372,9 +354,10 @@ def summarize_report(record_name):
     res = scoring_llm.score_via_llm(
         prompt=build_summary_prompt(doc),
         response_schema=SUMMARY_SCHEMA,
-        file_uris=_google_uris(doc),
         slide_deck=doc.slide_deck or "",
         dept_clean=_dept_clean(doc.department),
+        budget=budget,
+        attempt_timeout=attempt_timeout,
     )
     if not res.get("ok"):
         return {"success": False, "record": record_name,

@@ -118,6 +118,7 @@ def suggest(approval_code, note=None, current=None, files=None):
         response_schema=svc.response_schema(schema),
         system_instruction=svc.SYSTEM_INSTRUCTION,
         files=parts,
+        purpose="formfill",
     )
     if not res["ok"]:
         if res.get("error") == "no_key":
