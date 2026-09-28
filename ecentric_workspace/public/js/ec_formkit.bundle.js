@@ -21,6 +21,12 @@
   function onApprovalPage() {
     return /^\/approvals(\/|$)/.test(window.location.pathname || "");
   }
+  // Trang ngoai /approvals muon dung CHUNG combobox cua ERP thi tu khai bang mot phan tu
+  // co `data-ec-formkit` (vd /ec-hr/phan-bo-cong-viec, 28/09). Opt-in chu khong mo rong bo
+  // loc duong dan: cac trang /ec-hr khac va SO/PO van giu nguyen nhu cu.
+  function optedIn() {
+    return !!document.querySelector("[data-ec-formkit]");
+  }
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -166,7 +172,7 @@
 
   /* ------------------------------------------------------------------- quét */
   function scan() {
-    if (!onApprovalPage()) return;
+    if (!onApprovalPage() && !optedIn()) return;
     document.querySelectorAll("select").forEach(enhanceSelect);
     document.querySelectorAll('input[type="file"]').forEach(enhanceFile);
   }

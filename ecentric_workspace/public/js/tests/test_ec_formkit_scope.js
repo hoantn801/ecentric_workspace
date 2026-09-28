@@ -21,12 +21,18 @@ const w2=mk("https://x/approval", selHtml);
 const w3=mk("https://x/approvals/daily-target", selHtml);
 // 4) trang đã có dropzone riêng -> không chồng
 const w4=mk("https://x/approvals/x", '<div id="ec-x-root"><div class="ec-dz">có sẵn</div><input type="file"></div>');
+// 5) trang ngoai /approvals TU KHAI data-ec-formkit -> CO combobox; select tu tu choi thi khong
+const w5=mk("https://x/ec-hr/phan-bo-cong-viec", '<div id="ec-bw-root" data-ec-formkit="1">'+selHtml+'<select id="p" data-ec-no-formkit="1"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>');
+// 6) trang /ec-hr khac KHONG khai -> khong dung
+const w6=mk("https://x/ec-hr/leave", selHtml);
 setTimeout(()=>{
   c["PO: khong tao combobox"]= !w1.document.querySelector(".ec-cb");
   c["PO: khong tao dropzone"]= !w1.document.querySelector(".ec-dz");
   c["All Tickets: khong dung"]= !w2.document.querySelector(".ec-cb") && !w2.document.querySelector(".ec-dz");
   c["approvals: co nang cap"]= !!w3.document.querySelector(".ec-cb") && !!w3.document.querySelector(".ec-dz");
   c["khong chong len dropzone san co"]= w4.document.querySelectorAll(".ec-dz").length===1;
+  c["ec-hr tu khai: co combobox"]= w5.document.querySelectorAll(".ec-cb").length===1 && !w5.document.getElementById("p").closest(".ec-cb");
+  c["ec-hr khong khai: khong dung"]= !w6.document.querySelector(".ec-cb") && !w6.document.querySelector(".ec-dz");
   let ok=true;Object.keys(c).forEach(k=>{console.log((c[k]?"PASS":"FAIL")+" - "+k); if(!c[k])ok=false;});
   console.log(ok?"ALL_PASS":"SOME_FAIL");
  // MA THOAT, khong chi dong chu. Thieu dong nay thi bai test in "SOME_FAIL" ma van
