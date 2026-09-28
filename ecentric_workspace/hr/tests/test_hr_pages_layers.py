@@ -69,6 +69,9 @@ class TestKhongNhieuLop(unittest.TestCase):
         self.assertIn("#ha-ci-card .ha-hero-main{min-height:", att)
         self.assertNotRegex(att, r"ha-tl-r[23]'\)\.style\.display")
         self.assertNotIn("tlLn.style.display", att)
+        # "—" cho (skeleton) va chu that phai cao bang nhau, neu khong dong "Ra ca" lech 13px
+        self.assertIn("#ha-tl .ha-tl-t{line-height:20px}", att)
+        self.assertIn("#ha-tl .ha-tl-s:empty{min-height:17px}", att)
 
     def test_today_state_chi_goi_mot_lan(self):
         for route, h in self.pages.items():
